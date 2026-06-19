@@ -7,7 +7,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// <summary>
 /// Property-based tests for epigenetics algorithms.
 ///
-/// Test Units: EPIGEN-CPG-001 (CpG site detection, observed/expected ratio, CpG islands).
+/// Test Units: EPIGEN-CPG-001 (CpG site detection, observed/expected ratio, CpG islands), EPIGEN-AGE-001, EPIGEN-BISULF-001, EPIGEN-CHROM-001, EPIGEN-DMR-001, EPIGEN-METHYL-001.
 /// Future siblings (EPIGEN-AGE/BISULF/CHROM/DMR/METHYL-001) extend this fixture in their own regions.
 ///
 /// Theory: CpG dinucleotide scanning (Gardiner-Garden &amp; Frommer 1987; Wikipedia "CpG site");
@@ -463,6 +463,480 @@ public class EpigeneticsProperties
             Assert.That(EpigeneticsAnalyzer.FindCpGIslands(shortRich).ToList(), Is.Empty, "len 199 < 200");
             Assert.That(EpigeneticsAnalyzer.FindCpGIslands(null!).ToList(), Is.Empty, "null");
             Assert.That(EpigeneticsAnalyzer.FindCpGIslands("").ToList(), Is.Empty, "empty");
+        });
+    }
+
+    #endregion
+
+    #region EPIGEN-AGE-001: M: more methylation at (positively-weighted) clock sites → higher age; D: deterministic
+
+    // CalculateEpigeneticAge = Horvath (2013) linear predictor (intercept + Σ coef·β) mapped through
+    // the monotone anti-transform F⁻¹. NOTE: the anti-transform infimum is −1 (as x→−∞), so the
+    // theoretical lower bound is age > −1, not the checklist's ≥ 0 — we test the true bound.
+
+    /// <summary>Clock with positive coefficients and two profiles where methHigh ≥ methLow everywhere.</summary>
+    private static Arbitrary<(Dictionary<string, double> coeffs, Dictionary<string, double> low, Dictionary<string, double> high)>
+        ClockArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            int n = 1 + rng.Next(5);
+            var coeffs = new Dictionary<string, double>();
+            var low = new Dictionary<string, double>();
+            var high = new Dictionary<string, double>();
+            for (int i = 0; i < n; i++)
+            {
+                string cg = $"cg{i}";
+                coeffs[cg] = 0.1 + rng.NextDouble();           // strictly positive weight
+                double a = rng.NextDouble();                    // β in [0,1]
+                low[cg] = a;
+                high[cg] = a + (1.0 - a) * rng.NextDouble();    // ≥ a, ≤ 1
+            }
+            return (coeffs, low, high);
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (M): with positive clock coefficients, raising methylation at the clock CpGs does not
+    /// lower the predicted age.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property EpigeneticAge_MoreMethylation_RaisesAge()
+    {
+        return Prop.ForAll(ClockArbitrary(), c =>
+        {
+            double ageLow = EpigeneticsAnalyzer.CalculateEpigeneticAge(c.low, c.coeffs);
+            double ageHigh = EpigeneticsAnalyzer.CalculateEpigeneticAge(c.high, c.coeffs);
+            return (ageHigh >= ageLow - 1e-9).Label($"age dropped with more methylation: {ageHigh} < {ageLow}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (R, true bound): the predicted age is always greater than −1 (the anti-transform infimum).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property EpigeneticAge_IsAboveAntiTransformInfimum()
+    {
+        return Prop.ForAll(ClockArbitrary(), c =>
+        {
+            double age = EpigeneticsAnalyzer.CalculateEpigeneticAge(c.low, c.coeffs);
+            return (age > -1.0).Label($"age {age} ≤ −1");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (monotone calibration): the Horvath anti-transform is non-decreasing and equals 20 at 0.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AntiTransform_IsMonotone()
+    {
+        var pairs = Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            double x1 = (rng.NextDouble() - 0.5) * 20;
+            double x2 = x1 + rng.NextDouble() * 10;
+            return (x1, x2);
+        }).ToArbitrary();
+
+        return Prop.ForAll(pairs, p =>
+            (EpigeneticsAnalyzer.HorvathAntiTransform(p.x1) <= EpigeneticsAnalyzer.HorvathAntiTransform(p.x2) + 1e-9)
+                .Label("anti-transform must be non-decreasing"));
+    }
+
+    /// <summary>
+    /// INV-4 (D + boundary): age is deterministic; an empty coefficient table is rejected.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void EpigeneticAge_DeterministicAndBoundary()
+    {
+        var beta = new Dictionary<string, double> { ["cg0"] = 0.5 };
+        var coeffs = new Dictionary<string, double> { ["cg0"] = 1.0 };
+        double age1 = EpigeneticsAnalyzer.CalculateEpigeneticAge(beta, coeffs);
+        double age2 = EpigeneticsAnalyzer.CalculateEpigeneticAge(beta, coeffs);
+        Assert.Multiple(() =>
+        {
+            Assert.That(age2, Is.EqualTo(age1), "deterministic");
+            Assert.That(EpigeneticsAnalyzer.HorvathAntiTransform(0.0), Is.EqualTo(20.0).Within(1e-9));
+            Assert.Throws<ArgumentException>(
+                () => EpigeneticsAnalyzer.CalculateEpigeneticAge(beta, new Dictionary<string, double>()));
+        });
+    }
+
+    #endregion
+
+    #region EPIGEN-BISULF-001: P: unmethylated C→T, methylated C preserved; P: length preserved; D: deterministic
+
+    // SimulateBisulfiteConversion (Frommer et al. 1992): unmethylated cytosine → thymine; methylated
+    // (protected) cytosine and all non-cytosine bases are unchanged; the strand length is preserved.
+
+    /// <summary>A DNA sequence and a random subset of indices marked as protected (methylated).</summary>
+    private static Arbitrary<(string seq, HashSet<int> methylated)> BisulfiteInputArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            const string bases = "ACGT";
+            int len = 10 + rng.Next(20);
+            var c = new char[len];
+            for (int i = 0; i < len; i++) c[i] = bases[rng.Next(4)];
+            var methylated = new HashSet<int>();
+            for (int i = 0; i < len; i++) if (rng.Next(2) == 0) methylated.Add(i);
+            return (new string(c), methylated);
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (P): each position follows the conversion rule — unmethylated C→T, methylated C kept,
+    /// non-cytosine unchanged — and the converted strand has the same length.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Bisulfite_AppliesConversionRule()
+    {
+        return Prop.ForAll(BisulfiteInputArbitrary(), input =>
+        {
+            var (seq, methylated) = input;
+            string conv = EpigeneticsAnalyzer.SimulateBisulfiteConversion(seq, methylated);
+            if (conv.Length != seq.Length) return false.Label("length changed");
+            for (int i = 0; i < seq.Length; i++)
+            {
+                char s = seq[i], r = conv[i];
+                bool isC = s is 'C' or 'c';
+                char expected = isC ? (methylated.Contains(i) ? s : (s == 'C' ? 'T' : 't')) : s;
+                if (r != expected) return false.Label($"pos {i}: '{s}'→'{r}', expected '{expected}'");
+            }
+            return true.Label("conversion rule holds");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P): with no protected positions, every cytosine is converted (none remain) and all
+    /// other bases are unchanged.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Bisulfite_NoMethylation_ConvertsAllCytosines()
+    {
+        return Prop.ForAll(BisulfiteInputArbitrary(), input =>
+        {
+            var (seq, _) = input;
+            string conv = EpigeneticsAnalyzer.SimulateBisulfiteConversion(seq);
+            return (!conv.Contains('C') && !conv.Contains('c'))
+                .Label("an unmethylated cytosine survived conversion");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (involution-like): re-converting the output with the same protected set is a no-op (the
+    /// only remaining cytosines are protected).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Bisulfite_Reconversion_IsStable()
+    {
+        return Prop.ForAll(BisulfiteInputArbitrary(), input =>
+        {
+            var (seq, methylated) = input;
+            string once = EpigeneticsAnalyzer.SimulateBisulfiteConversion(seq, methylated);
+            string twice = EpigeneticsAnalyzer.SimulateBisulfiteConversion(once, methylated);
+            return (once == twice).Label("re-conversion changed the strand");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (D + boundary): conversion is deterministic; empty input yields empty output.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Bisulfite_DeterministicAndBoundary()
+    {
+        var methylated = new HashSet<int> { 2 };
+        string a = EpigeneticsAnalyzer.SimulateBisulfiteConversion("ACCGT", methylated);
+        string b = EpigeneticsAnalyzer.SimulateBisulfiteConversion("ACCGT", methylated);
+        Assert.Multiple(() =>
+        {
+            Assert.That(b, Is.EqualTo(a), "deterministic");
+            Assert.That(a, Is.EqualTo("ATCGT"), "pos1 C→T, pos2 C protected, others unchanged");
+            Assert.That(EpigeneticsAnalyzer.SimulateBisulfiteConversion(""), Is.EqualTo(""));
+        });
+    }
+
+    #endregion
+
+    #region EPIGEN-CHROM-001: P: each region assigned a state; R: positions preserved; D: deterministic
+
+    // AnnotateHistoneModifications labels each region by its single histone mark's canonical Roadmap
+    // chromatin state, or LowSignal when the mark's signal is below the presence threshold.
+
+    private const double ChromThreshold = 1.0;
+
+    private static EpigeneticsAnalyzer.ChromatinState ExpectedState(string mark, double signal) =>
+        signal < ChromThreshold ? EpigeneticsAnalyzer.ChromatinState.LowSignal : mark.ToUpperInvariant() switch
+        {
+            "H3K4ME3" => EpigeneticsAnalyzer.ChromatinState.ActivePromoter,
+            "H3K4ME1" => EpigeneticsAnalyzer.ChromatinState.WeakEnhancer,
+            "H3K27AC" => EpigeneticsAnalyzer.ChromatinState.ActiveEnhancer,
+            "H3K36ME3" => EpigeneticsAnalyzer.ChromatinState.Transcribed,
+            "H3K27ME3" => EpigeneticsAnalyzer.ChromatinState.Repressed,
+            "H3K9ME3" => EpigeneticsAnalyzer.ChromatinState.Heterochromatin,
+            "H3K9AC" => EpigeneticsAnalyzer.ChromatinState.ActivePromoter,
+            _ => EpigeneticsAnalyzer.ChromatinState.LowSignal,
+        };
+
+    private static readonly string[] ChromMarks =
+        { "H3K4me3", "H3K4me1", "H3K27ac", "H3K36me3", "H3K27me3", "H3K9me3", "H3K9ac", "H3Kunknown" };
+
+    private static Arbitrary<(int Start, int End, string Mark, double Signal)[]> HistoneRegionsArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            int n = 1 + rng.Next(6);
+            var arr = new (int, int, string, double)[n];
+            for (int i = 0; i < n; i++)
+                arr[i] = (i * 100, i * 100 + 99, ChromMarks[rng.Next(ChromMarks.Length)], rng.NextDouble() * 2.0);
+            return arr;
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (P + R): one annotation per region, preserving Start/End/Mark/Signal, with the predicted
+    /// state matching the present-mark rule (independently computed).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Chromatin_EachRegion_AssignedCorrectState()
+    {
+        return Prop.ForAll(HistoneRegionsArbitrary(), regions =>
+        {
+            var result = EpigeneticsAnalyzer.AnnotateHistoneModifications(regions, ChromThreshold).ToList();
+            if (result.Count != regions.Length) return false.Label("region count changed");
+            for (int i = 0; i < regions.Length; i++)
+            {
+                var r = result[i];
+                var (s, e, m, sig) = regions[i];
+                if (r.Start != s || r.End != e || r.Mark != m || r.Signal != sig)
+                    return false.Label($"region {i} fields not preserved");
+                if (r.PredictedState != ExpectedState(m, sig))
+                    return false.Label($"region {i} state {r.PredictedState} ≠ expected {ExpectedState(m, sig)}");
+            }
+            return true.Label("all regions correctly annotated");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P, golden): canonical marks above threshold map to their Roadmap states; below-threshold
+    /// or unknown marks map to LowSignal.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Chromatin_KnownMarks_MapToStates()
+    {
+        var regions = new (int, int, string, double)[]
+        {
+            (0, 99, "H3K4me3", 5.0),
+            (100, 199, "H3K27ac", 5.0),
+            (200, 299, "H3K9me3", 5.0),
+            (300, 399, "H3K4me3", 0.1),   // below threshold
+            (400, 499, "H3Kbogus", 5.0),  // unknown mark
+        };
+        var result = EpigeneticsAnalyzer.AnnotateHistoneModifications(regions, ChromThreshold).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(result[0].PredictedState, Is.EqualTo(EpigeneticsAnalyzer.ChromatinState.ActivePromoter));
+            Assert.That(result[1].PredictedState, Is.EqualTo(EpigeneticsAnalyzer.ChromatinState.ActiveEnhancer));
+            Assert.That(result[2].PredictedState, Is.EqualTo(EpigeneticsAnalyzer.ChromatinState.Heterochromatin));
+            Assert.That(result[3].PredictedState, Is.EqualTo(EpigeneticsAnalyzer.ChromatinState.LowSignal));
+            Assert.That(result[4].PredictedState, Is.EqualTo(EpigeneticsAnalyzer.ChromatinState.LowSignal));
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Annotation is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Chromatin_IsDeterministic()
+    {
+        return Prop.ForAll(HistoneRegionsArbitrary(), regions =>
+        {
+            var a = EpigeneticsAnalyzer.AnnotateHistoneModifications(regions, ChromThreshold).Select(r => r.PredictedState).ToList();
+            var b = EpigeneticsAnalyzer.AnnotateHistoneModifications(regions, ChromThreshold).Select(r => r.PredictedState).ToList();
+            return a.SequenceEqual(b).Label("AnnotateHistoneModifications must be deterministic");
+        });
+    }
+
+    #endregion
+
+    #region EPIGEN-DMR-001: R: start < end; M: lower threshold → ≥ DMRs; P: |Δmethylation| > threshold; D: deterministic
+
+    // FindDMRs (methylKit tiling model): positions are grouped into fixed windows; a window is a DMR
+    // when |mean(sample2 − sample1)| exceeds the cutoff and it has ≥ minCpGCount covered cytosines.
+
+    private static EpigeneticsAnalyzer.MethylationSite Site(int pos, double level) =>
+        new(pos, EpigeneticsAnalyzer.MethylationType.CpG, "CG", level, 10);
+
+    /// <summary>Two single-window samples of 3..8 CpGs with random per-site methylation levels.</summary>
+    private static Arbitrary<(EpigeneticsAnalyzer.MethylationSite[] s1, EpigeneticsAnalyzer.MethylationSite[] s2)>
+        DmrSamplesArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            int n = 3 + rng.Next(6);
+            var s1 = new EpigeneticsAnalyzer.MethylationSite[n];
+            var s2 = new EpigeneticsAnalyzer.MethylationSite[n];
+            for (int i = 0; i < n; i++)
+            {
+                s1[i] = Site(i, rng.NextDouble());
+                s2[i] = Site(i, rng.NextDouble());
+            }
+            return (s1, s2);
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (R + P): every DMR has Start &lt; End, at least minCpGCount cytosines, an absolute mean
+    /// difference exceeding the cutoff, and a hyper/hypo annotation consistent with its sign.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Dmr_RegionsAreValid()
+    {
+        return Prop.ForAll(DmrSamplesArbitrary(), input =>
+        {
+            var (s1, s2) = input;
+            const double minDiff = 0.25;
+            var dmrs = EpigeneticsAnalyzer.FindDMRs(s1, s2, windowSize: 1000, minDifference: minDiff, minCpGCount: 3).ToList();
+            bool ok = dmrs.All(d =>
+                d.Start < d.End && d.CpGCount >= 3 &&
+                Math.Abs(d.MeanDifference) > minDiff &&
+                d.Annotation == (d.MeanDifference > 0 ? "Hypermethylated" : "Hypomethylated"));
+            return ok.Label("a DMR was invalid");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (M): a lower difference cutoff reports at least as many DMRs — the strict-cutoff region
+    /// starts are a subset of the loose-cutoff region starts.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Dmr_LowerThreshold_IsSuperset()
+    {
+        return Prop.ForAll(DmrSamplesArbitrary(), input =>
+        {
+            var (s1, s2) = input;
+            var loose = EpigeneticsAnalyzer.FindDMRs(s1, s2, 1000, 0.1, 3).Select(d => d.Start).ToHashSet();
+            var strict = EpigeneticsAnalyzer.FindDMRs(s1, s2, 1000, 0.5, 3).Select(d => d.Start).ToHashSet();
+            return (strict.IsSubsetOf(loose) && strict.Count <= loose.Count)
+                .Label($"strict DMRs ({strict.Count}) not ⊆ loose DMRs ({loose.Count})");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D + positive control): DMR calling is deterministic; a clear hypo→hyper shift is called
+    /// as one Hypermethylated DMR.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Dmr_DeterministicAndGolden()
+    {
+        var control = new[] { Site(0, 0.1), Site(1, 0.1), Site(2, 0.1), Site(3, 0.1) };
+        var treatment = new[] { Site(0, 0.9), Site(1, 0.9), Site(2, 0.9), Site(3, 0.9) };
+        var a = EpigeneticsAnalyzer.FindDMRs(control, treatment, 1000, 0.25, 3).ToList();
+        var b = EpigeneticsAnalyzer.FindDMRs(control, treatment, 1000, 0.25, 3).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(a.Select(d => d.Start), Is.EqualTo(b.Select(d => d.Start)), "deterministic");
+            Assert.That(a, Has.Count.EqualTo(1));
+            Assert.That(a[0].Annotation, Is.EqualTo("Hypermethylated"));
+            Assert.That(a[0].MeanDifference, Is.EqualTo(0.8).Within(1e-9));
+        });
+    }
+
+    #endregion
+
+    #region EPIGEN-METHYL-001: R: level ∈ [0,1]; P: level = methylated/total; D: deterministic
+
+    // CalculateMethylationFromBisulfite (Bismark call rule): at each reference CpG, a read base C is a
+    // methylated call and T an unmethylated call; level = C / (C+T), Coverage = valid C/T calls.
+
+    /// <summary>A reference and a few reads aligned at random start positions.</summary>
+    private static Arbitrary<(string reference, (string, int)[] reads)> MethylInputArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            const string bases = "ACGT";
+            int refLen = 20;
+            var rc = new char[refLen];
+            for (int i = 0; i < refLen; i++) rc[i] = bases[rng.Next(4)];
+            string reference = new string(rc);
+
+            int n = 1 + rng.Next(4);
+            var reads = new (string, int)[n];
+            for (int r = 0; r < n; r++)
+            {
+                int rl = 5 + rng.Next(6);
+                var c = new char[rl];
+                for (int i = 0; i < rl; i++) c[i] = bases[rng.Next(4)];
+                reads[r] = (new string(c), rng.Next(refLen));
+            }
+            return (reference, reads);
+        }).ToArbitrary();
+
+    /// <summary>Independent (Bismark-rule) recomputation of (methylated, total) at a CpG position.</summary>
+    private static (int meth, int total) RecomputeCall(string reference, (string seq, int start)[] reads, int site)
+    {
+        int meth = 0, total = 0;
+        foreach (var (seq, start) in reads)
+        {
+            string read = seq.ToUpperInvariant();
+            for (int i = 0; i < read.Length && start + i < reference.Length - 1; i++)
+            {
+                if (start + i != site) continue;
+                if (read[i] == 'C') { meth++; total++; }
+                else if (read[i] == 'T') { total++; }
+            }
+        }
+        return (meth, total);
+    }
+
+    /// <summary>
+    /// INV-1 (R + P): every returned site is a reference CpG with level ∈ [0,1] equal to its
+    /// methylated/total Bismark call fraction and Coverage equal to the valid C/T call count.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Methylation_LevelEqualsMethylatedOverTotal()
+    {
+        return Prop.ForAll(MethylInputArbitrary(), input =>
+        {
+            var (reference, reads) = input;
+            var sites = EpigeneticsAnalyzer.CalculateMethylationFromBisulfite(reference, reads).ToList();
+            bool ok = sites.All(s =>
+            {
+                bool isCpg = s.Position + 1 < reference.Length && reference[s.Position] == 'C' && reference[s.Position + 1] == 'G';
+                var (meth, total) = RecomputeCall(reference, reads, s.Position);
+                return isCpg && s.Coverage > 0 && total == s.Coverage &&
+                       s.MethylationLevel is >= 0.0 and <= 1.0 &&
+                       Math.Abs(s.MethylationLevel - (double)meth / total) < 1e-9 &&
+                       s.Type == EpigeneticsAnalyzer.MethylationType.CpG;
+            });
+            return ok.Label("a methylation call did not equal methylated/total at a CpG");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (D + golden): all-C reads give level 1, all-T reads give 0, a half/half mix gives 0.5;
+    /// calling is deterministic.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Methylation_DeterministicAndGolden()
+    {
+        const string reference = "TCGAA"; // CpG at index 1
+        var allC = new[] { ("TCGAA", 0), ("TCGAA", 0) };  // 'C' at index 1
+        var allT = new[] { ("TTGAA", 0), ("TTGAA", 0) };  // 'T' at index 1
+        var mix = new[] { ("TCGAA", 0), ("TTGAA", 0) };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(EpigeneticsAnalyzer.CalculateMethylationFromBisulfite(reference, allC).Single().MethylationLevel,
+                Is.EqualTo(1.0).Within(1e-9), "all methylated");
+            Assert.That(EpigeneticsAnalyzer.CalculateMethylationFromBisulfite(reference, allT).Single().MethylationLevel,
+                Is.EqualTo(0.0).Within(1e-9), "all unmethylated");
+            Assert.That(EpigeneticsAnalyzer.CalculateMethylationFromBisulfite(reference, mix).Single().MethylationLevel,
+                Is.EqualTo(0.5).Within(1e-9), "half methylated");
+            var once = EpigeneticsAnalyzer.CalculateMethylationFromBisulfite(reference, mix).Select(s => s.MethylationLevel).ToList();
+            var twice = EpigeneticsAnalyzer.CalculateMethylationFromBisulfite(reference, mix).Select(s => s.MethylationLevel).ToList();
+            Assert.That(twice, Is.EqualTo(once), "deterministic");
         });
     }
 

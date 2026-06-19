@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for intrinsically disordered protein prediction.
 /// Verifies score range, length preservation, and determinism invariants.
 ///
-/// Test Units: DISORDER-PRED-001, DISORDER-REGION-001
+/// Test Units: DISORDER-PRED-001, DISORDER-REGION-001, DISORDER-LC-001, DISORDER-MORF-001, DISORDER-PROPENSITY-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -278,6 +278,192 @@ public class DisorderProperties
                             .All(pair => pair.First.Start == pair.Second.Start &&
                                          pair.First.End == pair.Second.End);
             return same.Label("DisorderedRegion detection must be deterministic");
+        });
+    }
+
+    #endregion
+
+    #region DISORDER-LC-001: R: region start ≤ end; M: higher threshold → ≥ coverage; D: deterministic
+
+    // PredictLowComplexityRegions implements SEG (Wootton & Federhen 1993). As in all SEG variants a
+    // window is flagged when entropy ≤ threshold, so RAISING the threshold flags more — coverage is
+    // monotone increasing in the threshold (the checklist's wording is the inverse sense).
+
+    private static HashSet<int> Covered(IEnumerable<(int Start, int End, string Type)> regions)
+    {
+        var set = new HashSet<int>();
+        foreach (var (s, e, _) in regions)
+            for (int p = s; p <= e; p++) set.Add(p);
+        return set;
+    }
+
+    /// <summary>
+    /// INV-1 (R): every reported low-complexity region has Start ≤ End within bounds and a non-empty
+    /// classification.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property LowComplexity_RegionsAreValid()
+    {
+        return Prop.ForAll(ProteinArbitrary(20), seq =>
+        {
+            var regions = DisorderPredictor.PredictLowComplexityRegions(seq).ToList();
+            return regions.All(r => r.Start >= 0 && r.Start <= r.End && r.End < seq.Length && !string.IsNullOrEmpty(r.Type))
+                .Label("a low-complexity region was invalid");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (M): raising the SEG thresholds never reduces the flagged residues.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property LowComplexity_HigherThreshold_CoversMore()
+    {
+        return Prop.ForAll(ProteinArbitrary(20), seq =>
+        {
+            var low = Covered(DisorderPredictor.PredictLowComplexityRegions(seq, 12, 1.0, 1.5));
+            var high = Covered(DisorderPredictor.PredictLowComplexityRegions(seq, 12, 3.0, 3.5));
+            return low.IsSubsetOf(high).Label($"low-threshold coverage ({low.Count}) not ⊆ high ({high.Count})");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (P, positive control + D): a homopolymer is low-complexity; a maximally diverse window is
+    /// not; detection is deterministic.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void LowComplexity_HomopolymerDetected_AndDeterministic()
+    {
+        var homo = DisorderPredictor.PredictLowComplexityRegions(new string('Q', 20)).ToList();
+        var homo2 = DisorderPredictor.PredictLowComplexityRegions(new string('Q', 20)).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(homo, Is.Not.Empty, "homopolymer is low-complexity");
+            Assert.That(homo.Select(r => (r.Start, r.End)), Is.EqualTo(homo2.Select(r => (r.Start, r.End))), "deterministic");
+            Assert.That(DisorderPredictor.PredictLowComplexityRegions("ACDEFGHIKLMNPQRSTVWY"), Is.Empty,
+                "a maximally diverse window is not low-complexity");
+        });
+    }
+
+    #endregion
+
+    #region DISORDER-MORF-001: P: MoRF is an ordered dip within disorder; R: positions valid; D: deterministic
+
+    // PredictMoRFs finds short ordered dips (disorder < 0.5) of length 10–70 flanked by disorder
+    // (≥ 0.5) on both sides — Molecular Recognition Features embedded in disordered regions.
+
+    private const double MoRFThreshold = 0.5;
+
+    /// <summary>
+    /// INV-1 (R + P): every MoRF lies in [10,70] residues with a score in [0,1] at valid positions,
+    /// its residues are ordered (disorder &lt; 0.5), and it is flanked by disorder on both sides —
+    /// verified against the disorder profile.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property MoRFs_AreOrderedDipsWithinDisorder()
+    {
+        return Prop.ForAll(ProteinArbitrary(30), seq =>
+        {
+            var profile = DisorderPredictor.PredictDisorder(seq).ResiduePredictions;
+            var morfs = DisorderPredictor.PredictMoRFs(seq).ToList();
+            bool ok = morfs.All(m =>
+            {
+                int len = m.End - m.Start + 1;
+                bool basics = m.Start >= 0 && m.Start <= m.End && m.End < seq.Length
+                              && len is >= 10 and <= 70 && m.Score is >= 0.0 and <= 1.0;
+                bool ordered = Enumerable.Range(m.Start, len).All(i => profile[i].DisorderScore < MoRFThreshold);
+                bool flanked = m.Start > 0 && profile[m.Start - 1].DisorderScore >= MoRFThreshold
+                               && m.End < seq.Length - 1 && profile[m.End + 1].DisorderScore >= MoRFThreshold;
+                return basics && ordered && flanked;
+            });
+            return ok.Label("a MoRF was not an ordered dip flanked by disorder");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P, positive control): an order-promoting block flanked by disorder-promoting blocks
+    /// yields a MoRF inside the ordered block.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void MoRFs_OrderedBlockInDisorder_IsDetected()
+    {
+        // P (strongly disorder-promoting) flanks; W (order-promoting) core of length 15 (∈ [10,70]).
+        string seq = new string('P', 25) + new string('W', 15) + new string('P', 25);
+        var morfs = DisorderPredictor.PredictMoRFs(seq).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(morfs, Is.Not.Empty, "an ordered block within disorder must yield a MoRF");
+            Assert.That(morfs.All(m => m.End - m.Start + 1 is >= 10 and <= 70), Is.True);
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): MoRF prediction is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property MoRFs_AreDeterministic()
+    {
+        return Prop.ForAll(ProteinArbitrary(30), seq =>
+            DisorderPredictor.PredictMoRFs(seq).SequenceEqual(DisorderPredictor.PredictMoRFs(seq))
+                .Label("PredictMoRFs must be deterministic"));
+    }
+
+    #endregion
+
+    #region DISORDER-PROPENSITY-001: R: per-residue propensity ∈ [0,1]; P: one score per residue; D: deterministic
+
+    // PredictDisorder emits one per-residue disorder score (normalized TOP-IDP) per residue, plus
+    // overall summary scores; all are probabilities/fractions in [0,1].
+
+    /// <summary>
+    /// INV-1 (P + R): there is exactly one residue prediction per input residue (in order, correct
+    /// residue) and every per-residue score and summary score is in [0,1].
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Propensity_OneScorePerResidueInUnitInterval()
+    {
+        return Prop.ForAll(ProteinArbitrary(25), seq =>
+        {
+            var result = DisorderPredictor.PredictDisorder(seq);
+            bool lengthOk = result.ResiduePredictions.Count == seq.Length;
+            bool perResidue = result.ResiduePredictions.Select((r, i) =>
+                r.Position == i && r.Residue == seq[i] && r.DisorderScore is >= 0.0 and <= 1.0).All(x => x);
+            bool summaries = result.OverallDisorderContent is >= 0.0 and <= 1.0
+                             && result.MeanDisorderScore is >= 0.0 and <= 1.0;
+            return (lengthOk && perResidue && summaries)
+                .Label($"length={result.ResiduePredictions.Count}/{seq.Length}, perResidue/summaries failed");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (R): the raw single-residue propensity is the signed TOP-IDP scale (Campen et al. 2008),
+    /// finite and within the published [-1,1] band — it is the normalization in <see cref="DisorderPredictor.PredictDisorder"/>
+    /// (INV-1) that maps these to the [0,1] disorder score, not this lookup.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Propensity_PerAminoAcid_OnTopIdpScale()
+    {
+        foreach (char aa in "ACDEFGHIKLMNPQRSTVWY")
+        {
+            double p = DisorderPredictor.GetDisorderPropensity(aa);
+            Assert.That(double.IsFinite(p) && p is >= -1.0 and <= 1.0, Is.True,
+                $"TOP-IDP propensity for {aa} = {p} outside the expected [-1,1] band");
+        }
+    }
+
+    /// <summary>
+    /// INV-3 (D): Per-residue disorder scoring is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Propensity_IsDeterministic()
+    {
+        return Prop.ForAll(ProteinArbitrary(25), seq =>
+        {
+            var a = DisorderPredictor.PredictDisorder(seq).ResiduePredictions.Select(r => r.DisorderScore).ToList();
+            var b = DisorderPredictor.PredictDisorder(seq).ResiduePredictions.Select(r => r.DisorderScore).ToList();
+            return a.SequenceEqual(b).Label("PredictDisorder per-residue scores must be deterministic");
         });
     }
 

@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for codon tables, translation, and codon usage.
 /// Verifies invariants of the genetic code and translation process.
 ///
-/// Test Units: TRANS-CODON-001, TRANS-PROT-001, CODON-USAGE-001, CODON-CAI-001, CODON-OPT-001
+/// Test Units: TRANS-CODON-001, TRANS-PROT-001, CODON-USAGE-001, CODON-CAI-001, CODON-OPT-001, CODON-ENC-001, CODON-RSCU-001, CODON-STATS-001, TRANS-SIXFRAME-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -756,4 +756,199 @@ public class CodonProperties
         }
         return sb.ToString();
     }
+
+    #region CODON-ENC-001: R: ENC ∈ [20,61]; M: more biased usage → lower ENC; D: deterministic
+
+    // CalculateEnc is Wright's (1990) effective number of codons, clamped to [20,61]. A more biased
+    // codon usage (higher within-family homozygosity) lowers ENC toward 20.
+
+    /// <summary>
+    /// INV-1 (R): ENC always lies in [20,61] for any coding sequence.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Enc_InRange()
+    {
+        return Prop.ForAll(CodingDnaArbitrary(), seq =>
+        {
+            double enc = CodonUsageAnalyzer.CalculateEnc(seq);
+            return (enc is >= 20.0 - 1e-9 and <= 61.0 + 1e-9).Label($"ENC={enc} outside [20,61]");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (M): a more biased synonymous usage gives a lower ENC. Two Lys-only sequences with codon
+    /// ratios 9:1 (more biased) and 3:1 (less biased) — the more biased has the smaller ENC.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Enc_MoreBiased_LowerEnc()
+    {
+        // AAA/AAG are the two synonymous Lys codons; the rest of the families are unobserved.
+        string lessBiased = string.Concat(Enumerable.Repeat("AAA", 3)) + "AAG"; // 3:1
+        string moreBiased = string.Concat(Enumerable.Repeat("AAA", 9)) + "AAG"; // 9:1
+
+        double encLess = CodonUsageAnalyzer.CalculateEnc(lessBiased);
+        double encMore = CodonUsageAnalyzer.CalculateEnc(moreBiased);
+
+        Assert.That(encMore, Is.LessThan(encLess),
+            $"more biased usage must lower ENC: {encMore:F2} ≥ {encLess:F2}");
+    }
+
+    /// <summary>
+    /// INV-3 (D): ENC is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Enc_IsDeterministic()
+    {
+        return Prop.ForAll(CodingDnaArbitrary(), seq =>
+            (CodonUsageAnalyzer.CalculateEnc(seq) == CodonUsageAnalyzer.CalculateEnc(seq))
+                .Label("CalculateEnc must be deterministic"));
+    }
+
+    #endregion
+
+    #region CODON-RSCU-001: R: RSCU ≥ 0; P: mean RSCU per amino acid = 1 (observed families); D: deterministic
+
+    // RSCU normalizes synonymous codon usage so the mean over each amino acid's synonymous codons is 1
+    // (Sharp & Li 1986): RSCU_j = n·x_j / Σ_k x_k.
+
+    /// <summary>
+    /// INV-1 (R + P): all RSCU values are non-negative, and for every amino acid with observed usage
+    /// the mean RSCU over its synonymous codons is 1 (0 for unobserved families).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Rscu_MeanPerAminoAcid_IsOne()
+    {
+        return Prop.ForAll(CodingDnaArbitrary(), seq =>
+        {
+            var rscu = CodonUsageAnalyzer.CalculateRscu(seq);
+            if (rscu.Values.Any(v => v < 0)) return false.Label("negative RSCU");
+
+            // Group result codons by their amino acid (standard code; RSCU uses DNA codons).
+            foreach (var aaGroup in rscu.GroupBy(kv => GeneticCode.Standard.Translate(kv.Key.Replace('T', 'U'))))
+            {
+                var values = aaGroup.Select(kv => kv.Value).ToList();
+                double mean = values.Average();
+                bool observed = values.Any(v => v > 0);
+                double expected = observed ? 1.0 : 0.0;
+                if (Math.Abs(mean - expected) > 1e-9)
+                    return false.Label($"AA '{aaGroup.Key}': mean RSCU {mean} ≠ {expected}");
+            }
+            return true.Label("mean RSCU per amino acid is 1 (or 0 when unobserved)");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (D): RSCU is deterministic. (Range/sum also covered by CODON-USAGE-001.)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Rscu_IsDeterministic_Enc()
+    {
+        return Prop.ForAll(CodingDnaArbitrary(), seq =>
+        {
+            var a = CodonUsageAnalyzer.CalculateRscu(seq);
+            var b = CodonUsageAnalyzer.CalculateRscu(seq);
+            return (a.Count == b.Count && a.All(kv => Math.Abs(kv.Value - b[kv.Key]) < 1e-12))
+                .Label("CalculateRscu must be deterministic");
+        });
+    }
+
+    #endregion
+
+    #region CODON-STATS-001: R: counts ≥ 0; P: Σ codon counts = TotalCodons = #valid codons; D: deterministic
+
+    // GetStatistics summarizes codon usage: counts, RSCU, ENC, total codons, and positional GC.
+
+    /// <summary>
+    /// INV-1 (R + P): codon counts are non-negative and sum to TotalCodons, which equals the number of
+    /// valid codons; ENC ∈ [20,61] and the positional GC fractions are in [0,1].
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CodonStatistics_AreConsistent()
+    {
+        return Prop.ForAll(CodingDnaArbitrary(), seq =>
+        {
+            var stats = CodonUsageAnalyzer.GetStatistics(seq);
+            int sum = stats.CodonCounts.Values.Sum();
+            bool ok = stats.CodonCounts.Values.All(c => c >= 0)
+                      && sum == stats.TotalCodons
+                      && stats.Enc is >= 20.0 - 1e-9 and <= 61.0 + 1e-9
+                      // Positional GC values are reported as percentages in [0,100] (EMBOSS cusp).
+                      && stats.Gc1 is >= 0.0 and <= 100.0 && stats.Gc2 is >= 0.0 and <= 100.0
+                      && stats.Gc3 is >= 0.0 and <= 100.0;
+            return ok.Label($"inconsistent stats: sum={sum}, total={stats.TotalCodons}, enc={stats.Enc}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (D): Codon-usage statistics are deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CodonStatistics_AreDeterministic()
+    {
+        return Prop.ForAll(CodingDnaArbitrary(), seq =>
+        {
+            var a = CodonUsageAnalyzer.GetStatistics(seq);
+            var b = CodonUsageAnalyzer.GetStatistics(seq);
+            return (a.TotalCodons == b.TotalCodons && a.Enc == b.Enc
+                    && a.CodonCounts.Count == b.CodonCounts.Count)
+                .Label("GetStatistics must be deterministic");
+        });
+    }
+
+    #endregion
+
+    #region TRANS-SIXFRAME-001: R: exactly 6 frames; P: 3 forward + 3 reverse-complement; D: deterministic
+
+    // TranslateSixFrames returns the six reading frames keyed +1..+3 (forward) and −1..−3 (reverse
+    // complement); the reverse frames are the forward frames of the reverse complement.
+
+    /// <summary>
+    /// INV-1 (R): there are exactly six frames, keyed {±1, ±2, ±3}.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property SixFrames_HasExactlySixFrames()
+    {
+        return Prop.ForAll(CodingDnaArbitrary(), seq =>
+        {
+            var frames = Translator.TranslateSixFrames(new DnaSequence(seq));
+            var expected = new[] { 1, 2, 3, -1, -2, -3 };
+            return (frames.Count == 6 && expected.All(frames.ContainsKey))
+                .Label($"frame keys: {string.Join(",", frames.Keys)}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P): each reverse frame (−k) equals the corresponding forward frame (+k) of the reverse
+    /// complement — the three reverse frames are reverse-complement translations.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property SixFrames_ReverseFramesAreReverseComplement()
+    {
+        return Prop.ForAll(CodingDnaArbitrary(), seq =>
+        {
+            var dna = new DnaSequence(seq);
+            var frames = Translator.TranslateSixFrames(dna);
+            var rcFrames = Translator.TranslateSixFrames(dna.ReverseComplement());
+            bool ok = Enumerable.Range(1, 3).All(k => frames[-k].Sequence == rcFrames[k].Sequence);
+            return ok.Label("a reverse frame did not match the reverse-complement forward frame");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Six-frame translation is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property SixFrames_IsDeterministic()
+    {
+        return Prop.ForAll(CodingDnaArbitrary(), seq =>
+        {
+            var a = Translator.TranslateSixFrames(new DnaSequence(seq));
+            var b = Translator.TranslateSixFrames(new DnaSequence(seq));
+            return a.All(kv => b[kv.Key].Sequence == kv.Value.Sequence)
+                .Label("TranslateSixFrames must be deterministic");
+        });
+    }
+
+    #endregion
 }

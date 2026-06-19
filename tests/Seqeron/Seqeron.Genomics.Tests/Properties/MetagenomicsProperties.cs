@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for metagenomics diversity analysis:
 /// alpha diversity indices and beta diversity metrics.
 ///
-/// Test Units: META-ALPHA-001, META-BETA-001
+/// Test Units: META-ALPHA-001, META-BETA-001, META-FUNC-001, META-PATHWAY-001, META-RESIST-001, META-TAXA-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -1523,6 +1523,328 @@ public class MetagenomicsProperties
             Assert.That(coveredIds, Is.Unique, "no contig appears in more than one bin");
             Assert.That(coveredIds, Is.EquivalentTo(new[] { "contig_a", "contig_b" }),
                 "both above-threshold contigs are binned");
+        });
+    }
+
+    #endregion
+
+    #region META-FUNC-001: R: function scores ≥ 0; P: assigned function in DB (signature in gene); D: deterministic
+
+    // PredictFunctions assigns each gene its best-hit (lowest E-value) function whose DB signature is
+    // a substring of the gene's protein sequence (BLAST-style ranking).
+
+    private static readonly IReadOnlyDictionary<string, (string Function, string Pathway, string Ko)> FunctionDb =
+        new Dictionary<string, (string, string, string)>
+        {
+            ["GGG"] = ("Glycine-rich", "P1", "K001"),
+            ["WWY"] = ("Aromatic", "P2", "K002"),
+            ["MKMK"] = ("Initiator-like", "P3", "K003"),
+        };
+
+    /// <summary>Genes whose sequences embed a random DB signature inside random protein flanks.</summary>
+    private static Arbitrary<(string GeneId, string Seq)[]> FunctionGenesArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            const string aa = "ACDEFGHIKLMNPQRSTVWY";
+            string Rand(int n) { var c = new char[n]; for (int i = 0; i < n; i++) c[i] = aa[rng.Next(aa.Length)]; return new string(c); }
+            var sigs = FunctionDb.Keys.ToList();
+            int n = 1 + rng.Next(4);
+            var genes = new (string, string)[n];
+            for (int i = 0; i < n; i++)
+            {
+                string sig = sigs[rng.Next(sigs.Count)];
+                genes[i] = ($"g{i}", Rand(rng.Next(5)) + sig + Rand(rng.Next(5)));
+            }
+            return genes;
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (R + P): every annotation has non-negative scores and an assigned function that comes
+    /// from a DB entry whose signature is actually contained in that gene's sequence.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Functions_AreInDbAndScoresNonNegative()
+    {
+        return Prop.ForAll(FunctionGenesArbitrary(), genes =>
+        {
+            var byId = genes.ToDictionary(g => g.GeneId, g => g.Seq);
+            var annotations = MetagenomicsAnalyzer.PredictFunctions(
+                genes.Select(g => (g.GeneId, g.Seq)), FunctionDb).ToList();
+            bool ok = annotations.All(a =>
+                a.BitScore >= 0 && a.EValue >= 0 &&
+                FunctionDb.Any(kv => kv.Value.Function == a.Function && byId[a.GeneId].Contains(kv.Key, StringComparison.Ordinal)));
+            return ok.Label("an annotation had a negative score or a function not backed by a contained signature");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P, positive control): a gene containing the GGG signature is annotated Glycine-rich.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Functions_EmbeddedSignature_IsAnnotated()
+    {
+        var genes = new[] { ("gene1", "AKAGGGAK"), ("gene2", "ACDEFHIK") };
+        var annotations = MetagenomicsAnalyzer.PredictFunctions(genes, FunctionDb).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(annotations.Any(a => a.GeneId == "gene1" && a.Function == "Glycine-rich"), Is.True);
+            Assert.That(annotations.Any(a => a.GeneId == "gene2"), Is.False, "gene with no signature is unannotated");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Functional prediction is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Functions_AreDeterministic()
+    {
+        return Prop.ForAll(FunctionGenesArbitrary(), genes =>
+        {
+            var a = MetagenomicsAnalyzer.PredictFunctions(genes.Select(g => (g.GeneId, g.Seq)), FunctionDb).Select(x => (x.GeneId, x.Function)).ToList();
+            var b = MetagenomicsAnalyzer.PredictFunctions(genes.Select(g => (g.GeneId, g.Seq)), FunctionDb).Select(x => (x.GeneId, x.Function)).ToList();
+            return a.SequenceEqual(b).Label("PredictFunctions must be deterministic");
+        });
+    }
+
+    #endregion
+
+    #region META-PATHWAY-001: R: p-value ∈ [0,1]; M: more pathway genes → higher enrichment; D: deterministic
+
+    // FindPathwayEnrichment is a hypergeometric over-representation test: each pathway's p-value is
+    // the upper-tail probability of seeing at least the observed query/pathway overlap.
+
+    /// <summary>Generates a pathway DB (3 pathways over a 20-gene universe) and a random query subset.</summary>
+    private static Arbitrary<(string[] query, Dictionary<string, IReadOnlyCollection<string>> db)> EnrichmentArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            var universe = Enumerable.Range(0, 20).Select(i => $"gene{i}").ToArray();
+            var db = new Dictionary<string, IReadOnlyCollection<string>>();
+            for (int p = 0; p < 3; p++)
+                db[$"P{p}"] = universe.Where(_ => rng.Next(2) == 0).ToArray();
+            var query = universe.Where(_ => rng.Next(3) == 0).ToArray();
+            return (query, db);
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (R): every pathway p-value is a probability in [0,1].
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Pathway_PValues_InUnitInterval()
+    {
+        return Prop.ForAll(EnrichmentArbitrary(), input =>
+        {
+            var (query, db) = input;
+            var results = MetagenomicsAnalyzer.FindPathwayEnrichment(query, db);
+            return results.All(r => r.PValue is >= 0.0 and <= 1.0)
+                .Label("a pathway p-value fell outside [0,1]");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (M): for a fixed pathway/background and equal query size, a larger query∩pathway overlap
+    /// gives a smaller (more significant) p-value.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Pathway_MoreOverlap_LowerPValue()
+    {
+        var pathwayMembers = Enumerable.Range(0, 10).Select(i => $"p{i}").ToArray();
+        var nonMembers = Enumerable.Range(0, 10).Select(i => $"n{i}").ToArray();
+        var db = new Dictionary<string, IReadOnlyCollection<string>> { ["P"] = pathwayMembers };
+        var background = pathwayMembers.Concat(nonMembers).ToArray();
+
+        // Same query size (5), different overlap with the pathway.
+        var lowOverlap = new[] { "p0", "n0", "n1", "n2", "n3" };   // x = 1
+        var highOverlap = new[] { "p0", "p1", "p2", "p3", "p4" };  // x = 5
+
+        double pLow = MetagenomicsAnalyzer.FindPathwayEnrichment(lowOverlap, db, background).Single().PValue;
+        double pHigh = MetagenomicsAnalyzer.FindPathwayEnrichment(highOverlap, db, background).Single().PValue;
+
+        Assert.That(pHigh, Is.LessThanOrEqualTo(pLow + 1e-12), "more overlap must not increase the p-value");
+    }
+
+    /// <summary>
+    /// INV-3 (boundary + D): zero overlap gives p = 1; the test is deterministic.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Pathway_NoOverlap_PIsOne_AndDeterministic()
+    {
+        var db = new Dictionary<string, IReadOnlyCollection<string>> { ["P"] = new[] { "p0", "p1", "p2" } };
+        var query = new[] { "q0", "q1" }; // disjoint from the pathway
+        double p1 = MetagenomicsAnalyzer.FindPathwayEnrichment(query, db).Single().PValue;
+        double p2 = MetagenomicsAnalyzer.FindPathwayEnrichment(query, db).Single().PValue;
+        Assert.Multiple(() =>
+        {
+            Assert.That(p1, Is.EqualTo(1.0).Within(1e-12), "no overlap → p = 1");
+            Assert.That(p2, Is.EqualTo(p1), "deterministic");
+        });
+    }
+
+    #endregion
+
+    #region META-RESIST-001: P: hit matches resistance DB; R: identity ∈ (0,1]; D: deterministic
+
+    // FindResistanceGenes reports a hit when a resistance-marker motif is contained in a gene; the
+    // reported name/class come from the matching DB entry and identity = motifLen / geneLen.
+
+    private static readonly IReadOnlyDictionary<string, (string Name, string AntibioticClass)> ResistanceDb =
+        new Dictionary<string, (string, string)>
+        {
+            ["BLA"] = ("blaTEM", "beta-lactam"),
+            ["TET"] = ("tetA", "tetracycline"),
+            ["VAN"] = ("vanA", "glycopeptide"),
+        };
+
+    private static Arbitrary<(string GeneId, string Seq)[]> ResistanceGenesArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            const string aa = "ACDEFGHIKLMNPQRSTVWY";
+            string Rand(int n) { var c = new char[n]; for (int i = 0; i < n; i++) c[i] = aa[rng.Next(aa.Length)]; return new string(c); }
+            var motifs = ResistanceDb.Keys.ToList();
+            int n = 1 + rng.Next(4);
+            var genes = new (string, string)[n];
+            for (int i = 0; i < n; i++)
+            {
+                // Embed a motif in some genes; leave others to chance.
+                string body = rng.Next(2) == 0 ? motifs[rng.Next(motifs.Count)] : "";
+                genes[i] = ($"g{i}", Rand(rng.Next(6)) + body + Rand(rng.Next(6)));
+            }
+            return genes;
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (P + R): every hit's name/class come from a DB entry whose motif is contained in the
+    /// gene, with identity in (0,1].
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Resistance_HitsMatchDatabase()
+    {
+        return Prop.ForAll(ResistanceGenesArbitrary(), genes =>
+        {
+            var byId = genes.ToDictionary(g => g.GeneId, g => g.Seq);
+            var hits = MetagenomicsAnalyzer.FindResistanceGenes(genes.Select(g => (g.GeneId, g.Seq)), ResistanceDb).ToList();
+            bool ok = hits.All(h =>
+                h.Identity is > 0.0 and <= 1.0 &&
+                ResistanceDb.Any(kv => kv.Value.Name == h.ResistanceGene && kv.Value.AntibioticClass == h.AntibioticClass
+                                       && byId[h.GeneId].Contains(kv.Key, StringComparison.Ordinal)));
+            return ok.Label("a resistance hit did not match a contained DB motif");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P, positive/negative control): a gene carrying the BLA motif is reported as blaTEM; a
+    /// gene with no marker yields no hit.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Resistance_EmbeddedMotif_IsReported()
+    {
+        var genes = new[] { ("g1", "AKBLAQR"), ("g2", "AKDEFGH") };
+        var hits = MetagenomicsAnalyzer.FindResistanceGenes(genes, ResistanceDb).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(hits.Any(h => h.GeneId == "g1" && h.ResistanceGene == "blaTEM" && h.AntibioticClass == "beta-lactam"), Is.True);
+            Assert.That(hits.Any(h => h.GeneId == "g2"), Is.False, "gene without a marker yields no hit");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Resistance detection is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Resistance_IsDeterministic()
+    {
+        return Prop.ForAll(ResistanceGenesArbitrary(), genes =>
+        {
+            var a = MetagenomicsAnalyzer.FindResistanceGenes(genes.Select(g => (g.GeneId, g.Seq)), ResistanceDb).ToList();
+            var b = MetagenomicsAnalyzer.FindResistanceGenes(genes.Select(g => (g.GeneId, g.Seq)), ResistanceDb).ToList();
+            return a.SequenceEqual(b).Label("FindResistanceGenes must be deterministic");
+        });
+    }
+
+    #endregion
+
+    #region META-TAXA-001: R: p-value ∈ [0,1]; P: significant ⟺ p < threshold; D: deterministic
+
+    // FindSignificantTaxa runs a Mann–Whitney U test per taxon between two groups; a taxon is
+    // significant when its p-value is below the threshold.
+
+    private static Arbitrary<(IReadOnlyList<IReadOnlyDictionary<string, double>> profiles, IReadOnlyList<int> groups)>
+        TaxaProfilesArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            int n = 4 + rng.Next(5);
+            var profiles = new List<IReadOnlyDictionary<string, double>>();
+            var groups = new List<int>();
+            for (int i = 0; i < n; i++)
+            {
+                var prof = new Dictionary<string, double>
+                {
+                    ["t0"] = rng.NextDouble() * 10,
+                    ["t1"] = rng.NextDouble() * 10,
+                    ["t2"] = rng.NextDouble() * 10,
+                };
+                profiles.Add(prof);
+                groups.Add((i % 2) + 1); // alternate 1,2 → both groups present
+            }
+            return ((IReadOnlyList<IReadOnlyDictionary<string, double>>)profiles, (IReadOnlyList<int>)groups);
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (R + P): each taxon's p-value is in [0,1] and its significance flag equals p &lt; threshold.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Taxa_PValuesAndSignificanceFlag()
+    {
+        return Prop.ForAll(TaxaProfilesArbitrary(), input =>
+        {
+            const double threshold = 0.05;
+            var (profiles, groups) = input;
+            var results = MetagenomicsAnalyzer.FindSignificantTaxa(profiles, groups, threshold);
+            bool ok = results.All(r => r.PValue is >= 0.0 and <= 1.0 && r.Significant == (r.PValue < threshold));
+            return ok.Label("a taxon p-value was out of range or the significance flag disagreed with p<α");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P, positive/negative control): a fully separated taxon is significant; a constant taxon
+    /// is not.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Taxa_SeparatedIsSignificant_ConstantIsNot()
+    {
+        var profiles = new List<IReadOnlyDictionary<string, double>>();
+        var groups = new List<int>();
+        for (int i = 0; i < 5; i++) { profiles.Add(new Dictionary<string, double> { ["sep"] = 1, ["same"] = 5 }); groups.Add(1); }
+        for (int i = 0; i < 5; i++) { profiles.Add(new Dictionary<string, double> { ["sep"] = 100, ["same"] = 5 }); groups.Add(2); }
+
+        var results = MetagenomicsAnalyzer.FindSignificantTaxa(profiles, groups, 0.05);
+        Assert.Multiple(() =>
+        {
+            Assert.That(results.Single(r => r.Taxon == "sep").Significant, Is.True, "fully separated taxon is significant");
+            Assert.That(results.Single(r => r.Taxon == "same").Significant, Is.False, "constant taxon is not significant");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Significant-taxa detection is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Taxa_IsDeterministic()
+    {
+        return Prop.ForAll(TaxaProfilesArbitrary(), input =>
+        {
+            var (profiles, groups) = input;
+            var a = MetagenomicsAnalyzer.FindSignificantTaxa(profiles, groups).Select(r => (r.Taxon, r.PValue, r.Significant)).ToList();
+            var b = MetagenomicsAnalyzer.FindSignificantTaxa(profiles, groups).Select(r => (r.Taxon, r.PValue, r.Significant)).ToList();
+            return a.SequenceEqual(b).Label("FindSignificantTaxa must be deterministic");
         });
     }
 

@@ -5127,4 +5127,4522 @@ public class OncologyProperties
     }
 
     #endregion
+
+    #region ONCO-SIG-003 — Signature Exposure Bootstrap Confidence Intervals
+
+    // -------------------------------------------------------------------------
+    // Theory (Senkin 2021 MSA; Huang 2018; Efron 1979 percentile; Hyndman & Fan 1996 type-7):
+    //   • Parametric bootstrap: each replicate resamples the integer catalog as a multinomial draw of
+    //     N = Σ catalog mutations with pₖ = catalogₖ/N, then refits by NNLS.            (TestSpec §1.2.1–2)
+    //   • Per-signature interval = [½(1−c), 1−½(1−c)] percentiles of the replicate exposures. (§1.2.3)
+    //   • Point estimate = NNLS exposure of the OBSERVED (un-resampled) catalog.            (§1.2.5, INV-5)
+    //   • Corner cases: N = 0 ⇒ all-zero; a single non-zero channel ⇒ deterministic collapse. (§1.3)
+    //
+    // GUARANTEED invariants are asserted on ARBITRARY problems: per-signature ordering (INV-2),
+    // non-negativity (INV-1), determinism under a fixed seed (INV-4), the point-estimate contract
+    // (INV-5), and percentile-bound monotonicity in the confidence level. The bracketing
+    // "Lower ≤ point ≤ Upper" (checklist R) and "bootstrap mean ≈ point estimate" (checklist P)
+    // are only mathematically EXACT on the deterministic-collapse construction (single non-zero
+    // channel) and the N = 0 case — a percentile bracket of a skewed stochastic bootstrap need not
+    // contain its own mean — so they are proven there as exact equalities, with one concrete
+    // non-degenerate anchor (default 1000 replicates) verifying the statistical bracketing.
+    // -------------------------------------------------------------------------
+
+    private const double SigBootstrapTolerance = 1e-9;
+
+    /// <summary>Reproducible RNG seed reused across the randomized bootstrap properties (INV-4).</summary>
+    private const int SigBootstrapSeed = 42;
+
+    /// <summary>Modest replicate count keeping randomized property runs fast yet non-degenerate.</summary>
+    private const int SigBootstrapReplicates = 60;
+
+    /// <summary>
+    /// An arbitrary bootstrap problem: n channels (1..6), k signatures (non-negative finite vectors), and
+    /// a non-negative INTEGER catalog of length n. Integer counts (not proportions) are required because
+    /// the multinomial resample needs the total N = Σ catalog (TestSpec §1.4.2).
+    /// </summary>
+    private static Arbitrary<(double[][] signatures, int[] catalog)> BootstrapProblemArbitrary() =>
+        (from n in Gen.Choose(1, 6)
+         from k in Gen.Choose(1, 4)
+         from sigs in NonNegVectorGen(n).ArrayOf(k)
+         from catalog in Gen.Choose(0, 40).ArrayOf(n)
+         select (sigs, catalog)).ToArbitrary();
+
+    /// <summary>
+    /// A deterministic-collapse problem: standard-basis signatures over n channels (so NNLS recovers the
+    /// catalog exactly, exposure[j] = catalog[j]) and a catalog with exactly ONE positive channel. A
+    /// multinomial draw of N over a single non-zero probability is deterministic ⇒ every resample equals
+    /// the observed catalog ⇒ every replicate exposure equals the point estimate. (TestSpec §1.3)
+    /// </summary>
+    private static Arbitrary<(double[][] signatures, int[] catalog)> DeterministicCollapseArbitrary() =>
+        (from n in Gen.Choose(1, 5)
+         from hot in Gen.Choose(0, n - 1)
+         from count in Gen.Choose(1, 500)
+         select BuildCollapseProblem(n, hot, count)).ToArbitrary();
+
+    private static (double[][] signatures, int[] catalog) BuildCollapseProblem(int n, int hot, int count)
+    {
+        // Signature j = e_j over n channels ⇒ S = identity ⇒ NNLS exposure[j] = catalog[j].
+        var sigs = new double[n][];
+        for (int j = 0; j < n; j++)
+        {
+            sigs[j] = new double[n];
+            sigs[j][j] = 1.0;
+        }
+
+        var catalog = new int[n];
+        catalog[hot] = count; // single non-zero channel ⇒ deterministic multinomial resample
+        return (sigs, catalog);
+    }
+
+    /// <summary>
+    /// INV-5 (contract): exactly one interval per signature, in signature order, and each interval's
+    /// <c>PointEstimate</c> equals the NNLS exposure of the OBSERVED (un-resampled) catalog — recomputed
+    /// independently via <see cref="OncologyAnalyzer.FitSignatures(IReadOnlyList{double}, IReadOnlyList{IReadOnlyList{double}})"/>
+    /// (the documented point estimate, Senkin 2021; Huang 2018). The reported confidence is the one requested.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property BootstrapExposures_PointEstimate_IsObservedNnlsFit_OneIntervalPerSignatureInOrder()
+    {
+        return Prop.ForAll(BootstrapProblemArbitrary(), t =>
+        {
+            var sigs = AsSignatures(t.signatures);
+            double[] observed = t.catalog.Select(c => (double)c).ToArray();
+            IReadOnlyList<double> fit = OncologyAnalyzer.FitSignatures(observed, sigs).Exposures;
+
+            var intervals = OncologyAnalyzer.BootstrapExposures(
+                t.catalog, sigs, SigBootstrapReplicates, OncologyAnalyzer.DefaultBootstrapConfidence, SigBootstrapSeed);
+
+            bool ok = intervals.Count == t.signatures.Length;
+            for (int j = 0; ok && j < intervals.Count; j++)
+            {
+                ok &= Math.Abs(intervals[j].PointEstimate - fit[j]) < SigBootstrapTolerance;
+                ok &= Math.Abs(intervals[j].Confidence - OncologyAnalyzer.DefaultBootstrapConfidence) < SigBootstrapTolerance;
+            }
+
+            return ok.Label(
+                $"point estimate ≠ observed NNLS fit, or interval count {intervals.Count} ≠ #signatures {t.signatures.Length}");
+        });
+    }
+
+    /// <summary>
+    /// INV-1 + INV-2: on an arbitrary catalog every interval is ordered (<c>Lower ≤ Upper</c>) and all of
+    /// <c>Lower</c>, <c>Upper</c>, <c>Mean</c>, <c>PointEstimate</c> are non-negative — resampled counts are
+    /// ≥ 0 and the NNLS constraint forces x ≥ 0, while the lower percentile probability ½(1−c) is strictly
+    /// below the upper 1−½(1−c) (Efron 1979). (checklist R; TestSpec INV-1/INV-2)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property BootstrapExposures_IntervalsOrdered_AndAllBoundsNonNegative()
+    {
+        return Prop.ForAll(BootstrapProblemArbitrary(), t =>
+        {
+            var intervals = OncologyAnalyzer.BootstrapExposures(
+                t.catalog, AsSignatures(t.signatures), SigBootstrapReplicates, 0.95, SigBootstrapSeed);
+
+            bool ok = true;
+            foreach (var ci in intervals)
+            {
+                ok &= ci.Lower <= ci.Upper + SigBootstrapTolerance;
+                ok &= ci.Lower >= -SigBootstrapTolerance;
+                ok &= ci.Upper >= -SigBootstrapTolerance;
+                ok &= ci.Mean >= -SigBootstrapTolerance;
+                ok &= ci.PointEstimate >= -SigBootstrapTolerance;
+            }
+
+            return ok.Label("an interval was not ordered (Lower ≤ Upper) or a bound/mean/point was negative");
+        });
+    }
+
+    /// <summary>
+    /// Percentile-bound monotonicity in the confidence level: re-using the SAME replicate distribution
+    /// (identical seed), a wider confidence c widens each interval — the lower bound moves down (or stays)
+    /// and the upper bound moves up (or stays). Direct consequence of the type-7 quantile being monotone
+    /// non-decreasing in its probability, with ½(1−c) decreasing and 1−½(1−c) increasing as c grows.
+    /// (TestSpec S1; Hyndman &amp; Fan 1996)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property BootstrapExposures_WiderConfidence_WidensOrKeepsInterval()
+    {
+        return Prop.ForAll(BootstrapProblemArbitrary(), t =>
+        {
+            var sigs = AsSignatures(t.signatures);
+            var narrow = OncologyAnalyzer.BootstrapExposures(t.catalog, sigs, SigBootstrapReplicates, 0.50, SigBootstrapSeed);
+            var wide = OncologyAnalyzer.BootstrapExposures(t.catalog, sigs, SigBootstrapReplicates, 0.95, SigBootstrapSeed);
+
+            bool ok = narrow.Count == wide.Count;
+            for (int j = 0; ok && j < narrow.Count; j++)
+            {
+                ok &= wide[j].Lower <= narrow[j].Lower + SigBootstrapTolerance; // lower bound non-increasing in c
+                ok &= wide[j].Upper >= narrow[j].Upper - SigBootstrapTolerance; // upper bound non-decreasing in c
+            }
+
+            return ok.Label("a wider confidence level produced a strictly narrower interval");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (determinism): identical <c>(catalog, signatures, replicates, confidence, seed)</c> arguments
+    /// produce element-wise identical intervals (every field equal). The fixed RNG seed makes the
+    /// multinomial resampling reproducible. (TestSpec INV-4)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property BootstrapExposures_SameArguments_AreDeterministic()
+    {
+        return Prop.ForAll(BootstrapProblemArbitrary(), t =>
+        {
+            var sigs = AsSignatures(t.signatures);
+            var a = OncologyAnalyzer.BootstrapExposures(t.catalog, sigs, SigBootstrapReplicates, 0.95, SigBootstrapSeed);
+            var b = OncologyAnalyzer.BootstrapExposures(t.catalog, sigs, SigBootstrapReplicates, 0.95, SigBootstrapSeed);
+
+            bool ok = a.Count == b.Count;
+            for (int j = 0; ok && j < a.Count; j++)
+            {
+                ok &= a[j].Equals(b[j]); // record struct ⇒ structural, field-wise equality
+            }
+
+            return ok.Label("BootstrapExposures is not deterministic for identical (…, seed) arguments");
+        });
+    }
+
+    /// <summary>
+    /// Checklist P + R, made EXACT (TestSpec §1.3 single-non-zero-channel collapse): with standard-basis
+    /// signatures and a catalog whose single non-zero channel carries the whole mutation load, the
+    /// multinomial resample is deterministic, so every replicate exposure equals the point estimate. Hence
+    /// for every signature j the bootstrap <c>Mean</c>, <c>Lower</c> and <c>Upper</c> all equal the
+    /// <c>PointEstimate</c> = <c>catalog[j]</c>, and trivially <c>Lower ≤ point ≤ Upper</c>.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property BootstrapExposures_DeterministicCollapse_MeanAndBoundsEqualPointEstimate()
+    {
+        return Prop.ForAll(DeterministicCollapseArbitrary(), t =>
+        {
+            var intervals = OncologyAnalyzer.BootstrapExposures(
+                t.catalog, AsSignatures(t.signatures), SigBootstrapReplicates, 0.95, SigBootstrapSeed);
+
+            bool ok = intervals.Count == t.signatures.Length;
+            for (int j = 0; ok && j < intervals.Count; j++)
+            {
+                double expected = t.catalog[j]; // basis recovery, constant across all resamples
+                var ci = intervals[j];
+                ok &= Math.Abs(ci.PointEstimate - expected) < SigBootstrapTolerance;
+                ok &= Math.Abs(ci.Mean - expected) < SigBootstrapTolerance;
+                ok &= Math.Abs(ci.Lower - expected) < SigBootstrapTolerance;
+                ok &= Math.Abs(ci.Upper - expected) < SigBootstrapTolerance;
+                ok &= ci.Lower <= ci.PointEstimate + SigBootstrapTolerance
+                      && ci.PointEstimate <= ci.Upper + SigBootstrapTolerance;
+            }
+
+            return ok.Label("deterministic-collapse interval did not degenerate to the exact point estimate");
+        });
+    }
+
+    /// <summary>
+    /// Edge (TestSpec §1.3, N = 0): a zero-mutation catalog gives an all-zero resample every replicate, so
+    /// every signature's interval is degenerate at 0 — point, mean, lower and upper all 0.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void BootstrapExposures_ZeroCatalog_AllIntervalFieldsZero()
+    {
+        var sigs = new IReadOnlyList<double>[] { new double[] { 1, 0, 0 }, new double[] { 0, 1, 0 } };
+        var intervals = OncologyAnalyzer.BootstrapExposures(new[] { 0, 0, 0 }, sigs, replicates: 100, confidence: 0.95, seed: 42);
+
+        Assert.That(intervals, Has.Count.EqualTo(2));
+        Assert.Multiple(() =>
+        {
+            foreach (var ci in intervals)
+            {
+                Assert.That(ci.PointEstimate, Is.EqualTo(0.0).Within(SigBootstrapTolerance));
+                Assert.That(ci.Mean, Is.EqualTo(0.0).Within(SigBootstrapTolerance));
+                Assert.That(ci.Lower, Is.EqualTo(0.0).Within(SigBootstrapTolerance));
+                Assert.That(ci.Upper, Is.EqualTo(0.0).Within(SigBootstrapTolerance));
+            }
+        });
+    }
+
+    /// <summary>
+    /// Statistical anchor (checklist R + P; TestSpec C1): on a concrete non-degenerate catalog with the
+    /// default 1000 replicates, the percentile interval brackets the point estimate
+    /// (<c>Lower ≤ point ≤ Upper</c>) for every signature, and the bootstrap mean is close to the point
+    /// estimate. With standard-basis signatures the replicate exposure of channel j is the resampled count
+    /// ~ Binomial(N, catalogⱼ/N), whose mean N·pⱼ equals the observed count (Senkin 2021).
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void BootstrapExposures_NonDegenerateDefaultReplicates_BracketsPointEstimate()
+    {
+        var sigs = new IReadOnlyList<double>[] { new double[] { 1, 0 }, new double[] { 0, 1 } };
+        var catalog = new[] { 40, 10 }; // N = 50, signature 0 dominant
+        var intervals = OncologyAnalyzer.BootstrapExposures(catalog, sigs); // defaults: 1000 reps, 0.95, seed 42
+
+        Assert.That(intervals, Has.Count.EqualTo(2));
+        Assert.Multiple(() =>
+        {
+            foreach (var ci in intervals)
+            {
+                Assert.That(ci.Lower, Is.LessThanOrEqualTo(ci.PointEstimate + SigBootstrapTolerance),
+                    "Lower bound must not exceed the point estimate.");
+                Assert.That(ci.Upper, Is.GreaterThanOrEqualTo(ci.PointEstimate - SigBootstrapTolerance),
+                    "Upper bound must not fall below the point estimate.");
+            }
+
+            Assert.That(intervals[0].Mean, Is.EqualTo(40.0).Within(1.5),
+                "Bootstrap mean of the dominant signature ≈ its point estimate (N·p = 50·0.8).");
+            Assert.That(intervals[1].Mean, Is.EqualTo(10.0).Within(1.5),
+                "Bootstrap mean of the minor signature ≈ its point estimate (N·p = 50·0.2).");
+        });
+    }
+
+    /// <summary>
+    /// Validation: <c>replicates &lt; 1</c> or a confidence outside the open interval (0, 1) throws
+    /// <see cref="ArgumentOutOfRangeException"/>. (TestSpec failure modes)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void BootstrapExposures_InvalidReplicatesOrConfidence_Throw()
+    {
+        var sigs = new IReadOnlyList<double>[] { new double[] { 1, 0 }, new double[] { 0, 1 } };
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.BootstrapExposures(new[] { 1, 1 }, sigs, replicates: 0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.BootstrapExposures(new[] { 1, 1 }, sigs, confidence: 0.0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.BootstrapExposures(new[] { 1, 1 }, sigs, confidence: 1.0));
+        });
+    }
+
+    /// <summary>
+    /// Validation: a null catalog throws <see cref="ArgumentNullException"/>; a negative count or a catalog
+    /// whose length differs from the signature channel count throws <see cref="ArgumentException"/>.
+    /// (TestSpec failure modes)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void BootstrapExposures_NullNegativeOrMismatchedCatalog_Throw()
+    {
+        var sigs = new IReadOnlyList<double>[] { new double[] { 1, 0 }, new double[] { 0, 1 } };
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.BootstrapExposures(null!, sigs));
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.BootstrapExposures(new[] { -1, 2 }, sigs));
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.BootstrapExposures(new[] { 1, 2, 3 }, sigs));
+        });
+    }
+
+    #endregion
+
+    #region ONCO-SIG-004 — Mutational Process Classification (active processes + dominant aetiology)
+
+    // -------------------------------------------------------------------------
+    // Theory (Rosenthal 2016 deconstructSigs; COSMIC SBS aetiologies; Alexandrov 2020):
+    //   • Normalized contribution of signature i = exposureᵢ / Σ exposure.            (Rosenthal 2016)
+    //   • A signature is ACTIVE iff its normalized contribution ≥ cutoff (strict <    (deconstructSigs
+    //     excludes), default 0.06 = signature.cutoff.                                  weights<cutoff<-0)
+    //   • Surviving signatures are mapped to a COSMIC mutational process and the       (COSMIC SBS map;
+    //     per-process contribution is the SUM of its surviving members.                 INV-3, additive)
+    //   • Dominant process = active process with the largest aggregated contribution,   (INV-4)
+    //     ties broken by the MutationalProcess enum; none ⇒ Unknown.
+    //   • Σ exposure = 0 ⇒ no active processes, dominant = Unknown.                     (INV-5)
+    //
+    // The SBS→process map and the whole classification are reconstructed here from the
+    // cited COSMIC aetiologies and the deconstructSigs cutoff rule — NOT routed through
+    // GetMutationalProcess / ClassifyMutationalProcess — so a self-consistent-but-wrong
+    // production map or aggregation is still caught (TestSpec §3 INV-1..5).
+    // -------------------------------------------------------------------------
+
+    private const double SigProcessTolerance = 1e-9;
+
+    /// <summary>The deconstructSigs default presence cutoff (0.06), restated for the oracle.</summary>
+    private const double SigProcessDefaultCutoff = 0.06;
+
+    /// <summary>
+    /// Independent COSMIC SBS-label → mutational-process map, transcribed from the COSMIC proposed
+    /// aetiologies (Alexandrov 2020; ONCO-SIG-004 Evidence §Online Sources), NOT from production.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, OncologyAnalyzer.MutationalProcess> SigProcessOracleMap =
+        new Dictionary<string, OncologyAnalyzer.MutationalProcess>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["SBS1"] = OncologyAnalyzer.MutationalProcess.Aging,
+            ["SBS5"] = OncologyAnalyzer.MutationalProcess.Aging,
+            ["SBS2"] = OncologyAnalyzer.MutationalProcess.Apobec,
+            ["SBS13"] = OncologyAnalyzer.MutationalProcess.Apobec,
+            ["SBS4"] = OncologyAnalyzer.MutationalProcess.TobaccoSmoking,
+            ["SBS7a"] = OncologyAnalyzer.MutationalProcess.UltravioletLight,
+            ["SBS7b"] = OncologyAnalyzer.MutationalProcess.UltravioletLight,
+            ["SBS7c"] = OncologyAnalyzer.MutationalProcess.UltravioletLight,
+            ["SBS7d"] = OncologyAnalyzer.MutationalProcess.UltravioletLight,
+            ["SBS6"] = OncologyAnalyzer.MutationalProcess.MismatchRepairDeficiency,
+            ["SBS15"] = OncologyAnalyzer.MutationalProcess.MismatchRepairDeficiency,
+            ["SBS20"] = OncologyAnalyzer.MutationalProcess.MismatchRepairDeficiency,
+            ["SBS26"] = OncologyAnalyzer.MutationalProcess.MismatchRepairDeficiency,
+        };
+
+    /// <summary>
+    /// Label pool blending every mapped COSMIC aetiology subtype (so aggregation, ties and dominance are
+    /// exercised) with unmapped/unknown-aetiology labels (SBS3, SBS8, SBS99) that must contribute to no
+    /// process. Lower-case "sbs2" probes the documented case-insensitive lookup.
+    /// </summary>
+    private static readonly string[] SigLabelPool =
+    {
+        "SBS1", "SBS5", "SBS2", "SBS13", "SBS4",
+        "SBS7a", "SBS7b", "SBS7c", "SBS7d",
+        "SBS6", "SBS15", "SBS20", "SBS26",
+        "sbs2", "SBS3", "SBS8", "SBS99",
+    };
+
+    /// <summary>
+    /// An arbitrary classification problem: 1..8 (label, non-negative integer exposure) pairs drawn from
+    /// <see cref="SigLabelPool"/> and a cutoff in the valid half-open interval [0, 0.5). Integer exposures
+    /// keep the normalized contributions exactly representable, so the oracle and production agree bit-for-bit.
+    /// </summary>
+    private static Arbitrary<((string label, double exposure)[] exposures, double cutoff)> ClassificationProblemArbitrary() =>
+        (from count in Gen.Choose(1, 8)
+         from labels in Gen.Elements(SigLabelPool).ArrayOf(count)
+         from raws in Gen.Choose(0, 200).ArrayOf(count)
+         from cutoffMilli in Gen.Choose(0, 499)
+         select (labels.Zip(raws, (l, r) => (l, (double)r)).ToArray(), cutoffMilli / 1000.0)).ToArbitrary();
+
+    /// <summary>
+    /// Independent deconstructSigs/COSMIC oracle: normalize by Σ exposure, drop signatures below the cutoff
+    /// (strict &lt;), map survivors to processes, sum per process, order by descending contribution then
+    /// process enum. Accumulates in input order so the summed contributions match production bit-for-bit.
+    /// </summary>
+    private static (List<(OncologyAnalyzer.MutationalProcess process, double contribution)> active,
+        OncologyAnalyzer.MutationalProcess dominant) OracleClassify(
+        IReadOnlyList<(string label, double exposure)> exposures, double cutoff)
+    {
+        var empty = (new List<(OncologyAnalyzer.MutationalProcess, double)>(),
+            OncologyAnalyzer.MutationalProcess.Unknown);
+
+        double total = 0.0;
+        foreach ((string _, double exposure) in exposures)
+        {
+            total += exposure;
+        }
+
+        if (total <= 0.0)
+        {
+            return empty;
+        }
+
+        var byProcess = new Dictionary<OncologyAnalyzer.MutationalProcess, double>();
+        foreach ((string label, double exposure) in exposures)
+        {
+            double contribution = exposure / total;
+            if (contribution < cutoff)
+            {
+                continue;
+            }
+
+            if (!SigProcessOracleMap.TryGetValue(label, out OncologyAnalyzer.MutationalProcess process))
+            {
+                continue; // unmapped aetiology contributes to no named process
+            }
+
+            byProcess.TryGetValue(process, out double accumulated);
+            byProcess[process] = accumulated + contribution;
+        }
+
+        if (byProcess.Count == 0)
+        {
+            return empty;
+        }
+
+        var active = byProcess
+            .Select(kv => (kv.Key, kv.Value))
+            .OrderByDescending(p => p.Value)
+            .ThenBy(p => p.Key)
+            .ToList();
+
+        return (active, active[0].Key);
+    }
+
+    /// <summary>
+    /// INV-2 + INV-3 + INV-4: the production classification reproduces the independent deconstructSigs/COSMIC
+    /// oracle exactly — same active processes in the same descending-contribution order, each aggregated
+    /// contribution within 1e-9, and the same dominant process. (TestSpec §3 INV-2/3/4)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyMutationalProcess_MatchesIndependentDeconstructSigsOracle()
+    {
+        return Prop.ForAll(ClassificationProblemArbitrary(), t =>
+        {
+            var result = OncologyAnalyzer.ClassifyMutationalProcess(t.exposures, t.cutoff);
+            (var oracleActive, OncologyAnalyzer.MutationalProcess oracleDominant) = OracleClassify(t.exposures, t.cutoff);
+
+            bool ok = result.ActiveProcesses.Count == oracleActive.Count
+                      && result.DominantProcess == oracleDominant;
+            for (int i = 0; ok && i < oracleActive.Count; i++)
+            {
+                ok &= result.ActiveProcesses[i].Process == oracleActive[i].process;
+                ok &= Math.Abs(result.ActiveProcesses[i].Contribution - oracleActive[i].contribution) < SigProcessTolerance;
+            }
+
+            return ok.Label(
+                $"got dominant={result.DominantProcess} active=[{string.Join(",", result.ActiveProcesses.Select(a => $"{a.Process}:{a.Contribution:F4}"))}] " +
+                $"vs oracle dominant={oracleDominant} active=[{string.Join(",", oracleActive.Select(a => $"{a.process}:{a.contribution:F4}"))}]");
+        });
+    }
+
+    /// <summary>
+    /// R (checklist confidence ∈ [0,1]) + INV-1: every active-process aggregated contribution lies in [0,1]
+    /// and the surviving contributions sum to at most 1 (sub-cutoff mass is dropped, never invented).
+    /// (TestSpec §3 INV-1; Rosenthal 2016 "weights normalized between 0 and 1")
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyMutationalProcess_Contributions_AreInUnitRange_AndSumAtMostOne()
+    {
+        return Prop.ForAll(ClassificationProblemArbitrary(), t =>
+        {
+            var result = OncologyAnalyzer.ClassifyMutationalProcess(t.exposures, t.cutoff);
+            bool inRange = result.ActiveProcesses.All(
+                a => a.Contribution >= -SigProcessTolerance && a.Contribution <= 1.0 + SigProcessTolerance);
+            double sum = result.ActiveProcesses.Sum(a => a.Contribution);
+            bool sumOk = sum <= 1.0 + SigProcessTolerance;
+            return (inRange && sumOk).Label($"Σ contributions = {sum}; inRange = {inRange}");
+        });
+    }
+
+    /// <summary>
+    /// P (checklist "dominant = argmax") + INV-4: when any process is active the active list is ordered by
+    /// non-increasing contribution and the dominant process is its head (the contribution maximum); when no
+    /// process is active the dominant process is <see cref="OncologyAnalyzer.MutationalProcess.Unknown"/>.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyMutationalProcess_DominantProcess_IsArgmaxOfActiveContributions()
+    {
+        return Prop.ForAll(ClassificationProblemArbitrary(), t =>
+        {
+            var result = OncologyAnalyzer.ClassifyMutationalProcess(t.exposures, t.cutoff);
+            var active = result.ActiveProcesses;
+
+            if (active.Count == 0)
+            {
+                return (result.DominantProcess == OncologyAnalyzer.MutationalProcess.Unknown)
+                    .Label($"no active process ⇒ dominant must be Unknown, got {result.DominantProcess}");
+            }
+
+            double max = active.Max(a => a.Contribution);
+            bool dominantIsHead = result.DominantProcess == active[0].Process;
+            bool headIsMax = Math.Abs(active[0].Contribution - max) < SigProcessTolerance;
+            bool sortedDescending = true;
+            for (int i = 1; i < active.Count; i++)
+            {
+                sortedDescending &= active[i].Contribution <= active[i - 1].Contribution + SigProcessTolerance;
+            }
+
+            return (dominantIsHead && headIsMax && sortedDescending)
+                .Label($"dominant={result.DominantProcess} head={active[0].Process}:{active[0].Contribution} max={max} sorted={sortedDescending}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (lower bound): every active process's aggregated contribution is at least the cutoff. Each
+    /// surviving signature has contribution ≥ cutoff and a process is a sum of ≥ 1 such survivors, so a
+    /// process that clears the cutoff can never report sub-cutoff activity. (deconstructSigs 6% rule)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyMutationalProcess_EveryActiveProcess_MeetsTheCutoff()
+    {
+        return Prop.ForAll(ClassificationProblemArbitrary(), t =>
+        {
+            var result = OncologyAnalyzer.ClassifyMutationalProcess(t.exposures, t.cutoff);
+            return result.ActiveProcesses.All(a => a.Contribution >= t.cutoff - SigProcessTolerance)
+                .Label($"cutoff={t.cutoff}; contributions=[{string.Join(",", result.ActiveProcesses.Select(a => a.Contribution))}]");
+        });
+    }
+
+    /// <summary>
+    /// M (metamorphic) / normalization: scaling every exposure by a positive constant leaves the
+    /// classification unchanged — absolute mutation counts and proportions give the same active set,
+    /// order and dominant process, because contributions depend only on exposureᵢ / Σ exposure.
+    /// (Rosenthal 2016: weights are normalized relative contributions)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyMutationalProcess_IsInvariantUnderPositiveScaling()
+    {
+        var arb = (from t in ClassificationProblemArbitrary().Generator
+                   from k in Gen.Choose(2, 1000)
+                   select (t.exposures, t.cutoff, k: (double)k)).ToArbitrary();
+
+        return Prop.ForAll(arb, x =>
+        {
+            var baseResult = OncologyAnalyzer.ClassifyMutationalProcess(x.exposures, x.cutoff);
+            var scaled = x.exposures.Select(e => (e.label, e.exposure * x.k)).ToArray();
+            var scaledResult = OncologyAnalyzer.ClassifyMutationalProcess(scaled, x.cutoff);
+
+            bool ok = baseResult.DominantProcess == scaledResult.DominantProcess
+                      && baseResult.ActiveProcesses.Count == scaledResult.ActiveProcesses.Count;
+            for (int i = 0; ok && i < baseResult.ActiveProcesses.Count; i++)
+            {
+                ok &= baseResult.ActiveProcesses[i].Process == scaledResult.ActiveProcesses[i].Process;
+                ok &= Math.Abs(baseResult.ActiveProcesses[i].Contribution - scaledResult.ActiveProcesses[i].Contribution)
+                    < SigProcessTolerance;
+            }
+
+            return ok.Label($"scaling by {x.k} changed the classification (dominant {baseResult.DominantProcess} → {scaledResult.DominantProcess})");
+        });
+    }
+
+    /// <summary>
+    /// INV-5: when the total exposure is zero (every exposure 0) normalization is undefined, so no process
+    /// is active and the dominant process is <see cref="OncologyAnalyzer.MutationalProcess.Unknown"/>,
+    /// regardless of which COSMIC labels are present. (TestSpec §3 INV-5)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyMutationalProcess_ZeroTotalExposure_YieldsNoActiveProcesses()
+    {
+        var arb = (from count in Gen.Choose(1, 8)
+                   from labels in Gen.Elements(SigLabelPool).ArrayOf(count)
+                   select labels).ToArbitrary();
+
+        return Prop.ForAll(arb, labels =>
+        {
+            var exposures = labels.Select(l => (l, 0.0)).ToArray();
+            var result = OncologyAnalyzer.ClassifyMutationalProcess(exposures);
+            return (result.ActiveProcesses.Count == 0
+                    && result.DominantProcess == OncologyAnalyzer.MutationalProcess.Unknown)
+                .Label($"all-zero exposures must give empty/Unknown, got dominant={result.DominantProcess} count={result.ActiveProcesses.Count}");
+        });
+    }
+
+    /// <summary>
+    /// D (determinism): the same exposures and cutoff always yield the identical classification — same
+    /// active processes in the same order with identical contributions and the same dominant process.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyMutationalProcess_IsDeterministic()
+    {
+        return Prop.ForAll(ClassificationProblemArbitrary(), t =>
+        {
+            var a = OncologyAnalyzer.ClassifyMutationalProcess(t.exposures, t.cutoff);
+            var b = OncologyAnalyzer.ClassifyMutationalProcess(t.exposures, t.cutoff);
+
+            bool ok = a.DominantProcess == b.DominantProcess
+                      && a.ActiveProcesses.Count == b.ActiveProcesses.Count;
+            for (int i = 0; ok && i < a.ActiveProcesses.Count; i++)
+            {
+                ok &= a.ActiveProcesses[i].Process == b.ActiveProcesses[i].Process;
+                ok &= a.ActiveProcesses[i].Contribution == b.ActiveProcesses[i].Contribution;
+            }
+
+            return ok.Label("ClassifyMutationalProcess is not deterministic for identical arguments");
+        });
+    }
+
+    /// <summary>
+    /// Anchor (INV-3 aggregation + INV-4 dominance, exact arithmetic): the hand-derived deconstructSigs
+    /// dataset {SBS2:50, SBS13:30, SBS1:15, SBS4:5} (Σ = 100) ⇒ APOBEC = 0.80, Aging = 0.15, Tobacco dropped
+    /// (0.05 &lt; 0.06), dominant = APOBEC. (Evidence §Test Datasets)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void ClassifyMutationalProcess_CanonicalDataset_AggregatesAndPicksDominant()
+    {
+        var exposures = new (string, double)[] { ("SBS2", 50), ("SBS13", 30), ("SBS1", 15), ("SBS4", 5) };
+        var result = OncologyAnalyzer.ClassifyMutationalProcess(exposures);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.DominantProcess, Is.EqualTo(OncologyAnalyzer.MutationalProcess.Apobec),
+                "APOBEC (0.80) > Aging (0.15) ⇒ dominant = APOBEC.");
+            Assert.That(result.ActiveProcesses.Select(a => a.Process),
+                Is.EquivalentTo(new[] { OncologyAnalyzer.MutationalProcess.Apobec, OncologyAnalyzer.MutationalProcess.Aging }),
+                "Active processes are APOBEC and Aging; Tobacco (SBS4 = 0.05) is below the 0.06 cutoff.");
+            Assert.That(result.ActiveProcesses.Single(a => a.Process == OncologyAnalyzer.MutationalProcess.Apobec).Contribution,
+                Is.EqualTo(0.80).Within(SigProcessTolerance), "APOBEC = (50+30)/100.");
+            Assert.That(result.ActiveProcesses.Single(a => a.Process == OncologyAnalyzer.MutationalProcess.Aging).Contribution,
+                Is.EqualTo(0.15).Within(SigProcessTolerance), "Aging = 15/100.");
+        });
+    }
+
+    /// <summary>
+    /// Anchor (unmapped aetiologies): a sample composed only of labels outside the COSMIC map has no
+    /// recognized active process even with large exposures, and reports a dominant process of Unknown.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void ClassifyMutationalProcess_OnlyUnmappedLabels_YieldNoProcess()
+    {
+        var exposures = new (string, double)[] { ("SBS3", 500), ("SBS8", 300), ("SBS99", 200) };
+        var result = OncologyAnalyzer.ClassifyMutationalProcess(exposures);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.ActiveProcesses, Is.Empty, "Unmapped labels contribute to no recognized process.");
+            Assert.That(result.DominantProcess, Is.EqualTo(OncologyAnalyzer.MutationalProcess.Unknown),
+                "No process active ⇒ dominant = Unknown.");
+        });
+    }
+
+    #endregion
+
+    #region ONCO-FUSION-001 — Fusion Gene Detection (min-support calling + reading frame)
+
+    // -------------------------------------------------------------------------
+    // Theory (STAR-Fusion Haas 2017/2019; Arriba Uhrig 2021; exon-phase rule):
+    //   • TotalSupport = split_reads1 + split_reads2 + discordant_mates.            (Arriba; INV-2)
+    //   • JunctionReads = split_reads1 + split_reads2.                              (Arriba)
+    //   • A candidate is CALLED iff gene5p ≠ gene3p (distinct genes; INV-1) AND     (STAR-Fusion;
+    //       - junctionReads ≥ minJunctionReads AND total ≥ minSumFrags, OR           INV-3)
+    //       - junctionReads == 0 AND discordant ≥ minSpanningFragsOnly.
+    //   • Calls are ordered by descending TotalSupport (abundance of support).      (INV-4)
+    //   • In-frame ⇔ (fivePrimeCodingBases − threePrimeStartPhase) mod 3 == 0.      (INV-5)
+    //
+    // The detection predicate, support sums and frame rule are reconstructed here
+    // from the cited STAR-Fusion / Arriba defaults and the modulo-3 exon-phase rule
+    // — NOT routed through DetectFusions / ComputeTotalSupport / IsInFrame — so a
+    // self-consistent-but-wrong production threshold or sum is still caught.
+    // -------------------------------------------------------------------------
+
+    /// <summary>Gene-symbol pool for fusion candidates; small so same-gene (INV-1) pairs recur.</summary>
+    private static readonly string[] FusionGenePool =
+    {
+        "EML4", "ALK", "ROS1", "CD74", "RET", "KIF5B", "TMPRSS2", "ERG", "BRAF", "NTRK1",
+    };
+
+    /// <summary>An arbitrary fusion candidate: pooled gene symbols, non-negative read counts, optional frame info.</summary>
+    private static Gen<OncologyAnalyzer.FusionCandidate> FusionCandidateGen() =>
+        from g5 in Gen.Elements(FusionGenePool)
+        from g3 in Gen.Elements(FusionGenePool)
+        from split5 in Gen.Choose(0, 20)
+        from split3 in Gen.Choose(0, 20)
+        from disc in Gen.Choose(0, 20)
+        from coding in Gen.Choose(-1, 400)
+        from phase in Gen.Choose(-1, 2)
+        select new OncologyAnalyzer.FusionCandidate(g5, g3, split5, split3, disc, coding, phase);
+
+    /// <summary>A list of 0..8 arbitrary fusion candidates.</summary>
+    private static Arbitrary<OncologyAnalyzer.FusionCandidate[]> FusionCandidateListArbitrary() =>
+        (from n in Gen.Choose(0, 8)
+         from list in FusionCandidateGen().ArrayOf(n)
+         select list).ToArbitrary();
+
+    /// <summary>An arbitrary candidate list paired with valid custom STAR-Fusion thresholds.</summary>
+    private static Arbitrary<(OncologyAnalyzer.FusionCandidate[] candidates, OncologyAnalyzer.FusionDetectionThresholds thresholds)>
+        FusionProblemArbitrary() =>
+        (from candidates in FusionCandidateListArbitrary().Generator
+         from minJunc in Gen.Choose(0, 3)
+         from minSum in Gen.Choose(1, 6)
+         from minSpan in Gen.Choose(1, 8)
+         select (candidates, new OncologyAnalyzer.FusionDetectionThresholds(minJunc, minSum, minSpan))).ToArbitrary();
+
+    /// <summary>Independent STAR-Fusion detection predicate (distinct genes + min-support rule).</summary>
+    private static bool OracleIsCalled(OncologyAnalyzer.FusionCandidate c, OncologyAnalyzer.FusionDetectionThresholds t)
+    {
+        if (string.Equals(c.Gene5Prime, c.Gene3Prime, StringComparison.OrdinalIgnoreCase))
+        {
+            return false; // INV-1: a gene is not fused with itself
+        }
+
+        int junction = c.SplitReads5Prime + c.SplitReads3Prime;
+        int total = c.SplitReads5Prime + c.SplitReads3Prime + c.DiscordantMates;
+        return junction >= t.MinJunctionReads
+            ? total >= t.MinSumFrags
+            : c.DiscordantMates >= t.MinSpanningFragsOnly;
+    }
+
+    /// <summary>
+    /// INV-3: the set of detected fusions equals exactly the candidates the independent STAR-Fusion
+    /// min-support predicate accepts (distinct genes AND the junction/spanning rule), as an unordered
+    /// multiset of (gene5p, gene3p, junctionReads, discordant, totalSupport). (TestSpec §3 INV-3)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectFusions_DetectedSet_EqualsIndependentMinSupportOracle()
+    {
+        return Prop.ForAll(FusionProblemArbitrary(), p =>
+        {
+            var calls = OncologyAnalyzer.DetectFusions(p.candidates, p.thresholds);
+
+            var expected = p.candidates
+                .Where(c => OracleIsCalled(c, p.thresholds))
+                .Select(c => (c.Gene5Prime, c.Gene3Prime,
+                    junc: c.SplitReads5Prime + c.SplitReads3Prime,
+                    c.DiscordantMates,
+                    total: c.SplitReads5Prime + c.SplitReads3Prime + c.DiscordantMates))
+                .ToList();
+
+            var actual = calls
+                .Select(c => (c.Gene5Prime, c.Gene3Prime, junc: c.JunctionReads, c.DiscordantMates, total: c.TotalSupport))
+                .ToList();
+
+            bool ok = actual.Count == expected.Count
+                && expected.All(e => actual.Count(a => a.Equals(e)) == expected.Count(x => x.Equals(e)));
+            return ok.Label($"detected {actual.Count} vs oracle {expected.Count}");
+        });
+    }
+
+    /// <summary>
+    /// INV-1 (P, checklist "joins two distinct genes"): every reported fusion has gene5p ≠ gene3p
+    /// (case-insensitive); a gene is never fused with itself. (Registry invariant)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectFusions_EveryCall_JoinsTwoDistinctGenes()
+    {
+        return Prop.ForAll(FusionProblemArbitrary(), p =>
+        {
+            var calls = OncologyAnalyzer.DetectFusions(p.candidates, p.thresholds);
+            return calls.All(c => !string.Equals(c.Gene5Prime, c.Gene3Prime, StringComparison.OrdinalIgnoreCase))
+                .Label($"a call fused a gene with itself: [{string.Join(",", calls.Select(c => $"{c.Gene5Prime}-{c.Gene3Prime}"))}]");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (R, checklist "breakpoint support valid"): for every reported fusion the support fields are
+    /// internally consistent with the documented Arriba sum, <c>TotalSupport = JunctionReads + DiscordantMates</c>
+    /// (= split1+split2+discordant). The per-candidate equality of these counts to the originating
+    /// candidate is covered by the oracle-match property. (Arriba output spec)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectFusions_SupportFields_AreTheArribaSums()
+    {
+        return Prop.ForAll(FusionProblemArbitrary(), p =>
+        {
+            var calls = OncologyAnalyzer.DetectFusions(p.candidates, p.thresholds);
+            return calls.All(c => c.TotalSupport == c.JunctionReads + c.DiscordantMates && c.TotalSupport >= 0)
+                .Label("a call's TotalSupport ≠ JunctionReads + DiscordantMates (Arriba sum)");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (M, checklist "more reads → higher confidence"): the calls are returned ordered by
+    /// non-increasing TotalSupport, so the most strongly supported fusion ranks first. (STAR-Fusion scoring)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectFusions_Results_AreOrderedByDescendingTotalSupport()
+    {
+        return Prop.ForAll(FusionProblemArbitrary(), p =>
+        {
+            var calls = OncologyAnalyzer.DetectFusions(p.candidates, p.thresholds);
+            bool ordered = true;
+            for (int i = 1; i < calls.Count; i++)
+            {
+                ordered &= calls[i].TotalSupport <= calls[i - 1].TotalSupport;
+            }
+
+            return ordered.Label($"not descending by support: [{string.Join(",", calls.Select(c => c.TotalSupport))}]");
+        });
+    }
+
+    /// <summary>
+    /// M (metamorphic, "more split/spanning reads → higher confidence"): adding supporting reads to a
+    /// candidate that already passes can never un-detect it, and strictly increases its TotalSupport.
+    /// Detection is monotone non-decreasing in supporting evidence. (STAR-Fusion abundance scoring)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectFusions_AddingReadsToAPassingCandidate_KeepsItDetected_AndRaisesSupport()
+    {
+        var arb = (from c in FusionCandidateGen()
+                   from addSplit5 in Gen.Choose(0, 10)
+                   from addSplit3 in Gen.Choose(0, 10)
+                   from addDisc in Gen.Choose(0, 10)
+                   where !string.Equals(c.Gene5Prime, c.Gene3Prime, StringComparison.OrdinalIgnoreCase)
+                   select (c, addSplit5, addSplit3, addDisc)).ToArbitrary();
+
+        return Prop.ForAll(arb, x =>
+        {
+            var thresholds = new OncologyAnalyzer.FusionDetectionThresholds();
+            var before = OncologyAnalyzer.DetectFusions(new[] { x.c }, thresholds);
+
+            // Only the monotonicity implication is asserted: it is conditional on the base candidate passing.
+            if (before.Count == 0)
+            {
+                return true.ToProperty();
+            }
+
+            var boosted = x.c with
+            {
+                SplitReads5Prime = x.c.SplitReads5Prime + x.addSplit5,
+                SplitReads3Prime = x.c.SplitReads3Prime + x.addSplit3,
+                DiscordantMates = x.c.DiscordantMates + x.addDisc,
+            };
+            var after = OncologyAnalyzer.DetectFusions(new[] { boosted }, thresholds);
+
+            int addedTotal = x.addSplit5 + x.addSplit3 + x.addDisc;
+            bool stillDetected = after.Count == 1;
+            bool supportRose = stillDetected && after[0].TotalSupport == before[0].TotalSupport + addedTotal;
+            return (stillDetected && supportRose)
+                .Label($"detected before with support {before[0].TotalSupport}; after detected={after.Count} added={addedTotal}");
+        });
+    }
+
+    /// <summary>
+    /// INV-5: <c>IsInFrame(b,p)</c> equals the independent codon-phase oracle <c>(b − p) mod 3 == 0</c>
+    /// for every non-negative b and phase p ∈ {0,1,2}. (exon-phase rule + reading-frame modulo 3)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IsInFrame_MatchesCodonPhaseModuloThreeOracle()
+    {
+        var arb = (from b in Gen.Choose(0, 1000)
+                   from p in Gen.Choose(0, 2)
+                   select (b, p)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            bool actual = OncologyAnalyzer.IsInFrame(t.b, t.p);
+            bool oracle = (t.b - t.p) % 3 == 0;
+            return (actual == oracle).Label($"IsInFrame({t.b},{t.p})={actual} ≠ ({t.b}-{t.p}) mod 3 == 0 = {oracle}");
+        });
+    }
+
+    /// <summary>
+    /// INV-5 (reading-frame resolution): a detected fusion's <c>ReadingFrame</c> is InFrame/OutOfFrame
+    /// exactly per the codon-phase oracle when phase info is supplied (coding ≥ 0, phase ∈ {0,1,2}), and
+    /// Unknown otherwise. Driven per single candidate to map each call to its unambiguous source.
+    /// (TestSpec §3 INV-5 + FusionReadingFrame contract)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectFusions_ReadingFrame_FollowsCodonPhaseOracle()
+    {
+        return Prop.ForAll(FusionCandidateGen().ToArbitrary(), c =>
+        {
+            var calls = OncologyAnalyzer.DetectFusions(new[] { c });
+            if (calls.Count == 0)
+            {
+                return true.ToProperty(); // frame is only reported for a passing fusion
+            }
+
+            OncologyAnalyzer.FusionReadingFrame expected =
+                c.FivePrimeCodingBases < 0 || c.ThreePrimeStartPhase < 0 || c.ThreePrimeStartPhase >= 3
+                    ? OncologyAnalyzer.FusionReadingFrame.Unknown
+                    : (c.FivePrimeCodingBases - c.ThreePrimeStartPhase) % 3 == 0
+                        ? OncologyAnalyzer.FusionReadingFrame.InFrame
+                        : OncologyAnalyzer.FusionReadingFrame.OutOfFrame;
+
+            return (calls[0].ReadingFrame == expected)
+                .Label($"ReadingFrame {calls[0].ReadingFrame} ≠ oracle {expected} (coding={c.FivePrimeCodingBases}, phase={c.ThreePrimeStartPhase})");
+        });
+    }
+
+    /// <summary>
+    /// D (determinism): the same candidates and thresholds always yield the identical ordered call list.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectFusions_IsDeterministic()
+    {
+        return Prop.ForAll(FusionProblemArbitrary(), p =>
+        {
+            var a = OncologyAnalyzer.DetectFusions(p.candidates, p.thresholds);
+            var b = OncologyAnalyzer.DetectFusions(p.candidates, p.thresholds);
+            return a.SequenceEqual(b).Label("DetectFusions is not deterministic for identical arguments");
+        });
+    }
+
+    /// <summary>
+    /// Anchor (INV-3 spanning-only boundary): a junction-free candidate is called iff its discordant
+    /// fragments reach MIN_SPANNING_FRAGS_ONLY (=5): exactly 5 passes, 4 is rejected. (STAR-Fusion default)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void DetectFusions_SpanningOnlyBoundary_FiveDetected_FourRejected()
+    {
+        var passing = OncologyAnalyzer.DetectFusions(new[] { new OncologyAnalyzer.FusionCandidate("CD74", "ROS1", 0, 0, 5) });
+        var failing = OncologyAnalyzer.DetectFusions(new[] { new OncologyAnalyzer.FusionCandidate("NCOA4", "RET", 0, 0, 4) });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(passing, Has.Count.EqualTo(1), "0 junction reads, 5 discordant ≥ MIN_SPANNING_FRAGS_ONLY (5) ⇒ detected.");
+            Assert.That(passing[0].TotalSupport, Is.EqualTo(5), "Total support = discordant = 5.");
+            Assert.That(failing, Is.Empty, "0 junction reads, 4 discordant < 5 ⇒ rejected.");
+        });
+    }
+
+    #endregion
+
+    #region ONCO-FUSION-002 — Known Fusion Database Lookup (HGNC designation + directional match)
+
+    // -------------------------------------------------------------------------
+    // Theory (Bruford et al. 2021, HGNC gene-fusion nomenclature):
+    //   • Designation = gene5p + "::" + gene3p — 5' partner always first, double colon.   (INV-1)
+    //   • Directional: A::B ≠ B::A for A ≠ B (reciprocal fusions are distinct).             (INV-2)
+    //   • A known-fusion match requires the DIRECTIONAL key 5'::3'; the reciprocal           (INV-3)
+    //     3'::5' key does NOT match.
+    //   • Symbol comparison is case-insensitive but order-preserving.                        (INV-4)
+    //
+    // The designation string and the directional, case-insensitive membership test are
+    // reconstructed here from the HGNC rule — NOT routed through GetFusionAnnotation /
+    // MatchKnownFusions — so a self-consistent-but-wrong separator or unordered keying
+    // is still caught. The "matched ⊆ known DB" checklist property is asserted as: a true
+    // match's annotation is the value of a genuine case-insensitive key of the supplied map.
+    // -------------------------------------------------------------------------
+
+    private const string FusionSeparatorOracle = "::";
+
+    /// <summary>HGNC-style gene-symbol pool for designation/lookup properties.</summary>
+    private static readonly string[] HgncFusionGenePool =
+    {
+        "BCR", "ABL1", "EML4", "ALK", "TMPRSS2", "ERG", "ROS1", "CD74", "RET", "NTRK1",
+    };
+
+    /// <summary>A fusion call carrying only the gene pair (support fields are irrelevant to the lookup).</summary>
+    private static OncologyAnalyzer.FusionCall GenePairCall(string g5, string g3) =>
+        new(g5, g3, 0, 0, 0, OncologyAnalyzer.FusionReadingFrame.Unknown);
+
+    /// <summary>An ordered pair of DISTINCT pooled gene symbols (for directionality properties).</summary>
+    private static Arbitrary<(string g5, string g3)> DistinctGenePairArbitrary() =>
+        (from g5 in Gen.Elements(HgncFusionGenePool)
+         from g3 in Gen.Elements(HgncFusionGenePool)
+         where !string.Equals(g5, g3, StringComparison.OrdinalIgnoreCase)
+         select (g5, g3)).ToArbitrary();
+
+    /// <summary>
+    /// A lookup problem: a known-fusion map (ordinal comparer, distinct directional designations) plus a
+    /// query gene pair that hits a stored fusion roughly half the time. The ordinal comparer forces the
+    /// production fallback case-insensitive scan to be exercised.
+    /// </summary>
+    private static Arbitrary<(Dictionary<string, string> known, string q5, string q3)> FusionLookupProblemArbitrary() =>
+        (from pairCount in Gen.Choose(0, 6)
+         from g5s in Gen.Elements(HgncFusionGenePool).ArrayOf(pairCount)
+         from g3s in Gen.Elements(HgncFusionGenePool).ArrayOf(pairCount)
+         from q5 in Gen.Elements(HgncFusionGenePool)
+         from q3 in Gen.Elements(HgncFusionGenePool)
+         select BuildLookupProblem(g5s, g3s, q5, q3)).ToArbitrary();
+
+    private static (Dictionary<string, string> known, string q5, string q3) BuildLookupProblem(
+        string[] g5s, string[] g3s, string q5, string q3)
+    {
+        var known = new Dictionary<string, string>(StringComparer.Ordinal);
+        for (int i = 0; i < g5s.Length; i++)
+        {
+            if (string.Equals(g5s[i], g3s[i], StringComparison.OrdinalIgnoreCase))
+            {
+                continue; // a gene is not fused with itself
+            }
+
+            string designation = g5s[i] + FusionSeparatorOracle + g3s[i];
+            known[designation] = "ann-" + designation; // distinct directional keys, no case collisions
+        }
+
+        return (known, q5, q3);
+    }
+
+    /// <summary>
+    /// INV-1: <c>GetFusionAnnotation(g5,g3)</c> is exactly <c>g5 + "::" + g3</c> (5' first, double colon) and
+    /// splits back into the two original symbols (pool symbols contain no "::"). (Bruford 2021)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GetFusionAnnotation_IsFivePrimeDoubleColonThreePrime()
+    {
+        var arb = (from g5 in Gen.Elements(HgncFusionGenePool)
+                   from g3 in Gen.Elements(HgncFusionGenePool)
+                   select (g5, g3)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            string actual = OncologyAnalyzer.GetFusionAnnotation(t.g5, t.g3);
+            string oracle = t.g5 + FusionSeparatorOracle + t.g3;
+            string[] parts = actual.Split(FusionSeparatorOracle);
+            bool ok = actual == oracle && parts.Length == 2 && parts[0] == t.g5 && parts[1] == t.g3;
+            return ok.Label($"GetFusionAnnotation({t.g5},{t.g3}) = '{actual}' ≠ '{oracle}'");
+        });
+    }
+
+    /// <summary>
+    /// INV-2: the designation is directional — for two distinct genes the reciprocal designation differs,
+    /// so <c>Annotation(A,B) ≠ Annotation(B,A)</c>. Reciprocal fusions are never conflated. (Bruford 2021)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GetFusionAnnotation_IsDirectional_ReciprocalDiffers()
+    {
+        return Prop.ForAll(DistinctGenePairArbitrary(), t =>
+        {
+            string ab = OncologyAnalyzer.GetFusionAnnotation(t.g5, t.g3);
+            string ba = OncologyAnalyzer.GetFusionAnnotation(t.g3, t.g5);
+            return (ab != ba).Label($"reciprocal designations collided: '{ab}' == '{ba}'");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 + R + "matched ⊆ known DB": a fusion matches iff its DIRECTIONAL designation is a
+    /// case-insensitive key of the supplied map. The reported designation always equals
+    /// <c>GetFusionAnnotation</c>; a true match returns the annotation of a genuine matching key and false
+    /// returns null. (Bruford 2021 directional keying; TestSpec §3 INV-3)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property MatchKnownFusions_MatchesIffDirectionalDesignationIsAKnownKey()
+    {
+        return Prop.ForAll(FusionLookupProblemArbitrary(), p =>
+        {
+            var result = OncologyAnalyzer.MatchKnownFusions(GenePairCall(p.q5, p.q3), p.known);
+
+            string designation = p.q5 + FusionSeparatorOracle + p.q3;
+            bool oracleKnown = p.known.Keys.Any(k => string.Equals(k, designation, StringComparison.OrdinalIgnoreCase));
+
+            bool designationOk = result.Designation == designation;
+            bool knownOk = result.IsKnown == oracleKnown;
+            bool annotationOk = oracleKnown
+                ? result.Annotation != null && p.known.Any(kv =>
+                    string.Equals(kv.Key, designation, StringComparison.OrdinalIgnoreCase) && kv.Value == result.Annotation)
+                : result.Annotation == null;
+
+            return (designationOk && knownOk && annotationOk)
+                .Label($"query {designation}: IsKnown={result.IsKnown} (oracle {oracleKnown}), annotation={result.Annotation ?? "<null>"}");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (reciprocal absent): when the known set contains ONLY the reciprocal key <c>3'::5'</c> for a
+    /// distinct gene pair, the forward query <c>5'::3'</c> does not match — directional keying is not
+    /// collapsed to an unordered pair. (Bruford 2021, 5'-first rule)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property MatchKnownFusions_ReciprocalOnlyKey_DoesNotMatch()
+    {
+        return Prop.ForAll(DistinctGenePairArbitrary(), t =>
+        {
+            // Known set holds only the reciprocal designation 3'::5'.
+            var known = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [t.g3 + FusionSeparatorOracle + t.g5] = "reciprocal",
+            };
+
+            var result = OncologyAnalyzer.MatchKnownFusions(GenePairCall(t.g5, t.g3), known);
+            return (!result.IsKnown && result.Annotation == null)
+                .Label($"forward {t.g5}::{t.g3} wrongly matched a reciprocal-only key {t.g3}::{t.g5}");
+        });
+    }
+
+    /// <summary>
+    /// INV-4: matching is case-insensitive but order-preserving — a forward query in any letter case still
+    /// matches a stored forward key, and the reported designation preserves the caller's input case.
+    /// (Evidence Assumption 2; verbatim-concatenation designation)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property MatchKnownFusions_IsCaseInsensitive_AndPreservesQueryCase()
+    {
+        return Prop.ForAll(DistinctGenePairArbitrary(), t =>
+        {
+            var known = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [t.g5.ToUpperInvariant() + FusionSeparatorOracle + t.g3.ToUpperInvariant()] = "known",
+            };
+
+            string q5 = t.g5.ToLowerInvariant();
+            string q3 = t.g3.ToLowerInvariant();
+            var result = OncologyAnalyzer.MatchKnownFusions(GenePairCall(q5, q3), known);
+
+            bool matched = result.IsKnown && result.Annotation == "known";
+            bool casePreserved = result.Designation == q5 + FusionSeparatorOracle + q3;
+            return (matched && casePreserved)
+                .Label($"case-insensitive match failed or designation lost case: IsKnown={result.IsKnown}, designation={result.Designation}");
+        });
+    }
+
+    /// <summary>
+    /// D (determinism): the same fusion and known-set yield the identical match result every time.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property MatchKnownFusions_IsDeterministic()
+    {
+        return Prop.ForAll(FusionLookupProblemArbitrary(), p =>
+        {
+            var a = OncologyAnalyzer.MatchKnownFusions(GenePairCall(p.q5, p.q3), p.known);
+            var b = OncologyAnalyzer.MatchKnownFusions(GenePairCall(p.q5, p.q3), p.known);
+            return a.Equals(b).Label("MatchKnownFusions is not deterministic for identical arguments");
+        });
+    }
+
+    /// <summary>
+    /// Anchor (INV-1/INV-3, canonical): the HGNC example BCR::ABL1 matches a forward key and its reciprocal
+    /// ABL1::BCR does not, while the designation is the verbatim 5'::3' string. (Bruford 2021)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void MatchKnownFusions_BcrAbl1_ForwardMatches_ReciprocalDoesNot()
+    {
+        var known = new Dictionary<string, string>(StringComparer.Ordinal) { ["BCR::ABL1"] = "Philadelphia chromosome" };
+
+        var forward = OncologyAnalyzer.MatchKnownFusions(GenePairCall("BCR", "ABL1"), known);
+        var reciprocal = OncologyAnalyzer.MatchKnownFusions(GenePairCall("ABL1", "BCR"), known);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(forward.Designation, Is.EqualTo("BCR::ABL1"), "5' partner first, double colon.");
+            Assert.That(forward.IsKnown, Is.True, "Forward designation is a known key.");
+            Assert.That(forward.Annotation, Is.EqualTo("Philadelphia chromosome"), "Returns the stored annotation.");
+            Assert.That(reciprocal.IsKnown, Is.False, "Reciprocal ABL1::BCR is a different fusion and is not known.");
+        });
+    }
+
+    #endregion
+
+    #region ONCO-FUSION-003 — Fusion Breakpoint Analysis (reading-frame consequence + protein prediction)
+
+    // -------------------------------------------------------------------------
+    // Theory (Arriba Uhrig 2021; AGFusion Murphy & Elemento 2016; reading frames in triplets):
+    //   • A frame call is made ONLY for a CDS-to-CDS junction; otherwise NotPredicted.    (INV-1, Arriba '.')
+    //   • InFrame ⟺ (fivePrimeCodingBases − threePrimeStartPhase) mod 3 == 0.             (INV-2, AGFusion)
+    //   • Chimeric CDS = 5' CDS prefix [0:junction5] ++ 3' CDS suffix [junction3:].        (INV-4, AGFusion)
+    //   • Peptide = translate(chimeric, NCBI table 1) truncated at the first stop '*',     (INV-3, AGFusion)
+    //     translating only whole codons (a trailing partial codon is dropped).             (INV-5)
+    //
+    // The frame rule, the chimeric concatenation and the translation are reconstructed
+    // here from theory — the standard genetic code is rebuilt from the canonical NCBI
+    // transl_table=1 strings, NOT routed through production's GeneticCode — so a wrong
+    // codon mapping or off-by-one slice is still caught.
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Independent NCBI standard genetic code (transl_table=1), built from the canonical base/AA strings,
+    /// so the translation oracle does not share code with production's <c>GeneticCode</c>.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, char> StandardCodonTableOracle = BuildStandardCodonTableOracle();
+
+    private static Dictionary<string, char> BuildStandardCodonTableOracle()
+    {
+        const string aas =   "FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG";
+        const string base1 = "TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG";
+        const string base2 = "TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG";
+        const string base3 = "TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG";
+
+        var map = new Dictionary<string, char>(64);
+        for (int i = 0; i < 64; i++)
+        {
+            map[$"{base1[i]}{base2[i]}{base3[i]}"] = aas[i];
+        }
+
+        return map;
+    }
+
+    /// <summary>Independent AGFusion translation oracle: whole-codon translation truncated at the first stop.</summary>
+    private static (string peptide, bool hasStop) OracleTranslate(string chimericCds)
+    {
+        int translatable = chimericCds.Length - (chimericCds.Length % 3);
+        var peptide = new System.Text.StringBuilder(translatable / 3);
+        for (int i = 0; i < translatable; i += 3)
+        {
+            char aa = StandardCodonTableOracle[chimericCds.Substring(i, 3)];
+            if (aa == '*')
+            {
+                return (peptide.ToString(), true); // truncate at first stop
+            }
+
+            peptide.Append(aa);
+        }
+
+        return (peptide.ToString(), false);
+    }
+
+    private static Gen<string> DnaStringGen(int length) =>
+        Gen.Elements('A', 'C', 'G', 'T').ArrayOf(length).Select(cs => new string(cs));
+
+    /// <summary>An arbitrary breakpoint for AnalyzeBreakpoint: random sites and a valid codon phase (0..2).</summary>
+    private static Arbitrary<OncologyAnalyzer.FusionBreakpoint> BreakpointArbitrary() =>
+        (from site5 in Gen.Elements(Enum.GetValues<OncologyAnalyzer.BreakpointSite>())
+         from site3 in Gen.Elements(Enum.GetValues<OncologyAnalyzer.BreakpointSite>())
+         from coding in Gen.Choose(0, 300)
+         from phase in Gen.Choose(0, 2)
+         select new OncologyAnalyzer.FusionBreakpoint("GENE5", "GENE3", site5, site3, coding, phase)).ToArbitrary();
+
+    /// <summary>
+    /// A protein-prediction problem: two short DNA CDS sequences with in-range junction offsets
+    /// (j5 ∈ [0, len5] as the 5' prefix length; j3 ∈ [0, len3] as the 3' suffix start, possibly &gt; 2).
+    /// </summary>
+    private static Arbitrary<(string cds5, string cds3, int j5, int j3)> FusionProteinProblemArbitrary() =>
+        (from len5 in Gen.Choose(0, 15)
+         from cds5 in DnaStringGen(len5)
+         from len3 in Gen.Choose(0, 15)
+         from cds3 in DnaStringGen(len3)
+         from j5 in Gen.Choose(0, len5)
+         from j3 in Gen.Choose(0, len3)
+         select (cds5, cds3, j5, j3)).ToArbitrary();
+
+    private static OncologyAnalyzer.FusionBreakpoint CdsBreakpoint(int j5, int j3) =>
+        new("GENE5", "GENE3", OncologyAnalyzer.BreakpointSite.Cds, OncologyAnalyzer.BreakpointSite.Cds, j5, j3);
+
+    /// <summary>
+    /// INV-1 + INV-2 (P, checklist "reading frame correctly derived"): AnalyzeBreakpoint reports
+    /// BreakpointInCoding iff both sites are CDS; a frame call is made only then and equals InFrame ⟺
+    /// (coding − phase) mod 3 == 0, OutOfFrame otherwise; non-coding junctions are NotPredicted. Sites are
+    /// carried through unchanged. (TestSpec §3 INV-1/2)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AnalyzeBreakpoint_FrameCall_MatchesCodonPhaseOracle_OnlyForCodingJunctions()
+    {
+        return Prop.ForAll(BreakpointArbitrary(), bp =>
+        {
+            var result = OncologyAnalyzer.AnalyzeBreakpoint(bp);
+
+            bool bothCoding = bp.Site5Prime == OncologyAnalyzer.BreakpointSite.Cds
+                              && bp.Site3Prime == OncologyAnalyzer.BreakpointSite.Cds;
+            OncologyAnalyzer.BreakpointFrameStatus expected = bothCoding
+                ? ((bp.FivePrimeCodingBases - bp.ThreePrimeStartPhase) % 3 == 0
+                    ? OncologyAnalyzer.BreakpointFrameStatus.InFrame
+                    : OncologyAnalyzer.BreakpointFrameStatus.OutOfFrame)
+                : OncologyAnalyzer.BreakpointFrameStatus.NotPredicted;
+
+            bool ok = result.BreakpointInCoding == bothCoding
+                      && result.FrameStatus == expected
+                      && result.Site5Prime == bp.Site5Prime
+                      && result.Site3Prime == bp.Site3Prime;
+            return ok.Label($"sites={bp.Site5Prime}/{bp.Site3Prime} coding={bp.FivePrimeCodingBases} phase={bp.ThreePrimeStartPhase}: " +
+                $"frame={result.FrameStatus} (expected {expected}), inCoding={result.BreakpointInCoding}");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (R + chimeric composition): the chimeric CDS equals the upper-cased 5' prefix <c>[0:j5]</c>
+    /// concatenated with the 3' suffix <c>[j3:]</c>, recomputed independently. Breakpoint offsets within
+    /// the CDS bounds are accepted. (AGFusion concat; TestSpec §3 INV-4)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property PredictFusionProtein_ChimericCds_IsPrefixPlusSuffix()
+    {
+        return Prop.ForAll(FusionProteinProblemArbitrary(), t =>
+        {
+            var prediction = OncologyAnalyzer.PredictFusionProtein(CdsBreakpoint(t.j5, t.j3), (t.cds5, t.cds3));
+            string oracle = t.cds5.ToUpperInvariant().Substring(0, t.j5) + t.cds3.ToUpperInvariant().Substring(t.j3);
+            return (prediction.ChimericCds == oracle)
+                .Label($"chimeric '{prediction.ChimericCds}' ≠ prefix++suffix '{oracle}' (j5={t.j5}, j3={t.j3})");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 + INV-5: the predicted peptide equals the independent NCBI-table-1 translation of the chimeric
+    /// CDS — whole codons only, truncated at the first stop — contains no internal stop '*', has the
+    /// matching premature-stop flag, and never exceeds ⌊|chimeric|/3⌋ residues. (AGFusion translate+truncate)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property PredictFusionProtein_Peptide_IsFirstStopTruncatedStandardTranslation()
+    {
+        return Prop.ForAll(FusionProteinProblemArbitrary(), t =>
+        {
+            var prediction = OncologyAnalyzer.PredictFusionProtein(CdsBreakpoint(t.j5, t.j3), (t.cds5, t.cds3));
+            (string oraclePeptide, bool oracleStop) = OracleTranslate(prediction.ChimericCds);
+
+            bool ok = prediction.Peptide == oraclePeptide
+                      && prediction.HasPrematureStop == oracleStop
+                      && !prediction.Peptide.Contains('*')
+                      && prediction.Peptide.Length <= prediction.ChimericCds.Length / 3;
+            return ok.Label($"peptide '{prediction.Peptide}' (stop={prediction.HasPrematureStop}) vs oracle '{oraclePeptide}' (stop={oracleStop})");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (effect in prediction): the reported frame Effect is InFrame iff the junction keeps codon phase
+    /// (j3 ∈ {0,1,2} and (j5 − j3) mod 3 == 0), OutOfFrame otherwise — the AGFusion 3'-gene-frame rule.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property PredictFusionProtein_Effect_FollowsCodonPhaseRule()
+    {
+        return Prop.ForAll(FusionProteinProblemArbitrary(), t =>
+        {
+            var prediction = OncologyAnalyzer.PredictFusionProtein(CdsBreakpoint(t.j5, t.j3), (t.cds5, t.cds3));
+            OncologyAnalyzer.BreakpointFrameStatus expected = t.j3 < 3 && (t.j5 - t.j3) % 3 == 0
+                ? OncologyAnalyzer.BreakpointFrameStatus.InFrame
+                : OncologyAnalyzer.BreakpointFrameStatus.OutOfFrame;
+            return (prediction.Effect == expected)
+                .Label($"effect {prediction.Effect} ≠ expected {expected} (j5={t.j5}, j3={t.j3})");
+        });
+    }
+
+    /// <summary>
+    /// D (determinism): AnalyzeBreakpoint and PredictFusionProtein both return identical results for
+    /// identical inputs (each driven by its own valid-input generator).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FusionBreakpointAnalysis_IsDeterministic()
+    {
+        return Prop.ForAll(BreakpointArbitrary(), bp =>
+            OncologyAnalyzer.AnalyzeBreakpoint(bp).Equals(OncologyAnalyzer.AnalyzeBreakpoint(bp))
+                .Label("AnalyzeBreakpoint is not deterministic for identical arguments"));
+    }
+
+    /// <summary>D (determinism): PredictFusionProtein returns the identical prediction for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property PredictFusionProtein_IsDeterministic()
+    {
+        return Prop.ForAll(FusionProteinProblemArbitrary(), t =>
+        {
+            var bp = CdsBreakpoint(t.j5, t.j3);
+            return OncologyAnalyzer.PredictFusionProtein(bp, (t.cds5, t.cds3))
+                .Equals(OncologyAnalyzer.PredictFusionProtein(bp, (t.cds5, t.cds3)))
+                .Label("PredictFusionProtein is not deterministic for identical arguments");
+        });
+    }
+
+    /// <summary>
+    /// R (checklist "breakpoint within gene bounds"): a junction offset beyond its CDS length is rejected.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void PredictFusionProtein_OffsetOutOfCdsBounds_Throws()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => OncologyAnalyzer.PredictFusionProtein(CdsBreakpoint(7, 0), ("ATGAAA", "GGG")),
+                "5' prefix length 7 exceeds the 6-base 5' CDS.");
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => OncologyAnalyzer.PredictFusionProtein(CdsBreakpoint(0, 4), ("ATGAAA", "GGG")),
+                "3' suffix start 4 exceeds the 3-base 3' CDS.");
+        });
+    }
+
+    /// <summary>
+    /// Anchor (INV-2/INV-3/INV-4, canonical): in-frame BCR-style junction ATGAAA ++ GATGGT ⇒ chimeric
+    /// ATGAAAGATGGT, peptide MKDG, no premature stop. (AGFusion worked example)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void PredictFusionProtein_InFrameNoStop_TranslatesWholeChimera()
+    {
+        var prediction = OncologyAnalyzer.PredictFusionProtein(CdsBreakpoint(6, 0), ("ATGAAA", "GATGGT"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(prediction.ChimericCds, Is.EqualTo("ATGAAAGATGGT"), "Chimeric = 5' prefix ++ 3' suffix.");
+            Assert.That(prediction.Peptide, Is.EqualTo("MKDG"), "ATG-AAA-GAT-GGT translates to M-K-D-G.");
+            Assert.That(prediction.Effect, Is.EqualTo(OncologyAnalyzer.BreakpointFrameStatus.InFrame), "(6−0) mod 3 = 0.");
+            Assert.That(prediction.HasPrematureStop, Is.False, "No stop codon in the chimeric ORF.");
+        });
+    }
+
+    #endregion
+
+    #region ONCO-CNA-001 — Copy-Number Alteration Classification (log2 ratio → CN → state)
+
+    // -------------------------------------------------------------------------
+    // Theory (CNVkit cnvlib/call.py; GISTIC2.0 Mermel 2011):
+    //   • Continuous absolute copy number n = ploidy · 2^log2.                       (INV-1)
+    //   • Hard-threshold integer CN = index of the first ascending cutoff the log2    (CNVkit
+    //     value is ≤ (counting from 0); above the last cutoff CN = ceil(ploidy·2^log2). absolute_threshold)
+    //   • NaN log2 is a no-call ⇒ round(ploidy) (neutral).
+    //   • State: CN 0→DeepDeletion, 1→Loss, 2→Neutral, 3→Gain, ≥4→Amplification.       (INV-4)
+    //   • Integer CN is non-decreasing in log2 (default diploid regime).               (INV-2)
+    //
+    // The absolute-CN formula, the threshold binning and the CN→state map are
+    // reconstructed here from the CNVkit description — NOT routed through production —
+    // so a wrong exponent base, boundary sense (< vs ≤), or state cutoff is caught.
+    // Monotonicity is asserted only for the documented default thresholds / diploid
+    // ploidy, where the ceil branch necessarily lands at CN ≥ 4 (above the last bin).
+    // -------------------------------------------------------------------------
+
+    private const double CnaTolerance = 1e-9;
+
+    private static Gen<double> Log2RatioGen() => Gen.Choose(-4000, 4000).Select(v => v / 1000.0);
+
+    private static Gen<double> PloidyGen() => Gen.Choose(1000, 4000).Select(v => v / 1000.0); // 1.0 .. 4.0
+
+    /// <summary>Four strictly ascending threshold cutoffs, built from positive increments.</summary>
+    private static Arbitrary<double[]> AscendingThresholdsArbitrary() =>
+        (from t0 in Gen.Choose(-4000, -1000)
+         from d1 in Gen.Choose(1, 2000)
+         from d2 in Gen.Choose(1, 2000)
+         from d3 in Gen.Choose(1, 2000)
+         select new[] { t0 / 1000.0, (t0 + d1) / 1000.0, (t0 + d1 + d2) / 1000.0, (t0 + d1 + d2 + d3) / 1000.0 })
+        .ToArbitrary();
+
+    /// <summary>Independent CNVkit absolute_threshold integer-CN oracle (re-derived from the docstring).</summary>
+    private static int OracleCallCopyNumber(double log2Ratio, IReadOnlyList<double> cutoffs, double ploidy)
+    {
+        if (double.IsNaN(log2Ratio))
+        {
+            return (int)Math.Round(ploidy, MidpointRounding.AwayFromZero);
+        }
+
+        for (int cn = 0; cn < cutoffs.Count; cn++)
+        {
+            if (log2Ratio <= cutoffs[cn])
+            {
+                return cn;
+            }
+        }
+
+        return (int)Math.Ceiling(ploidy * Math.Pow(2.0, log2Ratio));
+    }
+
+    /// <summary>Independent CNVkit CN→state map.</summary>
+    private static OncologyAnalyzer.CopyNumberState OracleState(int cn) =>
+        cn >= 4 ? OncologyAnalyzer.CopyNumberState.Amplification
+        : cn switch
+        {
+            0 => OncologyAnalyzer.CopyNumberState.DeepDeletion,
+            1 => OncologyAnalyzer.CopyNumberState.Loss,
+            2 => OncologyAnalyzer.CopyNumberState.Neutral,
+            _ => OncologyAnalyzer.CopyNumberState.Gain,
+        };
+
+    /// <summary>
+    /// INV-1: <c>Log2RatioToCopyNumber(log2, ploidy)</c> equals the independent <c>ploidy · 2^log2</c>
+    /// (≥ 0), and is strictly increasing in the log2 ratio. (CNVkit _log2_ratio_to_absolute_pure)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Log2RatioToCopyNumber_EqualsPloidyTimesTwoPow_AndIncreasesWithLog2()
+    {
+        var arb = (from lo in Log2RatioGen()
+                   from delta in Gen.Choose(1, 2000).Select(v => v / 1000.0)
+                   from ploidy in PloidyGen()
+                   select (lo, hi: lo + delta, ploidy)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            double low = OncologyAnalyzer.Log2RatioToCopyNumber(t.lo, t.ploidy);
+            double high = OncologyAnalyzer.Log2RatioToCopyNumber(t.hi, t.ploidy);
+            double oracle = t.ploidy * Math.Pow(2.0, t.lo);
+            bool formulaOk = Math.Abs(low - oracle) <= CnaTolerance * Math.Max(1.0, Math.Abs(oracle));
+            bool nonNeg = low >= 0.0;
+            bool increasing = high > low;
+            return (formulaOk && nonNeg && increasing)
+                .Label($"n({t.lo})={low} vs {oracle}; n({t.hi})={high}; ploidy={t.ploidy}");
+        });
+    }
+
+    /// <summary>
+    /// CallCopyNumber reproduces the independent CNVkit hard-threshold oracle exactly for arbitrary
+    /// strictly-ascending cutoffs and positive ploidy (binning with the inclusive ≤ boundary, ceil above
+    /// the last cutoff). (CNVkit absolute_threshold)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CallCopyNumber_MatchesCnvkitThresholdOracle()
+    {
+        var arb = (from log2 in Log2RatioGen()
+                   from cutoffs in AscendingThresholdsArbitrary().Generator
+                   from ploidy in PloidyGen()
+                   select (log2, cutoffs, ploidy)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            int actual = OncologyAnalyzer.CallCopyNumber(t.log2, t.cutoffs, t.ploidy);
+            int oracle = OracleCallCopyNumber(t.log2, t.cutoffs, t.ploidy);
+            return (actual == oracle).Label($"CN({t.log2})={actual} ≠ oracle {oracle} (cutoffs=[{string.Join(",", t.cutoffs)}], ploidy={t.ploidy})");
+        });
+    }
+
+    /// <summary>
+    /// R (checklist "copy number ≥ 0", INV-3): both the integer copy number and the continuous absolute
+    /// copy number are non-negative for every finite log2 ratio, ascending cutoffs and positive ploidy.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CopyNumber_IsNonNegative()
+    {
+        var arb = (from log2 in Log2RatioGen()
+                   from cutoffs in AscendingThresholdsArbitrary().Generator
+                   from ploidy in PloidyGen()
+                   select (log2, cutoffs, ploidy)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var call = OncologyAnalyzer.ClassifyCopyNumber(t.log2, t.cutoffs, t.ploidy);
+            return (call.IntegerCopyNumber >= 0 && call.AbsoluteCopyNumber >= 0.0)
+                .Label($"negative CN: integer={call.IntegerCopyNumber}, absolute={call.AbsoluteCopyNumber}");
+        });
+    }
+
+    /// <summary>
+    /// M (checklist "higher log2 → higher CN", INV-2): under the documented default thresholds and diploid
+    /// ploidy, the integer copy number is monotonically non-decreasing in the log2 ratio.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CallCopyNumber_IsMonotonicInLog2_DefaultDiploid()
+    {
+        var arb = (from a in Log2RatioGen()
+                   from b in Log2RatioGen()
+                   select (lo: Math.Min(a, b), hi: Math.Max(a, b))).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            int lowCn = OncologyAnalyzer.CallCopyNumber(t.lo);
+            int highCn = OncologyAnalyzer.CallCopyNumber(t.hi);
+            return (lowCn <= highCn).Label($"CN({t.lo})={lowCn} > CN({t.hi})={highCn}");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (P, checklist "CN=2 → neutral"): the CNA state is exactly the CN→state map
+    /// (0→DeepDeletion, 1→Loss, 2→Neutral, 3→Gain, ≥4→Amplification); in particular CN 2 ⟺ Neutral.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyCopyNumber_State_MatchesCnToStateMap()
+    {
+        var arb = (from log2 in Log2RatioGen()
+                   from cutoffs in AscendingThresholdsArbitrary().Generator
+                   from ploidy in PloidyGen()
+                   select (log2, cutoffs, ploidy)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var call = OncologyAnalyzer.ClassifyCopyNumber(t.log2, t.cutoffs, t.ploidy);
+            bool stateOk = call.State == OracleState(call.IntegerCopyNumber);
+            bool neutralIffTwo = (call.IntegerCopyNumber == 2) == (call.State == OncologyAnalyzer.CopyNumberState.Neutral);
+            return (stateOk && neutralIffTwo)
+                .Label($"CN={call.IntegerCopyNumber} state={call.State} (expected {OracleState(call.IntegerCopyNumber)})");
+        });
+    }
+
+    /// <summary>
+    /// INV-5 + D: <c>ClassifyCopyNumbers</c> preserves input length and order — element i equals the
+    /// single-region <c>ClassifyCopyNumber</c> of input i — and is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyCopyNumbers_IsLengthAndOrderPreservingMap()
+    {
+        var arb = (from ratios in Log2RatioGen().ArrayOf()
+                   from cutoffs in AscendingThresholdsArbitrary().Generator
+                   from ploidy in PloidyGen()
+                   select (ratios, cutoffs, ploidy)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var calls = OncologyAnalyzer.ClassifyCopyNumbers(t.ratios, t.cutoffs, t.ploidy);
+            bool ok = calls.Count == t.ratios.Length;
+            for (int i = 0; ok && i < t.ratios.Length; i++)
+            {
+                ok &= calls[i].Equals(OncologyAnalyzer.ClassifyCopyNumber(t.ratios[i], t.cutoffs, t.ploidy));
+            }
+
+            return ok.Label($"ClassifyCopyNumbers is not a length/order-preserving map ({calls.Count} vs {t.ratios.Length})");
+        });
+    }
+
+    /// <summary>
+    /// Anchors (default thresholds, diploid): the canonical CNVkit bins and the neutral/no-call cases —
+    /// log2 0 ⇒ 2 copies/Neutral; −2 ⇒ CN 0/DeepDeletion; +1 ⇒ CN 4/Amplification; NaN ⇒ neutral no-call.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void ClassifyCopyNumber_CanonicalCnvkitBins()
+    {
+        Assert.Multiple(() =>
+        {
+            var neutral = OncologyAnalyzer.ClassifyCopyNumber(0.0);
+            Assert.That(neutral.AbsoluteCopyNumber, Is.EqualTo(2.0).Within(CnaTolerance), "n = 2·2^0 = 2.");
+            Assert.That(neutral.IntegerCopyNumber, Is.EqualTo(2), "log2 0 ∈ (−0.25, 0.2] ⇒ CN 2.");
+            Assert.That(neutral.State, Is.EqualTo(OncologyAnalyzer.CopyNumberState.Neutral), "CN 2 ⇒ Neutral.");
+
+            var del = OncologyAnalyzer.ClassifyCopyNumber(-2.0);
+            Assert.That(del.IntegerCopyNumber, Is.EqualTo(0), "log2 −2 ≤ −1.1 ⇒ CN 0.");
+            Assert.That(del.State, Is.EqualTo(OncologyAnalyzer.CopyNumberState.DeepDeletion), "CN 0 ⇒ DeepDeletion.");
+
+            var amp = OncologyAnalyzer.ClassifyCopyNumber(1.0);
+            Assert.That(amp.IntegerCopyNumber, Is.EqualTo(4), "log2 1 > 0.7 ⇒ ceil(2·2^1) = 4.");
+            Assert.That(amp.State, Is.EqualTo(OncologyAnalyzer.CopyNumberState.Amplification), "CN ≥ 4 ⇒ Amplification.");
+
+            var noCall = OncologyAnalyzer.ClassifyCopyNumber(double.NaN);
+            Assert.That(noCall.IntegerCopyNumber, Is.EqualTo(2), "NaN is a no-call ⇒ round(ploidy) = 2.");
+            Assert.That(noCall.State, Is.EqualTo(OncologyAnalyzer.CopyNumberState.Neutral), "No-call ⇒ Neutral.");
+        });
+    }
+
+    #endregion
+
+    #region ONCO-CNA-002 — Focal Amplification Detection (GISTIC2 length + amplitude)
+
+    // -------------------------------------------------------------------------
+    // Theory (Mermel 2011 GISTIC2.0; GISTIC2 t_amp / broad_len_cutoff; NCBI Gene):
+    //   • Focal ⟺ segment length / arm length < broad_len_cutoff (default 0.98, strict).   (INV-1)
+    //   • Amplified ⟺ log2 > t_amp (default 0.1, strict).                                    (INV-2)
+    //   • DetectFocalAmplifications keeps the input subset (amplified ∧ focal), in order.    (INV-3)
+    //   • Oncogene reported iff a focal amp lies on its arm: ERBB2 17q, MYC 8q, EGFR 7p,     (INV-4)
+    //     CCND1 11q, MDM2 12q, CDK4 12q.
+    //
+    // The focal/amplitude predicate and the oncogene-arm map are reconstructed here from
+    // GISTIC2 / NCBI Gene — NOT routed through production — so a wrong boundary sense or
+    // gene-arm assignment is still caught.
+    // -------------------------------------------------------------------------
+
+    private static readonly string[] FocalArmPool = { "17q", "8q", "7p", "11q", "12q", "3p", "Xq", "5q" };
+
+    private static readonly (string gene, string arm)[] OncogeneArmsOracle =
+    {
+        ("ERBB2", "17q"), ("MYC", "8q"), ("EGFR", "7p"), ("CCND1", "11q"), ("MDM2", "12q"), ("CDK4", "12q"),
+    };
+
+    private static Gen<OncologyAnalyzer.CopyNumberArmSegment> ArmSegmentGen() =>
+        from arm in Gen.Elements(FocalArmPool)
+        from armLen in Gen.Choose(100_000, 2_000_000)
+        from segLen in Gen.Choose(1, 2_200_000)
+        from log2Milli in Gen.Choose(-2000, 2000)
+        select new OncologyAnalyzer.CopyNumberArmSegment(arm, 0, segLen, armLen, log2Milli / 1000.0);
+
+    private static Arbitrary<(OncologyAnalyzer.CopyNumberArmSegment[] segments, OncologyAnalyzer.FocalAmplificationThresholds thresholds)>
+        FocalProblemArbitrary() =>
+        (from segments in ArmSegmentGen().ArrayOf()
+         from tampMilli in Gen.Choose(-200, 500)
+         from cutoffMilli in Gen.Choose(500, 990)
+         select (segments, new OncologyAnalyzer.FocalAmplificationThresholds(tampMilli / 1000.0, cutoffMilli / 1000.0)))
+        .ToArbitrary();
+
+    private static bool OracleIsFocalAmp(OncologyAnalyzer.CopyNumberArmSegment s, OncologyAnalyzer.FocalAmplificationThresholds t) =>
+        s.Log2Ratio > t.AmplificationLog2Threshold && (double)(s.End - s.Start) / s.ArmLength < t.BroadLengthCutoff;
+
+    /// <summary>
+    /// INV-1/INV-2/INV-3 (P "focal length &lt; cutoff", R): the detected set equals exactly the input
+    /// segments passing the independent GISTIC2 predicate (log2 &gt; t_amp ∧ length/arm &lt; cutoff), in input
+    /// order — a length/order-preserving subset with no fabricated segments. (Mermel 2011; GISTIC2)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectFocalAmplifications_EqualsGistic2PredicateSubset_InOrder()
+    {
+        return Prop.ForAll(FocalProblemArbitrary(), p =>
+        {
+            var detected = OncologyAnalyzer.DetectFocalAmplifications(p.segments, p.thresholds);
+            var expected = p.segments.Where(s => OracleIsFocalAmp(s, p.thresholds)).ToList();
+            return detected.SequenceEqual(expected)
+                .Label($"detected {detected.Count} ≠ predicate subset {expected.Count}");
+        });
+    }
+
+    /// <summary>
+    /// INV-1 + INV-2 (per-call bounds): every reported focal amplification is strictly below the focal/broad
+    /// length cutoff AND strictly above the amplitude threshold, with valid coordinates (End &gt; Start,
+    /// ArmLength &gt; 0). (GISTIC2 broad_len_cutoff / t_amp)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectFocalAmplifications_EveryCall_IsFocalAndAmplified_WithValidCoordinates()
+    {
+        return Prop.ForAll(FocalProblemArbitrary(), p =>
+        {
+            var detected = OncologyAnalyzer.DetectFocalAmplifications(p.segments, p.thresholds);
+            return detected.All(s =>
+                s.ArmFraction < p.thresholds.BroadLengthCutoff
+                && s.Log2Ratio > p.thresholds.AmplificationLog2Threshold
+                && s.End > s.Start && s.ArmLength > 0)
+                .Label("a reported focal amp violated the length/amplitude/coordinate bounds");
+        });
+    }
+
+    /// <summary>
+    /// M (checklist "higher CN → amplified"): raising a focal segment's log2 ratio is monotone for
+    /// detection — a focal segment that is already amplified stays amplified when its log2 increases.
+    /// (GISTIC2 amplitude threshold is a lower bound on log2)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IsFocalAmplification_IsMonotoneInLog2()
+    {
+        var arb = (from s in ArmSegmentGen()
+                   from rise in Gen.Choose(1, 3000).Select(v => v / 1000.0)
+                   select (s, rise)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var thresholds = OncologyAnalyzer.FocalAmplificationThresholds.Default;
+            if (!OncologyAnalyzer.IsFocalAmplification(t.s, thresholds))
+            {
+                return true.ToProperty(); // implication is conditional on the base segment being detected
+            }
+
+            var higher = t.s with { Log2Ratio = t.s.Log2Ratio + t.rise };
+            return OncologyAnalyzer.IsFocalAmplification(higher, thresholds)
+                .ToProperty()
+                .Label($"raising log2 from {t.s.Log2Ratio} by {t.rise} un-detected a focal amp");
+        });
+    }
+
+    /// <summary>
+    /// INV-4: <c>IdentifyAmplifiedOncogenes</c> reports exactly the panel oncogenes whose chromosome arm is
+    /// present among the supplied amplifications (ERBB2 17q, MYC 8q, EGFR 7p, CCND1 11q, MDM2 12q, CDK4 12q),
+    /// each once, in panel order — matching an independent arm→gene oracle. (NCBI Gene loci)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IdentifyAmplifiedOncogenes_MapsArmsToPanelGenes_InOrder()
+    {
+        return Prop.ForAll(ArmSegmentGen().ArrayOf().ToArbitrary(), segments =>
+        {
+            var genes = OncologyAnalyzer.IdentifyAmplifiedOncogenes(segments);
+
+            var arms = segments.Select(s => s.Arm).Where(a => !string.IsNullOrEmpty(a)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var expected = OncogeneArmsOracle.Where(g => arms.Contains(g.arm)).Select(g => g.gene).ToList();
+
+            return genes.SequenceEqual(expected)
+                .Label($"genes [{string.Join(",", genes)}] ≠ oracle [{string.Join(",", expected)}]");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (composition): an oncogene is reported only when a genuine focal amplification falls on its arm —
+    /// <c>IdentifyAmplifiedOncogenes(DetectFocalAmplifications(segs))</c> contains a gene iff some focal amp
+    /// sits on its arm. (mapping operates on focal amplifications only)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AmplifiedOncogenes_ReportedOnlyForArmsWithAFocalAmplification()
+    {
+        return Prop.ForAll(FocalProblemArbitrary(), p =>
+        {
+            var focal = OncologyAnalyzer.DetectFocalAmplifications(p.segments, p.thresholds);
+            var genes = OncologyAnalyzer.IdentifyAmplifiedOncogenes(focal);
+
+            var focalArms = focal.Select(s => s.Arm).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var expected = OncogeneArmsOracle.Where(g => focalArms.Contains(g.arm)).Select(g => g.gene).ToList();
+            return genes.SequenceEqual(expected)
+                .Label($"oncogenes [{string.Join(",", genes)}] not exactly those on focal-amp arms [{string.Join(",", expected)}]");
+        });
+    }
+
+    /// <summary>D (determinism): focal-amplification detection is identical for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectFocalAmplifications_IsDeterministic()
+    {
+        return Prop.ForAll(FocalProblemArbitrary(), p =>
+            OncologyAnalyzer.DetectFocalAmplifications(p.segments, p.thresholds)
+                .SequenceEqual(OncologyAnalyzer.DetectFocalAmplifications(p.segments, p.thresholds))
+                .Label("DetectFocalAmplifications is not deterministic for identical arguments"));
+    }
+
+    /// <summary>
+    /// Anchors (GISTIC2 defaults): a 0.50-arm log2-1.0 segment on 17q is focal and maps to ERBB2; a
+    /// whole-arm 0.99 segment is arm-level (not focal); a 0.98 segment is exactly at the cutoff and not
+    /// focal (strict &lt;); 12q maps to both MDM2 and CDK4. (Mermel 2011; NCBI Gene)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void DetectFocalAmplifications_CanonicalGistic2Cases()
+    {
+        var focal17q = new OncologyAnalyzer.CopyNumberArmSegment("17q", 0, 500_000, 1_000_000, 1.0);
+        var armLevel = new OncologyAnalyzer.CopyNumberArmSegment("8q", 0, 990_000, 1_000_000, 1.5);
+        var boundary = new OncologyAnalyzer.CopyNumberArmSegment("11q", 0, 980_000, 1_000_000, 1.0);
+        var focal12q = new OncologyAnalyzer.CopyNumberArmSegment("12q", 0, 300_000, 1_000_000, 1.0);
+
+        var detected = OncologyAnalyzer.DetectFocalAmplifications(new[] { focal17q, armLevel, boundary, focal12q });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(detected, Is.EqualTo(new[] { focal17q, focal12q }), "Only the two focal amps survive, in input order.");
+            Assert.That(OncologyAnalyzer.IdentifyAmplifiedOncogenes(new[] { focal17q }), Is.EqualTo(new[] { "ERBB2" }),
+                "17q focal amp ⇒ ERBB2.");
+            Assert.That(OncologyAnalyzer.IdentifyAmplifiedOncogenes(new[] { focal12q }), Is.EqualTo(new[] { "MDM2", "CDK4" }),
+                "12q focal amp ⇒ both MDM2 and CDK4 in panel order.");
+        });
+    }
+
+    #endregion
+
+    #region ONCO-CNA-003 — Homozygous Deletion Detection (integer CN 0)
+
+    // -------------------------------------------------------------------------
+    // Theory (Cheng 2017; cBioPortal −2; CNVkit integer CN):
+    //   • A segment is a homozygous (deep) deletion iff its hard-threshold integer CN is 0.   (INV-1)
+    //   • A single-copy loss (integer CN 1) is heterozygous, never homozygous.                 (INV-2)
+    //   • DetectHomozygousDeletions keeps the input subset (CN 0), in input order.             (INV-3)
+    //   • A stricter (more negative) deletion cutoff yields ≤ deletions (subset).              (M)
+    //   • Tumour suppressor reported iff a homozygous deletion lies on its arm: TP53 17p,      (INV-4)
+    //     RB1 13q, CDKN2A 9p, PTEN 10q, BRCA1 17q, BRCA2 13q.
+    //
+    // The CN-0 predicate is reconstructed via the independent CNVkit threshold oracle
+    // (OracleCallCopyNumber, shared with ONCO-CNA-001) and the arm→gene map is restated
+    // from NCBI Gene — NOT routed through production.
+    // -------------------------------------------------------------------------
+
+    private static readonly string[] DeletionArmPool = { "17p", "13q", "9p", "10q", "17q", "8q", "3p", "Xp" };
+
+    private static readonly (string gene, string arm)[] TumorSuppressorArmsOracle =
+    {
+        ("TP53", "17p"), ("RB1", "13q"), ("CDKN2A", "9p"), ("PTEN", "10q"), ("BRCA1", "17q"), ("BRCA2", "13q"),
+    };
+
+    private static Gen<OncologyAnalyzer.CopyNumberArmSegment> DeletionSegmentGen() =>
+        from arm in Gen.Elements(DeletionArmPool)
+        from armLen in Gen.Choose(100_000, 2_000_000)
+        from segLen in Gen.Choose(1, 2_000_000)
+        from log2Milli in Gen.Choose(-2500, 1000) // biased negative so CN 0 occurs
+        select new OncologyAnalyzer.CopyNumberArmSegment(arm, 0, segLen, armLen, log2Milli / 1000.0);
+
+    private static Arbitrary<(OncologyAnalyzer.CopyNumberArmSegment[] segments, double[] cutoffs, double ploidy)>
+        DeletionProblemArbitrary() =>
+        (from segments in DeletionSegmentGen().ArrayOf()
+         from cutoffs in AscendingThresholdsArbitrary().Generator
+         from ploidy in PloidyGen()
+         select (segments, cutoffs, ploidy)).ToArbitrary();
+
+    /// <summary>
+    /// INV-1/INV-2/INV-3 (P "CN ≈ 0 over deletion", R): the detected set equals exactly the input segments
+    /// whose independent CNVkit integer copy number is 0, in input order — a subset with no fabrication, so
+    /// single-copy losses (CN 1) are never reported. (Cheng 2017; cBioPortal; CNVkit)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectHomozygousDeletions_EqualsIntegerCnZeroSubset_InOrder()
+    {
+        return Prop.ForAll(DeletionProblemArbitrary(), p =>
+        {
+            var detected = OncologyAnalyzer.DetectHomozygousDeletions(p.segments, p.cutoffs, p.ploidy);
+            var expected = p.segments.Where(s => OracleCallCopyNumber(s.Log2Ratio, p.cutoffs, p.ploidy) == 0).ToList();
+            return detected.SequenceEqual(expected)
+                .Label($"detected {detected.Count} ≠ CN-0 subset {expected.Count}");
+        });
+    }
+
+    /// <summary>
+    /// INV-1 + INV-2 (per-call): every reported deletion has integer CN exactly 0 (DeepDeletion state) and
+    /// valid coordinates (End &gt; Start, ArmLength &gt; 0); none is a single-copy (CN 1) loss.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectHomozygousDeletions_EveryCall_IsIntegerCnZero_WithValidCoordinates()
+    {
+        return Prop.ForAll(DeletionProblemArbitrary(), p =>
+        {
+            var detected = OncologyAnalyzer.DetectHomozygousDeletions(p.segments, p.cutoffs, p.ploidy);
+            return detected.All(s =>
+                OncologyAnalyzer.CallCopyNumber(s.Log2Ratio, p.cutoffs, p.ploidy) == 0
+                && s.End > s.Start && s.ArmLength > 0)
+                .Label("a reported homozygous deletion was not integer CN 0 with valid coordinates");
+        });
+    }
+
+    /// <summary>
+    /// M (checklist "higher CN threshold → ≤ deletions"): a stricter (more negative) deletion cutoff can
+    /// only shrink the detected set — every segment called homozygous under the stricter cutoff is also
+    /// homozygous under the looser one (log2 ≤ stricter ⇒ log2 ≤ looser). (CNVkit ≤ binning)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectHomozygousDeletions_StricterDeletionCutoff_YieldsSubset()
+    {
+        var arb = (from segments in DeletionSegmentGen().ArrayOf()
+                   from cutoffs in AscendingThresholdsArbitrary().Generator
+                   from drop in Gen.Choose(1, 3000).Select(v => v / 1000.0)
+                   from ploidy in PloidyGen()
+                   select (segments, looser: cutoffs, stricter: new[] { cutoffs[0] - drop, cutoffs[1], cutoffs[2], cutoffs[3] }, ploidy))
+                  .ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var stricterDetected = OncologyAnalyzer.DetectHomozygousDeletions(t.segments, t.stricter, t.ploidy);
+            var looserDetected = OncologyAnalyzer.DetectHomozygousDeletions(t.segments, t.looser, t.ploidy);
+
+            bool subsetCount = stricterDetected.Count <= looserDetected.Count;
+            bool everyStricterIsAlsoLooser = stricterDetected.All(s =>
+                OncologyAnalyzer.CallCopyNumber(s.Log2Ratio, t.looser, t.ploidy) == 0);
+            return (subsetCount && everyStricterIsAlsoLooser)
+                .Label($"stricter cutoff produced {stricterDetected.Count} deletions, looser {looserDetected.Count}");
+        });
+    }
+
+    /// <summary>
+    /// INV-4: <c>IdentifyDeletedTumorSuppressors</c> reports exactly the panel tumour suppressors whose arm
+    /// is present among the supplied deletions (TP53 17p, RB1 13q, CDKN2A 9p, PTEN 10q, BRCA1 17q, BRCA2 13q),
+    /// each once, in panel order — matching an independent arm→gene oracle. (NCBI Gene loci)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IdentifyDeletedTumorSuppressors_MapsArmsToPanelGenes_InOrder()
+    {
+        return Prop.ForAll(DeletionSegmentGen().ArrayOf().ToArbitrary(), segments =>
+        {
+            var genes = OncologyAnalyzer.IdentifyDeletedTumorSuppressors(segments);
+
+            var arms = segments.Select(s => s.Arm).Where(a => !string.IsNullOrEmpty(a)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var expected = TumorSuppressorArmsOracle.Where(g => arms.Contains(g.arm)).Select(g => g.gene).ToList();
+            return genes.SequenceEqual(expected)
+                .Label($"genes [{string.Join(",", genes)}] ≠ oracle [{string.Join(",", expected)}]");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (composition): a tumour suppressor is reported only when a genuine homozygous deletion falls on
+    /// its arm — <c>IdentifyDeletedTumorSuppressors(DetectHomozygousDeletions(segs))</c> equals the panel
+    /// genes on deleted arms. (mapping operates on homozygous deletions only)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DeletedTumorSuppressors_ReportedOnlyForArmsWithAHomozygousDeletion()
+    {
+        return Prop.ForAll(DeletionProblemArbitrary(), p =>
+        {
+            var deletions = OncologyAnalyzer.DetectHomozygousDeletions(p.segments, p.cutoffs, p.ploidy);
+            var genes = OncologyAnalyzer.IdentifyDeletedTumorSuppressors(deletions);
+
+            var deletedArms = deletions.Select(s => s.Arm).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var expected = TumorSuppressorArmsOracle.Where(g => deletedArms.Contains(g.arm)).Select(g => g.gene).ToList();
+            return genes.SequenceEqual(expected)
+                .Label($"suppressors [{string.Join(",", genes)}] not exactly those on deleted arms [{string.Join(",", expected)}]");
+        });
+    }
+
+    /// <summary>D (determinism): homozygous-deletion detection is identical for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectHomozygousDeletions_IsDeterministic()
+    {
+        return Prop.ForAll(DeletionProblemArbitrary(), p =>
+            OncologyAnalyzer.DetectHomozygousDeletions(p.segments, p.cutoffs, p.ploidy)
+                .SequenceEqual(OncologyAnalyzer.DetectHomozygousDeletions(p.segments, p.cutoffs, p.ploidy))
+                .Label("DetectHomozygousDeletions is not deterministic for identical arguments"));
+    }
+
+    /// <summary>
+    /// Anchors (default thresholds, diploid): a log2 −2.0 segment is a homozygous deletion (CN 0); a log2
+    /// −1.0 single-copy loss (CN 1) is not; 13q deletions map to both RB1 and BRCA2 in panel order.
+    /// (Cheng 2017; cBioPortal; NCBI Gene)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void DetectHomozygousDeletions_CanonicalCases()
+    {
+        var deep = new OncologyAnalyzer.CopyNumberArmSegment("9p", 0, 100_000, 1_000_000, -2.0);
+        var shallow = new OncologyAnalyzer.CopyNumberArmSegment("10q", 0, 100_000, 1_000_000, -1.0);
+        var del13q = new OncologyAnalyzer.CopyNumberArmSegment("13q", 0, 100_000, 1_000_000, -2.0);
+
+        var detected = OncologyAnalyzer.DetectHomozygousDeletions(new[] { deep, shallow, del13q });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(detected, Is.EqualTo(new[] { deep, del13q }), "Only the CN-0 deep deletions survive; the CN-1 loss is excluded.");
+            Assert.That(OncologyAnalyzer.IdentifyDeletedTumorSuppressors(new[] { del13q }), Is.EqualTo(new[] { "RB1", "BRCA2" }),
+                "13q deletion ⇒ both RB1 and BRCA2 in panel order.");
+        });
+    }
+
+    #endregion
+
+    #region ONCO-PURITY-001 — Tumor Purity Estimation (CNAqc expected-VAF inversion)
+
+    // -------------------------------------------------------------------------
+    // Theory (Antonello et al. 2024 CNAqc; Carter 2012 ABSOLUTE; Shen & Seshan 2016 FACETS):
+    //   • Expected clonal VAF: v = m·π / [2(1−π) + π·n_tot].                               (CNAqc)
+    //   • Copy-neutral diploid het (m=1, n_tot=2): v = π/2 ⇒ ρ = 2·v.                       (INV-2)
+    //   • Allele-specific inversion: π = 2·v / [m + v·(2 − n_tot)].                          (INV-3)
+    //   • Per-variant estimates aggregated by median; purity ∈ [0,1]; ρ=2v monotone in v.    (INV-1/4)
+    //
+    // The expected-VAF forward model is reconstructed here independently; EstimatePurity is
+    // then checked to invert it (round-trip recovering the generating purity) — NOT routed
+    // through production's inversion formula — so a wrong algebraic inverse is caught.
+    // -------------------------------------------------------------------------
+
+    private const double PurityClosedFormTolerance = 1e-9;
+    private const double PurityRecoveryTolerance = 1e-7;
+
+    private static double OracleMedian(IReadOnlyList<double> values)
+    {
+        double[] sorted = values.ToArray();
+        Array.Sort(sorted);
+        int n = sorted.Length, mid = n / 2;
+        return n % 2 == 1 ? sorted[mid] : 0.5 * (sorted[mid - 1] + sorted[mid]);
+    }
+
+    /// <summary>A het diploid SNV observation with VAF ≤ 0.5 (alt ≤ half of total reads).</summary>
+    private static Gen<OncologyAnalyzer.VariantObservation> HetDiploidObservationGen() =>
+        from total in Gen.Choose(2, 400)
+        from alt in Gen.Choose(0, total / 2)
+        select new OncologyAnalyzer.VariantObservation("chr1", 1, "A", "T", alt, total, 0, 0);
+
+    /// <summary>
+    /// A constructible allele-specific variant with a KNOWN generating purity: choose π ∈ (0,1], n_tot ∈ [1,6],
+    /// multiplicity m ∈ [1, n_tot] (a mutation cannot exceed its total copies), then forward-compute the
+    /// expected VAF v = m·π / [2 + π·(n_tot−2)] ∈ [0,1]. EstimatePurity must recover π.
+    /// </summary>
+    private static Gen<(double pi, int m, int nTot, double vaf)> KnownPurityVariantGen() =>
+        // π capped strictly below 1 so the inverse round-trip cannot round to just above 1.0
+        // (EstimatePurity rejects a computed purity > 1).
+        from nTot in Gen.Choose(1, 6)
+        from m in Gen.Choose(1, nTot)
+        from piMilli in Gen.Choose(1, 950)
+        let pi = piMilli / 1000.0
+        let vaf = m * pi / (2.0 + pi * (nTot - 2))
+        select (pi, m, nTot, vaf);
+
+    /// <summary>
+    /// INV-2 + INV-1 + INV-4: the single-VAF estimator is the exact closed form ρ = 2·v in [0,1] for any
+    /// clonal het diploid VAF v ∈ [0,0.5], with ρ = 0 at v = 0 and strictly increasing in v. (CNAqc ρ=2v)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property EstimatePurityFromVaf_IsTwiceVaf_InUnitRange_AndIncreasing()
+    {
+        var arb = (from vMilli in Gen.Choose(0, 500)
+                   from riseMilli in Gen.Choose(1, 500)
+                   let v = vMilli / 1000.0
+                   let vHigh = Math.Min(0.5, (vMilli + riseMilli) / 1000.0)
+                   select (v, vHigh)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            double rho = OncologyAnalyzer.EstimatePurityFromVaf(t.v);
+            bool closedForm = Math.Abs(rho - 2.0 * t.v) < PurityClosedFormTolerance;
+            bool inRange = rho >= 0.0 && rho <= 1.0;
+            bool zeroAtZero = t.v != 0.0 || rho == 0.0;
+            bool nonDecreasing = OncologyAnalyzer.EstimatePurityFromVaf(t.vHigh) >= rho - PurityClosedFormTolerance;
+            return (closedForm && inRange && zeroAtZero && nonDecreasing)
+                .Label($"ρ({t.v})={rho} (expected {2.0 * t.v}); ρ({t.vHigh})");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 + median aggregation: <c>EstimatePurityFromVAF</c> returns the median of the per-variant
+    /// ρ = 2·(alt/total) over clonal het diploid observations, within [0,1]. (CNAqc; robust median)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property EstimatePurityFromVAF_IsMedianOfTwiceVaf()
+    {
+        var arb = (from n in Gen.Choose(1, 7)
+                   from obs in HetDiploidObservationGen().ArrayOf(n)
+                   select obs).ToArbitrary();
+
+        return Prop.ForAll(arb, observations =>
+        {
+            double purity = OncologyAnalyzer.EstimatePurityFromVAF(observations);
+            var oracle = OracleMedian(observations.Select(o => 2.0 * ((double)o.TumorAltReads / o.TumorTotalReads)).ToList());
+            return (Math.Abs(purity - oracle) < PurityClosedFormTolerance && purity is >= 0.0 and <= 1.0)
+                .Label($"purity {purity} ≠ median(2·VAF) {oracle}");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (P, round-trip inversion): <c>EstimatePurity</c> recovers the purity that generated each VAF
+    /// under the forward model v = m·π / [2 + π·(n_tot−2)] — the median of single in-domain variants equals
+    /// the median of their generating purities, within [0,1]. (CNAqc inversion; INV-1)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property EstimatePurity_InvertsExpectedVafModel_RecoveringGeneratingPurity()
+    {
+        var arb = (from n in Gen.Choose(1, 6)
+                   from variants in KnownPurityVariantGen().ArrayOf(n)
+                   select variants).ToArbitrary();
+
+        return Prop.ForAll(arb, variants =>
+        {
+            var purityVariants = variants
+                .Select(v => new OncologyAnalyzer.PurityVariant(v.vaf, v.m, v.nTot))
+                .ToArray();
+            double estimated = OncologyAnalyzer.EstimatePurity(purityVariants);
+            double oracleMedianPi = OracleMedian(variants.Select(v => v.pi).ToList());
+
+            return (Math.Abs(estimated - oracleMedianPi) < PurityRecoveryTolerance && estimated is >= 0.0 and <= 1.0)
+                .Label($"recovered purity {estimated} ≠ median generating π {oracleMedianPi}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 consistency: for a copy-neutral diploid het variant (m=1, n_tot=2) the allele-specific estimator
+    /// agrees with the closed-form ρ = 2·v — the diploid het case is the special case of the inversion.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property EstimatePurity_DiploidHet_AgreesWithTwiceVaf()
+    {
+        var arb = Gen.Choose(0, 500).Select(v => v / 1000.0).ToArbitrary(); // VAF ∈ [0, 0.5]
+
+        return Prop.ForAll(arb, vaf =>
+        {
+            double allele = OncologyAnalyzer.EstimatePurity(new[] { new OncologyAnalyzer.PurityVariant(vaf, 1, 2) });
+            return (Math.Abs(allele - 2.0 * vaf) < PurityClosedFormTolerance)
+                .Label($"allele-specific {allele} ≠ 2·{vaf} = {2.0 * vaf}");
+        });
+    }
+
+    /// <summary>D (determinism): both estimators return identical purity for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property EstimatePurity_IsDeterministic()
+    {
+        var arb = (from n in Gen.Choose(1, 6)
+                   from variants in KnownPurityVariantGen().ArrayOf(n)
+                   select variants).ToArbitrary();
+
+        return Prop.ForAll(arb, variants =>
+        {
+            var pv = variants.Select(v => new OncologyAnalyzer.PurityVariant(v.vaf, v.m, v.nTot)).ToArray();
+            return (OncologyAnalyzer.EstimatePurity(pv) == OncologyAnalyzer.EstimatePurity(pv))
+                .Label("EstimatePurity is not deterministic for identical arguments");
+        });
+    }
+
+    /// <summary>
+    /// Anchors: the CNAqc 60%/30% example (VAF 0.30 ⇒ purity 0.60); VAF 0.50 ⇒ purity 1.0; VAF 0 ⇒ 0; a
+    /// VAF &gt; 0.5 under the diploid het model is rejected; an empty variant set is rejected. (CNAqc)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void EstimatePurity_CanonicalAndGuardCases()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.EstimatePurityFromVaf(0.30), Is.EqualTo(0.60).Within(PurityClosedFormTolerance),
+                "CNAqc: VAF 30% ⇒ purity 60%.");
+            Assert.That(OncologyAnalyzer.EstimatePurityFromVaf(0.50), Is.EqualTo(1.0).Within(PurityClosedFormTolerance),
+                "VAF 0.5 ⇒ purity 1.0 (diploid het maximum).");
+            Assert.That(OncologyAnalyzer.EstimatePurityFromVaf(0.0), Is.EqualTo(0.0), "VAF 0 ⇒ purity 0.");
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.EstimatePurityFromVaf(0.6),
+                "VAF > 0.5 implies purity > 1 under the diploid het model.");
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.EstimatePurity(Array.Empty<OncologyAnalyzer.PurityVariant>()),
+                "Purity is undefined for an empty variant set.");
+        });
+    }
+
+    #endregion
+
+    #region ONCO-PLOIDY-001 — Tumor Ploidy Estimation (length-weighted mean CN + WGD)
+
+    // -------------------------------------------------------------------------
+    // Theory (Patchwork / ASCAT length-weighted ploidy; facets-suite WGD, Bielski 2018):
+    //   • ψ = Σ(CN_i · L_i) / Σ(L_i), CN_i = Major + Minor, L_i = End − Start.            (Patchwork)
+    //   • A balanced diploid genome (all 1:1) has ψ = 2; ψ lies within [min CN, max CN].
+    //   • WGD ⟺ fraction of genome length with major-allele CN ≥ 2 is strictly > 0.5.       (facets-suite)
+    //
+    // The weighted mean and the WGD fraction are reconstructed here independently — NOT
+    // routed through production — so a wrong weighting or threshold sense is caught.
+    // -------------------------------------------------------------------------
+
+    private const double PloidyTolerance = 1e-9;
+
+    private static Gen<OncologyAnalyzer.AlleleSpecificSegment> AlleleSegmentGen() =>
+        from len in Gen.Choose(1, 1_000_000)
+        from major in Gen.Choose(0, 5)
+        from minor in Gen.Choose(0, major) // minor ≤ major by allele-specific convention
+        select new OncologyAnalyzer.AlleleSpecificSegment("1", 0, len, major, minor);
+
+    private static Arbitrary<OncologyAnalyzer.AlleleSpecificSegment[]> NonEmptySegmentsArbitrary() =>
+        (from n in Gen.Choose(1, 6)
+         from segs in AlleleSegmentGen().ArrayOf(n)
+         select segs).ToArbitrary();
+
+    /// <summary>
+    /// R (checklist "ploidy &gt; 0") + formula: <c>EstimatePloidy</c> equals the independent length-weighted
+    /// mean of per-segment total copy number Σ(CN·L)/ΣL, lies within [min CN, max CN], and is &gt; 0 whenever
+    /// any segment carries a positive copy number. (Patchwork length-weighted ploidy)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property EstimatePloidy_IsLengthWeightedMeanTotalCopyNumber_WithinCnExtremes()
+    {
+        return Prop.ForAll(NonEmptySegmentsArbitrary(), segs =>
+        {
+            double psi = OncologyAnalyzer.EstimatePloidy(segs);
+
+            double weighted = segs.Sum(s => (double)(s.MajorCopyNumber + s.MinorCopyNumber) * s.Length);
+            double totalLen = segs.Sum(s => (double)s.Length);
+            double oracle = weighted / totalLen;
+
+            int minCn = segs.Min(s => s.MajorCopyNumber + s.MinorCopyNumber);
+            int maxCn = segs.Max(s => s.MajorCopyNumber + s.MinorCopyNumber);
+            bool anyPositive = segs.Any(s => s.MajorCopyNumber + s.MinorCopyNumber > 0);
+
+            bool formulaOk = Math.Abs(psi - oracle) <= PloidyTolerance * Math.Max(1.0, oracle);
+            bool withinExtremes = psi >= minCn - PloidyTolerance && psi <= maxCn + PloidyTolerance;
+            bool positivity = !anyPositive || psi > 0.0;
+            return (formulaOk && withinExtremes && positivity)
+                .Label($"ψ={psi} vs oracle {oracle}; extremes [{minCn},{maxCn}]; anyPositive={anyPositive}");
+        });
+    }
+
+    /// <summary>
+    /// M (checklist "more amplified genome → higher ploidy"): raising the copy number of any single segment
+    /// strictly increases the length-weighted ploidy (the segment has positive length, hence positive weight).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property EstimatePloidy_RisesWhenASegmentCopyNumberIncreases()
+    {
+        var arb = (from segs in NonEmptySegmentsArbitrary().Generator
+                   from idx in Gen.Choose(0, segs.Length - 1)
+                   from bump in Gen.Choose(1, 4)
+                   select (segs, idx, bump)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            double before = OncologyAnalyzer.EstimatePloidy(t.segs);
+            var raised = (OncologyAnalyzer.AlleleSpecificSegment[])t.segs.Clone();
+            raised[t.idx] = raised[t.idx] with { MajorCopyNumber = raised[t.idx].MajorCopyNumber + t.bump };
+            double after = OncologyAnalyzer.EstimatePloidy(raised);
+            return (after > before).Label($"ψ did not increase: before={before}, after={after} (bump={t.bump})");
+        });
+    }
+
+    /// <summary>
+    /// WGD oracle: <c>DetectWholeGenomeDoubling</c> equals the independent test "fraction of genome length
+    /// with major-allele CN ≥ 2 is strictly &gt; 0.5". (facets-suite is_genome_doubled)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectWholeGenomeDoubling_MatchesElevatedMajorCnFractionOracle()
+    {
+        return Prop.ForAll(NonEmptySegmentsArbitrary(), segs =>
+        {
+            bool actual = OncologyAnalyzer.DetectWholeGenomeDoubling(segs);
+
+            double elevated = segs.Where(s => s.MajorCopyNumber >= 2).Sum(s => (double)s.Length);
+            double total = segs.Sum(s => (double)s.Length);
+            bool oracle = elevated / total > 0.5;
+
+            return (actual == oracle).Label($"WGD={actual} ≠ oracle {oracle} (elevated frac {elevated / total})");
+        });
+    }
+
+    /// <summary>
+    /// M (WGD monotone): raising every segment's major-allele copy number can only enlarge the elevated
+    /// fraction, so a genome already called whole-genome doubled stays doubled. (more amplified ⇒ stays WGD)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectWholeGenomeDoubling_RaisingMajorCopyNumber_KeepsDoubling()
+    {
+        var arb = (from segs in NonEmptySegmentsArbitrary().Generator
+                   from bump in Gen.Choose(1, 3)
+                   select (segs, bump)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            if (!OncologyAnalyzer.DetectWholeGenomeDoubling(t.segs))
+            {
+                return true.ToProperty(); // implication is conditional on the base genome being doubled
+            }
+
+            var raised = t.segs.Select(s => s with { MajorCopyNumber = s.MajorCopyNumber + t.bump }).ToArray();
+            return OncologyAnalyzer.DetectWholeGenomeDoubling(raised).ToProperty()
+                .Label("raising major CN un-doubled a WGD genome");
+        });
+    }
+
+    /// <summary>D (determinism): ploidy and WGD are identical for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property TumorPloidy_IsDeterministic()
+    {
+        return Prop.ForAll(NonEmptySegmentsArbitrary(), segs =>
+        {
+            bool ploidyOk = OncologyAnalyzer.EstimatePloidy(segs) == OncologyAnalyzer.EstimatePloidy(segs);
+            bool wgdOk = OncologyAnalyzer.DetectWholeGenomeDoubling(segs) == OncologyAnalyzer.DetectWholeGenomeDoubling(segs);
+            return (ploidyOk && wgdOk).Label("tumor ploidy estimation is not deterministic");
+        });
+    }
+
+    /// <summary>
+    /// Anchors (facets-suite / ASCAT): a balanced diploid genome (all 1:1) has ψ = 2 and is NOT doubled; an
+    /// all-2:2 genome has ψ = 4 and IS doubled; a 2:0 LOH genome is doubled (major CN 2) yet has ψ = 2.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void TumorPloidy_CanonicalGenomes()
+    {
+        var diploid = new[] { new OncologyAnalyzer.AlleleSpecificSegment("1", 0, 1_000_000, 1, 1) };
+        var doubled = new[] { new OncologyAnalyzer.AlleleSpecificSegment("1", 0, 1_000_000, 2, 2) };
+        var lohDoubled = new[] { new OncologyAnalyzer.AlleleSpecificSegment("1", 0, 1_000_000, 2, 0) };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.EstimatePloidy(diploid), Is.EqualTo(2.0).Within(PloidyTolerance), "1:1 ⇒ ψ = 2.");
+            Assert.That(OncologyAnalyzer.DetectWholeGenomeDoubling(diploid), Is.False, "Balanced diploid is not doubled (major CN 1).");
+            Assert.That(OncologyAnalyzer.EstimatePloidy(doubled), Is.EqualTo(4.0).Within(PloidyTolerance), "2:2 ⇒ ψ = 4.");
+            Assert.That(OncologyAnalyzer.DetectWholeGenomeDoubling(doubled), Is.True, "2:2 genome is doubled.");
+            Assert.That(OncologyAnalyzer.EstimatePloidy(lohDoubled), Is.EqualTo(2.0).Within(PloidyTolerance), "2:0 ⇒ ψ = 2.");
+            Assert.That(OncologyAnalyzer.DetectWholeGenomeDoubling(lohDoubled), Is.True, "2:0 LOH has major CN 2 ⇒ doubled.");
+        });
+    }
+
+    #endregion
+
+    #region ONCO-CLONAL-001 — Clonal vs Subclonal Classification (CCF posterior)
+
+    // -------------------------------------------------------------------------
+    // Theory (Landau et al. 2013 Cell; DeCiFering/Satas 2021 multiplicity):
+    //   • Posterior over CCF c on a grid, P(c) ∝ Binomial(a | N, f(c)),
+    //     f(c) = ρ·M·c / [2(1−ρ) + ρ·q].
+    //   • Clonal ⟺ P(c > 0.95) > 0.5; else Subclonal.   (status ↔ reported probability)
+    //   • CCF point estimate (posterior mean) ∈ [0.01, 1]; ProbabilityClonal ∈ [0,1].
+    //   • Higher observed alt fraction ⇒ higher CCF and clonal probability (binomial MLR).
+    //   • IdentifyClonalMutations: indices with CCF > 0.95.
+    //
+    // The classification rule (status ↔ probability), bounds, counts and the CCF>0.95
+    // index selection are verified directly; monotonicity in alt reads is checked
+    // metamorphically rather than by mirroring the grid posterior.
+    // -------------------------------------------------------------------------
+
+    private const double ClonalTolerance = 1e-9;
+
+    private static Gen<OncologyAnalyzer.ClonalityVariant> ClonalityVariantGen() =>
+        from total in Gen.Choose(1, 200)
+        from alt in Gen.Choose(0, total)
+        from q in Gen.Choose(1, 6)
+        from m in Gen.Choose(1, q)
+        select new OncologyAnalyzer.ClonalityVariant(alt, total, q, m);
+
+    private static Arbitrary<(OncologyAnalyzer.ClonalityVariant[] variants, double purity)> ClonalityProblemArbitrary() =>
+        (from n in Gen.Choose(0, 6)
+         from variants in ClonalityVariantGen().ArrayOf(n)
+         from purityMilli in Gen.Choose(100, 1000)
+         select (variants, purityMilli / 1000.0)).ToArbitrary();
+
+    /// <summary>
+    /// R (checklist "class ∈ enum") + status rule + counts: every call reports a CCF ∈ [0.01,1] and a
+    /// clonal probability ∈ [0,1], its Status is Clonal iff that probability exceeds 0.5, the calls are in
+    /// input order, and the clonal/subclonal counts and clonal fraction are consistent. (Landau 2013)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyClonality_StatusMatchesProbability_BoundsAndCountsConsistent()
+    {
+        return Prop.ForAll(ClonalityProblemArbitrary(), p =>
+        {
+            var result = OncologyAnalyzer.ClassifyClonality(p.variants, p.purity);
+
+            bool ok = result.Calls.Count == p.variants.Length;
+            for (int i = 0; ok && i < result.Calls.Count; i++)
+            {
+                var c = result.Calls[i];
+                ok &= c.Variant.Equals(p.variants[i]);
+                ok &= c.Ccf >= 0.01 - ClonalTolerance && c.Ccf <= 1.0 + ClonalTolerance;
+                ok &= c.ProbabilityClonal >= -ClonalTolerance && c.ProbabilityClonal <= 1.0 + ClonalTolerance;
+                bool clonalByProb = c.ProbabilityClonal > OncologyAnalyzer.ClonalProbabilityThreshold;
+                ok &= c.Status == (clonalByProb ? OncologyAnalyzer.ClonalityStatus.Clonal : OncologyAnalyzer.ClonalityStatus.Subclonal);
+            }
+
+            int clonal = result.Calls.Count(c => c.Status == OncologyAnalyzer.ClonalityStatus.Clonal);
+            int subclonal = result.Calls.Count - clonal;
+            ok &= result.ClonalCount == clonal && result.SubclonalCount == subclonal;
+            double expectedFraction = result.Calls.Count == 0 ? 0.0 : (double)clonal / result.Calls.Count;
+            ok &= Math.Abs(result.ClonalFraction - expectedFraction) < ClonalTolerance;
+
+            return ok.Label($"clonal={result.ClonalCount}, subclonal={result.SubclonalCount}, fraction={result.ClonalFraction}");
+        });
+    }
+
+    /// <summary>
+    /// P (checklist "clonal ⟺ CCF ≈ 1") / M: at a fixed depth, copy state and purity, observing more
+    /// alternate reads can only raise the CCF estimate and the clonal probability — the binomial likelihood
+    /// has monotone likelihood ratio in the success count, so higher VAF ⇒ higher (more clonal) CCF.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyClonality_MoreAltReads_RaiseCcfAndClonalProbability()
+    {
+        var arb = (from total in Gen.Choose(1, 200)
+                   from a1 in Gen.Choose(0, total)
+                   from a2 in Gen.Choose(0, total)
+                   from q in Gen.Choose(1, 6)
+                   from m in Gen.Choose(1, q)
+                   from purityMilli in Gen.Choose(100, 1000)
+                   select (total, lo: Math.Min(a1, a2), hi: Math.Max(a1, a2), q, m, purity: purityMilli / 1000.0))
+                  .ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var low = OncologyAnalyzer.ClassifyClonality(
+                new[] { new OncologyAnalyzer.ClonalityVariant(t.lo, t.total, t.q, t.m) }, t.purity).Calls[0];
+            var high = OncologyAnalyzer.ClassifyClonality(
+                new[] { new OncologyAnalyzer.ClonalityVariant(t.hi, t.total, t.q, t.m) }, t.purity).Calls[0];
+
+            bool ccfMonotone = high.Ccf >= low.Ccf - ClonalTolerance;
+            bool probMonotone = high.ProbabilityClonal >= low.ProbabilityClonal - ClonalTolerance;
+            return (ccfMonotone && probMonotone)
+                .Label($"a={t.lo}->{t.hi}: CCF {low.Ccf}->{high.Ccf}, P(clonal) {low.ProbabilityClonal}->{high.ProbabilityClonal}");
+        });
+    }
+
+    /// <summary>
+    /// <c>IdentifyClonalMutations</c> returns exactly the input indices whose CCF strictly exceeds 0.95, in
+    /// input order — matching an independent index oracle. (Landau 2013 CCF &gt; 0.95 clonal threshold)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IdentifyClonalMutations_SelectsIndicesAboveClonalThreshold()
+    {
+        var arb = Gen.Choose(0, 1000).Select(v => v / 1000.0).ArrayOf().ToArbitrary();
+
+        return Prop.ForAll(arb, ccfValues =>
+        {
+            var indices = OncologyAnalyzer.IdentifyClonalMutations(ccfValues);
+            var oracle = ccfValues
+                .Select((ccf, i) => (ccf, i))
+                .Where(x => x.ccf > OncologyAnalyzer.ClonalCcfThreshold)
+                .Select(x => x.i)
+                .ToList();
+            return indices.SequenceEqual(oracle)
+                .Label($"indices [{string.Join(",", indices)}] ≠ oracle [{string.Join(",", oracle)}]");
+        });
+    }
+
+    /// <summary>D (determinism): clonality classification is identical for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyClonality_IsDeterministic()
+    {
+        return Prop.ForAll(ClonalityProblemArbitrary(), p =>
+        {
+            var a = OncologyAnalyzer.ClassifyClonality(p.variants, p.purity);
+            var b = OncologyAnalyzer.ClassifyClonality(p.variants, p.purity);
+            return (a.Calls.SequenceEqual(b.Calls) && a.ClonalCount == b.ClonalCount
+                    && a.SubclonalCount == b.SubclonalCount && a.ClonalFraction == b.ClonalFraction)
+                .Label("ClassifyClonality is not deterministic for identical arguments");
+        });
+    }
+
+    /// <summary>
+    /// Anchors: at full purity a mutation on both copies (M=2, n_tot=2 ⇒ f(c)=c) observed at VAF 0.99 has
+    /// CCF ≈ 0.99 ⇒ clonal, while VAF 0.20 ⇒ CCF ≈ 0.20 ⇒ subclonal; purity ∉ (0,1] and a NaN CCF are
+    /// rejected. (Landau 2013)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void ClassifyClonality_CanonicalAndGuardCases()
+    {
+        var clonal = OncologyAnalyzer.ClassifyClonality(
+            new[] { new OncologyAnalyzer.ClonalityVariant(99, 100, 2, 2) }, purity: 1.0).Calls[0];
+        var subclonal = OncologyAnalyzer.ClassifyClonality(
+            new[] { new OncologyAnalyzer.ClonalityVariant(20, 100, 2, 2) }, purity: 1.0).Calls[0];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(clonal.Status, Is.EqualTo(OncologyAnalyzer.ClonalityStatus.Clonal),
+                "VAF 0.99 with f(c)=c ⇒ CCF ≈ 0.99 ⇒ clonal.");
+            Assert.That(clonal.Ccf, Is.GreaterThan(0.9), "Clonal CCF point estimate is near 1.");
+            Assert.That(subclonal.Status, Is.EqualTo(OncologyAnalyzer.ClonalityStatus.Subclonal),
+                "VAF 0.20 ⇒ CCF ≈ 0.20 ⇒ subclonal.");
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => OncologyAnalyzer.ClassifyClonality(Array.Empty<OncologyAnalyzer.ClonalityVariant>(), 0.0),
+                "Purity must be in (0,1].");
+            Assert.Throws<ArgumentException>(
+                () => OncologyAnalyzer.IdentifyClonalMutations(new[] { double.NaN }),
+                "A NaN CCF is invalid.");
+        });
+    }
+
+    #endregion
+
+    #region ONCO-NEO-001 — Neoantigen Peptide Generation (windowing + agretope pairing)
+
+    // -------------------------------------------------------------------------
+    // Theory (Hundal 2020 pVACtools; Li 2020 ProGeo-neo; Wells 2020 TESLA):
+    //   • Class I candidate peptides are 8–11-mers (default range).                       (INV-1)
+    //   • Every window spans the substituted residue: it is a length-k window [s, s+k−1]   (INV-2/5)
+    //     with s ∈ [max(0, mutIdx−k+1), min(mutIdx, L−k)] — exactly k windows when the
+    //     mutation is ≥ k−1 residues from both ends.
+    //   • Mutant/wild-type peptides (the agretope) share length and differ only at the     (INV-3/4)
+    //     mutated offset; mutant carries the substituted residue, WT the original.
+    //   • Ordered by length asc then start asc.                                            (INV-6)
+    //
+    // The whole window set is reconstructed independently from the spanning definition
+    // (NOT routed through GenerateNeoantigenPeptides), so an off-by-one in the window
+    // enumeration or a wrong agretope is caught.
+    // -------------------------------------------------------------------------
+
+    private static readonly char[] NeoAminoAcids = "ACDEFGHIKLMNPQRSTVWY".ToCharArray();
+
+    /// <summary>A protein, a 1-based mutation position, and a mutant residue that differs from the wild type.</summary>
+    private static Gen<(string protein, int pos, char mutant)> MissenseGen() =>
+        from len in Gen.Choose(8, 30)
+        from chars in Gen.Elements(NeoAminoAcids).ArrayOf(len)
+        from pos in Gen.Choose(1, len)
+        from mIdx in Gen.Choose(0, NeoAminoAcids.Length - 1)
+        let protein = new string(chars)
+        let wt = protein[pos - 1]
+        let mutant = NeoAminoAcids[mIdx] == wt ? NeoAminoAcids[(mIdx + 1) % NeoAminoAcids.Length] : NeoAminoAcids[mIdx]
+        select (protein, pos, mutant);
+
+    /// <summary>Independent windowing oracle reconstructing every length-k window that spans the mutation.</summary>
+    private static List<OncologyAnalyzer.NeoantigenPeptide> OracleNeoantigens(
+        string protein, char mutant, int pos, int minLen, int maxLen)
+    {
+        int mutIdx = pos - 1;
+        int len = protein.Length;
+        char[] mc = protein.ToCharArray();
+        mc[mutIdx] = mutant;
+        string mutantProtein = new(mc);
+
+        var list = new List<OncologyAnalyzer.NeoantigenPeptide>();
+        for (int k = minLen; k <= maxLen; k++)
+        {
+            if (k > len)
+            {
+                continue;
+            }
+
+            int firstStart = Math.Max(0, mutIdx - k + 1);
+            int lastStart = Math.Min(mutIdx, len - k);
+            for (int s = firstStart; s <= lastStart; s++)
+            {
+                list.Add(new OncologyAnalyzer.NeoantigenPeptide(
+                    k, s + 1, mutantProtein.Substring(s, k), protein.Substring(s, k), mutIdx - s));
+            }
+        }
+
+        return list;
+    }
+
+    /// <summary>
+    /// INV-1/INV-2/INV-5/INV-6: <c>GenerateNeoantigenPeptides</c> reproduces the independent spanning-window
+    /// oracle exactly (same peptides, start positions, offsets and order) for an arbitrary length range. This
+    /// pins the window count, the "every window spans the mutation" rule and the ascending order. (Li 2020)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GenerateNeoantigenPeptides_MatchesSpanningWindowOracle()
+    {
+        var arb = (from g in MissenseGen()
+                   from minLen in Gen.Choose(1, 6)
+                   from extra in Gen.Choose(0, 6)
+                   select (g.protein, g.pos, g.mutant, minLen, maxLen: minLen + extra)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var actual = OncologyAnalyzer.GenerateNeoantigenPeptides(t.protein, t.mutant, t.pos, t.minLen, t.maxLen);
+            var oracle = OracleNeoantigens(t.protein, t.mutant, t.pos, t.minLen, t.maxLen);
+            return actual.SequenceEqual(oracle)
+                .Label($"got {actual.Count} peptides vs oracle {oracle.Count} (L={t.protein.Length}, pos={t.pos}, k∈[{t.minLen},{t.maxLen}])");
+        });
+    }
+
+    /// <summary>
+    /// R (checklist "length ∈ [8,11]") + INV-2 (P "mutated residue inside every window"): with default
+    /// lengths every peptide is an 8–11-mer that spans the mutation — offset ∈ [0, Length) and
+    /// StartPosition + offset == mutationPosition, within the protein bounds. (Hundal 2020; Li 2020)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GenerateNeoantigenPeptides_DefaultLengths_SpanMutation_In8To11()
+    {
+        return Prop.ForAll(MissenseGen().ToArbitrary(), g =>
+        {
+            var peptides = OncologyAnalyzer.GenerateNeoantigenPeptides(g.protein, g.mutant, g.pos);
+            return peptides.All(p =>
+                p.Length is >= 8 and <= 11
+                && p.MutationOffset >= 0 && p.MutationOffset < p.Length
+                && p.StartPosition + p.MutationOffset == g.pos
+                && p.StartPosition >= 1 && p.StartPosition + p.Length - 1 <= g.protein.Length)
+                .Label("a peptide is outside 8–11 or does not span the mutation");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 + INV-4 (P "tile the mutation" / agretope): for every peptide the mutant and wild-type k-mers
+    /// have equal length and differ at exactly one index — the mutation offset — where the mutant carries the
+    /// substituted residue and the wild type the original; all other residues are identical. (Wells 2020)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GenerateNeoantigenPeptides_MutantAndWildType_DifferOnlyAtMutationOffset()
+    {
+        return Prop.ForAll(MissenseGen().ToArbitrary(), g =>
+        {
+            var peptides = OncologyAnalyzer.GenerateNeoantigenPeptides(g.protein, g.mutant, g.pos);
+            char wildType = g.protein[g.pos - 1];
+
+            return peptides.All(p =>
+            {
+                if (p.MutantPeptide.Length != p.Length || p.WildTypePeptide.Length != p.Length)
+                {
+                    return false;
+                }
+
+                int differing = 0;
+                for (int i = 0; i < p.Length; i++)
+                {
+                    if (p.MutantPeptide[i] != p.WildTypePeptide[i])
+                    {
+                        differing++;
+                    }
+                }
+
+                return differing == 1
+                    && p.MutantPeptide[p.MutationOffset] == g.mutant
+                    && p.WildTypePeptide[p.MutationOffset] == wildType;
+            }).Label("a peptide's mutant/wild-type pair did not differ at exactly the mutation offset");
+        });
+    }
+
+    /// <summary>D (determinism): neoantigen generation is identical for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property GenerateNeoantigenPeptides_IsDeterministic()
+    {
+        return Prop.ForAll(MissenseGen().ToArbitrary(), g =>
+            OncologyAnalyzer.GenerateNeoantigenPeptides(g.protein, g.mutant, g.pos)
+                .SequenceEqual(OncologyAnalyzer.GenerateNeoantigenPeptides(g.protein, g.mutant, g.pos))
+                .Label("GenerateNeoantigenPeptides is not deterministic for identical arguments"));
+    }
+
+    /// <summary>
+    /// Anchors: the canonical Y5C example (protein MKTAYIAKQRSTVWLNDEFGH) yields default 8–11-mer windows all
+    /// spanning position 5; a non-substitution and an out-of-range position are rejected. (Hundal 2020; Li 2020)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void GenerateNeoantigenPeptides_CanonicalAndGuardCases()
+    {
+        const string protein = "MKTAYIAKQRSTVWLNDEFGH"; // L = 21, wild-type residue at position 5 is 'Y'
+        var peptides = OncologyAnalyzer.GenerateNeoantigenPeptides(protein, 'C', 5);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(peptides, Is.Not.Empty, "Position 5 of a 21-mer admits 8–11-mer windows.");
+            Assert.That(peptides.All(p => p.Length is >= 8 and <= 11), Is.True, "Default class I lengths 8–11.");
+            Assert.That(peptides.All(p => p.StartPosition + p.MutationOffset == 5), Is.True, "Every window spans position 5.");
+            Assert.That(peptides.All(p => p.MutantPeptide[p.MutationOffset] == 'C' && p.WildTypePeptide[p.MutationOffset] == 'Y'),
+                Is.True, "Mutant carries C, wild type carries Y at the offset.");
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.GenerateNeoantigenPeptides(protein, 'Y', 5),
+                "Y5Y is not a substitution.");
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.GenerateNeoantigenPeptides(protein, 'C', 22),
+                "Position 22 is outside [1, 21].");
+        });
+    }
+
+    #endregion
+
+    #region ONCO-MHC-001 — MHC Binding Classification (IC50 / %Rank cutoffs)
+
+    // -------------------------------------------------------------------------
+    // Theory (Sette 1994 / IEDB IC50; Reynisson 2020 NetMHCpan-4.1 %Rank; IEDB lengths):
+    //   • IC50: Strong < 50 nM, Weak < 500 nM, else NonBinder (strict <).
+    //   • %Rank: class I Strong < 0.5%, Weak < 2%; class II Strong < 2%, Weak < 10% (strict).
+    //   • Valid length: class I 8–11, class II 13–25 (inclusive).
+    //   • Lower IC50 / lower %Rank ⇒ stronger (or equal) binding.   (M)
+    //   • ClassifyMhcBinding: invalid length ⇒ NonBinder, else affinity classification.
+    //
+    // The cutoffs and length ranges are restated independently from the cited conventions —
+    // NOT routed through production constants — so a wrong threshold or boundary sense
+    // (e.g. ≤ vs <) is caught. Enum order Strong(0) < Weak(1) < NonBinder(2) encodes strength.
+    // -------------------------------------------------------------------------
+
+    private static int Strength(OncologyAnalyzer.BindingStrength s) => (int)s;
+
+    private static Gen<double> Ic50Gen() => Gen.Choose(1, 100_000).Select(v => v / 100.0); // 0.01 .. 1000 nM
+
+    private static Gen<double> RankGen() => Gen.Choose(0, 10_000).Select(v => v / 100.0); // 0 .. 100 %
+
+    private static Gen<OncologyAnalyzer.MhcClass> MhcClassGen() =>
+        Gen.Elements(OncologyAnalyzer.MhcClass.ClassI, OncologyAnalyzer.MhcClass.ClassII);
+
+    /// <summary>
+    /// IC50 classification matches the independent IEDB cutoffs (Strong &lt; 50 nM, Weak &lt; 500 nM, else
+    /// NonBinder) and is monotone: a lower IC50 yields an equal-or-stronger category. (Sette 1994; IEDB)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyBindingAffinity_MatchesIc50Cutoffs_AndIsMonotone()
+    {
+        var arb = (from a in Ic50Gen()
+                   from b in Ic50Gen()
+                   select (lo: Math.Min(a, b), hi: Math.Max(a, b))).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var lowAffinity = OncologyAnalyzer.ClassifyBindingAffinity(t.lo);
+            var highAffinity = OncologyAnalyzer.ClassifyBindingAffinity(t.hi);
+
+            OncologyAnalyzer.BindingStrength expectedLow = t.lo < 50.0
+                ? OncologyAnalyzer.BindingStrength.Strong
+                : t.lo < 500.0 ? OncologyAnalyzer.BindingStrength.Weak : OncologyAnalyzer.BindingStrength.NonBinder;
+
+            bool oracleOk = lowAffinity == expectedLow;
+            bool monotone = Strength(lowAffinity) <= Strength(highAffinity); // lower IC50 ⇒ stronger (≤ enum)
+            return (oracleOk && monotone)
+                .Label($"IC50 {t.lo}→{lowAffinity} (expected {expectedLow}); {t.hi}→{highAffinity}");
+        });
+    }
+
+    /// <summary>
+    /// P (checklist "strong binder ⟺ rank below threshold") + R (%Rank ∈ [0,100]): %Rank classification
+    /// matches the NetMHCpan class cutoffs, Strong ⟺ rank &lt; the class strong cutoff, and is monotone in
+    /// the rank (lower rank ⇒ stronger or equal). (Reynisson 2020)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyBindingRank_MatchesClassCutoffs_StrongIffBelowStrongThreshold()
+    {
+        var arb = (from a in RankGen()
+                   from b in RankGen()
+                   from mhc in MhcClassGen()
+                   select (lo: Math.Min(a, b), hi: Math.Max(a, b), mhc)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            double strongCutoff = t.mhc == OncologyAnalyzer.MhcClass.ClassI ? 0.5 : 2.0;
+            double weakCutoff = t.mhc == OncologyAnalyzer.MhcClass.ClassI ? 2.0 : 10.0;
+
+            var low = OncologyAnalyzer.ClassifyBindingRank(t.lo, t.mhc);
+            var high = OncologyAnalyzer.ClassifyBindingRank(t.hi, t.mhc);
+
+            OncologyAnalyzer.BindingStrength expectedLow = t.lo < strongCutoff
+                ? OncologyAnalyzer.BindingStrength.Strong
+                : t.lo < weakCutoff ? OncologyAnalyzer.BindingStrength.Weak : OncologyAnalyzer.BindingStrength.NonBinder;
+
+            bool oracleOk = low == expectedLow;
+            bool strongIff = (low == OncologyAnalyzer.BindingStrength.Strong) == (t.lo < strongCutoff);
+            bool monotone = Strength(low) <= Strength(high);
+            return (oracleOk && strongIff && monotone)
+                .Label($"{t.mhc} rank {t.lo}→{low} (expected {expectedLow}); {t.hi}→{high}");
+        });
+    }
+
+    /// <summary>
+    /// <c>IsValidPeptideLength</c> matches the class length ranges exactly: class I ⟺ 8 ≤ len ≤ 11, class II
+    /// ⟺ 13 ≤ len ≤ 25 (both inclusive). (IEDB / Reynisson 2020 default class I 8–11)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IsValidPeptideLength_MatchesClassRanges()
+    {
+        var arb = (from len in Gen.Choose(0, 30)
+                   from mhc in MhcClassGen()
+                   select (len, mhc)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            bool actual = OncologyAnalyzer.IsValidPeptideLength(t.len, t.mhc);
+            bool expected = t.mhc == OncologyAnalyzer.MhcClass.ClassI
+                ? t.len is >= 8 and <= 11
+                : t.len is >= 13 and <= 25;
+            return (actual == expected).Label($"{t.mhc} len {t.len}: {actual} ≠ {expected}");
+        });
+    }
+
+    /// <summary>
+    /// <c>ClassifyMhcBinding</c> gates on length: an invalid peptide length for the class is a NonBinder
+    /// regardless of IC50; a valid length defers to the IC50 affinity classification. (length gate + IC50)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyMhcBinding_InvalidLengthIsNonBinder_ElseAffinity()
+    {
+        var arb = (from len in Gen.Choose(0, 30)
+                   from ic50 in Ic50Gen()
+                   from mhc in MhcClassGen()
+                   select (len, ic50, mhc)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var actual = OncologyAnalyzer.ClassifyMhcBinding(t.len, t.ic50, t.mhc);
+            bool validLength = OncologyAnalyzer.IsValidPeptideLength(t.len, t.mhc);
+            var expected = validLength
+                ? OncologyAnalyzer.ClassifyBindingAffinity(t.ic50)
+                : OncologyAnalyzer.BindingStrength.NonBinder;
+            return (actual == expected).Label($"len {t.len} ({t.mhc}), IC50 {t.ic50}: {actual} ≠ {expected}");
+        });
+    }
+
+    /// <summary>D (determinism): all MHC-binding classifiers return identical categories for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property MhcBindingClassifiers_AreDeterministic()
+    {
+        var arb = (from len in Gen.Choose(0, 30)
+                   from ic50 in Ic50Gen()
+                   from rank in RankGen()
+                   from mhc in MhcClassGen()
+                   select (len, ic50, rank, mhc)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            bool affinityOk = OncologyAnalyzer.ClassifyBindingAffinity(t.ic50) == OncologyAnalyzer.ClassifyBindingAffinity(t.ic50);
+            bool rankOk = OncologyAnalyzer.ClassifyBindingRank(t.rank, t.mhc) == OncologyAnalyzer.ClassifyBindingRank(t.rank, t.mhc);
+            bool bindOk = OncologyAnalyzer.ClassifyMhcBinding(t.len, t.ic50, t.mhc) == OncologyAnalyzer.ClassifyMhcBinding(t.len, t.ic50, t.mhc);
+            return (affinityOk && rankOk && bindOk).Label("MHC binding classification is not deterministic");
+        });
+    }
+
+    /// <summary>
+    /// Anchors: the strict IC50 boundaries (50 nM ⇒ Weak, 500 nM ⇒ NonBinder), the class I %Rank boundary
+    /// (0.5 ⇒ Weak), an invalid length ⇒ NonBinder, and the IC50/%Rank domain guards. (Sette 1994; Reynisson 2020)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void MhcBinding_BoundaryAndGuardCases()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.ClassifyBindingAffinity(49.9), Is.EqualTo(OncologyAnalyzer.BindingStrength.Strong), "< 50 ⇒ Strong.");
+            Assert.That(OncologyAnalyzer.ClassifyBindingAffinity(50.0), Is.EqualTo(OncologyAnalyzer.BindingStrength.Weak), "50 is not < 50 ⇒ Weak.");
+            Assert.That(OncologyAnalyzer.ClassifyBindingAffinity(500.0), Is.EqualTo(OncologyAnalyzer.BindingStrength.NonBinder), "500 ⇒ NonBinder.");
+            Assert.That(OncologyAnalyzer.ClassifyBindingRank(0.5, OncologyAnalyzer.MhcClass.ClassI), Is.EqualTo(OncologyAnalyzer.BindingStrength.Weak),
+                "Class I rank 0.5 is not < 0.5 ⇒ Weak.");
+            Assert.That(OncologyAnalyzer.ClassifyMhcBinding(12, 1.0, OncologyAnalyzer.MhcClass.ClassI), Is.EqualTo(OncologyAnalyzer.BindingStrength.NonBinder),
+                "Length 12 is invalid for class I ⇒ NonBinder regardless of IC50.");
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.ClassifyBindingAffinity(0.0), "IC50 must be > 0.");
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.ClassifyBindingRank(101.0, OncologyAnalyzer.MhcClass.ClassI), "%Rank must be ≤ 100.");
+        });
+    }
+
+    #endregion
+
+    #region ONCO-CTDNA-001 — ctDNA Detection & Tumor Fraction (Poisson model)
+
+    // -------------------------------------------------------------------------
+    // Theory (US Patent 11,085,084 B2 / Avanzini 2020 Poisson; Newman 2014; CNAqc 2024):
+    //   • Expected mutant molecules λ = n·d·k.
+    //   • Detection probability p = 1 − e^(−λ) ∈ [0,1], increasing in n, d, k.   (R, M)
+    //   • Detected ⟺ λ ≥ 1 AND p ≥ minDetectionProbability (default 0.95).
+    //   • Tumor fraction = clamp(2·mean(plasma VAF), [0,1]); more tumor-supporting   (R, M)
+    //     reads (higher VAF) ⇒ higher fraction.
+    //
+    // The Poisson model and the TF formula are reconstructed independently — NOT
+    // routed through production — so a wrong exponent or factor is caught.
+    // -------------------------------------------------------------------------
+
+    private const double CtDnaTolerance = 1e-9;
+
+    private static Gen<int> GenomeEquivalentsGen() => Gen.Choose(0, 100_000);
+
+    private static Gen<double> MafGen() => Gen.Choose(0, 1000).Select(v => v / 1000.0); // d ∈ [0,1]
+
+    private static Gen<int> ReporterCountGen() => Gen.Choose(1, 10);
+
+    /// <summary>
+    /// R (probability ∈ [0,1]): <c>CtDnaDetectionProbability</c> equals the independent Poisson form
+    /// 1 − e^(−n·d·k) and lies in [0,1]; <c>ExpectedMutantMolecules</c> equals n·d·k. (Avanzini 2020)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CtDnaDetectionProbability_IsPoissonOneMinusExpMinusLambda()
+    {
+        var arb = (from n in GenomeEquivalentsGen()
+                   from d in MafGen()
+                   from k in ReporterCountGen()
+                   select (n, d, k)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            double lambda = (double)t.n * t.d * t.k;
+            double p = OncologyAnalyzer.CtDnaDetectionProbability(t.n, t.d, t.k);
+            double expectedLambda = OncologyAnalyzer.ExpectedMutantMolecules(t.n, t.d, t.k);
+
+            bool probOk = Math.Abs(p - (1.0 - Math.Exp(-lambda))) < CtDnaTolerance && p is >= 0.0 and <= 1.0;
+            bool lambdaOk = Math.Abs(expectedLambda - lambda) < CtDnaTolerance * Math.Max(1.0, lambda);
+            return (probOk && lambdaOk).Label($"n={t.n}, d={t.d}, k={t.k}: p={p}, λ={expectedLambda} (exp {lambda})");
+        });
+    }
+
+    /// <summary>
+    /// M (checklist "more tumor-supporting reads → higher fraction" applied to the detection model): the
+    /// detection probability is monotonically non-decreasing in the mutant allele fraction (and hence in λ).
+    /// (Poisson detection model)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CtDnaDetectionProbability_IsMonotoneInAlleleFraction()
+    {
+        var arb = (from n in GenomeEquivalentsGen()
+                   from d1 in MafGen()
+                   from d2 in MafGen()
+                   from k in ReporterCountGen()
+                   select (n, lo: Math.Min(d1, d2), hi: Math.Max(d1, d2), k)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            double pLow = OncologyAnalyzer.CtDnaDetectionProbability(t.n, t.lo, t.k);
+            double pHigh = OncologyAnalyzer.CtDnaDetectionProbability(t.n, t.hi, t.k);
+            return (pHigh >= pLow - CtDnaTolerance).Label($"p({t.lo})={pLow} > p({t.hi})={pHigh}");
+        });
+    }
+
+    /// <summary>
+    /// <c>IsCtDnaDetected</c> equals the independent rule "λ ≥ 1 AND p ≥ minDetectionProbability" — at least
+    /// one mutant molecule expected and the Poisson probability reaches the operating point. (Avanzini 2020; Newman 2014)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IsCtDnaDetected_RequiresLambdaAtLeastOne_AndProbabilityThreshold()
+    {
+        var arb = (from n in GenomeEquivalentsGen()
+                   from d in MafGen()
+                   from k in ReporterCountGen()
+                   from minPMilli in Gen.Choose(1, 1000)
+                   select (n, d, k, minP: minPMilli / 1000.0)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            bool actual = OncologyAnalyzer.IsCtDnaDetected(t.n, t.d, t.k, t.minP);
+            double lambda = (double)t.n * t.d * t.k;
+            bool oracle = lambda >= 1.0 && (1.0 - Math.Exp(-lambda)) >= t.minP;
+            return (actual == oracle).Label($"detected={actual} ≠ oracle {oracle} (λ={lambda}, minP={t.minP})");
+        });
+    }
+
+    /// <summary>
+    /// R (checklist "ctDNA fraction ∈ [0,1]") + formula: <c>CalculateTumorFraction</c> equals
+    /// clamp(2·mean plasma VAF, [0,1]) over clonal het diploid SNVs and lies in [0,1]. (CNAqc v = TF/2)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CalculateTumorFraction_IsTwiceMeanVaf_ClampedToUnit()
+    {
+        var arb = (from n in Gen.Choose(1, 8)
+                   from obs in HetDiploidObservationGen().ArrayOf(n)
+                   select obs).ToArbitrary();
+
+        return Prop.ForAll(arb, observations =>
+        {
+            double tf = OncologyAnalyzer.CalculateTumorFraction(observations);
+            double meanVaf = observations.Average(o => (double)o.TumorAltReads / o.TumorTotalReads);
+            double oracle = Math.Min(1.0, 2.0 * meanVaf);
+            return (Math.Abs(tf - oracle) < CtDnaTolerance && tf is >= 0.0 and <= 1.0)
+                .Label($"TF {tf} ≠ clamp(2·{meanVaf}) {oracle}");
+        });
+    }
+
+    /// <summary>
+    /// M (checklist "more tumor-supporting reads → higher fraction"): raising the alternate-read count of a
+    /// single plasma variant (at fixed depth, keeping VAF ≤ 0.5) does not decrease the estimated tumor fraction.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CalculateTumorFraction_RisesWithMoreAltReads()
+    {
+        var arb = (from total in Gen.Choose(2, 400)
+                   from a1 in Gen.Choose(0, total / 2)
+                   from a2 in Gen.Choose(0, total / 2)
+                   select (total, lo: Math.Min(a1, a2), hi: Math.Max(a1, a2))).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            double low = OncologyAnalyzer.CalculateTumorFraction(new[] { new OncologyAnalyzer.VariantObservation("chr1", 1, "A", "T", t.lo, t.total, 0, 0) });
+            double high = OncologyAnalyzer.CalculateTumorFraction(new[] { new OncologyAnalyzer.VariantObservation("chr1", 1, "A", "T", t.hi, t.total, 0, 0) });
+            return (high >= low - CtDnaTolerance).Label($"TF dropped: alt {t.lo}->{t.hi}, TF {low}->{high}");
+        });
+    }
+
+    /// <summary>D (determinism): the ctDNA model and tumor-fraction estimate are identical for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property CtDna_IsDeterministic()
+    {
+        var arb = (from n in GenomeEquivalentsGen()
+                   from d in MafGen()
+                   from k in ReporterCountGen()
+                   select (n, d, k)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            bool pOk = OncologyAnalyzer.CtDnaDetectionProbability(t.n, t.d, t.k) == OncologyAnalyzer.CtDnaDetectionProbability(t.n, t.d, t.k);
+            bool detectOk = OncologyAnalyzer.IsCtDnaDetected(t.n, t.d, t.k) == OncologyAnalyzer.IsCtDnaDetected(t.n, t.d, t.k);
+            return (pOk && detectOk).Label("ctDNA model is not deterministic for identical arguments");
+        });
+    }
+
+    /// <summary>
+    /// Anchors: the Pessoa worked example (n=15000, d=0.001 ⇒ λ=15, p≈1, detected); a λ &lt; 1 case is not
+    /// detected; tumor fraction of a single VAF-0.30 plasma SNV is 0.60; guards on d and min-probability.
+    /// (Avanzini 2020; Pessoa 2023; CNAqc 2024)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void CtDna_CanonicalAndGuardCases()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.ExpectedMutantMolecules(15_000, 0.001), Is.EqualTo(15.0).Within(CtDnaTolerance),
+                "Pessoa: λ = 15000·0.001 = 15.");
+            Assert.That(OncologyAnalyzer.CtDnaDetectionProbability(15_000, 0.001), Is.GreaterThan(0.999), "λ = 15 ⇒ p ≈ 1.");
+            Assert.That(OncologyAnalyzer.IsCtDnaDetected(15_000, 0.001), Is.True, "λ = 15 ≥ 1 and p ≈ 1 ≥ 0.95 ⇒ detected.");
+            Assert.That(OncologyAnalyzer.IsCtDnaDetected(100, 0.001), Is.False, "λ = 0.1 < 1 ⇒ not detected.");
+            Assert.That(OncologyAnalyzer.CalculateTumorFraction(new[] { new OncologyAnalyzer.VariantObservation("chr1", 1, "A", "T", 30, 100, 0, 0) }),
+                Is.EqualTo(0.60).Within(CtDnaTolerance), "TF = 2·0.30 = 0.60.");
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.CtDnaDetectionProbability(100, 1.5), "d must be in [0,1].");
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.IsCtDnaDetected(100, 0.1, 1, 0.0), "min probability must be in (0,1].");
+        });
+    }
+
+    #endregion
+
+    #region ONCO-MRD-001 — Minimal Residual Disease (tumour-informed panel calling)
+
+    // -------------------------------------------------------------------------
+    // Theory (Reinert 2019 / Signatera ≥2-variant rule; Wan 2020 INVAR IMAF; Avanzini 2020):
+    //   • A marker is detected iff PlasmaAltReads ≥ minSupportingReads.
+    //   • MRD-positive ⟺ detected variants ≥ positivity threshold (default 2).   (R, M)
+    //   • IMAF = Σ alt / Σ total (depth-weighted plasma VAF) ∈ [0,1].             (R sensitivity)
+    //   • Panel detection p = 1 − e^(−n·IMAF·m) ∈ [0,1], m = tracked markers.
+    //   • Longitudinal: per-timepoint DetectMRD; first positive index = earliest positive.
+    //
+    // The detection count, status, IMAF and Poisson p are reconstructed independently
+    // — NOT routed through production — so a wrong threshold or weighting is caught.
+    // -------------------------------------------------------------------------
+
+    private static Gen<OncologyAnalyzer.TumorMarker> TumorMarkerGen() =>
+        from alt in Gen.Choose(0, 50)
+        from extra in Gen.Choose(0, 100)
+        select new OncologyAnalyzer.TumorMarker("1", 1, "A", "T", alt, alt + extra); // total ≥ alt ⇒ IMAF ≤ 1
+
+    private static Arbitrary<(OncologyAnalyzer.TumorMarker[] panel, int posThresh, int minReads, int n)>
+        MrdProblemArbitrary() =>
+        (from count in Gen.Choose(1, 8)
+         from panel in TumorMarkerGen().ArrayOf(count)
+         from posThresh in Gen.Choose(1, 5)
+         from minReads in Gen.Choose(1, 5)
+         from n in Gen.Choose(0, 10_000)
+         select (panel, posThresh, minReads, n)).ToArbitrary();
+
+    /// <summary>
+    /// R (status enum, sensitivity ∈ [0,1]) + counts: <c>DetectMRD</c> reproduces the independent panel
+    /// oracle — detected count = markers with alt ≥ minReads, tracked count = panel size, Positive ⟺ detected
+    /// ≥ threshold, IMAF = Σalt/Σtotal ∈ [0,1], and Poisson p = 1 − e^(−n·IMAF·m) ∈ [0,1]. (Reinert 2019; Wan 2020)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectMRD_MatchesIndependentPanelOracle()
+    {
+        return Prop.ForAll(MrdProblemArbitrary(), t =>
+        {
+            var result = OncologyAnalyzer.DetectMRD(t.panel, t.posThresh, t.minReads, t.n);
+
+            int detected = t.panel.Count(m => m.PlasmaAltReads >= t.minReads);
+            int tracked = t.panel.Length;
+            long altSum = t.panel.Sum(m => (long)Math.Max(0, m.PlasmaAltReads));
+            long totalSum = t.panel.Sum(m => (long)Math.Max(0, m.PlasmaTotalReads));
+            double imaf = totalSum == 0 ? 0.0 : (double)altSum / totalSum;
+            double p = 1.0 - Math.Exp(-t.n * imaf * tracked);
+            var expectedStatus = detected >= t.posThresh ? OncologyAnalyzer.MrdStatus.Positive : OncologyAnalyzer.MrdStatus.Negative;
+
+            bool ok = result.DetectedVariantCount == detected
+                      && result.TrackedVariantCount == tracked
+                      && result.Status == expectedStatus
+                      && Math.Abs(result.IntegratedMutantAlleleFraction - imaf) < CtDnaTolerance
+                      && result.IntegratedMutantAlleleFraction is >= 0.0 and <= 1.0
+                      && Math.Abs(result.DetectionProbability - p) < CtDnaTolerance
+                      && result.DetectionProbability is >= 0.0 and <= 1.0;
+            return ok.Label($"detected={result.DetectedVariantCount}/{result.TrackedVariantCount}, status={result.Status} (exp {expectedStatus}), IMAF={result.IntegratedMutantAlleleFraction}");
+        });
+    }
+
+    /// <summary>
+    /// M (checklist "more tracked variants observed → MRD-positive"): appending a detected marker raises the
+    /// detected count by one and can only move the call toward positive — a sample already MRD-positive stays
+    /// positive. Detection is monotone in the number of observed variants. (Reinert 2019 ≥2 rule)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectMRD_AddingADetectedMarker_RaisesCount_AndPreservesPositivity()
+    {
+        var arb = (from count in Gen.Choose(1, 8)
+                   from panel in TumorMarkerGen().ArrayOf(count)
+                   from posThresh in Gen.Choose(1, 5)
+                   from minReads in Gen.Choose(1, 5)
+                   from surplus in Gen.Choose(0, 10)
+                   select (panel, posThresh, minReads, surplus)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var baseResult = OncologyAnalyzer.DetectMRD(t.panel, t.posThresh, t.minReads);
+            // A marker guaranteed detected: alt = minReads + surplus (≥ minReads), total ≥ alt.
+            int alt = t.minReads + t.surplus;
+            var detectedMarker = new OncologyAnalyzer.TumorMarker("1", 2, "A", "T", alt, alt + 5);
+            var augmented = t.panel.Append(detectedMarker).ToArray();
+            var augResult = OncologyAnalyzer.DetectMRD(augmented, t.posThresh, t.minReads);
+
+            bool countRose = augResult.DetectedVariantCount == baseResult.DetectedVariantCount + 1;
+            bool positivityPreserved = baseResult.Status != OncologyAnalyzer.MrdStatus.Positive
+                                       || augResult.Status == OncologyAnalyzer.MrdStatus.Positive;
+            return (countRose && positivityPreserved)
+                .Label($"base detected={baseResult.DetectedVariantCount} status={baseResult.Status}; aug detected={augResult.DetectedVariantCount} status={augResult.Status}");
+        });
+    }
+
+    /// <summary>
+    /// <c>TrackVariantsOverTime</c> applies <c>DetectMRD</c> to each timepoint in input order and reports the
+    /// earliest MRD-positive timepoint index (or −1 if none) — matching an independent first-positive oracle.
+    /// (Reinert 2019 serial surveillance)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property TrackVariantsOverTime_PreservesOrder_AndFindsFirstPositive()
+    {
+        var arb = (from tpCount in Gen.Choose(0, 5)
+                   from panels in (from c in Gen.Choose(1, 5) from p in TumorMarkerGen().ArrayOf(c) select p).ArrayOf(tpCount)
+                   from posThresh in Gen.Choose(1, 4)
+                   from minReads in Gen.Choose(1, 3)
+                   select (panels, posThresh, minReads)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var result = OncologyAnalyzer.TrackVariantsOverTime(t.panels, t.posThresh, t.minReads);
+
+            bool ok = result.Timepoints.Count == t.panels.Length;
+            int oracleFirstPositive = -1;
+            for (int i = 0; ok && i < t.panels.Length; i++)
+            {
+                var expected = OncologyAnalyzer.DetectMRD(t.panels[i], t.posThresh, t.minReads);
+                ok &= result.Timepoints[i].TimepointIndex == i && result.Timepoints[i].Result.Equals(expected);
+                if (oracleFirstPositive < 0 && expected.Status == OncologyAnalyzer.MrdStatus.Positive)
+                {
+                    oracleFirstPositive = i;
+                }
+            }
+
+            ok &= result.FirstPositiveIndex == oracleFirstPositive;
+            return ok.Label($"firstPositive={result.FirstPositiveIndex} (oracle {oracleFirstPositive}), timepoints={result.Timepoints.Count}");
+        });
+    }
+
+    /// <summary>D (determinism): MRD detection is identical for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectMRD_IsDeterministic()
+    {
+        return Prop.ForAll(MrdProblemArbitrary(), t =>
+            OncologyAnalyzer.DetectMRD(t.panel, t.posThresh, t.minReads, t.n)
+                .Equals(OncologyAnalyzer.DetectMRD(t.panel, t.posThresh, t.minReads, t.n))
+                .Label("DetectMRD is not deterministic for identical arguments"));
+    }
+
+    /// <summary>
+    /// Anchors (Signatera ≥2 rule): two detected markers ⇒ MRD-positive; one detected ⇒ negative; IMAF is the
+    /// depth-weighted plasma VAF; an empty panel is rejected. (Reinert 2019; Wan 2020)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void DetectMRD_CanonicalAndGuardCases()
+    {
+        var twoDetected = new[]
+        {
+            new OncologyAnalyzer.TumorMarker("1", 10, "A", "T", 3, 1000),
+            new OncologyAnalyzer.TumorMarker("2", 20, "C", "G", 2, 1000),
+            new OncologyAnalyzer.TumorMarker("3", 30, "G", "A", 0, 1000),
+        };
+        var oneDetected = new[]
+        {
+            new OncologyAnalyzer.TumorMarker("1", 10, "A", "T", 3, 1000),
+            new OncologyAnalyzer.TumorMarker("2", 20, "C", "G", 0, 1000),
+        };
+
+        Assert.Multiple(() =>
+        {
+            var pos = OncologyAnalyzer.DetectMRD(twoDetected);
+            Assert.That(pos.Status, Is.EqualTo(OncologyAnalyzer.MrdStatus.Positive), "2 detected ≥ threshold 2 ⇒ Positive.");
+            Assert.That(pos.DetectedVariantCount, Is.EqualTo(2), "Two markers have alt reads ≥ 1.");
+            Assert.That(pos.IntegratedMutantAlleleFraction, Is.EqualTo(5.0 / 3000.0).Within(CtDnaTolerance), "IMAF = (3+2+0)/(3·1000).");
+
+            var neg = OncologyAnalyzer.DetectMRD(oneDetected);
+            Assert.That(neg.Status, Is.EqualTo(OncologyAnalyzer.MrdStatus.Negative), "1 detected < threshold 2 ⇒ Negative.");
+
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.DetectMRD(Array.Empty<OncologyAnalyzer.TumorMarker>()),
+                "An empty marker panel cannot be assessed.");
+        });
+    }
+
+    #endregion
+
+    #region ONCO-CHIP-001 — Clonal Hematopoiesis Filtering (gene+VAF heuristic + matched-WBC)
+
+    // -------------------------------------------------------------------------
+    // Theory (Steensma 2015 CHIP definition; Genovese 2014 driver genes; Razavi 2019 matched WBC):
+    //   • CHIP heuristic: gene in the driver panel AND plasma VAF ≥ 2% (default).   (P gene ∧ VAF band)
+    //   • IdentifyCHIPVariants keeps the input subset meeting the heuristic, in order.
+    //   • FilterCHIP retains a cfDNA variant iff it is NOT in the matched WBC at the    (P survivors ⊆ input)
+    //     same locus (alt ≥ cutoff) AND does NOT meet the CHIP heuristic.
+    //
+    // The panel membership, heuristic and matched-WBC subtraction are reconstructed
+    // independently — NOT routed through production — so a wrong gene set, VAF sense,
+    // or locus key is caught.
+    // -------------------------------------------------------------------------
+
+    private static readonly string[] ChipPanelOracle =
+        { "DNMT3A", "TET2", "ASXL1", "TP53", "JAK2", "SF3B1", "SRSF2", "PPM1D" };
+
+    private static readonly string[] ChipGenePool =
+        { "DNMT3A", "TET2", "ASXL1", "TP53", "JAK2", "SF3B1", "SRSF2", "PPM1D", "EGFR", "KRAS", "BRAF", "XYZ1" };
+
+    private static bool OracleInPanel(string gene) =>
+        ChipPanelOracle.Any(g => string.Equals(g, gene, StringComparison.OrdinalIgnoreCase));
+
+    private static Gen<OncologyAnalyzer.ChipVariant> ChipVariantGen() =>
+        from chrom in Gen.Elements("1", "2")
+        from pos in Gen.Choose(1, 5)
+        from gene in Gen.Elements(ChipGenePool)
+        from vafMilli in Gen.Choose(0, 1000)
+        from alt in Gen.Choose(0, 5)
+        select new OncologyAnalyzer.ChipVariant(chrom, pos, "A", "T", gene, vafMilli / 1000.0, alt);
+
+    /// <summary>
+    /// P (checklist "CHIP flagged by gene list ∧ VAF band"): <c>IdentifyCHIPVariants</c> keeps exactly the
+    /// input variants whose gene is in the panel AND whose VAF ≥ minVaf, in input order — matching an
+    /// independent gene∧VAF oracle. (Steensma 2015)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IdentifyCHIPVariants_FlagsGeneAndVafBandSubset()
+    {
+        var arb = (from variants in ChipVariantGen().ArrayOf()
+                   from minVafMilli in Gen.Choose(10, 200)
+                   select (variants, minVaf: minVafMilli / 1000.0)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var flagged = OncologyAnalyzer.IdentifyCHIPVariants(t.variants, ChipPanelOracle, t.minVaf);
+            var expected = t.variants.Where(v => OracleInPanel(v.Gene) && v.Vaf >= t.minVaf).ToList();
+            return flagged.SequenceEqual(expected).Label($"flagged {flagged.Count} ≠ oracle {expected.Count}");
+        });
+    }
+
+    /// <summary>
+    /// P (checklist "survivors ⊆ input"): <c>FilterCHIP</c> retains exactly the cfDNA variants that are NOT
+    /// present in the matched WBC (alt ≥ cutoff at the same locus) AND do NOT meet the gene∧VAF CHIP
+    /// heuristic, in input order — matching an independent oracle. (Razavi 2019; Steensma 2015)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FilterCHIP_RetainsNonWbcNonChipSubset_InOrder()
+    {
+        var arb = (from variants in ChipVariantGen().ArrayOf()
+                   from wbc in ChipVariantGen().ArrayOf()
+                   from minVafMilli in Gen.Choose(10, 200)
+                   from minWbc in Gen.Choose(1, 3)
+                   select (variants, wbc, minVaf: minVafMilli / 1000.0, minWbc)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var retained = OncologyAnalyzer.FilterCHIP(t.variants, t.wbc, ChipPanelOracle, t.minVaf, t.minWbc);
+
+            var wbcLoci = t.wbc.Where(w => w.AltReads >= t.minWbc)
+                .Select(w => (w.Chromosome, w.Position, w.ReferenceAllele, w.AlternateAllele))
+                .ToHashSet();
+            var expected = t.variants.Where(v =>
+                !wbcLoci.Contains((v.Chromosome, v.Position, v.ReferenceAllele, v.AlternateAllele))
+                && !(OracleInPanel(v.Gene) && v.Vaf >= t.minVaf)).ToList();
+
+            return retained.SequenceEqual(expected).Label($"retained {retained.Count} ≠ oracle {expected.Count}");
+        });
+    }
+
+    /// <summary>
+    /// P (survivors ⊆ input, soundness): every cfDNA variant FilterCHIP retains is one of the inputs and is
+    /// neither a matched-WBC locus nor a CHIP-heuristic variant — no confounder survives, nothing is fabricated.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FilterCHIP_Survivors_AreCleanInputVariants()
+    {
+        var arb = (from variants in ChipVariantGen().ArrayOf()
+                   from wbc in ChipVariantGen().ArrayOf()
+                   select (variants, wbc)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var retained = OncologyAnalyzer.FilterCHIP(t.variants, t.wbc, ChipPanelOracle);
+            var wbcLoci = t.wbc.Where(w => w.AltReads >= 1)
+                .Select(w => (w.Chromosome, w.Position, w.ReferenceAllele, w.AlternateAllele))
+                .ToHashSet();
+
+            return retained.All(v =>
+                t.variants.Contains(v)
+                && !wbcLoci.Contains((v.Chromosome, v.Position, v.ReferenceAllele, v.AlternateAllele))
+                && !(OracleInPanel(v.Gene) && v.Vaf >= OncologyAnalyzer.ChipVafThreshold))
+                .Label("a retained variant was a WBC/CHIP confounder or not an input");
+        });
+    }
+
+    /// <summary>
+    /// <c>IsCanonicalChipGene</c> reports panel membership case-insensitively and is false for null/empty
+    /// gene symbols. (Steensma 2015 / Genovese 2014 driver panel)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IsCanonicalChipGene_MatchesPanelMembership()
+    {
+        return Prop.ForAll(Gen.Elements(ChipGenePool).ToArbitrary(), gene =>
+        {
+            bool actualExact = OncologyAnalyzer.IsCanonicalChipGene(gene, ChipPanelOracle);
+            bool actualLower = OncologyAnalyzer.IsCanonicalChipGene(gene.ToLowerInvariant(), ChipPanelOracle);
+            bool expected = OracleInPanel(gene);
+            return (actualExact == expected && actualLower == expected)
+                .Label($"{gene}: exact={actualExact}, lower={actualLower}, expected={expected}");
+        });
+    }
+
+    /// <summary>D (determinism): CHIP identification and filtering are identical for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property FilterCHIP_IsDeterministic()
+    {
+        var arb = (from variants in ChipVariantGen().ArrayOf()
+                   from wbc in ChipVariantGen().ArrayOf()
+                   select (variants, wbc)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            bool idOk = OncologyAnalyzer.IdentifyCHIPVariants(t.variants, ChipPanelOracle)
+                .SequenceEqual(OncologyAnalyzer.IdentifyCHIPVariants(t.variants, ChipPanelOracle));
+            bool filterOk = OncologyAnalyzer.FilterCHIP(t.variants, t.wbc, ChipPanelOracle)
+                .SequenceEqual(OncologyAnalyzer.FilterCHIP(t.variants, t.wbc, ChipPanelOracle));
+            return (idOk && filterOk).Label("CHIP filtering is not deterministic for identical arguments");
+        });
+    }
+
+    /// <summary>
+    /// Anchors (Steensma 2015 / Razavi 2019): DNMT3A at VAF 0.05 is flagged CHIP; a non-panel gene and a
+    /// sub-2% VAF are not; FilterCHIP removes a matched-WBC locus regardless of gene and a CHIP-heuristic
+    /// variant, retaining a clean tumour variant; gene matching is case-insensitive.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void FilterCHIP_CanonicalCases()
+    {
+        var dnmt3a = new OncologyAnalyzer.ChipVariant("2", 25, "A", "T", "DNMT3A", 0.05);
+        var lowVaf = new OncologyAnalyzer.ChipVariant("2", 26, "A", "T", "DNMT3A", 0.01);
+        var nonPanel = new OncologyAnalyzer.ChipVariant("7", 100, "A", "T", "EGFR", 0.40);
+        var wbcShared = new OncologyAnalyzer.ChipVariant("7", 100, "A", "T", "EGFR", 0.45, AltReads: 5);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.IdentifyCHIPVariants(new[] { dnmt3a, lowVaf, nonPanel }).Select(v => v.Gene),
+                Is.EqualTo(new[] { "DNMT3A" }), "Only DNMT3A at VAF ≥ 0.02 is flagged CHIP.");
+            Assert.That(OncologyAnalyzer.IsCanonicalChipGene("dnmt3a"), Is.True, "Panel match is case-insensitive.");
+
+            // cfDNA: a clean tumour EGFR variant elsewhere, a CHIP DNMT3A, and an EGFR variant shared with WBC.
+            var clean = new OncologyAnalyzer.ChipVariant("12", 500, "C", "G", "EGFR", 0.30);
+            var retained = OncologyAnalyzer.FilterCHIP(new[] { clean, dnmt3a, nonPanel }, new[] { wbcShared });
+            Assert.That(retained, Is.EqualTo(new[] { clean }),
+                "DNMT3A (CHIP heuristic) and the WBC-shared EGFR locus are removed; the clean variant survives.");
+        });
+    }
+
+    #endregion
+
+    #region ONCO-PHYLO-001 — Tumor Phylogeny Reconstruction (CCF lineage tree)
+
+    // -------------------------------------------------------------------------
+    // Theory (Popic 2015; Zheng 2022 PICTograph):
+    //   • Rooted spanning tree: a synthetic normal root (CCF = 1 per sample) plus one
+    //     node per CCF cluster, each non-root cluster having exactly one parent.
+    //   • Lineage precedence (Eq. 2): on every edge u→v, u.CCF[i] ≥ v.CCF[i] − ε per sample.
+    //   • Trunk = chain of single-child nodes from the root (mutations shared by all clones);
+    //     branches = the remaining (subclonal) clusters; the two partition the clusters.
+    //
+    // The tree invariants are checked structurally; lineage precedence is recomputed
+    // from the cluster CCFs (NOT routed through production). The sum rule is NOT asserted
+    // universally because the spanning-tree root fallback may attach a cluster to the
+    // root even when its budget is exhausted (documented degenerate path).
+    // -------------------------------------------------------------------------
+
+    private static Gen<OncologyAnalyzer.CcfCluster[]> CcfClustersGen() =>
+        from sampleCount in Gen.Choose(1, 3)
+        from n in Gen.Choose(1, 6)
+        from vectors in Gen.Choose(0, 1000).Select(v => v / 1000.0).ArrayOf(sampleCount).ArrayOf(n)
+        select vectors.Select((vec, i) => new OncologyAnalyzer.CcfCluster(i + 1, vec)).ToArray();
+
+    private static Arbitrary<(OncologyAnalyzer.CcfCluster[] clusters, double tolerance)> PhylogenyProblemArbitrary() =>
+        (from clusters in CcfClustersGen()
+         from tolMilli in Gen.Choose(0, 100)
+         select (clusters, tolMilli / 1000.0)).ToArbitrary();
+
+    /// <summary>
+    /// R (tree structure): the reconstructed phylogeny preserves the input clusters, has exactly one parent
+    /// edge per cluster (each cluster is a child exactly once), every parent is the root or a cluster, and the
+    /// whole set of clusters is reachable from the root — a rooted spanning tree. (Popic 2015)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ReconstructPhylogeny_IsRootedSpanningTreeOverTheClusters()
+    {
+        return Prop.ForAll(PhylogenyProblemArbitrary(), p =>
+        {
+            var phylo = OncologyAnalyzer.ReconstructPhylogeny(p.clusters, p.tolerance);
+            var clusterIds = p.clusters.Select(c => c.Id).ToHashSet();
+
+            bool clustersPreserved = phylo.Clusters.SequenceEqual(p.clusters);
+            bool oneParentEach = phylo.Edges.Count == p.clusters.Length
+                && phylo.Edges.Select(e => e.ChildId).Distinct().Count() == p.clusters.Length
+                && phylo.Edges.All(e => clusterIds.Contains(e.ChildId));
+            bool parentsValid = phylo.Edges.All(e => e.ParentId == phylo.RootId || clusterIds.Contains(e.ParentId));
+
+            // BFS from the root following parent→child edges must reach every cluster exactly once.
+            var reached = new HashSet<int>();
+            var queue = new Queue<int>();
+            queue.Enqueue(phylo.RootId);
+            while (queue.Count > 0)
+            {
+                int node = queue.Dequeue();
+                foreach (int childId in phylo.ChildrenOf(node))
+                {
+                    if (reached.Add(childId))
+                    {
+                        queue.Enqueue(childId);
+                    }
+                }
+            }
+
+            bool connectedAcyclic = reached.SetEquals(clusterIds);
+            return (clustersPreserved && oneParentEach && parentsValid && connectedAcyclic)
+                .Label($"clusters={phylo.Clusters.Count}, edges={phylo.Edges.Count}, reached={reached.Count}/{clusterIds.Count}");
+        });
+    }
+
+    /// <summary>
+    /// P (lineage precedence, "ancestor ≥ descendant"): on every reconstructed edge the parent's CCF is at
+    /// least the child's in every sample (within ε). The synthetic root (CCF = 1) trivially satisfies it.
+    /// (Popic 2015 Eq. 2; Zheng 2022)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ReconstructPhylogeny_EveryEdge_SatisfiesLineagePrecedence()
+    {
+        return Prop.ForAll(PhylogenyProblemArbitrary(), p =>
+        {
+            var phylo = OncologyAnalyzer.ReconstructPhylogeny(p.clusters, p.tolerance);
+            var ccfById = p.clusters.ToDictionary(c => c.Id, c => c.CcfPerSample);
+            double[] rootCcf = Enumerable.Repeat(1.0, phylo.SampleCount).ToArray();
+
+            return phylo.Edges.All(e =>
+            {
+                IReadOnlyList<double> parent = e.ParentId == phylo.RootId ? rootCcf : ccfById[e.ParentId];
+                IReadOnlyList<double> child = ccfById[e.ChildId];
+                for (int i = 0; i < phylo.SampleCount; i++)
+                {
+                    if (parent[i] < child[i] - p.tolerance - 1e-12)
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            }).Label("an edge violated lineage precedence (parent CCF < child CCF)");
+        });
+    }
+
+    /// <summary>
+    /// P (checklist "trunk mutations shared by all clones"): the trunk and branch sets partition the clusters
+    /// (disjoint, together covering every cluster), and the trunk is a root-anchored chain — its first node is
+    /// the root's unique child and each trunk node is the parent of the next. (Popic 2015)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property TrunkAndBranches_PartitionClusters_AndTrunkIsARootChain()
+    {
+        return Prop.ForAll(PhylogenyProblemArbitrary(), p =>
+        {
+            var phylo = OncologyAnalyzer.ReconstructPhylogeny(p.clusters, p.tolerance);
+            var trunk = OncologyAnalyzer.IdentifyTrunkMutations(phylo);
+            var branches = OncologyAnalyzer.IdentifyBranchMutations(phylo);
+
+            var allIds = p.clusters.Select(c => c.Id).ToHashSet();
+            bool disjoint = !trunk.Intersect(branches).Any();
+            bool covering = trunk.Concat(branches).ToHashSet().SetEquals(allIds);
+            bool sameCount = trunk.Count + branches.Count == p.clusters.Length;
+
+            bool chain = trunk.Count == 0 || phylo.ParentOf(trunk[0]) == phylo.RootId;
+            for (int i = 0; chain && i + 1 < trunk.Count; i++)
+            {
+                chain &= phylo.ParentOf(trunk[i + 1]) == trunk[i];
+            }
+
+            return (disjoint && covering && sameCount && chain)
+                .Label($"trunk=[{string.Join(",", trunk)}], branches=[{string.Join(",", branches)}]");
+        });
+    }
+
+    /// <summary>D (determinism): phylogeny reconstruction yields identical clusters/edges for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property ReconstructPhylogeny_IsDeterministic()
+    {
+        return Prop.ForAll(PhylogenyProblemArbitrary(), p =>
+        {
+            var a = OncologyAnalyzer.ReconstructPhylogeny(p.clusters, p.tolerance);
+            var b = OncologyAnalyzer.ReconstructPhylogeny(p.clusters, p.tolerance);
+            return (a.RootId == b.RootId && a.SampleCount == b.SampleCount
+                    && a.Clusters.SequenceEqual(b.Clusters) && a.Edges.SequenceEqual(b.Edges))
+                .Label("ReconstructPhylogeny is not deterministic for identical arguments");
+        });
+    }
+
+    /// <summary>
+    /// Anchors: a single-sample descending chain (CCF 1.0 → 0.5 → 0.25) is an all-trunk lineage; a two-sample
+    /// divergent cohort (A=[1,1], B=[1,0], C=[0,1]) branches at A so trunk=[A], branches=[B,C]. (Popic 2015)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void ReconstructPhylogeny_CanonicalChainAndBranch()
+    {
+        var chain = OncologyAnalyzer.ReconstructPhylogeny(new[]
+        {
+            new OncologyAnalyzer.CcfCluster(1, new[] { 1.0 }),
+            new OncologyAnalyzer.CcfCluster(2, new[] { 0.5 }),
+            new OncologyAnalyzer.CcfCluster(3, new[] { 0.25 }),
+        });
+
+        var branch = OncologyAnalyzer.ReconstructPhylogeny(new[]
+        {
+            new OncologyAnalyzer.CcfCluster(1, new[] { 1.0, 1.0 }),
+            new OncologyAnalyzer.CcfCluster(2, new[] { 1.0, 0.0 }),
+            new OncologyAnalyzer.CcfCluster(3, new[] { 0.0, 1.0 }),
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.IdentifyTrunkMutations(chain), Is.EqualTo(new[] { 1, 2, 3 }),
+                "A descending single-sample chain is entirely trunk.");
+            Assert.That(OncologyAnalyzer.IdentifyBranchMutations(chain), Is.Empty, "No subclonal branches in a pure chain.");
+            Assert.That(OncologyAnalyzer.IdentifyTrunkMutations(branch), Is.EqualTo(new[] { 1 }),
+                "Divergent samples branch at the clonal ancestor A ⇒ trunk = [A].");
+            Assert.That(OncologyAnalyzer.IdentifyBranchMutations(branch), Is.EqualTo(new[] { 2, 3 }),
+                "B and C are subclonal branches.");
+        });
+    }
+
+    #endregion
+
+    #region ONCO-CCF-001 — Cancer Cell Fraction Estimation & Clustering
+
+    // -------------------------------------------------------------------------
+    // Theory (McGranahan 2016; Tarabichi 2021; Zheng 2022):
+    //   • CCF = VAF·(ρ·N_T + 2(1−ρ)) / (ρ·m); reported Ccf = min(1, raw).        (P, R)
+    //   • Higher VAF ⇒ higher CCF (monotone in VAF for fixed ρ, N_T, m).          (M)
+    //   • Clustering: ascending centroids, valid assignments, clonal = highest centroid.
+    //
+    // The CCF formula and the normal 2(1−ρ) term are reconstructed independently —
+    // NOT routed through production — so a wrong denominator or cap is caught.
+    // -------------------------------------------------------------------------
+
+    private const double CcfTolerance = 1e-9;
+
+    private static Arbitrary<(double vaf, double purity, int cn, int m)> CcfProblemArbitrary() =>
+        (from vafMilli in Gen.Choose(0, 1000)
+         from purityMilli in Gen.Choose(1, 1000)
+         from cn in Gen.Choose(1, 6)
+         from m in Gen.Choose(1, cn)
+         select (vafMilli / 1000.0, purityMilli / 1000.0, cn, m)).ToArbitrary();
+
+    /// <summary>
+    /// P (checklist "CCF derived from VAF, CN, purity") + R (CCF ∈ [0,1]): <c>EstimateCcf</c> RawCcf equals the
+    /// independent McGranahan formula VAF·(ρ·N_T + 2(1−ρ))/(ρ·m), the reported Ccf is min(1, raw) capped to
+    /// [0,1], and Ccf ≤ RawCcf. (McGranahan 2016; Tarabichi 2021)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property EstimateCcf_MatchesMcGranahanFormula_CappedToUnit()
+    {
+        return Prop.ForAll(CcfProblemArbitrary(), t =>
+        {
+            var estimate = OncologyAnalyzer.EstimateCcf(t.vaf, t.purity, t.cn, t.m);
+            double totalDna = t.purity * t.cn + 2.0 * (1.0 - t.purity);
+            double oracleRaw = t.vaf * totalDna / (t.purity * t.m);
+
+            bool rawOk = Math.Abs(estimate.RawCcf - oracleRaw) <= CcfTolerance * Math.Max(1.0, Math.Abs(oracleRaw));
+            bool cappedOk = Math.Abs(estimate.Ccf - Math.Min(1.0, oracleRaw)) <= CcfTolerance;
+            bool inRange = estimate.Ccf is >= 0.0 and <= 1.0 && estimate.Ccf <= estimate.RawCcf + CcfTolerance;
+            return (rawOk && cappedOk && inRange)
+                .Label($"raw={estimate.RawCcf} (oracle {oracleRaw}), ccf={estimate.Ccf}");
+        });
+    }
+
+    /// <summary>
+    /// M (checklist "higher VAF → higher CCF"): at fixed purity, copy number and multiplicity, both the raw
+    /// and capped CCF are monotonically non-decreasing in the VAF, and a VAF of 0 yields CCF 0. (McGranahan 2016)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property EstimateCcf_IsMonotoneInVaf_ZeroAtZero()
+    {
+        var arb = (from v1 in Gen.Choose(0, 1000)
+                   from v2 in Gen.Choose(0, 1000)
+                   from purityMilli in Gen.Choose(1, 1000)
+                   from cn in Gen.Choose(1, 6)
+                   from m in Gen.Choose(1, cn)
+                   select (lo: Math.Min(v1, v2) / 1000.0, hi: Math.Max(v1, v2) / 1000.0, purity: purityMilli / 1000.0, cn, m))
+                  .ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var low = OncologyAnalyzer.EstimateCcf(t.lo, t.purity, t.cn, t.m);
+            var high = OncologyAnalyzer.EstimateCcf(t.hi, t.purity, t.cn, t.m);
+            var zero = OncologyAnalyzer.EstimateCcf(0.0, t.purity, t.cn, t.m);
+
+            bool monotone = high.RawCcf >= low.RawCcf - CcfTolerance && high.Ccf >= low.Ccf - CcfTolerance;
+            bool zeroAtZero = zero.Ccf == 0.0 && zero.RawCcf == 0.0;
+            return (monotone && zeroAtZero).Label($"VAF {t.lo}->{t.hi}: CCF {low.Ccf}->{high.Ccf}; zero={zero.Ccf}");
+        });
+    }
+
+    /// <summary>D (determinism): the CCF estimate is identical for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property EstimateCcf_IsDeterministic()
+    {
+        return Prop.ForAll(CcfProblemArbitrary(), t =>
+            OncologyAnalyzer.EstimateCcf(t.vaf, t.purity, t.cn, t.m)
+                .Equals(OncologyAnalyzer.EstimateCcf(t.vaf, t.purity, t.cn, t.m))
+                .Label("EstimateCcf is not deterministic for identical arguments"));
+    }
+
+    /// <summary>
+    /// <c>ClusterCcfValues</c> produces ascending centroids, one valid assignment per input value (in [0,k)),
+    /// and reports the highest-centroid cluster (last index) as clonal. (Tarabichi 2021 highest-CP-clonal)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClusterCcfValues_AscendingCentroids_ValidAssignments_HighestIsClonal()
+    {
+        var arb = (from n in Gen.Choose(1, 12)
+                   from values in Gen.Choose(0, 1000).Select(v => v / 1000.0).ArrayOf(n)
+                   from k in Gen.Choose(1, n)
+                   select (values, k)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var clustering = OncologyAnalyzer.ClusterCcfValues(t.values, t.k);
+
+            bool centroidCount = clustering.Centroids.Count == t.k;
+            bool ascending = true;
+            for (int i = 1; i < clustering.Centroids.Count; i++)
+            {
+                ascending &= clustering.Centroids[i] >= clustering.Centroids[i - 1] - CcfTolerance;
+            }
+
+            bool assignmentsOk = clustering.Assignments.Count == t.values.Length
+                && clustering.Assignments.All(a => a >= 0 && a < t.k);
+            bool clonalIsHighest = clustering.ClonalClusterIndex == t.k - 1;
+
+            return (centroidCount && ascending && assignmentsOk && clonalIsHighest)
+                .Label($"k={t.k}, centroids=[{string.Join(",", clustering.Centroids)}], clonalIndex={clustering.ClonalClusterIndex}");
+        });
+    }
+
+    /// <summary>
+    /// Anchors: the McGranahan worked case (VAF 0.25, ρ 1.0, N_T 2, m 1 ⇒ CCF 0.5); a high-VAF case caps at 1
+    /// while RawCcf exceeds 1; guards on VAF, purity and multiplicity. (McGranahan 2016)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void EstimateCcf_CanonicalAndGuardCases()
+    {
+        Assert.Multiple(() =>
+        {
+            var half = OncologyAnalyzer.EstimateCcf(0.25, 1.0, 2, 1);
+            Assert.That(half.Ccf, Is.EqualTo(0.5).Within(CcfTolerance), "VAF 0.25, ρ 1, N_T 2, m 1 ⇒ CCF = 0.25·2/1 = 0.5.");
+
+            var capped = OncologyAnalyzer.EstimateCcf(0.9, 1.0, 2, 1);
+            Assert.That(capped.RawCcf, Is.EqualTo(1.8).Within(CcfTolerance), "Raw = 0.9·2 = 1.8.");
+            Assert.That(capped.Ccf, Is.EqualTo(1.0).Within(CcfTolerance), "Reported CCF capped at 1.");
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.EstimateCcf(1.5, 1.0, 2, 1), "VAF must be in [0,1].");
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.EstimateCcf(0.3, 0.0, 2, 1), "Purity must be in (0,1].");
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.EstimateCcf(0.3, 1.0, 2, 3), "Multiplicity must be ≤ copy number.");
+        });
+    }
+
+    #endregion
+
+    #region ONCO-HETERO-001 — Tumor Heterogeneity (MATH score)
+
+    // -------------------------------------------------------------------------
+    // Theory (Mroz & Rocco 2013; Mroz 2015; maftools mathScore.R):
+    //   • MATH = 100 · 1.4826 · MAD(VAF) / median(VAF), MAD = median(|vᵢ − median|).   (R ≥ 0)
+    //   • A wider VAF spread (larger MAD) gives a higher MATH; identical VAFs ⇒ 0.       (M)
+    //
+    // The MATH formula (median, MAD, 1.4826, ×100) is reconstructed independently — NOT
+    // routed through production — so a wrong scaling constant or ratio is caught.
+    // Monotonicity is shown by affine scaling around the median: vᵢ ↦ m + α(vᵢ − m) with
+    // α ≥ 1 keeps the median m and multiplies the MAD (hence MATH) by α.
+    // -------------------------------------------------------------------------
+
+    private const double MathTolerance = 1e-9;
+    private const double MadConsistencyConstantOracle = 1.4826;
+
+    private static double OracleMath(IReadOnlyList<double> values)
+    {
+        double median = OracleMedian(values);
+        double mad = OracleMedian(values.Select(v => Math.Abs(v - median)).ToList());
+        return 100.0 * MadConsistencyConstantOracle * mad / median;
+    }
+
+    /// <summary>
+    /// R (checklist "MATH ≥ 0") + formula: <c>CalculateITH</c> equals the independent
+    /// 100·1.4826·MAD/median MATH score and is non-negative, for positive VAF distributions. (Mroz 2013)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CalculateITH_EqualsMathFormula_AndIsNonNegative()
+    {
+        var arb = (from n in Gen.Choose(1, 10)
+                   from values in Gen.Choose(1, 1000).Select(v => v / 1000.0).ArrayOf(n)
+                   select values).ToArbitrary();
+
+        return Prop.ForAll(arb, values =>
+        {
+            double math = OncologyAnalyzer.CalculateITH(values);
+            double oracle = OracleMath(values);
+            return (Math.Abs(math - oracle) <= MathTolerance * Math.Max(1.0, oracle) && math >= 0.0)
+                .Label($"MATH {math} ≠ oracle {oracle}");
+        });
+    }
+
+    /// <summary>
+    /// M (checklist "wider VAF spread → higher heterogeneity"): scaling every VAF away from the median by a
+    /// factor α ≥ 1 (vᵢ ↦ m + α(vᵢ − m)) preserves the median and multiplies the MATH score by α, so a more
+    /// dispersed VAF distribution has an equal-or-higher MATH. (Mroz 2013 MAD/median)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CalculateITH_WiderSpread_RaisesMath()
+    {
+        // Values in [0.4,0.6] keep m ± 2·MAD within [0,1] for any α ∈ [1,2].
+        var arb = (from n in Gen.Choose(1, 8)
+                   from values in Gen.Choose(400, 600).Select(v => v / 1000.0).ArrayOf(n)
+                   from tMilli in Gen.Choose(0, 1000)
+                   select (values, alpha: 1.0 + tMilli / 1000.0)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            double m = OracleMedian(t.values);
+            double baseMath = OncologyAnalyzer.CalculateITH(t.values);
+            var widened = t.values.Select(v => m + t.alpha * (v - m)).ToArray();
+            double wideMath = OncologyAnalyzer.CalculateITH(widened);
+
+            bool monotone = wideMath >= baseMath - MathTolerance;
+            bool scaled = Math.Abs(wideMath - t.alpha * baseMath) <= 1e-6 * Math.Max(1.0, t.alpha * baseMath);
+            return (monotone && scaled).Label($"α={t.alpha}: MATH {baseMath} → {wideMath} (expected {t.alpha * baseMath})");
+        });
+    }
+
+    /// <summary>D (determinism): the MATH score is identical for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property CalculateITH_IsDeterministic()
+    {
+        var arb = (from n in Gen.Choose(1, 10)
+                   from values in Gen.Choose(1, 1000).Select(v => v / 1000.0).ArrayOf(n)
+                   select values).ToArbitrary();
+
+        return Prop.ForAll(arb, values =>
+            (OncologyAnalyzer.CalculateITH(values) == OncologyAnalyzer.CalculateITH(values))
+                .Label("CalculateITH is not deterministic for identical arguments"));
+    }
+
+    /// <summary>
+    /// <c>InferSubclones</c> equals the number of distinct cluster labels actually occupied by the assigned
+    /// CCF values (clonal richness). (Liu 2017 richness; via ClusterCcfValues)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property InferSubclones_CountsOccupiedClusters()
+    {
+        var arb = (from n in Gen.Choose(1, 12)
+                   from values in Gen.Choose(0, 1000).Select(v => v / 1000.0).ArrayOf(n)
+                   from k in Gen.Choose(1, n)
+                   select (values, k)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var clustering = OncologyAnalyzer.ClusterCcfValues(t.values, t.k);
+            int subclones = OncologyAnalyzer.InferSubclones(clustering);
+            int oracle = clustering.Assignments.Distinct().Count();
+            return (subclones == oracle && subclones >= 1)
+                .Label($"subclones {subclones} ≠ distinct assignments {oracle}");
+        });
+    }
+
+    /// <summary>
+    /// Anchors: a wider distribution has a higher MATH ({0.3,0.5,0.7} ⇒ 59.304 &gt; {0.4,0.5,0.6} ⇒ 29.652);
+    /// identical VAFs ⇒ MATH 0; a zero median and an empty set are rejected. (Mroz 2013)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void CalculateITH_CanonicalAndGuardCases()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.CalculateITH(new[] { 0.3, 0.5, 0.7 }), Is.EqualTo(59.304).Within(1e-6),
+                "MAD 0.2 ⇒ MATH = 100·1.4826·0.2/0.5.");
+            Assert.That(OncologyAnalyzer.CalculateITH(new[] { 0.4, 0.5, 0.6 }), Is.EqualTo(29.652).Within(1e-6),
+                "Narrower spread (MAD 0.1) ⇒ lower MATH.");
+            Assert.That(OncologyAnalyzer.CalculateITH(new[] { 0.5, 0.5, 0.5 }), Is.EqualTo(0.0).Within(MathTolerance),
+                "Identical VAFs ⇒ MAD 0 ⇒ MATH 0.");
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.CalculateITH(new[] { 0.0, 0.0 }),
+                "Zero median ⇒ MATH undefined.");
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.CalculateITH(Array.Empty<double>()),
+                "An empty distribution is rejected.");
+        });
+    }
+
+    #endregion
+
+    #region ONCO-HLA-001 — HLA Nomenclature Parsing & Allele-Specific LOH
+
+    // -------------------------------------------------------------------------
+    // Theory (WHO HLA Nomenclature / Marsh 2010; McGranahan 2017 LOHHLA):
+    //   • Valid name: HLA-<Gene>*F1:F2[:F3[:F4]][suffix] — 2–4 numeric fields.   (P valid nomenclature)
+    //   • A locus is diploid: exactly two alleles (allele1, allele2).             (R ≤ 2 per locus)
+    //   • HLA LOH ⟺ exactly one allele CN < 0.5 AND allelic-imbalance p < 0.01;
+    //     both < 0.5 ⇒ homozygous loss (Both), not allele-specific LOH.
+    //
+    // Parsing is checked by round-trip (parse∘format = identity) and the LOH rule by an
+    // independent decision oracle — NOT routed through production.
+    // -------------------------------------------------------------------------
+
+    private static readonly string[] HlaGenePool = { "A", "B", "C", "DRB1", "DQB1" };
+
+    private static char? HlaSuffixLetter(OncologyAnalyzer.HlaExpressionSuffix s) => s switch
+    {
+        OncologyAnalyzer.HlaExpressionSuffix.Null => 'N',
+        OncologyAnalyzer.HlaExpressionSuffix.Low => 'L',
+        OncologyAnalyzer.HlaExpressionSuffix.Secreted => 'S',
+        OncologyAnalyzer.HlaExpressionSuffix.Cytoplasm => 'C',
+        OncologyAnalyzer.HlaExpressionSuffix.Aberrant => 'A',
+        OncologyAnalyzer.HlaExpressionSuffix.Questionable => 'Q',
+        _ => null,
+    };
+
+    /// <summary>A well-formed HLA allele: gene, 2–4 two-digit numeric fields, optional expression suffix.</summary>
+    private static Gen<(string gene, string[] fields, OncologyAnalyzer.HlaExpressionSuffix suffix, string name)> HlaAlleleGen() =>
+        from gene in Gen.Elements(HlaGenePool)
+        from fieldCount in Gen.Choose(2, 4)
+        from nums in Gen.Choose(0, 99).ArrayOf(fieldCount)
+        from suffix in Gen.Elements(Enum.GetValues<OncologyAnalyzer.HlaExpressionSuffix>())
+        let fields = nums.Select(n => n.ToString("D2")).ToArray()
+        let letter = HlaSuffixLetter(suffix)
+        let name = "HLA-" + gene + "*" + string.Join(":", fields) + (letter.HasValue ? letter.Value.ToString() : "")
+        select (gene, fields, suffix, name);
+
+    private static Arbitrary<OncologyAnalyzer.HlaAlleleCopyNumber> HlaCopyNumberArbitrary() =>
+        (from cn1 in Gen.Choose(0, 1500).Select(v => v / 1000.0)
+         from cn2 in Gen.Choose(0, 1500).Select(v => v / 1000.0)
+         from pMicro in Gen.Choose(0, 200).Select(v => v / 10000.0) // p ∈ [0, 0.02], straddles 0.01
+         select new OncologyAnalyzer.HlaAlleleCopyNumber("HLA-A*01:01", cn1, "HLA-A*02:01", cn2, pMicro)).ToArbitrary();
+
+    /// <summary>
+    /// P (checklist "alleles valid HLA nomenclature") + RT: a well-formed HLA name parses to its gene
+    /// (upper-cased), its 2–4 numeric fields and suffix, and parse∘format is the identity — reparsing the
+    /// canonical <c>Name</c> reproduces the same gene/fields/suffix. (WHO HLA Nomenclature)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ParseHlaAllele_RoundTripsValidNames()
+    {
+        return Prop.ForAll(HlaAlleleGen().ToArbitrary(), t =>
+        {
+            var parsed = OncologyAnalyzer.ParseHlaAllele(t.name);
+            bool fieldsOk = parsed.Fields.Count is >= 2 and <= 4 && parsed.Fields.SequenceEqual(t.fields);
+            bool geneOk = parsed.Gene == t.gene.ToUpperInvariant();
+            bool suffixOk = parsed.Suffix == t.suffix;
+
+            var reparsed = OncologyAnalyzer.ParseHlaAllele(parsed.Name);
+            bool roundTrip = reparsed.Gene == parsed.Gene
+                && reparsed.Fields.SequenceEqual(parsed.Fields)
+                && reparsed.Suffix == parsed.Suffix;
+
+            return (fieldsOk && geneOk && suffixOk && roundTrip)
+                .Label($"name '{t.name}' → gene={parsed.Gene}, fields=[{string.Join(":", parsed.Fields)}], suffix={parsed.Suffix}; reparse {parsed.Name}");
+        });
+    }
+
+    /// <summary>
+    /// <c>TryParseHlaAllele</c> succeeds for well-formed names (returning the same parse) and is consistent
+    /// with the throwing parser. (WHO HLA Nomenclature)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property TryParseHlaAllele_AgreesWithParseForValidNames()
+    {
+        return Prop.ForAll(HlaAlleleGen().ToArbitrary(), t =>
+        {
+            bool ok = OncologyAnalyzer.TryParseHlaAllele(t.name, out var allele);
+            var direct = OncologyAnalyzer.ParseHlaAllele(t.name);
+            return (ok && allele.Gene == direct.Gene && allele.Fields.SequenceEqual(direct.Fields) && allele.Suffix == direct.Suffix)
+                .Label($"TryParse failed or disagreed for valid '{t.name}'");
+        });
+    }
+
+    /// <summary>
+    /// R (≤ 2 alleles per locus) + LOH rule: <c>DetectHlaLoh</c> matches the independent LOHHLA decision —
+    /// allele-specific LOH iff exactly one allele CN &lt; 0.5 AND p &lt; 0.01; both &lt; 0.5 ⇒ homozygous loss
+    /// (Both, not LOH); the lost allele and imbalance flag are correct. (McGranahan 2017)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectHlaLoh_MatchesLohhlaDecisionOracle()
+    {
+        return Prop.ForAll(HlaCopyNumberArbitrary(), acn =>
+        {
+            var result = OncologyAnalyzer.DetectHlaLoh(acn);
+
+            bool a1Lost = acn.Allele1CopyNumber < 0.5;
+            bool a2Lost = acn.Allele2CopyNumber < 0.5;
+            bool imbalance = acn.AllelicImbalancePValue < 0.01;
+
+            bool expectedIsLoh;
+            OncologyAnalyzer.HlaLostAllele expectedLost;
+            if (a1Lost && a2Lost)
+            {
+                (expectedIsLoh, expectedLost) = (false, OncologyAnalyzer.HlaLostAllele.Both);
+            }
+            else if (imbalance && a1Lost)
+            {
+                (expectedIsLoh, expectedLost) = (true, OncologyAnalyzer.HlaLostAllele.Allele1);
+            }
+            else if (imbalance && a2Lost)
+            {
+                (expectedIsLoh, expectedLost) = (true, OncologyAnalyzer.HlaLostAllele.Allele2);
+            }
+            else
+            {
+                (expectedIsLoh, expectedLost) = (false, OncologyAnalyzer.HlaLostAllele.None);
+            }
+
+            bool ok = result.IsLoh == expectedIsLoh
+                      && result.LostAllele == expectedLost
+                      && result.AllelicImbalanceSignificant == imbalance;
+            return ok.Label($"cn1={acn.Allele1CopyNumber}, cn2={acn.Allele2CopyNumber}, p={acn.AllelicImbalancePValue}: " +
+                $"IsLoh={result.IsLoh} (exp {expectedIsLoh}), lost={result.LostAllele} (exp {expectedLost})");
+        });
+    }
+
+    /// <summary>D (determinism): HLA parsing and LOH detection are identical for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property Hla_IsDeterministic()
+    {
+        var arb = (from a in HlaAlleleGen()
+                   from acn in HlaCopyNumberArbitrary().Generator
+                   select (a.name, acn)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var p1 = OncologyAnalyzer.ParseHlaAllele(t.name);
+            var p2 = OncologyAnalyzer.ParseHlaAllele(t.name);
+            bool parseOk = p1.Gene == p2.Gene && p1.Fields.SequenceEqual(p2.Fields) && p1.Suffix == p2.Suffix;
+            bool lohOk = OncologyAnalyzer.DetectHlaLoh(t.acn).Equals(OncologyAnalyzer.DetectHlaLoh(t.acn));
+            return (parseOk && lohOk).Label("HLA parsing/LOH is not deterministic for identical arguments");
+        });
+    }
+
+    /// <summary>
+    /// Anchors: canonical names parse (HLA-A*02:01, suffix N); malformed names are rejected (no prefix, one
+    /// field, five fields, non-numeric); the LOHHLA rule (one allele &lt; 0.5 with p &lt; 0.01 ⇒ LOH; both
+    /// &lt; 0.5 ⇒ Both). (WHO HLA Nomenclature; McGranahan 2017)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Hla_CanonicalAndGuardCases()
+    {
+        Assert.Multiple(() =>
+        {
+            var a = OncologyAnalyzer.ParseHlaAllele("HLA-A*02:01");
+            Assert.That(a.Gene, Is.EqualTo("A"));
+            Assert.That(a.Fields, Is.EqualTo(new[] { "02", "01" }));
+            Assert.That(OncologyAnalyzer.ParseHlaAllele("HLA-A*24:02:01:02N").Suffix, Is.EqualTo(OncologyAnalyzer.HlaExpressionSuffix.Null));
+
+            Assert.Throws<FormatException>(() => OncologyAnalyzer.ParseHlaAllele("A*02:01"), "Missing HLA- prefix.");
+            Assert.Throws<FormatException>(() => OncologyAnalyzer.ParseHlaAllele("HLA-A*02"), "Only one field.");
+            Assert.Throws<FormatException>(() => OncologyAnalyzer.ParseHlaAllele("HLA-A*02:01:01:01:01"), "Five fields.");
+            Assert.Throws<FormatException>(() => OncologyAnalyzer.ParseHlaAllele("HLA-A*0X:01"), "Non-numeric field.");
+            Assert.That(OncologyAnalyzer.TryParseHlaAllele("nonsense", out _), Is.False, "TryParse returns false on malformed input.");
+
+            var loh = OncologyAnalyzer.DetectHlaLoh(new OncologyAnalyzer.HlaAlleleCopyNumber("a1", 0.2, "a2", 1.4, 0.001));
+            Assert.That(loh.IsLoh, Is.True);
+            Assert.That(loh.LostAllele, Is.EqualTo(OncologyAnalyzer.HlaLostAllele.Allele1));
+            var both = OncologyAnalyzer.DetectHlaLoh(new OncologyAnalyzer.HlaAlleleCopyNumber("a1", 0.2, "a2", 0.3, 0.001));
+            Assert.That(both.LostAllele, Is.EqualTo(OncologyAnalyzer.HlaLostAllele.Both), "Both alleles < 0.5 ⇒ homozygous loss.");
+            Assert.That(both.IsLoh, Is.False, "Homozygous loss is not allele-specific LOH.");
+        });
+    }
+
+    #endregion
+
+    #region ONCO-ACTION-001 — Clinical Actionability (OncoKB therapeutic levels)
+
+    // -------------------------------------------------------------------------
+    // Theory (Chakravarty 2017 OncoKB; oncokb-annotator HIGHEST_LEVEL order):
+    //   • Combined actionability order R1 > 1 > 2 > 3A > 3B > 4 > R2 (> None).      (R ordered tiers)
+    //   • ClassifyActionabilityLevel = highest combined level over associations.    (P known → tier)
+    //   • AssessActionability: highest sensitivity (1>2>3A>3B>4), highest resistance
+    //     (R1>R2), highest combined; combined = max(sensitive, resistance).
+    //   • Standard-care levels are {1, 2, R1}.
+    //
+    // The level ranking, the per-axis maxima and the standard-care set are reconstructed
+    // independently — NOT routed through production — so a wrong order or partition is caught.
+    // -------------------------------------------------------------------------
+
+    // Combined order, highest first (None ranks below every leveled value). (oncokb-annotator)
+    private static readonly OncologyAnalyzer.OncoKbLevel[] OncoKbOrderHighestFirst =
+    {
+        OncologyAnalyzer.OncoKbLevel.R1, OncologyAnalyzer.OncoKbLevel.Level1, OncologyAnalyzer.OncoKbLevel.Level2, OncologyAnalyzer.OncoKbLevel.Level3A,
+        OncologyAnalyzer.OncoKbLevel.Level3B, OncologyAnalyzer.OncoKbLevel.Level4, OncologyAnalyzer.OncoKbLevel.R2,
+    };
+
+    private static readonly HashSet<OncologyAnalyzer.OncoKbLevel> SensitivityOracle = new()
+    {
+        OncologyAnalyzer.OncoKbLevel.Level1, OncologyAnalyzer.OncoKbLevel.Level2, OncologyAnalyzer.OncoKbLevel.Level3A, OncologyAnalyzer.OncoKbLevel.Level3B, OncologyAnalyzer.OncoKbLevel.Level4,
+    };
+
+    private static readonly HashSet<OncologyAnalyzer.OncoKbLevel> ResistanceOracle = new() { OncologyAnalyzer.OncoKbLevel.R1, OncologyAnalyzer.OncoKbLevel.R2 };
+
+    private static int OncoKbRank(OncologyAnalyzer.OncoKbLevel l)
+    {
+        int idx = Array.IndexOf(OncoKbOrderHighestFirst, l);
+        return idx < 0 ? OncoKbOrderHighestFirst.Length : idx; // None (and anything unlisted) ranks lowest
+    }
+
+    private static OncologyAnalyzer.OncoKbLevel OracleHighest(IEnumerable<OncologyAnalyzer.OncoKbLevel> levels, HashSet<OncologyAnalyzer.OncoKbLevel>? allowed)
+    {
+        OncologyAnalyzer.OncoKbLevel best = OncologyAnalyzer.OncoKbLevel.None;
+        foreach (var l in levels)
+        {
+            if (allowed is not null && !allowed.Contains(l))
+            {
+                continue;
+            }
+
+            if (OncoKbRank(l) < OncoKbRank(best))
+            {
+                best = l;
+            }
+        }
+
+        return best;
+    }
+
+    private static Gen<OncologyAnalyzer.OncoKbLevel> KbLevelGen() => Gen.Elements(Enum.GetValues<OncologyAnalyzer.OncoKbLevel>());
+
+    private static Gen<OncologyAnalyzer.VariantActionabilityInput> ActionabilityInputGen() =>
+        from n in Gen.Choose(0, 6)
+        from levels in KbLevelGen().ArrayOf(n)
+        select new OncologyAnalyzer.VariantActionabilityInput(
+            "BRAF", "p.V600E",
+            levels.Select((l, i) => new OncologyAnalyzer.TherapyAssociation("drug" + i, l)).ToList());
+
+    /// <summary>
+    /// R (checklist "evidence tier ∈ ordered levels"): <c>CompareLevels</c> realises the documented combined
+    /// order R1 &gt; 1 &gt; 2 &gt; 3A &gt; 3B &gt; 4 &gt; R2 &gt; None — its sign matches an independent rank
+    /// oracle for every pair of levels. (oncokb-annotator HIGHEST_LEVEL)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CompareLevels_RealisesCombinedActionabilityOrder()
+    {
+        var arb = (from a in KbLevelGen() from b in KbLevelGen() select (a, b)).ToArbitrary();
+        return Prop.ForAll(arb, t =>
+        {
+            int actual = Math.Sign(OncologyAnalyzer.CompareLevels(t.a, t.b));
+            int oracle = Math.Sign(OncoKbRank(t.b) - OncoKbRank(t.a)); // lower rank = more actionable
+            return (actual == oracle).Label($"CompareLevels({t.a},{t.b}) sign {actual} ≠ oracle {oracle}");
+        });
+    }
+
+    /// <summary>
+    /// P (checklist "known actionable variant → tier assigned"): <c>ClassifyActionabilityLevel</c> is the
+    /// highest combined level over the associations (None only when no leveled association exists), so any
+    /// variant with a leveled association is actionable. (oncokb-annotator HIGHEST_LEVEL)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyActionabilityLevel_IsHighestCombinedLevel()
+    {
+        return Prop.ForAll(ActionabilityInputGen().ToArbitrary(), variant =>
+        {
+            var level = OncologyAnalyzer.ClassifyActionabilityLevel(variant);
+            var oracle = OracleHighest(variant.Associations.Select(a => a.Level), allowed: null);
+            bool actionableIffLeveled = (level != OncologyAnalyzer.OncoKbLevel.None)
+                == variant.Associations.Any(a => a.Level != OncologyAnalyzer.OncoKbLevel.None);
+            return (level == oracle && actionableIffLeveled).Label($"level {level} ≠ oracle {oracle}");
+        });
+    }
+
+    /// <summary>
+    /// R (ordered tiers) + per-axis maxima: <c>AssessActionability</c> reports the highest sensitivity level
+    /// (1>2>3A>3B>4), highest resistance level (R1>R2) and highest combined level, with combined =
+    /// max(sensitive, resistance), IsActionable ⟺ combined ≠ None, preserving input order. (Chakravarty 2017)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AssessActionability_ComputesPerAxisAndCombinedMaxima_InOrder()
+    {
+        return Prop.ForAll(ActionabilityInputGen().ArrayOf().ToArbitrary(), variants =>
+        {
+            var assessments = OncologyAnalyzer.AssessActionability(variants);
+
+            bool ok = assessments.Count == variants.Length;
+            for (int i = 0; ok && i < variants.Length; i++)
+            {
+                var levels = variants[i].Associations.Select(a => a.Level).ToList();
+                var sensitive = OracleHighest(levels, SensitivityOracle);
+                var resistance = OracleHighest(levels, ResistanceOracle);
+                var combined = OracleHighest(levels, allowed: null);
+
+                var a = assessments[i];
+                ok &= a.HighestSensitiveLevel == sensitive
+                      && a.HighestResistanceLevel == resistance
+                      && a.HighestCombinedLevel == combined
+                      && a.HighestCombinedLevel == (OncoKbRank(sensitive) <= OncoKbRank(resistance) ? sensitive : resistance)
+                      && a.IsActionable == (combined != OncologyAnalyzer.OncoKbLevel.None);
+            }
+
+            return ok.Label($"assessed {assessments.Count}/{variants.Length}");
+        });
+    }
+
+    /// <summary>
+    /// <c>GetTherapyRecommendations</c> returns the same associations ordered most-actionable first
+    /// (non-increasing combined level). (oncokb-annotator HIGHEST_LEVEL ordering)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GetTherapyRecommendations_OrdersMostActionableFirst()
+    {
+        return Prop.ForAll(ActionabilityInputGen().ToArbitrary(), variant =>
+        {
+            var ordered = OncologyAnalyzer.GetTherapyRecommendations(variant);
+
+            bool sameMultiset = ordered.Count == variant.Associations.Count
+                && ordered.OrderBy(a => a.Level).ThenBy(a => a.Drug).SequenceEqual(
+                    variant.Associations.OrderBy(a => a.Level).ThenBy(a => a.Drug));
+            bool descending = true;
+            for (int i = 1; i < ordered.Count; i++)
+            {
+                descending &= OncoKbRank(ordered[i].Level) >= OncoKbRank(ordered[i - 1].Level);
+            }
+
+            return (sameMultiset && descending).Label("recommendations not the same set ordered most-actionable first");
+        });
+    }
+
+    /// <summary>
+    /// <c>IsStandardCare</c> is true exactly for the OncoKB standard-care levels {1, 2, R1}. (OncoKB Curation SOP)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IsStandardCare_IsExactlyLevels1_2_R1()
+    {
+        return Prop.ForAll(KbLevelGen().ToArbitrary(), level =>
+        {
+            bool actual = OncologyAnalyzer.IsStandardCare(level);
+            bool expected = level is OncologyAnalyzer.OncoKbLevel.Level1 or OncologyAnalyzer.OncoKbLevel.Level2 or OncologyAnalyzer.OncoKbLevel.R1;
+            return (actual == expected).Label($"IsStandardCare({level}) = {actual} ≠ {expected}");
+        });
+    }
+
+    /// <summary>
+    /// Anchors: a Level-1 sensitivity association ⇒ combined/sensitive Level1, actionable; adding an R1
+    /// resistance association raises the combined level to R1 (R1 &gt; 1); an empty variant is not actionable.
+    /// (oncokb-annotator; Chakravarty 2017)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void AssessActionability_CanonicalCases()
+    {
+        var level1 = new OncologyAnalyzer.VariantActionabilityInput("BRAF", "p.V600E",
+            new[] { new OncologyAnalyzer.TherapyAssociation("Vemurafenib", OncologyAnalyzer.OncoKbLevel.Level1) });
+        var withR1 = new OncologyAnalyzer.VariantActionabilityInput("EGFR", "p.T790M",
+            new[]
+            {
+                new OncologyAnalyzer.TherapyAssociation("DrugA", OncologyAnalyzer.OncoKbLevel.Level1),
+                new OncologyAnalyzer.TherapyAssociation("DrugB", OncologyAnalyzer.OncoKbLevel.R1),
+            });
+        var empty = new OncologyAnalyzer.VariantActionabilityInput("X", "p.?", Array.Empty<OncologyAnalyzer.TherapyAssociation>());
+
+        Assert.Multiple(() =>
+        {
+            var a1 = OncologyAnalyzer.AssessActionability(new[] { level1 })[0];
+            Assert.That(a1.HighestCombinedLevel, Is.EqualTo(OncologyAnalyzer.OncoKbLevel.Level1));
+            Assert.That(a1.HighestSensitiveLevel, Is.EqualTo(OncologyAnalyzer.OncoKbLevel.Level1));
+            Assert.That(a1.IsActionable, Is.True);
+
+            var ar1 = OncologyAnalyzer.AssessActionability(new[] { withR1 })[0];
+            Assert.That(ar1.HighestCombinedLevel, Is.EqualTo(OncologyAnalyzer.OncoKbLevel.R1), "R1 > Level 1 in the combined order.");
+            Assert.That(ar1.HighestResistanceLevel, Is.EqualTo(OncologyAnalyzer.OncoKbLevel.R1));
+
+            Assert.That(OncologyAnalyzer.ClassifyActionabilityLevel(empty), Is.EqualTo(OncologyAnalyzer.OncoKbLevel.None), "No associations ⇒ None.");
+            Assert.That(OncologyAnalyzer.AssessActionability(new[] { empty })[0].IsActionable, Is.False);
+        });
+    }
+
+    #endregion
+
+    #region ONCO-SV-001 — Complex Rearrangement (Chromothripsis) Classification
+
+    // -------------------------------------------------------------------------
+    // Theory (Korbel & Campbell 2013; Cortés-Ciriano 2020; Magrangeas 2011):
+    //   • Oscillation count = adjacent copy-number state transitions, in [0, n−1].   (R count ≥ 0)
+    //   • Breakpoint clustering: gaps exponential under the random null (CV=1); CV>1 ⇒ clustered.
+    //   • Chromothripsis ⟺ 2–3 distinct CN states ∧ ≥10 oscillations ∧ ≥6 clustered SVs.  (P pattern)
+    //   • Confidence: oscillating segments ≥7 ⇒ High, ≥4 ⇒ Low, else None.
+    //
+    // The transition count, the gap-CV clustering test and the hallmark gate are
+    // reconstructed independently — NOT routed through production — so a wrong
+    // threshold or state count is caught.
+    // -------------------------------------------------------------------------
+
+    private const double SvTolerance = 1e-9;
+
+    /// <summary>
+    /// R (count ≥ 0): <c>CountCopyNumberStateOscillations</c> equals the number of adjacent differing
+    /// copy-number states and lies in [0, n−1]. (Magrangeas 2011 oscillating CN changes)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CountCopyNumberStateOscillations_CountsAdjacentTransitions()
+    {
+        return Prop.ForAll(Gen.Choose(0, 4).ArrayOf().ToArbitrary(), states =>
+        {
+            int osc = OncologyAnalyzer.CountCopyNumberStateOscillations(states);
+            int oracle = 0;
+            for (int i = 1; i < states.Length; i++)
+            {
+                if (states[i] != states[i - 1])
+                {
+                    oracle++;
+                }
+            }
+
+            return (osc == oracle && osc >= 0 && osc <= Math.Max(0, states.Length - 1))
+                .Label($"oscillations {osc} ≠ oracle {oracle} (n={states.Length})");
+        });
+    }
+
+    /// <summary>
+    /// R (breakpoint count ≥ 0) + clustering: <c>TestBreakpointClustering</c> reports the breakpoint count and
+    /// matches the independent gap-CV oracle — fewer than three breakpoints (or coincident ones) are not
+    /// clustered; otherwise IsClustered ⟺ CV(gaps) &gt; 1. (Korbel & Campbell 2013 exponential null)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property TestBreakpointClustering_MatchesGapCvOracle()
+    {
+        return Prop.ForAll(Gen.Choose(0, 100_000).Select(v => (long)v).ArrayOf().ToArbitrary(), positions =>
+        {
+            var result = OncologyAnalyzer.TestBreakpointClustering(positions);
+            bool countOk = result.BreakpointCount == positions.Length;
+
+            bool oracleOk;
+            if (positions.Length < 3)
+            {
+                oracleOk = !result.IsClustered && result.MeanGap == 0.0 && result.CoefficientOfVariation == 0.0;
+            }
+            else
+            {
+                var sorted = positions.OrderBy(p => p).ToArray();
+                var gaps = new double[sorted.Length - 1];
+                for (int i = 0; i < gaps.Length; i++)
+                {
+                    gaps[i] = sorted[i + 1] - sorted[i];
+                }
+
+                double mean = gaps.Average();
+                if (mean <= 0.0)
+                {
+                    oracleOk = !result.IsClustered;
+                }
+                else
+                {
+                    double variance = gaps.Sum(g => (g - mean) * (g - mean)) / gaps.Length;
+                    double cv = Math.Sqrt(variance) / mean;
+                    oracleOk = Math.Abs(result.MeanGap - mean) < SvTolerance * Math.Max(1.0, mean)
+                               && Math.Abs(result.CoefficientOfVariation - cv) < 1e-6 * Math.Max(1.0, cv)
+                               && result.IsClustered == (cv > 1.0);
+                }
+            }
+
+            return (countOk && oracleOk).Label($"count={result.BreakpointCount}, cv={result.CoefficientOfVariation}, clustered={result.IsClustered}");
+        });
+    }
+
+    /// <summary>
+    /// P (checklist "classified by breakpoint pattern"): <c>ClassifyComplexRearrangement</c> reproduces the
+    /// independent Korbel & Campbell hallmark oracle — Chromothripsis iff 2–3 distinct CN states ∧ ≥10
+    /// oscillations ∧ ≥6 clustered SVs — with the oscillation/segment/state counts and confidence tier
+    /// (≥7 High, ≥4 Low, else None) all matching. (Korbel & Campbell 2013; Cortés-Ciriano 2020)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyComplexRearrangement_MatchesHallmarkOracle()
+    {
+        var arb = (from states in Gen.Choose(0, 4).ArrayOf()
+                   from sv in Gen.Choose(0, 20)
+                   select (states, sv)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var result = OncologyAnalyzer.ClassifyComplexRearrangement(
+                new OncologyAnalyzer.ComplexRearrangementInput(t.states, t.sv));
+
+            int osc = 0;
+            for (int i = 1; i < t.states.Length; i++)
+            {
+                if (t.states[i] != t.states[i - 1])
+                {
+                    osc++;
+                }
+            }
+
+            int oscSeg = osc > 0 ? osc + 1 : 0;
+            int distinct = t.states.Length == 0 ? 0 : t.states.Distinct().Count();
+            var conf = oscSeg >= 7 ? OncologyAnalyzer.ChromothripsisConfidence.High
+                : oscSeg >= 4 ? OncologyAnalyzer.ChromothripsisConfidence.Low
+                : OncologyAnalyzer.ChromothripsisConfidence.None;
+            bool isChromo = distinct is >= 2 and <= 3 && osc >= 10 && t.sv >= 6;
+            var type = isChromo ? OncologyAnalyzer.ComplexRearrangementType.Chromothripsis
+                : OncologyAnalyzer.ComplexRearrangementType.NotComplex;
+
+            bool ok = result.Type == type
+                      && result.Confidence == conf
+                      && result.OscillationCount == osc
+                      && result.OscillatingSegmentCount == oscSeg
+                      && result.DistinctStateCount == distinct
+                      && result.StructuralVariantCount == t.sv;
+            return ok.Label($"type={result.Type} (exp {type}), conf={result.Confidence} (exp {conf}), osc={result.OscillationCount}");
+        });
+    }
+
+    /// <summary>D (determinism): rearrangement classification is identical for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property ComplexRearrangement_IsDeterministic()
+    {
+        var arb = (from states in Gen.Choose(0, 4).ArrayOf()
+                   from sv in Gen.Choose(0, 20)
+                   select (states, sv)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var input = new OncologyAnalyzer.ComplexRearrangementInput(t.states, t.sv);
+            return OncologyAnalyzer.ClassifyComplexRearrangement(input)
+                .Equals(OncologyAnalyzer.ClassifyComplexRearrangement(input))
+                .Label("ClassifyComplexRearrangement is not deterministic for identical arguments");
+        });
+    }
+
+    /// <summary>
+    /// Anchors: a two-state oscillating profile with ≥10 transitions and ≥6 SVs is Chromothripsis (High
+    /// confidence); a progressive multi-state amplification is not; a tight breakpoint cluster (CV &gt; 1) is
+    /// clustered while evenly spaced breakpoints are not. (Korbel & Campbell 2013)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void ClassifyComplexRearrangement_CanonicalCases()
+    {
+        var twoState = Enumerable.Range(0, 22).Select(i => i % 2 == 0 ? 2 : 3).ToArray(); // 21 oscillations, 2 states
+        var progressive = new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 }; // many distinct states
+
+        Assert.Multiple(() =>
+        {
+            var chromo = OncologyAnalyzer.ClassifyComplexRearrangement(
+                new OncologyAnalyzer.ComplexRearrangementInput(twoState, 6));
+            Assert.That(chromo.Type, Is.EqualTo(OncologyAnalyzer.ComplexRearrangementType.Chromothripsis),
+                "Two-state ≥10-oscillation profile with 6 SVs is chromothripsis.");
+            Assert.That(chromo.Confidence, Is.EqualTo(OncologyAnalyzer.ChromothripsisConfidence.High), "22 oscillating segments ⇒ High.");
+
+            var notComplex = OncologyAnalyzer.ClassifyComplexRearrangement(
+                new OncologyAnalyzer.ComplexRearrangementInput(progressive, 20));
+            Assert.That(notComplex.Type, Is.EqualTo(OncologyAnalyzer.ComplexRearrangementType.NotComplex),
+                "Progressive multi-state amplification (>3 states) is not chromothripsis.");
+
+            var clustered = OncologyAnalyzer.TestBreakpointClustering(new long[] { 0, 1, 2, 3, 1_000_000 });
+            Assert.That(clustered.IsClustered, Is.True, "A tight cluster plus a distant outlier has CV > 1.");
+            var even = OncologyAnalyzer.TestBreakpointClustering(new long[] { 0, 100, 200, 300, 400 });
+            Assert.That(even.IsClustered, Is.False, "Evenly spaced breakpoints (CV 0) are not clustered.");
+        });
+    }
+
+    #endregion
+
+    #region ONCO-EXPR-001 — Gene Expression Outlier / Signature Score
+
+    // -------------------------------------------------------------------------
+    // Theory (cBioPortal z-score normalization; Lee 2008 combined z-score):
+    //   • z = (value − μ) / σ, σ the sample SD (divisor n−1).                       (R z finite)
+    //   • Outlier ⟺ z > +t (Over) or z < −t (Under); strict, default t = 2.         (P |z| > t)
+    //   • Lower threshold ⇒ ≥ outliers (subset monotone).                            (M)
+    //   • Signature score a = Σ zᵢ / √k.
+    //
+    // The z-score, the strict-threshold rule and the combined score are reconstructed
+    // independently — NOT routed through production — so a wrong divisor, boundary sense
+    // or √k is caught.
+    // -------------------------------------------------------------------------
+
+    private const double ExprTolerance = 1e-9;
+
+    private static Gen<double[]> CohortGen() =>
+        from n in Gen.Choose(2, 8)
+        from vals in Gen.Choose(0, 1000).Select(v => v / 10.0).ArrayOf(n)
+        from bump in Gen.Choose(1, 100).Select(v => v / 10.0)
+        select EnsureVariance(vals, bump);
+
+    private static double[] EnsureVariance(double[] vals, double bump)
+    {
+        var c = (double[])vals.Clone();
+        c[1] = c[0] + bump; // guarantees two differing values ⇒ sample SD > 0
+        return c;
+    }
+
+    private static double OracleZScore(double value, IReadOnlyList<double> cohort)
+    {
+        double mean = cohort.Average();
+        double ss = cohort.Sum(v => (v - mean) * (v - mean));
+        double sd = Math.Sqrt(ss / (cohort.Count - 1));
+        return (value - mean) / sd;
+    }
+
+    /// <summary>
+    /// R (checklist "z-scores finite") + formula: <c>CalculateExpressionZScore</c> equals the independent
+    /// (value − μ)/σ with the sample standard deviation (divisor n−1) and is finite for a non-degenerate
+    /// cohort. (cBioPortal z-score normalization)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CalculateExpressionZScore_EqualsSampleZScore_AndIsFinite()
+    {
+        var arb = (from cohort in CohortGen()
+                   from value in Gen.Choose(0, 2000).Select(v => v / 10.0)
+                   select (cohort, value)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            double z = OncologyAnalyzer.CalculateExpressionZScore(t.value, t.cohort);
+            double oracle = OracleZScore(t.value, t.cohort);
+            return (Math.Abs(z - oracle) <= 1e-6 * Math.Max(1.0, Math.Abs(oracle)) && double.IsFinite(z))
+                .Label($"z={z} ≠ oracle {oracle}");
+        });
+    }
+
+    /// <summary>
+    /// P (checklist "outlier ⟺ |z| &gt; threshold"): <c>IdentifyOutlierGenes</c> reports exactly the genes
+    /// whose z-score strictly exceeds the threshold in magnitude, with the correct over/under direction, and
+    /// no other gene — matching an independent z-score oracle. (cBioPortal FAQ &gt;2 / &lt;−2 rule)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IdentifyOutlierGenes_FlagsExactlyBeyondThreshold_WithDirection()
+    {
+        var arb = (from k in Gen.Choose(1, 5)
+                   from cohorts in CohortGen().ArrayOf(k)
+                   from values in Gen.Choose(0, 2000).Select(v => v / 10.0).ArrayOf(k)
+                   from tMilli in Gen.Choose(5, 40)
+                   select (cohorts, values, threshold: tMilli / 10.0)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var sample = new Dictionary<string, double>();
+            var refs = new Dictionary<string, IReadOnlyList<double>>();
+            for (int i = 0; i < t.cohorts.Length; i++)
+            {
+                sample["g" + i] = t.values[i];
+                refs["g" + i] = t.cohorts[i];
+            }
+
+            var outliers = OncologyAnalyzer.IdentifyOutlierGenes(sample, refs, t.threshold);
+
+            bool ok = true;
+            foreach (var o in outliers)
+            {
+                double z = OracleZScore(sample[o.Gene], refs[o.Gene]);
+                ok &= Math.Abs(z) > t.threshold
+                      && o.Direction == (z > 0 ? OncologyAnalyzer.ExpressionDirection.Over : OncologyAnalyzer.ExpressionDirection.Under)
+                      && Math.Abs(o.ZScore - z) <= 1e-6 * Math.Max(1.0, Math.Abs(z));
+            }
+
+            // Completeness: every gene beyond the threshold is reported.
+            var reported = outliers.Select(o => o.Gene).ToHashSet();
+            for (int i = 0; ok && i < t.cohorts.Length; i++)
+            {
+                double z = OracleZScore(t.values[i], t.cohorts[i]);
+                bool isOutlier = Math.Abs(z) > t.threshold;
+                ok &= isOutlier == reported.Contains("g" + i);
+            }
+
+            return ok.Label($"reported {outliers.Count} outliers at threshold {t.threshold}");
+        });
+    }
+
+    /// <summary>
+    /// M (checklist "lower threshold → ≥ outliers"): the set of outlier genes at a lower threshold contains
+    /// the set at a higher threshold (relaxing the cutoff cannot remove an outlier). (cBioPortal z-score rule)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IdentifyOutlierGenes_LowerThreshold_YieldsSuperset()
+    {
+        var arb = (from k in Gen.Choose(1, 5)
+                   from cohorts in CohortGen().ArrayOf(k)
+                   from values in Gen.Choose(0, 2000).Select(v => v / 10.0).ArrayOf(k)
+                   from t1 in Gen.Choose(5, 40)
+                   from t2 in Gen.Choose(5, 40)
+                   select (cohorts, values, lo: Math.Min(t1, t2) / 10.0, hi: Math.Max(t1, t2) / 10.0)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var sample = new Dictionary<string, double>();
+            var refs = new Dictionary<string, IReadOnlyList<double>>();
+            for (int i = 0; i < t.cohorts.Length; i++)
+            {
+                sample["g" + i] = t.values[i];
+                refs["g" + i] = t.cohorts[i];
+            }
+
+            var low = OncologyAnalyzer.IdentifyOutlierGenes(sample, refs, t.lo).Select(o => o.Gene).ToHashSet();
+            var high = OncologyAnalyzer.IdentifyOutlierGenes(sample, refs, t.hi).Select(o => o.Gene).ToHashSet();
+            return high.IsSubsetOf(low).Label($"high-threshold outliers not a subset of low-threshold (lo={t.lo}, hi={t.hi})");
+        });
+    }
+
+    /// <summary>
+    /// <c>CalculateSignatureScore</c> equals the independent combined z-score a = Σ zᵢ / √k. (Lee 2008)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CalculateSignatureScore_IsSumOverSqrtK()
+    {
+        var arb = (from k in Gen.Choose(1, 12)
+                   from zs in Gen.Choose(-5000, 5000).Select(v => v / 1000.0).ArrayOf(k)
+                   select zs).ToArbitrary();
+
+        return Prop.ForAll(arb, zs =>
+        {
+            double score = OncologyAnalyzer.CalculateSignatureScore(zs);
+            double oracle = zs.Sum() / Math.Sqrt(zs.Length);
+            return (Math.Abs(score - oracle) <= 1e-6 * Math.Max(1.0, Math.Abs(oracle)))
+                .Label($"signature score {score} ≠ Σz/√k {oracle}");
+        });
+    }
+
+    /// <summary>D (determinism): outlier detection and the z-score are identical for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property ExpressionOutlier_IsDeterministic()
+    {
+        var arb = (from cohort in CohortGen()
+                   from value in Gen.Choose(0, 2000).Select(v => v / 10.0)
+                   select (cohort, value)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+            (OncologyAnalyzer.CalculateExpressionZScore(t.value, t.cohort)
+                == OncologyAnalyzer.CalculateExpressionZScore(t.value, t.cohort))
+                .Label("CalculateExpressionZScore is not deterministic for identical arguments"));
+    }
+
+    /// <summary>
+    /// Anchors: cohort {1,2,3,4,5} (μ=3, sample SD √2.5) gives value 8 a z ≈ 3.16 (Over, outlier at t=2) and
+    /// value 4 a z ≈ 0.63 (not an outlier); the strict boundary; signature score {2,2} = 4/√2; degenerate
+    /// cohort and bad threshold rejected. (cBioPortal; Lee 2008)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void ExpressionOutlier_CanonicalAndGuardCases()
+    {
+        var cohort = new double[] { 1, 2, 3, 4, 5 }; // mean 3, sample SD = sqrt(2.5)
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.CalculateExpressionZScore(8, cohort), Is.EqualTo(5.0 / Math.Sqrt(2.5)).Within(1e-9),
+                "z = (8−3)/√2.5.");
+
+            var sample = new Dictionary<string, double> { ["over"] = 8, ["normal"] = 4 };
+            var refs = new Dictionary<string, IReadOnlyList<double>> { ["over"] = cohort, ["normal"] = cohort };
+            var outliers = OncologyAnalyzer.IdentifyOutlierGenes(sample, refs);
+            Assert.That(outliers.Select(o => o.Gene), Is.EqualTo(new[] { "over" }), "Only the high-z gene is an outlier at t=2.");
+            Assert.That(outliers[0].Direction, Is.EqualTo(OncologyAnalyzer.ExpressionDirection.Over));
+
+            Assert.That(OncologyAnalyzer.CalculateSignatureScore(new double[] { 2, 2 }), Is.EqualTo(4.0 / Math.Sqrt(2)).Within(1e-9),
+                "Combined z = (2+2)/√2.");
+
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.CalculateExpressionZScore(1, new double[] { 5, 5, 5 }),
+                "A zero-SD cohort has no defined z-score.");
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.IdentifyOutlierGenes(sample, refs, 0.0),
+                "Threshold must be positive.");
+        });
+    }
+
+    #endregion
 }

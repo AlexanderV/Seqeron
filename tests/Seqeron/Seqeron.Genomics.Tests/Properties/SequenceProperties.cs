@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for core sequence operations (complement, reverse complement).
 /// Verifies algebraic invariants that must hold for ALL valid DNA sequences.
 ///
-/// Test Unit: SEQ-COMP-001, SEQ-REVCOMP-001 (Property Extensions)
+/// Test Unit: SEQ-COMP-001, SEQ-REVCOMP-001 (Property Extensions), SEQ-RNACOMP-001
 /// Evidence: DNA complementarity rules (Watson-Crick base pairing).
 /// </summary>
 [TestFixture]
@@ -135,4 +135,54 @@ public class SequenceProperties
                 .Label($"Expected length {length}, got {sub.Length}");
         });
     }
+
+    #region SEQ-RNACOMP-001: I: complement∘complement = identity; P: A↔U, G↔C; D: deterministic
+
+    private static Arbitrary<string> RnaArbitrary() =>
+        Gen.Elements('A', 'C', 'G', 'U').ArrayOf().Where(a => a.Length > 0).Select(a => new string(a)).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (I): the RNA complement is an involution — complementing twice restores the sequence.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property RnaComplement_IsInvolution()
+    {
+        return Prop.ForAll(RnaArbitrary(), seq =>
+        {
+            string twice = new RnaSequence(seq).Complement().Complement().Sequence;
+            return (twice == seq).Label($"complement∘complement '{twice}' ≠ '{seq}'");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P): the complement maps A↔U and G↔C per position and preserves length.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property RnaComplement_MapsBasesAndPreservesLength()
+    {
+        return Prop.ForAll(RnaArbitrary(), seq =>
+        {
+            string comp = new RnaSequence(seq).Complement().Sequence;
+            if (comp.Length != seq.Length) return false.Label("length changed");
+            for (int i = 0; i < seq.Length; i++)
+            {
+                char expected = seq[i] switch { 'A' => 'U', 'U' => 'A', 'G' => 'C', 'C' => 'G', _ => seq[i] };
+                if (comp[i] != expected) return false.Label($"pos {i}: '{seq[i]}'→'{comp[i]}', expected '{expected}'");
+            }
+            return true.Label("A↔U, G↔C mapping holds");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): RNA complement is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property RnaComplement_IsDeterministic()
+    {
+        return Prop.ForAll(RnaArbitrary(), seq =>
+            (new RnaSequence(seq).Complement().Sequence == new RnaSequence(seq).Complement().Sequence)
+                .Label("RnaSequence.Complement must be deterministic"));
+    }
+
+    #endregion
 }

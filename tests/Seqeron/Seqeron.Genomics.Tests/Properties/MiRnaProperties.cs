@@ -6,7 +6,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// <summary>
 /// Property-based tests for miRNA analysis: pre-miRNA hairpins and seed sequence analysis.
 ///
-/// Test Units: MIRNA-PRECURSOR-001, MIRNA-SEED-001
+/// Test Units: MIRNA-PRECURSOR-001, MIRNA-SEED-001, MIRNA-PAIR-001
 /// MIRNA-SEED-001 property tests removed — consolidated into canonical MiRnaAnalyzer_SeedAnalysis_Tests.cs
 /// (3 duplicates of M-003/M-007/M-009; 1 weak: IsSubstringOfMiRna can't distinguish extraction position)
 /// MIRNA-TARGET-001 property tests removed — consolidated into canonical MiRnaAnalyzer_TargetPrediction_Tests.cs
@@ -1463,6 +1463,71 @@ public class MiRnaProperties
 
         var (ok, detail) = ValidateCandidate(full, sequence, DefaultMatureLength);
         Assert.That(ok, Is.True, detail);
+    }
+
+    #endregion
+
+    #region MIRNA-PAIR-001: P: seed region paired; R: alignment counts ≥ 0; D: deterministic
+
+    // AlignMiRnaToTarget aligns a miRNA against an mRNA target and reports match/mismatch/wobble/gap
+    // counts. A target that is the reverse complement of the miRNA pairs fully (including the seed).
+
+    /// <summary>Generates an RNA miRNA of length 18..24 over {A,C,G,U}.</summary>
+    private static Arbitrary<string> MiRnaRnaArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            int len = 18 + rng.Next(7);
+            var c = new char[len];
+            for (int i = 0; i < len; i++) c[i] = "ACGU"[rng.Next(4)];
+            return new string(c);
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (R): all duplex counts (matches, mismatches, wobbles, gaps) are non-negative for any
+    /// miRNA/target pair.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property MiRnaPair_CountsAreNonNegative()
+    {
+        return Prop.ForAll(MiRnaRnaArbitrary(), MiRnaRnaArbitrary(), (mirna, target) =>
+        {
+            var d = MiRnaAnalyzer.AlignMiRnaToTarget(mirna, target);
+            return (d.Matches >= 0 && d.Mismatches >= 0 && d.GUWobbles >= 0 && d.Gaps >= 0)
+                .Label($"negative duplex count: M={d.Matches} X={d.Mismatches} GU={d.GUWobbles} gaps={d.Gaps}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P): a target that is the reverse complement of the miRNA pairs across the whole length —
+    /// in particular the 7-nt seed region pairs — with no mismatches.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property MiRnaPair_ReverseComplementTarget_PairsSeed()
+    {
+        return Prop.ForAll(MiRnaRnaArbitrary(), mirna =>
+        {
+            string target = MiRnaAnalyzer.GetReverseComplement(mirna);
+            var d = MiRnaAnalyzer.AlignMiRnaToTarget(mirna, target);
+            // Watson-Crick pairs are counted as matches; the seed (positions 2-8) is within these.
+            return (d.Matches >= 7 && d.Mismatches == 0)
+                .Label($"reverse-complement target did not fully pair the seed: M={d.Matches} X={d.Mismatches}");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Duplex alignment is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property MiRnaPair_IsDeterministic()
+    {
+        return Prop.ForAll(MiRnaRnaArbitrary(), MiRnaRnaArbitrary(), (mirna, target) =>
+        {
+            var a = MiRnaAnalyzer.AlignMiRnaToTarget(mirna, target);
+            var b = MiRnaAnalyzer.AlignMiRnaToTarget(mirna, target);
+            return (a.Matches == b.Matches && a.Mismatches == b.Mismatches && a.AlignmentString == b.AlignmentString)
+                .Label("AlignMiRnaToTarget must be deterministic");
+        });
     }
 
     #endregion

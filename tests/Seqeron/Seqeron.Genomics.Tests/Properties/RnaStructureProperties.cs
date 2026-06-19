@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for RNA secondary structure prediction.
 /// Verifies structural, stem-loop, and energy invariants using FsCheck.
 ///
-/// Test Units: RNA-STRUCT-001, RNA-STEMLOOP-001, RNA-ENERGY-001
+/// Test Units: RNA-STRUCT-001, RNA-STEMLOOP-001, RNA-ENERGY-001, RNA-DOTBRACKET-001, RNA-HAIRPIN-001, RNA-INVERT-001, RNA-MFE-001, RNA-PAIR-001, RNA-PARTITION-001, RNA-PSEUDOKNOT-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -350,6 +350,587 @@ public class RnaStructureProperties
             var stemLoops = RnaSecondaryStructure.FindStemLoops(seq).ToList();
             return stemLoops.All(sl => double.IsFinite(sl.TotalFreeEnergy))
                 .Label("All stem-loop energies must be finite");
+        });
+    }
+
+    #endregion
+
+    #region RNA-DOTBRACKET-001: RT: parse∘format = identity; P: balanced brackets → valid pairs; R: pair count ≤ len/2; D: deterministic
+
+    // ParseDotBracket extracts base pairs from dot-bracket notation (ViennaRNA/WUSS); ValidateDotBracket
+    // tests well-formedness. For nested round-bracket structures, parsing then re-rendering the pairs
+    // reproduces the original string.
+
+    /// <summary>Generates a well-formed, nested (no pseudoknot) dot-bracket string over '(', ')', '.'.</summary>
+    private static Arbitrary<string> BalancedDotBracketArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            int steps = 5 + rng.Next(20);
+            var chars = new List<char>(steps);
+            int open = 0;
+            for (int i = 0; i < steps; i++)
+            {
+                int r = rng.Next(3);
+                if (r == 0) { chars.Add('('); open++; }
+                else if (r == 1 && open > 0) { chars.Add(')'); open--; }
+                else chars.Add('.');
+            }
+            while (open-- > 0) chars.Add(')');
+            return new string(chars.ToArray());
+        }).ToArbitrary();
+
+    private static string RenderPairs(int length, IEnumerable<(int Position1, int Position2)> pairs)
+    {
+        var arr = new char[length];
+        Array.Fill(arr, '.');
+        foreach (var (p1, p2) in pairs) { arr[p1] = '('; arr[p2] = ')'; }
+        return new string(arr);
+    }
+
+    /// <summary>
+    /// INV-1 (RT): For a nested round-bracket structure, parsing to base pairs and re-rendering those
+    /// pairs reproduces the original dot-bracket string exactly (parse ∘ format = identity).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DotBracket_ParseFormat_RoundTrips()
+    {
+        return Prop.ForAll(BalancedDotBracketArbitrary(), s =>
+        {
+            var pairs = RnaSecondaryStructure.ParseDotBracket(s).ToList();
+            return (RenderPairs(s.Length, pairs) == s)
+                .Label($"round-trip failed: '{RenderPairs(s.Length, pairs)}' ≠ '{s}'");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P): A balanced structure validates, and every parsed pair opens before it closes with
+    /// each position used at most once (a proper matching).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DotBracket_Balanced_YieldsValidPairs()
+    {
+        return Prop.ForAll(BalancedDotBracketArbitrary(), s =>
+        {
+            var pairs = RnaSecondaryStructure.ParseDotBracket(s).ToList();
+            bool ordered = pairs.All(p => p.Position1 < p.Position2);
+            var positions = pairs.SelectMany(p => new[] { p.Position1, p.Position2 }).ToList();
+            bool disjoint = positions.Distinct().Count() == positions.Count;
+            return (RnaSecondaryStructure.ValidateDotBracket(s) && ordered && disjoint)
+                .Label("balanced string failed validation or produced overlapping/inverted pairs");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (R): The number of base pairs is at most ⌊len/2⌋ (each pair occupies two positions).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DotBracket_PairCount_AtMostHalfLength()
+    {
+        return Prop.ForAll(BalancedDotBracketArbitrary(), s =>
+        {
+            int pairs = RnaSecondaryStructure.ParseDotBracket(s).Count();
+            return (2 * pairs <= s.Length).Label($"{pairs} pairs > len/2 ({s.Length})");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (D): Parsing is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DotBracket_Parse_IsDeterministic()
+    {
+        return Prop.ForAll(BalancedDotBracketArbitrary(), s =>
+            RnaSecondaryStructure.ParseDotBracket(s).SequenceEqual(RnaSecondaryStructure.ParseDotBracket(s))
+                .Label("ParseDotBracket must be deterministic"));
+    }
+
+    /// <summary>
+    /// INV-5 (golden/negative): nested pairs are recovered; unbalanced or family-mismatched strings
+    /// are rejected by validation.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void DotBracket_GoldenAndInvalidCases()
+    {
+        Assert.Multiple(() =>
+        {
+            var pairs = RnaSecondaryStructure.ParseDotBracket("(())").OrderBy(p => p.Position1).ToList();
+            Assert.That(pairs, Is.EqualTo(new[] { (0, 3), (1, 2) }), "nested pairs recovered");
+            Assert.That(RnaSecondaryStructure.ValidateDotBracket("((..))"), Is.True);
+            Assert.That(RnaSecondaryStructure.ValidateDotBracket("(()"), Is.False, "unbalanced rejected");
+            Assert.That(RnaSecondaryStructure.ValidateDotBracket("(]"), Is.False, "family mismatch rejected");
+            Assert.That(RnaSecondaryStructure.ValidateDotBracket("())"), Is.False, "extra close rejected");
+        });
+    }
+
+    #endregion
+
+    #region RNA-HAIRPIN-001: R: sub-minimal loops are prohibitive; M: larger destabilising loop → higher energy; D: deterministic
+
+    // CalculateHairpinLoopEnergy returns the Turner 2004 hairpin loop ΔG. Loops shorter than the 3-nt
+    // steric minimum return a prohibitive +100 kcal/mol; for very large loops the Jacobson-Stockmayer
+    // extrapolation ΔG(n) = ΔG(9) + 1.75·RT·ln(n/9) grows with loop size.
+
+    /// <summary>
+    /// INV-1 (R): A loop below the 3-nt steric minimum is assigned a prohibitive (large positive)
+    /// energy, while a feasible loop (≥ 3 nt) has a finite, far smaller energy.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Hairpin_SubMinimalLoop_IsProhibitive()
+    {
+        double tooShort = RnaSecondaryStructure.CalculateHairpinLoopEnergy("AA", 'G', 'C');   // size 2
+        double feasible = RnaSecondaryStructure.CalculateHairpinLoopEnergy("AAA", 'G', 'C');  // size 3
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(tooShort, Is.EqualTo(100.0), "loops < 3 nt must be prohibitive");
+            Assert.That(feasible, Is.LessThan(100.0), "a 3-nt loop must be feasible");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (M): In the Jacobson-Stockmayer regime (loops &gt; 30 nt) a larger loop is more
+    /// destabilising — energy is non-decreasing in loop size when composition and closing pair are
+    /// held fixed (all-A loop, G-C closure keep the sequence-dependent terms constant).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Hairpin_LargerLoop_HasHigherEnergy()
+    {
+        var sizes = Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            int a = 31 + rng.Next(120);
+            int b = a + 1 + rng.Next(50);
+            return (a, b);
+        }).ToArbitrary();
+
+        return Prop.ForAll(sizes, ab =>
+        {
+            double ea = RnaSecondaryStructure.CalculateHairpinLoopEnergy(new string('A', ab.a), 'G', 'C');
+            double eb = RnaSecondaryStructure.CalculateHairpinLoopEnergy(new string('A', ab.b), 'G', 'C');
+            return (eb >= ea).Label($"loop {ab.b} (ΔG={eb}) not ≥ loop {ab.a} (ΔG={ea})");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Hairpin loop energy is deterministic and finite for feasible loops.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Hairpin_Energy_IsDeterministicAndFinite()
+    {
+        return Prop.ForAll(RnaArbitrary(4), loop =>
+        {
+            double e1 = RnaSecondaryStructure.CalculateHairpinLoopEnergy(loop, 'G', 'C');
+            double e2 = RnaSecondaryStructure.CalculateHairpinLoopEnergy(loop, 'G', 'C');
+            return (e1 == e2 && double.IsFinite(e1))
+                .Label($"hairpin energy non-deterministic or non-finite: {e1}");
+        });
+    }
+
+    #endregion
+
+    #region RNA-INVERT-001: P: arms reverse-complementary; R: positions valid; D: deterministic
+
+    // FindInvertedRepeats reports W G W̄ᴿ patterns: a left arm, a loop, and a right arm equal to the
+    // reverse complement of the left (antiparallel stem). The stem extends outward while
+    // GetComplement(seq[q+k]) == seq[p−k] (Alamro et al. 2021, IUPACpal).
+
+    private static string RandRna(Random rng, int len)
+    {
+        const string bases = "ACGU";
+        var chars = new char[len];
+        for (int i = 0; i < len; i++) chars[i] = bases[rng.Next(4)];
+        return new string(chars);
+    }
+
+    /// <summary>Builds left-arm + loop + reverseComplement(left-arm) so a perfect inverted repeat is present.</summary>
+    private static Arbitrary<string> EmbeddedInvertedRepeatArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            string left = RandRna(rng, 4 + rng.Next(5));      // arm length 4..8
+            string right = new string(left.Reverse().Select(RnaSecondaryStructure.GetComplement).ToArray());
+            string loop = RandRna(rng, 3 + rng.Next(4));       // loop length 3..6
+            return left + loop + right;
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (P + R): every reported inverted repeat has valid, non-overlapping arm coordinates of
+    /// equal length with a loop in [minSpacing, maxSpacing], and its two arms are antiparallel
+    /// reverse complements (GetComplement(seq[Start2+m]) == seq[End1−m]). A sequence built to contain
+    /// a perfect stem yields at least one such repeat (non-vacuous).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property InvertedRepeats_AreValidReverseComplementaryArms()
+    {
+        return Prop.ForAll(EmbeddedInvertedRepeatArbitrary(), seq =>
+        {
+            var reps = RnaSecondaryStructure.FindInvertedRepeats(seq).ToList();
+            if (reps.Count == 0)
+                return false.Label("expected at least one inverted repeat in a constructed stem");
+
+            bool allValid = reps.All(r =>
+                0 <= r.Start1 && r.Start1 <= r.End1 && r.End1 < r.Start2 && r.Start2 <= r.End2 && r.End2 < seq.Length
+                && r.End1 - r.Start1 + 1 == r.Length && r.End2 - r.Start2 + 1 == r.Length
+                && r.Length >= 4
+                && (r.Start2 - r.End1 - 1) >= 3 && (r.Start2 - r.End1 - 1) <= 100
+                && Enumerable.Range(0, r.Length)
+                    .All(m => RnaSecondaryStructure.GetComplement(seq[r.Start2 + m]) == seq[r.End1 - m]));
+            return allValid.Label("a reported repeat had invalid coordinates or non-complementary arms");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (D): Inverted-repeat detection is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property InvertedRepeats_AreDeterministic()
+    {
+        return Prop.ForAll(RnaArbitrary(20), seq =>
+            RnaSecondaryStructure.FindInvertedRepeats(seq).SequenceEqual(RnaSecondaryStructure.FindInvertedRepeats(seq))
+                .Label("FindInvertedRepeats must be deterministic"));
+    }
+
+    /// <summary>
+    /// INV-3 (golden): the constructed stem AAGG-UUU-CCUU is detected as a single inverted repeat
+    /// with reverse-complementary arms.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void InvertedRepeats_GoldenStem_IsDetected()
+    {
+        const string seq = "AAGGUUUCCUU"; // arm AAGG, loop UUU, arm CCUU = revcomp(AAGG)
+        var reps = RnaSecondaryStructure.FindInvertedRepeats(seq).ToList();
+
+        Assert.That(reps, Is.Not.Empty);
+        var r = reps[0];
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Length, Is.GreaterThanOrEqualTo(4));
+            for (int m = 0; m < r.Length; m++)
+                Assert.That(RnaSecondaryStructure.GetComplement(seq[r.Start2 + m]), Is.EqualTo(seq[r.End1 - m]),
+                    $"arm position {m} not reverse-complementary");
+        });
+    }
+
+    #endregion
+
+    #region RNA-MFE-001: R: MFE ≤ 0; M: more GC pairs → lower energy; D: deterministic
+
+    // CalculateMinimumFreeEnergy is a Zuker-style DP with Turner 2004 parameters. The unfolded
+    // structure always scores 0, so the MFE can never be positive; a GC stem (≈ −3 kcal/mol/stack)
+    // is more stable than an equivalent AU stem (≈ −1 to −2).
+
+    /// <summary>
+    /// INV-1 (R): The MFE is never positive — the empty (unfolded) structure is always available at 0.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Mfe_IsNonPositive()
+    {
+        return Prop.ForAll(RnaArbitrary(8), seq =>
+        {
+            double mfe = RnaSecondaryStructure.CalculateMinimumFreeEnergy(seq);
+            return (mfe <= 1e-9).Label($"MFE={mfe} must be ≤ 0");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (M): A hairpin closed by a GC stem has a lower (more negative) MFE than the same hairpin
+    /// closed by an AU stem of equal length — more GC pairs stabilise the structure.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Mfe_GcStem_IsMoreStableThanAuStem()
+    {
+        double mfeGc = RnaSecondaryStructure.CalculateMinimumFreeEnergy("GGGGGUUUUCCCCC"); // 5-bp G-C stem
+        double mfeAu = RnaSecondaryStructure.CalculateMinimumFreeEnergy("AAAAAGGGUUUUU");   // 5-bp A-U stem
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(mfeGc, Is.LessThan(0.0), "a GC stem should fold to a negative MFE");
+            Assert.That(mfeGc, Is.LessThan(mfeAu), "the GC stem must be more stable than the AU stem");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): MFE computation is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Mfe_IsDeterministic()
+    {
+        return Prop.ForAll(RnaArbitrary(8), seq =>
+            (RnaSecondaryStructure.CalculateMinimumFreeEnergy(seq) == RnaSecondaryStructure.CalculateMinimumFreeEnergy(seq))
+                .Label("CalculateMinimumFreeEnergy must be deterministic"));
+    }
+
+    #endregion
+
+    #region RNA-PAIR-001: P: only A-U, G-C, G-U pair; S: canPair(a,b)=canPair(b,a); D: deterministic
+
+    // CanPair recognises the six canonical RNA base pairs — Watson-Crick A-U/G-C and the G-U wobble —
+    // in either order and case-insensitively. GetBasePairType classifies them as WatsonCrick / Wobble.
+
+    /// <summary>Bases plus a few non-RNA / mixed-case symbols to exercise the negative cases.</summary>
+    private static Arbitrary<char> BaseCharArbitrary() =>
+        Gen.Elements('A', 'C', 'G', 'U', 'T', 'N', 'a', 'c', 'g', 'u').ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (P): Over {A,C,G,U}, CanPair is true exactly for the six canonical pairs (A-U, U-A,
+    /// G-C, C-G, G-U, U-G) and false for everything else (e.g. A-A, G-A); DNA 'T' does not pair.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Pair_OnlyCanonicalPairs_AreAccepted()
+    {
+        var canonical = new HashSet<(char, char)>
+        {
+            ('A','U'), ('U','A'), ('G','C'), ('C','G'), ('G','U'), ('U','G')
+        };
+        foreach (char a in "ACGU")
+            foreach (char b in "ACGU")
+                Assert.That(RnaSecondaryStructure.CanPair(a, b), Is.EqualTo(canonical.Contains((a, b))),
+                    $"CanPair({a},{b}) mismatch");
+
+        Assert.That(RnaSecondaryStructure.CanPair('A', 'T'), Is.False, "RNA pairing does not accept DNA T");
+    }
+
+    /// <summary>
+    /// INV-2 (S): Pairing is symmetric — CanPair(a,b) == CanPair(b,a) for any bases.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Pair_IsSymmetric()
+    {
+        return Prop.ForAll(BaseCharArbitrary(), BaseCharArbitrary(), (a, b) =>
+            (RnaSecondaryStructure.CanPair(a, b) == RnaSecondaryStructure.CanPair(b, a))
+                .Label($"CanPair({a},{b}) ≠ CanPair({b},{a})"));
+    }
+
+    /// <summary>
+    /// INV-3 (P, case-insensitive): pairing ignores case.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Pair_IsCaseInsensitive()
+    {
+        return Prop.ForAll(BaseCharArbitrary(), BaseCharArbitrary(), (a, b) =>
+        {
+            char ta = char.IsUpper(a) ? char.ToLowerInvariant(a) : char.ToUpperInvariant(a);
+            char tb = char.IsUpper(b) ? char.ToLowerInvariant(b) : char.ToUpperInvariant(b);
+            return (RnaSecondaryStructure.CanPair(a, b) == RnaSecondaryStructure.CanPair(ta, tb))
+                .Label($"case sensitivity at ({a},{b})");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (P, classification): GetBasePairType agrees with CanPair and labels Watson-Crick vs
+    /// Wobble correctly — A-U/G-C are WatsonCrick, G-U is Wobble, all others null.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Pair_TypeClassification_IsConsistent()
+    {
+        return Prop.ForAll(BaseCharArbitrary(), BaseCharArbitrary(), (a, b) =>
+        {
+            var type = RnaSecondaryStructure.GetBasePairType(a, b);
+            bool can = RnaSecondaryStructure.CanPair(a, b);
+            char ua = char.ToUpperInvariant(a), ub = char.ToUpperInvariant(b);
+            bool isWobble = (ua == 'G' && ub == 'U') || (ua == 'U' && ub == 'G');
+            bool expectedWc = can && !isWobble;
+
+            bool ok = (can == (type != null))
+                      && (!can || (isWobble
+                            ? type == RnaSecondaryStructure.BasePairType.Wobble
+                            : type == RnaSecondaryStructure.BasePairType.WatsonCrick))
+                      && (!expectedWc || type == RnaSecondaryStructure.BasePairType.WatsonCrick);
+            return ok.Label($"type inconsistent for ({a},{b}): can={can}, type={type}");
+        });
+    }
+
+    #endregion
+
+    #region RNA-PARTITION-001: R: Z > 0; R: base-pair probability ∈ [0,1]; D: deterministic
+
+    // CalculatePartitionFunction implements McCaskill (1990): the inside partition function Z (≥ 1,
+    // since the all-unpaired structure always weighs 1) and equilibrium base-pair probabilities
+    // P[i,j] ∈ [0,1] with Σ_j P[i,j] ≤ 1 for each position (a base pairs with at most one partner).
+
+    /// <summary>
+    /// INV-1 (R): The partition function is at least 1 (the empty structure is always in the ensemble).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Partition_Z_IsAtLeastOne()
+    {
+        return Prop.ForAll(RnaArbitrary(8), seq =>
+        {
+            double z = RnaSecondaryStructure.CalculatePartitionFunction(seq).PartitionFunction;
+            return (z >= 1.0 - 1e-9).Label($"Z={z} must be ≥ 1");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (R): Every equilibrium base-pair probability lies in [0,1].
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Partition_Probabilities_InUnitInterval()
+    {
+        return Prop.ForAll(RnaArbitrary(8), seq =>
+        {
+            var probs = RnaSecondaryStructure.CalculatePartitionFunction(seq).BasePairProbabilities;
+            return probs.Values.All(p => p >= -1e-9 && p <= 1.0 + 1e-9)
+                .Label("a base-pair probability fell outside [0,1]");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (P): For each position the probabilities of all pairs involving it sum to ≤ 1 — a base
+    /// can be paired with at most one partner in any structure.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Partition_PerBasePairing_AtMostOne()
+    {
+        return Prop.ForAll(RnaArbitrary(8), seq =>
+        {
+            var probs = RnaSecondaryStructure.CalculatePartitionFunction(seq).BasePairProbabilities;
+            var perBase = new Dictionary<int, double>();
+            foreach (var kv in probs)
+            {
+                perBase[kv.Key.I] = perBase.GetValueOrDefault(kv.Key.I) + kv.Value;
+                perBase[kv.Key.J] = perBase.GetValueOrDefault(kv.Key.J) + kv.Value;
+            }
+            return perBase.Values.All(p => p <= 1.0 + 1e-9)
+                .Label("a base's total pairing probability exceeded 1");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (D): The partition function and probabilities are deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Partition_IsDeterministic()
+    {
+        return Prop.ForAll(RnaArbitrary(8), seq =>
+        {
+            var a = RnaSecondaryStructure.CalculatePartitionFunction(seq);
+            var b = RnaSecondaryStructure.CalculatePartitionFunction(seq);
+            bool same = a.PartitionFunction == b.PartitionFunction
+                        && a.BasePairProbabilities.Count == b.BasePairProbabilities.Count
+                        && a.BasePairProbabilities.All(kv => b.BasePairProbabilities.TryGetValue(kv.Key, out double v) && v == kv.Value);
+            return same.Label("CalculatePartitionFunction must be deterministic");
+        });
+    }
+
+    /// <summary>
+    /// INV-5 (boundary): empty sequence has Z=1 and no pairs; a non-positive temperature is rejected.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Partition_Boundaries()
+    {
+        Assert.Multiple(() =>
+        {
+            var empty = RnaSecondaryStructure.CalculatePartitionFunction("");
+            Assert.That(empty.PartitionFunction, Is.EqualTo(1.0));
+            Assert.That(empty.BasePairProbabilities, Is.Empty);
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => RnaSecondaryStructure.CalculatePartitionFunction("GGGAAACCC", temperature: 0));
+        });
+    }
+
+    #endregion
+
+    #region RNA-PSEUDOKNOT-001: P: detects exactly the crossing pairs; R: positions valid; D: deterministic
+
+    // DetectPseudoknots reports each crossing pair-of-pairs: normalising endpoints to (open<close) and
+    // ordering by opening position, two pairs cross iff i < k < j < l (Antczak et al. 2018). Nested or
+    // disjoint pairs are not pseudoknots.
+
+    private static RnaSecondaryStructure.BasePair Bp(int p1, int p2) =>
+        new(p1, p2, 'A', 'U', RnaSecondaryStructure.BasePairType.WatsonCrick);
+
+    private static bool Cross(RnaSecondaryStructure.BasePair x, RnaSecondaryStructure.BasePair y)
+    {
+        int i = Math.Min(x.Position1, x.Position2), j = Math.Max(x.Position1, x.Position2);
+        int k = Math.Min(y.Position1, y.Position2), l = Math.Max(y.Position1, y.Position2);
+        if (k < i) (i, j, k, l) = (k, l, i, j);
+        return i < k && k < j && j < l;
+    }
+
+    /// <summary>Generates 2..6 base pairs over positions 0..19 (distinct endpoints per pair).</summary>
+    private static Arbitrary<List<RnaSecondaryStructure.BasePair>> BasePairsArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            int m = 2 + rng.Next(5);
+            var pairs = new List<RnaSecondaryStructure.BasePair>(m);
+            for (int t = 0; t < m; t++)
+            {
+                int a = rng.Next(20), b = rng.Next(20);
+                while (a == b) b = rng.Next(20);
+                pairs.Add(Bp(a, b));
+            }
+            return pairs;
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (P): The set of reported pseudoknots is exactly the set of crossing pair-of-pairs,
+    /// verified against an independent crossing predicate, and each carries its two crossing pairs.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Pseudoknot_DetectsExactlyCrossingPairs()
+    {
+        return Prop.ForAll(BasePairsArbitrary(), pairs =>
+        {
+            int expected = 0;
+            for (int a = 0; a < pairs.Count; a++)
+                for (int b = a + 1; b < pairs.Count; b++)
+                    if (Cross(pairs[a], pairs[b])) expected++;
+
+            var detected = RnaSecondaryStructure.DetectPseudoknots(pairs).ToList();
+            bool eachHasTwo = detected.All(pk => pk.CrossingPairs.Count == 2);
+            return (detected.Count == expected && eachHasTwo)
+                .Label($"detected {detected.Count} pseudoknots, expected {expected}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (R): Every reported pseudoknot has the crossing layout Start1 &lt; Start2 &lt; End1 &lt; End2.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Pseudoknot_Positions_AreCrossing()
+    {
+        return Prop.ForAll(BasePairsArbitrary(), pairs =>
+            RnaSecondaryStructure.DetectPseudoknots(pairs)
+                .All(pk => pk.Start1 < pk.Start2 && pk.Start2 < pk.End1 && pk.End1 < pk.End2)
+                .Label("a pseudoknot did not satisfy i < k < j < l"));
+    }
+
+    /// <summary>
+    /// INV-3 (D): Pseudoknot detection is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Pseudoknot_IsDeterministic()
+    {
+        return Prop.ForAll(BasePairsArbitrary(), pairs =>
+            RnaSecondaryStructure.DetectPseudoknots(pairs).Select(pk => (pk.Start1, pk.End1, pk.Start2, pk.End2))
+                .SequenceEqual(RnaSecondaryStructure.DetectPseudoknots(pairs).Select(pk => (pk.Start1, pk.End1, pk.Start2, pk.End2)))
+                .Label("DetectPseudoknots must be deterministic"));
+    }
+
+    /// <summary>
+    /// INV-4 (golden): crossing pairs are flagged; nested and disjoint pairs are not.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Pseudoknot_GoldenCases()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(RnaSecondaryStructure.DetectPseudoknots(new[] { Bp(0, 5), Bp(3, 8) }).Count(), Is.EqualTo(1),
+                "0<3<5<8 crosses → pseudoknot");
+            Assert.That(RnaSecondaryStructure.DetectPseudoknots(new[] { Bp(0, 10), Bp(2, 8) }), Is.Empty,
+                "nested pairs are not a pseudoknot");
+            Assert.That(RnaSecondaryStructure.DetectPseudoknots(new[] { Bp(0, 3), Bp(5, 8) }), Is.Empty,
+                "disjoint pairs are not a pseudoknot");
         });
     }
 

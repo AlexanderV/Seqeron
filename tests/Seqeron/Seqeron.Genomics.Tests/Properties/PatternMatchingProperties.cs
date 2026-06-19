@@ -6,7 +6,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// <summary>
 /// Property-based tests for exact/IUPAC/PWM pattern matching.
 ///
-/// Test Units: PAT-EXACT-001, PAT-IUPAC-001, PAT-PWM-001 (Property Extensions)
+/// Test Units: PAT-EXACT-001, PAT-IUPAC-001, PAT-PWM-001 (Property Extensions), MOTIF-CONS-001, MOTIF-DISCOVER-001, MOTIF-GENERATE-001, MOTIF-REGULATORY-001, MOTIF-SHARED-001, PAT-APPROX-003
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -371,6 +371,494 @@ public class PatternMatchingProperties
             var pwm = MotifFinder.CreatePwm(training);
             return (pwm.Length == motifLen)
                 .Label($"PWM length {pwm.Length} should equal training length {motifLen}");
+        });
+    }
+
+    #endregion
+
+    #region MOTIF-CONS-001: P: consensus length = alignment width; P: each column = majority residue; D: deterministic
+
+    // CreateConsensusFromAlignment selects, per column, the most frequent base (ties broken
+    // alphabetically A<C<G<T) — the classical per-position consensus (Rosalind CONS).
+
+    /// <summary>Generates 2..5 aligned DNA sequences of equal length 4..10.</summary>
+    private static Arbitrary<string[]> AlignedDnaArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            int rows = 2 + rng.Next(4);
+            int cols = 4 + rng.Next(7);
+            const string bases = "ACGT";
+            var rowsArr = new string[rows];
+            for (int r = 0; r < rows; r++)
+            {
+                var c = new char[cols];
+                for (int j = 0; j < cols; j++) c[j] = bases[rng.Next(4)];
+                rowsArr[r] = new string(c);
+            }
+            return rowsArr;
+        }).ToArbitrary();
+
+    private static char ColumnMajority(string[] aln, int col)
+    {
+        var counts = new int[4]; // A,C,G,T
+        foreach (var row in aln) counts["ACGT".IndexOf(row[col])]++;
+        int best = 0;
+        for (int b = 1; b < 4; b++) if (counts[b] > counts[best]) best = b;
+        return "ACGT"[best];
+    }
+
+    /// <summary>
+    /// INV-1 (P): The consensus length equals the alignment width.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AlignmentConsensus_Length_EqualsWidth()
+    {
+        return Prop.ForAll(AlignedDnaArbitrary(), aln =>
+            (MotifFinder.CreateConsensusFromAlignment(aln).Length == aln[0].Length)
+                .Label("consensus length ≠ alignment width"));
+    }
+
+    /// <summary>
+    /// INV-2 (P): Each consensus position is the most frequent base of that column (ties broken
+    /// alphabetically), verified against an independent per-column majority.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AlignmentConsensus_EachColumn_IsMajority()
+    {
+        return Prop.ForAll(AlignedDnaArbitrary(), aln =>
+        {
+            string consensus = MotifFinder.CreateConsensusFromAlignment(aln);
+            bool ok = Enumerable.Range(0, aln[0].Length).All(c => consensus[c] == ColumnMajority(aln, c));
+            return ok.Label("a consensus position was not the column majority");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D + boundary): consensus is deterministic; empty input is empty; ragged or non-ACGT
+    /// alignments are rejected.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void AlignmentConsensus_DeterministicAndBoundary()
+    {
+        var aln = new[] { "ACGT", "AGGT", "ACGA" };
+        string first = MotifFinder.CreateConsensusFromAlignment(aln);
+        string second = MotifFinder.CreateConsensusFromAlignment(aln);
+        Assert.Multiple(() =>
+        {
+            Assert.That(second, Is.EqualTo(first), "deterministic");
+            Assert.That(first, Is.EqualTo("ACGT"), "column majorities");
+            Assert.That(MotifFinder.CreateConsensusFromAlignment(Array.Empty<string>()), Is.EqualTo(""));
+            Assert.Throws<ArgumentException>(() => MotifFinder.CreateConsensusFromAlignment(new[] { "ACGT", "AC" }));
+            Assert.Throws<ArgumentException>(() => MotifFinder.CreateConsensusFromAlignment(new[] { "ACGT", "ACGN" }));
+        });
+    }
+
+    #endregion
+
+    #region MOTIF-DISCOVER-001: R: motif length = k; M: lower support → ≥ motifs; D: deterministic
+
+    // DiscoverMotifs reports k-mers occurring at least minCount times, with their positions and an
+    // observed/expected enrichment (Compeau & Pevzner i.i.d. background).
+
+    /// <summary>
+    /// INV-1 (R): every discovered motif has length k, Count = #positions ≥ minCount, valid positions
+    /// pointing at genuine occurrences, and positive enrichment.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DiscoverMotifs_AreWellFormed()
+    {
+        return Prop.ForAll(DnaArbitrary(12), seq =>
+        {
+            const int k = 2;
+            const int minCount = 2;
+            var dna = new DnaSequence(seq);
+            var motifs = MotifFinder.DiscoverMotifs(dna, k, minCount).ToList();
+            bool ok = motifs.All(m =>
+                m.Sequence.Length == k &&
+                m.Count >= minCount && m.Count == m.Positions.Count &&
+                m.Enrichment > 0 &&
+                m.Positions.All(p => p >= 0 && p + k <= seq.Length && seq.Substring(p, k) == m.Sequence));
+            return ok.Label("a discovered motif was malformed");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (M): a lower support threshold reports at least as many motifs — minCount 3 ⊆ minCount 2.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DiscoverMotifs_LowerSupport_IsSuperset()
+    {
+        return Prop.ForAll(DnaArbitrary(12), seq =>
+        {
+            var dna = new DnaSequence(seq);
+            var loose = MotifFinder.DiscoverMotifs(dna, 2, 2).Select(m => m.Sequence).ToHashSet();
+            var strict = MotifFinder.DiscoverMotifs(dna, 2, 3).Select(m => m.Sequence).ToHashSet();
+            return strict.IsSubsetOf(loose).Label("minCount 3 result not ⊆ minCount 2 result");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Motif discovery is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DiscoverMotifs_IsDeterministic()
+    {
+        return Prop.ForAll(DnaArbitrary(12), seq =>
+        {
+            var dna = new DnaSequence(seq);
+            var a = MotifFinder.DiscoverMotifs(dna, 2, 2).Select(m => (m.Sequence, m.Count)).ToHashSet();
+            var b = MotifFinder.DiscoverMotifs(dna, 2, 2).Select(m => (m.Sequence, m.Count)).ToHashSet();
+            return a.SetEquals(b).Label("DiscoverMotifs must be deterministic");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (boundary): k &lt; 1 is rejected.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void DiscoverMotifs_InvalidK_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => MotifFinder.DiscoverMotifs(new DnaSequence("ACGTACGT"), 0).ToList());
+    }
+
+    #endregion
+
+    #region MOTIF-GENERATE-001: P: IUPAC consensus from column counts; R: length = motif width; D: deterministic
+
+    // GenerateConsensus builds the IUPAC-degenerate consensus: per column, bases occurring in more
+    // than 25% of the sequences are combined into the NC-IUB symbol for that set (else the majority base).
+
+    private static readonly IReadOnlyDictionary<string, char> IupacBySet = new Dictionary<string, char>
+    {
+        ["A"] = 'A', ["C"] = 'C', ["G"] = 'G', ["T"] = 'T',
+        ["AG"] = 'R', ["CT"] = 'Y', ["CG"] = 'S', ["AT"] = 'W', ["GT"] = 'K', ["AC"] = 'M',
+        ["CGT"] = 'B', ["AGT"] = 'D', ["ACT"] = 'H', ["ACG"] = 'V', ["ACGT"] = 'N',
+    };
+
+    private static char ExpectedIupac(string[] aln, int col)
+    {
+        var counts = new Dictionary<char, int> { ['A'] = 0, ['C'] = 0, ['G'] = 0, ['T'] = 0 };
+        foreach (var row in aln) counts[row[col]]++;
+        double threshold = aln.Length * 0.25;
+        var present = counts.Where(kv => kv.Value > threshold).Select(kv => kv.Key).OrderBy(c => c).ToList();
+        if (present.Count == 0)
+            return counts.MaxBy(kv => kv.Value).Key;
+        return IupacBySet.GetValueOrDefault(string.Join("", present), 'N');
+    }
+
+    /// <summary>
+    /// INV-1 (R): The IUPAC consensus length equals the alignment width.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IupacConsensus_Length_EqualsWidth()
+    {
+        return Prop.ForAll(AlignedDnaArbitrary(), aln =>
+            (MotifFinder.GenerateConsensus(aln).Length == aln[0].Length)
+                .Label("IUPAC consensus length ≠ width"));
+    }
+
+    /// <summary>
+    /// INV-2 (P): each consensus symbol is the IUPAC code of the bases occupying &gt; 25% of the column
+    /// (or the majority base when none passes), verified against an independent computation.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IupacConsensus_EachColumn_FromCounts()
+    {
+        return Prop.ForAll(AlignedDnaArbitrary(), aln =>
+        {
+            string consensus = MotifFinder.GenerateConsensus(aln);
+            bool ok = Enumerable.Range(0, aln[0].Length).All(c => consensus[c] == ExpectedIupac(aln, c));
+            return ok.Label("a consensus symbol did not match the IUPAC-from-counts rule");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D + golden): consensus is deterministic; identical sequences reproduce themselves; a
+    /// purine column (A,G) yields 'R'; an equal four-base column yields 'N'.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void IupacConsensus_DeterministicAndGolden()
+    {
+        string c1 = MotifFinder.GenerateConsensus(new[] { "ACGT", "ACGT" });
+        string c2 = MotifFinder.GenerateConsensus(new[] { "ACGT", "ACGT" });
+        Assert.Multiple(() =>
+        {
+            Assert.That(c2, Is.EqualTo(c1), "deterministic");
+            Assert.That(c1, Is.EqualTo("ACGT"), "identical sequences reproduce themselves");
+            Assert.That(MotifFinder.GenerateConsensus(new[] { "A", "G" }), Is.EqualTo("R"), "A,G → purine R");
+            // Four equal bases: each is exactly 25%, none exceeds the strict >25% cutoff, so the
+            // majority base (alphabetically first on the tie) is emitted rather than 'N'.
+            Assert.That(MotifFinder.GenerateConsensus(new[] { "A", "C", "G", "T" }), Is.EqualTo("A"),
+                "no base exceeds 25% → majority base");
+        });
+    }
+
+    #endregion
+
+    #region MOTIF-REGULATORY-001: R: positions valid; P: match conforms to known element; D: deterministic
+
+    // FindRegulatoryElements scans a curated catalogue of regulatory motifs (TATA box, E-box, AP-1,
+    // …) via IUPAC-degenerate matching; each reported element should conform to its (known) pattern.
+
+    private static readonly IReadOnlyDictionary<char, string> Iupac = new Dictionary<char, string>
+    {
+        ['A'] = "A", ['C'] = "C", ['G'] = "G", ['T'] = "T",
+        ['R'] = "AG", ['Y'] = "CT", ['S'] = "CG", ['W'] = "AT", ['K'] = "GT", ['M'] = "AC",
+        ['B'] = "CGT", ['D'] = "AGT", ['H'] = "ACT", ['V'] = "ACG", ['N'] = "ACGT",
+    };
+
+    private static readonly HashSet<string> KnownPatterns = new()
+    {
+        MotifFinder.KnownMotifs.TataBox, MotifFinder.KnownMotifs.CaatBox, MotifFinder.KnownMotifs.GcBox,
+        MotifFinder.KnownMotifs.MinusTenBox, MotifFinder.KnownMotifs.MinusThirtyFiveBox,
+        MotifFinder.KnownMotifs.Kozak, MotifFinder.KnownMotifs.ShineDalgarno, MotifFinder.KnownMotifs.PolyASignal,
+        MotifFinder.KnownMotifs.EBox, MotifFinder.KnownMotifs.Ap1, MotifFinder.KnownMotifs.NfKb,
+        MotifFinder.KnownMotifs.Creb,
+    };
+
+    private static bool Conforms(string sequence, string pattern) =>
+        sequence.Length == pattern.Length &&
+        Enumerable.Range(0, pattern.Length).All(j => Iupac[pattern[j]].Contains(sequence[j]));
+
+    /// <summary>
+    /// INV-1 (R + P): every regulatory element has a valid position, its reported sequence is the
+    /// substring there, its pattern is one of the known motifs, and the sequence conforms to that
+    /// (IUPAC) pattern.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property RegulatoryElements_AreValidAndConform()
+    {
+        return Prop.ForAll(DnaArbitrary(14), seq =>
+        {
+            var dna = new DnaSequence(seq);
+            var elements = MotifFinder.FindRegulatoryElements(dna).ToList();
+            bool ok = elements.All(e =>
+                e.Position >= 0 && e.Position + e.Pattern.Length <= seq.Length &&
+                seq.Substring(e.Position, e.Pattern.Length) == e.Sequence &&
+                KnownPatterns.Contains(e.Pattern) &&
+                Conforms(e.Sequence, e.Pattern));
+            return ok.Label("a regulatory element was invalid or non-conforming");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P, positive control): embedded TATA box and poly(A) signal are recovered with the right
+    /// names at the right positions.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void RegulatoryElements_EmbeddedMotifs_AreFound()
+    {
+        // TATAAA at 5, AATAAA at 17.
+        var dna = new DnaSequence("GGGGG" + "TATAAA" + "GGGGGG" + "AATAAA" + "GG");
+        var elements = MotifFinder.FindRegulatoryElements(dna).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(elements.Any(e => e.Name == "TATA Box" && e.Position == 5), Is.True, "TATA box at 5");
+            Assert.That(elements.Any(e => e.Name == "Poly(A) Signal" && e.Position == 17), Is.True, "poly(A) at 17");
+            Assert.That(elements.All(e => Conforms(e.Sequence, e.Pattern)), Is.True);
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Regulatory-element scanning is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property RegulatoryElements_IsDeterministic()
+    {
+        return Prop.ForAll(DnaArbitrary(14), seq =>
+        {
+            var dna = new DnaSequence(seq);
+            var a = MotifFinder.FindRegulatoryElements(dna).Select(e => (e.Name, e.Position)).ToList();
+            var b = MotifFinder.FindRegulatoryElements(dna).Select(e => (e.Name, e.Position)).ToList();
+            return a.SequenceEqual(b).Label("FindRegulatoryElements must be deterministic");
+        });
+    }
+
+    #endregion
+
+    #region MOTIF-SHARED-001: P: shared motif present in all listed inputs; R: indices valid; D: deterministic
+
+    // FindSharedMotifs reports each length-k word occurring in at least minSequences distinct input
+    // sequences (RSAT oligo-analysis "matching sequences" quorum).
+
+    private static string RandDnaStr(Random rng, int len)
+    {
+        const string bases = "ACGT";
+        var c = new char[len];
+        for (int i = 0; i < len; i++) c[i] = bases[rng.Next(4)];
+        return new string(c);
+    }
+
+    /// <summary>Builds 2..4 sequences each containing a common 6-mer, plus that shared motif.</summary>
+    private static Arbitrary<(DnaSequence[] seqs, string shared)> SharedMotifArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            string shared = RandDnaStr(rng, 6);
+            int n = 2 + rng.Next(3);
+            var seqs = new DnaSequence[n];
+            for (int i = 0; i < n; i++)
+                seqs[i] = new DnaSequence(RandDnaStr(rng, 1 + rng.Next(4)) + shared + RandDnaStr(rng, 1 + rng.Next(4)));
+            return (seqs, shared);
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (P + R): every reported shared motif occurs in each of its listed sequences, its indices
+    /// are distinct and in range, it meets the quorum, and its prevalence equals count/total.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property SharedMotifs_AreValidAndPresentInListedInputs()
+    {
+        return Prop.ForAll(SharedMotifArbitrary(), input =>
+        {
+            var (seqs, _) = input;
+            var motifs = MotifFinder.FindSharedMotifs(seqs, 6, 2).ToList();
+            bool ok = motifs.All(m =>
+                m.Sequence.Length == 6 &&
+                m.SequenceIndices.Count >= 2 &&
+                m.SequenceIndices.Distinct().Count() == m.SequenceIndices.Count &&
+                m.SequenceIndices.All(idx => idx >= 0 && idx < seqs.Length && seqs[idx].Sequence.Contains(m.Sequence)) &&
+                Math.Abs(m.Prevalence - (double)m.SequenceIndices.Count / seqs.Length) < 1e-9);
+            return ok.Label("a shared motif was invalid or absent from a listed sequence");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P, positive control): a motif embedded in every input is reported with all sequence
+    /// indices (prevalence 1.0).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property SharedMotifs_CommonMotif_HasFullQuorum()
+    {
+        return Prop.ForAll(SharedMotifArbitrary(), input =>
+        {
+            var (seqs, shared) = input;
+            var motifs = MotifFinder.FindSharedMotifs(seqs, 6, 2).ToList();
+            var hit = motifs.FirstOrDefault(m => m.Sequence == shared);
+            return (hit.Sequence == shared && hit.SequenceIndices.Count == seqs.Length)
+                .Label($"shared motif '{shared}' not reported across all {seqs.Length} sequences");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D + boundary): shared-motif detection is deterministic; invalid k / quorum rejected.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void SharedMotifs_DeterministicAndBoundary()
+    {
+        var seqs = new[] { new DnaSequence("ACGTACGT"), new DnaSequence("TTACGTAA") };
+        var a = MotifFinder.FindSharedMotifs(seqs, 4, 2).Select(m => m.Sequence).OrderBy(s => s).ToList();
+        var b = MotifFinder.FindSharedMotifs(seqs, 4, 2).Select(m => m.Sequence).OrderBy(s => s).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(b, Is.EqualTo(a), "deterministic");
+            Assert.Throws<ArgumentOutOfRangeException>(() => MotifFinder.FindSharedMotifs(seqs, 0).ToList());
+            Assert.Throws<ArgumentOutOfRangeException>(() => MotifFinder.FindSharedMotifs(seqs, 4, 0).ToList());
+        });
+    }
+
+    #endregion
+
+    #region PAT-APPROX-003: R: best distance ≥ 0; P: exact match → 0; M: best ≤ any window distance; D: deterministic
+
+    // ApproximateMatcher.FindBestMatch returns the leftmost window with the minimum Hamming distance
+    // to the pattern (ROSALIND BA1H; Compeau & Pevzner ch.1).
+
+    /// <summary>Generates a sequence and a random pattern of length 3..5 (≤ sequence length).</summary>
+    private static Arbitrary<(string seq, string pattern)> SeqPatternArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            string seq = RandDnaStr(rng, 12 + rng.Next(9));
+            return (seq, RandDnaStr(rng, 3 + rng.Next(3)));
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (R + M): the best match has a non-negative distance equal to the minimum Hamming distance
+    /// over all windows, at a valid position whose substring it reports.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ApproxBest_IsMinimumOverWindows()
+    {
+        return Prop.ForAll(SeqPatternArbitrary(), input =>
+        {
+            var (seq, pattern) = input;
+            var best = ApproximateMatcher.FindBestMatch(seq, pattern);
+            if (best is null) return false.Label("expected a match (pattern fits)");
+            var v = best.Value;
+
+            int independentMin = Enumerable.Range(0, seq.Length - pattern.Length + 1)
+                .Min(i => ApproximateMatcher.HammingDistance(pattern.ToUpperInvariant(), seq.Substring(i, pattern.Length).ToUpperInvariant()));
+
+            bool ok = v.Distance >= 0
+                      && v.Position >= 0 && v.Position + pattern.Length <= seq.Length
+                      && v.MatchedSequence == seq.Substring(v.Position, pattern.Length).ToUpperInvariant()
+                      && v.Distance == independentMin;
+            return ok.Label($"best distance {v.Distance} ≠ min over windows {independentMin}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P): when the pattern occurs exactly in the sequence, the best match has distance 0.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ApproxBest_ExactSubstring_IsZeroDistance()
+    {
+        var gen = Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            string seq = RandDnaStr(rng, 12 + rng.Next(9));
+            int len = 3 + rng.Next(3);
+            int start = rng.Next(seq.Length - len + 1);
+            return (seq, seq.Substring(start, len));
+        }).ToArbitrary();
+
+        return Prop.ForAll(gen, input =>
+        {
+            var (seq, pattern) = input;
+            var best = ApproximateMatcher.FindBestMatch(seq, pattern);
+            return (best is not null && best.Value.Distance == 0 && best.Value.IsExact)
+                .Label("an exact substring did not yield distance 0");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Best-match search is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ApproxBest_IsDeterministic()
+    {
+        return Prop.ForAll(SeqPatternArbitrary(), input =>
+        {
+            var (seq, pattern) = input;
+            var a = ApproximateMatcher.FindBestMatch(seq, pattern);
+            var b = ApproximateMatcher.FindBestMatch(seq, pattern);
+            // Compare meaningful scalar fields (MismatchPositions is a list compared by reference).
+            return (a?.Position == b?.Position && a?.Distance == b?.Distance && a?.MatchedSequence == b?.MatchedSequence)
+                .Label("FindBestMatch must be deterministic");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (boundary): an over-long or empty pattern yields no best match.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void ApproxBest_Boundaries()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(ApproximateMatcher.FindBestMatch("ACGT", "ACGTACGT"), Is.Null, "pattern longer than sequence");
+            Assert.That(ApproximateMatcher.FindBestMatch("ACGT", ""), Is.Null, "empty pattern");
+            Assert.That(ApproximateMatcher.FindBestMatch("", "AC"), Is.Null, "empty sequence");
         });
     }
 

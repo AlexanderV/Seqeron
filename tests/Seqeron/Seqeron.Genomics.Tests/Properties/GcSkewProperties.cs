@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for GC skew calculations.
 /// Verifies skew range, complement negation, and windowed consistency.
 ///
-/// Test Unit: SEQ-GCSKEW-001 (Property Extension)
+/// Test Unit: SEQ-GCSKEW-001 (Property Extension), SEQ-ATSKEW-001, SEQ-REPLICATION-001, SEQ-GC-ANALYSIS-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -74,5 +74,146 @@ public class GcSkewProperties
                 .Label($"skew(orig)={skew1:F4}, skew(swapped)={skew2:F4}, sum={skew1 + skew2:F4}");
         });
     }
+
+    #region SEQ-ATSKEW-001: R: AT skew ∈ [-1,1]; S: complement reverses sign; D: deterministic
+
+    // AT skew = (A−T)/(A+T) ∈ [-1,1]. The DNA complement swaps A↔T, so it negates the AT skew
+    // (Lobry 1996). (Range is also covered by AtSkew_InRange above.)
+
+    /// <summary>
+    /// INV-1 (S): complementing the strand (A↔T, C↔G) negates the AT skew.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Complement_NegatesAtSkew()
+    {
+        return Prop.ForAll(DnaArbitrary(10), seq =>
+        {
+            string complement = new(seq.Select(c => c switch
+            {
+                'A' => 'T', 'T' => 'A', 'C' => 'G', 'G' => 'C', _ => c
+            }).ToArray());
+            double s1 = GcSkewCalculator.CalculateAtSkew(seq);
+            double s2 = GcSkewCalculator.CalculateAtSkew(complement);
+            return (Math.Abs(s1 + s2) < 1e-9).Label($"AtSkew(orig)={s1:F4}, AtSkew(complement)={s2:F4}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (D): AT skew is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AtSkew_IsDeterministic()
+    {
+        return Prop.ForAll(DnaArbitrary(10), seq =>
+            (GcSkewCalculator.CalculateAtSkew(seq) == GcSkewCalculator.CalculateAtSkew(seq))
+                .Label("CalculateAtSkew must be deterministic"));
+    }
+
+    #endregion
+
+    #region SEQ-REPLICATION-001: R: origin index ∈ [0,len]; P: at cumulative-skew extremum; D: deterministic
+
+    // PredictReplicationOrigin returns the prefix index of the minimum cumulative GC skew (origin) and
+    // maximum (terminus) — Grigoriev (1998); Rosalind BA1F minimum-skew problem.
+
+    /// <summary>
+    /// INV-1 (R + P): the predicted origin/terminus are prefix indices in [0,len] sitting at the first
+    /// global minimum/maximum of the cumulative GC-skew diagram (independently recomputed).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ReplicationOrigin_AtCumulativeSkewExtremum()
+    {
+        return Prop.ForAll(DnaArbitrary(10), seq =>
+        {
+            var pred = GcSkewCalculator.PredictReplicationOrigin(seq);
+
+            // Independent cumulative skew diagram (Skew_0 = 0; +1 G, −1 C, 0 otherwise).
+            int cum = 0, min = 0, max = 0, minPos = 0, maxPos = 0;
+            for (int i = 0; i < seq.Length; i++)
+            {
+                if (seq[i] == 'G') cum++; else if (seq[i] == 'C') cum--;
+                if (cum < min) { min = cum; minPos = i + 1; }
+                if (cum > max) { max = cum; maxPos = i + 1; }
+            }
+            bool ok = pred.PredictedOrigin >= 0 && pred.PredictedOrigin <= seq.Length
+                      && pred.PredictedTerminus >= 0 && pred.PredictedTerminus <= seq.Length
+                      && pred.PredictedOrigin == minPos && pred.OriginSkew == min
+                      && pred.PredictedTerminus == maxPos && pred.TerminusSkew == max;
+            return ok.Label($"origin/terminus not at the skew extrema (origin={pred.PredictedOrigin}, min@{minPos})");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (D): Replication-origin prediction is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ReplicationOrigin_IsDeterministic()
+    {
+        return Prop.ForAll(DnaArbitrary(10), seq =>
+            (GcSkewCalculator.PredictReplicationOrigin(seq) == GcSkewCalculator.PredictReplicationOrigin(seq))
+                .Label("PredictReplicationOrigin must be deterministic"));
+    }
+
+    #endregion
+
+    #region SEQ-GC-ANALYSIS-001: R: GC% ∈ [0,100]; P: windows tile sequence; D: deterministic
+
+    // AnalyzeGcContent reports overall GC% and a windowed GC-content/skew profile. With step =
+    // windowSize the windows are non-overlapping consecutive tiles.
+
+    /// <summary>
+    /// INV-1 (R): overall and per-window GC% are in [0,100], skews in [-1,1], variances ≥ 0, and the
+    /// reported sequence length matches the input.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GcAnalysis_ValuesInRange()
+    {
+        return Prop.ForAll(DnaArbitrary(20), seq =>
+        {
+            var r = GcSkewCalculator.AnalyzeGcContent(seq, windowSize: 5, stepSize: 5);
+            bool ok = r.OverallGcContent is >= 0.0 and <= 100.0
+                      && r.OverallGcSkew is >= -1.0 and <= 1.0 && r.OverallAtSkew is >= -1.0 and <= 1.0
+                      && r.GcContentVariance >= 0 && r.GcSkewVariance >= 0
+                      && r.SequenceLength == seq.Length
+                      && r.WindowedGcContent.All(w => w.GcContent is >= 0.0 and <= 100.0);
+            return ok.Label($"GC analysis out of range (overall={r.OverallGcContent})");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P): with step = windowSize the GC-content windows tile the sequence — consecutive,
+    /// non-overlapping, in-bounds windows whose count is ⌊len/windowSize⌋.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GcAnalysis_Windows_TileSequence()
+    {
+        return Prop.ForAll(DnaArbitrary(20), seq =>
+        {
+            const int w = 5;
+            var windows = GcSkewCalculator.AnalyzeGcContent(seq, windowSize: w, stepSize: w).WindowedGcContent;
+            bool tiles = windows.Count == seq.Length / w
+                         && windows.Select((win, i) => win.WindowStart == i * w && win.WindowEnd == i * w + w - 1).All(x => x)
+                         && windows.All(win => win.WindowEnd < seq.Length);
+            return tiles.Label($"windows do not tile: count={windows.Count}, expected {seq.Length / w}");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): GC-content analysis is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GcAnalysis_IsDeterministic()
+    {
+        return Prop.ForAll(DnaArbitrary(20), seq =>
+        {
+            var a = GcSkewCalculator.AnalyzeGcContent(seq, 5, 5);
+            var b = GcSkewCalculator.AnalyzeGcContent(seq, 5, 5);
+            return (a.OverallGcContent == b.OverallGcContent
+                    && a.WindowedGcContent.Count == b.WindowedGcContent.Count)
+                .Label("AnalyzeGcContent must be deterministic");
+        });
+    }
+
+    #endregion
 
 }

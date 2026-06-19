@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for population genetics calculations.
 /// Verifies allele frequency, Hardy-Weinberg, and Fst invariants.
 ///
-/// Test Units: POP-FREQ-001, POP-DIV-001, POP-HW-001, POP-FST-001, POP-LD-001
+/// Test Units: POP-FREQ-001, POP-DIV-001, POP-HW-001, POP-FST-001, POP-LD-001, POP-ANCESTRY-001, POP-ROH-001, POP-SELECT-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -510,6 +510,225 @@ public class PopulationGeneticsProperties
 
         Assert.That(r1.RSquared, Is.EqualTo(r2.RSquared));
         Assert.That(r1.DPrime, Is.EqualTo(r2.DPrime));
+    }
+
+    #endregion
+
+    #region POP-ANCESTRY-001: R: each proportion ∈ [0,1]; P: Σ proportions = 1.0; D: deterministic
+
+    // EstimateAncestry runs the FRAPPE EM with fixed reference allele frequencies (Alexander et al.
+    // 2009); each individual's ancestry fractions are a probability simplex summing to 1.
+
+    private static Arbitrary<(List<(string, IReadOnlyList<int>)> inds, List<(string, IReadOnlyList<double>)> refs)>
+        AncestryArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            int k = 2 + rng.Next(2);   // 2..3 reference populations
+            int m = 5 + rng.Next(6);   // 5..10 markers
+            var refs = new List<(string, IReadOnlyList<double>)>();
+            for (int p = 0; p < k; p++)
+                refs.Add(($"pop{p}", (IReadOnlyList<double>)Enumerable.Range(0, m).Select(_ => rng.NextDouble()).ToList()));
+            var inds = new List<(string, IReadOnlyList<int>)>();
+            for (int i = 0; i < 1 + rng.Next(3); i++)
+                inds.Add(($"ind{i}", (IReadOnlyList<int>)Enumerable.Range(0, m).Select(_ => rng.Next(0, 3)).ToList()));
+            return (inds, refs);
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (R + P): each individual's ancestry proportions are in [0,1], sum to 1, and are keyed by
+    /// the reference population ids.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Ancestry_ProportionsAreSimplex()
+    {
+        return Prop.ForAll(AncestryArbitrary(), input =>
+        {
+            var (inds, refs) = input;
+            var popIds = refs.Select(r => r.Item1).ToHashSet();
+            var results = PopulationGeneticsAnalyzer.EstimateAncestry(inds, refs).ToList();
+            bool ok = results.All(a =>
+                a.Proportions.Values.All(v => v is >= -1e-9 and <= 1.0 + 1e-9) &&
+                Math.Abs(a.Proportions.Values.Sum() - 1.0) < 1e-6 &&
+                a.Proportions.Keys.ToHashSet().SetEquals(popIds));
+            return ok.Label("ancestry proportions were not a simplex over the reference populations");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (D): Ancestry estimation is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Ancestry_IsDeterministic()
+    {
+        return Prop.ForAll(AncestryArbitrary(), input =>
+        {
+            var (inds, refs) = input;
+            var a = PopulationGeneticsAnalyzer.EstimateAncestry(inds, refs).SelectMany(x => x.Proportions.OrderBy(p => p.Key).Select(p => p.Value)).ToList();
+            var b = PopulationGeneticsAnalyzer.EstimateAncestry(inds, refs).SelectMany(x => x.Proportions.OrderBy(p => p.Key).Select(p => p.Value)).ToList();
+            return a.SequenceEqual(b).Label("EstimateAncestry must be deterministic");
+        });
+    }
+
+    #endregion
+
+    #region POP-ROH-001: R: ROH start < end; M: lower minLength → ≥ ROH; P: homozygous within run; D: deterministic
+
+    // FindROH detects runs of homozygosity: maximal runs that begin/end on a homozygous SNP and
+    // tolerate at most maxHeterozygotes interior heterozygous calls (PLINK ROH model).
+
+    /// <summary>Generates 10..30 SNPs at increasing positions, mostly homozygous (0/2) with some het (1).</summary>
+    private static Arbitrary<(int Position, int Genotype)[]> RohGenotypesArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            int n = 10 + rng.Next(21);
+            var g = new (int, int)[n];
+            for (int i = 0; i < n; i++)
+            {
+                int geno = rng.Next(10) < 7 ? (rng.Next(2) == 0 ? 0 : 2) : 1; // ~70% homozygous
+                g[i] = (i * 1000, geno);
+            }
+            return g;
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (R + P): every ROH starts and ends on a homozygous SNP at Start &lt; End, spans ≥ minSnps
+    /// SNPs, and tolerates at most maxHeterozygotes interior heterozygotes.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Roh_RunsAreHomozygous()
+    {
+        return Prop.ForAll(RohGenotypesArbitrary(), genotypes =>
+        {
+            const int maxHet = 1;
+            var byPos = genotypes.ToDictionary(g => g.Position, g => g.Genotype);
+            var rohs = PopulationGeneticsAnalyzer.FindROH(genotypes, minSnps: 2, minLength: 0, maxHeterozygotes: maxHet, maxGap: 100_000).ToList();
+            bool ok = rohs.All(r =>
+            {
+                if (!(r.Start < r.End && r.Start >= 0 && r.SnpCount >= 2)) return false;
+                if (byPos[r.Start] == 1 || byPos[r.End] == 1) return false; // bounded by homozygous SNPs
+                int het = genotypes.Count(g => g.Position >= r.Start && g.Position <= r.End && g.Genotype == 1);
+                return het <= maxHet;
+            });
+            return ok.Label("a ROH violated the homozygosity/boundary/tolerance rules");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (M): a lower minimum length never reports fewer ROH.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Roh_LowerMinLength_MoreRuns()
+    {
+        return Prop.ForAll(RohGenotypesArbitrary(), genotypes =>
+        {
+            int loose = PopulationGeneticsAnalyzer.FindROH(genotypes, 2, 0, 1, 100_000).Count();
+            int strict = PopulationGeneticsAnalyzer.FindROH(genotypes, 2, 15_000, 1, 100_000).Count();
+            return (loose >= strict).Label($"lower minLength gave fewer ROH ({loose} < {strict})");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D + positive control): an all-homozygous stretch is one ROH; detection is deterministic.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Roh_AllHomozygous_IsOneRun_AndDeterministic()
+    {
+        var genotypes = Enumerable.Range(0, 10).Select(i => (i * 1000, 0)).ToArray();
+        var a = PopulationGeneticsAnalyzer.FindROH(genotypes, 2, 0, 0, 100_000).ToList();
+        var b = PopulationGeneticsAnalyzer.FindROH(genotypes, 2, 0, 0, 100_000).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(a, Has.Count.EqualTo(1), "a fully homozygous stretch is a single ROH");
+            Assert.That(a[0].Start, Is.EqualTo(0));
+            Assert.That(a[0].End, Is.EqualTo(9000));
+            Assert.That(b.Select(r => (r.Start, r.End)), Is.EqualTo(a.Select(r => (r.Start, r.End))), "deterministic");
+        });
+    }
+
+    #endregion
+
+    #region POP-SELECT-001: R: statistic finite; M: stronger differentiation → higher signal; D: deterministic
+
+    // ScanForSelection flags regions whose Tajima's D / Fst / iHS exceed selection thresholds; the
+    // signal Score carries the test statistic. CalculateTajimasD is a finite summary statistic.
+
+    /// <summary>
+    /// INV-1 (R): Tajima's D is finite for valid samples (S ≥ 1, n ≥ 4, kHat ≥ 0).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property TajimasD_IsFinite()
+    {
+        var gen = Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            return (kHat: rng.NextDouble() * 10, s: 1 + rng.Next(50), n: 4 + rng.Next(47));
+        }).ToArbitrary();
+
+        return Prop.ForAll(gen, d =>
+            double.IsFinite(PopulationGeneticsAnalyzer.CalculateTajimasD(d.kHat, d.s, d.n))
+                .Label("Tajima's D must be finite"));
+    }
+
+    /// <summary>
+    /// INV-2 (R): every emitted selection signal has a finite score, ordered coordinates, and a
+    /// non-empty test type.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Selection_SignalsAreWellFormed()
+    {
+        var gen = Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            return Enumerable.Range(0, 1 + rng.Next(4))
+                .Select(i => ($"r{i}", i * 1000, i * 1000 + 999,
+                    (rng.NextDouble() - 0.5) * 6, rng.NextDouble(), (rng.NextDouble() - 0.5) * 6))
+                .ToList();
+        }).ToArbitrary();
+
+        return Prop.ForAll(gen, regions =>
+        {
+            var signals = PopulationGeneticsAnalyzer.ScanForSelection(regions).ToList();
+            return signals.All(s => double.IsFinite(s.Score) && s.Start <= s.End && !string.IsNullOrEmpty(s.TestType))
+                .Label("a selection signal was malformed");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (M): stronger differentiation (higher Fst) above the threshold is flagged, and a higher
+    /// Fst gives a higher Fst-signal score; a below-threshold Fst is not flagged.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Selection_HigherFst_StrongerSignal()
+    {
+        (string, int, int, double, double, double) Region(string id, double fst) => (id, 0, 999, 0.0, fst, 0.0);
+
+        var lowFst = PopulationGeneticsAnalyzer.ScanForSelection(new[] { Region("r", 0.10) }).Where(s => s.TestType == "Fst").ToList();
+        var midFst = PopulationGeneticsAnalyzer.ScanForSelection(new[] { Region("r", 0.30) }).Where(s => s.TestType == "Fst").ToList();
+        var highFst = PopulationGeneticsAnalyzer.ScanForSelection(new[] { Region("r", 0.60) }).Where(s => s.TestType == "Fst").ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(lowFst, Is.Empty, "Fst below threshold is not flagged");
+            Assert.That(midFst, Has.Count.EqualTo(1), "Fst above threshold is flagged");
+            Assert.That(highFst.Single().Score, Is.GreaterThan(midFst.Single().Score), "higher Fst → higher signal score");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (D): Selection scanning is deterministic.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Selection_IsDeterministic()
+    {
+        var regions = new[] { ("r0", 0, 999, -2.5, 0.4, 3.0), ("r1", 1000, 1999, 0.5, 0.1, 0.2) };
+        var a = PopulationGeneticsAnalyzer.ScanForSelection(regions).Select(s => (s.TestType, s.Score)).ToList();
+        var b = PopulationGeneticsAnalyzer.ScanForSelection(regions).Select(s => (s.TestType, s.Score)).ToList();
+        Assert.That(b, Is.EqualTo(a));
     }
 
     #endregion

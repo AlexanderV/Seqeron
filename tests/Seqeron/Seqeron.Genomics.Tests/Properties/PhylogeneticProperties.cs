@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for phylogenetic analysis.
 /// Verifies distance matrix and Newick I/O invariants.
 ///
-/// Test Units: PHYLO-DIST-001, PHYLO-NEWICK-001, PHYLO-TREE-001, PHYLO-COMP-001
+/// Test Units: PHYLO-DIST-001, PHYLO-NEWICK-001, PHYLO-TREE-001, PHYLO-COMP-001, PHYLO-BOOT-001, PHYLO-STATS-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -469,6 +469,102 @@ public class PhylogeneticProperties
         int upperBound = 2 * (n - 2);
         Assert.That(rf, Is.LessThanOrEqualTo(upperBound),
             $"RF={rf} exceeds upper bound 2(n-2)={upperBound} for n={n} leaves");
+    }
+
+    #endregion
+
+    #region PHYLO-BOOT-001: R: support ∈ [0,1]; D: deterministic given seed
+
+    // Bootstrap resamples alignment columns and reports each reference clade's support as the fraction
+    // of replicate trees containing it — a value in [0,1] (the published percentage is ×100). With a
+    // fixed seed the resampling, hence the result, is reproducible.
+
+    private static Dictionary<string, string> FourTaxa() => new()
+    {
+        ["A"] = "ACGTACGTACGTACGTACGT",
+        ["B"] = "ACGTACGTAAGTACGTACGT",
+        ["C"] = "ACGTACATACGTACATACGT",
+        ["D"] = "TCGTACATACGTACATACGT",
+    };
+
+    /// <summary>
+    /// INV-1 (R): every clade's bootstrap support is a fraction in [0,1].
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Bootstrap_Support_InUnitInterval()
+    {
+        var support = PhylogeneticAnalyzer.Bootstrap(FourTaxa(), replicates: 50, seed: 42);
+        Assert.That(support, Is.Not.Empty, "reference clades must be scored");
+        Assert.That(support.Values, Is.All.InRange(0.0, 1.0), "support must be in [0,1]");
+    }
+
+    /// <summary>
+    /// INV-2 (D): the same seed yields identical bootstrap support.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Bootstrap_FixedSeed_IsDeterministic()
+    {
+        var a = PhylogeneticAnalyzer.Bootstrap(FourTaxa(), replicates: 50, seed: 7);
+        var b = PhylogeneticAnalyzer.Bootstrap(FourTaxa(), replicates: 50, seed: 7);
+        Assert.That(a.Count, Is.EqualTo(b.Count));
+        foreach (var kv in a)
+            Assert.That(b[kv.Key], Is.EqualTo(kv.Value), $"clade {kv.Key} support differs across runs with same seed");
+    }
+
+    #endregion
+
+    #region PHYLO-STATS-001: R: tree depth ≥ 0; P: leaf count consistent; D: deterministic
+
+    // Tree summary statistics: GetTreeDepth ≥ 0, leaf count equals the number of input taxa, and the
+    // tree length is non-negative.
+
+    private static Arbitrary<Dictionary<string, string>> TaxonSetArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            const string bases = "ACGT";
+            int n = 3 + rng.Next(4); // 3..6 taxa
+            var d = new Dictionary<string, string>();
+            for (int t = 0; t < n; t++)
+            {
+                var c = new char[20];
+                for (int i = 0; i < 20; i++) c[i] = bases[rng.Next(4)];
+                d[$"T{t}"] = new string(c);
+            }
+            return d;
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (R + P): the built tree has non-negative depth and length, and exactly one leaf per taxon.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property TreeStats_DepthNonNegative_LeafCountConsistent()
+    {
+        return Prop.ForAll(TaxonSetArbitrary(), taxa =>
+        {
+            var tree = PhylogeneticAnalyzer.BuildTree(taxa);
+            int depth = PhylogeneticAnalyzer.GetTreeDepth(tree.Root);
+            int leaves = PhylogeneticAnalyzer.GetLeaves(tree.Root).Count();
+            double length = PhylogeneticAnalyzer.CalculateTreeLength(tree.Root);
+            return (depth >= 0 && leaves == taxa.Count && length >= 0.0)
+                .Label($"depth={depth}, leaves={leaves}/{taxa.Count}, length={length}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (D): tree depth is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property TreeStats_AreDeterministic()
+    {
+        return Prop.ForAll(TaxonSetArbitrary(), taxa =>
+        {
+            int d1 = PhylogeneticAnalyzer.GetTreeDepth(PhylogeneticAnalyzer.BuildTree(taxa).Root);
+            int d2 = PhylogeneticAnalyzer.GetTreeDepth(PhylogeneticAnalyzer.BuildTree(taxa).Root);
+            return (d1 == d2).Label("tree depth must be deterministic");
+        });
     }
 
     #endregion

@@ -7,7 +7,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for file I/O parsers: FASTQ, BED, VCF, GFF, GenBank, EMBL.
 ///
 /// Test Units: PARSE-FASTQ-001, PARSE-BED-001, PARSE-VCF-001, PARSE-GFF-001,
-///             PARSE-GENBANK-001, PARSE-EMBL-001, ANNOT-GFF-001
+///             PARSE-GENBANK-001, PARSE-EMBL-001, ANNOT-GFF-001, QUALITY-PHRED-001, QUALITY-STATS-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -1068,6 +1068,97 @@ public class FileIOProperties
             Assert.That(r.SequenceLength, Is.EqualTo(10));
             Assert.That(r.Description, Is.EqualTo("Test sequence."));
             Assert.That(r.Sequence, Is.EqualTo("ACGTACGTAC"), "lowercase sequence is uppercased, count stripped");
+        });
+    }
+
+    #endregion
+
+    #region QUALITY-PHRED-001: R: Q ≥ 0; P: Q = ASCII − offset; RT: encode∘decode = identity; D: deterministic
+
+    // QualityScoreAnalyzer decodes Phred+33 quality characters (Q = ASCII − 33) and re-encodes them
+    // losslessly (Cock et al. 2010).
+
+    /// <summary>Generates a Phred+33 quality string (Q0..Q40, chars '!'..'I').</summary>
+    private static Arbitrary<string> Phred33QualityArbitrary() =>
+        Gen.Choose(33, 73).Select(i => (char)i).ArrayOf().Where(a => a.Length >= 1)
+            .Select(a => new string(a)).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (R + P): each decoded Phred score is non-negative and equals ASCII − 33.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Phred_Scores_AreAsciiMinusOffset()
+    {
+        return Prop.ForAll(Phred33QualityArbitrary(), q =>
+        {
+            var scores = QualityScoreAnalyzer.QualityStringToPhred(q);
+            bool ok = scores.Length == q.Length
+                      && Enumerable.Range(0, q.Length).All(i => scores[i] == q[i] - 33 && scores[i] >= 0);
+            return ok.Label("decoded Phred scores are not ASCII−33 / non-negative");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (RT): decode then encode reproduces the quality string.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Phred_EncodeDecode_RoundTrips()
+    {
+        return Prop.ForAll(Phred33QualityArbitrary(), q =>
+        {
+            var scores = QualityScoreAnalyzer.QualityStringToPhred(q);
+            string back = QualityScoreAnalyzer.PhredToQualityString(scores);
+            return (back == q).Label($"round-trip '{back}' ≠ '{q}'");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Phred decoding is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Phred_IsDeterministic()
+    {
+        return Prop.ForAll(Phred33QualityArbitrary(), q =>
+            QualityScoreAnalyzer.QualityStringToPhred(q).SequenceEqual(QualityScoreAnalyzer.QualityStringToPhred(q))
+                .Label("QualityStringToPhred must be deterministic"));
+    }
+
+    #endregion
+
+    #region QUALITY-STATS-001: R: mean Q ≥ 0; P: per-position scores length = read length; D: deterministic
+
+    // QualityScoreAnalyzer.CalculateStatistics summarizes a Phred+33 quality string.
+
+    /// <summary>
+    /// INV-1 (R + P): mean quality is non-negative and within [min,max]; total bases and per-position
+    /// score count equal the read length.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property QualityStats_AreConsistent()
+    {
+        return Prop.ForAll(Phred33QualityArbitrary(), q =>
+        {
+            var stats = QualityScoreAnalyzer.CalculateStatistics(q);
+            bool ok = stats.MeanQuality >= 0
+                      && stats.MeanQuality >= stats.MinQuality - 1e-9 && stats.MeanQuality <= stats.MaxQuality + 1e-9
+                      && stats.TotalBases == q.Length
+                      && stats.PerPositionMeanQuality.Count == q.Length;
+            return ok.Label($"inconsistent quality stats (mean={stats.MeanQuality}, bases={stats.TotalBases}/{q.Length})");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (D): Quality statistics are deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property QualityStats_AreDeterministic()
+    {
+        return Prop.ForAll(Phred33QualityArbitrary(), q =>
+        {
+            var a = QualityScoreAnalyzer.CalculateStatistics(q);
+            var b = QualityScoreAnalyzer.CalculateStatistics(q);
+            return (a.MeanQuality == b.MeanQuality && a.TotalBases == b.TotalBases)
+                .Label("CalculateStatistics must be deterministic");
         });
     }
 
