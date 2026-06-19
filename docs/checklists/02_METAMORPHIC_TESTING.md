@@ -217,7 +217,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 187 | ☑ | VARIANT-CALL-001 | Variants | MON: deeper coverage → superset of confident calls; INV: read order independent |
 | 188 | ☑ | VARIANT-INDEL-001 | Variants | SHIFT: prepend flank shifts indel positions; INV: read order independent |
 | 189 | ☑ | VARIANT-SNP-001 | Variants | SHIFT: prepend flank shifts SNP positions; INV: read order independent |
-| 190 | ☐ | PANGEN-CLUSTER-001 | PanGenome | MON: lower identity → coarser clusters; INV: gene order independent |
+| 190 | ☑ | PANGEN-CLUSTER-001 | PanGenome | MON: lower identity → coarser clusters; INV: gene order independent |
 | 191 | ☐ | PANGEN-CORE-001 | PanGenome | MON: more genomes → ⊆ core; INV: genome order independent |
 | 192 | ☐ | PANGEN-HEAP-001 | PanGenome | INV: genome order independent; MON: more genomes → better fit |
 | 193 | ☐ | PANGEN-MARKER-001 | PanGenome | SUB: markers ⊆ core; INV: genome order independent |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 189 |
-| ☐ Not started | 45 |
+| ☑ Complete | 190 |
+| ☐ Not started | 44 |
 | MR relations defined | ~200+ |
