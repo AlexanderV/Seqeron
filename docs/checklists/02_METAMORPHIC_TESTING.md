@@ -112,7 +112,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 82 | ☑ | PROTMOTIF-FIND-001 | ProteinMotif | INV: flanking change → same motif detected; MON: broader pattern → ≥ matches; SHIFT: prepend shifts positions |
 | 83 | ☑ | PROTMOTIF-PROSITE-001 | ProteinMotif | SUB: specific pattern ⊂ generalized pattern matches; INV: non-matching flank doesn't affect detection |
 | 84 | ☑ | PROTMOTIF-DOMAIN-001 | ProteinMotif | INV: domain intact after non-domain insertion; MON: more conserved signature → higher confidence (information content; not matched-substring length) |
-| 85 | ☐ | EPIGEN-CPG-001 | Epigenetics | MON: more CG dinucleotides → higher CpG ratio; INV: non-CG flank doesn't change island detection; SHIFT: flank shifts positions |
+| 85 | ☑ | EPIGEN-CPG-001 | Epigenetics | MON: more CG dinucleotides → higher CpG ratio; INV: non-CG flank doesn't change core-island detection; SHIFT: flank shifts positions |
 | 86 | ☐ | ONCO-IMMUNE-001 | Oncology | INV: scaling expression → same relative infiltration; MON: higher marker expression → higher cell fraction; SYM: sample order independent |
 | 87 | ☐ | ONCO-SOMATIC-001 | Oncology | MON: deeper tumor coverage → superset of calls; INV: adding pure-reference reads adds no somatic calls; SYM: read order independent |
 | 88 | ☐ | ONCO-VAF-001 | Oncology | INV: scaling ref+alt depth equally → same VAF; MON: +k alt reads → higher VAF; INV: read order independent |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 84 |
-| ☐ Not started | 150 |
+| ☑ Complete | 85 |
+| ☐ Not started | 149 |
 | MR relations defined | ~200+ |
