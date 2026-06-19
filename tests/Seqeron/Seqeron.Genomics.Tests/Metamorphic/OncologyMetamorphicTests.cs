@@ -1439,4 +1439,67 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-CLONAL-001 — clonal/subclonal classification (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 108.
+    //
+    // API under test (OncologyAnalyzer.ClassifyClonality):
+    //   Builds a CCF posterior from a variant's read evidence (more alt reads ⇒ higher CCF) and
+    //   calls Clonal when P(CCF > 0.95) is high. Each variant is judged independently.
+    //
+    // Relations (derived from the CCF posterior, NOT from output):
+    //   • MON  (higher CCF keeps clonal): the CCF estimate is non-decreasing in alt reads, and
+    //          clonality is monotone — once a variant is clonal, more alt support keeps it clonal.
+    //   • INV  (variant order independent): per-variant classification makes the clonal count and
+    //          set independent of input order.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region ONCO-CLONAL-001 MON — higher CCF keeps a clonal call clonal
+
+    [Test]
+    [Description("MON: the CCF estimate is non-decreasing in alt reads, and clonality is monotone — once clonal, more alt support keeps it clonal.")]
+    public void ClassifyClonality_HigherCcf_StaysClonal()
+    {
+        double previousCcf = double.MinValue;
+        bool clonalSeen = false;
+
+        // Deep coverage (N = 1000) so the CCF posterior is tight enough that a VAF-0.5 (CCF ≈ 1) variant clears the clonal probability gate.
+        foreach (int alt in new[] { 200, 350, 450, 500 }) // purity 1, CN 2 ⇒ expected VAF = CCF/2
+        {
+            var call = OncologyAnalyzer.ClassifyClonality(new[] { new OncologyAnalyzer.ClonalityVariant(alt, 1000, 2) }, 1.0).Calls[0];
+
+            call.Ccf.Should().BeGreaterThanOrEqualTo(previousCcf, because: "more alt reads raise the CCF estimate");
+            previousCcf = call.Ccf;
+
+            if (clonalSeen)
+                call.Status.Should().Be(OncologyAnalyzer.ClonalityStatus.Clonal, because: "more alt support cannot revoke a clonal call");
+            if (call.Status == OncologyAnalyzer.ClonalityStatus.Clonal) clonalSeen = true;
+        }
+
+        clonalSeen.Should().BeTrue(because: "a variant at VAF 0.5 (CCF ≈ 1) is clonal");
+    }
+
+    #endregion
+
+    #region ONCO-CLONAL-001 INV — variant order independent
+
+    [Test]
+    [Description("INV: each variant is classified independently, so the clonal count is independent of input order.")]
+    public void ClassifyClonality_VariantOrder_Independent()
+    {
+        var variants = new[]
+        {
+            new OncologyAnalyzer.ClonalityVariant(500, 1000, 2), // CCF ≈ 1 → clonal
+            new OncologyAnalyzer.ClonalityVariant(150, 1000, 2), // CCF ≈ 0.3 → subclonal
+            new OncologyAnalyzer.ClonalityVariant(490, 1000, 2), // CCF ≈ 0.98 → clonal
+            new OncologyAnalyzer.ClonalityVariant(200, 1000, 2), // subclonal
+        };
+
+        OncologyAnalyzer.ClassifyClonality(variants.Reverse(), 1.0).ClonalCount
+            .Should().Be(OncologyAnalyzer.ClassifyClonality(variants, 1.0).ClonalCount,
+                because: "per-variant clonality classification does not depend on input order");
+    }
+
+    #endregion
 }
