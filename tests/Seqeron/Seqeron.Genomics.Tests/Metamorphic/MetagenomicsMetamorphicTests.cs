@@ -224,4 +224,83 @@ public class MetagenomicsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: META-ALPHA-001 — alpha diversity (Shannon / Simpson) (Metagenomics).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 55.
+    //
+    // API under test (MetagenomicsAnalyzer.CalculateAlphaDiversity):
+    //   ShannonIndex = −Σ pᵢ·ln pᵢ over the (internally normalised) abundances.
+    //
+    // Relations (derived from the entropy definition, NOT from output):
+    //   • COMP (single species ⇒ Shannon = 0): one species has p = 1 and −1·ln 1 = 0 — a
+    //          monoculture carries no diversity.
+    //   • MON (equalise abundances ⇒ maximal Shannon): for a fixed richness S the entropy is
+    //          maximised by the uniform distribution, where Shannon = ln S; any skew lowers it.
+    //   • MON (remove a species ⇒ diversity decreases): a uniform community over S species has
+    //          Shannon ln S, strictly increasing in S, so dropping a species lowers diversity.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region Alpha-diversity helpers
+
+    private static Dictionary<string, double> Uniform(int speciesCount) =>
+        Enumerable.Range(0, speciesCount).ToDictionary(i => $"sp{i}", _ => 1.0);
+
+    private static double Shannon(IReadOnlyDictionary<string, double> abundances) =>
+        MetagenomicsAnalyzer.CalculateAlphaDiversity(abundances).ShannonIndex;
+
+    #endregion
+
+    #region COMP — a single species has Shannon diversity 0
+
+    [Test]
+    [Description("COMP: a community of one species has Shannon diversity 0, since the sole abundance has p = 1 and −ln 1 = 0.")]
+    public void AlphaDiversity_SingleSpecies_ShannonIsZero()
+    {
+        foreach (double abundance in new[] { 1.0, 5.0, 100.0 })   // internally normalised, so the raw value is irrelevant
+            Shannon(new Dictionary<string, double> { ["only"] = abundance })
+                .Should().BeApproximately(0.0, 1e-12,
+                    because: "a monoculture has p = 1 at its single species, contributing −1·ln 1 = 0");
+    }
+
+    #endregion
+
+    #region MON — the uniform distribution maximises Shannon (= ln S)
+
+    [Test]
+    [Description("MON: for a fixed richness S the uniform distribution attains the maximal Shannon ln S; any skewed distribution over the same species scores strictly less.")]
+    public void AlphaDiversity_UniformAbundances_MaximiseShannon()
+    {
+        foreach (int s in new[] { 2, 3, 5, 8 })
+        {
+            double uniform = Shannon(Uniform(s));
+            uniform.Should().BeApproximately(Math.Log(s), 1e-12,
+                because: $"the uniform distribution over {s} species has Shannon = ln {s}");
+
+            var skewed = Uniform(s);
+            skewed["sp0"] = 10.0;   // make one species dominate
+            Shannon(skewed).Should().BeLessThan(uniform - 1e-9,
+                because: "any departure from equal abundances lowers the entropy below its uniform maximum");
+        }
+    }
+
+    #endregion
+
+    #region MON — removing a species decreases diversity
+
+    [Test]
+    [Description("MON: a uniform community over S species has Shannon ln S, strictly increasing in S, so removing a species strictly decreases diversity.")]
+    public void AlphaDiversity_RemoveSpecies_DecreasesDiversity()
+    {
+        double previous = double.NegativeInfinity;
+        for (int s = 1; s <= 8; s++)
+        {
+            double shannon = Shannon(Uniform(s));
+            shannon.Should().BeGreaterThan(previous,
+                because: "a richer uniform community has strictly higher Shannon diversity, so removing a species lowers it");
+            previous = shannon;
+        }
+    }
+
+    #endregion
 }
