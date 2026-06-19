@@ -1336,4 +1336,52 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-PURITY-001 — tumor-purity estimation from VAF (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 106.
+    //
+    // API under test (OncologyAnalyzer.EstimatePurityFromVAF):
+    //   Estimates purity as the median over clonal heterozygous SNVs of ρ = 2·VAF (diploid model).
+    //
+    // Relations (derived from ρ = 2·median(VAF), NOT from output):
+    //   • MON  (higher clonal VAFs ⇒ ≥ purity): raising the alt fractions raises every 2·VAF and
+    //          hence the median, so the estimated purity is non-decreasing.
+    //   • INV  (variant order independent): the median does not depend on the variant order.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region ONCO-PURITY-001 MON — higher clonal VAFs raise the purity estimate
+
+    [Test]
+    [Description("MON: raising the clonal SNV alt fractions raises ρ = 2·VAF for each, so the median purity estimate is non-decreasing.")]
+    public void EstimatePurity_HigherVafs_HigherPurity()
+    {
+        double previous = double.MinValue;
+        foreach (int alt in new[] { 10, 20, 30, 40 }) // VAF 0.10..0.40 (≤ 0.5)
+        {
+            double purity = OncologyAnalyzer.EstimatePurityFromVAF(new[]
+            {
+                Variant("1", 1, alt, 100), Variant("2", 2, alt, 100), Variant("3", 3, alt, 100),
+            });
+            purity.Should().BeGreaterThan(previous, because: $"VAF {alt / 100.0} raises ρ = 2·VAF and the median");
+            previous = purity;
+        }
+    }
+
+    #endregion
+
+    #region ONCO-PURITY-001 INV — variant order independent
+
+    [Test]
+    [Description("INV: purity is the median of the per-variant 2·VAF estimates, which does not depend on variant order.")]
+    public void EstimatePurity_VariantOrder_Independent()
+    {
+        var panel = new[] { Variant("1", 1, 10, 100), Variant("2", 2, 25, 100), Variant("3", 3, 40, 100) };
+
+        OncologyAnalyzer.EstimatePurityFromVAF(panel.Reverse())
+            .Should().Be(OncologyAnalyzer.EstimatePurityFromVAF(panel),
+                because: "the median is invariant to the order of the variants");
+    }
+
+    #endregion
 }
