@@ -73,7 +73,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 43 | ☑ | POP-FREQ-001 | PopGen | INV: doubling all counts → same frequencies; COMP: sum(freq)=1.0; INV: reorder samples → same result |
 | 44 | ☑ | POP-DIV-001 | PopGen | MON: more diverse sample → higher π; MON: more segregating sites → higher θ; INV: reorder → same |
 | 45 | ☑ | POP-HW-001 | PopGen | INV: scaling sample size → same frequencies; COMP: p² + 2pq + q² = 1; MON: larger deviation → larger chi² |
-| 46 | ☐ | POP-FST-001 | PopGen | SYM: Fst(A,B)=Fst(B,A); COMP: identical pops → Fst=0; MON: more differentiated → higher Fst |
+| 46 | ☑ | POP-FST-001 | PopGen | SYM: Fst(A,B)=Fst(B,A); COMP: identical pops → Fst=0; MON: more differentiated → higher Fst |
 | 47 | ☐ | POP-LD-001 | PopGen | SYM: LD(a,b)=LD(b,a); COMP: independent loci → D'≈0; MON: perfect linkage → D'=1 |
 | 48 | ☐ | CHROM-TELO-001 | Chromosome | MON: more TTAGGG repeats → longer telomere; INV: flanking seq doesn't affect core; SHIFT: flank shifts position |
 | 49 | ☐ | CHROM-CENT-001 | Chromosome | INV: non-centromeric flank append → same centromere position; MON: more AT-rich → higher score |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 45 |
-| ☐ Not started | 189 |
+| ☑ Complete | 46 |
+| ☐ Not started | 188 |
 | MR relations defined | ~200+ |

@@ -416,4 +416,99 @@ public class PopulationGeneticsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: POP-FST-001 — Wright's Fst between populations (PopGen).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 46.
+    //
+    // API under test (PopulationGeneticsAnalyzer.CalculateFst):
+    //   Per locus, p̄ = (n1·p1 + n2·p2)/(n1+n2), the among-population variance σ²_S and the
+    //   total heterozygosity p̄(1−p̄); Fst = Σ σ²_S / Σ p̄(1−p̄).
+    //
+    // Relations (derived from the formula, NOT from output):
+    //   • SYM (symmetry): p̄, the variance and the heterozygosity are all symmetric in the two
+    //          (freq, size) populations, so Fst(A,B) = Fst(B,A).
+    //   • COMP (identical ⇒ 0): if both populations have identical per-locus frequencies then
+    //          p1 = p2 = p̄ at every locus, the variance is 0, and Fst = 0.
+    //   • MON (more differentiated ⇒ higher Fst): for a single locus with symmetric frequencies
+    //          ½∓δ/2 and equal sample sizes, p̄ = ½ and p̄(1−p̄) = ¼ are fixed while σ²_S = δ²/4,
+    //          so Fst = δ² — strictly increasing in the differentiation δ.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region Helpers (Fst)
+
+    private static List<(double AlleleFreq, int SampleSize)> RandomPopulation(int loci)
+    {
+        var pop = new List<(double, int)>(loci);
+        for (int i = 0; i < loci; i++)
+            pop.Add((0.05 + 0.9 * Rng.NextDouble(), Rng.Next(10, 100)));   // freq kept in (0,1) ⇒ het > 0
+        return pop;
+    }
+
+    #endregion
+
+    #region SYM — Fst(A,B) = Fst(B,A)
+
+    [Test]
+    [Description("SYM: Fst is symmetric, since p̄, the among-population variance and the heterozygosity are all symmetric in the two populations.")]
+    public void Fst_IsSymmetric()
+    {
+        for (int trial = 0; trial < 20; trial++)
+        {
+            int loci = Rng.Next(1, 6);
+            var a = RandomPopulation(loci);
+            var b = RandomPopulation(loci);
+
+            double ab = PopulationGeneticsAnalyzer.CalculateFst(a, b);
+            double ba = PopulationGeneticsAnalyzer.CalculateFst(b, a);
+
+            ba.Should().BeApproximately(ab, 1e-12,
+                because: "swapping the two populations leaves every per-locus term of the Fst ratio unchanged");
+        }
+    }
+
+    #endregion
+
+    #region COMP — identical populations give Fst = 0
+
+    [Test]
+    [Description("COMP: two populations with identical per-locus allele frequencies have zero among-population variance, so Fst = 0.")]
+    public void Fst_IdenticalPopulations_IsZero()
+    {
+        for (int trial = 0; trial < 20; trial++)
+        {
+            var pop = RandomPopulation(Rng.Next(1, 6));
+
+            PopulationGeneticsAnalyzer.CalculateFst(pop, pop).Should().BeApproximately(0.0, 1e-12,
+                because: "when p1 = p2 = p̄ at every locus the among-population variance vanishes, so Fst = 0");
+        }
+    }
+
+    #endregion
+
+    #region MON — greater differentiation gives a strictly larger Fst
+
+    [Test]
+    [Description("MON: for symmetric single-locus frequencies ½∓δ/2 with equal sample sizes, Fst = δ², strictly increasing in the differentiation δ.")]
+    public void Fst_MoreDifferentiation_IncreasesFst()
+    {
+        const int n = 50;
+        double previous = double.NegativeInfinity;
+
+        foreach (double delta in new[] { 0.0, 0.1, 0.2, 0.4, 0.6, 0.8 })
+        {
+            var pop1 = new List<(double, int)> { (0.5 - delta / 2, n) };
+            var pop2 = new List<(double, int)> { (0.5 + delta / 2, n) };
+
+            double fst = PopulationGeneticsAnalyzer.CalculateFst(pop1, pop2);
+
+            fst.Should().BeApproximately(delta * delta, 1e-12,
+                because: $"with p̄ = ½ and p̄(1−p̄) = ¼ held fixed, σ²_S = δ²/4 gives Fst = δ² = {delta * delta}");
+            fst.Should().BeGreaterThan(previous,
+                because: "a larger allele-frequency difference between the populations gives a strictly larger Fst");
+            previous = fst;
+        }
+    }
+
+    #endregion
 }
