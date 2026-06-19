@@ -53,16 +53,24 @@ public class AnnotationMetamorphicTests
 {
     #region Helpers
 
-    /// <summary>Deterministic RNG — seed fixed so random inputs are reproducible.</summary>
-    private static readonly Random Rng = new(20260619);
+    /// <summary>Base seed so random inputs are reproducible.</summary>
+    private const int RngSeed = 20260619;
 
-    /// <summary>Generates a random DNA string of the given length over {A,C,G,T}.</summary>
+    /// <summary>
+    /// Generates a random DNA string of the given length over {A,C,G,T}.
+    /// A FRESH, locally-seeded <see cref="Random"/> is used per call (seed = base ⊕ length)
+    /// so the result is a pure, reproducible function of the length and is thread-safe under
+    /// NUnit's parallel fixture execution — a single shared <see cref="Random"/> is not
+    /// thread-safe and would yield non-deterministic, degenerate sequences when called
+    /// concurrently from parallel test methods.
+    /// </summary>
     private static string RandomDna(int length)
     {
+        var rng = new Random(RngSeed + length);
         const string bases = "ACGT";
         var chars = new char[length];
         for (int i = 0; i < length; i++)
-            chars[i] = bases[Rng.Next(bases.Length)];
+            chars[i] = bases[rng.Next(bases.Length)];
         return new string(chars);
     }
 
