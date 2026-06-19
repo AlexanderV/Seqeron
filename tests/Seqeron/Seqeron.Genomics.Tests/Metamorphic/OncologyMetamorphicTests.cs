@@ -2009,4 +2009,75 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-ACTION-001 — clinical actionability (OncoKB levels) (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 118.
+    //
+    // API under test (OncologyAnalyzer.ClassifyActionabilityLevel / AssessActionability / CompareLevels):
+    //   The actionability of a variant is the highest OncoKB level over its drug associations
+    //   (combined order R1 > 1 > 2 > 3A > 3B > 4 > R2 > None).
+    //
+    // Relations (derived from the highest-level rule, NOT from output):
+    //   • MON  (stronger evidence ⇒ ≥ tier): adding a stronger (or any) association can only
+    //          raise the highest level; a weaker association never lowers it.
+    //   • INV  (variant order independent): per-variant assessment makes the (variant → level)
+    //          set independent of input order.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private static OncologyAnalyzer.VariantActionabilityInput Actionable(string gene, params OncologyAnalyzer.OncoKbLevel[] levels) =>
+        new(gene, "p.X", levels.Select(l => new OncologyAnalyzer.TherapyAssociation("drug", l)).ToList());
+
+    #region ONCO-ACTION-001 MON — stronger evidence raises the actionability tier
+
+    [Test]
+    [Description("MON: the actionability level is the maximum over associations, so adding a stronger association raises it and a weaker one never lowers it.")]
+    public void Actionability_StrongerEvidence_HigherTier()
+    {
+        var assocs = new List<OncologyAnalyzer.TherapyAssociation>();
+        var previous = OncologyAnalyzer.OncoKbLevel.None;
+
+        foreach (var level in new[]
+                 {
+                     OncologyAnalyzer.OncoKbLevel.Level4, OncologyAnalyzer.OncoKbLevel.Level2,
+                     OncologyAnalyzer.OncoKbLevel.Level1, OncologyAnalyzer.OncoKbLevel.R1,
+                 })
+        {
+            assocs.Add(new OncologyAnalyzer.TherapyAssociation("drug", level));
+            var highest = OncologyAnalyzer.ClassifyActionabilityLevel(new OncologyAnalyzer.VariantActionabilityInput("BRAF", "p.V600E", assocs.ToList()));
+            OncologyAnalyzer.CompareLevels(highest, previous).Should().BeGreaterThanOrEqualTo(0,
+                because: $"adding the stronger association {level} cannot lower the highest actionability level");
+            previous = highest;
+        }
+
+        // Adding a weaker association afterwards does not lower the level.
+        assocs.Add(new OncologyAnalyzer.TherapyAssociation("drug", OncologyAnalyzer.OncoKbLevel.R2));
+        OncologyAnalyzer.ClassifyActionabilityLevel(new OncologyAnalyzer.VariantActionabilityInput("BRAF", "p.V600E", assocs.ToList()))
+            .Should().Be(previous, because: "a weaker association cannot reduce the highest level");
+    }
+
+    #endregion
+
+    #region ONCO-ACTION-001 INV — variant order independent
+
+    [Test]
+    [Description("INV: each variant is assessed independently, so the (gene → highest level) set is independent of input order.")]
+    public void Actionability_VariantOrder_Independent()
+    {
+        var variants = new[]
+        {
+            Actionable("BRAF", OncologyAnalyzer.OncoKbLevel.Level1),
+            Actionable("KRAS", OncologyAnalyzer.OncoKbLevel.Level4),
+            Actionable("TP53"), // no associations → None
+        };
+
+        var forward = OncologyAnalyzer.AssessActionability(variants)
+            .Select(a => (a.Variant.Gene, a.HighestCombinedLevel)).ToHashSet();
+        var reversed = OncologyAnalyzer.AssessActionability(variants.Reverse())
+            .Select(a => (a.Variant.Gene, a.HighestCombinedLevel)).ToHashSet();
+
+        reversed.Should().BeEquivalentTo(forward, because: "per-variant actionability has no cross-variant dependence");
+    }
+
+    #endregion
 }
