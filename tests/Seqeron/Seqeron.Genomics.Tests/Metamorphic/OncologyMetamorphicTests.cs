@@ -2144,4 +2144,77 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-EXPR-001 — expression z-score / outlier detection (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 120.
+    //
+    // API under test (OncologyAnalyzer.CalculateExpressionZScore / IdentifyOutlierGenes):
+    //   z = (value − μ)/σ over a per-gene reference cohort; an outlier is |z| > threshold.
+    //
+    // Relations (derived from the z-score definition, NOT from output):
+    //   • INV  (scaling all expression preserves z/outliers): scaling the sample value and the
+    //          cohort by the same factor scales μ and σ together, leaving z (and outlier calls)
+    //          unchanged.
+    //   • MON  (lower threshold ⇒ superset): |z| > t is monotone in t, so lowering the outlier
+    //          threshold yields a superset of flagged genes.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region ONCO-EXPR-001 INV — scaling all expression preserves z-scores and outliers
+
+    [Test]
+    [Description("INV: scaling the sample value and the cohort by the same positive factor scales μ and σ together, leaving the z-score (and outlier calls) unchanged.")]
+    public void ExpressionZScore_ScaleAll_Unchanged()
+    {
+        var cohort = new[] { 2.0, 4.0, 6.0, 8.0 };
+        double baseZ = OncologyAnalyzer.CalculateExpressionZScore(10.0, cohort);
+
+        foreach (double k in new[] { 2.0, 5.0, 0.5 })
+            OncologyAnalyzer.CalculateExpressionZScore(10.0 * k, cohort.Select(v => v * k).ToList())
+                .Should().BeApproximately(baseZ, 1e-9, because: $"scaling by {k} cancels in (value−μ)/σ");
+
+        // Outlier set is likewise invariant when all expression is scaled.
+        var sample = new Dictionary<string, double> { ["G1"] = 10, ["G2"] = 3, ["G3"] = 5 };
+        var cohorts = new Dictionary<string, IReadOnlyList<double>>
+        {
+            ["G1"] = new[] { 1.0, 2, 3, 2 }, ["G2"] = new[] { 2.0, 3, 4, 3 }, ["G3"] = new[] { 4.0, 5, 6, 5 },
+        };
+
+        var baseOutliers = OncologyAnalyzer.IdentifyOutlierGenes(sample, cohorts).Select(o => o.Gene).ToHashSet();
+        var scaledSample = sample.ToDictionary(kv => kv.Key, kv => kv.Value * 3.0);
+        var scaledCohorts = cohorts.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<double>)kv.Value.Select(v => v * 3.0).ToList());
+
+        OncologyAnalyzer.IdentifyOutlierGenes(scaledSample, scaledCohorts).Select(o => o.Gene).ToHashSet()
+            .Should().BeEquivalentTo(baseOutliers, because: "z-scores are scale-invariant, so the outlier set is unchanged");
+    }
+
+    #endregion
+
+    #region ONCO-EXPR-001 MON — a lower threshold yields a superset of outliers
+
+    [Test]
+    [Description("MON: |z| > t is monotone in t, so lowering the outlier threshold yields a superset of flagged genes.")]
+    public void IdentifyOutlierGenes_LowerThreshold_Superset()
+    {
+        var sample = new Dictionary<string, double> { ["A"] = 10, ["B"] = 4, ["C"] = 5.5, ["D"] = 5 };
+        var cohorts = new Dictionary<string, IReadOnlyList<double>>
+        {
+            ["A"] = new[] { 1.0, 2, 3, 2 },   // strong outlier
+            ["B"] = new[] { 2.0, 3, 4, 3 },   // mild
+            ["C"] = new[] { 4.0, 5, 6, 5 },   // weak
+            ["D"] = new[] { 4.0, 5, 6, 5 },   // near mean
+        };
+
+        System.Collections.Generic.HashSet<string>? previous = null;
+        foreach (double threshold in new[] { 3.0, 2.0, 1.0, 0.5 }) // descending
+        {
+            var flagged = OncologyAnalyzer.IdentifyOutlierGenes(sample, cohorts, threshold).Select(o => o.Gene).ToHashSet();
+            if (previous is not null)
+                flagged.IsSupersetOf(previous).Should().BeTrue(
+                    because: $"lowering the threshold to {threshold} can only add outliers");
+            previous = flagged;
+        }
+    }
+
+    #endregion
 }
