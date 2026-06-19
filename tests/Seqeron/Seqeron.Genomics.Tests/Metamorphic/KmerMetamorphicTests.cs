@@ -589,4 +589,44 @@ public class KmerMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: KMER-DIST-001 — k-mer frequency distance (K-mer).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 158.
+    //
+    // API under test (KmerAnalyzer.KmerDistance):
+    //   Euclidean distance between the two sequences' k-mer relative-frequency vectors.
+    //
+    // Relations (derived from the metric definition, NOT from output):
+    //   • SYM  (d(a,b)=d(b,a)): the Euclidean distance is symmetric in its arguments.
+    //   • INV  (d(x,x)=0): a sequence is at zero distance from itself.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region KMER-DIST-001 SYM — the distance is symmetric
+
+    [Test]
+    [Description("SYM: the k-mer frequency distance is a Euclidean metric, so d(a,b) equals d(b,a).")]
+    public void KmerDistance_Symmetric()
+    {
+        foreach (var (a, b) in new[] { ("ACGTACGT", "ACGTTGCA"), ("AAAACCCC", "GGGGTTTT"), ("ACGTACGTAC", "TTTTAAAA") })
+            foreach (int k in new[] { 1, 2, 3 })
+                KmerAnalyzer.KmerDistance(b, a, k).Should().BeApproximately(KmerAnalyzer.KmerDistance(a, b, k), 1e-12,
+                    because: $"the Euclidean k-mer distance (k={k}) does not depend on argument order");
+    }
+
+    #endregion
+
+    #region KMER-DIST-001 INV — a sequence is at zero distance from itself
+
+    [Test]
+    [Description("INV: identical frequency vectors give a Euclidean distance of 0, so d(x,x)=0.")]
+    public void KmerDistance_SelfDistance_Zero()
+    {
+        foreach (var seq in new[] { "ACGTACGT", "AAAAAAAA", "GCGCGCGCGC" })
+            foreach (int k in new[] { 1, 2, 3 })
+                KmerAnalyzer.KmerDistance(seq, seq, k).Should().Be(0.0,
+                    because: $"'{seq}' has identical k-mer frequencies to itself (k={k})");
+    }
+
+    #endregion
 }
