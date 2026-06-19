@@ -593,4 +593,88 @@ public class PopulationGeneticsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: POP-ANCESTRY-001 — individual admixture (ancestry) estimation (PopGen).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 207.
+    //
+    // API under test (PopulationGeneticsAnalyzer.EstimateAncestry):
+    //   Supervised ADMIXTURE / FRAPPE EM (Alexander, Novembre & Lange 2009). Each individual's
+    //   ancestry vector q is estimated independently against FIXED reference allele frequencies;
+    //   the EM update preserves Σ_k q_ik = 1 exactly.
+    //
+    // Relations (derived from the per-individual EM with fixed references, NOT from output):
+    //   • P    (proportions sum to 1): each individual's ancestry fractions form a probability
+    //          vector — non-negative and summing to 1 (the simplex constraint of the model).
+    //   • INV  (individual order independent): an individual's q depends only on its own genotypes
+    //          and the shared reference panel, so permuting the individual list leaves every
+    //          per-individual proportion identical.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region Helpers (Ancestry)
+
+    // Three reference populations over 8 SNPs, each enriched for allele 1 at a distinct SNP block,
+    // so individuals can carry recognisably different ancestry mixes.
+    private static List<(string PopulationId, IReadOnlyList<double> AlleleFrequencies)> AncestryReferencePanel() => new()
+    {
+        ("PopA", new double[] { 0.9, 0.9, 0.9, 0.1, 0.1, 0.1, 0.5, 0.5 }),
+        ("PopB", new double[] { 0.1, 0.1, 0.5, 0.9, 0.9, 0.1, 0.5, 0.1 }),
+        ("PopC", new double[] { 0.5, 0.1, 0.1, 0.1, 0.5, 0.9, 0.9, 0.9 }),
+    };
+
+    private static List<(string IndividualId, IReadOnlyList<int> Genotypes)> AncestryIndividuals() => new()
+    {
+        ("ind_A", new[] { 2, 2, 2, 0, 0, 0, 1, 1 }), // PopA-like
+        ("ind_B", new[] { 0, 0, 1, 2, 2, 0, 1, 0 }), // PopB-like
+        ("ind_C", new[] { 1, 0, 0, 0, 1, 2, 2, 2 }), // PopC-like
+        ("ind_mix", new[] { 1, 1, 1, 1, 1, 1, 1, 1 }), // ambiguous / admixed
+    };
+
+    #endregion
+
+    #region POP-ANCESTRY-001 P — every individual's ancestry proportions form a probability vector
+
+    [Test]
+    [Description("P: each individual's ancestry fractions are non-negative and sum to 1 — the simplex constraint the FRAPPE EM preserves.")]
+    public void Ancestry_Proportions_SumToOne()
+    {
+        var results = PopulationGeneticsAnalyzer.EstimateAncestry(AncestryIndividuals(), AncestryReferencePanel()).ToList();
+
+        results.Should().HaveCount(4, because: "every valid individual yields one ancestry estimate");
+        foreach (var result in results)
+        {
+            result.Proportions.Values.Should().OnlyContain(p => p >= -1e-12 && p <= 1.0 + 1e-12,
+                because: $"{result.IndividualId}'s ancestry fractions are probabilities in [0,1]");
+            result.Proportions.Values.Sum().Should().BeApproximately(1.0, 1e-9,
+                because: $"{result.IndividualId}'s ancestry vector lies on the probability simplex");
+        }
+    }
+
+    #endregion
+
+    #region POP-ANCESTRY-001 INV — the estimate is independent of individual order
+
+    [Test]
+    [Description("INV: an individual's q depends only on its own genotypes and the shared reference panel, so permuting the individual list leaves every per-individual proportion identical.")]
+    public void Ancestry_IndividualOrder_Invariant()
+    {
+        var panel = AncestryReferencePanel();
+        var forward = PopulationGeneticsAnalyzer.EstimateAncestry(AncestryIndividuals(), panel).ToList();
+
+        var reversedInput = AncestryIndividuals();
+        reversedInput.Reverse();
+        var reversed = PopulationGeneticsAnalyzer.EstimateAncestry(reversedInput, panel)
+            .ToDictionary(r => r.IndividualId, r => r.Proportions);
+
+        forward.Should().NotBeEmpty();
+        foreach (var result in forward)
+        {
+            var other = reversed[result.IndividualId];
+            foreach (var (popId, proportion) in result.Proportions)
+                other[popId].Should().Be(proportion,
+                    because: $"{result.IndividualId}'s {popId} fraction is estimated independently of where the individual sits in the input list");
+        }
+    }
+
+    #endregion
 }
