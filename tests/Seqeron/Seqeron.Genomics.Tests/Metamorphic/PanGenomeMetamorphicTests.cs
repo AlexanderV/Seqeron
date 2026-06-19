@@ -162,4 +162,87 @@ public class PanGenomeMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: PANGEN-HEAP-001 — Heaps' law fit (PanGenome).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 192.
+    //
+    // API under test (PanGenomeAnalyzer.FitHeapsLaw):
+    //   Fits n(N) = K·N^(−alpha) to the permutation-averaged new-gene-discovery curve (micropan).
+    //
+    // Relations (derived from the Heaps model, NOT from output):
+    //   • INV  (genome order independent): the seeded permutation-averaged fit is reproducible and
+    //          its open/closed classification characterises the genome SET, not its iteration order.
+    //   • MON  (more genomes ⇒ better-constrained, diminishing-returns model): the fitted curve has
+    //          alpha ≥ 0, so the predicted number of new genes is non-increasing in N — the Heaps
+    //          diminishing-returns property that improves with each added genome.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    // Distinct DNA sequence per integer id (adjacent ids differ in one base ⇒ < 95% identity).
+    private static string SeqOf(int id)
+    {
+        const string a = "ACGT";
+        var chars = new char[12];
+        for (int i = 0; i < 12; i++) chars[i] = a[(id >> (2 * i)) & 3];
+        return new string(chars);
+    }
+
+    // Open pan-genome: a shared 2-gene core plus 3 genome-unique genes each.
+    private static Dictionary<string, IReadOnlyList<(string, string)>> OpenPanGenome()
+    {
+        var g = new Dictionary<string, IReadOnlyList<(string, string)>>();
+        for (int gi = 0; gi < 5; gi++)
+        {
+            var genes = new List<(string, string)>
+            {
+                ($"g{gi}_core1", SeqOf(1000)), // shared core
+                ($"g{gi}_core2", SeqOf(1001)),
+            };
+            for (int u = 0; u < 3; u++)
+                genes.Add(($"g{gi}_u{u}", SeqOf(gi * 10 + u + 1))); // genome-unique
+            g[$"genome{gi}"] = genes;
+        }
+        return g;
+    }
+
+    #region PANGEN-HEAP-001 INV — the fit is reproducible and order-robust
+
+    [Test]
+    [Description("INV: the seeded permutation-averaged fit is reproducible on identical input, and its open/closed classification characterises the genome set regardless of iteration order.")]
+    public void Heaps_OrderIndependent_AndReproducible()
+    {
+        var genomes = OpenPanGenome();
+
+        var fit1 = PanGenomeAnalyzer.FitHeapsLaw(genomes, 0.95);
+        var fit2 = PanGenomeAnalyzer.FitHeapsLaw(genomes, 0.95);
+        fit2.Alpha.Should().Be(fit1.Alpha, because: "the seeded fit is reproducible on identical input");
+        fit2.Intercept.Should().Be(fit1.Intercept, because: "the seeded fit is reproducible on identical input");
+
+        var reordered = new Dictionary<string, IReadOnlyList<(string, string)>>(
+            genomes.Reverse().ToDictionary(kv => kv.Key, kv => kv.Value));
+        PanGenomeAnalyzer.FitHeapsLaw(reordered, 0.95).IsOpen.Should().Be(fit1.IsOpen,
+            because: "the open/closed nature of the pan-genome is a property of the genome set, not its order");
+    }
+
+    #endregion
+
+    #region PANGEN-HEAP-001 MON — the fitted model has diminishing returns
+
+    [Test]
+    [Description("MON: the fitted Heaps model n(N)=K·N^(−alpha) has alpha ≥ 0, so the predicted number of new genes is non-increasing as more genomes are added.")]
+    public void Heaps_PredictedNewGenes_NonIncreasing()
+    {
+        var fit = PanGenomeAnalyzer.FitHeapsLaw(OpenPanGenome(), 0.95);
+
+        fit.Alpha.Should().BeGreaterThanOrEqualTo(0.0, because: "Heaps' decay exponent is non-negative");
+        double previous = double.MaxValue;
+        foreach (int n in new[] { 2, 3, 5, 10, 20 })
+        {
+            double predicted = fit.PredictNewGenes(n);
+            predicted.Should().BeLessThanOrEqualTo(previous, because: $"the new-gene curve is non-increasing, so N={n} predicts no more than the previous N");
+            previous = predicted;
+        }
+    }
+
+    #endregion
 }
