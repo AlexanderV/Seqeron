@@ -2693,5 +2693,72 @@ public class MolToolsMetamorphicTests
 
     #endregion
 
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: RESTR-FILTER-001 — restriction-enzyme catalogue filtering (MolTools).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 224.
+    //
+    // API under test (RestrictionAnalyzer.GetEnzymesByCutLength / GetBluntCutters / GetStickyCutters):
+    //   Select enzymes from the fixed catalogue by recognition-site length (inclusive [min,max]) or by
+    //   end type (blunt vs sticky).
+    //
+    // Relations (derived from the predicate-filter semantics, NOT from output):
+    //   • SUB (filtered ⊆ all): every filter returns a subset of the full catalogue; blunt and sticky
+    //         partition it (disjoint, union = all).
+    //   • MON (stricter criteria ⇒ subset): narrowing the inclusive length window yields a subset of
+    //         the wider window's enzymes.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region RESTR-FILTER-001 — Helpers
+
+    private static HashSet<string> Names(IEnumerable<RestrictionEnzyme> enzymes) =>
+        enzymes.Select(e => e.Name).ToHashSet();
+
+    private static readonly HashSet<string> AllEnzymeNames = RestrictionAnalyzer.Enzymes.Values.Select(e => e.Name).ToHashSet();
+
+    #endregion
+
+    #region RESTR-FILTER-001 SUB — every filtered set is a subset of the catalogue
+
+    [Test]
+    [Description("SUB: each catalogue filter returns a subset of all enzymes; blunt and sticky partition the catalogue.")]
+    public void RestrictionFilter_FilteredSets_AreSubsetsOfCatalogue()
+    {
+        Names(RestrictionAnalyzer.GetEnzymesByCutLength(4, 8)).Should().BeSubsetOf(AllEnzymeNames,
+            because: "a length filter selects from the catalogue, adding nothing");
+
+        var blunt = Names(RestrictionAnalyzer.GetBluntCutters());
+        var sticky = Names(RestrictionAnalyzer.GetStickyCutters());
+
+        blunt.Should().BeSubsetOf(AllEnzymeNames);
+        sticky.Should().BeSubsetOf(AllEnzymeNames);
+        blunt.Should().NotIntersectWith(sticky, because: "an enzyme is either blunt or sticky, never both");
+        blunt.Union(sticky).Should().BeEquivalentTo(AllEnzymeNames, because: "blunt and sticky exhaust the catalogue");
+    }
+
+    #endregion
+
+    #region RESTR-FILTER-001 MON — narrowing the length window yields a subset
+
+    [Test]
+    [Description("MON: narrowing the inclusive recognition-length window selects a subset of the wider window's enzymes.")]
+    public void RestrictionFilter_NarrowerLengthWindow_IsSubset()
+    {
+        var wide = Names(RestrictionAnalyzer.GetEnzymesByCutLength(4, 8));
+        var mid = Names(RestrictionAnalyzer.GetEnzymesByCutLength(5, 7));
+        var narrow = Names(RestrictionAnalyzer.GetEnzymesByCutLength(6, 6));
+
+        narrow.Should().BeSubsetOf(mid, because: "[6,6] ⊆ [5,7] as length predicates");
+        mid.Should().BeSubsetOf(wide, because: "[5,7] ⊆ [4,8] as length predicates");
+
+        // The single-length overload agrees with the degenerate window [n,n].
+        Names(RestrictionAnalyzer.GetEnzymesByCutLength(6))
+            .Should().BeEquivalentTo(narrow, because: "GetEnzymesByCutLength(6) is the window [6,6]");
+
+        // Non-vacuous: the canonical 6-cutter EcoRI (GAATTC) lands in every window that includes 6.
+        narrow.Should().Contain("EcoRI", because: "EcoRI has a 6-bp recognition site");
+    }
+
+    #endregion
+
     #endregion
 }

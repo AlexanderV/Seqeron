@@ -251,7 +251,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 221 | ☑ | PHYLO-BOOT-001 | Phylogenetic | INV: same seed → same support; SYM: distance symmetric |
 | 222 | ☑ | PHYLO-STATS-001 | Phylogenetic | INV: leaf relabeling preserves stats; INV: deterministic |
 | 223 | ☑ | TRANS-SIXFRAME-001 | Translation | INV: frames 4–6 = translation of revcomp; P: exactly 6 frames |
-| 224 | ☐ | RESTR-FILTER-001 | MolTools | SUB: filtered ⊆ all; MON: stricter criteria → subset |
+| 224 | ☑ | RESTR-FILTER-001 | MolTools | SUB: filtered ⊆ all; MON: stricter criteria → subset |
 | 225 | ☐ | MIRNA-PAIR-001 | MiRNA | SHIFT: prepend flank shifts alignment; INV: deterministic |
 | 226 | ☐ | ALIGN-STATS-001 | Alignment | SYM: stats(a,b)=stats(b,a); P: identity(x,x)=1 |
 | 227 | ☐ | SEQ-CODON-FREQ-001 | Statistics | INV: codon-preserving shuffle keeps frequencies; SCALE: triplicating seq preserves freqs |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 223 |
-| ☐ Not started | 11 |
+| ☑ Complete | 224 |
+| ☐ Not started | 10 |
 | MR relations defined | ~200+ |
