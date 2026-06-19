@@ -115,4 +115,90 @@ public class ProteinPredMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: DISORDER-REGION-001 — disordered-region calling (ProteinPred).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 81.
+    //
+    // API under test (DisorderPredictor.PredictDisorder → DisorderedRegions):
+    //   A residue is "disordered" when its window score ≥ threshold; disordered regions are the
+    //   maximal runs of disordered residues of length ≥ minRegionLength.
+    //
+    // Relations (derived from the score ≥ threshold predicate, NOT from output):
+    //   • MON  (lower threshold ⇒ more/larger regions): the predicate is monotone in the
+    //          threshold, so lowering it only adds disordered residues — region coverage grows.
+    //   • SUB  (strict ⊆ lenient): the residues covered at a stricter threshold are a subset of
+    //          those covered at a more lenient one.
+    //   • INV  (distant ordered insert ⇒ unaffected): appending an ordered block at the far 3'
+    //          end leaves the scores (and regions) of residues beyond its window reach unchanged.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region DISORDER-REGION-001 — Helpers
+
+    // Ordered flanks (W) around a disorder-promoting core (E).
+    private const string DisorderTestSeq = "WWWWWWWWWWWWWWW" + "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEE" + "WWWWWWWWWWWWWWW";
+
+    private static System.Collections.Generic.HashSet<int> CoveredResidues(string sequence, double threshold)
+    {
+        var covered = new System.Collections.Generic.HashSet<int>();
+        foreach (var region in DisorderPredictor.PredictDisorder(sequence, disorderThreshold: threshold).DisorderedRegions)
+            for (int i = region.Start; i <= region.End; i++)
+                covered.Add(i);
+        return covered;
+    }
+
+    #endregion
+
+    #region DISORDER-REGION-001 MON / SUB — lowering the threshold grows region coverage
+
+    [Test]
+    [Description("MON/SUB: score ≥ threshold is monotone in the threshold, so lowering it only adds covered residues — coverage at a stricter threshold is a subset of coverage at a more lenient one.")]
+    public void DisorderedRegions_LowerThreshold_SupersetCoverage()
+    {
+        double[] descending = { 0.60, 0.50, 0.40, 0.30, 0.20 };
+
+        System.Collections.Generic.HashSet<int>? previous = null;
+        foreach (double threshold in descending)
+        {
+            var covered = CoveredResidues(DisorderTestSeq, threshold);
+
+            if (previous is not null)
+                covered.IsSupersetOf(previous).Should().BeTrue(
+                    because: $"lowering the threshold to {threshold} can only add disordered residues, never remove them");
+            previous = covered;
+        }
+
+        CoveredResidues(DisorderTestSeq, 0.20).Count
+            .Should().BeGreaterThan(CoveredResidues(DisorderTestSeq, 0.60).Count,
+                because: "a lenient threshold calls strictly more disordered residues than a strict one");
+    }
+
+    #endregion
+
+    #region DISORDER-REGION-001 INV — a distant ordered insert doesn't affect the disordered region
+
+    [Test]
+    [Description("INV: appending an ordered block at the far 3' end leaves the scores (and the disordered region) of residues beyond its window reach unchanged.")]
+    public void DisorderedRegions_DistantOrderedInsert_DoesNotAffectDistantDisorder()
+    {
+        const int halfWindow = 21 / 2; // 10
+        int n = DisorderTestSeq.Length; // 60
+
+        // Append a 40-residue ordered (W) block; it can only influence windows of residues ≥ n−h.
+        string extended = DisorderTestSeq + new string('W', 40);
+
+        var baseScores = ResidueScores(DisorderTestSeq);
+        var extendedScores = ResidueScores(extended);
+
+        for (int i = 0; i < n - halfWindow; i++)
+            extendedScores[i].Should().Be(baseScores[i],
+                because: $"residue {i} is more than the half-window from the appended block, so its score is unchanged");
+
+        // The disordered E-core (indices 15..44) lies well within that unaffected prefix.
+        CoveredResidues(extended, 0.40).Where(i => i < n - halfWindow)
+            .Should().BeEquivalentTo(CoveredResidues(DisorderTestSeq, 0.40).Where(i => i < n - halfWindow),
+                because: "the disordered region far from the insertion is preserved exactly");
+    }
+
+    #endregion
 }

@@ -108,7 +108,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 78 | ☑ | SPLICE-ACCEPTOR-001 | Splicing | INV: upstream far changes don't affect acceptor score; MON: consensus AG → higher score; COMP: non-AG → score=0 |
 | 79 | ☑ | SPLICE-PREDICT-001 | Splicing | COMP: donor + acceptor → exon/intron boundary; MON: more consensus → higher confidence; INV: exonic mutations don't change boundaries |
 | 80 | ☑ | DISORDER-PRED-001 | ProteinPred | INV: single residue change → local effect only; MON: more proline/charge → higher disorder; INV: same seq → same scores |
-| 81 | ☐ | DISORDER-REGION-001 | ProteinPred | MON: lower threshold → larger/more regions; SUB: strict threshold ⊂ lenient regions; INV: ordered region insert → doesn't affect distant disorder |
+| 81 | ☑ | DISORDER-REGION-001 | ProteinPred | MON: lower threshold → larger/more regions; SUB: strict threshold ⊂ lenient regions; INV: ordered region insert → doesn't affect distant disorder |
 | 82 | ☐ | PROTMOTIF-FIND-001 | ProteinMotif | INV: flanking change → same motif detected; MON: broader pattern → ≥ matches; SHIFT: prepend shifts positions |
 | 83 | ☐ | PROTMOTIF-PROSITE-001 | ProteinMotif | SUB: specific pattern ⊂ generalized pattern matches; INV: non-matching flank doesn't affect detection |
 | 84 | ☐ | PROTMOTIF-DOMAIN-001 | ProteinMotif | INV: domain intact after non-domain insertion; MON: longer domain seq → higher confidence |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 80 |
-| ☐ Not started | 154 |
+| ☑ Complete | 81 |
+| ☐ Not started | 153 |
 | MR relations defined | ~200+ |
