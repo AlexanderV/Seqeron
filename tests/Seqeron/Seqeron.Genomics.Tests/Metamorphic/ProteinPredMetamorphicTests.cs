@@ -201,4 +201,151 @@ public class ProteinPredMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: DISORDER-LC-001 — low-complexity region prediction (SEG; ProteinPred).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 204.
+    //
+    // API under test (DisorderPredictor.PredictLowComplexityRegions):
+    //   SEG algorithm (Wootton & Federhen 1993; NCBI blast_seg.c). Complexity is the Shannon
+    //   entropy H = −Σ pᵢ·log₂(pᵢ) (bits/residue) of a window's residue composition. A window is
+    //   "low complexity" when its entropy is LOW. Two-stage scan: stage 1 marks windows with
+    //   H ≤ K1 (trigger); stage 2 extends triggered spans while the whole-segment H ≤ K2; a final
+    //   length filter keeps segments of length ≥ minLength.
+    //
+    // Relations (derived from the H ≤ K low-complexity predicate, NOT from output):
+    //   • MON  (more permissive complexity cutoff ⇒ superset): the predicate H ≤ K is monotone in
+    //          the entropy cutoff K, so raising K1/K2 only adds triggered/extended positions —
+    //          low-complexity coverage grows. NOTE the checklist shorthand "lower threshold →
+    //          superset" is the score-predicate (score ≥ τ) convention; for SEG the criterion is an
+    //          entropy CEILING (H ≤ K), so the permissive direction is a HIGHER cutoff. Same
+    //          monotonicity, inverted sign — the test encodes SEG's actual H ≤ K theory.
+    //   • MON  (lower minLength ⇒ superset): minLength filters only completed segments by length,
+    //          so lowering it admits a superset of the identical region objects (the literal
+    //          "lower threshold → superset").
+    //   • SHIFT (prepend flank shifts regions): prepending a high-complexity (non-triggering,
+    //          extension-stopping) flank translates every reported low-complexity segment's
+    //          coordinates by exactly the flank length and preserves its composition type.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region DISORDER-LC-001 — Helpers
+
+    // A maximally diverse 20-mer (each of the 20 standard amino acids once): every 12-residue
+    // window has entropy ≈ log2(12) ≈ 3.585 bits ≫ the default K1/K2 (2.2 / 2.5), so the flank
+    // neither triggers a low-complexity call nor permits a triggered neighbour to extend into it.
+    private const string DiverseFlank = "ACDEFGHIKLMNPQRSTVWY";
+
+    private static System.Collections.Generic.HashSet<int> LowComplexityCoverage(
+        string sequence, double triggerThreshold, double extensionThreshold)
+    {
+        var covered = new System.Collections.Generic.HashSet<int>();
+        foreach (var (start, end, _) in DisorderPredictor.PredictLowComplexityRegions(
+                     sequence, triggerThreshold: triggerThreshold, extensionThreshold: extensionThreshold))
+            for (int i = start; i <= end; i++)
+                covered.Add(i);
+        return covered;
+    }
+
+    #endregion
+
+    #region DISORDER-LC-001 MON — a more permissive complexity cutoff grows low-complexity coverage
+
+    [Test]
+    [Description("MON: H ≤ K is monotone in the entropy cutoff K, so raising the SEG trigger/extension thresholds only adds low-complexity positions — coverage at a stricter cutoff is a subset of coverage at a more permissive one.")]
+    public void LowComplexity_HigherEntropyCutoff_SupersetCoverage()
+    {
+        // A homopolymer run (H = 0, always low-complexity) and a 6-letter periodic block
+        // ("ACDEFG"×4, every 12-window H = log2(6) ≈ 2.585) separated by diverse flanks so they
+        // form distinct candidates. The periodic block is low-complexity only once K1 ≥ 2.585.
+        const string seq =
+            DiverseFlank + "AAAAAAAAAAAA" + DiverseFlank +
+            "ACDEFGACDEFGACDEFGACDEFG" + DiverseFlank;
+
+        // Ascending entropy cutoffs (K1, K2): each pair is at least as permissive as the previous.
+        var cutoffs = new[] { (K1: 2.2, K2: 2.5), (K1: 2.7, K2: 3.0), (K1: 3.2, K2: 3.4) };
+
+        System.Collections.Generic.HashSet<int>? previous = null;
+        foreach (var (k1, k2) in cutoffs)
+        {
+            var covered = LowComplexityCoverage(seq, k1, k2);
+            if (previous is not null)
+                covered.IsSupersetOf(previous).Should().BeTrue(
+                    because: $"raising the entropy cutoff to (K1={k1}, K2={k2}) can only add low-complexity positions, never remove them");
+            previous = covered;
+        }
+
+        LowComplexityCoverage(seq, 3.2, 3.4).Count
+            .Should().BeGreaterThan(LowComplexityCoverage(seq, 2.2, 2.5).Count,
+                because: "a permissive cutoff additionally flags the periodic block (H ≈ 2.585) that the strict default rejects");
+    }
+
+    #endregion
+
+    #region DISORDER-LC-001 MON — lowering minLength admits a superset of regions
+
+    [Test]
+    [Description("MON: minLength filters only completed segments by length, so lowering it yields a superset of the identical low-complexity region objects.")]
+    public void LowComplexity_LowerMinLength_SupersetOfRegions()
+    {
+        // A short and a longer homopolymer run, separated by a wide diverse spacer (3 flanks).
+        // A long homopolymer's SEG extension is greedy (the dominant residue keeps whole-segment
+        // entropy low), so the spacer must exceed that reach to stop the two runs from merging.
+        // After extension the short run stays below 40 residues and the longer run above it.
+        const string spacer = DiverseFlank + DiverseFlank + DiverseFlank;
+        const string seq =
+            DiverseFlank + "AAAAAAAAAAAA" + spacer +
+            "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + DiverseFlank;
+
+        var lenient = DisorderPredictor.PredictLowComplexityRegions(seq, minLength: 1).ToList();
+        var strict = DisorderPredictor.PredictLowComplexityRegions(seq, minLength: 40).ToList();
+
+        lenient.Should().HaveCountGreaterThan(1, because: "both homopolymer runs are reported when no length filter applies");
+        strict.Should().NotBeEmpty(because: "the long run survives the length filter");
+
+        strict.Should().BeSubsetOf(lenient,
+            because: "minLength removes whole segments without altering their boundaries, so the strict set is a subset of the lenient set");
+        strict.Should().HaveCountLessThan(lenient.Count,
+            because: "the short run is filtered out at minLength = 40 but present at minLength = 1");
+    }
+
+    #endregion
+
+    #region DISORDER-LC-001 SHIFT — prepending a diverse flank shifts low-complexity regions
+
+    [Test]
+    [Description("SHIFT: prepending a high-complexity (non-triggering, extension-stopping) flank translates every low-complexity segment's coordinates by exactly the flank length and preserves its type.")]
+    public void LowComplexity_PrependDiverseFlank_ShiftsRegions()
+    {
+        // A low-complexity core embedded between diverse flanks; the flanks halt SEG extension well
+        // inside themselves, so the reported segment lies strictly interior to the sequence.
+        const string core = "AAAAAAAAAAAAAAAA";
+        string seq = DiverseFlank + core + DiverseFlank;
+
+        var baseline = DisorderPredictor.PredictLowComplexityRegions(seq).ToList();
+        baseline.Should().ContainSingle(because: "the single homopolymer core is the only low-complexity region");
+        baseline[0].Start.Should().BeGreaterThan(0, because: "extension stops inside the left flank, not at the sequence start");
+        baseline[0].End.Should().BeLessThan(seq.Length - 1, because: "extension stops inside the right flank, not at the sequence end");
+
+        foreach (int flankCount in new[] { 1, 3 })
+        {
+            string prefix = string.Concat(Enumerable.Repeat(DiverseFlank, flankCount));
+            int offset = prefix.Length;
+            var shifted = DisorderPredictor.PredictLowComplexityRegions(prefix + seq).ToList();
+
+            shifted.Should().HaveCount(baseline.Count,
+                because: "a non-interacting flank changes neither which windows trigger nor how far they extend");
+
+            for (int i = 0; i < baseline.Count; i++)
+            {
+                shifted[i].Start.Should().Be(baseline[i].Start + offset,
+                    because: $"prepending {offset} diverse residues shifts the segment start by {offset}");
+                shifted[i].End.Should().Be(baseline[i].End + offset,
+                    because: $"prepending {offset} diverse residues shifts the segment end by {offset}");
+                shifted[i].Type.Should().Be(baseline[i].Type,
+                    because: "the segment's composition (and thus its low-complexity type) is unchanged by translation");
+            }
+        }
+    }
+
+    #endregion
 }
