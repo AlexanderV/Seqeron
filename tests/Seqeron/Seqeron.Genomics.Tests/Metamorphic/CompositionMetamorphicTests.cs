@@ -15,8 +15,9 @@ namespace Seqeron.Genomics.Tests;
 /// *definition*, not from the current implementation's output.
 ///
 /// ───────────────────────────────────────────────────────────────────────────
-/// Units: SEQ-GC-001 — GC content (Composition); SEQ-COMP-001 — DNA complement (Composition)
-/// Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, rows 1–2.
+/// Units: SEQ-GC-001 — GC content (Composition); SEQ-COMP-001 — DNA complement (Composition);
+///        SEQ-REVCOMP-001 — reverse complement (Composition)
+/// Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, rows 1–3.
 /// Relations: INV complement preserves GC%; INV shuffle preserves GC%;
 ///            INV case-insensitive (+ derived INV reverse-complement,
 ///            ADD concatenation-additivity of the GC count).
@@ -411,6 +412,134 @@ public class CompositionMetamorphicTests
                 because: $"C↔G: every C in '{s}' becomes a G in its complement");
             comp.Count(ch => ch == 'C').Should().Be(gIn,
                 because: $"C↔G: every G in '{s}' becomes a C in its complement");
+        }
+    }
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  SEQ-REVCOMP-001 — reverse complement
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (docs/algorithms/Sequence_Composition/Sequence_Composition.md;
+    //   Watson–Crick antiparallel base pairing):
+    //   The reverse complement is the sequence read 3'→5' on the opposing strand,
+    //   i.e. reverse-complement = reverse ∘ complement = complement ∘ reverse
+    //   (the two operations commute — reversing positions and rewriting each base
+    //   are independent). Because complement is an INVOLUTION (A↔T, C↔G, each
+    //   self-inverse — SEQ-COMP-001) and reverse is its own inverse, their
+    //   composition is also an INVOLUTION: revcomp(revcomp(x)) = x. Each step is a
+    //   per-position rewrite or reordering that never inserts/deletes, so revcomp is
+    //   LENGTH-PRESERVING. These relations follow from the definition alone,
+    //   independent of any particular input. We do NOT re-test the plain-complement
+    //   involution here (that is SEQ-COMP-001, above).
+    //
+    // API surface under test:
+    //   • DnaSequence.ReverseComplement() — canonical {A,C,G,T} facade.
+    //   • DnaSequence.GetReverseComplementString(string) — static string helper.
+
+    #region MR10: INV — reverse-complement is an involution over {A,C,G,T}
+
+    /// <summary>
+    /// MR10: revcomp(revcomp(x)) == x.
+    /// Reverse-complement = reverse ∘ complement, and both reverse and complement are
+    /// self-inverse, so applying the composition twice returns the original sequence
+    /// exactly. Verified on fixed and fixed-seed random sequences via the DnaSequence
+    /// facade and the static string helper.
+    /// </summary>
+    [Test]
+    public void ReverseComplement_AppliedTwice_IsIdentity_Dna()
+    {
+        foreach (var s in SampleSequences())
+        {
+            var seq = new DnaSequence(s);
+
+            var doubleRevComp = seq.ReverseComplement().ReverseComplement();
+            doubleRevComp.Sequence.Should().Be(seq.Sequence,
+                because: $"revcomp = reverse ∘ complement, both self-inverse, so revcomp∘revcomp must return '{s}' unchanged");
+
+            // Same involution via the static string helper.
+            string twiceString = DnaSequence.GetReverseComplementString(
+                DnaSequence.GetReverseComplementString(s));
+            twiceString.Should().Be(s.ToUpperInvariant(),
+                because: $"GetReverseComplementString is the same involution, so applying it twice must reproduce '{s}'");
+        }
+    }
+
+    #endregion
+
+    #region MR11: INV — reverse-complement preserves length
+
+    /// <summary>
+    /// MR11: revcomp(x).Length == x.Length.
+    /// Reverse reorders positions and complement rewrites each base one-for-one;
+    /// neither inserts nor deletes, so the output length always equals the input
+    /// length.
+    /// </summary>
+    [Test]
+    public void ReverseComplement_PreservesLength()
+    {
+        foreach (var s in SampleSequences())
+        {
+            var seq = new DnaSequence(s);
+
+            seq.ReverseComplement().Length.Should().Be(seq.Length,
+                because: $"revcomp is a reorder + per-position rewrite (no insert/delete), so length of '{s}' is unchanged");
+        }
+    }
+
+    #endregion
+
+    #region MR12: COMP — revcomp = reverse ∘ complement = complement ∘ reverse (derived)
+
+    /// <summary>
+    /// MR12 (derived): revcomp(x) == reverse(complement(x)) == complement(reverse(x)).
+    /// By definition the reverse complement is the complement read in reverse, and
+    /// reversing positions commutes with the per-position complement rewrite, so both
+    /// orders of composition agree with ReverseComplement(). This pins the exact
+    /// output, not just an invariant.
+    /// </summary>
+    [Test]
+    public void ReverseComplement_EqualsReverseComposedWithComplement()
+    {
+        foreach (var s in SampleSequences())
+        {
+            var seq = new DnaSequence(s);
+            string revComp = seq.ReverseComplement().Sequence;
+
+            // reverse(complement(x))
+            string reverseOfComplement = new string(seq.Complement().Sequence.Reverse().ToArray());
+            // complement(reverse(x))  — build a reversed DnaSequence, then complement it
+            var reversed = new DnaSequence(new string(seq.Sequence.Reverse().ToArray()));
+            string complementOfReverse = reversed.Complement().Sequence;
+
+            revComp.Should().Be(reverseOfComplement,
+                because: $"revcomp is the complement read in reverse, so it must equal reverse(complement('{s}'))");
+            revComp.Should().Be(complementOfReverse,
+                because: $"reverse and complement commute, so revcomp('{s}') must also equal complement(reverse('{s}'))");
+        }
+    }
+
+    #endregion
+
+    #region MR13: INV — reverse-complement preserves GC% (derived)
+
+    /// <summary>
+    /// MR13 (derived): GC%(revcomp(x)) == GC%(x).
+    /// Reverse is a permutation (GC%-invariant) and complement maps C↔G leaving the
+    /// (G + C) count unchanged (GC%-invariant), so their composition preserves GC%.
+    /// This restates the revcomp = permutation ∘ complement decomposition from a
+    /// composition angle (distinct from SEQ-COMP-001's plain-complement relation).
+    /// </summary>
+    [Test]
+    public void ReverseComplement_PreservesGcPercent()
+    {
+        foreach (var s in SampleSequences())
+        {
+            var seq = new DnaSequence(s);
+
+            seq.ReverseComplement().GcContent().Should().BeApproximately(seq.GcContent(), Tolerance,
+                because: $"revcomp = permutation ∘ complement, both GC%-invariant, so GC% of '{s}' is preserved");
         }
     }
 
