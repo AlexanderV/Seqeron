@@ -259,4 +259,72 @@ public class ComparativeMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: COMPGEN-DOTPLOT-001 — word-match dot plot (Comparative).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 134.
+    //
+    // API under test (ComparativeGenomics.GenerateDotPlot):
+    //   Reports every (x, y) where the length-w word at sequence1[x] exactly equals the word at
+    //   sequence2[y] (EMBOSS dottup; Gibbs & McIntyre 1970). x ranges over sequence1, y over sequence2.
+    //
+    // Relations (derived from exact word matching, NOT from output):
+    //   • INV  (reverse-complement maps the diagonal): the dot plot detects only FORWARD exact
+    //          matches, so reverse-complementing BOTH axes reflects the whole plot through its
+    //          centre — dot (x,y) ↔ (L1−w−x, L2−w−y) — because revcomp(s1)[x..]=revcomp(s2)[y..]
+    //          iff the mirror-position forward words are equal. The main diagonal maps onto the
+    //          reflected diagonal. (A forward→anti-diagonal map under reverse-complementing a single
+    //          axis does not hold for arbitrary sequences, since forward word matching cannot detect
+    //          reverse-complement matches as a coordinate transform.)
+    //   • SHIFT (prepend flank shifts dots): prepending an f-base flank to sequence1 shifts every
+    //          existing match's x-coordinate by f, preserving all original dots at (x+f, y).
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private static string RevComp(string dna) =>
+        new(dna.Reverse().Select(c => c switch { 'A' => 'T', 'T' => 'A', 'C' => 'G', 'G' => 'C', _ => c }).ToArray());
+
+    private static HashSet<(int x, int y)> DotSet(string s1, string s2, int wordSize) =>
+        ComparativeGenomics.GenerateDotPlot(s1, s2, wordSize).ToHashSet();
+
+    #region COMPGEN-DOTPLOT-001 INV — reverse-complementing both axes reflects the plot
+
+    [Test]
+    [Description("INV: forward word matching only detects forward matches, so reverse-complementing both sequences reflects the dot plot through its centre, mapping every dot (x,y) to (L1−w−x, L2−w−y).")]
+    public void DotPlot_ReverseComplementBothAxes_ReflectsPlot()
+    {
+        const string s1 = "ACGTACGTTTGCA";
+        const string s2 = "ACGTACGTAAGGC";
+        const int w = 4;
+
+        var original = DotSet(s1, s2, w);
+        var reflected = DotSet(RevComp(s1), RevComp(s2), w);
+
+        var expected = original.Select(d => (s1.Length - w - d.x, s2.Length - w - d.y)).ToHashSet();
+        reflected.Should().BeEquivalentTo(expected,
+            because: "revcomp(s1)[x..]=revcomp(s2)[y..] iff the mirror-position forward words match, so the plot is point-reflected through its centre");
+    }
+
+    #endregion
+
+    #region COMPGEN-DOTPLOT-001 SHIFT — prepending a flank shifts the dots along x
+
+    [Test]
+    [Description("SHIFT: prepending an f-base flank to sequence1 shifts every existing match's x-coordinate by f, so all original dots reappear at (x+f, y).")]
+    public void DotPlot_PrependFlankToSequence1_ShiftsDots()
+    {
+        const string s1 = "ACGTACGTTTGCA";
+        const string s2 = "ACGTACGTAAGGC";
+        const int w = 4;
+        var original = DotSet(s1, s2, w);
+
+        foreach (var flank in new[] { "TT", "GGGCCC" })
+        {
+            var shifted = DotSet(flank + s1, s2, w);
+            var expected = original.Select(d => (d.x + flank.Length, d.y));
+            shifted.Should().Contain(expected,
+                because: $"words wholly inside the original sequence keep matching the same sequence2 words, only their x-coordinate moves by the {flank.Length}-base flank");
+        }
+    }
+
+    #endregion
 }
