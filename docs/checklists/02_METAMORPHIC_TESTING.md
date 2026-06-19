@@ -159,7 +159,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 129 | ☑ | SEQ-THERMO-001 | Statistics | MON: more GC pairs → lower ΔG; INV: permutation changes nearest-neighbour context only |
 | 130 | ☑ | SEQ-TM-001 | Statistics | MON: more GC → higher Tm; INV: case-insensitive |
 | 131 | ☑ | COMPGEN-ANI-001 | Comparative | SYM: ANI(A,B)=ANI(B,A); INV: ANI(A,A)=100; MON: more mutations → lower ANI |
-| 132 | ☐ | COMPGEN-CLUSTER-001 | Comparative | MON: lower identity threshold → superset; INV: genome order independent |
+| 132 | ☑ | COMPGEN-CLUSTER-001 | Comparative | MON: lower identity threshold → superset; INV: genome order independent |
 | 133 | ☐ | COMPGEN-COMPARE-001 | Comparative | SYM: order independent; MON: more shared genes → higher similarity |
 | 134 | ☐ | COMPGEN-DOTPLOT-001 | Comparative | INV: revcomp maps diagonal → anti-diagonal; SHIFT: prepend flank shifts dots |
 | 135 | ☐ | COMPGEN-ORTHO-001 | Comparative | SYM: ortholog relation symmetric; INV: genome order independent |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 131 |
-| ☐ Not started | 103 |
+| ☑ Complete | 132 |
+| ☐ Not started | 102 |
 | MR relations defined | ~200+ |

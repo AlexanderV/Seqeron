@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using FluentAssertions;
@@ -95,6 +96,97 @@ public class ComparativeMetamorphicTests
                 .Should().Be(ComparativeGenomics.CalculateANI(b, a, fragmentLength: Genome.Length),
                     because: "matched-position count is symmetric and, at equal length, only the offset-0 placement exists");
         }
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: COMPGEN-CLUSTER-001 — conserved gene clusters as common intervals (Comparative).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 132.
+    //
+    // API under test (ComparativeGenomics.FindConservedClusters):
+    //   A conserved cluster is a COMMON INTERVAL of the ortholog-group permutations — a set of
+    //   group labels that occupies a contiguous window in EVERY genome (Uno & Yagiura 2000;
+    //   Heber & Stoye 2001; Bui-Xuan et al. 2013). The size cut-off is minClusterSize.
+    //
+    // Relations (derived from the common-interval definition, NOT from output):
+    //   • MON  (lower size threshold ⇒ superset): the checklist's "identity threshold" maps to this
+    //          model's only monotone parameter, minClusterSize — lowering it can only admit more
+    //          (smaller) clusters while keeping every larger one, so the cluster set grows.
+    //   • INV  (genome order independent): a common interval is an interval of every genome by
+    //          definition, so permuting the genome list cannot change the set of common intervals.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    // Three genomes (ortholog-group order) with known common intervals {g1,g2}, {g4,g5},
+    // {g1,g2,g3} and the trivial whole set {g1..g5}:
+    //   A: g1 g2 g3 g4 g5   B: g3 g2 g1 g5 g4   C: g2 g1 g3 g4 g5
+    private static readonly string[][] GenomeGroupOrders =
+    {
+        new[] { "g1", "g2", "g3", "g4", "g5" },
+        new[] { "g3", "g2", "g1", "g5", "g4" },
+        new[] { "g2", "g1", "g3", "g4", "g5" },
+    };
+
+    // Builds the genome gene-lists and the gene-id → ortholog-group map for a given genome ordering.
+    private static (List<IReadOnlyList<ComparativeGenomics.Gene>> Genomes, Dictionary<string, string> Groups)
+        BuildScenario(IReadOnlyList<string[]> orders)
+    {
+        var genomes = new List<IReadOnlyList<ComparativeGenomics.Gene>>();
+        var groups = new Dictionary<string, string>();
+        for (int gi = 0; gi < orders.Count; gi++)
+        {
+            var genes = new List<ComparativeGenomics.Gene>();
+            for (int p = 0; p < orders[gi].Length; p++)
+            {
+                string id = $"G{gi}_{p}";
+                genes.Add(new ComparativeGenomics.Gene(id, $"genome{gi}", p, p, '+'));
+                groups[id] = orders[gi][p];
+            }
+            genomes.Add(genes);
+        }
+        return (genomes, groups);
+    }
+
+    // Canonical, order-independent key set of the reported clusters.
+    private static HashSet<string> ClusterKeys(IReadOnlyList<string[]> orders, int minClusterSize)
+    {
+        var (genomes, groups) = BuildScenario(orders);
+        return ComparativeGenomics.FindConservedClusters(genomes, groups, minClusterSize)
+            .Select(c => string.Join(",", c))
+            .ToHashSet();
+    }
+
+    #region COMPGEN-CLUSTER-001 MON — lowering the size threshold yields a superset
+
+    [Test]
+    [Description("MON: lowering minClusterSize keeps every larger common interval and can only admit additional smaller ones, so the cluster set at a lower threshold is a superset of the set at a higher threshold.")]
+    public void ConservedClusters_LowerSizeThreshold_Superset()
+    {
+        var size4 = ClusterKeys(GenomeGroupOrders, minClusterSize: 4);
+        var size3 = ClusterKeys(GenomeGroupOrders, minClusterSize: 3);
+        var size2 = ClusterKeys(GenomeGroupOrders, minClusterSize: 2);
+
+        size4.IsSubsetOf(size3).Should().BeTrue(because: "every cluster surviving the stricter size-4 cut-off also survives size-3");
+        size3.Count.Should().BeGreaterThan(size4.Count, because: "lowering the threshold from 4 to 3 admits the size-3 common interval {g1,g2,g3}");
+
+        size3.IsSubsetOf(size2).Should().BeTrue(because: "every size-3 cluster also passes the size-2 cut-off");
+        size2.Count.Should().BeGreaterThan(size3.Count, because: "lowering the threshold from 3 to 2 admits the size-2 common intervals {g1,g2} and {g4,g5}");
+    }
+
+    #endregion
+
+    #region COMPGEN-CLUSTER-001 INV — the cluster set is independent of genome order
+
+    [Test]
+    [Description("INV: a common interval is an interval of every genome, so permuting the genome list leaves the set of conserved clusters unchanged.")]
+    public void ConservedClusters_GenomeOrder_Invariant()
+    {
+        var original = GenomeGroupOrders;
+        var permuted = new[] { GenomeGroupOrders[2], GenomeGroupOrders[0], GenomeGroupOrders[1] };
+
+        foreach (int minSize in new[] { 2, 3 })
+            ClusterKeys(permuted, minSize).Should().BeEquivalentTo(ClusterKeys(original, minSize),
+                because: "the common-interval property is symmetric across the genome family, so input order is irrelevant");
     }
 
     #endregion
