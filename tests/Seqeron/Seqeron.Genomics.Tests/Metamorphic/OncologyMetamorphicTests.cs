@@ -1056,4 +1056,69 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-FUSION-002 — known-fusion database matching (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 101.
+    //
+    // API under test (OncologyAnalyzer.MatchKnownFusions / GetFusionAnnotation):
+    //   Looks a fusion's directional designation (5'::3') up in a caller-supplied known-fusion
+    //   set; case-insensitive but orientation-sensitive.
+    //
+    // Relations (derived from the directional lookup, NOT from output):
+    //   • SUB  (matched ⊆ known DB): a fusion is IsKnown only when its designation is a DB key.
+    //   • INV  (orientation preserved; case-insensitive): the lookup keeps the 5'→3' orientation
+    //          (the swapped pair does NOT match) and is invariant to gene-symbol case (the
+    //          identity-preserving "shift"). The API has no genomic coordinate to shift.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private static OncologyAnalyzer.FusionCall Fusion(string g5, string g3) =>
+        new(g5, g3, 10, 2, 12, OncologyAnalyzer.FusionReadingFrame.Unknown);
+
+    private static Dictionary<string, string> KnownFusions() => new()
+    {
+        [OncologyAnalyzer.GetFusionAnnotation("EML4", "ALK")] = "lung adenocarcinoma",
+        [OncologyAnalyzer.GetFusionAnnotation("BCR", "ABL1")] = "CML",
+    };
+
+    #region ONCO-FUSION-002 SUB — matched fusions are a subset of the known DB
+
+    [Test]
+    [Description("SUB: a fusion is flagged known only when its directional designation is a key of the known-fusion DB, so matched designations are a subset of the DB.")]
+    public void MatchKnownFusions_Matched_SubsetOfDb()
+    {
+        var db = KnownFusions();
+        var fusions = new[] { Fusion("EML4", "ALK"), Fusion("FOO", "BAR"), Fusion("BCR", "ABL1") };
+
+        var matched = fusions
+            .Select(f => OncologyAnalyzer.MatchKnownFusions(f, db))
+            .Where(m => m.IsKnown)
+            .Select(m => m.Designation)
+            .ToHashSet();
+
+        matched.IsSubsetOf(db.Keys.ToHashSet()).Should().BeTrue(
+            because: "a fusion is matched only if its designation is present in the known DB");
+        matched.Should().NotContain(OncologyAnalyzer.GetFusionAnnotation("FOO", "BAR"),
+            because: "an absent fusion is not matched");
+    }
+
+    #endregion
+
+    #region ONCO-FUSION-002 INV — orientation preserved, case-insensitive
+
+    [Test]
+    [Description("INV: the lookup is orientation-sensitive (the swapped 5'/3' pair does not match) and case-insensitive (a case relabel still matches).")]
+    public void MatchKnownFusions_OrientationPreserved_CaseInsensitive()
+    {
+        var db = KnownFusions();
+
+        OncologyAnalyzer.MatchKnownFusions(Fusion("EML4", "ALK"), db).IsKnown
+            .Should().BeTrue(because: "EML4::ALK is in the DB");
+        OncologyAnalyzer.MatchKnownFusions(Fusion("eml4", "alk"), db).IsKnown
+            .Should().BeTrue(because: "the lookup is case-insensitive — a case relabel preserves the match");
+        OncologyAnalyzer.MatchKnownFusions(Fusion("ALK", "EML4"), db).IsKnown
+            .Should().BeFalse(because: "the designation is directional 5'→3'; the swapped orientation is a different fusion");
+    }
+
+    #endregion
 }
