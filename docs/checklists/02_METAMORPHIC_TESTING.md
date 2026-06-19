@@ -206,7 +206,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 176 | ☑ | GENOMIC-MOTIFS-001 | Analysis | SHIFT: prepend flank shifts positions; INV: deterministic |
 | 177 | ☑ | GENOMIC-ORF-001 | Analysis | SHIFT: prepend in-frame flank shifts ORFs; INV: revcomp gives reverse-strand ORFs |
 | 178 | ☑ | GENOMIC-REPEAT-001 | Analysis | MON: lower minLen → superset; SHIFT: prepend flank shifts positions |
-| 179 | ☐ | GENOMIC-SIMILARITY-001 | Analysis | SYM: sim(a,b)=sim(b,a); INV: sim(x,x)=1 |
+| 179 | ☑ | GENOMIC-SIMILARITY-001 | Analysis | SYM: sim(a,b)=sim(b,a); INV: sim(x,x)=1 |
 | 180 | ☐ | GENOMIC-TANDEM-001 | Analysis | MON: lower minReps → superset; SHIFT: prepend flank shifts positions |
 | 181 | ☐ | EPIGEN-AGE-001 | Epigenetics | MON: more clock-site methylation → higher age; INV: site order independent |
 | 182 | ☐ | EPIGEN-BISULF-001 | Epigenetics | INV: methylated-C set preserved; SHIFT: prepend flank shifts conversions |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 178 |
-| ☐ Not started | 56 |
+| ☑ Complete | 179 |
+| ☐ Not started | 55 |
 | MR relations defined | ~200+ |

@@ -236,4 +236,44 @@ public class GenomicAnalysisMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: GENOMIC-SIMILARITY-001 — k-mer Jaccard similarity (Analysis).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 179.
+    //
+    // API under test (GenomicAnalyzer.CalculateSimilarity):
+    //   k-mer Jaccard index |A∩B|/|A∪B|, reported as a percentage in [0, 100].
+    //
+    // Relations (derived from the Jaccard definition, NOT from output):
+    //   • SYM  (sim(a,b)=sim(b,a)): intersection and union are symmetric in the two k-mer sets.
+    //   • INV  (sim(x,x)=1): a sequence's k-mer set equals itself, giving Jaccard 1 (100 %).
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region GENOMIC-SIMILARITY-001 SYM — similarity is symmetric
+
+    [Test]
+    [Description("SYM: Jaccard intersection and union are symmetric, so CalculateSimilarity(a,b) equals CalculateSimilarity(b,a).")]
+    public void Similarity_Symmetric()
+    {
+        var a = new DnaSequence("ACGTACGTTGGCCAATAC");
+        var b = new DnaSequence("ACGTTGCAACGTGGATCC");
+
+        GenomicAnalyzer.CalculateSimilarity(b, a).Should().BeApproximately(GenomicAnalyzer.CalculateSimilarity(a, b), 1e-12,
+            because: "the Jaccard k-mer similarity does not depend on argument order");
+    }
+
+    #endregion
+
+    #region GENOMIC-SIMILARITY-001 INV — self-similarity is 100 %
+
+    [Test]
+    [Description("INV: a sequence's k-mer set equals itself, so its Jaccard self-similarity is 1 (reported as 100 %).")]
+    public void Similarity_SelfSimilarity_IsMaximal()
+    {
+        foreach (var seq in new[] { "ACGTACGTTGGCCAATAC", "AAAAAAAAAA", "GCGCGCGCGCGC" })
+            GenomicAnalyzer.CalculateSimilarity(new DnaSequence(seq), new DnaSequence(seq))
+                .Should().Be(100.0, because: $"'{seq}' shares all k-mers with itself (Jaccard 1 = 100 %)");
+    }
+
+    #endregion
 }
