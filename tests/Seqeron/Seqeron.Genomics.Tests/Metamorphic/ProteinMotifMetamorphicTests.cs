@@ -157,4 +157,72 @@ public class ProteinMotifMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: PROTMOTIF-DOMAIN-001 — protein domain detection (ProteinMotif).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 84.
+    //
+    // API under test (ProteinMotifFinder.FindDomains):
+    //   Scans a protein for known domain signatures (zinc finger, WD40, SH3, PDZ, kinase) via
+    //   their regex patterns. A domain's confidence Score is the pattern's information content
+    //   = Σ over conserved positions of log2(20/allowed) — set by the SIGNATURE, not by the
+    //   matched substring's length.
+    //
+    // Relations (derived from local signature matching + IC scoring, NOT from output):
+    //   • INV  (domain intact after non-domain insertion): inserting a non-domain segment
+    //          elsewhere leaves the domain detected with the same matched residues.
+    //   • MON  (more conserved signature ⇒ higher confidence): because confidence is the
+    //          signature's information content, a signature that fixes more positions scores
+    //          higher. (NOTE: this is "more conserved/longer SIGNATURE", not a longer matched
+    //          substring — wildcard positions contribute zero information.)
+    // ───────────────────────────────────────────────────────────────────────────
+
+    // A C2H2 zinc-finger matching "C.{2,4}C.{3}[LIVMFYWC].{8}H.{3,5}H":
+    //   C AA C AAA L AAAAAAAA H AAA H
+    private const string ZincFingerProtein = "CAACAAALAAAAAAAAHAAAH";
+
+    private static System.Collections.Generic.HashSet<string> ZincFingerMatches(string protein) =>
+        ProteinMotifFinder.FindDomains(protein)
+            .Where(d => d.Name == "Zinc Finger C2H2")
+            .Select(d => protein.Substring(d.Start, d.End - d.Start + 1))
+            .ToHashSet();
+
+    #region PROTMOTIF-DOMAIN-001 INV — a non-domain insertion leaves the domain intact
+
+    [Test]
+    [Description("INV: inserting a non-domain segment up- or downstream leaves the zinc-finger domain detected with the same matched residues.")]
+    public void FindDomains_NonDomainInsertion_DomainIntact()
+    {
+        var baseline = ZincFingerMatches(ZincFingerProtein);
+        baseline.Should().NotBeEmpty(because: "the constructed sequence contains a C2H2 zinc finger");
+
+        // 'P'/'G' blocks carry no C…C…H…H zinc-finger signature, so they are non-domain inserts.
+        foreach (var (prefix, suffix) in new[] { ("PPPP", ""), ("", "GGGG"), ("PPPP", "GGGG") })
+        {
+            var matches = ZincFingerMatches(prefix + ZincFingerProtein + suffix);
+            matches.IsSupersetOf(baseline).Should().BeTrue(
+                because: "a non-domain insertion elsewhere cannot destroy or alter the zinc-finger occurrence");
+        }
+    }
+
+    #endregion
+
+    #region PROTMOTIF-DOMAIN-001 MON — a more conserved signature scores higher confidence
+
+    [Test]
+    [Description("MON: domain confidence is the signature's information content, so a signature fixing more positions scores higher than a less-specified one matching the same window.")]
+    public void FindDomains_MoreConservedSignature_HigherConfidence()
+    {
+        // FindDomains scores each match by CalculateMotifScore (pattern information content);
+        // exercise that scoring model directly on the same matching window.
+        const string window = "CACAC";
+
+        double lessSpecified = ProteinMotifFinder.FindMotifByPattern(window, "C.C", "domain").First(m => m.Start == 0).Score;
+        double moreSpecified = ProteinMotifFinder.FindMotifByPattern(window, "C.C.C", "domain").First(m => m.Start == 0).Score;
+
+        moreSpecified.Should().BeGreaterThan(lessSpecified,
+            because: "fixing a third conserved cysteine adds information content, raising the domain confidence");
+    }
+
+    #endregion
 }
