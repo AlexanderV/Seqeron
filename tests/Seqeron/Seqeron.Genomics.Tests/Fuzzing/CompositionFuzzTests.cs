@@ -112,6 +112,64 @@ namespace Seqeron.Genomics.Tests;
 ///     We pin this so the lenient/strict boundary is explicit: the same garbage
 ///     that the public DnaSequence path REJECTS, the primitive must carry through
 ///     without crashing.
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: SEQ-REVCOMP-001 — reverse complement (Composition)
+/// Checklist: docs/checklists/03_FUZZING.md, row 3.
+/// Fuzz strategies exercised for THIS unit:
+///   • BE  = Boundary Exploitation — empty string, single char, null.
+///   • INJ = Injection — non-DNA characters, unicode (accented Latin, Greek,
+///           combining marks, full-width look-alikes, and astral/surrogate-pair
+///           code points), embedded null byte.
+/// — docs/checklists/03_FUZZING.md §Description (strategy codes).
+///
+/// The reverse-complement contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// Reverse complement = reverse ∘ complement: complement each base (A↔T, C↔G,
+/// Watson–Crick pairing) and read the strand 5'→3', i.e. in reverse order. It is
+/// an INVOLUTION: revcomp(revcomp(x)) == x for any sequence.
+///   — docs/algorithms/Sequence_Composition/RNA_Complement.md §"DNA span helpers"
+///     (the DNA reverse-complement is composed from GetComplementBase, cited there
+///     as the DNA sibling); Biopython Bio.Seq.reverse_complement worked examples
+///     (RNA_Complement.md ref 4).
+///
+/// SEQ-REVCOMP-001 has THREE documented surfaces with DIFFERENT, intentional
+/// contracts. Fuzzing pins all three, and the boundary between them, so none can
+/// silently drift:
+///
+/// (1) The STRICT public path — DnaSequence.ReverseComplement()
+///     (DnaSequence.cs lines 68–76), which validates its input at construction
+///     (DnaSequence ctor + ValidateSequence, lines 22–33 / 112–124):
+///       • null or empty string  → an empty sequence; ReverseComplement() is the
+///         empty sequence; no exception (string.IsNullOrEmpty short-circuit). A
+///         defined result, NOT an error.
+///       • input is case-folded with ToUpperInvariant before validation, so a
+///         single lowercase base and mixed case a-c-g-t are accepted and
+///         reverse-complement identically to uppercase.
+///       • a single base maps to its complement (A→T, C→G, G→C, T→A): with one
+///         base, reverse is a no-op, so revcomp is just the complement.
+///       • ANY character that is not A/C/G/T after upper-casing (digits,
+///         whitespace, N/IUPAC ambiguity codes, U, unicode letters, combining
+///         marks, astral code points, '\0') → a *documented, intentional*
+///         ArgumentException from ValidateSequence. The validation gate, not a
+///         crash and not a silent mis-complement.
+///       • the result is re-wrapped as a DnaSequence; since the complement of
+///         valid A/C/G/T is again valid A/C/G/T, that re-validation never throws.
+///         This pins that the involution holds: revcomp(revcomp(x)) == x.
+///
+/// (2) The LENIENT static string helper — DnaSequence.GetReverseComplementString
+///     (DnaSequence.cs lines 149–160). By design it does NOT validate: it maps
+///     through GetComplementBase, so it is IUPAC-complete, always emits UPPERCASE
+///     for recognized symbols, passes ANY non-IUPAC character (gap, digit,
+///     whitespace, '\0', unicode letter, surrogate half) THROUGH UNCHANGED, and
+///     NEVER throws. On null/empty it returns the input verbatim — no exception.
+///
+/// (3) The LENIENT span primitive — ReadOnlySpan&lt;char&gt;.TryGetReverseComplement
+///     (SequenceExtensions.cs lines 220–231). Same lenient char mapping; on an
+///     empty span it succeeds and writes nothing — no exception, no hang. We pin
+///     this so the strict/lenient boundary is explicit: the same garbage the
+///     public path REJECTS, both lenient surfaces must carry through without
+///     crashing and without shifting the reverse-complement of the valid bases.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -572,6 +630,295 @@ public class CompositionFuzzTests
         };
 
         act.Should().NotThrow("the empty span is a defined boundary, not an error");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  SEQ-REVCOMP-001 — reverse complement
+    //  Strict public path: DnaSequence.ReverseComplement() (validates at ctor)
+    //  Lenient string:     DnaSequence.GetReverseComplementString (never throws)
+    //  Lenient primitive:  ReadOnlySpan<char>.TryGetReverseComplement
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region SEQ-REVCOMP-001 — reverse complement
+
+    #region INJ — Injection: non-DNA characters (strict path rejects)
+
+    /// <summary>
+    /// INJ: characters that are not A/C/G/T after upper-casing must be rejected by
+    /// the strict public DnaSequence path with the *documented, intentional*
+    /// ArgumentException (DnaSequence ctor → ValidateSequence, lines 22–33 /
+    /// 112–124) BEFORE any reverse-complement is taken — never a silent
+    /// mis-complement and never a raw runtime exception. Covers digits, whitespace,
+    /// punctuation/gap, the ambiguity code N, the RNA base U (DNA does not accept
+    /// U), and an embedded null byte.
+    /// </summary>
+    [TestCase("N", TestName = "ReverseComplement_NonDna_AmbiguityCodeN_Throws")]
+    [TestCase("ACGTN", TestName = "ReverseComplement_NonDna_TrailingN_Throws")]
+    [TestCase("ACGU", TestName = "ReverseComplement_NonDna_RnaBaseU_Throws")]
+    [TestCase("ACGT123", TestName = "ReverseComplement_NonDna_Digits_Throws")]
+    [TestCase("AC GT", TestName = "ReverseComplement_NonDna_Whitespace_Throws")]
+    [TestCase("ACGT-", TestName = "ReverseComplement_NonDna_GapDash_Throws")]
+    [TestCase("ACG\0T", TestName = "ReverseComplement_NonDna_EmbeddedNullByte_Throws")]
+    public void ReverseComplement_NonDnaCharacters_ThrowDocumentedArgumentException(string input)
+    {
+        var act = () => _ = new DnaSequence(input).ReverseComplement();
+
+        act.Should().Throw<ArgumentException>(
+            "non-A/C/G/T input is rejected at construction by the documented validation gate, " +
+            "so the reverse complement is never computed on garbage and never crashes");
+    }
+
+    #endregion
+
+    #region BE — Boundary: empty string (strict path)
+
+    /// <summary>
+    /// BE: the empty string is the lower size boundary. The strict DnaSequence path
+    /// defines it as an empty sequence (DnaSequence.cs lines 24–28); its reverse
+    /// complement is therefore the empty sequence — no division, no indexing, no
+    /// exception. Reverse complement of nothing is nothing.
+    /// </summary>
+    [Test]
+    public void ReverseComplement_EmptyString_IsEmptyAndDoesNotThrow()
+    {
+        var act = () =>
+        {
+            var revComp = new DnaSequence(string.Empty).ReverseComplement();
+            revComp.Length.Should().Be(0);
+            revComp.Sequence.Should().BeEmpty(
+                because: "the reverse complement of an empty sequence is the empty sequence");
+        };
+
+        act.Should().NotThrow("the empty string is a defined boundary input, not an error");
+    }
+
+    #endregion
+
+    #region INJ / BE — Injection: null (strict path treats as empty)
+
+    /// <summary>
+    /// INJ/BE: a null reference is the boundary of "no input". The strict
+    /// DnaSequence path defines null as an empty sequence (string.IsNullOrEmpty
+    /// short-circuit, DnaSequence.cs lines 24–28), so ReverseComplement() must NOT
+    /// throw NullReferenceException and must yield the empty sequence. Pins that
+    /// null is handled gracefully rather than dereferenced.
+    /// </summary>
+    [Test]
+    public void ReverseComplement_NullSequence_IsTreatedAsEmptyAndDoesNotThrow()
+    {
+        var act = () =>
+        {
+            var revComp = new DnaSequence(null!).ReverseComplement();
+            revComp.Length.Should().Be(0);
+            revComp.Sequence.Should().BeEmpty();
+        };
+
+        act.Should().NotThrow<NullReferenceException>(
+            "null must be handled by the documented IsNullOrEmpty gate, never dereferenced");
+        act.Should().NotThrow(
+            "null is a defined 'empty sequence' input on the public path, not an error");
+    }
+
+    #endregion
+
+    #region BE — Boundary: single character (strict path)
+
+    /// <summary>
+    /// BE: a one-base sequence is the minimal non-empty input. With a single base
+    /// the reverse is a no-op, so the reverse complement is exactly the complement:
+    /// A→T, C→G, G→C, T→A. Lowercase is accepted (case-folded) and yields the same
+    /// uppercase result. Verified over all four bases in both cases. This pins that
+    /// the length-1 boundary neither off-by-ones the index nor skips the
+    /// complement.
+    /// </summary>
+    [TestCase('A', "T")]
+    [TestCase('C', "G")]
+    [TestCase('G', "C")]
+    [TestCase('T', "A")]
+    [TestCase('a', "T")]
+    [TestCase('c', "G")]
+    [TestCase('g', "C")]
+    [TestCase('t', "A")]
+    public void ReverseComplement_SingleCharacter_IsItsComplement(char baseChar, string expected)
+    {
+        var revComp = new DnaSequence(baseChar.ToString()).ReverseComplement();
+
+        revComp.Sequence.Should().Be(expected,
+            because: $"with one base the reverse is a no-op, so revcomp('{baseChar}') is its complement '{expected}'");
+    }
+
+    #endregion
+
+    #region INJ — Injection: unicode (strict path rejects)
+
+    /// <summary>
+    /// INJ: unicode injection — accented Latin, Greek letters, combining
+    /// diacritics, full-width look-alikes, and astral/surrogate-pair code points.
+    /// None are A/C/G/T, so the strict DnaSequence path must reject every one with
+    /// the documented ArgumentException — never an IndexOutOfRange/encoding surprise
+    /// from surrogate handling. The astral case (😀, a surrogate pair) specifically
+    /// guards char-by-char validation against crashing on the high/low surrogate
+    /// halves before the reverse complement is ever taken.
+    /// </summary>
+    [TestCase("ÀCGT", TestName = "ReverseComplement_Unicode_AccentedLatin_Throws")]
+    [TestCase("ACGTα", TestName = "ReverseComplement_Unicode_GreekLetter_Throws")]
+    [TestCase("ÁCGT", TestName = "ReverseComplement_Unicode_CombiningAcute_Throws")]
+    [TestCase("ＡＣＧＴ", TestName = "ReverseComplement_Unicode_FullWidthLatin_Throws")]
+    [TestCase("ACG😀T", TestName = "ReverseComplement_Unicode_AstralSurrogatePair_Throws")]
+    public void ReverseComplement_UnicodeCharacters_ThrowDocumentedArgumentException(string input)
+    {
+        var act = () => _ = new DnaSequence(input).ReverseComplement();
+
+        act.Should().Throw<ArgumentException>(
+            "unicode characters are not valid nucleotides; the validation gate must reject them " +
+            "via ArgumentException, including surrogate-pair (astral) code points");
+    }
+
+    #endregion
+
+    #region Robustness — involution on fuzzed-but-valid inputs (strict path)
+
+    /// <summary>
+    /// Robustness: reverse complement is an INVOLUTION — revcomp(revcomp(x)) == x
+    /// for any valid sequence. Asserted over deterministic fuzzed valid DNA across
+    /// sizes (including the single-base and odd/even-length boundaries) and over a
+    /// known fixed case. This is the theory-correct contract: applying the
+    /// transform twice must return the exact original, with no drift, truncation,
+    /// or off-by-one from the reverse indexing.
+    /// </summary>
+    [TestCase(1, TestName = "ReverseComplement_Involution_Len1")]
+    [TestCase(2, TestName = "ReverseComplement_Involution_Len2")]
+    [TestCase(7, TestName = "ReverseComplement_Involution_Len7_Odd")]
+    [TestCase(64, TestName = "ReverseComplement_Involution_Len64")]
+    [TestCase(1000, TestName = "ReverseComplement_Involution_Len1000")]
+    public void ReverseComplement_AppliedTwice_IsIdentity(int length)
+    {
+        var original = new DnaSequence(RandomDna(length));
+
+        var doubleRevComp = original.ReverseComplement().ReverseComplement();
+
+        doubleRevComp.Sequence.Should().Be(original.Sequence,
+            because: "reverse complement is an involution: applying it twice returns the original");
+    }
+
+    /// <summary>
+    /// Robustness: a known, fully-pinned reverse-complement case. revcomp("ATGC")
+    /// = complement "TACG" read 5'→3' (reversed) = "GCAT". Pins both the A↔T/C↔G
+    /// mapping AND the reversal direction together, so neither can drift
+    /// independently.
+    /// </summary>
+    [Test]
+    public void ReverseComplement_KnownCase_IsComplementReversed()
+    {
+        var revComp = new DnaSequence("ATGC").ReverseComplement();
+
+        revComp.Sequence.Should().Be("GCAT",
+            because: "complement of ATGC is TACG; read 5'→3' (reversed) it is GCAT");
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Lenient surfaces: GetReverseComplementString / span TryGetReverseComplement
+    //  (IUPAC-complete; non-IUPAC passes through unchanged; never throw)
+    // ───────────────────────────────────────────────────────────────────
+
+    #region BE — lenient string helper: null and empty pass through
+
+    /// <summary>
+    /// BE: the lenient static string helper returns null/empty input verbatim
+    /// (DnaSequence.cs lines 151–152) — no NullReferenceException, no exception, no
+    /// hang. Pins that the "no input" boundary is a defined pass-through, not a
+    /// crash.
+    /// </summary>
+    [Test]
+    public void GetReverseComplementString_NullAndEmpty_ReturnInputAndDoNotThrow()
+    {
+        string? nullResult = null;
+        var actNull = () => nullResult = DnaSequence.GetReverseComplementString(null!);
+        actNull.Should().NotThrow<NullReferenceException>(
+            "the lenient helper short-circuits null via IsNullOrEmpty, never dereferencing it");
+        actNull.Should().NotThrow();
+        nullResult.Should().BeNull("null is returned verbatim");
+
+        DnaSequence.GetReverseComplementString(string.Empty).Should().BeEmpty(
+            because: "the reverse complement of the empty string is the empty string");
+    }
+
+    #endregion
+
+    #region INJ — lenient string helper: non-DNA / unicode pass through, never throw
+
+    /// <summary>
+    /// INJ: the lenient string helper NEVER throws and passes any non-IUPAC
+    /// character through UNCHANGED while complementing recognized IUPAC bases
+    /// (uppercased) and reversing the whole thing. So garbage interspersed with
+    /// real bases neither crashes nor shifts the reverse complement of the valid
+    /// bases. For "aC-G1N\0T": complement char-by-char is T,G,-,C,1,N,\0,A; reading
+    /// that 5'→3' (reversed) gives "A\0N1C-GT". This pins that injection cannot
+    /// corrupt the mapping or the reversal on this surface, including the embedded
+    /// null byte. A unicode letter (Greek α) and a lone surrogate half likewise
+    /// pass through unchanged without an encoding crash.
+    /// </summary>
+    [TestCase("aC-G1N\0T", "A\0N1C-GT", TestName = "GetReverseComplementString_GarbageInterspersed_PreservesAndReverses")]
+    [TestCase("Gαc", "GαC", TestName = "GetReverseComplementString_GreekLetter_PassesThrough")]
+    [TestCase("G\uD83Dc", "G\uD83DC", TestName = "GetReverseComplementString_LoneHighSurrogate_PassesThrough")]
+    public void GetReverseComplementString_NonDnaAndUnicode_PassThroughAndNeverThrow(string input, string expected)
+    {
+        string result = "￿";
+        var act = () => result = DnaSequence.GetReverseComplementString(input);
+
+        act.Should().NotThrow("the lenient string helper is total over char and never throws");
+        result.Should().Be(expected,
+            because: "recognized bases are complemented (uppercase) and the string reversed; " +
+                     "non-IUPAC characters pass through unchanged");
+    }
+
+    #endregion
+
+    #region BE — lenient span primitive: empty span
+
+    /// <summary>
+    /// BE: the empty span is the lower size boundary for the lenient span primitive.
+    /// TryGetReverseComplement must succeed (destination length ≥ source length
+    /// holds trivially) and write nothing — no exception, no hang, no out-of-range.
+    /// </summary>
+    [Test]
+    public void TryGetReverseComplement_EmptySpan_SucceedsAndWritesNothing()
+    {
+        var act = () =>
+        {
+            bool ok = ReadOnlySpan<char>.Empty.TryGetReverseComplement(Span<char>.Empty);
+            ok.Should().BeTrue("an empty reverse complement always fits an empty destination");
+        };
+
+        act.Should().NotThrow("the empty span is a defined boundary, not an error");
+    }
+
+    /// <summary>
+    /// INJ: the lenient span primitive carries a mix of recognized and non-IUPAC
+    /// garbage through char-by-char without throwing: recognized bases are
+    /// complemented (uppercased), every other character (gap, digit, null byte) is
+    /// preserved verbatim, and the whole result is reversed. Pins that injected
+    /// garbage neither crashes nor shifts the reverse complement of the valid bases
+    /// on the span surface, mirroring the string helper.
+    /// </summary>
+    [Test]
+    public void TryGetReverseComplement_GarbageInterspersed_ComplementsBasesReversedAndPreservesGarbage()
+    {
+        const string input = "aC-G1N\0T";   // mixed case, gap, digit, N, null byte
+        Span<char> destination = new char[input.Length];
+
+        bool ok = input.AsSpan().TryGetReverseComplement(destination);
+
+        ok.Should().BeTrue("the destination is exactly the source length");
+        new string(destination).Should().Be("A\0N1C-GT",
+            because: "each base is complemented (uppercase) and the sequence reversed; " +
+                     "non-IUPAC '-','1','\\0' pass through unchanged");
     }
 
     #endregion
