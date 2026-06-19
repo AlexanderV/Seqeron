@@ -316,4 +316,67 @@ public class RnaStructureMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: RNA-DOTBRACKET-001 — dot-bracket notation (RnaStructure).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 149.
+    //
+    // API under test (RnaSecondaryStructure.ParseDotBracket):
+    //   Parses dot-bracket notation to base-pair (i,j) index tuples; the canonical formatter places
+    //   '(' at the 5' partner, ')' at the 3' partner and '.' elsewhere (ViennaRNA convention).
+    //
+    // Relations (derived from the bracket-matching definition, NOT from output):
+    //   • RT   (parse ∘ format identity): for a canonical nested notation, formatting the parsed
+    //          base pairs back reproduces the original string exactly.
+    //   • INV  (pairing preserved under reparse): re-parsing the reformatted string yields the same
+    //          base-pair set, so the pairing survives a parse/format/reparse cycle.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    // Canonical dot-bracket formatter (ViennaRNA: '(' at the 5' partner, ')' at the 3' partner).
+    private static string FormatDotBracket(int length, IEnumerable<(int Position1, int Position2)> pairs)
+    {
+        var notation = Enumerable.Repeat('.', length).ToArray();
+        foreach (var (p1, p2) in pairs)
+        {
+            notation[System.Math.Min(p1, p2)] = '(';
+            notation[System.Math.Max(p1, p2)] = ')';
+        }
+        return new string(notation);
+    }
+
+    private static HashSet<(int, int)> CanonicalPairs(IEnumerable<(int Position1, int Position2)> pairs) =>
+        pairs.Select(p => (System.Math.Min(p.Position1, p.Position2), System.Math.Max(p.Position1, p.Position2))).ToHashSet();
+
+    #region RNA-DOTBRACKET-001 RT — parse then format is the identity
+
+    [Test]
+    [Description("RT: for a canonical nested dot-bracket string, formatting the parsed base pairs back reproduces the original notation exactly.")]
+    public void DotBracket_ParseThenFormat_Identity()
+    {
+        const string notation = "((..))..((...))";
+        var pairs = RnaSecondaryStructure.ParseDotBracket(notation).ToList();
+
+        FormatDotBracket(notation.Length, pairs).Should().Be(notation,
+            because: "the canonical formatter is the exact inverse of the parser for nested () notation");
+    }
+
+    #endregion
+
+    #region RNA-DOTBRACKET-001 INV — pairing is preserved under reparse
+
+    [Test]
+    [Description("INV: re-parsing the reformatted string yields the same base-pair set, so the pairing survives a parse/format/reparse cycle.")]
+    public void DotBracket_Reparse_PreservesPairing()
+    {
+        const string notation = "(((...)))..((..)).";
+        var firstParse = RnaSecondaryStructure.ParseDotBracket(notation).ToList();
+
+        string reformatted = FormatDotBracket(notation.Length, firstParse);
+        var secondParse = RnaSecondaryStructure.ParseDotBracket(reformatted).ToList();
+
+        CanonicalPairs(secondParse).Should().BeEquivalentTo(CanonicalPairs(firstParse),
+            because: "formatting and re-parsing the same pairing is lossless");
+    }
+
+    #endregion
 }
