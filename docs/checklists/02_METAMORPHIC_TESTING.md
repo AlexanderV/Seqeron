@@ -85,7 +85,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 55 | ☑ | META-ALPHA-001 | Metagenomics | MON: remove species → diversity decreases; MON: equalize abundances → max Shannon; COMP: single species → Shannon=0 |
 | 56 | ☑ | META-BETA-001 | Metagenomics | SYM: dist(a,b)=dist(b,a); COMP: identical samples → dist=0; MON: remove shared species → higher dist |
 | 57 | ☑ | META-BIN-001 | Metagenomics | INV: adding non-overlapping contigs → existing bins unchanged; MON: more contigs → ≥ bins |
-| 58 | ☐ | CODON-OPT-001 | Codon | INV: optimized → same protein; MON: more biased table → more codon changes; INV: already optimal → no change |
+| 58 | ☑ | CODON-OPT-001 | Codon | INV: optimized → same protein; MON: more biased table → more codon changes; INV: already optimal → no change |
 | 59 | ☐ | CODON-CAI-001 | Codon | MON: replace rare with optimal → CAI increases; COMP: all optimal codons → CAI=1; INV: same seq → same CAI |
 | 60 | ☐ | CODON-RARE-001 | Codon | MON: lower usage threshold → more codons flagged; INV: no rare codons → empty result |
 | 61 | ☐ | CODON-USAGE-001 | Codon | INV: duplicate sequence → same usage ratios; COMP: sum per AA = 1.0 |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 57 |
-| ☐ Not started | 177 |
+| ☑ Complete | 58 |
+| ☐ Not started | 176 |
 | MR relations defined | ~200+ |
