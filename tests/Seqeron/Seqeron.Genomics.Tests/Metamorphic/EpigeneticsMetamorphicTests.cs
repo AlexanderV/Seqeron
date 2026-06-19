@@ -223,4 +223,67 @@ public class EpigeneticsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: EPIGEN-CHROM-001 — chromatin-state prediction (Epigenetics).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 183.
+    //
+    // API under test (EpigeneticsAnalyzer.PredictChromatinState):
+    //   Calls the chromatin state at a locus purely from its six histone-mark signals.
+    //
+    // Relations (derived from the per-locus, context-free call, NOT from output):
+    //   • INV  (region order independent): each locus is called from its own marks, so processing a
+    //          list of loci in any order yields the correspondingly reordered states.
+    //   • SHIFT (prepend flank shifts states): prepending flank loci shifts the original loci's states
+    //          along the output list without changing them.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    // (h3k4me3, h3k4me1, h3k27ac, h3k36me3, h3k27me3, h3k9me3) signals per locus.
+    private static readonly (double, double, double, double, double, double)[] ChromatinLoci =
+    {
+        (1, 0, 0, 0, 0, 0), // active promoter (H3K4me3)
+        (0, 1, 1, 0, 0, 0), // active enhancer (H3K4me1 + H3K27ac)
+        (0, 0, 0, 0, 1, 0), // Polycomb-repressed (H3K27me3)
+        (0, 0, 0, 0, 0, 0), // quiescent
+    };
+
+    private static List<EpigeneticsAnalyzer.ChromatinState> States(
+        IEnumerable<(double, double, double, double, double, double)> loci) =>
+        loci.Select(m => EpigeneticsAnalyzer.PredictChromatinState(m.Item1, m.Item2, m.Item3, m.Item4, m.Item5, m.Item6)).ToList();
+
+    #region EPIGEN-CHROM-001 INV — states are independent of locus order
+
+    [Test]
+    [Description("INV: each locus's state is called from its own marks, so reversing the locus order reverses the state list (per-locus independence).")]
+    public void Chromatin_RegionOrder_Invariant()
+    {
+        var forward = States(ChromatinLoci);
+        var reversed = States(ChromatinLoci.Reverse());
+
+        reversed.Should().Equal(Enumerable.Reverse(forward).ToList(),
+            because: "the chromatin state of a locus does not depend on the order loci are processed");
+    }
+
+    #endregion
+
+    #region EPIGEN-CHROM-001 SHIFT — a prepended flank shifts the states
+
+    [Test]
+    [Description("SHIFT: prepending flank loci shifts the original loci's states along the output list without changing them.")]
+    public void Chromatin_PrependFlank_ShiftsStates()
+    {
+        var original = States(ChromatinLoci);
+
+        var flank = new (double, double, double, double, double, double)[]
+        {
+            (0, 0, 0, 1, 0, 0), // transcribed
+            (0, 0, 0, 0, 0, 1), // heterochromatin
+        };
+        var combined = States(flank.Concat(ChromatinLoci));
+
+        combined.Skip(flank.Length).Should().Equal(original,
+            because: "prepending flank loci moves the original states later in the list, leaving them unchanged");
+    }
+
+    #endregion
 }
