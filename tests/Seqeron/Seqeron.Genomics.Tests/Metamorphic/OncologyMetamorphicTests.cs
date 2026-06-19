@@ -657,4 +657,75 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-LOH-001 — loss-of-heterozygosity detection (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 95.
+    //
+    // API under test (OncologyAnalyzer.DetectLOH):
+    //   A segment is LOH when one allele is lost (minor CN = 0) and the other is retained
+    //   (major CN ≠ 0); HRD-LOH counts such regions longer than 15 Mb that do not span a whole
+    //   chromosome. (The implementation is copy-number based, not BAF-threshold based, and
+    //   represents alleles by magnitude — major ≥ minor.)
+    //
+    // Relations (derived from the LOH predicate, NOT from output):
+    //   • INV  (allele symmetry / order): LOH depends only on the loss of one allele, so the
+    //          retained (major) allele's copy-number value does not change the calls, and the
+    //          calls are independent of segment input order. (The faithful reading of the
+    //          checklist's "swap A/B labels" — only that ONE allele is lost matters.)
+    //   • MON  (looser size criterion ⇒ superset): a region only counts once it exceeds 15 Mb,
+    //          and adding more qualifying LOH regions yields a superset (higher score).
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private const long Mb = 1_000_000L;
+
+    // chr with a het segment (avoids whole-chromosome-LOH exclusion) + one LOH segment.
+    private static OncologyAnalyzer.AlleleSpecificSegment[] LohChromosome(string chrom, int retainedCn, long lohLength) => new[]
+    {
+        new OncologyAnalyzer.AlleleSpecificSegment(chrom, 0, 1 * Mb, 2, 1),                       // heterozygous
+        new OncologyAnalyzer.AlleleSpecificSegment(chrom, 1 * Mb, 1 * Mb + lohLength, retainedCn, 0), // LOH (minor lost)
+    };
+
+    #region ONCO-LOH-001 INV — retained-allele value and segment order don't change LOH calls
+
+    [Test]
+    [Description("INV: LOH depends only on the loss of one allele, so the retained (major) allele's copy number does not change the calls, and the calls are independent of segment order.")]
+    public void DetectLOH_AlleleSymmetryAndOrder_PreserveCalls()
+    {
+        var reference = OncologyAnalyzer.DetectLOH(LohChromosome("1", retainedCn: 2, lohLength: 20 * Mb));
+        reference.Score.Should().Be(1, because: "a 20 Mb minor-lost region (with a het neighbour) is one LOH region");
+
+        // Retained-allele value is irrelevant — only that the minor allele is lost.
+        foreach (int retained in new[] { 1, 3, 5 })
+            OncologyAnalyzer.DetectLOH(LohChromosome("1", retained, 20 * Mb)).Score
+                .Should().Be(reference.Score, because: $"the retained allele being CN={retained} does not change that the other allele is lost");
+
+        // Segment order is irrelevant.
+        OncologyAnalyzer.DetectLOH(LohChromosome("1", 2, 20 * Mb).Reverse()).Score
+            .Should().Be(reference.Score, because: "LOH detection groups by chromosome — input order cannot matter");
+    }
+
+    #endregion
+
+    #region ONCO-LOH-001 MON — bigger / more LOH regions yield a superset
+
+    [Test]
+    [Description("MON: a region counts only once it exceeds the 15 Mb size cutoff, and adding more qualifying LOH regions raises the score.")]
+    public void DetectLOH_LooserSizeAndMoreRegions_Superset()
+    {
+        // Size criterion: 10 Mb region does not count; 20 Mb does.
+        OncologyAnalyzer.DetectLOH(LohChromosome("1", 2, 10 * Mb)).Score
+            .Should().Be(0, because: "a 10 Mb LOH region is below the 15 Mb HRD-LOH cutoff");
+        OncologyAnalyzer.DetectLOH(LohChromosome("1", 2, 20 * Mb)).Score
+            .Should().Be(1, because: "a 20 Mb LOH region exceeds the 15 Mb cutoff and is counted");
+
+        // Adding a second qualifying LOH region (on another chromosome) raises the score.
+        var oneRegion = LohChromosome("1", 2, 20 * Mb);
+        var twoRegions = oneRegion.Concat(LohChromosome("2", 2, 20 * Mb)).ToArray();
+        OncologyAnalyzer.DetectLOH(twoRegions).Score
+            .Should().BeGreaterThan(OncologyAnalyzer.DetectLOH(oneRegion).Score,
+                because: "an additional qualifying LOH region adds to the HRD-LOH count");
+    }
+
+    #endregion
 }
