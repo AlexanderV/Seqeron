@@ -71,7 +71,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 41 | ☑ | PHYLO-NEWICK-001 | Phylogenetic | COMP: parse(toNewick(tree))=tree; INV: whitespace doesn't affect parse |
 | 42 | ☑ | PHYLO-COMP-001 | Phylogenetic | SYM: RF(a,b)=RF(b,a); COMP: RF(t,t)=0; MON: more rearrangements → higher RF |
 | 43 | ☑ | POP-FREQ-001 | PopGen | INV: doubling all counts → same frequencies; COMP: sum(freq)=1.0; INV: reorder samples → same result |
-| 44 | ☐ | POP-DIV-001 | PopGen | MON: more diverse sample → higher π; MON: more segregating sites → higher θ; INV: reorder → same |
+| 44 | ☑ | POP-DIV-001 | PopGen | MON: more diverse sample → higher π; MON: more segregating sites → higher θ; INV: reorder → same |
 | 45 | ☐ | POP-HW-001 | PopGen | INV: scaling sample size → same frequencies; COMP: p² + 2pq + q² = 1; MON: larger deviation → larger chi² |
 | 46 | ☐ | POP-FST-001 | PopGen | SYM: Fst(A,B)=Fst(B,A); COMP: identical pops → Fst=0; MON: more differentiated → higher Fst |
 | 47 | ☐ | POP-LD-001 | PopGen | SYM: LD(a,b)=LD(b,a); COMP: independent loci → D'≈0; MON: perfect linkage → D'=1 |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 43 |
-| ☐ Not started | 191 |
+| ☑ Complete | 44 |
+| ☐ Not started | 190 |
 | MR relations defined | ~200+ |

@@ -74,6 +74,32 @@ public class PopulationGeneticsMetamorphicTests
         return list;
     }
 
+    private static string RandomDna(int length)
+    {
+        const string bases = "ACGT";
+        var chars = new char[length];
+        for (int i = 0; i < length; i++)
+            chars[i] = bases[Rng.Next(bases.Length)];
+        return new string(chars);
+    }
+
+    private static char Flip(char c) => c == 'A' ? 'C' : 'A';
+
+    /// <summary>Returns a copy of <paramref name="seq"/> with exactly <paramref name="count"/> spread-out positions mutated.</summary>
+    private static string MutatePositions(string seq, int count)
+    {
+        var chars = seq.ToCharArray();
+        for (int n = 0; n < count; n++)
+        {
+            int pos = (int)((long)n * seq.Length / count);
+            chars[pos] = Flip(chars[pos]);
+        }
+        return new string(chars);
+    }
+
+    private static List<char[]> Panel(params string[] sequences) =>
+        sequences.Select(s => s.ToCharArray()).ToList();
+
     #endregion
 
     #region COMP — major and minor frequencies sum to 1
@@ -156,6 +182,135 @@ public class PopulationGeneticsMetamorphicTests
 
             maf.Should().BeApproximately(Math.Min(majFreq, minFreq), 1e-12,
                 because: "the minor allele frequency is by definition the smaller of the two allele frequencies");
+        }
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: POP-DIV-001 — diversity statistics: nucleotide diversity π and Watterson θ (PopGen).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 44.
+    //
+    // APIs under test:
+    //   CalculateNucleotideDiversity(sequences) = mean over all C(n,2) sequence pairs of the
+    //     per-site Hamming difference = totalPairwiseDiffs / (comparisons · length).
+    //   CalculateWattersonTheta(S, n, L) = S / (a₁ · L), with a₁ = Σ_{i=1}^{n−1} 1/i.
+    //
+    // Relations (derived from these formulas, NOT from output):
+    //   • MON (more diverse ⇒ higher π): adding substitutions raises the pairwise difference
+    //          total over a fixed denominator, so π increases. For a two-sequence panel
+    //          differing at m sites, π = m/L exactly and is strictly increasing in m; a
+    //          homogeneous panel has π = 0 while any polymorphism gives π > 0.
+    //   • MON (more segregating sites ⇒ higher θ): θ is linear in S with a positive slope
+    //          1/(a₁·L), so it is strictly increasing in S and 0 at S = 0.
+    //   • INV (sample reordering): π sums over UNORDERED pairs, so permuting the sequence panel
+    //          leaves it unchanged.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region MON — more substitutions strictly increase nucleotide diversity π
+
+    [Test]
+    [Description("MON: for a two-sequence panel differing at m sites, π = m/L and strictly increases with m; a homogeneous panel has π = 0.")]
+    public void NucleotideDiversity_MoreDivergence_IncreasesPi()
+    {
+        const int len = 50;
+        string baseSeq = RandomDna(len);
+
+        PopulationGeneticsAnalyzer.CalculateNucleotideDiversity(Panel(baseSeq, baseSeq))
+            .Should().Be(0.0, because: "two identical sequences differ nowhere, so π = 0");
+
+        double previous = double.NegativeInfinity;
+        for (int m = 0; m <= 8; m++)
+        {
+            string variant = MutatePositions(baseSeq, m);
+            double pi = PopulationGeneticsAnalyzer.CalculateNucleotideDiversity(Panel(baseSeq, variant));
+
+            pi.Should().BeApproximately((double)m / len, 1e-12,
+                because: $"the single sequence pair differs at exactly {m} of {len} sites, so π = {m}/{len}");
+            pi.Should().BeGreaterThan(previous,
+                because: "each extra substitution adds a pairwise difference over a fixed denominator, so π strictly increases");
+            previous = pi;
+        }
+    }
+
+    [Test]
+    [Description("MON: a panel with a polymorphism has strictly greater π than the otherwise-identical homogeneous panel.")]
+    public void NucleotideDiversity_AddingPolymorphism_IncreasesPi()
+    {
+        const int len = 40;
+        string s = RandomDna(len);
+
+        double homogeneous = PopulationGeneticsAnalyzer.CalculateNucleotideDiversity(Panel(s, s, s, s));
+        double withMutant = PopulationGeneticsAnalyzer.CalculateNucleotideDiversity(Panel(s, s, s, MutatePositions(s, 3)));
+
+        homogeneous.Should().Be(0.0, because: "four identical sequences are monomorphic");
+        withMutant.Should().BeGreaterThan(homogeneous,
+            because: "replacing one sequence with a 3-substitution variant introduces pairwise differences, raising π above 0");
+    }
+
+    #endregion
+
+    #region MON — more segregating sites strictly increase Watterson's θ
+
+    [Test]
+    [Description("MON: θ = S/(a₁·L) is linear in S with positive slope, so it is 0 at S = 0 and strictly increases with the number of segregating sites.")]
+    public void WattersonTheta_MoreSegregatingSites_IncreasesTheta()
+    {
+        foreach (int n in new[] { 2, 5, 10 })
+        {
+            foreach (int length in new[] { 100, 500 })
+            {
+                double a1 = Enumerable.Range(1, n - 1).Sum(i => 1.0 / i);
+                double previous = double.NegativeInfinity;
+
+                for (int s = 0; s <= 10; s++)
+                {
+                    double theta = PopulationGeneticsAnalyzer.CalculateWattersonTheta(s, n, length);
+
+                    theta.Should().BeApproximately(s / (a1 * length), 1e-12,
+                        because: $"θ = S/(a₁·L) with S={s}, a₁={a1:F4}, L={length}");
+                    theta.Should().BeGreaterThan(previous,
+                        because: "θ is linear in S with the positive slope 1/(a₁·L), so it strictly increases with segregating sites");
+                    previous = theta;
+                }
+            }
+        }
+    }
+
+    #endregion
+
+    #region INV — permuting the sequence panel preserves π
+
+    [Test]
+    [Description("INV: π sums over unordered sequence pairs, so permuting the panel leaves it unchanged.")]
+    public void NucleotideDiversity_SampleReordering_IsInvariant()
+    {
+        const int len = 60;
+        string s = RandomDna(len);
+        var sequences = new[]
+        {
+            s,
+            MutatePositions(s, 2),
+            MutatePositions(s, 5),
+            MutatePositions(s, 9),
+            MutatePositions(s, 1),
+        };
+
+        double baseline = PopulationGeneticsAnalyzer.CalculateNucleotideDiversity(Panel(sequences));
+
+        for (int trial = 0; trial < 5; trial++)
+        {
+            var order = Enumerable.Range(0, sequences.Length).ToList();
+            for (int i = order.Count - 1; i > 0; i--)
+            {
+                int j = Rng.Next(i + 1);
+                (order[i], order[j]) = (order[j], order[i]);
+            }
+            var permuted = Panel(order.Select(idx => sequences[idx]).ToArray());
+
+            PopulationGeneticsAnalyzer.CalculateNucleotideDiversity(permuted)
+                .Should().BeApproximately(baseline, 1e-12,
+                    because: "the mean over unordered pairs does not depend on the order of the sequences");
         }
     }
 
