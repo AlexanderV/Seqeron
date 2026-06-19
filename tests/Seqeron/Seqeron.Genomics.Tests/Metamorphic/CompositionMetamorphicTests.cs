@@ -18,8 +18,9 @@ namespace Seqeron.Genomics.Tests;
 /// Units: SEQ-GC-001 — GC content (Composition); SEQ-COMP-001 — DNA complement (Composition);
 ///        SEQ-REVCOMP-001 — reverse complement (Composition);
 ///        SEQ-VALID-001 — sequence validation (Composition);
-///        SEQ-COMPLEX-001 — sequence complexity measure (Composition)
-/// Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, rows 1–5.
+///        SEQ-COMPLEX-001 — sequence complexity measure (Composition);
+///        SEQ-ENTROPY-001 — Shannon entropy of base composition (Composition)
+/// Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, rows 1–6.
 /// Relations: INV complement preserves GC%; INV shuffle preserves GC%;
 ///            INV case-insensitive (+ derived INV reverse-complement,
 ///            ADD concatenation-additivity of the GC count).
@@ -878,6 +879,217 @@ public class CompositionMetamorphicTests
         // And the random sample never exceeds that documented maximum.
         random.Should().BeLessThanOrEqualTo(2.0 + Tolerance,
             because: "Shannon entropy over four symbols is bounded above by log₂4 = 2 bits");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  SEQ-ENTROPY-001 — Shannon entropy of base composition
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (docs/algorithms/Sequence_Composition/Shannon_Entropy.md; Shannon 1948;
+    //   Cover & Thomas 1991):
+    //       H(X) = −Σ_{b} p_b · log₂ p_b ,   p_b = count(b) / N
+    //   over the canonical DNA base distribution {A,C,G,T} (the implementation counts
+    //   ONLY A/T/G/C; base-2 log ⇒ bits; empty/null ⇒ 0 — §2.4, §6.1). Entropy is a
+    //   functional of the FREQUENCY DISTRIBUTION alone. Three entropy-specific theorems
+    //   pin this unit (distinct from the SEQ-COMPLEX-001 "complexity-measure" framing of
+    //   the same method above):
+    //
+    //   • INV (permutation): H depends only on the multiset of base counts {n_A,n_C,n_G,
+    //     n_T}, not on their arrangement, so H(x) = H(any permutation of x). This is the
+    //     information-theoretic invariance of entropy under relabelling of positions.
+    //
+    //   • MON (uniform → MAX): for a distribution supported on k symbols, H ≤ log₂k with
+    //     EQUALITY iff the distribution is uniform (maximum-entropy characterisation; a
+    //     corollary of Gibbs' inequality −Σ p log₂ p ≤ −Σ p log₂ q with q ≡ 1/k). So an
+    //     equiprobable k-symbol sequence attains the EXACT endpoint H = log₂k (k=2 → 1
+    //     bit, k=3 → log₂3, k=4 → 2 bits), and ANY non-uniform distribution on the same
+    //     support has STRICTLY smaller H. We pin the endpoint exactly at several k and
+    //     assert the strict Gibbs ordering for non-uniform composition.
+    //
+    //   • MON (single symbol → 0): a one-symbol distribution has p=1 (and 0·log0≡0 for
+    //     the rest), so H = 0 EXACTLY — the global minimum (H ≥ 0 always). Introducing a
+    //     second distinct base lifts the support to k=2 and forces H > 0.
+    //
+    //   DIFFERENTIATION FROM SEQ-COMPLEX-001: that unit frames CalculateShannonEntropy as
+    //   a generic complexity measure (permutation-invariance, homopolymer = minimum, and a
+    //   random > low-diversity ordering). THIS unit encodes the entropy THEORY proper: the
+    //   maximum-entropy law H_max = log₂(k) verified at multiple alphabet sizes k∈{2,3,4},
+    //   the strict Gibbs inequality (uniform > any non-uniform of equal support), and the
+    //   exact-0 single-symbol endpoint with the "second symbol ⇒ H>0" lift. The test
+    //   bodies, sequences and assertions are deliberately non-duplicative.
+    //
+    // API surface under test:
+    //   • SequenceComplexity.CalculateShannonEntropy(string)      — canonical A/T/G/C path.
+    //   • SequenceComplexity.CalculateShannonEntropy(DnaSequence) — facade (same core).
+
+    #region SEQ-ENTROPY-001 — Shannon entropy
+
+    #region MR20: INV — permutation preserves Shannon entropy
+
+    /// <summary>
+    /// MR20: H(x) == H(permute(x)).
+    /// Shannon entropy is a functional of the base-frequency distribution {n_A,n_C,n_G,n_T}
+    /// alone; relabelling positions (a fixed-seed Fisher–Yates shuffle) leaves the multiset of
+    /// counts — and therefore H — invariant. Asserted via both the string and DnaSequence APIs,
+    /// with several independent shuffles per input.
+    /// </summary>
+    [Test]
+    public void ShannonEntropy_Permutation_PreservesEntropy()
+    {
+        foreach (var s in SampleSequences())
+        {
+            double original = SequenceComplexity.CalculateShannonEntropy(s);
+
+            for (int t = 0; t < 5; t++)
+            {
+                string permuted = Shuffle(s);
+
+                SequenceComplexity.CalculateShannonEntropy(permuted).Should().BeApproximately(original, Tolerance,
+                    because: $"entropy is a functional of the base-frequency distribution only, so permuting '{s}' leaves H unchanged");
+
+                // Same invariance through the DnaSequence facade (constructs over A/C/G/T).
+                SequenceComplexity.CalculateShannonEntropy(new DnaSequence(permuted)).Should()
+                    .BeApproximately(original, Tolerance,
+                        because: $"the DnaSequence entropy facade is the same frequency functional, so permuting '{s}' must not change H");
+            }
+        }
+    }
+
+    #endregion
+
+    #region MR21: MON — uniform → maximum entropy (H = log₂ k), strictly above any non-uniform
+
+    /// <summary>
+    /// MR21-a: a k-symbol EQUIPROBABLE sequence attains the EXACT maximum H = log₂(k).
+    /// Verified at several alphabet sizes — k=2 (→1 bit), k=3 (→log₂3≈1.585 bits) and k=4
+    /// (→2 bits) — by repeating a balanced unit so every counted base occurs equally often.
+    /// The maximum-entropy law H_max = log₂(k) is pinned exactly (theory endpoint), not by a
+    /// magic constant.
+    /// </summary>
+    [Test]
+    public void ShannonEntropy_UniformDistribution_EqualsLog2OfAlphabetSize()
+    {
+        // (unit, k) pairs: each unit uses k distinct bases exactly once → equiprobable when repeated.
+        var cases = new[]
+        {
+            (unit: "AT",   k: 2),
+            (unit: "GC",   k: 2),
+            (unit: "ACG",  k: 3),
+            (unit: "ACGT", k: 4),
+        };
+
+        foreach (var (unit, k) in cases)
+        {
+            double expectedMax = Math.Log2(k);
+
+            // Repeat the balanced unit so counts stay perfectly equal across many copies.
+            foreach (int reps in new[] { 1, 4, 25 })
+            {
+                string uniform = string.Concat(Enumerable.Repeat(unit, reps));
+
+                SequenceComplexity.CalculateShannonEntropy(uniform).Should().BeApproximately(expectedMax, Tolerance,
+                    because: $"an equiprobable {k}-symbol sequence ('{unit}'×{reps}) is the maximum-entropy distribution, so H = log₂{k} exactly");
+            }
+        }
+    }
+
+    /// <summary>
+    /// MR21-b: Gibbs' inequality (strict) — for a fixed support of k symbols, the UNIFORM
+    /// distribution strictly maximises entropy, so any NON-uniform composition on the same
+    /// k bases has H strictly below log₂(k). Encoded by skewing a balanced sequence (adding
+    /// extra copies of one base) and asserting H(non-uniform) &lt; H(uniform) = log₂(k).
+    /// </summary>
+    [Test]
+    public void ShannonEntropy_NonUniform_StrictlyBelowUniformMaximum()
+    {
+        // Support of all four bases, but skewed so the distribution is non-uniform.
+        var skewedSequences = new[]
+        {
+            "AAAACGT",            // A over-represented
+            "ACGTGGGG",          // G over-represented
+            "AACCGTTTTTTTT",      // T over-represented
+            string.Concat(Enumerable.Repeat("ACGT", 10)) + "AAAA", // near-uniform but tilted toward A
+        };
+
+        foreach (var s in skewedSequences)
+        {
+            int support = s.Distinct().Count(c => "ACGT".Contains(c));
+            double uniformMax = Math.Log2(support);
+            double h = SequenceComplexity.CalculateShannonEntropy(s);
+
+            h.Should().BeLessThan(uniformMax - Tolerance,
+                because: $"'{s}' uses {support} bases but non-uniformly, so by Gibbs' inequality H < log₂{support} (the uniform maximum)");
+            h.Should().BeGreaterThan(0.0 + Tolerance,
+                because: $"'{s}' has ≥ 2 distinct bases, so its entropy is strictly positive");
+        }
+
+        // Direct uniform-vs-skewed comparison on the SAME 4-base support: uniform > skewed.
+        double hUniform = SequenceComplexity.CalculateShannonEntropy(string.Concat(Enumerable.Repeat("ACGT", 8)));
+        double hSkewed = SequenceComplexity.CalculateShannonEntropy(string.Concat(Enumerable.Repeat("ACGT", 8)) + new string('A', 16));
+
+        hUniform.Should().BeGreaterThan(hSkewed + Tolerance,
+            because: "with the same {A,C,G,T} support, the uniform distribution strictly maximises entropy, so skewing toward A lowers H");
+    }
+
+    #endregion
+
+    #region MR22: MON — single symbol → 0 exactly; second distinct symbol lifts H above 0
+
+    /// <summary>
+    /// MR22-a: a single-symbol sequence has H = 0 EXACTLY — the global minimum.
+    /// One base carries probability 1 (and 0·log₂0 ≡ 0 for the rest), so there is no
+    /// uncertainty and entropy collapses to 0. Verified for every base and several lengths,
+    /// through both the string and DnaSequence APIs.
+    /// </summary>
+    [Test]
+    public void ShannonEntropy_SingleSymbol_IsExactlyZero()
+    {
+        foreach (char b in "ACGT")
+        {
+            foreach (int len in new[] { 1, 2, 8, 50, 256 })
+            {
+                string homopolymer = new string(b, len);
+
+                SequenceComplexity.CalculateShannonEntropy(homopolymer).Should().BeApproximately(0.0, Tolerance,
+                    because: $"the single-symbol distribution '{homopolymer}' has p=1, so H = 0 exactly (the global minimum)");
+
+                SequenceComplexity.CalculateShannonEntropy(new DnaSequence(homopolymer)).Should()
+                    .BeApproximately(0.0, Tolerance,
+                        because: $"the DnaSequence facade must also report H = 0 for the homopolymer '{homopolymer}'");
+            }
+        }
+    }
+
+    /// <summary>
+    /// MR22-b: introducing a SECOND distinct base lifts entropy strictly above the
+    /// single-symbol minimum (H &gt; 0), because the support grows from k=1 to k=2 and a
+    /// two-symbol distribution can no longer be deterministic. The 50/50 two-symbol case is
+    /// additionally pinned to its exact value H = log₂2 = 1 bit (maximum entropy at k=2).
+    /// </summary>
+    [Test]
+    public void ShannonEntropy_AddingSecondSymbol_LiftsEntropyAboveZero()
+    {
+        // A single foreign base among many copies of one base: H must exceed the 0 minimum.
+        foreach (int len in new[] { 8, 50, 256 })
+        {
+            string nearHomopolymer = new string('A', len - 1) + "C";
+
+            SequenceComplexity.CalculateShannonEntropy(nearHomopolymer).Should().BeGreaterThan(0.0 + Tolerance,
+                because: $"adding a single 'C' to {len - 1} 'A's grows the support to k=2, so H > 0 (no longer deterministic)");
+        }
+
+        // Exact 50/50 two-symbol endpoint: maximum entropy at k=2 is log₂2 = 1 bit.
+        foreach (var pair in new[] { "AT", "GC", "AG", "CT" })
+        {
+            string balancedTwoSymbol = string.Concat(Enumerable.Repeat(pair, 32));
+
+            SequenceComplexity.CalculateShannonEntropy(balancedTwoSymbol).Should().BeApproximately(1.0, Tolerance,
+                because: $"an equiprobable two-symbol sequence ('{pair}'×32) attains H = log₂2 = 1 bit exactly");
+        }
     }
 
     #endregion
