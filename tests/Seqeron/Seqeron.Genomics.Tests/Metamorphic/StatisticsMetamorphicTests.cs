@@ -454,4 +454,60 @@ public class StatisticsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: SEQ-THERMO-001 — nearest-neighbour duplex thermodynamics (Statistics).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 129.
+    //
+    // API under test (SequenceStatistics.CalculateThermodynamics):
+    //   ΔH°, ΔS°, ΔG°₃₇ and Tm via the Allawi & SantaLucia (1997) / SantaLucia (1998) unified
+    //   nearest-neighbour (NN) model: a sum of overlapping-dinucleotide stacking parameters plus
+    //   helix-initiation terms at both termini.
+    //
+    // Relations (derived from the NN model, NOT from output):
+    //   • MON  (more GC pairs ⇒ lower ΔG): GC stacks are more stabilising than AT stacks, so
+    //          replacing AT steps with GC steps at fixed length makes ΔG°₃₇ progressively more
+    //          negative (more stable).
+    //   • INV  (reverse-complement symmetry): the NN parameters obey param(XY)=param(revcomp(XY))
+    //          and initiation depends only on the GC/AT class of each terminus — both preserved by
+    //          reverse complement — so a permutation to the complementary strand only relabels each
+    //          NN context to its symmetric partner, leaving ΔH/ΔS/ΔG/Tm identical.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region SEQ-THERMO-001 MON — more GC steps lower (stabilise) ΔG
+
+    [Test]
+    [Description("MON: replacing AT dinucleotide steps with GC steps at fixed length makes ΔG°₃₇ strictly more negative, since GC stacking is more stabilising than AT stacking.")]
+    public void Thermodynamics_MoreGcSteps_LowerDeltaG()
+    {
+        // Fixed-length ladder: convert leading 'AT' units to 'GC' one at a time.
+        double previous = double.MaxValue;
+        for (int gcUnits = 0; gcUnits <= 6; gcUnits++)
+        {
+            string seq = string.Concat(Enumerable.Repeat("GC", gcUnits)) +
+                         string.Concat(Enumerable.Repeat("AT", 6 - gcUnits));
+            double dG = SequenceStatistics.CalculateThermodynamics(seq).DeltaG;
+            dG.Should().BeLessThan(previous,
+                because: $"replacing an AT step with a GC step (now {gcUnits} GC units) adds stacking stability, lowering ΔG");
+            previous = dG;
+        }
+    }
+
+    #endregion
+
+    #region SEQ-THERMO-001 INV — reverse-complement leaves the thermodynamics unchanged
+
+    [Test]
+    [Description("INV: the NN parameters satisfy param(XY)=param(revcomp(XY)) and terminal initiation depends only on the GC/AT class of each end, so reverse-complementing the strand yields identical ΔH/ΔS/ΔG/Tm.")]
+    public void Thermodynamics_ReverseComplement_Invariant()
+    {
+        foreach (var seq in new[] { "ATGCGATTACAGGCAT", "GCGCGCATAT", "ACGTACGTACGT", "TTTTAAAAGGGGCCCC" })
+        {
+            SequenceStatistics.CalculateThermodynamics(RevComp(seq))
+                .Should().Be(SequenceStatistics.CalculateThermodynamics(seq),
+                    because: $"reverse complement maps every NN step to its symmetric partner with identical parameters, so '{seq}' and its reverse complement are thermodynamically identical");
+        }
+    }
+
+    #endregion
 }
