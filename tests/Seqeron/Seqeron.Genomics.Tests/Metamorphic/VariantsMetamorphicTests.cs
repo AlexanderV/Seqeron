@@ -82,4 +82,67 @@ public class VariantsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: VARIANT-CALL-001 — variant detection from reference↔query (Variants).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 187.
+    //
+    // API under test (VariantCaller.CallVariantsFromAlignment):
+    //   Reports one variant per differing alignment column (SNP / indel).
+    //
+    // Relations (derived from "a variant is a difference from reference", NOT from output):
+    //   • MON  (more differences ⇒ superset of calls): each additional mismatch is called, so adding
+    //          substitutions yields a superset of variant calls (the analog of "deeper evidence →
+    //          superset of confident calls" for this difference-based caller).
+    //   • INV  (identity ⇒ no variants; deterministic): identical sequences produce no variants, and
+    //          the call set is a pure function of the inputs.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private const string CallReference = "ACGTACGTAC";
+
+    private static string SubstituteFirst(string seq, int count)
+    {
+        char[] arr = seq.ToCharArray();
+        for (int i = 0; i < count; i++) arr[i] = arr[i] == 'A' ? 'C' : 'A';
+        return new string(arr);
+    }
+
+    #region VARIANT-CALL-001 MON — more differences yield a superset of calls
+
+    [Test]
+    [Description("MON: each additional substitution is called as a variant, so introducing more substitutions yields a superset of variant positions.")]
+    public void VariantCalls_MoreDifferences_Superset()
+    {
+        int previous = -1;
+        var prevPositions = new HashSet<int>();
+        foreach (int subs in new[] { 1, 2, 4 })
+        {
+            var positions = VariantCaller.CallVariantsFromAlignment(CallReference, SubstituteFirst(CallReference, subs))
+                .Select(v => v.Position).ToHashSet();
+            if (previous >= 0)
+                prevPositions.IsSubsetOf(positions).Should().BeTrue(because: $"the {previous}-substitution calls are a subset of the {subs}-substitution calls");
+            positions.Count.Should().BeGreaterThan(previous, because: $"{subs} nested substitutions are all called");
+            previous = subs;
+            prevPositions = positions;
+        }
+    }
+
+    #endregion
+
+    #region VARIANT-CALL-001 INV — identity gives no variants and is deterministic
+
+    [Test]
+    [Description("INV: identical sequences differ nowhere, so no variant is called; and the call is a pure function returning the same variants on repeat.")]
+    public void VariantCalls_Identity_NoVariants_Deterministic()
+    {
+        VariantCaller.CallVariantsFromAlignment(CallReference, CallReference).Should().BeEmpty(
+            because: "a variant is a difference from the reference, and there is none");
+
+        string query = SubstituteFirst(CallReference, 3);
+        VariantCaller.CallVariantsFromAlignment(CallReference, query).Select(v => v.Position).ToList()
+            .Should().Equal(VariantCaller.CallVariantsFromAlignment(CallReference, query).Select(v => v.Position).ToList(),
+                because: "variant calling has no hidden state");
+    }
+
+    #endregion
 }
