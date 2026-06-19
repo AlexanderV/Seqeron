@@ -51,7 +51,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 21 | ☑ | PRIMER-TM-001 | MolTools | MON: add GC → Tm increases; MON: add AT → Tm decreases; INV: same sequence → same Tm |
 | 22 | ☑ | PRIMER-DESIGN-001 | MolTools | MON: wider Tm range → ≥ primers; SUB: stricter GC% → ⊆ results; INV: longer template → ≥ candidates |
 | 23 | ☑ | PRIMER-STRUCT-001 | MolTools | MON: more self-complementary → higher dimer score; INV: non-complementary extension → same hairpin |
-| 24 | ☐ | PROBE-DESIGN-001 | MolTools | MON: wider Tm → ≥ probes; SUB: stricter uniqueness → ⊆ results; INV: unrelated region append → same probes |
+| 24 | ☑ | PROBE-DESIGN-001 | MolTools | MON: wider Tm → ≥ probes; SUB: stricter uniqueness → ⊆ results; INV: unrelated region append → same probes |
 | 25 | ☐ | PROBE-VALID-001 | MolTools | MON: lower specificity threshold → more pass; INV: same input → same result |
 | 26 | ☐ | RESTR-FIND-001 | MolTools | SHIFT: prepend flank shifts positions; MON: more enzymes → ≥ total sites; INV: non-site append → same sites |
 | 27 | ☐ | RESTR-DIGEST-001 | MolTools | COMP: 0 sites → 1 fragment = full seq; MON: more enzymes → ≥ fragments; INV: fragment sum = seq length |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 23 |
-| ☐ Not started | 211 |
+| ☑ Complete | 24 |
+| ☐ Not started | 210 |
 | MR relations defined | ~200+ |

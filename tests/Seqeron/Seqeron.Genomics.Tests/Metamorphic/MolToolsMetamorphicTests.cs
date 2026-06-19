@@ -1525,18 +1525,19 @@ public class MolToolsMetamorphicTests
     //   MON: a primer with MORE self-complementary terminal pairs has a score ≥ one with
     //   fewer; strictly higher when the added pairing is real.
     //
-    // ── Hairpin INV dependency (the exact thing tested) ──
+    // ── Hairpin INV/MON dependency (the exact thing tested) ──
     //   The hairpin boolean depends ONLY on whether some self-complementary stem pair
     //   (stem ≥ minStem, loop ≥ minLoop) exists inside the sequence. Appending bases at
     //   the 3' end preserves every original substring/position, so it can NEVER remove a
-    //   stem ⇒ the boolean is monotone (false→true only). For EXACT invariance we append
-    //   a HOMOPOLYMER run of a base X chosen so it introduces NO new stem:
-    //     • an X-run cannot pair with itself (X is not complementary to X), and
-    //     • we pick X so the body contains NO run of complement(X) of length ≥ minStem,
-    //       so the appended X-run has nothing to pair against.
-    //   With no stem added and none removable, HasHairpinPotential is EXACTLY preserved.
-    //   (We keep the appended run < 2·minStem so the run alone never fabricates a stem,
-    //    and we verify the chosen X is safe for each body before asserting.)
+    //   stem ⇒ detection is MONOTONE: once true, any 3' append keeps it true (false→true
+    //   flips are real — an append can fabricate a new stem, including a JUNCTION window
+    //   that mixes the body's tail bases with appended bases). We therefore assert exact
+    //   "same result" only where it is provably sound: appending a HOMOPOLYMER X^k whose
+    //   complement is ABSENT from the body. Then no stem arm overlapping the appended X's —
+    //   all-X, all-body, or a mixed junction window — can find a reverse-complementary
+    //   partner (a partner needs complement(X) at the X positions, and complement(X) occurs
+    //   nowhere in body+append because the append is pure X and X ≠ complement(X)). With no
+    //   stem added and none removable, HasHairpinPotential is preserved exactly, both ways.
     // ─────────────────────────────────────────────────────────────────────────
 
     /// <summary>The terminal comparison window cap used by HasPrimerDimer (min(8, len1, len2)).</summary>
@@ -1570,29 +1571,21 @@ public class MolToolsMetamorphicTests
         _ => throw new ArgumentException($"Unexpected base '{b}'.", nameof(b)),
     };
 
-    /// <summary>True if <paramref name="seq"/> contains a run of base <paramref name="b"/> of length ≥ <paramref name="runLen"/>.</summary>
-    private static bool HasRun(string seq, char b, int runLen)
-    {
-        int run = 0;
-        foreach (char c in seq.ToUpperInvariant())
-        {
-            run = (c == b) ? run + 1 : 0;
-            if (run >= runLen)
-                return true;
-        }
-        return false;
-    }
-
     /// <summary>
-    /// Picks an append base X whose HOMOPOLYMER run is guaranteed to add NO hairpin stem
-    /// to <paramref name="body"/>: the body must contain no run of complement(X) of length
-    /// ≥ minStem (so the X-run can pair with nothing), and X cannot pair with itself.
-    /// Returns null if no base over {A,C,G,T} qualifies (then the body is skipped for INV).
+    /// Picks an append base X whose homopolymer run is guaranteed to add NO hairpin stem
+    /// to <paramref name="body"/>: the body must contain NO base equal to complement(X) at
+    /// all. Then no stem arm — whether all-X, all-body, or a junction window mixing body
+    /// tail bases with appended X's — can find a reverse-complementary partner that pairs
+    /// with the X positions (a partner needs complement(X) where X sits, and complement(X)
+    /// occurs nowhere in body+append, since the append is pure X and X ≠ complement(X)).
+    /// Returns null if every base's complement appears in the body (then the body is not
+    /// usable for the exact-invariance relation and is skipped).
     /// </summary>
-    private static char? SafeHairpinAppendBase(string body, int minStem)
+    private static char? SafeHairpinAppendBase(string body)
     {
+        string upper = body.ToUpperInvariant();
         foreach (char x in "ACGT")
-            if (!HasRun(body, Complement(x), minStem))
+            if (!upper.Contains(Complement(x)))
                 return x;
         return null;
     }
@@ -1679,75 +1672,79 @@ public class MolToolsMetamorphicTests
 
     #endregion
 
-    #region INV — appending a non-complementary homopolymer run preserves the hairpin result
+    #region INV — a 3' append preserves a detected hairpin (monotone); a complement-absent homopolymer preserves the result exactly
+
+    // NOTE on theory: an exact "append → same hairpin" relation is FALSE for an arbitrary
+    // append, because a 3' extension can fabricate a NEW stem — including a junction window
+    // that mixes the body's tail bases with appended bases and happens to be reverse-
+    // complementary to an existing body window. So we assert only what the algorithm
+    // actually guarantees:
+    //   (1) MONOTONE preservation — a 3' append NEVER destroys a detected hairpin
+    //       (HasHairpinPotentialSimple scans all i<j windows; extending the string only
+    //       ADDS (i,j) pairs and never shortens an existing complementary pair). Rigorous
+    //       for ANY appended region.
+    //   (2) EXACT invariance under a complement-absent homopolymer — if the body contains
+    //       no base equal to complement(X), then appending X^k adds no stem at all (no arm
+    //       overlapping the X's can find a partner), and removes none, so the boolean is
+    //       byte-for-byte preserved in BOTH directions.
 
     [Test]
-    [Description("INV: appending a homopolymer run that can pair with nothing in the body leaves HasHairpinPotential exactly unchanged (no stem added, none removable).")]
-    public void HasHairpinPotential_AppendNonPairingHomopolymer_ResultUnchanged()
+    [Description("MONOTONE: a 3' append NEVER destroys a detected hairpin — once HasHairpinPotential is true for the body it stays true after ANY appended region.")]
+    public void HasHairpinPotential_ThreePrimeAppend_NeverDestroysDetectedHairpin()
     {
+        bool sawHairpin = false;
+
+        // Includes "GCGCTTTTTGCGC" (a guaranteed hairpin) so the relation is exercised,
+        // not vacuous, regardless of the random fixtures.
         foreach (var body in StructureSamples())
         {
-            char? appendBase = SafeHairpinAppendBase(body, HairpinMinStem);
-            if (appendBase is null)
-                continue; // no homopolymer is provably non-pairing for this body — skip (INV not guaranteed)
-
             bool baseResult = PrimerDesigner.HasHairpinPotential(body, HairpinMinStem, HairpinMinLoop);
+            if (!baseResult)
+                continue;
+            sawHairpin = true;
 
-            // Several run lengths, all < 2*minStem so the run alone can never fabricate a stem.
-            foreach (int runLen in new[] { 1, 3, 5, 7 })
+            foreach (var ext in new[] { "A", "C", "G", "T", "AAAA", "GCGC", NonPamRegion(6), RandomDna(8) })
             {
-                string ext = new string(appendBase.Value, runLen);
-                bool extResult = PrimerDesigner.HasHairpinPotential(body + ext, HairpinMinStem, HairpinMinLoop);
-
-                extResult.Should().Be(baseResult,
-                    because: $"a '{appendBase}'×{runLen} append pairs with nothing (its complement has no length-{HairpinMinStem} run in the body, " +
-                             "and it cannot pair with itself), so it adds no stem; appending also removes no existing stem ⇒ the hairpin result is preserved exactly");
+                PrimerDesigner.HasHairpinPotential(body + ext, HairpinMinStem, HairpinMinLoop).Should().BeTrue(
+                    because: $"extending the 3' end with '{ext[..Math.Min(4, ext.Length)]}…' only ADDS candidate stem-pair windows " +
+                             "and never shortens an existing one, so a hairpin detected in the body is still detected");
             }
         }
+
+        sawHairpin.Should().BeTrue(because: "at least one fixture (the GCGC…GCGC hairpin) forms a hairpin, so the monotone relation is actually tested");
     }
 
     [Test]
-    [Description("INV: a primer that DOES form a hairpin keeps forming it, and the stem identity is untouched, when a non-pairing homopolymer is appended after a guaranteed-safe loop gap.")]
-    public void HasHairpinPotential_KnownHairpin_NonPairingAppendKeepsTrue()
+    [Description("EXACT INV: appending a homopolymer X whose complement is ABSENT from the body leaves HasHairpinPotential byte-for-byte unchanged — no arm overlapping the X's can ever pair, so no stem is added or removed.")]
+    public void HasHairpinPotential_AppendComplementAbsentHomopolymer_ResultUnchanged()
     {
-        // GCGC <loop TTTTT> GCGC : stem 'GCGC' at the 5' end is reverse-complementary to
-        // 'GCGC' at the 3' end with a 5-nt loop (≥ minLoop). This is a true hairpin.
-        const string hairpin = "GCGC" + "TTTTT" + "GCGC";
-        PrimerDesigner.HasHairpinPotential(hairpin, HairpinMinStem, HairpinMinLoop).Should().BeTrue(
-            because: "the 5' 'GCGC' and 3' 'GCGC' are a reverse-complementary stem pair separated by a 5-nt loop");
+        // Deterministic bodies over three bases (so one base's complement is absent),
+        // covering BOTH a hairpin-positive and a hairpin-negative case:
+        //   "GGCCAAAGGCC" — stem GGCC … (AAA loop) … GGCC, no T  ⇒ hairpin = true.
+        //   "ACGCAGCAGCAG" — no inverted-repeat stem, no T       ⇒ hairpin = false.
+        var bodies = new[] { "GGCCAAAGGCC", "ACGCAGCAGCAG" };
+        bool sawTrue = false, sawFalse = false;
 
-        // Append a poly-A run: the body has no 4-long T run (only the loop 'TTTTT' — wait,
-        // it has TTTTT). So complement(A)=T HAS a length-4 run; A is NOT safe here.
-        // Use poly-C instead: complement(C)=G; the body has no length-4 G run, so a poly-C
-        // append pairs with nothing and adds no stem.
-        SafeHairpinAppendBase(hairpin, HairpinMinStem).Should().NotBeNull(
-            because: "at least one base's complement lacks a length-4 run in this body");
-
-        foreach (int runLen in new[] { 1, 3, 6 })
+        foreach (var body in bodies)
         {
-            string ext = new string('C', runLen);
-            PrimerDesigner.HasHairpinPotential(hairpin + ext, HairpinMinStem, HairpinMinLoop).Should().BeTrue(
-                because: $"poly-C×{runLen} (complement G has no length-{HairpinMinStem} run in the body) adds no stem and removes none, " +
-                         "so the existing GCGC…GCGC hairpin is still detected");
-        }
-    }
+            char? x = SafeHairpinAppendBase(body);
+            x.Should().NotBeNull(because: $"'{body}' omits a base, so the omitted base is a complement-absent append target");
 
-    [Test]
-    [Description("INV: a primer with NO hairpin stays hairpin-free when a non-pairing homopolymer is appended — the append fabricates no stem.")]
-    public void HasHairpinPotential_NoHairpin_NonPairingAppendKeepsFalse()
-    {
-        // A poly-A body cannot form a stem (A is not complementary to A). complement(A)=T
-        // has no run in an all-A body, so a poly-A append is provably non-pairing.
-        const string flat = "AAAAAAAAAAAA";
-        PrimerDesigner.HasHairpinPotential(flat, HairpinMinStem, HairpinMinLoop).Should().BeFalse(
-            because: "an all-A primer has no self-complementary stem (A does not pair with A)");
+            bool baseResult = PrimerDesigner.HasHairpinPotential(body, HairpinMinStem, HairpinMinLoop);
+            sawTrue |= baseResult;
+            sawFalse |= !baseResult;
 
-        foreach (int runLen in new[] { 1, 4, 7 })
-        {
-            string ext = new string('A', runLen);
-            PrimerDesigner.HasHairpinPotential(flat + ext, HairpinMinStem, HairpinMinLoop).Should().BeFalse(
-                because: $"extending with poly-A×{runLen} introduces no complement to pair against, so no stem appears and the result stays false");
+            foreach (int runLen in new[] { 1, 3, 5, 8 })
+            {
+                string ext = new string(x!.Value, runLen);
+                PrimerDesigner.HasHairpinPotential(body + ext, HairpinMinStem, HairpinMinLoop).Should().Be(baseResult,
+                    because: $"complement('{x}') occurs nowhere in '{body}', so a '{x}'×{runLen} append (pure {x}) gives every " +
+                             "X-overlapping window no possible reverse-complementary partner — no stem is added, none removed, the result is preserved exactly");
+            }
         }
+
+        sawTrue.Should().BeTrue(because: "the GGCC…GGCC body forms a hairpin, exercising exact true→true invariance");
+        sawFalse.Should().BeTrue(because: "the non-stem body forms none, exercising exact false→false invariance");
     }
 
     #endregion
@@ -1769,6 +1766,310 @@ public class MolToolsMetamorphicTests
         yield return RandomDna(24);
         yield return RandomDna(30);
     }
+
+    #endregion
+
+    #region PROBE-DESIGN-001 — hybridization probe design
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Unit: PROBE-DESIGN-001 — hybridization probe design (MolTools).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 24.
+    //
+    // API under test (ProbeDesigner.cs):
+    //   DesignProbes(target, ProbeParameters?, maxProbes)
+    //     1. reject if target shorter than MinLength; uppercase target.
+    //     2. enumerate EVERY (start, len) window with MinLength ≤ len ≤ MaxLength.
+    //     3. EvaluateProbeWithGc: raw score starts at 1.0 and SOFT penalties subtract
+    //        (doc §2.2): GC out of [MinGc,MaxGc] −0.3, Tm out of [MinTm,MaxTm] −0.3,
+    //        homopolymer>Max −0.2, selfComp>Max −0.2, structure −0.15, repeats −0.1,
+    //        5'/3' G·C −0.02 each. A window is a CANDIDATE iff raw score > 0
+    //        (EvaluateProbeWithGc returns null at score ≤ 0) — except GC beyond the
+    //        early-reject band [MinGc−0.1, MaxGc+0.1] is dropped BEFORE scoring.
+    //     4. return the top-`maxProbes` candidates by descending score.
+    //   DesignProbes(target, ISuffixTree genomeIndex, params, maxProbes, requireUnique)
+    //     forms the same raw-score shortlist, then (requireUnique) SKIPS any probe with
+    //     CheckSpecificity < 1.0, i.e. any probe occurring more than once in the genome
+    //     index (INV-03: spec = 0 / 1 / 1·hits⁻¹).
+    //
+    // A probe's run-order-independent identity is (Start, Sequence); its full record
+    // (Tm, GcContent, Score, Warnings) is a PURE function of that one window's substring
+    // — independent of every OTHER candidate and of the rest of the target.
+    //
+    // Relation DIRECTIONS are derived from this filter/scoring structure (definition),
+    // NOT from observed output. To isolate each metamorphic relation we lift the
+    // top-K cap by designing with a very large `maxProbes` (AllProbes) so the returned
+    // set is exactly {candidates : raw score > 0} (no truncation churn), then vary ONE
+    // thing and hold the rest fixed.
+    //
+    //   • MON (wider Tm → ≥ probes): Tm is one independent SOFT penalty. Widening
+    //     [MinTm,MaxTm] removes the −0.3 Tm penalty from every window whose Tm enters
+    //     the wider band and changes NOTHING else, so each window's raw score is
+    //     NON-DECREASING ⇒ {raw score > 0} grows ⇒ probe count is non-decreasing and the
+    //     valid set is a SUPERSET. The exact, non-vacuous mechanism is asserted directly:
+    //     for a probe shared by the narrow- and wide-Tm designs, every field but Score is
+    //     identical and Score rises by EXACTLY the documented 0.3 iff the probe's Tm lay
+    //     outside the narrow window (the salt-adjusted formula puts a balanced 50–60mer
+    //     near 69 °C, below the 75–85 °C Microarray window, so the toggle is real).
+    //
+    //   • SUB (stricter uniqueness → ⊆ results): `requireUnique=true` applies an EXTRA
+    //     conjunct (skip specificity < 1) over the SAME ordered candidate stream that
+    //     `requireUnique=false` yields. With the cap lifted it therefore yields a SUBSET:
+    //     ids(requireUnique) ⊆ ids(¬requireUnique), count non-increasing. A genome that
+    //     fully duplicates the target makes EVERY probe non-unique, so the strict filter
+    //     empties the result (the SUB endpoint), while the lenient design stays non-empty.
+    //
+    //   • INV (unrelated region append → same probes): a probe's whole record depends
+    //     only on its own window. Appending a region downstream leaves every window that
+    //     lies entirely in the original target BYTE-IDENTICAL, so each original probe is
+    //     preserved EXACTLY (same Start/Sequence/Tm/GcContent/Score/Warnings) and the
+    //     extended valid set is a SUPERSET. For EXACT set equality we append after a
+    //     poly-G tail of length ≥ MaxLength using a poly-G extension: then every window
+    //     that reaches the appended bases starts inside the tail (|tail| ≥ MaxLength), so
+    //     it is all-G ⇒ GC = 1.0 > MaxGc+0.1 ⇒ early-rejected ⇒ the append creates NO new
+    //     candidate and design(T) == design(T+X) exactly.
+    //
+    // Source (semantics pinned from spec, NOT from observed output):
+    //   docs/algorithms/MolTools/Hybridization_Probe_Design.md §2.2 (penalty table),
+    //   §2.4 (INV-01 raw-score-positive shortlist, INV-03 specificity 0/1/1·hits⁻¹),
+    //   §3.1/§3.3 (requireUnique filters specificity < 1.0; top-maxProbes after ranking),
+    //   §4.2 (Microarray default: length 50–60, Tm 75–85 °C, GC 0.40–0.60).
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>Microarray default probe parameters (length 50–60, Tm 75–85, GC 0.40–0.60).</summary>
+    private static ProbeDesigner.ProbeParameters Microarray => ProbeDesigner.Defaults.Microarray;
+
+    /// <summary>Documented Tm-window penalty (doc §2.2): a probe whose Tm is out of [MinTm,MaxTm] loses 0.3.</summary>
+    private const double ProbeTmPenalty = 0.3;
+
+    /// <summary>
+    /// Large probe cap that lifts the top-K truncation for these fixtures, so a design
+    /// returns exactly {candidate windows : raw score &gt; 0} — making the set relations
+    /// (superset / subset / equality) reflect the SCORING/FILTER definition, not the cut.
+    /// </summary>
+    private const int AllProbes = 100_000;
+
+    /// <summary>Run-order-independent identity of a designed probe.</summary>
+    private static (int Start, string Sequence) ProbeId(ProbeDesigner.Probe p) => (p.Start, p.Sequence);
+
+    /// <summary>All probes a parameter set admits over the target (cap lifted ⇒ the full score-positive set).</summary>
+    private static List<ProbeDesigner.Probe> DesignAll(string target, ProbeDesigner.ProbeParameters param)
+        => ProbeDesigner.DesignProbes(target, param, AllProbes).ToList();
+
+    private static Dictionary<(int, string), ProbeDesigner.Probe> DesignById(string target, ProbeDesigner.ProbeParameters param)
+        => DesignAll(target, param).ToDictionary(ProbeId);
+
+    /// <summary>
+    /// Targets ≥ MinLength with ~50% GC and varied composition, so several Microarray
+    /// probes (50–60 nt) fit, plus fixed-seed random targets — relations must hold for
+    /// arbitrary input too.
+    /// </summary>
+    private static IEnumerable<string> ProbeTargets()
+    {
+        yield return "ACGTGACTGACTGGATCAGTCAGTACGATCGATGCATGCATCGTAGCATGCATGCATGCAACGTGACTGACTGGATCAGT";
+        yield return "TGCATGCAGTCAGTACGTACGATCGATCGTAGCTAGCATGCATGCATCGATCGATCAGTCAGTACGTACGTAGCATCGAT";
+        yield return "GCGATCGATGCATCGATCGTAGCTAGCATCGATCGATGCATGCATCGATCGATGCATCGATCGTACGATCGTAGCTAGCA";
+        yield return RandomDna(90);
+        yield return RandomDna(120);
+    }
+
+    #region MON — widening the Tm window never removes probes; the Tm penalty toggles by exactly 0.3
+
+    [Test]
+    [Description("MON: along a chain that widens [MinTm,MaxTm] (all else fixed) the valid-probe set grows monotonically — each narrower set is a subset of the wider one, count non-decreasing.")]
+    public void DesignProbes_WideningTmWindow_YieldsSuperset_CountNonDecreasing()
+    {
+        // Increasingly wide Tm windows, each ⊇ the prior (Microarray default 75–85 outward).
+        (double Min, double Max)[] tmChain =
+        {
+            (75, 85),   // Microarray default
+            (70, 90),
+            (50, 100),
+            (0, 200),   // Tm filter effectively disabled
+        };
+
+        foreach (var target in ProbeTargets())
+        {
+            HashSet<(int, string)>? previousSet = null;
+            int previousCount = -1;
+
+            foreach (var (min, max) in tmChain)
+            {
+                var ids = DesignAll(target, Microarray with { MinTm = min, MaxTm = max })
+                    .Select(ProbeId).ToHashSet();
+
+                if (previousSet is not null)
+                {
+                    ids.IsSupersetOf(previousSet).Should().BeTrue(
+                        because: $"widening the Tm window to [{min},{max}] only removes the −{ProbeTmPenalty} Tm penalty " +
+                                 "(all other penalties fixed), so every window that already scored > 0 still does — the valid set is a superset");
+                    ids.Count.Should().BeGreaterThanOrEqualTo(previousCount,
+                        because: $"a wider Tm window [{min},{max}] can only raise raw scores, never lower one past 0 — probe count is non-decreasing");
+                }
+
+                previousSet = ids;
+                previousCount = ids.Count;
+            }
+        }
+    }
+
+    [Test]
+    [Description("MON mechanism: a probe shared by the narrow- and wide-Tm designs keeps every field but Score; its Score rises by EXACTLY the documented 0.3 iff its Tm was outside the narrow window.")]
+    public void DesignProbes_WideningTmWindow_RaisesSharedProbeScoreByExactlyTheTmPenalty()
+    {
+        bool sawTmToggle = false;
+
+        foreach (var target in ProbeTargets())
+        {
+            // narrow = Microarray default (75–85 °C); wide = Tm filter disabled.
+            var narrow = DesignById(target, Microarray with { MinTm = 75, MaxTm = 85 });
+            var wide = DesignById(target, Microarray with { MinTm = 0, MaxTm = 200 });
+
+            foreach (var (id, probe) in narrow)
+            {
+                // A probe valid under the narrow Tm window stays valid when the window widens
+                // (its raw score only rises), so the wide design must contain its twin.
+                wide.Should().ContainKey(id,
+                    because: "removing the Tm penalty cannot drop a probe that already scored > 0 under the narrow window");
+                var twin = wide[id];
+
+                twin.Sequence.Should().Be(probe.Sequence);
+                twin.Tm.Should().Be(probe.Tm, because: "Tm is a pure function of the probe window, independent of the Tm parameter range");
+                twin.GcContent.Should().Be(probe.GcContent, because: "GC content depends only on the window, not on the Tm range");
+
+                // The ONLY score difference is the Tm penalty: present in narrow iff the probe's
+                // Tm is outside [75,85]; never present in the wide (0–200) window.
+                bool tmOutsideNarrow = probe.Tm < 75 || probe.Tm > 85;
+                double expectedDelta = tmOutsideNarrow ? ProbeTmPenalty : 0.0;
+                if (tmOutsideNarrow) sawTmToggle = true;
+
+                twin.Score.Should().BeApproximately(probe.Score + expectedDelta, 1e-9,
+                    because: tmOutsideNarrow
+                        ? "the probe's Tm is outside the narrow window, so widening it removes exactly the documented 0.3 Tm penalty"
+                        : "the probe's Tm is already inside the narrow window, so widening the window leaves its score unchanged");
+            }
+        }
+
+        sawTmToggle.Should().BeTrue(
+            because: "the salt-adjusted formula puts balanced 50–60mers near 69 °C (below 75–85 °C), so at least one probe's Tm toggles — the relation is exercised, not vacuous");
+    }
+
+    #endregion
+
+    #region SUB — requiring genome uniqueness yields a subset of the lenient design
+
+    [Test]
+    [Description("SUB: requireUnique=true applies an extra 'specificity = 1' filter over the same candidate stream, so its probe set is a subset of the requireUnique=false design (count non-increasing).")]
+    public void DesignProbes_RequireUnique_YieldsSubsetOfLenientDesign()
+    {
+        foreach (var target in ProbeTargets())
+        {
+            string upper = target.ToUpperInvariant();
+            // Genome where the FIRST part of the target is duplicated: probes drawn from that
+            // region occur twice (non-unique), the rest occur once (unique). 'N' separators
+            // carry no probe base, so they break any cross-junction match.
+            int dupLen = Math.Min(upper.Length, Microarray.MinLength + 15);
+            var genome = global::SuffixTree.SuffixTree.Build(upper + "NNNNNNNN" + upper[..dupLen]);
+
+            var unique = ProbeDesigner.DesignProbes(target, genome, Microarray, AllProbes, requireUnique: true)
+                .Select(ProbeId).ToHashSet();
+            var lenient = ProbeDesigner.DesignProbes(target, genome, Microarray, AllProbes, requireUnique: false)
+                .Select(ProbeId).ToHashSet();
+
+            lenient.IsSupersetOf(unique).Should().BeTrue(
+                because: "requiring genome uniqueness only SKIPS candidates with specificity < 1 from the same ordered stream, " +
+                         "so the unique-only probe set is a subset of the lenient one");
+            unique.Count.Should().BeLessThanOrEqualTo(lenient.Count,
+                because: "a stricter uniqueness requirement removes-or-keeps each candidate, never adds one — count is non-increasing");
+        }
+    }
+
+    [Test]
+    [Description("SUB endpoint: against a genome that fully duplicates the target every probe is non-unique, so requireUnique empties the result while the lenient design stays non-empty.")]
+    public void DesignProbes_FullyDuplicatedGenome_RequireUnique_EmptiesWhileLenientKeepsProbes()
+    {
+        foreach (var target in ProbeTargets())
+        {
+            string upper = target.ToUpperInvariant();
+            // Two full copies of the target ⇒ every probe (a substring of the target) occurs ≥ 2×.
+            var genome = global::SuffixTree.SuffixTree.Build(upper + "NNNNNNNN" + upper);
+
+            int uniqueCount = ProbeDesigner.DesignProbes(target, genome, Microarray, AllProbes, requireUnique: true).Count();
+            int lenientCount = ProbeDesigner.DesignProbes(target, genome, Microarray, AllProbes, requireUnique: false).Count();
+
+            lenientCount.Should().BeGreaterThan(0,
+                because: "the target yields probes, and the lenient design keeps non-unique candidates");
+            uniqueCount.Should().Be(0,
+                because: "every probe occurs in both target copies (specificity = 0.5 < 1), so the strict uniqueness filter removes them all");
+        }
+    }
+
+    #endregion
+
+    #region INV — appending an unrelated region preserves the originally designed probes
+
+    [Test]
+    [Description("INV: appending any unrelated downstream region preserves every original probe EXACTLY (same Start/Sequence/Tm/GC/Score/Warnings); the extended valid set is a superset.")]
+    public void DesignProbes_AppendUnrelatedRegion_PreservesOriginalProbesExactly()
+    {
+        foreach (var target in ProbeTargets())
+        {
+            var baseProbes = DesignAll(target, Microarray);
+            baseProbes.Should().NotBeEmpty(because: "each target is constructed to yield Microarray probes");
+
+            foreach (var ext in new[] { RandomDna(30), RandomDna(60), "GGGGCCCCAAAATTTT", NonPamRegion(40) })
+            {
+                var extById = DesignById(target + ext, Microarray);
+
+                foreach (var bp in baseProbes)
+                {
+                    extById.Should().ContainKey(ProbeId(bp),
+                        because: "windows lying entirely in the original target are byte-identical after a downstream append, " +
+                                 "so every original probe still appears");
+                    var twin = extById[ProbeId(bp)];
+
+                    twin.Sequence.Should().Be(bp.Sequence);
+                    twin.Tm.Should().Be(bp.Tm, because: "Tm depends only on the probe window, which the downstream append does not touch");
+                    twin.GcContent.Should().Be(bp.GcContent);
+                    twin.Score.Should().Be(bp.Score, because: "the heuristic score reads only the probe's own window, so a distant append cannot move it");
+                    twin.Warnings.Should().Equal(bp.Warnings, because: "warnings are recorded from the probe window alone");
+                }
+            }
+        }
+    }
+
+    [Test]
+    [Description("INV exact: with a poly-G tail ≥ MaxLength, a poly-G append creates no new candidate (every append-touching window is all-G ⇒ GC-rejected), so the designed probe set is exactly unchanged.")]
+    public void DesignProbes_PolyGTailThenPolyGAppend_DesignSetExactlyUnchanged()
+    {
+        // good region (~50% GC, yields probes) + poly-G tail of length ≥ MaxLength.
+        const string goodRegion = "ACGTGACTGACTGGATCAGTCAGTACGATCGATGCATGCATCGTAGCATGCATGCATGCAACGTGACTGACTGGATCAGT";
+        string tail = new string('G', Microarray.MaxLength + 4); // ≥ MaxLength ⇒ append windows start inside the tail
+        string baseSeq = goodRegion + tail;
+
+        var baseById = DesignById(baseSeq, Microarray);
+        baseById.Should().NotBeEmpty(because: "the balanced good region yields Microarray probes; the poly-G tail itself is GC-rejected");
+
+        foreach (int appendLen in new[] { 1, 10, 30 })
+        {
+            string extended = baseSeq + new string('G', appendLen);
+            var extById = DesignById(extended, Microarray);
+
+            extById.Keys.Should().BeEquivalentTo(baseById.Keys,
+                because: $"a poly-G×{appendLen} append after a poly-G tail of length ≥ MaxLength adds only all-G windows " +
+                         "(GC = 100% > MaxGc+0.1), which are early-rejected — so no probe is added or removed");
+
+            foreach (var (id, bp) in baseById)
+            {
+                var twin = extById[id];
+                twin.Sequence.Should().Be(bp.Sequence);
+                twin.Tm.Should().Be(bp.Tm);
+                twin.GcContent.Should().Be(bp.GcContent);
+                twin.Score.Should().Be(bp.Score, because: "the surviving probes are byte-identical windows, so every metric is preserved exactly");
+            }
+        }
+    }
+
+    #endregion
 
     #endregion
 }
