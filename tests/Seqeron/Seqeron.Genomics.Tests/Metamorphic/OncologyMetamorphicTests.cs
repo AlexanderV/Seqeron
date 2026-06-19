@@ -434,4 +434,66 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-ANNOT-001 — cancer-variant tier annotation (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 91.
+    //
+    // API under test (OncologyAnalyzer.AnnotateCancerVariants / ClassifyVariantTier):
+    //   Assigns each variant an AMP/ASCO/CAP 2017 tier from caller-supplied evidence
+    //   (evidence level, population MAF, cancer association). The tier is a pure function of
+    //   that evidence; the variant's identity fields (Gene/ProteinChange) are carried through
+    //   but do not affect the tier.
+    //
+    // Relations (derived from the per-variant tiering rule, NOT from output):
+    //   • INV  (identity shift ⇒ annotations shift equally): uniformly relabelling the variant
+    //          identity carries the annotation along unchanged — same tier, same per-variant order.
+    //          (The tiering API has no genomic coordinate; the identity field is the analog.)
+    //   • INV  (variant order independent): each variant is tiered independently, so the set of
+    //          (variant → tier) results does not depend on the input order.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private static OncologyAnalyzer.CancerVariantAnnotationInput[] TierPanel() => new[]
+    {
+        new OncologyAnalyzer.CancerVariantAnnotationInput("BRAF", "p.V600E", OncologyAnalyzer.ClinicalEvidenceLevel.A, 0.0, true),   // Tier I
+        new OncologyAnalyzer.CancerVariantAnnotationInput("KIT", "p.D816V", OncologyAnalyzer.ClinicalEvidenceLevel.C, 0.0, true),    // Tier II
+        new OncologyAnalyzer.CancerVariantAnnotationInput("XYZ1", "p.A1B", OncologyAnalyzer.ClinicalEvidenceLevel.None, 0.05, true), // Tier IV (MAF ≥ 1%)
+        new OncologyAnalyzer.CancerVariantAnnotationInput("XYZ2", "p.C2D", OncologyAnalyzer.ClinicalEvidenceLevel.None, 0.0001, true),// Tier III
+    };
+
+    #region ONCO-ANNOT-001 INV — a uniform identity shift carries annotations along unchanged
+
+    [Test]
+    [Description("INV: uniformly relabelling each variant's identity leaves its tier unchanged and carries the annotation onto the relabelled variant (annotations shift equally with the variants).")]
+    public void AnnotateCancerVariants_IdentityShift_ShiftsAnnotationsEqually()
+    {
+        var baseAnnotations = OncologyAnalyzer.AnnotateCancerVariants(TierPanel());
+
+        // Uniform "coordinate shift": relabel every gene by the same constant suffix.
+        var shifted = TierPanel().Select(v => v with { Gene = v.Gene + "@chr2" }).ToList();
+        var shiftedAnnotations = OncologyAnalyzer.AnnotateCancerVariants(shifted);
+
+        shiftedAnnotations.Select(a => a.Tier).Should().Equal(baseAnnotations.Select(a => a.Tier),
+            because: "the tier is a function of the evidence, invariant to a uniform identity shift");
+        shiftedAnnotations.Select(a => a.Variant.Gene).Should().Equal(shifted.Select(v => v.Gene),
+            because: "each annotation is carried onto its (shifted) variant");
+    }
+
+    #endregion
+
+    #region ONCO-ANNOT-001 INV — variant order independent
+
+    [Test]
+    [Description("INV: each variant is tiered independently, so the set of (gene → tier) results is the same for any ordering of the input.")]
+    public void AnnotateCancerVariants_VariantOrder_Independent()
+    {
+        var forward = OncologyAnalyzer.AnnotateCancerVariants(TierPanel())
+            .Select(a => (a.Variant.Gene, a.Tier)).ToHashSet();
+        var reversed = OncologyAnalyzer.AnnotateCancerVariants(TierPanel().Reverse())
+            .Select(a => (a.Variant.Gene, a.Tier)).ToHashSet();
+
+        reversed.Should().BeEquivalentTo(forward, because: "per-variant tiering has no cross-variant dependence");
+    }
+
+    #endregion
 }
