@@ -260,4 +260,108 @@ public class ChromosomeMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: CHROM-KARYO-001 — karyotype analysis (Chromosome).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 50.
+    //
+    // API under test (ChromosomeAnalyzer.AnalyzeKaryotype):
+    //   Aggregates (Name, Length, IsSexChromosome) records into a Karyotype: total/autosome/
+    //   sex counts, total and mean length, and per-base-name copy-number aneuploidy calls.
+    //
+    // Relations (derived from the aggregation, NOT from output):
+    //   • COMP (N chromosomes ⇒ N entries): TotalChromosomes = N, autosome + sex counts = N,
+    //          total genome size = Σ lengths, mean = total / N.
+    //   • INV (order independence): every output is an order-insensitive aggregate (count, sum,
+    //          group-by), so permuting the input chromosomes leaves the karyotype unchanged —
+    //          the list fields compared as sets.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region Karyotype helpers
+
+    private static List<(string Name, long Length, bool IsSexChromosome)> DiploidSet() => new()
+    {
+        ("chr1_1", 248_000_000, false), ("chr1_2", 248_000_000, false),
+        ("chr2_1", 242_000_000, false), ("chr2_2", 242_000_000, false),
+        ("chr3_1", 198_000_000, false), ("chr3_2", 198_000_000, false),
+        ("X", 156_000_000, true), ("Y", 57_000_000, true),
+    };
+
+    private static List<(string Name, long Length, bool IsSexChromosome)> AneuploidSet() => new()
+    {
+        ("chr1_1", 248_000_000, false), ("chr1_2", 248_000_000, false), ("chr1_3", 248_000_000, false), // trisomy
+        ("chr2_1", 242_000_000, false),                                                                  // monosomy
+        ("chr3_1", 198_000_000, false), ("chr3_2", 198_000_000, false),
+        ("X", 156_000_000, true), ("X", 156_000_000, true),
+    };
+
+    private List<(string Name, long Length, bool IsSexChromosome)> Shuffle(
+        List<(string, long, bool)> items)
+    {
+        var list = items.ToList();
+        for (int i = list.Count - 1; i > 0; i--)
+        {
+            int j = Rng.Next(i + 1);
+            (list[i], list[j]) = (list[j], list[i]);
+        }
+        return list;
+    }
+
+    #endregion
+
+    #region COMP — N input chromosomes give a karyotype of N entries
+
+    [Test]
+    [Description("COMP: the karyotype accounts for exactly the N input chromosomes — total = N, autosome + sex counts = N, total size = Σ lengths, mean = total / N.")]
+    public void AnalyzeKaryotype_AccountsForAllChromosomes()
+    {
+        foreach (var set in new[] { DiploidSet(), AneuploidSet() })
+        {
+            int n = set.Count;
+            long expectedTotal = set.Sum(c => c.Length);
+            int expectedSex = set.Count(c => c.IsSexChromosome);
+
+            var k = ChromosomeAnalyzer.AnalyzeKaryotype(set);
+
+            k.TotalChromosomes.Should().Be(n, because: "every input chromosome is counted exactly once");
+            (k.AutosomeCount + k.SexChromosomes.Count).Should().Be(n,
+                because: "each chromosome is classified as either an autosome or a sex chromosome");
+            k.SexChromosomes.Count.Should().Be(expectedSex, because: "the sex-chromosome count matches the flagged inputs");
+            k.TotalGenomeSize.Should().Be(expectedTotal, because: "the genome size is the sum of the chromosome lengths");
+            k.MeanChromosomeLength.Should().BeApproximately(expectedTotal / (double)n, 1e-6,
+                because: "the mean length is the total size divided by the chromosome count");
+        }
+    }
+
+    #endregion
+
+    #region INV — chromosome input order does not affect the karyotype
+
+    [Test]
+    [Description("INV: permuting the input chromosomes leaves every karyotype field unchanged, as all outputs are order-insensitive aggregates.")]
+    public void AnalyzeKaryotype_InputOrder_DoesNotAffectResult()
+    {
+        foreach (var set in new[] { DiploidSet(), AneuploidSet() })
+        {
+            var baseline = ChromosomeAnalyzer.AnalyzeKaryotype(set);
+
+            for (int trial = 0; trial < 5; trial++)
+            {
+                var shuffled = ChromosomeAnalyzer.AnalyzeKaryotype(Shuffle(set));
+
+                shuffled.TotalChromosomes.Should().Be(baseline.TotalChromosomes);
+                shuffled.AutosomeCount.Should().Be(baseline.AutosomeCount);
+                shuffled.TotalGenomeSize.Should().Be(baseline.TotalGenomeSize);
+                shuffled.MeanChromosomeLength.Should().BeApproximately(baseline.MeanChromosomeLength, 1e-6);
+                shuffled.PloidyLevel.Should().Be(baseline.PloidyLevel);
+                shuffled.HasAneuploidy.Should().Be(baseline.HasAneuploidy);
+                shuffled.SexChromosomes.Should().BeEquivalentTo(baseline.SexChromosomes,
+                    because: "the set of sex chromosomes is independent of input order");
+                shuffled.Abnormalities.Should().BeEquivalentTo(baseline.Abnormalities,
+                    because: "aneuploidy calls come from order-insensitive group-by counts");
+            }
+        }
+    }
+
+    #endregion
 }
