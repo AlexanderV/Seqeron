@@ -104,4 +104,57 @@ public class ProteinMotifMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: PROTMOTIF-PROSITE-001 — PROSITE-pattern motif finding (ProteinMotif).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 83.
+    //
+    // API under test (ProteinMotifFinder.FindMotifByProsite):
+    //   Compiles a PROSITE pattern (e.g. "C-x-C") to a regex and reports occurrences. A more
+    //   general pattern (wildcard where a specific residue stood) accepts a superset of strings.
+    //
+    // Relations (derived from PROSITE generalisation, NOT from output):
+    //   • SUB  (specific ⊆ general): replacing a fixed residue by the wildcard x can only add
+    //          matches, so the specific pattern's positions are a subset of the general one's.
+    //   • INV  (non-matching flank ⇒ same detection): appending a flank that cannot match leaves
+    //          the detected occurrences unchanged.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private static int[] PrositeStarts(string protein, string prosite) =>
+        ProteinMotifFinder.FindMotifByProsite(protein, prosite).Select(m => m.Start).OrderBy(s => s).ToArray();
+
+    #region PROTMOTIF-PROSITE-001 SUB — a specific pattern matches a subset of a general one
+
+    [Test]
+    [Description("SUB: generalising a fixed residue to the PROSITE wildcard x admits a superset, so the specific pattern's matches are a subset of the general pattern's.")]
+    public void FindMotifByProsite_SpecificPattern_SubsetOfGeneral()
+    {
+        const string protein = "CGCAC"; // CGC at 0, CAC at 2
+
+        var specific = PrositeStarts(protein, "C-G-C").ToHashSet();
+        var general = PrositeStarts(protein, "C-x-C").ToHashSet();
+
+        general.IsSupersetOf(specific).Should().BeTrue(
+            because: "C-x-C generalises C-G-C, so it matches at least everywhere C-G-C does");
+        general.Count.Should().BeGreaterThan(specific.Count,
+            because: "the wildcard additionally matches the C-A-C occurrence");
+    }
+
+    #endregion
+
+    #region PROTMOTIF-PROSITE-001 INV — a non-matching flank doesn't change detection
+
+    [Test]
+    [Description("INV: appending a flank that cannot match (no cysteine) leaves the detected PROSITE occurrences unchanged.")]
+    public void FindMotifByProsite_NonMatchingFlank_SameDetection()
+    {
+        const string protein = "CGCAC";
+        var baseline = PrositeStarts(protein, "C-x-C");
+
+        foreach (var flank in new[] { "WWWWW", "AAAAA", "GHGHGH" }) // cysteine-free, cannot form C-x-C
+            PrositeStarts(protein + flank, "C-x-C").Should().Equal(baseline,
+                because: "a flank that cannot match adds no occurrences and (appended) shifts none");
+    }
+
+    #endregion
 }
