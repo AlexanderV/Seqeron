@@ -48,7 +48,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 18 | ☑ | CRISPR-PAM-001 | MolTools | MON: longer sequence → ≥ PAM sites; INV: non-PAM region append → same count; SHIFT: flank shifts positions |
 | 19 | ☑ | CRISPR-GUIDE-001 | MolTools | SUB: guide from PAM site ⊂ valid guides; MON: stricter scoring → ≤ guides; INV: downstream change → same guide |
 | 20 | ☑ | CRISPR-OFF-001 | MolTools | MON: more mismatches → lower off-target score; MON: seed region mismatch penalized more; COMP: 0 mismatches → max score |
-| 21 | ☐ | PRIMER-TM-001 | MolTools | MON: add GC → Tm increases; MON: add AT → Tm decreases; INV: same sequence → same Tm |
+| 21 | ☑ | PRIMER-TM-001 | MolTools | MON: add GC → Tm increases; MON: add AT → Tm decreases; INV: same sequence → same Tm |
 | 22 | ☐ | PRIMER-DESIGN-001 | MolTools | MON: wider Tm range → ≥ primers; SUB: stricter GC% → ⊆ results; INV: longer template → ≥ candidates |
 | 23 | ☐ | PRIMER-STRUCT-001 | MolTools | MON: more self-complementary → higher dimer score; INV: non-complementary extension → same hairpin |
 | 24 | ☐ | PROBE-DESIGN-001 | MolTools | MON: wider Tm → ≥ probes; SUB: stricter uniqueness → ⊆ results; INV: unrelated region append → same probes |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 20 |
-| ☐ Not started | 214 |
+| ☑ Complete | 21 |
+| ☐ Not started | 213 |
 | MR relations defined | ~200+ |

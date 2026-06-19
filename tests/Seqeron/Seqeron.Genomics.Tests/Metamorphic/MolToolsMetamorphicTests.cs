@@ -19,7 +19,7 @@ namespace Seqeron.Genomics.Tests;
 ///
 /// ───────────────────────────────────────────────────────────────────────────
 /// Units: CRISPR-PAM-001 (PAM-site finding), CRISPR-GUIDE-001 (guide-RNA design),
-///        CRISPR-OFF-001 (off-target scoring).
+///        CRISPR-OFF-001 (off-target scoring), PRIMER-TM-001 (primer melting temperature).
 /// ───────────────────────────────────────────────────────────────────────────
 /// Unit: CRISPR-PAM-001 — CRISPR PAM-site finding (MolTools).
 /// Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 18.
@@ -859,6 +859,328 @@ public class MolToolsMetamorphicTests
                                  "so the specificity score cannot increase");
                 }
             }
+        }
+    }
+
+    #endregion
+
+    #endregion
+
+    #region PRIMER-TM-001 — melting temperature
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Unit: PRIMER-TM-001 — primer melting temperature (MolTools).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 21.
+    //
+    // API under test (PrimerDesigner.cs / ThermoConstants.cs):
+    //   PrimerDesigner.CalculateMeltingTemperature(string primer) → double (°C)
+    //     1. Uppercases the input; counts AT = #{A,T} and GC = #{G,C}; ignores any
+    //        non-ACGT character. validLength = AT + GC.
+    //     2. validLength == 0  ⇒ 0.
+    //     3. validLength <  14  ⇒ Wallace rule:  Tm = 2·AT + 4·GC
+    //                             (ThermoConstants.CalculateWallaceTm).
+    //     4. validLength >= 14  ⇒ Marmur-Doty:   Tm = max(0, 64.9 + 41·(GC − 16.4)/N)
+    //                             (ThermoConstants.CalculateMarmurDotyTm, clamped ≥ 0).
+    //   The branch threshold is ThermoConstants.WallaceMaxLength = 14 (counted bases).
+    //
+    // Source (formulas pinned from the spec, NOT from observed output):
+    //   docs/algorithms/Molecular_Tools/Melting_Temperature.md §2.2, §4.2, §2.4.
+    //     Wallace: A/T contributes +2 °C, G/C contributes +4 °C (INV-01, exact constants).
+    //     Marmur-Doty: depends only on GC count and counted length N (INV-02).
+    //     Longer-primer branch is clamped to ≥ 0 (INV-04).
+    //   ThermoConstants.WallaceAtContribution = 2, WallaceGcContribution = 4,
+    //   MarmurDotyBase = 64.9, MarmurDotyGcCoefficient = 41, MarmurDotyGcOffset = 16.4.
+    //
+    // ── Reconciling the checklist MR with the implemented formula ──
+    //   The checklist row reads: "MON: add GC → Tm increases; MON: add AT → Tm
+    //   decreases; INV: same sequence → same Tm". The literal "add AT → Tm decreases"
+    //   is FALSE under BOTH implemented branches if "add" means APPEND a base:
+    //     • Wallace: appending ANY base raises Tm (+2 for A/T, +4 for G/C) — never
+    //       decreases.
+    //     • Marmur-Doty: appending A/T raises N at fixed GC, so it can change Tm either
+    //       way depending on the current GC/N ratio — it is NOT monotone-down in general.
+    //   The defensible, formula-guaranteed readings encoded here are:
+    //     • INV — deterministic & case-insensitive: identical (up to case / ignored
+    //       non-ACGT padding) input ⇒ identical Tm. (Holds for both branches.)
+    //     • MON (GC contributes more than AT, APPEND) — appending a strong (G/C) base
+    //       raises Tm strictly MORE than appending a weak (A/T) base:
+    //       Tm(s+'G') > Tm(s+'A') and Tm(s+'C') > Tm(s+'T'). This is the honest reading
+    //       of "add GC ↑ vs add AT". (Both branches; see per-branch proof below.)
+    //     • MON (raise GC CONTENT at fixed length) — substituting an A/T position with a
+    //       G/C base (length unchanged) STRICTLY increases Tm; the converse G/C→A/T
+    //       STRICTLY decreases it. THIS is the precise, true sense of "add AT → Tm
+    //       decreases": at fixed length, swapping a strong base out for a weak one (i.e.
+    //       making the composition more AT-rich) lowers Tm. (Both branches.)
+    //     • Wallace EXACT increments — the doc pins the constants 2 (A/T) and 4 (G/C),
+    //       so in the short-oligo regime we additionally assert the exact deltas:
+    //       append G/C ⇒ +4, append A/T ⇒ +2, substitute A/T→G/C ⇒ +2.
+    //
+    //   Per-branch proof of the comparative-append relation Tm(s+strong) > Tm(s+weak),
+    //   with both extended strings kept inside the SAME branch:
+    //     • Wallace (|s|+1 < 14): Δ = +4 (strong) vs +2 (weak) ⇒ strict, gap exactly 2.
+    //     • Marmur-Doty (|s|+1 ≥ 14, same N = |s|+1 for both, both kept above the 0-clamp):
+    //         Tm(s+strong) − Tm(s+weak) = 41·(GC+1 − GC)/N = 41/N > 0 ⇒ strict.
+    //   The substitution relation at fixed length N:
+    //     • Wallace: one base flips A/T(+2)→G/C(+4) ⇒ Δ = +2 (strict).
+    //     • Marmur-Doty: N fixed, GC ↑ by 1 ⇒ Δ = 41/N > 0 (strict; the unclamped value
+    //       only rises, so max(0,·) preserves the strict order whenever the larger one is
+    //       positive — guaranteed when we build GC-rich enough inputs).
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>Counted-base branch threshold: validLength &lt; 14 ⇒ Wallace, else Marmur-Doty.</summary>
+    private const int WallaceMaxLen = 14; // == ThermoConstants.WallaceMaxLength
+
+    private static double Tm(string primer) => PrimerDesigner.CalculateMeltingTemperature(primer);
+
+    /// <summary>A random DNA string over {A,C,G,T} of the given length (fixed-seed <see cref="Rng"/>).</summary>
+    private static string RandomDnaTm(int length) => RandomDna(length);
+
+    /// <summary>
+    /// SHORT bodies (extended length stays &lt; 14 counted bases) — the Wallace regime,
+    /// where exact +2 / +4 increments hold. Each is GC/AT-balanced enough that an append
+    /// keeps the result inside the short-oligo branch.
+    /// </summary>
+    private static IEnumerable<string> ShortBodies()
+    {
+        yield return "A";
+        yield return "ACGT";
+        yield return "AATT";
+        yield return "GCGC";
+        yield return "ACGTACG";       // 7-mer
+        yield return "ACGTACGTAC";    // 10-mer
+        yield return "AAATTTGGGCC";   // 11-mer, mixed
+    }
+
+    /// <summary>
+    /// LONG bodies whose appended/substituted variants stay in the Marmur-Doty regime
+    /// (≥ 14 counted bases) AND keep Tm above the 0-clamp, so the strict comparative
+    /// relations are theoretically guaranteed. They are GC-bearing (GC ≥ ~50%) and
+    /// length ≥ 14, giving 64.9 + 41·(GC−16.4)/N well above 0.
+    /// </summary>
+    private static IEnumerable<string> LongBodies()
+    {
+        yield return "ACGTACGTACGTAC";                    // 14-mer, 50% GC
+        yield return "ACGTACGTACGTACGT";                  // 16-mer
+        yield return "GCGCGCGCGCGCGCGCGC";                // 18-mer, GC-rich
+        yield return "ACGTACGTACGTACGTACGT";              // 20-mer, 50% GC
+        yield return "GGCCGGCCGGCCGGCCGGCCGGCC";          // 24-mer, GC-rich
+        yield return SanitizeGcRich(RandomDnaTm(30));     // fixed-seed random, GC-bearing
+        yield return SanitizeGcRich(RandomDnaTm(50));
+    }
+
+    /// <summary>
+    /// Forces a sequence to carry a healthy GC fraction (every A/T at an even index is
+    /// turned into G/C) so its Marmur-Doty Tm sits safely above the 0-clamp — keeping the
+    /// strict comparative relations in their guaranteed region.
+    /// </summary>
+    private static string SanitizeGcRich(string s)
+    {
+        var c = s.ToCharArray();
+        for (int i = 0; i < c.Length; i += 2)
+            if (c[i] is 'A' or 'T')
+                c[i] = (i % 4 == 0) ? 'G' : 'C';
+        return new string(c);
+    }
+
+    #region INV — same sequence → same Tm (deterministic, case-insensitive)
+
+    [Test]
+    [Description("INV: CalculateMeltingTemperature is deterministic — identical input yields identical Tm across repeated calls.")]
+    public void CalculateMeltingTemperature_SameSequence_IsDeterministic()
+    {
+        foreach (var seq in ShortBodies().Concat(LongBodies()))
+        {
+            double first = Tm(seq);
+            for (int i = 0; i < 5; i++)
+                Tm(seq).Should().Be(first,
+                    because: "Tm is a pure function of base counts and length, so repeated calls on the same input must agree exactly");
+        }
+    }
+
+    [Test]
+    [Description("INV: Tm is case-insensitive — the implementation uppercases input, so lower/mixed case gives the same Tm.")]
+    public void CalculateMeltingTemperature_CaseFolding_PreservesTm()
+    {
+        foreach (var seq in ShortBodies().Concat(LongBodies()))
+        {
+            double upper = Tm(seq.ToUpperInvariant());
+
+            Tm(seq.ToLowerInvariant()).Should().Be(upper,
+                because: "the implementation calls ToUpperInvariant before counting bases, so case carries no information");
+
+            // Mixed case: alternate the case of every other character.
+            var mixed = new string(seq.Select((ch, i) => i % 2 == 0 ? char.ToUpperInvariant(ch) : char.ToLowerInvariant(ch)).ToArray());
+            Tm(mixed).Should().Be(upper,
+                because: "case folding is total, so any case pattern of the same letters yields the same counted A/T and G/C");
+        }
+    }
+
+    [Test]
+    [Description("INV: non-ACGT characters are ignored, so interleaving them (same A/C/G/T in order) leaves Tm unchanged.")]
+    public void CalculateMeltingTemperature_NonAcgtPadding_PreservesTm()
+    {
+        // The spec (§3.3, §5.2) states only A/C/G/T contribute to the counted length;
+        // every other character is ignored. So padding with N/-/spaces is a no-op for Tm.
+        foreach (var seq in ShortBodies().Concat(LongBodies()))
+        {
+            double clean = Tm(seq);
+            string padded = string.Concat(seq.Select(ch => ch + "N-")); // sprinkle ignored chars
+            Tm(padded).Should().Be(clean,
+                because: "only A/C/G/T are counted, so non-DNA characters cannot change the counted A/T, G/C, or length");
+        }
+    }
+
+    #endregion
+
+    #region MON — appending a G/C base raises Tm strictly more than appending an A/T base
+
+    [Test]
+    [Description("MON (Wallace): in the short-oligo regime, appending a G/C base adds exactly +4 °C and an A/T base exactly +2 °C, so Tm(s+strong) > Tm(s+weak) by exactly 2.")]
+    public void CalculateMeltingTemperature_AppendStrongVsWeak_Wallace_ExactIncrements()
+    {
+        foreach (var body in ShortBodies())
+        {
+            // Keep the extended string strictly inside the Wallace branch (< 14 counted).
+            if (body.Length + 1 >= WallaceMaxLen)
+                continue;
+
+            double baseTm = Tm(body);
+
+            foreach (char gc in new[] { 'G', 'C' })
+            {
+                Tm(body + gc).Should().Be(baseTm + ThermoConstants.WallaceGcContribution,
+                    because: $"the Wallace rule adds exactly +{ThermoConstants.WallaceGcContribution} °C for a G/C base appended to '{body}'");
+            }
+
+            foreach (char at in new[] { 'A', 'T' })
+            {
+                Tm(body + at).Should().Be(baseTm + ThermoConstants.WallaceAtContribution,
+                    because: $"the Wallace rule adds exactly +{ThermoConstants.WallaceAtContribution} °C for an A/T base appended to '{body}'");
+            }
+
+            // The comparative MR: strong append strictly beats weak append (gap = 4 − 2 = 2).
+            Tm(body + 'G').Should().BeGreaterThan(Tm(body + 'A'),
+                because: "appending a strong (G/C) base raises Tm more than appending a weak (A/T) base — the honest reading of 'add GC ↑ vs add AT'");
+            Tm(body + 'C').Should().BeGreaterThan(Tm(body + 'T'),
+                because: "G/C contributes +4 vs A/T's +2 in the Wallace rule, so the strong append wins");
+            (Tm(body + 'G') - Tm(body + 'A')).Should().Be(
+                ThermoConstants.WallaceGcContribution - ThermoConstants.WallaceAtContribution,
+                because: "the exact Wallace gap between a strong and a weak append is 4 − 2 = 2 °C");
+        }
+    }
+
+    [Test]
+    [Description("MON (Marmur-Doty): in the long-oligo regime, appending a G/C base raises Tm strictly more than appending an A/T base (Δ = 41/N > 0).")]
+    public void CalculateMeltingTemperature_AppendStrongVsWeak_MarmurDoty_StrictOrder()
+    {
+        foreach (var body in LongBodies())
+        {
+            // Both extended strings share N = body.Length + 1 ≥ 14 (same Marmur-Doty branch).
+            (body.Length + 1).Should().BeGreaterThanOrEqualTo(WallaceMaxLen,
+                because: "the long-body fixture is constructed so the appended variant stays in the Marmur-Doty branch");
+
+            double withG = Tm(body + 'G');
+            double withC = Tm(body + 'C');
+            double withA = Tm(body + 'A');
+            double withT = Tm(body + 'T');
+
+            // GC-rich bodies keep all four extensions above the 0-clamp, so the strict
+            // unclamped order survives the Math.Max(0, ·).
+            withG.Should().BeGreaterThan(withA,
+                because: "at the same length N, the G append has one more G/C than the A append, adding 41/N > 0 °C");
+            withC.Should().BeGreaterThan(withT,
+                because: "at the same length N, the C append has one more G/C than the T append, adding 41/N > 0 °C");
+
+            // A/T appends are interchangeable, and so are G/C appends (Tm depends on GC count, not identity).
+            withG.Should().Be(withC, because: "Marmur-Doty Tm depends only on GC COUNT and N, so G and C appends are equivalent");
+            withA.Should().Be(withT, because: "Marmur-Doty Tm depends only on GC COUNT and N, so A and T appends are equivalent");
+        }
+    }
+
+    #endregion
+
+    #region MON — raising GC CONTENT at fixed length raises Tm (substitution); lowering it (→AT) decreases Tm
+
+    [Test]
+    [Description("MON (Wallace): substituting an A/T position with a G/C base at fixed length raises Tm by exactly +2 °C; the reverse G/C→A/T lowers it by 2 — the precise sense of 'add AT → Tm decreases'.")]
+    public void CalculateMeltingTemperature_SubstituteAtToGc_Wallace_RaisesByTwo()
+    {
+        // Short, in-Wallace bodies that contain at least one A/T to upgrade.
+        foreach (var body in new[] { "AATT", "ACGTACG", "ACGTACGTAC", "AAATTTGGGCC" })
+        {
+            body.Length.Should().BeLessThan(WallaceMaxLen, because: "this sub-test asserts exact Wallace increments");
+
+            int idx = body.IndexOfAny(new[] { 'A', 'T' });
+            idx.Should().BeGreaterThanOrEqualTo(0, because: "the body must contain a weak base to upgrade");
+
+            double baseTm = Tm(body);
+            string upgraded = body[..idx] + 'G' + body[(idx + 1)..]; // A/T → G, length unchanged
+
+            Tm(upgraded).Should().Be(baseTm + (ThermoConstants.WallaceGcContribution - ThermoConstants.WallaceAtContribution),
+                because: "swapping a weak (A/T, +2) base for a strong (G/C, +4) one at fixed length raises Wallace Tm by exactly +2 °C");
+
+            // The DUAL, encoding 'add AT → Tm decreases' literally: G/C → A/T strictly lowers Tm.
+            int gcIdx = body.IndexOfAny(new[] { 'G', 'C' });
+            if (gcIdx >= 0)
+            {
+                string atified = body[..gcIdx] + 'A' + body[(gcIdx + 1)..]; // G/C → A, length unchanged
+                Tm(atified).Should().Be(baseTm - (ThermoConstants.WallaceGcContribution - ThermoConstants.WallaceAtContribution),
+                    because: "making the composition more AT-rich at fixed length (G/C → A/T) lowers Wallace Tm by exactly 2 °C");
+                Tm(atified).Should().BeLessThan(baseTm,
+                    because: "this is the literal, formula-true reading of 'add AT → Tm decreases': swapping a strong base for a weak one at fixed length");
+            }
+        }
+    }
+
+    [Test]
+    [Description("MON (Marmur-Doty): at fixed length, raising GC content (A/T → G/C) strictly raises Tm and lowering it (G/C → A/T) strictly lowers Tm.")]
+    public void CalculateMeltingTemperature_RaiseGcContentAtFixedLength_MarmurDoty_StrictlyMonotone()
+    {
+        foreach (var body in LongBodies())
+        {
+            body.Length.Should().BeGreaterThanOrEqualTo(WallaceMaxLen, because: "fixed-length substitution must stay in the Marmur-Doty branch");
+
+            double baseTm = Tm(body);
+
+            // Upgrade one A/T position to G/C (length fixed) ⇒ Tm strictly UP.
+            int weakIdx = body.IndexOfAny(new[] { 'A', 'T' });
+            if (weakIdx >= 0)
+            {
+                string upgraded = body[..weakIdx] + 'G' + body[(weakIdx + 1)..];
+                Tm(upgraded).Should().BeGreaterThan(baseTm,
+                    because: "at fixed N, one more G/C raises GC by 1 and adds 41/N > 0 °C — higher GC content ⇒ higher Tm");
+            }
+
+            // Downgrade one G/C position to A/T (length fixed) ⇒ Tm strictly DOWN.
+            int strongIdx = body.IndexOfAny(new[] { 'G', 'C' });
+            if (strongIdx >= 0)
+            {
+                string downgraded = body[..strongIdx] + 'A' + body[(strongIdx + 1)..];
+                Tm(downgraded).Should().BeLessThan(baseTm,
+                    because: "at fixed N, one fewer G/C lowers GC by 1 and subtracts 41/N > 0 °C — the precise sense of 'add AT → Tm decreases'");
+            }
+        }
+    }
+
+    [Test]
+    [Description("MON: along a chain that flips A/T positions to G/C one at a time at FIXED length, Tm is strictly increasing (monotone in GC content).")]
+    public void CalculateMeltingTemperature_GcContentChain_FixedLength_StrictlyIncreasing()
+    {
+        // Start from an all-AT 20-mer (Marmur-Doty branch, GC = 0) and flip positions to
+        // G one by one. Each flip keeps N = 20 and raises GC by 1, so Tm strictly rises.
+        var chars = "ATATATATATATATATATAT".ToCharArray(); // 20 nt, all weak
+        chars.Length.Should().BeGreaterThanOrEqualTo(WallaceMaxLen);
+
+        double previous = Tm(new string(chars));
+        for (int i = 0; i < chars.Length; i++)
+        {
+            if (chars[i] is not ('A' or 'T'))
+                continue;
+            chars[i] = 'G'; // upgrade weak → strong, length unchanged
+            double current = Tm(new string(chars));
+            current.Should().BeGreaterThan(previous,
+                because: $"flipping position {i} from A/T to G raises GC content at fixed length, so Tm strictly increases (+41/N)");
+            previous = current;
         }
     }
 
