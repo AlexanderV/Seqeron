@@ -1602,4 +1602,53 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-CTDNA-001 — ctDNA detection probability (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 111.
+    //
+    // API under test (OncologyAnalyzer.CtDnaDetectionProbability):
+    //   Poisson model p = 1 − e^(−λ), λ = n·d·k (n genome equivalents, d mutant allele fraction,
+    //   k reporters). Probability is count-based — it depends only on the aggregate λ.
+    //
+    // Relations (derived from p = 1 − e^(−n·d·k), NOT from output):
+    //   • MON  (spiking tumor signal ⇒ ≥ detection probability): p is non-decreasing in the
+    //          mutant allele fraction d (and in n and k).
+    //   • INV  (read order / aggregation independent): p depends only on λ = n·d·k, so equal λ
+    //          (however the reads are partitioned) gives equal p.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region ONCO-CTDNA-001 MON — more tumor signal raises the detection probability
+
+    [Test]
+    [Description("MON: the ctDNA detection probability is non-decreasing in the mutant allele fraction (spiking tumor reads).")]
+    public void CtDna_HigherMutantFraction_HigherDetection()
+    {
+        double previous = double.MinValue;
+        foreach (double d in new[] { 0.0, 0.0001, 0.001, 0.01, 0.1 })
+        {
+            double p = OncologyAnalyzer.CtDnaDetectionProbability(10_000, d);
+            p.Should().BeGreaterThanOrEqualTo(previous, because: $"a higher mutant allele fraction ({d}) cannot lower detection probability");
+            previous = p;
+        }
+    }
+
+    #endregion
+
+    #region ONCO-CTDNA-001 INV — probability depends only on the aggregate λ
+
+    [Test]
+    [Description("INV: the detection probability depends only on λ = n·d·k, so different read aggregations with the same λ give the same probability.")]
+    public void CtDna_EqualLambda_SameProbability()
+    {
+        // λ = 100 expected mutant molecules computed three ways.
+        double a = OncologyAnalyzer.CtDnaDetectionProbability(10_000, 0.01, 1);
+        double b = OncologyAnalyzer.CtDnaDetectionProbability(1_000, 0.10, 1);
+        double c = OncologyAnalyzer.CtDnaDetectionProbability(1_000, 0.05, 2);
+
+        b.Should().BeApproximately(a, 1e-12, because: "λ = n·d·k = 100 is the same partition of the tumor signal");
+        c.Should().BeApproximately(a, 1e-12, because: "moving signal between n, d and k leaves λ — and p — unchanged");
+    }
+
+    #endregion
 }

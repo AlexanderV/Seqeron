@@ -138,7 +138,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 108 | ☑ | ONCO-CLONAL-001 | Oncology | MON: higher CCF keeps a clonal call clonal; INV: variant order independent |
 | 109 | ☑ | ONCO-NEO-001 | Oncology | INV: flanking-context shift preserves the peptide set tiling the mutation |
 | 110 | ☑ | ONCO-MHC-001 | Oncology | MON: lower IC50 → stronger-or-equal binding class; INV: peptide order independent |
-| 111 | ☐ | ONCO-CTDNA-001 | Oncology | MON: spiking tumor reads → ≥ ctDNA fraction; INV: read order independent |
+| 111 | ☑ | ONCO-CTDNA-001 | Oncology | MON: spiking tumor signal → ≥ detection probability; INV: depends only on aggregate λ (read order/aggregation independent) |
 | 112 | ☐ | ONCO-MRD-001 | Oncology | MON: observing more tracked variants keeps MRD positive; INV: variant order independent |
 | 113 | ☐ | ONCO-CHIP-001 | Oncology | SUB: survivors ⊆ input; INV: duplicating a CHIP variant keeps it flagged |
 | 114 | ☐ | ONCO-PHYLO-001 | Oncology | INV: sample relabeling preserves topology; SYM: pairwise clone distance symmetric |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 110 |
-| ☐ Not started | 124 |
+| ☑ Complete | 111 |
+| ☐ Not started | 123 |
 | MR relations defined | ~200+ |
