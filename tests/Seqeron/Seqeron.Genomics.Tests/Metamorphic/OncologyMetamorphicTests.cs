@@ -367,4 +367,71 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-ARTIFACT-001 — sequencing-artifact filtering (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 90.
+    //
+    // API under test (OncologyAnalyzer.FilterArtifacts / ClassifyArtifact):
+    //   Removes variants flagged as artifacts: FFPE deamination (C>T/G>A) always, OxoG (G>T/C>A)
+    //   when the read-orientation imbalance GIV = altR1/altR2 exceeds the damaged threshold (1.5).
+    //   Survivors = candidates not flagged; each variant is judged independently.
+    //
+    // Relations (derived from the substitution+GIV rule, NOT from output):
+    //   • MON  (stricter artifact evidence ⇒ subset of survivors): survivors are always a subset
+    //          of the candidates, and raising an OxoG variant's GIV can only remove it — once the
+    //          damage evidence crosses the threshold the variant never re-enters the survivor set.
+    //   • INV  (duplicate a passing variant ⇒ still passing): per-variant judgement, so a copy of
+    //          a surviving variant also survives (and a copy of an artifact stays filtered).
+    // ───────────────────────────────────────────────────────────────────────────
+
+    // A>G is not an artifact substitution class → always a survivor.
+    private static OncologyAnalyzer.ArtifactObservation PassingVariant() =>
+        new('A', 'G', 10, 10, 5, 5, 5, 5);
+
+    // G>T is OxoG: artifact iff GIV = altR1/altR2 > 1.5.
+    private static OncologyAnalyzer.ArtifactObservation OxoG(int altR1, int altR2) =>
+        new('G', 'T', 10, 10, 5, 5, altR1, altR2);
+
+    #region ONCO-ARTIFACT-001 MON — survivors are a subset and shrink with damage evidence
+
+    [Test]
+    [Description("MON: FilterArtifacts returns a subset of the candidates, and raising an OxoG variant's GIV imbalance can only remove it from the survivors (monotone survivorship across the damage threshold).")]
+    public void FilterArtifacts_StricterEvidence_SubsetOfSurvivors()
+    {
+        bool SurvivesOxoG(int altR1, int altR2) =>
+            OncologyAnalyzer.FilterArtifacts(new[] { OxoG(altR1, altR2) }).Count == 1;
+
+        // GIV = altR1/altR2: 0.5, 1.0, 1.5 survive (≤ 1.5); 2.0, 3.0 are filtered.
+        SurvivesOxoG(5, 10).Should().BeTrue(because: "GIV 0.5 ≤ 1.5 is not damaged");
+        SurvivesOxoG(15, 10).Should().BeTrue(because: "GIV 1.5 is at the threshold, not above it");
+        SurvivesOxoG(20, 10).Should().BeFalse(because: "GIV 2.0 > 1.5 is OxoG damage → filtered");
+        SurvivesOxoG(30, 10).Should().BeFalse(because: "stronger imbalance stays filtered — survivorship is monotone in GIV");
+
+        // Subset invariant: survivors ⊆ candidates.
+        var candidates = new[] { PassingVariant(), OxoG(5, 10), OxoG(30, 10), PassingVariant() };
+        var survivors = OncologyAnalyzer.FilterArtifacts(candidates);
+        survivors.Count.Should().BeLessThanOrEqualTo(candidates.Length);
+        survivors.Should().OnlyContain(v => candidates.Contains(v), because: "every survivor is one of the candidates");
+    }
+
+    #endregion
+
+    #region ONCO-ARTIFACT-001 INV — duplicating a passing variant keeps it passing
+
+    [Test]
+    [Description("INV: variants are judged independently, so duplicating a passing variant keeps both copies passing (and duplicating an artifact keeps both filtered).")]
+    public void FilterArtifacts_DuplicatePassingVariant_StillPasses()
+    {
+        var passing = PassingVariant();
+        OncologyAnalyzer.FilterArtifacts(new[] { passing }).Should().ContainSingle();
+        OncologyAnalyzer.FilterArtifacts(new[] { passing, passing }).Count
+            .Should().Be(2, because: "a duplicate of a surviving variant is judged identically and also survives");
+
+        var ffpe = new OncologyAnalyzer.ArtifactObservation('C', 'T', 10, 10, 5, 5, 5, 5); // FFPE deamination → always artifact
+        OncologyAnalyzer.FilterArtifacts(new[] { ffpe, ffpe })
+            .Should().BeEmpty(because: "duplicating an artifact keeps both copies filtered");
+    }
+
+    #endregion
 }
