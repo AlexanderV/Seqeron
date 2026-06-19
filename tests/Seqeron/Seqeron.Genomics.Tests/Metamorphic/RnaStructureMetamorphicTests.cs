@@ -212,4 +212,108 @@ public class RnaStructureMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: RNA-ENERGY-001 — stem free-energy (RnaStructure).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 73.
+    //
+    // API under test (RnaSecondaryStructure.CalculateStemEnergy):
+    //   Sums the Turner-2004 nearest-neighbour stacking energy over consecutive base pairs of
+    //   a helix, plus a +0.45 terminal AU/GU penalty at each end that closes with an AU/GU
+    //   pair. The energy is a pure function of the ordered base-pair list (more negative ⇒
+    //   more stable). G:C steps are far more stabilising than A:U steps.
+    //
+    // Relations (derived from the additive nearest-neighbour model, NOT from output):
+    //   • INV  (same structure ⇒ same ΔG): the energy is deterministic and depends only on the
+    //          base identities/order, not on the absolute positions of the pairs.
+    //   • MON  (more G:C stacks ⇒ lower ΔG): replacing A:U steps by G:C steps strictly lowers
+    //          the energy (all-G:C < mixed < all-A:U at equal length).
+    //   • COMP (additivity): for an all-G:C helix (no terminal penalty), the total energy equals
+    //          the sum of its consecutive two-pair stacking-step energies.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region RNA-ENERGY-001 — Helpers
+
+    /// <summary>Builds a helix base-pair list (5'→3') from (Base1,Base2) pairs, positions offset-shifted.</summary>
+    private static List<RnaSecondaryStructure.BasePair> Helix(int offset, params (char A, char B)[] pairs)
+    {
+        int n = pairs.Length;
+        var list = new List<RnaSecondaryStructure.BasePair>(n);
+        for (int i = 0; i < n; i++)
+        {
+            var (a, b) = pairs[i];
+            var type = (a == 'G' && b == 'U') || (a == 'U' && b == 'G')
+                ? RnaSecondaryStructure.BasePairType.Wobble
+                : RnaSecondaryStructure.BasePairType.WatsonCrick;
+            list.Add(new RnaSecondaryStructure.BasePair(offset + i, offset + 2 * n - 1 - i, a, b, type));
+        }
+        return list;
+    }
+
+    private static (char, char)[] Repeat((char A, char B) pair, int count) =>
+        Enumerable.Repeat(pair, count).ToArray();
+
+    private static double StemEnergy(List<RnaSecondaryStructure.BasePair> pairs) =>
+        RnaSecondaryStructure.CalculateStemEnergy("", pairs);
+
+    #endregion
+
+    #region RNA-ENERGY-001 INV — energy is deterministic and position-independent
+
+    [Test]
+    [Description("INV: the stem energy is a pure function of the ordered base-pair list — identical across repeated calls and unchanged when all pair positions are shifted by a constant.")]
+    public void StemEnergy_SameStructure_SameEnergy()
+    {
+        var pairs = new[] { ('G', 'C'), ('A', 'U'), ('G', 'C'), ('C', 'G') };
+
+        double first = StemEnergy(Helix(0, pairs));
+        double again = StemEnergy(Helix(0, pairs));
+        double shifted = StemEnergy(Helix(100, pairs)); // same bases/order, different absolute positions
+
+        again.Should().Be(first, because: "the energy function has no hidden state");
+        shifted.Should().Be(first, because: "stacking energy depends on the base identities and order, not on absolute positions");
+    }
+
+    #endregion
+
+    #region RNA-ENERGY-001 MON — more G:C stacks lower the free energy
+
+    [Test]
+    [Description("MON: at equal helix length, replacing A:U steps with G:C steps strictly lowers ΔG — all-G:C < mixed < all-A:U.")]
+    public void StemEnergy_MoreGcStacks_LowerEnergy()
+    {
+        const int n = 6;
+
+        double allGc = StemEnergy(Helix(0, Repeat(('G', 'C'), n)));
+        double allAu = StemEnergy(Helix(0, Repeat(('A', 'U'), n)));
+        double mixed = StemEnergy(Helix(0,
+            Repeat(('G', 'C'), n / 2).Concat(Repeat(('A', 'U'), n / 2)).ToArray()));
+
+        allGc.Should().BeLessThan(mixed,
+            because: "an all-G:C helix stacks more strongly (and pays no terminal AU/GU penalty) than a half-A:U helix");
+        mixed.Should().BeLessThan(allAu,
+            because: "replacing A:U steps with G:C steps lowers the free energy");
+    }
+
+    #endregion
+
+    #region RNA-ENERGY-001 COMP — total energy is the sum of its stacking steps
+
+    [Test]
+    [Description("COMP: for an all-G:C helix (which carries no terminal penalty), the total stem energy equals the sum of its consecutive two-pair stacking-step energies.")]
+    public void StemEnergy_AllGc_IsSumOfStackingSteps()
+    {
+        var helix = Helix(0, Repeat(('G', 'C'), 6));
+
+        double total = StemEnergy(helix);
+
+        double sumOfSteps = 0;
+        for (int i = 0; i < helix.Count - 1; i++)
+            sumOfSteps += StemEnergy(new List<RnaSecondaryStructure.BasePair> { helix[i], helix[i + 1] });
+
+        total.Should().BeApproximately(sumOfSteps, 1e-6,
+            because: "the nearest-neighbour model is additive over dinucleotide steps when no terminal penalty intervenes");
+    }
+
+    #endregion
 }
