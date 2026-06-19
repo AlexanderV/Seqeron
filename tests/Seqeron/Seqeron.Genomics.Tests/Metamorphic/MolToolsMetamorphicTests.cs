@@ -2537,4 +2537,161 @@ public class MolToolsMetamorphicTests
     #endregion
 
     #endregion
+
+    #region RESTR-DIGEST-001 — restriction digest simulation
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Unit: RESTR-DIGEST-001 — restriction digest simulation (MolTools).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 27.
+    //
+    // API under test (RestrictionAnalyzer.Digest, LINEAR topology = default overload):
+    //   Digest(seq, params enzymeNames)
+    //     1. collect DISTINCT forward-strand cut positions over all enzymes (a SortedSet,
+    //        forward strand only to avoid double-counting palindromes).
+    //     2. zero cuts ⇒ a single fragment = the whole sequence.
+    //     3. otherwise fragments span consecutive boundaries of {0} ∪ cuts ∪ {|seq|};
+    //        zero-length pieces (a cut at 0 or |seq|) are dropped.
+    //   k distinct interior cut positions ⇒ k+1 fragments; the fragments TILE the sequence.
+    //
+    // Relation DIRECTIONS (derived from the partition definition, NOT from observed output):
+    //   Source: docs/algorithms/MolTools/Restriction_Digest_Simulation.md; RestrictionAnalyzer.Digest.
+    //
+    //   • COMP (0 sites → 1 fragment = full seq): with no cut position the source returns the
+    //     entire molecule as one fragment (Sequence = seq, Length = |seq|, Start = 0, no
+    //     flanking enzymes). The documented endpoint.
+    //   • MON (more enzymes → ≥ fragments): cut positions are a SET unioned over enzymes, so
+    //     adding an enzyme can only ADD cut positions; each new interior cut splits one
+    //     fragment into two and coincident/boundary cuts leave the count unchanged — the
+    //     fragment count is NON-DECREASING in the enzyme set.
+    //   • INV (fragment sum = seq length): the cut boundaries partition [0,|seq|], so the
+    //     fragment lengths telescope to exactly |seq| and the fragments concatenate back to
+    //     the original sequence — for ANY enzyme set, with or without cuts.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private static List<DigestFragment> Digest(string body, params string[] enzymes)
+        => RestrictionAnalyzer.Digest(new DnaSequence(body), enzymes).ToList();
+
+    /// <summary>Bodies for digest relations: multi-site, single-enzyme, no-site, and fixed-seed random.</summary>
+    private static IEnumerable<string> DigestBodies()
+    {
+        yield return RestrMultiBody;                 // sites for EcoRI, BamHI, HindIII, XhoI
+        yield return RestrBody("GAATTC");            // two EcoRI sites
+        yield return "AAAAAAAAAAAAAAAAAAAA";          // no site for the enzymes used below
+        yield return RandomDna(80);
+        yield return RandomDna(120);
+    }
+
+    private static readonly string[][] DigestEnzymeSets =
+    {
+        new[] { "EcoRI" },
+        new[] { "EcoRI", "BamHI" },
+        new[] { "EcoRI", "BamHI", "HindIII", "XhoI" },
+    };
+
+    #region COMP — a sequence with no recognition site digests to a single full-length fragment
+
+    [Test]
+    [Description("COMP: digesting a sequence that contains no recognition site yields exactly ONE fragment equal to the whole input sequence.")]
+    public void Digest_NoRecognitionSite_ReturnsSingleFullLengthFragment()
+    {
+        const string noSiteBody = "AAAAAAAAAAAAAAAAAAAA"; // contains no GAATTC / GGATCC / AAGCTT
+
+        foreach (var enzymes in new[] { new[] { "EcoRI" }, new[] { "EcoRI", "BamHI", "HindIII" } })
+        {
+            var fragments = Digest(noSiteBody, enzymes);
+
+            fragments.Should().ContainSingle(because: "with no cut site the molecule is returned intact as one fragment");
+            var only = fragments[0];
+            only.Sequence.Should().Be(noSiteBody, because: "the single fragment is the entire input sequence");
+            only.Length.Should().Be(noSiteBody.Length);
+            only.StartPosition.Should().Be(0);
+            only.LeftEnzyme.Should().BeNull(because: "an uncut fragment has no flanking enzyme on the left");
+            only.RightEnzyme.Should().BeNull(because: "an uncut fragment has no flanking enzyme on the right");
+        }
+    }
+
+    #endregion
+
+    #region MON — adding enzymes never reduces the fragment count
+
+    [Test]
+    [Description("MON: along a growing enzyme chain the fragment count is non-decreasing — each added cutter only splits fragments, never merges them.")]
+    public void Digest_AddingEnzymes_FragmentCountNonDecreasing()
+    {
+        string[][] chain =
+        {
+            new[] { "EcoRI" },
+            new[] { "EcoRI", "BamHI" },
+            new[] { "EcoRI", "BamHI", "HindIII" },
+            new[] { "EcoRI", "BamHI", "HindIII", "XhoI" },
+        };
+
+        int previousCount = -1;
+        int firstCount = -1;
+        foreach (var enzymes in chain)
+        {
+            int count = Digest(RestrMultiBody, enzymes).Count;
+            if (firstCount < 0) firstCount = count;
+
+            count.Should().BeGreaterThanOrEqualTo(previousCount,
+                because: $"adding cutters to {string.Join("+", enzymes)} unions in more cut positions, each splitting a fragment — the count cannot drop");
+            previousCount = count;
+        }
+
+        previousCount.Should().BeGreaterThan(firstCount,
+            because: "the body carries a distinct site per enzyme, so the four-enzyme digest yields strictly more fragments than the single-enzyme one — the relation is exercised");
+    }
+
+    #endregion
+
+    #region INV — fragments partition the sequence: lengths sum to |seq| and concatenate back
+
+    [Test]
+    [Description("INV: for any enzyme set the fragment lengths sum to exactly the sequence length, and the fragments concatenate back to the original sequence — a digest is a partition.")]
+    public void Digest_Fragments_TileTheSequence()
+    {
+        foreach (var body in DigestBodies())
+        {
+            foreach (var enzymes in DigestEnzymeSets)
+            {
+                var fragments = Digest(body, enzymes);
+
+                fragments.Should().NotBeEmpty(because: "a linear digest always yields at least the whole molecule");
+                fragments.Should().OnlyContain(f => f.Length > 0, because: "zero-length boundary pieces are dropped");
+
+                fragments.Sum(f => f.Length).Should().Be(body.Length,
+                    because: "the cut boundaries partition [0,|seq|], so the fragment lengths telescope to the full length");
+
+                string reconstructed = string.Concat(fragments.OrderBy(f => f.StartPosition).Select(f => f.Sequence));
+                reconstructed.Should().Be(body,
+                    because: "the fragments are the consecutive pieces between cuts, so concatenating them in position order rebuilds the input exactly");
+            }
+        }
+    }
+
+    [Test]
+    [Description("INV: the fragment count equals the number of distinct forward-strand cut positions plus one (interior cuts), confirming the k cuts → k+1 fragments partition rule.")]
+    public void Digest_FragmentCount_EqualsInteriorCutsPlusOne()
+    {
+        foreach (var body in DigestBodies())
+        {
+            foreach (var enzymes in DigestEnzymeSets)
+            {
+                var forwardCuts = enzymes
+                    .SelectMany(e => RestrictionAnalyzer.FindSites(new DnaSequence(body), e))
+                    .Where(s => s.IsForwardStrand)
+                    .Select(s => s.CutPosition)
+                    .Where(c => c > 0 && c < body.Length)   // interior cuts produce real fragment boundaries
+                    .Distinct()
+                    .Count();
+
+                Digest(body, enzymes).Count.Should().Be(forwardCuts + 1,
+                    because: "k distinct interior forward-strand cut positions split a linear molecule into k+1 fragments");
+            }
+        }
+    }
+
+    #endregion
+
+    #endregion
 }
