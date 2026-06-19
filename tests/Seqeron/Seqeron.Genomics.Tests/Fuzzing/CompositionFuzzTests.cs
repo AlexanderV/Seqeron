@@ -62,6 +62,56 @@ namespace Seqeron.Genomics.Tests;
 /// (SequenceExtensions.cs lines 17–58, matching Biopython gc_fraction "remove").
 /// We pin that contract too, so the boundary between the strict public API and
 /// the lenient primitive is explicit and cannot silently drift.
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: SEQ-COMP-001 — DNA complement (Composition)
+/// Checklist: docs/checklists/03_FUZZING.md, row 2.
+/// Fuzz strategies exercised for THIS unit:
+///   • BE  = Boundary Exploitation — empty string, single char, null.
+///   • INJ = Injection — non-DNA characters, mixed case, unicode (accented
+///           Latin, Greek, combining marks, full-width look-alikes, and
+///           astral/surrogate-pair code points).
+/// — docs/checklists/03_FUZZING.md §Description (strategy codes).
+///
+/// The DNA-complement contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// DNA complement maps A↔T and C↔G (Watson–Crick base pairing).
+///   — docs/algorithms/Sequence_Composition/RNA_Complement.md §2.1–2.2 (the DNA
+///     sibling GetComplementBase, explicitly cited there as SEQ-COMP-001);
+///     docs/mcp/tools/sequence/complement_base.md.
+///
+/// SEQ-COMP-001 has TWO documented surfaces with DIFFERENT, intentional contracts.
+/// Fuzzing must pin both, and pin the boundary between them so neither can drift:
+///
+/// (1) The STRICT public path — DnaSequence.Complement()
+///     (src/Seqeron/Algorithms/Seqeron.Genomics.Core/DnaSequence.cs lines 54–62),
+///     which validates its input at construction (DnaSequence ctor +
+///     ValidateSequence, lines 22–33 / 112–124):
+///       • null or empty string  → an empty sequence; Complement() is the empty
+///         sequence; no exception (string.IsNullOrEmpty short-circuit). A defined
+///         result, NOT an error.
+///       • input is case-folded with ToUpperInvariant before validation, so
+///         lowercase / mixed case a-c-g-t is accepted and complements identically
+///         to uppercase.
+///       • ANY character that is not A/C/G/T after upper-casing (digits,
+///         whitespace, N/IUPAC ambiguity codes, U, unicode letters, combining
+///         marks, astral code points) → a *documented, intentional*
+///         ArgumentException from ValidateSequence. The validation gate, not a
+///         crash and not a silent mis-complement.
+///
+/// (2) The LENIENT char/span primitive — SequenceExtensions.GetComplementBase
+///     (SequenceExtensions.cs lines 137–157) and the span overload
+///     ReadOnlySpan&lt;char&gt;.TryGetComplement (lines 204–215). By separate
+///     documented design (RNA_Complement.md §3.3, the DNA sibling) this surface:
+///       • is IUPAC-complete: A↔T, C↔G, U→A, and the eleven ambiguity codes
+///         (R↔Y, S↔S, W↔W, K↔M, B↔V, D↔H, N↔N);
+///       • is case-insensitive and always emits UPPERCASE for recognized symbols;
+///       • passes ANY non-IUPAC character (gaps, digits, whitespace, '\0',
+///         unicode letters, surrogate halves) THROUGH UNCHANGED and NEVER throws;
+///       • on an empty span succeeds and writes nothing — no exception, no hang.
+///     We pin this so the lenient/strict boundary is explicit: the same garbage
+///     that the public DnaSequence path REJECTS, the primitive must carry through
+///     without crashing.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -299,6 +349,232 @@ public class CompositionFuzzTests
         result.Should().BeApproximately(expected, Tolerance,
             because: "non-A/T/G/C/U symbols are excluded from both numerator and denominator (remove mode)");
     }
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  SEQ-COMP-001 — DNA complement
+    //  Strict public path: DnaSequence.Complement() (validates at construction)
+    //  Lenient primitive:  SequenceExtensions.GetComplementBase / TryGetComplement
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region SEQ-COMP-001 — DNA complement
+
+    #region INJ — Injection: non-DNA characters (strict path rejects)
+
+    /// <summary>
+    /// INJ: characters that are not A/C/G/T after upper-casing must be rejected by
+    /// the strict public DnaSequence path with the *documented, intentional*
+    /// ArgumentException (DnaSequence ctor → ValidateSequence, lines 22–33 /
+    /// 112–124) BEFORE any complement is taken — never a silent mis-complement and
+    /// never a raw runtime exception. Covers digits, whitespace, punctuation/gap,
+    /// the ambiguity code N, the RNA base U (DNA does not accept U), and an
+    /// embedded null byte.
+    /// </summary>
+    [TestCase("N", TestName = "Complement_NonDna_AmbiguityCodeN_Throws")]
+    [TestCase("ACGTN", TestName = "Complement_NonDna_TrailingN_Throws")]
+    [TestCase("ACGU", TestName = "Complement_NonDna_RnaBaseU_Throws")]
+    [TestCase("ACGT123", TestName = "Complement_NonDna_Digits_Throws")]
+    [TestCase("AC GT", TestName = "Complement_NonDna_Whitespace_Throws")]
+    [TestCase("ACGT-", TestName = "Complement_NonDna_GapDash_Throws")]
+    [TestCase("ACG\0T", TestName = "Complement_NonDna_EmbeddedNullByte_Throws")]
+    public void Complement_NonDnaCharacters_ThrowDocumentedArgumentException(string input)
+    {
+        var act = () => _ = new DnaSequence(input).Complement();
+
+        act.Should().Throw<ArgumentException>(
+            "non-A/C/G/T input is rejected at construction by the documented validation gate, " +
+            "so the complement is never computed on garbage and never crashes");
+    }
+
+    #endregion
+
+    #region BE — Boundary: empty string (strict path)
+
+    /// <summary>
+    /// BE: the empty string is the lower size boundary. The strict DnaSequence
+    /// path defines it as an empty sequence (DnaSequence.cs lines 24–28); its
+    /// complement is therefore the empty sequence — no division, no indexing, no
+    /// exception. Complement of nothing is nothing.
+    /// </summary>
+    [Test]
+    public void Complement_EmptyString_IsEmptyAndDoesNotThrow()
+    {
+        var act = () =>
+        {
+            var complement = new DnaSequence(string.Empty).Complement();
+            complement.Length.Should().Be(0);
+            complement.Sequence.Should().BeEmpty(
+                because: "the complement of an empty sequence is the empty sequence");
+        };
+
+        act.Should().NotThrow("the empty string is a defined boundary input, not an error");
+    }
+
+    #endregion
+
+    #region INJ / BE — Injection: null (strict path treats as empty)
+
+    /// <summary>
+    /// INJ/BE: a null reference is the boundary of "no input". The strict
+    /// DnaSequence path defines null as an empty sequence (string.IsNullOrEmpty
+    /// short-circuit, DnaSequence.cs lines 24–28), so Complement() must NOT throw
+    /// NullReferenceException and must yield the empty sequence. Pins that null is
+    /// handled gracefully rather than dereferenced.
+    /// </summary>
+    [Test]
+    public void Complement_NullSequence_IsTreatedAsEmptyAndDoesNotThrow()
+    {
+        var act = () =>
+        {
+            var complement = new DnaSequence(null!).Complement();
+            complement.Length.Should().Be(0);
+            complement.Sequence.Should().BeEmpty();
+        };
+
+        act.Should().NotThrow<NullReferenceException>(
+            "null must be handled by the documented IsNullOrEmpty gate, never dereferenced");
+        act.Should().NotThrow(
+            "null is a defined 'empty sequence' input on the public path, not an error");
+    }
+
+    #endregion
+
+    #region INJ — Injection: mixed case (strict path accepts, case-folded)
+
+    /// <summary>
+    /// INJ: mixed and lower case input is accepted by the strict path — it is
+    /// upper-cased before validation (ToUpperInvariant, DnaSequence.cs line 30) —
+    /// and must complement IDENTICALLY to the uppercase form, always emitting
+    /// uppercase A/T/G/C. This guards that case-folding neither rejects valid DNA
+    /// nor corrupts the A↔T / C↔G mapping.
+    /// </summary>
+    [TestCase("acgt", "ACGT", TestName = "Complement_MixedCase_AllLower_FoldsAndComplements")]
+    [TestCase("AcGt", "ACGT", TestName = "Complement_MixedCase_Alternating_FoldsAndComplements")]
+    [TestCase("aCgT", "ACGT", TestName = "Complement_MixedCase_AlternatingInverse_FoldsAndComplements")]
+    public void Complement_MixedCase_FoldsToUppercaseAndComplements(string input, string upper)
+    {
+        // The complement of A/C/G/T is T/G/C/A; computed once on the canonical
+        // uppercase form, it must equal the complement of the mixed-case input.
+        string expected = new DnaSequence(upper).Complement().Sequence;
+
+        var complement = new DnaSequence(input).Complement();
+
+        complement.Sequence.Should().Be(expected,
+            because: "input is case-folded before complementing; case must not change the result");
+        complement.Sequence.Should().MatchRegex("^[ACGT]*$",
+            because: "the complement always emits uppercase canonical bases");
+    }
+
+    #endregion
+
+    #region INJ — Injection: unicode (strict path rejects)
+
+    /// <summary>
+    /// INJ: unicode injection — accented Latin, Greek letters, combining
+    /// diacritics, full-width look-alikes, and astral/surrogate-pair code points.
+    /// None are A/C/G/T, so the strict DnaSequence path must reject every one with
+    /// the documented ArgumentException — never an IndexOutOfRange/encoding
+    /// surprise from surrogate handling. The astral case (😀, a surrogate pair)
+    /// specifically guards char-by-char validation against crashing on the
+    /// high/low surrogate halves before the complement is ever taken.
+    /// </summary>
+    [TestCase("ÀCGT", TestName = "Complement_Unicode_AccentedLatin_Throws")]
+    [TestCase("ACGTα", TestName = "Complement_Unicode_GreekLetter_Throws")]
+    [TestCase("ÁCGT", TestName = "Complement_Unicode_CombiningAcute_Throws")]
+    [TestCase("ＡＣＧＴ", TestName = "Complement_Unicode_FullWidthLatin_Throws")]
+    [TestCase("ACG😀T", TestName = "Complement_Unicode_AstralSurrogatePair_Throws")]
+    public void Complement_UnicodeCharacters_ThrowDocumentedArgumentException(string input)
+    {
+        var act = () => _ = new DnaSequence(input).Complement();
+
+        act.Should().Throw<ArgumentException>(
+            "unicode characters are not valid nucleotides; the validation gate must reject them " +
+            "via ArgumentException, including surrogate-pair (astral) code points");
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Lenient primitive: GetComplementBase / span TryGetComplement
+    //  (IUPAC-complete; non-IUPAC passes through unchanged; never throws)
+    // ───────────────────────────────────────────────────────────────────
+
+    #region INJ — lenient primitive: non-DNA / unicode pass through, never throw
+
+    /// <summary>
+    /// The lenient char primitive must NEVER throw on any char and, by its
+    /// documented contract (RNA_Complement.md §3.3, the DNA sibling), must pass
+    /// any non-IUPAC character through UNCHANGED. Recognized IUPAC symbols are
+    /// complemented and emitted uppercase (A↔T, C↔G, U→A, N↔N, R↔Y). This pins
+    /// that injection (digits, gap, whitespace, null byte, unicode letters,
+    /// surrogate halves) cannot crash or silently corrupt the recognized mapping.
+    /// </summary>
+    [TestCase('A', 'T', TestName = "GetComplementBase_A_IsT")]
+    [TestCase('C', 'G', TestName = "GetComplementBase_C_IsG")]
+    [TestCase('U', 'A', TestName = "GetComplementBase_U_IsA")]
+    [TestCase('N', 'N', TestName = "GetComplementBase_AmbiguityN_IsN")]
+    [TestCase('R', 'Y', TestName = "GetComplementBase_AmbiguityR_IsY")]
+    [TestCase('1', '1', TestName = "GetComplementBase_Digit_PassesThrough")]
+    [TestCase('-', '-', TestName = "GetComplementBase_GapDash_PassesThrough")]
+    [TestCase(' ', ' ', TestName = "GetComplementBase_Whitespace_PassesThrough")]
+    [TestCase('\0', '\0', TestName = "GetComplementBase_NullByte_PassesThrough")]
+    [TestCase('α', 'α', TestName = "GetComplementBase_GreekLetter_PassesThrough")]
+    [TestCase('Z', 'Z', TestName = "GetComplementBase_NonIupacLetter_PassesThrough")]
+    [TestCase('\uD83D', '\uD83D', TestName = "GetComplementBase_HighSurrogateHalf_PassesThrough")]
+    [TestCase('\uDE00', '\uDE00', TestName = "GetComplementBase_LowSurrogateHalf_PassesThrough")]
+    public void GetComplementBase_AnyChar_NeverThrowsAndPassesNonIupacThrough(char input, char expected)
+    {
+        char result = '￿';
+        var act = () => result = SequenceExtensions.GetComplementBase(input);
+
+        act.Should().NotThrow("the lenient primitive is total over char and never throws");
+        result.Should().Be(expected,
+            because: "recognized IUPAC symbols are complemented (uppercase); everything else passes through unchanged");
+    }
+
+    /// <summary>
+    /// The lenient span complement must carry a mix of recognized and non-IUPAC
+    /// garbage through char-by-char without throwing: recognized bases are
+    /// complemented and uppercased, every other character (gap, digit, null byte)
+    /// is preserved verbatim. This pins that injected garbage interspersed with
+    /// real bases neither crashes nor shifts the complement of the valid bases.
+    /// </summary>
+    [Test]
+    public void TryGetComplement_GarbageInterspersed_ComplementsBasesAndPreservesGarbage()
+    {
+        const string input = "aC-G1N\0T";       // mixed case, gap, digit, N, null byte
+        Span<char> destination = new char[input.Length];
+
+        bool ok = input.AsSpan().TryGetComplement(destination);
+
+        ok.Should().BeTrue("the destination is exactly the source length");
+        new string(destination).Should().Be("TG-C1N\0A",
+            because: "A→T C→G G→C T→A N→N (uppercase), and non-IUPAC '-','1','\\0' pass through unchanged");
+    }
+
+    #endregion
+
+    #region BE — lenient primitive: empty span
+
+    /// <summary>
+    /// BE: the empty span is the lower size boundary for the lenient primitive.
+    /// TryGetComplement must succeed (destination length ≥ source length holds
+    /// trivially) and write nothing — no exception, no hang, no out-of-range.
+    /// </summary>
+    [Test]
+    public void TryGetComplement_EmptySpan_SucceedsAndWritesNothing()
+    {
+        var act = () =>
+        {
+            bool ok = ReadOnlySpan<char>.Empty.TryGetComplement(Span<char>.Empty);
+            ok.Should().BeTrue("an empty complement always fits an empty destination");
+        };
+
+        act.Should().NotThrow("the empty span is a defined boundary, not an error");
+    }
+
+    #endregion
 
     #endregion
 }
