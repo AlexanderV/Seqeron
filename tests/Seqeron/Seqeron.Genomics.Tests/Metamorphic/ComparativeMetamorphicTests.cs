@@ -384,4 +384,59 @@ public class ComparativeMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: COMPGEN-RBH-001 — reciprocal best hits with hit metrics (Comparative).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 136.
+    //
+    // API under test (ComparativeGenomics.FindReciprocalBestHits):
+    //   The dedicated RBH entry point, returning each pair with its identity, coverage and
+    //   alignment length. Distinct from COMPGEN-ORTHO-001 in also checking the reported metrics.
+    //
+    // Relations (derived from the symmetric similarity score, NOT from output):
+    //   • SYM  (RBH symmetric): the k-mer similarity is symmetric, so swapping the genomes reverses
+    //          each pair AND preserves its identity/coverage.
+    //   • INV  (input order independent): the matching is unique with deterministic tie-breaking, so
+    //          permuting the gene order in each genome preserves the pairs and their metrics.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    // Maps each unordered gene pair to its rounded (identity, coverage) hit metrics.
+    private static Dictionary<string, (double Id, double Cov)> RbhMetrics(
+        IReadOnlyList<ComparativeGenomics.Gene> g1, IReadOnlyList<ComparativeGenomics.Gene> g2) =>
+        ComparativeGenomics.FindReciprocalBestHits(g1, g2)
+            .ToDictionary(o => UnorderedPair(o.Gene1Id, o.Gene2Id),
+                         o => (System.Math.Round(o.Identity, 9), System.Math.Round(o.Coverage, 9)));
+
+    #region COMPGEN-RBH-001 SYM — RBH is symmetric, metrics included
+
+    [Test]
+    [Description("SYM: the similarity score is symmetric, so FindReciprocalBestHits(A,B) and (B,A) report the same pairs (reversed) with identical identity and coverage.")]
+    public void Rbh_SwapGenomes_SamePairsAndMetrics()
+    {
+        var a = GenomeOf("A", 0, 1, 2, 20);
+        var b = GenomeOf("B", 0, 1, 2, 24);
+
+        RbhMetrics(b, a).Should().BeEquivalentTo(RbhMetrics(a, b),
+            because: "k-mer Jaccard identity and coverage do not depend on which sequence is the query");
+    }
+
+    #endregion
+
+    #region COMPGEN-RBH-001 INV — RBH is independent of input order
+
+    [Test]
+    [Description("INV: with deterministic tie-breaking the reciprocal-best-hit matching depends only on the gene sequences, so permuting the input order preserves both the pairs and their metrics.")]
+    public void Rbh_PermuteInputOrder_SamePairsAndMetrics()
+    {
+        var a = GenomeOf("A", 0, 1, 2, 20);
+        var b = GenomeOf("B", 0, 1, 2, 24);
+
+        var aShuffled = ((IEnumerable<ComparativeGenomics.Gene>)a).Reverse().ToList();
+        var bShuffled = ((IEnumerable<ComparativeGenomics.Gene>)b).Reverse().ToList();
+
+        RbhMetrics(aShuffled, bShuffled).Should().BeEquivalentTo(RbhMetrics(a, b),
+            because: "the RBH matching is a function of the sequence set, not the input order");
+    }
+
+    #endregion
 }
