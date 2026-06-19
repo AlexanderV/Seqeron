@@ -1959,4 +1959,54 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-HLA-001 — HLA allele parsing / normalisation (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 117.
+    //
+    // API under test (OncologyAnalyzer.ParseHlaAllele):
+    //   Parses a WHO-nomenclature HLA allele name into a canonical HlaAllele (gene upper-cased,
+    //   case-insensitive prefix/suffix, trimmed) whose .Name is the canonical string.
+    //
+    // Relations (derived from canonical normalisation, NOT from output):
+    //   • INV  (normalisation stable / idempotent): re-parsing the canonical Name reproduces it.
+    //   • INV  (spelling normalisation stable): case- and whitespace-variant spellings of the
+    //          same allele normalise to the identical canonical Name. (The API parses an allele
+    //          string, not reads; the checklist's "read order independent" reduces to this
+    //          normalisation stability.)
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region ONCO-HLA-001 INV — canonical normalisation is idempotent
+
+    [Test]
+    [Description("INV: re-parsing the canonical Name of a parsed allele reproduces the same canonical Name (a normalisation fixed point).")]
+    public void ParseHlaAllele_Normalisation_Idempotent()
+    {
+        foreach (var name in new[] { "HLA-A*02:01", "HLA-B*07:02:01", "HLA-A*02:01:01:02L" })
+        {
+            string canonical = OncologyAnalyzer.ParseHlaAllele(name).Name;
+            OncologyAnalyzer.ParseHlaAllele(canonical).Name.Should().Be(canonical,
+                because: "the canonical name is a fixed point of parse∘Name");
+        }
+    }
+
+    #endregion
+
+    #region ONCO-HLA-001 INV — spelling variants normalise identically
+
+    [Test]
+    [Description("INV: case- and whitespace-variant spellings of the same allele normalise to the identical canonical Name.")]
+    public void ParseHlaAllele_SpellingVariants_SameCanonical()
+    {
+        const string canonical = "HLA-A*02:01";
+        foreach (var variant in new[] { "hla-a*02:01", " HLA-A*02:01 ", "HLA-a*02:01", "hLa-A*02:01" })
+            OncologyAnalyzer.ParseHlaAllele(variant).Name.Should().Be(canonical,
+                because: $"'{variant}' is the same allele under case/whitespace normalisation");
+
+        // Case-insensitive expression suffix normalises to the canonical upper-case form.
+        OncologyAnalyzer.ParseHlaAllele("hla-a*02:01:01:02l").Name.Should().Be("HLA-A*02:01:01:02L",
+            because: "the expression-status suffix is normalised to upper case");
+    }
+
+    #endregion
 }

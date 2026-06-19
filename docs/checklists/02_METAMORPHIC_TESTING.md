@@ -144,7 +144,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 114 | ☑ | ONCO-PHYLO-001 | Oncology | INV: sample-column permutation preserves topology; SYM: pairwise clone distance symmetric |
 | 115 | ☑ | ONCO-CCF-001 | Oncology | MON: higher VAF → ≥ CCF at fixed CN/purity; INV: variant order independent |
 | 116 | ☑ | ONCO-HETERO-001 | Oncology | INV: scaling all VAFs equally preserves MATH; MON: wider VAF spread → ≥ heterogeneity |
-| 117 | ☐ | ONCO-HLA-001 | Oncology | INV: read order independent; INV: allele-string normalisation stable |
+| 117 | ☑ | ONCO-HLA-001 | Oncology | INV: normalisation idempotent; INV: allele-string normalisation stable (case/whitespace) — API parses an allele string, not reads |
 | 118 | ☐ | ONCO-ACTION-001 | Oncology | MON: stronger evidence → ≥ tier; INV: variant order independent |
 | 119 | ☐ | ONCO-SV-001 | Oncology | INV: coordinate shift preserves rearrangement class; MON: more clustered breakpoints → chromothripsis |
 | 120 | ☐ | ONCO-EXPR-001 | Oncology | INV: scaling all expression equally preserves z-scores/outliers; MON: lower threshold → superset |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 116 |
-| ☐ Not started | 118 |
+| ☑ Complete | 117 |
+| ☐ Not started | 117 |
 | MR relations defined | ~200+ |
