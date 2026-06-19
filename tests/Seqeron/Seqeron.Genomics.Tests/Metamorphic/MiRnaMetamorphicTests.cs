@@ -211,4 +211,84 @@ public class MiRnaMetamorphicTests
         sites.Select(s => (s.Start, s.End, s.Type)).ToHashSet();
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: MIRNA-PRECURSOR-001 — pre-miRNA hairpin prediction (MiRNA).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 76.
+    //
+    // API under test (MiRnaAnalyzer.FindPreMiRnaHairpins):
+    //   Treats a window as a pre-miRNA hairpin when its two ends pair into a stem of ≥18 bp
+    //   closing a 3–25 nt loop. The dot-bracket structure marks the stem as '('…')' and the
+    //   loop as '.', and the folding free energy sums Turner stem-stacking terms (negative)
+    //   plus loop/terminal corrections. The stem is detected from the arms (ends) only.
+    //
+    // Relations (derived from the stem/loop model, NOT from output):
+    //   • MON  (extend stem ⇒ more stable): lengthening the complementary stem adds stacking
+    //          terms, lowering (more negative) the precursor free energy.
+    //   • INV  (loop sequence ⇒ same classification): with the arms and loop length fixed,
+    //          changing the loop's interior bases leaves the dot-bracket structure (and the
+    //          loop-boundary-only energy) unchanged.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    // A pure G:C arm so every added stem step is a strongly stabilising stack.
+    private const string GcArm = "GCGCGCGCGCGCGCGCGCGCGCGCGCGCGC"; // 30 nt
+
+    /// <summary>A hairpin = (L-base G:C arm) + loop + reverse-complement of the arm.</summary>
+    private static string Hairpin(int armLength, string loop) =>
+        GcArm.Substring(0, armLength) + loop + MiRnaAnalyzer.GetReverseComplement(GcArm.Substring(0, armLength));
+
+    /// <summary>The full-length precursor (the designed hairpin spanning the whole sequence).</summary>
+    private static MiRnaAnalyzer.PreMiRna FullHairpin(string sequence) =>
+        MiRnaAnalyzer.FindPreMiRnaHairpins(sequence).Single(p => p.Start == 0 && p.End == sequence.Length - 1);
+
+    #region MIRNA-PRECURSOR-001 MON — a longer stem yields a more stable precursor
+
+    [Test]
+    [Description("MON: lengthening the complementary stem adds stacking terms, so the precursor free energy strictly decreases (more stable).")]
+    public void Precursor_LongerStem_MoreStable()
+    {
+        // Fixed 19-nt loop with non-pairing 'A' boundaries; only the stem length changes.
+        string loop = "A" + new string('C', 17) + "A";
+
+        double previousEnergy = double.MaxValue;
+        foreach (int armLength in new[] { 18, 20, 22, 24 })
+        {
+            double energy = FullHairpin(Hairpin(armLength, loop)).FreeEnergy;
+
+            energy.Should().BeLessThan(previousEnergy,
+                because: $"a {armLength}-bp stem adds stacking pairs beyond the shorter stem, lowering ΔG");
+            previousEnergy = energy;
+        }
+    }
+
+    #endregion
+
+    #region MIRNA-PRECURSOR-001 INV — loop content does not change the structure classification
+
+    [Test]
+    [Description("INV: with the arms and loop length fixed, changing the loop's interior bases leaves the dot-bracket structure (and the loop-boundary-only energy) unchanged.")]
+    public void Precursor_LoopContent_DoesNotChangeClassification()
+    {
+        const int armLength = 20;
+
+        // Same 19-nt loop length and 'A' boundaries; only the interior 17 bases differ.
+        var reference = FullHairpin(Hairpin(armLength, "A" + new string('C', 17) + "A"));
+
+        foreach (var interior in new[]
+                 {
+                     new string('G', 17),
+                     new string('U', 17),
+                     "ACGUACGUACGUACGUA",
+                 })
+        {
+            var variant = FullHairpin(Hairpin(armLength, "A" + interior + "A"));
+
+            variant.Structure.Should().Be(reference.Structure,
+                because: "the stem is detected from the arms only, so loop interior content does not change the dot-bracket");
+            variant.FreeEnergy.Should().Be(reference.FreeEnergy,
+                because: "stem stacking, loop initiation and the fixed loop-boundary terminal terms are all independent of the loop interior");
+        }
+    }
+
+    #endregion
 }
