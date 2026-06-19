@@ -147,4 +147,64 @@ public class AssemblyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ASSEMBLY-COVER-001 — per-base coverage depth (Assembly).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 142.
+    //
+    // API under test (SequenceAssembler.CalculateCoverage):
+    //   Each read is placed independently at its best ungapped match and increments the depth of the
+    //   reference positions it spans. Depth at a position is the count of reads covering it.
+    //
+    // Relations (derived from independent per-read placement, NOT from output):
+    //   • INV  (read order independent): each read's contribution is independent of the others, so
+    //          permuting the reads yields the identical depth array.
+    //   • ADD  (coverage additive over reads): the depth of a combined read set equals the
+    //          element-wise sum of the depths of any partition of that set.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private const string CoverageReference = "ACGTTGCAACGTGGATCCGTACGATCGATT";
+    private const int CoverageMinOverlap = 6;
+
+    // Exact substrings of the reference, so every read places at its origin.
+    private static readonly string[] CoverageReads =
+    {
+        CoverageReference.Substring(0, 10),
+        CoverageReference.Substring(5, 12),
+        CoverageReference.Substring(12, 10),
+        CoverageReference.Substring(20, 10),
+    };
+
+    #region ASSEMBLY-COVER-001 INV — coverage is independent of read order
+
+    [Test]
+    [Description("INV: each read is placed independently, so reversing (permuting) the read order yields the identical per-base depth array.")]
+    public void Coverage_ReadOrder_Invariant()
+    {
+        var original = SequenceAssembler.CalculateCoverage(CoverageReference, CoverageReads, CoverageMinOverlap);
+        var permuted = SequenceAssembler.CalculateCoverage(CoverageReference, CoverageReads.Reverse().ToList(), CoverageMinOverlap);
+
+        permuted.Should().Equal(original, because: "per-read placement does not depend on the order of the reads");
+    }
+
+    #endregion
+
+    #region ASSEMBLY-COVER-001 ADD — coverage is additive over a read partition
+
+    [Test]
+    [Description("ADD: each read contributes independently, so the depth of the full read set equals the element-wise sum of the depths of any two-part partition.")]
+    public void Coverage_Additive_OverReadPartition()
+    {
+        var all = SequenceAssembler.CalculateCoverage(CoverageReference, CoverageReads, CoverageMinOverlap);
+
+        var firstHalf = CoverageReads.Take(2).ToList();
+        var secondHalf = CoverageReads.Skip(2).ToList();
+        var covFirst = SequenceAssembler.CalculateCoverage(CoverageReference, firstHalf, CoverageMinOverlap);
+        var covSecond = SequenceAssembler.CalculateCoverage(CoverageReference, secondHalf, CoverageMinOverlap);
+
+        var summed = covFirst.Zip(covSecond, (x, y) => x + y).ToArray();
+        all.Should().Equal(summed, because: "depth is a sum of independent per-read contributions, so it is additive over any partition of the reads");
+    }
+
+    #endregion
 }
