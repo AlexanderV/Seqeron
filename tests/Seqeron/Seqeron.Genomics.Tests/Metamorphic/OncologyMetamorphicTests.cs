@@ -558,4 +558,52 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-MSI-001 — microsatellite instability score (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 93.
+    //
+    // API under test (OncologyAnalyzer.CalculateMSIScore / DetectMSI):
+    //   MSI score = unstable loci / total valid loci. DetectMSI counts the unstable flags.
+    //
+    // Relations (derived from the fraction definition, NOT from output):
+    //   • MON  (more unstable loci ⇒ ≥ score): at fixed total, more unstable loci raise the score.
+    //   • INV  (locus order independent): the score is a count ratio — flag order is irrelevant.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region ONCO-MSI-001 MON — more unstable loci raise the MSI score
+
+    [Test]
+    [Description("MON: at a fixed total locus count, increasing the number of unstable loci strictly raises the MSI score.")]
+    public void Msi_MoreUnstableLoci_HigherScore()
+    {
+        const int total = 50;
+        double previous = double.MinValue;
+        foreach (int unstable in new[] { 0, 5, 20, 50 })
+        {
+            double score = OncologyAnalyzer.CalculateMSIScore(unstable, total);
+            if (unstable > 0) score.Should().BeGreaterThan(previous, because: "more unstable loci at fixed total raise unstable/total");
+            previous = score;
+        }
+    }
+
+    #endregion
+
+    #region ONCO-MSI-001 INV — locus order independent
+
+    [Test]
+    [Description("INV: DetectMSI counts unstable flags, so the score is independent of the order of the locus flags.")]
+    public void Msi_LocusOrder_Independent()
+    {
+        var flags = new[] { true, false, true, true, false, false, true, false };
+
+        var forward = OncologyAnalyzer.DetectMSI(flags);
+        var reversed = OncologyAnalyzer.DetectMSI(flags.Reverse());
+
+        reversed.Score.Should().Be(forward.Score, because: "the MSI score is a count ratio, independent of flag order");
+        reversed.UnstableLoci.Should().Be(forward.UnstableLoci);
+        reversed.Status.Should().Be(forward.Status);
+    }
+
+    #endregion
 }
