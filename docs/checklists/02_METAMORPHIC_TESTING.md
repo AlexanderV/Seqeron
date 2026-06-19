@@ -239,7 +239,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 209 | ☑ | POP-SELECT-001 | PopGen | INV: locus order independent; MON: stronger selection → higher signal |
 | 210 | ☑ | SEQ-ATSKEW-001 | Composition | SYM: complement reverses sign; INV: cumulative length = seq length |
 | 211 | ☑ | SEQ-REPLICATION-001 | Composition | INV: rotation shifts predicted origin; SYM: complement reflects origin |
-| 212 | ☐ | SEQ-RNACOMP-001 | Composition | INV: complement∘complement = identity; P: A↔U, G↔C |
+| 212 | ☑ | SEQ-RNACOMP-001 | Composition | INV: complement∘complement = identity; P: A↔U, G↔C |
 | 213 | ☐ | CODON-ENC-001 | Codon | MON: more biased usage → lower ENC; INV: codon order independent |
 | 214 | ☐ | CODON-RSCU-001 | Codon | INV: codon order independent; P: per-AA RSCU mean = 1 |
 | 215 | ☐ | CODON-STATS-001 | Codon | INV: order independent; ADD: counts additive on concatenation |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 211 |
-| ☐ Not started | 23 |
+| ☑ Complete | 212 |
+| ☐ Not started | 22 |
 | MR relations defined | ~200+ |

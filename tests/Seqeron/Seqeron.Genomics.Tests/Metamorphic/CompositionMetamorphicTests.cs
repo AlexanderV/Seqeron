@@ -1472,4 +1472,76 @@ public class CompositionMetamorphicTests
     #endregion
 
     #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  SEQ-RNACOMP-001 — RNA complement
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // API under test (Seqeron.Genomics.Core/RnaSequence.Complement):
+    //   Maps each base to its Watson–Crick RNA partner — A↔U, C↔G — preserving length and order.
+    //
+    // Relations (derived from the pairing map, NOT from output):
+    //   • P   (A↔U, G↔C): the complement is exactly the per-base partner map, so each output base is
+    //         the partner of the corresponding input base, and the A/U and G/C counts swap.
+    //   • INV (involution): the partner map is its own inverse, so complement∘complement = identity
+    //         and length is preserved.
+
+    #region SEQ-RNACOMP-001 — RNA complement
+
+    private static string[] RnaSampleSequences() =>
+        SampleSequences().Select(s => s.Replace('T', 'U')).ToArray();
+
+    private static char RnaPartner(char c) => c switch
+    {
+        'A' => 'U',
+        'U' => 'A',
+        'C' => 'G',
+        'G' => 'C',
+        _ => c
+    };
+
+    #region P — complement is the A↔U, G↔C partner map (counts swap)
+
+    [Test]
+    public void RnaComplement_PartnerMap_SwapsPairedBases()
+    {
+        foreach (var rna in RnaSampleSequences())
+        {
+            var seq = new RnaSequence(rna);
+            string comp = seq.Complement().Sequence;
+
+            comp.Length.Should().Be(rna.Length, because: "complement is a per-base relabelling, so length is preserved");
+            for (int i = 0; i < rna.Length; i++)
+                comp[i].Should().Be(RnaPartner(rna[i]),
+                    because: $"position {i} of '{rna}' must map to its Watson–Crick partner");
+
+            // A↔U and G↔C counts swap under the pairing map.
+            comp.Count(c => c == 'U').Should().Be(rna.Count(c => c == 'A'), because: "each A becomes a U");
+            comp.Count(c => c == 'A').Should().Be(rna.Count(c => c == 'U'), because: "each U becomes an A");
+            comp.Count(c => c == 'G').Should().Be(rna.Count(c => c == 'C'), because: "each C becomes a G");
+            comp.Count(c => c == 'C').Should().Be(rna.Count(c => c == 'G'), because: "each G becomes a C");
+        }
+    }
+
+    #endregion
+
+    #region INV — complement is an involution
+
+    [Test]
+    public void RnaComplement_AppliedTwice_IsIdentity()
+    {
+        foreach (var rna in RnaSampleSequences())
+        {
+            var seq = new RnaSequence(rna);
+            var twice = seq.Complement().Complement();
+
+            twice.Sequence.Should().Be(seq.Sequence,
+                because: $"the A↔U / G↔C partner map is its own inverse, so complementing '{rna}' twice restores it");
+            twice.Length.Should().Be(seq.Length, because: "an involution preserves length");
+        }
+    }
+
+    #endregion
+
+    #endregion
 }
