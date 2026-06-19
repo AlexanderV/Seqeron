@@ -606,4 +606,55 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-HRD-001 — homologous-recombination-deficiency score (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 94.
+    //
+    // API under test (OncologyAnalyzer.CalculateHRDScore / DetectHRD):
+    //   HRD score = LOH + TAI + LST (Telli 2016), an unweighted sum of the three scar counts.
+    //
+    // Relations (derived from the additive sum, NOT from output):
+    //   • MON  (adding an event ⇒ ≥ HRD): incrementing any component raises the score by 1.
+    //   • INV  (event order/label independent): the sum is symmetric in (LOH, TAI, LST), so any
+    //          permutation of the component counts yields the same score.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region ONCO-HRD-001 MON — adding any scar event raises the HRD score
+
+    [Test]
+    [Description("MON: incrementing any of the LOH/TAI/LST component counts raises the HRD score by one.")]
+    public void Hrd_AddingEvent_RaisesScore()
+    {
+        int baseScore = OncologyAnalyzer.CalculateHRDScore(10, 12, 14);
+
+        OncologyAnalyzer.CalculateHRDScore(11, 12, 14).Should().BeGreaterThan(baseScore, because: "an extra LOH event adds to the sum");
+        OncologyAnalyzer.CalculateHRDScore(10, 13, 14).Should().BeGreaterThan(baseScore, because: "an extra TAI event adds to the sum");
+        OncologyAnalyzer.CalculateHRDScore(10, 12, 15).Should().BeGreaterThan(baseScore, because: "an extra LST event adds to the sum");
+    }
+
+    #endregion
+
+    #region ONCO-HRD-001 INV — the score is symmetric in its three components
+
+    [Test]
+    [Description("INV: HRD = LOH + TAI + LST is symmetric, so any permutation of the component counts yields the same score and status.")]
+    public void Hrd_ComponentOrder_Independent()
+    {
+        var perms = new[]
+        {
+            (10, 15, 17), (10, 17, 15), (15, 10, 17), (15, 17, 10), (17, 10, 15), (17, 15, 10),
+        };
+
+        int expected = OncologyAnalyzer.CalculateHRDScore(10, 15, 17);
+        foreach (var (a, b, c) in perms)
+        {
+            OncologyAnalyzer.CalculateHRDScore(a, b, c).Should().Be(expected,
+                because: "the HRD sum does not depend on which component contributes which count");
+            OncologyAnalyzer.DetectHRD(new OncologyAnalyzer.HrdComponents(a, b, c)).Status
+                .Should().Be(OncologyAnalyzer.DetectHRD(new OncologyAnalyzer.HrdComponents(10, 15, 17)).Status);
+        }
+    }
+
+    #endregion
 }
