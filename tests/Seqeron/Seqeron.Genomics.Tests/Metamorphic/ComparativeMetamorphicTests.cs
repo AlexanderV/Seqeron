@@ -190,4 +190,73 @@ public class ComparativeMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: COMPGEN-COMPARE-001 — two-genome comparison (Comparative).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 133.
+    //
+    // API under test (ComparativeGenomics.CompareGenomes):
+    //   Partitions genes into the core (shared, reciprocal-best-hit) set and each genome's
+    //   genome-specific set (Tettelin pan-genome model); ConservedGenes counts the shared genes.
+    //   Similarity is k-mer Jaccard, so identical gene sequences are reciprocal best hits.
+    //
+    // Relations (derived from the RBH/pan-genome definition, NOT from output):
+    //   • MON  (more shared genes ⇒ higher similarity): adding an orthologous gene pair adds one
+    //          reciprocal best hit, so ConservedGenes (the similarity measure) increases.
+    //   • SYM  (order independent): RBH is an unordered matching, so swapping the two genomes keeps
+    //          ConservedGenes and OverallSynteny identical and merely swaps the two genome-specific
+    //          counts.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    // Each ortholog group is encoded as a distinct repeated letter, so two genes share all their
+    // 5-mers (identity 1.0 → reciprocal best hit) iff they carry the same group id, and share none
+    // otherwise (no qualifying hit → genome-specific).
+    private static ComparativeGenomics.Gene GeneOf(string genomeId, int position, int groupId) =>
+        new($"{genomeId}_g{position}", genomeId, position, position, '+', new string((char)('A' + groupId), 10));
+
+    // A genome whose genes carry the given ortholog-group ids, in order.
+    private static List<ComparativeGenomics.Gene> GenomeOf(string genomeId, params int[] groupIds) =>
+        groupIds.Select((grp, pos) => GeneOf(genomeId, pos, grp)).ToList();
+
+    #region COMPGEN-COMPARE-001 MON — more shared genes raise the conserved-gene count
+
+    [Test]
+    [Description("MON: each added orthologous gene pair contributes one reciprocal best hit, so ConservedGenes grows as more shared genes are present.")]
+    public void CompareGenomes_MoreSharedGenes_HigherConservedCount()
+    {
+        int previous = int.MinValue;
+        foreach (int shared in new[] { 1, 2, 4, 7 })
+        {
+            int[] groups = Enumerable.Range(0, shared).ToArray();
+            var result = ComparativeGenomics.CompareGenomes(GenomeOf("A", groups), GenomeOf("B", groups));
+
+            result.ConservedGenes.Should().Be(shared, because: $"the two genomes share exactly {shared} ortholog groups");
+            result.ConservedGenes.Should().BeGreaterThan(previous, because: "adding a shared gene increases the conserved-gene similarity");
+            previous = result.ConservedGenes;
+        }
+    }
+
+    #endregion
+
+    #region COMPGEN-COMPARE-001 SYM — swapping the genomes only swaps the genome-specific counts
+
+    [Test]
+    [Description("SYM: RBH is an unordered matching, so CompareGenomes(A,B) and CompareGenomes(B,A) report the same ConservedGenes and OverallSynteny and merely exchange the two genome-specific counts.")]
+    public void CompareGenomes_SwapGenomes_ConsistentResult()
+    {
+        // Three shared groups (0,1,2); A has two specific genes (20,21), B has one (24).
+        var a = GenomeOf("A", 0, 1, 2, 20, 21);
+        var b = GenomeOf("B", 0, 1, 2, 24);
+
+        var ab = ComparativeGenomics.CompareGenomes(a, b);
+        var ba = ComparativeGenomics.CompareGenomes(b, a);
+
+        ab.ConservedGenes.Should().Be(ba.ConservedGenes, because: "the reciprocal best-hit matching is the same regardless of argument order");
+        ab.Orthologs.Count.Should().Be(ba.Orthologs.Count, because: "ortholog pairs are unordered");
+        ab.OverallSynteny.Should().BeApproximately(ba.OverallSynteny, 1e-12, because: "synteny is normalised by the smaller genome, which is order-independent");
+        ab.GenomeSpecificGenes1.Should().Be(ba.GenomeSpecificGenes2, because: "genome A's specific genes are reported as genome-1-specific in (A,B) and genome-2-specific in (B,A)");
+        ab.GenomeSpecificGenes2.Should().Be(ba.GenomeSpecificGenes1, because: "genome B's specific genes swap roles symmetrically");
+    }
+
+    #endregion
 }
