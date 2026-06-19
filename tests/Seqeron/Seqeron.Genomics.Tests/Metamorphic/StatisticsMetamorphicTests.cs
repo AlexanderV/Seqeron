@@ -708,4 +708,63 @@ public class StatisticsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: SEQ-GC-PROFILE-001 — sliding-window GC-content profile (Statistics).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 234.
+    //
+    // API under test (SequenceStatistics.CalculateGcContentProfile):
+    //   One GC% = (G+C)/(A+T+G+C)×100 per sliding window, for offsets 0, step, 2·step, …
+    //
+    // Relations (derived from the per-window (G+C)/total ratio, NOT from output):
+    //   • INV   (complement preserves GC profile): complement maps C↔G (and A↔T), so each window's
+    //           G+C count — and the whole GC profile — is unchanged.
+    //   • SHIFT (prepend flank shifts profile): prepending a flank whose length is a multiple of the
+    //           step shifts the window grid; dropping the leading flank windows reproduces the
+    //           baseline profile exactly.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region SEQ-GC-PROFILE-001 INV — complement preserves the GC profile
+
+    [Test]
+    [Description("INV: complement maps C↔G (and A↔T), so each window's G+C count — and the whole GC profile — is unchanged.")]
+    public void GcProfile_Complement_PreservesProfile()
+    {
+        var original = SequenceStatistics.CalculateGcContentProfile(EntropyProfileSeq, EntropyWindow, EntropyStep).ToList();
+        var complemented = SequenceStatistics.CalculateGcContentProfile(ComplementDna(EntropyProfileSeq), EntropyWindow, EntropyStep).ToList();
+
+        original.Should().HaveCountGreaterThan(1, because: "the sequence yields several windows — a non-vacuous fixture");
+        complemented.Should().HaveCount(original.Count);
+        for (int i = 0; i < original.Count; i++)
+            complemented[i].Should().BeApproximately(original[i], 1e-12,
+                because: "complement preserves the G+C count of every window, so its GC% is unchanged");
+    }
+
+    #endregion
+
+    #region SEQ-GC-PROFILE-001 SHIFT — a step-aligned flank shifts the profile
+
+    [Test]
+    [Description("SHIFT: prepending a flank whose length is a multiple of the step shifts the window grid; dropping the leading flank windows reproduces the baseline GC profile exactly.")]
+    public void GcProfile_PrependStepAlignedFlank_ShiftsProfile()
+    {
+        var baseline = SequenceStatistics.CalculateGcContentProfile(EntropyProfileSeq, EntropyWindow, EntropyStep).ToList();
+
+        foreach (int multiple in new[] { 1, 3 })
+        {
+            int offset = multiple * EntropyStep;
+            string flank = new string('G', offset);
+            var shifted = SequenceStatistics.CalculateGcContentProfile(flank + EntropyProfileSeq, EntropyWindow, EntropyStep).ToList();
+
+            shifted.Should().HaveCount(baseline.Count + multiple,
+                because: $"a {offset}-nt step-aligned flank adds exactly {multiple} leading windows");
+
+            var interior = shifted.Skip(multiple).ToList();
+            for (int i = 0; i < baseline.Count; i++)
+                interior[i].Should().BeApproximately(baseline[i], 1e-12,
+                    because: "the window content is unchanged, only translated by the flank");
+        }
+    }
+
+    #endregion
 }
