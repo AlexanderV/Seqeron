@@ -220,7 +220,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 190 | ☑ | PANGEN-CLUSTER-001 | PanGenome | MON: lower identity → coarser clusters; INV: gene order independent |
 | 191 | ☑ | PANGEN-CORE-001 | PanGenome | MON: more genomes → ⊆ core; INV: genome order independent |
 | 192 | ☑ | PANGEN-HEAP-001 | PanGenome | INV: genome order independent; MON: more genomes → better fit |
-| 193 | ☐ | PANGEN-MARKER-001 | PanGenome | SUB: markers ⊆ core; INV: genome order independent |
+| 193 | ☑ | PANGEN-MARKER-001 | PanGenome | SUB: markers ⊆ core; INV: genome order independent |
 | 194 | ☐ | META-FUNC-001 | Metagenomics | INV: read order independent; SUB: larger DB → ≥ assignments |
 | 195 | ☐ | META-PATHWAY-001 | Metagenomics | MON: more pathway genes → higher enrichment; INV: gene order independent |
 | 196 | ☐ | META-RESIST-001 | Metagenomics | INV: read order independent; SUB: larger DB → ≥ hits |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 192 |
-| ☐ Not started | 42 |
+| ☑ Complete | 193 |
+| ☐ Not started | 41 |
 | MR relations defined | ~200+ |

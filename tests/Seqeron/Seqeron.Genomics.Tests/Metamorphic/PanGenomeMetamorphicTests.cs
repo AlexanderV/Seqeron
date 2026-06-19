@@ -245,4 +245,80 @@ public class PanGenomeMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: PANGEN-MARKER-001 — phylogenetic marker selection (PanGenome).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 193.
+    //
+    // API under test (PanGenomeAnalyzer.SelectPhylogeneticMarkers):
+    //   Keeps the single-copy core clusters that carry at least one parsimony-informative site.
+    //
+    // Relations (derived from the filtering definition, NOT from output):
+    //   • SUB  (markers ⊆ core): markers are selected from the supplied core clusters, so every
+    //          marker is a core cluster (conserved core clusters with no informative site are dropped).
+    //   • INV  (genome order independent): the selection depends on cluster content, so reordering the
+    //          genomes yields the same marker set.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    // A variable single-copy core gene (one parsimony-informative site) and a conserved core gene.
+    private static string MarkerVariableGene(int genomeIndex)
+    {
+        var chars = "ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT".ToCharArray(); // length 40
+        chars[20] = genomeIndex < 2 ? 'A' : 'C'; // site split 2/2 across 4 genomes ⇒ parsimony-informative
+        return new string(chars);
+    }
+    private const string MarkerConservedGene = "TTTTGGGGCCCCAAAATTTTGGGGCCCCAAAATTTTGGGG"; // identical everywhere
+
+    private static Dictionary<string, IReadOnlyList<(string, string)>> MarkerGenomes()
+    {
+        var g = new Dictionary<string, IReadOnlyList<(string, string)>>();
+        for (int gi = 0; gi < 4; gi++)
+            g[$"genome{gi}"] = new[] { ($"g{gi}_A", MarkerVariableGene(gi)), ($"g{gi}_B", MarkerConservedGene) };
+        return g;
+    }
+
+    private static HashSet<string> ClusterKeysByGenes(IEnumerable<PanGenomeAnalyzer.GeneCluster> clusters) =>
+        clusters.Select(c => string.Join(",", c.GeneIds.OrderBy(x => x))).ToHashSet();
+
+    #region PANGEN-MARKER-001 SUB — markers are a subset of the core
+
+    [Test]
+    [Description("SUB: markers are selected from the core clusters, so every marker is a core cluster; the conserved core gene (no informative site) is in the core but excluded from markers.")]
+    public void Markers_AreSubsetOfCore()
+    {
+        var genomes = MarkerGenomes();
+        var core = PanGenomeAnalyzer.ClusterGenes(genomes, 0.95).Where(c => c.GenomeCount == 4).ToList();
+        var markers = PanGenomeAnalyzer.SelectPhylogeneticMarkers(genomes, core, 4).ToList();
+
+        var coreKeys = ClusterKeysByGenes(core);
+        var markerKeys = ClusterKeysByGenes(markers);
+
+        markers.Should().NotBeEmpty(because: "the variable core gene is an informative single-copy marker");
+        markerKeys.IsSubsetOf(coreKeys).Should().BeTrue(because: "markers are filtered from the supplied core clusters");
+        markerKeys.Count.Should().BeLessThan(coreKeys.Count, because: "the conserved core gene carries no informative site and is excluded");
+    }
+
+    #endregion
+
+    #region PANGEN-MARKER-001 INV — marker selection is independent of genome order
+
+    [Test]
+    [Description("INV: marker selection depends on cluster content, so reordering the genomes yields the same set of markers (by member genes).")]
+    public void Markers_GenomeOrder_Invariant()
+    {
+        var genomes = MarkerGenomes();
+        var reordered = new Dictionary<string, IReadOnlyList<(string, string)>>(
+            genomes.Reverse().ToDictionary(kv => kv.Key, kv => kv.Value));
+
+        HashSet<string> Markers(Dictionary<string, IReadOnlyList<(string, string)>> g)
+        {
+            var core = PanGenomeAnalyzer.ClusterGenes(g, 0.95).Where(c => c.GenomeCount == 4).ToList();
+            return ClusterKeysByGenes(PanGenomeAnalyzer.SelectPhylogeneticMarkers(g, core, 4));
+        }
+
+        Markers(reordered).Should().BeEquivalentTo(Markers(genomes),
+            because: "the marker set is a function of the genome content, not the genome iteration order");
+    }
+
+    #endregion
 }
