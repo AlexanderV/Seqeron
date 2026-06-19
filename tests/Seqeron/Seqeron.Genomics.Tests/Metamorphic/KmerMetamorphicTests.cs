@@ -736,4 +736,52 @@ public class KmerMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: KMER-STATS-001 — k-mer composition statistics (K-mer).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 161.
+    //
+    // API under test (KmerAnalyzer.AnalyzeKmers):
+    //   Aggregates total/distinct/max/min/average multiplicity and Shannon entropy of the k-mer
+    //   counts.
+    //
+    // Relations (derived from the count aggregation, NOT from output):
+    //   • INV  (permutation changes positions not counts): at k = 1 a permutation preserves the
+    //          single-base multiset, so every statistic is unchanged while the k-mers' positions move.
+    //   • ADD  (counts additive on concatenation): the total window count satisfies
+    //          TotalKmers(a+b) = TotalKmers(a) + TotalKmers(b) + (k−1) — the (k−1) junction k-mers.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region KMER-STATS-001 INV — k=1 statistics are permutation invariant
+
+    [Test]
+    [Description("INV: at k=1 a permutation preserves the single-base multiset, so all k-mer statistics are unchanged (only positions move).")]
+    public void KmerStats_Permutation_PreservesCountsAtK1()
+    {
+        const string seq = "AACGTACGTTGGCCAATAC";
+        string permuted = new string(seq.OrderBy(c => c).ToArray());
+
+        KmerAnalyzer.AnalyzeKmers(permuted, 1).Should().Be(KmerAnalyzer.AnalyzeKmers(seq, 1),
+            because: "the 1-mer count distribution depends only on the base multiset, which a permutation preserves");
+    }
+
+    #endregion
+
+    #region KMER-STATS-001 ADD — total k-mer count is additive (with junction term) on concatenation
+
+    [Test]
+    [Description("ADD: concatenation creates k−1 junction k-mers, so TotalKmers(a+b) = TotalKmers(a) + TotalKmers(b) + (k−1).")]
+    public void KmerStats_TotalKmers_AdditiveWithJunction()
+    {
+        foreach (var (a, b) in new[] { ("ACGTAC", "GGTTAC"), ("AAACCC", "GGGTTTAC") })
+            foreach (int k in new[] { 1, 2, 3 })
+            {
+                int total = KmerAnalyzer.AnalyzeKmers(a + b, k).TotalKmers;
+                int parts = KmerAnalyzer.AnalyzeKmers(a, k).TotalKmers + KmerAnalyzer.AnalyzeKmers(b, k).TotalKmers;
+                total.Should().Be(parts + (k - 1),
+                    because: $"concatenating '{a}' and '{b}' adds exactly {k - 1} junction-spanning {k}-mers");
+            }
+    }
+
+    #endregion
 }
