@@ -592,4 +592,77 @@ public class AnnotationMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ANNOT-CODING-001 — coding-potential scoring (Annotation).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 216.
+    //
+    // API under test (GenomeAnnotator.CalculateCodingPotential):
+    //   CPAT hexamer log-likelihood (Wang et al. 2013): the mean over in-frame hexamers of
+    //   ln(coding[k]/noncoding[k]). Positive ⇒ coding-like, negative ⇒ non-coding-like.
+    //
+    // Relations (derived from the log-likelihood-ratio definition, NOT from output):
+    //   • INV  (deterministic): a pure, case-insensitive function of (sequence, tables).
+    //   • MON  (real ORF ⇒ higher score): a sequence built from coding-enriched hexamers (a CDS
+    //          signature) scores strictly above a neutral one (coding = non-coding), which in turn
+    //          scores above a background sequence built from non-coding-enriched hexamers.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region ANNOT-CODING-001 — Helpers
+
+    // In-frame (step-3) hexamer tables. "ACGACG" is coding-enriched (4:1), "TTTTTT" is
+    // non-coding-enriched (1:4), and "GGGGGG" is neutral (2:2 ⇒ ln 1 = 0).
+    private static readonly IReadOnlyDictionary<string, double> CodingHexamers = new Dictionary<string, double>
+    {
+        ["ACGACG"] = 4, ["GGGGGG"] = 2, ["TTTTTT"] = 1,
+    };
+    private static readonly IReadOnlyDictionary<string, double> NoncodingHexamers = new Dictionary<string, double>
+    {
+        ["ACGACG"] = 1, ["GGGGGG"] = 2, ["TTTTTT"] = 4,
+    };
+
+    // Period-3 sequences whose every step-3 hexamer window equals the repeated 6-mer.
+    private const string CodingLikeSeq = "ACGACGACGACGACGACGACGACGACGACG"; // → "ACGACG" hexamers
+    private const string NeutralSeq = "GGGGGGGGGGGGGGGGGGGGGGGGGGGGGG";    // → "GGGGGG" hexamers
+    private const string NoncodingLikeSeq = "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT"; // → "TTTTTT" hexamers
+
+    private static double CodingPotential(string seq) =>
+        GenomeAnnotator.CalculateCodingPotential(seq, CodingHexamers, NoncodingHexamers);
+
+    #endregion
+
+    #region ANNOT-CODING-001 INV — coding potential is deterministic and case-insensitive
+
+    [Test]
+    [Description("INV: CalculateCodingPotential is a pure, case-insensitive function of (sequence, tables).")]
+    public void CodingPotential_SameInput_SameScore()
+    {
+        double first = CodingPotential(CodingLikeSeq);
+
+        CodingPotential(CodingLikeSeq).Should().Be(first, because: "scoring has no hidden state");
+        CodingPotential(CodingLikeSeq.ToLowerInvariant()).Should().Be(first,
+            because: "the sequence is upper-cased before scoring, so case does not matter");
+    }
+
+    #endregion
+
+    #region ANNOT-CODING-001 MON — coding-enriched sequence scores above background
+
+    [Test]
+    [Description("MON: a coding-enriched sequence scores strictly above a neutral one, which scores above a non-coding-enriched background.")]
+    public void CodingPotential_MoreCodingLike_HigherScore()
+    {
+        double coding = CodingPotential(CodingLikeSeq);
+        double neutral = CodingPotential(NeutralSeq);
+        double noncoding = CodingPotential(NoncodingLikeSeq);
+
+        coding.Should().BeGreaterThan(neutral, because: "coding-enriched hexamers have a positive log-likelihood ratio");
+        neutral.Should().BeGreaterThan(noncoding, because: "non-coding-enriched hexamers have a negative log-likelihood ratio");
+
+        coding.Should().BePositive(because: "a CDS-signature sequence is scored as coding");
+        noncoding.Should().BeNegative(because: "a background sequence is scored as non-coding");
+        neutral.Should().BeApproximately(0.0, 1e-12, because: "equal coding and non-coding frequencies give ln 1 = 0");
+    }
+
+    #endregion
 }
