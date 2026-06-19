@@ -186,7 +186,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 156 | ☑ | KMER-ASYNC-001 | K-mer | INV: async = sync; INV: read order independent |
 | 157 | ☑ | KMER-BOTH-001 | K-mer | SYM: reverse-complement invariance; ADD: counts additive on concatenation |
 | 158 | ☑ | KMER-DIST-001 | K-mer | SYM: d(a,b)=d(b,a); INV: d(x,x)=0 |
-| 159 | ☐ | KMER-GENERATE-001 | K-mer | INV: order independent; P: set closed under all k-mers |
+| 159 | ☑ | KMER-GENERATE-001 | K-mer | INV: order independent; P: set closed under all k-mers |
 | 160 | ☐ | KMER-POSITIONS-001 | K-mer | SHIFT: prepend flank shifts positions; INV: order independent |
 | 161 | ☐ | KMER-STATS-001 | K-mer | INV: permutation changes positions not counts; ADD: counts additive on concatenation |
 | 162 | ☐ | KMER-UNIQUE-001 | K-mer | MON: duplicating a k-mer removes it from unique set; INV: order independent |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 158 |
-| ☐ Not started | 76 |
+| ☑ Complete | 159 |
+| ☐ Not started | 75 |
 | MR relations defined | ~200+ |

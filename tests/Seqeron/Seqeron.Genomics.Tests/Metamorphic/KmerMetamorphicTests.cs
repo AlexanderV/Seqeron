@@ -629,4 +629,59 @@ public class KmerMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: KMER-GENERATE-001 — exhaustive k-mer generation (K-mer).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 159.
+    //
+    // API under test (KmerAnalyzer.GenerateAllKmers):
+    //   Enumerates every length-k string over the alphabet (the Cartesian product alphabetᵏ).
+    //
+    // Relations (derived from the Cartesian-product definition, NOT from output):
+    //   • INV  (order independent): the generated SET depends only on the alphabet's members and k,
+    //          not on the order of the alphabet letters.
+    //   • P    (set closed under all k-mers): the result is complete — exactly |alphabet|ᵏ distinct
+    //          k-mers — and closed: it equals { a + s : a ∈ alphabet, s ∈ generate(k-1) }.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region KMER-GENERATE-001 INV — the generated set is independent of alphabet order
+
+    [Test]
+    [Description("INV: the set of all k-mers depends only on the alphabet's members and k, so permuting the alphabet order yields the same set.")]
+    public void GenerateAllKmers_AlphabetOrder_Invariant()
+    {
+        foreach (int k in new[] { 1, 2, 3 })
+            KmerAnalyzer.GenerateAllKmers(k, "TGCA").ToHashSet()
+                .Should().BeEquivalentTo(KmerAnalyzer.GenerateAllKmers(k, "ACGT").ToHashSet(),
+                    because: $"alphabet order does not change which k-mers exist (k={k})");
+    }
+
+    #endregion
+
+    #region KMER-GENERATE-001 P — the set is complete and closed under all k-mers
+
+    [Test]
+    [Description("P: the generated set has exactly |alphabet|^k distinct k-mers and is closed — it equals { a + s : a in alphabet, s in generate(k-1) }.")]
+    public void GenerateAllKmers_CompleteAndClosed()
+    {
+        const string alphabet = "ACGT";
+        foreach (int k in new[] { 1, 2, 3, 4 })
+        {
+            var all = KmerAnalyzer.GenerateAllKmers(k, alphabet).ToList();
+
+            all.Should().OnlyHaveUniqueItems(because: "every generated k-mer is distinct");
+            all.Count.Should().Be((int)System.Math.Pow(alphabet.Length, k), because: $"there are |alphabet|^{k} k-mers");
+
+            if (k >= 2)
+            {
+                var closure = (from a in alphabet
+                               from s in KmerAnalyzer.GenerateAllKmers(k - 1, alphabet)
+                               select a + s).ToHashSet();
+                all.ToHashSet().Should().BeEquivalentTo(closure,
+                    because: "the k-mer set is the alphabet prepended to every (k-1)-mer — closed under extension");
+            }
+        }
+    }
+
+    #endregion
 }
