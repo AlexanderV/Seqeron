@@ -126,4 +126,102 @@ public class MetagenomicsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: META-PROF-001 — taxonomic profile / relative abundance (Metagenomics).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 54.
+    //
+    // API under test (MetagenomicsAnalyzer.GenerateTaxonomicProfile):
+    //   Counts the classified reads per taxon at each rank and divides by the number of
+    //   classified reads to give relative abundances; also reports Shannon/Simpson diversity
+    //   over the species abundances.
+    //
+    // Relations (derived from the count/total definition, NOT from output):
+    //   • INV (doubling all reads ⇒ same abundances): duplicating every classification doubles
+    //          every count and the total, so the relative abundances — and the diversity indices
+    //          computed from them — are unchanged; the profile is also independent of read order.
+    //   • COMP (abundances sum to 1): at any rank where every classified read carries a value,
+    //          the per-taxon counts partition the classified reads, so the abundances sum to 1.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region Profile helpers
+
+    private static MetagenomicsAnalyzer.TaxonomicClassification Classified(
+        string kingdom, string phylum, string genus, string species) =>
+        new(ReadId: "r", TaxonId: 2, TaxonName: species, Rank: "species",
+            RtlScore: 1, Confidence: 1.0, MatchedKmers: 1, TotalKmers: 1,
+            Kingdom: kingdom, Phylum: phylum, Class: "", Order: "", Family: "",
+            Genus: genus, Species: species);
+
+    private static List<MetagenomicsAnalyzer.TaxonomicClassification> SampleClassifications() => new()
+    {
+        Classified("Bacteria", "Firmicutes", "Bacillus", "B.subtilis"),
+        Classified("Bacteria", "Firmicutes", "Bacillus", "B.subtilis"),
+        Classified("Bacteria", "Firmicutes", "Bacillus", "B.subtilis"),
+        Classified("Bacteria", "Firmicutes", "Bacillus", "B.cereus"),
+        Classified("Bacteria", "Firmicutes", "Bacillus", "B.cereus"),
+        Classified("Bacteria", "Proteobacteria", "Escherichia", "E.coli"),
+        // An unclassified read (excluded from abundances, must not perturb the relative values).
+        Classified("Unclassified", "", "", ""),
+    };
+
+    private static void AbundancesShouldMatch(
+        IReadOnlyDictionary<string, double> actual, IReadOnlyDictionary<string, double> expected, string rank)
+    {
+        actual.Keys.Should().BeEquivalentTo(expected.Keys, because: $"the {rank} taxa present are unchanged");
+        foreach (var (taxon, value) in expected)
+            actual[taxon].Should().BeApproximately(value, 1e-12,
+                because: $"the relative abundance of {taxon} at {rank} level is unchanged");
+    }
+
+    #endregion
+
+    #region INV — doubling reads (and reordering) preserves the relative abundances
+
+    [Test]
+    [Description("INV: duplicating every classification doubles all counts and the total, leaving the relative abundances and the diversity indices unchanged; the profile is also order-independent.")]
+    public void GenerateTaxonomicProfile_DoublingReads_PreservesAbundances()
+    {
+        var baseList = SampleClassifications();
+        var baseProfile = MetagenomicsAnalyzer.GenerateTaxonomicProfile(baseList);
+
+        var doubled = baseList.Concat(baseList).ToList();
+        var doubledProfile = MetagenomicsAnalyzer.GenerateTaxonomicProfile(doubled);
+
+        AbundancesShouldMatch(doubledProfile.SpeciesAbundance, baseProfile.SpeciesAbundance, "species");
+        AbundancesShouldMatch(doubledProfile.GenusAbundance, baseProfile.GenusAbundance, "genus");
+        AbundancesShouldMatch(doubledProfile.PhylumAbundance, baseProfile.PhylumAbundance, "phylum");
+        AbundancesShouldMatch(doubledProfile.KingdomAbundance, baseProfile.KingdomAbundance, "kingdom");
+        doubledProfile.ShannonDiversity.Should().BeApproximately(baseProfile.ShannonDiversity, 1e-12,
+            because: "Shannon diversity is a function of the (unchanged) relative abundances");
+        doubledProfile.SimpsonDiversity.Should().BeApproximately(baseProfile.SimpsonDiversity, 1e-12,
+            because: "Simpson diversity is a function of the (unchanged) relative abundances");
+
+        // Order independence.
+        var shuffled = baseList.AsEnumerable().Reverse().ToList();
+        var shuffledProfile = MetagenomicsAnalyzer.GenerateTaxonomicProfile(shuffled);
+        AbundancesShouldMatch(shuffledProfile.SpeciesAbundance, baseProfile.SpeciesAbundance, "species");
+    }
+
+    #endregion
+
+    #region COMP — per-rank abundances sum to 1
+
+    [Test]
+    [Description("COMP: at every rank where each classified read carries a value, the per-taxon counts partition the classified reads, so the relative abundances sum to 1.")]
+    public void GenerateTaxonomicProfile_Abundances_SumToOne()
+    {
+        var profile = MetagenomicsAnalyzer.GenerateTaxonomicProfile(SampleClassifications());
+
+        profile.SpeciesAbundance.Values.Sum().Should().BeApproximately(1.0, 1e-12,
+            because: "every classified read has a species, so the species abundances partition probability mass 1");
+        profile.GenusAbundance.Values.Sum().Should().BeApproximately(1.0, 1e-12,
+            because: "every classified read has a genus, so the genus abundances sum to 1");
+        profile.PhylumAbundance.Values.Sum().Should().BeApproximately(1.0, 1e-12,
+            because: "every classified read has a phylum, so the phylum abundances sum to 1");
+        profile.KingdomAbundance.Values.Sum().Should().BeApproximately(1.0, 1e-12,
+            because: "every classified read has a kingdom, so the kingdom abundances sum to 1");
+    }
+
+    #endregion
 }
