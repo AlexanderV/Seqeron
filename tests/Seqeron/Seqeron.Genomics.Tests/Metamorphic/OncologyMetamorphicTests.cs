@@ -2080,4 +2080,68 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-SV-001 — complex rearrangement / breakpoint clustering (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 119.
+    //
+    // API under test (OncologyAnalyzer.TestBreakpointClustering / ClassifyComplexRearrangement):
+    //   Clustering is judged from inter-breakpoint gaps (CV vs exponential null); chromothripsis
+    //   from copy-number oscillations + clustered SV burden.
+    //
+    // Relations (derived from gap-based clustering & oscillation counting, NOT from output):
+    //   • INV  (coordinate shift preserves rearrangement class): translating all breakpoints by a
+    //          constant leaves the inter-breakpoint gaps — and the clustering classification —
+    //          unchanged.
+    //   • MON  (more clustered oscillating breakpoints ⇒ chromothripsis): a longer copy-number
+    //          oscillation raises the chromothripsis confidence and, past the hallmark gate,
+    //          yields a Chromothripsis call.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region ONCO-SV-001 INV — a coordinate shift preserves the clustering classification
+
+    [Test]
+    [Description("INV: translating every breakpoint by a constant leaves the inter-breakpoint gaps — and hence the CV and clustering call — unchanged.")]
+    public void TestBreakpointClustering_CoordinateShift_PreservesClass()
+    {
+        var positions = new[] { 100L, 110L, 120L, 5000L }; // a tight cluster plus an outlier → clustered
+        var baseResult = OncologyAnalyzer.TestBreakpointClustering(positions);
+
+        foreach (long delta in new[] { 1_000L, 1_000_000L })
+        {
+            var shifted = OncologyAnalyzer.TestBreakpointClustering(positions.Select(p => p + delta).ToList());
+            shifted.IsClustered.Should().Be(baseResult.IsClustered, because: "translation preserves the gaps, so the clustering call is unchanged");
+            shifted.CoefficientOfVariation.Should().BeApproximately(baseResult.CoefficientOfVariation, 1e-9);
+            shifted.MeanGap.Should().BeApproximately(baseResult.MeanGap, 1e-9);
+        }
+    }
+
+    #endregion
+
+    #region ONCO-SV-001 MON — a longer oscillation drives chromothripsis
+
+    [Test]
+    [Description("MON: a longer copy-number oscillation raises the chromothripsis confidence and, past the hallmark gate, yields a Chromothripsis call.")]
+    public void ClassifyComplexRearrangement_MoreOscillations_TowardChromothripsis()
+    {
+        int previousConfidence = int.MinValue;
+        foreach (int n in new[] { 3, 5, 8, 12 })
+        {
+            var profile = Enumerable.Range(0, n).Select(i => i % 2 == 0 ? 2 : 3).ToList(); // alternating 2/3
+            var result = OncologyAnalyzer.ClassifyComplexRearrangement(
+                new OncologyAnalyzer.ComplexRearrangementInput(profile, StructuralVariantCount: 6));
+
+            ((int)result.Confidence).Should().BeGreaterThanOrEqualTo(previousConfidence,
+                because: $"a longer ({n}-segment) oscillation cannot lower the chromothripsis confidence");
+            previousConfidence = (int)result.Confidence;
+        }
+
+        // 12 alternating segments → 11 oscillations (≥10), 2 states, 6 SVs → chromothripsis hallmark met.
+        var big = Enumerable.Range(0, 12).Select(i => i % 2 == 0 ? 2 : 3).ToList();
+        OncologyAnalyzer.ClassifyComplexRearrangement(new OncologyAnalyzer.ComplexRearrangementInput(big, 6))
+            .Type.Should().Be(OncologyAnalyzer.ComplexRearrangementType.Chromothripsis,
+                because: "clustered oscillations and SV burden meet the chromothripsis hallmark");
+    }
+
+    #endregion
 }

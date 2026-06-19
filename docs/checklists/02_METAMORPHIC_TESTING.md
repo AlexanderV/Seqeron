@@ -146,7 +146,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 116 | ☑ | ONCO-HETERO-001 | Oncology | INV: scaling all VAFs equally preserves MATH; MON: wider VAF spread → ≥ heterogeneity |
 | 117 | ☑ | ONCO-HLA-001 | Oncology | INV: normalisation idempotent; INV: allele-string normalisation stable (case/whitespace) — API parses an allele string, not reads |
 | 118 | ☑ | ONCO-ACTION-001 | Oncology | MON: stronger evidence → ≥ tier; INV: variant order independent |
-| 119 | ☐ | ONCO-SV-001 | Oncology | INV: coordinate shift preserves rearrangement class; MON: more clustered breakpoints → chromothripsis |
+| 119 | ☑ | ONCO-SV-001 | Oncology | INV: coordinate shift preserves rearrangement class; MON: more clustered breakpoints → chromothripsis |
 | 120 | ☐ | ONCO-EXPR-001 | Oncology | INV: scaling all expression equally preserves z-scores/outliers; MON: lower threshold → superset |
 | 121 | ☐ | SEQ-COMPOSITION-001 | Statistics | INV: permutation invariant; P: complement swaps A↔T and C↔G counts |
 | 122 | ☐ | SEQ-DINUC-001 | Statistics | INV: reverse-complement maps each dinucleotide to its revcomp; SHIFT: prepend flank adds only boundary dinucleotides |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 118 |
-| ☐ Not started | 116 |
+| ☑ Complete | 119 |
+| ☐ Not started | 115 |
 | MR relations defined | ~200+ |
