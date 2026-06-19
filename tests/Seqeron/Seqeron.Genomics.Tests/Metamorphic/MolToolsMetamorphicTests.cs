@@ -2072,4 +2072,259 @@ public class MolToolsMetamorphicTests
     #endregion
 
     #endregion
+
+    #region PROBE-VALID-001 — probe validation
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Unit: PROBE-VALID-001 — hybridization probe validation (MolTools).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 25.
+    //
+    // API under test (ProbeDesigner.ValidateProbe):
+    //   ValidateProbe(probe, references, maxMismatches = 3, selfComplementarityThreshold = 0.3)
+    //     → ProbeValidation(IsValid, SpecificityScore, OffTargetHits, SelfComplementarity,
+    //                       HasSecondaryStructure, Issues).
+    //   offTargetHits = Σ_refs |{ i : Hamming(ref[i..i+|probe|], probe) ≤ maxMismatches }|
+    //                   (ungapped fixed-length substitution scan, both sides uppercased).
+    //   IsValid = issues.Count == 0  ∨  (offTargetHits ≤ 1 ∧ selfComp ≤ 0.4), where issues
+    //   holds an off-target item iff offTargetHits > 1, a self-comp item iff
+    //   selfComp > selfComplementarityThreshold, and a structure item iff hasStructure.
+    //
+    //   Algebra (definition, NOT observed output): substituting the issue conditions,
+    //     IsValid = (offTargetHits ≤ 1) ∧ R,   R = ((selfComp ≤ thr ∧ ¬hasStructure) ∨ selfComp ≤ 0.4)
+    //   and R is INDEPENDENT of maxMismatches (selfComp / hasStructure read the probe alone).
+    //
+    // Relation DIRECTIONS (derived from that algebra and the spec, NOT from output):
+    //   Source: docs/algorithms/MolTools/Probe_Validation.md §2.2 (specificity map),
+    //           §2.4 (INV-01..04), §4.1 step 5 (the IsValid rule), §5.2.
+    //
+    //   • MON (lower specificity threshold → more pass): `maxMismatches` is the off-target
+    //     detection stringency — the mismatch tolerance below which a window counts as a
+    //     cross-hybridization site. FindApproximateMatches is monotone in it:
+    //     matches(k) ⊆ matches(k+1) (a window within k mismatches is within k+1), so
+    //     offTargetHits(k) is NON-DECREASING in k. Since IsValid = (offTargetHits ≤ 1) ∧ R
+    //     with R fixed, IsValid(k) is NON-INCREASING: lowering the threshold can only ADD
+    //     passing probes (the passing set is downward-closed in k). The dual SpecificityScore
+    //     (1 / hits for hits > 1) is likewise non-increasing as hits grow.
+    //
+    //   • INV (same input → same result): ValidateProbe is a pure function whose result
+    //     depends only on the MULTISET of references (offTargetHits is a SUM over them) and
+    //     on case-folded sequences (probe and each reference are uppercased). Hence the full
+    //     record is invariant under (a) repeated calls, (b) permuting the reference order,
+    //     and (c) changing the case of the probe and/or references.
+    //
+    // Construction: a "clean" probe has selfComp ≤ threshold AND no secondary structure, so
+    // R = true and IsValid reduces to (offTargetHits ≤ 1) — isolating the maxMismatches MR.
+    // References are exact-length copies of the probe mutated at a fixed number of positions
+    // (via the same A↔T / C↔G flip used above), so each reference contributes one window at
+    // a KNOWN Hamming distance and the hit count crosses 1 as the tolerance rises. The clean
+    // probes' R-precondition is asserted from the returned fields, so the setup is self-checking.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>Default self-complementarity issue threshold used by ValidateProbe.</summary>
+    private const double SelfCompThreshold = 0.3;
+
+    private static ProbeDesigner.ProbeValidation Validate(
+        string probe, IEnumerable<string> references, int maxMismatches, double selfThr = SelfCompThreshold)
+        => ProbeDesigner.ValidateProbe(probe, references, maxMismatches, selfThr);
+
+    /// <summary>
+    /// 20-nt probes that are NOT self-complementary and form no hairpin, so the validity
+    /// rule reduces to (offTargetHits ≤ 1) — letting the maxMismatches relation be tested
+    /// in isolation. (Each probe's R-precondition is verified in-test from the result.)
+    /// </summary>
+    private static IEnumerable<string> CleanProbes()
+    {
+        yield return "AAAAAAAAAAGGGGGGGGGG";
+        yield return "AAAAAAAAAACCCCCCCCCC";
+        yield return "TTTTTTTTTTCCCCCCCCCC";
+    }
+
+    /// <summary>
+    /// References for a clean probe: an EXACT copy (0 mismatches) plus copies at 2, 4 and 6
+    /// mismatches. Each is the probe's length, so it contributes exactly one window whose
+    /// Hamming distance to the probe is the stated value; the hit count therefore steps up as
+    /// the mismatch tolerance rises, crossing the validity boundary (offTargetHits ≤ 1).
+    /// </summary>
+    private static List<string> MismatchLadder(string probe) => new()
+    {
+        probe,                                  // 0 mismatches (exact on-target)
+        MutateAt(probe, 0, 1),                  // 2 mismatches
+        MutateAt(probe, 0, 1, 2, 3),            // 4 mismatches
+        MutateAt(probe, 0, 1, 2, 3, 4, 5),      // 6 mismatches
+    };
+
+    private static void AssertSameValidation(ProbeDesigner.ProbeValidation a, ProbeDesigner.ProbeValidation b, string why)
+    {
+        a.IsValid.Should().Be(b.IsValid, because: why);
+        a.SpecificityScore.Should().Be(b.SpecificityScore, because: why);
+        a.OffTargetHits.Should().Be(b.OffTargetHits, because: why);
+        a.SelfComplementarity.Should().Be(b.SelfComplementarity, because: why);
+        a.HasSecondaryStructure.Should().Be(b.HasSecondaryStructure, because: why);
+        a.Issues.Should().Equal(b.Issues, because: why);
+    }
+
+    #region MON — lowering the mismatch (specificity) threshold never removes a passing probe
+
+    [Test]
+    [Description("MON: along an increasing maxMismatches chain the off-target hit count is non-decreasing and IsValid is non-increasing — lowering the threshold can only ADD passing probes, never remove one.")]
+    public void ValidateProbe_RaisingMismatchTolerance_HitsNonDecreasing_ValidityNonIncreasing()
+    {
+        int[] toleranceChain = { 0, 1, 2, 3, 4, 5, 6 };
+
+        foreach (var probe in CleanProbes())
+        {
+            var references = MismatchLadder(probe);
+
+            // Precondition: the probe is "clean" (R = true), so IsValid ⇔ offTargetHits ≤ 1.
+            var clean = Validate(probe, references, maxMismatches: 0);
+            clean.SelfComplementarity.Should().BeLessThanOrEqualTo(SelfCompThreshold,
+                because: "the construction requires a non-self-complementary probe so validity tracks only the off-target count");
+            clean.HasSecondaryStructure.Should().BeFalse(
+                because: "the construction requires a probe with no hairpin so validity tracks only the off-target count");
+
+            int previousHits = -1;
+            bool? previousValid = null;
+            bool sawValid = false, sawInvalid = false;
+
+            foreach (int k in toleranceChain)
+            {
+                var result = Validate(probe, references, maxMismatches: k);
+
+                result.OffTargetHits.Should().BeGreaterThanOrEqualTo(previousHits,
+                    because: $"raising the tolerance to {k} can only ADD approximate matches (matches(k) ⊆ matches(k+1)), so the hit count is non-decreasing");
+
+                // IsValid ⇔ offTargetHits ≤ 1 for a clean probe — the algebra, checked exactly.
+                result.IsValid.Should().Be(result.OffTargetHits <= 1,
+                    because: "for a clean probe (R = true) the validity rule reduces to offTargetHits ≤ 1");
+
+                if (previousValid is not null)
+                    (result.IsValid && !previousValid.Value).Should().BeFalse(
+                        because: $"a higher mismatch tolerance ({k}) never turns an invalid probe valid — validity is non-increasing in the threshold");
+
+                sawValid |= result.IsValid;
+                sawInvalid |= !result.IsValid;
+                previousHits = result.OffTargetHits;
+                previousValid = result.IsValid;
+            }
+
+            sawValid.Should().BeTrue(because: "at low tolerance only the exact on-target is found (1 hit) ⇒ the probe passes");
+            sawInvalid.Should().BeTrue(because: "at high tolerance the near-duplicates are also found (>1 hit) ⇒ the probe fails — the relation is exercised, not vacuous");
+        }
+    }
+
+    [Test]
+    [Description("MON (set): the set of probes that PASS validation is downward-closed in maxMismatches — lowering the threshold yields a superset of passing probes (count non-decreasing).")]
+    public void ValidateProbe_LoweringThreshold_PassingSetIsSuperset()
+    {
+        // Each probe carries its own mismatch ladder; pass/fail is decided per probe.
+        var cases = CleanProbes().Select(p => (Probe: p, Refs: MismatchLadder(p))).ToList();
+        int[] descendingThresholds = { 6, 4, 3, 2, 1, 0 };
+
+        HashSet<string>? higherSet = null;
+        foreach (int k in descendingThresholds)
+        {
+            var passing = cases.Where(c => Validate(c.Probe, c.Refs, k).IsValid).Select(c => c.Probe).ToHashSet();
+
+            if (higherSet is not null)
+                passing.IsSupersetOf(higherSet).Should().BeTrue(
+                    because: $"lowering the threshold to {k} keeps every probe that already passed and may add more — the passing set is a superset");
+
+            higherSet = passing;
+        }
+    }
+
+    [Test]
+    [Description("MON dual: the specificity score is non-increasing as the off-target hit count grows (1 hit → 1.0, N hits → 1/N).")]
+    public void ValidateProbe_MoreOffTargetHits_SpecificityScoreNonIncreasing()
+    {
+        foreach (var probe in CleanProbes())
+        {
+            var references = MismatchLadder(probe);
+            double previousScore = double.PositiveInfinity;
+
+            foreach (int k in new[] { 0, 1, 2, 3, 4, 5, 6 })
+            {
+                var result = Validate(probe, references, k);
+
+                result.SpecificityScore.Should().BeLessThanOrEqualTo(previousScore,
+                    because: $"as the tolerance rises to {k} the hit count grows and specificity (1/hits for hits>1) is non-increasing");
+                if (result.OffTargetHits >= 1)
+                    result.SpecificityScore.Should().BeApproximately(1.0 / result.OffTargetHits, 1e-12,
+                        because: "the spec maps hits>0 to 1/hits (and 1 hit to 1.0), independent of which references produced them");
+
+                previousScore = result.SpecificityScore;
+            }
+        }
+    }
+
+    #endregion
+
+    #region INV — same input → same result (deterministic, reference-order- and case-independent)
+
+    [Test]
+    [Description("INV: ValidateProbe is deterministic — repeated calls on identical input return an identical validation record.")]
+    public void ValidateProbe_SameInput_IsDeterministic()
+    {
+        foreach (var probe in CleanProbes())
+        {
+            var references = MismatchLadder(probe);
+            foreach (int k in new[] { 0, 2, 4 })
+            {
+                var first = Validate(probe, references, k);
+                for (int i = 0; i < 4; i++)
+                    AssertSameValidation(Validate(probe, references, k), first,
+                        "ValidateProbe is a pure function of (probe, references, params), so repeated calls must agree exactly");
+            }
+        }
+    }
+
+    [Test]
+    [Description("INV: permuting the reference order leaves the validation record unchanged — offTargetHits is a sum over references, which is order-independent.")]
+    public void ValidateProbe_ReferenceOrderPermutation_ResultUnchanged()
+    {
+        foreach (var probe in CleanProbes())
+        {
+            var references = MismatchLadder(probe);
+            var reversed = Enumerable.Reverse(references).ToList();
+            var rotated = references.Skip(1).Concat(references.Take(1)).ToList();
+
+            foreach (int k in new[] { 0, 2, 4, 6 })
+            {
+                var baseline = Validate(probe, references, k);
+                AssertSameValidation(Validate(probe, reversed, k), baseline,
+                    "the total hit count sums over references regardless of order, and every other field reads the probe alone");
+                AssertSameValidation(Validate(probe, rotated, k), baseline,
+                    "rotating the reference list cannot change the summed hit count or the probe-only metrics");
+            }
+        }
+    }
+
+    [Test]
+    [Description("INV: ValidateProbe is case-insensitive — lower/mixed casing the probe and references gives the same record, since both sides are uppercased before analysis.")]
+    public void ValidateProbe_CaseFolding_ResultUnchanged()
+    {
+        foreach (var probe in CleanProbes())
+        {
+            var references = MismatchLadder(probe);
+            foreach (int k in new[] { 0, 2, 4 })
+            {
+                var baseline = Validate(probe, references, k);
+
+                AssertSameValidation(
+                    Validate(probe.ToLowerInvariant(), references.Select(r => r.ToLowerInvariant()).ToList(), k),
+                    baseline,
+                    "the probe and each reference are uppercased before matching, so casing carries no information");
+
+                var mixedRefs = references
+                    .Select(r => new string(r.Select((ch, i) => i % 2 == 0 ? char.ToLowerInvariant(ch) : ch).ToArray()))
+                    .ToList();
+                AssertSameValidation(Validate(probe, mixedRefs, k), baseline,
+                    "case folding is total, so any case pattern of the same letters yields the same validation");
+            }
+        }
+    }
+
+    #endregion
+
+    #endregion
 }
