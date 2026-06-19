@@ -642,4 +642,62 @@ public class RnaStructureMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: RNA-PSEUDOKNOT-001 — pseudoknot detection (RnaStructure).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 155.
+    //
+    // API under test (RnaSecondaryStructure.DetectPseudoknots):
+    //   Reports a pseudoknot for every CROSSING pair-of-pairs (i < k < j < l). Nested
+    //   (i < k < l < j) and disjoint (j < k) pairs are not pseudoknots.
+    //
+    // Relations (derived from the crossing condition, NOT from output):
+    //   • INV  (nested ⇒ no pseudoknot): a purely nested set of base pairs has no crossing, so no
+    //          pseudoknot is reported.
+    //   • SHIFT (prepend flank shifts positions): adding a constant offset to every position (a
+    //          prepended flank) preserves all order relations, so the same pseudoknots are reported
+    //          with their coordinates shifted by the flank length.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private static RnaSecondaryStructure.BasePair Bp(int p1, int p2) =>
+        new(p1, p2, 'A', 'U', RnaSecondaryStructure.BasePairType.WatsonCrick);
+
+    #region RNA-PSEUDOKNOT-001 INV — a nested structure has no pseudoknot
+
+    [Test]
+    [Description("INV: a purely nested set of base pairs contains no crossing pairs, so no pseudoknot is detected.")]
+    public void Pseudoknots_NestedStructure_None()
+    {
+        var nested = new[] { Bp(0, 9), Bp(1, 8), Bp(2, 7), Bp(3, 6) };
+
+        RnaSecondaryStructure.DetectPseudoknots(nested).Should().BeEmpty(
+            because: "nested pairs (i<k<l<j) never cross, so they form no pseudoknot");
+    }
+
+    #endregion
+
+    #region RNA-PSEUDOKNOT-001 SHIFT — a prepended flank shifts pseudoknot coordinates
+
+    [Test]
+    [Description("SHIFT: offsetting every base-pair position by a flank length preserves the crossing relations, so the same pseudoknots are reported with coordinates shifted by the flank.")]
+    public void Pseudoknots_PrependFlank_ShiftsCoordinates()
+    {
+        var crossing = new[] { Bp(0, 5), Bp(2, 8) }; // i=0 < k=2 < j=5 < l=8 ⇒ one pseudoknot
+        var original = RnaSecondaryStructure.DetectPseudoknots(crossing)
+            .Select(p => (p.Start1, p.End1, p.Start2, p.End2)).ToList();
+        original.Should().ContainSingle(because: "the two pairs cross exactly once");
+
+        foreach (int flank in new[] { 3, 100 })
+        {
+            var shifted = crossing.Select(b => Bp(b.Position1 + flank, b.Position2 + flank)).ToArray();
+            var shiftedResult = RnaSecondaryStructure.DetectPseudoknots(shifted)
+                .Select(p => (p.Start1, p.End1, p.Start2, p.End2)).ToList();
+
+            var expected = original.Select(p => (p.Start1 + flank, p.End1 + flank, p.Start2 + flank, p.End2 + flank)).ToList();
+            shiftedResult.Should().Equal(expected,
+                because: $"a {flank}-base prepended flank shifts every pseudoknot coordinate by {flank} without changing the crossing");
+        }
+    }
+
+    #endregion
 }
