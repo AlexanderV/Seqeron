@@ -735,4 +735,36 @@ public class MatchingMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: MOTIF-GENERATE-001 — position weight matrix generation (Matching).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 171.
+    //
+    // API under test (MotifFinder.CreatePwm):
+    //   Builds a log-odds PWM from equal-length sequences using per-column base counts.
+    //
+    // Relations (derived from column counting, NOT from output):
+    //   • INV  (row order independent): the PWM is a function of each column's base counts, so
+    //          reordering the input sequences yields the identical matrix and consensus.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region MOTIF-GENERATE-001 INV — the PWM is independent of sequence order
+
+    [Test]
+    [Description("INV: each PWM column is built from the column's base counts, so reversing (permuting) the sequence order yields the identical matrix and consensus.")]
+    public void Pwm_RowOrder_Invariant()
+    {
+        var seqs = new[] { "ACGTA", "ACGAA", "TCGTA", "ACGTC" };
+        var original = MotifFinder.CreatePwm(seqs);
+        var reordered = MotifFinder.CreatePwm(seqs.Reverse().ToList());
+
+        reordered.Length.Should().Be(original.Length);
+        reordered.Consensus.Should().Be(original.Consensus, because: "the consensus is derived from order-independent column counts");
+        for (int b = 0; b < 4; b++)
+            for (int i = 0; i < original.Length; i++)
+                reordered.Matrix[b, i].Should().BeApproximately(original.Matrix[b, i], 1e-12,
+                    because: $"PWM cell [{b},{i}] depends only on the column's base counts");
+    }
+
+    #endregion
 }
