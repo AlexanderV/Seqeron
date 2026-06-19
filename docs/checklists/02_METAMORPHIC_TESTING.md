@@ -189,7 +189,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 159 | ☑ | KMER-GENERATE-001 | K-mer | INV: order independent; P: set closed under all k-mers |
 | 160 | ☑ | KMER-POSITIONS-001 | K-mer | SHIFT: prepend flank shifts positions; INV: order independent |
 | 161 | ☑ | KMER-STATS-001 | K-mer | INV: permutation changes positions not counts; ADD: counts additive on concatenation |
-| 162 | ☐ | KMER-UNIQUE-001 | K-mer | MON: duplicating a k-mer removes it from unique set; INV: order independent |
+| 162 | ☑ | KMER-UNIQUE-001 | K-mer | MON: duplicating a k-mer removes it from unique set; INV: order independent |
 | 163 | ☐ | PROTMOTIF-CC-001 | ProteinMotif | INV: deterministic; SHIFT: prepend flank shifts positions |
 | 164 | ☐ | PROTMOTIF-COMMON-001 | ProteinMotif | MON: more sequences sharing → ≥ support; INV: input order independent |
 | 165 | ☐ | PROTMOTIF-LC-001 | ProteinMotif | MON: lower threshold → superset; SHIFT: prepend flank shifts regions |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 161 |
-| ☐ Not started | 73 |
+| ☑ Complete | 162 |
+| ☐ Not started | 72 |
 | MR relations defined | ~200+ |

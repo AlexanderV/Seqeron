@@ -784,4 +784,52 @@ public class KmerMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: KMER-UNIQUE-001 — unique (count-1) k-mers (K-mer).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 162.
+    //
+    // API under test (KmerAnalyzer.FindUniqueKmers):
+    //   Returns the k-mers occurring exactly once in the sequence.
+    //
+    // Relations (derived from the count-1 definition, NOT from output):
+    //   • MON  (duplicating a k-mer removes it from the unique set): a unique k-mer that gains a
+    //          second occurrence no longer has count 1, so it leaves the set; the rest stay.
+    //   • INV  (order independent): at k = 1 the unique-base set depends only on the multiset of
+    //          bases, so a permutation yields the same unique set.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region KMER-UNIQUE-001 MON — duplicating a unique k-mer drops it from the set
+
+    [Test]
+    [Description("MON: appending another copy of a currently-unique base raises its count to 2, so it leaves the unique set while every other unique base remains.")]
+    public void UniqueKmers_DuplicateUniqueKmer_Removed()
+    {
+        const string seq = "AACGT"; // 1-mer counts: A=2, C=1, G=1, T=1 ⇒ unique {C,G,T}
+        var before = KmerAnalyzer.FindUniqueKmers(seq, 1).ToHashSet();
+        before.Should().Contain("C", because: "C occurs exactly once");
+
+        var after = KmerAnalyzer.FindUniqueKmers(seq + "C", 1).ToHashSet(); // C now occurs twice
+        after.Should().NotContain("C", because: "duplicating C makes its count 2, so it is no longer unique");
+        after.Should().BeEquivalentTo(before.Where(km => km != "C"),
+            because: "only the duplicated k-mer leaves the unique set; the others are unaffected at k=1");
+    }
+
+    #endregion
+
+    #region KMER-UNIQUE-001 INV — the unique set is permutation invariant at k=1
+
+    [Test]
+    [Description("INV: at k=1 the unique-base set depends only on the base multiset, so permuting the sequence yields the same unique set.")]
+    public void UniqueKmers_Permutation_Invariant()
+    {
+        const string seq = "AACGTACGTT";
+        string permuted = new string(seq.OrderBy(c => c).ToArray());
+
+        KmerAnalyzer.FindUniqueKmers(permuted, 1).ToHashSet()
+            .Should().BeEquivalentTo(KmerAnalyzer.FindUniqueKmers(seq, 1).ToHashSet(),
+                because: "the count-1 base set is a function of the base multiset, which a permutation preserves");
+    }
+
+    #endregion
 }
