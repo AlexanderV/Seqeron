@@ -225,4 +225,59 @@ public class ProteinMotifMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: PROTMOTIF-CC-001 — coiled-coil prediction (ProteinMotif).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 163.
+    //
+    // API under test (ProteinMotifFinder.PredictCoiledCoils):
+    //   Scores heptad a/d hydrophobic-core (I/L/V) occupancy in a sliding window and reports
+    //   contiguous above-threshold regions (Lupas 1991; Mason & Arndt 2004).
+    //
+    // Relations (derived from the heptad-occupancy model, NOT from output):
+    //   • INV  (deterministic): the prediction is a pure function of the sequence.
+    //   • SHIFT (prepend flank shifts positions): a non-coiled-coil 5' flank moves the region's 3'
+    //          boundary by exactly the flank length (the flank cannot extend the core past its end).
+    // ───────────────────────────────────────────────────────────────────────────
+
+    // Five perfect heptads (I/L/V at every a and d position) ⇒ one strong coiled-coil region.
+    private static readonly string CoiledCoil = string.Concat(Enumerable.Repeat("LAALAAA", 5));
+
+    #region PROTMOTIF-CC-001 INV — the prediction is deterministic
+
+    [Test]
+    [Description("INV: PredictCoiledCoils is a pure function, so repeated calls return the identical regions.")]
+    public void CoiledCoils_SameSequence_SameRegions()
+    {
+        ProteinMotifFinder.PredictCoiledCoils(CoiledCoil).ToList()
+            .Should().Equal(ProteinMotifFinder.PredictCoiledCoils(CoiledCoil).ToList(),
+                because: "the heptad-occupancy prediction has no hidden state");
+    }
+
+    #endregion
+
+    #region PROTMOTIF-CC-001 SHIFT — a prepended flank shifts the region's 3' boundary
+
+    [Test]
+    [Description("SHIFT: prepending a non-coiled-coil flank shifts the detected region's 3' end by exactly the flank length, keeping the same region count and peak score.")]
+    public void CoiledCoils_PrependFlank_ShiftsEndBoundary()
+    {
+        var original = ProteinMotifFinder.PredictCoiledCoils(CoiledCoil).ToList();
+        original.Should().ContainSingle(because: "five perfect heptads form one coiled-coil region");
+        int originalEnd = original[0].End;
+        double originalScore = original[0].Score;
+
+        foreach (int flankLen in new[] { 5, 10 })
+        {
+            string flank = new string('P', flankLen); // proline: never a hydrophobic-core a/d residue
+            var shifted = ProteinMotifFinder.PredictCoiledCoils(flank + CoiledCoil).ToList();
+
+            shifted.Should().ContainSingle(because: "the proline flank adds no coiled-coil region of its own");
+            shifted[0].End.Should().Be(originalEnd + flankLen,
+                because: $"the {flankLen}-residue 5' flank shifts the 3' boundary by {flankLen} without extending it");
+            shifted[0].Score.Should().BeApproximately(originalScore, 1e-12, because: "the core heptad occupancy is unchanged");
+        }
+    }
+
+    #endregion
 }
