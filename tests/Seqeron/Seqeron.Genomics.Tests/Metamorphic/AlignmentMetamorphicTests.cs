@@ -601,4 +601,63 @@ public class AlignmentMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ALIGN-STATS-001 — pairwise alignment statistics (Alignment).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 226.
+    //
+    // API under test (SequenceAligner.CalculateStatistics over GlobalAlign):
+    //   Counts identical / similar / gap columns of a pairwise alignment and reports Identity,
+    //   Similarity, Gap% (EMBOSS needle convention; denominator = alignment length incl. gaps).
+    //
+    // Relations (derived from the column-type tallies, NOT from output):
+    //   • SYM (stats(a,b) = stats(b,a)): the (b,a) DP matrix is the transpose of (a,b), so the column
+    //         multiset — and hence every statistic — is identical when the operands are swapped.
+    //   • P   (identity(x,x) = 100%): a sequence aligned to itself is gapless and all-match, so
+    //         Identity = 100, with zero gaps and mismatches.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region ALIGN-STATS-001 SYM — statistics are symmetric under operand swap
+
+    [Test]
+    [Description("SYM: swapping the operands transposes the DP matrix, so every alignment statistic is identical for (a,b) and (b,a).")]
+    public void AlignmentStatistics_AreSymmetric()
+    {
+        var bodies = AlignBodies().ToList();
+
+        foreach (var scoring in ScoringMatrices)
+            for (int i = 0; i < bodies.Count; i++)
+                for (int j = i + 1; j < bodies.Count; j++)
+                {
+                    var forward = SequenceAligner.CalculateStatistics(SequenceAligner.GlobalAlign(bodies[i], bodies[j], scoring), scoring);
+                    var swapped = SequenceAligner.CalculateStatistics(SequenceAligner.GlobalAlign(bodies[j], bodies[i], scoring), scoring);
+
+                    swapped.Should().BeEquivalentTo(forward,
+                        because: $"the alignment of ({bodies[j]},{bodies[i]}) is the transpose of ({bodies[i]},{bodies[j]}), so the column tallies match");
+                }
+    }
+
+    #endregion
+
+    #region ALIGN-STATS-001 P — a sequence aligned to itself is 100% identical
+
+    [Test]
+    [Description("P: a sequence aligned to itself is gapless and all-match, so Identity = 100 with zero gaps and mismatches.")]
+    public void AlignmentStatistics_SelfAlignment_IsFullIdentity()
+    {
+        var bodies = AlignBodies().ToList();
+
+        foreach (var scoring in ScoringMatrices)
+            foreach (var body in bodies)
+            {
+                var stats = SequenceAligner.CalculateStatistics(SequenceAligner.GlobalAlign(body, body, scoring), scoring);
+
+                stats.Identity.Should().BeApproximately(100.0, 1e-9, because: $"'{body}' matches itself in every column");
+                stats.Gaps.Should().Be(0, because: "an optimal self-alignment introduces no gaps");
+                stats.Mismatches.Should().Be(0, because: "every column of a self-alignment is identical");
+                stats.Matches.Should().Be(body.Length, because: "all of the sequence's positions align to themselves");
+            }
+    }
+
+    #endregion
 }
