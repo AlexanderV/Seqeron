@@ -687,4 +687,107 @@ public class FileIoMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: PARSE-EMBL-001 — EMBL flat-file parsing (FileIO).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 70.
+    //
+    // API under test (EmblParser.Parse):
+    //   EMBL uses two-letter line prefixes (ID, AC, DE, SQ, …). The SQ block lists the
+    //   sequence as space-separated base groups with a right-margin position; the parser
+    //   keeps only the letters of the SQ block (uppercased), discarding positions and layout.
+    //   (There is no EMBL writer, so the canonical encoder below stands in for one.)
+    //
+    // Relations (derived from the prefixed-line format, NOT from output):
+    //   • COMP (round-trip identity): encoding known field values into a canonical EMBL record
+    //          and parsing recovers them exactly (AC/DE and the uppercased sequence), and the
+    //          sequence is a fixed point of encode-SQ∘parse.
+    //   • INV  (sequence whitespace/layout): the parsed sequence is invariant to the SQ block's
+    //          base-position numbers, grouping, line width and letter case.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region PARSE-EMBL-001 — Helpers
+
+    /// <summary>Builds a canonical EMBL SQ block (5-space margin, space-separated base groups, right-margin position).</summary>
+    private static string EmblSqBlock(string sequence, int perLine = 60, int groupSize = 10, bool upperCase = false)
+    {
+        string bases = upperCase ? sequence.ToUpperInvariant() : sequence.ToLowerInvariant();
+        var sb = new StringBuilder($"SQ   Sequence {sequence.Length} BP;\n");
+        for (int i = 0; i < bases.Length; i += perLine)
+        {
+            sb.Append("    ");
+            int end = Math.Min(i + perLine, bases.Length);
+            for (int j = i; j < end; j += groupSize)
+                sb.Append(' ').Append(bases.Substring(j, Math.Min(groupSize, bases.Length - j)));
+            sb.Append("      ").Append(end).Append('\n'); // right-margin base position (digits, dropped on parse)
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>Builds a minimal but valid EMBL record around the given SQ block.</summary>
+    private static string EmblRecordText(string accession, string description, string sqBlock, int length) =>
+        $"ID   {accession}; SV 1; linear; genomic DNA; STD; HUM; {length} BP.\n" +
+        "XX\n" +
+        $"AC   {accession};\n" +
+        "XX\n" +
+        $"DE   {description}\n" +
+        "XX\n" +
+        sqBlock +
+        "//\n";
+
+    #endregion
+
+    #region PARSE-EMBL-001 COMP — encode→parse recovers the fields and sequence
+
+    [Test]
+    [Description("COMP: encoding known field values into a canonical EMBL record and parsing recovers them exactly, and the sequence is a fixed point of encode-SQ∘parse.")]
+    public void Embl_EncodeParse_RecoversFieldsAndSequence()
+    {
+        const string accession = "TEST123";
+        const string description = "Synthetic test sequence";
+        const string sequence = "ACGTACGTACGTACGTTTGGCCAA";
+
+        string text = EmblRecordText(accession, description, EmblSqBlock(sequence), sequence.Length);
+        var record = EmblParser.Parse(text).Single();
+
+        record.Accession.Should().Be(accession, because: "the AC/ID accession must round-trip");
+        record.Description.Should().Be(description, because: "the DE description must round-trip");
+        record.Sequence.Should().Be(sequence, because: "the SQ bases (uppercased) must round-trip exactly");
+
+        var reparsed = EmblParser.Parse(
+            EmblRecordText(accession, description, EmblSqBlock(record.Sequence), record.Sequence.Length)).Single();
+        reparsed.Sequence.Should().Be(record.Sequence, because: "the sequence is a fixed point of encode-SQ∘parse");
+    }
+
+    #endregion
+
+    #region PARSE-EMBL-001 INV — SQ layout/whitespace does not change the sequence
+
+    [Test]
+    [Description("INV: the parsed sequence keeps only the SQ letters (uppercased), so it is invariant to base-position numbers, grouping, line width and letter case.")]
+    public void Embl_SqLayout_DoesNotChangeSequence()
+    {
+        const string sequence = "ACGTACGTACGTACGTTTGGCCAATTGGCCAA";
+        const string accession = "LAY001";
+        const string description = "Layout invariance";
+
+        var layouts = new[]
+        {
+            EmblSqBlock(sequence, perLine: 60, groupSize: 10, upperCase: false),
+            EmblSqBlock(sequence, perLine: 30, groupSize: 10, upperCase: false),
+            EmblSqBlock(sequence, perLine: 20, groupSize: 5,  upperCase: false),
+            EmblSqBlock(sequence, perLine: 60, groupSize: 10, upperCase: true),
+        };
+
+        foreach (var sq in layouts)
+        {
+            var record = EmblParser.Parse(
+                EmblRecordText(accession, description, sq, sequence.Length)).Single();
+
+            record.Sequence.Should().Be(sequence,
+                because: "position numbers, grouping, line width and case are not part of the sequence — only the letters, uppercased, are kept");
+        }
+    }
+
+    #endregion
 }
