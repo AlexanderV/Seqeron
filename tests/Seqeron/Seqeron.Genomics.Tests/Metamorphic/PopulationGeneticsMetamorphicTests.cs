@@ -511,4 +511,86 @@ public class PopulationGeneticsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: POP-LD-001 — linkage disequilibrium D' and r² (PopGen).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 47.
+    //
+    // API under test (PopulationGeneticsAnalyzer.CalculateLD):
+    //   From diploid genotype pairs (0/1/2 dosage at each of two loci): r² = squared Pearson
+    //   correlation of the dosages; D = Cov(X₁,X₂)/2, normalised to D' = |D|/D_max ∈ [0,1].
+    //
+    // Relations (derived from the formula, NOT from output):
+    //   • SYM (locus symmetry): covariance and correlation are symmetric, and D_max is a min
+    //          over symmetric products, so swapping the two loci leaves D' and r² unchanged.
+    //   • COMP (independent loci ⇒ D' ≈ 0): a full 3×3 factorial of genotype pairs makes the
+    //          two dosages statistically independent, so Cov = 0 exactly ⇒ D' = 0 and r² = 0.
+    //   • MON/boundary (perfect linkage ⇒ D' = 1): HWE-proportioned, perfectly co-inherited
+    //          genotypes give the maximal D' = 1 (and r² = 1) — the upper bound of the measure.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region SYM — LD is symmetric in the two loci
+
+    [Test]
+    [Description("SYM: swapping the two loci leaves D' and r² unchanged, as covariance, correlation and D_max are all symmetric.")]
+    public void Ld_IsSymmetric()
+    {
+        for (int trial = 0; trial < 20; trial++)
+        {
+            int n = Rng.Next(5, 30);
+            var pairs = Enumerable.Range(0, n).Select(_ => (Rng.Next(0, 3), Rng.Next(0, 3))).ToList();
+            var swapped = pairs.Select(p => (p.Item2, p.Item1)).ToList();
+
+            var ab = PopulationGeneticsAnalyzer.CalculateLD("a", "b", pairs, 100);
+            var ba = PopulationGeneticsAnalyzer.CalculateLD("b", "a", swapped, 100);
+
+            ba.DPrime.Should().BeApproximately(ab.DPrime, 1e-12,
+                because: "D' is symmetric: D_max is a minimum over symmetric allele-frequency products");
+            ba.RSquared.Should().BeApproximately(ab.RSquared, 1e-12,
+                because: "r² is the squared correlation, which is symmetric in its two variables");
+        }
+    }
+
+    #endregion
+
+    #region COMP — independent loci give D' = 0 and r² = 0
+
+    [Test]
+    [Description("COMP: a full 3×3 factorial of genotype pairs makes the two dosages independent, so D' = 0 and r² = 0 exactly.")]
+    public void Ld_IndependentLoci_AreZero()
+    {
+        var factorial = new List<(int, int)>();
+        for (int g1 = 0; g1 <= 2; g1++)
+            for (int g2 = 0; g2 <= 2; g2++)
+                factorial.Add((g1, g2));
+
+        var ld = PopulationGeneticsAnalyzer.CalculateLD("a", "b", factorial, 100);
+
+        ld.DPrime.Should().BeApproximately(0.0, 1e-12,
+            because: "in a full factorial the two dosages are independent, so their covariance — and hence D — is exactly 0");
+        ld.RSquared.Should().BeApproximately(0.0, 1e-12,
+            because: "zero covariance gives zero correlation, so r² = 0");
+    }
+
+    #endregion
+
+    #region MON/boundary — perfectly linked loci reach D' = 1
+
+    [Test]
+    [Description("MON/boundary: HWE-proportioned, perfectly co-inherited genotypes attain the maximal D' = 1 and r² = 1.")]
+    public void Ld_PerfectLinkage_ReachesOne()
+    {
+        // HWE proportions at p = 1/2 (0.25/0.5/0.25) ⇒ dosage variance 2pq = 1/2 = D_max scaling,
+        // with the second locus identical to the first (perfect co-inheritance).
+        var perfect = new List<(int, int)> { (0, 0), (1, 1), (1, 1), (2, 2) };
+
+        var ld = PopulationGeneticsAnalyzer.CalculateLD("a", "b", perfect, 100);
+
+        ld.DPrime.Should().BeApproximately(1.0, 1e-9,
+            because: "perfectly co-inherited HWE genotypes give D = D_max, so D' attains its maximum of 1");
+        ld.RSquared.Should().BeApproximately(1.0, 1e-9,
+            because: "identical dosages are perfectly correlated, so r² = 1");
+    }
+
+    #endregion
 }
