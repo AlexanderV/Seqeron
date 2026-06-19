@@ -170,6 +170,59 @@ namespace Seqeron.Genomics.Tests;
 ///     this so the strict/lenient boundary is explicit: the same garbage the
 ///     public path REJECTS, both lenient surfaces must carry through without
 ///     crashing and without shifting the reverse-complement of the valid bases.
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: SEQ-VALID-001 — sequence validation (Composition)
+/// Checklist: docs/checklists/03_FUZZING.md, row 4.
+/// Fuzz strategies exercised for THIS unit:
+///   • RB  = Random Bytes — fixed-seed sweeps of random chars (full BMP code-point
+///           range, including control chars and surrogate halves) and random
+///           ASCII strings; the validators must never throw and must classify
+///           valid iff every char is in the accepted alphabet.
+///   • INJ = Injection — non-ASCII letters, null bytes, mixed-case, unicode
+///           (combining marks, full-width look-alikes, astral/surrogate-pair code
+///           points), control characters (\0, \t, \n, \r, BEL, DEL, ESC).
+///   • BE  = Boundary Exploitation — empty string, single char, extremely long.
+/// — docs/checklists/03_FUZZING.md §Description (strategy codes).
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The sequence-validation contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// SEQ-VALID-001 is the sequence-validation entry point: a per-character
+/// set-membership scan against an alphabet, normalized to uppercase, returning a
+/// boolean (never throwing) — Sequence_Validation.md §2.2, §4.1, §5. Strict mode:
+/// DNA accepts ONLY {A,C,G,T}; RNA accepts ONLY {A,C,G,U}. IUPAC ambiguity codes
+/// (N,R,Y,S,W,K,M,B,D,H,V) and the gap '-' are REJECTED (Sequence_Validation.md
+/// §5.2–5.4, INV-01..03). The EMPTY sequence is valid by vacuous truth — no
+/// invalid character is present (Sequence_Validation.md §3.3, §6.1).
+///
+/// SEQ-VALID-001 has THREE documented surfaces. Fuzzing pins all three and the
+/// boundary between them so none can silently drift:
+///
+/// (1) SequenceExtensions.IsValidDna(ReadOnlySpan&lt;char&gt;)
+///     (SequenceExtensions.cs lines 302–311): a TOTAL predicate — for ANY input
+///     it returns true/false and NEVER throws. Case-insensitive
+///     (char.ToUpperInvariant per char). true iff every char ∈ {A,C,G,T};
+///     empty → true (vacuous truth). Because it folds char-by-char, surrogate
+///     halves, null bytes, control chars and astral code points are simply "not
+///     A/C/G/T" → false, never a crash and never an encoding surprise.
+///
+/// (2) SequenceExtensions.IsValidRna(ReadOnlySpan&lt;char&gt;)
+///     (SequenceExtensions.cs lines 317–326): identical contract over {A,C,G,U}.
+///     The DNA/RNA asymmetry is documented (Sequence_Validation.md §5.2 table):
+///     "ACGT" is valid DNA but INVALID RNA; "ACGU" is valid RNA but INVALID DNA.
+///     We pin that asymmetry so neither alphabet can drift into the other.
+///
+/// (3) DnaSequence.TryCreate(string, out DnaSequence?)
+///     (DnaSequence.cs lines 129–141): factory validation. Returns true with a
+///     materialized sequence when the DnaSequence ctor accepts the input; returns
+///     false with null ONLY when the ctor raises the documented ArgumentException
+///     (Sequence_Validation.md §3.3, §5.1). null/empty input → true with an empty
+///     sequence (the ctor's IsNullOrEmpty short-circuit, DnaSequence.cs lines
+///     24–28) — TryCreate does NOT treat "no input" as a failure. TryCreate only
+///     catches ArgumentException, so any *other* exception type leaking from the
+///     validation path would surface here — fuzzing pins that no such leak occurs
+///     on random bytes, control chars, null bytes, unicode or huge input.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -190,6 +243,19 @@ public class CompositionFuzzTests
         var chars = new char[length];
         for (int i = 0; i < length; i++)
             chars[i] = bases[Rng.Next(bases.Length)];
+        return new string(chars);
+    }
+
+    /// <summary>
+    /// Generates a random string of arbitrary BMP code points (0x0000–0xFFFF),
+    /// deliberately spanning control characters, the null byte, and lone surrogate
+    /// halves — pure random-byte (RB) fuzz fodder for the validators.
+    /// </summary>
+    private static string RandomBmpChars(int length)
+    {
+        var chars = new char[length];
+        for (int i = 0; i < length; i++)
+            chars[i] = (char)Rng.Next(0x0000, 0x10000);
         return new string(chars);
     }
 
@@ -919,6 +985,402 @@ public class CompositionFuzzTests
         new string(destination).Should().Be("A\0N1C-GT",
             because: "each base is complemented (uppercase) and the sequence reversed; " +
                      "non-IUPAC '-','1','\\0' pass through unchanged");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  SEQ-VALID-001 — sequence validation
+    //  Total predicates:  SequenceExtensions.IsValidDna / IsValidRna (never throw)
+    //  Factory:           DnaSequence.TryCreate (false+null only on ArgumentException)
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region SEQ-VALID-001 — sequence validation
+
+    #region BE — Boundary: empty string
+
+    /// <summary>
+    /// BE: the empty span is the lower size boundary. Both validators return true
+    /// by VACUOUS TRUTH — no invalid character is present (Sequence_Validation.md
+    /// §3.3, §6.1; INV-03). No division, no indexing, no exception.
+    /// </summary>
+    [Test]
+    public void IsValid_EmptyString_IsTrueForBothAlphabets()
+    {
+        var act = () =>
+        {
+            ReadOnlySpan<char>.Empty.IsValidDna().Should().BeTrue(
+                "an empty sequence has no invalid characters (vacuous truth)");
+            ReadOnlySpan<char>.Empty.IsValidRna().Should().BeTrue(
+                "an empty sequence has no invalid characters (vacuous truth)");
+        };
+
+        act.Should().NotThrow("the empty span is a defined boundary input, not an error");
+    }
+
+    /// <summary>
+    /// BE: TryCreate on null/empty input is NOT a validation failure — the
+    /// DnaSequence ctor short-circuits "no input" to an empty sequence
+    /// (DnaSequence.cs lines 24–28), so TryCreate returns true with a non-null,
+    /// length-0 sequence and never throws NullReferenceException
+    /// (Sequence_Validation.md §3.3).
+    /// </summary>
+    [TestCase("", TestName = "TryCreate_EmptyString_SucceedsWithEmptySequence")]
+    [TestCase(null, TestName = "TryCreate_Null_SucceedsWithEmptySequence")]
+    public void TryCreate_NullOrEmpty_SucceedsWithEmptySequence(string? input)
+    {
+        bool created = false;
+        DnaSequence? result = null;
+        var act = () => created = DnaSequence.TryCreate(input!, out result);
+
+        act.Should().NotThrow<NullReferenceException>(
+            "null must be handled by the documented IsNullOrEmpty gate, never dereferenced");
+        act.Should().NotThrow();
+        created.Should().BeTrue("'no input' is a defined empty sequence, not a validation failure");
+        result.Should().NotBeNull();
+        result!.Length.Should().Be(0);
+    }
+
+    #endregion
+
+    #region BE — Boundary: single character
+
+    /// <summary>
+    /// BE: a one-character input is the minimal non-empty case. Each unambiguous
+    /// base is valid for exactly the alphabet that contains it, case-insensitively
+    /// (char.ToUpperInvariant per char). This pins the documented DNA/RNA asymmetry
+    /// at the smallest scale: A/C/G are valid for both; T is DNA-only; U is RNA-only
+    /// (Sequence_Validation.md §5.2 table).
+    /// </summary>
+    [TestCase('A', true, true)]
+    [TestCase('C', true, true)]
+    [TestCase('G', true, true)]
+    [TestCase('T', true, false)]
+    [TestCase('U', false, true)]
+    [TestCase('a', true, true)]
+    [TestCase('t', true, false)]
+    [TestCase('u', false, true)]
+    public void IsValid_SingleCharacter_MatchesItsAlphabet(char c, bool validDna, bool validRna)
+    {
+        ReadOnlySpan<char> span = stackalloc char[] { c };
+
+        span.IsValidDna().Should().Be(validDna,
+            because: $"'{c}' is {(validDna ? "" : "not ")}a DNA base (A/C/G/T, case-insensitive)");
+        span.IsValidRna().Should().Be(validRna,
+            because: $"'{c}' is {(validRna ? "" : "not ")}an RNA base (A/C/G/U, case-insensitive)");
+    }
+
+    #endregion
+
+    #region INJ — Injection: mixed case (validators fold to uppercase)
+
+    /// <summary>
+    /// INJ: mixed and lower case must be accepted because validation folds each
+    /// char with char.ToUpperInvariant before the membership test
+    /// (Sequence_Validation.md §3.3, "case-insensitive"). Lowercase/mixed a-c-g-t
+    /// is valid DNA and TryCreate materializes it; a-c-g-u is valid RNA. Case must
+    /// neither reject valid bases nor flip the classification.
+    /// </summary>
+    [TestCase("acgt", true, false, TestName = "IsValid_MixedCase_LowerAcgt_DnaOnly")]
+    [TestCase("AcGt", true, false, TestName = "IsValid_MixedCase_AlternatingAcgt_DnaOnly")]
+    [TestCase("acgu", false, true, TestName = "IsValid_MixedCase_LowerAcgu_RnaOnly")]
+    [TestCase("aCgU", false, true, TestName = "IsValid_MixedCase_AlternatingAcgu_RnaOnly")]
+    public void IsValid_MixedCase_FoldsBeforeMembershipTest(string input, bool validDna, bool validRna)
+    {
+        input.AsSpan().IsValidDna().Should().Be(validDna,
+            because: "characters are upper-cased before the A/C/G/T membership test");
+        input.AsSpan().IsValidRna().Should().Be(validRna,
+            because: "characters are upper-cased before the A/C/G/U membership test");
+    }
+
+    [TestCase("acgt", TestName = "TryCreate_MixedCase_LowerAcgt_SucceedsUppercased")]
+    [TestCase("AcGt", TestName = "TryCreate_MixedCase_AlternatingAcgt_SucceedsUppercased")]
+    public void TryCreate_MixedCaseDna_SucceedsAndStoresUppercase(string input)
+    {
+        bool created = DnaSequence.TryCreate(input, out var result);
+
+        created.Should().BeTrue("lowercase/mixed-case A/C/G/T is valid DNA after case folding");
+        result.Should().NotBeNull();
+        result!.Sequence.Should().Be(input.ToUpperInvariant(),
+            because: "the ctor normalizes accepted input to uppercase (DnaSequence.cs line 30)");
+    }
+
+    #endregion
+
+    #region INJ — Injection: non-ASCII / unicode (rejected, never throw)
+
+    /// <summary>
+    /// INJ: non-ASCII letters, combining diacritics, full-width look-alikes, Greek
+    /// letters, and astral/surrogate-pair code points are NOT in either alphabet.
+    /// Both total predicates must return false WITHOUT throwing — char-by-char
+    /// folding makes a surrogate half simply "not a base", never an encoding crash
+    /// or IndexOutOfRange. The astral case (😀) specifically guards the high/low
+    /// surrogate halves of a pair.
+    /// </summary>
+    [TestCase("ÀCGT", TestName = "IsValid_Unicode_AccentedLatin_RejectedNoThrow")]
+    [TestCase("ACGTα", TestName = "IsValid_Unicode_GreekLetter_RejectedNoThrow")]
+    [TestCase("ÁCGT", TestName = "IsValid_Unicode_CombiningAcute_RejectedNoThrow")]
+    [TestCase("ＡＣＧＴ", TestName = "IsValid_Unicode_FullWidthLatin_RejectedNoThrow")]
+    [TestCase("ACG😀T", TestName = "IsValid_Unicode_AstralSurrogatePair_RejectedNoThrow")]
+    public void IsValid_UnicodeCharacters_AreRejectedAndNeverThrow(string input)
+    {
+        bool dna = true, rna = true;
+        var act = () =>
+        {
+            dna = input.AsSpan().IsValidDna();
+            rna = input.AsSpan().IsValidRna();
+        };
+
+        act.Should().NotThrow(
+            "the validators are total over char, including surrogate halves — never an encoding crash");
+        dna.Should().BeFalse("unicode characters are not A/C/G/T");
+        rna.Should().BeFalse("unicode characters are not A/C/G/U");
+    }
+
+    /// <summary>
+    /// INJ: the same unicode injection routed through the factory must yield
+    /// false+null (the ctor's documented ArgumentException, caught by TryCreate),
+    /// NOT a leaked exception. Pins that astral/surrogate input does not escape the
+    /// ArgumentException-only catch in TryCreate (DnaSequence.cs lines 129–141).
+    /// </summary>
+    [TestCase("ÀCGT", TestName = "TryCreate_Unicode_AccentedLatin_FalseNull")]
+    [TestCase("ACGTα", TestName = "TryCreate_Unicode_GreekLetter_FalseNull")]
+    [TestCase("ＡＣＧＴ", TestName = "TryCreate_Unicode_FullWidthLatin_FalseNull")]
+    [TestCase("ACG😀T", TestName = "TryCreate_Unicode_AstralSurrogatePair_FalseNull")]
+    public void TryCreate_UnicodeCharacters_ReturnFalseAndNullWithoutLeakingException(string input)
+    {
+        bool created = true;
+        DnaSequence? result = new DnaSequence("A");
+        var act = () => created = DnaSequence.TryCreate(input, out result);
+
+        act.Should().NotThrow(
+            "TryCreate converts the documented ArgumentException to false+null; no other exception leaks");
+        created.Should().BeFalse("unicode input is invalid DNA");
+        result.Should().BeNull("a failed validation yields a null result");
+    }
+
+    #endregion
+
+    #region INJ — Injection: null bytes and control characters (rejected, never throw)
+
+    /// <summary>
+    /// INJ: the null byte and the ASCII control characters (TAB, LF, CR, BEL, ESC,
+    /// DEL) are outside both alphabets. The validators must reject them and never
+    /// throw — these are classic crash triggers for naive char handling. Both an
+    /// isolated control char and one embedded between real bases are covered.
+    /// </summary>
+    [TestCase("\0", TestName = "IsValid_Control_NullByteAlone_Rejected")]
+    [TestCase("ACG\0T", TestName = "IsValid_Control_EmbeddedNullByte_Rejected")]
+    [TestCase("AC\tGT", TestName = "IsValid_Control_Tab_Rejected")]
+    [TestCase("AC\nGT", TestName = "IsValid_Control_LineFeed_Rejected")]
+    [TestCase("AC\rGT", TestName = "IsValid_Control_CarriageReturn_Rejected")]
+    [TestCase("AC\aGT", TestName = "IsValid_Control_Bell_Rejected")]
+    [TestCase("AC\u001BGT", TestName = "IsValid_Control_Escape_Rejected")]
+    [TestCase("AC\u007FGT", TestName = "IsValid_Control_Delete_Rejected")]
+    public void IsValid_ControlCharacters_AreRejectedAndNeverThrow(string input)
+    {
+        bool dna = true, rna = true;
+        var act = () =>
+        {
+            dna = input.AsSpan().IsValidDna();
+            rna = input.AsSpan().IsValidRna();
+        };
+
+        act.Should().NotThrow("control characters and null bytes must not crash the per-char scan");
+        dna.Should().BeFalse("control characters are not A/C/G/T");
+        rna.Should().BeFalse("control characters are not A/C/G/U");
+    }
+
+    /// <summary>
+    /// INJ: the factory must reject control/null-byte input via false+null without
+    /// leaking any non-ArgumentException. The embedded null byte specifically guards
+    /// against C-string truncation surprises in the validation message path.
+    /// </summary>
+    [TestCase("ACG\0T", TestName = "TryCreate_Control_EmbeddedNullByte_FalseNull")]
+    [TestCase("AC\tGT", TestName = "TryCreate_Control_Tab_FalseNull")]
+    [TestCase("AC\u001BGT", TestName = "TryCreate_Control_Escape_FalseNull")]
+    public void TryCreate_ControlCharacters_ReturnFalseAndNullWithoutLeakingException(string input)
+    {
+        bool created = true;
+        DnaSequence? result = new DnaSequence("A");
+        var act = () => created = DnaSequence.TryCreate(input, out result);
+
+        act.Should().NotThrow("TryCreate must surface invalid control input as false+null, not a leak");
+        created.Should().BeFalse();
+        result.Should().BeNull();
+    }
+
+    #endregion
+
+    #region INJ — Injection: IUPAC ambiguity codes and gap (strict mode rejects)
+
+    /// <summary>
+    /// INJ: strict mode rejects IUPAC ambiguity codes (N,R,Y,S,W,K,M,B,D,H,V) and
+    /// the gap '-', even though the IUPAC standard defines them
+    /// (Sequence_Validation.md §5.2–5.4, INV-01..02). A single ambiguity code makes
+    /// the whole sequence invalid for BOTH alphabets; this pins the strict-mode
+    /// deviation so it cannot silently widen.
+    /// </summary>
+    [TestCase("N", TestName = "IsValid_Iupac_AnyN_Rejected")]
+    [TestCase("ACGTN", TestName = "IsValid_Iupac_TrailingN_Rejected")]
+    [TestCase("R", TestName = "IsValid_Iupac_PurineR_Rejected")]
+    [TestCase("Y", TestName = "IsValid_Iupac_PyrimidineY_Rejected")]
+    [TestCase("ACGT-", TestName = "IsValid_Iupac_GapDash_Rejected")]
+    public void IsValid_IupacAmbiguityAndGap_AreRejectedInStrictMode(string input)
+    {
+        input.AsSpan().IsValidDna().Should().BeFalse(
+            "strict DNA validation does not accept IUPAC ambiguity codes or the gap");
+        input.AsSpan().IsValidRna().Should().BeFalse(
+            "strict RNA validation does not accept IUPAC ambiguity codes or the gap");
+    }
+
+    #endregion
+
+    #region INJ — DNA/RNA alphabet asymmetry (T vs U cannot cross over)
+
+    /// <summary>
+    /// INJ: the documented DNA/RNA asymmetry must hold exactly (Sequence_Validation.md
+    /// §5.2 table). "ACGT" is valid DNA but INVALID RNA (T ∉ RNA); "ACGU" is valid
+    /// RNA but INVALID DNA (U ∉ DNA). A sequence mixing T and U is invalid for both.
+    /// This pins that neither alphabet leaks into the other.
+    /// </summary>
+    [TestCase("ACGT", true, false, TestName = "IsValid_Asymmetry_Acgt_DnaOnly")]
+    [TestCase("ACGU", false, true, TestName = "IsValid_Asymmetry_Acgu_RnaOnly")]
+    [TestCase("ACGTU", false, false, TestName = "IsValid_Asymmetry_MixedTandU_NeitherAlphabet")]
+    public void IsValid_DnaRnaAlphabets_DoNotCrossOver(string input, bool validDna, bool validRna)
+    {
+        input.AsSpan().IsValidDna().Should().Be(validDna,
+            because: "T is a DNA base; U is not — the alphabets are disjoint on T/U");
+        input.AsSpan().IsValidRna().Should().Be(validRna,
+            because: "U is an RNA base; T is not — the alphabets are disjoint on T/U");
+    }
+
+    #endregion
+
+    #region BE — Boundary: extremely long (no hang, classifies consistently)
+
+    /// <summary>
+    /// BE/OVF: an extremely long valid sequence (1,000,000 bases) must validate
+    /// without hang or overflow — the scan is O(n), O(1) space. A long valid input
+    /// classifies true; flipping a single buried character to garbage must flip the
+    /// result to false (the scan reaches it), proving the predicate does not bail
+    /// early or short-circuit incorrectly at scale.
+    /// </summary>
+    [Test]
+    public void IsValid_ExtremelyLong_DoesNotHangAndClassifiesConsistently()
+    {
+        const int length = 1_000_000;
+
+        var longValid = RandomDna(length);
+        bool dnaValid = true;
+        var act = () => dnaValid = longValid.AsSpan().IsValidDna();
+        act.Should().NotThrow("a long valid sequence must not overflow or hang");
+        dnaValid.Should().BeTrue("a million A/C/G/T characters are all valid DNA");
+
+        // Inject one invalid character deep in the interior: the full scan must
+        // still reach it and return false.
+        var corrupted = longValid.ToCharArray();
+        corrupted[length / 2] = 'N';
+        new string(corrupted).AsSpan().IsValidDna().Should().BeFalse(
+            "a single buried invalid character must be detected even at scale");
+
+        DnaSequence.TryCreate(longValid, out var created).Should().BeTrue(
+            "the long valid sequence materializes through the factory without leaking");
+        created!.Length.Should().Be(length);
+    }
+
+    #endregion
+
+    #region RB — Random-byte sweeps (never throw; classify valid iff all-in-alphabet)
+
+    /// <summary>
+    /// RB: a fixed-seed sweep of random BMP code points — deliberately including
+    /// control characters, null bytes and lone surrogate halves — must NEVER throw
+    /// from either predicate, and the classification must be EXACTLY equivalent to
+    /// the independent oracle "every char ∈ alphabet (case-folded)". Random garbage
+    /// is overwhelmingly invalid; the point is total, crash-free, consistent
+    /// classification rather than any particular verdict.
+    /// </summary>
+    [Test]
+    public void IsValid_RandomBmpBytes_NeverThrowAndMatchMembershipOracle()
+    {
+        const string dnaAlphabet = "ACGT";
+        const string rnaAlphabet = "ACGU";
+
+        for (int trial = 0; trial < 2000; trial++)
+        {
+            string input = RandomBmpChars(Rng.Next(0, 33));
+
+            bool dna = false, rna = false;
+            var act = () =>
+            {
+                dna = input.AsSpan().IsValidDna();
+                rna = input.AsSpan().IsValidRna();
+            };
+            act.Should().NotThrow(
+                $"the validators are total over any char sequence; offending input: {Describe(input)}");
+
+            bool oracleDna = input.All(ch => dnaAlphabet.Contains(char.ToUpperInvariant(ch)));
+            bool oracleRna = input.All(ch => rnaAlphabet.Contains(char.ToUpperInvariant(ch)));
+
+            dna.Should().Be(oracleDna,
+                because: $"IsValidDna must equal the membership oracle; offending input: {Describe(input)}");
+            rna.Should().Be(oracleRna,
+                because: $"IsValidRna must equal the membership oracle; offending input: {Describe(input)}");
+        }
+    }
+
+    /// <summary>
+    /// RB: a fixed-seed sweep over the printable-ASCII range (0x20–0x7E) — letters,
+    /// digits, punctuation — must never throw and must classify exactly per the
+    /// membership oracle, AND IsValidDna must agree with TryCreate's success flag
+    /// for the very same string. This pins that the total predicate and the factory
+    /// never disagree about validity on random ASCII, and that TryCreate never
+    /// leaks a non-ArgumentException.
+    /// </summary>
+    [Test]
+    public void IsValid_RandomAscii_AgreesWithTryCreateAndNeverThrows()
+    {
+        const string dnaAlphabet = "ACGT";
+
+        for (int trial = 0; trial < 2000; trial++)
+        {
+            int len = Rng.Next(0, 17);
+            var chars = new char[len];
+            for (int i = 0; i < len; i++)
+                chars[i] = (char)Rng.Next(0x20, 0x7F); // printable ASCII
+            string input = new string(chars);
+
+            bool predicate = false;
+            DnaSequence? result = null;
+            bool created = false;
+            var act = () =>
+            {
+                predicate = input.AsSpan().IsValidDna();
+                created = DnaSequence.TryCreate(input, out result);
+            };
+            act.Should().NotThrow(
+                $"neither the predicate nor the factory may throw on random ASCII; input: {Describe(input)}");
+
+            bool oracle = input.All(ch => dnaAlphabet.Contains(char.ToUpperInvariant(ch)));
+            predicate.Should().Be(oracle,
+                because: $"IsValidDna must equal the membership oracle; input: {Describe(input)}");
+            created.Should().Be(oracle,
+                because: $"TryCreate success must equal validity; input: {Describe(input)}");
+            (result is null).Should().Be(!oracle,
+                because: $"result is non-null iff validation succeeded; input: {Describe(input)}");
+        }
+    }
+
+    /// <summary>Renders a fuzz string with escaped non-printables so failures are diagnosable.</summary>
+    private static string Describe(string s)
+    {
+        var sb = new System.Text.StringBuilder("\"");
+        foreach (char c in s)
+            sb.Append(c is >= ' ' and < '\u007F' ? c.ToString() : $"\\u{(int)c:X4}");
+        return sb.Append('"').ToString();
     }
 
     #endregion
