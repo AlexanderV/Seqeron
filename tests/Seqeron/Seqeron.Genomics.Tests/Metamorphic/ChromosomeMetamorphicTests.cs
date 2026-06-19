@@ -443,4 +443,95 @@ public class ChromosomeMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: CHROM-SYNT-001 — synteny block identification (Chromosome).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 52.
+    //
+    // API under test (ChromosomeAnalyzer.FindSyntenyBlocks):
+    //   Groups ortholog pairs by (chr1, chr2), sorts by genome-1 position, and emits collinear
+    //   runs of ≥ minGenes as SyntenyBlocks (Species1/Species2 spans, strand, gene count).
+    //
+    // Relations (derived from that definition, NOT from output):
+    //   • SYM (species swap mirrors the blocks): swapping the two species in every ortholog pair
+    //          produces the same forward-collinear blocks with the Species1 and Species2
+    //          coordinate fields exchanged and the gene count and strand preserved.
+    //   • INV (non-syntenic insert ⇒ same blocks): adding ortholog pairs on a DIFFERENT
+    //          chromosome pair with fewer than minGenes forms no block and lies in a separate
+    //          group, so the original synteny blocks are unchanged.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region Synteny helpers
+
+    // (Chr1, Start1, End1, Gene1, Chr2, Start2, End2, Gene2)
+    private static List<(string, int, int, string, string, int, int, string)> CollinearOrthologs(
+        string chr1, string chr2, int n)
+    {
+        var pairs = new List<(string, int, int, string, string, int, int, string)>();
+        for (int i = 0; i < n; i++)
+            pairs.Add((chr1, i * 1000, i * 1000 + 500, $"{chr1}_g{i}",
+                       chr2, i * 1000, i * 1000 + 500, $"{chr2}_g{i}"));
+        return pairs;
+    }
+
+    private static (string, int, int, string, int, int, char, int) Key(ChromosomeAnalyzer.SyntenyBlock b) =>
+        (b.Species1Chromosome, b.Species1Start, b.Species1End,
+         b.Species2Chromosome, b.Species2Start, b.Species2End, b.Strand, b.GeneCount);
+
+    #endregion
+
+    #region SYM — swapping the two species mirrors the blocks
+
+    [Test]
+    [Description("SYM: swapping the two species in every ortholog pair yields the same forward-collinear block with the Species1/Species2 coordinate fields exchanged and the gene count/strand preserved.")]
+    public void FindSyntenyBlocks_SpeciesSwap_MirrorsBlocks()
+    {
+        var ab = CollinearOrthologs("chrA", "chrB", 5);
+        var ba = ab.Select(p => (p.Item5, p.Item6, p.Item7, p.Item8, p.Item1, p.Item2, p.Item3, p.Item4)).ToList();
+
+        var blocksAb = ChromosomeAnalyzer.FindSyntenyBlocks(ab).ToList();
+        var blocksBa = ChromosomeAnalyzer.FindSyntenyBlocks(ba).ToList();
+
+        blocksAb.Should().HaveCount(1, because: "the five collinear orthologs form a single synteny block");
+        blocksBa.Should().HaveCount(blocksAb.Count, because: "swapping the species cannot change how many collinear blocks exist");
+
+        var x = blocksAb[0];
+        var y = blocksBa[0];
+        y.Species1Chromosome.Should().Be(x.Species2Chromosome, because: "the second species becomes the first under the swap");
+        y.Species2Chromosome.Should().Be(x.Species1Chromosome, because: "the first species becomes the second under the swap");
+        y.Species1Start.Should().Be(x.Species2Start);
+        y.Species1End.Should().Be(x.Species2End);
+        y.Species2Start.Should().Be(x.Species1Start);
+        y.Species2End.Should().Be(x.Species1End);
+        y.GeneCount.Should().Be(x.GeneCount, because: "the same orthologs are grouped, just with the two genomes exchanged");
+        y.Strand.Should().Be(x.Strand, because: "co-increasing coordinates remain a forward (+) block after the swap");
+    }
+
+    #endregion
+
+    #region INV — a non-syntenic insert on a separate chromosome pair leaves blocks unchanged
+
+    [Test]
+    [Description("INV: adding ortholog pairs on a different chromosome pair with fewer than minGenes forms no block and lies in a separate group, so the original synteny blocks are unchanged.")]
+    public void FindSyntenyBlocks_NonSyntenicInsert_PreservesBlocks()
+    {
+        var baseline = CollinearOrthologs("chrA", "chrB", 5);
+        var baseBlocks = ChromosomeAnalyzer.FindSyntenyBlocks(baseline).Select(Key).ToHashSet();
+
+        // Two orthologs on an unrelated chromosome pair — below minGenes (3), so no block forms.
+        var withInsert = baseline
+            .Concat(new[]
+            {
+                ("chrC", 5000, 5500, "chrC_g0", "chrD", 80000, 80500, "chrD_g0"),
+                ("chrC", 9000, 9500, "chrC_g1", "chrD", 12000, 12500, "chrD_g1"),
+            })
+            .ToList();
+
+        var withInsertBlocks = ChromosomeAnalyzer.FindSyntenyBlocks(withInsert).Select(Key).ToHashSet();
+
+        withInsertBlocks.Should().BeEquivalentTo(baseBlocks,
+            because: "the inserted orthologs form their own sub-minGenes group, contributing no block and leaving the chrA/chrB synteny untouched");
+    }
+
+    #endregion
 }
