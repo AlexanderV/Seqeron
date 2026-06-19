@@ -225,7 +225,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 195 | ☑ | META-PATHWAY-001 | Metagenomics | MON: more pathway genes → higher enrichment; INV: gene order independent |
 | 196 | ☑ | META-RESIST-001 | Metagenomics | INV: read order independent; SUB: larger DB → ≥ hits |
 | 197 | ☑ | META-TAXA-001 | Metagenomics | INV: sample order independent; MON: larger effect → lower p-value |
-| 198 | ☐ | TRANS-DIFF-001 | Transcriptome | SYM: FC(A,B) = −FC(B,A); INV: gene order independent |
+| 198 | ☑ | TRANS-DIFF-001 | Transcriptome | SYM: FC(A,B) = −FC(B,A); INV: gene order independent |
 | 199 | ☐ | TRANS-EXPR-001 | Transcriptome | INV: read order independent; HOMO: scaling depth preserves TPM |
 | 200 | ☐ | TRANS-SPLICE-001 | Transcriptome | INV: read order independent; SHIFT: prepend flank shifts exon coords |
 | 201 | ☐ | SV-BREAKPOINT-001 | StructuralVar | SHIFT: prepend flank shifts breakpoints; MON: more split reads → ≥ confidence |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 197 |
-| ☐ Not started | 37 |
+| ☑ Complete | 198 |
+| ☐ Not started | 36 |
 | MR relations defined | ~200+ |
