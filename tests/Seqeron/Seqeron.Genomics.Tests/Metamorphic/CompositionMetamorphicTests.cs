@@ -1400,4 +1400,76 @@ public class CompositionMetamorphicTests
     #endregion
 
     #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  SEQ-REPLICATION-001 — replication origin/terminus from cumulative GC skew
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // API under test (GcSkewCalculator.PredictReplicationOrigin):
+    //   Builds the cumulative GC-skew diagram S_i = (#G − #C) over the prefix [0, i) (G:+1, C:−1,
+    //   A/T:0; S_0 = 0). The first global MINIMUM marks the origin, the first global MAXIMUM the
+    //   terminus (Grigoriev 1998; Lobry 1996). Indices are prefix indices in [0, n].
+    //
+    // Relations (derived from the cumulative-skew definition, NOT from output):
+    //   • INV (rotation shifts predicted origin): for a balanced genome (#G = #C, so S_n = 0 and the
+    //         diagram is circularly consistent), rotating the start point by r left translates the
+    //         argmin: PredictedOrigin(rotate_r(seq)) = (PredictedOrigin(seq) − r) mod n. The origin is
+    //         a property of the genome, moving with the linearisation point.
+    //   • SYM (complement reflects origin): complement maps G↔C, negating every skew increment, so the
+    //         cumulative diagram negates — its minimum and maximum swap. Hence the origin and terminus
+    //         exchange under complement, and each reported skew negates.
+
+    #region SEQ-REPLICATION-001 — replication origin
+
+    // Balanced V-shaped diagram: 3×G (rise) · 6×C (fall through 0 to −3) · 3×G (rise back to 0).
+    // Unique interior minimum at prefix index 9 (origin), unique interior maximum at index 3 (terminus).
+    private const string BalancedSkewGenome = "GGGCCCCCCGGG";
+
+    private static string RotateLeft(string s, int r) => s.Substring(r) + s.Substring(0, r);
+
+    #region INV — rotation translates the predicted origin
+
+    [Test]
+    public void Replication_Rotation_ShiftsOrigin()
+    {
+        int n = BalancedSkewGenome.Length;
+        int origin = GcSkewCalculator.PredictReplicationOrigin(BalancedSkewGenome).PredictedOrigin;
+        origin.Should().Be(9, because: "the unique cumulative-skew minimum of the balanced genome is at prefix index 9");
+
+        for (int r = 0; r < n; r++)
+        {
+            int expected = ((origin - r) % n + n) % n;
+            GcSkewCalculator.PredictReplicationOrigin(RotateLeft(BalancedSkewGenome, r)).PredictedOrigin
+                .Should().Be(expected,
+                    because: $"rotating the start by {r} translates the argmin of the (balanced) cumulative skew to (9−{r}) mod {n}");
+        }
+    }
+
+    #endregion
+
+    #region SYM — complement swaps origin and terminus
+
+    [Test]
+    public void Replication_Complement_ReflectsOriginAndTerminus()
+    {
+        var seq = new DnaSequence(BalancedSkewGenome);
+        var original = GcSkewCalculator.PredictReplicationOrigin(seq);
+        var complemented = GcSkewCalculator.PredictReplicationOrigin(seq.Complement());
+
+        original.IsSignificant.Should().BeTrue(because: "the genome has a non-zero skew amplitude — a detectable origin signal");
+
+        complemented.PredictedOrigin.Should().Be(original.PredictedTerminus,
+            because: "complement negates the cumulative skew, so its minimum is the original maximum (terminus)");
+        complemented.PredictedTerminus.Should().Be(original.PredictedOrigin,
+            because: "complement negates the cumulative skew, so its maximum is the original minimum (origin)");
+
+        complemented.OriginSkew.Should().Be(-original.TerminusSkew,
+            because: "the origin skew of the complement is the negated terminus skew of the original");
+        complemented.TerminusSkew.Should().Be(-original.OriginSkew,
+            because: "the terminus skew of the complement is the negated origin skew of the original");
+    }
+
+    #endregion
+
+    #endregion
 }
