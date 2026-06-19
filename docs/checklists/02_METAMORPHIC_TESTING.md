@@ -183,7 +183,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 153 | ☑ | RNA-PAIR-001 | RnaStructure | SYM: canPair(a,b)=canPair(b,a); INV: case-insensitive |
 | 154 | ☑ | RNA-PARTITION-001 | RnaStructure | MON: more pairing options → higher Z; INV: deterministic |
 | 155 | ☑ | RNA-PSEUDOKNOT-001 | RnaStructure | INV: nested structure → no pseudoknot; SHIFT: prepend flank shifts positions |
-| 156 | ☐ | KMER-ASYNC-001 | K-mer | INV: async = sync; INV: read order independent |
+| 156 | ☑ | KMER-ASYNC-001 | K-mer | INV: async = sync; INV: read order independent |
 | 157 | ☐ | KMER-BOTH-001 | K-mer | SYM: reverse-complement invariance; ADD: counts additive on concatenation |
 | 158 | ☐ | KMER-DIST-001 | K-mer | SYM: d(a,b)=d(b,a); INV: d(x,x)=0 |
 | 159 | ☐ | KMER-GENERATE-001 | K-mer | INV: order independent; P: set closed under all k-mers |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 155 |
-| ☐ Not started | 79 |
+| ☑ Complete | 156 |
+| ☐ Not started | 78 |
 | MR relations defined | ~200+ |

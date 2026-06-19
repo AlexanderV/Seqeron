@@ -486,4 +486,54 @@ public class KmerMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: KMER-ASYNC-001 — asynchronous k-mer counting (K-mer).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 156.
+    //
+    // API under test (KmerAnalyzer.CountKmersAsync vs CountKmers):
+    //   The async entry point offloads the same deterministic counting to a task.
+    //
+    // Relations (derived from the counting being a pure function, NOT from output):
+    //   • INV  (async = sync): the asynchronous result equals the synchronous result.
+    //   • INV  (execution order independent): running many counts concurrently yields the identical
+    //          result regardless of completion order — concurrency does not affect the counts.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region KMER-ASYNC-001 INV — async equals sync
+
+    [Test]
+    [Description("INV: CountKmersAsync delegates to the same deterministic counting, so its result equals CountKmers for every sequence and k.")]
+    public void KmerAsync_EqualsSync()
+    {
+        foreach (var seq in new[] { "ACGTACGTTGGCCAATAC", "AAAAAAA", "GCGCGCGCGC" })
+            foreach (int k in new[] { 1, 2, 3, 4 })
+            {
+                var async = KmerAnalyzer.CountKmersAsync(seq, k).GetAwaiter().GetResult();
+                async.Should().BeEquivalentTo(KmerAnalyzer.CountKmers(seq, k),
+                    because: $"the async count of '{seq}' (k={k}) must equal the synchronous count");
+            }
+    }
+
+    #endregion
+
+    #region KMER-ASYNC-001 INV — concurrent execution order does not affect the result
+
+    [Test]
+    [Description("INV: counting is a pure function, so launching many async counts concurrently yields the identical result regardless of the order in which they complete.")]
+    public void KmerAsync_ConcurrentExecution_OrderIndependent()
+    {
+        const string seq = "ACGTACGTTGGCCAATACGTACGT";
+        const int k = 3;
+        var expected = KmerAnalyzer.CountKmers(seq, k);
+
+        var tasks = Enumerable.Range(0, 16).Select(_ => KmerAnalyzer.CountKmersAsync(seq, k)).ToArray();
+        System.Threading.Tasks.Task.WaitAll(tasks);
+
+        foreach (var task in tasks)
+            task.Result.Should().BeEquivalentTo(expected,
+                because: "concurrent, out-of-order completion cannot change a pure counting result");
+    }
+
+    #endregion
 }
