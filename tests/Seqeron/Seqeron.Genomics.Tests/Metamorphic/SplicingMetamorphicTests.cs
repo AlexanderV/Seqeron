@@ -88,4 +88,76 @@ public class SplicingMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: SPLICE-ACCEPTOR-001 — 3' acceptor splice-site prediction (Splicing).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 78.
+    //
+    // API under test (SpliceSitePredictor.FindAcceptorSites):
+    //   A canonical acceptor requires the invariant AG dinucleotide; its score combines a
+    //   polypyrimidine-tract count over positions i−15..i−4 with a consensus PWM over the AG
+    //   context (i−13..i+2). Bases outside [i−15, i+2] do not enter the score.
+    //
+    // Relations (derived from the scoring window, NOT from output):
+    //   • COMP (non-AG ⇒ no acceptor): without an AG dinucleotide there is no canonical acceptor.
+    //   • MON  (closer to consensus ⇒ higher score): a strong polypyrimidine tract and the
+    //          consensus C at −3 raise the acceptor score.
+    //   • INV  (far-upstream change ⇒ same score): edits before position i−15 lie outside the
+    //          scoring window and leave the acceptor's score unchanged.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    /// <summary>Score of the acceptor site reported at index <paramref name="reportedPos"/> (the G of AG).</summary>
+    private static double AcceptorScoreAt(string sequence, int reportedPos) =>
+        SpliceSitePredictor.FindAcceptorSites(sequence, minScore: 0.0).Single(s => s.Position == reportedPos).Score;
+
+    #region SPLICE-ACCEPTOR-001 COMP — no AG dinucleotide ⇒ no canonical acceptor
+
+    [Test]
+    [Description("COMP: a canonical acceptor requires the invariant AG, so a sequence with no AG dinucleotide yields no acceptor sites.")]
+    public void FindAcceptorSites_NoAg_ReturnsNothing()
+    {
+        foreach (var seq in new[] { "CCCCCCCCCCCCCCCCCCCC", "CACACACACACACACACACA", "UUUUUUUUUUUUUUUUUUUU" })
+            SpliceSitePredictor.FindAcceptorSites(seq, minScore: 0.0)
+                .Should().BeEmpty(because: $"'{seq}' contains no AG dinucleotide to anchor a canonical acceptor");
+    }
+
+    #endregion
+
+    #region SPLICE-ACCEPTOR-001 MON — closer to the consensus raises the score
+
+    [Test]
+    [Description("MON: a strong polypyrimidine tract and the consensus C at position −3 raise the acceptor score; weakening them lowers it.")]
+    public void FindAcceptorSites_CloserToConsensus_HigherScore()
+    {
+        // AG anchored at indices 16/17 (reported Position 17). 15-nt tract precedes it.
+        const string strongPpt = "UCUCUCUCUCUCUCU"; // pyrimidine-rich
+        const string weakPpt = "AGAGAGAGAGAGAGA";   // purine-rich (no C/U)
+
+        double best   = AcceptorScoreAt(strongPpt + "CAGG" + "AAAA", 17); // strong PPT + consensus C at −3
+        double midC   = AcceptorScoreAt(strongPpt + "AAGG" + "AAAA", 17); // strong PPT, −3 broken (A)
+        double weakest = AcceptorScoreAt(weakPpt + "AAGG" + "AAAA", 17);   // weak PPT, −3 broken
+
+        best.Should().BeGreaterThan(midC, because: "the consensus C at position −3 scores higher than a non-consensus A");
+        midC.Should().BeGreaterThan(weakest, because: "a pyrimidine-rich tract scores higher than a purine-rich one");
+    }
+
+    #endregion
+
+    #region SPLICE-ACCEPTOR-001 INV — far-upstream edits don't change the score
+
+    [Test]
+    [Description("INV: the acceptor score uses only positions i−15..i+2, so editing bases before i−15 (far upstream) leaves the acceptor's score unchanged.")]
+    public void FindAcceptorSites_FarUpstreamEdits_DoNotChangeScore()
+    {
+        // 10-nt pad, then a 15-nt tract and CAGG. AG at indices 26/27 (Position 27);
+        // its scoring window starts at index 11, so the pad (indices 0..9) is far upstream.
+        const string rest = "UCUCUCUCUCUCUCU" + "CAGG" + "AAAA";
+        double baseScore = AcceptorScoreAt("AAAAAAAAAA" + rest, 27);
+
+        foreach (var pad in new[] { "CCCCCCCCCC", "GGGGGGGGGG", "UUUUUUUUUU", "GAGAGAGAGA" })
+            AcceptorScoreAt(pad + rest, 27).Should().Be(baseScore,
+                because: "bases before position i−15 are outside the scoring window and cannot change the acceptor score");
+    }
+
+    #endregion
 }
