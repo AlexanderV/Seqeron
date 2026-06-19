@@ -485,4 +485,63 @@ public class ProteinMotifMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: PROTMOTIF-TM-001 — transmembrane-helix prediction (ProteinMotif).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 168.
+    //
+    // API under test (ProteinMotifFinder.PredictTransmembraneHelices):
+    //   Kyte & Doolittle hydropathy: windows whose mean hydropathy ≥ threshold form helix segments.
+    //
+    // Relations (derived from the hydropathy threshold, NOT from output):
+    //   • MON  (lower threshold ⇒ superset): a lower hydropathy cutoff admits more windows, so the
+    //          covered residue set grows.
+    //   • SHIFT (prepend flank shifts helices): a hydrophilic 5' flank introduces no helix and shifts
+    //          every segment by the flank length.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    // A strongly hydrophobic core (Ile, ~4.5) and a moderately hydrophobic core (Ala/Gly, ~0.7),
+    // separated and surrounded by charged hydrophilic residues so segments are isolated.
+    private const string TmHydrophilic = "DEKRDEKRDEKR";
+    private const string TmStrongCore = "IIIIIIIIIIIIIIIIIIIII";          // 21 Ile
+    private const string TmModerateCore = "AGAGAGAGAGAGAGAGAGAG";        // 20 Ala/Gly
+    private const string TmSpacer = "DEKRDEKRDEKRDEKRDEKRD";             // 21 hydrophilic
+
+    #region PROTMOTIF-TM-001 MON — lowering the hydropathy threshold yields a superset
+
+    [Test]
+    [Description("MON: a lower hydropathy threshold admits more windows, so the covered residue set at the lower cutoff is a superset — the moderate Ala/Gly core joins the strongly hydrophobic Ile core.")]
+    public void Transmembrane_LowerThreshold_Superset()
+    {
+        string seq = TmHydrophilic + TmStrongCore + TmSpacer + TmModerateCore + TmHydrophilic;
+
+        var strict = CoveredPositions(ProteinMotifFinder.PredictTransmembraneHelices(seq, threshold: 1.6));
+        var permissive = CoveredPositions(ProteinMotifFinder.PredictTransmembraneHelices(seq, threshold: 0.5));
+
+        strict.IsSubsetOf(permissive).Should().BeTrue(because: "every window above 1.6 is also above 0.5");
+        permissive.Count.Should().BeGreaterThan(strict.Count, because: "the moderate Ala/Gly core (mean ≈0.7) is covered only at the lower cutoff");
+    }
+
+    #endregion
+
+    #region PROTMOTIF-TM-001 SHIFT — a hydrophilic flank shifts the helices
+
+    [Test]
+    [Description("SHIFT: a hydrophilic 5' flank forms no helix and shifts every predicted segment by the flank length, with unchanged peak score.")]
+    public void Transmembrane_PrependFlank_ShiftsHelices()
+    {
+        string seq = TmHydrophilic + TmStrongCore + TmHydrophilic;
+        var original = ProteinMotifFinder.PredictTransmembraneHelices(seq).ToList();
+        original.Should().NotBeEmpty();
+
+        foreach (var flank in new[] { "DEKRDE", "KRDEKRDEKRDE" }) // hydrophilic, non-membrane
+        {
+            var shifted = ProteinMotifFinder.PredictTransmembraneHelices(flank + seq).ToList();
+            shifted.Select(r => (r.Start, r.End, r.Score))
+                .Should().Equal(original.Select(r => (r.Start + flank.Length, r.End + flank.Length, r.Score)),
+                    because: $"the {flank.Length}-residue hydrophilic flank shifts every helix by {flank.Length}");
+        }
+    }
+
+    #endregion
 }

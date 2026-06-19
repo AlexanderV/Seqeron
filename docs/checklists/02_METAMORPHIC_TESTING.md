@@ -195,7 +195,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 165 | ☑ | PROTMOTIF-LC-001 | ProteinMotif | MON: lower threshold → superset; SHIFT: prepend flank shifts regions |
 | 166 | ☑ | PROTMOTIF-PATTERN-001 | ProteinMotif | SHIFT: prepend flank shifts matches; SUB: broader pattern → ≥ matches |
 | 167 | ☑ | PROTMOTIF-SP-001 | ProteinMotif | INV: C-terminal extension doesn't change N-terminal signal |
-| 168 | ☐ | PROTMOTIF-TM-001 | ProteinMotif | MON: lower threshold → superset; SHIFT: prepend flank shifts helices |
+| 168 | ☑ | PROTMOTIF-TM-001 | ProteinMotif | MON: lower threshold → superset; SHIFT: prepend flank shifts helices |
 | 169 | ☐ | MOTIF-CONS-001 | Matching | INV: row order independent; INV: duplicating a row preserves consensus |
 | 170 | ☐ | MOTIF-DISCOVER-001 | Matching | MON: lower support → superset; SHIFT: prepend flank shifts positions |
 | 171 | ☐ | MOTIF-GENERATE-001 | Matching | INV: row order independent |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 167 |
-| ☐ Not started | 67 |
+| ☑ Complete | 168 |
+| ☐ Not started | 66 |
 | MR relations defined | ~200+ |
