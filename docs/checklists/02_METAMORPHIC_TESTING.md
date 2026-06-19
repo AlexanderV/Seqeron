@@ -93,7 +93,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 63 | ☑ | TRANS-PROT-001 | Translation | INV: synonymous codon swap → same protein; COMP: stop codon → truncation; INV: frame shift → different protein |
 | 64 | ☑ | PARSE-FASTA-001 | FileIO | COMP: write→parse→write = write; INV: adding empty lines → same records; INV: trailing newline irrelevant |
 | 65 | ☑ | PARSE-FASTQ-001 | FileIO | COMP: round-trip; INV: quality encoding offset consistent; INV: interleaved order preserved |
-| 66 | ☐ | PARSE-BED-001 | FileIO | INV: sorting doesn't change record content; COMP: round-trip; SHIFT: chromStart/End integrity |
+| 66 | ☑ | PARSE-BED-001 | FileIO | INV: sorting doesn't change record content; COMP: round-trip; SHIFT: chromStart/End integrity |
 | 67 | ☐ | PARSE-VCF-001 | FileIO | INV: comment lines don't affect variant records; COMP: round-trip; INV: INFO field order irrelevant |
 | 68 | ☐ | PARSE-GFF-001 | FileIO | COMP: round-trip; INV: attribute order doesn't matter; INV: comment lines don't affect features |
 | 69 | ☐ | PARSE-GENBANK-001 | FileIO | COMP: round-trip identity; INV: whitespace in sequence irrelevant |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 65 |
-| ☐ Not started | 169 |
+| ☑ Complete | 66 |
+| ☐ Not started | 168 |
 | MR relations defined | ~200+ |

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using NUnit.Framework;
 using FluentAssertions;
@@ -230,6 +231,113 @@ public class FileIoMetamorphicTests
 
         split1.Should().Equal(read1, because: "the even positions reconstruct read1 in original order");
         split2.Should().Equal(read2, because: "the odd positions reconstruct read2 in original order");
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: PARSE-BED-001 — BED parsing / serialization (FileIO).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 66.
+    //
+    // API under test (BedParser.Parse / WriteToStream / Sort):
+    //   BED describes genomic intervals with 0-based, half-open coordinates [chromStart,
+    //   chromEnd). BED6 columns are chrom, start, end, name, score (0–1000), strand. The
+    //   feature length is chromEnd − chromStart.
+    //
+    // Relations (derived from the format & coordinate semantics, NOT from output):
+    //   • INV  (sort preserves content): Sort only reorders records, so its output is a
+    //          permutation of the input — every record (all fields) is preserved and Sort is
+    //          idempotent.
+    //   • COMP (round-trip): serialising BED6 records and re-parsing recovers every field, and
+    //          re-serialising reproduces the exact text.
+    //   • SHIFT (coordinate integrity): translating an interval by a constant δ (start+δ,
+    //          end+δ) leaves its length end−start invariant, and the exact coordinates survive
+    //          a write→parse round-trip.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region PARSE-BED-001 — Helpers
+
+    private static (string Chrom, int Start, int End, string? Name, int? Score, char? Strand) Bed6(BedParser.BedRecord r)
+        => (r.Chrom, r.ChromStart, r.ChromEnd, r.Name, r.Score, r.Strand);
+
+    private static string WriteBed(IEnumerable<BedParser.BedRecord> records, BedParser.BedFormat format = BedParser.BedFormat.BED6)
+    {
+        using var sw = new StringWriter();
+        BedParser.WriteToStream(sw, records, format);
+        return sw.ToString();
+    }
+
+    private static BedParser.BedRecord[] SampleBedRecords() => new[]
+    {
+        new BedParser.BedRecord("chr1", 100, 200, "geneA", 500, '+'),
+        new BedParser.BedRecord("chr2", 50, 75, "geneB", 0, '-'),
+        new BedParser.BedRecord("chr1", 300, 350, "geneC", 1000, '.'),
+    };
+
+    #endregion
+
+    #region PARSE-BED-001 INV — sorting reorders but never alters record content
+
+    [Test]
+    [Description("INV: Sort is a pure reordering — its output is a permutation of the input (every field of every record preserved) and it is idempotent.")]
+    public void Bed_Sort_PreservesRecordContentAndIsIdempotent()
+    {
+        var records = SampleBedRecords();
+
+        var sorted = BedParser.Sort(records).ToList();
+
+        sorted.Select(Bed6).Should().BeEquivalentTo(records.Select(Bed6),
+            because: "sorting changes only the order; the multiset of records (all fields) is unchanged");
+
+        BedParser.Sort(sorted).Should().Equal(sorted,
+            because: "Sort is idempotent — re-sorting an already-sorted list is a no-op");
+    }
+
+    #endregion
+
+    #region PARSE-BED-001 COMP — write→parse→write reproduces the records and text
+
+    [Test]
+    [Description("COMP: serialising BED6 records and re-parsing recovers every field, and re-serialising the parsed records reproduces the exact text.")]
+    public void Bed_WriteParseWrite_IsIdempotentAndRecordPreserving()
+    {
+        var records = SampleBedRecords();
+
+        string written = WriteBed(records);
+        var parsed = BedParser.Parse(written).ToList();
+
+        parsed.Select(Bed6).Should().Equal(records.Select(Bed6),
+            because: "parsing a BED6 serialisation must recover chrom/start/end/name/score/strand of every record");
+
+        WriteBed(parsed).Should().Be(written,
+            because: "serialisation is a canonical fixed point: write∘parse∘write = write");
+    }
+
+    #endregion
+
+    #region PARSE-BED-001 SHIFT — uniform coordinate shift preserves length and survives round-trip
+
+    [Test]
+    [Description("SHIFT: translating an interval by a constant δ preserves its length end−start, and the shifted coordinates survive a write→parse round-trip exactly.")]
+    public void Bed_CoordinateShift_PreservesLengthAndRoundTrips()
+    {
+        var records = SampleBedRecords();
+        var originalLengths = records.Select(r => r.Length).ToList();
+
+        foreach (int delta in new[] { 0, 5, 1000 })
+        {
+            var shifted = records
+                .Select(r => r with { ChromStart = r.ChromStart + delta, ChromEnd = r.ChromEnd + delta })
+                .ToList();
+
+            shifted.Select(r => r.Length).Should().Equal(originalLengths,
+                because: $"adding {delta} to both endpoints translates the interval without resizing it — length end−start is shift-invariant");
+
+            var roundTripped = BedParser.Parse(WriteBed(shifted)).ToList();
+            roundTripped.Select(r => (r.ChromStart, r.ChromEnd))
+                .Should().Equal(shifted.Select(r => (r.ChromStart, r.ChromEnd)),
+                    because: "the integer coordinates must survive serialisation and parsing unchanged");
+        }
     }
 
     #endregion
