@@ -303,4 +303,99 @@ public class MetagenomicsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: META-BETA-001 — beta diversity (Bray–Curtis / Jaccard) (Metagenomics).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 56.
+    //
+    // API under test (MetagenomicsAnalyzer.CalculateBetaDiversity):
+    //   Bray–Curtis = 1 − 2·Σmin(a,b)/Σ(a+b); Jaccard = 1 − shared/(shared+unique1+unique2).
+    //
+    // Relations (derived from the formulas, NOT from output):
+    //   • SYM (symmetry): both indices are symmetric in the two samples (min, sum, shared and
+    //          the union count are order-free), so dist(a,b) = dist(b,a).
+    //   • COMP (identical samples ⇒ 0): identical samples have Σmin = ½Σtotal and no unique
+    //          species, so Bray–Curtis = Jaccard = 0.
+    //   • MON (remove a shared species ⇒ higher distance): on the presence/absence Jaccard,
+    //          deleting a shared species from one sample turns it into a species unique to the
+    //          other — shared drops while the union is unchanged — so the distance strictly
+    //          rises. ── Reconciliation: the abundance-weighted Bray–Curtis is NOT monotone
+    //          under this transform (removing a low-abundance shared species shrinks both Σmin
+    //          and Σtotal and can move it either way), so the monotone relation is asserted on
+    //          Jaccard, the index for which it provably holds.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region Beta-diversity helpers
+
+    private static Dictionary<string, double> Community(params string[] species) =>
+        species.ToDictionary(s => s, _ => 10.0);
+
+    private static MetagenomicsAnalyzer.BetaDiversity Beta(
+        IReadOnlyDictionary<string, double> a, IReadOnlyDictionary<string, double> b) =>
+        MetagenomicsAnalyzer.CalculateBetaDiversity("a", a, "b", b);
+
+    #endregion
+
+    #region SYM — beta diversity is symmetric
+
+    [Test]
+    [Description("SYM: Bray–Curtis and Jaccard distances are symmetric in the two samples.")]
+    public void BetaDiversity_IsSymmetric()
+    {
+        var a = Community("sp1", "sp2", "sp3");
+        var b = Community("sp2", "sp3", "sp4", "sp5");
+
+        var ab = Beta(a, b);
+        var ba = Beta(b, a);
+
+        ba.BrayCurtis.Should().BeApproximately(ab.BrayCurtis, 1e-12,
+            because: "Bray–Curtis uses the symmetric Σmin and Σtotal");
+        ba.JaccardDistance.Should().BeApproximately(ab.JaccardDistance, 1e-12,
+            because: "Jaccard depends on the shared count and union size, both order-free");
+    }
+
+    #endregion
+
+    #region COMP — identical samples have distance 0
+
+    [Test]
+    [Description("COMP: a sample compared with itself has Bray–Curtis = Jaccard = 0.")]
+    public void BetaDiversity_IdenticalSamples_AreZero()
+    {
+        var s = Community("sp1", "sp2", "sp3", "sp4");
+        var self = Beta(s, s);
+
+        self.BrayCurtis.Should().BeApproximately(0.0, 1e-12,
+            because: "identical abundances give Σmin = ½Σtotal, so Bray–Curtis = 0");
+        self.JaccardDistance.Should().BeApproximately(0.0, 1e-12,
+            because: "identical samples share every species and have none unique, so Jaccard = 0");
+    }
+
+    #endregion
+
+    #region MON — removing shared species raises the Jaccard distance
+
+    [Test]
+    [Description("MON: deleting a shared species from one sample turns it into a species unique to the other, lowering 'shared' while keeping the union fixed, so the Jaccard distance strictly increases.")]
+    public void BetaDiversity_RemoveSharedSpecies_IncreasesJaccard()
+    {
+        var reference = Community("sp1", "sp2", "sp3", "sp4", "sp5");   // 5 species, the fixed union
+
+        // Start with both samples holding all five species (shared = 5), then strip shared
+        // species from one sample one at a time. The union stays {sp1..sp5}.
+        var sample = new Dictionary<string, double>(reference);
+        double previous = double.NegativeInfinity;
+
+        foreach (var toRemove in new[] { (string?)null, "sp1", "sp2", "sp3" })
+        {
+            if (toRemove != null) sample.Remove(toRemove);
+
+            double jaccard = Beta(sample, reference).JaccardDistance;
+            jaccard.Should().BeGreaterThan(previous,
+                because: "removing a shared species lowers the shared count while the union is unchanged, so 1 − shared/union strictly increases");
+            previous = jaccard;
+        }
+    }
+
+    #endregion
 }
