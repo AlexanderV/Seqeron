@@ -53,7 +53,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 23 | ☑ | PRIMER-STRUCT-001 | MolTools | MON: more self-complementary → higher dimer score; INV: non-complementary extension → same hairpin |
 | 24 | ☑ | PROBE-DESIGN-001 | MolTools | MON: wider Tm → ≥ probes; SUB: stricter uniqueness → ⊆ results; INV: unrelated region append → same probes |
 | 25 | ☑ | PROBE-VALID-001 | MolTools | MON: lower specificity threshold → more pass; INV: same input → same result |
-| 26 | ☐ | RESTR-FIND-001 | MolTools | SHIFT: prepend flank shifts positions; MON: more enzymes → ≥ total sites; INV: non-site append → same sites |
+| 26 | ☑ | RESTR-FIND-001 | MolTools | SHIFT: prepend flank shifts positions; MON: more enzymes → ≥ total sites; INV: non-site append → same sites |
 | 27 | ☐ | RESTR-DIGEST-001 | MolTools | COMP: 0 sites → 1 fragment = full seq; MON: more enzymes → ≥ fragments; INV: fragment sum = seq length |
 | 28 | ☐ | ANNOT-ORF-001 | Annotation | MON: lower minLen → ≥ ORFs; SHIFT: prepend shifts positions; INV: non-coding insert doesn't change upstream |
 | 29 | ☐ | ANNOT-GENE-001 | Annotation | COMP: gene ⊃ ORF; INV: non-coding insertion doesn't affect upstream; MON: longer seq → ≥ genes |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 25 |
-| ☐ Not started | 209 |
+| ☑ Complete | 26 |
+| ☐ Not started | 208 |
 | MR relations defined | ~200+ |

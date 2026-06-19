@@ -2327,4 +2327,214 @@ public class MolToolsMetamorphicTests
     #endregion
 
     #endregion
+
+    #region RESTR-FIND-001 — restriction enzyme site finding
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Unit: RESTR-FIND-001 — restriction enzyme site finding (MolTools).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 26.
+    //
+    // API under test (RestrictionAnalyzer.FindSitesCore via the FindSites overloads):
+    //   FindSites(seq, enzymeName)        → sites of ONE enzyme.
+    //   FindSites(seq, params names[])    → Σ over names of FindSites(seq, name).
+    //   FindAllSites(seq)                 → Σ over the whole enzyme database.
+    //   A site is found at every forward-strand match of the recognition pattern (IUPAC-
+    //   aware), AND at every match on the reverse complement, whose coordinate is mapped
+    //   BACK to the forward strand: for a reverse hit at revComp index i,
+    //   forwardPos = |seq| − i − L. So RestrictionSite.Position and .CutPosition are ALWAYS
+    //   forward-strand coordinates (0-based), for both strands. A palindromic recognition
+    //   site therefore yields TWO entries (forward + reverse) at the same Position.
+    //
+    // A site's run-order-independent identity is
+    //   (Position, EnzymeName, IsForwardStrand, CutPosition, RecognizedSequence).
+    //
+    // Relation DIRECTIONS (derived from the search definition, NOT from observed output):
+    //   Source: docs/algorithms/MolTools/Restriction_Site_Detection.md; RestrictionAnalyzer.cs
+    //   (FindSitesCore: forward scan + reverse-complement scan with forwardPos remap).
+    //
+    //   • MON (more enzymes → ≥ total sites): FindSites over a name set is the UNION of the
+    //     per-enzyme site sets (the params overload concatenates them; FindAllSites unions
+    //     the whole database). Enlarging the enzyme set can only ADD sites, so the site set
+    //     is a SUPERSET and the count is non-decreasing; every subset's sites ⊆ FindAllSites.
+    //
+    //   • SHIFT (prepend flank shifts positions): Position/CutPosition are forward-strand
+    //     coordinates for BOTH strands. Prepending a flank F that creates NO new site (and
+    //     destroys none) moves every forward match from i to i+|F|; a reverse match keeps
+    //     its place in revComp(F+seq) = revComp(seq)+revComp(F) (the revComp(seq) prefix is
+    //     unchanged), so forwardPos = |F+seq|−i−L = old forwardPos + |F|. Thus EVERY site's
+    //     Position and CutPosition advance by exactly |F|, with enzyme/strand/recognized
+    //     sequence preserved.
+    //
+    //   • INV (non-site append → same sites): appending X leaves every forward match inside
+    //     the original body byte-identical (same Position), and a reverse match maps back to
+    //     forwardPos = |seq+X| − (i+|X|) − L = old forwardPos (forward coordinates are
+    //     anchored at the 5' end, which the append does not move). So an append that creates
+    //     no new site leaves the site set EXACTLY unchanged.
+    //
+    // Neutral flank/append construction (so SHIFT/INV preserve sites exactly): for a
+    // PALINDROMIC pattern P a homopolymer of base b ∉ {P[0], P[last]} introduces no match —
+    // internally (a homopolymer can't contain a ≥2-letter pattern) and across either
+    // junction on either strand. Forward junction safety needs P[last] ≠ b (a suffix of P
+    // overlapping the X-run would have to be all-b); reverse junction safety needs
+    // P[0] ≠ comp(b); for a palindrome comp(P[0]) = P[last], so both reduce to
+    // b ∉ {P[0], P[last]}. Each test also GUARDS this empirically (the flank alone yields no
+    // site) and the set-equality assertions would catch any stray junction site.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>Run-order-independent identity of a restriction site (all forward-strand coordinates).</summary>
+    private static (int Position, string Enzyme, bool Fwd, int Cut, string Rec) RestrSiteId(RestrictionSite s)
+        => (s.Position, s.Enzyme.Name, s.IsForwardStrand, s.CutPosition, s.RecognizedSequence);
+
+    private static HashSet<(int, string, bool, int, string)> RestrSiteSet(string seq, params string[] enzymes)
+        => RestrictionAnalyzer.FindSites(new DnaSequence(seq), enzymes).Select(RestrSiteId).ToHashSet();
+
+    /// <summary>Palindromic, pure-ACGT Type-II enzymes — each recognition site yields a forward + reverse entry.</summary>
+    private static readonly string[] PalindromicEnzymes = { "EcoRI", "BamHI", "HindIII", "XhoI", "SalI", "NcoI" };
+
+    /// <summary>
+    /// A homopolymer base provably neutral for a palindromic pattern: b ∉ {P[0], P[last]}
+    /// adds no site internally or across either junction on either strand.
+    /// </summary>
+    private static char SafeFlankBase(string palindromicPattern)
+    {
+        foreach (char b in "ACGT")
+            if (b != palindromicPattern[0] && b != palindromicPattern[^1])
+                return b;
+        throw new InvalidOperationException($"No neutral flank base for pattern '{palindromicPattern}'.");
+    }
+
+    /// <summary>A body embedding two copies of <paramref name="pattern"/> separated by a neutral spacer.</summary>
+    private static string RestrBody(string pattern)
+    {
+        const string spacer = "ACTGAC";
+        return spacer + pattern + spacer + pattern + spacer;
+    }
+
+    /// <summary>A body embedding one site each for EcoRI, BamHI, HindIII and XhoI.</summary>
+    private const string RestrMultiBody =
+        "ACTGAC" + "GAATTC" + "ACTGAC" + "GGATCC" + "ACTGAC" + "AAGCTT" + "ACTGAC" + "CTCGAG" + "ACTGAC";
+
+    #region MON — enlarging the enzyme set never removes sites (count non-decreasing, superset)
+
+    [Test]
+    [Description("MON: along a growing chain of enzyme sets the site set grows monotonically — each smaller set's sites are a subset of the larger set's, total count non-decreasing.")]
+    public void FindSites_AddingEnzymes_YieldsSuperset_CountNonDecreasing()
+    {
+        string[][] enzymeChain =
+        {
+            new[] { "EcoRI" },
+            new[] { "EcoRI", "BamHI" },
+            new[] { "EcoRI", "BamHI", "HindIII" },
+            new[] { "EcoRI", "BamHI", "HindIII", "XhoI" },
+        };
+
+        HashSet<(int, string, bool, int, string)>? previous = null;
+        foreach (var enzymes in enzymeChain)
+        {
+            var sites = RestrSiteSet(RestrMultiBody, enzymes);
+
+            if (previous is not null)
+            {
+                sites.IsSupersetOf(previous).Should().BeTrue(
+                    because: $"FindSites over {enzymes.Length} enzymes is the UNION of the per-enzyme site sets, " +
+                             "so adding an enzyme keeps every existing site and can only add more");
+                sites.Count.Should().BeGreaterThanOrEqualTo(previous.Count,
+                    because: "enlarging the enzyme set unions in more sites — the total count is non-decreasing");
+            }
+
+            previous = sites;
+        }
+    }
+
+    [Test]
+    [Description("MON: every subset of enzymes finds a subset of the sites that FindAllSites (the whole database) reports.")]
+    public void FindAllSites_IsSupersetOfAnyEnzymeSubset()
+    {
+        var allForward = RestrictionAnalyzer.FindAllSites(new DnaSequence(RestrMultiBody))
+            .Select(RestrSiteId).ToHashSet();
+
+        foreach (var enzymes in new[]
+                 {
+                     new[] { "EcoRI" },
+                     new[] { "BamHI", "HindIII" },
+                     new[] { "EcoRI", "BamHI", "HindIII", "XhoI" },
+                 })
+        {
+            var subset = RestrSiteSet(RestrMultiBody, enzymes);
+            subset.Should().NotBeEmpty(because: "the multi-site body contains a site for each of these enzymes");
+            allForward.IsSupersetOf(subset).Should().BeTrue(
+                because: "FindAllSites scans the full enzyme database, so it reports every site any subset of those enzymes finds");
+        }
+    }
+
+    #endregion
+
+    #region SHIFT — prepending a neutral flank advances every site by exactly the flank length
+
+    [Test]
+    [Description("SHIFT: prepending a neutral homopolymer flank F advances every site's Position and CutPosition by exactly |F| (both strands), preserving enzyme, strand and recognized sequence.")]
+    public void FindSites_PrependNeutralFlank_ShiftsAllSitesByFlankLength()
+    {
+        foreach (var name in PalindromicEnzymes)
+        {
+            string pattern = RestrictionAnalyzer.GetEnzyme(name)!.RecognitionSequence;
+            char b = SafeFlankBase(pattern);
+            string body = RestrBody(pattern);
+
+            var baseSites = RestrictionAnalyzer.FindSites(new DnaSequence(body), name).ToList();
+            baseSites.Should().NotBeEmpty(because: $"the body embeds two {name} recognition sites");
+
+            foreach (int flankLen in new[] { 1, 5, 17 })
+            {
+                string flank = new string(b, flankLen);
+                RestrictionAnalyzer.FindSites(flank, name).Should().BeEmpty(
+                    because: $"a '{b}'-homopolymer flank contains no {name} site (b ∉ {{{pattern[0]},{pattern[^1]}}})");
+
+                var shifted = RestrictionAnalyzer.FindSites(new DnaSequence(flank + body), name).Select(RestrSiteId).ToHashSet();
+                var expected = baseSites
+                    .Select(s => (s.Position + flankLen, s.Enzyme.Name, s.IsForwardStrand, s.CutPosition + flankLen, s.RecognizedSequence))
+                    .ToHashSet();
+
+                shifted.SetEquals(expected).Should().BeTrue(
+                    because: $"Position and CutPosition are forward-strand coordinates for both strands, so a length-{flankLen} neutral prefix " +
+                             "advances every site by exactly that amount while preserving enzyme, strand and recognized sequence");
+            }
+        }
+    }
+
+    #endregion
+
+    #region INV — appending a neutral (non-site) region leaves the site set exactly unchanged
+
+    [Test]
+    [Description("INV: appending a neutral homopolymer region (no new site on either strand) leaves the restriction-site set EXACTLY unchanged — forward coordinates are anchored at the 5' end.")]
+    public void FindSites_AppendNeutralRegion_SiteSetUnchanged()
+    {
+        foreach (var name in PalindromicEnzymes)
+        {
+            string pattern = RestrictionAnalyzer.GetEnzyme(name)!.RecognitionSequence;
+            char b = SafeFlankBase(pattern);
+            string body = RestrBody(pattern);
+
+            var baseSites = RestrictionAnalyzer.FindSites(new DnaSequence(body), name).Select(RestrSiteId).ToHashSet();
+            baseSites.Should().NotBeEmpty(because: $"the body embeds two {name} recognition sites");
+
+            foreach (int appendLen in new[] { 1, 5, 17 })
+            {
+                string ext = new string(b, appendLen);
+                RestrictionAnalyzer.FindSites(ext, name).Should().BeEmpty(
+                    because: $"a '{b}'-homopolymer append contains no {name} site");
+
+                var appended = RestrictionAnalyzer.FindSites(new DnaSequence(body + ext), name).Select(RestrSiteId).ToHashSet();
+
+                appended.SetEquals(baseSites).Should().BeTrue(
+                    because: "appending a non-site region downstream creates no new match and shifts no forward-anchored coordinate, " +
+                             "so the site set is preserved exactly (same positions, cut sites, strands, recognized sequences)");
+            }
+        }
+    }
+
+    #endregion
+
+    #endregion
 }
