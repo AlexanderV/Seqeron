@@ -108,4 +108,66 @@ public class EpigeneticsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: EPIGEN-AGE-001 — epigenetic clock (DNAm age) (Epigenetics).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 181.
+    //
+    // API under test (EpigeneticsAnalyzer.CalculateEpigeneticAge):
+    //   Y = intercept + Σ coef_i·β_i over clock CpGs, mapped to years by the monotone Horvath
+    //   inverse calibration.
+    //
+    // Relations (derived from the linear predictor, NOT from output):
+    //   • MON  (more clock-site methylation ⇒ higher age): raising β at positive-coefficient sites
+    //          raises Y, and the inverse calibration is monotone increasing, so age increases.
+    //   • INV  (site order independent): the predictor is a sum over CpGs, independent of map order.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private static readonly System.Collections.Generic.Dictionary<string, double> ClockCoefficients = new()
+    {
+        ["cg01"] = 1.0, ["cg02"] = 1.0, ["cg03"] = 1.0, // all positive
+    };
+
+    #region EPIGEN-AGE-001 MON — more methylation at positive sites raises the age
+
+    [Test]
+    [Description("MON: raising methylation at positive-coefficient clock CpGs raises the linear predictor, and the Horvath inverse calibration is monotone increasing, so the estimated age increases.")]
+    public void EpigeneticAge_MoreMethylation_HigherAge()
+    {
+        double previous = double.MinValue;
+        foreach (double beta in new[] { 0.1, 0.3, 0.6, 0.9 })
+        {
+            var methylation = new System.Collections.Generic.Dictionary<string, double>
+            {
+                ["cg01"] = beta, ["cg02"] = beta, ["cg03"] = beta,
+            };
+            double age = EpigeneticsAnalyzer.CalculateEpigeneticAge(methylation, ClockCoefficients);
+            age.Should().BeGreaterThan(previous, because: $"higher methylation (β={beta}) at positive-coefficient sites raises the predicted age");
+            previous = age;
+        }
+    }
+
+    #endregion
+
+    #region EPIGEN-AGE-001 INV — the estimate is independent of CpG order
+
+    [Test]
+    [Description("INV: the linear predictor is a sum over clock CpGs, so building the methylation map in a different order yields the same age.")]
+    public void EpigeneticAge_SiteOrder_Invariant()
+    {
+        var forward = new System.Collections.Generic.Dictionary<string, double>
+        {
+            ["cg01"] = 0.2, ["cg02"] = 0.5, ["cg03"] = 0.8,
+        };
+        var reordered = new System.Collections.Generic.Dictionary<string, double>
+        {
+            ["cg03"] = 0.8, ["cg01"] = 0.2, ["cg02"] = 0.5,
+        };
+
+        EpigeneticsAnalyzer.CalculateEpigeneticAge(reordered, ClockCoefficients)
+            .Should().BeApproximately(EpigeneticsAnalyzer.CalculateEpigeneticAge(forward, ClockCoefficients), 1e-9,
+                because: "the weighted sum over CpGs does not depend on the map's insertion order");
+    }
+
+    #endregion
 }
