@@ -72,4 +72,58 @@ public class GenomicAnalysisMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: GENOMIC-MOTIFS-001 — known-motif search (Analysis).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 176.
+    //
+    // API under test (GenomicAnalyzer.FindKnownMotifs):
+    //   For each query motif, returns the sorted 0-based positions of all (overlapping) occurrences.
+    //
+    // Relations (derived from positional exact matching, NOT from output):
+    //   • SHIFT (prepend flank shifts positions): a flank with no occurrence shifts every motif
+    //          position by the flank length.
+    //   • INV  (deterministic): the result is a pure function with positions sorted ascending.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region GENOMIC-MOTIFS-001 SHIFT — a prepended flank shifts the motif positions
+
+    [Test]
+    [Description("SHIFT: prepending a flank that contains no occurrence (and forms none at the junction) shifts every motif's positions by the flank length.")]
+    public void KnownMotifs_PrependFlank_ShiftsPositions()
+    {
+        const string seq = "ACGTACGTAA";
+        var motifs = new[] { "ACGT", "CGT" };
+        var original = GenomicAnalyzer.FindKnownMotifs(new DnaSequence(seq), motifs);
+
+        foreach (var flank in new[] { "TT", "GTTG" })
+        {
+            var shifted = GenomicAnalyzer.FindKnownMotifs(new DnaSequence(flank + seq), motifs);
+            foreach (var motif in original.Keys)
+                shifted[motif].Should().Equal(original[motif].Select(p => p + flank.Length),
+                    because: $"the {flank.Length}-base flank relocates every '{motif}' occurrence by {flank.Length}");
+        }
+    }
+
+    #endregion
+
+    #region GENOMIC-MOTIFS-001 INV — the search is deterministic and sorted
+
+    [Test]
+    [Description("INV: FindKnownMotifs is a pure function returning ascending positions, so repeated calls give the identical result.")]
+    public void KnownMotifs_Deterministic_Sorted()
+    {
+        const string seq = "AAAAACGTAAACGT";
+        var motifs = new[] { "AA", "ACGT" };
+        var first = GenomicAnalyzer.FindKnownMotifs(new DnaSequence(seq), motifs);
+        var second = GenomicAnalyzer.FindKnownMotifs(new DnaSequence(seq), motifs);
+
+        foreach (var motif in first.Keys)
+        {
+            first[motif].Should().BeInAscendingOrder(because: "occurrence positions are returned sorted");
+            second[motif].Should().Equal(first[motif], because: "the search has no hidden state");
+        }
+    }
+
+    #endregion
 }
