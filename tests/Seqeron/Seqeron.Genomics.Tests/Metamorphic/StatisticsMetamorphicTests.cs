@@ -335,4 +335,61 @@ public class StatisticsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: SEQ-STATS-001 — sequence composition statistics (Statistics).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 127.
+    //
+    // API under test (SequenceStatistics.CalculateNucleotideComposition):
+    //   Per-base counts (A/T/G/C/U/N/Other) and the derived GC%, AT%, GC-skew and AT-skew.
+    //   Every field is a function of the per-base counts alone.
+    //
+    // Relations (derived from count-based composition, NOT from output):
+    //   • INV  (permutation invariant): the counts depend only on the multiset of bases, so any
+    //          reordering — here a deterministic sort — leaves every count and derived statistic
+    //          unchanged.
+    //   • P    (concatenation sums counts): counting is additive over concatenation, so each
+    //          per-base count and the length of a+b equal the sum of the parts' counts.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region SEQ-STATS-001 INV — composition is permutation invariant
+
+    [Test]
+    [Description("INV: every composition statistic depends only on the multiset of bases, so a sort-permutation of a mixed DNA/RNA sequence (with U and N) leaves the full result unchanged.")]
+    public void NucleotideStats_Permutation_Invariant()
+    {
+        const string seq = "AACGTUACGTTNGGCCAAUNAC";
+        string sorted = new string(seq.OrderBy(c => c).ToArray());
+
+        SequenceStatistics.CalculateNucleotideComposition(sorted)
+            .Should().Be(SequenceStatistics.CalculateNucleotideComposition(seq),
+                because: "counts, GC%/AT% and the skews are all functions of the per-base counts, which any permutation preserves");
+    }
+
+    #endregion
+
+    #region SEQ-STATS-001 P — concatenation sums the per-base counts
+
+    [Test]
+    [Description("P: base counting is additive over concatenation, so CountA/T/G/C/U/N/Other and Length of a+b equal the sums of the parts'.")]
+    public void NucleotideStats_Concatenation_SumsCounts()
+    {
+        foreach (var (a, b) in new[] { ("AACGT", "GGCCN"), ("AAUUGGCC", "TTTACGU"), ("N", "ACGTACGT") })
+        {
+            var ca = SequenceStatistics.CalculateNucleotideComposition(a);
+            var cb = SequenceStatistics.CalculateNucleotideComposition(b);
+            var cab = SequenceStatistics.CalculateNucleotideComposition(a + b);
+
+            cab.Length.Should().Be(ca.Length + cb.Length, because: "length is additive over concatenation");
+            cab.CountA.Should().Be(ca.CountA + cb.CountA, because: $"A count of '{a}'+'{b}' is the sum of the parts");
+            cab.CountT.Should().Be(ca.CountT + cb.CountT, because: $"T count of '{a}'+'{b}' is the sum of the parts");
+            cab.CountG.Should().Be(ca.CountG + cb.CountG, because: $"G count of '{a}'+'{b}' is the sum of the parts");
+            cab.CountC.Should().Be(ca.CountC + cb.CountC, because: $"C count of '{a}'+'{b}' is the sum of the parts");
+            cab.CountU.Should().Be(ca.CountU + cb.CountU, because: $"U count of '{a}'+'{b}' is the sum of the parts");
+            cab.CountN.Should().Be(ca.CountN + cb.CountN, because: $"N count of '{a}'+'{b}' is the sum of the parts");
+            cab.CountOther.Should().Be(ca.CountOther + cb.CountOther, because: $"Other count of '{a}'+'{b}' is the sum of the parts");
+        }
+    }
+
+    #endregion
 }
