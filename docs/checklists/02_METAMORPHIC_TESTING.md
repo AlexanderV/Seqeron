@@ -173,7 +173,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 143 | ☑ | ASSEMBLY-DBG-001 | Assembly | INV: read order independent; MON: larger k → ≤ spurious joins |
 | 144 | ☑ | ASSEMBLY-MERGE-001 | Assembly | INV: merge order independent for compatible contigs |
 | 145 | ☑ | ASSEMBLY-OLC-001 | Assembly | INV: read order independent; MON: higher minOverlap → ≤ joins |
-| 146 | ☐ | ASSEMBLY-SCAFFOLD-001 | Assembly | INV: link order independent |
+| 146 | ☑ | ASSEMBLY-SCAFFOLD-001 | Assembly | INV: link order independent |
 | 147 | ☐ | ASSEMBLY-STATS-001 | Assembly | INV: contig order independent; MON: splitting a contig → ≤ N50 |
 | 148 | ☐ | ASSEMBLY-TRIM-001 | Assembly | MON: higher cutoff → subset of bases; INV: read order independent |
 | 149 | ☐ | RNA-DOTBRACKET-001 | RnaStructure | RT: parse∘format identity; INV: pairing preserved under reparse |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 145 |
-| ☐ Not started | 89 |
+| ☑ Complete | 146 |
+| ☐ Not started | 88 |
 | MR relations defined | ~200+ |

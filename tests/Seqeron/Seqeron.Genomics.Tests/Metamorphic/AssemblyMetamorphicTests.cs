@@ -386,4 +386,37 @@ public class AssemblyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ASSEMBLY-SCAFFOLD-001 — paired-end scaffolding (Assembly).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 146.
+    //
+    // API under test (SequenceAssembler.Scaffold):
+    //   Orders contigs along paired-end link paths, inserting gap-character runs sized by the link's
+    //   gap estimate (Jackman et al. 2017).
+    //
+    // Relations (derived from the link-path construction, NOT from output):
+    //   • INV  (link order independent): when each contig has at most one forward link (an
+    //          unambiguous link set) the scaffold path is fixed, so permuting the link list yields
+    //          the identical scaffolds.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region ASSEMBLY-SCAFFOLD-001 INV — scaffolds are independent of link order
+
+    [Test]
+    [Description("INV: with at most one forward link per contig the scaffold path is unambiguous, so permuting the link list produces the identical scaffolds.")]
+    public void Scaffold_LinkOrder_Invariant()
+    {
+        var contigs = new[] { "AAAA", "CCCC", "GGGG", "TTTT" };
+        var links = new[] { (0, 1, 3), (1, 2, 5), (2, 3, 2) };
+        var shuffled = new[] { (2, 3, 2), (0, 1, 3), (1, 2, 5) };
+
+        var fromOrdered = SequenceAssembler.Scaffold(contigs, links);
+        var fromShuffled = SequenceAssembler.Scaffold(contigs, shuffled);
+
+        fromShuffled.Should().Equal(fromOrdered,
+            because: "an unambiguous link set determines a fixed scaffold path regardless of the order links are listed in");
+    }
+
+    #endregion
 }
