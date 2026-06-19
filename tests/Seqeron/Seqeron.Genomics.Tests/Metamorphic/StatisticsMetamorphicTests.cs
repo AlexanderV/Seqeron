@@ -139,4 +139,57 @@ public class StatisticsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: SEQ-HYDRO-001 — hydropathy (GRAVY) (Statistics).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 123.
+    //
+    // API under test (SequenceStatistics.CalculateHydrophobicity / CalculateHydrophobicityProfile):
+    //   GRAVY = mean Kyte-Doolittle hydropathy over residues; the profile is the sliding-window
+    //   mean.
+    //
+    // Relations (derived from the mean over residues, NOT from output):
+    //   • INV  (permutation changes the profile but not the mean): GRAVY is the residue-mean,
+    //          invariant to order, while the windowed profile is order-dependent.
+    //   • MON  (adding a hydrophobic residue ⇒ ≥ mean): appending the most-hydrophobic residue
+    //          (Ile, 4.5) — above any sub-4.5 mean — raises the GRAVY.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region SEQ-HYDRO-001 INV — permutation preserves the mean but changes the profile
+
+    [Test]
+    [Description("INV: GRAVY is the residue-mean (permutation invariant), while the sliding-window profile depends on residue order.")]
+    public void Hydrophobicity_Permutation_PreservesMeanChangesProfile()
+    {
+        const string protein = "MKLVAGWTYSDE";
+        string reversed = new string(protein.Reverse().ToArray());
+
+        SequenceStatistics.CalculateHydrophobicity(reversed)
+            .Should().BeApproximately(SequenceStatistics.CalculateHydrophobicity(protein), 1e-12,
+                because: "GRAVY is the mean over residues, independent of their order");
+
+        SequenceStatistics.CalculateHydrophobicityProfile(reversed, 9).ToList()
+            .Should().NotEqual(SequenceStatistics.CalculateHydrophobicityProfile(protein, 9).ToList(),
+                because: "the windowed profile depends on residue order, so reversing changes it");
+    }
+
+    #endregion
+
+    #region SEQ-HYDRO-001 MON — adding a hydrophobic residue raises the mean
+
+    [Test]
+    [Description("MON: appending isoleucine (the most hydrophobic residue, 4.5) — above any sub-4.5 mean — monotonically raises the GRAVY.")]
+    public void Hydrophobicity_AddHydrophobicResidue_HigherMean()
+    {
+        const string hydrophilicCore = "DEKR"; // charged residues → strongly negative GRAVY
+        double previous = double.MinValue;
+        foreach (int isoleucines in new[] { 0, 1, 3, 6, 12 })
+        {
+            double gravy = SequenceStatistics.CalculateHydrophobicity(hydrophilicCore + new string('I', isoleucines));
+            gravy.Should().BeGreaterThan(previous, because: $"adding {isoleucines} isoleucines (4.5, above the mean) raises GRAVY");
+            previous = gravy;
+        }
+    }
+
+    #endregion
 }
