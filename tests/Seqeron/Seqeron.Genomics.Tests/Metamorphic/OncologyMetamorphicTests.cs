@@ -289,4 +289,82 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-DRIVER-001 — driver-gene identification (20/20 rule) (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 89.
+    //
+    // API under test (OncologyAnalyzer.ScoreDriverPotential / IdentifyDriverMutations):
+    //   The driver score is max(truncating fraction, recurrent-missense fraction). A missense
+    //   position counts as recurrent once ≥2 samples share it. IdentifyDriverMutations returns
+    //   the mutations falling in a driver gene (or a hotspot), classified per gene.
+    //
+    // Relations (derived from the 20/20 rule, NOT from output):
+    //   • MON  (more samples share a mutation ⇒ ≥ score): as a missense position is shared by
+    //          more samples, the recurrent-missense fraction rises, so the driver score is
+    //          non-decreasing.
+    //   • INV  (relabel passengers ⇒ same driver set): renaming non-driver (passenger) genes
+    //          leaves the set of identified driver mutations unchanged.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region ONCO-DRIVER-001 MON — more shared samples raise the driver score
+
+    [Test]
+    [Description("MON: as a missense hotspot position is shared by more samples, the recurrent-missense fraction rises, so the driver score is non-decreasing.")]
+    public void DriverScore_MoreSharedSamples_HigherScore()
+    {
+        double previous = double.MinValue;
+        foreach (int sharedSamples in new[] { 2, 5, 10, 30 })
+        {
+            var mutations = new System.Collections.Generic.List<OncologyAnalyzer.GeneMutation>();
+            // 5 background non-recurrent, non-truncating mutations.
+            for (int i = 0; i < 5; i++)
+                mutations.Add(new OncologyAnalyzer.GeneMutation("G", 10 + i, OncologyAnalyzer.MutationConsequence.Other));
+            // `sharedSamples` missense mutations at the same hotspot position (recurrent once ≥2).
+            for (int s = 0; s < sharedSamples; s++)
+                mutations.Add(new OncologyAnalyzer.GeneMutation("G", 100, OncologyAnalyzer.MutationConsequence.Missense));
+
+            double score = OncologyAnalyzer.ScoreDriverPotential(mutations);
+            score.Should().BeGreaterThan(previous,
+                because: $"{sharedSamples} samples sharing the hotspot raises the recurrent-missense fraction");
+            previous = score;
+        }
+    }
+
+    #endregion
+
+    #region ONCO-DRIVER-001 INV — relabeling passenger genes preserves the driver set
+
+    [Test]
+    [Description("INV: renaming non-driver (passenger) genes leaves the set of identified driver mutations unchanged.")]
+    public void IdentifyDrivers_RelabelPassengers_SameDriverSet()
+    {
+        var mutations = new[]
+        {
+            // Driver gene TSG1: all truncating → TumorSuppressor.
+            new OncologyAnalyzer.GeneMutation("TSG1", 50, OncologyAnalyzer.MutationConsequence.Nonsense),
+            new OncologyAnalyzer.GeneMutation("TSG1", 80, OncologyAnalyzer.MutationConsequence.Frameshift),
+            new OncologyAnalyzer.GeneMutation("TSG1", 120, OncologyAnalyzer.MutationConsequence.SpliceSite),
+            // Passenger PASS1: a single non-recurrent, non-truncating mutation → Ambiguous.
+            new OncologyAnalyzer.GeneMutation("PASS1", 30, OncologyAnalyzer.MutationConsequence.Other),
+            // Passenger PASS2: two missense at DIFFERENT positions (not recurrent) → Ambiguous.
+            new OncologyAnalyzer.GeneMutation("PASS2", 11, OncologyAnalyzer.MutationConsequence.Missense),
+            new OncologyAnalyzer.GeneMutation("PASS2", 22, OncologyAnalyzer.MutationConsequence.Missense),
+        };
+
+        var baseDrivers = OncologyAnalyzer.IdentifyDriverMutations(mutations).ToHashSet();
+        baseDrivers.Select(m => m.Gene).Distinct().Should().BeEquivalentTo(new[] { "TSG1" },
+            because: "only the tumor-suppressor gene's mutations are drivers");
+
+        // Relabel the passenger genes only.
+        var relabeled = mutations.Select(m => m.Gene.StartsWith("PASS")
+            ? m with { Gene = m.Gene.Replace("PASS", "ZZZ") }
+            : m);
+
+        OncologyAnalyzer.IdentifyDriverMutations(relabeled).ToHashSet()
+            .Should().BeEquivalentTo(baseDrivers,
+                because: "passenger genes contribute no drivers, so renaming them cannot change the driver set");
+    }
+
+    #endregion
 }
