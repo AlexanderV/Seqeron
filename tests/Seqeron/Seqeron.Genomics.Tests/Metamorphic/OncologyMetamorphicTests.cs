@@ -1848,4 +1848,55 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-CCF-001 — cancer-cell-fraction estimation (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 115.
+    //
+    // API under test (OncologyAnalyzer.EstimateCcf):
+    //   CCF = VAF·(ρ·N_T + 2(1−ρ)) / (ρ·m), linear and increasing in VAF; the reported CCF is
+    //   capped to [0, 1] while RawCcf is the uncapped value.
+    //
+    // Relations (derived from the linear formula, NOT from output):
+    //   • MON  (higher VAF ⇒ ≥ CCF at fixed CN/purity): RawCcf strictly increases with VAF and
+    //          the capped CCF is non-decreasing.
+    //   • INV  (variant order independent): CCF depends only on the variant's own (VAF, purity,
+    //          CN, multiplicity), so a batch's per-variant CCFs do not depend on order.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region ONCO-CCF-001 MON — higher VAF gives a ≥ CCF
+
+    [Test]
+    [Description("MON: at fixed purity/CN/multiplicity, RawCcf increases with VAF and the capped CCF is non-decreasing.")]
+    public void EstimateCcf_HigherVaf_HigherCcf()
+    {
+        double previousRaw = double.MinValue, previousCcf = double.MinValue;
+        foreach (double vaf in new[] { 0.0, 0.1, 0.2, 0.3, 0.4 })
+        {
+            var est = OncologyAnalyzer.EstimateCcf(vaf, purity: 0.8, tumorCopyNumber: 2, multiplicity: 1);
+            est.RawCcf.Should().BeGreaterThan(previousRaw, because: $"RawCcf is linear in VAF ({vaf})");
+            est.Ccf.Should().BeGreaterThanOrEqualTo(previousCcf, because: "the capped CCF is non-decreasing in VAF");
+            previousRaw = est.RawCcf;
+            previousCcf = est.Ccf;
+        }
+    }
+
+    #endregion
+
+    #region ONCO-CCF-001 INV — variant order independent
+
+    [Test]
+    [Description("INV: each variant's CCF depends only on its own parameters, so a batch's per-variant CCFs are unchanged by reordering.")]
+    public void EstimateCcf_VariantOrder_Independent()
+    {
+        var vafs = new[] { 0.05, 0.20, 0.45 };
+
+        var forward = vafs.Select(v => OncologyAnalyzer.EstimateCcf(v, 0.8, 2, 1).RawCcf).ToList();
+        var reversed = vafs.Reverse().Select(v => OncologyAnalyzer.EstimateCcf(v, 0.8, 2, 1).RawCcf).ToList();
+
+        reversed.Should().Equal(forward.AsEnumerable().Reverse(),
+            because: "per-variant CCF has no cross-variant dependence, so order cannot matter");
+    }
+
+    #endregion
 }
