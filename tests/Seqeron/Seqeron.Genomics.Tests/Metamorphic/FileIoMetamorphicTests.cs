@@ -119,4 +119,118 @@ public class FileIoMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: PARSE-FASTQ-001 — FASTQ parsing / quality encoding (FileIO).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 65.
+    //
+    // API under test (FastqParser.Parse / ToFastqString / Encode/DecodeQualityScores /
+    //                 InterleavePairedReads / SplitInterleavedReads):
+    //   A FASTQ record is (@header, sequence, +separator, quality). Quality characters encode
+    //   Phred scores via a fixed ASCII offset (33 for Sanger/Illumina-1.8+, 64 for legacy
+    //   Illumina), so score = ord(char) − offset and char = chr(score + offset).
+    //
+    // Relations (derived from the format & the offset encoding, NOT from output):
+    //   • COMP (round-trip): parsing a serialised record set recovers each record's
+    //          ID/description/sequence/quality, and re-serialising reproduces the exact text.
+    //   • INV  (offset consistency): decode∘encode is the identity for in-range scores, and
+    //          the SAME score encoded under Phred+64 vs Phred+33 differs by exactly 64−33 = 31
+    //          in the character code — the offset is the only thing that changes.
+    //   • INV  (interleaved order preserved): splitting an interleaved pair stream restores the
+    //          two original read lists in their original order (split∘interleave = identity).
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region PARSE-FASTQ-001 — Helpers
+
+    private static FastqParser.FastqRecord MakeFastqRecord(string id, string description, string sequence, string quality)
+    {
+        var scores = FastqParser.DecodeQualityScores(quality, FastqParser.QualityEncoding.Phred33);
+        return new FastqParser.FastqRecord(id, description, sequence, quality, scores);
+    }
+
+    private static string SerializeFastq(IEnumerable<FastqParser.FastqRecord> records) =>
+        string.Concat(records.Select(FastqParser.ToFastqString));
+
+    #endregion
+
+    #region PARSE-FASTQ-001 COMP — write→parse→write reproduces the records and text
+
+    [Test]
+    [Description("COMP: parsing serialised FASTQ recovers each record's ID/description/sequence/quality, and re-serialising the parsed records reproduces the exact text.")]
+    public void Fastq_WriteParseWrite_IsIdempotentAndRecordPreserving()
+    {
+        // Quality strings contain '#' (ASCII 35 < 64), so Auto-detection resolves to Phred+33.
+        var records = new[]
+        {
+            MakeFastqRecord("read1", "pair 1", "ACGTACGT", "IIIII###"),
+            MakeFastqRecord("read2", "",       "TTGGCCAA", "5I5I5I5I"),
+        };
+
+        string written = SerializeFastq(records);
+        var parsed = FastqParser.Parse(written).ToList();
+
+        parsed.Select(r => (r.Id, r.Description, r.Sequence, r.QualityString))
+            .Should().Equal(records.Select(r => (r.Id, r.Description, r.Sequence, r.QualityString)),
+                because: "parse must recover the header, sequence and quality of every record");
+
+        SerializeFastq(parsed).Should().Be(written,
+            because: "serialisation is a canonical fixed point: write∘parse∘write = write");
+    }
+
+    #endregion
+
+    #region PARSE-FASTQ-001 INV — quality offset is consistent
+
+    [Test]
+    [Description("INV: decode∘encode is the identity for in-range scores, and encoding the same score under Phred+64 vs Phred+33 shifts the character code by exactly 31 (= 64−33).")]
+    public void Fastq_QualityEncoding_OffsetIsConsistent()
+    {
+        int[] scores = { 0, 2, 20, 30, 40, 60 }; // all within both Phred+33 (≤93) and Phred+64 (≤62) ranges
+
+        foreach (var encoding in new[] { FastqParser.QualityEncoding.Phred33, FastqParser.QualityEncoding.Phred64 })
+        {
+            string encoded = FastqParser.EncodeQualityScores(scores, encoding);
+            FastqParser.DecodeQualityScores(encoded, encoding).Should().Equal(scores,
+                because: $"decoding the {encoding} encoding of a score recovers the score exactly");
+        }
+
+        string p33 = FastqParser.EncodeQualityScores(scores, FastqParser.QualityEncoding.Phred33);
+        string p64 = FastqParser.EncodeQualityScores(scores, FastqParser.QualityEncoding.Phred64);
+
+        for (int i = 0; i < scores.Length; i++)
+            (p64[i] - p33[i]).Should().Be(31,
+                because: "Phred+64 and Phred+33 differ only by the offset 64−33 = 31 for the same score");
+    }
+
+    #endregion
+
+    #region PARSE-FASTQ-001 INV — interleaving order is preserved
+
+    [Test]
+    [Description("INV: splitting an interleaved pair stream restores the two original read lists in order — split∘interleave is the identity for equal-length mate lists.")]
+    public void Fastq_InterleaveThenSplit_RestoresOriginalOrder()
+    {
+        var read1 = new[]
+        {
+            MakeFastqRecord("r1a", "", "AAAA", "IIII"),
+            MakeFastqRecord("r1b", "", "CCCC", "5555"),
+        };
+        var read2 = new[]
+        {
+            MakeFastqRecord("r2a", "", "GGGG", "####"),
+            MakeFastqRecord("r2b", "", "TTTT", "IIII"),
+        };
+
+        var interleaved = FastqParser.InterleavePairedReads(read1, read2).ToList();
+
+        interleaved.Select(r => r.Id).Should().Equal(new[] { "r1a", "r2a", "r1b", "r2b" },
+            because: "interleaving emits mates in strict alternating order: read1[0], read2[0], read1[1], read2[1]");
+
+        var (split1, split2) = FastqParser.SplitInterleavedReads(interleaved);
+
+        split1.Should().Equal(read1, because: "the even positions reconstruct read1 in original order");
+        split2.Should().Equal(read2, because: "the odd positions reconstruct read2 in original order");
+    }
+
+    #endregion
 }
