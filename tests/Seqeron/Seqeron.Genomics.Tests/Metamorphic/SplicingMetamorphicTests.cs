@@ -160,4 +160,116 @@ public class SplicingMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: SPLICE-PREDICT-001 — intron prediction by donor/acceptor pairing (Splicing).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 79.
+    //
+    // API under test (SpliceSitePredictor.PredictIntrons):
+    //   Pairs each donor (5', GU/GC/AU) with each downstream acceptor (3', AG/AC) within the
+    //   allowed intron-length range; the intron spans donor.Position..acceptor.Position and its
+    //   confidence is the mean of the donor/acceptor (and branch) scores.
+    //
+    // Relations (derived from donor∘acceptor pairing, NOT from output):
+    //   • COMP (donor + acceptor ⇒ boundary): every predicted intron is delimited by a donor
+    //          dinucleotide at its 5' end and an acceptor dinucleotide at its 3' end; removing
+    //          all donors (or all acceptors) removes all introns — both are required.
+    //   • MON  (more consensus ⇒ higher confidence): strengthening the splice-site consensus
+    //          raises the predicted intron's confidence score.
+    //   • INV  (exonic mutations ⇒ same boundaries): editing exon bases far from the splice-site
+    //          scoring windows leaves the predicted intron boundaries unchanged.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region SPLICE-PREDICT-001 — Helpers
+
+    // A synthetic gene: exon1 (…CAG donor context) | intron (GU…ppt…CAG) | exon2. Length-60 intron.
+    private const string Exon1 = "ACGACGACGACGCAG";
+    private const string IntronDonor = "GUAAGU";
+    private const string IntronMiddle = "GAUCGAUCGAUCGAUCGAUCGAUCGAUCGAUCGAUC"; // 36 nt, no GU/AG
+    private const string IntronPpt = "UCUCUCUCUCUCUCU"; // 15 nt polypyrimidine tract
+    private const string IntronAcceptor = "CAG";
+    private const string Exon2 = "GCGCGCGCGCGC"; // no AG
+
+    private static string Gene(string exon1, string exon2) =>
+        exon1 + IntronDonor + IntronMiddle + IntronPpt + IntronAcceptor + exon2;
+
+    private static System.Collections.Generic.List<SpliceSitePredictor.Intron> Introns(string gene) =>
+        SpliceSitePredictor.PredictIntrons(gene, minIntronLength: 60, maxIntronLength: 100000, minScore: 0.3).ToList();
+
+    #endregion
+
+    #region SPLICE-PREDICT-001 COMP — every intron is bracketed by a donor and an acceptor
+
+    [Test]
+    [Description("COMP: every predicted intron begins with a donor dinucleotide and ends with an acceptor dinucleotide; removing all donors or all acceptors removes all introns.")]
+    public void PredictIntrons_BoundariesRequireDonorAndAcceptor()
+    {
+        var introns = Introns(Gene(Exon1, Exon2));
+
+        introns.Should().NotBeEmpty(because: "the gene contains a canonical GU…AG intron");
+        introns.Should().OnlyContain(it =>
+                (it.Sequence.StartsWith("GU") || it.Sequence.StartsWith("GC") || it.Sequence.StartsWith("AU")) &&
+                (it.Sequence.EndsWith("AG") || it.Sequence.EndsWith("AC")),
+            because: "an intron is the composition of a 5' donor and a 3' acceptor — its ends are exactly those dinucleotides");
+
+        // A sequence with donors but no acceptor (no AG/AC) yields no introns: the acceptor is required.
+        SpliceSitePredictor.PredictIntrons(string.Concat(Enumerable.Repeat("GU", 60)), minIntronLength: 60, minScore: 0.3)
+            .Should().BeEmpty(because: "GU-repeats are all donors and contain no acceptor dinucleotide to pair with");
+
+        // A sequence with acceptors but no donor (no GU/GC/AU) yields no introns: the donor is required.
+        SpliceSitePredictor.PredictIntrons(string.Concat(Enumerable.Repeat("AG", 60)), minIntronLength: 60, minScore: 0.3)
+            .Should().BeEmpty(because: "AG-repeats are all acceptors and contain no donor dinucleotide to pair with");
+    }
+
+    #endregion
+
+    #region SPLICE-PREDICT-001 MON — stronger splice consensus raises confidence
+
+    [Test]
+    [Description("MON: strengthening the polypyrimidine tract / splice consensus raises the predicted intron's confidence score.")]
+    public void PredictIntrons_MoreConsensus_HigherConfidence()
+    {
+        // Strong gene: pyrimidine-rich tract. Weak gene: tract replaced by an all-purine
+        // (all-A) run — no C/U, and no extra AG/AC acceptors — so only the PPT is weakened.
+        string strongGene = Gene(Exon1, Exon2);
+        string weakGene = (Exon1 + IntronDonor + IntronMiddle + "AAAAAAAAAAAAAAA" + IntronAcceptor + Exon2);
+
+        double strongBest = Introns(strongGene).Max(it => it.Score);
+        var weakIntrons = SpliceSitePredictor.PredictIntrons(weakGene, minIntronLength: 60, minScore: 0.0).ToList();
+
+        weakIntrons.Should().NotBeEmpty(because: "the canonical GU…AG boundary still exists, only weaker");
+        strongBest.Should().BeGreaterThan(weakIntrons.Max(it => it.Score),
+            because: "a stronger polypyrimidine tract raises the acceptor score and hence the intron confidence");
+    }
+
+    #endregion
+
+    #region SPLICE-PREDICT-001 INV — distant exonic edits don't move the boundaries
+
+    [Test]
+    [Description("INV: editing exon bases far from the splice-site scoring windows leaves the predicted intron boundaries (donor/acceptor positions) unchanged.")]
+    public void PredictIntrons_ExonicEdits_DoNotChangeBoundaries()
+    {
+        // Exon1 = site-neutral 12-nt prefix + "CAG" donor context; exon2 = site-neutral homopolymer.
+        // The prefixes used (A/C/U homopolymers, never ending in G) and exon2 homopolymers create
+        // no new GU/GC/AU/AG/AC sites, so only the splice windows (unchanged) drive the prediction.
+        string E1(string prefix) => prefix + "CAG";
+
+        var baseBoundaries = Introns(Gene(E1("AAAAAAAAAAAA"), "AAAAAAAAAAAA")).Select(it => (it.Start, it.End)).ToHashSet();
+        baseBoundaries.Should().NotBeEmpty();
+
+        foreach (var (e1, e2) in new[]
+                 {
+                     (E1("CCCCCCCCCCCC"), "AAAAAAAAAAAA"), // rewrite exon1 far prefix
+                     (E1("AAAAAAAAAAAA"), "GGGGGGGGGGGG"), // rewrite exon2
+                     (E1("UUUUUUUUUUUU"), "GGGGGGGGGGGG"), // both
+                 })
+        {
+            Introns(Gene(e1, e2)).Select(it => (it.Start, it.End)).ToHashSet()
+                .Should().BeEquivalentTo(baseBoundaries,
+                    because: "exonic edits outside the donor/acceptor scoring windows (and creating no new splice dinucleotides) cannot move the predicted boundaries");
+        }
+    }
+
+    #endregion
 }
