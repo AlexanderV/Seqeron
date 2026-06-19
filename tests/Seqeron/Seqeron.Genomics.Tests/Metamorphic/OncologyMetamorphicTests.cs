@@ -1709,4 +1709,62 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-CHIP-001 — clonal-hematopoiesis (CHIP) variant flagging (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 113.
+    //
+    // API under test (OncologyAnalyzer.IdentifyCHIPVariants):
+    //   Flags a variant as candidate CHIP iff its gene is in the CHIP panel AND its VAF ≥ minVaf;
+    //   the output is a subset of the input, in input order.
+    //
+    // Relations (derived from the per-variant flag, NOT from output):
+    //   • SUB  (survivors ⊆ input): every flagged variant is one of the input variants.
+    //   • INV  (duplicating a CHIP variant keeps it flagged): per-variant judgement, so a copy of
+    //          a flagged variant is also flagged.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private static OncologyAnalyzer.ChipVariant Chip(string gene, double vaf) =>
+        new("1", 100, "A", "T", gene, vaf);
+
+    #region ONCO-CHIP-001 SUB — flagged CHIP variants are a subset of the input
+
+    [Test]
+    [Description("SUB: a variant is flagged CHIP only when its gene is in the panel and its VAF ≥ threshold, so the flagged set is a subset of the input.")]
+    public void IdentifyCHIP_Flagged_SubsetOfInput()
+    {
+        var input = new[]
+        {
+            Chip("DNMT3A", 0.20),  // panel gene, VAF ≥ 0.02 → CHIP
+            Chip("TET2", 0.005),   // panel gene but VAF < 0.02 → not flagged
+            Chip("EGFR", 0.30),    // not a CHIP gene → not flagged
+            Chip("JAK2", 0.10),    // CHIP
+        };
+
+        var flagged = OncologyAnalyzer.IdentifyCHIPVariants(input);
+
+        flagged.Should().OnlyContain(v => input.Contains(v), because: "every flagged variant comes from the input");
+        flagged.Select(v => v.Gene).Should().BeEquivalentTo(new[] { "DNMT3A", "JAK2" },
+            because: "only panel genes at VAF ≥ 0.02 are flagged");
+    }
+
+    #endregion
+
+    #region ONCO-CHIP-001 INV — duplicating a CHIP variant keeps it flagged
+
+    [Test]
+    [Description("INV: variants are judged independently, so duplicating a flagged CHIP variant keeps both copies flagged.")]
+    public void IdentifyCHIP_DuplicateChipVariant_StillFlagged()
+    {
+        var chip = Chip("DNMT3A", 0.20);
+        OncologyAnalyzer.IdentifyCHIPVariants(new[] { chip }).Should().ContainSingle();
+        OncologyAnalyzer.IdentifyCHIPVariants(new[] { chip, chip }).Count
+            .Should().Be(2, because: "a duplicate of a flagged CHIP variant is judged identically and also flagged");
+
+        var nonChip = Chip("EGFR", 0.30);
+        OncologyAnalyzer.IdentifyCHIPVariants(new[] { nonChip, nonChip })
+            .Should().BeEmpty(because: "duplicating a non-CHIP variant keeps both unflagged");
+    }
+
+    #endregion
 }
