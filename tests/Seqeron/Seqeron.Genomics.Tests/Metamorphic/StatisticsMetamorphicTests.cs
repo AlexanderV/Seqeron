@@ -392,4 +392,66 @@ public class StatisticsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: SEQ-SUMMARY-001 — aggregated sequence summary (Statistics).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 128.
+    //
+    // API under test (SequenceStatistics.SummarizeNucleotideSequence):
+    //   Aggregates Length, GcContent, Shannon Entropy, linguistic Complexity, melting
+    //   temperature and the per-base Composition dictionary into one record.
+    //
+    // Relations (derived from the per-metric definitions, NOT from output):
+    //   • INV  (permutation invariant for composition fields): Length, the Composition counts,
+    //          GcContent, Entropy and Tm are all functions of the per-base counts only, so a
+    //          permutation leaves them unchanged. (Complexity is order-dependent and is therefore
+    //          NOT asserted invariant.)
+    //   • SHIFT (length additive on concatenation): Length — and the per-base Composition counts —
+    //          of a+b equal the sums of the parts'.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region SEQ-SUMMARY-001 INV — composition fields are permutation invariant
+
+    [Test]
+    [Description("INV: the count-derived summary fields (Length, Composition, GcContent, Entropy, Tm) depend only on the base multiset, so a sort-permutation leaves them unchanged. Complexity is order-dependent and not asserted here.")]
+    public void Summary_Permutation_PreservesCompositionFields()
+    {
+        const string seq = "AACGTACGTTGGCCAATACGT";
+        string sorted = new string(seq.OrderBy(c => c).ToArray());
+
+        var original = SequenceStatistics.SummarizeNucleotideSequence(seq);
+        var permuted = SequenceStatistics.SummarizeNucleotideSequence(sorted);
+
+        permuted.Length.Should().Be(original.Length, because: "length is unchanged by reordering");
+        permuted.GcContent.Should().BeApproximately(original.GcContent, 1e-12, because: "GC% is a function of the G/C counts");
+        permuted.Entropy.Should().BeApproximately(original.Entropy, 1e-12, because: "Shannon entropy is a function of the base frequencies");
+        permuted.MeltingTemperature.Should().BeApproximately(original.MeltingTemperature, 1e-12,
+            because: "Tm depends on the GC count and length, both permutation-invariant (length unchanged keeps the same formula branch)");
+        permuted.Composition.Should().BeEquivalentTo(original.Composition, because: "per-base counts depend only on the multiset of bases");
+    }
+
+    #endregion
+
+    #region SEQ-SUMMARY-001 SHIFT — length and composition are additive on concatenation
+
+    [Test]
+    [Description("SHIFT: Length and the per-base Composition counts are additive over concatenation, so the summary of a+b sums the parts' length and counts.")]
+    public void Summary_Concatenation_AdditiveLengthAndCounts()
+    {
+        foreach (var (a, b) in new[] { ("AACGT", "GGCCN"), ("AAUUGGCC", "TTTACGU"), ("ACGTACGT", "N") })
+        {
+            var sa = SequenceStatistics.SummarizeNucleotideSequence(a);
+            var sb = SequenceStatistics.SummarizeNucleotideSequence(b);
+            var sab = SequenceStatistics.SummarizeNucleotideSequence(a + b);
+
+            sab.Length.Should().Be(sa.Length + sb.Length, because: $"length of '{a}'+'{b}' is the sum of the parts");
+
+            foreach (char baseChar in sab.Composition.Keys)
+                sab.Composition[baseChar].Should().Be(
+                    sa.Composition.GetValueOrDefault(baseChar) + sb.Composition.GetValueOrDefault(baseChar),
+                    because: $"the {baseChar} count of '{a}'+'{b}' is the sum of the parts' counts");
+        }
+    }
+
+    #endregion
 }

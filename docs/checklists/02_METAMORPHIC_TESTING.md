@@ -155,7 +155,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 125 | ☑ | SEQ-PI-001 | Statistics | INV: permutation invariant; MON: more acidic residues → lower pI |
 | 126 | ☑ | SEQ-SECSTRUCT-001 | Statistics | SHIFT: prepend flank shifts assignments; INV: deterministic |
 | 127 | ☑ | SEQ-STATS-001 | Statistics | INV: permutation invariant; P: concatenation sums counts |
-| 128 | ☐ | SEQ-SUMMARY-001 | Statistics | INV: permutation invariant for composition fields; SHIFT: length additive on concatenation |
+| 128 | ☑ | SEQ-SUMMARY-001 | Statistics | INV: permutation invariant for composition fields; SHIFT: length additive on concatenation |
 | 129 | ☐ | SEQ-THERMO-001 | Statistics | MON: more GC pairs → lower ΔG; INV: permutation changes nearest-neighbour context only |
 | 130 | ☐ | SEQ-TM-001 | Statistics | MON: more GC → higher Tm; INV: case-insensitive |
 | 131 | ☐ | COMPGEN-ANI-001 | Comparative | SYM: ANI(A,B)=ANI(B,A); INV: ANI(A,A)=100; MON: more mutations → lower ANI |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 127 |
-| ☐ Not started | 107 |
+| ☑ Complete | 128 |
+| ☐ Not started | 106 |
 | MR relations defined | ~200+ |
