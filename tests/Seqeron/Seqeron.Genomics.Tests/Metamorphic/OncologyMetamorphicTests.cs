@@ -1549,4 +1549,57 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-MHC-001 — peptide–MHC binding classification (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 110.
+    //
+    // API under test (OncologyAnalyzer.ClassifyMhcBinding):
+    //   Classifies a peptide as Strong (IC50 < 50 nM) / Weak (< 500 nM) / NonBinder by affinity,
+    //   after a length gate (invalid length ⇒ NonBinder). Strength ordinals: Strong < Weak < NonBinder.
+    //
+    // Relations (derived from the IC50 thresholds, NOT from output):
+    //   • MON  (lower IC50 ⇒ stronger-or-equal class): decreasing IC50 makes the binding class
+    //          stronger or equal (the strength ordinal is non-increasing).
+    //   • INV  (peptide order independent): each peptide is classified from its own (length,
+    //          IC50) only, so a batch's per-peptide classes do not depend on order.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region ONCO-MHC-001 MON — lower IC50 gives a stronger-or-equal class
+
+    [Test]
+    [Description("MON: decreasing the IC50 makes the binding class stronger or equal (Strong < Weak < NonBinder ordinal is non-increasing).")]
+    public void ClassifyMhcBinding_LowerIc50_StrongerClass()
+    {
+        int previousOrdinal = int.MaxValue;
+        foreach (double ic50 in new[] { 1000.0, 400.0, 100.0, 40.0, 10.0 }) // descending IC50
+        {
+            int ordinal = (int)OncologyAnalyzer.ClassifyMhcBinding(9, ic50, OncologyAnalyzer.MhcClass.ClassI);
+            ordinal.Should().BeLessThanOrEqualTo(previousOrdinal,
+                because: $"a lower IC50 ({ic50} nM) cannot weaken the binding class");
+            previousOrdinal = ordinal;
+        }
+
+        OncologyAnalyzer.ClassifyMhcBinding(9, 10.0, OncologyAnalyzer.MhcClass.ClassI)
+            .Should().Be(OncologyAnalyzer.BindingStrength.Strong, because: "IC50 10 nM < 50 nM is a strong binder");
+    }
+
+    #endregion
+
+    #region ONCO-MHC-001 INV — peptide order independent
+
+    [Test]
+    [Description("INV: each peptide is classified from its own length and IC50, so a batch's per-peptide classes are unchanged by reordering.")]
+    public void ClassifyMhcBinding_PeptideOrder_Independent()
+    {
+        var peptides = new[] { (9, 10.0), (9, 1000.0), (11, 300.0), (7, 5.0) }; // 7-mer is invalid length → NonBinder
+
+        var forward = peptides.Select(p => OncologyAnalyzer.ClassifyMhcBinding(p.Item1, p.Item2, OncologyAnalyzer.MhcClass.ClassI)).ToList();
+        var reversed = peptides.Reverse().Select(p => OncologyAnalyzer.ClassifyMhcBinding(p.Item1, p.Item2, OncologyAnalyzer.MhcClass.ClassI)).ToList();
+
+        reversed.Should().Equal(forward.AsEnumerable().Reverse(),
+            because: "per-peptide classification has no cross-peptide dependence, so order cannot matter");
+    }
+
+    #endregion
 }
