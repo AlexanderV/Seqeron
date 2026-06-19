@@ -126,4 +126,65 @@ public class GenomicAnalysisMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: GENOMIC-ORF-001 — open reading frame detection (Analysis).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 177.
+    //
+    // API under test (GenomicAnalyzer.FindOpenReadingFrames):
+    //   ATG→stop ORFs over the three forward frames and the three reverse-complement frames.
+    //
+    // Relations (derived from the frame scan, NOT from output):
+    //   • SHIFT (prepend in-frame flank shifts ORFs): a 5' flank whose length is a multiple of 3
+    //          (and contains no start) keeps every forward ORF's sequence and frame, shifting its
+    //          position by the flank length.
+    //   • INV  (revcomp gives reverse-strand ORFs): the reverse-strand ORFs of a sequence are exactly
+    //          the forward-strand ORFs of its reverse complement.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private const int OrfMinLength = 6;
+
+    private static string RevComp(string s) => DnaSequence.GetReverseComplementString(s);
+
+    #region GENOMIC-ORF-001 SHIFT — an in-frame flank shifts forward ORFs
+
+    [Test]
+    [Description("SHIFT: a 5' flank whose length is a multiple of 3 (and has no ATG) preserves every forward ORF's sequence and frame and shifts its position by the flank length.")]
+    public void Orf_PrependInFrameFlank_ShiftsForwardOrfs()
+    {
+        const string seq = "CCATGAAATAACC";
+        var original = GenomicAnalyzer.FindOpenReadingFrames(new DnaSequence(seq), OrfMinLength)
+            .Where(o => !o.IsReverseComplement).Select(o => (o.Sequence, o.Frame, o.Position)).ToHashSet();
+        original.Should().NotBeEmpty();
+
+        foreach (var flank in new[] { "GGG", "GGGGGG" }) // length multiple of 3, no ATG
+        {
+            var shifted = GenomicAnalyzer.FindOpenReadingFrames(new DnaSequence(flank + seq), OrfMinLength)
+                .Where(o => !o.IsReverseComplement).Select(o => (o.Sequence, o.Frame, o.Position)).ToHashSet();
+            shifted.Should().BeEquivalentTo(original.Select(o => (o.Sequence, o.Frame, o.Position + flank.Length)),
+                because: $"the in-frame {flank.Length}-base flank keeps each forward ORF's sequence and frame, shifting its position by {flank.Length}");
+        }
+    }
+
+    #endregion
+
+    #region GENOMIC-ORF-001 INV — reverse-strand ORFs equal forward ORFs of the reverse complement
+
+    [Test]
+    [Description("INV: reverse-strand ORFs are computed from the reverse complement, so they equal the forward-strand ORFs of the reverse complement (by sequence).")]
+    public void Orf_ReverseStrand_EqualsForwardOrfsOfReverseComplement()
+    {
+        const string seq = "CCATGAAATAACCTTATTTCAT"; // forward ORF + a reverse-strand ORF
+
+        var reverseOrfs = GenomicAnalyzer.FindOpenReadingFrames(new DnaSequence(seq), OrfMinLength)
+            .Where(o => o.IsReverseComplement).Select(o => o.Sequence).ToHashSet();
+        var forwardOrfsOfRevComp = GenomicAnalyzer.FindOpenReadingFrames(new DnaSequence(RevComp(seq)), OrfMinLength)
+            .Where(o => !o.IsReverseComplement).Select(o => o.Sequence).ToHashSet();
+
+        reverseOrfs.Should().NotBeEmpty(because: "the sequence was built to contain a reverse-strand ORF");
+        forwardOrfsOfRevComp.Should().BeEquivalentTo(reverseOrfs,
+            because: "scanning the reverse complement on its forward strand reproduces the original's reverse-strand ORFs");
+    }
+
+    #endregion
 }
