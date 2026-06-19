@@ -795,4 +795,70 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-SIG-002 — signature exposure refitting (NNLS) (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 97.
+    //
+    // API under test (OncologyAnalyzer.FitSignatures):
+    //   Solves minₓ ‖S·x − d‖² subject to x ≥ 0 for the per-signature exposures x of an observed
+    //   catalog d against reference signatures S. NNLS is positively homogeneous in d.
+    //
+    // Relations (derived from the linear NNLS model, NOT from output):
+    //   • INV  (scale catalog by k ⇒ exposures × k): scaling the observed catalog scales the
+    //          minimiser exposures by the same factor.
+    //   • MON  (add signature-consistent mutations ⇒ ≥ that exposure): adding counts in a
+    //          signature's channels raises that signature's exposure.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    // Orthonormal one-hot signatures, so the NNLS exposure of each equals the catalog count in its channel.
+    private static readonly IReadOnlyList<IReadOnlyList<double>> OneHotSignatures = new IReadOnlyList<double>[]
+    {
+        new double[] { 1, 0, 0 },
+        new double[] { 0, 1, 0 },
+        new double[] { 0, 0, 1 },
+    };
+
+    #region ONCO-SIG-002 INV — scaling the catalog scales the exposures
+
+    [Test]
+    [Description("INV: NNLS is positively homogeneous, so scaling the observed catalog by k scales every fitted exposure by k.")]
+    public void FitSignatures_ScaleCatalog_ScalesExposures()
+    {
+        var catalog = new double[] { 3, 5, 2 };
+        var baseExposures = OncologyAnalyzer.FitSignatures(catalog, OneHotSignatures).Exposures;
+
+        foreach (double k in new[] { 2.0, 7.0, 0.5 })
+        {
+            var scaled = OncologyAnalyzer.FitSignatures(catalog.Select(d => d * k).ToList(), OneHotSignatures).Exposures;
+            for (int j = 0; j < baseExposures.Count; j++)
+                scaled[j].Should().BeApproximately(baseExposures[j] * k, 1e-9,
+                    because: $"scaling the catalog by {k} scales exposure {j} by {k}");
+        }
+    }
+
+    #endregion
+
+    #region ONCO-SIG-002 MON — adding signature-consistent mutations raises that exposure
+
+    [Test]
+    [Description("MON: adding counts in signature 1's channel raises signature 1's exposure while the others stay fixed.")]
+    public void FitSignatures_AddSignatureConsistentMutations_HigherExposure()
+    {
+        double previous = double.MinValue;
+        foreach (double added in new[] { 0.0, 5.0, 10.0, 20.0 })
+        {
+            // Catalog [3, 5+added, 2]: only signature 1's channel grows.
+            var catalog = new double[] { 3, 5 + added, 2 };
+            var exposures = OncologyAnalyzer.FitSignatures(catalog, OneHotSignatures).Exposures;
+
+            exposures[1].Should().BeGreaterThan(previous,
+                because: $"adding {added} mutations consistent with signature 1 raises its exposure");
+            exposures[0].Should().BeApproximately(3, 1e-9, because: "signature 0's channel is unchanged");
+            exposures[2].Should().BeApproximately(2, 1e-9, because: "signature 2's channel is unchanged");
+            previous = exposures[1];
+        }
+    }
+
+    #endregion
 }
