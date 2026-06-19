@@ -99,7 +99,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 69 | ☑ | PARSE-GENBANK-001 | FileIO | COMP: round-trip identity; INV: whitespace in sequence irrelevant |
 | 70 | ☑ | PARSE-EMBL-001 | FileIO | COMP: round-trip identity; INV: whitespace in sequence irrelevant |
 | 71 | ☑ | RNA-STRUCT-001 | RnaStructure | MON: adding complementary bases → ≥ pairs; INV: non-pairing insert near end → doesn't break existing pairs; COMP: empty → 0 pairs |
-| 72 | ☐ | RNA-STEMLOOP-001 | RnaStructure | MON: longer complementary arms → longer stem; INV: loop content doesn't affect stem pairing; COMP: no complement → no stem |
+| 72 | ☑ | RNA-STEMLOOP-001 | RnaStructure | MON: longer complementary arms → longer stem; INV: loop content doesn't affect stem pairing; COMP: no complement → no stem |
 | 73 | ☐ | RNA-ENERGY-001 | RnaStructure | MON: more GC stacks → lower ΔG; COMP: known energies additive; INV: same structure → same ΔG |
 | 74 | ☐ | MIRNA-SEED-001 | MiRNA | INV: 3' end changes don't affect seed; COMP: seed match ⊂ full target prediction; INV: seed extraction deterministic |
 | 75 | ☐ | MIRNA-TARGET-001 | MiRNA | MON: more seed complementarity → higher score; SUB: stringent → ⊂ lenient results; INV: distant 3'UTR change → same score |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 71 |
-| ☐ Not started | 163 |
+| ☑ Complete | 72 |
+| ☐ Not started | 162 |
 | MR relations defined | ~200+ |

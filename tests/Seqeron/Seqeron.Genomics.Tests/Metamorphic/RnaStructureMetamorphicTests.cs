@@ -123,4 +123,93 @@ public class RnaStructureMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: RNA-STEMLOOP-001 — stem-loop (hairpin) detection (RnaStructure).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 72.
+    //
+    // API under test (RnaSecondaryStructure.FindStemLoops):
+    //   For each loop window, extends a stem outward as long as the flanking bases are
+    //   complementary (Watson–Crick or wobble), returning a StemLoop whose Stem.Length is the
+    //   number of consecutive complementary pairs. The stem is built only from the arms; the
+    //   loop bases lie strictly between the arms and are never part of the stem.
+    //
+    // Relations (derived from outward complementary extension, NOT from output):
+    //   • COMP (no complement ⇒ no stem): a sequence with no complementary arms (a homopolymer,
+    //          or like-base "arms") yields no stem-loops.
+    //   • MON  (longer arms ⇒ longer stem): lengthening the complementary arms of a hairpin
+    //          lengthens the maximal stem — its length is non-decreasing and strictly grows.
+    //   • INV  (loop content irrelevant to stem pairing): with the arms and loop length fixed,
+    //          changing the loop bases leaves the hairpin's stem base-pairs identical, since the
+    //          stem is built from the arms alone.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region RNA-STEMLOOP-001 — Helpers
+
+    private static HashSet<(int I, int J)> StemPairSet(RnaSecondaryStructure.StemLoop sl) =>
+        sl.Stem.BasePairs.Select(bp => (bp.Position1, bp.Position2)).ToHashSet();
+
+    #endregion
+
+    #region RNA-STEMLOOP-001 COMP — no complementary arms ⇒ no stem-loop
+
+    [Test]
+    [Description("COMP: a sequence with no complementary arms (a homopolymer or like-base arms) produces no stem-loops.")]
+    public void FindStemLoops_NoComplementarity_ReturnsNothing()
+    {
+        foreach (var seq in new[] { "AAAAAAAAAAAA", "GGGGAAAGGGG" })
+            RnaSecondaryStructure.FindStemLoops(seq).Should().BeEmpty(
+                because: $"'{seq}' has no two complementary arms able to close a stem");
+    }
+
+    #endregion
+
+    #region RNA-STEMLOOP-001 MON — longer complementary arms lengthen the maximal stem
+
+    [Test]
+    [Description("MON: lengthening a hairpin's complementary arms lengthens the maximal stem — non-decreasing in arm length and strictly larger over the range.")]
+    public void FindStemLoops_LongerArms_LengthenMaximalStem()
+    {
+        int previous = -1;
+        var maxima = new List<int>();
+
+        foreach (int arm in new[] { 3, 4, 5, 6, 7 })
+        {
+            var stemLoops = RnaSecondaryStructure.FindStemLoops(GcHairpin(arm)).ToList();
+            int maxStem = stemLoops.Count == 0 ? 0 : stemLoops.Max(sl => sl.Stem.Length);
+            maxima.Add(maxStem);
+
+            maxStem.Should().BeGreaterThanOrEqualTo(previous,
+                because: $"a longer ({arm}-base) complementary arm cannot shorten the maximal stem");
+            previous = maxStem;
+        }
+
+        maxima.Last().Should().BeGreaterThan(maxima.First(),
+            because: "the 7-base arms yield a strictly longer maximal stem than the 3-base arms");
+    }
+
+    #endregion
+
+    #region RNA-STEMLOOP-001 INV — loop content does not change the stem base-pairs
+
+    [Test]
+    [Description("INV: with the arms (5×G / 5×C) and loop length (4) fixed, changing the loop bases leaves the hairpin's stem base-pairs identical, because the stem is built from the arms alone.")]
+    public void FindStemLoops_LoopContent_DoesNotChangeStemPairing()
+    {
+        // Arms G(0..4) / C(9..13) close a length-4 loop at 5..8 → stem pairs (i, 13-i), i=0..4.
+        var expected = Enumerable.Range(0, 5).Select(i => (i, 13 - i)).ToHashSet();
+
+        foreach (var loop in new[] { "AAAA", "GAAA", "UUCG", "CUUG" })
+        {
+            string seq = "GGGGG" + loop + "CCCCC";
+            var stemLoops = RnaSecondaryStructure.FindStemLoops(seq).ToList();
+
+            stemLoops.Any(sl => StemPairSet(sl).SetEquals(expected)).Should().BeTrue(
+                because: $"the 5-bp G:C stem is determined by the arms, so loop '{loop}' yields the same stem base-pairs");
+            stemLoops.Max(sl => sl.Stem.Length).Should().Be(5,
+                because: $"the arms are 5 bases long, so the maximal stem is length 5 regardless of loop '{loop}'");
+        }
+    }
+
+    #endregion
 }
