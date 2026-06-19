@@ -123,7 +123,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 93 | ☑ | ONCO-MSI-001 | Oncology | MON: more unstable loci → ≥ MSI score; INV: locus order independent |
 | 94 | ☑ | ONCO-HRD-001 | Oncology | MON: adding an LOH/TAI/LST event → ≥ HRD; INV: event order independent |
 | 95 | ☑ | ONCO-LOH-001 | Oncology | INV: allele symmetry (retained-allele value irrelevant) + segment order; MON: looser size criterion / more regions → superset (CN-based, not BAF) |
-| 96 | ☐ | ONCO-SIG-001 | Oncology | INV: reverse-complementing a variant maps to the same pyrimidine channel; INV: variant order independent |
+| 96 | ☑ | ONCO-SIG-001 | Oncology | INV: reverse-complementing a variant maps to the same pyrimidine channel; INV: variant order independent |
 | 97 | ☐ | ONCO-SIG-002 | Oncology | INV: scaling the catalogue by k scales exposures by k; MON: adding signature-consistent mutations → ≥ that exposure |
 | 98 | ☐ | ONCO-SIG-003 | Oncology | INV: same seed → identical CI; MON: more bootstrap reps → non-wider CI |
 | 99 | ☐ | ONCO-SIG-004 | Oncology | INV: scaling all exposures preserves the dominant process; INV: signature order independent |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 95 |
-| ☐ Not started | 139 |
+| ☑ Complete | 96 |
+| ☐ Not started | 138 |
 | MR relations defined | ~200+ |

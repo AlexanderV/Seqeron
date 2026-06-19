@@ -728,4 +728,71 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-SIG-001 — SBS-96 mutational context classification (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 96.
+    //
+    // API under test (OncologyAnalyzer.ClassifySbsContext / Build96ContextCatalog):
+    //   Maps a single-base substitution + trinucleotide context to one of the 96 pyrimidine-
+    //   centric COSMIC channels, folding purine-reference substitutions onto the pyrimidine
+    //   strand by reverse-complement. The catalog tallies each variant into its channel.
+    //
+    // Relations (derived from pyrimidine-strand folding, NOT from output):
+    //   • INV  (reverse-complement ⇒ same channel): a variant and its reverse complement are the
+    //          two strands of the same mutation, so they classify into the identical channel.
+    //   • INV  (variant order independent): the 96-channel catalog is a tally, independent of the
+    //          order of the input variants.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private static char Comp(char b) => b switch { 'A' => 'T', 'T' => 'A', 'C' => 'G', 'G' => 'C', _ => b };
+
+    #region ONCO-SIG-001 INV — a variant and its reverse complement share a channel
+
+    [Test]
+    [Description("INV: a substitution and its reverse complement are the same mutation on opposite strands, so ClassifySbsContext folds both to the identical pyrimidine channel.")]
+    public void Sbs_ReverseComplement_SameChannel()
+    {
+        // (5', ref, alt, 3') variants spanning pyrimidine- and purine-reference cases.
+        var variants = new[]
+        {
+            ('A', 'C', 'A', 'G'),
+            ('T', 'C', 'T', 'A'),
+            ('G', 'T', 'C', 'C'),
+            ('C', 'G', 'T', 'T'), // purine reference
+            ('A', 'A', 'G', 'T'), // purine reference
+        };
+
+        foreach (var (f, r, a, t) in variants)
+        {
+            string forward = OncologyAnalyzer.ClassifySbsContext(f, r, a, t);
+            // Reverse complement of the (5',ref,3') context with the substitution complemented.
+            string reverse = OncologyAnalyzer.ClassifySbsContext(Comp(t), Comp(r), Comp(a), Comp(f));
+
+            reverse.Should().Be(forward,
+                because: "the two strands of one substitution fold to the same pyrimidine-centric SBS-96 channel");
+        }
+    }
+
+    #endregion
+
+    #region ONCO-SIG-001 INV — the catalog is order independent
+
+    [Test]
+    [Description("INV: the 96-channel catalog is a tally over variants, so it is identical for any ordering of the input.")]
+    public void Sbs_CatalogVariantOrder_Independent()
+    {
+        var variants = new[]
+        {
+            ('A', 'C', 'A', 'G'), ('T', 'C', 'T', 'A'), ('G', 'T', 'C', 'C'),
+            ('C', 'G', 'T', 'T'), ('A', 'A', 'G', 'T'), ('A', 'C', 'A', 'G'),
+        };
+
+        var forward = OncologyAnalyzer.Build96ContextCatalog(variants);
+        var reversed = OncologyAnalyzer.Build96ContextCatalog(variants.Reverse());
+
+        reversed.Should().BeEquivalentTo(forward, because: "tallying into channels does not depend on variant order");
+    }
+
+    #endregion
 }
