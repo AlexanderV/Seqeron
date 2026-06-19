@@ -276,4 +276,58 @@ public class GenomicAnalysisMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: GENOMIC-TANDEM-001 — tandem-repeat detection (Analysis).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 180.
+    //
+    // API under test (GenomicAnalyzer.FindTandemRepeats):
+    //   Reports consecutively repeated units (≥ minRepetitions copies) with their positions.
+    //
+    // Relations (derived from the tandem definition, NOT from output):
+    //   • MON  (lower minReps ⇒ superset): a lower repetition cut-off admits tandems with fewer
+    //          copies in addition to the longer ones, so the tandem set grows.
+    //   • SHIFT (prepend flank shifts positions): a flank that forms no tandem and does not extend the
+    //          first tandem shifts every tandem's position by the flank length.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    // (AT)x3 and (GC)x2, separated so the greedy scan does not couple them.
+    private const string TandemSeq = "ATATATCCGCGCAA";
+
+    private static HashSet<(string, int, int)> Tandems(string seq, int minReps) =>
+        GenomicAnalyzer.FindTandemRepeats(new DnaSequence(seq), 2, minReps)
+            .Select(t => (t.Unit, t.Position, t.Repetitions)).ToHashSet();
+
+    #region GENOMIC-TANDEM-001 MON — lowering minRepetitions yields a superset
+
+    [Test]
+    [Description("MON: a lower repetition cut-off admits tandems with fewer copies (e.g. (GC)x2) in addition to the longer ones, so the tandem set at minReps 2 is a superset of the set at minReps 3.")]
+    public void Tandems_LowerMinReps_Superset()
+    {
+        var reps3 = Tandems(TandemSeq, 3);
+        var reps2 = Tandems(TandemSeq, 2);
+
+        reps3.IsSubsetOf(reps2).Should().BeTrue(because: "every tandem with ≥3 copies also has ≥2 copies");
+        reps2.Count.Should().BeGreaterThan(reps3.Count, because: "(GC)x2 is admitted only at the lower repetition cut-off");
+    }
+
+    #endregion
+
+    #region GENOMIC-TANDEM-001 SHIFT — a prepended flank shifts tandem positions
+
+    [Test]
+    [Description("SHIFT: a flank that forms no tandem and does not extend the first tandem shifts every tandem's position by the flank length.")]
+    public void Tandems_PrependFlank_ShiftsPositions()
+    {
+        var original = Tandems(TandemSeq, 2);
+
+        foreach (var flank in new[] { "C", "CCC" }) // no unit-≥2 tandem; no junction tandem
+        {
+            var shifted = Tandems(flank + TandemSeq, 2);
+            shifted.Should().BeEquivalentTo(original.Select(t => (t.Item1, t.Item2 + flank.Length, t.Item3)),
+                because: $"the {flank.Length}-base flank relocates every tandem by {flank.Length}");
+        }
+    }
+
+    #endregion
 }
