@@ -72,4 +72,58 @@ public class ComplexityMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: SEQ-COMPLEX-DUST-001 — DUST low-complexity score (Complexity).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 229.
+    //
+    // API under test (SequenceComplexity.CalculateDustScore):
+    //   Σ_t c_t·(c_t−1)/2 over overlapping triplets, divided by the word count; HIGHER ⇒ LOWER
+    //   complexity (Morgulis et al. 2006).
+    //
+    // Relations (derived from the triplet-count sum, NOT from output):
+    //   • INV  (complement preserves DUST): complement maps each base A↔T/C↔G, a bijection on the
+    //          triplet alphabet, so the multiset of triplet counts — and hence the score — is unchanged.
+    //   • MONO (adding a homopolymer run raises score): appending a homopolymer accumulates one triplet
+    //          quadratically while the length grows linearly, so the DUST score increases.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private static string Complement(string seq) =>
+        new string(seq.Select(c => c switch { 'A' => 'T', 'T' => 'A', 'C' => 'G', 'G' => 'C', _ => c }).ToArray());
+
+    #region SEQ-COMPLEX-DUST-001 INV — complement preserves the DUST score
+
+    [Test]
+    [Description("INV: complement is a bijection on the triplet alphabet, so it preserves the multiset of triplet counts and hence the DUST score.")]
+    public void Dust_Complement_PreservesScore()
+    {
+        double original = SequenceComplexity.CalculateDustScore(ComplexSeq);
+        original.Should().BeGreaterThan(0, because: "the test sequence has at least one repeated triplet — a non-vacuous fixture");
+
+        SequenceComplexity.CalculateDustScore(Complement(ComplexSeq))
+            .Should().BeApproximately(original, 1e-12,
+                because: "A↔T / C↔G relabels every triplet bijectively, leaving the count distribution unchanged");
+    }
+
+    #endregion
+
+    #region SEQ-COMPLEX-DUST-001 MONO — appending a homopolymer run raises the score
+
+    [Test]
+    [Description("MONO: appending a longer homopolymer run accumulates one triplet quadratically against a linear length, so the DUST score increases.")]
+    public void Dust_AddingHomopolymerRun_RaisesScore()
+    {
+        double previous = double.MinValue;
+        foreach (int runLength in new[] { 0, 10, 20, 40 })
+        {
+            string seq = ComplexSeq + new string('A', runLength);
+            double score = SequenceComplexity.CalculateDustScore(seq);
+
+            score.Should().BeGreaterThan(previous,
+                because: $"a longer poly-A run adds more identical 'AAA' triplets, lowering complexity (raising DUST) — run length {runLength}");
+            previous = score;
+        }
+    }
+
+    #endregion
 }

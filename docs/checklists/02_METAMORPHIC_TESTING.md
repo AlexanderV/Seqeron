@@ -256,7 +256,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 226 | ☑ | ALIGN-STATS-001 | Alignment | SYM: stats(a,b)=stats(b,a); P: identity(x,x)=1 |
 | 227 | ☑ | SEQ-CODON-FREQ-001 | Statistics | INV: codon-preserving shuffle keeps frequencies; SCALE: triplicating seq preserves freqs |
 | 228 | ☑ | SEQ-COMPLEX-COMPRESS-001 | Complexity | INV: case change preserves ratio; ORDER: concatenating repeats lowers ratio |
-| 229 | ☐ | SEQ-COMPLEX-DUST-001 | Complexity | INV: complement preserves DUST; MONO: adding homopolymer run raises score |
+| 229 | ☑ | SEQ-COMPLEX-DUST-001 | Complexity | INV: complement preserves DUST; MONO: adding homopolymer run raises score |
 | 230 | ☐ | SEQ-COMPLEX-KMER-001 | Complexity | INV: reverse preserves k-mer entropy; MONO: more distinct k-mers → higher entropy |
 | 231 | ☐ | SEQ-COMPLEX-WINDOW-001 | Complexity | INV: complement preserves per-window score; SHIFT: prepend flank shifts profile |
 | 232 | ☐ | SEQ-ENTROPY-PROFILE-001 | Statistics | INV: complement preserves profile; SHIFT: prepend flank shifts profile |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 228 |
-| ☐ Not started | 6 |
+| ☑ Complete | 229 |
+| ☐ Not started | 5 |
 | MR relations defined | ~200+ |
