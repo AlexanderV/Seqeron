@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
@@ -97,6 +98,84 @@ public class QualityMetamorphicTests
         for (int i = 0; i < shared.Length; i++)
             (asP33[i] - asP64[i]).Should().Be(OffsetDifference,
                 because: "decoding subtracts a 31-larger offset under Phred+64, so its scores are 31 lower for the same character");
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: QUALITY-STATS-001 — quality-score statistics (Quality).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 220.
+    //
+    // API under test (QualityScoreAnalyzer.CalculateStatistics(string)):
+    //   Decodes the quality line to Phred scores and reports MeanQuality, Min/Max, StandardDeviation,
+    //   TotalBases, and BasesAboveQ20/Q30 (inclusive thresholds).
+    //
+    // Relations (derived from the aggregate definitions, NOT from output):
+    //   • INV (order independent for mean): the mean, extrema, spread and threshold COUNTS depend only
+    //         on the multiset of scores, so permuting the quality string leaves them unchanged.
+    //   • ADD (counts additive): TotalBases and BasesAboveQ20/Q30 — and the total score sum
+    //         (mean·total) — are additive over concatenation of quality strings.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    // A varied Phred+33 line: '!'=Q0, '+'=Q10, '5'=Q20, '?'=Q30, 'I'=Q40 — a mix above and below
+    // the Q20/Q30 thresholds so the counts are non-trivial.
+    private const string QualityA = "!+5?I?5+!I?5";
+    private const string QualityB = "I?5+!!+5?III";
+
+    private static QualityScoreAnalyzer.QualityStatistics Stats(string quality) =>
+        QualityScoreAnalyzer.CalculateStatistics(quality);
+
+    #region QUALITY-STATS-001 INV — mean/extrema/counts are independent of order
+
+    [Test]
+    [Description("INV: the mean, min, max, spread and threshold counts depend only on the score multiset, so permuting the quality string leaves them unchanged.")]
+    public void Stats_Permutation_PreservesAggregateStatistics()
+    {
+        var original = Stats(QualityA);
+
+        var chars = QualityA.ToCharArray();
+        var rng = new Random(20260620);
+        for (int i = chars.Length - 1; i > 0; i--)
+        {
+            int j = rng.Next(i + 1);
+            (chars[i], chars[j]) = (chars[j], chars[i]);
+        }
+        var permuted = Stats(new string(chars));
+
+        permuted.MeanQuality.Should().BeApproximately(original.MeanQuality, 1e-9, because: "the mean depends only on the score multiset");
+        permuted.MedianQuality.Should().Be(original.MedianQuality, because: "the median depends only on the sorted scores");
+        permuted.MinQuality.Should().Be(original.MinQuality);
+        permuted.MaxQuality.Should().Be(original.MaxQuality);
+        permuted.StandardDeviation.Should().BeApproximately(original.StandardDeviation, 1e-9, because: "spread is order-independent");
+        permuted.TotalBases.Should().Be(original.TotalBases);
+        permuted.BasesAboveQ20.Should().Be(original.BasesAboveQ20, because: "the count of Q≥20 bases ignores their order");
+        permuted.BasesAboveQ30.Should().Be(original.BasesAboveQ30, because: "the count of Q≥30 bases ignores their order");
+    }
+
+    #endregion
+
+    #region QUALITY-STATS-001 ADD — base counts are additive over concatenation
+
+    [Test]
+    [Description("ADD: TotalBases and BasesAboveQ20/Q30 — and the total score sum — are additive over a concatenation of quality strings.")]
+    public void Stats_Concatenation_CountsAreAdditive()
+    {
+        var a = Stats(QualityA);
+        var b = Stats(QualityB);
+        var ab = Stats(QualityA + QualityB);
+
+        ab.TotalBases.Should().Be(a.TotalBases + b.TotalBases, because: "every base of both reads is counted once");
+        ab.BasesAboveQ20.Should().Be(a.BasesAboveQ20 + b.BasesAboveQ20, because: "the Q≥20 count is a per-base tally, hence additive");
+        ab.BasesAboveQ30.Should().Be(a.BasesAboveQ30 + b.BasesAboveQ30, because: "the Q≥30 count is a per-base tally, hence additive");
+
+        // The score SUM (mean·total) is additive; the pooled mean is their length-weighted average.
+        double sumA = a.MeanQuality * a.TotalBases;
+        double sumB = b.MeanQuality * b.TotalBases;
+        (ab.MeanQuality * ab.TotalBases).Should().BeApproximately(sumA + sumB, 1e-9,
+            because: "concatenation pools the scores, so the total sum is additive");
+
+        ab.MaxQuality.Should().Be(Math.Max(a.MaxQuality, b.MaxQuality), because: "the pooled max is the max of the parts");
+        ab.MinQuality.Should().Be(Math.Min(a.MinQuality, b.MinQuality), because: "the pooled min is the min of the parts");
     }
 
     #endregion
