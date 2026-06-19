@@ -187,4 +187,53 @@ public class GenomicAnalysisMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: GENOMIC-REPEAT-001 — repeated-substring detection (Analysis).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 178.
+    //
+    // API under test (GenomicAnalyzer.FindRepeats):
+    //   Reports every distinct substring of length ≥ minLength occurring ≥ 2 times, with positions.
+    //
+    // Relations (derived from the repeat definition, NOT from output):
+    //   • MON  (lower minLen ⇒ superset): a lower length cut-off admits the shorter repeats too, so
+    //          the repeat set grows.
+    //   • SHIFT (prepend flank shifts positions): a flank containing no occurrence of a repeat shifts
+    //          that repeat's positions by the flank length.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private const string RepeatSeq = "GATTACACCGATTACA"; // "GATTACA" repeated at 0 and 9
+
+    #region GENOMIC-REPEAT-001 MON — lowering minLength yields a superset
+
+    [Test]
+    [Description("MON: a lower length cut-off admits the shorter repeats in addition to the longer ones, so the repeat set at minLength 3 is a superset of the set at minLength 7.")]
+    public void Repeats_LowerMinLength_Superset()
+    {
+        var len7 = GenomicAnalyzer.FindRepeats(new DnaSequence(RepeatSeq), 7).Select(r => r.Sequence).ToHashSet();
+        var len3 = GenomicAnalyzer.FindRepeats(new DnaSequence(RepeatSeq), 3).Select(r => r.Sequence).ToHashSet();
+
+        len7.IsSubsetOf(len3).Should().BeTrue(because: "every length-≥7 repeat is also a length-≥3 repeat");
+        len3.Count.Should().BeGreaterThan(len7.Count, because: "shorter repeats (e.g. GAT, ATTACA) appear only at the lower cut-off");
+    }
+
+    #endregion
+
+    #region GENOMIC-REPEAT-001 SHIFT — a prepended flank shifts repeat positions
+
+    [Test]
+    [Description("SHIFT: prepending a flank that contains no occurrence of the repeat shifts that repeat's positions by the flank length.")]
+    public void Repeats_PrependFlank_ShiftsPositions()
+    {
+        var original = GenomicAnalyzer.FindRepeats(new DnaSequence(RepeatSeq), 7).Single(r => r.Sequence == "GATTACA");
+
+        foreach (var flank in new[] { "TT", "CCGCC" }) // contain no GATTACA
+        {
+            var shifted = GenomicAnalyzer.FindRepeats(new DnaSequence(flank + RepeatSeq), 7).Single(r => r.Sequence == "GATTACA");
+            shifted.Positions.Should().Equal(original.Positions.Select(p => p + flank.Length),
+                because: $"the {flank.Length}-base flank relocates every GATTACA occurrence by {flank.Length}");
+        }
+    }
+
+    #endregion
 }
