@@ -486,4 +486,54 @@ public class RnaStructureMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: RNA-MFE-001 — minimum free energy (RnaStructure).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 152.
+    //
+    // API under test (RnaSecondaryStructure.CalculateMinimumFreeEnergy):
+    //   Zuker-style DP with Turner 2004 nearest-neighbour parameters; returns ΔG in kcal/mol.
+    //
+    // Relations (derived from the energy model, NOT from output):
+    //   • MON  (more GC pairs ⇒ lower MFE): GC stacks are more stabilising than AU, so lengthening a
+    //          pure-GC stem (one more GC pair) lowers (makes more negative) the MFE.
+    //   • INV  (U/T case-insensitive): T and U are the same base for folding, and the input is
+    //          upper-cased, so the spelling (U vs T, upper vs lower) does not change the MFE.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region RNA-MFE-001 MON — more GC pairs lower the MFE
+
+    [Test]
+    [Description("MON: extending a pure-GC stem by one more GC pair adds a stabilising stack, so the minimum free energy strictly decreases.")]
+    public void Mfe_MoreGcPairs_LowerEnergy()
+    {
+        double previous = double.MaxValue;
+        foreach (int stem in new[] { 3, 4, 5, 6 })
+        {
+            // GC stem of the given length closing an AAA hairpin loop (loop bases cannot pair).
+            string seq = new string('G', stem) + "AAA" + new string('C', stem);
+            double mfe = RnaSecondaryStructure.CalculateMinimumFreeEnergy(seq);
+            mfe.Should().BeLessThan(previous, because: $"a {stem}-pair GC stem stacks more favourably than the shorter one");
+            previous = mfe;
+        }
+    }
+
+    #endregion
+
+    #region RNA-MFE-001 INV — MFE is U/T- and case-insensitive
+
+    [Test]
+    [Description("INV: T and U denote the same base for folding and the input is upper-cased, so the U-spelled, T-spelled and lower-case forms of a sequence all give the same MFE.")]
+    public void Mfe_Ut_And_Case_Insensitive()
+    {
+        const string rna = "GGGGGUUUCCCCC";
+        double reference = RnaSecondaryStructure.CalculateMinimumFreeEnergy(rna);
+
+        RnaSecondaryStructure.CalculateMinimumFreeEnergy(rna.Replace('U', 'T'))
+            .Should().BeApproximately(reference, 1e-9, because: "T is read as U for folding");
+        RnaSecondaryStructure.CalculateMinimumFreeEnergy(rna.ToLowerInvariant())
+            .Should().BeApproximately(reference, 1e-9, because: "the input is upper-cased before folding");
+    }
+
+    #endregion
 }
