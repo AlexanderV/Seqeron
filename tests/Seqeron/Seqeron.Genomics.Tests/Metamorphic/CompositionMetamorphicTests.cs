@@ -3,6 +3,7 @@ using System.Linq;
 using NUnit.Framework;
 using FluentAssertions;
 using Seqeron.Genomics.Core;
+using Seqeron.Genomics.Analysis;
 
 namespace Seqeron.Genomics.Tests;
 
@@ -19,8 +20,9 @@ namespace Seqeron.Genomics.Tests;
 ///        SEQ-REVCOMP-001 — reverse complement (Composition);
 ///        SEQ-VALID-001 — sequence validation (Composition);
 ///        SEQ-COMPLEX-001 — sequence complexity measure (Composition);
-///        SEQ-ENTROPY-001 — Shannon entropy of base composition (Composition)
-/// Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, rows 1–6.
+///        SEQ-ENTROPY-001 — Shannon entropy of base composition (Composition);
+///        SEQ-GCSKEW-001 — GC skew (Composition)
+/// Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, rows 1–7.
 /// Relations: INV complement preserves GC%; INV shuffle preserves GC%;
 ///            INV case-insensitive (+ derived INV reverse-complement,
 ///            ADD concatenation-additivity of the GC count).
@@ -1089,6 +1091,218 @@ public class CompositionMetamorphicTests
 
             SequenceComplexity.CalculateShannonEntropy(balancedTwoSymbol).Should().BeApproximately(1.0, Tolerance,
                 because: $"an equiprobable two-symbol sequence ('{pair}'×32) attains H = log₂2 = 1 bit exactly");
+        }
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  SEQ-GCSKEW-001 — GC skew
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (docs/algorithms/Sequence_Composition/GC_Skew.md §2.2; Lobry 1996;
+    //   Grigoriev 1998 "cumulative skew diagrams"):
+    //
+    //       GC skew = (G − C) / (G + C)        (∈ [-1, 1]; 0 when G + C = 0)
+    //
+    //   The scalar skew is a function of only the G and C COUNTS. Three theory-pinned
+    //   metamorphic relations follow from this definition alone:
+    //
+    //   • SYM (complement flips sign): the DNA complement maps G↔C (and A↔T), so it
+    //     swaps the G and C counts. (G − C) negates while (G + C) is invariant, hence
+    //     skew(complement(x)) = −skew(x) EXACTLY. The same swap negates every window
+    //     skew, so each entry of the cumulative-skew profile negates as well. (Here we
+    //     swap only G↔C — the relation depends solely on the G/C subcomposition, and
+    //     A↔T does not touch the GC skew — but the canonical DnaSequence.Complement()
+    //     does the full A↔T,C↔G map and is asserted too.)
+    //
+    //   • INV (reverse relates the cumulative profile): the implemented cumulative
+    //     profile (CalculateCumulativeGcSkew) sums consecutive non-overlapping window
+    //     skews (stepSize = windowSize internally). With windowSize = 1 every base is
+    //     its own window, so the per-window skew sequence is exactly +1 (G), −1 (C),
+    //     0 (A/T) and the CumulativeGcSkew column is the running prefix sum (#G − #C).
+    //     Reversing the sequence reverses the ORDER of accumulation, so:
+    //       – the per-window skew sequence is the exact order-reversal of the original
+    //         (entry i of the reverse equals entry n−1−i of the original), and
+    //       – the FINAL cumulative value is UNCHANGED, because the total (#G − #C) over
+    //         the whole sequence is order-independent.
+    //     We encode THAT precise pair of guarantees (reversed per-window profile; equal
+    //     final cumulative total) — not a naive "profile negates", which the cumulative
+    //     definition does not satisfy under reversal.
+    //
+    //   • INV (all-G → max positive): an all-G sequence has C = 0, so skew = G/G = +1
+    //     EXACTLY — the documented maximum (INV-01: −1 ≤ skew ≤ 1). Symmetrically an
+    //     all-C sequence gives skew = −1 EXACTLY (the minimum).
+    //
+    // API surface under test (src/.../Seqeron.Genomics.Analysis/GcSkewCalculator.cs):
+    //   • GcSkewCalculator.CalculateGcSkew(string)      — scalar (G−C)/(G+C).
+    //   • GcSkewCalculator.CalculateGcSkew(DnaSequence) — facade (same core).
+    //   • GcSkewCalculator.CalculateCumulativeGcSkew(string, windowSize) — IEnumerable
+    //     of CumulativeGcSkewPoint(Position, GcSkew, CumulativeGcSkew); non-overlapping
+    //     windows (internal stepSize = windowSize); trailing partial window is dropped.
+
+    #region SEQ-GCSKEW-001 — GC skew
+
+    #region MR23: SYM — complement flips the skew sign
+
+    /// <summary>
+    /// MR23-a: skew(swapGC(x)) == −skew(x).
+    /// Swapping G↔C exchanges the G and C counts, so the numerator (G − C) negates while
+    /// the denominator (G + C) is invariant; the scalar GC skew therefore flips sign
+    /// exactly. Verified on fixed and fixed-seed random sequences.
+    /// </summary>
+    [Test]
+    public void GcSkew_GcSwap_FlipsSign()
+    {
+        foreach (var s in SampleSequences())
+        {
+            string swapped = new(s.Select(c => c switch { 'G' => 'C', 'C' => 'G', _ => c }).ToArray());
+
+            double original = GcSkewCalculator.CalculateGcSkew(s);
+            double flipped = GcSkewCalculator.CalculateGcSkew(swapped);
+
+            flipped.Should().BeApproximately(-original, Tolerance,
+                because: $"swapping G↔C in '{s}' negates (G−C) and leaves (G+C), so the skew must flip sign");
+        }
+    }
+
+    /// <summary>
+    /// MR23-b: skew(complement(x)) == −skew(x) via the canonical DnaSequence.Complement()
+    /// (full A↔T, C↔G map). The A↔T half does not touch G/C, and the C↔G half swaps the
+    /// G and C counts, so the GC skew negates exactly. Confirms the sign-flip end-to-end
+    /// through the production complement, not just a hand-rolled G↔C swap.
+    /// </summary>
+    [Test]
+    public void GcSkew_Complement_FlipsSign()
+    {
+        foreach (var s in SampleSequences())
+        {
+            var seq = new DnaSequence(s);
+            double original = GcSkewCalculator.CalculateGcSkew(seq);
+            double complemented = GcSkewCalculator.CalculateGcSkew(seq.Complement());
+
+            complemented.Should().BeApproximately(-original, Tolerance,
+                because: $"complement maps C↔G (swapping the G and C counts) and A↔T (no GC effect), so skew of '{s}' negates");
+        }
+    }
+
+    /// <summary>
+    /// MR23-c: each entry of the cumulative-skew profile negates under complement.
+    /// Because every window's scalar skew flips sign, both the per-window GcSkew column
+    /// and the running CumulativeGcSkew column negate position-for-position. Uses
+    /// windowSize = 1 (each base is its own window) so the profile is the full per-base
+    /// trace.
+    /// </summary>
+    [Test]
+    public void GcSkew_CumulativeProfile_Complement_NegatesEachEntry()
+    {
+        foreach (var s in SampleSequences())
+        {
+            var seq = new DnaSequence(s);
+            var original = GcSkewCalculator.CalculateCumulativeGcSkew(seq.Sequence, windowSize: 1).ToList();
+            var complemented = GcSkewCalculator.CalculateCumulativeGcSkew(seq.Complement().Sequence, windowSize: 1).ToList();
+
+            complemented.Should().HaveCount(original.Count,
+                because: $"complement is a per-position rewrite, so '{s}' and its complement yield the same number of windows");
+
+            for (int i = 0; i < original.Count; i++)
+            {
+                complemented[i].GcSkew.Should().BeApproximately(-original[i].GcSkew, Tolerance,
+                    because: $"window {i} of complement('{s}') swaps G↔C, so its skew negates");
+                complemented[i].CumulativeGcSkew.Should().BeApproximately(-original[i].CumulativeGcSkew, Tolerance,
+                    because: $"each window skew negates, so the running cumulative skew at {i} negates too for '{s}'");
+            }
+        }
+    }
+
+    #endregion
+
+    #region MR24: INV — reverse relates the cumulative skew profile
+
+    /// <summary>
+    /// MR24-a: with windowSize = 1 the per-window skew sequence of reverse(x) is the exact
+    /// order-reversal of that of x. Each base is its own window, so reversing the sequence
+    /// reverses the order in which the +1/−1/0 window skews are emitted — entry i of the
+    /// reversed profile equals entry n−1−i of the original. This is the precise INV the
+    /// cumulative definition guarantees under reversal (the accumulation order is reversed).
+    /// </summary>
+    [Test]
+    public void GcSkew_CumulativeProfile_Reverse_ReversesPerWindowSkews()
+    {
+        foreach (var s in SampleSequences())
+        {
+            string reversed = new(s.Reverse().ToArray());
+
+            var forward = GcSkewCalculator.CalculateCumulativeGcSkew(s, windowSize: 1)
+                .Select(p => p.GcSkew).ToList();
+            var backward = GcSkewCalculator.CalculateCumulativeGcSkew(reversed, windowSize: 1)
+                .Select(p => p.GcSkew).ToList();
+
+            backward.Should().HaveCount(forward.Count,
+                because: $"windowSize = 1 emits one window per base, so '{s}' and its reverse have equal window counts");
+
+            for (int i = 0; i < forward.Count; i++)
+            {
+                backward[i].Should().BeApproximately(forward[forward.Count - 1 - i], Tolerance,
+                    because: $"reversing '{s}' reverses the accumulation order, so per-window skew {i} of the reverse equals window {forward.Count - 1 - i} of the original");
+            }
+        }
+    }
+
+    /// <summary>
+    /// MR24-b: the FINAL cumulative skew value is invariant under reversal. The last
+    /// CumulativeGcSkew (with windowSize = 1) is the total #G − #C over the whole sequence,
+    /// which is order-independent, so reversing the sequence leaves it unchanged even though
+    /// the intermediate trace is reversed (MR24-a). Empty profiles (no full window) are
+    /// skipped — there is no final value to compare.
+    /// </summary>
+    [Test]
+    public void GcSkew_CumulativeProfile_Reverse_PreservesFinalCumulative()
+    {
+        foreach (var s in SampleSequences())
+        {
+            string reversed = new(s.Reverse().ToArray());
+
+            var forward = GcSkewCalculator.CalculateCumulativeGcSkew(s, windowSize: 1).ToList();
+            var backward = GcSkewCalculator.CalculateCumulativeGcSkew(reversed, windowSize: 1).ToList();
+
+            if (forward.Count == 0)
+                continue;
+
+            backward[^1].CumulativeGcSkew.Should().BeApproximately(forward[^1].CumulativeGcSkew, Tolerance,
+                because: $"the final cumulative skew is the total #G − #C of '{s}', which is order-independent, so reversal preserves it");
+        }
+    }
+
+    #endregion
+
+    #region MR25: INV — all-G → max positive (+1); all-C → min (−1)
+
+    /// <summary>
+    /// MR25: an all-G sequence has C = 0, so skew = G/G = +1 EXACTLY — the documented
+    /// maximum (INV-01: −1 ≤ skew ≤ 1). Symmetrically an all-C sequence gives −1 EXACTLY.
+    /// These are exact theory endpoints, verified across several lengths through both the
+    /// string and DnaSequence APIs.
+    /// </summary>
+    [Test]
+    public void GcSkew_Homopolymer_ReachesExactEndpoints()
+    {
+        foreach (int len in new[] { 1, 4, 16, 100 })
+        {
+            string allG = new('G', len);
+            string allC = new('C', len);
+
+            GcSkewCalculator.CalculateGcSkew(allG).Should().BeApproximately(1.0, Tolerance,
+                because: $"an all-G sequence of length {len} has C = 0, so skew = G/G = +1 (the documented maximum)");
+            GcSkewCalculator.CalculateGcSkew(new DnaSequence(allG)).Should().BeApproximately(1.0, Tolerance,
+                because: $"the DnaSequence facade must also report +1 for an all-G sequence of length {len}");
+
+            GcSkewCalculator.CalculateGcSkew(allC).Should().BeApproximately(-1.0, Tolerance,
+                because: $"an all-C sequence of length {len} has G = 0, so skew = −C/C = −1 (the documented minimum)");
+            GcSkewCalculator.CalculateGcSkew(new DnaSequence(allC)).Should().BeApproximately(-1.0, Tolerance,
+                because: $"the DnaSequence facade must also report −1 for an all-C sequence of length {len}");
         }
     }
 

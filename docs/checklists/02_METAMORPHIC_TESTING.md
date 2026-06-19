@@ -34,7 +34,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 4 | ☑ | SEQ-VALID-001 | Composition | INV: case conversion preserves validity; COMP: valid DNA ⊂ valid IUPAC; INV: repeat seq → same result |
 | 5 | ☑ | SEQ-COMPLEX-001 | Composition | INV: permutation preserves complexity; MON: homopolymer → min complexity; MON: random → higher |
 | 6 | ☑ | SEQ-ENTROPY-001 | Composition | INV: permutation preserves Shannon entropy; MON: uniform → max entropy; MON: single symbol → 0 |
-| 7 | ☐ | SEQ-GCSKEW-001 | Composition | SYM: complement flips skew sign; INV: reverse flips cumulative skew; INV: all-G → max positive |
+| 7 | ☑ | SEQ-GCSKEW-001 | Composition | SYM: complement flips skew sign; INV: reverse flips cumulative skew; INV: all-G → max positive |
 | 8 | ☐ | PAT-EXACT-001 | Matching | SHIFT: prepend flank shifts positions by flank.len; COMP: exact ⊆ hamming(maxDist=0); INV: duplicate → doubled count |
 | 9 | ☐ | PAT-APPROX-001 | Matching | SYM: hamming(a,b)=hamming(b,a); MON: higher maxDist → ≥ matches; COMP: exact ⊆ approx(d=0) |
 | 10 | ☑ | PAT-APPROX-002 | Matching | MON: higher maxEdits → superset; COMP: exact ⊆ approximate; SYM: editDist(a,b)=editDist(b,a); INV: prefix extension; R: non-negativity |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 13 |
-| ☐ Not started | 221 |
+| ☑ Complete | 14 |
+| ☐ Not started | 220 |
 | MR relations defined | ~200+ |
