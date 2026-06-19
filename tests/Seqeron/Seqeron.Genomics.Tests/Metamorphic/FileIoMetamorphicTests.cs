@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using NUnit.Framework;
 using FluentAssertions;
 using Seqeron.Genomics.Core;
@@ -574,6 +576,114 @@ public class FileIoMetamorphicTests
         GffParser.Parse(withComments).Select(GffKey)
             .Should().Equal(GffParser.Parse(compact).Select(GffKey),
                 because: "directives, comments and blank lines carry no feature data, so they cannot change the parsed features");
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: PARSE-GENBANK-001 — GenBank flat-file parsing (FileIO).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 69.
+    //
+    // API under test (GenBankParser.Parse):
+    //   GenBank is a fixed-column flat file: a LOCUS line, keyword sections (DEFINITION,
+    //   ACCESSION, …) and an ORIGIN block that lists the sequence with a left-margin base
+    //   position followed by groups of bases. The parser keeps only the letters of the
+    //   ORIGIN block (uppercased), discarding positions and layout whitespace.
+    //   (There is no GenBank writer, so the canonical encoder below stands in for one.)
+    //
+    // Relations (derived from the fixed-column format, NOT from output):
+    //   • COMP (round-trip identity): encoding known field values into a canonical GenBank
+    //          record and parsing recovers those values exactly (LOCUS/DEFINITION/ACCESSION
+    //          and the uppercased sequence), and the sequence is a fixed point of
+    //          encode-ORIGIN∘parse.
+    //   • INV  (sequence whitespace/layout): the parsed sequence is invariant to the ORIGIN
+    //          block's base-position numbers, grouping, line width and letter case — only the
+    //          letters, uppercased, survive.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region PARSE-GENBANK-001 — Helpers
+
+    /// <summary>Builds a canonical GenBank ORIGIN block (left-margin position + space-separated base groups).</summary>
+    private static string OriginBlock(string sequence, int perLine = 60, int groupSize = 10, bool upperCase = false)
+    {
+        string bases = upperCase ? sequence.ToUpperInvariant() : sequence.ToLowerInvariant();
+        var sb = new StringBuilder("ORIGIN\n");
+        for (int i = 0; i < bases.Length; i += perLine)
+        {
+            sb.Append((i + 1).ToString().PadLeft(9));
+            for (int j = i; j < Math.Min(i + perLine, bases.Length); j += groupSize)
+                sb.Append(' ').Append(bases.Substring(j, Math.Min(groupSize, bases.Length - j)));
+            sb.Append('\n');
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>Builds a minimal but valid GenBank record around the given ORIGIN block.</summary>
+    private static string GenBankRecordText(string locus, string definition, string accession, string originBlock, int length) =>
+        $"LOCUS       {locus}     {length} bp    DNA     linear   UNK 01-JAN-2020\n" +
+        $"DEFINITION  {definition}\n" +
+        $"ACCESSION   {accession}\n" +
+        $"VERSION     {accession}.1\n" +
+        originBlock +
+        "//\n";
+
+    #endregion
+
+    #region PARSE-GENBANK-001 COMP — encode→parse recovers the fields and sequence
+
+    [Test]
+    [Description("COMP: encoding known field values into a canonical GenBank record and parsing recovers them exactly, and the sequence is a fixed point of encode-ORIGIN∘parse.")]
+    public void GenBank_EncodeParse_RecoversFieldsAndSequence()
+    {
+        const string locus = "TEST123";
+        const string definition = "Synthetic test sequence";
+        const string accession = "TEST123";
+        const string sequence = "ACGTACGTACGTACGTTTGGCCAA";
+
+        string text = GenBankRecordText(locus, definition, accession, OriginBlock(sequence), sequence.Length);
+        var record = GenBankParser.Parse(text).Single();
+
+        record.Locus.Should().Be(locus, because: "the LOCUS name must round-trip");
+        record.Definition.Should().Be(definition, because: "the DEFINITION text must round-trip");
+        record.Accession.Should().Be(accession, because: "the ACCESSION must round-trip");
+        record.Sequence.Should().Be(sequence, because: "the ORIGIN bases (uppercased) must round-trip exactly");
+
+        // Fixed point: re-encoding the parsed sequence and re-parsing yields the same sequence.
+        var reparsed = GenBankParser.Parse(
+            GenBankRecordText(locus, definition, accession, OriginBlock(record.Sequence), record.Sequence.Length)).Single();
+        reparsed.Sequence.Should().Be(record.Sequence, because: "the sequence is a fixed point of encode-ORIGIN∘parse");
+    }
+
+    #endregion
+
+    #region PARSE-GENBANK-001 INV — ORIGIN layout/whitespace does not change the sequence
+
+    [Test]
+    [Description("INV: the parsed sequence keeps only the ORIGIN letters (uppercased), so it is invariant to base-position numbers, grouping, line width and letter case.")]
+    public void GenBank_OriginLayout_DoesNotChangeSequence()
+    {
+        const string sequence = "ACGTACGTACGTACGTTTGGCCAATTGGCCAA";
+        const string locus = "LAY";
+        const string accession = "LAY001";
+        const string definition = "Layout invariance";
+
+        // The same sequence rendered with different line widths, group sizes and case.
+        var layouts = new[]
+        {
+            OriginBlock(sequence, perLine: 60, groupSize: 10, upperCase: false),
+            OriginBlock(sequence, perLine: 30, groupSize: 10, upperCase: false),
+            OriginBlock(sequence, perLine: 20, groupSize: 5,  upperCase: false),
+            OriginBlock(sequence, perLine: 60, groupSize: 10, upperCase: true),
+        };
+
+        foreach (var origin in layouts)
+        {
+            var record = GenBankParser.Parse(
+                GenBankRecordText(locus, definition, accession, origin, sequence.Length)).Single();
+
+            record.Sequence.Should().Be(sequence,
+                because: "position numbers, grouping, line width and case are not part of the sequence — only the letters, uppercased, are kept");
+        }
     }
 
     #endregion
