@@ -3,6 +3,7 @@ using System.Linq;
 using NUnit.Framework;
 using FluentAssertions;
 using Seqeron.Genomics.Core;
+using Seqeron.Genomics.Analysis;
 
 namespace Seqeron.Genomics.Tests;
 
@@ -223,6 +224,62 @@ namespace Seqeron.Genomics.Tests;
 ///     catches ArgumentException, so any *other* exception type leaking from the
 ///     validation path would surface here — fuzzing pins that no such leak occurs
 ///     on random bytes, control chars, null bytes, unicode or huge input.
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: SEQ-COMPLEX-001 — sequence (linguistic) complexity (Composition)
+/// Checklist: docs/checklists/03_FUZZING.md, row 5.
+/// Fuzz strategies exercised for THIS unit:
+///   • BE  = Boundary Exploitation — empty string, single char, all-same
+///           nucleotide (homopolymer), extremely long.
+///   • RB  = Random Bytes — fixed-seed random sequences over {A,C,G,T} (and, on
+///           the lenient raw-string surface, random BMP code points / arbitrary
+///           chars) asserting no unhandled throw, a finite result, and the
+///           theory-correct ordering homopolymer ≤ diverse.
+/// — docs/checklists/03_FUZZING.md §Description (strategy codes).
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The sequence-complexity contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// SEQ-COMPLEX-001 is LINGUISTIC complexity (LC): the summation-form ratio of
+/// observed distinct subwords to the maximum possible distinct subwords, summed
+/// over word lengths 1..min(maxWordLength, N):
+///     LC = Σ_i V_i / Σ_i V_max,i,   V_max,i = min(4^i, N − i + 1)
+/// (DNA alphabet K = 4). LC = 1 is maximum complexity; low values flag
+/// repeats / low-complexity DNA. A homopolymer observes exactly ONE distinct word
+/// per length → MINIMUM LC; a maximally diverse sequence approaches MAXIMUM.
+///   — docs/algorithms/Sequence_Composition/Linguistic_Complexity.md §2.2, §2.4
+///     (INV-01: 0 ≤ LC ≤ 1 for DNA; INV-02: empty → 0), §6.1 (edge cases).
+///
+/// API entry: SequenceComplexity.CalculateLinguisticComplexity(...)
+///   (src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs).
+///
+/// SEQ-COMPLEX-001 has TWO documented surfaces with DIFFERENT validation
+/// contracts. Fuzzing pins both, and the boundary between them, so neither drifts:
+///
+/// (1) The TYPED overload — CalculateLinguisticComplexity(DnaSequence, int)
+///     (SequenceComplexity.cs lines 22–28). The DnaSequence argument has ALREADY
+///     passed the strict ctor validation gate, so only A/C/G/T (upper-cased) ever
+///     reach the metric. Documented validation (Linguistic_Complexity.md §3.3):
+///       • null DnaSequence            → ArgumentNullException (explicit guard);
+///       • maxWordLength < 1           → ArgumentOutOfRangeException;
+///       • empty sequence              → 0 (INV-02 short-circuit, no division);
+///       • single base                 → a positive value (one distinct 1-mer);
+///       • homopolymer                 → low LC (one word per length);
+///       • valid extremely long input  → finite LC in [0, 1], no overflow/hang.
+///     Because non-ACGT cannot reach this overload, the result is always in the
+///     DNA-bounded [0, 1] interval (INV-01).
+///
+/// (2) The RAW-STRING overload — CalculateLinguisticComplexity(string, int)
+///     (SequenceComplexity.cs lines 33–37). LENIENT by documented design: it
+///     short-circuits null/empty to 0, upper-cases, and does NOT validate the
+///     alphabet (Linguistic_Complexity.md §5.2, §6.1). So it must NEVER throw on
+///     arbitrary chars (digits, gaps, unicode, null byte, surrogate halves) — it
+///     just counts whatever subwords appear. The denominator stays the DNA 4^i,
+///     so non-ACGT input MAY exceed 1 (documented in §5.3/§6.1) — a *defined*
+///     consequence, not a crash. maxWordLength < 1 is NOT validated here; with the
+///     min(maxWordLength, N) cap the inner loop simply never runs and the result
+///     is 0. We pin that this surface stays finite and non-throwing on pure
+///     random-byte garbage, so the strict/lenient boundary is explicit.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -1381,6 +1438,311 @@ public class CompositionFuzzTests
         foreach (char c in s)
             sb.Append(c is >= ' ' and < '\u007F' ? c.ToString() : $"\\u{(int)c:X4}");
         return sb.Append('"').ToString();
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  SEQ-COMPLEX-001 — sequence (linguistic) complexity
+    //  Typed overload:      CalculateLinguisticComplexity(DnaSequence, int)
+    //                       (only validated A/C/G/T reach it; result ∈ [0,1])
+    //  Raw-string overload: CalculateLinguisticComplexity(string, int)
+    //                       (lenient: never throws; DNA denominator; may exceed 1)
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region SEQ-COMPLEX-001 — sequence (linguistic) complexity
+
+    #region BE — Boundary: empty string
+
+    /// <summary>
+    /// BE: the empty string is the lower size boundary. The typed DnaSequence path
+    /// (the ctor short-circuits "" to an empty sequence) and the lenient raw-string
+    /// overload (IsNullOrEmpty → 0) must BOTH return exactly 0 — INV-02, no
+    /// accumulation, no division by zero, no exception
+    /// (Linguistic_Complexity.md §2.4 INV-02, §6.1).
+    /// </summary>
+    [Test]
+    public void LinguisticComplexity_EmptyString_IsZeroAndDoesNotThrow()
+    {
+        var act = () =>
+        {
+            SequenceComplexity.CalculateLinguisticComplexity(new DnaSequence(string.Empty))
+                .Should().Be(0.0, because: "an empty sequence has no subword vocabulary (INV-02)");
+            SequenceComplexity.CalculateLinguisticComplexity(string.Empty)
+                .Should().Be(0.0, because: "the lenient overload short-circuits empty input to 0");
+        };
+
+        act.Should().NotThrow("the empty string is a defined boundary input, not an error");
+    }
+
+    #endregion
+
+    #region BE — Boundary: single character
+
+    /// <summary>
+    /// BE: a one-base sequence is the minimal non-empty input. The only word length
+    /// in range is 1, with exactly one distinct 1-mer observed out of
+    /// V_max,1 = min(4, 1) = 1 possible, so LC is exactly 1.0 — a positive,
+    /// well-defined value (Linguistic_Complexity.md §6.1 "single nucleotide →
+    /// positive value"). Verified over all four bases and a lowercase form
+    /// (case-folded), with no off-by-one on the length-1 boundary.
+    /// </summary>
+    [TestCase('A')]
+    [TestCase('C')]
+    [TestCase('G')]
+    [TestCase('T')]
+    [TestCase('g')]
+    public void LinguisticComplexity_SingleCharacter_IsPositiveAndInRange(char baseChar)
+    {
+        double lc = SequenceComplexity.CalculateLinguisticComplexity(new DnaSequence(baseChar.ToString()));
+
+        lc.Should().BeInRange(0.0, 1.0,
+            because: "linguistic complexity is DNA-bounded to [0,1] (INV-01)");
+        lc.Should().BeApproximately(1.0, Tolerance,
+            because: "one base has one distinct 1-mer out of one possible → LC = 1 (single 1-mer)");
+    }
+
+    #endregion
+
+    #region BE — Boundary: all-same nucleotide (homopolymer → minimum complexity)
+
+    /// <summary>
+    /// BE/theory: a homopolymer (all-same nucleotide) is the MINIMUM-complexity
+    /// extreme. At every word length only ONE distinct word is observed, while the
+    /// denominator min(4^i, N−i+1) grows with available positions, so LC collapses
+    /// toward 0 as the sequence lengthens (Linguistic_Complexity.md §6.1
+    /// "homopolymer → low value"). For each tested length LC must stay finite,
+    /// inside [0,1], and a longer homopolymer must be no MORE complex than a shorter
+    /// one — the monotone signature of a low-complexity tract.
+    /// </summary>
+    [TestCase('A')]
+    [TestCase('C')]
+    [TestCase('G')]
+    [TestCase('T')]
+    public void LinguisticComplexity_Homopolymer_IsMinimalAndDecreasesWithLength(char baseChar)
+    {
+        double lcShort = SequenceComplexity.CalculateLinguisticComplexity(
+            new DnaSequence(new string(baseChar, 10)));
+        double lcLong = SequenceComplexity.CalculateLinguisticComplexity(
+            new DnaSequence(new string(baseChar, 200)));
+
+        lcShort.Should().BeInRange(0.0, 1.0, because: "LC is DNA-bounded to [0,1] (INV-01)");
+        lcLong.Should().BeInRange(0.0, 1.0, because: "LC is DNA-bounded to [0,1] (INV-01)");
+        lcLong.Should().BeLessThanOrEqualTo(lcShort,
+            because: "a homopolymer is minimum complexity; a longer one is no more complex than a shorter one");
+        lcLong.Should().BeLessThan(0.25,
+            because: "a long homopolymer observes one word per length → LC near the minimum");
+    }
+
+    /// <summary>
+    /// Theory ordering: a homopolymer must be ≤ a maximally diverse sequence of the
+    /// SAME length. "AAAA…" (one distinct word per length) is the minimum; a
+    /// permutation-rich sequence approaches the maximum. This pins the core
+    /// complexity contract — homopolymer ≤ diverse — that fuzzing must never let
+    /// invert (Linguistic_Complexity.md §6.1).
+    /// </summary>
+    [Test]
+    public void LinguisticComplexity_Homopolymer_IsNoGreaterThanDiverse()
+    {
+        const int length = 256;
+        double homopolymer = SequenceComplexity.CalculateLinguisticComplexity(
+            new DnaSequence(new string('A', length)));
+        double diverse = SequenceComplexity.CalculateLinguisticComplexity(
+            new DnaSequence(RandomDna(length)));
+
+        homopolymer.Should().BeLessThanOrEqualTo(diverse,
+            because: "a homopolymer is minimum complexity; a diverse sequence of equal length is at least as complex");
+    }
+
+    #endregion
+
+    #region BE — Boundary: extremely long (no hang, stays in range)
+
+    /// <summary>
+    /// BE/OVF: an extremely long valid sequence (200,000 bases) must compute without
+    /// hang, overflow, or precision blow-up, and the result must stay finite and in
+    /// the closed DNA range [0, 1] (INV-01). The accumulators are <c>long</c>; this
+    /// guards that the observed/possible summation and the final ratio do not
+    /// overflow or drift out of range at scale. Both a fixed-seed random input and a
+    /// long homopolymer (the low-complexity extreme) are exercised.
+    /// </summary>
+    [Test]
+    public void LinguisticComplexity_ExtremelyLong_StaysInRangeAndDoesNotHang()
+    {
+        const int length = 200_000;
+
+        double random = SequenceComplexity.CalculateLinguisticComplexity(new DnaSequence(RandomDna(length)));
+        double.IsFinite(random).Should().BeTrue(
+            because: "LC must be a finite number even at scale");
+        random.Should().BeInRange(0.0, 1.0,
+            because: "LC is DNA-bounded to [0,1]; it cannot escape the range at scale (INV-01)");
+
+        double homopolymer = SequenceComplexity.CalculateLinguisticComplexity(
+            new DnaSequence(new string('G', length)));
+        homopolymer.Should().BeInRange(0.0, 1.0,
+            because: "even a huge homopolymer stays in [0,1] without overflow");
+        homopolymer.Should().BeLessThan(random,
+            because: "a long homopolymer is far less complex than a long random sequence");
+    }
+
+    #endregion
+
+    #region BE — typed overload: validation gate (null / maxWordLength)
+
+    /// <summary>
+    /// BE: the typed overload's documented validation gate
+    /// (Linguistic_Complexity.md §3.3, §6.1): a null DnaSequence is an
+    /// ArgumentNullException (explicit guard, never a NullReferenceException), and
+    /// maxWordLength &lt; 1 is an ArgumentOutOfRangeException — both *intentional*
+    /// validation exceptions, not crashes.
+    /// </summary>
+    [Test]
+    public void LinguisticComplexity_Typed_NullSequence_ThrowsArgumentNullException()
+    {
+        var act = () => SequenceComplexity.CalculateLinguisticComplexity((DnaSequence)null!);
+
+        act.Should().Throw<ArgumentNullException>(
+            "the typed overload guards null explicitly; this is documented validation, not a crash");
+    }
+
+    [TestCase(0)]
+    [TestCase(-1)]
+    [TestCase(int.MinValue)]
+    public void LinguisticComplexity_Typed_MaxWordLengthBelowOne_ThrowsArgumentOutOfRange(int maxWordLength)
+    {
+        var act = () => SequenceComplexity.CalculateLinguisticComplexity(new DnaSequence("ACGTACGT"), maxWordLength);
+
+        act.Should().Throw<ArgumentOutOfRangeException>(
+            "maxWordLength < 1 is rejected by the documented validation gate, not a silent miscompute");
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Lenient raw-string overload: never throws; DNA denominator; may exceed 1
+    // ───────────────────────────────────────────────────────────────────
+
+    #region INJ/BE — lenient raw-string: null / arbitrary chars never throw
+
+    /// <summary>
+    /// BE: the lenient raw-string overload returns 0 for null/empty input
+    /// (IsNullOrEmpty short-circuit) — no NullReferenceException, no division, no
+    /// hang (Linguistic_Complexity.md §3.3). maxWordLength &lt; 1 is NOT validated
+    /// here, but the min(maxWordLength, N) loop cap means the inner loop never runs
+    /// and the result is a defined 0 — a graceful no-op, not a crash.
+    /// </summary>
+    [Test]
+    public void LinguisticComplexity_RawString_NullEmptyAndZeroWordLength_AreZeroAndDoNotThrow()
+    {
+        var act = () =>
+        {
+            SequenceComplexity.CalculateLinguisticComplexity((string)null!)
+                .Should().Be(0.0, because: "null is short-circuited to 0, never dereferenced");
+            SequenceComplexity.CalculateLinguisticComplexity(string.Empty)
+                .Should().Be(0.0, because: "empty input is short-circuited to 0");
+            SequenceComplexity.CalculateLinguisticComplexity("ACGTACGT", 0)
+                .Should().Be(0.0, because: "the min(maxWordLength,N) cap makes maxWordLength=0 a defined 0, not a throw");
+        };
+
+        act.Should().NotThrow("the lenient raw-string overload is total and never throws on these inputs");
+    }
+
+    /// <summary>
+    /// INJ: the lenient raw-string overload does NOT validate the alphabet, so it
+    /// must NEVER throw on arbitrary characters — digits, gaps, whitespace, the
+    /// ambiguity code N, the RNA base U, an embedded null byte, unicode letters,
+    /// full-width look-alikes, an astral surrogate pair, even a lone surrogate half.
+    /// The result must always be a FINITE, non-negative number. Because the
+    /// denominator stays the DNA 4^i, a value &gt; 1 is a *documented* consequence
+    /// for non-ACGT input (Linguistic_Complexity.md §5.3, §6.1), not a defect — so
+    /// we assert finiteness and ≥ 0, never an unhandled crash.
+    /// </summary>
+    [TestCase("ACGTN", TestName = "LinguisticComplexity_RawString_AmbiguityN_NeverThrows")]
+    [TestCase("ACGU", TestName = "LinguisticComplexity_RawString_RnaBaseU_NeverThrows")]
+    [TestCase("ACGT1234", TestName = "LinguisticComplexity_RawString_Digits_NeverThrows")]
+    [TestCase("AC GT-AC", TestName = "LinguisticComplexity_RawString_WhitespaceAndGap_NeverThrows")]
+    [TestCase("ACG\0TACG", TestName = "LinguisticComplexity_RawString_EmbeddedNullByte_NeverThrows")]
+    [TestCase("ACGTαβγ", TestName = "LinguisticComplexity_RawString_GreekLetters_NeverThrows")]
+    [TestCase("ＡＣＧＴ", TestName = "LinguisticComplexity_RawString_FullWidthLatin_NeverThrows")]
+    [TestCase("ACG😀TACG", TestName = "LinguisticComplexity_RawString_AstralSurrogatePair_NeverThrows")]
+    [TestCase("ACG\uD83DTAC", TestName = "LinguisticComplexity_RawString_LoneHighSurrogate_NeverThrows")]
+    public void LinguisticComplexity_RawString_ArbitraryChars_AreFiniteAndNeverThrow(string input)
+    {
+        double lc = double.NaN;
+        var act = () => lc = SequenceComplexity.CalculateLinguisticComplexity(input);
+
+        act.Should().NotThrow(
+            "the lenient raw-string overload does not validate the alphabet and must never crash on garbage");
+        double.IsFinite(lc).Should().BeTrue(
+            because: "LC must be a finite number even on non-ACGT input");
+        lc.Should().BeGreaterThanOrEqualTo(0.0,
+            because: "the LC ratio is non-negative; non-ACGT may exceed 1 (DNA denominator) but never goes negative");
+    }
+
+    #endregion
+
+    #region RB — Random-byte sweeps (never throw; finite; homopolymer ≤ diverse)
+
+    /// <summary>
+    /// RB: fixed-seed random-byte sweeps over the strict typed path. Every random
+    /// VALID DNA string of varied length must yield a finite LC inside [0, 1]
+    /// (INV-01) without throwing, and a homopolymer of the SAME length must be no
+    /// more complex than the random one — the theory-correct ordering must hold on
+    /// every draw, never inverted.
+    /// </summary>
+    [Test]
+    public void LinguisticComplexity_RandomValidDna_IsFiniteInRangeAndDominatesHomopolymer()
+    {
+        for (int trial = 0; trial < 200; trial++)
+        {
+            int length = Rng.Next(1, 300);
+            string randomSeq = RandomDna(length);
+
+            double lc = double.NaN;
+            var act = () => lc = SequenceComplexity.CalculateLinguisticComplexity(new DnaSequence(randomSeq));
+            act.Should().NotThrow($"valid DNA must never throw; length={length}");
+
+            double.IsFinite(lc).Should().BeTrue(
+                because: $"LC must be finite; length={length}");
+            lc.Should().BeInRange(0.0, 1.0,
+                because: $"LC is DNA-bounded to [0,1] (INV-01); length={length}");
+
+            double homopolymer = SequenceComplexity.CalculateLinguisticComplexity(
+                new DnaSequence(new string(randomSeq[0], length)));
+            homopolymer.Should().BeLessThanOrEqualTo(lc + Tolerance,
+                because: $"a homopolymer is minimum complexity; it cannot exceed the random sequence; length={length}");
+        }
+    }
+
+    /// <summary>
+    /// RB: fixed-seed random-byte sweeps over the LENIENT raw-string path with
+    /// arbitrary BMP code points (control chars, null bytes, lone surrogate halves —
+    /// pure garbage). The overload must NEVER throw — no IndexOutOfRange/encoding
+    /// surprise from surrogate halves — and must always return a finite, non-negative
+    /// number. This pins that the strict/lenient boundary holds: the same random
+    /// bytes the typed path would reject at construction, the lenient overload
+    /// carries through to a defined finite score without crashing.
+    /// </summary>
+    [Test]
+    public void LinguisticComplexity_RawString_RandomBmpBytes_AreFiniteAndNeverThrow()
+    {
+        for (int trial = 0; trial < 200; trial++)
+        {
+            int length = Rng.Next(0, 64);
+            string garbage = RandomBmpChars(length);
+
+            double lc = double.NaN;
+            var act = () => lc = SequenceComplexity.CalculateLinguisticComplexity(garbage);
+            act.Should().NotThrow(
+                $"the lenient overload must never throw on random bytes; input: {Describe(garbage)}");
+
+            double.IsFinite(lc).Should().BeTrue(
+                because: $"LC must be finite on random bytes; input: {Describe(garbage)}");
+            lc.Should().BeGreaterThanOrEqualTo(0.0,
+                because: $"the LC ratio is non-negative on any input; input: {Describe(garbage)}");
+        }
     }
 
     #endregion
