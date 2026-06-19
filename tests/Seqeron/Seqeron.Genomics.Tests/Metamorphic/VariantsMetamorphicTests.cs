@@ -145,4 +145,54 @@ public class VariantsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: VARIANT-INDEL-001 — indel detection (Variants).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 188.
+    //
+    // API under test (VariantCaller.FindIndels):
+    //   Aligns reference and query and reports the insertion/deletion variants.
+    //
+    // Relations (derived from coordinate-relative calling, NOT from output):
+    //   • SHIFT (prepend flank shifts indel positions): prepending an identical flank to both
+    //          sequences shifts the indel positions by the flank length.
+    //   • INV  (deterministic): the indel call set is a pure function of the inputs.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private const string IndelReference = "ACGTCATGCATAG";
+    private const string IndelQuery = "ACGTCAGTGCATAG"; // inserted 'G' between the A and T (unambiguous)
+
+    #region VARIANT-INDEL-001 SHIFT — a prepended flank shifts indel positions
+
+    [Test]
+    [Description("SHIFT: prepending an identical flank to both reference and query shifts every indel position by the flank length.")]
+    public void Indels_PrependFlank_ShiftsPositions()
+    {
+        var original = VariantCaller.FindIndels(new DnaSequence(IndelReference), new DnaSequence(IndelQuery))
+            .Select(v => v.Position).ToList();
+        original.Should().NotBeEmpty(because: "the query has a one-base insertion relative to the reference");
+
+        foreach (var flank in new[] { "TTTT", "GGCCAA" })
+        {
+            var shifted = VariantCaller.FindIndels(new DnaSequence(flank + IndelReference), new DnaSequence(flank + IndelQuery))
+                .Select(v => v.Position).ToList();
+            shifted.Should().Equal(original.Select(p => p + flank.Length),
+                because: $"prepending an identical {flank.Length}-base flank shifts the indel by {flank.Length}");
+        }
+    }
+
+    #endregion
+
+    #region VARIANT-INDEL-001 INV — indel detection is deterministic
+
+    [Test]
+    [Description("INV: indel detection is a pure function, so repeated calls return the identical indel positions.")]
+    public void Indels_Deterministic()
+    {
+        VariantCaller.FindIndels(new DnaSequence(IndelReference), new DnaSequence(IndelQuery)).Select(v => v.Position).ToList()
+            .Should().Equal(VariantCaller.FindIndels(new DnaSequence(IndelReference), new DnaSequence(IndelQuery)).Select(v => v.Position).ToList(),
+                because: "indel calling has no hidden state");
+    }
+
+    #endregion
 }
