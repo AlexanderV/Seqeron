@@ -213,7 +213,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 183 | ☑ | EPIGEN-CHROM-001 | Epigenetics | INV: region order independent; SHIFT: prepend flank shifts states |
 | 184 | ☑ | EPIGEN-DMR-001 | Epigenetics | MON: lower threshold → superset; SYM: DMR(A,B) consistent with (B,A) |
 | 185 | ☑ | EPIGEN-METHYL-001 | Epigenetics | INV: read order independent; ADD: counts additive over reads |
-| 186 | ☐ | VARIANT-ANNOT-001 | Variants | SHIFT: coordinate shift shifts annotations; INV: variant order independent |
+| 186 | ☑ | VARIANT-ANNOT-001 | Variants | SHIFT: coordinate shift shifts annotations; INV: variant order independent |
 | 187 | ☐ | VARIANT-CALL-001 | Variants | MON: deeper coverage → superset of confident calls; INV: read order independent |
 | 188 | ☐ | VARIANT-INDEL-001 | Variants | SHIFT: prepend flank shifts indel positions; INV: read order independent |
 | 189 | ☐ | VARIANT-SNP-001 | Variants | SHIFT: prepend flank shifts SNP positions; INV: read order independent |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 185 |
-| ☐ Not started | 49 |
+| ☑ Complete | 186 |
+| ☐ Not started | 48 |
 | MR relations defined | ~200+ |
