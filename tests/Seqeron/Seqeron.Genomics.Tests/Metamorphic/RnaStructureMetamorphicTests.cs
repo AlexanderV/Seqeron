@@ -379,4 +379,55 @@ public class RnaStructureMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: RNA-HAIRPIN-001 — hairpin loop free energy (RnaStructure).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 150.
+    //
+    // API under test (RnaSecondaryStructure.CalculateHairpinLoopEnergy):
+    //   ΔG = loop-initiation(size) + terminal-mismatch(closing pair, first/last loop base) +
+    //   sequence bonuses/penalties (Turner 2004 / NNDB).
+    //
+    // Relations (derived from the Turner loop model, NOT from output):
+    //   • MON  (larger loop ⇒ higher, less-stable energy): in the size-extrapolated regime
+    //          (size ≥ 10, ΔG(n)=ΔG(9)+1.75·RT·ln(n/9)) the initiation term grows with loop size,
+    //          so — holding the closing pair and terminal-mismatch bases fixed — energy increases.
+    //   • INV  (closing-pair/terminal context determines energy): for size ≥ 4 the model reads only
+    //          the size, the closing pair and the first/last loop bases, so changing the interior
+    //          loop bases (no all-C / special-loop trigger) leaves the energy unchanged.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region RNA-HAIRPIN-001 MON — a larger loop raises the (less stable) energy
+
+    [Test]
+    [Description("MON: in the extrapolated size regime (≥10) the loop-initiation term grows with loop size, so with a fixed G·C closing pair and fixed A…A terminal mismatch the hairpin energy increases with loop length.")]
+    public void Hairpin_LargerLoop_HigherEnergy()
+    {
+        double previous = double.MinValue;
+        foreach (int size in new[] { 10, 15, 20, 30, 40 })
+        {
+            string loop = new string('A', size); // first/last base 'A' fixed; no all-C penalty
+            double energy = RnaSecondaryStructure.CalculateHairpinLoopEnergy(loop, 'G', 'C');
+            energy.Should().BeGreaterThan(previous, because: $"a size-{size} loop has a higher initiation energy than the smaller one");
+            previous = energy;
+        }
+    }
+
+    #endregion
+
+    #region RNA-HAIRPIN-001 INV — interior loop bases do not change the energy
+
+    [Test]
+    [Description("INV: for size ≥ 4 the model uses only the size, the closing pair and the first/last loop bases, so changing the interior bases (no all-C/special trigger) leaves the energy unchanged.")]
+    public void Hairpin_InteriorLoopBases_DoNotChangeEnergy()
+    {
+        double reference = RnaSecondaryStructure.CalculateHairpinLoopEnergy("ACCCA", 'G', 'C');
+
+        foreach (var loop in new[] { "AGGGA", "AUUUA", "ACGUA" }) // same size, same first/last 'A'
+            RnaSecondaryStructure.CalculateHairpinLoopEnergy(loop, 'G', 'C')
+                .Should().BeApproximately(reference, 1e-9,
+                    because: $"loop '{loop}' shares the closing pair, size and terminal mismatch, so only its (ignored) interior differs");
+    }
+
+    #endregion
 }
