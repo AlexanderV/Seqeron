@@ -82,4 +82,62 @@ public class TranscriptomeMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: TRANS-EXPR-001 — TPM normalization (Transcriptome).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 199.
+    //
+    // API under test (TranscriptomeAnalyzer.CalculateTPM):
+    //   TPM_i = (X_i/l_i) / Σ_j(X_j/l_j) × 10^6.
+    //
+    // Relations (derived from the within-sample normalization, NOT from output):
+    //   • HOMO (scaling depth preserves TPM): multiplying every raw count by a constant cancels in
+    //          the ratio, so TPM is unchanged.
+    //   • INV  (read/gene order independent): each gene's TPM depends on its rate and the order-
+    //          independent sum of rates, so reordering the genes preserves every TPM.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private static readonly (string, double, int)[] TpmGenes =
+    {
+        ("g1", 100, 1000),
+        ("g2", 50, 500),
+        ("g3", 200, 2000),
+    };
+
+    private static Dictionary<string, double> Tpm(IEnumerable<(string, double, int)> genes) =>
+        TranscriptomeAnalyzer.CalculateTPM(genes).ToDictionary(g => g.GeneId, g => g.TPM);
+
+    #region TRANS-EXPR-001 HOMO — scaling sequencing depth preserves TPM
+
+    [Test]
+    [Description("HOMO: multiplying every raw count by a constant scales the numerator and the sum-of-rates equally, so the TPM of every gene is unchanged.")]
+    public void Tpm_ScaleDepth_Preserved()
+    {
+        var baseline = Tpm(TpmGenes);
+
+        foreach (double k in new[] { 2.0, 10.0 })
+        {
+            var scaled = Tpm(TpmGenes.Select(g => (g.Item1, g.Item2 * k, g.Item3)));
+            foreach (var id in baseline.Keys)
+                scaled[id].Should().BeApproximately(baseline[id], 1e-9,
+                    because: $"scaling all counts by {k} cancels in the TPM ratio");
+        }
+    }
+
+    #endregion
+
+    #region TRANS-EXPR-001 INV — TPM is independent of gene order
+
+    [Test]
+    [Description("INV: each gene's TPM depends on its rate and the order-independent sum of rates, so reversing the gene order yields the same TPMs.")]
+    public void Tpm_GeneOrder_Invariant()
+    {
+        var baseline = Tpm(TpmGenes);
+        var reversed = Tpm(TpmGenes.Reverse());
+
+        foreach (var id in baseline.Keys)
+            reversed[id].Should().BeApproximately(baseline[id], 1e-12, because: "TPM does not depend on the order of the genes");
+    }
+
+    #endregion
 }
