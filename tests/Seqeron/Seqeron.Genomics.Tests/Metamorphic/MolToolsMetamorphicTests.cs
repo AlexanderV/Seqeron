@@ -19,7 +19,8 @@ namespace Seqeron.Genomics.Tests;
 ///
 /// ───────────────────────────────────────────────────────────────────────────
 /// Units: CRISPR-PAM-001 (PAM-site finding), CRISPR-GUIDE-001 (guide-RNA design),
-///        CRISPR-OFF-001 (off-target scoring), PRIMER-TM-001 (primer melting temperature).
+///        CRISPR-OFF-001 (off-target scoring), PRIMER-TM-001 (primer melting temperature),
+///        PRIMER-DESIGN-001 (PCR primer design).
 /// ───────────────────────────────────────────────────────────────────────────
 /// Unit: CRISPR-PAM-001 — CRISPR PAM-site finding (MolTools).
 /// Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 18.
@@ -1181,6 +1182,291 @@ public class MolToolsMetamorphicTests
             current.Should().BeGreaterThan(previous,
                 because: $"flipping position {i} from A/T to G raises GC content at fixed length, so Tm strictly increases (+41/N)");
             previous = current;
+        }
+    }
+
+    #endregion
+
+    #endregion
+
+    #region PRIMER-DESIGN-001 — primer design
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Unit: PRIMER-DESIGN-001 — PCR primer design (MolTools).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 22.
+    //
+    // API under test (PrimerDesigner.cs):
+    //   GeneratePrimerCandidates(DnaSequence template, int regionStart, int regionEnd,
+    //                            bool forward, PrimerParameters? parameters)
+    //     → enumerates EVERY (start, len) window in [regionStart, regionEnd] with
+    //       MinLength ≤ len ≤ MaxLength, evaluates each via EvaluatePrimer, and yields
+    //       the resulting PrimerCandidate (valid AND invalid alike — it does NOT pre-filter).
+    //   EvaluatePrimer(string seq, int position, bool isForward, PrimerParameters?)
+    //     → sets IsValid = true iff EVERY screen passes; the relevant filters here are:
+    //          MinLength ≤ Length ≤ MaxLength
+    //          MinGcContent ≤ GcContent ≤ MaxGcContent
+    //          MinTm ≤ MeltingTemperature ≤ MaxTm
+    //          homopolymer ≤ MaxHomopolymer, dinuc-repeat ≤ MaxDinucleotideRepeats,
+    //          !HasHairpin, (Check3PrimeStability ⇒ ΔG ≥ −9), (Avoid3PrimeGC ⇒ GC clamp).
+    //
+    // The MR phrase "primers" / "results" denotes the set of VALID candidates a parameter
+    // set admits over a fixed region — i.e. GeneratePrimerCandidates(...).Where(IsValid).
+    // A candidate's run-order-independent identity is (Position, Sequence, IsForward); its
+    // metrics (GcContent, Tm, Length, IsValid) are a PURE function of that local window,
+    // independent of every other candidate and of the rest of the template.
+    //
+    // Relation DIRECTIONS are derived from the FILTER STRUCTURE (definition), NOT from
+    // observed output. Every filter is an independent conjunct, so widening exactly ONE
+    // window while holding ALL other parameters fixed can only flip a candidate
+    // invalid→valid (never valid→invalid):
+    //
+    //   • MON (wider Tm range → ≥ primers): EvaluatePrimer accepts a candidate's Tm iff
+    //     MinTm ≤ Tm ≤ MaxTm. Widening the window to [MinTm', MaxTm'] ⊇ [MinTm, MaxTm]
+    //     (MinTm' ≤ MinTm, MaxTm' ≥ MaxTm) keeps every previously-passing Tm passing and
+    //     may admit more. With all other params fixed, the valid set is a SUPERSET and the
+    //     count is non-decreasing: Valid(narrow Tm) ⊆ Valid(wide Tm).
+    //
+    //   • SUB (stricter GC% → ⊆ results): acceptance requires MinGc ≤ GC ≤ MaxGc.
+    //     TIGHTENING the window to [MinGc', MaxGc'] ⊆ [MinGc, MaxGc] can only DROP
+    //     candidates whose fixed GC% falls outside the narrower band; none are added.
+    //     Along a tightening chain the valid set shrinks monotonically:
+    //     Valid(strict GC) ⊆ Valid(loose GC); count non-increasing.
+    //
+    //   • MON (longer template → ≥ candidates): GeneratePrimerCandidates enumerates every
+    //     window fitting inside [regionStart, regionEnd]. Extend the template T → T + X and
+    //     the design region [0, |T|−1] → [0, |T+X|−1]. Every window that fit in the original
+    //     region still fits in the extended one and—because the first |T| bases are
+    //     byte-for-byte unchanged—evaluates to the IDENTICAL candidate (same Position,
+    //     Sequence, IsForward, IsValid). So the original valid set is preserved EXACTLY as a
+    //     subset and the count is non-decreasing: Valid(T) ⊆ Valid(T+X).
+    //
+    // For each relation only ONE parameter (or the region) is varied; ALL others are held
+    // fixed — the essence of the metamorphic relation. Templates include hand-built
+    // GC-balanced sequences that actually yield primers plus fixed-seed random ones.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Design templates rich enough to yield several valid primers under DefaultParameters:
+    /// 40–60% GC, length ≥ 60, no long homopolymer/dinucleotide runs, plus fixed-seed random.
+    /// </summary>
+    private static IEnumerable<string> DesignTemplates()
+    {
+        // ~50% GC, varied composition, 60 nt.
+        yield return "ACGTGACTGACTGGATCAGTCAGTACGATCGATGCATGCATCGTAGCATGCATGCATGCA";
+        // Another balanced 72-nt template.
+        yield return "TGCATGCAGTCAGTACGTACGATCGATCGTAGCTAGCATGCATGCATCGATCGATCAGTCAGTACGTACGTA";
+        // GC-leaning but still mostly in-range, 64 nt.
+        yield return "GCGATCGATGCATCGATCGTAGCTAGCATCGATCGATGCATGCATCGATCGATGCATCGATCGT";
+        // Fixed-seed random templates (relations hold for arbitrary input too).
+        yield return RandomDna(80);
+        yield return RandomDna(120);
+        yield return RandomDna(160);
+    }
+
+    /// <summary>Run-order-independent identity of a primer candidate.</summary>
+    private static (int Position, string Sequence, bool Fwd) PrimerId(PrimerCandidate c)
+        => (c.Position, c.Sequence, c.IsForward);
+
+    /// <summary>
+    /// The set of VALID primer candidates a parameter set admits over [regionStart, regionEnd],
+    /// keyed by identity (Position, Sequence, IsForward) so the comparison ignores run order.
+    /// </summary>
+    private static HashSet<(int, string, bool)> ValidPrimerIds(
+        string template, int regionStart, int regionEnd, bool forward, PrimerParameters param)
+        => PrimerDesigner
+            .GeneratePrimerCandidates(new DnaSequence(template), regionStart, regionEnd, forward, param)
+            .Where(c => c.IsValid)
+            .Select(PrimerId)
+            .ToHashSet();
+
+    /// <summary>Count of VALID primer candidates over the whole template, both orientations.</summary>
+    private static int ValidPrimerCount(string template, PrimerParameters param)
+        => ValidPrimerIds(template, 0, template.Length, forward: true, param).Count
+         + ValidPrimerIds(template, 0, template.Length, forward: false, param).Count;
+
+    #region MON — widening the Tm range yields a superset of primers (count non-decreasing)
+
+    [Test]
+    [Description("MON: along a chain that widens [MinTm, MaxTm] (all other params fixed) the valid-primer set grows monotonically — each narrower set is a subset of the wider one.")]
+    public void GeneratePrimerCandidates_WideningTmRange_YieldsSuperset_CountNonDecreasing()
+    {
+        // Increasingly wide Tm windows centred on the default optimum (60 °C). Each ⊇ the prior.
+        (double Min, double Max)[] tmChain =
+        {
+            (59.5, 60.5),
+            (58, 62),
+            (55, 65),
+            (50, 70),
+            (0, 200),   // accept any Tm — the Tm filter is effectively disabled
+        };
+
+        foreach (var template in DesignTemplates())
+        {
+            foreach (var forward in new[] { true, false })
+            {
+                HashSet<(int, string, bool)>? previousSet = null;
+                int previousCount = -1;
+
+                foreach (var (min, max) in tmChain)
+                {
+                    var param = PrimerDesigner.DefaultParameters with { MinTm = min, MaxTm = max };
+                    var currentSet = ValidPrimerIds(template, 0, template.Length, forward, param);
+
+                    if (previousSet is not null)
+                    {
+                        currentSet.IsSupersetOf(previousSet).Should().BeTrue(
+                            because: $"widening the Tm window to [{min},{max}] keeps every Tm that already passed " +
+                                     "passing (all other filters fixed), so the valid set is a superset of the narrower one");
+                        currentSet.Count.Should().BeGreaterThanOrEqualTo(previousCount,
+                            because: $"a wider Tm window [{min},{max}] admits-or-keeps each candidate, never drops one — count is non-decreasing");
+                    }
+
+                    previousSet = currentSet;
+                    previousCount = currentSet.Count;
+                }
+            }
+        }
+    }
+
+    [Test]
+    [Description("MON: disabling the Tm filter (accept any Tm) yields at least as many valid primers as the default narrow window, holding all else fixed.")]
+    public void GeneratePrimerCandidates_DisablingTmFilter_NeverFewerThanNarrowDefault()
+    {
+        foreach (var template in DesignTemplates())
+        {
+            var narrow = PrimerDesigner.DefaultParameters; // 57–63 °C
+            var wide = PrimerDesigner.DefaultParameters with { MinTm = 0, MaxTm = 200 };
+
+            int narrowCount = ValidPrimerCount(template, narrow);
+            int wideCount = ValidPrimerCount(template, wide);
+
+            wideCount.Should().BeGreaterThanOrEqualTo(narrowCount,
+                because: "the only changed parameter is the Tm window, widened to accept everything; " +
+                         "every primer valid under the narrow window stays valid, so the count cannot drop");
+        }
+    }
+
+    #endregion
+
+    #region SUB — tightening the GC% bounds yields a subset of primers (count non-increasing)
+
+    [Test]
+    [Description("SUB: along a chain that TIGHTENS [MinGcContent, MaxGcContent] (all other params fixed) the valid-primer set shrinks monotonically — each stricter set is a subset of the looser one.")]
+    public void GeneratePrimerCandidates_TighteningGcBounds_YieldsSubset_CountNonIncreasing()
+    {
+        // Increasingly STRICT GC windows, each ⊆ the previous one (chain from loose to strict).
+        (double Min, double Max)[] gcChain =
+        {
+            (0, 100),     // accept any GC% — filter disabled
+            (30, 70),
+            (40, 60),     // the default band
+            (45, 55),
+            (48, 52),
+        };
+
+        foreach (var template in DesignTemplates())
+        {
+            foreach (var forward in new[] { true, false })
+            {
+                HashSet<(int, string, bool)>? previousSet = null;
+                int previousCount = int.MaxValue;
+
+                foreach (var (min, max) in gcChain)
+                {
+                    var param = PrimerDesigner.DefaultParameters with { MinGcContent = min, MaxGcContent = max };
+                    var currentSet = ValidPrimerIds(template, 0, template.Length, forward, param);
+
+                    if (previousSet is not null)
+                    {
+                        previousSet.IsSupersetOf(currentSet).Should().BeTrue(
+                            because: $"tightening the GC window to [{min},{max}] can only DROP candidates whose fixed GC% " +
+                                     "falls outside the narrower band, so the stricter set is a subset of the looser one");
+                        currentSet.Count.Should().BeLessThanOrEqualTo(previousCount,
+                            because: $"a stricter GC window [{min},{max}] removes-or-keeps each candidate, never adds one — count is non-increasing");
+                    }
+
+                    previousSet = currentSet;
+                    previousCount = currentSet.Count;
+                }
+            }
+        }
+    }
+
+    [Test]
+    [Description("SUB: every primer valid under a stricter GC band is also valid under a looser band that contains it (membership is preserved when loosening).")]
+    public void GeneratePrimerCandidates_StrictGcBand_SubsetOfLooseBand()
+    {
+        foreach (var template in DesignTemplates())
+        {
+            foreach (var forward in new[] { true, false })
+            {
+                var strict = ValidPrimerIds(template, 0, template.Length, forward,
+                    PrimerDesigner.DefaultParameters with { MinGcContent = 45, MaxGcContent = 55 });
+                var loose = ValidPrimerIds(template, 0, template.Length, forward,
+                    PrimerDesigner.DefaultParameters with { MinGcContent = 40, MaxGcContent = 60 });
+
+                loose.IsSupersetOf(strict).Should().BeTrue(
+                    because: "[45,55] ⊆ [40,60]; a GC% inside the tighter band is inside the wider band too, " +
+                             "and no other filter changed, so the strict valid set is a subset of the loose one");
+            }
+        }
+    }
+
+    #endregion
+
+    #region MON — extending the template (and design region) never removes candidates anchored in the original region
+
+    [Test]
+    [Description("MON: extending template T → T+X and the design region to cover it preserves every valid primer anchored in the original region EXACTLY (subset), so the count is non-decreasing.")]
+    public void GeneratePrimerCandidates_LongerTemplate_OriginalCandidatesPreserved_CountNonDecreasing()
+    {
+        var param = PrimerDesigner.DefaultParameters;
+
+        foreach (var body in DesignTemplates())
+        {
+            foreach (var forward in new[] { true, false })
+            {
+                var baseIds = ValidPrimerIds(body, 0, body.Length, forward, param);
+
+                // Append several distinct extensions, including GC-rich and fixed-seed random ones.
+                foreach (var ext in new[] { "ACGTACGTACGT", "GGGGCCCCAAAA", RandomDna(30), RandomDna(60) })
+                {
+                    string extended = body + ext;
+                    var extendedIds = ValidPrimerIds(extended, 0, extended.Length, forward, param);
+
+                    extendedIds.IsSupersetOf(baseIds).Should().BeTrue(
+                        because: $"the first {body.Length} bases are unchanged, so every window anchored in the original " +
+                                 "region yields the IDENTICAL candidate; the extended region only ADDS windows, never removes one");
+                    extendedIds.Count.Should().BeGreaterThanOrEqualTo(baseIds.Count,
+                        because: "extending the template/region can only add candidate windows downstream — the original valid set survives, so the count is non-decreasing");
+                }
+            }
+        }
+    }
+
+    [Test]
+    [Description("MON: appending bases after the design region's end leaves the in-region valid set IDENTICAL — the appended tail lies outside [regionStart, regionEnd].")]
+    public void GeneratePrimerCandidates_AppendOutsideFixedRegion_InRegionSetUnchanged()
+    {
+        var param = PrimerDesigner.DefaultParameters;
+
+        foreach (var body in DesignTemplates())
+        {
+            foreach (var forward in new[] { true, false })
+            {
+                int regionEnd = body.Length; // pin the design region to the original body
+                var baseIds = ValidPrimerIds(body, 0, regionEnd, forward, param);
+
+                foreach (var ext in new[] { "ACGTACGTACGT", RandomDna(40) })
+                {
+                    // Hold the region FIXED at [0, regionEnd]; the appended tail is outside it.
+                    var sameRegionIds = ValidPrimerIds(body + ext, 0, regionEnd, forward, param);
+
+                    sameRegionIds.SetEquals(baseIds).Should().BeTrue(
+                        because: "GeneratePrimerCandidates only enumerates windows inside [regionStart, regionEnd]; " +
+                                 "bases appended beyond regionEnd are never read, so the in-region valid set is exactly preserved");
+                }
+            }
         }
     }
 
