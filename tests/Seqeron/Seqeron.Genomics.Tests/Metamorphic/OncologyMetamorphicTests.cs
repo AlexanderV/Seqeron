@@ -861,4 +861,65 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-SIG-003 — bootstrap exposure confidence intervals (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 98.
+    //
+    // API under test (OncologyAnalyzer.BootstrapExposures):
+    //   Multinomial-bootstrap percentile CIs for signature exposures: resample the catalog,
+    //   refit by NNLS, take per-signature [α/2, 1−α/2] percentiles. Seeded RNG ⇒ reproducible.
+    //
+    // Relations (derived from the seeded percentile bootstrap, NOT from output):
+    //   • INV  (same seed ⇒ identical CI): the result is fully reproducible from the seed.
+    //   • INV  (point estimate independent of bootstrap settings): the point estimate is the
+    //          NNLS fit of the observed catalog — unchanged by replicates or seed.
+    //   • MON  (wider confidence ⇒ non-narrower CI): a higher confidence level widens the
+    //          percentile interval (lower bound non-increasing, upper bound non-decreasing).
+    //          (NOTE: the checklist's "more reps → non-wider CI" is not a true property of a
+    //          percentile bootstrap — width converges, not monotonically narrows — so the
+    //          genuinely monotone relation in the confidence level is asserted instead.)
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private static readonly int[] SigCatalog = { 30, 50, 20 };
+
+    #region ONCO-SIG-003 INV — same seed reproduces the CI; point estimate is setting-independent
+
+    [Test]
+    [Description("INV: BootstrapExposures is fully reproducible from its seed, and the point estimate (NNLS fit of the observed catalog) is independent of replicates and seed.")]
+    public void Bootstrap_SameSeed_IdenticalCi_PointEstimateStable()
+    {
+        var a = OncologyAnalyzer.BootstrapExposures(SigCatalog, OneHotSignatures, replicates: 200, confidence: 0.95, seed: 42);
+        var b = OncologyAnalyzer.BootstrapExposures(SigCatalog, OneHotSignatures, replicates: 200, confidence: 0.95, seed: 42);
+
+        a.Should().BeEquivalentTo(b, because: "the same seed and settings reproduce the identical bootstrap CIs");
+
+        // Point estimate is the NNLS fit of the observed catalog → invariant to seed and replicate count.
+        var c = OncologyAnalyzer.BootstrapExposures(SigCatalog, OneHotSignatures, replicates: 500, confidence: 0.95, seed: 7);
+        for (int j = 0; j < a.Count; j++)
+            c[j].PointEstimate.Should().BeApproximately(a[j].PointEstimate, 1e-9,
+                because: "the point estimate does not depend on the bootstrap replicate count or seed");
+    }
+
+    #endregion
+
+    #region ONCO-SIG-003 MON — a wider confidence level widens the interval
+
+    [Test]
+    [Description("MON: at a fixed seed and replicate count, raising the confidence level widens the percentile interval (lower non-increasing, upper non-decreasing).")]
+    public void Bootstrap_HigherConfidence_NonNarrowerCi()
+    {
+        var narrow = OncologyAnalyzer.BootstrapExposures(SigCatalog, OneHotSignatures, replicates: 400, confidence: 0.80, seed: 123);
+        var wide = OncologyAnalyzer.BootstrapExposures(SigCatalog, OneHotSignatures, replicates: 400, confidence: 0.99, seed: 123);
+
+        for (int j = 0; j < narrow.Count; j++)
+        {
+            wide[j].Lower.Should().BeLessThanOrEqualTo(narrow[j].Lower,
+                because: "a higher confidence level pushes the lower percentile down (or keeps it)");
+            wide[j].Upper.Should().BeGreaterThanOrEqualTo(narrow[j].Upper,
+                because: "a higher confidence level pushes the upper percentile up (or keeps it)");
+        }
+    }
+
+    #endregion
 }

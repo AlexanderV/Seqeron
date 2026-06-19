@@ -125,7 +125,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 95 | ☑ | ONCO-LOH-001 | Oncology | INV: allele symmetry (retained-allele value irrelevant) + segment order; MON: looser size criterion / more regions → superset (CN-based, not BAF) |
 | 96 | ☑ | ONCO-SIG-001 | Oncology | INV: reverse-complementing a variant maps to the same pyrimidine channel; INV: variant order independent |
 | 97 | ☑ | ONCO-SIG-002 | Oncology | INV: scaling the catalogue by k scales exposures by k; MON: adding signature-consistent mutations → ≥ that exposure |
-| 98 | ☐ | ONCO-SIG-003 | Oncology | INV: same seed → identical CI; MON: more bootstrap reps → non-wider CI |
+| 98 | ☑ | ONCO-SIG-003 | Oncology | INV: same seed → identical CI; INV: point estimate setting-independent; MON: wider confidence → non-narrower CI (percentile-bootstrap width converges, not monotone in reps) |
 | 99 | ☐ | ONCO-SIG-004 | Oncology | INV: scaling all exposures preserves the dominant process; INV: signature order independent |
 | 100 | ☐ | ONCO-FUSION-001 | Oncology | INV: prepending flank shifts breakpoints but preserves fusion count; MON: more split reads → ≥ confidence |
 | 101 | ☐ | ONCO-FUSION-002 | Oncology | SUB: matched ⊆ known DB; INV: 5'/3' gene-pair orientation preserved under coordinate shift |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 97 |
-| ☐ Not started | 137 |
+| ☑ Complete | 98 |
+| ☐ Not started | 136 |
 | MR relations defined | ~200+ |
