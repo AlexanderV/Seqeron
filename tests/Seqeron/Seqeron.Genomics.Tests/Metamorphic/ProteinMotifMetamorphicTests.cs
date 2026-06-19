@@ -280,4 +280,47 @@ public class ProteinMotifMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: PROTMOTIF-COMMON-001 — common (PROSITE) motif scan (ProteinMotif).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 164.
+    //
+    // API under test (ProteinMotifFinder.FindCommonMotifs):
+    //   Scans a protein against the dictionary of common PROSITE patterns and reports each match.
+    //
+    // Relations (derived from the per-occurrence reporting, NOT from output):
+    //   • MON  (more occurrences ⇒ ≥ support): adding another occurrence of a motif yields a
+    //          superset of matches (the per-checklist "more sharing → ≥ support" analog).
+    //   • INV  (deterministic / order independent): the match set is a pure function of the
+    //          sequence, independent of dictionary scan order.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region PROTMOTIF-COMMON-001 MON — more motif occurrences yield more matches
+
+    [Test]
+    [Description("MON: a second occurrence of the RGD cell-attachment motif adds a match, so the doubled sequence reports more matches than the single one.")]
+    public void CommonMotifs_MoreOccurrences_MoreMatches()
+    {
+        int single = ProteinMotifFinder.FindCommonMotifs("AARGDKKAA").Count();
+        int doubled = ProteinMotifFinder.FindCommonMotifs("AARGDKKAARGDKKAA").Count();
+
+        single.Should().BeGreaterThan(0, because: "the sequence contains one RGD motif");
+        doubled.Should().BeGreaterThan(single, because: "a second RGD occurrence adds at least one more match");
+    }
+
+    #endregion
+
+    #region PROTMOTIF-COMMON-001 INV — the scan is deterministic
+
+    [Test]
+    [Description("INV: FindCommonMotifs is a pure function, so repeated scans return the identical matches (independent of dictionary scan order).")]
+    public void CommonMotifs_SameSequence_SameMatches()
+    {
+        const string seq = "AARGDKKAASARKAANFTAAA";
+        ProteinMotifFinder.FindCommonMotifs(seq).Select(m => (m.Start, m.End)).ToList()
+            .Should().Equal(ProteinMotifFinder.FindCommonMotifs(seq).Select(m => (m.Start, m.End)).ToList(),
+                because: "the dictionary scan has no hidden state");
+    }
+
+    #endregion
 }
