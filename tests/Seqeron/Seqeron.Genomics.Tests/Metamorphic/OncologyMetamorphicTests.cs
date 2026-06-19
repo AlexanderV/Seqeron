@@ -1121,4 +1121,48 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-FUSION-003 — fusion-junction reading-frame classification (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 102.
+    //
+    // API under test (OncologyAnalyzer.AnalyzeBreakpoint):
+    //   For a coding-to-coding junction, calls InFrame iff (fivePrimeCodingBases − phase) mod 3
+    //   == 0. The 5' coding-base count is the breakpoint position measured in coding bases.
+    //
+    // Relation (derived from the mod-3 frame rule, NOT from output):
+    //   • INV  (codon-multiple coordinate shift preserves frame): shifting the breakpoint by a
+    //          multiple of 3 coding bases leaves the in/out-of-frame classification unchanged,
+    //          while a non-multiple-of-3 shift flips it (the rule is exactly mod 3).
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private static OncologyAnalyzer.BreakpointFrameStatus FrameAt(int fivePrimeCodingBases, int phase = 0) =>
+        OncologyAnalyzer.AnalyzeBreakpoint(new OncologyAnalyzer.FusionBreakpoint(
+            "A", "B", OncologyAnalyzer.BreakpointSite.Cds, OncologyAnalyzer.BreakpointSite.Cds,
+            fivePrimeCodingBases, phase)).FrameStatus;
+
+    #region ONCO-FUSION-003 INV — a codon-multiple breakpoint shift preserves the frame
+
+    [Test]
+    [Description("INV: shifting the breakpoint by a multiple of 3 coding bases preserves the in/out-of-frame classification; a non-codon shift flips it (the frame rule is exactly mod 3).")]
+    public void AnalyzeBreakpoint_CodonShift_PreservesFrame()
+    {
+        var inFrame = FrameAt(30); // (30 − 0) mod 3 == 0 → InFrame
+        inFrame.Should().Be(OncologyAnalyzer.BreakpointFrameStatus.InFrame);
+
+        // Codon-multiple shifts preserve the in-frame call.
+        foreach (int shift in new[] { 3, 6, 30, 300 })
+            FrameAt(30 + shift).Should().Be(inFrame, because: $"a +{shift} (multiple of 3) coding-base shift preserves the frame");
+
+        // A non-codon shift flips the classification.
+        var shifted = FrameAt(31);
+        shifted.Should().Be(OncologyAnalyzer.BreakpointFrameStatus.OutOfFrame,
+            because: "a +1 coding-base shift moves the junction out of frame");
+
+        // The out-of-frame state is likewise preserved under codon-multiple shifts.
+        foreach (int shift in new[] { 3, 9, 30 })
+            FrameAt(31 + shift).Should().Be(shifted, because: $"a +{shift} shift preserves the out-of-frame state");
+    }
+
+    #endregion
 }
