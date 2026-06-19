@@ -1384,4 +1384,59 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-PLOIDY-001 — average tumour ploidy (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 107.
+    //
+    // API under test (OncologyAnalyzer.EstimatePloidy):
+    //   ψ = length-weighted mean of per-segment total copy number (Major + Minor).
+    //
+    // Relations (derived from the weighted mean, NOT from output):
+    //   • MON  (amplifying more segments ⇒ ≥ ploidy): raising segments' copy number raises the
+    //          weighted mean, so the ploidy estimate is non-decreasing.
+    //   • INV  (segment order independent): a weighted mean does not depend on segment order.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region ONCO-PLOIDY-001 MON — amplifying more segments raises ploidy
+
+    [Test]
+    [Description("MON: amplifying more (equal-length) segments raises the length-weighted mean total copy number, so the ploidy estimate is non-decreasing.")]
+    public void EstimatePloidy_AmplifyMoreSegments_HigherPloidy()
+    {
+        double previous = double.MinValue;
+        foreach (int amplified in new[] { 0, 1, 2, 3, 4 })
+        {
+            var segments = Enumerable.Range(0, 4).Select(i =>
+                i < amplified
+                    ? new OncologyAnalyzer.AlleleSpecificSegment(i.ToString(), 0, 1_000_000, 4, 2)  // total CN 6
+                    : new OncologyAnalyzer.AlleleSpecificSegment(i.ToString(), 0, 1_000_000, 1, 1)); // total CN 2
+
+            double ploidy = OncologyAnalyzer.EstimatePloidy(segments);
+            ploidy.Should().BeGreaterThan(previous, because: $"amplifying {amplified}/4 equal segments raises the mean copy number");
+            previous = ploidy;
+        }
+    }
+
+    #endregion
+
+    #region ONCO-PLOIDY-001 INV — segment order independent
+
+    [Test]
+    [Description("INV: the length-weighted mean ploidy does not depend on the order of the segments.")]
+    public void EstimatePloidy_SegmentOrder_Independent()
+    {
+        var segments = new[]
+        {
+            new OncologyAnalyzer.AlleleSpecificSegment("1", 0, 2_000_000, 3, 1),
+            new OncologyAnalyzer.AlleleSpecificSegment("2", 0, 1_000_000, 1, 1),
+            new OncologyAnalyzer.AlleleSpecificSegment("3", 0, 5_000_000, 2, 2),
+        };
+
+        OncologyAnalyzer.EstimatePloidy(segments.Reverse())
+            .Should().BeApproximately(OncologyAnalyzer.EstimatePloidy(segments), 1e-9,
+                because: "a length-weighted mean is invariant to segment order");
+    }
+
+    #endregion
 }
