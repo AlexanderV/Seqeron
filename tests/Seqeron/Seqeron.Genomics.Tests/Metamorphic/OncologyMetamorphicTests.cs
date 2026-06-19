@@ -111,4 +111,115 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-SOMATIC-001 — somatic mutation calling (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 87.
+    //
+    // API under test (OncologyAnalyzer.CallSomaticMutations / Classify / CalculateSomaticScore):
+    //   A variant is Somatic when its tumor VAF f_t = altReads/total is ≥ the tumor threshold
+    //   AND its matched-normal VAF f_n is ≤ the normal threshold; the somatic confidence is
+    //   max(0, f_t − f_n). Each variant is classified independently from its read counts.
+    //
+    // Relations (derived from the VAF-threshold rule, NOT from output):
+    //   • MON  (more tumor alt evidence ⇒ ≥ calls/score): increasing tumor alt reads raises f_t,
+    //          so the somatic score is non-decreasing and a variant crossing the threshold stays
+    //          somatic (the somatic set only grows with alt support).
+    //   • INV  (pure-reference reads add no calls): adding alt-free reads to the tumor only
+    //          dilutes f_t, so it never creates a somatic call (the somatic set cannot grow); a
+    //          site with zero alt reads is never somatic at any depth.
+    //   • SYM  (read/variant order independent): each variant is classified independently, so the
+    //          set of somatic calls does not depend on the order of the input.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private const double TumorThr = 0.10;
+    private const double NormalThr = 0.05;
+
+    private static OncologyAnalyzer.VariantObservation Variant(
+        string chrom, int pos, int tAlt, int tTotal, int nAlt = 0, int nTotal = 100) =>
+        new(chrom, pos, "A", "T", tAlt, tTotal, nAlt, nTotal);
+
+    private static System.Collections.Generic.HashSet<(string, int)> SomaticSet(
+        System.Collections.Generic.IEnumerable<OncologyAnalyzer.VariantObservation> variants) =>
+        OncologyAnalyzer.CallSomaticMutations(variants, TumorThr, NormalThr)
+            .Where(c => c.Status == OncologyAnalyzer.SomaticStatus.Somatic)
+            .Select(c => (c.Variant.Chromosome, c.Variant.Position))
+            .ToHashSet();
+
+    private static OncologyAnalyzer.VariantObservation[] Panel() => new[]
+    {
+        Variant("chr1", 100, tAlt: 30, tTotal: 100),               // VAF 0.30, normal 0 → somatic
+        Variant("chr2", 200, tAlt: 2, tTotal: 100),                // VAF 0.02 < 0.10 → not detected
+        Variant("chr3", 300, tAlt: 40, tTotal: 100, nAlt: 35),     // normal VAF 0.35 → germline
+        Variant("chr4", 400, tAlt: 25, tTotal: 100),               // VAF 0.25 → somatic
+    };
+
+    #region ONCO-SOMATIC-001 MON — more tumor alt evidence raises score and keeps/adds calls
+
+    [Test]
+    [Description("MON: increasing tumor alt reads raises f_t, so the somatic score is non-decreasing and a variant that crosses the threshold stays somatic.")]
+    public void Somatic_MoreTumorAltEvidence_MonotoneScoreAndCalls()
+    {
+        double previousScore = double.MinValue;
+        OncologyAnalyzer.SomaticStatus? crossed = null;
+
+        foreach (int alt in new[] { 2, 8, 20, 60 }) // VAF 0.02, 0.08, 0.20, 0.60 at total 100
+        {
+            var call = OncologyAnalyzer.Classify(Variant("chr1", 100, alt, 100), TumorThr, NormalThr);
+
+            call.SomaticScore.Should().BeGreaterThanOrEqualTo(previousScore,
+                because: "the somatic confidence f_t − f_n is non-decreasing in tumor alt reads");
+            previousScore = call.SomaticScore;
+
+            // Once the variant is called somatic, further alt support keeps it somatic.
+            if (crossed == OncologyAnalyzer.SomaticStatus.Somatic)
+                call.Status.Should().Be(OncologyAnalyzer.SomaticStatus.Somatic,
+                    because: "more alt evidence cannot revoke a somatic call");
+            if (call.Status == OncologyAnalyzer.SomaticStatus.Somatic)
+                crossed = OncologyAnalyzer.SomaticStatus.Somatic;
+        }
+
+        crossed.Should().Be(OncologyAnalyzer.SomaticStatus.Somatic,
+            because: "with enough alt evidence the variant is eventually called somatic");
+    }
+
+    #endregion
+
+    #region ONCO-SOMATIC-001 INV — pure-reference reads never add a somatic call
+
+    [Test]
+    [Description("INV: a site with zero alt reads is never somatic at any depth, and diluting the tumor with alt-free reads only removes (never adds) somatic calls.")]
+    public void Somatic_PureReferenceReads_AddNoCalls()
+    {
+        // (a) zero alt reads ⇒ never somatic, regardless of depth.
+        foreach (int depth in new[] { 10, 100, 1000 })
+            OncologyAnalyzer.Classify(Variant("chrX", 1, tAlt: 0, tTotal: depth), TumorThr, NormalThr)
+                .Status.Should().NotBe(OncologyAnalyzer.SomaticStatus.Somatic,
+                    because: "a site with no alternate reads carries no somatic evidence");
+
+        // (b) adding 200 alt-free tumor reads to each variant cannot create a somatic call.
+        var before = SomaticSet(Panel());
+        var diluted = Panel().Select(v => v with { TumorTotalReads = v.TumorTotalReads + 200 });
+        SomaticSet(diluted).IsSubsetOf(before).Should().BeTrue(
+            because: "diluting tumor VAF with reference reads can only drop calls below threshold, never add new ones");
+    }
+
+    #endregion
+
+    #region ONCO-SOMATIC-001 SYM — calling is independent of input order
+
+    [Test]
+    [Description("SYM: each variant is classified independently, so the set of somatic calls is the same for any ordering of the input.")]
+    public void Somatic_InputOrder_Independent()
+    {
+        var forward = SomaticSet(Panel());
+        var reversed = SomaticSet(Panel().Reverse());
+
+        reversed.Should().BeEquivalentTo(forward,
+            because: "per-variant classification has no cross-variant dependence, so order cannot matter");
+        forward.Should().BeEquivalentTo(new[] { ("chr1", 100), ("chr4", 400) },
+            because: "only chr1 (VAF 0.30) and chr4 (VAF 0.25), both with a clean normal, are somatic");
+    }
+
+    #endregion
 }
