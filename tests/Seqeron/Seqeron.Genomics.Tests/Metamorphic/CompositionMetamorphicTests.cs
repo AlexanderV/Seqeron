@@ -1309,4 +1309,95 @@ public class CompositionMetamorphicTests
     #endregion
 
     #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  SEQ-ATSKEW-001 — AT skew
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // API under test (src/.../Seqeron.Genomics.Analysis/GcSkewCalculator.cs):
+    //   • GcSkewCalculator.CalculateAtSkew(string)      — scalar (A − T) / (A + T).
+    //   • GcSkewCalculator.CalculateAtSkew(DnaSequence) — facade (same core).
+    //
+    // Relations (derived from the (A − T)/(A + T) definition, NOT from output):
+    //   • SYM (complement reverses sign): complement maps A↔T, swapping the A and T counts, so the
+    //         numerator (A − T) negates while the denominator (A + T) is invariant — the skew flips
+    //         sign exactly. (Sequences with no A and no T have skew 0 = −0, consistent.)
+    //   • INV (cumulative length = seq length): AT skew is a composition statistic. Partition the
+    //         sequence into consecutive non-overlapping chunks that TILE it — the chunk lengths sum
+    //         to the sequence length — and the per-chunk A and T counts accumulate to the whole's, so
+    //         the skew recomposed from the cumulative counts equals the whole-sequence skew. (As a
+    //         corollary the statistic is order-independent: any permutation preserves it.)
+
+    #region SEQ-ATSKEW-001 — AT skew
+
+    #region SYM — complement flips the AT-skew sign
+
+    [Test]
+    public void AtSkew_Complement_FlipsSign()
+    {
+        foreach (var s in SampleSequences())
+        {
+            var seq = new DnaSequence(s);
+            double original = GcSkewCalculator.CalculateAtSkew(seq);
+            double complemented = GcSkewCalculator.CalculateAtSkew(seq.Complement());
+
+            complemented.Should().BeApproximately(-original, Tolerance,
+                because: $"complement maps A↔T (swapping the A and T counts) and C↔G (no AT effect), so the AT skew of '{s}' negates");
+        }
+    }
+
+    #endregion
+
+    #region INV — permutation leaves the AT skew unchanged (composition statistic)
+
+    [Test]
+    public void AtSkew_Shuffle_PreservesSkew()
+    {
+        foreach (var s in SampleSequences())
+        {
+            double original = GcSkewCalculator.CalculateAtSkew(s);
+
+            for (int t = 0; t < 5; t++)
+                GcSkewCalculator.CalculateAtSkew(Shuffle(s)).Should().BeApproximately(original, Tolerance,
+                    because: $"AT skew depends only on the A and T counts, not their order, so shuffling '{s}' must not change it");
+        }
+    }
+
+    #endregion
+
+    #region INV — cumulative tiling: chunk lengths sum to seq length and conserve the skew
+
+    [Test]
+    public void AtSkew_PartitionTiling_ConservesSkewAndLength()
+    {
+        foreach (var s in SampleSequences())
+        {
+            string upper = s.ToUpperInvariant();
+
+            // Split into consecutive non-overlapping chunks that tile the whole sequence.
+            var chunks = new System.Collections.Generic.List<string>();
+            for (int i = 0; i < upper.Length; i += 3)
+                chunks.Add(upper.Substring(i, Math.Min(3, upper.Length - i)));
+
+            // "cumulative length = seq length": the chunk lengths exhaust the sequence.
+            chunks.Sum(c => c.Length).Should().Be(upper.Length,
+                because: $"the partition of '{s}' tiles it, so the cumulative chunk length equals the sequence length");
+
+            // A and T counts accumulate over the tiling to the whole's counts.
+            int aWhole = upper.Count(c => c == 'A');
+            int tWhole = upper.Count(c => c == 'T');
+            chunks.Sum(c => c.Count(ch => ch == 'A')).Should().Be(aWhole, because: "A counts are additive over a tiling partition");
+            chunks.Sum(c => c.Count(ch => ch == 'T')).Should().Be(tWhole, because: "T counts are additive over a tiling partition");
+
+            // The skew recomposed from the cumulative counts equals the whole-sequence skew.
+            int denom = aWhole + tWhole;
+            double recomposed = denom > 0 ? (double)(aWhole - tWhole) / denom : 0;
+            recomposed.Should().BeApproximately(GcSkewCalculator.CalculateAtSkew(s), Tolerance,
+                because: $"the cumulative A and T counts over the tiling reproduce the AT skew of '{s}'");
+        }
+    }
+
+    #endregion
+
+    #endregion
 }
