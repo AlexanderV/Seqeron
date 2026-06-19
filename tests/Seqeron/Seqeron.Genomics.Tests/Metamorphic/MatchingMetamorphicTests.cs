@@ -767,4 +767,58 @@ public class MatchingMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: MOTIF-REGULATORY-001 — regulatory-element scan (Matching).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 172.
+    //
+    // API under test (MotifFinder.FindRegulatoryElements):
+    //   Scans for a fixed catalogue of known promoter/regulatory motifs and reports each occurrence.
+    //
+    // Relations (derived from positional motif matching, NOT from output):
+    //   • SHIFT (prepend flank shifts positions): a 5' flank with no regulatory motif shifts every
+    //          element's position by the flank length.
+    //   • SUB  (broader sequence ⇒ ≥ matches): appending more sequence keeps every existing element
+    //          (same name and position) and can only add new ones, so the match set grows.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private const string RegulatorySeq = "GGGGTATAAAGGGGAATAAAGGGG"; // TATA box + poly(A) signal
+
+    private static HashSet<(string, int)> RegulatoryHits(string seq) =>
+        MotifFinder.FindRegulatoryElements(new DnaSequence(seq)).Select(e => (e.Name, e.Position)).ToHashSet();
+
+    #region MOTIF-REGULATORY-001 SHIFT — a prepended flank shifts the positions
+
+    [Test]
+    [Description("SHIFT: prepending a flank that contains no regulatory motif shifts every detected element's position by the flank length.")]
+    public void Regulatory_PrependFlank_ShiftsPositions()
+    {
+        var original = MotifFinder.FindRegulatoryElements(new DnaSequence(RegulatorySeq))
+            .Select(e => (e.Name, e.Position)).ToList();
+        original.Should().NotBeEmpty();
+
+        foreach (var flank in new[] { "ACAC", "CACACA" })
+        {
+            var shifted = RegulatoryHits(flank + RegulatorySeq);
+            shifted.Should().BeEquivalentTo(original.Select(e => (e.Name, e.Position + flank.Length)),
+                because: $"the {flank.Length}-base flank relocates every regulatory element by {flank.Length}");
+        }
+    }
+
+    #endregion
+
+    #region MOTIF-REGULATORY-001 SUB — appending sequence yields a superset of matches
+
+    [Test]
+    [Description("SUB: appending more sequence preserves every existing regulatory element (same name and position) and can only add new ones, so the match set is a superset.")]
+    public void Regulatory_AppendSequence_Superset()
+    {
+        var baseHits = RegulatoryHits(RegulatorySeq);
+        var extendedHits = RegulatoryHits(RegulatorySeq + "CCCTTGACACCC"); // adds a -35 box (TTGACA)
+
+        baseHits.IsSubsetOf(extendedHits).Should().BeTrue(because: "appending does not move or remove existing 5' matches");
+        extendedHits.Count.Should().BeGreaterThan(baseHits.Count, because: "the appended -35 box adds a new regulatory element");
+    }
+
+    #endregion
 }
