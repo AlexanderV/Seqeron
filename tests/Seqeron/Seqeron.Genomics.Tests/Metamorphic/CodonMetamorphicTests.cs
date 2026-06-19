@@ -370,4 +370,107 @@ public class CodonMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: CODON-USAGE-001 — per-amino-acid codon usage table (Codon).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 61.
+    //
+    // API under test (CodonOptimizer.CreateCodonTableFromSequence):
+    //   Builds an organism-style usage table from a reference CDS: it counts each codon,
+    //   groups the observed codons by amino acid, and stores the WITHIN-FAMILY relative
+    //   frequency  f(codon) = count(codon) / Σ_{syn present} count  for every codon that
+    //   occurs. Thus the per-amino-acid frequencies form a probability distribution.
+    //
+    // Relations (derived from the count→fraction normalisation, NOT from output):
+    //   • INV (duplicate ⇒ same ratios): every codon count scales by the same factor when
+    //          the sequence is concatenated with itself (or its codons reordered), and the
+    //          normalisation count/Σcount cancels that factor — so the usage ratios are
+    //          invariant to sequence duplication and to codon-order permutation.
+    //   • COMP (sum per AA = 1): within each amino-acid family the stored fractions are
+    //          count/(family total), so they sum to exactly 1 over the codons present.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region CODON-USAGE-001 — Helpers
+
+    // A CDS where two amino-acid families each appear with a 2:1 codon split, so the
+    // usage ratios are non-trivial: Leu CTG×2/CTA×1, Ala GCC×2/GCA×1, plus Lys AAA×1.
+    private const string UsageReference = "CTGCTGCTAGCCGCCGCAAAA";
+
+    /// <summary>Sums the table's stored frequencies within each amino-acid family that has any codon present.</summary>
+    private static Dictionary<string, double> FamilySums(CodonOptimizer.CodonUsageTable table)
+    {
+        var byAa = new Dictionary<string, double>();
+        foreach (var (codon, freq) in table.CodonFrequencies)
+        {
+            string aa = table.CodonToAminoAcid.GetValueOrDefault(codon, "X");
+            byAa[aa] = byAa.GetValueOrDefault(aa, 0) + freq;
+        }
+        return byAa;
+    }
+
+    #endregion
+
+    #region CODON-USAGE-001 INV — usage ratios are invariant to duplication and codon order
+
+    [Test]
+    [Description("INV: duplicating the reference sequence scales every codon count by 2; the count/Σcount normalisation cancels the factor, so the per-codon usage ratios are identical.")]
+    public void CreateCodonTable_DuplicatedSequence_PreservesRatios()
+    {
+        var single = CodonOptimizer.CreateCodonTableFromSequence(UsageReference, "single");
+        var doubled = CodonOptimizer.CreateCodonTableFromSequence(UsageReference + UsageReference, "doubled");
+
+        doubled.CodonFrequencies.Keys.Should().BeEquivalentTo(single.CodonFrequencies.Keys,
+            because: "duplication adds no new codons, only doubles existing counts");
+
+        foreach (var (codon, freq) in single.CodonFrequencies)
+            doubled.CodonFrequencies[codon].Should().BeApproximately(freq, 1e-12,
+                because: $"the within-family fraction of {codon} is unchanged when all counts double");
+    }
+
+    [Test]
+    [Description("INV: usage ratios depend only on the codon multiset, so reordering the codons (here reversing them) yields an identical table.")]
+    public void CreateCodonTable_CodonOrderPermutation_PreservesRatios()
+    {
+        var reversedCodons = Codons(UsageReference);
+        reversedCodons.Reverse();
+        string permuted = string.Concat(reversedCodons);
+
+        permuted.Should().NotBe(UsageReference.ToUpperInvariant().Replace('T', 'U'),
+            because: "reversing codon order must actually rearrange the sequence for the invariance to be meaningful");
+
+        var original = CodonOptimizer.CreateCodonTableFromSequence(UsageReference, "orig");
+        var reordered = CodonOptimizer.CreateCodonTableFromSequence(permuted, "perm");
+
+        reordered.CodonFrequencies.Keys.Should().BeEquivalentTo(original.CodonFrequencies.Keys);
+        foreach (var (codon, freq) in original.CodonFrequencies)
+            reordered.CodonFrequencies[codon].Should().BeApproximately(freq, 1e-12,
+                because: "the codon multiset — and hence every within-family fraction — is unchanged by reordering");
+    }
+
+    #endregion
+
+    #region CODON-USAGE-001 COMP — within-family frequencies sum to 1
+
+    [Test]
+    [Description("COMP: the stored frequencies are count/(family total), so within each amino-acid family that has any codon present they sum to exactly 1.")]
+    public void CreateCodonTable_PerAminoAcidFrequencies_SumToOne()
+    {
+        var table = CodonOptimizer.CreateCodonTableFromSequence(UsageReference, "ref");
+
+        var sums = FamilySums(table);
+        sums.Should().NotBeEmpty(because: "the reference sequence contains several amino-acid families");
+
+        foreach (var (aa, sum) in sums)
+            sum.Should().BeApproximately(1.0, 1e-12,
+                because: $"the codon fractions for amino acid '{aa}' partition that family's counts and must sum to 1");
+
+        // Spot-check the engineered 2:1 splits to prove the fractions are the real ratios,
+        // not an accidental 1.0 from single-codon families.
+        table.CodonFrequencies["CUG"].Should().BeApproximately(2.0 / 3.0, 1e-12, because: "Leucine is CTG×2 vs CTA×1");
+        table.CodonFrequencies["CUA"].Should().BeApproximately(1.0 / 3.0, 1e-12, because: "Leucine is CTG×2 vs CTA×1");
+        table.CodonFrequencies["GCC"].Should().BeApproximately(2.0 / 3.0, 1e-12, because: "Alanine is GCC×2 vs GCA×1");
+        table.CodonFrequencies["GCA"].Should().BeApproximately(1.0 / 3.0, 1e-12, because: "Alanine is GCC×2 vs GCA×1");
+    }
+
+    #endregion
 }
