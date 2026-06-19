@@ -291,4 +291,76 @@ public class MiRnaMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: MIRNA-PAIR-001 — miRNA-to-target seed pairing/alignment (MiRNA).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 225.
+    //
+    // API under test (MiRnaAnalyzer.FindTargetSites):
+    //   Locates seed reverse-complement matches along the mRNA and reports the pairing as target
+    //   sites (Start/End, type, alignment, score). The site span and score depend only on the local
+    //   window at the match.
+    //
+    // Relations (derived from the local seed-match definition, NOT from output):
+    //   • INV  (deterministic): a pure function — repeated calls give identical sites.
+    //   • SHIFT (prepend flank shifts alignment): prepending a seed-free 5' flank to the mRNA shifts
+    //          every site's Start/End by the flank length and leaves its type/score/alignment intact.
+    //          A poly-A flank carries no seed match (target prediction is seed-gated), so it adds no
+    //          sites — the relation is an exact translation.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region MIRNA-PAIR-001 — Helpers
+
+    private static (int Start, int End, MiRnaAnalyzer.TargetSiteType Type, double Score, int SeedMatchLength, string Target, string Alignment)
+        PairKey(MiRnaAnalyzer.TargetSite s) => (s.Start, s.End, s.Type, s.Score, s.SeedMatchLength, s.TargetSequence, s.Alignment);
+
+    #endregion
+
+    #region MIRNA-PAIR-001 INV — pairing is deterministic
+
+    [Test]
+    [Description("INV: FindTargetSites is a pure function — repeated calls on the same inputs give identical sites.")]
+    public void Pairing_SameInput_SameSites()
+    {
+        var mirna = MiRnaAnalyzer.CreateMiRna("let-7a", Let7a);
+        string seedRc = MiRnaAnalyzer.GetReverseComplement(mirna.SeedSequence);
+        string mrna = "GGGG" + seedRc + "GGGGGGGG";
+
+        var first = MiRnaAnalyzer.FindTargetSites(mrna, mirna, minScore: 0.0).Select(PairKey).ToList();
+        var again = MiRnaAnalyzer.FindTargetSites(mrna, mirna, minScore: 0.0).Select(PairKey).ToList();
+
+        first.Should().NotBeEmpty(because: "the embedded seed reverse-complement yields at least one pairing — a non-vacuous fixture");
+        again.Should().Equal(first, because: "target pairing has no hidden state");
+    }
+
+    #endregion
+
+    #region MIRNA-PAIR-001 SHIFT — prepending a seed-free flank translates the pairing
+
+    [Test]
+    [Description("SHIFT: prepending a poly-A (seed-free) 5' flank shifts every site's coordinates by the flank length while preserving its type, score and alignment.")]
+    public void Pairing_PrependFlank_ShiftsSites()
+    {
+        var mirna = MiRnaAnalyzer.CreateMiRna("let-7a", Let7a);
+        string seedRc = MiRnaAnalyzer.GetReverseComplement(mirna.SeedSequence);
+        string mrna = "GGGG" + seedRc + "GGGGGGGG";
+
+        var baseline = MiRnaAnalyzer.FindTargetSites(mrna, mirna, minScore: 0.0).ToList();
+        baseline.Should().NotBeEmpty();
+        baseline.Should().OnlyContain(s => s.Start >= 1, because: "no site sits at index 0, so a 5' flank cannot change any site's seed classification");
+
+        foreach (int offset in new[] { 4, 12 })
+        {
+            string flank = new string('A', offset); // poly-A carries no seed match
+            var shifted = MiRnaAnalyzer.FindTargetSites(flank + mrna, mirna, minScore: 0.0).Select(PairKey).ToList();
+
+            var expected = baseline.Select(s =>
+                (s.Start + offset, s.End + offset, s.Type, s.Score, s.SeedMatchLength, s.TargetSequence, s.Alignment));
+
+            shifted.Should().BeEquivalentTo(expected,
+                because: $"a seed-free {offset}-nt 5' flank adds no sites and translates every pairing by {offset}");
+        }
+    }
+
+    #endregion
 }
