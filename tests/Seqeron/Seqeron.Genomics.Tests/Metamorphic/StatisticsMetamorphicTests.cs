@@ -286,4 +286,53 @@ public class StatisticsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: SEQ-SECSTRUCT-001 — secondary-structure propensity profile (Statistics).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 126.
+    //
+    // API under test (SequenceStatistics.PredictSecondaryStructure):
+    //   Sliding-window mean Chou-Fasman (helix, sheet, turn) propensities; one tuple per window.
+    //
+    // Relations (derived from the sliding window, NOT from output):
+    //   • SHIFT (prepend flank shifts assignments): windows entirely within the original sequence
+    //          appear as the suffix of the combined profile, shifted by the flank length.
+    //   • INV  (deterministic): the profile is a pure function of the sequence.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region SEQ-SECSTRUCT-001 SHIFT — a prepended flank shifts the window profile
+
+    [Test]
+    [Description("SHIFT: windows entirely within the original sequence appear unchanged as the suffix of the flank+seq profile, shifted by the flank length.")]
+    public void SecondaryStructure_PrependFlank_ShiftsProfile()
+    {
+        const string seq = "MKLVAGWTYSDERHF";
+        const int window = 7;
+        var seqProfile = SequenceStatistics.PredictSecondaryStructure(seq, window).ToList();
+        seqProfile.Should().NotBeEmpty();
+
+        foreach (var flank in new[] { "AAAA", "WWWWWW" })
+        {
+            var combined = SequenceStatistics.PredictSecondaryStructure(flank + seq, window).ToList();
+            combined.Skip(flank.Length).Take(seqProfile.Count)
+                .Should().Equal(seqProfile,
+                    because: $"windows fully inside the original sequence are unchanged, only shifted by the {flank.Length}-residue flank");
+        }
+    }
+
+    #endregion
+
+    #region SEQ-SECSTRUCT-001 INV — the profile is deterministic
+
+    [Test]
+    [Description("INV: PredictSecondaryStructure is a pure function — repeated calls give the identical profile.")]
+    public void SecondaryStructure_SameSequence_SameProfile()
+    {
+        const string seq = "MKLVAGWTYSDERHF";
+        SequenceStatistics.PredictSecondaryStructure(seq, 7).ToList()
+            .Should().Equal(SequenceStatistics.PredictSecondaryStructure(seq, 7).ToList(),
+                because: "the propensity profile has no hidden state");
+    }
+
+    #endregion
 }
