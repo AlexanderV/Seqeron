@@ -148,7 +148,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 118 | ☑ | ONCO-ACTION-001 | Oncology | MON: stronger evidence → ≥ tier; INV: variant order independent |
 | 119 | ☑ | ONCO-SV-001 | Oncology | INV: coordinate shift preserves rearrangement class; MON: more clustered breakpoints → chromothripsis |
 | 120 | ☑ | ONCO-EXPR-001 | Oncology | INV: scaling all expression equally preserves z-scores/outliers; MON: lower threshold → superset |
-| 121 | ☐ | SEQ-COMPOSITION-001 | Statistics | INV: permutation invariant; P: complement swaps A↔T and C↔G counts |
+| 121 | ☑ | SEQ-COMPOSITION-001 | Statistics | INV: permutation invariant; P: complement swaps A↔T and C↔G counts |
 | 122 | ☐ | SEQ-DINUC-001 | Statistics | INV: reverse-complement maps each dinucleotide to its revcomp; SHIFT: prepend flank adds only boundary dinucleotides |
 | 123 | ☐ | SEQ-HYDRO-001 | Statistics | INV: permutation changes profile but not mean; MON: adding a hydrophobic residue → ≥ mean |
 | 124 | ☐ | SEQ-MW-001 | Statistics | ADD: MW(a+b) = MW(a)+MW(b) − water; INV: permutation invariant |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 120 |
-| ☐ Not started | 114 |
+| ☑ Complete | 121 |
+| ☐ Not started | 113 |
 | MR relations defined | ~200+ |
