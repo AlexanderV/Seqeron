@@ -140,4 +140,65 @@ public class TranscriptomeMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: TRANS-SPLICE-001 — alternative-splicing detection (Transcriptome).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 200.
+    //
+    // API under test (TranscriptomeAnalyzer.DetectAlternativeSplicing):
+    //   Compares isoform pairs of a gene and classifies each structural difference (SE/RI/A5SS/...).
+    //
+    // Relations (derived from the pairwise structural comparison, NOT from output):
+    //   • INV  (isoform order independent): pairs are compared unordered, so reordering the isoforms
+    //          yields the same event set.
+    //   • SHIFT (coordinate shift shifts exon coords): adding a constant offset to every exon
+    //          coordinate shifts each event's Start/End by that offset.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private static TranscriptomeAnalyzer.TranscriptIsoform Iso(string id, params (int Start, int End)[] exons) =>
+        new(id, "G", exons.Sum(e => e.End - e.Start + 1), exons.Length, 1.0, true, exons);
+
+    // Isoform with all three exons vs one that skips the middle exon ⇒ a skipped-exon event.
+    private static readonly (int, int)[] FullExons = { (100, 200), (300, 400), (500, 600) };
+    private static readonly (int, int)[] SkippedExons = { (100, 200), (500, 600) };
+
+    private static HashSet<(string, int, int)> SplicingEvents(IEnumerable<TranscriptomeAnalyzer.TranscriptIsoform> isoforms) =>
+        TranscriptomeAnalyzer.DetectAlternativeSplicing(isoforms)
+            .Select(e => (e.EventType, e.Start, e.End)).ToHashSet();
+
+    #region TRANS-SPLICE-001 INV — event set is independent of isoform order
+
+    [Test]
+    [Description("INV: isoform pairs are compared unordered, so reversing the isoform list yields the same set of splicing events.")]
+    public void Splicing_IsoformOrder_Invariant()
+    {
+        var isoforms = new[] { Iso("full", FullExons), Iso("skip", SkippedExons) };
+        var original = SplicingEvents(isoforms);
+        original.Should().NotBeEmpty(because: "the two isoforms differ by a skipped exon");
+
+        SplicingEvents(isoforms.Reverse()).Should().BeEquivalentTo(original,
+            because: "the splicing event set does not depend on the order of the isoforms");
+    }
+
+    #endregion
+
+    #region TRANS-SPLICE-001 SHIFT — a coordinate shift shifts the exon coords
+
+    [Test]
+    [Description("SHIFT: adding a constant offset to every exon coordinate shifts each event's Start/End by that offset.")]
+    public void Splicing_CoordinateShift_ShiftsEvents()
+    {
+        var original = SplicingEvents(new[] { Iso("full", FullExons), Iso("skip", SkippedExons) });
+
+        foreach (int offset in new[] { 1000, 50000 })
+        {
+            (int, int)[] Shift((int Start, int End)[] exons) => exons.Select(e => (e.Start + offset, e.End + offset)).ToArray();
+            var shifted = SplicingEvents(new[] { Iso("full", Shift(FullExons)), Iso("skip", Shift(SkippedExons)) });
+
+            shifted.Should().BeEquivalentTo(original.Select(e => (e.Item1, e.Item2 + offset, e.Item3 + offset)),
+                because: $"shifting every exon coordinate by {offset} shifts each event's coordinates by {offset}");
+        }
+    }
+
+    #endregion
 }
