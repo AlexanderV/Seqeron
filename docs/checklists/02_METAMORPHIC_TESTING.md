@@ -151,7 +151,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 121 | ☑ | SEQ-COMPOSITION-001 | Statistics | INV: permutation invariant; P: complement swaps A↔T and C↔G counts |
 | 122 | ☑ | SEQ-DINUC-001 | Statistics | INV: reverse-complement maps each dinucleotide to its revcomp; SHIFT: prepend flank adds only boundary dinucleotides |
 | 123 | ☑ | SEQ-HYDRO-001 | Statistics | INV: permutation changes profile but not mean; MON: adding a hydrophobic residue → ≥ mean |
-| 124 | ☐ | SEQ-MW-001 | Statistics | ADD: MW(a+b) = MW(a)+MW(b) − water; INV: permutation invariant |
+| 124 | ☑ | SEQ-MW-001 | Statistics | ADD: MW(a+b) = MW(a)+MW(b) − water; INV: permutation invariant |
 | 125 | ☐ | SEQ-PI-001 | Statistics | INV: permutation invariant; MON: more acidic residues → lower pI |
 | 126 | ☐ | SEQ-SECSTRUCT-001 | Statistics | SHIFT: prepend flank shifts assignments; INV: deterministic |
 | 127 | ☐ | SEQ-STATS-001 | Statistics | INV: permutation invariant; P: concatenation sums counts |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 123 |
-| ☐ Not started | 111 |
+| ☑ Complete | 124 |
+| ☐ Not started | 110 |
 | MR relations defined | ~200+ |

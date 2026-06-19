@@ -192,4 +192,52 @@ public class StatisticsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: SEQ-MW-001 — protein molecular weight (Statistics).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 124.
+    //
+    // API under test (SequenceStatistics.CalculateMolecularWeight):
+    //   MW = Σ(residue masses) − (n − 1)·water (one water lost per peptide bond).
+    //
+    // Relations (derived from the peptide-bond model, NOT from output):
+    //   • ADD  (MW(a+b) = MW(a) + MW(b) − water): concatenation forms one extra peptide bond,
+    //          releasing exactly one water.
+    //   • INV  (permutation invariant): MW is a function of the residue multiset only.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region SEQ-MW-001 ADD — concatenation loses one water
+
+    [Test]
+    [Description("ADD: concatenating two peptides forms one extra peptide bond, so MW(a+b) = MW(a) + MW(b) − water.")]
+    public void MolecularWeight_Concatenation_LosesOneWater()
+    {
+        // Derive the water mass from the API itself: MW(\"AA\") = 2·MW(\"A\") − water.
+        double water = 2 * SequenceStatistics.CalculateMolecularWeight("A") - SequenceStatistics.CalculateMolecularWeight("AA");
+        water.Should().BeGreaterThan(0, because: "a peptide bond releases a positive water mass");
+
+        foreach (var (a, b) in new[] { ("MKL", "VAG"), ("ACDEF", "GHIKL"), ("W", "PQRST") })
+        {
+            double expected = SequenceStatistics.CalculateMolecularWeight(a) + SequenceStatistics.CalculateMolecularWeight(b) - water;
+            SequenceStatistics.CalculateMolecularWeight(a + b)
+                .Should().BeApproximately(expected, 1e-6,
+                    because: $"joining '{a}' and '{b}' forms one peptide bond, removing one water");
+        }
+    }
+
+    #endregion
+
+    #region SEQ-MW-001 INV — permutation invariant
+
+    [Test]
+    [Description("INV: MW depends only on the residue multiset, so reordering the residues leaves it unchanged.")]
+    public void MolecularWeight_Permutation_Invariant()
+    {
+        const string protein = "MKLVAGWTYSDE";
+        SequenceStatistics.CalculateMolecularWeight(new string(protein.Reverse().ToArray()))
+            .Should().BeApproximately(SequenceStatistics.CalculateMolecularWeight(protein), 1e-9,
+                because: "MW sums residue masses and removes (n−1) waters — both invariant to order");
+    }
+
+    #endregion
 }
