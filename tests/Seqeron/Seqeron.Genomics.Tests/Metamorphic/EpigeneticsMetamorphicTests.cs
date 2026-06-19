@@ -348,4 +348,71 @@ public class EpigeneticsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: EPIGEN-METHYL-001 — methylation calling from bisulfite reads (Epigenetics).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 185.
+    //
+    // API under test (EpigeneticsAnalyzer.CalculateMethylationFromBisulfite):
+    //   At each reference CpG, counts read C (methylated) / T (unmethylated) calls and reports the
+    //   fraction and coverage.
+    //
+    // Relations (derived from per-read count accumulation, NOT from output):
+    //   • INV  (read order independent): counts accumulate over reads, so the per-site level and
+    //          coverage do not depend on read order.
+    //   • ADD  (counts additive over reads): per CpG, the coverage and methylated-call counts of a
+    //          read set equal the sums over any partition of the reads.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private const string MethylReference = "ACGTACGT"; // CpG cytosines at positions 1 and 5
+
+    private static readonly (string, int)[] MethylReads =
+    {
+        ("ACGTACGT", 0), // pos1 C (meth), pos5 C (meth)
+        ("ATGTATGT", 0), // pos1 T (unmeth), pos5 T (unmeth)
+        ("ACGTATGT", 0), // pos1 C, pos5 T
+        ("ATGTACGT", 0), // pos1 T, pos5 C
+    };
+
+    private static Dictionary<int, (double Level, int Coverage)> MethylCalls(IEnumerable<(string, int)> reads) =>
+        EpigeneticsAnalyzer.CalculateMethylationFromBisulfite(MethylReference, reads)
+            .ToDictionary(s => s.Position, s => (s.MethylationLevel, s.Coverage));
+
+    #region EPIGEN-METHYL-001 INV — calls are independent of read order
+
+    [Test]
+    [Description("INV: per-CpG C/T calls accumulate over reads, so reversing the read order yields the identical per-site level and coverage.")]
+    public void Methylation_ReadOrder_Invariant()
+    {
+        var forward = MethylCalls(MethylReads);
+        var reversed = MethylCalls(MethylReads.Reverse());
+
+        reversed.Should().BeEquivalentTo(forward,
+            because: "the per-site methylation call is a function of the read multiset, not its order");
+    }
+
+    #endregion
+
+    #region EPIGEN-METHYL-001 ADD — coverage and methylated counts are additive over reads
+
+    [Test]
+    [Description("ADD: per CpG, coverage and the methylated-call count of the full read set equal the sums over a two-part partition of the reads.")]
+    public void Methylation_Additive_OverReadPartition()
+    {
+        var all = MethylCalls(MethylReads);
+        var g1 = MethylCalls(MethylReads.Take(2));
+        var g2 = MethylCalls(MethylReads.Skip(2));
+
+        foreach (int site in all.Keys)
+        {
+            all[site].Coverage.Should().Be(g1[site].Coverage + g2[site].Coverage,
+                because: $"coverage at CpG {site} is additive over the read partition");
+
+            int MethCount((double Level, int Coverage) c) => (int)System.Math.Round(c.Level * c.Coverage);
+            MethCount(all[site]).Should().Be(MethCount(g1[site]) + MethCount(g2[site]),
+                because: $"the methylated-call count at CpG {site} is additive over the read partition");
+        }
+    }
+
+    #endregion
 }
