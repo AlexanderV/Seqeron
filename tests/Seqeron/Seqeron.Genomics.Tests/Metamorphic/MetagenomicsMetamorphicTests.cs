@@ -605,4 +605,69 @@ public class MetagenomicsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: META-RESIST-001 — antibiotic-resistance gene detection (Metagenomics).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 196.
+    //
+    // API under test (MetagenomicsAnalyzer.FindAntibioticResistanceGenes):
+    //   Reports the best reference-gene hit per contig passing identity/coverage cutoffs (ResFinder).
+    //
+    // Relations (derived from per-contig best-hit matching, NOT from output):
+    //   • INV  (read order independent): each contig is matched independently, so reordering the
+    //          contigs yields the same hit set.
+    //   • SUB  (larger DB ⇒ ≥ hits): adding reference genes can only let more contigs match, so the
+    //          set of contigs with hits grows.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private const string ResGeneA = "ACGTACGTACGTACGT";
+    private const string ResGeneB = "TTGGCCAATTGGCCAA";
+
+    private static readonly (string, string)[] ResContigs =
+    {
+        ("c1", "TTTT" + ResGeneA + "TTTT"),
+        ("c2", "AAAA" + ResGeneB + "AAAA"),
+        ("c3", "GGGGGGGGGGGGGGGG"), // matches neither
+    };
+
+    private static readonly (string, string, string, string)[] ResDbSmall =
+    {
+        ("idA", ResGeneA, "GeneA", "ClassA"),
+    };
+    private static readonly (string, string, string, string)[] ResDbLarge =
+    {
+        ("idA", ResGeneA, "GeneA", "ClassA"),
+        ("idB", ResGeneB, "GeneB", "ClassB"),
+    };
+
+    #region META-RESIST-001 INV — detection is independent of contig order
+
+    [Test]
+    [Description("INV: each contig is matched against the reference set independently, so reordering the contigs yields the same set of (contig, gene) hits.")]
+    public void Resistance_ContigOrder_Invariant()
+    {
+        var forward = MetagenomicsAnalyzer.FindAntibioticResistanceGenes(ResContigs, ResDbLarge)
+            .Select(h => (h.ContigId, h.ResistanceGene)).ToHashSet();
+        var reversed = MetagenomicsAnalyzer.FindAntibioticResistanceGenes(ResContigs.Reverse(), ResDbLarge)
+            .Select(h => (h.ContigId, h.ResistanceGene)).ToHashSet();
+
+        reversed.Should().BeEquivalentTo(forward, because: "per-contig matching does not depend on contig order");
+    }
+
+    #endregion
+
+    #region META-RESIST-001 SUB — a larger reference DB yields more hits
+
+    [Test]
+    [Description("SUB: adding reference genes can only let more contigs match, so the larger DB's hit set is a superset of the smaller DB's.")]
+    public void Resistance_LargerDatabase_MoreHits()
+    {
+        var small = MetagenomicsAnalyzer.FindAntibioticResistanceGenes(ResContigs, ResDbSmall).Select(h => h.ContigId).ToHashSet();
+        var large = MetagenomicsAnalyzer.FindAntibioticResistanceGenes(ResContigs, ResDbLarge).Select(h => h.ContigId).ToHashSet();
+
+        small.IsSubsetOf(large).Should().BeTrue(because: "the larger DB still contains every reference of the smaller one");
+        large.Count.Should().BeGreaterThan(small.Count, because: "adding GeneB makes contig c2 a hit");
+    }
+
+    #endregion
 }
