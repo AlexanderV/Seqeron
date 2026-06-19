@@ -646,4 +646,73 @@ public class CodonMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: CODON-STATS-001 — codon-count statistics (Codon).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 215.
+    //
+    // API under test (CodonUsageAnalyzer.CountCodons / GetStatistics.TotalCodons):
+    //   Splits a frame-aligned coding sequence into consecutive 3-mers and tallies each codon.
+    //
+    // Relations (derived from the in-frame tally, NOT from output):
+    //   • INV  (order independent): the codon-count multiset depends only on which whole codons are
+    //          present, so permuting the codons of a sequence leaves the counts unchanged.
+    //   • ADD  (counts additive on concatenation): concatenating two frame-aligned sequences keeps
+    //          both reading frames intact, so CountCodons(a+b) = CountCodons(a) + CountCodons(b) and
+    //          TotalCodons is additive.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region CODON-STATS-001 INV — codon counts are independent of codon order
+
+    [Test]
+    [Description("INV: the codon-count multiset depends only on which whole codons are present, so permuting the codons leaves the counts unchanged.")]
+    public void CodonCounts_CodonOrder_Invariant()
+    {
+        string coding = ModerateCoding();
+        var original = CodonUsageAnalyzer.CountCodons(coding);
+
+        var codons = Codons(coding);
+        var rng = new Random(20260620);
+        for (int i = codons.Count - 1; i > 0; i--)
+        {
+            int j = rng.Next(i + 1);
+            (codons[i], codons[j]) = (codons[j], codons[i]);
+        }
+        string shuffled = string.Concat(codons).Replace('U', 'T');
+
+        CodonUsageAnalyzer.CountCodons(shuffled).Should().BeEquivalentTo(original,
+            because: "codon counts depend only on the multiset of codons, not their order");
+    }
+
+    #endregion
+
+    #region CODON-STATS-001 ADD — codon counts are additive over frame-aligned concatenation
+
+    [Test]
+    [Description("ADD: concatenating two frame-aligned sequences keeps both reading frames intact, so CountCodons(a+b) = CountCodons(a) + CountCodons(b) and TotalCodons is additive.")]
+    public void CodonCounts_Concatenation_AreAdditive()
+    {
+        string a = CodingSequence;         // 24 nt = 8 codons (multiple of 3)
+        string b = ModerateCoding();       // built from whole codons (multiple of 3)
+        (a.Length % 3).Should().Be(0);
+        (b.Length % 3).Should().Be(0);
+
+        var countA = CodonUsageAnalyzer.CountCodons(a);
+        var countB = CodonUsageAnalyzer.CountCodons(b);
+        var countAB = CodonUsageAnalyzer.CountCodons(a + b);
+
+        foreach (var codon in countA.Keys.Union(countB.Keys))
+            countAB.GetValueOrDefault(codon, 0)
+                .Should().Be(countA.GetValueOrDefault(codon, 0) + countB.GetValueOrDefault(codon, 0),
+                    because: $"codon {codon}'s count in the concatenation is the sum of its counts in the parts");
+
+        countAB.Keys.Should().BeEquivalentTo(countA.Keys.Union(countB.Keys),
+            because: "a frame-aligned concatenation introduces no codons absent from both parts");
+
+        CodonUsageAnalyzer.GetStatistics(a + b).TotalCodons
+            .Should().Be(CodonUsageAnalyzer.GetStatistics(a).TotalCodons + CodonUsageAnalyzer.GetStatistics(b).TotalCodons,
+                because: "the total codon count is additive over a frame-aligned concatenation");
+    }
+
+    #endregion
 }

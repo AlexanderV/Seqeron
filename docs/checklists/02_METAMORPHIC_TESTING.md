@@ -242,7 +242,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 212 | ☑ | SEQ-RNACOMP-001 | Composition | INV: complement∘complement = identity; P: A↔U, G↔C |
 | 213 | ☑ | CODON-ENC-001 | Codon | MON: more biased usage → lower ENC; INV: codon order independent |
 | 214 | ☑ | CODON-RSCU-001 | Codon | INV: codon order independent; P: per-AA RSCU mean = 1 |
-| 215 | ☐ | CODON-STATS-001 | Codon | INV: order independent; ADD: counts additive on concatenation |
+| 215 | ☑ | CODON-STATS-001 | Codon | INV: order independent; ADD: counts additive on concatenation |
 | 216 | ☐ | ANNOT-CODING-001 | Annotation | INV: deterministic; MON: real ORF → higher score |
 | 217 | ☐ | ANNOT-CODONUSAGE-001 | Annotation | INV: codon order independent; P: per-AA sum = 1 |
 | 218 | ☐ | ANNOT-REPEAT-001 | Annotation | MON: lower minLen → superset; SHIFT: prepend flank shifts elements |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 214 |
-| ☐ Not started | 20 |
+| ☑ Complete | 215 |
+| ☐ Not started | 19 |
 | MR relations defined | ~200+ |
