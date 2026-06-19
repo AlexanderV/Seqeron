@@ -498,4 +498,84 @@ public class ComparativeMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: COMPGEN-REVERSAL-001 — reversal distance (Comparative).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 138.
+    //
+    // API under test (ComparativeGenomics.CalculateReversalDistance):
+    //   The unsigned breakpoint lower bound ⌈b/2⌉ on the reversal (sorting-by-reversals) distance
+    //   between two gene orders (Bafna & Pevzner 1998).
+    //
+    // Relations (derived from the breakpoint bound, NOT from output):
+    //   • INV  (identical permutation ⇒ 0): identical orders have no breakpoints, so the distance is 0.
+    //   • SYM  (symmetric): the breakpoint count is invariant under inverting the relative
+    //          permutation, so d(p1,p2)=d(p2,p1).
+    //   • MON  (more reversals applied ⇒ ≥ distance): each reversal removes at most two breakpoints, so
+    //          the returned lower bound never exceeds the number of reversals actually applied — the
+    //          applied count is an upper bound (≥) on the distance.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    // Reverses the inclusive sub-range [i, j] of a copy of the permutation (one reversal operation).
+    private static int[] ApplyReversal(int[] perm, int i, int j)
+    {
+        var copy = (int[])perm.Clone();
+        System.Array.Reverse(copy, i, j - i + 1);
+        return copy;
+    }
+
+    #region COMPGEN-REVERSAL-001 INV — identical permutations are distance 0
+
+    [Test]
+    [Description("INV: an order compared with itself has no breakpoints, so its reversal distance is 0.")]
+    public void ReversalDistance_IdenticalPermutation_Zero()
+    {
+        foreach (var p in new[] { new[] { 0, 1, 2, 3, 4 }, new[] { 3, 1, 4, 0, 2 } })
+            ComparativeGenomics.CalculateReversalDistance(p, p).Should().Be(0,
+                because: "identical orders share every adjacency, so there are no breakpoints");
+    }
+
+    #endregion
+
+    #region COMPGEN-REVERSAL-001 SYM — the distance is symmetric
+
+    [Test]
+    [Description("SYM: the breakpoint count is invariant under inverting the relative permutation, so d(p1,p2)=d(p2,p1).")]
+    public void ReversalDistance_Symmetric()
+    {
+        var p1 = new[] { 2, 0, 4, 1, 3 };
+        var p2 = new[] { 0, 1, 2, 3, 4 };
+        var p3 = new[] { 4, 3, 2, 1, 0 };
+
+        ComparativeGenomics.CalculateReversalDistance(p2, p1)
+            .Should().Be(ComparativeGenomics.CalculateReversalDistance(p1, p2), because: "reversal distance is symmetric");
+        ComparativeGenomics.CalculateReversalDistance(p3, p1)
+            .Should().Be(ComparativeGenomics.CalculateReversalDistance(p1, p3), because: "reversal distance is symmetric");
+    }
+
+    #endregion
+
+    #region COMPGEN-REVERSAL-001 MON — the distance never exceeds the reversals applied
+
+    [Test]
+    [Description("MON: each reversal removes at most two breakpoints, so the breakpoint lower bound is at most the number of reversals applied to reach the permutation from the identity.")]
+    public void ReversalDistance_AtMostReversalsApplied()
+    {
+        int[] identity = { 0, 1, 2, 3, 4, 5, 6, 7 };
+
+        // A fixed sequence of reversal operations; after applying the first k of them, the distance
+        // back to the identity must be ≤ k.
+        var operations = new (int i, int j)[] { (1, 4), (0, 2), (3, 7), (2, 6), (1, 5) };
+
+        int[] current = identity;
+        for (int k = 0; k < operations.Length; k++)
+        {
+            current = ApplyReversal(current, operations[k].i, operations[k].j);
+            int distance = ComparativeGenomics.CalculateReversalDistance(current, identity);
+            distance.Should().BeLessThanOrEqualTo(k + 1,
+                because: $"reaching this order took {k + 1} reversals, an upper bound on the true (and hence the lower-bound) distance");
+        }
+    }
+
+    #endregion
 }
