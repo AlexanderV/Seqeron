@@ -68,4 +68,75 @@ public class StatisticsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: SEQ-DINUC-001 — dinucleotide frequencies (Statistics).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 122.
+    //
+    // API under test (SequenceStatistics.CalculateDinucleotideFrequencies):
+    //   f_XY = count(XY) / (N−1) over the sliding dinucleotide windows.
+    //
+    // Relations (derived from dinucleotide counting, NOT from output):
+    //   • INV  (reverse-complement maps each dinucleotide to its revcomp): the count of XY in a
+    //          sequence equals the count of revcomp(XY) in its reverse complement, so the
+    //          frequency of XY equals the frequency of revcomp(XY) in the reverse complement.
+    //   • SHIFT (prepend flank adds only boundary dinucleotides): the dinucleotide multiset of
+    //          flank+seq is the multisets of flank and seq plus the single boundary dinucleotide.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private static string RevComp(string dna) =>
+        new(dna.Reverse().Select(c => c switch { 'A' => 'T', 'T' => 'A', 'C' => 'G', 'G' => 'C', _ => c }).ToArray());
+
+    private static string RevCompDinuc(string xy) => RevComp(xy);
+
+    // Integer dinucleotide counts reconstructed from frequencies (exact for clean A/C/G/T sequences).
+    private static System.Collections.Generic.Dictionary<string, int> DinucCounts(string seq)
+    {
+        var freq = SequenceStatistics.CalculateDinucleotideFrequencies(seq);
+        int positions = seq.Length - 1;
+        return freq.ToDictionary(kv => kv.Key, kv => (int)System.Math.Round(kv.Value * positions));
+    }
+
+    #region SEQ-DINUC-001 INV — reverse complement maps each dinucleotide to its revcomp
+
+    [Test]
+    [Description("INV: the count of XY in a sequence equals the count of revcomp(XY) in its reverse complement, so f_seq[XY] = f_revcomp[revcomp(XY)].")]
+    public void DinucleotideFrequencies_ReverseComplement_MapsToRevcomp()
+    {
+        const string seq = "ACGTACGTTGGCCAATAC";
+        var freqSeq = SequenceStatistics.CalculateDinucleotideFrequencies(seq);
+        var freqRc = SequenceStatistics.CalculateDinucleotideFrequencies(RevComp(seq));
+
+        foreach (var (dinuc, f) in freqSeq)
+            freqRc.GetValueOrDefault(RevCompDinuc(dinuc)).Should().BeApproximately(f, 1e-12,
+                because: $"dinucleotide {dinuc} maps to {RevCompDinuc(dinuc)} on the reverse-complement strand");
+    }
+
+    #endregion
+
+    #region SEQ-DINUC-001 SHIFT — prepending a flank adds only boundary dinucleotides
+
+    [Test]
+    [Description("SHIFT: the dinucleotide multiset of flank+seq equals the multisets of the flank and the sequence plus the single boundary dinucleotide (flank-last, seq-first).")]
+    public void DinucleotideFrequencies_PrependFlank_AddsOnlyBoundary()
+    {
+        const string seq = "ACGTACGT";
+
+        foreach (var flank in new[] { "TT", "GCGC", "AATT" })
+        {
+            var combined = DinucCounts(flank + seq);
+
+            // Expected multiset = flank dinucs ⊎ seq dinucs ⊎ {boundary}.
+            var expected = new System.Collections.Generic.Dictionary<string, int>();
+            void Add(string d, int n) => expected[d] = expected.GetValueOrDefault(d) + n;
+            foreach (var (d, n) in DinucCounts(flank)) Add(d, n);
+            foreach (var (d, n) in DinucCounts(seq)) Add(d, n);
+            Add($"{flank[^1]}{seq[0]}", 1); // boundary dinucleotide
+
+            combined.Should().BeEquivalentTo(expected,
+                because: $"prepending '{flank}' adds the flank's dinucleotides and one boundary dinucleotide, preserving the sequence's own");
+        }
+    }
+
+    #endregion
 }
