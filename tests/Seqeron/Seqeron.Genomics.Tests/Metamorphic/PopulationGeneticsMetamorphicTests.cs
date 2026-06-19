@@ -315,4 +315,105 @@ public class PopulationGeneticsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: POP-HW-001 — Hardy–Weinberg equilibrium test (PopGen).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 45.
+    //
+    // API under test (PopulationGeneticsAnalyzer.TestHardyWeinberg):
+    //   From observed genotype counts (AA, Aa, aa) it derives p = (2·AA + Aa)/2n, q = 1−p,
+    //   expected counts (p²n, 2pqn, q²n) and the 1-df χ² = Σ (obs−exp)²/exp.
+    //
+    // Relations (derived from these formulas, NOT from output):
+    //   • COMP (genotype proportions sum to 1): p² + 2pq + q² = (p+q)² = 1, so the expected
+    //          counts sum to exactly n.
+    //   • INV (sample-size scaling): scaling every genotype count by k leaves p (hence the
+    //          expected PROPORTIONS) unchanged and scales χ² by exactly k — both obs and exp
+    //          scale by k, so each (obs−exp)²/exp term scales by k.
+    //   • MON (larger deviation ⇒ larger χ²): at a FIXED allele frequency (p = ½, fixed n),
+    //          moving the genotype configuration further from the HWE expectation strictly
+    //          increases χ²; the perfectly-HWE configuration gives χ² = 0.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region COMP — expected genotype counts sum to n (p² + 2pq + q² = 1)
+
+    [Test]
+    [Description("COMP: the HWE expected genotype counts sum to n, because p² + 2pq + q² = (p+q)² = 1.")]
+    public void HardyWeinberg_ExpectedCounts_SumToN()
+    {
+        foreach (var (aa, het, bb) in CountTriples())
+        {
+            int n = aa + het + bb;
+            var hw = PopulationGeneticsAnalyzer.TestHardyWeinberg("v", aa, het, bb);
+
+            (hw.ExpectedAA + hw.ExpectedAa + hw.Expectedaa).Should().BeApproximately(n, 1e-9,
+                because: "the expected proportions p², 2pq, q² sum to (p+q)² = 1, so the expected counts sum to the sample size n");
+        }
+    }
+
+    #endregion
+
+    #region INV — scaling all counts preserves proportions and scales χ² by the factor
+
+    [Test]
+    [Description("INV: scaling every genotype count by k leaves the expected proportions unchanged and scales χ² by exactly k.")]
+    public void HardyWeinberg_ScalingCounts_PreservesProportionsAndScalesChiSquare()
+    {
+        foreach (var (aa, het, bb) in CountTriples())
+        {
+            int n = aa + het + bb;
+            var baseHw = PopulationGeneticsAnalyzer.TestHardyWeinberg("v", aa, het, bb);
+
+            foreach (int k in new[] { 2, 3, 5 })
+            {
+                int nk = k * n;
+                var scaled = PopulationGeneticsAnalyzer.TestHardyWeinberg("v", k * aa, k * het, k * bb);
+
+                (scaled.ExpectedAA / nk).Should().BeApproximately(baseHw.ExpectedAA / n, 1e-12,
+                    because: $"scaling by {k} leaves the allele frequency p unchanged, so the expected AA proportion p² is unchanged");
+                (scaled.Expectedaa / nk).Should().BeApproximately(baseHw.Expectedaa / n, 1e-12,
+                    because: "the expected aa proportion q² depends only on the (scale-invariant) allele frequency");
+
+                scaled.ChiSquare.Should().BeApproximately(k * baseHw.ChiSquare,
+                    Math.Abs(k * baseHw.ChiSquare) * 1e-9 + 1e-9,
+                    because: $"each (obs−exp)²/exp term scales by {k} when both obs and exp scale by {k}");
+            }
+        }
+    }
+
+    #endregion
+
+    #region MON — larger deviation from HWE gives a larger χ²
+
+    [Test]
+    [Description("MON: at a fixed allele frequency (p = ½), moving the genotype configuration further from the HWE expectation strictly increases χ²; the HWE configuration gives χ² = 0.")]
+    public void HardyWeinberg_LargerDeviation_IncreasesChiSquare()
+    {
+        const int n = 1000;   // p fixed at 1/2 by setting aa = AA and Aa = n − 2·AA
+
+        double previous = double.NegativeInfinity;
+
+        // AA descending from the HWE value 250 ⇒ deviation |AA−250| ascending.
+        foreach (int homAA in new[] { 250, 200, 150, 100, 50, 0 })
+        {
+            int het = n - 2 * homAA;   // keeps 2·AA + Aa = n ⇒ p = 1/2
+            int homaa = homAA;         // keeps the sample size at n
+
+            var hw = PopulationGeneticsAnalyzer.TestHardyWeinberg("v", homAA, het, homaa);
+
+            // p must stay exactly 1/2 ⇒ expected counts are the HWE-balanced 250/500/250.
+            hw.ExpectedAa.Should().BeApproximately(0.5 * n, 1e-9,
+                because: "the construction holds the allele frequency at p = 1/2, so the expected heterozygote count is 2pq·n = n/2");
+
+            if (homAA == 250)
+                hw.ChiSquare.Should().BeApproximately(0.0, 1e-9,
+                    because: "the genotype counts equal the HWE expectation, so there is no deviation");
+
+            hw.ChiSquare.Should().BeGreaterThan(previous,
+                because: "with the allele frequency fixed, a genotype configuration further from the HWE expectation has a strictly larger χ²");
+            previous = hw.ChiSquare;
+        }
+    }
+
+    #endregion
 }
