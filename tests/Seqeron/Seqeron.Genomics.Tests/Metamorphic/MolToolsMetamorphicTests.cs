@@ -20,7 +20,8 @@ namespace Seqeron.Genomics.Tests;
 /// ───────────────────────────────────────────────────────────────────────────
 /// Units: CRISPR-PAM-001 (PAM-site finding), CRISPR-GUIDE-001 (guide-RNA design),
 ///        CRISPR-OFF-001 (off-target scoring), PRIMER-TM-001 (primer melting temperature),
-///        PRIMER-DESIGN-001 (PCR primer design).
+///        PRIMER-DESIGN-001 (PCR primer design),
+///        PRIMER-STRUCT-001 (primer secondary structure: self-dimer / hairpin).
 /// ───────────────────────────────────────────────────────────────────────────
 /// Unit: CRISPR-PAM-001 — CRISPR PAM-site finding (MolTools).
 /// Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 18.
@@ -1471,6 +1472,303 @@ public class MolToolsMetamorphicTests
     }
 
     #endregion
+
+    #endregion
+
+    #region PRIMER-STRUCT-001 — primer secondary structure (self-dimer / hairpin)
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Unit: PRIMER-STRUCT-001 — primer secondary structure (MolTools).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 23.
+    //
+    // API under test (PrimerDesigner.cs):
+    //   HasPrimerDimer(primer1, primer2, minComplementarity = 4) → bool
+    //     1. seq1 = primer1.upper();  seq2 = revComp(primer2.upper()).
+    //     2. checkLength = min(8, len1, len2).
+    //     3. end1 = last `checkLength` bases of seq1; end2 = first `checkLength` bases of seq2.
+    //     4. complementary = #{ i : IsComplementary(end1[i], end2[i]) }.
+    //     5. return complementary >= minComplementarity.
+    //   HasHairpinPotential(seq, minStemLength = 4, minLoopLength = 3) → bool
+    //     true ⇔ ∃ a length-minStemLength window at i complementary (reversed) to a
+    //     window at j with j ≥ i + minStemLength + minLoopLength (i.e. a stem-loop
+    //     with stem ≥ minStem and loop ≥ minLoop). false below 2·minStem + minLoop.
+    //
+    // Source (semantics pinned from spec, NOT from observed output):
+    //   docs/algorithms/Molecular_Tools/Primer_Structure_Analysis.md §2.1–§2.2, §4.2;
+    //   docs/algorithms/MolTools/Primer_Design.md.
+    //   "Primer-dimers arise when primers have complementary 3' ends"; the dimer signal
+    //   is the COUNT of complementary base pairs in the compared 3' window (more
+    //   self-complementarity ⇒ stronger dimer). "Hairpins form when a primer contains
+    //   self-complementary regions separated by a loop" — the boolean depends ONLY on
+    //   the existence of such a stem-loop.
+    //
+    // ── Self-dimer score (the MON subject) ──
+    //   For a SELF-dimer we evaluate HasPrimerDimer(primer, primer, ·). The hidden
+    //   score is the complementary-pair count of step 4. Because HasPrimerDimer exposes
+    //   only the boolean `count >= minComplementarity`, we RECOVER the exact score by a
+    //   threshold sweep: SelfDimerScore = the largest threshold t in [0, checkLen] for
+    //   which HasPrimerDimer(primer, primer, t) is still true; that t equals `count`.
+    //   This is the genuine score the implementation computes, read through its only
+    //   public surface — not an output-fitted proxy.
+    //
+    //   Geometry of the SELF window (derived, not observed): for self-dimer
+    //   seq2 = revComp(primer), so end2[i] = complement(w[checkLen-1-i]) where w is the
+    //   terminal checkLen-mer and end1[i] = w[i]. IsComplementary(w[i], complement(x))
+    //   holds iff w[i] == x, so a comparison position i pairs iff w[i] == w[checkLen-1-i].
+    //   So the self-dimer score COUNTS the positions where the terminal checkLen-mer
+    //   equals its own REVERSE (a reverse-EQUAL palindrome — A·T/C·G pairing across the
+    //   antiparallel self-fold maps "complementary" back to "equal"):
+    //     • a terminal window that is a perfect reverse-palindrome (w == reverse(w))
+    //       scores checkLen (the MAXIMUM, fully self-complementary 3' end);
+    //     • a window whose every mirror pair (i, checkLen-1-i) differs scores 0.
+    //   (The matched count is always even: a matched mirror pair contributes 2 positions.)
+    //   MON: a primer with MORE self-complementary terminal pairs has a score ≥ one with
+    //   fewer; strictly higher when the added pairing is real.
+    //
+    // ── Hairpin INV dependency (the exact thing tested) ──
+    //   The hairpin boolean depends ONLY on whether some self-complementary stem pair
+    //   (stem ≥ minStem, loop ≥ minLoop) exists inside the sequence. Appending bases at
+    //   the 3' end preserves every original substring/position, so it can NEVER remove a
+    //   stem ⇒ the boolean is monotone (false→true only). For EXACT invariance we append
+    //   a HOMOPOLYMER run of a base X chosen so it introduces NO new stem:
+    //     • an X-run cannot pair with itself (X is not complementary to X), and
+    //     • we pick X so the body contains NO run of complement(X) of length ≥ minStem,
+    //       so the appended X-run has nothing to pair against.
+    //   With no stem added and none removable, HasHairpinPotential is EXACTLY preserved.
+    //   (We keep the appended run < 2·minStem so the run alone never fabricates a stem,
+    //    and we verify the chosen X is safe for each body before asserting.)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>The terminal comparison window cap used by HasPrimerDimer (min(8, len1, len2)).</summary>
+    private const int DimerCheckCap = 8;
+
+    private const int HairpinMinStem = 4;
+    private const int HairpinMinLoop = 3;
+
+    /// <summary>
+    /// Recovers the implementation's hidden self-dimer score — the complementary-pair
+    /// count in the 3' window — via the only public surface (HasPrimerDimer's boolean
+    /// `count &gt;= threshold`): the largest threshold still returning true equals the count.
+    /// </summary>
+    private static int SelfDimerScore(string primer)
+    {
+        int checkLen = Math.Min(DimerCheckCap, primer.Length);
+        int score = 0;
+        for (int t = 1; t <= checkLen; t++)
+            if (PrimerDesigner.HasPrimerDimer(primer, primer, minComplementarity: t))
+                score = t;
+        return score;
+    }
+
+    /// <summary>DNA complement of a single base (uppercase ACGT).</summary>
+    private static char Complement(char b) => b switch
+    {
+        'A' => 'T',
+        'T' => 'A',
+        'C' => 'G',
+        'G' => 'C',
+        _ => throw new ArgumentException($"Unexpected base '{b}'.", nameof(b)),
+    };
+
+    /// <summary>True if <paramref name="seq"/> contains a run of base <paramref name="b"/> of length ≥ <paramref name="runLen"/>.</summary>
+    private static bool HasRun(string seq, char b, int runLen)
+    {
+        int run = 0;
+        foreach (char c in seq.ToUpperInvariant())
+        {
+            run = (c == b) ? run + 1 : 0;
+            if (run >= runLen)
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Picks an append base X whose HOMOPOLYMER run is guaranteed to add NO hairpin stem
+    /// to <paramref name="body"/>: the body must contain no run of complement(X) of length
+    /// ≥ minStem (so the X-run can pair with nothing), and X cannot pair with itself.
+    /// Returns null if no base over {A,C,G,T} qualifies (then the body is skipped for INV).
+    /// </summary>
+    private static char? SafeHairpinAppendBase(string body, int minStem)
+    {
+        foreach (char x in "ACGT")
+            if (!HasRun(body, Complement(x), minStem))
+                return x;
+        return null;
+    }
+
+    #region MON — more self-complementary 3' end → higher self-dimer score
+
+    [Test]
+    [Description("MON: making one more terminal mirror-pair self-complementary STRICTLY raises the self-dimer score; the chain is monotonically non-decreasing up to the window cap.")]
+    public void HasPrimerDimer_ExtendSelfComplementaryCore_ScoreStrictlyIncreasing()
+    {
+        // A fixed 5' leader keeps the discriminating signal in the 3' terminal 8-base
+        // window. Each tail below is the previous one with one MORE mirror pair
+        // (i, 7-i) made equal — turning two more comparison positions into self-paired
+        // ones. So the recovered self-dimer score (reverse-palindrome position count of
+        // the last 8 bases) rises by exactly 2 at each step: 0, 2, 4, 6, 8.
+        const string leader = "AAAA"; // primer = leader + 8-base tail ⇒ window == tail
+        string[] tailsByRisingSelfComp =
+        {
+            "ACGTACGT", // 0 matched mirror pairs: (A,T)(C,G)(G,C)(T,A) all differ
+            "ACGTTCGT", // + pair (3,4)=T,T            ⇒ 2
+            "ACGTTGGT", // + pair (2,5)=G,G            ⇒ 4
+            "ACGTTGCT", // + pair (1,6)=C,C            ⇒ 6
+            "ACGTTGCA", // + pair (0,7)=A,A (reverse-palindrome) ⇒ 8 (window cap)
+        };
+
+        int previous = -1;
+        foreach (var tail in tailsByRisingSelfComp)
+        {
+            int score = SelfDimerScore(leader + tail);
+
+            score.Should().BeGreaterThan(previous,
+                because: $"making one more terminal mirror pair self-complementary (tail '{tail}') turns two more " +
+                         "comparison positions into pairing ones, so the self-dimer score must strictly rise");
+            previous = score;
+        }
+
+        // The fully self-complementary (reverse-palindromic) terminal window saturates the cap.
+        SelfDimerScore(leader + "ACGTTGCA").Should().Be(DimerCheckCap,
+            because: "the 8-base 3' window 'ACGTTGCA' equals its own reverse, so every comparison position pairs — the maximum");
+    }
+
+    [Test]
+    [Description("MON: a primer with strictly more self-complementary terminal pairs never scores below one with fewer — checked across several primers incl. fixed-seed random.")]
+    public void HasPrimerDimer_MoreSelfComplementaryTerminus_ScoresAtLeastAsHigh()
+    {
+        // For each body we compare its self-dimer score to the same body with one MORE
+        // mirror pair made self-complementary at the 3' end. We make the terminal window
+        // self-palindromic by overwriting its outermost mismatching mirror pair, which
+        // can only turn a non-paired terminal position into a paired one.
+        foreach (var body in StructureSamples())
+        {
+            int baseScore = SelfDimerScore(body);
+
+            // Force a perfectly self-complementary 8-base 3' end: append a window that
+            // equals its own reverse. This is the self-complementarity MAXIMUM.
+            string maximallySelfComp = body + "ACGTTGCA"; // 8-base reverse-palindrome tail
+            int maxScore = SelfDimerScore(maximallySelfComp);
+
+            maxScore.Should().BeGreaterThanOrEqualTo(baseScore,
+                because: "replacing the 3' terminus with a fully self-complementary window can only add complementary " +
+                         "pairs to the compared window, so its self-dimer score is ≥ the original");
+            maxScore.Should().Be(DimerCheckCap,
+                because: "a reverse-palindromic 3' window (window == reverse(window)) pairs at every comparison position — the documented maximum");
+        }
+    }
+
+    [Test]
+    [Description("MON anchors: a fully self-complementary (palindromic) 3' end scores the maximum; a 3' end with no self-complementary mirror pair scores the minimum (0).")]
+    public void HasPrimerDimer_KnownExtremes_MaxForPalindromeZeroForNonComplementary()
+    {
+        // Maximum: the 8-base 3' window equals its own reverse (every mirror pair matches).
+        SelfDimerScore("AAAAACGTTGCA").Should().Be(DimerCheckCap,
+            because: "the 8-base 3' window 'ACGTTGCA' equals reverse('ACGTTGCA'), so all 8 comparison positions pair — the maximum");
+        // An all-same 3' end is the trivial reverse-palindrome and also hits the maximum.
+        SelfDimerScore("GCGCAAAAAAAA").Should().Be(DimerCheckCap,
+            because: "an all-A 8-base 3' window is its own reverse, so every comparison position pairs — the maximum");
+
+        // Minimum: build an 8-base 3' window whose every mirror pair (i, 7-i) DIFFERS,
+        // so no comparison position is self-paired → score 0.
+        //   window 'ACGTACGT': pairs (A,T)(C,G)(G,C)(T,A) — every mirror pair differs.
+        SelfDimerScore("AAAAACGTACGT").Should().Be(0,
+            because: "in the 3' window 'ACGTACGT' every mirror pair (i, 7-i) differs, so none is self-complementary — the minimum 0");
+    }
+
+    #endregion
+
+    #region INV — appending a non-complementary homopolymer run preserves the hairpin result
+
+    [Test]
+    [Description("INV: appending a homopolymer run that can pair with nothing in the body leaves HasHairpinPotential exactly unchanged (no stem added, none removable).")]
+    public void HasHairpinPotential_AppendNonPairingHomopolymer_ResultUnchanged()
+    {
+        foreach (var body in StructureSamples())
+        {
+            char? appendBase = SafeHairpinAppendBase(body, HairpinMinStem);
+            if (appendBase is null)
+                continue; // no homopolymer is provably non-pairing for this body — skip (INV not guaranteed)
+
+            bool baseResult = PrimerDesigner.HasHairpinPotential(body, HairpinMinStem, HairpinMinLoop);
+
+            // Several run lengths, all < 2*minStem so the run alone can never fabricate a stem.
+            foreach (int runLen in new[] { 1, 3, 5, 7 })
+            {
+                string ext = new string(appendBase.Value, runLen);
+                bool extResult = PrimerDesigner.HasHairpinPotential(body + ext, HairpinMinStem, HairpinMinLoop);
+
+                extResult.Should().Be(baseResult,
+                    because: $"a '{appendBase}'×{runLen} append pairs with nothing (its complement has no length-{HairpinMinStem} run in the body, " +
+                             "and it cannot pair with itself), so it adds no stem; appending also removes no existing stem ⇒ the hairpin result is preserved exactly");
+            }
+        }
+    }
+
+    [Test]
+    [Description("INV: a primer that DOES form a hairpin keeps forming it, and the stem identity is untouched, when a non-pairing homopolymer is appended after a guaranteed-safe loop gap.")]
+    public void HasHairpinPotential_KnownHairpin_NonPairingAppendKeepsTrue()
+    {
+        // GCGC <loop TTTTT> GCGC : stem 'GCGC' at the 5' end is reverse-complementary to
+        // 'GCGC' at the 3' end with a 5-nt loop (≥ minLoop). This is a true hairpin.
+        const string hairpin = "GCGC" + "TTTTT" + "GCGC";
+        PrimerDesigner.HasHairpinPotential(hairpin, HairpinMinStem, HairpinMinLoop).Should().BeTrue(
+            because: "the 5' 'GCGC' and 3' 'GCGC' are a reverse-complementary stem pair separated by a 5-nt loop");
+
+        // Append a poly-A run: the body has no 4-long T run (only the loop 'TTTTT' — wait,
+        // it has TTTTT). So complement(A)=T HAS a length-4 run; A is NOT safe here.
+        // Use poly-C instead: complement(C)=G; the body has no length-4 G run, so a poly-C
+        // append pairs with nothing and adds no stem.
+        SafeHairpinAppendBase(hairpin, HairpinMinStem).Should().NotBeNull(
+            because: "at least one base's complement lacks a length-4 run in this body");
+
+        foreach (int runLen in new[] { 1, 3, 6 })
+        {
+            string ext = new string('C', runLen);
+            PrimerDesigner.HasHairpinPotential(hairpin + ext, HairpinMinStem, HairpinMinLoop).Should().BeTrue(
+                because: $"poly-C×{runLen} (complement G has no length-{HairpinMinStem} run in the body) adds no stem and removes none, " +
+                         "so the existing GCGC…GCGC hairpin is still detected");
+        }
+    }
+
+    [Test]
+    [Description("INV: a primer with NO hairpin stays hairpin-free when a non-pairing homopolymer is appended — the append fabricates no stem.")]
+    public void HasHairpinPotential_NoHairpin_NonPairingAppendKeepsFalse()
+    {
+        // A poly-A body cannot form a stem (A is not complementary to A). complement(A)=T
+        // has no run in an all-A body, so a poly-A append is provably non-pairing.
+        const string flat = "AAAAAAAAAAAA";
+        PrimerDesigner.HasHairpinPotential(flat, HairpinMinStem, HairpinMinLoop).Should().BeFalse(
+            because: "an all-A primer has no self-complementary stem (A does not pair with A)");
+
+        foreach (int runLen in new[] { 1, 4, 7 })
+        {
+            string ext = new string('A', runLen);
+            PrimerDesigner.HasHairpinPotential(flat + ext, HairpinMinStem, HairpinMinLoop).Should().BeFalse(
+                because: $"extending with poly-A×{runLen} introduces no complement to pair against, so no stem appears and the result stays false");
+        }
+    }
+
+    #endregion
+
+    /// <summary>
+    /// Primers for the secondary-structure relations: deliberate palindromic / non-
+    /// palindromic 3' ends, structured bodies, and fixed-seed random primers (relations
+    /// must hold for arbitrary input too).
+    /// </summary>
+    private static IEnumerable<string> StructureSamples()
+    {
+        yield return "ACGTACGTACGTACGTACGT";      // 20-mer, mixed
+        yield return "GCGCTTTTTGCGC";             // a hairpin-forming primer
+        yield return "AAAAAAAAAAAA";              // flat, no structure
+        yield return "ATATATATATAT";              // weak alternating
+        yield return "GACGTCAAAAAA";              // self-palindromic head, flat tail
+        yield return "TTTTTTTTGACATGTC";          // palindromic 3' end
+        yield return RandomDna(20);               // fixed-seed random
+        yield return RandomDna(24);
+        yield return RandomDna(30);
+    }
 
     #endregion
 }
