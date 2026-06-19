@@ -395,4 +395,55 @@ public class ProteinMotifMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: PROTMOTIF-PATTERN-001 — regex/PROSITE pattern matching (ProteinMotif).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 166.
+    //
+    // API under test (ProteinMotifFinder.FindMotifByPattern):
+    //   Reports every (overlapping) match of a regex pattern in a protein.
+    //
+    // Relations (derived from regular-language matching, NOT from output):
+    //   • SHIFT (prepend flank shifts matches): a flank with no match shifts every match start by the
+    //          flank length.
+    //   • SUB  (broader pattern ⇒ ≥ matches): if pattern P's language ⊇ pattern Q's at each position
+    //          (P is a relaxation of Q), then P matches a superset of Q's start positions.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region PROTMOTIF-PATTERN-001 SHIFT — a prepended flank shifts the matches
+
+    [Test]
+    [Description("SHIFT: prepending a flank that does not match the pattern shifts every match's start position by the flank length.")]
+    public void Pattern_PrependFlank_ShiftsMatches()
+    {
+        const string seq = "AARGDKKRGDAA";
+        const string pattern = "RGD";
+        var original = ProteinMotifFinder.FindMotifByPattern(seq, pattern).Select(m => m.Start).ToList();
+        original.Should().NotBeEmpty();
+
+        foreach (var flank in new[] { "WW", "YPWYP" }) // contain no RGD and form none at the junction
+        {
+            var shifted = ProteinMotifFinder.FindMotifByPattern(flank + seq, pattern).Select(m => m.Start).ToList();
+            shifted.Should().Equal(original.Select(s => s + flank.Length),
+                because: $"a {flank.Length}-residue flank with no match relocates every match by {flank.Length}");
+        }
+    }
+
+    #endregion
+
+    #region PROTMOTIF-PATTERN-001 SUB — a broader pattern matches a superset
+
+    [Test]
+    [Description("SUB: 'RG.' is a relaxation of 'RGD' (it accepts any third residue), so every RGD match start is also an RG. match start — the broader pattern's matches are a superset.")]
+    public void Pattern_BroaderPattern_Superset()
+    {
+        const string seq = "AARGDKKRGEKKRGDAA";
+        var strict = ProteinMotifFinder.FindMotifByPattern(seq, "RGD").Select(m => m.Start).ToHashSet();
+        var broad = ProteinMotifFinder.FindMotifByPattern(seq, "RG.").Select(m => m.Start).ToHashSet();
+
+        strict.IsSubsetOf(broad).Should().BeTrue(because: "'RG.' accepts every string 'RGD' accepts");
+        broad.Count.Should().BeGreaterThan(strict.Count, because: "'RG.' additionally matches RGE, which 'RGD' rejects");
+    }
+
+    #endregion
 }
