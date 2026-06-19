@@ -984,4 +984,76 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-FUSION-001 — gene-fusion detection (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 100.
+    //
+    // API under test (OncologyAnalyzer.DetectFusions / ComputeTotalSupport):
+    //   Calls a fusion from per-class supporting-read counts (STAR-Fusion rule); TotalSupport =
+    //   split_reads1 + split_reads2 + discordant_mates is the abundance/confidence measure.
+    //   The API carries gene symbols + read counts (no genomic breakpoint coordinates).
+    //
+    // Relations (derived from the support-count rule, NOT from output):
+    //   • MON  (more split reads ⇒ ≥ confidence): adding split reads raises TotalSupport and a
+    //          fusion that passes stays passing (detection monotone in support).
+    //   • INV  (preserves fusion count): the detected-fusion set/count is independent of the
+    //          candidate input order. (The API has no breakpoint coordinate to shift; the
+    //          checklist's "prepend flank shifts breakpoints, preserves count" reduces to the
+    //          count being invariant to ordering.)
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region ONCO-FUSION-001 MON — more split reads raise support and keep the call
+
+    [Test]
+    [Description("MON: adding split reads raises the fusion's TotalSupport (confidence), and a fusion that passes the support rule stays passing.")]
+    public void DetectFusions_MoreSplitReads_HigherSupport()
+    {
+        double previous = double.MinValue;
+        bool everDetected = false;
+
+        foreach (int split in new[] { 0, 1, 5, 20 })
+        {
+            var candidate = new OncologyAnalyzer.FusionCandidate("EML4", "ALK", split, 0, 1);
+            var calls = OncologyAnalyzer.DetectFusions(new[] { candidate });
+
+            if (calls.Count == 1)
+            {
+                double support = calls[0].TotalSupport;
+                support.Should().BeGreaterThan(previous, because: $"{split} split reads raise the total support");
+                previous = support;
+                everDetected = true;
+            }
+        }
+
+        everDetected.Should().BeTrue(because: "with enough split reads the fusion is detected with growing support");
+    }
+
+    #endregion
+
+    #region ONCO-FUSION-001 INV — the detected-fusion count is order independent
+
+    [Test]
+    [Description("INV: each candidate is judged independently, so the set and count of detected fusions are the same for any input order.")]
+    public void DetectFusions_CandidateOrder_PreservesCount()
+    {
+        var candidates = new[]
+        {
+            new OncologyAnalyzer.FusionCandidate("EML4", "ALK", 10, 5, 3),  // passes (total 18)
+            new OncologyAnalyzer.FusionCandidate("BCR", "ABL1", 2, 1, 0),   // passes (junction 3, total 3)
+            new OncologyAnalyzer.FusionCandidate("SELF", "SELF", 50, 50, 50), // self-fusion → excluded
+            new OncologyAnalyzer.FusionCandidate("FOO", "BAR", 0, 0, 2),    // no junction, disc 2 < 5 → fails
+        };
+
+        var forward = OncologyAnalyzer.DetectFusions(candidates)
+            .Select(c => (c.Gene5Prime, c.Gene3Prime)).ToHashSet();
+        var reversed = OncologyAnalyzer.DetectFusions(candidates.Reverse())
+            .Select(c => (c.Gene5Prime, c.Gene3Prime)).ToHashSet();
+
+        forward.Should().BeEquivalentTo(new[] { ("EML4", "ALK"), ("BCR", "ABL1") },
+            because: "only the two adequately-supported, non-self candidates are called");
+        reversed.Should().BeEquivalentTo(forward, because: "candidate order cannot change the detected-fusion set or count");
+    }
+
+    #endregion
 }
