@@ -580,4 +580,58 @@ public class PhylogeneticMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: PHYLO-STATS-001 — tree statistics (Phylogenetic).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 222.
+    //
+    // API under test (CalculateTreeLength / GetTreeDepth / GetLeaves):
+    //   Total branch length (Σ edge lengths), topological depth, and the leaf set of a phylogeny.
+    //
+    // Relations (derived from the structural definitions, NOT from output):
+    //   • INV (leaf relabeling preserves stats): tree length, depth and leaf COUNT are functions of
+    //         topology and branch lengths, not of leaf names, so renaming the leaves leaves them fixed.
+    //   • INV (deterministic): the statistics are pure functions of the tree.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region PHYLO-STATS-001 — Helpers
+
+    // A fixed topology with explicit branch lengths; the leaf labels carry the given prefix so the
+    // SAME tree can be built under two disjoint naming schemes.
+    private static string StatsNewick(string prefix) =>
+        $"(({prefix}1:1.0,{prefix}2:2.0):0.5,({prefix}3:1.5,{prefix}4:0.7):0.3);";
+
+    #endregion
+
+    #region PHYLO-STATS-001 INV — relabeling leaves and re-running preserve the statistics
+
+    [Test]
+    [Description("INV: tree length, depth and leaf count depend on topology and branch lengths only, so renaming the leaves leaves them unchanged; and the statistics are deterministic.")]
+    public void TreeStats_LeafRelabeling_PreservesStatistics()
+    {
+        var tree = PhylogeneticAnalyzer.ParseNewick(StatsNewick("Taxon"));
+        var relabeled = PhylogeneticAnalyzer.ParseNewick(StatsNewick("Z")); // same topology/lengths, disjoint names
+
+        // Deterministic: the stats are pure functions of the tree.
+        PhylogeneticAnalyzer.CalculateTreeLength(tree).Should().Be(PhylogeneticAnalyzer.CalculateTreeLength(tree),
+            because: "tree length has no hidden state");
+
+        // Leaf relabeling preserves each structural statistic.
+        PhylogeneticAnalyzer.CalculateTreeLength(relabeled)
+            .Should().BeApproximately(PhylogeneticAnalyzer.CalculateTreeLength(tree), 1e-9,
+                because: "total branch length is the sum of edge lengths, independent of leaf names");
+        PhylogeneticAnalyzer.GetTreeDepth(relabeled)
+            .Should().Be(PhylogeneticAnalyzer.GetTreeDepth(tree),
+                because: "topological depth ignores leaf names");
+        PhylogeneticAnalyzer.GetLeaves(relabeled).Count()
+            .Should().Be(PhylogeneticAnalyzer.GetLeaves(tree).Count(),
+                because: "the number of leaves is a property of the topology, not the labels");
+
+        // Non-vacuous: the labels really did change.
+        PhylogeneticAnalyzer.GetLeaves(relabeled).Select(l => l.Name)
+            .Should().NotIntersectWith(PhylogeneticAnalyzer.GetLeaves(tree).Select(l => l.Name),
+                because: "the two namings are disjoint, so the invariance is over a genuine relabeling");
+    }
+
+    #endregion
 }
