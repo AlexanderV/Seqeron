@@ -16,8 +16,9 @@ namespace Seqeron.Genomics.Tests;
 ///
 /// ───────────────────────────────────────────────────────────────────────────
 /// Units: SEQ-GC-001 — GC content (Composition); SEQ-COMP-001 — DNA complement (Composition);
-///        SEQ-REVCOMP-001 — reverse complement (Composition)
-/// Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, rows 1–3.
+///        SEQ-REVCOMP-001 — reverse complement (Composition);
+///        SEQ-VALID-001 — sequence validation (Composition)
+/// Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, rows 1–4.
 /// Relations: INV complement preserves GC%; INV shuffle preserves GC%;
 ///            INV case-insensitive (+ derived INV reverse-complement,
 ///            ADD concatenation-additivity of the GC count).
@@ -542,6 +543,192 @@ public class CompositionMetamorphicTests
                 because: $"revcomp = permutation ∘ complement, both GC%-invariant, so GC% of '{s}' is preserved");
         }
     }
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  SEQ-VALID-001 — sequence validation
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (docs/algorithms/Sequence_Composition; IUPAC-IUB 1970 / NC-IUB 1984
+    //   nucleotide notation):
+    //   • A *valid DNA* string contains only the four canonical bases A/C/G/T,
+    //     case-insensitively. Validity is a property of the SET of characters
+    //     present — neither order nor multiplicity matter.
+    //   • The *IUPAC nucleotide alphabet* is a strict SUPERSET of the DNA alphabet:
+    //     it adds the ambiguity codes R,Y,S,W,K,M,B,D,H,V,N (and, in this codebase,
+    //     U and the gap symbols '-','.'). Hence every DNA-valid string is also
+    //     IUPAC-valid, but not conversely — there exist IUPAC-valid strings
+    //     (e.g. containing R/Y/N) that are NOT DNA-valid. This makes the
+    //     subset relation a PROPER subset, so the COMP relation is non-vacuous.
+    //
+    // Three metamorphic relations (checklist row 4):
+    //   INV  case conversion preserves validity:  IsValid(x)=IsValid(lower)=IsValid(upper)
+    //   COMP valid DNA ⊂ valid IUPAC:             DNA-valid ⇒ IUPAC-valid (proper subset)
+    //   INV  repeat seq → same result:            IsValid(x)=IsValid(x repeated k)
+    //
+    // API surface under test (confirmed in src/.../Seqeron.Genomics.Core):
+    //   • DNA validity:  SequenceExtensions.IsValidDna(this ReadOnlySpan<char>)
+    //                    — case-insensitive (char.ToUpperInvariant per char), accepts
+    //                      ONLY A/C/G/T (SequenceExtensions.cs).
+    //   • IUPAC validity: IupacDnaSequence.IsValid() (inherited SequenceBase.IsValid,
+    //                    ISequence.cs) — tests each char against IupacDnaSequence.Alphabet,
+    //                    the IUPAC superset {A,C,G,T,U,N,R,Y,W,S,K,M,B,D,H,V,-,.}.
+    //   ADAPTATION (documented): there is no separate case-insensitive IsValidIupac
+    //   helper, and IupacDnaSequence.Alphabet is UPPERCASE-only, so IupacDnaSequence
+    //   .IsValid() is case-SENSITIVE. The COMP subset relation is therefore evaluated
+    //   on canonical UPPERCASE spellings (the relation "valid DNA ⊂ valid IUPAC" is a
+    //   statement over the alphabets, independent of casing). The case-INVARIANCE
+    //   relation is tested separately against the case-insensitive IsValidDna API.
+
+    #region SEQ-VALID-001 — sequence validation
+
+    #region MR14: INV — case conversion preserves DNA validity
+
+    /// <summary>
+    /// MR14: IsValidDna(x) == IsValidDna(x.ToLower()) == IsValidDna(x.ToUpper()).
+    /// DNA validity is case-folded (IsValidDna upper-cases each char before checking),
+    /// so the lower-, upper-, and mixed-case spellings of any string agree on validity.
+    /// Exercised on DNA-valid samples AND on strings carrying out-of-alphabet
+    /// characters, so the invariance is shown for BOTH the true and the false verdict.
+    /// </summary>
+    [Test]
+    public void IsValidDna_CaseConversion_PreservesValidity()
+    {
+        var inputs = SampleSequences()
+            .Concat(new[] { "acgt", "AcGtAcGt", "GATTACA", "XYZ", "ACGTN", "ACGU", "ACG-T", "" })
+            .ToArray();
+
+        foreach (var s in inputs)
+        {
+            bool asIs = s.AsSpan().IsValidDna();
+            bool lower = s.ToLowerInvariant().AsSpan().IsValidDna();
+            bool upper = s.ToUpperInvariant().AsSpan().IsValidDna();
+
+            lower.Should().Be(asIs,
+                because: $"IsValidDna is case-insensitive, so lower-casing '{s}' must not change its validity verdict");
+            upper.Should().Be(asIs,
+                because: $"IsValidDna is case-insensitive, so upper-casing '{s}' must not change its validity verdict");
+        }
+    }
+
+    #endregion
+
+    #region MR15: COMP — valid DNA ⊂ valid IUPAC (proper subset)
+
+    /// <summary>
+    /// MR15: every DNA-valid string is also IUPAC-valid (subset direction).
+    /// The IUPAC alphabet is a superset of {A,C,G,T}, so a string that validates as
+    /// DNA must validate as IUPAC. Verified across many fixed and fixed-seed-random
+    /// DNA strings. Validity is evaluated on canonical UPPERCASE spellings because
+    /// IupacDnaSequence.IsValid() is case-sensitive (see file note); the subset
+    /// relation is a statement over alphabets and holds regardless of casing.
+    /// </summary>
+    [Test]
+    public void Validity_EveryDnaValidString_IsAlsoIupacValid_Subset()
+    {
+        var dnaStrings = SampleSequences()
+            .Concat(Enumerable.Range(0, 30).Select(_ => RandomDna(1 + Rng.Next(60))))
+            .ToArray();
+
+        foreach (var s in dnaStrings)
+        {
+            string canonical = s.ToUpperInvariant();
+
+            // Precondition: this sample really is DNA-valid (otherwise the implication is vacuous here).
+            canonical.AsSpan().IsValidDna().Should().BeTrue(
+                because: $"'{s}' is drawn from the {{A,C,G,T}} alphabet, so it must be DNA-valid");
+
+            new IupacDnaSequence(canonical).IsValid().Should().BeTrue(
+                because: $"the IUPAC alphabet is a superset of {{A,C,G,T}}, so DNA-valid '{s}' must also be IUPAC-valid");
+        }
+    }
+
+    /// <summary>
+    /// MR15-b: the subset is PROPER — there EXIST IUPAC-valid strings that are NOT
+    /// DNA-valid (they contain ambiguity codes R/Y/S/W/K/M/B/D/H/V/N absent from the
+    /// DNA alphabet). This confirms the COMP relation is non-vacuous: valid DNA is a
+    /// strict, not an equal, subset of valid IUPAC.
+    /// </summary>
+    [Test]
+    public void Validity_IupacAmbiguityCodes_AreIupacValidButNotDnaValid_ProperSubset()
+    {
+        // Each string is built from the IUPAC superset and contains ≥1 ambiguity code,
+        // so it lies in (valid IUPAC) \ (valid DNA).
+        string[] iupacOnly =
+        {
+            "ACGTN", "RYSWKM", "BDHV", "ACGTRYN", "NNNN", "ACGTRYSWKMBDHVN",
+        };
+
+        foreach (var s in iupacOnly)
+        {
+            new IupacDnaSequence(s).IsValid().Should().BeTrue(
+                because: $"'{s}' is composed entirely of IUPAC codes, so it must be IUPAC-valid");
+
+            s.AsSpan().IsValidDna().Should().BeFalse(
+                because: $"'{s}' contains an IUPAC ambiguity code outside {{A,C,G,T}}, so it must NOT be DNA-valid — proving the subset is proper");
+        }
+    }
+
+    #endregion
+
+    #region MR16: INV — repeating the sequence preserves validity
+
+    /// <summary>
+    /// MR16: IsValidDna(x) == IsValidDna(x repeated k times).
+    /// Validity depends only on the SET of characters present, not on length or order,
+    /// so concatenating a sequence with itself any number of times cannot change the
+    /// verdict: a valid sequence stays valid (its character set is unchanged) and an
+    /// invalid one stays invalid (the offending character recurs in every copy).
+    /// Verified for valid and invalid inputs across several repeat counts.
+    /// </summary>
+    [Test]
+    public void IsValidDna_RepeatedSequence_PreservesValidity()
+    {
+        var inputs = SampleSequences()
+            .Concat(new[] { "GATTACA", "XYZ", "ACGTN", "ACG-T" })
+            .ToArray();
+
+        foreach (var s in inputs)
+        {
+            bool original = s.AsSpan().IsValidDna();
+
+            foreach (int k in new[] { 2, 3, 5 })
+            {
+                string repeated = string.Concat(Enumerable.Repeat(s, k));
+                repeated.AsSpan().IsValidDna().Should().Be(original,
+                    because: $"validity is a property of the character set only, so repeating '{s}' {k}× must not change its verdict");
+            }
+        }
+    }
+
+    /// <summary>
+    /// MR16-b: concatenation/duplication corollaries.
+    /// Joining two DNA-valid sequences stays valid (the union of two subsets of
+    /// {A,C,G,T} is still a subset), while appending a single out-of-alphabet
+    /// character to ANY sequence makes it invalid (the character set now escapes the
+    /// DNA alphabet). Both follow directly from validity being a set-membership test.
+    /// </summary>
+    [Test]
+    public void IsValidDna_Concatenation_FollowsCharacterSetSemantics()
+    {
+        var dnaSamples = SampleSequences();
+
+        foreach (var a in dnaSamples)
+        {
+            foreach (var b in dnaSamples)
+            {
+                (a + b).AsSpan().IsValidDna().Should().BeTrue(
+                    because: $"concatenating DNA-valid '{a}' and '{b}' keeps the character set within {{A,C,G,T}}, so the result stays DNA-valid");
+            }
+
+            // Appending an out-of-alphabet character escapes the DNA alphabet.
+            (a + "N").AsSpan().IsValidDna().Should().BeFalse(
+                because: $"appending the ambiguity code 'N' to '{a}' introduces a character outside {{A,C,G,T}}, so the result must be invalid");
+        }
+    }
+
+    #endregion
 
     #endregion
 }
