@@ -670,4 +670,73 @@ public class MetagenomicsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: META-TAXA-001 — differential abundance (Metagenomics).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 197.
+    //
+    // API under test (MetagenomicsAnalyzer.FindSignificantTaxa):
+    //   Per-taxon Mann–Whitney U test of abundance between two sample groups.
+    //
+    // Relations (derived from the rank-sum test, NOT from output):
+    //   • INV  (sample order independent): the rank-sum depends on group membership, not sample
+    //          order, so permuting the samples (with their group labels) preserves the p-values.
+    //   • MON  (larger effect ⇒ lower p-value): a taxon fully separated between groups has a smaller
+    //          p-value than one whose group abundances overlap.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    // Group 1 = samples 0..3, Group 2 = samples 4..7.
+    private static readonly int[] TaxaGroups = { 1, 1, 1, 1, 2, 2, 2, 2 };
+
+    private static IReadOnlyList<IReadOnlyDictionary<string, double>> TaxaProfiles()
+    {
+        double[] clear = { 1, 1, 1, 1, 10, 10, 10, 10 };     // fully separated between groups
+        double[] noise = { 1, 5, 2, 8, 3, 2, 9, 1 };          // overlapping distributions
+        return Enumerable.Range(0, 8)
+            .Select(i => (IReadOnlyDictionary<string, double>)new Dictionary<string, double>
+            {
+                ["taxonClear"] = clear[i],
+                ["taxonNoise"] = noise[i],
+            })
+            .ToList();
+    }
+
+    #region META-TAXA-001 MON — a larger effect gives a smaller p-value
+
+    [Test]
+    [Description("MON: a taxon fully separated between the two groups has a smaller Mann–Whitney p-value than a taxon whose group abundances overlap.")]
+    public void Taxa_LargerEffect_LowerPValue()
+    {
+        var results = MetagenomicsAnalyzer.FindSignificantTaxa(TaxaProfiles(), TaxaGroups)
+            .ToDictionary(t => t.Taxon, t => t.PValue);
+
+        results["taxonClear"].Should().BeLessThan(results["taxonNoise"],
+            because: "full between-group separation is a larger effect than overlapping abundances, giving a smaller p-value");
+    }
+
+    #endregion
+
+    #region META-TAXA-001 INV — result is independent of sample order
+
+    [Test]
+    [Description("INV: the rank-sum test depends on group membership, not sample order, so permuting the samples together with their group labels preserves every taxon's p-value.")]
+    public void Taxa_SampleOrder_Invariant()
+    {
+        var profiles = TaxaProfiles();
+        var groups = TaxaGroups;
+
+        // A fixed permutation applied to both profiles and group labels in lockstep.
+        int[] perm = { 7, 0, 5, 2, 4, 1, 6, 3 };
+        var permProfiles = perm.Select(i => profiles[i]).ToList();
+        var permGroups = perm.Select(i => groups[i]).ToList();
+
+        var original = MetagenomicsAnalyzer.FindSignificantTaxa(profiles, groups).ToDictionary(t => t.Taxon, t => t.PValue);
+        var permuted = MetagenomicsAnalyzer.FindSignificantTaxa(permProfiles, permGroups).ToDictionary(t => t.Taxon, t => t.PValue);
+
+        foreach (var taxon in original.Keys)
+            permuted[taxon].Should().BeApproximately(original[taxon], 1e-12,
+                because: $"the rank-sum p-value of {taxon} depends on group membership, not sample order");
+    }
+
+    #endregion
 }
