@@ -92,6 +92,19 @@ public class PhylogeneticMetamorphicTests
         DistanceMethod.Hamming,
     };
 
+    /// <summary>Reorders taxa and the symmetric distance matrix by the given permutation, consistently.</summary>
+    private static (List<string> Taxa, double[,] Matrix) Permute(
+        IReadOnlyList<string> taxa, double[,] matrix, int[] perm)
+    {
+        int n = perm.Length;
+        var newTaxa = perm.Select(p => taxa[p]).ToList();
+        var newMatrix = new double[n, n];
+        for (int i = 0; i < n; i++)
+            for (int j = 0; j < n; j++)
+                newMatrix[i, j] = matrix[perm[i], perm[j]];
+        return (newTaxa, newMatrix);
+    }
+
     #endregion
 
     #region INV — d(x,x) = 0
@@ -188,6 +201,103 @@ public class PhylogeneticMetamorphicTests
                 ac.Should().BeLessThanOrEqualTo(ab + bc + 1e-9,
                     because: $"{method}: a≠c at a site forces a≠b or b≠c there, so per-site disagreements are subadditive");
             }
+        }
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: PHYLO-TREE-001 — UPGMA tree construction (Phylogenetic).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 40.
+    //
+    // API under test (PhylogeneticAnalyzer.BuildTreeFromMatrix, TreeMethod.UPGMA):
+    //   UPGMA repeatedly merges the closest pair of clusters; the new cluster's height is
+    //   d(i,j)/2 and each child's branch length is height(new) − height(child). The result is
+    //   an ultrametric rooted tree. PatristicDistance sums the branch lengths between two
+    //   leaves; RobinsonFouldsDistance is the rooted-clade symmetric difference (0 ⇔ identical
+    //   topology on the same taxa).
+    //
+    // Relations (derived from the UPGMA recurrence, NOT from output):
+    //   • INV (input order ⇒ same topology): UPGMA depends only on the SET of pairwise
+    //          distances, not the taxon ordering. With all distances distinct (no merge ties),
+    //          the rooted topology is uniquely determined, so permuting the taxa+matrix yields
+    //          an RF distance of 0 and an unchanged total tree length.
+    //   • MON (closer ⇒ shorter branches): the first-merged cherry {X,Y} reproduces its input
+    //          distance exactly as a patristic distance (d/2 + d/2 = d), so making X,Y closer
+    //          shortens their branches; and the cherry's patristic distance stays below the
+    //          patristic distance to any outgroup taxon.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region INV — permuting the input order preserves the UPGMA topology
+
+    [Test]
+    [Description("INV: UPGMA depends only on the set of distances, so permuting the taxa+matrix gives an identical rooted topology (RF = 0) and the same total tree length, when distances are distinct.")]
+    public void BuildUpgma_PermuteInputOrder_PreservesTopology()
+    {
+        var taxa = new List<string> { "A", "B", "C", "D" };
+        // All pairwise distances distinct ⇒ no merge ties ⇒ unique UPGMA topology ((A,B),(C,D)).
+        var matrix = new double[,]
+        {
+            { 0,  2, 10, 11 },
+            { 2,  0, 12, 13 },
+            { 10, 12, 0,  4 },
+            { 11, 13, 4,  0 },
+        };
+
+        var reference = PhylogeneticAnalyzer.BuildTreeFromMatrix(taxa, matrix, TreeMethod.UPGMA);
+
+        foreach (var perm in new[]
+                 {
+                     new[] { 3, 2, 1, 0 },
+                     new[] { 1, 3, 0, 2 },
+                     new[] { 2, 0, 3, 1 },
+                 })
+        {
+            var (pTaxa, pMatrix) = Permute(taxa, matrix, perm);
+            var permuted = PhylogeneticAnalyzer.BuildTreeFromMatrix(pTaxa, pMatrix, TreeMethod.UPGMA);
+
+            PhylogeneticAnalyzer.RobinsonFouldsDistance(reference.Root, permuted.Root).Should().Be(0,
+                because: "UPGMA uses only the (distinct) pairwise distances, so reordering the taxa cannot change which clusters merge — the rooted topology is identical");
+            PhylogeneticAnalyzer.CalculateTreeLength(permuted.Root).Should().BeApproximately(
+                PhylogeneticAnalyzer.CalculateTreeLength(reference.Root), 1e-9,
+                because: "the same merges at the same heights produce the same branch lengths regardless of input order");
+        }
+    }
+
+    #endregion
+
+    #region MON — a closer cherry has shorter branches than a more distant one
+
+    [Test]
+    [Description("MON: in UPGMA the first-merged cherry's patristic distance equals its input distance, so a smaller input distance gives strictly shorter branches — and stays below the distance to the outgroup.")]
+    public void BuildUpgma_CloserPair_HasShorterBranches()
+    {
+        const double outgroup = 10.0;   // fixed distance from each of X,Y to Z
+        var taxa = new List<string> { "X", "Y", "Z" };
+
+        double previous = double.NegativeInfinity;
+
+        foreach (double dxy in new[] { 1.0, 2.0, 4.0, 6.0, 8.0 })
+        {
+            var matrix = new double[,]
+            {
+                { 0,        dxy,      outgroup },
+                { dxy,      0,        outgroup },
+                { outgroup, outgroup, 0 },
+            };
+
+            var tree = PhylogeneticAnalyzer.BuildTreeFromMatrix(taxa, matrix, TreeMethod.UPGMA);
+
+            double cherry = PhylogeneticAnalyzer.PatristicDistance(tree.Root, "X", "Y");
+            double toOut = PhylogeneticAnalyzer.PatristicDistance(tree.Root, "X", "Z");
+
+            cherry.Should().BeApproximately(dxy, 1e-9,
+                because: "UPGMA merges X,Y first at height dxy/2, so their patristic distance reconstructs the input distance dxy exactly");
+            cherry.Should().BeGreaterThan(previous,
+                because: "a larger input distance between the cherry taxa gives proportionally longer branches");
+            cherry.Should().BeLessThan(toOut,
+                because: "the closest pair sits in the lowest cherry, so its patristic distance is below the distance to the outgroup");
+            previous = cherry;
         }
     }
 

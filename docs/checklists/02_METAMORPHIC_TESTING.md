@@ -67,7 +67,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 37 | ☑ | ALIGN-SEMI-001 | Alignment | MON: more matching overlap → higher score; INV: extend non-overlapping part → same core alignment |
 | 38 | ☑ | ALIGN-MULTI-001 | Alignment | INV: column permutation doesn't affect per-column scores; MON: add identical seq → score stays or increases |
 | 39 | ☑ | PHYLO-DIST-001 | Phylogenetic | SYM: d(a,b)=d(b,a); MON: more mutations → higher distance; COMP: triangle inequality; INV: d(x,x)=0 |
-| 40 | ☐ | PHYLO-TREE-001 | Phylogenetic | INV: UPGMA — permuting input order → same topology; MON: closer seqs → shorter branch lengths |
+| 40 | ☑ | PHYLO-TREE-001 | Phylogenetic | INV: UPGMA — permuting input order → same topology; MON: closer seqs → shorter branch lengths |
 | 41 | ☐ | PHYLO-NEWICK-001 | Phylogenetic | COMP: parse(toNewick(tree))=tree; INV: whitespace doesn't affect parse |
 | 42 | ☐ | PHYLO-COMP-001 | Phylogenetic | SYM: RF(a,b)=RF(b,a); COMP: RF(t,t)=0; MON: more rearrangements → higher RF |
 | 43 | ☐ | POP-FREQ-001 | PopGen | INV: doubling all counts → same frequencies; COMP: sum(freq)=1.0; INV: reorder samples → same result |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 39 |
-| ☐ Not started | 195 |
+| ☑ Complete | 40 |
+| ☐ Not started | 194 |
 | MR relations defined | ~200+ |
