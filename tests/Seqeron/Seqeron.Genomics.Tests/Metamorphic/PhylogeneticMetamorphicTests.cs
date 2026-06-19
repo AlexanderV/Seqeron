@@ -501,4 +501,83 @@ public class PhylogeneticMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: PHYLO-BOOT-001 — phylogenetic bootstrap support (Phylogenetic).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 221.
+    //
+    // API under test (PhylogeneticAnalyzer.Bootstrap; CalculatePairwiseDistance):
+    //   Felsenstein's bootstrap: resamples alignment columns with replacement (seeded RNG), rebuilds
+    //   the tree per replicate, and reports each reference clade's support = fraction of replicates
+    //   containing it. The replicate trees are built from a symmetric pairwise-distance matrix.
+    //
+    // Relations (derived from the seeded resampling + symmetric distance, NOT from output):
+    //   • INV (same seed ⇒ same support): the only randomness is the seeded column resampling, so two
+    //         runs with the same seed produce identical support — and taxa input order does not matter,
+    //         because the distance underlying every tree is symmetric.
+    //   • SYM (distance symmetric): the pairwise distance d(a,b) = d(b,a) for every method, the property
+    //         that makes the bootstrap's distance matrix (and hence its trees) order-independent.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region PHYLO-BOOT-001 — Helpers
+
+    // Four taxa with an unambiguous ((A,B),(C,D)) split: A/B differ at 1 site, C/D at 2, every
+    // cross-pair at ≥ 9 — no distance ties, so the topology (and its clades) is determinate.
+    private static Dictionary<string, string> BootAlignment(params string[] order)
+    {
+        var all = new Dictionary<string, string>
+        {
+            ["A"] = "AAAAAAAAAA",
+            ["B"] = "AAAAAAAAAT",
+            ["C"] = "GGGGGGGGGG",
+            ["D"] = "GGGGGGGGTT",
+        };
+        var dict = new Dictionary<string, string>();
+        foreach (var name in order.Length > 0 ? order : new[] { "A", "B", "C", "D" })
+            dict[name] = all[name];
+        return dict;
+    }
+
+    #endregion
+
+    #region PHYLO-BOOT-001 INV — same seed (and taxa order) gives the same support
+
+    [Test]
+    [Description("INV: the only randomness is the seeded column resampling, so repeated runs with the same seed — and any taxa input order — give identical clade support.")]
+    public void Bootstrap_SameSeed_SameSupport()
+    {
+        const int seed = 123;
+        const int replicates = 50;
+
+        var first = PhylogeneticAnalyzer.Bootstrap(BootAlignment(), replicates, seed: seed);
+        var again = PhylogeneticAnalyzer.Bootstrap(BootAlignment(), replicates, seed: seed);
+
+        again.Should().BeEquivalentTo(first, because: "the bootstrap is deterministic for a fixed seed");
+
+        // Taxa supplied in a different order: the symmetric distance makes the trees — and support — identical.
+        var reordered = PhylogeneticAnalyzer.Bootstrap(BootAlignment("D", "C", "B", "A"), replicates, seed: seed);
+        reordered.Should().BeEquivalentTo(first, because: "support depends on the symmetric distance, not on taxa input order");
+
+        first.Should().NotBeEmpty(because: "the reference tree has non-trivial clades to score — a non-vacuous fixture");
+    }
+
+    #endregion
+
+    #region PHYLO-BOOT-001 SYM — the underlying pairwise distance is symmetric
+
+    [Test]
+    [Description("SYM: the pairwise distance d(a,b) = d(b,a) for every method — the symmetry that makes the bootstrap's distance matrix order-independent.")]
+    public void Bootstrap_PairwiseDistance_IsSymmetric()
+    {
+        var seqs = BootAlignment().Values.ToList();
+
+        foreach (var method in AllMethods)
+            for (int i = 0; i < seqs.Count; i++)
+                for (int j = i + 1; j < seqs.Count; j++)
+                    PhylogeneticAnalyzer.CalculatePairwiseDistance(seqs[j], seqs[i], method)
+                        .Should().Be(PhylogeneticAnalyzer.CalculatePairwiseDistance(seqs[i], seqs[j], method),
+                            because: $"{method} distance is symmetric: d(a,b) = d(b,a)");
+    }
+
+    #endregion
 }

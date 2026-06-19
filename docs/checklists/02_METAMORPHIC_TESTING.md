@@ -248,7 +248,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 218 | ☑ | ANNOT-REPEAT-001 | Annotation | MON: lower minLen → superset; SHIFT: prepend flank shifts elements |
 | 219 | ☑ | QUALITY-PHRED-001 | Quality | RT: encode∘decode identity; INV: offset consistency |
 | 220 | ☑ | QUALITY-STATS-001 | Quality | INV: order independent for mean; ADD: counts additive |
-| 221 | ☐ | PHYLO-BOOT-001 | Phylogenetic | INV: same seed → same support; SYM: distance symmetric |
+| 221 | ☑ | PHYLO-BOOT-001 | Phylogenetic | INV: same seed → same support; SYM: distance symmetric |
 | 222 | ☐ | PHYLO-STATS-001 | Phylogenetic | INV: leaf relabeling preserves stats; INV: deterministic |
 | 223 | ☐ | TRANS-SIXFRAME-001 | Translation | INV: frames 4–6 = translation of revcomp; P: exactly 6 frames |
 | 224 | ☐ | RESTR-FILTER-001 | MolTools | SUB: filtered ⊆ all; MON: stricter criteria → subset |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 220 |
-| ☐ Not started | 14 |
+| ☑ Complete | 221 |
+| ☐ Not started | 13 |
 | MR relations defined | ~200+ |
