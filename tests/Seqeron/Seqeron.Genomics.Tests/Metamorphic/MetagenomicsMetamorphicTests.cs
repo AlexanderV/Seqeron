@@ -398,4 +398,91 @@ public class MetagenomicsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: META-BIN-001 — genome binning (Metagenomics).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 57.
+    //
+    // API under test (MetagenomicsAnalyzer.BinContigs):
+    //   Deterministic k-means (GC-sorted centroid seeding, no RNG) over GC / coverage /
+    //   tetranucleotide features, with k = min(numBins, contigCount); clusters below
+    //   minBinSize are dropped. Tested on STRONGLY-SEPARATED synthetic genomes (GC 0 / 0.5 / 1
+    //   and coverages two orders of magnitude apart) with numBins = the genome count, so each
+    //   genome forms its own bin — the regime in which the checklist relations provably hold.
+    //
+    // Relations (derived from the per-genome clustering, NOT from output):
+    //   • MON (more contigs/genomes ⇒ ≥ bins): each well-separated genome forms one bin, so
+    //          adding a genome adds a bin.
+    //   • INV (adding a non-overlapping genome ⇒ existing bins unchanged): the contig partition
+    //          of the original genomes is identical whether or not a far-separated genome is added.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region Binning helpers
+
+    private const double BinMinSize = 2000;
+
+    // A "genome" = several near-identical contigs (same GC/TNF unit) with slightly varied coverage.
+    private static List<(string ContigId, string Sequence, double Coverage)> Genome(
+        string tag, string unit, double baseCoverage, int contigs = 3, int len = 1000)
+    {
+        string seq = string.Concat(Enumerable.Repeat(unit, len / unit.Length + 1))[..len];
+        return Enumerable.Range(0, contigs)
+            .Select(i => ($"{tag}_c{i}", seq, baseCoverage + i * 0.1))
+            .ToList();
+    }
+
+    // GC 0 (AT), GC 1 (GC), GC 0.5 (ATGC); coverages 5 / 500 / 50 — three well-separated genomes.
+    private static List<(string, string, double)> GenomeLowGc() => Genome("low", "AT", 5);
+    private static List<(string, string, double)> GenomeHighGc() => Genome("high", "GC", 500);
+    private static List<(string, string, double)> GenomeMidGc() => Genome("mid", "ATGC", 50);
+
+    private static List<List<string>> PartitionOf(
+        IEnumerable<MetagenomicsAnalyzer.GenomeBin> bins, ISet<string> restrictTo) =>
+        bins.Select(b => b.ContigIds.Where(restrictTo.Contains).OrderBy(s => s).ToList())
+            .Where(ids => ids.Count > 0)
+            .ToList();
+
+    #endregion
+
+    #region MON — more genomes give at least as many bins
+
+    [Test]
+    [Description("MON: with each strongly-separated genome forming its own bin, adding a genome (and a matching bin budget) yields at least as many bins.")]
+    public void BinContigs_MoreGenomes_GiveAtLeastAsManyBins()
+    {
+        var two = GenomeLowGc().Concat(GenomeHighGc()).ToList();
+        var three = two.Concat(GenomeMidGc()).ToList();
+
+        int binsTwo = MetagenomicsAnalyzer.BinContigs(two, numBins: 2, minBinSize: BinMinSize).Count();
+        int binsThree = MetagenomicsAnalyzer.BinContigs(three, numBins: 3, minBinSize: BinMinSize).Count();
+
+        binsTwo.Should().Be(2, because: "two well-separated genomes each form one bin");
+        binsThree.Should().BeGreaterThanOrEqualTo(binsTwo,
+            because: "adding a third well-separated genome cannot reduce the number of recovered bins");
+        binsThree.Should().Be(3, because: "three well-separated genomes each form one bin");
+    }
+
+    #endregion
+
+    #region INV — adding a far-separated genome leaves the existing bins' partition unchanged
+
+    [Test]
+    [Description("INV: the contig partition of the original genomes is identical whether or not a far-separated extra genome is added.")]
+    public void BinContigs_AddNonOverlappingGenome_PreservesExistingBins()
+    {
+        var two = GenomeLowGc().Concat(GenomeHighGc()).ToList();
+        var three = two.Concat(GenomeMidGc()).ToList();
+
+        var originalIds = two.Select(c => c.Item1).ToHashSet();
+
+        var basePartition = PartitionOf(
+            MetagenomicsAnalyzer.BinContigs(two, numBins: 2, minBinSize: BinMinSize), originalIds);
+        var withExtraPartition = PartitionOf(
+            MetagenomicsAnalyzer.BinContigs(three, numBins: 3, minBinSize: BinMinSize), originalIds);
+
+        withExtraPartition.Should().BeEquivalentTo(basePartition,
+            because: "a far-separated added genome forms its own bin and does not move the original genomes' contigs between bins");
+    }
+
+    #endregion
 }
