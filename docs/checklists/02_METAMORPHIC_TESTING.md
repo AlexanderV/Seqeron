@@ -235,7 +235,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 205 | ☑ | DISORDER-MORF-001 | ProteinPred | INV: deterministic; SHIFT: prepend flank shifts MoRFs |
 | 206 | ☑ | DISORDER-PROPENSITY-001 | ProteinPred | SHIFT: prepend flank shifts profile; INV: deterministic |
 | 207 | ☑ | POP-ANCESTRY-001 | PopGen | INV: individual order independent; P: proportions sum to 1 |
-| 208 | ☐ | POP-ROH-001 | PopGen | MON: lower minLen → superset; SHIFT: prepend flank shifts ROH |
+| 208 | ☑ | POP-ROH-001 | PopGen | MON: lower minLen → superset; SHIFT: prepend flank shifts ROH |
 | 209 | ☐ | POP-SELECT-001 | PopGen | INV: locus order independent; MON: stronger selection → higher signal |
 | 210 | ☐ | SEQ-ATSKEW-001 | Composition | SYM: complement reverses sign; INV: cumulative length = seq length |
 | 211 | ☐ | SEQ-REPLICATION-001 | Composition | INV: rotation shifts predicted origin; SYM: complement reflects origin |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 207 |
-| ☐ Not started | 27 |
+| ☑ Complete | 208 |
+| ☐ Not started | 26 |
 | MR relations defined | ~200+ |

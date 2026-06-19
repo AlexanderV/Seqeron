@@ -677,4 +677,94 @@ public class PopulationGeneticsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: POP-ROH-001 — runs of homozygosity detection (PopGen).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 208.
+    //
+    // API under test (PopulationGeneticsAnalyzer.FindROH):
+    //   Window-free consecutive-runs method (Marras et al. 2015): SNPs are scanned in ascending
+    //   position order, a run is extended while opposite (het) genotypes ≤ maxHeterozygotes and no
+    //   inter-SNP gap exceeds maxGap, and a closed run is reported only if it has ≥ minSnps SNPs and
+    //   spans ≥ minLength bp. Each run is (Start, End, SnpCount) on first/last SNP positions.
+    //
+    // Relations (derived from the scan + length filter, NOT from output):
+    //   • MON  (lower minLength ⇒ superset): minLength gates only the emit step; the candidate runs
+    //          themselves are unchanged, so lowering it admits a superset of the identical runs.
+    //   • SHIFT (coordinate shift shifts ROH): the scan depends only on inter-SNP gaps and
+    //          genotypes, both invariant under a uniform coordinate translation, so adding an offset
+    //          to every SNP position shifts each run's Start/End by that offset and preserves SnpCount.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region Helpers (ROH)
+
+    private const int RohMaxGap = 1500;   // a > 1500 bp jump breaks a run
+    private const int RohMinSnps = 3;     // small SNP floor for compact fixtures
+
+    // Two homozygous runs separated by a > maxGap break: a 5-SNP / 4000-bp run (mixed hom-ref and
+    // hom-alt to show homozygosity, not allele identity, is what matters) and a 7-SNP / 6000-bp run.
+    private static List<(int Position, int Genotype)> RohGenotypes()
+    {
+        var g = new List<(int Position, int Genotype)>();
+        for (int p = 1000; p <= 5000; p += 1000)
+            g.Add((p, p % 2000 == 0 ? 0 : 2)); // alternating hom-ref / hom-alt, all homozygous
+        for (int p = 8000; p <= 14000; p += 1000) // 3000 bp gap > maxGap breaks into a second run
+            g.Add((p, 0));
+        return g;
+    }
+
+    private static List<(int Start, int End, int SnpCount)> FindRoh(
+        List<(int Position, int Genotype)> genotypes, int minLength) =>
+        PopulationGeneticsAnalyzer.FindROH(genotypes, minSnps: RohMinSnps, minLength: minLength,
+            maxHeterozygotes: 1, maxGap: RohMaxGap).ToList();
+
+    #endregion
+
+    #region POP-ROH-001 MON — lowering minLength admits a superset of runs
+
+    [Test]
+    [Description("MON: minLength gates only the emit step, so lowering it yields a superset of the identical run intervals.")]
+    public void Roh_LowerMinLength_SupersetOfRuns()
+    {
+        var genotypes = RohGenotypes();
+
+        var lenient = FindRoh(genotypes, minLength: 1);
+        var strict = FindRoh(genotypes, minLength: 5000); // keeps only the 6000-bp run
+
+        lenient.Should().HaveCount(2, because: "both homozygous runs clear the 1-bp floor");
+        strict.Should().NotBeEmpty(because: "the 6000-bp run survives the 5000-bp floor");
+
+        strict.Should().BeSubsetOf(lenient,
+            because: "raising minLength can only drop whole runs, never change their boundaries");
+        strict.Should().HaveCountLessThan(lenient.Count,
+            because: "the 4000-bp run is filtered at minLength = 5000 but present at minLength = 1");
+    }
+
+    #endregion
+
+    #region POP-ROH-001 SHIFT — a uniform coordinate shift translates the runs
+
+    [Test]
+    [Description("SHIFT: the scan depends only on inter-SNP gaps and genotypes, so adding an offset to every SNP position shifts each run's Start/End by that offset and preserves SnpCount.")]
+    public void Roh_CoordinateShift_ShiftsRuns()
+    {
+        var baseline = FindRoh(RohGenotypes(), minLength: 1);
+        baseline.Should().HaveCount(2, because: "the fixture yields two runs");
+
+        foreach (int offset in new[] { 1_000_000, 50_000_000 })
+        {
+            var shiftedGenotypes = RohGenotypes().Select(g => (g.Position + offset, g.Genotype)).ToList();
+            var shifted = FindRoh(shiftedGenotypes, minLength: 1);
+
+            shifted.Should().HaveCount(baseline.Count, because: "a uniform translation changes neither gaps nor genotypes");
+            for (int i = 0; i < baseline.Count; i++)
+            {
+                shifted[i].Start.Should().Be(baseline[i].Start + offset, because: $"run {i}'s start tracks the shifted first-SNP position by {offset}");
+                shifted[i].End.Should().Be(baseline[i].End + offset, because: $"run {i}'s end tracks the shifted last-SNP position by {offset}");
+                shifted[i].SnpCount.Should().Be(baseline[i].SnpCount, because: "the run contains the same SNPs after translation");
+            }
+        }
+    }
+
+    #endregion
 }
