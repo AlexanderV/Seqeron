@@ -71,4 +71,80 @@ public class AssemblyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ASSEMBLY-CORRECT-001 — k-mer spectrum read error correction (Assembly).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 141.
+    //
+    // API under test (SequenceAssembler.ErrorCorrectReads):
+    //   Musket/Quake two-sided correction: a position covered only by untrusted (low-multiplicity)
+    //   k-mers is substituted by the unique base that makes every covering k-mer trusted.
+    //
+    // Relations (derived from the k-mer-spectrum model, NOT from output):
+    //   • INV  (error-free reads unchanged): identical correct reads make every k-mer trusted, so
+    //          no position is corrected and the reads are returned unchanged.
+    //   • MON  (more coverage ⇒ ≤ residual errors): increasing the number of correct copies raises
+    //          the multiplicity of the true k-mers above the trusted cut-off, enabling the unique
+    //          correction, so the residual error count of an erroneous read is non-increasing.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private const string TrueSequence = "ACGTTGCAACGTGGATCCGT";
+    private const int CorrectKmerSize = 6;
+    private const int TrustedCutoff = 2;
+
+    private static string SubstituteAt(string seq, int index)
+    {
+        char[] arr = seq.ToCharArray();
+        arr[index] = arr[index] == 'A' ? 'C' : 'A';
+        return new string(arr);
+    }
+
+    private static int Hamming(string a, string b) =>
+        a.Zip(b, (x, y) => x == y ? 0 : 1).Sum();
+
+    #region ASSEMBLY-CORRECT-001 INV — error-free reads are returned unchanged
+
+    [Test]
+    [Description("INV: when all reads are identical and correct every k-mer is trusted, so no position qualifies for correction and the reads are returned unchanged.")]
+    public void ErrorCorrect_ErrorFreeReads_Unchanged()
+    {
+        var reads = new List<string> { TrueSequence, TrueSequence, TrueSequence };
+
+        SequenceAssembler.ErrorCorrectReads(reads, CorrectKmerSize, TrustedCutoff)
+            .Should().Equal(reads, because: "every k-mer of an all-correct read set is trusted, so nothing is changed");
+    }
+
+    #endregion
+
+    #region ASSEMBLY-CORRECT-001 MON — more coverage cannot increase residual errors
+
+    [Test]
+    [Description("MON: adding correct copies raises the true k-mers' multiplicity above the trusted cut-off, enabling the unique correction, so the residual error count of an erroneous read is non-increasing.")]
+    public void ErrorCorrect_MoreCoverage_FewerOrEqualResidualErrors()
+    {
+        string erroneous = SubstituteAt(TrueSequence, index: 10);
+
+        int previous = int.MaxValue;
+        int lowestCoverageErrors = -1, highestCoverageErrors = -1;
+        int[] coverages = { 1, 2, 3, 5 };
+
+        foreach (int correctCopies in coverages)
+        {
+            var reads = Enumerable.Repeat(TrueSequence, correctCopies).Append(erroneous).ToList();
+            var corrected = SequenceAssembler.ErrorCorrectReads(reads, CorrectKmerSize, TrustedCutoff);
+
+            // The erroneous read is the last entry; residual errors = Hamming distance to the truth.
+            int residual = Hamming(corrected[^1], TrueSequence);
+            residual.Should().BeLessThanOrEqualTo(previous, because: $"raising correct-copy coverage to {correctCopies} cannot introduce errors");
+            previous = residual;
+
+            if (correctCopies == coverages.First()) lowestCoverageErrors = residual;
+            if (correctCopies == coverages.Last()) highestCoverageErrors = residual;
+        }
+
+        lowestCoverageErrors.Should().BeGreaterThan(0, because: "at coverage 1 the true k-mers are not yet trusted, so the error cannot be corrected");
+        highestCoverageErrors.Should().Be(0, because: "at high coverage the true k-mers are trusted and the substitution is uniquely corrected");
+    }
+
+    #endregion
 }

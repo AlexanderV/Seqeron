@@ -168,7 +168,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 138 | ☑ | COMPGEN-REVERSAL-001 | Comparative | SYM: symmetric; INV: identical permutation → 0; MON: more reversals applied → ≥ distance |
 | 139 | ☑ | COMPGEN-SYNTENY-001 | Comparative | MON: lower minBlockSize → superset; INV: revcomp preserves block count |
 | 140 | ☑ | ASSEMBLY-CONSENSUS-001 | Assembly | INV: read order independent; MON: adding a concordant read preserves consensus |
-| 141 | ☐ | ASSEMBLY-CORRECT-001 | Assembly | INV: error-free reads unchanged; MON: more coverage → ≤ residual errors |
+| 141 | ☑ | ASSEMBLY-CORRECT-001 | Assembly | INV: error-free reads unchanged; MON: more coverage → ≤ residual errors |
 | 142 | ☐ | ASSEMBLY-COVER-001 | Assembly | INV: read order independent; ADD: coverage additive over reads |
 | 143 | ☐ | ASSEMBLY-DBG-001 | Assembly | INV: read order independent; MON: larger k → ≤ spurious joins |
 | 144 | ☐ | ASSEMBLY-MERGE-001 | Assembly | INV: merge order independent for compatible contigs |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 140 |
-| ☐ Not started | 94 |
+| ☑ Complete | 141 |
+| ☐ Not started | 93 |
 | MR relations defined | ~200+ |
