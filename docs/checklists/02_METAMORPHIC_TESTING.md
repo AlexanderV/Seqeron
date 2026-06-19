@@ -130,7 +130,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 100 | ☑ | ONCO-FUSION-001 | Oncology | MON: more split reads → ≥ confidence (TotalSupport); INV: candidate order preserves fusion count (no breakpoint coordinate in API) |
 | 101 | ☑ | ONCO-FUSION-002 | Oncology | SUB: matched ⊆ known DB; INV: 5'/3' orientation preserved + case-insensitive (no coordinate in API) |
 | 102 | ☑ | ONCO-FUSION-003 | Oncology | INV: codon-multiple coordinate shift preserves in/out-of-frame classification (non-codon shift flips it) |
-| 103 | ☐ | ONCO-CNA-001 | Oncology | MON: higher log2-ratio → ≥ CN class; INV: segment order independent |
+| 103 | ☑ | ONCO-CNA-001 | Oncology | MON: higher log2-ratio → ≥ CN class; INV: segment order independent |
 | 104 | ☐ | ONCO-CNA-002 | Oncology | MON: higher CN keeps focal amplification; INV: prepend flank shifts focal coordinates |
 | 105 | ☐ | ONCO-CNA-003 | Oncology | MON: lower CN keeps homozygous deletion; INV: segment order independent |
 | 106 | ☐ | ONCO-PURITY-001 | Oncology | MON: scaling clonal VAFs up → ≥ purity; INV: variant order independent |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 102 |
-| ☐ Not started | 132 |
+| ☑ Complete | 103 |
+| ☐ Not started | 131 |
 | MR relations defined | ~200+ |

@@ -1165,4 +1165,57 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-CNA-001 — copy-number-alteration classification (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 103.
+    //
+    // API under test (OncologyAnalyzer.ClassifyCopyNumber / ClassifyCopyNumbers):
+    //   Maps a log2 copy ratio to an integer copy number (CN = ploidy·2^log2) and a CNA state
+    //   on the ordered ladder DeepDeletion < Loss < Neutral < Gain < Amplification.
+    //
+    // Relations (derived from the monotone CN mapping, NOT from output):
+    //   • MON  (higher log2 ratio ⇒ ≥ CN class): CN is increasing in the log2 ratio, so the CNA
+    //          state is non-decreasing along the state ladder.
+    //   • INV  (segment order independent): each region is classified from its own log2 ratio, so
+    //          the value→state mapping does not depend on the segment's position.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region ONCO-CNA-001 MON — higher log2 ratio gives a ≥ copy-number class
+
+    [Test]
+    [Description("MON: copy number increases with the log2 ratio, so the CNA state is non-decreasing along DeepDeletion < Loss < Neutral < Gain < Amplification.")]
+    public void ClassifyCopyNumber_HigherLog2_HigherClass()
+    {
+        int previous = int.MinValue;
+        foreach (double log2 in new[] { -3.0, -1.0, -0.3, 0.0, 0.3, 1.0, 3.0 })
+        {
+            int state = (int)OncologyAnalyzer.ClassifyCopyNumber(log2).State;
+            state.Should().BeGreaterThanOrEqualTo(previous,
+                because: $"a higher log2 ratio ({log2}) cannot lower the copy-number class");
+            previous = state;
+        }
+
+        OncologyAnalyzer.ClassifyCopyNumber(0.0).State.Should().Be(OncologyAnalyzer.CopyNumberState.Neutral,
+            because: "log2 ratio 0 is diploid (CN = 2) → Neutral");
+    }
+
+    #endregion
+
+    #region ONCO-CNA-001 INV — segment order independent
+
+    [Test]
+    [Description("INV: each region is classified from its own log2 ratio, so the value→state mapping is unaffected by segment order.")]
+    public void ClassifyCopyNumbers_SegmentOrder_Independent()
+    {
+        var log2Ratios = new[] { -2.5, -0.4, 0.0, 0.5, 2.0 };
+
+        var forwardStates = OncologyAnalyzer.ClassifyCopyNumbers(log2Ratios).Select(c => c.State).ToList();
+        var reversedStates = OncologyAnalyzer.ClassifyCopyNumbers(log2Ratios.Reverse()).Select(c => c.State).ToList();
+
+        reversedStates.Should().Equal(forwardStates.AsEnumerable().Reverse(),
+            because: "reordering the segments only reorders the calls — each region's state depends solely on its own ratio");
+    }
+
+    #endregion
 }
