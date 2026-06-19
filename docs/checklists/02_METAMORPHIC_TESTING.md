@@ -94,7 +94,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 64 | ☑ | PARSE-FASTA-001 | FileIO | COMP: write→parse→write = write; INV: adding empty lines → same records; INV: trailing newline irrelevant |
 | 65 | ☑ | PARSE-FASTQ-001 | FileIO | COMP: round-trip; INV: quality encoding offset consistent; INV: interleaved order preserved |
 | 66 | ☑ | PARSE-BED-001 | FileIO | INV: sorting doesn't change record content; COMP: round-trip; SHIFT: chromStart/End integrity |
-| 67 | ☐ | PARSE-VCF-001 | FileIO | INV: comment lines don't affect variant records; COMP: round-trip; INV: INFO field order irrelevant |
+| 67 | ☑ | PARSE-VCF-001 | FileIO | INV: comment lines don't affect variant records; COMP: round-trip; INV: INFO field order irrelevant |
 | 68 | ☐ | PARSE-GFF-001 | FileIO | COMP: round-trip; INV: attribute order doesn't matter; INV: comment lines don't affect features |
 | 69 | ☐ | PARSE-GENBANK-001 | FileIO | COMP: round-trip identity; INV: whitespace in sequence irrelevant |
 | 70 | ☐ | PARSE-EMBL-001 | FileIO | COMP: round-trip identity; INV: whitespace in sequence irrelevant |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 66 |
-| ☐ Not started | 168 |
+| ☑ Complete | 67 |
+| ☐ Not started | 167 |
 | MR relations defined | ~200+ |

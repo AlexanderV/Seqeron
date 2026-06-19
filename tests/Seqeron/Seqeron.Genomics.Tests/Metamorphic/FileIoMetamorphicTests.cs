@@ -341,4 +341,125 @@ public class FileIoMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: PARSE-VCF-001 — VCF parsing / serialization (FileIO).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 67.
+    //
+    // API under test (VcfParser.Parse / WriteToStream):
+    //   VCF stores variants as tab-delimited data lines (CHROM POS ID REF ALT QUAL FILTER
+    //   INFO …) preceded by '##' meta lines and a '#CHROM' column header. The INFO column is
+    //   a ';'-separated set of key=value pairs (or bare flags) — an unordered map.
+    //
+    // Relations (derived from the format, NOT from output):
+    //   • INV  (comment/meta lines): all '#'-prefixed and blank lines are skipped, so inserting
+    //          extra '##' meta lines or blank lines anywhere leaves the variant records unchanged.
+    //   • COMP (round-trip): serialising variant records and re-parsing recovers every column,
+    //          and re-serialising reproduces the exact text.
+    //   • INV  (INFO order): INFO is an unordered key→value map, so permuting the INFO subfields
+    //          of a data line yields semantically identical records (same INFO map, same columns).
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region PARSE-VCF-001 — Helpers
+
+    /// <summary>Run-order- and INFO-order-independent identity of a VCF record.</summary>
+    private static (string Chrom, int Pos, string Id, string Ref, string Alt, double? Qual, string Filter, string Info)
+        VcfKey(VcfParser.VcfRecord r) =>
+        (
+            r.Chrom, r.Pos, r.Id, r.Ref,
+            string.Join(',', r.Alt),
+            r.Qual,
+            string.Join(';', r.Filter),
+            string.Join(';', r.Info.OrderBy(kv => kv.Key).Select(kv => $"{kv.Key}={kv.Value}"))
+        );
+
+    private static string WriteVcf(IEnumerable<VcfParser.VcfRecord> records)
+    {
+        using var sw = new StringWriter();
+        VcfParser.WriteToStream(sw, records);
+        return sw.ToString();
+    }
+
+    private static VcfParser.VcfRecord[] SampleVcfRecords() => new[]
+    {
+        new VcfParser.VcfRecord("chr1", 100, "rs1", "A", new[] { "G" }, 50.0, new[] { "PASS" },
+            new Dictionary<string, string> { ["DP"] = "30", ["AF"] = "0.5" }),
+        new VcfParser.VcfRecord("chr2", 200, ".", "C", new[] { "T" }, 99.0, new[] { "PASS" },
+            new Dictionary<string, string> { ["DP"] = "12" }),
+    };
+
+    #endregion
+
+    #region PARSE-VCF-001 INV — meta/comment and blank lines do not affect variant records
+
+    [Test]
+    [Description("INV: '#'-prefixed meta lines and blank lines are skipped, so scattering extra '##' lines and blanks through the file leaves the parsed variant records unchanged.")]
+    public void Vcf_CommentAndBlankLines_DoNotAffectRecords()
+    {
+        const string compact =
+            "##fileformat=VCFv4.3\n" +
+            "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n" +
+            "chr1\t100\trs1\tA\tG\t50\tPASS\tDP=30;AF=0.5\n" +
+            "chr2\t200\t.\tC\tT\t99\tPASS\tDP=12\n";
+
+        const string withComments =
+            "##fileformat=VCFv4.3\n" +
+            "##source=unit-test\n" +
+            "##contig=<ID=chr1,length=1000>\n" +
+            "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n" +
+            "\n" +
+            "chr1\t100\trs1\tA\tG\t50\tPASS\tDP=30;AF=0.5\n" +
+            "##an=annotation-line-between-records\n" +
+            "\n" +
+            "chr2\t200\t.\tC\tT\t99\tPASS\tDP=12\n";
+
+        VcfParser.Parse(withComments).Select(VcfKey)
+            .Should().Equal(VcfParser.Parse(compact).Select(VcfKey),
+                because: "meta and blank lines carry no variant data, so they cannot change the parsed records");
+    }
+
+    #endregion
+
+    #region PARSE-VCF-001 COMP — write→parse→write reproduces the records and text
+
+    [Test]
+    [Description("COMP: serialising variant records and re-parsing recovers every column, and re-serialising the parsed records reproduces the exact text.")]
+    public void Vcf_WriteParseWrite_IsIdempotentAndRecordPreserving()
+    {
+        var records = SampleVcfRecords();
+
+        string written = WriteVcf(records);
+        var parsed = VcfParser.Parse(written).ToList();
+
+        parsed.Select(VcfKey).Should().Equal(records.Select(VcfKey),
+            because: "parsing a VCF serialisation must recover chrom/pos/id/ref/alt/qual/filter/info of every variant");
+
+        WriteVcf(parsed).Should().Be(written,
+            because: "serialisation is a canonical fixed point: write∘parse∘write = write");
+    }
+
+    #endregion
+
+    #region PARSE-VCF-001 INV — INFO subfield order is irrelevant
+
+    [Test]
+    [Description("INV: the INFO column is an unordered key→value map, so permuting its subfields yields a record with the same INFO map and identical other columns.")]
+    public void Vcf_InfoFieldOrder_IsIrrelevant()
+    {
+        const string header = "##fileformat=VCFv4.3\n#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n";
+
+        // Same variant, INFO subfields (including a bare SOMATIC flag) in two different orders.
+        string orderA = header + "chr1\t100\trs1\tA\tG\t50\tPASS\tDP=30;AF=0.5;SOMATIC\n";
+        string orderB = header + "chr1\t100\trs1\tA\tG\t50\tPASS\tSOMATIC;AF=0.5;DP=30\n";
+
+        var recordA = VcfParser.Parse(orderA).Single();
+        var recordB = VcfParser.Parse(orderB).Single();
+
+        VcfKey(recordB).Should().Be(VcfKey(recordA),
+            because: "INFO is a set of key=value pairs, so its serialised order does not change the parsed variant");
+        recordB.Info.Should().BeEquivalentTo(recordA.Info,
+            because: "the INFO map (DP, AF and the SOMATIC flag) is identical regardless of subfield order");
+    }
+
+    #endregion
 }
