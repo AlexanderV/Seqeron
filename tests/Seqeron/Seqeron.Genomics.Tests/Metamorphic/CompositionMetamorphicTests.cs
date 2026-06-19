@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using NUnit.Framework;
 using FluentAssertions;
 using Seqeron.Genomics.Core;
@@ -14,8 +15,8 @@ namespace Seqeron.Genomics.Tests;
 /// *definition*, not from the current implementation's output.
 ///
 /// ───────────────────────────────────────────────────────────────────────────
-/// Unit: SEQ-GC-001 — GC content (Composition)
-/// Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 1.
+/// Units: SEQ-GC-001 — GC content (Composition); SEQ-COMP-001 — DNA complement (Composition)
+/// Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, rows 1–2.
 /// Relations: INV complement preserves GC%; INV shuffle preserves GC%;
 ///            INV case-insensitive (+ derived INV reverse-complement,
 ///            ADD concatenation-additivity of the GC count).
@@ -231,6 +232,185 @@ public class CompositionMetamorphicTests
                 gcCountAb.Should().BeApproximately(gcCountA + gcCountB, 1e-6,
                     because: $"(G+C) count is additive over concatenation: count('{a}'+'{b}') = count('{a}') + count('{b}')");
             }
+        }
+    }
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  SEQ-COMP-001 — DNA complement
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (docs/algorithms/Sequence_Composition/Sequence_Composition.md;
+    //   SequenceExtensions.GetComplementBase — "Source: Wikipedia Nucleic acid
+    //   notation — IUPAC complement table"):
+    //   The complement operation maps each base to its Watson–Crick partner —
+    //   A↔T, C↔G for canonical DNA — and, for ambiguity codes, to the complement
+    //   of the *set* it denotes: R↔Y, K↔M, B↔V, D↔H, with the self-complementary
+    //   codes S↔S, W↔W, N↔N. Every entry of this table is paired and self-inverse,
+    //   so complement is an INVOLUTION (complement∘complement = identity), and it
+    //   rewrites positions one-for-one, so it is LENGTH-PRESERVING. These relations
+    //   follow from the table alone, independent of any particular input.
+    //
+    // API surface under test:
+    //   • DnaSequence.Complement() — canonical {A,C,G,T} path. DnaSequence validates
+    //     strictly to A/C/G/T at construction, so it cannot carry IUPAC ambiguity
+    //     codes; the IUPAC alphabet is therefore exercised through the lower-level
+    //     SequenceExtensions.GetComplementBase / TryGetComplement (the same table
+    //     DnaSequence.Complement() is built on).
+
+    #region MR6: INV — complement is an involution over {A,C,G,T} (DnaSequence)
+
+    /// <summary>
+    /// MR6: complement(complement(x)) == x for canonical DNA via the DnaSequence facade.
+    /// The complement table pairs A↔T and C↔G; applying it twice returns each base to
+    /// itself, so the double complement reproduces the original sequence exactly.
+    /// Verified on fixed and fixed-seed random sequences.
+    /// </summary>
+    [Test]
+    public void Complement_AppliedTwice_IsIdentity_Dna()
+    {
+        foreach (var s in SampleSequences())
+        {
+            var seq = new DnaSequence(s);
+
+            var doubleComplement = seq.Complement().Complement();
+
+            doubleComplement.Sequence.Should().Be(seq.Sequence,
+                because: $"complement pairs A↔T and C↔G (each mapping self-inverse), so complement∘complement must return '{s}' unchanged");
+        }
+    }
+
+    #endregion
+
+    #region MR7: INV — complement is an involution over the full IUPAC alphabet (GetComplementBase)
+
+    /// <summary>
+    /// MR7: GetComplementBase(GetComplementBase(c)) == c for every IUPAC code.
+    /// The IUPAC complement table is a fixed-point-free / self-paired permutation:
+    /// A↔T, C↔G, U→A→T (note: U complements to A, A to T — so U is NOT a fixed point
+    /// of the double map and is excluded below), R↔Y, K↔M, B↔V, D↔H, and the
+    /// self-complementary S↔S, W↔W, N↔N. Over the DNA-emitting alphabet (no U input)
+    /// applying the map twice is therefore the identity.
+    /// </summary>
+    [Test]
+    public void Complement_AppliedTwice_IsIdentity_AllIupacCodes()
+    {
+        // DNA IUPAC alphabet (uppercase). U is excluded: GetComplementBase('U')='A'
+        // and 'A'→'T', so U is intentionally not an involution fixed point in the
+        // DNA-emitting table; the involution is over the {A,C,G,T}+ambiguity set.
+        const string iupac = "ACGTRYSWKMBDHVN";
+
+        foreach (char c in iupac)
+        {
+            char twice = SequenceExtensions.GetComplementBase(SequenceExtensions.GetComplementBase(c));
+
+            twice.Should().Be(c,
+                because: $"the IUPAC complement table is self-paired, so complementing '{c}' twice must yield '{c}'");
+        }
+    }
+
+    /// <summary>
+    /// MR7-b: case-insensitive involution — lower-case IUPAC input complemented twice
+    /// returns its upper-case canonical form (the table upper-cases recognised bases).
+    /// Confirms the involution holds regardless of input spelling.
+    /// </summary>
+    [Test]
+    public void Complement_AppliedTwice_IsIdentity_LowerCaseIupac()
+    {
+        const string iupac = "acgtryswkmbdhvn";
+
+        foreach (char c in iupac)
+        {
+            char twice = SequenceExtensions.GetComplementBase(SequenceExtensions.GetComplementBase(c));
+
+            twice.Should().Be(char.ToUpperInvariant(c),
+                because: $"complement is case-folding and self-paired, so '{c}' complemented twice must yield '{char.ToUpperInvariant(c)}'");
+        }
+    }
+
+    /// <summary>
+    /// MR7-c: whole-string IUPAC involution via the span-based TryGetComplement.
+    /// Complementing an IUPAC string twice reproduces it (in upper case). This
+    /// exercises the same table over the path DnaSequence cannot reach (it rejects
+    /// ambiguity codes at construction).
+    /// </summary>
+    [Test]
+    public void Complement_AppliedTwice_IsIdentity_IupacString()
+    {
+        var rng = new Random(20260619);
+        const string iupac = "ACGTRYSWKMBDHVN";
+
+        for (int t = 0; t < 20; t++)
+        {
+            int len = 1 + rng.Next(40);
+            var chars = new char[len];
+            for (int i = 0; i < len; i++)
+                chars[i] = iupac[rng.Next(iupac.Length)];
+            string original = new string(chars);
+
+            var once = new char[len];
+            original.AsSpan().TryGetComplement(once).Should().BeTrue();
+            var twice = new char[len];
+            ((ReadOnlySpan<char>)once).TryGetComplement(twice).Should().BeTrue();
+
+            new string(twice).Should().Be(original,
+                because: $"the IUPAC complement table is self-paired, so complementing '{original}' twice must reproduce it");
+        }
+    }
+
+    #endregion
+
+    #region MR8: INV — complement preserves length
+
+    /// <summary>
+    /// MR8: complement(x).Length == x.Length.
+    /// Complement rewrites each position to exactly one output character — it never
+    /// inserts or deletes — so the output length always equals the input length.
+    /// </summary>
+    [Test]
+    public void Complement_PreservesLength()
+    {
+        foreach (var s in SampleSequences())
+        {
+            var seq = new DnaSequence(s);
+
+            seq.Complement().Length.Should().Be(seq.Length,
+                because: $"complement is a per-position rewrite (no insert/delete), so length of '{s}' is unchanged");
+        }
+    }
+
+    #endregion
+
+    #region MR9: P — complement swaps complementary base counts (derived from theory)
+
+    /// <summary>
+    /// MR9 (derived): complement maps A↔T and C↔G, so the count of A in x equals the
+    /// count of T in complement(x), and count of C in x equals count of G in
+    /// complement(x) (and symmetrically). This is a direct, theory-guaranteed
+    /// consequence of the canonical complement table over {A,C,G,T}.
+    /// </summary>
+    [Test]
+    public void Complement_SwapsComplementaryBaseCounts()
+    {
+        foreach (var s in SampleSequences())
+        {
+            var seq = new DnaSequence(s);
+            string comp = seq.Complement().Sequence;
+
+            int aIn = seq.Sequence.Count(ch => ch == 'A');
+            int tIn = seq.Sequence.Count(ch => ch == 'T');
+            int cIn = seq.Sequence.Count(ch => ch == 'C');
+            int gIn = seq.Sequence.Count(ch => ch == 'G');
+
+            comp.Count(ch => ch == 'T').Should().Be(aIn,
+                because: $"A↔T: every A in '{s}' becomes a T in its complement");
+            comp.Count(ch => ch == 'A').Should().Be(tIn,
+                because: $"A↔T: every T in '{s}' becomes an A in its complement");
+            comp.Count(ch => ch == 'G').Should().Be(cIn,
+                because: $"C↔G: every C in '{s}' becomes a G in its complement");
+            comp.Count(ch => ch == 'C').Should().Be(gIn,
+                because: $"C↔G: every G in '{s}' becomes a C in its complement");
         }
     }
 

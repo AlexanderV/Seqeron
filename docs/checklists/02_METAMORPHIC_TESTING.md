@@ -29,7 +29,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | # | Status | Test Unit | Area | MR Relations |
 |---|--------|-----------|------|-------------|
 | 1 | ☑ | SEQ-GC-001 | Composition | INV: complement preserves GC%; INV: shuffle preserves GC%; INV: case-insensitive |
-| 2 | ☐ | SEQ-COMP-001 | Composition | INV: complement(complement(x))=x (involution); INV: length unchanged |
+| 2 | ☑ | SEQ-COMP-001 | Composition | INV: complement(complement(x))=x (involution); INV: length unchanged |
 | 3 | ☐ | SEQ-REVCOMP-001 | Composition | INV: revcomp(revcomp(x))=x; INV: length unchanged |
 | 4 | ☐ | SEQ-VALID-001 | Composition | INV: case conversion preserves validity; COMP: valid DNA ⊂ valid IUPAC; INV: repeat seq → same result |
 | 5 | ☐ | SEQ-COMPLEX-001 | Composition | INV: permutation preserves complexity; MON: homopolymer → min complexity; MON: random → higher |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 8 |
-| ☐ Not started | 226 |
+| ☑ Complete | 9 |
+| ☐ Not started | 225 |
 | MR relations defined | ~200+ |
