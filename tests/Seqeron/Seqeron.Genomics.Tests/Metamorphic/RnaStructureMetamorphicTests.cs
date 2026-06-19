@@ -430,4 +430,60 @@ public class RnaStructureMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: RNA-INVERT-001 — inverted repeats (RnaStructure).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 151.
+    //
+    // API under test (RnaSecondaryStructure.FindInvertedRepeats):
+    //   Reports (Start1,End1,Start2,End2,Length) where the right arm is the antiparallel reverse
+    //   complement of the left arm (the W…W̄ᴿ stem pattern), with a loop in [minSpacing, maxSpacing].
+    //
+    // Relations (derived from the reverse-complement stem definition, NOT from output):
+    //   • SYM  (arms reverse-complementary): for every reported repeat the right-arm substring equals
+    //          the reverse complement of the left-arm substring.
+    //   • INV  (revcomp preserves count): reverse-complementing the whole sequence maps each inverted
+    //          repeat to an inverted repeat, so the number of repeats is unchanged.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private static string RnaRevComp(string s) =>
+        new(s.Reverse().Select(RnaSecondaryStructure.GetComplement).ToArray());
+
+    // Two well-separated RNA stem-loops (arm + loop + reverse-complement arm), U-spacer between them.
+    private const string InvertedRepeatSeq = "GGGGAAAACCCC" + "UUUUU" + "GGACAAAGUCC";
+
+    #region RNA-INVERT-001 SYM — the right arm is the reverse complement of the left
+
+    [Test]
+    [Description("SYM: each reported inverted repeat has a right arm equal to the reverse complement of its left arm.")]
+    public void InvertedRepeats_RightArm_IsReverseComplementOfLeft()
+    {
+        var repeats = RnaSecondaryStructure.FindInvertedRepeats(InvertedRepeatSeq, minLength: 4, minSpacing: 3, maxSpacing: 8).ToList();
+        repeats.Should().NotBeEmpty(because: "the sequence contains complementary stem arms");
+
+        foreach (var r in repeats)
+        {
+            string left = InvertedRepeatSeq.Substring(r.Start1, r.End1 - r.Start1 + 1);
+            string right = InvertedRepeatSeq.Substring(r.Start2, r.End2 - r.Start2 + 1);
+            right.Should().Be(RnaRevComp(left),
+                because: $"the right arm at [{r.Start2},{r.End2}] must be the reverse complement of the left arm '{left}'");
+        }
+    }
+
+    #endregion
+
+    #region RNA-INVERT-001 INV — reverse complement preserves the repeat count
+
+    [Test]
+    [Description("INV: reverse-complementing the whole sequence maps each inverted repeat to an inverted repeat, so the number of reported repeats is unchanged.")]
+    public void InvertedRepeats_ReverseComplement_PreservesCount()
+    {
+        int original = RnaSecondaryStructure.FindInvertedRepeats(InvertedRepeatSeq, minLength: 4, minSpacing: 3, maxSpacing: 8).Count();
+        int reversed = RnaSecondaryStructure.FindInvertedRepeats(RnaRevComp(InvertedRepeatSeq), minLength: 4, minSpacing: 3, maxSpacing: 8).Count();
+
+        original.Should().BeGreaterThan(0, because: "the sequence has at least one stem-loop");
+        reversed.Should().Be(original, because: "an inverted repeat stays an inverted repeat under whole-sequence reverse complement");
+    }
+
+    #endregion
 }
