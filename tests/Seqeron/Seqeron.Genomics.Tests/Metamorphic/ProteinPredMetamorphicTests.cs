@@ -348,4 +348,94 @@ public class ProteinPredMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: DISORDER-MORF-001 — Molecular Recognition Feature (MoRF) prediction (ProteinPred).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 205.
+    //
+    // API under test (DisorderPredictor.PredictMoRFs):
+    //   A MoRF is a short region of relative ORDER — a downward "dip" in the per-residue disorder
+    //   profile (TOP-IDP score < 0.5) — embedded WITHIN disorder (flanked by predicted-disordered
+    //   residues, score ≥ 0.5, on both immediate sides) whose length lies in the 10–70 band
+    //   (Cheng/Oldfield et al. PMC2570644; Mohan et al. 2006).
+    //
+    // Relations (derived from the dip-in-disorder definition, NOT from output):
+    //   • INV  (deterministic): PredictMoRFs is a pure, case-insensitive function — repeated calls
+    //          and upper/lower case give identical MoRFs.
+    //   • SHIFT (prepend flank shifts MoRFs): prepending more of the same disordered residue extends
+    //          the disordered context without altering the local profile around the ordered dip, so
+    //          every MoRF's coordinates translate by exactly the prepended length.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region DISORDER-MORF-001 — Helpers
+
+    // Disordered context residue: all-proline scores 1.0 on the normalised TOP-IDP scale (P is the
+    // most disorder-promoting residue), comfortably ≥ the 0.5 MoRF order/disorder boundary.
+    private const char MorfDisorderedUnit = 'P';
+    // Ordered "dip" residue: all-tryptophan scores 0.0 (W is the most order-promoting residue), so a
+    // long W block is a deep dip below 0.5 — the MoRF signature.
+    private const char MorfOrderedUnit = 'W';
+
+    // A 40-residue ordered dip embedded in 30-residue disordered flanks: PredictDisorder's window-21
+    // profile makes the central W block a single MoRF flanked by disorder on both sides.
+    private static string MorfSequence(int leftFlank, int dip, int rightFlank) =>
+        new string(MorfDisorderedUnit, leftFlank) + new string(MorfOrderedUnit, dip) + new string(MorfDisorderedUnit, rightFlank);
+
+    private static System.Collections.Generic.List<(int Start, int End, double Score)> MoRFs(string sequence) =>
+        DisorderPredictor.PredictMoRFs(sequence).ToList();
+
+    #endregion
+
+    #region DISORDER-MORF-001 INV — MoRF prediction is deterministic and case-insensitive
+
+    [Test]
+    [Description("INV: PredictMoRFs is a pure, case-insensitive function — repeated calls and upper/lower case give identical MoRFs.")]
+    public void PredictMoRFs_SameSequence_SameMoRFs()
+    {
+        string seq = MorfSequence(30, 40, 30);
+
+        var first = MoRFs(seq);
+        first.Should().ContainSingle(because: "the embedded ordered dip is a single MoRF — a non-vacuous fixture");
+
+        MoRFs(seq).Should().Equal(first, because: "MoRF prediction has no hidden state");
+        MoRFs(seq.ToLowerInvariant()).Should().Equal(first, because: "the sequence is upper-cased before scoring, so case does not matter");
+    }
+
+    #endregion
+
+    #region DISORDER-MORF-001 SHIFT — prepending disordered residues shifts the MoRFs
+
+    [Test]
+    [Description("SHIFT: prepending more of the same disordered residue extends the disordered context without changing the profile around the ordered dip, so every MoRF's coordinates shift by exactly the prepended length.")]
+    public void PredictMoRFs_PrependDisorderedFlank_ShiftsMoRFs()
+    {
+        // Left flank ≥ the window half-width (10) so the dip's local profile sees only flank residues
+        // near its boundary — prepending further disordered residues cannot reach it.
+        string seq = MorfSequence(30, 40, 30);
+
+        var baseline = MoRFs(seq);
+        baseline.Should().ContainSingle(because: "the central dip is the only MoRF");
+        baseline[0].Start.Should().BeGreaterThan(0, because: "the MoRF is flanked by disorder, so it never touches the N-terminus");
+
+        foreach (int offset in new[] { 15, 25 })
+        {
+            string prepended = new string(MorfDisorderedUnit, offset) + seq;
+            var shifted = MoRFs(prepended);
+
+            shifted.Should().HaveCount(baseline.Count,
+                because: "extending the disordered context neither creates nor destroys an ordered dip");
+
+            for (int i = 0; i < baseline.Count; i++)
+            {
+                shifted[i].Start.Should().Be(baseline[i].Start + offset,
+                    because: $"prepending {offset} disordered residues shifts the MoRF start by {offset}");
+                shifted[i].End.Should().Be(baseline[i].End + offset,
+                    because: $"prepending {offset} disordered residues shifts the MoRF end by {offset}");
+                shifted[i].Score.Should().BeApproximately(baseline[i].Score, 1e-9,
+                    because: "the dip's residue composition (and thus its depth score) is unchanged by translation");
+            }
+        }
+    }
+
+    #endregion
 }
