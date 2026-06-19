@@ -201,7 +201,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 171 | ☑ | MOTIF-GENERATE-001 | Matching | INV: row order independent |
 | 172 | ☑ | MOTIF-REGULATORY-001 | Matching | SHIFT: prepend flank shifts positions; SUB: broader set → ≥ matches |
 | 173 | ☑ | MOTIF-SHARED-001 | Matching | INV: input order independent; SUB: fewer inputs → ⊇ shared set |
-| 174 | ☐ | PAT-APPROX-003 | Matching | INV: exact match → 0; MON: best ≤ any candidate distance |
+| 174 | ☑ | PAT-APPROX-003 | Matching | INV: exact match → 0; MON: best ≤ any candidate distance |
 | 175 | ☐ | GENOMIC-COMMON-001 | Analysis | INV: input order independent; SUB: more inputs → ⊆ common |
 | 176 | ☐ | GENOMIC-MOTIFS-001 | Analysis | SHIFT: prepend flank shifts positions; INV: deterministic |
 | 177 | ☐ | GENOMIC-ORF-001 | Analysis | SHIFT: prepend in-frame flank shifts ORFs; INV: revcomp gives reverse-strand ORFs |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 173 |
-| ☐ Not started | 61 |
+| ☑ Complete | 174 |
+| ☐ Not started | 60 |
 | MR relations defined | ~200+ |

@@ -872,4 +872,51 @@ public class MatchingMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: PAT-APPROX-003 — best approximate match (Matching).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 174.
+    //
+    // API under test (ApproximateMatcher.FindBestMatch):
+    //   Returns the equal-length window with the minimum Hamming distance to the pattern.
+    //
+    // Relations (derived from the minimum-distance definition, NOT from output):
+    //   • INV  (exact match ⇒ 0): when the pattern occurs verbatim, the best distance is 0.
+    //   • MON  (best ≤ any candidate): the returned distance is the minimum over all windows, so it
+    //          is ≤ the Hamming distance of every equal-length window.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region PAT-APPROX-003 INV — an exact occurrence gives distance 0
+
+    [Test]
+    [Description("INV: when the pattern occurs verbatim in the sequence, the best approximate match has Hamming distance 0.")]
+    public void BestMatch_ExactOccurrence_DistanceZero()
+    {
+        var result = ApproximateMatcher.FindBestMatch("ACGTACGTACGT", "CGTA");
+        result.Should().NotBeNull();
+        result!.Value.Distance.Should().Be(0, because: "CGTA occurs exactly, so the minimum-distance window has distance 0");
+    }
+
+    #endregion
+
+    #region PAT-APPROX-003 MON — the best distance is ≤ every window's distance
+
+    [Test]
+    [Description("MON: the best match is the minimum-distance window, so its distance is at most the Hamming distance of any equal-length window of the sequence.")]
+    public void BestMatch_NoGreaterThanAnyWindow()
+    {
+        const string seq = "ACGTACGTACGT";
+        const string pattern = "TTTT"; // no exact occurrence
+        var best = ApproximateMatcher.FindBestMatch(seq, pattern);
+        best.Should().NotBeNull();
+
+        for (int i = 0; i <= seq.Length - pattern.Length; i++)
+        {
+            int windowDistance = ApproximateMatcher.HammingDistance(pattern, seq.Substring(i, pattern.Length));
+            best!.Value.Distance.Should().BeLessThanOrEqualTo(windowDistance,
+                because: $"the best distance is the minimum over windows, so it cannot exceed window {i}'s distance");
+        }
+    }
+
+    #endregion
 }
