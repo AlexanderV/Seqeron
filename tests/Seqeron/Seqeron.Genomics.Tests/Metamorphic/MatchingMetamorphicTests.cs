@@ -684,4 +684,55 @@ public class MatchingMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: MOTIF-DISCOVER-001 — overrepresented k-mer discovery (Matching).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 170.
+    //
+    // API under test (MotifFinder.DiscoverMotifs):
+    //   Reports k-mers whose occurrence count ≥ minCount, with their positions and O/E enrichment.
+    //
+    // Relations (derived from the count threshold, NOT from output):
+    //   • MON  (lower support ⇒ superset): lowering minCount admits every previously-reported k-mer
+    //          plus lower-count ones, so the discovered set grows.
+    //   • SHIFT (prepend flank shifts positions): prepending a flank that adds no occurrence of a
+    //          motif shifts that motif's positions by the flank length.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region MOTIF-DISCOVER-001 MON — lower support yields a superset
+
+    [Test]
+    [Description("MON: lowering minCount keeps every higher-count k-mer and admits lower-count ones, so the discovered motif set at the lower support is a superset.")]
+    public void DiscoverMotifs_LowerSupport_Superset()
+    {
+        var seq = new DnaSequence("ATGATGATG"); // ATG×3, TGA×2, GAT×2 at k=3
+        var support3 = MotifFinder.DiscoverMotifs(seq, k: 3, minCount: 3).Select(m => m.Sequence).ToHashSet();
+        var support2 = MotifFinder.DiscoverMotifs(seq, k: 3, minCount: 2).Select(m => m.Sequence).ToHashSet();
+
+        support3.IsSubsetOf(support2).Should().BeTrue(because: "every k-mer with count ≥3 also has count ≥2");
+        support2.Count.Should().BeGreaterThan(support3.Count, because: "TGA and GAT (count 2) are admitted only at the lower support");
+    }
+
+    #endregion
+
+    #region MOTIF-DISCOVER-001 SHIFT — a prepended flank shifts motif positions
+
+    [Test]
+    [Description("SHIFT: prepending a flank that introduces no new ATG occurrence shifts every ATG position by the flank length.")]
+    public void DiscoverMotifs_PrependFlank_ShiftsPositions()
+    {
+        const string seq = "ATGATGATG";
+        var original = MotifFinder.DiscoverMotifs(new DnaSequence(seq), k: 3, minCount: 2)
+            .First(m => m.Sequence == "ATG").Positions.ToList();
+
+        foreach (var flank in new[] { "CC", "GCCG" }) // contain no ATG and form none at the junction
+        {
+            var shifted = MotifFinder.DiscoverMotifs(new DnaSequence(flank + seq), k: 3, minCount: 2)
+                .First(m => m.Sequence == "ATG").Positions.ToList();
+            shifted.Should().Equal(original.Select(p => p + flank.Length),
+                because: $"the {flank.Length}-base flank relocates every ATG occurrence by {flank.Length}");
+        }
+    }
+
+    #endregion
 }
