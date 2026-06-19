@@ -78,4 +78,88 @@ public class PanGenomeMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: PANGEN-CORE-001 — core genome (PanGenome).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 191.
+    //
+    // API under test (PanGenomeAnalyzer.ClusterGenes; core = clusters present in every genome):
+    //   The core genome is the set of ortholog clusters occurring in all genomes.
+    //
+    // Relations (derived from the "present in all genomes" definition, NOT from output):
+    //   • MON  (more genomes ⇒ ⊆ core): adding a genome can only drop clusters absent from it, so the
+    //          core shrinks (antitone in the genome set).
+    //   • INV  (genome order independent): the core depends on which clusters span all genomes, not on
+    //          the genome iteration order.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    // Distinct (pairwise < 95% identical) gene sequences; identical sequences across genomes are orthologs.
+    private const string S1 = "AAAACCCCGGGG";
+    private const string S2 = "TTTTACGTACGT";
+    private const string S3 = "GGGGCCCCAAAA";
+    private const string S4 = "CACACACAGTGT";
+    private const string S5 = "TGTGTGTGCACA";
+    private const string S6 = "ACGTACGTTTTT";
+
+    private static IReadOnlyList<(string, string)> Genome(string id, params string[] seqs) =>
+        seqs.Select((s, i) => ($"{id}_g{i}", s)).ToList();
+
+    // Core = consensus sequences of clusters present in every genome.
+    private static HashSet<string> CoreConsensus(IReadOnlyDictionary<string, IReadOnlyList<(string, string)>> genomes)
+    {
+        int n = genomes.Count;
+        return PanGenomeAnalyzer.ClusterGenes(genomes, 0.95)
+            .Where(c => c.GenomeCount == n)
+            .Select(c => c.ConsensusSequence).ToHashSet();
+    }
+
+    #region PANGEN-CORE-001 MON — adding a genome shrinks the core
+
+    [Test]
+    [Description("MON: a core cluster must occur in every genome, so adding a genome can only remove clusters it lacks — the core of more genomes is a subset of the core of fewer.")]
+    public void Core_MoreGenomes_Subset()
+    {
+        var twoGenomes = new Dictionary<string, IReadOnlyList<(string, string)>>
+        {
+            ["gA"] = Genome("gA", S1, S2, S3),
+            ["gB"] = Genome("gB", S1, S2, S4),
+        };
+        var threeGenomes = new Dictionary<string, IReadOnlyList<(string, string)>>(twoGenomes)
+        {
+            ["gC"] = Genome("gC", S1, S5, S6),
+        };
+
+        var core2 = CoreConsensus(twoGenomes);
+        var core3 = CoreConsensus(threeGenomes);
+
+        core3.IsSubsetOf(core2).Should().BeTrue(because: "a cluster in all three genomes is in the first two");
+        core2.Count.Should().BeGreaterThan(core3.Count, because: "S2 leaves the core once genome gC (which lacks it) is added");
+    }
+
+    #endregion
+
+    #region PANGEN-CORE-001 INV — core is independent of genome order
+
+    [Test]
+    [Description("INV: the core depends on which clusters span all genomes, so building the genome map in a different order yields the same core.")]
+    public void Core_GenomeOrder_Invariant()
+    {
+        var forward = new Dictionary<string, IReadOnlyList<(string, string)>>
+        {
+            ["gA"] = Genome("gA", S1, S2, S3),
+            ["gB"] = Genome("gB", S1, S2, S4),
+            ["gC"] = Genome("gC", S1, S2, S5),
+        };
+        var reordered = new Dictionary<string, IReadOnlyList<(string, string)>>
+        {
+            ["gC"] = Genome("gC", S1, S2, S5),
+            ["gA"] = Genome("gA", S1, S2, S3),
+            ["gB"] = Genome("gB", S1, S2, S4),
+        };
+
+        CoreConsensus(reordered).Should().BeEquivalentTo(CoreConsensus(forward),
+            because: "the core is a function of the genome set, not its iteration order");
+    }
+
+    #endregion
 }
