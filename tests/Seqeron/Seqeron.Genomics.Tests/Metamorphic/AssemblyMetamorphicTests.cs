@@ -419,4 +419,58 @@ public class AssemblyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ASSEMBLY-STATS-001 — assembly statistics / N50 (Assembly).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 147.
+    //
+    // API under test (SequenceAssembler.CalculateStats):
+    //   N50, total length and longest contig, computed from the sorted contig lengths.
+    //
+    // Relations (derived from the N50 definition, NOT from output):
+    //   • INV  (contig order independent): the statistics depend only on the multiset of contig
+    //          lengths, so reordering the contigs leaves N50/total/longest unchanged.
+    //   • MON  (splitting a contig ⇒ ≤ N50): splitting preserves the total length but replaces one
+    //          length by two smaller ones, so N50 can only decrease or stay the same.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private static List<string> Contigs(params int[] lengths) =>
+        lengths.Select(n => new string('A', n)).ToList();
+
+    #region ASSEMBLY-STATS-001 INV — statistics are independent of contig order
+
+    [Test]
+    [Description("INV: N50, total length and longest contig depend only on the multiset of contig lengths, so reversing the contig order leaves them unchanged.")]
+    public void Stats_ContigOrder_Invariant()
+    {
+        var contigs = Contigs(10, 9, 8, 7, 6);
+        var original = SequenceAssembler.CalculateStats(contigs, contigs.Count);
+        var reordered = SequenceAssembler.CalculateStats(((IEnumerable<string>)contigs).Reverse().ToList(), contigs.Count);
+
+        reordered.N50.Should().Be(original.N50, because: "N50 is computed from the sorted lengths");
+        reordered.TotalLength.Should().Be(original.TotalLength, because: "total length is a sum, order-independent");
+        reordered.LongestContig.Should().Be(original.LongestContig, because: "the longest contig is the maximum length");
+    }
+
+    #endregion
+
+    #region ASSEMBLY-STATS-001 MON — splitting a contig cannot increase N50
+
+    [Test]
+    [Description("MON: splitting a contig preserves the total length but replaces one length by two smaller ones, so N50 is non-increasing.")]
+    public void Stats_SplitContig_NonIncreasingN50()
+    {
+        var contigs = Contigs(10, 9, 8, 7, 6);
+        double before = SequenceAssembler.CalculateStats(contigs, contigs.Count).N50;
+
+        // Split the longest contig (10) into two halves of 5; total length is preserved.
+        var split = Contigs(5, 5, 9, 8, 7, 6);
+        double after = SequenceAssembler.CalculateStats(split, split.Count).N50;
+
+        SequenceAssembler.CalculateStats(split, split.Count).TotalLength
+            .Should().Be(SequenceAssembler.CalculateStats(contigs, contigs.Count).TotalLength, because: "splitting preserves total assembly length");
+        after.Should().BeLessThanOrEqualTo(before, because: "replacing one contig by two smaller pieces cannot raise N50");
+    }
+
+    #endregion
 }
