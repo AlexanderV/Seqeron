@@ -464,4 +464,124 @@ public class AnnotationMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ANNOT-GFF-001 — GFF3 serialization round-trip (Annotation).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 31.
+    //
+    // API under test (GenomeAnnotator.ToGff3 / ParseGff3):
+    //   ToGff3(annotations, seqId) emits "##gff-version 3" then one tab-delimited line per
+    //     annotation: seqId . Type (Start+1) End . Strand phase attrs, where phase = 0 for
+    //     CDS else '.', attrs = "ID={GeneId};product={Product};{other attrs except translation}"
+    //     with GFF3 column-9 percent-encoding.
+    //   ParseGff3(lines) skips blank/'#' lines and <9-column lines, then reads each feature:
+    //     Start = col4 (kept 1-based), End = col5, Strand = col7[0], phase from col8,
+    //     attributes split on ';' into a dict (order-independent, %-decoded), FeatureId = ID.
+    //
+    // Relations (derived from the format definition, NOT from output):
+    //   • INV (line count): writing N annotations always yields N+1 lines (header + N), and
+    //         parsing recovers exactly N features — the record count survives the round-trip.
+    //   • COMP (parse∘write): each parsed feature reproduces its annotation's Type, End,
+    //         Strand, ID and product, with Start in GFF 1-based form (annotation.Start + 1)
+    //         and CDS phase 0; percent-encoded attribute values decode back to the originals.
+    //   • INV (attribute order): column 9 parses into a dictionary, so permuting the
+    //         attribute order yields an identical feature (same FeatureId and attribute map).
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private static GenomeAnnotator.GeneAnnotation Gene(
+        string id, int start, int end, char strand, string type, string product,
+        params (string Key, string Value)[] attrs)
+        => new(id, start, end, strand, type, product,
+               attrs.ToDictionary(a => a.Key, a => a.Value));
+
+    /// <summary>Annotations exercising CDS/non-CDS, both strands, extra attributes and special characters.</summary>
+    private static List<GenomeAnnotator.GeneAnnotation> GffAnnotations() => new()
+    {
+        Gene("gene_0001", 10, 60, '+', "CDS", "hypothetical protein",
+            ("frame", "1"), ("protein_length", "16"), ("translation", "MKLV")),
+        Gene("gene_0002", 100, 130, '-', "gene", "regulatory; element=ABC",
+            ("frame", "2"), ("note", "has,comma and=equals")),
+        Gene("gene_0003", 200, 260, '+', "CDS", "enzyme alpha beta"),
+    };
+
+    #region INV — the record count survives write → parse
+
+    [Test]
+    [Description("INV: ToGff3 emits one header line plus one line per annotation, and ParseGff3 recovers exactly that many features — the record count is preserved.")]
+    public void ToGff3_ThenParse_PreservesRecordCount()
+    {
+        var annotations = GffAnnotations();
+        var lines = GenomeAnnotator.ToGff3(annotations).ToList();
+
+        lines[0].Should().Be("##gff-version 3", because: "ToGff3 always starts with the GFF3 version pragma");
+        lines.Count.Should().Be(annotations.Count + 1, because: "the output is the header followed by exactly one line per annotation");
+
+        var features = GenomeAnnotator.ParseGff3(lines).ToList();
+        features.Count.Should().Be(annotations.Count,
+            because: "ParseGff3 skips the '#' header and yields one feature per data line, so the record count round-trips");
+    }
+
+    #endregion
+
+    #region COMP — parse(write(x)) reproduces each annotation's fields (GFF 1-based coordinates)
+
+    [Test]
+    [Description("COMP: parsing the GFF3 written for each annotation reproduces its Type, End, Strand, ID and product, with Start in 1-based GFF form and CDS phase 0; encoded attribute values decode back to the originals.")]
+    public void ParseGff3_OfWrittenAnnotations_ReproducesFields()
+    {
+        var annotations = GffAnnotations();
+        var features = GenomeAnnotator.ParseGff3(GenomeAnnotator.ToGff3(annotations)).ToList();
+
+        features.Count.Should().Be(annotations.Count);
+        for (int i = 0; i < annotations.Count; i++)
+        {
+            var ann = annotations[i];
+            var feat = features[i];
+
+            feat.FeatureId.Should().Be(ann.GeneId, because: "the ID attribute carries the gene id");
+            feat.Type.Should().Be(ann.Type);
+            feat.Start.Should().Be(ann.Start + 1, because: "GFF coordinates are 1-based: the writer emits Start+1 and the parser keeps it 1-based");
+            feat.End.Should().Be(ann.End);
+            feat.Strand.Should().Be(ann.Strand);
+            feat.Phase.Should().Be(ann.Type == "CDS" ? 0 : (int?)null, because: "phase is 0 for CDS features and '.' (null) otherwise");
+
+            feat.Attributes["ID"].Should().Be(ann.GeneId);
+            feat.Attributes["product"].Should().Be(ann.Product,
+                because: "percent-encoded special characters in the product decode back to the original value");
+
+            foreach (var (key, value) in ann.Attributes)
+            {
+                if (key == "translation")
+                    feat.Attributes.ContainsKey(key).Should().BeFalse(because: "ToGff3 intentionally omits the large translation attribute");
+                else
+                    feat.Attributes[key].Should().Be(value, because: $"attribute '{key}' round-trips through encode/decode");
+            }
+        }
+    }
+
+    #endregion
+
+    #region INV — attribute order in column 9 is irrelevant
+
+    [Test]
+    [Description("INV: two GFF3 lines that differ only in the order of their column-9 attributes parse to the same feature (same id, type, coordinates and attribute map).")]
+    public void ParseGff3_AttributeOrder_DoesNotAffectFeature()
+    {
+        const string lineA = "seq1\t.\tgene\t10\t20\t.\t+\t.\tID=g1;product=foo;frame=1;color=red";
+        const string lineB = "seq1\t.\tgene\t10\t20\t.\t+\t.\tcolor=red;frame=1;product=foo;ID=g1";
+
+        var a = GenomeAnnotator.ParseGff3(new[] { lineA }).Single();
+        var b = GenomeAnnotator.ParseGff3(new[] { lineB }).Single();
+
+        b.FeatureId.Should().Be(a.FeatureId);
+        b.Type.Should().Be(a.Type);
+        b.Start.Should().Be(a.Start);
+        b.End.Should().Be(a.End);
+        b.Strand.Should().Be(a.Strand);
+
+        b.Attributes.Should().BeEquivalentTo(a.Attributes,
+            because: "column 9 parses into a key/value dictionary, so permuting the attribute order yields the same attribute map");
+    }
+
+    #endregion
 }
