@@ -1279,4 +1279,61 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-CNA-003 — homozygous-deletion detection (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 105.
+    //
+    // API under test (OncologyAnalyzer.IsHomozygousDeletion / DetectHomozygousDeletions):
+    //   A segment is a homozygous (deep) deletion iff its integer copy number is 0 — i.e. its
+    //   log2 ratio falls below the deepest CNVkit cutoff (≈ −1.1).
+    //
+    // Relations (derived from the CN==0 rule, NOT from output):
+    //   • MON  (lower CN keeps homozygous deletion): once a segment is a deep deletion, lowering
+    //          its log2 ratio (lower CN) keeps it a deep deletion.
+    //   • INV  (segment order independent): each segment is judged from its own log2 ratio, so
+    //          the detected-deletion set is independent of input order.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private static OncologyAnalyzer.CopyNumberArmSegment CnSeg(string arm, long start, double log2) =>
+        new(arm, start, start + 1_000_000, 10_000_000, log2);
+
+    #region ONCO-CNA-003 MON — lower CN keeps the homozygous deletion
+
+    [Test]
+    [Description("MON: once a segment's CN is 0 (deep deletion), lowering its log2 ratio keeps it a homozygous deletion.")]
+    public void IsHomozygousDeletion_LowerCn_StaysHomDel()
+    {
+        OncologyAnalyzer.IsHomozygousDeletion(CnSeg("1", 0, -0.5))
+            .Should().BeFalse(because: "log2 −0.5 is a single-copy loss (CN 1), not a deep deletion");
+
+        foreach (double log2 in new[] { -1.2, -2.0, -3.0, -5.0 })
+            OncologyAnalyzer.IsHomozygousDeletion(CnSeg("1", 0, log2))
+                .Should().BeTrue(because: $"log2 {log2} is below the deep-deletion cutoff (CN 0) — a lower CN stays a homozygous deletion");
+    }
+
+    #endregion
+
+    #region ONCO-CNA-003 INV — segment order independent
+
+    [Test]
+    [Description("INV: each segment is judged from its own log2 ratio, so the detected-deletion set is independent of input order.")]
+    public void DetectHomozygousDeletions_SegmentOrder_Independent()
+    {
+        var segments = new[]
+        {
+            CnSeg("1", 0, -2.0),   // deep deletion
+            CnSeg("2", 0, 0.0),    // neutral
+            CnSeg("3", 0, -1.5),   // deep deletion
+            CnSeg("4", 0, 1.0),    // gain
+        };
+
+        var forward = OncologyAnalyzer.DetectHomozygousDeletions(segments).Select(s => s.Arm).ToHashSet();
+        var reversed = OncologyAnalyzer.DetectHomozygousDeletions(segments.Reverse()).Select(s => s.Arm).ToHashSet();
+
+        forward.Should().BeEquivalentTo(new[] { "1", "3" }, because: "only the CN-0 segments are deep deletions");
+        reversed.Should().BeEquivalentTo(forward, because: "segment order cannot change which segments are deep deletions");
+    }
+
+    #endregion
 }
