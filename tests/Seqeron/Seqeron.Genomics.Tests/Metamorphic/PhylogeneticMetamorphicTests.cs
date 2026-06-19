@@ -349,6 +349,15 @@ public class PhylogeneticMetamorphicTests
     private static List<string> SortedLeafNames(PhyloNode root) =>
         PhylogeneticAnalyzer.GetLeaves(root).Select(l => l.Name).OrderBy(s => s).ToList();
 
+    /// <summary>Builds a right-nested "ladder" rooted tree from a leaf order, e.g. (1,(2,(3,(4,(5,6))))).</summary>
+    private static PhyloNode Ladder(params string[] order)
+    {
+        string s = order[^1];
+        for (int i = order.Length - 2; i >= 0; i--)
+            s = $"({order[i]},{s})";
+        return PhylogeneticAnalyzer.ParseNewick(s + ";");
+    }
+
     #endregion
 
     #region COMP — parse∘serialize round-trips the tree
@@ -392,6 +401,102 @@ public class PhylogeneticMetamorphicTests
                 reSerialized.Should().Be(canonical,
                     because: "ParseNewick trims leading/trailing whitespace, so surrounding padding cannot change the parsed tree");
             }
+        }
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: PHYLO-COMP-001 — tree comparison / Robinson–Foulds distance (Phylogenetic).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 42.
+    //
+    // API under test (PhylogeneticAnalyzer.RobinsonFouldsDistance):
+    //   RF(t1,t2) = the symmetric difference of the two trees' sets of NON-TRIVIAL rooted
+    //   clades (subtree leaf-sets of size 2..n−1). For two fully-resolved trees with the same
+    //   clade count c, RF = 2·(c − shared).
+    //
+    // Relations (derived from the symmetric-difference definition, NOT from output):
+    //   • SYM (symmetry): the symmetric difference |A\B| + |B\A| is symmetric, so RF(a,b) = RF(b,a).
+    //   • COMP (self-distance zero): a tree has the same clade set as itself, so RF(t,t) = 0.
+    //   • MON (more rearrangements ⇒ higher RF): on a ladder, the non-trivial clades are the
+    //          nested suffix-sets of the leaf order. The σ_k family below corrupts the leaf
+    //          order so that σ_k keeps exactly the (4−k) largest suffix-clades of the reference
+    //          and breaks the rest, giving RF(R, σ_k) = 2k — strictly increasing with the number
+    //          of rearrangements. (Hand-verified suffix sets; see σ_k construction.)
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region SYM — RF(a,b) = RF(b,a)
+
+    [Test]
+    [Description("SYM: Robinson–Foulds distance is symmetric, being a symmetric set difference of clades.")]
+    public void RobinsonFoulds_IsSymmetric()
+    {
+        var trees = new[]
+        {
+            Ladder("1", "2", "3", "4", "5", "6"),
+            Ladder("1", "2", "3", "5", "6", "4"),
+            Ladder("6", "5", "4", "3", "2", "1"),
+            Ladder("2", "4", "6", "1", "3", "5"),
+        };
+
+        for (int i = 0; i < trees.Length; i++)
+            for (int j = 0; j < trees.Length; j++)
+                PhylogeneticAnalyzer.RobinsonFouldsDistance(trees[i], trees[j])
+                    .Should().Be(PhylogeneticAnalyzer.RobinsonFouldsDistance(trees[j], trees[i]),
+                        because: "the symmetric difference of the two clade sets does not depend on argument order");
+    }
+
+    #endregion
+
+    #region COMP — RF(t,t) = 0
+
+    [Test]
+    [Description("COMP: a tree has Robinson–Foulds distance 0 to itself, having an identical clade set.")]
+    public void RobinsonFoulds_SelfDistance_IsZero()
+    {
+        var trees = new[]
+        {
+            Ladder("1", "2", "3", "4", "5", "6"),
+            Ladder("6", "5", "4", "3", "2", "1"),
+            SampleTree(0).Root,
+            SampleTree(1).Root,
+        };
+
+        foreach (var t in trees)
+            PhylogeneticAnalyzer.RobinsonFouldsDistance(t, t).Should().Be(0,
+                because: "a tree shares every clade with itself, so the symmetric difference is empty");
+    }
+
+    #endregion
+
+    #region MON — more rearrangements give a strictly larger RF distance
+
+    [Test]
+    [Description("MON: progressively corrupting more of a ladder's suffix-clades strictly increases the RF distance from the reference (RF(R, σ_k) = 2k).")]
+    public void RobinsonFoulds_MoreRearrangements_IncreasesDistance()
+    {
+        var reference = Ladder("1", "2", "3", "4", "5", "6");
+
+        // σ_k keeps the (4−k) largest suffix-clades of R and breaks the rest ⇒ RF = 2k.
+        var family = new[]
+        {
+            Ladder("1", "2", "3", "4", "5", "6"),   // k=0: shares all 4 clades  → RF 0
+            Ladder("1", "2", "3", "5", "6", "4"),   // k=1: shares 3 → RF 2
+            Ladder("1", "2", "4", "5", "6", "3"),   // k=2: shares 2 → RF 4
+            Ladder("1", "3", "4", "5", "6", "2"),   // k=3: shares 1 → RF 6
+            Ladder("2", "3", "4", "5", "6", "1"),   // k=4: shares 0 → RF 8
+        };
+
+        int previous = -1;
+        for (int k = 0; k < family.Length; k++)
+        {
+            int rf = PhylogeneticAnalyzer.RobinsonFouldsDistance(reference, family[k]);
+
+            rf.Should().Be(2 * k,
+                because: $"σ_{k} retains the {4 - k} largest suffix-clades of the reference and breaks the rest, so RF = 2·{k}");
+            rf.Should().BeGreaterThan(previous,
+                because: "each further rearrangement breaks one more shared clade, strictly increasing the Robinson–Foulds distance");
+            previous = rf;
         }
     }
 
