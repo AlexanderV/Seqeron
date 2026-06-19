@@ -162,7 +162,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 132 | ☑ | COMPGEN-CLUSTER-001 | Comparative | MON: lower identity threshold → superset; INV: genome order independent |
 | 133 | ☑ | COMPGEN-COMPARE-001 | Comparative | SYM: order independent; MON: more shared genes → higher similarity |
 | 134 | ☑ | COMPGEN-DOTPLOT-001 | Comparative | INV: revcomp maps diagonal → anti-diagonal; SHIFT: prepend flank shifts dots |
-| 135 | ☐ | COMPGEN-ORTHO-001 | Comparative | SYM: ortholog relation symmetric; INV: genome order independent |
+| 135 | ☑ | COMPGEN-ORTHO-001 | Comparative | SYM: ortholog relation symmetric; INV: genome order independent |
 | 136 | ☐ | COMPGEN-RBH-001 | Comparative | SYM: RBH symmetric; INV: input order independent |
 | 137 | ☐ | COMPGEN-REARR-001 | Comparative | INV: identity → no rearrangements; SYM: (A,B) consistent with (B,A) |
 | 138 | ☐ | COMPGEN-REVERSAL-001 | Comparative | SYM: symmetric; INV: identical permutation → 0; MON: more reversals applied → ≥ distance |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 134 |
-| ☐ Not started | 100 |
+| ☑ Complete | 135 |
+| ☐ Not started | 99 |
 | MR relations defined | ~200+ |

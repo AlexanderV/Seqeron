@@ -327,4 +327,61 @@ public class ComparativeMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: COMPGEN-ORTHO-001 — ortholog detection (reciprocal best hits) (Comparative).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 135.
+    //
+    // API under test (ComparativeGenomics.FindOrthologs → FindReciprocalBestHits):
+    //   Two genes are orthologs iff each is the other's best hit across the two genomes
+    //   (Moreno-Hagelsieb & Latimer 2008). Similarity is k-mer Jaccard, so identical gene
+    //   sequences are reciprocal best hits.
+    //
+    // Relations (derived from the reciprocal-best-hit definition, NOT from output):
+    //   • SYM  (ortholog relation symmetric): RBH is reciprocal by construction, so a↔b is an
+    //          ortholog pair in FindOrthologs(A,B) iff b↔a is one in FindOrthologs(B,A) — the
+    //          unordered pair set is identical.
+    //   • INV  (gene order independent): best-hit ties are broken deterministically, so permuting
+    //          the gene order within each genome leaves the ortholog pair set unchanged.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private static string UnorderedPair(string a, string b) =>
+        string.CompareOrdinal(a, b) < 0 ? $"{a}|{b}" : $"{b}|{a}";
+
+    private static HashSet<string> OrthologPairs(
+        IReadOnlyList<ComparativeGenomics.Gene> g1, IReadOnlyList<ComparativeGenomics.Gene> g2) =>
+        ComparativeGenomics.FindOrthologs(g1, g2).Select(o => UnorderedPair(o.Gene1Id, o.Gene2Id)).ToHashSet();
+
+    #region COMPGEN-ORTHO-001 SYM — the ortholog relation is symmetric
+
+    [Test]
+    [Description("SYM: reciprocal best hits are reciprocal by definition, so swapping the two genomes yields the same set of (unordered) ortholog pairs.")]
+    public void Orthologs_SwapGenomes_SamePairs()
+    {
+        var a = GenomeOf("A", 0, 1, 2, 20);
+        var b = GenomeOf("B", 0, 1, 2, 24);
+
+        OrthologPairs(b, a).Should().BeEquivalentTo(OrthologPairs(a, b),
+            because: "a is b's best hit iff b is a's best hit, so the ortholog relation is symmetric");
+    }
+
+    #endregion
+
+    #region COMPGEN-ORTHO-001 INV — ortholog set is independent of gene order
+
+    [Test]
+    [Description("INV: best-hit selection depends only on sequence similarity (ties broken deterministically), so reordering the genes within each genome leaves the ortholog pair set unchanged.")]
+    public void Orthologs_PermuteGeneOrder_SamePairs()
+    {
+        var a = GenomeOf("A", 0, 1, 2, 20);
+        var b = GenomeOf("B", 0, 1, 2, 24);
+
+        var aShuffled = ((IEnumerable<ComparativeGenomics.Gene>)a).Reverse().ToList();
+        var bShuffled = ((IEnumerable<ComparativeGenomics.Gene>)b).Reverse().ToList();
+
+        OrthologPairs(aShuffled, bShuffled).Should().BeEquivalentTo(OrthologPairs(a, b),
+            because: "orthology is a property of the gene sequences, not their chromosomal order");
+    }
+
+    #endregion
 }
