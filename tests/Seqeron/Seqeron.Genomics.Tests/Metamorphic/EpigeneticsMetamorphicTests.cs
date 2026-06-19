@@ -286,4 +286,66 @@ public class EpigeneticsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: EPIGEN-DMR-001 — differentially methylated regions (Epigenetics).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 184.
+    //
+    // API under test (EpigeneticsAnalyzer.FindDMRs):
+    //   Tiles the genome and reports windows whose |mean methylation difference| > minDifference.
+    //
+    // Relations (derived from the |difference| cutoff, NOT from output):
+    //   • MON  (lower threshold ⇒ superset): lowering minDifference admits windows with smaller
+    //          differences, so the DMR set grows.
+    //   • SYM  (DMR(A,B) consistent with (B,A)): swapping the samples negates each mean difference
+    //          but |difference| is unchanged, so the same regions are reported with flipped sign.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private static EpigeneticsAnalyzer.MethylationSite MethSite(int pos, double level) =>
+        new(pos, EpigeneticsAnalyzer.MethylationType.CpG, "CpG", level, 10);
+
+    // Window A (positions 0..2) differs by 0.5; window B (positions 1000..1002) differs by 0.3.
+    private static readonly EpigeneticsAnalyzer.MethylationSite[] DmrSample1 =
+    {
+        MethSite(0, 0.0), MethSite(1, 0.0), MethSite(2, 0.0),
+        MethSite(1000, 0.0), MethSite(1001, 0.0), MethSite(1002, 0.0),
+    };
+    private static readonly EpigeneticsAnalyzer.MethylationSite[] DmrSample2 =
+    {
+        MethSite(0, 0.5), MethSite(1, 0.5), MethSite(2, 0.5),
+        MethSite(1000, 0.3), MethSite(1001, 0.3), MethSite(1002, 0.3),
+    };
+
+    #region EPIGEN-DMR-001 MON — lowering the threshold yields a superset
+
+    [Test]
+    [Description("MON: lowering minDifference admits windows with smaller methylation differences, so the DMR set at the lower cutoff is a superset.")]
+    public void Dmr_LowerThreshold_Superset()
+    {
+        var strict = EpigeneticsAnalyzer.FindDMRs(DmrSample1, DmrSample2, 1000, 0.4, 3).Select(d => (d.Start, d.End)).ToHashSet();
+        var lenient = EpigeneticsAnalyzer.FindDMRs(DmrSample1, DmrSample2, 1000, 0.2, 3).Select(d => (d.Start, d.End)).ToHashSet();
+
+        strict.IsSubsetOf(lenient).Should().BeTrue(because: "every window above the 0.4 cutoff is above 0.2");
+        lenient.Count.Should().BeGreaterThan(strict.Count, because: "the 0.3-difference window is admitted only at the lower cutoff");
+    }
+
+    #endregion
+
+    #region EPIGEN-DMR-001 SYM — swapping samples keeps the regions and flips the sign
+
+    [Test]
+    [Description("SYM: swapping the two samples negates each mean difference but leaves |difference| unchanged, so the same regions are reported with opposite-signed mean differences.")]
+    public void Dmr_SwapSamples_SameRegionsFlippedSign()
+    {
+        var ab = EpigeneticsAnalyzer.FindDMRs(DmrSample1, DmrSample2, 1000, 0.2, 3).OrderBy(d => d.Start).ToList();
+        var ba = EpigeneticsAnalyzer.FindDMRs(DmrSample2, DmrSample1, 1000, 0.2, 3).OrderBy(d => d.Start).ToList();
+
+        ba.Select(d => (d.Start, d.End)).Should().Equal(ab.Select(d => (d.Start, d.End)),
+            because: "|difference| is symmetric, so the same windows qualify");
+        for (int i = 0; i < ab.Count; i++)
+            ba[i].MeanDifference.Should().BeApproximately(-ab[i].MeanDifference, 1e-9,
+                because: "swapping samples negates the mean methylation difference");
+    }
+
+    #endregion
 }
