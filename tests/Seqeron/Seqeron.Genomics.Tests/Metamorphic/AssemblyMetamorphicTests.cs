@@ -207,4 +207,73 @@ public class AssemblyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ASSEMBLY-DBG-001 — de Bruijn graph construction (Assembly).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 143.
+    //
+    // API under test (SequenceAssembler.BuildDeBruijnGraph):
+    //   Each input k-mer becomes a directed edge from its (k-1)-mer prefix to its (k-1)-mer suffix;
+    //   the graph is the out-adjacency multimap.
+    //
+    // Relations (derived from the k-mer edge definition, NOT from output):
+    //   • INV  (read order independent): the graph is the accumulation of per-k-mer edges, so the
+    //          node set and edge multiset do not depend on the order of the reads.
+    //   • MON  (larger k ⇒ ≤ spurious joins): a (k-1)-mer shared by unrelated contexts creates a
+    //          branching node (a spurious join); increasing k makes shared (k-1)-mers rarer, so the
+    //          number of branching nodes is non-increasing.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    // Number of branching nodes (≥ 2 distinct successors) — the de Bruijn graph's spurious joins.
+    private static int BranchingNodes(IReadOnlyList<string> reads, int k) =>
+        SequenceAssembler.BuildDeBruijnGraph(reads, k).Count(kv => kv.Value.Distinct().Count() > 1);
+
+    // Canonical graph: each node's successor multiset sorted, so two graphs compare by content.
+    private static Dictionary<string, List<string>> CanonicalGraph(IReadOnlyList<string> reads, int k) =>
+        SequenceAssembler.BuildDeBruijnGraph(reads, k)
+            .ToDictionary(kv => kv.Key, kv => kv.Value.OrderBy(s => s, System.StringComparer.Ordinal).ToList());
+
+    #region ASSEMBLY-DBG-001 INV — the graph is independent of read order
+
+    [Test]
+    [Description("INV: the de Bruijn graph accumulates one edge per k-mer, so reversing (permuting) the read order yields the identical node set and edge multiset.")]
+    public void DeBruijn_ReadOrder_Invariant()
+    {
+        var reads = new[] { "GATCGAAACCC", "AAACCCGATCC", "GATCCTTTAAA" };
+        const int k = 4;
+
+        CanonicalGraph(reads.Reverse().ToList(), k).Should().BeEquivalentTo(CanonicalGraph(reads, k),
+            because: "edges are accumulated per k-mer, independent of which read (or in which order) supplied them");
+    }
+
+    #endregion
+
+    #region ASSEMBLY-DBG-001 MON — larger k cannot increase spurious joins
+
+    [Test]
+    [Description("MON: increasing k makes shared (k-1)-mers rarer, so the number of branching nodes (spurious joins) is non-increasing; here a single 4-mer repeat is progressively resolved.")]
+    public void DeBruijn_LargerK_FewerOrEqualBranchingNodes()
+    {
+        // The read repeats the 4-mer GATC in two different contexts (…GATCG… and …GATCC…).
+        var reads = new[] { "GATCGAAACCCGATCCTTT" };
+
+        int previous = int.MaxValue;
+        int smallestK = -1, largestK = -1;
+        int[] kValues = { 4, 5, 6, 7 };
+
+        foreach (int k in kValues)
+        {
+            int branches = BranchingNodes(reads, k);
+            branches.Should().BeLessThanOrEqualTo(previous, because: $"raising k to {k} can only resolve, never create, shared (k-1)-mer junctions");
+            previous = branches;
+
+            if (k == kValues.First()) smallestK = branches;
+            if (k == kValues.Last()) largestK = branches;
+        }
+
+        smallestK.Should().BeGreaterThan(0, because: "at small k the repeated 4-mer collapses into a branching node");
+        largestK.Should().Be(0, because: "once k exceeds the repeat length every (k-1)-mer is unique, so no branching remains");
+    }
+
+    #endregion
 }
