@@ -91,6 +91,16 @@ public class AlignmentMetamorphicTests
         yield return RandomDna(40);
     }
 
+    /// <summary>A random core over {A,C} only — so 'G'/'T' flanks can never match anywhere inside it.</summary>
+    private static string RandomCoreAC(int length)
+    {
+        const string bases = "AC";
+        var chars = new char[length];
+        for (int i = 0; i < length; i++)
+            chars[i] = bases[Rng.Next(bases.Length)];
+        return new string(chars);
+    }
+
     private static readonly ScoringMatrix[] ScoringMatrices =
     {
         SequenceAligner.SimpleDna,
@@ -212,6 +222,144 @@ public class AlignmentMetamorphicTests
                     int insertedScore = SequenceAligner.GlobalAlign(body, inserted, scoring).Score;
                     (insertedScore - baseScore).Should().Be(g * scoring.GapExtend,
                         because: "a mid-sequence insertion still forces exactly g extra gap columns: matches cap at |s|, so the optimum matches all of s and spends the block as gaps");
+                }
+            }
+        }
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ALIGN-LOCAL-001 — local alignment / Smith–Waterman (Alignment).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 36.
+    //
+    // API under test (SequenceAligner.LocalAlign):
+    //   Smith–Waterman with the same linear gap cost as GlobalAlign, but with a 0 floor on
+    //   every cell, F(i,j) = max(0, diag±, up+gap, left+gap); the reported Score is the
+    //   maximum cell, and traceback runs back to the first 0 cell. An empty/best-empty
+    //   alignment scores 0.
+    //
+    // Relations (derived from the recurrence, NOT from output):
+    //   • SUB (non-negativity): the 0 floor means every reported local score is ≥ 0 — the
+    //          empty alignment is always available as a fallback.
+    //   • COMP (identity ⇒ equals global): for two identical sequences the full diagonal is
+    //          all matches and never dips below 0, so the local optimum spans the whole
+    //          sequence and equals both |s|·Match and the global score.
+    //   • MON (extend the matching region ⇒ ≥ score): lengthening a shared identical core
+    //          (flanked by symbols that occur in neither partner's counterpart) adds matched
+    //          columns, so the local optimum is exactly |core|·Match and strictly increases
+    //          with the core length.
+    //   • INV (distant non-matching flank ⇒ same local alignment): appending/prepending flanks
+    //          built from a symbol absent from the other sequence ('G' on one side, 'T' on the
+    //          other) can match nothing, so they neither extend nor outscore the core hit — the
+    //          local Score and the aligned substrings are byte-for-byte identical to the
+    //          unflanked alignment.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region SUB — every local score is ≥ 0
+
+    [Test]
+    [Description("SUB: the Smith–Waterman 0 floor guarantees a non-negative local score for every input pair, including unrelated sequences.")]
+    public void LocalAlign_Score_IsNonNegative()
+    {
+        var bodies = AlignBodies().ToList();
+
+        foreach (var scoring in ScoringMatrices)
+        {
+            foreach (var a in bodies)
+            {
+                foreach (var b in bodies)
+                {
+                    SequenceAligner.LocalAlign(a, b, scoring).Score.Should().BeGreaterThanOrEqualTo(0,
+                        because: "the cell recurrence floors at 0, so the empty local alignment (score 0) is always a valid fallback");
+                }
+            }
+        }
+    }
+
+    #endregion
+
+    #region COMP — local alignment of identical sequences equals the global alignment
+
+    [Test]
+    [Description("COMP: for identical sequences the local optimum spans the whole sequence, equalling |s|·Match and the global score.")]
+    public void LocalAlign_Identity_EqualsGlobalAndMaximum()
+    {
+        foreach (var scoring in ScoringMatrices)
+        {
+            foreach (var body in AlignBodies())
+            {
+                int local = SequenceAligner.LocalAlign(body, body, scoring).Score;
+                int global = SequenceAligner.GlobalAlign(body, body, scoring).Score;
+
+                local.Should().Be(body.Length * scoring.Match,
+                    because: "the all-match diagonal stays positive throughout, so Smith–Waterman keeps the entire sequence");
+                local.Should().Be(global,
+                    because: "when the whole sequence is the best local region, the local and global optima coincide");
+            }
+        }
+    }
+
+    #endregion
+
+    #region MON — extending the shared core increases the local score
+
+    [Test]
+    [Description("MON: lengthening an identical shared core (with non-matching flanks) yields a local score of exactly |core|·Match that strictly increases with the core length.")]
+    public void LocalAlign_ExtendingMatchingRegion_IncreasesScore()
+    {
+        foreach (var scoring in ScoringMatrices)
+        {
+            int previous = int.MinValue;
+
+            foreach (int coreLen in new[] { 2, 4, 6, 8, 12 })
+            {
+                string core = RandomCoreAC(coreLen);
+                string seq1 = "G" + core + "G";   // 'G' absent from seq2
+                string seq2 = "T" + core + "T";   // 'T' absent from seq1
+
+                int score = SequenceAligner.LocalAlign(seq1, seq2, scoring).Score;
+
+                score.Should().Be(coreLen * scoring.Match,
+                    because: "the only matchable region is the shared core, so the local optimum is exactly |core|·Match");
+                score.Should().BeGreaterThan(previous,
+                    because: "a longer shared core adds matched columns, so the local optimum strictly increases");
+                previous = score;
+            }
+        }
+    }
+
+    #endregion
+
+    #region INV — a distant non-matching flank leaves the local alignment unchanged
+
+    [Test]
+    [Description("INV: prepending/appending flanks made of a symbol absent from the other sequence cannot match anything, so the local Score and aligned substrings are identical to the unflanked alignment.")]
+    public void LocalAlign_DistantNonMatchingFlank_PreservesLocalAlignment()
+    {
+        foreach (var scoring in ScoringMatrices)
+        {
+            foreach (int coreLen in new[] { 6, 10, 16 })
+            {
+                string core = RandomCoreAC(coreLen);
+
+                var bare = SequenceAligner.LocalAlign(core, core, scoring);
+
+                foreach (int flank in new[] { 1, 3, 5 })
+                {
+                    string g = new string('G', flank);
+                    string t = new string('T', flank);
+                    string seq1 = g + core + g;   // 'G' never appears in seq2
+                    string seq2 = t + core + t;   // 'T' never appears in seq1
+
+                    var flanked = SequenceAligner.LocalAlign(seq1, seq2, scoring);
+
+                    flanked.Score.Should().Be(bare.Score,
+                        because: "the flanks match nothing, so they cannot extend or outscore the core's local hit");
+                    flanked.AlignedSequence1.Should().Be(bare.AlignedSequence1,
+                        because: "the optimal local region is still exactly the shared core, unaffected by unmatchable flanks");
+                    flanked.AlignedSequence2.Should().Be(bare.AlignedSequence2,
+                        because: "the optimal local region is still exactly the shared core, unaffected by unmatchable flanks");
                 }
             }
         }
