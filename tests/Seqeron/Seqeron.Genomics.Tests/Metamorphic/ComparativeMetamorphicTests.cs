@@ -578,4 +578,84 @@ public class ComparativeMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: COMPGEN-SYNTENY-001 — syntenic block detection (Comparative).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 139.
+    //
+    // API under test (ComparativeGenomics.FindSyntenicBlocks):
+    //   MCScanX-style collinear chaining of orthologous anchors (Wang et al. 2012). A chain is a
+    //   block when its score ≥ 250 and it has ≥ minAnchors anchors (the block-size threshold).
+    //
+    // Relations (derived from the chaining/report rule, NOT from output):
+    //   • MON  (lower minBlockSize ⇒ superset): lowering minAnchors keeps every larger block and can
+    //          only admit additional smaller ones, so the block set grows.
+    //   • INV  (reverse preserves block count): reverse-complementing both genomes reverses the gene
+    //          order on both axes, which keeps each collinear chain collinear, so the block count is
+    //          unchanged.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    // A two-block scenario: a forward block of 6 anchors (genome-2 positions 0..5) and a block of 5
+    // anchors (genome-2 positions 40..44), separated by a genome-2 gap larger than maxGap so the
+    // greedy chainer cannot merge them.
+    private static (List<ComparativeGenomics.Gene> G1, List<ComparativeGenomics.Gene> G2, Dictionary<string, string> Map)
+        BuildSyntenyScenario()
+    {
+        var g1 = new List<ComparativeGenomics.Gene>();
+        for (int i = 0; i <= 10; i++)
+            g1.Add(new ComparativeGenomics.Gene($"A{i}", "A", i, i, '+'));
+
+        var g2 = new List<ComparativeGenomics.Gene>();
+        int pos = 0;
+        for (int i = 0; i <= 5; i++) g2.Add(new ComparativeGenomics.Gene($"B{i}", "B", pos, pos++, '+')); // B0..B5 at 0..5
+        for (int f = 0; f < 34; f++) g2.Add(new ComparativeGenomics.Gene($"F{f}", "B", pos, pos++, '+')); // filler 6..39
+        for (int i = 6; i <= 10; i++) g2.Add(new ComparativeGenomics.Gene($"B{i}", "B", pos, pos++, '+')); // B6..B10 at 40..44
+
+        var map = Enumerable.Range(0, 11).ToDictionary(i => $"A{i}", i => $"B{i}");
+        return (g1, g2, map);
+    }
+
+    private static HashSet<string> BlockKeys(
+        IReadOnlyList<ComparativeGenomics.Gene> g1, IReadOnlyList<ComparativeGenomics.Gene> g2,
+        Dictionary<string, string> map, int minAnchors) =>
+        ComparativeGenomics.FindSyntenicBlocks(g1, g2, map, minAnchors)
+            .Select(b => $"{b.Start1}-{b.End1}:{b.Start2}-{b.End2}:{b.GeneCount}")
+            .ToHashSet();
+
+    #region COMPGEN-SYNTENY-001 MON — lowering the block-size threshold yields a superset
+
+    [Test]
+    [Description("MON: lowering minAnchors keeps every larger syntenic block and admits smaller ones, so the block set at a lower threshold is a superset of the set at a higher threshold.")]
+    public void SyntenicBlocks_LowerMinBlockSize_Superset()
+    {
+        var (g1, g2, map) = BuildSyntenyScenario();
+
+        var size5 = BlockKeys(g1, g2, map, minAnchors: 5);
+        var size6 = BlockKeys(g1, g2, map, minAnchors: 6);
+
+        size6.IsSubsetOf(size5).Should().BeTrue(because: "every block passing the stricter size-6 cut-off also passes size-5");
+        size5.Count.Should().BeGreaterThan(size6.Count, because: "the 5-anchor block is admitted at threshold 5 but not at threshold 6");
+    }
+
+    #endregion
+
+    #region COMPGEN-SYNTENY-001 INV — reversing both genomes preserves the block count
+
+    [Test]
+    [Description("INV: reverse-complementing both genomes reverses the gene order on both axes, keeping each collinear chain collinear, so the number of syntenic blocks is unchanged.")]
+    public void SyntenicBlocks_ReverseBothGenomes_SameBlockCount()
+    {
+        var (g1, g2, map) = BuildSyntenyScenario();
+
+        int original = ComparativeGenomics.FindSyntenicBlocks(g1, g2, map, minAnchors: 5).Count();
+
+        var g1Rev = ((IEnumerable<ComparativeGenomics.Gene>)g1).Reverse().ToList();
+        var g2Rev = ((IEnumerable<ComparativeGenomics.Gene>)g2).Reverse().ToList();
+        int reversed = ComparativeGenomics.FindSyntenicBlocks(g1Rev, g2Rev, map, minAnchors: 5).Count();
+
+        original.Should().Be(2, because: "the scenario is constructed with exactly two collinear blocks");
+        reversed.Should().Be(original, because: "reversing both axes keeps each chain collinear, preserving the block count");
+    }
+
+    #endregion
 }
