@@ -1218,4 +1218,65 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-CNA-002 — focal-amplification detection (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 104.
+    //
+    // API under test (OncologyAnalyzer.IsFocalAmplification / DetectFocalAmplifications):
+    //   A segment is a focal amplification iff its log2 ratio exceeds the amplitude threshold
+    //   (t_amp) AND its length is below broad_len_cutoff × arm length. Length/fraction depend
+    //   only on End−Start, not on absolute position.
+    //
+    // Relations (derived from the amplitude+length rule, NOT from output):
+    //   • MON  (higher CN keeps focal amplification): once a focal segment is amplified, raising
+    //          its log2 ratio (higher CN) keeps it a focal amplification.
+    //   • INV  (prepend flank shifts focal coordinates): translating the segment by +k leaves its
+    //          length/arm-fraction and amplitude unchanged, so it stays a focal amplification and
+    //          its coordinates shift by exactly k.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    // 1 Mb segment on a 80 Mb arm (fraction 0.0125 ≪ 0.98 → focal).
+    private static OncologyAnalyzer.CopyNumberArmSegment FocalSeg(long start, double log2) =>
+        new("17q", start, start + 1_000_000, 80_000_000, log2);
+
+    #region ONCO-CNA-002 MON — higher CN keeps a focal amplification
+
+    [Test]
+    [Description("MON: once a focal segment is amplified, raising its log2 ratio keeps it a focal amplification.")]
+    public void IsFocalAmplification_HigherCn_StaysFocalAmp()
+    {
+        var thr = OncologyAnalyzer.FocalAmplificationThresholds.Default;
+
+        OncologyAnalyzer.IsFocalAmplification(FocalSeg(1_000_000, 0.05), thr)
+            .Should().BeFalse(because: "log2 0.05 ≤ t_amp 0.1 is not amplified");
+
+        foreach (double log2 in new[] { 0.2, 0.7, 2.0, 5.0 })
+            OncologyAnalyzer.IsFocalAmplification(FocalSeg(1_000_000, log2), thr)
+                .Should().BeTrue(because: $"log2 {log2} > t_amp and the segment is focal — a higher CN keeps it a focal amplification");
+    }
+
+    #endregion
+
+    #region ONCO-CNA-002 INV — a prepended flank shifts the focal coordinates
+
+    [Test]
+    [Description("INV: translating the segment by +k leaves its length/arm-fraction and amplitude unchanged, so it stays a focal amplification and its coordinates shift by exactly k.")]
+    public void DetectFocalAmplifications_PrependFlank_ShiftsCoordinates()
+    {
+        var baseSeg = FocalSeg(1_000_000, 1.0);
+        var baseHit = OncologyAnalyzer.DetectFocalAmplifications(new[] { baseSeg }).Single();
+
+        foreach (long k in new[] { 500_000L, 5_000_000L, 50_000_000L })
+        {
+            var shifted = baseSeg with { Start = baseSeg.Start + k, End = baseSeg.End + k };
+            var hit = OncologyAnalyzer.DetectFocalAmplifications(new[] { shifted }).Single();
+
+            hit.Start.Should().Be(baseHit.Start + k, because: "the start shifts by the flank length");
+            hit.End.Should().Be(baseHit.End + k, because: "the end shifts by the flank length");
+            hit.Length.Should().Be(baseHit.Length, because: "translation preserves the segment length, so it stays focal");
+        }
+    }
+
+    #endregion
 }
