@@ -1,4 +1,4 @@
-# Checklist 08: Fuzzing
+# Checklist 03: Fuzzing
 
 **Priority:** P2  
 **Date:** 2026-03-19  
@@ -28,7 +28,7 @@ Fuzzing подає випадкові, невалідні або граничн�
 
 | # | Status | Test Unit | Area | Fuzz Strategy | Fuzz Targets |
 |---|--------|-----------|------|:---:|-------------|
-| 1 | ☐ | SEQ-GC-001 | Composition | BE, INJ | Empty string, single char, non-ACGT chars, null, unicode, extremely long |
+| 1 | ☑ | SEQ-GC-001 | Composition | BE, INJ | Empty string, single char, non-ACGT chars, null, unicode, extremely long |
 | 2 | ☐ | SEQ-COMP-001 | Composition | BE, INJ | Non-DNA chars, empty, null, mixed case, unicode |
 | 3 | ☐ | SEQ-REVCOMP-001 | Composition | BE, INJ | Non-DNA chars, empty, null, single char, unicode |
 | 4 | ☐ | SEQ-VALID-001 | Composition | RB, INJ, BE | Non-ASCII, null bytes, mixed-case, unicode, extremely long, control chars |
@@ -270,8 +270,8 @@ Fuzzing подає випадкові, невалідні або граничн�
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 0 |
-| ☐ Not started | 234 |
+| ☑ Complete | 1 |
+| ☐ Not started | 233 |
 | High-priority (parsers + validation) | 12 |
 | Medium-priority (boundary inputs) | 45 |
 | Lower-priority (algorithm-specific edge cases) | 29 |
