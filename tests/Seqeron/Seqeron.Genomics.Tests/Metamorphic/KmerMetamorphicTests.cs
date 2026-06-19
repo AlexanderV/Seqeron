@@ -684,4 +684,56 @@ public class KmerMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: KMER-POSITIONS-001 — k-mer occurrence positions (K-mer).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 160.
+    //
+    // API under test (KmerAnalyzer.FindKmerPositions):
+    //   Reports every (overlapping) start index where the k-mer occurs, scanning left to right.
+    //
+    // Relations (derived from positional matching, NOT from output):
+    //   • SHIFT (prepend flank shifts positions): prepending an f-base flank that does not create a
+    //          new occurrence shifts every reported position by f.
+    //   • INV  (order/scan independent): the result is the complete, deterministic, strictly
+    //          ascending set of occurrences — independent of how the scan is run.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region KMER-POSITIONS-001 SHIFT — a prepended flank shifts the positions
+
+    [Test]
+    [Description("SHIFT: prepending an f-base flank that introduces no new occurrence shifts every reported position by exactly f.")]
+    public void FindKmerPositions_PrependFlank_ShiftsPositions()
+    {
+        const string seq = "ACGTACGTTACG";
+        const string kmer = "ACG";
+        var original = KmerAnalyzer.FindKmerPositions(seq, kmer).ToList();
+        original.Should().NotBeEmpty();
+
+        foreach (var flank in new[] { "TT", "GGGTTT" }) // neither creates an ACG at the junction
+        {
+            var shifted = KmerAnalyzer.FindKmerPositions(flank + seq, kmer).ToList();
+            shifted.Should().Equal(original.Select(p => p + flank.Length),
+                because: $"the {flank.Length}-base flank relocates every occurrence by {flank.Length} without adding one");
+        }
+    }
+
+    #endregion
+
+    #region KMER-POSITIONS-001 INV — the result is the complete, deterministic ascending set
+
+    [Test]
+    [Description("INV: the occurrence list is the complete set of overlapping matches in strictly ascending order, and is identical on repeated calls.")]
+    public void FindKmerPositions_Deterministic_AscendingComplete()
+    {
+        const string seq = "AAAA"; // overlapping occurrences of "AA" at 0,1,2
+        const string kmer = "AA";
+
+        var positions = KmerAnalyzer.FindKmerPositions(seq, kmer).ToList();
+        positions.Should().Equal(new[] { 0, 1, 2 });
+        positions.Should().BeInAscendingOrder(because: "the scan reports positions left to right");
+        KmerAnalyzer.FindKmerPositions(seq, kmer).Should().Equal(positions, because: "the search is a pure function");
+    }
+
+    #endregion
 }
