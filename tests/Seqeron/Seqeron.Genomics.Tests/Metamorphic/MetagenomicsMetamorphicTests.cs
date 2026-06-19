@@ -485,4 +485,68 @@ public class MetagenomicsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: META-FUNC-001 — functional annotation (Metagenomics).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 194.
+    //
+    // API under test (MetagenomicsAnalyzer.PredictFunctions):
+    //   Transfers the best-hit annotation of a signature database to each gene whose protein
+    //   contains a database signature.
+    //
+    // Relations (derived from per-gene best-hit transfer, NOT from output):
+    //   • INV  (read order independent): each gene is annotated independently, so reordering the genes
+    //          yields the same annotation set.
+    //   • SUB  (larger DB ⇒ ≥ assignments): adding database signatures can only let more genes match,
+    //          so the set of annotated genes grows.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private static readonly (string, string)[] FuncGenes =
+    {
+        ("g1", "MKLVAGWTYSDE"), // contains VAG
+        ("g2", "ACDEFGHIK"),    // contains DEF
+        ("g3", "PQRSTPQRST"),   // contains QRS
+    };
+
+    private static readonly Dictionary<string, (string, string, string)> FuncDbSmall = new()
+    {
+        ["VAG"] = ("FunctionA", "PathA", "K1"),
+        ["DEF"] = ("FunctionB", "PathB", "K2"),
+    };
+
+    private static readonly Dictionary<string, (string, string, string)> FuncDbLarge = new(FuncDbSmall)
+    {
+        ["QRS"] = ("FunctionC", "PathC", "K3"),
+    };
+
+    #region META-FUNC-001 INV — annotation is independent of gene order
+
+    [Test]
+    [Description("INV: each gene is annotated from its own best database hit, so reordering the genes yields the same set of (gene, function) annotations.")]
+    public void Functions_ReadOrder_Invariant()
+    {
+        var forward = MetagenomicsAnalyzer.PredictFunctions(FuncGenes, FuncDbLarge)
+            .Select(a => (a.GeneId, a.Function)).ToHashSet();
+        var reversed = MetagenomicsAnalyzer.PredictFunctions(FuncGenes.Reverse(), FuncDbLarge)
+            .Select(a => (a.GeneId, a.Function)).ToHashSet();
+
+        reversed.Should().BeEquivalentTo(forward, because: "per-gene annotation does not depend on the order of the genes");
+    }
+
+    #endregion
+
+    #region META-FUNC-001 SUB — a larger database yields more assignments
+
+    [Test]
+    [Description("SUB: adding signatures to the database can only let more genes match, so the set of annotated genes from the larger DB is a superset of the smaller DB's.")]
+    public void Functions_LargerDatabase_MoreAssignments()
+    {
+        var small = MetagenomicsAnalyzer.PredictFunctions(FuncGenes, FuncDbSmall).Select(a => a.GeneId).ToHashSet();
+        var large = MetagenomicsAnalyzer.PredictFunctions(FuncGenes, FuncDbLarge).Select(a => a.GeneId).ToHashSet();
+
+        small.IsSubsetOf(large).Should().BeTrue(because: "the larger DB still contains every signature of the smaller one");
+        large.Count.Should().BeGreaterThan(small.Count, because: "the added QRS signature annotates the previously-unmatched g3");
+    }
+
+    #endregion
 }
