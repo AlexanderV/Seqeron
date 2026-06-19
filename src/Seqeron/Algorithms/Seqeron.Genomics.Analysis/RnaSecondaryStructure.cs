@@ -1042,7 +1042,10 @@ public static class RnaSecondaryStructure
         if (string.IsNullOrEmpty(rnaSequence) || rnaSequence.Length < minLoopSize + 2)
             return 0;
 
-        string seq = rnaSequence.ToUpperInvariant();
+        // Accept DNA input by reading thymine as uracil: T and U are the same base for folding
+        // (Watson–Crick A–U/A–T and stacking parameters are identical), so the energy model and the
+        // A/C/G/U-indexed tables below treat the two interchangeably.
+        string seq = rnaSequence.ToUpperInvariant().Replace('T', 'U');
         int n = seq.Length;
         const double INF = 1e18;
         const int MAXLOOP = 30;
@@ -1414,7 +1417,10 @@ public static class RnaSecondaryStructure
         if (string.IsNullOrEmpty(rnaSequence) || rnaSequence.Length < minLoopSize + 2)
             return 0;
 
-        string seq = rnaSequence.ToUpperInvariant();
+        // Accept DNA input by reading thymine as uracil: T and U are the same base for folding
+        // (Watson–Crick A–U/A–T and stacking parameters are identical), so the energy model and the
+        // A/C/G/U-indexed tables below treat the two interchangeably.
+        string seq = rnaSequence.ToUpperInvariant().Replace('T', 'U');
         int n = seq.Length;
 
         var dp = new double[n, n];

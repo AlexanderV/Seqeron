@@ -9,24 +9,24 @@
 
 ## Description
 
-Architecture тесты предотвращают архитектурный дрейф, проверяя зависимости между модулями, naming conventions и структурные правила на уровне IL. Правила применяются к модулям (проектам), а не к индивидуальным алгоритмам.
+Architecture тести запобігають архітектурному дрейфу, перевіряючи залежності між модулями, naming conventions та структурні правила на рівні IL. Правила застосовуються до модулів (проєктів), а не до окремих алгоритмів.
 
-**Текущее покрытие:** `Architecture/ArchitectureTests.cs` — 5 правил: Core !→ Analysis, Core !→ IO, Core !→ Alignment, IO !→ Analysis, статические анализаторы.
+**Поточне покриття:** `Architecture/ArchitectureTests.cs` — 5 правил: Core !→ Analysis, Core !→ IO, Core !→ Alignment, IO !→ Analysis, статичні аналізатори.
 
-**Модульная структура:**
-- `Seqeron.Genomics.Core` — базовые типы, последовательности, расширения
-- `Seqeron.Genomics.Analysis` — анализаторы (K-mer, Repeat, miRNA, Disorder, etc.)
-- `Seqeron.Genomics.Alignment` — выравнивание (NW, SW, MSA)
-- `Seqeron.Genomics.IO` — парсеры файлов (FASTA, FASTQ, BED, VCF, etc.)
-- `Seqeron.Genomics.Annotation` — аннотация генома (ORF, gene, promoter)
-- `Seqeron.Genomics.MolTools` — молекулярные инструменты (CRISPR, primer, restriction)
-- `Seqeron.Genomics.Phylogenetics` — филогенетика
-- `Seqeron.Genomics.Population` — популяционная генетика
-- `Seqeron.Genomics.Chromosome` — хромосомный анализ
-- `Seqeron.Genomics.Metagenomics` — метагеномика
-- `Seqeron.Genomics.Oncology` — онкология
-- `Seqeron.Genomics.Infrastructure` — инфраструктура
-- `Seqeron.Genomics.Reports` — генерация отчётов
+**Модульна структура:**
+- `Seqeron.Genomics.Core` — базові типи, послідовності, розширення
+- `Seqeron.Genomics.Analysis` — аналізатори (K-mer, Repeat, miRNA, Disorder, etc.)
+- `Seqeron.Genomics.Alignment` — вирівнювання (NW, SW, MSA)
+- `Seqeron.Genomics.IO` — парсери файлів (FASTA, FASTQ, BED, VCF, etc.)
+- `Seqeron.Genomics.Annotation` — анотація геному (ORF, gene, promoter)
+- `Seqeron.Genomics.MolTools` — молекулярні інструменти (CRISPR, primer, restriction)
+- `Seqeron.Genomics.Phylogenetics` — філогенетика
+- `Seqeron.Genomics.Population` — популяційна генетика
+- `Seqeron.Genomics.Chromosome` — хромосомний аналіз
+- `Seqeron.Genomics.Metagenomics` — метагеноміка
+- `Seqeron.Genomics.Oncology` — онкологія
+- `Seqeron.Genomics.Infrastructure` — інфраструктура
+- `Seqeron.Genomics.Reports` — генерація звітів
 
 ---
 
@@ -36,31 +36,31 @@ Architecture тесты предотвращают архитектурный д
 
 | # | Status | Rule | Description |
 |---|--------|------|-------------|
-| 1 | ☑ | Core !→ Analysis | Core не зависит от Analysis |
-| 2 | ☑ | Core !→ IO | Core не зависит от IO |
-| 3 | ☑ | Core !→ Alignment | Core не зависит от Alignment |
-| 4 | ☑ | IO !→ Analysis | IO не зависит от Analysis |
-| 5 | ☑ | Analyzers static | Predictor/Finder классы статические |
-| 6 | ☐ | Core !→ Annotation | Core не зависит от Annotation |
-| 7 | ☐ | Core !→ MolTools | Core не зависит от MolTools |
-| 8 | ☐ | Core !→ Phylogenetics | Core не зависит от Phylogenetics |
-| 9 | ☐ | Core !→ Population | Core не зависит от Population |
-| 10 | ☐ | Core !→ Chromosome | Core не зависит от Chromosome |
-| 11 | ☐ | Core !→ Metagenomics | Core не зависит от Metagenomics |
-| 12 | ☐ | Core !→ Oncology | Core не зависит от Oncology |
-| 13 | ☐ | Core !→ Reports | Core не зависит от Reports |
-| 14 | ☐ | IO !→ Alignment | IO не зависит от Alignment |
-| 15 | ☐ | IO !→ Phylogenetics | IO не зависит от Phylogenetics |
-| 16 | ☐ | IO !→ Oncology | IO не зависит от Oncology |
-| 17 | ☐ | No circular deps | Нет циклических зависимостей между модулями |
-| 18 | ☐ | No System.IO in Core | Core не использует System.IO напрямую |
-| 19 | ☐ | DTOs immutable | Result/DTO типы — records или только getters |
+| 1 | ☑ | Core !→ Analysis | Core не залежить від Analysis |
+| 2 | ☑ | Core !→ IO | Core не залежить від IO |
+| 3 | ☑ | Core !→ Alignment | Core не залежить від Alignment |
+| 4 | ☑ | IO !→ Analysis | IO не залежить від Analysis |
+| 5 | ☑ | Analyzers static | Predictor/Finder класи статичні |
+| 6 | ☐ | Core !→ Annotation | Core не залежить від Annotation |
+| 7 | ☐ | Core !→ MolTools | Core не залежить від MolTools |
+| 8 | ☐ | Core !→ Phylogenetics | Core не залежить від Phylogenetics |
+| 9 | ☐ | Core !→ Population | Core не залежить від Population |
+| 10 | ☐ | Core !→ Chromosome | Core не залежить від Chromosome |
+| 11 | ☐ | Core !→ Metagenomics | Core не залежить від Metagenomics |
+| 12 | ☐ | Core !→ Oncology | Core не залежить від Oncology |
+| 13 | ☐ | Core !→ Reports | Core не залежить від Reports |
+| 14 | ☐ | IO !→ Alignment | IO не залежить від Alignment |
+| 15 | ☐ | IO !→ Phylogenetics | IO не залежить від Phylogenetics |
+| 16 | ☐ | IO !→ Oncology | IO не залежить від Oncology |
+| 17 | ☐ | No circular deps | Немає циклічних залежностей між модулями |
+| 18 | ☐ | No System.IO in Core | Core не використовує System.IO напряму |
+| 19 | ☐ | DTOs immutable | Result/DTO типи — records або лише getters |
 
 ---
 
 ## Checklist — Algorithm-to-Module Mapping
 
-Каждый алгоритм верифицируется модульными правилами для своего модуля.
+Кожен алгоритм верифікується модульними правилами для свого модуля.
 
 | # | Test Unit | Area | Module | Layer Rules Applied |
 |---|-----------|------|--------|-------------------|

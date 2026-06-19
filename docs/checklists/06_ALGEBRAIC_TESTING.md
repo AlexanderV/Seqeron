@@ -8,12 +8,12 @@
 
 ## Description
 
-Algebraic testing проверяет выполнение алгебраических законов: identity, commutativity, associativity, involution, idempotence, round-trip (isomorphism), distributivity. Более формальный подход, чем общие property-тесты. Многие геномные алгоритмы имеют явные алгебраические законы: `complement(complement(x))=x`, `parse(serialize(x))=x`, `score(a,b)=score(b,a)`.
+Algebraic testing перевіряє виконання алгебраїчних законів: identity, commutativity, associativity, involution, idempotence, round-trip (isomorphism), distributivity. Більш формальний підхід, ніж загальні property-тести. Багато геномних алгоритмів мають явні алгебраїчні закони: `complement(complement(x))=x`, `parse(serialize(x))=x`, `score(a,b)=score(b,a)`.
 
-**Текущее покрытие:** Некоторые алгебраические свойства существуют неявно в Property-файлах (involution complement в SequenceProperties, round-trip в FastaRoundTripProperties) но не систематизированы.
+**Поточне покриття:** Деякі алгебраїчні властивості існують неявно в Property-файлах (involution complement у SequenceProperties, round-trip у FastaRoundTripProperties), але не систематизовані.
 
-**Типы законов:**
-- **ID** = Identity (f(x, e) = x или f(neutral) = 0)
+**Типи законів:**
+- **ID** = Identity (f(x, e) = x або f(neutral) = 0)
 - **COMM** = Commutativity (f(a,b) = f(b,a))
 - **ASSOC** = Associativity (f(f(a,b),c) = f(a,f(b,c)))
 - **INV** = Involution (f(f(x)) = x)
