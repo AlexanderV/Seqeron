@@ -510,4 +510,63 @@ public class StatisticsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: SEQ-TM-001 — simple melting temperature (Statistics).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 130.
+    //
+    // API under test (SequenceStatistics.CalculateMeltingTemperature):
+    //   Tm via the Wallace rule Tm = 2(A+T) + 4(G+C) for short oligos (length < 14) or the
+    //   Marmur-Doty GC formula Tm = 81.5 + 0.41·%GC − 675/length otherwise.
+    //
+    // Relations (derived from both Tm formulas, NOT from output):
+    //   • MON  (more GC ⇒ higher Tm): in both regimes GC pairs raise Tm — Wallace weights GC at
+    //          4 vs AT at 2, and the Marmur-Doty term grows with the GC fraction — so replacing AT
+    //          with GC at fixed length monotonically increases Tm.
+    //   • INV  (case-insensitive): the implementation upper-cases its input, so lower-, upper- and
+    //          mixed-case spellings of the same sequence give the same Tm.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region SEQ-TM-001 MON — more GC raises Tm (both formula regimes)
+
+    [Test]
+    [Description("MON: at fixed length, replacing AT with GC raises Tm in both regimes — the Wallace rule (length < 14) and the Marmur-Doty GC formula (length ≥ 14).")]
+    public void MeltingTemperature_MoreGc_HigherTm()
+    {
+        // (units, branch) pairs: 6 units → length 12 (Wallace), 10 units → length 20 (Marmur-Doty).
+        foreach (int units in new[] { 6, 10 })
+        {
+            double previous = double.MinValue;
+            for (int gcUnits = 0; gcUnits <= units; gcUnits++)
+            {
+                string seq = string.Concat(Enumerable.Repeat("GC", gcUnits)) +
+                             string.Concat(Enumerable.Repeat("AT", units - gcUnits));
+                double tm = SequenceStatistics.CalculateMeltingTemperature(seq);
+                tm.Should().BeGreaterThan(previous,
+                    because: $"a length-{seq.Length} oligo with {gcUnits} GC units melts higher than one with fewer");
+                previous = tm;
+            }
+        }
+    }
+
+    #endregion
+
+    #region SEQ-TM-001 INV — Tm is case-insensitive
+
+    [Test]
+    [Description("INV: the implementation upper-cases its input, so lower-, upper- and mixed-case spellings yield the same Tm in both length regimes.")]
+    public void MeltingTemperature_CaseInsensitive_SameTm()
+    {
+        foreach (var seq in new[] { "acgtacgtag", "atgcgattacaggcatacgt" })
+        {
+            string upper = seq.ToUpperInvariant();
+            string mixed = new string(seq.Select((c, i) => i % 2 == 0 ? char.ToUpperInvariant(c) : char.ToLowerInvariant(c)).ToArray());
+
+            double expected = SequenceStatistics.CalculateMeltingTemperature(upper);
+            SequenceStatistics.CalculateMeltingTemperature(seq).Should().Be(expected, because: "lower case is upper-cased before counting");
+            SequenceStatistics.CalculateMeltingTemperature(mixed).Should().Be(expected, because: "mixed case is upper-cased before counting");
+        }
+    }
+
+    #endregion
 }
