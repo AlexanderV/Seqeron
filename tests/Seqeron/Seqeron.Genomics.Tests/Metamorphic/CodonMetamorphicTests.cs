@@ -473,4 +473,98 @@ public class CodonMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: CODON-ENC-001 — Effective Number of Codons (Wright's Nc; Codon).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 213.
+    //
+    // API under test (CodonUsageAnalyzer.CalculateEnc):
+    //   Wright (1990) Nc = 2 + 9/F̂₂ + 1/F̂₃ + 5/F̂₄ + 3/F̂₆, where each F̂ is the average per-amino-acid
+    //   codon homozygosity F̂ = (n·Σpᵢ² − 1)/(n − 1) for its degeneracy class. Nc ∈ [20, 61]:
+    //   20 = extreme bias (one codon per amino acid), 61 = no bias (all synonyms equal).
+    //
+    // Relations (derived from the homozygosity formula, NOT from output):
+    //   • MON  (more biased usage ⇒ lower ENC): concentrating usage onto fewer synonymous codons
+    //          raises Σpᵢ², hence F̂, hence lowers each class contribution aaCount/F̂ — so Nc falls.
+    //   • INV  (codon order independent): Nc is a function of codon COUNTS only, so permuting the
+    //          codons of a sequence leaves it unchanged.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region CODON-ENC-001 — Helpers
+
+    // One amino-acid family per degeneracy class (2/3/4/6) so all of F̂₂, F̂₃, F̂₄, F̂₆ are estimable
+    // and Wright's fixed numerators (9, 1, 5, 3) all apply.
+    private static readonly (char Aa, string[] Codons)[] EncFamilies =
+    {
+        ('F', new[] { "TTT", "TTC" }),                              // 2-fold
+        ('I', new[] { "ATT", "ATC", "ATA" }),                       // 3-fold
+        ('V', new[] { "GTT", "GTC", "GTA", "GTG" }),                // 4-fold
+        ('L', new[] { "CTT", "CTC", "CTA", "CTG", "TTA", "TTG" }),  // 6-fold
+    };
+
+    private const int EncUnit = 12; // base per-codon multiplicity (keeps every family count an integer)
+
+    // Builds a coding sequence; countFor(degeneracy, codonIndex) gives the copies of each codon.
+    private static string BuildCoding(Func<int, int, int> countFor)
+    {
+        var sb = new StringBuilder();
+        foreach (var (_, codons) in EncFamilies)
+            for (int i = 0; i < codons.Length; i++)
+                for (int c = 0; c < countFor(codons.Length, i); c++)
+                    sb.Append(codons[i]);
+        return sb.ToString();
+    }
+
+    // Uniform usage: every synonymous codon equally frequent (least bias).
+    private static string UniformCoding() => BuildCoding((_, _) => EncUnit);
+    // Moderate 2:1 preference for the first codon (intermediate bias).
+    private static string ModerateCoding() => BuildCoding((_, i) => i == 0 ? 2 * EncUnit : EncUnit);
+    // Single-codon usage: all mass on the first codon (extreme bias) — same n per family as uniform.
+    private static string SingleCodonCoding() => BuildCoding((deg, i) => i == 0 ? deg * EncUnit : 0);
+
+    #endregion
+
+    #region CODON-ENC-001 MON — more biased usage lowers ENC
+
+    [Test]
+    [Description("MON: concentrating codon usage raises homozygosity and lowers Wright's Nc — uniform > moderate-bias > single-codon, bounded by the [20, 61] limits.")]
+    public void Enc_MoreBiasedUsage_LowerEnc()
+    {
+        double uniform = CodonUsageAnalyzer.CalculateEnc(UniformCoding());
+        double moderate = CodonUsageAnalyzer.CalculateEnc(ModerateCoding());
+        double single = CodonUsageAnalyzer.CalculateEnc(SingleCodonCoding());
+
+        uniform.Should().BeGreaterThan(moderate, because: "moving from equal usage to a 2:1 preference increases bias, lowering Nc");
+        moderate.Should().BeGreaterThan(single, because: "collapsing each amino acid onto one codon is maximally biased, lowering Nc further");
+
+        uniform.Should().BeApproximately(61.0, 1e-9, because: "unbiased usage reaches the upper limit of 61 sense codons");
+        single.Should().BeApproximately(20.0, 1e-9, because: "one codon per amino acid is the extreme-bias limit of 20");
+    }
+
+    #endregion
+
+    #region CODON-ENC-001 INV — ENC is independent of codon order
+
+    [Test]
+    [Description("INV: Nc is a function of codon counts only, so permuting the codons of a sequence leaves it unchanged.")]
+    public void Enc_CodonOrder_Invariant()
+    {
+        string coding = ModerateCoding();
+        double original = CodonUsageAnalyzer.CalculateEnc(coding);
+
+        var codons = Codons(coding); // reuse the CODON-CAI-001 splitter (returns RNA codons)
+        var rng = new Random(20260620);
+        for (int i = codons.Count - 1; i > 0; i--)
+        {
+            int j = rng.Next(i + 1);
+            (codons[i], codons[j]) = (codons[j], codons[i]);
+        }
+        // Codons() returns RNA (U); map back to DNA (T) for CalculateEnc, which counts DNA codons.
+        string shuffled = string.Concat(codons).Replace('U', 'T');
+
+        CodonUsageAnalyzer.CalculateEnc(shuffled).Should().BeApproximately(original, 1e-9,
+            because: "Nc depends only on the multiset of codons, not their order");
+    }
+
+    #endregion
 }
