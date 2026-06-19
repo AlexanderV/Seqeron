@@ -17,8 +17,9 @@ namespace Seqeron.Genomics.Tests;
 /// ───────────────────────────────────────────────────────────────────────────
 /// Units: SEQ-GC-001 — GC content (Composition); SEQ-COMP-001 — DNA complement (Composition);
 ///        SEQ-REVCOMP-001 — reverse complement (Composition);
-///        SEQ-VALID-001 — sequence validation (Composition)
-/// Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, rows 1–4.
+///        SEQ-VALID-001 — sequence validation (Composition);
+///        SEQ-COMPLEX-001 — sequence complexity measure (Composition)
+/// Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, rows 1–5.
 /// Relations: INV complement preserves GC%; INV shuffle preserves GC%;
 ///            INV case-insensitive (+ derived INV reverse-complement,
 ///            ADD concatenation-additivity of the GC count).
@@ -726,6 +727,157 @@ public class CompositionMetamorphicTests
             (a + "N").AsSpan().IsValidDna().Should().BeFalse(
                 because: $"appending the ambiguity code 'N' to '{a}' introduces a character outside {{A,C,G,T}}, so the result must be invalid");
         }
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  SEQ-COMPLEX-001 — sequence complexity measure
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (docs/algorithms/Statistics/Entropy_Profile.md §"Description"; Shannon 1948;
+    //   tests/TestSpecs/SEQ-COMPLEX-001.md §3.2):
+    //   The checklist row-5 relations — INV permutation preserves complexity; MON homopolymer
+    //   → MIN complexity; MON random → higher — only hold for a COMPOSITION-based measure, i.e.
+    //   one that is a function of the per-symbol (mononucleotide) frequency distribution alone.
+    //   Of the measures exposed by SequenceComplexity, the order-dependent ones — linguistic
+    //   complexity (counts distinct subwords of length ≥ 2), DUST, k-mer entropy and Lempel–Ziv
+    //   — are NOT permutation-invariant (a shuffle changes their subword/triplet/parse content),
+    //   and those order-dependent measures are the SEPARATE units SEQ-COMPLEX-DUST/KMER/
+    //   COMPRESS/WINDOW-001 (checklist rows 228–231). The composition-based complexity measure
+    //   the class exposes is the SHANNON ENTROPY of the mononucleotide distribution,
+    //   SequenceComplexity.CalculateShannonEntropy:
+    //
+    //       H = −Σ_{b∈{A,C,G,T}} p_b · log₂ p_b ,   p_b = count(b) / N
+    //
+    //   It depends only on the four base COUNTS, so it is permutation-invariant; a homopolymer
+    //   (one base, p=1) gives H = 0 — the documented MINIMUM — and any sequence with ≥ 2
+    //   distinct bases has H > 0; a uniform 4-base sequence gives the 2-bit maximum (log₂4).
+    //   These are exactly the three row-5 relations, and they are theory-guaranteed, not weakened.
+    //
+    //   RECONCILIATION: row 5's label is the generic "sequence complexity measure". The only
+    //   API in SequenceComplexity for which all three stated relations genuinely hold is the
+    //   composition-based Shannon entropy; the order-dependent complexity APIs cannot satisfy
+    //   "permutation preserves complexity" and are covered by their own units. We therefore
+    //   encode SEQ-COMPLEX-001 against CalculateShannonEntropy (the documented minimum H = 0 is
+    //   used as the exact endpoint; monotonicity uses orderings, never magic absolute values).
+    //
+    // API surface under test:
+    //   • SequenceComplexity.CalculateShannonEntropy(string)  — composition-based complexity.
+    //   • SequenceComplexity.CalculateShannonEntropy(DnaSequence) — facade (same core).
+
+    #region SEQ-COMPLEX-001 — sequence complexity
+
+    #region MR17: INV — permutation preserves complexity
+
+    /// <summary>
+    /// MR17: complexity(x) == complexity(permute(x)).
+    /// The composition-based complexity (Shannon entropy of the mononucleotide distribution)
+    /// is a function of base COUNTS only, so any permutation of the bases — here a fixed-seed
+    /// Fisher–Yates shuffle — leaves it unchanged. Verified on fixed and fixed-seed random
+    /// sequences, with several independent shuffles per input.
+    /// </summary>
+    [Test]
+    public void Complexity_Permutation_PreservesComplexity()
+    {
+        foreach (var s in SampleSequences())
+        {
+            double original = SequenceComplexity.CalculateShannonEntropy(s);
+
+            for (int t = 0; t < 5; t++)
+            {
+                double shuffled = SequenceComplexity.CalculateShannonEntropy(Shuffle(s));
+                shuffled.Should().BeApproximately(original, Tolerance,
+                    because: $"composition-based complexity depends only on base counts, not order, so permuting '{s}' must not change it");
+            }
+        }
+    }
+
+    #endregion
+
+    #region MR18: MON — homopolymer → minimum complexity
+
+    /// <summary>
+    /// MR18: a single-symbol run yields the documented MINIMUM complexity (Shannon entropy
+    /// H = 0 exactly) and is ≤ the complexity of any other sequence; any sequence with ≥ 2
+    /// distinct bases has strictly greater complexity (H > 0). The minimum is pinned exactly
+    /// (theory endpoint); the comparison against other sequences is an ordering, not a magic
+    /// absolute value.
+    /// </summary>
+    [Test]
+    public void Complexity_Homopolymer_IsMinimumAndStrictlyBelowDiverse()
+    {
+        // Homopolymers over each base reach the exact documented minimum, H = 0.
+        foreach (char b in "ACGT")
+        {
+            foreach (int len in new[] { 1, 4, 16, 64 })
+            {
+                string homo = new string(b, len);
+                SequenceComplexity.CalculateShannonEntropy(homo).Should().BeApproximately(0.0, Tolerance,
+                    because: $"a homopolymer '{homo}' has a single symbol (p=1), so its Shannon entropy is exactly the documented minimum 0");
+            }
+        }
+
+        // Homopolymer ≤ any other sequence, with strict inequality once ≥ 2 distinct bases appear.
+        string homopolymer = new string('A', 32);
+        double homoComplexity = SequenceComplexity.CalculateShannonEntropy(homopolymer);
+
+        foreach (var s in SampleSequences())
+        {
+            double sComplexity = SequenceComplexity.CalculateShannonEntropy(s);
+
+            sComplexity.Should().BeGreaterThanOrEqualTo(homoComplexity - Tolerance,
+                because: $"the homopolymer attains the minimum complexity, so no sequence ('{s}') can fall below it");
+
+            if (s.Distinct().Count(c => "ACGT".Contains(c)) >= 2)
+            {
+                sComplexity.Should().BeGreaterThan(homoComplexity + Tolerance,
+                    because: $"'{s}' has ≥ 2 distinct bases, so its composition-based complexity must strictly exceed the homopolymer minimum");
+            }
+        }
+    }
+
+    #endregion
+
+    #region MR19: MON — random (high-diversity) → higher complexity than low-diversity
+
+    /// <summary>
+    /// MR19: a high-diversity sequence (fixed-seed random over all four bases, roughly equal)
+    /// has higher complexity than a low-diversity one (homopolymer or near-homopolymer), and a
+    /// perfectly uniform 4-base sequence attains the documented MAXIMUM, H = log₂4 = 2 bits.
+    /// The ordering is asserted (low &lt; high), and only the theory-pinned uniform maximum uses
+    /// an exact endpoint — no magic intermediate constants.
+    /// </summary>
+    [Test]
+    public void Complexity_Random_HigherThanLowDiversity()
+    {
+        const int length = 200;
+
+        // Low-diversity references.
+        double homopolymer = SequenceComplexity.CalculateShannonEntropy(new string('G', length));
+        // Near-homopolymer: overwhelmingly one base with a single foreign base.
+        double nearHomopolymer = SequenceComplexity.CalculateShannonEntropy(new string('A', length - 1) + "C");
+
+        // High-diversity reference: fixed-seed random over {A,C,G,T}.
+        double random = SequenceComplexity.CalculateShannonEntropy(RandomDna(length));
+
+        random.Should().BeGreaterThan(homopolymer + Tolerance,
+            because: "a random sequence using all four bases is compositionally more diverse than a homopolymer, so it has higher complexity");
+        random.Should().BeGreaterThan(nearHomopolymer + Tolerance,
+            because: "a balanced random sequence has a flatter base distribution than a near-homopolymer, so its Shannon complexity is higher");
+        nearHomopolymer.Should().BeGreaterThan(homopolymer + Tolerance,
+            because: "introducing a second base raises the distribution above the single-symbol minimum, so a near-homopolymer exceeds a homopolymer");
+
+        // Theory endpoint: a perfectly uniform 4-base sequence attains the documented maximum, 2 bits.
+        string uniform = string.Concat(Enumerable.Repeat("ACGT", length / 4));
+        SequenceComplexity.CalculateShannonEntropy(uniform).Should().BeApproximately(2.0, Tolerance,
+            because: "an equal A/C/G/T composition is the maximum-entropy distribution for DNA, so H = log₂4 = 2 bits");
+
+        // And the random sample never exceeds that documented maximum.
+        random.Should().BeLessThanOrEqualTo(2.0 + Tolerance,
+            because: "Shannon entropy over four symbols is bounded above by log₂4 = 2 bits");
     }
 
     #endregion

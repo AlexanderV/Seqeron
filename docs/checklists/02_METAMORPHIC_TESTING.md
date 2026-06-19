@@ -32,7 +32,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 2 | ☑ | SEQ-COMP-001 | Composition | INV: complement(complement(x))=x (involution); INV: length unchanged |
 | 3 | ☑ | SEQ-REVCOMP-001 | Composition | INV: revcomp(revcomp(x))=x; INV: length unchanged |
 | 4 | ☑ | SEQ-VALID-001 | Composition | INV: case conversion preserves validity; COMP: valid DNA ⊂ valid IUPAC; INV: repeat seq → same result |
-| 5 | ☐ | SEQ-COMPLEX-001 | Composition | INV: permutation preserves complexity; MON: homopolymer → min complexity; MON: random → higher |
+| 5 | ☑ | SEQ-COMPLEX-001 | Composition | INV: permutation preserves complexity; MON: homopolymer → min complexity; MON: random → higher |
 | 6 | ☐ | SEQ-ENTROPY-001 | Composition | INV: permutation preserves Shannon entropy; MON: uniform → max entropy; MON: single symbol → 0 |
 | 7 | ☐ | SEQ-GCSKEW-001 | Composition | SYM: complement flips skew sign; INV: reverse flips cumulative skew; INV: all-G → max positive |
 | 8 | ☐ | PAT-EXACT-001 | Matching | SHIFT: prepend flank shifts positions by flank.len; COMP: exact ⊆ hamming(maxDist=0); INV: duplicate → doubled count |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 11 |
-| ☐ Not started | 223 |
+| ☑ Complete | 12 |
+| ☐ Not started | 222 |
 | MR relations defined | ~200+ |
