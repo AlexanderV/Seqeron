@@ -569,4 +569,76 @@ public class StatisticsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: SEQ-CODON-FREQ-001 — codon usage frequencies (Statistics).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 227.
+    //
+    // API under test (SequenceStatistics.CalculateCodonFrequencies):
+    //   Reads consecutive non-overlapping triplets from the reading frame and reports
+    //   frequency = count(codon) / total counted codons (Kazusa CUTG).
+    //
+    // Relations (derived from the count/total ratio, NOT from output):
+    //   • INV   (codon-preserving shuffle): the table depends only on the codon multiset, so
+    //           reordering whole codons leaves every frequency unchanged.
+    //   • SCALE (triplicating the sequence): repeating a frame-aligned sequence k times multiplies
+    //           every codon count and the total by k, leaving the frequencies unchanged.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region SEQ-CODON-FREQ-001 — Helpers
+
+    // A frame-aligned coding sequence (Met-Lys-Leu-Gly-Phe-Glu-Arg-Pro), 24 nt = 8 codons.
+    private const string CodonFreqSeq = "ATGAAACTAGGTTTTGAACGTCCC";
+
+    private static System.Collections.Generic.List<string> SplitCodons(string seq)
+    {
+        var codons = new System.Collections.Generic.List<string>();
+        for (int i = 0; i + 3 <= seq.Length; i += 3)
+            codons.Add(seq.Substring(i, 3));
+        return codons;
+    }
+
+    #endregion
+
+    #region SEQ-CODON-FREQ-001 INV — reordering whole codons keeps the frequencies
+
+    [Test]
+    [Description("INV: the codon-frequency table depends only on the codon multiset, so permuting whole codons leaves every frequency unchanged.")]
+    public void CodonFrequencies_CodonPreservingShuffle_Invariant()
+    {
+        var original = SequenceStatistics.CalculateCodonFrequencies(CodonFreqSeq);
+        original.Values.Sum().Should().BeApproximately(1.0, 1e-12, because: "frequencies are count/total and partition the codons — a non-vacuous fixture");
+
+        var codons = SplitCodons(CodonFreqSeq);
+        var rng = new System.Random(20260620);
+        for (int i = codons.Count - 1; i > 0; i--)
+        {
+            int j = rng.Next(i + 1);
+            (codons[i], codons[j]) = (codons[j], codons[i]);
+        }
+        var shuffled = SequenceStatistics.CalculateCodonFrequencies(string.Concat(codons));
+
+        shuffled.Should().BeEquivalentTo(original, because: "codon frequencies ignore the order of codons");
+    }
+
+    #endregion
+
+    #region SEQ-CODON-FREQ-001 SCALE — repeating the sequence preserves the frequencies
+
+    [Test]
+    [Description("SCALE: repeating a frame-aligned sequence k times multiplies every codon count and the total by k, leaving the frequencies unchanged.")]
+    public void CodonFrequencies_Triplication_PreservesFrequencies()
+    {
+        var original = SequenceStatistics.CalculateCodonFrequencies(CodonFreqSeq);
+
+        foreach (int k in new[] { 2, 3, 5 })
+        {
+            string repeated = string.Concat(System.Linq.Enumerable.Repeat(CodonFreqSeq, k));
+            SequenceStatistics.CalculateCodonFrequencies(repeated)
+                .Should().BeEquivalentTo(original,
+                    because: $"repeating the frame-aligned sequence {k}× scales every count and the total by {k}, a common factor that cancels");
+        }
+    }
+
+    #endregion
 }
