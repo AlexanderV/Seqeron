@@ -323,4 +323,76 @@ public class ProteinMotifMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: PROTMOTIF-LC-001 — low-complexity regions (SEG) (ProteinMotif).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 165.
+    //
+    // API under test (ProteinMotifFinder.FindLowComplexityRegions):
+    //   SEG (Wootton & Federhen 1993): a window triggers when its entropy ≤ K1 (triggerComplexity);
+    //   the segment extends over adjacent windows with entropy ≤ K2 (extensionComplexity).
+    //
+    // Relations (derived from the SEG threshold model, NOT from output):
+    //   • MON  (more permissive trigger ⇒ superset): a region is low-complexity when its entropy is
+    //          BELOW the complexity ceiling K1, so raising K1 (the permissive direction for this
+    //          complexity-ceiling model) admits a superset of regions — the checklist's
+    //          "lower threshold → superset" expressed in SEG's entropy-ceiling semantics.
+    //   • SHIFT (prepend flank shifts regions): a high-complexity 5' flank relabels positions, so the
+    //          regions reappear shifted by the flank length with unchanged complexity.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    // A homopolymer run (entropy 0) and a ternary run (entropy log2 3 ≈ 1.585), separated by a
+    // high-complexity spacer so they are distinct SEG segments.
+    private const string LcHomo = "AAAAAAAAAAAA";
+    private const string LcSpacer = "CDEFGHIKLMNP";
+    private const string LcTernary = "DEFDEFDEFDEF";
+
+    private static System.Collections.Generic.HashSet<int> CoveredPositions(
+        System.Collections.Generic.IEnumerable<(int Start, int End, double Complexity)> regions)
+    {
+        var set = new System.Collections.Generic.HashSet<int>();
+        foreach (var r in regions)
+            for (int p = r.Start; p <= r.End; p++) set.Add(p);
+        return set;
+    }
+
+    #region PROTMOTIF-LC-001 MON — raising the entropy ceiling admits a superset
+
+    [Test]
+    [Description("MON: low-complexity means entropy ≤ K1, so raising the trigger ceiling K1 (fixed K2) admits a superset of low-complexity coverage — the homopolymer triggers at any K1, the ternary run only once K1 reaches its entropy.")]
+    public void LowComplexity_HigherTriggerCeiling_Superset()
+    {
+        string seq = LcHomo + LcSpacer + LcTernary;
+        const int window = 12;
+        const double k2 = 2.0; // extension ceiling above the ternary entropy (~1.585), below the spacer
+
+        var strict = CoveredPositions(ProteinMotifFinder.FindLowComplexityRegions(seq, window, triggerComplexity: 0.5, extensionComplexity: k2));
+        var permissive = CoveredPositions(ProteinMotifFinder.FindLowComplexityRegions(seq, window, triggerComplexity: 1.8, extensionComplexity: k2));
+
+        strict.IsSubsetOf(permissive).Should().BeTrue(because: "every region triggered at K1=0.5 still triggers at K1=1.8");
+        permissive.Count.Should().BeGreaterThan(strict.Count, because: "the ternary run (entropy ≈1.585) triggers only once K1 ≥ ~1.585");
+    }
+
+    #endregion
+
+    #region PROTMOTIF-LC-001 SHIFT — a prepended flank shifts the regions
+
+    [Test]
+    [Description("SHIFT: a high-complexity 5' flank relabels positions without adding a low-complexity region, so each region reappears shifted by the flank length with unchanged complexity.")]
+    public void LowComplexity_PrependFlank_ShiftsRegions()
+    {
+        string seq = "ACDEFGHIKLMN" + "QQQQQQQQQQQQ" + "RSTVWYACDEFG"; // isolated homopolymer LC region
+        var original = ProteinMotifFinder.FindLowComplexityRegions(seq).ToList();
+        original.Should().NotBeEmpty();
+
+        foreach (var flank in new[] { "KLMNPQRSTVWY", "ACDEFGHIKLMNPQRS" }) // high-complexity, distinct residues
+        {
+            var shifted = ProteinMotifFinder.FindLowComplexityRegions(flank + seq).ToList();
+            shifted.Select(r => (r.Start, r.End, r.Complexity))
+                .Should().Equal(original.Select(r => (r.Start + flank.Length, r.End + flank.Length, r.Complexity)),
+                    because: $"the {flank.Length}-residue high-complexity flank shifts every region by {flank.Length}");
+        }
+    }
+
+    #endregion
 }
