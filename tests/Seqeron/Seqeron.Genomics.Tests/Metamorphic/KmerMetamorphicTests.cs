@@ -536,4 +536,57 @@ public class KmerMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: KMER-BOTH-001 — both-strand k-mer counting (K-mer).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 157.
+    //
+    // API under test (KmerAnalyzer.CountKmersBothStrands):
+    //   Counts each k-mer on the forward strand plus the reverse-complement strand.
+    //
+    // Relations (derived from strand-symmetric counting, NOT from output):
+    //   • SYM  (reverse-complement invariance): counting both strands of a sequence and of its
+    //          reverse complement scans the same two strands, so the result is identical.
+    //   • ADD  (additive on concatenation): with k = 1 there are no junction k-mers, so the
+    //          both-strand counts of a+b equal the element-wise sum of the parts' counts.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region KMER-BOTH-001 SYM — both-strand counts are reverse-complement invariant
+
+    [Test]
+    [Description("SYM: counting both strands of a sequence and of its reverse complement scans the same forward+reverse strands, so the count dictionaries are identical.")]
+    public void KmerBothStrands_ReverseComplement_Invariant()
+    {
+        const string seq = "ACGTACGTTGGCCAATAC";
+        string rc = Seqeron.Genomics.Core.DnaSequence.GetReverseComplementString(seq);
+
+        foreach (int k in new[] { 1, 2, 3, 4 })
+            KmerAnalyzer.CountKmersBothStrands(rc, k).Should().BeEquivalentTo(KmerAnalyzer.CountKmersBothStrands(seq, k),
+                because: $"both-strand counting (k={k}) already includes the reverse-complement strand");
+    }
+
+    #endregion
+
+    #region KMER-BOTH-001 ADD — k=1 both-strand counts are additive on concatenation
+
+    [Test]
+    [Description("ADD: at k=1 no k-mer spans the junction, so the both-strand counts of a+b equal the element-wise sum of the both-strand counts of a and b.")]
+    public void KmerBothStrands_Concatenation_AdditiveAtK1()
+    {
+        foreach (var (a, b) in new[] { ("ACGT", "GGCC"), ("AACC", "GGTTAC"), ("G", "ACGTAC") })
+        {
+            var ca = KmerAnalyzer.CountKmersBothStrands(a, 1);
+            var cb = KmerAnalyzer.CountKmersBothStrands(b, 1);
+            var cab = KmerAnalyzer.CountKmersBothStrands(a + b, 1);
+
+            var summed = new Dictionary<string, int>(ca);
+            foreach (var kvp in cb)
+                summed[kvp.Key] = summed.GetValueOrDefault(kvp.Key) + kvp.Value;
+
+            cab.Should().BeEquivalentTo(summed,
+                because: $"single-base counting of '{a}'+'{b}' on both strands is the sum of the parts (no junction 1-mer)");
+        }
+    }
+
+    #endregion
 }
