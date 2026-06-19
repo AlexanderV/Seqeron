@@ -102,7 +102,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 72 | ☑ | RNA-STEMLOOP-001 | RnaStructure | MON: longer complementary arms → longer stem; INV: loop content doesn't affect stem pairing; COMP: no complement → no stem |
 | 73 | ☑ | RNA-ENERGY-001 | RnaStructure | MON: more GC stacks → lower ΔG; COMP: known energies additive; INV: same structure → same ΔG |
 | 74 | ☑ | MIRNA-SEED-001 | MiRNA | INV: 3' end changes don't affect seed; COMP: seed match ⊂ full target prediction; INV: seed extraction deterministic |
-| 75 | ☐ | MIRNA-TARGET-001 | MiRNA | MON: more seed complementarity → higher score; SUB: stringent → ⊂ lenient results; INV: distant 3'UTR change → same score |
+| 75 | ☑ | MIRNA-TARGET-001 | MiRNA | MON: more seed complementarity → higher score; SUB: stringent → ⊂ lenient results; INV: distant 3'UTR change → same score |
 | 76 | ☐ | MIRNA-PRECURSOR-001 | MiRNA | MON: extend stem → more stable precursor; INV: loop sequence doesn't affect structure classification |
 | 77 | ☐ | SPLICE-DONOR-001 | Splicing | INV: downstream changes don't affect donor score; MON: consensus GT → higher score; COMP: non-GT → score=0 |
 | 78 | ☐ | SPLICE-ACCEPTOR-001 | Splicing | INV: upstream far changes don't affect acceptor score; MON: consensus AG → higher score; COMP: non-AG → score=0 |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 74 |
-| ☐ Not started | 160 |
+| ☑ Complete | 75 |
+| ☐ Not started | 159 |
 | MR relations defined | ~200+ |
