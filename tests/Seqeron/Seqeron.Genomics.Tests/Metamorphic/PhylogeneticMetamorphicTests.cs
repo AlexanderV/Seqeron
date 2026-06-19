@@ -302,4 +302,98 @@ public class PhylogeneticMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: PHYLO-NEWICK-001 — Newick serialization round-trip (Phylogenetic).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 41.
+    //
+    // API under test (PhylogeneticAnalyzer.ToNewick / ParseNewick):
+    //   ToNewick emits the tree in Newick format with child branch lengths formatted "F4";
+    //   internal labels containing Newick metacharacters (e.g. auto-generated UPGMA names) are
+    //   omitted per the Olsen spec. ParseNewick reads it back, trimming leading/trailing
+    //   whitespace and the terminal ';'.
+    //
+    // Relations (derived from the grammar, NOT from output):
+    //   • COMP (round-trip identity): parsing a serialized tree and re-serializing reproduces
+    //          the string exactly (re-serialization is idempotent): leaf names, child order and
+    //          the F4 branch lengths all survive a parse∘serialize cycle, and the reparsed tree
+    //          has the identical topology (RF = 0) and leaf set.
+    //   • INV (surrounding whitespace irrelevant): ParseNewick trims leading/trailing
+    //          whitespace, so padding the string with spaces/tabs/newlines yields the same tree.
+    //          NOTE: this parser does NOT ignore INTERNAL whitespace — it would become part of a
+    //          label — and the Olsen spec forbids blanks in unquoted labels, so only SURROUNDING
+    //          whitespace invariance is asserted, not a false "all whitespace" claim.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region Helpers (Newick)
+
+    private static PhylogeneticTree SampleTree(int which) => which switch
+    {
+        0 => PhylogeneticAnalyzer.BuildTreeFromMatrix(
+                new List<string> { "A", "B", "C", "D" },
+                new double[,] { { 0, 2, 10, 11 }, { 2, 0, 12, 13 }, { 10, 12, 0, 4 }, { 11, 13, 4, 0 } },
+                TreeMethod.UPGMA),
+        _ => PhylogeneticAnalyzer.BuildTreeFromMatrix(
+                new List<string> { "Homo", "Pan", "Gorilla", "Pongo", "Macaca" },
+                new double[,]
+                {
+                    { 0, 3, 7, 13, 19 },
+                    { 3, 0, 8, 14, 20 },
+                    { 7, 8, 0, 15, 21 },
+                    { 13, 14, 15, 0, 22 },
+                    { 19, 20, 21, 22, 0 },
+                },
+                TreeMethod.UPGMA),
+    };
+
+    private static List<string> SortedLeafNames(PhyloNode root) =>
+        PhylogeneticAnalyzer.GetLeaves(root).Select(l => l.Name).OrderBy(s => s).ToList();
+
+    #endregion
+
+    #region COMP — parse∘serialize round-trips the tree
+
+    [Test]
+    [Description("COMP: ParseNewick(ToNewick(t)) reproduces the tree — re-serialization is idempotent, the topology is preserved (RF = 0) and the leaf set is unchanged.")]
+    public void Newick_RoundTrip_PreservesTree()
+    {
+        foreach (int which in new[] { 0, 1 })
+        {
+            var root = SampleTree(which).Root;
+
+            string newick = PhylogeneticAnalyzer.ToNewick(root);
+            var reparsed = PhylogeneticAnalyzer.ParseNewick(newick);
+
+            PhylogeneticAnalyzer.ToNewick(reparsed).Should().Be(newick,
+                because: "leaf names, child order and the F4-formatted branch lengths all survive a parse∘serialize cycle, so re-serialization is idempotent");
+            PhylogeneticAnalyzer.RobinsonFouldsDistance(root, reparsed).Should().Be(0,
+                because: "the round-trip must preserve the tree topology exactly");
+            SortedLeafNames(reparsed).Should().Equal(SortedLeafNames(root),
+                because: "every taxon must reappear after the round-trip");
+        }
+    }
+
+    #endregion
+
+    #region INV — surrounding whitespace does not affect the parse
+
+    [Test]
+    [Description("INV: padding a Newick string with leading/trailing whitespace yields the same tree, because ParseNewick trims surrounding whitespace.")]
+    public void Newick_SurroundingWhitespace_DoesNotAffectParse()
+    {
+        foreach (int which in new[] { 0, 1 })
+        {
+            string newick = PhylogeneticAnalyzer.ToNewick(SampleTree(which).Root);
+            string canonical = PhylogeneticAnalyzer.ToNewick(PhylogeneticAnalyzer.ParseNewick(newick));
+
+            foreach (string padded in new[] { "  " + newick, newick + "\n", "\t " + newick + "  \r\n" })
+            {
+                string reSerialized = PhylogeneticAnalyzer.ToNewick(PhylogeneticAnalyzer.ParseNewick(padded));
+                reSerialized.Should().Be(canonical,
+                    because: "ParseNewick trims leading/trailing whitespace, so surrounding padding cannot change the parsed tree");
+            }
+        }
+    }
+
+    #endregion
 }
