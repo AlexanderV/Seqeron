@@ -567,4 +567,83 @@ public class CodonMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: CODON-RSCU-001 — Relative Synonymous Codon Usage (Codon).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 214.
+    //
+    // API under test (CodonUsageAnalyzer.CalculateRscu):
+    //   For codon j of an amino acid with k synonymous codons and counts x,
+    //   RSCU_j = x_j / ((1/k)·Σx) = k·x_j/Σx (Sharp, Tuohy & Mosurski 1986). RSCU = 1 means no bias.
+    //
+    // Relations (derived from the normalisation, NOT from output):
+    //   • P    (per-AA RSCU mean = 1): by construction ΣRSCU over a present amino acid's k synonymous
+    //          codons equals k, so the per-amino-acid mean is exactly 1 — regardless of how biased the
+    //          individual codons are.
+    //   • INV  (codon order independent): RSCU is a function of codon COUNTS only, so permuting the
+    //          codons of a sequence leaves the whole RSCU table unchanged.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region CODON-RSCU-001 — Helpers
+
+    // Amino acid for a DNA codon, via the standard-code table (keyed by RNA codons).
+    private static char AminoAcidOf(string dnaCodon) =>
+        CodonOptimizer.EColiK12.CodonToAminoAcid.GetValueOrDefault(dnaCodon.Replace('T', 'U'), "X")[0];
+
+    #endregion
+
+    #region CODON-RSCU-001 P — every present amino acid has mean RSCU = 1
+
+    [Test]
+    [Description("P: ΣRSCU over a present amino acid's synonymous codons equals its degeneracy, so the per-amino-acid mean is exactly 1, however biased the individual codons are.")]
+    public void Rscu_PerAminoAcidMean_IsOne()
+    {
+        // A 2:1-biased coding sequence over the F/I/V/L families (degeneracy 2/3/4/6).
+        var rscu = CodonUsageAnalyzer.CalculateRscu(ModerateCoding());
+
+        var present = new HashSet<char>();
+        foreach (var group in rscu.GroupBy(kv => AminoAcidOf(kv.Key)))
+        {
+            var values = group.Select(kv => kv.Value).ToList();
+            if (values.Any(v => v > 0)) // amino acid is present in the sequence
+            {
+                present.Add(group.Key);
+                values.Average().Should().BeApproximately(1.0, 1e-9,
+                    because: $"the RSCU values of amino acid '{group.Key}' average to 1 by the RSCU normalisation");
+            }
+        }
+
+        present.Should().Contain(new[] { 'F', 'I', 'V', 'L' }, because: "the fixture encodes those four amino acids");
+
+        // Non-vacuous: the usage is biased, so individual RSCU values genuinely depart from 1.
+        rscu.Values.Should().Contain(v => v > 1.0 + 1e-9, because: "the over-used preferred codons have RSCU > 1");
+        rscu.Values.Should().Contain(v => v > 0 && v < 1.0 - 1e-9, because: "the under-used synonyms have RSCU < 1");
+    }
+
+    #endregion
+
+    #region CODON-RSCU-001 INV — RSCU is independent of codon order
+
+    [Test]
+    [Description("INV: RSCU is a function of codon counts only, so permuting the codons of a sequence leaves the whole RSCU table unchanged.")]
+    public void Rscu_CodonOrder_Invariant()
+    {
+        string coding = ModerateCoding();
+        var original = CodonUsageAnalyzer.CalculateRscu(coding);
+
+        var codons = Codons(coding);
+        var rng = new Random(20260620);
+        for (int i = codons.Count - 1; i > 0; i--)
+        {
+            int j = rng.Next(i + 1);
+            (codons[i], codons[j]) = (codons[j], codons[i]);
+        }
+        string shuffled = string.Concat(codons).Replace('U', 'T');
+
+        var permuted = CodonUsageAnalyzer.CalculateRscu(shuffled);
+        permuted.Should().BeEquivalentTo(original,
+            because: "the RSCU table depends only on the multiset of codons, not their order");
+    }
+
+    #endregion
 }
