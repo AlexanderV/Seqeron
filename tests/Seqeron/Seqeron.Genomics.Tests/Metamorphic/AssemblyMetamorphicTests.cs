@@ -473,4 +473,71 @@ public class AssemblyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ASSEMBLY-TRIM-001 — quality trimming (Assembly).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 148.
+    //
+    // API under test (SequenceAssembler.QualityTrimReads):
+    //   BWA/cutadapt running-sum trimming: each read's low-quality ends are removed, then reads
+    //   shorter than minLength are dropped.
+    //
+    // Relations (derived from the running-sum trim, NOT from output):
+    //   • MON  (higher cutoff ⇒ subset of bases): a higher quality cutoff trims at least as much
+    //          from each end, so the surviving window is a sub-window (substring) of the lower-cutoff
+    //          window.
+    //   • INV  (read order independent): each read is trimmed independently, so trimming commutes
+    //          with reordering the reads.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    // Builds a Phred+33 quality string from integer quality values.
+    private static string Phred(params int[] values) =>
+        new(values.Select(v => (char)(v + 33)).ToArray());
+
+    #region ASSEMBLY-TRIM-001 MON — a higher cutoff yields a sub-window of bases
+
+    [Test]
+    [Description("MON: a higher quality cutoff trims at least as much from the degrading 3' end, so the surviving window at the higher cutoff is a substring (prefix) of the window at the lower cutoff.")]
+    public void Trim_HigherCutoff_SubsetOfBases()
+    {
+        // Canonical Illumina profile: high-quality 5' end degrading toward the 3' end, so higher
+        // cutoffs nest the surviving window (a shrinking prefix).
+        int[] q = Enumerable.Range(0, 20).Select(i => 40 - 2 * i).ToArray();
+        string sequence = new string('A', q.Length);
+        var read = new[] { (sequence, Phred(q)) };
+
+        string previous = sequence; // cutoff increases ⇒ window should be a substring of the previous
+        foreach (int cutoff in new[] { 5, 15, 25, 35 })
+        {
+            var trimmed = SequenceAssembler.QualityTrimReads(read, minQuality: cutoff, minLength: 1);
+            trimmed.Should().HaveCount(1, because: $"the high-quality centre survives trimming at cutoff {cutoff}");
+            previous.Should().Contain(trimmed[0], because: $"the cutoff-{cutoff} window must be a sub-window of the looser cutoff's window");
+            trimmed[0].Length.Should().BeLessThanOrEqualTo(previous.Length, because: "a stricter cutoff cannot keep more bases");
+            previous = trimmed[0];
+        }
+    }
+
+    #endregion
+
+    #region ASSEMBLY-TRIM-001 INV — trimming commutes with read reordering
+
+    [Test]
+    [Description("INV: each read is trimmed independently, so trimming the reversed read list equals reversing the trimmed result of the original list.")]
+    public void Trim_ReadOrder_Independent()
+    {
+        var reads = new[]
+        {
+            (new string('A', 12), Phred(40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40)),
+            (new string('C', 12), Phred(2, 2, 35, 35, 35, 35, 35, 35, 35, 35, 2, 2)),
+            (new string('G', 12), Phred(2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)),
+        };
+
+        var forward = SequenceAssembler.QualityTrimReads(reads, minQuality: 20, minLength: 1);
+        var reversed = SequenceAssembler.QualityTrimReads(reads.Reverse().ToArray(), minQuality: 20, minLength: 1);
+
+        reversed.Should().Equal(((IEnumerable<string>)forward).Reverse().ToList(),
+            because: "per-read trimming is independent of the read's position in the list");
+    }
+
+    #endregion
 }
