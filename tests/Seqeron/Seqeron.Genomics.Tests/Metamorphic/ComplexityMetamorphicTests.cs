@@ -2,6 +2,7 @@ using System.Linq;
 using NUnit.Framework;
 using FluentAssertions;
 using Seqeron.Genomics.Analysis;
+using Seqeron.Genomics.Core;
 
 namespace Seqeron.Genomics.Tests;
 
@@ -190,6 +191,78 @@ public class ComplexityMetamorphicTests
             entropy.Should().BeGreaterThan(previousEntropy, because: $"more distinct near-uniform {k}-mers spread the distribution, raising its entropy");
             previousDistinct = distinct;
             previousEntropy = entropy;
+        }
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: SEQ-COMPLEX-WINDOW-001 — windowed complexity profile (Complexity).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 231.
+    //
+    // API under test (SequenceComplexity.CalculateWindowedComplexity):
+    //   Per sliding window, reports Shannon entropy and linguistic complexity at its centre.
+    //
+    // Relations (derived from the per-window composition scores, NOT from output):
+    //   • INV   (complement preserves per-window score): complement (A↔T/C↔G) is a bijection on bases
+    //           and k-mers, so each window's Shannon entropy and linguistic complexity are unchanged.
+    //   • SHIFT (prepend flank shifts profile): prepending a flank whose length is a multiple of the
+    //           step shifts the window grid by the flank length; windows lying wholly in the original
+    //           region reproduce the baseline scores, translated.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private const string WindowSeq = "ACGTGACTTGACATGCGTAACGTTAGCCTAGGCATTGACA"; // 40 nt, varied
+    private const int WinSize = 12;
+    private const int WinStep = 4;
+
+    #region SEQ-COMPLEX-WINDOW-001 INV — complement preserves each window's scores
+
+    [Test]
+    [Description("INV: complement is a bijection on bases and k-mers, so each window's Shannon entropy and linguistic complexity are unchanged (positions identical).")]
+    public void WindowedComplexity_Complement_PreservesPerWindowScores()
+    {
+        var original = SequenceComplexity.CalculateWindowedComplexity(new DnaSequence(WindowSeq), WinSize, WinStep).ToList();
+        var complemented = SequenceComplexity.CalculateWindowedComplexity(new DnaSequence(Complement(WindowSeq)), WinSize, WinStep).ToList();
+
+        complemented.Should().HaveCount(original.Count, because: "complement preserves length, so the window grid is identical");
+        for (int i = 0; i < original.Count; i++)
+        {
+            complemented[i].WindowStart.Should().Be(original[i].WindowStart);
+            complemented[i].Position.Should().Be(original[i].Position);
+            complemented[i].ShannonEntropy.Should().BeApproximately(original[i].ShannonEntropy, 1e-12,
+                because: "A↔T/C↔G relabels bases bijectively, preserving each window's base-frequency entropy");
+            complemented[i].LinguisticComplexity.Should().BeApproximately(original[i].LinguisticComplexity, 1e-12,
+                because: "complement is a bijection on k-mers, preserving each window's vocabulary");
+        }
+    }
+
+    #endregion
+
+    #region SEQ-COMPLEX-WINDOW-001 SHIFT — a step-aligned flank shifts the profile
+
+    [Test]
+    [Description("SHIFT: prepending a flank whose length is a multiple of the step shifts the window grid by the flank length; windows wholly in the original region reproduce the baseline scores, translated.")]
+    public void WindowedComplexity_PrependStepAlignedFlank_ShiftsProfile()
+    {
+        var baseline = SequenceComplexity.CalculateWindowedComplexity(new DnaSequence(WindowSeq), WinSize, WinStep).ToList();
+
+        foreach (int multiple in new[] { 1, 3 })
+        {
+            int offset = multiple * WinStep; // keep the window grid aligned
+            string flank = new string('G', offset);
+            var shifted = SequenceComplexity.CalculateWindowedComplexity(new DnaSequence(flank + WindowSeq), WinSize, WinStep).ToList();
+
+            // Windows starting at or after the flank lie wholly in the original region.
+            var interior = shifted.Where(p => p.WindowStart >= offset).ToList();
+            interior.Should().HaveCount(baseline.Count, because: "the step-aligned flank reproduces the same window grid over the original region");
+
+            for (int i = 0; i < baseline.Count; i++)
+            {
+                interior[i].WindowStart.Should().Be(baseline[i].WindowStart + offset, because: $"window starts shift by the {offset}-nt flank");
+                interior[i].Position.Should().Be(baseline[i].Position + offset, because: "the window centre shifts with the window");
+                interior[i].ShannonEntropy.Should().BeApproximately(baseline[i].ShannonEntropy, 1e-12, because: "the window content is unchanged, only translated");
+                interior[i].LinguisticComplexity.Should().BeApproximately(baseline[i].LinguisticComplexity, 1e-12, because: "the window content is unchanged, only translated");
+            }
         }
     }
 
