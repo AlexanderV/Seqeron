@@ -126,4 +126,72 @@ public class ComplexityMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: SEQ-COMPLEX-KMER-001 — k-mer entropy (Complexity).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 230.
+    //
+    // API under test (SequenceComplexity.CalculateKmerEntropy):
+    //   Shannon entropy (bits) of the overlapping k-mer frequency distribution.
+    //
+    // Relations (derived from the entropy of the k-mer distribution, NOT from output):
+    //   • INV  (reverse preserves k-mer entropy): reversing the sequence maps each k-mer to its
+    //          reverse — a bijection — and preserves the position-for-position counts, so the count
+    //          distribution (and its entropy) is unchanged.
+    //   • MONO (more distinct k-mers ⇒ higher entropy): with near-uniform usage, increasing the number
+    //          of distinct k-mers raises the entropy of the distribution.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private static int DistinctKmers(string seq, int k) =>
+        Enumerable.Range(0, seq.Length - k + 1).Select(i => seq.Substring(i, k)).Distinct().Count();
+
+    #region SEQ-COMPLEX-KMER-001 INV — reversing the sequence preserves k-mer entropy
+
+    [Test]
+    [Description("INV: reversal maps each k-mer to its reverse (a bijection) and preserves the per-position counts, so the k-mer entropy is unchanged.")]
+    public void KmerEntropy_Reverse_PreservesEntropy()
+    {
+        foreach (int k in new[] { 2, 3 })
+            foreach (var seq in new[] { ComplexSeq, "ACGTACGTTTGCA", "AACCGGTTACGT" })
+            {
+                string reversed = new string(seq.Reverse().ToArray());
+                SequenceComplexity.CalculateKmerEntropy(reversed, k)
+                    .Should().BeApproximately(SequenceComplexity.CalculateKmerEntropy(seq, k), 1e-12,
+                        because: $"reversal is a bijection on {k}-mers and keeps the count distribution, so the entropy is invariant");
+            }
+    }
+
+    #endregion
+
+    #region SEQ-COMPLEX-KMER-001 MONO — more distinct k-mers gives higher entropy
+
+    [Test]
+    [Description("MONO: with near-uniform usage, increasing the number of distinct k-mers raises the k-mer entropy.")]
+    public void KmerEntropy_MoreDistinctKmers_HigherEntropy()
+    {
+        const int k = 2;
+        // 1, 2, 3, 4 distinct near-uniform dinucleotides, by construction.
+        var sequences = new[]
+        {
+            "AAAAAAAAAAAA", // {AA}
+            "ATATATATATAT", // {AT, TA}
+            "ACGACGACGACG", // {AC, CG, GA}
+            "ACGTACGTACGT", // {AC, CG, GT, TA}
+        };
+
+        int previousDistinct = 0;
+        double previousEntropy = double.MinValue;
+        foreach (var seq in sequences)
+        {
+            int distinct = DistinctKmers(seq, k);
+            double entropy = SequenceComplexity.CalculateKmerEntropy(seq, k);
+
+            distinct.Should().BeGreaterThan(previousDistinct, because: "the fixtures are ordered by increasing distinct dinucleotide count");
+            entropy.Should().BeGreaterThan(previousEntropy, because: $"more distinct near-uniform {k}-mers spread the distribution, raising its entropy");
+            previousDistinct = distinct;
+            previousEntropy = entropy;
+        }
+    }
+
+    #endregion
 }
