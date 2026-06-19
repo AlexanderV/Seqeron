@@ -262,4 +262,71 @@ public class TranslationMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: TRANS-SIXFRAME-001 — six-frame translation (Translation).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 223.
+    //
+    // API under test (Translator.TranslateSixFrames):
+    //   Translates a DNA sequence in all six reading frames: forward frames +1/+2/+3 at offsets
+    //   0/1/2, and reverse frames −1/−2/−3 = forward frames of the reverse complement.
+    //
+    // Relations (derived from the frame definition, NOT from output):
+    //   • P   (exactly 6 frames): the result has exactly the six keys {+1,+2,+3,−1,−2,−3}; frame 0
+    //         does not exist.
+    //   • INV (frames 4–6 = translation of revcomp): each reverse frame −k of a sequence equals the
+    //         forward frame +k of its reverse complement (and symmetrically for the forward frames),
+    //         since reverse-complementing twice is the identity.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region TRANS-SIXFRAME-001 — Helpers
+
+    // A sequence whose length is not a multiple of 3, to also exercise the trailing-codon handling.
+    private const string SixFrameSeq = "ATGGCCTAAGGGTTTACGTACCGA"; // 24 nt; revcomp is non-palindromic
+
+    private static string Frame(IReadOnlyDictionary<int, ProteinSequence> frames, int k) => frames[k].Sequence;
+
+    #endregion
+
+    #region TRANS-SIXFRAME-001 P — there are exactly six frames
+
+    [Test]
+    [Description("P: TranslateSixFrames returns exactly the six reading frames {+1,+2,+3,−1,−2,−3} and no frame 0.")]
+    public void SixFrames_HasExactlySixFramesNoZero()
+    {
+        var frames = Translator.TranslateSixFrames(new DnaSequence(SixFrameSeq));
+
+        frames.Keys.Should().BeEquivalentTo(new[] { 1, 2, 3, -1, -2, -3 },
+            because: "three forward and three reverse reading frames span every codon partition of both strands");
+        frames.Keys.Should().NotContain(0, because: "frame 0 is undefined — frames are 1-based per strand");
+    }
+
+    #endregion
+
+    #region TRANS-SIXFRAME-001 INV — reverse frames are the forward frames of the reverse complement
+
+    [Test]
+    [Description("INV: each reverse frame −k equals the forward frame +k of the reverse complement (and vice versa), because revcomp∘revcomp is the identity.")]
+    public void SixFrames_ReverseFrames_EqualForwardFramesOfRevComp()
+    {
+        var dna = new DnaSequence(SixFrameSeq);
+        var revComp = dna.ReverseComplement();
+
+        var frames = Translator.TranslateSixFrames(dna);
+        var revFrames = Translator.TranslateSixFrames(revComp);
+
+        for (int k = 1; k <= 3; k++)
+        {
+            Frame(frames, -k).Should().Be(Frame(revFrames, k),
+                because: $"reverse frame −{k} of the sequence is forward frame +{k} of its reverse complement");
+            Frame(frames, k).Should().Be(Frame(revFrames, -k),
+                because: $"forward frame +{k} of the sequence is reverse frame −{k} of its reverse complement (revcomp is an involution)");
+        }
+
+        // Non-vacuous: forward and reverse translations genuinely differ for this sequence.
+        Frame(frames, 1).Should().NotBe(Frame(frames, -1),
+            because: "the sequence is not a reverse-complement palindrome, so its strands translate differently");
+    }
+
+    #endregion
 }
