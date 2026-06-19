@@ -821,4 +821,55 @@ public class MatchingMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: MOTIF-SHARED-001 — words shared across sequences (Matching).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 173.
+    //
+    // API under test (MotifFinder.FindSharedMotifs):
+    //   Reports k-mers occurring in at least minSequences of the input sequences.
+    //
+    // Relations (derived from the matching-sequence quorum, NOT from output):
+    //   • INV  (input order independent): membership in the shared set depends on which sequences
+    //          contain a word, not their order, so the shared word set is order-independent.
+    //   • SUB  (fewer inputs ⇒ ⊇ shared set): the "shared by ALL inputs" set is antitone — dropping a
+    //          sequence relaxes the all-agree requirement, so the shared set can only grow.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private static readonly DnaSequence SharedS0 = new("ACGTCGTAA");
+    private static readonly DnaSequence SharedS1 = new("TTCGTGGTT");
+    private static readonly DnaSequence SharedS2 = new("AACGTACGA");
+
+    private static HashSet<string> SharedWords(IEnumerable<DnaSequence> seqs, int k, int minSeq) =>
+        MotifFinder.FindSharedMotifs(seqs, k, minSeq).Select(m => m.Sequence).ToHashSet();
+
+    #region MOTIF-SHARED-001 INV — the shared set is independent of input order
+
+    [Test]
+    [Description("INV: a word is shared based on which sequences contain it, not their order, so reordering the inputs yields the same shared word set.")]
+    public void SharedMotifs_InputOrder_Invariant()
+    {
+        var ordered = new[] { SharedS0, SharedS1, SharedS2 };
+        var shuffled = new[] { SharedS2, SharedS0, SharedS1 };
+
+        SharedWords(shuffled, 3, 2).Should().BeEquivalentTo(SharedWords(ordered, 3, 2),
+            because: "the shared word set is a function of the sequence set, not its order");
+    }
+
+    #endregion
+
+    #region MOTIF-SHARED-001 SUB — dropping an input grows the shared-by-all set
+
+    [Test]
+    [Description("SUB: the set of words shared by ALL inputs is antitone — removing a sequence relaxes the all-agree requirement, so the shared set of the smaller input collection is a superset.")]
+    public void SharedMotifs_FewerInputs_Superset()
+    {
+        var all = SharedWords(new[] { SharedS0, SharedS1, SharedS2 }, 3, minSeq: 3); // shared by all three
+        var fewer = SharedWords(new[] { SharedS0, SharedS2 }, 3, minSeq: 2);          // shared by these two
+
+        all.IsSubsetOf(fewer).Should().BeTrue(because: "a word in all three sequences is in any two of them");
+        fewer.Count.Should().BeGreaterThan(all.Count, because: "words shared only by S0 and S2 (e.g. ACG) appear once S1 is dropped");
+    }
+
+    #endregion
 }
