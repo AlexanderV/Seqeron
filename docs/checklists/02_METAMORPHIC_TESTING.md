@@ -180,7 +180,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 150 | ☑ | RNA-HAIRPIN-001 | RnaStructure | MON: larger loop → higher (less stable) energy; INV: closing-pair context preserved |
 | 151 | ☑ | RNA-INVERT-001 | RnaStructure | SYM: arms reverse-complementary; INV: revcomp preserves count |
 | 152 | ☑ | RNA-MFE-001 | RnaStructure | MON: more GC pairs → lower MFE; INV: U/T case-insensitive |
-| 153 | ☐ | RNA-PAIR-001 | RnaStructure | SYM: canPair(a,b)=canPair(b,a); INV: case-insensitive |
+| 153 | ☑ | RNA-PAIR-001 | RnaStructure | SYM: canPair(a,b)=canPair(b,a); INV: case-insensitive |
 | 154 | ☐ | RNA-PARTITION-001 | RnaStructure | MON: more pairing options → higher Z; INV: deterministic |
 | 155 | ☐ | RNA-PSEUDOKNOT-001 | RnaStructure | INV: nested structure → no pseudoknot; SHIFT: prepend flank shifts positions |
 | 156 | ☐ | KMER-ASYNC-001 | K-mer | INV: async = sync; INV: read order independent |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 152 |
-| ☐ Not started | 82 |
+| ☑ Complete | 153 |
+| ☐ Not started | 81 |
 | MR relations defined | ~200+ |

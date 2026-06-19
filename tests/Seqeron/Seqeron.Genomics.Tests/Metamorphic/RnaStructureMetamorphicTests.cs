@@ -536,4 +536,53 @@ public class RnaStructureMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: RNA-PAIR-001 — base-pair compatibility (RnaStructure).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 153.
+    //
+    // API under test (RnaSecondaryStructure.CanPair):
+    //   True when two bases can form a Watson–Crick (A–U, G–C) or wobble (G–U) pair.
+    //
+    // Relations (derived from the pairing definition, NOT from output):
+    //   • SYM  (canPair(a,b)=canPair(b,a)): base pairing is a symmetric relation.
+    //   • INV  (case-insensitive): pairing depends on the nucleotide identity, not letter case.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region RNA-PAIR-001 SYM — pairing is symmetric
+
+    [Test]
+    [Description("SYM: base pairing is a symmetric relation, so CanPair(a,b) equals CanPair(b,a) for every pair of bases.")]
+    public void CanPair_Symmetric()
+    {
+        const string bases = "ACGU";
+        foreach (char a in bases)
+            foreach (char b in bases)
+                RnaSecondaryStructure.CanPair(a, b).Should().Be(RnaSecondaryStructure.CanPair(b, a),
+                    because: $"pairing of {a} and {b} cannot depend on the argument order");
+
+        // Guard against a trivially-constant relation: the canonical pairs must actually pair.
+        RnaSecondaryStructure.CanPair('A', 'U').Should().BeTrue(because: "A–U is Watson–Crick");
+        RnaSecondaryStructure.CanPair('G', 'C').Should().BeTrue(because: "G–C is Watson–Crick");
+        RnaSecondaryStructure.CanPair('G', 'U').Should().BeTrue(because: "G–U is a wobble pair");
+        RnaSecondaryStructure.CanPair('A', 'G').Should().BeFalse(because: "A–G is not a valid pair");
+    }
+
+    #endregion
+
+    #region RNA-PAIR-001 INV — pairing is case-insensitive
+
+    [Test]
+    [Description("INV: pairing depends on the nucleotide identity, not letter case, so lower-case bases pair exactly as their upper-case forms do.")]
+    public void CanPair_CaseInsensitive()
+    {
+        const string bases = "ACGU";
+        foreach (char a in bases)
+            foreach (char b in bases)
+                RnaSecondaryStructure.CanPair(char.ToLowerInvariant(a), char.ToLowerInvariant(b))
+                    .Should().Be(RnaSecondaryStructure.CanPair(a, b),
+                        because: $"the case of {a}/{b} must not affect whether they pair");
+    }
+
+    #endregion
 }
