@@ -641,4 +641,71 @@ public class StatisticsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: SEQ-ENTROPY-PROFILE-001 — sliding-window Shannon entropy profile (Statistics).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 232.
+    //
+    // API under test (SequenceStatistics.CalculateEntropyProfile):
+    //   One Shannon entropy (bits) per sliding window, for offsets 0, step, 2·step, …
+    //
+    // Relations (derived from the per-window symbol distribution, NOT from output):
+    //   • INV   (complement preserves profile): complement (A↔T/C↔G) is a bijection on symbols, so
+    //           each window's base-frequency entropy — and the whole profile — is unchanged.
+    //   • SHIFT (prepend flank shifts profile): prepending a flank whose length is a multiple of the
+    //           step shifts the window grid; dropping the leading flank windows reproduces the
+    //           baseline profile exactly.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private const string EntropyProfileSeq = "ACGTGACTTGACATGCGTAACGTTAGCCTA"; // 30 nt, varied
+    private const int EntropyWindow = 10;
+    private const int EntropyStep = 2;
+
+    private static string ComplementDna(string seq) =>
+        new string(seq.Select(c => c switch { 'A' => 'T', 'T' => 'A', 'C' => 'G', 'G' => 'C', _ => c }).ToArray());
+
+    #region SEQ-ENTROPY-PROFILE-001 INV — complement preserves the entropy profile
+
+    [Test]
+    [Description("INV: complement is a bijection on symbols, so each window's Shannon entropy — and hence the whole profile — is unchanged.")]
+    public void EntropyProfile_Complement_PreservesProfile()
+    {
+        var original = SequenceStatistics.CalculateEntropyProfile(EntropyProfileSeq, EntropyWindow, EntropyStep).ToList();
+        var complemented = SequenceStatistics.CalculateEntropyProfile(ComplementDna(EntropyProfileSeq), EntropyWindow, EntropyStep).ToList();
+
+        original.Should().HaveCountGreaterThan(1, because: "the sequence yields several windows — a non-vacuous fixture");
+        complemented.Should().HaveCount(original.Count);
+        for (int i = 0; i < original.Count; i++)
+            complemented[i].Should().BeApproximately(original[i], 1e-12,
+                because: "A↔T/C↔G relabels symbols bijectively, preserving each window's entropy");
+    }
+
+    #endregion
+
+    #region SEQ-ENTROPY-PROFILE-001 SHIFT — a step-aligned flank shifts the profile
+
+    [Test]
+    [Description("SHIFT: prepending a flank whose length is a multiple of the step shifts the window grid; dropping the leading flank windows reproduces the baseline profile exactly.")]
+    public void EntropyProfile_PrependStepAlignedFlank_ShiftsProfile()
+    {
+        var baseline = SequenceStatistics.CalculateEntropyProfile(EntropyProfileSeq, EntropyWindow, EntropyStep).ToList();
+
+        foreach (int multiple in new[] { 1, 3 })
+        {
+            int offset = multiple * EntropyStep;
+            string flank = new string('G', offset);
+            var shifted = SequenceStatistics.CalculateEntropyProfile(flank + EntropyProfileSeq, EntropyWindow, EntropyStep).ToList();
+
+            shifted.Should().HaveCount(baseline.Count + multiple,
+                because: $"a {offset}-nt step-aligned flank adds exactly {multiple} leading windows");
+
+            // Windows past the flank are wholly within the original region: drop the flank windows.
+            var interior = shifted.Skip(multiple).ToList();
+            for (int i = 0; i < baseline.Count; i++)
+                interior[i].Should().BeApproximately(baseline[i], 1e-12,
+                    because: "the window content is unchanged, only translated by the flank");
+        }
+    }
+
+    #endregion
 }
