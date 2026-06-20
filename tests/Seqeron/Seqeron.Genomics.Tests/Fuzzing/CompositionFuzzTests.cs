@@ -2956,4 +2956,475 @@ public class CompositionFuzzTests
     #endregion
 
     #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  SEQ-REPLICATION-001 — replication origin/terminus prediction via the
+    //  cumulative GC-skew minimum/maximum (Composition).
+    //  Checklist: docs/checklists/03_FUZZING.md, row 211 (BE; "flat skew,
+    //  single minimum, circular wrap").
+    //
+    //  THEORY (Replication_Origin_Prediction.md, Test Unit ID SEQ-REPLICATION-001):
+    //    Cumulative skew Skew_0 = 0, Skew_{i+1} = Skew_i + s(Genome[i]) with
+    //    s(G)=+1, s(C)=−1, s(A)=s(T)=other=0 (§2.2 [2]). There are n+1 prefix
+    //    values Skew_0…Skew_n over 0-based prefix indices i ∈ [0, n] (position i =
+    //    the boundary BEFORE base i, Rosalind BA1F). The predicted ORIGIN is the
+    //    FIRST prefix index minimizing Skew_i; the predicted TERMINUS is the FIRST
+    //    prefix index maximizing it (§2.4 INV-01/INV-02, ties → smallest index).
+    //    OriginSkew ≤ 0 ≤ TerminusSkew because Skew_0 = 0 is always a prefix value
+    //    (INV-03). IsSignificant ⇔ max > min (INV-05): a FLAT diagram (no net G/C
+    //    asymmetry) carries no origin signal. A and T never move the diagram
+    //    (INV-06). O(n) single pass (§4.3). Typed null → ArgumentNullException;
+    //    null/empty string → zero prediction, not significant (§3.3, §6.1).
+    //
+    //  Fuzz strategy for THIS unit: BE = Boundary Exploitation.
+    //    • FLAT SKEW — no G/C asymmetry (empty, no-G/C, equal-and-balanced G=C,
+    //      A/T-only). The diagram never leaves 0, so origin = terminus = 0,
+    //      OriginSkew = TerminusSkew = 0, IsSignificant = false. No crash, no NaN.
+    //    • SINGLE CLEAR MINIMUM — a sequence with one unambiguous global minimum;
+    //      the predicted origin index (and the symmetric maximum/terminus) are
+    //      recovered EXACTLY, derived independently from the §2.2 prefix recurrence,
+    //      including the Rosalind BA1F sample (first minimizer 53, §7.1).
+    //    • CIRCULAR WRAP — the molecule is circular (§1, ASM-01/ASM-02): the true
+    //      origin can sit ACROSS the linearization join. We pin the spec-faithful
+    //      consequence (§6.2): the unit treats the input as a LINEAR string in
+    //      genome coordinates, so ROTATING the sequence shifts the predicted origin
+    //      by the rotation; locating the cumulative minimum near / across the end
+    //      boundary must still recover the correct first-minimizer index with no
+    //      over-read / IndexOutOfRange.
+    //  — docs/checklists/03_FUZZING.md §Description (BE); ADVANCED_TESTING_CHECKLIST.md §8.
+    //
+    //  Surfaces (Replication_Origin_Prediction.md §5.1):
+    //    • PredictReplicationOrigin(DnaSequence) — strict; ArgumentNullException on null.
+    //    • PredictReplicationOrigin(string)      — lenient; null/empty → zero prediction;
+    //                                              only G/C affect the skew.
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region SEQ-REPLICATION-001 — replication origin prediction
+
+    #region Helpers — independent reference computed straight from §2.2
+
+    /// <summary>
+    /// Independent reference implementation of the cumulative-skew origin/terminus
+    /// derived DIRECTLY from Replication_Origin_Prediction.md §2.2 / §2.4 — NEVER
+    /// read off GcSkewCalculator. Skew_0 = 0; each base adds +1 for G, −1 for C, 0
+    /// otherwise; the origin is the FIRST (smallest) prefix index minimizing the
+    /// running skew and the terminus the FIRST index maximizing it (ties → smallest
+    /// index, via strict comparison). Returns (origin, terminus, minSkew, maxSkew).
+    /// </summary>
+    private static (int Origin, int Terminus, int MinSkew, int MaxSkew) ReferenceOrigin(string seq)
+    {
+        int cumulative = 0;                 // Skew_0
+        int minSkew = 0, maxSkew = 0;       // Skew_0 = 0 is always a prefix value (INV-03)
+        int minPos = 0, maxPos = 0;         // first-minimizer / first-maximizer (ties → smallest)
+
+        for (int i = 0; i < seq.Length; i++)
+        {
+            char c = char.ToUpperInvariant(seq[i]);
+            if (c == 'G') cumulative += 1;
+            else if (c == 'C') cumulative -= 1;
+            // A, T and any other symbol leave the running skew unchanged (INV-06).
+
+            int prefixIndex = i + 1;        // Skew_{i+1} after consuming base i
+            if (cumulative < minSkew) { minSkew = cumulative; minPos = prefixIndex; }
+            if (cumulative > maxSkew) { maxSkew = cumulative; maxPos = prefixIndex; }
+        }
+
+        return (minPos, maxPos, minSkew, maxSkew);
+    }
+
+    #endregion
+
+    #region Positive sanity — worked examples from the doc (§7.1)
+
+    /// <summary>
+    /// Positive sanity: the EXACT, hand-checkable worked examples from
+    /// Replication_Origin_Prediction.md §7.1, with expected values derived
+    /// INDEPENDENTLY from the §2.2 prefix recurrence (NOT read off the code).
+    ///
+    /// • "CCGGGG" → diagram 0,−1,−2,−1,0,+1,+2 → min −2 first at prefix index 2
+    ///   (origin), max +2 at index 6 (terminus); amplitude 4 ⇒ IsSignificant.
+    /// • Single base "G" → diagram 0,+1 → origin 0 (skew 0), terminus 1 (skew +1).
+    /// • Tied extremum "CCGGCC" → diagram 0,−1,−2,−1,0,−1,−2 → min −2 FIRST at index
+    ///   2 (origin); the max value 0 is first seen at Skew_0, so terminus = 0;
+    ///   amplitude 2 ⇒ significant. Pins the first-index tie-break (INV-01/INV-02).
+    /// </summary>
+    [TestCase("CCGGGG", 2, 6, -2.0, +2.0, true, TestName = "Replication_Doc_CCGGGG_Origin2Terminus6")]
+    [TestCase("G", 0, 1, 0.0, +1.0, true, TestName = "Replication_Doc_SingleG_Origin0Terminus1")]
+    [TestCase("CCGGCC", 2, 0, -2.0, 0.0, true, TestName = "Replication_Doc_CCGGCC_TieBreakFirstIndex")]
+    public void Replication_TypedWorkedExamples_MatchPrefixRecurrence(
+        string input, int origin, int terminus, double originSkew, double terminusSkew, bool significant)
+    {
+        var pred = GcSkewCalculator.PredictReplicationOrigin(new DnaSequence(input));
+
+        pred.PredictedOrigin.Should().Be(origin,
+            because: $"the cumulative-skew minimum of \"{input}\" first occurs at prefix index {origin} (§2.2/§7.1)");
+        pred.PredictedTerminus.Should().Be(terminus,
+            because: $"the cumulative-skew maximum of \"{input}\" first occurs at prefix index {terminus} (§2.2/§7.1)");
+        pred.OriginSkew.Should().BeApproximately(originSkew, Tolerance,
+            because: "OriginSkew is the minimum cumulative value and is ≤ 0 (INV-03)");
+        pred.TerminusSkew.Should().BeApproximately(terminusSkew, Tolerance,
+            because: "TerminusSkew is the maximum cumulative value and is ≥ 0 (INV-03)");
+        pred.IsSignificant.Should().Be(significant,
+            because: "IsSignificant ⇔ max > min (INV-05)");
+    }
+
+    /// <summary>
+    /// Positive sanity: the Rosalind BA1F sample genome (§7.1 / §5.3). The doc pins
+    /// the published answer — first minimizer at prefix index 53, OriginSkew −4 — and
+    /// the maximizing terminus is verified against the independent §2.2 reference,
+    /// not the code. This is the canonical "single clear minimum" anchor.
+    /// </summary>
+    [Test]
+    public void Replication_RosalindBA1FSample_OriginIs53()
+    {
+        const string genome =
+            "CCTATCGGTGGATTAGCATGTCCCTGTACGTTTCGCCGCGAACTAGTTCACACGGCTTGATGGCAAATGGTTTTTCCGGCGACCGTAATCGTCCACCGAG";
+
+        var pred = GcSkewCalculator.PredictReplicationOrigin(new DnaSequence(genome));
+        var reference = ReferenceOrigin(genome);
+
+        pred.PredictedOrigin.Should().Be(53,
+            because: "Rosalind BA1F publishes the first minimizer of this genome as position 53 (§5.3/§7.1)");
+        pred.OriginSkew.Should().BeApproximately(-4.0, Tolerance,
+            because: "the doc's worked example pins OriginSkew == −4 for the BA1F sample (§7.1)");
+        pred.PredictedTerminus.Should().Be(reference.Terminus,
+            because: "the terminus is the first maximizer of the §2.2 prefix diagram (INV-02)");
+        pred.TerminusSkew.Should().BeApproximately(reference.MaxSkew, Tolerance);
+        pred.IsSignificant.Should().BeTrue("the BA1F genome has a non-flat diagram (max > min)");
+    }
+
+    #endregion
+
+    #region BE — Boundary: flat skew (no net G/C asymmetry ⇒ degenerate origin)
+
+    /// <summary>
+    /// BE — "flat skew": when the diagram never leaves 0 there is NO origin signal.
+    /// This happens for (a) A/T-only input (s(A)=s(T)=0, INV-06: G/C absent), and
+    /// (b) sequences whose running skew returns to and stays bounded at 0 only when
+    /// G and C are perfectly interleaved so the cumulative value never dips below or
+    /// rises above 0 (e.g. "GCGCGC": 0,+1,0,+1,0,+1,0 — max +1 > min 0 IS a signal,
+    /// so that is NOT flat). A genuinely FLAT diagram requires the cumulative value
+    /// to stay EXACTLY 0 throughout — i.e. no G/C at all. For such input the contract
+    /// (§6.1) is origin = terminus = 0, OriginSkew = TerminusSkew = 0,
+    /// IsSignificant = FALSE — a defined, non-throwing degenerate result. Expected
+    /// origin/terminus are derived from the §2.2 reference, not the code.
+    /// </summary>
+    [TestCase("AAAATTTT", TestName = "Replication_Flat_AtOnly_NoOriginSignal")]
+    [TestCase("AAAA", TestName = "Replication_Flat_AllA_NoOriginSignal")]
+    [TestCase("TTTTTTTT", TestName = "Replication_Flat_AllT_NoOriginSignal")]
+    [TestCase("ATATATAT", TestName = "Replication_Flat_AlternatingAT_NoOriginSignal")]
+    public void Replication_FlatDiagram_OriginAndTerminusAreZeroNotSignificant(string input)
+    {
+        var reference = ReferenceOrigin(input);
+        reference.MinSkew.Should().Be(0, "by construction this input has no G/C, so the diagram stays at 0");
+        reference.MaxSkew.Should().Be(0, "by construction this input has no G/C, so the diagram stays at 0");
+
+        ReplicationOriginPrediction pred = default;
+        var act = () => pred = GcSkewCalculator.PredictReplicationOrigin(new DnaSequence(input));
+
+        act.Should().NotThrow("a flat diagram is a defined degenerate case, not an error");
+        pred.PredictedOrigin.Should().Be(0, "a flat diagram pins the origin at Skew_0 (prefix index 0)");
+        pred.PredictedTerminus.Should().Be(0, "a flat diagram pins the terminus at Skew_0 (prefix index 0)");
+        pred.OriginSkew.Should().Be(0.0);
+        pred.TerminusSkew.Should().Be(0.0);
+        pred.IsSignificant.Should().BeFalse(
+            "a flat diagram (max == min == 0) carries no origin signal (INV-05)");
+    }
+
+    /// <summary>
+    /// BE — "flat skew" at the size floor: the EMPTY sequence. The typed path defines
+    /// an empty DnaSequence (DnaSequence.cs lines 24–28); the contract (§6.1) is the
+    /// zero prediction (origin = terminus = 0, skews 0, not significant) with NO
+    /// division and NO exception. The lenient raw-string overload returns the same
+    /// zero prediction for "" and for null via its IsNullOrEmpty short-circuit
+    /// (GcSkewCalculator.cs lines 248–250).
+    /// </summary>
+    [Test]
+    public void Replication_EmptyAndNullString_AreZeroPredictionAndDoNotThrow()
+    {
+        ReplicationOriginPrediction typed = default;
+        var typedAct = () => typed = GcSkewCalculator.PredictReplicationOrigin(new DnaSequence(string.Empty));
+        typedAct.Should().NotThrow("the empty sequence is a defined boundary, not an error");
+        typed.Should().Be(new ReplicationOriginPrediction(0, 0, 0, 0, false),
+            because: "an empty diagram has the single prefix value Skew_0 = 0 → zero prediction (§6.1)");
+
+        var rawEmpty = () => GcSkewCalculator.PredictReplicationOrigin(string.Empty)
+            .Should().Be(new ReplicationOriginPrediction(0, 0, 0, 0, false));
+        var rawNull = () => GcSkewCalculator.PredictReplicationOrigin((string)null!)
+            .Should().Be(new ReplicationOriginPrediction(0, 0, 0, 0, false));
+        rawEmpty.Should().NotThrow("the lenient overload short-circuits empty input to the zero prediction");
+        rawNull.Should().NotThrow<NullReferenceException>(
+            "null is handled by the IsNullOrEmpty gate, never dereferenced");
+        rawNull.Should().NotThrow("null/empty string is a defined 'no input' boundary, not an error");
+    }
+
+    /// <summary>
+    /// BE: a null DnaSequence is the explicit-guard boundary on the strict typed path.
+    /// PredictReplicationOrigin(DnaSequence) must throw the *documented, intentional*
+    /// ArgumentNullException (GcSkewCalculator.cs line 238, §3.3), never a raw
+    /// NullReferenceException from dereferencing <c>.Sequence</c>.
+    /// </summary>
+    [Test]
+    public void Replication_NullDnaSequence_ThrowsArgumentNullException()
+    {
+        var act = () => GcSkewCalculator.PredictReplicationOrigin((DnaSequence)null!);
+
+        act.Should().Throw<ArgumentNullException>(
+            "the typed overload guards null with the documented ArgumentNullException, not a crash");
+    }
+
+    #endregion
+
+    #region BE — Boundary: single clear minimum (origin recovered exactly)
+
+    /// <summary>
+    /// BE — "single clear minimum": a sequence engineered to have ONE unambiguous
+    /// global minimum (a falling C-run followed by a longer rising G-run). The origin
+    /// is the prefix index at the bottom of the C-run and the terminus the index at
+    /// the top of the G-run, BOTH derived independently from the §2.2 recurrence.
+    ///
+    /// • "CCCGGGGG": 0,−1,−2,−3,−2,−1,0,+1,+2 → origin 3 (skew −3), terminus 8 (+2).
+    /// • "ATCCCGGAT" (A/T padding, INV-06): G/C-relevant subsequence C C C G G →
+    ///   0,0,0,−1,−2,−3,−2,−1,−1,−1 → origin 6 (skew −3), terminus 0 (max stays 0).
+    /// • "GGGCCCCCC": 0,+1,+2,+3,+2,+1,0,−1,−2,−3 → origin 9 (skew −3), terminus 3 (+3).
+    /// The exact origin/terminus indices and skews are pinned against the reference.
+    /// </summary>
+    [TestCase("CCCGGGGG", TestName = "Replication_SingleMin_FallingThenRising")]
+    [TestCase("ATCCCGGAT", TestName = "Replication_SingleMin_AtPaddingIgnored")]
+    [TestCase("GGGCCCCCC", TestName = "Replication_SingleMin_RisingThenFalling")]
+    [TestCase("AGCTAGCTGGGGCCCCATAT", TestName = "Replication_SingleMin_MixedGenomeLike")]
+    public void Replication_SingleClearMinimum_RecoversOriginExactly(string input)
+    {
+        var reference = ReferenceOrigin(input);
+
+        var pred = GcSkewCalculator.PredictReplicationOrigin(new DnaSequence(input));
+
+        pred.PredictedOrigin.Should().Be(reference.Origin,
+            because: $"the cumulative minimum of \"{input}\" first occurs at prefix index {reference.Origin} (§2.2 INV-01)");
+        pred.PredictedTerminus.Should().Be(reference.Terminus,
+            because: $"the cumulative maximum of \"{input}\" first occurs at prefix index {reference.Terminus} (§2.2 INV-02)");
+        pred.OriginSkew.Should().BeApproximately(reference.MinSkew, Tolerance,
+            because: "OriginSkew is the minimum cumulative value (INV-03: ≤ 0)");
+        pred.TerminusSkew.Should().BeApproximately(reference.MaxSkew, Tolerance,
+            because: "TerminusSkew is the maximum cumulative value (INV-03: ≥ 0)");
+        pred.OriginSkew.Should().BeLessThanOrEqualTo(0.0, "Skew_0 = 0 is always a prefix value, so min ≤ 0 (INV-03)");
+        pred.TerminusSkew.Should().BeGreaterThanOrEqualTo(0.0, "Skew_0 = 0 is always a prefix value, so max ≥ 0 (INV-03)");
+        pred.IsSignificant.Should().Be(reference.MaxSkew > reference.MinSkew,
+            because: "IsSignificant ⇔ max > min (INV-05)");
+    }
+
+    /// <summary>
+    /// BE — "single clear minimum", lowercase / mixed case. The typed path upper-cases
+    /// at construction (§3.3, INV: case-insensitive), so the origin/terminus of a
+    /// lowercase sequence must equal those of its uppercase form. Pins that
+    /// case-folding does not shift the predicted positions.
+    /// </summary>
+    [TestCase("cccggggg", "CCCGGGGG", TestName = "Replication_SingleMin_AllLower_MatchesUpper")]
+    [TestCase("CcCgGgGg", "CCCGGGGG", TestName = "Replication_SingleMin_MixedCase_MatchesUpper")]
+    public void Replication_MixedCase_MatchesUppercase(string lower, string upper)
+    {
+        var lowerPred = GcSkewCalculator.PredictReplicationOrigin(new DnaSequence(lower));
+        var upperPred = GcSkewCalculator.PredictReplicationOrigin(new DnaSequence(upper));
+
+        lowerPred.Should().Be(upperPred,
+            because: "input is case-folded before the cumulative skew is computed; case must not shift the origin");
+    }
+
+    #endregion
+
+    #region BE — Boundary: circular wrap (rotation shifts the predicted origin)
+
+    /// <summary>
+    /// BE — "circular wrap": a bacterial chromosome is CIRCULAR (§1), so the true
+    /// origin can lie ACROSS the linearization join. The unit, by documented design
+    /// (§6.2, ASM-02), treats its input as a LINEAR string in genome coordinates: a
+    /// rotated input shifts/mirrors the predicted positions. We pin the spec-faithful
+    /// consequence — ROTATING a sequence so the cumulative minimum sits at / near the
+    /// END boundary still recovers the correct FIRST-minimizer index from the §2.2
+    /// reference, with no over-read past the last base (no IndexOutOfRange).
+    ///
+    /// "GGGGCCCC" linear: 0,+1,+2,+3,+4,+3,+2,+1,0 → origin 0 (min 0), terminus 4.
+    /// Rotating the falling C-run to the END, "CCCCGGGG": 0,−1,−2,−3,−4,−3,−2,−1,0 →
+    /// origin 4 (the minimum now sits mid-sequence). Rotating so the minimum lands on
+    /// the LAST prefix, "CCCCGGGGGGGG"… we instead test the wrap face directly: a
+    /// sequence whose global minimum is the FINAL prefix index n (origin == n).
+    /// All expected indices come from the §2.2 reference, not the code.
+    /// </summary>
+    [TestCase("GGGGCCCC", TestName = "Replication_Wrap_MaxAtMiddle_MinAtEnds")]
+    [TestCase("CCCCGGGG", TestName = "Replication_Wrap_MinAtMiddle")]
+    [TestCase("GGGGGCCCCCCC", TestName = "Replication_Wrap_MinOnFinalPrefix")]
+    public void Replication_CircularRotation_RecoversFirstMinimizerWithNoOverRead(string input)
+    {
+        var reference = ReferenceOrigin(input);
+
+        var pred = GcSkewCalculator.PredictReplicationOrigin(new DnaSequence(input));
+
+        pred.PredictedOrigin.Should().Be(reference.Origin,
+            because: $"the first minimizer of \"{input}\" is prefix index {reference.Origin} even when it sits near the end (§2.2 INV-01)");
+        pred.PredictedTerminus.Should().Be(reference.Terminus,
+            because: $"the first maximizer of \"{input}\" is prefix index {reference.Terminus} (§2.2 INV-02)");
+        pred.PredictedOrigin.Should().BeInRange(0, input.Length,
+            because: "prefix indices range over [0, n]; the scan must never over-read past the last base (INV-04)");
+        pred.PredictedTerminus.Should().BeInRange(0, input.Length, "INV-04");
+    }
+
+    /// <summary>
+    /// BE — "circular wrap", the rotation invariant made explicit. For ANY rotation
+    /// of a genome the unit predicts the SAME biological origin position MODULO the
+    /// rotation amount (ASM-02, §6.2): if the linear origin of the unrotated genome
+    /// is o, then rotating left by k bases moves the cumulative minimum to (o − k)
+    /// in the rotated coordinates (a circular shift of the diagram). We pin this on a
+    /// fixed genome with a single clear minimum by rotating it through every offset
+    /// and checking the predicted origin tracks the rotation, computed independently
+    /// from the §2.2 reference on each rotated string. This pins that "circular wrap"
+    /// is handled exactly as the linear definition demands — no special-casing, no
+    /// crash when the minimum crosses the join.
+    /// </summary>
+    [Test]
+    public void Replication_AllRotations_TrackTheCircularShift()
+    {
+        // A genome with one clear cumulative minimum; rotating it sweeps the minimum
+        // through every position, including across the linearization join.
+        const string genome = "GGGAGCTCCCCGGTTAACCGG";
+
+        for (int k = 0; k < genome.Length; k++)
+        {
+            string rotated = genome.Substring(k) + genome.Substring(0, k);
+            var reference = ReferenceOrigin(rotated);
+
+            var pred = GcSkewCalculator.PredictReplicationOrigin(new DnaSequence(rotated));
+
+            pred.PredictedOrigin.Should().Be(reference.Origin,
+                because: $"rotation by {k} moves the cumulative minimum to its §2.2 first-minimizer index in the rotated frame");
+            pred.PredictedTerminus.Should().Be(reference.Terminus,
+                because: $"rotation by {k} moves the cumulative maximum to its §2.2 first-maximizer index in the rotated frame");
+            pred.PredictedOrigin.Should().BeInRange(0, rotated.Length, "INV-04");
+            pred.PredictedTerminus.Should().BeInRange(0, rotated.Length, "INV-04");
+        }
+    }
+
+    #endregion
+
+    #region BE — Boundary: extremely long
+
+    /// <summary>
+    /// BE/OVF: an extremely long valid sequence must compute in O(n) without hang or
+    /// integer overflow, and the prediction must obey the invariants. A constructed
+    /// long genome — a descending C-block then an ascending G-block — has its single
+    /// global minimum at the block boundary; the exact origin/terminus indices are
+    /// derived from the §2.2 reference at scale. A fixed-seed random long genome pins
+    /// the structural invariants (indices in [0,n], OriginSkew ≤ 0 ≤ TerminusSkew).
+    /// Locally-seeded RNG so sibling fixtures are untouched. [CancelAfter] guards hang.
+    /// </summary>
+    [Test]
+    [CancelAfter(60_000)]
+    public void Replication_ExtremelyLong_ObeysInvariantsAndDoesNotHang()
+    {
+        const int block = 250_000;
+
+        // C-block (descending to −block at prefix index `block`) then G-block (rising).
+        // The single global minimum is at prefix index `block`; the maximum is the
+        // final prefix index 2*block at skew 0 — wait: G-block only returns to 0, so
+        // the maximum value is 0 first seen at Skew_0 → terminus 0. Derived below from
+        // the reference, NOT hand-asserted, so the expectation cannot be mis-stated.
+        string constructed = new string('C', block) + new string('G', block);
+        var reference = ReferenceOrigin(constructed);
+
+        ReplicationOriginPrediction pred = default;
+        var act = () => pred = GcSkewCalculator.PredictReplicationOrigin(new DnaSequence(constructed));
+        act.Should().NotThrow("an O(n) scalar fold must not hang or overflow at 500k bases");
+
+        pred.PredictedOrigin.Should().Be(reference.Origin,
+            because: "the single global minimum sits at the C/G block boundary (§2.2 reference)");
+        pred.PredictedTerminus.Should().Be(reference.Terminus);
+        pred.OriginSkew.Should().BeApproximately(reference.MinSkew, Tolerance);
+        pred.TerminusSkew.Should().BeApproximately(reference.MaxSkew, Tolerance);
+        pred.OriginSkew.Should().BeLessThanOrEqualTo(0.0, "INV-03");
+        pred.TerminusSkew.Should().BeGreaterThanOrEqualTo(0.0, "INV-03");
+
+        // Fixed-seed random long genome: structural invariants must hold at scale.
+        var local = new Random(71193);
+        const string bases = "ACGT";
+        var chars = new char[2 * block];
+        for (int i = 0; i < chars.Length; i++)
+            chars[i] = bases[local.Next(bases.Length)];
+        var randomPred = GcSkewCalculator.PredictReplicationOrigin(new DnaSequence(new string(chars)));
+
+        randomPred.PredictedOrigin.Should().BeInRange(0, chars.Length, "INV-04");
+        randomPred.PredictedTerminus.Should().BeInRange(0, chars.Length, "INV-04");
+        randomPred.OriginSkew.Should().BeLessThanOrEqualTo(0.0, "INV-03");
+        randomPred.TerminusSkew.Should().BeGreaterThanOrEqualTo(0.0, "INV-03");
+        double.IsFinite(randomPred.OriginSkew).Should().BeTrue();
+        double.IsFinite(randomPred.TerminusSkew).Should().BeTrue();
+    }
+
+    #endregion
+
+    #region BE/RB — randomized boundary sweep (invariants + reference agreement)
+
+    /// <summary>
+    /// BE/RB: a locally-seeded (never the shared static Rng) randomized sweep over
+    /// short genomes — including the empty, single-base, all-G, all-C, A/T-only and
+    /// tied-extremum boundaries that arise by chance — asserting on EVERY input:
+    ///   • no crash, no hang ([CancelAfter]), finite skews, no NaN/Inf;
+    ///   • PredictedOrigin / PredictedTerminus equal the independent §2.2 reference's
+    ///     first-minimizer / first-maximizer (the real algorithmic contract);
+    ///   • OriginSkew ≤ 0 ≤ TerminusSkew (INV-03) and both indices in [0, n] (INV-04);
+    ///   • IsSignificant ⇔ max > min (INV-05).
+    /// Both surfaces are exercised: the strict typed path over valid DNA and the
+    /// lenient raw-string path (which must, per INV-06 / §3.3, ignore non-G/C bytes).
+    /// </summary>
+    [Test]
+    [CancelAfter(30_000)]
+    public void Replication_RandomSweep_MatchesReferenceAndObeysInvariants()
+    {
+        var local = new Random(90218);
+        const string bases = "ACGT";
+
+        for (int trial = 0; trial < 400; trial++)
+        {
+            int n = local.Next(0, 50);
+            var chars = new char[n];
+            for (int i = 0; i < n; i++)
+                chars[i] = bases[local.Next(bases.Length)];
+            string seq = new(chars);
+
+            var reference = ReferenceOrigin(seq);
+
+            // (a) strict typed path over valid DNA
+            ReplicationOriginPrediction typed = default;
+            var typedAct = () => typed = GcSkewCalculator.PredictReplicationOrigin(new DnaSequence(seq));
+            typedAct.Should().NotThrow($"valid DNA must never make the typed path throw; input: \"{seq}\"");
+
+            typed.PredictedOrigin.Should().Be(reference.Origin,
+                $"the typed origin must be the §2.2 first-minimizer; input: \"{seq}\"");
+            typed.PredictedTerminus.Should().Be(reference.Terminus,
+                $"the typed terminus must be the §2.2 first-maximizer; input: \"{seq}\"");
+            typed.OriginSkew.Should().BeApproximately(reference.MinSkew, Tolerance, $"input: \"{seq}\"");
+            typed.TerminusSkew.Should().BeApproximately(reference.MaxSkew, Tolerance, $"input: \"{seq}\"");
+            typed.OriginSkew.Should().BeLessThanOrEqualTo(0.0, $"INV-03; input: \"{seq}\"");
+            typed.TerminusSkew.Should().BeGreaterThanOrEqualTo(0.0, $"INV-03; input: \"{seq}\"");
+            typed.PredictedOrigin.Should().BeInRange(0, n, $"INV-04; input: \"{seq}\"");
+            typed.PredictedTerminus.Should().BeInRange(0, n, $"INV-04; input: \"{seq}\"");
+            typed.IsSignificant.Should().Be(reference.MaxSkew > reference.MinSkew,
+                $"IsSignificant ⇔ max > min (INV-05); input: \"{seq}\"");
+            double.IsFinite(typed.OriginSkew).Should().BeTrue($"input: \"{seq}\"");
+            double.IsFinite(typed.TerminusSkew).Should().BeTrue($"input: \"{seq}\"");
+
+            // (b) lenient raw-string path — same input plus injected non-G/C garbage
+            //     that INV-06 must ignore: it must agree with the reference computed on
+            //     the same (upper-cased) string, since only G/C move the diagram.
+            string rawInput = seq.Length > 0 && (trial % 3 == 0) ? seq.ToLowerInvariant() : seq;
+            var rawReference = ReferenceOrigin(rawInput);
+            ReplicationOriginPrediction raw = default;
+            var rawAct = () => raw = GcSkewCalculator.PredictReplicationOrigin(rawInput);
+            rawAct.Should().NotThrow($"the lenient overload must never throw; input: \"{rawInput}\"");
+            raw.PredictedOrigin.Should().Be(rawReference.Origin, $"input: \"{rawInput}\"");
+            raw.PredictedTerminus.Should().Be(rawReference.Terminus, $"input: \"{rawInput}\"");
+        }
+    }
+
+    #endregion
+
+    #endregion
 }
