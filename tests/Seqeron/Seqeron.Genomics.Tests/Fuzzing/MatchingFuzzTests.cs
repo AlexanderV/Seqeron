@@ -240,6 +240,66 @@ namespace Seqeron.Genomics.Tests;
 ///         lines 33–35), NOT KeyNotFound — a DIFFERENT documented exception type
 ///         from the MotifFinder surface, pinned so the two surfaces cannot drift.
 ///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: PAT-PWM-001 — position weight matrix construction + scoring (Matching)
+/// Checklist: docs/checklists/03_FUZZING.md, row 12.
+/// Fuzz strategies exercised for THIS unit:
+///   • BE = Boundary Exploitation — the empty training set (no aligned sequence);
+///          the SINGLE-sequence training set (the degenerate, fully-deterministic
+///          PWM); a ZERO-LENGTH matrix (training on length-0 sequences → a width-0
+///          PWM that scans every position); and the zero-frequency cell at
+///          pseudocount = 0 (the log(0) = −∞ risk on a single-sequence PWM).
+///   • MC = Malformed Content — NaN / −∞ weights injected through the PUBLIC
+///          PositionWeightMatrix(double[,], int) constructor (the construction
+///          path itself can never emit NaN with a positive pseudocount), and a
+///          target sequence SHORTER than the PWM width (no window → no match).
+/// — docs/checklists/03_FUZZING.md §Description (strategy codes).
+///
+/// The position-weight-matrix contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// PAT-PWM-001 builds a log-odds DNA PWM from aligned training sequences
+/// (counts → pseudocount-smoothed frequencies → log2 vs a fixed uniform 0.25
+/// background) and scans windows by summing per-position scores, reporting those
+/// with score ≥ threshold. The surfaces are MotifFinder.CreatePwm(
+/// IEnumerable&lt;string&gt;, double) and MotifFinder.ScanWithPwm(DnaSequence,
+/// PositionWeightMatrix, double), plus the public PositionWeightMatrix ctor /
+/// Consensus / MaxScore / MinScore (MotifFinder.cs lines 213–328, 761–836).
+/// Documented contract (docs/algorithms/Pattern_Matching/Position_Weight_Matrix.md
+/// §2.2, §3.1, §3.3, §6.1; INV-01..INV-03; sources: Stormo 2000, Nishida 2008,
+/// Kel 2003, Rosalind CONS):
+///   • CreatePwm(...):
+///       – null sequences            → ArgumentNullException (explicit guard,
+///         line 215) — NOT a NullReferenceException;
+///       – EMPTY training set         → ArgumentException ("At least one sequence
+///         is required.", line 219) — the documented degenerate-build gate;
+///       – UNEQUAL training lengths   → ArgumentException (line 223);
+///       – a NON-ACGT training char    → ArgumentException naming the character and
+///         position (lines 232–235) — strict alphabet validation, never a switch
+///         InvalidOperationException leak (the switch is unreachable post-validation);
+///       – SINGLE-sequence training    → a VALID PWM (Count = 1 is permitted, §6.1):
+///         the consensus base scores log2((1+p)/(1+4p) / 0.25) and, with the default
+///         pseudocount 0.25, every cell is FINITE — no −∞; the consensus equals the
+///         training sequence and scores it highest;
+///       – pseudocount = 0 on single-seq training → the zero-frequency cells become
+///         log2(0) = −∞ (the documented log(0) risk); −∞ MUST stay confined to those
+///         cells (finite consensus cell) and MUST NOT crash construction, corrupt the
+///         consensus, or be selected as a best match on scan (−∞ ≥ threshold is false);
+///       – ZERO-LENGTH training (all sequences == "") → a width-0 PWM: Length 0,
+///         empty Consensus, MaxScore == MinScore == 0 — a defined boundary, no throw;
+///   • ScanWithPwm(...):
+///       – null sequence OR null pwm   → ArgumentNullException (lines 287–288);
+///       – target shorter than width   → no windows → empty result (the scan loop
+///         never executes, §6.1) — no IndexOutOfRange from over-reading;
+///       – width-0 PWM                  → the empty motif matches at EVERY position
+///         [0..n] with score 0 (the inner loop is skipped) — the degenerate
+///         width-0 boundary, pinned so it cannot drift into a crash;
+///       – a NaN PWM cell (injected via the public ctor) makes the window score NaN,
+///         and NaN ≥ threshold is FALSE, so the NaN window is SILENTLY EXCLUDED from
+///         the matches — NaN can never be reported as a best match (the key MC guard);
+///   • the positive sanity contract: a PWM built from a clear consensus scores that
+///     consensus window strictly higher than any single-substitution variant, and
+///     CreatePwm's Consensus equals that consensus (INV-02).
+///
 /// All inputs here are ASCII DNA / boundary strings; randomness (where used) is
 /// from a locally fixed-seed Random so the fuzz fodder is fully reproducible and
 /// adding tests cannot perturb any other fixture.
@@ -1584,6 +1644,394 @@ public class MatchingFuzzTests
         emptyAct.Should().NotThrow("the empty motif is a defined no-match, not a malformed-input error");
         MotifFinder.FindDegenerateMotif(seq, string.Empty).Should().BeEmpty(
             "the empty motif yields no matches by the explicit guard");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  PAT-PWM-001 — position weight matrix construction + scoring : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region PAT-PWM-001 — position weight matrix
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Fuzz target: empty training set
+    // ───────────────────────────────────────────────────────────────────
+
+    #region BE — empty training set → documented ArgumentException
+
+    /// <summary>
+    /// BE: an EMPTY training set cannot build a PWM — there is no aligned column to
+    /// count. CreatePwm must throw the documented, intentional ArgumentException
+    /// ("At least one sequence is required.", MotifFinder.cs line 219;
+    /// Position_Weight_Matrix.md §3.3, §6.1), NOT an IndexOutOfRange from reading
+    /// seqList[0] on an empty list. Pinned for an empty array and an empty
+    /// LINQ-materialized enumerable so neither materialization path drifts. The
+    /// thrown exception is an ArgumentException but NOT the null-gate subtype.
+    /// </summary>
+    [Test]
+    public void CreatePwm_EmptyTrainingSet_ThrowsArgumentException()
+    {
+        var fromArray = () => MotifFinder.CreatePwm(Array.Empty<string>());
+        var fromEnumerable = () => MotifFinder.CreatePwm(Enumerable.Empty<string>());
+
+        fromArray.Should().Throw<ArgumentException>(
+                "an empty training set cannot build a PWM (no aligned column to count)")
+            .Which.Should().NotBeOfType<ArgumentNullException>(
+                "the empty-set rejection is an ArgumentException, distinct from the null gate");
+        fromEnumerable.Should().Throw<ArgumentException>(
+            "the empty-set gate fires regardless of how the empty sequence is materialized");
+    }
+
+    /// <summary>
+    /// MC/INJ: a null training collection hits the explicit null gate
+    /// (ArgumentNullException, MotifFinder.cs line 215), never a
+    /// NullReferenceException from the LINQ Select. Pinned so the strict null
+    /// surface cannot silently converge with the empty-set gate.
+    /// </summary>
+    [Test]
+    public void CreatePwm_NullTrainingSet_ThrowsArgumentNullException()
+    {
+        var act = () => MotifFinder.CreatePwm(null!);
+
+        act.Should().Throw<ArgumentNullException>(
+            "a null training collection is rejected by the documented null gate, not dereferenced");
+    }
+
+    /// <summary>
+    /// MC: malformed training content — UNEQUAL lengths and a NON-ACGT character —
+    /// are rejected by the documented strict validation gates with ArgumentException
+    /// (MotifFinder.cs lines 223, 232–235; §3.3, §6.1), never an InvalidOperationException
+    /// leaking from the post-validation base-index switch and never an indexing
+    /// fault. Lowercase non-ACGT is upper-cased first, so it is still rejected.
+    /// </summary>
+    [Test]
+    public void CreatePwm_MalformedTrainingContent_ThrowsArgumentException()
+    {
+        var unequalLengths = () => MotifFinder.CreatePwm(new[] { "ACGT", "ACG" });
+        var nonAcgt = () => MotifFinder.CreatePwm(new[] { "ACGT", "ACGN" });
+        var nonAcgtDigit = () => MotifFinder.CreatePwm(new[] { "AC1T" });
+
+        unequalLengths.Should().Throw<ArgumentException>(
+            "PWM columns require equal-length alignment");
+        nonAcgt.Should().Throw<ArgumentException>(
+                "a non-ACGT training character is rejected by strict alphabet validation")
+            .Which.Should().NotBeOfType<InvalidOperationException>(
+                "validation throws ArgumentException, never the unreachable post-validation switch");
+        nonAcgtDigit.Should().Throw<ArgumentException>(
+            "an injected digit in the training set is rejected by the alphabet gate");
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Fuzz target: single-sequence training (degenerate PWM)
+    // ───────────────────────────────────────────────────────────────────
+
+    #region BE — single-sequence training: valid degenerate PWM, finite cells
+
+    /// <summary>
+    /// BE: a SINGLE training sequence is the degenerate lower boundary — Count = 1
+    /// is explicitly permitted (Position_Weight_Matrix.md §6.1). With the DEFAULT
+    /// pseudocount (0.25) every cell is FINITE (no log(0) = −∞): the consensus base
+    /// of each column has frequency (1+p)/(1+4p) and the other three have p/(1+4p),
+    /// both strictly positive. The resulting consensus equals the training sequence
+    /// (INV-02), and the training sequence scores STRICTLY higher than any
+    /// single-substitution variant — the PWM still discriminates from one example.
+    /// </summary>
+    [Test]
+    public void CreatePwm_SingleSequenceTraining_IsValidFiniteAndDiscriminating()
+    {
+        const string motif = "ACGTACGT";
+        var pwm = MotifFinder.CreatePwm(new[] { motif });
+
+        pwm.Length.Should().Be(motif.Length, "the PWM width equals the training-sequence length (INV-01)");
+        pwm.Consensus.Should().Be(motif,
+            "a single-sequence PWM's consensus is that very sequence (each column's max is its own base)");
+
+        // Every cell must be finite — the default pseudocount forbids any log(0) = −∞.
+        for (int b = 0; b < 4; b++)
+            for (int j = 0; j < pwm.Length; j++)
+                double.IsFinite(pwm.Matrix[b, j]).Should().BeTrue(
+                    $"cell [{b},{j}] must be finite under the default pseudocount (no log(0) = −∞)");
+
+        double.IsFinite(pwm.MaxScore).Should().BeTrue("the best achievable score is finite");
+        double.IsFinite(pwm.MinScore).Should().BeTrue("the worst achievable score is finite");
+
+        // The consensus window scores strictly above any single-base substitution.
+        var seq = new DnaSequence(motif);
+        double consensusScore = MotifFinder.ScanWithPwm(seq, pwm, double.MinValue).Single().Score;
+        consensusScore.Should().BeApproximately(pwm.MaxScore, 1e-9,
+            "scoring the consensus realizes the per-column maxima (the PWM's MaxScore)");
+
+        var variant = new DnaSequence("CCGTACGT"); // flip position 0: A → C
+        double variantScore = MotifFinder.ScanWithPwm(variant, pwm, double.MinValue).Single().Score;
+        variantScore.Should().BeLessThan(consensusScore,
+            "a single substitution must lower the score below the consensus — the PWM discriminates");
+    }
+
+    /// <summary>
+    /// BE: pseudocount = 0 on a single-sequence PWM is the documented log(0) = −∞
+    /// risk (Position_Weight_Matrix.md §2.2, §6.1). Construction must NOT crash; the
+    /// −∞ must stay CONFINED to the zero-frequency (non-consensus) cells while the
+    /// consensus cell stays finite (log2(1/0.25) = 2). The consensus is still
+    /// correctly derived (−∞ never wins a max), and on scan the consensus window
+    /// scores finite while any single substitution drops to −∞ and is therefore
+    /// EXCLUDED by the score ≥ threshold test — −∞ never becomes a reported match.
+    /// </summary>
+    [Test]
+    public void CreatePwm_SingleSequenceZeroPseudocount_ConfinesNegativeInfinity()
+    {
+        const string motif = "ACGT";
+        var pwm = MotifFinder.CreatePwm(new[] { motif }, pseudocount: 0.0);
+
+        pwm.Consensus.Should().Be(motif,
+            "−∞ cells never win a column max, so the consensus is still the training sequence");
+
+        char[] bases = { 'A', 'C', 'G', 'T' };
+        for (int j = 0; j < pwm.Length; j++)
+        {
+            for (int b = 0; b < 4; b++)
+            {
+                if (bases[b] == motif[j])
+                    pwm.Matrix[b, j].Should().BeApproximately(2.0, 1e-9,
+                        "the consensus cell has frequency 1 → log2(1/0.25) = 2, finite");
+                else
+                    double.IsNegativeInfinity(pwm.Matrix[b, j]).Should().BeTrue(
+                        "a zero-frequency cell with pseudocount 0 is log2(0) = −∞, confined to non-consensus cells");
+            }
+        }
+
+        // The consensus window scores finite (= MaxScore); a substitution hits a −∞ cell.
+        var consensusSeq = new DnaSequence(motif);
+        var hits = MotifFinder.ScanWithPwm(consensusSeq, pwm, threshold: double.MinValue).ToList();
+        hits.Should().ContainSingle("the only window is the consensus itself");
+        double.IsFinite(hits[0].Score).Should().BeTrue("the consensus score is finite even at pseudocount 0");
+
+        var substituted = new DnaSequence("CCGT"); // position 0 hits the −∞ A→C cell
+        MotifFinder.ScanWithPwm(substituted, pwm, threshold: double.MinValue).Should().BeEmpty(
+            "a window touching a −∞ cell scores −∞, and −∞ ≥ threshold is false → never reported");
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Fuzz target: zero-length matrix
+    // ───────────────────────────────────────────────────────────────────
+
+    #region BE — zero-length matrix (width-0 PWM)
+
+    /// <summary>
+    /// BE: training on ZERO-LENGTH sequences builds a width-0 PWM — the lower size
+    /// boundary of the matrix itself. CreatePwm must NOT crash: Length is 0, the
+    /// 4×0 matrix has no cells, the Consensus is empty, and MaxScore == MinScore == 0
+    /// (the empty column sums). A single empty sequence and several empty sequences
+    /// behave identically (all length 0 passes the equal-length gate).
+    /// </summary>
+    [TestCase(1, TestName = "CreatePwm_ZeroLengthMatrix_SingleEmptySequence")]
+    [TestCase(3, TestName = "CreatePwm_ZeroLengthMatrix_SeveralEmptySequences")]
+    public void CreatePwm_ZeroLengthSequences_BuildWidthZeroMatrix(int trainingCount)
+    {
+        var training = Enumerable.Repeat(string.Empty, trainingCount).ToArray();
+
+        PositionWeightMatrix pwm = null!;
+        var build = () => pwm = MotifFinder.CreatePwm(training);
+
+        build.Should().NotThrow("an all-empty training set is a defined width-0 boundary, not an error");
+        pwm.Length.Should().Be(0, "training on length-0 sequences yields a width-0 PWM");
+        pwm.Consensus.Should().BeEmpty("a width-0 PWM has an empty consensus");
+        pwm.MaxScore.Should().Be(0, "the maximum over zero columns is the empty sum 0");
+        pwm.MinScore.Should().Be(0, "the minimum over zero columns is the empty sum 0");
+        pwm.Matrix.GetLength(0).Should().Be(4, "the matrix always has the four DNA rows");
+        pwm.Matrix.GetLength(1).Should().Be(0, "the width-0 PWM has no columns");
+    }
+
+    /// <summary>
+    /// BE: scanning with a WIDTH-0 PWM is the degenerate scan boundary — the inner
+    /// per-position loop never executes, so every window scores 0 and (0 ≥ default
+    /// threshold 0.0) matches at EVERY position [0..n]. This must be a defined
+    /// result (n+1 empty-string matches), never an IndexOutOfRange or a hang. Over
+    /// an EMPTY target the single position 0 matches. Pinned so the width-0 scan
+    /// boundary cannot silently drift into a crash.
+    /// </summary>
+    [TestCase("ACGT", 5, TestName = "ScanWithPwm_WidthZero_MatchesEveryPosition_Len4")]
+    [TestCase("", 1, TestName = "ScanWithPwm_WidthZero_EmptyTarget_MatchesPositionZero")]
+    public void ScanWithPwm_WidthZeroPwm_MatchesEveryPosition(string target, int expectedMatches)
+    {
+        var pwm = MotifFinder.CreatePwm(new[] { string.Empty });
+        var seq = new DnaSequence(target);
+
+        List<MotifMatch> matches = null!;
+        var scan = () => matches = MotifFinder.ScanWithPwm(seq, pwm).ToList();
+
+        scan.Should().NotThrow("a width-0 PWM scan is a defined degenerate boundary, not a fault");
+        matches.Should().HaveCount(expectedMatches,
+            "a width-0 window scores 0 at every start position [0..n] and 0 ≥ threshold 0.0");
+        matches.Should().OnlyContain(m => m.Score == 0.0,
+            "every empty-window score is the empty sum 0");
+        matches.Select(m => m.Position).Should().Equal(Enumerable.Range(0, expectedMatches),
+            "the width-0 windows are reported left to right with no gaps");
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Fuzz target: NaN weights (injected via the public ctor)
+    // ───────────────────────────────────────────────────────────────────
+
+    #region MC — NaN / non-finite weights must not corrupt best-match selection
+
+    /// <summary>
+    /// MC: CreatePwm itself can NEVER emit NaN with a positive pseudocount (every
+    /// frequency is strictly positive, so log2 is well-defined and finite) — that
+    /// guard is pinned by the single-sequence test above. NaN can only enter through
+    /// the PUBLIC PositionWeightMatrix(double[,], int) constructor. When it does, a
+    /// window touching a NaN cell scores NaN, and because (NaN ≥ threshold) is FALSE
+    /// in IEEE-754, that window is SILENTLY EXCLUDED from the scan results — NaN can
+    /// never be selected as a "best match" or leak into a reported Score. This is the
+    /// key fuzz contract: malformed weights degrade to no-match, not to a corrupt match.
+    /// </summary>
+    [Test]
+    public void ScanWithPwm_NaNWeight_NeverBecomesAReportedMatch()
+    {
+        // Build a clean PWM, then poison one cell so position 0 == 'A' scores NaN.
+        var clean = MotifFinder.CreatePwm(new[] { "ACGT" });
+        var poisoned = (double[,])clean.Matrix.Clone();
+        poisoned[0, 0] = double.NaN; // row A, column 0
+
+        var pwm = new PositionWeightMatrix(poisoned, clean.Length);
+        var seq = new DnaSequence("ACGT"); // the only window starts with 'A' → hits the NaN cell
+
+        List<MotifMatch> matches = null!;
+        var scan = () => matches = MotifFinder.ScanWithPwm(seq, pwm, threshold: double.MinValue).ToList();
+
+        scan.Should().NotThrow("a NaN weight must not crash the scan");
+        matches.Should().BeEmpty(
+            "the NaN window scores NaN and (NaN ≥ threshold) is false, so it is never reported — " +
+            "NaN cannot corrupt best-match selection");
+        matches.Should().NotContain(m => double.IsNaN(m.Score),
+            "no reported match may carry a NaN score");
+    }
+
+    /// <summary>
+    /// MC: with a NaN cell on ONE base but finite cells on the others, only windows
+    /// that touch the NaN cell are dropped; windows over the other bases still score
+    /// finitely and are reported normally. This pins that the NaN exclusion is local
+    /// to the poisoned column/base and does not corrupt the rest of the scan.
+    /// </summary>
+    [Test]
+    public void ScanWithPwm_NaNWeight_OnlyPoisonedWindowsAreDropped()
+    {
+        // Width-1 PWM, finite for C/G/T, NaN for A.
+        var matrix = new double[4, 1];
+        matrix[0, 0] = double.NaN; // A → NaN
+        matrix[1, 0] = 1.0;        // C
+        matrix[2, 0] = 1.0;        // G
+        matrix[3, 0] = 1.0;        // T
+        var pwm = new PositionWeightMatrix(matrix, 1);
+
+        var seq = new DnaSequence("CAGAT"); // positions of 'A' (1,3) must be dropped
+        var matches = MotifFinder.ScanWithPwm(seq, pwm, threshold: double.MinValue).ToList();
+
+        matches.Select(m => m.Position).Should().Equal(new[] { 0, 2, 4 },
+            "only the non-'A' windows score finitely and are reported; the NaN 'A' windows are dropped");
+        matches.Should().OnlyContain(m => double.IsFinite(m.Score),
+            "every reported score is finite — no NaN leaks through");
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Fuzz target: scan boundaries (null guards, short target) + positive sanity
+    // ───────────────────────────────────────────────────────────────────
+
+    #region BE/MC — scan null guards and target shorter than the PWM width
+
+    /// <summary>
+    /// MC: ScanWithPwm rejects a null DnaSequence and a null PWM with the documented
+    /// ArgumentNullException (MotifFinder.cs lines 287–288; §3.3), never a
+    /// NullReferenceException. Because the scan is a lazy iterator, the guard fires
+    /// on enumeration, so the assertions materialize the result.
+    /// </summary>
+    [Test]
+    public void ScanWithPwm_NullArguments_ThrowArgumentNullException()
+    {
+        var pwm = MotifFinder.CreatePwm(new[] { "ACGT" });
+        var seq = new DnaSequence("ACGTACGT");
+
+        var nullSeq = () => MotifFinder.ScanWithPwm(null!, pwm).ToList();
+        var nullPwm = () => MotifFinder.ScanWithPwm(seq, null!).ToList();
+
+        nullSeq.Should().Throw<ArgumentNullException>(
+            "a null target sequence is rejected by the documented guard, not dereferenced");
+        nullPwm.Should().Throw<ArgumentNullException>(
+            "a null PWM is rejected by the documented guard, not dereferenced");
+    }
+
+    /// <summary>
+    /// BE: a target sequence SHORTER than the PWM width has no full window — the scan
+    /// loop never executes — so the result is the defined empty list, never an
+    /// IndexOutOfRange from over-reading (Position_Weight_Matrix.md §3.3, §6.1).
+    /// Pinned at width−1, the empty target, and a single base under a wider PWM.
+    /// </summary>
+    [TestCase("ACG", TestName = "ScanWithPwm_TargetShorterByOne_NoMatch")]
+    [TestCase("", TestName = "ScanWithPwm_EmptyTarget_NoMatch")]
+    [TestCase("A", TestName = "ScanWithPwm_SingleBaseUnderWiderPwm_NoMatch")]
+    public void ScanWithPwm_TargetShorterThanWidth_IsNoMatch(string target)
+    {
+        var pwm = MotifFinder.CreatePwm(new[] { "ACGT" }); // width 4
+        var seq = new DnaSequence(target);
+
+        MotifFinder.ScanWithPwm(seq, pwm, threshold: double.MinValue).Should().BeEmpty(
+            "a target shorter than the PWM width yields no window and no match (the scan loop is skipped)");
+    }
+
+    #endregion
+
+    #region Positive sanity — a clear-consensus PWM scores its consensus highest
+
+    /// <summary>
+    /// Positive sanity: a PWM built from a strongly conserved alignment must score
+    /// the consensus window the HIGHEST of all windows in a target, and CreatePwm's
+    /// derived Consensus must equal that conserved sequence (INV-02). Several copies
+    /// of the same motif plus a handful of single-base variants give a clear
+    /// consensus; the consensus window's score equals MaxScore and strictly exceeds
+    /// every other window — pinning that the construction + scoring round-trip is
+    /// theory-correct, not merely crash-free.
+    /// </summary>
+    [Test]
+    public void Pwm_ClearConsensus_ScoresConsensusHighest()
+    {
+        // A strongly conserved "TATAAT"-like alignment: mostly the consensus with a
+        // few single-base variants so each column's majority base is unambiguous.
+        var training = new[]
+        {
+            "TATAAT", "TATAAT", "TATAAT", "TATAAT", "TATAAT",
+            "TATAAT", "TATAAT", "CATAAT", "TGTAAT", "TATGAT",
+        };
+        var pwm = MotifFinder.CreatePwm(training);
+
+        pwm.Consensus.Should().Be("TATAAT",
+            "the per-column majority base is the consensus the PWM must recover (INV-02)");
+
+        // Embed the consensus and some decoys in a target; the consensus window wins.
+        var target = new DnaSequence("GGGGTATAATGGGGCATAATGGGG");
+        var hits = MotifFinder.ScanWithPwm(target, pwm, threshold: double.MinValue).ToList();
+        hits.Should().NotBeEmpty("every window is scored when the threshold is unbounded below");
+
+        var best = hits.OrderByDescending(m => m.Score).First();
+        best.MatchedSequence.Should().Be("TATAAT",
+            "the consensus window must score strictly highest of all windows in the target");
+        best.Score.Should().BeApproximately(pwm.MaxScore, 1e-9,
+            "the consensus window realizes the PWM's per-column maxima (MaxScore)");
+
+        // The consensus score strictly dominates every non-consensus window.
+        double consensusScore = best.Score;
+        hits.Where(m => m.MatchedSequence != "TATAAT")
+            .Should().OnlyContain(m => m.Score < consensusScore,
+                "no decoy window may tie or exceed the consensus score");
     }
 
     #endregion
