@@ -10,7 +10,8 @@ namespace Seqeron.Genomics.Tests;
 
 /// <summary>
 /// Fuzz tests for the MolTools area — CRISPR PAM (protospacer adjacent motif)
-/// site finding (CRISPR-PAM-001) and CRISPR guide RNA design (CRISPR-GUIDE-001).
+/// site finding (CRISPR-PAM-001), CRISPR guide RNA design (CRISPR-GUIDE-001), and
+/// CRISPR off-target analysis (CRISPR-OFF-001).
 ///
 /// ───────────────────────────────────────────────────────────────────────────
 /// What fuzzing verifies
@@ -170,6 +171,75 @@ namespace Seqeron.Genomics.Tests;
 /// DesignGuideRnas yields only Score >= MinScore. DesignGuideRnas is a yield
 /// iterator, so every test forces enumeration (`.ToList()`); the documented
 /// short-circuit and any hang surface only on enumeration.
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: CRISPR-OFF-001 — off-target analysis
+/// Checklist: docs/checklists/03_FUZZING.md, row 20.
+/// Fuzz strategies exercised for THIS unit:
+///   • BE = Boundary Exploitation — the zero mismatch tolerance (`maxMismatches = 0`,
+///          the lower end of the documented 0..5 range) and the degenerate empty
+///          guide (zero-length guide string).
+///   • MC = Malformed Content — a guide of all N's (the IUPAC "any base" wildcard
+///          fed as a literal guide), probing whether 'N' is a wildcard or an
+///          ordinary non-A/C/G/T character in off-target matching.
+/// — docs/checklists/03_FUZZING.md §Description (strategy codes); row 20 targets:
+///   "Zero mismatch tolerance, empty guide, guide of all N's".
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The off-target-analysis contract under test (Off_Target_Analysis.md)
+/// ───────────────────────────────────────────────────────────────────────────
+/// Off-target analysis scans a genome for PAM-supported, guide-length targets that
+/// differ from the guide by a bounded, NON-ZERO number of mismatches — exact matches
+/// are deliberately excluded so the on-target (and any perfect duplicate) is never
+/// reported as an off-target (Off_Target_Analysis.md §2.2, INV-01). The mismatch
+/// count is Hamming-style: CountMismatches compares the guide and the PAM-adjacent
+/// target POSITION-BY-POSITION with a plain `!=` (CrisprDesigner.cs lines 393–405),
+/// so there is NO IUPAC/wildcard semantics — 'N' is an ordinary character that
+/// differs from A/C/G/T. A site is yielded only when `0 < mismatches <= maxMismatches`
+/// (line 359, INV-02).
+///
+/// API entry: CrisprDesigner.FindOffTargets(string guide, DnaSequence genome,
+///   int maxMismatches = 3, CrisprSystemType = SpCas9)
+///   (CrisprDesigner.cs lines 331–373) — a yield iterator. Its documented guards
+///   (Off_Target_Analysis.md §3.3, §6.1):
+///   • null/empty guide → ArgumentNullException (line 337–338);
+///   • null genome → ArgumentNullException (line 339);
+///   • maxMismatches < 0 or > 5 → ArgumentOutOfRangeException (line 340–341);
+///   • guide length != system.GuideLength → ArgumentException (line 345–348).
+///   Because the body is a `yield` iterator, every guard fires only on enumeration,
+///   so each test forces materialization (`.ToList()`).
+///
+/// THE THREE ROW-20 FUZZ TARGETS, mapped to the theory-correct contract:
+///   • Zero mismatch tolerance (BE, KEY): `maxMismatches = 0` is in-range (the guard
+///     rejects only < 0), so it does NOT throw. But the yield condition
+///     `mismatches > 0 && mismatches <= 0` is unsatisfiable, so NO site is ever
+///     emitted — not even an exact on-target (which is excluded by `mismatches > 0`
+///     anyway, INV-01). Theory-correct result: the EMPTY enumerable. A genome that
+///     contains a perfect copy of the guide therefore yields zero off-targets at
+///     tolerance 0, and the same genome with a 1-mismatch site yields that site only
+///     at tolerance >= 1 — never a crash, never a div-by-zero.
+///   • Empty guide (BE): a zero-length (or null) guide is degenerate and is rejected
+///     up front with ArgumentNullException (line 337–338) — BEFORE any length check,
+///     PAM scan, or CountMismatches loop, so there is no IndexOutOfRange and no
+///     division by a zero seed/guide length. Pinned for both "" and null, on
+///     enumeration. (An empty-but-length-matching guide is impossible: GuideLength is
+///     always >= 20, so "" can never pass the length check even if it reached it.)
+///   • Guide of all N's (MC, KEY): 'N' is the central ambiguity question. This API
+///     does NOT treat 'N' as a wildcard — CountMismatches is a literal `!=` compare.
+///     A 20-nt all-N guide PASSES the SpCas9 length check (length 20 == GuideLength),
+///     then mismatches EVERY base of any A/C/G/T target, so the per-site mismatch
+///     count is the full guide length (20) — far above the 0..5 cap — and NO site is
+///     ever yielded. So all-N does NOT "match everything" and does NOT blow up into
+///     an off-target at every position (no hang): it is the OPPOSITE — it matches
+///     nothing, because every position is a guaranteed mismatch. Theory-correct
+///     result: the EMPTY enumerable, promptly, with no exception. (A wrong-length
+///     all-N guide is instead rejected with ArgumentException by the length check,
+///     pinned separately.)
+///
+/// Documented invariants pinned on every produced off-target (Off_Target_Analysis.md
+/// §2.4): INV-01 only `mismatches > 0` sites are returned (exact matches excluded);
+/// INV-02 returned mismatch counts are bounded by the requested `maxMismatches`.
+/// FindOffTargets is a yield iterator, so every test forces enumeration (`.ToList()`).
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -732,6 +802,236 @@ public class MolToolsFuzzTests
         candidate.GcContent.Should().BeInRange(0, 100, "GC content is a percentage");
         candidate.Score.Should().BeInRange(0, 100, "INV-01: the heuristic score is clamped to [0, 100]");
         candidate.System.GuideLength.Should().Be(20, "SpCas9's documented guide length is 20 nt");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  CRISPR-OFF-001 — off-target analysis : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region CRISPR-OFF-001 — off-target analysis
+
+    #region BE — Zero mismatch tolerance (maxMismatches = 0)
+
+    /// <summary>
+    /// BE (zero mismatch tolerance — KEY): <c>maxMismatches = 0</c> is the lower end of
+    /// the documented 0..5 range, so it is IN-range and must NOT throw (the guard rejects
+    /// only <c>&lt; 0</c>, CrisprDesigner.cs line 340). But the yield condition
+    /// <c>mismatches &gt; 0 &amp;&amp; mismatches &lt;= 0</c> is unsatisfiable, so NO site
+    /// is ever emitted — not even an EXACT on-target, which is excluded by the
+    /// <c>mismatches &gt; 0</c> filter anyway (INV-01). Here the genome contains a PERFECT
+    /// copy of the guide (the would-be on-target) AND a 1-mismatch variant; at tolerance 0
+    /// the result must be EMPTY (exact excluded, 1-mismatch excluded), proving zero
+    /// tolerance yields no off-targets rather than crashing or dividing by zero.
+    /// FindOffTargets is a yield iterator, so we force enumeration.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindOffTargets_ZeroMismatchTolerance_YieldsNothing()
+    {
+        const string guide = "ACGTACGTACGTACGTACGT"; // 20 nt
+        // Two SpCas9 forward sites: a PERFECT copy of the guide (would-be on-target) and a
+        // 1-mismatch variant (first base T instead of A), each followed by its own NGG PAM.
+        const string oneMismatch = "TCGTACGTACGTACGTACGT"; // differs from guide at index 0
+        var genome = new DnaSequence(guide + "AGG" + oneMismatch + "AGG");
+
+        var act = () => CrisprDesigner.FindOffTargets(guide, genome, maxMismatches: 0,
+            CrisprSystemType.SpCas9).ToList();
+
+        act.Should().NotThrow(
+            "maxMismatches = 0 is in the documented 0..5 range, so it is accepted, not rejected");
+
+        CrisprDesigner.FindOffTargets(guide, genome, maxMismatches: 0, CrisprSystemType.SpCas9)
+            .Should().BeEmpty(
+                "at zero tolerance the yield condition 0 < mm <= 0 is unsatisfiable: the exact on-target is excluded (INV-01) and the 1-mismatch site exceeds the cap, so nothing is returned");
+    }
+
+    /// <summary>
+    /// BE: the negative tolerance is the boundary just BELOW zero — distinct from the
+    /// in-range zero. <c>maxMismatches = -1</c> is rejected eagerly with
+    /// ArgumentOutOfRangeException (CrisprDesigner.cs line 340–341), as is the upper
+    /// out-of-range value <c>6</c> (the guard rejects <c>&gt; 5</c>). Pinned on
+    /// enumeration so the in-iterator guard actually fires.
+    /// </summary>
+    [Test]
+    public void FindOffTargets_OutOfRangeMismatchTolerance_ThrowsArgumentOutOfRange()
+    {
+        var genome = new DnaSequence(new string('A', 20) + "AGG");
+
+        var negative = () => CrisprDesigner.FindOffTargets("ACGTACGTACGTACGTACGT", genome, -1).ToList();
+        var tooLarge = () => CrisprDesigner.FindOffTargets("ACGTACGTACGTACGTACGT", genome, 6).ToList();
+
+        negative.Should().Throw<ArgumentOutOfRangeException>(
+            "a negative mismatch tolerance is below the documented 0..5 range and is rejected, not silently clamped");
+        tooLarge.Should().Throw<ArgumentOutOfRangeException>(
+            "a tolerance above 5 is above the documented range and is rejected");
+    }
+
+    #endregion
+
+    #region BE — Empty guide (degenerate zero-length guide)
+
+    /// <summary>
+    /// BE (empty guide): a zero-length (or null) guide is degenerate and is rejected up
+    /// front with ArgumentNullException (CrisprDesigner.cs line 337–338) — BEFORE the
+    /// length check, the PAM scan, or any CountMismatches loop, so there is no
+    /// IndexOutOfRange and no division by a zero guide/seed length
+    /// (Off_Target_Analysis.md §3.3, §6.1). The throw lives inside the yield iterator,
+    /// so enumeration is forced. Pinned for both the empty string and null.
+    /// </summary>
+    [Test]
+    public void FindOffTargets_EmptyGuide_ThrowsArgumentNullException()
+    {
+        var genome = new DnaSequence(new string('A', 20) + "AGG");
+
+        var empty = () => CrisprDesigner.FindOffTargets(string.Empty, genome, 3, CrisprSystemType.SpCas9).ToList();
+        var nullGuide = () => CrisprDesigner.FindOffTargets((string)null!, genome, 3, CrisprSystemType.SpCas9).ToList();
+
+        empty.Should().Throw<ArgumentNullException>(
+            "an empty guide is degenerate; it is rejected before any scoring or scan, never dividing by a zero guide length");
+        nullGuide.Should().Throw<ArgumentNullException>(
+            "a null guide is rejected by the same guard, never dereferenced");
+    }
+
+    #endregion
+
+    #region MC — Guide of all N's (wildcard vs literal)
+
+    /// <summary>
+    /// MC (all-N guide — KEY): 'N' is the IUPAC "any base" code, so the central question
+    /// is whether off-target matching treats it as a WILDCARD. This API does NOT:
+    /// CountMismatches is a literal position-by-position <c>!=</c> compare
+    /// (CrisprDesigner.cs lines 393–405) with no IUPAC semantics. A 20-nt all-N guide
+    /// PASSES the SpCas9 length check (length 20 == GuideLength), then MISMATCHES every
+    /// A/C/G/T base of any PAM-adjacent target, so each site's mismatch count is the full
+    /// guide length (20) — far above the 0..5 cap — and NO site is ever yielded. So all-N
+    /// is the OPPOSITE of a wildcard blow-up: instead of matching every position (a hang /
+    /// off-target-everywhere hazard) it matches NOTHING, because every position is a
+    /// guaranteed mismatch. Theory-correct result on a real, PAM-rich genome: the EMPTY
+    /// enumerable, promptly (CancelAfter guards against any hang), with no exception.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindOffTargets_AllNGuide_MatchesNothingAndDoesNotHang()
+    {
+        const string allN = "NNNNNNNNNNNNNNNNNNNN"; // 20 N's == SpCas9 guide length
+        // A PAM-rich genome so the scan actually has many targets to compare against.
+        var genome = new DnaSequence(RandomDna(500, seed: 20_001));
+
+        var act = () => CrisprDesigner.FindOffTargets(allN, genome, maxMismatches: 5,
+            CrisprSystemType.SpCas9).ToList();
+
+        act.Should().NotThrow(
+            "'N' is compared literally (not as a wildcard); it differs from every A/C/G/T base but never indexes out of range or hangs");
+
+        CrisprDesigner.FindOffTargets(allN, genome, maxMismatches: 5, CrisprSystemType.SpCas9)
+            .Should().BeEmpty(
+                "an all-N guide mismatches every target base, so each candidate has 20 mismatches — above the cap of 5 — and no off-target is ever yielded; 'N' is not a wildcard");
+    }
+
+    /// <summary>
+    /// MC/BE: a WRONG-length all-N guide is the dual boundary — it is rejected by the
+    /// guide-length check with ArgumentException BEFORE any matching
+    /// (Off_Target_Analysis.md §3.3, §6.1), pinning that the length contract is enforced
+    /// regardless of the (junk) content of the guide.
+    /// </summary>
+    [Test]
+    public void FindOffTargets_WrongLengthAllNGuide_ThrowsArgumentException()
+    {
+        var genome = new DnaSequence(new string('A', 20) + "AGG");
+
+        // 10 N's: not equal to SpCas9's 20-nt guide length.
+        var act = () => CrisprDesigner.FindOffTargets("NNNNNNNNNN", genome, 3, CrisprSystemType.SpCas9).ToList();
+
+        act.Should().Throw<ArgumentException>(
+            "a guide whose length does not match the system's guide length is rejected, even when its content is all-N");
+    }
+
+    #endregion
+
+    #region MC — Null genome
+
+    /// <summary>
+    /// MC/INJ: a null genome is the boundary of "no search space". FindOffTargets
+    /// null-guards the genome with ArgumentNullException (ThrowIfNull, line 339) — never a
+    /// NullReferenceException dereferencing <c>genome.Sequence</c>
+    /// (Off_Target_Analysis.md §3.3). The guard is inside the yield iterator, so
+    /// enumeration is forced.
+    /// </summary>
+    [Test]
+    public void FindOffTargets_NullGenome_ThrowsArgumentNullException()
+    {
+        var act = () => CrisprDesigner.FindOffTargets("ACGTACGTACGTACGTACGT", (DnaSequence)null!, 3,
+            CrisprSystemType.SpCas9).ToList();
+
+        act.Should().Throw<ArgumentNullException>(
+            "the genome is null-guarded; null is rejected, never dereferenced into a NullReferenceException");
+    }
+
+    #endregion
+
+    #region Positive sanity — a known 1-mismatch off-target is found at tolerance >= 1 but NOT at 0
+
+    /// <summary>
+    /// Positive sanity (the contract pivot): a genome carrying a guide-length target that
+    /// differs from the guide by EXACTLY ONE base, immediately upstream of a real NGG PAM,
+    /// must be reported as an off-target with Mismatches == 1 at tolerance >= 1, but must
+    /// NOT be reported at tolerance 0 — so the boundary hardening never silently disables
+    /// the core detection. The genome is the 1-mismatch protospacer followed by "AGG"
+    /// (NGG at index 20). At tolerance 1: one forward site with Mismatches == 1 and the
+    /// mismatch recorded at index 0 (INV-02, bounded by the cap). At tolerance 0: empty
+    /// (INV-01 / unsatisfiable yield condition). This is the exact contrast the row probes.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindOffTargets_KnownOneMismatchSite_FoundAtToleranceOneNotZero()
+    {
+        const string guide = "ACGTACGTACGTACGTACGT";       // 20 nt
+        const string oneMismatch = "TCGTACGTACGTACGTACGT";  // differs from guide ONLY at index 0
+        var genome = new DnaSequence(oneMismatch + "AGG");   // 1-mismatch target + NGG PAM at index 20
+
+        var atOne = CrisprDesigner.FindOffTargets(guide, genome, maxMismatches: 1, CrisprSystemType.SpCas9)
+            .Where(o => o.IsForwardStrand)
+            .ToList();
+
+        var site = atOne.Should().ContainSingle(o => o.Position == 20).Subject;
+        site.Mismatches.Should().Be(1, "the off-target differs from the guide by exactly one base");
+        site.Sequence.Should().Be(oneMismatch, "the reported off-target target is the PAM-adjacent protospacer");
+        site.MismatchPositions.Should().ContainSingle().Which.Should().Be(0,
+            "the single mismatch is at index 0, where the guide's 'A' meets the target's 'T'");
+
+        CrisprDesigner.FindOffTargets(guide, genome, maxMismatches: 0, CrisprSystemType.SpCas9)
+            .Should().BeEmpty(
+                "at zero tolerance the same 1-mismatch site is excluded: 0 < 1 <= 0 is false");
+    }
+
+    /// <summary>
+    /// Positive sanity (specificity score): CalculateSpecificityScore returns 100 when no
+    /// off-targets exist (Off_Target_Analysis.md §6.1) and a value strictly in
+    /// <c>[0, 100]</c> otherwise (INV-03), with the SCORE STRICTLY LOWER once a real
+    /// off-target is present — so the boundary work does not corrupt the score path. A
+    /// guide with NO near-match in an all-A genome (no NGG even) scores 100; the same
+    /// guide against a genome carrying a 1-mismatch site scores below 100.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void CalculateSpecificityScore_ReflectsPresenceOfOffTargets()
+    {
+        const string guide = "ACGTACGTACGTACGTACGT";
+        const string oneMismatch = "TCGTACGTACGTACGTACGT";
+
+        var noSites = new DnaSequence(new string('A', 60)); // no NGG -> no off-targets
+        var withSite = new DnaSequence(oneMismatch + "AGG"); // one 1-mismatch off-target
+
+        double clean = CrisprDesigner.CalculateSpecificityScore(guide, noSites, CrisprSystemType.SpCas9);
+        double withOff = CrisprDesigner.CalculateSpecificityScore(guide, withSite, CrisprSystemType.SpCas9);
+
+        clean.Should().Be(100.0, "no off-targets means maximum specificity per the documented edge case");
+        withOff.Should().BeInRange(0, 100, "INV-03: the specificity score is clamped to [0, 100]");
+        withOff.Should().BeLessThan(100.0, "a real off-target reduces specificity below the no-off-target maximum");
     }
 
     #endregion
