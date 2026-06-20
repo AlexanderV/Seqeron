@@ -193,6 +193,53 @@ namespace Seqeron.Genomics.Tests;
 ///     throws (NullReferenceException) because it dereferences sequence.Sequence
 ///     (§3.1, §3.3, §6.1) — pinned so the strict-vs-lenient surface split is explicit.
 ///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: PAT-IUPAC-001 — IUPAC (degenerate / ambiguity) pattern matching (Matching)
+/// Checklist: docs/checklists/03_FUZZING.md, row 11.
+/// Fuzz strategies exercised for THIS unit:
+///   • MC = Malformed Content — motifs containing characters that are NOT one of
+///          the 15 standard IUPAC DNA codes: amino-acid-only protein letters
+///          (E/F/I/L/P/Q/Z, and J/O/U/X which are not nucleotide codes), and a
+///          mixed valid-then-invalid motif so validation cannot be skipped because
+///          the first window already failed to match.
+///   • INJ = Injection — digits (0–9) inside the pattern, punctuation/gap symbols,
+///          control / null bytes, and non-ASCII Unicode (e.g. 'α', 'ñ', full-width
+///          digits) — every one must be REJECTED deterministically, never crash
+///          with KeyNotFound (the dictionary lookup) or IndexOutOfRange.
+/// — docs/checklists/03_FUZZING.md §Description (strategy codes).
+///
+/// The IUPAC-degenerate-matching contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// PAT-IUPAC-001 expands ambiguity codes (R=A/G, Y=C/T, S=G/C, W=A/T, K=G/T,
+/// M=A/C, B=C/G/T, D=A/G/T, H=A/C/T, V=A/C/G, N=A/C/G/T) over the DNA alphabet and
+/// reports every length-m window whose every base lies in the per-position code
+/// set. Documented contract (docs/algorithms/Pattern_Matching/
+/// IUPAC_Degenerate_Matching.md §2.2, §3.1, §3.3, §6.1; INV-01/INV-02/INV-03;
+/// sources: IUPAC-IUB 1970, NC-IUB 1984):
+///   • the matching SURFACE is MotifFinder.FindDegenerateMotif (MotifFinder.cs
+///     lines 90–119), a LAZY iterator over a typed DnaSequence whose sequence is
+///     therefore always valid uppercase A/C/G/T — the fuzz target is the MOTIF:
+///       – null DnaSequence            → ArgumentNullException (explicit guard,
+///         line 92) — but it is lazy, so it fires only on enumeration;
+///       – null OR empty motif         → no matches (IsNullOrEmpty guard, line 93,
+///         yield break — NOT a crash);
+///       – the motif is UPPER-CASED (ToUpperInvariant, line 96) BEFORE validation,
+///         so lowercase IUPAC codes are accepted and fold to the same result;
+///       – an INVALID IUPAC code in the motif (an amino-acid-only protein letter,
+///         a digit, punctuation, a control byte, or non-ASCII Unicode) →
+///         ArgumentException naming "motif" (ValidateIupacPattern, lines 70–82) —
+///         a documented, intentional validation exception, NEVER a KeyNotFound
+///         from the IupacCodes dictionary lookup or an IndexOutOfRange. Because the
+///         method is a lazy iterator, validation fires on ENUMERATION, so the fuzz
+///         assertions materialize the result;
+///   • the DECISION-TABLE primitive IupacHelper.MatchesIupac(nucleotide, code)
+///     (IupacHelper.cs lines 16–37) is the per-character oracle:
+///       – a valid code returns the membership truth (R matches A and G, not C/T;
+///         N matches all four bases) — the positive theory contract;
+///       – an INVALID code throws ArgumentOutOfRangeException (the switch default,
+///         lines 33–35), NOT KeyNotFound — a DIFFERENT documented exception type
+///         from the MotifFinder surface, pinned so the two surfaces cannot drift.
+///
 /// All inputs here are ASCII DNA / boundary strings; randomness (where used) is
 /// from a locally fixed-seed Random so the fuzz fodder is fully reproducible and
 /// adding tests cannot perturb any other fixture.
@@ -1293,6 +1340,250 @@ public class MatchingFuzzTests
         };
 
         act.Should().NotThrow("control bytes and unicode are ordinary code points to the edit-distance scan");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  PAT-IUPAC-001 — IUPAC (degenerate) pattern matching : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region PAT-IUPAC-001 — IUPAC (degenerate) pattern matching
+
+    #region Sanity — valid ambiguity codes match exactly their allowed base set
+
+    /// <summary>
+    /// Positive theory sanity (NOT a fuzz target, the anchor the fuzz tests defend):
+    /// a valid ambiguity code matches EXACTLY the bases in its degenerate set and no
+    /// others — R matches A and G but not C/T, Y matches C and T, N matches all four
+    /// — on BOTH surfaces (IupacHelper.MatchesIupac and the MotifFinder scan over a
+    /// single-base sequence). IUPAC_Degenerate_Matching.md §2.2 (code table),
+    /// INV-01. This pins the contract the malformed-input tests must not weaken.
+    /// </summary>
+    [Test]
+    public void Iupac_ValidAmbiguityCodes_MatchExactlyTheirBaseSet()
+    {
+        // Per-character oracle: MatchesIupac membership for every (code, base) pair.
+        var codeSets = new Dictionary<char, string>
+        {
+            ['A'] = "A", ['C'] = "C", ['G'] = "G", ['T'] = "T",
+            ['R'] = "AG", ['Y'] = "CT", ['S'] = "GC", ['W'] = "AT",
+            ['K'] = "GT", ['M'] = "AC", ['B'] = "CGT", ['D'] = "AGT",
+            ['H'] = "ACT", ['V'] = "ACG", ['N'] = "ACGT",
+        };
+
+        foreach (var (code, allowed) in codeSets)
+        {
+            foreach (char baseChar in "ACGT")
+            {
+                bool expected = allowed.Contains(baseChar);
+
+                IupacHelper.MatchesIupac(baseChar, code).Should().Be(expected,
+                    $"'{code}' must match base '{baseChar}' iff '{baseChar}' is in its degenerate set");
+
+                // The MotifFinder scan over a single-base sequence must agree.
+                var matches = MotifFinder.FindDegenerateMotif(new DnaSequence(baseChar.ToString()), code.ToString())
+                    .ToList();
+                (matches.Count == 1).Should().Be(expected,
+                    $"the scan of motif '{code}' over '{baseChar}' must match iff '{baseChar}' is in the set");
+            }
+        }
+
+        // The canonical R-vs-{A,G} / Y-vs-{C,T} / N-vs-all spot checks, explicitly.
+        IupacHelper.MatchesIupac('A', 'R').Should().BeTrue("R = puRine includes A");
+        IupacHelper.MatchesIupac('G', 'R').Should().BeTrue("R = puRine includes G");
+        IupacHelper.MatchesIupac('C', 'R').Should().BeFalse("R = puRine excludes C");
+        IupacHelper.MatchesIupac('T', 'R').Should().BeFalse("R = puRine excludes T");
+        foreach (char b in "ACGT")
+            IupacHelper.MatchesIupac(b, 'N').Should().BeTrue("N matches every base");
+    }
+
+    /// <summary>
+    /// Positive sanity: a real degenerate motif over a known sequence reports
+    /// EXACTLY the theory-correct windows (every base in its per-position code set),
+    /// and a lowercase motif folds to the identical result (ToUpperInvariant before
+    /// validation). IUPAC_Degenerate_Matching.md §2.2, §6.1, INV-01.
+    /// </summary>
+    [Test]
+    public void Iupac_DegenerateMotif_MatchesTheoryCorrectWindowsAndFoldsCase()
+    {
+        var seq = new DnaSequence("AGCTAACTGT");
+        const string motif = "RY"; // R=A/G then Y=C/T
+
+        var positions = MotifFinder.FindDegenerateMotif(seq, motif).Select(m => m.Position).ToList();
+
+        // Brute-force oracle: window [i,i+1] where seq[i]∈{A,G} and seq[i+1]∈{C,T}.
+        string s = seq.Sequence;
+        var expected = Enumerable.Range(0, s.Length - 1)
+            .Where(i => "AG".Contains(s[i]) && "CT".Contains(s[i + 1]))
+            .ToList();
+
+        positions.Should().Equal(expected, "an 'RY' motif matches exactly the puRine-pYrimidine windows");
+        expected.Should().NotBeEmpty("the chosen sequence must contain at least one RY window for a real check");
+
+        MotifFinder.FindDegenerateMotif(seq, "ry").Select(m => m.Position).Should().Equal(positions,
+            "a lowercase motif is uppercased before validation, so case must not change the result");
+    }
+
+    #endregion
+
+    #region MC — invalid IUPAC codes (protein-only letters) → ArgumentException
+
+    /// <summary>
+    /// MC: an amino-acid-only protein letter that is NOT a standard IUPAC nucleotide
+    /// code (E, F, I, L, P, Q, Z — and J/O/U/X which are not nucleotide codes) must
+    /// be rejected by the documented validation gate with an ArgumentException naming
+    /// "motif" (ValidateIupacPattern, MotifFinder.cs lines 70–82;
+    /// IUPAC_Degenerate_Matching.md §3.3, §6.1) — NEVER a KeyNotFoundException from
+    /// the IupacCodes dictionary lookup. Because the scan is a lazy iterator, the
+    /// guard fires on enumeration, so the assertion materializes the result.
+    /// </summary>
+    [TestCase("Z", TestName = "Iupac_InvalidCode_Z_Throws")]
+    [TestCase("E", TestName = "Iupac_InvalidCode_E_Throws")]
+    [TestCase("J", TestName = "Iupac_InvalidCode_J_Throws")]
+    [TestCase("O", TestName = "Iupac_InvalidCode_O_Throws")]
+    [TestCase("U", TestName = "Iupac_InvalidCode_U_Throws")]
+    [TestCase("X", TestName = "Iupac_InvalidCode_X_Throws")]
+    [TestCase("ACGTZ", TestName = "Iupac_InvalidCode_ProteinAfterValidPrefix_Throws")]
+    public void Iupac_InvalidProteinLetterMotif_ThrowsArgumentException(string motif)
+    {
+        var seq = new DnaSequence("ACGTACGTACGT");
+
+        var act = () => MotifFinder.FindDegenerateMotif(seq, motif).ToList();
+
+        act.Should().Throw<ArgumentException>(
+                "a non-IUPAC protein letter is rejected by the documented validation gate, not looked up blindly")
+            .And.ParamName.Should().Be("motif", "the validation gate names the offending parameter");
+    }
+
+    /// <summary>
+    /// MC: a motif whose FIRST window already fails to match still validates the
+    /// WHOLE pattern — the invalid code at the end is NOT skipped just because the
+    /// match short-circuits earlier. Validation precedes the scan (MotifFinder.cs
+    /// line 97), so 'ACGTZ' over a non-matching sequence still throws rather than
+    /// silently yielding no matches and hiding the malformed code.
+    /// </summary>
+    [Test]
+    public void Iupac_InvalidCode_AfterNonMatchingPrefix_StillThrows()
+    {
+        var seq = new DnaSequence("TTTTTTTT"); // the 'A...' prefix never matches
+
+        var act = () => MotifFinder.FindDegenerateMotif(seq, "ACGTZ").ToList();
+
+        act.Should().Throw<ArgumentException>(
+            "validation runs over the whole motif before scanning, so a trailing invalid code is never skipped");
+    }
+
+    /// <summary>
+    /// MC: the decision-table primitive IupacHelper.MatchesIupac rejects an invalid
+    /// code with ArgumentOutOfRangeException (the switch default, IupacHelper.cs
+    /// lines 33–35) — a DIFFERENT documented exception type from the MotifFinder
+    /// surface's ArgumentException, NEVER a KeyNotFoundException. Pinned so the two
+    /// surfaces' rejection contracts cannot silently converge or degrade to a crash.
+    /// </summary>
+    [TestCase('Z', TestName = "MatchesIupac_InvalidCode_Z_ThrowsOutOfRange")]
+    [TestCase('E', TestName = "MatchesIupac_InvalidCode_E_ThrowsOutOfRange")]
+    [TestCase('5', TestName = "MatchesIupac_InvalidCode_Digit_ThrowsOutOfRange")]
+    [TestCase('α', TestName = "MatchesIupac_InvalidCode_Unicode_ThrowsOutOfRange")]
+    public void MatchesIupac_InvalidCode_ThrowsArgumentOutOfRange(char code)
+    {
+        var act = () => IupacHelper.MatchesIupac('A', code);
+
+        act.Should().Throw<ArgumentOutOfRangeException>(
+                "the decision-table default rejects unknown codes, never KeyNotFound")
+            .And.ParamName.Should().Be("iupacCode", "the gate names the offending code parameter");
+    }
+
+    #endregion
+
+    #region INJ — digits in the pattern → ArgumentException
+
+    /// <summary>
+    /// INJ: digits (0–9) injected into the motif are not IUPAC codes and must be
+    /// rejected with an ArgumentException — never a KeyNotFound or a silent match.
+    /// Pinned for a bare digit, a digit embedded after a valid prefix, and an
+    /// all-digit motif. Lazy iterator → assertion materializes the result.
+    /// </summary>
+    [TestCase("1", TestName = "Iupac_Digit_Bare_Throws")]
+    [TestCase("0", TestName = "Iupac_Digit_Zero_Throws")]
+    [TestCase("AC1GT", TestName = "Iupac_Digit_Embedded_Throws")]
+    [TestCase("1234", TestName = "Iupac_Digit_AllDigits_Throws")]
+    public void Iupac_DigitsInMotif_ThrowArgumentException(string motif)
+    {
+        var seq = new DnaSequence("ACGTACGTACGT");
+
+        var act = () => MotifFinder.FindDegenerateMotif(seq, motif).ToList();
+
+        act.Should().Throw<ArgumentException>(
+                "a digit is not a valid IUPAC code and is rejected by the documented validation gate")
+            .And.ParamName.Should().Be("motif");
+    }
+
+    #endregion
+
+    #region INJ — Unicode, control bytes, punctuation in the pattern → ArgumentException
+
+    /// <summary>
+    /// INJ: non-ASCII Unicode, a null byte, a tab, punctuation, and a gap character
+    /// injected into the motif are all NON-IUPAC and must be rejected with an
+    /// ArgumentException — never a KeyNotFound from the dictionary lookup, never an
+    /// IndexOutOfRange, never a hang. Greek/accented letters survive ToUpperInvariant
+    /// as non-ASCII code points and still hit the default validation branch. Pinned
+    /// across a spread of injection code points; the lazy scan materializes on ToList.
+    /// </summary>
+    [TestCase("α", TestName = "Iupac_Unicode_Greek_Throws")]
+    [TestCase("ñ", TestName = "Iupac_Unicode_Accented_Throws")]
+    [TestCase("AC\0GT", TestName = "Iupac_NullByte_Embedded_Throws")]
+    [TestCase("AC\tGT", TestName = "Iupac_Tab_Embedded_Throws")]
+    [TestCase("A-C", TestName = "Iupac_GapChar_Throws")]
+    [TestCase("A.C", TestName = "Iupac_Punctuation_Throws")]
+    [TestCase("ＡＣＧＴ", TestName = "Iupac_FullWidthLetters_Throws")]
+    public void Iupac_UnicodeAndControlAndPunctuationMotif_ThrowArgumentException(string motif)
+    {
+        var seq = new DnaSequence("ACGTACGTACGT");
+
+        var act = () => MotifFinder.FindDegenerateMotif(seq, motif).ToList();
+
+        act.Should().Throw<ArgumentException>(
+                "Unicode, control bytes, and punctuation are not IUPAC codes and are rejected deterministically")
+            .And.ParamName.Should().Be("motif");
+    }
+
+    /// <summary>
+    /// INJ/MC: a battery of malformed motifs must NEVER fault with an undisciplined
+    /// runtime exception (KeyNotFoundException from the IupacCodes lookup,
+    /// IndexOutOfRangeException, NullReferenceException) and must NEVER hang — each
+    /// must resolve to EITHER the documented ArgumentException OR a defined empty/
+    /// match result. This is the core fuzzing guarantee for the malformed-pattern
+    /// surface (docs/ADVANCED_TESTING_CHECKLIST.md §8). The empty motif is the one
+    /// "malformed" input that is a DEFINED no-match (the IsNullOrEmpty guard), so it
+    /// is allowed through without throwing; every other entry must be rejected.
+    /// </summary>
+    [Test]
+    public void Iupac_MalformedMotifBattery_NeverFaultsUndisciplined()
+    {
+        var seq = new DnaSequence("ACGTACGTACGTACGT");
+
+        var alwaysRejected = new[]
+        {
+            "Z", "EE", "ACGTZ", "1", "AC1GT", "α", "ñ", "AC\0GT", "AC\tGT",
+            "A-C", "A.C", "ＡＣＧＴ", "RYZ", "NNNNNNQ", "?", "*", "𝓐",
+        };
+
+        foreach (string motif in alwaysRejected)
+        {
+            var act = () => MotifFinder.FindDegenerateMotif(seq, motif).ToList();
+            act.Should().Throw<ArgumentException>(
+                $"malformed motif '{motif}' must be rejected by the documented gate, never an undisciplined fault");
+        }
+
+        // The empty motif is the one DEFINED no-match (guarded), not an error.
+        var emptyAct = () => MotifFinder.FindDegenerateMotif(seq, string.Empty).ToList();
+        emptyAct.Should().NotThrow("the empty motif is a defined no-match, not a malformed-input error");
+        MotifFinder.FindDegenerateMotif(seq, string.Empty).Should().BeEmpty(
+            "the empty motif yields no matches by the explicit guard");
     }
 
     #endregion
