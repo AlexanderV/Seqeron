@@ -337,6 +337,12 @@ namespace Seqeron.Genomics.Alignment
                 }
             }
 
+            // No length-k window could be cut (e.g. k > sequence length), so the tally is
+            // empty. Per the contract (a pattern/k longer than the sequence yields an empty
+            // result), return nothing rather than letting Max() throw on the empty tally.
+            if (counts.Count == 0)
+                yield break;
+
             // Find maximum count
             int maxCount = counts.Values.Max();
 
