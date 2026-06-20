@@ -581,6 +581,86 @@ namespace Seqeron.Genomics.Tests;
 /// ValidateProbe is a pure function (no iterator), so every probe calls it directly; the
 /// positive-sanity test pins that a clean, unique probe validates as IsValid == true with
 /// no issues, SpecificityScore 1.0, and OffTargetHits 1 (INV-04).
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: RESTR-FIND-001 — restriction site finding
+/// Checklist: docs/checklists/03_FUZZING.md, row 26.
+/// Fuzz strategies exercised for THIS unit:
+///   • MC = Malformed Content — an UNKNOWN enzyme name (a name absent from the
+///          built-in catalog) and non-DNA junk characters in the sequence.
+///   • BE = Boundary Exploitation — the EMPTY enzyme list (the multi-enzyme overload
+///          called with zero names) and the EMPTY sequence (lower size boundary).
+/// — docs/checklists/03_FUZZING.md §Description (strategy codes); row 26 targets:
+///   "Empty enzyme list, unknown enzyme names, empty sequence, non-DNA".
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The restriction-site-finding contract under test (Restriction_Site_Detection.md)
+/// ───────────────────────────────────────────────────────────────────────────
+/// Restriction site detection slides a recognition-sequence window across BOTH
+/// strands of a DNA sequence, matches each window character-by-character under IUPAC
+/// ambiguity rules, and yields a RestrictionSite per match with the enzyme, strand,
+/// cut position and matched bases (Restriction_Site_Detection.md §2.2, §4.1). The
+/// enzyme is NOT a free-form motif — it is resolved by NAME from a fixed built-in
+/// catalog (RestrictionAnalyzer.cs §Built-in Enzyme Database), so "an invalid PAM"
+/// here is an UNKNOWN enzyme NAME. EcoRI = GAATTC (CutPositionForward 1); the catalog
+/// also carries IUPAC-degenerate motifs (HincII = GTYRAC, SfiI = GGCCNNNNNGGCC), so
+/// the matcher's IUPAC path is load-bearing (§5.2, §6.1).
+///
+/// API surfaces under test (RestrictionAnalyzer.cs lines 121–230):
+///   • FindSites(DnaSequence, string enzymeName): null sequence → ArgumentNullException
+///     (ThrowIfNull, line 129); null/empty enzymeName → ArgumentNullException (line
+///     130–131); UNKNOWN enzymeName → ArgumentException "Unknown enzyme" (line 133–134,
+///     raised EAGERLY because this overload is a plain method that returns
+///     FindSitesCore's enumerable). The DnaSequence itself is a validated type whose
+///     constructor rejects any non-A/C/G/T base (ArgumentException), so non-DNA never
+///     reaches the scanner on this surface.
+///   • FindSites(string sequence, string enzymeName): null/empty sequence → empty
+///     result via `yield break` (line 144–145, INV-04); UNKNOWN enzymeName →
+///     ArgumentException, but because the body is a `yield` ITERATOR the throw fires
+///     only on ENUMERATION (line 147–148), so every probe forces `.ToList()`. The raw
+///     sequence is upper-cased and scanned RAW (no A/C/G/T validation) — this is the MC
+///     surface for non-DNA: a junk sequence char is tested as the `nucleotide` argument
+///     of MatchesIupac(seqChar, patChar); it satisfies no enzyme-pattern code, so it
+///     never matches a site and never crashes (IupacHelper.cs §MatchesIupac; the `_ =>
+///     throw` arm is reached only by an invalid PATTERN code, and every catalog motif is
+///     IUPAC-valid, so it is never reached from the sequence side).
+///   • FindSites(DnaSequence, params string[] enzymeNames): null sequence →
+///     ArgumentNullException (line 209). An EMPTY enzymeNames array iterates zero times,
+///     so the result is the EMPTY enumerable — NOT a throw. This is the "empty enzyme
+///     list" BE target: no enzymes ⇒ no sites, never a crash. (A NULL enzymeNames array
+///     is a separate hazard — the `foreach` over null would NullReference — and is NOT
+///     the row target; the row probes the empty list, which is the well-defined no-op.)
+///
+/// THE FOUR ROW-26 FUZZ TARGETS, mapped to the theory-correct contract:
+///   • Empty enzyme list (BE): the params overload with `new string[0]` (or no names)
+///     iterates no enzymes and yields the EMPTY result — never a crash, never a
+///     fabricated site. Pinned on enumeration.
+///   • Unknown enzyme names (MC, KEY): a name absent from the catalog is REJECTED with
+///     ArgumentException "Unknown enzyme" — a DELIBERATE, documented validation throw
+///     (Restriction_Site_Detection.md §3.3, §6.1), NOT a raw KeyNotFoundException
+///     leaking from the dictionary. GetEnzyme uses TryGetValue (line 76–77), so the
+///     lookup miss is mapped to a typed ArgumentException by the `?? throw` (line 133,
+///     147), never a KeyNotFound. Pinned on BOTH surfaces: the typed overload throws
+///     eagerly; the raw-string iterator throws on enumeration.
+///   • Empty sequence (BE): the raw-string overload short-circuits null/empty to the
+///     empty result (yield break, INV-04); the typed overload over an empty DnaSequence
+///     has a negative forward-scan bound `i <= 0 − patternLen`, so neither the forward
+///     nor the reverse loop runs and no Substring is taken past the end. Empty result,
+///     never an IndexOutOfRangeException (§6.1). Pinned for both surfaces plus raw null.
+///   • Non-DNA (MC): junk fed to the TYPED surface is rejected at DnaSequence
+///     construction (ArgumentException); junk fed to the RAW-string surface is TOLERATED
+///     — a non-A/C/G/T char matches no enzyme pattern position (and the reverse-strand
+///     pass complements via GetReverseComplementString whose fall-through passes
+///     non-IUPAC chars through unchanged), so pure junk yields no sites and never
+///     crashes, and junk interleaved into a real GAATTC window suppresses that site.
+///
+/// Documented invariants pinned on every produced site (Restriction_Site_Detection.md
+/// §2.4): INV-01 `0 <= Position <= len − recognitionLength`; INV-02
+/// `RecognizedSequence.Length == Enzyme.RecognitionSequence.Length`; INV-03 enzyme-name
+/// lookup is case-insensitive; INV-04 empty raw-string input yields no sites. The
+/// raw-string and params overloads are yield iterators, so every probe forces
+/// enumeration (`.ToList()`); the positive-sanity test pins that EcoRI's GAATTC site is
+/// found at the CORRECT forward position with the CORRECT cut position and matched bases.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -2450,6 +2530,311 @@ public class MolToolsFuzzTests
         result.SpecificityScore.Should().Be(1.0, "INV-04: a single hit maps to specificity 1.0");
         result.IsValid.Should().BeTrue("a unique, low-self-complementarity probe is a valid probe");
         result.Issues.Should().BeEmpty("a clean unique probe records no validation issues");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  RESTR-FIND-001 — restriction site finding : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region RESTR-FIND-001 — restriction site finding
+
+    #region BE — Empty enzyme list
+
+    /// <summary>
+    /// BE: the multi-enzyme overload called with an EMPTY enzyme list is the lower
+    /// boundary of "how many enzymes to scan". The `foreach (var name in enzymeNames)`
+    /// loop (RestrictionAnalyzer.cs line 211) iterates zero times, so the result is the
+    /// EMPTY enumerable — never a crash and never a fabricated site. Because the overload
+    /// is a `yield` iterator, the body runs only on enumeration, so we force `.ToList()`.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindSites_EmptyEnzymeList_IsEmptyAndDoesNotThrow()
+    {
+        var sequence = new DnaSequence("AAAGAATTCAAAGGATCCAAA");
+
+        var act = () => RestrictionAnalyzer.FindSites(sequence, Array.Empty<string>()).ToList();
+
+        act.Should().NotThrow(
+            "an empty enzyme list scans no enzymes; the per-enzyme loop never runs, so there is nothing to throw");
+        RestrictionAnalyzer.FindSites(sequence, Array.Empty<string>())
+            .Should().BeEmpty("no enzymes requested ⇒ no restriction sites, never a spurious cut");
+    }
+
+    #endregion
+
+    #region MC — Unknown enzyme names
+
+    /// <summary>
+    /// MC (KEY): an enzyme NAME absent from the built-in catalog is the central
+    /// "invalid specification" probe. The lookup uses TryGetValue (GetEnzyme, line 76–77)
+    /// and the `?? throw` maps a miss to a DELIBERATE, typed ArgumentException
+    /// "Unknown enzyme" (line 133–134) — it must NEVER let a raw KeyNotFoundException
+    /// leak from the dictionary. The typed overload returns FindSitesCore's enumerable
+    /// directly, so the throw fires EAGERLY at the call; we also pin that it is NOT a
+    /// KeyNotFoundException (Restriction_Site_Detection.md §3.3, §6.1).
+    /// </summary>
+    [Test]
+    public void FindSites_UnknownEnzymeName_TypedOverload_ThrowsArgumentException()
+    {
+        var sequence = new DnaSequence("AAAGAATTCAAA");
+
+        var act = () => RestrictionAnalyzer.FindSites(sequence, "NotARealEnzyme");
+
+        act.Should().Throw<ArgumentException>(
+                "an unknown enzyme name is rejected deliberately rather than scanned with a garbage motif")
+            .And.Message.Should().Contain("Unknown enzyme",
+                "the rejection is the intentional 'Unknown enzyme' validation, not an internal lookup miss");
+        act.Should().NotThrow<KeyNotFoundException>(
+            "a raw KeyNotFoundException must never escape the dictionary lookup; GetEnzyme uses TryGetValue");
+    }
+
+    /// <summary>
+    /// MC (KEY): the raw-string overload resolves the SAME catalog lookup, but inside a
+    /// `yield` iterator (line 147–148), so an unknown enzyme name surfaces its
+    /// ArgumentException only on ENUMERATION. We force `.ToList()` so the documented throw
+    /// actually fires, and pin that it is the intentional "Unknown enzyme" rejection and
+    /// not a leaked KeyNotFoundException.
+    /// </summary>
+    [Test]
+    public void FindSites_UnknownEnzymeName_RawOverload_ThrowsArgumentExceptionOnEnumeration()
+    {
+        var act = () => RestrictionAnalyzer.FindSites("AAAGAATTCAAA", "Bogus123").ToList();
+
+        act.Should().Throw<ArgumentException>(
+                "the raw-string overload rejects an unknown enzyme name on enumeration")
+            .And.Message.Should().Contain("Unknown enzyme");
+        act.Should().NotThrow<KeyNotFoundException>(
+            "the unknown-name rejection is a typed ArgumentException, never a raw KeyNotFoundException");
+    }
+
+    /// <summary>
+    /// MC/BE: a null OR empty enzyme name is the degenerate "no enzyme specified" input.
+    /// The typed overload guards it with ArgumentNullException (line 130–131) BEFORE the
+    /// catalog lookup, so an empty name is a documented validation throw — never a
+    /// silent empty scan and never a KeyNotFoundException.
+    /// </summary>
+    [Test]
+    public void FindSites_NullOrEmptyEnzymeName_TypedOverload_ThrowsArgumentNullException()
+    {
+        var sequence = new DnaSequence("AAAGAATTCAAA");
+
+        var nullName = () => RestrictionAnalyzer.FindSites(sequence, (string)null!);
+        var emptyName = () => RestrictionAnalyzer.FindSites(sequence, string.Empty);
+
+        nullName.Should().Throw<ArgumentNullException>(
+            "a null enzyme name is rejected up front, not dereferenced into a lookup");
+        emptyName.Should().Throw<ArgumentNullException>(
+            "an empty enzyme name is the same degenerate 'no enzyme' input and is rejected up front");
+    }
+
+    #endregion
+
+    #region MC — Non-DNA characters in the sequence
+
+    /// <summary>
+    /// MC: non-DNA junk fed to the TYPED overload is rejected up front — the DnaSequence
+    /// constructor validates A/C/G/T and throws ArgumentException on the first offending
+    /// character, so junk never reaches the restriction scanner at all.
+    /// </summary>
+    [Test]
+    public void FindSites_NonDnaSequence_TypedOverload_RejectedAtConstruction()
+    {
+        var act = () => new DnaSequence("GAATTC$#@!XYZ123");
+
+        act.Should().Throw<ArgumentException>(
+            "the validated DnaSequence type rejects any non-A/C/G/T character, so the typed scanner only ever sees clean DNA");
+    }
+
+    /// <summary>
+    /// MC: non-DNA junk fed to the RAW-string overload must NOT crash and must NOT invent
+    /// sites. Each sequence character is tested as the `nucleotide` argument of
+    /// MatchesIupac(seqChar, patChar); a junk char satisfies no enzyme-pattern code, so it
+    /// can never complete a recognition match. The reverse-strand pass complements via
+    /// GetReverseComplementString, whose fall-through passes non-IUPAC chars through
+    /// unchanged — no exception, no out-of-range indexing. Pure-junk input yields no
+    /// sites. We force enumeration so the in-iterator scan actually runs.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindSites_NonDnaSequence_RawOverload_NoSitesNoCrash()
+    {
+        const string junk = "$#@!XYZ123 ￿qwerty";
+
+        var act = () => RestrictionAnalyzer.FindSites(junk, "EcoRI").ToList();
+
+        act.Should().NotThrow(
+            "non-DNA characters are tested against the enzyme pattern via IUPAC matching and complemented via a pass-through arm; neither path indexes out of range");
+        RestrictionAnalyzer.FindSites(junk, "EcoRI")
+            .Should().BeEmpty(
+                "a character that is not A/C/G/T matches no recognition position, so pure junk can never produce a spurious restriction site");
+    }
+
+    /// <summary>
+    /// MC: junk INTERLEAVED into an otherwise-valid GAATTC window must suppress that site,
+    /// not crash. "GAATTC" at offset 3 is a real EcoRI site; replacing the final 'C' with
+    /// '#' breaks the recognition match (the '#' satisfies no pattern code), so no forward
+    /// EcoRI site is reported there — proving junk neither fabricates nor silently
+    /// "rounds to" a valid recognition site.
+    /// </summary>
+    [Test]
+    public void FindSites_JunkInsideRecognitionWindow_SuppressesThatSite()
+    {
+        // "AAA" + "GAATT#" + "AAA": the EcoRI window at index 3 is broken by '#'.
+        const string broken = "AAAGAATT#AAA";
+
+        var sites = RestrictionAnalyzer.FindSites(broken, "EcoRI").ToList();
+
+        sites.Should().NotContain(s => s.IsForwardStrand && s.Position == 3,
+            "the '#' in the sixth recognition position fails IUPAC matching, so the forward EcoRI site at index 3 is correctly NOT reported");
+        sites.Should().OnlyContain(s => s.RecognizedSequence.All(c => c == 'A' || c == 'C' || c == 'G' || c == 'T'),
+            "any site that IS reported still has a clean A/C/G/T recognition string — junk never leaks into a reported site");
+    }
+
+    #endregion
+
+    #region BE — Empty sequence
+
+    /// <summary>
+    /// BE: the empty sequence is the lower size boundary. The raw-string overload
+    /// short-circuits null/empty to the empty enumerable (yield break, INV-04); the typed
+    /// overload over an empty DnaSequence has a negative forward-scan bound
+    /// `i <= 0 − patternLen`, so neither the forward nor the reverse loop runs. Neither
+    /// path divides, indexes past the end, or hangs (Restriction_Site_Detection.md §6.1).
+    /// Pinned for both surfaces plus the raw null input. NOTE: the raw-string overload's
+    /// empty short-circuit precedes the enzyme lookup, so an empty sequence with an UNKNOWN
+    /// enzyme is still the empty result, not the unknown-enzyme throw.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindSites_EmptySequence_IsEmptyAndDoesNotThrow()
+    {
+        var typed = () => RestrictionAnalyzer.FindSites(new DnaSequence(string.Empty), "EcoRI").ToList();
+        var rawEmpty = () => RestrictionAnalyzer.FindSites(string.Empty, "EcoRI").ToList();
+        var rawNull = () => RestrictionAnalyzer.FindSites((string)null!, "EcoRI").ToList();
+
+        typed.Should().NotThrow("an empty sequence has no scan window; the forward bound is negative so the loop never runs");
+        rawEmpty.Should().NotThrow("the raw-string overload short-circuits empty input to an empty result");
+        rawNull.Should().NotThrow("the raw-string overload treats null input as empty, not as an error");
+
+        RestrictionAnalyzer.FindSites(new DnaSequence(string.Empty), "EcoRI").Should().BeEmpty();
+        RestrictionAnalyzer.FindSites(string.Empty, "EcoRI").Should().BeEmpty();
+        RestrictionAnalyzer.FindSites((string)null!, "EcoRI").Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// BE/INJ: a null DnaSequence is the boundary of "no typed input". The typed overload
+    /// guards it with ArgumentNullException (ThrowIfNull, line 129), raised eagerly at the
+    /// call — never a NullReferenceException dereferencing `sequence.Sequence`.
+    /// </summary>
+    [Test]
+    public void FindSites_NullDnaSequence_ThrowsArgumentNullException()
+    {
+        var act = () => RestrictionAnalyzer.FindSites((DnaSequence)null!, "EcoRI");
+
+        act.Should().Throw<ArgumentNullException>(
+            "the typed overload null-guards its sequence; null is rejected, never dereferenced into a NullReferenceException");
+    }
+
+    #endregion
+
+    #region BE — Recognition site longer than the sequence
+
+    /// <summary>
+    /// BE: a sequence SHORTER than the recognition site is the degenerate "site longer
+    /// than seq" case. NotI's site is 8 nt (GCGGCCGC); on a 3-nt sequence the scan bounds
+    /// `i <= len − patternLen` are negative on both strands, so neither loop runs and no
+    /// Substring is taken past the end — an empty result, never an IndexOutOfRangeException
+    /// (Restriction_Site_Detection.md §6.1). Pinned on both surfaces.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindSites_SiteLongerThanSequence_IsEmptyAndDoesNotThrow()
+    {
+        var typed = () => RestrictionAnalyzer.FindSites(new DnaSequence("ACG"), "NotI").ToList();
+        var raw = () => RestrictionAnalyzer.FindSites("ACG", "NotI").ToList();
+
+        typed.Should().NotThrow(
+            "the 8-nt NotI site cannot fit in a 3-nt sequence; the scan bound is negative so no Substring is taken past the end");
+        raw.Should().NotThrow("the raw-string overload is equally guarded against indexing past the sequence end");
+
+        RestrictionAnalyzer.FindSites(new DnaSequence("ACG"), "NotI").Should().BeEmpty(
+            "a recognition site longer than the whole sequence yields no sites, not a crash");
+        RestrictionAnalyzer.FindSites("ACG", "NotI").Should().BeEmpty();
+    }
+
+    #endregion
+
+    #region Positive sanity — known EcoRI sites are found at the correct positions
+
+    /// <summary>
+    /// Positive sanity: alongside the degenerate probes, a textbook EcoRI forward site
+    /// must be detected at the CORRECT position with the CORRECT cut position and matched
+    /// bases, so the boundary hardening never silently breaks the core function. EcoRI =
+    /// GAATTC, CutPositionForward = 1; in "AAAGAATTCAAA" the GAATTC window sits at index 3,
+    /// so the forward site has Position 3, RecognizedSequence "GAATTC", and CutPosition
+    /// 3 + 1 = 4 (INV-01, INV-02).
+    /// </summary>
+    [Test]
+    public void FindSites_KnownEcoRISite_DetectedAtCorrectPosition()
+    {
+        const string seq = "AAAGAATTCAAA"; // GAATTC at index 3
+
+        var forward = RestrictionAnalyzer.FindSites(seq, "EcoRI")
+            .Where(s => s.IsForwardStrand)
+            .ToList();
+
+        var site = forward.Should().ContainSingle(s => s.Position == 3).Subject;
+        site.RecognizedSequence.Should().Be("GAATTC", "INV-02: the matched bases are exactly the EcoRI recognition sequence");
+        site.RecognizedSequence.Length.Should().Be(site.Enzyme.RecognitionLength, "INV-02: matched length == recognition length");
+        site.CutPosition.Should().Be(4, "EcoRI cuts after the leading G: CutPosition = Position 3 + CutPositionForward 1");
+        site.Position.Should().BeInRange(0, seq.Length - 6, "INV-01: the site start is a valid window start");
+        site.Enzyme.Name.Should().Be("EcoRI");
+    }
+
+    /// <summary>
+    /// Positive sanity / INV-03: enzyme-name lookup is case-insensitive (the catalog uses
+    /// StringComparer.OrdinalIgnoreCase). The same GAATTC site must be found whether the
+    /// caller writes "EcoRI", "ecori", or "ECORI" — so a fuzzed-case name resolves to the
+    /// real enzyme rather than falling through to the unknown-enzyme throw.
+    /// </summary>
+    [Test]
+    public void FindSites_EnzymeNameLookup_IsCaseInsensitive()
+    {
+        const string seq = "AAAGAATTCAAA";
+
+        var lower = RestrictionAnalyzer.FindSites(seq, "ecori").Where(s => s.IsForwardStrand).ToList();
+        var upper = RestrictionAnalyzer.FindSites(seq, "ECORI").Where(s => s.IsForwardStrand).ToList();
+
+        lower.Should().ContainSingle(s => s.Position == 3,
+            "INV-03: 'ecori' resolves to EcoRI case-insensitively and finds the GAATTC site");
+        upper.Should().ContainSingle(s => s.Position == 3,
+            "INV-03: 'ECORI' resolves to EcoRI case-insensitively and finds the GAATTC site");
+    }
+
+    /// <summary>
+    /// Positive sanity: an IUPAC-degenerate enzyme exercises the ambiguity-matching path so
+    /// the boundary work does not break it. HincII = GTYRAC (Y = C/T, R = A/G). The window
+    /// "GTCGAC" satisfies GTYRAC (Y matches C, R matches G), so a forward HincII site is
+    /// found — proving the degenerate matcher is reached and correct, not bypassed.
+    /// </summary>
+    [Test]
+    public void FindSites_DegenerateIupacEnzyme_MatchesViaAmbiguityCodes()
+    {
+        const string seq = "AAAGTCGACAAA"; // GTCGAC at index 3 satisfies HincII GTYRAC
+
+        var forward = RestrictionAnalyzer.FindSites(seq, "HincII")
+            .Where(s => s.IsForwardStrand)
+            .ToList();
+
+        var site = forward.Should().ContainSingle(s => s.Position == 3).Subject;
+        site.RecognizedSequence.Should().Be("GTCGAC",
+            "GTCGAC satisfies the degenerate GTYRAC motif (Y=C, R=G) under IUPAC matching");
+        site.Enzyme.RecognitionSequence.Should().Be("GTYRAC");
     }
 
     #endregion
