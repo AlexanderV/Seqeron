@@ -195,7 +195,12 @@ public static class GenomeAnnotator
                 int endPos = sequence.Length - ((sequence.Length - start) % 3);
                 int orfAaLength = (endPos - start) / 3;
 
-                if (orfAaLength >= minLength)
+                // A trailing pending start that sits at (or past) the final codon
+                // boundary spans no codons (endPos == start): emitting it would yield a
+                // zero-length ORF with Start == End and an empty sequence/protein, which
+                // violates INV-04 (0 <= Start < End <= length, ORF_Detection.md §2.4) and
+                // is nonsense output. Such a segment is not an ORF, so skip it.
+                if (orfAaLength >= minLength && endPos > start)
                 {
                     string orfSeq = sequence.Substring(start, endPos - start);
                     string protein = Translator.Translate(orfSeq, geneticCode).Sequence;
