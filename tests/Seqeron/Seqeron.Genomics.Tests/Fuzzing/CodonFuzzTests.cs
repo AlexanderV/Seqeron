@@ -8,8 +8,9 @@ using Seqeron.Genomics.MolTools;
 namespace Seqeron.Genomics.Tests;
 
 /// <summary>
-/// Fuzz tests for the Codon area — codon optimization (CODON-OPT-001) and the
-/// Codon Adaptation Index (CODON-CAI-001).
+/// Fuzz tests for the Codon area — codon optimization (CODON-OPT-001), the
+/// Codon Adaptation Index (CODON-CAI-001), rare-codon detection (CODON-RARE-001)
+/// and the codon-usage table (CODON-USAGE-001).
 ///
 /// ───────────────────────────────────────────────────────────────────────────
 /// What fuzzing verifies
@@ -993,6 +994,210 @@ public class CodonFuzzTests
                 (Position: 3, Codon: "AGA", AminoAcid: "R", Frequency: 0.04),
                 "the partial codon is ignored, so the flagged set is exactly that of the trimmed prefix");
         rare.Should().OnlyContain(r => r.Position % 3 == 0, "INV-01: positions stay multiples of 3");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  CODON-USAGE-001 — codon usage table : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region CODON-USAGE-001 — codon usage
+
+    /// <summary>
+    /// Fuzz tests for CODON-USAGE-001 — the codon-usage table (raw codon counts).
+    /// Checklist: docs/checklists/03_FUZZING.md, row 61.
+    /// Fuzz strategy exercised for THIS unit:
+    ///   • BE = Boundary Exploitation — empty sequence, a sequence of length 1, a
+    ///          sequence of length 2 (the two partial-codon boundaries where no
+    ///          complete codon exists), and an extremely long sequence.
+    /// — docs/checklists/03_FUZZING.md §Description (strategy codes).
+    ///
+    /// ───────────────────────────────────────────────────────────────────────────
+    /// The codon-usage contract under test
+    /// ───────────────────────────────────────────────────────────────────────────
+    /// Codon usage tallies how often each codon appears in a coding sequence by
+    /// splitting it into non-overlapping in-frame triplets and counting each codon:
+    ///     Count(c) = |{ i : seq[3i : 3i+3] == c }|.[Plotkin &amp; Kudla 2011]
+    /// — docs/algorithms/Codon_Optimization/Codon_Usage_Analysis.md §2.2.
+    ///
+    /// API entry: CodonOptimizer.CalculateCodonUsage(string codingSequence)
+    ///   → Dictionary&lt;string,int&gt; of raw codon counts
+    ///   (src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs lines
+    ///   634–652).
+    ///
+    /// The method is LENIENT by documented design — it never throws on garbage; it
+    /// normalises, splits, and counts whatever it is given:
+    ///   • null OR empty input → returns an EMPTY dictionary via an explicit early
+    ///     return (CodonOptimizer.cs lines 638–639) — NOT a NullReferenceException,
+    ///     and critically NOT a DivideByZero: CalculateCodonUsage only COUNTS, it
+    ///     never normalises to frequencies, so there is no division at all on the
+    ///     count path. Codon_Usage_Analysis.md §6.1 (Empty → {}).
+    ///   • DNA input is upper-cased and `T` is replaced by `U` before splitting
+    ///     (line 641), so DNA / lowercase round-trip to RNA codons identically.
+    ///   • a sequence shorter than one codon (length 1 or 2) → SplitIntoCodons
+    ///     yields ZERO codons (loop guard `i + 2 &lt; length`, lines 690–693) → an
+    ///     EMPTY dictionary, with NO IndexOutOfRangeException from indexing a partial
+    ///     codon. This is the KEY partial-codon boundary. Codon_Usage_Analysis.md
+    ///     §6.1 (Incomplete trailing bases → Ignored), ASM-01.
+    ///   • input length NOT a multiple of 3 → the trailing 1–2 bases are likewise
+    ///     IGNORED; only complete triplets are counted.
+    ///
+    /// KEY THEORY INVARIANT this suite pins directly (Codon_Usage_Analysis.md §2.4
+    /// INV-01; tests/TestSpecs/CODON-USAGE-001.md S3):
+    ///   • INV-01: sum(counts.Values) == floor(normalizedLength / 3) — the counter
+    ///     increments EXACTLY once per extracted complete codon, so the total tally
+    ///     equals the number of complete codons. At the boundaries this means
+    ///     empty / len-1 / len-2 all give a total of 0 (an empty table), and a long
+    ///     sequence of K codons gives a total of exactly K. Every codon key is a
+    ///     length-3 triplet and every count is ≥ 1 (absent codons are NOT stored as
+    ///     zero entries — §5.2).
+    ///
+    /// Determinism note: CalculateCodonUsage is a pure function of the sequence with
+    /// no randomness; every test uses a FIXED input, so every assertion is
+    /// reproducible.
+    /// ───────────────────────────────────────────────────────────────────────────
+
+    #region Positive sanity — a known coding sequence yields the expected counts
+
+    /// <summary>
+    /// Positive sanity (KEY baseline): a well-formed coding sequence with known,
+    /// repeated codons yields the exact expected per-codon counts, and the total
+    /// equals floor(len/3) (INV-01). AUG·AUG·CUG·CUG·CUG·UAA = 6 codons → AUG×2,
+    /// CUG×3, UAA×1. DNA notation (ATG…) also exercises the T→U normalisation, so a
+    /// 'U'-keyed table is asserted from a 'T'-spelled input. This proves the boundary
+    /// targets below are measured against a working happy path, not a uniformly
+    /// broken counter.
+    /// </summary>
+    [Test]
+    public void CalculateCodonUsage_KnownCoding_CountsExactlyAndTotalsFloorLenOver3()
+    {
+        const string codingDna = "ATGATGCTGCTGCTGTAA"; // 18 bases = 6 codons
+
+        var usage = CodonOptimizer.CalculateCodonUsage(codingDna);
+
+        usage.Should().BeEquivalentTo(new Dictionary<string, int>
+        {
+            ["AUG"] = 2, // ATG → AUG, twice
+            ["CUG"] = 3, // CTG → CUG, three times
+            ["UAA"] = 1, // TAA → UAA, once (the stop codon is still counted)
+        }, "each complete triplet is counted once, with T→U normalisation");
+
+        // INV-01: the tally totals the number of complete codons = floor(len/3).
+        usage.Values.Sum().Should().Be(codingDna.Length / 3,
+            "sum(counts) == floor(len/3): the counter increments exactly once per codon (INV-01)");
+        usage.Values.Sum().Should().Be(6);
+        usage.Keys.Should().OnlyContain(c => c.Length == 3, "every codon key is a triplet");
+        usage.Values.Should().OnlyContain(v => v >= 1, "absent codons are not stored as zero entries");
+    }
+
+    #endregion
+
+    #region BE — Boundary: empty / null sequence (no codons → empty table, no div-by-zero)
+
+    /// <summary>
+    /// BE: empty string and null are the "no input" boundary. The documented contract
+    /// returns an EMPTY dictionary via an explicit early return (CodonOptimizer.cs
+    /// lines 638–639) — NOT a NullReferenceException, and critically NOT a
+    /// DivideByZeroException: the count path performs no normalisation, so there is no
+    /// division over zero codons. Pins that "no sequence" is a defined empty table
+    /// with total 0 (INV-01 at len 0), never a crash. Codon_Usage_Analysis.md §6.1.
+    /// </summary>
+    [TestCase(null, TestName = "CalculateCodonUsage_Null_IsEmptyNoThrow")]
+    [TestCase("", TestName = "CalculateCodonUsage_Empty_IsEmptyNoThrow")]
+    public void CalculateCodonUsage_NullOrEmpty_ReturnsEmptyTable(string? input)
+    {
+        Dictionary<string, int> usage = null!;
+        var act = () => usage = CodonOptimizer.CalculateCodonUsage(input!);
+
+        act.Should().NotThrow(
+            "null/empty is a defined no-op early return — never a NullReference, never a divide-by-zero");
+        usage.Should().BeEmpty("no codons exist, so the usage table is empty");
+        usage.Values.Sum().Should().Be(0, "INV-01: floor(0/3) == 0 — an empty table totals 0");
+    }
+
+    #endregion
+
+    #region BE — Boundary: length 1 and length 2 (partial codon, no complete codon)
+
+    /// <summary>
+    /// BE (KEY partial-codon boundary): a sequence of length 1 or length 2 has NO
+    /// complete codon. SplitIntoCodons yields zero codons (loop guard
+    /// `i + 2 &lt; length`, CodonOptimizer.cs lines 690–693), so the usage table is
+    /// EMPTY — and the trailing 1–2 leftover bases must NEVER trigger an
+    /// IndexOutOfRangeException from indexing a partial triplet. Covers length 1 and
+    /// length 2, in valid DNA, lowercase, and non-DNA characters, so the trim holds
+    /// regardless of alphabet. INV-01: floor(1/3) == floor(2/3) == 0.
+    /// </summary>
+    [TestCase("A", TestName = "CalculateCodonUsage_Len1_DnaBase_IsEmpty")]
+    [TestCase("AT", TestName = "CalculateCodonUsage_Len2_DnaBases_IsEmpty")]
+    [TestCase("g", TestName = "CalculateCodonUsage_Len1_Lowercase_IsEmpty")]
+    [TestCase("at", TestName = "CalculateCodonUsage_Len2_Lowercase_IsEmpty")]
+    [TestCase("Z", TestName = "CalculateCodonUsage_Len1_NonDna_IsEmpty")]
+    [TestCase("ZZ", TestName = "CalculateCodonUsage_Len2_NonDna_IsEmpty")]
+    public void CalculateCodonUsage_LengthOneOrTwo_NoCompleteCodon_IsEmpty(string input)
+    {
+        Dictionary<string, int> usage = null!;
+        var act = () => usage = CodonOptimizer.CalculateCodonUsage(input);
+
+        act.Should().NotThrow(
+            "a sub-codon input must yield zero codons, never index a partial triplet out of range");
+        usage.Should().BeEmpty("no complete codon exists at length 1 or 2, so nothing is counted");
+        usage.Values.Sum().Should().Be(input.Length / 3,
+            "INV-01: floor(len/3) == 0 for len 1 and 2 — the table totals 0");
+    }
+
+    /// <summary>
+    /// BE: a sequence whose length is NOT a multiple of 3 must IGNORE the trailing
+    /// partial codon (the +1/+2 leftover bases) — never index it out of range. The
+    /// counts over the complete prefix must be exactly those of the trimmed prefix,
+    /// and the total must equal floor(len/3) (INV-01). Covers a +1 and a +2 remainder
+    /// just past the first complete codon (lengths 4 and 5 → exactly one codon).
+    /// </summary>
+    [TestCase("AUGA", TestName = "CalculateCodonUsage_Len4_OneCodonPlusOne_CountsOne")]   // AUG + 'A'
+    [TestCase("AUGAU", TestName = "CalculateCodonUsage_Len5_OneCodonPlusTwo_CountsOne")]  // AUG + 'AU'
+    public void CalculateCodonUsage_LengthNotMultipleOf3_TrimsTrailingPartialCodon(string input)
+    {
+        Dictionary<string, int> usage = null!;
+        var act = () => usage = CodonOptimizer.CalculateCodonUsage(input);
+
+        act.Should().NotThrow("a trailing partial codon must be ignored, never cause IndexOutOfRange");
+        usage.Should().BeEquivalentTo(new Dictionary<string, int> { ["AUG"] = 1 },
+            "only the single complete codon AUG is counted; the trailing 1–2 bases are dropped");
+        usage.Values.Sum().Should().Be(input.Length / 3,
+            "INV-01: sum(counts) == floor(len/3) — the partial codon contributes nothing");
+    }
+
+    #endregion
+
+    #region BE/OVF — Boundary: extremely long sequence (no hang, INV-01 holds at scale)
+
+    /// <summary>
+    /// BE/OVF: an extremely long valid coding sequence (300,000 codons) must tally in
+    /// linear time without hanging, without overflow, and with INV-01 intact at scale:
+    /// the total count equals exactly the number of complete codons, floor(len/3).
+    /// A CancelAfter guards against a pathological hang. The input is the fixed repeat
+    /// "ATG" (→ AUG, Met) so the expected table is a single key with a known count,
+    /// making the assertion deterministic and the total exact.
+    /// </summary>
+    [Test]
+    [CancelAfter(60_000)]
+    public void CalculateCodonUsage_ExtremelyLong_StaysLinearAndTotalsFloorLenOver3()
+    {
+        const int codonCount = 300_000;
+        string coding = string.Concat(Enumerable.Repeat("ATG", codonCount)); // all AUG (Met)
+
+        Dictionary<string, int> usage = null!;
+        var act = () => usage = CodonOptimizer.CalculateCodonUsage(coding);
+
+        act.Should().NotThrow("a long valid sequence must not overflow or hang");
+        usage.Should().ContainKey("AUG").WhoseValue.Should().Be(codonCount,
+            "every one of the 300,000 ATG triplets normalises to AUG and is counted");
+        usage.Should().HaveCount(1, "the sequence is a single repeated codon, so one key");
+        usage.Values.Sum().Should().Be(coding.Length / 3,
+            "INV-01 holds at scale: sum(counts) == floor(len/3) == 300,000");
     }
 
     #endregion
