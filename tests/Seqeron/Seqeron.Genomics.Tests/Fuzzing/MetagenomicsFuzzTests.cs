@@ -121,6 +121,54 @@ namespace Seqeron.Genomics.Tests;
 ///   — docs/algorithms/Metagenomics/Alpha_Diversity.md §2.2, §2.4, §6.1.
 ///
 /// ───────────────────────────────────────────────────────────────────────────
+/// Unit: META-BETA-001 — beta diversity (Metagenomics)
+/// Checklist: docs/checklists/03_FUZZING.md, row 56.
+/// Fuzz strategy for THIS unit: BE = Boundary Exploitation.
+/// Fuzz targets (checklist row 56): identical samples, empty samples,
+/// single-species samples.
+///
+/// MetagenomicsAnalyzer.CalculateBetaDiversity takes TWO taxon→abundance maps
+/// and reports BETWEEN-sample dissimilarity as Bray-Curtis (abundance-sensitive)
+/// and Jaccard (presence/absence) distances, plus shared / sample-specific taxon
+/// counts. A taxon is "present" iff its abundance is strictly &gt; 0; missing keys
+/// default to 0. The boundary contract these fuzz tests pin (Beta_Diversity.md
+/// §2, §3.3, §6.1; CalculateBetaDiversity / CalculateBrayCurtis /
+/// CalculateJaccardDistance, lines 572–631):
+///   • Identical samples → d(a,a) = 0 for BOTH metrics (KEY): shared abundance
+///     equals half the total ⇒ Bray-Curtis = 1 − 2·(S/2)/S = 0 (INV-BRAY-02),
+///     and |A∩B| = |A∪B| ⇒ Jaccard = 0 (INV-JACCARD-02). — §6.1 (Identical).
+///   • Empty samples / all-zero abundances → the union has no positively-present
+///     taxon and the summed abundance is 0. KEY div-by-zero boundary: Bray-Curtis
+///     guards `sumTotal &gt; 0 ? … : 0` (line 624) and Jaccard guards `total &gt; 0
+///     ? … : 0` (line 630), so BOTH return 0 with NO DivideByZero on the empty
+///     union. — §3.3, §6.1 (Empty dictionaries or all-zero abundances).
+///   • Single-species samples →
+///       – same single species, equal abundance → identical ⇒ both 0;
+///       – same single species, different abundance → Jaccard = 0 (same set) but
+///         Bray-Curtis = |a−b|/(a+b) &gt; 0 (abundance-sensitive, §2.A);
+///       – two DIFFERENT single species → disjoint non-empty sets ⇒ no shared
+///         positive taxon ⇒ Bray-Curtis = 1 (INV-BRAY-03) and Jaccard = 1
+///         (INV-JACCARD-03), the maximal dissimilarity. — §6.1 (No shared taxa).
+///   • Symmetry: d(a,b) = d(b,a) for both metrics (the formulas are symmetric in
+///     the two samples — §2). All dissimilarities lie in [0, 1] (INV-BRAY-01,
+///     INV-JACCARD-01). UniFracDistance is a hard-coded 0 placeholder (§5.4).
+///
+/// NB — null guards: CalculateBetaDiversity does NOT null-check its sample maps
+/// (it dereferences `sample1.Keys` directly, line 578); a null map would throw a
+/// raw NullReferenceException. That is outside the documented BE contract for this
+/// row (empty/all-zero is the boundary, not null), so these tests pin the
+/// documented empty-map behavior and do not assert on null inputs.
+///
+/// Positive sanity: a known asymmetric pair pins EXACT Bray-Curtis and Jaccard
+/// against the documented formulas — sample1 {A:3, B:1} vs sample2 {A:1, C:3}:
+///   Bray-Curtis = 1 − 2·min-sum/total-sum = 1 − 2·1/8 = 0.75
+///     (Σmin = min(3,1)+min(1,0)+min(0,3) = 1; Σtotal = 4 + 4 = 8),
+///   Jaccard = 1 − shared/(shared+u1+u2) = 1 − 1/3 ≈ 0.6666… (A shared, B & C
+///     each unique) — so a passing "no crash" result cannot be a degenerate
+///     dissimilarity that returns 0 (or 1) for everything. Symmetry and
+///     identical→0 are checked alongside. — Beta_Diversity.md §2, §6.1.
+///
+/// ───────────────────────────────────────────────────────────────────────────
 /// Determinism
 /// ───────────────────────────────────────────────────────────────────────────
 /// All inputs are either hand-built or generated from a LOCALLY fixed-seed
@@ -938,6 +986,257 @@ public class MetagenomicsFuzzTests
         // Uniform-maximum sanity: H is strictly below the ln(2) achievable at even split.
         result.ShannonIndex.Should().BeLessThan(Math.Log(2),
             "an uneven 3:1 split has lower Shannon than the even-split maximum ln(2)");
+    }
+
+    #endregion
+
+    // ════════════════════════════════════════════════════════════════════════
+    //
+    //  META-BETA-001 — beta diversity (Metagenomics).
+    //  Checklist: docs/checklists/03_FUZZING.md, row 56. Strategy: BE.
+    //  Entry point: MetagenomicsAnalyzer.CalculateBetaDiversity
+    //      (string s1Name, IReadOnlyDictionary<string,double> s1,
+    //       string s2Name, IReadOnlyDictionary<string,double> s2).
+    //  Contract pinned below: Beta_Diversity.md §2, §3.3, §6.1.
+    //
+    //  Determinism: every input is hand-built or generated from a LOCALLY
+    //  fixed-seed `new Random(seed)`. No shared static Rng.
+    // ════════════════════════════════════════════════════════════════════════
+
+    #region META-BETA-001 — beta diversity
+
+    // ───────────────────────────────────────────────────────────────────────
+    // Fuzz target: IDENTICAL SAMPLES (BE) — the d(a,a) = 0 boundary (KEY).
+    // A sample compared with itself has zero dissimilarity in BOTH metrics:
+    // shared abundance is half the total ⇒ Bray-Curtis = 0 (INV-BRAY-02), and
+    // |A∩B| = |A∪B| ⇒ Jaccard = 0 (INV-JACCARD-02). Pinned for several profiles.
+    // — Beta_Diversity.md §6.1 (Identical samples).
+    // ───────────────────────────────────────────────────────────────────────
+    [Test]
+    public void CalculateBetaDiversity_IdenticalSamples_ZeroDissimilarity()
+    {
+        var profiles = new IReadOnlyDictionary<string, double>[]
+        {
+            new Dictionary<string, double> { ["E.coli"] = 10.0 },
+            new Dictionary<string, double> { ["E.coli"] = 3.0, ["S.enterica"] = 7.0 },
+            new Dictionary<string, double> { ["a"] = 1.0, ["b"] = 2.0, ["c"] = 3.0, ["d"] = 4.0 },
+            new Dictionary<string, double> { ["x"] = 0.001, ["y"] = 999.0 },
+        };
+
+        foreach (var p in profiles)
+        {
+            var r = MetagenomicsAnalyzer.CalculateBetaDiversity("s", p, "s-copy", p);
+
+            r.BrayCurtis.Should().BeApproximately(0.0, 1e-12,
+                "Bray-Curtis of a sample with itself is 0 — INV-BRAY-02 (d(a,a) = 0)");
+            r.JaccardDistance.Should().BeApproximately(0.0, 1e-12,
+                "Jaccard of identical species sets is 0 — INV-JACCARD-02");
+            r.SharedSpecies.Should().Be(p.Count(kv => kv.Value > 0),
+                "every positive-abundance taxon is shared with the identical copy");
+            r.UniqueToSample1.Should().Be(0, "nothing is unique when comparing a sample with itself");
+            r.UniqueToSample2.Should().Be(0);
+        }
+    }
+
+    // ───────────────────────────────────────────────────────────────────────
+    // Fuzz target: EMPTY / ALL-ZERO SAMPLES (BE) — the KEY div-by-zero boundary.
+    // An empty union (or all-zero abundances) has no positively-present taxon and
+    // a total abundance of 0. Both metrics GUARD their denominators and return 0
+    // with NO DivideByZeroException on the 0 denominator. — Beta_Diversity.md §3.3.
+    // ───────────────────────────────────────────────────────────────────────
+    [Test]
+    public void CalculateBetaDiversity_EmptyAndAllZeroSamples_DefinedZeroNoDivByZero()
+    {
+        var empty = new Dictionary<string, double>();
+        var allZero = new Dictionary<string, double> { ["a"] = 0.0, ["b"] = 0.0, ["c"] = -2.0 };
+        var nonEmpty = new Dictionary<string, double> { ["a"] = 5.0, ["b"] = 1.0 };
+
+        // empty vs empty, all-zero vs all-zero, empty vs all-zero — every pairing
+        // of "no informative comparison" must return 0/0 without dividing by zero.
+        var noInfoPairs = new[]
+        {
+            (empty, empty),
+            (allZero, allZero),
+            (empty, allZero),
+            (allZero, empty),
+        };
+
+        foreach (var (a, b) in noInfoPairs)
+        {
+            MetagenomicsAnalyzer.BetaDiversity r = default;
+            Action act = () => r = MetagenomicsAnalyzer.CalculateBetaDiversity("a", a, "b", b);
+
+            act.Should().NotThrow(
+                "an empty / all-zero union must guard both denominators — no DivideByZero (§3.3)");
+
+            r.BrayCurtis.Should().Be(0.0,
+                "Σtotal = 0 ⇒ Bray-Curtis guard returns 0, never NaN or a division by zero");
+            r.JaccardDistance.Should().Be(0.0,
+                "the union has no positive taxon ⇒ Jaccard guard returns 0");
+            r.SharedSpecies.Should().Be(0);
+            r.UniqueToSample1.Should().Be(0);
+            r.UniqueToSample2.Should().Be(0);
+        }
+
+        // A populated sample vs an empty one: no shared positive taxon, but the
+        // populated side has positive total abundance ⇒ MAXIMAL dissimilarity 1,
+        // still with no divide-by-zero. — INV-BRAY-03 / INV-JACCARD-03.
+        var rMax = MetagenomicsAnalyzer.CalculateBetaDiversity("full", nonEmpty, "empty", empty);
+        rMax.BrayCurtis.Should().BeApproximately(1.0, 1e-12,
+            "no shared abundance but positive total ⇒ Bray-Curtis = 1 — INV-BRAY-03");
+        rMax.JaccardDistance.Should().BeApproximately(1.0, 1e-12,
+            "disjoint non-empty sets ⇒ Jaccard = 1 — INV-JACCARD-03");
+        rMax.UniqueToSample1.Should().Be(2, "both taxa are unique to the populated sample");
+        rMax.UniqueToSample2.Should().Be(0);
+        rMax.SharedSpecies.Should().Be(0);
+    }
+
+    // ───────────────────────────────────────────────────────────────────────
+    // Fuzz target: SINGLE-SPECIES SAMPLES (BE).
+    //   • same species, equal abundance  → identical ⇒ both metrics 0;
+    //   • same species, different abundance → Jaccard = 0 (same set) but
+    //     Bray-Curtis = |a−b|/(a+b) > 0 (abundance-sensitive, §2.A);
+    //   • two DIFFERENT single species → disjoint non-empty ⇒ both metrics 1.
+    // — Beta_Diversity.md §6.1.
+    // ───────────────────────────────────────────────────────────────────────
+    [Test]
+    public void CalculateBetaDiversity_SingleSpeciesSamples_DefinedAcrossTheBoundary()
+    {
+        // (a) Same single species, equal abundance → identical → 0 / 0.
+        var sameEqualA = new Dictionary<string, double> { ["sp"] = 4.0 };
+        var sameEqualB = new Dictionary<string, double> { ["sp"] = 4.0 };
+        var rEqual = MetagenomicsAnalyzer.CalculateBetaDiversity("a", sameEqualA, "b", sameEqualB);
+        rEqual.BrayCurtis.Should().BeApproximately(0.0, 1e-12, "identical single-species samples ⇒ 0");
+        rEqual.JaccardDistance.Should().BeApproximately(0.0, 1e-12);
+        rEqual.SharedSpecies.Should().Be(1);
+
+        // (b) Same single species, different abundance → same SET (Jaccard 0) but
+        //     Bray-Curtis = |3−1|/(3+1) = 0.5 (abundance-sensitive).
+        var sameDiffA = new Dictionary<string, double> { ["sp"] = 3.0 };
+        var sameDiffB = new Dictionary<string, double> { ["sp"] = 1.0 };
+        var rDiff = MetagenomicsAnalyzer.CalculateBetaDiversity("a", sameDiffA, "b", sameDiffB);
+        rDiff.JaccardDistance.Should().BeApproximately(0.0, 1e-12,
+            "the presence/absence set is identical ⇒ Jaccard 0, even at different abundance");
+        rDiff.BrayCurtis.Should().BeApproximately(0.5, 1e-12,
+            "Bray-Curtis = 1 − 2·min(3,1)/(3+1) = 1 − 2·1/4 = 0.5 (abundance-sensitive, §2.A)");
+        rDiff.SharedSpecies.Should().Be(1, "the single species is present in both");
+
+        // (c) Two DIFFERENT single species → disjoint non-empty ⇒ maximal 1 / 1.
+        var spX = new Dictionary<string, double> { ["X"] = 5.0 };
+        var spY = new Dictionary<string, double> { ["Y"] = 5.0 };
+        var rDisjoint = MetagenomicsAnalyzer.CalculateBetaDiversity("a", spX, "b", spY);
+        rDisjoint.BrayCurtis.Should().BeApproximately(1.0, 1e-12,
+            "no shared taxon, positive total ⇒ Bray-Curtis 1 — INV-BRAY-03");
+        rDisjoint.JaccardDistance.Should().BeApproximately(1.0, 1e-12,
+            "disjoint non-empty single-species sets ⇒ Jaccard 1 — INV-JACCARD-03");
+        rDisjoint.SharedSpecies.Should().Be(0);
+        rDisjoint.UniqueToSample1.Should().Be(1);
+        rDisjoint.UniqueToSample2.Should().Be(1);
+    }
+
+    // ───────────────────────────────────────────────────────────────────────
+    // Fuzz target: random non-negative pairs (BE) under a time budget.
+    // A deterministic, locally-seeded generator builds pairs of maps mixing
+    // zeros and positive abundances over overlapping taxon universes. Every
+    // result must be well-formed: both metrics finite and in [0, 1], SYMMETRIC
+    // (d(a,b) = d(b,a)), zero on the diagonal (d(a,a) = 0), and never a
+    // divide-by-zero — regardless of how sparse / empty the inputs happen to be.
+    // ───────────────────────────────────────────────────────────────────────
+    [Test]
+    [CancelAfter(30000)]
+    public void CalculateBetaDiversity_RandomPairs_SymmetricInRangeZeroDiagonal()
+    {
+        var rng = new Random(20260620); // locally fixed seed — deterministic
+        var taxa = new[] { "t0", "t1", "t2", "t3", "t4" };
+
+        Dictionary<string, double> RandomSample()
+        {
+            var map = new Dictionary<string, double>();
+            foreach (var t in taxa)
+            {
+                // ~40% absent, else a mix of zeros (absent) and positive magnitudes.
+                if (rng.Next(5) == 0) continue;
+                map[t] = rng.Next(3) switch
+                {
+                    0 => 0.0,                         // present key, but absent (≤ 0)
+                    _ => rng.NextDouble() * 100.0,    // positive abundance
+                };
+            }
+            return map;
+        }
+
+        for (int iter = 0; iter < 500; iter++)
+        {
+            var a = RandomSample();
+            var b = RandomSample();
+
+            MetagenomicsAnalyzer.BetaDiversity rab = default, rba = default, raa = default;
+            Action act = () =>
+            {
+                rab = MetagenomicsAnalyzer.CalculateBetaDiversity("a", a, "b", b);
+                rba = MetagenomicsAnalyzer.CalculateBetaDiversity("b", b, "a", a);
+                raa = MetagenomicsAnalyzer.CalculateBetaDiversity("a", a, "a", a);
+            };
+            act.Should().NotThrow($"iteration {iter} must not crash or divide by zero");
+
+            foreach (var d in new[] { rab.BrayCurtis, rab.JaccardDistance })
+            {
+                double.IsNaN(d).Should().BeFalse("dissimilarity is never NaN");
+                double.IsInfinity(d).Should().BeFalse();
+                d.Should().BeInRange(0.0, 1.0, "every dissimilarity lies in [0, 1]");
+            }
+
+            rab.BrayCurtis.Should().BeApproximately(rba.BrayCurtis, 1e-12,
+                "Bray-Curtis is symmetric: d(a,b) = d(b,a)");
+            rab.JaccardDistance.Should().BeApproximately(rba.JaccardDistance, 1e-12,
+                "Jaccard is symmetric: d(a,b) = d(b,a)");
+
+            raa.BrayCurtis.Should().BeApproximately(0.0, 1e-12, "d(a,a) = 0 — Bray-Curtis");
+            raa.JaccardDistance.Should().BeApproximately(0.0, 1e-12, "d(a,a) = 0 — Jaccard");
+
+            // SharedSpecies counts only taxa positive in BOTH samples.
+            int expectedShared = taxa.Count(t =>
+                a.GetValueOrDefault(t) > 0 && b.GetValueOrDefault(t) > 0);
+            rab.SharedSpecies.Should().Be(expectedShared,
+                "SharedSpecies = taxa with strictly positive abundance in both samples");
+        }
+    }
+
+    // ───────────────────────────────────────────────────────────────────────
+    // Positive sanity: a known asymmetric pair pins EXACT Bray-Curtis and Jaccard
+    // against the documented formulas, guarding against a degenerate dissimilarity
+    // that returns a constant (0 or 1) everywhere.
+    //   s1 {A:3, B:1}  vs  s2 {A:1, C:3}
+    //   Bray-Curtis = 1 − 2·(min(3,1)+min(1,0)+min(0,3)) / (4+4) = 1 − 2·1/8 = 0.75
+    //   Jaccard     = 1 − shared/(shared+u1+u2) = 1 − 1/3 ≈ 0.6666…  (A shared)
+    // ───────────────────────────────────────────────────────────────────────
+    [Test]
+    public void CalculateBetaDiversity_KnownAsymmetricPair_ExactBrayCurtisAndJaccard()
+    {
+        var s1 = new Dictionary<string, double> { ["A"] = 3.0, ["B"] = 1.0 };
+        var s2 = new Dictionary<string, double> { ["A"] = 1.0, ["C"] = 3.0 };
+
+        var r = MetagenomicsAnalyzer.CalculateBetaDiversity("s1", s1, "s2", s2);
+
+        r.BrayCurtis.Should().BeApproximately(0.75, 1e-12,
+            "1 − 2·Σmin/Σtotal = 1 − 2·1/8 = 0.75 (Σmin = 1, Σtotal = 8)");
+        r.JaccardDistance.Should().BeApproximately(1.0 - 1.0 / 3.0, 1e-12,
+            "1 − shared/(shared+u1+u2) = 1 − 1/3 (A shared; B, C each unique)");
+
+        r.SharedSpecies.Should().Be(1, "only A is positive in both samples");
+        r.UniqueToSample1.Should().Be(1, "B is unique to sample 1");
+        r.UniqueToSample2.Should().Be(1, "C is unique to sample 2");
+
+        // Non-degenerate: strictly between the identical (0) and disjoint (1) extremes.
+        r.BrayCurtis.Should().BeInRange(0.0, 1.0).And.BeGreaterThan(0.0).And.BeLessThan(1.0);
+        r.JaccardDistance.Should().BeInRange(0.0, 1.0).And.BeGreaterThan(0.0).And.BeLessThan(1.0);
+
+        // Symmetry on the pinned pair: d(s1,s2) = d(s2,s1).
+        var swapped = MetagenomicsAnalyzer.CalculateBetaDiversity("s2", s2, "s1", s1);
+        swapped.BrayCurtis.Should().BeApproximately(r.BrayCurtis, 1e-12);
+        swapped.JaccardDistance.Should().BeApproximately(r.JaccardDistance, 1e-12);
+
+        r.UniFracDistance.Should().Be(0.0, "UniFrac is a hard-coded 0 placeholder — §5.4");
     }
 
     #endregion
