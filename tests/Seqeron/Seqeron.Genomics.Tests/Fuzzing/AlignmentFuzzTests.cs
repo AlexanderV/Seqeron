@@ -185,6 +185,66 @@ namespace Seqeron.Genomics.Tests;
 /// in earlier hand-checked cases because the suffixes there were homopolymers/palindromic.
 /// FIX: append the trailing suffix in REVERSE order so the final reverse restores forward
 /// reference order. The cases below (distinct, non-palindromic suffixes) pin the fix.
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: ALIGN-MULTI-001 — multiple sequence alignment (Alignment)
+/// Checklist: docs/checklists/03_FUZZING.md, row 38 (the LAST Alignment-area unit).
+/// Fuzz strategy exercised for THIS unit:
+///   • BE = Boundary Exploitation — the size boundaries of the COLLECTION input to the
+///          MSA: an empty list, a single sequence, exactly two sequences, 100+
+///          sequences (the heuristic must complete in bounded time — kept SHORT), and
+///          a collection of length-1 sequences. These probe the degenerate trivial
+///          paths, the center-selection + anchor reconciliation heuristic at scale, and
+///          the zero-/one-length sequence corners of the gap-merge/padding stage.
+/// — docs/checklists/03_FUZZING.md §Description (strategy code BE).
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The multiple-sequence-alignment (center-star) contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// `SequenceAligner.MultipleAlign(IEnumerable&lt;DnaSequence&gt;, ScoringMatrix?)` aligns
+/// N validated DNA sequences into rows of EQUAL length by inserting gap characters,
+/// using a simplified CENTER-STAR heuristic: select one center by 4-mer cosine
+/// similarity, align every other sequence to it with the anchor-based pairwise aligner,
+/// reconcile the independent gap patterns into one coordinate system, pad all rows to
+/// equal length, build a majority-vote consensus, and report a sum-of-pairs (SP) score.
+/// Returns a MultipleAlignmentResult(AlignedSequences[], Consensus, TotalScore).
+///   — docs/algorithms/Alignment/Multiple_Sequence_Alignment.md §1, §2.2, §4.1, §5.2.
+///     Sources: Multiple sequence alignment; Clustal; Consensus sequence (Wikipedia).
+///
+/// KEY STRUCTURAL INVARIANTS asserted across the fuzz fodder (the MSA contract that must
+/// never silently break — Multiple_Sequence_Alignment.md §2.4):
+///   • M-INV-01 — ALL output rows have the SAME length (the defining MSA representation;
+///     gaps pad every row into one coordinate system). This is the KEY invariant.
+///   • M-INV-02 — removing the gap character '-' from each output row reproduces the
+///     corresponding (upper-cased) input sequence exactly (the algorithm only inserts
+///     gaps; it never rewrites or reorders a base — content + order preserved).
+///   • M-INV-03 — no output column consists ENTIRELY of gaps (a structural MSA validity
+///     condition: an all-gap column carries no information and is excluded).
+///   • M-INV-04 — Consensus.Length equals the aligned row length (the consensus is built
+///     one column at a time across the final rows).
+///   • M-INV-COUNT — the number of output rows equals the number of input sequences
+///     (count preservation; no sequence is dropped or duplicated).
+///
+/// DOCUMENTED BOUNDARY behaviour (pinned so the trivial-case fast paths cannot drift —
+/// Multiple_Sequence_Alignment.md §3.3, §6.1):
+///   • Null collection → ArgumentNullException (the ThrowIfNull guard), NOT a downstream
+///     NullReferenceException while enumerating.
+///   • Empty collection → MultipleAlignmentResult.Empty (empty rows, empty consensus,
+///     TotalScore 0) — an explicit early return, never an IndexOutOfRange on Max() over
+///     an empty row set.
+///   • Single sequence → that one row UNCHANGED as both the sole aligned row and the
+///     consensus, with TotalScore = 0 (no pairs to score) — no gaps are introduced.
+///   • Two sequences → a well-formed 2-row MSA consistent with the pairwise path; equal
+///     row lengths, gap-stripping recovers both inputs.
+///   • 100+ sequences (kept SHORT, length 5–20) → the center-star heuristic COMPLETES
+///     within a CancelAfter budget (no hang, no OutOfMemory on the O(k²·L) center
+///     selection + parallel reconciliation) and still satisfies every M-INV.
+///   • Length-1 sequences / empty sequences inside the collection → handled without
+///     rejecting the whole alignment; rows stay equal length and gap-strip back to their
+///     (possibly empty) inputs.
+/// All inputs here are validated DNA (the strict DnaSequence surface); randomness (where
+/// used) is from the fixture's locally fixed-seed Rng so the fuzz fodder is reproducible
+/// and adding tests cannot perturb any other fixture.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -353,6 +413,52 @@ public class AlignmentFuzzTests
         }
         result.Score.Should().Be(recomputed,
             "S-INV-04: the fitting score equals the per-column linear-model sum over the fitted body, with leading/trailing reference end-gaps free");
+    }
+
+    /// <summary>
+    /// Asserts the multiple-sequence-alignment structural invariants against the raw
+    /// (upper-cased) input sequences the aligner actually consumed: count preservation
+    /// (one output row per input, M-INV-COUNT); ALL rows share one length (M-INV-01, the
+    /// KEY MSA invariant); each gap-stripped row reproduces the corresponding input
+    /// (M-INV-02, content + order preserved); no column is entirely gaps (M-INV-03); and
+    /// Consensus.Length equals the aligned row length (M-INV-04). Used by every non-empty
+    /// MSA fuzz case. — docs/algorithms/Alignment/Multiple_Sequence_Alignment.md §2.4.
+    /// </summary>
+    private static void AssertMsaInvariants(MultipleAlignmentResult result, string[] inputs)
+    {
+        string[] rows = result.AlignedSequences;
+
+        // M-INV-COUNT: one output row per input, no sequence dropped or duplicated.
+        rows.Length.Should().Be(inputs.Length,
+            "M-INV-COUNT: the MSA emits exactly one aligned row per input sequence");
+
+        // M-INV-01 (KEY): every aligned row has the SAME length — one coordinate system.
+        // (Vacuous for an empty MSA, which has no rows.)
+        if (rows.Length > 0)
+            rows.Select(r => r.Length).Distinct().Should().HaveCount(1,
+                "M-INV-01: all aligned rows of an MSA share one common length (the defining representation)");
+        int length = rows.Length == 0 ? 0 : rows[0].Length;
+
+        // M-INV-02: gap-stripping each row reproduces its (upper-cased) input exactly.
+        for (int i = 0; i < rows.Length; i++)
+        {
+            string expected = inputs[i].ToUpperInvariant();
+            new string(rows[i].Where(c => c != '-').ToArray())
+                .Should().Be(expected,
+                    "M-INV-02: gap-stripping aligned row {0} reproduces input {0} (gaps inserted, bases never rewritten/reordered)", i);
+        }
+
+        // M-INV-03: no output column consists entirely of gaps (MSA validity condition).
+        for (int col = 0; col < length; col++)
+        {
+            bool allGaps = rows.All(r => col >= r.Length || r[col] == '-');
+            allGaps.Should().BeFalse(
+                "M-INV-03: column {0} must not consist entirely of gaps", col);
+        }
+
+        // M-INV-04: the consensus is built one column per aligned row position.
+        result.Consensus.Length.Should().Be(length,
+            "M-INV-04: Consensus.Length equals the aligned row length");
     }
 
     #endregion
@@ -1243,6 +1349,290 @@ public class AlignmentFuzzTests
         new string(result.AlignedSequence2.Where(c => c != '-').ToArray())
             .Should().Be(reference, "the gap-stripped reference side is the full reference in order");
         AssertSemiGlobalInvariants(result, query, reference, scoring);
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  ALIGN-MULTI-001 — multiple sequence alignment (center-star) : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region ALIGN-MULTI-001 — multiple sequence alignment
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Fuzz target: empty list
+    // ───────────────────────────────────────────────────────────────────
+
+    #region BE — Boundary: empty list (trivial Empty result)
+
+    /// <summary>
+    /// BE: an empty collection is the lowest size boundary of the MSA input. It must
+    /// return MultipleAlignmentResult.Empty via the explicit early return — empty rows,
+    /// empty consensus, TotalScore 0 — never an IndexOutOfRange from a Max() over an empty
+    /// row set or a NullReference while enumerating
+    /// (Multiple_Sequence_Alignment.md §3.3, §6.1). M-INV-* hold vacuously (zero rows).
+    /// </summary>
+    [Test]
+    public void MultipleAlign_EmptyList_ReturnsEmptyResult()
+    {
+        var act = () => SequenceAligner.MultipleAlign(Array.Empty<DnaSequence>());
+
+        act.Should().NotThrow("an empty collection is a defined boundary, not a crash");
+        var result = act();
+
+        result.Should().Be(MultipleAlignmentResult.Empty,
+            "an empty collection returns the Empty MSA sentinel (explicit early return)");
+        result.AlignedSequences.Should().BeEmpty("there are no sequences to align");
+        result.Consensus.Should().BeEmpty("an empty MSA has no consensus");
+        result.TotalScore.Should().Be(0, "an empty MSA has no columns to score");
+        AssertMsaInvariants(result, Array.Empty<string>());
+    }
+
+    /// <summary>
+    /// BE: a null collection is the documented validation gate — it must throw
+    /// ArgumentNullException (the ThrowIfNull guard, Multiple_Sequence_Alignment.md §6.1),
+    /// NOT a NullReferenceException from a downstream enumeration.
+    /// </summary>
+    [Test]
+    public void MultipleAlign_NullCollection_ThrowsArgumentNullException()
+    {
+        var act = () => SequenceAligner.MultipleAlign(null!);
+
+        act.Should().Throw<ArgumentNullException>(
+            "a null collection hits the documented null gate, not a raw dereference");
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Fuzz target: single sequence (trivial unchanged row)
+    // ───────────────────────────────────────────────────────────────────
+
+    #region BE — Boundary: single sequence (trivially that one row)
+
+    /// <summary>
+    /// BE: a single-sequence collection is the trivial MSA — the algorithm short-circuits
+    /// before any center-selection/anchor work and returns that one sequence UNCHANGED as
+    /// both the sole aligned row and the consensus, with TotalScore 0 (no pairs to score),
+    /// no gaps introduced (Multiple_Sequence_Alignment.md §3.3, §6.1). Pinned across a
+    /// short, a long, and a homopolymer single input. M-INV-* hold.
+    /// </summary>
+    [TestCase("A", TestName = "MultipleAlign_Single_SingleBase")]
+    [TestCase("ATGCATGC", TestName = "MultipleAlign_Single_Len8")]
+    [TestCase("AAAAAAAA", TestName = "MultipleAlign_Single_Homopolymer")]
+    public void MultipleAlign_SingleSequence_IsTriviallyThatRowUnchanged(string seq)
+    {
+        string upper = seq.ToUpperInvariant();
+
+        var result = SequenceAligner.MultipleAlign(new[] { new DnaSequence(seq) });
+
+        result.AlignedSequences.Should().HaveCount(1, "a single input yields a single aligned row");
+        result.AlignedSequences[0].Should().Be(upper, "the single row is the input unchanged (no gaps needed)");
+        result.AlignedSequences[0].Should().NotContain("-", "a single sequence needs no gaps");
+        result.Consensus.Should().Be(upper, "the consensus of one sequence is that sequence");
+        result.TotalScore.Should().Be(0, "a single sequence has no pairs to score");
+        AssertMsaInvariants(result, new[] { seq });
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Fuzz target: 2 sequences (minimal non-trivial MSA)
+    // ───────────────────────────────────────────────────────────────────
+
+    #region BE — Boundary: two sequences (minimal non-trivial MSA)
+
+    /// <summary>
+    /// BE: exactly two sequences is the minimal non-trivial MSA — equal row lengths,
+    /// gap-stripping recovers both inputs, count preserved, no all-gap column. Pinned for
+    /// identical inputs (gap-free, both rows equal), different-length inputs (the shorter
+    /// padded with gaps), and partially overlapping inputs
+    /// (Multiple_Sequence_Alignment.md §6.1). M-INV-* hold across all three.
+    /// </summary>
+    [TestCase("ATGC", "ATGC", TestName = "MultipleAlign_Two_Identical")]
+    [TestCase("ATGCATGC", "ATGC", TestName = "MultipleAlign_Two_DifferentLengths")]
+    [TestCase("ATGCATGC", "GCATGCAT", TestName = "MultipleAlign_Two_PartiallyOverlapping")]
+    [TestCase("AAAA", "TTTT", TestName = "MultipleAlign_Two_NoSharedBase")]
+    public void MultipleAlign_TwoSequences_IsWellFormedMsa(string a, string b)
+    {
+        var result = SequenceAligner.MultipleAlign(new[] { new DnaSequence(a), new DnaSequence(b) });
+
+        result.AlignedSequences.Should().HaveCount(2, "two inputs yield two aligned rows");
+        AssertMsaInvariants(result, new[] { a, b });
+
+        // Identical inputs align to identical, gap-free rows.
+        if (a == b)
+        {
+            result.AlignedSequences[0].Should().Be(result.AlignedSequences[1],
+                "identical inputs produce identical aligned rows");
+            result.AlignedSequences[0].Should().NotContain("-",
+                "identical inputs need no gaps");
+        }
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Fuzz target: 100+ sequences (heuristic must complete bounded)
+    // ───────────────────────────────────────────────────────────────────
+
+    #region BE — Boundary: 100+ short sequences (no hang, no OOM)
+
+    /// <summary>
+    /// BE: 100+ sequences stress the O(k²·L) center selection and the parallel anchor
+    /// reconciliation. Kept SHORT (length 5–20) so the heuristic completes well within the
+    /// CancelAfter budget (no hang, no OutOfMemory) and still satisfies every M-INV on the
+    /// random fixed-seed inputs (Multiple_Sequence_Alignment.md §4.3 complexity, §5.2).
+    /// Exercised on diverse random sequences AND on a 100-row all-identical set (the case
+    /// where the reconciliation must keep every row gap-free and equal).
+    /// </summary>
+    [Test]
+    [CancelAfter(30000)]
+    public void MultipleAlign_ManyShortSequences_CompletesAndHoldsInvariants()
+    {
+        // 120 diverse short sequences (length 5–20) from the fixture's fixed-seed Rng.
+        var inputs = Enumerable.Range(0, 120)
+            .Select(_ => RandomDna(Rng.Next(5, 21)))
+            .ToArray();
+        var seqs = inputs.Select(s => new DnaSequence(s)).ToArray();
+
+        var act = () => SequenceAligner.MultipleAlign(seqs);
+        act.Should().NotThrow("100+ short sequences must align without crashing");
+
+        var result = act();
+        result.AlignedSequences.Should().HaveCount(120, "count is preserved at scale");
+        AssertMsaInvariants(result, inputs);
+
+        // 100 identical short sequences: every row equals the input, gap-free.
+        const string same = "ACGTACGT";
+        var identical = Enumerable.Range(0, 100).Select(_ => new DnaSequence(same)).ToArray();
+        var identicalResult = SequenceAligner.MultipleAlign(identical);
+        identicalResult.AlignedSequences.Should().HaveCount(100, "count preserved for the identical set");
+        identicalResult.AlignedSequences.Should().OnlyContain(r => r == same,
+            "100 identical inputs align to 100 identical, gap-free rows");
+        AssertMsaInvariants(identicalResult, Enumerable.Repeat(same, 100).ToArray());
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Fuzz target: sequences of length 1 (and empty sequences in the set)
+    // ───────────────────────────────────────────────────────────────────
+
+    #region BE — Boundary: length-1 sequences and empty sequences in the set
+
+    /// <summary>
+    /// BE: a collection of length-1 sequences is the degenerate per-sequence size corner.
+    /// The MSA must still produce equal-length rows that gap-strip back to each single
+    /// base, with count preserved and no all-gap column
+    /// (Multiple_Sequence_Alignment.md §6.1). Pinned for all-equal single bases (the
+    /// trivial single-column MSA) and for a mix of distinct single bases.
+    /// </summary>
+    private static readonly string[][] LengthOneCases =
+    {
+        new[] { "A", "A", "A" },
+        new[] { "A", "C", "G", "T" },
+        new[] { "A", "A", "C", "C", "G" },
+    };
+
+    [TestCaseSource(nameof(LengthOneCases))]
+    public void MultipleAlign_LengthOneSequences_AreWellFormedMsa(string[] inputs)
+    {
+        var seqs = inputs.Select(s => new DnaSequence(s)).ToArray();
+
+        var act = () => SequenceAligner.MultipleAlign(seqs);
+        act.Should().NotThrow("length-1 sequences are a defined boundary, not a crash");
+
+        var result = act();
+        result.AlignedSequences.Should().HaveCount(inputs.Length, "count is preserved");
+        AssertMsaInvariants(result, inputs);
+    }
+
+    /// <summary>
+    /// BE: empty sequences inside the collection (DnaSequence allows the empty string) must
+    /// be handled WITHOUT rejecting the whole alignment — equal row lengths, the empty
+    /// rows gap-strip to "", the non-empty rows recover their inputs, and no column is all
+    /// gaps (Multiple_Sequence_Alignment.md §3.3, §6.1). Pinned with one and several empty
+    /// sequences mixed among non-empty ones, and the all-empty extreme.
+    /// </summary>
+    private static readonly string[][] EmptyInCollectionCases =
+    {
+        new[] { "ATGC", "", "ATGC" },
+        new[] { "", "ATGC", "", "GCAT" },
+        new[] { "", "", "" },
+    };
+
+    [TestCaseSource(nameof(EmptyInCollectionCases))]
+    public void MultipleAlign_EmptySequencesInCollection_HandledGracefully(string[] inputs)
+    {
+        var seqs = inputs.Select(s => new DnaSequence(s)).ToArray();
+
+        var act = () => SequenceAligner.MultipleAlign(seqs);
+        act.Should().NotThrow("empty sequences inside the collection must not crash the MSA");
+
+        var result = act();
+        result.AlignedSequences.Should().HaveCount(inputs.Length, "count is preserved");
+
+        // All-empty inputs collapse to zero-length rows; M-INV-* still hold (no columns).
+        AssertMsaInvariants(result, inputs);
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Positive sanity: a few related sequences align to equal-length, recoverable rows
+    // ───────────────────────────────────────────────────────────────────
+
+    #region Positive sanity — related sequences align to recoverable equal-length rows
+
+    /// <summary>
+    /// Positive sanity: three related sequences that differ only by a single internal
+    /// deletion align into one common coordinate system. The shorter sequence is padded
+    /// with a gap, every row has equal length, gap-stripping each row recovers its exact
+    /// input, the consensus length matches the rows, and the SP TotalScore is the
+    /// independently recomputed sum-of-pairs over the final columns. This proves the fuzz
+    /// harness asserts a real, theory-correct MSA — equal-length rows that gap-strip back
+    /// to the inputs with a consistent score — not merely "did not crash".
+    /// — Multiple_Sequence_Alignment.md §2.2 (SP score), §2.4.
+    /// </summary>
+    [Test]
+    public void MultipleAlign_RelatedSequences_AlignToRecoverableEqualLengthRows()
+    {
+        var scoring = SequenceAligner.SimpleDna;
+        var inputs = new[] { "ATGCATGC", "ATGCATGC", "ATGATGC" }; // third drops the 4th base
+        var seqs = inputs.Select(s => new DnaSequence(s)).ToArray();
+
+        var result = SequenceAligner.MultipleAlign(seqs, scoring);
+
+        AssertMsaInvariants(result, inputs);
+
+        // At least one row must carry a gap (the shorter sequence is padded into place).
+        result.AlignedSequences.Any(r => r.Contains('-'))
+            .Should().BeTrue("the shorter related sequence is padded with a gap into the common layout");
+
+        // The public SP TotalScore equals an independent column-based recomputation
+        // (match/mismatch from the matrix, gap-vs-base = GapExtend, gap-vs-gap = 0).
+        string[] rows = result.AlignedSequences;
+        int width = rows[0].Length;
+        int recomputed = 0;
+        for (int col = 0; col < width; col++)
+            for (int i = 0; i < rows.Length; i++)
+                for (int j = i + 1; j < rows.Length; j++)
+                {
+                    char x = rows[i][col];
+                    char y = rows[j][col];
+                    if (x == '-' && y == '-')
+                        recomputed += 0;
+                    else if (x == '-' || y == '-')
+                        recomputed += scoring.GapExtend;
+                    else
+                        recomputed += x == y ? scoring.Match : scoring.Mismatch;
+                }
+
+        result.TotalScore.Should().Be(recomputed,
+            "TotalScore is the sum-of-pairs score recomputed over the final alignment columns");
     }
 
     #endregion

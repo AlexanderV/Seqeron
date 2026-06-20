@@ -796,7 +796,26 @@ public static class SequenceAligner
     private static int SelectCenterSequence(List<DnaSequence> sequences)
     {
         int k = sequences.Count;
-        if (k <= 2) return 0;
+
+        // The center is the star-alignment hub: every other sequence is aligned to it and
+        // the final MSA is projected onto the center's coordinate space. An EMPTY center
+        // has no positions to carry that projection, so non-empty sequences would lose all
+        // their content during reconciliation. Always prefer a non-empty center when one
+        // exists; only fall through to the heuristic among the non-empty candidates.
+        int firstNonEmpty = -1;
+        for (int i = 0; i < k; i++)
+        {
+            if (sequences[i].Sequence.Length > 0)
+            {
+                firstNonEmpty = i;
+                break;
+            }
+        }
+
+        // All sequences empty (or none at all): the trivial empty-coordinate MSA is correct.
+        if (firstNonEmpty < 0) return 0;
+
+        if (k <= 2) return firstNonEmpty;
 
         // Build 4-mer frequency vectors for each sequence.
         // 4-mer over ACGT → 256 possible k-mers, stored as int[256].
@@ -842,9 +861,13 @@ public static class SequenceAligner
             }
         }
 
-        int bestIdx = 0;
-        for (int i = 1; i < k; i++)
+        // Restrict the center choice to NON-EMPTY candidates (an empty center cannot carry
+        // the reconciliation projection — see above). firstNonEmpty is guaranteed valid.
+        int bestIdx = firstNonEmpty;
+        for (int i = firstNonEmpty + 1; i < k; i++)
         {
+            if (sequences[i].Sequence.Length == 0)
+                continue;
             if (totalSimilarity[i] > totalSimilarity[bestIdx])
                 bestIdx = i;
         }
