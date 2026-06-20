@@ -7519,6 +7519,31 @@ public static class OncologyAnalyzer
                 nameof(referenceCohort));
         }
 
+        // Zero-spread (all values identical) is the documented σ = 0 error case
+        // (NormalizeExpressionLevels.java fatal error). Detect it robustly by the
+        // cohort's RANGE rather than from the computed SD: with a constant cohort,
+        // accumulating the mean incurs a ≤1-ULP rounding error, which leaves a tiny
+        // non-zero Σ(rᵢ − μ)² and an SD on the order of 1e-17 — the `sd == 0` test
+        // alone would then be bypassed and emit a spurious ~1e20 z-score. The
+        // max == min check is exact for a no-spread cohort and immune to that drift.
+        double first = referenceCohort[0];
+        bool anyDifferent = false;
+        for (int i = 1; i < n; i++)
+        {
+            if (referenceCohort[i] != first)
+            {
+                anyDifferent = true;
+                break;
+            }
+        }
+
+        if (!anyDifferent)
+        {
+            throw new ArgumentException(
+                "Cannot compute a z-score relative to a reference cohort with a standard deviation of 0.",
+                nameof(referenceCohort));
+        }
+
         double mean = 0.0;
         for (int i = 0; i < n; i++)
         {
