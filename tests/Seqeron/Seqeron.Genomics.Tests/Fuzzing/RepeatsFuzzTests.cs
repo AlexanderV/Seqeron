@@ -279,6 +279,79 @@ namespace Seqeron.Genomics.Tests;
 /// INV-02 Spacing = SecondPosition − FirstPosition − Length;
 /// INV-03 with minSpacing &gt; 0 the copies do not overlap;
 /// INV-04 each (FirstPosition, SecondPosition, Length) tuple is unique.
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: REP-PALIN-001 — DNA palindrome (restriction-site / self-complementary) detection
+/// Checklist: docs/checklists/03_FUZZING.md, row 17.
+/// Fuzz strategy exercised for THIS unit:
+///   • BE = Boundary Exploitation — the degenerate boundaries called out in the
+///          checklist row: minLen = 0, an ODD minLen, maxLen &gt; seqLen, and the empty
+///          sequence.
+/// — docs/checklists/03_FUZZING.md §Description (strategy codes).
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The palindrome-detection contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// A DNA palindrome is a sequence equal to its own reverse complement —
+/// S = ReverseComplement(S) — the biological (not textual) notion that underlies
+/// Type-II restriction recognition sites such as EcoRI 'GAATTC'
+/// (Palindrome_Detection.md §2.1, §2.2). Because each base must pair with a
+/// complementary partner across the symmetry axis (A↔T, G↔C), a biological DNA
+/// palindrome is ALWAYS EVEN length (Palindrome_Detection.md §2.2, INV-02). The
+/// canonical validating detector is
+///   RepeatFinder.FindPalindromes(sequence,
+///                                int minLength = 4,
+///                                int maxLength = 12)
+///   (src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs lines 553–608)
+/// in two overloads — typed DnaSequence and raw string. The checklist's "minLen" is
+/// THIS detector's minLength (the minimum palindrome window scanned).
+///
+/// Documented parameter contract (Palindrome_Detection.md §3.1, §3.3, §6.1;
+/// RepeatFinder.cs lines 558–562, 575–578) — the SAME validation gate is wired on
+/// BOTH overloads (unlike the sibling inverted/direct finders, here the raw-string
+/// overload ALREADY mirrors the typed overload's numeric checks, so no source fix is
+/// needed for this unit):
+///   • sequence == null        → the typed overload throws ArgumentNullException
+///     (ThrowIfNull); the raw-string overload treats null/empty as the empty result
+///     (yield break).
+///   • minLength &lt; 4 OR minLength ODD → ArgumentOutOfRangeException
+///     (nameof(minLength), "Must be even and >= 4"). These are THE two boundaries the
+///     checklist row probes:
+///       – minLength = 0 is below the floor of 4 (a 0-length window would compare ""
+///         to its empty reverse complement and "match" at every position — a nonsense
+///         blow-up) → rejected by the `< 4` clause.
+///       – an ODD minLength (e.g. 5) is THE distinctive target for this unit: a DNA
+///         reverse-complement palindrome must have EVEN length, so an odd request is
+///         biologically impossible. The validating API does NOT round or silently
+///         drop it — it REJECTS it outright with ArgumentOutOfRangeException
+///         (Palindrome_Detection.md §6.1, "Odd minLength → throws"). We pin that an
+///         odd minLength throws on BOTH surfaces, the contract-correct behavior.
+///   • maxLength &lt; minLength  → ArgumentOutOfRangeException (nameof(maxLength)).
+///
+/// The maxLength &gt; seqLen boundary: the inner scan bound `i ≤ seq.Length − len`
+/// goes negative for every candidate length larger than the sequence, so the loop
+/// body never runs for those lengths and no Substring is taken past the end — an
+/// empty (or shorter) result, never an out-of-range crash, no palindrome longer than
+/// the sequence (Palindrome_Detection.md §2.4 INV-03, §6.1). We pin that an oversized
+/// maxLength can never index past the end and never invents an over-long palindrome.
+///
+/// The empty sequence: the raw-string overload short-circuits null/empty to the
+/// empty enumerable via `yield break` (RepeatFinder.cs line 580–581) AFTER the numeric
+/// gate, so valid lengths over empty input yield nothing; the typed overload over an
+/// empty DnaSequence has a negative scan bound and likewise yields nothing — no
+/// division, no indexing past the end, no hang (Palindrome_Detection.md §6.1).
+///
+/// Note both overloads are LAZY iterators (`yield`); the typed overload's numeric
+/// validation runs eagerly inside FindPalindromes BEFORE handing off to the iterator
+/// core, but the raw-string overload's checks sit INSIDE the iterator body, so they
+/// only fire on enumeration. Every test therefore forces enumeration (`.ToList()`) so
+/// the documented exception surfaces and any hang would manifest as a non-terminating
+/// materialization.
+///
+/// Documented invariants pinned on positive results (Palindrome_Detection.md §2.4):
+/// INV-01 Sequence = ReverseComplement(Sequence); INV-02 every reported Length is
+/// EVEN; INV-03 Position is within sequence bounds; INV-04 Length equals the reported
+/// palindrome's actual length.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -1253,6 +1326,290 @@ public class RepeatsFuzzTests
 
         results.Select(r => (r.FirstPosition, r.SecondPosition, r.Length)).Should()
             .OnlyHaveUniqueItems("INV-04: every (FirstPosition, SecondPosition, Length) key is unique");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  REP-PALIN-001 — DNA palindrome detection : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region REP-PALIN-001 — palindrome detection
+
+    #region BE — Boundary: minLen (minLength) = 0
+
+    /// <summary>
+    /// BE: minLength = 0 is the degenerate floor and the KEY nonsense-output target. A
+    /// literal 0 means a zero-length window — `candidate = Substring(i, 0) = ""`, whose
+    /// reverse complement is also "" — so EVERY position would "match" the empty
+    /// palindrome and the detector would blow up the result set with spurious
+    /// zero-length "palindromes". A biological palindrome needs ≥ 4 paired bases
+    /// (the validating API excludes trivial sub-4 windows), so the contract REJECTS
+    /// minLength &lt; 4 with ArgumentOutOfRangeException (RepeatFinder.cs lines 559/575;
+    /// Palindrome_Detection.md §3.3, §6.1) on BOTH the typed and the raw-string surface.
+    /// The raw-string overload's check lives inside the iterator (before its
+    /// `yield break`), so we force enumeration to surface it.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindPalindromes_MinLengthZero_ThrowsArgumentOutOfRange()
+    {
+        var typed = () => RepeatFinder.FindPalindromes(new DnaSequence("GAATTCGAATTC"), minLength: 0).ToList();
+        var raw = () => RepeatFinder.FindPalindromes("GAATTCGAATTC", minLength: 0).ToList();
+
+        typed.Should().Throw<ArgumentOutOfRangeException>(
+                "minLength = 0 is below the documented even floor of 4; a 0-length window matches every position as a spurious empty palindrome")
+            .Which.ParamName.Should().Be("minLength");
+        raw.Should().Throw<ArgumentOutOfRangeException>(
+                "the raw-string overload enforces the same minLength >= 4 even floor before scanning")
+            .Which.ParamName.Should().Be("minLength");
+    }
+
+    #endregion
+
+    #region BE — Boundary: minLen (minLength) is ODD
+
+    /// <summary>
+    /// BE — THE distinctive target for this unit. A DNA reverse-complement palindrome
+    /// is self-complementary across a central symmetry axis, so every base pairs with
+    /// a complementary partner and the length is ALWAYS EVEN (Palindrome_Detection.md
+    /// §2.2, INV-02). An ODD minLength is therefore biologically impossible. The
+    /// validating API does NOT round the request up/down and does NOT silently emit
+    /// only even results — it REJECTS the odd value OUTRIGHT with
+    /// ArgumentOutOfRangeException (the `minLength % 2 != 0` clause, RepeatFinder.cs
+    /// lines 559/575; Palindrome_Detection.md §6.1 "Odd minLength → throws"). We pin
+    /// that behavior on BOTH surfaces, across several odd values (one below and several
+    /// above the floor of 4), so the contract cannot silently drift to rounding.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    [TestCase(3)]
+    [TestCase(5)]
+    [TestCase(7)]
+    [TestCase(11)]
+    public void FindPalindromes_MinLengthOdd_ThrowsArgumentOutOfRange(int oddMinLength)
+    {
+        var typed = () => RepeatFinder.FindPalindromes(new DnaSequence("GAATTCGAATTC"), minLength: oddMinLength, maxLength: 12).ToList();
+        var raw = () => RepeatFinder.FindPalindromes("GAATTCGAATTC", minLength: oddMinLength, maxLength: 12).ToList();
+
+        typed.Should().Throw<ArgumentOutOfRangeException>(
+                "a DNA reverse-complement palindrome must have EVEN length; an odd minLength is rejected, never rounded")
+            .Which.ParamName.Should().Be("minLength");
+        raw.Should().Throw<ArgumentOutOfRangeException>(
+                "the raw-string overload enforces the same even-length requirement on minLength")
+            .Which.ParamName.Should().Be("minLength");
+    }
+
+    /// <summary>
+    /// BE: the accepted floor minLength = 4 — even and at the boundary — must NOT throw,
+    /// pinning that the rejection boundary is exactly "&lt; 4 OR odd", not "≤ 4". A clean
+    /// even request of 4 is accepted and behaves. Paired with the odd-rejection cases
+    /// this fixes the boundary at exactly even-and-≥-4.
+    /// </summary>
+    [Test]
+    public void FindPalindromes_MinLengthFourEven_IsAcceptedOnBothSurfaces()
+    {
+        var typed = () => RepeatFinder.FindPalindromes(new DnaSequence("GAATTC"), minLength: 4, maxLength: 6).ToList();
+        var raw = () => RepeatFinder.FindPalindromes("GAATTC", minLength: 4, maxLength: 6).ToList();
+
+        typed.Should().NotThrow("minLength = 4 is the accepted even floor, not below it");
+        raw.Should().NotThrow("the raw-string overload accepts the even floor of 4 just as the typed overload does");
+    }
+
+    #endregion
+
+    #region BE — Boundary: maxLength > sequence length
+
+    /// <summary>
+    /// BE: maxLength far larger than the sequence length must NOT crash and must never
+    /// invent a palindrome longer than the sequence. For every candidate length larger
+    /// than the sequence the inner scan bound `i ≤ seq.Length − len` is negative, so the
+    /// loop body never runs and no Substring is taken past the end (RepeatFinder.cs lines
+    /// 592–606; Palindrome_Detection.md §2.4 INV-03, §6.1). "GAATTC" (length 6) with
+    /// maxLength = 1000 ≫ 6 must still find ONLY its own 6-bp palindrome and nothing
+    /// longer. Pinned on both surfaces.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindPalindromes_MaxLengthExceedsSequence_DoesNotCrashAndNeverExceedsSeqLength()
+    {
+        const string seq = "GAATTC"; // length 6; maxLength 1000 ≫ 6
+
+        var typedAct = () => RepeatFinder.FindPalindromes(new DnaSequence(seq), minLength: 4, maxLength: 1000).ToList();
+        var rawAct = () => RepeatFinder.FindPalindromes(seq, minLength: 4, maxLength: 1000).ToList();
+
+        typedAct.Should().NotThrow("an oversized maxLength makes the scan bound negative for the big lengths; the loop simply never runs");
+        rawAct.Should().NotThrow("the raw-string overload is equally guarded against indexing past the sequence end");
+
+        var results = RepeatFinder.FindPalindromes(seq, minLength: 4, maxLength: 1000).ToList();
+
+        results.Should().Contain(r => r.Sequence == "GAATTC" && r.Length == 6,
+            "the genuine 6-bp EcoRI palindrome is still found despite maxLength ≫ sequence length");
+        results.Should().OnlyContain(r => r.Length <= seq.Length,
+            "INV-03: no reported palindrome can be longer than the sequence, even when maxLength far exceeds it");
+        results.Should().OnlyContain(r => r.Length % 2 == 0,
+            "INV-02: every reported palindrome length is even, even at the oversized-maxLength boundary");
+    }
+
+    /// <summary>
+    /// BE: maxLength &gt; seqLen on a sequence too SHORT to hold even the minimum window
+    /// must yield a clean empty result, not a crash. "GC" (length 2) with the default
+    /// even floor minLength = 4 and an oversized maxLength has no window of length ≥ 4
+    /// that fits, so the loop never runs — empty, no out-of-range Substring.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindPalindromes_MaxLengthExceedsShortSequence_IsEmptyAndDoesNotThrow()
+    {
+        var typedAct = () => RepeatFinder.FindPalindromes(new DnaSequence("GC"), minLength: 4, maxLength: 500).ToList();
+        var rawAct = () => RepeatFinder.FindPalindromes("GC", minLength: 4, maxLength: 500).ToList();
+
+        typedAct.Should().NotThrow("no length-≥-4 window fits a 2-base sequence; the scan bound is negative and the loop never runs");
+        rawAct.Should().NotThrow();
+
+        RepeatFinder.FindPalindromes(new DnaSequence("GC"), minLength: 4, maxLength: 500).Should().BeEmpty(
+            "a 2-base sequence cannot hold a ≥ 4-bp palindrome; the oversized max yields nothing, not a crash");
+        RepeatFinder.FindPalindromes("GC", minLength: 4, maxLength: 500).Should().BeEmpty();
+    }
+
+    #endregion
+
+    #region BE — Boundary: empty sequence
+
+    /// <summary>
+    /// BE: the empty sequence is the lower size boundary. The raw-string overload
+    /// short-circuits null/empty to the empty enumerable via `yield break`
+    /// (RepeatFinder.cs lines 580–581) — no exception, even though the numeric gate
+    /// runs first (valid lengths here, so it passes through). The typed overload over
+    /// an empty DnaSequence (the ctor materializes an empty sequence from "") has a
+    /// negative scan bound, so it yields nothing. Neither path divides, indexes, or
+    /// hangs on empty input (Palindrome_Detection.md §6.1).
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindPalindromes_EmptySequence_IsEmptyAndDoesNotThrow()
+    {
+        var typedAct = () => RepeatFinder.FindPalindromes(new DnaSequence(string.Empty), minLength: 4, maxLength: 12).ToList();
+        var rawEmptyAct = () => RepeatFinder.FindPalindromes(string.Empty, minLength: 4, maxLength: 12).ToList();
+        var rawNullAct = () => RepeatFinder.FindPalindromes((string)null!, minLength: 4, maxLength: 12).ToList();
+
+        typedAct.Should().NotThrow("an empty sequence has no window long enough to hold a palindrome; it yields nothing");
+        rawEmptyAct.Should().NotThrow("the raw-string overload short-circuits empty input to an empty result");
+        rawNullAct.Should().NotThrow("the raw-string overload treats null input as empty, not as an error");
+
+        RepeatFinder.FindPalindromes(new DnaSequence(string.Empty), minLength: 4, maxLength: 12).Should().BeEmpty();
+        RepeatFinder.FindPalindromes(string.Empty, minLength: 4, maxLength: 12).Should().BeEmpty();
+        RepeatFinder.FindPalindromes((string)null!, minLength: 4, maxLength: 12).Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// BE/INJ: a null DnaSequence is the boundary of "no typed input". The typed
+    /// overload guards it with an explicit ArgumentNullException (ThrowIfNull,
+    /// RepeatFinder.cs line 558), raised eagerly at the call — never a
+    /// NullReferenceException.
+    /// </summary>
+    [Test]
+    public void FindPalindromes_NullDnaSequence_ThrowsArgumentNullException()
+    {
+        var act = () => RepeatFinder.FindPalindromes((DnaSequence)null!, minLength: 4, maxLength: 12);
+
+        act.Should().Throw<ArgumentNullException>(
+            "the typed overload null-guards its sequence; null is rejected, never dereferenced");
+    }
+
+    /// <summary>
+    /// BE: maxLength below minLength is the inverted-range boundary. Both surfaces reject
+    /// it with ArgumentOutOfRangeException (RepeatFinder.cs lines 561/577), pinning that
+    /// the ordered-bounds guard fires on both surfaces.
+    /// </summary>
+    [Test]
+    public void FindPalindromes_MaxLengthBelowMinLength_RejectedOnBothSurfaces()
+    {
+        var typed = () => RepeatFinder.FindPalindromes(new DnaSequence("GAATTCGAATTC"), minLength: 8, maxLength: 4).ToList();
+        var raw = () => RepeatFinder.FindPalindromes("GAATTCGAATTC", minLength: 8, maxLength: 4).ToList();
+
+        typed.Should().Throw<ArgumentOutOfRangeException>("maxLength < minLength is an inverted range and rejected")
+            .Which.ParamName.Should().Be("maxLength");
+        raw.Should().Throw<ArgumentOutOfRangeException>("the raw-string overload rejects the inverted range too")
+            .Which.ParamName.Should().Be("maxLength");
+    }
+
+    #endregion
+
+    #region Positive sanity — a known restriction-site palindrome is detected correctly
+
+    /// <summary>
+    /// Positive sanity: the textbook restriction-site palindrome — "GAATTC" (the EcoRI
+    /// recognition sequence, length 6) — must be detected with the CORRECT sequence,
+    /// position and length, so the boundary hardening never silently breaks the core
+    /// function. We first PROVE the biological-palindrome property the detector relies
+    /// on — revcomp(GAATTC) == GAATTC — then pin INV-01..INV-04
+    /// (Palindrome_Detection.md §2.4): Sequence 'GAATTC', Position 0, Length 6 (even),
+    /// and the reported sequence equals its own reverse complement.
+    /// </summary>
+    [Test]
+    public void FindPalindromes_EcoRiSite_DetectedAsSelfComplementaryPalindrome()
+    {
+        // Prove the biological-palindrome property the detector hinges on.
+        DnaSequence.GetReverseComplementString("GAATTC").Should().Be("GAATTC",
+            "EcoRI 'GAATTC' is self-complementary: revcomp(GAATTC) = GAATTC");
+
+        var results = RepeatFinder.FindPalindromes("GAATTC", minLength: 4, maxLength: 12).ToList();
+
+        var ecori = results.Should().ContainSingle(r => r.Length == 6).Subject;
+        ecori.Sequence.Should().Be("GAATTC", "the 6-bp EcoRI site is the palindrome present");
+        ecori.Position.Should().Be(0, "the palindrome starts at the first base");
+        ecori.Length.Should().Be(6, "INV-04: Length equals the actual palindrome length");
+        (ecori.Length % 2).Should().Be(0, "INV-02: a biological DNA palindrome has even length");
+        DnaSequence.GetReverseComplementString(ecori.Sequence).Should().Be(ecori.Sequence,
+            "INV-01: every reported palindrome equals its own reverse complement");
+    }
+
+    /// <summary>
+    /// Positive sanity: a 4-bp restriction-site palindrome — "AGCT" (the AluI site,
+    /// revcomp(AGCT) = AGCT) — at the smallest legal even floor must be detected, pinning
+    /// that the floor-4 boundary still finds genuine palindromes. Embedded with flanks
+    /// ("TTAGCTAA") so the detector locates it at an interior position.
+    /// </summary>
+    [Test]
+    public void FindPalindromes_AluiSiteAtFloor_DetectedAtCorrectPosition()
+    {
+        DnaSequence.GetReverseComplementString("AGCT").Should().Be("AGCT",
+            "AluI 'AGCT' is self-complementary: revcomp(AGCT) = AGCT");
+
+        var results = RepeatFinder.FindPalindromes("TTAGCTAA", minLength: 4, maxLength: 4).ToList();
+
+        var alui = results.Should().ContainSingle(r => r.Sequence == "AGCT").Subject;
+        alui.Position.Should().Be(2, "the 'AGCT' palindrome sits after the 2-base 'TT' flank");
+        alui.Length.Should().Be(4, "INV-04: the 4-bp AluI site is reported at the even floor");
+    }
+
+    /// <summary>
+    /// Positive sanity / RB: a fixed-seed random sequence must complete promptly and
+    /// produce only well-formed results — every reported window genuinely equals its own
+    /// reverse complement, every length is even, and every coordinate is in bounds — so
+    /// the degenerate-boundary guards do not corrupt the scan on ordinary input. Pinned
+    /// per INV-01..INV-04 (Palindrome_Detection.md §2.4). Length kept modest because the
+    /// scan is O(n·r·m); a hang would trip the timeout.
+    /// </summary>
+    [Test]
+    [CancelAfter(30000)]
+    public void FindPalindromes_RandomSequence_ProducesOnlyWellFormedResults()
+    {
+        string seq = RandomDna(2000, seed: 17_001);
+
+        var results = RepeatFinder.FindPalindromes(seq, minLength: 4, maxLength: 12).ToList();
+
+        results.Should().OnlyContain(r =>
+            DnaSequence.GetReverseComplementString(r.Sequence) == r.Sequence &&     // INV-01
+            r.Length % 2 == 0 &&                                                    // INV-02
+            r.Length >= 4 && r.Length <= 12 &&                                      // within tested band
+            r.Position >= 0 && r.Position + r.Length <= seq.Length &&               // INV-03
+            r.Sequence.Length == r.Length &&                                        // INV-04
+            r.Sequence == seq.Substring(r.Position, r.Length),
+            "every result on random input is well-formed: it equals its own reverse complement, has even length, and sits in bounds");
     }
 
     #endregion
