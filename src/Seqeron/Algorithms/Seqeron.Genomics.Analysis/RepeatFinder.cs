@@ -388,6 +388,24 @@ public static class RepeatFinder
         int maxLength = 50,
         int minSpacing = 1)
     {
+        // Mirror the DnaSequence overload's numeric validation onto the raw-string surface.
+        // A degenerate minLength < 2 (e.g. 0) yields a zero-length candidate whose suffix-tree
+        // lookup matches EVERY position, blowing the result set up with O(n^2) spurious
+        // empty-/single-base "repeats"; that is undisciplined fuzzing failure, so it is rejected
+        // here exactly as the typed overload rejects it. Validation is hoisted into an eager
+        // wrapper so the exception surfaces at the call, not only on enumeration.
+        if (minLength < 2) throw new ArgumentOutOfRangeException(nameof(minLength));
+        if (maxLength < minLength) throw new ArgumentOutOfRangeException(nameof(maxLength));
+
+        return FindDirectRepeatsRaw(sequence, minLength, maxLength, minSpacing);
+    }
+
+    private static IEnumerable<DirectRepeatResult> FindDirectRepeatsRaw(
+        string sequence,
+        int minLength,
+        int maxLength,
+        int minSpacing)
+    {
         if (string.IsNullOrEmpty(sequence))
             yield break;
 

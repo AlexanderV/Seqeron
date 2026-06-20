@@ -209,6 +209,76 @@ namespace Seqeron.Genomics.Tests;
 /// INV-01 ReverseComplement(LeftArm) = RightArm; INV-02 TotalLength = 2·ArmLength +
 /// LoopLength; INV-03 LoopLength = RightArmStart − (LeftArmStart + ArmLength);
 /// INV-04 CanFormHairpin ⇔ LoopLength ≥ 3.
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: REP-DIRECT-001 — direct repeat (same-orientation recurring subsequence) detection
+/// Checklist: docs/checklists/03_FUZZING.md, row 16.
+/// Fuzz strategy exercised for THIS unit:
+///   • BE = Boundary Exploitation — the degenerate boundaries called out in the
+///          checklist row: minLen (= minLength) = 0, minLen = 1, the empty sequence,
+///          an all-unique-characters sequence (no recurrence), and an all-same-character
+///          homopolymer (maximal recurrence — the combinatorial blow-up watch point).
+/// — docs/checklists/03_FUZZING.md §Description (strategy codes).
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The direct-repeat-detection contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// A direct repeat is a subsequence that recurs VERBATIM downstream in the SAME 5'→3'
+/// orientation (unlike an inverted repeat, the downstream copy is the literal sequence,
+/// not its reverse complement), optionally across a spacer of zero or more bases
+/// (Direct_Repeat_Detection.md §2.1, §2.2). For length L, first position i and second
+/// position j a pair is reported when S[i..i+L) = S[j..j+L) and j &gt; i + L − 1 + minSpacing.
+/// The canonical exact detector is
+///   RepeatFinder.FindDirectRepeats(sequence,
+///                                  int minLength = 5,
+///                                  int maxLength = 50,
+///                                  int minSpacing = 1)
+///   (src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs lines 369–433)
+/// in two overloads — typed DnaSequence and raw string. The checklist's "minLen" is THIS
+/// detector's minLength (the minimum repeat length tested).
+///
+/// Documented parameter contract (Direct_Repeat_Detection.md §3.1, §3.3; RepeatFinder.cs
+/// lines 375–377, 391–392):
+///   • sequence == null     → the typed overload throws ArgumentNullException (ThrowIfNull);
+///     the raw-string overload treats null/empty as the empty result (yield break).
+///   • minLength &lt; 2       → ArgumentOutOfRangeException. This is THE boundary the
+///     checklist row probes: a literal minLength = 0 means a zero-length candidate
+///     (`Substring(i, 0) = ""`), whose suffix-tree occurrence lookup
+///     (SuffixTree.FindAllOccurrences("") returns EVERY start position) matches at every
+///     downstream gap → an O(n²) blow-up of spurious empty-/single-base "repeats" — the
+///     nonsense-output failure mode ADVANCED §8 forbids. The contract REJECTS minLength
+///     &lt; 2 so a direct repeat must be at least a 2-base subsequence. minLength = 1 is
+///     likewise below the floor (every single base that recurs would be a "repeat") and is
+///     rejected too.
+///   • maxLength &lt; minLength → ArgumentOutOfRangeException.
+/// BEFORE this unit's work the raw-string overload did NOT replicate the numeric validation
+/// of the typed overload (recorded as accepted Deviation #1, Direct_Repeat_Detection.md §5.4):
+/// a degenerate minLength = 0 fed through the raw-string surface (the surface the MCP
+/// `find_direct_repeats` tool forwards raw user input to, AnalysisTools.cs line 368) emitted
+/// the spurious empty-arm blow-up instead of being rejected. Fuzzing this row PROVED that
+/// asymmetry was an undisciplined failure (nonsense O(n²) output on a degenerate parameter,
+/// ADVANCED §8). It was fixed at the source by mirroring the typed overload's two numeric
+/// guards onto the raw-string overload (`minLength < 2` and `maxLength < minLength` now both
+/// throw on BOTH surfaces, hoisted into an eager wrapper so the exception surfaces at the call,
+/// not only on enumeration). The tests below PIN these floors on both surfaces so they cannot
+/// silently drift.
+///
+/// The all-unique-characters boundary (e.g. "ACGT"): no subsequence of length ≥ 2 recurs, so
+/// the result is cleanly empty — never a crash. The all-same-character homopolymer (e.g.
+/// "AAAA…") is the maximal-recurrence / combinatorial-blow-up watch point: every length-L
+/// window equals every other length-L window, so with minSpacing = 0 many overlapping pairs
+/// ARE legitimately reported, but the count stays polynomially bounded (deduped by the
+/// (i, j, len) hash set, INV-04) and the scan completes promptly — no hang. The
+/// minLength &gt; available-room boundary makes the position loop bound
+/// `i ≤ len·2 + minSpacing` exceed seq.Length so the loop body never runs (empty result,
+/// no out-of-range Substring). Every test forces enumeration (`.ToList()`) so the in-iterator
+/// scan runs and any hang would manifest as a non-terminating materialization.
+///
+/// Documented invariants pinned on positive results (Direct_Repeat_Detection.md §2.4):
+/// INV-01 RepeatSequence is identical at FirstPosition and SecondPosition;
+/// INV-02 Spacing = SecondPosition − FirstPosition − Length;
+/// INV-03 with minSpacing &gt; 0 the copies do not overlap;
+/// INV-04 each (FirstPosition, SecondPosition, Length) tuple is unique.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -924,6 +994,265 @@ public class RepeatsFuzzTests
             r.ArmLength >= 4 && r.LeftArmStart >= 0 &&
             r.RightArmStart + r.ArmLength <= seq.Length,
             "every result on random input is well-formed: arms are reverse complements, total/loop invariants hold, coords in bounds");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  REP-DIRECT-001 — direct repeat detection : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region REP-DIRECT-001 — direct repeat detection
+
+    #region BE — Boundary: minLen (minLength) = 0
+
+    /// <summary>
+    /// BE: minLength = 0 is the degenerate floor and the KEY nonsense-output target. A
+    /// literal 0 makes a zero-length candidate — `repeat = Substring(i, 0) = ""` — and the
+    /// suffix-tree lookup `FindAllOccurrences("")` returns EVERY start position, so the empty
+    /// candidate "matches" at every downstream gap and the detector blows the result set up
+    /// with O(n²) spurious empty-length "repeats". A direct repeat needs ≥ 2 bases, so the
+    /// contract REJECTS minLength &lt; 2 with ArgumentOutOfRangeException
+    /// (RepeatFinder.cs line 376/391; Direct_Repeat_Detection.md §3.3) — and, after this
+    /// unit's fix, on BOTH the typed and the raw-string surface (the raw-string overload
+    /// previously skipped this guard, Deviation #1). Both surfaces validate eagerly, so the
+    /// throw surfaces at the call even before enumeration; we still force enumeration so a
+    /// regression to lazy/late validation would also be caught.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindDirectRepeats_MinLengthZero_ThrowsArgumentOutOfRange()
+    {
+        var typed = () => RepeatFinder.FindDirectRepeats(new DnaSequence("ACGTACGTACGT"), minLength: 0).ToList();
+        var raw = () => RepeatFinder.FindDirectRepeats("ACGTACGTACGT", minLength: 0).ToList();
+
+        typed.Should().Throw<ArgumentOutOfRangeException>(
+                "minLength = 0 is below the documented floor of 2; a 0-length candidate matches every gap as a spurious empty repeat")
+            .Which.ParamName.Should().Be("minLength");
+        raw.Should().Throw<ArgumentOutOfRangeException>(
+                "the raw-string overload now enforces the same minLength >= 2 floor, never emitting the O(n^2) empty-repeat blow-up")
+            .Which.ParamName.Should().Be("minLength");
+    }
+
+    #endregion
+
+    #region BE — Boundary: minLen (minLength) = 1
+
+    /// <summary>
+    /// BE: minLength = 1 is the trivial single-base-repeat boundary, still below the floor of
+    /// 2 (a length-1 "repeat" is a single base that happens to recur — every common base would
+    /// qualify, a defined-but-useless blow-up). Both surfaces REJECT it with
+    /// ArgumentOutOfRangeException, pinning that the rejection boundary is exactly &lt; 2 and
+    /// cannot drift to ≤ 1. The accepted floor minLength = 2 must NOT throw — pinned alongside
+    /// so the boundary is fixed at exactly 2.
+    /// </summary>
+    [Test]
+    public void FindDirectRepeats_MinLengthOne_RejectedOnBothSurfaces_FloorIsExactlyTwo()
+    {
+        var typedOne = () => RepeatFinder.FindDirectRepeats(new DnaSequence("ACGTACGTACGT"), minLength: 1).ToList();
+        var rawOne = () => RepeatFinder.FindDirectRepeats("ACGTACGTACGT", minLength: 1).ToList();
+
+        typedOne.Should().Throw<ArgumentOutOfRangeException>(
+            "minLength = 1 is below the documented floor of 2; every recurring single base would be a trivial repeat");
+        rawOne.Should().Throw<ArgumentOutOfRangeException>(
+            "the raw-string overload enforces the same minLength >= 2 floor");
+
+        // The accepted floor minLength = 2 must NOT throw — pinning the boundary is at < 2, not ≤ 2.
+        var typedTwo = () => RepeatFinder.FindDirectRepeats(new DnaSequence("ACGTACGTACGT"), minLength: 2, maxLength: 4).ToList();
+        var rawTwo = () => RepeatFinder.FindDirectRepeats("ACGTACGTACGT", minLength: 2, maxLength: 4).ToList();
+        typedTwo.Should().NotThrow("minLength = 2 is the accepted floor, not below it");
+        rawTwo.Should().NotThrow("the raw-string overload accepts the floor of 2 just as the typed overload does");
+    }
+
+    /// <summary>
+    /// BE: a maxLength below minLength is the inverted-range boundary. Both surfaces reject it
+    /// with ArgumentOutOfRangeException (RepeatFinder.cs line 377/392), pinning that the range
+    /// guard mirrored onto the raw-string overload fires there too and not only on the typed
+    /// surface.
+    /// </summary>
+    [Test]
+    public void FindDirectRepeats_MaxLengthBelowMinLength_RejectedOnBothSurfaces()
+    {
+        var typed = () => RepeatFinder.FindDirectRepeats(new DnaSequence("ACGTACGTACGT"), minLength: 8, maxLength: 4).ToList();
+        var raw = () => RepeatFinder.FindDirectRepeats("ACGTACGTACGT", minLength: 8, maxLength: 4).ToList();
+
+        typed.Should().Throw<ArgumentOutOfRangeException>("maxLength < minLength is an inverted range and rejected")
+            .Which.ParamName.Should().Be("maxLength");
+        raw.Should().Throw<ArgumentOutOfRangeException>("the raw-string overload now rejects the inverted range too")
+            .Which.ParamName.Should().Be("maxLength");
+    }
+
+    #endregion
+
+    #region BE — Boundary: empty sequence
+
+    /// <summary>
+    /// BE: the empty sequence is the lower size boundary. The raw-string overload short-circuits
+    /// null/empty to the empty enumerable via `yield break` (RepeatFinder.cs lines 391–392) — no
+    /// exception (with valid params, which pass the now-eager numeric gate). The typed overload
+    /// over an empty DnaSequence has a position-loop bound that is negative, so it yields nothing.
+    /// Neither path indexes past the end or hangs on empty input (Direct_Repeat_Detection.md §6.1).
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindDirectRepeats_EmptySequence_IsEmptyAndDoesNotThrow()
+    {
+        var typedAct = () => RepeatFinder.FindDirectRepeats(new DnaSequence(string.Empty), minLength: 5).ToList();
+        var rawEmptyAct = () => RepeatFinder.FindDirectRepeats(string.Empty, minLength: 5).ToList();
+        var rawNullAct = () => RepeatFinder.FindDirectRepeats((string)null!, minLength: 5).ToList();
+
+        typedAct.Should().NotThrow("an empty sequence has no room for two repeat copies; it yields nothing");
+        rawEmptyAct.Should().NotThrow("the raw-string overload short-circuits empty input to an empty result");
+        rawNullAct.Should().NotThrow("the raw-string overload treats null input as empty, not as an error");
+
+        RepeatFinder.FindDirectRepeats(new DnaSequence(string.Empty), minLength: 5).Should().BeEmpty();
+        RepeatFinder.FindDirectRepeats(string.Empty, minLength: 5).Should().BeEmpty();
+        RepeatFinder.FindDirectRepeats((string)null!, minLength: 5).Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// BE/INJ: a null DnaSequence is the boundary of "no typed input". The typed overload guards
+    /// it with an explicit ArgumentNullException (ThrowIfNull, RepeatFinder.cs line 375), raised
+    /// eagerly at the call — never a NullReferenceException.
+    /// </summary>
+    [Test]
+    public void FindDirectRepeats_NullDnaSequence_ThrowsArgumentNullException()
+    {
+        var act = () => RepeatFinder.FindDirectRepeats((DnaSequence)null!, minLength: 5);
+
+        act.Should().Throw<ArgumentNullException>(
+            "the typed overload null-guards its sequence; null is rejected, never dereferenced");
+    }
+
+    #endregion
+
+    #region BE — Boundary: all-unique characters (no recurrence)
+
+    /// <summary>
+    /// BE: an all-unique-characters sequence — every base distinct, e.g. "ACGT" — can contain no
+    /// direct repeat: no subsequence of length ≥ 2 recurs anywhere downstream. The detector must
+    /// return a CLEAN empty result with no crash and no hang, distinct from the rejection cases
+    /// above. Pinned on both surfaces and at the smallest legal repeat length (2).
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindDirectRepeats_AllUniqueChars_IsEmptyAndDoesNotThrow()
+    {
+        const string unique = "ACGT"; // four distinct bases — nothing recurs
+
+        var typedAct = () => RepeatFinder.FindDirectRepeats(new DnaSequence(unique), minLength: 2, maxLength: 4).ToList();
+        var rawAct = () => RepeatFinder.FindDirectRepeats(unique, minLength: 2, maxLength: 4).ToList();
+
+        typedAct.Should().NotThrow("no subsequence recurs in an all-unique sequence; the scan finds nothing");
+        rawAct.Should().NotThrow();
+
+        RepeatFinder.FindDirectRepeats(new DnaSequence(unique), minLength: 2, maxLength: 4).Should().BeEmpty(
+            "no length ≥ 2 subsequence recurs in 'ACGT' — no direct repeat, no crash");
+        RepeatFinder.FindDirectRepeats(unique, minLength: 2, maxLength: 4).Should().BeEmpty();
+    }
+
+    #endregion
+
+    #region BE — Boundary: all-same character (homopolymer — maximal recurrence)
+
+    /// <summary>
+    /// BE: an all-same-character homopolymer (e.g. "AAAA…") is the MAXIMAL-recurrence /
+    /// combinatorial-blow-up watch point — every length-L window equals every other, so direct
+    /// repeats genuinely abound. The detector must NOT hang or blow up unboundedly: the (i, j, len)
+    /// dedup hash set (INV-04) keeps the count polynomial, and the scan must complete promptly.
+    /// We pin (a) it completes within the timeout, (b) every reported pair is a real same-character
+    /// repeat satisfying the documented invariants, and (c) for a homopolymer with minSpacing = 0 a
+    /// known adjacent pair (e.g. "AA" at 0 abutting "AA" at 2) IS found — the boundary produces
+    /// correct, bounded output, not nonsense.
+    /// </summary>
+    [Test]
+    [CancelAfter(10000)]
+    public void FindDirectRepeats_HomopolymerMaximalRecurrence_CompletesWithBoundedWellFormedResults()
+    {
+        string allA = new string('A', 40);
+
+        var act = () => RepeatFinder.FindDirectRepeats(allA, minLength: 2, maxLength: 6, minSpacing: 0).ToList();
+        act.Should().NotThrow("a homopolymer is the maximal-recurrence case but the (i,j,len) dedup keeps it bounded — no hang, no crash");
+
+        var results = RepeatFinder.FindDirectRepeats(allA, minLength: 2, maxLength: 6, minSpacing: 0).ToList();
+
+        results.Should().NotBeEmpty("a homopolymer trivially contains many same-orientation direct repeats");
+        results.Should().OnlyContain(r =>
+            r.RepeatSequence == allA.Substring(r.FirstPosition, r.Length) &&         // INV-01 (copy 1)
+            r.RepeatSequence == allA.Substring(r.SecondPosition, r.Length) &&        // INV-01 (copy 2)
+            r.RepeatSequence.All(c => c == 'A') &&                                   // every base is the homopolymer char
+            r.Length >= 2 && r.Length <= 6 &&                                        // within the tested length band
+            r.Spacing == r.SecondPosition - r.FirstPosition - r.Length &&            // INV-02
+            r.SecondPosition > r.FirstPosition &&                                    // downstream copy
+            r.SecondPosition + r.Length <= allA.Length,                             // in bounds
+            "every homopolymer result is a well-formed same-character direct-repeat pair, not a spurious or out-of-range entry");
+
+        // INV-04: each (FirstPosition, SecondPosition, Length) tuple is reported at most once.
+        results.Select(r => (r.FirstPosition, r.SecondPosition, r.Length)).Should()
+            .OnlyHaveUniqueItems("INV-04: the (i, j, len) dedup hash set suppresses duplicate result keys");
+
+        // A concrete known pair: 'AA' at 0 and 'AA' at 2 (adjacent, spacing 0) must be present.
+        results.Should().Contain(
+            r => r.Length == 2 && r.FirstPosition == 0 && r.SecondPosition == 2 && r.Spacing == 0,
+            "with minSpacing = 0 the adjacent 'AA'…'AA' pair is a legitimate direct repeat and is reported");
+    }
+
+    #endregion
+
+    #region Positive sanity — a clear direct repeat is detected correctly
+
+    /// <summary>
+    /// Positive sanity: a textbook direct repeat — the motif "ATCG" recurring verbatim across a
+    /// 4-base spacer in "ATCGTTTTATCG" — must be detected with the CORRECT coordinates, so the
+    /// boundary hardening never silently breaks the core function. Pinned per INV-01..INV-04
+    /// (Direct_Repeat_Detection.md §2.4): first copy at 0, second copy at 8, length 4, the two
+    /// copies identical, Spacing = 8 − 0 − 4 = 4.
+    /// </summary>
+    [Test]
+    public void FindDirectRepeats_ClearDirectRepeat_DetectedWithCorrectCoords()
+    {
+        const string seq = "ATCGTTTTATCG"; // 'ATCG' at 0 and at 8, spacer 'TTTT'
+
+        var results = RepeatFinder.FindDirectRepeats(seq, minLength: 4, maxLength: 4, minSpacing: 1).ToList();
+
+        var pair = results.Should().ContainSingle(r => r.RepeatSequence == "ATCG").Subject;
+        pair.FirstPosition.Should().Be(0, "the first copy of 'ATCG' starts at the first base");
+        pair.SecondPosition.Should().Be(8, "the second copy of 'ATCG' starts after the 4-bp motif and 4-bp spacer");
+        pair.Length.Should().Be(4);
+        seq.Substring(pair.FirstPosition, pair.Length).Should().Be(seq.Substring(pair.SecondPosition, pair.Length),
+            "INV-01: the two copies are identical at both positions");
+        pair.Spacing.Should().Be(4, "INV-02: Spacing = SecondPosition(8) − FirstPosition(0) − Length(4)");
+    }
+
+    /// <summary>
+    /// Positive sanity / RB: a fixed-seed random sequence must complete promptly and produce only
+    /// well-formed results — every reported pair is a verbatim same-orientation recurrence, the
+    /// spacing invariant holds, copies are non-overlapping under minSpacing &gt; 0, and all keys are
+    /// unique — so the degenerate-boundary guards do not corrupt the scan on ordinary input. Pinned
+    /// per INV-01..INV-04 (Direct_Repeat_Detection.md §2.4). Length kept modest because detection is
+    /// O(r·n·(m+k)); a hang would trip the timeout.
+    /// </summary>
+    [Test]
+    [CancelAfter(30000)]
+    public void FindDirectRepeats_RandomSequence_ProducesOnlyWellFormedResults()
+    {
+        string seq = RandomDna(400, seed: 16_001);
+
+        var results = RepeatFinder.FindDirectRepeats(seq, minLength: 5, maxLength: 20, minSpacing: 1).ToList();
+
+        results.Should().OnlyContain(r =>
+            r.RepeatSequence == seq.Substring(r.FirstPosition, r.Length) &&          // INV-01 (copy 1)
+            r.RepeatSequence == seq.Substring(r.SecondPosition, r.Length) &&         // INV-01 (copy 2)
+            r.Spacing == r.SecondPosition - r.FirstPosition - r.Length &&            // INV-02
+            r.SecondPosition >= r.FirstPosition + r.Length + 1 &&                    // INV-03 (minSpacing = 1 → no overlap)
+            r.Length >= 5 && r.Length <= 20 &&
+            r.FirstPosition >= 0 && r.SecondPosition + r.Length <= seq.Length,
+            "every result on random input is well-formed: copies are verbatim recurrences, spacing/bounds invariants hold, no overlap");
+
+        results.Select(r => (r.FirstPosition, r.SecondPosition, r.Length)).Should()
+            .OnlyHaveUniqueItems("INV-04: every (FirstPosition, SecondPosition, Length) key is unique");
     }
 
     #endregion
