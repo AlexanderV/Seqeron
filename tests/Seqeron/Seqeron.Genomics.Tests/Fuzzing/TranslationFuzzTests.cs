@@ -8,9 +8,13 @@ using Seqeron.Genomics.Core;
 namespace Seqeron.Genomics.Tests;
 
 /// <summary>
-/// Fuzz tests for the Translation area — the codon table / genetic code lookup
-/// (TRANS-CODON-001), exposed by <see cref="GeneticCode"/> in
-/// src/Seqeron/Algorithms/Seqeron.Genomics.Core/GeneticCode.cs.
+/// Fuzz tests for the Translation area:
+///   • the codon table / genetic code lookup (TRANS-CODON-001), exposed by
+///     <see cref="GeneticCode"/> in
+///     src/Seqeron/Algorithms/Seqeron.Genomics.Core/GeneticCode.cs;
+///   • protein translation of a coding sequence (TRANS-PROT-001), exposed by
+///     <see cref="Translator"/> in
+///     src/Seqeron/Algorithms/Seqeron.Genomics.Core/Translator.cs.
 ///
 /// ───────────────────────────────────────────────────────────────────────────
 /// What fuzzing verifies
@@ -81,6 +85,53 @@ namespace Seqeron.Genomics.Tests;
 /// standard code in disguise — exactly the "silently used the wrong genetic code"
 /// failure this fuzz unit is designed to catch.
 ///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: TRANS-PROT-001 — protein translation (Translation)
+/// Checklist: docs/checklists/03_FUZZING.md, row 63.
+/// Fuzz strategy exercised for THIS unit:
+///   • MC = Malformed Content — a coding sequence carrying non-IUPAC characters
+///     in a complete codon.
+///   • BE = Boundary Exploitation — empty, length 1, length 2, an all-stop-codon
+///     sequence, and a stop-free coding sequence.
+/// — docs/checklists/03_FUZZING.md §Description (strategy codes).
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The protein-translation contract under test (Translator.Translate(string,…))
+/// ───────────────────────────────────────────────────────────────────────────
+/// Translation reads a DNA/RNA coding sequence codon-by-codon (5'→3') and maps
+/// each COMPLETE triplet to one amino acid via the chosen GeneticCode, after
+/// uppercasing and normalizing T→U. The exact contract verified here, read from
+/// Translator.cs and Protein_Translation.md, is:
+///   • null / empty input → an EMPTY ProteinSequence (the string overload
+///     special-cases it; it never throws and never crashes)
+///     (Translator.cs lines 63–64; Protein_Translation.md §3.1, §6.1).
+///   • PARTIAL FINAL CODON safety — trailing bases that cannot form a full codon
+///     are IGNORED: the loop only advances while `i + 3 <= length`, so length 1
+///     and length 2 yield 0 complete codons → empty protein, with NO
+///     IndexOutOfRangeException (Translator.cs lines 148–159; INV-02; §6.1).
+///   • LENGTH RELATION — the translated protein length is EXACTLY
+///     floor((length − frame) / 3) when no stop truncation occurs, and never
+///     exceeds it (INV-02; Translator.cs line 150).
+///   • STOP HANDLING — the default `toFirstStop = false` MARKS every stop codon
+///     as '*' and keeps translating (stops are NOT truncated); an all-stop
+///     sequence "UAAUAGUGA" therefore yields "***" of length 3. Passing
+///     `toFirstStop = true` instead BREAKS before appending the first '*', so the
+///     same input yields the empty protein (Translator.cs lines 155–158;
+///     §5.2, §6.1).
+///   • NO-STOP coding sequence — a sequence whose codons never hit '*' translates
+///     ALL complete codons through to the end (the loop is bounded by the index,
+///     so it terminates: no infinite loop, no crash) (Translator.cs line 150).
+///   • NON-DNA content — a non-IUPAC symbol inside a complete codon is malformed
+///     content: GeneticCode.Translate throws the documented ArgumentException
+///     (NOT a KeyNotFoundException) and Translator propagates it unchanged; a
+///     valid-but-ambiguous IUPAC codon (e.g. NNN) is instead untranslatable and
+///     maps to 'X' (Translator.cs line 153; GeneticCode.cs lines 65–78;
+///     Codon_Translation.md §3.1).
+/// The produced amino-acid string ('*' and 'X' included) is always a valid
+/// ProteinSequence, so wrapping the result never throws either
+/// (ProteinSequence.cs lines 45–47).
+///
+/// ───────────────────────────────────────────────────────────────────────────
 /// Determinism note: every test uses FIXED, hand-chosen inputs (the genetic-code
 /// lookup is a pure deterministic mapping, so no Rng is needed). A local
 /// new Random(seed) drives the only randomized scan (the invalid-table-id sweep),
@@ -373,6 +424,214 @@ public class TranslationFuzzTests
                     "ambiguous IUPAC codon \"{0}\" is untranslatable, not invalid", ambiguous);
             }
         }
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  TRANS-PROT-001 — protein translation : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region TRANS-PROT-001 — protein translation
+
+    #region Positive sanity — a known coding sequence translates to the expected protein
+
+    /// <summary>
+    /// Positive sanity: a real coding sequence translates codon-by-codon to the
+    /// theory-correct protein. "ATGGCCUGUUAA" = AUG GCC UGU UAA →
+    /// M (Methionine / start) · A (Alanine) · C (Cysteine) · '*' (stop). With the
+    /// default toFirstStop=false the terminal stop is MARKED as '*' (length 4);
+    /// with toFirstStop=true the stop is dropped (length 3, "MAC"). T→U and
+    /// case normalization are exercised (mixed-case DNA input). This proves the
+    /// fuzz targets below are measured against a functioning translator.
+    /// — Translator.cs lines 144–161; Protein_Translation.md §4.1, §5.2.
+    /// </summary>
+    [Test]
+    public void Translate_KnownCodingSequence_ProducesExpectedProtein()
+    {
+        // Mixed case + DNA 'T' so normalization (ToUpper, T→U) is on the path.
+        const string coding = "atggccTGTtaa"; // AUG GCC UGU UAA
+
+        var withStop = Translator.Translate(coding);
+        withStop.Sequence.Should().Be("MAC*",
+            "default toFirstStop=false marks the terminal stop as '*'");
+
+        var toStop = Translator.Translate(coding, toFirstStop: true);
+        toStop.Sequence.Should().Be("MAC",
+            "toFirstStop=true breaks before appending the first stop codon");
+
+        // Length relation: 12 bases / 3 = 4 complete codons, all consumed.
+        withStop.Length.Should().Be(coding.Length / 3);
+    }
+
+    #endregion
+
+    #region Fuzz target: empty / null sequence → empty protein, never crashes
+
+    /// <summary>
+    /// Fuzz target "empty" (BE): null and empty input must return an EMPTY
+    /// ProteinSequence — the string overload special-cases IsNullOrEmpty and
+    /// never throws, never crashes. This is the documented boundary contract.
+    /// — Translator.cs lines 63–64; Protein_Translation.md §3.1, §6.1.
+    /// </summary>
+    [Test]
+    public void Translate_NullOrEmptySequence_ReturnsEmptyProtein()
+    {
+        Translator.Translate((string)null!).Sequence.Should().BeEmpty();
+        Translator.Translate("").Sequence.Should().BeEmpty();
+        Translator.Translate((string)null!).Length.Should().Be(0);
+    }
+
+    #endregion
+
+    #region Fuzz target: len=1 / len=2 → no complete codon → empty protein (partial-codon safety)
+
+    /// <summary>
+    /// Fuzz target "len=1, len=2" (BE) — the KEY partial-final-codon boundary: a
+    /// sequence shorter than three bases contains NO complete codon, so the loop
+    /// (`i + 3 <= length`) never executes and the result is the empty protein —
+    /// NEVER an IndexOutOfRangeException from reading a partial triplet. We sweep
+    /// every length-1 and length-2 single-nucleotide string for thoroughness.
+    /// — Translator.cs lines 148–159; INV-02; Protein_Translation.md §6.1.
+    /// </summary>
+    [Test]
+    public void Translate_LengthOneOrTwo_ReturnsEmptyProtein_NeverIndexOutOfRange()
+    {
+        foreach (var len1 in new[] { "A", "C", "G", "T", "U", "N" })
+        {
+            Action act = () => Translator.Translate(len1);
+            act.Should().NotThrow("length-1 input \"{0}\" has no complete codon", len1);
+            Translator.Translate(len1).Sequence.Should().BeEmpty();
+        }
+
+        foreach (var len2 in new[] { "AT", "GC", "UG", "TA", "NN", "AU" })
+        {
+            Action act = () => Translator.Translate(len2);
+            act.Should().NotThrow("length-2 input \"{0}\" has no complete codon", len2);
+            Translator.Translate(len2).Sequence.Should().BeEmpty();
+        }
+    }
+
+    /// <summary>
+    /// Fuzz target "partial final codon" (BE): when the sequence length is NOT a
+    /// multiple of three, the trailing 1 or 2 dangling bases are silently ignored
+    /// and the protein length is EXACTLY floor(length / 3) — no IndexOutOfRange on
+    /// the incomplete tail. "AUGGCC" + a 1- or 2-base remainder must translate
+    /// only the two complete codons (M, A).
+    /// — Translator.cs lines 148–159; INV-02.
+    /// </summary>
+    [Test]
+    public void Translate_TrailingPartialCodon_IsIgnored_LengthIsFloorDivThree()
+    {
+        foreach (var dangling in new[] { "", "A", "AU" })
+        {
+            string seq = "AUGGCC" + dangling; // 6, 7 or 8 bases
+            var protein = Translator.Translate(seq);
+            protein.Sequence.Should().Be("MA",
+                "the trailing partial codon \"{0}\" must be ignored", dangling);
+            protein.Length.Should().Be(seq.Length / 3);
+        }
+    }
+
+    #endregion
+
+    #region Fuzz target: all stop codons → marked '*' (default) or empty (toFirstStop)
+
+    /// <summary>
+    /// Fuzz target "all stop codons" (BE): an all-stop sequence "UAAUAGUGA"
+    /// (UAA UAG UGA) probes the stop-handling contract. Default toFirstStop=false
+    /// MARKS each stop as '*' and keeps translating → "***" (length 3, exactly
+    /// floor(9/3)). Passing toFirstStop=true BREAKS before the first stop →
+    /// the empty protein. Neither path crashes. The DNA spelling "TAATAGTGA"
+    /// normalizes to the same result.
+    /// — Translator.cs lines 155–158; Protein_Translation.md §5.2, §6.1.
+    /// </summary>
+    [Test]
+    public void Translate_AllStopCodons_MarksStopsByDefault_OrEmptyWhenToFirstStop()
+    {
+        const string rnaStops = "UAAUAGUGA"; // UAA UAG UGA
+        const string dnaStops = "TAATAGTGA"; // same, DNA spelling
+
+        Translator.Translate(rnaStops).Sequence.Should().Be("***",
+            "default toFirstStop=false marks every stop codon as '*'");
+        Translator.Translate(dnaStops).Sequence.Should().Be("***",
+            "T→U normalization makes the DNA spelling translate identically");
+        Translator.Translate(rnaStops).Length.Should().Be(rnaStops.Length / 3);
+
+        Translator.Translate(rnaStops, toFirstStop: true).Sequence.Should().BeEmpty(
+            "toFirstStop=true breaks before appending the first stop");
+        Translator.Translate(dnaStops, toFirstStop: true).Sequence.Should().BeEmpty();
+    }
+
+    #endregion
+
+    #region Fuzz target: no stop codon → translate all codons to the end (terminates)
+
+    /// <summary>
+    /// Fuzz target "no stop codon" (BE): a coding sequence whose codons NEVER hit
+    /// a stop must translate every complete codon through to the end and TERMINATE
+    /// (the loop is bounded by the index, so there is no infinite loop). "AUG"
+    /// repeated yields all 'M's; toFirstStop=true produces the same protein since
+    /// no '*' is ever encountered. [CancelAfter] is a hang tripwire.
+    /// — Translator.cs lines 150–159; Protein_Translation.md §6.1.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void Translate_NoStopCodon_TranslatesEntireSequence_Terminates(CancellationToken token)
+    {
+        const int codons = 1000;
+        var sb = new System.Text.StringBuilder(codons * 3);
+        for (int i = 0; i < codons; i++)
+            sb.Append("AUG");
+        string noStop = sb.ToString();
+
+        token.ThrowIfCancellationRequested();
+
+        var protein = Translator.Translate(noStop);
+        protein.Length.Should().Be(codons, "every complete codon is translated to the end");
+        protein.Sequence.Should().Be(new string('M', codons));
+        protein.Sequence.Should().NotContain("*", "the sequence has no stop codon");
+
+        // toFirstStop changes nothing when there is no stop to break on.
+        Translator.Translate(noStop, toFirstStop: true).Sequence.Should().Be(protein.Sequence);
+    }
+
+    #endregion
+
+    #region Fuzz target: non-DNA chars → ArgumentException (non-IUPAC) or 'X' (ambiguous IUPAC)
+
+    /// <summary>
+    /// Fuzz target "non-DNA chars" (MC): a non-IUPAC symbol inside a COMPLETE codon
+    /// is malformed content — GeneticCode.Translate throws the documented
+    /// ArgumentException (with ParamName "codon"), and Translator propagates it
+    /// unchanged. Crucially this is NOT an unhandled KeyNotFoundException from the
+    /// codon-table dictionary lookup. A valid-but-ambiguous IUPAC codon ("NNN") is
+    /// instead untranslatable and maps to the sentinel 'X' without throwing.
+    /// — Translator.cs line 153; GeneticCode.cs lines 65–78;
+    ///   Codon_Translation.md §3.1.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void Translate_NonDnaCharInCodon_ThrowsArgumentException_AmbiguousIupacBecomesX(
+        CancellationToken token)
+    {
+        // A full first codon of non-IUPAC symbols → intentional ArgumentException.
+        foreach (var bad in new[] { "XYZ", "@#$", "123", "J0ZGCC" })
+        {
+            token.ThrowIfCancellationRequested();
+            Action act = () => Translator.Translate(bad);
+            act.Should().Throw<ArgumentException>(
+                    "non-IUPAC content \"{0}\" must be rejected, not crash as KeyNotFound", bad)
+                .And.ParamName.Should().Be("codon");
+        }
+
+        // Ambiguous-but-valid IUPAC codons translate to 'X' (untranslatable),
+        // never throwing — including when surrounded by translatable codons.
+        Translator.Translate("NNN").Sequence.Should().Be("X");
+        Translator.Translate("AUGNNNUGU").Sequence.Should().Be("MXC",
+            "an ambiguous IUPAC codon becomes 'X' but neighbours still translate");
     }
 
     #endregion
