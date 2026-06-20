@@ -138,6 +138,61 @@ namespace Seqeron.Genomics.Tests;
 ///     throws (NullReferenceException) because they dereference sequence.Sequence
 ///     (§3.3, §6.1) — pinned so the strict-vs-lenient surface split cannot drift.
 ///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: PAT-APPROX-002 — approximate (edit-distance / Levenshtein) matching (Matching)
+/// Checklist: docs/checklists/03_FUZZING.md, row 10.
+/// Fuzz strategies exercised for THIS unit:
+///   • BE = Boundary Exploitation — the empty sequence and the empty pattern; a
+///          single-base pattern; maxEdits = 0 (reduces to EXACT, equal-length-only
+///          matching); maxEdits ≥ sequence length (every window is reachable, so
+///          every start position matches); a negative maxEdits (the documented
+///          validation gate, at −1 and int.MinValue).
+///   • MC = Malformed Content — non-DNA / control / non-ASCII characters on the
+///          string surface (matched by the case-folded variable-window scan, never
+///          a crash); a null DnaSequence on the typed wrapper (documented throw).
+/// — docs/checklists/03_FUZZING.md §Description (strategy codes).
+///
+/// The approximate-(edit-distance)-matching contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// PAT-APPROX-002 is the LEVENSHTEIN (insertions + deletions + substitutions)
+/// approximate-match family on ApproximateMatcher: FindWithEdits(...) and the
+/// direct EditDistance(...) metric. (The substitutions-only Hamming family —
+/// FindWithMismatches / HammingDistance — is PAT-APPROX-001, row 9, and is NOT
+/// re-exercised here.) Unlike Hamming, edit distance permits UNEQUAL pattern and
+/// window lengths, so FindWithEdits scans variable-length windows whose length
+/// ranges over [pat.Length − maxEdits .. pat.Length + maxEdits] and may emit
+/// MULTIPLE results at the SAME start position (one per qualifying window length).
+/// Documented contract (docs/algorithms/Pattern_Matching/Edit_Distance.md §2.2,
+/// §2.4, §3.1, §3.3, §6.1; sources: Levenshtein 1966, Wagner &amp; Fischer 1974,
+/// Navarro 2001, Berger et al. 2021):
+///   • EditDistance(s1, s2) — Wagner-Fischer Levenshtein:
+///       – null s1 or s2          → ArgumentNullException (the validation gate,
+///         NOT a NullReferenceException; ApproximateMatcher.cs lines 197–198);
+///       – d = 0 iff identical (INV-01); d ≥ |len(a)−len(b)| (INV-02);
+///         d ≤ max(len(a),len(b)) (INV-03); "" vs "abc" → 3 (§6.1);
+///       – CASE-SENSITIVE: the core metric compares characters as-is (§5.2), so
+///         it does NOT uppercase (unlike the search surface);
+///   • FindWithEdits(string sequence, string pattern, int maxEdits):
+///       – empty/null sequence OR pattern → no matches (explicit IsNullOrEmpty
+///         guard, yield break — NOT the exact-match core's "all positions");
+///       – maxEdits < 0              → ArgumentOutOfRangeException (lazy guard,
+///         fires on enumeration; ApproximateMatcher.cs lines 124–125);
+///       – maxEdits = 0              → minLen == maxLen == pattern length, so only
+///         equal-length windows are checked and only zero-distance ones qualify →
+///         reduces EXACTLY to exact matching;
+///       – maxEdits ≥ sequence length → every pattern is within that many edits of
+///         every reachable window, so every start position [0 .. n−minLen] yields
+///         at least one match (no crash on the widened window range);
+///       – non-DNA / control / non-ASCII chars on the string surface → matched by
+///         the case-folded variable-window scan, never a crash (the string path
+///         does NOT enforce the DNA alphabet — only the typed DnaSequence ctor does);
+///       – the scan is verified against a brute-force oracle that REPLAYS the exact
+///         (start i, window length len) double-loop and EditDistance call, so the
+///         duplicate-position semantics cannot drift;
+///   • the DnaSequence wrapper overload adds NO null guard → a null DnaSequence
+///     throws (NullReferenceException) because it dereferences sequence.Sequence
+///     (§3.1, §3.3, §6.1) — pinned so the strict-vs-lenient surface split is explicit.
+///
 /// All inputs here are ASCII DNA / boundary strings; randomness (where used) is
 /// from a locally fixed-seed Random so the fuzz fodder is fully reproducible and
 /// adding tests cannot perturb any other fixture.
@@ -885,6 +940,359 @@ public class MatchingFuzzTests
         };
 
         act.Should().NotThrow("control bytes and unicode are ordinary code points to the string surface");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  PAT-APPROX-002 — approximate (edit-distance) pattern matching : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region PAT-APPROX-002 — approximate (edit-distance) pattern matching
+
+    #region Helper — brute-force oracle replaying the variable-window scan
+
+    /// <summary>
+    /// Brute-force oracle for FindWithEdits: replays the EXACT (start i, window
+    /// length len) double-loop of the source (ApproximateMatcher.cs lines 134–154)
+    /// and the same case-folding, calling the public EditDistance(...) metric on
+    /// each candidate window. Returns the ordered (Position, MatchedSequence,
+    /// Distance) tuples a correct implementation must yield — including DUPLICATE
+    /// positions, since several window lengths can qualify at one start.
+    /// </summary>
+    private static List<(int Position, string Window, int Distance)> EditScanOracle(
+        string sequence, string pattern, int maxEdits)
+    {
+        var result = new List<(int, string, int)>();
+        string seq = sequence.ToUpperInvariant();
+        string pat = pattern.ToUpperInvariant();
+
+        int minLen = Math.Max(1, pat.Length - maxEdits);
+        int maxLen = pat.Length + maxEdits;
+
+        for (int i = 0; i <= seq.Length - minLen; i++)
+        {
+            for (int len = minLen; len <= maxLen && i + len <= seq.Length; len++)
+            {
+                string window = seq.Substring(i, len);
+                int distance = ApproximateMatcher.EditDistance(pat, window);
+                if (distance <= maxEdits)
+                    result.Add((i, window, distance));
+            }
+        }
+
+        return result;
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Fuzz target: empty strings (empty sequence / empty pattern)
+    // ───────────────────────────────────────────────────────────────────
+
+    #region BE — empty strings: empty sequence / pattern → no matches, no crash
+
+    /// <summary>
+    /// BE: the empty sequence and the empty pattern are the lower size boundaries.
+    /// FindWithEdits guards both with an explicit IsNullOrEmpty check and yields
+    /// nothing — it does NOT inherit the exact-match core's "empty pattern ⇒ all
+    /// positions" contract (Edit_Distance.md §3.3, §6.1). Every empty combination —
+    /// over every maxEdits, including 0 and a large value — must be the defined
+    /// empty result, never an IndexOutOfRange from the widened window range. The
+    /// guard precedes the negative-maxEdits check, so an empty input with maxEdits
+    /// large is still simply empty (the negative case is pinned separately).
+    /// </summary>
+    [TestCase("", "ACGT", 0, TestName = "FindWithEdits_EmptySequence_NoMatch")]
+    [TestCase("", "ACGT", 5, TestName = "FindWithEdits_EmptySequence_LargeMaxEdits_NoMatch")]
+    [TestCase("ACGTACGT", "", 0, TestName = "FindWithEdits_EmptyPattern_NoMatch")]
+    [TestCase("ACGTACGT", "", 5, TestName = "FindWithEdits_EmptyPattern_LargeMaxEdits_NoMatch")]
+    [TestCase("", "", 0, TestName = "FindWithEdits_BothEmpty_NoMatch")]
+    public void FindWithEdits_EmptyStrings_AreNoMatch(string sequence, string pattern, int maxEdits)
+    {
+        ApproximateMatcher.FindWithEdits(sequence, pattern, maxEdits).Should().BeEmpty(
+            "an empty sequence or pattern is guarded by the source and yields no edit-distance matches");
+    }
+
+    /// <summary>
+    /// BE/MC: null sequence/pattern on the string surface is treated the same as
+    /// empty by the IsNullOrEmpty guard — it yields nothing rather than throwing a
+    /// NullReferenceException (Edit_Distance.md §3.1, §3.3). Because FindWithEdits
+    /// is a lazy iterator, the guard runs on enumeration, so the assertions
+    /// materialize the result. Pinned so the lenient string surface cannot drift
+    /// into a raw dereference.
+    /// </summary>
+    [Test]
+    public void FindWithEdits_NullStrings_AreNoMatchNotCrash()
+    {
+        var findNullSeq = () => ApproximateMatcher.FindWithEdits((string)null!, "ACGT", 1).ToList();
+        var findNullPat = () => ApproximateMatcher.FindWithEdits("ACGT", null!, 1).ToList();
+
+        findNullSeq.Should().NotThrow("a null sequence is guarded as empty, never dereferenced");
+        findNullPat.Should().NotThrow("a null pattern is guarded as empty, never dereferenced");
+
+        findNullSeq().Should().BeEmpty("a null sequence yields no matches");
+        findNullPat().Should().BeEmpty("a null pattern yields no matches");
+    }
+
+    /// <summary>
+    /// MC/INJ: the direct EditDistance metric has an explicit null gate
+    /// (ArgumentNullException), NOT a NullReferenceException (Edit_Distance.md §3.1,
+    /// §3.3; ApproximateMatcher.cs lines 197–198). Pinned in both orientations,
+    /// including null-vs-non-empty.
+    /// </summary>
+    [Test]
+    public void EditDistance_NullArguments_ThrowArgumentNullException()
+    {
+        var nullFirst = () => ApproximateMatcher.EditDistance(null!, "ACGT");
+        var nullSecond = () => ApproximateMatcher.EditDistance("ACGT", null!);
+        var bothNull = () => ApproximateMatcher.EditDistance(null!, null!);
+
+        nullFirst.Should().Throw<ArgumentNullException>("a null first string hits the null gate");
+        nullSecond.Should().Throw<ArgumentNullException>("a null second string hits the null gate");
+        bothNull.Should().Throw<ArgumentNullException>("two null strings still hit the null gate");
+    }
+
+    /// <summary>
+    /// BE: the direct EditDistance metric over the empty string is the canonical
+    /// length-difference boundary — "" vs "abc" is 3 insertions/deletions, in both
+    /// orientations, and "" vs "" is 0 (Edit_Distance.md §6.1, INV-01/INV-02). The
+    /// empty string here is a metric input, distinct from the FindWithEdits empty
+    /// guard above. No crash on the zero-length DP row.
+    /// </summary>
+    [TestCase("", "ABC", 3, TestName = "EditDistance_EmptyVsThree_IsThree")]
+    [TestCase("ABC", "", 3, TestName = "EditDistance_ThreeVsEmpty_IsThree")]
+    [TestCase("", "", 0, TestName = "EditDistance_BothEmpty_IsZero")]
+    [TestCase("ACGT", "ACGT", 0, TestName = "EditDistance_Identical_IsZero")]
+    public void EditDistance_EmptyStringBoundary_IsLengthDifference(string s1, string s2, int expected)
+    {
+        ApproximateMatcher.EditDistance(s1, s2).Should().Be(expected,
+            "edit distance over an empty operand is the other string's length (INV-02 length bound)");
+    }
+
+    /// <summary>
+    /// MC: a null DnaSequence on the typed wrapper adds NO null guard and
+    /// dereferences sequence.Sequence, so it throws — the documented strict-surface
+    /// behavior (Edit_Distance.md §3.1, §3.3, §6.1). Pinned against the lenient
+    /// string surface (which guards null as empty above) so the split is explicit.
+    /// Because FindWithEdits is lazy, the dereference happens on enumeration.
+    /// </summary>
+    [Test]
+    public void FindWithEdits_NullDnaSequence_Throws()
+    {
+        var act = () => ApproximateMatcher.FindWithEdits((DnaSequence)null!, "ACGT", 1).ToList();
+
+        act.Should().Throw<NullReferenceException>(
+            "the typed wrapper dereferences sequence.Sequence with no null guard (documented strict surface)");
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Fuzz target: maxEdits negative (the documented validation gate)
+    // ───────────────────────────────────────────────────────────────────
+
+    #region BE — maxEdits negative → ArgumentOutOfRangeException; maxEdits = 0 → exact
+
+    /// <summary>
+    /// BE: a NEGATIVE maxEdits is the documented validation gate — it must throw
+    /// ArgumentOutOfRangeException (Edit_Distance.md §3.3, §6.1;
+    /// ApproximateMatcher.cs lines 124–125). Because FindWithEdits is a lazy
+    /// iterator AND the IsNullOrEmpty guard precedes the negative check, the
+    /// assertion uses NON-empty inputs and materializes the result so the guard
+    /// fires. Pinned at −1 and int.MinValue (no overflow on the extreme value).
+    /// </summary>
+    [TestCase(-1, TestName = "FindWithEdits_NegativeMaxEdits_MinusOne_Throws")]
+    [TestCase(int.MinValue, TestName = "FindWithEdits_NegativeMaxEdits_MinInt_Throws")]
+    public void FindWithEdits_NegativeMaxEdits_ThrowsArgumentOutOfRange(int maxEdits)
+    {
+        var act = () => ApproximateMatcher.FindWithEdits("ACGTACGT", "ACGT", maxEdits).ToList();
+
+        act.Should().Throw<ArgumentOutOfRangeException>(
+            "a negative edit budget is rejected by the documented validation gate")
+            .Which.ParamName.Should().Be("maxEdits", "the gate names the offending parameter");
+    }
+
+    /// <summary>
+    /// BE: maxEdits = 0 is the lower threshold boundary. With maxEdits = 0 the
+    /// window-length range collapses to exactly the pattern length (minLen ==
+    /// maxLen == pat.Length), so only equal-length windows are scanned and only
+    /// zero-distance ones qualify — FindWithEdits reduces EXACTLY to exact matching
+    /// (Edit_Distance.md §3.3). The reported positions must equal the brute-force
+    /// set of exact occurrences over a fixed-seed random text, each at distance 0,
+    /// with no duplicate positions (a single window length is checked per start).
+    /// </summary>
+    [Test]
+    public void FindWithEdits_MaxEditsZero_ReducesToExactMatch()
+    {
+        string sequence = RandomDna(400);
+        const int k = 6;
+        string pattern = sequence.Substring(150, k); // a pattern guaranteed to occur
+
+        var expected = Enumerable.Range(0, sequence.Length - k + 1)
+            .Where(i => sequence.Substring(i, k) == pattern)
+            .ToList();
+
+        IReadOnlyList<ApproximateMatchResult> results =
+            ApproximateMatcher.FindWithEdits(sequence, pattern, 0).ToList();
+
+        results.Select(r => r.Position).Should().Equal(expected,
+            "maxEdits = 0 reports exactly the exact-match positions (approx(d=0) == exact)");
+        results.Should().OnlyContain(r => r.Distance == 0,
+            "an exact (zero-edit) match carries distance 0");
+        results.Select(r => r.Position).Should().OnlyHaveUniqueItems(
+            "with maxEdits = 0 only the pattern-length window is scanned, so no start repeats");
+        expected.Should().NotBeEmpty("the planted pattern must occur at least once for a meaningful boundary check");
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Fuzz target: maxEdits > seq length  (every start position matches)
+    // ───────────────────────────────────────────────────────────────────
+
+    #region BE — maxEdits ≥ sequence length → every window reachable
+
+    /// <summary>
+    /// BE: maxEdits ≥ sequence length is the upper threshold boundary — every
+    /// pattern is within that many edits of every reachable window, so EVERY start
+    /// position [0 .. n−minLen] yields at least one match and the widened window
+    /// range (pat.Length + maxEdits, far past the text) does NOT over-read or crash
+    /// (Edit_Distance.md §2.4 INV-03, §6.1). Verified against the variable-window
+    /// oracle for the exact (position, window, distance) multiset, then the "every
+    /// reachable start matches" property is checked at a finite, non-overflowing
+    /// budget. (The int.MaxValue case is fuzzed separately for no-crash / no-hang —
+    /// the source's pat.Length + maxEdits window arithmetic overflows there, which
+    /// is a DEFINED empty result, not a corruption.)
+    /// </summary>
+    [TestCase("ACGTACGT", "GGG", 8, TestName = "FindWithEdits_MaxEditsEqualsLen_AllReachableStarts")]
+    [TestCase("ACGTACGT", "GGG", 100, TestName = "FindWithEdits_MaxEditsAboveLen_AllReachableStarts")]
+    [TestCase("AAAA", "C", 4, TestName = "FindWithEdits_SingleBasePattern_MaxEditsLen_AllStarts")]
+    public void FindWithEdits_MaxEditsAtLeastSequenceLength_MatchesEveryReachableStart(
+        string sequence, string pattern, int maxEdits)
+    {
+        var oracle = EditScanOracle(sequence, pattern, maxEdits);
+
+        IReadOnlyList<ApproximateMatchResult> results =
+            ApproximateMatcher.FindWithEdits(sequence, pattern, maxEdits).ToList();
+
+        results.Select(r => (r.Position, r.MatchedSequence, r.Distance))
+            .Should().Equal(oracle,
+                "the variable-window scan must yield exactly the oracle's (position, window, distance) sequence");
+
+        // Every reachable start position is covered when the budget swamps the length.
+        // minLen collapses to 1 once maxEdits ≥ pat.Length, so starts span [0 .. n-1].
+        int minLen = Math.Max(1, pattern.Length - maxEdits);
+        var expectedStarts = Enumerable.Range(0, sequence.Length - minLen + 1).ToList();
+        results.Select(r => r.Position).Distinct().OrderBy(p => p).Should().Equal(expectedStarts,
+            "with an edit budget at least the sequence length every reachable start position matches");
+
+        results.Should().OnlyContain(r => r.Distance <= Math.Max(pattern.Length, r.MatchedSequence.Length),
+            "no reported edit distance can exceed max(pattern, window) length (INV-03)");
+    }
+
+    /// <summary>
+    /// BE/OVF: maxEdits = int.MaxValue is the extreme upper boundary. The source
+    /// computes the window range as pat.Length ± maxEdits, which overflows int at
+    /// this value — the fuzz contract is that this must NOT crash, hang, or corrupt:
+    /// enumeration completes and the result is whatever the (overflowed but
+    /// deterministic) window arithmetic yields, mirrored exactly by the oracle that
+    /// replays the same arithmetic. Pinned so the overflow path stays a defined,
+    /// reproducible outcome rather than an IndexOutOfRange or infinite loop.
+    /// </summary>
+    [Test]
+    public void FindWithEdits_MaxEditsMaxInt_DoesNotCrashAndMatchesOracle()
+    {
+        const string sequence = "ACGTACGT";
+        const string pattern = "GGG";
+
+        var act = () =>
+            ApproximateMatcher.FindWithEdits(sequence, pattern, int.MaxValue)
+                .Select(r => (r.Position, r.MatchedSequence, r.Distance))
+                .ToList();
+
+        act.Should().NotThrow("an int.MaxValue edit budget must not crash or hang on the widened window range");
+        act().Should().Equal(EditScanOracle(sequence, pattern, int.MaxValue),
+            "the int.MaxValue scan yields the same deterministic result as the overflow-faithful oracle");
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Fuzz target: non-DNA characters
+    // ───────────────────────────────────────────────────────────────────
+
+    #region MC/INJ — non-DNA / control / non-ASCII characters on the string surface
+
+    /// <summary>
+    /// MC: the STRING surface does not enforce the DNA alphabet (only the typed
+    /// DnaSequence ctor does), so non-DNA symbols — IUPAC ambiguity codes, gap
+    /// characters, digits, punctuation — flow through the case-folded variable-
+    /// window scan and must never crash (Edit_Distance.md §5.2). A non-DNA pattern
+    /// present verbatim is an exact (distance-0) edit match; an off-by-one-edit
+    /// neighbour is reported once the budget allows. Verified against the
+    /// variable-window oracle so the duplicate-position semantics are pinned too.
+    /// </summary>
+    [Test]
+    public void FindWithEdits_NonDnaCharacters_AreMatchedByVariableWindowScan()
+    {
+        const string sequence = "NNN-ACGT-NNN?1234";
+        const string pattern = "-NNN"; // occurs verbatim starting at index 8
+
+        // d = 0: the verbatim occurrence is found at distance 0.
+        var exact = ApproximateMatcher.FindWithEdits(sequence, pattern, 0).ToList();
+        exact.Should().Contain(r => r.Position == 8 && r.Distance == 0,
+            "a non-DNA pattern present verbatim is an exact (zero-edit) match at its true position");
+        exact.Select(r => (r.Position, r.MatchedSequence, r.Distance))
+            .Should().Equal(EditScanOracle(sequence, pattern, 0),
+                "the d=0 scan over non-DNA symbols must equal the variable-window oracle");
+
+        // A tolerant budget over non-DNA symbols must match the oracle exactly,
+        // including duplicate start positions from multiple qualifying window lengths.
+        const int budget = 2;
+        ApproximateMatcher.FindWithEdits(sequence, pattern, budget)
+            .Select(r => (r.Position, r.MatchedSequence, r.Distance))
+            .Should().Equal(EditScanOracle(sequence, pattern, budget),
+                "non-DNA windows must be matched exactly as the variable-window edit oracle dictates");
+    }
+
+    /// <summary>
+    /// MC/INJ: control characters, null bytes, and non-ASCII Unicode in the string
+    /// surface must flow through the variable-window scan as ordinary code points —
+    /// no crash, no hang, no over-read. A pattern equal to the whole text is an
+    /// exact match at position 0; an absent same-length pattern still yields no
+    /// zero-edit match. This fuzzes the INJ boundary (null byte / unicode) on the
+    /// lenient surface and pins the whole run against the oracle.
+    /// </summary>
+    [Test]
+    public void FindWithEdits_ControlAndUnicodeCharacters_DoNotCrash()
+    {
+        string sequence = "AC\0GT\tNNZZ"; // ASCII-folding-safe code points incl. null byte
+
+        var act = () =>
+        {
+            // Whole-text pattern → exactly one exact (zero-edit) match at 0 at d = 0.
+            var whole = ApproximateMatcher.FindWithEdits(sequence, sequence, 0).ToList();
+            whole.Select(r => (r.Position, r.MatchedSequence, r.Distance))
+                .Should().Equal(EditScanOracle(sequence, sequence, 0),
+                    "the whole-text edit scan over control/unicode must equal the oracle");
+            whole.Should().ContainSingle(r => r.Position == 0 && r.Distance == 0,
+                "the whole text matches itself exactly once at position 0, control bytes included");
+
+            // An absent same-length pattern (all 'Z' over the folded length) → no exact match.
+            string absent = new string('Z', sequence.Length + 3); // longer than text → unreachable at d=0
+            ApproximateMatcher.FindWithEdits(sequence, absent, 0).Should().BeEmpty(
+                "a pattern longer than the text cannot match at zero edits (minLen exceeds the text)");
+
+            // A tolerant budget still tracks the oracle exactly over the odd code points.
+            ApproximateMatcher.FindWithEdits(sequence, "NN", 1)
+                .Select(r => (r.Position, r.MatchedSequence, r.Distance))
+                .Should().Equal(EditScanOracle(sequence, "NN", 1),
+                    "a tolerant edit scan over control/unicode must match the variable-window oracle");
+        };
+
+        act.Should().NotThrow("control bytes and unicode are ordinary code points to the edit-distance scan");
     }
 
     #endregion
