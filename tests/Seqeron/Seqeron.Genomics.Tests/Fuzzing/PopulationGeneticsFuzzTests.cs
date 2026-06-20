@@ -291,6 +291,74 @@ namespace Seqeron.Genomics.Tests;
 ///   The method does NOT range-check allele frequencies or sample sizes (§3.3,
 ///   §5.2); the fuzz targets here exercise the documented degenerate boundaries and
 ///   pin that none of them crash, hang, NaN-escape, or leave [0, 1].
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: POP-LD-001 — linkage disequilibrium (PopGen)
+/// Checklist: docs/checklists/03_FUZZING.md, row 47 (the LAST PopGen unit).
+/// Fuzz strategies exercised for THIS unit:
+///   • BE  = Boundary Exploitation — the degenerate locus/sample boundaries that
+///           stress the r²/D' arithmetic and its two division denominators:
+///           a SINGLE (monomorphic) locus — one of the two loci is invariant, so its
+///           genotype variance is 0 → the r² denominator p_A·q_A·p_B·q_B contains a
+///           0 factor → an unguarded r² = D²/0 is a DivideByZero / NaN (the KEY
+///           monomorphic concern the prompt flags); MONOMORPHIC loci — BOTH loci
+///           invariant, so BOTH variances are 0 and the genotype covariance is 0;
+///           and 0 SAMPLES — an empty genotype-pair sequence, where there are no
+///           haplotypes/individuals to estimate frequencies from, so every mean,
+///           covariance and variance would be a 0/0 → the empty-input guard must
+///           return the DEFINED (D'=0, r²=0) BEFORE any division.
+/// — docs/checklists/03_FUZZING.md §Description ("BE = граничні значення: 0, -1,
+///   MaxInt, empty").
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The linkage-disequilibrium contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// Linkage disequilibrium (LD) is the non-random association of alleles at two
+/// loci. The classical coefficient and its two normalized summaries are:
+///     D   = p_AB − p_A·p_B                       (disequilibrium coefficient)
+///     D'  = D / D_max                            (Lewontin normalization, |D'| ∈ [0,1])
+///     r²  = D² / (p_A·q_A·p_B·q_B)               (squared correlation, ∈ [0,1])
+/// with q_A = 1 − p_A, q_B = 1 − p_B and
+///     D_max = min(p_A·q_B, q_A·p_B)  if D ≥ 0,   min(p_A·p_B, q_A·q_B)  if D &lt; 0.
+///   — docs/algorithms/Population_Genetics/Linkage_Disequilibrium.md §2.2, §2.4
+///     (INV-02: 0 ≤ r² ≤ 1 — the KEY range; INV-03: 0 ≤ |D'| ≤ 1 — the KEY range;
+///      INV-01: D = 0 under random association). Sources: Lewontin (1964) [1];
+///      Hill &amp; Robertson (1968) [2]; Wikipedia "Linkage disequilibrium" [4].
+///
+/// Entry point under test —
+///   PopulationGeneticsAnalyzer.CalculateLD(
+///       string variant1Id, string variant2Id,
+///       IEnumerable&lt;(int Geno1, int Geno2)&gt; genotypes, int distance)
+///   (src/Seqeron/Algorithms/Seqeron.Genomics.Population/PopulationGeneticsAnalyzer.cs
+///    lines 729–780). The repository works on UNPHASED diploid genotype pairs in the
+///    documented 0/1/2 encoding (0 = hom major, 1 = het, 2 = hom minor), NOT on
+///    explicit haplotype counts (§5.2, §5.4 deviation #1): it estimates r² as the
+///    squared Pearson correlation of the two 0/1/2 genotype vectors and D from the
+///    diploid covariance D = Cov(X₁,X₂)/2, then D' = |D|/D_max clamped to [0,1].
+///   Documented validation/edge behavior (Linkage_Disequilibrium.md §3.3, §6.1):
+///     • EMPTY genotype-pair sequence (0 samples) → the explicit `genoList.Count == 0`
+///       guard returns the DEFINED LinkageDisequilibrium with DPrime = 0, RSquared = 0
+///       (IDs and distance preserved) BEFORE any mean/covariance/variance — there is
+///       NO 0/0, so NO DivideByZeroException and NO NaN (lines 737–740). This is the
+///       KEY 0-samples fuzz concern.
+///     • MONOMORPHIC locus (either genotype vector invariant → that locus's variance
+///       is 0) → the r² denominator p_A·q_A·p_B·q_B has a 0 factor; the explicit
+///       `var1 > 0 && var2 > 0` guard returns RSquared = 0 instead of dividing by 0
+///       (line 760) — NO DivideByZero, NO NaN, NO ±Infinity. This is the KEY
+///       monomorphic / "single locus" fuzz concern (the r² zero-denominator). The
+///       same construction also covers BOTH loci monomorphic (both variances 0).
+///     • a single genotype PAIR (n = 1) → both variances are 0 (a one-point sample
+///       has no spread) → r² = 0, D' guarded to a finite value — a DEFINED, finite
+///       (if statistically meaningless) result, never NaN (§6.1; M8/S1).
+///     • PERFECT LD — identical 0/1/2 genotype vectors → Pearson correlation 1 →
+///       r² = 1 EXACTLY and D' = 1 EXACTLY (§6.1 "Perfect LD … RSquared = 1, DPrime = 1").
+///     • for ANY genotype-pair sequence the public DPrime ∈ [0, 1] (INV-03, the
+///       implementation returns |D'| clamped to 1) and RSquared ∈ [0, 1] (INV-02) and
+///       both are finite — a squared correlation over a guarded denominator can never
+///       be negative, exceed 1, NaN, or ±Infinity.
+///   The method does NOT validate the 0/1/2 encoding beyond the documented surface
+///   (§3.3, §5.2); the fuzz targets here exercise the documented degenerate
+///   boundaries and pin that none crash, hang, NaN-escape, or leave [0, 1].
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -1424,6 +1492,260 @@ public class PopulationGeneticsFuzzTests
             double.IsInfinity(fst).Should().BeFalse("a bounded variance over a positive denominator never gives ±Infinity");
             fst.Should().BeGreaterThanOrEqualTo(0.0, "F_ST is a ratio of non-negative quantities (INV-FST-01)");
             fst.Should().BeLessThanOrEqualTo(1.0, "F_ST never exceeds complete differentiation (INV-FST-01)");
+        }
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  POP-LD-001 — linkage disequilibrium : fuzz targets
+    //  Surface: CalculateLD(string, string, IEnumerable<(int Geno1, int Geno2)>, int)
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region POP-LD-001 — linkage disequilibrium
+
+    #region Helpers — genotype-pair builder
+
+    /// <summary>Zips two equal-length 0/1/2 genotype vectors into the paired sequence CalculateLD expects.</summary>
+    private static List<(int Geno1, int Geno2)> Pairs(int[] geno1, int[] geno2) =>
+        geno1.Zip(geno2, (g1, g2) => (g1, g2)).ToList();
+
+    /// <summary>A deterministic random 0/1/2 diploid genotype vector of the given length.</summary>
+    private static int[] RandomGenotypes(int length)
+    {
+        var buffer = new int[length];
+        for (int i = 0; i < length; i++)
+            buffer[i] = Rng.Next(0, 3); // 0 = hom major, 1 = het, 2 = hom minor
+        return buffer;
+    }
+
+    #endregion
+
+    #region Positive sanity — known two-locus genotype set yields the documented r² and D' in range
+
+    /// <summary>
+    /// Positive control: a known two-locus genotype distribution with a clean,
+    /// exactly-pinnable LD. For the six paired 0/1/2 genotypes
+    ///   (0,0) (0,1) (1,1) (1,2) (2,2) (2,0)
+    /// the squared Pearson correlation of the two genotype vectors is r² = 1/16 =
+    /// 0.0625 EXACTLY and Lewontin's normalized D' = 1/3 (computed from the diploid
+    /// covariance D = Cov/2 over D_max per Linkage_Disequilibrium.md §2.2/§5.2).
+    /// Both summaries must hit those documented values, r² must lie in [0, 1]
+    /// (INV-02) and D' in [0, 1] (INV-03), and neither may be NaN/±Infinity. A
+    /// second anchor pins PERFECT LD (identical genotype vectors → r² = 1, D' = 1,
+    /// §6.1). This anchors the fuzz battery: before pinning that boundary input does
+    /// no harm, confirm a known-good two-locus sample gives the textbook-correct LD.
+    /// </summary>
+    [Test]
+    public void LinkageDisequilibrium_KnownTwoLocusSet_MatchesDocumentedRSquaredAndDPrimeInRange()
+    {
+        var genotypes = Pairs(
+            new[] { 0, 0, 1, 1, 2, 2 },
+            new[] { 0, 1, 1, 2, 2, 0 });
+
+        var ld = PopulationGeneticsAnalyzer.CalculateLD("rsA", "rsB", genotypes, distance: 1500);
+
+        ld.RSquared.Should().BeApproximately(0.0625, Tolerance,
+            because: "the squared Pearson correlation of the two 0/1/2 vectors is r² = 1/16 = 0.0625 " +
+                     "(Linkage_Disequilibrium.md §2.2 r² = D²/(p_A q_A p_B q_B); §5.2 genotype-correlation surface)");
+        ld.DPrime.Should().BeApproximately(1.0 / 3.0, Tolerance,
+            because: "D = Cov/2 normalized by D_max gives Lewontin D' = 1/3 (Linkage_Disequilibrium.md §2.2, §5.2)");
+
+        ld.RSquared.Should().BeInRange(0.0, 1.0, "r² is a squared correlation measure (INV-02)");
+        ld.DPrime.Should().BeInRange(0.0, 1.0, "the public DPrime is the non-negative normalized |D'| (INV-03)");
+        double.IsNaN(ld.RSquared).Should().BeFalse("a known-good sample never yields NaN");
+        double.IsNaN(ld.DPrime).Should().BeFalse("a known-good sample never yields NaN");
+
+        ld.Variant1.Should().Be("rsA", "the first variant id is preserved verbatim");
+        ld.Variant2.Should().Be("rsB", "the second variant id is preserved verbatim");
+        ld.Distance.Should().Be(1500, "the input distance is copied into the record");
+
+        // Second independent anchor: identical genotype vectors → perfect LD.
+        var perfect = Pairs(
+            new[] { 0, 1, 2, 0, 1, 2 },
+            new[] { 0, 1, 2, 0, 1, 2 });
+        var perfectLd = PopulationGeneticsAnalyzer.CalculateLD("rsC", "rsD", perfect, distance: 50);
+        perfectLd.RSquared.Should().BeApproximately(1.0, Tolerance,
+            because: "identical 0/1/2 genotype vectors have Pearson correlation 1 → r² = 1 (§6.1 perfect LD)");
+        perfectLd.DPrime.Should().BeApproximately(1.0, Tolerance,
+            because: "perfect association → D' = 1 (§6.1 perfect LD)");
+    }
+
+    #endregion
+
+    #region BE — 0 samples (the empty genotype-pair sequence: every mean/var would be 0/0)
+
+    /// <summary>
+    /// BE / DivideByZero boundary: with 0 samples there are no genotype pairs, so
+    /// every mean, covariance and variance would be a 0/0. The contract must NOT
+    /// divide by zero and must NOT return NaN — the explicit `genoList.Count == 0`
+    /// guard returns the DEFINED LinkageDisequilibrium with DPrime = 0, RSquared = 0
+    /// (IDs and distance preserved) BEFORE any arithmetic
+    /// (Linkage_Disequilibrium.md §3.3, §6.1; PopulationGeneticsAnalyzer.cs lines
+    /// 737–740). This is the single most important fuzz concern for this unit: an
+    /// unguarded mean/covariance over 0 samples is a 0/0 NaN in production.
+    /// </summary>
+    [Test]
+    public void LinkageDisequilibrium_ZeroSamples_ReturnsDefinedZeroWithNoDivideByZero()
+    {
+        PopulationGeneticsAnalyzer.LinkageDisequilibrium ld = default;
+        var act = () => ld = PopulationGeneticsAnalyzer.CalculateLD(
+            "rsEmpty1", "rsEmpty2", Array.Empty<(int, int)>(), distance: 9000);
+
+        act.Should().NotThrow<DivideByZeroException>(
+            "the empty-sample boundary short-circuits before any mean/covariance/variance is computed");
+        act.Should().NotThrow("0 samples is a defined boundary input (returns zero LD), not an error");
+
+        ld.RSquared.Should().Be(0.0, "no samples → no association measurable → r² is the defined 0 (§6.1)");
+        ld.DPrime.Should().Be(0.0, "no samples → no association measurable → D' is the defined 0 (§6.1)");
+        double.IsNaN(ld.RSquared).Should().BeFalse("the empty-input guard avoids a 0/0 NaN");
+        double.IsNaN(ld.DPrime).Should().BeFalse("the empty-input guard avoids a 0/0 NaN");
+
+        ld.Variant1.Should().Be("rsEmpty1", "the variant ids are preserved even on the empty boundary");
+        ld.Variant2.Should().Be("rsEmpty2", "the variant ids are preserved even on the empty boundary");
+        ld.Distance.Should().Be(9000, "the distance is preserved even on the empty boundary");
+    }
+
+    #endregion
+
+    #region BE — single (monomorphic) locus (the r² zero-denominator: variance 0 → p_A q_A = 0)
+
+    /// <summary>
+    /// BE / DivideByZero boundary (KEY): when ONE of the two loci is monomorphic
+    /// (its genotype vector is invariant) that locus's variance is 0, so the r²
+    /// denominator p_A·q_A·p_B·q_B contains a 0 factor. An unguarded r² = D²/0 is a
+    /// DivideByZero / NaN. The contract returns RSquared = 0 via the explicit
+    /// `var1 > 0 && var2 > 0` guard (Linkage_Disequilibrium.md §3.3, §6.1;
+    /// PopulationGeneticsAnalyzer.cs line 760) — NO DivideByZero, NO NaN, NO
+    /// ±Infinity. Verified for the FIRST locus monomorphic and the SECOND locus
+    /// monomorphic (the second factor of the denominator), each across a fixed-seed
+    /// sweep of the OTHER, polymorphic locus so the guard holds regardless of the
+    /// well-behaved partner.
+    /// </summary>
+    [Test]
+    public void LinkageDisequilibrium_OneMonomorphicLocus_ReturnsZeroRSquaredWithNoDivideByZero()
+    {
+        for (int trial = 0; trial < 32; trial++)
+        {
+            int n = Rng.Next(2, 30);
+            int[] polymorphic = RandomGenotypes(n);
+            // Force the partner to be genuinely polymorphic so only the fixed locus is degenerate.
+            polymorphic[0] = 0;
+            polymorphic[1] = 2;
+            int fixedAllele = Rng.Next(0, 3);
+            var monomorphic = Enumerable.Repeat(fixedAllele, n).ToArray();
+
+            foreach (var genotypes in new[]
+                     {
+                         Pairs(monomorphic, polymorphic), // first locus fixed → var1 = 0
+                         Pairs(polymorphic, monomorphic), // second locus fixed → var2 = 0
+                     })
+            {
+                PopulationGeneticsAnalyzer.LinkageDisequilibrium ld = default;
+                var act = () => ld = PopulationGeneticsAnalyzer.CalculateLD("rs1", "rs2", genotypes, 100);
+
+                act.Should().NotThrow<DivideByZeroException>(
+                    "a monomorphic locus zeroes a denominator factor; the var>0 guard prevents the division");
+                act.Should().NotThrow("a monomorphic locus is a defined boundary input, not an error");
+
+                ld.RSquared.Should().Be(0.0,
+                    because: $"a fixed locus (allele {fixedAllele}) makes the r² denominator 0 → guarded RSquared = 0 (§6.1)");
+                double.IsNaN(ld.RSquared).Should().BeFalse("the var>0 guard avoids a D²/0 NaN");
+                double.IsInfinity(ld.RSquared).Should().BeFalse("the var>0 guard avoids a D²/0 ±Infinity");
+                ld.DPrime.Should().BeInRange(0.0, 1.0, "D' stays in [0,1] even when the locus is fixed (INV-03)");
+                double.IsNaN(ld.DPrime).Should().BeFalse("a monomorphic locus must not poison D' into NaN");
+            }
+        }
+    }
+
+    #endregion
+
+    #region BE — monomorphic loci / single sample (BOTH variances 0 → covariance 0 too)
+
+    /// <summary>
+    /// BE: BOTH loci monomorphic (each genotype vector fixed for one allele) — both
+    /// variances are 0 AND the covariance is 0, so BOTH factors of the r²
+    /// denominator vanish. The `var1 > 0 && var2 > 0` guard still returns RSquared =
+    /// 0 with no division, and D' stays a finite value in [0, 1]. Verified across a
+    /// fixed-seed sweep of the two fixed alleles and the sample size. Also pins the
+    /// n = 1 single-genotype-pair boundary, where a one-point sample has zero spread
+    /// at both loci → the same guarded, finite, defined result (§6.1; M8/S1).
+    /// </summary>
+    [Test]
+    public void LinkageDisequilibrium_BothMonomorphicOrSinglePair_ReturnsDefinedFiniteZeroRSquared()
+    {
+        // Single genotype pair (n = 1): zero spread at both loci.
+        {
+            PopulationGeneticsAnalyzer.LinkageDisequilibrium ld = default;
+            var act = () => ld = PopulationGeneticsAnalyzer.CalculateLD(
+                "rsSingle1", "rsSingle2", new List<(int, int)> { (1, 1) }, 100);
+
+            act.Should().NotThrow("a single genotype pair is a defined boundary input, not an error");
+            ld.RSquared.Should().Be(0.0, "a one-point sample has zero variance at both loci → guarded r² = 0");
+            double.IsNaN(ld.RSquared).Should().BeFalse("the single-pair boundary must not yield NaN");
+            double.IsNaN(ld.DPrime).Should().BeFalse("the single-pair boundary must not yield NaN");
+            ld.DPrime.Should().BeInRange(0.0, 1.0, "D' stays in [0,1] for the single-pair boundary (INV-03)");
+        }
+
+        // Both loci monomorphic across a sweep of fixed-allele choices and sizes.
+        for (int trial = 0; trial < 24; trial++)
+        {
+            int n = Rng.Next(2, 40);
+            int a = Rng.Next(0, 3);
+            int b = Rng.Next(0, 3);
+            var genotypes = Pairs(
+                Enumerable.Repeat(a, n).ToArray(),
+                Enumerable.Repeat(b, n).ToArray());
+
+            PopulationGeneticsAnalyzer.LinkageDisequilibrium ld = default;
+            var act = () => ld = PopulationGeneticsAnalyzer.CalculateLD("rs1", "rs2", genotypes, 100);
+
+            act.Should().NotThrow<DivideByZeroException>(
+                "both loci fixed → both denominator factors 0; the var>0 guard prevents the division");
+            act.Should().NotThrow("two monomorphic loci is a defined boundary input, not an error");
+
+            ld.RSquared.Should().Be(0.0,
+                because: $"both loci fixed (alleles {a}, {b}) → covariance and both variances 0 → guarded r² = 0 (§6.1)");
+            double.IsNaN(ld.RSquared).Should().BeFalse("the var>0 guard avoids a 0/0 NaN");
+            double.IsInfinity(ld.RSquared).Should().BeFalse("the var>0 guard avoids a 0/0 ±Infinity");
+            ld.DPrime.Should().BeInRange(0.0, 1.0, "D' stays in [0,1] for two fixed loci (INV-03)");
+            double.IsNaN(ld.DPrime).Should().BeFalse("two fixed loci must not poison D' into NaN");
+        }
+    }
+
+    #endregion
+
+    #region BE — random two-locus samples always have r² ∈ [0,1] and D' ∈ [0,1] and are finite
+
+    /// <summary>
+    /// BE / INV-02+INV-03 sweep: across a fixed-seed battery of random equal-length
+    /// 0/1/2 genotype-pair samples the public RSquared must ALWAYS lie in [0, 1]
+    /// (INV-02 — it is a squared correlation) and DPrime in [0, 1] (INV-03 — the
+    /// implementation returns |D'| clamped to 1), and both must be finite: a squared
+    /// correlation over the guarded p_A·q_A·p_B·q_B denominator can never be
+    /// negative, exceed 1, NaN, or ±Infinity. This pins the total-function contract
+    /// over the random interior, complementing the degenerate-boundary tests.
+    /// </summary>
+    [Test]
+    public void LinkageDisequilibrium_RandomTwoLocusSamples_AlwaysInUnitIntervalAndFinite()
+    {
+        for (int trial = 0; trial < 64; trial++)
+        {
+            int n = Rng.Next(1, 60);
+            var genotypes = Pairs(RandomGenotypes(n), RandomGenotypes(n));
+
+            PopulationGeneticsAnalyzer.LinkageDisequilibrium ld = default;
+            var act = () => ld = PopulationGeneticsAnalyzer.CalculateLD("rsX", "rsY", genotypes, n);
+
+            act.Should().NotThrow("a random equal-length 0/1/2 genotype-pair sample is always a defined input");
+            double.IsNaN(ld.RSquared).Should().BeFalse("the guarded denominator never yields a 0/0 NaN");
+            double.IsInfinity(ld.RSquared).Should().BeFalse("a bounded squared correlation never gives ±Infinity");
+            double.IsNaN(ld.DPrime).Should().BeFalse("the guarded D_max normalization never yields a 0/0 NaN");
+            double.IsInfinity(ld.DPrime).Should().BeFalse("the clamped |D'| never gives ±Infinity");
+            ld.RSquared.Should().BeInRange(0.0, 1.0, "r² is a squared correlation measure (INV-02)");
+            ld.DPrime.Should().BeInRange(0.0, 1.0, "the public DPrime is |D'| clamped to [0,1] (INV-03)");
         }
     }
 
