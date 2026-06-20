@@ -320,10 +320,14 @@ public static class StructuralVariantAnalyzer
             var prev = pairs[i - 1];
             var curr = pairs[i];
 
+            // The position gaps are computed in 64-bit width: mate positions are
+            // reference coordinates that may span the full Int32 range, and an Int32
+            // subtraction (or Math.Abs of int.MinValue) would overflow and throw on
+            // extreme/opposite-sign coordinates. Mirrors FindBreakpointsIterator.
             bool sameCluster = prev.Chromosome1 == curr.Chromosome1 &&
                                prev.Chromosome2 == curr.Chromosome2 &&
-                               Math.Abs(curr.Position1 - prev.Position1) <= clusterDistance &&
-                               Math.Abs(curr.Position2 - prev.Position2) <= clusterDistance;
+                               Math.Abs((long)curr.Position1 - prev.Position1) <= clusterDistance &&
+                               Math.Abs((long)curr.Position2 - prev.Position2) <= clusterDistance;
 
             if (sameCluster)
             {
