@@ -10,7 +10,7 @@ namespace Seqeron.Genomics.Tests;
 
 /// <summary>
 /// Fuzz tests for the K-mer area — overlapping sliding-window k-mer counting
-/// (KMER-COUNT-001).
+/// (KMER-COUNT-001) and normalized k-mer frequencies (KMER-FREQ-001).
 ///
 /// ───────────────────────────────────────────────────────────────────────────
 /// What fuzzing verifies
@@ -89,6 +89,66 @@ namespace Seqeron.Genomics.Tests;
 ///   • k = 1        → counts == single-base composition; sum = L (one window per base).
 /// A positive-sanity test pins the window-count/sum invariant on a known sequence
 /// (2-mers of "AAAA" → {AA:3}, sum = 4 − 2 + 1 = 3).
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: KMER-FREQ-001 — k-mer frequencies (normalized counts)
+/// Checklist: docs/checklists/03_FUZZING.md, row 33.
+/// Fuzz strategy exercised for THIS unit:
+///   • BE = Boundary Exploitation — the degenerate k / sequence-size boundaries
+///          called out in the checklist row: k = 0, k &gt; seqLen, the empty
+///          sequence, and the single-character sequence.
+/// — docs/checklists/03_FUZZING.md §Description (strategy codes).
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The k-mer-frequency contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// A k-mer FREQUENCY is a normalized count — the count of a k-mer divided by the
+/// total number of k-mer windows — i.e. a probability over the observed k-mer
+/// distribution: fᵢ = cᵢ / Σⱼ cⱼ (K-mer_Frequency_Analysis.md §2.2). The API entry
+/// under test is
+///   KmerAnalyzer.GetKmerFrequencies(string sequence, int k)
+///   (src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs lines 177–189),
+/// which counts via CountKmers, sums the counts into `total`, and divides each count
+/// by `total`.
+///
+/// THE KEY INVARIANT (K-mer_Frequency_Analysis.md §2.4 INV-01): whenever at least
+/// one k-mer window exists, the SUM of all returned frequencies is exactly 1.0 (each
+/// count is divided by the same total). Every positive-result test below pins this
+/// sum-to-1 invariant alongside non-negativity; it is the single load-bearing
+/// correctness check that distinguishes a true probability distribution from a
+/// miscount or a mis-normalization.
+///
+/// THE KEY FUZZ CONCERN — the 0-window division guard. The frequency is count/total.
+/// At zero windows (empty sequence, or k &gt; sequence length) the count dictionary is
+/// empty, so `total == 0`. A naïve cᵢ/total would be a 0/0 → NaN or a
+/// DivideByZeroException. The implementation guards this explicitly: `if (total == 0)
+/// return new Dictionary<string, double>()` (KmerAnalyzer.cs lines 182–183), returning
+/// the EMPTY distribution — never NaN, never a DivideByZeroException, never a crash
+/// (K-mer_Frequency_Analysis.md §3.3, §6.1: "Empty sequence / k &gt; sequence.Length →
+/// Empty frequency map"). These tests pin that guard at every 0-window boundary.
+///
+/// Documented parameter contract (K-mer_Frequency_Analysis.md §3.1, §3.3, §6.1):
+///   • k = 0 (and k &lt; 0) on non-empty input → ArgumentOutOfRangeException, surfaced
+///     unchanged from the underlying CountKmers k ≤ 0 rejection (KmerAnalyzer.cs
+///     lines 25–26): a 0-length k-mer is meaningless, so frequencies of it are too.
+///   • k &gt; sequence.Length → empty frequency map (0 windows → total == 0 → guard).
+///   • empty / null sequence → empty frequency map (0 windows → total == 0 → guard);
+///     the CountKmers empty/null guard runs BEFORE k is validated, so empty input
+///     wins even when k is itself degenerate (k = 0 on empty → still empty, no throw).
+///   • single-character sequence with k = 1 → exactly one window → one k-mer with
+///     frequency 1.0 (a distribution with a single outcome; §6.1 "Single possible
+///     k-mer → Frequency 1.0").
+/// The implementation uppercases before keying (it counts via CountKmers, INV-03),
+/// so frequencies are case-insensitive. These tests exercise only the boundary
+/// k / size targets of THIS fuzz row.
+///
+/// The four checklist targets map to these documented behaviours:
+///   • k = 0          → ArgumentOutOfRangeException on non-empty input (rejected).
+///   • k &gt; seqLen     → empty frequency map; no DivideByZero, no NaN.
+///   • empty seq      → empty frequency map; no DivideByZero, no NaN (degenerate k too).
+///   • single char    → one k-mer with frequency 1.0 (k = 1).
+/// A positive-sanity test pins the sum-to-1 invariant AND the exact frequency ratios
+/// on a known sequence ("ACGTACGT", k = 3 → {ACG:2/6, CGT:2/6, GTA:1/6, TAC:1/6}).
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -346,6 +406,240 @@ public class KmerFuzzTests
             counts.Values.Sum().Should().Be(length - k + 1,
                 $"INV-01: at k = {k} the sum of all counts equals the window count L − k + 1");
             counts.Keys.Should().OnlyContain(key => key.Length == k,
+                $"every emitted key is a length-{k} window — no shorter/longer fragments");
+        }
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  KMER-FREQ-001 — k-mer frequencies (normalized counts) : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region KMER-FREQ-001 — k-mer frequencies
+
+    #region BE — Boundary: k = 0
+
+    /// <summary>
+    /// BE: k = 0 is the degenerate floor and a meaningless k-mer length — there is no
+    /// "length-0 substring" whose frequency could be defined. GetKmerFrequencies counts
+    /// via CountKmers, which rejects k ≤ 0 on non-empty input with
+    /// ArgumentOutOfRangeException (KmerAnalyzer.cs lines 25–26); the frequency layer
+    /// adds no k-handling of its own, so that rejection surfaces unchanged
+    /// (K-mer_Frequency_Analysis.md §3.3: "If k ≤ 0, the underlying counting routine
+    /// throws ArgumentOutOfRangeException"). We pin that k = 0 throws and carries the
+    /// documented "k" parameter name, so a 0-length k-mer can never reach the
+    /// count/total division.
+    /// </summary>
+    [Test]
+    public void GetKmerFrequencies_KZero_ThrowsArgumentOutOfRange()
+    {
+        var act = () => KmerAnalyzer.GetKmerFrequencies("ACGTACGT", 0);
+
+        act.Should().Throw<ArgumentOutOfRangeException>(
+                "a 0-length k-mer is meaningless; the frequency layer surfaces the underlying k <= 0 rejection on non-empty input")
+            .Which.ParamName.Should().Be("k");
+    }
+
+    /// <summary>
+    /// BE: a negative k is below the floor too and must be rejected the same way —
+    /// pinning that the rejection boundary is exactly k ≤ 0 (surfaced from CountKmers),
+    /// not merely k == 0, so a negative length can never slip into the normalization.
+    /// </summary>
+    [Test]
+    public void GetKmerFrequencies_NegativeK_ThrowsArgumentOutOfRange()
+    {
+        var act = () => KmerAnalyzer.GetKmerFrequencies("ACGTACGT", -3);
+
+        act.Should().Throw<ArgumentOutOfRangeException>(
+                "a negative k-mer length is nonsensical; the contract rejects all k <= 0 on non-empty input")
+            .Which.ParamName.Should().Be("k");
+    }
+
+    #endregion
+
+    #region BE — Boundary: k > sequence length (the 0-window division guard)
+
+    /// <summary>
+    /// BE / KEY: k far larger than the sequence length yields ZERO windows — the count
+    /// dictionary is empty, so total = Σ counts = 0. A frequency is count/total, so a
+    /// naïve normalization here would be 0/0 → NaN or a DivideByZeroException. The
+    /// explicit `if (total == 0) return new Dictionary<string,double>()` guard
+    /// (KmerAnalyzer.cs lines 182–183) instead returns the EMPTY distribution. We pin
+    /// no-throw AND emptiness so an oversized k can never divide by zero, never emit a
+    /// NaN frequency, and never index past the end (K-mer_Frequency_Analysis.md §6.1:
+    /// "k > sequence.Length → Empty frequency map").
+    /// </summary>
+    [Test]
+    public void GetKmerFrequencies_KGreaterThanSequenceLength_IsEmptyNoDivideByZero()
+    {
+        var act = () => KmerAnalyzer.GetKmerFrequencies("ACGT", 1000);
+        act.Should().NotThrow(
+            "k > L gives zero windows so total == 0; the guard returns an empty map instead of dividing by zero");
+
+        var freqs = KmerAnalyzer.GetKmerFrequencies("ACGT", 1000);
+        freqs.Should().BeEmpty("no length-1000 window fits a 4-base sequence; the distribution is empty, not a crash");
+        freqs.Values.Should().NotContain(double.NaN, "the 0-window guard avoids 0/0; no NaN frequency is ever produced");
+
+        // k = L + 1 is the exact off-by-one boundary above the sequence length.
+        KmerAnalyzer.GetKmerFrequencies("ACGT", 5).Should().BeEmpty(
+            "k = L + 1 is one past the last fitting window; still empty, still no division by zero");
+    }
+
+    #endregion
+
+    #region BE — Boundary: empty sequence (the 0-window division guard)
+
+    /// <summary>
+    /// BE / KEY: the empty sequence is the lower size boundary and the other 0-window
+    /// source. CountKmers short-circuits empty/null input to the empty dictionary
+    /// (KmerAnalyzer.cs lines 22–23), so total == 0 and the frequency layer's guard
+    /// returns the empty distribution — no division by zero, no NaN, no throw. Because
+    /// the CountKmers empty/null guard runs BEFORE k is validated, empty input wins even
+    /// when k is itself degenerate (k = 0 on empty → still an empty map, not a throw).
+    /// We pin that empty, null, and empty-with-degenerate-k all return an empty,
+    /// NaN-free distribution (K-mer_Frequency_Analysis.md §6.1: "Empty sequence → Empty
+    /// frequency map").
+    /// </summary>
+    [Test]
+    public void GetKmerFrequencies_EmptyOrNullSequence_IsEmptyNoDivideByZero()
+    {
+        var emptyAct = () => KmerAnalyzer.GetKmerFrequencies(string.Empty, 3);
+        var nullAct = () => KmerAnalyzer.GetKmerFrequencies(null!, 3);
+        var emptyDegenerateKAct = () => KmerAnalyzer.GetKmerFrequencies(string.Empty, 0);
+
+        emptyAct.Should().NotThrow(
+            "an empty sequence has no windows so total == 0; the guard returns an empty map, not a 0/0 division");
+        nullAct.Should().NotThrow("null input is treated as empty by the underlying count guard, not as an error");
+        emptyDegenerateKAct.Should().NotThrow(
+            "the empty/null guard runs BEFORE k is validated, so empty input wins even with a degenerate k = 0");
+
+        var emptyFreqs = KmerAnalyzer.GetKmerFrequencies(string.Empty, 3);
+        emptyFreqs.Should().BeEmpty();
+        emptyFreqs.Values.Should().NotContain(double.NaN, "the 0-window guard avoids 0/0; no NaN frequency is produced");
+        KmerAnalyzer.GetKmerFrequencies(null!, 3).Should().BeEmpty();
+        KmerAnalyzer.GetKmerFrequencies(string.Empty, 0).Should().BeEmpty(
+            "empty input short-circuits to an empty map before the k <= 0 check can throw and before any division");
+    }
+
+    #endregion
+
+    #region BE — Boundary: single-character sequence
+
+    /// <summary>
+    /// BE: a single-character sequence with k = 1 is the minimal non-empty case — it
+    /// admits exactly ONE window, so the distribution has a single outcome whose
+    /// frequency is 1.0 (count 1 / total 1). This is the §6.1 "Single possible k-mer →
+    /// Frequency 1.0" edge: the sum-to-1 invariant (INV-01) holds with a single mass
+    /// concentrated on one k-mer, and no other key appears. We also confirm the k = 1
+    /// frequency of a longer single-base run still concentrates on that one base.
+    /// </summary>
+    [Test]
+    public void GetKmerFrequencies_SingleCharSequence_IsSingleKmerFrequencyOne()
+    {
+        var single = KmerAnalyzer.GetKmerFrequencies("A", 1);
+
+        single.Should().ContainSingle("a 1-base sequence at k = 1 admits exactly one window");
+        single.Should().ContainKey("A").WhoseValue.Should().Be(1.0,
+            "the single observed k-mer carries all of the probability mass (count 1 / total 1)");
+        single.Values.Sum().Should().BeApproximately(1.0, 1e-9,
+            "INV-01: with one outcome the sole frequency is 1.0, so the distribution sums to 1");
+
+        // A single-character RUN (homopolymer) at k = 1 still concentrates on one base.
+        var run = KmerAnalyzer.GetKmerFrequencies("AAAA", 1);
+        run.Should().ContainSingle("'AAAA' has a single distinct 1-mer");
+        run["A"].Should().BeApproximately(1.0, 1e-9, "all four windows are 'A', so its frequency is 4/4 = 1.0");
+    }
+
+    #endregion
+
+    #region Positive sanity — the sum-to-1 invariant and exact ratios on known sequences
+
+    /// <summary>
+    /// Positive sanity: the textbook homopolymer frequency from the algorithm doc —
+    /// 2-mers of "AAAA" — must yield the single key "AA" with frequency 1.0 (all three
+    /// windows are the identical k-mer, so 3/3 = 1.0), and the distribution sums to 1
+    /// (K-mer_Frequency_Analysis.md §6.1: "Homopolymer such as AAAA, k = 2 →
+    /// Frequency {\"AA\": 1.0}"). This pins INV-01 on a known sequence so the boundary
+    /// hardening never comes at the cost of the core normalization silently breaking.
+    /// </summary>
+    [Test]
+    public void GetKmerFrequencies_HomopolymerTwoMers_SingleKeyFrequencyOne()
+    {
+        var freqs = KmerAnalyzer.GetKmerFrequencies("AAAA", 2);
+
+        freqs.Should().ContainSingle("every length-2 window of 'AAAA' is the identical k-mer 'AA'");
+        freqs.Should().ContainKey("AA").WhoseValue.Should().BeApproximately(1.0, 1e-9,
+            "all L − k + 1 = 3 windows are 'AA', so its frequency is 3/3 = 1.0");
+        freqs.Values.Sum().Should().BeApproximately(1.0, 1e-9, "INV-01: the frequencies of a non-empty distribution sum to 1");
+    }
+
+    /// <summary>
+    /// Positive sanity: a heterogeneous sequence with a known multi-key distribution.
+    /// "ACGTACGT" (L = 8), k = 3 → 8 − 3 + 1 = 6 windows: ACG, CGT, GTA, TAC, ACG, CGT.
+    /// 'ACG' and 'CGT' occur twice (frequency 2/6 each); 'GTA' and 'TAC' once (1/6 each).
+    /// We pin every frequency explicitly, non-negativity, AND the KEY sum-to-1 invariant
+    /// (INV-01) — the load-bearing check that the counts were normalized into a true
+    /// probability distribution.
+    /// </summary>
+    [Test]
+    public void GetKmerFrequencies_HeterogeneousThreeMers_MatchKnownRatiosAndSumToOne()
+    {
+        const string seq = "ACGTACGT";
+        const int k = 3;
+        var freqs = KmerAnalyzer.GetKmerFrequencies(seq, k);
+
+        const double total = 6.0; // L − k + 1
+        freqs.Should().HaveCount(4, "four distinct 3-mers appear in 'ACGTACGT'");
+        freqs["ACG"].Should().BeApproximately(2.0 / total, 1e-9, "'ACG' starts at positions 0 and 4 → 2/6");
+        freqs["CGT"].Should().BeApproximately(2.0 / total, 1e-9, "'CGT' starts at positions 1 and 5 → 2/6");
+        freqs["GTA"].Should().BeApproximately(1.0 / total, 1e-9);
+        freqs["TAC"].Should().BeApproximately(1.0 / total, 1e-9);
+        freqs.Values.Should().OnlyContain(f => f > 0.0, "every observed k-mer has a strictly positive frequency");
+        freqs.Values.Sum().Should().BeApproximately(1.0, 1e-9,
+            "INV-01: the sum of all returned frequencies is exactly 1.0 whenever a window exists");
+    }
+
+    /// <summary>
+    /// Positive sanity: case-insensitivity (INV-03). A lowercase sequence must produce
+    /// the same uppercased keys and the same frequencies as its uppercase form, because
+    /// GetKmerFrequencies counts via CountKmers, which uppercases before keying.
+    /// </summary>
+    [Test]
+    public void GetKmerFrequencies_LowercaseInput_IsUppercasedBeforeNormalizing()
+    {
+        var lower = KmerAnalyzer.GetKmerFrequencies("acgtacgt", 3);
+        var upper = KmerAnalyzer.GetKmerFrequencies("ACGTACGT", 3);
+
+        lower.Should().BeEquivalentTo(upper,
+            "INV-03: input is uppercased before counting, so case does not change the frequencies");
+    }
+
+    /// <summary>
+    /// Positive sanity / RB: a fixed-seed random sequence must complete promptly and
+    /// satisfy the KEY frequency invariant for several k values — the sum of all
+    /// frequencies must be 1.0 (INV-01) and every frequency must be non-negative and
+    /// NaN-free, regardless of the random content. [CancelAfter] guards against any hang
+    /// on the largest k scanned.
+    /// </summary>
+    [Test]
+    [CancelAfter(30000)]
+    public void GetKmerFrequencies_RandomSequence_SumsToOneForEveryK()
+    {
+        const int length = 2000;
+        string seq = RandomDna(length, seed: 33_001);
+
+        foreach (int k in new[] { 1, 2, 3, 5, 8, 13 })
+        {
+            var freqs = KmerAnalyzer.GetKmerFrequencies(seq, k);
+
+            freqs.Values.Should().OnlyContain(f => f >= 0.0 && !double.IsNaN(f),
+                $"at k = {k} every frequency is a valid non-negative probability");
+            freqs.Values.Sum().Should().BeApproximately(1.0, 1e-9,
+                $"INV-01: at k = {k} the sum of all frequencies is exactly 1.0");
+            freqs.Keys.Should().OnlyContain(key => key.Length == k,
                 $"every emitted key is a length-{k} window — no shorter/longer fragments");
         }
     }
