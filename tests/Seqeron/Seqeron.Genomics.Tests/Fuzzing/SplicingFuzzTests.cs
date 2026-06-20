@@ -152,6 +152,66 @@ namespace Seqeron.Genomics.Tests;
 ///     yields Position = i+1, so a reported acceptor must actually sit on an AG/AC.
 ///     This is the "a reported acceptor site must actually have AG at the splice
 ///     position" contract.
+///
+/// ═══════════════════════════════════════════════════════════════════════════
+/// Unit: SPLICE-PREDICT-001 — splice prediction / exon-intron structure
+/// Checklist: docs/checklists/03_FUZZING.md, row 79.
+/// ═══════════════════════════════════════════════════════════════════════════
+/// Fuzz strategies exercised for THIS unit:
+///   • BE = Boundary Exploitation — the degenerate structural corners that could crash
+///     or return a malformed exon/intron structure:
+///       – empty seq: "" / null → PredictGeneStructure returns the EMPTY structure
+///         (no exons, no introns, "" spliced, score 0); PredictIntrons yields nothing.
+///         An explicit early return, never an exception (Gene_Structure_Prediction.md
+///         §6.1 "Empty or null input").
+///       – no donor/acceptor: a sequence with no GU donor (or no AG acceptor) cannot
+///         pair an intron, so NO introns pass → the whole sequence is reported as a
+///         SINGLE exon spanning [0, Length-1] (INV-04 / Gene_Structure_Prediction.md
+///         §6.1 "No introns pass threshold"). The spliced sequence equals the whole
+///         normalised input. Never a crash, never a phantom intron.
+///       – single exon: a sub-window sequence (shorter than the 20-nt acceptor guard,
+///         or short enough that no intron-length pairing is possible) likewise yields
+///         exactly one Single exon covering the sequence — the no-sites→single-exon
+///         contract at the length boundary.
+///       – all intronic: a sequence that IS essentially one big intron — a strong
+///         GU…AG pair spanning (almost) the entire sequence with flanks below
+///         minExonLength. The single intron is selected; both sub-threshold flanks are
+///         dropped from the exon list, so the exon list is EMPTY and the spliced
+///         product is "" — a well-defined boundary, not a crash and not a malformed
+///         (overlapping / out-of-bounds) record.
+/// — docs/checklists/03_FUZZING.md §Description (strategy code BE);
+///   targets: "No donor/acceptor, single exon, all intronic, empty seq".
+///
+/// The gene-structure contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// Splice prediction combines donor (intron START) and acceptor (intron END) sites
+/// into intron candidates, keeps those whose combined score ≥ minScore, greedily
+/// selects a NON-OVERLAPPING subset by descending score, derives exons from the gaps
+/// between selected introns, and builds the spliced (mature) sequence from the
+/// retained exons (Breathnach &amp; Chambon 1981; Gilbert 1978; Burge et al. 1999).
+/// — docs/algorithms/Splicing/Gene_Structure_Prediction.md §2.2, §4.1.
+///
+/// Method under test (src/.../Seqeron.Genomics.Annotation/SpliceSitePredictor.cs):
+///   PredictGeneStructure(string sequence, int minExonLength = 30, int minIntronLength = 60,
+///       double minScore = 0.5) → GeneStructure { Exons, Introns, SplicedSequence, OverallScore }.
+///   PredictIntrons(string sequence, int minIntronLength = 60, int maxIntronLength = 100000,
+///       double minScore = 0.5) → IEnumerable&lt;Intron&gt;.
+///
+/// Documented input handling (Gene_Structure_Prediction.md §3.1, §6.1):
+///   • null / "" → empty GeneStructure (no exons/introns, "" spliced, score 0) — never throws.
+///   • No donor/acceptor pairing possible (no GU, no AG, or no in-length pair) → no introns →
+///     a single Single exon over [0, Length-1]; spliced = whole normalised sequence (INV-04).
+///   • DNA T behaves like RNA U; lowercase like uppercase (normalised first).
+///
+/// Theory-correct invariants asserted (Gene_Structure_Prediction.md §2.4):
+///   • INV-01 — selected introns are pairwise NON-OVERLAPPING.
+///   • INV-02 — OverallScore is the mean of selected intron scores, or 0 when none.
+///   • INV-04 — a structure with no selected introns is exactly ONE Single exon over
+///     the whole sequence.
+///   • [structural validity] — every reported exon and intron is IN-BOUNDS
+///     ([0, Length-1], Start ≤ End), every intron starts on its donor and ends on its
+///     acceptor, and SplicedSequence == concat(reported exon sequences) — exons/introns
+///     never overlap and form a well-defined (possibly subset) tiling.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -247,6 +307,65 @@ public class SplicingFuzzTests
         }
 
         site.Motif.Should().NotBeNull("every emitted site carries a (possibly clamped) motif context");
+    }
+
+    /// <summary>
+    /// Asserts the universal structural-validity contract every <see cref="GeneStructure"/>
+    /// must satisfy (Gene_Structure_Prediction.md §2.4 INV-01/02/04, §4.1): exons and introns
+    /// are in-bounds with Start ≤ End; selected introns are pairwise NON-overlapping and sorted;
+    /// every intron really starts on its donor (Start) and ends on its acceptor (End);
+    /// SplicedSequence equals the concatenation of the reported exon sequences; and OverallScore
+    /// is the mean of the selected intron scores (or 0 when there are none), always in [0, 1].
+    /// </summary>
+    private static void AssertWellFormedStructure(GeneStructure structure, string sequence)
+    {
+        string normalized = sequence.ToUpperInvariant().Replace('T', 'U');
+        int n = normalized.Length;
+
+        // Exons: in-bounds, Start ≤ End, Sequence matches the normalised substring.
+        foreach (var exon in structure.Exons)
+        {
+            exon.Start.Should().BeInRange(0, Math.Max(0, n - 1), "an exon Start is inside the sequence");
+            exon.End.Should().BeInRange(0, Math.Max(0, n - 1), "an exon End is inside the sequence");
+            exon.Start.Should().BeLessThanOrEqualTo(exon.End, "an exon spans Start ≤ End");
+            exon.Length.Should().Be(exon.End - exon.Start + 1, "exon Length is End − Start + 1");
+            exon.Sequence.Should().Be(normalized.Substring(exon.Start, exon.Length),
+                "an exon's Sequence is exactly the normalised substring it covers");
+        }
+
+        // Introns: in-bounds, Start ≤ End, anchored on donor (GU/GC/AU) … acceptor (G of AG / C of AC).
+        var sorted = structure.Introns.OrderBy(i => i.Start).ToList();
+        foreach (var intron in structure.Introns)
+        {
+            intron.Start.Should().BeInRange(0, n - 1, "an intron Start is inside the sequence");
+            intron.End.Should().BeInRange(0, n - 1, "an intron End is inside the sequence");
+            intron.Start.Should().BeLessThanOrEqualTo(intron.End, "an intron spans Start ≤ End");
+            intron.Length.Should().Be(intron.End - intron.Start + 1, "intron Length is End − Start + 1");
+
+            // Intron start sits on its donor dinucleotide; intron end sits on its acceptor base.
+            normalized[intron.Start].Should().BeOneOf(new[] { 'G', 'A' },
+                "an intron starts on a donor dinucleotide (GU/GC start G, U12 AU start A)");
+            normalized[intron.End].Should().BeOneOf(new[] { 'G', 'C' },
+                "an intron ends on its acceptor base (the G of AG / the C of an AC)");
+        }
+
+        // INV-01: selected introns are pairwise non-overlapping (and the list is sorted by Start).
+        structure.Introns.Select(i => i.Start).Should().Equal(sorted.Select(i => i.Start),
+            "selected introns are reported sorted by Start");
+        for (int k = 1; k < sorted.Count; k++)
+            sorted[k].Start.Should().BeGreaterThan(sorted[k - 1].End,
+                "INV-01: selected introns do not overlap");
+
+        // [structural validity] spliced == concat(reported exon sequences).
+        string exonConcat = string.Concat(structure.Exons.OrderBy(e => e.Start).Select(e => e.Sequence));
+        structure.SplicedSequence.Should().Be(exonConcat,
+            "the spliced sequence is exactly the concatenation of the reported exon sequences");
+
+        // INV-02: OverallScore is the mean of selected intron scores, or 0 when there are none.
+        structure.OverallScore.Should().BeInRange(0.0, 1.0, "INV-02: overall score is normalised to [0, 1]");
+        double expected = structure.Introns.Count > 0 ? structure.Introns.Average(i => i.Score) : 0.0;
+        structure.OverallScore.Should().BeApproximately(expected, 1e-10,
+            "INV-02: OverallScore is the mean of selected intron scores (0 when none)");
     }
 
     #endregion
@@ -717,6 +836,276 @@ public class SplicingFuzzTests
 
                 foreach (var s in sites)
                     AssertWellFormedAcceptor(s, seq);
+            }
+        }
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  SPLICE-PREDICT-001 — splice prediction / exon-intron structure : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region SPLICE-PREDICT-001 — splice prediction
+
+    // A clean GT-AG intron (83 nt): GU donor consensus + poly-A body + PPT + CAG acceptor.
+    // Mirrors the canonical SPLICE-PREDICT-001 fixture (Gene_Structure_Prediction.md §7).
+    private const string PredictIntron83 =
+        "GUAAGU" +                                                       // donor (6)
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + // body (60)
+        "UUUUUUUUUUUUUU" +                                               // PPT (14)
+        "CAG";                                                           // acceptor (3) → 83 nt
+
+    private const string PredictExon35 = "AUGCCCAAAGGGCCCUUUAAAGGGCCCUUUAAAGC"; // 35 nt, no GU/AG intron pairing
+
+    #region BE — Empty / null sequence: empty gene structure, no crash
+
+    /// <summary>
+    /// Target "empty seq": "" and null must produce the EMPTY GeneStructure — no exons,
+    /// no introns, "" spliced, OverallScore 0 — by explicit early return, never an
+    /// exception (Gene_Structure_Prediction.md §6.1). PredictIntrons must likewise yield
+    /// nothing. This is the headline no-crash-on-empty contract.
+    /// </summary>
+    [Test]
+    public void PredictGeneStructure_EmptyOrNull_ReturnsEmptyStructure()
+    {
+        foreach (string? seq in new[] { "", null })
+        {
+            var act = () => PredictGeneStructure(seq!);
+            var structure = act.Should().NotThrow($"empty/null input ('{seq ?? "null"}') must not crash").Subject;
+
+            structure.Exons.Should().BeEmpty("empty/null input produces no exons");
+            structure.Introns.Should().BeEmpty("empty/null input produces no introns");
+            structure.SplicedSequence.Should().BeEmpty("empty/null input produces an empty spliced sequence");
+            structure.OverallScore.Should().Be(0.0, "empty/null input produces a zero overall score");
+
+            var introns = ((Func<List<Intron>>)(() => PredictIntrons(seq!).ToList()))
+                .Should().NotThrow("PredictIntrons must not crash on empty/null").Subject;
+            introns.Should().BeEmpty("empty/null input yields no introns");
+        }
+    }
+
+    #endregion
+
+    #region BE — No donor / no acceptor: no introns → single exon spanning the sequence
+
+    /// <summary>
+    /// Target "No donor/acceptor" (the no-sites→single-exon contract, INV-04). A sequence
+    /// long enough to scan but with NO way to pair an intron must report exactly ONE
+    /// <see cref="ExonType.Single"/> exon spanning [0, Length-1], an empty intron list, a
+    /// spliced sequence equal to the whole normalised input, and OverallScore 0 — never a
+    /// crash, never a phantom intron (Gene_Structure_Prediction.md §6.1 "No introns pass").
+    /// We probe (a) a sequence with no GU donor at all, (b) a GU-rich but AG-free sequence
+    /// (donor present, acceptor impossible), and (c) the canonical no-splice fixture.
+    /// </summary>
+    [Test]
+    public void PredictGeneStructure_NoDonorOrAcceptor_SingleExonSpanningSequence()
+    {
+        foreach (string seq in new[]
+                 {
+                     new string('A', 120),                       // no GU donor anywhere
+                     string.Concat(Enumerable.Repeat("GU", 60)), // GU donors but no AG acceptor → no pairing
+                     "AACCAACCAACCAACCAACCAACCAACCAACCAACCAACCAACCAACCAA", // canonical no-splice fixture (50 nt)
+                 })
+        {
+            var act = () => PredictGeneStructure(seq, minExonLength: 10, minScore: 0.5);
+            var structure = act.Should().NotThrow($"a no-intron sequence ('{seq[..Math.Min(12, seq.Length)]}…') must not crash").Subject;
+
+            structure.Introns.Should().BeEmpty("no donor/acceptor pairing possible → no introns");
+            structure.Exons.Should().ContainSingle("a sequence with no introns is a single exon (INV-04)");
+
+            var exon = structure.Exons[0];
+            exon.Type.Should().Be(ExonType.Single, "the sole exon is typed Single (INV-04)");
+            exon.Start.Should().Be(0, "the single exon starts at position 0");
+            exon.End.Should().Be(seq.Length - 1, "the single exon ends at the last position");
+            exon.Length.Should().Be(seq.Length, "the single exon spans the whole sequence");
+
+            string normalized = seq.ToUpperInvariant().Replace('T', 'U');
+            structure.SplicedSequence.Should().Be(normalized,
+                "with no introns the spliced product is the whole normalised sequence");
+            structure.OverallScore.Should().Be(0.0, "no selected introns → overall score 0 (INV-02)");
+
+            AssertWellFormedStructure(structure, seq);
+        }
+    }
+
+    #endregion
+
+    #region BE — Single exon at the length boundary: sub-window sequence is one Single exon
+
+    /// <summary>
+    /// Target "single exon" at the length boundary. A sequence shorter than the 20-nt
+    /// acceptor guard (so no acceptor — hence no intron — can ever be found) must still
+    /// produce exactly one Single exon over the whole (non-empty) sequence, never an
+    /// exception (Gene_Structure_Prediction.md §6.1; Acceptor_Site_Detection.md §3.1).
+    /// We sweep lengths 1..19, INCLUDING strings that DO contain a GU and an AG, to prove
+    /// the structure is built without any out-of-range exon/intron window.
+    /// </summary>
+    [Test]
+    public void PredictGeneStructure_SubWindowSequence_SingleExonNoCrash()
+    {
+        foreach (string seq in new[]
+                 {
+                     "A", "GU", "GUAG", "GUAAGUCAG",                 // 1,2,4,9 — GU and AG present but no pairing room
+                     "GUAAGUCAGGUAAGUCAG",                          // 18 nt
+                     "GUAAGUCAGGUAAGUCAGG",                         // 19 nt — still below the 20-nt acceptor guard
+                 })
+        {
+            var act = () => PredictGeneStructure(seq, minExonLength: 1, minScore: 0.2);
+            var structure = act.Should().NotThrow($"a sub-window sequence ('{seq}', len {seq.Length}) must not crash").Subject;
+
+            structure.Introns.Should().BeEmpty(
+                $"length {seq.Length} < 20 leaves no acceptor candidate → no introns");
+            structure.Exons.Should().ContainSingle("a no-intron sequence is a single exon (INV-04)");
+            structure.Exons[0].Type.Should().Be(ExonType.Single, "the sole exon is typed Single");
+            structure.Exons[0].Start.Should().Be(0, "the single exon starts at 0");
+            structure.Exons[0].End.Should().Be(seq.Length - 1, "the single exon ends at the last position");
+
+            AssertWellFormedStructure(structure, seq);
+        }
+    }
+
+    #endregion
+
+    #region BE — All-intronic: a sequence that IS one big intron yields a well-defined boundary
+
+    /// <summary>
+    /// Target "all intronic": a sequence that is essentially ONE big intron — a strong
+    /// GU…AG pair spanning (nearly) the whole sequence, with both flanks BELOW
+    /// minExonLength. The single intron is selected (INV-01), both sub-threshold flanks
+    /// are dropped from the exon list, so the exon list is EMPTY and the spliced product
+    /// is "" — a well-defined boundary, not a crash and not a malformed (overlapping /
+    /// out-of-bounds) record (Gene_Structure_Prediction.md §5.2, §6.2). Critically the
+    /// intron is still IN-BOUNDS, anchored on its donor/acceptor, and OverallScore is its
+    /// own score (the mean of a single-element set, INV-02).
+    /// </summary>
+    [Test]
+    public void PredictGeneStructure_AllIntronic_WellDefinedBoundary()
+    {
+        // 2-nt flanks around the 83-nt intron: total 87 nt, flanks far below minExonLength=50.
+        const string flank = "GC";
+        string seq = flank + PredictIntron83 + flank; // 2 + 83 + 2 = 87 nt
+
+        var act = () => PredictGeneStructure(seq, minExonLength: 50, minIntronLength: 60, minScore: 0.2);
+        var structure = act.Should().NotThrow("an all-intronic sequence must not crash").Subject;
+
+        // The single GT-AG intron is selected; it spans the interior of the sequence.
+        structure.Introns.Should().ContainSingle("the strong GU…AG pair selects exactly one intron");
+        var intron = structure.Introns[0];
+        intron.Start.Should().Be(flank.Length, "the intron starts at the GU donor just after the 5' flank");
+        intron.End.Should().Be(seq.Length - flank.Length - 1, "the intron ends at the G of the AG just before the 3' flank");
+
+        // Both 2-nt flanks are below minExonLength=50 → no exons survive → empty spliced product.
+        structure.Exons.Should().BeEmpty("both sub-threshold flanks are dropped → no exons");
+        structure.SplicedSequence.Should().BeEmpty("with every flank dropped the spliced product is empty");
+
+        AssertWellFormedStructure(structure, seq);
+    }
+
+    #endregion
+
+    #region BE — Non-DNA / malformed content is handled, structure stays well-formed
+
+    /// <summary>
+    /// Boundary robustness: degenerate / non-DNA content (ambiguity codes, digits,
+    /// punctuation, whitespace, lowercase) must be HANDLED — normalised, scanned, and
+    /// either yield a single Single exon or a well-formed intron set — never a crash or a
+    /// malformed structure (Gene_Structure_Prediction.md §3.3, §6.1). Whatever is produced
+    /// satisfies the full structural-validity contract.
+    /// </summary>
+    [Test]
+    public void PredictGeneStructure_NonDnaContent_IsHandledNotCrashed()
+    {
+        foreach (string junk in new[]
+                 {
+                     new string('N', 120),                          // all-ambiguity → single Single exon
+                     "12!! \t??ZZ##$$%%^^&&**RYSWKMBDHVNN",          // pure garbage, never-matching residues
+                     ("gc" + PredictIntron83 + "gc").ToLowerInvariant(), // lowercase all-intronic
+                     PredictExon35 + PredictIntron83 + PredictExon35,    // a real two-exon structure
+                 })
+        {
+            var act = () => PredictGeneStructure(junk, minExonLength: 10, minScore: 0.2);
+            var structure = act.Should().NotThrow($"non-DNA content (len {junk.Length}) must be handled, not crash").Subject;
+
+            AssertWellFormedStructure(structure, junk);
+        }
+    }
+
+    #endregion
+
+    #region Positive sanity — a clear donor…acceptor pair yields the expected exon/intron structure
+
+    /// <summary>
+    /// Positive sanity: a hand-built two-exon gene — exon(35) + GU…AG intron(83) + exon(35) —
+    /// must be resolved into exactly ONE intron and TWO exons with valid, non-overlapping,
+    /// in-bounds coordinates that TILE the sequence: the intron starts at the GU donor
+    /// (index 35), ends at the G of the AG acceptor, the spliced product is exon1 + exon2,
+    /// and the DNA spelling (T→U) gives the identical structure. This proves the fuzz
+    /// harness asserts against a predictor that actually BUILDS real exon/intron structure —
+    /// not a no-op — and pins the "intron starts at a donor and ends at an acceptor"
+    /// contract on a true positive (Gene_Structure_Prediction.md §7; mirrors the canonical
+    /// SPLICE-PREDICT-001 two-exon test).
+    /// </summary>
+    [Test]
+    public void PredictGeneStructure_ClearDonorAcceptorPair_ExpectedStructure()
+    {
+        string rna = PredictExon35 + PredictIntron83 + PredictExon35; // 35 + 83 + 35 = 153 nt
+        string dna = rna.Replace('U', 'T');
+
+        var structure = PredictGeneStructure(rna, minExonLength: 5, minScore: 0.2);
+
+        structure.Introns.Should().ContainSingle("the clear GU…AG pair yields exactly one intron");
+        structure.Exons.Should().HaveCount(2, "one intron splits the sequence into two exons");
+
+        var intron = structure.Introns[0];
+        intron.Start.Should().Be(PredictExon35.Length, "the intron starts at the GU donor after exon1");
+        intron.End.Should().Be(PredictExon35.Length + PredictIntron83.Length - 1,
+            "the intron ends at the G of the AG acceptor");
+        intron.Sequence.Should().StartWith("GU", "the intron starts on the GU donor dinucleotide");
+        intron.Sequence.Should().EndWith("AG", "the intron ends on the AG acceptor dinucleotide");
+
+        structure.Exons[0].Type.Should().Be(ExonType.Initial, "the first exon is Initial");
+        structure.Exons[^1].Type.Should().Be(ExonType.Terminal, "the last exon is Terminal");
+
+        // Exons + intron tile the whole sequence; spliced product is exon1 + exon2.
+        int covered = structure.Exons.Sum(e => e.Length) + structure.Introns.Sum(i => i.Length);
+        covered.Should().Be(rna.Length, "exons + introns tile the full sequence");
+        structure.SplicedSequence.Should().Be(PredictExon35 + PredictExon35,
+            "the spliced product is exon1 + exon2 (intron excised)");
+
+        AssertWellFormedStructure(structure, rna);
+
+        // DNA spelling normalises identically (T → U) → the same structure.
+        var dnaStructure = PredictGeneStructure(dna, minExonLength: 5, minScore: 0.2);
+        dnaStructure.Introns.Count.Should().Be(structure.Introns.Count, "DNA and RNA yield the same intron count");
+        dnaStructure.SplicedSequence.Should().Be(structure.SplicedSequence,
+            "DNA and RNA yield the identical spliced sequence (T→U)");
+    }
+
+    /// <summary>
+    /// Positive sanity over RANDOM DNA: across fixed seeds and lengths spanning the splice
+    /// guards, PredictGeneStructure must never crash or hang and must always return a
+    /// structurally-valid GeneStructure (in-bounds non-overlapping exons/introns, spliced ==
+    /// concat(exons), overall score = mean of intron scores). This pins window/structure
+    /// safety on arbitrary sequences, not just hand-built motifs.
+    /// </summary>
+    [Test]
+    [CancelAfter(60000)]
+    public void PredictGeneStructure_RandomDna_AlwaysWellFormed(CancellationToken token)
+    {
+        foreach (int seed in new[] { 5, 23, 101, 2026 })
+        {
+            foreach (int len in new[] { 1, 19, 60, 200 })
+            {
+                string seq = RandomDna(len, seed);
+
+                var act = () => PredictGeneStructure(seq, minExonLength: 10, minScore: 0.3);
+                var structure = act.Should().NotThrow($"random DNA must not crash (seed {seed}, len {len})").Subject;
+                token.ThrowIfCancellationRequested();
+
+                AssertWellFormedStructure(structure, seq);
             }
         }
     }
