@@ -1650,4 +1650,424 @@ public class CodonFuzzTests
     #endregion
 
     #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  CODON-RSCU-001 — relative synonymous codon usage (RSCU) : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region CODON-RSCU-001 — relative synonymous codon usage (RSCU)
+
+    /// <summary>
+    /// Fuzz tests for CODON-RSCU-001 — Relative Synonymous Codon Usage (RSCU),
+    /// Sharp, Tuohy &amp; Mosurski's 1986 within-family normalization of codon counts.
+    /// Checklist: docs/checklists/03_FUZZING.md, row 214.
+    /// Fuzz strategy exercised for THIS unit:
+    ///   • BE = Boundary Exploitation — the checklist boundaries "single codon,
+    ///          missing amino acid, empty": a SINGLE codon (the one synonym takes all
+    ///          family usage ⇒ RSCU = n_i), an amino acid MISSING from the input
+    ///          (family total 0 ⇒ no divide-by-zero, defined 0), and EMPTY / null
+    ///          input; plus an input whose LENGTH is NOT a multiple of 3 (trailing
+    ///          partial codon) and non-ACGT garbage.
+    /// — docs/checklists/03_FUZZING.md §Description (strategy codes);
+    ///   docs/ADVANCED_TESTING_CHECKLIST.md §8 "Fuzzing".
+    ///
+    /// ───────────────────────────────────────────────────────────────────────────
+    /// The RSCU contract under test (Relative_Synonymous_Codon_Usage.md)
+    /// ───────────────────────────────────────────────────────────────────────────
+    /// RSCU measures, per codon, how often it is used relative to the usage expected
+    /// if all synonymous codons of the same amino acid were used equally.[Sharp,
+    /// Tuohy &amp; Mosurski 1986] For amino acid i with degeneracy n_i (number of
+    /// synonymous codons) and observed counts x_{i,j}, the value is (§2.2, Eq.):
+    ///     RSCU_{i,j} = x_{i,j} / ((1/n_i)·Σ_k x_{i,k}) = (n_i · x_{i,j}) / Σ_k x_{i,k}
+    /// 1 means no bias, &gt; 1 over-representation, &lt; 1 under-representation.
+    ///   — Relative_Synonymous_Codon_Usage.md §1, §2.2.
+    ///
+    /// API entry: CodonUsageAnalyzer.CalculateRscu(string)  → Dictionary&lt;string,double&gt;
+    ///            CodonUsageAnalyzer.CalculateRscu(DnaSequence)
+    ///   (src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs,
+    ///    CalculateRscu / CalculateRscuCore).
+    ///
+    /// The string overload is LENIENT by documented design — it never throws on
+    /// garbage; it upper-cases, reads codons in non-overlapping in-frame triplets
+    /// from index 0, and scores whatever it is given:
+    ///   • null OR empty string → returns an EMPTY dictionary via an explicit early
+    ///     return (`string.IsNullOrEmpty` guard); NOT a crash, NOT a divide-by-zero.
+    ///     Relative_Synonymous_Codon_Usage.md §3.3, §6.1.
+    ///   • input length NOT divisible by 3 → CountCodonsCore reads only complete
+    ///     triplets (loop guard `i + 3 &lt;= seq.Length`); the trailing 1–2 leftover
+    ///     bases are IGNORED, never an IndexOutOfRangeException. §3.3, §6.1.
+    ///   • a triplet containing any non-ACGT character → IsValidCodon is false and the
+    ///     triplet is EXCLUDED from the counts, never a KeyNotFound. §3.3, §6.1.
+    ///   • a family that NEVER occurs (total Σx = 0) → every codon of that family maps
+    ///     to 0 (the 0/0 convention), NOT NaN and NOT a DivideByZeroException. §3.2,
+    ///     §5.3, §6.1.
+    /// The DnaSequence overload throws ArgumentNullException for null (§6.1).
+    ///
+    /// KEY THEORY INVARIANTS this suite pins directly (Relative_Synonymous_Codon_Usage.md
+    /// §2.4), each derived INDEPENDENTLY from Sharp &amp; Li 1986 and the standard
+    /// genetic-code degeneracy — never echoed off the implementation's own arrays:
+    ///   • INV-01: RSCU = (n_i·x_{i,j})/Σx for a present family (the worked example
+    ///     §7.1 is pinned to exact values).
+    ///   • INV-02: equal usage within a family ⇒ every RSCU = 1 (no bias).
+    ///   • INV-03: 0 ≤ RSCU ≤ n_i for every codon (a randomized sweep asserts this).
+    ///   • INV-04: Σ_j RSCU_{i,j} = n_i for every PRESENT family (a randomized sweep
+    ///     asserts the per-family sum to within float tolerance).
+    ///   • INV-05: a single-codon family (Met ATG, Trp TGG) ⇒ RSCU = 1 when present.
+    /// No value may ever be NaN or ±Infinity (asserted on every codon of every input).
+    ///
+    /// The degeneracy n_i and the synonymous families used to compute every expected
+    /// value are derived here from the standard genetic code (the same RNA table
+    /// <see cref="StandardGeneticCode"/> already used by the sibling units, translated
+    /// to DNA), NOT from CodonUsageAnalyzer's internal table — so a test would fail if
+    /// the implementation's family grouping disagreed with the genetic code.
+    ///
+    /// Determinism note: CalculateRscu is a pure function of the codon counts with no
+    /// randomness. The randomized boundary sweep uses a LOCALLY-seeded `new Random(seed)`
+    /// (never a shared static Rng); every generated sequence is fully reproducible.
+    /// ───────────────────────────────────────────────────────────────────────────
+
+    #region Helpers (RSCU)
+
+    /// <summary>
+    /// The standard genetic code in DNA notation (codon → one-letter amino acid,
+    /// '*' = stop), derived INDEPENDENTLY of CodonUsageAnalyzer from the RNA-keyed
+    /// <see cref="StandardGeneticCode"/> table by replacing U with T. Used to compute
+    /// the synonymous families and degeneracies for the expected RSCU values so the
+    /// tests never echo the implementation's own table.
+    /// </summary>
+    private static readonly Dictionary<string, string> DnaGeneticCode =
+        StandardGeneticCode.ToDictionary(kv => kv.Key.Replace('U', 'T'), kv => kv.Value);
+
+    /// <summary>Degeneracy n_i = number of synonymous codons sharing the codon's amino acid.</summary>
+    private static int Degeneracy(string codon)
+    {
+        string aa = DnaGeneticCode[codon];
+        return DnaGeneticCode.Count(kv => kv.Value == aa);
+    }
+
+    /// <summary>The synonymous family (all codons) of the amino acid encoded by <paramref name="codon"/>.</summary>
+    private static List<string> Family(string codon)
+    {
+        string aa = DnaGeneticCode[codon];
+        return DnaGeneticCode.Where(kv => kv.Value == aa).Select(kv => kv.Key).ToList();
+    }
+
+    #endregion
+
+    #region Positive sanity — the exact worked example (§7.1)
+
+    /// <summary>
+    /// Positive sanity (KEY): the §7.1 worked example. Input CTGCTGCTGCTA → Leu
+    /// (6-fold) with CTG×3, CTA×1, family total Σx = 4, n_i = 6. Computed
+    /// independently from RSCU = (n_i·x)/Σx (Sharp &amp; Li 1986):
+    ///   RSCU(CTG) = 6·3/4 = 4.5;  RSCU(CTA) = 6·1/4 = 1.5;
+    ///   RSCU(TTA)=RSCU(TTG)=RSCU(CTT)=RSCU(CTC) = 0;  Σ over the family = 6.0 (= n_i).
+    /// This both verifies the formula at exact, hand-checkable values and proves the
+    /// boundary targets below are measured against a working happy path, not a
+    /// uniformly-broken method. (Relative_Synonymous_Codon_Usage.md §7.1, INV-01/04.)
+    /// </summary>
+    [Test]
+    public void CalculateRscu_LeuWorkedExample_MatchesDocumentedExactValues()
+    {
+        const string coding = "CTGCTGCTGCTA"; // Leu (L) 6-fold: CTG×3, CTA×1
+
+        var rscu = CodonUsageAnalyzer.CalculateRscu(coding);
+
+        rscu["CTG"].Should().BeApproximately(4.5, 1e-12, "RSCU(CTG) = 6·3/4 = 4.5 (§7.1)");
+        rscu["CTA"].Should().BeApproximately(1.5, 1e-12, "RSCU(CTA) = 6·1/4 = 1.5 (§7.1)");
+        rscu["TTA"].Should().BeApproximately(0.0, 1e-12, "unused Leu synonym ⇒ 0");
+        rscu["TTG"].Should().BeApproximately(0.0, 1e-12, "unused Leu synonym ⇒ 0");
+        rscu["CTT"].Should().BeApproximately(0.0, 1e-12, "unused Leu synonym ⇒ 0");
+        rscu["CTC"].Should().BeApproximately(0.0, 1e-12, "unused Leu synonym ⇒ 0");
+
+        // INV-04 — the present family sums to its degeneracy n_i = 6.
+        Family("CTG").Sum(c => rscu[c]).Should().BeApproximately(6.0, 1e-12,
+            "Σ_j RSCU over the present Leu family equals n_i = 6 (INV-04)");
+    }
+
+    /// <summary>
+    /// Positive sanity (INV-02): perfectly EQUAL usage within a family ⇒ every RSCU = 1
+    /// (the no-bias reference value). A 4-fold family (Ala) with each of GCT/GCC/GCA/GCG
+    /// used once: x = Σx/n_i for all four, so RSCU = 1 for each. Computed independently
+    /// from the definition. (Relative_Synonymous_Codon_Usage.md §2.4 INV-02.)
+    /// </summary>
+    [Test]
+    public void CalculateRscu_UniformFamilyUsage_AllRscuEqualOne()
+    {
+        const string coding = "GCTGCCGCAGCG"; // Ala (A) 4-fold, each synonym once
+
+        var rscu = CodonUsageAnalyzer.CalculateRscu(coding);
+
+        foreach (var codon in Family("GCT"))
+            rscu[codon].Should().BeApproximately(1.0, 1e-12,
+                $"equal usage ⇒ RSCU({codon}) = 1, the no-bias value (INV-02)");
+    }
+
+    #endregion
+
+    #region BE — Boundary: a SINGLE codon (one synonym takes all usage ⇒ RSCU = n_i)
+
+    /// <summary>
+    /// BE (checklist "single codon"): a sequence of ONE codon used once means that
+    /// codon takes ALL of its family's usage, so RSCU = n_i for it and 0 for every
+    /// other synonym — and Σ over the family = n_i (INV-04), RSCU ∈ [0, n_i] (INV-03).
+    /// Verified across families of every degeneracy in the standard code: 6-fold (Leu
+    /// CTG ⇒ 6), 4-fold (Ala GCT ⇒ 4), 3-fold (Ile ATT ⇒ 3), 2-fold (Phe TTT ⇒ 2).
+    /// The expected n_i is derived independently from the genetic-code degeneracy, not
+    /// the implementation. (Relative_Synonymous_Codon_Usage.md §2.4 INV-03, §6.1.)
+    /// </summary>
+    [TestCase("CTG", TestName = "CalculateRscu_SingleCodon_Leu6Fold_RscuEqualsDegeneracy")]
+    [TestCase("GCT", TestName = "CalculateRscu_SingleCodon_Ala4Fold_RscuEqualsDegeneracy")]
+    [TestCase("ATT", TestName = "CalculateRscu_SingleCodon_Ile3Fold_RscuEqualsDegeneracy")]
+    [TestCase("TTT", TestName = "CalculateRscu_SingleCodon_Phe2Fold_RscuEqualsDegeneracy")]
+    public void CalculateRscu_SingleCodon_RscuEqualsDegeneracy(string codon)
+    {
+        int n = Degeneracy(codon);
+        n.Should().BeGreaterThan(1, "this case targets a multi-codon family");
+
+        Dictionary<string, double> rscu = null!;
+        var act = () => rscu = CodonUsageAnalyzer.CalculateRscu(codon);
+
+        act.Should().NotThrow("a single in-frame codon is a valid minimal coding input");
+
+        // The one present codon takes all family usage ⇒ RSCU = n_i (its upper bound).
+        rscu[codon].Should().BeApproximately(n, 1e-12,
+            $"a single use of {codon} takes all of its {n}-fold family usage ⇒ RSCU = n_i (INV-03 upper bound)");
+
+        // Every other synonym is unused ⇒ 0.
+        foreach (var syn in Family(codon).Where(c => c != codon))
+            rscu[syn].Should().BeApproximately(0.0, 1e-12, $"{syn} is unused ⇒ RSCU 0");
+
+        // INV-04 — the present family sums to n_i; INV-03 — every codon in [0, n_i].
+        Family(codon).Sum(c => rscu[c]).Should().BeApproximately(n, 1e-12,
+            "Σ_j RSCU over the present family equals n_i (INV-04)");
+        foreach (var c in Family(codon))
+            rscu[c].Should().BeInRange(0.0, n + 1e-12, $"RSCU({c}) ∈ [0, n_i] (INV-03)");
+    }
+
+    /// <summary>
+    /// BE (INV-05): a single SINGLE-codon-family codon. Met (ATG) and Trp (TGG) have
+    /// degeneracy 1, so when present their RSCU is x/x = 1 exactly — there is no
+    /// synonym to be biased toward. Pins INV-05 at the n_i = 1 extreme.
+    /// (Relative_Synonymous_Codon_Usage.md §2.4 INV-05, §6.1.)
+    /// </summary>
+    [TestCase("ATG", TestName = "CalculateRscu_SingleCodon_Met_RscuIsOne")] // n_i = 1
+    [TestCase("TGG", TestName = "CalculateRscu_SingleCodon_Trp_RscuIsOne")] // n_i = 1
+    public void CalculateRscu_SingleCodonFamilyPresent_RscuIsOne(string codon)
+    {
+        Degeneracy(codon).Should().Be(1, "Met / Trp are the single-codon amino acids");
+
+        var rscu = CodonUsageAnalyzer.CalculateRscu(codon);
+
+        rscu[codon].Should().BeApproximately(1.0, 1e-12,
+            $"a single-codon family ⇒ RSCU({codon}) = x/x = 1 when present (INV-05)");
+    }
+
+    #endregion
+
+    #region BE — Boundary: a MISSING amino acid (family total 0 ⇒ defined 0, no NaN)
+
+    /// <summary>
+    /// BE (checklist "missing amino acid"): an amino acid that NEVER occurs in the
+    /// input has family total Σx = 0. The 0/0 case must resolve to a DEFINED 0 for
+    /// every codon of that family — NOT NaN, NOT ±Infinity, NOT a DivideByZeroException
+    /// (Relative_Synonymous_Codon_Usage.md §3.2, §5.3 "Intentionally simplified",
+    /// §6.1). The input encodes ONLY Phe (TTT/TTC), so every OTHER amino acid is an
+    /// absent family; we assert the whole Leu family (6-fold) and both single-codon
+    /// families Met/Trp are an exact, finite 0, and that NO codon anywhere is NaN/Inf.
+    /// </summary>
+    [Test]
+    public void CalculateRscu_MissingAminoAcid_AbsentFamilyIsDefinedZero()
+    {
+        const string onlyPhe = "TTTTTCTTTTTC"; // Phe (F) only: TTT×2, TTC×2
+
+        Dictionary<string, double> rscu = null!;
+        var act = () => rscu = CodonUsageAnalyzer.CalculateRscu(onlyPhe);
+
+        act.Should().NotThrow("an absent family is the 0/0 case, resolved to 0 — never a div-by-zero");
+
+        // Leu never occurs ⇒ every Leu codon is a finite, exact 0.
+        foreach (var leu in Family("CTG"))
+        {
+            rscu[leu].Should().BeApproximately(0.0, 1e-12,
+                $"{leu} (Leu) is absent ⇒ family total 0 ⇒ defined RSCU 0, not NaN");
+            double.IsNaN(rscu[leu]).Should().BeFalse($"{leu}: absent family must never yield NaN");
+            double.IsInfinity(rscu[leu]).Should().BeFalse($"{leu}: absent family must never yield ±Infinity");
+        }
+
+        // The single-codon families Met/Trp are absent here too ⇒ 0 (not the present-1).
+        rscu["ATG"].Should().BeApproximately(0.0, 1e-12, "Met is absent ⇒ 0 (not the present-family 1)");
+        rscu["TGG"].Should().BeApproximately(0.0, 1e-12, "Trp is absent ⇒ 0");
+
+        // The PRESENT family (Phe) is well-defined and finite: uniform usage ⇒ 1 each.
+        rscu["TTT"].Should().BeApproximately(1.0, 1e-12, "Phe used uniformly (×2 each) ⇒ RSCU 1 (INV-02)");
+        rscu["TTC"].Should().BeApproximately(1.0, 1e-12, "Phe used uniformly (×2 each) ⇒ RSCU 1 (INV-02)");
+
+        // Global no-NaN / no-Inf guarantee over EVERY codon in the result.
+        rscu.Values.Should().OnlyContain(v => !double.IsNaN(v) && !double.IsInfinity(v),
+            "no RSCU value may ever be NaN or ±Infinity on any input");
+    }
+
+    #endregion
+
+    #region BE — Boundary: empty / null input
+
+    /// <summary>
+    /// BE (checklist "empty"): the string overload returns an EMPTY dictionary for
+    /// null OR empty input via the documented early return — NOT a crash, NOT a NaN,
+    /// NOT a divide-by-zero over zero counts. (Relative_Synonymous_Codon_Usage.md
+    /// §3.3, §6.1.)
+    /// </summary>
+    [TestCase(null, TestName = "CalculateRscu_Null_IsEmptyDictNoThrow")]
+    [TestCase("", TestName = "CalculateRscu_Empty_IsEmptyDictNoThrow")]
+    public void CalculateRscu_NullOrEmptyString_ReturnsEmptyDictionary(string? input)
+    {
+        Dictionary<string, double> rscu = null!;
+        var act = () => rscu = CodonUsageAnalyzer.CalculateRscu(input!);
+
+        act.Should().NotThrow("null/empty string is a defined no-op early return, not an error");
+        rscu.Should().BeEmpty("no codons exist, so no RSCU value is produced");
+    }
+
+    /// <summary>
+    /// BE: the DnaSequence overload guards null with ArgumentNullException — its
+    /// documented, INTENTIONAL validation exception (a disciplined failure, the
+    /// acceptable alternative to a defined value under the fuzz bar).
+    /// (Relative_Synonymous_Codon_Usage.md §3.3, §6.1.)
+    /// </summary>
+    [Test]
+    public void CalculateRscu_NullDnaSequence_ThrowsArgumentNullException()
+    {
+        var act = () => CodonUsageAnalyzer.CalculateRscu((DnaSequence)null!);
+
+        act.Should().Throw<ArgumentNullException>(
+            "a null DnaSequence is rejected by the documented input guard, not a NullReference");
+    }
+
+    #endregion
+
+    #region BE/MC — Boundary: length not %3 and non-ACGT triplets (counts unaffected)
+
+    /// <summary>
+    /// BE: a trailing partial codon (length not a multiple of 3) is IGNORED — the
+    /// complete in-frame triplets are read and the leftover 1–2 bases contribute
+    /// nothing, never an IndexOutOfRangeException (CountCodonsCore loop guard
+    /// `i + 3 &lt;= seq.Length`). CTGCTGCTGCTA + 1 or 2 trailing bases must yield the
+    /// SAME RSCU as the worked example. (Relative_Synonymous_Codon_Usage.md §3.3, §6.1.)
+    /// </summary>
+    [TestCase("CTGCTGCTGCTAA", TestName = "CalculateRscu_LenMod3Is1_TrimsTrailingBase")]  // 13 = 4 codons + 1
+    [TestCase("CTGCTGCTGCTAAC", TestName = "CalculateRscu_LenMod3Is2_TrimsTrailingTwo")] // 14 = 4 codons + 2
+    public void CalculateRscu_LengthNotDivisibleBy3_TrimsPartialCodon(string input)
+    {
+        Dictionary<string, double> rscu = null!;
+        var act = () => rscu = CodonUsageAnalyzer.CalculateRscu(input);
+
+        act.Should().NotThrow("a trailing partial codon must be ignored, never indexed out of range");
+
+        // Only CTG×3, CTA×1 are complete in-frame Leu codons ⇒ same exact values as §7.1.
+        rscu["CTG"].Should().BeApproximately(4.5, 1e-12, "the partial codon contributes nothing");
+        rscu["CTA"].Should().BeApproximately(1.5, 1e-12, "the partial codon contributes nothing");
+        rscu.Values.Should().OnlyContain(v => !double.IsNaN(v) && !double.IsInfinity(v),
+            "no RSCU value may be NaN or ±Infinity");
+    }
+
+    /// <summary>
+    /// MC: a triplet containing any non-ACGT character is EXCLUDED from the counts
+    /// (IsValidCodon over {A,C,G,T}), never a KeyNotFoundException. The valid Leu
+    /// codons around the garbage triplet still produce the §7.1 RSCU, and no value is
+    /// NaN/Inf. Covers digits, the ambiguity code N, lowercase-invalid, unicode and an
+    /// embedded null byte as the excluded triplet.
+    /// (Relative_Synonymous_Codon_Usage.md §3.3, §6.1.)
+    /// </summary>
+    [TestCase("CTGCTG123CTGCTA", TestName = "CalculateRscu_NonAcgt_Digits_ExcludedNoCrash")]
+    [TestCase("CTGCTGNNNCTGCTA", TestName = "CalculateRscu_NonAcgt_AmbiguityN_ExcludedNoCrash")]
+    [TestCase("CTGCTG\0\0\0CTGCTA", TestName = "CalculateRscu_NonAcgt_NullBytes_ExcludedNoCrash")]
+    [TestCase("CTGCTGαβγCTGCTA", TestName = "CalculateRscu_NonAcgt_GreekLetters_ExcludedNoCrash")]
+    public void CalculateRscu_NonAcgtTriplet_ExcludedFromCounts(string input)
+    {
+        Dictionary<string, double> rscu = null!;
+        var act = () => rscu = CodonUsageAnalyzer.CalculateRscu(input);
+
+        act.Should().NotThrow("a non-ACGT triplet must be excluded from counts, never KeyNotFound/IndexOutOfRange");
+
+        // The four valid Leu codons (CTG×3, CTA×1) are exactly the §7.1 example.
+        rscu["CTG"].Should().BeApproximately(4.5, 1e-12, "valid Leu codons score as §7.1; the bad triplet is excluded");
+        rscu["CTA"].Should().BeApproximately(1.5, 1e-12, "valid Leu codons score as §7.1; the bad triplet is excluded");
+        rscu.Values.Should().OnlyContain(v => !double.IsNaN(v) && !double.IsInfinity(v),
+            "no RSCU value may be NaN or ±Infinity");
+    }
+
+    #endregion
+
+    #region BE — Randomized boundary sweep (per-family sum = n_i, RSCU ∈ [0, n_i], finite)
+
+    /// <summary>
+    /// BE (randomized sweep, INV-03/INV-04): hundreds of random in-frame coding
+    /// sequences must, on EVERY input, satisfy the core algebraic contract derived
+    /// independently from Sharp &amp; Li 1986:
+    ///   • every RSCU value is finite (no NaN, no ±Infinity);
+    ///   • every RSCU value lies in [0, n_i] for its family (INV-03);
+    ///   • for every PRESENT family (Σx &gt; 0) the per-family RSCU sum equals n_i to
+    ///     within float tolerance (INV-04), and for every ABSENT family the sum is 0.
+    /// The family / degeneracy used for the bounds and the per-family sum are computed
+    /// from the standard genetic code, NOT from the implementation. A LOCALLY-seeded
+    /// `new Random(seed)` keeps every trial reproducible; CancelAfter guards a hang.
+    /// (Relative_Synonymous_Codon_Usage.md §2.4 INV-03/INV-04.)
+    /// </summary>
+    [Test]
+    [CancelAfter(60_000)]
+    public void CalculateRscu_RandomizedSweep_FamilySumIsDegeneracyAndBounded()
+    {
+        const string bases = "ACGT";
+        var allCodons = DnaGeneticCode.Keys.ToList();
+        // Group families once (by representative codon) for the per-family checks.
+        var families = allCodons
+            .GroupBy(c => DnaGeneticCode[c])
+            .Select(g => (Codons: g.ToList(), N: g.Count()))
+            .ToList();
+
+        for (int trial = 0; trial < 400; trial++)
+        {
+            var rng = new Random(20140513 + trial); // locally seeded, reproducible
+            int codonCount = rng.Next(1, 60);       // 1..59 in-frame codons (includes the single-codon edge)
+
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < codonCount; i++)
+                for (int j = 0; j < 3; j++)
+                    sb.Append(bases[rng.Next(bases.Length)]);
+            string seq = sb.ToString();
+
+            Dictionary<string, double> rscu = null!;
+            var act = () => rscu = CodonUsageAnalyzer.CalculateRscu(seq);
+            act.Should().NotThrow($"trial {trial}: random valid coding input must never crash");
+
+            // Finiteness over every codon.
+            rscu.Values.Should().OnlyContain(v => !double.IsNaN(v) && !double.IsInfinity(v),
+                $"trial {trial}: no RSCU value may be NaN or ±Infinity");
+
+            foreach (var (codons, n) in families)
+            {
+                double familySum = 0;
+                foreach (var codon in codons)
+                {
+                    double value = rscu.GetValueOrDefault(codon, 0);
+                    value.Should().BeInRange(0.0, n + 1e-9,
+                        $"trial {trial}: RSCU({codon}) ∈ [0, n_i={n}] (INV-03)");
+                    familySum += value;
+                }
+
+                // INV-04: present family ⇒ Σ = n_i; absent family ⇒ Σ = 0.
+                if (familySum > 1e-9)
+                    familySum.Should().BeApproximately(n, 1e-6,
+                        $"trial {trial}: Σ_j RSCU over a present family equals n_i = {n} (INV-04)");
+                else
+                    familySum.Should().BeApproximately(0.0, 1e-9,
+                        $"trial {trial}: an absent family sums to 0 (INV-04)");
+            }
+        }
+    }
+
+    #endregion
+
+    #endregion
 }
