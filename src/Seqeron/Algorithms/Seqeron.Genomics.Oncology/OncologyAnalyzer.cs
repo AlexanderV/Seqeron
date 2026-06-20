@@ -5944,7 +5944,7 @@ public static class OncologyAnalyzer
     {
         ArgumentNullException.ThrowIfNull(variants);
 
-        if (minVaf <= 0.0 || minVaf > 1.0)
+        if (!(minVaf > 0.0) || minVaf > 1.0)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(minVaf), minVaf, "Minimum CHIP VAF must be in the interval (0, 1].");
@@ -5993,7 +5993,7 @@ public static class OncologyAnalyzer
         ArgumentNullException.ThrowIfNull(variants);
         ArgumentNullException.ThrowIfNull(whiteBloodCellVariants);
 
-        if (minVaf <= 0.0 || minVaf > 1.0)
+        if (!(minVaf > 0.0) || minVaf > 1.0)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(minVaf), minVaf, "Minimum CHIP VAF must be in the interval (0, 1].");
