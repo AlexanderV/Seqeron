@@ -1697,4 +1697,384 @@ public class ProteinPredFuzzTests
     #endregion
 
     #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  DISORDER-PROPENSITY-001 — TOP-IDP propensity & Dunker class : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region DISORDER-PROPENSITY-001 — TOP-IDP propensity lookup & Dunker classification
+
+    // ───────────────────────────────────────────────────────────────────────────
+    //  Unit: DISORDER-PROPENSITY-001 — per-amino-acid intrinsic-disorder propensity.
+    //  Checklist: docs/checklists/03_FUZZING.md, row 206 (ProteinPred, strategies BE, MC;
+    //    targets: "empty, non-amino-acid, single residue").
+    //  Methods under test (src/.../Seqeron.Genomics.Analysis/DisorderPredictor.cs):
+    //    double GetDisorderPropensity(char aminoAcid)
+    //    bool   IsDisorderPromoting(char aminoAcid)
+    //    IReadOnlyList<char> DisorderPromotingAminoAcids / OrderPromotingAminoAcids / AmbiguousAminoAcids
+    //    — Disorder_Propensity.md §3.1, §3.2, §5.1.
+    //
+    //  The contract under test (Disorder_Propensity.md §1, §2.2, §3):
+    //    These are PURE O(1) TABLE LOOKUPS — "no statistics or windowing are involved" (§1).
+    //    Two reference tables fully determine behaviour:
+    //      • the TOP-IDP per-residue scale (Campen et al. 2008, Table 2) returned by
+    //        GetDisorderPropensity — a continuous propensity in [−0.884 (W), 0.987 (P)] for each
+    //        of the 20 standard residues, 0.0 for anything outside that set (§2.2, §3.2, §6.1);
+    //      • the Dunker et al. (2001) three-way partition of the 20 residues into
+    //        disorder-promoting {A,R,G,Q,S,P,E,K} (8), order-promoting {W,C,F,I,Y,V,L,N} (8),
+    //        ambiguous {H,M,T,D} (4) — exposed by IsDisorderPromoting and the three sorted
+    //        list properties (§2.2, §3.2).
+    //
+    //  PRIMARY-SOURCE table re-derivation (NOT echoed off the implementation array):
+    //    The 20 TOP-IDP values below are transcribed from Campen et al. (2008) "TOP-IDP-Scale"
+    //    Protein Pept Lett 15(9):956-963, Table 2, exactly as restated in Disorder_Propensity.md
+    //    §2.2 — W=−0.884, F=−0.697, Y=−0.510, I=−0.486, M=−0.397, L=−0.326, V=−0.121, N=0.007,
+    //    C=0.020, T=0.059, A=0.060, G=0.166, R=0.180, D=0.192, H=0.303, Q=0.318, S=0.341,
+    //    K=0.586, E=0.736, P=0.987. The Dunker sets are transcribed from Dunker et al. (2001)
+    //    J Mol Graph Model 19:26-59 as restated in §2.2. Reading "expected" off DisorderPredictor's
+    //    own dictionary would be a forbidden code-echo; these constants are the independent oracle.
+    //
+    //  Documented input handling (§3.3, §6.1):
+    //    • Any character NOT among the 20 standard residues — 'X', the ambiguity codes B/Z/J/O/U,
+    //      digits, punctuation, whitespace, control / unicode chars, nucleotide letters — returns
+    //      propensity 0.0 and IsDisorderPromoting false. NO exception is ever thrown (deviation #1,
+    //      accepted): GetValueOrDefault / HashSet.Contains have no failing path (§3.3, §5.4, §6.1).
+    //    • Case-INSENSITIVE: the input is upper-cased before lookup, so 'p' == 'P', 'w' == 'W'
+    //      (INV-05, §6.1).
+    //
+    //  Theory-correct invariants asserted (§2.4):
+    //    • INV-01 — GetDisorderPropensity returns the EXACT Table 2 value for each of the 20 residues.
+    //    • INV-02 — over the 20 residues the value lies in [−0.884, 0.987]; min at W, max at P.
+    //    • INV-03 — IsDisorderPromoting(c) ⇔ c ∈ DisorderPromotingAminoAcids.
+    //    • INV-04 — the disorder (8) / order (8) / ambiguous (4) sets are pairwise DISJOINT and
+    //               together COVER all 20 standard residues.
+    //    • INV-05 — both lookups are case-insensitive.
+    //
+    //  Fuzz bar (docs/ADVANCED_TESTING_CHECKLIST.md §8 "Fuzzing"): degenerate / out-of-alphabet
+    //  input must NEVER crash, hang, corrupt state, or produce a non-finite value. The headline
+    //  hazards for two constant-table lookups are: a KeyNotFoundException / NullReference when an
+    //  out-of-table residue (MC: 'X', B/Z/J/O/U, digits, punctuation, '\0', unicode) is fed to
+    //  GetDisorderPropensity or IsDisorderPromoting — both must return the documented neutral
+    //  (0.0 / false), never throw; and a NaN / ±∞ ever surfacing from a table that holds only the
+    //  20 finite published constants. The BE/MC targets cover the EMPTY-domain corner (the lookup
+    //  takes a single char, so "empty" = no residue selected / the empty-set classification view),
+    //  every NON-AMINO-ACID character, and the SINGLE-residue lookups that pin the scale element-by
+    //  -element against the primary source.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region Helpers — primary-source oracle (Campen 2008 Table 2 + Dunker 2001 sets)
+
+    /// <summary>
+    /// The TOP-IDP scale (Campen et al. 2008 Table 2) transcribed DIRECTLY from the primary source
+    /// as restated in Disorder_Propensity.md §2.2 — the INDEPENDENT oracle for INV-01/INV-02. This
+    /// is NOT read from <see cref="DisorderPredictor"/>'s own dictionary (that would be a code-echo):
+    /// every value here is the published Table 2 number. Min = W = −0.884, max = P = 0.987.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<char, double> TopIdpExpected = new Dictionary<char, double>
+    {
+        ['W'] = -0.884, ['F'] = -0.697, ['Y'] = -0.510, ['I'] = -0.486, ['M'] = -0.397,
+        ['L'] = -0.326, ['V'] = -0.121, ['N'] = 0.007, ['C'] = 0.020, ['T'] = 0.059,
+        ['A'] = 0.060, ['G'] = 0.166, ['R'] = 0.180, ['D'] = 0.192, ['H'] = 0.303,
+        ['Q'] = 0.318, ['S'] = 0.341, ['K'] = 0.586, ['E'] = 0.736, ['P'] = 0.987,
+    };
+
+    /// <summary>Disorder-promoting set — Dunker et al. (2001), §2.2 — independent oracle.</summary>
+    private static readonly char[] DisorderPromotingExpected = { 'A', 'R', 'G', 'Q', 'S', 'P', 'E', 'K' };
+
+    /// <summary>Order-promoting set — Dunker et al. (2001), §2.2 — independent oracle.</summary>
+    private static readonly char[] OrderPromotingExpected = { 'W', 'C', 'F', 'I', 'Y', 'V', 'L', 'N' };
+
+    /// <summary>Ambiguous set — Dunker et al. (2001), §2.2 — independent oracle.</summary>
+    private static readonly char[] AmbiguousExpected = { 'H', 'M', 'T', 'D' };
+
+    #endregion
+
+    #region Positive sanity — element-by-element TOP-IDP scale vs Campen 2008 Table 2 (INV-01/02)
+
+    /// <summary>
+    /// Positive sanity (INV-01, INV-02, §2.2, §7.1): GetDisorderPropensity must return the EXACT
+    /// Campen et al. (2008) Table 2 value for every one of the 20 standard residues — checked
+    /// element-by-element against the <see cref="TopIdpExpected"/> primary-source oracle (NOT the
+    /// code's own array). The §7.1 worked-example anchors are pinned explicitly: P = 0.987 (the
+    /// global maximum), W = −0.884 (the global minimum); and INV-02 — every value lies in
+    /// [−0.884, 0.987] with the min uniquely at W and the max uniquely at P.
+    /// </summary>
+    [Test]
+    public void GetDisorderPropensity_StandardResidues_MatchCampen2008Table2()
+    {
+        // INV-01 — element-by-element equality against the primary-source Table 2.
+        foreach (char aa in StandardAminoAcids)
+        {
+            double expected = TopIdpExpected[aa];
+            GetDisorderPropensity(aa).Should().BeApproximately(expected, 1e-12,
+                $"INV-01: GetDisorderPropensity('{aa}') is the Campen 2008 Table 2 value {expected}");
+
+            // INV-02 — within the documented scale range.
+            GetDisorderPropensity(aa).Should().BeInRange(-0.884, 0.987,
+                $"INV-02: the propensity of '{aa}' lies within the TOP-IDP scale range");
+            double.IsNaN(GetDisorderPropensity(aa)).Should().BeFalse($"a scale value is never NaN ('{aa}')");
+            double.IsInfinity(GetDisorderPropensity(aa)).Should().BeFalse($"a scale value is never infinite ('{aa}')");
+        }
+
+        // §7.1 / INV-02 anchors: the extrema are W (min) and P (max).
+        GetDisorderPropensity('P').Should().BeApproximately(0.987, 1e-12,
+            "P is the TOP-IDP global maximum 0.987 (§7.1)");
+        GetDisorderPropensity('W').Should().BeApproximately(-0.884, 1e-12,
+            "W is the TOP-IDP global minimum −0.884 (§7.1)");
+
+        double maxVal = StandardAminoAcids.Max(GetDisorderPropensity);
+        double minVal = StandardAminoAcids.Min(GetDisorderPropensity);
+        maxVal.Should().BeApproximately(0.987, 1e-12, "INV-02: the scale maximum is P = 0.987");
+        minVal.Should().BeApproximately(-0.884, 1e-12, "INV-02: the scale minimum is W = −0.884");
+        StandardAminoAcids.Where(c => GetDisorderPropensity(c) == maxVal).Should().Equal(new[] { 'P' },
+            "INV-02: the maximum is attained UNIQUELY at P");
+        StandardAminoAcids.Where(c => GetDisorderPropensity(c) == minVal).Should().Equal(new[] { 'W' },
+            "INV-02: the minimum is attained UNIQUELY at W");
+    }
+
+    #endregion
+
+    #region Positive sanity — Dunker classification sets & IsDisorderPromoting (INV-03/04)
+
+    /// <summary>
+    /// Positive sanity (INV-03, INV-04, §2.2, §3.2): the three Dunker (2001) classification sets and
+    /// the IsDisorderPromoting predicate. The list properties must equal the documented SORTED sets;
+    /// IsDisorderPromoting(c) ⇔ c ∈ DisorderPromotingAminoAcids for every residue (INV-03); and the
+    /// three sets must be pairwise DISJOINT and together COVER exactly the 20 standard residues
+    /// (INV-04). Sizes are pinned to 8 / 8 / 4. Expected membership is the primary-source oracle
+    /// (<see cref="DisorderPromotingExpected"/> etc.), not the code's own backing sets.
+    /// </summary>
+    [Test]
+    public void DunkerClassification_SetsArePartition_AndPredicateAgrees()
+    {
+        // Property lists equal the documented SORTED Dunker sets (§3.2).
+        DisorderPromotingAminoAcids.Should().Equal(DisorderPromotingExpected.OrderBy(c => c),
+            "DisorderPromotingAminoAcids is the sorted Dunker disorder set {A,E,G,K,P,Q,R,S}");
+        OrderPromotingAminoAcids.Should().Equal(OrderPromotingExpected.OrderBy(c => c),
+            "OrderPromotingAminoAcids is the sorted Dunker order set {C,F,I,L,N,V,W,Y}");
+        AmbiguousAminoAcids.Should().Equal(AmbiguousExpected.OrderBy(c => c),
+            "AmbiguousAminoAcids is the sorted Dunker ambiguous set {D,H,M,T}");
+
+        // Sizes: 8 / 8 / 4 (§2.2).
+        DisorderPromotingAminoAcids.Should().HaveCount(8);
+        OrderPromotingAminoAcids.Should().HaveCount(8);
+        AmbiguousAminoAcids.Should().HaveCount(4);
+
+        // INV-04 — pairwise disjoint and a full cover of the 20 standard residues.
+        var disorder = DisorderPromotingAminoAcids.ToHashSet();
+        var order = OrderPromotingAminoAcids.ToHashSet();
+        var ambiguous = AmbiguousAminoAcids.ToHashSet();
+        disorder.Overlaps(order).Should().BeFalse("INV-04: disorder ∩ order = ∅");
+        disorder.Overlaps(ambiguous).Should().BeFalse("INV-04: disorder ∩ ambiguous = ∅");
+        order.Overlaps(ambiguous).Should().BeFalse("INV-04: order ∩ ambiguous = ∅");
+        var union = new HashSet<char>(disorder);
+        union.UnionWith(order);
+        union.UnionWith(ambiguous);
+        union.Should().BeEquivalentTo(StandardAminoAcids.ToHashSet(),
+            "INV-04: the three Dunker classes together cover exactly the 20 standard residues");
+
+        // INV-03 — IsDisorderPromoting(c) ⇔ c ∈ DisorderPromotingAminoAcids for every residue.
+        foreach (char aa in StandardAminoAcids)
+            IsDisorderPromoting(aa).Should().Be(disorder.Contains(aa),
+                $"INV-03: IsDisorderPromoting('{aa}') ⇔ '{aa}' ∈ DisorderPromotingAminoAcids");
+
+        // §7.1 worked-example anchors: E disorder-promoting, W not.
+        IsDisorderPromoting('E').Should().BeTrue("E is disorder-promoting (§7.1)");
+        IsDisorderPromoting('W').Should().BeFalse("W is order-promoting, not disorder-promoting (§7.1)");
+    }
+
+    #endregion
+
+    #region INV-05 — case-insensitivity: lowercase == uppercase
+
+    /// <summary>
+    /// INV-05 (§2.4, §6.1): both lookups upper-case the input first, so the lowercase form of every
+    /// standard residue yields the IDENTICAL propensity and disorder-promoting verdict as its
+    /// uppercase form ('p' == 'P', 'w' == 'W'). This pins the documented case folding rather than
+    /// echoing the implementation.
+    /// </summary>
+    [Test]
+    public void GetDisorderPropensity_And_IsDisorderPromoting_AreCaseInsensitive()
+    {
+        foreach (char upper in StandardAminoAcids)
+        {
+            char lower = char.ToLowerInvariant(upper);
+            GetDisorderPropensity(lower).Should().Be(GetDisorderPropensity(upper),
+                $"INV-05: GetDisorderPropensity('{lower}') == GetDisorderPropensity('{upper}')");
+            IsDisorderPromoting(lower).Should().Be(IsDisorderPromoting(upper),
+                $"INV-05: IsDisorderPromoting('{lower}') == IsDisorderPromoting('{upper}')");
+        }
+    }
+
+    #endregion
+
+    #region MC — non-amino-acid characters: propensity 0.0, not promoting, never throw
+
+    /// <summary>
+    /// Target "non-amino-acid" (MC; §3.3, §5.4 deviation #1, §6.1): any character OUTSIDE the 20
+    /// standard residues must be handled DETERMINISTICALLY — GetDisorderPropensity returns exactly
+    /// 0.0 and IsDisorderPromoting returns false — NEVER a KeyNotFoundException / NullReference and
+    /// never NaN/±∞. We sweep the extended IUPAC ambiguity codes (B Asx, Z Glx, J Leu/Ile, O
+    /// pyrrolysine, U selenocysteine), the unknown placeholder 'X', digits, punctuation, the gap /
+    /// stop symbols, whitespace, the null char '\0', control chars, high unicode, and DNA/RNA
+    /// nucleotide letters that are not amino acids in their own right (the only standard residue
+    /// letters NOT shared with the nucleotide alphabet are excluded; B/J/O/U/X/Z and the symbols
+    /// below are all out-of-table). Every one resolves to the documented neutral, with no throw.
+    /// </summary>
+    [Test]
+    public void GetDisorderPropensity_NonAminoAcidCharacters_ReturnNeutralNeverThrow()
+    {
+        var nonResidues = new List<char>
+        {
+            'B', 'Z', 'J', 'O', 'U', 'X',          // extended / unknown amino-acid codes (out of table)
+            '0', '1', '9',                          // digits
+            '*', '-', '.', '?', '!', '@', '#', ' ', // stop / gap / punctuation / whitespace
+            '\0', '\t', '\n', '\r',                 // null + control / whitespace
+            'ñ', 'Ω', '日', ' ', '￿',     // unicode / high code points
+        };
+
+        foreach (char c in nonResidues)
+        {
+            string label = c < 0x20 || c == 0x7F ? $"U+{(int)c:X4}" : c.ToString();
+
+            // No throw, exact neutral propensity, finite.
+            Func<double> propAct = () => GetDisorderPropensity(c);
+            double prop = propAct.Should().NotThrow($"a non-amino-acid char ('{label}') must not crash GetDisorderPropensity").Subject;
+            prop.Should().Be(0.0, $"an out-of-table char ('{label}') scores the documented neutral 0.0 (§6.1)");
+            double.IsNaN(prop).Should().BeFalse($"a non-amino-acid char ('{label}') never yields NaN");
+            double.IsInfinity(prop).Should().BeFalse($"a non-amino-acid char ('{label}') never yields ±∞");
+
+            // No throw, false predicate, and absent from every classification set.
+            Func<bool> promAct = () => IsDisorderPromoting(c);
+            bool promoting = promAct.Should().NotThrow($"a non-amino-acid char ('{label}') must not crash IsDisorderPromoting").Subject;
+            promoting.Should().BeFalse($"an out-of-table char ('{label}') is not disorder-promoting (§6.1)");
+
+            DisorderPromotingAminoAcids.Should().NotContain(c, "an out-of-table char is in no classification set");
+            OrderPromotingAminoAcids.Should().NotContain(c, "an out-of-table char is in no classification set");
+            AmbiguousAminoAcids.Should().NotContain(c, "an out-of-table char is in no classification set");
+        }
+    }
+
+    #endregion
+
+    #region BE — empty-domain corner: single residue & empty classification view
+
+    /// <summary>
+    /// Target "single residue" / "empty" (BE; §3.1, §6.1): the lookups take ONE char, so the
+    /// boundary forms are (a) a SINGLE residue threaded through both lookups — each of the 20
+    /// standard residues returns its exact primary-source propensity and the predicate matching its
+    /// Dunker class (the single-residue base case of every aggregate that consumes this unit); and
+    /// (b) the EMPTY-domain corner — no character selects any entry, modelled by enumerating ALL
+    /// char values and asserting that EXACTLY the 20 standard residues are recognised (non-zero or
+    /// in-set) while the entire rest of the char domain is the empty / neutral case. This pins both
+    /// that nothing outside the 20 leaks a value and that the recognised domain is exactly those 20.
+    /// </summary>
+    [Test]
+    [CancelAfter(30000)]
+    public void Propensity_SingleResidueExactAndEmptyDomainNeutral(CancellationToken token)
+    {
+        // (a) Single-residue base case — exact value + matching Dunker verdict for each of the 20.
+        foreach (char aa in StandardAminoAcids)
+        {
+            GetDisorderPropensity(aa).Should().BeApproximately(TopIdpExpected[aa], 1e-12,
+                $"a single residue '{aa}' returns its exact Table 2 propensity");
+            IsDisorderPromoting(aa).Should().Be(DisorderPromotingExpected.Contains(aa),
+                $"a single residue '{aa}' returns its Dunker disorder-promoting verdict");
+        }
+
+        // (b) Empty-domain corner — sweep the WHOLE char range; only the 20 standard residues are
+        // recognised, EVERY other char is the neutral/empty case (0.0 propensity, not promoting).
+        var recognised = new HashSet<char>();
+        for (int code = 0; code <= char.MaxValue; code++)
+        {
+            char c = (char)code;
+            double prop = GetDisorderPropensity(c);
+            bool promoting = IsDisorderPromoting(c);
+
+            double.IsNaN(prop).Should().BeFalse($"propensity is never NaN (U+{code:X4})");
+            double.IsInfinity(prop).Should().BeFalse($"propensity is never ±∞ (U+{code:X4})");
+
+            // A char is "recognised" iff it (case-folded) is one of the 20 standard residues.
+            bool isStandard = StandardAminoAcids.Contains(char.ToUpperInvariant(c));
+            if (isStandard)
+            {
+                recognised.Add(char.ToUpperInvariant(c));
+            }
+            else
+            {
+                prop.Should().Be(0.0, $"a non-residue char (U+{code:X4}) scores the neutral 0.0 — empty-domain case");
+                promoting.Should().BeFalse($"a non-residue char (U+{code:X4}) is not disorder-promoting");
+            }
+
+            if ((code & 0x1FFF) == 0)
+                token.ThrowIfCancellationRequested();
+        }
+
+        recognised.Should().BeEquivalentTo(StandardAminoAcids.ToHashSet(),
+            "exactly the 20 standard residues (and their lowercase forms) are recognised; the rest of the char domain is the empty/neutral case");
+    }
+
+    #endregion
+
+    #region BE — randomized boundary sweep: never crash / hang / NaN, deterministic
+
+    /// <summary>
+    /// Headline no-crash / no-hang / no-NaN sweep over arbitrary and adversarial single-char input
+    /// (docs/ADVANCED_TESTING_CHECKLIST.md §8 "Fuzzing"). Across fixed seeds we draw random chars
+    /// from the full BMP — a mix of standard residues, extended codes, digits, punctuation, control
+    /// chars and unicode — and require that BOTH lookups never throw, never return NaN/±∞, return a
+    /// value in the documented scale range OR exactly 0.0 (for out-of-table chars), and agree with
+    /// the case-insensitive primary-source oracle. Re-running on the same char gives the IDENTICAL
+    /// result (determinism). [CancelAfter] guards against any regression turning an O(1) lookup into
+    /// a hang.
+    /// </summary>
+    [Test]
+    [CancelAfter(30000)]
+    public void Propensity_RandomChars_NeverCrashNaN_MatchOracleDeterministic(CancellationToken token)
+    {
+        foreach (int seed in new[] { 7, 31, 137, 2026 })
+        {
+            var rng = new Random(seed);
+            for (int iter = 0; iter < 5000; iter++)
+            {
+                char c = (char)rng.Next(0, char.MaxValue + 1);
+                char upper = char.ToUpperInvariant(c);
+
+                Func<double> propAct = () => GetDisorderPropensity(c);
+                double prop = propAct.Should().NotThrow($"random char U+{(int)c:X4} must not crash propensity lookup").Subject;
+                Func<bool> promAct = () => IsDisorderPromoting(c);
+                bool promoting = promAct.Should().NotThrow($"random char U+{(int)c:X4} must not crash predicate").Subject;
+
+                double.IsNaN(prop).Should().BeFalse($"random char U+{(int)c:X4} never yields NaN");
+                double.IsInfinity(prop).Should().BeFalse($"random char U+{(int)c:X4} never yields ±∞");
+
+                // Oracle agreement (case-insensitive): in-table → exact Table 2 value & Dunker verdict;
+                // out-of-table → exactly 0.0 / false.
+                if (TopIdpExpected.TryGetValue(upper, out double expectedProp))
+                {
+                    prop.Should().BeApproximately(expectedProp, 1e-12,
+                        $"a recognised residue (folded '{upper}') returns its Table 2 value");
+                    prop.Should().BeInRange(-0.884, 0.987, "INV-02: a recognised residue is within the scale range");
+                    promoting.Should().Be(DisorderPromotingExpected.Contains(upper),
+                        $"a recognised residue (folded '{upper}') matches its Dunker verdict");
+                }
+                else
+                {
+                    prop.Should().Be(0.0, $"an out-of-table char (folded '{upper}') scores the neutral 0.0");
+                    promoting.Should().BeFalse($"an out-of-table char (folded '{upper}') is not disorder-promoting");
+                }
+
+                // Determinism — the same char yields the identical result.
+                GetDisorderPropensity(c).Should().Be(prop, "GetDisorderPropensity is deterministic for a fixed char");
+                IsDisorderPromoting(c).Should().Be(promoting, "IsDisorderPromoting is deterministic for a fixed char");
+
+                if ((iter & 0x3FF) == 0)
+                    token.ThrowIfCancellationRequested();
+            }
+        }
+    }
+
+    #endregion
+
+    #endregion
 }
