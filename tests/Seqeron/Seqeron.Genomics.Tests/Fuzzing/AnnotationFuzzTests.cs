@@ -379,6 +379,70 @@ namespace Seqeron.Genomics.Tests;
 /// exact worked-example score 0.34657359027997264 (Coding_Potential_Calculation.md §7.1) is
 /// reproduced from first principles. Deterministic only: random fuzz input and random
 /// frequency tables come from a locally fixed `new Random(seed)` — NEVER a shared static Rng.
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: ANNOT-CODONUSAGE-001 — Relative Synonymous Codon Usage (RSCU)
+/// Checklist: docs/checklists/03_FUZZING.md, row 217.
+/// Fuzz strategies exercised for THIS unit:
+///   • BE = Boundary Exploitation — the degenerate boundaries called out in the
+///          checklist row: the EMPTY input (empty collection / all-empty strings),
+///          a SINGLE codon, and a sequence whose LENGTH is NOT a multiple of 3
+///          (a partial trailing codon). — docs/checklists/03_FUZZING.md §Description
+///          ("BE = Boundary Exploitation: 0, -1, MaxInt, empty").
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The RSCU contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// RSCU measures within-synonymous-family codon bias, normalised away from amino-acid
+/// composition (Relative_Synonymous_Codon_Usage.md §1, §2.2). The surface is
+///   GenomeAnnotator.GetCodonUsage(IEnumerable&lt;string&gt; codingSequences)              [Standard code]
+///   GenomeAnnotator.GetCodonUsage(IEnumerable&lt;string&gt; codingSequences, GeneticCode)  [supplied code]
+///   (src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs lines 1044–1114).
+/// NOTE this is the ANNOTATION-module RSCU (ANNOT-CODONUSAGE-001), DISTINCT from the
+/// Codon-area CODON-USAGE-001 (row 61). It is ALSO distinct from the pre-existing raw
+/// integer-count GetCodonUsage(string) overload (line 1000), which is NOT RSCU and is not
+/// the unit under fuzz. The string-collection overloads returning IReadOnlyDictionary&lt;string,double&gt;
+/// are the RSCU surface named in the doc §5.1.
+///
+/// For amino acid i with n_i synonymous codons and observed counts x_(i,j), the doc §2.2
+/// formula (Sharp &amp; Li 1986, verbatim from LIRMM/CodonU, NOT echoed off the code) is
+///   RSCU_(i,j) = n_i · x_(i,j) / Σ_j x_(i,j)
+/// computed over counts pooled across all input sequences. The result maps EVERY sense
+/// codon (uppercase DNA) to its RSCU value; an entirely unobserved family yields 0.0 for
+/// each member (no division by zero; the CAI 0.5 pseudocount is deliberately NOT applied —
+/// doc §3.3, §5.3, §5.4 deviation 1).
+///
+/// Documented framing / alphabet contract (Relative_Synonymous_Codon_Usage.md §3.1, §3.3, §4.1):
+///   • Sequences are read IN FRAME from index 0 in non-overlapping triplets; a PARTIAL
+///     trailing codon (length not a multiple of 3) is IGNORED — `i <= len - 3` step 3.
+///   • Only A/C/G/T codons are counted (case-insensitive; input uppercased first); a codon
+///     containing N/IUPAC/garbage is simply not counted.
+///   • Null/empty individual sequences are SKIPPED; the genetic-code table is RNA-keyed (U)
+///     and reconciled to DNA (T) internally; STOP codons are excluded (sense codons only).
+///
+/// Documented parameter / validation contract (doc §3.3, §6.1):
+///   • Null `codingSequences` or null `code` → ArgumentNullException (DOCUMENTED throws,
+///     pinned as such — never weakened to a tolerant no-op).
+///   • Empty collection / all-empty strings → NOTHING observed: every family totals 0, so
+///     EVERY sense codon maps to RSCU 0.0 (NO division by zero). This is THE empty boundary
+///     the checklist row targets. The output still enumerates all 61 sense codons of the
+///     Standard code (64 − 3 stops), so it is a defined, degenerate result, not an exception.
+///
+/// Documented invariants pinned on positive results (Relative_Synonymous_Codon_Usage.md §2.4):
+///   INV-01 for every OBSERVED synonymous family, Σ RSCU over its codons = n_i;
+///   INV-02 a single-codon amino acid (Met=ATG, Trp=TGG) always has RSCU = 1.0 (n_i = 1);
+///   INV-03 every RSCU value lies in [0, n_i] (so within [0, 6] for the Standard code,
+///          whose largest family — Leu/Ser/Arg — has n_i = 6);
+///   INV-04 stop codons never appear in the output (sense codons only);
+///   INV-05 uniform usage within a family ⇒ every member RSCU = 1.0.
+/// The fuzz bar for this unit: no crash / hang / NaN / Infinity / corruption on degenerate
+/// or random input; the EMPTY boundary returns a defined all-zero 61-codon map with NO
+/// divide-by-zero; a SINGLE codon yields the exact n_i·x/Σ value for its family member; a
+/// length NOT a multiple of 3 drops only the partial trailing codon and never crashes; and
+/// the doc §7.1 Leucine worked example (CTT=3.0, CTG=1.5, TTA=1.5, others 0; Σ family = 6)
+/// is reproduced from first principles. The dictionary values are pinned to be finite and
+/// non-negative on a fixed-seed random sweep. Deterministic only: random fuzz input comes
+/// from a locally fixed `new Random(seed)` — NEVER a shared static Rng.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -1750,6 +1814,267 @@ public class AnnotationFuzzTests
             .Should().Throw<ArgumentOutOfRangeException>("wordSize ≤ 0 is a documented ArgumentOutOfRangeException");
         ((Action)(() => GenomeAnnotator.CalculateCodingPotential("ATGAAA", coding, noncoding, stepSize: 0)))
             .Should().Throw<ArgumentOutOfRangeException>("stepSize ≤ 0 is a documented ArgumentOutOfRangeException");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  ANNOT-CODONUSAGE-001 — Relative Synonymous Codon Usage : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region ANNOT-CODONUSAGE-001 — Relative Synonymous Codon Usage (RSCU)
+
+    #region Helpers — RSCU constants (NCBI translation table 1)
+
+    /// <summary>
+    /// The six synonymous Leucine codons of the Standard genetic code (NCBI table 1),
+    /// n_i = 6. Derived from the genetic code, NOT from the implementation's arrays.
+    /// </summary>
+    private static readonly string[] LeucineFamily = { "TTA", "TTG", "CTT", "CTC", "CTA", "CTG" };
+
+    /// <summary>The Standard code's three stop codons (TAA, TAG, TGA) — excluded from RSCU output.</summary>
+    private static readonly string[] StopCodons = { "TAA", "TAG", "TGA" };
+
+    #endregion
+
+    #region Positive sanity — the doc §7.1 Leucine worked example reproduced from first principles
+
+    /// <summary>
+    /// Positive sanity: the doc's hand-checkable worked example
+    /// (Relative_Synonymous_Codon_Usage.md §7.1). CDS "CTTCTTCTGTTA" → in-frame codons
+    /// CTT, CTT, CTG, TTA (all Leucine). Family counts CTT=2, CTG=1, TTA=1; Σ=4; n_i=6.
+    /// RSCU = n_i·x/Σ ⇒ CTT = 6·2/4 = 3.0, CTG = 6·1/4 = 1.5, TTA = 6·1/4 = 1.5; the three
+    /// UNobserved Leu codons (TTG, CTC, CTA) = 0.0. These expected values are derived
+    /// independently from the §2.2 formula and the NCBI Leu family — NOT echoed off the
+    /// code's arrays. INV-01 (Σ over the family = n_i = 6) is pinned alongside, so a wrong
+    /// implementation that mis-normalised could not pass.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void GetCodonUsage_RscuLeucineWorkedExample_ReproducesExactDocValues()
+    {
+        IReadOnlyDictionary<string, double> rscu = GenomeAnnotator.GetCodonUsage(new[] { "CTTCTTCTGTTA" });
+
+        rscu["CTT"].Should().BeApproximately(3.0, 1e-10, "§7.1: CTT = 6·2/4 = 3.0 (preferred Leu codon)");
+        rscu["CTG"].Should().BeApproximately(1.5, 1e-10, "§7.1: CTG = 6·1/4 = 1.5");
+        rscu["TTA"].Should().BeApproximately(1.5, 1e-10, "§7.1: TTA = 6·1/4 = 1.5");
+        rscu["TTG"].Should().BeApproximately(0.0, 1e-10, "§7.1: TTG unobserved ⇒ 6·0/4 = 0.0");
+        rscu["CTC"].Should().BeApproximately(0.0, 1e-10, "§7.1: CTC unobserved ⇒ 0.0");
+        rscu["CTA"].Should().BeApproximately(0.0, 1e-10, "§7.1: CTA unobserved ⇒ 0.0");
+
+        double leuSum = LeucineFamily.Sum(c => rscu[c]);
+        leuSum.Should().BeApproximately(6.0, 1e-10,
+            "INV-01: Σ RSCU over the observed 6-codon Leu family equals n_i = 6");
+    }
+
+    #endregion
+
+    #region BE — Boundary: empty input (defined all-zero result, NO divide-by-zero)
+
+    /// <summary>
+    /// BE: the EMPTY boundary called out in the checklist row. An empty collection AND a
+    /// collection of all-empty strings observe NOTHING, so every synonymous family totals
+    /// Σ = 0. The doc's §3.3 / §5.4 deviation 1 contract is that the family-total-0 branch
+    /// returns RSCU 0.0 for each member — a DEFINED degenerate result, with NO division by
+    /// zero (n_i·0/0 is never evaluated). The output still enumerates all 61 sense codons of
+    /// the Standard code (64 − 3 stops, INV-04), every value finite and exactly 0.0. We pin
+    /// no throw, the 61-codon cardinality, and that every value is 0.0 (not NaN/Infinity).
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void GetCodonUsage_EmptyInput_ReturnsDefinedAllZeroMap_NoDivideByZero()
+    {
+        var fromEmptyCollection = (() => GenomeAnnotator.GetCodonUsage(Array.Empty<string>()));
+        var fromAllEmptyStrings = (() => GenomeAnnotator.GetCodonUsage(new[] { "", "", "" }));
+        fromEmptyCollection.Should().NotThrow("nothing observed ⇒ every family total is 0; the 0/0 branch returns 0.0, never divides");
+        fromAllEmptyStrings.Should().NotThrow("all-empty strings are skipped; the result is the same defined all-zero map");
+
+        IReadOnlyDictionary<string, double> emptyCollection = GenomeAnnotator.GetCodonUsage(Array.Empty<string>());
+        IReadOnlyDictionary<string, double> allEmptyStrings = GenomeAnnotator.GetCodonUsage(new[] { "", "", "" });
+
+        emptyCollection.Count.Should().Be(61, "the Standard code has 64 codons − 3 stops = 61 sense codons (INV-04)");
+        emptyCollection.Values.Should().OnlyContain(v => v == 0.0,
+            "with nothing observed every synonymous family totals 0 ⇒ RSCU 0.0 for every codon, no NaN/Infinity");
+
+        allEmptyStrings.Count.Should().Be(61, "all-empty strings observe nothing yet still enumerate the 61 sense codons");
+        allEmptyStrings.Values.Should().OnlyContain(v => v == 0.0,
+            "all-empty input yields the same defined all-zero RSCU map");
+
+        StopCodons.Should().OnlyContain(stop => !emptyCollection.ContainsKey(stop),
+            "INV-04: stop codons (TAA/TAG/TGA) never appear in the RSCU output");
+    }
+
+    #endregion
+
+    #region BE — Boundary: a single codon
+
+    /// <summary>
+    /// BE: a SINGLE codon. A lone codon is the only member of its family observed, so its
+    /// family total Σ equals its own count and RSCU = n_i·x/Σ = n_i (the maximum allowed by
+    /// INV-03, [0, n_i]). For a single Leucine codon "CTT" (n_i = 6, x = 1, Σ = 1) the doc
+    /// formula gives RSCU = 6·1/1 = 6.0; the other five Leu codons are unobserved ⇒ 0.0, and
+    /// Σ over the family = 6.0 = n_i (INV-01). The expected 6.0 is derived from the §2.2
+    /// formula and the NCBI Leu family size, NOT echoed off the code.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void GetCodonUsage_SingleLeucineCodon_RscuEqualsFamilySize()
+    {
+        IReadOnlyDictionary<string, double> rscu = GenomeAnnotator.GetCodonUsage(new[] { "CTT" });
+
+        rscu["CTT"].Should().BeApproximately(6.0, 1e-10,
+            "a single observed Leu codon: RSCU = n_i·x/Σ = 6·1/1 = 6.0 (the INV-03 upper bound n_i)");
+        rscu["TTA"].Should().BeApproximately(0.0, 1e-10, "the other Leu codons are unobserved ⇒ 0.0");
+        rscu["TTG"].Should().BeApproximately(0.0, 1e-10, "the other Leu codons are unobserved ⇒ 0.0");
+
+        double leuSum = LeucineFamily.Sum(c => rscu[c]);
+        leuSum.Should().BeApproximately(6.0, 1e-10, "INV-01: Σ RSCU over the Leu family equals n_i = 6");
+
+        rscu.Values.Should().OnlyContain(v => !double.IsNaN(v) && !double.IsInfinity(v) && v >= 0.0 && v <= 6.0,
+            "INV-03: every RSCU lies in [0, n_i] (≤ 6 for the Standard code); all values finite");
+    }
+
+    /// <summary>
+    /// BE: a single codon of a SINGLE-codon amino acid. Methionine (ATG) and Tryptophan
+    /// (TGG) are the only n_i = 1 families in the Standard code, so by INV-02 their RSCU is
+    /// ALWAYS 1.0 (n_i·x/Σ = 1·x/x = 1). A lone "ATG" must therefore yield RSCU 1.0 — a
+    /// degenerate single-codon input that is fully defined, not a divide-by-zero.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void GetCodonUsage_SingleMethionineCodon_RscuIsOne()
+    {
+        IReadOnlyDictionary<string, double> rscu = GenomeAnnotator.GetCodonUsage(new[] { "ATG" });
+
+        rscu["ATG"].Should().BeApproximately(1.0, 1e-10,
+            "INV-02: Met (n_i = 1) always has RSCU = 1·1/1 = 1.0");
+    }
+
+    #endregion
+
+    #region BE — Boundary: length not a multiple of 3 (partial trailing codon ignored)
+
+    /// <summary>
+    /// BE: a sequence whose LENGTH is NOT a multiple of 3. The doc §3.3/§4.1 contract reads
+    /// in-frame triplets from index 0 in steps of 3 and IGNORES a partial trailing codon
+    /// (the loop bound is `i <= len - 3`). "CTTCTTCTGTTAC" is the §7.1 worked example
+    /// (length 12) plus one trailing 'C' (length 13, 13 % 3 = 1). The trailing partial codon
+    /// must be silently dropped, leaving exactly the §7.1 Leu counts ⇒ identical RSCU
+    /// (CTT=3.0, CTG=1.5, TTA=1.5) and no crash / no out-of-range Substring on the 3-char
+    /// window. This pins that a non-%3 length neither corrupts the count nor throws.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void GetCodonUsage_LengthNotMultipleOfThree_IgnoresPartialTrailingCodon()
+    {
+        const string withTrailingPartial = "CTTCTTCTGTTAC"; // §7.1 example (12 nt) + trailing 'C' = 13 nt
+
+        var act = (() => GenomeAnnotator.GetCodonUsage(new[] { withTrailingPartial }));
+        act.Should().NotThrow("the partial trailing codon is dropped by the `i <= len - 3` framing; no out-of-range Substring");
+
+        IReadOnlyDictionary<string, double> rscu = GenomeAnnotator.GetCodonUsage(new[] { withTrailingPartial });
+
+        rscu["CTT"].Should().BeApproximately(3.0, 1e-10, "trailing 'C' dropped ⇒ same §7.1 Leu counts ⇒ CTT = 3.0");
+        rscu["CTG"].Should().BeApproximately(1.5, 1e-10, "trailing 'C' dropped ⇒ CTG = 1.5");
+        rscu["TTA"].Should().BeApproximately(1.5, 1e-10, "trailing 'C' dropped ⇒ TTA = 1.5");
+
+        LeucineFamily.Sum(c => rscu[c]).Should().BeApproximately(6.0, 1e-10,
+            "INV-01 still holds: the ignored partial codon does not perturb the family sum");
+    }
+
+    /// <summary>
+    /// BE: the most degenerate non-%3 lengths — a 1-nt and a 2-nt sequence have NO complete
+    /// in-frame codon at all (`0 &gt; len - 3`), so nothing is observed and the result is the
+    /// defined all-zero 61-codon map, with no crash and no divide-by-zero. This is the
+    /// length-not-%3 boundary at its smallest: a sub-codon input.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void GetCodonUsage_SubCodonLength_ObservesNothing_DefinedAllZeroMap()
+    {
+        foreach (string subCodon in new[] { "A", "CT" })
+        {
+            var act = (() => GenomeAnnotator.GetCodonUsage(new[] { subCodon }));
+            act.Should().NotThrow($"\"{subCodon}\" has no complete codon; the loop body never runs, no crash");
+
+            IReadOnlyDictionary<string, double> rscu = GenomeAnnotator.GetCodonUsage(new[] { subCodon });
+            rscu.Count.Should().Be(61, "the output still enumerates all 61 sense codons even with nothing observed");
+            rscu.Values.Should().OnlyContain(v => v == 0.0,
+                $"\"{subCodon}\" observes no codon ⇒ every family totals 0 ⇒ RSCU 0.0, no divide-by-zero");
+        }
+    }
+
+    #endregion
+
+    #region BE — Randomized boundary sweep (no crash / NaN / Infinity / out-of-range)
+
+    /// <summary>
+    /// BE / randomized sweep: across many fixed-seed random sequences — including ones whose
+    /// length is deliberately NOT a multiple of 3 and short single-/sub-codon inputs — the RSCU
+    /// computation must never crash, hang, or emit a NaN / Infinity / out-of-range value. For
+    /// EVERY input the output enumerates the 61 sense codons (INV-04, no stops), every value is
+    /// finite and within [0, 6] (INV-03, the Standard code's largest family n_i = 6), and every
+    /// OBSERVED synonymous family sums to its n_i within tolerance (INV-01). The per-family sum
+    /// check is computed independently from the NCBI Leu family here as a falsifiable witness
+    /// that the normalisation is per-family (per the §2.2 formula), not per-total. Deterministic:
+    /// the input lengths and bases come from a locally fixed `new Random(seed)`.
+    /// </summary>
+    [Test]
+    [CancelAfter(20000)]
+    public void GetCodonUsage_RandomBoundarySweep_NeverCrashesAndStaysWithinInvariants()
+    {
+        var rng = new Random(217_001);
+
+        for (int iter = 0; iter < 200; iter++)
+        {
+            // Lengths span 0..~150 including many non-%3 and sub-codon cases.
+            int length = rng.Next(0, 151);
+            string seq = RandomDna(length, seed: rng.Next());
+
+            IReadOnlyDictionary<string, double>? rscu = null;
+            var act = (() => rscu = GenomeAnnotator.GetCodonUsage(new[] { seq }));
+            act.Should().NotThrow($"RSCU must not crash on random input (iter {iter}, length {length})");
+
+            rscu!.Count.Should().Be(61, "every result enumerates exactly the 61 sense codons of the Standard code");
+            rscu.Values.Should().OnlyContain(v => !double.IsNaN(v) && !double.IsInfinity(v) && v >= 0.0 && v <= 6.0,
+                $"INV-03: every RSCU is finite and in [0, n_i ≤ 6] (iter {iter})");
+            StopCodons.Should().OnlyContain(stop => !rscu.ContainsKey(stop),
+                "INV-04: no stop codon ever appears in the RSCU output");
+
+            // INV-01 witness on the Leu family: if any Leu codon is observed (sum > 0), the
+            // whole family must sum to n_i = 6; an entirely unobserved family sums to 0.0.
+            double leuSum = LeucineFamily.Sum(c => rscu[c]);
+            bool leuObserved = leuSum > 0.0;
+            if (leuObserved)
+                leuSum.Should().BeApproximately(6.0, 1e-9,
+                    $"INV-01: an observed Leu family sums to n_i = 6 (per-family normalisation) (iter {iter})");
+            else
+                leuSum.Should().Be(0.0, $"an unobserved Leu family sums to exactly 0.0 (iter {iter})");
+        }
+    }
+
+    #endregion
+
+    #region Validation — documented null throws (pinned, not weakened)
+
+    /// <summary>
+    /// Validation: a null `codingSequences` collection (both overloads) and a null
+    /// `GeneticCode` throw ArgumentNullException (Relative_Synonymous_Codon_Usage.md §3.3,
+    /// §6.1). These are DOCUMENTED guards; the fuzz test pins the exact throw type rather
+    /// than weakening it to a tolerant no-op.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void GetCodonUsage_NullArguments_ThrowDocumentedArgumentNullException()
+    {
+        ((Action)(() => GenomeAnnotator.GetCodonUsage((IEnumerable<string>)null!)))
+            .Should().Throw<ArgumentNullException>("a null coding-sequence collection is a documented ArgumentNullException");
+        ((Action)(() => GenomeAnnotator.GetCodonUsage((IEnumerable<string>)null!, GeneticCode.Standard)))
+            .Should().Throw<ArgumentNullException>("a null collection (genetic-code overload) is a documented ArgumentNullException");
+        ((Action)(() => GenomeAnnotator.GetCodonUsage(new[] { "ATG" }, null!)))
+            .Should().Throw<ArgumentNullException>("a null GeneticCode is a documented ArgumentNullException");
     }
 
     #endregion
