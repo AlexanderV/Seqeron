@@ -435,6 +435,85 @@ namespace Seqeron.Genomics.Tests;
 ///   The fuzz targets here exercise the documented degenerate boundaries and pin
 ///   that none of them crash, hang, NaN-escape, break Σ_k q_ik = 1, or leave
 ///   [0, 1].
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: POP-ROH-001 — runs of homozygosity (ROH) detection (PopGen)
+/// Checklist: docs/checklists/03_FUZZING.md, row 208.
+/// Fuzz strategies exercised for THIS unit:
+///   • BE  = Boundary Exploitation — the degenerate genotype-track boundaries that
+///           stress the consecutive-runs ROH scan and its two retention thresholds
+///           (minSnps, minLength): an ALL-HETEROZYGOUS track (every genotype is the
+///           opposite call 1 → no homozygous SNP can EVER seed a run → ZERO runs,
+///           regardless of length — a heterozygous SNP never starts a homozygous
+///           run, §6.1 "Leading heterozygotes"); an ALL-HOMOZYGOUS track (no
+///           opposite genotype, no gap break → ONE maximal run spanning the whole
+///           sorted track, retained iff it clears BOTH minSnps and minLength); and
+///           the minLength EDGE (a run whose span End − Start is EXACTLY minLength
+///           is retained, one bp below it is discarded — the `End − Start ≥
+///           minLength` boundary), plus the twin minSnps edge (SnpCount EXACTLY
+///           minSnps retained, one below discarded). The empty-track boundary
+///           (0 SNPs → no runs) and the negative/zero argument gates (the BE "0"
+///           and "−1" classes that must raise the DOCUMENTED
+///           ArgumentOutOfRangeException, never a silent garbage run) are pinned too.
+/// — docs/checklists/03_FUZZING.md §Description ("BE = граничні значення: 0, -1,
+///   MaxInt, empty").
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The ROH-detection contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// A run of homozygosity (ROH) is a contiguous stretch over which an individual is
+/// homozygous at (nearly) every marker (McQuillan et al. 2008 [1]). FindROH detects
+/// runs with the window-free *consecutive-runs* method (Marras et al. 2015 [3]):
+/// SNPs are processed in ascending position order; a candidate run grows while it
+/// holds at most `maxHeterozygotes` opposite (genotype == 1) calls and no inter-SNP
+/// gap exceeds `maxGap`; crossing either limit closes the run at its LAST homozygous
+/// SNP and restarts at the breaking SNP. A closed run is reported on the inclusive
+/// [first homozygous SNP .. last homozygous SNP] interval ONLY IF it holds
+/// SnpCount ≥ minSnps AND End − Start ≥ minLength (PLINK 1.9 `--homozyg-snp` /
+/// `--homozyg-kb` thresholds [2]).
+///   — docs/algorithms/PopGen/Runs_Of_Homozygosity.md §2.2 (Core Model), §2.4
+///     (INV-01: every reported run has SnpCount ≥ minSnps and End − Start ≥
+///      minLength — BOTH thresholds checked before emission; INV-02: a reported run
+///      has ≤ maxHeterozygotes opposite genotypes and no gap > maxGap; INV-03: runs
+///      emitted in ascending Start order with Start ≤ End), §3 (Contract), §6.1
+///      (Edge Cases), §7.1 (Worked Example). Genotype 1 is the opposite call; any
+///      other integer is treated as homozygous (no missing sentinel, §3.3).
+///
+/// Entry point under test —
+///   PopulationGeneticsAnalyzer.FindROH(
+///       IEnumerable&lt;(int Position, int Genotype)&gt; genotypes,
+///       int minSnps = 100, int minLength = 1_000_000,
+///       int maxHeterozygotes = 1, int maxGap = 1_000_000)
+///   (src/Seqeron/Algorithms/Seqeron.Genomics.Population/PopulationGeneticsAnalyzer.cs
+///    lines 1485–1581). Documented validation/edge behavior
+///   (Runs_Of_Homozygosity.md §3.3, §6.1):
+///     • null genotypes → a *documented, intentional* ArgumentNullException; and
+///       minSnps &lt; 1, or NEGATIVE minLength / maxHeterozygotes / maxGap →
+///       ArgumentOutOfRangeException — the BE "0"/"−1" validation gates (§3.3;
+///       lines 1492–1501). These are eager, thrown BEFORE iteration (the deferred
+///       iterator is wrapped, §5.2). This is the KEY negative/zero-argument concern.
+///     • EMPTY genotype input → NO runs (nothing to scan, §6.1; line 1514).
+///     • ALL-HETEROZYGOUS track (every genotype == 1) → NO runs: a het SNP cannot
+///       seed a homozygous run, so snpCount never leaves 0 (§6.1 "Leading
+///       heterozygotes"; lines 1560–1563). This is the KEY all-het boundary.
+///     • ALL-HOMOZYGOUS track (no genotype == 1, consecutive gaps ≤ maxGap) → ONE
+///       maximal run [firstPos .. lastPos] with SnpCount = number of SNPs, retained
+///       iff SnpCount ≥ minSnps AND lastPos − firstPos ≥ minLength (INV-01). This is
+///       the KEY all-homozygous boundary.
+///     • minLength EDGE: a run whose span is EXACTLY minLength is RETAINED
+///       (End − Start ≥ minLength is a ≥, §2.4 INV-01 / line 1532); one bp below the
+///       threshold is DISCARDED. The twin minSnps edge: SnpCount EXACTLY minSnps is
+///       retained, one below discarded ("passing count but not length, or
+///       vice-versa → discarded", §6.1). This is the KEY minLength-edge boundary.
+///     • UNSORTED input is sorted internally and yields the SAME runs (§6.1; line
+///       1513). Output runs are non-overlapping, ascending in Start, Start ≤ End
+///       (INV-03).
+///   FindROH returns positions (int bp); there is no floating-point output, so the
+///   fuzz NaN/Infinity concern lives entirely on the F_ROH companion (covered by
+///   POP-ROH's CalculateInbreedingFromROH at the same surface; here we pin that
+///   FindROH never crashes/hangs and that every emitted run obeys INV-01..INV-03 on
+///   random valid tracks, under `[CancelAfter]`). Expected runs are derived BY HAND
+///   from the documented contract (§2.2/§2.4), never read back off the code.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -2109,6 +2188,350 @@ public class PopulationGeneticsFuzzTests
                 }
                 FractionSum(ap).Should().BeApproximately(1.0, Tolerance,
                     because: "the EM divides by 2J so the ancestry fractions sum to 1 exactly (INV-01)");
+            }
+        }
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  POP-ROH-001 — runs of homozygosity detection : fuzz targets
+    //  Surface: FindROH(IEnumerable<(int Position, int Genotype)>,
+    //                    minSnps, minLength, maxHeterozygotes, maxGap)
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region POP-ROH-001 — runs of homozygosity
+
+    #region Helpers — ROH track builders & a LOCALLY-seeded RNG
+
+    /// <summary>
+    /// Locally-seeded RNG for the ROH randomized sweeps — kept INDEPENDENT of the
+    /// fixture-wide <see cref="Rng"/> so the ROH boundary battery is reproducible on
+    /// its own and adding/removing other tests cannot shift these inputs.
+    /// </summary>
+    private static Random RohRng() => new(20260621);
+
+    /// <summary>
+    /// A homozygous track: <paramref name="count"/> SNPs at positions
+    /// <c>0, spacing, 2·spacing, …</c>, all homozygous (genotype 0). The last SNP is
+    /// at <c>(count − 1)·spacing</c>, so the track spans exactly that many bp.
+    /// </summary>
+    private static List<(int Position, int Genotype)> HomTrack(int count, int spacing) =>
+        Enumerable.Range(0, count).Select(i => (i * spacing, 0)).ToList();
+
+    #endregion
+
+    #region Positive sanity — the documented worked example (§7.1)
+
+    /// <summary>
+    /// Positive control: the worked example pinned in the algorithm doc
+    /// (Runs_Of_Homozygosity.md §7.1) — 100 homozygous SNPs at positions
+    /// 0, 20000, …, 1_980_000 (spacing 20 kb &lt; the 1 Mb default maxGap, so no gap
+    /// break; no heterozygotes). With the PLINK 1.9 defaults (minSnps = 100,
+    /// minLength = 1_000_000) the single maximal run is
+    /// (Start = 0, End = 1_980_000, SnpCount = 100): SnpCount 100 ≥ 100 and span
+    /// 1_980_000 ≥ 1_000_000 (INV-01). Expected values are the doc's, hand-derived
+    /// from the consecutive-runs model, NOT read off the implementation. This anchors
+    /// the fuzz battery: before pinning that boundary input does no harm, confirm a
+    /// known-good track reproduces the documented run exactly.
+    /// </summary>
+    [Test]
+    public void FindRoh_DocumentedWorkedExample_YieldsSingleSpanningRun()
+    {
+        var snps = HomTrack(count: 100, spacing: 20_000); // 0 .. 1_980_000
+
+        var runs = PopulationGeneticsAnalyzer.FindROH(snps).ToList(); // defaults: minSnps 100, minLength 1 Mb
+
+        runs.Should().ContainSingle("an unbroken homozygous track is one maximal ROH (§7.1)");
+        runs[0].Start.Should().Be(0, "the run starts at the first homozygous SNP (§7.1)");
+        runs[0].End.Should().Be(1_980_000, "the run ends at the last homozygous SNP, 99·20000 (§7.1)");
+        runs[0].SnpCount.Should().Be(100, "all 100 SNPs are homozygous and in one run (§7.1)");
+    }
+
+    #endregion
+
+    #region BE — all-heterozygous track (no homozygous SNP can seed a run → ZERO runs)
+
+    /// <summary>
+    /// BE "all-heterozygous": when every genotype is the opposite call (1), no
+    /// homozygous SNP exists to seed a run, so FindROH must return ZERO runs no
+    /// matter how long the track or how permissive the thresholds — a heterozygous
+    /// SNP never starts a homozygous run (Runs_Of_Homozygosity.md §6.1 "Leading
+    /// heterozygotes"; lines 1560–1563). Verified across a locally-seeded sweep of
+    /// track lengths and (deliberately trivial) minSnps = 1, minLength = 0 so the
+    /// emptiness comes purely from the all-het structure, not from a threshold cut.
+    /// No crash, no hang, and crucially never a phantom run over heterozygous SNPs.
+    /// </summary>
+    [Test]
+    [CancelAfter(30_000)]
+    public void FindRoh_AllHeterozygous_YieldsNoRunsRegardlessOfLength()
+    {
+        var rng = RohRng();
+        for (int trial = 0; trial < 64; trial++)
+        {
+            int count = rng.Next(1, 500);
+            int spacing = rng.Next(1, 5_000);
+            var allHet = Enumerable.Range(0, count).Select(i => (i * spacing, 1)).ToList();
+
+            List<(int Start, int End, int SnpCount)> runs = null!;
+            var act = () => runs = PopulationGeneticsAnalyzer
+                .FindROH(allHet, minSnps: 1, minLength: 0, maxHeterozygotes: 0, maxGap: int.MaxValue)
+                .ToList();
+
+            act.Should().NotThrow("an all-heterozygous track is a defined input, not an error");
+            runs.Should().BeEmpty(
+                $"every one of {count} genotypes is the opposite call 1 → no homozygous SNP can seed a " +
+                "run → zero ROH (§6.1); a het SNP never starts a homozygous run");
+        }
+    }
+
+    #endregion
+
+    #region BE — all-homozygous track (ONE maximal run, retained iff it clears both thresholds)
+
+    /// <summary>
+    /// BE "all-homozygous", retention PASSES: a homozygous track with no gap break is
+    /// ONE maximal run [firstPos .. lastPos] of SnpCount = count. With minSnps and
+    /// minLength chosen so BOTH thresholds are cleared, the single run is emitted with
+    /// the hand-derived boundaries (INV-01). Here 50 SNPs spaced 100 bp span 0..4900;
+    /// with minSnps = 50 and minLength = 4900 the SnpCount 50 ≥ 50 and span 4900 ≥
+    /// 4900 both hold (the span is exactly the threshold), so the run is retained.
+    /// Mixing homozygous codes (0 = hom-ref and 2 = hom-alt) must NOT break the run —
+    /// only genotype 1 is the opposite call (§3.3).
+    /// </summary>
+    [Test]
+    public void FindRoh_AllHomozygous_PassingBothThresholds_YieldsOneSpanningRun()
+    {
+        // 50 homozygous SNPs (alternating hom-ref/hom-alt codes), positions 0..4900.
+        var track = Enumerable.Range(0, 50).Select(i => (i * 100, i % 2 == 0 ? 0 : 2)).ToList();
+
+        var runs = PopulationGeneticsAnalyzer
+            .FindROH(track, minSnps: 50, minLength: 4_900, maxHeterozygotes: 0, maxGap: 1_000)
+            .ToList();
+
+        runs.Should().ContainSingle("an unbroken all-homozygous track is exactly one ROH (§2.2)");
+        runs[0].Start.Should().Be(0, "the run starts at the first homozygous SNP");
+        runs[0].End.Should().Be(4_900, "the run ends at the last homozygous SNP, 49·100 (§2.2)");
+        runs[0].SnpCount.Should().Be(50, "both hom-ref (0) and hom-alt (2) are homozygous; only 1 is opposite (§3.3)");
+    }
+
+    /// <summary>
+    /// BE "all-homozygous", retention FAILS on count: an all-homozygous track that is
+    /// maximal but holds FEWER than minSnps SNPs is DISCARDED, even though its physical
+    /// span clears minLength ("a run passing length but not count → discarded", §6.1;
+    /// both thresholds required, INV-01). 10 SNPs spaced 1000 bp span 0..9000 (≥
+    /// minLength 0) but SnpCount 10 &lt; minSnps 11 → no run.
+    /// </summary>
+    [Test]
+    public void FindRoh_AllHomozygous_BelowMinSnps_YieldsNoRun()
+    {
+        var track = HomTrack(count: 10, spacing: 1_000); // 0 .. 9000, 10 SNPs
+
+        var runs = PopulationGeneticsAnalyzer
+            .FindROH(track, minSnps: 11, minLength: 0, maxHeterozygotes: 0, maxGap: 1_000_000)
+            .ToList();
+
+        runs.Should().BeEmpty(
+            "SnpCount 10 < minSnps 11 → the run fails the count threshold and is discarded, " +
+            "even though its span 9000 ≥ minLength 0 (both thresholds required, §6.1 / INV-01)");
+    }
+
+    #endregion
+
+    #region BE — minLength edge (span EXACTLY at / one below the threshold)
+
+    /// <summary>
+    /// BE "minLength edge": the retention rule is End − Start ≥ minLength, a
+    /// NON-strict ≥ (Runs_Of_Homozygosity.md §2.4 INV-01; line 1532). A homozygous
+    /// track of 5 SNPs spaced 100 bp spans 0..400, i.e. End − Start = 400. So:
+    ///   • minLength = 400 (EXACTLY the span) → RETAINED (400 ≥ 400);
+    ///   • minLength = 399 (one below)        → RETAINED (400 ≥ 399);
+    ///   • minLength = 401 (one above the span) → DISCARDED (400 ≥ 401 is false).
+    /// minSnps is held at 5 (= the SnpCount) so the COUNT threshold never confounds the
+    /// LENGTH boundary. This pins the exact ≥ semantics of the length cut — an
+    /// off-by-one to a strict &gt; would wrongly drop the exactly-at-threshold run.
+    /// </summary>
+    [TestCase(399, true, TestName = "FindRoh_MinLengthEdge_OneBelowSpan_Retained")]
+    [TestCase(400, true, TestName = "FindRoh_MinLengthEdge_ExactlySpan_Retained")]
+    [TestCase(401, false, TestName = "FindRoh_MinLengthEdge_OneAboveSpan_Discarded")]
+    public void FindRoh_MinLengthEdge_RetainsIffSpanAtLeastThreshold(int minLength, bool retained)
+    {
+        var track = HomTrack(count: 5, spacing: 100); // 0,100,200,300,400 → span 400, 5 SNPs
+
+        var runs = PopulationGeneticsAnalyzer
+            .FindROH(track, minSnps: 5, minLength: minLength, maxHeterozygotes: 0, maxGap: 1_000)
+            .ToList();
+
+        if (retained)
+        {
+            runs.Should().ContainSingle(
+                $"span 400 ≥ minLength {minLength} → the run is retained (End − Start ≥ minLength, INV-01)");
+            runs[0].Start.Should().Be(0);
+            runs[0].End.Should().Be(400, "the run ends at the last homozygous SNP, 4·100");
+            runs[0].SnpCount.Should().Be(5);
+        }
+        else
+        {
+            runs.Should().BeEmpty(
+                $"span 400 < minLength {minLength} → the run fails the length threshold (§6.1 / INV-01)");
+        }
+    }
+
+    /// <summary>
+    /// BE twin edge — minSnps boundary: the count rule is SnpCount ≥ minSnps, also a
+    /// non-strict ≥ (§2.4 INV-01; line 1532). A 6-SNP homozygous track (span large
+    /// enough to clear minLength) is RETAINED at minSnps = 6 (6 ≥ 6) and at
+    /// minSnps = 5, but DISCARDED at minSnps = 7 (6 ≥ 7 is false). This pins the exact
+    /// ≥ semantics of the count cut, the companion of the length edge above.
+    /// </summary>
+    [TestCase(5, true, TestName = "FindRoh_MinSnpsEdge_OneBelowCount_Retained")]
+    [TestCase(6, true, TestName = "FindRoh_MinSnpsEdge_ExactlyCount_Retained")]
+    [TestCase(7, false, TestName = "FindRoh_MinSnpsEdge_OneAboveCount_Discarded")]
+    public void FindRoh_MinSnpsEdge_RetainsIffCountAtLeastThreshold(int minSnps, bool retained)
+    {
+        var track = HomTrack(count: 6, spacing: 100); // 6 SNPs, span 500
+
+        var runs = PopulationGeneticsAnalyzer
+            .FindROH(track, minSnps: minSnps, minLength: 0, maxHeterozygotes: 0, maxGap: 1_000)
+            .ToList();
+
+        if (retained)
+            runs.Should().ContainSingle(
+                $"SnpCount 6 ≥ minSnps {minSnps} → retained (SnpCount ≥ minSnps, INV-01)")
+                .Which.SnpCount.Should().Be(6);
+        else
+            runs.Should().BeEmpty(
+                $"SnpCount 6 < minSnps {minSnps} → fails the count threshold (§6.1 / INV-01)");
+    }
+
+    #endregion
+
+    #region BE — empty track & the 0/−1 argument-validation gates
+
+    /// <summary>
+    /// BE "empty": an empty genotype track has nothing to scan, so FindROH yields NO
+    /// runs (Runs_Of_Homozygosity.md §6.1 "Empty genotype input → no runs"; line 1514).
+    /// No crash, no hang, no phantom run.
+    /// </summary>
+    [Test]
+    public void FindRoh_EmptyTrack_YieldsNoRuns()
+    {
+        var runs = PopulationGeneticsAnalyzer
+            .FindROH(Array.Empty<(int, int)>(), minSnps: 1, minLength: 0)
+            .ToList();
+
+        runs.Should().BeEmpty("an empty track has nothing to scan → no runs (§6.1)");
+    }
+
+    /// <summary>
+    /// BE "−1"/"0" validation gates: null genotypes raise ArgumentNullException; and
+    /// minSnps &lt; 1 (0 or negative) or a NEGATIVE minLength / maxHeterozygotes /
+    /// maxGap raise the *documented, intentional* ArgumentOutOfRangeException
+    /// (Runs_Of_Homozygosity.md §3.3; lines 1492–1501). These are eager — thrown when
+    /// FindROH is CALLED, before the deferred iterator is enumerated (§5.2) — so the
+    /// act under test is the bare call, not a later .ToList(). This pins the BE
+    /// "0"/"−1" boundary as a clean validation error, never a silent garbage run.
+    /// </summary>
+    [Test]
+    public void FindRoh_InvalidArguments_ThrowDocumentedValidationExceptions()
+    {
+        // null genotypes — ArgumentNullException, eagerly.
+        var nullCall = () => PopulationGeneticsAnalyzer.FindROH(null!);
+        nullCall.Should().Throw<ArgumentNullException>("null genotypes are rejected eagerly (§3.3)");
+
+        var track = HomTrack(count: 3, spacing: 100);
+
+        // minSnps must be ≥ 1: 0 and −1 are out of range (the BE "0"/"−1" class).
+        var minSnpsZero = () => PopulationGeneticsAnalyzer.FindROH(track, minSnps: 0);
+        minSnpsZero.Should().Throw<ArgumentOutOfRangeException>("minSnps < 1 is invalid (§3.1, §3.3)");
+        var minSnpsNeg = () => PopulationGeneticsAnalyzer.FindROH(track, minSnps: -1);
+        minSnpsNeg.Should().Throw<ArgumentOutOfRangeException>("minSnps < 1 is invalid (§3.1, §3.3)");
+
+        // Negative minLength / maxHeterozygotes / maxGap are each rejected independently.
+        var negLength = () => PopulationGeneticsAnalyzer.FindROH(track, minLength: -1);
+        negLength.Should().Throw<ArgumentOutOfRangeException>("minLength cannot be negative (§3.3)");
+        var negHet = () => PopulationGeneticsAnalyzer.FindROH(track, maxHeterozygotes: -1);
+        negHet.Should().Throw<ArgumentOutOfRangeException>("maxHeterozygotes cannot be negative (§3.3)");
+        var negGap = () => PopulationGeneticsAnalyzer.FindROH(track, maxGap: -1);
+        negGap.Should().Throw<ArgumentOutOfRangeException>("maxGap cannot be negative (§3.3)");
+    }
+
+    #endregion
+
+    #region BE — randomized boundary sweep (every emitted run obeys INV-01 / INV-02 / INV-03)
+
+    /// <summary>
+    /// BE / INV sweep: across a locally-seeded battery of random VALID tracks (random
+    /// SNP count, random positions, random genotypes drawn from {0,1,2} with the
+    /// het-rich and hom-rich extremes both represented, random thresholds) EVERY
+    /// emitted run must obey the documented invariants, derived independently from the
+    /// model (§2.4), NOT read off the code:
+    ///   • INV-01 — SnpCount ≥ minSnps AND End − Start ≥ minLength;
+    ///   • INV-02 — the emitted [Start, End] interval contains ≤ maxHeterozygotes
+    ///     opposite (genotype == 1) SNPs and no inter-SNP gap &gt; maxGap;
+    ///   • INV-03 — runs are emitted in ascending, NON-overlapping Start order with
+    ///     Start ≤ End.
+    /// Positions are deduplicated and re-sorted so the "same runs on unsorted input"
+    /// contract (§6.1) is implicitly exercised by feeding the analyzer a shuffled copy.
+    /// Run under `[CancelAfter]` so any hang in the linear scan is a hard failure.
+    /// </summary>
+    [Test]
+    [CancelAfter(30_000)]
+    public void FindRoh_RandomValidTracks_EveryEmittedRunObeysInvariants()
+    {
+        var rng = RohRng();
+        for (int trial = 0; trial < 200; trial++)
+        {
+            int count = rng.Next(0, 60);
+            // Distinct ascending positions, then shuffle so FindROH must sort internally.
+            var positions = new SortedSet<int>();
+            while (positions.Count < count)
+                positions.Add(rng.Next(0, 50_000));
+            var sortedPos = positions.ToList();
+
+            // Bias genotypes toward homozygous so non-trivial runs actually form,
+            // but include heterozygous (1) calls to exercise the opposite-genotype break.
+            var byPos = sortedPos.ToDictionary(p => p, _ => rng.Next(10) < 7 ? rng.Next(2) * 2 : 1);
+            var shuffled = sortedPos.OrderBy(_ => rng.Next()).Select(p => (p, byPos[p])).ToList();
+
+            int minSnps = rng.Next(1, 6);
+            int minLength = rng.Next(0, 5_000);
+            int maxHet = rng.Next(0, 3);
+            int maxGap = rng.Next(1, 20_000);
+
+            List<(int Start, int End, int SnpCount)> runs = null!;
+            var act = () => runs = PopulationGeneticsAnalyzer
+                .FindROH(shuffled, minSnps, minLength, maxHet, maxGap)
+                .ToList();
+
+            act.Should().NotThrow("a random valid track with valid thresholds is always a defined input");
+
+            int previousEnd = int.MinValue;
+            foreach (var run in runs)
+            {
+                run.Start.Should().BeLessThanOrEqualTo(run.End, "a run spans first → last SNP (INV-03)");
+                run.SnpCount.Should().BeGreaterThanOrEqualTo(minSnps,
+                    "a retained run holds at least minSnps homozygous SNPs (INV-01)");
+                (run.End - run.Start).Should().BeGreaterThanOrEqualTo(minLength,
+                    "a retained run spans at least minLength bp (INV-01)");
+                run.Start.Should().BeGreaterThan(previousEnd,
+                    "runs are emitted in ascending, non-overlapping Start order (INV-03)");
+                previousEnd = run.End;
+
+                // INV-02: independently recount the opposite genotypes and the max gap
+                // inside the emitted [Start, End] interval from the ORIGINAL sorted data.
+                var inside = sortedPos.Where(p => p >= run.Start && p <= run.End).ToList();
+                int hetInside = inside.Count(p => byPos[p] == 1);
+                hetInside.Should().BeLessThanOrEqualTo(maxHet,
+                    "the emitted interval holds at most maxHeterozygotes opposite genotypes (INV-02)");
+
+                int maxGapInside = 0;
+                for (int k = 1; k < inside.Count; k++)
+                    maxGapInside = Math.Max(maxGapInside, inside[k] - inside[k - 1]);
+                maxGapInside.Should().BeLessThanOrEqualTo(maxGap,
+                    "no inter-SNP gap inside the emitted run exceeds maxGap (INV-02)");
             }
         }
     }
