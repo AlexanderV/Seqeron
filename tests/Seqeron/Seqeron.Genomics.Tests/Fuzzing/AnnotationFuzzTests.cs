@@ -176,6 +176,68 @@ namespace Seqeron.Genomics.Tests;
 /// PredictGenes / FindRibosomeBindingSites are LAZY iterators (`yield`), so every test
 /// forces enumeration (`.ToList()`). Deterministic only: random fuzz input comes from a
 /// locally fixed `new Random(seed)`.
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: ANNOT-PROM-001 — promoter (−35 / −10 box) motif detection
+/// Checklist: docs/checklists/03_FUZZING.md, row 30.
+/// Fuzz strategies exercised for THIS unit:
+///   • BE = Boundary Exploitation — the degenerate boundaries called out in the
+///          checklist row: NO −10 box present, the (inapplicable) threshold = 0,
+///          an empty sequence, and a sequence SHORTER than the motif window.
+/// — docs/checklists/03_FUZZING.md §Description (strategy codes).
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The promoter-detection contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// Promoter detection here is a bacterial MOTIF-SEARCH helper, NOT a full TSS predictor
+/// and NOT a −35/−10 pairing model (Promoter_Detection.md §1, §5.2):
+///   GenomeAnnotator.FindPromoterMotifs(string dnaSequence)
+///     → IEnumerable&lt;(int position, string type, string sequence, double score)&gt;
+///   (src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs lines 561–615).
+/// It uppercases the input, then scans it INDEPENDENTLY for each member of two small fixed
+/// motif libraries, emitting EVERY exact substring hit with a hard-coded, literature-derived
+/// score (Promoter_Detection.md §4.1, §4.2):
+///   • −35 box variants: TTGACA(1.000), TTGAC(0.855), TGACA(0.815), TTGA(0.710);
+///   • −10 box (Pribnow) variants: TATAAT(1.000), TATAA(0.801), ATAAT(0.813), TATA(0.665).
+/// The scan loop is `for (int i = 0; i &lt;= seq.Length - motif.Length; i++)`, so when the
+/// sequence is shorter than a motif the upper bound is NEGATIVE and the loop body never
+/// runs — there is NO out-of-range Substring (Promoter_Detection.md §6.1). This is THE key
+/// boundary for this unit (checklist target "seq shorter than motif").
+///
+/// CRITICAL — there is NO threshold parameter. FindPromoterMotifs takes ONLY a sequence;
+/// it has no score gate, no minimum-score cutoff, no −35/−10 spacing check, and no pairing
+/// (Promoter_Detection.md §3.1, §5.2, §6.2). The checklist's "threshold = 0" target is
+/// therefore DEGENERATE/INAPPLICABLE for this surface: there is no threshold to set to 0,
+/// so the theory-correct contract is that the method ALWAYS emits every exact motif hit at
+/// its full hard-coded score, and every emitted score is strictly POSITIVE (∈ [0.665, 1.0],
+/// the variant library's range) — i.e. a "threshold of 0" admits exactly the same hits the
+/// method already emits unconditionally. The fuzz test pins that no score-gating exists and
+/// no hit is suppressed or zero-scored, rather than asserting a parameter the contract never
+/// exposes (never weaken a test to a no-op: it asserts a real, falsifiable consequence).
+///
+/// Documented parameter / validation contract (Promoter_Detection.md §3.3, §6.1):
+///   • Empty sequence → NO motifs: the scan loops have no valid start position
+///     (`0 <= 0 - motifLen` is false). NOT an exception — pinned as the empty result.
+///   • Sequence shorter than a motif → NO motifs and NO IndexOutOfRange: the negative
+///     upper bound suppresses the loop body for that motif (KEY boundary).
+///   • No −10 box present → NO −10 hits: matching is EXACT against the fixed library, so a
+///     sequence lacking TATAAT/TATAA/ATAAT/TATA yields no −10 motif (it may still legitimately
+///     yield −35 hits; the two libraries are scanned independently).
+///   • Null input → the method dereferences `dnaSequence` immediately via ToUpperInvariant()
+///     with NO null guard, so null throws (Promoter_Detection.md §3.3, §6.1 "Null input — not
+///     explicitly handled"). The fuzz test pins the DOCUMENTED throw rather than weakening it.
+///   • Non-ACGT / lowercase content is not rejected: input is uppercased, then only exact
+///     library substrings match, so non-library characters simply never match.
+///
+/// Documented invariants pinned on every positive result (Promoter_Detection.md §2.4):
+///   PROM-INV-01 every reported score ∈ [0, 1] (a normalized fraction of full consensus);
+///   PROM-INV-02 a full TTGACA / TATAAT match scores exactly 1.0;
+///   PROM-INV-03 every reported motif belongs to the fixed −35 / −10 variant library;
+///   PROM-INV-04 every reported position is a valid 0-based index whose motif window stays
+///               in bounds: 0 ≤ position ≤ length − motif.Length.
+/// FindPromoterMotifs is a LAZY iterator (`yield`), so every test forces enumeration
+/// (`.ToList()`); any hang would manifest as a non-terminating materialization. Deterministic
+/// only: random fuzz input comes from a locally fixed `new Random(seed)`.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -713,6 +775,287 @@ public class AnnotationFuzzTests
             h.score >= 4.0 / 6.0 && h.score <= 1.0 + 1e-9 &&   // GENE-INV-04
             h.position >= 0 && h.position < seq.Length,        // in-bounds motif position
             "every RBS hit on random input carries a length-normalized score in [4/6, 1] at an in-bounds position");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  ANNOT-PROM-001 — promoter (−35 / −10 box) motif detection : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region ANNOT-PROM-001 — promoter prediction
+
+    #region Helpers — promoter motif libraries
+
+    /// <summary>The fixed −35 / −10 variant library scanned by FindPromoterMotifs (Promoter_Detection.md §4.2).</summary>
+    private static readonly string[] PromoterMotifLibrary =
+        { "TTGACA", "TTGAC", "TGACA", "TTGA", "TATAAT", "TATAA", "ATAAT", "TATA" };
+
+    #endregion
+
+    #region BE — Boundary: no -10 box present in the sequence
+
+    /// <summary>
+    /// BE: a sequence containing NO −10 box (none of TATAAT / TATAA / ATAAT / TATA) must
+    /// emit NO −10 hits — matching is EXACT against the fixed library, so the absence of any
+    /// −10 variant invents nothing (Promoter_Detection.md §3.3, §6.1 "No supported motifs",
+    /// PROM-INV-03). The two motif libraries are scanned INDEPENDENTLY, so this is asserted
+    /// specifically for the −10 class; the sequence here is built from G/C runs that contain
+    /// no −10 variant (and, as it happens, no −35 variant either), so the whole result is
+    /// empty — no crash, no spurious motif.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindPromoterMotifs_NoMinusTenBox_EmitsNoMinusTenHits()
+    {
+        // Pure G/C run: contains no TATAAT/TATAA/ATAAT/TATA and no TTGACA-family variant.
+        const string seq = "GGGGCCCCGGGGCCCCGGGGCCCC";
+
+        var act = () => GenomeAnnotator.FindPromoterMotifs(seq).ToList();
+        act.Should().NotThrow("an exact-match scan over a sequence with no library motif simply yields nothing");
+
+        var motifs = GenomeAnnotator.FindPromoterMotifs(seq).ToList();
+
+        motifs.Where(m => m.type == "-10 box").Should().BeEmpty(
+            "no −10 variant occurs in a G/C-only sequence, so the exact-match scan reports no Pribnow box");
+        motifs.Should().BeEmpty(
+            "neither library motif occurs, so the helper invents no spurious promoter hit on either class");
+    }
+
+    /// <summary>
+    /// BE: the independence of the two libraries — a sequence carrying a genuine −35 box but
+    /// NO −10 box must still report the −35 hits while reporting ZERO −10 hits. This pins that
+    /// "no −10 box" suppresses ONLY the −10 class, not the whole scan (Promoter_Detection.md
+    /// §5.2 "scanned independently"). We embed TTGACA in a G/C carrier that contains no −10
+    /// variant; the −35 family (TTGACA, TTGAC, TGACA, TTGA) must appear and the −10 list must
+    /// be empty.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindPromoterMotifs_Minus35ButNoMinusTen_ReportsMinus35OnlyNoMinusTen()
+    {
+        // TTGACA flanked by G/C only — a real −35 box, but no −10 variant anywhere.
+        const string seq = "GGGGGTTGACAGCGCGC";
+
+        var motifs = GenomeAnnotator.FindPromoterMotifs(seq).ToList();
+
+        motifs.Where(m => m.type == "-35 box").Should().NotBeEmpty(
+            "the genuine TTGACA box yields −35 hits even though no −10 box is present");
+        motifs.Where(m => m.type == "-10 box").Should().BeEmpty(
+            "the libraries are scanned independently, so the absence of a −10 box suppresses only the −10 class");
+    }
+
+    #endregion
+
+    #region BE — Boundary: "threshold = 0" is inapplicable — no score gate exists
+
+    /// <summary>
+    /// BE: the checklist target "threshold = 0" is DEGENERATE for this surface —
+    /// FindPromoterMotifs exposes NO threshold parameter and applies NO score gate
+    /// (Promoter_Detection.md §3.1, §5.2). The theory-correct consequence is that the method
+    /// ALWAYS emits every exact motif hit at its full hard-coded score, and EVERY emitted
+    /// score is strictly positive (∈ [0.665, 1.0]); a hypothetical "threshold of 0" would
+    /// admit exactly that same set (no hit has score &lt; 0). We pin the falsifiable contract:
+    /// on a sequence carrying both full consensus boxes, every hit's score is &gt; 0 and ≤ 1,
+    /// no hit is suppressed or zero-scored, so there is no degenerate-threshold blow-up or
+    /// gate to mis-set.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindPromoterMotifs_NoThresholdGate_AllHitsScorePositiveAndUnsuppressed()
+    {
+        // Both full consensus boxes present, independently — exercises every score path.
+        const string seq = "GGGTTGACAGGGGGGGGGGGGGGGGGTATAATGGG";
+
+        var motifs = GenomeAnnotator.FindPromoterMotifs(seq).ToList();
+
+        motifs.Should().NotBeEmpty("both full consensus boxes are present, so motif hits are emitted");
+        motifs.Should().OnlyContain(m => m.score > 0.0 && m.score <= 1.0 + 1e-9,
+            "PROM-INV-01 / no score gate: every emitted hit carries a strictly positive score in (0, 1], " +
+            "so a degenerate 'threshold = 0' admits exactly the hits the gate-less scan already emits");
+
+        // Both full consensus hits are present and unsuppressed at score 1.0 (PROM-INV-02).
+        motifs.Should().Contain(m => m.sequence == "TTGACA" && Math.Abs(m.score - 1.0) < 1e-9,
+            "PROM-INV-02: the full −35 consensus is emitted at score 1.0, never gated away");
+        motifs.Should().Contain(m => m.sequence == "TATAAT" && Math.Abs(m.score - 1.0) < 1e-9,
+            "PROM-INV-02: the full −10 consensus is emitted at score 1.0, never gated away");
+    }
+
+    #endregion
+
+    #region BE — Boundary: empty sequence yields no motifs
+
+    /// <summary>
+    /// BE: an empty sequence must yield NO motifs and never crash — for every motif the scan
+    /// bound `0 &lt;= 0 - motif.Length` is false, so no loop body executes and no Substring is
+    /// taken (Promoter_Detection.md §6.1 "Empty sequence"). FindPromoterMotifs is a lazy
+    /// iterator, so we force enumeration to make the documented empty result actually surface.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindPromoterMotifs_EmptySequence_ReturnsNoMotifs()
+    {
+        var act = () => GenomeAnnotator.FindPromoterMotifs(string.Empty).ToList();
+        act.Should().NotThrow("an empty sequence gives every scan loop a negative upper bound; no Substring is taken");
+
+        GenomeAnnotator.FindPromoterMotifs(string.Empty).ToList()
+            .Should().BeEmpty("no motif can occur in an empty sequence, so the scan yields nothing");
+    }
+
+    /// <summary>
+    /// BE (documented null contract): null input is NOT guarded — FindPromoterMotifs
+    /// dereferences `dnaSequence` immediately via ToUpperInvariant() (Promoter_Detection.md
+    /// §3.3, §6.1 "Null input — not explicitly handled before uppercasing"). The disciplined
+    /// fuzz outcome here is to PIN the documented throw, not to weaken the test to accept a
+    /// silent empty result the contract does not promise. Because the throw fires inside the
+    /// lazy iterator body, enumeration is forced to surface it.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindPromoterMotifs_NullSequence_ThrowsPerDocumentedContract()
+    {
+        var act = () => GenomeAnnotator.FindPromoterMotifs(null!).ToList();
+        act.Should().Throw<NullReferenceException>(
+            "the method dereferences the sequence via ToUpperInvariant() with no null guard (Promoter_Detection.md §6.1)");
+    }
+
+    #endregion
+
+    #region BE — Boundary: sequence shorter than the motif (KEY: no IndexOutOfRange)
+
+    /// <summary>
+    /// BE (KEY boundary): a sequence SHORTER than every library motif must yield NO motifs and
+    /// — critically — must NOT raise IndexOutOfRange. The scan is
+    /// `for (int i = 0; i &lt;= seq.Length - motif.Length; i++)`; when seq.Length &lt; motif.Length
+    /// the upper bound `seq.Length - motif.Length` is NEGATIVE, so the loop body never runs and
+    /// `seq.Substring(i, motif.Length)` is never reached past the end (Promoter_Detection.md
+    /// §6.1, PROM-INV-04). The shortest library motif is 4 nt (TATA / TTGA), so a 3-nt sequence
+    /// is shorter than EVERY motif — the hardest short-seq case.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindPromoterMotifs_SequenceShorterThanMotif_ReturnsEmptyNoIndexOutOfRange()
+    {
+        // 3 nt: shorter than the shortest library motif (4 nt), so no motif window fits.
+        const string seq = "TAT";
+
+        var act = () => GenomeAnnotator.FindPromoterMotifs(seq).ToList();
+        act.Should().NotThrow<IndexOutOfRangeException>(
+            "a sequence shorter than every motif gives a negative scan bound; the Substring window is never taken");
+        act.Should().NotThrow<ArgumentOutOfRangeException>(
+            "no Substring(i, len) ever runs past the end of an undersized sequence");
+
+        GenomeAnnotator.FindPromoterMotifs(seq).ToList()
+            .Should().BeEmpty("no library motif (min length 4) can fit in a 3-nt sequence");
+    }
+
+    /// <summary>
+    /// BE: the boundary right AT the shortest motif length — a sequence whose length exactly
+    /// equals the 4-nt minimum motif. Here the scan bound is `i &lt;= 0`, so the single window at
+    /// i = 0 IS evaluated: a 4-nt sequence that exactly IS a 4-nt library motif must match (one
+    /// in-bounds hit), and a 4-nt non-motif must yield nothing — both without running off the
+    /// end. This pins that the negative-bound guard does not also suppress the legitimate
+    /// length-exact window (PROM-INV-04).
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindPromoterMotifs_SequenceEqualsShortestMotifLength_MatchesInBounds()
+    {
+        // Exactly the 4-nt −10 variant "TATA": the single i = 0 window must match in bounds.
+        var hits = GenomeAnnotator.FindPromoterMotifs("TATA").ToList();
+        hits.Should().ContainSingle("a 4-nt sequence that exactly is the TATA variant yields one in-bounds hit");
+        var hit = hits.Single();
+        hit.sequence.Should().Be("TATA");
+        hit.type.Should().Be("-10 box");
+        hit.position.Should().Be(0, "PROM-INV-04: the only fitting window starts at index 0");
+
+        // A 4-nt non-motif must yield nothing — still no out-of-range access.
+        GenomeAnnotator.FindPromoterMotifs("GGGG").ToList()
+            .Should().BeEmpty("a 4-nt sequence matching no library motif yields no hit and no out-of-range Substring");
+    }
+
+    #endregion
+
+    #region Positive sanity — consensus boxes detected with correct coords and score
+
+    /// <summary>
+    /// Positive sanity: a textbook bacterial promoter layout — a full −35 consensus (TTGACA)
+    /// upstream of a full −10 consensus (TATAAT) at the classical ~17 bp spacing — must be
+    /// detected with the CORRECT 0-based positions and full score 1.0 for both boxes, so the
+    /// boundary hardening never silently breaks the core function. Layout (G filler):
+    ///   [5 G] TTGACA [17 G spacer] TATAAT [3 G]
+    /// The −35 box opens at index 5; the −10 box opens at 5 + 6 + 17 = 28. Pinned per
+    /// PROM-INV-01..04 (Promoter_Detection.md §2.4): both full hits score 1.0, every hit's
+    /// score ∈ [0,1] and belongs to the fixed library, and every position is in bounds. The
+    /// spacing here is biologically faithful but NOT validated by the helper (it pairs nothing);
+    /// it merely places two independent, individually-correct hits.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindPromoterMotifs_ConsensusBoxesAtCanonicalSpacing_DetectedWithCorrectCoordsAndScore()
+    {
+        const string lead = "GGGGG";                       // 5 nt 5' filler (no motif)
+        const string minus35 = "TTGACA";                   // full −35 consensus
+        const string spacer = "GGGGGGGGGGGGGGGGG";          // 17 nt classical spacing
+        const string minus10 = "TATAAT";                   // full −10 consensus (Pribnow)
+        const string tail = "GGG";
+        string seq = lead + minus35 + spacer + minus10 + tail;
+
+        int expected35Pos = lead.Length;                              // 5
+        int expected10Pos = lead.Length + minus35.Length + spacer.Length; // 28
+
+        var motifs = GenomeAnnotator.FindPromoterMotifs(seq).ToList();
+
+        // ── −35 box ──────────────────────────────────────────────────────────────────
+        var full35 = motifs.Should().ContainSingle(m => m.sequence == "TTGACA",
+            "the full −35 consensus occurs exactly once").Subject;
+        full35.type.Should().Be("-35 box");
+        full35.position.Should().Be(expected35Pos, "the −35 box opens at the 0-based index after the 5-nt lead");
+        full35.score.Should().BeApproximately(1.0, 1e-9, "PROM-INV-02: a full TTGACA match scores 1.0");
+
+        // ── −10 box ──────────────────────────────────────────────────────────────────
+        var full10 = motifs.Should().ContainSingle(m => m.sequence == "TATAAT",
+            "the full −10 consensus occurs exactly once").Subject;
+        full10.type.Should().Be("-10 box");
+        full10.position.Should().Be(expected10Pos, "the −10 box opens 17 nt downstream of the −35 box end");
+        full10.score.Should().BeApproximately(1.0, 1e-9, "PROM-INV-02: a full TATAAT match scores 1.0");
+
+        // ── Whole-result invariants ──────────────────────────────────────────────────
+        motifs.Should().OnlyContain(m =>
+            m.score >= 0.0 && m.score <= 1.0 + 1e-9 &&                       // PROM-INV-01
+            (m.type == "-35 box" || m.type == "-10 box") &&                  // type domain
+            PromoterMotifLibrary.Contains(m.sequence) &&                     // PROM-INV-03
+            m.position >= 0 && m.position <= seq.Length - m.sequence.Length, // PROM-INV-04
+            "every hit scores in [0,1], names a known box type, is from the fixed library, and sits in bounds");
+    }
+
+    /// <summary>
+    /// Positive sanity / robustness: on a fixed-seed random 1500-nt sequence the scan must
+    /// complete promptly and produce ONLY well-formed hits — every reported motif belongs to
+    /// the fixed library, scores in [0,1], names a valid box type, and sits at an in-bounds
+    /// position whose motif window stays within the sequence (PROM-INV-01/03/04). This is the
+    /// "degenerate-boundary probes do not corrupt the scan on ordinary input" guard. We also
+    /// cross-check that the substring at each reported position actually equals the reported
+    /// motif, so no position is ever mis-reported.
+    /// </summary>
+    [Test]
+    [CancelAfter(15000)]
+    public void FindPromoterMotifs_RandomSequence_ProducesOnlyWellFormedHits()
+    {
+        string seq = RandomDna(1500, seed: 30_001);
+
+        var motifs = GenomeAnnotator.FindPromoterMotifs(seq).ToList();
+
+        motifs.Should().OnlyContain(m =>
+            (m.type == "-35 box" || m.type == "-10 box") &&                  // type domain
+            PromoterMotifLibrary.Contains(m.sequence) &&                     // PROM-INV-03
+            m.score >= 0.0 && m.score <= 1.0 + 1e-9 &&                       // PROM-INV-01
+            m.position >= 0 && m.position <= seq.Length - m.sequence.Length && // PROM-INV-04
+            seq.Substring(m.position, m.sequence.Length) == m.sequence,      // position fidelity
+            "every hit on random input is a known-library motif, scored in [0,1], in bounds, " +
+            "and the reported position genuinely contains the reported motif");
     }
 
     #endregion
