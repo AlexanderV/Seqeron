@@ -169,6 +169,55 @@ namespace Seqeron.Genomics.Tests;
 ///     identical→0 are checked alongside. — Beta_Diversity.md §2, §6.1.
 ///
 /// ───────────────────────────────────────────────────────────────────────────
+/// Unit: META-BIN-001 — contig binning / genome binning (Metagenomics)
+/// Checklist: docs/checklists/03_FUZZING.md, row 57.
+/// Fuzz strategy for THIS unit: BE = Boundary Exploitation.
+/// Fuzz targets (checklist row 57): 0 contigs, 1 contig, huge number of contigs,
+/// contigs with 0 length.
+///
+/// MetagenomicsAnalyzer.BinContigs groups assembled contigs into genome bins
+/// (candidate MAGs) by deterministic k-means over a composite feature space of
+/// GC content, tetranucleotide frequency (TNF, the 256-dim 4-mer profile), and
+/// coverage. The composite distance is |ΔGC| + |ΔCov_norm| + (1 − r_TNF)/2 where
+/// r_TNF is the Pearson correlation of the two TNF vectors. After clustering, any
+/// cluster whose total assembled length is below `minBinSize` is dropped.
+///   — docs/algorithms/Metagenomics/Genome_Binning.md §2.2, §4;
+///     src/…/MetagenomicsAnalyzer.cs (BinContigs / KMeansCluster /
+///     CalculateTetraNucleotideFrequency / TnfPearsonDistance, lines 647–861).
+///
+/// Boundary / degenerate-input handling fixed by the doc and source, which these
+/// fuzz tests pin so the contract can never silently drift:
+///   • 0 contigs → `contigList.Count == 0` short-circuits with `yield break` ⇒ no
+///     bins, never a crash. — Genome_Binning.md §3.3, §6.1 (Empty input).
+///   • 1 contig → effective k = min(numBins, 1) = 1 ⇒ a single cluster holding
+///     that one contig. It is emitted as ONE bin iff its length ≥ minBinSize, so
+///     these tests pass minBinSize = 0 to pin the "one contig → one bin" contract.
+///     Contamination = 0 (the GC-variance helper returns 0 for < 2 values, §6.1).
+///   • huge number of contigs → k-means is O(n·k·i) with i capped at 50 iterations;
+///     it must COMPLETE (no quadratic hang) under a `[CancelAfter]` budget, with
+///     every input contig assigned to exactly one cluster (INV-01) — no contig
+///     lost or duplicated across the emitted bins.
+///   • contigs with 0 length → KEY div-by-zero boundary. A 0-length contig has no
+///     4-mer window, so CalculateTetraNucleotideFrequency returns an EMPTY profile
+///     guarded by `total > 0 ? cnt/total : 0` (line 841) — never a divide-by-zero
+///     on the empty k-mer total. CalculateGcContent("") is guarded to 0 (line 822).
+///     TnfPearsonDistance on two empty profiles guards `allKeys.Count == 0` ⇒ 1.0
+///     (line 801), never a Pearson 0/0. The all-zero coverage case is guarded by
+///     `maxCov <= 0 ? 1` (line 667). So a batch of 0-length contigs bins WITHOUT
+///     any DivideByZero/NaN, and every contig is still assigned. — §3.3.
+///   • The minBinSize filter is the ONLY reason a contig leaves the output; with
+///     minBinSize = 0 every clustered contig is emitted, so the union of all bins'
+///     ContigIds is exactly the input set (no loss, no duplication) — the binning
+///     hard-assignment invariant INV-01.
+///
+/// Positive sanity: two clearly distinct compositions — a high-GC block (all
+/// 'GC' repeats) and a low-GC block (all 'AT' repeats), each with several
+/// contigs at numBins = 2 — are separated into the expected bins (the GC-rich
+/// contigs in one bin, the AT-rich contigs in another, none mixed). So a passing
+/// "no crash" result cannot be a degenerate binner that lumps everything into one
+/// bin or scatters contigs arbitrarily. — Genome_Binning.md §2.2, §6.1.
+///
+/// ───────────────────────────────────────────────────────────────────────────
 /// Determinism
 /// ───────────────────────────────────────────────────────────────────────────
 /// All inputs are either hand-built or generated from a LOCALLY fixed-seed
@@ -1237,6 +1286,222 @@ public class MetagenomicsFuzzTests
         swapped.JaccardDistance.Should().BeApproximately(r.JaccardDistance, 1e-12);
 
         r.UniFracDistance.Should().Be(0.0, "UniFrac is a hard-coded 0 placeholder — §5.4");
+    }
+
+    #endregion
+
+    // ════════════════════════════════════════════════════════════════════════
+    //
+    //  META-BIN-001 — contig binning / genome binning (Metagenomics).
+    //  Checklist: docs/checklists/03_FUZZING.md, row 57. Strategy: BE.
+    //  Entry point: MetagenomicsAnalyzer.BinContigs(
+    //      IEnumerable<(string ContigId, string Sequence, double Coverage)>,
+    //      int numBins = 10, double minBinSize = 500000,
+    //      double expectedGenomeSize = 4_000_000).
+    //  Contract pinned below: Genome_Binning.md §2.2, §3.3, §4, §6.1.
+    //
+    //  Determinism: every input is hand-built or generated from a LOCALLY
+    //  fixed-seed `new Random(seed)`. No shared static Rng. BinContigs is itself
+    //  deterministic (GC-sorted centroid init, no randomness).
+    // ════════════════════════════════════════════════════════════════════════
+
+    #region META-BIN-001 — contig binning
+
+    // A contig of given GC by repeating a 2-base motif to a chosen length.
+    private static (string ContigId, string Sequence, double Coverage) MakeContig(
+        string id, string motif, int length, double coverage)
+    {
+        var sb = new System.Text.StringBuilder(length);
+        while (sb.Length < length)
+            sb.Append(motif);
+        return (id, sb.ToString(0, length), coverage);
+    }
+
+    // ───────────────────────────────────────────────────────────────────────
+    // Fuzz target: 0 CONTIGS (BE).
+    // An empty contig collection short-circuits with `yield break` ⇒ no bins,
+    // never a crash. — Genome_Binning.md §3.3, §6.1 (Empty input).
+    // ───────────────────────────────────────────────────────────────────────
+    [Test]
+    public void BinContigs_ZeroContigs_NoBinsNoCrash()
+    {
+        var empty = Array.Empty<(string, string, double)>();
+
+        List<MetagenomicsAnalyzer.GenomeBin> bins = null!;
+        Action act = () => bins = MetagenomicsAnalyzer.BinContigs(empty).ToList();
+
+        act.Should().NotThrow("0 contigs is a defined empty boundary, not a crash");
+        bins.Should().BeEmpty("an empty input collection produces no bins — §6.1");
+    }
+
+    // ───────────────────────────────────────────────────────────────────────
+    // Fuzz target: 1 CONTIG (BE).
+    // Effective k = min(numBins, 1) = 1 ⇒ a single cluster holding the one
+    // contig. With minBinSize = 0 it is emitted as exactly ONE bin containing
+    // that contig, Contamination = 0 (< 2 GC values). — §6.1.
+    // ───────────────────────────────────────────────────────────────────────
+    [Test]
+    public void BinContigs_SingleContig_OneBinContainingThatContig()
+    {
+        var contig = MakeContig("c1", "ACGT", length: 40, coverage: 12.0);
+
+        var bins = MetagenomicsAnalyzer
+            .BinContigs(new[] { contig }, numBins: 10, minBinSize: 0)
+            .ToList();
+
+        bins.Should().HaveCount(1, "one contig forms exactly one bin — INV-01");
+        var bin = bins[0];
+        bin.ContigIds.Should().ContainSingle().Which.Should().Be("c1",
+            "the single bin holds exactly the one input contig");
+        bin.TotalLength.Should().Be(40, "TotalLength is the contig's sequence length");
+        bin.Coverage.Should().Be(12.0, "mean coverage of a one-contig bin is that contig's coverage");
+        bin.Contamination.Should().Be(0.0,
+            "the GC-variance contamination helper returns 0 for fewer than two contigs — §6.1");
+        bin.GcContent.Should().BeInRange(0.0, 1.0, "GC content is a fraction in [0, 1]");
+    }
+
+    // ───────────────────────────────────────────────────────────────────────
+    // Fuzz target: CONTIGS WITH 0 LENGTH (BE) — the KEY div-by-zero boundary.
+    // A 0-length contig has no 4-mer window ⇒ CalculateTetraNucleotideFrequency
+    // returns an EMPTY profile (guarded `total > 0 ? … : 0`), GC content is
+    // guarded to 0, TnfPearsonDistance guards the empty-key union to 1.0, and
+    // all-zero coverage is guarded by `maxCov <= 0 ? 1`. The whole batch must bin
+    // WITHOUT any DivideByZero / NaN, every contig still assigned. — §3.3.
+    // ───────────────────────────────────────────────────────────────────────
+    [Test]
+    public void BinContigs_ZeroLengthContigs_NoDivideByZeroEveryContigAssigned()
+    {
+        // A mix of pure 0-length contigs and 0-length-with-zero-coverage contigs,
+        // plus one real contig, so the empty-TNF / empty-GC / zero-coverage guards
+        // all fire alongside a non-degenerate neighbour.
+        var contigs = new[]
+        {
+            ("z0", "", 0.0),     // 0 length, 0 coverage
+            ("z1", "", 0.0),     // 0 length, 0 coverage
+            ("z2", "", 5.0),     // 0 length, positive coverage
+            MakeContig("real", "ACGT", length: 40, coverage: 5.0),
+        };
+
+        List<MetagenomicsAnalyzer.GenomeBin> bins = null!;
+        Action act = () => bins = MetagenomicsAnalyzer
+            .BinContigs(contigs, numBins: 4, minBinSize: 0)
+            .ToList();
+
+        act.Should().NotThrow(
+            "a 0-length contig has no k-mers; the empty-TNF total and empty-key " +
+            "Pearson union are guarded — no DivideByZero — §3.3");
+
+        // Every input contig must be assigned to exactly one bin: the union of all
+        // bins' ContigIds equals the input set, with no loss and no duplication.
+        var assigned = bins.SelectMany(b => b.ContigIds).ToList();
+        assigned.Should().BeEquivalentTo(new[] { "z0", "z1", "z2", "real" },
+            "with minBinSize = 0 every clustered contig is emitted exactly once — INV-01");
+        assigned.Should().OnlyHaveUniqueItems("no contig is duplicated across bins");
+
+        // No fabricated NaN/∞ in any reported metric on the degenerate input.
+        foreach (var b in bins)
+        {
+            double.IsNaN(b.GcContent).Should().BeFalse("GC content is never NaN on a 0-length contig");
+            double.IsNaN(b.Contamination).Should().BeFalse();
+            double.IsNaN(b.Completeness).Should().BeFalse();
+            b.GcContent.Should().BeInRange(0.0, 1.0);
+            b.Contamination.Should().BeInRange(0.0, 100.0, "contamination proxy is clamped to [0, 100]");
+            b.Completeness.Should().BeInRange(0.0, 100.0, "completeness proxy is clamped to [0, 100]");
+        }
+    }
+
+    // ───────────────────────────────────────────────────────────────────────
+    // Fuzz target: HUGE NUMBER OF CONTIGS (BE) under a time budget.
+    // A large batch of SHORT contigs must bin to completion (no quadratic hang;
+    // k-means caps at 50 iterations) under `[CancelAfter]`, with every input
+    // contig assigned to exactly one bin — no contig lost or duplicated (INV-01).
+    // ───────────────────────────────────────────────────────────────────────
+    [Test]
+    [CancelAfter(30000)]
+    public void BinContigs_HugeNumberOfContigs_CompletesAndAssignsEveryContigOnce()
+    {
+        var rng = new Random(20260620); // locally fixed seed — deterministic
+        const int n = 5000;             // modest-but-large; contigs kept SHORT
+
+        var motifs = new[] { "AT", "GC", "AC", "GT" };
+        var contigs = new List<(string, string, double)>(n);
+        for (int i = 0; i < n; i++)
+        {
+            string motif = motifs[rng.Next(motifs.Length)];
+            int len = rng.Next(8, 32);              // short — keeps TNF/k-means cheap
+            double cov = rng.NextDouble() * 50.0;
+            contigs.Add(MakeContig($"c{i}", motif, len, cov));
+        }
+
+        List<MetagenomicsAnalyzer.GenomeBin> bins = null!;
+        Action act = () => bins = MetagenomicsAnalyzer
+            .BinContigs(contigs, numBins: 10, minBinSize: 0)
+            .ToList();
+
+        act.Should().NotThrow("a large short-contig batch must bin without crashing");
+
+        var assigned = bins.SelectMany(b => b.ContigIds).ToList();
+        assigned.Should().HaveCount(n,
+            "every input contig is assigned to exactly one bin — no contig lost or duplicated");
+        assigned.Should().OnlyHaveUniqueItems("no contig appears in more than one bin — INV-01");
+        new HashSet<string>(assigned).Should().BeEquivalentTo(
+            Enumerable.Range(0, n).Select(i => $"c{i}"),
+            "the union of all bins' contigs equals the input set");
+
+        bins.Count.Should().BeLessThanOrEqualTo(Math.Min(10, n),
+            "the number of emitted bins never exceeds effective k = min(numBins, contigCount)");
+    }
+
+    // ───────────────────────────────────────────────────────────────────────
+    // Positive sanity: two clearly distinct compositions are SEPARATED.
+    // A high-GC block ('GC' repeats) and a low-GC block ('AT' repeats), several
+    // contigs each, at numBins = 2 ⇒ the GC-rich contigs land in one bin and the
+    // AT-rich contigs in another, none mixed. Guards against a degenerate binner
+    // that lumps everything together or scatters contigs. — §2.2, §6.1.
+    // ───────────────────────────────────────────────────────────────────────
+    [Test]
+    public void BinContigs_TwoDistinctCompositions_SeparatedIntoExpectedBins()
+    {
+        var contigs = new[]
+        {
+            // High-GC contigs (GC content ≈ 1.0).
+            MakeContig("gc1", "GC", length: 60, coverage: 30.0),
+            MakeContig("gc2", "GC", length: 60, coverage: 31.0),
+            MakeContig("gc3", "GC", length: 60, coverage: 29.0),
+            // Low-GC contigs (GC content ≈ 0.0).
+            MakeContig("at1", "AT", length: 60, coverage: 5.0),
+            MakeContig("at2", "AT", length: 60, coverage: 6.0),
+            MakeContig("at3", "AT", length: 60, coverage: 4.0),
+        };
+
+        var bins = MetagenomicsAnalyzer
+            .BinContigs(contigs, numBins: 2, minBinSize: 0)
+            .ToList();
+
+        bins.Should().HaveCount(2, "two clearly distinct compositions form two bins");
+
+        // Every contig is assigned exactly once across the two bins.
+        var assigned = bins.SelectMany(b => b.ContigIds).ToList();
+        assigned.Should().BeEquivalentTo(new[] { "gc1", "gc2", "gc3", "at1", "at2", "at3" });
+        assigned.Should().OnlyHaveUniqueItems();
+
+        // The GC-rich and AT-rich contigs must NOT be mixed in the same bin.
+        var gcIds = new HashSet<string> { "gc1", "gc2", "gc3" };
+        var atIds = new HashSet<string> { "at1", "at2", "at3" };
+        foreach (var bin in bins)
+        {
+            bool allGc = bin.ContigIds.All(gcIds.Contains);
+            bool allAt = bin.ContigIds.All(atIds.Contains);
+            (allGc || allAt).Should().BeTrue(
+                "each bin holds only one composition class — the high-GC and low-GC " +
+                "contigs are separated, not lumped together — §2.2");
+        }
+
+        // The high-GC bin really is the GC-rich one (mean GC well above the AT bin).
+        var gcBin = bins.Single(b => gcIds.Contains(b.ContigIds[0]));
+        var atBin = bins.Single(b => atIds.Contains(b.ContigIds[0]));
+        gcBin.GcContent.Should().BeGreaterThan(atBin.GcContent,
+            "the GC-rich bin's mean GC content exceeds the AT-rich bin's");
     }
 
     #endregion
