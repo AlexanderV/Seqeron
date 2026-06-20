@@ -758,6 +758,7 @@ public static class PopulationGeneticsAnalyzer
         double var2 = genoList.Sum(g => Math.Pow(g.Geno2 - mean2, 2)) / n;
 
         double rSquared = (var1 > 0 && var2 > 0) ? (cov * cov) / (var1 * var2) : 0;
+        rSquared = Math.Clamp(rSquared, 0.0, 1.0);  // squared correlation ∈ [0,1]; clamp FP rounding noise (mirrors the D' clamp below)
 
         // D estimated from diploid genotype covariance.
         // From Wikipedia (LD for diploid frequencies): Cov_diploid(X₁,X₂) = 2D
