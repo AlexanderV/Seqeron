@@ -71,6 +71,38 @@ namespace Seqeron.Genomics.Tests;
 ///     simply never form pairs — no crash, no rejection. (On the MFE surface T is
 ///     additionally read as U, since A–U and A–T stacking are identical.)
 ///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: RNA-STEMLOOP-001 — stem-loop / hairpin motif detection
+/// Checklist: docs/checklists/03_FUZZING.md, row 72.
+/// Method under test: RnaSecondaryStructure.FindStemLoops(string, minStemLength=3,
+///   minLoopSize=3, maxLoopSize=10, allowWobble=true) → IEnumerable&lt;StemLoop&gt;.
+///   An EXHAUSTIVE local scan: for every loop start and every loop size it extends
+///   a stem outward while pairing stays valid and yields EVERY candidate whose stem
+///   length ≥ minStemLength (no overlap suppression — RNA_Stemloop.md §1, §4.1, §5.2).
+/// Fuzz strategy for THIS unit:
+///   • BE = Boundary Exploitation — the degenerate parameter / sequence corners that
+///     could crash (IndexOutOfRange off the stem-extension walk, DivideByZero on a
+///     zero loop), hang, or emit a malformed hairpin:
+///       – Empty sequence                  → no stem-loops (string.IsNullOrEmpty short-circuit).
+///       – No complement (e.g. all-A)      → no base can pair → no stem-loops.
+///       – minLoopSize = 0 (and ≤ 2)       → CLAMPED up to 3; no 0/1/2-nt loop is ever
+///                                            emitted (steric floor; RNA_Stemloop.md INV-01).
+///       – minStemLength &gt; seqLen/2        → stem+loop+stem cannot fit (length &lt;
+///                                            minStemLength*2 + minLoopSize) → no stem-loops.
+///   — docs/checklists/03_FUZZING.md §Description (strategy code BE); targets:
+///     "Empty, no complement, minLoop=0, minStem &gt; seqLen/2".
+///
+/// Theory-correct stem-loop contract (RNA_Stemloop.md §2.4 INV-01..04, §3.3, §6.1):
+///   • INV-01 Loop.Size ≥ 3 (minLoopSize clamped to 3 before scanning).
+///   • INV-02 Stem.Length ≥ minStemLength (shorter candidates discarded).
+///   • INV-03 Loop.Type is always Hairpin.
+///   • INV-04 DotBracketNotation.Length = End − Start + 1.
+///   • The two stem arms are antiparallel reverse-complements: every stem BasePair is
+///     a canonical RNA pair (A-U / G-C / G-U) and the arms span the loop, so the
+///     unpaired loop sits strictly between the 5' and 3' stem ends.
+///   • Empty / too-short (length &lt; minStemLength*2 + minLoopSize) → no candidates,
+///     never an exception.
+///
 /// KEY structural invariants asserted on every produced structure (the theory-
 /// correct contract — these are what a "valid structure" MUST satisfy):
 ///   • ≤ 1 partner per base — each position appears in AT MOST ONE base pair
@@ -161,6 +193,62 @@ public class RnaStructureFuzzTests
             "every base pair contributes exactly one open bracket");
         s.DotBracket.Count(c => c == ')').Should().Be(s.BasePairs.Count,
             "every base pair contributes exactly one close bracket");
+    }
+
+    /// <summary>
+    /// Asserts the theory-correct contract of a single detected stem-loop
+    /// (RNA_Stemloop.md §2.4 INV-01..04, §2.1): hairpin loop ≥ 3 nt, stem length ≥
+    /// the requested floor, antiparallel reverse-complementary stem arms (each stem
+    /// pair canonical), in-range nested coords with the loop strictly enclosed, and a
+    /// local dot-bracket whose length equals the detected span.
+    /// </summary>
+    private static void AssertWellFormedStemLoop(
+        RnaSecondaryStructure.StemLoop sl, string sequence, int minStemLength)
+    {
+        int n = sequence.Length;
+
+        // Span coords are in range and ordered (INV-04 needs a non-negative span).
+        sl.Start.Should().BeInRange(0, n - 1, "the stem-loop 5' end indexes the sequence");
+        sl.End.Should().BeInRange(0, n - 1, "the stem-loop 3' end indexes the sequence");
+        sl.Start.Should().BeLessThan(sl.End, "a stem-loop spans a non-empty antiparallel region");
+
+        // INV-03: the loop is always a Hairpin.
+        sl.Loop.Type.Should().Be(RnaSecondaryStructure.LoopType.Hairpin,
+            "FindStemLoops emits hairpin loops only (INV-03)");
+
+        // INV-01: hairpin loops shorter than 3 nt are sterically impossible.
+        sl.Loop.Size.Should().BeGreaterThanOrEqualTo(3, "min-loop is clamped to the 3-nt steric floor (INV-01)");
+        sl.Loop.Sequence.Should().HaveLength(sl.Loop.Size, "the loop sequence covers exactly the loop span");
+        (sl.Loop.End - sl.Loop.Start + 1).Should().Be(sl.Loop.Size, "loop coords are consistent with its size");
+
+        // INV-02: the stem meets the requested minimum length.
+        sl.Stem.Length.Should().BeGreaterThanOrEqualTo(minStemLength, "stem length ≥ minStemLength (INV-02)");
+        sl.Stem.BasePairs.Should().HaveCount(sl.Stem.Length, "one base pair per stacked stem position");
+
+        // The loop sits strictly between the inner stem ends — the stem ENCLOSES it.
+        sl.Stem.End5Prime.Should().Be(sl.Loop.Start - 1, "the 5' stem arm abuts the loop start");
+        sl.Stem.Start3Prime.Should().Be(sl.Loop.End + 1, "the 3' stem arm abuts the loop end");
+
+        // Stem arms are antiparallel reverse-complements: every pair is canonical and
+        // its 5' index is below the loop while its 3' index is above it.
+        foreach (var bp in sl.Stem.BasePairs)
+        {
+            int i = Math.Min(bp.Position1, bp.Position2);
+            int j = Math.Max(bp.Position1, bp.Position2);
+            i.Should().BeInRange(0, n - 1, "stem pair endpoints index the sequence");
+            j.Should().BeInRange(0, n - 1, "stem pair endpoints index the sequence");
+            i.Should().BeLessThan(sl.Loop.Start, "the 5' stem arm lies before the loop");
+            j.Should().BeGreaterThan(sl.Loop.End, "the 3' stem arm lies after the loop");
+            RnaSecondaryStructure.CanPair(sequence[i], sequence[j]).Should().BeTrue(
+                $"stem pair ({sequence[i]},{sequence[j]}) must be a canonical RNA pair (reverse-complement arms)");
+        }
+
+        // INV-04: the local dot-bracket length equals the detected span.
+        sl.DotBracketNotation.Should().HaveLength(sl.End - sl.Start + 1, "INV-04: local bracket covers exactly the span");
+        sl.DotBracketNotation.Count(c => c == '(').Should().Be(sl.Stem.Length, "one open bracket per stem pair");
+        sl.DotBracketNotation.Count(c => c == ')').Should().Be(sl.Stem.Length, "one close bracket per stem pair");
+
+        double.IsFinite(sl.TotalFreeEnergy).Should().BeTrue("the stem-loop free energy is a finite physical value");
     }
 
     #endregion
@@ -420,6 +508,191 @@ public class RnaStructureFuzzTests
                 double mfe = RnaSecondaryStructure.CalculateMinimumFreeEnergy(seq);
                 double.IsFinite(mfe).Should().BeTrue($"MFE must be finite (seed {seed}, len {len})");
                 mfe.Should().BeLessThanOrEqualTo(0, $"INV-01 (seed {seed}, len {len})");
+            }
+        }
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  RNA-STEMLOOP-001 — stem-loop / hairpin detection : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region RNA-STEMLOOP-001 — stem-loop detection
+
+    #region BE — Boundary: empty sequence yields no stem-loops
+
+    /// <summary>
+    /// BE: the empty sequence. FindStemLoops short-circuits on string.IsNullOrEmpty
+    /// (and on null) → no candidates, never an IndexOutOfRange off the stem walk
+    /// (RNA_Stemloop.md §3.3, §6.1). We pin both "" and null.
+    /// </summary>
+    [Test]
+    public void FindStemLoops_EmptySequence_YieldsNoneAndDoesNotThrow()
+    {
+        var act = () => RnaSecondaryStructure.FindStemLoops("").ToList();
+        act.Should().NotThrow("empty input is a documented no-op, not an error")
+           .Subject.Should().BeEmpty("an empty sequence encloses no loop and forms no stem");
+
+        var actNull = () => RnaSecondaryStructure.FindStemLoops(null!).ToList();
+        actNull.Should().NotThrow("null is treated like empty, not an error")
+               .Subject.Should().BeEmpty("a null sequence forms no stem-loops");
+    }
+
+    #endregion
+
+    #region BE — Boundary: no complement (all-A) yields no stem-loops
+
+    /// <summary>
+    /// BE: a sequence with NO complementary base — e.g. poly-A. A pairs with nothing
+    /// (no A-A pair exists; only A-U / G-C / G-U are canonical), so every stem
+    /// extension stops immediately and no candidate ever reaches minStemLength → no
+    /// stem-loops, never a crash (RNA_Stemloop.md §2.1, §6.1). We probe a length well
+    /// above the steric floor so the only reason for "no result" is the missing
+    /// complement, and confirm the same for poly-C and poly-G (each pairs with nothing
+    /// available in its own homopolymer).
+    /// </summary>
+    [Test]
+    public void FindStemLoops_NoComplement_YieldsNoneAndDoesNotThrow()
+    {
+        foreach (string mono in new[] { new string('A', 30), new string('C', 30), new string('G', 30) })
+        {
+            var act = () => RnaSecondaryStructure.FindStemLoops(mono).ToList();
+            var result = act.Should().NotThrow("a non-pairing homopolymer must not crash the scan").Subject;
+            result.Should().BeEmpty($"'{mono[0]}'×{mono.Length} has no complementary base, so no stem can form");
+        }
+    }
+
+    #endregion
+
+    #region BE — Boundary: minLoopSize 0 (and ≤ 2) is clamped to the 3-nt floor
+
+    /// <summary>
+    /// BE: minLoopSize = 0 (and −1, 1, 2). A 0-nt loop is sterically impossible — the
+    /// contract CLAMPS minLoopSize up to 3 before scanning (RNA_Stemloop.md §3.3,
+    /// §2.4 INV-01), so the degenerate value neither crashes (no DivideByZero / empty
+    /// Substring) nor yields a hairpin whose loop is shorter than 3 nt. We feed a
+    /// sequence with a genuine 3-nt-loop hairpin so the clamp is observable: every
+    /// returned stem-loop still has Loop.Size ≥ 3.
+    /// </summary>
+    [Test]
+    public void FindStemLoops_MinLoopBelowFloor_IsClampedToThree()
+    {
+        // GGGG / CCCC stem around a 3-nt AAA loop.
+        const string seq = "GGGGAAACCCC";
+        foreach (int badMin in new[] { int.MinValue, -1, 0, 1, 2 })
+        {
+            var act = () => RnaSecondaryStructure.FindStemLoops(seq, minLoopSize: badMin).ToList();
+            var result = act.Should().NotThrow($"minLoopSize {badMin} is clamped, not an error").Subject;
+
+            foreach (var sl in result)
+            {
+                sl.Loop.Size.Should().BeGreaterThanOrEqualTo(3,
+                    $"min-loop is clamped to the 3-nt steric floor even when {badMin} is requested (INV-01)");
+                AssertWellFormedStemLoop(sl, seq, minStemLength: 3);
+            }
+        }
+    }
+
+    #endregion
+
+    #region BE — Boundary: minStemLength > seqLen/2 cannot fit any stem-loop
+
+    /// <summary>
+    /// BE: minStemLength larger than half the sequence. A stem-loop needs two stem
+    /// arms PLUS a loop between them, so it occupies minStemLength*2 + minLoopSize
+    /// residues; when minStemLength &gt; seqLen/2 the two arms alone already exceed the
+    /// sequence and the length guard (length &lt; minStemLength*2 + minLoopSize) short-
+    /// circuits → no candidates, never an out-of-range stem walk (RNA_Stemloop.md
+    /// §3.3, §6.1). We use a real GC hairpin so the ONLY reason for "no result" is the
+    /// oversized stem floor, and sweep several over-half thresholds.
+    /// </summary>
+    [Test]
+    public void FindStemLoops_MinStemOverHalfLength_YieldsNone()
+    {
+        const string seq = "GGGGAAAACCCC"; // len 12 — would be a real hairpin at minStem ≤ 4
+        int half = seq.Length / 2;          // 6
+
+        foreach (int minStem in new[] { half + 1, half + 2, seq.Length, seq.Length + 5 })
+        {
+            var act = () => RnaSecondaryStructure.FindStemLoops(seq, minStemLength: minStem).ToList();
+            var result = act.Should().NotThrow($"oversized minStemLength {minStem} is short-circuited, not an error").Subject;
+            result.Should().BeEmpty(
+                $"a stem of {minStem} > {half} per arm plus a loop cannot fit in {seq.Length} nt");
+        }
+
+        // Sanity counterpoint: at the largest stem that DOES fit, the hairpin is found —
+        // proving the empties above are the size guard, not a dead method. minStem 4
+        // needs 4*2 + 3 = 11 ≤ 12, so the 4-bp GGGG/CCCC stem qualifies.
+        RnaSecondaryStructure.FindStemLoops(seq, minStemLength: 4).Should().NotBeEmpty(
+            "the 4-bp GGGG/CCCC stem fits within 12 nt and must be detected");
+    }
+
+    #endregion
+
+    #region Positive sanity — an obvious hairpin is detected with the expected stem and loop
+
+    /// <summary>
+    /// Positive sanity: "GGGGAAAACCCC" is an unmistakable hairpin — a 4-bp G·C stem
+    /// (GGGG and CCCC are reverse complements) enclosing a 4-nt AAAA loop. The scan
+    /// must surface a stem-loop whose stem is the four G-C pairs (0,11),(1,10),(2,9),
+    /// (3,8) and whose loop is the AAAA at positions 4..7, all invariants satisfied.
+    /// This proves the fuzz harness asserts against a detector that FINDS real
+    /// structure, not a no-op.
+    /// </summary>
+    [Test]
+    public void FindStemLoops_ObviousHairpin_DetectsExpectedStemAndLoop()
+    {
+        const string seq = "GGGGAAAACCCC";
+        var all = RnaSecondaryStructure.FindStemLoops(seq).ToList();
+
+        all.Should().NotBeEmpty("a clear GGGG/AAAA/CCCC hairpin must be detected");
+        foreach (var sl in all)
+            AssertWellFormedStemLoop(sl, seq, minStemLength: 3);
+
+        // The maximal candidate is the full 4-bp stem closing the 4-nt AAAA loop.
+        var best = all.OrderByDescending(sl => sl.Stem.Length).First();
+        best.Stem.Length.Should().Be(4, "GGGG/CCCC stacks into a 4-bp stem");
+        best.Loop.Sequence.Should().Be("AAAA", "the enclosed hairpin loop is the central AAAA");
+        best.Loop.Start.Should().Be(4);
+        best.Loop.End.Should().Be(7);
+
+        best.Stem.BasePairs
+            .Select(bp => (Lo: Math.Min(bp.Position1, bp.Position2), Hi: Math.Max(bp.Position1, bp.Position2)))
+            .OrderBy(p => p.Lo)
+            .Should().Equal((0, 11), (1, 10), (2, 9), (3, 8));
+
+        best.Stem.BasePairs.Should().OnlyContain(
+            bp => (bp.Base1 == 'G' && bp.Base2 == 'C') || (bp.Base1 == 'C' && bp.Base2 == 'G'),
+            "every stem pair is a G-C Watson–Crick pair");
+
+        best.DotBracketNotation.Should().Be("((((....))))", "the canonical hairpin dot-bracket over the span");
+    }
+
+    /// <summary>
+    /// Positive sanity over RANDOM RNA: across fixed seeds and lengths, FindStemLoops
+    /// must never crash or hang and every emitted candidate must satisfy the stem-loop
+    /// contract (canonical reverse-complementary arms, loop ≥ 3, stem ≥ floor, in-range
+    /// nested coords, INV-04 bracket length). [CancelAfter] guards against an
+    /// O(n²·L)-blow-up regression turning into a hang.
+    /// </summary>
+    [Test]
+    [CancelAfter(60000)]
+    public void FindStemLoops_RandomRna_AlwaysWellFormed(CancellationToken token)
+    {
+        foreach (int seed in new[] { 3, 17, 99, 2026 })
+        {
+            foreach (int len in new[] { 12, 40, 120 })
+            {
+                string seq = RandomRna(len, seed);
+                var act = () => RnaSecondaryStructure.FindStemLoops(seq).ToList();
+                var result = act.Should().NotThrow($"random RNA must not crash the scan (seed {seed}, len {len})").Subject;
+                token.ThrowIfCancellationRequested();
+
+                foreach (var sl in result)
+                    AssertWellFormedStemLoop(sl, seq, minStemLength: 3);
             }
         }
     }
