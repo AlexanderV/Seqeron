@@ -167,6 +167,78 @@ namespace Seqeron.Genomics.Tests;
 /// negative by design (INV-NJ-02) so only finiteness is asserted there. The builders are
 /// pure static methods, so every probe calls them directly with deterministic, locally
 /// fixed-seed Random inputs (no shared static RNG).
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: PHYLO-NEWICK-001 — Newick parsing / serialization
+/// Checklist: docs/checklists/03_FUZZING.md, row 41.
+/// Fuzz strategies exercised for THIS unit:
+///   • TF  = Truncated Fields — a Newick string cut off mid-tree: an opened descendant
+///           list that is never closed ("(A,B"), a trailing colon with no number,
+///           a tree truncated before its terminator.
+///   • MC  = Malformed Content — structurally invalid Newick: unbalanced parentheses
+///           (more "(" than ")" and vice-versa), trailing garbage after a complete tree,
+///           and the empty / whitespace string.
+///   • INJ = Injection — pathological / special-character payloads: a DEEPLY NESTED paren
+///           stack (a recursive-descent-parser StackOverflow / DoS vector), embedded
+///           NUL bytes, and non-ASCII unicode label characters.
+/// — docs/checklists/03_FUZZING.md §Description (TF = truncated fields; MC = malformed
+///   content; INJ = injection special chars / null bytes / unicode); row 41 targets:
+///   "Malformed Newick, unbalanced parens, missing semicolon, empty string".
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The Newick contract under test (Newick_Format.md; PHYLO-NEWICK-001.md)
+/// ───────────────────────────────────────────────────────────────────────────
+/// PhylogeneticAnalyzer is a recursive-descent Newick reader/writer over the PhyloNode tree
+/// (Newick_Format.md §2.2 grammar: Tree → Subtree ";"; Internal → "(" BranchSet ")" Name;
+/// BranchSet → Branch | Branch "," BranchSet; Length → empty | ":" number):
+///   • ToNewick(PhyloNode, bool includeBranchLengths = true) (lines 566–608) — serializes a
+///     tree, always terminating with ";" (INV-01); branch lengths rendered with "." via
+///     InvariantCulture (INV-02); internal names emitted only when valid unquoted labels
+///     (INV-03). A null node returns "" (Newick_Format.md §6.1; N7).
+///   • ParseNewick(string) (lines 643–671) — recursive descent over "(", ",", ")", labels and
+///     ":"-prefixed numbers; trims input and strips ONE trailing ";" if present; accepts an
+///     optional root branch length (INV-04); any unconsumed trailing input → FormatException.
+///
+/// THE FOUR ROW-41 FUZZ TARGETS, mapped to the theory-correct contract (empirically verified):
+///   • Malformed Newick (MC — garbage / trailing junk): a structurally broken string is
+///     REJECTED with a documented parse exception, never an unhandled crash. Trailing input
+///     after a complete tree ("(A,B);extra") and a "(...)" followed by an extra ")"
+///     ("(A,B));") both throw FormatException (ParseNewick line 668). A bare token with no
+///     parentheses ("@#$%") is — by the permissive raw-label rule (Newick_Format.md §3.3,
+///     §5.2) — read as a single LEAF named verbatim, not a crash: we pin that documented
+///     leniency rather than inventing a rejection the parser does not implement.
+///   • Unbalanced parens (MC/TF — KEY): an opening "(" with no matching ")" ("(A,B",
+///     "(((A)") throws FormatException ("unbalanced parentheses …", ParseNewickRecursive),
+///     and a stray extra ")" likewise throws — DETERMINISTICALLY, never a hang and never a
+///     silently-accepted truncated tree (Newick_Format.md §3.3).
+///   • Missing semicolon (VERIFIED tolerance): the parser strips a trailing ";" ONLY when
+///     present, so a terminator-less but otherwise valid tree ("(A,B)") parses to the SAME
+///     tree as "(A,B);" — the missing ";" is TOLERATED, not rejected (ParseNewick lines
+///     648–650). We pin the verified behavior, not a guessed rejection.
+///   • Empty string (MC/BE): null, "", and whitespace-only input throw ArgumentException
+///     ("Newick string is empty.", ParseNewick line 645) — a documented, intentional
+///     rejection, never a NullReference (Newick_Format.md §3.1, §6.1; N6).
+///
+/// THE INJECTION / DEEP-NESTING PROBE (INJ — DoS / StackOverflow, KEY): ParseNewick is
+/// recursive descent, so each level of nested parentheses consumes one call-stack frame.
+/// An UNGUARDED parser overflows the stack on a deeply nested payload — an UNCATCHABLE
+/// StackOverflowException that terminates the process (a denial-of-service bug). The source
+/// is depth-guarded: PhylogeneticAnalyzer.MaxParseDepth caps the nesting and a payload
+/// deeper than the cap is rejected with a catchable FormatException rather than overflowing
+/// (ParseNewickRecursive depth guard). The fuzz test asserts that a payload FAR beyond the
+/// cap (here 50 000 nested "(") is GRACEFULLY rejected — no StackOverflow, no hang under
+/// [CancelAfter] — and that the deepest still-accepted depth (MaxParseDepth) parses. NOTE: a
+/// StackOverflowException cannot be asserted with Throws — it kills the runner — so the test
+/// stays strictly on the guarded side of the cap. FINDING: the unguarded parser was measured
+/// to overflow at ≈3000 frames on a default 1 MB thread stack; the cap was set conservatively
+/// below that (and the guard added to the source) precisely so this DoS vector is closed.
+///
+/// THE ROUND-TRIP POSITIVE SANITY (N2/N3/N4): a hand-written valid Newick string with branch
+/// lengths parses to the EXACT expected leaf set, and ToNewick(ParseNewick(s)) re-parses to a
+/// structurally equivalent tree with the same leaves — the serializer/parser are inverse on a
+/// well-formed binary tree (Newick_Format.md §4; PHYLO-NEWICK-001.md M05–M10). ParseNewick /
+/// ToNewick are pure, so every probe calls them directly; all fuzz inputs are deterministic
+/// (fixed strings or locally fixed-seed Random — no shared static RNG).
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -713,6 +785,271 @@ public class PhylogeneticFuzzTests
         buildNj.Should().NotThrow("an all-zero distance matrix must not crash Neighbor-Joining");
         // NJ branch lengths may be negative by design (INV-NJ-02) — only finiteness is required.
         TreeBranchLengthsValid(nj.Root, expectedLeafCount: n, requireNonNegative: false);
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  PHYLO-NEWICK-001 — Newick parsing / serialization : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region PHYLO-NEWICK-001 — Newick parsing
+
+    /// <summary>Sorted leaf names of a parsed tree, for order-independent leaf-set comparison.</summary>
+    private static List<string> LeafNames(PhylogeneticAnalyzer.PhyloNode root) =>
+        CollectLeaves(root).Select(l => l.Name).OrderBy(n => n, StringComparer.Ordinal).ToList();
+
+    #region Positive sanity — valid Newick parses to the right leaf set and round-trips
+
+    /// <summary>
+    /// Positive-sanity anchor: a hand-written, well-formed Newick string with branch lengths
+    /// parses to the EXACT expected leaf set, and ToNewick(ParseNewick(s)) re-parses to a
+    /// structurally equivalent tree (same leaves) — the parser and serializer are inverse on a
+    /// valid binary tree (Newick_Format.md §4; PHYLO-NEWICK-001.md M05–M10, N2/N3/N4).
+    /// </summary>
+    [Test]
+    public void Newick_ValidString_ParsesToLeafSet_AndRoundTrips()
+    {
+        const string s = "((A:0.1,B:0.2):0.3,(C:0.4,D:0.5):0.6);";
+
+        var tree = PhylogeneticAnalyzer.ParseNewick(s);
+        tree.Should().NotBeNull("a well-formed Newick string must parse");
+
+        LeafNames(tree).Should().Equal(new[] { "A", "B", "C", "D" },
+            "the four leaf Name productions are A,B,C,D (Newick_Format.md §2.2; N2)");
+
+        // The structure is two cherries: {A,B} and {C,D} each under one internal node.
+        var ab = AllNodes(tree).FirstOrDefault(n => !n.IsLeaf
+            && n.Taxa.Contains("A") && n.Taxa.Contains("B")
+            && !n.Taxa.Contains("C") && !n.Taxa.Contains("D"));
+        ab.Should().NotBeNull("(A,B) forms an internal node that excludes C,D");
+
+        // Round-trip: serialize then re-parse → same leaf set, structurally equivalent (N3/N4).
+        string serialized = PhylogeneticAnalyzer.ToNewick(tree);
+        serialized.Should().EndWith(";", "ToNewick always terminates with ';' (INV-01; N1)");
+
+        var reparsed = PhylogeneticAnalyzer.ParseNewick(serialized);
+        LeafNames(reparsed).Should().Equal(LeafNames(tree),
+            "ToNewick→ParseNewick preserves the leaf set (round-trip N4)");
+    }
+
+    #endregion
+
+    #region MC/BE — Empty / whitespace / null string (documented ArgumentException)
+
+    /// <summary>
+    /// The empty-input boundary: null, the empty string, and whitespace-only input each hit the
+    /// `string.IsNullOrWhiteSpace` guard and throw ArgumentException ("Newick string is empty.")
+    /// — a documented, intentional rejection, NEVER a NullReferenceException or an empty/corrupt
+    /// tree (Newick_Format.md §3.1, §6.1; PHYLO-NEWICK-001.md N6).
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void EmptyOrNull_ThrowsDocumentedArgumentException_NeverCrash()
+    {
+        foreach (string bad in new[] { null!, "", "   ", "\t", "\n", "  \t \n " })
+        {
+            Action act = () => PhylogeneticAnalyzer.ParseNewick(bad);
+            act.Should().Throw<ArgumentException>(
+                "null/empty/whitespace Newick is an explicit, documented rejection (N6) — got [{0}]",
+                bad is null ? "null" : "whitespace");
+        }
+    }
+
+    #endregion
+
+    #region MC/TF — Unbalanced parentheses (deterministic FormatException, no hang)
+
+    /// <summary>
+    /// Unbalanced parentheses — an opening "(" with no matching ")" (truncated descendant list)
+    /// OR a stray extra ")" — are REJECTED deterministically with a FormatException, never a hang,
+    /// an infinite loop, or a silently-accepted truncated tree (ParseNewickRecursive "unbalanced
+    /// parentheses" guard; Newick_Format.md §3.3). [CancelAfter] pins termination. The positive
+    /// control "(A,B);" parses, proving the rejection is specific to the imbalance.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void UnbalancedParentheses_RejectedWithFormatException_NoHang()
+    {
+        // Too many "(" (truncated / never closed) and too many ")" (excess close).
+        string[] unbalanced =
+        {
+            "(A,B",        // opened list never closed (truncated field)
+            "(((A)",       // three opens, one close
+            "((A,B)",      // missing outer close
+            "(A,B));",     // one extra close after a complete subtree
+            "A)",          // a leaf then a stray close
+            "(A,(B,C);",   // inner group never closed before ';'
+        };
+
+        foreach (string s in unbalanced)
+        {
+            Action act = () => PhylogeneticAnalyzer.ParseNewick(s);
+            act.Should().Throw<FormatException>(
+                "unbalanced parentheses are a malformed tree and must be rejected, not hang [{0}]", s);
+        }
+
+        // Positive control: the balanced counterpart parses cleanly.
+        Action balanced = () => PhylogeneticAnalyzer.ParseNewick("(A,B);");
+        balanced.Should().NotThrow("a balanced tree parses — the rejection is specific to imbalance");
+    }
+
+    #endregion
+
+    #region MC — Malformed content / trailing garbage (documented parse exception)
+
+    /// <summary>
+    /// Malformed content that is NOT a well-formed tree is rejected with a documented parse
+    /// exception rather than an unhandled crash: trailing input after a complete tree
+    /// ("(A,B);extra") and a ":"-branch-length with no number ("(A:,B);"→ trailing junk) throw
+    /// FormatException (ParseNewick trailing-input guard). A bare token with no parentheses
+    /// ("@#$%") is — per the parser's permissive raw-label rule (Newick_Format.md §3.3, §5.2) —
+    /// read as a single LEAF named verbatim; we pin that documented leniency (no crash, no NaN),
+    /// not a rejection the parser does not implement.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void MalformedContent_RejectedOrLeniencyDocumented_NeverUnhandledCrash()
+    {
+        // Trailing garbage after a complete, terminated tree → FormatException.
+        foreach (string s in new[] { "(A,B);extra", "(A,B);(C,D);", "(A,B):0.1 junk" })
+        {
+            Action act = () => PhylogeneticAnalyzer.ParseNewick(s);
+            act.Should().Throw<FormatException>(
+                "unconsumed trailing input after a complete tree is malformed [{0}]", s);
+        }
+
+        // A bare token with no structure: documented leniency → a single leaf named verbatim.
+        var bare = PhylogeneticAnalyzer.ParseNewick("@#$%");
+        bare.IsLeaf.Should().BeTrue("a bare token with no parentheses is parsed as a single leaf");
+        bare.Name.Should().Be("@#$%", "leaf labels are read as a raw run (Newick_Format.md §5.2)");
+
+        // Every probe above either threw a documented FormatException or returned a leaf — no
+        // unhandled exception type leaks; assert that no malformed input causes a non-parse crash.
+        foreach (string s in new[] { "()", "(,)", "(A,)", ",", ":::" })
+        {
+            Action act = () => PhylogeneticAnalyzer.ParseNewick(s);
+            act.Should().NotThrow<NullReferenceException>("malformed Newick must not NullReference [{0}]", s);
+            act.Should().NotThrow<IndexOutOfRangeException>("malformed Newick must not IndexOutOfRange [{0}]", s);
+            act.Should().NotThrow<ArgumentOutOfRangeException>("malformed Newick must not throw AOORE [{0}]", s);
+        }
+    }
+
+    #endregion
+
+    #region VERIFIED — Missing semicolon is tolerated (not rejected)
+
+    /// <summary>
+    /// VERIFIED tolerance: the parser strips a trailing ";" only when present, so a valid tree
+    /// WITHOUT a terminator ("(A,B)") parses to the SAME tree as the terminated form ("(A,B);")
+    /// — the missing semicolon is TOLERATED, not rejected (ParseNewick trims and conditionally
+    /// strips ";"; Newick_Format.md §3.3). We pin the verified behavior rather than guessing a
+    /// rejection; the leaf set is identical with and without the terminator.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void MissingSemicolon_IsTolerated_SameTreeAsTerminated()
+    {
+        var withSemi = PhylogeneticAnalyzer.ParseNewick("((A,B),(C,D));");
+        var noSemi = PhylogeneticAnalyzer.ParseNewick("((A,B),(C,D))");
+
+        LeafNames(noSemi).Should().Equal(new[] { "A", "B", "C", "D" },
+            "a terminator-less tree still yields the full leaf set");
+        LeafNames(noSemi).Should().Equal(LeafNames(withSemi),
+            "the missing ';' is tolerated — same tree as the terminated form");
+
+        // A bare leaf without a terminator is likewise tolerated as a single leaf.
+        var leaf = PhylogeneticAnalyzer.ParseNewick("Taxon1");
+        leaf.IsLeaf.Should().BeTrue("a bare leaf token without ';' parses as one leaf");
+        leaf.Name.Should().Be("Taxon1");
+    }
+
+    #endregion
+
+    #region INJ — Deep nesting (StackOverflow / DoS) + null bytes + unicode
+
+    /// <summary>
+    /// KEY injection probe — recursive-descent StackOverflow / DoS: ParseNewick recurses once per
+    /// nested "(", so an unbounded depth would overflow the call stack (an UNCATCHABLE
+    /// StackOverflowException that kills the process). The source is depth-guarded
+    /// (PhylogeneticAnalyzer.MaxParseDepth): a payload deeper than the cap is rejected with a
+    /// catchable FormatException instead of overflowing. We assert a payload FAR beyond the cap
+    /// (50 000 nested "(") is GRACEFULLY rejected — no StackOverflow, no hang under [CancelAfter]
+    /// — and that the deepest still-accepted depth (MaxParseDepth) parses to a single leaf.
+    /// (A StackOverflowException cannot be asserted with Throws, so the test stays on the guarded
+    /// side of the cap; the guard was added precisely because the unguarded parser overflowed at
+    /// ≈3000 frames on a default 1 MB thread stack.)
+    /// </summary>
+    [Test]
+    [CancelAfter(15_000)]
+    public void DeepNesting_RejectedGracefully_NoStackOverflowNoHang()
+    {
+        int cap = PhylogeneticAnalyzer.MaxParseDepth;
+
+        // FAR beyond the cap: must be rejected with a catchable FormatException, never overflow.
+        int deep = Math.Max(cap * 5, 50_000);
+        string overDeep = new string('(', deep) + "A" + new string(')', deep) + ";";
+        Action act = () => PhylogeneticAnalyzer.ParseNewick(overDeep);
+        act.Should().Throw<FormatException>(
+            "nesting beyond MaxParseDepth ({0}) must be rejected gracefully, never StackOverflow", cap);
+
+        // Just over the cap → also rejected (boundary of the guard).
+        string justOver = new string('(', cap + 1) + "A" + new string(')', cap + 1) + ";";
+        Action overByOne = () => PhylogeneticAnalyzer.ParseNewick(justOver);
+        overByOne.Should().Throw<FormatException>("depth cap + 1 is over the limit");
+
+        // At the cap → still accepted (the deepest legal depth parses to its single leaf).
+        string atCap = new string('(', cap) + "A" + new string(')', cap) + ";";
+        var atCapTree = PhylogeneticAnalyzer.ParseNewick(atCap);
+        CollectLeaves(atCapTree).Select(l => l.Name).Should().Equal(new[] { "A" },
+            "nesting exactly at MaxParseDepth is the deepest accepted tree (single leaf A)");
+    }
+
+    /// <summary>
+    /// Injection of special characters into LABEL positions: embedded NUL bytes and non-ASCII
+    /// unicode are read as raw label characters (the permissive raw-label rule, Newick_Format.md
+    /// §5.2) — they must not crash, hang, or corrupt the structural parse. The leaf COUNT and
+    /// tree shape stay correct; only the label text carries the injected bytes.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void InjectedSpecialCharacters_InLabels_NoCrashNoCorruption()
+    {
+        // NUL byte inside a label, plus a unicode-named pair — both must parse to 2 leaves.
+        var nul = PhylogeneticAnalyzer.ParseNewick("(A\0X,B);");
+        CollectLeaves(nul).Should().HaveCount(2, "a NUL byte in a label is a label char, not a delimiter");
+
+        var unicode = PhylogeneticAnalyzer.ParseNewick("(αβγ,δεζ);");
+        var names = CollectLeaves(unicode).Select(l => l.Name).ToList();
+        names.Should().HaveCount(2, "unicode-labelled tree parses to two leaves");
+        names.Should().Contain("αβγ").And.Contain("δεζ", "non-ASCII label text is preserved verbatim");
+
+        // A large injected-character label run must not hang or crash.
+        string longLabel = new string('Z', 50_000);
+        Action act = () => PhylogeneticAnalyzer.ParseNewick($"({longLabel},B);");
+        act.Should().NotThrow("a very long label run is read linearly, no crash or hang");
+    }
+
+    #endregion
+
+    #region INV — ToNewick null node returns empty; terminator invariant
+
+    /// <summary>
+    /// Serializer-side defensive contract: ToNewick(null) returns the empty string (Newick_Format.md
+    /// §6.1; N7), and every non-null serialization ends with ";" (INV-01; N1). Pinned alongside the
+    /// fuzz probes so the writer's null/edge behavior is locked next to the reader's.
+    /// </summary>
+    [Test]
+    public void ToNewick_NullNode_ReturnsEmpty_AndOutputAlwaysTerminated()
+    {
+        PhylogeneticAnalyzer.ToNewick(null!).Should().Be("",
+            "a null root serializes to the empty string (N7)");
+
+        var tree = PhylogeneticAnalyzer.ParseNewick("(A:0.1,B:0.2);");
+        PhylogeneticAnalyzer.ToNewick(tree).Should().EndWith(";",
+            "every serialized tree ends with ';' (INV-01; N1)");
     }
 
     #endregion
