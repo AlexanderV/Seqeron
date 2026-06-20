@@ -468,6 +468,93 @@ namespace Seqeron.Genomics.Tests;
 /// Determinism note: every GFF fuzz input below is a FIXED literal (no randomness),
 /// so each run is byte-for-byte reproducible; no `[CancelAfter]` is needed because no
 /// input is large or random — the parser is a single linear pass over short literals.
+///
+/// ═══════════════════════════════════════════════════════════════════════════
+/// Unit: PARSE-GENBANK-001 — GenBank parsing (FileIO)
+/// ═══════════════════════════════════════════════════════════════════════════
+/// Checklist: docs/checklists/03_FUZZING.md, row 69. The sixth FileIO-area fuzz
+/// unit, targeting `Seqeron.Genomics.IO.GenBankParser` — the GenBank flat-file
+/// parser. Fuzz strategies exercised for THIS unit:
+///   • RB  = Random Bytes — a fixed-seed random-byte blob (no `LOCUS` keyword) fed
+///           as GenBank text.
+///   • TF  = Truncated Fields — a record TRUNCATED mid-FEATURES (a feature line cut
+///           off with no location; a qualifier line with no `=value`); and a record
+///           with NO `//` terminator (the file ends mid-record). THE key loop/hang
+///           boundary case.
+///   • MC  = Malformed Content — a record with NO `LOCUS` line (the keyword that
+///           gates parsing); an INVALID feature location (`abc..xyz`, an unbalanced
+///           `complement(` with no closing paren).
+/// — docs/checklists/03_FUZZING.md §Description (strategy codes).
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The GenBank-parsing contract under test (the DOCUMENTED, repository-specific one)
+/// ───────────────────────────────────────────────────────────────────────────
+/// A GenBank flat file is a set of keyworded sections starting in column 1 —
+/// `LOCUS`, `DEFINITION`, `ACCESSION`, `VERSION`, `KEYWORDS`, `SOURCE`/`ORGANISM`,
+/// `REFERENCE`, a `FEATURES` table (feature key + INSDC location + `/qualifier`
+/// lines), an `ORIGIN` sequence block — and each record is TERMINATED by `//`.
+/// [NCBI GenBank Sample Record; NCBI GenBank Overview; INSDC Feature Table]
+///   — docs/algorithms/FileIO/GenBank_Parsing.md §2.1, §2.2, INV-01.
+///
+/// API entry points (GenBankParser.cs):
+///   • IEnumerable&lt;GenBankRecord&gt; GenBankParser.Parse(string content)
+///   • IEnumerable&lt;GenBankRecord&gt; GenBankParser.ParseFile(string filePath)
+/// Both `Parse`/`ParseFile` are `yield`-based iterators, so every test materializes
+/// with `.ToList()` to force the parse (and any throw) to actually run inside the
+/// assertion; one file-path test additionally pins the `ParseFile` File.ReadAllText
+/// path.
+///
+/// CRITICAL CONTRACT — TERMINATOR HANDLING IS A SPLIT, NOT A `while not //` LOOP.
+/// The single highest-value fuzz concern for a GenBank parser is an unbounded
+/// `while (line != "//")` read loop that hangs when the terminator is missing. THIS
+/// parser has NO such loop: `Parse` does `content.Split(new[]{"\n//"}, ...)` over the
+/// WHOLE text in one O(n) pass (GenBankParser.cs line 97), so a record with NO `//`
+/// simply becomes ONE block that is still parsed — it can never loop forever. The
+/// no-terminator test below carries `[CancelAfter]` as a loop/hang tripwire and pins
+/// that the partial record IS emitted (not dropped, not a hang). The business
+/// guarantee these fuzz tests pin is that EVERY malformed / truncated / random input
+/// resolves to EITHER a well-defined, theory-correct `GenBankRecord` OR a clean skip
+/// — NEVER an unhandled IndexOutOfRange (on a truncated feature/qualifier!),
+/// NullReference (on a record missing sections), or hang (on a missing `//`).
+/// Documented behaviors pinned per target (GenBank_Parsing.md §3.3, §5.2, §6.1;
+/// GenBankParser.cs Parse / ParseRecord / ParseFeatures / ParseLocation):
+///   • MISSING `LOCUS` (MC): `Parse` only calls `ParseRecord` for a trimmed block
+///     that `StartsWith("LOCUS")` (line 102). A block with NO `LOCUS` line is SKIPPED
+///     — the documented "parsed only when the block begins with LOCUS" of §3.3 / §5.2.
+///     Pinned: a record body without a `LOCUS` keyword yields ZERO records, and a
+///     two-record input where only the second has `LOCUS` yields exactly ONE record.
+///   • TRUNCATED FEATURES (TF): `ParseFeatures` (lines 438–513) is defensive — it
+///     guards every line index (`line.Length > 5`, `line.Length > 21`), so a feature
+///     line CUT OFF with no location yields `currentLocation == ""` (a zeroed
+///     `Location` via `ParseLocation("")`), and a qualifier line with NO `=` is stored
+///     as `qualifiers[name] = "true"` (line 492). No `fields[n]` / Substring index can
+///     ever go out of bounds → the classic IndexOutOfRange-on-a-truncated-record trap
+///     CANNOT fire. Pinned: a record truncated mid-FEATURES parses, the partial
+///     feature is emitted with a zeroed location, and no crash.
+///   • INVALID LOCATION (MC): `ParseLocation` delegates to
+///     `SequenceFormatHelper.ParseLocationParts`, which is REGEX-driven — it finds
+///     `\d+(?:\.\.\d+)?` ranges (SequenceFormatHelper.cs line 57) and ignores
+///     everything else. So an invalid location like `abc..xyz` matches NO ranges →
+///     a zeroed `Location` (Start==0, End==0, no Parts) with the RawLocation preserved
+///     verbatim; an unbalanced `complement(` with no closing paren still only scans for
+///     digit ranges → no IndexOutOfRange, no mismatched-paren crash. `IsComplement` is
+///     a `StartsWith("complement(")` flag, so the broken `complement(` is flagged but
+///     not dereferenced. Pinned: invalid locations parse to a zeroed location with the
+///     raw string retained, never an IndexOutOfRange.
+///   • NO `//` TERMINATOR (TF — THE KEY LOOP/HANG CASE): a record whose text ends
+///     mid-ORIGIN with no `//`. Because parsing is a `Split` not a loop, the whole
+///     text is one block beginning with `LOCUS`, so the partial record IS parsed and
+///     emitted (locus + whatever sections were present). Pinned: the unterminated
+///     record is emitted with the correct locus, NOT dropped and NOT a hang. Carries
+///     `[CancelAfter]` as the loop tripwire.
+///   • RANDOM BYTES (RB): a fixed-seed random-byte blob that does not begin with
+///     `LOCUS` is a single block that fails the `StartsWith("LOCUS")` gate → ZERO
+///     records, no crash, no hang. Carries `[CancelAfter]`; the LOCAL fixed seed makes
+///     the run byte-for-byte reproducible.
+///   • NULL / EMPTY input → no records (`yield break` on `IsNullOrEmpty`, lines 93–94).
+/// Determinism note: the random-byte GenBank test uses a LOCAL fixed-seed
+/// `new Random(seed)` and the random-byte + no-terminator tests carry `[CancelAfter]`,
+/// exactly as the FASTA/FASTQ/BED tests do.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -564,6 +651,19 @@ public class FileIoFuzzTests
     private string WriteTempGff(string content)
     {
         string path = Path.Combine(_tempDir, "in_" + Guid.NewGuid().ToString("N") + ".gff3");
+        File.WriteAllText(path, content, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        return path;
+    }
+
+    /// <summary>
+    /// Writes <paramref name="content"/> verbatim (no added trailing newline) to a
+    /// fresh temp `.gb` file and returns its path, so the GenBank file-path tests
+    /// control byte layout exactly (in particular: a record with NO `//` terminator,
+    /// or a record truncated mid-FEATURES).
+    /// </summary>
+    private string WriteTempGenBank(string content)
+    {
+        string path = Path.Combine(_tempDir, "in_" + Guid.NewGuid().ToString("N") + ".gb");
         File.WriteAllText(path, content, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
         return path;
     }
@@ -2346,6 +2446,354 @@ public class FileIoFuzzTests
         var actDir = () => dirRecords = GffParser.Parse(directiveOnly).ToList();
         actDir.Should().NotThrow("directive/comment-only input must not crash");
         dirRecords.Should().BeEmpty("##/# lines are skipped — no data rows means no records");
+    }
+
+    #endregion
+
+    #endregion
+
+    #region PARSE-GENBANK-001 — GenBank parsing
+
+    // A valid, fully-formed GenBank record (LOCUS + header + FEATURES + ORIGIN + //),
+    // used by the positive-sanity tests and as the well-formed scaffold the fuzz
+    // tests deliberately damage.
+    private const string ValidGenBankRecord =
+        "LOCUS       TEST001                  40 bp    DNA     linear   UNK 01-JAN-2024\n" +
+        "DEFINITION  Test sequence for fuzzing.\n" +
+        "ACCESSION   TEST001\n" +
+        "VERSION     TEST001.1\n" +
+        "KEYWORDS    test; fuzz.\n" +
+        "SOURCE      Homo sapiens\n" +
+        "  ORGANISM  Homo sapiens\n" +
+        "            Eukaryota; Metazoa; Chordata.\n" +
+        "FEATURES             Location/Qualifiers\n" +
+        "     gene            1..20\n" +
+        "                     /gene=\"testGene\"\n" +
+        "     CDS             10..40\n" +
+        "                     /product=\"test protein\"\n" +
+        "ORIGIN      \n" +
+        "        1 acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt\n" +
+        "//\n";
+
+    #region Positive sanity — a valid GenBank record parses to correct locus/features/sequence
+
+    /// <summary>
+    /// Positive control: a well-formed GenBank record (LOCUS + header + FEATURES +
+    /// ORIGIN, terminated by `//`) must parse to exactly one record with the correct
+    /// locus name, declared length, molecule type, the two FEATURES entries with their
+    /// locations/qualifiers, and the uppercased ORIGIN sequence. If this fails the
+    /// whole GenBank fuzz suite is meaningless — it proves the happy path is wired up
+    /// before we throw garbage at it.
+    /// </summary>
+    [Test]
+    public void ParseGenBank_ValidRecord_ParsesToCorrectLocusFeaturesAndSequence()
+    {
+        List<GenBankParser.GenBankRecord> records = GenBankParser.Parse(ValidGenBankRecord).ToList();
+
+        records.Should().ContainSingle("a single well-formed record must be emitted");
+        var rec = records[0];
+
+        rec.Locus.Should().Be("TEST001");
+        rec.SequenceLength.Should().Be(40, "the declared LOCUS length");
+        rec.MoleculeType.Should().Be("DNA");
+        rec.Topology.Should().Be("linear");
+        rec.Definition.Should().Be("Test sequence for fuzzing.");
+        rec.Accession.Should().Be("TEST001");
+
+        rec.Features.Should().HaveCount(2, "the gene and CDS features");
+        rec.Features[0].Key.Should().Be("gene");
+        rec.Features[0].Location.Start.Should().Be(1);
+        rec.Features[0].Location.End.Should().Be(20);
+        rec.Features[0].Qualifiers["gene"].Should().Be("testGene");
+        rec.Features[1].Key.Should().Be("CDS");
+        rec.Features[1].Qualifiers["product"].Should().Be("test protein");
+
+        rec.Sequence.Should().Be("ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT",
+            "ORIGIN letters are extracted, digits/spaces stripped, uppercased");
+    }
+
+    /// <summary>
+    /// Positive control over the FILE-PATH surface: the same valid record written to
+    /// disk parses via `ParseFile` to the same single record, pinning the
+    /// File.ReadAllText path (the common real-world entry point).
+    /// </summary>
+    [Test]
+    public void ParseFileGenBank_ValidRecord_ParsesToCorrectRecord()
+    {
+        string path = WriteTempGenBank(ValidGenBankRecord);
+
+        List<GenBankParser.GenBankRecord> records = GenBankParser.ParseFile(path).ToList();
+
+        records.Should().ContainSingle();
+        records[0].Locus.Should().Be("TEST001");
+        records[0].Sequence.Should().Be("ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT");
+        records[0].Features.Should().HaveCount(2);
+    }
+
+    #endregion
+
+    #region MC — Missing LOCUS: a record with no LOCUS line is skipped (no crash)
+
+    /// <summary>
+    /// MC: a record body that has DEFINITION / FEATURES / ORIGIN sections but NO
+    /// `LOCUS` line. Per GenBank_Parsing.md §3.3 (`Parse` parses a block "only when the
+    /// resulting block begins with LOCUS", GenBankParser.cs line 102), a block that does
+    /// NOT start with `LOCUS` is SKIPPED — the documented behavior, NOT a crash and NOT
+    /// a record with a null locus. We pin ZERO records exactly so this gate cannot drift.
+    /// </summary>
+    [Test]
+    public void ParseGenBank_MissingLocusLine_YieldsNoRecordsNoCrash()
+    {
+        const string noLocus =
+            "DEFINITION  A record with no LOCUS keyword.\n" +
+            "FEATURES             Location/Qualifiers\n" +
+            "     gene            1..20\n" +
+            "ORIGIN      \n" +
+            "        1 acgtacgtac\n" +
+            "//\n";
+
+        List<GenBankParser.GenBankRecord> records = new();
+        var act = () => records = GenBankParser.Parse(noLocus).ToList();
+
+        act.Should().NotThrow("a block not starting with LOCUS is skipped, not a crash");
+        records.Should().BeEmpty("only blocks beginning with LOCUS are parsed (§3.3)");
+    }
+
+    /// <summary>
+    /// MC companion: a two-record input where the FIRST block lacks `LOCUS` and the
+    /// SECOND is a valid LOCUS record. The first is skipped, the second parses — pinning
+    /// that a missing-LOCUS block does not poison the parse of the records around it.
+    /// </summary>
+    [Test]
+    public void ParseGenBank_MissingLocusFollowedByValid_ParsesOnlyTheValidRecord()
+    {
+        string twoRecords =
+            "DEFINITION  Orphan block with no LOCUS.\n" +
+            "ORIGIN      \n" +
+            "        1 acgtacgtac\n" +
+            "//\n" +
+            ValidGenBankRecord;
+
+        List<GenBankParser.GenBankRecord> records = new();
+        var act = () => records = GenBankParser.Parse(twoRecords).ToList();
+
+        act.Should().NotThrow();
+        records.Should().ContainSingle("only the LOCUS-bearing block is parsed")
+            .Which.Locus.Should().Be("TEST001");
+    }
+
+    #endregion
+
+    #region TF — Truncated features: a record cut off mid-FEATURES parses, never an IndexOutOfRange
+
+    /// <summary>
+    /// TF: a record whose FEATURES table is TRUNCATED — a feature line cut off with no
+    /// location, AND a qualifier line with no `=value`, AND the file ends right after
+    /// the qualifier (no ORIGIN, no `//`). `ParseFeatures` guards every line index
+    /// (`line.Length > 5`, `line.Length > 21`, GenBankParser.cs lines 457/480/496), so:
+    ///   • a feature key with no location → `currentLocation == ""` → a zeroed
+    ///     `Location` via `ParseLocation("")`;
+    ///   • a qualifier with no `=` → stored as value `"true"` (line 492).
+    /// No `fields[n]` / Substring index can go out of bounds → the classic
+    /// IndexOutOfRange-on-a-truncated-record trap CANNOT fire. We pin that the partial
+    /// feature is emitted with a zeroed location and the bare qualifier, and that
+    /// nothing crashes.
+    /// </summary>
+    [Test]
+    public void ParseGenBank_TruncatedFeatures_ParsesPartialFeatureNoCrash()
+    {
+        // LOCUS present (so the block is parsed), FEATURES table cut off mid-feature:
+        // a feature key with NO location, then a bare qualifier with no '=value',
+        // then EOF (no ORIGIN, no '//').
+        const string truncated =
+            "LOCUS       TRUNC001                  40 bp    DNA     linear   UNK\n" +
+            "FEATURES             Location/Qualifiers\n" +
+            "     gene\n" +                                  // feature key, NO location
+            "                     /pseudo\n";                // qualifier, NO '=value', then EOF
+
+        List<GenBankParser.GenBankRecord> records = new();
+        var act = () => records = GenBankParser.Parse(truncated).ToList();
+
+        act.Should().NotThrow("a truncated FEATURES table must not IndexOutOfRange");
+        records.Should().ContainSingle("the LOCUS block is still parsed");
+        var rec = records[0];
+        rec.Locus.Should().Be("TRUNC001");
+        rec.Features.Should().ContainSingle("the partial feature is emitted, not dropped");
+        rec.Features[0].Key.Should().Be("gene");
+        rec.Features[0].Location.Start.Should().Be(0, "a location-less feature yields a zeroed location");
+        rec.Features[0].Location.End.Should().Be(0);
+        rec.Features[0].Location.Parts.Should().BeEmpty();
+        rec.Features[0].Qualifiers.Should().ContainKey("pseudo");
+        rec.Features[0].Qualifiers["pseudo"].Should().Be("true",
+            "a valueless qualifier is stored as \"true\" (line 492)");
+    }
+
+    #endregion
+
+    #region MC — Invalid feature locations: parsed to a zeroed location, never an IndexOutOfRange
+
+    /// <summary>
+    /// MC: feature locations that are syntactically INVALID —
+    ///   • `abc..xyz` (no digits at all);
+    ///   • `complement(1..` (an unbalanced `complement(` with no closing paren).
+    /// `ParseLocation` delegates to the REGEX-driven `ParseLocationParts`, which scans
+    /// for `\d+(?:\.\.\d+)?` ranges and ignores everything else (SequenceFormatHelper.cs
+    /// line 57). So `abc..xyz` matches NO range → a zeroed `Location` (Start==0, End==0,
+    /// no Parts) with the RawLocation preserved verbatim; the unbalanced `complement(1..`
+    /// flags `IsComplement` (a `StartsWith` check) and extracts the lone `1` as a single
+    /// position — there is NO paren-matching that could throw on the missing `)`. We pin
+    /// that invalid locations parse without an IndexOutOfRange and retain their raw text.
+    /// </summary>
+    [Test]
+    public void ParseGenBank_InvalidFeatureLocations_ParseToZeroedLocationNoCrash()
+    {
+        const string invalidLoc =
+            "LOCUS       BADLOC001                 40 bp    DNA     linear   UNK\n" +
+            "FEATURES             Location/Qualifiers\n" +
+            "     gene            abc..xyz\n" +                  // no digits → no ranges
+            "                     /gene=\"junk\"\n" +
+            "     CDS             complement(1..\n" +            // unbalanced complement(
+            "                     /product=\"trunc\"\n" +
+            "ORIGIN      \n" +
+            "        1 acgtacgtac\n" +
+            "//\n";
+
+        List<GenBankParser.GenBankRecord> records = new();
+        var act = () => records = GenBankParser.Parse(invalidLoc).ToList();
+
+        act.Should().NotThrow("invalid locations must parse to a zeroed location, never IndexOutOfRange");
+        records.Should().ContainSingle();
+        var features = records[0].Features;
+        features.Should().HaveCount(2);
+
+        // abc..xyz → no numeric ranges → zeroed location, raw string retained.
+        features[0].Key.Should().Be("gene");
+        features[0].Location.Start.Should().Be(0);
+        features[0].Location.End.Should().Be(0);
+        features[0].Location.Parts.Should().BeEmpty("a digitless location matches no ranges");
+        features[0].Location.RawLocation.Should().Be("abc..xyz", "the raw location string is preserved");
+
+        // complement(1.. → IsComplement flagged, the lone digit '1' extracted, no crash.
+        features[1].Key.Should().Be("CDS");
+        features[1].Location.IsComplement.Should().BeTrue("StartsWith(\"complement(\") flags it");
+        features[1].Location.RawLocation.Should().Be("complement(1..",
+            "the unbalanced raw location is preserved, no paren-match crash");
+    }
+
+    #endregion
+
+    #region TF — No `//` terminator: the partial record is still emitted, never a hang
+
+    /// <summary>
+    /// TF — THE KEY LOOP/HANG CASE. A record that ends mid-ORIGIN with NO `//`
+    /// terminator. The classic hang bug is a `while (line != "//")` loop with no EOF
+    /// guard; this parser has NONE — `Parse` does `content.Split(new[]{"\n//"}, ...)`
+    /// over the whole text in one O(n) pass (GenBankParser.cs line 97), so a record with
+    /// no `//` is simply ONE block beginning with `LOCUS` and is STILL parsed. We pin
+    /// that the unterminated record IS emitted with the correct locus and sequence (not
+    /// dropped), over BOTH the string and `ParseFile` surfaces. `[CancelAfter]` is the
+    /// loop/hang tripwire: a regression to an unbounded read loop would time out here
+    /// rather than hang the run.
+    /// </summary>
+    [Test]
+    [CancelAfter(30_000)]
+    public void ParseGenBank_NoTerminator_EmitsPartialRecordAndDoesNotHang(CancellationToken token)
+    {
+        // A valid record body, but the file is cut off mid-ORIGIN with NO '//'.
+        const string noTerminator =
+            "LOCUS       NOTERM001                 40 bp    DNA     linear   UNK\n" +
+            "DEFINITION  Record with no terminator.\n" +
+            "FEATURES             Location/Qualifiers\n" +
+            "     gene            1..20\n" +
+            "                     /gene=\"openGene\"\n" +
+            "ORIGIN      \n" +
+            "        1 acgtacgtac gtacgtacgt";   // ends mid-sequence, NO trailing '//'
+
+        List<GenBankParser.GenBankRecord> records = new();
+        var act = () => records = GenBankParser.Parse(noTerminator).ToList();
+
+        act.Should().NotThrow("a missing // must not crash");
+        records.Should().ContainSingle("the unterminated record is still parsed (Split, not a loop)");
+        records[0].Locus.Should().Be("NOTERM001");
+        records[0].Features.Should().ContainSingle().Which.Qualifiers["gene"].Should().Be("openGene");
+        records[0].Sequence.Should().Be("ACGTACGTACGTACGTACGT",
+            "the partial ORIGIN sequence is still extracted");
+        token.IsCancellationRequested.Should().BeFalse("a missing // terminator must not hang");
+    }
+
+    /// <summary>
+    /// TF over the FILE-PATH surface: the same no-`//` record written to disk and read
+    /// back via `ParseFile`, pinning that the File.ReadAllText path emits the partial
+    /// record exactly as the string surface does. Carries `[CancelAfter]` as the
+    /// loop/hang tripwire.
+    /// </summary>
+    [Test]
+    [CancelAfter(30_000)]
+    public void ParseFileGenBank_NoTerminator_EmitsPartialRecordAndDoesNotHang(CancellationToken token)
+    {
+        const string noTerminator =
+            "LOCUS       FNOTERM01                 20 bp    DNA     linear   UNK\n" +
+            "ORIGIN      \n" +
+            "        1 acgtacgtac";   // file ends mid-record, NO '//'
+        string path = WriteTempGenBank(noTerminator);
+
+        List<GenBankParser.GenBankRecord> records = new();
+        var act = () => records = GenBankParser.ParseFile(path).ToList();
+
+        act.Should().NotThrow("ParseFile on a //-less file must not crash");
+        records.Should().ContainSingle().Which.Locus.Should().Be("FNOTERM01");
+        records[0].Sequence.Should().Be("ACGTACGTAC");
+        token.IsCancellationRequested.Should().BeFalse("a missing // terminator must not hang ParseFile");
+    }
+
+    #endregion
+
+    #region RB — Random bytes / null / empty: handled deterministically, never a crash or hang
+
+    /// <summary>
+    /// RB: a fixed-seed random-byte blob that does NOT begin with `LOCUS`. The whole
+    /// blob is a single `Split` block; it fails the `StartsWith("LOCUS")` gate (line
+    /// 102) → ZERO records, no crash, no hang. We guarantee the first bytes are not
+    /// `"LOCUS"` and strip embedded `\n//` so the random bytes stay a single block. The
+    /// LOCAL fixed seed makes the run byte-for-byte reproducible; `[CancelAfter]` is the
+    /// hang tripwire.
+    /// </summary>
+    [Test]
+    [CancelAfter(30_000)]
+    public void ParseGenBank_RandomBytesNoLocus_YieldsNoRecordsAndDoesNotHang(CancellationToken token)
+    {
+        var rng = new Random(0x6B6E);          // local fixed seed — fully reproducible
+        var sb = new StringBuilder("X");       // guarantee the block never starts with "LOCUS"
+        for (int i = 0; i < 8192; i++)
+        {
+            char c = (char)rng.Next(0, 256);
+            if (c == '/') c = 'z';             // keep it a single block (no '\n//' split / no // marker)
+            sb.Append(c);
+        }
+
+        List<GenBankParser.GenBankRecord> records = new();
+        var act = () => records = GenBankParser.Parse(sb.ToString()).ToList();
+
+        act.Should().NotThrow("a random-byte block that does not start with LOCUS must not crash");
+        records.Should().BeEmpty("only blocks beginning with LOCUS are parsed — random bytes yield none");
+        token.IsCancellationRequested.Should().BeFalse("parsing random bytes must not hang");
+    }
+
+    /// <summary>
+    /// Robustness: null and empty input must each yield ZERO records via the
+    /// `IsNullOrEmpty` early-return (GenBankParser.cs lines 93–94), never a crash. Pins
+    /// the documented empty-input contract (§6.1) so a future refactor cannot turn empty
+    /// input into an exception.
+    /// </summary>
+    [Test]
+    public void ParseGenBank_NullAndEmpty_YieldNoRecordsNoCrash()
+    {
+        List<GenBankParser.GenBankRecord> nullRecords = new();
+        var actNull = () => nullRecords = GenBankParser.Parse(null!).ToList();
+        actNull.Should().NotThrow("null input is guarded by IsNullOrEmpty");
+        nullRecords.Should().BeEmpty();
+
+        GenBankParser.Parse("").ToList().Should().BeEmpty("empty input yields no records");
     }
 
     #endregion
