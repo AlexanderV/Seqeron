@@ -164,6 +164,13 @@ public static class ProteinMotifFinder
     }
 
     /// <summary>
+    /// Upper bound on time spent matching a single user-supplied regex pattern. A pathological
+    /// (catastrophic-backtracking) pattern that exceeds this budget is treated as a non-matching
+    /// failure (no matches) rather than being allowed to hang the scan.
+    /// </summary>
+    private static readonly TimeSpan RegexMatchTimeout = TimeSpan.FromSeconds(2);
+
+    /// <summary>
     /// Finds all occurrences of a specific pattern in a protein sequence.
     /// Uses lookahead-based matching to discover overlapping occurrences,
     /// consistent with PROSITE ScanProsite behavior (De Castro et al. 2006).
@@ -182,18 +189,43 @@ public static class ProteinMotifFinder
         Regex regex;
         try
         {
-            // Lookahead wrapper enables overlapping match discovery
-            regex = new Regex("(?=(" + regexPattern + "))", RegexOptions.IgnoreCase);
+            // Lookahead wrapper enables overlapping match discovery.
+            // A bounded match timeout protects against catastrophic-backtracking patterns
+            // (e.g. "(A+)+B" over a long homopolymer): a valid-but-pathological regex compiles
+            // fine but could otherwise blow up exponentially at match time and hang the scan.
+            // RegexMatchTimeoutException is swallowed below — consistent with the documented
+            // "invalid/pathological pattern → no matches, never a hang" contract.
+            regex = new Regex("(?=(" + regexPattern + "))", RegexOptions.IgnoreCase, RegexMatchTimeout);
         }
         catch
         {
             yield break;
         }
 
-        var matches = regex.Matches(upper);
+        // Materialize the matches under a guard so a backtracking timeout (thrown during the
+        // lazy regex walk) is swallowed rather than leaking out of this enumerator.
+        List<Match> matches;
+        try
+        {
+            matches = regex.Matches(upper).Cast<Match>().ToList();
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            yield break;
+        }
+
         foreach (Match match in matches)
         {
             var captured = match.Groups[1];
+
+            // A motif occurrence must span at least one residue. A zero-width capture
+            // (e.g. a pattern like ".{0}", "$", "(?=...)", or "A?" matching the empty
+            // string) would otherwise yield a degenerate MotifMatch with an out-of-bounds
+            // Start (== sequence length) and End < Start at the end-of-string position,
+            // violating the 0 ≤ Start ≤ End ≤ n−1 coordinate invariant. Skip such captures.
+            if (captured.Length == 0)
+                continue;
+
             double score = CalculateMotifScore(captured.Value, regexPattern);
 
             yield return new MotifMatch(
