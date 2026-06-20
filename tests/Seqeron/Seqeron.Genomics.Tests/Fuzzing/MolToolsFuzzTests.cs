@@ -372,6 +372,76 @@ namespace Seqeron.Genomics.Tests;
 /// DesignPrimers is NOT an iterator (it returns a materialised PrimerPairResult), so every
 /// probe calls it directly; the positive-sanity test additionally pins that a real pair's
 /// chosen primers fall INSIDE the requested GC and Tm ranges.
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: PRIMER-STRUCT-001 — primer secondary structure (hairpin / dimer detection)
+/// Checklist: docs/checklists/03_FUZZING.md, row 23.
+/// Fuzz strategies exercised for THIS unit:
+///   • BE = Boundary Exploitation — an EXTREMELY SHORT primer (1–3 bp, below the
+///          minimum stem+loop+stem span), an EXTREMELY LONG primer (the >100-bp
+///          suffix-tree path; overflow / non-finite / hang hazard), a PALINDROMIC
+///          (self-reverse-complementary) primer (the maximal self-structure positive
+///          signal), and an ALL-G homopolymer (no Watson–Crick self-complement).
+/// — docs/checklists/03_FUZZING.md §Description (BE); row 23 targets:
+///   "Extremely short, extremely long, palindromic primer, all-G".
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The secondary-structure contract under test (Primer_Design.md §1, §2.5)
+/// ───────────────────────────────────────────────────────────────────────────
+/// Primer secondary structure (PRIMER-STRUCT-001; Primer_Design.md §2.5 names it the
+/// "Hairpin and dimer detection (used in evaluation)" prerequisite) is detected by two
+/// pure BOOLEAN predicates in PrimerDesigner (PrimerDesigner.cs):
+///   • HasHairpinPotential(string, minStemLength = 4, minLoopLength = 3) → bool
+///     (lines 307–323) — INTRAMOLECULAR self-complementarity: a stem-loop. It scans for
+///     a minStemLength-bp fragment whose reverse-complement-pairing partner occurs at
+///     least minLoopLength bases downstream (so a stem can fold back over a loop). It
+///     GUARDS the degenerate small case explicitly: `IsNullOrEmpty(seq) ||
+///     seq.Length < minStemLength*2 + minLoopLength` (i.e. < 4·2+3 = 11) → false
+///     (lines 309–310). For seq.Length < 100 it uses the simple O(n²) scanner; for
+///     >= 100 it uses the suffix-tree O(n) path (lines 316–322) — BOTH paths are exercised
+///     here (short palindrome vs long stem-loop) so neither indexes out of range or hangs.
+///   • HasPrimerDimer(string p1, string p2, minComplementarity = 4) → bool
+///     (lines 398–419) — INTERMOLECULAR 3'-end complementarity: it reverse-complements p2,
+///     compares the (≤ 8-base) 3' ends position-by-position, and returns true when at
+///     least minComplementarity positions pair. It null/empty-guards BOTH primers to
+///     false (lines 400–401).
+/// Both predicates return a plain bool — there is NO ΔG, NO division, NO NaN/Inf surface;
+/// the only failure modes a boundary input could provoke are an out-of-range Substring /
+/// AsSpan slice, a suffix-tree blow-up on a long primer, or a wrong boolean. Neither method
+/// throws for ANY string input (the empty/short guards run before any slicing).
+///
+/// THE FOUR ROW-23 FUZZ TARGETS, mapped to the theory-correct contract:
+///   • Extremely short (BE): a 1–3 bp primer is far below the 11-base stem+loop+stem
+///     minimum, so HasHairpinPotential short-circuits to FALSE (the guard, line 309) — too
+///     short to fold a stem, NEVER an IndexOutOfRange on the Substring(i, minStemLength)
+///     slices. HasPrimerDimer on two 1–3 bp primers is likewise FALSE: the 3' overlap is
+///     shorter than minComplementarity (4), so the count can never reach the threshold.
+///     LOW/zero self-structure, no crash.
+///   • Extremely long (BE): a long primer drives the >= 100-bp SUFFIX-TREE hairpin path; the
+///     result is a FINITE boolean computed promptly (no overflow, no hang — pinned with
+///     [CancelAfter]). A long random primer returns a well-defined true/false, and a long
+///     explicit stem-loop (60×G · loop · 60×C, length 130) returns TRUE via the suffix-tree
+///     path — proving the long-primer branch is correct, not merely non-crashing.
+///   • Palindromic primer (BE, KEY positive signal): a self-reverse-complementary primer
+///     has MAXIMAL hairpin potential — every base can fold back onto its partner. A clean
+///     inverted-repeat stem-loop ("GGGGAAACCCC", an 11-base stem-loop) and a true palindrome
+///     whose reverse complement equals itself ("GGAATTCCGGAATTCC") both yield
+///     HasHairpinPotential == TRUE. This is the load-bearing positive assertion: the
+///     detector MUST flag the self-structure, not silently miss it.
+///   • All-G homopolymer (BE): G does NOT Watson–Crick pair with G, so a poly-G primer has
+///     NO intramolecular self-complement and HasHairpinPotential == FALSE on BOTH the short
+///     O(n²) path (30×G) and the long suffix-tree path (150×G) — LOW/zero self-structure,
+///     never a crash. (Biochemically distinct, and pinned as a deliberate note: two SEPARATE
+///     poly-G primers DO form an inter-molecular dimer, because reverse-complementing the
+///     second poly-G yields poly-C which pairs the first — so HasPrimerDimer(G…, G…) is TRUE.
+///     That is correct and is NOT "self"-structure; the all-G self-structure signal is the
+///     hairpin, which is correctly FALSE.)
+///
+/// Documented contract pinned (Primer_Design.md §2.5, §3.3): the structure screens are pure
+/// heuristic booleans with explicit small-input guards; the positive-sanity test pins that an
+/// ordinary primer flows through HasHairpinPotential AND HasPrimerDimer without throwing and
+/// that a designed inverted repeat is detected. Both methods are pure (no iterator), so every
+/// probe calls them directly.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -1631,6 +1701,196 @@ public class MolToolsFuzzTests
         // INV-03: product size is computed directly from the chosen candidates.
         result.ProductSize.Should().Be(rev.Position + rev.Sequence.Length - fwd.Position,
             "INV-03: ProductSize = reverse.Position + reverse.Length − forward.Position");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  PRIMER-STRUCT-001 — primer secondary structure : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region PRIMER-STRUCT-001 — primer secondary structure
+
+    #region BE — Extremely short primer (below the stem+loop+stem minimum)
+
+    /// <summary>
+    /// BE (extremely short — KEY no-crash boundary): a 1–3 bp primer is far below the
+    /// 11-base stem+loop+stem minimum, so HasHairpinPotential short-circuits to FALSE via
+    /// its `seq.Length &lt; minStemLength*2 + minLoopLength` guard (PrimerDesigner.cs line
+    /// 309) BEFORE any `Substring(i, 4)` slice is taken — too short to fold a stem, and
+    /// never an IndexOutOfRangeException from slicing a 4-base fragment out of a 1–3-base
+    /// string. Pinned for "", "A", "AC", and "ACG" plus an explicit no-throw guard.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void HasHairpinPotential_ExtremelyShortPrimer_NoStructureNoCrash()
+    {
+        var act = () => PrimerDesigner.HasHairpinPotential("ACG");
+
+        act.Should().NotThrow(
+            "a 3-bp primer is shorter than the 4-base stem fragment; the length guard returns before any Substring slice");
+
+        foreach (var s in new[] { string.Empty, "A", "AC", "ACG" })
+            PrimerDesigner.HasHairpinPotential(s).Should().BeFalse(
+                $"'{s}' is below the 11-base stem+loop+stem minimum, so no hairpin can form (zero self-structure)");
+    }
+
+    /// <summary>
+    /// BE (extremely short, dimer surface): two 1–3 bp primers have a 3' overlap shorter
+    /// than the minComplementarity default (4), so the per-position complementary count can
+    /// never reach the threshold — HasPrimerDimer returns FALSE without crashing. The
+    /// `checkLength = min(8, min(len1, len2))` clamp (PrimerDesigner.cs line 407) keeps the
+    /// 3'-end Substring in-bounds even for a single base. Pinned: no dimer, no IndexOutOfRange.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void HasPrimerDimer_ExtremelyShortPrimers_NoDimerNoCrash()
+    {
+        var act = () => PrimerDesigner.HasPrimerDimer("A", "A");
+
+        act.Should().NotThrow(
+            "the checkLength clamp keeps the 3'-end slice in-bounds for a single-base primer");
+
+        PrimerDesigner.HasPrimerDimer("A", "A").Should().BeFalse(
+            "a 1-base 3' overlap cannot reach the minComplementarity of 4, so no dimer is reported");
+        PrimerDesigner.HasPrimerDimer("ACG", "ACG").Should().BeFalse(
+            "a 3-base 3' overlap is still below the 4-base complementarity threshold");
+    }
+
+    #endregion
+
+    #region BE — Palindromic primer (maximal self-structure — KEY positive signal)
+
+    /// <summary>
+    /// BE (palindromic — KEY positive signal): a self-reverse-complementary primer has
+    /// MAXIMAL hairpin potential. A clean inverted-repeat stem-loop "GGGGAAACCCC" (4-G stem,
+    /// 3-A loop, 4-C stem = revcomp of the 5' stem; exactly the 11-base minimum) and a true
+    /// palindrome whose reverse complement equals itself ("GGAATTCCGGAATTCC") both MUST be
+    /// flagged: HasHairpinPotential == TRUE. This is the load-bearing assertion of the unit —
+    /// the detector must DETECT the self-structure, never silently miss it. Both run the short
+    /// O(n²) path (&lt; 100 bp).
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void HasHairpinPotential_PalindromicPrimer_DetectsHairpin()
+    {
+        // Reverse complement of "GGAATTCCGGAATTCC" is itself — a true palindrome.
+        DnaSequence.GetReverseComplementString("GGAATTCCGGAATTCC")
+            .Should().Be("GGAATTCCGGAATTCC", "the test fixture is a genuine self-reverse-complementary palindrome");
+
+        PrimerDesigner.HasHairpinPotential("GGGGAAACCCC").Should().BeTrue(
+            "an inverted-repeat stem-loop (GGGG…loop…CCCC) is the canonical hairpin and MUST be detected");
+        PrimerDesigner.HasHairpinPotential("GGAATTCCGGAATTCC").Should().BeTrue(
+            "a self-reverse-complementary palindrome has maximal self-complementarity, so a hairpin is detected");
+    }
+
+    #endregion
+
+    #region BE — All-G homopolymer (no Watson–Crick self-complement)
+
+    /// <summary>
+    /// BE (all-G homopolymer): G does NOT Watson–Crick pair with G, so a poly-G primer has
+    /// NO intramolecular self-complement and HasHairpinPotential == FALSE — LOW/zero
+    /// self-structure, never a crash. Pinned on BOTH the short O(n²) path (30×G) AND the long
+    /// suffix-tree path (150×G, &gt;= 100 bp), so the homopolymer exercises both branches without
+    /// fabricating a hairpin or hanging.
+    /// </summary>
+    [Test]
+    [CancelAfter(10000)]
+    public void HasHairpinPotential_AllGHomopolymer_NoHairpinOnBothPaths()
+    {
+        string g30 = new string('G', 30);    // short O(n²) path
+        string g150 = new string('G', 150);  // long suffix-tree path
+
+        PrimerDesigner.HasHairpinPotential(g30).Should().BeFalse(
+            "G–G does not pair, so a 30-base poly-G primer has no self-complementary stem (no hairpin)");
+        PrimerDesigner.HasHairpinPotential(g150).Should().BeFalse(
+            "the >=100-bp suffix-tree path agrees: a poly-G homopolymer forms no intramolecular hairpin");
+    }
+
+    /// <summary>
+    /// BE (all-G, dimer surface — deliberate biochemical contrast): two SEPARATE poly-G
+    /// primers DO form an INTER-molecular dimer, because reverse-complementing the second
+    /// poly-G yields poly-C, which is fully complementary to the first poly-G's 3' end. So
+    /// HasPrimerDimer(G…, G…) is TRUE — and this is correct, NOT a bug: it is duplex
+    /// (G:C) pairing between two molecules, not the absent intramolecular self-structure. We
+    /// pin it to document that "all-G ⇒ no SELF structure" is a hairpin fact, while the dimer
+    /// predicate correctly sees the G:C complementarity across two strands.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void HasPrimerDimer_TwoAllGPrimers_DetectsGcDimerAcrossStrands()
+    {
+        string g30 = new string('G', 30);
+
+        PrimerDesigner.HasPrimerDimer(g30, g30).Should().BeTrue(
+            "revcomp(poly-G) is poly-C, which pairs the first poly-G's 3' end — a correct inter-molecular G:C dimer, distinct from a (absent) hairpin");
+    }
+
+    #endregion
+
+    #region BE — Extremely long primer (suffix-tree path; finite, no hang)
+
+    /// <summary>
+    /// BE (extremely long): a long primer drives the &gt;= 100-bp SUFFIX-TREE hairpin path,
+    /// which must return a FINITE boolean PROMPTLY — no overflow, no Inf/NaN (there is no
+    /// floating-point surface), and no hang (pinned with [CancelAfter]). A 5000-bp fixed-seed
+    /// random primer returns a well-defined true/false without throwing; an explicit long
+    /// stem-loop (60×G · 10×A loop · 60×C, length 130 — a self-complementary inverted repeat)
+    /// returns TRUE via the suffix-tree branch, proving the long-primer path is correct, not
+    /// merely non-crashing.
+    /// </summary>
+    [Test]
+    [CancelAfter(15000)]
+    public void HasHairpinPotential_ExtremelyLongPrimer_FiniteResultNoHang()
+    {
+        string longRandom = RandomDna(5000, seed: 23_001);
+        string longStemLoop = new string('G', 60) + new string('A', 10) + new string('C', 60); // length 130
+
+        var act = () => PrimerDesigner.HasHairpinPotential(longRandom);
+        act.Should().NotThrow(
+            "a 5000-bp primer runs the suffix-tree path; it must terminate with a boolean, never overflow or hang");
+
+        PrimerDesigner.HasHairpinPotential(longStemLoop).Should().BeTrue(
+            "a long explicit inverted-repeat stem-loop (60×G…60×C) is a hairpin and the >=100-bp suffix-tree path detects it");
+    }
+
+    #endregion
+
+    #region Positive sanity — an ordinary primer flows through both structure screens
+
+    /// <summary>
+    /// Positive sanity: an ordinary, well-behaved primer must flow through BOTH structure
+    /// predicates without throwing, returning plain booleans — so the boundary hardening never
+    /// breaks the core screens. A balanced 20-nt primer with no designed inverted repeat is not
+    /// flagged as a hairpin and does not self-dimer with a non-complementary partner, while the
+    /// designed inverted repeat IS flagged — pinning that the detector discriminates structure
+    /// from non-structure rather than answering a constant.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void StructureScreens_OrdinaryPrimer_ReturnWellDefinedBooleans()
+    {
+        // A poly-A 20-mer has no inverted repeat (A does not pair A): no hairpin. For the
+        // dimer screen we pair it with a poly-C partner: revcomp(poly-C) is poly-G, and A:G
+        // does not pair, so the 3' ends are non-complementary and no dimer is reported.
+        string ordinary = new string('A', 20);    // 20-nt, no self-complement
+        const string hairpinPrimer = "GGGGAAACCCC"; // designed stem-loop
+
+        var hairpin = () => PrimerDesigner.HasHairpinPotential(ordinary);
+        var dimer = () => PrimerDesigner.HasPrimerDimer(ordinary, new string('C', 20));
+
+        hairpin.Should().NotThrow("an ordinary 20-nt primer is screened for hairpins without throwing");
+        dimer.Should().NotThrow("an ordinary 20-nt primer is screened for dimers without throwing");
+
+        PrimerDesigner.HasHairpinPotential(ordinary).Should().BeFalse(
+            "a poly-A primer has no self-complementary stem, so it forms no hairpin");
+        PrimerDesigner.HasPrimerDimer(ordinary, new string('C', 20)).Should().BeFalse(
+            "a poly-A vs poly-C pair has non-complementary 3' ends (A:G after reverse-complementing poly-C), so no dimer");
+        PrimerDesigner.HasHairpinPotential(hairpinPrimer).Should().BeTrue(
+            "the designed inverted repeat IS detected — the screen discriminates structure from non-structure");
     }
 
     #endregion
