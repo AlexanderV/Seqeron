@@ -436,13 +436,36 @@ public static class GenomeAnnotator
             if (parts.Length < 9)
                 continue;
 
-            featureCount++;
+            // Malformed-but-9-column lines are skipped, not thrown — mirroring the
+            // "skip malformed line" discipline already applied for the <9-column case and
+            // the sibling GffParser.ParseLine. A non-numeric start/end/score/phase or an
+            // empty (present-but-blank) strand column is a malformed data line, not a
+            // parse-fatal crash: tolerant TryParse keeps the lightweight reader caller-safe
+            // (no uncaught FormatException, no IndexOutOfRange on an empty strand field).
+            if (!int.TryParse(parts[3], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int start))
+                continue;
+            if (!int.TryParse(parts[4], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int end))
+                continue;
 
-            int start = int.Parse(parts[3]);
-            int end = int.Parse(parts[4]);
-            double? score = parts[5] == "." ? null : double.Parse(parts[5], System.Globalization.CultureInfo.InvariantCulture);
-            char strand = parts[6][0];
-            int? phase = parts[7] == "." ? null : int.Parse(parts[7]);
+            double? score = null;
+            if (parts[5] != ".")
+            {
+                if (!double.TryParse(parts[5], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double parsedScore))
+                    continue;
+                score = parsedScore;
+            }
+
+            char strand = parts[6].Length > 0 ? parts[6][0] : '.';
+
+            int? phase = null;
+            if (parts[7] != ".")
+            {
+                if (!int.TryParse(parts[7], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int parsedPhase))
+                    continue;
+                phase = parsedPhase;
+            }
+
+            featureCount++;
 
             var attributes = ParseGff3Attributes(parts[8]);
 
