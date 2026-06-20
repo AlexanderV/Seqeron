@@ -399,6 +399,81 @@ namespace Seqeron.Genomics.Tests;
 ///     0 rather than a 0/0 NaN (the DivideByZero boundary). We pin that this surface
 ///     stays finite, non-throwing, and NaN-free on pure random-byte garbage, so the
 ///     strict/lenient boundary is explicit.
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: SEQ-ATSKEW-001 — AT skew (Composition)
+/// Checklist: docs/checklists/03_FUZZING.md, row 210.
+/// Fuzz strategies exercised for THIS unit:
+///   • BE  = Boundary Exploitation — balanced AT (equal A and T ⇒ skew 0),
+///           all-A (skew +1), no AT present (A+T=0, the DivideByZero boundary),
+///           and the "window edge" boundary — AT skew computed over caller
+///           substring windows at window = 1, window &gt; sequence length, and
+///           the partial trailing window.
+/// — docs/checklists/03_FUZZING.md §Description (strategy codes).
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The AT-skew contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// SEQ-ATSKEW-001 is strand A/T compositional asymmetry, defined as
+///     AT skew = (A − T) / (A + T),
+/// counting ONLY adenine and thymine (Charneski et al. 2011; Lobry 1996). The value
+/// lies in the CLOSED interval [−1, 1]: an all-A run is the MAXIMUM (+1), an all-T
+/// run is the MINIMUM (−1), and any sequence with equal A and T counts (e.g.
+/// alternating ATAT…, or balanced ⇒ A = T) is exactly 0 (INV-02). THE critical
+/// boundary is A + T = 0 (empty input, or a sequence with no A and no T at all,
+/// e.g. "GGCC"): the contract returns the DEFINED value 0, NOT a DivideByZero crash
+/// and NOT a NaN — the implementation guards the zero denominator
+/// (GcSkewCalculator.cs line 205: `total > 0 ? (double)(A−T)/total : 0`).
+///   — docs/algorithms/Extended_GC_Skew_Analysis/AT_Skew.md §2.2 (core model),
+///     §2.4 (INV-01 range [−1,1]; INV-02 A=T ⇒ 0; INV-03 A+T=0 ⇒ 0, no exception/NaN;
+///     INV-04 case-insensitive; INV-05 non-A/T ignored), §6.1 (edge cases),
+///     §7.1 (worked examples: "AAAT" → 0.5, "AAATGGGCCC" → 0.5, pure A → +1,
+///     pure T → −1). Sources: Lobry (1996), Charneski et al. (2011),
+///     Biopython GC_skew zero-denominator convention.
+///
+/// "WINDOW EDGE" — the checklist names a window-edge boundary, but AT_Skew.md §5.3
+/// (Not implemented) and §6.2 are EXPLICIT that this unit computes a single GLOBAL
+/// scalar: windowed / cumulative AT-skew profiles are out of scope (users rely on
+/// the GC-skew windowed methods for localization). There is therefore no native
+/// AT-skew windowing API to fuzz. We honour the boundary the only spec-faithful way:
+/// AT skew computed over CALLER-supplied substring windows — window length 1, a
+/// window LONGER than the sequence (clamped by the caller), and the partial trailing
+/// window — must equal the global formula applied to that exact slice and must stay
+/// in [−1, 1] with no crash/NaN. This pins the window-edge boundary without inventing
+/// a windowing semantic the unit does not document.
+///
+/// API entry: GcSkewCalculator.CalculateAtSkew(...)
+///   (src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GcSkewCalculator.cs).
+///
+/// SEQ-ATSKEW-001 has TWO documented surfaces with DIFFERENT validation contracts.
+/// Fuzzing pins both, and the boundary between them, so neither drifts:
+///
+/// (1) The TYPED overload — CalculateAtSkew(DnaSequence)
+///     (GcSkewCalculator.cs lines 174–178). The DnaSequence argument has ALREADY
+///     passed the strict ctor validation gate, so only A/C/G/T (upper-cased) ever
+///     reach the metric. Documented validation (AT_Skew.md §3.3):
+///       • null DnaSequence            → ArgumentNullException (explicit guard,
+///                                        never a NullReferenceException);
+///       • empty sequence              → 0 (INV-03 zero-denominator guard);
+///       • single A/T                  → +1 / −1; single G/C → 0 (no A/T present);
+///       • balanced / alternating AT   → exactly 0 (INV-02);
+///       • valid extremely long input  → finite skew in [−1, 1], no overflow/hang.
+///     Because non-ACGT cannot reach this overload, the result is always in the
+///     DNA-bounded [−1, 1] interval (INV-01) and never NaN.
+///
+/// (2) The RAW-STRING overload — CalculateAtSkew(string)
+///     (GcSkewCalculator.cs lines 189–195). LENIENT by documented design: it
+///     short-circuits null/empty to 0, upper-cases, and counts ONLY A and T —
+///     every other character (G, C, N, ambiguity codes, U, digits, gaps, whitespace,
+///     null byte, unicode, surrogate halves) is IGNORED, not validated
+///     (AT_Skew.md §3.3, INV-05). So it must NEVER throw on arbitrary chars, and
+///     because only A and T are ever counted the result stays a FINITE value in
+///     [−1, 1] — ignored garbage does not shift the skew of the A/T bases that ARE
+///     present. When NO A and NO T is present at all, the total==0 guard returns the
+///     defined 0 rather than a 0/0 NaN (the DivideByZero boundary). We pin that this
+///     surface stays finite, non-throwing, and NaN-free on pure random-byte garbage,
+///     so the strict/lenient boundary is explicit. NOTE: there is NO T↔U conversion
+///     (AT_Skew.md §6.2): 'U' is ignored, not treated as T — we pin that too.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -2479,6 +2554,402 @@ public class CompositionFuzzTests
                 "only G/C are counted, so no NaN/Inf can leak from the lenient overload");
             rawSkew.Should().BeInRange(-1.0, 1.0,
                 "the lenient skew is bounded to [−1,1] even on pure garbage");
+        }
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  SEQ-ATSKEW-001 — AT skew : (A − T) / (A + T), range [−1, 1]
+    //  Typed overload:  CalculateAtSkew(DnaSequence) — strict, ArgumentNull on null
+    //  Raw-string:      CalculateAtSkew(string)      — lenient, counts only A/T
+    //  AT_Skew.md §2.2/§2.4/§3.3/§6.1/§7.1; ADVANCED_TESTING_CHECKLIST.md §8.
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region SEQ-ATSKEW-001 — AT skew
+
+    #region Positive sanity — worked examples from the doc (§7.1)
+
+    /// <summary>
+    /// Positive sanity: the exact, hand-checkable worked examples from AT_Skew.md
+    /// §7.1 and §6.1, derived INDEPENDENTLY from the formula (A−T)/(A+T), NOT read
+    /// off the implementation. "AAAT" → A=3,T=1 → 2/4 = 0.5; the numerical
+    /// walk-through "AAATGGGCCC" → A=3,T=1 (G/C ignored, INV-05) → 0.5; pure A → +1;
+    /// pure T → −1; balanced 2A/2T → 0 (INV-02); a mixed count "AATTTT" →
+    /// (2−4)/6 = −1/3. Verified on the strict typed path over valid A/C/G/T DNA.
+    /// </summary>
+    [TestCase("AAAT", 0.5, TestName = "AtSkew_Doc_AAAT_IsHalf")]
+    [TestCase("AAATGGGCCC", 0.5, TestName = "AtSkew_Doc_AAATGGGCCC_GcIgnored_IsHalf")]
+    [TestCase("AAAA", +1.0, TestName = "AtSkew_Doc_PureA_IsPlusOne")]
+    [TestCase("TTTT", -1.0, TestName = "AtSkew_Doc_PureT_IsMinusOne")]
+    [TestCase("AATT", 0.0, TestName = "AtSkew_Doc_Balanced2A2T_IsZero")]
+    [TestCase("AATTTT", -1.0 / 3.0, TestName = "AtSkew_Doc_TwoAFourT_IsMinusThird")]
+    public void AtSkew_TypedWorkedExamples_MatchFormula(string input, double expected)
+    {
+        double skew = GcSkewCalculator.CalculateAtSkew(new DnaSequence(input));
+
+        skew.Should().BeApproximately(expected, Tolerance,
+            because: $"(A−T)/(A+T) for \"{input}\" is {expected} per AT_Skew.md §7.1/§6.1; "
+                   + "G/C are ignored (INV-05) and the skew stays in the closed range [−1, 1]");
+    }
+
+    #endregion
+
+    #region BE — Boundary: empty and null
+
+    /// <summary>
+    /// BE: the empty string is the lower size boundary AND a face of the
+    /// DivideByZero boundary (A + T = 0). The typed path defines the empty
+    /// DnaSequence (DnaSequence.cs lines 24–28) and CalculateAtSkew must return the
+    /// defined 0 via the zero-denominator guard (GcSkewCalculator.cs line 205) —
+    /// no DivideByZeroException, no NaN, no crash (AT_Skew.md INV-03 / §6.1). The
+    /// lenient raw-string overload returns 0 for "" and null by its IsNullOrEmpty
+    /// short-circuit (lines 191–192).
+    /// </summary>
+    [Test]
+    public void AtSkew_EmptyAndNull_IsZeroAndDoesNotThrow()
+    {
+        var typed = () =>
+        {
+            double skew = GcSkewCalculator.CalculateAtSkew(new DnaSequence(string.Empty));
+            skew.Should().Be(0.0,
+                because: "an empty sequence has no A or T; skew is defined as 0 by the zero-denominator guard");
+        };
+        typed.Should().NotThrow("the empty sequence is a defined boundary, not a DivideByZero error");
+
+        var rawEmpty = () => GcSkewCalculator.CalculateAtSkew(string.Empty).Should().Be(0.0);
+        var rawNull = () => GcSkewCalculator.CalculateAtSkew((string)null!).Should().Be(0.0);
+        rawEmpty.Should().NotThrow("the lenient overload short-circuits empty input to 0");
+        rawNull.Should().NotThrow<NullReferenceException>(
+            "null is handled by the IsNullOrEmpty gate, never dereferenced");
+        rawNull.Should().NotThrow("null is a defined 'no input' boundary returning 0, not an error");
+    }
+
+    /// <summary>
+    /// BE: a null DnaSequence is the explicit-guard boundary on the strict typed
+    /// path. CalculateAtSkew(DnaSequence) must throw the *documented, intentional*
+    /// ArgumentNullException (GcSkewCalculator.cs line 176, AT_Skew.md §3.3), never
+    /// a raw NullReferenceException from dereferencing <c>.Sequence</c>.
+    /// </summary>
+    [Test]
+    public void AtSkew_NullDnaSequence_ThrowsArgumentNullException()
+    {
+        var act = () => GcSkewCalculator.CalculateAtSkew((DnaSequence)null!);
+
+        act.Should().Throw<ArgumentNullException>(
+            "the typed overload guards null with the documented ArgumentNullException, not a crash");
+    }
+
+    #endregion
+
+    #region BE — Boundary: all-A and the single-base extremes
+
+    /// <summary>
+    /// BE: the checklist's "all-A" target and the binary extreme of the skew. A
+    /// one-base 'A' is the maximum +1 (A=1,T=0 → 1/1); a single 'T' is the minimum
+    /// −1; a single 'G' or 'C' has NO A/T, so the A+T=0 guard returns the defined 0
+    /// (NOT NaN). Lowercase is accepted on the typed path (case-folded at
+    /// construction, INV-04) and yields the same value. Verified over all four bases
+    /// in both cases on the strict typed overload.
+    /// </summary>
+    [TestCase('A', +1.0)]
+    [TestCase('T', -1.0)]
+    [TestCase('G', 0.0)]
+    [TestCase('C', 0.0)]
+    [TestCase('a', +1.0)]
+    [TestCase('t', -1.0)]
+    [TestCase('g', 0.0)]
+    [TestCase('c', 0.0)]
+    public void AtSkew_SingleBase_IsBinaryExtremeOrZero(char baseChar, double expected)
+    {
+        double skew = GcSkewCalculator.CalculateAtSkew(new DnaSequence(baseChar.ToString()));
+
+        skew.Should().BeApproximately(expected, Tolerance,
+            because: expected switch
+            {
+                +1.0 => $"a single '{baseChar}' is all-A → maximum skew +1",
+                -1.0 => $"a single '{baseChar}' is all-T → minimum skew −1",
+                _ => $"a single '{baseChar}' has no A/T, so the A+T=0 guard returns the defined 0, not NaN"
+            });
+    }
+
+    /// <summary>
+    /// BE: the "all-A" boundary across lengths and the all-T mirror. An all-A run is
+    /// the maximum +1 and an all-T run is the minimum −1 at ANY length (T=0 ⇒ +1,
+    /// A=0 ⇒ −1, INV-01). Pins that the extreme value does not drift with length.
+    /// </summary>
+    [TestCase("A", +1.0, TestName = "AtSkew_AllA_SingleA_IsPlusOne")]
+    [TestCase("AAAA", +1.0, TestName = "AtSkew_AllA_Length4_IsPlusOne")]
+    [TestCase("AAAAAAAAAAAA", +1.0, TestName = "AtSkew_AllA_Length12_IsPlusOne")]
+    [TestCase("TTTT", -1.0, TestName = "AtSkew_AllT_Length4_IsMinusOne")]
+    public void AtSkew_AllAOrAllT_IsExtreme(string input, double expected)
+    {
+        double skew = GcSkewCalculator.CalculateAtSkew(new DnaSequence(input));
+
+        skew.Should().BeApproximately(expected, Tolerance,
+            because: $"an all-{input[0]} run has skew {expected} regardless of length");
+    }
+
+    #endregion
+
+    #region BE — Boundary: balanced AT (A = T ⇒ skew 0)
+
+    /// <summary>
+    /// BE: the checklist's "balanced AT" target — the symmetry boundary. A sequence
+    /// with EQUAL A and T counts (alternating ATAT… and its TATA… phase, or any
+    /// balanced mix) has numerator A−T = 0, so the skew is exactly 0 regardless of
+    /// length and regardless of ignored G/C content (INV-02, INV-05). Verified on the
+    /// strict typed path over valid A/C/G/T DNA across lengths and phases.
+    /// </summary>
+    [TestCase("AT", TestName = "AtSkew_Balanced_AT_IsZero")]
+    [TestCase("TA", TestName = "AtSkew_Balanced_TA_IsZero")]
+    [TestCase("ATATATAT", TestName = "AtSkew_Balanced_ATATATAT_IsZero")]
+    [TestCase("AATT", TestName = "AtSkew_Balanced_AATT_IsZero")]
+    [TestCase("ATGCAT", TestName = "AtSkew_Balanced_WithGcIgnored_IsZero")]
+    [TestCase("AAGGTTCC", TestName = "AtSkew_Balanced_TwoAtwoT_GcIgnored_IsZero")]
+    public void AtSkew_BalancedAt_IsZero(string input)
+    {
+        double skew = GcSkewCalculator.CalculateAtSkew(new DnaSequence(input));
+
+        skew.Should().Be(0.0,
+            because: $"\"{input}\" has equal A and T (G/C ignored), so A−T=0 and the skew is exactly 0");
+    }
+
+    #endregion
+
+    #region BE — Boundary: no A or T (the DivideByZero boundary, A + T = 0)
+
+    /// <summary>
+    /// BE: the checklist's "no AT" target — the critical A + T = 0 boundary. A
+    /// sequence with NO adenine and NO thymine (all-G, all-C, GC-only) makes the
+    /// denominator zero. The typed path over valid G/C-only DNA must return the
+    /// defined 0 — never DivideByZeroException, never NaN. This is the headline fuzz
+    /// target for the AT-skew DivideByZero face (AT_Skew.md INV-03 / §6.1).
+    /// </summary>
+    [TestCase("G", TestName = "AtSkew_NoAorT_SingleG_IsZero")]
+    [TestCase("GGGG", TestName = "AtSkew_NoAorT_AllG_IsZero")]
+    [TestCase("CCCC", TestName = "AtSkew_NoAorT_AllC_IsZero")]
+    [TestCase("GGCC", TestName = "AtSkew_NoAorT_GcOnly_IsZero")]
+    [TestCase("GCGCGC", TestName = "AtSkew_NoAorT_GcAlternating_IsZero")]
+    public void AtSkew_TypedNoAorT_IsZeroAndDoesNotThrow(string gcOnly)
+    {
+        double skew = double.NaN;
+        var act = () => skew = GcSkewCalculator.CalculateAtSkew(new DnaSequence(gcOnly));
+
+        act.Should().NotThrow("no A/T means A+T=0, the guarded boundary — not a DivideByZero crash");
+        double.IsNaN(skew).Should().BeFalse("the zero-denominator guard returns 0, never a 0/0 NaN");
+        skew.Should().Be(0.0, because: "with no A and no T the skew is defined as 0");
+    }
+
+    /// <summary>
+    /// BE: the lenient raw-string path at the A+T=0 boundary. Input that contains NO
+    /// A and NO T after upper-casing — pure G/C, ambiguity codes, digits, gaps, an
+    /// embedded null byte, unicode, or the RNA base U (NOT converted to T, AT_Skew.md
+    /// §6.2) — counts no A/T, so the total==0 guard returns the defined 0
+    /// (GcSkewCalculator.cs line 205). The overload must NEVER throw and never leak
+    /// NaN, even on garbage the typed path would reject.
+    /// </summary>
+    [TestCase("GGCC", TestName = "AtSkew_RawNoAorT_GcOnly_IsZero")]
+    [TestCase("GCGC", TestName = "AtSkew_RawNoAorT_GcAlternating_IsZero")]
+    [TestCase("NNNN", TestName = "AtSkew_RawNoAorT_OnlyAmbiguity_IsZero")]
+    [TestCase("12345", TestName = "AtSkew_RawNoAorT_OnlyDigits_IsZero")]
+    [TestCase("----", TestName = "AtSkew_RawNoAorT_OnlyGaps_IsZero")]
+    [TestCase("UUUU", TestName = "AtSkew_RawNoAorT_RnaUNotTreatedAsT_IsZero")]
+    [TestCase("g\0c", TestName = "AtSkew_RawNoAorT_NullByteBetweenGc_IsZero")]
+    [TestCase("ααα", TestName = "AtSkew_RawNoAorT_Unicode_IsZero")]
+    public void AtSkew_RawStringNoAorT_IsZeroAndDoesNotThrow(string input)
+    {
+        double skew = double.NaN;
+        var act = () => skew = GcSkewCalculator.CalculateAtSkew(input);
+
+        act.Should().NotThrow("the lenient overload counts only A/T and never throws on non-A/T garbage");
+        double.IsNaN(skew).Should().BeFalse("the total==0 guard returns 0, never a 0/0 NaN");
+        skew.Should().Be(0.0, because: "no A and no T is present, so the skew is the defined 0");
+    }
+
+    /// <summary>
+    /// INV-05 boundary: the lenient overload IGNORES G/C and other non-A/T symbols
+    /// and computes the skew of ONLY the A/T bases present — so injected garbage
+    /// interspersed with real A/T must not shift the value. "A-G_T1N" has one A and
+    /// one T → balanced → 0; "aXgtT" (lowercase, INV-04) has one A and two T →
+    /// (1−2)/3 = −1/3; the doc's own "AAATGGGCCC" reads 0.5 on this surface too.
+    /// Pins that injection cannot silently corrupt the count.
+    /// </summary>
+    [TestCase("A-G_T1N", 0.0, TestName = "AtSkew_RawIgnoresGarbage_BalancedAt_IsZero")]
+    [TestCase("aXgtT", -1.0 / 3.0, TestName = "AtSkew_RawIgnoresGarbage_OneATwoT_IsMinusThird")]
+    [TestCase("AAATGGGCCC", 0.5, TestName = "AtSkew_RawIgnoresGc_DocExample_IsHalf")]
+    [TestCase("A\0\0\0", +1.0, TestName = "AtSkew_RawIgnoresNullBytes_PureA_IsPlusOne")]
+    public void AtSkew_RawStringIgnoresNonAtSymbols(string input, double expected)
+    {
+        double skew = GcSkewCalculator.CalculateAtSkew(input);
+
+        skew.Should().BeApproximately(expected, Tolerance,
+            because: $"only A/T are counted (INV-05); ignored symbols do not shift the skew of \"{input}\"");
+    }
+
+    #endregion
+
+    #region BE — Boundary: window edge (caller substring windows; no native window API)
+
+    /// <summary>
+    /// BE — "window edge": AT_Skew.md §5.3/§6.2 are explicit that this unit is a
+    /// single GLOBAL scalar with NO native windowing API. We honour the checklist's
+    /// window-edge boundary the only spec-faithful way: AT skew computed over a
+    /// CALLER substring window must equal the global formula on that exact slice and
+    /// stay in [−1, 1] with no crash/NaN. This pins the three window-edge faces:
+    ///   • window length 1 — each single-base window is +1/−1 (A/T) or 0 (G/C);
+    ///   • window LONGER than the sequence (clamped by the caller to the whole seq)
+    ///     — equals the global skew, no over-read / IndexOutOfRange;
+    ///   • the partial trailing window — the last window shorter than the step still
+    ///     computes correctly from its own A/T counts.
+    /// Locally-seeded RNG (never the shared static Rng) so sibling fixtures are
+    /// untouched. [CancelAfter] guards the sweep against a hang.
+    /// </summary>
+    [Test]
+    [CancelAfter(30_000)]
+    public void AtSkew_CallerWindows_MatchGlobalFormulaAtWindowEdges()
+    {
+        var local = new Random(20260620);
+        const string bases = "ACGT";
+
+        for (int trial = 0; trial < 200; trial++)
+        {
+            int n = local.Next(1, 40);
+            var chars = new char[n];
+            for (int i = 0; i < n; i++)
+                chars[i] = bases[local.Next(bases.Length)];
+            string seq = new(chars);
+
+            // window length sweeps the three edges: 1, every interior size, and
+            // a window strictly LONGER than the sequence (clamped to the whole seq).
+            foreach (int window in new[] { 1, Math.Max(1, n / 2), n, n + 5, n + 1000 })
+            {
+                for (int start = 0; start < n; start += window)
+                {
+                    int len = Math.Min(window, n - start);          // partial trailing window
+                    string slice = seq.Substring(start, len);
+
+                    // Independent reference: the §2.2 formula on this exact slice.
+                    int a = slice.Count(c => c == 'A');
+                    int t = slice.Count(c => c == 'T');
+                    double expected = (a + t) > 0 ? (double)(a - t) / (a + t) : 0.0;
+
+                    double skew = double.NaN;
+                    var act = () => skew = GcSkewCalculator.CalculateAtSkew(slice);
+                    act.Should().NotThrow(
+                        $"a caller window must never crash the global statistic; "
+                        + $"slice=\"{slice}\" window={window} start={start}");
+                    double.IsNaN(skew).Should().BeFalse(
+                        $"the A+T=0 guard prevents NaN even on a G/C-only window; slice=\"{slice}\"");
+                    skew.Should().BeInRange(-1.0, 1.0,
+                        $"|A−T| ≤ A+T, so a window skew stays in [−1,1]; slice=\"{slice}\"");
+                    skew.Should().BeApproximately(expected, Tolerance,
+                        $"AT skew on a caller window equals (A−T)/(A+T) of that slice; slice=\"{slice}\"");
+                }
+            }
+        }
+    }
+
+    #endregion
+
+    #region BE — Boundary: extremely long
+
+    /// <summary>
+    /// BE/OVF: an extremely long valid sequence (1,000,000 bases) must compute the
+    /// skew without overflow, hang, or precision blow-up; the result must stay in
+    /// [−1, 1] and be finite. Known-composition long inputs pin exact values: "AG"
+    /// repeated has A but no T → +1 at any length; "AT" repeated has equal A and T →
+    /// 0 at any length; "GC" repeated has no A/T → the A+T=0 guard returns 0. A
+    /// fixed-seed random long sequence pins the range invariant at scale.
+    /// </summary>
+    [Test]
+    [CancelAfter(60_000)]
+    public void AtSkew_ExtremelyLong_StaysInRangeAndDoesNotHang()
+    {
+        const int length = 1_000_000;
+
+        // "AG" repeated: A present, T absent → skew = (A−0)/(A+0) = +1, at any length.
+        var allAskew = new DnaSequence(string.Concat(Enumerable.Repeat("AG", length / 2)));
+        allAskew.Length.Should().Be(length);
+        GcSkewCalculator.CalculateAtSkew(allAskew).Should().BeApproximately(+1.0, Tolerance,
+            because: "a long sequence with A but no T has skew +1, regardless of length");
+
+        // "AT" repeated: equal A and T → skew = 0, at any length.
+        var balanced = new DnaSequence(string.Concat(Enumerable.Repeat("AT", length / 2)));
+        GcSkewCalculator.CalculateAtSkew(balanced).Should().BeApproximately(0.0, Tolerance,
+            because: "a long sequence with equal A and T has skew 0, regardless of length");
+
+        // "GC" repeated: no A/T → the A+T=0 guard returns the defined 0.
+        var noAt = new DnaSequence(string.Concat(Enumerable.Repeat("GC", length / 2)));
+        GcSkewCalculator.CalculateAtSkew(noAt).Should().Be(0.0,
+            because: "a long sequence with no A and no T is the A+T=0 boundary, defined as 0");
+
+        // Fixed-seed random long sequence (locally-seeded so other fixtures are not
+        // perturbed by the shared static Rng): a finite value in the closed range.
+        var local = new Random(48211);
+        var chars = new char[length];
+        const string bases = "ACGT";
+        for (int i = 0; i < length; i++)
+            chars[i] = bases[local.Next(bases.Length)];
+
+        double randomSkew = GcSkewCalculator.CalculateAtSkew(new DnaSequence(new string(chars)));
+        double.IsFinite(randomSkew).Should().BeTrue("the skew can never be NaN/Inf, even at scale");
+        randomSkew.Should().BeInRange(-1.0, 1.0,
+            because: "|A−T| ≤ A+T, so the skew can never escape [−1, 1], even at scale");
+    }
+
+    #endregion
+
+    #region BE/RB — range invariant on fuzzed-but-valid inputs (both surfaces)
+
+    /// <summary>
+    /// BE/RB: the [−1, 1] range invariant (INV-01) and the NaN-free / non-throwing
+    /// contract must hold for ANY input on both surfaces. Locally-seeded (so the
+    /// shared static Rng is untouched) sweeps feed (a) valid random DNA to the strict
+    /// typed path and (b) arbitrary BMP code points — control chars, null bytes, lone
+    /// surrogate halves — to the lenient raw-string path. Every result must be finite
+    /// and inside [−1, 1]; neither surface may throw on its allowed input. This pins
+    /// the strict/lenient boundary: the same random bytes the typed path rejects at
+    /// construction, the lenient overload carries through to a defined finite skew.
+    /// </summary>
+    [Test]
+    [CancelAfter(30_000)]
+    public void AtSkew_RandomSweeps_AreFiniteInRangeAndNeverThrow()
+    {
+        var local = new Random(33107);
+        const string bases = "ACGT";
+
+        for (int trial = 0; trial < 300; trial++)
+        {
+            // (a) Strict typed path over valid random DNA.
+            int validLen = local.Next(0, 64);
+            var validChars = new char[validLen];
+            for (int i = 0; i < validLen; i++)
+                validChars[i] = bases[local.Next(bases.Length)];
+            string validDna = new(validChars);
+
+            double typedSkew = double.NaN;
+            var typedAct = () => typedSkew = GcSkewCalculator.CalculateAtSkew(new DnaSequence(validDna));
+            typedAct.Should().NotThrow($"valid DNA must never make the typed path throw; input: \"{validDna}\"");
+            double.IsFinite(typedSkew).Should().BeTrue($"skew is never NaN/Inf; input: \"{validDna}\"");
+            typedSkew.Should().BeInRange(-1.0, 1.0, $"skew is bounded to [−1,1]; input: \"{validDna}\"");
+
+            // (b) Lenient raw-string path over arbitrary BMP garbage.
+            int garbageLen = local.Next(0, 64);
+            var garbageChars = new char[garbageLen];
+            for (int i = 0; i < garbageLen; i++)
+                garbageChars[i] = (char)local.Next(0x0000, 0x10000);
+            string garbage = new(garbageChars);
+
+            double rawSkew = double.NaN;
+            var rawAct = () => rawSkew = GcSkewCalculator.CalculateAtSkew(garbage);
+            rawAct.Should().NotThrow($"the lenient overload must never throw on random bytes; input: {Describe(garbage)}");
+            double.IsFinite(rawSkew).Should().BeTrue(
+                $"only A/T are counted, so no NaN/Inf can leak; input: {Describe(garbage)}");
+            rawSkew.Should().BeInRange(-1.0, 1.0,
+                $"the lenient skew is bounded to [−1,1] even on pure garbage; input: {Describe(garbage)}");
         }
     }
 
