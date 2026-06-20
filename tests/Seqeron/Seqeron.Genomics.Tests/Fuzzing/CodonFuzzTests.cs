@@ -2070,4 +2070,461 @@ public class CodonFuzzTests
     #endregion
 
     #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  CODON-STATS-001 — codon usage statistics : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region CODON-STATS-001 — codon usage statistics
+
+    /// <summary>
+    /// Fuzz tests for CODON-STATS-001 — the comprehensive codon-usage statistics
+    /// record (codon counts, RSCU, ENC, TotalCodons, position GC1/GC2/GC3, the
+    /// synonymous third-position GC3s and the derived OverallGc).
+    /// Checklist: docs/checklists/03_FUZZING.md, row 215.
+    /// Fuzz strategy exercised for THIS unit:
+    ///   • BE = Boundary Exploitation — the checklist boundaries "length not %3,
+    ///          empty, single codon": an input whose LENGTH is NOT a multiple of 3
+    ///          (a trailing partial codon, ignored), EMPTY / null input (a defined,
+    ///          fully-zeroed degenerate result with no divide-by-zero), and a SINGLE
+    ///          codon (TotalCodons = 1, the GC ratios are exactly that codon's bits);
+    ///          plus non-ACGT triplets (skipped, never counted).
+    /// — docs/checklists/03_FUZZING.md §Description (strategy codes);
+    ///   docs/ADVANCED_TESTING_CHECKLIST.md §8 "Fuzzing".
+    ///
+    /// ───────────────────────────────────────────────────────────────────────────
+    /// The statistics contract under test (Codon_Usage_Statistics.md)
+    /// ───────────────────────────────────────────────────────────────────────────
+    /// GetStatistics aggregates the standard descriptors of synonymous codon bias for
+    /// a coding sequence read in frame 1, step 3 (§1, §2.2):
+    ///   • TotalCodons   = number of valid in-frame ACGT codons (INV-05): codons with
+    ///                     any non-ACGT character are SKIPPED, not counted.
+    ///   • Gc1/Gc2/Gc3   = % of in-frame codons with G or C at codon position 1/2/3
+    ///                     (EMBOSS cusp "1st/2nd/3rd letter GC"), each a count/positions
+    ///                     ratio ×100 ⇒ 0 ≤ GCk ≤ 100 (INV-04).
+    ///   • Gc3s          = % G/C at the THIRD position of SYNONYMOUS codons only — i.e.
+    ///                     excluding Met (ATG), Trp (TGG) and the three stop codons
+    ///                     (Peden 1999 §1.8.2.1.3); 0 ≤ Gc3s ≤ 100 (INV-03, INV-04).
+    ///   • OverallGc     = (Gc1 + Gc2 + Gc3)/3 (INV-06), a record-derived property.
+    ///   — Codon_Usage_Statistics.md §2.2, §2.4, §3.2.
+    ///
+    /// API entry: CodonUsageAnalyzer.GetStatistics(string)  → CodonUsageStatistics
+    ///            CodonUsageAnalyzer.GetStatistics(DnaSequence)
+    ///   (src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs,
+    ///    GetStatistics / GetStatisticsCore).
+    ///
+    /// The string overload is LENIENT by documented design — it never throws on
+    /// garbage; it upper-cases, reads codons in non-overlapping in-frame triplets from
+    /// index 0, and summarises whatever it is given (§3.3, §6.1):
+    ///   • null OR empty string → a fully ZEROED CodonUsageStatistics (empty count and
+    ///     RSCU maps, Enc 0, TotalCodons 0, every GC 0). The position-count denominator
+    ///     is 0, so the ratios fall to the defined 0 — NOT NaN, NOT a DivideByZero.
+    ///   • input length NOT divisible by 3 → only complete triplets are read (loop
+    ///     guard `i + 3 <= seq.Length`); the trailing 1–2 leftover bases are IGNORED,
+    ///     never an IndexOutOfRangeException.
+    ///   • a triplet containing any non-ACGT character → IsValidCodon is false and the
+    ///     triplet is EXCLUDED from TotalCodons and from every GC accumulator, never a
+    ///     KeyNotFound. §3.3, §6.1, INV-05.
+    ///   • a sequence with only Met/Trp/stop codons → Gc3s = 0 (no synonymous third
+    ///     position; the GC3s denominator is 0 ⇒ defined 0, not NaN). §6.1.
+    /// The DnaSequence overload throws ArgumentNullException for null (§6.1).
+    ///
+    /// KEY THEORY INVARIANTS this suite pins directly (Codon_Usage_Statistics.md §2.4),
+    /// each derived INDEPENDENTLY from the position-GC / Peden GC3s definitions and the
+    /// standard genetic-code degeneracy — never echoed off the implementation's arrays:
+    ///   • INV-04: 0 ≤ Gc1, Gc2, Gc3, Gc3s ≤ 100 on every input that yields codons.
+    ///   • INV-05: TotalCodons equals the count of valid ACGT in-frame codons (a
+    ///     randomized sweep recomputes it from the input independently).
+    ///   • INV-06: OverallGc = (Gc1 + Gc2 + Gc3)/3 exactly.
+    ///   • The §7.1 worked example CTGGTTAAA is pinned to its exact GC values, and the
+    ///     §7.1 walk-through ATGGCA pins the Met-exclusion of GC3s (GC3 = 50, GC3s = 0).
+    /// No GC value may ever be NaN or ±Infinity (asserted on every input).
+    ///
+    /// The synonymous third-position set used to recompute the expected Gc3s is derived
+    /// here from the standard genetic code (degeneracy &gt; 1, excluding stops), NOT from
+    /// CodonUsageAnalyzer's own table — so a test would fail if the implementation's
+    /// synonymous set disagreed with the genetic code.
+    ///
+    /// Determinism note: GetStatistics is a pure function of the input. The randomized
+    /// boundary sweep uses a LOCALLY-seeded `new Random(seed)` (never a shared static
+    /// Rng); every generated sequence is fully reproducible.
+    /// ───────────────────────────────────────────────────────────────────────────
+
+    #region Helpers (STATS)
+
+    /// <summary>True iff codon position 3 is "synonymous" per Peden §1.8.2.1.3: the
+    /// codon's amino acid is degenerate (n_i &gt; 1), excluding Met (ATG), Trp (TGG) and
+    /// the three stop codons. Computed from the standard genetic code, NOT the
+    /// implementation, so it independently mirrors INV-03.</summary>
+    private static bool IsSynonymousThirdPosition(string dnaCodon)
+    {
+        if (!DnaGeneticCode.TryGetValue(dnaCodon, out string? aa) || aa == "*")
+            return false;
+        return DnaGeneticCode.Count(kv => kv.Value == aa) > 1;
+    }
+
+    /// <summary>
+    /// Independently recomputes the expected (TotalCodons, Gc1, Gc2, Gc3, Gc3s) of an
+    /// upper-cased coding string straight from the position-GC and Peden GC3s
+    /// definitions — never trusting CodonUsageAnalyzer. Non-ACGT triplets are skipped;
+    /// the GC ratios are ×100, falling to 0 when their denominator is 0.
+    /// </summary>
+    private static (int Total, double Gc1, double Gc2, double Gc3, double Gc3s) ExpectedStats(string coding)
+    {
+        string seq = coding.ToUpperInvariant();
+        int total = 0, gc1 = 0, gc2 = 0, gc3 = 0, syn = 0, gc3s = 0;
+        for (int i = 0; i + 3 <= seq.Length; i += 3)
+        {
+            string codon = seq.Substring(i, 3);
+            if (!codon.All(c => c is 'A' or 'C' or 'G' or 'T'))
+                continue; // non-ACGT codon skipped (INV-05)
+            total++;
+            if (codon[0] is 'G' or 'C') gc1++;
+            if (codon[1] is 'G' or 'C') gc2++;
+            if (codon[2] is 'G' or 'C') gc3++;
+            if (IsSynonymousThirdPosition(codon))
+            {
+                syn++;
+                if (codon[2] is 'G' or 'C') gc3s++;
+            }
+        }
+        return (
+            total,
+            total > 0 ? (double)gc1 / total * 100 : 0,
+            total > 0 ? (double)gc2 / total * 100 : 0,
+            total > 0 ? (double)gc3 / total * 100 : 0,
+            syn > 0 ? (double)gc3s / syn * 100 : 0);
+    }
+
+    #endregion
+
+    #region Positive sanity — the exact worked examples (§7.1)
+
+    /// <summary>
+    /// Positive sanity (KEY): the §7.1 worked example. GetStatistics("CTGGTTAAA")
+    /// reads CTG·GTT·AAA ⇒ TotalCodons = 3 and, computed independently from the
+    /// per-position-GC definition:
+    ///   pos1 = {C,G,A} ⇒ 2/3 ⇒ Gc1 = 66.6667;
+    ///   pos2 = {T,T,A} ⇒ 0/3 ⇒ Gc2 = 0;
+    ///   pos3 = {G,T,A} ⇒ 1/3 ⇒ Gc3 = 33.3333.
+    /// This both verifies the GC ratios at exact, hand-checkable values and proves the
+    /// boundary targets below are measured against a working happy path, not a
+    /// uniformly-broken method. OverallGc = (Gc1+Gc2+Gc3)/3 is also pinned (INV-06).
+    /// (Codon_Usage_Statistics.md §7.1, §2.4 INV-04/INV-06.)
+    /// </summary>
+    [Test]
+    public void GetStatistics_WorkedExample_MatchesDocumentedGcValues()
+    {
+        const string coding = "CTGGTTAAA"; // CTG · GTT · AAA
+
+        var stats = CodonUsageAnalyzer.GetStatistics(coding);
+
+        stats.TotalCodons.Should().Be(3, "three valid in-frame codons (INV-05)");
+        stats.Gc1.Should().BeApproximately(200.0 / 3.0, 1e-9, "pos1 {C,G,A} ⇒ 2/3 ×100 (§7.1)");
+        stats.Gc2.Should().BeApproximately(0.0, 1e-12, "pos2 {T,T,A} ⇒ 0/3 (§7.1)");
+        stats.Gc3.Should().BeApproximately(100.0 / 3.0, 1e-9, "pos3 {G,T,A} ⇒ 1/3 ×100 (§7.1)");
+        stats.OverallGc.Should().BeApproximately((stats.Gc1 + stats.Gc2 + stats.Gc3) / 3.0, 1e-12,
+            "OverallGc = (Gc1+Gc2+Gc3)/3 (INV-06)");
+    }
+
+    /// <summary>
+    /// Positive sanity (KEY, the §7.1 walk-through): ATGGCA = Met (ATG) + Ala (GCA).
+    /// Met is a single-codon amino acid, so it is EXCLUDED from the synonymous third
+    /// position; only Ala (GCA) counts, and its third base 'A' is not G/C, so
+    /// Gc3s = 0/1 = 0%. Over ALL positions GC3 = (G of ATG, A of GCA) = 1/2 = 50%.
+    /// This pins the Met/Trp/stop exclusion of Peden §1.8.2.1.3 (INV-03): GC3 ≠ GC3s
+    /// precisely because the non-synonymous Met third base is dropped from GC3s.
+    /// (Codon_Usage_Statistics.md §7.1 numerical walk-through, §2.4 INV-03.)
+    /// </summary>
+    [Test]
+    public void GetStatistics_MetExclusion_Gc3sDropsTheMetThirdBase()
+    {
+        const string coding = "ATGGCA"; // Met (ATG) · Ala (GCA)
+
+        var stats = CodonUsageAnalyzer.GetStatistics(coding);
+
+        stats.TotalCodons.Should().Be(2);
+        stats.Gc3.Should().BeApproximately(50.0, 1e-12,
+            "GC3 over ALL codons = (G of ATG, A of GCA) = 1/2 = 50% (§7.1)");
+        stats.Gc3s.Should().BeApproximately(0.0, 1e-12,
+            "Met (ATG) is excluded; only Ala (GCA) counts, third base 'A' ⇒ 0/1 = 0% (§7.1, INV-03)");
+        stats.Gc3.Should().NotBe(stats.Gc3s,
+            "the Met/Trp/stop exclusion makes GC3s differ from GC3 here (Peden §1.8.2.1.3)");
+    }
+
+    #endregion
+
+    #region BE — Boundary: a SINGLE codon (TotalCodons = 1, GC = that codon's bits)
+
+    /// <summary>
+    /// BE (checklist "single codon"): a sequence of ONE valid codon yields
+    /// TotalCodons = 1 and each GCk is either 0 or 100 — exactly that codon's G/C bit
+    /// at the position. Expected values are recomputed independently from the codon's
+    /// own bases (not from the analyzer). A synonymous codon (Ala GCC) drives GC3s to
+    /// 100 (its third base is C and Ala is degenerate); a non-synonymous codon (Met
+    /// ATG) drives GC3s to the defined 0 (no synonymous third position, denominator 0,
+    /// no NaN). Every GC stays in [0,100] (INV-04). (§3.2, §6.1, INV-03/04/05.)
+    /// </summary>
+    [TestCase("GCC", TestName = "GetStatistics_SingleCodon_AlaGCC")]   // Ala (synonymous), GC at 2 & 3
+    [TestCase("ATG", TestName = "GetStatistics_SingleCodon_MetATG")]   // Met (non-synonymous third pos)
+    [TestCase("TGG", TestName = "GetStatistics_SingleCodon_TrpTGG")]   // Trp (non-synonymous third pos)
+    [TestCase("AAA", TestName = "GetStatistics_SingleCodon_LysAAA")]   // no G/C anywhere
+    [TestCase("CCC", TestName = "GetStatistics_SingleCodon_ProCCC")]   // G/C at every position
+    public void GetStatistics_SingleCodon_GcEqualsThatCodonsBits(string codon)
+    {
+        var (expTotal, expGc1, expGc2, expGc3, expGc3s) = ExpectedStats(codon);
+
+        CodonUsageStatistics stats = default;
+        var act = () => stats = CodonUsageAnalyzer.GetStatistics(codon);
+
+        act.Should().NotThrow("a single valid codon is a defined, summarisable input");
+        stats.TotalCodons.Should().Be(1, "exactly one valid in-frame codon (INV-05)");
+        stats.Gc1.Should().BeApproximately(expGc1, 1e-12, "Gc1 is the codon's position-1 G/C bit ×100");
+        stats.Gc2.Should().BeApproximately(expGc2, 1e-12, "Gc2 is the codon's position-2 G/C bit ×100");
+        stats.Gc3.Should().BeApproximately(expGc3, 1e-12, "Gc3 is the codon's position-3 G/C bit ×100");
+        stats.Gc3s.Should().BeApproximately(expGc3s, 1e-12,
+            "Gc3s is 100/0 for a synonymous codon's G/C third base, else the defined 0 (INV-03)");
+
+        stats.Gc1.Should().BeInRange(0.0, 100.0, "INV-04");
+        stats.Gc2.Should().BeInRange(0.0, 100.0, "INV-04");
+        stats.Gc3.Should().BeInRange(0.0, 100.0, "INV-04");
+        stats.Gc3s.Should().BeInRange(0.0, 100.0, "INV-04");
+        AllGcFinite(stats);
+    }
+
+    #endregion
+
+    #region BE — Boundary: empty / null input (fully-zeroed, no divide-by-zero)
+
+    /// <summary>
+    /// BE (checklist "empty"): empty string and null are the "no input" boundary. The
+    /// documented contract returns a fully ZEROED CodonUsageStatistics — empty count
+    /// and RSCU maps, Enc 0, TotalCodons 0, every GC 0 — via the `string.IsNullOrEmpty`
+    /// guard. With a zero position-count denominator the GC ratios fall to the defined
+    /// 0, NOT NaN, NOT a DivideByZeroException. (Codon_Usage_Statistics.md §3.3, §6.1.)
+    /// </summary>
+    [TestCase(null, TestName = "GetStatistics_NullString_IsZeroedNoThrow")]
+    [TestCase("", TestName = "GetStatistics_EmptyString_IsZeroedNoThrow")]
+    public void GetStatistics_NullOrEmptyString_ReturnsZeroedStatistics(string? input)
+    {
+        CodonUsageStatistics stats = default;
+        var act = () => stats = CodonUsageAnalyzer.GetStatistics(input!);
+
+        act.Should().NotThrow("null/empty string is a defined no-op early return, not an error");
+        stats.TotalCodons.Should().Be(0, "no codons in empty input");
+        stats.CodonCounts.Should().BeEmpty();
+        stats.Rscu.Should().BeEmpty();
+        stats.Enc.Should().Be(0.0);
+        stats.Gc1.Should().Be(0.0, "zero position-count ⇒ defined 0, never NaN");
+        stats.Gc2.Should().Be(0.0);
+        stats.Gc3.Should().Be(0.0);
+        stats.Gc3s.Should().Be(0.0);
+        stats.OverallGc.Should().Be(0.0, "OverallGc = (0+0+0)/3 = 0 (INV-06)");
+        AllGcFinite(stats);
+    }
+
+    /// <summary>
+    /// BE: the DnaSequence overload throws ArgumentNullException for a null sequence —
+    /// the documented strongly-typed input contract (§6.1), distinct from the lenient
+    /// zeroed result of the null STRING overload above.
+    /// </summary>
+    [Test]
+    public void GetStatistics_NullDnaSequence_ThrowsArgumentNullException()
+    {
+        DnaSequence? nullSeq = null;
+        var act = () => CodonUsageAnalyzer.GetStatistics(nullSeq!);
+
+        act.Should().Throw<ArgumentNullException>("a null DnaSequence violates the input contract (§6.1)");
+    }
+
+    #endregion
+
+    #region BE — Boundary: length NOT a multiple of 3 (trailing partial codon)
+
+    /// <summary>
+    /// BE (KEY no-crash boundary, checklist "length not %3"): when the input length is
+    /// not a multiple of 3, only complete triplets are read (loop guard
+    /// `i + 3 &lt;= seq.Length`) — the trailing 1–2 leftover bases must NEVER trigger an
+    /// IndexOutOfRangeException. The statistics over the complete-codon prefix must
+    /// EQUAL those of that prefix alone. Here CTGGTTAAA (the §7.1 example) is suffixed
+    /// with a +1 and a +2 remainder; both must reproduce the §7.1 GC values exactly.
+    /// (Codon_Usage_Statistics.md §3.3, §6.1.)
+    /// </summary>
+    [TestCase("CTGGTTAAAC", TestName = "GetStatistics_LenMod3Is1_TrimsTrailingBase")]   // 10 = 3 codons + 1
+    [TestCase("CTGGTTAAACT", TestName = "GetStatistics_LenMod3Is2_TrimsTrailingTwo")]   // 11 = 3 codons + 2
+    public void GetStatistics_LengthNotMultipleOf3_TrimsTrailingPartialCodon(string input)
+    {
+        var (expTotal, expGc1, expGc2, expGc3, expGc3s) = ExpectedStats("CTGGTTAAA");
+
+        CodonUsageStatistics stats = default;
+        var act = () => stats = CodonUsageAnalyzer.GetStatistics(input);
+
+        act.Should().NotThrow("a trailing partial codon must be ignored, never indexed out of range");
+        stats.TotalCodons.Should().Be(expTotal, "only the 3 complete codons are counted; the partial is dropped");
+        stats.Gc1.Should().BeApproximately(expGc1, 1e-9, "GC over the complete-codon prefix equals the §7.1 value");
+        stats.Gc2.Should().BeApproximately(expGc2, 1e-9);
+        stats.Gc3.Should().BeApproximately(expGc3, 1e-9);
+        stats.Gc3s.Should().BeApproximately(expGc3s, 1e-9);
+        AllGcFinite(stats);
+    }
+
+    /// <summary>
+    /// BE: sub-codon inputs (length 1 and 2) have NO complete codon, so the result is
+    /// the zeroed degenerate statistics (TotalCodons 0, every GC the defined 0) — no
+    /// crash, no NaN from a zero position-count denominator. Pins the trim boundary
+    /// right at the first codon edge.
+    /// </summary>
+    [TestCase("A", TestName = "GetStatistics_LenOne_NoCompleteCodon_IsZeroed")]
+    [TestCase("AT", TestName = "GetStatistics_LenTwo_NoCompleteCodon_IsZeroed")]
+    public void GetStatistics_SubCodonLength_IsZeroedNoThrow(string input)
+    {
+        CodonUsageStatistics stats = default;
+        var act = () => stats = CodonUsageAnalyzer.GetStatistics(input);
+
+        act.Should().NotThrow("sub-codon trailing bases are trimmed, never indexed out of range");
+        stats.TotalCodons.Should().Be(0, "no complete codon exists");
+        stats.Gc1.Should().Be(0.0);
+        stats.Gc2.Should().Be(0.0);
+        stats.Gc3.Should().Be(0.0);
+        stats.Gc3s.Should().Be(0.0);
+        AllGcFinite(stats);
+    }
+
+    #endregion
+
+    #region BE — Boundary: only Met/Trp/stop codons (Gc3s denominator 0 ⇒ defined 0)
+
+    /// <summary>
+    /// BE: a sequence made up only of Met (ATG), Trp (TGG) and stop codons has NO
+    /// synonymous third position, so the GC3s denominator is 0 and Gc3s is the defined
+    /// 0 — never a 0/0 NaN. TotalCodons and the position GC1/GC2/GC3 still count these
+    /// codons (they are valid ACGT codons); only GC3s excludes them. Recomputed
+    /// independently. (Codon_Usage_Statistics.md §6.1, §2.4 INV-03.)
+    /// </summary>
+    [Test]
+    public void GetStatistics_OnlyNonSynonymousCodons_Gc3sIsZeroNoNaN()
+    {
+        const string coding = "ATGTGGTAATAGTGA"; // Met · Trp · stop · stop · stop
+        var (expTotal, expGc1, expGc2, expGc3, expGc3s) = ExpectedStats(coding);
+
+        var stats = CodonUsageAnalyzer.GetStatistics(coding);
+
+        stats.TotalCodons.Should().Be(5, "all five are valid ACGT codons (INV-05)");
+        stats.TotalCodons.Should().Be(expTotal);
+        stats.Gc1.Should().BeApproximately(expGc1, 1e-12, "GC1 counts every valid codon, including non-synonymous ones");
+        stats.Gc2.Should().BeApproximately(expGc2, 1e-12);
+        stats.Gc3.Should().BeApproximately(expGc3, 1e-12);
+        stats.Gc3s.Should().Be(0.0, "no synonymous third position ⇒ defined 0, never NaN (INV-03)");
+        expGc3s.Should().Be(0.0, "independent recompute confirms the synonymous GC3 denominator is 0");
+        AllGcFinite(stats);
+    }
+
+    #endregion
+
+    #region MC/INJ — non-ACGT codons are skipped (never counted, never a crash)
+
+    /// <summary>
+    /// MC/INJ (INV-05): triplets containing any non-ACGT character (digits, gap,
+    /// embedded null byte, ambiguity N, unicode) are SKIPPED — excluded from
+    /// TotalCodons and from every GC accumulator — never a KeyNotFound or a wrong
+    /// count. Each input embeds a 3-char garbage triplet between two valid codons; the
+    /// statistics must equal those of the two valid codons alone, recomputed
+    /// independently. (Codon_Usage_Statistics.md §3.3, §6.1, INV-05.)
+    /// </summary>
+    [TestCase("CTG123GTT", TestName = "GetStatistics_NonAcgt_Digits_Skipped")]
+    [TestCase("CTG---GTT", TestName = "GetStatistics_NonAcgt_GapDashes_Skipped")]
+    [TestCase("CTG\0\0\0GTT", TestName = "GetStatistics_NonAcgt_NullBytes_Skipped")]
+    [TestCase("CTGNNNGTT", TestName = "GetStatistics_NonAcgt_AmbiguityN_Skipped")]
+    [TestCase("CTGαβγGTT", TestName = "GetStatistics_NonAcgt_Unicode_Skipped")]
+    public void GetStatistics_NonAcgtCodons_SkippedAndDoNotCrash(string input)
+    {
+        // The expected statistics are those of just the two valid codons CTG·GTT.
+        var (expTotal, expGc1, expGc2, expGc3, expGc3s) = ExpectedStats("CTGGTT");
+
+        CodonUsageStatistics stats = default;
+        var act = () => stats = CodonUsageAnalyzer.GetStatistics(input);
+
+        act.Should().NotThrow("a non-ACGT triplet must be skipped, never a KeyNotFound/IndexOutOfRange");
+        stats.TotalCodons.Should().Be(2, "only the two valid ACGT codons are counted (INV-05)");
+        stats.TotalCodons.Should().Be(expTotal);
+        stats.Gc1.Should().BeApproximately(expGc1, 1e-12, "GC over only the valid codons");
+        stats.Gc2.Should().BeApproximately(expGc2, 1e-12);
+        stats.Gc3.Should().BeApproximately(expGc3, 1e-12);
+        stats.Gc3s.Should().BeApproximately(expGc3s, 1e-12);
+        AllGcFinite(stats);
+    }
+
+    #endregion
+
+    #region BE — Randomized boundary sweep (INV-04/05/06 always hold; finite, deterministic)
+
+    /// <summary>
+    /// BE (randomized sweep): hundreds of random in-frame coding sequences — interleaved
+    /// with occasional non-ACGT triplets and trailing partial codons — must, on EVERY
+    /// input, satisfy the statistics contract derived INDEPENDENTLY of the analyzer:
+    ///   • no GC value is NaN or ±Infinity;
+    ///   • TotalCodons equals the count of valid ACGT in-frame codons (INV-05);
+    ///   • 0 ≤ Gc1, Gc2, Gc3, Gc3s ≤ 100 (INV-04);
+    ///   • each of Gc1/Gc2/Gc3/Gc3s equals the independently-recomputed value, and
+    ///     OverallGc = (Gc1+Gc2+Gc3)/3 (INV-06);
+    ///   • GetStatistics is a pure function (a re-run reproduces TotalCodons & GC).
+    /// A LOCALLY-seeded `new Random(seed)` keeps every trial reproducible; CancelAfter
+    /// guards a hang. (Codon_Usage_Statistics.md §2.4 INV-04/05/06, §6.1.)
+    /// </summary>
+    [Test]
+    [CancelAfter(60_000)]
+    public void GetStatistics_RandomizedSweep_AlwaysFiniteBoundedAndExact()
+    {
+        // A "symbol" alphabet that occasionally emits non-ACGT garbage and never relies
+        // on the analyzer's own validation to decide what is a valid codon.
+        const string symbols = "ACGTACGTACGTNX-9"; // mostly ACGT, sometimes garbage
+
+        for (int trial = 0; trial < 400; trial++)
+        {
+            var rng = new Random(20150421 + trial); // locally seeded, reproducible
+            int length = rng.Next(0, 90);           // includes 0, 1, 2 and non-multiples of 3
+
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < length; i++)
+                sb.Append(symbols[rng.Next(symbols.Length)]);
+            string seq = sb.ToString();
+
+            CodonUsageStatistics stats = default;
+            var act = () => stats = CodonUsageAnalyzer.GetStatistics(seq);
+            act.Should().NotThrow($"trial {trial}: random/garbage input must never crash");
+
+            var (expTotal, expGc1, expGc2, expGc3, expGc3s) = ExpectedStats(seq);
+
+            stats.TotalCodons.Should().Be(expTotal,
+                $"trial {trial}: TotalCodons = number of valid ACGT in-frame codons (INV-05)");
+            stats.Gc1.Should().BeApproximately(expGc1, 1e-9, $"trial {trial}: Gc1 (INV-04)");
+            stats.Gc2.Should().BeApproximately(expGc2, 1e-9, $"trial {trial}: Gc2 (INV-04)");
+            stats.Gc3.Should().BeApproximately(expGc3, 1e-9, $"trial {trial}: Gc3 (INV-04)");
+            stats.Gc3s.Should().BeApproximately(expGc3s, 1e-9, $"trial {trial}: Gc3s (INV-03/04)");
+
+            stats.Gc1.Should().BeInRange(0.0, 100.0, $"trial {trial}: INV-04");
+            stats.Gc2.Should().BeInRange(0.0, 100.0, $"trial {trial}: INV-04");
+            stats.Gc3.Should().BeInRange(0.0, 100.0, $"trial {trial}: INV-04");
+            stats.Gc3s.Should().BeInRange(0.0, 100.0, $"trial {trial}: INV-04");
+            stats.OverallGc.Should().BeApproximately((stats.Gc1 + stats.Gc2 + stats.Gc3) / 3.0, 1e-12,
+                $"trial {trial}: OverallGc = (Gc1+Gc2+Gc3)/3 (INV-06)");
+            AllGcFinite(stats);
+
+            // Purity: a second call reproduces the GC statistics exactly.
+            var again = CodonUsageAnalyzer.GetStatistics(seq);
+            again.TotalCodons.Should().Be(stats.TotalCodons, $"trial {trial}: GetStatistics is a pure function");
+            again.Gc1.Should().Be(stats.Gc1, $"trial {trial}: pure function");
+        }
+    }
+
+    /// <summary>Asserts every GC field of a statistics record is finite (no NaN/±Inf).</summary>
+    private static void AllGcFinite(CodonUsageStatistics stats)
+    {
+        foreach (double v in new[] { stats.Gc1, stats.Gc2, stats.Gc3, stats.Gc3s, stats.OverallGc })
+            (double.IsNaN(v) || double.IsInfinity(v)).Should().BeFalse("no GC value may be NaN or ±Infinity");
+    }
+
+    #endregion
+
+    #endregion
 }
