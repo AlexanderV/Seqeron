@@ -133,6 +133,58 @@ namespace Seqeron.Genomics.Tests;
 ///     input on BOTH sides, gap-free, Score = length × Match.
 ///   • AlignmentResult.Empty carries AlignmentType.Global (shared sentinel), so the
 ///     typed empty-DnaSequence path is the way to observe a tagged-Local empty result.
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: ALIGN-SEMI-001 — semi-global (fitting / query-in-reference) alignment (Alignment)
+/// Checklist: docs/checklists/03_FUZZING.md, row 37.
+/// Fuzz strategy exercised for THIS unit:
+///   • BE = Boundary Exploitation — the boundary fodder for the fitting DP: empty
+///          seqs (query and/or reference), NO overlap (disjoint alphabets), COMPLETE
+///          overlap (identical, or the query embedded as a substring of the
+///          reference), and the 1-char vs 1-char extreme. These probe the degenerate
+///          single-row / single-column DP and the trailing-suffix traceback branch.
+/// — docs/checklists/03_FUZZING.md §Description (strategy code BE).
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The semi-global (fitting / query-in-reference) contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// The repository implements ONE member of the semi-global family: the FITTING
+/// (query-in-reference) variant, NOT overlap and NOT all-ends-free. The query
+/// (sequence1) is aligned GLOBALLY end-to-end; only the REFERENCE (sequence2) ends are
+/// FREE. The recurrence is the standard linear-gap Needleman-Wunsch (d = GapExtend; the
+/// GapOpen field is ignored — linear, not affine) with a FITTING initialization:
+///   F(0,j) = 0            ← free LEADING reference gaps (any reference prefix is free),
+///   F(i,0) = d·i          ← the query first column IS penalized (the full query must be aligned),
+///   score = max_j F(m,j)  ← free TRAILING reference gaps (the score is the LAST-ROW maximum).
+/// There is NO Smith-Waterman zero floor, so the fitting score MAY be negative.
+///   — docs/algorithms/Alignment/Semi_Global_Alignment.md §2.2, §2.4, §4.1, §5.2.
+///     Sources: Sequence alignment; Needleman-Wunsch; Rosalind SIMS/SMGB; Brudno 2003 (glocal).
+///
+/// KEY SEMI-GLOBAL invariants asserted across the fuzz fodder (Semi_Global_Alignment.md §2.4):
+///   • S-INV-01 — the two aligned output strings have EQUAL length (S §2.4 INV-02).
+///   • S-INV-02 — gap-stripping AlignedSequence1 reproduces the FULL (upper-cased) query:
+///     the query is aligned globally and never drops bases (S §2.4 INV-01).
+///   • S-INV-03 — gap-stripping AlignedSequence2 reproduces the FULL (upper-cased)
+///     reference: the implementation preserves the unmatched reference prefix and suffix
+///     explicitly, so the entire reference is represented (S §5.2). [This is the invariant
+///     that surfaced the trailing-suffix bug fixed in this campaign — see below.]
+///   • S-INV-04 — the reported Score equals the per-column linear-model sum over the
+///     FITTED BODY only, i.e. excluding the leading and trailing maximal runs of FREE
+///     reference end-gap columns (columns where AlignedSequence1 == '-'). This is the
+///     fitting score = max_j F(m,j) recomputed independently (S §2.4 INV-03, §2.2).
+///   • S-INV-05 — the result is tagged AlignmentType.SemiGlobal; StartPosition* = 0,
+///     EndPosition1 = query.Length−1, EndPosition2 = reference.Length−1 (S §3.2).
+///
+/// SOURCE BUG FOUND & FIXED during this campaign (SequenceAligner.Traceback, semi-global
+/// trailing-suffix branch): the unmatched trailing reference suffix seq2[j..n−1] was
+/// appended in FORWARD order and then reversed together with the rest of chars2, so the
+/// suffix came out REVERSED — AlignedSequence2 became an anagram of the reference (e.g.
+/// query "ATGC" vs reference "ATGCTTAGG" produced "ATGCGGATT"; an empty query vs "ACGT"
+/// produced "TGCA"). The Score was unaffected (it is the last-row maximum), but S-INV-03
+/// was violated: the alignment misrepresented the reference content. The bug was masked
+/// in earlier hand-checked cases because the suffixes there were homopolymers/palindromic.
+/// FIX: append the trailing suffix in REVERSE order so the final reverse restores forward
+/// reference order. The cases below (distinct, non-palindromic suffixes) pin the fix.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -234,6 +286,73 @@ public class AlignmentFuzzTests
         if (seg2.Length > 0)
             expected2.Should().Contain(seg2,
                 "L-INV-03: the gap-stripped aligned segment 2 is a contiguous substring of input 2 (local subsequence)");
+    }
+
+    /// <summary>
+    /// Asserts the five semi-global (FITTING / query-in-reference) structural invariants
+    /// against the raw (upper-cased) query/reference the aligner actually consumed:
+    /// equal aligned length (S-INV-01); gap-stripped AlignedSequence1 reproduces the FULL
+    /// query (S-INV-02, the global-query property); gap-stripped AlignedSequence2
+    /// reproduces the FULL reference (S-INV-03, the prefix/suffix preservation property);
+    /// the reported Score equals the per-column linear-model sum over the FITTED BODY
+    /// only — excluding the leading and trailing maximal runs of FREE reference end-gap
+    /// columns (S-INV-04, fitting score = max_j F(m,j)); and the result is tagged
+    /// SemiGlobal with the documented coordinate bounds (S-INV-05).
+    /// — docs/algorithms/Alignment/Semi_Global_Alignment.md §2.2, §2.4, §3.2, §5.2.
+    /// </summary>
+    private static void AssertSemiGlobalInvariants(
+        AlignmentResult result, string query, string reference, ScoringMatrix scoring)
+    {
+        string expectedQuery = query.ToUpperInvariant();
+        string expectedRef = reference.ToUpperInvariant();
+        string a1 = result.AlignedSequence1;
+        string a2 = result.AlignedSequence2;
+
+        // S-INV-05: tag + documented coordinate bounds (full-input, not fitted interval).
+        result.AlignmentType.Should().Be(AlignmentType.SemiGlobal,
+            "S-INV-05: a semi-global (fitting) alignment is tagged SemiGlobal");
+        result.StartPosition1.Should().Be(0, "S-INV-05: the implementation returns StartPosition1 = 0");
+        result.StartPosition2.Should().Be(0, "S-INV-05: the implementation returns StartPosition2 = 0");
+        result.EndPosition1.Should().Be(query.Length - 1,
+            "S-INV-05: EndPosition1 is query.Length − 1 (−1 for an empty query)");
+        result.EndPosition2.Should().Be(reference.Length - 1,
+            "S-INV-05: EndPosition2 is reference.Length − 1 (−1 for an empty reference)");
+
+        // S-INV-01: the two aligned strings share one coordinate system.
+        a1.Length.Should().Be(a2.Length,
+            "S-INV-01: semi-global alignment pads query and reference to equal length");
+
+        // S-INV-02: the query is aligned globally — gap-stripping reproduces it in full.
+        new string(a1.Where(c => c != '-').ToArray())
+            .Should().Be(expectedQuery,
+                "S-INV-02: gap-stripped AlignedSequence1 reproduces the FULL query (the fitting variant aligns the whole query)");
+
+        // S-INV-03: the full reference is preserved (prefix + body + suffix). This is the
+        // invariant the trailing-suffix bug violated — the reference must NOT be reordered.
+        new string(a2.Where(c => c != '-').ToArray())
+            .Should().Be(expectedRef,
+                "S-INV-03: gap-stripped AlignedSequence2 reproduces the FULL reference (unmatched prefix/suffix preserved, never reversed)");
+
+        // S-INV-04: recompute the fitting score over the FITTED BODY only. The leading and
+        // trailing maximal runs of columns where the QUERY is a gap are the FREE reference
+        // end-gaps (unpenalized); everything in between is scored by the linear model.
+        int lead = 0;
+        while (lead < a1.Length && a1[lead] == '-') lead++;
+        int trail = a1.Length;
+        while (trail > lead && a1[trail - 1] == '-') trail--;
+
+        int recomputed = 0;
+        for (int k = lead; k < trail; k++)
+        {
+            char qc = a1[k];
+            char rc = a2[k];
+            if (qc == '-' || rc == '-')
+                recomputed += scoring.GapExtend;
+            else
+                recomputed += qc == rc ? scoring.Match : scoring.Mismatch;
+        }
+        result.Score.Should().Be(recomputed,
+            "S-INV-04: the fitting score equals the per-column linear-model sum over the fitted body, with leading/trailing reference end-gaps free");
     }
 
     #endregion
@@ -834,6 +953,296 @@ public class AlignmentFuzzTests
         result.AlignedSequence1.Should().Be("GTT-AC", "the documented worked-example alignment for side 1");
         result.AlignedSequence2.Should().Be("GTTGAC", "the documented worked-example alignment for side 2");
         AssertLocalInvariants(result, a, b);
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  ALIGN-SEMI-001 — semi-global (fitting / query-in-reference) : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region ALIGN-SEMI-001 — semi-global (overlap) alignment
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Fuzz target: empty sequences (query and/or reference)
+    // ───────────────────────────────────────────────────────────────────
+
+    #region BE — Boundary: empty sequences
+
+    /// <summary>
+    /// BE: empty query vs empty reference is the lowest size boundary. The 1×1 DP
+    /// degenerates to F(0,0)=0, the last-row maximum is 0, and traceback emits nothing —
+    /// a trivial empty alignment, Score 0, tagged SemiGlobal, never an IndexOutOfRange
+    /// on the degenerate matrix (Semi_Global_Alignment.md §2.2, §6.1). Coordinates are
+    /// −1 on both ends (Length−1 = −1). S-INV-01..05 hold trivially.
+    /// </summary>
+    [Test]
+    public void SemiGlobalAlign_EmptyVsEmpty_IsTrivialZeroScoreAlignment()
+    {
+        var scoring = SequenceAligner.SimpleDna;
+        var result = SequenceAligner.SemiGlobalAlign(new DnaSequence(""), new DnaSequence(""), scoring);
+
+        result.AlignedSequence1.Should().BeEmpty("an empty query/reference pair yields empty aligned strings");
+        result.AlignedSequence2.Should().BeEmpty("an empty query/reference pair yields empty aligned strings");
+        result.Score.Should().Be(0, "there are no columns to score, so the fitting score is 0");
+        AssertSemiGlobalInvariants(result, "", "", scoring);
+    }
+
+    /// <summary>
+    /// BE: an EMPTY QUERY against a length-n reference. The query is aligned globally
+    /// (it contributes nothing), and the ENTIRE reference is a free end-gap overhang
+    /// under the fitting initialization (F(0,j)=0, free leading reference gaps), so the
+    /// fitting score is 0 and the reference is fully preserved against an all-gap query
+    /// (Semi_Global_Alignment.md §2.2, §5.2). This is the case that originally exposed
+    /// the trailing-suffix REVERSAL bug — an empty query vs "ACGT" used to return the
+    /// anagram "TGCA"; S-INV-03 now pins the reference order. No crash on the single-row
+    /// DP. S-INV-01..05 hold.
+    /// </summary>
+    [TestCase("ACGT", TestName = "SemiGlobalAlign_EmptyQuery_Len4")]
+    [TestCase("A", TestName = "SemiGlobalAlign_EmptyQuery_SingleBase")]
+    [TestCase("GACATGCTTAG", TestName = "SemiGlobalAlign_EmptyQuery_DistinctSuffix")]
+    public void SemiGlobalAlign_EmptyQueryVsReference_IsZeroScoreFreeOverhang(string reference)
+    {
+        var scoring = SequenceAligner.SimpleDna;
+        var result = SequenceAligner.SemiGlobalAlign(new DnaSequence(""), new DnaSequence(reference), scoring);
+
+        result.Score.Should().Be(0,
+            "the whole reference is a free end-gap overhang for an empty query, so the fitting score is 0");
+        result.AlignedSequence1.Should().Be(new string('-', reference.Length),
+            "the empty query aligns as n gap characters across the reference");
+        new string(result.AlignedSequence2.Where(c => c != '-').ToArray())
+            .Should().Be(reference.ToUpperInvariant(),
+                "the reference is preserved in forward order against the all-gap query (no suffix reversal)");
+        AssertSemiGlobalInvariants(result, "", reference, scoring);
+    }
+
+    /// <summary>
+    /// BE: a length-m query against an EMPTY reference. There is no reference to fit
+    /// into, so the query first column is penalized in full (F(i,0)=d·i, the query is
+    /// always aligned globally) — the fitting score is m·d (here −m) with the query
+    /// aligned against m gaps and NO free end-gaps available (the reference is empty)
+    /// (Semi_Global_Alignment.md §2.2, §6.1 "Query longer than the reference"). S-INV-01..05 hold.
+    /// </summary>
+    [TestCase("ACGT", TestName = "SemiGlobalAlign_EmptyReference_Len4")]
+    [TestCase("A", TestName = "SemiGlobalAlign_EmptyReference_SingleBase")]
+    public void SemiGlobalAlign_QueryVsEmptyReference_IsAllGapPenalizedQuery(string query)
+    {
+        var scoring = SequenceAligner.SimpleDna;
+        var result = SequenceAligner.SemiGlobalAlign(new DnaSequence(query), new DnaSequence(""), scoring);
+
+        result.Score.Should().Be(query.Length * scoring.GapExtend,
+            "with no reference the full query is penalized at d per base (F(i,0) = d·i)");
+        result.AlignedSequence1.Should().Be(query.ToUpperInvariant(),
+            "the query is aligned in full against the empty reference");
+        result.AlignedSequence2.Should().Be(new string('-', query.Length),
+            "the empty reference aligns as m gap characters");
+        AssertSemiGlobalInvariants(result, query, "", scoring);
+    }
+
+    /// <summary>
+    /// BE: a null DnaSequence on the typed overload is the documented validation gate —
+    /// it must throw ArgumentNullException (the ThrowIfNull guard,
+    /// Semi_Global_Alignment.md §3.3, §6.1), NOT a NullReferenceException from a
+    /// downstream dereference. Pinned in both argument positions.
+    /// </summary>
+    [Test]
+    public void SemiGlobalAlign_TypedNullSequence_ThrowsArgumentNullException()
+    {
+        var seq = new DnaSequence("ACGT");
+
+        var nullFirst = () => SequenceAligner.SemiGlobalAlign(null!, seq);
+        var nullSecond = () => SequenceAligner.SemiGlobalAlign(seq, null!);
+
+        nullFirst.Should().Throw<ArgumentNullException>(
+            "a null query hits the documented null gate, not a raw dereference");
+        nullSecond.Should().Throw<ArgumentNullException>(
+            "a null reference hits the documented null gate, not a raw dereference");
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Fuzz target: no overlap (disjoint sequences, no shared base)
+    // ───────────────────────────────────────────────────────────────────
+
+    #region BE — Boundary: no overlap (disjoint alphabets)
+
+    /// <summary>
+    /// BE: a query and reference that share NO base. The fitting DP still aligns the
+    /// full query globally; the best placement carries the query as m gaps in the
+    /// reference (or all mismatches) and leaves the rest of the reference as free
+    /// end-gaps — there is NO zero floor, so the score is NEGATIVE (S-INV-04), never
+    /// clamped to 0 the way Smith-Waterman would (Semi_Global_Alignment.md §2.2, §2.4
+    /// INV-04). The key check: no crash, the full query and full reference are both
+    /// preserved, and the negative fitting score is the body-only recomputation.
+    /// S-INV-01..05 hold.
+    /// </summary>
+    [TestCase("AAAA", "GGGG", TestName = "SemiGlobalAlign_NoOverlap_AsVsGs")]
+    [TestCase("ACAC", "GTGT", TestName = "SemiGlobalAlign_NoOverlap_DisjointAlphabets")]
+    [TestCase("AAA", "GGGGGG", TestName = "SemiGlobalAlign_NoOverlap_ShortVsLong")]
+    [TestCase("A", "GGGG", TestName = "SemiGlobalAlign_NoOverlap_SingleQueryNoMatch")]
+    public void SemiGlobalAlign_NoOverlap_IsNegativeScoreFullContentPreserved(string query, string reference)
+    {
+        var scoring = SequenceAligner.SimpleDna;
+
+        var act = () => SequenceAligner.SemiGlobalAlign(new DnaSequence(query), new DnaSequence(reference), scoring);
+        act.Should().NotThrow("disjoint sequences must not crash the fitting DP");
+
+        var result = act();
+        result.Score.Should().BeLessThan(0,
+            "with no shared base and no zero floor the fitting score is negative (S-INV-04, §2.4 INV-04)");
+        AssertSemiGlobalInvariants(result, query, reference, scoring);
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Fuzz target: complete overlap (identical, or query embedded in reference)
+    // ───────────────────────────────────────────────────────────────────
+
+    #region BE — Boundary: complete overlap (identical / query is a substring of reference)
+
+    /// <summary>
+    /// BE: IDENTICAL query and reference — the maximal complete-overlap case. The full
+    /// diagonal dominates, both aligned strings equal the (upper-cased) input gap-free,
+    /// and the fitting score is length × Match (every base matched, no free end-gaps
+    /// needed because the reference IS the query) (Semi_Global_Alignment.md §6.1). The
+    /// 0-based coordinate bounds span the whole input. S-INV-01..05 hold.
+    /// </summary>
+    [TestCase("A", TestName = "SemiGlobalAlign_Identical_SingleBase")]
+    [TestCase("ACGT", TestName = "SemiGlobalAlign_Identical_Len4")]
+    [TestCase("GATTACAGATTACA", TestName = "SemiGlobalAlign_Identical_Len14")]
+    public void SemiGlobalAlign_IdenticalSequences_FullMatchGapFree(string seq)
+    {
+        var scoring = SequenceAligner.SimpleDna;
+        string upper = seq.ToUpperInvariant();
+
+        var result = SequenceAligner.SemiGlobalAlign(new DnaSequence(seq), new DnaSequence(seq), scoring);
+
+        result.AlignedSequence1.Should().Be(upper, "identical sequences align as the whole sequence on the query side");
+        result.AlignedSequence2.Should().Be(upper, "identical sequences align as the whole sequence on the reference side");
+        result.AlignedSequence1.Should().NotContain("-", "the full-diagonal complete overlap is gap-free");
+        result.Score.Should().Be(seq.Length * scoring.Match,
+            "an identical query/reference scores Match per base over the full length");
+        AssertSemiGlobalInvariants(result, seq, seq, scoring);
+    }
+
+    /// <summary>
+    /// BE: COMPLETE overlap where the query is a SUBSTRING of a longer reference (the
+    /// query "fits" inside the reference). The fitting score is the embedded match score
+    /// query.Length × Match; the unmatched reference PREFIX and SUFFIX are free end-gaps
+    /// aligned against query gaps; the full reference (prefix + matched core + suffix) is
+    /// preserved IN ORDER (Semi_Global_Alignment.md §6.1 "Query embedded exactly inside
+    /// the reference"). The distinct, non-palindromic flanks here would expose the
+    /// trailing-suffix reversal bug if it regressed (S-INV-03). S-INV-01..05 hold.
+    /// </summary>
+    [TestCase("ATGC", "GACATGCTTAG", TestName = "SemiGlobalAlign_Embedded_DistinctFlanks")]
+    [TestCase("ATGC", "ATGCTTAGG", TestName = "SemiGlobalAlign_Embedded_PrefixMatch_DistinctSuffix")]
+    [TestCase("ATGC", "GGATTATGC", TestName = "SemiGlobalAlign_Embedded_SuffixMatch_DistinctPrefix")]
+    [TestCase("ACGTACGT", "TTTTTACGTACGTGGGGG", TestName = "SemiGlobalAlign_Embedded_LongCore")]
+    public void SemiGlobalAlign_QueryEmbeddedInReference_FitsOnTheMatchedCore(string query, string reference)
+    {
+        var scoring = SequenceAligner.SimpleDna;
+
+        var result = SequenceAligner.SemiGlobalAlign(new DnaSequence(query), new DnaSequence(reference), scoring);
+
+        result.Score.Should().Be(query.Length * scoring.Match,
+            "an exactly embedded query fits with Match per query base (free reference flanks)");
+        new string(result.AlignedSequence1.Where(c => c != '-').ToArray())
+            .Should().Be(query.ToUpperInvariant(), "the gap-stripped query side is the full query");
+        new string(result.AlignedSequence2.Where(c => c != '-').ToArray())
+            .Should().Be(reference.ToUpperInvariant(),
+                "the full reference is preserved in forward order (prefix + core + suffix, no reversal)");
+        AssertSemiGlobalInvariants(result, query, reference, scoring);
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Fuzz target: single char vs single char
+    // ───────────────────────────────────────────────────────────────────
+
+    #region BE — Boundary: single char vs single char (match / mismatch)
+
+    /// <summary>
+    /// BE: the minimal non-empty fitting alignment — one query base vs one reference
+    /// base. A MATCH is a single diagonal column, Score = Match, gap-free, coordinates
+    /// [0,0]. A MISMATCH has no zero floor and no free interior, so the query is forced
+    /// against the reference: under SimpleDna the optimal one-base fitting is the single
+    /// mismatch/gap arrangement scoring Mismatch (−1), NOT clamped to 0 like local
+    /// alignment (Semi_Global_Alignment.md §2.2, §2.4 INV-04). S-INV-01..05 (and the
+    /// body-only S-INV-04 recompute) hold for both.
+    /// </summary>
+    [TestCase("A", "A", 1, TestName = "SemiGlobalAlign_SingleChar_Match_A")]
+    [TestCase("G", "G", 1, TestName = "SemiGlobalAlign_SingleChar_Match_G")]
+    [TestCase("A", "C", -1, TestName = "SemiGlobalAlign_SingleChar_Mismatch_AC")]
+    [TestCase("G", "T", -1, TestName = "SemiGlobalAlign_SingleChar_Mismatch_GT")]
+    public void SemiGlobalAlign_SingleCharVsSingleChar_IsDefined(string query, string reference, int expectedScore)
+    {
+        var scoring = SequenceAligner.SimpleDna;
+
+        var result = SequenceAligner.SemiGlobalAlign(new DnaSequence(query), new DnaSequence(reference), scoring);
+
+        result.Score.Should().Be(expectedScore,
+            "a single matching base scores Match; a single mismatching base scores Mismatch (no zero floor)");
+        AssertSemiGlobalInvariants(result, query, reference, scoring);
+    }
+
+    /// <summary>
+    /// BE: a single query base that occurs INSIDE a longer reference is the smallest
+    /// fitting case — the one base matches at its position and the rest of the reference
+    /// is split into free leading/trailing end-gaps, so Score = Match (1) regardless of
+    /// the reference length (Semi_Global_Alignment.md §2.2, §6.1). S-INV-01..05 hold.
+    /// </summary>
+    [TestCase("A", "GGGAGGG", TestName = "SemiGlobalAlign_SingleQueryInReference_Interior")]
+    [TestCase("A", "AGGGGGG", TestName = "SemiGlobalAlign_SingleQueryInReference_Prefix")]
+    [TestCase("A", "GGGGGGA", TestName = "SemiGlobalAlign_SingleQueryInReference_Suffix")]
+    public void SemiGlobalAlign_SingleQueryBaseInReference_FitsAtMatch(string query, string reference)
+    {
+        var scoring = SequenceAligner.SimpleDna;
+
+        var result = SequenceAligner.SemiGlobalAlign(new DnaSequence(query), new DnaSequence(reference), scoring);
+
+        result.Score.Should().Be(scoring.Match,
+            "a single query base present in the reference fits at Match, the flanks being free end-gaps");
+        AssertSemiGlobalInvariants(result, query, reference, scoring);
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Positive sanity: a short query fits inside a long reference on its matched core
+    // ───────────────────────────────────────────────────────────────────
+
+    #region Positive sanity — short query fits inside a long reference
+
+    /// <summary>
+    /// Positive sanity: the documented worked example — query "ATGC" against reference
+    /// "AAAATGCAAA" — fits exactly at reference positions 4–7 with Score 4 (4 matches ×
+    /// +1), the unmatched A-flanks being free end-gaps (Semi_Global_Alignment.md §6.1;
+    /// validated independently in SequenceAligner_SemiGlobalAlign_Tests). This proves the
+    /// fuzz harness asserts a real, theory-correct FITTING alignment — the query placed at
+    /// its best-scoring position with free reference overhangs — not merely "did not
+    /// crash". S-INV-01..05 hold.
+    /// </summary>
+    [Test]
+    public void SemiGlobalAlign_DocExample_AtgcInAaaatgcaaa_FitsWithScore4()
+    {
+        var scoring = SequenceAligner.SimpleDna; // Match=+1, Mismatch=-1, GapExtend=-1
+        const string query = "ATGC";
+        const string reference = "AAAATGCAAA";
+
+        var result = SequenceAligner.SemiGlobalAlign(new DnaSequence(query), new DnaSequence(reference), scoring);
+
+        result.Score.Should().Be(4,
+            "the query ATGC fits perfectly inside AAAATGCAAA, scoring 4 matches with free flanks");
+        new string(result.AlignedSequence1.Where(c => c != '-').ToArray())
+            .Should().Be(query, "the gap-stripped query side is exactly the query");
+        new string(result.AlignedSequence2.Where(c => c != '-').ToArray())
+            .Should().Be(reference, "the gap-stripped reference side is the full reference in order");
+        AssertSemiGlobalInvariants(result, query, reference, scoring);
     }
 
     #endregion

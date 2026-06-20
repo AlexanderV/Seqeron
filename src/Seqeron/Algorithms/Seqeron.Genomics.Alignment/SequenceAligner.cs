@@ -477,10 +477,14 @@ public static class SequenceAligner
         var chars1 = new List<char>();
         var chars2 = new List<char>();
 
-        // Add trailing gaps for semi-global (appended first, will be at end after reverse)
+        // Add trailing gaps for semi-global (appended first, will be at end after reverse).
+        // chars2 is reversed in its entirety below, so the unmatched trailing reference
+        // suffix seq2[j .. n-1] must be appended in REVERSE order here; otherwise the
+        // suffix would itself be reversed in the final output and AlignedSequence2 would
+        // no longer reproduce the reference.
         if (alignType == AlignmentType.SemiGlobal)
         {
-            for (int k = j + 1; k <= seq2.Length; k++)
+            for (int k = seq2.Length; k > j; k--)
             {
                 chars1.Add('-');
                 chars2.Add(seq2[k - 1]);
