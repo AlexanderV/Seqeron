@@ -113,6 +113,69 @@ namespace Seqeron.Genomics.Tests;
 /// forces enumeration (`.ToList()`) so the documented behavior actually surfaces and
 /// any hang would manifest as a non-terminating materialization. Deterministic only:
 /// any random fuzz input is generated from a locally fixed `new Random(seed)`.
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: ANNOT-GENE-001 — gene prediction (prokaryotic ORF-first heuristic)
+/// Checklist: docs/checklists/03_FUZZING.md, row 29.
+/// Fuzz strategies exercised for THIS unit:
+///   • BE = Boundary Exploitation — the degenerate boundaries called out in the
+///          checklist row: an empty sequence, a non-coding-only sequence (no ORF,
+///          no RBS), and overlapping genes (overlap bookkeeping must stay valid).
+///   • MC = Malformed Content — a sequence that contains NO Shine-Dalgarno (RBS)
+///          motif anywhere, so the RBS helper must invent nothing.
+/// — docs/checklists/03_FUZZING.md §Description (strategy codes).
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The gene-prediction contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// Gene prediction here is a prokaryote-oriented, ORF-first heuristic split across two
+/// helpers (Gene_Prediction.md §1, §5.1):
+///   GenomeAnnotator.PredictGenes(string dnaSequence,
+///                                int minOrfLength = 100,
+///                                string prefix = "gene")
+///     — converts every QUALIFYING ORF (translated length ≥ minOrfLength, found with
+///       searchBothStrands: true, requireStartCodon: true) into a CDS GeneAnnotation,
+///       ordered by genomic Start, with sequential IDs (Gene_Prediction.md §4.1, §5.2;
+///       GenomeAnnotator.cs lines 389–421).
+///   GenomeAnnotator.FindRibosomeBindingSites(string dnaSequence,
+///                                            int upstreamWindow = 20,
+///                                            int minDistance = 4,
+///                                            int maxDistance = 15)
+///     — independently scans the FORWARD-strand upstream window of every ORF (found with
+///       an internal minLength = 30 aa) for Shine-Dalgarno-like motifs at an aligned
+///       spacing within [minDistance, maxDistance] (GenomeAnnotator.cs lines 267–384).
+///
+/// CRITICAL: the two helpers are INDEPENDENT. PredictGenes does NOT require, call, or
+/// consider an RBS — it emits genes purely from ORF structure (Gene_Prediction.md §5.2,
+/// §5.4 deviation 1). So "no RBS in seq" suppresses RBS HITS, not gene predictions. The
+/// fuzz tests below pin that exact split rather than a coupled model the code never
+/// implements. The SD-like motif library is AGGAGG, GGAGG, AGGAG, GAGG, AGGA; the RBS
+/// score is motif.Length / 6.0 (Gene_Prediction.md §4.2).
+///
+/// Documented parameter / validation contract (Gene_Prediction.md §3.3, §6.1):
+///   • dnaSequence null or empty → BOTH helpers return an empty sequence (PredictGenes
+///     via the underlying FindOrfs short-circuit; FindRibosomeBindingSites via its own
+///     IsNullOrEmpty `yield break`). NOT an exception — pinned as the empty result.
+///   • No valid ORF (non-coding-only input) → no genes AND no RBS hits, because RBS
+///     scanning is ORF-driven (Gene_Prediction.md §6.1 row 2).
+///   • Overlapping / nested ORFs → every qualifying ORF is emitted as its OWN CDS;
+///     there is NO best-model selection or overlap suppression (Gene_Prediction.md §5.2
+///     bullet 2, §5.3 "Intentionally simplified", §6.2). The disciplined outcome is that
+///     overlap bookkeeping never crashes and every emitted gene keeps VALID coordinates.
+///   • Non-DNA / no-motif content is not pre-validated; a region lacking any SD-like
+///     motif simply produces no RBS hit (Gene_Prediction.md §3.3).
+///
+/// Documented invariants pinned on every predicted gene (Gene_Prediction.md §2.4):
+///   GENE-INV-01 every gene derives from an ORF starting ATG/GTG/TTG and ending
+///               TAA/TAG/TGA (PredictGenes delegates with requireStartCodon: true);
+///   GENE-INV-02 every gene has valid bounds 0 ≤ Start < End ≤ length and Frame ∈ {1,2,3},
+///               Strand ∈ {'+','-'}, Type == "CDS";
+///   GENE-INV-03 every reported RBS hit lies at aligned distance ∈ [minDistance,
+///               maxDistance] from its ORF start;
+///   GENE-INV-04 every RBS score ∈ [4/6, 1.0] for the supported motif library.
+/// PredictGenes / FindRibosomeBindingSites are LAZY iterators (`yield`), so every test
+/// forces enumeration (`.ToList()`). Deterministic only: random fuzz input comes from a
+/// locally fixed `new Random(seed)`.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -398,6 +461,258 @@ public class AnnotationFuzzTests
             (o.End - o.Start) % 3 == 0 &&                                   // INV-03
             o.Start >= 0 && o.Start < o.End && o.End <= seq.Length,         // INV-04
             "every ORF on random input begins with a start, ends with a stop, is codon-aligned, and stays in bounds");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  ANNOT-GENE-001 — gene prediction : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region ANNOT-GENE-001 — gene prediction
+
+    #region Helpers — gene-prediction constructions
+
+    /// <summary>
+    /// Builds a forward-strand coding cassette: a leading 5' pad, an in-frame ATG start,
+    /// <paramref name="codingCodons"/> repeats of "GCT" (Ala), then a TAA stop. The pad is
+    /// "AAA"-tiled so it introduces no start/stop in any frame and keeps the cassette
+    /// frame-+1 aligned. Translated length = codingCodons aa (the terminal '*' is trimmed
+    /// by PredictGenes for protein_length).
+    /// </summary>
+    private static string CodingCassette(int codingCodons, int padCodons)
+    {
+        string pad = string.Concat(Enumerable.Repeat("AAA", padCodons));
+        string coding = string.Concat(Enumerable.Repeat("GCT", codingCodons));
+        return pad + "ATG" + coding + "TAA";
+    }
+
+    #endregion
+
+    #region BE — Boundary: empty sequence yields no genes and no RBS hits
+
+    /// <summary>
+    /// BE: an empty sequence must yield NO genes and NO RBS hits, never a crash
+    /// (Gene_Prediction.md §3.3, §6.1 row 1). PredictGenes short-circuits through the
+    /// underlying FindOrfs `yield break`; FindRibosomeBindingSites short-circuits on its
+    /// own IsNullOrEmpty guard. Both are lazy iterators, so we force enumeration to make
+    /// the documented empty result actually surface.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void PredictGenes_EmptySequence_ReturnsNoGenesAndNoRbs()
+    {
+        var predict = () => GenomeAnnotator.PredictGenes(string.Empty, minOrfLength: 1).ToList();
+        predict.Should().NotThrow("an empty sequence short-circuits through FindOrfs; it simply yields no genes");
+        GenomeAnnotator.PredictGenes(string.Empty, minOrfLength: 1).ToList()
+            .Should().BeEmpty("no ORF can exist in an empty sequence, so no gene is predicted");
+
+        var rbs = () => GenomeAnnotator.FindRibosomeBindingSites(string.Empty).ToList();
+        rbs.Should().NotThrow("the RBS helper `yield break`s on empty input before any indexing");
+        GenomeAnnotator.FindRibosomeBindingSites(string.Empty).ToList()
+            .Should().BeEmpty("RBS scanning is ORF-driven; no ORF means no upstream motif scan");
+    }
+
+    #endregion
+
+    #region BE — Boundary: non-coding-only sequence (no ORF, no RBS) yields nothing
+
+    /// <summary>
+    /// BE: a non-coding-only sequence — no start codon in any frame, hence no ORF — must
+    /// yield NO genes and NO RBS hits (Gene_Prediction.md §6.1 row 2). We tile "CCC"
+    /// (revcomp "GGG"), which is neither a start nor a stop on either strand, so the ORF
+    /// scan that BOTH helpers drive finds nothing. The disciplined outcome is the empty
+    /// result on both surfaces, not a crash and not a spurious gene.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void PredictGenes_NonCodingOnly_ReturnsNoGenesAndNoRbs()
+    {
+        // 60 nt of pure 'CCC' — no ATG/GTG/TTG and no TAA/TAG/TGA on either strand.
+        string nonCoding = string.Concat(Enumerable.Repeat("CCC", 20));
+
+        var predict = () => GenomeAnnotator.PredictGenes(nonCoding, minOrfLength: 1).ToList();
+        predict.Should().NotThrow("a non-coding sequence records no pending ORF start; the scan terminates cleanly");
+        GenomeAnnotator.PredictGenes(nonCoding, minOrfLength: 1).ToList()
+            .Should().BeEmpty("with no start codon on either strand there is no ORF and therefore no gene");
+
+        GenomeAnnotator.FindRibosomeBindingSites(nonCoding).ToList()
+            .Should().BeEmpty("RBS scanning is ORF-driven, so a sequence with no ORF yields no RBS hits");
+    }
+
+    #endregion
+
+    #region MC — Malformed content: no RBS motif anywhere upstream of a real gene
+
+    /// <summary>
+    /// MC: a sequence that DOES contain a genuine, qualifying ORF but has NO Shine-Dalgarno
+    /// motif (AGGAGG / GGAGG / AGGAG / GAGG / AGGA) anywhere upstream must still predict the
+    /// gene, yet report NO RBS hit. This pins the documented INDEPENDENCE of the two helpers
+    /// (Gene_Prediction.md §5.2, §5.4 deviation 1): "no RBS in seq" suppresses RBS hits, NOT
+    /// gene calls. The ORF is ≥ 30 aa so the RBS helper's internal FindOrfs(minLength: 30)
+    /// discovers it and actually scans its upstream window; the pad is "AAA"-tiled so the
+    /// upstream region contains no SD-like motif. The gene must appear with valid bounds; the
+    /// RBS list must be empty.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void PredictGenes_NoRbsMotifUpstream_PredictsGeneButReportsNoRbs()
+    {
+        // 35 coding codons (≥ 30 aa) with a 4-codon 'AAA' pad — no SD-like motif upstream.
+        string seq = CodingCassette(codingCodons: 35, padCodons: 4);
+
+        var genes = GenomeAnnotator.PredictGenes(seq, minOrfLength: 30).ToList();
+        genes.Should().ContainSingle("the cassette holds exactly one qualifying forward-strand ORF")
+            .Which.Strand.Should().Be('+', "the gene is on the forward strand");
+
+        var rbs = GenomeAnnotator.FindRibosomeBindingSites(seq).ToList();
+        rbs.Should().BeEmpty(
+            "the upstream window holds no Shine-Dalgarno motif, so the RBS helper invents nothing — " +
+            "yet the gene is still predicted because PredictGenes ignores RBS evidence entirely");
+    }
+
+    #endregion
+
+    #region BE — Boundary: overlapping genes are all reported with valid coordinates
+
+    /// <summary>
+    /// BE: overlapping / nested ORFs must each be emitted as their OWN CDS — there is NO
+    /// best-model selection or overlap suppression (Gene_Prediction.md §5.2 bullet 2,
+    /// §5.3 "Intentionally simplified", §6.2). The disciplined boundary here is the overlap
+    /// BOOKKEEPING: predicting multiple coincident genes must not crash, and EVERY emitted
+    /// gene must keep valid coordinates (GENE-INV-02: 0 ≤ Start &lt; End ≤ length,
+    /// Frame ∈ {1,2,3}, Strand ∈ {'+','-'}, Type == "CDS"), with IDs ordered by Start.
+    ///
+    /// We build a single coding cassette that is a palindromic-by-construction overlap
+    /// generator: a forward ORF AND its reverse complement both score as ORFs over the SAME
+    /// genomic span. Concretely "ATG...TAA" on the forward strand revcomps to "TTA...CAT";
+    /// to force a genuine overlapping pair we instead concatenate two forward ORFs whose
+    /// spans abut/overlap by sharing coordinates across frames. Simpler and fully
+    /// deterministic: a cassette with an inner in-frame ATG produces a nested ORF (a second
+    /// start before the shared stop), so PredictGenes emits BOTH the outer and the inner
+    /// gene over overlapping coordinates.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void PredictGenes_OverlappingGenes_AllReportedWithValidCoordinates()
+    {
+        // Outer ORF: ATG (GCT)x40 ATG (GCT)x5 TAA  → an INNER in-frame ATG creates a nested
+        // ORF that shares the same TAA stop, so two overlapping genes are emitted in frame +1.
+        string outerHead = "ATG" + string.Concat(Enumerable.Repeat("GCT", 40));
+        string innerHead = "ATG" + string.Concat(Enumerable.Repeat("GCT", 5));
+        string seq = outerHead + innerHead + "TAA";
+
+        var predict = () => GenomeAnnotator.PredictGenes(seq, minOrfLength: 1).ToList();
+        predict.Should().NotThrow("emitting multiple overlapping ORFs must not crash the overlap bookkeeping");
+
+        var genes = GenomeAnnotator.PredictGenes(seq, minOrfLength: 1).ToList();
+
+        genes.Count.Should().BeGreaterThanOrEqualTo(2,
+            "both the outer ORF and the nested inner ORF (sharing the terminal stop) are emitted; " +
+            "there is no overlap suppression");
+
+        genes.Should().OnlyContain(g =>
+            g.Start >= 0 && g.Start < g.End && g.End <= seq.Length &&  // GENE-INV-02 bounds
+            (g.Strand == '+' || g.Strand == '-') &&                    // GENE-INV-02 strand
+            g.Type == "CDS",                                           // GENE-INV-02 type
+            "every overlapping gene keeps valid coordinates, a ± strand, and Type=CDS");
+
+        // GENE-INV-02 frame ∈ {1,2,3} — carried in the 'frame' attribute, not a record field.
+        genes.Should().OnlyContain(g =>
+            g.Attributes.ContainsKey("frame") &&
+            (g.Attributes["frame"] == "1" || g.Attributes["frame"] == "2" || g.Attributes["frame"] == "3"),
+            "every overlapping gene tags a reading frame in {1,2,3}");
+
+        // Genes are ordered by genomic Start, and two distinct overlapping starts exist.
+        genes.Select(g => g.Start).Should().BeInAscendingOrder("PredictGenes orders genes by genomic Start");
+        genes.Select(g => g.Start).Distinct().Count().Should().BeGreaterThanOrEqualTo(2,
+            "the outer and inner ORFs open at distinct positions yet overlap, confirming no overlap was suppressed");
+    }
+
+    #endregion
+
+    #region Positive sanity — RBS upstream of a downstream ORF yields a gene + RBS hit
+
+    /// <summary>
+    /// Positive sanity: a textbook prokaryotic gene — a Shine-Dalgarno motif (AGGAGG) an
+    /// aligned short distance upstream of an in-frame ATG that opens a ≥ 30 aa ORF — must
+    /// produce BOTH a predicted gene with correct coordinates AND a matching RBS hit, so the
+    /// boundary/malformed probes never silently break the core function.
+    ///
+    /// Layout (frame +1): [pad AAA] AGGAGG [8-nt 'AAAAAAAA' spacer] ATG (GCT)x35 TAA.
+    /// The SD motif 3' end sits 8 nt upstream of ATG → aligned distance 8 ∈ [4,15]
+    /// (GENE-INV-03), inside the default 20-nt upstream window. The ORF is 35 aa ≥ the RBS
+    /// helper's internal 30-aa floor, so it is scanned. Pinned: the gene starts at the ATG
+    /// with End at the TAA, valid bounds, '+' strand, CDS; the RBS hit reports AGGAGG with
+    /// score 1.0 (= 6/6, GENE-INV-04) at the SD position.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void PredictGenes_RbsUpstreamOfOrf_YieldsGeneWithCorrectCoordsAndRbsHit()
+    {
+        const string pad = "AAA";               // 3 nt 5' pad (no start/stop, keeps frame)
+        const string sd = "AGGAGG";             // full Shine-Dalgarno consensus, score 1.0
+        const string spacer = "AAAAAAAA";       // 8 nt → aligned distance 8 ∈ [4,15]
+        string coding = "ATG" + string.Concat(Enumerable.Repeat("GCT", 35)) + "TAA"; // 35 aa ORF
+        string seq = pad + sd + spacer + coding;
+
+        int expectedStart = pad.Length + sd.Length + spacer.Length; // start of ATG
+        int expectedSdPos = pad.Length;                             // start of AGGAGG
+
+        // ── Gene prediction ──────────────────────────────────────────────────────────
+        var gene = GenomeAnnotator.PredictGenes(seq, minOrfLength: 30)
+            .Should().ContainSingle("exactly one qualifying forward-strand ORF is present").Subject;
+
+        gene.Start.Should().Be(expectedStart, "the gene opens at the in-frame ATG downstream of the SD motif");
+        gene.End.Should().Be(seq.Length, "the gene closes at the terminal TAA");
+        gene.Strand.Should().Be('+', "the gene is on the forward strand");
+        gene.Type.Should().Be("CDS", "PredictGenes emits CDS annotations");
+        gene.Attributes["frame"].Should().BeOneOf("1", "2", "3", "GENE-INV-02: frame is in {1,2,3}");
+        (gene.Start >= 0 && gene.Start < gene.End && gene.End <= seq.Length).Should().BeTrue(
+            "GENE-INV-02: 0 ≤ Start < End ≤ sequence length");
+
+        // ── RBS detection ────────────────────────────────────────────────────────────
+        var rbs = GenomeAnnotator.FindRibosomeBindingSites(seq).ToList();
+        rbs.Should().NotBeEmpty("a full AGGAGG motif sits at an aligned distance of 8 nt upstream of the start");
+
+        var hit = rbs.Should().Contain(h => h.sequence == "AGGAGG",
+            "the full Shine-Dalgarno consensus is the highest-scoring motif present").Subject;
+        hit.position.Should().Be(expectedSdPos, "the RBS hit reports the genomic 5' position of the SD motif");
+        hit.score.Should().BeApproximately(1.0, 1e-9, "GENE-INV-04: AGGAGG (6 nt) scores 6/6 = 1.0");
+
+        int alignedDistance = gene.Start - hit.position - hit.sequence.Length;
+        alignedDistance.Should().BeInRange(4, 15, "GENE-INV-03: aligned spacing lies within [minDistance, maxDistance]");
+    }
+
+    /// <summary>
+    /// Positive sanity / robustness: on a fixed-seed random 1200-nt sequence both helpers
+    /// must complete promptly and every result must be well-formed — every predicted gene
+    /// satisfies GENE-INV-02 (valid bounds, frame ∈ {1,2,3}, ± strand, CDS) and every RBS
+    /// hit satisfies GENE-INV-03/04 (aligned spacing in [4,15], score ∈ [4/6, 1]). This is
+    /// the "degenerate-boundary probes do not corrupt the scan on ordinary input" guard.
+    /// </summary>
+    [Test]
+    [CancelAfter(15000)]
+    public void PredictGenes_RandomSequence_ProducesOnlyWellFormedGenesAndRbsHits()
+    {
+        string seq = RandomDna(1200, seed: 29_001);
+
+        var genes = GenomeAnnotator.PredictGenes(seq, minOrfLength: 1).ToList();
+        genes.Should().OnlyContain(g =>
+            g.Start >= 0 && g.Start < g.End && g.End <= seq.Length &&
+            (g.Strand == '+' || g.Strand == '-') &&
+            g.Type == "CDS" &&
+            g.Attributes.ContainsKey("frame") &&
+            (g.Attributes["frame"] == "1" || g.Attributes["frame"] == "2" || g.Attributes["frame"] == "3"),
+            "every predicted gene on random input is in bounds, codon-frame-tagged, ± stranded, and CDS");
+
+        var rbs = GenomeAnnotator.FindRibosomeBindingSites(seq).ToList();
+        rbs.Should().OnlyContain(h =>
+            h.score >= 4.0 / 6.0 && h.score <= 1.0 + 1e-9 &&   // GENE-INV-04
+            h.position >= 0 && h.position < seq.Length,        // in-bounds motif position
+            "every RBS hit on random input carries a length-normalized score in [4/6, 1] at an in-bounds position");
     }
 
     #endregion
