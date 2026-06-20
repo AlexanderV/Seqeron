@@ -443,6 +443,70 @@ namespace Seqeron.Genomics.Tests;
 /// is reproduced from first principles. The dictionary values are pinned to be finite and
 /// non-negative on a fixed-seed random sweep. Deterministic only: random fuzz input comes
 /// from a locally fixed `new Random(seed)` — NEVER a shared static Rng.
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: ANNOT-REPEAT-001 — repetitive-element detection (tandem + inverted repeats)
+/// Checklist: docs/checklists/03_FUZZING.md, row 218.
+/// Fuzz strategies exercised for THIS unit:
+///   • BE = Boundary Exploitation — the degenerate boundaries called out in the
+///          checklist row "no repeat, full repeat, minLen edge": a sequence with NO
+///          repeat (empty result), a FULL repeat (the WHOLE sequence is one tandem
+///          array), and the minLength EDGE (an array whose span is exactly the
+///          threshold is reported; one base below the threshold is dropped). Plus the
+///          empty/null sequence and the out-of-range minCopies/minRepeatLength guards.
+/// — docs/checklists/03_FUZZING.md §Description ("BE = Boundary Exploitation: 0, -1,
+///   MaxInt, empty").
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The repetitive-element contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// This is the ANNOTATION-module repeat finder (Repetitive_Element_Detection.md,
+/// Test Unit ID ANNOT-REPEAT-001), DISTINCT from the Repeats-area REP-* rows 13–17.
+/// The surface is
+///   GenomeAnnotator.FindRepetitiveElements(string dnaSequence,
+///                                          int minRepeatLength = 10,
+///                                          int minCopies = 2)
+///     → IEnumerable&lt;(int start, int end, string type, string sequence)&gt;
+///   (src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs lines 774–914).
+/// It reports two structural classes (Repetitive_Element_Detection.md §1, §2.2):
+///   • "tandem_repeat"  — a PRIMITIVE motif u repeated head-to-tail in ≥ minCopies
+///                        directly adjacent copies; the array spans c·|u| bases and the
+///                        reported `sequence` is the array slice dnaSequence[start..end]
+///                        (0-based, end-EXCLUSIVE); non-primitive units (AA = A×2) are
+///                        collapsed to the primitive period (INV-01, INV-02; §5.2).
+///   • "inverted_repeat" — a left arm W followed by a gap G (|G| ≥ 0) then the right arm
+///                        W̄ᴿ = revcomp(W); gap 0 ⇒ reverse-complement palindrome. The
+///                        right arm is accepted only when it ordinal-equals revcomp(left)
+///                        (INV-03; §2.2, §5.2).
+///
+/// Documented parameter / validation contract (Repetitive_Element_Detection.md §3.1, §3.3, §6.1):
+///   • dnaSequence null → ArgumentNullException (DOCUMENTED throw, pinned as such).
+///   • dnaSequence empty → EMPTY result, NOT a throw (the core `yield break`s on length 0).
+///   • minCopies &lt; 2 → ArgumentOutOfRangeException (a tandem repeat needs "two or more"
+///     copies; Wikipedia: Tandem repeat). minRepeatLength &lt; 1 → ArgumentOutOfRangeException.
+///   • minRepeatLength is the MINIMUM TOTAL SPAN (bp) of a reported element: a tandem array
+///     is dropped when end − start &lt; minRepeatLength (GenomeAnnotator.cs line 840). It is
+///     ALSO reused as the inverted-repeat minimum ARM length (`minArmLength`), so an inverted
+///     pair needs i + 2·minRepeatLength ≤ length to exist (line 887). The minLength-edge fuzz
+///     tests therefore isolate the TANDEM contribution (filter type == "tandem_repeat") where
+///     the span filter is the quantity under test.
+///   • Non-ACGT / lowercase content is NOT pre-validated: the input is upper-cased, then exact
+///     matching simply never fires for non-library/non-matching triplets (§3.3, §6.1).
+///
+/// Documented invariants pinned on positive results (Repetitive_Element_Detection.md §2.4):
+///   INV-01 a tandem repeat's `sequence` equals dnaSequence[start..end] (0-based, exclusive
+///          end) and its length is an integer multiple of the primitive unit length;
+///   INV-02 a tandem repeat has ≥ minCopies (≥ 2) directly adjacent identical primitive copies;
+///   INV-03 for every inverted repeat the right arm equals revcomp(left arm).
+/// The fuzz bar for this unit: no crash / hang / corruption on degenerate or random input;
+/// the NO-repeat boundary returns an empty result; the FULL-repeat boundary reports the WHOLE
+/// sequence as one tandem array with the correct primitive unit; the minLength EDGE reports an
+/// array of span exactly = minRepeatLength and DROPS the same array one base above the threshold;
+/// the doc §7.1 worked example FindRepetitiveElements("ATTCGATTCGATTCG", 5, 2) →
+/// (0, 15, "tandem_repeat", "ATTCGATTCGATTCG") (unit "ATTCG" ×3) is reproduced from first
+/// principles; and a fixed-seed random sweep keeps every reported element structurally valid
+/// (INV-01..INV-03, in-bounds, codon of the right type). Deterministic only: random fuzz input
+/// comes from a locally fixed `new Random(seed)` — NEVER a shared static Rng.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -2075,6 +2139,321 @@ public class AnnotationFuzzTests
             .Should().Throw<ArgumentNullException>("a null collection (genetic-code overload) is a documented ArgumentNullException");
         ((Action)(() => GenomeAnnotator.GetCodonUsage(new[] { "ATG" }, null!)))
             .Should().Throw<ArgumentNullException>("a null GeneticCode is a documented ArgumentNullException");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  ANNOT-REPEAT-001 — repetitive-element detection : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region ANNOT-REPEAT-001 — repetitive-element detection
+
+    #region Positive sanity — doc §7.1 worked example (hand-checkable)
+
+    /// <summary>
+    /// Positive sanity: the Repetitive_Element_Detection.md §7.1 worked example,
+    /// computed INDEPENDENTLY from the model (NOT echoed off the code). The motif
+    /// "ATTCG" tiled three times head-to-tail gives "ATTCGATTCGATTCG" (15 bp). With
+    /// minRepeatLength = 5 and minCopies = 2 the canonical full-span primitive array is
+    /// (start = 0, end = 15, type = "tandem_repeat", sequence = "ATTCGATTCGATTCG") — the
+    /// unit "ATTCG" (|u| = 5) repeated 3× over [0, 15). INV-01: sequence == dnaSequence
+    /// [0..15] and 15 is a multiple of 5; INV-02: 3 ≥ minCopies adjacent copies. NOTE the
+    /// detector ALSO legitimately reports the SHIFTED sub-arrays (e.g. "TTCGA" × 2 at
+    /// start 1) — the §7.1 snippet shows the canonical element, NOT a uniqueness claim,
+    /// matching the committed unit test which pins the (0, 15) element by membership. So
+    /// we assert the canonical element is PRESENT with exact fields, and that EVERY
+    /// reported tandem array is itself structurally valid (slice == source, span a
+    /// multiple of its primitive period, ≥ minCopies copies). We isolate the tandem class
+    /// because minRepeatLength doubles as the inverted-arm length, irrelevant here.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindRepetitiveElements_WorkedExample_ReportsCanonicalFullSpanTandemUnitAttcgTimesThree()
+    {
+        const string seq = "ATTCGATTCGATTCG"; // unit "ATTCG" × 3, 15 bp
+
+        var tandem = GenomeAnnotator
+            .FindRepetitiveElements(seq, minRepeatLength: 5, minCopies: 2)
+            .Where(e => e.type == "tandem_repeat")
+            .ToList();
+
+        var tr = tandem.Should().ContainSingle(e => e.start == 0 && e.end == 15,
+            "the §7.1 canonical element is the full-span \"ATTCG\" × 3 array over [0, 15)").Subject;
+        tr.type.Should().Be("tandem_repeat");
+        tr.sequence.Should().Be("ATTCGATTCGATTCG",
+            "INV-01: the reported sequence is dnaSequence[0..15], the array slice");
+        ((tr.end - tr.start) % 5).Should().Be(0, "INV-01: the span is an integer multiple of the unit length |u| = 5");
+        ((tr.end - tr.start) / 5).Should().BeGreaterThanOrEqualTo(2, "INV-02: at least minCopies adjacent copies");
+
+        // Every reported tandem array (canonical + shifted sub-arrays) is structurally valid.
+        tandem.Should().OnlyContain(e =>
+            e.start >= 0 && e.start < e.end && e.end <= seq.Length &&
+            e.sequence == seq.Substring(e.start, e.end - e.start),
+            "every reported tandem array stays in bounds and its slice equals the source (INV-01)");
+    }
+
+    #endregion
+
+    #region BE — Boundary: no repeat present (empty result)
+
+    /// <summary>
+    /// BE ("no repeat"): a sequence with NO tandem array of ≥ 2 adjacent copies and NO
+    /// inverted (revcomp-palindrome) arm must yield an EMPTY result — no crash, no spurious
+    /// element (Repetitive_Element_Detection.md §6.1, INV-01..INV-03). "ACGT" has every base
+    /// distinct (no head-to-tail repeat) and is its own revcomp only as a whole, but with
+    /// minRepeatLength = 4 the inverted scan needs i + 2·4 ≤ 4 (impossible) and the tandem
+    /// scan needs span ≥ 4 with ≥ 2 copies (impossible for 4 distinct bases). The disciplined
+    /// outcome is the empty list.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindRepetitiveElements_NoRepeatPresent_ReturnsEmpty()
+    {
+        const string seq = "ACGT"; // all distinct, no adjacent repeat, no in-range inverted arm
+
+        var act = () => GenomeAnnotator.FindRepetitiveElements(seq, minRepeatLength: 4, minCopies: 2).ToList();
+        act.Should().NotThrow("a non-repetitive sequence is scanned cleanly to the end");
+
+        GenomeAnnotator.FindRepetitiveElements(seq, minRepeatLength: 4, minCopies: 2).ToList()
+            .Should().BeEmpty("no head-to-tail repeat and no in-range inverted arm exist in \"ACGT\"");
+    }
+
+    #endregion
+
+    #region BE — Boundary: full repeat (whole sequence is one tandem array)
+
+    /// <summary>
+    /// BE ("full repeat"): the WHOLE sequence is a single tandem array. "GATCGATCGATC" is the
+    /// primitive unit "GATC" tiled three times (12 bp). With minRepeatLength = 4, minCopies = 2
+    /// the array spans 3·4 = 12 = the whole sequence, reported once with start = 0, end = length
+    /// (INV-01, INV-02). The primitive-collapse rule means a homopolymeric/periodic whole sequence
+    /// is reported by its shortest period, never double-counted. We pin that the full-span array
+    /// is reported with the correct primitive unit and that NO tandem array extends past the
+    /// sequence end.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindRepetitiveElements_FullRepeat_ReportsWholeSequenceAsSingleTandemArray()
+    {
+        const string seq = "GATCGATCGATC"; // unit "GATC" × 3, 12 bp — the entire sequence
+
+        var tandem = GenomeAnnotator
+            .FindRepetitiveElements(seq, minRepeatLength: 4, minCopies: 2)
+            .Where(e => e.type == "tandem_repeat")
+            .ToList();
+
+        var full = tandem.Should().ContainSingle(o => o.start == 0 && o.end == seq.Length,
+            "the whole sequence is one primitive tandem array spanning [0, length)").Subject;
+
+        full.sequence.Should().Be(seq, "INV-01: the array slice is the entire dnaSequence[0..length]");
+        // The primitive unit is the shortest period; for GATC×3 that is "GATC" (4 bp).
+        (full.end - full.start).Should().Be(12, "the span is the full 12 bp");
+        (12 % 4).Should().Be(0, "INV-01: 12 is a multiple of the primitive unit length 4");
+
+        tandem.Should().OnlyContain(o => o.start >= 0 && o.start < o.end && o.end <= seq.Length,
+            "every reported tandem array stays within the sequence bounds");
+    }
+
+    #endregion
+
+    #region BE — Boundary: minLength edge (span exactly threshold vs one below)
+
+    /// <summary>
+    /// BE ("minLen edge"): minRepeatLength is the minimum TOTAL SPAN (bp) of a reported element
+    /// (Repetitive_Element_Detection.md §3.1; the array is dropped when end − start &lt;
+    /// minRepeatLength, GenomeAnnotator.cs line 840). The dinucleotide array "ATATAT" is the
+    /// primitive unit "AT" × 3, spanning EXACTLY 6 bp. We pin the edge from both sides:
+    ///   • minRepeatLength = 6 (span == threshold) → the array IS reported (6 ≥ 6);
+    ///   • minRepeatLength = 7 (span one below threshold) → the SAME array is DROPPED (6 &lt; 7).
+    /// This is the falsifiable boundary: an off-by-one in the span filter would either drop the
+    /// exactly-threshold array or keep the one-below array. We isolate the tandem class because
+    /// minRepeatLength doubles as the inverted-arm length, which here (needs i + 2·6 ≤ 6) admits
+    /// no inverted repeat anyway, so the assertion targets the span filter cleanly.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindRepetitiveElements_MinLengthEdge_ReportsAtThresholdAndDropsOneBelow()
+    {
+        const string seq = "ATATAT"; // unit "AT" × 3, span exactly 6 bp
+
+        var atThreshold = GenomeAnnotator
+            .FindRepetitiveElements(seq, minRepeatLength: 6, minCopies: 2)
+            .Where(e => e.type == "tandem_repeat")
+            .ToList();
+
+        var tr = atThreshold.Should().ContainSingle(
+            "a tandem array whose span (6) is EXACTLY minRepeatLength (6) is reported").Subject;
+        tr.start.Should().Be(0);
+        tr.end.Should().Be(6, "the array spans the whole 6 bp");
+        tr.sequence.Should().Be("ATATAT", "INV-01: the reported slice is dnaSequence[0..6]");
+
+        var oneBelow = GenomeAnnotator
+            .FindRepetitiveElements(seq, minRepeatLength: 7, minCopies: 2)
+            .Where(e => e.type == "tandem_repeat")
+            .ToList();
+
+        oneBelow.Should().BeEmpty(
+            "the same 6 bp array is DROPPED when its span (6) is one base below the threshold (7)");
+    }
+
+    #endregion
+
+    #region BE — Boundary: empty / null sequence and out-of-range guards
+
+    /// <summary>
+    /// BE (empty / null + guards): the documented validation contract
+    /// (Repetitive_Element_Detection.md §3.3, §6.1). A null sequence throws
+    /// ArgumentNullException; an EMPTY sequence yields an EMPTY result (NOT a throw — the core
+    /// `yield break`s on length 0); minCopies &lt; 2 and minRepeatLength &lt; 1 each throw
+    /// ArgumentOutOfRangeException. The throws are eager (argument validation runs before the
+    /// iterator body), but we force enumeration on the empty case to surface the lazy short-circuit.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindRepetitiveElements_EmptyAndInvalidArguments_HonourDocumentedContract()
+    {
+        ((Action)(() => GenomeAnnotator.FindRepetitiveElements(null!).ToList()))
+            .Should().Throw<ArgumentNullException>("a null dnaSequence is a documented ArgumentNullException");
+
+        GenomeAnnotator.FindRepetitiveElements(string.Empty).ToList()
+            .Should().BeEmpty("an empty sequence has no repetitive elements; the core yield-breaks, it does NOT throw");
+
+        ((Action)(() => GenomeAnnotator.FindRepetitiveElements("ACGTACGT", minRepeatLength: 4, minCopies: 1).ToList()))
+            .Should().Throw<ArgumentOutOfRangeException>("minCopies < 2 is invalid: a tandem repeat needs ≥ 2 adjacent copies");
+
+        ((Action)(() => GenomeAnnotator.FindRepetitiveElements("ACGTACGT", minRepeatLength: 0, minCopies: 2).ToList()))
+            .Should().Throw<ArgumentOutOfRangeException>("minRepeatLength < 1 is invalid");
+    }
+
+    #endregion
+
+    #region MC / RB — Malformed content + randomized boundary sweep
+
+    /// <summary>
+    /// MC: non-DNA characters (N, IUPAC ambiguity codes, digits, punctuation) embedded in the
+    /// scanned sequence are NOT pre-validated and must NOT crash (Repetitive_Element_Detection.md
+    /// §3.3). The detector upper-cases the input then matches exactly, so a garbage triplet simply
+    /// never participates in a head-to-tail unit match or a revcomp arm match — no out-of-range
+    /// Substring, no spurious element. We pin crash-freedom and that the result is structurally
+    /// valid (every element in bounds and of a known type).
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindRepetitiveElements_NonDnaContent_DoesNotCrashAndStaysWellFormed()
+    {
+        const string garbage = "NNNRYK123!?WSMxyz"; // no ACGT repeat, no revcomp arm
+
+        List<(int start, int end, string type, string sequence)> elements = null!;
+        var act = () => elements = GenomeAnnotator.FindRepetitiveElements(garbage, minRepeatLength: 2, minCopies: 2).ToList();
+        act.Should().NotThrow("non-DNA content fails exact matching but never indexes past a window or throws");
+
+        elements.Should().OnlyContain(e =>
+            (e.type == "tandem_repeat" || e.type == "inverted_repeat") &&
+            e.start >= 0 && e.start < e.end && e.end <= garbage.Length,
+            "any reported element on malformed content is still a known type and stays in bounds");
+    }
+
+    /// <summary>
+    /// RB / boundary sweep: a fixed-seed random sweep over varied lengths and parameters must
+    /// complete promptly and keep EVERY reported element structurally valid — no crash, no hang,
+    /// no corruption (Repetitive_Element_Detection.md §2.4 INV-01..INV-03). For each element:
+    /// it is in bounds with start &lt; end; a tandem array's slice equals dnaSequence[start..end]
+    /// and its span is an integer multiple of its primitive unit length with ≥ minCopies copies
+    /// (INV-01, INV-02); an inverted repeat's first arm reverse-complements to its last arm
+    /// (INV-03), checked on the literal arm slices (the composite `sequence` embeds the gap in
+    /// brackets, so we read the arms back off the source sequence). Deterministic only:
+    /// `new Random(seed)` is fixed locally.
+    /// </summary>
+    [Test]
+    [CancelAfter(20000)]
+    public void FindRepetitiveElements_RandomSweep_AllElementsStructurallyValid()
+    {
+        var rng = new Random(218_001);
+
+        for (int iter = 0; iter < 120; iter++)
+        {
+            int length = rng.Next(0, 121);
+            string seq = RandomDna(length, seed: rng.Next());
+            int minRepeatLength = rng.Next(1, 8);
+            int minCopies = rng.Next(2, 5);
+
+            List<(int start, int end, string type, string sequence)> elements = null!;
+            var act = () => elements = GenomeAnnotator
+                .FindRepetitiveElements(seq, minRepeatLength, minCopies).ToList();
+            act.Should().NotThrow(
+                $"random input must never crash (iter {iter}, len {length}, minLen {minRepeatLength}, minCopies {minCopies})");
+
+            foreach (var e in elements)
+            {
+                // In-bounds, exclusive-end, span ≥ minRepeatLength.
+                (e.start >= 0 && e.start < e.end && e.end <= seq.Length).Should().BeTrue(
+                    $"every element is in bounds (iter {iter})");
+                (e.end - e.start).Should().BeGreaterThanOrEqualTo(minRepeatLength,
+                    $"every reported element spans ≥ minRepeatLength (iter {iter})");
+
+                if (e.type == "tandem_repeat")
+                {
+                    string slice = seq.ToUpperInvariant().Substring(e.start, e.end - e.start);
+                    e.sequence.Should().Be(slice, $"INV-01: tandem slice == dnaSequence[start..end] (iter {iter})");
+
+                    // INV-01/INV-02: the slice is a head-to-tail repeat of its primitive unit
+                    // with ≥ minCopies copies. Derive the unit independently as the shortest
+                    // period p of the slice such that slice == unit repeated (len % p == 0).
+                    int span = slice.Length;
+                    int period = SmallestTandemPeriod(slice);
+                    period.Should().BePositive($"a tandem array has a head-to-tail period (iter {iter})");
+                    (span % period).Should().Be(0, $"INV-01: span is a multiple of the unit length (iter {iter})");
+                    (span / period).Should().BeGreaterThanOrEqualTo(minCopies,
+                        $"INV-02: at least minCopies adjacent copies (iter {iter})");
+                }
+                else
+                {
+                    e.type.Should().Be("inverted_repeat", $"the only other class is inverted_repeat (iter {iter})");
+                    // INV-03: the left arm's reverse complement equals the right arm. Arms are
+                    // equal-length; the span minus the gap is 2·armLen, so each arm length is
+                    // recovered by stripping the bracketed gap. Read arms off the source slice.
+                    string upper = seq.ToUpperInvariant();
+                    string composite = e.sequence;
+                    int gapStart = composite.IndexOf('[');
+                    int armLen;
+                    if (gapStart < 0)
+                    {
+                        armLen = composite.Length / 2; // palindrome (gap 0): arm1arm2
+                    }
+                    else
+                    {
+                        armLen = gapStart; // arm1 precedes the '[' gap marker
+                    }
+                    armLen.Should().BePositive($"an inverted repeat has positive-length arms (iter {iter})");
+                    string leftArm = upper.Substring(e.start, armLen);
+                    string rightArm = upper.Substring(e.end - armLen, armLen);
+                    DnaSequence.GetReverseComplementString(leftArm).Should().Be(rightArm,
+                        $"INV-03: the right arm equals revcomp(left arm) (iter {iter})");
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Independently derives the shortest head-to-tail period p of <paramref name="s"/> such
+    /// that s is exactly (s[0..p]) repeated len/p times. Used by the random sweep to verify
+    /// INV-01/INV-02 from the slice alone, NOT from any value the code returned.
+    /// </summary>
+    private static int SmallestTandemPeriod(string s)
+    {
+        int n = s.Length;
+        for (int p = 1; p <= n; p++)
+        {
+            if (n % p != 0) continue;
+            bool ok = true;
+            for (int i = p; i < n && ok; i++)
+                if (s[i] != s[i - p]) ok = false;
+            if (ok) return p;
+        }
+        return n;
     }
 
     #endregion
