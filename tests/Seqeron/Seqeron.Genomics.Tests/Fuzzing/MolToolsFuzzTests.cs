@@ -10,8 +10,9 @@ namespace Seqeron.Genomics.Tests;
 
 /// <summary>
 /// Fuzz tests for the MolTools area — CRISPR PAM (protospacer adjacent motif)
-/// site finding (CRISPR-PAM-001), CRISPR guide RNA design (CRISPR-GUIDE-001), and
-/// CRISPR off-target analysis (CRISPR-OFF-001).
+/// site finding (CRISPR-PAM-001), CRISPR guide RNA design (CRISPR-GUIDE-001),
+/// CRISPR off-target analysis (CRISPR-OFF-001), and primer melting-temperature
+/// calculation (PRIMER-TM-001).
 ///
 /// ───────────────────────────────────────────────────────────────────────────
 /// What fuzzing verifies
@@ -240,6 +241,74 @@ namespace Seqeron.Genomics.Tests;
 /// §2.4): INV-01 only `mismatches > 0` sites are returned (exact matches excluded);
 /// INV-02 returned mismatch counts are bounded by the requested `maxMismatches`.
 /// FindOffTargets is a yield iterator, so every test forces enumeration (`.ToList()`).
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: PRIMER-TM-001 — primer melting-temperature calculation
+/// Checklist: docs/checklists/03_FUZZING.md, row 21.
+/// Fuzz strategies exercised for THIS unit:
+///   • BE = Boundary Exploitation — the empty sequence, the single base (1-bp), and a
+///          long 100+-bp primer (upper size boundary; overflow / non-finite hazard).
+///   • INJ = Injection — non-DNA / special / unicode characters in the primer string,
+///          an all-N primer (no A/C/G/T at all), and the `null` reference.
+/// — docs/checklists/03_FUZZING.md §Description (BE; INJ = injection of special chars /
+///   null bytes / unicode); row 21 targets:
+///   "Empty seq, 1-bp, 100+ bp, all-N, non-DNA chars, null".
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The melting-temperature contract under test (Melting_Temperature.md, Primer_Design.md)
+/// ───────────────────────────────────────────────────────────────────────────
+/// Tm is the temperature at which half of a DNA duplex is dissociated. The MolTools
+/// primer surface PrimerDesigner.CalculateMeltingTemperature(string) (PRIMER-TM-001;
+/// Primer_Design.md §7.2 names it the PRIMER-DESIGN-001 prerequisite) selects ONE of two
+/// empirical composition models by the count of VALID bases (PrimerDesigner.cs 197–219):
+///   • Wallace rule for SHORT oligos with `validLength < 14`:
+///         Tm = 2·(A+T) + 4·(G+C)            — Melting_Temperature.md §2.2 INV-01.
+///   • Marmur-Doty GC formula for `validLength >= 14`:
+///         Tm = max(0, 64.9 + 41·(GC − 16.4)/validLength)
+///                                            — Melting_Temperature.md §2.2 INV-02.
+/// The constants (2, 4; 64.9, 41, 16.4; the 14-nt threshold) live in
+/// ThermoConstants (WallaceAtContribution, WallaceGcContribution, WallaceMaxLength,
+/// MarmurDotyBase/GcCoefficient/GcOffset). Output is °C, a finite double; the method
+/// throws NO exception for any string input — it GUARDS every degenerate case by
+/// returning 0 (Melting_Temperature.md §3.3, §6.1). The KEY hazards the row probes are
+/// the division by `validLength` in Marmur-Doty (a zero-valid-base input would divide by
+/// zero → NaN) and overflow / non-finite leakage on a long primer.
+///
+/// THE SIX ROW-21 FUZZ TARGETS, mapped to the theory-correct contract:
+///   • Empty seq (BE): `string.IsNullOrEmpty` short-circuits to Tm = 0 BEFORE any count
+///     or division (line 199–200) — a DEFINED degenerate boundary, never a crash or NaN
+///     (Melting_Temperature.md §6.1 "Empty / length-1 → 0").
+///   • 1-bp (BE): a single base has validLength 1 < 14, so the Wallace rule applies and
+///     yields a TINY, EXACT Tm: "A"/"T" → 2 °C, "G"/"C" → 4 °C (INV-01). No division,
+///     no NaN — the lower non-empty size boundary is well-defined.
+///   • 100+ bp (BE): a long primer has validLength >= 14, so Marmur-Doty applies; the
+///     result is a LARGE but FINITE Tm (no overflow, no Inf/NaN). A 100-nt all-GC primer
+///     pins the exact Marmur-Doty value 64.9 + 41·(100 − 16.4)/100 = 99.176 °C, proving
+///     the long-primer path is finite and formula-correct, not overflowing.
+///   • All-N (INJ/KEY div-by-zero hazard): 'N' is neither A/T nor G/C, so for an all-N
+///     primer at + gc = validLength = 0. The source GUARDS this with an explicit
+///     `validLength == 0 → return 0` (line 208–209) BEFORE the Marmur-Doty division, so
+///     the denominator is never zero — the theory-correct result is 0 °C, NOT a NaN /
+///     DivideByZero. This is the central INJ probe: a model whose denominator is the
+///     valid-base count must not divide by zero when no base is valid.
+///   • Non-DNA chars (INJ): special characters, digits, spaces, and unicode are simply
+///     not counted as A/T or G/C — they are IGNORED (the method's own contract: "Only
+///     standard DNA bases (A, C, G, T) are recognized; all other characters are
+///     ignored", PrimerDesigner.cs 194–195). So junk never crashes and never inflates
+///     Tm; a primer of pure junk has validLength 0 → Tm 0, and junk interleaved into a
+///     real primer contributes nothing to the count (the Tm equals that of the cleaned
+///     primer). Lower-case is upper-cased first (line 202), so case is irrelevant.
+///   • Null (INJ): a null reference is caught by `string.IsNullOrEmpty(primer)` and
+///     returns 0 — an ArgumentNullException is NOT thrown here, and crucially there is
+///     NEVER a NullReferenceException (the guard runs before any dereference). The
+///     salt-corrected sibling CalculateMeltingTemperatureWithSalt(string, double) shares
+///     the same null/empty short-circuit (line 229–230), so null is safe on both.
+///
+/// Documented invariants pinned (Melting_Temperature.md §2.4): INV-01 Wallace
+/// Tm = 2·(A+T) + 4·(G+C); INV-02 Marmur-Doty Tm = 64.9 + 41·(GC − 16.4)/N; INV-05
+/// empty / length-1 (and, here, all-non-DNA) input → 0. CalculateMeltingTemperature is
+/// a pure function (no iterator), so every probe calls it directly. Every test asserts
+/// the result is FINITE (not NaN, not ±Infinity) in addition to its exact value.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -1032,6 +1101,248 @@ public class MolToolsFuzzTests
         clean.Should().Be(100.0, "no off-targets means maximum specificity per the documented edge case");
         withOff.Should().BeInRange(0, 100, "INV-03: the specificity score is clamped to [0, 100]");
         withOff.Should().BeLessThan(100.0, "a real off-target reduces specificity below the no-off-target maximum");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  PRIMER-TM-001 — primer melting temperature : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region PRIMER-TM-001 — primer melting temperature
+
+    #region BE — Empty sequence
+
+    /// <summary>
+    /// BE (empty seq): the empty string is the lower size boundary. The source
+    /// short-circuits `string.IsNullOrEmpty` to Tm = 0 BEFORE any base count or
+    /// Marmur-Doty division (PrimerDesigner.cs 199–200), so the degenerate zero-length
+    /// primer is a DEFINED boundary value, never an IndexOutOfRange, DivideByZero, or
+    /// NaN (Melting_Temperature.md §6.1 "Empty / length-1 → 0"). The salt-corrected
+    /// sibling shares the same guard.
+    /// </summary>
+    [Test]
+    public void CalculateMeltingTemperature_EmptySequence_ReturnsZeroFinite()
+    {
+        double tm = PrimerDesigner.CalculateMeltingTemperature(string.Empty);
+
+        tm.Should().Be(0, "an empty primer is short-circuited to a defined Tm of 0 before any count or division");
+        double.IsNaN(tm).Should().BeFalse("the empty-input guard returns 0, never a NaN");
+        double.IsInfinity(tm).Should().BeFalse("the empty-input guard returns a finite 0");
+
+        PrimerDesigner.CalculateMeltingTemperatureWithSalt(string.Empty)
+            .Should().Be(0, "the salt-corrected sibling shares the same empty-input short-circuit");
+    }
+
+    #endregion
+
+    #region BE — Single base (1-bp)
+
+    /// <summary>
+    /// BE (1-bp): a single base is the lower NON-empty size boundary. validLength is 1,
+    /// which is below the 14-nt Wallace threshold, so the Wallace rule applies and yields
+    /// a TINY, EXACT Tm — an A·T base contributes 2 °C and a G·C base contributes 4 °C
+    /// (Melting_Temperature.md §2.2 INV-01: Tm = 2·(A+T) + 4·(G+C)). No division by
+    /// length, so no NaN. We pin all four single bases against the documented formula.
+    /// </summary>
+    [Test]
+    public void CalculateMeltingTemperature_SingleBase_ReturnsWallaceTm()
+    {
+        // Wallace: A/T contribute 2, G/C contribute 4 (ThermoConstants 2/4 contributions).
+        PrimerDesigner.CalculateMeltingTemperature("A").Should().Be(2, "one A·T base: Wallace Tm = 2·1 + 4·0 = 2 °C");
+        PrimerDesigner.CalculateMeltingTemperature("T").Should().Be(2, "one A·T base: Wallace Tm = 2 °C");
+        PrimerDesigner.CalculateMeltingTemperature("G").Should().Be(4, "one G·C base: Wallace Tm = 2·0 + 4·1 = 4 °C");
+        PrimerDesigner.CalculateMeltingTemperature("C").Should().Be(4, "one G·C base: Wallace Tm = 4 °C");
+
+        double tm = PrimerDesigner.CalculateMeltingTemperature("G");
+        double.IsNaN(tm).Should().BeFalse("a 1-bp Wallace Tm is finite, with no length division");
+        double.IsInfinity(tm).Should().BeFalse();
+    }
+
+    #endregion
+
+    #region BE — Long primer (100+ bp) — overflow / non-finite hazard
+
+    /// <summary>
+    /// BE (100+ bp): a long primer is the UPPER size boundary and the overflow / non-finite
+    /// leakage hazard. validLength >= 14 selects Marmur-Doty
+    /// (Tm = 64.9 + 41·(GC − 16.4)/N, Melting_Temperature.md §2.2 INV-02). A 100-nt all-GC
+    /// primer pins the exact value 64.9 + 41·(100 − 16.4)/100 = 99.176 °C — a LARGE but
+    /// FINITE Tm, proving the long-primer path neither overflows nor leaks Inf/NaN. A
+    /// 100-nt all-A·T primer (GC = 0) yields 64.9 + 41·(0 − 16.4)/100 = 58.176 °C, also
+    /// finite and positive — the documented `max(0, …)` clamp is never even needed in the
+    /// valid >= 14 regime, confirming the formula stays well-behaved at the upper boundary.
+    /// </summary>
+    [Test]
+    public void CalculateMeltingTemperature_LongPrimer_IsFiniteMarmurDotyTm()
+    {
+        string allGc = new string('G', 100);
+        string allAt = new string('A', 100);
+
+        double gcTm = PrimerDesigner.CalculateMeltingTemperature(allGc);
+        double atTm = PrimerDesigner.CalculateMeltingTemperature(allAt);
+
+        // Marmur-Doty: 64.9 + 41*(GC - 16.4)/N.
+        gcTm.Should().BeApproximately(64.9 + 41.0 * (100 - 16.4) / 100, 1e-9,
+            "a 100-nt all-GC primer follows Marmur-Doty: 64.9 + 41·(100 − 16.4)/100 = 99.176 °C");
+        atTm.Should().BeApproximately(64.9 + 41.0 * (0 - 16.4) / 100, 1e-9,
+            "a 100-nt all-A·T primer follows Marmur-Doty: 64.9 + 41·(0 − 16.4)/100 = 58.176 °C");
+
+        double.IsNaN(gcTm).Should().BeFalse("a long-primer Tm must be finite, not NaN");
+        double.IsInfinity(gcTm).Should().BeFalse("a long-primer Tm must not overflow to ±Infinity");
+        double.IsNaN(atTm).Should().BeFalse();
+        double.IsInfinity(atTm).Should().BeFalse();
+        gcTm.Should().BeGreaterThan(atTm, "G·C pairs are more stable, so the all-GC primer melts higher");
+    }
+
+    /// <summary>
+    /// BE: the Wallace↔Marmur-Doty switchover at validLength 14 is the model-selection
+    /// boundary. A 13-nt all-A primer (validLength 13 &lt; 14) takes the Wallace path
+    /// (Tm = 2·13 = 26 °C); a 14-nt all-A primer (validLength 14) crosses into
+    /// Marmur-Doty (Tm = 64.9 + 41·(0 − 16.4)/14 ≈ 16.871 °C). Pinning both sides proves
+    /// the threshold (ThermoConstants.WallaceMaxLength = 14) is applied exactly and that
+    /// neither side produces a non-finite value.
+    /// </summary>
+    [Test]
+    public void CalculateMeltingTemperature_WallaceMarmurDotyThreshold_SwitchesAt14()
+    {
+        double wallace13 = PrimerDesigner.CalculateMeltingTemperature(new string('A', 13));
+        double marmur14 = PrimerDesigner.CalculateMeltingTemperature(new string('A', 14));
+
+        wallace13.Should().Be(2 * 13, "13 valid bases is below the 14-nt threshold: Wallace Tm = 2·13 = 26 °C");
+        marmur14.Should().BeApproximately(64.9 + 41.0 * (0 - 16.4) / 14, 1e-9,
+            "14 valid bases crosses into Marmur-Doty: 64.9 + 41·(0 − 16.4)/14 ≈ 16.871 °C");
+
+        double.IsNaN(marmur14).Should().BeFalse("the Marmur-Doty side of the threshold is finite");
+        double.IsInfinity(marmur14).Should().BeFalse();
+    }
+
+    #endregion
+
+    #region INJ — All-N primer (KEY div-by-zero hazard)
+
+    /// <summary>
+    /// INJ (all-N — KEY div-by-zero hazard): 'N' is neither A/T nor G/C, so for an all-N
+    /// primer at + gc = validLength = 0. Marmur-Doty divides by validLength, so a
+    /// zero-valid-base input is the direct division-by-zero / NaN hazard. The source
+    /// GUARDS it with an explicit `validLength == 0 → return 0` (PrimerDesigner.cs
+    /// 208–209) BEFORE the division, so the theory-correct result is a finite 0 °C, NOT a
+    /// NaN or DivideByZeroException. This holds for any non-DNA fill, so we also pin an
+    /// all-'X' primer and a long all-N primer (still 0, no overflow).
+    /// </summary>
+    [Test]
+    public void CalculateMeltingTemperature_AllNPrimer_ReturnsZeroNoDivideByZero()
+    {
+        double tmN = PrimerDesigner.CalculateMeltingTemperature(new string('N', 20));
+        double tmX = PrimerDesigner.CalculateMeltingTemperature(new string('X', 30));
+        double tmLongN = PrimerDesigner.CalculateMeltingTemperature(new string('N', 150));
+
+        tmN.Should().Be(0, "an all-N primer has zero valid bases; the validLength==0 guard returns 0 before the Marmur-Doty division");
+        tmX.Should().Be(0, "any non-A/C/G/T fill has zero valid bases and is guarded to 0");
+        tmLongN.Should().Be(0, "a long all-N primer is still all-invalid: 0, never an overflow");
+
+        double.IsNaN(tmN).Should().BeFalse("the zero-valid-base guard prevents a divide-by-zero NaN");
+        double.IsInfinity(tmN).Should().BeFalse();
+    }
+
+    #endregion
+
+    #region INJ — Non-DNA / special / unicode characters
+
+    /// <summary>
+    /// INJ (non-DNA chars): special characters, digits, spaces, and unicode are NOT
+    /// counted as A/T or G/C — the method's contract states "Only standard DNA bases
+    /// (A, C, G, T) are recognized; all other characters are ignored" (PrimerDesigner.cs
+    /// 194–195). So a primer of PURE junk has validLength 0 and is guarded to 0 (no crash,
+    /// no NaN), and junk INTERLEAVED into a real primer contributes nothing — the Tm equals
+    /// that of the same primer with the junk stripped out. We pin both: pure junk → 0, and
+    /// "AC$#GT 1￿" (4 valid bases A,C,G,T) → the Wallace Tm of "ACGT" (2 A·T + 2 G·C = 12 °C).
+    /// </summary>
+    [Test]
+    public void CalculateMeltingTemperature_NonDnaChars_IgnoredNotCounted()
+    {
+        double junkOnly = PrimerDesigner.CalculateMeltingTemperature("$#@!123 \t￿qwz");
+        junkOnly.Should().Be(0, "no character is A/C/G/T, so validLength is 0 and the guard returns 0, never a crash or NaN");
+        double.IsNaN(junkOnly).Should().BeFalse();
+        double.IsInfinity(junkOnly).Should().BeFalse();
+
+        // "AC$#GT 1￿" has exactly the valid bases A,C,G,T (2 A·T + 2 G·C); junk is ignored.
+        double interleaved = PrimerDesigner.CalculateMeltingTemperature("AC$#GT 1￿");
+        double cleaned = PrimerDesigner.CalculateMeltingTemperature("ACGT");
+        interleaved.Should().Be(cleaned,
+            "injected special/unicode characters are ignored, so the Tm equals that of the cleaned 'ACGT' primer");
+        interleaved.Should().Be(2 * 2 + 4 * 2, "Wallace Tm of A,C,G,T = 2·(A+T) + 4·(G+C) = 2·2 + 4·2 = 12 °C");
+    }
+
+    /// <summary>
+    /// INJ: lower-case input is upper-cased before counting (PrimerDesigner.cs line 202),
+    /// so a lower-case primer must give exactly the same Tm as its upper-case form — case
+    /// is not a hidden injection vector that drops bases into the "ignored" bucket.
+    /// </summary>
+    [Test]
+    public void CalculateMeltingTemperature_LowerCaseInput_SameAsUpperCase()
+    {
+        double lower = PrimerDesigner.CalculateMeltingTemperature("acgtacgtacgtacgt");   // 16 nt
+        double upper = PrimerDesigner.CalculateMeltingTemperature("ACGTACGTACGTACGT");
+
+        lower.Should().Be(upper, "input is upper-cased before counting, so case does not change which bases are valid");
+        double.IsNaN(lower).Should().BeFalse();
+    }
+
+    #endregion
+
+    #region INJ — Null reference
+
+    /// <summary>
+    /// INJ (null): a null reference is caught by `string.IsNullOrEmpty(primer)` and
+    /// returns 0 — there is NEVER a NullReferenceException (the guard runs before any
+    /// dereference; PrimerDesigner.cs 199–200). This API documents 0, not an
+    /// ArgumentNullException, for null/empty (Melting_Temperature.md §3.3). The
+    /// salt-corrected sibling shares the same null guard (line 229–230).
+    /// </summary>
+    [Test]
+    public void CalculateMeltingTemperature_NullPrimer_ReturnsZeroNoNullReference()
+    {
+        var act = () => PrimerDesigner.CalculateMeltingTemperature((string)null!);
+
+        act.Should().NotThrow<NullReferenceException>(
+            "the null/empty guard runs before any dereference, so null can never raise a NullReferenceException");
+
+        PrimerDesigner.CalculateMeltingTemperature((string)null!)
+            .Should().Be(0, "null is treated as empty and returns a defined Tm of 0");
+        PrimerDesigner.CalculateMeltingTemperatureWithSalt((string)null!)
+            .Should().Be(0, "the salt-corrected sibling shares the same null short-circuit");
+    }
+
+    #endregion
+
+    #region Positive sanity — a known primer Tm matches the documented formula
+
+    /// <summary>
+    /// Positive sanity: alongside the degenerate probes, a textbook 20-nt primer must
+    /// produce the EXACT documented Tm so the boundary hardening never silently breaks the
+    /// core calculation. "ACGTACGTACGTACGTACGT" has 10 A·T and 10 G·C (validLength 20 >= 14),
+    /// so Marmur-Doty applies: Tm = 64.9 + 41·(10 − 16.4)/20 = 51.78 °C
+    /// (Melting_Temperature.md §2.2 INV-02). A short 10-nt mixed primer with 4 A·T and 6 G·C
+    /// (validLength 10 &lt; 14) takes Wallace: Tm = 2·4 + 4·6 = 32 °C (INV-01). Both pin
+    /// the model selection AND the exact value, with a finite result.
+    /// </summary>
+    [Test]
+    public void CalculateMeltingTemperature_KnownPrimers_MatchDocumentedFormula()
+    {
+        // 20-nt, GC = 50% (10 G·C, 10 A·T) → Marmur-Doty.
+        double tm20 = PrimerDesigner.CalculateMeltingTemperature("ACGTACGTACGTACGTACGT");
+        tm20.Should().BeApproximately(64.9 + 41.0 * (10 - 16.4) / 20, 1e-9,
+            "Marmur-Doty Tm of a 20-nt GC-50% primer = 64.9 + 41·(10 − 16.4)/20 = 51.78 °C");
+
+        // 10-nt with 4 A·T + 6 G·C → Wallace (validLength 10 < 14).
+        double tm10 = PrimerDesigner.CalculateMeltingTemperature("ATATGCGCGC"); // A,T,A,T,G,C,G,C,G,C → AT=4, GC=6
+        tm10.Should().Be(2 * 4 + 4 * 6, "Wallace Tm of a 10-nt primer with 4 A·T + 6 G·C = 2·4 + 4·6 = 32 °C");
+
+        double.IsNaN(tm20).Should().BeFalse("a known primer Tm must be finite");
+        double.IsInfinity(tm20).Should().BeFalse();
     }
 
     #endregion
