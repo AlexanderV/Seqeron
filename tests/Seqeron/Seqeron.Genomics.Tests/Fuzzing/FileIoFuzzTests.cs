@@ -267,6 +267,94 @@ namespace Seqeron.Genomics.Tests;
 /// Determinism note: the random-byte BED test uses a LOCAL fixed-seed
 /// `new Random(seed)` and carries `[CancelAfter]`, exactly as the FASTA/FASTQ
 /// tests do.
+///
+/// ═══════════════════════════════════════════════════════════════════════════
+/// Unit: PARSE-VCF-001 — VCF parsing (FileIO)
+/// ═══════════════════════════════════════════════════════════════════════════
+/// Checklist: docs/checklists/03_FUZZING.md, row 67. The fourth FileIO-area fuzz
+/// unit. Fuzz strategies exercised for THIS unit:
+///   • TF  = Truncated Fields — a data line with FEWER than the 8 mandatory columns
+///           (truncated mid-record). THE classic IndexOutOfRange-on-`fields[1]`…
+///           `fields[7]` trap on a short TAB split — the highest-value VCF fuzz case.
+///   • MC  = Malformed Content — a missing `#CHROM` column-header line; a missing
+///           `##fileformat` meta line; a non-numeric / non-integer `POS`; invalid
+///           genotypes in the GT sample field ("9/9" referencing a non-existent
+///           allele, malformed "1|", non-numeric ".|x").
+///   • INJ = Injection — a 1 MB REF and a 1 MB ALT allele (huge alleles) that must be
+///           consumed in linear time with no OOM / quadratic blow-up.
+/// — docs/checklists/03_FUZZING.md §Description (strategy codes).
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The VCF-parsing contract under test (the DOCUMENTED, repository-specific one)
+/// ───────────────────────────────────────────────────────────────────────────
+/// VCF is a TAB-delimited text format: `##` meta lines (one of which is
+/// `##fileformat=…`), a `#CHROM POS ID REF ALT QUAL FILTER INFO [FORMAT samples…]`
+/// column-header line, then one TAB-separated data line per variant locus. The first
+/// 8 columns are mandatory; POS is a 1-based integer (INV-01, INV-02).[SAMtools
+/// hts-specs VCF; Wikipedia VCF]
+///   — docs/algorithms/FileIO/VCF_Parsing.md §1, §2.1, §2.2, §2.4.
+///
+/// API entry points (VcfParser.cs):
+///   • IEnumerable&lt;VcfRecord&gt; VcfParser.Parse(string content)
+///   • IEnumerable&lt;VcfRecord&gt; VcfParser.ParseFile(string filePath)
+///   • (VcfHeader, IEnumerable&lt;VcfRecord&gt;) VcfParser.ParseWithHeader(string content)
+/// `Parse`/`ParseFile` are `yield`-based iterators, so every test materializes with
+/// `.ToList()` to force the parse (and any throw) to actually run inside the assertion;
+/// one file-path test additionally pins the `ParseFile` File.ReadAllText path.
+///
+/// CRITICAL CONTRACT — TOLERANT PARSE, SKIP THE BAD LINE, NEVER CRASH OR CORRUPT.
+/// The VCF parser defers most semantic validation to callers (VCF_Parsing.md §1,
+/// §5.3, §6.2): it does the minimum structural validation (≥ 8 columns, integer POS)
+/// and stores everything else as strings. The business guarantee these fuzz tests pin
+/// is therefore that EVERY malformed / truncated / injected input resolves to EITHER a
+/// well-defined, theory-correct `VcfRecord` OR a clean skip — NEVER an unhandled
+/// IndexOutOfRange (on a short data line!), FormatException (on a non-integer POS),
+/// OutOfMemory (on a huge allele), or hang. Each fuzz test asserts `NotThrow` PLUS a
+/// pinned, exact structural outcome so the documented behavior can never silently
+/// drift into a crash or a corrupt variant record.
+/// Documented behaviors pinned per target (VCF_Parsing.md §3.3, §5.2, §6.1;
+/// VcfParser.cs Parse / ParseLine):
+///   • FEWER THAN 8 COLUMNS (TF): `ParseLine` splits on TAB and returns `null` when
+///     `fields.Length &lt; 8` (VcfParser.cs lines 301–303) BEFORE indexing `fields[1]`…
+///     `fields[7]`, so the classic IndexOutOfRange trap CANNOT fire. Pinned: a 4- or
+///     7-column data line yields ZERO records (the documented "fewer than 8 columns →
+///     skipped" of §6.1). The KEY TF boundary case.
+///   • NON-INTEGER `POS` (MC): POS is read with `int.TryParse` (line 306–307); a
+///     non-numeric / float token makes TryParse return `false` → the line returns
+///     `null` (skipped). This is the documented "Non-integer POS → skipped" of §6.1,
+///     NOT an unhandled `FormatException` from an `int.Parse`. Pinned: ZERO records.
+///   • MISSING `#CHROM` HEADER (MC): `Parse` does NOT require a `#CHROM` line — it
+///     skips `##`/`#` lines and parses every non-`#` line as data (lines 130–146). With
+///     no `#CHROM` line `sampleNames` stays null, so FORMAT/sample columns are NOT
+///     parsed (the `fields.Length &gt; 9 &amp;&amp; sampleNames != null` gate, line 324), but the
+///     8 mandatory columns STILL parse. The DOCUMENTED behavior is therefore: data
+///     lines parse, samples are silently dropped — NOT a rejection and NOT a crash. We
+///     pin that exact shape (records present, `Samples == null`) rather than an
+///     idealized "reject when #CHROM missing" the parser does not implement.
+///   • MISSING `##fileformat` (MC): in `Parse(string)` ALL `##` lines are skipped
+///     uniformly — `##fileformat` carries NO special status, so its absence has ZERO
+///     effect on record parsing. (`ParseWithHeader` separately DEFAULTS `FileFormat`
+///     to `"VCFv4.3"` when no `##fileformat=` line is seen — VcfParser.cs line 176.)
+///     The repo contract is "parse anyway / default the header", NOT "reject". We pin
+///     BOTH: `Parse` ignores the missing meta line and still parses the records, and
+///     `ParseWithHeader` yields the default `VCFv4.3` FileFormat.
+///   • INVALID GENOTYPES (MC): the GT sample field is stored as a RAW string in the
+///     sample dictionary (ParseLine lines 331–337) with NO allele-range validation at
+///     parse time, so a GT like "9/9" (allele index with no matching ALT), a malformed
+///     "1|" (trailing separator), or a non-numeric ".|x" is parsed and STORED verbatim
+///     — never a crash. The downstream zygosity helpers (`IsHet`/`IsHomAlt`/
+///     `IsHomRef`, lines 529–563) then interpret them DETERMINISTICALLY: they split on
+///     `/`|`|`, and a "." allele or an out-of-shape genotype simply yields false rather
+///     than throwing. We pin that the invalid GTs parse, survive verbatim in the sample
+///     dict, and that every zygosity helper returns a defined bool without crashing.
+///   • HUGE ALLELES (INJ/OVF): a 1 MB REF and a 1 MB ALT string. REF is stored as a
+///     plain string and ALT is `Split(',')` once (line 311) — both O(n) over the allele
+///     length, no quadratic re-scan and no unbounded allocation. The record parses with
+///     the full-length alleles intact. `[CancelAfter]` converts any pathological stall
+///     into a deterministic failure. The point: huge alleles complete without OOM.
+///   • NULL / EMPTY input → no records (`yield break` on `IsNullOrEmpty`, line 118–119).
+/// Determinism note: every VCF fuzz input below is a FIXED literal (no randomness);
+/// the huge-allele test carries `[CancelAfter]`, exactly as the FASTA/FASTQ/BED tests.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -339,6 +427,18 @@ public class FileIoFuzzTests
     private string WriteTempBed(string content)
     {
         string path = Path.Combine(_tempDir, "in_" + Guid.NewGuid().ToString("N") + ".bed");
+        File.WriteAllText(path, content, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        return path;
+    }
+
+    /// <summary>
+    /// Writes <paramref name="content"/> verbatim (no added trailing newline) to a
+    /// fresh temp `.vcf` file and returns its path, so the VCF file-path tests control
+    /// byte layout exactly (in particular: a truncated final data line / missing header).
+    /// </summary>
+    private string WriteTempVcf(string content)
+    {
+        string path = Path.Combine(_tempDir, "in_" + Guid.NewGuid().ToString("N") + ".vcf");
         File.WriteAllText(path, content, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
         return path;
     }
@@ -1407,6 +1507,348 @@ public class FileIoFuzzTests
             "no garbage line may ever produce a negative-length interval (INV-02)");
         records.Should().NotContain(r => r.Length < 0);
         token.IsCancellationRequested.Should().BeFalse("parsing random bytes must not hang");
+    }
+
+    #endregion
+
+    #endregion
+
+    #region PARSE-VCF-001 — VCF parsing
+
+    #region Positive sanity — a valid VCF parses to the correct variant records
+
+    /// <summary>
+    /// Positive control: a well-formed VCF (meta lines + `#CHROM` header with one
+    /// sample + two data lines) must parse to exactly two variants with the correct
+    /// CHROM / POS / ID / REF / ALT / QUAL / FILTER / INFO and the per-sample GT. If
+    /// this fails the VCF fuzz suite is meaningless — it proves the parser is wired up
+    /// and the happy path is intact before we throw malformed input at it.
+    /// — VCF_Parsing.md §2.2, §3.2.
+    /// </summary>
+    [Test]
+    public void ParseVcf_ValidMultiRecord_ParsesToCorrectVariants()
+    {
+        const string vcf =
+            "##fileformat=VCFv4.3\n" +
+            "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">\n" +
+            "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n" +
+            "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tSample1\n" +
+            "chr1\t100\trs1\tA\tG\t50.0\tPASS\tDP=30\tGT\t0/1\n" +
+            "chr2\t250\t.\tAT\tA,ATG\t.\t.\t.\tGT\t1/2\n";
+
+        List<VcfParser.VcfRecord> records = VcfParser.Parse(vcf).ToList();
+
+        records.Should().HaveCount(2, "both well-formed data lines must be emitted");
+
+        records[0].Chrom.Should().Be("chr1");
+        records[0].Pos.Should().Be(100, "POS is the 1-based integer coordinate (INV-01)");
+        records[0].Id.Should().Be("rs1");
+        records[0].Ref.Should().Be("A");
+        records[0].Alt.Should().Equal("G");
+        records[0].Qual.Should().Be(50.0);
+        records[0].Filter.Should().Equal("PASS");
+        records[0].Info.Should().ContainKey("DP").WhoseValue.Should().Be("30");
+        records[0].Samples.Should().NotBeNull();
+        VcfParser.GetGenotype(records[0], 0).Should().Be("0/1");
+
+        records[1].Chrom.Should().Be("chr2");
+        records[1].Pos.Should().Be(250);
+        records[1].Id.Should().Be(".");
+        records[1].Ref.Should().Be("AT");
+        records[1].Alt.Should().Equal("A", "ATG");
+        records[1].Qual.Should().BeNull("QUAL '.' is normalized to null (§6.1)");
+        records[1].Filter.Should().BeEmpty("FILTER '.' is normalized to an empty array (§6.1)");
+        VcfParser.GetGenotype(records[1], 0).Should().Be("1/2");
+    }
+
+    /// <summary>
+    /// Positive control over the FILE-PATH surface: the same valid VCF written to disk
+    /// parses via `ParseFile` to the same correct variants, pinning the
+    /// `File.ReadAllText` path (the common real-world entry point).
+    /// </summary>
+    [Test]
+    public void ParseFileVcf_ValidMultiRecord_ParsesToCorrectVariants()
+    {
+        const string vcf =
+            "##fileformat=VCFv4.3\n" +
+            "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n" +
+            "chrX\t1000\t.\tC\tT\t99.5\tPASS\t.\n" +
+            "chrX\t2000\t.\tG\tA\t.\tq10\tAF=0.25\n";
+        string path = WriteTempVcf(vcf);
+
+        List<VcfParser.VcfRecord> records = VcfParser.ParseFile(path).ToList();
+
+        records.Should().HaveCount(2);
+        records[0].Chrom.Should().Be("chrX");
+        records[0].Pos.Should().Be(1000);
+        records[0].Ref.Should().Be("C");
+        records[0].Alt.Should().Equal("T");
+        records[0].Qual.Should().Be(99.5);
+        records[1].Pos.Should().Be(2000);
+        records[1].Filter.Should().Equal("q10");
+        records[1].Info.Should().ContainKey("AF").WhoseValue.Should().Be("0.25");
+    }
+
+    #endregion
+
+    #region TF — Truncated data line (< 8 columns): line skipped, never IndexOutOfRange
+
+    /// <summary>
+    /// TF — THE key boundary case: data lines truncated to FEWER than the 8 mandatory
+    /// columns (4 columns; 7 columns). The classic trap is an IndexOutOfRange when code
+    /// indexes `fields[1]`…`fields[7]` assuming 8 columns are always present. `ParseLine`
+    /// returns `null` when `fields.Length &lt; 8` (VcfParser.cs lines 301–303) BEFORE any
+    /// indexing, so the short line is cleanly SKIPPED — the documented "fewer than 8
+    /// columns → skipped" of §6.1. We pin that the short lines yield ZERO records and
+    /// never crash; the full 8-column line on either side proves the parser recovers.
+    /// </summary>
+    [Test]
+    public void ParseVcf_TruncatedDataLine_SkippedNeverIndexOutOfRange()
+    {
+        const string vcf =
+            "##fileformat=VCFv4.3\n" +
+            "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n" +
+            "chr1\t100\trs1\tA\n" +            // 4 columns → too few, skipped
+            "chr1\t200\trs2\tA\tG\t.\t.\n" +   // 7 columns → too few, skipped
+            "chr1\t300\trs3\tA\tG\t.\t.\t.\n"; // 8 columns → valid
+
+        List<VcfParser.VcfRecord> records = new();
+        var act = () => records = VcfParser.Parse(vcf).ToList();
+
+        act.Should().NotThrow(
+            "a short data line must never IndexOutOfRange on fields[1]..fields[7]");
+        records.Should().ContainSingle("only the complete 8-column line is a valid record")
+            .Which.Pos.Should().Be(300);
+        records[0].Chrom.Should().Be("chr1");
+    }
+
+    /// <summary>
+    /// TF over the FILE-PATH surface: a multi-record VCF whose FINAL data line is
+    /// truncated mid-record (only 3 columns, no trailing newline) is written to disk and
+    /// read via `ParseFile`. The full first data line still parses and the truncated
+    /// final line is cleanly skipped — the real-world shape where a file truncated
+    /// mid-line bites — with NO IndexOutOfRange.
+    /// </summary>
+    [Test]
+    public void ParseFileVcf_TruncatedFinalDataLine_NoCrash()
+    {
+        const string vcf =
+            "##fileformat=VCFv4.3\n" +
+            "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n" +
+            "chr1\t100\trs1\tA\tG\t50\tPASS\tDP=30\n" +
+            "chr2\t200\trs2";   // file ends mid-line: only 3 columns, no newline
+        string path = WriteTempVcf(vcf);
+
+        List<VcfParser.VcfRecord> records = new();
+        var act = () => records = VcfParser.ParseFile(path).ToList();
+
+        act.Should().NotThrow("a truncated final data line on disk must not crash ParseFile");
+        records.Should().ContainSingle("only the complete first data line is a valid record")
+            .Which.Pos.Should().Be(100);
+    }
+
+    #endregion
+
+    #region MC — Non-integer POS: TryParse fails → line skipped, never a FormatException
+
+    /// <summary>
+    /// MC: data lines whose `POS` is non-numeric ("abc") or a float ("12.5"). POS is
+    /// read with `int.TryParse` (VcfParser.cs lines 306–307), so a non-integer token
+    /// makes TryParse return `false` and the line returns `null` (the documented
+    /// "Non-integer POS → skipped", §6.1). The KEY guarantee is that this is a clean
+    /// skip, NEVER an UNHANDLED `FormatException` a naive `int.Parse` would raise. We
+    /// pin that every non-integer-POS line is dropped and only the integer-POS line
+    /// survives.
+    /// </summary>
+    [Test]
+    public void ParseVcf_NonIntegerPos_SkippedNotFormatException()
+    {
+        const string vcf =
+            "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n" +
+            "chr1\tabc\trs1\tA\tG\t.\t.\t.\n" +   // non-numeric POS → skipped
+            "chr1\t12.5\trs2\tA\tG\t.\t.\t.\n" +  // float POS (not an int) → skipped
+            "chr1\t400\trs3\tA\tG\t.\t.\t.\n";    // the one valid integer POS
+
+        List<VcfParser.VcfRecord> records = new();
+        var act = () => records = VcfParser.Parse(vcf).ToList();
+
+        act.Should().NotThrow(
+            "non-integer POS is skipped via int.TryParse, never an unhandled FormatException");
+        records.Should().ContainSingle("only the line with an integer POS parses")
+            .Which.Pos.Should().Be(400);
+    }
+
+    #endregion
+
+    #region MC — Missing #CHROM header: data lines still parse, samples silently dropped
+
+    /// <summary>
+    /// MC: a VCF with `##` meta lines and data lines but NO `#CHROM` column-header line.
+    /// `Parse` does NOT require `#CHROM` — it skips `##`/`#` lines and parses every
+    /// non-`#` line as data (VcfParser.cs lines 130–146). With no `#CHROM` line the
+    /// `sampleNames` array stays null, so the FORMAT/sample columns are NOT materialized
+    /// (the `fields.Length &gt; 9 &amp;&amp; sampleNames != null` gate, line 324), but the 8
+    /// mandatory columns STILL parse. The DOCUMENTED behavior is therefore: data lines
+    /// parse and samples are silently dropped — NOT a rejection and NOT a crash. We pin
+    /// that exact shape (records present, `Samples == null`) rather than an idealized
+    /// "reject when #CHROM missing" the parser does not implement.
+    /// </summary>
+    [Test]
+    public void ParseVcf_MissingChromHeader_StillParsesDataLinesNoSamples()
+    {
+        const string vcf =
+            "##fileformat=VCFv4.3\n" +
+            "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n" +
+            // NO #CHROM line at all — the FORMAT+sample columns have no sample names
+            "chr1\t100\trs1\tA\tG\t50\tPASS\tDP=30\tGT\t0/1\n" +
+            "chr2\t200\trs2\tC\tT\t60\tPASS\t.\tGT\t1/1\n";
+
+        List<VcfParser.VcfRecord> records = new();
+        var act = () => records = VcfParser.Parse(vcf).ToList();
+
+        act.Should().NotThrow("a missing #CHROM header is tolerated, not a crash");
+        records.Should().HaveCount(2,
+            "the 8 mandatory columns parse even without a #CHROM header line");
+        records[0].Chrom.Should().Be("chr1");
+        records[0].Pos.Should().Be(100);
+        records[0].Alt.Should().Equal("G");
+        records.Should().AllSatisfy(r => r.Samples.Should().BeNull(
+            "with no #CHROM header there are no sample names, so sample columns are not parsed"));
+        VcfParser.GetGenotype(records[0], 0).Should().BeNull(
+            "no samples were parsed, so there is no genotype to read");
+    }
+
+    #endregion
+
+    #region MC — Missing ##fileformat: Parse ignores it; ParseWithHeader defaults to VCFv4.3
+
+    /// <summary>
+    /// MC: a VCF with NO `##fileformat=` meta line. In `Parse(string)` every `##` line
+    /// is skipped uniformly — `##fileformat` carries no special status — so its absence
+    /// has ZERO effect and the records still parse (VcfParser.cs lines 130–146). The
+    /// repository contract is "parse anyway", NOT "reject". We pin that `Parse` still
+    /// emits the records, and separately that `ParseWithHeader` DEFAULTS the
+    /// `FileFormat` to `"VCFv4.3"` when no `##fileformat=` line is present (line 176) —
+    /// a defined default, not a crash and not a rejection.
+    /// </summary>
+    [Test]
+    public void ParseVcf_MissingFileFormat_StillParsesAndDefaultsHeader()
+    {
+        const string vcf =
+            // NO ##fileformat line — straight to the #CHROM header
+            "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n" +
+            "chr1\t100\trs1\tA\tG\t50\tPASS\tDP=30\n";
+
+        List<VcfParser.VcfRecord> records = new();
+        var act = () => records = VcfParser.Parse(vcf).ToList();
+
+        act.Should().NotThrow("a missing ##fileformat meta line is ignored, not a crash");
+        records.Should().ContainSingle("the data line parses regardless of the missing ##fileformat")
+            .Which.Pos.Should().Be(100);
+
+        // ParseWithHeader supplies the documented default fileformat when none is present.
+        var (header, headerRecords) = VcfParser.ParseWithHeader(vcf);
+        header.FileFormat.Should().Be("VCFv4.3",
+            "a missing ##fileformat defaults to VCFv4.3, the documented behavior (§5.2)");
+        headerRecords.Should().ContainSingle();
+    }
+
+    #endregion
+
+    #region MC — Invalid genotypes: stored verbatim, interpreted deterministically, no crash
+
+    /// <summary>
+    /// MC: the GT sample field carries INVALID genotypes — "9/9" (an allele index with
+    /// no matching ALT), a malformed "1|" (trailing phase separator, no second allele),
+    /// and a non-numeric ".|x". The parser stores GT as a RAW string in the sample dict
+    /// with NO allele-range validation at parse time (ParseLine lines 331–337), so every
+    /// invalid GT is parsed and preserved verbatim — never a crash. The downstream
+    /// zygosity helpers (`IsHet`/`IsHomAlt`/`IsHomRef`, lines 529–563) then interpret
+    /// them DETERMINISTICALLY: they split on `/`|`|` and a missing/out-of-shape genotype
+    /// simply yields a defined bool rather than throwing. We pin that the invalid GTs
+    /// parse, survive verbatim, and that every zygosity helper returns without crashing.
+    /// </summary>
+    [Test]
+    public void ParseVcf_InvalidGenotypes_StoredVerbatimAndInterpretedDeterministically()
+    {
+        const string vcf =
+            "##fileformat=VCFv4.3\n" +
+            "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tS1\n" +
+            "chr1\t100\t.\tA\tG\t.\t.\t.\tGT\t9/9\n" +   // allele index with no such ALT
+            "chr1\t200\t.\tA\tG\t.\t.\t.\tGT\t1|\n" +    // malformed: trailing separator
+            "chr1\t300\t.\tA\tG\t.\t.\t.\tGT\t.|x\n";    // non-numeric / missing allele
+
+        List<VcfParser.VcfRecord> records = new();
+        var act = () => records = VcfParser.Parse(vcf).ToList();
+
+        act.Should().NotThrow("invalid genotypes are stored as raw strings, not validated → no crash");
+        records.Should().HaveCount(3, "every data line parses; the bad GT is not a rejection");
+
+        // The raw GT strings survive verbatim in the sample dictionary.
+        VcfParser.GetGenotype(records[0], 0).Should().Be("9/9");
+        VcfParser.GetGenotype(records[1], 0).Should().Be("1|");
+        VcfParser.GetGenotype(records[2], 0).Should().Be(".|x");
+
+        // Every zygosity helper must return a DEFINED bool, deterministically, no throw.
+        var zygosityProbe = () =>
+        {
+            foreach (var r in records)
+            {
+                _ = VcfParser.IsHomRef(r, 0);
+                _ = VcfParser.IsHomAlt(r, 0);
+                _ = VcfParser.IsHet(r, 0);
+            }
+        };
+        zygosityProbe.Should().NotThrow(
+            "zygosity helpers must interpret invalid genotypes deterministically, never crash");
+
+        // "9/9": two equal non-zero, non-'.' alleles → homozygous-alt by the helper's rule;
+        // never het (the two alleles are equal).
+        VcfParser.IsHomAlt(records[0], 0).Should().BeTrue();
+        VcfParser.IsHet(records[0], 0).Should().BeFalse();
+        // ".|x": a '.' allele is "missing" → het/hom-alt are false, never a crash.
+        VcfParser.IsHet(records[2], 0).Should().BeFalse(
+            "a missing '.' allele cannot determine heterozygosity");
+        VcfParser.IsHomAlt(records[2], 0).Should().BeFalse();
+    }
+
+    #endregion
+
+    #region INJ/OVF — Huge alleles (1 MB REF + 1 MB ALT): linear time, no OOM/blow-up
+
+    /// <summary>
+    /// INJ / OVF: a single data line whose REF is 1 MB and whose ALT is a different 1 MB
+    /// string (huge alleles). REF is stored as a plain string and ALT is `Split(',')`
+    /// exactly once (VcfParser.cs line 311) — both O(n) over the allele length, no
+    /// quadratic re-scan and no unbounded allocation. The record must parse with the
+    /// full-length alleles intact, in linear time, with NO OutOfMemory and NO stall. We
+    /// add a normal data line after the giant one to ALSO prove the parser recovers and
+    /// still emits the following real record. `[CancelAfter]` converts any pathological
+    /// stall into a deterministic failure.
+    /// </summary>
+    [Test]
+    [CancelAfter(60_000)]
+    public void ParseVcf_HugeAlleles_CompletesWithoutBlowUpAndRecovers(CancellationToken token)
+    {
+        const int alleleLen = 1_000_000;                 // 1 MB REF and 1 MB ALT
+        string hugeRef = new string('A', alleleLen);
+        string hugeAlt = new string('C', alleleLen);
+        string vcf =
+            "##fileformat=VCFv4.3\n" +
+            "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n" +
+            "chr1\t100\t.\t" + hugeRef + "\t" + hugeAlt + "\t.\t.\t.\n" +
+            "chr2\t200\trs2\tA\tG\t50\tPASS\t.\n";   // normal record after the giant one
+
+        List<VcfParser.VcfRecord> records = new();
+        var act = () => records = VcfParser.Parse(vcf).ToList();
+
+        act.Should().NotThrow("a 1 MB REF/ALT must parse in linear time, no OOM/quadratic blow-up");
+        records.Should().HaveCount(2, "the giant record parses and the following record survives");
+        records[0].Ref.Length.Should().Be(alleleLen, "the full-length REF is preserved intact");
+        records[0].Alt.Should().ContainSingle().Which.Length.Should().Be(alleleLen,
+            "the full-length ALT is preserved intact");
+        records[1].Pos.Should().Be(200, "the parser recovers and still emits the following record");
+        token.IsCancellationRequested.Should().BeFalse("a huge allele must not stall the parser");
     }
 
     #endregion
