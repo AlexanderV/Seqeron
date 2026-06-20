@@ -10,7 +10,8 @@ namespace Seqeron.Genomics.Tests;
 
 /// <summary>
 /// Fuzz tests for the K-mer area — overlapping sliding-window k-mer counting
-/// (KMER-COUNT-001) and normalized k-mer frequencies (KMER-FREQ-001).
+/// (KMER-COUNT-001), normalized k-mer frequencies (KMER-FREQ-001), and the
+/// over-represented / frequent-k-mer filter (KMER-FIND-001).
 ///
 /// ───────────────────────────────────────────────────────────────────────────
 /// What fuzzing verifies
@@ -149,6 +150,87 @@ namespace Seqeron.Genomics.Tests;
 ///   • single char    → one k-mer with frequency 1.0 (k = 1).
 /// A positive-sanity test pins the sum-to-1 invariant AND the exact frequency ratios
 /// on a known sequence ("ACGTACGT", k = 3 → {ACG:2/6, CGT:2/6, GTA:1/6, TAC:1/6}).
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: KMER-FIND-001 — finding frequent / over-represented k-mers
+/// Checklist: docs/checklists/03_FUZZING.md, row 34 (the LAST K-mer unit in the
+/// first block).
+/// Fuzz strategy exercised for THIS unit:
+///   • BE = Boundary Exploitation — the degenerate k / threshold / sequence-size
+///          boundaries called out in the checklist row: k = 0, minFreq = 0,
+///          minFreq &gt; the maximum achievable count, and the empty sequence.
+/// — docs/checklists/03_FUZZING.md §Description (strategy codes).
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The frequent-k-mer contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// "Finding frequent k-mers" is the recurrent / over-represented filter: the
+/// k-mers whose overlapping occurrence count is AT LEAST a threshold t, i.e. the
+/// solution to the Frequent Words / Count(Text, Pattern) ≥ t problem (Compeau &amp;
+/// Pevzner, <i>Bioinformatics Algorithms</i>; Rosalind BA1B; K-mer_Search.md §2).
+/// The API entry under test is
+///   KmerAnalyzer.FindKmersWithMinCount(string sequence, int k, int minCount)
+///   (src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs lines 274–282).
+/// It counts via CountKmers, keeps the (k-mer, count) pairs whose count ≥ minCount,
+/// and orders them by count DESCENDING (KmerAnalyzer.cs lines 277–281; the doc
+/// comment there names minCount the "Inclusive minimum occurrence count threshold").
+///
+/// minFreq SEMANTICS — minFreq is a raw COUNT, NOT a frequency fraction. The
+/// parameter is `int minCount`, an inclusive occurrence-count threshold (count ≥
+/// minCount), NOT a normalized 0.0–1.0 frequency. So "minFreq = 0" means a count
+/// threshold of 0, under which EVERY observed k-mer qualifies (every observed count
+/// is ≥ 1 ≥ 0); it is NOT a 0% fraction. This is the load-bearing fact the whole
+/// row turns on, and the tests pin it explicitly.
+///
+/// THE KEY CONTRACT (soundness + completeness, K-mer_Search.md §2.2 / §2.4 model):
+/// the result is EXACTLY {(w, c) : c = Count(w) and c ≥ minCount}. Soundness — every
+/// returned k-mer truly meets the threshold (Count ≥ minCount); completeness — no
+/// above-threshold k-mer is omitted. Every positive-result test below cross-checks
+/// the returned set against an INDEPENDENT CountKmers map: the returned (k-mer,count)
+/// pairs must equal exactly the count-map entries with value ≥ minCount, the reported
+/// counts must match the map, and the counts must be non-increasing (the documented
+/// descending order). This is the single load-bearing correctness check.
+///
+/// DEFERRED-ENUMERATION NOTE: FindKmersWithMinCount is a LINQ pipeline
+/// (Where/OrderByDescending) over CountKmers, so the k ≤ 0 rejection from CountKmers
+/// only surfaces when the result is enumerated. The throw-asserting tests therefore
+/// force enumeration (ToList) inside the asserted delegate — the same pattern the
+/// existing KMER-UNIQUE-001 suite uses — so the documented exception is actually
+/// observed, not silently deferred away.
+///
+/// Documented parameter contract (KmerAnalyzer.cs lines 264–273; K-mer_Search.md
+/// §3.3, §6.1):
+///   • k = 0 (and k &lt; 0) on non-empty input → ArgumentOutOfRangeException
+///     (nameof(k)), surfaced unchanged from CountKmers (KmerAnalyzer.cs lines 25–26):
+///     a 0-length k-mer is meaningless, so "frequent 0-mers" are too. (§6.1 "k ≤ 0 →
+///     Throws for count-based searches".)
+///   • minCount = 0 → every observed k-mer qualifies — every overlapping count is
+///     ≥ 1 ≥ 0, so the filter c ≥ 0 admits the entire distinct-k-mer set. The doc
+///     states "With minCount ≤ 1 every distinct k-mer qualifies" (KmerAnalyzer.cs
+///     lines 270–271); minCount = 0 is below that floor and behaves identically.
+///     This is the count-vs-fraction probe: a 0 COUNT threshold returns ALL k-mers,
+///     not "0% of them".
+///   • minCount &gt; the maximum achievable count (e.g. &gt; n − k + 1, the count an
+///     all-identical run would reach) → NO k-mer qualifies → EMPTY result, never a
+///     crash. The filter c ≥ minCount selects nothing.
+///   • empty / null sequence → CountKmers short-circuits to the empty count map
+///     before k is validated (KmerAnalyzer.cs lines 22–23), so the filter sees zero
+///     k-mers and returns EMPTY — no k-mers exist (§6.1 "Empty sequence → empty
+///     result"). Empty input wins even when k is itself degenerate (k = 0 on empty →
+///     still empty, NOT a throw), because the empty guard runs before the k check.
+///   • k &gt; sequence.Length → empty count map → empty result (no windows).
+/// The implementation uppercases before keying (it counts via CountKmers), so the
+/// filter is case-insensitive. These tests exercise only the BE targets of THIS row.
+///
+/// The four checklist targets map to these documented behaviours:
+///   • k = 0              → ArgumentOutOfRangeException on non-empty input (rejected).
+///   • minFreq = 0        → every observed k-mer qualifies (count ≥ 0 admits all);
+///                          NOT a 0% fraction — proves minFreq is a COUNT.
+///   • minFreq &gt; possible → empty result; the c ≥ minCount filter selects nothing.
+///   • empty seq          → empty result; no k-mers (degenerate k on empty too).
+/// A positive-sanity test pins soundness + completeness on a known sequence
+/// ("ACGTACGT", k = 4, minCount = 2 → only {ACGT:2} qualifies; CGTA/GTAC/TACG are
+/// below threshold and excluded), cross-checked against an independent CountKmers map.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -641,6 +723,264 @@ public class KmerFuzzTests
                 $"INV-01: at k = {k} the sum of all frequencies is exactly 1.0");
             freqs.Keys.Should().OnlyContain(key => key.Length == k,
                 $"every emitted key is a length-{k} window — no shorter/longer fragments");
+        }
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  KMER-FIND-001 — finding frequent k-mers (count ≥ minCount) : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region KMER-FIND-001 — finding frequent k-mers
+
+    #region BE — Boundary: k = 0
+
+    /// <summary>
+    /// BE: k = 0 is the degenerate floor and a meaningless k-mer length — there are no
+    /// "length-0 k-mers" whose frequency could be over-represented. FindKmersWithMinCount
+    /// counts via CountKmers, which rejects k ≤ 0 on non-empty input with
+    /// ArgumentOutOfRangeException (KmerAnalyzer.cs lines 25–26; K-mer_Search.md §6.1
+    /// "k ≤ 0 → Throws for count-based searches"). Because the method is a deferred LINQ
+    /// pipeline, we force enumeration (ToList) inside the asserted delegate so the throw
+    /// actually surfaces. We pin that k = 0 throws and carries the documented "k"
+    /// parameter name, so a 0-length k-mer can never reach the count filter.
+    /// </summary>
+    [Test]
+    public void FindKmersWithMinCount_KZero_ThrowsArgumentOutOfRange()
+    {
+        var act = () => KmerAnalyzer.FindKmersWithMinCount("ACGTACGT", 0, 2).ToList();
+
+        act.Should().Throw<ArgumentOutOfRangeException>(
+                "a 0-length k-mer is meaningless; the frequent-k-mer filter surfaces the underlying k <= 0 rejection on non-empty input")
+            .Which.ParamName.Should().Be("k");
+    }
+
+    /// <summary>
+    /// BE: a negative k is below the floor too and must be rejected the same way —
+    /// pinning that the rejection boundary is exactly k ≤ 0 (surfaced from CountKmers),
+    /// not merely k == 0, so a negative length can never slip into the count filter.
+    /// </summary>
+    [Test]
+    public void FindKmersWithMinCount_NegativeK_ThrowsArgumentOutOfRange()
+    {
+        var act = () => KmerAnalyzer.FindKmersWithMinCount("ACGTACGT", -3, 2).ToList();
+
+        act.Should().Throw<ArgumentOutOfRangeException>(
+                "a negative k-mer length is nonsensical; the contract rejects all k <= 0 on non-empty input")
+            .Which.ParamName.Should().Be("k");
+    }
+
+    #endregion
+
+    #region BE — Boundary: minFreq = 0 (the count-vs-fraction probe)
+
+    /// <summary>
+    /// BE / KEY: minFreq = 0 is the degenerate threshold floor and the count-vs-fraction
+    /// probe. minFreq is a raw COUNT (the `int minCount` "inclusive minimum occurrence
+    /// count threshold", KmerAnalyzer.cs lines 270–271), NOT a 0.0–1.0 frequency fraction.
+    /// So a threshold of 0 means "count ≥ 0", which EVERY observed k-mer satisfies (every
+    /// overlapping count is ≥ 1 ≥ 0) — the filter must return the ENTIRE distinct-k-mer
+    /// set, NOT "0% of them" and NOT an empty set. We pin completeness against an
+    /// independent CountKmers map: the returned (k-mer, count) pairs must equal exactly
+    /// the full count map, with matching counts and the documented descending order.
+    /// </summary>
+    [Test]
+    public void FindKmersWithMinCount_MinFreqZero_ReturnsEveryObservedKmer()
+    {
+        const string seq = "ACGTACGT";
+        const int k = 3;
+        var counts = KmerAnalyzer.CountKmers(seq, k); // independent oracle
+
+        var result = KmerAnalyzer.FindKmersWithMinCount(seq, k, 0).ToList();
+
+        result.Select(p => p.Kmer).Should().BeEquivalentTo(counts.Keys,
+            "minCount = 0 is a COUNT threshold of zero (not a 0% fraction); every observed k-mer has count >= 1 >= 0, so ALL distinct k-mers qualify");
+        result.Should().OnlyContain(p => p.Count == counts[p.Kmer],
+            "soundness: each reported count must equal the independent CountKmers value for that k-mer");
+        result.Select(p => p.Count).Should().BeInDescendingOrder(
+            "the documented contract orders the qualifying k-mers by count descending");
+    }
+
+    /// <summary>
+    /// BE: minFreq = 1 is the off-by-one neighbour just above the 0 floor and the
+    /// documented "minCount ≤ 1 → every distinct k-mer qualifies" edge (KmerAnalyzer.cs
+    /// lines 270–271): since every observed count is ≥ 1, the c ≥ 1 filter STILL admits
+    /// the whole distinct-k-mer set, identically to minCount = 0. Pinning both 0 and 1
+    /// fixes that the "all-qualify" region is exactly minCount ≤ 1.
+    /// </summary>
+    [Test]
+    public void FindKmersWithMinCount_MinFreqOne_AlsoReturnsEveryObservedKmer()
+    {
+        const string seq = "ACGTACGT";
+        const int k = 3;
+        var counts = KmerAnalyzer.CountKmers(seq, k);
+
+        var atZero = KmerAnalyzer.FindKmersWithMinCount(seq, k, 0).Select(p => p.Kmer);
+        var atOne = KmerAnalyzer.FindKmersWithMinCount(seq, k, 1).Select(p => p.Kmer);
+
+        atOne.Should().BeEquivalentTo(counts.Keys,
+            "every observed count is >= 1, so minCount = 1 still admits the whole distinct-k-mer set");
+        atOne.Should().BeEquivalentTo(atZero,
+            "minCount = 0 and minCount = 1 select the identical set — the 'all qualify' region is exactly minCount <= 1");
+    }
+
+    #endregion
+
+    #region BE — Boundary: minFreq > the maximum achievable count
+
+    /// <summary>
+    /// BE: a threshold ABOVE the maximum achievable count must select nothing without
+    /// crashing. The largest count any k-mer can reach is the window count n − k + 1
+    /// (attained only by an all-identical run); a threshold strictly greater than that is
+    /// unsatisfiable, so the c ≥ minCount filter yields the EMPTY result. We probe two
+    /// flavours: a threshold above the actual max observed count in a heterogeneous
+    /// sequence (max 2, threshold 3 → empty), and an absurdly large threshold above the
+    /// absolute ceiling (threshold &gt; n − k + 1 → empty). Neither may throw.
+    /// </summary>
+    [Test]
+    public void FindKmersWithMinCount_MinFreqAboveMaxPossible_IsEmptyAndDoesNotThrow()
+    {
+        const string seq = "ACGTACGT"; // k = 4: max count is 2 (ACGT); n − k + 1 = 5 windows.
+
+        var aboveObservedMax = () => KmerAnalyzer.FindKmersWithMinCount(seq, 4, 3).ToList();
+        aboveObservedMax.Should().NotThrow(
+            "a threshold above the maximum observed count is simply unsatisfiable; the filter selects nothing, it does not crash");
+        aboveObservedMax().Should().BeEmpty(
+            "no 4-mer occurs 3 times in 'ACGTACGT' (max is 2), so minCount = 3 selects nothing");
+
+        // Absurd threshold far above the absolute ceiling n − k + 1 = 5.
+        KmerAnalyzer.FindKmersWithMinCount(seq, 4, 1_000_000).ToList().Should().BeEmpty(
+            "no k-mer can occur 1,000,000 times in an 8-base sequence (ceiling n − k + 1 = 5); the result is empty, never a crash");
+
+        // Even a homopolymer's single k-mer maxes out at the window count; one above is empty.
+        const string run = "AAAAAA"; // k = 2: AA occurs n − k + 1 = 5 times — the ceiling.
+        KmerAnalyzer.FindKmersWithMinCount(run, 2, 5).Should().ContainSingle(
+            "AA reaches exactly the ceiling count 5, so minCount = 5 still includes it");
+        KmerAnalyzer.FindKmersWithMinCount(run, 2, 6).ToList().Should().BeEmpty(
+            "minCount = 6 is one above the ceiling count 5; no k-mer can reach it, so the result is empty");
+    }
+
+    #endregion
+
+    #region BE — Boundary: empty sequence
+
+    /// <summary>
+    /// BE: the empty sequence is the lower size boundary and has no k-mers at all, so the
+    /// frequent-k-mer filter has nothing to select and returns EMPTY. CountKmers
+    /// short-circuits empty/null input to the empty map BEFORE k is validated
+    /// (KmerAnalyzer.cs lines 22–23), so empty input NEVER throws — even when k is itself
+    /// degenerate (k = 0 on empty → still empty, NOT a throw) and even with a degenerate
+    /// minFreq. We pin that empty, null, k &gt; length, and empty-with-degenerate-k all
+    /// return the empty result with no exception (K-mer_Search.md §6.1: "Empty sequence →
+    /// Returns an empty result").
+    /// </summary>
+    [Test]
+    public void FindKmersWithMinCount_EmptyOrNullSequence_IsEmptyAndDoesNotThrow()
+    {
+        var emptyAct = () => KmerAnalyzer.FindKmersWithMinCount(string.Empty, 3, 2).ToList();
+        var nullAct = () => KmerAnalyzer.FindKmersWithMinCount(null!, 3, 2).ToList();
+        var emptyDegenerateKAct = () => KmerAnalyzer.FindKmersWithMinCount(string.Empty, 0, 2).ToList();
+        var emptyDegenerateMinAct = () => KmerAnalyzer.FindKmersWithMinCount(string.Empty, 3, 0).ToList();
+
+        emptyAct.Should().NotThrow("an empty sequence has no k-mers; the count short-circuit yields an empty filter result");
+        nullAct.Should().NotThrow("null input is treated as empty by the underlying count guard, not as an error");
+        emptyDegenerateKAct.Should().NotThrow(
+            "the empty/null guard runs BEFORE k is validated, so empty input wins even with a degenerate k = 0");
+        emptyDegenerateMinAct.Should().NotThrow("an empty sequence with any minCount still yields an empty result");
+
+        KmerAnalyzer.FindKmersWithMinCount(string.Empty, 3, 2).Should().BeEmpty();
+        KmerAnalyzer.FindKmersWithMinCount(null!, 3, 2).Should().BeEmpty();
+        KmerAnalyzer.FindKmersWithMinCount(string.Empty, 0, 2).Should().BeEmpty(
+            "empty input short-circuits to an empty result before the k <= 0 check can throw");
+
+        // k > sequence length is the other 0-window source: no windows fit, so empty.
+        KmerAnalyzer.FindKmersWithMinCount("ACG", 5, 1).Should().BeEmpty(
+            "k = 5 > length 3 gives no valid windows, so no frequent k-mer exists");
+    }
+
+    #endregion
+
+    #region Positive sanity — soundness + completeness on a known sequence
+
+    /// <summary>
+    /// Positive sanity: the worked recurrent-filter example — 'ACGTACGT', k = 4,
+    /// minCount = 2. The six 4-mers are ACGT (pos 0, 4), CGTA, GTAC, TACG; only ACGT
+    /// reaches count 2, so the frequent set is exactly {ACGT:2} and the three below-
+    /// threshold k-mers are excluded. This pins BOTH halves of the contract: soundness
+    /// (every returned k-mer truly has count ≥ minCount) and completeness (no above-
+    /// threshold k-mer omitted), cross-checked against an independent CountKmers map so
+    /// the boundary hardening never comes at the cost of the core filter silently breaking.
+    /// </summary>
+    [Test]
+    public void FindKmersWithMinCount_KnownRecurrent_IsSoundAndComplete()
+    {
+        const string seq = "ACGTACGT";
+        const int k = 4;
+        const int minCount = 2;
+        var counts = KmerAnalyzer.CountKmers(seq, k); // independent oracle
+
+        var result = KmerAnalyzer.FindKmersWithMinCount(seq, k, minCount).ToList();
+
+        // Soundness: every returned k-mer actually meets the threshold.
+        result.Should().OnlyContain(p => p.Count >= minCount && p.Count == counts[p.Kmer],
+            "soundness: each returned k-mer truly occurs >= minCount times, with the count matching the independent map");
+
+        // Completeness: no above-threshold k-mer is omitted.
+        var expected = counts.Where(kvp => kvp.Value >= minCount).Select(kvp => kvp.Key).ToHashSet();
+        result.Select(p => p.Kmer).Should().BeEquivalentTo(expected,
+            "completeness: the returned set equals exactly the count-map entries with count >= minCount");
+
+        // The concrete worked answer: only ACGT qualifies, others excluded.
+        result.Should().ContainSingle("only 'ACGT' occurs >= 2 times in 'ACGTACGT' (k = 4)");
+        result[0].Kmer.Should().Be("ACGT");
+        result[0].Count.Should().Be(2, "'ACGT' starts at positions 0 and 4");
+        result.Select(p => p.Kmer).Should().NotContain(new[] { "CGTA", "GTAC", "TACG" },
+            "the count-1 4-mers are below the threshold and must be excluded");
+
+        // Documented descending order.
+        result.Select(p => p.Count).Should().BeInDescendingOrder(
+            "the contract orders qualifying k-mers by count descending");
+    }
+
+    /// <summary>
+    /// Positive sanity / RB: a fixed-seed random sequence must complete promptly and
+    /// satisfy soundness + completeness + descending order for several k and minCount
+    /// values — the returned set must always equal exactly {(w, c) : c = Count(w),
+    /// c ≥ minCount} cross-checked against an independent CountKmers map, regardless of
+    /// the random content. [CancelAfter] guards against any hang on the largest k scanned.
+    /// </summary>
+    [Test]
+    [CancelAfter(30000)]
+    public void FindKmersWithMinCount_RandomSequence_MatchesCountMapFilterForEveryThreshold()
+    {
+        const int length = 2000;
+        string seq = RandomDna(length, seed: 34_001);
+
+        foreach (int k in new[] { 1, 3, 5, 8 })
+        {
+            var counts = KmerAnalyzer.CountKmers(seq, k);
+            int maxCount = counts.Values.Max();
+
+            foreach (int minCount in new[] { 0, 1, 2, maxCount, maxCount + 1 })
+            {
+                var result = KmerAnalyzer.FindKmersWithMinCount(seq, k, minCount).ToList();
+
+                var expected = counts.Where(kvp => kvp.Value >= minCount)
+                    .Select(kvp => kvp.Key).ToHashSet();
+                result.Select(p => p.Kmer).Should().BeEquivalentTo(expected,
+                    $"at k = {k}, minCount = {minCount} the result equals exactly the count-map entries with count >= minCount");
+                result.Should().OnlyContain(p => p.Count == counts[p.Kmer],
+                    $"at k = {k}, minCount = {minCount} every reported count matches the independent CountKmers value");
+                result.Select(p => p.Count).Should().BeInDescendingOrder(
+                    $"at k = {k}, minCount = {minCount} the qualifying k-mers are ordered by count descending");
+            }
+
+            // A threshold strictly above the max achievable count is always empty.
+            KmerAnalyzer.FindKmersWithMinCount(seq, k, maxCount + 1).ToList().Should().BeEmpty(
+                $"at k = {k} no k-mer reaches count {maxCount + 1} (max observed is {maxCount}); the result is empty");
         }
     }
 
