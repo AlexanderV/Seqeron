@@ -6845,7 +6845,10 @@ public static class OncologyAnalyzer
 
         foreach (string field in fields)
         {
-            if (field.Length == 0 || !field.All(char.IsDigit))
+            // WHO HLA Nomenclature fields are ASCII decimal-digit groups ('0'–'9'); char.IsDigit also accepts
+            // non-ASCII Unicode decimal digits (e.g. fullwidth '０', Arabic-Indic '٢'), which are not valid
+            // nomenclature and must be rejected as malformed.
+            if (field.Length == 0 || !field.All(static c => c is >= '0' and <= '9'))
             {
                 throw new FormatException($"HLA allele field '{field}' must be a non-empty digit group: '{alleleName}'.");
             }
@@ -6898,12 +6901,19 @@ public static class OncologyAnalyzer
     /// <exception cref="ArgumentException">A copy number is negative, or the p value is outside [0, 1].</exception>
     public static HlaLohResult DetectHlaLoh(HlaAlleleCopyNumber alleleCopyNumber)
     {
-        if (alleleCopyNumber.Allele1CopyNumber < 0 || alleleCopyNumber.Allele2CopyNumber < 0)
+        // Copy numbers must be finite and non-negative. NaN must be rejected explicitly: `NaN < 0` is false, so
+        // a NaN copy number would otherwise slip past the bound and leak into the loss-threshold comparison.
+        if (!double.IsFinite(alleleCopyNumber.Allele1CopyNumber) || !double.IsFinite(alleleCopyNumber.Allele2CopyNumber)
+            || alleleCopyNumber.Allele1CopyNumber < 0 || alleleCopyNumber.Allele2CopyNumber < 0)
         {
-            throw new ArgumentException("HLA allele copy numbers must be non-negative.", nameof(alleleCopyNumber));
+            throw new ArgumentException("HLA allele copy numbers must be finite and non-negative.", nameof(alleleCopyNumber));
         }
 
-        if (alleleCopyNumber.AllelicImbalancePValue is < 0.0 or > 1.0)
+        // The p value must be finite and in [0, 1]. NaN must be rejected explicitly: both `NaN < 0.0` and
+        // `NaN > 1.0` are false, so a NaN p value would otherwise pass this check and silently be treated as
+        // not-significant in the `< 0.01` test rather than reported as malformed input.
+        if (!double.IsFinite(alleleCopyNumber.AllelicImbalancePValue)
+            || alleleCopyNumber.AllelicImbalancePValue is < 0.0 or > 1.0)
         {
             throw new ArgumentException("Allelic-imbalance p value must be in [0, 1].", nameof(alleleCopyNumber));
         }
