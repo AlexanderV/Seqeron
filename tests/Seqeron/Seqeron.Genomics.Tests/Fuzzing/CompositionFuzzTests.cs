@@ -474,6 +474,64 @@ namespace Seqeron.Genomics.Tests;
 ///     surface stays finite, non-throwing, and NaN-free on pure random-byte garbage,
 ///     so the strict/lenient boundary is explicit. NOTE: there is NO T↔U conversion
 ///     (AT_Skew.md §6.2): 'U' is ignored, not treated as T — we pin that too.
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: SEQ-RNACOMP-001 — RNA-specific per-base complement (Composition)
+/// Checklist: docs/checklists/03_FUZZING.md, row 212.
+/// Fuzz strategies exercised for THIS unit:
+///   • BE  = Boundary Exploitation — the empty span / empty destination boundary
+///           of the whole-sequence composition, and the single-character minimum
+///           (one base per recognized symbol).
+///   • MC  = Malformed Content — out-of-alphabet (non-RNA) symbols, the "T instead
+///           of U" case (T treated as U), and lowercase input (case-folding).
+/// — docs/checklists/03_FUZZING.md §Description (strategy codes).
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The RNA-complement contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// SEQ-RNACOMP-001 is the Watson–Crick complement of a SINGLE nucleotide IN THE
+/// RNA ALPHABET — it emits U rather than T. The mapping is the Biopython
+/// `ambiguous_rna_complement` lookup, IUPAC-complete:
+///     A→U, U→A, C→G, G→C,  T→A,
+///     R→Y, Y→R, S→S, W→W, K→M, M→K, B→V, V→B, D→H, H→D, N→N.
+///   — docs/algorithms/Sequence_Composition/RNA_Complement.md §2.2, §4.2 (table),
+///     Evidence SEQ-RNACOMP-001-Evidence.md (Biopython verbatim dicts).
+///
+/// THE CRUX of this unit (the three checklist boundaries) is how the edges are
+/// handled, derived from the DOC/primary source, NOT from the code:
+///   • "T instead of U" — T/t is TREATED AS U: T → A. Biopython builds the table
+///     with `ambiguous_rna_complement["T"] = ...["U"]`, and `["U"] == "A"`
+///     (RNA_Complement.md §2.2, INV-03, §6.1; Evidence pt. "T treated as U").
+///     This is the RNA-vs-DNA distinction: the DNA sibling GetComplementBase maps
+///     A→T, but RNA maps A→U and a stray T is silently read as a U.
+///   • "non-RNA base" (MC) — characters OUTSIDE the IUPAC nucleotide set (gaps
+///     '-'/'.', digits, 'Z', whitespace, the null byte, unicode letters, surrogate
+///     halves) PASS THROUGH UNCHANGED, including their ORIGINAL CASE, and NEVER
+///     throw (RNA_Complement.md §3.3, §6.1). This is a TOTAL function over char:
+///     no exception is thrown for any input.
+///   • "lowercase" — input is CASE-INSENSITIVE; every RECOGNIZED symbol is
+///     normalized to UPPERCASE on output (repo convention §5.4, mirroring the DNA
+///     sibling SEQ-COMP-001). So 'a' → 'U', 't' → 'A'. Unrecognized characters keep
+///     their original case (so lowercase 'z' stays 'z').
+///   • empty — there is no per-CHAR empty; the BE empty boundary is honoured on the
+///     whole-sequence span composition (RNA complement of the empty span writes
+///     nothing, never throws — RNA_Complement.md §6.2: whole-sequence complement is
+///     composed by the caller).
+///
+/// API entry: SequenceExtensions.GetRnaComplementBase(char)
+///   (src/Seqeron/Algorithms/Seqeron.Genomics.Core/SequenceExtensions.cs lines
+///    175–194). It is the single-char primitive; we additionally pin a
+///    caller-composed whole-sequence RNA complement (the §6.2 documented usage) so
+///    the empty-input BE boundary and the per-base fractions/identities of a
+///    hand-checkable worked example (RNA_Complement.md §7.1) are exercised end to
+///    end. Worked example (§7.1): RNA-complementing "ACGTUacgtuXYZxyz" under this
+///    repo's uppercase convention yields "UGCAAUGCAAXRZxRz" — recognized bases
+///    uppercased, X/Z/x/z (non-IUPAC) passed through verbatim.
+///
+/// Discipline: every expected value below is derived from the Biopython
+/// `ambiguous_rna_complement` table and the §2.2/§6.1 T→A and case rules — NOT read
+/// off the switch arms in the code. A test that would still pass against a DNA-style
+/// A→T implementation, or against one that dropped the T→A rule, is invalid.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -3421,6 +3479,319 @@ public class CompositionFuzzTests
             rawAct.Should().NotThrow($"the lenient overload must never throw; input: \"{rawInput}\"");
             raw.PredictedOrigin.Should().Be(rawReference.Origin, $"input: \"{rawInput}\"");
             raw.PredictedTerminus.Should().Be(rawReference.Terminus, $"input: \"{rawInput}\"");
+        }
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  SEQ-RNACOMP-001 — RNA-specific per-base complement
+    //  Primitive: SequenceExtensions.GetRnaComplementBase(char)
+    //   (IUPAC-complete; A→U emits the RNA alphabet; T treated as U → A;
+    //    recognized bases uppercased; non-IUPAC passes through unchanged;
+    //    TOTAL over char — never throws)
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region SEQ-RNACOMP-001 — RNA complement
+
+    #region Helpers — independent (doc-derived) RNA complement reference
+
+    /// <summary>
+    /// Independent reference for the RNA complement of a single char, transcribed
+    /// directly from the Biopython <c>ambiguous_rna_complement</c> table and the
+    /// §2.2/§6.1 rules of RNA_Complement.md — NOT from the switch arms under test:
+    ///   • A→U, U→A, C→G, G→C (canonical RNA pairing; emits U, never T);
+    ///   • T→A (T treated as U: ambiguous_rna_complement["T"]=["U"]="A");
+    ///   • R↔Y, S→S, W→W, K↔M, B↔V, D↔H, N→N (IUPAC ambiguity);
+    ///   • recognized symbols are UPPERCASED on output (repo convention §5.4);
+    ///   • any other char passes through UNCHANGED, keeping its original case.
+    /// </summary>
+    private static char ExpectedRnaComplement(char nucleotide)
+    {
+        // Fold to uppercase only to classify; output case is fixed by the rule.
+        char upper = char.ToUpperInvariant(nucleotide);
+        return upper switch
+        {
+            'A' => 'U',
+            'U' => 'A',
+            'C' => 'G',
+            'G' => 'C',
+            'T' => 'A', // T treated as U → A (RNA_Complement.md INV-03, §6.1)
+            'R' => 'Y',
+            'Y' => 'R',
+            'S' => 'S',
+            'W' => 'W',
+            'K' => 'M',
+            'M' => 'K',
+            'B' => 'V',
+            'V' => 'B',
+            'D' => 'H',
+            'H' => 'D',
+            'N' => 'N',
+            _ => nucleotide, // non-IUPAC: unchanged, original case
+        };
+    }
+
+    /// <summary>
+    /// Whole-sequence RNA complement composed per RNA_Complement.md §6.2 (the
+    /// caller composes the single-char primitive over the string). Used only to
+    /// exercise the BE empty boundary and the §7.1 worked example end to end.
+    /// </summary>
+    private static string RnaComplementString(string sequence) =>
+        new(sequence.Select(SequenceExtensions.GetRnaComplementBase).ToArray());
+
+    #endregion
+
+    #region Positive sanity — §7.1 worked example & canonical table
+
+    /// <summary>
+    /// Positive sanity (§7.1 worked example): the RNA complement of the canonical
+    /// Biopython string "ACGTUacgtuXYZxyz" must be "UGCAAUGCAAXRZxRz" under this
+    /// repo's uppercase convention. Hand-derived from the table, independent of the
+    /// code:
+    ///   A→U C→G G→C T→A U→A         ⇒ UGCAA
+    ///   a→U c→G g→C t→A u→A         ⇒ UGCAA  (lowercase folds, output uppercase)
+    ///   X→X (non-IUPAC) Y→R Z→Z     ⇒ XRZ
+    ///   x→x (non-IUPAC) y→R z→z     ⇒ xRz
+    /// This pins ALL three checklist boundaries at once: T-as-U (T,t → A), non-RNA
+    /// pass-through (X,Z,x,z), and lowercase case-folding (a,c,g,t,u,y).
+    /// </summary>
+    [Test]
+    public void GetRnaComplementBase_WorkedExampleString_MatchesDocumentedUppercaseConvention()
+    {
+        const string input = "ACGTUacgtuXYZxyz";
+        const string expected = "UGCAAUGCAAXRZxRz";
+
+        RnaComplementString(input).Should().Be(expected,
+            because: "RNA_Complement.md §7.1: recognized bases are RNA-complemented and uppercased " +
+                     "(T/t treated as U → A); non-IUPAC X/Z/x/z pass through verbatim");
+    }
+
+    /// <summary>
+    /// Positive sanity: the full canonical RNA complement table (RNA_Complement.md
+    /// §4.2), pinned base by base from the Biopython dict — emitting U not T, with
+    /// the reciprocal/self-complementary ambiguity codes. The crux assertions:
+    ///   • A → U (NOT 'T' — this is what distinguishes RNA from the DNA sibling);
+    ///   • T → A (T treated as U), never 'T' on output.
+    /// </summary>
+    [TestCase('A', 'U', TestName = "GetRnaComplementBase_A_IsU_NotT")]
+    [TestCase('U', 'A', TestName = "GetRnaComplementBase_U_IsA")]
+    [TestCase('C', 'G', TestName = "GetRnaComplementBase_C_IsG")]
+    [TestCase('G', 'C', TestName = "GetRnaComplementBase_G_IsC")]
+    [TestCase('R', 'Y', TestName = "GetRnaComplementBase_R_IsY")]
+    [TestCase('Y', 'R', TestName = "GetRnaComplementBase_Y_IsR")]
+    [TestCase('S', 'S', TestName = "GetRnaComplementBase_S_IsS_SelfComplement")]
+    [TestCase('W', 'W', TestName = "GetRnaComplementBase_W_IsW_SelfComplement")]
+    [TestCase('K', 'M', TestName = "GetRnaComplementBase_K_IsM")]
+    [TestCase('M', 'K', TestName = "GetRnaComplementBase_M_IsK")]
+    [TestCase('B', 'V', TestName = "GetRnaComplementBase_B_IsV")]
+    [TestCase('V', 'B', TestName = "GetRnaComplementBase_V_IsB")]
+    [TestCase('D', 'H', TestName = "GetRnaComplementBase_D_IsH")]
+    [TestCase('H', 'D', TestName = "GetRnaComplementBase_H_IsD")]
+    [TestCase('N', 'N', TestName = "GetRnaComplementBase_N_IsN_SelfComplement")]
+    public void GetRnaComplementBase_CanonicalTable_MatchesBiopythonRnaDict(char input, char expected)
+    {
+        SequenceExtensions.GetRnaComplementBase(input).Should().Be(expected,
+            because: "the RNA complement is the Biopython ambiguous_rna_complement lookup (RNA_Complement.md §4.2)");
+    }
+
+    /// <summary>
+    /// Positive sanity (INV-02): NO recognized base maps to 'T' — the whole point of
+    /// the RNA alphabet is it emits U, never T. We assert this over the entire
+    /// recognized set so a DNA-style A→T regression cannot pass.
+    /// </summary>
+    [Test]
+    public void GetRnaComplementBase_RecognizedBases_NeverEmitT()
+    {
+        foreach (char b in "AUCGTRYSWKMBVDHN")
+            SequenceExtensions.GetRnaComplementBase(b).Should().NotBe('T',
+                because: $"INV-02: the RNA alphabet emits U, never T (input '{b}')");
+    }
+
+    /// <summary>
+    /// Positive sanity (INV-06): the complement is an INVOLUTION on the recognized
+    /// RNA bases and the eleven ambiguity codes — complementing twice returns the
+    /// (uppercased) original. T is special: T→A→U (T is treated as U, so the round
+    /// trip lands on U, the canonical form), which we assert explicitly so the
+    /// involution claim is honest about the T-as-U folding.
+    /// </summary>
+    [Test]
+    public void GetRnaComplementBase_RecognizedSymbols_AreInvolution()
+    {
+        // The canonical RNA symbols (excluding T, which folds to U) round-trip exactly.
+        foreach (char b in "AUCGRYSWKMBVDHN")
+        {
+            char once = SequenceExtensions.GetRnaComplementBase(b);
+            SequenceExtensions.GetRnaComplementBase(once).Should().Be(b,
+                because: $"INV-06: complement is an involution on the RNA alphabet (input '{b}')");
+        }
+
+        // T is treated as U: T → A → U (not back to T), the documented folding.
+        char t1 = SequenceExtensions.GetRnaComplementBase('T');
+        t1.Should().Be('A');
+        SequenceExtensions.GetRnaComplementBase(t1).Should().Be('U',
+            because: "INV-03/§6.1: T is treated as U, so T→A→U lands on the canonical U, not T");
+    }
+
+    #endregion
+
+    #region MC — "T instead of U": T/t treated as U (→ A)
+
+    /// <summary>
+    /// MC (checklist crux "T instead of U"): a thymine in an RNA context is TREATED
+    /// AS A URACIL — T and t both complement to 'A' (RNA_Complement.md §2.2/§6.1,
+    /// INV-03; Biopython ambiguous_rna_complement["T"]=["U"]="A"). This is NOT the
+    /// DNA behaviour (where A→T): here T is folded to U and complemented as U. We
+    /// pin BOTH cases and uppercase output. A regression that rejected T, passed it
+    /// through unchanged, or mapped it DNA-style would be caught here.
+    /// </summary>
+    [TestCase('T', TestName = "GetRnaComplementBase_UppercaseT_TreatedAsU_IsA")]
+    [TestCase('t', TestName = "GetRnaComplementBase_LowercaseT_TreatedAsU_IsA")]
+    public void GetRnaComplementBase_TIsTreatedAsU_ComplementsToA(char thymine)
+    {
+        SequenceExtensions.GetRnaComplementBase(thymine).Should().Be('A',
+            because: "RNA_Complement.md INV-03/§6.1: a T (or t) is treated as a U, whose complement is A");
+    }
+
+    /// <summary>
+    /// MC: the RNA-vs-DNA divergence at the 'A' base — the DNA sibling
+    /// GetComplementBase(SEQ-COMP-001) maps A→T, but the RNA primitive maps A→U.
+    /// Pinning both side by side guards that the two surfaces cannot drift into one
+    /// another (RNA_Complement.md §6.1 "A (RNA vs DNA)" row).
+    /// </summary>
+    [Test]
+    public void GetRnaComplementBase_A_DivergesFromDnaSibling_EmitsUNotT()
+    {
+        SequenceExtensions.GetRnaComplementBase('A').Should().Be('U',
+            because: "RNA emits U for A");
+        SequenceExtensions.GetComplementBase('A').Should().Be('T',
+            because: "the DNA sibling emits T for A — the surfaces must stay distinct");
+    }
+
+    #endregion
+
+    #region MC — "lowercase": case-insensitive input, uppercase output
+
+    /// <summary>
+    /// MC (checklist "lowercase"): input is CASE-INSENSITIVE and every RECOGNIZED
+    /// symbol is normalized to UPPERCASE on output (RNA_Complement.md §3.3, §5.4,
+    /// §6.1). So lowercase a/u/c/g/t and the lowercase ambiguity codes complement
+    /// IDENTICALLY to their uppercase forms and ALWAYS emit an uppercase letter.
+    /// This pins both case-folding (lower accepted) and the uppercase convention.
+    /// </summary>
+    [TestCase('a', 'U', TestName = "GetRnaComplementBase_LowerA_IsUpperU")]
+    [TestCase('u', 'A', TestName = "GetRnaComplementBase_LowerU_IsUpperA")]
+    [TestCase('c', 'G', TestName = "GetRnaComplementBase_LowerC_IsUpperG")]
+    [TestCase('g', 'C', TestName = "GetRnaComplementBase_LowerG_IsUpperC")]
+    [TestCase('r', 'Y', TestName = "GetRnaComplementBase_LowerR_IsUpperY")]
+    [TestCase('n', 'N', TestName = "GetRnaComplementBase_LowerN_IsUpperN")]
+    public void GetRnaComplementBase_LowercaseRecognized_FoldsAndEmitsUppercase(char input, char expected)
+    {
+        char result = SequenceExtensions.GetRnaComplementBase(input);
+
+        result.Should().Be(expected,
+            because: "RNA_Complement.md §3.3/§5.4: recognized lowercase symbols fold and emit uppercase complement");
+        char.IsUpper(result).Should().BeTrue(
+            because: "recognized RNA complements are always returned uppercase");
+    }
+
+    #endregion
+
+    #region MC / BE — "non-RNA base": out-of-alphabet pass-through, total over char
+
+    /// <summary>
+    /// MC (checklist crux "non-RNA base"): characters OUTSIDE the IUPAC nucleotide
+    /// set must PASS THROUGH UNCHANGED, keeping their ORIGINAL case, and the method
+    /// must NEVER throw (RNA_Complement.md §3.3, §6.1 — a total function over char).
+    /// Covers gaps, digits, the non-IUPAC letters X/Z (lower and upper), whitespace,
+    /// the null byte, a unicode letter, and lone surrogate halves. Note 'X' and 'Z'
+    /// are NOT in this repo's recognized RNA set, so they pass through verbatim
+    /// (matching the §7.1 worked example where X/Z/x/z are untouched).
+    /// </summary>
+    [TestCase('-', '-', TestName = "GetRnaComplementBase_GapDash_PassesThrough")]
+    [TestCase('.', '.', TestName = "GetRnaComplementBase_GapDot_PassesThrough")]
+    [TestCase('5', '5', TestName = "GetRnaComplementBase_Digit_PassesThrough")]
+    [TestCase('X', 'X', TestName = "GetRnaComplementBase_UpperX_PassesThrough")]
+    [TestCase('x', 'x', TestName = "GetRnaComplementBase_LowerX_PassesThroughKeepsCase")]
+    [TestCase('Z', 'Z', TestName = "GetRnaComplementBase_UpperZ_PassesThrough")]
+    [TestCase('z', 'z', TestName = "GetRnaComplementBase_LowerZ_PassesThroughKeepsCase")]
+    [TestCase(' ', ' ', TestName = "GetRnaComplementBase_Whitespace_PassesThrough")]
+    [TestCase('\0', '\0', TestName = "GetRnaComplementBase_NullByte_PassesThrough")]
+    [TestCase('α', 'α', TestName = "GetRnaComplementBase_GreekLetter_PassesThrough")]
+    [TestCase('\uD83D', '\uD83D', TestName = "GetRnaComplementBase_HighSurrogateHalf_PassesThrough")]
+    [TestCase('\uDE00', '\uDE00', TestName = "GetRnaComplementBase_LowSurrogateHalf_PassesThrough")]
+    public void GetRnaComplementBase_NonRnaCharacter_PassesThroughUnchangedAndNeverThrows(char input, char expected)
+    {
+        char result = '￿';
+        var act = () => result = SequenceExtensions.GetRnaComplementBase(input);
+
+        act.Should().NotThrow("the RNA complement primitive is total over char and never throws");
+        result.Should().Be(expected,
+            because: "non-IUPAC characters pass through unchanged, keeping their original case (RNA_Complement.md §3.3/§6.1)");
+    }
+
+    /// <summary>
+    /// BE (empty boundary): there is no empty char, so the BE empty boundary is
+    /// honoured on the §6.2 caller-composed whole-sequence complement — the RNA
+    /// complement of the empty string is the empty string, with no throw and no hang.
+    /// </summary>
+    [Test]
+    public void GetRnaComplementBase_EmptySequenceComposition_IsEmptyAndDoesNotThrow()
+    {
+        var act = () => RnaComplementString(string.Empty).Should().BeEmpty(
+            because: "the RNA complement of the empty sequence is the empty sequence (RNA_Complement.md §6.2)");
+
+        act.Should().NotThrow("the empty sequence is a defined boundary, not an error");
+    }
+
+    #endregion
+
+    #region MC / BE — randomized boundary sweep (total, matches doc-derived reference)
+
+    /// <summary>
+    /// MC/BE: a LOCALLY-seeded (never the shared static Rng) randomized sweep over
+    /// arbitrary BMP code points — deliberately spanning recognized RNA bases, T/t,
+    /// non-IUPAC garbage, control chars, the null byte and lone surrogate halves —
+    /// asserting on EVERY char:
+    ///   • the primitive NEVER throws (total function over char, RNA_Complement.md §3.3);
+    ///   • it EXACTLY equals the independent doc-derived ExpectedRnaComplement (the
+    ///     real algorithmic contract: A→U, T→A as U, uppercase recognized, non-IUPAC
+    ///     pass-through). A code that drifted from the spec would diverge here.
+    /// Mixed in are the explicit boundary chars so the sweep cannot miss them by
+    /// chance. [CancelAfter] guards against any pathological hang.
+    /// </summary>
+    [Test]
+    [CancelAfter(30_000)]
+    public void GetRnaComplementBase_RandomCharSweep_NeverThrowsAndMatchesDocReference()
+    {
+        var local = new Random(2120601);
+        // Boundary chars guaranteed in the sweep regardless of RNG draws.
+        char[] forced =
+        {
+            'A', 'U', 'C', 'G', 'T', 't', 'a', 'u', 'c', 'g',
+            'R', 'Y', 'S', 'W', 'K', 'M', 'B', 'V', 'D', 'H', 'N',
+            'r', 'y', 's', 'w', 'k', 'm', 'b', 'v', 'd', 'h', 'n',
+            'X', 'Z', 'x', 'z', '-', '.', ' ', '\0', '5', 'α',
+            '\uD83D', '\uDE00', '￿',
+        };
+
+        foreach (char c in forced)
+            AssertMatchesReference(c);
+
+        for (int trial = 0; trial < 5000; trial++)
+            AssertMatchesReference((char)local.Next(0x0000, 0x10000));
+
+        return;
+
+        static void AssertMatchesReference(char c)
+        {
+            char result = '￿';
+            var act = () => result = SequenceExtensions.GetRnaComplementBase(c);
+            act.Should().NotThrow($"the RNA complement primitive is total over char; input U+{(int)c:X4}");
+            result.Should().Be(ExpectedRnaComplement(c),
+                $"the RNA complement must equal the doc-derived reference; input U+{(int)c:X4}");
         }
     }
 
