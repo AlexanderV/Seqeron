@@ -711,8 +711,12 @@ public static class RnaSecondaryStructure
         else
         {
             // Loops < 3 nt are sterically impossible (NNDB Turner 2004, Wikipedia Stem-loop).
-            // Return prohibitive energy to prevent selection in any optimization.
-            energy = 100.0;
+            // Return the prohibitive sentinel IMMEDIATELY: the sequence-dependent terms below
+            // (terminal mismatch, first-mismatch bonuses, all-C penalty) are defined only for
+            // valid loops and must not be layered onto the sentinel. Returning here keeps the
+            // sentinel EXACTLY 100.0 (INV-02) and avoids the all-C check's vacuous-truth on an
+            // empty loop string (All(c => c == 'C') is true for "" → would add the +1.6 penalty).
+            return 100.0;
         }
 
         // For loops ≥4nt: terminal mismatch stacking + sequence-dependent bonuses + penalties
