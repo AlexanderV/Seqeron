@@ -147,6 +147,68 @@ namespace Seqeron.Genomics.Tests;
 /// §2.4): INV-01 Repetitions ≥ minRepetitions and |Unit| ≥ minUnitLength;
 /// INV-02 TotalLength = |Unit| × Repetitions; INV-03 Position + |Unit|×Repetitions
 /// ≤ sequence.Length.
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: REP-INV-001 — inverted repeat (stem-loop / hairpin) detection
+/// Checklist: docs/checklists/03_FUZZING.md, row 15.
+/// Fuzz strategy exercised for THIS unit:
+///   • BE = Boundary Exploitation — the degenerate boundaries called out in the
+///          checklist row: minLen (= minArmLength) = 0, minLen &gt; seqLen/2, the empty
+///          sequence, and a sequence with "no complement possibilities" (a homopolymer
+///          whose reverse complement never appears downstream).
+/// — docs/checklists/03_FUZZING.md §Description (strategy codes).
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The inverted-repeat-detection contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// An inverted repeat is a left arm L followed downstream — optionally across a loop
+/// X — by a right arm R = ReverseComplement(L); with loop length 0 it is exactly a
+/// palindrome, and with a loop it is a stem-loop / hairpin (Inverted_Repeat_Detection.md
+/// §2.1, §2.2). The canonical exact detector is
+///   RepeatFinder.FindInvertedRepeats(sequence,
+///                                    int minArmLength = 4,
+///                                    int maxLoopLength = 50,
+///                                    int minLoopLength = 3)
+///   (src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs lines 275–352)
+/// in two overloads — typed DnaSequence and raw string. The checklist's "minLen" is
+/// THIS detector's minArmLength (the minimum length of each stem arm).
+///
+/// Documented parameter contract (Inverted_Repeat_Detection.md §3.1, §3.3; RepeatFinder.cs
+/// lines 281–286, 297–302):
+///   • sequence == null      → the typed overload throws ArgumentNullException
+///     (ThrowIfNull); the raw-string overload treats null/empty as the empty result.
+///   • minArmLength &lt; 2    → ArgumentOutOfRangeException. This is THE boundary the
+///     checklist row probes: a literal minArmLength = 0 means a zero-length arm
+///     (`Substring(i, 0) = ""`), whose reverse complement is also "", so EVERY
+///     downstream gap position would "match" the empty arm and the detector would emit
+///     a blow-up of nonsense zero-length-arm "repeats". The contract REJECTS &lt; 2 so a
+///     repeat must have at least a 2-bp stem to be reported.
+///   • minLoopLength &lt; 0   → ArgumentOutOfRangeException.
+/// BEFORE this unit's work the raw-string overload did NOT replicate the numeric
+/// validation of the typed overload (recorded as accepted Deviation #1,
+/// Inverted_Repeat_Detection.md §5.4): a degenerate minArmLength = 0 fed through the
+/// raw-string surface (the surface the MCP `find_inverted_repeats` tool forwards raw
+/// user input to, AnalysisTools.cs line 351) emitted spurious empty-arm results instead
+/// of being rejected. Fuzzing this row PROVED that asymmetry was an undisciplined failure
+/// (nonsense output on a degenerate parameter, ADVANCED §8). It was fixed at the source
+/// by mirroring the typed overload's two guards onto the raw-string overload
+/// (`minArmLength < 2` and `minLoopLength < 0` now both throw on BOTH surfaces). The
+/// tests below PIN these floors on both surfaces so they cannot silently drift.
+///
+/// The minLen &gt; seqLen/2 boundary: two arms of length minArmLength plus the minimum
+/// loop cannot fit when `seq.Length &lt; 2·minArmLength + minLoopLength`, so the outer
+/// scan bound `i ≤ seq.Length − 2·minArmLength − minLoopLength` is negative and the loop
+/// body never runs — an empty result, never an out-of-range Substring
+/// (Inverted_Repeat_Detection.md §6.1). "No complement possibilities" (e.g. an all-A
+/// homopolymer, whose reverse complement TTTT… never appears in the same run) likewise
+/// yields nothing without crashing. Every test forces enumeration (`.ToList()`) so the
+/// in-iterator validation surfaces and any hang would manifest as a non-terminating
+/// materialization.
+///
+/// Documented invariants pinned on positive results (Inverted_Repeat_Detection.md §2.4):
+/// INV-01 ReverseComplement(LeftArm) = RightArm; INV-02 TotalLength = 2·ArmLength +
+/// LoopLength; INV-03 LoopLength = RightArmStart − (LeftArmStart + ArmLength);
+/// INV-04 CanFormHairpin ⇔ LoopLength ≥ 3.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -612,6 +674,256 @@ public class RepeatsFuzzTests
             r.TotalLength == r.Unit.Length * r.Repetitions &&    // INV-02
             r.Position >= 0 && r.Position + r.TotalLength <= seqStr.Length, // INV-03
             "every result on random input is well-formed: count ≥ minReps, unit ≥ minUnit, total = unit×count, in bounds");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  REP-INV-001 — inverted repeat detection : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region REP-INV-001 — inverted repeat detection
+
+    #region BE — Boundary: minLen (minArmLength) = 0
+
+    /// <summary>
+    /// BE: minArmLength = 0 is the degenerate floor and the KEY nonsense-output target.
+    /// A literal 0 means a zero-length arm — `leftArm = Substring(i, 0) = ""`, whose
+    /// reverse complement is also "" — so EVERY downstream gap position would "match"
+    /// the empty arm and the detector would blow up the result set with spurious
+    /// zero-length-arm "repeats". A tandem stem needs ≥ 2 paired bases, so the contract
+    /// REJECTS minArmLength &lt; 2 with ArgumentOutOfRangeException
+    /// (RepeatFinder.cs line 282/300; Inverted_Repeat_Detection.md §3.3) — and, after
+    /// this unit's fix, on BOTH the typed and the raw-string surface (the raw-string
+    /// overload previously skipped this guard, Deviation #1). The string overload's
+    /// check precedes its `yield break`, so we force enumeration to surface it.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindInvertedRepeats_MinArmLengthZero_ThrowsArgumentOutOfRange()
+    {
+        var typed = () => RepeatFinder.FindInvertedRepeats(new DnaSequence("GCGCAAAAGCGC"), minArmLength: 0).ToList();
+        var raw = () => RepeatFinder.FindInvertedRepeats("GCGCAAAAGCGC", minArmLength: 0).ToList();
+
+        typed.Should().Throw<ArgumentOutOfRangeException>(
+                "minArmLength = 0 is below the documented floor of 2; a 0-length arm matches every gap as a spurious empty repeat")
+            .Which.ParamName.Should().Be("minArmLength");
+        raw.Should().Throw<ArgumentOutOfRangeException>(
+                "the raw-string overload now enforces the same minArmLength >= 2 floor, never emitting nonsense empty-arm results")
+            .Which.ParamName.Should().Be("minArmLength");
+    }
+
+    /// <summary>
+    /// BE: minArmLength = 1 is the trivial single-base-arm boundary, still below the
+    /// stem floor of 2 (a 1-bp "arm" is a single complementary base, not a stem). Both
+    /// surfaces reject it with ArgumentOutOfRangeException, pinning that the rejection
+    /// boundary is exactly &lt; 2 — and that minLoopLength &lt; 0 is rejected too.
+    /// </summary>
+    [Test]
+    public void FindInvertedRepeats_DegenerateParameters_RejectedOnBothSurfaces()
+    {
+        var typedArm1 = () => RepeatFinder.FindInvertedRepeats(new DnaSequence("GCGCAAAAGCGC"), minArmLength: 1).ToList();
+        var rawArm1 = () => RepeatFinder.FindInvertedRepeats("GCGCAAAAGCGC", minArmLength: 1).ToList();
+        var typedLoopNeg = () => RepeatFinder.FindInvertedRepeats(new DnaSequence("GCGCAAAAGCGC"), minArmLength: 4, minLoopLength: -1).ToList();
+        var rawLoopNeg = () => RepeatFinder.FindInvertedRepeats("GCGCAAAAGCGC", minArmLength: 4, minLoopLength: -1).ToList();
+
+        typedArm1.Should().Throw<ArgumentOutOfRangeException>("a 1-bp arm is below the documented stem floor of 2");
+        rawArm1.Should().Throw<ArgumentOutOfRangeException>("the raw-string overload enforces the same minArmLength >= 2 floor");
+        typedLoopNeg.Should().Throw<ArgumentOutOfRangeException>("a negative minLoopLength is nonsensical and rejected");
+        rawLoopNeg.Should().Throw<ArgumentOutOfRangeException>("the raw-string overload now rejects a negative minLoopLength too");
+
+        // The accepted floor minArmLength = 2 must NOT throw — pinning the boundary is at < 2, not ≤ 2.
+        var arm2 = () => RepeatFinder.FindInvertedRepeats("GCGCAAAAGCGC", minArmLength: 2).ToList();
+        arm2.Should().NotThrow("minArmLength = 2 is the accepted stem floor, not below it");
+    }
+
+    #endregion
+
+    #region BE — Boundary: minLen > seqLen / 2
+
+    /// <summary>
+    /// BE: minArmLength &gt; seqLen/2 means two arms of that length cannot fit in the
+    /// sequence even before counting the loop. The outer scan bound
+    /// `i ≤ seq.Length − 2·minArmLength − minLoopLength` is negative, so the loop body
+    /// never runs and no Substring is taken past the end — an empty result, never a
+    /// crash (Inverted_Repeat_Detection.md §6.1). Probed with minArmLength = 8 on an
+    /// 12-base sequence (2·8 = 16 ≫ 12) on both surfaces.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindInvertedRepeats_MinArmLengthExceedsHalfLength_IsEmptyAndDoesNotThrow()
+    {
+        const string seq = "GCGCAAAAGCGC"; // length 12; minArmLength 8 → 2·8 = 16 > 12
+        var typedAct = () => RepeatFinder.FindInvertedRepeats(new DnaSequence(seq), minArmLength: 8).ToList();
+        var rawAct = () => RepeatFinder.FindInvertedRepeats(seq, minArmLength: 8).ToList();
+
+        typedAct.Should().NotThrow("an arm longer than half the sequence cannot fit twice; the scan bound is negative and the loop never runs");
+        rawAct.Should().NotThrow("the raw-string overload is equally guarded against indexing past the sequence end");
+
+        RepeatFinder.FindInvertedRepeats(new DnaSequence(seq), minArmLength: 8).Should().BeEmpty(
+            "no two 8-bp arms plus a loop fit inside 12 bases; the oversized minArmLength yields nothing, not a crash");
+        RepeatFinder.FindInvertedRepeats(seq, minArmLength: 8).Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// BE: the exact-fit edge — when 2·minArmLength + minLoopLength equals the sequence
+    /// length the structure JUST fits and a genuine inverted repeat must still be found,
+    /// pinning that the boundary guard rejects "too big" without also dropping the
+    /// largest legal arm. "GCGCTTTGCGC" (length 11) holds arms 'GCGC' (revcomp 'GCGC')
+    /// with a 3-base 'TTT' loop: 2·4 + 3 = 11. minArmLength = 4 must find it.
+    /// </summary>
+    [Test]
+    public void FindInvertedRepeats_ArmLengthAtExactFit_StillFindsRepeat()
+    {
+        var results = RepeatFinder.FindInvertedRepeats("GCGCTTTGCGC", minArmLength: 4, maxLoopLength: 10, minLoopLength: 3).ToList();
+
+        results.Should().Contain(
+            r => r.LeftArm == "GCGC" && r.ArmLength == 4 && r.LoopLength == 3,
+            "the 'GCGC…GCGC' hairpin fits exactly (2·4 + 3 = 11) and is found at the fit boundary");
+    }
+
+    #endregion
+
+    #region BE — Boundary: no complement possibilities (homopolymer)
+
+    /// <summary>
+    /// BE: a sequence with "no complement possibilities" — an all-A homopolymer — can
+    /// never contain an inverted repeat, because the reverse complement of any all-A
+    /// arm is an all-T arm that is absent from the same run (Inverted_Repeat_Detection.md
+    /// §6.1, homopolymer edge case). The detector must return empty with no crash and no
+    /// hang. Pinned on both surfaces and for a long run to exercise the full scan.
+    /// </summary>
+    [Test]
+    [CancelAfter(10000)]
+    public void FindInvertedRepeats_HomopolymerNoComplement_IsEmptyAndDoesNotThrow()
+    {
+        string allA = new string('A', 60);
+
+        var typedAct = () => RepeatFinder.FindInvertedRepeats(new DnaSequence(allA), minArmLength: 4).ToList();
+        var rawAct = () => RepeatFinder.FindInvertedRepeats(allA, minArmLength: 4).ToList();
+
+        typedAct.Should().NotThrow("revcomp of an all-A arm is all-T, which never appears in an all-A run; the scan finds nothing");
+        rawAct.Should().NotThrow();
+
+        RepeatFinder.FindInvertedRepeats(new DnaSequence(allA), minArmLength: 4).Should().BeEmpty(
+            "a homopolymer has no reverse-complement arm downstream — no inverted repeat, no crash");
+        RepeatFinder.FindInvertedRepeats(allA, minArmLength: 4).Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// BE: a heteropolymer that simply contains no downstream reverse-complement arm —
+    /// a strictly increasing-then-non-complementary run — must also return empty without
+    /// crashing (Inverted_Repeat_Detection.md §6.1, "no complementary regions"). Pins
+    /// that "found nothing" is a clean empty result, distinct from the rejection cases.
+    /// </summary>
+    [Test]
+    public void FindInvertedRepeats_NoComplementaryArm_IsEmpty()
+    {
+        // 'AAAACCCC' — no arm's revcomp appears downstream within the loop window.
+        RepeatFinder.FindInvertedRepeats("AAAACCCC", minArmLength: 4, maxLoopLength: 10, minLoopLength: 3)
+            .Should().BeEmpty("no downstream substring equals a reverse-complement candidate; the result is cleanly empty");
+    }
+
+    #endregion
+
+    #region BE — Boundary: empty sequence
+
+    /// <summary>
+    /// BE: the empty sequence is the lower size boundary. The raw-string overload
+    /// short-circuits null/empty to the empty enumerable via `yield break`
+    /// (RepeatFinder.cs lines 300–301) — no exception, even though the parameter
+    /// validation now runs first (valid params here, so it passes through). The typed
+    /// overload over an empty DnaSequence has a negative outer scan bound, so it yields
+    /// nothing. Neither path divides, indexes, or hangs on empty input
+    /// (Inverted_Repeat_Detection.md §6.1).
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindInvertedRepeats_EmptySequence_IsEmptyAndDoesNotThrow()
+    {
+        var typedAct = () => RepeatFinder.FindInvertedRepeats(new DnaSequence(string.Empty), minArmLength: 4).ToList();
+        var rawEmptyAct = () => RepeatFinder.FindInvertedRepeats(string.Empty, minArmLength: 4).ToList();
+        var rawNullAct = () => RepeatFinder.FindInvertedRepeats((string)null!, minArmLength: 4).ToList();
+
+        typedAct.Should().NotThrow("an empty sequence has no room for two arms and a loop; it yields nothing");
+        rawEmptyAct.Should().NotThrow("the raw-string overload short-circuits empty input to an empty result");
+        rawNullAct.Should().NotThrow("the raw-string overload treats null input as empty, not as an error");
+
+        RepeatFinder.FindInvertedRepeats(new DnaSequence(string.Empty), minArmLength: 4).Should().BeEmpty();
+        RepeatFinder.FindInvertedRepeats(string.Empty, minArmLength: 4).Should().BeEmpty();
+        RepeatFinder.FindInvertedRepeats((string)null!, minArmLength: 4).Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// BE/INJ: a null DnaSequence is the boundary of "no typed input". The typed overload
+    /// guards it with an explicit ArgumentNullException (ThrowIfNull, RepeatFinder.cs
+    /// line 281), raised eagerly at the call — never a NullReferenceException.
+    /// </summary>
+    [Test]
+    public void FindInvertedRepeats_NullDnaSequence_ThrowsArgumentNullException()
+    {
+        var act = () => RepeatFinder.FindInvertedRepeats((DnaSequence)null!, minArmLength: 4);
+
+        act.Should().Throw<ArgumentNullException>(
+            "the typed overload null-guards its sequence; null is rejected, never dereferenced");
+    }
+
+    #endregion
+
+    #region Positive sanity — a clear inverted repeat / hairpin is detected correctly
+
+    /// <summary>
+    /// Positive sanity: a textbook self-complementary hairpin — "GAATTC" (the EcoRI
+    /// palindrome, revcomp(GAATTC) = GAATTC) repeated across a 4-base loop in
+    /// "GAATTCAAAAGAATTC" — must be detected with the CORRECT arm coordinates, so the
+    /// boundary hardening never silently breaks the core function. Pinned per
+    /// INV-01..INV-04 (Inverted_Repeat_Detection.md §2.4): left arm 'GAATTC' at 0,
+    /// right arm 'GAATTC' at 10, arm length 6, loop length 4, TotalLength = 2·6 + 4 = 16,
+    /// CanFormHairpin true (loop ≥ 3).
+    /// </summary>
+    [Test]
+    public void FindInvertedRepeats_EcoRiHairpin_DetectedWithCorrectArmCoords()
+    {
+        var results = RepeatFinder.FindInvertedRepeats("GAATTCAAAAGAATTC", minArmLength: 4, maxLoopLength: 10, minLoopLength: 3).ToList();
+
+        var hairpin = results.Should().ContainSingle(r => r.ArmLength == 6).Subject;
+        hairpin.LeftArmStart.Should().Be(0, "the left arm starts at the first base");
+        hairpin.RightArmStart.Should().Be(10, "the right arm starts after the 6-bp arm and 4-bp loop");
+        hairpin.LeftArm.Should().Be("GAATTC");
+        hairpin.RightArm.Should().Be("GAATTC", "INV-01: revcomp(GAATTC) = GAATTC (self-complementary EcoRI site)");
+        DnaSequence.GetReverseComplementString(hairpin.LeftArm).Should().Be(hairpin.RightArm,
+            "INV-01: the right arm equals the reverse complement of the left arm");
+        hairpin.LoopLength.Should().Be(4, "INV-03: loop = rightStart(10) − (leftStart(0) + armLen(6))");
+        hairpin.TotalLength.Should().Be(16, "INV-02: TotalLength = 2·ArmLength(6) + LoopLength(4)");
+        hairpin.CanFormHairpin.Should().BeTrue("INV-04: a loop of 4 ≥ 3 is hairpin-viable");
+    }
+
+    /// <summary>
+    /// Positive sanity / RB: a fixed-seed random sequence must complete promptly and
+    /// produce only well-formed results — every reported arm pair is a true reverse
+    /// complement, every coordinate is in bounds, and the loop/total invariants hold —
+    /// so the degenerate-boundary guards do not corrupt the scan on ordinary input.
+    /// Pinned per INV-01..INV-04 (Inverted_Repeat_Detection.md §2.4). Length kept modest
+    /// because the detector is O(n·A²·L); a hang would trip the timeout.
+    /// </summary>
+    [Test]
+    [CancelAfter(30000)]
+    public void FindInvertedRepeats_RandomSequence_ProducesOnlyWellFormedResults()
+    {
+        string seq = RandomDna(400, seed: 15_001);
+
+        var results = RepeatFinder.FindInvertedRepeats(seq, minArmLength: 4, maxLoopLength: 20, minLoopLength: 3).ToList();
+
+        results.Should().OnlyContain(r =>
+            DnaSequence.GetReverseComplementString(r.LeftArm) == r.RightArm &&        // INV-01
+            r.TotalLength == 2 * r.ArmLength + r.LoopLength &&                          // INV-02
+            r.LoopLength == r.RightArmStart - (r.LeftArmStart + r.ArmLength) &&         // INV-03
+            r.CanFormHairpin == (r.LoopLength >= 3) &&                                  // INV-04
+            r.ArmLength >= 4 && r.LeftArmStart >= 0 &&
+            r.RightArmStart + r.ArmLength <= seq.Length,
+            "every result on random input is well-formed: arms are reverse complements, total/loop invariants hold, coords in bounds");
     }
 
     #endregion

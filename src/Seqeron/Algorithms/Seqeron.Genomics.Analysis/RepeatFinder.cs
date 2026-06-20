@@ -294,6 +294,9 @@ public static class RepeatFinder
         int maxLoopLength = 50,
         int minLoopLength = 3)
     {
+        if (minArmLength < 2) throw new ArgumentOutOfRangeException(nameof(minArmLength));
+        if (minLoopLength < 0) throw new ArgumentOutOfRangeException(nameof(minLoopLength));
+
         if (string.IsNullOrEmpty(sequence))
             yield break;
 
