@@ -366,6 +366,82 @@ namespace Seqeron.Genomics.Tests;
 /// [0,1], one per non-trivial reference clade, = fraction of replicates recovering it) is pinned.
 /// Bootstrap is a pure static method; every probe passes a FIXED seed (no shared static RNG) and
 /// hang-sensitive / randomized-sweep probes carry [CancelAfter].
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: PHYLO-STATS-001 — tree statistics (leaves, total tree length, tree height/depth)
+/// Checklist: docs/checklists/03_FUZZING.md, row 222.
+/// Fuzz strategy exercised for THIS unit:
+///   • BE = Boundary Exploitation — the degenerate TOPOLOGY boundaries of a rooted tree:
+///          a SINGLE LEAF (the smallest non-empty tree — height 0, one leaf, length = its
+///          own branch), a STAR tree (one internal root over all leaves as direct children
+///          — height 1, the shallowest non-trivial shape), a DEEP LADDER / caterpillar (the
+///          maximally IMBALANCED binary tree — height = N−1, the deepest shape on N leaves),
+///          and the EMPTY (null) tree (height −1, no leaves, length 0, the empty-tree
+///          convention) — plus the all-zero-branch-length boundary (length 0).
+/// — docs/checklists/03_FUZZING.md §Description (BE = boundary values: 0, -1, empty);
+///   row 222 targets: "single leaf, star tree, deep ladder".
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The tree-statistics contract under test (Tree_Statistics.md)
+/// ───────────────────────────────────────────────────────────────────────────
+/// PhylogeneticAnalyzer exposes THREE exact, deterministic descriptive measures over a rooted
+/// tree, each a single O(n) traversal (Tree_Statistics.md §2.2, §4.1):
+///   • GetLeaves(root)            → the terminal nodes (a leaf is "a vertex with no children",
+///                                   IsLeaf); pre-order order. Null root → ∅ (INV-01/02/06).
+///   • CalculateTreeLength(root)  → Σ over ALL nodes of node.BranchLength — the sum-of-edge-
+///                                   lengths total tree length (DendroPy Tree.length(),
+///                                   Biopython total_branch_length). Null → 0; all-zero → 0
+///                                   (INV-03/04/06).
+///   • GetTreeDepth(root)         → the tree HEIGHT in EDGES: the number of edges on the longest
+///                                   root→leaf path. A single-node (leaf) tree = 0; a null/empty
+///                                   tree = −1 by the cited graph-theory convention (INV-05/06).
+///
+/// API entry points (Tree_Statistics.md §3, §5.1; PhylogeneticAnalyzer.cs lines 801–872):
+///   • GetLeaves(PhyloNode root)            → IEnumerable&lt;PhyloNode&gt;   (yield/pre-order).
+///   • CalculateTreeLength(PhyloNode root)  → double                    (recursive Σ BranchLength).
+///   • GetTreeDepth(PhyloNode root)         → int                       (recursive 1 + max child).
+/// All three are pure static methods; every probe calls them directly with hand-built or
+/// locally-seeded-random trees (no shared static RNG).
+///
+/// THE ROW-222 FUZZ TARGETS, mapped to the theory-correct contract (independently hand-derived
+/// from Tree_Statistics.md §2.2/§6.1 and the graph-theory definitions, NOT echoed from the code):
+///   • single leaf (BE — degenerate smallest tree): a lone leaf node with no children has
+///     EXACTLY one leaf (itself), height 0 ("a tree with only a single node has height zero",
+///     §6.1), and total length = its OWN BranchLength (sum over the one node). No crash, no −1
+///     (that is reserved for the null tree). Both the default-0-branch and a non-zero-branch
+///     single leaf are pinned.
+///   • star tree (BE — shallowest non-trivial shape): one internal root whose children are ALL
+///     leaves directly. GetLeaves returns exactly the N children; height = 1 (root is not a leaf,
+///     so 1 + max(child height = 0) = 1); total length = root.BranchLength + Σ child branch
+///     lengths. Pinned for several N, including N=2 (the binary minimum) and a wide N (polytomy,
+///     exercising the N-ary Children traversal of every method, not a first-two-children
+///     shortcut).
+///   • deep ladder / caterpillar (BE — maximally imbalanced, deepest shape): a binary caterpillar
+///     on N leaves — each internal node has one leaf child and one internal child, nested N−1
+///     deep. GetLeaves returns N; height = N−1 (one edge per internal level on the longest path);
+///     total length = Σ of all N+(N−1) edges' branch lengths. The N−1 height is the documented
+///     maximum for a rooted binary tree on N leaves and is the central deep-recursion probe
+///     ([CancelAfter] guards against any traversal hang).
+///   • empty / null tree (BE −1 boundary): GetLeaves(null) yields NOTHING, CalculateTreeLength(null)
+///     returns 0, and GetTreeDepth(null) returns −1 — the empty-tree convention (§2.4 INV-06,
+///     §6.1). NEVER a NullReferenceException. This is the −1 BE probe distinct from the leaf's 0.
+///
+/// THE POSITIVE-SANITY ANCHOR (worked example, Tree_Statistics.md §7.1, hand-checkable): the
+/// balanced four-taxon tree ((A:1,B:1):1,(C:1,D:1):1) has leaves {A,B,C,D} (count 4), total
+/// length = the six unit edges = 6.0, and height 2 (root→internal→leaf = 2 edges). Pinned verbatim
+/// against the documented expected values, on a hand-built tree (independent of ParseNewick), and
+/// cross-checked against a ParseNewick build of the SAME doc string.
+///
+/// THE INVARIANTS PINNED (Tree_Statistics.md §2.4): INV-01 every GetLeaves node IsLeaf; INV-02 an
+/// N-leaf tree returns exactly N leaves; INV-03 CalculateTreeLength = Σ node.BranchLength;
+/// INV-04 length ≥ 0 when all branches ≥ 0; INV-05 GetTreeDepth = edges on the longest root→leaf
+/// path, leaf-only = 0; INV-06 the null triple (∅, 0, −1). A randomized boundary sweep over
+/// locally-seeded random caterpillars and stars asserts the no-crash / leaf-count / height /
+/// length contract across many shapes and sizes. The fuzz bar (docs/ADVANCED_TESTING_CHECKLIST.md
+/// §8 "Fuzzing"): no crash / hang / NaN / Infinity / corruption, AND the real algorithmic contract
+/// (the documented leaf set, total length and topological height for known topologies) is pinned to
+/// EXACT values. Hang-sensitive / randomized-sweep probes carry [CancelAfter]; all random inputs use
+/// a locally fixed-seed Random (no shared static RNG).
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -1642,6 +1718,279 @@ public class PhylogeneticFuzzTests
                 members.Length.Should().BeLessThan(allTaxa.Count, "a non-trivial clade is a strict subset of all taxa (INV-03)");
                 members.All(allTaxa.Contains).Should().BeTrue("every clade member is one of the input taxa (INV-03)");
             }
+        }
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  PHYLO-STATS-001 — tree statistics : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region PHYLO-STATS-001 — tree statistics (leaves, total length, height)
+
+    #region Helpers (PHYLO-STATS-001)
+
+    /// <summary>A leaf node carrying the given name and branch length (no children).</summary>
+    private static PhylogeneticAnalyzer.PhyloNode Leaf(string name, double branchLength = 0.0)
+        => new(name) { BranchLength = branchLength };
+
+    /// <summary>An internal node with the given branch length and children.</summary>
+    private static PhylogeneticAnalyzer.PhyloNode Internal(double branchLength, params PhylogeneticAnalyzer.PhyloNode[] children)
+        => new() { BranchLength = branchLength, Children = children.ToList() };
+
+    /// <summary>
+    /// Builds a STAR tree: one internal root (branch length <paramref name="rootBranch"/>) whose
+    /// children are <paramref name="leafCount"/> leaves L0..L(n-1), each with the same
+    /// <paramref name="leafBranch"/>. The shallowest non-trivial shape: height 1, all leaves direct.
+    /// </summary>
+    private static PhylogeneticAnalyzer.PhyloNode BuildStar(int leafCount, double rootBranch, double leafBranch)
+    {
+        var children = new PhylogeneticAnalyzer.PhyloNode[leafCount];
+        for (int i = 0; i < leafCount; i++)
+            children[i] = Leaf($"L{i}", leafBranch);
+        return Internal(rootBranch, children);
+    }
+
+    /// <summary>
+    /// Builds a binary CATERPILLAR (deep ladder) on <paramref name="leafCount"/> leaves: each
+    /// internal node has one leaf child and one internal child, nested (leafCount-1) levels deep.
+    /// Every edge (internal and leaf) carries <paramref name="edgeBranch"/>. This is the maximally
+    /// imbalanced rooted binary tree — height = leafCount - 1.
+    /// </summary>
+    private static PhylogeneticAnalyzer.PhyloNode BuildCaterpillar(int leafCount, double edgeBranch)
+    {
+        if (leafCount < 2) throw new ArgumentOutOfRangeException(nameof(leafCount));
+
+        // Deepest internal node joins the last two leaves.
+        var node = Internal(edgeBranch, Leaf($"L{leafCount - 2}", edgeBranch), Leaf($"L{leafCount - 1}", edgeBranch));
+        // Each step up adds one leaf and one internal level.
+        for (int i = leafCount - 3; i >= 0; i--)
+            node = Internal(edgeBranch, Leaf($"L{i}", edgeBranch), node);
+        return node;
+    }
+
+    #endregion
+
+    #region Positive sanity — documented worked example (§7.1)
+
+    /// <summary>
+    /// Positive-sanity anchor (Tree_Statistics.md §7.1, hand-checkable): the balanced four-taxon
+    /// tree ((A:1,B:1):1,(C:1,D:1):1) has leaf set {A,B,C,D} (count 4), total length = the SIX unit
+    /// edges = 6.0, and topological height 2 (root→internal→leaf = 2 edges). Expected values are
+    /// derived independently from the doc, not from the code. Pinned on a HAND-BUILT tree and
+    /// cross-checked against ParseNewick of the SAME documented string.
+    /// </summary>
+    [Test]
+    public void TreeStatistics_DocumentedBalancedExample_LeavesLengthHeight_MatchSpec()
+    {
+        // ((A:1,B:1):1,(C:1,D:1):1)  — six unit-length edges.
+        var ab = Internal(1.0, Leaf("A", 1.0), Leaf("B", 1.0));
+        var cd = Internal(1.0, Leaf("C", 1.0), Leaf("D", 1.0));
+        var root = Internal(0.0, ab, cd); // root edge has no length in the doc string
+
+        var leafNames = PhylogeneticAnalyzer.GetLeaves(root).Select(l => l.Name).ToList();
+        leafNames.Should().BeEquivalentTo(new[] { "A", "B", "C", "D" }, "the four taxa are the leaves (§7.1)");
+        PhylogeneticAnalyzer.GetLeaves(root).Count().Should().Be(4, "an N-leaf tree returns exactly N leaves (INV-02)");
+        PhylogeneticAnalyzer.GetLeaves(root).All(l => l.IsLeaf).Should().BeTrue("every returned node IsLeaf (INV-01)");
+
+        PhylogeneticAnalyzer.CalculateTreeLength(root)
+            .Should().BeApproximately(6.0, 1e-10, "Σ of the six unit edges = 6.0 (§7.1; INV-03)");
+
+        PhylogeneticAnalyzer.GetTreeDepth(root)
+            .Should().Be(2, "root→internal→leaf is 2 edges (§7.1; INV-05)");
+
+        // Cross-check the SAME tree parsed from the documented Newick string.
+        var parsed = PhylogeneticAnalyzer.ParseNewick("((A:1,B:1):1,(C:1,D:1):1);");
+        PhylogeneticAnalyzer.GetLeaves(parsed).Select(l => l.Name).Should()
+            .BeEquivalentTo(new[] { "A", "B", "C", "D" }, "ParseNewick recovers the same four leaves");
+        PhylogeneticAnalyzer.CalculateTreeLength(parsed).Should().BeApproximately(6.0, 1e-10, "parsed total length = 6.0");
+        PhylogeneticAnalyzer.GetTreeDepth(parsed).Should().Be(2, "parsed height = 2");
+    }
+
+    #endregion
+
+    #region BE — Empty / null tree (the −1 boundary)
+
+    /// <summary>
+    /// The empty-tree convention (Tree_Statistics.md §2.4 INV-06, §6.1): a null root yields NO
+    /// leaves, total length 0, and height −1 — NEVER a NullReferenceException. This is the BE −1
+    /// probe, distinct from a single leaf's height 0.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void NullTree_YieldsEmptyLeaves_ZeroLength_AndMinusOneHeight()
+    {
+        Action act = () =>
+        {
+            _ = PhylogeneticAnalyzer.GetLeaves(null!).ToList();
+            _ = PhylogeneticAnalyzer.CalculateTreeLength(null!);
+            _ = PhylogeneticAnalyzer.GetTreeDepth(null!);
+        };
+        act.Should().NotThrow("the null/empty tree is a defined boundary, never a NullReference");
+
+        PhylogeneticAnalyzer.GetLeaves(null!).Should().BeEmpty("GetLeaves(null) yields nothing (INV-06)");
+        PhylogeneticAnalyzer.CalculateTreeLength(null!).Should().Be(0.0, "an empty tree has no edges → length 0 (INV-06)");
+        PhylogeneticAnalyzer.GetTreeDepth(null!).Should().Be(-1, "an empty tree has height −1 by convention (INV-05/06)");
+    }
+
+    #endregion
+
+    #region BE — Single leaf (degenerate smallest tree: height 0)
+
+    /// <summary>
+    /// A single leaf (Tree_Statistics.md §6.1): exactly one leaf (itself), height 0 ("a tree with
+    /// only a single node has height zero"), and total length = its OWN BranchLength (sum over the
+    /// one node) — specifically NOT −1 (that is the null/empty case). Pinned for both a default-0
+    /// branch and a non-zero branch.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void SingleLeaf_OneLeaf_HeightZero_LengthEqualsOwnBranch()
+    {
+        // Default branch (0): length 0, height 0, one leaf.
+        var bare = Leaf("Only");
+        var bareLeaves = PhylogeneticAnalyzer.GetLeaves(bare).ToList();
+        bareLeaves.Should().ContainSingle("a single leaf is one terminal node (INV-02)");
+        bareLeaves[0].Name.Should().Be("Only");
+        bareLeaves[0].IsLeaf.Should().BeTrue("the lone node IsLeaf (INV-01)");
+        PhylogeneticAnalyzer.CalculateTreeLength(bare).Should().Be(0.0, "a default-branch leaf has length 0 (§6.1)");
+        PhylogeneticAnalyzer.GetTreeDepth(bare).Should().Be(0, "a single node has height 0, NOT −1 (§6.1; INV-05)");
+
+        // Non-zero branch: length = its own branch length; still one leaf, height 0.
+        var withBranch = Leaf("Solo", 2.5);
+        PhylogeneticAnalyzer.GetLeaves(withBranch).Should().ContainSingle();
+        PhylogeneticAnalyzer.CalculateTreeLength(withBranch)
+            .Should().BeApproximately(2.5, 1e-10, "total length of a single leaf = its own BranchLength (§6.1; INV-03)");
+        PhylogeneticAnalyzer.GetTreeDepth(withBranch).Should().Be(0, "a single node has height 0 regardless of its branch length");
+    }
+
+    #endregion
+
+    #region BE — Star tree (one internal root, all leaves direct: height 1)
+
+    /// <summary>
+    /// A STAR tree — one internal root whose children are ALL leaves directly (the shallowest
+    /// non-trivial shape). For N leaves: GetLeaves returns exactly N; height = 1 (root not a leaf →
+    /// 1 + max(child height 0)); total length = root.BranchLength + Σ child branch lengths. Pinned
+    /// for N=2 (binary minimum) and a WIDE N (polytomy — exercises the N-ary Children traversal of
+    /// every method, not a first-two-children shortcut).
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void StarTree_AllLeavesDirectChildren_HeightOne_LengthIsSumOfEdges()
+    {
+        // N=2 binary star: root branch 0.5, two leaf branches 1.0 each → length 2.5, height 1.
+        var star2 = BuildStar(leafCount: 2, rootBranch: 0.5, leafBranch: 1.0);
+        PhylogeneticAnalyzer.GetLeaves(star2).Count().Should().Be(2, "a 2-leaf star has 2 leaves (INV-02)");
+        PhylogeneticAnalyzer.GetTreeDepth(star2).Should().Be(1, "root→leaf is exactly 1 edge in a star (INV-05)");
+        PhylogeneticAnalyzer.CalculateTreeLength(star2)
+            .Should().BeApproximately(0.5 + 2 * 1.0, 1e-10, "length = rootBranch + Σ leaf branches (INV-03)");
+
+        // Wide polytomy star: 7 leaves. root branch 0 → length = 7 × 0.3; height still 1.
+        const int n = 7;
+        var star7 = BuildStar(leafCount: n, rootBranch: 0.0, leafBranch: 0.3);
+        var leaves7 = PhylogeneticAnalyzer.GetLeaves(star7).ToList();
+        leaves7.Should().HaveCount(n, "every direct child of the star is returned — all {0} leaves (INV-02)", n);
+        leaves7.All(l => l.IsLeaf).Should().BeTrue("each returned node IsLeaf (INV-01)");
+        leaves7.Select(l => l.Name).Should().OnlyHaveUniqueItems("the leaf names are distinct L0..L6");
+        PhylogeneticAnalyzer.GetTreeDepth(star7).Should().Be(1, "a star of any width has height 1 (INV-05)");
+        PhylogeneticAnalyzer.CalculateTreeLength(star7)
+            .Should().BeApproximately(n * 0.3, 1e-10, "Σ of the {0} leaf edges (root edge is 0); traverses ALL children (INV-03)", n);
+    }
+
+    #endregion
+
+    #region BE — Deep ladder / caterpillar (maximally imbalanced: height N−1)
+
+    /// <summary>
+    /// A binary CATERPILLAR (deep ladder) on N leaves — the maximally imbalanced rooted binary tree
+    /// (Tree_Statistics.md §2.1 "how many levels deep"; INV-05). Independently hand-derived: N leaves,
+    /// height = N−1 (one edge per internal level on the longest root→leaf path), total length = Σ over
+    /// all N+(N−1) unit edges. Pinned for several N, including a DEEP one to exercise the recursive
+    /// traversals to depth (guarded by [CancelAfter] against any hang).
+    /// </summary>
+    [Test]
+    [CancelAfter(10_000)]
+    public void Caterpillar_DeepLadder_HeightIsNMinusOne_AndLeafCountIsN()
+    {
+        foreach (int n in new[] { 2, 3, 5, 10, 64 })
+        {
+            var tree = BuildCaterpillar(n, edgeBranch: 1.0);
+
+            PhylogeneticAnalyzer.GetLeaves(tree).Count().Should().Be(n, "a caterpillar on {0} leaves returns {0} leaves (INV-02)", n);
+            PhylogeneticAnalyzer.GetLeaves(tree).All(l => l.IsLeaf).Should().BeTrue("every returned node IsLeaf (INV-01)");
+
+            PhylogeneticAnalyzer.GetTreeDepth(tree).Should().Be(
+                n - 1, "a caterpillar on {0} leaves is maximally deep: height = N−1 (INV-05)", n);
+
+            // Edges: N leaf edges + (N−1) internal edges, all unit length → total = 2N−1.
+            PhylogeneticAnalyzer.CalculateTreeLength(tree)
+                .Should().BeApproximately(2.0 * n - 1.0, 1e-10, "Σ of the N + (N−1) unit edges (INV-03)");
+        }
+    }
+
+    #endregion
+
+    #region BE — Randomized boundary sweep (no crash, exact contract over random shapes)
+
+    /// <summary>
+    /// A randomized boundary sweep over locally-seeded random STARS and CATERPILLARS asserts the
+    /// no-crash / leaf-count / height / length contract across many sizes and branch lengths. Expected
+    /// values are computed independently from the topology (star: height 1, leaf count = N, length =
+    /// root + Σ leaves; caterpillar: height N−1, leaf count = N, length = Σ all edges) — NOT read off
+    /// the code. No NaN, no Infinity, no negative length for non-negative branches (INV-04).
+    /// </summary>
+    [Test]
+    [CancelAfter(15_000)]
+    public void RandomizedSweep_StarsAndCaterpillars_ObeyExactStatisticsContract()
+    {
+        var master = new Random(222_001);
+
+        for (int iter = 0; iter < 60; iter++)
+        {
+            int n = 2 + master.Next(20);                 // 2..21 leaves
+            double rootBranch = master.NextDouble() * 3;
+            double leafBranch = master.NextDouble() * 3;
+            bool star = master.Next(2) == 0;
+
+            PhylogeneticAnalyzer.PhyloNode tree;
+            int expectedHeight;
+            double expectedLength;
+
+            if (star)
+            {
+                tree = BuildStar(n, rootBranch, leafBranch);
+                expectedHeight = 1;
+                expectedLength = rootBranch + n * leafBranch;
+            }
+            else
+            {
+                double edge = leafBranch; // uniform edge length for the caterpillar
+                tree = BuildCaterpillar(n, edge);
+                expectedHeight = n - 1;
+                expectedLength = (2.0 * n - 1.0) * edge; // N leaf + (N−1) internal edges
+            }
+
+            int leafCount = 0;
+            double length = 0;
+            int height = 0;
+            Action act = () =>
+            {
+                leafCount = PhylogeneticAnalyzer.GetLeaves(tree).Count();
+                length = PhylogeneticAnalyzer.CalculateTreeLength(tree);
+                height = PhylogeneticAnalyzer.GetTreeDepth(tree);
+            };
+            act.Should().NotThrow("statistics must not crash on a random {0} of {1} leaves", star ? "star" : "caterpillar", n);
+
+            leafCount.Should().Be(n, "leaf count equals the leaf count of the constructed topology (INV-02)");
+            height.Should().Be(expectedHeight, "height matches the independently-derived topology height (INV-05)");
+            double.IsNaN(length).Should().BeFalse("total length must never be NaN");
+            double.IsInfinity(length).Should().BeFalse("total length must never be ±Infinity");
+            length.Should().BeApproximately(expectedLength, 1e-9, "length = Σ edges, independently derived (INV-03)");
+            length.Should().BeGreaterThanOrEqualTo(0.0, "Σ of non-negative branches is non-negative (INV-04)");
         }
     }
 
