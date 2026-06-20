@@ -317,6 +317,68 @@ namespace Seqeron.Genomics.Tests;
 /// ParseGff3 / ToGff3 are LAZY iterators (`yield`), so every test forces enumeration (`.ToList()`)
 /// to surface the documented behavior; any hang would manifest as a non-terminating
 /// materialization. Deterministic only: no randomness is required for this text-shaped unit.
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: ANNOT-CODING-001 — coding-potential scoring (CPAT hexamer usage-bias)
+/// Checklist: docs/checklists/03_FUZZING.md, row 216.
+/// Fuzz strategies exercised for THIS unit:
+///   • BE = Boundary Exploitation — the degenerate boundaries called out in the
+///          checklist row: a RANDOM sequence (no coding bias → classified non-coding
+///          under non-coding-biased tables), a PERFECT ORF (strong coding bias →
+///          classified coding under coding-biased tables), and the EMPTY/too-short
+///          sequence (defined degenerate score 0, NO divide-by-zero).
+/// — docs/checklists/03_FUZZING.md §Description (strategy codes).
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The coding-potential contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// CPAT's hexamer usage-bias score is the mean per-hexamer log-likelihood ratio of
+/// in-frame hexamer frequencies between a coding and a non-coding training set
+/// (Coding_Potential_Calculation.md §1, §2.2). The surface is
+///   GenomeAnnotator.CalculateCodingPotential(
+///       string sequence,
+///       IReadOnlyDictionary&lt;string,double&gt; codingHexamerFrequencies,
+///       IReadOnlyDictionary&lt;string,double&gt; noncodingHexamerFrequencies,
+///       int wordSize = 6, int stepSize = 3) → double
+///   (src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/GenomeAnnotator.cs lines 693–743).
+/// It up-cases the sequence and walks frame-0 in-frame hexamers (offset 0, step
+/// stepSize, full-length words only). For each hexamer present in BOTH tables it adds
+/// (Coding_Potential_Calculation.md §2.2, verified element-by-element against the source
+/// and the canonical CPAT/lncScore FrameKmer.kmer_ratio branches, NOT echoed off the code):
+///   • F&gt;0 and F'&gt;0  → ln(F/F')   (NATURAL log);
+///   • F&gt;0 and F'==0 → +1;
+///   • F==0 and F'==0 → skipped (`continue`), NOT counted;
+///   • F==0 and F'&gt;0  → −1;
+///   • a hexamer missing from EITHER table → skipped, NOT counted.
+/// Score = (Σ contributions) / (count of scored hexamers); 0 when nothing is scorable
+/// (Coding_Potential_Calculation.md §2.2, §5.4 deviation 1 — the reference's −1 sentinel
+/// is intentionally replaced by 0 here; both are non-scores).
+///
+/// Documented parameter / validation contract (Coding_Potential_Calculation.md §3.3, §6.1):
+///   • null sequence or either table → ArgumentNullException; wordSize ≤ 0 / stepSize ≤ 0
+///     → ArgumentOutOfRangeException. These are the DOCUMENTED throws and are pinned as such.
+///   • sequence.Length &lt; wordSize (INCLUDING empty) → returns 0, NOT a throw and NOT a
+///     DivideByZero: the short-circuit fires before any hexamer is scored (INV-06). This is
+///     THE empty/degenerate boundary the checklist row targets.
+///   • Non-ACGT content is NOT rejected: a hexamer containing N/garbage simply is not a table
+///     key, so it is skipped — no exception (§3.3, §6.1).
+///
+/// Documented invariants pinned on positive results (Coding_Potential_Calculation.md §2.4):
+///   INV-01 score = (Σ per-hexamer contributions) / (count of scored hexamers);
+///   INV-02 per-hexamer contribution = ln(F/F') (natural log) when both &gt; 0;
+///   INV-03 coding-only hexamer ⇒ +1, non-coding-only ⇒ −1;
+///   INV-04 coding-biased tables ⇒ score &gt; 0 (classified coding); non-coding-biased ⇒
+///          score &lt; 0 (classified non-coding) — the coding/non-coding decision threshold is 0;
+///   INV-05 only in-frame full-length hexamers (offset 0, step stepSize, length = wordSize)
+///          are scored;
+///   INV-06 sequence.Length &lt; wordSize ⇒ score = 0.
+/// The fuzz bar for this unit: no crash / hang / NaN / Infinity on degenerate or random
+/// input, the empty/too-short boundary returns a defined 0 with no divide-by-zero, the random
+/// sequence is classified NON-coding (score &lt; 0 against non-coding-biased tables) while a
+/// perfect coding ORF is classified CODING (score &gt; 0 against coding-biased tables), and the
+/// exact worked-example score 0.34657359027997264 (Coding_Potential_Calculation.md §7.1) is
+/// reproduced from first principles. Deterministic only: random fuzz input and random
+/// frequency tables come from a locally fixed `new Random(seed)` — NEVER a shared static Rng.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -1403,6 +1465,291 @@ public class AnnotationFuzzTests
         feat.Attributes.Should().ContainKey("note")
             .WhoseValue.Should().Be("embedded\ttab",
                 "the tab-bearing attribute value round-trips byte-exact: escaped to %09 on write, percent-decoded on read");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  ANNOT-CODING-001 — coding-potential (CPAT hexamer) : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region ANNOT-CODING-001 — coding-potential scoring
+
+    #region Helpers — coding-potential constructions
+
+    /// <summary>
+    /// Builds a coding/non-coding hexamer-frequency table pair that is biased TOWARD coding:
+    /// every in-frame hexamer of <paramref name="codingSeq"/> gets a high coding count and a
+    /// low non-coding count, so any sequence built from those hexamers scores ln(high/low) &gt; 0.
+    /// All frequencies are strictly positive (both-&gt;0 branch, INV-02), so the per-hexamer
+    /// contribution is the natural log ln(codingValue/noncodingValue) — derived from the spec
+    /// (Coding_Potential_Calculation.md §2.2), not from the code's own arrays.
+    /// </summary>
+    private static (Dictionary<string, double> coding, Dictionary<string, double> noncoding)
+        CodingBiasedTables(string codingSeq, double codingValue, double noncodingValue)
+    {
+        var coding = new Dictionary<string, double>();
+        var noncoding = new Dictionary<string, double>();
+        for (int i = 0; i + 6 <= codingSeq.Length; i += 3)
+        {
+            string h = codingSeq.Substring(i, 6).ToUpperInvariant();
+            coding[h] = codingValue;
+            noncoding[h] = noncodingValue;
+        }
+        return (coding, noncoding);
+    }
+
+    #endregion
+
+    #region BE — Boundary: empty / too-short sequence returns a defined 0 (no divide-by-zero)
+
+    /// <summary>
+    /// BE: the EMPTY sequence is the headline boundary for this unit. Per INV-06 /
+    /// Coding_Potential_Calculation.md §3.3, §6.1, `sequence.Length &lt; wordSize` (empty is the
+    /// extreme) short-circuits to a DEFINED score of 0 BEFORE any hexamer is scored — so there
+    /// is no division by the zero scored-hexamer count, no NaN, no Infinity and no throw. The
+    /// tables are non-empty and well-formed; the degeneracy is purely the input length. We pin
+    /// the exact 0.0 (not merely "not NaN") because the contract promises a defined non-score.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void CalculateCodingPotential_EmptySequence_ReturnsDefinedZeroNoDivideByZero()
+    {
+        var coding = new Dictionary<string, double> { ["ATGAAA"] = 8 };
+        var noncoding = new Dictionary<string, double> { ["ATGAAA"] = 2 };
+
+        double score = 0;
+        var act = () => score = GenomeAnnotator.CalculateCodingPotential(string.Empty, coding, noncoding);
+        act.Should().NotThrow("empty input short-circuits via the length guard before any scoring (INV-06)");
+
+        score.Should().Be(0.0, "an empty sequence has no scorable hexamer, so the defined non-score is 0");
+        double.IsNaN(score).Should().BeFalse("the length guard prevents any 0/0 division");
+        double.IsInfinity(score).Should().BeFalse("no Infinity can arise from the guarded empty case");
+    }
+
+    /// <summary>
+    /// BE: a sequence SHORTER than one hexamer window (length 5 &lt; wordSize 6) is the other half
+    /// of the too-short boundary (INV-06). It must also resolve to a defined 0 with no division
+    /// by zero — the loop `i + wordSize &lt;= length` never executes, so no hexamer is scored and
+    /// the count-0 path returns 0 (Coding_Potential_Calculation.md §6.1 row 1). Pinned exactly.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void CalculateCodingPotential_SequenceShorterThanWord_ReturnsDefinedZero()
+    {
+        var coding = new Dictionary<string, double> { ["ATGAAA"] = 8 };
+        var noncoding = new Dictionary<string, double> { ["ATGAAA"] = 2 };
+
+        double score = GenomeAnnotator.CalculateCodingPotential("ATGAA", coding, noncoding); // length 5 < 6
+
+        score.Should().Be(0.0, "no full-length hexamer fits, so the scored-hexamer count is 0 → defined non-score 0");
+        double.IsNaN(score).Should().BeFalse("no 0/0 division occurs for the too-short input");
+    }
+
+    #endregion
+
+    #region BE — Boundary: random sequence is classified NON-coding (score < 0)
+
+    /// <summary>
+    /// BE (checklist "random seq"): a fixed-seed RANDOM DNA sequence carries no coding bias, so
+    /// scored against tables that favour NON-coding (every in-frame hexamer present in both
+    /// tables with a higher non-coding than coding value) it must land on the NON-coding side of
+    /// the decision threshold — score &lt; 0 (INV-04, Coding_Potential_Calculation.md §2.4). We
+    /// build coding-vs-noncoding tables from the SAME random sequence's hexamers but invert the
+    /// bias (coding value 1, non-coding value 4), so every scored hexamer contributes
+    /// ln(1/4) = −1.3862943611 &lt; 0 and the mean is exactly that negative value. The fuzz bar:
+    /// no crash / NaN / Infinity, and the documented sign convention (non-coding ⇒ score &lt; 0)
+    /// holds for random input.
+    /// </summary>
+    [Test]
+    [CancelAfter(10000)]
+    public void CalculateCodingPotential_RandomSequence_NoncodingBiasedTables_ClassifiedNonCoding()
+    {
+        string seq = RandomDna(600, seed: 216_001);
+        var (coding, noncoding) = CodingBiasedTables(seq, codingValue: 1.0, noncodingValue: 4.0);
+
+        double score = 0;
+        var act = () => score = GenomeAnnotator.CalculateCodingPotential(seq, coding, noncoding);
+        act.Should().NotThrow("a random in-frame sequence scored against well-formed tables never crashes");
+
+        double.IsNaN(score).Should().BeFalse("a finite log-ratio mean can never be NaN here");
+        double.IsInfinity(score).Should().BeFalse("all table values are strictly positive, so no log of 0 arises");
+        score.Should().BeLessThan(0.0,
+            "INV-04: non-coding-biased tables put a random sequence on the non-coding side of the threshold (0)");
+        score.Should().BeApproximately(Math.Log(1.0 / 4.0), 1e-9,
+            "every scored hexamer contributes ln(1/4); their mean is exactly ln(1/4) (INV-01, INV-02)");
+    }
+
+    /// <summary>
+    /// BE / robustness sweep: across many fixed-seed random sequences AND randomly drawn table
+    /// values, the score must stay FINITE (no NaN / Infinity), respect INV-06 for too-short
+    /// inputs, and obey the sign convention dictated by which table is biased high. This is the
+    /// "degenerate / random parameters do not derail the scan" boundary sweep. For each trial we
+    /// pick a random bias direction: when coding &gt; noncoding the per-hexamer ln-ratio is &gt; 0 so
+    /// the mean (when any hexamer scores) is &gt; 0; when noncoding &gt; coding it is &lt; 0. All values
+    /// are strictly positive so no log-of-zero / Infinity can appear.
+    /// </summary>
+    [Test]
+    [CancelAfter(20000)]
+    public void CalculateCodingPotential_RandomSweep_StaysFiniteAndRespectsSignConvention()
+    {
+        var rng = new Random(216_777);
+        for (int trial = 0; trial < 40; trial++)
+        {
+            int len = rng.Next(0, 300);            // includes the too-short (0..5) boundary
+            string seq = RandomDna(len, seed: 216_900 + trial);
+
+            bool codingBias = rng.Next(2) == 0;
+            double hi = 2.0 + rng.NextDouble() * 8.0;   // strictly positive
+            double lo = 0.25 + rng.NextDouble() * 1.5;  // strictly positive, < hi
+            double codingValue = codingBias ? hi : lo;
+            double noncodingValue = codingBias ? lo : hi;
+
+            var (coding, noncoding) = CodingBiasedTables(seq, codingValue, noncodingValue);
+
+            double score = 0;
+            var act = () => score = GenomeAnnotator.CalculateCodingPotential(seq, coding, noncoding);
+            act.Should().NotThrow($"trial {trial}: well-formed tables + arbitrary length never crash");
+
+            double.IsNaN(score).Should().BeFalse($"trial {trial}: score must be finite, never NaN");
+            double.IsInfinity(score).Should().BeFalse($"trial {trial}: strictly positive table values forbid Infinity");
+
+            // Count scorable in-frame hexamers from first principles (spec §2.2 INV-05/06).
+            int scorable = 0;
+            for (int i = 0; i + 6 <= seq.Length; i += 3) scorable++;
+
+            if (scorable == 0)
+            {
+                score.Should().Be(0.0, $"trial {trial}: too-short / no scorable hexamer ⇒ defined 0 (INV-06)");
+            }
+            else if (codingBias)
+            {
+                score.Should().BeGreaterThan(0.0, $"trial {trial}: coding-biased tables ⇒ score > 0 (INV-04)");
+            }
+            else
+            {
+                score.Should().BeLessThan(0.0, $"trial {trial}: non-coding-biased tables ⇒ score < 0 (INV-04)");
+            }
+        }
+    }
+
+    #endregion
+
+    #region BE — Boundary: perfect ORF is classified CODING (score > 0)
+
+    /// <summary>
+    /// BE (checklist "perfect ORF"): a clean, in-frame coding ORF (ATG + Ala codons + TAA),
+    /// scored against tables trained to favour exactly its hexamers (high coding value, low
+    /// non-coding value), must land on the CODING side of the decision threshold — score &gt; 0
+    /// (INV-04). Every in-frame hexamer of the ORF is in both tables with coding 8 vs non-coding
+    /// 2, so each contributes ln(8/2) = ln 4 = 1.3862943611 and the mean is exactly that
+    /// positive value. We pin both the sign (classified coding) and the exact mean derived from
+    /// the spec (Coding_Potential_Calculation.md §2.2), proving the perfect-ORF boundary is the
+    /// mirror of the random/non-coding boundary above.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void CalculateCodingPotential_PerfectOrf_CodingBiasedTables_ClassifiedCoding()
+    {
+        // Perfect in-frame ORF: ATG + (GCT)x12 [Ala] + TAA — frame 0 throughout.
+        string orf = "ATG" + string.Concat(Enumerable.Repeat("GCT", 12)) + "TAA";
+        var (coding, noncoding) = CodingBiasedTables(orf, codingValue: 8.0, noncodingValue: 2.0);
+
+        double score = GenomeAnnotator.CalculateCodingPotential(orf, coding, noncoding);
+
+        double.IsNaN(score).Should().BeFalse("a coding ORF scored against well-formed tables yields a finite score");
+        score.Should().BeGreaterThan(0.0,
+            "INV-04: coding-biased tables place a perfect ORF on the coding side of the threshold (0)");
+        score.Should().BeApproximately(Math.Log(8.0 / 2.0), 1e-9,
+            "every in-frame hexamer contributes ln(8/2) = ln 4; their mean is exactly ln 4 (INV-01, INV-02)");
+    }
+
+    /// <summary>
+    /// BE: the +1 (coding-only) and −1 (non-coding-only) sentinel branches (INV-03) are the
+    /// degenerate-table boundary. A hexamer present ONLY in the coding table contributes +1; one
+    /// present ONLY in the non-coding table contributes −1. We build a 2-hexamer sequence where
+    /// the first hexamer is coding-only and the second non-coding-only, so the mean is
+    /// (+1 + −1)/2 = 0 exactly — pinning that the sentinel branches are reached and combined per
+    /// INV-01 without crashing or producing NaN/Infinity (no log of zero is taken on these paths).
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void CalculateCodingPotential_TablePresenceSentinels_ProducePlusOneAndMinusOne()
+    {
+        const string seq = "ATGAAACCC"; // in-frame hexamers ATGAAA (i=0), AAACCC (i=3)
+        var coding = new Dictionary<string, double> { ["ATGAAA"] = 5.0 };   // coding-only ⇒ +1
+        var noncoding = new Dictionary<string, double> { ["AAACCC"] = 5.0 }; // non-coding-only ⇒ −1
+
+        double score = GenomeAnnotator.CalculateCodingPotential(seq, coding, noncoding);
+
+        double.IsNaN(score).Should().BeFalse("the ±1 sentinel branches take no logarithm, so no NaN arises");
+        score.Should().BeApproximately(0.0, 1e-12,
+            "INV-03: coding-only ⇒ +1 and non-coding-only ⇒ −1; INV-01 mean = (+1 + −1)/2 = 0");
+    }
+
+    #endregion
+
+    #region Positive sanity — exact worked example reproduced from first principles
+
+    /// <summary>
+    /// Positive sanity: the documented worked example (Coding_Potential_Calculation.md §7.1)
+    /// scored from FIRST PRINCIPLES, independently of the implementation. Sequence "ATGAAACCC"
+    /// (length 9), wordSize 6, stepSize 3 → in-frame hexamers ATGAAA (i=0) and AAACCC (i=3);
+    /// i=6 yields "CCC" (length 3 &lt; 6) and is skipped (INV-05). With coding {ATGAAA:8, AAACCC:2}
+    /// and non-coding {ATGAAA:2, AAACCC:4}:
+    ///   ATGAAA: ln(8/2) = ln 4    =  1.3862943611198906
+    ///   AAACCC: ln(2/4) = ln 0.5  = −0.6931471805599453
+    ///   sum = 0.6931471805599453, count = 2 ⇒ 0.34657359027997264.
+    /// The expected value is computed here from Math.Log so the assertion encodes the SPEC's
+    /// arithmetic, not a number copied from the code. This guards the whole unit: if the scan,
+    /// the log base, the denominator or the skip rule drifts, this exact value breaks.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void CalculateCodingPotential_WorkedExample_MatchesExactSpecScore()
+    {
+        var coding = new Dictionary<string, double> { ["ATGAAA"] = 8, ["AAACCC"] = 2 };
+        var noncoding = new Dictionary<string, double> { ["ATGAAA"] = 2, ["AAACCC"] = 4 };
+
+        double score = GenomeAnnotator.CalculateCodingPotential("ATGAAACCC", coding, noncoding);
+
+        double expected = (Math.Log(8.0 / 2.0) + Math.Log(2.0 / 4.0)) / 2.0; // = 0.34657359027997264
+        score.Should().BeApproximately(expected, 1e-12,
+            "the score is the mean of ln(8/2) and ln(2/4) over the two in-frame hexamers (INV-01, INV-02; §7.1)");
+        score.Should().BeApproximately(0.34657359027997264, 1e-12,
+            "the documented worked-example score is reproduced exactly");
+    }
+
+    #endregion
+
+    #region Validation — documented throws are pinned, not weakened
+
+    /// <summary>
+    /// Validation: null sequence or either table throws ArgumentNullException, and
+    /// wordSize ≤ 0 / stepSize ≤ 0 throws ArgumentOutOfRangeException
+    /// (Coding_Potential_Calculation.md §3.3, §6.1). These are the DOCUMENTED guards; the fuzz
+    /// test pins the exact throw type rather than weakening it to a tolerant no-op.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void CalculateCodingPotential_InvalidArguments_ThrowDocumentedExceptions()
+    {
+        var coding = new Dictionary<string, double> { ["ATGAAA"] = 8 };
+        var noncoding = new Dictionary<string, double> { ["ATGAAA"] = 2 };
+
+        ((Action)(() => GenomeAnnotator.CalculateCodingPotential(null!, coding, noncoding)))
+            .Should().Throw<ArgumentNullException>("a null sequence is a documented ArgumentNullException");
+        ((Action)(() => GenomeAnnotator.CalculateCodingPotential("ATGAAA", null!, noncoding)))
+            .Should().Throw<ArgumentNullException>("a null coding table is a documented ArgumentNullException");
+        ((Action)(() => GenomeAnnotator.CalculateCodingPotential("ATGAAA", coding, null!)))
+            .Should().Throw<ArgumentNullException>("a null non-coding table is a documented ArgumentNullException");
+
+        ((Action)(() => GenomeAnnotator.CalculateCodingPotential("ATGAAA", coding, noncoding, wordSize: 0)))
+            .Should().Throw<ArgumentOutOfRangeException>("wordSize ≤ 0 is a documented ArgumentOutOfRangeException");
+        ((Action)(() => GenomeAnnotator.CalculateCodingPotential("ATGAAA", coding, noncoding, stepSize: 0)))
+            .Should().Throw<ArgumentOutOfRangeException>("stepSize ≤ 0 is a documented ArgumentOutOfRangeException");
     }
 
     #endregion
