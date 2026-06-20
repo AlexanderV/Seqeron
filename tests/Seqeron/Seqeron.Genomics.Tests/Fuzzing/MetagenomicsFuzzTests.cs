@@ -80,6 +80,47 @@ namespace Seqeron.Genomics.Tests;
 /// that simply returns Unclassified for everything.
 ///
 /// ───────────────────────────────────────────────────────────────────────────
+/// Unit: META-ALPHA-001 — alpha diversity (Metagenomics)
+/// Checklist: docs/checklists/03_FUZZING.md, row 55.
+/// Fuzz strategy for THIS unit: BE = Boundary Exploitation.
+/// Fuzz targets (checklist row 55): 0 species, 1 species, all equal abundance,
+/// single sample with 0 (all-zero counts).
+///
+/// MetagenomicsAnalyzer.CalculateAlphaDiversity takes ONE taxon→abundance map
+/// and reports six within-sample metrics. The boundary contract these fuzz tests
+/// pin (Alpha_Diversity.md §2.2, §2.4, §6.1; CalculateAlphaDiversity / Calculate
+/// ShannonIndex / CalculateSimpsonIndex, lines 480–536):
+///   • 0 species / null / empty map → an all-zero AlphaDiversity record. KEY: no
+///     DivideByZero and no log(0) → NaN — the `Count == 0` guard short-circuits
+///     before any normalization (line 482). — §3.3, §6.1 (Empty input).
+///   • single sample with 0 (every abundance ≤ 0, e.g. all-zero counts) → the
+///     `Where(v => v > 0)` filter empties the value list ⇒ observedSpecies == 0 ⇒
+///     the second guard returns the all-zero record (lines 485–489). KEY: the
+///     p·ln(p) term is NEVER evaluated for p = 0, so no log(0) NaN ever appears.
+///   • 1 species (one positive abundance) → ShannonIndex = 0 (entropy of a one-
+///     category distribution, INV-02), SimpsonIndex = 1 (Σpᵢ² with a single pᵢ=1,
+///     INV-03), InverseSimpson = 1, ObservedSpecies = 1, PielouEvenness = 0
+///     (undefined for S ≤ 1, INV-05). — §6.1 (Single species).
+///   • all-equal abundance over S species → ShannonIndex is MAXIMAL = ln(S)
+///     (uniform maximizes Shannon at fixed richness — KEY), SimpsonIndex = 1/S
+///     (NOT 1 − 1/S: this implementation reports the Simpson CONCENTRATION λ =
+///     Σpᵢ², §2.2), InverseSimpson = S, PielouEvenness = 1. — §6.1 (equal-
+///     abundance rows). Counts or proportions both work: Shannon/Simpson
+///     normalize internally by the total positive abundance (§3.3).
+///
+/// NB — Simpson convention: unlike the 1 − Σpᵢ² "diversity" form, the SimpsonIndex
+/// field here is Simpson's concentration λ = Σpᵢ² (Simpson, 1949; §2.2). Hence
+/// single-species → 1 and uniform-over-S → 1/S, the reciprocals of the classic
+/// diversity values. These tests assert the implementation's documented contract.
+///
+/// Positive sanity: a known asymmetric two-species sample with counts (3, 1)
+/// ⇒ p = (0.75, 0.25), pinned EXACTLY against the natural-log formula:
+/// Shannon H = −(0.75 ln 0.75 + 0.25 ln 0.25) ≈ 0.5623351446188083, Simpson
+/// λ = 0.75² + 0.25² = 0.625 — so a passing "no crash" result cannot be a
+/// degenerate diversity function that returns 0 (or 1) for everything.
+///   — docs/algorithms/Metagenomics/Alpha_Diversity.md §2.2, §2.4, §6.1.
+///
+/// ───────────────────────────────────────────────────────────────────────────
 /// Determinism
 /// ───────────────────────────────────────────────────────────────────────────
 /// All inputs are either hand-built or generated from a LOCALLY fixed-seed
@@ -655,6 +696,248 @@ public class MetagenomicsFuzzTests
             "a two-species community is not a degenerate single-category distribution");
         profile.SimpsonDiversity.Should().BeInRange(0.0, 1.0)
             .And.BeLessThan(1.0, "two species ⇒ Simpson concentration below 1");
+    }
+
+    #endregion
+
+    // ════════════════════════════════════════════════════════════════════════
+    //
+    //  META-ALPHA-001 — alpha diversity (Metagenomics).
+    //  Checklist: docs/checklists/03_FUZZING.md, row 55. Strategy: BE.
+    //  Entry point: MetagenomicsAnalyzer.CalculateAlphaDiversity
+    //               (IReadOnlyDictionary<string, double> abundances).
+    //  Contract pinned below: Alpha_Diversity.md §2.2, §2.4, §6.1.
+    //
+    //  Determinism: every input is hand-built or generated from a LOCALLY
+    //  fixed-seed `new Random(seed)`. No shared static Rng.
+    // ════════════════════════════════════════════════════════════════════════
+
+    #region META-ALPHA-001 — alpha diversity
+
+    // ───────────────────────────────────────────────────────────────────────
+    // Fuzz target: 0 SPECIES (BE) — empty / null map.
+    // No taxa ⇒ an all-zero AlphaDiversity record. KEY: the `Count == 0` guard
+    // short-circuits before any normalization, so there is NO DivideByZero and
+    // NO log(0) → NaN. — Alpha_Diversity.md §3.3, §6.1 (Empty input).
+    // ───────────────────────────────────────────────────────────────────────
+    [Test]
+    public void CalculateAlphaDiversity_ZeroSpecies_AllZeroNoDivByZeroNoNaN()
+    {
+        foreach (var abundances in new IReadOnlyDictionary<string, double>?[]
+                 {
+                     new Dictionary<string, double>(),      // empty
+                     null,                                   // null map
+                 })
+        {
+            MetagenomicsAnalyzer.AlphaDiversity result = default;
+            Action act = () => result = MetagenomicsAnalyzer.CalculateAlphaDiversity(abundances!);
+
+            act.Should().NotThrow("0 species must not divide by zero or evaluate log(0)");
+
+            result.ObservedSpecies.Should().Be(0, "no taxa ⇒ zero observed species");
+            result.ShannonIndex.Should().Be(0.0, "empty distribution has zero Shannon entropy");
+            result.ShannonIndex.Should().NotBe(double.NaN, "no p·ln(p) term is ever evaluated");
+            result.SimpsonIndex.Should().Be(0.0);
+            result.InverseSimpson.Should().Be(0.0, "no reciprocal of a zero Simpson concentration");
+            result.Chao1Estimate.Should().Be(0.0);
+            result.PielouEvenness.Should().Be(0.0);
+        }
+    }
+
+    // ───────────────────────────────────────────────────────────────────────
+    // Fuzz target: SINGLE SAMPLE WITH 0 (BE) — every abundance ≤ 0.
+    // All-zero (and negative) counts ⇒ the `Where(v => v > 0)` filter empties
+    // the value list ⇒ observedSpecies == 0 ⇒ all-zero record. KEY: the p·ln(p)
+    // term is never reached for p = 0, so no log(0) NaN appears. — §3.3, §6.1.
+    // ───────────────────────────────────────────────────────────────────────
+    [Test]
+    public void CalculateAlphaDiversity_AllNonPositiveCounts_DefinedAllZeroNoNaN()
+    {
+        var allZeroOrNegative = new Dictionary<string, double>
+        {
+            ["taxonA"] = 0.0,
+            ["taxonB"] = 0.0,
+            ["taxonC"] = -3.0,   // negative is also filtered out, never log()'d
+            ["taxonD"] = 0.0,
+        };
+
+        MetagenomicsAnalyzer.AlphaDiversity result = default;
+        Action act = () => result = MetagenomicsAnalyzer.CalculateAlphaDiversity(allZeroOrNegative);
+
+        act.Should().NotThrow("an all-zero sample is a defined boundary, not a crash");
+
+        result.ObservedSpecies.Should().Be(0,
+            "no taxon has strictly positive abundance ⇒ zero observed species");
+        result.ShannonIndex.Should().Be(0.0).And.NotBe(double.NaN,
+            "p = 0 never reaches p·ln(p): no log(0) NaN");
+        result.SimpsonIndex.Should().Be(0.0).And.NotBe(double.NaN);
+        result.InverseSimpson.Should().Be(0.0);
+        result.Chao1Estimate.Should().Be(0.0);
+        result.PielouEvenness.Should().Be(0.0);
+    }
+
+    // ───────────────────────────────────────────────────────────────────────
+    // Fuzz target: 1 SPECIES (BE).
+    // One positive abundance ⇒ Shannon = 0 (INV-02), Simpson concentration = 1
+    // (INV-03), InverseSimpson = 1, ObservedSpecies = 1, Pielou = 0 (undefined
+    // for S ≤ 1, INV-05). The lone abundance value is irrelevant after internal
+    // normalization. — Alpha_Diversity.md §6.1 (Single species).
+    // ───────────────────────────────────────────────────────────────────────
+    [Test]
+    public void CalculateAlphaDiversity_SingleSpecies_ShannonZeroSimpsonOne()
+    {
+        // Try several positive magnitudes: normalization makes p = 1 regardless.
+        foreach (double abundance in new[] { 1.0, 7.0, 1234.5, 0.001 })
+        {
+            var single = new Dictionary<string, double> { ["only-taxon"] = abundance };
+
+            var result = MetagenomicsAnalyzer.CalculateAlphaDiversity(single);
+
+            result.ObservedSpecies.Should().Be(1, "exactly one positive taxon");
+            result.ShannonIndex.Should().Be(0.0,
+                $"Shannon of a single species is 0 regardless of abundance ({abundance}) — INV-02");
+            result.SimpsonIndex.Should().BeApproximately(1.0, 1e-12,
+                "Σpᵢ² with a single pᵢ = 1 is 1 — INV-03 (concentration, not 1−Σpᵢ²)");
+            result.InverseSimpson.Should().BeApproximately(1.0, 1e-12,
+                "1 / Simpson = 1 / 1 = 1 — INV-04");
+            result.PielouEvenness.Should().Be(0.0,
+                "Pielou's evenness is 0 when S ≤ 1 (ln(1) = 0 boundary) — INV-05");
+        }
+    }
+
+    // ───────────────────────────────────────────────────────────────────────
+    // Fuzz target: ALL EQUAL ABUNDANCE over S species (BE) — the maximal-Shannon
+    // boundary. Uniform abundances MAXIMIZE Shannon at fixed richness:
+    //   Shannon = ln(S)  (KEY),
+    //   Simpson concentration λ = Σ(1/S)² = S·(1/S²) = 1/S  (NOT 1 − 1/S),
+    //   InverseSimpson = S, PielouEvenness = 1.
+    // Pinned for S = 2, 3, 4. — Alpha_Diversity.md §2.2, §6.1.
+    // ───────────────────────────────────────────────────────────────────────
+    [Test]
+    public void CalculateAlphaDiversity_AllEqualAbundance_ShannonIsLnS_Maximal()
+    {
+        foreach (int s in new[] { 2, 3, 4 })
+        {
+            // Equal counts of 5 each — normalization gives p_i = 1/S for every taxon.
+            var uniform = Enumerable.Range(0, s)
+                .ToDictionary(i => $"taxon-{i}", _ => 5.0);
+
+            var result = MetagenomicsAnalyzer.CalculateAlphaDiversity(uniform);
+
+            result.ObservedSpecies.Should().Be(s);
+            result.ShannonIndex.Should().BeApproximately(Math.Log(s), 1e-12,
+                $"uniform abundance MAXIMIZES Shannon at ln(S) = ln({s}) — KEY");
+            result.SimpsonIndex.Should().BeApproximately(1.0 / s, 1e-12,
+                $"Σ(1/S)² = 1/S = 1/{s} (Simpson concentration, §2.2)");
+            result.InverseSimpson.Should().BeApproximately(s, 1e-12,
+                $"1 / (1/S) = S = {s} effective species — INV-04");
+            result.PielouEvenness.Should().BeApproximately(1.0, 1e-12,
+                "H / ln(S) = ln(S) / ln(S) = 1 at maximal evenness");
+        }
+    }
+
+    // ───────────────────────────────────────────────────────────────────────
+    // Fuzz target: random non-negative batch (BE) under a time budget.
+    // A deterministic, locally-seeded generator builds maps mixing zeros,
+    // negatives and positives over a varying number of taxa. The metric must
+    // process every map without crashing or hanging, and every result must be
+    // well-formed: finite (no NaN/∞), Shannon ≥ 0, Simpson in (0, 1] when any
+    // taxon is positive (else all-zero), and Shannon ≤ ln(S_obs).
+    // ───────────────────────────────────────────────────────────────────────
+    [Test]
+    [CancelAfter(30000)]
+    public void CalculateAlphaDiversity_RandomNonNegativeBatch_AlwaysFiniteAndWellFormed()
+    {
+        var rng = new Random(20260620); // locally fixed seed — deterministic
+
+        for (int iter = 0; iter < 500; iter++)
+        {
+            int taxa = rng.Next(0, 12); // includes 0 taxa
+            var map = new Dictionary<string, double>();
+            for (int t = 0; t < taxa; t++)
+            {
+                // A mix of zeros, negatives and positive magnitudes.
+                double v = rng.Next(4) switch
+                {
+                    0 => 0.0,
+                    1 => -rng.NextDouble() * 10.0,
+                    _ => rng.NextDouble() * 1000.0,
+                };
+                map[$"t-{t}"] = v;
+            }
+
+            MetagenomicsAnalyzer.AlphaDiversity r = default;
+            Action act = () => r = MetagenomicsAnalyzer.CalculateAlphaDiversity(map);
+            act.Should().NotThrow($"iteration {iter} must not crash");
+
+            int positives = map.Values.Count(v => v > 0);
+
+            r.ObservedSpecies.Should().Be(positives,
+                "observed species = count of strictly positive abundances — INV-01");
+
+            double.IsNaN(r.ShannonIndex).Should().BeFalse("Shannon is never NaN (no log(0))");
+            double.IsNaN(r.SimpsonIndex).Should().BeFalse();
+            double.IsInfinity(r.ShannonIndex).Should().BeFalse();
+            double.IsInfinity(r.InverseSimpson).Should().BeFalse(
+                "InverseSimpson is 0 (not ∞) when Simpson is 0");
+
+            r.ShannonIndex.Should().BeGreaterThanOrEqualTo(0.0, "Shannon entropy is non-negative");
+            r.SimpsonIndex.Should().BeGreaterThanOrEqualTo(0.0);
+
+            if (positives == 0)
+            {
+                r.ShannonIndex.Should().Be(0.0);
+                r.SimpsonIndex.Should().Be(0.0);
+                r.InverseSimpson.Should().Be(0.0);
+                r.PielouEvenness.Should().Be(0.0);
+            }
+            else
+            {
+                r.SimpsonIndex.Should().BeInRange(0.0, 1.0 + 1e-12,
+                    "Simpson concentration lies in (0, 1]");
+                // Shannon is bounded above by ln(S_obs) (max at uniform abundance).
+                double maxH = positives > 1 ? Math.Log(positives) : 0.0;
+                r.ShannonIndex.Should().BeLessThanOrEqualTo(maxH + 1e-9,
+                    "Shannon never exceeds ln(S_obs), its uniform-abundance maximum");
+            }
+        }
+    }
+
+    // ───────────────────────────────────────────────────────────────────────
+    // Positive sanity: a known asymmetric two-species sample pins EXACT Shannon
+    // and Simpson values against the natural-log formula, guarding against a
+    // degenerate diversity function that returns a constant (0 or 1) everywhere.
+    //   counts (3, 1) ⇒ p = (0.75, 0.25)
+    //   Shannon = −(0.75 ln 0.75 + 0.25 ln 0.25) ≈ 0.5623351446188083
+    //   Simpson = 0.75² + 0.25² = 0.625, InverseSimpson = 1/0.625 = 1.6.
+    // ───────────────────────────────────────────────────────────────────────
+    [Test]
+    public void CalculateAlphaDiversity_KnownAsymmetricMix_ExactShannonAndSimpson()
+    {
+        var sample = new Dictionary<string, double>
+        {
+            ["Escherichia coli"]    = 3.0,
+            ["Salmonella enterica"] = 1.0,
+        };
+
+        var result = MetagenomicsAnalyzer.CalculateAlphaDiversity(sample);
+
+        result.ObservedSpecies.Should().Be(2);
+
+        const double expectedShannon = 0.5623351446188083; // −Σ pᵢ ln pᵢ for (0.75, 0.25)
+        result.ShannonIndex.Should().BeApproximately(expectedShannon, 1e-12,
+            "exact natural-log Shannon for p = (0.75, 0.25)");
+        result.ShannonIndex.Should().BeGreaterThan(0.0,
+            "a genuine two-species mix is not a degenerate single-category distribution");
+
+        result.SimpsonIndex.Should().BeApproximately(0.625, 1e-12,
+            "0.75² + 0.25² = 0.625 (Simpson concentration)");
+        result.InverseSimpson.Should().BeApproximately(1.6, 1e-12,
+            "1 / 0.625 = 1.6 effective species");
+
+        // Uniform-maximum sanity: H is strictly below the ln(2) achievable at even split.
+        result.ShannonIndex.Should().BeLessThan(Math.Log(2),
+            "an uneven 3:1 split has lower Shannon than the even-split maximum ln(2)");
     }
 
     #endregion
