@@ -149,6 +149,41 @@ namespace Seqeron.Genomics.Tests;
 ///     • A constructed perfect synthetic hairpin (≥ 18-bp uninterrupted stem + 3-25 nt loop,
 ///       55-120 nt) → ACCEPTED as a precursor with a balanced structure and finite energy.
 ///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: MIRNA-PAIR-001 — miRNA–target base-pairing (antiparallel duplex)
+/// Checklist: docs/checklists/03_FUZZING.md, row 225.
+/// Source doc: docs/algorithms/MiRNA/MiRNA_Target_Pairing.md.
+/// Fuzz strategy exercised for THIS unit:
+///   • BE = Boundary Exploitation — the degenerate corners of the antiparallel
+///        duplex pairing primitive. — docs/checklists/03_FUZZING.md §Description (code BE).
+///        Fuzz targets for row 225: "no complementarity, perfect match, short miRNA".
+///
+/// The pairing contract under test (MiRNA_Target_Pairing.md §2.2, §3.3, §6.1, §7.1):
+///   AlignMiRnaToTarget(miRnaSequence, targetSequence) → MiRnaDuplex. Both inputs are
+///   normalised (uppercase, T→U). The duplex is ungapped and ANTIPARALLEL: miRNA index i
+///   pairs with target index len(target)−1−i, over the overlap min(len(m),len(t)) (§2.2,
+///   §3.3, §4.1). Every overlap position is classified into EXACTLY ONE class (INV-05):
+///     • Watson-Crick match {A-U,U-A,G-C,C-G} → alignment symbol `|`, Matches++ (§2.2[3]).
+///     • G:U wobble {G-U,U-G} → alignment symbol `:`, GUWobbles++ — counted SEPARATELY
+///       from canonical matches (§2.2[4], §6.1; INV-02). Wobble ⊆ pairable (INV-03).
+///     • Mismatch otherwise → space, Mismatches++ (A pairs only with U, C only with G).
+///   Gaps is always 0 (ungapped). FreeEnergy is a Turner-2004 nearest-neighbor stacking
+///   sum over runs of consecutive paired positions; a fully Watson-Crick duplex has
+///   FreeEnergy ≤ 0, and an all-mismatch duplex has FreeEnergy = 0 (no paired stacks),
+///   per INV-06. Supporting predicates: CanPair (INV-01), IsWobblePair (INV-02),
+///   GetReverseComplement (reverse + complement A↔U/G↔C, T→A, length-preserving, INV-04).
+///   Documented BE boundary handling (§3.3, §6.1):
+///     • No complementarity — a target sharing no complementary base at any antiparallel
+///       position yields a fully unpaired alignment: Matches 0, GUWobbles 0, Mismatches
+///       = overlap, AlignmentString all spaces, FreeEnergy 0 — defined, never a crash.
+///     • Perfect match — a target that is the antiparallel Watson-Crick complement of the
+///       miRNA yields Matches = overlap, GUWobbles 0, Mismatches 0, AlignmentString all
+///       `|`, FreeEnergy ≤ 0 (the doc's "AAAA"/"UUUU" worked example, §7.1).
+///     • Short miRNA — a miRNA SHORTER than the target (down to empty / null): the overlap
+///       is the shorter length, the antiparallel index never walks off either string
+///       (no IndexOutOfRange), and an empty/null input returns the empty MiRnaDuplex
+///       (all counts 0, empty strings) — never an exception (§3.3, §6.1).
+///
 /// All inputs are fixed / deterministically generated; the random helper uses a LOCALLY
 /// seeded `new Random(seed)` (no shared static Rng), so every fuzz input is reproducible.
 /// ───────────────────────────────────────────────────────────────────────────
@@ -878,6 +913,307 @@ public class MiRnaFuzzTests
         full.MatureSequence.Should().Be(stem5, "the 5' mature arm is the 5' stem of the constructed hairpin");
         full.Structure.Should().StartWith("((((((((((", "the structure opens with the 5' stem parentheses (INV-01)");
         full.Structure.Should().EndWith("))))))))))", "the structure closes with the 3' stem parentheses (INV-01)");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  MIRNA-PAIR-001 — miRNA–target base-pairing (antiparallel duplex) : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region MIRNA-PAIR-001 — miRNA-target pairing
+
+    #region Helpers — duplex invariant assertions
+
+    /// <summary>
+    /// Asserts the universal duplex invariants of MiRNA_Target_Pairing.md on a reported
+    /// MiRnaDuplex over a non-empty overlap of width <paramref name="overlap"/>:
+    /// INV-05 — Matches + Mismatches + GUWobbles == overlap, Gaps == 0, AlignmentString
+    /// has exactly <paramref name="overlap"/> symbols drawn from { '|', ':', ' ' }, and the
+    /// per-symbol counts agree with the totals. FreeEnergy is finite (never NaN/Infinity).
+    /// </summary>
+    private static void AssertDuplexShape(MiRnaAnalyzer.MiRnaDuplex d, int overlap)
+    {
+        d.Gaps.Should().Be(0, "the aligner is ungapped — Gaps is always 0 (§3.2)");
+        d.AlignmentString.Length.Should().Be(overlap,
+            "the alignment has exactly one symbol per overlap position (INV-05)");
+        d.AlignmentString.ToCharArray().Should().OnlyContain(c => c == '|' || c == ':' || c == ' ',
+            "every alignment symbol is Watson-Crick '|', wobble ':' or mismatch space (§3.2)");
+
+        (d.Matches + d.Mismatches + d.GUWobbles).Should().Be(overlap,
+            "every overlap position is classified into exactly one class with no gaps (INV-05)");
+        d.Matches.Should().Be(d.AlignmentString.Count(c => c == '|'),
+            "Matches counts the Watson-Crick '|' symbols (INV-05)");
+        d.GUWobbles.Should().Be(d.AlignmentString.Count(c => c == ':'),
+            "GUWobbles counts the wobble ':' symbols (INV-05)");
+        d.Mismatches.Should().Be(d.AlignmentString.Count(c => c == ' '),
+            "Mismatches counts the space symbols (INV-05)");
+
+        double.IsNaN(d.FreeEnergy).Should().BeFalse("the duplex free energy is finite, never NaN");
+        double.IsInfinity(d.FreeEnergy).Should().BeFalse("the duplex free energy is finite, never infinite");
+    }
+
+    #endregion
+
+    #region Predicate sanity — CanPair / IsWobblePair encode the documented pairing set (INV-01..INV-04)
+
+    /// <summary>
+    /// Positive sanity over the pairing PRIMITIVES, derived independently from the spec
+    /// (MiRNA_Target_Pairing.md §2.2 / INV-01..INV-04; Watson-Crick A-U,G-C [3] + Crick
+    /// 1966 G:U wobble [4]). CanPair is true ⇔ {A-U,U-A,G-C,C-G,G-U,U-G}; IsWobblePair is
+    /// true ⇔ {G-U,U-G} and the four Watson-Crick pairs are NOT wobble (INV-02); wobble ⊆
+    /// pairable (INV-03). T is treated as U (case-insensitive). Every other ordered base
+    /// pair (the full 6×6 alphabet incl. 'N') is exhaustively asserted non-pairing, so a
+    /// matcher that mis-classified A:G or A:C as a pair would FAIL — the test pins the rule,
+    /// not the code's table. GetReverseComplement is the doc's let-7a seed example (INV-04).
+    /// </summary>
+    [Test]
+    public void PairingPredicates_EncodeDocumentedWatsonCrickAndWobbleRule()
+    {
+        // The complete set of valid pairs, derived from the spec — NOT read off the code.
+        var validPairs = new HashSet<(char, char)>
+        {
+            ('A', 'U'), ('U', 'A'), ('G', 'C'), ('C', 'G'), ('G', 'U'), ('U', 'G'),
+        };
+        var wobblePairs = new HashSet<(char, char)> { ('G', 'U'), ('U', 'G') };
+
+        // 'T' must behave exactly like 'U' (T→U normalization, §3.1). Sweep the alphabet.
+        const string alphabet = "ACGUTN";
+        foreach (char a in alphabet)
+        {
+            foreach (char b in alphabet)
+            {
+                char an = a == 'T' ? 'U' : a;
+                char bn = b == 'T' ? 'U' : b;
+
+                bool expectPair = validPairs.Contains((an, bn));
+                bool expectWobble = wobblePairs.Contains((an, bn));
+
+                MiRnaAnalyzer.CanPair(a, b).Should().Be(expectPair,
+                    $"CanPair('{a}','{b}') ⇔ Watson-Crick or G:U wobble (INV-01)");
+                MiRnaAnalyzer.IsWobblePair(a, b).Should().Be(expectWobble,
+                    $"IsWobblePair('{a}','{b}') ⇔ {{G-U,U-G}} only (INV-02)");
+
+                if (expectWobble)
+                    MiRnaAnalyzer.CanPair(a, b).Should().BeTrue("wobble ⊆ pairable (INV-03)");
+            }
+        }
+
+        // A:G and A:C are explicitly NON-pairing (A pairs only with U) — the key biology.
+        MiRnaAnalyzer.CanPair('A', 'G').Should().BeFalse("A pairs only with U (§2.2[3])");
+        MiRnaAnalyzer.CanPair('A', 'C').Should().BeFalse("A pairs only with U (§2.2[3])");
+        MiRnaAnalyzer.CanPair('C', 'U').Should().BeFalse("C pairs only with G, no C:U wobble (§2.2[3])");
+
+        // Watson-Crick pairs are emphatically NOT wobble (INV-02).
+        foreach (var (a, b) in new[] { ('A', 'U'), ('U', 'A'), ('G', 'C'), ('C', 'G') })
+            MiRnaAnalyzer.IsWobblePair(a, b).Should().BeFalse(
+                $"the Watson-Crick pair {a}:{b} is not a wobble (INV-02)");
+
+        // GetReverseComplement: reverse + complement, length-preserving (INV-04) — the doc's
+        // let-7a-5p seed example, derived by hand: reverse(GAGGUAG)=GAUGGAG, complement→CUACCUC.
+        MiRnaAnalyzer.GetReverseComplement(Let7aSeed).Should().Be("CUACCUC",
+            "RC of the let-7a seed GAGGUAG is CUACCUC (§7.1, INV-04)");
+        MiRnaAnalyzer.GetReverseComplement("").Should().BeEmpty("RC of empty is empty (§6.1)");
+        MiRnaAnalyzer.GetReverseComplement(null!).Should().BeEmpty("RC of null is empty (§6.1)");
+    }
+
+    #endregion
+
+    #region BE — Boundary: no complementarity (fully unpaired duplex)
+
+    /// <summary>
+    /// BE — "no complementarity": a target that pairs with NO miRNA position. The aligner
+    /// pairs miRNA[i] antiparallel with target[len−1−i]; if no such pair is in the pairing
+    /// set the whole alignment is spaces: Matches 0, GUWobbles 0, Mismatches = overlap,
+    /// AlignmentString all spaces, and FreeEnergy = 0 (no consecutive paired stack to sum,
+    /// INV-06 lower bound). We use a poly-A miRNA against a poly-A target — antiparallel A:A
+    /// never pairs (A pairs only with U) — at several overlap widths, plus a hand-built
+    /// G-vs-G case, and assert a fully unpaired, crash-free, defined result (§2.2, §6.1).
+    /// </summary>
+    [Test]
+    public void AlignMiRnaToTarget_NoComplementarity_FullyUnpairedNeverCrash()
+    {
+        foreach (int n in new[] { 1, 4, 8, 22 })
+        {
+            string miRna = new string('A', n);
+            string target = new string('A', n); // antiparallel A:A — never pairs
+            var act = () => MiRnaAnalyzer.AlignMiRnaToTarget(miRna, target);
+            var d = act.Should().NotThrow("a non-complementary duplex must not crash").Subject;
+
+            AssertDuplexShape(d, n);
+            d.Matches.Should().Be(0, "A:A is not a Watson-Crick pair (§2.2[3])");
+            d.GUWobbles.Should().Be(0, "A:A is not a G:U wobble (§2.2[4])");
+            d.Mismatches.Should().Be(n, "every antiparallel A:A position is a mismatch (INV-05)");
+            d.AlignmentString.Should().Be(new string(' ', n), "a fully unpaired alignment is all spaces");
+            d.FreeEnergy.Should().Be(0.0, "no paired stack contributes energy — ΔG = 0 (INV-06 lower bound)");
+        }
+
+        // Hand-built G-vs-G: antiparallel G:G never pairs either.
+        var gg = MiRnaAnalyzer.AlignMiRnaToTarget("GGGG", "GGGG");
+        AssertDuplexShape(gg, 4);
+        gg.Mismatches.Should().Be(4, "antiparallel G:G is a mismatch at every position");
+        gg.FreeEnergy.Should().Be(0.0, "no paired stack → ΔG = 0");
+    }
+
+    #endregion
+
+    #region BE — Boundary: perfect match (fully Watson-Crick-paired duplex)
+
+    /// <summary>
+    /// BE — "perfect match": the doc's §7.1 worked example. "AAAA" vs "UUUU" — antiparallel
+    /// A:U at all four positions → 4 Watson-Crick matches, 0 wobbles, 0 mismatches,
+    /// AlignmentString "||||", and FreeEnergy ≤ 0 (a fully WC duplex is stabilising, INV-06).
+    /// We assert that exact hand-derived result, then generalise: a target that is the
+    /// antiparallel Watson-Crick complement of an arbitrary miRNA (its reverse complement)
+    /// must be FULLY paired — Matches = length, 0 mismatches/wobbles, all-'|' alignment,
+    /// ΔG ≤ 0. This pins the perfect-complementarity contract on a value derived from the
+    /// spec, not from the code.
+    /// </summary>
+    [Test]
+    public void AlignMiRnaToTarget_PerfectMatch_AllWatsonCrickStabilisingDuplex()
+    {
+        // Doc §7.1 worked example, derived independently: A:U is Watson-Crick at all 4 pos.
+        var d = MiRnaAnalyzer.AlignMiRnaToTarget("AAAA", "UUUU");
+        AssertDuplexShape(d, 4);
+        d.Matches.Should().Be(4, "antiparallel A:U is Watson-Crick at all four positions (§7.1)");
+        d.GUWobbles.Should().Be(0, "no G:U pair in an A/U duplex (§7.1)");
+        d.Mismatches.Should().Be(0, "a perfectly complementary duplex has no mismatch (§7.1)");
+        d.AlignmentString.Should().Be("||||", "a perfect Watson-Crick duplex aligns as all '|' (§7.1)");
+        d.FreeEnergy.Should().BeLessThanOrEqualTo(0.0,
+            "a fully Watson-Crick-paired duplex is stabilising — ΔG ≤ 0 (INV-06)");
+
+        // Generalisation: the reverse complement of any miRNA is its perfect antiparallel
+        // Watson-Crick target. RC(GAGGUAG)=CUACCUC; let-7a's RC target is fully paired.
+        // (Note: RC complements with WC only — never introduces G:U — so wobbles stay 0.)
+        foreach (string miRna in new[] { "GAGGUAG", "ACGCACGC", Let7aSequence })
+        {
+            string perfectTarget = MiRnaAnalyzer.GetReverseComplement(miRna);
+            var p = MiRnaAnalyzer.AlignMiRnaToTarget(miRna, perfectTarget);
+            int overlap = Math.Min(miRna.Length, perfectTarget.Length);
+
+            AssertDuplexShape(p, overlap);
+            p.Matches.Should().Be(overlap,
+                $"the reverse complement of '{miRna}' pairs Watson-Crick at every position (INV-04)");
+            p.GUWobbles.Should().Be(0, "reverse-complement pairing is pure Watson-Crick, no wobble");
+            p.Mismatches.Should().Be(0, "a perfect antiparallel complement has no mismatch");
+            p.AlignmentString.Should().Be(new string('|', overlap), "perfect complement → all '|'");
+            p.FreeEnergy.Should().BeLessThanOrEqualTo(0.0,
+                "a fully Watson-Crick duplex is stabilising — ΔG ≤ 0 (INV-06)");
+        }
+    }
+
+    /// <summary>
+    /// Positive sanity for the G:U wobble class, derived from the spec §7.1: "GGGG" vs
+    /// "UUUU" — antiparallel G:U is a wobble at all four positions → GUWobbles 4, Matches 0,
+    /// Mismatches 0, AlignmentString "::::" (wobble counted SEPARATELY from Watson-Crick,
+    /// INV-02). This guards the matcher against silently folding wobble into match. We do
+    /// NOT assert a sign on the wobble ΔG: the Turner wobble-stack table legitimately
+    /// contains positive entries, so INV-06's ΔG ≤ 0 guarantee is scoped to Watson-Crick.
+    /// </summary>
+    [Test]
+    public void AlignMiRnaToTarget_GuWobbleDuplex_CountedSeparatelyFromMatches()
+    {
+        var d = MiRnaAnalyzer.AlignMiRnaToTarget("GGGG", "UUUU");
+        AssertDuplexShape(d, 4);
+        d.GUWobbles.Should().Be(4, "antiparallel G:U is a wobble at all four positions (§7.1)");
+        d.Matches.Should().Be(0, "a G:U wobble is NOT a Watson-Crick match (INV-02, §6.1)");
+        d.Mismatches.Should().Be(0, "every position pairs (as a wobble) — no mismatch (§7.1)");
+        d.AlignmentString.Should().Be("::::", "a fully wobble duplex aligns as all ':' (§7.1)");
+    }
+
+    #endregion
+
+    #region BE — Boundary: short miRNA (overlap clamping, empty/null, no index overflow)
+
+    /// <summary>
+    /// BE — "short miRNA": a miRNA SHORTER than the target. The duplex overlaps only the
+    /// shorter length (INV-05); the antiparallel index target[len−1−i] runs i in 0..min−1
+    /// so it never walks off either string (the `targetIdx &lt; 0` guard + the min() overlap
+    /// bound — §3.3, §4.1). We sweep miRNA lengths 0..8 against a fixed 22-nt target and
+    /// assert: no throw, overlap == min length, well-formed counts. The empty / null miRNA
+    /// (and empty / null target) corner returns the documented EMPTY MiRnaDuplex — all
+    /// counts 0, empty strings — never an exception (§3.3, §6.1).
+    /// </summary>
+    [Test]
+    [CancelAfter(30_000)]
+    public void AlignMiRnaToTarget_ShortMiRna_OverlapClampedNeverIndexOverflow()
+    {
+        string longTarget = new string('U', 22); // a 22-nt target, longer than the short miRNAs
+
+        for (int n = 0; n <= 8; n++)
+        {
+            string shortMiRna = new string('A', n); // poly-A → A:U Watson-Crick against poly-U
+            var act = () => MiRnaAnalyzer.AlignMiRnaToTarget(shortMiRna, longTarget);
+            var d = act.Should().NotThrow(
+                $"a {n}-nt miRNA against a 22-nt target must not crash (overlap clamps to {n})").Subject;
+
+            if (n == 0)
+            {
+                // Empty miRNA → the documented empty duplex (§3.3, §6.1).
+                d.Matches.Should().Be(0);
+                d.Mismatches.Should().Be(0);
+                d.GUWobbles.Should().Be(0);
+                d.Gaps.Should().Be(0);
+                d.AlignmentString.Should().BeEmpty("an empty miRNA yields the empty duplex (§6.1)");
+            }
+            else
+            {
+                AssertDuplexShape(d, n);
+                // poly-A miRNA vs poly-U target: every antiparallel A:U is Watson-Crick.
+                d.Matches.Should().Be(n, $"all {n} antiparallel A:U positions are Watson-Crick");
+                d.Mismatches.Should().Be(0, "poly-A vs poly-U is fully complementary");
+            }
+        }
+
+        // Empty / null on either surface → the documented empty MiRnaDuplex, never a throw.
+        foreach (var (m, t) in new[] { ("", longTarget), (longTarget, ""), ((string?)null, longTarget)!, (longTarget, (string?)null)! })
+        {
+            var act = () => MiRnaAnalyzer.AlignMiRnaToTarget(m!, t!);
+            var d = act.Should().NotThrow("empty/null input returns the empty duplex, never an error (§3.3)").Subject;
+            d.Matches.Should().Be(0);
+            d.Mismatches.Should().Be(0);
+            d.GUWobbles.Should().Be(0);
+            d.Gaps.Should().Be(0);
+            d.AlignmentString.Should().BeEmpty("the empty duplex has an empty alignment (§6.1)");
+            d.FreeEnergy.Should().Be(0.0, "the empty duplex has zero free energy (§6.1)");
+        }
+    }
+
+    #endregion
+
+    #region Randomized boundary sweep — crash-free, invariant-true over fixed-seed random pairs
+
+    /// <summary>
+    /// Randomized boundary sweep: over fixed seeds and a range of miRNA/target lengths
+    /// (including the unequal-length and short-miRNA boundaries), AlignMiRnaToTarget never
+    /// throws and every reported duplex satisfies the universal invariants — overlap ==
+    /// min(len), class counts partition the overlap (INV-05), Gaps 0, finite ΔG. The RNG is
+    /// LOCALLY seeded (no shared static Rng) so every input is reproducible.
+    /// </summary>
+    [Test]
+    [CancelAfter(30_000)]
+    public void AlignMiRnaToTarget_RandomPairs_AlwaysInvariantTrueNeverCrash()
+    {
+        foreach (int seed in new[] { 1, 7, 42, 2026 })
+        {
+            foreach (int mLen in new[] { 0, 1, 5, 8, 22, 40 })
+            {
+                foreach (int tLen in new[] { 0, 1, 6, 22, 35 })
+                {
+                    string miRna = RandomRna(mLen, seed);
+                    string target = RandomRna(tLen, seed + 500);
+
+                    var act = () => MiRnaAnalyzer.AlignMiRnaToTarget(miRna, target);
+                    var d = act.Should().NotThrow(
+                        $"random duplex must not crash (seed {seed}, mLen {mLen}, tLen {tLen})").Subject;
+
+                    int overlap = (mLen == 0 || tLen == 0) ? 0 : Math.Min(mLen, tLen);
+                    AssertDuplexShape(d, overlap);
+                }
+            }
+        }
     }
 
     #endregion
