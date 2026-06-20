@@ -110,6 +110,45 @@ namespace Seqeron.Genomics.Tests;
 ///       perfect 8mer for let-7a) → detected at the correct 0-based span, with a sensible
 ///       score (Seed8mer base score 1.0, ≥ the default minScore 0.5) and SeedMatchLength 8.
 ///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: MIRNA-PRECURSOR-001 — miRNA precursor (pre-miRNA hairpin) detection
+/// Checklist: docs/checklists/03_FUZZING.md, row 76.
+/// Source doc: docs/algorithms/MiRNA/Pre_miRNA_Detection.md.
+/// Fuzz strategies exercised for THIS unit:
+///   • BE = Boundary Exploitation — the length / structure corners of the precursor
+///        scan: candidates SHORTER THAN the minimum hairpin window (0 .. minHairpinLength-1,
+///        including empty and null), and sequences that have NO hairpin (no uninterrupted
+///        end-to-end complementary stem). — docs/checklists/03_FUZZING.md §Description (code BE).
+///   • MC = Malformed Content — homopolymer (all-one-base) runs that are self-identical
+///        and therefore NEVER self-complementary, plus non-RNA / junk characters (DNA 'T'
+///        which is normalized to 'U', digits, punctuation, 'N' ambiguity codes). Each must
+///        be handled per the documented contract, never crash. — §Description (code MC).
+///        Fuzz targets for row 76: "Too short, no hairpin, all one base, non-RNA chars".
+///
+/// The precursor contract under test (Pre_miRNA_Detection.md §2.2, §3.1-§3.3, §6.1):
+///   FindPreMiRnaHairpins(sequence, minHairpinLength=55, maxHairpinLength=120,
+///     matureLength=22) → IEnumerable&lt;PreMiRna&gt;. It normalizes the input to uppercase
+///   RNA (T→U), slides a start across the sequence, and for every candidate window of length
+///   [minHairpinLength, maxHairpinLength] requires UNINTERRUPTED complementary pairing
+///   (Watson-Crick + G:U wobble) from both ends inward. A candidate is accepted only when the
+///   uninterrupted stem is ≥ 18 bp AND the residual loop (n − 2·stem) is in [3, 25] nt. Each
+///   accepted hairpin yields a PreMiRna with a balanced dot-bracket Structure of the same
+///   length as Sequence (INV-01), stem ≥ 18 (INV-02), loop in [3,25] (INV-03), zero-based
+///   inclusive Start/End in the scanned input (INV-04), and equal-length 5' Mature / 3' Star
+///   arms of length min(matureLength, stem) (INV-05). Documented boundary handling (§3.3, §6.1):
+///     • null / "" / length &lt; minHairpinLength → NO candidates; never throws (the early
+///       `IsNullOrEmpty || Length &lt; minHairpinLength` guard prevents any Substring overflow).
+///     • No hairpin (random / non-pairing sequence with no uninterrupted complementary stem)
+///       → the stem count stops at the first mirrored mismatch, falls below 18 bp → rejected
+///       → NO precursor. Never a spurious call, never a crash.
+///     • All-one-base homopolymer (e.g. all 'A') → a base is never complementary to itself
+///       (A:A, C:C, G:G never pair; only U:U is also a non-pair) → stem = 0 → NO hairpin →
+///       NO precursor, at any window length.
+///     • Non-RNA chars: DNA 'T' is normalized to 'U' (a DNA-spelled hairpin folds like its RNA
+///       form); digits / punctuation / 'N' never pair → simply fail the stem test → NO crash.
+///     • A constructed perfect synthetic hairpin (≥ 18-bp uninterrupted stem + 3-25 nt loop,
+///       55-120 nt) → ACCEPTED as a precursor with a balanced structure and finite energy.
+///
 /// All inputs are fixed / deterministically generated; the random helper uses a LOCALLY
 /// seeded `new Random(seed)` (no shared static Rng), so every fuzz input is reproducible.
 /// ───────────────────────────────────────────────────────────────────────────
@@ -596,6 +635,249 @@ public class MiRnaFuzzTests
         // Raising the threshold above 1.0 suppresses every site (§6.1).
         FindTargetSites(Let7aTarget8mer, let7a, minScore: 1.01).Should().BeEmpty(
             "a minScore above the [0,1] score ceiling admits no site (§6.1)");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  MIRNA-PRECURSOR-001 — miRNA precursor (pre-miRNA hairpin) detection
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region MIRNA-PRECURSOR-001 — miRNA precursor detection
+
+    #region Helpers — synthetic hairpin construction
+
+    /// <summary>
+    /// Builds a perfect synthetic pre-miRNA hairpin: a 5' stem, a non-pairing loop, and a
+    /// 3' stem that is the positional reverse complement of the 5' stem, so that mirrored
+    /// positions from the two ends inward pair uninterruptedly (the implementation's
+    /// strongest-case topology — Pre_miRNA_Detection.md §6.1, ASM-01). The loop is a
+    /// homopolymer 'A' run, whose first base (A) does not pair with the mirrored 3'-stem
+    /// base, so the uninterrupted stem stops exactly at the stem boundary.
+    /// </summary>
+    private static string BuildHairpin(string stem5, int loopLength)
+    {
+        // 3' stem = reverse complement of 5' stem so position j pairs with position n-1-j.
+        string stem3 = GetReverseComplement(stem5); // RC reverses + complements → positional mirror
+        return stem5 + new string('A', loopLength) + stem3;
+    }
+
+    /// <summary>
+    /// Asserts the universal precursor invariants on a reported PreMiRna (INV-01..INV-05):
+    /// balanced dot-bracket structure of equal length, stem ≥ 18 bp, loop in [3,25] nt,
+    /// in-range ordered coordinates, equal-length mature/star arms, and a finite energy.
+    /// </summary>
+    private static void AssertPreMiRnaShape(MiRnaAnalyzer.PreMiRna p, int scannedLength)
+    {
+        p.Structure.Length.Should().Be(p.Sequence.Length,
+            "the dot-bracket structure has the same length as the candidate sequence (INV-01)");
+        int open = p.Structure.Count(c => c == '(');
+        int close = p.Structure.Count(c => c == ')');
+        open.Should().Be(close, "the dot-bracket stem is balanced — equal '(' and ')' (INV-01)");
+        open.Should().BeGreaterThanOrEqualTo(18, "an accepted precursor has stem ≥ 18 bp (INV-02)");
+
+        int loop = p.Structure.Count(c => c == '.');
+        loop.Should().BeInRange(3, 25, "an accepted precursor has loop length in [3,25] nt (INV-03)");
+
+        p.Start.Should().BeInRange(0, scannedLength - 1, "Start is a zero-based index into the scanned input (INV-04)");
+        p.End.Should().BeInRange(0, scannedLength - 1, "End is a zero-based index into the scanned input (INV-04)");
+        p.Start.Should().BeLessThanOrEqualTo(p.End, "coordinates are ordered (INV-04)");
+        (p.End - p.Start + 1).Should().Be(p.Sequence.Length, "the span width equals the candidate length (INV-04)");
+
+        p.MatureSequence.Length.Should().Be(p.StarSequence.Length,
+            "mature and star arms are extracted with the same bounded length (INV-05)");
+
+        double.IsNaN(p.FreeEnergy).Should().BeFalse("the hairpin free energy is finite, never NaN");
+        double.IsInfinity(p.FreeEnergy).Should().BeFalse("the hairpin free energy is finite, never infinite");
+    }
+
+    #endregion
+
+    #region BE — Boundary: candidate too short (below the minimum hairpin window)
+
+    /// <summary>
+    /// BE — "Too short": a sequence shorter than the minimum hairpin window cannot contain a
+    /// precursor. `FindPreMiRnaHairpins` guards with `IsNullOrEmpty(sequence) || Length &lt;
+    /// minHairpinLength` BEFORE any window Substring (§3.3, §6.1), so every too-short input —
+    /// including the empty string and null — yields NO candidates and never throws. We sweep a
+    /// representative ladder of short lengths up to one below the default 55-nt floor, then add
+    /// the empty and null corners. The first valid scan length (= minHairpinLength) is exercised
+    /// in the positive-sanity test as the counterpoint.
+    /// </summary>
+    [Test]
+    public void FindPreMiRnaHairpins_TooShort_YieldsNoCandidatesNeverThrows()
+    {
+        foreach (int len in new[] { 0, 1, 2, 10, 30, 53, 54 }) // all < default minHairpinLength (55)
+        {
+            string tooShort = new string('A', len);
+            var act = () => FindPreMiRnaHairpins(tooShort).ToList();
+            var hits = act.Should().NotThrow(
+                $"a {len}-nt input is shorter than the 55-nt hairpin floor — the guard prevents any window overflow")
+                .Subject;
+            hits.Should().BeEmpty($"a {len}-nt input cannot contain a 55-120 nt precursor (§3.3, §6.1)");
+        }
+
+        FindPreMiRnaHairpins("").Should().BeEmpty("an empty sequence yields no precursor (§6.1)");
+
+        var actNull = () => FindPreMiRnaHairpins(null!).ToList();
+        actNull.Should().NotThrow("a null sequence is treated as empty, not an error (§6.1)")
+               .Subject.Should().BeEmpty("a null sequence yields no precursor (§6.1)");
+
+        // Even a candidate of EXACTLY the right length but below the stem/loop thresholds is
+        // rejected — too-short here also means too-short a stem. A 55-nt non-pairing run yields none.
+        FindPreMiRnaHairpins(new string('A', 55)).Should().BeEmpty(
+            "a 55-nt homopolymer reaches the window floor but has no stem → no precursor");
+    }
+
+    #endregion
+
+    #region BE — Boundary: no hairpin (no uninterrupted complementary stem)
+
+    /// <summary>
+    /// BE — "No hairpin": a sequence whose ends are NOT complementary has no uninterrupted
+    /// stem. The stem counter stops at the first mirrored mismatch, so a random / deliberately
+    /// non-pairing sequence falls below the 18-bp stem floor and is rejected → NO precursor
+    /// (§4 step 3-4, §6.1). We probe (a) several fixed-seed random sequences long enough to be
+    /// scanned, and (b) a hand-built sequence whose first and last bases cannot pair (A vs C),
+    /// forcing stem = 0. None may produce a candidate, none may crash.
+    /// </summary>
+    [Test]
+    public void FindPreMiRnaHairpins_NoHairpin_YieldsNoPrecursorNeverCrash()
+    {
+        // Hand-built: every mirrored pair is A-vs-C (A:C never pairs) → stem stops at 0.
+        string noStem = new string('A', 40) + new string('C', 40); // 80 nt, ends A…C never pair
+        var act0 = () => FindPreMiRnaHairpins(noStem).ToList();
+        act0.Should().NotThrow("a sequence with no complementary ends must not crash the scan")
+            .Subject.Should().BeEmpty("no uninterrupted stem → no precursor (§4, §6.1)");
+
+        // Random non-structured sequences: overwhelmingly no uninterrupted ≥18-bp stem.
+        foreach (int seed in new[] { 1, 7, 42, 2026 })
+        {
+            foreach (int len in new[] { 60, 90, 120 })
+            {
+                string raw = RandomRna(len, seed);
+                var act = () => FindPreMiRnaHairpins(raw).ToList();
+                var hits = act.Should().NotThrow(
+                    $"a random {len}-nt sequence must not crash the precursor scan (seed {seed})").Subject;
+
+                // Whatever the scan returns, every candidate must still satisfy the contract:
+                // a real ≥18-bp uninterrupted stem with a 3-25 nt loop. Random hits are rare but
+                // when they occur they must be well-formed, never malformed.
+                foreach (var p in hits)
+                    AssertPreMiRnaShape(p, raw.Length);
+            }
+        }
+    }
+
+    #endregion
+
+    #region MC — Malformed Content: all-one-base homopolymer
+
+    /// <summary>
+    /// MC — "all one base": a homopolymer run has no self-complementarity — A:A, C:C, G:G
+    /// never pair (and U:U does not pair either), so a single-base sequence has stem = 0 at
+    /// every window and can never form a hairpin → NO precursor (§2.2 pairing set, §6.1). We
+    /// sweep all four RNA bases (and DNA 'T', which normalizes to 'U') across lengths spanning
+    /// the scan window, asserting an always-empty, always crash-free result.
+    /// </summary>
+    [Test]
+    public void FindPreMiRnaHairpins_Homopolymer_NeverFormsHairpin()
+    {
+        foreach (char b in new[] { 'A', 'C', 'G', 'U', 'T' }) // T normalizes to U → still homopolymer
+        {
+            foreach (int len in new[] { 55, 60, 80, 120, 150 })
+            {
+                string homo = new string(b, len);
+                var act = () => FindPreMiRnaHairpins(homo).ToList();
+                act.Should().NotThrow(
+                    $"a {len}-nt all-'{b}' homopolymer must not crash the scan")
+                    .Subject.Should().BeEmpty(
+                    $"a homopolymer base never pairs with itself → no hairpin → no precursor (base '{b}', len {len})");
+            }
+        }
+    }
+
+    #endregion
+
+    #region MC — Malformed Content: non-RNA characters
+
+    /// <summary>
+    /// MC — "non-RNA chars": DNA 'T', digits, punctuation, whitespace, and 'N' ambiguity codes.
+    /// Per §3.3/§6.1 the input is normalized to uppercase RNA (T→U) before scanning, and any
+    /// character outside {A,U,G,C} simply never satisfies the pairing test (CanPair → false on
+    /// 'N'/digits/punctuation), so junk content fails the stem requirement rather than crashing.
+    /// We verify: (a) a DNA-spelled valid hairpin still folds (T→U equivalence), (b) arbitrary
+    /// junk is scanned without a throw and yields no malformed candidate.
+    /// </summary>
+    [Test]
+    public void FindPreMiRnaHairpins_NonRnaCharacters_NormalizedOrRejected_NeverCrash()
+    {
+        // (a) The same valid hairpin spelled with DNA 'T' folds identically (T→U normalization).
+        string rnaStem = "GCGCGCGCGCAUAUGCGCGC";        // 20 nt, GC-rich for a clean stem
+        string rnaHairpin = BuildHairpin(rnaStem, 16);  // 56 nt, stem 20, loop 16 → accepted
+        string dnaHairpin = rnaHairpin.Replace('U', 'T').ToLowerInvariant(); // DNA + lowercase junk
+
+        var rnaHits = FindPreMiRnaHairpins(rnaHairpin).ToList();
+        var dnaHits = FindPreMiRnaHairpins(dnaHairpin).ToList();
+        rnaHits.Should().NotBeEmpty("a perfect synthetic RNA hairpin is accepted as a precursor");
+        dnaHits.Should().NotBeEmpty("the same hairpin spelled with DNA 'T' folds identically (T→U, §6.1)");
+        dnaHits.Should().HaveCount(rnaHits.Count,
+            "T→U + uppercasing makes the DNA spelling equivalent to the RNA spelling");
+
+        // (b) Arbitrary junk content: digits, punctuation, whitespace, 'N' — never pairs, never crashes.
+        string junk = new string('N', 30) + "12!! \t@#$%^&*()" + new string('N', 30); // ≥55 nt, non-pairing
+        var actJunk = () => FindPreMiRnaHairpins(junk).ToList();
+        var junkHits = actJunk.Should().NotThrow("garbage content must not crash the precursor scan").Subject;
+        junkHits.Should().BeEmpty("non-canonical characters never pair → no stem → no precursor");
+
+        // (c) A valid hairpin with junk flanking context is still found and well-formed.
+        string flanked = "12!!##" + rnaHairpin + "$$%%NN";
+        var flankedHits = FindPreMiRnaHairpins(flanked).ToList();
+        flankedHits.Should().NotBeEmpty("a valid hairpin embedded in junk flanks is still detected");
+        foreach (var p in flankedHits)
+            AssertPreMiRnaShape(p, flanked.Length);
+    }
+
+    #endregion
+
+    #region Positive sanity — a constructed pre-miRNA hairpin is recognized as a precursor
+
+    /// <summary>
+    /// Positive sanity: a constructed perfect pre-miRNA hairpin — a 20-bp uninterrupted GC-rich
+    /// stem closing a 16-nt loop (56 nt, inside the 55-120 nt window) — MUST be recognized as a
+    /// precursor (§6.1 "perfect synthetic hairpin … Accepted"). The reported candidate carries a
+    /// balanced dot-bracket structure with a 20-bp stem (INV-01/02), a 16-nt loop (INV-03),
+    /// in-range ordered coordinates (INV-04), equal-length 5' mature / 3' star arms (INV-05), and
+    /// a finite Turner free energy. This proves the fuzz harness asserts against a detector that
+    /// FINDS real hairpins, not a no-op that always returns empty.
+    /// </summary>
+    [Test]
+    [CancelAfter(30_000)]
+    public void FindPreMiRnaHairpins_ConstructedHairpin_RecognizedAsPrecursor()
+    {
+        string stem5 = "GCGCGCGCGCAUAUGCGCGC"; // 20 nt
+        const int loopLen = 16;
+        string hairpin = BuildHairpin(stem5, loopLen); // 20 + 16 + 20 = 56 nt
+        hairpin.Length.Should().Be(56, "the constructed hairpin sits inside the 55-120 nt precursor window");
+
+        var sites = FindPreMiRnaHairpins(hairpin).ToList();
+        sites.Should().NotBeEmpty("a perfect synthetic hairpin is accepted as a precursor (§6.1)");
+
+        // Every reported candidate satisfies the full precursor contract.
+        foreach (var p in sites)
+            AssertPreMiRnaShape(p, hairpin.Length);
+
+        // The strongest candidate is the full-length window: a 20-bp stem closing a 16-nt loop.
+        var full = sites.Should().Contain(p => p.Sequence == hairpin,
+            "the full constructed window is itself a valid precursor candidate").Subject;
+        full.Structure.Count(c => c == '(').Should().Be(20, "the constructed stem is 20 bp");
+        full.Structure.Count(c => c == '.').Should().Be(loopLen, "the constructed loop is 16 nt");
+        full.MatureSequence.Length.Should().Be(20, "mature arm = min(matureLength 22, stem 20) (INV-05)");
+        full.MatureSequence.Should().Be(stem5, "the 5' mature arm is the 5' stem of the constructed hairpin");
+        full.Structure.Should().StartWith("((((((((((", "the structure opens with the 5' stem parentheses (INV-01)");
+        full.Structure.Should().EndWith("))))))))))", "the structure closes with the 3' stem parentheses (INV-01)");
     }
 
     #endregion
