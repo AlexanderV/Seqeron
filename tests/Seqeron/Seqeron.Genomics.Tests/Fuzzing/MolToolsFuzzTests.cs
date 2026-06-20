@@ -2839,5 +2839,279 @@ public class MolToolsFuzzTests
 
     #endregion
 
+    #region RESTR-DIGEST-001 — restriction digest
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Unit: RESTR-DIGEST-001 — restriction digest
+    // Checklist: docs/checklists/03_FUZZING.md, row 27.
+    // Fuzz strategies exercised for THIS unit:
+    //   • BE = Boundary Exploitation — a sequence with NO cut sites (the whole
+    //          molecule survives as one fragment), a CIRCULAR molecule with ZERO
+    //          cut sites (the wrap-around branch must not crash on the uncut
+    //          circle), a 100+-ENZYME digest (a quadratic-hang / mass-loss hazard),
+    //          and the EMPTY sequence (lower size boundary).
+    // — docs/checklists/03_FUZZING.md §Description (strategy codes); row 27 targets:
+    //   "No cut sites, circular with 0 sites, 100+ enzymes, empty seq".
+    //
+    // ─────────────────────────────────────────────────────────────────────────
+    // The restriction-digest contract under test (Restriction_Digest_Simulation.md)
+    // ─────────────────────────────────────────────────────────────────────────
+    // A restriction digest cleaves a DNA molecule at enzyme cut positions and emits
+    // the fragments bounded by those cuts (Restriction_Digest_Simulation.md §2.1).
+    // The source surface is RestrictionAnalyzer.Digest (RestrictionAnalyzer.cs lines
+    // 259–363) in two overloads, plus the private circular path DigestCircular
+    // (lines 365–437):
+    //   • Digest(DnaSequence, params string[] enzymeNames) — the LINEAR digest. It
+    //     null-guards the sequence (ArgumentNullException, line 261) and requires at
+    //     least one enzyme (ArgumentException "At least one enzyme is required",
+    //     line 262–263). It collects DISTINCT FORWARD-strand cut positions only
+    //     (line 273, to avoid double-counting palindromic sites), then partitions the
+    //     molecule at boundaries [0, c1, …, ck, L] into the half-open intervals
+    //     [0,c1),[c1,c2),…,[ck,L) — k cuts ⇒ k+1 fragments (§2.2, INV-01). Because
+    //     it is a `yield` iterator, every probe forces enumeration (`.ToList()`).
+    //   • Digest(DnaSequence, MoleculeTopology, params string[]) — dispatches to the
+    //     linear path for MoleculeTopology.Linear and to DigestCircular for
+    //     MoleculeTopology.Circular. Same null/enzyme guards (lines 355–357).
+    //   • DigestCircular models a closed plasmid: k distinct forward-strand cut
+    //     positions yield exactly k fragments (NOT k+1) because the molecule has no
+    //     free ends — the last-cut→origin→first-cut piece joins into ONE
+    //     origin-spanning fragment (§2.4 remark; "cut a circle once → one linear
+    //     fragment"). A circle with ZERO cuts yields ONE full-length uncut circular
+    //     fragment (line 387–397) — the wrap-around boundary that a naive
+    //     implementation crashes on.
+    //
+    // THE KEY INVARIANT pinned on EVERY digest below (Restriction_Digest_Simulation.md
+    // §2.4): INV-02 MASS CONSERVATION — the sum of fragment lengths equals the
+    // original sequence length, because adjacent cut boundaries partition the
+    // sequence with no overlap and no gap. This is the load-bearing fuzz assertion:
+    // boundary input must never lose, duplicate, or invent sequence mass. INV-01
+    // (k cuts ⇒ k+1 linear / k circular fragments) is pinned alongside.
+    //
+    // THE FOUR ROW-27 FUZZ TARGETS, mapped to the theory-correct contract:
+    //   • No cut sites (BE): a sequence the enzyme does not cut (e.g. an all-A
+    //     sequence digested with EcoRI=GAATTC) has zero forward-strand cuts, so the
+    //     explicit special case (line 281–292) yields a SINGLE fragment equal to the
+    //     WHOLE sequence (Length == sequence length, LeftEnzyme == RightEnzyme ==
+    //     null) — never an empty result, never a crash (§6.1 "No cut sites found").
+    //   • Circular with 0 sites (BE, KEY wrap-around bug): a CIRCULAR molecule the
+    //     enzyme does not cut takes the DigestCircular zero-cut branch (line 387) and
+    //     yields ONE full-length circular fragment — the wrap-around join logic
+    //     (`seq.Substring(start, n - start) + seq.Substring(0, nextCut)`) is NEVER
+    //     reached with a degenerate index, so no IndexOutOfRange / no crash on the
+    //     uncut circle. Fragment length == sequence length (mass conserved).
+    //   • 100+ enzymes (BE, hang hazard): digesting with 100+ enzyme names must
+    //     COMPLETE promptly (no quadratic blow-up, pinned with [CancelAfter]) and the
+    //     fragments must STILL conserve total length (INV-02) regardless of how many
+    //     enzymes cut. Unknown names in the list contribute no sites and must not
+    //     crash; known cutters contribute their sites and the partition stays exact.
+    //   • Empty seq (BE): an empty DnaSequence has length 0 and no possible cut, so
+    //     the linear path takes the no-cut branch and yields ONE fragment of length 0
+    //     (the whole — empty — sequence); the circular path likewise yields one
+    //     length-0 fragment. Either way: a single empty fragment, never a crash and
+    //     never a Substring past the end. (A DnaSequence("") is the empty molecule;
+    //     DnaSequence rejects only non-A/C/G/T, not emptiness.)
+    //
+    // Documented invariants pinned (Restriction_Digest_Simulation.md §2.4): INV-01
+    // k cuts ⇒ k+1 linear / k circular fragments; INV-02 Σ fragment lengths ==
+    // sequence length. Digest is a yield iterator, so every probe forces enumeration;
+    // the positive-sanity test pins that a sequence with a KNOWN number of EcoRI sites
+    // yields the right fragment count AND the fragment lengths sum to the sequence
+    // length.
+
+    /// <summary>
+    /// BE — No cut sites: a sequence the enzyme cannot cut must survive as a SINGLE
+    /// whole fragment. An all-A sequence has no EcoRI (GAATTC) site, so the digest
+    /// takes the no-cut special case and yields exactly one fragment whose sequence
+    /// and length equal the WHOLE input (LeftEnzyme/RightEnzyme null) — never an empty
+    /// result, never a crash. Mass conservation (INV-02) is trivially the whole
+    /// sequence. (Restriction_Digest_Simulation.md §6.1 "No cut sites found".)
+    /// </summary>
+    [Test]
+    public void Digest_LinearNoCutSites_YieldsSingleWholeFragment()
+    {
+        const string seq = "AAAAAAAAAAAAAAAAAAAA"; // 20 A's — no GAATTC anywhere
+        var dna = new DnaSequence(seq);
+
+        var fragments = () => RestrictionAnalyzer.Digest(dna, "EcoRI").ToList();
+
+        var list = fragments.Should().NotThrow(
+            "a sequence with no recognition site must digest without crashing").Subject;
+
+        list.Should().ContainSingle("no cut sites ⇒ the whole molecule is one fragment (INV-01, k=0 ⇒ 1)");
+        var only = list[0];
+        only.Sequence.Should().Be(seq, "the single fragment IS the whole undigested sequence");
+        only.Length.Should().Be(seq.Length, "INV-02: the lone fragment carries the full sequence mass");
+        only.LeftEnzyme.Should().BeNull("no enzyme cuts before position 0");
+        only.RightEnzyme.Should().BeNull("no enzyme cuts after the final boundary");
+        list.Sum(f => f.Length).Should().Be(seq.Length, "INV-02: Σ fragment lengths == sequence length");
+    }
+
+    /// <summary>
+    /// BE (KEY wrap-around) — Circular with 0 sites: a CIRCULAR molecule the enzyme
+    /// cannot cut must take the uncut-circle branch and yield ONE full-length circular
+    /// fragment, WITHOUT touching the origin-spanning Substring join (the common
+    /// boundary bug). An all-A plasmid digested with EcoRI has zero cuts ⇒ exactly one
+    /// fragment whose length == sequence length. No IndexOutOfRange on the wrap-around.
+    /// (Restriction_Digest_Simulation.md §2.4 "zero cut sites yields a single
+    /// full-length uncut circular fragment".)
+    /// </summary>
+    [Test]
+    public void Digest_CircularZeroCutSites_YieldsSingleCircularFragment_NoWrapAroundCrash()
+    {
+        const string seq = "AAAAAAAAAAAAAAAAAAAACCCCCCCCCC"; // 30 nt, no GAATTC
+        var dna = new DnaSequence(seq);
+
+        var fragments = () => RestrictionAnalyzer.Digest(dna, MoleculeTopology.Circular, "EcoRI").ToList();
+
+        var list = fragments.Should().NotThrow(
+            "the uncut-circle branch must not crash on the wrap-around logic").Subject;
+
+        list.Should().ContainSingle("a circle with 0 cuts ⇒ exactly ONE full-length circular fragment");
+        list[0].Length.Should().Be(seq.Length, "INV-02: the uncut circular fragment carries the whole sequence mass");
+        list[0].Sequence.Should().Be(seq, "the lone circular fragment IS the whole undigested sequence");
+        list.Sum(f => f.Length).Should().Be(seq.Length, "INV-02: Σ fragment lengths == sequence length");
+    }
+
+    /// <summary>
+    /// BE (KEY circular fragment count) — Circular with k sites: a circle cut at k
+    /// distinct forward-strand sites yields exactly k fragments (NOT k+1), because the
+    /// ends join. "GAATTC...GAATTC..." with two EcoRI sites ⇒ two circular fragments,
+    /// and Σ lengths still equals the sequence length (the origin-spanning fragment
+    /// joins last-cut→end with start→first-cut). This pins that the wrap-around branch
+    /// is not only crash-free but length-exact. (§2.4 "k cut sites → k fragments".)
+    /// </summary>
+    [Test]
+    public void Digest_CircularWithTwoSites_YieldsTwoFragments_MassConserved()
+    {
+        // Two EcoRI (GAATTC) sites, well separated, on a clean A/C/G/T sequence.
+        const string seq = "AAAAGAATTCAAAAAAAAGAATTCAAAA"; // sites at index 4 and 18
+        var dna = new DnaSequence(seq);
+
+        var linearCuts = RestrictionAnalyzer.FindSites(dna, "EcoRI")
+            .Where(s => s.IsForwardStrand)
+            .Select(s => s.CutPosition)
+            .Distinct()
+            .Count();
+        linearCuts.Should().Be(2, "the fixture is constructed to hold exactly two distinct EcoRI cut positions");
+
+        var fragments = RestrictionAnalyzer.Digest(dna, MoleculeTopology.Circular, "EcoRI").ToList();
+
+        fragments.Should().HaveCount(2, "INV-01 (circular): k=2 distinct cut sites ⇒ k=2 fragments, not k+1");
+        fragments.Sum(f => f.Length).Should().Be(seq.Length,
+            "INV-02: Σ circular fragment lengths == sequence length (the origin-spanning fragment joins the ends)");
+        fragments.Should().OnlyContain(f => f.Length > 0, "no zero-length fragment is emitted");
+        fragments.Select(f => f.Sequence.Length).Sum().Should().Be(seq.Length,
+            "the emitted fragment SEQUENCES also reconstruct the full sequence mass");
+    }
+
+    /// <summary>
+    /// BE (hang hazard) — 100+ enzymes: digesting with 100+ enzyme names must COMPLETE
+    /// promptly (no quadratic blow-up) and the fragments must STILL conserve total
+    /// length (INV-02), no matter how many enzymes cut. The list mixes the full
+    /// built-in catalog (repeated to exceed 100 names) so many real cutters fire; the
+    /// partition must stay exact. Pinned with [CancelAfter] so a hang fails as a
+    /// timeout rather than wedging the suite.
+    /// </summary>
+    [Test]
+    [CancelAfter(30_000)]
+    public void Digest_OneHundredPlusEnzymes_CompletesAndConservesMass()
+    {
+        var rng = new Random(27_001);
+        var bases = "ACGT";
+        var sb = new System.Text.StringBuilder(500);
+        for (int i = 0; i < 500; i++)
+            sb.Append(bases[rng.Next(bases.Length)]);
+        var dna = new DnaSequence(sb.ToString());
+
+        // Build a 100+-name enzyme list from the built-in catalog (repeat to exceed 100).
+        var catalog = RestrictionAnalyzer.Enzymes.Values.Select(e => e.Name).ToList();
+        catalog.Should().NotBeEmpty("the built-in catalog must supply enzyme names for this probe");
+        var enzymeNames = new List<string>();
+        while (enzymeNames.Count <= 110)
+            enzymeNames.AddRange(catalog);
+        enzymeNames.Count.Should().BeGreaterThan(100, "the digest is fuzzed with 100+ enzyme names");
+
+        var enzymeArray = enzymeNames.ToArray();
+        var fragments = () => RestrictionAnalyzer.Digest(dna, enzymeArray).ToList();
+
+        var list = fragments.Should().NotThrow(
+            "100+ enzymes must complete without crashing or hanging").Subject;
+
+        list.Should().NotBeEmpty("a non-empty sequence always yields at least one fragment");
+        list.Sum(f => f.Length).Should().Be(dna.Length,
+            "INV-02: Σ fragment lengths == sequence length no matter how many enzymes cut");
+        list.Should().OnlyContain(f => f.Length > 0, "no zero-length fragment is ever emitted");
+
+        // The same 100+-name digest on the CIRCULAR topology must also conserve mass.
+        var circular = RestrictionAnalyzer
+            .Digest(dna, MoleculeTopology.Circular, enzymeNames.ToArray()).ToList();
+        circular.Sum(f => f.Length).Should().Be(dna.Length,
+            "INV-02 (circular): Σ fragment lengths == sequence length under a 100+-enzyme digest");
+    }
+
+    /// <summary>
+    /// BE — Empty seq: an empty molecule has no possible cut, so both the linear and
+    /// circular digests take their no-cut branch and yield a SINGLE length-0 fragment
+    /// (the whole — empty — sequence). No crash, no Substring past the end, and mass
+    /// conservation holds trivially (Σ lengths == 0). DnaSequence("") is the empty
+    /// molecule (DnaSequence rejects only non-A/C/G/T, not emptiness).
+    /// </summary>
+    [Test]
+    public void Digest_EmptySequence_YieldsSingleEmptyFragment()
+    {
+        var dna = new DnaSequence(string.Empty);
+        dna.Length.Should().Be(0, "the empty molecule has length 0");
+
+        var linear = () => RestrictionAnalyzer.Digest(dna, "EcoRI").ToList();
+        var circular = () => RestrictionAnalyzer.Digest(dna, MoleculeTopology.Circular, "EcoRI").ToList();
+
+        var lin = linear.Should().NotThrow("the empty sequence must digest without crashing").Subject;
+        lin.Should().ContainSingle("no cut sites on an empty molecule ⇒ one fragment");
+        lin[0].Length.Should().Be(0, "the single fragment of an empty molecule has length 0");
+        lin[0].Sequence.Should().BeEmpty("the single fragment IS the empty sequence");
+        lin.Sum(f => f.Length).Should().Be(0, "INV-02: Σ fragment lengths == sequence length (0)");
+
+        var circ = circular.Should().NotThrow(
+            "the empty circular molecule must not crash on the wrap-around branch").Subject;
+        circ.Should().ContainSingle("a circle with 0 cuts ⇒ one fragment");
+        circ[0].Length.Should().Be(0, "the empty circular fragment has length 0");
+        circ.Sum(f => f.Length).Should().Be(0, "INV-02: Σ fragment lengths == sequence length (0)");
+    }
+
+    /// <summary>
+    /// Positive sanity: a sequence with a KNOWN number of EcoRI sites must yield the
+    /// right fragment COUNT and the fragment lengths must SUM to the sequence length,
+    /// so the boundary hardening never silently breaks the core partition. Three
+    /// well-separated GAATTC sites ⇒ 3 distinct forward-strand cuts ⇒ exactly 4 linear
+    /// fragments (INV-01, k+1), and Σ lengths == sequence length (INV-02). The same
+    /// molecule digested as a CIRCLE yields exactly 3 fragments (INV-01 circular, k).
+    /// </summary>
+    [Test]
+    public void Digest_KnownEcoRISites_YieldCorrectFragmentCountAndConserveMass()
+    {
+        // Three EcoRI (GAATTC) sites, well separated.
+        const string seq = "AAAAGAATTCAAAAAAAAGAATTCAAAAAAAAGAATTCAAAA";
+        var dna = new DnaSequence(seq);
+
+        var cuts = RestrictionAnalyzer.FindSites(dna, "EcoRI")
+            .Where(s => s.IsForwardStrand)
+            .Select(s => s.CutPosition)
+            .Distinct()
+            .Count();
+        cuts.Should().Be(3, "the fixture holds exactly three distinct EcoRI cut positions");
+
+        var linear = RestrictionAnalyzer.Digest(dna, "EcoRI").ToList();
+        linear.Should().HaveCount(4, "INV-01 (linear): k=3 cuts ⇒ k+1=4 fragments");
+        linear.Sum(f => f.Length).Should().Be(seq.Length, "INV-02: Σ linear fragment lengths == sequence length");
+        linear.First().LeftEnzyme.Should().BeNull("the first fragment has no enzyme to its left");
+        linear.Last().RightEnzyme.Should().BeNull("the last fragment has no enzyme to its right");
+
+        var circular = RestrictionAnalyzer.Digest(dna, MoleculeTopology.Circular, "EcoRI").ToList();
+        circular.Should().HaveCount(3, "INV-01 (circular): k=3 cuts ⇒ k=3 fragments (the ends join)");
+        circular.Sum(f => f.Length).Should().Be(seq.Length, "INV-02: Σ circular fragment lengths == sequence length");
+    }
+
+    #endregion
+
     #endregion
 }
