@@ -442,6 +442,66 @@ namespace Seqeron.Genomics.Tests;
 /// ordinary primer flows through HasHairpinPotential AND HasPrimerDimer without throwing and
 /// that a designed inverted repeat is detected. Both methods are pure (no iterator), so every
 /// probe calls them directly.
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: PROBE-DESIGN-001 — hybridization probe design
+/// Checklist: docs/checklists/03_FUZZING.md, row 24.
+/// Fuzz strategies exercised for THIS unit:
+///   • BE = Boundary Exploitation — a target SHORTER than the minimum probe length
+///          (no candidate window fits), and the EMPTY target (the lower size
+///          boundary). Both must yield no probes, never an IndexOutOfRangeException.
+///   • MC = Malformed Content — a CONTRADICTORY (inverted) Tm range (MinTm > MaxTm),
+///          an unsatisfiable constraint whose feasible Tm set is empty.
+/// — docs/checklists/03_FUZZING.md §Description (strategy codes); row 24 targets:
+///   "Seq shorter than min probe, Tm range inverted, empty seq".
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The probe-design contract under test (Hybridization_Probe_Design.md)
+/// ───────────────────────────────────────────────────────────────────────────
+/// ProbeDesigner.DesignProbes(string targetSequence, ProbeParameters? parameters = null,
+///   int maxProbes = 10) (ProbeDesigner.cs lines 127–146) is a YIELD iterator that scans the
+/// target for every length-`[MinLength..MaxLength]` window, scores each candidate by a fixed
+/// additive penalty model (GC, Tm, homopolymer, self-complementarity, secondary structure,
+/// repeats, terminal G/C — EvaluateProbeWithGc, lines 253–327), keeps only RAW-SCORE-POSITIVE
+/// candidates (`score <= 0 → null`, line 315; INV-01), ranks them by score, and yields the top
+/// `maxProbes`. Each Probe carries its Tm, GcContent, Score, and a Warnings list.
+///
+/// CRITICAL DESIGN FACT the checklist row probes — UNLIKE PrimerDesigner.DesignPrimers,
+/// ProbeDesigner does NOT hard-reject a candidate when a screen fails. A failed screen only
+/// DEDUCTS a penalty and APPENDS a warning; the candidate survives as long as its residual
+/// score stays positive. So a contradictory Tm range does NOT empty the result — it makes the
+/// Tm screen fail for EVERY candidate (a fixed −0.3 penalty plus a "Tm … outside range"
+/// warning), but probes can still be returned. This is the theory-correct contract for THIS
+/// surface; the test asserts it precisely (no throw, no hang, and every returned probe carries
+/// the Tm warning) rather than the primer-design "empty result" — a contradictory constraint
+/// must neither crash nor loop forever, and the source must NOT silently drop the warning.
+///
+/// The ONLY documented short-circuit (Hybridization_Probe_Design.md §3.3, §6.1): the target is
+/// null, empty, OR shorter than `param.MinLength` → `yield break` (lines 134–135). There is NO
+/// throw for any string target and NO validation of the parameter ranges — a degenerate or
+/// contradictory range simply shrinks (Tm-warns) or empties the candidate set.
+///
+/// THE THREE ROW-24 FUZZ TARGETS, mapped to the theory-correct contract:
+///   • Seq shorter than min probe (BE): a target shorter than `MinLength` (Microarray default
+///     MinLength = 50) trips the length short-circuit `targetSequence.Length < param.MinLength`
+///     (line 134) → `yield break`. The candidate-window loop `start <= n − length` (line 222)
+///     would in any case never run when `length > n` (the `length <= n` guard, line 220), so no
+///     Substring is taken past the end. Empty result, never an IndexOutOfRangeException.
+///   • Tm range inverted (MC, KEY): MinTm > MaxTm is a CONTRADICTION whose feasible Tm set is
+///     empty. The source does NOT validate the range, so it does NOT throw; instead the Tm
+///     screen `tm < MinTm || tm > MaxTm` is satisfied by EVERY finite Tm, so EVERY candidate
+///     incurs the −0.3 Tm penalty and records the "Tm … outside range" warning. Candidates with
+///     enough residual score still return — so the theory-correct result is NOT empty here; it
+///     is "no throw, no hang, and every returned probe carries the Tm-out-of-range warning".
+///   • Empty seq (BE): `string.IsNullOrEmpty(targetSequence)` short-circuits to `yield break`
+///     (line 134) BEFORE any GC prefix sum or windowing — a DEFINED degenerate boundary, never
+///     a crash. Pinned for both "" and null target.
+///
+/// Documented invariants pinned (Hybridization_Probe_Design.md §2.4): INV-01 only raw-score-
+/// positive candidates are retained (Score > 0 on every returned probe); INV-02 GcContent is a
+/// fraction of length (0 <= GcContent <= 1). DesignProbes is a yield iterator, so every probe
+/// forces enumeration (`.ToList()`); the positive-sanity test additionally pins that a real
+/// probe's GC and Tm fall INSIDE the requested ranges with no warnings.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -1891,6 +1951,198 @@ public class MolToolsFuzzTests
             "a poly-A vs poly-C pair has non-complementary 3' ends (A:G after reverse-complementing poly-C), so no dimer");
         PrimerDesigner.HasHairpinPotential(hairpinPrimer).Should().BeTrue(
             "the designed inverted repeat IS detected — the screen discriminates structure from non-structure");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  PROBE-DESIGN-001 — hybridization probe design : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region PROBE-DESIGN-001 — probe design
+
+    #region BE — Target shorter than the minimum probe length
+
+    /// <summary>
+    /// BE (seq shorter than min probe): a target SHORTER than the configured MinLength
+    /// (Microarray default MinLength = 50) cannot hold even one probe window. The
+    /// length short-circuit `targetSequence.Length &lt; param.MinLength` (ProbeDesigner.cs
+    /// line 134) fires `yield break` BEFORE the GC prefix sums or the candidate-window
+    /// loop, so no Substring is ever taken past the end — an empty result, never an
+    /// IndexOutOfRangeException (Hybridization_Probe_Design.md §6.1 "Sequence shorter
+    /// than MinLength → no probes"). DesignProbes is a yield iterator, so enumeration is
+    /// forced. Pinned with the default params and with an explicit short window.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void DesignProbes_TargetShorterThanMinLength_IsEmptyAndDoesNotThrow()
+    {
+        // 30-nt target, but Microarray MinLength is 50 — no window fits.
+        string shortTarget = RandomDna(30, seed: 24_001);
+
+        var act = () => ProbeDesigner.DesignProbes(shortTarget).ToList();
+
+        act.Should().NotThrow(
+            "a target shorter than MinLength trips the length short-circuit before any windowing; no Substring is taken past the end");
+
+        ProbeDesigner.DesignProbes(shortTarget).Should().BeEmpty(
+            "no probe window of MinLength can fit in a sub-MinLength target, so no probe is produced");
+    }
+
+    /// <summary>
+    /// BE: the boundary is exact — a target ONE base shorter than MinLength yields no
+    /// probe, while a target of EXACTLY MinLength can yield one. Using a custom param
+    /// set (MinLength = MaxLength = 20, qPCR-style) isolates the length boundary from
+    /// the other screens: a 19-nt target is empty; a 20-nt target with in-range
+    /// composition produces at least one 20-nt probe.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void DesignProbes_TargetAtMinLengthBoundary_EmptyBelowNonEmptyAt()
+    {
+        var param = new ProbeDesigner.ProbeParameters(
+            MinLength: 20, MaxLength: 20,
+            MinTm: 0, MaxTm: 200,           // permissive Tm so the length boundary is isolated
+            MinGc: 0.0, MaxGc: 1.0,         // permissive GC
+            MaxHomopolymer: 20,
+            AvoidSecondaryStructure: false,
+            MaxSelfComplementarity: 1.0);
+
+        // A balanced 20-mer (10 GC) so it is a clean candidate; the 19-mer is one short.
+        const string at20 = "ACGTACGTACGTACGTACGT"; // length 20
+        string below19 = at20.Substring(0, 19);     // length 19
+
+        ProbeDesigner.DesignProbes(below19, param).Should().BeEmpty(
+            "a target one base shorter than MinLength has no candidate window");
+        ProbeDesigner.DesignProbes(at20, param).Should().NotBeEmpty(
+            "a target of exactly MinLength holds one window, which under permissive screens is a valid probe");
+    }
+
+    #endregion
+
+    #region MC — Inverted (contradictory) Tm range
+
+    /// <summary>
+    /// MC (Tm range inverted, KEY): MinTm &gt; MaxTm is a CONTRADICTION whose feasible Tm
+    /// set is empty. UNLIKE PrimerDesigner, ProbeDesigner does NOT hard-reject a
+    /// candidate when a screen fails — the Tm screen `tm &lt; MinTm || tm &gt; MaxTm`
+    /// (ProbeDesigner.cs line 267) is satisfied by EVERY finite Tm under an inverted
+    /// range, so EVERY candidate incurs the fixed −0.3 Tm penalty and records a
+    /// "Tm … outside range" warning, yet survives if its residual score stays positive.
+    /// So the theory-correct contract is NOT an empty result: it is "no throw, no hang,
+    /// and every returned probe carries the Tm-out-of-range warning". The range is never
+    /// validated and never throws. Pinned on a real 60-nt target with the Microarray
+    /// length/GC defaults but an inverted Tm window (MinTm 95 &gt; MaxTm 5).
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void DesignProbes_InvertedTmRange_NoThrowEveryProbeWarnsTmOutOfRange()
+    {
+        var param = ProbeDesigner.Defaults.Microarray with { MinTm = 95.0, MaxTm = 5.0 };
+        string target = RandomDna(120, seed: 24_002);
+
+        var act = () => ProbeDesigner.DesignProbes(target, param).ToList();
+
+        act.Should().NotThrow(
+            "an inverted Tm range is a contradictory constraint; the source does not validate it, so it neither throws nor hangs");
+
+        var probes = ProbeDesigner.DesignProbes(target, param).ToList();
+        probes.Should().OnlyContain(
+            p => p.Warnings.Any(w => w.Contains("Tm") && w.Contains("outside range")),
+            "an inverted Tm range fails the Tm screen for EVERY candidate, so every returned probe records the Tm-out-of-range warning rather than being silently accepted");
+        probes.Should().OnlyContain(p => p.Score > 0,
+            "INV-01: only raw-score-positive candidates are retained, even when the Tm screen always fails");
+    }
+
+    #endregion
+
+    #region BE — Empty / null target sequence
+
+    /// <summary>
+    /// BE (empty seq): the empty target is the lower size boundary.
+    /// `string.IsNullOrEmpty(targetSequence)` short-circuits to `yield break`
+    /// (ProbeDesigner.cs line 134) BEFORE any GC prefix sum or windowing — a defined
+    /// degenerate boundary, never a crash, division, or out-of-range index
+    /// (Hybridization_Probe_Design.md §6.1 "Null or empty target → no probes"). Pinned
+    /// for both the empty string and the null reference (the same IsNullOrEmpty guard
+    /// catches both, so null yields the empty result rather than a NullReferenceException).
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void DesignProbes_EmptyOrNullTarget_IsEmptyAndDoesNotThrow()
+    {
+        var empty = () => ProbeDesigner.DesignProbes(string.Empty).ToList();
+        var nullTarget = () => ProbeDesigner.DesignProbes((string)null!).ToList();
+
+        empty.Should().NotThrow("an empty target short-circuits to an empty result before any windowing");
+        nullTarget.Should().NotThrow(
+            "IsNullOrEmpty catches the null target, so it yields the empty result rather than dereferencing into a NullReferenceException");
+
+        ProbeDesigner.DesignProbes(string.Empty).Should().BeEmpty();
+        ProbeDesigner.DesignProbes((string)null!).Should().BeEmpty();
+    }
+
+    #endregion
+
+    #region Positive sanity — a reasonable target yields an in-range valid probe
+
+    /// <summary>
+    /// Positive sanity: alongside the degenerate probes, a reasonable target must yield at
+    /// least one VALID probe whose GC and Tm fall INSIDE the requested ranges — so the
+    /// boundary hardening never silently breaks the core function. The parameter ranges are
+    /// chosen MUTUALLY SATISFIABLE for the salt-adjusted Tm model: for a 50–60-nt probe the
+    /// source computes Tm = 81.5 + 16.6·log10(0.05) + 41·GC − 600/length, so a 0.40–0.60-GC
+    /// window maps to roughly 64–74 °C — hence the GC window [0.40, 0.60] is paired with a Tm
+    /// window [60, 80] (the Microarray Tm default of 75–85 is, by contrast, unreachable at
+    /// ≤ 0.60 GC for this formula, which is exactly why the inverted-range test asserts on
+    /// warnings rather than the default ranges). The target is a 300-nt fixed-seed sequence;
+    /// AT LEAST ONE returned probe must satisfy INV-01 (Score &gt; 0), INV-02
+    /// (0 ≤ GcContent ≤ 1), have GC within [MinGc, MaxGc] AND Tm within [MinTm, MaxTm], and —
+    /// being fully in-range — carry NO GC or Tm out-of-range warning.
+    /// </summary>
+    [Test]
+    [CancelAfter(10000)]
+    public void DesignProbes_ReasonableTarget_YieldsInRangeValidProbe()
+    {
+        // GC and Tm windows are mutually satisfiable for the 50–60-nt salt-adjusted Tm model.
+        var param = new ProbeDesigner.ProbeParameters(
+            MinLength: 50, MaxLength: 60,
+            MinTm: 60, MaxTm: 80,
+            MinGc: 0.40, MaxGc: 0.60,
+            MaxHomopolymer: 5,
+            AvoidSecondaryStructure: true,
+            MaxSelfComplementarity: 0.3);
+        string target = RandomDna(300, seed: 24_003);
+
+        var probes = ProbeDesigner.DesignProbes(target, param, maxProbes: 20).ToList();
+
+        probes.Should().NotBeEmpty(
+            "a 300-nt random target overwhelmingly contains a 50–60-nt window meeting the (mutually satisfiable) screens");
+
+        // INV-01 / INV-02 hold for EVERY returned probe, and each is a well-formed in-bounds window.
+        probes.Should().OnlyContain(p =>
+                p.Score > 0 &&                                  // INV-01
+                p.GcContent >= 0.0 && p.GcContent <= 1.0 &&     // INV-02
+                p.Sequence.Length >= param.MinLength && p.Sequence.Length <= param.MaxLength &&
+                p.Start >= 0 && p.End == p.Start + p.Sequence.Length - 1 && p.End < target.Length,
+            "every returned probe is raw-score-positive (INV-01), has GC as a fraction (INV-02), and is an in-bounds window of the configured length");
+
+        // At least one returned probe is FULLY in-range and therefore warning-free on GC and Tm.
+        var inRange = probes.Where(p =>
+                p.GcContent >= param.MinGc && p.GcContent <= param.MaxGc &&
+                p.Tm >= param.MinTm && p.Tm <= param.MaxTm)
+            .ToList();
+
+        inRange.Should().NotBeEmpty(
+            "with mutually satisfiable GC and Tm windows, a 300-nt random target yields at least one probe whose GC and Tm both fall inside the requested ranges");
+
+        var best = inRange.First();
+        best.Warnings.Should().NotContain(w => w.Contains("GC content") && w.Contains("outside range"),
+            "a fully in-range probe records no GC-out-of-range warning");
+        best.Warnings.Should().NotContain(w => w.Contains("Tm") && w.Contains("outside range"),
+            "a fully in-range probe records no Tm-out-of-range warning");
     }
 
     #endregion
