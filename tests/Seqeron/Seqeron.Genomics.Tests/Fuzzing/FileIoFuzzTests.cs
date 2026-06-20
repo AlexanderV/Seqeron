@@ -555,6 +555,95 @@ namespace Seqeron.Genomics.Tests;
 /// Determinism note: the random-byte GenBank test uses a LOCAL fixed-seed
 /// `new Random(seed)` and the random-byte + no-terminator tests carry `[CancelAfter]`,
 /// exactly as the FASTA/FASTQ/BED tests do.
+///
+/// ═══════════════════════════════════════════════════════════════════════════
+/// Unit: PARSE-EMBL-001 — EMBL parsing (FileIO)
+/// ═══════════════════════════════════════════════════════════════════════════
+/// Checklist: docs/checklists/03_FUZZING.md, row 70. The SEVENTH and LAST FileIO-area
+/// fuzz unit, targeting `Seqeron.Genomics.IO.EmblParser` — the EMBL flat-file parser.
+/// Fuzz strategies exercised for THIS unit:
+///   • RB  = Random Bytes — a fixed-seed random-byte blob (no `ID` keyword) fed as
+///           EMBL text.
+///   • TF  = Truncated Fields — a record whose `SQ` sequence block is CUT OFF
+///           mid-block; a record with NO `//` terminator (the file ends mid-record).
+///           THE key loop/hang boundary case.
+///   • MC  = Malformed Content — a record with NO `ID` line (the keyword that gates
+///           parsing); FT lines carrying UNKNOWN / malformed feature keys.
+/// — docs/checklists/03_FUZZING.md §Description (strategy codes).
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The EMBL-parsing contract under test (the DOCUMENTED, repository-specific one)
+/// ───────────────────────────────────────────────────────────────────────────
+/// An EMBL flat file is a set of line-oriented records whose lines begin with a
+/// two-character code (`ID`, `AC`, `SV`, `DE`, `KW`, `OS`, `OC`, `RN`, `RA`, `RT`,
+/// `RL`, `FH`/`FT` feature table, `SQ` sequence header + sequence lines) and whose
+/// records terminate with `//`.[EMBL-EBI User Manual; INSDC Feature Table]
+///   — docs/algorithms/FileIO/EMBL_Parsing.md §2.1, §2.2, INV-01.
+///
+/// API entry points (EmblParser.cs):
+///   • IEnumerable&lt;EmblRecord&gt; EmblParser.Parse(string content)
+///   • IEnumerable&lt;EmblRecord&gt; EmblParser.ParseFile(string filePath)
+/// Both `Parse`/`ParseFile` are `yield`-based iterators, so every test materializes
+/// with `.ToList()` to force the parse (and any throw) to actually run inside the
+/// assertion; one file-path test additionally pins the `ParseFile` File.ReadAllText
+/// path.
+///
+/// CRITICAL CONTRACT — TERMINATOR HANDLING IS A SPLIT, NOT A `while not //` LOOP.
+/// Exactly as for GenBank, the single highest-value fuzz concern is an unbounded
+/// `while (line != "//")` read loop that hangs when the terminator is missing. THIS
+/// parser has NO such loop: `Parse` does `content.Split(new[]{"\n//"}, ...)` over the
+/// WHOLE text in one O(n) pass (EmblParser.cs line 169), so a record with NO `//`
+/// simply becomes ONE block that is still parsed — it can never loop forever. The
+/// no-terminator test below carries `[CancelAfter]` as a loop/hang tripwire and pins
+/// that the partial record IS emitted (not dropped, not a hang). The business
+/// guarantee these fuzz tests pin is that EVERY malformed / truncated / random input
+/// resolves to EITHER a well-defined, theory-correct `EmblRecord` OR a clean skip —
+/// NEVER an unhandled IndexOutOfRange (on a truncated SQ block or feature line!),
+/// NullReference (on a record missing sections), or hang (on a missing `//`).
+/// Documented behaviors pinned per target (EMBL_Parsing.md §3.3, §5.2, §6.1;
+/// EmblParser.cs Parse / ParseRecord / ParseFeaturesFromLines / ParseSequence):
+///   • MISSING `ID` (MC): `Parse` only calls `ParseRecord` for a trimmed block that
+///     `StartsWith("ID", Ordinal)` (line 174). A block with NO `ID` line is SKIPPED —
+///     the documented "Record parsing starts only on text blocks that begin with ID"
+///     of §3.3 / §5.2. Pinned: a record body without an `ID` keyword yields ZERO
+///     records, and a two-record input where only the second has `ID` yields exactly
+///     ONE record. (NOTE: the `StartsWith("ID")` gate is a PREFIX match on the trimmed
+///     block, so a block whose first line happens to begin with the two letters "ID"
+///     is admitted; we use bodies whose first line is unambiguously NOT an `ID` line.)
+///   • TRUNCATED SEQUENCE (TF): `ParseSequence` (lines 660–686) is a forward scan that
+///     flips `inSequence` on the `SQ` line and then keeps only `char.IsLetter` chars
+///     from each subsequent line until `//` — there is NO length cross-check against
+///     the declared `SQ … BP` count and NO index that can run off the end, so an `SQ`
+///     block CUT OFF mid-sequence (fewer letters than declared, EOF with no `//`)
+///     simply yields the shorter extracted sequence. `ParseRecord` itself filters to
+///     `l.Length >= 2` lines (line 190) and every prefix/Substring access is
+///     length-guarded (`line.Length > 5 ? line[5..] : ""`), so a truncated line can
+///     never IndexOutOfRange. Pinned: a truncated SQ block parses, the partial
+///     sequence is extracted (letters only, uppercased), the declared `SequenceLength`
+///     from the ID line is retained as-is, and nothing crashes.
+///   • INVALID / UNKNOWN FEATURE KEYS (MC): `ParseFeaturesFromLines` (lines 462–566)
+///     stores the feature key VERBATIM — it splits the first FT content line on the
+///     first space into `key` + `location` with NO membership check against any
+///     controlled feature-key vocabulary (contrast the ID-line `mol_type` / data-class
+///     / division vocabularies, which ARE checked). So an UNKNOWN key (`weird_key`), a
+///     key with no location, and a malformed `/`-leading or symbol-laden key are each
+///     handled DETERMINISTICALLY: stored as the `Key` (or absorbed as a qualifier when
+///     the line begins with `/`), never rejected and never a crash. A bare qualifier
+///     with no `=value` is stored as `"true"` (line 537). We pin these exact shapes.
+///   • NO `//` TERMINATOR (TF — THE KEY LOOP/HANG CASE): a record whose text ends
+///     mid-`SQ` with no `//`. Because parsing is a `Split` not a loop, the whole text
+///     is one block beginning with `ID`, so the partial record IS parsed and emitted
+///     (accession + whatever sections were present). Pinned: the unterminated record
+///     is emitted with the correct accession, NOT dropped and NOT a hang. Carries
+///     `[CancelAfter]` as the loop tripwire.
+///   • RANDOM BYTES (RB): a fixed-seed random-byte blob that does not begin with `ID`
+///     is a single block that fails the `StartsWith("ID")` gate → ZERO records, no
+///     crash, no hang. Carries `[CancelAfter]`; the LOCAL fixed seed makes the run
+///     byte-for-byte reproducible.
+///   • NULL / EMPTY input → no records (`yield break` on `IsNullOrEmpty`, lines 165–166).
+/// Determinism note: the random-byte EMBL test uses a LOCAL fixed-seed
+/// `new Random(seed)` and the random-byte + no-terminator tests carry `[CancelAfter]`,
+/// exactly as the FASTA/FASTQ/BED/GenBank tests do.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -664,6 +753,19 @@ public class FileIoFuzzTests
     private string WriteTempGenBank(string content)
     {
         string path = Path.Combine(_tempDir, "in_" + Guid.NewGuid().ToString("N") + ".gb");
+        File.WriteAllText(path, content, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        return path;
+    }
+
+    /// <summary>
+    /// Writes <paramref name="content"/> verbatim (no added trailing newline) to a
+    /// fresh temp `.embl` file and returns its path, so the EMBL file-path tests
+    /// control byte layout exactly (in particular: a record with NO `//` terminator,
+    /// or a record truncated mid-`SQ`).
+    /// </summary>
+    private string WriteTempEmbl(string content)
+    {
+        string path = Path.Combine(_tempDir, "in_" + Guid.NewGuid().ToString("N") + ".embl");
         File.WriteAllText(path, content, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
         return path;
     }
@@ -2794,6 +2896,378 @@ public class FileIoFuzzTests
         nullRecords.Should().BeEmpty();
 
         GenBankParser.Parse("").ToList().Should().BeEmpty("empty input yields no records");
+    }
+
+    #endregion
+
+    #endregion
+
+    #region PARSE-EMBL-001 — EMBL parsing
+
+    #region Positive sanity — a valid EMBL record parses to the correct id/features/sequence
+
+    /// <summary>
+    /// Positive control: a well-formed single EMBL record (the worked example from
+    /// EmblParserTests.cs) must parse to exactly one record with the correct
+    /// accession / version / two features / extracted sequence. If this fails the fuzz
+    /// suite is meaningless — it proves the parser is wired up and the happy path holds.
+    /// </summary>
+    [Test]
+    public void ParseEmbl_ValidRecord_ParsesToCorrectIdFeaturesAndSequence()
+    {
+        const string embl =
+            "ID   TEST001; SV 2; linear; genomic DNA; STD; HUM; 40 BP.\n" +
+            "XX\n" +
+            "AC   TEST001;\n" +
+            "XX\n" +
+            "DE   Test sequence for fuzz sanity.\n" +
+            "XX\n" +
+            "FH   Key             Location/Qualifiers\n" +
+            "FT   gene            1..20\n" +
+            "FT                   /gene=\"alpha\"\n" +
+            "FT   CDS             5..15\n" +
+            "FT                   /product=\"p\"\n" +
+            "XX\n" +
+            "SQ   Sequence 40 BP; 10 A; 10 C; 10 G; 10 T; 0 other;\n" +
+            "     acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt              40\n" +
+            "//\n";
+
+        List<EmblParser.EmblRecord> records = new();
+        var act = () => records = EmblParser.Parse(embl).ToList();
+
+        act.Should().NotThrow("a well-formed EMBL record must parse");
+        records.Should().ContainSingle("exactly one well-formed record is present");
+        var rec = records[0];
+        rec.Accession.Should().Be("TEST001");
+        rec.SequenceVersion.Should().Be("2", "the SV token from the ID line");
+        rec.SequenceLength.Should().Be(40, "the declared BP count from the ID line");
+        rec.Features.Should().HaveCount(2);
+        rec.Features[0].Key.Should().Be("gene");
+        rec.Features[0].Qualifiers["gene"].Should().Be("alpha");
+        rec.Features[1].Key.Should().Be("CDS");
+        rec.Features[1].Qualifiers["product"].Should().Be("p");
+        rec.Sequence.Should().Be("ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT",
+            "the SQ block letters are extracted and uppercased");
+    }
+
+    /// <summary>
+    /// Positive control over the FILE-PATH surface: the same valid record written to
+    /// disk parses via `ParseFile` to the same correct accession / sequence, pinning
+    /// the File.ReadAllText path.
+    /// </summary>
+    [Test]
+    public void ParseFileEmbl_ValidRecord_ParsesToCorrectRecord()
+    {
+        const string embl =
+            "ID   FILE001; SV 1; circular; genomic DNA; STD; PRO; 20 BP.\n" +
+            "XX\n" +
+            "DE   File-path EMBL sanity.\n" +
+            "XX\n" +
+            "SQ   Sequence 20 BP;\n" +
+            "     acgtacgtac gtacgtacgt                                   20\n" +
+            "//\n";
+        string path = WriteTempEmbl(embl);
+
+        List<EmblParser.EmblRecord> records = new();
+        var act = () => records = EmblParser.ParseFile(path).ToList();
+
+        act.Should().NotThrow("ParseFile on a valid EMBL file must not crash");
+        records.Should().ContainSingle().Which.Accession.Should().Be("FILE001");
+        records[0].Topology.Should().Be("circular");
+        records[0].Sequence.Should().Be("ACGTACGTACGTACGTACGT");
+    }
+
+    #endregion
+
+    #region MC — Missing `ID` line: the block is skipped, never a crash
+
+    /// <summary>
+    /// MC: a record body with NO `ID` line. `Parse` only calls `ParseRecord` for a
+    /// trimmed block that `StartsWith("ID", Ordinal)` (EmblParser.cs line 174). A block
+    /// whose first line is NOT an `ID` line fails the gate and is SKIPPED — the
+    /// documented "Record parsing starts only on text blocks that begin with ID" of
+    /// §3.3 / §5.2. Pinned: ZERO records, no crash. We ALSO pin that in a two-record
+    /// input where only the SECOND block has `ID`, exactly ONE record is emitted —
+    /// proving the missing-ID block is dropped while the valid one survives.
+    /// </summary>
+    [Test]
+    public void ParseEmbl_MissingIdLine_SkipsBlockNoRecords()
+    {
+        // A body with real EMBL line types but NO leading ID line.
+        const string noId =
+            "DE   Orphan body with no identification line.\n" +
+            "XX\n" +
+            "SQ   Sequence 10 BP;\n" +
+            "     acgtacgtac                                             10\n" +
+            "//\n";
+
+        List<EmblParser.EmblRecord> records = new();
+        var act = () => records = EmblParser.Parse(noId).ToList();
+
+        act.Should().NotThrow("an ID-less block is skipped, not a crash");
+        records.Should().BeEmpty("only blocks beginning with ID are parsed (§3.3)");
+    }
+
+    /// <summary>
+    /// MC companion: a two-block input where the FIRST block lacks `ID` and the SECOND
+    /// is a valid `ID`-led record. The first is dropped at the `StartsWith("ID")` gate,
+    /// the second parses — pinning that a missing-ID block does not poison the parse of
+    /// a following well-formed record.
+    /// </summary>
+    [Test]
+    public void ParseEmbl_FirstBlockMissingId_ParsesOnlyTheValidSecondRecord()
+    {
+        const string twoBlocks =
+            "DE   Headerless preamble, no ID.\n" +
+            "SQ   Sequence 4 BP;\n" +
+            "     acgt                                                    4\n" +
+            "//\n" +
+            "ID   GOOD002; SV 1; linear; genomic DNA; STD; UNC; 8 BP.\n" +
+            "SQ   Sequence 8 BP;\n" +
+            "     acgtacgt                                                8\n" +
+            "//\n";
+
+        List<EmblParser.EmblRecord> records = new();
+        var act = () => records = EmblParser.Parse(twoBlocks).ToList();
+
+        act.Should().NotThrow();
+        records.Should().ContainSingle("only the second, ID-led block is a record")
+            .Which.Accession.Should().Be("GOOD002");
+        records[0].Sequence.Should().Be("ACGTACGT");
+    }
+
+    #endregion
+
+    #region TF — Truncated sequence: the partial SQ block is extracted, never a crash
+
+    /// <summary>
+    /// TF: a record whose `SQ` sequence block is CUT OFF mid-sequence (fewer letters
+    /// than the declared `40 BP`, and the block ends with no `//`). `ParseSequence`
+    /// (EmblParser.cs lines 660–686) flips `inSequence` on the `SQ` line then keeps only
+    /// `char.IsLetter` chars from each subsequent line until `//`; there is NO length
+    /// cross-check and NO index that can run off the end, so a truncated block simply
+    /// yields the shorter extracted sequence. `ParseRecord` filters to `l.Length >= 2`
+    /// lines and every Substring is length-guarded, so a truncated line can never
+    /// IndexOutOfRange. Pinned: the partial sequence is extracted (letters only,
+    /// uppercased), the declared `SequenceLength` from the ID line is retained as-is
+    /// (the parser does NOT reconcile it with the actual letter count), no crash.
+    /// </summary>
+    [Test]
+    public void ParseEmbl_TruncatedSequenceBlock_ExtractsPartialSequenceNoCrash()
+    {
+        // ID declares 40 BP but the SQ block is cut off after only 12 letters,
+        // and the record has NO '//' terminator (file ends mid-sequence).
+        const string truncated =
+            "ID   TRUNC001; SV 1; linear; genomic DNA; STD; HUM; 40 BP.\n" +
+            "XX\n" +
+            "SQ   Sequence 40 BP; 10 A; 10 C; 10 G; 10 T; 0 other;\n" +
+            "     acgtacgtac gt";   // only 12 letters, then EOF — no '//'
+
+        List<EmblParser.EmblRecord> records = new();
+        var act = () => records = EmblParser.Parse(truncated).ToList();
+
+        act.Should().NotThrow("a truncated SQ block must not IndexOutOfRange");
+        records.Should().ContainSingle("the ID-led block is still parsed");
+        var rec = records[0];
+        rec.Accession.Should().Be("TRUNC001");
+        rec.SequenceLength.Should().Be(40,
+            "the declared ID-line length is retained verbatim, not reconciled");
+        rec.Sequence.Should().Be("ACGTACGTACGT",
+            "only the 12 letters actually present are extracted and uppercased");
+    }
+
+    /// <summary>
+    /// TF over the FILE-PATH surface: a truncated-SQ record written to disk and read
+    /// back via `ParseFile`, pinning that the File.ReadAllText path extracts the partial
+    /// sequence exactly as the string surface does — never an IndexOutOfRange.
+    /// </summary>
+    [Test]
+    public void ParseFileEmbl_TruncatedSequenceBlock_ExtractsPartialSequenceNoCrash()
+    {
+        const string truncated =
+            "ID   FTRUNC01; SV 1; linear; genomic DNA; STD; UNC; 30 BP.\n" +
+            "SQ   Sequence 30 BP;\n" +
+            "     acgtac";   // 6 letters, file ends mid-block, no '//'
+        string path = WriteTempEmbl(truncated);
+
+        List<EmblParser.EmblRecord> records = new();
+        var act = () => records = EmblParser.ParseFile(path).ToList();
+
+        act.Should().NotThrow("ParseFile on a truncated SQ block must not crash");
+        records.Should().ContainSingle().Which.Accession.Should().Be("FTRUNC01");
+        records[0].Sequence.Should().Be("ACGTAC");
+    }
+
+    #endregion
+
+    #region MC — Invalid / unknown feature keys: stored verbatim, never rejected or crashed
+
+    /// <summary>
+    /// MC: FT lines carrying feature keys that are UNKNOWN or malformed —
+    ///   • `weird_key` (a key in no INSDC controlled vocabulary);
+    ///   • a feature key with NO location (`orphan` alone on the line);
+    ///   • a key laden with non-alphanumeric symbols (`#$%key`).
+    /// `ParseFeaturesFromLines` (EmblParser.cs lines 462–566) splits the first FT content
+    /// line on the first space into `key` + `location` with NO membership check against
+    /// any controlled feature-key vocabulary, so EVERY key is stored VERBATIM as the
+    /// `Feature.Key` — unknown/garbage keys are handled deterministically, never
+    /// rejected and never a crash. A key with no location yields an empty (zeroed)
+    /// location via `ParseLocation("")`; a bare qualifier (`/pseudo`) is stored as
+    /// `"true"` (line 537). We pin each exact shape.
+    /// </summary>
+    [Test]
+    public void ParseEmbl_InvalidFeatureKeys_StoredVerbatimNoCrash()
+    {
+        const string embl =
+            "ID   FEAT001; SV 1; linear; genomic DNA; STD; UNC; 20 BP.\n" +
+            "XX\n" +
+            "FH   Key             Location/Qualifiers\n" +
+            "FT   weird_key       1..10\n" +              // unknown key, with location
+            "FT                   /note=\"x\"\n" +
+            "FT   orphan\n" +                              // key with NO location
+            "FT                   /pseudo\n" +             // bare qualifier → "true"
+            "FT   #$%key          5..8\n" +                // symbol-laden key
+            "XX\n" +
+            "SQ   Sequence 20 BP;\n" +
+            "     acgtacgtac gtacgtacgt                                   20\n" +
+            "//\n";
+
+        List<EmblParser.EmblRecord> records = new();
+        var act = () => records = EmblParser.Parse(embl).ToList();
+
+        act.Should().NotThrow("unknown/malformed feature keys must not crash the parser");
+        records.Should().ContainSingle();
+        var features = records[0].Features;
+        features.Should().HaveCount(3, "all three FT feature lines are emitted verbatim");
+
+        features[0].Key.Should().Be("weird_key", "an unknown key is stored verbatim");
+        features[0].Location.RawLocation.Should().Be("1..10");
+        features[0].Qualifiers["note"].Should().Be("x");
+
+        features[1].Key.Should().Be("orphan", "a key with no location is stored verbatim");
+        features[1].Location.Start.Should().Be(0, "a location-less feature yields a zeroed location");
+        features[1].Location.End.Should().Be(0);
+        features[1].Location.Parts.Should().BeEmpty();
+        features[1].Qualifiers["pseudo"].Should().Be("true",
+            "a valueless qualifier is stored as \"true\"");
+
+        features[2].Key.Should().Be("#$%key", "a symbol-laden key is stored verbatim, not rejected");
+        features[2].Location.RawLocation.Should().Be("5..8");
+    }
+
+    #endregion
+
+    #region TF — No `//` terminator: the partial record is still emitted, never a hang
+
+    /// <summary>
+    /// TF — THE KEY LOOP/HANG CASE. A record that ends mid-`SQ` with NO `//`
+    /// terminator. The classic hang bug is a `while (line != "//")` loop with no EOF
+    /// guard; this parser has NONE — `Parse` does `content.Split(new[]{"\n//"}, ...)`
+    /// over the whole text in one O(n) pass (EmblParser.cs line 169), so a record with
+    /// no `//` is simply ONE block beginning with `ID` and is STILL parsed. We pin that
+    /// the unterminated record IS emitted with the correct accession and partial
+    /// sequence (not dropped), over BOTH the string and `ParseFile` surfaces.
+    /// `[CancelAfter]` is the loop/hang tripwire: a regression to an unbounded read loop
+    /// would time out here rather than hang the run.
+    /// </summary>
+    [Test]
+    [CancelAfter(30_000)]
+    public void ParseEmbl_NoTerminator_EmitsPartialRecordAndDoesNotHang(CancellationToken token)
+    {
+        const string noTerminator =
+            "ID   NOTERM01; SV 1; linear; genomic DNA; STD; HUM; 20 BP.\n" +
+            "DE   Record with no terminator.\n" +
+            "FH   Key             Location/Qualifiers\n" +
+            "FT   gene            1..10\n" +
+            "FT                   /gene=\"openGene\"\n" +
+            "SQ   Sequence 20 BP;\n" +
+            "     acgtacgtac gtacgtacgt";   // ends mid-sequence, NO trailing '//'
+
+        List<EmblParser.EmblRecord> records = new();
+        var act = () => records = EmblParser.Parse(noTerminator).ToList();
+
+        act.Should().NotThrow("a missing // must not crash");
+        records.Should().ContainSingle("the unterminated record is still parsed (Split, not a loop)");
+        records[0].Accession.Should().Be("NOTERM01");
+        records[0].Features.Should().ContainSingle().Which.Qualifiers["gene"].Should().Be("openGene");
+        records[0].Sequence.Should().Be("ACGTACGTACGTACGTACGT",
+            "the partial SQ sequence is still extracted");
+        token.IsCancellationRequested.Should().BeFalse("a missing // terminator must not hang");
+    }
+
+    /// <summary>
+    /// TF over the FILE-PATH surface: the same no-`//` record written to disk and read
+    /// back via `ParseFile`, pinning that the File.ReadAllText path emits the partial
+    /// record exactly as the string surface does. Carries `[CancelAfter]` as the
+    /// loop/hang tripwire.
+    /// </summary>
+    [Test]
+    [CancelAfter(30_000)]
+    public void ParseFileEmbl_NoTerminator_EmitsPartialRecordAndDoesNotHang(CancellationToken token)
+    {
+        const string noTerminator =
+            "ID   FNOTERM1; SV 1; linear; genomic DNA; STD; UNC; 10 BP.\n" +
+            "SQ   Sequence 10 BP;\n" +
+            "     acgtacgtac";   // file ends mid-record, NO '//'
+        string path = WriteTempEmbl(noTerminator);
+
+        List<EmblParser.EmblRecord> records = new();
+        var act = () => records = EmblParser.ParseFile(path).ToList();
+
+        act.Should().NotThrow("ParseFile on a //-less file must not crash");
+        records.Should().ContainSingle().Which.Accession.Should().Be("FNOTERM1");
+        records[0].Sequence.Should().Be("ACGTACGTAC");
+        token.IsCancellationRequested.Should().BeFalse("a missing // terminator must not hang ParseFile");
+    }
+
+    #endregion
+
+    #region RB — Random bytes / null / empty: handled deterministically, never a crash or hang
+
+    /// <summary>
+    /// RB: a fixed-seed random-byte blob that does NOT begin with `ID`. The whole blob
+    /// is a single `Split` block; it fails the `StartsWith("ID")` gate (EmblParser.cs
+    /// line 174) → ZERO records, no crash, no hang. We prepend a guaranteed non-`ID`
+    /// first byte and strip embedded `\n//` so the random bytes stay a single block. The
+    /// LOCAL fixed seed makes the run byte-for-byte reproducible; `[CancelAfter]` is the
+    /// hang tripwire.
+    /// </summary>
+    [Test]
+    [CancelAfter(30_000)]
+    public void ParseEmbl_RandomBytesNoId_YieldsNoRecordsAndDoesNotHang(CancellationToken token)
+    {
+        var rng = new Random(0xE3B7);          // local fixed seed — fully reproducible
+        var sb = new StringBuilder("X");       // guarantee the block never starts with "ID"
+        for (int i = 0; i < 8192; i++)
+        {
+            char c = (char)rng.Next(0, 256);
+            if (c == '/') c = 'z';             // keep it a single block (no '\n//' split)
+            sb.Append(c);
+        }
+
+        List<EmblParser.EmblRecord> records = new();
+        var act = () => records = EmblParser.Parse(sb.ToString()).ToList();
+
+        act.Should().NotThrow("a random-byte block that does not start with ID must not crash");
+        records.Should().BeEmpty("only blocks beginning with ID are parsed — random bytes yield none");
+        token.IsCancellationRequested.Should().BeFalse("parsing random bytes must not hang");
+    }
+
+    /// <summary>
+    /// Robustness: null and empty input must each yield ZERO records via the
+    /// `IsNullOrEmpty` early-return (EmblParser.cs lines 165–166), never a crash. Pins
+    /// the documented empty-input contract (§6.1) so a future refactor cannot turn empty
+    /// input into an exception.
+    /// </summary>
+    [Test]
+    public void ParseEmbl_NullAndEmpty_YieldNoRecordsNoCrash()
+    {
+        List<EmblParser.EmblRecord> nullRecords = new();
+        var actNull = () => nullRecords = EmblParser.Parse(null!).ToList();
+        actNull.Should().NotThrow("null input is guarded by IsNullOrEmpty");
+        nullRecords.Should().BeEmpty();
+
+        EmblParser.Parse("").ToList().Should().BeEmpty("empty input yields no records");
     }
 
     #endregion
