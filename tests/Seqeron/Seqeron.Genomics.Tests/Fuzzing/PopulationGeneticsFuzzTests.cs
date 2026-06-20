@@ -359,6 +359,82 @@ namespace Seqeron.Genomics.Tests;
 ///   The method does NOT validate the 0/1/2 encoding beyond the documented surface
 ///   (§3.3, §5.2); the fuzz targets here exercise the documented degenerate
 ///   boundaries and pin that none crash, hang, NaN-escape, or leave [0, 1].
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: POP-ANCESTRY-001 — supervised / projection ADMIXTURE ancestry estimation (PopGen)
+/// Checklist: docs/checklists/03_FUZZING.md, row 207.
+/// Fuzz strategies exercised for THIS unit:
+///   • BE  = Boundary Exploitation — the degenerate ancestry boundaries that
+///           stress the FRAPPE EM ancestry update and its Σ_m q_m f_mj
+///           denominators: a SINGLE source population (an individual that is a
+///           pure member of one reference panel → its ancestry fraction for that
+///           panel must be exactly 1 and 0 for every other — the q_k = 1 corner
+///           of the simplex); an ADMIXED 50/50 individual (the symmetric fixed
+///           point where two panels contribute equally → equal fractions of 0.5;
+///           the K = 2 uniform-q fixed point, INV-04); and EMPTY input — empty
+///           individuals OR empty reference panels → the explicit
+///           `indList.Count == 0 || refList.Count == 0` guard yields an EMPTY
+///           result with no EM, no division and no exception (the
+///           "nothing to estimate" boundary, §3.3 / §6.1).
+/// — docs/checklists/03_FUZZING.md §Description ("BE = граничні значення: 0, -1,
+///   MaxInt, empty").
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The ancestry-estimation contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// Supervised / projection ADMIXTURE estimates, for each individual i, the
+/// vector q_i of ancestry FRACTIONS — what fraction q_ik of i's genome derives
+/// from each of the K reference populations — from biallelic SNP genotypes
+/// g_ij ∈ {0,1,2} (copies of allele 1) given FIXED reference allele-1
+/// frequencies f_kj. With F fixed, the FRAPPE EM update (Alexander, Novembre &amp;
+/// Lange 2009, Eq. 4) is:
+///     q_ik^{n+1} = (1/2J) Σ_j [ g_ij·a_ijk + (2−g_ij)·b_ijk ],
+///     a_ijk = q_ik f_kj / Σ_m q_im f_mj,   b_ijk = q_ik (1−f_kj) / Σ_m q_im (1−f_mj),
+/// where J is the count of informative (in-range) SNPs. Iteration stops once the
+/// Eq. 2 binomial log-likelihood gain falls below ε = 10⁻⁴ (Eq. 5).
+///   — docs/algorithms/Population_Genetics/Ancestry_Estimation.md §2.2, §2.4
+///     (INV-01: Σ_k q_ik = 1 for every individual — THE key invariant, because
+///      Eq. 4 divides by 2J and Σ_k(g·a + (2−g)·b) = g + (2−g) = 2 per SNP;
+///      INV-02: 0 ≤ q_ik ≤ 1 — each fraction is a proportion; INV-03: EM is a
+///      monotone log-likelihood ascent; INV-04: identical reference panels keep a
+///      uniform q uniform — the 50/50 fixed point at K = 2). Source: Alexander,
+///      Novembre &amp; Lange (2009), Genome Research 19(9):1655–1664 [1], Eqs. 2, 4, 5.
+///
+/// Entry point under test —
+///   PopulationGeneticsAnalyzer.EstimateAncestry(
+///       IEnumerable&lt;(string IndividualId, IReadOnlyList&lt;int&gt; Genotypes)&gt; individuals,
+///       IEnumerable&lt;(string PopulationId, IReadOnlyList&lt;double&gt; AlleleFrequencies)&gt; referencePops,
+///       int maxIterations = 100)
+///   (src/Seqeron/Algorithms/Seqeron.Genomics.Population/PopulationGeneticsAnalyzer.cs
+///    lines 1264–1291). Documented validation/edge behavior
+///   (Ancestry_Estimation.md §3.3, §6.1):
+///     • EMPTY individuals OR empty reference panels → the explicit
+///       `indList.Count == 0 || refList.Count == 0` guard `yield break`s an EMPTY
+///       result BEFORE any EM iteration (lines 1272–1273); there is NO 1/2J
+///       division, NO exception — "nothing to estimate" (§6.1). This is the KEY
+///       empty-input fuzz concern.
+///     • SINGLE source population — an individual that is a pure member of one
+///       panel (homozygous for the allele that panel is fixed for) → that panel's
+///       fraction converges to 1 and every other to 0 (§7.1 diagnostic-individual
+///       semantics; INV-02 corner of the simplex).
+///     • ADMIXED 50/50 — with identical reference panels the uniform initial
+///       q = (1/K,…,1/K) is a fixed point (INV-04): every fraction stays 1/K, i.e.
+///       0.5 for K = 2, so the two sources contribute equally. The Eq. 4
+///       numerators/denominators are proportional across panels, so the update
+///       reproduces the uniform vector exactly.
+///     • a genotype whose length ≠ the panel SNP count → that individual is
+///       SKIPPED (lines 1280–1281); all-missing genotype (every code &lt; 0 or
+///       &gt; 2) → the uniform prior is returned (no informative SNP, lines
+///       1344–1345). No exception for these documented input classes (§3.3).
+///     • for EVERY emitted individual the ancestry fractions sum to 1 EXACTLY
+///       (INV-01), each lies in [0, 1] (INV-02), and none is NaN or ±Infinity —
+///       the EM divides accumulated responsibilities by 2J, which keeps Σ_k q_ik
+///       = 1 without a separate renormalization (§5.2). The Σ_m q_m f_mj
+///       denominators are guarded (`mix &gt; 0 ? … : 0`, lines 1338–1339) so a
+///       degenerate panel cannot inject a 0/0 NaN.
+///   The fuzz targets here exercise the documented degenerate boundaries and pin
+///   that none of them crash, hang, NaN-escape, break Σ_k q_ik = 1, or leave
+///   [0, 1].
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -1746,6 +1822,294 @@ public class PopulationGeneticsFuzzTests
             double.IsInfinity(ld.DPrime).Should().BeFalse("the clamped |D'| never gives ±Infinity");
             ld.RSquared.Should().BeInRange(0.0, 1.0, "r² is a squared correlation measure (INV-02)");
             ld.DPrime.Should().BeInRange(0.0, 1.0, "the public DPrime is |D'| clamped to [0,1] (INV-03)");
+        }
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  POP-ANCESTRY-001 — supervised / projection ADMIXTURE : fuzz targets
+    //  Surface: EstimateAncestry(individuals, referencePops, maxIterations)
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region POP-ANCESTRY-001 — ancestry estimation
+
+    #region Helpers — individual / reference-panel builders
+
+    /// <summary>Materializes one individual (id + 0/1/2 genotype vector) for the ancestry API.</summary>
+    private static (string, IReadOnlyList<int>) Individual(string id, params int[] genotypes) =>
+        (id, (IReadOnlyList<int>)genotypes);
+
+    /// <summary>Materializes one reference panel (id + per-SNP allele-1 frequencies) for the API.</summary>
+    private static (string, IReadOnlyList<double>) Panel(string id, params double[] frequencies) =>
+        (id, (IReadOnlyList<double>)frequencies);
+
+    /// <summary>Sum of a single individual's ancestry fractions — the INV-01 quantity.</summary>
+    private static double FractionSum(PopulationGeneticsAnalyzer.AncestryProportion ap) =>
+        ap.Proportions.Values.Sum();
+
+    #endregion
+
+    #region Positive sanity — the documented worked example yields the exact Eq. 4 fractions
+
+    /// <summary>
+    /// Positive control: the worked example pinned in the algorithm doc
+    /// (Ancestry_Estimation.md §7.1) — start q = (0.5, 0.5), reference panels
+    /// f_A = (0.8, 0.2) and f_B = (0.2, 0.8), individual genotype g = (2, 0), one
+    /// EM iteration (Eq. 4). The hand-checked walk-through gives
+    /// q_A = (1.6 + 1.6)/(2·2) = 0.8 and q_B = (0.4 + 0.4)/4 = 0.2. The result must
+    /// be EXACTLY those fractions, each in [0, 1] (INV-02), summing to 1 (INV-01).
+    /// This anchors the fuzz battery: before pinning that boundary input does no
+    /// harm, confirm a known-good input gives the textbook-derived ancestry vector.
+    /// Expected values come from the DOC's arithmetic, not the code.
+    /// </summary>
+    [Test]
+    public void Ancestry_DocumentedWorkedExample_MatchesEq4FractionsAndSumsToOne()
+    {
+        var individuals = new[] { Individual("ind1", 2, 0) };
+        var refs = new[]
+        {
+            Panel("A", 0.8, 0.2),
+            Panel("B", 0.2, 0.8),
+        };
+
+        var result = PopulationGeneticsAnalyzer.EstimateAncestry(individuals, refs, maxIterations: 1).Single();
+
+        result.IndividualId.Should().Be("ind1", "the input id is echoed unchanged (§3.2)");
+        result.Proportions["A"].Should().BeApproximately(0.8, Tolerance,
+            because: "q_A = (1.6 + 1.6)/(2·2) = 0.8 after one EM iteration (Ancestry_Estimation.md §7.1, Eq. 4)");
+        result.Proportions["B"].Should().BeApproximately(0.2, Tolerance,
+            because: "q_B = (0.4 + 0.4)/(2·2) = 0.2 after one EM iteration (Ancestry_Estimation.md §7.1, Eq. 4)");
+
+        result.Proportions["A"].Should().BeInRange(0.0, 1.0, "an ancestry fraction is a proportion (INV-02)");
+        result.Proportions["B"].Should().BeInRange(0.0, 1.0, "an ancestry fraction is a proportion (INV-02)");
+        FractionSum(result).Should().BeApproximately(1.0, Tolerance,
+            because: "the EM divides by 2J so the ancestry fractions sum to 1 (INV-01)");
+    }
+
+    #endregion
+
+    #region BE — single source population (pure member → fraction 1 for one panel, 0 for the rest)
+
+    /// <summary>
+    /// BE "single source population": an individual that is a PURE member of one
+    /// reference population — homozygous (g = 2 at every SNP) for the allele that
+    /// panel A is fixed for (f_A = 1) while panel B is fixed for the other allele
+    /// (f_B = 0). The single-source corner of the simplex: A's ancestry fraction
+    /// must converge to exactly 1 and B's to exactly 0 (Ancestry_Estimation.md §7.1
+    /// diagnostic-individual semantics; INV-02 corner). Hand-checked: from
+    /// q = (0.5, 0.5), each SNP (g = 2) contributes A = 2·(0.5·1/0.5) = 2, B = 0,
+    /// so q_A = (2+2)/(2·2) = 1.0, q_B = 0.0 after one iteration. The fractions
+    /// must stay in [0, 1] (INV-02) and sum to 1 (INV-01).
+    /// </summary>
+    [Test]
+    public void Ancestry_PureSourcePopulation_FractionIsOneForThatPanelZeroForOthers()
+    {
+        var individuals = new[] { Individual("pureA", 2, 2, 2) };
+        var refs = new[]
+        {
+            Panel("A", 1.0, 1.0, 1.0),  // A fixed for allele 1
+            Panel("B", 0.0, 0.0, 0.0),  // B fixed for allele 2
+        };
+
+        var result = PopulationGeneticsAnalyzer.EstimateAncestry(individuals, refs, maxIterations: 100).Single();
+
+        result.Proportions["A"].Should().BeApproximately(1.0, Tolerance,
+            because: "an individual fixed for the allele panel A is fixed for is pure A → fraction 1 (§7.1, single source)");
+        result.Proportions["B"].Should().BeApproximately(0.0, Tolerance,
+            because: "no genome derives from panel B → fraction 0 for a pure-A individual");
+
+        result.Proportions["A"].Should().BeInRange(0.0, 1.0, "INV-02");
+        result.Proportions["B"].Should().BeInRange(0.0, 1.0, "INV-02");
+        FractionSum(result).Should().BeApproximately(1.0, Tolerance, "ancestry fractions sum to 1 (INV-01)");
+
+        // Symmetric pure-B individual: homozygous allele 2 (g = 0) → fraction 1 for B, 0 for A.
+        var pureB = PopulationGeneticsAnalyzer.EstimateAncestry(
+            new[] { Individual("pureB", 0, 0, 0) }, refs, maxIterations: 100).Single();
+        pureB.Proportions["B"].Should().BeApproximately(1.0, Tolerance,
+            because: "an individual fixed for the allele panel B is fixed for is pure B → fraction 1");
+        pureB.Proportions["A"].Should().BeApproximately(0.0, Tolerance, "no genome derives from panel A");
+        FractionSum(pureB).Should().BeApproximately(1.0, Tolerance, "INV-01");
+    }
+
+    #endregion
+
+    #region BE — admixed 50/50 (equal contribution → equal fractions, the K=2 uniform fixed point)
+
+    /// <summary>
+    /// BE "admixed 50/50": with two IDENTICAL reference panels the uniform initial
+    /// vector q = (0.5, 0.5) is a FIXED POINT of the EM (Ancestry_Estimation.md
+    /// §2.4 INV-04 — "identical reference panels keep a uniform q uniform"): the
+    /// Eq. 4 numerators and denominators are proportional across the two panels, so
+    /// the update reproduces (0.5, 0.5) exactly. With nothing to distinguish the
+    /// sources the two contribute equally → an admixed-50/50 ancestry vector. The
+    /// fractions must be 0.5/0.5 regardless of the genotype, each in [0, 1]
+    /// (INV-02), summing to 1 (INV-01). Verified across a fixed-seed sweep of
+    /// random 0/1/2 genotypes so the 50/50 fixed point is genotype-independent.
+    /// </summary>
+    [Test]
+    public void Ancestry_IdenticalPanels_StayAdmixedFiftyFifty()
+    {
+        for (int trial = 0; trial < 32; trial++)
+        {
+            int snps = Rng.Next(1, 24);
+            var freqs = new double[snps];
+            for (int j = 0; j < snps; j++)
+                freqs[j] = Rng.NextDouble();           // any valid in-[0,1] panel
+            var genotype = new int[snps];
+            for (int j = 0; j < snps; j++)
+                genotype[j] = Rng.Next(0, 3);          // valid 0/1/2 genotype
+
+            var individuals = new[] { ("ind", (IReadOnlyList<int>)genotype) };
+            var refs = new[]
+            {
+                ("A", (IReadOnlyList<double>)freqs.ToArray()),
+                ("B", (IReadOnlyList<double>)freqs.ToArray()),  // identical panel
+            };
+
+            var result = PopulationGeneticsAnalyzer.EstimateAncestry(individuals, refs, maxIterations: 100).Single();
+
+            result.Proportions["A"].Should().BeApproximately(0.5, Tolerance,
+                because: "identical panels keep the uniform q uniform → 50/50 admixture (INV-04)");
+            result.Proportions["B"].Should().BeApproximately(0.5, Tolerance,
+                because: "identical panels keep the uniform q uniform → 50/50 admixture (INV-04)");
+            FractionSum(result).Should().BeApproximately(1.0, Tolerance, "INV-01");
+        }
+    }
+
+    /// <summary>
+    /// BE "admixed 50/50", second anchor: a symmetric individual under symmetric,
+    /// MIRROR-IMAGE panels also reads as 50/50. With f_A = (0.8, 0.2),
+    /// f_B = (0.2, 0.8) and a heterozygote at both SNPs (g = (1, 1)), the Eq. 4
+    /// responsibilities are symmetric between A and B at each SNP, so the uniform
+    /// q = (0.5, 0.5) is reproduced. Hand-checked: SNP1 g=1, mix1 = 0.5, mix2 = 0.5,
+    /// A += 1·(0.5·0.8/0.5) + 1·(0.5·0.2/0.5) = 0.8 + 0.2 = 1.0, B += 0.2 + 0.8 = 1.0;
+    /// likewise SNP2; q_A = (1.0+1.0)/(2·2) = 0.5, q_B = 0.5. The mirror symmetry
+    /// gives a genuine equal split even with DISTINCT panels.
+    /// </summary>
+    [Test]
+    public void Ancestry_SymmetricHeterozygoteUnderMirrorPanels_IsFiftyFifty()
+    {
+        var individuals = new[] { Individual("symHet", 1, 1) };
+        var refs = new[]
+        {
+            Panel("A", 0.8, 0.2),
+            Panel("B", 0.2, 0.8),
+        };
+
+        var result = PopulationGeneticsAnalyzer.EstimateAncestry(individuals, refs, maxIterations: 100).Single();
+
+        result.Proportions["A"].Should().BeApproximately(0.5, Tolerance,
+            because: "a heterozygote under mirror-image panels is symmetric between A and B → 50/50 (Eq. 4)");
+        result.Proportions["B"].Should().BeApproximately(0.5, Tolerance,
+            because: "a heterozygote under mirror-image panels is symmetric between A and B → 50/50 (Eq. 4)");
+        FractionSum(result).Should().BeApproximately(1.0, Tolerance, "INV-01");
+    }
+
+    #endregion
+
+    #region BE — empty input (no individuals or no panels → empty result, the "nothing to estimate" boundary)
+
+    /// <summary>
+    /// BE "empty": with EMPTY individuals OR empty reference panels there is nothing
+    /// to estimate. The explicit `indList.Count == 0 || refList.Count == 0` guard
+    /// `yield break`s an EMPTY result BEFORE any EM iteration
+    /// (Ancestry_Estimation.md §3.3, §6.1; PopulationGeneticsAnalyzer.cs lines
+    /// 1272–1273) — there is NO 1/2J division and NO exception. This is the KEY
+    /// empty-input fuzz concern: an unguarded `refList[0]` or `1/k` here would crash
+    /// (IndexOutOfRange / DivideByZero) in production. Covered: empty individuals
+    /// with non-empty panels, non-empty individuals with empty panels, and both
+    /// empty. Enumeration is forced with `.ToList()` so the deferred iterator runs.
+    /// </summary>
+    [Test]
+    public void Ancestry_EmptyInput_ReturnsEmptyResultWithNoExceptionOrDivision()
+    {
+        var emptyInds = Array.Empty<(string, IReadOnlyList<int>)>();
+        var emptyPanels = Array.Empty<(string, IReadOnlyList<double>)>();
+        var someInds = new[] { Individual("ind", 2, 0) };
+        var somePanels = new[] { Panel("A", 0.8, 0.2), Panel("B", 0.2, 0.8) };
+
+        List<PopulationGeneticsAnalyzer.AncestryProportion> r1 = null!, r2 = null!, r3 = null!;
+
+        var actEmptyInds = () => r1 = PopulationGeneticsAnalyzer.EstimateAncestry(emptyInds, somePanels).ToList();
+        var actEmptyPanels = () => r2 = PopulationGeneticsAnalyzer.EstimateAncestry(someInds, emptyPanels).ToList();
+        var actBothEmpty = () => r3 = PopulationGeneticsAnalyzer.EstimateAncestry(emptyInds, emptyPanels).ToList();
+
+        actEmptyInds.Should().NotThrow("empty individuals is a defined boundary (nothing to estimate), not an error");
+        actEmptyPanels.Should().NotThrow<DivideByZeroException>(
+            "the empty-panels guard short-circuits before the 1/K uniform-init division");
+        actEmptyPanels.Should().NotThrow("empty reference panels is a defined boundary, not an error");
+        actBothEmpty.Should().NotThrow("both empty is a defined boundary, not an error");
+
+        r1.Should().BeEmpty("no individuals → nothing to estimate → empty result (§6.1)");
+        r2.Should().BeEmpty("no reference panels → nothing to estimate → empty result (§6.1)");
+        r3.Should().BeEmpty("both empty → empty result (§6.1)");
+    }
+
+    #endregion
+
+    #region BE — random valid inputs always obey INV-01 / INV-02 and stay finite
+
+    /// <summary>
+    /// BE / INV sweep: across a fixed-seed battery of random VALID inputs (random
+    /// number of individuals, panels K ≥ 1 and SNPs J ≥ 1, random in-[0,1]
+    /// reference frequencies and random 0/1/2 genotypes) EVERY emitted ancestry
+    /// vector must obey the documented invariants — fractions sum to 1 EXACTLY
+    /// (INV-01), each in [0, 1] (INV-02), none NaN or ±Infinity, one entry per
+    /// panel. The Σ_m q_m f_mj denominators are guarded so no degenerate panel can
+    /// inject a 0/0 NaN. This pins the total-function contract over the random
+    /// interior, complementing the degenerate-boundary tests, and runs under
+    /// `[CancelAfter]` so a hang in the EM loop is a hard failure, not an
+    /// infinite wait. Expected invariants are the doc's (§2.4), not the code's.
+    /// </summary>
+    [Test]
+    [CancelAfter(30_000)]
+    public void Ancestry_RandomValidInputs_AlwaysObeyInvariantsAndStayFinite()
+    {
+        for (int trial = 0; trial < 64; trial++)
+        {
+            int k = Rng.Next(1, 5);       // 1..4 reference panels
+            int j = Rng.Next(1, 30);      // 1..29 SNPs
+            int n = Rng.Next(1, 6);       // 1..5 individuals
+
+            var refs = new (string, IReadOnlyList<double>)[k];
+            for (int pop = 0; pop < k; pop++)
+            {
+                var freqs = new double[j];
+                for (int snp = 0; snp < j; snp++)
+                    freqs[snp] = Rng.NextDouble();
+                refs[pop] = ($"P{pop}", freqs);
+            }
+
+            var inds = new (string, IReadOnlyList<int>)[n];
+            for (int i = 0; i < n; i++)
+            {
+                var g = new int[j];
+                for (int snp = 0; snp < j; snp++)
+                    g[snp] = Rng.Next(0, 3);
+                inds[i] = ($"i{i}", g);
+            }
+
+            List<PopulationGeneticsAnalyzer.AncestryProportion> results = null!;
+            var act = () => results = PopulationGeneticsAnalyzer.EstimateAncestry(inds, refs, maxIterations: 100).ToList();
+
+            act.Should().NotThrow("random valid genotypes and panels are always a defined input");
+
+            results.Should().HaveCount(n, "every length-matching individual yields exactly one ancestry vector");
+            foreach (var ap in results)
+            {
+                ap.Proportions.Should().HaveCount(k, "one ancestry fraction per reference panel (§3.2)");
+                foreach (var (_, fraction) in ap.Proportions)
+                {
+                    double.IsNaN(fraction).Should().BeFalse("the guarded EM denominators never yield a 0/0 NaN");
+                    double.IsInfinity(fraction).Should().BeFalse("bounded responsibilities over 2J never give ±Infinity");
+                    fraction.Should().BeInRange(0.0, 1.0, "each ancestry fraction is a proportion (INV-02)");
+                }
+                FractionSum(ap).Should().BeApproximately(1.0, Tolerance,
+                    because: "the EM divides by 2J so the ancestry fractions sum to 1 exactly (INV-01)");
+            }
         }
     }
 
