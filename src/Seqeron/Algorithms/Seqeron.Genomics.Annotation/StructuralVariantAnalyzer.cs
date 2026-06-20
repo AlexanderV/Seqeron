@@ -607,9 +607,12 @@ public static class StructuralVariantAnalyzer
             var curr = reads[i];
 
             // Same breakpoint iff same chromosome and junction within the tolerance window.
+            // The gap is computed in 64-bit width: junctions are reference coordinates that
+            // may span the full Int32 range, and an Int32 subtraction (or Math.Abs of
+            // int.MinValue) would overflow and throw on extreme/opposite-sign coordinates.
             bool sameCluster =
                 prev.Chromosome == curr.Chromosome &&
-                Math.Abs(curr.SupplementaryPosition - prev.SupplementaryPosition) <= clusterTolerance;
+                Math.Abs((long)curr.SupplementaryPosition - prev.SupplementaryPosition) <= clusterTolerance;
 
             if (sameCluster)
             {
