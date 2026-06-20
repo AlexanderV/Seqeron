@@ -87,6 +87,57 @@ namespace Seqeron.Genomics.Tests;
 ///     for null/empty motif) and upper-casing, but returns the suffix-tree list
 ///     DIRECTLY (DFS order, not re-sorted). We pin its boundary results too.
 ///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: PAT-APPROX-001 — approximate (Hamming) pattern matching (Matching)
+/// Checklist: docs/checklists/03_FUZZING.md, row 9.
+/// Fuzz strategies exercised for THIS unit:
+///   • BE = Boundary Exploitation — the empty sequence and the empty pattern; a
+///          single-base pattern; maxMismatches = 0 (reduces to EXACT matching);
+///          maxMismatches ≥ pattern.Length (every equal-length window qualifies);
+///          a negative maxMismatches (the documented validation gate).
+///   • MC = Malformed Content — unequal-length comparisons on the direct
+///          HammingDistance metric (rejected by contract); a pattern longer than
+///          the sequence (no equal-length window exists → no match); and non-DNA
+///          / control / non-ASCII characters on the string surface (handled by
+///          plain case-folded comparison, never a crash).
+/// — docs/checklists/03_FUZZING.md §Description (strategy codes).
+///
+/// The approximate-(Hamming)-matching contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// PAT-APPROX-001 is the SUBSTITUTIONS-ONLY (Hamming) approximate-match family on
+/// ApproximateMatcher: FindWithMismatches / CountApproximateOccurrences /
+/// FindBestMatch and the direct HammingDistance metric. (The maxEdits /
+/// Levenshtein family — FindWithEdits — is PAT-APPROX-002, row 10, and is NOT
+/// exercised here.) Documented contract
+/// (docs/algorithms/Pattern_Matching/Approximate_Matching_Hamming.md §2.2, §3.1,
+/// §3.3, §6.1; sources: Hamming 1950, Rosalind HAMM, Navarro 2001, Gusfield 1997):
+///   • HammingDistance(s1, s2) — equal-length substitution count:
+///       – null s1 or s2          → ArgumentNullException (the validation gate,
+///         NOT a NullReferenceException);
+///       – UNEQUAL lengths        → ArgumentException (Hamming is defined only on
+///         equal-length strings — the doc rejects, it does not silently truncate);
+///       – equal length           → d_H ≥ 0 (INV-01), symmetric d_H(s,t)=d_H(t,s)
+///         (INV-03), case-insensitive (uppercased before comparison, §5.2);
+///   • FindWithMismatches(string sequence, string pattern, int maxMismatches):
+///       – empty/null sequence OR pattern → no matches (explicit source guard,
+///         yield break — NOT the core exact-match "all positions" contract);
+///       – pattern LONGER than sequence   → no matches (no equal-length window);
+///       – maxMismatches < 0              → ArgumentOutOfRangeException;
+///       – maxMismatches = 0              → reduces to EXACT matching (only
+///         zero-mismatch windows qualify);
+///       – maxMismatches ≥ pattern.Length → EVERY equal-length window qualifies
+///         (every achievable mismatch count is within threshold) → all start
+///         positions [0 .. n−m] reported;
+///       – non-DNA / control / non-ASCII chars on the string surface → matched by
+///         plain case-folded character comparison, never a crash (the string path
+///         does NOT enforce the DNA alphabet — only the typed DnaSequence ctor
+///         does);
+///   • CountApproximateOccurrences == FindWithMismatches(...).Count() on every
+///     boundary input (the count surface must agree with the listing surface);
+///   • the DnaSequence wrapper overloads add NO null guard → a null DnaSequence
+///     throws (NullReferenceException) because they dereference sequence.Sequence
+///     (§3.3, §6.1) — pinned so the strict-vs-lenient surface split cannot drift.
+///
 /// All inputs here are ASCII DNA / boundary strings; randomness (where used) is
 /// from a locally fixed-seed Random so the fuzz fodder is fully reproducible and
 /// adding tests cannot perturb any other fixture.
@@ -516,6 +567,324 @@ public class MatchingFuzzTests
 
         GenomicAnalyzer.FindMotif(seq, "ACGT").Should().BeEmpty(
             "no motif occurs in an empty sequence");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  PAT-APPROX-001 — approximate (Hamming) pattern matching : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region PAT-APPROX-001 — approximate (Hamming) pattern matching
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Fuzz target: empty strings (empty sequence / empty pattern)
+    // ───────────────────────────────────────────────────────────────────
+
+    #region BE — empty strings: empty sequence / pattern → no matches, no crash
+
+    /// <summary>
+    /// BE: the empty sequence and the empty pattern are the lower size boundaries.
+    /// FindWithMismatches guards both with an explicit IsNullOrEmpty check and
+    /// yields nothing — it does NOT inherit the exact-match core's
+    /// "empty pattern ⇒ all positions" contract (Approximate_Matching_Hamming.md
+    /// §3.1, §6.1). Every empty combination — over every maxMismatches, including
+    /// 0 and a large value — must be the defined empty result, never an
+    /// IndexOutOfRange on the empty index. CountApproximateOccurrences must agree.
+    /// </summary>
+    [TestCase("", "ACGT", 0, TestName = "FindWithMismatches_EmptySequence_NoMatch")]
+    [TestCase("", "ACGT", 5, TestName = "FindWithMismatches_EmptySequence_LargeMaxDist_NoMatch")]
+    [TestCase("ACGTACGT", "", 0, TestName = "FindWithMismatches_EmptyPattern_NoMatch")]
+    [TestCase("ACGTACGT", "", 5, TestName = "FindWithMismatches_EmptyPattern_LargeMaxDist_NoMatch")]
+    [TestCase("", "", 0, TestName = "FindWithMismatches_BothEmpty_NoMatch")]
+    public void FindWithMismatches_EmptyStrings_AreNoMatch(string sequence, string pattern, int maxMismatches)
+    {
+        IEnumerable<ApproximateMatchResult> results = ApproximateMatcher.FindWithMismatches(
+            sequence, pattern, maxMismatches);
+
+        results.Should().BeEmpty(
+            "an empty sequence or pattern is guarded by the source and yields no approximate matches");
+        ApproximateMatcher.CountApproximateOccurrences(sequence, pattern, maxMismatches).Should().Be(0,
+            "the count surface must agree with the empty listing surface on empty input");
+    }
+
+    /// <summary>
+    /// BE: null sequence/pattern on the string surface is treated the same as
+    /// empty by the IsNullOrEmpty guard — it yields nothing rather than throwing a
+    /// NullReferenceException (Approximate_Matching_Hamming.md §3.1). FindBestMatch
+    /// likewise returns null on any empty/null input. Pinned so the lenient string
+    /// surface cannot drift into a raw dereference.
+    /// </summary>
+    [Test]
+    public void FindWithMismatches_NullStrings_AreNoMatchNotCrash()
+    {
+        var findNullSeq = () => ApproximateMatcher.FindWithMismatches((string)null!, "ACGT", 1).ToList();
+        var findNullPat = () => ApproximateMatcher.FindWithMismatches("ACGT", null!, 1).ToList();
+
+        findNullSeq.Should().NotThrow("a null sequence is guarded as empty, never dereferenced");
+        findNullPat.Should().NotThrow("a null pattern is guarded as empty, never dereferenced");
+
+        findNullSeq().Should().BeEmpty("a null sequence yields no matches");
+        findNullPat().Should().BeEmpty("a null pattern yields no matches");
+
+        ApproximateMatcher.FindBestMatch(null!, "ACGT").Should().BeNull(
+            "FindBestMatch returns null on a null sequence");
+        ApproximateMatcher.FindBestMatch("ACGT", null!).Should().BeNull(
+            "FindBestMatch returns null on a null pattern");
+        ApproximateMatcher.FindBestMatch("", "").Should().BeNull(
+            "FindBestMatch returns null when both inputs are empty");
+    }
+
+    /// <summary>
+    /// BE/MC: the typed DnaSequence overload adds NO null guard and dereferences
+    /// sequence.Sequence, so a null DnaSequence throws — the documented
+    /// strict-surface behavior (Approximate_Matching_Hamming.md §3.3, §6.1). Pinned
+    /// against the lenient string surface (which guards null as empty above) so the
+    /// strict/lenient split is explicit and cannot silently converge.
+    /// </summary>
+    [Test]
+    public void FindWithMismatches_NullDnaSequence_Throws()
+    {
+        var act = () => ApproximateMatcher.FindWithMismatches((DnaSequence)null!, "ACGT", 1).ToList();
+
+        act.Should().Throw<NullReferenceException>(
+            "the typed wrapper dereferences sequence.Sequence with no null guard (documented strict surface)");
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Fuzz target: unequal lengths
+    // ───────────────────────────────────────────────────────────────────
+
+    #region BE/MC — unequal lengths: HammingDistance rejects; search uses equal windows
+
+    /// <summary>
+    /// MC: the direct Hamming metric is defined ONLY on equal-length strings, so an
+    /// unequal-length comparison must throw the documented ArgumentException —
+    /// never silently truncate to the shorter string and never IndexOutOfRange
+    /// (Approximate_Matching_Hamming.md §2.2, §3.3, §6.2). Pinned in both
+    /// orientations (longer-first and shorter-first) and including the empty-vs-
+    /// non-empty boundary, which is itself an unequal-length case.
+    /// </summary>
+    [TestCase("ACGT", "ACG", TestName = "HammingDistance_LongerVsShorter_Throws")]
+    [TestCase("ACG", "ACGT", TestName = "HammingDistance_ShorterVsLonger_Throws")]
+    [TestCase("ACGT", "", TestName = "HammingDistance_NonEmptyVsEmpty_Throws")]
+    [TestCase("", "A", TestName = "HammingDistance_EmptyVsNonEmpty_Throws")]
+    public void HammingDistance_UnequalLengths_ThrowsArgumentException(string s1, string s2)
+    {
+        var act = () => ApproximateMatcher.HammingDistance(s1, s2);
+
+        act.Should().Throw<ArgumentException>(
+            "Hamming distance is defined only on equal-length strings; unequal lengths are rejected")
+            .Which.Should().NotBeOfType<ArgumentNullException>(
+                "the unequal-length rejection is an ArgumentException, distinct from the null gate");
+    }
+
+    /// <summary>
+    /// MC/INJ: null strings on the direct Hamming metric hit the explicit null gate
+    /// (ArgumentNullException), NOT a NullReferenceException
+    /// (Approximate_Matching_Hamming.md §3.3). The null check precedes the length
+    /// check, so null-vs-shorter still reports the null gate.
+    /// </summary>
+    [Test]
+    public void HammingDistance_NullArguments_ThrowArgumentNullException()
+    {
+        var nullFirst = () => ApproximateMatcher.HammingDistance(null!, "ACGT");
+        var nullSecond = () => ApproximateMatcher.HammingDistance("ACGT", null!);
+        var nullVsDifferentLength = () => ApproximateMatcher.HammingDistance(null!, "AC");
+
+        nullFirst.Should().Throw<ArgumentNullException>("a null first string hits the null gate");
+        nullSecond.Should().Throw<ArgumentNullException>("a null second string hits the null gate");
+        nullVsDifferentLength.Should().Throw<ArgumentNullException>(
+            "the null check precedes the length check, so null wins over the length mismatch");
+    }
+
+    /// <summary>
+    /// MC: an UNEQUAL-LENGTH pattern vs sequence in the sliding-window search is a
+    /// well-defined no-op when the pattern is longer than the sequence — no
+    /// equal-length window exists, so the result is empty and never an
+    /// IndexOutOfRange from over-reading the window (Approximate_Matching_Hamming.md
+    /// §6.1). A maxMismatches large enough to "forgive" the length gap does NOT
+    /// rescue it: Hamming compares only equal-length windows, so length still wins.
+    /// </summary>
+    [TestCase("ACGT", "ACGTA", 0, TestName = "FindWithMismatches_PatternLongerByOne_NoMatch")]
+    [TestCase("ACGT", "ACGTACGT", 10, TestName = "FindWithMismatches_PatternMuchLonger_LargeMaxDist_NoMatch")]
+    [TestCase("A", "AC", 5, TestName = "FindWithMismatches_PatternLongerThanSingleBase_NoMatch")]
+    public void FindWithMismatches_PatternLongerThanSequence_IsNoMatch(
+        string sequence, string pattern, int maxMismatches)
+    {
+        ApproximateMatcher.FindWithMismatches(sequence, pattern, maxMismatches).Should().BeEmpty(
+            "no equal-length window exists when the pattern is longer than the sequence");
+        ApproximateMatcher.CountApproximateOccurrences(sequence, pattern, maxMismatches).Should().Be(0,
+            "the count surface must agree with the empty listing surface");
+        ApproximateMatcher.FindBestMatch(sequence, pattern).Should().BeNull(
+            "FindBestMatch returns null when the pattern is longer than the sequence");
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Fuzz target: maxDist > len  (and the maxDist = 0 / negative boundaries)
+    // ───────────────────────────────────────────────────────────────────
+
+    #region BE — maxMismatches ≥ pattern length, = 0, and negative
+
+    /// <summary>
+    /// BE: maxMismatches ≥ pattern.Length is the upper threshold boundary — every
+    /// achievable mismatch count is within tolerance, so EVERY equal-length window
+    /// qualifies and ALL start positions [0 .. n−m] are reported
+    /// (Approximate_Matching_Hamming.md §6.1). Verified against a brute-force
+    /// oracle for a threshold equal to the length, well above it, and at int.MaxValue
+    /// (no overflow / no IndexOutOfRange). CountApproximateOccurrences must agree.
+    /// </summary>
+    [TestCase("ACGTACGT", "TTTT", 4, TestName = "FindWithMismatches_MaxDistEqualsLen_AllWindows")]
+    [TestCase("ACGTACGT", "TTTT", 100, TestName = "FindWithMismatches_MaxDistAboveLen_AllWindows")]
+    [TestCase("ACGTACGT", "TTTT", int.MaxValue, TestName = "FindWithMismatches_MaxDistMaxInt_AllWindows")]
+    [TestCase("AAAA", "C", 1, TestName = "FindWithMismatches_SingleBase_MaxDistEqualsLen_AllWindows")]
+    public void FindWithMismatches_MaxDistAtLeastPatternLength_MatchesEveryWindow(
+        string sequence, string pattern, int maxMismatches)
+    {
+        int windowCount = sequence.Length - pattern.Length + 1;
+
+        IReadOnlyList<ApproximateMatchResult> results =
+            ApproximateMatcher.FindWithMismatches(sequence, pattern, maxMismatches).ToList();
+
+        results.Select(r => r.Position).Should().Equal(Enumerable.Range(0, windowCount),
+            "with maxMismatches ≥ pattern length every equal-length window qualifies, in left-to-right order");
+        results.Should().OnlyContain(r => r.Distance <= pattern.Length,
+            "no reported window can exceed the pattern length in mismatches (INV-01 bound)");
+        ApproximateMatcher.CountApproximateOccurrences(sequence, pattern, maxMismatches).Should().Be(windowCount,
+            "the count surface must equal the number of equal-length windows (all qualify)");
+    }
+
+    /// <summary>
+    /// BE: maxMismatches = 0 is the lower threshold boundary — it reduces EXACTLY
+    /// to exact matching (only zero-mismatch windows qualify,
+    /// Approximate_Matching_Hamming.md §6.1). The reported zero-distance positions
+    /// must equal the brute-force set of exact occurrences over a fixed-seed random
+    /// text, and every reported result must carry distance 0 with no mismatch
+    /// positions. This pins the "approx(d=0) == exact" contract at the boundary.
+    /// </summary>
+    [Test]
+    public void FindWithMismatches_MaxDistZero_ReducesToExactMatch()
+    {
+        string sequence = RandomDna(400);
+        const int k = 5;
+        string pattern = sequence.Substring(123, k); // a pattern guaranteed to occur
+
+        var expected = Enumerable.Range(0, sequence.Length - k + 1)
+            .Where(i => sequence.Substring(i, k) == pattern)
+            .ToList();
+
+        IReadOnlyList<ApproximateMatchResult> results =
+            ApproximateMatcher.FindWithMismatches(sequence, pattern, 0).ToList();
+
+        results.Select(r => r.Position).Should().Equal(expected,
+            "maxMismatches = 0 reports exactly the exact-match positions (approx(d=0) == exact)");
+        results.Should().OnlyContain(r => r.Distance == 0 && r.MismatchPositions.Count == 0,
+            "an exact (zero-mismatch) match carries distance 0 and no mismatch positions");
+        expected.Should().NotBeEmpty("the planted pattern must occur at least once for a meaningful boundary check");
+    }
+
+    /// <summary>
+    /// BE: a NEGATIVE maxMismatches is the documented validation gate — it must
+    /// throw ArgumentOutOfRangeException (Approximate_Matching_Hamming.md §3.1,
+    /// §3.3). Because FindWithMismatches is a lazy iterator, the guard fires on
+    /// enumeration, so the assertion materializes the result. Pinned at −1 and
+    /// int.MinValue. The same guard governs CountApproximateOccurrences, which
+    /// enumerates internally.
+    /// </summary>
+    [TestCase(-1, TestName = "FindWithMismatches_NegativeMaxDist_MinusOne_Throws")]
+    [TestCase(int.MinValue, TestName = "FindWithMismatches_NegativeMaxDist_MinInt_Throws")]
+    public void FindWithMismatches_NegativeMaxDist_ThrowsArgumentOutOfRange(int maxMismatches)
+    {
+        var findAct = () => ApproximateMatcher.FindWithMismatches("ACGTACGT", "ACGT", maxMismatches).ToList();
+        var countAct = () => ApproximateMatcher.CountApproximateOccurrences("ACGTACGT", "ACGT", maxMismatches);
+
+        findAct.Should().Throw<ArgumentOutOfRangeException>(
+            "a negative mismatch budget is rejected by the documented validation gate");
+        countAct.Should().Throw<ArgumentOutOfRangeException>(
+            "the count surface inherits the same negative-budget validation gate");
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Fuzz target: non-DNA characters
+    // ───────────────────────────────────────────────────────────────────
+
+    #region MC/INJ — non-DNA / control / non-ASCII characters on the string surface
+
+    /// <summary>
+    /// MC: the STRING surface does not enforce the DNA alphabet (only the typed
+    /// DnaSequence ctor does), so non-DNA symbols — IUPAC ambiguity codes, digits,
+    /// punctuation, gap characters — are matched by plain case-folded character
+    /// comparison and must never crash (Approximate_Matching_Hamming.md §5.2).
+    /// A pattern of non-DNA chars present verbatim in the text is an EXACT
+    /// (distance-0) match at d = 0; a one-symbol difference is a distance-1 match
+    /// reported once the budget allows it. Verified against a brute-force oracle.
+    /// </summary>
+    [Test]
+    public void FindWithMismatches_NonDnaCharacters_AreMatchedByPlainComparison()
+    {
+        const string sequence = "NNN-ACGT-NNN?1234";
+        const string pattern = "-NNN"; // occurs verbatim starting at index 8 ("-NNN" before "?1234")
+
+        // d = 0 must find the verbatim occurrence (and only it).
+        var exact = ApproximateMatcher.FindWithMismatches(sequence, pattern, 0).ToList();
+        exact.Select(r => r.Position).Should().Equal(new[] { 8 },
+            "a non-DNA pattern present verbatim is an exact match at its true position");
+        exact.Single().Distance.Should().Be(0, "a verbatim non-DNA window has zero Hamming distance");
+
+        // A brute-force oracle over a tolerant budget: every equal-length window
+        // whose Hamming distance ≤ 2 must be reported, with the correct distance.
+        const int budget = 2;
+        var oracle = Enumerable.Range(0, sequence.Length - pattern.Length + 1)
+            .Select(i => (Pos: i, Dist: ApproximateMatcher.HammingDistance(
+                sequence.Substring(i, pattern.Length), pattern)))
+            .Where(x => x.Dist <= budget)
+            .ToList();
+
+        var actual = ApproximateMatcher.FindWithMismatches(sequence, pattern, budget).ToList();
+        actual.Select(r => (r.Position, r.Distance)).Should().Equal(oracle.Select(x => (x.Pos, x.Dist)),
+            "non-DNA windows must be matched/counted exactly as the case-folded Hamming oracle dictates");
+    }
+
+    /// <summary>
+    /// MC/INJ: control characters, null bytes, and non-ASCII Unicode in the string
+    /// surface must be handled as ordinary code points by the case-folded
+    /// comparison — no crash, no hang. A pattern equal to the whole text is a single
+    /// exact match at position 0; an absent pattern of the same length is no match.
+    /// This fuzzes the INJ boundary (null byte / unicode) on the lenient surface.
+    /// </summary>
+    [Test]
+    public void FindWithMismatches_ControlAndUnicodeCharacters_DoNotCrash()
+    {
+        string sequence = "AC\0GTé\tNNαβ";
+
+        var act = () =>
+        {
+            // Whole-text pattern → exactly one exact match at 0 on any code points.
+            var whole = ApproximateMatcher.FindWithMismatches(sequence, sequence, 0).ToList();
+            whole.Select(r => r.Position).Should().Equal(new[] { 0 },
+                "the whole text matches itself exactly once at position 0, control/unicode included");
+            whole.Single().Distance.Should().Be(0);
+
+            // An absent same-length pattern (all 'Z') → no match at d = 0.
+            string absent = new string('Z', sequence.Length);
+            ApproximateMatcher.FindWithMismatches(sequence, absent, 0).Should().BeEmpty(
+                "a same-length pattern that occurs nowhere yields no exact match");
+
+            // The direct metric over equal-length unicode strings is still symmetric.
+            int d = ApproximateMatcher.HammingDistance(sequence, absent);
+            d.Should().Be(ApproximateMatcher.HammingDistance(absent, sequence),
+                "Hamming distance stays symmetric over control/unicode code points (INV-03)");
+        };
+
+        act.Should().NotThrow("control bytes and unicode are ordinary code points to the string surface");
     }
 
     #endregion
