@@ -4780,7 +4780,15 @@ public static class OncologyAnalyzer
         ClonalityStatus status = probabilityClonal > ClonalProbabilityThreshold
             ? ClonalityStatus.Clonal
             : ClonalityStatus.Subclonal;
-        return new ClonalityCall(variant, ccfMean, probabilityClonal, status);
+
+        // The reported posterior summaries are bounded by their documented invariants: the CCF point estimate is a
+        // grid expectation in [0.01, 1] (INV-03) and the clonal probability is normalised posterior mass in [0, 1]
+        // (INV-04). Summing the normalised grid weights can overshoot the bound by one ulp (e.g. 1.0000000000000002),
+        // so clamp the reported values to their invariant range. The unclamped probabilityClonal already determined
+        // status above, and clamping a near-1 value cannot change the > 0.5 decision.
+        double reportedCcf = Math.Clamp(ccfMean, CcfGridLowerBound, CcfGridUpperBound);
+        double reportedProbabilityClonal = Math.Clamp(probabilityClonal, 0.0, 1.0);
+        return new ClonalityCall(variant, reportedCcf, reportedProbabilityClonal, status);
     }
 
     /// <summary>
