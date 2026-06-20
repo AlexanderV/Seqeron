@@ -2043,8 +2043,17 @@ public static class RnaSecondaryStructure
     /// Source: McCaskill JS (1990) Biopolymers 29:1105-1119, p(P|S) = Z⁻¹·exp(−βE(P));
     /// ViennaRNA pf_fold reference (β = 1/kT, k ≈ 1.987e-3 kcal/(mol·K)).
     /// </remarks>
+    /// <param name="temperature">Absolute temperature in Kelvin (default 310.15 K = 37 °C).</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="temperature"/> is not positive.</exception>
     public static double CalculateStructureProbability(double structureEnergy, double ensembleEnergy, double temperature = DefaultTemperatureKelvin)
     {
+        // RT appears in the denominator (β = 1/RT); a non-positive Kelvin temperature is
+        // physically meaningless and would make RT = 0 (→ exp(±∞) → NaN) or RT < 0 (an
+        // inverted Boltzmann weight). Reject it rather than leak a NaN/Inf probability —
+        // mirrors CalculatePartitionFunction's temperature guard for caller safety.
+        if (temperature <= 0)
+            throw new ArgumentOutOfRangeException(nameof(temperature), "Temperature must be positive (Kelvin).");
+
         double rt = GasConstant_CalPerMolK * temperature / 1000.0; // kcal/mol
 
         double boltzmann = Math.Exp(-structureEnergy / rt);

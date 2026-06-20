@@ -10,7 +10,8 @@ namespace Seqeron.Genomics.Tests;
 
 /// <summary>
 /// Fuzz tests for the RnaStructure area — RNA secondary-structure prediction
-/// (RNA-STRUCT-001).
+/// (RNA-STRUCT-001), stem-loop detection (RNA-STEMLOOP-001) and the nearest-neighbor
+/// FREE-ENERGY model (RNA-ENERGY-001).
 ///
 /// ───────────────────────────────────────────────────────────────────────────
 /// What fuzzing verifies
@@ -114,6 +115,52 @@ namespace Seqeron.Genomics.Tests;
 ///   • non-crossing (nested) — PredictStructure assembles non-overlapping hairpins,
 ///     so the emitted base-pair set is pseudoknot-free: DetectPseudoknots over the
 ///     result is empty, and the dot-bracket validates (balanced brackets).
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: RNA-ENERGY-001 — RNA nearest-neighbor free energy (ΔG°)
+/// Checklist: docs/checklists/03_FUZZING.md, row 73.
+/// Methods under test (src/.../RnaSecondaryStructure.cs):
+///   • CalculateStemEnergy(string, IReadOnlyList&lt;BasePair&gt;) → double — the Turner
+///     2004 helix ΔG°37: Σ of the P−1 nearest-neighbor STACKING terms over P stacked
+///     base pairs, plus a +0.45 per-AU/GU-end penalty (Hairpin_Energy_Calculation.md
+///     §2.2 "Stem", §2.4 INV-04). No temperature parameter — the table is fixed at
+///     37 °C / 1 M NaCl (ASM-02).
+///   • CalculateHairpinLoopEnergy(string, char, char, bool) → double — the loop ΔG°37;
+///     its n&gt;30 branch is the ONLY place a temperature (R·T at 310.15 K) enters the
+///     additive energy, via the Jacobson-Stockmayer log extrapolation (§2.2, §4.1).
+///   • CalculatePartitionFunction(string, basePairEnergy, temperature) and
+///     CalculateStructureProbability(structureEnergy, ensembleEnergy, temperature) —
+///     the Boltzmann surfaces where the absolute temperature T appears in a
+///     DENOMINATOR (β = 1/RT, RT = R·T/1000 kcal/mol). These are the T=0 / T&lt;0
+///     fuzz targets: T is in KELVIN (DefaultTemperatureKelvin = 310.15 K = 37 °C), so
+///     the physical domain is T &gt; 0 and a non-positive T is rejected, never a
+///     DivideByZero / NaN / Inf leak.
+/// Fuzz strategy for THIS unit:
+///   • BE = Boundary Exploitation — targets "Empty, no stacks, temperature=0,
+///     temperature negative" (docs/checklists/03_FUZZING.md §Description, row 73):
+///       – Empty             → empty base-pair list → ΔG = 0 (INV-04); empty sequence
+///                             on the partition surface → Z = 1.  Never an exception
+///                             on the ΔG path, never an index walk off an empty list.
+///       – No stacks         → a helix with FEWER THAN 2 base pairs has P−1 = 0
+///                             stacking terms, so the stacking sum is 0; only the
+///                             terminal-end penalty (a defined, finite constant) can
+///                             remain.  The ΔG is finite and defined, never NaN.
+///       – temperature = 0   → T in Kelvin makes RT = 0 → β = 1/RT undefined.  BOTH
+///                             Boltzmann surfaces REJECT it with ArgumentOutOfRange
+///                             (the divide-by-zero / NaN concern is closed by the
+///                             guard), never returning NaN/Inf.
+///       – temperature &lt; 0   → a negative Kelvin temperature is physically meaningless;
+///                             likewise REJECTED, not silently turned into an inverted
+///                             (and possibly &gt;1) Boltzmann weight.
+///
+/// Theory-correct ΔG contract asserted (Hairpin_Energy_Calculation.md §2.4, §3.3, §6.1):
+///   • INV-04 — CalculateStemEnergy of 0 base pairs is exactly 0; a stem of P pairs sums
+///     P−1 stacks (so a single pair contributes 0 stacking terms).
+///   • Every ΔG returned is FINITE (no NaN/Inf) for every boundary input.
+///   • A stable, fully Watson-Crick G-C helix has NEGATIVE ΔG (stacking dominates);
+///     this is the positive-sanity signal that the model scores real stability.
+///   • Temperature is KELVIN; the only valid domain is T &gt; 0; T ≤ 0 is a documented,
+///     intentional ArgumentOutOfRangeException on the Boltzmann surfaces.
 ///
 /// ───────────────────────────────────────────────────────────────────────────
 /// Complexity / hang-safety
@@ -695,6 +742,171 @@ public class RnaStructureFuzzTests
                     AssertWellFormedStemLoop(sl, seq, minStemLength: 3);
             }
         }
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  RNA-ENERGY-001 — RNA nearest-neighbor free energy : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region RNA-ENERGY-001 — RNA free energy
+
+    /// <summary>Builds a canonical stem base-pair list (outer→inner) from a 5' arm and
+    /// its reverse-complementary 3' arm, so the helix ΔG can be scored directly.</summary>
+    private static List<RnaSecondaryStructure.BasePair> StemPairs(string arm5, string arm3)
+    {
+        // arm5 read 5'→3', arm3 read 5'→3'; pair arm5[k] with arm3[^(k+1)] (antiparallel).
+        var pairs = new List<RnaSecondaryStructure.BasePair>();
+        for (int k = 0; k < arm5.Length; k++)
+        {
+            char b1 = arm5[k];
+            char b2 = arm3[arm3.Length - 1 - k];
+            var type = (b1 == 'G' && b2 == 'U') || (b1 == 'U' && b2 == 'G')
+                ? RnaSecondaryStructure.BasePairType.Wobble
+                : RnaSecondaryStructure.BasePairType.WatsonCrick;
+            pairs.Add(new RnaSecondaryStructure.BasePair(k, arm5.Length + arm3.Length - 1 - k, b1, b2, type));
+        }
+        return pairs;
+    }
+
+    #region BE — Boundary: empty (no base pairs / empty sequence) → ΔG defined, 0
+
+    /// <summary>
+    /// BE — "Empty": the empty boundary on every free-energy surface.
+    ///   • CalculateStemEnergy with an EMPTY base-pair list → exactly 0 (INV-04: P−1
+    ///     stacks with P = 0), never an IndexOutOfRange off basePairs[0]/basePairs[^1]
+    ///     (Hairpin_Energy_Calculation.md §3.3, §6.1).
+    ///   • CalculatePartitionFunction("") → Z = 1 (only the empty open chain), no pairs.
+    /// Both are finite and never throw on the empty input.
+    /// </summary>
+    [Test]
+    public void Energy_Empty_ReturnsDefinedZeroAndDoesNotThrow()
+    {
+        var act = () => RnaSecondaryStructure.CalculateStemEnergy(
+            "", new List<RnaSecondaryStructure.BasePair>());
+        double e = act.Should().NotThrow("an empty helix has no stacks — a defined no-op, not an error").Subject;
+        e.Should().Be(0, "ΔG of zero base pairs is exactly 0 (INV-04)");
+        double.IsFinite(e).Should().BeTrue();
+
+        // The Boltzmann/partition surface on the empty sequence: Z = 1, no base pairs.
+        var pf = RnaSecondaryStructure.CalculatePartitionFunction("");
+        pf.PartitionFunction.Should().Be(1.0, "the empty sequence admits only the empty structure (Z = 1)");
+        pf.BasePairProbabilities.Should().BeEmpty();
+    }
+
+    #endregion
+
+    #region BE — Boundary: no stacks (a single base pair) → 0 stacking terms, finite ΔG
+
+    /// <summary>
+    /// BE — "no stacks": a helix with FEWER THAN 2 base pairs encloses no nearest-
+    /// neighbor stack (P−1 = 0 stacking terms for P = 1). The stacking sum is therefore
+    /// 0; only the terminal-end penalty (a finite constant, +0.45 per AU/GU end) may
+    /// remain. The ΔG must be defined and finite — never NaN, never a crash from
+    /// indexing a one-element list (Hairpin_Energy_Calculation.md §2.2, §2.4 INV-04).
+    /// </summary>
+    [Test]
+    public void Energy_SingleBasePair_HasNoStackingTermAndStaysFinite()
+    {
+        // One G-C pair: a non-AU/GU end → no terminal penalty → exactly 0 stacking energy.
+        var gc = StemPairs("G", "C");
+        double eGc = RnaSecondaryStructure.CalculateStemEnergy("GC", gc);
+        eGc.Should().Be(0, "a lone G-C pair has 0 nearest-neighbor stacks and no AU/GU end penalty");
+        double.IsFinite(eGc).Should().BeTrue();
+
+        // One A-U pair: still 0 stacks, but both ends are AU termini → 2 × +0.45 penalty.
+        // The point is the result is DEFINED and FINITE, with no stacking contribution.
+        var au = StemPairs("A", "U");
+        double eAu = RnaSecondaryStructure.CalculateStemEnergy("AU", au);
+        double.IsFinite(eAu).Should().BeTrue("a single-pair helix yields a finite, defined ΔG (no stacking term)");
+        eAu.Should().BeApproximately(0.90, 1e-9,
+            "0 stacks + two AU-end penalties (2 × +0.45) — the only non-stacking contribution");
+    }
+
+    #endregion
+
+    #region BE — Boundary: temperature = 0 K → rejected, never DivideByZero / NaN
+
+    /// <summary>
+    /// BE — "temperature = 0": the KEY divide-by-zero concern. T is ABSOLUTE (Kelvin;
+    /// DefaultTemperatureKelvin = 310.15 K = 37 °C). Both Boltzmann surfaces put RT in a
+    /// denominator (β = 1/RT, RT = R·T/1000); at T = 0 RT = 0 → β undefined → exp(±∞) →
+    /// NaN/Inf. The contract REJECTS a non-positive Kelvin temperature with
+    /// ArgumentOutOfRangeException rather than leaking a NaN/Inf energy or probability —
+    /// the documented, intentional validation outcome a fuzzed boundary must hit.
+    /// </summary>
+    [Test]
+    public void Energy_TemperatureZero_IsRejectedNotDivideByZero()
+    {
+        var pf = () => RnaSecondaryStructure.CalculatePartitionFunction("GGGAAACCC", temperature: 0.0);
+        pf.Should().Throw<ArgumentOutOfRangeException>(
+            "T = 0 K makes RT = 0 (β = 1/RT undefined) — rejected, not a divide-by-zero NaN");
+
+        var prob = () => RnaSecondaryStructure.CalculateStructureProbability(-5.0, -10.0, temperature: 0.0);
+        prob.Should().Throw<ArgumentOutOfRangeException>(
+            "T = 0 K in the Boltzmann denominator must be rejected, never return NaN/Inf");
+    }
+
+    #endregion
+
+    #region BE — Boundary: temperature negative → rejected, finite-or-throw (never NaN/Inf)
+
+    /// <summary>
+    /// BE — "temperature negative": a negative Kelvin temperature is physically
+    /// meaningless. It must NOT silently become an inverted (and possibly &gt;1) Boltzmann
+    /// weight or a NaN: both surfaces REJECT it with ArgumentOutOfRangeException, the same
+    /// guard as T = 0. We sweep several negative magnitudes to be sure the rejection is on
+    /// the SIGN of T, not a single sentinel.
+    /// </summary>
+    [Test]
+    public void Energy_TemperatureNegative_IsRejectedNeverNaNorInf()
+    {
+        foreach (double t in new[] { -1.0, -37.0, -273.15, double.MinValue })
+        {
+            var pf = () => RnaSecondaryStructure.CalculatePartitionFunction("GGGAAACCC", temperature: t);
+            pf.Should().Throw<ArgumentOutOfRangeException>(
+                $"a negative Kelvin temperature ({t}) is physically invalid and must be rejected");
+
+            var prob = () => RnaSecondaryStructure.CalculateStructureProbability(-5.0, -10.0, temperature: t);
+            prob.Should().Throw<ArgumentOutOfRangeException>(
+                $"a negative Kelvin temperature ({t}) in the Boltzmann denominator must be rejected, never NaN/Inf");
+        }
+    }
+
+    #endregion
+
+    #region Positive sanity — a stable G-C helix has a finite, NEGATIVE ΔG
+
+    /// <summary>
+    /// Positive sanity: a fully Watson-Crick G-C helix is the MOST stable RNA motif, so
+    /// its nearest-neighbor ΔG must be FINITE and clearly NEGATIVE (stacking dominates;
+    /// no AU/GU-end penalty applies). A 4-bp GGGG/CCCC stem sums three G-C stacks
+    /// (GG/CC −3.26, GC/CG −3.42, …) to a strongly negative value. This proves the
+    /// energy model the fuzz harness asserts against actually scores real stability —
+    /// not a no-op — and at the default 310.15 K the Boltzmann surface stays well-formed.
+    /// </summary>
+    [Test]
+    public void Energy_StableGcStem_HasFiniteNegativeDeltaG()
+    {
+        // GGGG (5') paired antiparallel to CCCC (3'): a clean 4-bp G-C helix, 3 stacks.
+        var stem = StemPairs("GGGG", "CCCC");
+        double dg = RnaSecondaryStructure.CalculateStemEnergy("GGGGCCCC", stem);
+
+        double.IsFinite(dg).Should().BeTrue("a helix ΔG is a finite physical energy");
+        dg.Should().BeLessThan(0, "a stable G-C helix has negative ΔG — stacking stabilises it");
+        dg.Should().BeLessThan(-5.0, "three G-C stacks sum to a strongly negative ΔG (≈ −9 to −10 kcal/mol)");
+
+        // Boltzmann surface at the physical default temperature is well-formed and finite.
+        var pf = RnaSecondaryStructure.CalculatePartitionFunction("GGGGCCCC", basePairEnergy: -1.0);
+        pf.PartitionFunction.Should().BeGreaterThanOrEqualTo(1.0, "Z ≥ 1 (the empty structure is always counted)");
+        double.IsFinite(pf.PartitionFunction).Should().BeTrue();
+
+        double prob = RnaSecondaryStructure.CalculateStructureProbability(-9.0, -10.0);
+        double.IsFinite(prob).Should().BeTrue("a Boltzmann probability at 310.15 K is finite");
+        prob.Should().BeInRange(0.0, 1.0, "a structure probability lies in [0,1] at a valid temperature");
     }
 
     #endregion
