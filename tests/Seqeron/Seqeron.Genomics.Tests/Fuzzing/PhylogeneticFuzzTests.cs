@@ -239,6 +239,61 @@ namespace Seqeron.Genomics.Tests;
 /// well-formed binary tree (Newick_Format.md §4; PHYLO-NEWICK-001.md M05–M10). ParseNewick /
 /// ToNewick are pure, so every probe calls them directly; all fuzz inputs are deterministic
 /// (fixed strings or locally fixed-seed Random — no shared static RNG).
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: PHYLO-COMP-001 — tree comparison (Robinson–Foulds distance)
+/// Checklist: docs/checklists/03_FUZZING.md, row 42 (the LAST Phylogenetic-area unit).
+/// Fuzz strategy exercised for THIS unit:
+///   • BE = Boundary Exploitation — the degenerate tree-pair boundaries: the SAME tree
+///          compared with itself (the identity-of-a-metric KEY), trees over DIFFERENT
+///          leaf sets (the mismatched-taxon boundary — must not KeyNotFound/NullReference),
+///          and the empty / single-leaf / null tree (no comparable clade — never crash).
+/// — docs/checklists/03_FUZZING.md §Description (BE = boundary values: 0, empty);
+///   row 42 targets: "Same tree vs same tree, different leaf sets, empty tree".
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The tree-comparison contract under test (Tree_Comparison.md)
+/// ───────────────────────────────────────────────────────────────────────────
+/// PhylogeneticAnalyzer compares two trees by ROOTED Robinson–Foulds distance — the size of
+/// the symmetric difference of the two trees' sets of non-trivial CLADES (Tree_Comparison.md
+/// §2.A; the rooted-clade interpretation, NOT the unrooted-bipartition variant):
+///   RF(T1,T2) = |S1 △ S2| = |S1 \ S2| + |S2 \ S1|,  S = clades(T) (Tree_Comparison.md §2.A).
+/// A clade is the set of taxa beneath an internal node; the implementation keeps only
+/// NON-TRIVIAL clades — strictly more than one taxon (not a leaf) and strictly fewer than all
+/// (not the full-tree root) — each materialised as a sorted, "|"-joined taxon-name string and
+/// compared as a string set (CollectClades, lines 1034–1058; §5.2).
+///
+/// API entry point (Tree_Comparison.md §5.1; PhylogeneticAnalyzer.cs):
+///   • RobinsonFouldsDistance(PhyloNode tree1, PhyloNode tree2) (lines 868–875) — returns the
+///     raw rooted RF distance as an int. Branch lengths are IGNORED (topology only; §3.3).
+///
+/// THE THREE ROW-42 FUZZ TARGETS, mapped to the theory-correct contract (empirically verified):
+///   • Same tree vs same tree (BE — INV-RF-01, identity, KEY): clades(T) = clades(T) so the
+///     symmetric difference is empty and RF(T,T) = 0 — the defining metric property
+///     (Tree_Comparison.md §2.A INV-RF-01). Pinned for hand-built and Newick-parsed trees and
+///     for an equal-content-but-distinct-object pair (the comparison is by clade STRING, not
+///     reference identity), and alongside it INV-RF-02 symmetry and INV-RF-03 non-negativity.
+///   • Different leaf sets (BE — mismatched-taxon boundary, KEY): the RAW rooted RF surface is
+///     defined as a string-set symmetric difference, so trees over DIFFERENT (partially- or
+///     fully-disjoint) leaf sets do NOT throw and do NOT KeyNotFound/NullReference — they yield
+///     a finite, non-negative, symmetric clade-difference count (verified: a one-taxon-swapped
+///     four-taxon pair → 2; fully-disjoint four-taxon trees → 4). NOTE: this differs from the
+///     SEPARATE CalculateUnrootedRobinsonFoulds surface, which DOES reject mismatched leaf sets
+///     with ArgumentException; the row-42 unit under test is the raw rooted RobinsonFouldsDistance,
+///     whose documented behaviour is the tolerant symmetric-difference count (§3.3, §5.2,
+///     §5.3.A "raw rooted RF"). We pin the VERIFIED tolerant behaviour, not a guessed rejection.
+///   • Empty tree (BE — no comparable clade): a null root, a single-leaf tree, and a two-leaf
+///     tree each carry NO non-trivial clade (GetLeaves(null) yields nothing; CollectClades guards
+///     null; a 1-/2-leaf tree produces an empty clade set). RF therefore stays a finite 0 (or a
+///     plain clade count vs a richer tree) — NEVER a NullReferenceException, KeyNotFound, or
+///     DivideByZero (GetClades/CollectClades null-guard; §6.1 "no non-trivial clade → 0").
+///
+/// THE POSITIVE SANITY (INV-RF-01/02/05): two four-taxon trees differing in exactly ONE clade —
+/// the balanced cherry ((A,B),(C,D)) vs the caterpillar (((A,B),C),D) — have RF = 2 (each tree
+/// contributes one clade absent from the other), the comparison is symmetric (RF(a,b)=RF(b,a)),
+/// and RF stays within the rooted-binary bound 2(n−2) = 4 for n = 4 (Tree_Comparison.md §2.A
+/// INV-RF-05). RobinsonFouldsDistance is a pure static method, so every probe calls it directly
+/// with deterministic, hand-built or fixed-string Newick trees (no shared static RNG).
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -1050,6 +1105,164 @@ public class PhylogeneticFuzzTests
         var tree = PhylogeneticAnalyzer.ParseNewick("(A:0.1,B:0.2);");
         PhylogeneticAnalyzer.ToNewick(tree).Should().EndWith(";",
             "every serialized tree ends with ';' (INV-01; N1)");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  PHYLO-COMP-001 — tree comparison (Robinson–Foulds) : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region PHYLO-COMP-001 — tree comparison
+
+    #region Positive sanity — one-clade-difference RF + symmetry + bound
+
+    /// <summary>
+    /// Positive-sanity anchor: two four-taxon trees differing in EXACTLY one clade — the balanced
+    /// cherry ((A,B),(C,D)) versus the caterpillar (((A,B),C),D) — have rooted RF = 2 (each tree
+    /// contributes one non-trivial clade absent from the other). The comparison is symmetric
+    /// (INV-RF-02) and stays within the rooted-binary upper bound 2(n−2) = 4 for n = 4 (INV-RF-05;
+    /// Tree_Comparison.md §2.A). The shared clade {A,B} cancels in the symmetric difference, so only
+    /// the differing clades — {A,B,C} in the caterpillar and {C,D} in the cherry — are counted.
+    /// </summary>
+    [Test]
+    public void RobinsonFoulds_OneCladeDifference_IsTwo_AndSymmetric_WithinBound()
+    {
+        var cherry = PhylogeneticAnalyzer.ParseNewick("((A,B),(C,D));");
+        var caterpillar = PhylogeneticAnalyzer.ParseNewick("(((A,B),C),D);");
+
+        int rf = PhylogeneticAnalyzer.RobinsonFouldsDistance(cherry, caterpillar);
+        rf.Should().Be(2, "the two trees differ in exactly one clade each → symmetric difference 2");
+
+        // INV-RF-02: symmetry.
+        PhylogeneticAnalyzer.RobinsonFouldsDistance(caterpillar, cherry)
+            .Should().Be(rf, "rooted RF is symmetric: RF(T1,T2) = RF(T2,T1) (INV-RF-02)");
+
+        // INV-RF-03 / INV-RF-05: non-negative and within the rooted-binary maximum 2(n−2).
+        rf.Should().BeGreaterThanOrEqualTo(0, "RF is a symmetric-difference count → non-negative (INV-RF-03)");
+        const int n = 4;
+        rf.Should().BeLessThanOrEqualTo(2 * (n - 2), "RF ≤ 2(n−2) for rooted binary trees on n taxa (INV-RF-05)");
+
+        // INV-RF-04: even for binary trees with the same leaf set.
+        (rf % 2).Should().Be(0, "RF is even for binary trees over the same leaf set (INV-RF-04)");
+    }
+
+    #endregion
+
+    #region BE — Same tree vs same tree (identity, INV-RF-01, KEY)
+
+    /// <summary>
+    /// KEY identity probe (INV-RF-01): a tree compared with itself has identical clade sets, so the
+    /// symmetric difference is empty and RF(T,T) = 0 (Tree_Comparison.md §2.A). Pinned for a
+    /// hand-built tree, the SAME reference re-used, and — crucially — two DISTINCT objects with
+    /// equal content (RF compares clade STRINGS, not reference identity), so a structurally equal
+    /// re-parse also yields 0. Symmetry and non-negativity are pinned alongside.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void SameTreeVsSameTree_DistanceIsZero_AndSymmetric()
+    {
+        var tree = PhylogeneticAnalyzer.ParseNewick("(((A,B),C),(D,E));");
+
+        // Same reference: trivially identical clade sets.
+        PhylogeneticAnalyzer.RobinsonFouldsDistance(tree, tree)
+            .Should().Be(0, "a tree compared with itself has an empty clade symmetric difference (INV-RF-01)");
+
+        // Two DISTINCT objects of equal content: comparison is by clade string, not by reference.
+        var twin = PhylogeneticAnalyzer.ParseNewick("(((A,B),C),(D,E));");
+        int rf = PhylogeneticAnalyzer.RobinsonFouldsDistance(tree, twin);
+        rf.Should().Be(0, "equal-content but distinct tree objects still have identical clade sets → 0");
+
+        // INV-RF-02 symmetry, INV-RF-03 non-negativity on the identity pair.
+        PhylogeneticAnalyzer.RobinsonFouldsDistance(twin, tree)
+            .Should().Be(rf, "RF is symmetric even on the identity pair (INV-RF-02)");
+        rf.Should().BeGreaterThanOrEqualTo(0, "RF is non-negative (INV-RF-03)");
+    }
+
+    #endregion
+
+    #region BE — Different leaf sets (mismatched-taxon boundary, KEY)
+
+    /// <summary>
+    /// KEY mismatched-taxon boundary: the RAW rooted <see cref="PhylogeneticAnalyzer.RobinsonFouldsDistance"/>
+    /// is defined as a clade-STRING symmetric difference, so trees over DIFFERENT leaf sets do NOT
+    /// throw, NOT KeyNotFound, and NOT NullReference — they yield a finite, non-negative, symmetric
+    /// clade-difference count (Tree_Comparison.md §5.2, §5.3.A "raw rooted RF"). VERIFIED values:
+    /// a one-taxon-swapped four-taxon pair ((A,B),(C,D)) vs ((A,B),(C,E)) → 2 (the {C,D}/{C,E} clades
+    /// differ); fully-disjoint trees ((A,B),(C,D)) vs ((W,X),(Y,Z)) → 4 (no clade in common). This
+    /// is the documented RAW rooted contract — distinct from the SEPARATE
+    /// CalculateUnrootedRobinsonFoulds surface, which intentionally REJECTS mismatched leaf sets.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void DifferentLeafSets_NoCrash_FiniteSymmetricNonNegativeCount()
+    {
+        var baseTree = PhylogeneticAnalyzer.ParseNewick("((A,B),(C,D));");
+        var oneSwapped = PhylogeneticAnalyzer.ParseNewick("((A,B),(C,E));"); // D → E: partial overlap
+        var disjoint = PhylogeneticAnalyzer.ParseNewick("((W,X),(Y,Z));");   // no taxon in common
+
+        foreach (var other in new[] { oneSwapped, disjoint })
+        {
+            Action act = () => PhylogeneticAnalyzer.RobinsonFouldsDistance(baseTree, other);
+            act.Should().NotThrow("the raw rooted RF tolerates mismatched leaf sets (no KeyNotFound/NullReference)");
+
+            int rf = PhylogeneticAnalyzer.RobinsonFouldsDistance(baseTree, other);
+            rf.Should().BeGreaterThanOrEqualTo(0, "a clade symmetric-difference count is non-negative (INV-RF-03)");
+            PhylogeneticAnalyzer.RobinsonFouldsDistance(other, baseTree)
+                .Should().Be(rf, "RF stays symmetric even across mismatched leaf sets (INV-RF-02)");
+        }
+
+        // Exact pins prove the differing clades are counted, not miscounted or skipped.
+        PhylogeneticAnalyzer.RobinsonFouldsDistance(baseTree, oneSwapped)
+            .Should().Be(2, "the partially-overlapping {C,D} vs {C,E} clades each differ → 2");
+        PhylogeneticAnalyzer.RobinsonFouldsDistance(baseTree, disjoint)
+            .Should().Be(4, "fully-disjoint leaf sets share no clade → all clades differ");
+    }
+
+    #endregion
+
+    #region BE — Empty / single-leaf / null tree (no comparable clade → never crash)
+
+    /// <summary>
+    /// The empty / degenerate-tree boundary: a null root, a single leaf, and a two-leaf tree each
+    /// carry NO non-trivial clade (GetLeaves(null) yields nothing; CollectClades null-guards; a 1-/
+    /// 2-leaf tree produces an empty clade set). RF therefore stays a finite, non-negative count and
+    /// NEVER NullReferences, KeyNotFounds, or divides by zero (Tree_Comparison.md §6.1 "no non-trivial
+    /// clade → 0"). The empty-vs-empty and empty-vs-populated pairs are both pinned.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void EmptyOrSingleLeafOrNullTree_NoCrash_DistanceIsCladeCount()
+    {
+        var populated = PhylogeneticAnalyzer.ParseNewick("((A,B),(C,D));");
+        var singleLeaf = new PhylogeneticAnalyzer.PhyloNode { Name = "A", Taxa = new List<string> { "A" } };
+        var twoLeaf = PhylogeneticAnalyzer.ParseNewick("(A,B);");
+
+        // null vs null: both clade sets empty → 0, no NullReference.
+        Action nullPair = () => PhylogeneticAnalyzer.RobinsonFouldsDistance(null!, null!);
+        nullPair.Should().NotThrow("two null trees have empty clade sets → guarded, never NullReference");
+        PhylogeneticAnalyzer.RobinsonFouldsDistance(null!, null!)
+            .Should().Be(0, "no clade on either side → symmetric difference 0");
+
+        // null vs populated: only the populated side contributes clades; no crash, symmetric.
+        int nullVsPop = PhylogeneticAnalyzer.RobinsonFouldsDistance(null!, populated);
+        nullVsPop.Should().BeGreaterThanOrEqualTo(0, "a one-sided clade set yields a non-negative count");
+        PhylogeneticAnalyzer.RobinsonFouldsDistance(populated, null!)
+            .Should().Be(nullVsPop, "RF stays symmetric with one empty operand (INV-RF-02)");
+
+        // single leaf: no non-trivial clade (a lone taxon is trivial) → self-RF 0, no crash.
+        PhylogeneticAnalyzer.RobinsonFouldsDistance(singleLeaf, singleLeaf)
+            .Should().Be(0, "a single-leaf tree has no non-trivial clade → RF(T,T)=0 (INV-RF-01)");
+        Action leafVsPop = () => PhylogeneticAnalyzer.RobinsonFouldsDistance(singleLeaf, populated);
+        leafVsPop.Should().NotThrow("a single-leaf vs a populated tree must not crash");
+
+        // two-leaf tree: still no non-trivial clade (the only internal node is the full-tree root).
+        PhylogeneticAnalyzer.RobinsonFouldsDistance(twoLeaf, twoLeaf)
+            .Should().Be(0, "a two-leaf tree carries no non-trivial clade → RF 0");
+        PhylogeneticAnalyzer.RobinsonFouldsDistance(twoLeaf, populated)
+            .Should().BeGreaterThanOrEqualTo(0, "two-leaf vs richer tree is a non-negative clade count, no crash");
     }
 
     #endregion
