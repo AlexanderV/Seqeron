@@ -477,6 +477,17 @@ public static class PhylogeneticAnalyzer
                 }
             }
 
+            // Guard: if no pair was selected (e.g. every Q value is NaN because the distance
+            // matrix carries the saturation sentinel +Infinity → Inf − Inf = NaN, and NaN
+            // comparisons are always false), fall back to the first two active OTUs so the
+            // join still proceeds — mirroring the UPGMA min-search fallback. Without this the
+            // sentinel-laden matrix would index dist[-1, …] and throw IndexOutOfRangeException.
+            if (minI == -1 || minJ == -1)
+            {
+                minI = active[0];
+                minJ = active[1];
+            }
+
             // Calculate branch lengths
             double distIJ = dist[minI, minJ];
             double branchI = (distIJ / 2) + (r[minI] - r[minJ]) / (2 * (m - 2));

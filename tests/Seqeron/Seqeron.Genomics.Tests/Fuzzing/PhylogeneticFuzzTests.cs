@@ -294,6 +294,78 @@ namespace Seqeron.Genomics.Tests;
 /// and RF stays within the rooted-binary bound 2(n−2) = 4 for n = 4 (Tree_Comparison.md §2.A
 /// INV-RF-05). RobinsonFouldsDistance is a pure static method, so every probe calls it directly
 /// with deterministic, hand-built or fixed-string Newick trees (no shared static RNG).
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: PHYLO-BOOT-001 — phylogenetic bootstrap (Felsenstein 1985)
+/// Checklist: docs/checklists/03_FUZZING.md, row 221.
+/// Fuzz strategy exercised for THIS unit:
+///   • BE = Boundary Exploitation — the degenerate boundaries of the bootstrap: a SINGLE
+///          minimal tree (the smallest 2-taxon and 3-taxon alignments — a 2-taxon input has
+///          NO non-trivial clade to score, a 3-taxon input has exactly one), ZERO (and
+///          negative) replicates (the denominator B; B &lt; 1 must be a documented throw, never
+///          a divide-by-zero), and ALL-IDENTICAL sequences (no phylogenetic signal — a
+///          zero-distance matrix that must not NaN/divide-by-zero, yet still yields defined
+///          support in [0,1]).
+/// — docs/checklists/03_FUZZING.md §Description (BE = boundary values: 0, -1, empty);
+///   row 221 targets: "single tree, 0 replicates, identical sequences".
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The bootstrap contract under test (Bootstrap_Analysis.md)
+/// ───────────────────────────────────────────────────────────────────────────
+/// PhylogeneticAnalyzer.Bootstrap is Felsenstein's (1985) non-parametric phylogenetic bootstrap
+/// [Bootstrap_Analysis.md §2.2, refs 1–3]: build the reference tree T₀ from the original
+/// alignment and record its set of non-trivial clades C(T₀); then for each of B replicates draw
+/// L column indices uniformly WITH REPLACEMENT from {0..L−1}, assemble a pseudo-alignment of the
+/// SAME length L keeping ALL taxa, rebuild a replicate tree Tᵣ, and for every reference clade
+/// c ∈ C(T₀) count whether some clade of Tᵣ has the identical leaf-name set. The returned support
+/// is the PROPORTION
+///   support(c) = #{ r : c ∈ C(Tᵣ) } / B ∈ [0,1]   (Bootstrap_Analysis.md §2.2; ×100 = percentage).
+/// A clade is keyed by its sorted, '|'-joined leaf names; only NON-TRIVIAL clades (more than one
+/// taxon, fewer than all) are scored — exactly C(T₀) (INV-03; CollectClades).
+///
+/// API entry point (Bootstrap_Analysis.md §3.1, §5.1; PhylogeneticAnalyzer.cs lines 1173–1235):
+///   • Bootstrap(IReadOnlyDictionary&lt;string,string&gt; sequences, int replicates = 100,
+///       DistanceMethod = JukesCantor, TreeMethod = UPGMA, int seed = 42)
+///     → IReadOnlyDictionary&lt;string,double&gt;  (clade key → support in [0,1]).
+///     null sequences → ArgumentNullException; &lt; 2 sequences → ArgumentException;
+///     replicates &lt; 1 → ArgumentException (§3.3, §6.1).
+/// The `seed` parameter makes the otherwise-stochastic resampling REPRODUCIBLE (INV-04); every
+/// probe passes a FIXED seed (no shared static RNG).
+///
+/// THE ROW-221 FUZZ TARGETS, mapped to the theory-correct contract:
+///   • single tree (BE — minimal taxon set): a 2-taxon alignment has only the full-tree root
+///     as an internal node, which is the TRIVIAL clade {both taxa} and is NOT scored — so the
+///     support map is EMPTY, never a crash and never a spurious entry (INV-03; CollectThe
+///     non-trivial filter). The smallest input that yields one scored clade is 3 taxa, where
+///     exactly ONE non-trivial clade (the closest pair) is reported. Both pinned.
+///   • 0 replicates (BE — KEY divide-by-zero hazard): the support denominator is B; the source
+///     VALIDATES `replicates &lt; 1` and throws ArgumentException BEFORE the count/B division
+///     (line 1184) — so B = 0 (and B = −1, the BE −1 probe) is a documented rejection, NEVER a
+///     DivideByZeroException, a 0/0 = NaN, or an Infinity (Bootstrap_Analysis.md §3.3, §6.1).
+///     The smallest VALID B = 1 is pinned to return quantized 0-or-1 support (count/1 ∈ {0,1}).
+///   • identical sequences (BE — no signal, NaN / div-by-zero hazard): all-identical sequences
+///     give a zero-distance matrix; every replicate's resampled pseudo-alignment is ALSO
+///     all-identical (resampling identical columns yields identical columns), so each replicate
+///     rebuilds the same degenerate topology. The build must not NaN or divide by zero, and the
+///     returned support is DEFINED and ∈ [0,1] for every reported clade (Bootstrap_Analysis.md
+///     §6.1 "all-identical sequences → every reported clade has support 1.0", INV-05).
+///
+/// THE POSITIVE-SANITY ANCHOR (worked example, Bootstrap_Analysis.md §7.1): the doc's hand-checkable
+/// four-taxon alignment A=B="AAAAAAAAAA", C=D="GGGGGGGGGG" has two well-separated groups {A,B} and
+/// {C,D}; because d(A,B)=d(C,D)=0 and A/B-vs-C/D is saturated under EVERY column resample, every
+/// replicate recovers the SAME {A,B},{C,D} topology, so support["A|B"] = support["C|D"] = 1.0
+/// (count = B ⇒ B/B = 1; INV-05, ref 1). Pinned verbatim against the documented expected values.
+///
+/// THE INVARIANTS PINNED (Bootstrap_Analysis.md §2.4): INV-01 0 ≤ support(c) ≤ 1 for every reported
+/// clade; INV-02 support(c) = k/B for an integer k (quantization); INV-03 reported clades = the
+/// reference tree's non-trivial clades; INV-04 fixed (alignment, B, methods, seed) ⇒ identical
+/// result across runs; INV-05 a clade in every replicate has support 1.0. A randomized boundary
+/// sweep over locally-seeded random alignments asserts the no-crash / [0,1] / quantization
+/// contract across many shapes. The fuzz bar (docs/ADVANCED_TESTING_CHECKLIST.md §8 "Fuzzing"):
+/// no crash / hang / NaN / Infinity / corruption, and the real algorithmic contract (support ∈
+/// [0,1], one per non-trivial reference clade, = fraction of replicates recovering it) is pinned.
+/// Bootstrap is a pure static method; every probe passes a FIXED seed (no shared static RNG) and
+/// hang-sensitive / randomized-sweep probes carry [CancelAfter].
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -1263,6 +1335,314 @@ public class PhylogeneticFuzzTests
             .Should().Be(0, "a two-leaf tree carries no non-trivial clade → RF 0");
         PhylogeneticAnalyzer.RobinsonFouldsDistance(twoLeaf, populated)
             .Should().BeGreaterThanOrEqualTo(0, "two-leaf vs richer tree is a non-negative clade count, no crash");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  PHYLO-BOOT-001 — phylogenetic bootstrap (Felsenstein 1985) : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region PHYLO-BOOT-001 — phylogenetic bootstrap
+
+    #region Helpers — bootstrap
+
+    /// <summary>
+    /// Independent re-derivation of a clade key as the implementation and the doc define it
+    /// (Bootstrap_Analysis.md §4.2): the subtree's leaf names, sorted ascending and '|'-joined.
+    /// Computed here from the TAXON NAMES alone — NOT read back off the algorithm's own output —
+    /// so an expected key is derived from the spec, not echoed from the code.
+    /// </summary>
+    private static string CladeKey(params string[] leafNames) =>
+        string.Join("|", leafNames.OrderBy(n => n, StringComparer.Ordinal));
+
+    /// <summary>
+    /// Pins the universal documented support contract on a returned map (Bootstrap_Analysis.md
+    /// §2.4): every value is finite (no NaN/±Inf), lies in [0,1] (INV-01), and is quantized to
+    /// k/replicates for an integer k (INV-02). Returns nothing; asserts.
+    /// </summary>
+    private static void SupportMapObeysContract(
+        IReadOnlyDictionary<string, double> support, int replicates)
+    {
+        foreach (var kvp in support)
+        {
+            double s = kvp.Value;
+            double.IsNaN(s).Should().BeFalse("a bootstrap support value must never be NaN (clade {0})", kvp.Key);
+            double.IsInfinity(s).Should().BeFalse("a bootstrap support value must never be ±Infinity (clade {0})", kvp.Key);
+            s.Should().BeGreaterThanOrEqualTo(0.0, "support = count/B ≥ 0 (INV-01, clade {0})", kvp.Key);
+            s.Should().BeLessThanOrEqualTo(1.0, "support = count/B ≤ 1 (INV-01, clade {0})", kvp.Key);
+
+            // INV-02: support = k/B for an integer k ⇒ s*B is an integer.
+            double scaled = s * replicates;
+            scaled.Should().BeApproximately(Math.Round(scaled), 1e-9,
+                "support is quantized to (integer count)/replicates (INV-02, clade {0})", kvp.Key);
+        }
+    }
+
+    #endregion
+
+    #region Positive sanity — documented worked example (two well-separated groups → 1.0)
+
+    /// <summary>
+    /// Positive-sanity anchor reproducing the doc's hand-checkable worked example verbatim
+    /// (Bootstrap_Analysis.md §7.1): the four-taxon alignment A=B="AAAAAAAAAA",
+    /// C=D="GGGGGGGGGG". Because d(A,B)=d(C,D)=0 and the A/B-vs-C/D split is fully saturated,
+    /// EVERY column-resample leaves the same {A,B},{C,D} structure, so every replicate recovers
+    /// both clades ⇒ support["A|B"] = support["C|D"] = 1.0 (count = B ⇒ B/B = 1; INV-05, ref 1).
+    /// The expected keys and values are derived from the SPEC, not read off the algorithm's map.
+    /// </summary>
+    [Test]
+    [CancelAfter(15_000)]
+    public void Bootstrap_TwoWellSeparatedGroups_DocumentedExample_BothCladesFullySupported()
+    {
+        var sequences = new Dictionary<string, string>
+        {
+            ["A"] = "AAAAAAAAAA",
+            ["B"] = "AAAAAAAAAA",
+            ["C"] = "GGGGGGGGGG",
+            ["D"] = "GGGGGGGGGG",
+        };
+
+        var support = PhylogeneticAnalyzer.Bootstrap(sequences, replicates: 100, seed: 42);
+
+        SupportMapObeysContract(support, replicates: 100);
+
+        // The two non-trivial clades of the reference tree, keyed independently from the taxon names.
+        string ab = CladeKey("A", "B");
+        string cd = CladeKey("C", "D");
+
+        support.Should().ContainKey(ab, "{{A,B}} is a non-trivial clade of the reference tree (INV-03)");
+        support.Should().ContainKey(cd, "{{C,D}} is a non-trivial clade of the reference tree (INV-03)");
+        support[ab].Should().Be(1.0, "every resampled replicate recovers {{A,B}} → support 1.0 (Bootstrap_Analysis.md §7.1, INV-05)");
+        support[cd].Should().Be(1.0, "every resampled replicate recovers {{C,D}} → support 1.0 (Bootstrap_Analysis.md §7.1, INV-05)");
+
+        // INV-03: the reported keys are EXACTLY the reference tree's non-trivial clades — for a
+        // 4-taxon rooted tree split into two cherries, that is precisely {A,B} and {C,D}.
+        support.Keys.Should().BeEquivalentTo(new[] { ab, cd },
+            "only the reference tree's non-trivial clades are scored (INV-03)");
+    }
+
+    /// <summary>
+    /// INV-04 (reproducibility): for a FIXED (alignment, replicates, methods, seed) the support
+    /// map is byte-for-byte identical across independent calls — resampling is the only randomness
+    /// and it is seeded (Bootstrap_Analysis.md §2.4 INV-04). Two different seeds are allowed to
+    /// differ but must each independently obey the [0,1]/quantization contract.
+    /// </summary>
+    [Test]
+    [CancelAfter(15_000)]
+    public void Bootstrap_FixedSeed_IsReproducible_AcrossRuns()
+    {
+        var sequences = new Dictionary<string, string>
+        {
+            ["A"] = "ACGTACGTACGTAC",
+            ["B"] = "ACGTACGTACGTAG", // close to A
+            ["C"] = "TGCATGCATGCATG",
+            ["D"] = "TGCATGCATGCATC", // close to C
+        };
+
+        var run1 = PhylogeneticAnalyzer.Bootstrap(sequences, replicates: 50, seed: 12345);
+        var run2 = PhylogeneticAnalyzer.Bootstrap(sequences, replicates: 50, seed: 12345);
+
+        run2.Should().BeEquivalentTo(run1, "a fixed seed makes the resampling reproducible (INV-04)");
+        SupportMapObeysContract(run1, replicates: 50);
+    }
+
+    #endregion
+
+    #region BE — single tree (minimal taxon set: 2 taxa → empty, 3 taxa → one clade)
+
+    /// <summary>
+    /// BE "single tree" — the minimal taxon set. A 2-taxon alignment builds a single tree whose
+    /// only internal node is the full-tree root: that is the TRIVIAL clade {both taxa} (all taxa),
+    /// which the non-trivial filter excludes (CollectClades: subtreeTaxa.Count &lt; totalLeaves) —
+    /// so the support map is EMPTY (no clade is scorable), never a crash and never a spurious
+    /// entry (INV-03). The smallest input yielding ONE scored clade is 3 taxa (the closest pair
+    /// forms the single non-trivial clade). Both pinned; the value still obeys [0,1]/quantization.
+    /// </summary>
+    [Test]
+    [CancelAfter(10_000)]
+    public void Bootstrap_SingleMinimalTree_TwoTaxaEmpty_ThreeTaxaOneClade()
+    {
+        // 2 taxa: only the root (trivial, = all taxa) exists ⇒ no non-trivial clade ⇒ empty map.
+        var twoTaxa = new Dictionary<string, string>
+        {
+            ["X"] = "ACGTACGTAC",
+            ["Y"] = "ACGTACGTTT",
+        };
+        IReadOnlyDictionary<string, double> twoSupport = null!;
+        Action twoAct = () => twoSupport = PhylogeneticAnalyzer.Bootstrap(twoTaxa, replicates: 20, seed: 221_001);
+        twoAct.Should().NotThrow("a valid 2-taxon alignment builds a tree; it simply has no non-trivial clade");
+        twoSupport.Should().BeEmpty("a 2-taxon tree's only internal node is the trivial full-set root → no scored clade (INV-03)");
+
+        // 3 taxa with a clear closest pair (P,Q) ⇒ exactly ONE non-trivial clade {P,Q}.
+        var threeTaxa = new Dictionary<string, string>
+        {
+            ["P"] = "AAAAAAAAAA",
+            ["Q"] = "AAAAAAAAAG", // closest to P
+            ["R"] = "GGGGGGGGGG", // far outgroup
+        };
+        var threeSupport = PhylogeneticAnalyzer.Bootstrap(threeTaxa, replicates: 30, seed: 221_002);
+        SupportMapObeysContract(threeSupport, replicates: 30);
+        threeSupport.Should().HaveCount(1, "a 3-taxon rooted tree has exactly one non-trivial clade (INV-03)");
+        string pq = CladeKey("P", "Q");
+        threeSupport.Should().ContainKey(pq, "the closest pair {{P,Q}} is the single non-trivial clade");
+        threeSupport[pq].Should().Be(1.0,
+            "{{P,Q}} are identical-but-one and saturated against R, so every replicate recovers it → 1.0 (INV-05)");
+    }
+
+    #endregion
+
+    #region BE — 0 (and -1) replicates (denominator B → documented throw, never div-by-zero)
+
+    /// <summary>
+    /// BE "0 replicates" — the KEY divide-by-zero hazard. Support = count/B, so B = 0 would make
+    /// every value 0/0 = NaN (or a DivideByZeroException on an integer path). The source GUARDS
+    /// this: `replicates &lt; 1` throws ArgumentException BEFORE any resampling or division
+    /// (PhylogeneticAnalyzer.cs line 1184; Bootstrap_Analysis.md §3.3, §6.1). Both the 0 and the
+    /// BE −1 boundary are pinned as documented rejections — never a crash, NaN, or Infinity. The
+    /// smallest VALID denominator B = 1 is pinned to return support quantized to {0,1} = count/1.
+    /// </summary>
+    [Test]
+    [CancelAfter(10_000)]
+    public void Bootstrap_ZeroOrNegativeReplicates_ThrowDocumentedException_NeverDivideByZero()
+    {
+        var sequences = new Dictionary<string, string>
+        {
+            ["A"] = "AAAAAAAAAA",
+            ["B"] = "AAAAAAAAAG",
+            ["C"] = "GGGGGGGGGG",
+            ["D"] = "GGGGGGGGGC",
+        };
+
+        Action zero = () => PhylogeneticAnalyzer.Bootstrap(sequences, replicates: 0, seed: 221_010);
+        zero.Should().Throw<ArgumentException>("0 replicates is an invalid denominator → documented rejection, not 0/0 NaN (§3.3, §6.1)");
+
+        Action negative = () => PhylogeneticAnalyzer.Bootstrap(sequences, replicates: -1, seed: 221_010);
+        negative.Should().Throw<ArgumentException>("the BE −1 replicate boundary is below the ≥1 minimum → documented rejection (§3.3)");
+
+        // Smallest valid denominator: B = 1 ⇒ every support is count/1 ∈ {0,1}, finite, no crash.
+        var one = PhylogeneticAnalyzer.Bootstrap(sequences, replicates: 1, seed: 221_011);
+        SupportMapObeysContract(one, replicates: 1);
+        one.Values.Should().OnlyContain(s => s == 0.0 || s == 1.0,
+            "with B = 1 each support is count/1, an integer 0 or 1 (INV-02)");
+    }
+
+    /// <summary>
+    /// The remaining documented validation throws on the bootstrap surface (Bootstrap_Analysis.md
+    /// §3.3, §6.1): null sequences → ArgumentNullException; fewer than 2 sequences (a tree needs
+    /// ≥2 taxa) → ArgumentException. Intentional, contract-defined rejections — not raw crashes.
+    /// </summary>
+    [Test]
+    public void Bootstrap_NullOrTooFewSequences_ThrowDocumentedValidationExceptions()
+    {
+        Action nullSeqs = () => PhylogeneticAnalyzer.Bootstrap(null!, replicates: 10);
+        nullSeqs.Should().Throw<ArgumentNullException>("a null sequence dictionary is an explicit, documented rejection (§3.3)");
+
+        var single = new Dictionary<string, string> { ["Only"] = "ACGTACGT" };
+        Action tooFew = () => PhylogeneticAnalyzer.Bootstrap(single, replicates: 10);
+        tooFew.Should().Throw<ArgumentException>("fewer than 2 sequences cannot form a tree (§3.3)");
+
+        var empty = new Dictionary<string, string>();
+        Action none = () => PhylogeneticAnalyzer.Bootstrap(empty, replicates: 10);
+        none.Should().Throw<ArgumentException>("zero sequences is below the 2-taxon minimum (§3.3)");
+    }
+
+    #endregion
+
+    #region BE — identical sequences (no phylogenetic signal → defined, no NaN/div-by-zero)
+
+    /// <summary>
+    /// BE "identical sequences" — no phylogenetic signal. All-identical sequences give a
+    /// zero-distance matrix; resampling identical columns yields identical pseudo-alignments, so
+    /// every replicate rebuilds the same degenerate topology. This must NOT NaN or divide by zero,
+    /// and the returned support is DEFINED and ∈ [0,1] for every reported clade
+    /// (Bootstrap_Analysis.md §6.1, INV-05). Whatever non-trivial clades the deterministic
+    /// reference tie-break happens to produce are recovered identically each replicate ⇒ their
+    /// support is 1.0; the contract (finite, [0,1], quantized) is pinned regardless of the tie-break.
+    /// </summary>
+    [Test]
+    [CancelAfter(10_000)]
+    public void Bootstrap_AllIdenticalSequences_NoSignal_DefinedSupportNoNaN()
+    {
+        const int n = 6;
+        string identical = RandomDna(20, seed: 221_020);
+        var sequences = new Dictionary<string, string>();
+        for (int i = 0; i < n; i++)
+            sequences[$"T{i}"] = identical;
+
+        IReadOnlyDictionary<string, double> support = null!;
+        Action act = () => support = PhylogeneticAnalyzer.Bootstrap(
+            sequences, replicates: 40, seed: 221_021);
+        act.Should().NotThrow("a zero-distance (no-signal) matrix must not divide by zero or crash the bootstrap");
+
+        SupportMapObeysContract(support, replicates: 40);
+
+        // INV-05: every reference clade is recovered in every replicate (each replicate is the same
+        // degenerate tree), so every reported support is exactly 1.0 — no signal, but fully defined.
+        support.Values.Should().OnlyContain(s => s == 1.0,
+            "identical sequences reproduce one topology each replicate → every reported clade has support 1.0 (§6.1, INV-05)");
+    }
+
+    #endregion
+
+    #region BE — randomized boundary sweep (no crash / [0,1] / quantization across many shapes)
+
+    /// <summary>
+    /// Randomized boundary sweep: over many locally-seeded random alignments of varying taxon
+    /// counts, sequence lengths, distance/tree methods and small replicate counts, the bootstrap
+    /// must NEVER crash/hang/NaN and must ALWAYS satisfy the documented support contract
+    /// (Bootstrap_Analysis.md §2.4): finite values in [0,1] (INV-01), quantized to count/B
+    /// (INV-02), and keyed exactly by the reference tree's non-trivial clades (INV-03). A locally
+    /// fixed master seed makes the whole sweep reproducible (no shared static RNG); [CancelAfter]
+    /// fails the test on any hang.
+    /// </summary>
+    [Test]
+    [CancelAfter(60_000)]
+    public void Bootstrap_RandomizedSweep_NeverCrashes_AlwaysObeysSupportContract()
+    {
+        var master = new Random(221_777);
+        var methods = AllMethods;
+        var treeMethods = new[]
+        {
+            PhylogeneticAnalyzer.TreeMethod.UPGMA,
+            PhylogeneticAnalyzer.TreeMethod.NeighborJoining,
+        };
+
+        for (int iter = 0; iter < 40; iter++)
+        {
+            int taxaCount = 2 + master.Next(6);   // 2..7 taxa (includes the 2-taxon empty-clade boundary)
+            int length = 1 + master.Next(30);     // 1..30 columns (includes the single-column boundary)
+            int replicates = 1 + master.Next(15); // 1..15 replicates (small B near the boundary)
+            var distanceMethod = methods[master.Next(methods.Length)];
+            var treeMethod = treeMethods[master.Next(treeMethods.Length)];
+            int seed = master.Next();
+
+            var sequences = new Dictionary<string, string>();
+            for (int t = 0; t < taxaCount; t++)
+                sequences[$"S{t}"] = RandomDna(length, seed: master.Next());
+
+            IReadOnlyDictionary<string, double> support = null!;
+            Action act = () => support = PhylogeneticAnalyzer.Bootstrap(
+                sequences, replicates, distanceMethod, treeMethod, seed);
+            act.Should().NotThrow(
+                "bootstrap must not crash on a random {0}-taxon, {1}-col, B={2}, {3}/{4} input",
+                taxaCount, length, replicates, distanceMethod, treeMethod);
+
+            SupportMapObeysContract(support, replicates);
+
+            // INV-03: every reported key is a non-trivial clade — its leaf set is a strict, &gt;1-taxon
+            // subset of the full taxon set. Re-derived from the key string itself, not from the code.
+            var allTaxa = new HashSet<string>(sequences.Keys);
+            foreach (var key in support.Keys)
+            {
+                var members = key.Split('|');
+                members.Length.Should().BeGreaterThan(1, "a non-trivial clade has more than one taxon (INV-03)");
+                members.Length.Should().BeLessThan(allTaxa.Count, "a non-trivial clade is a strict subset of all taxa (INV-03)");
+                members.All(allTaxa.Contains).Should().BeTrue("every clade member is one of the input taxa (INV-03)");
+            }
+        }
     }
 
     #endregion
