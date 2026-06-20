@@ -384,4 +384,278 @@ public class MetagenomicsFuzzTests
     }
 
     #endregion
+
+    // ════════════════════════════════════════════════════════════════════════
+    //
+    //  META-PROF-001 — community / taxonomic profiling (Metagenomics).
+    //  Checklist: docs/checklists/03_FUZZING.md, row 54.
+    //
+    //  What this unit profiles
+    //  ───────────────────────
+    //  MetagenomicsAnalyzer.GenerateTaxonomicProfile aggregates per-read
+    //  TaxonomicClassification records into a community-level abundance summary.
+    //  For a taxon i with count c_i, relative abundance is c_i / Σ_j c_j, where
+    //  the denominator is the number of CLASSIFIED reads (kingdom not
+    //  "Unclassified"/empty). It then computes species-level Shannon (H = −Σ pᵢ
+    //  ln pᵢ) and Simpson (D = Σ pᵢ²) diversity.
+    //    — docs/algorithms/Metagenomics/Taxonomic_Profile.md §2.2, §4.
+    //
+    //  Fuzz strategy for THIS unit: BE = Boundary Exploitation.
+    //  Fuzz targets (checklist row 54): 0 reads, single read, all same taxon.
+    //
+    //  Boundary contract pinned by these tests (Taxonomic_Profile.md §3.3, §6.1):
+    //    • 0 reads → TotalReads = 0, ClassifiedReads = 0, all abundance maps
+    //      EMPTY, Shannon = Simpson = 0. KEY: no DivideByZero — abundance uses
+    //      `total = classifiedReads > 0 ? classifiedReads : 1`, and the count
+    //      dictionaries are empty so no map entry is even produced (§4.2).
+    //    • single read → its kingdom/phylum/genus/species each appear at
+    //      abundance 1.0 (a 1-category distribution); KingdomAbundance sums to 1
+    //      (INV-03); Shannon = 0, Simpson = 1 (§6.1, single species).
+    //    • all same taxon → exactly one entry per stored rank, all at 1.0; the
+    //      KingdomAbundance map sums to 1; Shannon = 0, Simpson = 1.
+    //    • KEY invariant INV-03: KingdomAbundance sums to 1 whenever
+    //      ClassifiedReads > 0. Lower ranks sum to 1 only when every retained read
+    //      has that rank populated (empty rank strings are skipped, §6.1).
+    //    • all-unclassified reads → identical to 0 reads for the maps:
+    //      ClassifiedReads = 0, empty maps, zero diversity (§6.1).
+    //    • abundances are always in [0, 1].
+    //
+    //  Positive sanity: a known mixed set of classified reads gives the expected
+    //  abundances (e.g. 3 E.coli + 1 S.enterica ⇒ species {E.coli:0.75,
+    //  S.enterica:0.25}) summing to 1 — so a passing "no crash" result cannot be
+    //  a profiler that just returns empty maps for everything.
+    //
+    //  Determinism: all classifications are hand-built or generated from a
+    //  LOCALLY fixed-seed `new Random(seed)`. No shared static Rng.
+    // ════════════════════════════════════════════════════════════════════════
+
+    #region META-PROF-001 — community profiling
+
+    // A minimal TaxonomicClassification carrying only the fields the profiler
+    // reads (kingdom/phylum/genus/species + the unclassified filter on kingdom).
+    // The taxonomy lineage strings mirror the META-CLASS-001 hand-built tree.
+    private static MetagenomicsAnalyzer.TaxonomicClassification ClassifiedRead(
+        string readId,
+        string kingdom,
+        string phylum,
+        string genus,
+        string species) =>
+        new(
+            ReadId: readId,
+            TaxonId: 0,
+            TaxonName: species,
+            Rank: "species",
+            RtlScore: 1,
+            Confidence: 1.0,
+            MatchedKmers: 1,
+            TotalKmers: 1,
+            Kingdom: kingdom,
+            Phylum: phylum,
+            Class: string.Empty,
+            Order: string.Empty,
+            Family: string.Empty,
+            Genus: genus,
+            Species: species);
+
+    private static MetagenomicsAnalyzer.TaxonomicClassification Ecoli(string readId) =>
+        ClassifiedRead(readId, "Bacteria", "Proteobacteria", "Escherichia", "Escherichia coli");
+
+    private static MetagenomicsAnalyzer.TaxonomicClassification Senterica(string readId) =>
+        ClassifiedRead(readId, "Bacteria", "Proteobacteria", "Salmonella", "Salmonella enterica");
+
+    private static MetagenomicsAnalyzer.TaxonomicClassification Unclassified(string readId) =>
+        ClassifiedRead(readId, "Unclassified", string.Empty, string.Empty, string.Empty);
+
+    // ───────────────────────────────────────────────────────────────────────
+    // Fuzz target: 0 READS (BE) — the div-by-zero boundary.
+    // No classifications ⇒ TotalReads = 0, ClassifiedReads = 0, every abundance
+    // map empty, zero diversity, and — KEY — no DivideByZeroException normalizing
+    // abundance over 0 reads. — Taxonomic_Profile.md §3.3, §4.2, §6.1.
+    // ───────────────────────────────────────────────────────────────────────
+    [Test]
+    public void GenerateTaxonomicProfile_ZeroReads_EmptyProfileNoDivideByZero()
+    {
+        var empty = Array.Empty<MetagenomicsAnalyzer.TaxonomicClassification>();
+
+        MetagenomicsAnalyzer.TaxonomicProfile profile = default;
+        Action act = () => profile = MetagenomicsAnalyzer.GenerateTaxonomicProfile(empty);
+
+        act.Should().NotThrow(
+            "normalizing abundance over 0 reads must never divide by zero — §4.2");
+
+        profile.TotalReads.Should().Be(0, "no input classification records");
+        profile.ClassifiedReads.Should().Be(0, "nothing survives the unclassified filter");
+        profile.KingdomAbundance.Should().BeEmpty("no counts ⇒ no abundance entries");
+        profile.PhylumAbundance.Should().BeEmpty();
+        profile.GenusAbundance.Should().BeEmpty();
+        profile.SpeciesAbundance.Should().BeEmpty();
+        profile.ShannonDiversity.Should().Be(0.0, "an empty species distribution has zero diversity");
+        profile.SimpsonDiversity.Should().Be(0.0);
+    }
+
+    // ───────────────────────────────────────────────────────────────────────
+    // Fuzz target: SINGLE READ (BE).
+    // One classified read ⇒ its kingdom/phylum/genus/species each appear at
+    // abundance 1.0 (a single-category distribution). KingdomAbundance sums to 1
+    // (INV-03). Diversity of one species: Shannon = 0, Simpson = 1. — §6.1.
+    // ───────────────────────────────────────────────────────────────────────
+    [Test]
+    public void GenerateTaxonomicProfile_SingleRead_ThatTaxonAtAbundanceOne()
+    {
+        var reads = new[] { Ecoli("read-1") };
+
+        var profile = MetagenomicsAnalyzer.GenerateTaxonomicProfile(reads);
+
+        profile.TotalReads.Should().Be(1);
+        profile.ClassifiedReads.Should().Be(1, "the single read is classified (kingdom = Bacteria)");
+
+        profile.KingdomAbundance.Should().ContainKey("Bacteria")
+            .WhoseValue.Should().Be(1.0, "the only read defines 100% of the kingdom abundance");
+        profile.PhylumAbundance["Proteobacteria"].Should().Be(1.0);
+        profile.GenusAbundance["Escherichia"].Should().Be(1.0);
+        profile.SpeciesAbundance["Escherichia coli"].Should().Be(1.0);
+
+        profile.KingdomAbundance.Values.Sum().Should().BeApproximately(1.0, 1e-12,
+            "KingdomAbundance sums to 1 when ClassifiedReads > 0 — INV-03");
+        profile.SpeciesAbundance.Values.Sum().Should().BeApproximately(1.0, 1e-12);
+
+        profile.ShannonDiversity.Should().Be(0.0, "a single species has zero Shannon diversity");
+        profile.SimpsonDiversity.Should().Be(1.0, "a single species has Simpson concentration 1");
+    }
+
+    // ───────────────────────────────────────────────────────────────────────
+    // Fuzz target: ALL SAME TAXON (BE).
+    // Many reads, all the same species ⇒ exactly one entry per stored rank, each
+    // at abundance 1.0; maps sum to 1; Shannon = 0, Simpson = 1. — §6.1.
+    // ───────────────────────────────────────────────────────────────────────
+    [Test]
+    public void GenerateTaxonomicProfile_AllSameTaxon_OneTaxonAtOneAllOthersAbsent()
+    {
+        var reads = Enumerable.Range(0, 50).Select(i => Ecoli($"read-{i}")).ToArray();
+
+        var profile = MetagenomicsAnalyzer.GenerateTaxonomicProfile(reads);
+
+        profile.TotalReads.Should().Be(50);
+        profile.ClassifiedReads.Should().Be(50);
+
+        profile.KingdomAbundance.Should().HaveCount(1).And.ContainKey("Bacteria");
+        profile.SpeciesAbundance.Should().HaveCount(1, "all reads collapse to one species");
+        profile.SpeciesAbundance["Escherichia coli"].Should().Be(1.0);
+        profile.GenusAbundance["Escherichia"].Should().Be(1.0);
+
+        // No other real taxon was fabricated.
+        profile.SpeciesAbundance.Should().NotContainKey("Salmonella enterica");
+
+        profile.KingdomAbundance.Values.Sum().Should().BeApproximately(1.0, 1e-12,
+            "all mass concentrated on one taxon still sums to 1 — INV-03");
+
+        profile.ShannonDiversity.Should().Be(0.0);
+        profile.SimpsonDiversity.Should().Be(1.0);
+    }
+
+    // ───────────────────────────────────────────────────────────────────────
+    // Fuzz target: ALL UNCLASSIFIED (BE).
+    // Every read has kingdom "Unclassified" ⇒ all removed by the filter ⇒
+    // ClassifiedReads = 0, empty maps, zero diversity — but TotalReads still
+    // counts the inputs. No divide-by-zero. — Taxonomic_Profile.md §6.1.
+    // ───────────────────────────────────────────────────────────────────────
+    [Test]
+    public void GenerateTaxonomicProfile_AllUnclassified_EmptyMapsButCountsTotalReads()
+    {
+        var reads = Enumerable.Range(0, 7).Select(i => Unclassified($"u-{i}")).ToArray();
+
+        MetagenomicsAnalyzer.TaxonomicProfile profile = default;
+        Action act = () => profile = MetagenomicsAnalyzer.GenerateTaxonomicProfile(reads);
+        act.Should().NotThrow("0 classified reads must not divide by zero");
+
+        profile.TotalReads.Should().Be(7, "TotalReads counts inputs before the unclassified filter");
+        profile.ClassifiedReads.Should().Be(0, "every read is filtered out as unclassified");
+        profile.KingdomAbundance.Should().BeEmpty();
+        profile.SpeciesAbundance.Should().BeEmpty();
+        profile.ShannonDiversity.Should().Be(0.0);
+        profile.SimpsonDiversity.Should().Be(0.0);
+    }
+
+    // ───────────────────────────────────────────────────────────────────────
+    // Fuzz target: random mixed batch (BE) — the KEY sum-to-1 invariant under a
+    // deterministic, locally-seeded mix of two real taxa plus unclassified
+    // noise. The profile must always be well-formed: every abundance in [0, 1],
+    // KingdomAbundance summing to 1 whenever any read is classified, and never a
+    // divide-by-zero. — Taxonomic_Profile.md INV-03.
+    // ───────────────────────────────────────────────────────────────────────
+    [Test]
+    public void GenerateTaxonomicProfile_RandomMixedBatch_AbundancesInRangeAndSumToOne()
+    {
+        var rng = new Random(20260620); // locally fixed seed — deterministic
+
+        var reads = new List<MetagenomicsAnalyzer.TaxonomicClassification>();
+        int classifiedCount = 0;
+        for (int i = 0; i < 300; i++)
+        {
+            int roll = rng.Next(3);
+            if (roll == 0) { reads.Add(Ecoli($"r-{i}")); classifiedCount++; }
+            else if (roll == 1) { reads.Add(Senterica($"r-{i}")); classifiedCount++; }
+            else reads.Add(Unclassified($"r-{i}"));
+        }
+
+        var profile = MetagenomicsAnalyzer.GenerateTaxonomicProfile(reads);
+
+        profile.TotalReads.Should().Be(300);
+        profile.ClassifiedReads.Should().Be(classifiedCount);
+
+        profile.KingdomAbundance.Values.Should().OnlyContain(v => v >= 0.0 && v <= 1.0,
+            "every relative abundance lies in [0, 1]");
+        profile.SpeciesAbundance.Values.Should().OnlyContain(v => v >= 0.0 && v <= 1.0);
+
+        if (classifiedCount > 0)
+        {
+            profile.KingdomAbundance.Values.Sum().Should().BeApproximately(1.0, 1e-9,
+                "KingdomAbundance sums to 1 whenever ClassifiedReads > 0 — INV-03 (KEY)");
+            // Every retained read has phylum + genus + species populated here, so
+            // those rank maps are also complete and sum to 1.
+            profile.SpeciesAbundance.Values.Sum().Should().BeApproximately(1.0, 1e-9);
+        }
+    }
+
+    // ───────────────────────────────────────────────────────────────────────
+    // Positive sanity: a known mixed set yields the EXACT expected abundances,
+    // in [0, 1] and summing to 1. Guards against a degenerate profiler that
+    // returns empty maps (which would pass every boundary test above).
+    //   3 × E.coli + 1 × S.enterica  ⇒  species {E.coli: 0.75, S.enterica: 0.25}.
+    // ───────────────────────────────────────────────────────────────────────
+    [Test]
+    public void GenerateTaxonomicProfile_KnownMix_ExactExpectedAbundancesSummingToOne()
+    {
+        var reads = new[]
+        {
+            Ecoli("e1"), Ecoli("e2"), Ecoli("e3"),
+            Senterica("s1"),
+        };
+
+        var profile = MetagenomicsAnalyzer.GenerateTaxonomicProfile(reads);
+
+        profile.TotalReads.Should().Be(4);
+        profile.ClassifiedReads.Should().Be(4);
+
+        profile.SpeciesAbundance["Escherichia coli"].Should().BeApproximately(0.75, 1e-12,
+            "3 of 4 classified reads are E.coli");
+        profile.SpeciesAbundance["Salmonella enterica"].Should().BeApproximately(0.25, 1e-12,
+            "1 of 4 classified reads is S.enterica");
+        profile.SpeciesAbundance.Values.Sum().Should().BeApproximately(1.0, 1e-12,
+            "the two species partition all classified reads");
+
+        // Both share the same kingdom/phylum ⇒ those collapse to a single 1.0 entry.
+        profile.KingdomAbundance["Bacteria"].Should().Be(1.0);
+        profile.PhylumAbundance["Proteobacteria"].Should().Be(1.0);
+        profile.GenusAbundance["Escherichia"].Should().BeApproximately(0.75, 1e-12);
+        profile.GenusAbundance["Salmonella"].Should().BeApproximately(0.25, 1e-12);
+
+        // A genuine two-species mix has positive Shannon diversity.
+        profile.ShannonDiversity.Should().BeGreaterThan(0.0,
+            "a two-species community is not a degenerate single-category distribution");
+        profile.SimpsonDiversity.Should().BeInRange(0.0, 1.0)
+            .And.BeLessThan(1.0, "two species ⇒ Simpson concentration below 1");
+    }
+
+    #endregion
 }
