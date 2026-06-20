@@ -10,7 +10,8 @@ namespace Seqeron.Genomics.Tests;
 /// <summary>
 /// Fuzz tests for the Phylogenetic area — phylogenetic distance calculation
 /// (PHYLO-DIST-001): the pairwise evolutionary-distance routine and the symmetric
-/// distance matrix built from it.
+/// distance matrix built from it — and phylogenetic tree construction (PHYLO-TREE-001):
+/// the distance-matrix-to-tree builders (UPGMA / Neighbor-Joining).
 ///
 /// ───────────────────────────────────────────────────────────────────────────
 /// What fuzzing verifies
@@ -102,6 +103,70 @@ namespace Seqeron.Genomics.Tests;
 /// CalculatePairwiseDistance and CalculateDistanceMatrix are pure (no iterators), so every
 /// probe calls them directly; deterministic fuzz inputs use a locally fixed-seed Random
 /// (no shared static RNG).
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: PHYLO-TREE-001 — phylogenetic tree construction
+/// Checklist: docs/checklists/03_FUZZING.md, row 40.
+/// Fuzz strategy exercised for THIS unit:
+///   • BE = Boundary Exploitation — the count boundaries of the taxon set: 0 taxa,
+///          1 taxon (both below the documented 2-taxon minimum), the smallest valid set
+///          (2 taxa), a large set (100+ taxa, an O(n³) completion probe), and the
+///          degenerate all-identical-sequence input where every pairwise distance is 0.
+/// — docs/checklists/03_FUZZING.md §Description (BE = boundary values: 0, empty);
+///   row 40 targets: "0 seqs, 1 seq, 2 seqs, 100+ seqs, all identical seqs".
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The tree-construction contract under test (Tree_Construction.md)
+/// ───────────────────────────────────────────────────────────────────────────
+/// PhylogeneticAnalyzer turns a distance matrix into a tree over the taxa via two classical
+/// agglomerative builders selected by the TreeMethod enum (Tree_Construction.md §2):
+///   • UPGMA — rooted ultrametric clustering; child branch lengths are clamped
+///     non-negative via `Math.Max(0, newHeight − childHeight)` (INV-UPGMA-01/03, §5.2).
+///   • NeighborJoining — non-clock topology; branch lengths from the standard NJ formula,
+///     which MAY be negative (INV-NJ-02); the in-memory result is rooted by convention so
+///     it fits the binary `PhyloNode` API, with the final unrooted centre kept as an
+///     N-ary trifurcation of the last three taxa (Saitou & Nei 1987; §4.B, §5.2).
+///
+/// API entry points (Tree_Construction.md §5.1; PhylogeneticAnalyzer.cs):
+///   • BuildTree(IReadOnlyDictionary&lt;string,string&gt; sequences, DistanceMethod, TreeMethod)
+///     (lines 136–164) — computes the distance matrix then dispatches to the builder.
+///     &lt; 2 sequences OR a null dictionary → ArgumentException; unaligned (unequal-length)
+///     sequences → ArgumentException (lines 141–150; §3.3).
+///   • BuildTreeFromMatrix(IReadOnlyList&lt;string&gt; taxa, double[,], TreeMethod)
+///     (lines 174–194) — builds directly from a precomputed matrix; &lt; 2 taxa, a null
+///     matrix, or a dimension mismatch → ArgumentException (lines 179–184; §3.3).
+/// The returned PhylogeneticTree carries the Root `PhyloNode` (Children/IsLeaf N-ary model),
+/// the Taxa list, the DistanceMatrix used, and the Method name (§3.2).
+///
+/// THE FIVE ROW-40 FUZZ TARGETS, mapped to the theory-correct contract:
+///   • 0 seqs (BE — below the minimum): an empty dictionary / empty taxa list is &lt; 2 and is
+///     REJECTED with a documented ArgumentException — never an IndexOutOfRange or a malformed
+///     empty tree (BuildTree line 141; BuildTreeFromMatrix line 179; §3.3). The defined
+///     contract is "throw", which we pin as the theory-correct boundary, not a crash.
+///   • 1 seq (BE — below the minimum): a single-taxon input is also &lt; 2 and likewise throws
+///     ArgumentException. A "trivial single-leaf tree" is NOT this implementation's contract;
+///     the doc fixes the minimum at two taxa, so we VERIFY and pin the documented rejection
+///     rather than inventing a one-leaf tree (§3.1, §3.3).
+///   • 2 seqs (BE — smallest valid set): the minimal tree is a single internal root joining
+///     two leaves. We pin: exactly 2 leaves, the root has 2 children that are both leaves
+///     carrying the two taxon names, and the branch lengths are finite and non-negative
+///     (UPGMA join height d/2 ≥ 0; INV-UPGMA-01/03).
+///   • 100+ seqs (BE — large set, O(n³) completion): 120 SHORT deterministic sequences must
+///     BUILD without hang or crash and yield a tree with exactly 120 leaves and finite, ≥0
+///     UPGMA branch lengths. Guarded by `[CancelAfter]`; sequences kept short so the O(n³)
+///     builder completes quickly (§4.A complexity).
+///   • all-identical seqs (BE — KEY div-by-zero/NaN hazard): identical sequences ⇒ every
+///     pairwise distance is 0 ⇒ the join height d/2 = 0 and every UPGMA branch length is the
+///     clamped 0. This must NOT divide by zero (the n−2 NJ divisor is only reached for ≥4
+///     active taxa) nor leak a NaN/Inf branch length: a valid tree with the right leaf count
+///     and all-zero, finite, non-negative branch lengths (INV-UPGMA-03; §5.2).
+///
+/// Structural invariants pinned for every built tree (TreeBranchLengthsValid helper):
+/// the leaf count equals the taxon count, and every branch length is finite (no NaN/±Inf).
+/// For UPGMA we additionally pin non-negativity (INV-UPGMA-03); NJ branch lengths may be
+/// negative by design (INV-NJ-02) so only finiteness is asserted there. The builders are
+/// pure static methods, so every probe calls them directly with deterministic, locally
+/// fixed-seed Random inputs (no shared static RNG).
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -128,6 +193,69 @@ public class PhylogeneticFuzzTests
         PhylogeneticAnalyzer.DistanceMethod.JukesCantor,
         PhylogeneticAnalyzer.DistanceMethod.Kimura2Parameter,
     };
+
+    /// <summary>Collects all leaf nodes (Children.Count == 0) of a tree by pre-order traversal.</summary>
+    private static List<PhylogeneticAnalyzer.PhyloNode> CollectLeaves(PhylogeneticAnalyzer.PhyloNode root)
+    {
+        var leaves = new List<PhylogeneticAnalyzer.PhyloNode>();
+        var stack = new Stack<PhylogeneticAnalyzer.PhyloNode>();
+        stack.Push(root);
+        while (stack.Count > 0)
+        {
+            var node = stack.Pop();
+            if (node.IsLeaf)
+                leaves.Add(node);
+            else
+                foreach (var child in node.Children)
+                    stack.Push(child);
+        }
+        return leaves;
+    }
+
+    /// <summary>Enumerates every node of a tree (pre-order) for branch-length inspection.</summary>
+    private static IEnumerable<PhylogeneticAnalyzer.PhyloNode> AllNodes(PhylogeneticAnalyzer.PhyloNode root)
+    {
+        var stack = new Stack<PhylogeneticAnalyzer.PhyloNode>();
+        stack.Push(root);
+        while (stack.Count > 0)
+        {
+            var node = stack.Pop();
+            yield return node;
+            foreach (var child in node.Children)
+                stack.Push(child);
+        }
+    }
+
+    /// <summary>
+    /// Structural invariant assertion shared by every PHYLO-TREE-001 probe: the tree carries
+    /// exactly <paramref name="expectedLeafCount"/> leaves and every branch length is finite
+    /// (no NaN, no ±Infinity). When <paramref name="requireNonNegative"/> is set (UPGMA), branch
+    /// lengths are additionally pinned ≥ 0 (INV-UPGMA-03); NJ is allowed negatives (INV-NJ-02).
+    /// </summary>
+    private static void TreeBranchLengthsValid(
+        PhylogeneticAnalyzer.PhyloNode root, int expectedLeafCount, bool requireNonNegative)
+    {
+        CollectLeaves(root).Count.Should().Be(
+            expectedLeafCount, "a tree on n taxa has exactly n leaves");
+
+        foreach (var node in AllNodes(root))
+        {
+            double bl = node.BranchLength;
+            double.IsNaN(bl).Should().BeFalse("a branch length must never be NaN");
+            double.IsInfinity(bl).Should().BeFalse("a branch length must never be ±Infinity");
+            if (requireNonNegative)
+                bl.Should().BeGreaterThanOrEqualTo(0.0, "UPGMA clamps branch lengths non-negative (INV-UPGMA-03)");
+        }
+    }
+
+    /// <summary>Builds an ordered, named sequence dictionary "T0..Tn" over the given sequences.</summary>
+    private static Dictionary<string, string> NamedSequences(IReadOnlyList<string> sequences)
+    {
+        var dict = new Dictionary<string, string>();
+        for (int i = 0; i < sequences.Count; i++)
+            dict[$"T{i}"] = sequences[i];
+        return dict;
+    }
 
     #endregion
 
@@ -378,6 +506,213 @@ public class PhylogeneticFuzzTests
 
         Action unequal = () => PhylogeneticAnalyzer.CalculatePairwiseDistance("ACG", "ACGT");
         unequal.Should().Throw<ArgumentException>("pairwise distance requires aligned (equal-length) sequences");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  PHYLO-TREE-001 — tree construction : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region PHYLO-TREE-001 — tree construction
+
+    #region Positive sanity — known topology (closest pair grouped)
+
+    /// <summary>
+    /// Positive-sanity anchor: four taxa with a hand-controlled distance structure build a tree
+    /// with the EXACTLY-expected leaf count and the closest pair grouped together. Taxa A and B
+    /// are nearly identical (one mismatch) while C and D diverge sharply, so UPGMA must first
+    /// merge {A,B}: the deepest internal node grouping A and B forms before any other join, and
+    /// A and B end up as siblings under a common ancestor that does NOT contain C or D.
+    /// Branch lengths are pinned finite and non-negative (INV-UPGMA-03).
+    /// </summary>
+    [Test]
+    public void BuildTree_KnownTopology_GroupsClosestPair_AndHasExpectedLeafCount()
+    {
+        // A vs B: 1 mismatch (tail). A/B vs C/D: many mismatches. C vs D: a few mismatches.
+        var sequences = new Dictionary<string, string>
+        {
+            ["A"] = "AAAAAAAAAA",
+            ["B"] = "AAAAAAAAAG", // one mismatch from A → A,B are the closest pair
+            ["C"] = "TTTTTTTTTT",
+            ["D"] = "TTTTTTTGCC", // diverges from C, but far from A,B
+        };
+
+        var tree = PhylogeneticAnalyzer.BuildTree(
+            sequences,
+            PhylogeneticAnalyzer.DistanceMethod.PDistance,
+            PhylogeneticAnalyzer.TreeMethod.UPGMA);
+
+        tree.Root.Should().NotBeNull("a valid four-taxon input must build a tree");
+        TreeBranchLengthsValid(tree.Root, expectedLeafCount: 4, requireNonNegative: true);
+
+        // The closest pair {A,B} must appear together under one internal node that excludes C,D.
+        var abClade = AllNodes(tree.Root)
+            .FirstOrDefault(n => !n.IsLeaf
+                && n.Taxa.Contains("A") && n.Taxa.Contains("B")
+                && !n.Taxa.Contains("C") && !n.Taxa.Contains("D"));
+        abClade.Should().NotBeNull("UPGMA merges the closest pair {A,B} first, forming an {A,B}-only clade");
+    }
+
+    #endregion
+
+    #region BE — 0 sequences (below the 2-taxon minimum → documented throw)
+
+    /// <summary>
+    /// An empty taxon set is below the documented two-taxon minimum and is REJECTED with an
+    /// ArgumentException on BOTH surfaces — never an IndexOutOfRange/NullReference crash and never
+    /// a malformed empty tree (BuildTree line 141; BuildTreeFromMatrix line 179; §3.3). The
+    /// null-dictionary degenerate is folded into the same guard.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void ZeroSequences_ThrowDocumentedArgumentException_NeverCrashNeverTree()
+    {
+        var empty = new Dictionary<string, string>();
+        Action buildFromSeqs = () => PhylogeneticAnalyzer.BuildTree(empty);
+        buildFromSeqs.Should().Throw<ArgumentException>("zero sequences is below the 2-taxon minimum (§3.3)");
+
+        Action buildFromNull = () => PhylogeneticAnalyzer.BuildTree(null!);
+        buildFromNull.Should().Throw<ArgumentException>("a null sequence dictionary is rejected by the same guard");
+
+        var noTaxa = Array.Empty<string>();
+        var emptyMatrix = new double[0, 0];
+        Action buildFromMatrix = () => PhylogeneticAnalyzer.BuildTreeFromMatrix(noTaxa, emptyMatrix);
+        buildFromMatrix.Should().Throw<ArgumentException>("zero taxa is below the 2-taxon minimum on the matrix surface (§3.3)");
+    }
+
+    #endregion
+
+    #region BE — 1 sequence (below the 2-taxon minimum → documented throw)
+
+    /// <summary>
+    /// A single-taxon input is also below the two-taxon minimum and throws ArgumentException —
+    /// the implementation does NOT manufacture a trivial single-leaf tree; the doc fixes the
+    /// minimum at two taxa (§3.1, §3.3). VERIFIED behavior: rejection, never a crash, never a
+    /// one-leaf tree. Pinned on both the sequence and the precomputed-matrix surfaces.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void SingleSequence_ThrowsDocumentedArgumentException_NotASingleLeafTree()
+    {
+        var one = new Dictionary<string, string> { ["Only"] = RandomDna(20, seed: 40_001) };
+        Action buildFromSeqs = () => PhylogeneticAnalyzer.BuildTree(one);
+        buildFromSeqs.Should().Throw<ArgumentException>("one sequence is below the documented 2-taxon minimum (§3.3)");
+
+        var oneTaxon = new[] { "Only" };
+        var oneByOne = new double[1, 1]; // a well-formed 1×1 zero matrix is still < 2 taxa
+        Action buildFromMatrix = () => PhylogeneticAnalyzer.BuildTreeFromMatrix(oneTaxon, oneByOne);
+        buildFromMatrix.Should().Throw<ArgumentException>("one taxon is below the minimum on the matrix surface (§3.3)");
+    }
+
+    #endregion
+
+    #region BE — 2 sequences (smallest valid tree: one root, two leaves)
+
+    /// <summary>
+    /// The smallest valid input — two taxa — builds the minimal tree: a single internal root
+    /// joining two leaves carrying the two taxon names. Pinned: exactly 2 leaves, the root is
+    /// internal with two leaf children, the leaf names are the two taxa, and branch lengths are
+    /// finite and non-negative (UPGMA join height d/2 ≥ 0; INV-UPGMA-01/03).
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void TwoSequences_BuildMinimalTwoLeafTree_JoinedAtOneRoot()
+    {
+        var sequences = new Dictionary<string, string>
+        {
+            ["X"] = RandomDna(30, seed: 40_002),
+            ["Y"] = RandomDna(30, seed: 40_003),
+        };
+
+        var tree = PhylogeneticAnalyzer.BuildTree(
+            sequences,
+            PhylogeneticAnalyzer.DistanceMethod.JukesCantor,
+            PhylogeneticAnalyzer.TreeMethod.UPGMA);
+
+        tree.Root.Should().NotBeNull();
+        tree.Root.IsLeaf.Should().BeFalse("two taxa join under a single internal root");
+        tree.Root.Children.Count.Should().Be(2, "the root bifurcates into the two taxa");
+
+        var leaves = CollectLeaves(tree.Root);
+        leaves.Should().HaveCount(2, "a two-taxon tree has exactly two leaves");
+        leaves.All(l => l.IsLeaf).Should().BeTrue();
+        leaves.Select(l => l.Name).Should().BeEquivalentTo(new[] { "X", "Y" }, "both taxa appear as leaves");
+
+        TreeBranchLengthsValid(tree.Root, expectedLeafCount: 2, requireNonNegative: true);
+    }
+
+    #endregion
+
+    #region BE — 100+ sequences (O(n³) completion under [CancelAfter])
+
+    /// <summary>
+    /// A large taxon set (120 SHORT deterministic sequences) must BUILD to completion without
+    /// hanging or crashing and yield a structurally valid tree: exactly 120 leaves with finite,
+    /// non-negative UPGMA branch lengths (§4.A O(n³) complexity). Sequences are kept short so the
+    /// cubic builder finishes quickly; `[CancelAfter]` fails the test if it ever hangs.
+    /// </summary>
+    [Test]
+    [CancelAfter(60_000)]
+    public void ManySequences_BuildCompletes_WithCorrectLeafCount_AndFiniteBranches()
+    {
+        const int n = 120;
+        var sequences = new Dictionary<string, string>();
+        for (int i = 0; i < n; i++)
+            sequences[$"T{i}"] = RandomDna(40, seed: 40_100 + i);
+
+        PhylogeneticAnalyzer.PhylogeneticTree tree = default;
+        Action act = () => tree = PhylogeneticAnalyzer.BuildTree(
+            sequences,
+            PhylogeneticAnalyzer.DistanceMethod.JukesCantor,
+            PhylogeneticAnalyzer.TreeMethod.UPGMA);
+        act.Should().NotThrow("a large but valid input must build without crashing");
+
+        tree.Root.Should().NotBeNull("the O(n³) builder completes for 120 taxa");
+        TreeBranchLengthsValid(tree.Root, expectedLeafCount: n, requireNonNegative: true);
+    }
+
+    #endregion
+
+    #region BE — All-identical sequences (every distance 0 → div-by-zero / NaN hazard)
+
+    /// <summary>
+    /// KEY div-by-zero / NaN probe: when every sequence is identical, every pairwise distance is 0,
+    /// so each UPGMA join height d/2 = 0 and every branch length is the clamped 0. The build must
+    /// NOT divide by zero (the n−2 NJ divisor is only reached for ≥4 active taxa) and must NOT leak
+    /// a NaN/±Inf branch length — it produces a valid tree with the right leaf count and all-zero,
+    /// finite, non-negative branch lengths (INV-UPGMA-03; §5.2). Exercised for BOTH builders;
+    /// UPGMA additionally pins every branch length is exactly 0.
+    /// </summary>
+    [Test]
+    [CancelAfter(10_000)]
+    public void AllIdenticalSequences_BuildValidZeroLengthTree_NoNaNNoDivByZero()
+    {
+        const int n = 8;
+        string identical = RandomDna(30, seed: 40_500);
+        var sequences = new Dictionary<string, string>();
+        for (int i = 0; i < n; i++)
+            sequences[$"T{i}"] = identical;
+
+        // UPGMA: all branch lengths clamp to exactly 0, no NaN, no division by zero.
+        PhylogeneticAnalyzer.PhylogeneticTree upgma = default;
+        Action buildUpgma = () => upgma = PhylogeneticAnalyzer.BuildTree(
+            sequences, PhylogeneticAnalyzer.DistanceMethod.JukesCantor, PhylogeneticAnalyzer.TreeMethod.UPGMA);
+        buildUpgma.Should().NotThrow("zero distances must not divide by zero or crash the builder");
+        TreeBranchLengthsValid(upgma.Root, expectedLeafCount: n, requireNonNegative: true);
+        AllNodes(upgma.Root).Select(node => node.BranchLength)
+            .Should().OnlyContain(bl => bl == 0.0, "identical taxa → every UPGMA branch length is exactly 0");
+
+        // Neighbor-Joining: also completes with finite branch lengths on the all-zero matrix
+        // (the n−2 divisor is ≥ 2 while joining, and the 3-/2-taxon closures are pure arithmetic).
+        PhylogeneticAnalyzer.PhylogeneticTree nj = default;
+        Action buildNj = () => nj = PhylogeneticAnalyzer.BuildTree(
+            sequences, PhylogeneticAnalyzer.DistanceMethod.JukesCantor, PhylogeneticAnalyzer.TreeMethod.NeighborJoining);
+        buildNj.Should().NotThrow("an all-zero distance matrix must not crash Neighbor-Joining");
+        // NJ branch lengths may be negative by design (INV-NJ-02) — only finiteness is required.
+        TreeBranchLengthsValid(nj.Root, expectedLeafCount: n, requireNonNegative: false);
     }
 
     #endregion
