@@ -8,7 +8,8 @@ using Seqeron.Genomics.MolTools;
 namespace Seqeron.Genomics.Tests;
 
 /// <summary>
-/// Fuzz tests for the Codon area — codon optimization (CODON-OPT-001).
+/// Fuzz tests for the Codon area — codon optimization (CODON-OPT-001) and the
+/// Codon Adaptation Index (CODON-CAI-001).
 ///
 /// ───────────────────────────────────────────────────────────────────────────
 /// What fuzzing verifies
@@ -405,6 +406,254 @@ public class CodonFuzzTests
             "every codon is preserved at length (INV-02/INV-03)");
         Translate(result.OptimizedSequence).Should().Be(expectedProtein,
             "even at scale the protein is preserved (INV-01)");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  CODON-CAI-001 — codon adaptation index : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region CODON-CAI-001 — codon adaptation index
+
+    /// <summary>
+    /// Fuzz tests for CODON-CAI-001 — the Codon Adaptation Index (CAI).
+    /// Checklist: docs/checklists/03_FUZZING.md, row 59.
+    /// Fuzz strategy exercised for THIS unit:
+    ///   • BE = Boundary Exploitation — empty sequence, a sequence made up only of
+    ///          stop codons (no evaluable codons), and an input whose length is not
+    ///          a multiple of 3 (a trailing partial codon).
+    /// — docs/checklists/03_FUZZING.md §Description (strategy codes).
+    ///
+    /// ───────────────────────────────────────────────────────────────────────────
+    /// The CAI contract under test
+    /// ───────────────────────────────────────────────────────────────────────────
+    /// CAI measures how strongly a coding sequence favours codons preferred in a
+    /// reference organism.[Sharp &amp; Li 1987] For each non-stop codon i encoding
+    /// amino acid a, the relative adaptiveness is
+    ///     w_i = f_i / max(f_j)   over the synonymous codons j of a
+    /// and CAI is the geometric mean over the L evaluated codons, computed in the
+    /// numerically-stable logarithmic form
+    ///     CAI = (∏ w_i)^(1/L) = exp((1/L) · Σ ln w_i).
+    /// — docs/algorithms/Codon_Optimization/CAI_Calculation.md §2.2.
+    ///
+    /// API entry: CodonOptimizer.CalculateCAI(string codingSequence,
+    ///   CodonUsageTable table)
+    ///   (src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs lines
+    ///   423–450).
+    ///
+    /// The method is LENIENT by documented design — it never throws on garbage; it
+    /// normalises, trims, and scores whatever it is given:
+    ///   • null OR empty input → returns 0 via an explicit early return
+    ///     (CodonOptimizer.cs lines 425–426). CAI_Calculation.md §3.3, §6.1.
+    ///   • DNA input is upper-cased and `T` is replaced by `U` before splitting
+    ///     (line 428), so DNA / lowercase round-trip identically.
+    ///   • input length NOT divisible by 3 → SplitIntoCodons drops the trailing
+    ///     partial codon (loop guard `i + 2 &lt; length`, lines 687–695). This is the
+    ///     KEY no-crash boundary: a final 1–2 leftover bases must be IGNORED, never
+    ///     cause an IndexOutOfRangeException. CAI_Calculation.md §6.1.
+    ///   • a sequence of ONLY stop codons → every codon translates to `*` and is
+    ///     SKIPPED (line 440); the evaluated count L is 0, so the method returns 0
+    ///     from `count > 0 ? … : 0` (line 449) — it must NOT evaluate exp(logSum/0)
+    ///     (a 0/0 NaN) nor take ln(0). CAI_Calculation.md §2.4 INV-03, §6.1 (KEY).
+    ///   • a codon that is not in the standard genetic code translates to the
+    ///     sentinel `X`; CalculateRelativeAdaptiveness returns NaN for it
+    ///     (AminoAcidToCodons lookup miss, lines 454–455) and CalculateCAI skips it
+    ///     (line 443) — never a KeyNotFoundException, never a NaN result.
+    ///
+    /// KEY THEORY INVARIANTS this suite pins directly (CAI_Calculation.md §2.4):
+    ///   • INV-01: 0 ≤ CAI ≤ 1 on every input that yields a score.
+    ///   • A sequence built only from each amino acid's MOST-used synonym → every
+    ///     w_i = 1 → CAI = 1 exactly (the worked optimal example, §7.1).
+    ///   • INV-03: stop codons do not affect the result (excluded from L).
+    /// One exact CAI is pinned against the documented formula (the §7.1 suboptimal
+    /// worked example, ≈0.32) so the geometric-mean computation itself is verified,
+    /// not just its range.
+    ///
+    /// Determinism note: CalculateCAI is a pure function of (sequence, table) with
+    /// no randomness; every test uses a FIXED input and the deterministic
+    /// EColiK12 reference table, so every assertion is reproducible.
+    /// ───────────────────────────────────────────────────────────────────────────
+
+    #region Positive sanity — optimal codons → CAI = 1, suboptimal → known value
+
+    /// <summary>
+    /// Positive sanity (KEY): a sequence built ONLY from each amino acid's most-used
+    /// E. coli synonym makes every w_i = 1, so CAI = 1 exactly — the worked optimal
+    /// example AUG·CUG·CCG·ACC from CAI_Calculation.md §7.1. This is the baseline
+    /// proving the boundary targets below are measured against a working happy path,
+    /// and it pins the upper bound of INV-01 (0 ≤ CAI ≤ 1) at its extreme. DNA
+    /// notation (ATGCTGCCGACC) is used to also exercise the T→U normalisation.
+    /// </summary>
+    [Test]
+    public void CalculateCAI_AllOptimalCodons_IsExactlyOne()
+    {
+        const string optimalDna = "ATGCTGCCGACC"; // M·L·P·T, each the top E. coli codon
+
+        double cai = CodonOptimizer.CalculateCAI(optimalDna, Target);
+
+        cai.Should().BeApproximately(1.0, 1e-12,
+            "every codon is the most-used synonym, so w_i = 1 and the geometric mean is 1 (CAI_Calculation.md §7.1)");
+        cai.Should().BeInRange(0.0, 1.0, "CAI is bounded by [0, 1] (INV-01)");
+    }
+
+    /// <summary>
+    /// Positive sanity: the suboptimal worked example AUG·CUA·CCA·ACU from
+    /// CAI_Calculation.md §7.1. Pins the geometric-mean computation against the
+    /// documented formula exp((1/L)·Σ ln w_i) with the EColiK12 frequencies:
+    ///   w = {1.00, 0.04/0.50, 0.19/0.53, 0.16/0.44} → CAI ≈ 0.3196 (doc rounds to
+    /// ≈0.31). Confirms the value lies strictly inside (0, 1) — INV-01 at an
+    /// interior point, not just the endpoints.
+    /// </summary>
+    [Test]
+    public void CalculateCAI_SuboptimalCodons_MatchesDocumentedFormula()
+    {
+        const string suboptimalRna = "AUGCUACCAACU"; // M·L·P·T, weak E. coli codons
+
+        // Reference value computed directly from w_i = f_i / max(f_j) and the
+        // geometric mean exp((1/L)·Σ ln w_i) over the EColiK12 table.
+        double[] w = { 1.00, 0.04 / 0.50, 0.19 / 0.53, 0.16 / 0.44 };
+        double expected = Math.Exp(w.Select(x => Math.Log(x)).Sum() / w.Length);
+
+        double cai = CodonOptimizer.CalculateCAI(suboptimalRna, Target);
+
+        cai.Should().BeApproximately(expected, 1e-12,
+            "CAI = exp((1/L)·Σ ln w_i) over the EColiK12 frequencies (CAI_Calculation.md §2.2, §7.1)");
+        cai.Should().BeInRange(0.0, 1.0, "CAI is bounded by [0, 1] (INV-01)");
+        cai.Should().BeApproximately(0.3196, 1e-3, "matches the §7.1 worked example (≈0.31)");
+    }
+
+    #endregion
+
+    #region BE — Boundary: empty string / null (no codons at all)
+
+    /// <summary>
+    /// BE: empty string and null are the "no input" boundary. The documented
+    /// contract returns 0 via an explicit early return (CodonOptimizer.cs lines
+    /// 425–426) — NOT a NullReferenceException, and critically NOT exp(logSum/0)
+    /// (a 0/0 NaN) from a geometric mean over zero codons. Pins that "no sequence"
+    /// is a defined 0, never NaN and never a crash. CAI_Calculation.md §6.1.
+    /// </summary>
+    [TestCase(null, TestName = "CalculateCAI_Null_IsZeroNoThrow")]
+    [TestCase("", TestName = "CalculateCAI_Empty_IsZeroNoThrow")]
+    public void CalculateCAI_NullOrEmpty_ReturnsZero(string? input)
+    {
+        double cai = double.NaN;
+        var act = () => cai = CodonOptimizer.CalculateCAI(input!, Target);
+
+        act.Should().NotThrow("null/empty is a defined no-op early return, not an error");
+        cai.Should().Be(0.0, "an empty sequence has no evaluable codons → CAI is 0");
+        cai.Should().NotBe(double.NaN, "the empty boundary must never produce a 0/0 NaN");
+    }
+
+    #endregion
+
+    #region BE — Boundary: sequence of ONLY stop codons (no evaluable codons)
+
+    /// <summary>
+    /// BE (KEY no-crash boundary): a sequence made up entirely of stop codons has
+    /// NO evaluable codon — every codon translates to `*` and is skipped (line 440),
+    /// so the evaluated count L is 0 and the method returns 0 from the
+    /// `count > 0 ? … : 0` guard (line 449). It must NOT compute exp(logSum/0)
+    /// (a 0/0 NaN), and must NOT take ln(0). This pins INV-03 (stop codons do not
+    /// affect the result) at its extreme: a sequence of nothing but stops scores 0,
+    /// not NaN, not a DivideByZero, not a crash. Covers each of the three stop
+    /// codons alone and all three together, in both RNA and DNA notation.
+    /// CAI_Calculation.md §2.4 INV-03, §6.1.
+    /// </summary>
+    [TestCase("UAAUAGUGA", TestName = "CalculateCAI_AllThreeStops_Rna_IsZero")]
+    [TestCase("TAATAGTGA", TestName = "CalculateCAI_AllThreeStops_Dna_IsZero")]
+    [TestCase("UAAUAAUAA", TestName = "CalculateCAI_OnlyUAA_IsZero")]
+    [TestCase("UAGUAGUAG", TestName = "CalculateCAI_OnlyUAG_IsZero")]
+    [TestCase("UGAUGAUGA", TestName = "CalculateCAI_OnlyUGA_IsZero")]
+    public void CalculateCAI_OnlyStopCodons_ReturnsZeroNoNaN(string input)
+    {
+        double cai = double.NaN;
+        var act = () => cai = CodonOptimizer.CalculateCAI(input, Target);
+
+        act.Should().NotThrow(
+            "a stops-only sequence leaves zero evaluated codons; the L=0 guard must fire, never ln(0)/div-by-zero");
+        cai.Should().Be(0.0,
+            "stop codons are excluded (INV-03); with no remaining codons CAI is the defined 0");
+        double.IsNaN(cai).Should().BeFalse("the L=0 path must return 0, never exp(logSum/0) = NaN");
+    }
+
+    /// <summary>
+    /// BE: a stop codon sandwiched between real codons must contribute NOTHING to
+    /// the score (INV-03) — the CAI of M·*·L·* must equal the CAI of just M·L. Pins
+    /// that the stop-skipping leaves a valid geometric mean over the real codons,
+    /// not a NaN from a mis-counted L, and keeps the result in [0, 1].
+    /// </summary>
+    [Test]
+    public void CalculateCAI_StopCodonsInterspersed_DoNotAffectScore()
+    {
+        const string withStops = "AUGUAACUGUGA"; // M · stop · L · stop
+        const string withoutStops = "AUGCUG";      // M · L
+
+        double caiWithStops = CodonOptimizer.CalculateCAI(withStops, Target);
+        double caiWithoutStops = CodonOptimizer.CalculateCAI(withoutStops, Target);
+
+        caiWithStops.Should().BeApproximately(caiWithoutStops, 1e-12,
+            "stop codons are excluded from L, so they cannot change the score (INV-03)");
+        caiWithStops.Should().BeInRange(0.0, 1.0, "CAI stays bounded by [0, 1] (INV-01)");
+        double.IsNaN(caiWithStops).Should().BeFalse("a valid score must never be NaN");
+    }
+
+    #endregion
+
+    #region BE — Boundary: length NOT divisible by 3 (trailing partial codon)
+
+    /// <summary>
+    /// BE (KEY no-crash boundary): when the input length is not a multiple of 3,
+    /// SplitIntoCodons drops the trailing partial codon (loop guard `i + 2 &lt; length`,
+    /// CodonOptimizer.cs lines 687–695) — the leftover 1–2 bases must NEVER trigger
+    /// an IndexOutOfRangeException. The CAI scored over the complete codons that
+    /// remain must EQUAL the CAI of the trimmed prefix alone, and stay in [0, 1].
+    /// Here AUG·CUG (+ 1 or 2 trailing bases) must score identically to AUG·CUG,
+    /// which is the all-optimal CAI = 1. Verified for both a +1 and a +2 remainder.
+    /// CAI_Calculation.md §6.1, §2.3 ASM-02.
+    /// </summary>
+    [TestCase("AUGCUGA", TestName = "CalculateCAI_LenMod3Is1_TrimsTrailingBase")]   // 7 = 2 codons + 1
+    [TestCase("AUGCUGAU", TestName = "CalculateCAI_LenMod3Is2_TrimsTrailingTwo")]   // 8 = 2 codons + 2
+    public void CalculateCAI_LengthNotDivisibleBy3_TrimsPartialCodon(string input)
+    {
+        const string completePrefix = "AUGCUG"; // the 2 complete codons (M·L), both optimal
+        double expected = CodonOptimizer.CalculateCAI(completePrefix, Target);
+
+        double cai = double.NaN;
+        var act = () => cai = CodonOptimizer.CalculateCAI(input, Target);
+
+        act.Should().NotThrow(
+            "a trailing partial codon must be trimmed, never cause IndexOutOfRange");
+        cai.Should().BeApproximately(expected, 1e-12,
+            "the partial codon is ignored, so CAI equals that of the complete-codon prefix (ASM-02)");
+        cai.Should().BeInRange(0.0, 1.0, "CAI stays bounded by [0, 1] (INV-01)");
+        cai.Should().BeApproximately(1.0, 1e-12,
+            "AUG·CUG are the top E. coli codons, so the trimmed score is the optimal 1");
+    }
+
+    /// <summary>
+    /// BE: the smallest non-trivial partial-codon inputs — lengths 1, 2, 4 and 5 —
+    /// where after trimming there are either zero complete codons (lengths 1, 2) or
+    /// one complete codon plus a partial (lengths 4, 5). None may crash; the
+    /// zero-codon cases must return the defined 0 (not NaN), and the one-codon cases
+    /// must return a score in [0, 1]. Pins the trim boundary right at the codon edge.
+    /// </summary>
+    [TestCase("A", 0.0, TestName = "CalculateCAI_Len1_NoCompleteCodon_IsZero")]
+    [TestCase("AU", 0.0, TestName = "CalculateCAI_Len2_NoCompleteCodon_IsZero")]
+    [TestCase("AUGA", 1.0, TestName = "CalculateCAI_Len4_OneCodonAUG_IsOne")]    // AUG (M, w=1) + 'A'
+    [TestCase("AUGAU", 1.0, TestName = "CalculateCAI_Len5_OneCodonAUG_IsOne")]   // AUG (M, w=1) + 'AU'
+    public void CalculateCAI_TinyPartialInputs_TrimAtCodonEdge(string input, double expected)
+    {
+        double cai = double.NaN;
+        var act = () => cai = CodonOptimizer.CalculateCAI(input, Target);
+
+        act.Should().NotThrow("sub-codon trailing bases are trimmed, never indexed out of range");
+        cai.Should().BeApproximately(expected, 1e-12,
+            "zero complete codons → defined 0; one optimal codon (AUG, Met) → w=1 → CAI 1");
+        double.IsNaN(cai).Should().BeFalse("no boundary input may yield NaN");
     }
 
     #endregion
