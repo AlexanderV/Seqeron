@@ -11,7 +11,8 @@ namespace Seqeron.Genomics.Tests;
 
 /// <summary>
 /// Fuzz tests for the Splicing area — splice DONOR (5') site detection
-/// (SPLICE-DONOR-001).
+/// (SPLICE-DONOR-001) and splice ACCEPTOR (3') site detection
+/// (SPLICE-ACCEPTOR-001).
 ///
 /// ───────────────────────────────────────────────────────────────────────────
 /// What fuzzing verifies
@@ -90,6 +91,67 @@ namespace Seqeron.Genomics.Tests;
 /// candidates per length; it is kept modest and [CancelAfter]-guarded so a regression
 /// that turned the linear scan into a hang or super-linear blow-up would FAIL rather
 /// than wedge the suite.
+///
+/// ═══════════════════════════════════════════════════════════════════════════
+/// Unit: SPLICE-ACCEPTOR-001 — splice acceptor (3') site detection
+/// Checklist: docs/checklists/03_FUZZING.md, row 78.
+/// ═══════════════════════════════════════════════════════════════════════════
+/// Fuzz strategies exercised for THIS unit:
+///   • BE = Boundary Exploitation — the length/edge corners that could crash:
+///       – seq &lt; window: a sequence shorter than the documented 20-nt guard,
+///         INCLUDING one that DOES contain an AG, and an AG flush against the 3'
+///         edge of a ≥ 20-nt sequence so the scan's i ≤ Length-2 range plus the
+///         clamped −15..0 PWM / Substring windows cannot run off either end. This
+///         is the KEY no-IndexOutOfRange boundary (the −15-nt PPT/PWM window AND
+///         the trailing AG both threaten the string bounds).
+///       – all-AG: "AGAGAG…" — every even index is a candidate AG, so the scanner
+///         scores the maximum number of overlapping acceptor candidates; it must
+///         complete without crashing or wedging ([CancelAfter]-guarded).
+///   • MC = Malformed Content — non-DNA characters (digits, punctuation, IUPAC
+///         ambiguity codes, whitespace): handled per contract (uppercased, T→U,
+///         then treated as never-matching residues), never rejected with a crash.
+/// — docs/checklists/03_FUZZING.md §Description (strategy codes BE, MC);
+///   targets: "No AG sites, seq &lt; window, non-DNA, all AG".
+///
+/// The acceptor-detection contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// The 3' splice ACCEPTOR site marks the END of an intron. The canonical 3'
+/// consensus is (Y)nNCAG|G with an almost-invariant terminal AG dinucleotide
+/// preceded by a polypyrimidine tract (PPT) (Shapiro &amp; Senapathy 1987; Burge et
+/// al. 1999). The repository scores each AG candidate by a PPT contribution over
+/// [−15, −3) plus a sparse eight-offset AcceptorPwm, normalised to [0, 1]; optional
+/// U12-style AC acceptors are scored against a YCCAC-style consensus normalised by
+/// 3.5. — docs/algorithms/Splicing/Acceptor_Site_Detection.md §2.1–2.2, §2.4.
+///
+/// Method under test (src/.../Seqeron.Genomics.Annotation/SpliceSitePredictor.cs):
+///   FindAcceptorSites(string sequence, double minScore = 0.5, bool includeNonCanonical = false)
+///     → IEnumerable&lt;SpliceSite&gt; { Position, Type, Motif, Score, Confidence }.
+///   The scan uppercases the input, maps T→U, then for i in 15..Length−2 inspects the
+///   dinucleotide at (i, i+1): canonical AG is always scored; U12 AC is scored only
+///   when includeNonCanonical is set. A site is emitted iff its score ≥ minScore, with
+///   Position = i+1 (the G of AG / the C of AC — the terminal intronic base, INV-04).
+///   — Acceptor_Site_Detection.md §3, §4.
+///
+/// Documented input handling (Acceptor_Site_Detection.md §3.1, §6.1):
+///   • null / "" / length &lt; 20 → no acceptor sites (guard clause) — never an exception.
+///   • DNA T behaves exactly like RNA U; lowercase behaves exactly like uppercase.
+///   • No AG candidate in canonical mode → no acceptor sites (nothing to score).
+///   • The scan starts at i = 15 so the −15 PPT/PWM window exists; the PPT loop and
+///     every PWM offset clamp with an `(pos >= 0 && pos < Length)` bound, and
+///     GetMotifContext clamps its Substring — so an AG anywhere in 15..Length−2,
+///     including flush against the 3' edge, extracts a window-safe (clamped) score
+///     and motif. No IndexOutOfRange leaks. An AG before index 15 is outside the scan.
+///
+/// Theory-correct invariants asserted (Acceptor_Site_Detection.md §2.4):
+///   • INV-01 — every reported Score is in [0, 1].
+///   • INV-02 — every reported Confidence is in [0, 1].
+///   • INV-03 — canonical sites carry Type = Acceptor; AC sites Type = U12Acceptor.
+///   • INV-04 / [acceptor-anchored] — a reported canonical acceptor really HAS its
+///     AG at (Position−1, Position) in the normalised sequence (a U12 acceptor an AC):
+///     the scanner only enters the emit branch after matching that dinucleotide and
+///     yields Position = i+1, so a reported acceptor must actually sit on an AG/AC.
+///     This is the "a reported acceptor site must actually have AG at the splice
+///     position" contract.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -143,6 +205,45 @@ public class SplicingFuzzTests
                 $"a reported donor must have its donor dinucleotide (GU/GC) at the splice position, found '{first}' at {site.Position}");
             (second == 'U' || second == 'C').Should().BeTrue(
                 $"a canonical/GC donor's second base must be U or C, found '{second}' at {site.Position + 1}");
+        }
+
+        site.Motif.Should().NotBeNull("every emitted site carries a (possibly clamped) motif context");
+    }
+
+    /// <summary>
+    /// Asserts the universal theory-correct contract every emitted ACCEPTOR site must
+    /// satisfy (Acceptor_Site_Detection.md §2.4): Score and Confidence in [0, 1] (INV-01,
+    /// INV-02), an in-range Position, and — the headline correctness property — the site
+    /// is anchored on a real acceptor dinucleotide. FindAcceptorSites reports Position =
+    /// i+1, so Position indexes the terminal intronic base (the G of AG / the C of AC);
+    /// the normalised sequence must carry A·G at (Position−1, Position) for a canonical
+    /// Acceptor (INV-03/INV-04), or A·C for a U12Acceptor. I.e. a reported acceptor truly
+    /// has AG at the splice position. Because the scan starts at i = 15, a canonical
+    /// Position is always ≥ 16.
+    /// </summary>
+    private static void AssertWellFormedAcceptor(SpliceSite site, string sequence)
+    {
+        string normalized = sequence.ToUpperInvariant().Replace('T', 'U');
+
+        site.Score.Should().BeInRange(0.0, 1.0, "INV-01: acceptor scores are normalised to [0, 1]");
+        site.Confidence.Should().BeInRange(0.0, 1.0, "INV-02: confidence is clamped to [0, 1]");
+
+        // Position = i + 1 is the terminal intronic base; (Position-1, Position) is the dinucleotide.
+        site.Position.Should().BeInRange(16, normalized.Length - 1,
+            "Position = i+1 with i ≥ 15, and the G/C member must be inside the sequence");
+
+        char first = normalized[site.Position - 1];  // A of AG / A of AC
+        char second = normalized[site.Position];      // G of AG / C of AC
+        if (site.Type == SpliceSiteType.U12Acceptor)
+        {
+            (first == 'A' && second == 'C').Should().BeTrue(
+                $"a U12 acceptor must sit on an AC dinucleotide, found '{first}{second}' ending at {site.Position}");
+        }
+        else
+        {
+            site.Type.Should().Be(SpliceSiteType.Acceptor, "canonical acceptors carry Type = Acceptor (INV-03)");
+            (first == 'A' && second == 'G').Should().BeTrue(
+                $"a reported acceptor must have its AG dinucleotide at the splice position, found '{first}{second}' ending at {site.Position} (INV-04)");
         }
 
         site.Motif.Should().NotBeNull("every emitted site carries a (possibly clamped) motif context");
@@ -379,6 +480,243 @@ public class SplicingFuzzTests
 
                 foreach (var s in sites)
                     AssertWellFormedDonor(s, seq);
+            }
+        }
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  SPLICE-ACCEPTOR-001 — splice acceptor site detection : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region SPLICE-ACCEPTOR-001 — splice acceptor site detection
+
+    #region MC — No AG candidate: returns no acceptor sites
+
+    /// <summary>
+    /// Target "No AG sites": a sequence containing NO AG dinucleotide has no canonical
+    /// acceptor candidate at all, so the scan emits nothing — no acceptor site, no crash
+    /// (Acceptor_Site_Detection.md §6.1; mirrors the existing AcceptorSite unit test). We
+    /// probe a long poly-U tract (a real polypyrimidine context but with no AG terminus),
+    /// a poly-A homopolymer (an A never followed by G), and a CU-only sequence, and confirm
+    /// that even at minScore 0.0 nothing canonical is invented from an AG that is not there.
+    /// All sequences are ≥ 20 nt so we isolate "no AG" from the length guard.
+    /// </summary>
+    [Test]
+    public void FindAcceptorSites_NoAgCandidate_ReturnsEmpty()
+    {
+        foreach (string seq in new[]
+                 {
+                     new string('U', 30),          // PPT-rich but no AG terminus
+                     new string('A', 30),          // an A is never followed by G
+                     "CUCUCUCUCUCUCUCUCUCUCUCU",    // pyrimidine-only, no AG
+                 })
+        {
+            var canonical = ((Func<List<SpliceSite>>)(() =>
+                FindAcceptorSites(seq, minScore: 0.0).ToList()))
+                .Should().NotThrow("an AG-free sequence is scanned without error").Subject;
+
+            canonical.Should().BeEmpty($"'{seq}' has no AG dinucleotide, so there is no canonical acceptor candidate");
+            canonical.Should().NotContain(s => s.Type == SpliceSiteType.Acceptor,
+                "no AG means no canonical acceptor can be reported");
+        }
+    }
+
+    #endregion
+
+    #region BE — Boundary: sequence shorter than the window / AG flush at the 3' edge
+
+    /// <summary>
+    /// Target "seq &lt; window" (KEY boundary). Two sub-cases, both of which must avoid
+    /// IndexOutOfRange:
+    ///   (a) length &lt; 20 — the documented guard. Lengths 0..19, INCLUDING strings that
+    ///       DO contain an AG ("CAGG", a 19-nt PPT+CAGG), must return no acceptor sites and
+    ///       never throw (Acceptor_Site_Detection.md §3.1, §6.1).
+    ///   (b) a canonical AG shoved against the 3' edge of a ≥ 20-nt sequence, so i = Length−2
+    ///       is the last scanned index and the −15-nt PPT/PWM window plus the GetMotifContext
+    ///       Substring must all extract window-safely (each access is bounds-clamped). The
+    ///       edge AG is the LAST thing the scan can see; it must produce a clamped score and
+    ///       motif, not an IndexOutOfRange off either end.
+    /// </summary>
+    [Test]
+    public void FindAcceptorSites_SequenceShorterThanWindow_NoCrashNoIndexOutOfRange()
+    {
+        // (a) Every length 0..19 — including ones that contain an AG — yields nothing, never throws.
+        foreach (string tooShort in new[]
+                 {
+                     "", "A", "AG", "CAGG", "UUUUUUUUUUUUUUUUUUU",   // 0,1,2,4,19 — last is 19-nt poly-U
+                     "UUUUUUUUUUUUUUUCAGG",                          // 19 nt and DOES contain an AG
+                 })
+        {
+            var act = () => FindAcceptorSites(tooShort, minScore: 0.0, includeNonCanonical: true).ToList();
+            act.Should().NotThrow($"a sub-window sequence ('{tooShort}', len {tooShort.Length}) must not crash")
+               .Subject.Should().BeEmpty(
+                   $"length {tooShort.Length} < 20 is below the acceptor window guard — no site, no IndexOutOfRange");
+        }
+
+        // (b) A canonical AG flush against the 3' edge: dinucleotide at (Length-2, Length-1),
+        // i.e. the scan's terminal index i = Length-2. The −15 PPT/PWM window and the motif
+        // Substring must all clamp; the worst-case +0 PWM offset touches Length-1 exactly.
+        foreach (string edge in new[]
+                 {
+                     "UUUUUUUUUUUUUUUUUUAG",     // 20 nt, AG at indices 18,19
+                     "CCCCCCCCCCCCCCCCCCCCAG",   // 22 nt, AG at the very end
+                     "UUUUUUUUUUUUUUUUCAGCAG",   // 22 nt, an interior AG and a 3'-edge AG
+                 })
+        {
+            int agIndex = edge.Length - 2;
+            edge.Substring(agIndex, 2).Should().Be("AG", "the test fixture really places an AG at the 3' edge");
+
+            var act = () => FindAcceptorSites(edge, minScore: 0.0).ToList();
+            var sites = act.Should().NotThrow(
+                $"a 3'-edge AG in '{edge}' must extract its −15..0 window safely, not throw IndexOutOfRange").Subject;
+
+            // Whatever IS reported is a genuine, window-safe acceptor anchored on a real AG.
+            foreach (var s in sites)
+                AssertWellFormedAcceptor(s, edge);
+        }
+    }
+
+    #endregion
+
+    #region MC — Malformed Content: non-DNA characters are handled, not crashed
+
+    /// <summary>
+    /// Target "non-DNA": characters outside {A,C,G,T,U} — digits, punctuation, IUPAC
+    /// ambiguity codes (N, R, Y…), whitespace. The contract uppercases and maps T→U, then
+    /// treats anything not matching the consensus as a never-matching residue, so junk is
+    /// HANDLED rather than rejected — no crash, no IndexOutOfRange off the PPT/PWM window or
+    /// the motif Substring (Acceptor_Site_Detection.md §3.3, §6.1). A canonical AG embedded
+    /// in junk is still scored; any candidate that survives still obeys the acceptor contract
+    /// (it must genuinely end on an AG/AC). 'N' can never be the A or G of an acceptor.
+    /// </summary>
+    [Test]
+    public void FindAcceptorSites_NonDnaCharacters_AreHandledNotCrashed()
+    {
+        foreach (string junk in new[]
+                 {
+                     "NNNNNNNNNNNNNNNNNNNNNN",        // all-ambiguity: no concrete AG → handled
+                     "12!! \t??ZZ##$$%%^^&&**",       // pure garbage: never-matching residues
+                     "NNNNNNNNNNNNNNNNCAGNNN",        // a real AG survives inside N-junk
+                     "RYSWKMBDHVNNRYSWKMBDHV",        // IUPAC ambiguity codes
+                     "uuuu uuuu uuuu uuu cagg gg",    // lowercase + whitespace around a cag
+                 })
+        {
+            var act = () => FindAcceptorSites(junk, minScore: 0.0, includeNonCanonical: true).ToList();
+            var sites = act.Should().NotThrow($"non-DNA content ('{junk}') must be handled, not crash").Subject;
+
+            // Whatever is reported is still a genuine, window-safe acceptor on a real AG/AC.
+            foreach (var s in sites)
+                AssertWellFormedAcceptor(s, junk);
+
+            // 'N' is never an acceptor dinucleotide member, so a reported acceptor never has
+            // its A or its G/C land on an 'N' in the normalised sequence.
+            string normalized = junk.ToUpperInvariant().Replace('T', 'U');
+            sites.Should().NotContain(s => normalized[s.Position] == 'N' || normalized[s.Position - 1] == 'N',
+                "an ambiguity 'N' cannot anchor an acceptor dinucleotide");
+        }
+    }
+
+    #endregion
+
+    #region BE — Boundary: all-AG sequence scores every candidate without crashing
+
+    /// <summary>
+    /// Target "all AG": "AGAGAG…" places a candidate AG at every even index, so the scanner
+    /// scores the maximum possible number of overlapping acceptor candidates over the
+    /// 15 ≤ i ≤ Length−2 range. It must complete the full O(n) pass without crashing, hanging
+    /// or windowing off the end — [CancelAfter] turns a regression-to-hang into a FAIL. Every
+    /// emitted site still satisfies the acceptor contract (anchored on a real AG, score/
+    /// confidence in range), every reported Position is ODD (G of an even-indexed AG → i+1),
+    /// and the count is bounded by the number of in-range even AG starts. DNA ("AGAG…") and
+    /// RNA ("AGAG…") spellings are identical here; we also sweep the DNA-T spelling separately.
+    /// </summary>
+    [Test]
+    [CancelAfter(30000)]
+    public void FindAcceptorSites_AllAg_ScoresEveryCandidateAndCompletes(CancellationToken token)
+    {
+        foreach (int reps in new[] { 10, 50, 500 })
+        {
+            string seq = string.Concat(Enumerable.Repeat("AG", reps)); // "AGAG…"
+
+            var act = () => FindAcceptorSites(seq, minScore: 0.0).ToList();
+            var sites = act.Should().NotThrow($"an all-AG sequence of {2 * reps} nt must not crash").Subject;
+            token.ThrowIfCancellationRequested();
+
+            // Every candidate AG begins at an EVEN index i; only those with 15 ≤ i ≤ Length-2 are scanned.
+            // Reported Position = i+1, which is therefore ODD.
+            int firstStart = 16;               // first even i ≥ 15
+            int maxStart = seq.Length - 2;     // inclusive upper bound of the scan
+            foreach (var s in sites)
+            {
+                AssertWellFormedAcceptor(s, seq);
+                (s.Position % 2).Should().Be(1, "Position = i+1 with even i → an odd index in 'AGAG…'");
+            }
+
+            // The number of scored candidates is bounded by the in-range even AG starts.
+            int inRangeEvenStarts = maxStart < firstStart ? 0 : ((maxStart - firstStart) / 2) + 1;
+            sites.Count.Should().BeLessThanOrEqualTo(inRangeEvenStarts,
+                "at most one acceptor per in-range even AG start");
+        }
+    }
+
+    #endregion
+
+    #region Positive sanity — a canonical acceptor motif is detected at the right position
+
+    /// <summary>
+    /// Positive sanity: a strong canonical acceptor — a 16-nt polypyrimidine tract followed
+    /// by the CAG|G terminus ("UUUUUUUUUUUUUUUUCAGGG", the AcceptorSite unit's fixture) — must
+    /// be detected as a canonical acceptor whose AG ends at Position 18 (the G of AG, INV-04),
+    /// with Type = Acceptor and a Score/Confidence in range. The DNA spelling (T→U) must give
+    /// the identical Position. This proves the fuzz harness asserts against a detector that
+    /// actually FINDS real acceptor sites — not a no-op — and pins the "reported acceptor really
+    /// has AG at the splice position" contract on a true positive.
+    /// </summary>
+    [Test]
+    public void FindAcceptorSites_CanonicalConsensus_DetectedAtExpectedPosition()
+    {
+        const string rna = "UUUUUUUUUUUUUUUUCAGGG"; // 16×U + CAGGG; AG at indices 17,18
+        const string dna = "TTTTTTTTTTTTTTTTCAGGG"; // 16×T then CAGGG → same AG after T→U
+
+        var rnaSites = FindAcceptorSites(rna, minScore: 0.1).ToList();
+
+        rnaSites.Should().Contain(s => s.Position == 18 && s.Type == SpliceSiteType.Acceptor,
+            "the strong PPT + CAG|G acceptor is detected at Position 18 (the G of AG, INV-04)");
+        var site = rnaSites.Single(s => s.Position == 18);
+        AssertWellFormedAcceptor(site, rna);
+
+        // DNA spelling normalises identically (T → U) → the same canonical acceptor position.
+        var dnaSites = FindAcceptorSites(dna, minScore: 0.1).ToList();
+        dnaSites.Should().Contain(s => s.Position == 18 && s.Type == SpliceSiteType.Acceptor,
+            "the DNA spelling maps to the same CAG|G acceptor and yields the identical Position");
+    }
+
+    /// <summary>
+    /// Positive sanity over RANDOM DNA: across fixed seeds and lengths the scan must never
+    /// crash or hang, and every emitted acceptor must satisfy the full contract (score/
+    /// confidence in range, anchored on a real AG/AC at its Position). This pins window-safety
+    /// on arbitrary sequences, not just hand-built motifs. Lengths span the 20-nt guard.
+    /// </summary>
+    [Test]
+    [CancelAfter(30000)]
+    public void FindAcceptorSites_RandomDna_AlwaysWellFormed(CancellationToken token)
+    {
+        foreach (int seed in new[] { 5, 23, 101, 2026 })
+        {
+            foreach (int len in new[] { 20, 60, 200 })
+            {
+                string seq = RandomDna(len, seed);
+
+                var act = () => FindAcceptorSites(seq, minScore: 0.0, includeNonCanonical: true).ToList();
+                var sites = act.Should().NotThrow($"random DNA must not crash the scan (seed {seed}, len {len})").Subject;
+                token.ThrowIfCancellationRequested();
+
+                foreach (var s in sites)
+                    AssertWellFormedAcceptor(s, seq);
             }
         }
     }
