@@ -502,6 +502,85 @@ namespace Seqeron.Genomics.Tests;
 /// fraction of length (0 <= GcContent <= 1). DesignProbes is a yield iterator, so every probe
 /// forces enumeration (`.ToList()`); the positive-sanity test additionally pins that a real
 /// probe's GC and Tm fall INSIDE the requested ranges with no warnings.
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: PROBE-VALID-001 — probe validation
+/// Checklist: docs/checklists/03_FUZZING.md, row 25.
+/// Fuzz strategies exercised for THIS unit:
+///   • MC = Malformed Content — a probe with degenerate IUPAC 'N' bases (the
+///          ambiguity wildcard fed as a literal probe base), and a probe of pure
+///          non-DNA junk (symbols / digits / unicode), each fed to the un-validated
+///          raw-string validation surface.
+///   • INJ = Injection — special characters, null bytes, and unicode interleaved
+///          into a probe string, plus the `null` reference itself.
+/// — docs/checklists/03_FUZZING.md §Description (MC; INJ = injection of special chars /
+///   null bytes / unicode); row 25 targets:
+///   "Non-DNA probe, extremely short, null, probe with N's".
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The probe-validation contract under test (Probe_Validation.md)
+/// ───────────────────────────────────────────────────────────────────────────
+/// ProbeDesigner.ValidateProbe(string probeSequence, IEnumerable&lt;string&gt;
+/// referenceSequences, int maxMismatches = 3, double selfComplementarityThreshold = 0.3)
+/// (ProbeDesigner.cs lines 491–564) assesses a candidate hybridization probe against a
+/// set of reference sequences and returns a ProbeValidation record (IsValid,
+/// SpecificityScore, OffTargetHits, SelfComplementarity, HasSecondaryStructure, Issues).
+/// It is NOT an iterator — it returns a materialised record, so every probe calls it
+/// directly. It uppercases the probe (line 500), counts substitution-tolerant
+/// fixed-length approximate hits across every reference (FindApproximateMatches,
+/// lines 789–804), maps the hit count to a specificity in [0,1] (0 hits → 0.0, 1 → 1.0,
+/// N → 1/N; INV-01), measures self-complementarity as a fraction of positions matching
+/// the reverse complement (CalculateSelfComplementarity, lines 721–733; INV-02), and
+/// flags hairpin potential (HasSecondaryStructurePotential, lines 735–761).
+///
+/// CRITICAL DESIGN FACT the checklist row probes — ValidateProbe does NOT validate the
+/// probe ALPHABET. Unlike the typed DnaSequence surface, the raw probe string is scanned
+/// AS-IS (only upper-cased): there is NO A/C/G/T screen and NO minimum-length screen. The
+/// ONLY documented throws are the two null guards (ArgumentNullException on a null probe
+/// OR a null reference collection, lines 497–498). Every other degenerate input is HANDLED,
+/// not rejected: the empty probe is a structured invalid result ("Empty probe sequence"
+/// issue, SpecificityScore 0.0, OffTargetHits 0; lines 504–513) rather than a throw.
+///
+/// THE FOUR ROW-25 FUZZ TARGETS, mapped to the theory-correct contract:
+///   • Non-DNA probe (MC/INJ): junk (symbols, digits, unicode, null bytes) is upper-cased
+///     and scanned literally. FindApproximateMatches compares characters with a plain `!=`,
+///     so junk simply mismatches A/C/G/T references (no crash, no inflated hits). The
+///     reverse complement used by self-complementarity passes any non-IUPAC char THROUGH
+///     unchanged (GetComplementBase fall-through arm, SequenceExtensions.cs line 156), so
+///     a junk base equals its own "complement" and is counted as self-complementary — a
+///     defined number, never an exception. Because the probe length is &gt; 0,
+///     CalculateSelfComplementarity never divides by zero → NO NaN. The result is a
+///     well-formed ProbeValidation with SpecificityScore and SelfComplementarity both
+///     finite and in [0,1], never an IndexOutOfRange/NullReference.
+///   • Extremely short probe (BE/INJ): a 1–3 bp probe has NO minimum-length screen, so it
+///     is scanned, NOT rejected. FindApproximateMatches' bound `i &lt;= text.Length −
+///     pattern.Length` simply runs over each reference; a 1-nt probe matches many
+///     positions (high OffTargetHits, low specificity) but never crashes. The hairpin
+///     screen's loop bound `i &lt;= len − stemLen*2 − 3` is negative for a tiny probe, so it
+///     short-circuits to false. Self-complementarity divides by the (non-zero) length →
+///     finite, no NaN. So an extremely short probe yields a finite, in-range result — the
+///     theory-correct "handled, scored, never crash" outcome (the only length-based reject
+///     is the EMPTY probe, pinned separately).
+///   • Null (INJ, KEY): a null probe is the documented ArgumentNullException
+///     (ThrowIfNull, line 497) — raised eagerly, NEVER a NullReferenceException from
+///     dereferencing `probeSequence.ToUpperInvariant()`. A null reference COLLECTION is
+///     the sibling throw (line 498). Both pinned; a null reference STRING inside a non-null
+///     collection is a separate hazard pinned as NotThrow-or-documented.
+///   • Probe with N's (MC, KEY): 'N' is the IUPAC "any base" code. ValidateProbe does NOT
+///     treat 'N' as a wildcard in matching — FindApproximateMatches is a literal `!=`, so
+///     an 'N' in the probe mismatches an A/C/G/T reference base (counts toward mismatches),
+///     and 'N' is NOT counted as G/C. In self-complementarity 'N' complements to 'N'
+///     (GetComplementBase, SequenceExtensions.cs line 155), so an all-N probe is maximally
+///     self-complementary (every position N==N) — a DEFINED 1.0, never a NaN. An all-N
+///     probe is therefore handled and scored (no A/C/G/T, finite specificity and
+///     self-complementarity), never crashing and never producing NaN in any numeric field.
+///
+/// Documented invariants pinned on every result (Probe_Validation.md §2.4): INV-01
+/// `0.0 &lt;= SpecificityScore &lt;= 1.0`; INV-02 `0.0 &lt;= SelfComplementarity &lt;= 1.0`;
+/// INV-03 `OffTargetHits &gt;= 0`; INV-04 `OffTargetHits == 1` ⇒ `SpecificityScore == 1.0`.
+/// ValidateProbe is a pure function (no iterator), so every probe calls it directly; the
+/// positive-sanity test pins that a clean, unique probe validates as IsValid == true with
+/// no issues, SpecificityScore 1.0, and OffTargetHits 1 (INV-04).
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -2143,6 +2222,234 @@ public class MolToolsFuzzTests
             "a fully in-range probe records no GC-out-of-range warning");
         best.Warnings.Should().NotContain(w => w.Contains("Tm") && w.Contains("outside range"),
             "a fully in-range probe records no Tm-out-of-range warning");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  PROBE-VALID-001 — probe validation : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region PROBE-VALID-001 — probe validation
+
+    #region MC/INJ — Non-DNA probe (junk / special chars / unicode)
+
+    /// <summary>
+    /// MC/INJ: a probe of pure non-DNA junk (symbols, digits, spaces, unicode, null
+    /// bytes) must NOT crash and must NOT produce NaN. ValidateProbe does not validate
+    /// the alphabet — the junk probe is upper-cased and scanned literally against the
+    /// (clean A/C/G/T) reference. FindApproximateMatches compares with a plain `!=`, so
+    /// junk simply mismatches every reference base; the reverse complement used by
+    /// self-complementarity passes non-IUPAC chars through unchanged (GetComplementBase
+    /// fall-through). Because the probe length is &gt; 0, the self-complementarity division
+    /// is never by zero — the result is a well-formed ProbeValidation with finite,
+    /// in-range SpecificityScore and SelfComplementarity (INV-01, INV-02, INV-03).
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void ValidateProbe_NonDnaJunkProbe_HandledWithFiniteInRangeResult()
+    {
+        string junk = "$#@!12 3￿\0xyzé❤";
+        var references = new[] { RandomDna(500, seed: 25_001) };
+
+        var act = () => ProbeDesigner.ValidateProbe(junk, references);
+        act.Should().NotThrow(
+            "a non-DNA probe is scanned literally, not validated; junk mismatches references and never indexes out of range");
+
+        var result = ProbeDesigner.ValidateProbe(junk, references);
+
+        result.SpecificityScore.Should().BeInRange(0.0, 1.0,
+            "INV-01: the specificity score is mapped to [0,1] regardless of the probe alphabet");
+        result.SelfComplementarity.Should().BeInRange(0.0, 1.0,
+            "INV-02: self-complementarity is a fraction of positions in [0,1] — finite, never NaN");
+        double.IsNaN(result.SpecificityScore).Should().BeFalse("a non-empty junk probe never divides by zero");
+        double.IsNaN(result.SelfComplementarity).Should().BeFalse("self-complementarity divides by the non-zero probe length");
+        result.OffTargetHits.Should().BeGreaterThanOrEqualTo(0, "INV-03: hit counts are accumulated, never negative");
+    }
+
+    /// <summary>
+    /// INJ: special / unicode / null-byte characters INTERLEAVED into an otherwise valid
+    /// probe must not crash and must not inflate the hit count — an injected junk base
+    /// fails the literal `!=` comparison against any reference base, so it can only ever
+    /// REDUCE matches, never fabricate an off-target. The result stays finite and in range.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void ValidateProbe_JunkInterleavedIntoProbe_NoCrashNoInflatedHits()
+    {
+        string probe = "ACGTACGT\0❤#ACGTACGT";
+        var references = new[] { "ACGTACGTACGTACGTACGT", RandomDna(300, seed: 25_002) };
+
+        var act = () => ProbeDesigner.ValidateProbe(probe, references);
+        act.Should().NotThrow(
+            "injected null bytes / unicode are compared literally and never index out of range");
+
+        var result = ProbeDesigner.ValidateProbe(probe, references);
+        result.SpecificityScore.Should().BeInRange(0.0, 1.0);
+        result.SelfComplementarity.Should().BeInRange(0.0, 1.0);
+        result.OffTargetHits.Should().BeGreaterThanOrEqualTo(0,
+            "INV-03: injected junk can only suppress a match, never invent an off-target");
+    }
+
+    #endregion
+
+    #region BE/INJ — Extremely short probe
+
+    /// <summary>
+    /// BE: an extremely short (1–3 bp) probe is NOT rejected — ValidateProbe enforces no
+    /// minimum length (only the EMPTY probe is special-cased). A tiny probe is scanned:
+    /// FindApproximateMatches' bound `i &lt;= text.Length − pattern.Length` runs over each
+    /// reference (a 1-nt probe matches many positions), the hairpin screen's negative loop
+    /// bound short-circuits to false, and self-complementarity divides by the non-zero
+    /// length. The result is therefore finite and in-range — handled and scored, never a
+    /// crash and never a NaN (only the empty probe yields the structured invalid result).
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void ValidateProbe_ExtremelyShortProbe_ScoredNotRejected()
+    {
+        var references = new[] { RandomDna(400, seed: 25_003) };
+
+        foreach (var probe in new[] { "A", "AC", "ACG" })
+        {
+            var act = () => ProbeDesigner.ValidateProbe(probe, references);
+            act.Should().NotThrow($"a {probe.Length}-nt probe has no minimum-length screen and is scanned, not rejected");
+
+            var result = ProbeDesigner.ValidateProbe(probe, references);
+            result.SpecificityScore.Should().BeInRange(0.0, 1.0, "INV-01 holds for any non-empty probe length");
+            result.SelfComplementarity.Should().BeInRange(0.0, 1.0, "INV-02: a 1–3 nt probe never divides by zero");
+            double.IsNaN(result.SelfComplementarity).Should().BeFalse("non-zero length ⇒ no NaN");
+            result.HasSecondaryStructure.Should().BeFalse(
+                "a probe shorter than 2·stem+loop (11 nt) cannot form a hairpin; the screen short-circuits");
+        }
+    }
+
+    #endregion
+
+    #region INJ — Null probe and null references
+
+    /// <summary>
+    /// INJ (KEY): a null probe is the documented ArgumentNullException (ThrowIfNull,
+    /// line 497) — raised eagerly, NEVER a NullReferenceException from dereferencing
+    /// `probeSequence.ToUpperInvariant()`. The sibling null-reference-collection guard
+    /// (line 498) is pinned alongside it.
+    /// </summary>
+    [Test]
+    public void ValidateProbe_NullProbeOrNullReferences_ThrowsArgumentNullException()
+    {
+        var references = new[] { "ACGTACGTACGT" };
+
+        var nullProbe = () => ProbeDesigner.ValidateProbe(null!, references);
+        var nullRefs = () => ProbeDesigner.ValidateProbe("ACGTACGT", null!);
+
+        nullProbe.Should().Throw<ArgumentNullException>(
+            "a null probe is null-guarded eagerly, never dereferenced into a NullReferenceException");
+        nullRefs.Should().Throw<ArgumentNullException>(
+            "a null reference collection is null-guarded the same way");
+    }
+
+    /// <summary>
+    /// BE: the empty probe is the lower length boundary — it is a DEFINED degenerate input
+    /// returning a structured invalid result ("Empty probe sequence" issue, SpecificityScore
+    /// 0.0, OffTargetHits 0), NOT a throw and NOT a crash (Probe_Validation.md §6.1).
+    /// </summary>
+    [Test]
+    public void ValidateProbe_EmptyProbe_ReturnsStructuredInvalidResult()
+    {
+        var references = new[] { "ACGTACGTACGT" };
+
+        var act = () => ProbeDesigner.ValidateProbe(string.Empty, references);
+        act.Should().NotThrow("the empty probe is a defined degenerate case, not an exception");
+
+        var result = ProbeDesigner.ValidateProbe(string.Empty, references);
+        result.IsValid.Should().BeFalse("an empty probe cannot hybridize specifically");
+        result.SpecificityScore.Should().Be(0.0, "the empty-probe structured result fixes specificity at 0.0");
+        result.OffTargetHits.Should().Be(0);
+        result.Issues.Should().Contain("Empty probe sequence");
+    }
+
+    #endregion
+
+    #region MC — Probe with N's (degenerate IUPAC bases)
+
+    /// <summary>
+    /// MC (KEY): a probe of all-N (the IUPAC "any base" code) must be HANDLED, not crash,
+    /// and must produce NO NaN. ValidateProbe does NOT treat 'N' as a matching wildcard —
+    /// FindApproximateMatches is a literal `!=`, so an 'N' mismatches an A/C/G/T reference
+    /// base and 'N' is never counted as G/C. In self-complementarity 'N' complements to 'N'
+    /// (GetComplementBase, line 155), so an all-N probe is maximally self-complementary
+    /// (every position N==N → 1.0) — a DEFINED value, never a NaN. The result is finite and
+    /// in-range on every numeric field.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void ValidateProbe_AllNProbe_HandledNoNaN()
+    {
+        string probe = new string('N', 20);
+        var references = new[] { RandomDna(500, seed: 25_004) };
+
+        var act = () => ProbeDesigner.ValidateProbe(probe, references);
+        act.Should().NotThrow("'N' is not a wildcard here; it is compared literally and complemented to 'N' — no crash");
+
+        var result = ProbeDesigner.ValidateProbe(probe, references);
+
+        double.IsNaN(result.SpecificityScore).Should().BeFalse("a non-empty all-N probe never divides by zero");
+        double.IsNaN(result.SelfComplementarity).Should().BeFalse("N complements to N; self-complementarity is a finite fraction");
+        result.SpecificityScore.Should().BeInRange(0.0, 1.0, "INV-01");
+        result.SelfComplementarity.Should().BeInRange(0.0, 1.0, "INV-02");
+        result.SelfComplementarity.Should().Be(1.0,
+            "every position of an all-N probe equals its own complement (N↔N), so it is maximally self-complementary");
+        result.OffTargetHits.Should().BeGreaterThanOrEqualTo(0, "INV-03");
+    }
+
+    /// <summary>
+    /// MC: a probe with a FEW interspersed N's against a reference that contains that exact
+    /// probe verbatim must still match within the mismatch tolerance — the N's are ordinary
+    /// (non-wildcard) characters that match themselves. No crash, finite result, hits &gt;= 1.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void ValidateProbe_FewNsMatchingReference_HandledFinite()
+    {
+        string probe = "ACGTNCGTACGTNCGTACGT"; // 20 nt with two N's
+        var references = new[] { "TTTT" + probe + "TTTT" }; // probe present verbatim
+
+        var result = ProbeDesigner.ValidateProbe(probe, references);
+
+        double.IsNaN(result.SpecificityScore).Should().BeFalse();
+        double.IsNaN(result.SelfComplementarity).Should().BeFalse();
+        result.OffTargetHits.Should().BeGreaterThanOrEqualTo(1,
+            "the probe occurs verbatim (its N's match themselves), so at least one approximate hit is counted");
+        result.SpecificityScore.Should().BeInRange(0.0, 1.0, "INV-01");
+    }
+
+    #endregion
+
+    #region Positive sanity — a clean unique probe validates
+
+    /// <summary>
+    /// Positive sanity: a clean A/C/G/T probe that occurs EXACTLY ONCE in the references and
+    /// carries no self-complementarity or hairpin issues must validate as IsValid == true with
+    /// SpecificityScore 1.0, OffTargetHits 1, and NO issues — so the fuzz hardening never
+    /// silently breaks the core success path. INV-04 (OffTargetHits == 1 ⇒ SpecificityScore
+    /// == 1.0) is pinned directly.
+    /// </summary>
+    [Test]
+    public void ValidateProbe_CleanUniqueProbe_IsValidWithUniqueSpecificity()
+    {
+        // A non-self-complementary probe (self-complementarity 0.0) present exactly once.
+        string probe = "GTACGGATCCATGCTAACGT"; // 20 nt, reverse complement differs at every position
+        string reference = "TTTTTTTTTT" + probe + "TTTTTTTTTT";
+        var references = new[] { reference };
+
+        var result = ProbeDesigner.ValidateProbe(probe, references, maxMismatches: 0);
+
+        result.OffTargetHits.Should().Be(1, "the probe occurs exactly once at mismatch tolerance 0");
+        result.SpecificityScore.Should().Be(1.0, "INV-04: a single hit maps to specificity 1.0");
+        result.IsValid.Should().BeTrue("a unique, low-self-complementarity probe is a valid probe");
+        result.Issues.Should().BeEmpty("a clean unique probe records no validation issues");
     }
 
     #endregion
