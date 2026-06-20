@@ -1203,4 +1203,451 @@ public class CodonFuzzTests
     #endregion
 
     #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  CODON-ENC-001 — effective number of codons (Wright Nc) : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region CODON-ENC-001 — effective number of codons (ENC / Nc)
+
+    /// <summary>
+    /// Fuzz tests for CODON-ENC-001 — the Effective Number of Codons (ENC / Nc),
+    /// Wright's 1990 estimator of synonymous codon-usage bias in a single gene.
+    /// Checklist: docs/checklists/03_FUZZING.md, row 213.
+    /// Fuzz strategy exercised for THIS unit:
+    ///   • BE = Boundary Exploitation — the degenerate extremes of the [20, 61]
+    ///          range: a SINGLE codon (no estimable degeneracy class), UNIFORM
+    ///          synonymous usage (no bias → the upper re-adjustment to 61), an input
+    ///          whose LENGTH is NOT a multiple of 3 (trailing partial codon), plus
+    ///          empty / null and non-ACGT garbage.
+    /// — docs/checklists/03_FUZZING.md §Description (strategy codes);
+    ///   docs/ADVANCED_TESTING_CHECKLIST.md §8 "Fuzzing".
+    ///
+    /// ───────────────────────────────────────────────────────────────────────────
+    /// The ENC / Nc contract under test (Effective_Number_of_Codons.md)
+    /// ───────────────────────────────────────────────────────────────────────────
+    /// Nc answers "how many codons are effectively in use in this gene?" and ranges
+    /// from 20 (extreme bias — exactly one codon per amino acid) to 61 (no bias —
+    /// every synonymous codon used equally).[Wright 1990; Fuglsang 2004]
+    ///   — Effective_Number_of_Codons.md §1, §2.4 INV-01.
+    ///
+    /// For an amino acid with k synonymous codons, total count n and frequencies
+    /// p_i = n_i/n, the codon homozygosity is (Wright Eq. 1):
+    ///     F̂ = ( n·Σ p_i² − 1 ) / ( n − 1 )
+    /// and the gene-level value aggregates class averages F̂₂, F̂₃, F̂₄, F̂₆ over the
+    /// standard-code degeneracy classes (Wright Eq. 3):
+    ///     N̂c = 2 + 9/F̂₂ + 1/F̂₃ + 5/F̂₄ + 3/F̂₆
+    /// where 2 is the Met+Trp single-codon contribution and 9/1/5/3 are the numbers
+    /// of two-/three-/four-/six-fold degenerate amino acids in the standard genetic
+    /// code. Stop codons are excluded.
+    ///   — Effective_Number_of_Codons.md §2.2 (Eq. 1, Eq. 3), §4.2.
+    ///
+    /// API entry: CodonUsageAnalyzer.CalculateEnc(string)  → double in [20, 61]
+    ///            CodonUsageAnalyzer.CalculateEnc(DnaSequence)
+    ///   (src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs,
+    ///    CalculateEnc / CalculateEncCore).
+    ///
+    /// The string overload is LENIENT by documented design — it never throws on
+    /// garbage; it upper-cases, reads codons in non-overlapping in-frame triplets
+    /// from index 0, and scores whatever it is given:
+    ///   • null OR empty string → returns 0 via an explicit early return
+    ///     (CalculateEnc(string) `string.IsNullOrEmpty` guard); NOT a crash and NOT
+    ///     a value in [20, 61]. Effective_Number_of_Codons.md §3.2, §3.3, §6.1.
+    ///   • input length NOT divisible by 3 → CountCodonsCore reads only complete
+    ///     triplets (loop guard `i + 3 &lt;= seq.Length`); the trailing 1–2 leftover
+    ///     bases are IGNORED, never an IndexOutOfRangeException. §3.3, §6.1.
+    ///   • a codon containing any non-ACGT character → IsValidCodon is false and the
+    ///     codon is SKIPPED (consistent with CountCodons), never a KeyNotFound. §6.1.
+    ///   • an amino acid with total count n ≤ 1 → skipped (F̂ undefined, denominator
+    ///     n − 1); its degeneracy class falls back to the within-class average
+    ///     (Eq. 4) or, if no class member is estimable, to the class's full codon
+    ///     count. §2.3 ASM-02, §4.1.
+    /// The DnaSequence overload throws ArgumentNullException for null (§3.3, §6.1).
+    ///
+    /// KEY THEORY INVARIANTS this suite pins directly (Effective_Number_of_Codons.md
+    /// §2.4):
+    ///   • INV-01: 20 ≤ Nc ≤ 61 on every scored input (a randomized boundary sweep
+    ///     asserts this on hundreds of random sequences).
+    ///   • INV-02: one codon per amino acid, each used ≥2× ⇒ Nc = 20 (maximum bias —
+    ///     every F̂ = 1, sum = 9+1+5+3+2 = 20).
+    ///   • INV-03: uniform synonymous usage (each synonym used ≥2×) ⇒ Nc re-adjusted
+    ///     to exactly 61 (Wright's overshoot cap — the maximally-unbiased extreme).
+    ///   • INV-04: deterministic — a pure function of the codon counts.
+    /// Two exact, hand-checkable values are pinned against the documented Wright
+    /// formula: the §7.1 worked example (Phe TTT×3, TTC×1 ⇒ Nc = 29.0) and a single
+    /// 2-fold family at uniform usage (TTT×2, TTC×2 ⇒ Nc = 38.0), so the F̂ / Eq. 3
+    /// computation itself is verified, not merely its range.
+    ///
+    /// SUBTLETY pinned here (verified independently from Wright Eq. 1, NOT echoed off
+    /// the code): "uniform usage" maps to Nc = 61 ONLY when each synonym is used at
+    /// least TWICE. When every codon appears EXACTLY ONCE, each 2-fold family has
+    /// n = 2, p = (0.5, 0.5), Σp² = 0.5, so F̂ = (2·0.5 − 1)/(2 − 1) = 0; an F̂ of 0
+    /// is unestimable (ClassContribution requires f &gt; 0) so EVERY class falls back to
+    /// its full codon count and the aggregate collapses to the structural floor 20.
+    /// Both the "×1 ⇒ 20" and "×2 ⇒ 61" cases are asserted so the boundary is pinned
+    /// on the correct side of the n &gt; 1 requirement, not assumed.
+    ///
+    /// Determinism note (INV-04): CalculateEnc is a pure function of the sequence
+    /// with no randomness. The randomized sweep uses a LOCALLY-seeded `new Random(seed)`
+    /// (never a shared static Rng); each generated sequence is fully reproducible and
+    /// the same input always yields the same Nc, which the sweep also asserts.
+    /// ───────────────────────────────────────────────────────────────────────────
+
+    #region Helpers (ENC)
+
+    /// <summary>Lower / upper bounds of Wright's Nc (Effective_Number_of_Codons.md §2.4 INV-01).</summary>
+    private const double EncMin = 20.0;
+    private const double EncMax = 61.0;
+
+    /// <summary>
+    /// Builds a coding sequence in which EVERY non-stop sense codon of the standard
+    /// genetic code appears exactly `copiesPerCodon` times — i.e. perfectly UNIFORM
+    /// synonymous usage. With copiesPerCodon ≥ 2 every represented amino acid has
+    /// n ≥ 2 per codon, F̂ is small and Nc overshoots → re-adjusted to 61 (INV-03).
+    /// The codon order is fixed, so the result is deterministic.
+    /// </summary>
+    private static string UniformAllCodons(int copiesPerCodon)
+    {
+        var sense = StandardGeneticCode
+            .Where(kv => kv.Value != "*")
+            .Select(kv => kv.Key.Replace('U', 'T')) // DNA notation for CalculateEnc
+            .OrderBy(c => c, StringComparer.Ordinal)
+            .ToList();
+        var sb = new System.Text.StringBuilder();
+        foreach (var codon in sense)
+            for (int i = 0; i < copiesPerCodon; i++)
+                sb.Append(codon);
+        return sb.ToString();
+    }
+
+    #endregion
+
+    #region Positive sanity — exact hand-checkable Wright values from the doc
+
+    /// <summary>
+    /// Positive sanity (KEY): the §7.1 worked example. A gene with only Phe
+    /// (TTT×3, TTC×1): n = 4, p = (0.75, 0.25), Σp² = 0.625, F̂ = (4·0.625 − 1)/3 = 0.5,
+    /// N̂c(Phe) = 1/F̂ = 2. No other degeneracy class is estimable, so each contributes
+    /// its full codon count (9, 1, 5, 3): Nc = 2 + 9/0.5 + 1 + 5 + 3 = 29.0. This is
+    /// the documented numerical walk-through (Effective_Number_of_Codons.md §7.1),
+    /// computed here independently from Wright Eq. 1/Eq. 3 — it both verifies the
+    /// formula and proves the fuzz targets below are measured against a working happy
+    /// path, not a uniformly-broken method.
+    /// </summary>
+    [Test]
+    public void CalculateEnc_PheOnlyWorkedExample_Is29()
+    {
+        const string gene = "TTTTTTTTTTTC"; // TTT, TTT, TTT, TTC  (Phe×4, ratio 3:1)
+
+        double nc = CodonUsageAnalyzer.CalculateEnc(gene);
+
+        nc.Should().BeApproximately(29.0, 1e-9,
+            "Wright Eq. 1/Eq. 3 on Phe (TTT×3, TTC×1): 2 + 9/0.5 + 1 + 5 + 3 = 29.0 (Effective_Number_of_Codons.md §7.1)");
+        nc.Should().BeInRange(EncMin, EncMax, "Nc is bounded by [20, 61] (INV-01)");
+    }
+
+    /// <summary>
+    /// Positive sanity (interior value): a single 2-fold family at UNIFORM usage with
+    /// each synonym used twice — Phe TTT×2, TTC×2. n = 4, p = (0.5, 0.5), Σp² = 0.5,
+    /// F̂ = (4·0.5 − 1)/3 = 1/3, so 9/F̂₂ = 27; no other class estimable (full counts
+    /// 1, 5, 3): Nc = 2 + 27 + 1 + 5 + 3 = 38.0. An exact interior point of the
+    /// [20, 61] range, hand-derived from Wright Eq. 1/Eq. 3 — it pins the F̂
+    /// computation away from both clamps, so a wrong homozygosity formula could not
+    /// pass by accidentally hitting a boundary.
+    /// </summary>
+    [Test]
+    public void CalculateEnc_SinglePheFamilyUniform_Is38()
+    {
+        const string gene = "TTTTTCTTTTTC"; // TTT, TTC, TTT, TTC  (Phe×4, ratio 1:1)
+
+        double nc = CodonUsageAnalyzer.CalculateEnc(gene);
+
+        nc.Should().BeApproximately(38.0, 1e-9,
+            "Wright Eq. 1/Eq. 3 on Phe (TTT×2, TTC×2): F̂₂ = 1/3 ⇒ 2 + 9/(1/3) + 1 + 5 + 3 = 38.0");
+        nc.Should().BeInRange(EncMin, EncMax, "Nc is bounded by [20, 61] (INV-01)");
+    }
+
+    #endregion
+
+    #region BE — Boundary: single codon (no estimable class → floor 20)
+
+    /// <summary>
+    /// BE (single codon, KEY): one codon is the minimal coding input. ATG (Met) is a
+    /// single-codon amino acid (degeneracy 1) and is excluded from the F̂ loop; no
+    /// degeneracy class has any estimable F̂, so every class contributes its FULL
+    /// codon count and the aggregate is 2 + 9 + 1 + 5 + 3 = 20 — the maximum-bias
+    /// floor (INV-01 lower bound, INV-02). A single 2-fold codon (e.g. one TTT) is
+    /// also skipped because its amino acid has n = 1 ≤ 1 (F̂ undefined, ASM-02), so it
+    /// too yields 20. Neither may crash, and neither may exceed [20, 61]. Covers Met,
+    /// a 2-fold sense codon, a 6-fold sense codon and a 4-fold sense codon.
+    /// — Effective_Number_of_Codons.md §2.3 ASM-02, §2.4 INV-01/INV-02, §4.1.
+    /// </summary>
+    [TestCase("ATG", TestName = "CalculateEnc_SingleCodon_Met_Is20")]
+    [TestCase("TTT", TestName = "CalculateEnc_SingleCodon_Phe2Fold_Is20")]
+    [TestCase("CTG", TestName = "CalculateEnc_SingleCodon_Leu6Fold_Is20")]
+    [TestCase("GCC", TestName = "CalculateEnc_SingleCodon_Ala4Fold_Is20")]
+    public void CalculateEnc_SingleCodon_IsFloor20(string singleCodon)
+    {
+        double nc = double.NaN;
+        var act = () => nc = CodonUsageAnalyzer.CalculateEnc(singleCodon);
+
+        act.Should().NotThrow("a single in-frame codon is a valid degenerate input, not an error");
+        nc.Should().Be(20.0,
+            "no degeneracy class is estimable from one codon, so every class contributes its full count: 2+9+1+5+3 = 20 (INV-02)");
+        nc.Should().BeInRange(EncMin, EncMax, "Nc is bounded by [20, 61] (INV-01)");
+        double.IsNaN(nc).Should().BeFalse("a single codon must never produce NaN");
+    }
+
+    /// <summary>
+    /// BE (maximum bias, INV-02): one codon per amino acid, each used TWICE, makes
+    /// F̂ = 1 for every represented family (Σp² = 1 ⇒ F̂ = (n·1 − 1)/(n − 1) = 1), so
+    /// each N̂c(aa) = 1 and the sum is 9 + 1 + 5 + 3 + 2 = 20 — Wright's extreme-bias
+    /// limit. Verifies the lower extreme of [20, 61] from a genuinely biased gene
+    /// (not just the structural fallback). The sequence repeats the first synonym of
+    /// each sense amino acid twice.
+    /// </summary>
+    [Test]
+    public void CalculateEnc_OneCodonPerAminoAcid_IsExtremeBias20()
+    {
+        // First codon of each sense amino acid, each used twice → every F̂ = 1.
+        var firstCodonPerAa = StandardGeneticCode
+            .Where(kv => kv.Value != "*")
+            .GroupBy(kv => kv.Value)
+            .Select(g => g.OrderBy(kv => kv.Key, StringComparer.Ordinal).First().Key.Replace('U', 'T'))
+            .OrderBy(c => c, StringComparer.Ordinal);
+        string gene = string.Concat(firstCodonPerAa.Select(c => c + c)); // each twice
+
+        double nc = CodonUsageAnalyzer.CalculateEnc(gene);
+
+        nc.Should().BeApproximately(20.0, 1e-9,
+            "one codon per amino acid (each ≥2×) ⇒ every F̂ = 1 ⇒ Nc = 9+1+5+3+2 = 20 (INV-02)");
+    }
+
+    #endregion
+
+    #region BE — Boundary: uniform synonymous usage (no bias → re-adjusted to 61)
+
+    /// <summary>
+    /// BE (uniform usage, KEY — INV-03): perfectly even synonymous usage is the
+    /// no-bias extreme. With EVERY sense codon used twice (n ≥ 4 per 2-fold family),
+    /// each F̂ is small, the aggregate 2 + 9/F̂₂ + 1/F̂₃ + 5/F̂₄ + 3/F̂₆ overshoots 61,
+    /// and Wright's re-adjustment caps it at EXACTLY 61 — the maximally-unbiased
+    /// value. Verified at 2, 3 and 5 copies per codon so the cap is robust, not a
+    /// fluke of one count. — Effective_Number_of_Codons.md §2.4 INV-03, §6.1
+    /// ("near-uniform short gene → re-adjusted to 61").
+    /// </summary>
+    [TestCase(2, TestName = "CalculateEnc_UniformUsage_TwoCopies_Is61")]
+    [TestCase(3, TestName = "CalculateEnc_UniformUsage_ThreeCopies_Is61")]
+    [TestCase(5, TestName = "CalculateEnc_UniformUsage_FiveCopies_Is61")]
+    public void CalculateEnc_UniformSynonymousUsage_ReadjustedTo61(int copiesPerCodon)
+    {
+        string gene = UniformAllCodons(copiesPerCodon);
+
+        double nc = CodonUsageAnalyzer.CalculateEnc(gene);
+
+        nc.Should().BeApproximately(61.0, 1e-9,
+            "uniform synonymous usage (each codon ≥2×) is maximally unbiased ⇒ Nc re-adjusted to 61 (INV-03)");
+        nc.Should().BeInRange(EncMin, EncMax, "Nc never exceeds the [20, 61] range (INV-01)");
+    }
+
+    /// <summary>
+    /// BE (uniform usage SUBTLETY, pinned independently from Wright Eq. 1): when every
+    /// sense codon appears EXACTLY ONCE, each 2-fold family has n = 2, p = (0.5, 0.5),
+    /// Σp² = 0.5, so F̂ = (2·0.5 − 1)/(2 − 1) = 0. An F̂ of 0 is unestimable
+    /// (a class contribution requires F̂ &gt; 0), so EVERY degeneracy class falls back to
+    /// its full codon count and the aggregate collapses to the structural floor 20 —
+    /// NOT 61. This pins the boundary on the correct side of the n &gt; 1 / F̂ &gt; 0
+    /// requirement (ASM-02): "uniform usage → 61" holds only when each synonym is used
+    /// at least twice; with single copies the result is the floor, never a NaN or a
+    /// divide-by-zero. The value 20 is hand-derived, not echoed off the code.
+    /// </summary>
+    [Test]
+    public void CalculateEnc_AllCodonsExactlyOnce_CollapsesToFloor20NotNaN()
+    {
+        string gene = UniformAllCodons(1); // each sense codon once → every F̂ = 0
+
+        double nc = double.NaN;
+        var act = () => nc = CodonUsageAnalyzer.CalculateEnc(gene);
+
+        act.Should().NotThrow("F̂ = 0 for every family must not divide by zero or throw");
+        nc.Should().Be(20.0,
+            "every F̂ = 0 is unestimable ⇒ all classes use their full counts ⇒ floor 20, not 61 (ASM-02)");
+        double.IsNaN(nc).Should().BeFalse("an F̂ of 0 must never produce a 0-division NaN");
+    }
+
+    #endregion
+
+    #region BE — Boundary: empty / null string (defined 0, never in [20,61])
+
+    /// <summary>
+    /// BE: empty string and null are the "no gene" boundary. The string overload
+    /// returns 0 via an explicit `string.IsNullOrEmpty` early return — NOT a
+    /// NullReferenceException and, critically, NOT a value in [20, 61] (an empty gene
+    /// has no Wright rule). Pins the documented degenerate-input contract
+    /// (Effective_Number_of_Codons.md §3.2, §3.3, §6.1).
+    /// </summary>
+    [TestCase(null, TestName = "CalculateEnc_NullString_IsZeroNoThrow")]
+    [TestCase("", TestName = "CalculateEnc_EmptyString_IsZeroNoThrow")]
+    public void CalculateEnc_NullOrEmptyString_ReturnsZero(string? input)
+    {
+        double nc = double.NaN;
+        var act = () => nc = CodonUsageAnalyzer.CalculateEnc(input!);
+
+        act.Should().NotThrow("null/empty string is a defined no-op early return, not an error");
+        nc.Should().Be(0.0, "an empty gene has no codons ⇒ the documented degenerate value 0");
+        double.IsNaN(nc).Should().BeFalse("the empty boundary must never produce NaN");
+    }
+
+    /// <summary>
+    /// BE: the DnaSequence overload's documented contract is to THROW
+    /// ArgumentNullException for a null reference (Effective_Number_of_Codons.md §3.3,
+    /// §6.1) — a *documented, intentional* validation exception, the disciplined
+    /// alternative to a raw NullReferenceException (ADVANCED_TESTING_CHECKLIST.md §8).
+    /// </summary>
+    [Test]
+    public void CalculateEnc_NullDnaSequence_ThrowsArgumentNullException()
+    {
+        Seqeron.Genomics.Core.DnaSequence? nullSeq = null;
+        var act = () => CodonUsageAnalyzer.CalculateEnc(nullSeq!);
+
+        act.Should().Throw<ArgumentNullException>(
+            "the DnaSequence overload validates null by contract (§3.3), not a raw NRE");
+    }
+
+    #endregion
+
+    #region BE — Boundary: length NOT a multiple of 3 (trailing partial codon)
+
+    /// <summary>
+    /// BE (length not %3, KEY no-crash boundary): when the input length is not a
+    /// multiple of 3, CountCodonsCore reads only complete in-frame triplets (loop
+    /// guard `i + 3 &lt;= length`) — the trailing 1–2 leftover bases are IGNORED, never
+    /// an IndexOutOfRangeException. The Nc over the complete codons that remain must
+    /// EQUAL the Nc of the trimmed prefix alone. Here the prefix is Phe (TTT×3, TTC×1)
+    /// whose documented Nc is 29.0 (§7.1); appending +1 or +2 trailing bases must not
+    /// change it. Verified for both a +1 and a +2 remainder.
+    /// — Effective_Number_of_Codons.md §3.3, §6.1.
+    /// </summary>
+    [TestCase("TTTTTTTTTTTCA", TestName = "CalculateEnc_LenMod3Is1_TrimsTrailingBase")]  // 13 = 4 codons + 1
+    [TestCase("TTTTTTTTTTTCAT", TestName = "CalculateEnc_LenMod3Is2_TrimsTrailingTwo")] // 14 = 4 codons + 2
+    public void CalculateEnc_LengthNotMultipleOf3_TrimsTrailingPartialCodon(string input)
+    {
+        const string completePrefix = "TTTTTTTTTTTC"; // Phe×4 (3:1) → Nc 29.0
+
+        double nc = double.NaN;
+        var act = () => nc = CodonUsageAnalyzer.CalculateEnc(input);
+
+        act.Should().NotThrow(
+            "a trailing partial codon must be ignored, never cause IndexOutOfRange");
+        nc.Should().BeApproximately(CodonUsageAnalyzer.CalculateEnc(completePrefix), 1e-9,
+            "the partial codon is dropped, so Nc equals that of the complete-codon prefix");
+        nc.Should().BeApproximately(29.0, 1e-9, "the trimmed prefix is the §7.1 Phe gene ⇒ Nc 29.0");
+        nc.Should().BeInRange(EncMin, EncMax, "Nc stays bounded by [20, 61] (INV-01)");
+    }
+
+    /// <summary>
+    /// BE: a sub-codon input (length 1 or 2) has NO complete codon at all; the loop
+    /// never executes, CountCodonsCore returns an empty table, no class is estimable,
+    /// and the aggregate is the full-count floor 20 — no IndexOutOfRange on the 1–2
+    /// leftover bases. Pins the trim boundary right at the codon edge.
+    /// </summary>
+    [TestCase("A", TestName = "CalculateEnc_LenOne_NoCompleteCodon_IsFloor20")]
+    [TestCase("AT", TestName = "CalculateEnc_LenTwo_NoCompleteCodon_IsFloor20")]
+    public void CalculateEnc_SubCodonLength_IsFloor20NoThrow(string input)
+    {
+        double nc = double.NaN;
+        var act = () => nc = CodonUsageAnalyzer.CalculateEnc(input);
+
+        act.Should().NotThrow("sub-codon trailing bases are ignored, never indexed out of range");
+        nc.Should().Be(20.0, "no complete codon ⇒ no estimable class ⇒ full-count floor 20");
+        nc.Should().BeInRange(EncMin, EncMax, "Nc stays bounded by [20, 61] (INV-01)");
+    }
+
+    #endregion
+
+    #region MC/INJ — non-ACGT codons are skipped (never a crash)
+
+    /// <summary>
+    /// MC/INJ: codons containing any non-ACGT character are SKIPPED by IsValidCodon
+    /// (consistent with CountCodons), never a KeyNotFoundException. Threading garbage
+    /// codons (digits, gap, null byte, ambiguity N, unicode) between real Phe codons
+    /// must leave the result EQUAL to the Phe-only gene's Nc (29.0) — the garbage
+    /// codons contribute nothing — with no crash and the value in [20, 61].
+    /// — Effective_Number_of_Codons.md §6.1 (non-ACGT codon → skipped).
+    /// </summary>
+    [TestCase("TTT123TTTNNNTTTGGGTTC", TestName = "CalculateEnc_NonAcgt_DigitsNAmbig_SkippedPheStays29")]
+    [TestCase("TTT---TTT\0\0\0TTTTTC", TestName = "CalculateEnc_NonAcgt_GapNullByte_SkippedPheStays29")]
+    [TestCase("TTTαβγTTTTTTαβγTTC", TestName = "CalculateEnc_NonAcgt_Unicode_SkippedPheStays29")]
+    public void CalculateEnc_NonAcgtCodons_SkippedAndDoNotCrash(string input)
+    {
+        // GGG is a real codon (Gly), so the first case keeps one Gly — but Gly has
+        // n = 1 there (single copy) so it too is skipped (ASM-02). The net evaluable
+        // content is Phe TTT×3, TTC×1 in every case ⇒ Nc 29.0.
+        double nc = double.NaN;
+        var act = () => nc = CodonUsageAnalyzer.CalculateEnc(input);
+
+        act.Should().NotThrow(
+            "non-ACGT codons must be skipped (IsValidCodon false), never a KeyNotFound/IndexOutOfRange");
+        nc.Should().BeApproximately(29.0, 1e-9,
+            "garbage codons (and the lone n=1 Gly) contribute nothing; the evaluable Phe gene scores 29.0");
+        nc.Should().BeInRange(EncMin, EncMax, "Nc stays bounded by [20, 61] (INV-01)");
+    }
+
+    #endregion
+
+    #region BE — Randomized boundary sweep (INV-01 always holds; INV-04 determinism)
+
+    /// <summary>
+    /// BE (randomized sweep, KEY): hundreds of random sequences — random ACGT content,
+    /// random lengths (including sub-codon, not-%3, and longer), plus a fraction
+    /// salted with non-ACGT noise — must EVERY time yield a finite Nc that is either
+    /// the degenerate 0 (empty input) OR a value in [20, 61] (INV-01), with NO crash,
+    /// NO hang, NO NaN and NO Infinity. The Random is LOCALLY seeded (never a shared
+    /// static Rng) so the whole sweep is reproducible; each sequence is scored twice
+    /// to also pin determinism (INV-04). A CancelAfter guards against a pathological
+    /// hang on any single input. This is the core fuzz bar for the unit.
+    /// — docs/ADVANCED_TESTING_CHECKLIST.md §8 "Fuzzing"; Effective_Number_of_Codons.md §2.4.
+    /// </summary>
+    [Test]
+    [CancelAfter(60_000)]
+    public void CalculateEnc_RandomSweep_AlwaysFiniteAndInRangeOrZero()
+    {
+        const int seed = 20213; // local, fixed → reproducible
+        var rng = new Random(seed);
+        const string acgt = "ACGT";
+        // A small noise alphabet to occasionally produce invalid (skipped) codons.
+        const string noisy = "ACGTNXacgt-0\0αβ ";
+
+        for (int trial = 0; trial < 600; trial++)
+        {
+            int len = rng.Next(0, 240); // includes 0, 1, 2, not-%3 and longer
+            bool addNoise = rng.Next(0, 4) == 0; // ~25% of inputs carry non-ACGT noise
+            string alphabet = addNoise ? noisy : acgt;
+
+            var sb = new System.Text.StringBuilder(len);
+            for (int i = 0; i < len; i++)
+                sb.Append(alphabet[rng.Next(alphabet.Length)]);
+            string seq = sb.ToString();
+
+            double nc = double.NaN;
+            var act = () => nc = CodonUsageAnalyzer.CalculateEnc(seq);
+
+            act.Should().NotThrow(
+                $"trial {trial} (len {len}, noise {addNoise}) must not crash on random/garbage input");
+            double.IsNaN(nc).Should().BeFalse($"trial {trial}: Nc must never be NaN");
+            double.IsInfinity(nc).Should().BeFalse($"trial {trial}: Nc must never be Infinity");
+
+            if (nc != 0.0)
+                nc.Should().BeInRange(EncMin, EncMax,
+                    $"trial {trial}: a scored Nc must lie in [20, 61] (INV-01)");
+
+            // INV-04: deterministic — the same input always yields the same Nc.
+            CodonUsageAnalyzer.CalculateEnc(seq).Should().Be(nc,
+                $"trial {trial}: CalculateEnc is a pure function (INV-04)");
+        }
+    }
+
+    #endregion
+
+    #endregion
 }
