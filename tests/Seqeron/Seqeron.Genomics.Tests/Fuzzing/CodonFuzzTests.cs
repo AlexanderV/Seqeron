@@ -659,4 +659,343 @@ public class CodonFuzzTests
     #endregion
 
     #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  CODON-RARE-001 — rare codon detection : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region CODON-RARE-001 — rare codon detection
+
+    /// <summary>
+    /// Fuzz tests for CODON-RARE-001 — rare codon detection.
+    /// Checklist: docs/checklists/03_FUZZING.md, row 60.
+    /// Fuzz strategy exercised for THIS unit:
+    ///   • BE = Boundary Exploitation — empty sequence, an all-rare sequence, an
+    ///          all-common sequence, threshold=0 and threshold=1 (the two extremes
+    ///          of the [0,1] frequency cutoff).
+    /// — docs/checklists/03_FUZZING.md §Description (strategy codes).
+    ///
+    /// ───────────────────────────────────────────────────────────────────────────
+    /// The rare-codon-detection contract under test
+    /// ───────────────────────────────────────────────────────────────────────────
+    /// Rare codon detection flags codons whose reference frequency in a target
+    /// organism is STRICTLY below a threshold (rare codons slow translation because
+    /// they are decoded by low-abundance tRNAs).[Kane 1995; Shu et al. 2006]
+    ///   — docs/algorithms/Codon_Optimization/Rare_Codon_Detection.md §1, §2.2.
+    ///
+    /// API entry: CodonOptimizer.FindRareCodons(string codingSequence,
+    ///   CodonUsageTable table, double threshold = 0.15)
+    ///   → IEnumerable&lt;(int Position, string Codon, string AminoAcid, double Frequency)&gt;
+    ///   (src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs lines
+    ///   606–629).
+    ///
+    /// THRESHOLD SEMANTICS (verified): `threshold` is a per-amino-acid relative
+    /// FREQUENCY in [0, 1] — the same value stored in CodonUsageTable.CodonFrequencies
+    /// — NOT a percentile and NOT an RSCU. A codon is flagged iff
+    ///     frequency(codon) &lt; threshold     (STRICT `<`, never `<=`)
+    /// (CodonOptimizer.cs line 623; Rare_Codon_Detection.md §2.2, §2.4 INV-02). The
+    /// frequency is read with GetValueOrDefault(codon, 0), so a codon absent from the
+    /// table is treated as frequency 0 and is flagged whenever threshold &gt; 0
+    /// (Rare_Codon_Detection.md §3.3, §6.1).
+    ///
+    /// The method is LENIENT by documented design — it never throws on garbage; it
+    /// normalises, trims, and screens whatever it is given:
+    ///   • null OR empty input → yields NO results via an explicit `yield break`
+    ///     (CodonOptimizer.cs lines 614–615); NOT a NullReferenceException.
+    ///     Rare_Codon_Detection.md §6.1 (Empty sequence → no results).
+    ///   • DNA input is upper-cased and `T` is replaced by `U` before splitting
+    ///     (line 617), so DNA / lowercase round-trip to RNA codons identically.
+    ///   • input length NOT divisible by 3 → SplitIntoCodons drops the trailing
+    ///     partial codon (loop guard `i + 2 &lt; length`, lines 687–695); a leftover
+    ///     1–2 bases must be IGNORED, never cause an IndexOutOfRangeException.
+    ///   • an unknown / non-standard codon → frequency defaults to 0 (flagged when
+    ///     threshold &gt; 0) and translates to the sentinel `X`; never a
+    ///     KeyNotFoundException. Rare_Codon_Detection.md §6.1.
+    ///
+    /// KEY THEORY INVARIANTS this suite pins directly (Rare_Codon_Detection.md §2.4):
+    ///   • INV-01: every reported Position is a multiple of 3 (Position = index*3).
+    ///   • INV-02: every reported Frequency is STRICTLY &lt; threshold.
+    ///   • INV-03: every reported Codon has length 3.
+    ///   • SOUNDNESS + COMPLETENESS: the flagged set is EXACTLY the codons whose
+    ///     table frequency is &lt; threshold — no false positives, no false negatives.
+    ///     The suite recomputes the expected flagged set independently from the
+    ///     EColiK12 table and asserts set-equality, not just count.
+    ///
+    /// THRESHOLD EXTREMES (verified against the EColiK12 table):
+    ///   • threshold = 0 → no frequency can be &lt; 0 (frequencies are ≥ 0, and even
+    ///     unknown codons default to exactly 0, which is NOT &lt; 0) → NONE flagged.
+    ///   • threshold = 1 → every codon with frequency &lt; 1 is flagged. In EColiK12
+    ///     only AUG (Met) and UGG (Trp) have frequency EXACTLY 1.00, so by the strict
+    ///     `<` they are NEVER flagged even at threshold 1; every other codon IS
+    ///     flagged. This is the documented strict-comparison boundary (§2.4 INV-02,
+    ///     §5.2): "a codon exactly at the threshold is not reported."
+    ///
+    /// Determinism note: FindRareCodons is a pure function of (sequence, table,
+    /// threshold) with no randomness (Rare_Codon_Detection.md §2.4 INV-04); every
+    /// test uses a FIXED input and the deterministic EColiK12 reference table, so
+    /// every assertion is reproducible.
+    /// ───────────────────────────────────────────────────────────────────────────
+
+    #region Helpers (RARE)
+
+    /// <summary>
+    /// Independently computes the rare-codon contract from the EColiK12 table: for
+    /// each complete codon of the NORMALIZED RNA sequence, flag it iff its table
+    /// frequency (default 0 when absent) is STRICTLY less than the threshold. Returns
+    /// the expected (position, codon, frequency) flagged set, so a test can assert
+    /// FindRareCodons matches it exactly (soundness + completeness) without trusting
+    /// the method under test.
+    /// </summary>
+    private static List<(int Position, string Codon, double Frequency)> ExpectedRare(
+        string coding, CodonOptimizer.CodonUsageTable table, double threshold)
+    {
+        string rna = Normalize(coding);
+        var expected = new List<(int, string, double)>();
+        for (int i = 0; i + 2 < rna.Length; i += 3)
+        {
+            string codon = rna.Substring(i, 3);
+            double freq = table.CodonFrequencies.GetValueOrDefault(codon, 0);
+            if (freq < threshold)
+                expected.Add((i, codon, freq));
+        }
+        return expected;
+    }
+
+    #endregion
+
+    #region Positive sanity — a known rare codon is flagged, a common one is not
+
+    /// <summary>
+    /// Positive sanity (KEY baseline): the worked example AUG·AGA·AGG·CGA from
+    /// Rare_Codon_Detection.md §7.1. At threshold 0.10 the three Arg codons AGA
+    /// (0.04), AGG (0.02), CGA (0.06) are below threshold and AUG (Met, 1.00) is
+    /// not, so EXACTLY the codons at positions 3, 6, 9 are flagged — and AUG at
+    /// position 0 is NOT. This proves the boundary targets below are measured
+    /// against a working happy path that both FLAGS a rare codon at a known
+    /// position and SPARES a common one, with the documented tuple fields intact.
+    /// </summary>
+    [Test]
+    public void FindRareCodons_KnownRareAndCommon_FlagsExactlyTheRare()
+    {
+        const string sequence = "AUGAGAAGGCGA"; // M · R(AGA) · R(AGG) · R(CGA)
+
+        var rare = CodonOptimizer.FindRareCodons(sequence, Target, 0.10).ToList();
+
+        // EXACTLY the three rare Arg codons, at the documented positions, with the
+        // documented codon / amino-acid / frequency fields (§7.1).
+        rare.Should().HaveCount(3, "AGA, AGG and CGA are below 0.10; AUG (1.00) is not");
+        rare.Should().BeEquivalentTo(new[]
+        {
+            (Position: 3, Codon: "AGA", AminoAcid: "R", Frequency: 0.04),
+            (Position: 6, Codon: "AGG", AminoAcid: "R", Frequency: 0.02),
+            (Position: 9, Codon: "CGA", AminoAcid: "R", Frequency: 0.06),
+        }, "the flagged set is exactly the codons with frequency < 0.10 (Rare_Codon_Detection.md §7.1)");
+
+        // The common start codon AUG (freq 1.00) at position 0 is NOT flagged.
+        rare.Should().NotContain(r => r.Codon == "AUG",
+            "AUG has frequency 1.00, far above 0.10, so it is a common codon");
+
+        // INV-01/02/03 on every reported item.
+        rare.Should().OnlyContain(r => r.Position % 3 == 0, "INV-01: positions are multiples of 3");
+        rare.Should().OnlyContain(r => r.Frequency < 0.10, "INV-02: every flagged frequency is strictly < threshold");
+        rare.Should().OnlyContain(r => r.Codon.Length == 3, "INV-03: every flagged codon is a triplet");
+    }
+
+    #endregion
+
+    #region BE — Boundary: empty / null sequence (no codons → no rare codons)
+
+    /// <summary>
+    /// BE: empty string and null are the "no input" boundary. The documented
+    /// contract yields NO results via an explicit `yield break` (CodonOptimizer.cs
+    /// lines 614–615) — NOT a NullReferenceException. Theory: no codons → no rare
+    /// codons. Exercised across the default and both extreme thresholds so the empty
+    /// boundary is a no-op regardless of cutoff. Rare_Codon_Detection.md §6.1.
+    /// </summary>
+    [TestCase(null, TestName = "FindRareCodons_Null_IsEmptyNoThrow")]
+    [TestCase("", TestName = "FindRareCodons_Empty_IsEmptyNoThrow")]
+    public void FindRareCodons_NullOrEmpty_YieldsNothing(string? input)
+    {
+        foreach (double threshold in new[] { 0.0, 0.15, 1.0 })
+        {
+            List<(int, string, string, double)> rare = null!;
+            var act = () => rare = CodonOptimizer.FindRareCodons(input!, Target, threshold).ToList();
+
+            act.Should().NotThrow(
+                $"[threshold={threshold}] null/empty is a defined no-op (yield break), not an error");
+            rare.Should().BeEmpty(
+                $"[threshold={threshold}] no codons exist, so no codon can be flagged rare");
+        }
+    }
+
+    #endregion
+
+    #region BE — Boundary: all-rare sequence (every codon flagged)
+
+    /// <summary>
+    /// BE (all rare): a sequence built ENTIRELY from below-threshold codons must
+    /// have EVERY codon flagged (soundness + completeness at the upper extreme of
+    /// the rare set). Uses the three rarest E. coli Arg codons AGG (0.02), AGA
+    /// (0.04), CGA (0.06), all &lt; 0.10. At threshold 0.10 all three of the three
+    /// codons are reported, at the documented positions, and the flagged set equals
+    /// the independently-recomputed expected set exactly. DNA notation also
+    /// exercises the T→U normalisation.
+    /// </summary>
+    [Test]
+    public void FindRareCodons_AllRare_FlagsEveryCodon()
+    {
+        const string allRareDna = "AGGAGACGA"; // R(0.02) · R(0.04) · R(0.06), all < 0.10
+        const double threshold = 0.10;
+
+        var rare = CodonOptimizer.FindRareCodons(allRareDna, Target, threshold).ToList();
+        var expected = ExpectedRare(allRareDna, Target, threshold);
+
+        rare.Should().HaveCount(3, "all three codons are below 0.10, so all are flagged");
+        rare.Select(r => (r.Position, r.Codon, r.Frequency))
+            .Should().BeEquivalentTo(expected,
+                "the flagged set equals the independently-computed below-threshold set (completeness)");
+        rare.Should().OnlyContain(r => r.Frequency < threshold, "INV-02: every flagged frequency is strictly < threshold");
+        rare.Should().OnlyContain(r => r.Position % 3 == 0 && r.Codon.Length == 3, "INV-01/INV-03 hold for every item");
+    }
+
+    #endregion
+
+    #region BE — Boundary: none-rare sequence (no codon flagged)
+
+    /// <summary>
+    /// BE (none rare): a sequence built ENTIRELY from above-threshold (common)
+    /// codons must flag NOTHING (no false positives — soundness at the lower
+    /// extreme). Uses each amino acid's most-used E. coli synonym AUG (1.00), CUG
+    /// (0.50), CCG (0.53), ACC (0.44), all well above the default 0.15. The result
+    /// must be empty, with no crash, at the default threshold.
+    /// </summary>
+    [Test]
+    public void FindRareCodons_NoneRare_FlagsNothing()
+    {
+        const string allCommonDna = "ATGCTGCCGACC"; // M(1.00) · L(0.50) · P(0.53) · T(0.44)
+
+        var rare = CodonOptimizer.FindRareCodons(allCommonDna, Target, 0.15).ToList();
+
+        rare.Should().BeEmpty(
+            "every codon's frequency exceeds the 0.15 threshold, so none is rare (no false positives)");
+    }
+
+    #endregion
+
+    #region BE — Boundary: threshold = 0 (nothing is below zero → none flagged)
+
+    /// <summary>
+    /// BE (threshold = 0): the lower extreme of the [0,1] cutoff. No frequency can
+    /// be strictly &lt; 0 — frequencies are non-negative, and even an unknown codon
+    /// defaults to EXACTLY 0, which is not &lt; 0 — so NONE is flagged, regardless of
+    /// how rare the input is. This pins the documented strict-comparison boundary
+    /// (Rare_Codon_Detection.md §3.3, §6.1: unknown codons are flagged only when
+    /// threshold &gt; 0). Exercised on the all-rare sequence AND a non-coding (unknown,
+    /// freq-0) sequence to prove even freq-0 codons escape at threshold 0.
+    /// </summary>
+    [TestCase("AGGAGACGA", TestName = "FindRareCodons_Threshold0_AllRareSeq_FlagsNothing")]
+    [TestCase("ZZZQQQJJJ", TestName = "FindRareCodons_Threshold0_UnknownFreq0Codons_FlagsNothing")]
+    public void FindRareCodons_ThresholdZero_FlagsNothing(string input)
+    {
+        List<(int, string, string, double)> rare = null!;
+        var act = () => rare = CodonOptimizer.FindRareCodons(input, Target, 0.0).ToList();
+
+        act.Should().NotThrow("threshold 0 is a valid boundary, not an error");
+        rare.Should().BeEmpty(
+            "no frequency is strictly < 0, and freq-0 codons are NOT < 0, so nothing is flagged at threshold 0");
+    }
+
+    #endregion
+
+    #region BE — Boundary: threshold = 1 (every sub-1 codon flagged; freq-1 spared)
+
+    /// <summary>
+    /// BE (threshold = 1): the upper extreme of the [0,1] cutoff. By the strict
+    /// `<`, every codon with frequency &lt; 1 is flagged, while AUG (Met) and UGG (Trp)
+    /// — the only EColiK12 codons with frequency EXACTLY 1.00 — are NOT flagged even
+    /// here (Rare_Codon_Detection.md §2.4 INV-02, §5.2: "a codon exactly at the
+    /// threshold is not reported"). Verified against an independently-recomputed
+    /// expected set on a mixed sequence containing both a freq-1 codon (AUG) and
+    /// several sub-1 codons, so completeness AND the strict-boundary exclusion are
+    /// pinned together.
+    /// </summary>
+    [Test]
+    public void FindRareCodons_ThresholdOne_FlagsAllExceptFrequencyOneCodons()
+    {
+        // M(AUG,1.00) · W(UGG,1.00) · L(CUG,0.50) · R(AGA,0.04) · A(GCC,0.27)
+        const string mixed = "AUGUGGCUGAGAGCC";
+        const double threshold = 1.0;
+
+        var rare = CodonOptimizer.FindRareCodons(mixed, Target, threshold).ToList();
+        var expected = ExpectedRare(mixed, Target, threshold);
+
+        // Completeness + soundness: exactly the sub-1 codons, none of the freq-1 ones.
+        rare.Select(r => (r.Position, r.Codon, r.Frequency))
+            .Should().BeEquivalentTo(expected,
+                "at threshold 1 the flagged set is exactly the codons with frequency < 1");
+        rare.Should().NotContain(r => r.Codon == "AUG",
+            "AUG has frequency EXACTLY 1.00, so the strict `<` spares it even at threshold 1 (INV-02)");
+        rare.Should().NotContain(r => r.Codon == "UGG",
+            "UGG has frequency EXACTLY 1.00, so it too is never flagged (strict `<`)");
+        rare.Select(r => r.Codon).Should().Contain(new[] { "CUG", "AGA", "GCC" },
+            "every sub-1 codon (CUG, AGA, GCC) is below threshold 1 and is flagged");
+        rare.Should().OnlyContain(r => r.Frequency < threshold, "INV-02: every flagged frequency is strictly < 1");
+    }
+
+    /// <summary>
+    /// BE (threshold = 1, every codon flagged): when NO codon has frequency 1, the
+    /// threshold-1 boundary flags EVERY codon. CUG·CCG·ACC·GCC are all sub-1 common
+    /// codons, so at threshold 1 all four are reported — the all-flagged extreme,
+    /// confirming the strict `<` admits everything below 1. Asserted against the
+    /// independently-recomputed expected set.
+    /// </summary>
+    [Test]
+    public void FindRareCodons_ThresholdOne_NoFreqOneCodon_FlagsAll()
+    {
+        const string noFreqOne = "CUGCCGACCGCC"; // L(0.50) · P(0.53) · T(0.44) · A(0.27), all < 1
+        const double threshold = 1.0;
+
+        var rare = CodonOptimizer.FindRareCodons(noFreqOne, Target, threshold).ToList();
+        var expected = ExpectedRare(noFreqOne, Target, threshold);
+
+        rare.Should().HaveCount(4, "no codon is at frequency 1, so all four sub-1 codons are flagged");
+        rare.Select(r => (r.Position, r.Codon, r.Frequency))
+            .Should().BeEquivalentTo(expected,
+                "every codon with frequency < 1 is flagged at threshold 1 (completeness)");
+    }
+
+    #endregion
+
+    #region BE — Boundary: length not divisible by 3 (trailing partial codon)
+
+    /// <summary>
+    /// BE (no-crash boundary): a length not a multiple of 3 must trim the trailing
+    /// partial codon (loop guard `i + 2 &lt; length`) — the leftover 1–2 bases must
+    /// NEVER trigger an IndexOutOfRangeException. The flagged set over AUG·AGA (+ a
+    /// trailing base or two) must equal the flagged set of just AUG·AGA: at
+    /// threshold 0.10 only AGA (0.04) at position 3 is rare. Verified for both a +1
+    /// and a +2 remainder. Rare_Codon_Detection.md §6.1.
+    /// </summary>
+    [TestCase("AUGAGAA", TestName = "FindRareCodons_LenMod3Is1_TrimsTrailingBase")]   // 7 = 2 codons + 1
+    [TestCase("AUGAGAAU", TestName = "FindRareCodons_LenMod3Is2_TrimsTrailingTwo")]   // 8 = 2 codons + 2
+    public void FindRareCodons_LengthNotDivisibleBy3_TrimsPartialCodon(string input)
+    {
+        const double threshold = 0.10;
+
+        List<(int Position, string Codon, string AminoAcid, double Frequency)> rare = null!;
+        var act = () => rare = CodonOptimizer.FindRareCodons(input, Target, threshold).ToList();
+
+        act.Should().NotThrow("a trailing partial codon must be trimmed, never cause IndexOutOfRange");
+
+        // Only the complete codons AUG·AGA are screened; AGA (0.04) is the lone rare one.
+        rare.Should().ContainSingle("only AGA is below 0.10 among the complete codons AUG·AGA")
+            .Which.Should().BeEquivalentTo(
+                (Position: 3, Codon: "AGA", AminoAcid: "R", Frequency: 0.04),
+                "the partial codon is ignored, so the flagged set is exactly that of the trimmed prefix");
+        rare.Should().OnlyContain(r => r.Position % 3 == 0, "INV-01: positions stay multiples of 3");
+    }
+
+    #endregion
+
+    #endregion
 }
