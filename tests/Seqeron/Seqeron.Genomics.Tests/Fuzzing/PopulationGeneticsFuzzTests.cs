@@ -8,7 +8,8 @@ using Seqeron.Genomics.Population;
 namespace Seqeron.Genomics.Tests;
 
 /// <summary>
-/// Fuzz tests for the PopGen area — allele frequency.
+/// Fuzz tests for the PopGen area — allele frequency (POP-FREQ-001) and
+/// nucleotide diversity π (POP-DIV-001).
 ///
 /// ───────────────────────────────────────────────────────────────────────────
 /// What fuzzing verifies
@@ -102,6 +103,58 @@ namespace Seqeron.Genomics.Tests;
 ///         surface never crashes and never NaNs on the malformed-code boundary,
 ///         so the strict/lenient split is explicit and cannot drift into a
 ///         silent DivideByZero.
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: POP-DIV-001 — nucleotide diversity π (PopGen)
+/// Checklist: docs/checklists/03_FUZZING.md, row 44.
+/// Fuzz strategies exercised for THIS unit:
+///   • BE  = Boundary Exploitation — the degenerate sample boundaries that stress
+///           the pairwise-diversity arithmetic: 0 sequences and 1 sequence (the
+///           n &lt; 2 boundary — no unordered pair exists, so the number of pairs
+///           C(n,2) = n(n−1)/2 is 0 → an unguarded denominator would
+///           DivideByZero/NaN), "all sequences identical" (no variation → every
+///           pairwise difference d_ij is 0 → π must be exactly 0 — THE key
+///           identity), and very long sequences (the O(n²·L) cost boundary — must
+///           still complete and never hang).
+/// — docs/checklists/03_FUZZING.md §Description ("BE = граничні значення: 0, -1,
+///   MaxInt, empty").
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The nucleotide-diversity contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// Nucleotide diversity π is the average number of nucleotide differences PER
+/// SITE between all unordered pairs of aligned sequences:
+///     π = ( Σ_{i&lt;j} d_ij ) / ( C(n,2) · L )
+/// where d_ij is the number of differing positions between sequences i and j,
+/// n is the number of sequences, and L is the (common, aligned) sequence length.
+///   — docs/algorithms/Population_Genetics/Diversity_Statistics.md §2.2, §2.4
+///     (INV-01: π ≥ 0 — it is a normalized count of differences; INV-02: π = 0
+///      for identical sequences — every d_ij is 0). Sources: Nei &amp; Li (1979)
+///     [1]; Tajima (1989) [3]; Wikipedia "Tajima's D" [5].
+///
+/// Entry point under test —
+///   PopulationGeneticsAnalyzer.CalculateNucleotideDiversity(
+///       IEnumerable&lt;IReadOnlyList&lt;char&gt;&gt;)
+///   (src/Seqeron/Algorithms/Seqeron.Genomics.Population/PopulationGeneticsAnalyzer.cs
+///    lines 205–234). Documented validation/edge behavior
+///   (Diversity_Statistics.md §3.3, §6.1):
+///     • n &lt; 2 sequences (0 or 1) → the explicit `seqList.Count &lt; 2` guard
+///       returns the DEFINED 0 BEFORE any pair loop; there is NO C(n,2) division
+///       (comparisons would be 0), so NO DivideByZeroException and NO NaN. This is
+///       the KEY 0-/1-sequence fuzz concern — the C(n,2) = 0 boundary.
+///     • all sequences identical → every d_ij = 0 → totalDiff = 0 → π = 0 exactly,
+///       independent of how many sequences or how long (INV-02).
+///     • two sequences differing at every site → π = 1.0 (each of the L sites is
+///       one mismatch in the single pair).
+///     • very long sequences (n small, L large) → the O(n²·L) scan completes
+///       within a bounded time; pinned under `[CancelAfter]` so a hang is a
+///       failure, not an infinite wait.
+///     • π is ALWAYS ≥ 0 and finite for valid aligned input (INV-01) — a count of
+///       mismatches over a positive denominator can never be negative, NaN, or
+///       ±Infinity.
+///   The implementation does NOT validate equal length (§5.4): callers must supply
+///   aligned, equal-length sequences. For n ≥ 2 the denominator is C(n,2)·L; with
+///   a positive common L this is &gt; 0, so the division is well-defined.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -410,6 +463,275 @@ public class PopulationGeneticsFuzzTests
         maf.Should().BeApproximately(-0.5, Tolerance,
             because: "alt copies = -1 over 2 total → altFreq -0.5 → MAF min(-0.5, 1.5) = -0.5; " +
                      "a defined (if biologically meaningless) value, documenting the no-validation contract");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  POP-DIV-001 — nucleotide diversity π : fuzz targets
+    //  Surface: CalculateNucleotideDiversity(IEnumerable<IReadOnlyList<char>>)
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region POP-DIV-001 — nucleotide diversity
+
+    #region Helpers — sequence builders
+
+    /// <summary>Materializes a string into the IReadOnlyList&lt;char&gt; the diversity API expects.</summary>
+    private static IReadOnlyList<char> Seq(string s) => s.ToCharArray();
+
+    /// <summary>A deterministic random aligned ACGT sequence of the given length.</summary>
+    private static IReadOnlyList<char> RandomSeq(int length)
+    {
+        const string alphabet = "ACGT";
+        var buffer = new char[length];
+        for (int i = 0; i < length; i++)
+            buffer[i] = alphabet[Rng.Next(alphabet.Length)];
+        return buffer;
+    }
+
+    #endregion
+
+    #region Positive sanity — known sample yields the documented π and π ≥ 0
+
+    /// <summary>
+    /// Positive control: the worked example pinned in the algorithm doc and the
+    /// unit tests (Diversity_Statistics.md §7.1; the Wikipedia Tajima's D dataset)
+    /// — five aligned length-20 sequences with 20 total pairwise differences over
+    /// C(5,2) = 10 unordered pairs → k̂ = 20/10 = 2.0 → π = k̂ / L = 2.0/20 = 0.1.
+    /// The result must be EXACTLY 0.1 (per the documented formula
+    /// π = Σ_{i&lt;j} d_ij / (C(n,2)·L)), must be ≥ 0 (INV-01), and must be finite.
+    /// This anchors the fuzz battery: before pinning that boundary input does no
+    /// harm, confirm a known-good sample gives the textbook-correct π.
+    /// </summary>
+    [Test]
+    public void NucleotideDiversity_KnownSample_MatchesDocumentedPiAndIsNonNegative()
+    {
+        var sequences = new List<IReadOnlyList<char>>
+        {
+            Seq("00000000000000000000"), // Y
+            Seq("00100000000010000010"), // A
+            Seq("00000000000010000010"), // B
+            Seq("00000010000000000010"), // C
+            Seq("00000010000010000010"), // D
+        };
+
+        double pi = PopulationGeneticsAnalyzer.CalculateNucleotideDiversity(sequences);
+
+        pi.Should().BeApproximately(0.1, Tolerance,
+            because: "20 pairwise differences over C(5,2)=10 pairs → k̂=2.0 → π=2.0/20=0.1 " +
+                     "(Diversity_Statistics.md §7.1, the documented formula)");
+        pi.Should().BeGreaterThanOrEqualTo(0.0, "π is a normalized count of differences (INV-01)");
+        double.IsNaN(pi).Should().BeFalse("a known-good sample never yields NaN");
+        double.IsInfinity(pi).Should().BeFalse("a known-good sample never yields ±Infinity");
+
+        // A second independent anchor: two sequences differing at EVERY site → π = 1.0
+        // (each of the L sites contributes one mismatch in the single unordered pair).
+        double piAllDiff = PopulationGeneticsAnalyzer.CalculateNucleotideDiversity(
+            new List<IReadOnlyList<char>> { Seq("AAAA"), Seq("CCCC") });
+        piAllDiff.Should().BeApproximately(1.0, Tolerance,
+            because: "every site differs in the only pair → π = 4/(1·4) = 1.0 (§6.1)");
+    }
+
+    #endregion
+
+    #region BE — 0 sequences (the C(n,2) = 0 division boundary)
+
+    /// <summary>
+    /// BE / DivideByZero boundary: with 0 sequences the number of unordered pairs
+    /// C(0,2) = 0 and there is no length to normalize by. The contract must NOT
+    /// divide by zero and must NOT return NaN — the explicit `seqList.Count &lt; 2`
+    /// guard returns the DEFINED 0 BEFORE the pair loop ever runs
+    /// (Diversity_Statistics.md §3.3, §6.1; PopulationGeneticsAnalyzer.cs lines
+    /// 210–211). This is the single most important fuzz concern for this unit: an
+    /// unguarded C(n,2)·L denominator here is a 0/0 NaN (or DivideByZero) in
+    /// production.
+    /// </summary>
+    [Test]
+    public void NucleotideDiversity_ZeroSequences_ReturnsDefinedZeroWithNoDivideByZero()
+    {
+        double pi = double.NaN;
+        var act = () => pi = PopulationGeneticsAnalyzer.CalculateNucleotideDiversity(
+            Array.Empty<IReadOnlyList<char>>());
+
+        act.Should().NotThrow<DivideByZeroException>(
+            "the empty-sample boundary short-circuits before the C(n,2)·L denominator is used");
+        act.Should().NotThrow("0 sequences is a defined boundary input (returns 0), not an error");
+
+        pi.Should().Be(0.0, "no sequences → no pairwise differences → π is the defined 0 (§6.1)");
+        double.IsNaN(pi).Should().BeFalse("the n<2 guard avoids a 0/0 NaN");
+    }
+
+    #endregion
+
+    #region BE — 1 sequence (no unordered pair exists → π = 0)
+
+    /// <summary>
+    /// BE: a single sequence — the minimal-but-still-degenerate sample. There is no
+    /// unordered pair (C(1,2) = 0), so pairwise diversity is undefined for n &lt; 2;
+    /// the contract returns the DEFINED 0 (Diversity_Statistics.md §3.3, §6.1).
+    /// Verified across a fixed-seed sweep of lengths so the single-sequence boundary
+    /// returns 0 regardless of the sequence content or length, with no
+    /// DivideByZero and no NaN.
+    /// </summary>
+    [Test]
+    public void NucleotideDiversity_SingleSequence_ReturnsDefinedZeroForAnyContent()
+    {
+        for (int trial = 0; trial < 32; trial++)
+        {
+            int length = Rng.Next(1, 256);
+            var single = new List<IReadOnlyList<char>> { RandomSeq(length) };
+
+            double pi = double.NaN;
+            var act = () => pi = PopulationGeneticsAnalyzer.CalculateNucleotideDiversity(single);
+
+            act.Should().NotThrow<DivideByZeroException>(
+                "a single sequence has no pair, so the C(n,2) denominator is never reached");
+            act.Should().NotThrow("one sequence is a defined boundary input, not an error");
+            pi.Should().Be(0.0, $"no unordered pair exists for n=1 (length {length}) → defined π = 0");
+            double.IsNaN(pi).Should().BeFalse("the n<2 guard avoids a 0/0 NaN");
+        }
+    }
+
+    #endregion
+
+    #region BE — all sequences identical (no variation → π = 0, the key identity)
+
+    /// <summary>
+    /// BE / KEY identity (INV-02): when every sequence in the sample is identical,
+    /// every pairwise difference count d_ij is 0, so π = 0 EXACTLY — there is no
+    /// variation to measure (Diversity_Statistics.md §2.4 INV-02, §6.1). Verified
+    /// across a fixed-seed sweep of sample sizes and lengths so the identity holds
+    /// independent of n and L. This is the diversity analogue of the "all same
+    /// allele" boundary: a monomorphic alignment must read as zero diversity, never
+    /// a spurious non-zero value, never NaN.
+    /// </summary>
+    [Test]
+    public void NucleotideDiversity_AllIdenticalSequences_IsExactlyZero()
+    {
+        for (int trial = 0; trial < 32; trial++)
+        {
+            int n = Rng.Next(2, 40);          // at least a pair, so a real division happens
+            int length = Rng.Next(1, 200);
+            var template = RandomSeq(length);
+
+            // n copies of the SAME content (a fresh array per copy, same characters).
+            var sequences = Enumerable.Range(0, n)
+                .Select(_ => (IReadOnlyList<char>)template.ToArray())
+                .ToList();
+
+            double pi = PopulationGeneticsAnalyzer.CalculateNucleotideDiversity(sequences);
+
+            pi.Should().Be(0.0,
+                because: $"every one of the C({n},2) pairs is identical (length {length}) → all d_ij = 0 → π = 0 (INV-02)");
+            pi.Should().BeGreaterThanOrEqualTo(0.0, "π ≥ 0 always (INV-01)");
+            double.IsNaN(pi).Should().BeFalse("an identical, non-empty sample divides 0 by a positive denominator, not 0/0");
+        }
+    }
+
+    #endregion
+
+    #region BE — random aligned samples are always non-negative and finite
+
+    /// <summary>
+    /// BE / INV-01 sweep: across a fixed-seed battery of random, equal-length
+    /// aligned samples (varying n ≥ 2 and L ≥ 1) π must ALWAYS be a well-defined,
+    /// finite, non-negative per-site rate — a count of mismatches over a positive
+    /// C(n,2)·L denominator can never be negative, NaN, or ±Infinity, and since π
+    /// is a per-site average difference rate it can never exceed 1.0. This pins the
+    /// total-function contract over the random-but-aligned interior, complementing
+    /// the degenerate-boundary tests.
+    /// </summary>
+    [Test]
+    public void NucleotideDiversity_RandomAlignedSamples_AlwaysInUnitIntervalAndFinite()
+    {
+        for (int trial = 0; trial < 64; trial++)
+        {
+            int n = Rng.Next(2, 25);
+            int length = Rng.Next(1, 120);
+            var sequences = Enumerable.Range(0, n)
+                .Select(_ => RandomSeq(length))
+                .ToList();
+
+            double pi = double.NaN;
+            var act = () => pi = PopulationGeneticsAnalyzer.CalculateNucleotideDiversity(sequences);
+
+            act.Should().NotThrow("a random equal-length aligned sample is always a defined input");
+            double.IsNaN(pi).Should().BeFalse("a positive C(n,2)·L denominator never yields a 0/0 NaN");
+            double.IsInfinity(pi).Should().BeFalse("bounded mismatch counts over a positive denominator never give ±Infinity");
+            pi.Should().BeGreaterThanOrEqualTo(0.0, "π is a normalized count of differences (INV-01)");
+            pi.Should().BeLessThanOrEqualTo(1.0, "π is a per-site average mismatch rate, capped at one mismatch per site");
+        }
+    }
+
+    #endregion
+
+    #region BE — very long sequences (the O(n²·L) cost boundary must complete, not hang)
+
+    /// <summary>
+    /// BE / hang boundary: nucleotide diversity is O(n²·L). With a small sample of
+    /// VERY LONG aligned sequences the pairwise scan must still COMPLETE within a
+    /// bounded time and return a finite, in-range π — it must never hang
+    /// (Diversity_Statistics.md §4.3). We keep n small (a handful of sequences) and
+    /// L large (hundreds of thousands of sites) so the L dimension is stressed
+    /// without an n² blow-up, and pin the run under `[CancelAfter]` so a hang is a
+    /// hard test failure rather than an infinite wait. The constructed sample
+    /// differs at exactly one known site, giving a tiny but exactly-pinned π that
+    /// also proves the long scan is arithmetically correct, not just fast.
+    /// </summary>
+    [Test]
+    [CancelAfter(30000)]
+    public void NucleotideDiversity_VeryLongSequences_CompletesWithFinitePi()
+    {
+        const int length = 500_000;
+        var a = new char[length];
+        var b = new char[length];
+        Array.Fill(a, 'A');
+        Array.Fill(b, 'A');
+        b[length / 2] = 'C'; // exactly one differing site across the single pair
+
+        var sequences = new List<IReadOnlyList<char>> { a, b };
+
+        double pi = double.NaN;
+        var act = () => pi = PopulationGeneticsAnalyzer.CalculateNucleotideDiversity(sequences);
+
+        act.Should().NotThrow("the long-sequence O(n²·L) scan must complete without crashing");
+        double.IsNaN(pi).Should().BeFalse("a positive denominator never yields NaN even at scale");
+        double.IsInfinity(pi).Should().BeFalse("the bounded difference count never overflows into ±Infinity");
+        pi.Should().BeApproximately(1.0 / length, Tolerance,
+            because: "exactly one of the L=500000 sites differs in the single pair → π = 1/L");
+        pi.Should().BeGreaterThanOrEqualTo(0.0, "π ≥ 0 always (INV-01)");
+    }
+
+    /// <summary>
+    /// BE / hang boundary, identical-at-scale: a small sample of very long but
+    /// IDENTICAL sequences must complete and read as exactly π = 0 — the INV-02
+    /// identity must survive the long O(n²·L) scan, proving the zero-diversity
+    /// short-circuit is by content (all d_ij = 0), not an accident of small inputs.
+    /// Pinned under `[CancelAfter]` so the long scan cannot silently hang.
+    /// </summary>
+    [Test]
+    [CancelAfter(30000)]
+    public void NucleotideDiversity_VeryLongIdenticalSequences_CompletesAtExactlyZero()
+    {
+        const int length = 400_000;
+        var template = new char[length];
+        Array.Fill(template, 'G');
+
+        var sequences = new List<IReadOnlyList<char>>
+        {
+            (char[])template.Clone(),
+            (char[])template.Clone(),
+            (char[])template.Clone(),
+        };
+
+        double pi = double.NaN;
+        var act = () => pi = PopulationGeneticsAnalyzer.CalculateNucleotideDiversity(sequences);
+
+        act.Should().NotThrow("the long identical-sequence scan must complete without crashing");
+        pi.Should().Be(0.0, "every one of the C(3,2)=3 pairs is identical at scale → π = 0 (INV-02)");
+        double.IsNaN(pi).Should().BeFalse("an identical sample divides 0 by a positive denominator, not 0/0");
     }
 
     #endregion
