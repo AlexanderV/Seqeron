@@ -10,7 +10,7 @@ namespace Seqeron.Genomics.Tests;
 
 /// <summary>
 /// Fuzz tests for the Repeats area — short tandem repeat (microsatellite / STR)
-/// detection.
+/// detection (REP-STR-001) and general tandem repeat detection (REP-TANDEM-001).
 ///
 /// ───────────────────────────────────────────────────────────────────────────
 /// What fuzzing verifies
@@ -88,6 +88,65 @@ namespace Seqeron.Genomics.Tests;
 /// iterator body, so it only fires on enumeration. Every test therefore forces
 /// enumeration (`.ToList()`) so the documented exception actually surfaces and any
 /// hang would manifest as a non-terminating materialization.
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: REP-TANDEM-001 — general tandem repeat detection
+/// Checklist: docs/checklists/03_FUZZING.md, row 14.
+/// Fuzz strategy exercised for THIS unit:
+///   • BE = Boundary Exploitation — the degenerate boundaries called out in the
+///          checklist row: minRepetitions = 0, minUnitLength = 0, a unit length
+///          ceiling of 1 (only homopolymer runs count), the empty sequence, and a
+///          single-character sequence.
+/// — docs/checklists/03_FUZZING.md §Description (strategy codes).
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The tandem-detection contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// A tandem repeat is a region S[p .. p + k·|U|) = Uᵏ where a unit U of length m
+/// occurs consecutively k ≥ 2 times with no gap (Tandem_Repeat_Detection.md §2.1,
+/// §2.2). The CANONICAL exact detector is
+///   GenomicAnalyzer.FindTandemRepeats(DnaSequence sequence,
+///                                     int minUnitLength = 2,
+///                                     int minRepetitions = 2)
+///   (src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs).
+/// This is the surface the checklist row probes (minReps / minUnitLen are its
+/// parameters); it is also the primary surface named in the differential checklist
+/// (08_DIFFERENTIAL_TESTING.md row 14: GenomicAnalyzer vs RepeatFinder). The sibling
+/// aggregator RepeatFinder.GetTandemRepeatSummary delegates to FindMicrosatellites
+/// and is not the parameterised detector under fuzz here.
+///
+/// Documented parameter contract — BEFORE this unit's work the doc recorded that
+/// FindTandemRepeats performed NO validation and that "callers can trigger
+/// undefined or exception-driven behavior with nonsensical values" was an *accepted*
+/// assumption (Tandem_Repeat_Detection.md §3.3, §5.4). Fuzzing proved that the two
+/// degenerate boundaries the checklist row targets were UNDISCIPLINED failures, not
+/// merely "exception-driven":
+///   • minRepetitions = 0 → the unit-length bound `unitLen ≤ seq.Length / minReps`
+///     divides by zero → a raw DivideByZeroException (a crash, not a documented
+///     ArgumentException). Per the fuzzing doctrine (ADVANCED §8) a raw runtime
+///     exception is a bug.
+///   • minUnitLength = 0 → a zero-length unit: `unit = Substring(start, 0) = ""`,
+///     and the extension `while (… && Substring(pos, 0) == "")` is ALWAYS true while
+///     `pos += 0` never advances → a NON-TERMINATING loop (a hang). A hang is the
+///     single worst fuzzing outcome.
+/// Both were fixed at the source by adding the same validation gate the sibling
+/// repeat finders already use (FindMicrosatellites / FindPalindromes):
+///   • sequence == null            → ArgumentNullException (ThrowIfNull);
+///   • minUnitLength &lt; 1         → ArgumentOutOfRangeException (a 0-length unit
+///     would hang; negative is nonsense);
+///   • minRepetitions &lt; 2        → ArgumentOutOfRangeException (k ≥ 2 is the
+///     definition of a tandem repeat; 0 would divide-by-zero, 1 would mark every
+///     substring a trivial 1-copy "repeat").
+/// The validation is hoisted into an eager wrapper (FindTandemRepeatsCore holds the
+/// `yield` body) so the exception surfaces at the call, not only on enumeration.
+/// The tests below PIN these contracts so the floors cannot silently drift, and
+/// pin that the homopolymer-only (unitLen ceiling 1), empty, and single-char
+/// boundaries return clean empty/correct results with no crash and no hang.
+///
+/// Documented invariants pinned on every positive result (Tandem_Repeat_Detection.md
+/// §2.4): INV-01 Repetitions ≥ minRepetitions and |Unit| ≥ minUnitLength;
+/// INV-02 TotalLength = |Unit| × Repetitions; INV-03 Position + |Unit|×Repetitions
+/// ≤ sequence.Length.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -359,6 +418,200 @@ public class RepeatsFuzzTests
             r.TotalLength == r.RepeatUnit.Length * r.RepeatCount &&  // INV-03
             r.Position >= 0 && r.Position + r.TotalLength <= seq.Length,
             "every result on random input is well-formed: count ≥ minRepeats, unit in range, total = unit×count, in bounds");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  REP-TANDEM-001 — general tandem repeat detection : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region REP-TANDEM-001 — tandem repeat detection
+
+    #region BE — Boundary: minRepetitions = 0
+
+    /// <summary>
+    /// BE: minRepetitions = 0 is the degenerate floor and was the KEY crash target.
+    /// In the pre-fix detector the unit-length bound `unitLen ≤ seq.Length / minReps`
+    /// divides by zero → a raw DivideByZeroException (a crash, not a documented
+    /// validation error). A tandem repeat is defined as k ≥ 2 copies
+    /// (Tandem_Repeat_Detection.md §2.2), so the contract now REJECTS 0 with
+    /// ArgumentOutOfRangeException at the call site (eager validation in the wrapper),
+    /// never dividing by zero. We force enumeration so a regression to lazy/late
+    /// validation would still be caught.
+    /// </summary>
+    [Test]
+    public void FindTandemRepeats_MinRepetitionsZero_ThrowsArgumentOutOfRange()
+    {
+        var act = () => GenomicAnalyzer.FindTandemRepeats(new DnaSequence("ATGATGATG"), 2, 0).ToList();
+
+        act.Should().Throw<ArgumentOutOfRangeException>(
+                "minRepetitions = 0 would divide by zero in the unit-length bound; the contract rejects it")
+            .Which.ParamName.Should().Be("minRepetitions");
+    }
+
+    #endregion
+
+    #region BE — Boundary: minUnitLength = 0
+
+    /// <summary>
+    /// BE: minUnitLength = 0 is the degenerate zero-length-unit boundary and was the
+    /// KEY HANG target. A 0-length unit makes `unit = Substring(start, 0) = ""`, and
+    /// the extension loop `while (… && Substring(pos, 0) == "")` is always true while
+    /// `pos += 0` never advances — a non-terminating loop (the worst fuzzing outcome).
+    /// The contract now REJECTS minUnitLength &lt; 1 with ArgumentOutOfRangeException
+    /// so the scan can never enter that infinite loop. Pinned eagerly; the guarded
+    /// call must return promptly, not hang.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindTandemRepeats_MinUnitLengthZero_ThrowsArgumentOutOfRange()
+    {
+        var act = () => GenomicAnalyzer.FindTandemRepeats(new DnaSequence("ATGATGATG"), 0, 2).ToList();
+
+        act.Should().Throw<ArgumentOutOfRangeException>(
+                "a zero-length unit tiles every position infinitely and never advances the scan; the contract rejects it")
+            .Which.ParamName.Should().Be("minUnitLength");
+    }
+
+    #endregion
+
+    #region BE — Boundary: unit-length ceiling of 1 (homopolymer-only)
+
+    /// <summary>
+    /// BE: a unit-length ceiling of 1 — i.e. searching ONLY length-1 units
+    /// (minUnitLength = 1) — means only homopolymer runs (AAAA…, the mononucleotide
+    /// class) can ever be a tandem repeat; no di-/tri-/longer unit is even considered.
+    /// "AAATGC" has a single 'A' run of 3 and nothing else repeats, so exactly one
+    /// result — unit "A", 3 copies at position 0 — must be reported, and every result
+    /// must be a 1-bp unit. This pins that the smallest legal unit length behaves and
+    /// does not over- or under-report (no crash, no spurious multi-bp units).
+    /// </summary>
+    [Test]
+    public void FindTandemRepeats_UnitLengthOne_FindsOnlyHomopolymerRuns()
+    {
+        var results = GenomicAnalyzer.FindTandemRepeats(new DnaSequence("AAATGC"), minUnitLength: 1, minRepetitions: 2).ToList();
+
+        results.Should().ContainSingle("only the 'A' homopolymer run repeats ≥ 2× in 'AAATGC'");
+        results[0].Unit.Should().Be("A");
+        results[0].Repetitions.Should().Be(3, "the run 'AAA' is three consecutive 'A' copies");
+        results[0].Position.Should().Be(0);
+        results.Should().OnlyContain(r => r.Unit.Length == 1,
+            "with a unit-length ceiling of 1 only mononucleotide (homopolymer) units are searched");
+    }
+
+    #endregion
+
+    #region BE — Boundary: empty sequence
+
+    /// <summary>
+    /// BE: the empty sequence is the lower size boundary. With valid thresholds the
+    /// scan bounds `unitLen ≤ 0/minReps = 0` and `start ≤ 0 − unitLen·minReps` are
+    /// degenerate, so the detector yields nothing — no division, no indexing past the
+    /// end, no hang (Tandem_Repeat_Detection.md §6.1). Pinned for the default and a
+    /// minimal unit length.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindTandemRepeats_EmptySequence_IsEmptyAndDoesNotThrow()
+    {
+        var act = () => GenomicAnalyzer.FindTandemRepeats(new DnaSequence(string.Empty), 2, 2).ToList();
+        act.Should().NotThrow("an empty sequence has no region long enough to hold a tandem repeat");
+
+        GenomicAnalyzer.FindTandemRepeats(new DnaSequence(string.Empty), 2, 2).Should().BeEmpty();
+        GenomicAnalyzer.FindTandemRepeats(new DnaSequence(string.Empty), 1, 2).Should().BeEmpty(
+            "even searching 1-bp units, the empty sequence yields no homopolymer run");
+    }
+
+    /// <summary>
+    /// BE/INJ: a null DnaSequence is the boundary of "no input". The pre-fix detector
+    /// dereferenced `sequence.Sequence` immediately → a raw NullReferenceException.
+    /// The contract now guards it with ArgumentNullException (ThrowIfNull), raised
+    /// eagerly at the call — never a NullReferenceException
+    /// (Tandem_Repeat_Detection.md §3.3, now enforced).
+    /// </summary>
+    [Test]
+    public void FindTandemRepeats_NullSequence_ThrowsArgumentNullException()
+    {
+        var act = () => GenomicAnalyzer.FindTandemRepeats((DnaSequence)null!, 2, 2);
+
+        act.Should().Throw<ArgumentNullException>(
+            "a null sequence is null-guarded, never dereferenced into a NullReferenceException");
+    }
+
+    #endregion
+
+    #region BE — Boundary: single-character sequence
+
+    /// <summary>
+    /// BE: a single-character sequence cannot hold a tandem repeat — a tandem needs
+    /// ≥ 2 copies (Tandem_Repeat_Detection.md §2.2), and one base is half of even the
+    /// shortest possible 1-bp ×2 repeat. The detector must return empty with no crash
+    /// and no hang, whether the unit-length floor is the default 2 or the minimal 1.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void FindTandemRepeats_SingleCharSequence_IsEmptyAndDoesNotThrow()
+    {
+        var act = () => GenomicAnalyzer.FindTandemRepeats(new DnaSequence("A"), 1, 2).ToList();
+        act.Should().NotThrow("a single base cannot hold two consecutive copies of any unit");
+
+        GenomicAnalyzer.FindTandemRepeats(new DnaSequence("A"), 1, 2).Should().BeEmpty(
+            "one base is too short for even a 1-bp unit repeated twice");
+        GenomicAnalyzer.FindTandemRepeats(new DnaSequence("A"), 2, 2).Should().BeEmpty();
+    }
+
+    #endregion
+
+    #region Positive sanity — a clear tandem repeat is detected correctly
+
+    /// <summary>
+    /// Positive sanity: alongside the degenerate probes, the textbook tandem from the
+    /// algorithm doc — "(ATG)3" = "ATGATGATG" — must be detected with the CORRECT unit
+    /// and copy count, so the boundary hardening never silently breaks the core
+    /// function. Pinned per INV-01..INV-03 (Tandem_Repeat_Detection.md §2.4): unit
+    /// "ATG", 3 copies at position 0, TotalLength = 3 × 3 = 9.
+    /// </summary>
+    [Test]
+    public void FindTandemRepeats_ClearTrinucleotideTandem_DetectedWithCorrectUnitAndCount()
+    {
+        var results = GenomicAnalyzer.FindTandemRepeats(new DnaSequence("ATGATGATG"), minUnitLength: 3, minRepetitions: 3).ToList();
+
+        var atg = results.Should().ContainSingle(r => r.Unit == "ATG").Subject;
+        atg.Repetitions.Should().Be(3, "'ATG' tiles '(ATG)3' exactly three times");
+        atg.Position.Should().Be(0, "the tandem block starts at the first base");
+        atg.TotalLength.Should().Be(9, "INV-02: TotalLength = |Unit| (3) × Repetitions (3)");
+        (atg.Position + atg.TotalLength).Should().BeLessThanOrEqualTo("ATGATGATG".Length,
+            "INV-03: the reported tandem stays within the sequence bounds");
+    }
+
+    /// <summary>
+    /// Positive sanity / RB: a fixed-seed random sequence must complete promptly and
+    /// produce only well-formed results — no spurious counts, no out-of-range
+    /// positions, no hang — so the degenerate-boundary guards do not corrupt the scan
+    /// on ordinary input. Every result must satisfy INV-01..INV-03
+    /// (Tandem_Repeat_Detection.md §2.4). Length kept modest because the detector is
+    /// O(n²·m); a hang here would trip the timeout.
+    /// </summary>
+    [Test]
+    [CancelAfter(30000)]
+    public void FindTandemRepeats_RandomSequence_ProducesOnlyWellFormedResults()
+    {
+        const int minUnit = 1;
+        const int minReps = 2;
+        string seqStr = RandomDna(500, seed: 14_001);
+        var seq = new DnaSequence(seqStr);
+
+        var results = GenomicAnalyzer.FindTandemRepeats(seq, minUnit, minReps).ToList();
+
+        results.Should().OnlyContain(r =>
+            r.Repetitions >= minReps &&                          // INV-01 (count)
+            r.Unit.Length >= minUnit &&                          // INV-01 (unit length)
+            r.TotalLength == r.Unit.Length * r.Repetitions &&    // INV-02
+            r.Position >= 0 && r.Position + r.TotalLength <= seqStr.Length, // INV-03
+            "every result on random input is well-formed: count ≥ minReps, unit ≥ minUnit, total = unit×count, in bounds");
     }
 
     #endregion
