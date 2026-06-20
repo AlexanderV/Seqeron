@@ -9,7 +9,8 @@ namespace Seqeron.Genomics.Tests;
 
 /// <summary>
 /// Fuzz tests for the Chromosome area — telomere detection (CHROM-TELO-001),
-/// centromere detection (CHROM-CENT-001) and karyotype analysis (CHROM-KARYO-001).
+/// centromere detection (CHROM-CENT-001), karyotype analysis (CHROM-KARYO-001)
+/// and aneuploidy detection (CHROM-ANEU-001).
 ///
 /// ───────────────────────────────────────────────────────────────────────────
 /// What fuzzing verifies
@@ -221,6 +222,80 @@ namespace Seqeron.Genomics.Tests;
 ///   (AnalyzeKaryotype + GetChromosomeBaseName + GetAneuploidyTerm).
 /// • Tjio, Levan (1956): the chromosome number of man (2n = 46) — the human
 ///   karyotype reference used for the positive-sanity set.
+/// ───────────────────────────────────────────────────────────────────────────
+///
+/// ═══════════════════════════════════════════════════════════════════════════
+/// Unit: CHROM-ANEU-001 — aneuploidy detection
+/// Checklist: docs/checklists/03_FUZZING.md, row 51.
+/// Fuzz strategy exercised for THIS unit:
+///   • BE = Boundary Exploitation — the degenerate depth boundaries called out in
+///          the checklist row: 0 depth, negative depth, extremely high depth, and
+///          empty data. — docs/checklists/03_FUZZING.md §Description.
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The aneuploidy-detection contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// `DetectAneuploidy(IEnumerable&lt;(string Chromosome, int Position, double Depth)&gt;
+///      depthData, double medianDepth, int binSize = 1000000)`
+///   (ChromosomeAnalyzer.cs lines 832–876) is a LAZY iterator (`yield`), so any
+///   exception or hang surfaces only when the result is *enumerated* — every fuzz
+///   case below forces evaluation with `.ToList()`, otherwise the guard and the
+///   per-bin arithmetic would never run. It emits one `CopyNumberState`
+///   (Chromosome, Start, End, CopyNumber, LogRatio, Confidence) per chromosome/bin.
+///
+/// Copy number is a read-depth RATIO against a diploid baseline (Aneuploidy_
+/// Detection.md §2.2, §4.2): per bin
+///     logRatio   = log2(meanDepth / medianDepth)
+///     copyNumber = clamp(round((2^logRatio) * 2), 0, 10)
+/// The `medianDepth` baseline is the divisor of that ratio — the 0-reference
+/// division the checklist row keys on.
+///
+/// What the depth boundaries actually do (ChromosomeAnalyzer.cs lines 837–873;
+/// Aneuploidy_Detection.md §6.1; verified empirically against net10.0 semantics):
+///   • Empty data → the materialized list is empty → `yield break` (line 839) → a
+///     defined EMPTY result, never a crash. This is the empty-data boundary.
+///   • medianDepth == 0 OR medianDepth &lt; 0 → the SAME guard (`medianDepth &lt;= 0`,
+///     line 839) short-circuits to `yield break`. This is the KEY div-by-zero
+///     boundary: a 0 (or negative) baseline is REJECTED *before* the depth ratio is
+///     ever computed, so `log2(meanDepth / 0)` is never reached — no DivideByZero,
+///     no Infinity-driven mis-call. (A 0 baseline carries no signal, so the
+///     theory-correct result is "no call", realised here as the empty result.)
+///   • 0 DEPTH values (with a valid positive baseline) → meanDepth 0 →
+///     `log2(0 / median)` = −∞ → `2^(−∞)` = 0 → copyNumber rounds/clamps to 0
+///     (Nullisomy). LogRatio is −∞ but the emitted CopyNumber is a defined,
+///     in-range integer 0 — the documented "very low depth ⇒ floored at 0" case
+///     (§6.1). No crash, no spurious gain.
+///   • NEGATIVE DEPTH values (biologically impossible, with a valid baseline) →
+///     `meanDepth / median` is negative → `log2(negative)` = NaN → `2^NaN` = NaN →
+///     `(int)round(NaN)` = 0 (ECMA-335 NaN→int conversion) → clamp keeps 0. The
+///     method does NOT validate or reject a negative read depth, but it ALSO never
+///     produces a garbage NON-zero copy-number GAIN: the call collapses to
+///     copyNumber 0. The cost of not validating is that LogRatio and Confidence are
+///     emitted as NaN for that bin (the NaN propagates through the ratio). We pin
+///     this ACTUAL contract — no throw, CopyNumber in [0,10] and specifically 0, with
+///     LogRatio/Confidence NaN documented in line — rather than weaken to a falsely
+///     clean expectation. A negative depth is impossible input; the disciplined
+///     outcome we require is "no crash, no spurious aneuploidy call", which holds.
+///   • EXTREMELY HIGH depth → `(2^logRatio)*2` is enormous but the rounded copy
+///     number is CLAMPED to 10 (line 860); the result is a finite, in-range integer
+///     with no overflow (§6.1 "very high depth ratios ⇒ capped at 10").
+///
+/// Invariants asserted (Aneuploidy_Detection.md §2.4):
+///   • INV-01: every emitted CopyNumber is an integer in [0, 10] (round + clamp).
+///   • INV-02: Confidence ∈ [0, 1] — for FINITE input. (We document that negative
+///     depth, which is out-of-domain garbage, propagates NaN into Confidence; INV-02
+///     is stated for valid depth, and the negative-depth test pins the real NaN
+///     behaviour instead of pretending the bound holds on impossible input.)
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Citations
+/// ───────────────────────────────────────────────────────────────────────────
+/// • Algorithm doc: docs/algorithms/Chromosome_Analysis/Aneuploidy_Detection.md
+///   (§2.2 core model, §2.4 invariants, §3.3 validation, §4.2 scoring, §6.1 edges).
+/// • Source: src/Seqeron/Algorithms/Seqeron.Genomics.Chromosome/ChromosomeAnalyzer.cs
+///   (DetectAneuploidy + CopyNumberState).
+/// • Wikipedia: Aneuploidy; Copy number variation — copy-number terminology and the
+///   depth-proportional-to-copy-number model used for the positive-sanity profile.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -1035,6 +1110,269 @@ public class ChromosomeFuzzTests
         result.HasAneuploidy.Should().BeTrue();
         result.Abnormalities.Should().ContainSingle()
             .Which.Should().Be("Trisomy chr21", "three copies against expected 2 is trisomy of that group");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  CHROM-ANEU-001 — aneuploidy detection : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region CHROM-ANEU-001 — aneuploidy detection
+
+    #region Aneuploidy helpers
+
+    /// <summary>Bin width used by the aneuploidy fuzz cases (the production default).</summary>
+    private const int AneuBinSize = 1_000_000;
+
+    /// <summary>A valid positive diploid baseline used across the aneuploidy fuzz cases.</summary>
+    private const double AneuBaseline = 30.0;
+
+    /// <summary>
+    /// Builds <paramref name="bins"/> depth observations on one chromosome, one per bin,
+    /// each at the given <paramref name="depth"/>. Positions are spaced one bin apart so
+    /// every observation lands in a distinct bin (Position / binSize).
+    /// </summary>
+    private static (string Chromosome, int Position, double Depth)[] DepthProfile(
+        string chromosome, double depth, int bins)
+        => System.Linq.Enumerable.Range(0, bins)
+            .Select(i => (chromosome, i * AneuBinSize, depth))
+            .ToArray();
+
+    #endregion
+
+    #region BE — Boundary: empty data
+
+    /// <summary>
+    /// BE (empty data): an empty depth sequence. The materialized list is empty, so
+    /// `DetectAneuploidy` hits the `data.Count == 0` guard (ChromosomeAnalyzer.cs line
+    /// 839) and `yield break`s — a defined EMPTY result, never a crash. Because the
+    /// method is a lazy iterator we force enumeration with `.ToList()`.
+    /// (Aneuploidy_Detection.md §6.1 "Empty input depth data".)
+    /// </summary>
+    [Test]
+    public void DetectAneuploidy_EmptyData_YieldsNoStates()
+    {
+        var empty = Enumerable.Empty<(string Chromosome, int Position, double Depth)>();
+
+        var act = () => ChromosomeAnalyzer.DetectAneuploidy(empty, AneuBaseline).ToList();
+        act.Should().NotThrow("the empty-input guard short-circuits before any depth-ratio arithmetic");
+
+        var result = ChromosomeAnalyzer.DetectAneuploidy(empty, AneuBaseline).ToList();
+        result.Should().BeEmpty("empty depth data yields no copy-number states");
+    }
+
+    #endregion
+
+    #region BE — Boundary: 0 / negative baseline (KEY div-by-zero)
+
+    /// <summary>
+    /// BE (KEY div-by-zero): a 0 diploid baseline. The depth ratio is
+    /// `meanDepth / medianDepth`; a 0 baseline would make every ratio Infinity. The
+    /// guard `medianDepth &lt;= 0` (line 839) REJECTS this BEFORE the ratio is computed,
+    /// yielding the defined empty result — no DivideByZero, no Infinity-driven mis-call.
+    /// A 0 baseline carries no signal, so "no call" (empty) is the theory-correct
+    /// outcome. (Aneuploidy_Detection.md §6.1 "medianDepth = 0".)
+    /// </summary>
+    [Test]
+    public void DetectAneuploidy_ZeroBaseline_YieldsNoStatesNoDivideByZero()
+    {
+        var depthData = DepthProfile("chr1", AneuBaseline, bins: 5);
+
+        var act = () => ChromosomeAnalyzer.DetectAneuploidy(depthData, medianDepth: 0.0).ToList();
+        act.Should().NotThrow("a 0 baseline is rejected before the depth ratio, so no DivideByZero or Infinity ratio occurs");
+
+        var result = ChromosomeAnalyzer.DetectAneuploidy(depthData, medianDepth: 0.0).ToList();
+        result.Should().BeEmpty("a 0 diploid baseline carries no signal and yields no call");
+    }
+
+    /// <summary>
+    /// BE (negative baseline): a NEGATIVE diploid baseline is biologically impossible
+    /// and is caught by the SAME `medianDepth &lt;= 0` guard (line 839). It must yield the
+    /// defined empty result — a negative baseline can never drive a copy-number call.
+    /// (Aneuploidy_Detection.md §6.1 "medianDepth &lt; 0".)
+    /// </summary>
+    [Test]
+    public void DetectAneuploidy_NegativeBaseline_YieldsNoStates()
+    {
+        var depthData = DepthProfile("chr1", AneuBaseline, bins: 5);
+
+        var act = () => ChromosomeAnalyzer.DetectAneuploidy(depthData, medianDepth: -10.0).ToList();
+        act.Should().NotThrow("a negative baseline is caught by the same non-positive guard");
+
+        var result = ChromosomeAnalyzer.DetectAneuploidy(depthData, medianDepth: -10.0).ToList();
+        result.Should().BeEmpty("a negative diploid baseline is rejected, yielding no call");
+    }
+
+    #endregion
+
+    #region BE — Boundary: 0 depth values
+
+    /// <summary>
+    /// BE (0 depth): every depth observation is 0 against a VALID positive baseline.
+    /// meanDepth is 0, so `log2(0 / median)` = −∞ and `2^(−∞) = 0` → copyNumber rounds
+    /// and clamps to 0 (Nullisomy) — the documented "very low depth ⇒ floored at 0"
+    /// case (§6.1). LogRatio is −∞ for the bin, but the emitted CopyNumber is a
+    /// defined, in-range integer 0; the run must NOT crash and must NOT spuriously call
+    /// a gain. We pin CopyNumber == 0 across all bins and INV-01 on every state.
+    /// </summary>
+    [Test]
+    public void DetectAneuploidy_ZeroDepthValues_CallsNullisomyNoCrash()
+    {
+        var depthData = DepthProfile("chr1", depth: 0.0, bins: 5);
+
+        var act = () => ChromosomeAnalyzer.DetectAneuploidy(depthData, AneuBaseline, AneuBinSize).ToList();
+        act.Should().NotThrow("0 depth drives log2(0) = −∞, but 2^(−∞) = 0 floors cleanly to copy number 0");
+
+        var result = ChromosomeAnalyzer.DetectAneuploidy(depthData, AneuBaseline, AneuBinSize).ToList();
+
+        result.Should().HaveCount(5, "one bin per planted observation");
+        result.Should().OnlyContain(s => s.CopyNumber == 0,
+            "zero read depth floors to copy number 0 (Nullisomy)");
+        result.Should().OnlyContain(s => s.CopyNumber >= 0 && s.CopyNumber <= 10,
+            "INV-01: every emitted copy number is an integer in [0, 10]");
+        result.Should().OnlyContain(s => double.IsNegativeInfinity(s.LogRatio),
+            "log2(0 / median) is −∞ for a zero-depth bin");
+    }
+
+    #endregion
+
+    #region BE — Boundary: negative depth values (impossible input, must not mis-call)
+
+    /// <summary>
+    /// BE (negative depth): NEGATIVE depth values are biologically impossible. The
+    /// method does NOT validate or reject them — but, crucially, it must NOT crash and
+    /// must NOT emit a garbage NON-zero copy-number GAIN. `meanDepth / median` is
+    /// negative → `log2(negative)` = NaN → `2^NaN` = NaN → `(int)round(NaN)` = 0 → clamp
+    /// keeps 0. So every bin collapses to copyNumber 0, the disciplined "no spurious
+    /// aneuploidy call" outcome. The cost of skipping validation is that LogRatio and
+    /// Confidence propagate as NaN; we pin that ACTUAL behaviour honestly rather than
+    /// weaken the test to a falsely clean expectation. (Verified against net10.0
+    /// NaN→int semantics; Aneuploidy_Detection.md §3.3 — no validation beyond the
+    /// baseline/empty checks.)
+    /// </summary>
+    [Test]
+    public void DetectAneuploidy_NegativeDepthValues_CollapseToCopyNumberZeroNoGarbageGain()
+    {
+        var depthData = DepthProfile("chr1", depth: -15.0, bins: 5);
+
+        var act = () => ChromosomeAnalyzer.DetectAneuploidy(depthData, AneuBaseline, AneuBinSize).ToList();
+        act.Should().NotThrow("negative depth produces NaN ratios but never an unhandled exception");
+
+        var result = ChromosomeAnalyzer.DetectAneuploidy(depthData, AneuBaseline, AneuBinSize).ToList();
+
+        result.Should().HaveCount(5, "one bin per planted observation; the method does not drop negative-depth bins");
+        result.Should().OnlyContain(s => s.CopyNumber == 0,
+            "a negative depth ratio yields NaN → (int)round(NaN) = 0; the call collapses to 0, never a spurious gain");
+        result.Should().OnlyContain(s => s.CopyNumber >= 0 && s.CopyNumber <= 10,
+            "INV-01: even on impossible input the emitted copy number stays in [0, 10]");
+        // Honest contract: the un-validated negative input propagates NaN, not a clean ratio.
+        result.Should().OnlyContain(s => double.IsNaN(s.LogRatio),
+            "log2 of a negative ratio is NaN; the method does not sanitize impossible negative depth");
+    }
+
+    #endregion
+
+    #region BE — Boundary: extremely high depth (clamped, no overflow)
+
+    /// <summary>
+    /// BE (extremely high depth): a depth ratio far above any real ploidy. The raw
+    /// `round((2^logRatio) * 2)` is enormous, but the copy number is CLAMPED to 10
+    /// (line 860), so the emitted state is a finite, in-range integer — no overflow,
+    /// no Infinity in the reported CopyNumber. (§6.1 "Very high depth ratios ⇒ capped
+    /// at 10".) LogRatio is a large finite double; Confidence stays in [0, 1].
+    /// </summary>
+    [Test]
+    public void DetectAneuploidy_ExtremelyHighDepth_CopyNumberClampedToTen()
+    {
+        // 1e6 × the baseline — an absurd ratio that would overflow an unclamped copy number.
+        var depthData = DepthProfile("chr1", depth: AneuBaseline * 1_000_000.0, bins: 3);
+
+        var act = () => ChromosomeAnalyzer.DetectAneuploidy(depthData, AneuBaseline, AneuBinSize).ToList();
+        act.Should().NotThrow("the rounded copy number is clamped before emission, so no overflow occurs");
+
+        var result = ChromosomeAnalyzer.DetectAneuploidy(depthData, AneuBaseline, AneuBinSize).ToList();
+
+        result.Should().HaveCount(3);
+        result.Should().OnlyContain(s => s.CopyNumber == 10,
+            "an extreme depth ratio is capped at the maximum copy number 10");
+        result.Should().OnlyContain(s => double.IsFinite(s.LogRatio),
+            "log2 of a large finite ratio is a large finite double, never Infinity or NaN");
+        result.Should().OnlyContain(s => s.Confidence >= 0.0 && s.Confidence <= 1.0,
+            "INV-02: confidence stays in [0, 1] for finite depth");
+    }
+
+    /// <summary>
+    /// BE (extremely high baseline): the mirror extreme — a gigantic baseline against
+    /// ordinary depth drives the ratio to ~0, flooring copy number at 0 with a large
+    /// NEGATIVE finite LogRatio. Must not crash, must stay clamped at 0.
+    /// </summary>
+    [Test]
+    public void DetectAneuploidy_ExtremelyHighBaseline_CopyNumberFlooredAtZero()
+    {
+        var depthData = DepthProfile("chr1", depth: AneuBaseline, bins: 3);
+        double hugeBaseline = AneuBaseline * 1_000_000.0;
+
+        var result = ChromosomeAnalyzer.DetectAneuploidy(depthData, hugeBaseline, AneuBinSize).ToList();
+
+        result.Should().HaveCount(3);
+        result.Should().OnlyContain(s => s.CopyNumber == 0,
+            "a tiny depth ratio against a huge baseline floors copy number at 0");
+        result.Should().OnlyContain(s => double.IsFinite(s.LogRatio) && s.LogRatio < 0,
+            "log2 of a small finite ratio is a large negative finite double");
+    }
+
+    #endregion
+
+    #region Positive sanity — clear trisomy is called as gain, normal as no aneuploidy
+
+    /// <summary>
+    /// Positive sanity (gain): a clear trisomy depth profile — every bin at 1.5× the
+    /// diploid baseline (3 copies ⇒ 1.5× depth, Aneuploidy_Detection.md §2.2) — must be
+    /// called as copy number 3 per bin, and `IdentifyWholeChromosomeAneuploidy` must
+    /// surface it as a whole-chromosome "Trisomy" gain. This is the affirmative anchor
+    /// that the detector recovers a real aneuploidy, not just survives garbage.
+    /// </summary>
+    [Test]
+    public void DetectAneuploidy_ClearTrisomyProfile_CalledAsGain()
+    {
+        var depthData = DepthProfile("chr21", depth: AneuBaseline * 1.5, bins: 10);
+
+        var states = ChromosomeAnalyzer.DetectAneuploidy(depthData, AneuBaseline, AneuBinSize).ToList();
+
+        states.Should().HaveCount(10);
+        states.Should().OnlyContain(s => s.CopyNumber == 3,
+            "1.5× the diploid depth is three copies (trisomy)");
+
+        var whole = ChromosomeAnalyzer.IdentifyWholeChromosomeAneuploidy(states).ToList();
+        whole.Should().ContainSingle()
+            .Which.Should().Match<(string Chromosome, int CopyNumber, string Type)>(
+                w => w.Chromosome == "chr21" && w.CopyNumber == 3 && w.Type == "Trisomy",
+                "a chromosome dominated by copy-number-3 bins is a whole-chromosome trisomy gain");
+    }
+
+    /// <summary>
+    /// Positive sanity (normal): a clean diploid depth profile — every bin at exactly
+    /// the baseline (1.0× ⇒ 2 copies) — must be called as copy number 2 per bin, and
+    /// `IdentifyWholeChromosomeAneuploidy` must report NO whole-chromosome aneuploidy
+    /// (disomic dominant states are ignored, INV-03). This pins that a normal sample is
+    /// not mis-called as a gain or loss.
+    /// </summary>
+    [Test]
+    public void DetectAneuploidy_NormalDiploidProfile_NoAneuploidyCall()
+    {
+        var depthData = DepthProfile("chr1", depth: AneuBaseline, bins: 10);
+
+        var states = ChromosomeAnalyzer.DetectAneuploidy(depthData, AneuBaseline, AneuBinSize).ToList();
+
+        states.Should().HaveCount(10);
+        states.Should().OnlyContain(s => s.CopyNumber == 2,
+            "depth at exactly the baseline is the normal two-copy diploid state");
+
+        var whole = ChromosomeAnalyzer.IdentifyWholeChromosomeAneuploidy(states).ToList();
+        whole.Should().BeEmpty("a disomic chromosome is not reported as a whole-chromosome aneuploidy");
     }
 
     #endregion
