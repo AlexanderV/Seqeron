@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 using FluentAssertions;
 using Seqeron.Genomics.Chromosome;
@@ -6,8 +8,8 @@ using Seqeron.Genomics.Chromosome;
 namespace Seqeron.Genomics.Tests;
 
 /// <summary>
-/// Fuzz tests for the Chromosome area — telomere detection (CHROM-TELO-001)
-/// and centromere detection (CHROM-CENT-001).
+/// Fuzz tests for the Chromosome area — telomere detection (CHROM-TELO-001),
+/// centromere detection (CHROM-CENT-001) and karyotype analysis (CHROM-KARYO-001).
 ///
 /// ───────────────────────────────────────────────────────────────────────────
 /// What fuzzing verifies
@@ -153,6 +155,72 @@ namespace Seqeron.Genomics.Tests;
 /// • Source: src/Seqeron/Algorithms/Seqeron.Genomics.Chromosome/ChromosomeAnalyzer.cs
 ///   (AnalyzeCentromere + EstimateRepeatContent + CalculateGcVariability).
 /// • Levan, Fredga, Sandberg (1964): centromere arm-ratio nomenclature.
+/// ───────────────────────────────────────────────────────────────────────────
+///
+/// ═══════════════════════════════════════════════════════════════════════════
+/// Unit: CHROM-KARYO-001 — karyotype analysis
+/// Checklist: docs/checklists/03_FUZZING.md, row 50.
+/// Fuzz strategy exercised for THIS unit:
+///   • BE = Boundary Exploitation — the degenerate set-size boundaries called out
+///          in the checklist row: 0 chromosomes, 100+ chromosomes, and empty data
+///          (an empty enumerable). — docs/checklists/03_FUZZING.md §Description.
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The karyotype-analysis contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// `AnalyzeKaryotype(IEnumerable&lt;(string Name, long Length, bool IsSexChromosome)&gt;
+///      chromosomes, int expectedPloidyLevel = 2)`
+///   (ChromosomeAnalyzer.cs lines 136–180) materializes the input with `.ToList()`
+///   and returns an EAGER `Karyotype` readonly record struct (TotalChromosomes,
+///   AutosomeCount, SexChromosomes, TotalGenomeSize, MeanChromosomeLength,
+///   PloidyLevel, HasAneuploidy, Abnormalities) — no lazy iterator, so any exception
+///   or hang surfaces at the call itself.
+///
+/// CRITICAL — the 0-chromosome / empty-data boundary the checklist row keys on
+/// (Karyotype_Analysis.md §6.1; ChromosomeAnalyzer.cs lines 142–145): when the
+/// materialized list is empty the method short-circuits and returns the documented
+/// ZEROED karyotype — `new Karyotype(0, 0, [], 0, 0, 0, false, [])`. This guard is
+/// what makes the average-size computation safe: the unguarded statement
+///     meanLength = totalSize / (double)chromList.Count   (line 151)
+/// is only reached for a NON-empty list, so the count is never 0 there. Even if it
+/// were reached, the divisor is a `double`, so the result would be NaN, not a
+/// DivideByZeroException (integer div-by-zero throws; floating-point does not). The
+/// early return makes both moot: 0 chromosomes / empty data must yield the zeroed
+/// karyotype with MeanChromosomeLength exactly 0.0, never a crash, never NaN.
+///
+/// Aggregate consistency invariants asserted on the 100+ boundary
+/// (Karyotype_Analysis.md §2.4 INV-01..INV-03):
+///   • INV-01: TotalChromosomes == AutosomeCount + SexChromosomes.Count (the input
+///     is partitioned into autosomes and sex chromosomes before summarizing).
+///   • INV-02: TotalGenomeSize == Σ input lengths, and MeanChromosomeLength ==
+///     TotalGenomeSize / TotalChromosomes for non-empty input (both computed
+///     directly from the materialized list).
+///   • INV-03: HasAneuploidy is true exactly when the Abnormalities list is
+///     non-empty — set only when an autosome group count differs from
+///     expectedPloidyLevel.
+/// A large set (100+ chromosomes) must COMPLETE in O(n) and satisfy all three; the
+/// summary stats must be internally consistent with the input, never overflow into a
+/// malformed karyotype.
+///
+/// Documented edge-case contract (Karyotype_Analysis.md §3.3, §6.1):
+///   • Empty chromosome list → zeroed Karyotype, no abnormalities, PloidyLevel 0.
+///     This covers BOTH "0 chromosomes" and "empty data": a freshly-allocated empty
+///     enumerable and a deliberately empty array are the same boundary.
+///   • Autosomes are grouped by base name after stripping a trailing `_N` numeric
+///     copy suffix (GetChromosomeBaseName); a group whose size != expectedPloidyLevel
+///     is labelled with the absolute cytogenetic term (Monosomy/Trisomy/…).
+///   • Sex chromosomes are preserved in SexChromosomes but never grouped for
+///     abnormality calling (§5.2 deviation #1).
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Citations
+/// ───────────────────────────────────────────────────────────────────────────
+/// • Algorithm doc: docs/algorithms/Chromosome_Analysis/Karyotype_Analysis.md
+///   (§2.4 invariants, §3 contract, §6.1 edge cases).
+/// • Source: src/Seqeron/Algorithms/Seqeron.Genomics.Chromosome/ChromosomeAnalyzer.cs
+///   (AnalyzeKaryotype + GetChromosomeBaseName + GetAneuploidyTerm).
+/// • Tjio, Levan (1956): the chromosome number of man (2n = 46) — the human
+///   karyotype reference used for the positive-sanity set.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -697,6 +765,276 @@ public class ChromosomeFuzzTests
             "the detected region must reach into the repetitive core past the 5' flank");
         result.Start!.Value.Should().BeLessThan(flank.Length + satellite.Length,
             "the detected region must start before the 3' flank");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  CHROM-KARYO-001 — karyotype analysis : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region CHROM-KARYO-001 — karyotype analysis
+
+    #region Karyo helpers
+
+    /// <summary>Convenience tuple alias for a chromosome descriptor.</summary>
+    private static (string Name, long Length, bool IsSexChromosome) Chrom(string name, long length, bool sex = false)
+        => (name, length, sex);
+
+    #endregion
+
+    #region BE — Boundary: 0 chromosomes / empty data (KEY div-by-zero)
+
+    /// <summary>
+    /// BE (KEY boundary): zero chromosomes (an empty enumerable). The materialized
+    /// list is empty, so the method short-circuits at ChromosomeAnalyzer.cs line 142
+    /// and returns the documented ZEROED karyotype WITHOUT ever reaching the
+    /// `meanLength = totalSize / count` statement (line 151). The result must be a
+    /// fully-defined, internally-consistent zero summary — every count 0, total size
+    /// 0, MeanChromosomeLength exactly 0.0 (NOT NaN, NOT a DivideByZeroException),
+    /// PloidyLevel 0, no aneuploidy, empty lists — never a crash.
+    /// (Karyotype_Analysis.md §6.1 "Empty chromosome list".)
+    /// </summary>
+    [Test]
+    public void AnalyzeKaryotype_ZeroChromosomes_ReturnsZeroedKaryotypeNoDivideByZero()
+    {
+        var empty = Enumerable.Empty<(string, long, bool)>();
+
+        var act = () => ChromosomeAnalyzer.AnalyzeKaryotype(empty);
+        act.Should().NotThrow(
+            "the empty-list short-circuit returns before the mean-length division, so no DivideByZero or index can occur");
+
+        var result = ChromosomeAnalyzer.AnalyzeKaryotype(empty);
+
+        result.TotalChromosomes.Should().Be(0);
+        result.AutosomeCount.Should().Be(0);
+        result.SexChromosomes.Should().BeEmpty();
+        result.TotalGenomeSize.Should().Be(0);
+        result.MeanChromosomeLength.Should().Be(0.0, "the mean over 0 chromosomes is the documented zero, never NaN");
+        double.IsNaN(result.MeanChromosomeLength).Should().BeFalse("the early return avoids the 0/0 division entirely");
+        result.PloidyLevel.Should().Be(0, "PloidyLevel is zeroed for empty input, not the default 2");
+        result.HasAneuploidy.Should().BeFalse();
+        result.Abnormalities.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// BE: "empty data" expressed as a freshly-allocated empty array rather than the
+    /// LINQ Empty singleton — the same boundary reached through a different concrete
+    /// enumerable. It must produce the identical zeroed karyotype with no crash,
+    /// pinning that the guard keys on the materialized count, not on the source type.
+    /// </summary>
+    [Test]
+    public void AnalyzeKaryotype_EmptyArray_ReturnsZeroedKaryotype()
+    {
+        var emptyData = Array.Empty<(string Name, long Length, bool IsSexChromosome)>();
+
+        var act = () => ChromosomeAnalyzer.AnalyzeKaryotype(emptyData);
+        act.Should().NotThrow();
+
+        var result = ChromosomeAnalyzer.AnalyzeKaryotype(emptyData);
+
+        result.TotalChromosomes.Should().Be(0);
+        result.TotalGenomeSize.Should().Be(0);
+        result.MeanChromosomeLength.Should().Be(0.0);
+        result.Abnormalities.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// BE: a non-default expectedPloidyLevel on empty input must STILL yield the
+    /// zeroed karyotype with PloidyLevel 0 — the empty short-circuit ignores the
+    /// parameter entirely (line 144 hard-codes 0), so the ploidy argument can never
+    /// drive an empty-input divide or a non-zero summary.
+    /// </summary>
+    [Test]
+    public void AnalyzeKaryotype_EmptyWithNonDefaultPloidy_StillZeroedWithPloidyZero()
+    {
+        var result = ChromosomeAnalyzer.AnalyzeKaryotype(
+            Enumerable.Empty<(string, long, bool)>(), expectedPloidyLevel: 4);
+
+        result.TotalChromosomes.Should().Be(0);
+        result.MeanChromosomeLength.Should().Be(0.0);
+        result.PloidyLevel.Should().Be(0, "the empty short-circuit hard-codes PloidyLevel 0 regardless of the argument");
+    }
+
+    #endregion
+
+    #region BE — Boundary: 100+ chromosomes (completes, aggregates consistently)
+
+    /// <summary>
+    /// BE (KEY boundary): a large set of 100+ chromosomes must COMPLETE (no hang) and
+    /// aggregate correctly. We build 60 diploid autosome groups (chr1_1/chr1_2 …
+    /// chr60_1/chr60_2 = 120 autosome tuples) plus an XX sex pair = 122 chromosomes,
+    /// every group at exactly the expected ploidy of 2. The summary must be internally
+    /// consistent with the input: TotalChromosomes == AutosomeCount + sex count
+    /// (INV-01), TotalGenomeSize == Σ lengths and MeanChromosomeLength ==
+    /// TotalGenomeSize / TotalChromosomes (INV-02), and — because every autosome group
+    /// is a clean diploid pair — HasAneuploidy is false with an empty abnormality list
+    /// (INV-03). [CancelAfter] guards against a regression that loops on large input.
+    /// </summary>
+    [Test]
+    [CancelAfter(30_000)]
+    public void AnalyzeKaryotype_ManyDiploidChromosomes_CompletesWithConsistentAggregates()
+    {
+        const int groups = 60;            // 60 autosome groups × 2 copies = 120 autosomes
+        const long unitLength = 1_000_000;
+        var chroms = new List<(string Name, long Length, bool IsSexChromosome)>();
+        for (int g = 1; g <= groups; g++)
+        {
+            chroms.Add(Chrom($"chr{g}_1", unitLength));
+            chroms.Add(Chrom($"chr{g}_2", unitLength));
+        }
+        chroms.Add(Chrom("chrX_1", 1_500_000, sex: true));
+        chroms.Add(Chrom("chrX_2", 1_500_000, sex: true));
+
+        int total = chroms.Count;                          // 122
+        long expectedTotalSize = chroms.Sum(c => c.Length);
+
+        var act = () => ChromosomeAnalyzer.AnalyzeKaryotype(chroms);
+        act.Should().NotThrow();
+
+        var result = ChromosomeAnalyzer.AnalyzeKaryotype(chroms);
+
+        result.TotalChromosomes.Should().Be(total).And.BeGreaterThanOrEqualTo(100,
+            "the large fuzz set must exceed the 100-chromosome boundary");
+        result.AutosomeCount.Should().Be(groups * 2);
+        result.SexChromosomes.Should().HaveCount(2);
+        // INV-01: partition is exhaustive and disjoint.
+        result.TotalChromosomes.Should().Be(result.AutosomeCount + result.SexChromosomes.Count);
+        // INV-02: total size and mean are internally consistent with the input.
+        result.TotalGenomeSize.Should().Be(expectedTotalSize);
+        result.MeanChromosomeLength.Should().Be(expectedTotalSize / (double)total);
+        // INV-03: every autosome group is a clean diploid pair ⇒ no aneuploidy.
+        result.HasAneuploidy.Should().BeFalse("every autosome group has exactly the expected 2 copies");
+        result.Abnormalities.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// BE: a large set whose autosome groups are SINGLE copies (haploid) against the
+    /// default expected ploidy of 2. The 100+ set must still complete, but now EVERY
+    /// group is abnormal: HasAneuploidy true and exactly one "Monosomy …" abnormality
+    /// per group (INV-03 — flag true iff list non-empty). This pins that the large-set
+    /// aggregation counts groups correctly under the aneuploidy path, not just the
+    /// clean-diploid path.
+    /// </summary>
+    [Test]
+    [CancelAfter(30_000)]
+    public void AnalyzeKaryotype_ManyMonosomicChromosomes_FlagsEveryGroupConsistently()
+    {
+        const int groups = 110;           // 110 single-copy autosome groups > 100
+        var chroms = Enumerable.Range(1, groups)
+            .Select(g => Chrom($"chr{g}", 1_000_000))
+            .ToList();
+
+        var result = ChromosomeAnalyzer.AnalyzeKaryotype(chroms);
+
+        result.TotalChromosomes.Should().Be(groups);
+        result.AutosomeCount.Should().Be(groups);
+        result.SexChromosomes.Should().BeEmpty();
+        result.HasAneuploidy.Should().BeTrue("each single-copy group differs from the expected ploidy of 2");
+        result.Abnormalities.Should().HaveCount(groups, "one abnormality label per under-copied autosome group");
+        result.Abnormalities.Should().OnlyContain(a => a.StartsWith("Monosomy "),
+            "a single copy against expected 2 is monosomy");
+        // INV-03 consistency: flag set exactly when the list is non-empty.
+        result.HasAneuploidy.Should().Be(result.Abnormalities.Count > 0);
+    }
+
+    #endregion
+
+    #region BE — Well-formedness invariants on a sex-chromosome-only set
+
+    /// <summary>
+    /// BE: an all-sex-chromosome set (no autosomes). Sex chromosomes are preserved in
+    /// SexChromosomes but never grouped for abnormality calling (Karyotype_Analysis.md
+    /// §5.2 deviation #1), so HasAneuploidy must be false even though the set is not a
+    /// normal diploid autosome complement. AutosomeCount 0 with the mean still computed
+    /// over the full set (INV-02) — and crucially the mean is taken over a NON-empty
+    /// list, so no zero divisor arises despite zero autosomes.
+    /// </summary>
+    [Test]
+    public void AnalyzeKaryotype_SexChromosomesOnly_NoAneuploidyMeanOverFullSet()
+    {
+        var chroms = new[]
+        {
+            Chrom("chrX", 1_500_000, sex: true),
+            Chrom("chrY", 600_000, sex: true),
+        };
+
+        var result = ChromosomeAnalyzer.AnalyzeKaryotype(chroms);
+
+        result.TotalChromosomes.Should().Be(2);
+        result.AutosomeCount.Should().Be(0);
+        result.SexChromosomes.Should().BeEquivalentTo(new[] { "chrX", "chrY" });
+        result.HasAneuploidy.Should().BeFalse("sex chromosomes are never grouped for abnormality calling");
+        result.Abnormalities.Should().BeEmpty();
+        result.TotalGenomeSize.Should().Be(2_100_000);
+        result.MeanChromosomeLength.Should().Be(2_100_000 / 2.0, "the mean is taken over the full non-empty set");
+    }
+
+    #endregion
+
+    #region Positive sanity — a known human karyotype yields the expected summary
+
+    /// <summary>
+    /// Positive sanity: the canonical human diploid karyotype (Tjio &amp; Levan 1956,
+    /// 2n = 46) built as 22 diploid autosome pairs (chr1_1/chr1_2 … chr22_1/chr22_2 =
+    /// 44 autosomes) plus an XX sex pair = 46 chromosomes. This is the affirmative
+    /// anchor that the analyzer recovers the EXPECTED counts and aggregates: 46 total,
+    /// 44 autosomes, 2 sex chromosomes, total size = Σ lengths, the right mean, and —
+    /// every autosome group being a clean diploid pair — NO aneuploidy. Without it an
+    /// all-passing boundary suite could be vacuously green.
+    /// </summary>
+    [Test]
+    public void AnalyzeKaryotype_NormalHumanDiploidSet_RecoversExpectedSummary()
+    {
+        const int autosomeGroups = 22;
+        const long autosomeLen = 100_000_000;
+        const long sexLen = 155_000_000;
+        var chroms = new List<(string Name, long Length, bool IsSexChromosome)>();
+        for (int g = 1; g <= autosomeGroups; g++)
+        {
+            chroms.Add(Chrom($"chr{g}_1", autosomeLen));
+            chroms.Add(Chrom($"chr{g}_2", autosomeLen));
+        }
+        chroms.Add(Chrom("chrX_1", sexLen, sex: true));
+        chroms.Add(Chrom("chrX_2", sexLen, sex: true));
+
+        long expectedTotal = (autosomeGroups * 2L * autosomeLen) + (2L * sexLen);
+
+        var result = ChromosomeAnalyzer.AnalyzeKaryotype(chroms);
+
+        result.TotalChromosomes.Should().Be(46, "the human diploid complement is 2n = 46");
+        result.AutosomeCount.Should().Be(44);
+        result.SexChromosomes.Should().HaveCount(2);
+        result.PloidyLevel.Should().Be(2, "the default expected ploidy is copied through for non-empty input");
+        result.TotalGenomeSize.Should().Be(expectedTotal);
+        result.MeanChromosomeLength.Should().Be(expectedTotal / 46.0);
+        result.HasAneuploidy.Should().BeFalse("every autosome group is a clean diploid pair");
+        result.Abnormalities.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// Positive sanity: a known aneuploidy (trisomy 21, Down syndrome) — chr21 present
+    /// in THREE copies against the expected diploid baseline — must be surfaced with
+    /// exactly the standard cytogenetic label "Trisomy chr21" and HasAneuploidy true,
+    /// while the clean diploid groups contribute no abnormality. This pins that the
+    /// abnormality classifier names the correct group with the correct ISCN term.
+    /// </summary>
+    [Test]
+    public void AnalyzeKaryotype_Trisomy21_LabeledTrisomyChr21()
+    {
+        var chroms = new List<(string Name, long Length, bool IsSexChromosome)>
+        {
+            Chrom("chr1_1", 1_000_000), Chrom("chr1_2", 1_000_000),     // clean diploid pair
+            Chrom("chr21_1", 500_000), Chrom("chr21_2", 500_000), Chrom("chr21_3", 500_000), // trisomy
+        };
+
+        var result = ChromosomeAnalyzer.AnalyzeKaryotype(chroms);
+
+        result.HasAneuploidy.Should().BeTrue();
+        result.Abnormalities.Should().ContainSingle()
+            .Which.Should().Be("Trisomy chr21", "three copies against expected 2 is trisomy of that group");
     }
 
     #endregion
