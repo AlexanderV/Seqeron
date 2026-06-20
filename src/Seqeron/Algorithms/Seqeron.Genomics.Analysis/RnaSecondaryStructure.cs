@@ -2002,7 +2002,12 @@ public static class RnaSecondaryStructure
         // 18.417 McCaskill base-pair-probability slides (mccaskill2.pdf); ViennaRNA pf_fold.
         var probabilities = new Dictionary<(int I, int J), double>();
         var outside = new double[n, n];
-        if (z > 0)
+        // Probabilities P[i,j] = Qᵇ·O/Z are well-defined only when Z is a FINITE positive
+        // number. At sub-Kelvin temperatures RT → 0 and the per-pair Boltzmann weight
+        // exp(−βE_bp) overflows IEEE double to +∞, making Z = +∞; computing Qᵇ·O/Z would then
+        // yield ∞/∞ = NaN and leak it into the probability map. Require finiteness so an
+        // overflowed ensemble returns an empty (non-NaN) probability map rather than NaN mass.
+        if (double.IsFinite(z) && z > 0)
         {
             // Collect admissible pairs and process them outermost-first (decreasing span)
             // so that every enclosing pair's outside value O(k,l) is already known.
