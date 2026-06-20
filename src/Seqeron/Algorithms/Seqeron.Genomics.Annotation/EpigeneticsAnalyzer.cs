@@ -284,7 +284,10 @@ public static class EpigeneticsAnalyzer
                 cpg++;
         }
 
-        double expected = (c * g) / (double)sequence.Length;
+        // Compute C×G in double to avoid int overflow on long sequences:
+        // for c, g near 10^5 the product exceeds Int32.MaxValue and would wrap,
+        // corrupting the Gardiner-Garden & Frommer O/E ratio.
+        double expected = ((double)c * g) / sequence.Length;
         return expected > 0 ? cpg / expected : 0;
     }
 
