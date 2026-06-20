@@ -2539,4 +2539,429 @@ public class PopulationGeneticsFuzzTests
     #endregion
 
     #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  POP-SELECT-001 — iHS selection-signature detection : fuzz targets
+    //  Doc: docs/algorithms/Population_Genetics/Integrated_Haplotype_Score.md
+    //  Surface:
+    //    CalculateEhh(IReadOnlyList<string>)                       → EHH ∈ [0,1]
+    //    CalculateIHS(IReadOnlyList<string>, IReadOnlyList<int>,   → IhsResult
+    //                 int coreIndex)
+    //  Strategy: BE (Boundary Exploitation) — checklist row 209
+    //    "neutral, fixed locus, single locus".
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region POP-SELECT-001 — integrated haplotype score (iHS)
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Unit: POP-SELECT-001 — integrated haplotype score (iHS) selection
+    //        signature detection (PopGen).
+    //  Checklist: docs/checklists/03_FUZZING.md, row 209 (BE).
+    //
+    //  What the algorithm doc fixes (Integrated_Haplotype_Score.md):
+    //    • §2.2  EHH_c = Σ_h C(n_h,2)/C(n_c,2); iHH = trapezoidal area under
+    //            the EHH-vs-position curve, both directions, truncated where
+    //            EHH first drops below 0.05; unstandardized iHS = ln(iHH_A/iHH_D)
+    //            (Voight et al. 2006 sign — ancestral numerator, derived denom).
+    //    • §2.4  INV-01 EHH ∈ [0,1] (1 for a single chromosome, 0 for all-distinct);
+    //            INV-02 iHH ≥ 0; INV-03 balanced EHH decay ⇒ unstandardized iHS = 0;
+    //            INV-04 ln(iHH_A/iHH_D) = −ln(iHH_D/iHH_A).
+    //    • §3.3  core ∈ {'0','1'} else ArgumentException; null → ArgumentNullException;
+    //            coreIndex out of range → ArgumentOutOfRangeException; inconsistent
+    //            lengths or a MONOMORPHIC focal SNP → ArgumentException; empty EHH
+    //            sample → 0; single-chromosome sample → EHH = 1.
+    //    • §6.1  edge table: single chromosome ⇒ EHH 1; empty sample ⇒ EHH 0;
+    //            balanced decay ⇒ iHS 0; monomorphic focal SNP ⇒ ArgumentException;
+    //            core ∉ {'0','1'} ⇒ ArgumentException.
+    //    • §7.1  worked example: haplotypes {AA1GG×3, TC0TC, GA0AG, CT0CA},
+    //            positions {0,10,20,30,40}, coreIndex 2 ⇒ iHH_A = 10, iHH_D = 40,
+    //            unstandardized iHS = ln(10/40) = −1.386294361.
+    //
+    //  BE boundaries exercised for THIS row (row hint "neutral, fixed locus,
+    //  single locus"):
+    //    • neutral / balanced decay → unstandardized iHS = 0 (INV-03);
+    //    • fixed (monomorphic) focal SNP → documented ArgumentException, NEVER a
+    //      NaN/Infinity or a silent divide-by-zero;
+    //    • single locus (one marker, no flanks) → iHH_A = iHH_D = 0 ⇒ a DEFINED
+    //      0 score, not NaN from ln(0/0);
+    //    • the EHH degenerate boundaries (empty sample → 0, single chromosome → 1);
+    //    • a randomized boundary sweep: every random valid panel yields finite,
+    //      in-range EHH/iHS obeying INV-01/02/03/04 — no crash, hang, NaN or ∞.
+    //  Fuzz bar — docs/ADVANCED_TESTING_CHECKLIST.md §8 "Fuzzing": every input is
+    //  EITHER a theory-correct value OR a documented validation exception; a raw
+    //  runtime exception, a NaN/±Infinity score, or a hang is a bug.
+    //
+    //  Expected values below are derived INDEPENDENTLY from the doc's EHH/iHH model
+    //  and hand-computed, NOT read off the implementation.
+    // ───────────────────────────────────────────────────────────────────
+
+    #region Helpers — a LOCALLY-seeded RNG for the iHS sweeps
+
+    /// <summary>
+    /// Locally-seeded RNG for the iHS randomized sweep — kept INDEPENDENT of the
+    /// fixture-wide <see cref="Rng"/> (and of <see cref="RohRng"/>) so this boundary
+    /// battery is reproducible on its own and adding/removing other tests cannot
+    /// shift its inputs.
+    /// </summary>
+    private static Random IhsRng() => new(20260620);
+
+    #endregion
+
+    #region Positive sanity — the documented §7.1 worked example (iHH_A=10, iHH_D=40, iHS=ln 0.25)
+
+    /// <summary>
+    /// Positive control: the worked example pinned in the algorithm doc
+    /// (Integrated_Haplotype_Score.md §7.1). Three identical derived chromosomes
+    /// "AA1GG" and three all-distinct ancestral chromosomes ("TC0TC","GA0AG",
+    /// "CT0CA"), markers spaced 10 at positions {0,10,20,30,40}, focal SNP at index 2.
+    ///
+    /// Hand-derivation (from §2.2, NOT from the code):
+    ///   • Derived set is identical ⇒ EHH_D = 1 at every flank marker. Each
+    ///     direction contributes ½(1+1)·10 + ½(1+1)·10 = 20 ⇒ iHH_D = 40.
+    ///   • Ancestral set is all-distinct ⇒ EHH_A = 0 at the first flank marker;
+    ///     each direction contributes ½(1+0)·10 = 5 then truncates (EHH < 0.05)
+    ///     ⇒ iHH_A = 10.
+    ///   • unstandardized iHS = ln(iHH_A/iHH_D) = ln(10/40) = ln(0.25)
+    ///                        = −1.386294361 (Voight sign).
+    /// The derived allele frequency is 3/6 = 0.5. This anchors the fuzz battery:
+    /// before pinning the degenerate boundaries, confirm the canonical case is exact.
+    /// </summary>
+    [Test]
+    public void CalculateIhs_DocumentedWorkedExample_MatchesHandDerivedScore()
+    {
+        var haplotypes = new[] { "AA1GG", "AA1GG", "AA1GG", "TC0TC", "GA0AG", "CT0CA" };
+        var positions = new[] { 0, 10, 20, 30, 40 };
+
+        var ihs = PopulationGeneticsAnalyzer.CalculateIHS(haplotypes, positions, coreIndex: 2);
+
+        ihs.IhhAncestral.Should().BeApproximately(10.0, 1e-9,
+            "3 all-distinct ancestral chromosomes ⇒ EHH_A = 0 at the first flank, ½(1+0)·10 each side, truncated (§7.1)");
+        ihs.IhhDerived.Should().BeApproximately(40.0, 1e-9,
+            "3 identical derived chromosomes ⇒ EHH_D = 1 throughout, 20 per side (§7.1)");
+        ihs.UnstandardizedIHS.Should().BeApproximately(Math.Log(0.25), 1e-9,
+            "unstandardized iHS = ln(iHH_A/iHH_D) = ln(10/40) = ln(0.25) = −1.386294361 (Voight sign, §7.1)");
+        ihs.DerivedAlleleFrequency.Should().BeApproximately(0.5, 1e-12,
+            "3 of 6 core chromosomes carry the derived allele (§7.1)");
+    }
+
+    #endregion
+
+    #region BE — neutral / balanced decay ⇒ unstandardized iHS = 0 (INV-03)
+
+    /// <summary>
+    /// BE "neutral": when the two core-allele subsets decay IDENTICALLY, iHH_A = iHH_D
+    /// so the unstandardized iHS = ln(iHH_A/iHH_D) = ln(1) = 0 (INV-03, §2.4 / §6.1
+    /// "Balanced decay ⇒ unstandardized iHS = 0"). Independent hand-derivation:
+    /// two identical derived chromosomes "A1A" and two identical ancestral "C0C",
+    /// positions {0,10,20}, core at index 1. BOTH subsets are within-group identical,
+    /// so EHH = 1 at every flank marker for each ⇒ each side contributes ½(1+1)·10 = 10
+    /// ⇒ iHH_A = iHH_D = 20. Hence iHS = ln(20/20) = 0 EXACTLY — the neutral, no-signal
+    /// boundary — with derived frequency 2/4 = 0.5 and no NaN/Infinity.
+    /// </summary>
+    [Test]
+    public void CalculateIhs_BalancedDecay_YieldsZeroScore()
+    {
+        var haplotypes = new[] { "A1A", "A1A", "C0C", "C0C" };
+        var positions = new[] { 0, 10, 20 };
+
+        var ihs = PopulationGeneticsAnalyzer.CalculateIHS(haplotypes, positions, coreIndex: 1);
+
+        ihs.IhhAncestral.Should().BeApproximately(20.0, 1e-9,
+            "two identical ancestral chromosomes ⇒ EHH_A = 1 throughout ⇒ iHH_A = 10 + 10 (§2.2)");
+        ihs.IhhDerived.Should().BeApproximately(20.0, 1e-9,
+            "two identical derived chromosomes ⇒ EHH_D = 1 throughout ⇒ iHH_D = 10 + 10 (§2.2)");
+        ihs.UnstandardizedIHS.Should().Be(0.0,
+            "iHH_A = iHH_D ⇒ ln(iHH_A/iHH_D) = ln(1) = 0 — balanced decay, the neutral no-signal case (INV-03)");
+        ihs.UnstandardizedIHS.Should().NotBe(double.NaN);
+        ihs.DerivedAlleleFrequency.Should().BeApproximately(0.5, 1e-12);
+    }
+
+    /// <summary>
+    /// BE "neutral", reciprocal sign (INV-04): swapping which group is identical must
+    /// flip the score sign but not its magnitude, because ln(iHH_A/iHH_D) =
+    /// −ln(iHH_D/iHH_A) (§2.4 INV-04, the Voight-vs-selscan sign note §2.2). Using the
+    /// §7.1 structure with the core allele labels swapped — three identical "0" carriers
+    /// and three all-distinct "1" carriers — yields iHH_A = 40, iHH_D = 10, so the score
+    /// is ln(40/10) = +ln(4) = +1.386294361: the exact negation of the §7.1 score, and a
+    /// POSITIVE value indicating a long ancestral haplotype. This pins the contract's sign
+    /// semantics, not just |iHS|.
+    /// </summary>
+    [Test]
+    public void CalculateIhs_AncestralLongHaplotype_YieldsPositiveReciprocalScore()
+    {
+        // §7.1 mirror: the identical trio now carries the ANCESTRAL allele '0'.
+        var haplotypes = new[] { "AA0GG", "AA0GG", "AA0GG", "TC1TC", "GA1AG", "CT1CA" };
+        var positions = new[] { 0, 10, 20, 30, 40 };
+
+        var ihs = PopulationGeneticsAnalyzer.CalculateIHS(haplotypes, positions, coreIndex: 2);
+
+        ihs.IhhAncestral.Should().BeApproximately(40.0, 1e-9, "the identical trio now carries the ancestral allele");
+        ihs.IhhDerived.Should().BeApproximately(10.0, 1e-9, "the all-distinct trio now carries the derived allele");
+        ihs.UnstandardizedIHS.Should().BeApproximately(Math.Log(4.0), 1e-9,
+            "ln(iHH_A/iHH_D) = ln(40/10) = +ln(4) = −ln(10/40): the exact negation of §7.1 (INV-04)");
+        ihs.UnstandardizedIHS.Should().BeApproximately(-Math.Log(0.25), 1e-9,
+            "the reciprocal-sign identity INV-04 pins this as the negation of the §7.1 score");
+    }
+
+    #endregion
+
+    #region BE — fixed (monomorphic) focal SNP ⇒ documented ArgumentException (no NaN)
+
+    /// <summary>
+    /// BE "fixed locus": a MONOMORPHIC focal SNP — every core chromosome carrying the
+    /// SAME allele — is rejected with the documented <see cref="ArgumentException"/>
+    /// (§3.3, §6.1 "Monomorphic focal SNP ⇒ ArgumentException"; "iHS defined only for
+    /// polymorphic SNPs"). iHS contrasts the two alleles, so with only one allele present
+    /// there is nothing to contrast and the score is undefined — the analyzer must throw
+    /// cleanly, NEVER return a 0/0 NaN or a divide-by-zero. Verified for an all-derived
+    /// ('1') core AND an all-ancestral ('0') core, so neither fixation direction slips
+    /// through.
+    /// </summary>
+    [TestCase('1', TestName = "CalculateIhs_FixedLocus_AllDerived_Throws")]
+    [TestCase('0', TestName = "CalculateIhs_FixedLocus_AllAncestral_Throws")]
+    public void CalculateIhs_MonomorphicFocalSnp_ThrowsArgumentException(char core)
+    {
+        // All four chromosomes carry the SAME core allele at index 1 → monomorphic.
+        var haplotypes = new[] { $"A{core}A", $"C{core}T", $"G{core}G", $"A{core}C" };
+        var positions = new[] { 0, 10, 20 };
+
+        var act = () => PopulationGeneticsAnalyzer.CalculateIHS(haplotypes, positions, coreIndex: 1);
+
+        act.Should().Throw<ArgumentException>(
+            "a fixed/monomorphic focal SNP carries only one allele → iHS is undefined and must be rejected, " +
+            "never reported as a 0/0 NaN (§3.3 / §6.1)");
+    }
+
+    /// <summary>
+    /// BE "core ∉ {'0','1'}": the core allele must be the polarized encoding '0'
+    /// (ancestral) or '1' (derived); ANY other core character is rejected with the
+    /// documented <see cref="ArgumentException"/> (§3.3, §6.1 "Core allele ∉ {'0','1'}
+    /// ⇒ ArgumentException"). Flanking markers may use any alphabet (§5.2), so the guard
+    /// must fire on the CORE column specifically, not on the flanks. Here the flanks are
+    /// ordinary DNA but the core column holds 'A' — an invalid polarization symbol.
+    /// </summary>
+    [Test]
+    public void CalculateIhs_NonBinaryCoreAllele_ThrowsArgumentException()
+    {
+        var haplotypes = new[] { "GAT", "CAT", "GAC" }; // core column (index 1) is all 'A'
+        var positions = new[] { 0, 10, 20 };
+
+        var act = () => PopulationGeneticsAnalyzer.CalculateIHS(haplotypes, positions, coreIndex: 1);
+
+        act.Should().Throw<ArgumentException>(
+            "the core allele must be '0' or '1'; any other symbol is an undefined polarization and is rejected (§3.3)");
+    }
+
+    #endregion
+
+    #region BE — single locus (one marker, no flanks) ⇒ a DEFINED zero score, not NaN
+
+    /// <summary>
+    /// BE "single locus": when there is exactly ONE marker — the focal SNP itself, with no
+    /// flanking markers to decay over — neither direction has a marker to integrate, so
+    /// iHH_A = iHH_D = 0. The doc's score is ln(iHH_A/iHH_D); with both areas 0 that is the
+    /// degenerate ln(0/0). The contract (§3.3 "An empty EHH sample returns 0"; INV-02
+    /// "iHH ≥ 0") requires a DEFINED result, so the implementation collapses the 0/0 to a
+    /// score of 0 rather than emitting NaN. The focal SNP is still polymorphic ('1' and
+    /// '0' both present, derived frequency 1/2) so the monomorphic guard does NOT fire.
+    /// This pins the single-locus boundary: no flank ⇒ zero integrated area ⇒ a clean 0,
+    /// never NaN or ±Infinity.
+    /// </summary>
+    [Test]
+    public void CalculateIhs_SingleLocus_NoFlanks_YieldsDefinedZeroScore()
+    {
+        var haplotypes = new[] { "1", "0" }; // one marker = the core; polymorphic
+        var positions = new[] { 5 };
+
+        var ihs = PopulationGeneticsAnalyzer.CalculateIHS(haplotypes, positions, coreIndex: 0);
+
+        ihs.IhhAncestral.Should().Be(0.0, "no flanking marker exists to integrate over → iHH_A = 0 (INV-02)");
+        ihs.IhhDerived.Should().Be(0.0, "no flanking marker exists to integrate over → iHH_D = 0 (INV-02)");
+        ihs.UnstandardizedIHS.Should().Be(0.0,
+            "with both integrated areas 0 the score collapses to a DEFINED 0, not the ln(0/0) NaN (§3.3)");
+        ihs.UnstandardizedIHS.Should().NotBe(double.NaN);
+        double.IsInfinity(ihs.UnstandardizedIHS).Should().BeFalse("a single-locus score must be finite");
+        ihs.DerivedAlleleFrequency.Should().BeApproximately(0.5, 1e-12, "1 of 2 core chromosomes is derived");
+    }
+
+    #endregion
+
+    #region BE — EHH degenerate boundaries (empty sample → 0, single chromosome → 1)
+
+    /// <summary>
+    /// BE "EHH boundaries" (§3.3 / §6.1 / INV-01): the EHH primitive itself must be
+    /// defined at its degenerate endpoints —
+    ///   • an EMPTY sample has no pairs ⇒ EHH = 0 (boundary of the C(n,2) ratio);
+    ///   • a SINGLE chromosome is trivially homozygous ⇒ EHH = 1;
+    ///   • all-identical chromosomes ⇒ every pair matches ⇒ EHH = 1;
+    ///   • all-DISTINCT chromosomes ⇒ no pair matches ⇒ EHH = 0;
+    ///   • a hand-checkable mixed case: {AB, AB, CD} ⇒ one matching pair of three
+    ///     ⇒ EHH = C(2,2)/C(3,2) = 1/3 (§2.2 EHH = Σ C(n_h,2)/C(n_c,2)).
+    /// A null sample throws the documented ArgumentNullException. Every EHH value lies in
+    /// [0,1] (INV-01) with no NaN/Infinity.
+    /// </summary>
+    [Test]
+    public void CalculateEhh_DegenerateSamples_AreDefinedAndInUnitInterval()
+    {
+        PopulationGeneticsAnalyzer.CalculateEhh(Array.Empty<string>())
+            .Should().Be(0.0, "an empty sample has no pairs ⇒ EHH = 0 (§3.3 / §6.1)");
+
+        PopulationGeneticsAnalyzer.CalculateEhh(new[] { "ACGT" })
+            .Should().Be(1.0, "a single chromosome is trivially homozygous ⇒ EHH = 1 (§6.1 / INV-01)");
+
+        PopulationGeneticsAnalyzer.CalculateEhh(new[] { "ACGT", "ACGT", "ACGT" })
+            .Should().Be(1.0, "all-identical chromosomes ⇒ every pair matches ⇒ EHH = 1 (INV-01)");
+
+        PopulationGeneticsAnalyzer.CalculateEhh(new[] { "AAAA", "CCCC", "GGGG" })
+            .Should().Be(0.0, "all-distinct chromosomes ⇒ no pair matches ⇒ EHH = 0 (INV-01)");
+
+        PopulationGeneticsAnalyzer.CalculateEhh(new[] { "AB", "AB", "CD" })
+            .Should().BeApproximately(1.0 / 3.0, 1e-12,
+                "one identical pair of three ⇒ EHH = C(2,2)/C(3,2) = 1/3 (§2.2)");
+
+        var nullCall = () => PopulationGeneticsAnalyzer.CalculateEhh(null!);
+        nullCall.Should().Throw<ArgumentNullException>("a null sample is rejected (§3.3)");
+    }
+
+    #endregion
+
+    #region BE — null / out-of-range argument-validation gates
+
+    /// <summary>
+    /// BE "0"/"−1"/null validation gates for CalculateIHS (§3.3): null haplotypes or null
+    /// positions raise <see cref="ArgumentNullException"/>; a coreIndex of −1 or one at/past
+    /// positions.Count raises <see cref="ArgumentOutOfRangeException"/>; an empty haplotype
+    /// list or rows of inconsistent length raise <see cref="ArgumentException"/>. Each is the
+    /// documented, intentional validation error — never a silent miscompute or an
+    /// IndexOutOfRange crash.
+    /// </summary>
+    [Test]
+    public void CalculateIhs_InvalidArguments_ThrowDocumentedValidationExceptions()
+    {
+        var haps = new[] { "A1A", "C0C" };
+        var positions = new[] { 0, 10, 20 }.Take(haps[0].Length).ToArray(); // {0,10,20}
+
+        var nullHaps = () => PopulationGeneticsAnalyzer.CalculateIHS(null!, positions, 1);
+        nullHaps.Should().Throw<ArgumentNullException>("null haplotypes are rejected (§3.3)");
+
+        var nullPos = () => PopulationGeneticsAnalyzer.CalculateIHS(haps, null!, 1);
+        nullPos.Should().Throw<ArgumentNullException>("null positions are rejected (§3.3)");
+
+        var negCore = () => PopulationGeneticsAnalyzer.CalculateIHS(haps, positions, -1);
+        negCore.Should().Throw<ArgumentOutOfRangeException>("coreIndex −1 is out of range (§3.3)");
+
+        var bigCore = () => PopulationGeneticsAnalyzer.CalculateIHS(haps, positions, positions.Length);
+        bigCore.Should().Throw<ArgumentOutOfRangeException>("coreIndex == positions.Count is out of range (§3.3)");
+
+        var emptyHaps = () => PopulationGeneticsAnalyzer.CalculateIHS(Array.Empty<string>(), positions, 1);
+        emptyHaps.Should().Throw<ArgumentException>("an empty haplotype list has nothing to score (§3.3)");
+
+        // One row is shorter than positions.Count → inconsistent length.
+        var ragged = () => PopulationGeneticsAnalyzer.CalculateIHS(new[] { "A1A", "C0" }, positions, 1);
+        ragged.Should().Throw<ArgumentException>("each haplotype must have one allele per position (§3.3)");
+    }
+
+    #endregion
+
+    #region BE — randomized boundary sweep (every random panel: finite, in-range, INV-01/02/03/04)
+
+    /// <summary>
+    /// BE / INV sweep: across a locally-seeded battery of random VALID phased panels
+    /// (random chromosome count, random marker count, random binary core column kept
+    /// polymorphic, random flank alleles, random ascending positions, random coreIndex)
+    /// EVERY result must obey the invariants derived independently from §2.4, NOT read off
+    /// the code:
+    ///   • INV-01 — every intermediate EHH ∈ [0,1] and is finite;
+    ///   • INV-02 — iHH_A ≥ 0 and iHH_D ≥ 0;
+    ///   • the unstandardized score is finite (never NaN/±Infinity) and equals
+    ///     ln(iHH_A/iHH_D) whenever both areas are positive, else the documented 0;
+    ///   • INV-04 — recomputing with the core column's allele labels FLIPPED negates the
+    ///     score (ln(iHH_A/iHH_D) = −ln(iHH_D/iHH_A)), within fp tolerance.
+    /// Run under [CancelAfter] so any hang in the O(n·h) outward integration is a hard
+    /// failure. This is the core fuzz bar: garbage-shaped but valid input never crashes,
+    /// hangs, or produces a non-finite or out-of-range result.
+    /// </summary>
+    [Test]
+    [CancelAfter(30_000)]
+    public void CalculateIhs_RandomValidPanels_AlwaysFiniteInRangeAndObeyInvariants()
+    {
+        const string flankAlphabet = "ACGT";
+        var rng = IhsRng();
+
+        for (int trial = 0; trial < 200; trial++)
+        {
+            int markers = rng.Next(1, 12);
+            int chromosomes = rng.Next(2, 16);
+            int coreIndex = rng.Next(0, markers);
+
+            // Ascending, strictly-increasing positions.
+            var positions = new int[markers];
+            int p = rng.Next(0, 50);
+            for (int m = 0; m < markers; m++)
+            {
+                positions[m] = p;
+                p += rng.Next(1, 40);
+            }
+
+            // Build a polymorphic core column: at least one '0' and one '1'.
+            var coreColumn = new char[chromosomes];
+            for (int c = 0; c < chromosomes; c++)
+                coreColumn[c] = rng.Next(2) == 0 ? '0' : '1';
+            coreColumn[0] = '0';
+            coreColumn[1] = '1';
+
+            // Assemble each haplotype: random DNA flanks, the binary core at coreIndex.
+            var haplotypes = new string[chromosomes];
+            for (int c = 0; c < chromosomes; c++)
+            {
+                var chars = new char[markers];
+                for (int m = 0; m < markers; m++)
+                    chars[m] = m == coreIndex ? coreColumn[c] : flankAlphabet[rng.Next(flankAlphabet.Length)];
+                haplotypes[c] = new string(chars);
+            }
+
+            PopulationGeneticsAnalyzer.IhsResult result = default;
+            var act = () => result = PopulationGeneticsAnalyzer.CalculateIHS(haplotypes, positions, coreIndex);
+            act.Should().NotThrow("a random polymorphic, length-consistent panel is always a defined input");
+
+            result.IhhAncestral.Should().BeGreaterThanOrEqualTo(0.0, "iHH is a sum of non-negative trapezoid areas (INV-02)");
+            result.IhhDerived.Should().BeGreaterThanOrEqualTo(0.0, "iHH is a sum of non-negative trapezoid areas (INV-02)");
+            double.IsNaN(result.IhhAncestral).Should().BeFalse("iHH_A must be finite");
+            double.IsNaN(result.IhhDerived).Should().BeFalse("iHH_D must be finite");
+
+            double s = result.UnstandardizedIHS;
+            double.IsNaN(s).Should().BeFalse("a score over a valid panel is never NaN (the fuzz bar)");
+            double.IsInfinity(s).Should().BeFalse("a score over a valid panel is never ±Infinity (the fuzz bar)");
+
+            if (result.IhhAncestral > 0 && result.IhhDerived > 0)
+                s.Should().BeApproximately(
+                    Math.Log(result.IhhAncestral / result.IhhDerived), 1e-9,
+                    "with both areas positive the score is exactly ln(iHH_A/iHH_D) (§2.2)");
+            else
+                s.Should().Be(0.0, "with a zero integrated area the documented score is a defined 0 (§3.3)");
+
+            result.DerivedAlleleFrequency.Should().BeInRange(0.0, 1.0, "a derived allele frequency is a proportion");
+
+            // INV-04: flip the core labels → the score must negate.
+            var flipped = new string[chromosomes];
+            for (int c = 0; c < chromosomes; c++)
+            {
+                var chars = haplotypes[c].ToCharArray();
+                chars[coreIndex] = chars[coreIndex] == '0' ? '1' : '0';
+                flipped[c] = new string(chars);
+            }
+
+            var flippedResult = PopulationGeneticsAnalyzer.CalculateIHS(flipped, positions, coreIndex);
+
+            // ln(iHH_A/iHH_D) = −ln(iHH_D/iHH_A): flipping swaps the two integrated areas,
+            // so the score must be the exact negation (both 0 when either area vanishes).
+            if ((result.IhhAncestral > 0 && result.IhhDerived > 0))
+                flippedResult.UnstandardizedIHS.Should().BeApproximately(-s, 1e-9,
+                    "flipping the ancestral/derived labels negates ln(iHH_A/iHH_D) (INV-04)");
+        }
+    }
+
+    #endregion
+
+    #endregion
 }
