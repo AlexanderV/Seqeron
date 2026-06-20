@@ -10,7 +10,7 @@ namespace Seqeron.Genomics.Tests;
 
 /// <summary>
 /// Fuzz tests for the MolTools area — CRISPR PAM (protospacer adjacent motif)
-/// site finding (CRISPR-PAM-001).
+/// site finding (CRISPR-PAM-001) and CRISPR guide RNA design (CRISPR-GUIDE-001).
 ///
 /// ───────────────────────────────────────────────────────────────────────────
 /// What fuzzing verifies
@@ -107,6 +107,69 @@ namespace Seqeron.Genomics.Tests;
 /// every test forces enumeration (`.ToList()`) — the documented short-circuit and
 /// any hang surface only on enumeration, and any hang would manifest as a
 /// non-terminating materialization.
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: CRISPR-GUIDE-001 — guide RNA design
+/// Checklist: docs/checklists/03_FUZZING.md, row 19.
+/// Fuzz strategies exercised for THIS unit:
+///   • MC = Malformed Content — non-DNA junk in the guide string fed to the raw
+///          standalone evaluator, and (the dual surface) non-DNA fed to the typed
+///          region-design path, which is rejected at DnaSequence construction.
+///   • BE = Boundary Exploitation — a sequence with NO PAM sites (no guides), a
+///          sequence too short for the system's guide to fit (guide-span > seq),
+///          and the degenerate zero-length guide (empty string).
+/// — docs/checklists/03_FUZZING.md §Description (strategy codes); row 19 targets:
+///   "No PAM sites in seq, guide length > seq, guide length 0, non-DNA".
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The guide-RNA-design contract under test (Guide_RNA_Design.md)
+/// ───────────────────────────────────────────────────────────────────────────
+/// Guide design has TWO public surfaces (Guide_RNA_Design.md §5.1):
+///   • CrisprDesigner.DesignGuideRnas(DnaSequence, regionStart, regionEnd, system,
+///     parameters) — extracts PAM-adjacent candidate guides inside a target region,
+///     scores each, and YIELDS only candidates whose Score >= MinScore (INV-02).
+///     It is a typed surface: the DnaSequence constructor already rejects non-DNA,
+///     so guide design only ever scans clean A/C/G/T. It null-guards the sequence
+///     (ArgumentNullException) and range-guards the region
+///     (ArgumentOutOfRangeException when regionStart/End fall outside the sequence)
+///     — §3.3, §6.1. The scan reuses FindPamSitesCore, so "no PAM sites" and
+///     "guide-span longer than the sequence" inherit the PAM scanner's bounds
+///     discipline: no NGG ⇒ no candidates; a sequence too short to hold the
+///     protospacer ⇒ the in-loop `targetStart >= 0 && targetEnd < seq.Length` guard
+///     suppresses every site ⇒ an empty result, never an IndexOutOfRangeException.
+///   • CrisprDesigner.EvaluateGuideRna(string guideSequence, system, parameters) —
+///     scores a standalone guide string from its composition (GC, seed GC, poly-T,
+///     self-complementarity, restriction sites; §2.2). It does NOT enforce a guide
+///     length (§3.3, §6.1: non-20-nt guides are accepted and scored naturally) but
+///     it DOES reject the degenerate empty/null guide with ArgumentNullException
+///     (source guard, CrisprDesigner.cs line 205). It scores the raw string without
+///     A/C/G/T validation, so non-DNA is the MC target for THIS surface.
+///
+/// THE FOUR ROW-19 FUZZ TARGETS, mapped to the theory-correct contract:
+///   • No PAM sites in seq (BE): an all-A region has no NGG, so DesignGuideRnas
+///     yields the empty result — never a crash, never a fabricated guide.
+///   • Guide length > seq (BE): a sequence shorter than the 20-nt protospacer (even
+///     when an NGG fits) yields no candidate — the target would start at a negative
+///     index and the bounds guard drops it (mirrors CRISPR-PAM-001's
+///     "PAM fits but guide does not"). Empty result, no IndexOutOfRangeException.
+///   • Guide length 0 (BE, KEY): a zero-length (empty) guide is meaningless and is
+///     the div-by-zero hazard — CalculateSelfComplementarity divides by
+///     `length * length` and CalculateGcContent would face an empty span. The source
+///     short-circuits BOTH: the empty guard throws ArgumentNullException BEFORE any
+///     scoring, and CalculateGcContent null/empty-guards to 0. So guideLen 0 is a
+///     DOCUMENTED validation throw, not a DivideByZero/IndexOutOfRange crash.
+///   • Non-DNA (MC): the typed design surface rejects it at DnaSequence construction
+///     (ArgumentException); the raw evaluator TOLERATES it — junk is excluded from GC
+///     (CalculateGcFraction counts only A/C/G/T/U, returns 0 on no-valid), and the
+///     reverse-complement used by self-complementarity passes non-IUPAC chars through
+///     unchanged (GetComplementBase fall-through). So a junk guide scores without
+///     crashing and never divides by zero (length > 0).
+///
+/// Documented invariant pinned on every produced candidate (Guide_RNA_Design.md
+/// §2.4): INV-01 the score is clamped to `>= 0` (Math.Max(0, score)); INV-02
+/// DesignGuideRnas yields only Score >= MinScore. DesignGuideRnas is a yield
+/// iterator, so every test forces enumeration (`.ToList()`); the documented
+/// short-circuit and any hang surface only on enumeration.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -442,6 +505,233 @@ public class MolToolsFuzzTests
                 s.TargetSequence.Length == 20 &&                                // guide length
                 s.TargetStart >= 0,                                             // INV-02
             "every site on random input is well-formed: an NGG PAM (forward) or its CCN reverse-complement (reverse) with a 20-nt in-bounds target");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  CRISPR-GUIDE-001 — guide RNA design : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region CRISPR-GUIDE-001 — guide RNA design
+
+    #region BE — No PAM sites in the sequence
+
+    /// <summary>
+    /// BE (no PAM sites in seq): an all-A region contains no NGG, so the PAM scan
+    /// underlying DesignGuideRnas finds nothing and the iterator yields the empty
+    /// result — never a crash and never a fabricated guide. The region is valid
+    /// (in-bounds), so the no-PAM behaviour is isolated from the range guards.
+    /// DesignGuideRnas is a yield iterator, so we force enumeration to run the scan.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void DesignGuideRnas_NoPamSites_IsEmptyAndDoesNotThrow()
+    {
+        var seq = new DnaSequence(new string('A', 60)); // no NGG anywhere
+
+        var act = () => CrisprDesigner.DesignGuideRnas(seq, regionStart: 10, regionEnd: 50,
+            CrisprSystemType.SpCas9).ToList();
+
+        act.Should().NotThrow(
+            "a sequence with no NGG PAM has no candidate guides; the scan yields nothing instead of crashing");
+
+        CrisprDesigner.DesignGuideRnas(seq, 10, 50, CrisprSystemType.SpCas9)
+            .Should().BeEmpty("no PAM site means no PAM-adjacent guide can be extracted");
+    }
+
+    #endregion
+
+    #region BE — Guide span longer than the sequence
+
+    /// <summary>
+    /// BE (guide length > seq): the system's protospacer (20 nt for SpCas9) cannot
+    /// fit even though an NGG may match — the sequence is shorter than PAM+guide. The
+    /// PAM scanner's in-loop `targetStart >= 0 && targetEnd &lt; seq.Length` guard
+    /// suppresses every site (no negative-start Substring), so DesignGuideRnas yields
+    /// the empty result rather than an IndexOutOfRangeException. "AAGG" holds an NGG at
+    /// index 1 but the 20-nt target would start at 1 − 20 = −19, so nothing is yielded.
+    /// The region spans the whole 4-nt sequence (in-bounds), isolating the guide-fit
+    /// boundary from the range guards.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void DesignGuideRnas_GuideSpanLongerThanSequence_IsEmptyAndDoesNotThrow()
+    {
+        var seq = new DnaSequence("AAGG"); // NGG fits, 20-nt protospacer cannot
+
+        var act = () => CrisprDesigner.DesignGuideRnas(seq, regionStart: 0, regionEnd: 3,
+            CrisprSystemType.SpCas9).ToList();
+
+        act.Should().NotThrow(
+            "the 20-nt protospacer cannot fit upstream of the PAM in a 4-nt sequence; the bounds guard suppresses the site instead of slicing past the start");
+
+        CrisprDesigner.DesignGuideRnas(seq, 0, 3, CrisprSystemType.SpCas9)
+            .Should().BeEmpty("no protospacer fits, so no guide candidate is produced");
+    }
+
+    /// <summary>
+    /// BE: the region-bounds guards are the upper boundary of "region outside the
+    /// sequence". DesignGuideRnas range-checks regionStart and regionEnd against the
+    /// sequence length and throws ArgumentOutOfRangeException — never an internal
+    /// IndexOutOfRange while scanning (Guide_RNA_Design.md §3.3, §6.1). Pinned for a
+    /// region start past the end and a region end past the end.
+    /// </summary>
+    [Test]
+    public void DesignGuideRnas_RegionOutsideSequence_ThrowsArgumentOutOfRange()
+    {
+        var seq = new DnaSequence(new string('A', 20) + "AGG"); // length 23
+
+        var startPastEnd = () => CrisprDesigner.DesignGuideRnas(seq, regionStart: 100, regionEnd: 100).ToList();
+        var endPastEnd = () => CrisprDesigner.DesignGuideRnas(seq, regionStart: 0, regionEnd: 100).ToList();
+
+        startPastEnd.Should().Throw<ArgumentOutOfRangeException>(
+            "a region start beyond the sequence is rejected eagerly, not indexed into");
+        endPastEnd.Should().Throw<ArgumentOutOfRangeException>(
+            "a region end beyond the sequence is rejected eagerly, not indexed into");
+    }
+
+    /// <summary>
+    /// BE/INJ: a null DnaSequence is the boundary of "no typed input". DesignGuideRnas
+    /// guards it with ArgumentNullException (ThrowIfNull) — never a NullReferenceException
+    /// dereferencing the sequence (Guide_RNA_Design.md §3.3, §6.1).
+    /// </summary>
+    [Test]
+    public void DesignGuideRnas_NullSequence_ThrowsArgumentNullException()
+    {
+        var act = () => CrisprDesigner.DesignGuideRnas((DnaSequence)null!, 0, 0).ToList();
+
+        act.Should().Throw<ArgumentNullException>(
+            "the design surface null-guards its sequence; null is rejected, never dereferenced");
+    }
+
+    #endregion
+
+    #region BE — Guide length 0 (degenerate empty guide) — KEY div-by-zero hazard
+
+    /// <summary>
+    /// BE (guide length 0 — KEY): a zero-length (empty) guide is meaningless and is the
+    /// division-by-zero hazard — CalculateSelfComplementarity divides by
+    /// <c>length * length</c> and the GC computation would face an empty span. The
+    /// source short-circuits this BEFORE any scoring: EvaluateGuideRna throws
+    /// ArgumentNullException on a null/empty guide (CrisprDesigner.cs line 205), so the
+    /// degenerate guide is a DOCUMENTED validation throw — NOT a DivideByZeroException,
+    /// IndexOutOfRangeException, or a NaN score (Guide_RNA_Design.md §6.1). Pinned for
+    /// both the empty string and null.
+    /// </summary>
+    [Test]
+    public void EvaluateGuideRna_ZeroLengthGuide_ThrowsArgumentNullException()
+    {
+        var empty = () => CrisprDesigner.EvaluateGuideRna(string.Empty);
+        var nullGuide = () => CrisprDesigner.EvaluateGuideRna((string)null!);
+
+        empty.Should().Throw<ArgumentNullException>(
+            "a zero-length guide is degenerate; the source rejects it up front rather than dividing by length² or scoring an empty span");
+        nullGuide.Should().Throw<ArgumentNullException>(
+            "a null guide is rejected by the same guard, never dereferenced");
+    }
+
+    #endregion
+
+    #region MC — Non-DNA characters in the guide / sequence
+
+    /// <summary>
+    /// MC (non-DNA, typed design surface): non-DNA junk fed to DesignGuideRnas is
+    /// rejected at DnaSequence construction — the validated type throws ArgumentException
+    /// on the first non-A/C/G/T character, so the guide-design scanner only ever sees
+    /// clean DNA (Guide_RNA_Design.md §3.1; DnaSequence ValidateSequence).
+    /// </summary>
+    [Test]
+    public void DesignGuideRnas_NonDnaSequence_RejectedAtConstruction()
+    {
+        var act = () => new DnaSequence("ACGT$#@!XYZ123");
+
+        act.Should().Throw<ArgumentException>(
+            "the validated DnaSequence type rejects non-DNA, so guide design never scans junk");
+    }
+
+    /// <summary>
+    /// MC (non-DNA, raw evaluator): the standalone EvaluateGuideRna scores a raw string
+    /// without A/C/G/T validation, so it must TOLERATE junk without crashing. Non-DNA
+    /// characters are excluded from GC (CalculateGcFraction counts only A/C/G/T/U and
+    /// returns 0 when none are valid) and the reverse complement used by
+    /// self-complementarity passes non-IUPAC chars through unchanged (GetComplementBase
+    /// fall-through) — no exception, no out-of-range indexing, and no division by zero
+    /// because the guide is non-empty (length > 0). We pin: a pure-junk guide scores
+    /// without throwing, with a finite, clamped (>= 0) score (INV-01) and GC of 0.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void EvaluateGuideRna_NonDnaGuide_ScoresWithoutCrash()
+    {
+        var act = () => CrisprDesigner.EvaluateGuideRna("$#@!XYZ123 ￿qwerty");
+
+        act.Should().NotThrow(
+            "non-DNA characters are excluded from GC and pass through the complement unchanged; neither path indexes out of range or divides by zero");
+
+        var candidate = CrisprDesigner.EvaluateGuideRna("$#@!XYZ123 ￿qwerty");
+        candidate.Score.Should().BeGreaterThanOrEqualTo(0,
+            "INV-01: the score is clamped to >= 0 even on garbage input");
+        candidate.Score.Should().NotBe(double.NaN, "a junk guide must not produce a NaN score");
+        candidate.GcContent.Should().Be(0, "no character is A/C/G/T, so GC content is 0, not a divide-by-zero");
+    }
+
+    #endregion
+
+    #region Positive sanity — a clear NGG yields a correct-length guide adjacent to the PAM
+
+    /// <summary>
+    /// Positive sanity: alongside the degenerate probes, a textbook SpCas9 construct must
+    /// yield a real guide of the CORRECT length (20 nt) immediately adjacent to (upstream
+    /// of) a clear NGG PAM, so the boundary hardening never silently breaks the core
+    /// function. The sequence is 20 distinct-ish bases (the protospacer) + "AGG": the NGG
+    /// matches at PAM index 20, and the 20-nt forward protospacer starts at index 0. We
+    /// target a region covering the Cas9 cut site (3 bp upstream of the PAM) and pin that a
+    /// candidate exists with a 20-nt forward guide equal to that protospacer, INV-01
+    /// (Score >= 0) and INV-02 (Score >= MinScore) holding. MinScore is lowered so the
+    /// candidate is not filtered out purely on heuristic composition.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void DesignGuideRnas_ClearNggPam_YieldsCorrectLengthGuideAdjacentToPam()
+    {
+        // 20-nt protospacer with mixed bases (avoids extreme GC/poly-T heuristics) + NGG PAM.
+        const string protospacer = "ACGTACGTACGTACGTACGT"; // 20 nt, GC = 50%
+        var seq = new DnaSequence(protospacer + "AGG"); // PAM "AGG" (NGG) at index 20
+        var loose = GuideRnaParameters.Default with { MinScore = 0 };
+
+        // Cas9 cuts 3 bp upstream of the PAM (index 17); region must cover that cut site.
+        var candidates = CrisprDesigner.DesignGuideRnas(seq, regionStart: 0, regionEnd: 22,
+            CrisprSystemType.SpCas9, loose).ToList();
+
+        var guide = candidates.Should().ContainSingle(c => c.IsForwardStrand && c.Sequence == protospacer).Subject;
+        guide.Sequence.Length.Should().Be(20, "the SpCas9 protospacer is 20 nt");
+        guide.Position.Should().Be(0, "the guide is extracted immediately upstream of the PAM, starting at index 0");
+        guide.Score.Should().BeGreaterThanOrEqualTo(0, "INV-01: the score is clamped to >= 0");
+        candidates.Should().OnlyContain(c => c.Score >= loose.MinScore,
+            "INV-02: DesignGuideRnas yields only candidates meeting MinScore");
+    }
+
+    /// <summary>
+    /// Positive sanity (standalone evaluator): a clean, well-formed 20-nt guide must be
+    /// accepted and scored with finite, in-range metrics — GC in [0, 100], a clamped
+    /// score (INV-01), and the system's 20-nt length echoed back — so the degenerate-guide
+    /// guard does not break ordinary evaluation. A fixed-seed random guide keeps this
+    /// deterministic.
+    /// </summary>
+    [Test]
+    public void EvaluateGuideRna_CleanGuide_ProducesWellFormedScore()
+    {
+        string guide = RandomDna(20, seed: 19_001);
+
+        var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
+
+        candidate.Sequence.Should().Be(guide, "the evaluator scores the guide as given (upper-cased)");
+        candidate.GcContent.Should().BeInRange(0, 100, "GC content is a percentage");
+        candidate.Score.Should().BeInRange(0, 100, "INV-01: the heuristic score is clamped to [0, 100]");
+        candidate.System.GuideLength.Should().Be(20, "SpCas9's documented guide length is 20 nt");
     }
 
     #endregion
