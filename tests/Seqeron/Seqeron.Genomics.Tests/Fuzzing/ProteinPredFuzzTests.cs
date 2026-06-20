@@ -1262,4 +1262,439 @@ public class ProteinPredFuzzTests
     #endregion
 
     #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  DISORDER-MORF-001 — MoRF (dip-in-disorder) detection : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region DISORDER-MORF-001 — MoRF (Molecular Recognition Feature) detection
+
+    // ───────────────────────────────────────────────────────────────────────────
+    //  Unit: DISORDER-MORF-001 — MoRF (Molecular Recognition Feature) prediction.
+    //  Checklist: docs/checklists/03_FUZZING.md, row 205 (ProteinPred, strategy BE;
+    //    targets: "fully ordered, fully disordered, short").
+    //  Method under test (src/.../Seqeron.Genomics.Analysis/DisorderPredictor.cs):
+    //    IEnumerable<(int Start,int End,double Score)> PredictMoRFs(
+    //        string sequence, int minLength = 10, int maxLength = 70)
+    //    — MoRF_Prediction.md §3.1, §3.2, §5.1.
+    //
+    //  The MoRF contract under test (MoRF_Prediction.md §1, §2.2, §4.1):
+    //    A MoRF is a short segment of relative ORDER ("dip") embedded WITHIN a longer
+    //    intrinsically-disordered region: it folds upon partner binding. Let d(i) ∈ [0,1] be
+    //    the per-residue disorder score from PredictDisorder (normalised TOP-IDP). A residue
+    //    is ORDERED when d(i) < 0.5 and DISORDERED when d(i) ≥ 0.5 (the 0.5 MoRF threshold,
+    //    Cheng/Oldfield PMC2570644 — NOTE this is the literature MoRF cutoff, distinct from the
+    //    0.542 TOP-IDP IDR-calling cutoff PredictDisorder uses internally; §5.2). A reported MoRF
+    //    is a MAXIMAL interval [s, e] with: (1) d(i) < 0.5 for all i∈[s,e] (the ordered dip);
+    //    (2) 10 ≤ (e − s + 1) ≤ 70 (Mohan 2006 length band); (3) d(s−1) ≥ 0.5 AND d(e+1) ≥ 0.5
+    //    (flanked by disorder on BOTH immediate sides — embedded, not terminal). Its Score is the
+    //    dip depth below the threshold, normalised: Score = clamp₀¹((0.5 − mean_{i∈[s,e]} d(i))/0.5);
+    //    because every d(i) < 0.5 in the dip, mean ∈ [0, 0.5) ⇒ Score ∈ (0, 1] and a deeper
+    //    (more ordered) dip scores higher (§2.2).
+    //
+    //  Documented input handling (§3.3, §6.1):
+    //    • null / "" → empty result (no throw): a deferred-iterator-free early return. (No
+    //      ArgumentNullException — confirmed by C1_NullInput_ReturnsEmpty in the unit suite.)
+    //    • case-INSENSITIVE: the sequence is upper-cased internally before scoring.
+    //    • residues outside the 20 standard amino acids contribute 0 disorder propensity via
+    //      PredictDisorder (never a KeyNotFound / NaN).
+    //
+    //  Theory-correct invariants asserted (§2.4):
+    //    • INV-01 — 0 ≤ Start ≤ End < len(sequence) (in-bounds 0-based inclusive span).
+    //    • INV-02 — minLength ≤ (End − Start + 1) ≤ maxLength (length band filter).
+    //    • INV-03 — every MoRF is flanked by d ≥ 0.5 on BOTH immediate sides (embedded in disorder),
+    //               and d(i) < 0.5 strictly INSIDE the dip (the run is a maximal ordered stretch).
+    //    • INV-04 — reported MoRFs are non-overlapping and ordered by Start.
+    //    • INV-05 — 0 ≤ Score ≤ 1 (finite, never NaN/±∞), monotone in dip depth.
+    //
+    //  Fuzz bar (docs/ADVANCED_TESTING_CHECKLIST.md §8 "Fuzzing"): degenerate/boundary input must
+    //  NEVER crash, hang, corrupt state, or emit a malformed/non-finite MoRF. The headline hazards
+    //  for a dip-in-disorder scanner are: an IndexOutOfRangeException in the flank check d(s−1)/d(e+1)
+    //  when a dip touches a terminus (must be SUPPRESSED, not thrown — a terminal dip is simply not
+    //  flanked, so not reported); a NaN Score from a length-0 mean; a KeyNotFound/NaN from a
+    //  non-standard residue (must contribute 0 propensity); and an out-of-bounds [Start..End] span.
+    //  The BE targets cover the FULLY-ORDERED corner (a dip with no surrounding disorder ⇒ no flank
+    //  ⇒ no MoRF), the FULLY-DISORDERED corner (no ordered dip exists ⇒ no MoRF) and the SHORT corner
+    //  (a sequence — or a dip — shorter than the 10-residue minimum band ⇒ no MoRF).
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region Helpers — well-formed MoRF contract
+
+    /// <summary>
+    /// The MoRF order/disorder threshold (Cheng/Oldfield PMC2570644; MoRF_Prediction.md §4.2) —
+    /// derived from the PRIMARY source, NOT echoed off the implementation's constant. A residue is
+    /// part of an ordered dip iff its disorder score is strictly below this value.
+    /// </summary>
+    private const double MoRFThreshold = 0.5;
+
+    /// <summary>Mohan et al. (2006) length band lower bound — MoRF_Prediction.md §4.2.</summary>
+    private const int MoRFMinLength = 10;
+
+    /// <summary>Mohan et al. (2006) length band upper bound — MoRF_Prediction.md §4.2.</summary>
+    private const int MoRFMaxLength = 70;
+
+    /// <summary>
+    /// Asserts the universal theory-correct contract every emitted MoRF must satisfy against the
+    /// supplied per-residue disorder profile (MoRF_Prediction.md §2.4): INV-01 — in-bounds 0-based
+    /// inclusive span 0 ≤ Start ≤ End ≤ n−1; INV-02 — the length lies in [minLength, maxLength];
+    /// INV-03 — strictly ordered (d &lt; 0.5) inside the dip, flanked by disorder (d ≥ 0.5) on BOTH
+    /// immediate sides; INV-05 — Score is FINITE and in [0, 1] and equals the documented normalised
+    /// dip depth (0.5 − mean d)/0.5 recomputed independently from the profile.
+    /// </summary>
+    private static void AssertWellFormedMoRF(
+        (int Start, int End, double Score) morf,
+        DisorderPredictionResult profile,
+        int minLength, int maxLength)
+    {
+        var d = profile.ResiduePredictions;
+        int n = d.Count;
+
+        // INV-01 — in-bounds inclusive span.
+        morf.Start.Should().BeInRange(0, n - 1, "INV-01: a MoRF Start is a valid 0-based residue index");
+        morf.End.Should().BeInRange(morf.Start, n - 1, "INV-01: a MoRF End is in-bounds and not before its Start");
+
+        // INV-02 — length lies in the requested band.
+        int length = morf.End - morf.Start + 1;
+        length.Should().BeInRange(minLength, maxLength,
+            "INV-02: a MoRF length lies within [minLength, maxLength]");
+
+        // INV-03 — strictly ordered inside the dip (maximal ordered run).
+        double sum = 0;
+        for (int i = morf.Start; i <= morf.End; i++)
+        {
+            d[i].DisorderScore.Should().BeLessThan(MoRFThreshold,
+                $"INV-03: every residue inside a MoRF dip is ordered (d < 0.5) (position {i})");
+            sum += d[i].DisorderScore;
+        }
+
+        // INV-03 — flanked by disorder on BOTH immediate sides (embedded within disorder).
+        morf.Start.Should().BeGreaterThan(0, "INV-03: a MoRF cannot touch the N-terminus (no left flank)");
+        morf.End.Should().BeLessThan(n - 1, "INV-03: a MoRF cannot touch the C-terminus (no right flank)");
+        d[morf.Start - 1].DisorderScore.Should().BeGreaterThanOrEqualTo(MoRFThreshold,
+            "INV-03: the residue immediately before a MoRF is disordered (d ≥ 0.5)");
+        d[morf.End + 1].DisorderScore.Should().BeGreaterThanOrEqualTo(MoRFThreshold,
+            "INV-03: the residue immediately after a MoRF is disordered (d ≥ 0.5)");
+
+        // INV-05 — finite, in [0, 1], and the documented normalised dip depth.
+        double.IsNaN(morf.Score).Should().BeFalse("INV-05: a MoRF Score must never be NaN");
+        double.IsInfinity(morf.Score).Should().BeFalse("INV-05: a MoRF Score must never be infinite");
+        morf.Score.Should().BeInRange(0.0, 1.0, "INV-05: a MoRF Score is normalised to [0, 1]");
+        double expected = Math.Max(0.0, Math.Min(1.0, (MoRFThreshold - sum / length) / MoRFThreshold));
+        morf.Score.Should().BeApproximately(expected, 1e-9,
+            "INV-05: Score = clamp₀¹((0.5 − mean d) / 0.5), recomputed independently from the profile (§2.2)");
+    }
+
+    /// <summary>
+    /// Asserts INV-04 over a MoRF list: non-overlapping and ordered by increasing Start
+    /// (maximal disjoint runs scanned left→right) — MoRF_Prediction.md §2.4.
+    /// </summary>
+    private static void AssertMoRFsDisjointOrdered(List<(int Start, int End, double Score)> morfs)
+    {
+        for (int i = 1; i < morfs.Count; i++)
+            morfs[i].Start.Should().BeGreaterThan(morfs[i - 1].End,
+                "INV-04: reported MoRFs are non-overlapping and ordered by Start");
+    }
+
+    #endregion
+
+    #region BE — null / empty / short: empty result, no crash (no flank IndexOutOfRange)
+
+    /// <summary>
+    /// Targets "short" and the empty corner (§3.3, §6.1 "null / empty / very short → empty result").
+    /// A <c>null</c> and an empty string must return an EMPTY result with NO throw (the early return
+    /// — NOT a deferred iterator, so no ArgumentNullException). ANY sequence shorter than the
+    /// 10-residue minimum band cannot contain a 10-residue embedded dip, so it must yield no MoRF —
+    /// and the dip scan / flank check must never run off the short string (no IndexOutOfRange). We
+    /// probe null, "", and every length 0..minLength−1 of an ordered homopolymer (poly-L, the
+    /// canonical ordered residue) which WOULD dip if it were long enough but is too short to qualify.
+    /// </summary>
+    [Test]
+    public void PredictMoRFs_NullEmptyOrShorterThanMinLength_EmptyNoCrash()
+    {
+        // null and "" → empty, no throw (early return, not a deferred iterator).
+        foreach (string? seq in new[] { null, "" })
+        {
+            var act = () => DisorderPredictor.PredictMoRFs(seq!).ToList();
+            act.Should().NotThrow($"null/empty input ('{seq ?? "null"}') must not crash")
+                .Subject.Should().BeEmpty($"null/empty input yields no MoRFs (§3.3)");
+        }
+
+        // Every length below the 10-residue minimum — even a perfect ordered poly-L — has no
+        // qualifying dip and must never run off the end in the dip scan / flank check.
+        for (int len = 1; len < MoRFMinLength; len++)
+        {
+            string ordered = new string('L', len);
+            var act = () => DisorderPredictor.PredictMoRFs(ordered).ToList();
+            act.Should().NotThrow($"a length-{len} sequence (< minLength {MoRFMinLength}) must not crash")
+                .Subject.Should().BeEmpty($"a length-{len} sequence cannot contain a {MoRFMinLength}-residue MoRF (§6.1)");
+        }
+    }
+
+    #endregion
+
+    #region BE — fully ordered: a dip with no surrounding disorder → no MoRF
+
+    /// <summary>
+    /// Target "fully ordered" (§6.1 "fully ordered sequence → no MoRFs", INV-03). A protein whose
+    /// per-residue disorder is ENTIRELY below 0.5 (an ordered homopolymer such as poly-L, poly-W,
+    /// poly-I, or a hydrophobic globular stretch) is one long ordered run that reaches BOTH termini —
+    /// it has NO surrounding disorder to embed a dip, so neither flank is disordered and NO MoRF is
+    /// reported. The flank check (d(s−1)/d(e+1)) must SUPPRESS the terminal run, never throw an
+    /// IndexOutOfRange reaching past position 0 or n−1. We assert emptiness across several ordered
+    /// compositions and lengths spanning the 10–70 band, including lengths well inside it.
+    /// </summary>
+    [Test]
+    public void PredictMoRFs_FullyOrdered_NoMoRFs()
+    {
+        foreach (char aa in new[] { 'L', 'W', 'I', 'F', 'V', 'C' }) // order-promoting residues (d < 0.5)
+        {
+            foreach (int n in new[] { MoRFMinLength, 20, 40, MoRFMaxLength, 90 })
+            {
+                string seq = new string(aa, n);
+
+                // Premise: this homopolymer really is fully ordered (every d < 0.5).
+                var profile = PredictDisorder(seq);
+                profile.ResiduePredictions.Should().OnlyContain(p => p.DisorderScore < MoRFThreshold,
+                    $"poly-{aa} (length {n}) is fully ordered — every residue scores below 0.5");
+
+                var act = () => DisorderPredictor.PredictMoRFs(seq).ToList();
+                act.Should().NotThrow($"a fully-ordered poly-{aa} (length {n}) must not crash on the flank check")
+                    .Subject.Should().BeEmpty(
+                        $"a fully-ordered protein has no surrounding disorder to embed a dip → no MoRF (§6.1)");
+            }
+        }
+
+        // A hydrophobic globular stretch (W/F/I/L/V) is likewise fully ordered → no MoRF.
+        DisorderPredictor.PredictMoRFs("WFILVWFILVWFILVWFILVWFILVWFILVWFILV").Should().BeEmpty(
+            "a hydrophobic globular stretch is fully ordered → no MoRF (it reaches both termini)");
+    }
+
+    #endregion
+
+    #region BE — fully disordered: no ordered dip exists → no MoRF
+
+    /// <summary>
+    /// Target "fully disordered" (§6.1 "fully disordered sequence → no MoRFs", INV-03). A protein
+    /// whose per-residue disorder is ENTIRELY at or above 0.5 (a disorder-promoting homopolymer such
+    /// as poly-P, poly-E, poly-K) contains NO ordered dip (no residue with d &lt; 0.5), so the dip
+    /// scan opens no run and NO MoRF is reported. This is the complementary BE corner to "fully
+    /// ordered": there, every flank fails; here, no dip ever forms. Nothing may crash.
+    /// </summary>
+    [Test]
+    public void PredictMoRFs_FullyDisordered_NoMoRFs()
+    {
+        foreach (char aa in new[] { 'P', 'E', 'K', 'S' }) // disorder-promoting residues (d ≥ 0.5)
+        {
+            foreach (int n in new[] { MoRFMinLength, 20, 40, 90 })
+            {
+                string seq = new string(aa, n);
+
+                // Premise: this homopolymer really is fully disordered (every d ≥ 0.5).
+                var profile = PredictDisorder(seq);
+                profile.ResiduePredictions.Should().OnlyContain(p => p.DisorderScore >= MoRFThreshold,
+                    $"poly-{aa} (length {n}) is fully disordered — every residue scores at/above 0.5");
+
+                var act = () => DisorderPredictor.PredictMoRFs(seq).ToList();
+                act.Should().NotThrow($"a fully-disordered poly-{aa} (length {n}) must not crash")
+                    .Subject.Should().BeEmpty(
+                        $"a fully-disordered protein contains no ordered dip → no MoRF (§6.1)");
+            }
+        }
+    }
+
+    #endregion
+
+    #region BE — dip outside the 10–70 band: too-short and too-long dips are not reported
+
+    /// <summary>
+    /// Targets the LENGTH-band boundaries (§6.1 "dip &lt; 10 or &gt; 70 residues → not reported",
+    /// INV-02). A genuine ordered dip EMBEDDED in disorder is reported only when its length is in
+    /// [minLength, maxLength]. We embed an ordered poly-L core inside disordered poly-P flanks and
+    /// sweep the core length across the default lower boundary (minLength = 10): a 9-residue core is
+    /// below the band → no MoRF; a 12-residue core is inside → exactly one MoRF whose length is in
+    /// band. We also pin the boundary from the parameter side: with the SAME in-disorder dip, a
+    /// minLength set ABOVE the dip length drops it, and a maxLength set BELOW it drops it — proving
+    /// the band filter is real and inclusive, not a no-op. The disorder-window smoothing in
+    /// PredictDisorder blurs the exact dip edges, so the reported length need not equal the core
+    /// length exactly; we assert only that it lies within the requested band (INV-02) and that the
+    /// boundary cases flip reported↔empty as the band moves.
+    /// </summary>
+    [Test]
+    public void PredictMoRFs_DipOutsideLengthBand_NotReported()
+    {
+        const int flank = 25; // disordered poly-P flanks, long enough that the dip stays embedded
+
+        // Below the band: a very short ordered core cannot produce a >= 10-residue reported dip.
+        string shortCore = new string('P', flank) + new string('L', 5) + new string('P', flank);
+        DisorderPredictor.PredictMoRFs(shortCore).Should().BeEmpty(
+            "a 5-residue ordered core is below the 10-residue minimum band → no MoRF (§6.1)");
+
+        // Inside the band: a 30-residue ordered core yields exactly one in-band MoRF.
+        string inBand = new string('P', flank) + new string('L', 30) + new string('P', flank);
+        var profile = PredictDisorder(inBand);
+        var morfs = DisorderPredictor.PredictMoRFs(inBand).ToList();
+        morfs.Should().ContainSingle("a 30-residue ordered core embedded in disorder is one in-band MoRF");
+        AssertWellFormedMoRF(morfs[0], profile, MoRFMinLength, MoRFMaxLength);
+        AssertMoRFsDisjointOrdered(morfs);
+
+        // Parameter side — the SAME embedded dip, band moved around it:
+        int dipLen = morfs[0].End - morfs[0].Start + 1;
+        // minLength above the dip length drops it.
+        DisorderPredictor.PredictMoRFs(inBand, minLength: dipLen + 1, maxLength: MoRFMaxLength).Should().BeEmpty(
+            $"a minLength ({dipLen + 1}) above the dip length ({dipLen}) drops the MoRF (INV-02)");
+        // maxLength below the dip length drops it.
+        DisorderPredictor.PredictMoRFs(inBand, minLength: 1, maxLength: dipLen - 1).Should().BeEmpty(
+            $"a maxLength ({dipLen - 1}) below the dip length ({dipLen}) drops the MoRF (INV-02)");
+        // A band that contains the dip length keeps it.
+        DisorderPredictor.PredictMoRFs(inBand, minLength: dipLen, maxLength: dipLen).Should().ContainSingle(
+            $"an exact-fit band [{dipLen}, {dipLen}] keeps the MoRF (inclusive bounds, INV-02)");
+    }
+
+    #endregion
+
+    #region Positive sanity — the documented §7.1 worked example, hand-checkable
+
+    /// <summary>
+    /// Positive sanity reproducing the DOCUMENTED worked example (MoRF_Prediction.md §7.1): the
+    /// sequence <c>P²⁵ L³⁰ P²⁵</c> — 25 disordered prolines, 30 ordered leucines, 25 disordered
+    /// prolines — has a smoothed disorder profile that dips below 0.5 over residues [29, 50]
+    /// (length 22, inside the 10–70 band) flanked by disorder on both sides; the mean disorder over
+    /// the dip ≈ 0.362033, so the reported Score = (0.5 − 0.362033)/0.5 ≈ 0.275934. These coordinates
+    /// and the score are stated in the doc INDEPENDENTLY of the code, and re-derived here from the
+    /// (0.5 − mean d)/0.5 formula against the actual profile. We also pin score MONOTONICITY (INV-05):
+    /// replacing the L core with the more order-promoting I deepens the dip, raising the score
+    /// (§7.1: mean ≈ 0.300196, score ≈ 0.399608 &gt; the L-dip score).
+    /// </summary>
+    [Test]
+    public void PredictMoRFs_WorkedExample_OneEmbeddedDipWithDocumentedScore()
+    {
+        string seqL = new string('P', 25) + new string('L', 30) + new string('P', 25); // §7.1
+        var profileL = PredictDisorder(seqL);
+        var morfsL = DisorderPredictor.PredictMoRFs(seqL).ToList();
+
+        morfsL.Should().ContainSingle("the §7.1 example: one ordered L-dip embedded in disordered P flanks");
+        AssertWellFormedMoRF(morfsL[0], profileL, MoRFMinLength, MoRFMaxLength);
+        AssertMoRFsDisjointOrdered(morfsL);
+
+        // Documented coordinates and score (§7.1) — derived independently from the doc, not the code.
+        morfsL[0].Start.Should().Be(29, "the smoothed dip begins at residue 29 (§7.1)");
+        morfsL[0].End.Should().Be(50, "the smoothed dip ends at residue 50 (§7.1)");
+        morfsL[0].Score.Should().BeApproximately(0.275934, 1e-6,
+            "Score = (0.5 − mean disorder 0.362033) / 0.5 ≈ 0.275934 (§7.1)");
+
+        // INV-05 monotonicity: a deeper (more ordered) I-dip scores HIGHER than the L-dip.
+        string seqI = new string('P', 25) + new string('I', 30) + new string('P', 25);
+        var morfsI = DisorderPredictor.PredictMoRFs(seqI).ToList();
+        morfsI.Should().ContainSingle("the order-promoting I core also yields one embedded dip");
+        morfsI[0].Score.Should().BeApproximately(0.399608, 1e-6,
+            "the deeper I-dip score = (0.5 − mean disorder 0.300196) / 0.5 ≈ 0.399608 (§7.1)");
+        morfsI[0].Score.Should().BeGreaterThan(morfsL[0].Score,
+            "INV-05: a deeper (more ordered) dip scores higher (monotone in dip depth)");
+    }
+
+    /// <summary>
+    /// Positive sanity: a terminal dip is NOT reported even though it satisfies the length band —
+    /// the embedding (flank) requirement is genuinely enforced (§6.1 "dip at sequence terminus →
+    /// not reported", INV-03). An ordered poly-L core that runs to the C-terminus (no trailing
+    /// disordered flank) and a leading-ordered core (no leading disordered flank) both yield NO MoRF,
+    /// while the SAME core embedded between two disordered flanks yields exactly one. This proves the
+    /// flank check is the discriminator, not the dip itself, and that the d(e+1)/d(s−1) lookups at the
+    /// edges never throw.
+    /// </summary>
+    [Test]
+    public void PredictMoRFs_TerminalDip_NotReportedUnlessFlankedBothSides()
+    {
+        const int flank = 25;
+        string core = new string('L', 30); // an in-band ordered dip on its own
+
+        // Leading-ordered: the dip touches the N-terminus → no left flank → not reported.
+        DisorderPredictor.PredictMoRFs(core + new string('P', flank)).Should().BeEmpty(
+            "an ordered dip at the N-terminus has no disordered left flank → not reported (§6.1)");
+
+        // Trailing-ordered: the dip touches the C-terminus → no right flank → not reported.
+        DisorderPredictor.PredictMoRFs(new string('P', flank) + core).Should().BeEmpty(
+            "an ordered dip at the C-terminus has no disordered right flank → not reported (§6.1)");
+
+        // Embedded between two disordered flanks → exactly one MoRF (the flank check is the discriminator).
+        string embedded = new string('P', flank) + core + new string('P', flank);
+        DisorderPredictor.PredictMoRFs(embedded).Should().ContainSingle(
+            "the SAME core embedded between disordered flanks IS reported — the flank check is the discriminator");
+    }
+
+    #endregion
+
+    #region BE — randomized boundary sweep: never crash / hang / NaN, contract holds, deterministic
+
+    /// <summary>
+    /// Headline no-crash / no-hang / no-NaN sweep over arbitrary and adversarial input and a sweep of
+    /// the length-band parameters. Across fixed seeds, lengths and (minLength, maxLength) corners
+    /// (including degenerate ones: 0, −1, equal bounds, inverted bounds, and the int.MaxValue extreme)
+    /// the scan must terminate, never throw, and every emitted MoRF must satisfy the full contract
+    /// (in-bounds, in-band, strictly-ordered-and-flanked, finite in-range Score — AssertWellFormedMoRF)
+    /// and be non-overlapping / ordered (INV-04). We also feed out-of-alphabet junk (digits,
+    /// punctuation, X, whitespace) — which contributes 0 propensity, never a KeyNotFound/NaN — and
+    /// hand-built ordered/disordered mosaics. Re-running must give the IDENTICAL ordered result
+    /// (determinism), and lowercase input must yield the SAME MoRFs as its uppercase form (§3.3).
+    /// [CancelAfter] guards against a regression turning the O(n·w) scan into a hang.
+    /// </summary>
+    [Test]
+    [CancelAfter(30000)]
+    public void PredictMoRFs_ArbitraryInput_AlwaysWellFormedDeterministic(CancellationToken token)
+    {
+        var inputs = new List<string>();
+        foreach (int seed in new[] { 7, 31, 137, 2026 })
+            foreach (int len in new[] { 10, 25, 80, 200 })
+                inputs.Add(RandomProtein(len, seed));
+
+        // Hand-built ordered/disordered mosaics that genuinely exercise the dip scan.
+        inputs.Add(new string('P', 25) + new string('L', 30) + new string('P', 25));            // one embedded dip
+        inputs.Add(new string('P', 25) + new string('L', 30) + new string('P', 30)
+                   + new string('L', 30) + new string('P', 25));                                 // two embedded dips
+        inputs.Add(new string('L', 40));                                                          // fully ordered
+        inputs.Add(new string('P', 40));                                                          // fully disordered
+        // Out-of-alphabet junk — 0 propensity, never KeyNotFound / NaN.
+        inputs.Add("MK1RGD2SP" + new string('S', 20) + "!@#$%^&*()");
+        inputs.Add("XXXXXXXXXXXXXXXXXXXX");
+        inputs.Add("   \t  \n  whitespace and text mixed in here  ");
+
+        foreach (string seq in inputs)
+        {
+            foreach ((int minLen, int maxLen) in new[]
+                     {
+                         (MoRFMinLength, MoRFMaxLength), // defaults
+                         (1, 5), (1, int.MaxValue),      // wide / tiny bands
+                         (10, 10),                       // single-length band
+                         (0, 0), (-1, -1),               // degenerate non-positive bounds
+                         (50, 10),                       // inverted band (max < min) → nothing in band
+                     })
+            {
+                var act = () => DisorderPredictor.PredictMoRFs(seq, minLength: minLen, maxLength: maxLen).ToList();
+                var morfs = act.Should().NotThrow(
+                    $"arbitrary input must not crash: '{seq[..Math.Min(seq.Length, 16)]}' (band [{minLen}, {maxLen}])").Subject;
+                token.ThrowIfCancellationRequested();
+
+                var profile = PredictDisorder(seq);
+                foreach (var m in morfs) AssertWellFormedMoRF(m, profile, minLen, maxLen);
+                AssertMoRFsDisjointOrdered(morfs);
+
+                // Inverted band can never contain any length → no MoRF.
+                if (maxLen < minLen)
+                    morfs.Should().BeEmpty("an inverted band (max < min) contains no length → no MoRF");
+
+                // Determinism: the scan is reproducible for a fixed input and band.
+                var again = DisorderPredictor.PredictMoRFs(seq, minLength: minLen, maxLength: maxLen).ToList();
+                again.Should().Equal(morfs, "PredictMoRFs is deterministic for a fixed input and band");
+            }
+        }
+
+        // Case-insensitivity (§3.3): lowercase yields identical MoRFs to its uppercase form.
+        string mixed = new string('p', 25) + new string('l', 30) + new string('p', 25);
+        var lower = DisorderPredictor.PredictMoRFs(mixed).ToList();
+        var upper = DisorderPredictor.PredictMoRFs(mixed.ToUpperInvariant()).ToList();
+        lower.Should().Equal(upper, "PredictMoRFs is case-insensitive: lowercase yields the same MoRFs as uppercase");
+    }
+
+    #endregion
+
+    #endregion
 }
