@@ -11,9 +11,17 @@ namespace Seqeron.Genomics.Tests;
 
 /// <summary>
 /// Fuzz tests for the ProteinPred area — intrinsic disorder PREDICTION
-/// (the per-residue TOP-IDP disorder profile, DISORDER-PRED-001) and the
+/// (the per-residue TOP-IDP disorder profile, DISORDER-PRED-001), the
 /// segmentation of that profile into contiguous disordered REGIONS
-/// (DISORDER-REGION-001).
+/// (DISORDER-REGION-001), and SEG low-complexity region detection
+/// (DISORDER-LC-001, <see cref="DisorderPredictor.PredictLowComplexityRegions"/>).
+///
+/// NOTE — naming: a sibling fixture <c>ProteinLowComplexityFuzzTests</c> covers a
+/// DIFFERENT method/unit (<c>ProteinMotifFinder.FindLowComplexityRegions</c>,
+/// PROTMOTIF-LC-001, checklist row 165). DISORDER-LC-001 below targets the SEG
+/// detector that lives on <see cref="DisorderPredictor"/> and returns
+/// (int Start, int End, string Type) — there is NO numeric Complexity field — so it
+/// is co-located with the other DisorderPredictor disorder units in this file.
 ///
 /// ───────────────────────────────────────────────────────────────────────────
 /// What fuzzing verifies
@@ -170,6 +178,12 @@ public class ProteinPredFuzzTests
     /// <summary>The 20 standard amino acids that ARE in the TOP-IDP propensity table.</summary>
     private const string StandardAminoAcids = "ACDEFGHIKLMNPQRSTVWY";
 
+    /// <summary>Default SEG low-complexity parameters (NCBI blast_seg.c: kSegWindow / kSegLocut /
+    /// kSegHicut) for DISORDER-LC-001 — Low_Complexity_Region_Detection.md §4.2.</summary>
+    private const int SegWindow = 12;   // W (kSegWindow)
+    private const double SegK1 = 2.2;   // trigger complexity K1 (kSegLocut), bits/residue
+    private const double SegK2 = 2.5;   // extension complexity K2 (kSegHicut), bits/residue
+
     /// <summary>Deterministic RNG — seed fixed locally so generated fuzz inputs are reproducible.</summary>
     private static string RandomProtein(int length, int seed)
     {
@@ -177,6 +191,21 @@ public class ProteinPredFuzzTests
         var chars = new char[length];
         for (int i = 0; i < length; i++)
             chars[i] = StandardAminoAcids[rng.Next(StandardAminoAcids.Length)];
+        return new string(chars);
+    }
+
+    /// <summary>
+    /// A maximally diverse mosaic for the SEG low-complexity unit: residue i is the
+    /// (i mod 20)-th standard amino acid. Every width-12 window holds 12 DISTINCT residues,
+    /// so its Shannon entropy is log₂(12) ≈ 3.585 &gt; the SEG extension cutoff K2 = 2.5 — a
+    /// high-complexity sequence with NO low-complexity region
+    /// (Low_Complexity_Region_Detection.md §2.4 INV-04, §6.1).
+    /// </summary>
+    private static string DiverseProtein(int length)
+    {
+        var chars = new char[length];
+        for (int i = 0; i < length; i++)
+            chars[i] = StandardAminoAcids[i % StandardAminoAcids.Length];
         return new string(chars);
     }
 
@@ -873,6 +902,361 @@ public class ProteinPredFuzzTests
                 }
             }
         }
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  DISORDER-LC-001 — SEG low-complexity region detection : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region DISORDER-LC-001 — SEG low-complexity region detection
+
+    // ───────────────────────────────────────────────────────────────────────────
+    //  Unit: DISORDER-LC-001 — low-complexity region detection (SEG).
+    //  Checklist: docs/checklists/03_FUZZING.md, row 204 (ProteinPred, strategy BE;
+    //    targets: "homopolymer, high-complexity, empty").
+    //  Method under test (src/.../Seqeron.Genomics.Analysis/DisorderPredictor.cs):
+    //    IEnumerable<(int Start,int End,string Type)> PredictLowComplexityRegions(
+    //        string sequence, int triggerWindow = 12, double triggerThreshold = 2.2,
+    //        double extensionThreshold = 2.5, int minLength = 1)
+    //    — Low_Complexity_Region_Detection.md §3.1, §5.1.
+    //
+    //  The SEG contract under test (Low_Complexity_Region_Detection.md §2.2, §4):
+    //    For a width-W window the local compositional complexity is the Shannon entropy of
+    //    its residue composition in bits/residue, H = −Σᵢ pᵢ·log₂ pᵢ (pᵢ = nᵢ/W, max
+    //    log₂(20) ≈ 4.322). Stage 1 marks every window with H ≤ K1 (trigger); stage 2 grows
+    //    each triggered span while the whole growing segment's H ≤ K2; overlapping/adjacent
+    //    spans merge; segments shorter than minLength are dropped; each is emitted as
+    //    (Start, End inclusive 0-based, Type) where Type is a convenience composition label
+    //    (§5.4 — "X-rich" if the dominant residue fraction > 0.5, else "X/Y-rich").
+    //
+    //  Documented input handling (§3.3, §6.1):
+    //    • null sequence → ArgumentNullException (the ONLY documented throw; on enumeration).
+    //    • "" or a sequence shorter than triggerWindow → EMPTY (no full trigger window), no throw.
+    //    • case-INSENSITIVE: the sequence is upper-cased before counting; only ASCII letters
+    //      A–Z contribute to composition counts, but the entropy denominator is the full
+    //      window length (non-letter chars are an absence of count, never a NaN).
+    //
+    //  Theory-correct invariants asserted (§2.4):
+    //    • INV-01 — 0 ≤ Start ≤ End < n (in-bounds 0-based inclusive span).
+    //    • INV-02 — emitted segments are non-overlapping and non-adjacent, ordered by Start.
+    //    • INV-03 — a homopolymer window has H = 0 ≤ K1 (always triggers).
+    //    • INV-04 — a window of W distinct residues has H = log₂(W) > K2 (default W=12 ⇒ not flagged).
+    //    • INV-05 — every reported segment has length ≥ minLength.
+    //
+    //  Fuzz bar (docs/ADVANCED_TESTING_CHECKLIST.md §8 "Fuzzing"): degenerate/boundary input
+    //  must NEVER crash, hang, corrupt state, or produce a malformed span. The headline hazards
+    //  for a windowed Shannon-entropy SEG scanner are: a NullReferenceException on null (must be
+    //  the documented ArgumentNullException instead); an IndexOutOfRangeException when the
+    //  sequence is shorter than the window (must yield nothing); a NaN from log₂(0) (a count-0
+    //  residue must never enter the sum); and an out-of-bounds [Start..End] span. The BE targets
+    //  cover the homopolymer (maximally low complexity ⇒ one segment), the high-complexity
+    //  mosaic (⇒ no false positive) and the empty / short input corners.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region Helpers — well-formed SEG segment contract
+
+    /// <summary>
+    /// Asserts the universal theory-correct contract every emitted SEG segment must satisfy
+    /// against a sequence of length <paramref name="n"/> (Low_Complexity_Region_Detection.md
+    /// §2.4, §3.2): INV-01 — in-bounds, ordered 0-based inclusive span 0 ≤ Start ≤ End ≤ n−1;
+    /// the segment has positive length and a non-null, non-empty <c>Type</c> label.
+    /// </summary>
+    private static void AssertWellFormedSegment((int Start, int End, string Type) seg, int n)
+    {
+        seg.Start.Should().BeInRange(0, n - 1, "INV-01: a segment Start is a valid 0-based residue index");
+        seg.End.Should().BeInRange(seg.Start, n - 1, "INV-01: a segment End is in-bounds and not before its Start");
+        seg.Type.Should().NotBeNullOrEmpty("every segment carries a composition Type label (§5.4)");
+        seg.Type.Should().EndWith("-rich", "the Type label is an 'X-rich' / 'X/Y-rich' composition tag (§5.4)");
+    }
+
+    /// <summary>
+    /// Asserts INV-02: a list of segments is ordered by Start and non-overlapping / non-adjacent
+    /// (the merge step combines any span with <c>start ≤ lastEnd + 1</c>, so distinct emitted
+    /// segments are separated by at least one residue) — Low_Complexity_Region_Detection.md §2.4.
+    /// </summary>
+    private static void AssertSegmentsDisjointOrdered(List<(int Start, int End, string Type)> segs)
+    {
+        for (int i = 1; i < segs.Count; i++)
+            segs[i].Start.Should().BeGreaterThan(segs[i - 1].End + 1,
+                "INV-02: emitted segments are non-overlapping AND non-adjacent (merged when start ≤ lastEnd + 1)");
+    }
+
+    #endregion
+
+    #region BE — null / empty / shorter-than-window: documented throw vs empty, no crash
+
+    /// <summary>
+    /// Targets "empty" and the short-input boundary. A <c>null</c> sequence is the ONLY documented
+    /// throw — <c>ArgumentNullException</c> (§3.3) — and because the method is a deferred iterator
+    /// the throw must surface on enumeration. An empty string, and ANY sequence strictly shorter
+    /// than the trigger window (even a perfect homopolymer that WOULD be low-complexity if long
+    /// enough), must yield NO segments — no full trigger window exists — never an
+    /// IndexOutOfRangeException running off the absent window (§3.3, §6.1 "sequence shorter than W
+    /// → empty"). We probe null, "", every length 1..W−1 of a homopolymer, and the exact W−1
+    /// boundary; W exactly is the smallest reportable length and is covered positively below.
+    /// </summary>
+    [Test]
+    public void PredictLcr_NullThrows_EmptyOrShorterThanWindow_NoRegionsNoCrash()
+    {
+        // null → the single documented ArgumentNullException, surfaced on enumeration.
+        var nullAct = () => DisorderPredictor.PredictLowComplexityRegions(null!).ToList();
+        nullAct.Should().Throw<ArgumentNullException>("a null sequence is the only documented throw (§3.3)");
+
+        // "" → no window → empty, no crash.
+        var emptyAct = () => DisorderPredictor.PredictLowComplexityRegions("").ToList();
+        emptyAct.Should().NotThrow("an empty sequence must not crash")
+            .Subject.Should().BeEmpty("an empty sequence has no trigger window, so no segments");
+
+        // Every length below the window — even a perfect homopolymer — has no complete window → empty.
+        for (int len = 1; len < SegWindow; len++)
+        {
+            string homo = new string('A', len);
+            var act = () => DisorderPredictor.PredictLowComplexityRegions(homo).ToList();
+            act.Should().NotThrow($"a length-{len} sequence (< window {SegWindow}) must not crash")
+                .Subject.Should().BeEmpty($"a length-{len} sequence is shorter than the window, so no complete window exists");
+        }
+
+        // Exactly W−1 of a homopolymer: still one short of a complete window → empty.
+        DisorderPredictor.PredictLowComplexityRegions(new string('Q', SegWindow - 1)).Should().BeEmpty(
+            "a sequence one residue shorter than the window yields no segments");
+    }
+
+    #endregion
+
+    #region BE — homopolymer: the whole tract is one segment, X-rich, H = 0 ≤ K1
+
+    /// <summary>
+    /// Target "homopolymer" — the headline POSITIVE outcome (§6.1, §7.1, INV-03). A homopolymer
+    /// "AAAA…" of length n ≥ W has H = 0 in EVERY window (a single residue type has p = 1,
+    /// −1·log₂1 = 0), so every window triggers (0 ≤ K1) and the entire run merges into ONE segment
+    /// spanning the whole tract [0, n−1]; its <c>Type</c> is "X-rich" (dominant fraction 1.0 > 0.5,
+    /// §5.4). We assert this for every standard residue and several lengths, then pin the documented
+    /// poly-Q worked example: <c>new string('Q', 26)</c> → a single (0, 25, "Q-rich") segment (§7.1).
+    /// </summary>
+    [Test]
+    public void PredictLcr_Homopolymer_SingleSegmentWholeTractXRich()
+    {
+        foreach (char aa in StandardAminoAcids)
+        {
+            foreach (int n in new[] { SegWindow, SegWindow + 1, 20, 50 })
+            {
+                string homo = new string(aa, n);
+                var segs = DisorderPredictor.PredictLowComplexityRegions(homo).ToList();
+
+                segs.Should().ContainSingle($"a length-{n} homopolymer of '{aa}' is one merged low-complexity segment");
+                var s = segs[0];
+                AssertWellFormedSegment(s, n);
+                s.Start.Should().Be(0, "INV-03: the homopolymer segment starts at residue 0");
+                s.End.Should().Be(n - 1, "the homopolymer segment spans the whole tract [0, n−1]");
+                s.Type.Should().Be($"{aa}-rich", "a single-residue tract is dominated > 0.5 by that residue (§5.4)");
+            }
+        }
+
+        // Documented poly-Q worked example (§7.1): new string('Q', 26) → [ (0, 25, "Q-rich") ].
+        var polyQ = DisorderPredictor.PredictLowComplexityRegions(new string('Q', 26)).ToList();
+        polyQ.Should().ContainSingle("the §7.1 worked example: a 26-Q tract is one low-complexity segment");
+        polyQ[0].Should().Be((0, 25, "Q-rich"), "every 12-window of the Q tract has entropy 0 ≤ 2.2 → (0, 25, \"Q-rich\")");
+    }
+
+    /// <summary>
+    /// Poly-Q tract embedded in diverse flanks: a 20-Q homopolymer flanked by diverse 8-residue
+    /// segments yields ONE segment that covers the Q tract; the surrounding diverse flanks are
+    /// high-complexity and must NOT spawn a spurious second LCR (INV-02). The merged segment's
+    /// dominant residue is Q (> 0.5 over the merged span), so its Type is "Q-rich" (§5.4).
+    /// </summary>
+    [Test]
+    public void PredictLcr_PolyQTractInDiverseFlanks_ReportsSingleQRichSegment()
+    {
+        const string flank = "MKLPRDST";                       // 8 diverse residues
+        string seq = flank + new string('Q', 20) + flank;       // 36 residues
+        int qStart = flank.Length;                              // 8
+        int qEnd = qStart + 20 - 1;                             // 27
+
+        var segs = DisorderPredictor.PredictLowComplexityRegions(seq).ToList();
+
+        segs.Should().ContainSingle("a single LCR spans the poly-Q tract amid diverse flanks");
+        foreach (var s in segs) AssertWellFormedSegment(s, seq.Length);
+        var region = segs[0];
+        region.Start.Should().BeLessThanOrEqualTo(qStart, "the segment begins no later than the Q tract start");
+        region.End.Should().BeGreaterThanOrEqualTo(qEnd, "the segment extends at least to the Q tract end");
+        region.Type.Should().Be("Q-rich", "Q dominates the merged span (> 0.5) → 'Q-rich' (§5.4)");
+    }
+
+    #endregion
+
+    #region BE — high-complexity: maximally diverse sequence yields NO segment (no false positive)
+
+    /// <summary>
+    /// Target "high-complexity" — the headline NEGATIVE outcome (§6.1 "window of W distinct
+    /// residues → not flagged", INV-04). A maximally diverse mosaic where residue i = (i mod 20)-th
+    /// amino acid puts 12 DISTINCT residues in every width-12 window, so H = log₂(12) ≈ 3.585 > K2
+    /// = 2.5 everywhere: no window can trigger or extend, hence NO segment (no false positive). We
+    /// assert emptiness across several lengths, then PROVE the negative is real, not a no-op
+    /// scanner: pushing BOTH cutoffs above log₂(12) makes the whole diverse sequence one segment.
+    /// </summary>
+    [Test]
+    public void PredictLcr_HighComplexityDiverseSequence_NoSegments()
+    {
+        foreach (int n in new[] { SegWindow, 20, 40, 100, 200 })
+        {
+            string diverse = DiverseProtein(n);
+            var segs = DisorderPredictor.PredictLowComplexityRegions(diverse).ToList();
+            segs.Should().BeEmpty(
+                $"a maximally diverse length-{n} sequence has every window entropy ≈ log₂(12) > K2, so no LCR");
+        }
+
+        // Premise: even raising K2 above log₂(12) leaves nothing TRIGGERED (every H ≈ 3.585 > K1 = 2.2).
+        string diverse40 = DiverseProtein(40);
+        DisorderPredictor.PredictLowComplexityRegions(
+                diverse40, triggerThreshold: SegK1, extensionThreshold: 4.0)
+            .Should().BeEmpty("even extending over every diverse window, none triggers (H ≈ 3.585 > K1 = 2.2)");
+
+        // With BOTH cutoffs above log₂(12) the whole diverse sequence DOES become one segment —
+        // proving the prior emptiness was due to the cutoffs, not a dead scanner.
+        var forced = DisorderPredictor.PredictLowComplexityRegions(
+            diverse40, triggerThreshold: 4.0, extensionThreshold: 4.0).ToList();
+        forced.Should().ContainSingle("with both cutoffs above log₂(12) the diverse sequence is one big 'low-complexity' segment");
+        AssertWellFormedSegment(forced[0], diverse40.Length);
+        forced[0].Start.Should().Be(0);
+        forced[0].End.Should().Be(diverse40.Length - 1, "the forced segment spans the whole sequence");
+    }
+
+    #endregion
+
+    #region Positive sanity — documented entropy walk-through and a run found at the correct span
+
+    /// <summary>
+    /// Positive sanity reproducing the documented numerical walk-through (§7.1): the window
+    /// <c>AAABBBCCCDDD</c> (L=12, four residue types × 3) has pᵢ = 0.25 each and
+    /// H = −4·(0.25·log₂0.25) = 2.0 bits, which is ≤ the default K1 = 2.2 ⇒ it TRIGGERS one
+    /// segment; with a strict K1 = 0.5, 2.0 > 0.5 ⇒ NO trigger. Its dominant residue fraction is
+    /// 0.25 (≤ 0.5), so the Type is the two-residue "A/B-rich" label (§5.4). The 2.0-bit value is
+    /// derived independently from the entropy formula, NOT echoed off the code.
+    /// </summary>
+    [Test]
+    public void PredictLcr_FourTypesWindow_TriggersAtDefaultK1NotAtStrictK1()
+    {
+        const string fourTypes = "AAABBBCCCDDD"; // H = −4·(0.25·log₂0.25) = 2.0 bits, length 12
+
+        // Default K1 = 2.2: 2.0 ≤ 2.2 ⇒ exactly one full-window segment [0, 11], "A/B-rich".
+        var triggered = DisorderPredictor.PredictLowComplexityRegions(fourTypes).ToList();
+        triggered.Should().ContainSingle("H = 2.0 ≤ K1 = 2.2 ⇒ the four-types window triggers one segment");
+        AssertWellFormedSegment(triggered[0], fourTypes.Length);
+        triggered[0].Start.Should().Be(0, "the single trigger window spans the whole 12-residue sequence");
+        triggered[0].End.Should().Be(fourTypes.Length - 1);
+        triggered[0].Type.Should().Be("A/B-rich",
+            "no residue exceeds 0.5 (each is 0.25) ⇒ the top-two label A/B-rich (§5.4)");
+
+        // Strict K1 = 0.5: 2.0 > 0.5 ⇒ nothing triggers ⇒ empty.
+        DisorderPredictor.PredictLowComplexityRegions(fourTypes, triggerThreshold: 0.5)
+            .Should().BeEmpty("with K1 = 0.5, window entropy 2.0 bits > 0.5 ⇒ nothing triggers");
+    }
+
+    /// <summary>
+    /// Positive sanity: the scanner must FIND a genuinely low-complexity run at the correct span,
+    /// not be a no-op. A diverse 30-residue prefix, a 16-A homopolymer, then a diverse 30-residue
+    /// suffix yields exactly ONE segment whose span covers the homopolymer run and whose Type is
+    /// "A-rich" (A dominates the merged span). The diverse flanks must not spawn extra segments
+    /// (INV-02). Coordinates must be in-bounds and ordered (INV-01).
+    /// </summary>
+    [Test]
+    public void PredictLcr_LowComplexityRunInDiverseFlanks_FoundAtCorrectSpan()
+    {
+        string diversePrefix = DiverseProtein(30);
+        string diverseSuffix = DiverseProtein(30);
+        const int runLen = 16;
+        int runStart = diversePrefix.Length;                 // 30
+        int runEnd = runStart + runLen - 1;                  // 45
+        string seq = diversePrefix + new string('A', runLen) + diverseSuffix;
+
+        var segs = DisorderPredictor.PredictLowComplexityRegions(seq).ToList();
+        segs.Should().ContainSingle("exactly one homopolymer LCR sits amid diverse flanks");
+        AssertWellFormedSegment(segs[0], seq.Length);
+        segs[0].Start.Should().BeLessThanOrEqualTo(runStart, "the segment begins no later than the homopolymer run");
+        segs[0].End.Should().BeGreaterThanOrEqualTo(runEnd, "the segment extends at least to the homopolymer run end");
+        segs[0].Type.Should().Be("A-rich", "A dominates the merged low-complexity span (> 0.5) → 'A-rich'");
+    }
+
+    #endregion
+
+    #region BE — minLength filter and the no-NaN / determinism sweep over arbitrary input
+
+    /// <summary>
+    /// Target the <c>minLength</c> post-filter boundary (INV-05, §6.1 "minLength exceeds segment
+    /// length → segment dropped"): a 12-A homopolymer is one length-12 segment; minLength = 12
+    /// keeps it, minLength = 13 drops it, minLength = 1 (default) keeps it. A non-positive /
+    /// extreme minLength must not crash (BE: 0, −1, int.MaxValue).
+    /// </summary>
+    [Test]
+    public void PredictLcr_MinLengthFilter_DropsSegmentsBelowThreshold()
+    {
+        string homo12 = new string('A', SegWindow); // one length-12 segment [0, 11]
+
+        DisorderPredictor.PredictLowComplexityRegions(homo12, minLength: SegWindow)
+            .Should().ContainSingle("a length-12 segment survives minLength = 12 (length ≥ minLength)");
+        DisorderPredictor.PredictLowComplexityRegions(homo12, minLength: SegWindow + 1)
+            .Should().BeEmpty("a length-12 segment is dropped by minLength = 13 (INV-05)");
+        DisorderPredictor.PredictLowComplexityRegions(homo12, minLength: 1)
+            .Should().ContainSingle("the default minLength = 1 keeps every segment");
+
+        // Extreme / non-positive minLength must not crash.
+        foreach (int minLen in new[] { 0, -1, -100, int.MaxValue })
+        {
+            var act = () => DisorderPredictor.PredictLowComplexityRegions(homo12, minLength: minLen).ToList();
+            act.Should().NotThrow($"a degenerate minLength ({minLen}) must not crash");
+        }
+        DisorderPredictor.PredictLowComplexityRegions(homo12, minLength: int.MaxValue)
+            .Should().BeEmpty("an int.MaxValue minLength drops every finite-length segment");
+    }
+
+    /// <summary>
+    /// Headline no-NaN / no-crash / determinism sweep over arbitrary and adversarial composition.
+    /// The per-window entropy must NEVER be NaN (a count-0 residue must never enter the −p·log₂ p
+    /// sum) and the scan must terminate, on random proteins, biased mixtures and out-of-alphabet
+    /// junk (digits, punctuation, X, whitespace, period-2 repeats). Every emitted segment must be
+    /// well-formed (in-bounds, ordered, disjoint), and re-running must give the IDENTICAL ordered
+    /// result (determinism). Lowercase input must yield the SAME segments as its uppercase form
+    /// (case-insensitive, §3.3). [CancelAfter] guards against a regression turning the O(n·W) scan
+    /// into a hang.
+    /// </summary>
+    [Test]
+    [CancelAfter(30000)]
+    public void PredictLcr_ArbitraryInput_AlwaysWellFormedDisjointDeterministic(CancellationToken token)
+    {
+        var inputs = new List<string>();
+        foreach (int seed in new[] { 7, 31, 137, 2026 })
+            foreach (int len in new[] { 12, 25, 60, 150 })
+                inputs.Add(RandomProtein(len, seed));
+
+        inputs.Add(new string('A', 30) + RandomProtein(30, 99));        // homopolymer + random
+        inputs.Add("MK1RGD2SP" + new string('S', 20) + "!@#$%^&*()");    // junk + poly-S
+        inputs.Add("XXXXXXXXXXXXXXXX");                                   // out-of-alphabet placeholder run
+        inputs.Add("ABABABABABABABABABAB");                              // period-2 repeat (entropy 1.0/window)
+        inputs.Add("   \t  \n  whitespace and text mixed in here  ");    // whitespace + literals
+
+        foreach (string seq in inputs)
+        {
+            var act = () => DisorderPredictor.PredictLowComplexityRegions(seq).ToList();
+            var segs = act.Should().NotThrow($"arbitrary input must not crash: '{seq[..Math.Min(seq.Length, 20)]}'").Subject;
+            token.ThrowIfCancellationRequested();
+
+            foreach (var s in segs) AssertWellFormedSegment(s, seq.Length);
+            AssertSegmentsDisjointOrdered(segs);
+
+            // Determinism: the scan is reproducible for a fixed input.
+            var again = DisorderPredictor.PredictLowComplexityRegions(seq).ToList();
+            again.Should().Equal(segs, "the SEG scan is deterministic for a fixed input");
+        }
+
+        // Case-insensitivity: lowercase must give identical segments to uppercase.
+        string mixed = "mklprdst" + new string('q', 20) + "MKLPRDST";
+        var lower = DisorderPredictor.PredictLowComplexityRegions(mixed).ToList();
+        var upper = DisorderPredictor.PredictLowComplexityRegions(mixed.ToUpperInvariant()).ToList();
+        lower.Should().Equal(upper, "SEG is case-insensitive: lowercase input yields the same segments as uppercase");
     }
 
     #endregion
