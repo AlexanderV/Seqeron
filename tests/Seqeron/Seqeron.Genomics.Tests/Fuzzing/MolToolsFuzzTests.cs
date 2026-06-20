@@ -309,6 +309,69 @@ namespace Seqeron.Genomics.Tests;
 /// empty / length-1 (and, here, all-non-DNA) input → 0. CalculateMeltingTemperature is
 /// a pure function (no iterator), so every probe calls it directly. Every test asserts
 /// the result is FINITE (not NaN, not ±Infinity) in addition to its exact value.
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: PRIMER-DESIGN-001 — primer (pair) design
+/// Checklist: docs/checklists/03_FUZZING.md, row 22.
+/// Fuzz strategies exercised for THIS unit:
+///   • BE = Boundary Exploitation — a template too short to hold ANY MinLength primer
+///          (no candidate window fits), and the degenerate GC range 0–0 (MinGcContent =
+///          MaxGcContent = 0, only all-A·T primers can qualify).
+///   • MC = Malformed Content — a CONTRADICTORY (inverted) Tm range (MinTm > MaxTm), an
+///          unsatisfiable constraint whose feasible set is empty.
+/// — docs/checklists/03_FUZZING.md §Description (strategy codes); row 22 targets:
+///   "Seq shorter than min primer, GC range 0-0, Tm range inverted".
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The primer-design contract under test (Primer_Design.md)
+/// ───────────────────────────────────────────────────────────────────────────
+/// PrimerDesigner.DesignPrimers(DnaSequence template, int targetStart, int targetEnd,
+///   PrimerParameters? parameters) (PrimerDesigner.cs lines 40–115) enumerates candidate
+/// primers in the flanking regions (up to 200 bp upstream of targetStart for the forward
+/// primer, up to 200 bp downstream of targetEnd for the reverse), scores each, and selects
+/// the highest-scoring VALID forward and reverse candidate independently, then checks pair
+/// compatibility (Primer_Design.md §2.2, §4.1). A candidate is VALID only when it satisfies
+/// EVERY screen — length in [MinLength, MaxLength], GC% in [MinGcContent, MaxGcContent], Tm in
+/// [MinTm, MaxTm], homopolymer/dinucleotide limits, no hairpin, and (if enabled) 3' stability
+/// (EvaluatePrimer, lines 138–169: a candidate is valid iff its issue list is empty).
+///
+/// The ONLY documented throw is the target-region guard: targetStart &lt; 0,
+/// targetEnd &gt;= template.Length, or targetStart &gt;= targetEnd → ArgumentException
+/// (lines 48–49; §3.3, §6.1 "Invalid target region"). The PARAMETER RANGES themselves are
+/// NOT validated — a degenerate or contradictory range is not an error but simply shrinks
+/// (or empties) the feasible candidate set. INV-01 (Primer_Design.md §2.4) governs the
+/// degenerate outcome: when either side has NO valid candidate, DesignPrimers returns an
+/// INVALID PrimerPairResult (Forward = Reverse = null, IsValid = false, ProductSize = 0;
+/// lines 93–100) — never a crash, hang, div-by-zero, or invalid primer.
+///
+/// THE THREE ROW-22 FUZZ TARGETS, mapped to the theory-correct contract:
+///   • Seq shorter than min primer (BE): the template is too short to hold even one
+///     MinLength-bp primer in either flank. The forward loop bound `start + len &lt;= targetStart`
+///     (len &gt;= MinLength) and the reverse loop bound `end - len &gt;= targetEnd` are never
+///     satisfiable, so NO candidate is generated, both best candidates are null, and INV-01
+///     returns the invalid PrimerPairResult — no Substring is ever taken past the end, no
+///     IndexOutOfRangeException. (The target region itself is kept VALID so this isolates the
+///     "no primer fits" boundary from the region guard.)
+///   • GC range 0–0 (BE, KEY): MinGcContent = MaxGcContent = 0 means the GC screen
+///     `gc &lt; 0 || gc &gt; 0` passes ONLY for a 0% GC (all-A·T) primer. There is NO division by
+///     the range width (the check is a pair of comparisons, not a normalisation), and
+///     CalculateGcContent null/empty-guards to 0, so there is no div-by-zero. An all-A·T flank
+///     can therefore still yield an all-A·T forward primer (GC exactly 0, inside [0,0]); a
+///     GC-bearing flank yields none. Either way: a well-formed result, never a crash.
+///   • Tm range inverted (MC, KEY): MinTm &gt; MaxTm is a CONTRADICTION whose feasible set is
+///     empty. The source does NOT validate the range, so it does NOT throw — instead the Tm
+///     screen `tm &lt; MinTm || tm &gt; MaxTm` is satisfied by EVERY finite Tm (any value is either
+///     below the high MinTm or above the low MaxTm), so EVERY candidate is rejected, both sides
+///     are null, and INV-01 returns the invalid PrimerPairResult. A contradictory constraint
+///     thus yields NO primers promptly — it never loops forever and never returns a primer that
+///     violates the (impossible) range.
+///
+/// Documented invariant pinned (Primer_Design.md §2.4): INV-01 DesignPrimers returns
+/// IsValid = false (with null candidates) when either side has no valid candidate; INV-03
+/// ProductSize = reverse.Position + reverse.Sequence.Length − forward.Position on a valid pair.
+/// DesignPrimers is NOT an iterator (it returns a materialised PrimerPairResult), so every
+/// probe calls it directly; the positive-sanity test additionally pins that a real pair's
+/// chosen primers fall INSIDE the requested GC and Tm ranges.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -1343,6 +1406,231 @@ public class MolToolsFuzzTests
 
         double.IsNaN(tm20).Should().BeFalse("a known primer Tm must be finite");
         double.IsInfinity(tm20).Should().BeFalse();
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  PRIMER-DESIGN-001 — primer design : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region PRIMER-DESIGN-001 — primer design
+
+    #region BE — Template shorter than the minimum primer
+
+    /// <summary>
+    /// BE (seq shorter than min primer): the template is far too short to hold even one
+    /// MinLength-bp primer in either flank. With a valid target region on a 4-nt template,
+    /// the forward candidate loop bound <c>start + len &lt;= targetStart</c> (len >= MinLength,
+    /// default 18) and the reverse bound <c>end - len >= targetEnd</c> are never satisfiable,
+    /// so NO candidate is generated — no Substring is ever sliced past the template end. Both
+    /// best candidates are null, so DesignPrimers returns the INVALID PrimerPairResult (INV-01,
+    /// PrimerDesigner.cs 93–100): Forward/Reverse null, IsValid false, ProductSize 0 — an empty
+    /// feasible set, never an IndexOutOfRangeException (Primer_Design.md §6.1).
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void DesignPrimers_TemplateShorterThanMinPrimer_ReturnsInvalidNoCrash()
+    {
+        // 4-nt template; target region [1,2) is VALID (1<2, 2<4) so this isolates the
+        // "no primer fits" boundary from the target-region guard.
+        var template = new DnaSequence("ACGT");
+
+        var act = () => PrimerDesigner.DesignPrimers(template, targetStart: 1, targetEnd: 2);
+
+        act.Should().NotThrow(
+            "no MinLength-bp primer can fit in a 4-nt template; the candidate loops never run instead of slicing past the end");
+
+        var result = PrimerDesigner.DesignPrimers(template, 1, 2);
+        result.IsValid.Should().BeFalse("INV-01: no valid candidate on either side yields an invalid pair");
+        result.Forward.Should().BeNull("no forward primer fits, so the forward candidate is null");
+        result.Reverse.Should().BeNull("no reverse primer fits, so the reverse candidate is null");
+        result.ProductSize.Should().Be(0, "an empty pair reports zero product size");
+    }
+
+    /// <summary>
+    /// BE: the target-region guard is the documented throw boundary. Unlike a degenerate
+    /// PARAMETER range (which is silently empty), an INVALID target region is rejected eagerly
+    /// with ArgumentException (PrimerDesigner.cs 48–49; Primer_Design.md §6.1). Pinned for the
+    /// three guard conditions: targetStart &lt; 0, targetEnd &gt;= length, and targetStart &gt;= targetEnd.
+    /// </summary>
+    [Test]
+    public void DesignPrimers_InvalidTargetRegion_ThrowsArgumentException()
+    {
+        var template = new DnaSequence(RandomDna(100, seed: 22_001));
+
+        var negativeStart = () => PrimerDesigner.DesignPrimers(template, targetStart: -1, targetEnd: 50);
+        var endPastEnd = () => PrimerDesigner.DesignPrimers(template, targetStart: 10, targetEnd: 100);
+        var startGeEnd = () => PrimerDesigner.DesignPrimers(template, targetStart: 50, targetEnd: 50);
+
+        negativeStart.Should().Throw<ArgumentException>("a negative target start is rejected by the region guard");
+        endPastEnd.Should().Throw<ArgumentException>("a target end at/past the template length is rejected");
+        startGeEnd.Should().Throw<ArgumentException>("a target start not strictly before the end is rejected");
+    }
+
+    #endregion
+
+    #region BE — GC range 0-0 (only all-A·T primers can qualify)
+
+    /// <summary>
+    /// BE (GC range 0–0 — KEY): MinGcContent = MaxGcContent = 0 means the GC screen
+    /// <c>gc &lt; 0 || gc &gt; 0</c> passes ONLY for a 0% GC (all-A·T) primer. The check is a pair of
+    /// comparisons, NOT a normalisation by the (zero-width) range, and CalculateGcContent
+    /// null/empty-guards to 0, so there is NO division by zero. An all-A·T template therefore
+    /// can still produce a valid all-A·T forward primer whose GC is EXACTLY 0 (inside [0,0]).
+    /// We pin: the call does not throw, and any chosen primer's GC is exactly 0. The template is
+    /// pure A's flanking the target so an all-A primer is available; Tm/structure screens are
+    /// widened so the GC screen is the only discriminator under test.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void DesignPrimers_GcRangeZeroZero_OnlyAllAtPrimersQualifyNoDivByZero()
+    {
+        // 250 A's: every candidate window is all-A (GC = 0%). Wide Tm/length/structure screens
+        // so the GC range 0-0 is the discriminating constraint.
+        var template = new DnaSequence(new string('A', 250));
+        var param = PrimerDesigner.DefaultParameters with
+        {
+            MinGcContent = 0,
+            MaxGcContent = 0,
+            MinTm = 0,
+            MaxTm = 200,
+            MaxHomopolymer = 1000,   // an all-A primer is one long homopolymer; do not reject on it
+            MaxDinucleotideRepeats = 1000,
+            Check3PrimeStability = false
+        };
+
+        var act = () => PrimerDesigner.DesignPrimers(template, targetStart: 120, targetEnd: 130, param);
+
+        act.Should().NotThrow(
+            "a zero-width GC range is a pair of comparisons, not a division; an all-A·T primer satisfies gc<0||gc>0 being false");
+
+        var result = PrimerDesigner.DesignPrimers(template, 120, 130, param);
+        result.IsValid.Should().BeTrue("an all-A·T template offers all-A primers whose 0% GC sits inside the [0,0] range");
+        result.Forward!.GcContent.Should().Be(0, "the only qualifying GC under a [0,0] range is exactly 0%");
+        result.Reverse!.GcContent.Should().Be(0, "the reverse primer's GC is likewise exactly 0% (its reverse complement of all-A is all-T)");
+        result.Forward.MeltingTemperature.Should().NotBe(double.NaN, "the Tm of a qualifying primer is finite, never NaN");
+    }
+
+    /// <summary>
+    /// BE (GC range 0–0, dual): a GC-BEARING flank can satisfy NO primer under a [0,0] GC range —
+    /// every window contains at least one G/C, so its GC% exceeds 0 and fails <c>gc &gt; 0</c>. The
+    /// theory-correct result is therefore the empty feasible set: an invalid PrimerPairResult,
+    /// no crash and no div-by-zero. A random (GC-rich-enough) template makes every candidate fail.
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void DesignPrimers_GcRangeZeroZero_GcBearingTemplateYieldsNoPair()
+    {
+        var template = new DnaSequence(RandomDna(250, seed: 22_002));
+        var param = PrimerDesigner.DefaultParameters with
+        {
+            MinGcContent = 0,
+            MaxGcContent = 0,
+            MinTm = 0,
+            MaxTm = 200,
+            Check3PrimeStability = false
+        };
+
+        var act = () => PrimerDesigner.DesignPrimers(template, targetStart: 120, targetEnd: 130, param);
+
+        act.Should().NotThrow("a [0,0] GC range over a GC-bearing template empties the feasible set rather than crashing");
+
+        PrimerDesigner.DesignPrimers(template, 120, 130, param)
+            .IsValid.Should().BeFalse("every candidate carries a G/C, so its GC% > 0 fails the [0,0] range — no valid pair");
+    }
+
+    #endregion
+
+    #region MC — Tm range inverted (contradictory constraint)
+
+    /// <summary>
+    /// MC (Tm range inverted — KEY): MinTm > MaxTm is a CONTRADICTORY constraint whose feasible
+    /// set is empty. The source does NOT validate the parameter range, so it does NOT throw —
+    /// instead the Tm screen <c>tm &lt; MinTm || tm &gt; MaxTm</c> is satisfied by EVERY finite Tm
+    /// (any value is either below the high MinTm or above the low MaxTm), so EVERY candidate is
+    /// rejected and both best candidates are null. DesignPrimers returns the INVALID
+    /// PrimerPairResult (INV-01) — promptly, with no infinite loop and no primer that violates the
+    /// impossible range (Primer_Design.md §2.4, §6.1). The template is rich enough that the ONLY
+    /// reason no primer qualifies is the inverted Tm range (all other screens are widened).
+    /// </summary>
+    [Test]
+    [CancelAfter(5000)]
+    public void DesignPrimers_TmRangeInverted_ReturnsInvalidNeverHangs()
+    {
+        var template = new DnaSequence(RandomDna(250, seed: 22_003));
+        var inverted = PrimerDesigner.DefaultParameters with
+        {
+            MinTm = 90,   // MinTm > MaxTm: a contradiction
+            MaxTm = 10,
+            MinGcContent = 0,
+            MaxGcContent = 100,
+            MaxHomopolymer = 1000,
+            MaxDinucleotideRepeats = 1000,
+            Check3PrimeStability = false
+        };
+
+        var act = () => PrimerDesigner.DesignPrimers(template, targetStart: 120, targetEnd: 130, inverted);
+
+        act.Should().NotThrow(
+            "an inverted Tm range is not validated as an error; it simply makes every candidate fail the Tm screen");
+
+        var result = PrimerDesigner.DesignPrimers(template, 120, 130, inverted);
+        result.IsValid.Should().BeFalse("no finite Tm can satisfy tm >= 90 AND tm <= 10, so no candidate is valid (INV-01)");
+        result.Forward.Should().BeNull("the contradictory Tm range leaves no valid forward primer");
+        result.Reverse.Should().BeNull("the contradictory Tm range leaves no valid reverse primer");
+    }
+
+    #endregion
+
+    #region Positive sanity — a reasonable template yields a valid pair inside the requested ranges
+
+    /// <summary>
+    /// Positive sanity: alongside the degenerate probes, a reasonable template with DEFAULT
+    /// parameters must yield a VALID primer pair whose chosen forward and reverse primers fall
+    /// INSIDE the requested length, GC and Tm ranges — so the boundary hardening never silently
+    /// breaks the core design. A long fixed-seed random template gives both flanks ample,
+    /// balanced candidate windows; the default screens (18–25 bp, 40–60% GC, 57–63 °C Tm) are the
+    /// contract under test. We pin INV-01 (a valid result has non-null candidates), that each
+    /// chosen primer satisfies its own EvaluatePrimer (IsValid, no issues), and INV-03
+    /// (ProductSize = reverse.Position + reverse.Length − forward.Position).
+    /// </summary>
+    [Test]
+    [CancelAfter(15000)]
+    public void DesignPrimers_ReasonableTemplate_YieldsValidPairInsideRequestedRanges()
+    {
+        var param = PrimerDesigner.DefaultParameters;
+        // A 600-nt balanced random template with a central target region leaves ~200 bp on each
+        // flank for candidate enumeration — deterministic via a fixed seed.
+        var template = new DnaSequence(RandomDna(600, seed: 22_000));
+
+        var result = PrimerDesigner.DesignPrimers(template, targetStart: 300, targetEnd: 320, param);
+
+        result.Forward.Should().NotBeNull("a balanced 600-nt template should offer a valid forward candidate");
+        result.Reverse.Should().NotBeNull("a balanced 600-nt template should offer a valid reverse candidate");
+
+        var fwd = result.Forward!;
+        var rev = result.Reverse!;
+
+        // Each chosen primer is itself valid and inside the requested ranges.
+        foreach (var primer in new[] { fwd, rev })
+        {
+            primer.IsValid.Should().BeTrue("DesignPrimers only selects from valid (issue-free) candidates");
+            primer.Issues.Should().BeEmpty("a valid candidate carries no constraint violations");
+            primer.Length.Should().BeInRange(param.MinLength, param.MaxLength,
+                "the chosen primer's length is inside the requested [MinLength, MaxLength] range");
+            primer.GcContent.Should().BeInRange(param.MinGcContent, param.MaxGcContent,
+                "the chosen primer's GC% is inside the requested [MinGcContent, MaxGcContent] range");
+            primer.MeltingTemperature.Should().BeInRange(param.MinTm, param.MaxTm,
+                "the chosen primer's Tm is inside the requested [MinTm, MaxTm] range");
+            double.IsNaN(primer.MeltingTemperature).Should().BeFalse("a chosen primer's Tm is finite");
+        }
+
+        // INV-03: product size is computed directly from the chosen candidates.
+        result.ProductSize.Should().Be(rev.Position + rev.Sequence.Length - fwd.Position,
+            "INV-03: ProductSize = reverse.Position + reverse.Length − forward.Position");
     }
 
     #endregion
