@@ -1820,8 +1820,20 @@ public static class OncologyAnalyzer
             throw new ArgumentOutOfRangeException(nameof(lst), lst, "HRD component counts must be ≥ 0.");
         }
 
-        // Telli et al. (2016): HRD score = unweighted sum of LOH + TAI + LST.
-        return loh + tai + lst;
+        // Telli et al. (2016): HRD score = unweighted sum of LOH + TAI + LST. Sum in a wider type so
+        // that extreme (near-Int32.MaxValue) component counts can NEVER wrap to a negative score
+        // (INV-04: score ≥ 0). A sum that genuinely exceeds the int range is out of the documented
+        // contract and is rejected rather than silently overflowing.
+        long sum = (long)loh + tai + lst;
+        if (sum > int.MaxValue)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(loh),
+                sum,
+                "Combined HRD score (loh + tai + lst) exceeds Int32.MaxValue.");
+        }
+
+        return (int)sum;
     }
 
     /// <summary>
