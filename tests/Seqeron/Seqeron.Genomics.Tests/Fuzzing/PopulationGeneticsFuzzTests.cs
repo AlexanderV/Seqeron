@@ -9,8 +9,8 @@ namespace Seqeron.Genomics.Tests;
 
 /// <summary>
 /// Fuzz tests for the PopGen area — allele frequency (POP-FREQ-001),
-/// nucleotide diversity π (POP-DIV-001) and Hardy-Weinberg equilibrium
-/// (POP-HW-001).
+/// nucleotide diversity π (POP-DIV-001), Hardy-Weinberg equilibrium
+/// (POP-HW-001) and Wright's fixation index F_ST (POP-FST-001).
 ///
 /// ───────────────────────────────────────────────────────────────────────────
 /// What fuzzing verifies
@@ -221,6 +221,76 @@ namespace Seqeron.Genomics.Tests;
 ///   The method does NOT validate negative genotype counts or significanceLevel
 ///   range (§5.4 accepted deviation #1); the fuzz targets here are all
 ///   non-negative, so we pin the defined behavior of the documented boundary.
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: POP-FST-001 — Wright's fixation index F_ST (PopGen)
+/// Checklist: docs/checklists/03_FUZZING.md, row 46.
+/// Fuzz strategies exercised for THIS unit:
+///   • BE  = Boundary Exploitation — the degenerate population boundaries that
+///           stress the F_ST variance/heterozygosity ratio: a SINGLE population
+///           (one sequence supplied, the other empty → no pair to differentiate);
+///           two IDENTICAL populations (no among-population variance → the KEY
+///           F_ST = 0 identity); and 0 SAMPLES, in both senses — an EMPTY per-locus
+///           sequence (the early guard) AND per-locus sample sizes of 0 (the
+///           n1 + n2 == 0 → 0/0 NaN-poisoning boundary inside the weighted-mean
+///           arithmetic). The monomorphic-locus sub-case (every population fixed for
+///           the same allele → total heterozygosity H_т = 0 → the
+///           DivideByZero-on-H_т=0 boundary the prompt flags) is also pinned.
+/// — docs/checklists/03_FUZZING.md §Description ("BE = граничні значення: 0, -1,
+///   MaxInt, empty").
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The F_ST contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// F_ST (the fixation index) measures population differentiation. Wright's
+/// variance-based two-population definition, summed across compared loci, is:
+///     F_ST = σ²_S / [ p̄·(1 − p̄) ]   (ratio of summed terms)
+/// where for each locus p̄ = (n1·p1 + n2·p2)/(n1 + n2) is the sample-size-weighted
+/// mean allele frequency, σ²_S = [n1·(p1−p̄)² + n2·(p2−p̄)²]/(n1 + n2) is the
+/// weighted among-population variance, and p̄·(1−p̄) is the (expected total)
+/// heterozygosity H_т.  F_ST = 0 means no differentiation, F_ST = 1 complete
+/// differentiation.
+///   — docs/algorithms/Population_Genetics/F_Statistics.md §2.A, §4.A
+///     (INV-FST-01: 0 ≤ F_ST ≤ 1; INV-FST-02: identical populations → F_ST = 0
+///      because σ²_S = 0 at every locus — THE key identity; INV-FST-03: equal-size
+///      fixed-opposite alleles p1=1, p2=0 at every locus → F_ST = 1). Sources:
+///      Wright (1965) [2]; Wikipedia "Fixation index" [5].
+///
+/// Entry point under test —
+///   PopulationGeneticsAnalyzer.CalculateFst(
+///       IEnumerable&lt;(double AlleleFreq, int SampleSize)&gt;,
+///       IEnumerable&lt;(double AlleleFreq, int SampleSize)&gt;)
+///   (src/Seqeron/Algorithms/Seqeron.Genomics.Population/PopulationGeneticsAnalyzer.cs
+///    lines 609–646). Documented validation/edge behavior (F_Statistics.md §3.3,
+///    §5.2, §6.1):
+///     • EITHER population sequence empty (the "single population / 0 loci"
+///       boundary) → the explicit `pop1.Count == 0 || pop2.Count == 0` guard
+///       returns the DEFINED 0 BEFORE any per-locus arithmetic; no DivideByZero,
+///       no NaN (§3.3, §6.1; lines 616–617). This is the KEY "single population"
+///       fuzz concern — with only one group there is nothing to differentiate.
+///     • mismatched per-locus counts → a *documented, intentional* ArgumentException
+///       (lines 619–623): the two locus lists must align 1-to-1 (the implementation
+///       compares like-for-like loci, not a truncated prefix at this surface).
+///     • IDENTICAL populations (same per-locus AlleleFreq and SampleSize) → every
+///       locus has σ²_S = 0 → numerator 0 over a positive H_т denominator →
+///       F_ST = 0 EXACTLY (INV-FST-02; §6.1). This is THE key identity.
+///     • 0 SAMPLES per locus (n1 = n2 = 0): p̄ = 0.0/0 is a 0/0 → NaN; the NaN
+///       poisons `het` and hence the accumulated denominator, so the final
+///       `denominator > 0` check is FALSE (NaN > 0 is false) and the method returns
+///       the DEFINED 0 (line 645). The arithmetic is `double` division, so this is a
+///       NaN path, NOT a DivideByZeroException — and the guard ensures NO NaN
+///       ESCAPES to the caller. This is the KEY 0-samples fuzz concern.
+///     • monomorphic locus across BOTH populations (every locus fixed for the same
+///       allele, p1 = p2 ∈ {0, 1}) → σ²_S = 0 AND H_т = p̄(1−p̄) = 0 → the summed
+///       denominator is 0 → the `denominator > 0` guard returns the DEFINED 0 with
+///       NO DivideByZero (§6.1 "fixed for the same allele … returns 0"). This is the
+///       H_т = 0 division boundary the prompt flags.
+///     • for any valid two-population input F_ST stays in [0, 1] (INV-FST-01) and is
+///       finite — a non-negative variance over a non-negative heterozygosity, both
+///       guarded against the 0/0 case.
+///   The method does NOT range-check allele frequencies or sample sizes (§3.3,
+///   §5.2); the fuzz targets here exercise the documented degenerate boundaries and
+///   pin that none of them crash, hang, NaN-escape, or leave [0, 1].
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -1043,6 +1113,317 @@ public class PopulationGeneticsFuzzTests
                     "skipping the 0-expected term keeps the statistic finite");
                 r.PValue.Should().BeInRange(0.0, 1.0, "the p-value is a probability (INV-05)");
             }
+        }
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  POP-FST-001 — Wright's fixation index F_ST : fuzz targets
+    //  Surface: CalculateFst(
+    //      IEnumerable<(double AlleleFreq, int SampleSize)>,
+    //      IEnumerable<(double AlleleFreq, int SampleSize)>)
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region POP-FST-001 — Fst (fixation index)
+
+    #region Helpers — population builders
+
+    /// <summary>A per-locus (allele frequency, sample size) population vector.</summary>
+    private static List<(double AlleleFreq, int SampleSize)> Pop(
+        params (double AlleleFreq, int SampleSize)[] loci) => loci.ToList();
+
+    #endregion
+
+    #region Positive sanity — differentiated populations give the documented Fst in (0,1]; identical give 0
+
+    /// <summary>
+    /// Positive control: the worked examples pinned in the algorithm doc and the
+    /// unit tests (F_Statistics.md §6.1; POP-FST-001 tests). A single differentiated
+    /// locus pop1=(0.8, 100) vs pop2=(0.2, 100) gives p̄ = 0.5,
+    /// σ²_S = (100·0.09 + 100·0.09)/200 = 0.09, H_т = 0.25, so
+    /// F_ST = 0.09/0.25 = 0.36 — a value strictly inside (0, 1]. Equal-size
+    /// fixed-opposite alleles (p1 = 1, p2 = 0) give F_ST = 1 (INV-FST-03), and two
+    /// IDENTICAL populations give F_ST = 0 (INV-FST-02). The result must match the
+    /// documented value, lie in [0, 1] (INV-FST-01), and be finite. This anchors the
+    /// fuzz battery: before pinning that boundary input does no harm, confirm a
+    /// known-good comparison gives the textbook-correct F_ST.
+    /// </summary>
+    [Test]
+    public void Fst_DifferentiatedAndIdenticalPopulations_MatchDocumentedValues()
+    {
+        // Differentiated single locus → F_ST = 0.36, strictly inside (0, 1].
+        double fstDiff = PopulationGeneticsAnalyzer.CalculateFst(
+            Pop((0.8, 100)), Pop((0.2, 100)));
+
+        fstDiff.Should().BeApproximately(0.36, Tolerance,
+            because: "p̄=0.5, σ²_S=0.09, H_т=0.25 → F_ST = 0.09/0.25 = 0.36 (F_Statistics.md §6.1)");
+        fstDiff.Should().BeGreaterThan(0.0, "two differentiated populations have F_ST > 0");
+        fstDiff.Should().BeInRange(0.0, 1.0, "F_ST is a fixation index in [0, 1] (INV-FST-01)");
+        double.IsNaN(fstDiff).Should().BeFalse("a known-good comparison never yields NaN");
+
+        // Equal-size fixed-opposite alleles → complete differentiation F_ST = 1.
+        double fstFixed = PopulationGeneticsAnalyzer.CalculateFst(
+            Pop((1.0, 100)), Pop((0.0, 100)));
+        fstFixed.Should().BeApproximately(1.0, Tolerance,
+            because: "p̄=0.5, σ²_S=0.25, H_т=0.25 → F_ST = 1 (INV-FST-03, §6.1)");
+
+        // Identical populations → no among-population variance → F_ST = 0.
+        double fstSame = PopulationGeneticsAnalyzer.CalculateFst(
+            Pop((0.5, 100), (0.3, 100)), Pop((0.5, 100), (0.3, 100)));
+        fstSame.Should().Be(0.0,
+            because: "identical allele frequencies at every locus → σ²_S = 0 → F_ST = 0 (INV-FST-02)");
+    }
+
+    #endregion
+
+    #region BE — single population (one sequence supplied / 0 loci → nothing to differentiate)
+
+    /// <summary>
+    /// BE "single population": F_ST is a *between*-population statistic — with only
+    /// one group there is nothing to differentiate. The surface models the single-
+    /// population boundary as an EMPTY counterpart sequence: `CalculateFst(pop, [])`
+    /// (or `[]` vs `pop`). The explicit `pop1.Count == 0 || pop2.Count == 0` guard
+    /// returns the DEFINED 0 BEFORE any per-locus arithmetic — no DivideByZero, no
+    /// NaN (F_Statistics.md §3.3, §6.1; PopulationGeneticsAnalyzer.cs lines
+    /// 616–617). Verified across a fixed-seed sweep of single-population contents and
+    /// both argument orders so the boundary is content-independent and symmetric.
+    /// </summary>
+    [Test]
+    public void Fst_SinglePopulation_EmptyCounterpart_ReturnsDefinedZero()
+    {
+        for (int trial = 0; trial < 32; trial++)
+        {
+            int loci = Rng.Next(1, 12);
+            var single = new List<(double, int)>();
+            for (int i = 0; i < loci; i++)
+                single.Add((Rng.NextDouble(), Rng.Next(1, 500)));
+
+            var empty = new List<(double, int)>();
+
+            double fstA = double.NaN, fstB = double.NaN;
+            var actA = () => fstA = PopulationGeneticsAnalyzer.CalculateFst(single, empty);
+            var actB = () => fstB = PopulationGeneticsAnalyzer.CalculateFst(empty, single);
+
+            actA.Should().NotThrow<DivideByZeroException>(
+                "the empty-counterpart boundary short-circuits before any per-locus division");
+            actA.Should().NotThrow("a single population (empty counterpart) is a defined boundary, not an error");
+            actB.Should().NotThrow("the empty-first-argument order is equally a defined boundary");
+
+            fstA.Should().Be(0.0, $"only one population ({loci} loci) → nothing to differentiate → defined F_ST = 0 (§6.1)");
+            fstB.Should().Be(0.0, "the guard is order-independent: empty-vs-population is also the defined 0");
+            double.IsNaN(fstA).Should().BeFalse("the empty-sequence guard avoids any 0/0 NaN");
+            double.IsNaN(fstB).Should().BeFalse("the empty-sequence guard avoids any 0/0 NaN");
+        }
+    }
+
+    #endregion
+
+    #region BE — identical populations (no among-population variance → F_ST = 0, the key identity)
+
+    /// <summary>
+    /// BE / KEY identity (INV-FST-02): when the two compared populations are
+    /// IDENTICAL (same per-locus allele frequency and sample size) the weighted
+    /// among-population variance σ²_S is 0 at every locus, so the numerator is 0 over
+    /// a positive total-heterozygosity denominator → F_ST = 0 EXACTLY (no
+    /// differentiation; F_Statistics.md §2.A INV-FST-02, §6.1). Verified across a
+    /// fixed-seed sweep of random multi-locus populations so the identity holds
+    /// independent of the (polymorphic) allele frequencies and locus counts. A
+    /// polymorphic locus (0 &lt; p &lt; 1) is used so H_т &gt; 0 and a REAL division
+    /// happens — proving F_ST = 0 by the zero variance, not by the H_т = 0 guard.
+    /// </summary>
+    [Test]
+    public void Fst_IdenticalPopulations_IsExactlyZero()
+    {
+        for (int trial = 0; trial < 32; trial++)
+        {
+            int loci = Rng.Next(1, 15);
+            var pop = new List<(double, int)>();
+            for (int i = 0; i < loci; i++)
+            {
+                double p = 0.05 + 0.9 * Rng.NextDouble(); // strictly in (0,1) → H_т > 0
+                pop.Add((p, Rng.Next(2, 1000)));
+            }
+
+            // A distinct list object with the SAME content, so the comparison is real.
+            var copy = pop.ToList();
+
+            double fst = PopulationGeneticsAnalyzer.CalculateFst(pop, copy);
+
+            // σ²_S is the among-population variance of two *equal* frequencies, so it
+            // is mathematically 0; with arbitrary (non-dyadic) random p the weighted
+            // mean p̄ carries sub-ulp rounding, so (p−p̄)² is a floating-point
+            // ~1e-30, not a hard 0. The identity F_ST = 0 is pinned to within the
+            // shared 1e-9 tolerance — still an exact-identity assertion, not a
+            // weakened one.
+            fst.Should().BeApproximately(0.0, Tolerance,
+                because: $"identical allele frequencies at every one of {loci} loci → σ²_S = 0 → F_ST = 0 (INV-FST-02)");
+            fst.Should().BeInRange(0.0, 1.0, "F_ST stays in [0, 1] (INV-FST-01)");
+            double.IsNaN(fst).Should().BeFalse("identical populations divide 0 by a positive H_т, never 0/0");
+        }
+    }
+
+    /// <summary>
+    /// BE: comparing a population against ITSELF (the same list object) is the
+    /// canonical single-population/identical case — it must read as exactly 0
+    /// differentiation, mirroring the diagonal of the pairwise matrix
+    /// (`Fst(i, i) = 0`, F_Statistics.md §5.3.A).
+    /// </summary>
+    [Test]
+    public void Fst_PopulationAgainstItself_IsExactlyZero()
+    {
+        var pop = Pop((0.7, 250), (0.4, 80), (0.9, 600));
+
+        double fst = PopulationGeneticsAnalyzer.CalculateFst(pop, pop);
+
+        fst.Should().Be(0.0, "a population is not differentiated from itself → F_ST = 0 (INV-FST-02)");
+        double.IsNaN(fst).Should().BeFalse("self-comparison divides 0 by a positive denominator, not 0/0");
+    }
+
+    #endregion
+
+    #region BE — 0 samples (n1 + n2 == 0 → the 0/0 NaN-poisoning boundary, guarded to a defined 0)
+
+    /// <summary>
+    /// BE / DivideByZero (here: 0/0 → NaN) boundary: a locus with sample sizes
+    /// n1 = n2 = 0 makes the weighted mean p̄ = (0·p1 + 0·p2)/(0 + 0) a 0.0/0 → NaN.
+    /// Because the arithmetic is `double`, this is a NaN path, NOT a
+    /// DivideByZeroException. The NaN poisons the per-locus H_т and hence the
+    /// accumulated denominator; the final `denominator > 0` test is then FALSE
+    /// (NaN &gt; 0 is false), so the method returns the DEFINED 0 and NO NaN escapes
+    /// to the caller (PopulationGeneticsAnalyzer.cs line 645). This is the single
+    /// most important fuzz concern for this unit — an unguarded weighted mean here
+    /// would leak a NaN F_ST into production. Both a single all-zero-sample locus and
+    /// the pop-vs-empty 0-loci form are pinned.
+    /// </summary>
+    [Test]
+    public void Fst_ZeroSampleSizes_ReturnsDefinedZeroWithNoCrashAndNoNaN()
+    {
+        // A single locus with zero sample sizes in both populations.
+        double fst = double.NaN;
+        var act = () => fst = PopulationGeneticsAnalyzer.CalculateFst(
+            Pop((0.5, 0)), Pop((0.5, 0)));
+
+        act.Should().NotThrow<DivideByZeroException>(
+            "the n1+n2==0 weighted mean is double arithmetic (0/0 → NaN), never a DivideByZeroException");
+        act.Should().NotThrow("a 0-sample locus is a defined degenerate boundary, not an error");
+        fst.Should().Be(0.0,
+            because: "the NaN-poisoned denominator fails the `> 0` guard → defined F_ST = 0 (line 645)");
+        double.IsNaN(fst).Should().BeFalse("the denominator guard ensures NO NaN escapes to the caller");
+        double.IsInfinity(fst).Should().BeFalse("no ±Infinity escapes the guarded ratio");
+
+        // Different allele frequencies but still zero samples → same guarded 0.
+        double fstDiff = double.NaN;
+        var actDiff = () => fstDiff = PopulationGeneticsAnalyzer.CalculateFst(
+            Pop((1.0, 0)), Pop((0.0, 0)));
+        actDiff.Should().NotThrow("zero samples with opposite fixed alleles is still a defined boundary");
+        fstDiff.Should().Be(0.0, "the zero-sample 0/0 path returns the guarded 0 regardless of allele frequencies");
+        double.IsNaN(fstDiff).Should().BeFalse("no NaN escapes even when p1 ≠ p2 at the zero-sample locus");
+    }
+
+    /// <summary>
+    /// BE / H_т = 0 (DivideByZero) boundary — the monomorphic-locus case the prompt
+    /// flags: when EVERY compared locus is fixed for the SAME allele in both
+    /// populations (p1 = p2 ∈ {0, 1}) the total heterozygosity H_т = p̄(1−p̄) = 0 at
+    /// every locus, so the accumulated denominator is exactly 0. The explicit
+    /// `denominator > 0 ? … : 0` guard returns the DEFINED 0 instead of dividing by
+    /// zero (F_Statistics.md §6.1 "both fixed for the same allele … returns 0";
+    /// PopulationGeneticsAnalyzer.cs line 645). Verified across a fixed-seed sweep of
+    /// monomorphic populations (positive sample sizes, so this is the H_т=0 boundary,
+    /// distinct from the n=0 boundary above) so no DivideByZero and no NaN ever
+    /// escape, regardless of which allele is fixed or how many loci.
+    /// </summary>
+    [Test]
+    public void Fst_MonomorphicSameAllele_ReturnsDefinedZeroWithNoDivideByZero()
+    {
+        for (int trial = 0; trial < 16; trial++)
+        {
+            int loci = Rng.Next(1, 10);
+            double fixedAllele = Rng.Next(2) == 0 ? 0.0 : 1.0; // both fixed for 0 or for 1
+            var pop1 = new List<(double, int)>();
+            var pop2 = new List<(double, int)>();
+            for (int i = 0; i < loci; i++)
+            {
+                pop1.Add((fixedAllele, Rng.Next(1, 1000)));
+                pop2.Add((fixedAllele, Rng.Next(1, 1000)));
+            }
+
+            double fst = double.NaN;
+            var act = () => fst = PopulationGeneticsAnalyzer.CalculateFst(pop1, pop2);
+
+            act.Should().NotThrow<DivideByZeroException>(
+                "the H_т=0 denominator is guarded by `denominator > 0 ? … : 0`, never divided by");
+            act.Should().NotThrow("a monomorphic same-allele comparison is a defined boundary, not an error");
+            fst.Should().Be(0.0,
+                because: $"all {loci} loci fixed for allele {fixedAllele} → H_т = 0 → guarded defined F_ST = 0 (§6.1)");
+            double.IsNaN(fst).Should().BeFalse("the H_т=0 guard avoids a 0/0 NaN");
+            double.IsInfinity(fst).Should().BeFalse("the H_т=0 guard avoids a ±Infinity");
+        }
+    }
+
+    #endregion
+
+    #region BE — mismatched locus counts (documented ArgumentException, never a silent miscompare)
+
+    /// <summary>
+    /// BE: the two per-locus sequences must align 1-to-1. Two NON-EMPTY sequences of
+    /// DIFFERENT length are rejected with the *documented, intentional*
+    /// ArgumentException (PopulationGeneticsAnalyzer.cs lines 619–623) — NOT a silent
+    /// prefix-truncated miscompare and NOT a crash. (The empty-vs-non-empty case is
+    /// the single-population boundary handled by the earlier guard and returns 0; the
+    /// length-mismatch gate applies only when BOTH sequences are non-empty.) This
+    /// pins the validation boundary so the strict count contract cannot drift.
+    /// </summary>
+    [Test]
+    public void Fst_MismatchedNonEmptyLocusCounts_ThrowsDocumentedArgumentException()
+    {
+        var pop1 = Pop((0.5, 100), (0.3, 100));
+        var pop2 = Pop((0.5, 100)); // one locus short, but non-empty
+
+        var act = () => PopulationGeneticsAnalyzer.CalculateFst(pop1, pop2);
+
+        act.Should().Throw<ArgumentException>(
+            "two non-empty populations with mismatched per-locus counts are rejected, " +
+            "never silently compared on a truncated prefix (F_Statistics.md §3.3; lines 619–623)");
+    }
+
+    #endregion
+
+    #region BE — random differentiated populations stay finite and in [0, 1]
+
+    /// <summary>
+    /// BE / INV-FST-01 sweep: across a fixed-seed battery of random, equal-length
+    /// two-population comparisons (polymorphic allele frequencies, positive sample
+    /// sizes) F_ST must ALWAYS be a well-defined, finite value in [0, 1] — a
+    /// non-negative weighted variance over a positive total heterozygosity can never
+    /// be negative, exceed 1, NaN, or ±Infinity. This pins the total-function
+    /// contract over the random-but-valid interior, complementing the degenerate-
+    /// boundary tests.
+    /// </summary>
+    [Test]
+    public void Fst_RandomDifferentiatedPopulations_AlwaysInUnitIntervalAndFinite()
+    {
+        for (int trial = 0; trial < 64; trial++)
+        {
+            int loci = Rng.Next(1, 20);
+            var pop1 = new List<(double, int)>();
+            var pop2 = new List<(double, int)>();
+            for (int i = 0; i < loci; i++)
+            {
+                pop1.Add((0.01 + 0.98 * Rng.NextDouble(), Rng.Next(1, 2000)));
+                pop2.Add((0.01 + 0.98 * Rng.NextDouble(), Rng.Next(1, 2000)));
+            }
+
+            double fst = double.NaN;
+            var act = () => fst = PopulationGeneticsAnalyzer.CalculateFst(pop1, pop2);
+
+            act.Should().NotThrow("a random equal-length valid two-population input is always defined");
+            double.IsNaN(fst).Should().BeFalse("a positive H_т denominator never yields a 0/0 NaN");
+            double.IsInfinity(fst).Should().BeFalse("a bounded variance over a positive denominator never gives ±Infinity");
+            fst.Should().BeGreaterThanOrEqualTo(0.0, "F_ST is a ratio of non-negative quantities (INV-FST-01)");
+            fst.Should().BeLessThanOrEqualTo(1.0, "F_ST never exceeds complete differentiation (INV-FST-01)");
         }
     }
 
