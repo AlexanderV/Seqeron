@@ -355,6 +355,119 @@ namespace Seqeron.Genomics.Tests;
 ///   • NULL / EMPTY input → no records (`yield break` on `IsNullOrEmpty`, line 118–119).
 /// Determinism note: every VCF fuzz input below is a FIXED literal (no randomness);
 /// the huge-allele test carries `[CancelAfter]`, exactly as the FASTA/FASTQ/BED tests.
+///
+/// ═══════════════════════════════════════════════════════════════════════════
+/// Unit: PARSE-GFF-001 — GFF parsing (FileIO)
+/// ═══════════════════════════════════════════════════════════════════════════
+/// Checklist: docs/checklists/03_FUZZING.md, row 68. The fifth FileIO-area fuzz
+/// unit, targeting `Seqeron.Genomics.IO.GffParser` — the FULL file parser, DISTINCT
+/// from the Annotation-area `GenomeAnnotator.ParseGff3` (ANNOT-GFF-001, row 31).
+/// Fuzz strategies exercised for THIS unit:
+///   • TF  = Truncated Fields — a data line with FEWER than the 8 mandatory columns
+///           (a row truncated to seqid/source/type/start only). THE classic
+///           IndexOutOfRange-on-`fields[3]`…`fields[7]` trap on a short TAB split.
+///   • MC  = Malformed Content — non-integer / float `start`/`end`; malformed
+///           attributes (a `key` with no `=`, a trailing `;`, an empty `key=`,
+///           duplicate keys).
+///   • BE  = Boundary Exploitation — a NEGATIVE coordinate (`-5`) and `start > end`
+///           (a reversed interval).
+///   • INJ = Injection — an INVALID strand char (not one of `+`/`-`/`.`/`?`);
+///           PERCENT-ENCODED reserved characters in attribute values (`%3D`=`=`,
+///           `%2C`=`,`, `%3B`=`;`, `%09`=tab) — the KEY INJ target: a parser that
+///           splits column 9 on `;`/`=` MUST handle encoded separators correctly.
+/// — docs/checklists/03_FUZZING.md §Description (strategy codes).
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The GFF-parsing contract under test (the DOCUMENTED, repository-specific one)
+/// ───────────────────────────────────────────────────────────────────────────
+/// GFF3/GTF is a TAB-delimited NINE-column annotation format —
+/// `seqid source type start end score strand phase attributes` — with 1-based,
+/// fully-closed coordinates; strand is one of `+`/`-`/`.`/`?`; GFF3 reserved
+/// characters in attribute values are PERCENT-encoded (`%3D`, `%2C`, `%09`, …).
+/// [Sequence Ontology GFF3 v1.26; UCSC; GTF2.2]
+///   — docs/algorithms/FileIO/GFF_Parsing.md §2.1, §2.2, §2.4 (INV-01…INV-04).
+///
+/// API entry points (GffParser.cs):
+///   • IEnumerable&lt;GffRecord&gt; GffParser.Parse(string content, GffFormat)
+///   • IEnumerable&lt;GffRecord&gt; GffParser.ParseFile(string path, GffFormat)
+///   • IEnumerable&lt;GffRecord&gt; GffParser.Parse(TextReader, GffFormat)
+/// All three delegate to the SAME `Parse(TextReader,…)` line state machine, so the
+/// string surface fully exercises the contract; one file-path test additionally pins
+/// the `ParseFile` StreamReader path. `Parse` is a `yield`-based iterator — every test
+/// materializes with `.ToList()` so any work (and any throw) actually runs inside the
+/// assertion.
+///
+/// CRITICAL CONTRACT — TOLERANT/SKIP, NEVER CRASH, NEVER CORRUPT.
+/// `GffParser` does the minimum STRUCTURAL validation (≥ 8 columns, integer
+/// start/end) and stores everything else as-is (GFF_Parsing.md §3.3, §6.1). The
+/// business guarantee these fuzz tests pin is that EVERY malformed / truncated /
+/// injected line resolves to EITHER a well-defined, theory-correct `GffRecord` OR a
+/// clean skip — NEVER an unhandled IndexOutOfRange (on a short line!),
+/// FormatException (on a non-integer start/end), or hang. Each fuzz test asserts
+/// `NotThrow` PLUS a pinned, exact structural outcome so the documented behavior can
+/// never silently drift into a crash or a corrupt feature. (NOTE: ANNOT-GFF-001 found
+/// a real FormatException/IndexOutOfRange bug in the OTHER GFF parser. This FileIO
+/// parser is hardened against that class of bug — `fields.Length &lt; 8` guards the
+/// short-line trap, and `int.TryParse` guards the non-integer-coordinate trap — and
+/// the fuzz tests below PIN that hardening so it cannot regress.)
+/// Documented behaviors pinned per target (GFF_Parsing.md §3.3, §6.1;
+/// GffParser.cs ParseLine / ParseAttributes / UnescapeGff):
+///   • FEWER THAN 8 COLUMNS (TF): `ParseLine` splits on TAB and returns `null` when
+///     `fields.Length &lt; 8` (GffParser.cs lines 121–123) BEFORE indexing `fields[3]`…
+///     `fields[7]`, so the classic IndexOutOfRange trap CANNOT fire. Pinned: a 4-column
+///     row yields ZERO records (the documented "fewer than 8 columns → skipped" of
+///     §6.1). An 8-column row (no attributes) IS accepted with an empty attribute dict.
+///     The KEY TF boundary case.
+///   • NON-INTEGER start/end (MC): start/end are read with `int.TryParse`
+///     (lines 129–132); a non-numeric / float token makes TryParse return `false` →
+///     the line returns `null` (skipped). This is the documented "start/end not an
+///     integer → skipped" of §3.3 — NOT an unhandled `FormatException` from a
+///     `int.Parse`. Pinned: a `"abc"` / `"10.5"` start yields ZERO records.
+///   • NEGATIVE COORDINATE (BE): `int.TryParse(NumberStyles.Integer)` ACCEPTS a
+///     leading `-`, and `ParseLine` has NO non-negative guard AND NO `start &gt; end`
+///     guard (unlike the BED parser). Per the repo contract (§3.3 lists ONLY the
+///     "&lt; 8 columns" and "non-integer start/end" rejections), a negative coordinate
+///     PARSES, producing a record with a negative `Start`/`End`. We pin the DOCUMENTED
+///     behavior exactly (parse, negative preserved), not an idealized rejection the
+///     parser does not implement.
+///   • start &gt; end (BE): there is NO `start &gt; end` rejection in `ParseLine`, so a
+///     reversed interval PARSES (Start &gt; End) rather than being skipped — the
+///     INV-02 `start &lt;= end` is a property of VALID input, not a parse-time guard.
+///     We pin the documented behavior (the reversed record is emitted, no crash),
+///     distinct from BED where start&gt;end is explicitly rejected.
+///   • INVALID STRAND (INJ): `strand = fields[6].Length &gt; 0 ? fields[6][0] : '.'`
+///     (line 141) — the parser takes the FIRST char of column 7 with NO membership
+///     check against `+`/`-`/`.`/`?`. So an invalid strand like `"X"` is PRESERVED
+///     verbatim as `'X'` (not rejected, not normalized), and an EMPTY column 7 becomes
+///     `'.'`. We pin BOTH: an invalid strand parses with the char preserved, and an
+///     empty strand defaults to `'.'` — the documented "store as-is" behavior, never a
+///     crash.
+///   • MALFORMED ATTRIBUTES (MC): column 9 is split on `;` with
+///     `RemoveEmptyEntries`, then each part split on the FIRST `=` with the
+///     `eqIdx &gt; 0` guard (lines 183–193). A part with NO `=` is SILENTLY DROPPED
+///     (eqIdx == -1); a TRAILING `;` produces no empty entry (RemoveEmptyEntries); an
+///     empty `=value` (eqIdx == 0) is dropped (the key would be empty); a DUPLICATE
+///     key is LAST-WINS (`attributes[key] = value`). We pin each of these exact shapes
+///     — the parser never crashes on malformed column 9 and resolves it
+///     deterministically.
+///   • PERCENT-ENCODING (INJ — THE KEY TARGET): seqid/source/type AND every GFF3
+///     attribute key/value pass through `UnescapeGff` = `Uri.UnescapeDataString`
+///     (lines 125–127, 189–190, 199–202). CRUCIALLY the split on `;`/`=` happens on
+///     the RAW (still-encoded) text BEFORE unescaping, so an ENCODED separator
+///     (`%3D` = `=`, `%3B` = `;`, `%2C` = `,`, `%09` = tab) inside an attribute VALUE
+///     survives the split and is then correctly decoded into the value — a parser that
+///     decoded first would mis-split. We pin: `Name=val%3Due` → value `"val=ue"` (the
+///     encoded `=` does NOT create a spurious split), `%2C` → `,`, `%09` → tab. A
+///     MALFORMED percent-sequence (`%ZZ`, a lone trailing `%`) is passed through
+///     VERBATIM by `Uri.UnescapeDataString` (verified: it does NOT throw), so a broken
+///     escape can never crash the parser. This is the contrast with the BED/VCF units:
+///     GFF is the one format with mandatory percent-decoding, and the INJ target is
+///     precisely that the `;`/`=` splitter must not be fooled by encoded separators.
+///   • NULL / EMPTY input → no records (`yield break` on `IsNullOrEmpty`, line 71–72);
+///     `##`/`#` directive and comment lines are skipped.
+/// Determinism note: every GFF fuzz input below is a FIXED literal (no randomness),
+/// so each run is byte-for-byte reproducible; no `[CancelAfter]` is needed because no
+/// input is large or random — the parser is a single linear pass over short literals.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -439,6 +552,18 @@ public class FileIoFuzzTests
     private string WriteTempVcf(string content)
     {
         string path = Path.Combine(_tempDir, "in_" + Guid.NewGuid().ToString("N") + ".vcf");
+        File.WriteAllText(path, content, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        return path;
+    }
+
+    /// <summary>
+    /// Writes <paramref name="content"/> verbatim (no added trailing newline) to a
+    /// fresh temp `.gff3` file and returns its path, so the GFF file-path tests control
+    /// byte layout exactly (in particular: a truncated final data line / TAB layout).
+    /// </summary>
+    private string WriteTempGff(string content)
+    {
+        string path = Path.Combine(_tempDir, "in_" + Guid.NewGuid().ToString("N") + ".gff3");
         File.WriteAllText(path, content, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
         return path;
     }
@@ -1849,6 +1974,378 @@ public class FileIoFuzzTests
             "the full-length ALT is preserved intact");
         records[1].Pos.Should().Be(200, "the parser recovers and still emits the following record");
         token.IsCancellationRequested.Should().BeFalse("a huge allele must not stall the parser");
+    }
+
+    #endregion
+
+    #endregion
+
+    #region PARSE-GFF-001 — GFF parsing (FileIO)
+
+    #region Positive sanity — a valid GFF3 parses to correct features with decoded attributes
+
+    /// <summary>
+    /// Positive control: a well-formed GFF3 (a `##gff-version 3` directive plus two
+    /// 9-column data rows, one with a percent-encoded attribute value) must parse to
+    /// exactly two `GffRecord`s with the correct seqid/source/type/coords/strand/phase
+    /// and DECODED attributes. If this fails the whole GFF fuzz suite is meaningless —
+    /// it proves the happy path (incl. percent-decoding) is wired up before we throw
+    /// garbage at it.
+    /// </summary>
+    [Test]
+    public void ParseGff_ValidGff3_ParsesToCorrectFeatures()
+    {
+        const string gff =
+            "##gff-version 3\n" +
+            "chr1\tEnsembl\tgene\t1000\t9000\t.\t+\t.\tID=gene1;Name=EDEN\n" +
+            "chr1\tEnsembl\tmRNA\t1050\t9000\t0.95\t-\t0\tID=mrna1;Parent=gene1;Note=test%2Cnote\n";
+
+        List<GffParser.GffRecord> records = GffParser.Parse(gff).ToList();
+
+        records.Should().HaveCount(2, "both well-formed 9-column rows must be emitted");
+
+        records[0].Seqid.Should().Be("chr1");
+        records[0].Source.Should().Be("Ensembl");
+        records[0].Type.Should().Be("gene");
+        records[0].Start.Should().Be(1000);
+        records[0].End.Should().Be(9000);
+        records[0].Score.Should().BeNull("a '.' score is normalized to null (§6.1)");
+        records[0].Strand.Should().Be('+');
+        records[0].Phase.Should().BeNull("a '.' phase is normalized to null (§6.1)");
+        records[0].Attributes["ID"].Should().Be("gene1");
+        records[0].Attributes["Name"].Should().Be("EDEN");
+
+        records[1].Type.Should().Be("mRNA");
+        records[1].Score.Should().Be(0.95);
+        records[1].Strand.Should().Be('-');
+        records[1].Phase.Should().Be(0);
+        records[1].Attributes["Parent"].Should().Be("gene1");
+        records[1].Attributes["Note"].Should().Be("test,note",
+            "the percent-encoded '%2C' in the attribute value decodes to a comma (INV-04)");
+    }
+
+    /// <summary>
+    /// Positive control over the FILE-PATH surface: a valid GFF3 written to disk parses
+    /// via `ParseFile` to the same correct records, pinning the StreamReader path (the
+    /// common real-world entry point) and that an 8-column row (no attributes) is
+    /// accepted with an empty attribute dictionary.
+    /// </summary>
+    [Test]
+    public void ParseFileGff_ValidGff3_ParsesToCorrectFeatures()
+    {
+        const string gff =
+            "##gff-version 3\n" +
+            "scaf1\t.\texon\t5\t25\t.\t+\t.\tID=exon1\n" +
+            "scaf1\t.\tCDS\t5\t25\t.\t+\t0\n";   // 8 columns, no attribute field
+        string path = WriteTempGff(gff);
+
+        List<GffParser.GffRecord> records = GffParser.ParseFile(path).ToList();
+
+        records.Should().HaveCount(2);
+        records[0].Type.Should().Be("exon");
+        records[0].Attributes["ID"].Should().Be("exon1");
+        records[1].Type.Should().Be("CDS");
+        records[1].Phase.Should().Be(0);
+        records[1].Attributes.Should().BeEmpty(
+            "an 8-column row (no column 9) gets an empty attribute dictionary (§5.2)");
+    }
+
+    #endregion
+
+    #region TF — Fewer than 8 columns: skipped, never IndexOutOfRange
+
+    /// <summary>
+    /// TF: a data line truncated to FEWER than the 8 mandatory columns (here 4:
+    /// seqid/source/type/start). `ParseLine` splits on TAB and returns `null` when
+    /// `fields.Length &lt; 8` (GffParser.cs lines 121–123) BEFORE ever indexing
+    /// `fields[3]`…`fields[7]`, so the classic IndexOutOfRange trap CANNOT fire — the
+    /// exact class of bug ANNOT-GFF-001 found in the OTHER GFF parser. Pinned: the
+    /// 4-column row yields ZERO records and the following full 9-column row still
+    /// parses, proving skip-and-recover, never a crash.
+    /// </summary>
+    [Test]
+    public void ParseGff_FewerThanEightColumns_SkippedNoCrash()
+    {
+        const string gff =
+            "chr1\tsrc\tgene\t100\n" +   // only 4 columns — truncated mid-record
+            "chr1\tsrc\tgene\t100\t200\t.\t+\t.\tID=g1\n";
+
+        List<GffParser.GffRecord> records = new();
+        var act = () => records = GffParser.Parse(gff).ToList();
+
+        act.Should().NotThrow(
+            "a <8-column row is rejected on the field-count guard, never IndexOutOfRange");
+        records.Should().ContainSingle("only the full 9-column row can be emitted")
+            .Which.Attributes["ID"].Should().Be("g1");
+    }
+
+    #endregion
+
+    #region MC — Non-integer / float start or end: skipped, never FormatException
+
+    /// <summary>
+    /// MC: a row whose `start` is non-numeric ("abc") and a row whose `end` is a FLOAT
+    /// ("200.5"). Both coordinates are read with `int.TryParse` (lines 129–132); a
+    /// non-integer token makes TryParse return `false`, so the line returns `null`
+    /// (skipped) — the documented "start/end not an integer → skipped" of §3.3, NOT an
+    /// unhandled `FormatException` from a `int.Parse` (the bug class ANNOT-GFF-001 hit).
+    /// Pinned: both malformed-coordinate rows yield ZERO records, the valid row between
+    /// them survives, and nothing throws.
+    /// </summary>
+    [Test]
+    public void ParseGff_NonIntegerCoordinate_SkippedNoCrash()
+    {
+        const string gff =
+            "chr1\tsrc\tgene\tabc\t200\t.\t+\t.\tID=bad1\n" +    // non-numeric start
+            "chr1\tsrc\tgene\t100\t200\t.\t+\t.\tID=ok\n" +      // valid
+            "chr1\tsrc\tgene\t100\t200.5\t.\t+\t.\tID=bad2\n";   // float end
+
+        List<GffParser.GffRecord> records = new();
+        var act = () => records = GffParser.Parse(gff).ToList();
+
+        act.Should().NotThrow(
+            "non-integer start/end is rejected via int.TryParse, never a FormatException");
+        records.Should().ContainSingle("only the integer-coordinate row survives")
+            .Which.Attributes["ID"].Should().Be("ok");
+    }
+
+    #endregion
+
+    #region BE — Negative coordinate and start > end: parsed per the documented contract
+
+    /// <summary>
+    /// BE: a row with a NEGATIVE `start` (`-5`). `int.TryParse(NumberStyles.Integer)`
+    /// accepts a leading `-`, and `ParseLine` has NO non-negative guard — §3.3 lists
+    /// ONLY "&lt; 8 columns" and "non-integer start/end" as rejection rules. So the
+    /// negative coordinate PARSES, producing a record with a negative `Start`. We pin
+    /// the DOCUMENTED behavior exactly (parse, negative preserved), NOT an idealized
+    /// "reject negatives" the FileIO parser does not implement — never a crash.
+    /// </summary>
+    [Test]
+    public void ParseGff_NegativeCoordinate_ParsesWithNegativeStart()
+    {
+        const string gff = "chr1\tsrc\tgene\t-5\t200\t.\t+\t.\tID=neg\n";
+
+        List<GffParser.GffRecord> records = new();
+        var act = () => records = GffParser.Parse(gff).ToList();
+
+        act.Should().NotThrow("a negative coordinate is accepted by int.TryParse, no crash");
+        records.Should().ContainSingle("there is no non-negative guard in ParseLine (§3.3)");
+        records[0].Start.Should().Be(-5, "the negative start is preserved verbatim");
+        records[0].End.Should().Be(200);
+    }
+
+    /// <summary>
+    /// BE: a row with `start &gt; end` (a REVERSED interval, 500 &gt; 100). Unlike the BED
+    /// parser, `GffParser.ParseLine` has NO `start &gt; end` rejection — INV-02
+    /// (`start &lt;= end`) is a property of VALID input, not a parse-time guard. So the
+    /// reversed interval PARSES (Start &gt; End) rather than being skipped. We pin the
+    /// DOCUMENTED behavior (the reversed record is emitted, coordinates preserved),
+    /// distinct from BED where start&gt;end is explicitly rejected — never a crash.
+    /// </summary>
+    [Test]
+    public void ParseGff_StartGreaterThanEnd_ParsesReversedInterval()
+    {
+        const string gff = "chr1\tsrc\tgene\t500\t100\t.\t+\t.\tID=rev\n";
+
+        List<GffParser.GffRecord> records = new();
+        var act = () => records = GffParser.Parse(gff).ToList();
+
+        act.Should().NotThrow("there is no start>end guard in the GFF parser, so it parses");
+        records.Should().ContainSingle();
+        records[0].Start.Should().Be(500);
+        records[0].End.Should().Be(100,
+            "the reversed interval is preserved as-is (no start>end rejection, unlike BED)");
+    }
+
+    #endregion
+
+    #region INJ — Invalid strand: first char preserved verbatim, empty defaults to '.'
+
+    /// <summary>
+    /// INJ: column 7 (strand) holding an INVALID value — one NOT in the spec set
+    /// `+`/`-`/`.`/`?` ("X"), and an EMPTY strand field. `strand =
+    /// fields[6].Length &gt; 0 ? fields[6][0] : '.'` (line 141) takes the FIRST char with
+    /// NO membership check, so "X" is PRESERVED verbatim as `'X'` (not rejected, not
+    /// normalized) and an empty column 7 becomes `'.'`. We pin BOTH shapes — the
+    /// documented "store as-is" behavior — and assert no throw, so the lack of strand
+    /// validation can never silently drift into a crash.
+    /// </summary>
+    [Test]
+    public void ParseGff_InvalidStrand_PreservedVerbatimNoCrash()
+    {
+        const string gff =
+            "chr1\tsrc\tgene\t100\t200\t.\tX\t.\tID=invalidStrand\n" +  // invalid strand 'X'
+            "chr1\tsrc\tgene\t100\t200\t.\t\t.\tID=emptyStrand\n";       // empty strand column
+
+        List<GffParser.GffRecord> records = new();
+        var act = () => records = GffParser.Parse(gff).ToList();
+
+        act.Should().NotThrow("an invalid/empty strand is stored as-is, never a crash");
+        records.Should().HaveCount(2, "neither row is rejected — strand is not validated");
+        records[0].Strand.Should().Be('X',
+            "an invalid strand is preserved verbatim (first char, no membership check)");
+        records[1].Strand.Should().Be('.',
+            "an empty strand column defaults to '.' (the §2.2 undefined-strand symbol)");
+    }
+
+    #endregion
+
+    #region MC — Malformed attributes: handled deterministically, never a crash
+
+    /// <summary>
+    /// MC: column 9 holding malformed attributes — a bare key with NO `=`
+    /// (`flagonly`), a TRAILING `;`, an empty `=value` (no key), and a DUPLICATE key
+    /// (`Name=first;Name=second`). The GFF3 attribute parser splits on `;` with
+    /// `RemoveEmptyEntries`, then on the FIRST `=` with the `eqIdx &gt; 0` guard
+    /// (GffParser.cs lines 183–193). So: the no-`=` part is silently DROPPED; the
+    /// trailing `;` yields no empty entry; the empty `=value` (eqIdx == 0) is dropped;
+    /// the duplicate key is LAST-WINS. We pin each exact outcome — the parser resolves
+    /// malformed column 9 deterministically and never crashes (the documented tolerant
+    /// behavior, §3.3).
+    /// </summary>
+    [Test]
+    public void ParseGff_MalformedAttributes_HandledDeterministicallyNoCrash()
+    {
+        // flagonly: no '='. =orphan: empty key. Name appears twice → last wins.
+        // Trailing ';' after the last pair must not create an empty/garbage entry.
+        const string gff =
+            "chr1\tsrc\tgene\t100\t200\t.\t+\t.\tID=g1;flagonly;=orphan;Name=first;Name=second;\n";
+
+        List<GffParser.GffRecord> records = new();
+        var act = () => records = GffParser.Parse(gff).ToList();
+
+        act.Should().NotThrow("malformed attributes are parsed deterministically, never a crash");
+        records.Should().ContainSingle();
+        var attrs = records[0].Attributes;
+
+        attrs["ID"].Should().Be("g1", "a well-formed key=value still parses");
+        attrs.Should().NotContainKey("flagonly",
+            "a part with no '=' is dropped by the eqIdx>0 guard");
+        attrs.Should().NotContainKey("",
+            "an empty '=value' (eqIdx==0) is dropped — no empty-key entry");
+        attrs["Name"].Should().Be("second",
+            "a duplicate key is last-wins (attributes[key] = value)");
+    }
+
+    /// <summary>
+    /// MC companion: an EMPTY / whitespace-only attribute column (`.` or blank where
+    /// callers sometimes place a placeholder). `ParseAttributes` early-returns an empty
+    /// dictionary on `IsNullOrWhiteSpace` (lines 161–162), and a lone `.` simply has no
+    /// `=` so contributes nothing. We pin that the record still parses with an empty
+    /// attribute dictionary — no crash, no spurious attribute.
+    /// </summary>
+    [Test]
+    public void ParseGff_EmptyAttributeColumn_YieldsEmptyAttributesNoCrash()
+    {
+        const string gff = "chr1\tsrc\tgene\t100\t200\t.\t+\t.\t.\n";  // attr col is just "."
+
+        List<GffParser.GffRecord> records = new();
+        var act = () => records = GffParser.Parse(gff).ToList();
+
+        act.Should().NotThrow("a placeholder '.' attribute column must not crash");
+        records.Should().ContainSingle();
+        records[0].Attributes.Should().BeEmpty(
+            "a lone '.' has no '=' so contributes no attribute");
+    }
+
+    #endregion
+
+    #region INJ — Percent-encoding (THE key target): encoded separators decoded correctly
+
+    /// <summary>
+    /// INJ (THE KEY TARGET): attribute VALUES containing PERCENT-ENCODED reserved
+    /// characters — `%3D` (=`=`), `%2C` (=`,`), `%3B` (=`;`), `%09` (=tab). The GFF3
+    /// attribute parser splits column 9 on `;`/`=` on the RAW, still-encoded text
+    /// BEFORE unescaping (GffParser.cs lines 183–193) and only THEN runs
+    /// `UnescapeGff` = `Uri.UnescapeDataString` on each key/value. So an ENCODED
+    /// separator inside a value survives the split intact and decodes correctly — a
+    /// parser that decoded FIRST would mis-split on the embedded `=`/`;`. We pin:
+    ///   • `Note=a%3Db`  → value `"a=b"`   (encoded `=` does NOT split the pair)
+    ///   • `List=x%2Cy`  → value `"x,y"`   (encoded `,` decodes to a comma)
+    ///   • `Semi=p%3Bq`  → value `"p;q"`   (encoded `;` does NOT split into two attrs)
+    ///   • `Tab=u%09v`   → value `"u\tv"`  (encoded tab decodes inside the value)
+    /// This is the central GFF3 robustness invariant (INV-04) and the exact behavior a
+    /// naive `;`/`=` splitter gets wrong; we prove the parser gets it right.
+    /// </summary>
+    [Test]
+    public void ParseGff_PercentEncodedSeparatorsInAttributeValues_DecodedCorrectly()
+    {
+        const string gff =
+            "chr1\tsrc\tgene\t100\t200\t.\t+\t.\t" +
+            "Note=a%3Db;List=x%2Cy;Semi=p%3Bq;Tab=u%09v\n";
+
+        List<GffParser.GffRecord> records = new();
+        var act = () => records = GffParser.Parse(gff).ToList();
+
+        act.Should().NotThrow("percent-encoded separators must be handled, never a crash");
+        records.Should().ContainSingle("the encoded ';'/'=' must NOT split the row into extra attrs");
+        var attrs = records[0].Attributes;
+
+        attrs.Should().HaveCount(4,
+            "exactly four attributes — encoded separators do not create spurious entries");
+        attrs["Note"].Should().Be("a=b", "%3D decodes to '=' AFTER the split on '='");
+        attrs["List"].Should().Be("x,y", "%2C decodes to a comma");
+        attrs["Semi"].Should().Be("p;q", "%3B decodes to ';' AFTER the split on ';'");
+        attrs["Tab"].Should().Be("u\tv", "%09 decodes to a tab inside the value");
+    }
+
+    /// <summary>
+    /// INJ companion: seqid/source/type columns also pass through `UnescapeGff`
+    /// (lines 125–127), so a percent-encoded seqid (`chr%3A1` → `chr:1`) decodes; AND a
+    /// MALFORMED percent-sequence (a lone `%`, `%ZZ`, a truncated `%2`) is passed
+    /// through VERBATIM by `Uri.UnescapeDataString` (verified: it does NOT throw on a
+    /// broken escape). We pin BOTH: a valid encoded seqid decodes, and a malformed
+    /// escape in an attribute value survives verbatim without crashing the parser — so
+    /// a broken escape can never become an unhandled exception.
+    /// </summary>
+    [Test]
+    public void ParseGff_MalformedPercentEscape_PassedThroughVerbatimNoCrash()
+    {
+        const string gff =
+            "chr%3A1\tsrc\tgene\t100\t200\t.\t+\t.\tBad=50%off;Trunc=ab%2;Hex=%ZZ\n";
+
+        List<GffParser.GffRecord> records = new();
+        var act = () => records = GffParser.Parse(gff).ToList();
+
+        act.Should().NotThrow(
+            "a malformed percent-escape is passed through verbatim by UnescapeDataString, never a crash");
+        records.Should().ContainSingle();
+        records[0].Seqid.Should().Be("chr:1", "a valid encoded seqid '%3A' decodes to ':'");
+        var attrs = records[0].Attributes;
+        attrs["Bad"].Should().Be("50%off", "a lone '%' that is not a valid escape is preserved verbatim");
+        attrs["Trunc"].Should().Be("ab%2", "a truncated '%2' escape is preserved verbatim");
+        attrs["Hex"].Should().Be("%ZZ", "an invalid-hex '%ZZ' escape is preserved verbatim");
+    }
+
+    #endregion
+
+    #region Robustness — null/empty input yields no records, never a crash
+
+    /// <summary>
+    /// Robustness: null, empty, and directive/comment-only input must each yield ZERO
+    /// records via the `IsNullOrEmpty` early-return (line 71–72) and the `##`/`#`
+    /// skip (lines 96–111), never a crash. Pins the documented empty-input contract
+    /// (§6.1) so a future refactor cannot turn empty input into an exception.
+    /// </summary>
+    [Test]
+    public void ParseGff_NullEmptyAndDirectiveOnly_YieldNoRecordsNoCrash()
+    {
+        List<GffParser.GffRecord> nullRecords = new();
+        var actNull = () => nullRecords = GffParser.Parse((string)null!).ToList();
+        actNull.Should().NotThrow("null input is guarded by IsNullOrEmpty");
+        nullRecords.Should().BeEmpty();
+
+        GffParser.Parse("").ToList().Should().BeEmpty("empty input yields no records");
+
+        const string directiveOnly =
+            "##gff-version 3\n" +
+            "# a comment line\n" +
+            "##sequence-region chr1 1 1000\n";
+        List<GffParser.GffRecord> dirRecords = new();
+        var actDir = () => dirRecords = GffParser.Parse(directiveOnly).ToList();
+        actDir.Should().NotThrow("directive/comment-only input must not crash");
+        dirRecords.Should().BeEmpty("##/# lines are skipped — no data rows means no records");
     }
 
     #endregion
