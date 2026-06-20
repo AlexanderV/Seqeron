@@ -297,6 +297,90 @@ namespace Seqeron.Genomics.Tests;
 /// • Wikipedia: Aneuploidy; Copy number variation — copy-number terminology and the
 ///   depth-proportional-to-copy-number model used for the positive-sanity profile.
 /// ───────────────────────────────────────────────────────────────────────────
+///
+/// ═══════════════════════════════════════════════════════════════════════════
+/// Unit: CHROM-SYNT-001 — synteny analysis
+/// Checklist: docs/checklists/03_FUZZING.md, row 52.
+/// Fuzz strategy exercised for THIS unit:
+///   • BE = Boundary Exploitation — the degenerate boundaries called out in the
+///          checklist row: 0 ortholog pairs, self-comparison (a genome against
+///          itself under an identity ortholog map), and empty genomes.
+///          — docs/checklists/03_FUZZING.md §Description (strategy codes).
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Which synteny method — Chromosome (NOT Comparative)
+/// ───────────────────────────────────────────────────────────────────────────
+/// There are two synteny surfaces in the codebase: COMPGEN-SYNTENY-001 in the
+/// Comparative-genomics area (ComparativeGenomics.cs, row 139) and the
+/// CHROMOSOME-area CHROM-SYNT-001 under test here. This unit targets the
+/// Chromosome surface:
+///   `ChromosomeAnalyzer.FindSyntenyBlocks(
+///        IEnumerable&lt;(string Chr1, int Start1, int End1, string Gene1,
+///                     string Chr2, int Start2, int End2, string Gene2)&gt; orthologPairs,
+///        int minGenes = 3,
+///        int maxGap   = 10)`
+///   (src/Seqeron/Algorithms/Seqeron.Genomics.Chromosome/ChromosomeAnalyzer.cs
+///    lines 643–716). It is a LAZY iterator (`yield`), so any exception or hang
+///    surfaces only when the result is *enumerated* — every fuzz case below forces
+///    evaluation with `.ToList()`, otherwise the `pairs.Count < minGenes` guard and
+///    the collinear-run scan would never run.
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The synteny-detection contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// Synteny analysis finds conserved gene-order (collinear) blocks between two
+/// genomes from ortholog ANCHOR pairs. The algorithm (Synteny_Analysis.md §4.1;
+/// ChromosomeAnalyzer.cs lines 649–715):
+///   • Materializes the pairs; if the TOTAL pair count is below `minGenes`, returns
+///     no blocks (line 651, `yield break`).
+///   • Groups pairs by chromosome pair (Chr1, Chr2), sorts each group by the
+///     first-genome start, and tracks collinear runs: orientation is set from the
+///     direction of movement in the SECOND genome (`curr.Start2 > prev.End2` ⇒
+///     forward), a run continues while orientation is consistent and BOTH gaps are
+///     ≤ `maxGap × 1 000 000`, and a `SyntenyBlock` is emitted when a run ends with
+///     ≥ `minGenes` genes (lines 666–708).
+///   • Each emitted block's Species1Start/End come from the first/last gene in the
+///     first genome; Species2Start/End are Min/Max over the run in the second genome;
+///     Strand is '+' (forward) or '-' (reverse); GeneCount is the run length;
+///     SequenceIdentity is `double.NaN` (INV-03 — not computable from coordinates).
+///
+/// What the three checklist boundaries actually do (Synteny_Analysis.md §6.1;
+/// ChromosomeAnalyzer.cs lines 649–715):
+///   • 0 ORTHOLOG PAIRS → the materialized list is empty, count 0 &lt; minGenes 3 →
+///     `yield break` → a defined EMPTY result (no synteny blocks), never a crash.
+///     This is the empty-anchor boundary: no anchors ⇒ no conserved blocks.
+///   • EMPTY GENOMES → there is no separate "genome" argument; a genome with no
+///     genes contributes no ortholog pairs, so the empty-genome case reduces to the
+///     same 0-pair boundary: an empty ortholog-pair sequence ⇒ empty result. We pin
+///     it explicitly through a different concrete enumerable (empty array) to show
+///     the guard keys on the materialized count, not the source type.
+///   • SELF-COMPARISON (genome vs itself under an IDENTITY ortholog map) — the KEY
+///     positive boundary. Each gene maps to itself: pair
+///     (chr, s, e, g, chr, s, e, g). For N ≥ minGenes genes in ascending order on a
+///     single chromosome, every step is forward (`curr.Start2 = curr.Start1 >
+///     prev.End2 = prev.End1` for non-overlapping ascending genes) with zero-to-small
+///     gaps, so the whole genome is ONE maximal collinear forward run → exactly ONE
+///     SyntenyBlock covering the whole genome: Strand '+', GeneCount = N,
+///     Species1Chromosome == Species2Chromosome, and the block's coordinates in BOTH
+///     genomes equal the genome's own span (identical order ⇒ perfect synteny). This
+///     is the theory anchor: a genome is perfectly collinear with itself.
+///
+/// Invariants asserted on every emitted block (Synteny_Analysis.md §2.4):
+///   • INV-01: Strand ∈ { '+', '-' }.
+///   • INV-02: Species1Start ≤ Species1End and Species2Start ≤ Species2End — block
+///     boundaries reference VALID, ordered coordinates in both genomes.
+///   • INV-03: SequenceIdentity is NaN for coordinate-only input.
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Citations
+/// ───────────────────────────────────────────────────────────────────────────
+/// • Algorithm doc: docs/algorithms/Chromosome_Analysis/Synteny_Analysis.md
+///   (§2.4 invariants, §3 contract, §4.1 steps, §6.1 edge cases).
+/// • Source: src/Seqeron/Algorithms/Seqeron.Genomics.Chromosome/ChromosomeAnalyzer.cs
+///   (FindSyntenyBlocks).
+/// • Wang et al. (2012) MCScanX: collinearity-based synteny block detection.
+/// • Wikipedia: Synteny; Comparative genomics — conserved gene order / collinearity.
+/// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
 [Category("Fuzzing")]
@@ -1373,6 +1457,205 @@ public class ChromosomeFuzzTests
 
         var whole = ChromosomeAnalyzer.IdentifyWholeChromosomeAneuploidy(states).ToList();
         whole.Should().BeEmpty("a disomic chromosome is not reported as a whole-chromosome aneuploidy");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  CHROM-SYNT-001 — synteny analysis : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region CHROM-SYNT-001 — synteny analysis
+
+    #region Synteny helpers
+
+    /// <summary>An ortholog-pair tuple alias for the FindSyntenyBlocks input shape.</summary>
+    private static (string Chr1, int Start1, int End1, string Gene1,
+                    string Chr2, int Start2, int End2, string Gene2) Ortholog(
+        string chr1, int start1, int end1, string gene1,
+        string chr2, int start2, int end2, string gene2)
+        => (chr1, start1, end1, gene1, chr2, start2, end2, gene2);
+
+    /// <summary>
+    /// Builds <paramref name="genes"/> ascending, non-overlapping genes on one
+    /// chromosome together with an IDENTITY ortholog map (each gene paired with itself
+    /// on the same chromosome and coordinates). This is the self-comparison input: a
+    /// genome compared against itself. Genes are spaced <paramref name="step"/> apart
+    /// so adjacent gaps are well below the megabase-scale maxGap, keeping the run
+    /// collinear. Deterministic — no randomness.
+    /// </summary>
+    private static (string, int, int, string, string, int, int, string)[] SelfOrthologMap(
+        string chromosome, int genes, int step = 10_000, int geneSpan = 1_000)
+        => Enumerable.Range(0, genes)
+            .Select(i =>
+            {
+                int start = i * step;
+                int end = start + geneSpan;
+                string name = $"gene{i}";
+                return Ortholog(chromosome, start, end, name, chromosome, start, end, name);
+            })
+            .ToArray();
+
+    #endregion
+
+    #region BE — Boundary: 0 ortholog pairs (empty anchors)
+
+    /// <summary>
+    /// BE (KEY boundary): zero ortholog pairs. The materialized list is empty, so the
+    /// `pairs.Count &lt; minGenes` guard (ChromosomeAnalyzer.cs line 651) `yield break`s
+    /// to a defined EMPTY result — no synteny blocks, never a crash. No anchors means
+    /// no conserved gene-order blocks. The method is a lazy iterator, so enumeration is
+    /// forced with `.ToList()`. (Synteny_Analysis.md §6.1 "Empty ortholog input".)
+    /// </summary>
+    [Test]
+    public void FindSyntenyBlocks_ZeroOrthologPairs_YieldsNoBlocks()
+    {
+        var empty = Enumerable.Empty<(string, int, int, string, string, int, int, string)>();
+
+        var act = () => ChromosomeAnalyzer.FindSyntenyBlocks(empty).ToList();
+        act.Should().NotThrow("the empty-input guard short-circuits before any grouping or scan");
+
+        var result = ChromosomeAnalyzer.FindSyntenyBlocks(empty).ToList();
+        result.Should().BeEmpty("zero ortholog anchors yield no synteny blocks");
+    }
+
+    /// <summary>
+    /// BE: fewer than `minGenes` ortholog pairs (here 2, below the default 3). The
+    /// total pair count is checked before scanning (line 651), so a sub-threshold run
+    /// produces no block even though the pairs are perfectly collinear. This pins the
+    /// minGenes boundary adjacent to the 0-pair case. (Synteny_Analysis.md §6.1
+    /// "Fewer than minGenes ortholog pairs".)
+    /// </summary>
+    [Test]
+    public void FindSyntenyBlocks_FewerThanMinGenes_YieldsNoBlocks()
+    {
+        var twoPairs = new[]
+        {
+            Ortholog("chr1", 1000, 2000, "g1", "chrA", 1000, 2000, "gA"),
+            Ortholog("chr1", 3000, 4000, "g2", "chrA", 3000, 4000, "gB"),
+        };
+
+        var result = ChromosomeAnalyzer.FindSyntenyBlocks(twoPairs, minGenes: 3, maxGap: 10).ToList();
+        result.Should().BeEmpty("2 pairs are below the minGenes threshold of 3, so no block is emitted");
+    }
+
+    #endregion
+
+    #region BE — Boundary: empty genomes
+
+    /// <summary>
+    /// BE (empty genomes): an "empty genome" contributes no genes and therefore no
+    /// ortholog pairs, so the empty-genome boundary reduces to the 0-pair boundary.
+    /// Expressed here as a freshly-allocated empty ARRAY rather than the LINQ Empty
+    /// singleton — the same boundary reached through a different concrete enumerable —
+    /// it must produce the identical empty result, pinning that the guard keys on the
+    /// materialized count, not the source type. Never a NullReference / IndexOutOfRange.
+    /// </summary>
+    [Test]
+    public void FindSyntenyBlocks_EmptyGenomes_YieldsNoBlocks()
+    {
+        var emptyGenomes = Array.Empty<(string, int, int, string, string, int, int, string)>();
+
+        var act = () => ChromosomeAnalyzer.FindSyntenyBlocks(emptyGenomes).ToList();
+        act.Should().NotThrow("empty genomes contribute no ortholog pairs; the count guard returns empty, never indexing");
+
+        var result = ChromosomeAnalyzer.FindSyntenyBlocks(emptyGenomes).ToList();
+        result.Should().BeEmpty("two empty genomes share no orthologs and so have no synteny blocks");
+    }
+
+    #endregion
+
+    #region BE — Boundary: self-comparison (identity map) — KEY positive
+
+    /// <summary>
+    /// BE (KEY positive): a genome compared against ITSELF under an identity ortholog
+    /// map. Every gene maps to itself on the same chromosome with identical
+    /// coordinates, and the genes are in ascending, non-overlapping order. Because the
+    /// order is identical in both genomes, the whole genome is ONE maximal collinear
+    /// FORWARD run, so the detector must emit exactly ONE SyntenyBlock covering the
+    /// whole genome: Strand '+', GeneCount = N, Species1Chromosome == Species2Chromosome,
+    /// and the block's coordinates in BOTH genomes equal the genome's own span. Identical
+    /// gene order ⇒ perfect synteny — the core self-comparison theory anchor. We also
+    /// assert the invariants: ordered, valid coordinates in both genomes (INV-02) and
+    /// SequenceIdentity NaN (INV-03).
+    /// </summary>
+    [Test]
+    public void FindSyntenyBlocks_SelfComparisonIdentityMap_OneMaximalCollinearBlock()
+    {
+        const int genes = 8;
+        const int step = 10_000;
+        const int geneSpan = 1_000;
+        var selfMap = SelfOrthologMap("chr1", genes, step, geneSpan);
+
+        var act = () => ChromosomeAnalyzer.FindSyntenyBlocks(selfMap, minGenes: 3, maxGap: 10).ToList();
+        act.Should().NotThrow("a clean identity map is the best-case collinear input and must never crash");
+
+        var blocks = ChromosomeAnalyzer.FindSyntenyBlocks(selfMap, minGenes: 3, maxGap: 10).ToList();
+
+        blocks.Should().ContainSingle(
+            "a genome is perfectly collinear with itself, so the identity map collapses to one maximal block");
+
+        var block = blocks[0];
+        block.Strand.Should().Be('+', "identical gene order in both genomes is forward collinearity");
+        block.GeneCount.Should().Be(genes, "the single maximal block covers every gene in the genome");
+        block.Species1Chromosome.Should().Be("chr1");
+        block.Species2Chromosome.Should().Be("chr1", "self-comparison maps each chromosome onto itself");
+
+        // The block spans the whole genome in BOTH genomes (first gene start → last gene end).
+        int genomeStart = 0;
+        int genomeEnd = (genes - 1) * step + geneSpan;
+        block.Species1Start.Should().Be(genomeStart, "the block starts at the first gene of the genome");
+        block.Species1End.Should().Be(genomeEnd, "the block ends at the last gene of the genome");
+        block.Species2Start.Should().Be(genomeStart, "the identity map gives genome 2 the same span");
+        block.Species2End.Should().Be(genomeEnd);
+
+        // INV-02: valid, ordered coordinates referencing real anchors in both genomes.
+        block.Species1Start.Should().BeLessThanOrEqualTo(block.Species1End);
+        block.Species2Start.Should().BeLessThanOrEqualTo(block.Species2End);
+        // INV-03: identity is never computed from coordinate-only input.
+        double.IsNaN(block.SequenceIdentity).Should().BeTrue("SequenceIdentity is NaN for coordinate-only synteny");
+    }
+
+    #endregion
+
+    #region Positive sanity — a planted conserved block is recovered with correct anchors
+
+    /// <summary>
+    /// Positive sanity: two DISTINCT genomes (chr1 ↦ chrA) sharing a clear conserved,
+    /// forward-collinear block of 5 genes in the same order. The detector must recover
+    /// exactly that block — one block, Strand '+', GeneCount 5, the correct source and
+    /// target chromosome names, and coordinates that span the first→last planted gene
+    /// in EACH genome. This is the affirmative anchor that synteny is actually found
+    /// with correct anchors, so the boundary suite is not vacuously green.
+    /// </summary>
+    [Test]
+    public void FindSyntenyBlocks_ConservedForwardBlock_RecoveredWithCorrectAnchors()
+    {
+        var orthologPairs = new[]
+        {
+            Ortholog("chr1", 1_000, 2_000, "g1", "chrA", 1_000, 2_000, "gA"),
+            Ortholog("chr1", 3_000, 4_000, "g2", "chrA", 3_000, 4_000, "gB"),
+            Ortholog("chr1", 5_000, 6_000, "g3", "chrA", 5_000, 6_000, "gC"),
+            Ortholog("chr1", 7_000, 8_000, "g4", "chrA", 7_000, 8_000, "gD"),
+            Ortholog("chr1", 9_000, 10_000, "g5", "chrA", 9_000, 10_000, "gE"),
+        };
+
+        var blocks = ChromosomeAnalyzer.FindSyntenyBlocks(orthologPairs, minGenes: 3, maxGap: 10).ToList();
+
+        blocks.Should().ContainSingle("5 forward-collinear orthologs form exactly one conserved block");
+
+        var block = blocks[0];
+        block.Strand.Should().Be('+', "the conserved genes share the same order in both genomes");
+        block.GeneCount.Should().Be(5, "all five planted orthologs are retained in the block");
+        block.Species1Chromosome.Should().Be("chr1");
+        block.Species2Chromosome.Should().Be("chrA");
+        block.Species1Start.Should().Be(1_000, "the block starts at the first planted gene in genome 1");
+        block.Species1End.Should().Be(10_000, "the block ends at the last planted gene in genome 1");
+        block.Species2Start.Should().Be(1_000, "the block starts at the first planted ortholog in genome 2");
+        block.Species2End.Should().Be(10_000, "the block ends at the last planted ortholog in genome 2");
+        double.IsNaN(block.SequenceIdentity).Should().BeTrue("INV-03: coordinate-only synteny has NaN identity");
     }
 
     #endregion
