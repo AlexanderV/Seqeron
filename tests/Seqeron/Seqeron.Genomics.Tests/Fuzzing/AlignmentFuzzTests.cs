@@ -1638,4 +1638,398 @@ public class AlignmentFuzzTests
     #endregion
 
     #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  ALIGN-STATS-001 — pairwise alignment statistics : fuzz targets
+    // ═══════════════════════════════════════════════════════════════════
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ALIGN-STATS-001 — pairwise alignment statistics (Alignment)
+    // Checklist: docs/checklists/03_FUZZING.md, row 226.
+    // Fuzz strategy exercised for THIS unit:
+    //   • BE = Boundary Exploitation — the degenerate column-classification corners of
+    //          the statistics pass: IDENTICAL rows (100% identity, 0 gaps), NO OVERLAP
+    //          / completely different rows (0% identity, all mismatch), an ALL-GAP
+    //          alignment (every column a gap — Identity 0, Gaps 100; the denominator L
+    //          is the gap-INCLUSIVE alignment length so there is no divide-by-zero/NaN
+    //          on a positive-length all-gap alignment), and the EMPTY alignment (the
+    //          documented Empty fast path — denominator undefined, returns
+    //          AlignmentStatistics.Empty). — docs/checklists/03_FUZZING.md §Description
+    //          (strategy code BE = 0, -1, MaxInt, empty).
+    //
+    // The statistics contract under test (docs/algorithms/Alignment/Alignment_Statistics.md):
+    //   Each of the L equal-length columns is classified (§2.2): GAP if either row has
+    //   '-', else IDENTICAL if the two characters are equal, else MISMATCH. Let M =
+    //   identical, X = mismatch, G = gap; then M + X + G = L (INV-01). With the
+    //   gap-INCLUSIVE denominator L (§2.1, EMBOSS needle convention):
+    //       Identity%   = M / L × 100
+    //       Similarity% = (M + Sim⁺) / L × 100   (Sim⁺ = mismatch columns whose
+    //                                              substitution score is POSITIVE, §2.2)
+    //       Gaps%       = G / L × 100
+    //   For every DNA model on SequenceAligner (Mismatch < 0) no mismatch is similar, so
+    //   Similarity == Identity (§5.2); a caller-supplied Mismatch > 0 model makes
+    //   Similarity exceed Identity (§2.5, §5.2). Empty alignment → AlignmentStatistics.Empty
+    //   (§3.3, §6.1); null alignment → ArgumentNullException (§3.3).
+    //
+    // KEY invariants asserted across the fuzz fodder (Alignment_Statistics.md §2.4):
+    //   • ST-INV-01 — Matches + Mismatches + Gaps = AlignmentLength (the three classes
+    //     partition every column, §2.4 INV-01).
+    //   • ST-INV-02 — Identity% ≤ Similarity% ≤ 100% (the similar set ⊇ the identical
+    //     set; §2.4 INV-02). Combined with Identity ≥ 0 this pins every percentage into
+    //     [0,100] — the fuzz bar's "no out-of-range / NaN / Infinity" guarantee.
+    //   • ST-INV-03 — all three percentages are finite (never NaN/Infinity) on any
+    //     POSITIVE-length alignment, including the all-gap alignment whose denominator L
+    //     is the gap-inclusive length (NOT the zero ungapped-column count).
+    // — fuzz bar additionally per docs/ADVANCED_TESTING_CHECKLIST.md §8 "Fuzzing": no
+    //   crash/hang/corruption; a documented validation throw (null) is acceptable.
+    //
+    // Expected counts/percentages below are derived INDEPENDENTLY from the §2.2 column
+    // model on HAND-BUILT AlignmentResult rows (the statistics pass operates on the two
+    // gapped rows directly — §1, §3.1 — so we construct the rows by hand rather than
+    // echo an aligner's output), never read back off the code's own arrays.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region ALIGN-STATS-001 — pairwise alignment statistics
+
+    #region Helpers (ALIGN-STATS-001)
+
+    /// <summary>
+    /// Builds an <see cref="AlignmentResult"/> directly from two equal-length gapped
+    /// rows so the statistics pass (which consumes the rows alone — Alignment_Statistics.md
+    /// §1, §3.1) can be exercised on hand-chosen boundary alignments whose expected
+    /// counts are derived independently from the §2.2 column model.
+    /// </summary>
+    private static AlignmentResult Rows(string row1, string row2) =>
+        new(row1, row2, 0, AlignmentType.Global, 0, 0,
+            row1.Length - 1, row2.Length - 1);
+
+    /// <summary>
+    /// Re-derives Matches/Mismatches/Gaps independently from the §2.2 column model and
+    /// asserts the statistics structural invariants: ST-INV-01 (M+X+G=L), the
+    /// gap-inclusive percentage formulas (§2.2/§3.2), ST-INV-02 (Identity ≤ Similarity ≤
+    /// 100 with Identity ≥ 0), and ST-INV-03 (all percentages finite — no NaN/Infinity).
+    /// For SimpleDna (Mismatch &lt; 0) Similarity must equal Identity (§5.2).
+    /// </summary>
+    private static void AssertStatsInvariants(
+        AlignmentStatistics stats, string row1, string row2, ScoringMatrix scoring)
+    {
+        int len = row1.Length;
+        int m = 0, x = 0, g = 0;
+        for (int i = 0; i < len; i++)
+        {
+            char a = row1[i];
+            char b = row2[i];
+            if (a == '-' || b == '-') g++;
+            else if (a == b) m++;
+            else x++;
+        }
+        int simPlus = scoring.Mismatch > 0 ? x : 0; // §2.2: mismatch column is similar iff its score is positive
+
+        // The reported counts must match the independent column classification.
+        stats.AlignmentLength.Should().Be(len, "L is the gap-inclusive number of columns (§2.1, §3.2)");
+        stats.Matches.Should().Be(m, "Matches = identical columns (§2.2)");
+        stats.Mismatches.Should().Be(x, "Mismatches = non-gap non-identical columns (§2.2)");
+        stats.Gaps.Should().Be(g, "Gaps = columns with a gap on either row (§2.2)");
+
+        // ST-INV-01: the three classes partition every column.
+        (stats.Matches + stats.Mismatches + stats.Gaps).Should().Be(stats.AlignmentLength,
+            "ST-INV-01: Matches + Mismatches + Gaps = AlignmentLength (§2.4 INV-01)");
+
+        // Gap-inclusive percentage formulas (§2.2, §3.2), recomputed from the counts.
+        double expIdentity = (double)m / len * 100;
+        double expSimilarity = (double)(m + simPlus) / len * 100;
+        double expGap = (double)g / len * 100;
+        stats.Identity.Should().BeApproximately(expIdentity, 1e-9, "Identity% = M/L × 100 (§2.2)");
+        stats.Similarity.Should().BeApproximately(expSimilarity, 1e-9, "Similarity% = (M + Sim⁺)/L × 100 (§2.2)");
+        stats.GapPercent.Should().BeApproximately(expGap, 1e-9, "Gaps% = G/L × 100 (§2.2)");
+
+        // ST-INV-03: every percentage is finite (no divide-by-zero/NaN on positive L).
+        double.IsNaN(stats.Identity).Should().BeFalse("ST-INV-03: Identity% is finite, never NaN");
+        double.IsNaN(stats.Similarity).Should().BeFalse("ST-INV-03: Similarity% is finite, never NaN");
+        double.IsNaN(stats.GapPercent).Should().BeFalse("ST-INV-03: Gaps% is finite, never NaN");
+        double.IsInfinity(stats.Identity).Should().BeFalse("ST-INV-03: Identity% is finite, never Infinity");
+        double.IsInfinity(stats.Similarity).Should().BeFalse("ST-INV-03: Similarity% is finite, never Infinity");
+        double.IsInfinity(stats.GapPercent).Should().BeFalse("ST-INV-03: Gaps% is finite, never Infinity");
+
+        // ST-INV-02: Identity ≤ Similarity ≤ 100, and Identity ≥ 0 ⇒ every % ∈ [0,100].
+        stats.Identity.Should().BeGreaterThanOrEqualTo(0).And.BeLessThanOrEqualTo(100,
+            "ST-INV-02: Identity% ∈ [0,100]");
+        stats.Similarity.Should().BeGreaterThanOrEqualTo(stats.Identity).And.BeLessThanOrEqualTo(100,
+            "ST-INV-02: Identity% ≤ Similarity% ≤ 100 (the similar set ⊇ the identical set, §2.4 INV-02)");
+        stats.GapPercent.Should().BeGreaterThanOrEqualTo(0).And.BeLessThanOrEqualTo(100,
+            "ST-INV-02: Gaps% ∈ [0,100]");
+
+        // §5.2: for a negative-mismatch DNA model no mismatch is similar ⇒ Similarity == Identity.
+        if (scoring.Mismatch < 0)
+            stats.Similarity.Should().BeApproximately(stats.Identity, 1e-9,
+                "§5.2: with Mismatch < 0 no mismatch is similar, so Similarity equals Identity");
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Fuzz target: identical alignment (100% identity, 0 gaps)
+    // ───────────────────────────────────────────────────────────────────
+
+    #region BE — Boundary: identical rows (Identity = Similarity = 100%, Gaps 0%)
+
+    /// <summary>
+    /// BE: two IDENTICAL gapped rows are the perfect-identity boundary — every column is
+    /// identical, none is a gap or mismatch, so M = L, X = G = 0 and Identity =
+    /// Similarity = 100%, Gaps = 0% (Alignment_Statistics.md §2.2, §6.1 "Perfect
+    /// identity"). Expected counts derived independently from the column model; pinned
+    /// for several lengths including the single-column extreme.
+    /// </summary>
+    [TestCase("A", TestName = "Stats_Identical_SingleColumn")]
+    [TestCase("ACGT", TestName = "Stats_Identical_Len4")]
+    [TestCase("AAAA", TestName = "Stats_Identical_Homopolymer")]
+    [TestCase("GATTACAGATTACA", TestName = "Stats_Identical_Len14")]
+    public void Stats_IdenticalRows_AreHundredPercentIdentityNoGaps(string seq)
+    {
+        var scoring = SequenceAligner.SimpleDna;
+        var stats = SequenceAligner.CalculateStatistics(Rows(seq, seq), scoring);
+
+        stats.Matches.Should().Be(seq.Length, "every column of identical rows is a match");
+        stats.Mismatches.Should().Be(0, "identical rows have no mismatch column");
+        stats.Gaps.Should().Be(0, "identical rows have no gap column");
+        stats.AlignmentLength.Should().Be(seq.Length, "L equals the row length");
+        stats.Identity.Should().BeApproximately(100.0, 1e-9, "M = L ⇒ Identity = 100%");
+        stats.Similarity.Should().BeApproximately(100.0, 1e-9, "all-identical ⇒ Similarity = 100%");
+        stats.GapPercent.Should().BeApproximately(0.0, 1e-9, "no gap column ⇒ Gaps = 0%");
+        AssertStatsInvariants(stats, seq, seq, scoring);
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Fuzz target: no overlap (completely different — 0% identity)
+    // ───────────────────────────────────────────────────────────────────
+
+    #region BE — Boundary: no overlap / completely different (0% identity, all mismatch)
+
+    /// <summary>
+    /// BE: two equal-length rows that share NO base in any column (no gaps) are the
+    /// no-overlap / completely-different boundary — every column is a mismatch, so
+    /// X = L, M = G = 0 and Identity = 0%, Gaps = 0%; under SimpleDna (Mismatch &lt; 0)
+    /// no mismatch is similar so Similarity = 0% too (Alignment_Statistics.md §2.2,
+    /// §5.2). Expected counts derived independently from the column model.
+    /// </summary>
+    [TestCase("AAAA", "GGGG", TestName = "Stats_NoOverlap_AsVsGs")]
+    [TestCase("ACAC", "GTGT", TestName = "Stats_NoOverlap_DisjointAlphabets")]
+    [TestCase("A", "C", TestName = "Stats_NoOverlap_SingleColumn")]
+    public void Stats_NoOverlapRows_AreZeroPercentIdentity(string row1, string row2)
+    {
+        var scoring = SequenceAligner.SimpleDna;
+        var stats = SequenceAligner.CalculateStatistics(Rows(row1, row2), scoring);
+
+        stats.Matches.Should().Be(0, "completely different rows share no column ⇒ no match");
+        stats.Mismatches.Should().Be(row1.Length, "every column is a mismatch");
+        stats.Gaps.Should().Be(0, "no-overlap fodder carries no gap column");
+        stats.Identity.Should().BeApproximately(0.0, 1e-9, "M = 0 ⇒ Identity = 0%");
+        stats.Similarity.Should().BeApproximately(0.0, 1e-9, "SimpleDna Mismatch < 0 ⇒ no similar mismatch ⇒ 0%");
+        stats.GapPercent.Should().BeApproximately(0.0, 1e-9, "no gap column ⇒ Gaps = 0%");
+        AssertStatsInvariants(stats, row1, row2, scoring);
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Fuzz target: all-gap alignment (denominator must not divide by zero)
+    // ───────────────────────────────────────────────────────────────────
+
+    #region BE — Boundary: all-gap alignment (Identity 0%, Gaps 100%, no divide-by-zero)
+
+    /// <summary>
+    /// BE: an ALL-GAP alignment — one row entirely gaps against a row of bases (an
+    /// empty-vs-length-n alignment, the canonical all-gap output) — has G = L gap
+    /// columns, M = X = 0, so Identity = 0% and Gaps = 100% (Alignment_Statistics.md
+    /// §6.1 "All-gap column run"). The KEY fuzz point: the denominator L is the
+    /// gap-INCLUSIVE alignment length (§2.1), so even though there are ZERO ungapped
+    /// columns the percentages are computed over a POSITIVE L and must NOT divide by
+    /// zero / produce NaN / Infinity (ST-INV-03). Pinned in both row orientations.
+    /// </summary>
+    [TestCase("ACGT", TestName = "Stats_AllGap_Len4")]
+    [TestCase("A", TestName = "Stats_AllGap_SingleColumn")]
+    [TestCase("ACGTACGTACGT", TestName = "Stats_AllGap_Len12")]
+    public void Stats_AllGapAlignment_IsZeroIdentityHundredGapsNoNaN(string bases)
+    {
+        var scoring = SequenceAligner.SimpleDna;
+        string gapRow = new string('-', bases.Length);
+
+        // gaps on row1 vs bases on row2, and the mirror orientation.
+        foreach (var (r1, r2) in new[] { (gapRow, bases), (bases, gapRow) })
+        {
+            var stats = SequenceAligner.CalculateStatistics(Rows(r1, r2), scoring);
+
+            stats.Matches.Should().Be(0, "an all-gap alignment has no identical column");
+            stats.Mismatches.Should().Be(0, "an all-gap alignment has no mismatch column");
+            stats.Gaps.Should().Be(bases.Length, "every column is a gap column");
+            stats.AlignmentLength.Should().Be(bases.Length, "L is the gap-inclusive length (§2.1)");
+            stats.Identity.Should().BeApproximately(0.0, 1e-9, "M = 0 over positive L ⇒ Identity = 0%");
+            stats.GapPercent.Should().BeApproximately(100.0, 1e-9, "G = L ⇒ Gaps = 100%");
+            double.IsNaN(stats.Identity).Should().BeFalse("no divide-by-zero: L is gap-inclusive and positive");
+            double.IsNaN(stats.GapPercent).Should().BeFalse("no divide-by-zero on the all-gap denominator");
+            AssertStatsInvariants(stats, r1, r2, scoring);
+        }
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Fuzz target: empty / null alignment (documented fast path + guard)
+    // ───────────────────────────────────────────────────────────────────
+
+    #region BE — Boundary: empty alignment (Empty fast path) + null guard
+
+    /// <summary>
+    /// BE: an EMPTY alignment (AlignedSequence1 null or empty) has an UNDEFINED
+    /// denominator, so the documented fast path returns AlignmentStatistics.Empty —
+    /// all-zero counts and percentages, never a divide-by-zero NaN/Infinity
+    /// (Alignment_Statistics.md §3.3, §6.1 "Empty alignment"). Pinned for the
+    /// empty-string row, the AlignmentResult.Empty sentinel, and a null first row.
+    /// </summary>
+    [Test]
+    public void Stats_EmptyAlignment_ReturnsEmptyStatistics()
+    {
+        var fromEmptyRows = SequenceAligner.CalculateStatistics(Rows("", ""));
+        fromEmptyRows.Should().Be(AlignmentStatistics.Empty,
+            "an empty alignment has an undefined denominator and returns AlignmentStatistics.Empty (§6.1)");
+
+        var fromSentinel = SequenceAligner.CalculateStatistics(AlignmentResult.Empty);
+        fromSentinel.Should().Be(AlignmentStatistics.Empty,
+            "the AlignmentResult.Empty sentinel maps to AlignmentStatistics.Empty");
+
+        // The Empty statistics carry no NaN/Infinity (all fields are 0).
+        double.IsNaN(fromEmptyRows.Identity).Should().BeFalse("Empty statistics are all-zero, never NaN");
+        double.IsNaN(fromEmptyRows.GapPercent).Should().BeFalse("Empty statistics are all-zero, never NaN");
+        fromEmptyRows.AlignmentLength.Should().Be(0, "an empty alignment has length 0");
+    }
+
+    /// <summary>
+    /// BE/validation: a NULL alignment is the documented validation gate — it must throw
+    /// ArgumentNullException (the ThrowIfNull guard, Alignment_Statistics.md §3.3, §6.1
+    /// "Null alignment"), NOT a NullReferenceException from a downstream dereference.
+    /// </summary>
+    [Test]
+    public void Stats_NullAlignment_ThrowsArgumentNullException()
+    {
+        var act = () => SequenceAligner.CalculateStatistics(null!);
+
+        act.Should().Throw<ArgumentNullException>(
+            "a null alignment hits the documented null gate, not a raw dereference (§3.3)");
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Positive sanity: a hand-checkable mixed alignment + positive-mismatch model
+    // ───────────────────────────────────────────────────────────────────
+
+    #region Positive sanity — hand-checked mixed alignment and the similar-mismatch rule
+
+    /// <summary>
+    /// Positive sanity: a hand-built mixed alignment with a known column breakdown pins
+    /// the exact counts and gap-inclusive percentages, proving the harness asserts a
+    /// real, theory-correct statistic — not merely "did not crash". Rows
+    /// "AC-GTA" / "ACCGAA" over L = 6 columns classify (§2.2) as:
+    ///   col0 A|A match, col1 C|C match, col2 -|C gap, col3 G|G match, col4 T|A mismatch,
+    ///   col5 A|A match ⇒ M = 4, X = 1, G = 1, L = 6.
+    /// So Identity = 4/6 × 100 = 66.666…%, Gaps = 1/6 × 100 = 16.666…%, and under
+    /// SimpleDna (Mismatch &lt; 0) Similarity = Identity (§5.2). Values derived
+    /// independently from the doc's column model, not read off the implementation.
+    /// </summary>
+    [Test]
+    public void Stats_HandCheckedMixedAlignment_HasExactCountsAndPercentages()
+    {
+        var scoring = SequenceAligner.SimpleDna;
+        const string row1 = "AC-GTA";
+        const string row2 = "ACCGAA";
+
+        var stats = SequenceAligner.CalculateStatistics(Rows(row1, row2), scoring);
+
+        stats.Matches.Should().Be(4, "hand count: cols 0,1,3,5 are identical");
+        stats.Mismatches.Should().Be(1, "hand count: col 4 (T vs A) is the only mismatch");
+        stats.Gaps.Should().Be(1, "hand count: col 2 (- vs C) is the only gap");
+        stats.AlignmentLength.Should().Be(6, "L = 6 columns");
+        stats.Identity.Should().BeApproximately(4.0 / 6.0 * 100, 1e-9, "Identity = 4/6 × 100 (§2.2)");
+        stats.GapPercent.Should().BeApproximately(1.0 / 6.0 * 100, 1e-9, "Gaps = 1/6 × 100 (§2.2)");
+        stats.Similarity.Should().BeApproximately(stats.Identity, 1e-9, "SimpleDna ⇒ Similarity == Identity (§5.2)");
+        AssertStatsInvariants(stats, row1, row2, scoring);
+    }
+
+    /// <summary>
+    /// Positive sanity: the §2.5/§5.2 distinction — a caller-supplied model with
+    /// Mismatch &gt; 0 makes a mismatch column count as SIMILAR, so Similarity EXCEEDS
+    /// Identity (the similar set strictly ⊇ the identical set). On the same
+    /// "AC-GTA"/"ACCGAA" alignment (M = 4, X = 1, G = 1, L = 6) a positive-mismatch
+    /// model gives Similarity = (4 + 1)/6 × 100 > Identity = 4/6 × 100, while Identity
+    /// and Gaps are model-independent. This pins the documented parameterised-similarity
+    /// behaviour the campaign's §5.4 fix corrected (away from the non-gap-fraction rule).
+    /// </summary>
+    [Test]
+    public void Stats_PositiveMismatchModel_SimilarityExceedsIdentity()
+    {
+        // A model with Mismatch > 0: any non-identical column scores positively ⇒ similar.
+        var positiveMismatch = new ScoringMatrix(Match: 2, Mismatch: 1, GapOpen: -2, GapExtend: -1);
+        const string row1 = "AC-GTA";
+        const string row2 = "ACCGAA";
+
+        var stats = SequenceAligner.CalculateStatistics(Rows(row1, row2), positiveMismatch);
+
+        stats.Identity.Should().BeApproximately(4.0 / 6.0 * 100, 1e-9, "Identity is model-independent: 4/6 × 100");
+        stats.Similarity.Should().BeApproximately(5.0 / 6.0 * 100, 1e-9,
+            "Mismatch > 0 ⇒ the 1 mismatch column is similar ⇒ (4+1)/6 × 100 (§2.2, §2.5)");
+        stats.Similarity.Should().BeGreaterThan(stats.Identity,
+            "a positive-mismatch model makes Similarity exceed Identity (§5.2)");
+        AssertStatsInvariants(stats, row1, row2, positiveMismatch);
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Randomized boundary sweep (no crash/hang/NaN; contract always holds)
+    // ───────────────────────────────────────────────────────────────────
+
+    #region BE — Randomized boundary sweep (invariants hold on arbitrary gapped rows)
+
+    /// <summary>
+    /// BE: a randomized sweep over arbitrary equal-length gapped rows (random mix of
+    /// A/C/G/T and the gap symbol on both sides, including the all-gap and gap-free
+    /// extremes that fall out by chance) must NEVER crash/hang/produce NaN/Infinity and
+    /// must ALWAYS satisfy the statistics contract: M + X + G = L, every percentage in
+    /// [0,100], Identity ≤ Similarity ≤ 100, and Similarity == Identity under SimpleDna
+    /// (Alignment_Statistics.md §2.4). Locally fixed-seed RNG keeps the fodder
+    /// reproducible; CancelAfter bounds the run.
+    /// </summary>
+    [Test]
+    [CancelAfter(30000)]
+    public void Stats_RandomizedGappedRows_AlwaysHoldStatisticsContract()
+    {
+        var scoring = SequenceAligner.SimpleDna;
+        const string alphabet = "ACGT-"; // includes the gap symbol so gap columns arise
+
+        for (int trial = 0; trial < 500; trial++)
+        {
+            int len = Rng.Next(1, 40);
+            var r1 = new char[len];
+            var r2 = new char[len];
+            for (int i = 0; i < len; i++)
+            {
+                r1[i] = alphabet[Rng.Next(alphabet.Length)];
+                r2[i] = alphabet[Rng.Next(alphabet.Length)];
+            }
+            string row1 = new string(r1);
+            string row2 = new string(r2);
+
+            AlignmentStatistics stats = default;
+            var act = () => stats = SequenceAligner.CalculateStatistics(Rows(row1, row2), scoring);
+            act.Should().NotThrow("the statistics pass never crashes on arbitrary equal-length gapped rows");
+
+            AssertStatsInvariants(stats, row1, row2, scoring);
+        }
+    }
+
+    #endregion
+
+    #endregion
 }
