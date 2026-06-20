@@ -174,6 +174,99 @@ namespace Seqeron.Genomics.Tests;
 ///   • NULL / EMPTY input → no records (`yield break` on `IsNullOrEmpty`, line 73).
 /// Determinism note: the random-byte FASTQ tests use a LOCAL fixed-seed
 /// `new Random(seed)` and carry `[CancelAfter]`, exactly as the FASTA tests do.
+///
+/// ═══════════════════════════════════════════════════════════════════════════
+/// Unit: PARSE-BED-001 — BED parsing (FileIO)
+/// ═══════════════════════════════════════════════════════════════════════════
+/// Checklist: docs/checklists/03_FUZZING.md, row 66. The third FileIO-area fuzz
+/// unit. Fuzz strategies exercised for THIS unit:
+///   • TF  = Truncated Fields — a line with FEWER than the 3 required columns; a
+///           record cut off after only chrom (or chrom+start). THE classic
+///           IndexOutOfRange-on-`fields[1]`/`fields[2]` trap on a short split.
+///   • MC  = Malformed Content — non-numeric chromStart/chromEnd ("abc"); an
+///           interval with start > end (a negative-length feature).
+///   • BE  = Boundary Exploitation — negative coordinates (-1), `int.MaxValue`
+///           and an overflowing coordinate (a value larger than `int.MaxValue`).
+///   • INJ = Injection — extra interior tabs producing empty fields; a tab
+///           embedded inside what should be a single field; NUL / control bytes
+///           in the chrom name; a fixed-seed random-byte blob.
+/// — docs/checklists/03_FUZZING.md §Description (strategy codes; BE = boundary
+///   values 0, -1, MaxInt; INJ = injection).
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The BED-parsing contract under test (the DOCUMENTED, repository-specific one)
+/// ───────────────────────────────────────────────────────────────────────────
+/// BED is a TAB-delimited interval format whose required core is `chrom`,
+/// `chromStart` (0-based, inclusive) and `chromEnd` (0-based, EXCLUSIVE), with
+/// optional name/score/strand/… up to BED12.[UCSC BED FAQ; Wikipedia BED]
+///   — docs/algorithms/FileIO/BED_Parsing.md §1, §2.2, §3.3, §6.1.
+///
+/// API entry points (BedParser.cs):
+///   • IEnumerable&lt;BedRecord&gt; BedParser.Parse(string content, BedFormat)
+///   • IEnumerable&lt;BedRecord&gt; BedParser.ParseFile(string path, BedFormat)
+///   • IEnumerable&lt;BedRecord&gt; BedParser.Parse(TextReader, BedFormat)
+/// All three delegate to the SAME `Parse(TextReader,…)` line state machine, so the
+/// string surface fully exercises the contract; one file-path test additionally
+/// pins the `ParseFile` StreamReader path. Like FASTA/FASTQ, `Parse` is a
+/// `yield`-based iterator — every test materializes with `.ToList()` so any work
+/// (and any throw) actually runs inside the assertion.
+///
+/// CRITICAL CONTRACT — SKIP-THE-BAD-LINE, NEVER THROW, NEVER CORRUPT.
+/// The BED parser is a SKIPPING validator: a malformed data line is dropped and
+/// parsing continues; it does NOT throw a parse exception and does NOT emit a
+/// corrupt record. The business guarantee these fuzz tests pin is therefore that
+/// EVERY malformed/truncated/injected line resolves to EITHER a well-defined,
+/// theory-correct `BedRecord` OR a clean skip — NEVER an unhandled
+/// FormatException / IndexOutOfRange / OverflowException / hang. Each fuzz test
+/// asserts `NotThrow` PLUS a pinned, exact structural outcome so the documented
+/// behavior can never silently drift into a crash or a corrupt interval.
+/// Documented behaviors pinned per target (BED_Parsing.md §3.3, §6.1;
+/// BedParser.cs ParseLine):
+///   • FEWER THAN 3 COLUMNS (TF): `ParseLine` splits on TAB, falls back to
+///     whitespace split, and returns `null` when still `&lt; 3` fields
+///     (BedParser.cs lines 161–169). In `Auto` mode `Parse` also skips lines whose
+///     field count is `&lt; 3` BEFORE `ParseLine` (lines 137–139). So `fields[1]` /
+///     `fields[2]` are NEVER indexed on a short line → the classic IndexOutOfRange
+///     trap CANNOT fire. Pinned: a 1- or 2-column line yields ZERO records.
+///   • NON-NUMERIC chromStart/chromEnd (MC): coordinates are read with
+///     `int.TryParse` (lines 173–176); a non-numeric token makes TryParse return
+///     `false` → the line returns `null` (skipped). This is the documented
+///     "Invalid numeric coordinates → Line skipped" of §6.1 — NOT an unhandled
+///     `FormatException` from an `int.Parse`. Pinned: "abc" coords → ZERO records.
+///   • start &gt; end (MC): an explicit `if (chromStart &gt; chromEnd) return null`
+///     guard (lines 179–180) rejects a negative-length interval. This is the KEY
+///     correctness check — a robust parser must catch start&gt;end, not emit a
+///     feature with `Length &lt; 0`. Pinned: a start&gt;end line yields ZERO records,
+///     and `chromStart == chromEnd` (a zero-length insertion point) is ACCEPTED
+///     per §6.1 / INV-02.
+///   • NEGATIVE COORDINATES (BE): `int.TryParse(NumberStyles.Integer)` ACCEPTS a
+///     leading '-', and the parser has NO explicit non-negative guard. Per the
+///     repository contract (BED_Parsing.md §3.3 + INV-02) the ONLY coordinate
+///     rejection rules are "not an integer" and "start &gt; end" — negativity by
+///     itself is NOT a documented rejection. So a line with a negative `chromStart`
+///     whose `start &lt;= end` PARSES, producing a record with a negative
+///     `ChromStart`. We pin the DOCUMENTED behavior exactly (parse, negative start
+///     preserved), and separately pin that a negative-start line whose start &gt; end
+///     is still rejected by the start&gt;end guard. (We assert the repo's real
+///     contract, not an idealized "reject all negatives" the parser does not do.)
+///   • int.MaxValue / OVERFLOW (BE): `chromStart = int.MaxValue`, `chromEnd =
+///     int.MaxValue` parses (a zero-length feature at the boundary, start==end). A
+///     coordinate LARGER than `int.MaxValue` overflows `int.TryParse` → TryParse
+///     returns `false` → line skipped, NOT an unhandled `OverflowException`.
+///   • TAB INJECTION (INJ): the parser splits the line on '\t' (line 161). Extra
+///     interior tabs create EMPTY string fields but never break the column index;
+///     a tab embedded where a single field was expected simply shifts the column
+///     count. Pinned: injected tabs are handled deterministically (parsed with the
+///     shifted columns, or skipped on the consistency/field-count rule) with NO
+///     IndexOutOfRange on the split.
+///   • RANDOM BYTES (INJ): a fixed-seed random-byte blob must be consumed
+///     deterministically — no crash, no hang. Carries `[CancelAfter]`; the LOCAL
+///     fixed seed makes the run byte-for-byte reproducible.
+///   • NULL / EMPTY input → no records (`yield break` on `IsNullOrEmpty`,
+///     BedParser.cs lines 104–105); `track `/`browser `/`#` lines are skipped.
+/// Determinism note: the random-byte BED test uses a LOCAL fixed-seed
+/// `new Random(seed)` and carries `[CancelAfter]`, exactly as the FASTA/FASTQ
+/// tests do.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -234,6 +327,18 @@ public class FileIoFuzzTests
     private string WriteTempFastq(string content)
     {
         string path = Path.Combine(_tempDir, "in_" + Guid.NewGuid().ToString("N") + ".fastq");
+        File.WriteAllText(path, content, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        return path;
+    }
+
+    /// <summary>
+    /// Writes <paramref name="content"/> verbatim (no added trailing newline) to a
+    /// fresh temp `.bed` file and returns its path, so the BED file-path tests control
+    /// byte layout exactly (in particular: TAB layout and truncation/injection).
+    /// </summary>
+    private string WriteTempBed(string content)
+    {
+        string path = Path.Combine(_tempDir, "in_" + Guid.NewGuid().ToString("N") + ".bed");
         File.WriteAllText(path, content, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
         return path;
     }
@@ -947,6 +1052,360 @@ public class FileIoFuzzTests
 
         act.Should().NotThrow("header-less random bytes are skipped line by line, not a crash");
         records.Should().BeEmpty("with no '@' line no record can ever be emitted");
+        token.IsCancellationRequested.Should().BeFalse("parsing random bytes must not hang");
+    }
+
+    #endregion
+
+    #endregion
+
+    #region PARSE-BED-001 — BED parsing
+
+    #region Positive sanity — a valid BED parses to the correct chrom/start/end intervals
+
+    /// <summary>
+    /// Positive control: a well-formed multi-record BED6 (TAB-separated) must parse to
+    /// exactly the right chrom / start / end (and name/score/strand) records, with the
+    /// derived `Length = chromEnd - chromStart` (INV-01) and `chromStart &lt;= chromEnd`
+    /// (INV-02). If this fails the BED fuzz suite is meaningless — it proves the parser
+    /// is wired up and the happy path is intact before we throw garbage at it.
+    /// — BED_Parsing.md §2.2, §6.1.
+    /// </summary>
+    [Test]
+    public void ParseBed_ValidMultiRecord_ParsesToCorrectIntervals()
+    {
+        const string bed =
+            "chr1\t100\t200\tfeatA\t500\t+\n" +
+            "chr2\t0\t50\tfeatB\t1000\t-\n";
+
+        List<BedParser.BedRecord> records = BedParser.Parse(bed).ToList();
+
+        records.Should().HaveCount(2, "both well-formed BED lines must be emitted");
+
+        records[0].Chrom.Should().Be("chr1");
+        records[0].ChromStart.Should().Be(100);
+        records[0].ChromEnd.Should().Be(200);
+        records[0].Length.Should().Be(100, "Length = chromEnd - chromStart (INV-01)");
+        records[0].Name.Should().Be("featA");
+        records[0].Score.Should().Be(500);
+        records[0].Strand.Should().Be('+');
+
+        records[1].Chrom.Should().Be("chr2");
+        records[1].ChromStart.Should().Be(0, "the first base in a chromosome is numbered 0 (0-based)");
+        records[1].ChromEnd.Should().Be(50);
+        records[1].Strand.Should().Be('-');
+    }
+
+    /// <summary>
+    /// Positive control over the FILE-PATH surface: a valid BED3 written to disk parses
+    /// via `ParseFile` to the same correct intervals, pinning the StreamReader path (the
+    /// common real-world entry point).
+    /// </summary>
+    [Test]
+    public void ParseFileBed_ValidBed3_ParsesToCorrectIntervals()
+    {
+        const string bed =
+            "chrX\t10\t20\n" +
+            "chrX\t30\t45\n";
+        string path = WriteTempBed(bed);
+
+        List<BedParser.BedRecord> records = BedParser.ParseFile(path).ToList();
+
+        records.Should().HaveCount(2);
+        records[0].Chrom.Should().Be("chrX");
+        records[0].ChromStart.Should().Be(10);
+        records[0].ChromEnd.Should().Be(20);
+        records[1].ChromStart.Should().Be(30);
+        records[1].ChromEnd.Should().Be(45);
+        records[1].Length.Should().Be(15);
+    }
+
+    #endregion
+
+    #region MC — start > end: the negative-length interval is rejected (skipped), never emitted
+
+    /// <summary>
+    /// MC — THE key correctness check: a line whose `chromStart &gt; chromEnd` describes a
+    /// negative-length feature, which is invalid (INV-02). `ParseLine` has an explicit
+    /// `if (chromStart &gt; chromEnd) return null` guard (BedParser.cs lines 179–180), so
+    /// the bad line is SKIPPED — the parser must NOT emit a record with `Length &lt; 0`.
+    /// The valid neighbours on either side prove the parser recovers and keeps parsing.
+    /// We also pin that `chromStart == chromEnd` (a zero-length insertion point) is
+    /// ACCEPTED per §6.1 / INV-02 — the boundary is `start &lt;= end`, not `start &lt; end`.
+    /// </summary>
+    [Test]
+    public void ParseBed_StartGreaterThanEnd_RejectsNegativeLengthInterval()
+    {
+        const string bed =
+            "chr1\t100\t200\n" +   // valid
+            "chr1\t500\t300\n" +   // start > end → invalid, must be skipped
+            "chr1\t700\t700\n" +   // start == end → zero-length insertion point, valid
+            "chr1\t800\t900\n";    // valid
+
+        List<BedParser.BedRecord> records = new();
+        var act = () => records = BedParser.Parse(bed).ToList();
+
+        act.Should().NotThrow("a start>end line is skipped, not a crash");
+        records.Should().HaveCount(3,
+            "the start>end line is dropped; the three start<=end lines survive");
+        records.Should().NotContain(r => r.ChromStart > r.ChromEnd,
+            "no negative-length interval may ever be emitted (INV-02)");
+        records.Should().NotContain(r => r.Length < 0,
+            "a robust parser must never produce a feature with Length < 0");
+        records.Should().Contain(r => r.ChromStart == 700 && r.ChromEnd == 700,
+            "a zero-length (start==end) insertion point is valid and must survive");
+    }
+
+    #endregion
+
+    #region MC — Non-numeric coordinates: TryParse fails → line skipped, never a FormatException
+
+    /// <summary>
+    /// MC: `chromStart` and/or `chromEnd` are non-numeric ("abc", "12x", a float). The
+    /// parser reads them with `int.TryParse` (BedParser.cs lines 173–176), so a
+    /// non-numeric token makes TryParse return `false` and the line returns `null`
+    /// (the documented "Invalid numeric coordinates → Line skipped", §6.1). The KEY
+    /// guarantee is that this is a clean skip, NEVER an UNHANDLED `FormatException`
+    /// that a naive `int.Parse` would raise. We pin that every non-numeric-coord line
+    /// is dropped and only the clean line survives.
+    /// </summary>
+    [Test]
+    public void ParseBed_NonNumericCoordinates_SkippedNotFormatException()
+    {
+        const string bed =
+            "chr1\tabc\t200\n" +    // non-numeric start
+            "chr1\t100\txyz\n" +    // non-numeric end
+            "chr1\t12.5\t200\n" +   // float (not an int) start
+            "chr1\t100\t200\n";     // the one clean line
+
+        List<BedParser.BedRecord> records = new();
+        var act = () => records = BedParser.Parse(bed).ToList();
+
+        act.Should().NotThrow(
+            "non-numeric coordinates are skipped via int.TryParse, never an unhandled FormatException");
+        records.Should().ContainSingle("only the line with integer coordinates parses")
+            .Which.ChromStart.Should().Be(100);
+        records[0].ChromEnd.Should().Be(200);
+    }
+
+    #endregion
+
+    #region BE — Negative coordinates: documented accept-when-start<=end, reject-when-start>end
+
+    /// <summary>
+    /// BE (boundary value -1): a line with a NEGATIVE `chromStart` whose `start &lt;= end`.
+    /// `int.TryParse(NumberStyles.Integer)` accepts a leading '-', and the parser has NO
+    /// non-negative guard; per the repository contract (BED_Parsing.md §3.3 + INV-02) the
+    /// ONLY coordinate rejections are "not an integer" and "start &gt; end" — negativity by
+    /// itself is NOT a documented rejection. So this line PARSES with a negative
+    /// `ChromStart`. We pin the DOCUMENTED behavior exactly (parse, negative start
+    /// preserved) rather than asserting an idealized "reject all negatives" rule the
+    /// parser does not implement. A negative-start line whose start &gt; end is STILL
+    /// rejected by the start&gt;end guard — pinned in the companion below.
+    /// </summary>
+    [Test]
+    public void ParseBed_NegativeStartWithStartLeEnd_ParsesPerDocumentedContract()
+    {
+        const string bed = "chr1\t-5\t10\n";
+
+        List<BedParser.BedRecord> records = new();
+        var act = () => records = BedParser.Parse(bed).ToList();
+
+        act.Should().NotThrow("a negative coordinate is parsed, not a crash");
+        records.Should().ContainSingle(
+            "negativity alone is not a documented rejection; only non-integer or start>end reject");
+        records[0].ChromStart.Should().Be(-5, "int.TryParse accepts the leading '-' and it is preserved");
+        records[0].ChromEnd.Should().Be(10);
+    }
+
+    /// <summary>
+    /// BE companion: a NEGATIVE start that is ALSO greater than end (start = -1, end = -9)
+    /// must still be rejected by the explicit `start &gt; end` guard — proving negative
+    /// coordinates do not bypass the negative-length check. The valid line on either side
+    /// survives.
+    /// </summary>
+    [Test]
+    public void ParseBed_NegativeStartGreaterThanEnd_StillRejected()
+    {
+        const string bed =
+            "chr1\t10\t20\n" +     // valid
+            "chr1\t-1\t-9\n" +     // start(-1) > end(-9) → invalid, skipped
+            "chr1\t30\t40\n";      // valid
+
+        List<BedParser.BedRecord> records = new();
+        var act = () => records = BedParser.Parse(bed).ToList();
+
+        act.Should().NotThrow();
+        records.Should().HaveCount(2, "the negative start>end line is rejected by the start>end guard");
+        records.Should().NotContain(r => r.ChromStart > r.ChromEnd);
+        records.Should().NotContain(r => r.Length < 0);
+    }
+
+    #endregion
+
+    #region BE — int.MaxValue and overflow: boundary parses; overflow is skipped, not OverflowException
+
+    /// <summary>
+    /// BE (MaxInt boundary): `chromStart = chromEnd = int.MaxValue` is a zero-length
+    /// feature at the integer boundary (start == end) and PARSES. A coordinate value
+    /// LARGER than `int.MaxValue` overflows `int.TryParse`, which returns `false`
+    /// (NOT an `OverflowException` like `int.Parse` would raise), so that line is
+    /// cleanly SKIPPED. We pin both: the boundary line survives with the exact
+    /// `int.MaxValue` coordinates, and the overflowing line is dropped without a crash.
+    /// </summary>
+    [Test]
+    public void ParseBed_MaxIntAndOverflow_BoundaryParsesOverflowSkipped()
+    {
+        string bed =
+            "chr1\t" + int.MaxValue + "\t" + int.MaxValue + "\n" +  // start==end at boundary → valid
+            "chr1\t0\t99999999999999999999\n" +                     // > int.MaxValue → overflow → skip
+            "chr1\t1\t2\n";                                          // valid neighbour
+
+        List<BedParser.BedRecord> records = new();
+        var act = () => records = BedParser.Parse(bed).ToList();
+
+        act.Should().NotThrow(
+            "an overflowing coordinate is skipped via int.TryParse, never an unhandled OverflowException");
+        records.Should().HaveCount(2, "the overflowing line is dropped; the two valid lines survive");
+        records.Should().Contain(r => r.ChromStart == int.MaxValue && r.ChromEnd == int.MaxValue,
+            "the int.MaxValue boundary (zero-length) feature parses exactly");
+        records.Should().Contain(r => r.ChromStart == 1 && r.ChromEnd == 2);
+    }
+
+    #endregion
+
+    #region TF — Fewer than 3 columns: no IndexOutOfRange on the split, line skipped
+
+    /// <summary>
+    /// TF — THE classic IndexOutOfRange trap: lines with FEWER than the 3 required
+    /// columns (chrom only; chrom+start only). A naive parser that does `fields[1]` /
+    /// `fields[2]` would throw IndexOutOfRange. Here `Parse` skips lines with `&lt; 3`
+    /// fields in Auto mode (BedParser.cs lines 137–139) and `ParseLine` also returns
+    /// `null` when `&lt; 3` (lines 168–169), so `fields[1]`/`fields[2]` are NEVER indexed
+    /// on a short line. We pin that 1- and 2-column lines yield ZERO records and never
+    /// crash; the valid 3-column line proves recovery.
+    /// </summary>
+    [Test]
+    public void ParseBed_FewerThanThreeColumns_NeverIndexOutOfRange()
+    {
+        const string bed =
+            "chr1\n" +          // 1 column → too few
+            "chr1\t100\n" +     // 2 columns → too few
+            "chr1\t100\t200\n"; // 3 columns → valid
+
+        List<BedParser.BedRecord> records = new();
+        var act = () => records = BedParser.Parse(bed).ToList();
+
+        act.Should().NotThrow("a short line must never IndexOutOfRange on fields[1]/fields[2]");
+        records.Should().ContainSingle("only the 3-column line is a valid record")
+            .Which.ChromStart.Should().Be(100);
+        records[0].ChromEnd.Should().Be(200);
+    }
+
+    /// <summary>
+    /// TF over the FILE-PATH surface: a truncated 2-column final line on disk (no
+    /// trailing newline) read via `ParseFile` must not IndexOutOfRange — the real-world
+    /// shape where a file truncated mid-line bites. The full first line still parses.
+    /// </summary>
+    [Test]
+    public void ParseFileBed_TruncatedFinalLine_NoCrash()
+    {
+        const string bed =
+            "chr1\t100\t200\n" +
+            "chr2\t300";          // file ends mid-line: only 2 columns, no newline
+        string path = WriteTempBed(bed);
+
+        List<BedParser.BedRecord> records = new();
+        var act = () => records = BedParser.ParseFile(path).ToList();
+
+        act.Should().NotThrow("a truncated final line on disk must not crash ParseFile");
+        records.Should().ContainSingle("only the complete first line is a valid record")
+            .Which.Chrom.Should().Be("chr1");
+    }
+
+    #endregion
+
+    #region INJ — Tab injection: extra/interior tabs handled deterministically, no IndexOutOfRange
+
+    /// <summary>
+    /// INJ: a line with EXTRA interior tabs between the required fields
+    /// (`chr1\t\t100\t200` → an empty field appears between chrom and start). The split
+    /// on '\t' produces an empty string field, shifting the coordinate columns so
+    /// `int.TryParse("")` fails on `fields[1]` and the line is cleanly SKIPPED — NOT an
+    /// IndexOutOfRange and NOT a corrupt record. The clean 3-column line FIRST sets the
+    /// Auto-mode expected field count to 3, so it parses; the 4-field injected-tab line
+    /// is then dropped by BOTH the field-count-consistency rule AND the empty-start
+    /// guard. The point is that injected tabs are absorbed deterministically by the
+    /// column split with no crash and no corrupt interval.
+    /// </summary>
+    [Test]
+    public void ParseBed_ExtraInteriorTabs_HandledDeterministicallyNoCrash()
+    {
+        const string bed =
+            "chr2\t100\t200\n" +    // clean line first → Auto sets expectedFieldCount = 3
+            "chr1\t\t100\t200\n";   // injected empty field → 4 fields + start="" → skipped
+
+        List<BedParser.BedRecord> records = new();
+        var act = () => records = BedParser.Parse(bed).ToList();
+
+        act.Should().NotThrow("injected interior tabs must not IndexOutOfRange on the split");
+        records.Should().ContainSingle("only the clean 3-column line parses")
+            .Which.Chrom.Should().Be("chr2");
+        records[0].ChromStart.Should().Be(100);
+        records.Should().NotContain(r => r.Length < 0,
+            "an injected-tab line must never yield a corrupt interval");
+    }
+
+    /// <summary>
+    /// INJ: NUL / control bytes injected into the CHROM name (a valid coordinate pair).
+    /// The chrom name is NOT alphabet-validated — it is taken verbatim as `fields[0]` —
+    /// so the parser must not crash and must preserve the bytes in `Chrom`. We pin that
+    /// the record parses with the NUL preserved and correct coordinates, deterministically.
+    /// </summary>
+    [Test]
+    public void ParseBed_NullByteInChromName_ParsesAndPreservesByte()
+    {
+        const string bed = "ch\0r1\t100\t200\n";
+
+        List<BedParser.BedRecord> records = new();
+        var act = () => records = BedParser.Parse(bed).ToList();
+
+        act.Should().NotThrow("a NUL in the chrom name is preserved, not validated, so it must not crash");
+        records.Should().ContainSingle();
+        records[0].Chrom.Should().Be("ch\0r1", "the chrom token is taken verbatim, NUL included");
+        records[0].ChromStart.Should().Be(100);
+        records[0].ChromEnd.Should().Be(200);
+    }
+
+    #endregion
+
+    #region INJ — Random bytes: consumed deterministically, no crash, no hang
+
+    /// <summary>
+    /// INJ / robustness: a fixed-seed RANDOM-byte blob (full 0x00–0xFF range) fed as BED
+    /// text. Whatever line structure the bytes happen to form, every line resolves to a
+    /// clean skip (too few fields / non-numeric coords / start>end / inconsistent field
+    /// count) or a well-formed record — the parser must consume the garbage
+    /// deterministically with NO crash and NO hang, and must never emit a negative-length
+    /// interval. `[CancelAfter]` converts any pathological hang into a deterministic
+    /// failure; the LOCAL fixed seed makes the run byte-for-byte reproducible.
+    /// </summary>
+    [Test]
+    [CancelAfter(30_000)]
+    public void ParseBed_RandomByteBlob_DoesNotCrashOrHangOrCorrupt(CancellationToken token)
+    {
+        var rng = new Random(0xB3D);               // local fixed seed — fully reproducible
+        var sb = new StringBuilder();
+        for (int i = 0; i < 8192; i++)
+            sb.Append((char)rng.Next(0, 256));     // arbitrary bytes incl. control + newlines
+
+        List<BedParser.BedRecord> records = new();
+        var act = () => records = BedParser.Parse(sb.ToString()).ToList();
+
+        act.Should().NotThrow("random bytes must be consumed deterministically, not a crash");
+        records.Should().NotContain(r => r.ChromStart > r.ChromEnd,
+            "no garbage line may ever produce a negative-length interval (INV-02)");
+        records.Should().NotContain(r => r.Length < 0);
         token.IsCancellationRequested.Should().BeFalse("parsing random bytes must not hang");
     }
 
