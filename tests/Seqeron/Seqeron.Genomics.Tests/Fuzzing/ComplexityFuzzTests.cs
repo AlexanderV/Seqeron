@@ -1577,4 +1577,612 @@ public class ComplexityFuzzTests
     #endregion
 
     #endregion
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    //
+    //  SEQ-COMPLEX-WINDOW-001 — Windowed complexity profile
+    //                           (SequenceComplexity.CalculateWindowedComplexity)
+    //
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #region SEQ-COMPLEX-WINDOW-001 — Windowed complexity profile
+
+    /*  ─────────────────────────────────────────────────────────────────────────
+     *  Unit: SEQ-COMPLEX-WINDOW-001 — windowed complexity profile
+     *        (SequenceComplexity.CalculateWindowedComplexity(DnaSequence, windowSize, stepSize))
+     *  Checklist: docs/checklists/03_FUZZING.md, row 231.
+     *  Fuzz strategies exercised for THIS unit:
+     *    • BE = Boundary Exploitation — windowSize > sequence length, windowSize = 0
+     *      (and −1, int.MinValue), stepSize = 0, the empty sequence, and the single
+     *      character. The checklist row hint is exactly "window > len, window=0,
+     *      empty, single char".
+     *    — docs/checklists/03_FUZZING.md §Description (strategy codes; BE = 0/-1/MaxInt/empty),
+     *      and docs/ADVANCED_TESTING_CHECKLIST.md §8 "Fuzzing".
+     *
+     *  ─────────────────────────────────────────────────────────────────────────
+     *  The windowed-complexity contract under test (Windowed_Complexity.md)
+     *  ─────────────────────────────────────────────────────────────────────────
+     *  CalculateWindowedComplexity slides a fixed window of length w along the
+     *  sequence, advancing by step s, and emits ONE ComplexityPoint per window that
+     *  is FULLY contained in the sequence (no partial trailing window). For each such
+     *  window it reports the per-window Shannon entropy H (bits) and the summation-
+     *  form linguistic complexity LC, plus the window's coordinates (§1, §2.2):
+     *
+     *      starts i ∈ {0, s, 2s, …} with i + w ≤ L
+     *      #windows = ⌊(L − w) / s⌋ + 1   for L ≥ w,   else 0           (INV-01)
+     *      H(W)  = −Σ_{b∈ACGT} p_b·log₂ p_b ∈ [0, log₂4 = 2.0]          (INV-03)
+     *      LC(W) = (Σ V_i) / (Σ V_max,i),  V_max,i = min(4^i, w−i+1),
+     *              m = min(6, w);   LC ∈ (0, 1]                          (INV-04)
+     *
+     *  Per emitted point (INV-02):
+     *      WindowStart = i,  WindowEnd = i + w − 1,  Position = i + ⌊w/2⌋
+     *  (0-based, WindowEnd inclusive).
+     *
+     *  Every expected value below is derived INDEPENDENTLY from Windowed_Complexity.md
+     *  (§2.2 core model, §2.4 invariants, §3 contract, §6.1 edge cases, §7.1 worked
+     *  example) and the Shannon (1948) / Gabrielian-&-Bolshoy (1999) primary sources,
+     *  reproduced by the local ReferenceWindowedProfile helper and the by-hand worked
+     *  example — NOT read off the production code's array. A test that would still pass
+     *  against an implementation that emitted a partial trailing window, mis-counted
+     *  the window total, mis-placed WindowEnd/Position, or leaked an out-of-range /
+     *  NaN metric is invalid.
+     *
+     *  ─────────────────────────────────────────────────────────────────────────
+     *  Surface and its documented validation (§3.1, §3.3, §6.1)
+     *  ─────────────────────────────────────────────────────────────────────────
+     *  The unit exposes ONE typed surface, CalculateWindowedComplexity(DnaSequence,
+     *  windowSize=64, stepSize=10) — there is no lenient string overload. The
+     *  DnaSequence argument has already passed strict ctor validation (A/C/G/T only),
+     *  so only valid upper-cased DNA reaches the profiler. Documented validation:
+     *    • null DnaSequence            ⇒ ArgumentNullException     (explicit guard)
+     *    • windowSize < 1              ⇒ ArgumentOutOfRangeException
+     *    • stepSize   < 1              ⇒ ArgumentOutOfRangeException
+     *    • L < windowSize              ⇒ EMPTY profile (0 points), no partial window
+     *    • L = windowSize              ⇒ exactly 1 point at start 0
+     *  The result is a lazily-evaluated IEnumerable<ComplexityPoint>; the guards fire
+     *  at the public entry point (eager argument validation), so they throw on the
+     *  CALL, not on first enumeration — pinned below. The fuzz bar: no crash, no hang,
+     *  no NaN/Infinity, no IndexOutOfRange from Substring(i, w), and the algorithmic
+     *  contract (window count, placement, per-window value ranges) holds for every
+     *  boundary. ───────────────────────────────────────────────────────────────── */
+
+    #region Window — Helpers
+
+    private const double LcMin = 0.0;   // INV-04 lower bound (strict 0 for DNA; ≥ allows clamp slack)
+    private const double EntropyMax = 2.0;  // log₂4, the 4-base Shannon ceiling (INV-03)
+
+    /// <summary>
+    /// Independent reference implementation of the windowed complexity profile, written
+    /// straight from Windowed_Complexity.md §2.2 (window enumeration, per-window Shannon
+    /// entropy and summation-form linguistic complexity) and the Shannon (1948) /
+    /// Gabrielian &amp; Bolshoy (1999) primary sources — deliberately NOT calling the
+    /// production code, so it cross-checks the implementation rather than echoes it.
+    /// Returns tuples (Position, H, LC, WindowStart, WindowEnd) for every fully-contained
+    /// window, in left-to-right order.
+    /// </summary>
+    private static List<(int Position, double H, double Lc, int Start, int End)>
+        ReferenceWindowedProfile(string seq, int windowSize, int stepSize)
+    {
+        if (windowSize < 1) throw new ArgumentOutOfRangeException(nameof(windowSize));
+        if (stepSize < 1) throw new ArgumentOutOfRangeException(nameof(stepSize));
+
+        var profile = new List<(int, double, double, int, int)>();
+        for (int i = 0; i + windowSize <= seq.Length; i += stepSize)
+        {
+            string w = seq.Substring(i, windowSize);
+            profile.Add((
+                i + windowSize / 2,                                  // Position = i + ⌊w/2⌋
+                ReferenceShannonEntropy(w),                          // H
+                ReferenceLinguisticComplexity(w, Math.Min(6, windowSize)), // LC, cap min(6,w)
+                i,                                                   // WindowStart
+                i + windowSize - 1));                                // WindowEnd (inclusive)
+        }
+        return profile;
+    }
+
+    /// <summary>
+    /// Independent per-window Shannon entropy over the four DNA bases (Shannon 1948):
+    /// H = −Σ p_b·log₂ p_b with the 0·log₂0 = 0 convention. Non-ACGT chars are ignored
+    /// (DNA alphabet), matching Windowed_Complexity.md §2.2 / §6.2. Written from the
+    /// formula, not from the production code.
+    /// </summary>
+    private static double ReferenceShannonEntropy(string window)
+    {
+        int a = 0, c = 0, g = 0, t = 0;
+        foreach (char ch in window)
+        {
+            switch (ch) { case 'A': a++; break; case 'C': c++; break; case 'G': g++; break; case 'T': t++; break; }
+        }
+        int total = a + c + g + t;
+        if (total == 0) return 0.0;
+        double h = 0.0;
+        foreach (int n in new[] { a, c, g, t })
+        {
+            if (n > 0) { double p = (double)n / total; h -= p * Math.Log2(p); }
+        }
+        return h;
+    }
+
+    /// <summary>
+    /// Independent per-window linguistic complexity in summation form (Gabrielian &amp;
+    /// Bolshoy 1999): LC = (Σ_{i=1..m} V_i) / (Σ_{i=1..m} V_max,i), V_max,i = min(4^i,
+    /// w−i+1), m = min(maxWordLength, w). Written from Windowed_Complexity.md §2.2, not
+    /// from the production code.
+    /// </summary>
+    private static double ReferenceLinguisticComplexity(string window, int maxWordLength)
+    {
+        if (window.Length == 0) return 0.0;
+        long observed = 0, possible = 0;
+        int m = Math.Min(maxWordLength, window.Length);
+        for (int len = 1; len <= m; len++)
+        {
+            var words = new HashSet<string>();
+            for (int i = 0; i + len <= window.Length; i++) words.Add(window.Substring(i, len));
+            observed += words.Count;
+            possible += Math.Min((long)Math.Pow(4, len), window.Length - len + 1);
+        }
+        return possible > 0 ? (double)observed / possible : 0.0;
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Positive sanity — hand-checkable worked example (Window §7.1, §2.4)
+    // ───────────────────────────────────────────────────────────────────
+
+    #region Window — Positive sanity — worked example
+
+    /// <summary>
+    /// The §7.1 worked example, derived independently:
+    ///   seq = "ACGTACGTAAAAAAAAACGTACGT" (L = 24), windowSize = 8, stepSize = 8.
+    /// Three windows fully fit (⌊(24−8)/8⌋+1 = 3) at starts 0, 8, 16:
+    ///   • W0 = "ACGTACGT": A=C=G=T=2 ⇒ H = log₂4 = 2.0; distinct subwords len 1..6 =
+    ///     4,4,4,4,4,3 (Σ=23), maxima min(4^i,8−i+1)=4,7,6,5,4,3 (Σ=29) ⇒ LC = 23/29.
+    ///   • W1 = "AAAAAAAA": homopolymer ⇒ H = 0; distinct = 1 per length (Σ=6) ⇒ LC = 6/29.
+    ///   • W2 = "ACGTACGT": identical to W0 ⇒ H = 2.0, LC = 23/29.
+    /// Coordinates (INV-02): WindowStart 0/8/16, WindowEnd 7/15/23, Position 4/12/20.
+    /// These exact values were reproduced by hand BEFORE running the code; a profile
+    /// that dropped a window, mis-placed a coordinate, or mis-computed a metric fails.
+    /// </summary>
+    [Test]
+    public void Window_WorkedExample_MatchesDocExactly()
+    {
+        var seq = new DnaSequence("ACGTACGTAAAAAAAAACGTACGT");
+
+        var profile = SequenceComplexity.CalculateWindowedComplexity(seq, windowSize: 8, stepSize: 8).ToList();
+
+        profile.Should().HaveCount(3, "⌊(24−8)/8⌋+1 = 3 fully-contained windows (INV-01)");
+
+        // Coordinates (INV-02).
+        profile.Select(p => p.WindowStart).Should().Equal(new[] { 0, 8, 16 }, "starts step by s=8");
+        profile.Select(p => p.WindowEnd).Should().Equal(new[] { 7, 15, 23 }, "WindowEnd = start + w − 1 (inclusive)");
+        profile.Select(p => p.Position).Should().Equal(new[] { 4, 12, 20 }, "Position = start + ⌊w/2⌋ = start + 4");
+
+        // Shannon entropy (INV-03): uniform 2.0, homopolymer 0.0, uniform 2.0.
+        profile[0].ShannonEntropy.Should().BeApproximately(2.0, Tolerance, "ACGTACGT is uniform ⇒ H = log₂4 = 2.0");
+        profile[1].ShannonEntropy.Should().BeApproximately(0.0, Tolerance, "AAAAAAAA is a homopolymer ⇒ H = 0");
+        profile[2].ShannonEntropy.Should().BeApproximately(2.0, Tolerance, "ACGTACGT is uniform ⇒ H = 2.0");
+
+        // Linguistic complexity (INV-04): 23/29, 6/29, 23/29 — the exact §7.1 fractions.
+        profile[0].LinguisticComplexity.Should().BeApproximately(23.0 / 29.0, Tolerance,
+            "Σ distinct 4+4+4+4+4+3=23 over Σ maxima 4+7+6+5+4+3=29 (§7.1)");
+        profile[1].LinguisticComplexity.Should().BeApproximately(6.0 / 29.0, Tolerance,
+            "homopolymer: 1 distinct per length (Σ=6) over 29 (§7.1)");
+        profile[2].LinguisticComplexity.Should().BeApproximately(23.0 / 29.0, Tolerance,
+            "identical to W0 (§7.1)");
+
+        // Cross-check the whole profile against the independent reference.
+        var reference = ReferenceWindowedProfile(seq.Sequence, 8, 8);
+        profile.Select(p => (p.Position, p.WindowStart, p.WindowEnd)).Should()
+            .Equal(reference.Select(r => (r.Position, r.Start, r.End)),
+                "coordinates must match the independent reference enumeration");
+    }
+
+    /// <summary>
+    /// §6.1 anchor: L = windowSize yields EXACTLY one window at start 0 (the whole
+    /// sequence), and its metrics equal the standalone scalar Shannon entropy and
+    /// linguistic complexity of that string (§5.2: the driver delegates to the same
+    /// helpers). Pinned on "ACGTACGT" (w = 8 = L) — one point, H = 2.0, LC = 23/29.
+    /// </summary>
+    [Test]
+    public void Window_LengthEqualsWindow_IsExactlyOnePoint_MatchingScalarMetrics()
+    {
+        var seq = new DnaSequence("ACGTACGT");
+
+        var profile = SequenceComplexity.CalculateWindowedComplexity(seq, windowSize: 8, stepSize: 8).ToList();
+
+        profile.Should().HaveCount(1, "L = w ⇒ exactly one fully-contained window (§6.1)");
+        profile[0].WindowStart.Should().Be(0);
+        profile[0].WindowEnd.Should().Be(7, "start + w − 1 = 7 (inclusive)");
+        profile[0].Position.Should().Be(4, "start + ⌊8/2⌋ = 4");
+
+        // The window value equals the standalone scalar metric of the same string (§5.2).
+        profile[0].ShannonEntropy.Should().BeApproximately(
+            SequenceComplexity.CalculateShannonEntropy(seq), Tolerance,
+            "the windowed metric delegates to the standalone Shannon helper (§5.2)");
+        profile[0].LinguisticComplexity.Should().BeApproximately(
+            SequenceComplexity.CalculateLinguisticComplexity(seq, Math.Min(6, 8)), Tolerance,
+            "the windowed LC delegates to the standalone helper with cap min(6,w) (§5.2)");
+        profile[0].LinguisticComplexity.Should().BeApproximately(23.0 / 29.0, Tolerance,
+            "and equals the §7.1 fraction 23/29");
+    }
+
+    /// <summary>
+    /// INV-01 window-count formula, checked independently across a grid of (L, w, s):
+    /// the number of emitted points is ALWAYS ⌊(L−w)/s⌋+1 for L ≥ w and 0 otherwise,
+    /// and every coordinate triple matches the reference enumeration. This pins both
+    /// the count and the placement (no off-by-one, no partial trailing window), with
+    /// overlapping (s &lt; w), tiling (s = w) and gapped (s &gt; w) step regimes.
+    /// </summary>
+    [Test]
+    public void Window_CountAndPlacement_FollowFloorFormula_OverGrid()
+    {
+        var rng = new Random(Seed + 11);
+
+        foreach (int L in new[] { 0, 1, 5, 8, 16, 17, 23, 64, 100 })
+        {
+            string raw = RandomDna(rng, L);
+            var seq = new DnaSequence(raw);
+
+            foreach (int w in new[] { 1, 2, 5, 8, 16, 64 })
+            {
+                foreach (int s in new[] { 1, 3, 8, 16 })
+                {
+                    int expected = L >= w ? (L - w) / s + 1 : 0;
+
+                    var profile = SequenceComplexity.CalculateWindowedComplexity(seq, w, s).ToList();
+
+                    profile.Should().HaveCount(expected,
+                        $"L={L}, w={w}, s={s} ⇒ ⌊(L−w)/s⌋+1 = {expected} windows (INV-01)");
+
+                    var reference = ReferenceWindowedProfile(raw, w, s);
+                    profile.Select(p => (p.Position, p.WindowStart, p.WindowEnd)).Should()
+                        .Equal(reference.Select(r => (r.Position, r.Start, r.End)),
+                            $"coordinates must match the independent reference (L={L}, w={w}, s={s})");
+
+                    // Every point: WindowEnd inclusive, fully inside the sequence (INV-02).
+                    foreach (var p in profile)
+                    {
+                        p.WindowEnd.Should().Be(p.WindowStart + w - 1, "WindowEnd = start + w − 1");
+                        p.Position.Should().Be(p.WindowStart + w / 2, "Position = start + ⌊w/2⌋");
+                        (p.WindowStart >= 0 && p.WindowEnd < L).Should().BeTrue(
+                            "the window is fully contained in [0, L) — no partial trailing window");
+                    }
+                }
+            }
+        }
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  BE — Boundary: windowSize > sequence length
+    // ───────────────────────────────────────────────────────────────────
+
+    #region Window — BE — windowSize > length
+
+    /// <summary>
+    /// BE (checklist "window > len"): when no full window fits the profile is EMPTY —
+    /// 0 points, no partial trailing window, no IndexOutOfRange from Substring(0, w)
+    /// (§3.3, §6.1: L &lt; windowSize ⇒ empty profile). Pinned for several (L, w) with
+    /// w &gt; L, including the extreme w = int.MaxValue, on a non-trivial sequence. The
+    /// enumeration must complete without throwing.
+    /// </summary>
+    [TestCase("ACGT", 5)]
+    [TestCase("ACGT", 8)]
+    [TestCase("A", 2)]
+    [TestCase("ACGTACGT", 9)]
+    [TestCase("ACGTACGT", int.MaxValue)]
+    public void Window_WindowLargerThanLength_IsEmptyProfile(string seqStr, int windowSize)
+    {
+        var seq = new DnaSequence(seqStr);
+
+        List<ComplexityPoint> profile = null!;
+        var act = () => { profile = SequenceComplexity.CalculateWindowedComplexity(seq, windowSize, stepSize: 1).ToList(); };
+
+        act.Should().NotThrow("w > L is a defined boundary ⇒ empty profile, never a Substring overrun (§6.1)");
+        profile.Should().BeEmpty("no window is fully contained when windowSize > length (§6.1)");
+    }
+
+    /// <summary>
+    /// BE: w &gt; L holds the empty-profile contract regardless of stepSize and across
+    /// a randomized sweep of short sequences with oversized windows — the result must
+    /// always be an empty, fully-enumerable profile (no hang, no throw).
+    /// </summary>
+    [Test]
+    [CancelAfter(30000)]
+    public void Window_WindowLargerThanLength_RandomizedSweep_AlwaysEmpty()
+    {
+        var rng = new Random(Seed + 12);
+
+        for (int iter = 0; iter < 300; iter++)
+        {
+            int L = rng.Next(0, 40);
+            string raw = RandomDna(rng, L);
+            var seq = new DnaSequence(raw);
+            int w = L + rng.Next(1, 50);   // strictly greater than L
+            int s = rng.Next(1, 20);
+
+            List<ComplexityPoint> profile = null!;
+            var act = () => { profile = SequenceComplexity.CalculateWindowedComplexity(seq, w, s).ToList(); };
+
+            act.Should().NotThrow($"w={w} > L={L} ⇒ defined empty profile (§6.1)");
+            profile.Should().BeEmpty($"no full window fits (L={L}, w={w}, s={s})");
+            ReferenceWindowedProfile(raw, w, s).Should().BeEmpty("the reference agrees: empty");
+        }
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  BE — Boundary: windowSize = 0 (and −1, int.MinValue), stepSize = 0
+    // ───────────────────────────────────────────────────────────────────
+
+    #region Window — BE — windowSize = 0 / stepSize = 0
+
+    /// <summary>
+    /// BE (checklist "window=0"): windowSize &lt; 1 is the documented
+    /// ArgumentOutOfRangeException boundary (§3.1, §3.3, §6.1) — including the BE
+    /// archetypes 0, −1 and int.MinValue. An INTENTIONAL validation throw, never a
+    /// divide-by-zero, an infinite loop (the i += s loop with w=0 would never
+    /// advance past `i + 0 <= L`), or a silent empty profile. Because the public
+    /// method validates eagerly, it throws on the CALL — before any enumeration.
+    /// </summary>
+    [TestCase(0)]
+    [TestCase(-1)]
+    [TestCase(int.MinValue)]
+    public void Window_WindowSizeBelowOne_ThrowsArgumentOutOfRange_OnCall(int windowSize)
+    {
+        var seq = new DnaSequence("ACGTACGTACGTACGT");
+
+        // Eager validation: the throw happens on the CALL, not on first MoveNext.
+        var act = () => SequenceComplexity.CalculateWindowedComplexity(seq, windowSize, stepSize: 4);
+
+        act.Should().Throw<ArgumentOutOfRangeException>(
+            "windowSize < 1 is invalid and guarded at the entry point (§3.1, §3.3)")
+            .Which.ParamName.Should().Be("windowSize");
+    }
+
+    /// <summary>
+    /// BE: stepSize &lt; 1 is the documented ArgumentOutOfRangeException boundary
+    /// (§3.1, §3.3) — including 0, −1 and int.MinValue. A step of 0 would be an
+    /// INFINITE LOOP (i never advances), so the guard is the safety contract; the
+    /// throw fires eagerly on the call, never hanging.
+    /// </summary>
+    [TestCase(0)]
+    [TestCase(-1)]
+    [TestCase(int.MinValue)]
+    public void Window_StepSizeBelowOne_ThrowsArgumentOutOfRange_OnCall(int stepSize)
+    {
+        var seq = new DnaSequence("ACGTACGTACGTACGT");
+
+        var act = () => SequenceComplexity.CalculateWindowedComplexity(seq, windowSize: 4, stepSize: stepSize);
+
+        act.Should().Throw<ArgumentOutOfRangeException>(
+            "stepSize < 1 is invalid and would infinite-loop; it is guarded eagerly (§3.1, §3.3)")
+            .Which.ParamName.Should().Be("stepSize");
+    }
+
+    /// <summary>
+    /// BE: the minimal valid parameters windowSize = 1, stepSize = 1 are the lower
+    /// boundary that is ACCEPTED. With w = 1 each base is its own window: L points,
+    /// each WindowStart = WindowEnd = Position = i, H = 0 (a single base is a
+    /// degenerate distribution) and LC = 1/1 = 1 (one distinct length-1 word over one
+    /// position). Pinned to guard the off-by-one between the rejected w = 0 and the
+    /// accepted w = 1.
+    /// </summary>
+    [Test]
+    public void Window_MinimalWindowAndStep_IsAccepted_PerBasePoints()
+    {
+        var seq = new DnaSequence("ACGT");
+
+        var profile = SequenceComplexity.CalculateWindowedComplexity(seq, windowSize: 1, stepSize: 1).ToList();
+
+        profile.Should().HaveCount(4, "w=1,s=1 over L=4 ⇒ ⌊(4−1)/1⌋+1 = 4 windows (INV-01)");
+        for (int i = 0; i < profile.Count; i++)
+        {
+            profile[i].WindowStart.Should().Be(i);
+            profile[i].WindowEnd.Should().Be(i, "w=1 ⇒ start = end");
+            profile[i].Position.Should().Be(i, "start + ⌊1/2⌋ = start");
+            profile[i].ShannonEntropy.Should().BeApproximately(0.0, Tolerance,
+                "a single-base window is a deterministic distribution ⇒ H = 0 (INV-03)");
+            profile[i].LinguisticComplexity.Should().BeApproximately(1.0, Tolerance,
+                "one distinct length-1 word over one position ⇒ LC = 1/1 = 1 (INV-04)");
+        }
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  BE — Boundary: empty sequence and single character
+    // ───────────────────────────────────────────────────────────────────
+
+    #region Window — BE — empty & single char
+
+    /// <summary>
+    /// BE (checklist "empty"): the empty DnaSequence (built from "" via the ctor
+    /// short-circuit) yields an EMPTY profile for any valid (w ≥ 1, s ≥ 1) — L = 0 &lt; w,
+    /// so no window fits (§6.1). No Substring overrun, no NaN, no throw. Pinned across
+    /// the default parameters and minimal parameters.
+    /// </summary>
+    [Test]
+    public void Window_EmptySequence_IsEmptyProfile()
+    {
+        var empty = new DnaSequence(string.Empty);
+        empty.Length.Should().Be(0);
+
+        foreach (var (w, s) in new[] { (64, 10), (1, 1), (8, 8) })
+        {
+            List<ComplexityPoint> profile = null!;
+            var act = () => { profile = SequenceComplexity.CalculateWindowedComplexity(empty, w, s).ToList(); };
+
+            act.Should().NotThrow($"the empty sequence is a defined boundary (w={w}, s={s}), not an error (§6.1)");
+            profile.Should().BeEmpty($"L=0 < w={w} ⇒ no window fits ⇒ empty profile (§6.1)");
+        }
+    }
+
+    /// <summary>
+    /// BE (checklist "single char"): a one-base sequence. With windowSize = 1 it yields
+    /// exactly one window (the base itself): H = 0, LC = 1, all coordinates 0. With any
+    /// windowSize ≥ 2 it yields an EMPTY profile (L = 1 &lt; w, §6.1). Pinned across all
+    /// four bases and both regimes — the minimal non-empty input must never overrun.
+    /// </summary>
+    [TestCase('A')]
+    [TestCase('C')]
+    [TestCase('G')]
+    [TestCase('T')]
+    public void Window_SingleCharacter_OnePointAtW1_EmptyAboveW1(char baseChar)
+    {
+        var seq = new DnaSequence(baseChar.ToString());
+
+        // windowSize = 1 ⇒ exactly one degenerate window.
+        var one = SequenceComplexity.CalculateWindowedComplexity(seq, windowSize: 1, stepSize: 1).ToList();
+        one.Should().HaveCount(1, "L = w = 1 ⇒ a single window (§6.1)");
+        one[0].WindowStart.Should().Be(0);
+        one[0].WindowEnd.Should().Be(0, "w = 1 ⇒ start = end = 0");
+        one[0].Position.Should().Be(0, "0 + ⌊1/2⌋ = 0");
+        one[0].ShannonEntropy.Should().BeApproximately(0.0, Tolerance,
+            "a single base is deterministic ⇒ H = 0 (INV-03)");
+        one[0].LinguisticComplexity.Should().BeApproximately(1.0, Tolerance,
+            "one distinct length-1 word over one position ⇒ LC = 1 (INV-04)");
+
+        // windowSize ≥ 2 ⇒ no window fits.
+        SequenceComplexity.CalculateWindowedComplexity(seq, windowSize: 2, stepSize: 1)
+            .Should().BeEmpty("L = 1 < windowSize = 2 ⇒ empty profile (§6.1)");
+        SequenceComplexity.CalculateWindowedComplexity(seq, windowSize: 64, stepSize: 10)
+            .Should().BeEmpty("L = 1 < default windowSize = 64 ⇒ empty profile (§6.1)");
+    }
+
+    /// <summary>
+    /// BE: a null DnaSequence is the documented ArgumentNullException boundary on the
+    /// typed surface (§3.1, §3.3) — an INTENTIONAL validation exception fired eagerly
+    /// on the call, never a raw NullReferenceException and never deferred to
+    /// enumeration.
+    /// </summary>
+    [Test]
+    public void Window_NullDnaSequence_ThrowsArgumentNullException_OnCall()
+    {
+        var act = () => SequenceComplexity.CalculateWindowedComplexity((DnaSequence)null!, windowSize: 8, stepSize: 4);
+
+        act.Should().Throw<ArgumentNullException>("the typed overload guards null explicitly and eagerly (§3.3)");
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  BE / RB — randomized boundary sweep + very long stress
+    // ───────────────────────────────────────────────────────────────────
+
+    #region Window — BE/RB — randomized sweep & very long
+
+    /// <summary>
+    /// BE/RB: a randomized boundary sweep. Over many fixed-seed random DNA sequences of
+    /// varied length AND deliberately included degenerate boundaries (length 0/1, w &gt; L,
+    /// w = L, homopolymers, periodic strings), every emitted point must be WELL-FORMED:
+    ///   • #points = ⌊(L−w)/s⌋+1 for L ≥ w, else 0 (INV-01);
+    ///   • per point WindowStart/WindowEnd/Position exactly as INV-02, fully inside [0,L);
+    ///   • 0 ≤ ShannonEntropy ≤ 2.0, never NaN/Infinity (INV-03);
+    ///   • 0 &lt; LinguisticComplexity ≤ 1, never NaN/Infinity (INV-04);
+    ///   • the whole profile equals the independent reference enumeration.
+    /// Never a throw, hang, NaN, or out-of-range metric.
+    /// </summary>
+    [Test]
+    [CancelAfter(60000)]
+    public void Window_RandomizedSweep_AlwaysWellFormed()
+    {
+        var rng = new Random(Seed + 13);
+
+        for (int iter = 0; iter < 300; iter++)
+        {
+            int L = rng.Next(0, 200);
+            int mode = rng.Next(3);
+            string raw = mode switch
+            {
+                0 => RandomDna(rng, L),                                       // random DNA
+                1 => new string("ACGT"[rng.Next(4)], L),                      // homopolymer
+                _ => string.Concat(Enumerable.Repeat("ACGT", L / 4 + 1))[..L], // periodic
+            };
+            var seq = new DnaSequence(raw);
+
+            int w = rng.Next(1, 80);
+            int s = rng.Next(1, 30);
+            int expected = L >= w ? (L - w) / s + 1 : 0;
+
+            List<ComplexityPoint> profile = null!;
+            var act = () => { profile = SequenceComplexity.CalculateWindowedComplexity(seq, w, s).ToList(); };
+            act.Should().NotThrow($"valid params must never throw (L={L}, w={w}, s={s})");
+
+            profile.Should().HaveCount(expected, $"INV-01 count (L={L}, w={w}, s={s})");
+
+            var reference = ReferenceWindowedProfile(raw, w, s);
+            for (int p = 0; p < profile.Count; p++)
+            {
+                var pt = profile[p];
+                var rf = reference[p];
+
+                pt.WindowStart.Should().Be(rf.Start, "WindowStart matches reference (INV-02)");
+                pt.WindowEnd.Should().Be(rf.End, "WindowEnd matches reference (INV-02)");
+                pt.Position.Should().Be(rf.Position, "Position matches reference (INV-02)");
+                (pt.WindowStart >= 0 && pt.WindowEnd < L).Should().BeTrue("window fully inside [0,L)");
+
+                double.IsNaN(pt.ShannonEntropy).Should().BeFalse("H never NaN");
+                double.IsInfinity(pt.ShannonEntropy).Should().BeFalse("H never Infinity");
+                pt.ShannonEntropy.Should().BeInRange(-Tolerance, EntropyMax + Tolerance,
+                    "0 ≤ H ≤ log₂4 = 2.0 (INV-03)");
+                pt.ShannonEntropy.Should().BeApproximately(rf.H, Tolerance, "H matches the Shannon reference");
+
+                double.IsNaN(pt.LinguisticComplexity).Should().BeFalse("LC never NaN");
+                double.IsInfinity(pt.LinguisticComplexity).Should().BeFalse("LC never Infinity");
+                pt.LinguisticComplexity.Should().BeInRange(LcMin - Tolerance, 1.0 + Tolerance,
+                    "0 < LC ≤ 1 for DNA windows (INV-04)");
+                pt.LinguisticComplexity.Should().BeGreaterThan(0.0, "LC is strictly positive for DNA (INV-04)");
+                pt.LinguisticComplexity.Should().BeApproximately(rf.Lc, Tolerance, "LC matches the reference");
+            }
+        }
+    }
+
+    /// <summary>
+    /// BE/OVF: a very long sequence (200,000 bases) must profile without overflow or
+    /// hang under a CancelAfter guard. With the default w = 64, s = 10 the homopolymer
+    /// (minimal entropy, H = 0) and a random sequence must each emit exactly
+    /// ⌊(L−w)/s⌋+1 points, every metric finite and in range, and the random profile's
+    /// mean entropy must sit far above the homopolymer's 0 (INV-03/INV-04 at scale).
+    /// </summary>
+    [Test]
+    [CancelAfter(60000)]
+    public void Window_VeryLong_NoOverflowNoHang_AndContractHolds()
+    {
+        var rng = new Random(Seed + 14);
+        const int n = 200_000;
+        const int w = 64, s = 10;
+        int expected = (n - w) / s + 1;
+
+        var homopolymer = new DnaSequence(new string('A', n));
+        var random = new DnaSequence(RandomDna(rng, n));
+
+        var homoProfile = SequenceComplexity.CalculateWindowedComplexity(homopolymer, w, s).ToList();
+        var randomProfile = SequenceComplexity.CalculateWindowedComplexity(random, w, s).ToList();
+
+        homoProfile.Should().HaveCount(expected, "INV-01 count at scale");
+        randomProfile.Should().HaveCount(expected, "INV-01 count at scale");
+
+        homoProfile.Should().OnlyContain(p => p.ShannonEntropy == 0.0,
+            "every homopolymer window has H = 0 (INV-03)");
+
+        foreach (var p in randomProfile)
+        {
+            double.IsNaN(p.ShannonEntropy).Should().BeFalse();
+            double.IsInfinity(p.ShannonEntropy).Should().BeFalse();
+            p.ShannonEntropy.Should().BeInRange(-Tolerance, EntropyMax + Tolerance, "0 ≤ H ≤ 2.0 (INV-03)");
+            p.LinguisticComplexity.Should().BeInRange(0.0, 1.0 + Tolerance, "0 < LC ≤ 1 (INV-04)");
+        }
+
+        double meanRandomH = randomProfile.Average(p => p.ShannonEntropy);
+        meanRandomH.Should().BeGreaterThan(1.5,
+            "random DNA windows sit near the 2.0 entropy ceiling, far above the homopolymer's 0 (INV-03)");
+    }
+
+    #endregion
+
+    #endregion
 }
