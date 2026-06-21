@@ -236,6 +236,69 @@ public class AssemblyCombinatorialTests
         return reads;
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ASSEMBLY-MERGE-001 — Contig merging (Assembly)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 144.
+    // Spec: tests/TestSpecs/ASSEMBLY-MERGE-001.md (SequenceAssembler.MergeContigs).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: Langmead SCS notes — merging two contigs with a valid suffix/prefix overlap of length o emits
+    // c1 + c2[o:]; an invalid overlap (≤ 0 or > the shorter contig) falls back to concatenation.
+    //
+    // Checklist axes nContigs(3) × minOverlap(3) map onto the real knobs: number of contigs folded ∈
+    // {2,3,4}; overlap length ∈ {0,2,4}. Grid = 3 × 3 = 9 = the checklist's "Full Combos".
+    //
+    // The combinatorial point: the merged superstring length is a JOINT function of how many contigs are
+    // chained and the per-merge overlap — each valid overlap removes `overlap` characters. Each cell
+    // re-derives the fold from the merge definition and checks production matches.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// For every (contig count, overlap) folding MergeContigs over the chain equals the merge rule
+    /// re-derived independently (c1 + c2[o:] for a valid o, else concatenation), with the expected length.
+    /// </summary>
+    [Test, Combinatorial]
+    public void MergeContigs_ContigCountOverlapGrid_MatchesFoldRule(
+        [Values(2, 3, 4)] int nContigs,
+        [Values(0, 2, 4)] int overlap)
+    {
+        const int contigLength = 6;
+        var contigs = new List<string>();
+        for (int i = 0; i < nContigs; i++)
+            contigs.Add(new string((char)('A' + i), contigLength));
+
+        // Independent ground truth fold.
+        string expected = contigs[0];
+        for (int i = 1; i < nContigs; i++)
+        {
+            string c = contigs[i];
+            expected = overlap > 0 && overlap <= Math.Min(expected.Length, c.Length)
+                ? expected + c.Substring(overlap)
+                : expected + c;
+        }
+
+        string merged = contigs[0];
+        for (int i = 1; i < nContigs; i++)
+            merged = SequenceAssembler.MergeContigs(merged, contigs[i], overlap);
+
+        merged.Should().Be(expected, "fold of c1 + c2[o:] (valid overlap) else concatenation");
+        int validOverlap = overlap > 0 && overlap <= contigLength ? overlap : 0;
+        merged.Length.Should().Be(nContigs * contigLength - (nContigs - 1) * validOverlap, "each valid overlap removes `overlap` chars");
+    }
+
+    /// <summary>
+    /// Interaction witness (overlap validity): a positive overlap within the shorter contig chops that many
+    /// prefix bases of the second contig; an overlap of 0 or one exceeding the shorter contig concatenates.
+    /// Source: Langmead SCS overlap definition.
+    /// </summary>
+    [Test]
+    public void MergeContigs_OverlapValidity_ChopsOrConcatenates()
+    {
+        SequenceAssembler.MergeContigs("ACGTAC", "ACGGGG", 3).Should().Be("ACGTACGGG", "valid overlap 3 → c1 + c2[3:]");
+        SequenceAssembler.MergeContigs("ACGTAC", "ACGGGG", 0).Should().Be("ACGTACACGGGG", "overlap 0 → concatenate");
+        SequenceAssembler.MergeContigs("ACG", "TTTTTT", 5).Should().Be("ACGTTTTTT", "overlap > shorter contig → concatenate");
+    }
+
     /// <summary>Independent Biopython column-consensus ground truth.</summary>
     private static string GroundTruthConsensus(IReadOnlyList<string> reads, double threshold, char ambiguous)
     {
