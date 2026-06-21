@@ -296,4 +296,83 @@ public class FileIoCombinatorialTests
         rec.Alt.Should().Equal("G");
         rec.Samples.Should().BeNull("sample columns need a #CHROM header to bind names");
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: PARSE-GENBANK-001 — GenBank flat-file parsing (FileIO)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 69.
+    // Spec: tests/TestSpecs/PARSE-GENBANK-001.md (canonical GenBankParser.Parse).
+    // Dimensions: nFeatures(3) × hasSequence(2) × division(3). Grid 3×2×3 = 18.
+    //
+    // Model (GenBank flat file): a record opens with a LOCUS line (name, length, molecule type,
+    // topology, division code, date), carries a FEATURES table (each feature a key + location +
+    // qualifiers) and an optional ORIGIN sequence block, terminated by "//".
+    //
+    // The combinatorial point: feature count, sequence presence and division code interact — the
+    // parser reads the division from LOCUS, the exact feature count, and attaches the residues
+    // only when an ORIGIN block is present.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private static readonly string[] GbFeatureKeys = { "gene", "CDS", "misc_feature" };
+
+    private static string BuildGenBank(string name, string division, int nFeatures, bool hasSequence)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.Append($"LOCUS       {name}      20 bp    DNA     linear   {division} 01-JAN-2024\n");
+        sb.Append("DEFINITION  Combinatorial test record.\n");
+        sb.Append($"ACCESSION   {name}\n");
+        sb.Append($"VERSION     {name}.1\n");
+        sb.Append("FEATURES             Location/Qualifiers\n");
+        for (int i = 0; i < nFeatures; i++)
+        {
+            sb.Append("     ").Append(GbFeatureKeys[i % GbFeatureKeys.Length].PadRight(16))
+              .Append($"{i * 3 + 1}..{i * 3 + 3}\n");
+            sb.Append(new string(' ', 21)).Append($"/note=\"f{i}\"\n");
+        }
+        if (hasSequence)
+        {
+            sb.Append("ORIGIN      \n");
+            sb.Append("        1 acgtacgtac gtacgtacgt\n");
+        }
+        sb.Append("//\n");
+        return sb.ToString();
+    }
+
+    [Test, Combinatorial]
+    public void ParseGenBank_ReadsDivisionFeaturesAndSequence(
+        [Values(1, 2, 3)] int nFeatures,
+        [Values(true, false)] bool hasSequence,
+        [Values("BCT", "PRI", "VRL")] string division)
+    {
+        string text = BuildGenBank("REC001", division, nFeatures, hasSequence);
+        var record = GenBankParser.Parse(text).Single();
+
+        record.Locus.Should().Be("REC001");
+        record.MoleculeType.Should().Be("DNA");
+        record.Topology.Should().Be("linear");
+        record.Division.Should().Be(division, "the division code is read from LOCUS");
+        record.Features.Should().HaveCount(nFeatures);
+        record.Features.Select(f => f.Key)
+            .Should().Equal(Enumerable.Range(0, nFeatures).Select(i => GbFeatureKeys[i % GbFeatureKeys.Length]));
+
+        if (hasSequence)
+            record.Sequence.Should().Be("ACGTACGTACGTACGTACGT", "ORIGIN residues are concatenated and upper-cased");
+        else
+            record.Sequence.Should().BeEmpty("no ORIGIN block ⇒ no sequence");
+    }
+
+    /// <summary>
+    /// Interaction witness: a feature's qualifiers are parsed; the ORIGIN block toggles whether a
+    /// sequence is attached without affecting the feature table.
+    /// </summary>
+    [Test]
+    public void ParseGenBank_QualifiersParsed_SequenceOptional()
+    {
+        var withSeq = GenBankParser.Parse(BuildGenBank("A", "BCT", 2, hasSequence: true)).Single();
+        withSeq.Features[0].Qualifiers.Should().ContainKey("note");
+        withSeq.Sequence.Should().HaveLength(20);
+
+        var noSeq = GenBankParser.Parse(BuildGenBank("A", "BCT", 2, hasSequence: false)).Single();
+        noSeq.Features.Should().HaveCount(2, "feature table is independent of ORIGIN");
+        noSeq.Sequence.Should().BeEmpty();
+    }
 }
