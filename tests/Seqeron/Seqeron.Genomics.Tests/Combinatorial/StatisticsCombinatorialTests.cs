@@ -212,6 +212,112 @@ public class StatisticsCombinatorialTests
         sheet.Sheet.Should().BeApproximately(1.70, 1e-9).And.BeGreaterThan(sheet.Helix);
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: SEQ-THERMO-001 — DNA nearest-neighbor thermodynamics (Statistics)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 129.
+    // Spec: tests/TestSpecs/SEQ-THERMO-001.md (SequenceStatistics.CalculateThermodynamics).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: Allawi & SantaLucia (1997) / SantaLucia (1998) unified NN model — ΔG°₃₇ = ΔH° − 310.15·ΔS°/1000;
+    // Tm = (1000·ΔH°)/(ΔS° + R·ln(C_T/4)) − 273.15, R = 1.987; method-5 Na⁺ salt correction.
+    //
+    // Checklist axes saltConc(3) × seqLen(3) × gcContent(3) map onto the real knobs: naConcentration ∈
+    // {0.01, 0.05, 1.0} M, length ∈ {6, 12, 20}, GC fraction ∈ {0.0, 0.5, 1.0}. Grid = 3³ = 27 = the
+    // checklist's "Full Combos" for this row.
+    //
+    // The combinatorial point: ΔH/ΔS/ΔG/Tm are a JOINT function of salt, length and GC, but the two
+    // defining thermodynamic identities (the Gibbs relation, INV-02, and the Tm equation, INV-03) must hold
+    // in EVERY cell. Each cell re-derives both relations from the reported ΔH/ΔS and checks them.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private const double GasConstant = 1.987;       // cal/(mol·K)
+    private const double StrandConcentration = 2.5e-7; // C_T (default), F = 4
+
+    /// <summary>
+    /// For every (salt, length, GC) the reported thermodynamics satisfy the Gibbs relation
+    /// ΔG = ΔH − 310.15·ΔS/1000 (INV-02) and the Tm equation Tm = 1000·ΔH/(ΔS + R·ln(C_T/4)) − 273.15
+    /// (INV-03), within rounding tolerance.
+    /// </summary>
+    [Test, Combinatorial]
+    public void CalculateThermodynamics_SaltLengthGcGrid_SatisfiesGibbsAndTmRelations(
+        [Values(0.01, 0.05, 1.0)] double naConcentration,
+        [Values(6, 12, 20)] int seqLen,
+        [Values(0.0, 0.5, 1.0)] double gcFraction)
+    {
+        string dna = BuildDna(seqLen, gcFraction);
+
+        var t = SequenceStatistics.CalculateThermodynamics(dna, naConcentration);
+
+        double expectedG = t.DeltaH - 310.15 * t.DeltaS / 1000.0;
+        t.DeltaG.Should().BeApproximately(expectedG, 0.05, "[INV-02] ΔG = ΔH − 310.15·ΔS/1000");
+
+        double expectedTm = t.DeltaH * 1000.0 / (t.DeltaS + GasConstant * Math.Log(StrandConcentration / 4.0)) - 273.15;
+        t.MeltingTemperature.Should().BeApproximately(expectedTm, 0.2, "[INV-03] Tm = 1000·ΔH/(ΔS + R·ln(C_T/4)) − 273.15");
+    }
+
+    /// <summary>
+    /// Interaction witness (salt axis monotonicity): raising the Na⁺ concentration raises Tm (the method-5
+    /// salt correction makes ΔS less negative). Source: SantaLucia (1998) salt correction.
+    /// </summary>
+    [Test]
+    public void CalculateThermodynamics_SaltAxis_RaisesTm()
+    {
+        const string dna = "GATCGATCGATC";
+
+        double low = SequenceStatistics.CalculateThermodynamics(dna, 0.01).MeltingTemperature;
+        double mid = SequenceStatistics.CalculateThermodynamics(dna, 0.05).MeltingTemperature;
+        double high = SequenceStatistics.CalculateThermodynamics(dna, 1.0).MeltingTemperature;
+
+        mid.Should().BeGreaterThan(low);
+        high.Should().BeGreaterThan(mid);
+    }
+
+    /// <summary>
+    /// Interaction witness (GC axis monotonicity): a GC-rich duplex melts higher than an AT-rich one of the
+    /// same length and salt (three hydrogen bonds vs two; stronger NN stacking). Source: Allawi & SantaLucia (1997).
+    /// </summary>
+    [Test]
+    public void CalculateThermodynamics_GcAxis_RaisesTm()
+    {
+        double atTm = SequenceStatistics.CalculateThermodynamics(BuildDna(12, 0.0), 0.05).MeltingTemperature;
+        double gcTm = SequenceStatistics.CalculateThermodynamics(BuildDna(12, 1.0), 0.05).MeltingTemperature;
+
+        gcTm.Should().BeGreaterThan(atTm, "GC-rich duplexes are more stable");
+    }
+
+    /// <summary>
+    /// Witness (INV-05/06): the NN model is case-insensitive and returns all-zero for inputs shorter than a
+    /// dinucleotide. Source: NN model undefined for length &lt; 2.
+    /// </summary>
+    [Test]
+    public void CalculateThermodynamics_CaseInsensitiveAndShortInput()
+    {
+        var upper = SequenceStatistics.CalculateThermodynamics("GATCGATC", 0.05);
+        var lower = SequenceStatistics.CalculateThermodynamics("gatcgatc", 0.05);
+        lower.Should().Be(upper, "[INV-05] case-insensitive");
+
+        SequenceStatistics.CalculateThermodynamics("A", 0.05)
+            .Should().Be(new SequenceStatistics.ThermodynamicProperties(0, 0, 0, 0), "[INV-06] length < 2 → zeros");
+    }
+
+    /// <summary>
+    /// Builds a DNA sequence of <paramref name="length"/> bp at approximately <paramref name="gcFraction"/>
+    /// GC content: AT-only (0.0, A/T alternating), balanced (0.5, GATC repeat), or GC-only (1.0, G/C alternating).
+    /// </summary>
+    private static string BuildDna(int length, double gcFraction)
+    {
+        string pattern = gcFraction switch
+        {
+            <= 0.0 => "AT",
+            >= 1.0 => "GC",
+            _ => "GATC",
+        };
+        var chars = new char[length];
+        for (int i = 0; i < length; i++)
+            chars[i] = pattern[i % pattern.Length];
+        return new string(chars);
+    }
+
     /// <summary>Builds a protein of <paramref name="length"/> recognized residues by cycling the 20 canonical amino acids.</summary>
     private static string BuildProtein(int length)
     {
