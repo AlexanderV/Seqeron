@@ -177,4 +177,102 @@ public class MatchingAlgebraicTests
             return (ac <= ab + bc).Label($"d(a,c)={ac} > d(a,b)+d(b,c)={ab}+{bc}");
         });
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: PAT-IUPAC-001 — IUPAC ambiguity-code matching (Matching)
+    // Checklist: docs/checklists/06_ALGEBRAIC_TESTING.md, row 11.
+    //
+    // Model: each IUPAC code denotes a SET of concrete bases; matching is set
+    //        membership: MatchesIupac(b, code) ⟺ b ∈ set(code). The codes form a
+    //        bounded lattice under set inclusion with N (= {A,C,G,T}) as the top.
+    //   — docs IUPAC-IUB 1970 / NC-IUB 1984; IupacHelper.MatchesIupac.
+    //
+    // Laws under test (checklist row 11):
+    //   • ID   — exact base match is reflexive: each concrete base used as its own
+    //            code matches only itself (the singleton atoms of the lattice).
+    //   • DIST — N is the top element: every base matches N, and set(N) ⊇ set(code)
+    //            for every code, i.e. anything any code matches, N matches too.
+    //   • DIST — complementary two-way codes partition the alphabet: R⊎Y, S⊎W,
+    //            K⊎M each cover {A,C,G,T} exactly once (conservation); the
+    //            three-way codes B,D,H,V are exactly "all bases but one".
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private static readonly char[] Bases = { 'A', 'C', 'G', 'T' };
+
+    /// <summary>
+    /// ID: exact base match is reflexive and discriminating — base b used as a
+    /// code matches b and rejects every other base (the singleton atoms).
+    /// </summary>
+    [Test]
+    public void Iupac_Identity_ExactMatchIsReflexiveAtom()
+    {
+        foreach (char code in Bases)
+        {
+            foreach (char b in Bases)
+            {
+                IupacHelper.MatchesIupac(b, code).Should().Be(b == code,
+                    $"base '{b}' vs exact code '{code}'");
+            }
+        }
+    }
+
+    /// <summary>
+    /// DIST: N is the top element — it matches every concrete base, and its match
+    /// set is a superset of every other code's match set.
+    /// </summary>
+    [Test]
+    public void Iupac_Distributive_NIsTopElement()
+    {
+        // N matches every base.
+        foreach (char b in Bases)
+            IupacHelper.MatchesIupac(b, 'N').Should().BeTrue($"N must match '{b}'");
+
+        // set(N) ⊇ set(code) for every standard code.
+        const string codes = "ACGTNRYSWKMBDHV";
+        foreach (char code in codes)
+        {
+            foreach (char b in Bases)
+            {
+                if (IupacHelper.MatchesIupac(b, code))
+                    IupacHelper.MatchesIupac(b, 'N').Should().BeTrue(
+                        $"'{b}' matched '{code}' but not top element N");
+            }
+        }
+    }
+
+    /// <summary>
+    /// DIST conservation: the three complementary two-way codes each partition the
+    /// alphabet — every base matches exactly one of {R,Y}, one of {S,W}, one of {K,M}.
+    /// </summary>
+    [Test]
+    public void Iupac_Distributive_TwoWayCodesPartitionAlphabet()
+    {
+        foreach (char b in Bases)
+        {
+            (IupacHelper.MatchesIupac(b, 'R') ^ IupacHelper.MatchesIupac(b, 'Y'))
+                .Should().BeTrue($"R/Y must partition '{b}'");
+            (IupacHelper.MatchesIupac(b, 'S') ^ IupacHelper.MatchesIupac(b, 'W'))
+                .Should().BeTrue($"S/W must partition '{b}'");
+            (IupacHelper.MatchesIupac(b, 'K') ^ IupacHelper.MatchesIupac(b, 'M'))
+                .Should().BeTrue($"K/M must partition '{b}'");
+        }
+    }
+
+    /// <summary>
+    /// DIST: the three-way codes B,D,H,V are exactly the complements of the four
+    /// singleton atoms — B = ¬A, D = ¬C, H = ¬G, V = ¬T.
+    /// </summary>
+    [Test]
+    public void Iupac_Distributive_ThreeWayCodesAreSingletonComplements()
+    {
+        var excludedBy = new (char Code, char Excluded)[] { ('B', 'A'), ('D', 'C'), ('H', 'G'), ('V', 'T') };
+        foreach (var (code, excluded) in excludedBy)
+        {
+            foreach (char b in Bases)
+            {
+                IupacHelper.MatchesIupac(b, code).Should().Be(b != excluded,
+                    $"code '{code}' should match '{b}' iff '{b}' != '{excluded}'");
+            }
+        }
+    }
 }
