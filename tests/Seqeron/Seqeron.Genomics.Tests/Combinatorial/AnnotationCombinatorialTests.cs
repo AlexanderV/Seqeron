@@ -350,4 +350,81 @@ public class AnnotationCombinatorialTests
         hits.First(h => h.sequence == "TTGAC").score.Should().BeApproximately(0.855, 1e-9);
         hits.First(h => h.sequence == "ATAAT").score.Should().BeApproximately(0.813, 1e-9);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ANNOT-GFF-001 — GFF3 feature I/O (Annotation)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 31.
+    // Spec: tests/TestSpecs/ANNOT-GFF-001.md (canonical ParseGff3 / ToGff3).
+    // Dimensions: featureType(3) × strand(3) × phase(3). Grid 3×3×3 = 27.
+    //
+    // Model (Sequence Ontology GFF3 v1.26): a feature line is nine tab-separated columns;
+    // column 3 is the SO type, column 7 the strand (+/−/.), column 8 the phase (0/1/2 or .).
+    // ParseGff3 maps these to GenomicFeature.Type/Strand/Phase, defaulting phase "." to null.
+    //
+    // The combinatorial point: the three columns are parsed independently and must not
+    // bleed into one another — every (type, strand, phase) triple must round-trip into the
+    // corresponding GenomicFeature fields with the other columns (coordinates, id) intact.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    [Test, Combinatorial]
+    public void AnnotGff_ParsesTypeStrandPhase_Independently(
+        [Values("gene", "mRNA", "CDS")] string featureType,
+        [Values("+", "-", ".")] string strand,
+        [Values("0", "1", "2")] string phase)
+    {
+        string line = $"chr1\t.\t{featureType}\t100\t200\t.\t{strand}\t{phase}\tID=f1;Name=demo";
+
+        var features = GenomeAnnotator.ParseGff3(new[] { line }).ToList();
+
+        features.Should().ContainSingle();
+        var f = features[0];
+        f.Type.Should().Be(featureType, "column 3 is the feature type");
+        f.Strand.Should().Be(strand[0], "column 7 is the strand");
+        f.Phase.Should().Be(int.Parse(phase), "column 8 is the phase");
+        f.Start.Should().Be(100);
+        f.End.Should().Be(200);
+        f.Score.Should().BeNull("a '.' score column parses to null");
+        f.FeatureId.Should().Be("f1", "the ID attribute drives the feature id");
+        f.Attributes["Name"].Should().Be("demo");
+    }
+
+    /// <summary>
+    /// Interaction witness: phase is REQUIRED for CDS — ToGff3 emits phase "0" for a CDS but
+    /// "." for any other type, so a round-trip yields Phase 0 only for the CDS feature.
+    /// — GFF3 v1.26 NOTE 4.
+    /// </summary>
+    [Test]
+    public void AnnotGff_PhaseColumn_DependsOnFeatureType()
+    {
+        var cds = new GenomeAnnotator.GeneAnnotation("g1", 99, 200, '+', "CDS", "prot",
+            new Dictionary<string, string>());
+
+        string cdsLine = GenomeAnnotator.ToGff3(new[] { cds }, "chr1").Skip(1).First();
+        var parsedCds = GenomeAnnotator.ParseGff3(new[] { cdsLine }).Single();
+        parsedCds.Phase.Should().Be(0, "CDS carries phase 0");
+        parsedCds.Start.Should().Be(100, "ToGff3 writes 1-based Start (ann.Start + 1)");
+        parsedCds.Strand.Should().Be('+');
+
+        var gene = cds with { Type = "gene" };
+        string geneLine = GenomeAnnotator.ToGff3(new[] { gene }, "chr1").Skip(1).First();
+        GenomeAnnotator.ParseGff3(new[] { geneLine }).Single().Phase.Should().BeNull("non-CDS phase is '.'");
+    }
+
+    /// <summary>
+    /// Worked example: reserved attribute characters (';', '=') survive a ToGff3 → ParseGff3
+    /// round-trip via GFF3 percent-encoding/decoding. — GFF3 v1.26 column-9 encoding.
+    /// </summary>
+    [Test]
+    public void AnnotGff_AttributeEncoding_RoundTrips()
+    {
+        var ann = new GenomeAnnotator.GeneAnnotation("id;x=y", 0, 9, '+', "gene", "a=b;c",
+            new Dictionary<string, string>());
+
+        string line = GenomeAnnotator.ToGff3(new[] { ann }, "chr1").Skip(1).First();
+        line.Should().NotContain("id;x=y", "reserved characters are percent-encoded on output");
+
+        var f = GenomeAnnotator.ParseGff3(new[] { line }).Single();
+        f.FeatureId.Should().Be("id;x=y", "ID is decoded on input");
+        f.Attributes["product"].Should().Be("a=b;c");
+    }
 }
