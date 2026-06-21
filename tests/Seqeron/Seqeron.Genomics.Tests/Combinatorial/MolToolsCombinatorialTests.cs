@@ -852,4 +852,103 @@ public class MolToolsCombinatorialTests
         ProbeDesigner.ValidateProbe(probe, new[] { reference }, maxMismatches: 1).OffTargetHits
             .Should().Be(1, "allowing one mismatch finds it");
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: RESTR-DIGEST-001 — Restriction digest simulation (MolTools)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 27.
+    // Spec: tests/TestSpecs/RESTR-DIGEST-001.md (canonical RestrictionAnalyzer.Digest).
+    // Dimensions: enzyme(4) × topology(2: linear/circular) × fragments(3). Grid 4×2×3 = 24.
+    //
+    // Model (restriction digest; gel electrophoresis): cutting a molecule at k distinct
+    // forward-strand sites yields k+1 fragments when LINEAR (two free ends) but exactly
+    // k fragments when CIRCULAR (a plasmid; the origin-spanning piece joins the first and
+    // last cut), with the special case that an uncut circle is one full-length fragment
+    // (Addgene Plasmids 101). In every case fragment lengths SUM to the sequence length.
+    //
+    // The combinatorial point: topology and cut count interact — the same enzyme on the
+    // same sequence yields a different fragment count purely from topology, while the
+    // length-conservation invariant holds across all enzyme × topology × cut-count cells.
+    // The "fragments" axis is realised as the number of engineered cut sites (0/1/2).
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>Sequence with exactly <paramref name="n"/> copies of a (palindromic) site in C-filler.</summary>
+    private static string BuildDigestSequence(string recognition, int n)
+    {
+        string filler = new string('C', 10);
+        var sb = new System.Text.StringBuilder(filler);
+        for (int i = 0; i < n; i++) sb.Append(recognition).Append(filler);
+        return sb.ToString();
+    }
+
+    [Test, Combinatorial]
+    public void RestrDigest_FragmentCount_FollowsTopology_AndConservesLength(
+        [Values("EcoRI", "BamHI", "HindIII", "EcoRV")] string enzyme,
+        [Values(MoleculeTopology.Linear, MoleculeTopology.Circular)] MoleculeTopology topology,
+        [Values(0, 1, 2)] int cutCount)
+    {
+        string recognition = RestrictionAnalyzer.GetEnzyme(enzyme)!.RecognitionSequence;
+        var dna = new DnaSequence(BuildDigestSequence(recognition, cutCount));
+
+        // Construction guard: exactly cutCount distinct forward-strand cut sites.
+        RestrictionAnalyzer.FindSites(dna, enzyme).Count(s => s.IsForwardStrand)
+            .Should().Be(cutCount, "the C-filler must not add or hide sites");
+
+        var fragments = RestrictionAnalyzer.Digest(dna, topology, enzyme).ToList();
+
+        int expected = topology == MoleculeTopology.Linear ? cutCount + 1 : (cutCount == 0 ? 1 : cutCount);
+        fragments.Count.Should().Be(expected,
+            $"{topology} digest with {cutCount} cuts yields {expected} fragments");
+
+        fragments.Sum(f => f.Length).Should().Be(dna.Length, "fragment lengths conserve total length");
+        fragments.Should().OnlyContain(f => f.Length > 0, "every fragment is non-empty");
+
+        if (topology == MoleculeTopology.Linear)
+        {
+            fragments[0].LeftEnzyme.Should().BeNull("the 5′ terminus has no upstream cut");
+            fragments[^1].RightEnzyme.Should().BeNull("the 3′ terminus has no downstream cut");
+        }
+    }
+
+    /// <summary>
+    /// Interaction witness: for k ≥ 1 cuts a linear molecule yields exactly one more
+    /// fragment than the circular molecule of the same sequence (the linear ends fuse
+    /// into the origin-spanning fragment when circular).
+    /// </summary>
+    [Test]
+    public void RestrDigest_Linear_YieldsExactlyOneMoreFragmentThanCircular()
+    {
+        foreach (string enzyme in new[] { "EcoRI", "BamHI", "HindIII", "EcoRV" })
+            foreach (int k in new[] { 1, 2 })
+            {
+                string recognition = RestrictionAnalyzer.GetEnzyme(enzyme)!.RecognitionSequence;
+                var dna = new DnaSequence(BuildDigestSequence(recognition, k));
+
+                int linear = RestrictionAnalyzer.Digest(dna, MoleculeTopology.Linear, enzyme).Count();
+                int circular = RestrictionAnalyzer.Digest(dna, MoleculeTopology.Circular, enzyme).Count();
+                (linear - circular).Should().Be(1, $"{enzyme}, {k} cuts: linear = circular + 1");
+            }
+    }
+
+    /// <summary>
+    /// Worked example: a single EcoRI site splits a linear molecule into two fragments
+    /// whose sequences are the exact substrings around the cut, with the cut enzyme named
+    /// on the inner ends; the digest summary's sizes are sorted descending and conserve length.
+    /// </summary>
+    [Test]
+    public void RestrDigest_SingleEcoRI_WorkedExample()
+    {
+        var dna = new DnaSequence(BuildDigestSequence("GAATTC", 1)); // CCCCCCCCCC GAATTC CCCCCCCCCC
+        var fragments = RestrictionAnalyzer.Digest(dna, MoleculeTopology.Linear, "EcoRI").ToList();
+
+        fragments.Should().HaveCount(2);
+        string.Concat(fragments.Select(f => f.Sequence)).Should().Be(dna.Sequence, "fragments reassemble the template");
+        fragments[0].RightEnzyme.Should().Be("EcoRI");
+        fragments[1].LeftEnzyme.Should().Be("EcoRI");
+
+        var summary = RestrictionAnalyzer.GetDigestSummary(dna, "EcoRI");
+        summary.FragmentSizes.Should().BeInDescendingOrder("gel-ordering convention");
+        summary.FragmentSizes.Sum().Should().Be(dna.Length);
+        summary.LargestFragment.Should().BeGreaterThanOrEqualTo(summary.SmallestFragment);
+        summary.EnzymesUsed.Should().Contain("EcoRI");
+    }
 }
