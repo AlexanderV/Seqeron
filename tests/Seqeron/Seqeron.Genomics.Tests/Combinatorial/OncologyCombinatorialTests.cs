@@ -1376,6 +1376,90 @@ public class OncologyCombinatorialTests
         _ => OncologyAnalyzer.CopyNumberState.Amplification,
     };
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ONCO-CNA-002 — Focal amplification detection (Oncology)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 104.
+    // Spec: tests/TestSpecs/ONCO-CNA-002.md (OncologyAnalyzer.DetectFocalAmplifications / IsFocalAmplification).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: Mermel et al. (2011) GISTIC2 (focal = length < broad_len_cutoff·arm, default 0.98); GISTIC2
+    // t_amp = 0.1 (amplified ⟺ log2 > 0.1).
+    //
+    // A segment is a focal amplification iff amplified (log2 > 0.1) AND focal (length/arm < 0.98).
+    //
+    // Checklist axes cnThreshold(3) × segLen(3) map onto the real knobs:
+    //   • cnThreshold → segment log2 amplitude ∈ {0.05 (≤ t_amp, not amplified), 0.5 (amplified), 1.5
+    //     (high amplitude)}.
+    //   • segLen      → segment length as a fraction of the chromosome arm ∈ {0.1 (focal), 0.9 (focal),
+    //     0.99 (broad ≥ 0.98 — arm-level, NOT focal)}.
+    // Grid = 3 × 3 = 9 = the checklist's "Full Combos" for this row.
+    //
+    // The combinatorial point: a segment is reported only when BOTH predicates pass — amplitude AND
+    // focality are jointly required; a high-amplitude whole-arm event is arm-level, not focal (Mermel 2011
+    // corner case). Each cell is checked against the GISTIC2 predicate re-derived from the inputs.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private const long CnaArmLength = 100_000;
+
+    /// <summary>
+    /// For every (amplitude, length fraction) the focal-amplification decision matches the GISTIC2
+    /// predicate amplified(log2 > 0.1) AND focal(armFraction < 0.98), re-derived from the inputs.
+    /// </summary>
+    [Test, Combinatorial]
+    public void DetectFocalAmplifications_AmplitudeLengthGrid_RequiresBothPredicates(
+        [Values(0.05, 0.5, 1.5)] double log2Ratio,
+        [Values(0.1, 0.9, 0.99)] double armFraction)
+    {
+        var segment = ArmSegment("17q", log2Ratio, armFraction);
+
+        bool expectedFocal = log2Ratio > 0.1 && armFraction < 0.98;
+
+        var detected = OncologyAnalyzer.DetectFocalAmplifications(new[] { segment });
+
+        OncologyAnalyzer.IsFocalAmplification(segment, OncologyAnalyzer.FocalAmplificationThresholds.Default)
+            .Should().Be(expectedFocal, "focal ⟺ amplified (log2 > 0.1) AND focal length (< 0.98·arm)");
+        detected.Should().HaveCount(expectedFocal ? 1 : 0, "[INV-3] order-preserving subset filter");
+    }
+
+    /// <summary>
+    /// Interaction witness (length axis flips at fixed high amplitude): a strongly amplified segment is
+    /// focal at 10% of the arm but is NOT reported when it spans 99% of the arm — a whole-arm amplification
+    /// is arm-level, not focal. The call flips purely on the length axis. Source: Mermel et al. (2011).
+    /// </summary>
+    [Test]
+    public void DetectFocalAmplifications_LengthAxis_ExcludesBroadArmLevelEvent()
+    {
+        OncologyAnalyzer.DetectFocalAmplifications(new[] { ArmSegment("8q", 1.5, 0.10) })
+            .Should().ContainSingle("a strong, short amplification is focal");
+        OncologyAnalyzer.DetectFocalAmplifications(new[] { ArmSegment("8q", 1.5, 0.99) })
+            .Should().BeEmpty("a strong amplification spanning 99% of the arm is arm-level, not focal");
+    }
+
+    /// <summary>
+    /// Interaction witness (amplitude strictness): the t_amp threshold is strict — a segment at exactly
+    /// log2 = 0.1 is not amplified and is excluded even at focal length. Source: GISTIC2 t_amp.
+    /// </summary>
+    [Test]
+    public void DetectFocalAmplifications_AmplitudeThreshold_IsStrict()
+    {
+        OncologyAnalyzer.DetectFocalAmplifications(new[] { ArmSegment("7p", 0.1, 0.1) })
+            .Should().BeEmpty("log2 = 0.1 is not > t_amp(0.1) → not amplified");
+        OncologyAnalyzer.DetectFocalAmplifications(new[] { ArmSegment("7p", 0.11, 0.1) })
+            .Should().ContainSingle("log2 = 0.11 > 0.1 → amplified and focal");
+    }
+
+    /// <summary>
+    /// Witness (INV-4 oncogene mapping): a focal amplification on 17q maps to ERBB2. Source: NCBI Gene
+    /// (ERBB2 17q12).
+    /// </summary>
+    [Test]
+    public void IdentifyAmplifiedOncogenes_FocalAmpOn17q_MapsToErbb2()
+    {
+        var focal = OncologyAnalyzer.DetectFocalAmplifications(new[] { ArmSegment("17q", 1.0, 0.1) });
+
+        OncologyAnalyzer.IdentifyAmplifiedOncogenes(focal).Should().Contain("ERBB2");
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     // Helpers — engineered constructs + independent ground truth
     // ───────────────────────────────────────────────────────────────────────
@@ -1485,6 +1569,16 @@ public class OncologyCombinatorialTests
         }
 
         return (catalog, signatures);
+    }
+
+    /// <summary>
+    /// Builds an arm-anchored copy-number segment on <paramref name="arm"/> with the given mean log2 ratio
+    /// and a length equal to <paramref name="armFraction"/> of a fixed-length chromosome arm.
+    /// </summary>
+    private static OncologyAnalyzer.CopyNumberArmSegment ArmSegment(string arm, double log2Ratio, double armFraction)
+    {
+        long end = (long)Math.Round(armFraction * CnaArmLength);
+        return new OncologyAnalyzer.CopyNumberArmSegment(arm, 0, end, CnaArmLength, log2Ratio);
     }
 
     /// <summary>
