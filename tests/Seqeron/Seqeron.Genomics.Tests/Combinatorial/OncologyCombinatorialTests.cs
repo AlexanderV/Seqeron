@@ -1117,6 +1117,127 @@ public class OncologyCombinatorialTests
         wide.Lower.Should().BeLessThanOrEqualTo(narrow.Lower, "wider confidence → lower bound does not increase");
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ONCO-FUSION-001 — Gene-fusion detection from supporting reads (Oncology)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 100.
+    // Spec: tests/TestSpecs/ONCO-FUSION-001.md (OncologyAnalyzer.DetectFusions / IsInFrame / ComputeTotalSupport).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: Haas et al. (2019); STAR-Fusion (min_junction_reads=1, min_sum_frags=2,
+    // min_spanning_frags_only=5); Uhrig et al. (2021) Arriba (split_reads1/2 + discordant_mates).
+    //
+    // A candidate (distinct genes) is reported iff: junction (split) reads ≥ 1 AND total support ≥ 2; OR,
+    // when there are no junction reads, discordant mates ≥ min_spanning_frags_only. Total support =
+    // split5p + split3p + discordant.
+    //
+    // Checklist axes splitReads(3) × spanningReads(3) × minMapQ(2) map onto the real knobs:
+    //   • splitReads   → junction (split) read count ∈ {0, 1, 3}.
+    //   • spanningReads → discordant (spanning) mate count ∈ {0, 4, 5}.
+    //   • minMapQ      → there is no read-level mapping-quality parameter; the analogous binary stringency
+    //     knob is the threshold set: {Default (min_spanning_frags_only=5) vs Relaxed (=3)}. Relaxing it
+    //     moves the spanning-only floor, so a 4-discordant spanning-only candidate flips reject→detect.
+    // Grid = 3 × 3 × 2 = 18 = the checklist's "Full Combos" for this row.
+    //
+    // The combinatorial point: detection is a JOINT function of junction count, spanning count and the
+    // stringency — the spanning-only rule applies only when junction = 0, total-support gates the junction
+    // path, and the stringency axis moves the spanning floor. Each cell checks the rule and total-support
+    // (INV-2) re-derived from the counts.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>Detection stringency (the minMapQ-proxy threshold axis).</summary>
+    public enum FusionStringency
+    {
+        /// <summary>STAR-Fusion defaults (min_spanning_frags_only = 5).</summary>
+        Default,
+
+        /// <summary>Relaxed spanning floor (min_spanning_frags_only = 3).</summary>
+        Relaxed,
+    }
+
+    /// <summary>
+    /// For every (junction reads, discordant mates, stringency) the detection decision and the reported
+    /// total support match the STAR-Fusion min-support rule re-derived from the counts.
+    /// </summary>
+    [Test, Combinatorial]
+    public void DetectFusions_SplitSpanningStringencyGrid_MatchesMinSupportRule(
+        [Values(0, 1, 3)] int splitReads,
+        [Values(0, 4, 5)] int discordantMates,
+        [Values] FusionStringency stringency)
+    {
+        var candidate = new OncologyAnalyzer.FusionCandidate("EML4", "ALK", splitReads, 0, discordantMates);
+        OncologyAnalyzer.FusionDetectionThresholds? thresholds = stringency == FusionStringency.Relaxed
+            ? new OncologyAnalyzer.FusionDetectionThresholds(MinSpanningFragsOnly: 3)
+            : null; // STAR-Fusion defaults
+
+        // Independent ground truth.
+        int spanningOnlyFloor = stringency == FusionStringency.Relaxed ? 3 : 5;
+        int junction = splitReads;
+        int totalSupport = splitReads + discordantMates;
+        bool expectedDetected = junction >= 1 ? totalSupport >= 2 : discordantMates >= spanningOnlyFloor;
+
+        var calls = OncologyAnalyzer.DetectFusions(new[] { candidate }, thresholds);
+
+        calls.Should().HaveCount(expectedDetected ? 1 : 0,
+            "detection = junction-path (total ≥ 2) when junction ≥ 1, else spanning-only (discordant ≥ floor)");
+        if (expectedDetected)
+        {
+            var call = calls[0];
+            call.JunctionReads.Should().Be(junction);
+            call.DiscordantMates.Should().Be(discordantMates);
+            call.TotalSupport.Should().Be(totalSupport, "[INV-2] total = split5p + split3p + discordant");
+        }
+    }
+
+    /// <summary>
+    /// Interaction witness (stringency × spanning, junction=0): a spanning-only candidate with 4 discordant
+    /// mates is rejected under the STAR-Fusion default floor (5) but detected once the floor is relaxed to
+    /// 3 — the call flips purely on the stringency axis. Source: STAR-Fusion min_spanning_frags_only.
+    /// </summary>
+    [Test]
+    public void DetectFusions_StringencyAxis_FlipsSpanningOnlyCandidate()
+    {
+        var candidate = new OncologyAnalyzer.FusionCandidate("CD74", "ROS1", 0, 0, 4);
+
+        OncologyAnalyzer.DetectFusions(new[] { candidate }).Should().BeEmpty("4 < default spanning floor 5");
+        OncologyAnalyzer.DetectFusions(new[] { candidate }, new OncologyAnalyzer.FusionDetectionThresholds(MinSpanningFragsOnly: 3))
+            .Should().ContainSingle("4 ≥ relaxed spanning floor 3");
+    }
+
+    /// <summary>
+    /// Interaction witness (INV-1 same-gene, INV-4 ordering): a gene is never fused with itself regardless
+    /// of support, and reported fusions are ordered by descending total support. Source: Registry invariant;
+    /// STAR-Fusion scoring by abundance.
+    /// </summary>
+    [Test]
+    public void DetectFusions_RejectsSameGeneAndOrdersBySupport()
+    {
+        var candidates = new[]
+        {
+            new OncologyAnalyzer.FusionCandidate("ALK", "ALK", 20, 20, 20),   // same gene → rejected
+            new OncologyAnalyzer.FusionCandidate("EML4", "ALK", 3, 2, 4),     // total 9
+            new OncologyAnalyzer.FusionCandidate("TMPRSS2", "ERG", 1, 0, 1),  // total 2
+        };
+
+        var calls = OncologyAnalyzer.DetectFusions(candidates);
+
+        calls.Should().HaveCount(2, "[INV-1] the ALK-ALK self-fusion is excluded");
+        calls.Select(c => c.TotalSupport).Should().BeInDescendingOrder("[INV-4] ordered by descending support");
+        calls[0].TotalSupport.Should().Be(9);
+    }
+
+    /// <summary>
+    /// Witness (INV-5 reading frame): a junction is in-frame iff (fivePrimeCodingBases − threePrimeStartPhase)
+    /// mod 3 == 0. Source: Genomics England exon-phase rule + reading-frame modulo-3.
+    /// </summary>
+    [Test]
+    public void IsInFrame_CodonPhaseRule_MatchesModuloThree()
+    {
+        OncologyAnalyzer.IsInFrame(300, 0).Should().BeTrue("300 mod 3 = 0");
+        OncologyAnalyzer.IsInFrame(301, 0).Should().BeFalse("301 mod 3 = 1");
+        OncologyAnalyzer.IsInFrame(301, 1).Should().BeTrue("(301 − 1) mod 3 = 0");
+        OncologyAnalyzer.IsInFrame(302, 0).Should().BeFalse("302 mod 3 = 2");
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     // Helpers — engineered constructs + independent ground truth
     // ───────────────────────────────────────────────────────────────────────
