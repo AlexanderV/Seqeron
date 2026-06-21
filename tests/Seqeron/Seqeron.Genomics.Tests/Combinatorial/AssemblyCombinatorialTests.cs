@@ -299,6 +299,99 @@ public class AssemblyCombinatorialTests
         SequenceAssembler.MergeContigs("ACG", "TTTTTT", 5).Should().Be("ACGTTTTTT", "overlap > shorter contig → concatenate");
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ASSEMBLY-OLC-001 — Overlap-Layout-Consensus assembly (Assembly)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 145.
+    // Spec: tests/TestSpecs/ASSEMBLY-OLC-001.md (SequenceAssembler.AssembleOLC).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: Compeau et al. (2011); Langmead OLC notes — overlap graph + greedy layout + consensus; a
+    // contig is a superstring of its reads; reads without an above-threshold overlap are their own contigs.
+    //
+    // Checklist axes nReads(3) × minOverlap(3) × errorRate(2) map onto the real knobs: read count ∈
+    // {3,5,8}, MinOverlap ∈ {3,5,8}, errorRate ∈ {0.0, 0.2}. Grid = 3 × 3 × 2 = 18.
+    //
+    // The combinatorial point: the contig set is a JOINT function of depth, the overlap threshold and the
+    // error rate, but the assembly statistics are internally consistent in EVERY cell (INV-06) and every
+    // read is accounted for. Witnesses cover the superstring (INV-04) and edgeless (INV-05) cases.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private const string OlcGenome = "ACGTCAGTGACTGCATGCTAGGACATTCGGATCCAAGTGC"; // length 40
+
+    /// <summary>
+    /// For every (read count, min overlap, error rate) the OLC assembly statistics are internally
+    /// consistent, every read is accounted for, and contigs are spelled over the DNA alphabet.
+    /// </summary>
+    [Test, Combinatorial]
+    public void AssembleOLC_ReadsOverlapErrorGrid_ConsistentStatistics(
+        [Values(3, 5, 8)] int nReads,
+        [Values(3, 5, 8)] int minOverlap,
+        [Values(0.0, 0.2)] double errorRate)
+    {
+        var reads = TilingReads(OlcGenome, readLength: 12, count: nReads, errorRate: errorRate);
+        var param = new SequenceAssembler.AssemblyParameters(MinOverlap: minOverlap, MinIdentity: 0.9, KmerSize: 5, MinContigLength: 1);
+
+        var result = SequenceAssembler.AssembleOLC(reads, param);
+
+        result.TotalReads.Should().Be(nReads, "every input read is accounted for");
+        result.TotalLength.Should().Be(result.Contigs.Sum(c => c.Length), "[INV-06] TotalLength = Σ contig lengths");
+        result.LongestContig.Should().Be(result.Contigs.Count == 0 ? 0 : result.Contigs.Max(c => c.Length), "[INV-06] LongestContig = max length");
+        result.Contigs.Should().OnlyContain(c => c.All(ch => "ACGT".Contains(ch)), "contigs over the DNA alphabet");
+    }
+
+    /// <summary>
+    /// Interaction witness (INV-05, edgeless): an overlap threshold larger than any read leaves the overlap
+    /// graph edgeless, so each read becomes its own contig. Source: Langmead OLC layout.
+    /// </summary>
+    [Test]
+    public void AssembleOLC_OverlapAboveReadLength_EachReadIsOwnContig()
+    {
+        var reads = TilingReads(OlcGenome, readLength: 12, count: 5, errorRate: 0.0);
+        var param = new SequenceAssembler.AssemblyParameters(MinOverlap: 100, MinIdentity: 0.9, KmerSize: 5, MinContigLength: 1);
+
+        var result = SequenceAssembler.AssembleOLC(reads, param);
+
+        result.Contigs.Should().HaveCount(reads.Count, "no above-threshold overlap → each read is a contig");
+    }
+
+    /// <summary>
+    /// Interaction witness (INV-04, superstring): clean overlapping reads assemble into a contig that
+    /// contains an input read as a substring and is no longer than the sum of read lengths. Source:
+    /// Compeau et al. (2011) superstring.
+    /// </summary>
+    [Test]
+    public void AssembleOLC_CleanOverlappingReads_ContigIsSuperstring()
+    {
+        var reads = TilingReads(OlcGenome, readLength: 12, count: 6, errorRate: 0.0);
+        var param = new SequenceAssembler.AssemblyParameters(MinOverlap: 4, MinIdentity: 0.9, KmerSize: 5, MinContigLength: 1);
+
+        var result = SequenceAssembler.AssembleOLC(reads, param);
+
+        result.Contigs.Should().NotBeEmpty();
+        result.LongestContig.Should().BeGreaterThanOrEqualTo(12, "the contig is at least as long as one read");
+        result.TotalLength.Should().BeLessThanOrEqualTo(reads.Sum(r => r.Length), "superstring length ≤ Σ read lengths");
+    }
+
+    /// <summary>Builds <paramref name="count"/> evenly-spaced sliding-window reads tiling the genome, mutating a leading fraction.</summary>
+    private static List<string> TilingReads(string genome, int readLength, int count, double errorRate)
+    {
+        int lastStart = genome.Length - readLength;
+        var reads = new List<string>();
+        for (int i = 0; i < count; i++)
+        {
+            int start = count == 1 ? 0 : (int)Math.Round((double)lastStart * i / (count - 1));
+            reads.Add(genome.Substring(start, readLength));
+        }
+        int errReads = (int)Math.Round(errorRate * count);
+        for (int r = 0; r < errReads; r++)
+        {
+            var chars = reads[r].ToCharArray();
+            chars[readLength / 2] = chars[readLength / 2] == 'A' ? 'C' : 'A';
+            reads[r] = new string(chars);
+        }
+        return reads;
+    }
+
     /// <summary>Independent Biopython column-consensus ground truth.</summary>
     private static string GroundTruthConsensus(IReadOnlyList<string> reads, double threshold, char ambiguous)
     {
