@@ -186,8 +186,8 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 154 | ✗ | RNA-PARTITION-001 | RnaStructure | ID: single base → Z = 1; IDEMP: deterministic |
 | 155 | ✗ | RNA-PSEUDOKNOT-001 | RnaStructure | ID: nested structure → none; IDEMP: deterministic |
 | 156 | ✗ | KMER-ASYNC-001 | K-mer | ID: empty → empty; IDEMP: async = sync |
-| 157 | ☐ | KMER-BOTH-001 | K-mer | ADD: counts additive; COMM: strand-symmetric |
-| 158 | ☐ | KMER-DIST-001 | K-mer | ID: d(x,x)=0; COMM: symmetric; TRIANGLE: d(a,c) ≤ d(a,b)+d(b,c) |
+| 157 | ☑ | KMER-BOTH-001 | K-mer | ADD: counts additive; COMM: strand-symmetric |
+| 158 | ☑ | KMER-DIST-001 | K-mer | ID: d(x,x)=0; COMM: symmetric; TRIANGLE: d(a,c) ≤ d(a,b)+d(b,c) |
 | 159 | ✗ | KMER-GENERATE-001 | K-mer | ID: k=0 → empty; IDEMP: deterministic |
 | 160 | ✗ | KMER-POSITIONS-001 | K-mer | ID: absent k-mer → empty; IDEMP: deterministic |
 | 161 | ✗ | KMER-STATS-001 | K-mer | ID: empty → zeros; ADD: counts additive on concatenation |
@@ -272,7 +272,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 41 |
-| ☐ Not started | 24 |
+| ☑ Complete | 43 |
+| ☐ Not started | 22 |
 | ✗ Not applicable | 169 |
 | Laws verified | ~172 (≈2 per algorithm) |

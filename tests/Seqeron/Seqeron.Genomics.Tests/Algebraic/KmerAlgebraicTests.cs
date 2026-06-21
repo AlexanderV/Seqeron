@@ -141,4 +141,96 @@ public class KmerAlgebraicTests
             return ok.Label($"a frequency != count/total for \"{seq}\"");
         });
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: KMER-BOTH-001 — Both-strand k-mer counting (K-mer)
+    // Checklist: docs/checklists/06_ALGEBRAIC_TESTING.md, row 157.
+    //
+    // Model: counting k-mers over both strands sums the forward-strand count and
+    //        the reverse-complement-strand count. Because a k-mer on the reverse
+    //        strand reads as its reverse complement on the forward strand, the
+    //        both-strand histogram is strand-symmetric: count(w) = count(RC(w)).
+    //   — docs/algorithms/K-mer; KmerAnalyzer.CountKmersBothStrands.
+    //
+    // Laws under test (checklist row 157):
+    //   • ADD  — both-strand count(w) = forward(w) + revcomp(w); the grand total
+    //            equals 2·(n−k+1).
+    //   • COMM — strand symmetry: count(w) = count(RC(w)).
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>ADD: each both-strand count is the sum of the forward and the
+    /// reverse-complement-strand counts; the total is 2·(n−k+1).</summary>
+    [FsCheck.NUnit.Property]
+    public Property KmerBoth_Additive_ForwardPlusReverse()
+    {
+        return Prop.ForAll(DnaArbitrary(minLen: 4), seq =>
+        {
+            int k = Math.Min(3, seq.Length);
+            var both = KmerAnalyzer.CountKmersBothStrands(seq, k);
+            var fwd = KmerAnalyzer.CountKmers(seq, k);
+            var rev = KmerAnalyzer.CountKmers(DnaSequence.GetReverseComplementString(seq), k);
+
+            bool perKmer = both.All(kvp =>
+                kvp.Value == fwd.GetValueOrDefault(kvp.Key) + rev.GetValueOrDefault(kvp.Key));
+            int expectedTotal = 2 * (seq.Length - k + 1);
+            return (perKmer && both.Values.Sum() == expectedTotal)
+                .Label($"both-strand counts not additive for \"{seq}\"");
+        });
+    }
+
+    /// <summary>COMM: the both-strand histogram is strand-symmetric —
+    /// count(w) = count(reverseComplement(w)).</summary>
+    [FsCheck.NUnit.Property]
+    public Property KmerBoth_Commutative_StrandSymmetric()
+    {
+        return Prop.ForAll(DnaArbitrary(minLen: 4), seq =>
+        {
+            int k = Math.Min(3, seq.Length);
+            var both = KmerAnalyzer.CountKmersBothStrands(seq, k);
+            bool ok = both.All(kvp =>
+                kvp.Value == both.GetValueOrDefault(DnaSequence.GetReverseComplementString(kvp.Key)));
+            return ok.Label($"both-strand histogram not strand-symmetric for \"{seq}\"");
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: KMER-DIST-001 — Alignment-free k-mer distance (K-mer)
+    // Checklist: docs/checklists/06_ALGEBRAIC_TESTING.md, row 158.
+    //
+    // Model: the k-mer distance is the Euclidean distance between the two
+    //        sequences' k-mer frequency vectors — a genuine metric.
+    //   — docs/algorithms/K-mer; KmerAnalyzer.KmerDistance.
+    //
+    // Laws under test (checklist row 158):
+    //   • ID       — d(x, x) = 0.
+    //   • COMM     — d(a, b) = d(b, a).
+    //   • TRIANGLE — d(a, c) ≤ d(a, b) + d(b, c).
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private static Arbitrary<(string A, string B, string C)> DnaTriple() =>
+        (from a in Gen.Elements('A', 'C', 'G', 'T').ArrayOf().Where(x => x.Length >= 3)
+         from b in Gen.Elements('A', 'C', 'G', 'T').ArrayOf().Where(x => x.Length >= 3)
+         from c in Gen.Elements('A', 'C', 'G', 'T').ArrayOf().Where(x => x.Length >= 3)
+         select (new string(a), new string(b), new string(c)))
+        .ToArbitrary();
+
+    /// <summary>ID, COMM and TRIANGLE for the k-mer Euclidean distance.</summary>
+    [FsCheck.NUnit.Property]
+    public Property KmerDistance_MetricAxioms()
+    {
+        return Prop.ForAll(DnaTriple(), t =>
+        {
+            const int k = 3;
+            double aa = KmerAnalyzer.KmerDistance(t.A, t.A, k);
+            double ab = KmerAnalyzer.KmerDistance(t.A, t.B, k);
+            double ba = KmerAnalyzer.KmerDistance(t.B, t.A, k);
+            double ac = KmerAnalyzer.KmerDistance(t.A, t.C, k);
+            double bc = KmerAnalyzer.KmerDistance(t.B, t.C, k);
+            bool id = Math.Abs(aa) < 1e-12;
+            bool comm = Math.Abs(ab - ba) < 1e-12;
+            bool tri = ac <= ab + bc + 1e-9;
+            return (id && comm && tri)
+                .Label($"id={id}, comm={comm}, tri={tri} (ac={ac}, ab={ab}, bc={bc})");
+        });
+    }
 }
