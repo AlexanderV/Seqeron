@@ -418,4 +418,121 @@ public class CompositionCombinatorialTests
         points.Should().Contain(p => p.GcSkew == 1.0, "a window wholly inside the G-block has skew +1");
         points.Should().Contain(p => p.GcSkew == -1.0, "a window wholly inside the C-block has skew −1");
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: SEQ-ATSKEW-001 — AT skew (Composition)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 210.
+    // Spec: tests/TestSpecs/SEQ-ATSKEW-001.md (canonical GcSkewCalculator.CalculateAtSkew). ADVANCED §10.
+    // Dimensions: windowSize(3) × step(3) × seqLen(3). Grid 3×3×3 = 27 (full, exhaustive).
+    //
+    // Model (Lobry 1996; Biopython GC_skew): AT skew = (A − T)/(A + T), in [−1,1], 0 when A+T = 0.
+    //
+    // Axis mapping (documented — CalculateAtSkew is a global scalar): windowSize/step realise a sliding
+    // window tiled by the harness; the per-window AT skew is the canonical CalculateAtSkew. The
+    // combinatorial point: across window, step and length, each window's AT skew equals the
+    // (A−T)/(A+T) ground truth and lies in [−1,1].
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private static double AtSkewGroundTruth(string w)
+    {
+        int a = w.Count(c => c == 'A'), t = w.Count(c => c == 'T');
+        return a + t > 0 ? (double)(a - t) / (a + t) : 0;
+    }
+
+    [Test, Combinatorial]
+    public void SeqAtSkew_PerWindowMatchesFormula_AcrossWindowStepLength(
+        [Values(10, 20, 40)] int windowSize,
+        [Values(5, 10, 20)] int step,
+        [Values(60, 120, 200)] int seqLen)
+    {
+        // Deterministic A/T-rich sequence with embedded G/C so A+T varies but stays positive.
+        string seq = BuildSequence("ATATATGCAT", seqLen);
+
+        int windows = 0;
+        for (int start = 0; start + windowSize <= seq.Length; start += step)
+        {
+            string w = seq.Substring(start, windowSize);
+            double skew = GcSkewCalculator.CalculateAtSkew(w);
+            skew.Should().BeApproximately(AtSkewGroundTruth(w), 1e-12, "AT skew = (A−T)/(A+T)");
+            skew.Should().BeInRange(-1.0, 1.0, "AT skew is a normalized ratio");
+            windows++;
+        }
+        windows.Should().BeGreaterThan(0, "the sequence admits at least one full window");
+    }
+
+    /// <summary>
+    /// Interaction witness — AT skew is +1 for poly-A, −1 for poly-T, 0 for an A/T-balanced or
+    /// A/T-free window, mirroring the sign convention.
+    /// </summary>
+    [Test]
+    public void SeqAtSkew_SignConvention()
+    {
+        GcSkewCalculator.CalculateAtSkew("AAAAAA").Should().Be(1.0, "only A ⇒ skew +1");
+        GcSkewCalculator.CalculateAtSkew("TTTTTT").Should().Be(-1.0, "only T ⇒ skew −1");
+        GcSkewCalculator.CalculateAtSkew("ATATAT").Should().Be(0.0, "equal A and T ⇒ skew 0");
+        GcSkewCalculator.CalculateAtSkew("GCGCGC").Should().Be(0.0, "no A or T ⇒ skew 0");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: SEQ-REPLICATION-001 — Replication-origin prediction (GC skew) (Composition)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 211.
+    // Spec: tests/TestSpecs/SEQ-REPLICATION-001.md (canonical PredictReplicationOrigin). ADVANCED §10.
+    // Dimensions: windowSize(3) × seqLen(3). Grid 3×3 = 9 (full, exhaustive ⊇ pairwise).
+    //
+    // Model (Grigoriev 1998; Lobry 1996; Rosalind BA1F): the cumulative GC skew (G:+1, C:−1, A/T:0)
+    // has its global MINIMUM at the replication origin and its global MAXIMUM at the terminus (first
+    // index on ties).
+    //
+    // Axis mapping (documented — PredictReplicationOrigin scans at single-base resolution): windowSize →
+    // the planted C/G block size (which sets where the skew turns), seqLen → the total length. The
+    // combinatorial point: the predicted origin/terminus equal an independent cumulative-skew scan
+    // (the published definition), with the origin at the C→G boundary.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private static (int Origin, int Terminus, int MinSkew, int MaxSkew) BruteSkewExtrema(string seq)
+    {
+        int cum = 0, minS = 0, maxS = 0, minPos = 0, maxPos = 0;
+        for (int i = 0; i < seq.Length; i++)
+        {
+            if (seq[i] == 'G') cum++;
+            else if (seq[i] == 'C') cum--;
+            int prefix = i + 1;
+            if (cum < minS) { minS = cum; minPos = prefix; }
+            if (cum > maxS) { maxS = cum; maxPos = prefix; }
+        }
+        return (minPos, maxPos, minS, maxS);
+    }
+
+    [Test, Combinatorial]
+    public void SeqReplication_OriginAtSkewMinimum_AcrossBlockSizeAndLength(
+        [Values(10, 20, 30)] int blockSize,
+        [Values(80, 120, 200)] int seqLen)
+    {
+        int pad = (seqLen - 2 * blockSize) / 2;
+        // A-pad (skew flat), then a C-block (skew drops to its minimum), then a G-block (rises to the max), then A-pad.
+        string seq = new string('A', pad) + new string('C', blockSize) + new string('G', blockSize)
+            + new string('A', seqLen - 2 * pad - 2 * blockSize);
+
+        var pred = GcSkewCalculator.PredictReplicationOrigin(seq);
+        var (origin, terminus, minS, maxS) = BruteSkewExtrema(seq);
+
+        pred.PredictedOrigin.Should().Be(origin, "origin = first global cumulative-skew minimum");
+        pred.PredictedTerminus.Should().Be(terminus, "terminus = first global cumulative-skew maximum");
+        pred.OriginSkew.Should().Be(minS);
+        pred.TerminusSkew.Should().Be(maxS);
+        pred.IsSignificant.Should().BeTrue("the C-then-G layout yields a non-zero skew amplitude");
+        pred.PredictedOrigin.Should().Be(pad + blockSize, "the origin sits at the C→G boundary");
+    }
+
+    /// <summary>
+    /// Interaction witness — a skew-free sequence (no G/C asymmetry) yields an insignificant prediction.
+    /// </summary>
+    [Test]
+    public void SeqReplication_NoAsymmetry_IsInsignificant()
+    {
+        GcSkewCalculator.PredictReplicationOrigin(new string('A', 100)).IsSignificant
+            .Should().BeFalse("a poly-A sequence has a flat cumulative skew");
+        GcSkewCalculator.PredictReplicationOrigin(string.Concat(Enumerable.Repeat("AT", 50))).IsSignificant
+            .Should().BeFalse("an A/T-only sequence has no G/C asymmetry (flat skew)");
+    }
 }
