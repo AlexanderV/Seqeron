@@ -36,7 +36,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 4 | ✗ | SEQ-VALID-001 | Composition | IDEMP: validate(validate_result) is consistent; ID: empty string → defined result |
 | 5 | ✗ | SEQ-COMPLEX-001 | Composition | ID: single nucleotide → complexity 0; IDEMP: same result on recompute |
 | 6 | ✗ | SEQ-ENTROPY-001 | Composition | ID: single symbol → entropy 0; ID: uniform → max entropy = log2(|Σ|) |
-| 7 | ☐ | SEQ-GCSKEW-001 | Composition | ID: empty → skew undefined or 0; DIST: skew(G-only)=1, skew(C-only)=-1 |
+| 7 | ☑ | SEQ-GCSKEW-001 | Composition | ID: empty → skew undefined or 0; DIST: skew(G-only)=1, skew(C-only)=-1 |
 | 8 | ✗ | PAT-EXACT-001 | Matching | ID: pattern not in seq → count=0; ID: empty pattern → defined result |
 | 9 | ☐ | PAT-APPROX-001 | Matching | ID: hamming(x,x)=0; COMM: hamming(a,b)=hamming(b,a); TRI: hamming(a,c) ≤ hamming(a,b)+hamming(b,c) |
 | 10 | ☐ | PAT-APPROX-002 | Matching | ID: editDist(x,x)=0; COMM: editDist(a,b)=editDist(b,a); TRI: triangle inequality |
@@ -272,7 +272,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 3 |
-| ☐ Not started | 62 |
+| ☑ Complete | 4 |
+| ☐ Not started | 61 |
 | ✗ Not applicable | 169 |
 | Laws verified | ~172 (≈2 per algorithm) |
