@@ -1460,6 +1460,89 @@ public class OncologyCombinatorialTests
         OncologyAnalyzer.IdentifyAmplifiedOncogenes(focal).Should().Contain("ERBB2");
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ONCO-CNA-003 — Homozygous (deep) deletion detection (Oncology)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 105.
+    // Spec: tests/TestSpecs/ONCO-CNA-003.md (OncologyAnalyzer.DetectHomozygousDeletions / IsHomozygousDeletion).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: Cheng et al. (2017) (homozygous = zero copies of both alleles → total CN 0); cBioPortal
+    // (−2 = Deep Deletion); CNVkit absolute_threshold (integer CN 0 ⟺ log2 ≤ −1.1 default).
+    //
+    // A segment is a homozygous deletion iff its hard-threshold integer copy number is 0 (DeepDeletion) —
+    // i.e. log2 ≤ −1.1 with the default cutoffs. A single-copy (heterozygous) loss (CN 1) is NOT one.
+    //
+    // Checklist axes cnThreshold(3) × segLen(3) map onto the real knobs:
+    //   • cnThreshold → segment log2 amplitude ∈ {−2.0 (CN 0 deep deletion), −0.5 (CN 1 heterozygous loss),
+    //     0.0 (CN 2 neutral)}.
+    //   • segLen      → segment length as a fraction of the arm ∈ {0.1, 0.9, 0.99}.
+    // Grid = 3 × 3 = 9 = the checklist's "Full Combos" for this row.
+    //
+    // The combinatorial point: UNLIKE focal amplification (ONCO-CNA-002), the homozygous-deletion call is
+    // defined by amplitude ALONE (integer CN = 0) and is INVARIANT to the segment length — a deep deletion
+    // is reported whether focal or arm-spanning, while a heterozygous loss is never reported at any length.
+    // Each cell is checked against the CN-0 rule re-derived from the inputs.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// For every (amplitude, length fraction) a segment is reported as a homozygous deletion iff its integer
+    /// copy number is 0 (log2 ≤ −1.1) — independent of the segment length.
+    /// </summary>
+    [Test, Combinatorial]
+    public void DetectHomozygousDeletions_AmplitudeLengthGrid_IsCopyNumberZeroLengthInvariant(
+        [Values(-2.0, -0.5, 0.0)] double log2Ratio,
+        [Values(0.1, 0.9, 0.99)] double armFraction)
+    {
+        var segment = ArmSegment("9p", log2Ratio, armFraction);
+
+        // Integer CN 0 ⟺ log2 ≤ first default cutoff (−1.1); length plays no part.
+        bool expectedDeletion = OncologyAnalyzer.CallCopyNumber(log2Ratio) == 0;
+
+        var detected = OncologyAnalyzer.DetectHomozygousDeletions(new[] { segment });
+
+        OncologyAnalyzer.IsHomozygousDeletion(segment).Should().Be(expectedDeletion,
+            "homozygous deletion ⟺ integer CN 0 (DeepDeletion), independent of length");
+        detected.Should().HaveCount(expectedDeletion ? 1 : 0, "[INV-3] order-preserving subset filter");
+    }
+
+    /// <summary>
+    /// Interaction witness (length invariance): a deep deletion (CN 0) is reported whether it is focal (10%
+    /// of the arm) or spans 99% of the arm — the homozygous-deletion call ignores length, in contrast to
+    /// focal amplification. Source: Cheng et al. (2017) total-CN-0 definition.
+    /// </summary>
+    [Test]
+    public void DetectHomozygousDeletions_LengthAxis_IsInvariant()
+    {
+        OncologyAnalyzer.DetectHomozygousDeletions(new[] { ArmSegment("9p", -2.0, 0.10) })
+            .Should().ContainSingle("a focal deep deletion is reported");
+        OncologyAnalyzer.DetectHomozygousDeletions(new[] { ArmSegment("9p", -2.0, 0.99) })
+            .Should().ContainSingle("an arm-spanning deep deletion is still reported (length-invariant)");
+    }
+
+    /// <summary>
+    /// Interaction witness (amplitude axis, INV-2): a single-copy heterozygous loss (CN 1, log2 −0.5) is
+    /// never reported as a homozygous deletion at any length — one allele remains. Source: cBioPortal
+    /// (−1 ≠ −2); Cheng et al. (2017).
+    /// </summary>
+    [Test]
+    public void DetectHomozygousDeletions_HeterozygousLoss_IsNotReported()
+    {
+        OncologyAnalyzer.IsHomozygousDeletion(ArmSegment("13q", -0.5, 0.1)).Should().BeFalse("CN 1 is heterozygous, not homozygous");
+        OncologyAnalyzer.DetectHomozygousDeletions(new[] { ArmSegment("13q", -0.5, 0.99) }).Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// Witness (INV-4 tumour-suppressor mapping): a homozygous deletion on 9p maps to CDKN2A. Source: NCBI
+    /// Gene (CDKN2A 9p21.3).
+    /// </summary>
+    [Test]
+    public void IdentifyDeletedTumorSuppressors_DeletionOn9p_MapsToCdkn2a()
+    {
+        var deletions = OncologyAnalyzer.DetectHomozygousDeletions(new[] { ArmSegment("9p", -2.0, 0.1) });
+
+        OncologyAnalyzer.IdentifyDeletedTumorSuppressors(deletions).Should().Contain("CDKN2A");
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     // Helpers — engineered constructs + independent ground truth
     // ───────────────────────────────────────────────────────────────────────
