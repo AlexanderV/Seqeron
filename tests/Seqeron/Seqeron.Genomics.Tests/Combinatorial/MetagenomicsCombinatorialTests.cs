@@ -119,4 +119,95 @@ public class MetagenomicsCombinatorialTests
         results[1].TaxonId.Should().Be(3);
         results[2].TaxonId.Should().Be(2);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: META-PROF-001 — Taxonomic profile generation (Metagenomics)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 54.
+    // Spec: tests/TestSpecs/META-PROF-001.md (canonical GenerateTaxonomicProfile).
+    // Dimensions: nReads(3) × nTaxa(3) × normalization(2). Grid 3×3×2 = 18.
+    //
+    // Model: a taxonomic profile turns per-read classifications into RELATIVE abundances
+    // normalised over the CLASSIFIED reads (unclassified reads count toward TotalReads but not
+    // the abundances), plus Shannon (−Σp·ln p) and Simpson (Σp²) indices over the species
+    // proportions. The normalization axis varies whether unclassified "noise" reads are present.
+    //
+    // The combinatorial point: read count, taxon count and read composition interact — species
+    // abundances always sum to 1 over classified reads and equal countₜ/classified, while
+    // TotalReads/ClassifiedReads reflect the unclassified fraction; the diversity indices match
+    // their closed-form definitions for every cell.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public enum ReadComposition { OnlyClassified, WithUnclassified }
+
+    private static MetagenomicsAnalyzer.TaxonomicClassification Classified(string id, int t) =>
+        new(id, 100 + t, $"Sp{t}", "species", 0, 1.0, 0, 0,
+            "Bacteria", "Firmicutes", "Bacilli", "Lactobacillales", "Lactobacillaceae", $"G{t}", $"Sp{t}");
+
+    private static MetagenomicsAnalyzer.TaxonomicClassification Unclassified(string id) =>
+        new(id, 1, "root", "root", 0, 0, 0, 0, "Unclassified", "", "", "", "", "", "");
+
+    [Test, Combinatorial]
+    public void MetaProf_RelativeAbundanceAndDiversity(
+        [Values(20, 40, 80)] int nReads,
+        [Values(2, 3, 5)] int nTaxa,
+        [Values(ReadComposition.OnlyClassified, ReadComposition.WithUnclassified)] ReadComposition composition)
+    {
+        int unclassified = composition == ReadComposition.WithUnclassified ? nReads / 4 : 0;
+        int classified = nReads - unclassified;
+        var counts = new int[nTaxa];
+        var list = new List<MetagenomicsAnalyzer.TaxonomicClassification>();
+        for (int i = 0; i < classified; i++) { int t = i % nTaxa; counts[t]++; list.Add(Classified($"r{i}", t)); }
+        for (int i = 0; i < unclassified; i++) list.Add(Unclassified($"u{i}"));
+
+        var p = MetagenomicsAnalyzer.GenerateTaxonomicProfile(list);
+
+        p.TotalReads.Should().Be(nReads);
+        p.ClassifiedReads.Should().Be(classified);
+        p.SpeciesAbundance.Should().HaveCount(nTaxa);
+        p.SpeciesAbundance.Values.Sum().Should().BeApproximately(1.0, 1e-9, "abundances are relative to classified reads");
+
+        for (int t = 0; t < nTaxa; t++)
+            p.SpeciesAbundance[$"Sp{t}"].Should().BeApproximately((double)counts[t] / classified, 1e-9);
+
+        var abund = p.SpeciesAbundance.Values.ToList();
+        p.ShannonDiversity.Should().BeApproximately(-abund.Sum(a => a * Math.Log(a)), 1e-9);
+        p.SimpsonDiversity.Should().BeApproximately(abund.Sum(a => a * a), 1e-9);
+    }
+
+    /// <summary>
+    /// Interaction witness: an even community maximises Shannon diversity (ln S) and minimises
+    /// Simpson dominance (1/S); a single-taxon community has Shannon 0 and Simpson 1.
+    /// </summary>
+    [Test]
+    public void MetaProf_DiversityExtremes()
+    {
+        var even = Enumerable.Range(0, 4 * 5).Select(i => Classified($"r{i}", i % 4)).ToList();
+        var pe = MetagenomicsAnalyzer.GenerateTaxonomicProfile(even);
+        pe.ShannonDiversity.Should().BeApproximately(Math.Log(4), 1e-9, "four equal taxa ⇒ H = ln 4");
+        pe.SimpsonDiversity.Should().BeApproximately(0.25, 1e-9, "even community ⇒ Σp² = 1/S");
+
+        var mono = Enumerable.Range(0, 10).Select(i => Classified($"r{i}", 0)).ToList();
+        var pm = MetagenomicsAnalyzer.GenerateTaxonomicProfile(mono);
+        pm.ShannonDiversity.Should().BeApproximately(0.0, 1e-9, "one taxon ⇒ H = 0");
+        pm.SimpsonDiversity.Should().BeApproximately(1.0, 1e-9, "one taxon ⇒ Σp² = 1");
+    }
+
+    /// <summary>
+    /// Interaction witness: unclassified reads inflate TotalReads but not the abundances — the
+    /// classified fraction and relative abundances are unchanged by adding noise.
+    /// </summary>
+    [Test]
+    public void MetaProf_UnclassifiedReads_DoNotChangeRelativeAbundance()
+    {
+        var classifiedOnly = new[] { Classified("a", 0), Classified("b", 0), Classified("c", 1) };
+        var withNoise = classifiedOnly.Append(Unclassified("n1")).Append(Unclassified("n2")).ToList();
+
+        var p1 = MetagenomicsAnalyzer.GenerateTaxonomicProfile(classifiedOnly);
+        var p2 = MetagenomicsAnalyzer.GenerateTaxonomicProfile(withNoise);
+
+        p2.TotalReads.Should().Be(5);
+        p2.ClassifiedReads.Should().Be(3);
+        p2.SpeciesAbundance["Sp0"].Should().BeApproximately(p1.SpeciesAbundance["Sp0"], 1e-9, "abundance is over classified reads only");
+        p2.SpeciesAbundance["Sp0"].Should().BeApproximately(2.0 / 3.0, 1e-9);
+    }
 }
