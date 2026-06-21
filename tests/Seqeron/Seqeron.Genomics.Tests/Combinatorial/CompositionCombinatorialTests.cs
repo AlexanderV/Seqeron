@@ -341,4 +341,81 @@ public class CompositionCombinatorialTests
         divPoint.ShannonEntropy.Should().BeGreaterThan(1.5).And.BeLessThanOrEqualTo(2.0);
         divPoint.LinguisticComplexity.Should().BeGreaterThan(homoPoint.LinguisticComplexity);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: SEQ-GCSKEW-001 — Sliding-window GC skew (Composition)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 7.
+    // Dimensions: windowSize(3) × step(3) × seqLen(3). Full grid 3×3×3 = 27 cells.
+    //
+    // Model (GC_Skew.md; Lobry 1996): GC skew = (nG − nC)/(nG + nC) ∈ [−1, 1].
+    // CalculateWindowedGcSkew tiles the sequence with windows of `windowSize`
+    // advanced by `stepSize`, emitting one GcSkewPoint per window fully contained
+    // in the sequence: WindowStart = k·step, WindowEnd = start + w − 1,
+    // Position = start + w/2. The grid has ⌊(L − w)/step⌋ + 1 windows when L ≥ w,
+    // and is empty when w > L.
+    //
+    // The combinatorial point: `windowSize`, `step` and `seqLen` jointly fix the
+    // window tiling (count and coordinates), and the per-window skew must be the
+    // exact local statistic — independent of how the tiling was parameterised.
+    // An all-G window must read +1 and an all-C window −1 in EVERY cell.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Pairwise grid: every (windowSize × step × seqLen) cell. The tiling produces
+    /// the predicted number of windows with consistent coordinates advancing by
+    /// `step`; an all-G sequence yields skew +1 in every window and an all-C
+    /// sequence −1, confirming each window reads its own substring's local skew
+    /// regardless of the tiling parameters. Empty when the window exceeds L.
+    /// </summary>
+    [Test, Combinatorial]
+    public void GcSkew_WindowTiling_CoordinatesAndExtremalSkew(
+        [Values(10, 25, 50)] int windowSize,
+        [Values(5, 10, 25)] int step,
+        [Values(20, 60, 200)] int seqLen)
+    {
+        var allG = new DnaSequence(new string('G', seqLen));
+        var allC = new DnaSequence(new string('C', seqLen));
+
+        var gPoints = GcSkewCalculator.CalculateWindowedGcSkew(allG, windowSize, step).ToList();
+        var cPoints = GcSkewCalculator.CalculateWindowedGcSkew(allC, windowSize, step).ToList();
+
+        int expectedWindows = seqLen >= windowSize ? (seqLen - windowSize) / step + 1 : 0;
+        gPoints.Should().HaveCount(expectedWindows);
+        cPoints.Should().HaveCount(expectedWindows);
+
+        if (expectedWindows == 0)
+            return; // w > L: no fully-contained window
+
+        for (int k = 0; k < expectedWindows; k++)
+        {
+            int start = k * step;
+            var g = gPoints[k];
+            g.WindowStart.Should().Be(start);
+            g.WindowEnd.Should().Be(start + windowSize - 1);
+            g.Position.Should().Be(start + windowSize / 2);
+            g.GcSkew.Should().Be(1.0, "an all-G window has skew (G−C)/(G+C) = +1");
+            cPoints[k].GcSkew.Should().Be(-1.0, "an all-C window has skew (G−C)/(G+C) = −1");
+        }
+    }
+
+    /// <summary>
+    /// Interaction witness: a G-block followed by a C-block. With a window/step
+    /// that fits inside each block, the profile contains a +1 plateau (inside the
+    /// G-block), a −1 plateau (inside the C-block) and bounded transition values —
+    /// every reported skew stays within [−1, 1]. This is the strand-asymmetry
+    /// signal GC skew exists to localize (GC_Skew.md; Lobry 1996).
+    /// </summary>
+    [Test, Combinatorial]
+    public void GcSkew_BlockBoundary_PlateausWithinRange(
+        [Values(10, 20)] int windowSize,
+        [Values(5, 10)] int step)
+    {
+        var seq = new DnaSequence(new string('G', 60) + new string('C', 60));
+        var points = GcSkewCalculator.CalculateWindowedGcSkew(seq, windowSize, step).ToList();
+
+        points.Should().NotBeEmpty();
+        points.Select(p => p.GcSkew).Should().OnlyContain(v => v >= -1.0 && v <= 1.0);
+        points.Should().Contain(p => p.GcSkew == 1.0, "a window wholly inside the G-block has skew +1");
+        points.Should().Contain(p => p.GcSkew == -1.0, "a window wholly inside the C-block has skew −1");
+    }
 }
