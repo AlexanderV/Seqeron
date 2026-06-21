@@ -169,4 +169,92 @@ public class ChromosomeCombinatorialTests
         var r = ChromosomeAnalyzer.AnalyzeCentromere("chr", seq, windowSize: 400, minAlphaSatelliteContent: 1.5);
         r.Start.Should().BeNull("no region exceeds an impossible threshold");
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: CHROM-ANEU-001 — Aneuploidy detection (Chromosome)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 51.
+    // Spec: tests/TestSpecs/CHROM-ANEU-001.md (canonical DetectAneuploidy +
+    //       IdentifyWholeChromosomeAneuploidy).
+    // Dimensions: nChrom(3) × depth(3) × threshold(3). Grid 3×3×3 = 27.
+    //
+    // Model (read-depth copy-number): bin copy number is round(2·depth/medianDepth) clamped
+    // to [0,10] (Wikipedia: Aneuploidy). A whole chromosome is called aneuploid when one
+    // non-disomic copy number dominates at least minFraction of its bins.
+    //
+    // The combinatorial point: chromosome count, the per-chromosome depth (copy level) and the
+    // calling fraction interact — per-bin copy number follows the depth ratio exactly, and the
+    // whole-chromosome call fires only when the dominant non-disomic level clears the threshold.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private const double MedianDepth = 30.0;
+    private const int AneuBinSize = 1000;
+    private const double AneuFraction = 0.7; // 7 of 10 bins carry the aneuploid level
+
+    [Test, Combinatorial]
+    public void ChromAneu_BinCopyNumberAndWholeChromCall(
+        [Values(1, 2, 3)] int nChrom,
+        [Values(1, 2, 3)] int copyLevel,   // 1=monosomy, 2=disomy, 3=trisomy
+        [Values(0.5, 0.8, 1.0)] double threshold)
+    {
+        var depthData = new List<(string, int, double)>();
+        for (int c = 0; c < nChrom; c++)
+            for (int b = 0; b < 10; b++)
+            {
+                double depth = copyLevel != 2 && b < 7 ? copyLevel / 2.0 * MedianDepth : MedianDepth;
+                depthData.Add(($"chr{c}", b * AneuBinSize, depth));
+            }
+
+        var states = ChromosomeAnalyzer.DetectAneuploidy(depthData, MedianDepth, AneuBinSize).ToList();
+
+        states.Should().HaveCount(nChrom * 10);
+        foreach (var s in states)
+        {
+            int bin = s.Start / AneuBinSize;
+            int expectedCn = copyLevel != 2 && bin < 7 ? copyLevel : 2;
+            s.CopyNumber.Should().Be(expectedCn, "bin CN follows round(2·depth/median)");
+            s.Confidence.Should().BeInRange(0.0, 1.0);
+        }
+
+        var calls = ChromosomeAnalyzer.IdentifyWholeChromosomeAneuploidy(states, threshold).ToList();
+        bool shouldCall = copyLevel != 2 && AneuFraction >= threshold;
+        calls.Should().HaveCount(shouldCall ? nChrom : 0,
+            "a chromosome is called iff its dominant non-disomic level clears minFraction");
+        if (shouldCall)
+            calls.Should().OnlyContain(call => call.CopyNumber == copyLevel
+                && call.Type == (copyLevel == 1 ? "Monosomy" : "Trisomy"));
+    }
+
+    /// <summary>
+    /// Interaction witness: a uniform 1.5× chromosome is trisomy (CN 3 in every bin), called at
+    /// any fraction; a uniform 1× (diploid-depth) chromosome is disomy and never called.
+    /// </summary>
+    [Test]
+    public void ChromAneu_UniformTrisomy_Called_DisomyNot()
+    {
+        var trisomy = Enumerable.Range(0, 10).Select(b => ("chrT", b * AneuBinSize, 1.5 * MedianDepth)).Cast<(string, int, double)>();
+        var trisomyStates = ChromosomeAnalyzer.DetectAneuploidy(trisomy, MedianDepth, AneuBinSize).ToList();
+        trisomyStates.Should().OnlyContain(s => s.CopyNumber == 3);
+        ChromosomeAnalyzer.IdentifyWholeChromosomeAneuploidy(trisomyStates, 0.8)
+            .Should().ContainSingle(c => c.Type == "Trisomy");
+
+        var disomy = Enumerable.Range(0, 10).Select(b => ("chrD", b * AneuBinSize, MedianDepth)).Cast<(string, int, double)>();
+        var disomyStates = ChromosomeAnalyzer.DetectAneuploidy(disomy, MedianDepth, AneuBinSize).ToList();
+        disomyStates.Should().OnlyContain(s => s.CopyNumber == 2);
+        ChromosomeAnalyzer.IdentifyWholeChromosomeAneuploidy(disomyStates, 0.8).Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// Interaction witness: copy number is clamped to 10 for extreme depth, and empty / zero-median
+    /// inputs yield no states (no division by zero).
+    /// </summary>
+    [Test]
+    public void ChromAneu_Clamp_AndDegenerateInputs()
+    {
+        var deep = new[] { ("chr", 0, 1000.0) };
+        ChromosomeAnalyzer.DetectAneuploidy(deep, MedianDepth, AneuBinSize).First().CopyNumber
+            .Should().Be(10, "copy number is clamped to a maximum of 10");
+
+        ChromosomeAnalyzer.DetectAneuploidy(Array.Empty<(string, int, double)>(), MedianDepth, AneuBinSize).Should().BeEmpty();
+        ChromosomeAnalyzer.DetectAneuploidy(deep, 0.0, AneuBinSize).Should().BeEmpty("zero median is rejected");
+    }
 }
