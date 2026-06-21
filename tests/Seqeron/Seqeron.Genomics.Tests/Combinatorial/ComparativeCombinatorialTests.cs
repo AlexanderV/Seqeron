@@ -536,6 +536,103 @@ public class ComparativeCombinatorialTests
         return (b + 1) / 2;
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: COMPGEN-SYNTENY-001 — Syntenic block detection (MCScanX) (Comparative)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 139.
+    // Spec: tests/TestSpecs/COMPGEN-SYNTENY-001.md (ComparativeGenomics.FindSyntenicBlocks).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: Wang et al. (2012) MCScanX — collinear chains scored count·50 − gaps; reported iff
+    // score ≥ 250 AND count ≥ minAnchors; a pair extends a chain iff intervening genes < maxGap with a
+    // consistent genome-2 direction.
+    //
+    // Checklist axes nAnchors(3) × minBlockSize(3) × maxGap(3) map to the real knobs: anchor count ∈
+    // {3,6,10}, minAnchors ∈ {2,5,8}, maxGap ∈ {1,3,25}. Anchors are placed two genes apart in genome 2
+    // (one intervening gene) so all three axes gate. Grid = 3³ = 27 = the checklist's "Full Combos".
+    //
+    // The combinatorial point: a block is reported only when the chain survives the gap cutoff (maxGap),
+    // clears the score (driven by anchor count) and meets the minimum size — a genuine three-way gate. Each
+    // cell predicts the block count from those rules and checks production, and every block satisfies the
+    // structural invariants.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// For every (anchor count, minAnchors, maxGap) the number of reported syntenic blocks matches the
+    /// MCScanX gate (gap survival × score ≥ 250 × count ≥ minAnchors), and every block satisfies the size
+    /// and coordinate invariants.
+    /// </summary>
+    [Test, Combinatorial]
+    public void FindSyntenicBlocks_AnchorsMinSizeMaxGapGrid_MatchesMcScanXGate(
+        [Values(3, 6, 10)] int nAnchors,
+        [Values(2, 5, 8)] int minAnchors,
+        [Values(1, 3, 25)] int maxGap)
+    {
+        var (genome1, genome2, map) = BuildSyntenyGenomes(nAnchors, inverted: false);
+
+        // Independent ground truth: anchors are 2 apart (1 intervening gene) → chain survives iff maxGap > 1;
+        // forward chain of nAnchors scores 50·n − (n−1); reported iff score ≥ 250 AND n ≥ minAnchors.
+        bool gapOk = maxGap > 1;
+        int score = 50 * nAnchors - (nAnchors - 1);
+        bool reported = gapOk && nAnchors >= minAnchors && score >= 250;
+        int expectedBlocks = reported ? 1 : 0;
+
+        var blocks = ComparativeGenomics.FindSyntenicBlocks(genome1, genome2, map, minAnchors, maxGap).ToList();
+
+        blocks.Should().HaveCount(expectedBlocks, "block reported iff gap-survived, score ≥ 250 and count ≥ minAnchors");
+        blocks.Should().OnlyContain(b => b.GeneCount >= minAnchors, "[INV-1] block size ≥ minAnchors");
+        blocks.Should().OnlyContain(b => b.Start1 <= b.End1 && b.Start2 <= b.End2, "[INV-5] valid coordinates");
+        if (reported)
+        {
+            blocks[0].GeneCount.Should().Be(nAnchors);
+            blocks[0].IsInverted.Should().BeFalse("forward collinear anchors");
+        }
+    }
+
+    /// <summary>
+    /// Interaction witness (INV-4 inverted block): anchors whose genome-2 order decreases form an inverted
+    /// syntenic block. Source: Wang et al. (2012) (both transcriptional directions).
+    /// </summary>
+    [Test]
+    public void FindSyntenicBlocks_DecreasingGenome2Order_IsInverted()
+    {
+        var (genome1, genome2, map) = BuildSyntenyGenomes(10, inverted: true);
+
+        var blocks = ComparativeGenomics.FindSyntenicBlocks(genome1, genome2, map, minAnchors: 5, maxGap: 3).ToList();
+
+        blocks.Should().ContainSingle().Which.IsInverted.Should().BeTrue("decreasing genome-2 order → inverted");
+    }
+
+    /// <summary>Witness (INV-7): empty genomes / no anchors yield no blocks (no exception).</summary>
+    [Test]
+    public void FindSyntenicBlocks_NoGenes_IsEmpty()
+    {
+        ComparativeGenomics.FindSyntenicBlocks(
+            Array.Empty<ComparativeGenomics.Gene>(), Array.Empty<ComparativeGenomics.Gene>(),
+            new Dictionary<string, string>()).Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// Builds two genomes and an anchor map where genome-1 gene i maps to genome-2 position 2·i (forward) or
+    /// 2·(n−1−i) (inverted) — one intervening gene between consecutive anchors.
+    /// </summary>
+    private static (List<ComparativeGenomics.Gene> g1, List<ComparativeGenomics.Gene> g2, Dictionary<string, string> map)
+        BuildSyntenyGenomes(int nAnchors, bool inverted)
+    {
+        var g1 = new List<ComparativeGenomics.Gene>();
+        var g2 = new List<ComparativeGenomics.Gene>();
+        var map = new Dictionary<string, string>();
+        for (int i = 0; i < nAnchors; i++)
+            g1.Add(new ComparativeGenomics.Gene($"G1_{i}", "G1", i * 100, i * 100 + 50, '+'));
+        for (int p = 0; p < 2 * nAnchors; p++)
+            g2.Add(new ComparativeGenomics.Gene($"G2_{p}", "G2", p * 100, p * 100 + 50, '+'));
+        for (int i = 0; i < nAnchors; i++)
+        {
+            int pos2 = inverted ? 2 * (nAnchors - 1 - i) : 2 * i;
+            map[$"G1_{i}"] = $"G2_{pos2}";
+        }
+        return (g1, g2, map);
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     // Helpers — engineered constructs + independent ANIb ground truth
     // ───────────────────────────────────────────────────────────────────────
