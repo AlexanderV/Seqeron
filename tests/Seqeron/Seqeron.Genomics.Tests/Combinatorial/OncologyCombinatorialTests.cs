@@ -2090,6 +2090,126 @@ public class OncologyCombinatorialTests
         OncologyAnalyzer.CtDnaDetectionProbability(15000, 0.0).Should().Be(0.0, "[INV-2] d = 0 → λ = 0 → p = 0");
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ONCO-MRD-001 — Minimal residual disease detection (Oncology)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 112.
+    // Spec: tests/TestSpecs/ONCO-MRD-001.md (OncologyAnalyzer.DetectMRD / IsVariantDetected).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: Reinert et al. (2019) / Signatera (MRD-positive ⟺ ≥ 2 of up to 16 tracked SNVs detected);
+    // Wan et al. (2020) INVAR (IMAF = Σalt/Σtotal); Signatera Fig 2 panel Poisson p = 1 − e^(−n·f·m).
+    //
+    // DetectMRD counts markers with alt reads ≥ minSupportingReads, calls positive when that count reaches
+    // the positivity threshold, and reports IMAF and the panel Poisson probability.
+    //
+    // Checklist axes nTrackedVariants(3) × depth(3) × detectionThreshold(2) map onto the real knobs:
+    //   • nTrackedVariants  → panel size ∈ {2, 8, 16} markers.
+    //   • depth             → per-locus plasma total reads ∈ {100, 1000, 5000} (the IMAF denominator).
+    //   • detectionThreshold→ the positivity threshold ∈ {2 (Reinert default), 3 (stricter)}.
+    // Grid = 3 × 3 × 2 = 18 = the checklist's "Full Combos" for this row.
+    //
+    // The combinatorial point: with exactly two markers detected in every panel, the MRD status is a JOINT
+    // function of that detected count and the positivity threshold (positive at ≥2, negative at ≥3), while
+    // the panel size and depth jointly set the IMAF (Σalt/Σtotal) and the Poisson p. Each cell is checked
+    // against the panel rule + IMAF + Poisson formulas re-derived from the constructed panel.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private const int MrdGenomeEquivalents = 10_000;
+    private const int MrdDetectedAltReads = 10; // ≥ DefaultMrdMinSupportingReads (1) → detected
+
+    /// <summary>
+    /// For every (panel size, depth, positivity threshold) — with exactly two detected markers — the MRD
+    /// status, detected/tracked counts, IMAF and panel Poisson probability match the formulas re-derived
+    /// from the constructed panel.
+    /// </summary>
+    [Test, Combinatorial]
+    public void DetectMRD_PanelDepthThresholdGrid_MatchesPanelRuleAndImaf(
+        [Values(2, 8, 16)] int nTrackedVariants,
+        [Values(100, 1000, 5000)] int depth,
+        [Values(2, 3)] int positivityThreshold)
+    {
+        var panel = new List<OncologyAnalyzer.TumorMarker>();
+        for (int i = 0; i < nTrackedVariants; i++)
+        {
+            int alt = i < 2 ? MrdDetectedAltReads : 0; // exactly two detected
+            panel.Add(new OncologyAnalyzer.TumorMarker("chr1", 100 + i, "C", "T", alt, depth));
+        }
+
+        // Independent ground truth.
+        const int detectedCount = 2;
+        long altSum = 2L * MrdDetectedAltReads;
+        long totalSum = (long)nTrackedVariants * depth;
+        double expectedImaf = (double)altSum / totalSum;
+        double expectedProbability = 1.0 - Math.Exp(-MrdGenomeEquivalents * expectedImaf * nTrackedVariants);
+        var expectedStatus = detectedCount >= positivityThreshold
+            ? OncologyAnalyzer.MrdStatus.Positive
+            : OncologyAnalyzer.MrdStatus.Negative;
+
+        var result = OncologyAnalyzer.DetectMRD(panel, positivityThreshold, minSupportingReads: 1, genomeEquivalents: MrdGenomeEquivalents);
+
+        result.DetectedVariantCount.Should().Be(detectedCount, "[INV-2] two markers carry alt reads");
+        result.TrackedVariantCount.Should().Be(nTrackedVariants);
+        result.IntegratedMutantAlleleFraction.Should().BeApproximately(expectedImaf, 1e-12, "[INV-3] IMAF = Σalt/Σtotal");
+        result.DetectionProbability.Should().BeApproximately(expectedProbability, 1e-9, "[INV-4] p = 1 − e^(−n·f·m)");
+        result.Status.Should().Be(expectedStatus, "[INV-1] positive ⟺ detected ≥ threshold");
+    }
+
+    /// <summary>
+    /// Interaction witness (threshold axis flips status): a panel with exactly two detected markers is
+    /// MRD-positive under the Reinert ≥ 2 rule but MRD-negative under a stricter ≥ 3 threshold — the call
+    /// flips purely on the threshold axis. Source: Reinert et al. (2019).
+    /// </summary>
+    [Test]
+    public void DetectMRD_ThresholdAxis_FlipsStatusAtTwoDetected()
+    {
+        var panel = new[]
+        {
+            new OncologyAnalyzer.TumorMarker("chr1", 1, "C", "T", 10, 1000),
+            new OncologyAnalyzer.TumorMarker("chr1", 2, "G", "A", 10, 1000),
+            new OncologyAnalyzer.TumorMarker("chr1", 3, "A", "G", 0, 1000),
+        };
+
+        OncologyAnalyzer.DetectMRD(panel, positivityThreshold: 2).Status.Should().Be(OncologyAnalyzer.MrdStatus.Positive, "2 ≥ 2");
+        OncologyAnalyzer.DetectMRD(panel, positivityThreshold: 3).Status.Should().Be(OncologyAnalyzer.MrdStatus.Negative, "2 < 3");
+    }
+
+    /// <summary>
+    /// Interaction witness (exactly-one-detected corner case): a single detected variant is MRD-negative
+    /// under the default ≥ 2 rule — below the positivity threshold. Source: Reinert et al. (2019) / PMC9265001.
+    /// </summary>
+    [Test]
+    public void DetectMRD_ExactlyOneDetected_IsNegative()
+    {
+        var panel = new[]
+        {
+            new OncologyAnalyzer.TumorMarker("chr1", 1, "C", "T", 10, 1000),
+            new OncologyAnalyzer.TumorMarker("chr1", 2, "G", "A", 0, 1000),
+        };
+
+        OncologyAnalyzer.DetectMRD(panel).Status.Should().Be(OncologyAnalyzer.MrdStatus.Negative, "1 < 2");
+        OncologyAnalyzer.DetectMRD(panel).DetectedVariantCount.Should().Be(1);
+    }
+
+    /// <summary>
+    /// Witness (depth axis sets IMAF): doubling per-locus depth at the same detected alt reads halves the
+    /// integrated mutant allele fraction (Σalt fixed, Σtotal scales with depth). Source: Wan et al. (2020) IMAF.
+    /// </summary>
+    [Test]
+    public void DetectMRD_DepthAxis_ScalesImaf()
+    {
+        OncologyAnalyzer.TumorMarker[] PanelAtDepth(int depth) => new[]
+        {
+            new OncologyAnalyzer.TumorMarker("chr1", 1, "C", "T", 10, depth),
+            new OncologyAnalyzer.TumorMarker("chr1", 2, "G", "A", 10, depth),
+        };
+
+        double shallow = OncologyAnalyzer.DetectMRD(PanelAtDepth(1000)).IntegratedMutantAlleleFraction;
+        double deep = OncologyAnalyzer.DetectMRD(PanelAtDepth(2000)).IntegratedMutantAlleleFraction;
+
+        shallow.Should().BeApproximately(20.0 / 2000.0, 1e-12);
+        deep.Should().BeApproximately(shallow / 2.0, 1e-12, "doubling depth halves IMAF at fixed alt reads");
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     // Helpers — engineered constructs + independent ground truth
     // ───────────────────────────────────────────────────────────────────────
