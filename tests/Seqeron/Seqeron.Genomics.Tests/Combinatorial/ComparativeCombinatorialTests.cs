@@ -182,9 +182,98 @@ public class ComparativeCombinatorialTests
         ComparativeGenomics.FindConservedClusters(genomes, map, 2).Should().BeEmpty("fewer than 2 genomes → empty");
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: COMPGEN-DOTPLOT-001 — Word-match dot plot (Comparative)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 134.
+    // Spec: tests/TestSpecs/COMPGEN-DOTPLOT-001.md (ComparativeGenomics.GenerateDotPlot).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: EMBOSS dottup; Gibbs & McIntyre (1970) — a dot at (x,y) iff sequence1[x..x+w] equals
+    // sequence2[y..y+w] (case-insensitive), x sampled by stepSize.
+    //
+    // Checklist axes wordSize(3) × seqLen(3) × strand(2) map onto the real knobs:
+    //   • wordSize → the word (k-tuple) size ∈ {3, 5, 8}.
+    //   • seqLen   → sequence length ∈ {10, 20, 40}.
+    //   • strand   → the second sequence's orientation {Self (seq2 = seq1, forward), RevComp (seq2 =
+    //     reverse complement of seq1)} — forward self-comparison fills the main diagonal; the
+    //     reverse-complement plot reveals inverted (palindromic) word matches.
+    // Grid = 3 × 3 × 2 = 18 = the checklist's "Full Combos" for this row.
+    //
+    // The combinatorial point: the dot set is a JOINT function of word size, length and orientation. Each
+    // cell re-derives the exact word-match set by brute force and checks production returns exactly it.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// For every (word size, length, orientation) the production dot set equals the exact word-match set
+    /// re-derived by brute force; a forward self-comparison additionally contains the full main diagonal.
+    /// </summary>
+    [Test, Combinatorial]
+    public void GenerateDotPlot_WordSizeLengthOrientationGrid_MatchesExactWordMatches(
+        [Values(3, 5, 8)] int wordSize,
+        [Values(10, 20, 40)] int seqLen,
+        [Values(true, false)] bool selfOrientation)
+    {
+        string seq1 = BuildVariedDna(seqLen);
+        string seq2 = selfOrientation ? seq1 : ReverseComplement(seq1);
+
+        var expected = BruteForceDotPlot(seq1, seq2, wordSize);
+
+        var actual = ComparativeGenomics.GenerateDotPlot(seq1, seq2, wordSize).ToHashSet();
+
+        actual.Should().BeEquivalentTo(expected, "[INV-1] dot ⟺ exact word match");
+        if (selfOrientation)
+            for (int i = 0; i <= seqLen - wordSize; i++)
+                actual.Should().Contain((i, i), "[INV-2] self-comparison fills the main diagonal");
+    }
+
+    /// <summary>
+    /// Interaction witness (length × word, empty): when a sequence is shorter than the word size no dots are
+    /// produced. Source: dottup undefined window. INV-3.
+    /// </summary>
+    [Test]
+    public void GenerateDotPlot_SequenceShorterThanWord_IsEmpty()
+    {
+        ComparativeGenomics.GenerateDotPlot("ACGT", "ACGTACGT", wordSize: 8).Should().BeEmpty("seq1 length 4 < word 8");
+    }
+
+    /// <summary>
+    /// Witness (INV-5): a non-positive word or step size throws. Source: sibling validation convention.
+    /// </summary>
+    [Test]
+    public void GenerateDotPlot_NonPositiveParameters_Throw()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => ComparativeGenomics.GenerateDotPlot("ACGT", "ACGT", 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ComparativeGenomics.GenerateDotPlot("ACGT", "ACGT", 2, 0));
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     // Helpers — engineered constructs + independent ANIb ground truth
     // ───────────────────────────────────────────────────────────────────────
+
+    private static string ReverseComplement(string dna)
+    {
+        var chars = new char[dna.Length];
+        for (int i = 0; i < dna.Length; i++)
+        {
+            char c = dna[dna.Length - 1 - i];
+            chars[i] = c switch { 'A' => 'T', 'T' => 'A', 'C' => 'G', 'G' => 'C', _ => c };
+        }
+        return new string(chars);
+    }
+
+    private static HashSet<(int, int)> BruteForceDotPlot(string s1, string s2, int wordSize)
+    {
+        var set = new HashSet<(int, int)>();
+        string a = s1.ToUpperInvariant(), b = s2.ToUpperInvariant();
+        for (int i = 0; i + wordSize <= a.Length; i++)
+        {
+            string word = a.Substring(i, wordSize);
+            for (int j = 0; j + wordSize <= b.Length; j++)
+                if (b.Substring(j, wordSize) == word) set.Add((i, j));
+        }
+        return set;
+    }
+
 
     /// <summary>Builds genomes (Gene lists) and the shared gene→group map from per-genome ortholog-group label arrays.</summary>
     private static (List<IReadOnlyList<ComparativeGenomics.Gene>> genomes, Dictionary<string, string> map)
