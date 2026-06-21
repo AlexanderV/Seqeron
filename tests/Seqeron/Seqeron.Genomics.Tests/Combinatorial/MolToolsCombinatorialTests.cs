@@ -419,4 +419,123 @@ public class MolToolsCombinatorialTests
         PrimerDesigner.CalculateMeltingTemperature("ACGTACGTACACGTACGTAC")  // 20 nt, 10 GC, Marmur-Doty
             .Should().BeApproximately(51.78, 0.01);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: PRIMER-DESIGN-001 — Primer-candidate acceptance (MolTools)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 22.
+    // Dimensions: minLen(3) × maxLen(3) × gcRange(3) × tmRange(3). Grid 3⁴ = 81.
+    //
+    // Model (Primer3 / Untergasser 2012 acceptance semantics): a candidate primer
+    // is accepted iff it lies inside EVERY configured window simultaneously —
+    // length ∈ [MinLength, MaxLength], GC% ∈ [MinGcContent, MaxGcContent] and
+    // Tm ∈ [MinTm, MaxTm] (plus structural filters held constant here). Acceptance
+    // is therefore the logical CONJUNCTION of the per-axis membership tests, and a
+    // violation of any single window must surface its own diagnostic.
+    //
+    // The combinatorial point: the four windows interact multiplicatively. The probe
+    // primer (20 nt, 50% GC, Tm 51.78 °C) is placed so each axis straddles its three
+    // windows — minLen {15,20,22} and maxLen {18,20,25} bracket length 20 on both
+    // sides, the GC windows straddle 50%, the Tm windows straddle 51.78 °C — so every
+    // axis genuinely flips acceptance and the AND is exercised across the grid.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // 20-mer, 50% GC, Tm 51.78 °C, hairpin-free, max homopolymer 2 (verified independently).
+    private const string CleanPrimer20 = "GACGCTGTCTGAGACTAGAA";
+
+    private static readonly (double Lo, double Hi)[] GcWindows = { (30, 45), (45, 55), (55, 70) };
+    private static readonly (double Lo, double Hi)[] TmWindows = { (40, 50), (50, 60), (52, 62) };
+
+    /// <summary>Permissive structural filters so only the length/GC/Tm windows can gate acceptance.</summary>
+    private static PrimerParameters WithWindows(int minLen, int maxLen, double gcLo, double gcHi, double tmLo, double tmHi) =>
+        PrimerDesigner.DefaultParameters with
+        {
+            MinLength = minLen,
+            MaxLength = maxLen,
+            MinGcContent = gcLo,
+            MaxGcContent = gcHi,
+            MinTm = tmLo,
+            MaxTm = tmHi,
+            MaxHomopolymer = 1000,
+            MaxDinucleotideRepeats = 1000,
+            Check3PrimeStability = false,
+            Avoid3PrimeGC = false,
+        };
+
+    [Test, Combinatorial]
+    public void PrimerDesign_AcceptanceIsConjunctionOfLengthGcTmWindows(
+        [Values(15, 20, 22)] int minLen,
+        [Values(18, 20, 25)] int maxLen,
+        [Values(0, 1, 2)] int gcWin,
+        [Values(0, 1, 2)] int tmWin)
+    {
+        var (gcLo, gcHi) = GcWindows[gcWin];
+        var (tmLo, tmHi) = TmWindows[tmWin];
+
+        var cand = PrimerDesigner.EvaluatePrimer(CleanPrimer20, 0, true,
+            WithWindows(minLen, maxLen, gcLo, gcHi, tmLo, tmHi));
+
+        double gc = PrimerDesigner.CalculateGcContent(CleanPrimer20);
+        double tm = PrimerDesigner.CalculateMeltingTemperature(CleanPrimer20);
+        int len = CleanPrimer20.Length;
+
+        bool lenOk = len >= minLen && len <= maxLen;
+        bool gcOk = gc >= gcLo && gc <= gcHi;
+        bool tmOk = tm >= tmLo && tm <= tmHi;
+
+        cand.IsValid.Should().Be(lenOk && gcOk && tmOk,
+            $"accept ⟺ len∈[{minLen},{maxLen}] ∧ GC∈[{gcLo},{gcHi}] ∧ Tm∈[{tmLo},{tmHi}]");
+
+        // Every violated window contributes exactly its own diagnostic; satisfied windows stay silent.
+        cand.Issues.Any(i => i.StartsWith("Length")).Should().Be(!lenOk);
+        cand.Issues.Any(i => i.StartsWith("GC content")).Should().Be(!gcOk);
+        cand.Issues.Any(i => i.StartsWith("Tm")).Should().Be(!tmOk);
+    }
+
+    /// <summary>
+    /// Interaction witness: from a config that accepts the primer, narrowing ANY
+    /// single window past the primer's measured value flips acceptance to reject —
+    /// confirming each axis is an independent necessary condition.
+    /// </summary>
+    [Test]
+    public void PrimerDesign_EachWindow_IndependentlyGatesAcceptance()
+    {
+        var wide = WithWindows(1, 100, 0, 100, 0, 200);
+        PrimerDesigner.EvaluatePrimer(CleanPrimer20, 0, true, wide).IsValid
+            .Should().BeTrue("a clean primer is accepted under an all-permissive config");
+
+        double gc = PrimerDesigner.CalculateGcContent(CleanPrimer20);
+        double tm = PrimerDesigner.CalculateMeltingTemperature(CleanPrimer20);
+
+        PrimerDesigner.EvaluatePrimer(CleanPrimer20, 0, true, wide with { MinGcContent = gc + 5 })
+            .IsValid.Should().BeFalse("a GC floor above the primer's GC excludes it");
+        PrimerDesigner.EvaluatePrimer(CleanPrimer20, 0, true, wide with { MaxTm = tm - 1 })
+            .IsValid.Should().BeFalse("a Tm ceiling below the primer's Tm excludes it");
+        PrimerDesigner.EvaluatePrimer(CleanPrimer20, 0, true, wide with { MaxLength = CleanPrimer20.Length - 1 })
+            .IsValid.Should().BeFalse("a length ceiling below the primer's length excludes it");
+    }
+
+    /// <summary>
+    /// Worked example through the end-to-end design pipeline: any pair
+    /// <see cref="PrimerDesigner.DesignPrimers"/> returns must honour every
+    /// configured window on BOTH primers (acceptance is enforced during selection).
+    /// </summary>
+    [Test]
+    public void PrimerDesign_DesignedPair_HonoursEveryWindow()
+    {
+        var template = new DnaSequence(DiverseDna(600));
+        // Tm window chosen to match the Marmur-Doty scale for 18–25-mers.
+        var param = PrimerDesigner.DefaultParameters with
+        {
+            MinLength = 18, MaxLength = 25, MinGcContent = 35, MaxGcContent = 65, MinTm = 45, MaxTm = 65,
+        };
+
+        var result = PrimerDesigner.DesignPrimers(template, 280, 320, param);
+
+        foreach (var p in new[] { result.Forward, result.Reverse }.Where(p => p is not null))
+        {
+            p!.Length.Should().BeInRange(param.MinLength, param.MaxLength);
+            p.GcContent.Should().BeInRange(param.MinGcContent, param.MaxGcContent);
+            p.MeltingTemperature.Should().BeInRange(param.MinTm, param.MaxTm);
+        }
+    }
 }
