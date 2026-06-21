@@ -392,6 +392,81 @@ public class AssemblyCombinatorialTests
         return reads;
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ASSEMBLY-SCAFFOLD-001 — Scaffolding (Assembly)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 146.
+    // Spec: tests/TestSpecs/ASSEMBLY-SCAFFOLD-001.md (SequenceAssembler.Scaffold).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: Jackman et al. (ABySS 2.0, 2017) — link path concatenates contigs separated by a gap run of
+    // length = the distance estimate; a non-positive estimate uses the GenBank/EMBL/DDBJ unknown-gap length
+    // 100 (NCBI AGP). Each contig is placed once; unreached contigs start their own scaffold.
+    //
+    // Checklist axes nContigs(3) × nLinks(3) × insertSize(2) map onto the real knobs: contig count ∈
+    // {2,4,6}, chaining links ∈ {0,1,2} (capped at n−1), gapSize ∈ {10 (known), 0 (unknown → 100)}.
+    // Grid = 3 × 3 × 2 = 18.
+    //
+    // The combinatorial point: the scaffold set is a JOINT function of contig count, link count and gap
+    // size — chaining k links merges k+1 contigs into one scaffold (with k gap runs) and leaves the rest as
+    // singletons. Each cell re-derives the chain and scaffold count from the scaffolding rule.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// For every (contig count, link count, gap size) the scaffold count and the chained scaffold match the
+    /// ABySS scaffolding rule re-derived from the inputs (k links merge k+1 contigs with the correct gap runs).
+    /// </summary>
+    [Test, Combinatorial]
+    public void Scaffold_ContigsLinksGapGrid_MatchesChainRule(
+        [Values(2, 4, 6)] int nContigs,
+        [Values(0, 1, 2)] int nLinks,
+        [Values(10, 0)] int gapSize)
+    {
+        var contigs = new List<string>();
+        for (int i = 0; i < nContigs; i++)
+            contigs.Add(new string((char)('A' + i), 5));
+
+        int effectiveLinks = Math.Min(nLinks, nContigs - 1);
+        var links = new List<(int, int, int)>();
+        for (int i = 0; i < effectiveLinks; i++)
+            links.Add((i, i + 1, gapSize));
+
+        int gapLength = gapSize > 0 ? gapSize : 100;
+
+        // Independent ground truth: the chain scaffold, then the remaining singletons.
+        var expectedChain = new System.Text.StringBuilder(contigs[0]);
+        for (int i = 1; i <= effectiveLinks; i++)
+            expectedChain.Append('N', gapLength).Append(contigs[i]);
+
+        var scaffolds = SequenceAssembler.Scaffold(contigs, links);
+
+        scaffolds.Should().HaveCount(nContigs - effectiveLinks, "k links merge k+1 contigs; the rest are singletons");
+        scaffolds[0].Should().Be(expectedChain.ToString(), "the chain scaffold = contigs joined by gap runs");
+        scaffolds[0].Count(c => c == 'N').Should().Be(effectiveLinks * gapLength, "one gap run of `gapLength` per link");
+    }
+
+    /// <summary>
+    /// Interaction witness (insertSize axis, unknown gap): a non-positive gap estimate emits the standard
+    /// 100-character unknown gap, while a positive estimate emits exactly that many. Source: NCBI AGP / Jackman 2017.
+    /// </summary>
+    [Test]
+    public void Scaffold_GapSizeAxis_KnownVsUnknown()
+    {
+        var contigs = new[] { "AAAAA", "CCCCC" };
+
+        SequenceAssembler.Scaffold(contigs, new[] { (0, 1, 7) })[0].Count(c => c == 'N').Should().Be(7, "positive gap → exact");
+        SequenceAssembler.Scaffold(contigs, new[] { (0, 1, 0) })[0].Count(c => c == 'N').Should().Be(100, "unknown gap → 100");
+    }
+
+    /// <summary>Witness: with no links every contig is its own scaffold, in order.</summary>
+    [Test]
+    public void Scaffold_NoLinks_EachContigOwnScaffold()
+    {
+        var contigs = new[] { "AAAAA", "CCCCC", "GGGGG" };
+
+        SequenceAssembler.Scaffold(contigs, Array.Empty<(int, int, int)>())
+            .Should().Equal(contigs, "no links → singletons in input order");
+    }
+
     /// <summary>Independent Biopython column-consensus ground truth.</summary>
     private static string GroundTruthConsensus(IReadOnlyList<string> reads, double threshold, char ambiguous)
     {
