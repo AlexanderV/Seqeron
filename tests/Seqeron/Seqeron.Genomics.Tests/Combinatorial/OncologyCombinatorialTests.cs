@@ -1660,6 +1660,132 @@ public class OncologyCombinatorialTests
             "VAF > 0.5 implies purity > 1 under the diploid heterozygous model");
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ONCO-PLOIDY-001 — Tumor ploidy estimation + whole-genome doubling (Oncology)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 107.
+    // Spec: tests/TestSpecs/ONCO-PLOIDY-001.md (OncologyAnalyzer.EstimatePloidy / DetectWholeGenomeDoubling).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: Patchwork (ψ = Σ(CN·L)/ΣL, length-weighted mean total CN); facets-suite is_genome_doubled
+    // (WGD ⟺ Σlength[major CN ≥ 2] / Σlength > 0.5, strict; uses MAJOR allele CN, not total).
+    //
+    // Checklist axes nSegments(3) × cnDist(3) map onto the real knobs:
+    //   • nSegments → number of equal-length segments ∈ {1, 3, 5}.
+    //   • cnDist    → the per-segment copy-number pattern {Diploid (all 1:1), MinorityGain (one 2:2, rest
+    //     1:1), Doubled (all 2:2)}.
+    // Grid = 3 × 3 = 9 = the checklist's "Full Combos" for this row.
+    //
+    // The combinatorial point: both the length-weighted ploidy and the WGD fraction are JOINT functions of
+    // the number of segments and their CN pattern — under MinorityGain the single gained segment is the
+    // genome majority only when it is alone (n=1), so WGD flips with nSegments, and the ploidy falls as
+    // more diploid segments dilute it. Each cell is checked against both formulas re-derived from the
+    // constructed segments.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>Per-segment copy-number pattern (the cnDist axis).</summary>
+    public enum PloidyCnDist
+    {
+        /// <summary>Every segment 1:1 (total CN 2, major CN 1).</summary>
+        Diploid,
+
+        /// <summary>The first segment is 2:2 (gained), the rest 1:1.</summary>
+        MinorityGain,
+
+        /// <summary>Every segment 2:2 (total CN 4, major CN 2).</summary>
+        Doubled,
+    }
+
+    private const long PloidySegmentLength = 1_000_000;
+
+    /// <summary>
+    /// For every (nSegments, cnDist) the length-weighted ploidy and the WGD call match the Patchwork /
+    /// facets-suite formulas re-derived from the constructed segments, and the ploidy lies within the
+    /// per-segment total-CN range (INV-3).
+    /// </summary>
+    [Test, Combinatorial]
+    public void EstimatePloidy_SegmentsCnDistGrid_MatchesWeightedMeanAndWgdFraction(
+        [Values(1, 3, 5)] int nSegments,
+        [Values] PloidyCnDist cnDist)
+    {
+        var segments = BuildPloidySegments(nSegments, cnDist);
+
+        // Independent ground truth (Patchwork weighted mean + facets-suite WGD fraction).
+        double weighted = 0.0;
+        long totalLength = 0, elevatedLength = 0;
+        int minCn = int.MaxValue, maxCn = int.MinValue;
+        foreach (var s in segments)
+        {
+            int cn = s.MajorCopyNumber + s.MinorCopyNumber;
+            weighted += (double)cn * s.Length;
+            totalLength += s.Length;
+            if (s.MajorCopyNumber >= 2) elevatedLength += s.Length;
+            minCn = Math.Min(minCn, cn);
+            maxCn = Math.Max(maxCn, cn);
+        }
+        double expectedPloidy = weighted / totalLength;
+        bool expectedWgd = (double)elevatedLength / totalLength > 0.5;
+
+        double ploidy = OncologyAnalyzer.EstimatePloidy(segments);
+        bool wgd = OncologyAnalyzer.DetectWholeGenomeDoubling(segments);
+
+        ploidy.Should().BeApproximately(expectedPloidy, 1e-9, "ψ = Σ(CN·L)/ΣL");
+        ploidy.Should().BeInRange(minCn, maxCn, "[INV-3] weighted mean lies within the CN range");
+        wgd.Should().Be(expectedWgd, "[INV-4] WGD ⟺ fraction(major CN ≥ 2 by length) > 0.5");
+    }
+
+    /// <summary>
+    /// Interaction witness (nSegments flips WGD): a single gained 2:2 segment is the genome majority only
+    /// when it stands alone — WGD is true at n=1 but false once two diploid segments dilute it to a 1/3
+    /// minority. The call flips purely on the nSegments axis. Source: facets-suite strict &gt; 0.5 fraction.
+    /// </summary>
+    [Test]
+    public void DetectWholeGenomeDoubling_NSegmentsAxis_FlipsForMinorityGain()
+    {
+        OncologyAnalyzer.DetectWholeGenomeDoubling(BuildPloidySegments(1, PloidyCnDist.MinorityGain))
+            .Should().BeTrue("the lone gained segment is 100% of the genome");
+        OncologyAnalyzer.DetectWholeGenomeDoubling(BuildPloidySegments(3, PloidyCnDist.MinorityGain))
+            .Should().BeFalse("one gained segment of three is a 1/3 minority (≤ 0.5)");
+    }
+
+    /// <summary>
+    /// Interaction witness (length weighting, pitfall): ploidy is length-weighted, not a plain mean — a long
+    /// 1:1 segment (300 Mb) and a short 2:2 segment (10 Mb) give ψ = (2·300 + 4·10)/310 ≈ 2.065, near 2,
+    /// not the unweighted 3. Source: Patchwork "weighted by segment length".
+    /// </summary>
+    [Test]
+    public void EstimatePloidy_LengthWeighting_DominatesOverShortSegment()
+    {
+        var segments = new[]
+        {
+            new OncologyAnalyzer.AlleleSpecificSegment("1", 0, 300_000_000, 1, 1),         // 300 Mb, total CN 2
+            new OncologyAnalyzer.AlleleSpecificSegment("1", 300_000_000, 310_000_000, 2, 2), // 10 Mb, total CN 4
+        };
+
+        OncologyAnalyzer.EstimatePloidy(segments).Should().BeApproximately(640.0 / 310.0, 1e-9,
+            "ψ = (2·300 + 4·10)/310 ≈ 2.065, not the unweighted mean 3");
+    }
+
+    /// <summary>
+    /// Interaction witness (WGD strict 0.5 boundary + major-not-total): exactly half the genome elevated is
+    /// NOT doubled (strict &gt;), and a 2:0 LOH segment counts as elevated by MAJOR copy number even though
+    /// the total CN is 2. Source: facets-suite is_genome_doubled (mcn ≥ 2, &gt; 0.5).
+    /// </summary>
+    [Test]
+    public void DetectWholeGenomeDoubling_StrictBoundaryAndMajorAlleleRule()
+    {
+        // Exactly 50% elevated → not doubled.
+        var half = new[]
+        {
+            new OncologyAnalyzer.AlleleSpecificSegment("1", 0, 1_000_000, 2, 2),         // elevated
+            new OncologyAnalyzer.AlleleSpecificSegment("1", 1_000_000, 2_000_000, 1, 1), // not
+        };
+        OncologyAnalyzer.DetectWholeGenomeDoubling(half).Should().BeFalse("exactly 0.5 is not > 0.5");
+
+        // 2:0 LOH (major 2, total CN 2) over the whole genome → doubled by major allele.
+        var loh = new[] { new OncologyAnalyzer.AlleleSpecificSegment("1", 0, 1_000_000, 2, 0) };
+        OncologyAnalyzer.DetectWholeGenomeDoubling(loh).Should().BeTrue("major CN 2 is elevated even at total CN 2");
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     // Helpers — engineered constructs + independent ground truth
     // ───────────────────────────────────────────────────────────────────────
@@ -1769,6 +1895,29 @@ public class OncologyCombinatorialTests
         }
 
         return (catalog, signatures);
+    }
+
+    /// <summary>
+    /// Builds <paramref name="nSegments"/> equal-length allele-specific segments following the requested
+    /// copy-number pattern: all 1:1 (Diploid), the first 2:2 and the rest 1:1 (MinorityGain), or all 2:2
+    /// (Doubled).
+    /// </summary>
+    private static List<OncologyAnalyzer.AlleleSpecificSegment> BuildPloidySegments(int nSegments, PloidyCnDist cnDist)
+    {
+        var segments = new List<OncologyAnalyzer.AlleleSpecificSegment>(nSegments);
+        for (int i = 0; i < nSegments; i++)
+        {
+            (int major, int minor) = cnDist switch
+            {
+                PloidyCnDist.Diploid => (1, 1),
+                PloidyCnDist.MinorityGain => i == 0 ? (2, 2) : (1, 1),
+                PloidyCnDist.Doubled => (2, 2),
+                _ => throw new ArgumentOutOfRangeException(nameof(cnDist)),
+            };
+            long start = (long)i * 2 * PloidySegmentLength;
+            segments.Add(new OncologyAnalyzer.AlleleSpecificSegment("1", start, start + PloidySegmentLength, major, minor));
+        }
+        return segments;
     }
 
     /// <summary>
