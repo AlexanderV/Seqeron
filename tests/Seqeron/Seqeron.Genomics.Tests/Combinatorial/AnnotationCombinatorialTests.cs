@@ -146,4 +146,114 @@ public class AnnotationCombinatorialTests
         o.Sequence.Should().Be("ATGAAATAA");
         o.ProteinSequence.Should().StartWith("MK");
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ANNOT-GENE-001 — Gene prediction with ribosome-binding sites (Annotation)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 29.
+    // Spec: tests/TestSpecs/ANNOT-GENE-001.md (canonical PredictGenes +
+    //       FindRibosomeBindingSites).
+    // Dimensions: minOrfLen(3) × rbsWindow(3) × scoring(2). Grid 3×3×2 = 18.
+    //
+    // Model (prokaryotic ORF-based gene finding; Shine & Dalgarno 1975): PredictGenes
+    // turns every qualifying ORF (≥ minOrfLength aa, both strands) into a CDS gene with a
+    // sequential id and a protein_length attribute = (End−Start)/3 − 1 (stop excluded).
+    // FindRibosomeBindingSites locates the Shine-Dalgarno motif (AGGAGG…) upstream of a
+    // forward ORF start at an aligned spacing within [minDistance, maxDistance] (Chen 1994:
+    // functional 4–15 nt); the both-strand variant additionally reports reverse-strand SDs.
+    //
+    // The combinatorial point: minOrfLen gates gene calling, the SD spacing (rbsWindow)
+    // gates RBS detection, and the scan mode (forward-only vs both-strand "scoring") agrees
+    // on forward hits — three orthogonal knobs each asserted per cell. The construct plants
+    // one 40-aa forward gene preceded by AGGAGG at a chosen spacing in start/stop-free filler.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public enum ScanMode { ForwardOnly, BothStrands }
+
+    private const int GeneAaLength = 40;                       // ATG + 39×AAA, stop excluded
+    private const int GeneNtSpan = (GeneAaLength + 1) * 3;     // ORF DNA incl. stop = 123
+    private const int SdPosition = 12;                         // AGGAGG starts after 12 nt of filler
+    private static string MakeGeneOrf() => "ATG" + string.Concat(Enumerable.Repeat("AAA", 39)) + "TAA";
+
+    private static string BuildGeneTemplate(int sdSpacing) =>
+        new string('C', SdPosition) + "AGGAGG" + new string('C', sdSpacing) + MakeGeneOrf() + new string('C', 12);
+
+    [Test, Combinatorial]
+    public void AnnotGene_PredictionAndRbs_AcrossMinOrfLenSpacingAndScanMode(
+        [Values(20, 40, 50)] int minOrfLen,
+        [Values(6, 15, 30)] int sdSpacing,
+        [Values(ScanMode.ForwardOnly, ScanMode.BothStrands)] ScanMode scanMode)
+    {
+        string template = BuildGeneTemplate(sdSpacing);
+
+        // ── Gene prediction depends only on minOrfLen vs the 40-aa gene. ──
+        var genes = GenomeAnnotator.PredictGenes(template, minOrfLen, "gene").ToList();
+        if (minOrfLen <= GeneAaLength)
+        {
+            genes.Should().ContainSingle("the 40-aa ORF is called iff minOrfLen ≤ 40");
+            var g = genes[0];
+            g.Type.Should().Be("CDS");
+            g.Strand.Should().Be('+');
+            g.Start.Should().BeLessThan(g.End);
+            (g.End - g.Start).Should().Be(GeneNtSpan);
+            g.GeneId.Should().MatchRegex(@"^gene_\d{4}$");
+            int proteinLength = int.Parse(g.Attributes["protein_length"]);
+            proteinLength.Should().Be((g.End - g.Start) / 3 - 1, "protein_length excludes the stop codon");
+            proteinLength.Should().Be(GeneAaLength);
+        }
+        else
+        {
+            genes.Should().BeEmpty("a 40-aa ORF is filtered when minOrfLen = 50");
+        }
+
+        // ── RBS detection depends only on the SD spacing vs [4,15]; both scan modes agree on '+'. ──
+        IEnumerable<int> rbsPositions = scanMode == ScanMode.ForwardOnly
+            ? GenomeAnnotator.FindRibosomeBindingSites(template, upstreamWindow: 40, minDistance: 4, maxDistance: 15)
+                .Select(h => h.position)
+            : GenomeAnnotator.FindRibosomeBindingSitesBothStrands(template, upstreamWindow: 40, minDistance: 4, maxDistance: 15)
+                .Where(h => h.strand == '+').Select(h => h.position);
+
+        bool sdDetected = sdSpacing is >= 4 and <= 15;
+        rbsPositions.Contains(SdPosition).Should().Be(sdDetected,
+            $"AGGAGG at spacing {sdSpacing} is detected iff 4 ≤ spacing ≤ 15");
+    }
+
+    /// <summary>
+    /// Interaction witness: the scan-mode "scoring" axis is real — a reverse-strand
+    /// Shine-Dalgarno site is reported by the both-strand scan (strand '-') but is invisible
+    /// to the forward-only scan.
+    /// </summary>
+    [Test]
+    public void AnnotGene_BothStrandScan_FindsReverseStrandRbs_ForwardOnlyMissesIt()
+    {
+        string forwardConstruct = "AGGAGG" + new string('C', 6) + MakeGeneOrf();
+        string template = new string('C', 12) + RevComp(forwardConstruct) + new string('C', 12);
+
+        var both = GenomeAnnotator
+            .FindRibosomeBindingSitesBothStrands(template, upstreamWindow: 40, minDistance: 4, maxDistance: 15)
+            .ToList();
+        both.Should().Contain(h => h.strand == '-', "the reverse-strand SD is found by the both-strand scan");
+
+        int reverseSd = both.First(h => h.strand == '-').position;
+        var forward = GenomeAnnotator
+            .FindRibosomeBindingSites(template, upstreamWindow: 40, minDistance: 4, maxDistance: 15)
+            .Select(h => h.position).ToHashSet();
+        forward.Should().NotContain(reverseSd, "the forward-only scan cannot see a reverse-strand SD");
+    }
+
+    /// <summary>
+    /// Worked example: two stacked forward ORFs are called as gene_0001 / gene_0002 with
+    /// ascending ids and CDS type. — spec gene-id pattern invariant.
+    /// </summary>
+    [Test]
+    public void AnnotGene_MultipleGenes_NumberedSequentially()
+    {
+        string two = new string('C', 9) + MakeGeneOrf() + new string('C', 9) + MakeGeneOrf() + new string('C', 9);
+        var genes = GenomeAnnotator.PredictGenes(two, minOrfLength: 20, prefix: "gene")
+            .Where(g => g.Strand == '+').OrderBy(g => g.Start).ToList();
+
+        genes.Should().HaveCountGreaterThanOrEqualTo(2);
+        genes[0].GeneId.Should().Be("gene_0001");
+        genes[1].GeneId.Should().Be("gene_0002");
+        genes.Should().OnlyContain(g => g.Type == "CDS");
+    }
 }
