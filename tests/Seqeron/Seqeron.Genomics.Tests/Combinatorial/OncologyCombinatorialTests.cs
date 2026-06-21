@@ -1238,6 +1238,144 @@ public class OncologyCombinatorialTests
         OncologyAnalyzer.IsInFrame(302, 0).Should().BeFalse("302 mod 3 = 2");
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ONCO-CNA-001 — Copy-number alteration classification (Oncology)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 103.
+    // Spec: tests/TestSpecs/ONCO-CNA-001.md (OncologyAnalyzer.ClassifyCopyNumber / CallCopyNumber / Log2RatioToCopyNumber).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: CNVkit absolute_threshold (hard-threshold integer CN; default cutoffs −1.1,−0.25,0.2,0.7;
+    // inclusive log2 ≤ thresh; amp = ceil(ploidy·2^log2)); Mermel et al. (2011) GISTIC2 amplitude semantics.
+    //
+    // ClassifyCopyNumber: integer CN = index of the first cutoff log2 ≤, else ceil(ploidy·2^log2); state
+    // 0→DeepDeletion,1→Loss,2→Neutral,3→Gain,≥4→Amplification; absolute CN = ploidy·2^log2.
+    //
+    // Checklist axes log2Range(3) × binSize(3) × ploidy(2) map onto the real knobs:
+    //   • log2Range → the log2 copy ratio ∈ {−0.3, 0.25, 1.0}, chosen NEAR cutoff boundaries so the bin
+    //     partition matters.
+    //   • binSize   → the cutoff set that defines the CN bins {Default (−1.1,−0.25,0.2,0.7), Germline
+    //     (−1.1,−0.4,0.3,0.7), Narrow (−0.5,−0.1,0.1,0.5)} — the real thresholds parameter.
+    //   • ploidy    → reference ploidy ∈ {2, 4} (the real parameter); scales the absolute CN and the
+    //     amplification integer CN.
+    // Grid = 3 × 3 × 2 = 18 = the checklist's "Full Combos" for this row.
+    //
+    // The combinatorial point: the state is a JOINT function of log2 and the bin cutoffs (the same −0.3 is
+    // Loss under default/narrow but Neutral under germline cutoffs; 0.25 is Gain vs Neutral), while ploidy
+    // scales the absolute CN and the amplification integer CN (CN 4 at ploidy 2 vs 8 at ploidy 4). Each
+    // cell is checked against the CNVkit rule re-derived independently from the inputs.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>The cutoff set defining the copy-number bins (the binSize-proxy axis).</summary>
+    public enum CnThresholdSet
+    {
+        /// <summary>CNVkit tumor defaults (−1.1, −0.25, 0.2, 0.7).</summary>
+        Default,
+
+        /// <summary>Germline-tuned cutoffs (−1.1, −0.4, 0.3, 0.7).</summary>
+        Germline,
+
+        /// <summary>Narrow neutral band (−0.5, −0.1, 0.1, 0.5).</summary>
+        Narrow,
+    }
+
+    private static double[] CnCutoffs(CnThresholdSet set) => set switch
+    {
+        CnThresholdSet.Default => new[] { -1.1, -0.25, 0.2, 0.7 },
+        CnThresholdSet.Germline => new[] { -1.1, -0.4, 0.3, 0.7 },
+        CnThresholdSet.Narrow => new[] { -0.5, -0.1, 0.1, 0.5 },
+        _ => throw new ArgumentOutOfRangeException(nameof(set)),
+    };
+
+    /// <summary>
+    /// For every (log2, cutoff set, ploidy) the integer CN, CNA state and absolute copy number match the
+    /// CNVkit hard-threshold rule re-derived independently from the inputs.
+    /// </summary>
+    [Test, Combinatorial]
+    public void ClassifyCopyNumber_Log2BinPloidyGrid_MatchesCnvkitThresholdRule(
+        [Values(-0.3, 0.25, 1.0)] double log2Ratio,
+        [Values] CnThresholdSet thresholdSet,
+        [Values(2.0, 4.0)] double ploidy)
+    {
+        double[] cutoffs = CnCutoffs(thresholdSet);
+
+        // Independent ground truth (CNVkit absolute_threshold).
+        int expectedCn = ExpectedIntegerCopyNumber(log2Ratio, cutoffs, ploidy);
+        var expectedState = ExpectedCopyNumberState(expectedCn);
+        double expectedAbsolute = ploidy * Math.Pow(2.0, log2Ratio);
+
+        var call = OncologyAnalyzer.ClassifyCopyNumber(log2Ratio, cutoffs, ploidy);
+
+        call.IntegerCopyNumber.Should().Be(expectedCn, "CN = first cutoff index log2 ≤, else ceil(ploidy·2^log2)");
+        call.State.Should().Be(expectedState, "[INV-4] state ↔ integer CN mapping");
+        call.AbsoluteCopyNumber.Should().BeApproximately(expectedAbsolute, 1e-9, "absolute CN = ploidy·2^log2");
+        call.Log2Ratio.Should().Be(log2Ratio);
+    }
+
+    /// <summary>
+    /// Interaction witness (binSize axis flips state): the same log2 = 0.25 is a Gain under the default
+    /// cutoffs (&gt; 0.2) but Neutral under the germline cutoffs (≤ 0.3) — the state flips purely on the
+    /// cutoff-set axis. Source: CNVkit threshold bins.
+    /// </summary>
+    [Test]
+    public void ClassifyCopyNumber_ThresholdSetAxis_FlipsGainVsNeutral()
+    {
+        OncologyAnalyzer.ClassifyCopyNumber(0.25, CnCutoffs(CnThresholdSet.Default)).State
+            .Should().Be(OncologyAnalyzer.CopyNumberState.Gain, "0.25 > 0.2 default gain cutoff");
+        OncologyAnalyzer.ClassifyCopyNumber(0.25, CnCutoffs(CnThresholdSet.Germline)).State
+            .Should().Be(OncologyAnalyzer.CopyNumberState.Neutral, "0.25 ≤ 0.3 germline neutral cutoff");
+    }
+
+    /// <summary>
+    /// Interaction witness (ploidy axis scales amplification CN): an amplified log2 = 1.0 is CN 4 at diploid
+    /// reference but CN 8 at tetraploid — the amplification integer CN = ceil(ploidy·2^log2) tracks ploidy,
+    /// while both remain the Amplification state. Source: CNVkit amp ceil.
+    /// </summary>
+    [Test]
+    public void ClassifyCopyNumber_PloidyAxis_ScalesAmplificationCopyNumber()
+    {
+        var diploid = OncologyAnalyzer.ClassifyCopyNumber(1.0, ploidy: 2.0);
+        var tetraploid = OncologyAnalyzer.ClassifyCopyNumber(1.0, ploidy: 4.0);
+
+        diploid.IntegerCopyNumber.Should().Be(4, "ceil(2·2) = 4");
+        tetraploid.IntegerCopyNumber.Should().Be(8, "ceil(4·2) = 8");
+        diploid.State.Should().Be(OncologyAnalyzer.CopyNumberState.Amplification);
+        tetraploid.State.Should().Be(OncologyAnalyzer.CopyNumberState.Amplification);
+    }
+
+    /// <summary>
+    /// Witness (inclusive boundaries, spec M7-M10): a log2 exactly on a default cutoff takes the LOWER CN
+    /// state of that bin (log2 ≤ thresh). Source: CNVkit binning loop.
+    /// </summary>
+    [Test]
+    public void ClassifyCopyNumber_ExactCutoffs_AreInclusiveLowerState()
+    {
+        OncologyAnalyzer.ClassifyCopyNumber(-1.1).State.Should().Be(OncologyAnalyzer.CopyNumberState.DeepDeletion);
+        OncologyAnalyzer.ClassifyCopyNumber(-0.25).State.Should().Be(OncologyAnalyzer.CopyNumberState.Loss);
+        OncologyAnalyzer.ClassifyCopyNumber(0.2).State.Should().Be(OncologyAnalyzer.CopyNumberState.Neutral);
+        OncologyAnalyzer.ClassifyCopyNumber(0.7).State.Should().Be(OncologyAnalyzer.CopyNumberState.Gain);
+    }
+
+    private static int ExpectedIntegerCopyNumber(double log2Ratio, double[] cutoffs, double ploidy)
+    {
+        if (double.IsNaN(log2Ratio))
+            return (int)Math.Round(ploidy, MidpointRounding.AwayFromZero);
+        for (int cn = 0; cn < cutoffs.Length; cn++)
+        {
+            if (log2Ratio <= cutoffs[cn])
+                return cn;
+        }
+        return (int)Math.Ceiling(ploidy * Math.Pow(2.0, log2Ratio));
+    }
+
+    private static OncologyAnalyzer.CopyNumberState ExpectedCopyNumberState(int cn) => cn switch
+    {
+        0 => OncologyAnalyzer.CopyNumberState.DeepDeletion,
+        1 => OncologyAnalyzer.CopyNumberState.Loss,
+        2 => OncologyAnalyzer.CopyNumberState.Neutral,
+        3 => OncologyAnalyzer.CopyNumberState.Gain,
+        _ => OncologyAnalyzer.CopyNumberState.Amplification,
+    };
+
     // ───────────────────────────────────────────────────────────────────────
     // Helpers — engineered constructs + independent ground truth
     // ───────────────────────────────────────────────────────────────────────
