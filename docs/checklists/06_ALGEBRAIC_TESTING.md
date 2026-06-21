@@ -87,12 +87,12 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 55 | ✗ | META-ALPHA-001 | Metagenomics | ID: single species → Shannon=0; ID: single species → Simpson=0 |
 | 56 | ☑ | META-BETA-001 | Metagenomics | ID: dist(x,x)=0; COMM: dist(a,b)=dist(b,a) |
 | 57 | ✗ | META-BIN-001 | Metagenomics | ID: single contig → single bin; IDEMP: deterministic |
-| 58 | ☐ | CODON-OPT-001 | Codon | RT: translate(optimize(dna)) = translate(dna); IDEMP: optimize(optimize(x)) = optimize(x) |
+| 58 | ☑ | CODON-OPT-001 | Codon | RT: translate(optimize(dna)) = translate(dna); IDEMP: optimize(optimize(x)) = optimize(x) |
 | 59 | ✗ | CODON-CAI-001 | Codon | ID: all optimal codons → CAI ≈ 1; IDEMP: CAI deterministic |
 | 60 | ✗ | CODON-RARE-001 | Codon | ID: all common codons → empty result; IDEMP: deterministic |
-| 61 | ☐ | CODON-USAGE-001 | Codon | DIST: sum per amino acid = 1.0; ID: single codon seq → usage=1 for that codon |
-| 62 | ☐ | TRANS-CODON-001 | Translation | ID: genetic code is complete (64 entries); DIST: each AA mapped from ≥1 codon |
-| 63 | ☐ | TRANS-PROT-001 | Translation | DIST: protein.len ≤ dna.len/3; ID: ATG → M; ID: stop codon → terminates |
+| 61 | ☑ | CODON-USAGE-001 | Codon | DIST: sum per amino acid = 1.0; ID: single codon seq → usage=1 for that codon |
+| 62 | ☑ | TRANS-CODON-001 | Translation | ID: genetic code is complete (64 entries); DIST: each AA mapped from ≥1 codon |
+| 63 | ☑ | TRANS-PROT-001 | Translation | DIST: protein.len ≤ dna.len/3; ID: ATG → M; ID: stop codon → terminates |
 | 64 | ☐ | PARSE-FASTA-001 | FileIO | RT: parse(write(records)) = records; ID: empty file → 0 records |
 | 65 | ☐ | PARSE-FASTQ-001 | FileIO | RT: parse(write(records)) = records; ID: empty → 0 records |
 | 66 | ☐ | PARSE-BED-001 | FileIO | RT: parse(write(regions)) = regions; ID: empty → 0 regions |
@@ -272,7 +272,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 27 |
-| ☐ Not started | 38 |
+| ☑ Complete | 31 |
+| ☐ Not started | 34 |
 | ✗ Not applicable | 169 |
 | Laws verified | ~172 (≈2 per algorithm) |
