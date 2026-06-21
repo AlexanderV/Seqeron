@@ -143,4 +143,72 @@ public class SplicingCombinatorialTests
             .Should().OnlyContain(s => s.Motif.Contains("AG"), "acceptor motifs contain the AG intron end");
         SpliceSitePredictor.FindAcceptorSites(new string('C', 60), 0.0).Should().BeEmpty("no AG ⇒ no acceptor");
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: SPLICE-PREDICT-001 — Intron / gene-structure prediction (Splicing)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 79.
+    // Spec: tests/TestSpecs/SPLICE-PREDICT-001.md (canonical PredictIntrons /
+    //       PredictGeneStructure).
+    // Dimensions: minIntron(3) × maxIntron(3) × minExon(3) × scoring(2). Grid 3×3×3×2 = 54.
+    //
+    // Model: an intron is a donor→acceptor span whose length lies in [minIntron, maxIntron] and
+    // whose combined splice-site score clears the threshold; the gene structure derives exons
+    // (≥ minExon) between non-overlapping introns, with the spliced product = concatenated exons.
+    //
+    // The combinatorial point: the two length bounds, the exon-length floor and the score
+    // threshold jointly constrain the output — the grid asserts every predicted intron/exon obeys
+    // all four bounds for all 54 parameter combinations, and the spliced sequence is consistent.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private static readonly string SpliceGene =
+        new string('A', 40) + ("GTAAGT" + new string('A', 40) + new string('C', 20) + "AG") +
+        new string('A', 40) + ("GTAAGT" + new string('A', 40) + new string('C', 20) + "AG") +
+        new string('A', 40);
+
+    [Test, Combinatorial]
+    public void SplicePredict_OutputObeysAllBounds(
+        [Values(40, 60, 70)] int minIntron,
+        [Values(80, 120, 200)] int maxIntron,
+        [Values(20, 30, 50)] int minExon,
+        [Values(0.3, 0.6)] double scoring)
+    {
+        var introns = SpliceSitePredictor.PredictIntrons(SpliceGene, minIntron, maxIntron, scoring).ToList();
+        introns.Should().OnlyContain(i => i.Length >= minIntron && i.Length <= maxIntron, "intron length within bounds");
+        introns.Should().OnlyContain(i => i.Score >= scoring, "intron score clears the threshold");
+        introns.Should().OnlyContain(i => i.Length == i.End - i.Start + 1, "length matches the span");
+
+        var gs = SpliceSitePredictor.PredictGeneStructure(SpliceGene, minExon, minIntron, scoring);
+        gs.Exons.Should().OnlyContain(e => e.Length >= minExon, "exons meet the minimum length");
+        gs.Introns.Should().OnlyContain(i => i.Length >= minIntron && i.Score >= scoring);
+        gs.SplicedSequence.Should().Be(string.Concat(gs.Exons.Select(e => e.Sequence)),
+            "the spliced product is the concatenation of the reported exons");
+    }
+
+    /// <summary>
+    /// Interaction witness: each length / score bound is monotone — relaxing maxIntron, lowering
+    /// minIntron, or lowering the score threshold can only admit more introns (superset).
+    /// </summary>
+    [Test]
+    public void SplicePredict_BoundsAreMonotone()
+    {
+        HashSet<(int, int)> Spans(int minI, int maxI, double sc) =>
+            SpliceSitePredictor.PredictIntrons(SpliceGene, minI, maxI, sc).Select(i => (i.Start, i.End)).ToHashSet();
+
+        Spans(40, 80, 0.3).Should().BeSubsetOf(Spans(40, 200, 0.3), "larger maxIntron admits more");
+        Spans(70, 200, 0.3).Should().BeSubsetOf(Spans(40, 200, 0.3), "smaller minIntron admits more");
+        Spans(40, 200, 0.6).Should().BeSubsetOf(Spans(40, 200, 0.3), "lower score threshold admits more");
+    }
+
+    /// <summary>
+    /// Interaction witness: the engineered gene yields at least one intron under permissive
+    /// settings (the contract grid is not vacuous), and predicted introns start at a donor GU.
+    /// </summary>
+    [Test]
+    public void SplicePredict_NonVacuous_AndIntronsStartAtDonor()
+    {
+        var introns = SpliceSitePredictor.PredictIntrons(SpliceGene, 40, 200, 0.3).ToList();
+        introns.Should().NotBeEmpty("the engineered donor/acceptor pairs form introns");
+        introns.Should().OnlyContain(i => i.DonorSite.Type == SpliceSitePredictor.SpliceSiteType.Donor
+                                          || i.DonorSite.Type == SpliceSitePredictor.SpliceSiteType.U12Donor);
+    }
 }
