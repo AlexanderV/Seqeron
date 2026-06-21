@@ -17,7 +17,7 @@
 | 3 | **Mutation Testing** | ★★★★☆ | 2/79 units | Low | **P1** |
 | 4 | **Algebraic Testing** | ★★★★☆ | 0/79 units | Med | **P1** |
 | 5 | **Snapshot / Approval Testing** | ★★★★☆ | ~40/79 units | Low | **P1** |
-| 6 | **Architecture Testing** | ★★★☆☆ | 1 file, 5 rules | Low | **P2** |
+| 6 | **Architecture Testing** | ★★★☆☆ | 1 file, 19 rules ☑ | Low | **P2** |
 | 7 | **Differential Testing** | ★★★☆☆ | 0/79 (exists for SuffixTree only) | High | **P2** |
 | 8 | **Fuzzing** | ★★★☆☆ | 0/79 (exists for SuffixTree only) | Med | **P2** |
 | 9 | **Characterization Testing** | ★★☆☆☆ | 0/79 explicit | Low | **P3** |
@@ -89,11 +89,9 @@
 
 **Why effective:** Prevents architectural drift as the library grows. Enforces layer boundaries (Core → Analysis → IO), naming conventions, and structural rules at IL level.
 
-**Current state:** `Architecture/ArchitectureTests.cs` with 5 rules (Core !→ Analysis, Core !→ IO, Core !→ Alignment, IO !→ Analysis, static analyzers).
+**Current state:** ☑ `Architecture/ArchitectureTests.cs` with 19 rules across all 13 modules — Core/IO layer boundaries to every higher-level module, no circular dependencies between modules (slice cycle detection), no System.IO in Core, and immutable Result/DTO types. See [07_ARCHITECTURE_TESTING.md](checklists/07_ARCHITECTURE_TESTING.md).
 
-**Gap:** Rules don't cover newer modules (Metagenomics, Phylogenetics, Population, Chromosome, MolTools, Oncology). No naming convention rules for test classes.
-
-**Recommended:** Expand to all 14 source projects, add module-specific rules. Not per-algorithm but per-module.
+**Gap:** None for module-dependency rules. Future option: naming-convention rules for test classes.
 
 ---
 
@@ -151,18 +149,20 @@
 
 Each technique has a dedicated checklist covering ALL 86 completed algorithms.
 
+Ordered by usefulness for this project (see analysis); the Priority column keeps each technique's intrinsic P-level.
+
 | # | Priority | Technique | Checklist File |
 |---|----------|-----------|---------------|
 | 1 | P0 | Property-Based Testing (FsCheck) | [01_PROPERTY_BASED_TESTING.md](checklists/01_PROPERTY_BASED_TESTING.md) |
 | 2 | P0 | Metamorphic Testing | [02_METAMORPHIC_TESTING.md](checklists/02_METAMORPHIC_TESTING.md) |
-| 3 | P1 | Mutation Testing (Stryker) | [03_MUTATION_TESTING.md](checklists/03_MUTATION_TESTING.md) |
-| 4 | P1 | Algebraic Testing | [04_ALGEBRAIC_TESTING.md](checklists/04_ALGEBRAIC_TESTING.md) |
+| 3 | P2 | Fuzzing | [03_FUZZING.md](checklists/03_FUZZING.md) |
+| 4 | P1 | Mutation Testing (Stryker) | [04_MUTATION_TESTING.md](checklists/04_MUTATION_TESTING.md) |
 | 5 | P1 | Snapshot / Approval Testing (Verify) | [05_SNAPSHOT_TESTING.md](checklists/05_SNAPSHOT_TESTING.md) |
-| 6 | P2 | Architecture Testing (ArchUnitNET) | [06_ARCHITECTURE_TESTING.md](checklists/06_ARCHITECTURE_TESTING.md) |
-| 7 | P2 | Differential Testing | [07_DIFFERENTIAL_TESTING.md](checklists/07_DIFFERENTIAL_TESTING.md) |
-| 8 | P2 | Fuzzing | [08_FUZZING.md](checklists/08_FUZZING.md) |
-| 9 | P3 | Characterization Testing | [09_CHARACTERIZATION_TESTING.md](checklists/09_CHARACTERIZATION_TESTING.md) |
-| 10 | P3 | Combinatorial / Pairwise Testing | [10_COMBINATORIAL_TESTING.md](checklists/10_COMBINATORIAL_TESTING.md) |
+| 6 | P1 | Algebraic Testing | [06_ALGEBRAIC_TESTING.md](checklists/06_ALGEBRAIC_TESTING.md) |
+| 7 | P2 | Architecture Testing (ArchUnitNET) | [07_ARCHITECTURE_TESTING.md](checklists/07_ARCHITECTURE_TESTING.md) |
+| 8 | P2 | Differential Testing | [08_DIFFERENTIAL_TESTING.md](checklists/08_DIFFERENTIAL_TESTING.md) |
+| 9 | P3 | Combinatorial / Pairwise Testing | [09_COMBINATORIAL_TESTING.md](checklists/09_COMBINATORIAL_TESTING.md) |
+| 10 | P3 | Characterization Testing | [10_CHARACTERIZATION_TESTING.md](checklists/10_CHARACTERIZATION_TESTING.md) |
 
 ### Execution Roadmap
 
@@ -171,7 +171,7 @@ Each technique has a dedicated checklist covering ALL 86 completed algorithms.
 3. **P1 — Mutation:** Run Stryker per-module, write killers for survivors
 4. **P1 — Algebraic:** Add algebraic law tests (can combine with property files)
 5. **P1 — Snapshot:** Add missing 31 snapshot tests to existing + new snapshot files
-6. **P2 — Architecture:** Expand ArchitectureTests.cs with 14 new module rules
+6. **P2 — Architecture:** ☑ ArchitectureTests.cs expanded with 14 new module rules (19 total)
 7. **P2 — Fuzzing:** Create fuzz test files for 7 parsers + boundary tests for all areas
 8. **P2 — Differential:** Create differential test pairs for all 86 algorithms
 9. **P3 — Characterization:** Create on-demand before refactoring
