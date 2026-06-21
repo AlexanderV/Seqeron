@@ -195,4 +195,105 @@ public class FileIoCombinatorialTests
             FastqParser.DecodeQualityScores(q, enc).Should().Equal(scores);
         }
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: PARSE-VCF-001 — VCF parsing (FileIO)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 67.
+    // Spec: tests/TestSpecs/PARSE-VCF-001.md (canonical VcfParser.ParseWithHeader).
+    // Dimensions: nSamples(3) × nVariants(3) × vcfVersion(2) × genotypeFormat(3). Grid 3×3×2×3 = 54.
+    //
+    // Model (VCF 4.x spec): a VCF has a ##fileformat line, meta/##FORMAT lines, a #CHROM header
+    // naming the samples, then one tab-delimited record per variant. Column 9 (FORMAT) names the
+    // per-sample sub-fields (colon-separated), and each sample column supplies their values.
+    //
+    // The combinatorial point: sample count, variant count, declared version and FORMAT layout
+    // interact — the parser recovers the fileformat, sample names, every variant and, for each
+    // sample, the FORMAT-keyed values (incl. GT) exactly.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private static string SampleGt(int v, int s) => new[] { "0/0", "0/1", "1/1" }[(v + s) % 3];
+
+    private static string FormatValue(string key, int v, int s) => key switch
+    {
+        "GT" => SampleGt(v, s),
+        "DP" => "30",
+        "AD" => "15,15",
+        _ => "99", // GQ
+    };
+
+    [Test, Combinatorial]
+    public void ParseVcf_RecoversSamplesAndGenotypes(
+        [Values(1, 2, 3)] int nSamples,
+        [Values(1, 2, 3)] int nVariants,
+        [Values("VCFv4.1", "VCFv4.3")] string version,
+        [Values("GT", "GT:DP", "GT:AD:DP:GQ")] string formatField)
+    {
+        string[] keys = formatField.Split(':');
+        var sb = new System.Text.StringBuilder();
+        sb.Append($"##fileformat={version}\n");
+        foreach (var k in keys)
+            sb.Append($"##FORMAT=<ID={k},Number=1,Type=String,Description=\"{k}\">\n");
+        sb.Append("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT");
+        for (int s = 0; s < nSamples; s++) sb.Append($"\tS{s}");
+        sb.Append('\n');
+
+        for (int v = 0; v < nVariants; v++)
+        {
+            sb.Append($"chr1\t{v + 1}\trs{v}\tA\tG\t50\tPASS\t.\t{formatField}");
+            for (int s = 0; s < nSamples; s++)
+                sb.Append('\t').Append(string.Join(":", keys.Select(k => FormatValue(k, v, s))));
+            sb.Append('\n');
+        }
+
+        var (header, recordsEnum) = VcfParser.ParseWithHeader(sb.ToString());
+        var records = recordsEnum.ToList();
+
+        header.FileFormat.Should().Be(version);
+        header.SampleNames.Should().HaveCount(nSamples);
+        records.Should().HaveCount(nVariants);
+
+        for (int v = 0; v < nVariants; v++)
+        {
+            var rec = records[v];
+            rec.Format.Should().Equal(keys, "FORMAT column lists the sub-fields");
+            rec.Samples.Should().NotBeNull();
+            rec.Samples!.Count.Should().Be(nSamples);
+            for (int s = 0; s < nSamples; s++)
+            {
+                foreach (var k in keys)
+                    rec.Samples[s][k].Should().Be(FormatValue(k, v, s), $"sample {s} field {k}");
+                VcfParser.GetGenotype(rec, s).Should().Be(SampleGt(v, s));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Interaction witness: extending the FORMAT layout adds the new sub-fields to every sample
+    /// without disturbing the genotype.
+    /// </summary>
+    [Test]
+    public void ParseVcf_FormatLayout_DrivesSampleFields()
+    {
+        const string header = "##fileformat=VCFv4.3\n#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tS0\n";
+        var gtOnly = VcfParser.ParseWithHeader(header + "chr1\t1\t.\tA\tG\t.\tPASS\t.\tGT\t1/1\n").Records.Single();
+        gtOnly.Samples![0].Should().ContainKey("GT").And.NotContainKey("DP");
+
+        var withDp = VcfParser.ParseWithHeader(header + "chr1\t1\t.\tA\tG\t.\tPASS\t.\tGT:DP\t1/1:42\n").Records.Single();
+        withDp.Samples![0]["GT"].Should().Be("1/1");
+        withDp.Samples[0]["DP"].Should().Be("42");
+    }
+
+    /// <summary>
+    /// Interaction witness: without a #CHROM header (no sample names) the standard fields still
+    /// parse but no per-sample data is attached.
+    /// </summary>
+    [Test]
+    public void ParseVcf_NoHeader_ParsesSitesWithoutSamples()
+    {
+        var rec = VcfParser.Parse("chr1\t100\trs1\tA\tG\t60\tPASS\tDP=10\tGT\t0/1\n").Single();
+        rec.Chrom.Should().Be("chr1");
+        rec.Pos.Should().Be(100);
+        rec.Alt.Should().Equal("G");
+        rec.Samples.Should().BeNull("sample columns need a #CHROM header to bind names");
+    }
 }
