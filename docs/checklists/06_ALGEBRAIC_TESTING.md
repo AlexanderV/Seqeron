@@ -102,7 +102,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 70 | ☑ | PARSE-EMBL-001 | FileIO | RT: parse(write(record)) = record; ID: minimal record → valid |
 | 71 | ✗ | RNA-STRUCT-001 | RnaStructure | ID: empty sequence → no pairs; ID: single base → no pairs |
 | 72 | ✗ | RNA-STEMLOOP-001 | RnaStructure | ID: no complementary region → no stem-loops; IDEMP: deterministic |
-| 73 | ☐ | RNA-ENERGY-001 | RnaStructure | ID: no structure → ΔG=0; DIST: energy is additive for independent stacks |
+| 73 | ☑ | RNA-ENERGY-001 | RnaStructure | ID: no structure → ΔG=0; DIST: energy is additive for independent stacks |
 | 74 | ✗ | MIRNA-SEED-001 | MiRNA | IDEMP: seed extraction deterministic; ID: seed len always 6-8 |
 | 75 | ✗ | MIRNA-TARGET-001 | MiRNA | ID: no seed match → score=0; IDEMP: deterministic scoring |
 | 76 | ✗ | MIRNA-PRECURSOR-001 | MiRNA | ID: no hairpin → not precursor; IDEMP: deterministic |
@@ -178,11 +178,11 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 146 | ✗ | ASSEMBLY-SCAFFOLD-001 | Assembly | IDEMP: deterministic; ID: no links → unchanged contigs |
 | 147 | ✗ | ASSEMBLY-STATS-001 | Assembly | ID: empty → 0; IDEMP: deterministic |
 | 148 | ✗ | ASSEMBLY-TRIM-001 | Assembly | IDEMP: trim∘trim = trim; ID: high-quality read unchanged |
-| 149 | ☐ | RNA-DOTBRACKET-001 | RnaStructure | RT: parse∘format = identity; ID: empty → no pairs |
+| 149 | ☑ | RNA-DOTBRACKET-001 | RnaStructure | RT: parse∘format = identity; ID: empty → no pairs |
 | 150 | ✗ | RNA-HAIRPIN-001 | RnaStructure | IDEMP: deterministic; ID: loop < minLoop → no hairpin |
 | 151 | ✗ | RNA-INVERT-001 | RnaStructure | INVOL: revcomp of arm twice = identity; ID: no complementarity → none |
 | 152 | ✗ | RNA-MFE-001 | RnaStructure | ID: unpaired sequence → 0; IDEMP: deterministic |
-| 153 | ☐ | RNA-PAIR-001 | RnaStructure | COMM: canPair symmetric; IDEMP: deterministic |
+| 153 | ☑ | RNA-PAIR-001 | RnaStructure | COMM: canPair symmetric; IDEMP: deterministic |
 | 154 | ✗ | RNA-PARTITION-001 | RnaStructure | ID: single base → Z = 1; IDEMP: deterministic |
 | 155 | ✗ | RNA-PSEUDOKNOT-001 | RnaStructure | ID: nested structure → none; IDEMP: deterministic |
 | 156 | ✗ | KMER-ASYNC-001 | K-mer | ID: empty → empty; IDEMP: async = sync |
@@ -272,7 +272,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 38 |
-| ☐ Not started | 27 |
+| ☑ Complete | 41 |
+| ☐ Not started | 24 |
 | ✗ Not applicable | 169 |
 | Laws verified | ~172 (≈2 per algorithm) |
