@@ -638,4 +638,109 @@ public class MolToolsCombinatorialTests
         PrimerDesigner.Calculate3PrimeStability("GCGCG")
             .Should().BeLessThan(PrimerDesigner.Calculate3PrimeStability("TATAT"), "GC-rich 3′ ends are more stable");
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: PROBE-DESIGN-001 — Hybridization-probe design (MolTools)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 24.
+    // Dimensions: minLen(3) × maxLen(3) × tmRange(3) × gcRange(3). Grid 3⁴ = 81.
+    //
+    // Model (microarray/qPCR probe selection): ProbeDesigner.DesignProbes scans every
+    // window in [MinLength, MaxLength], keeps those whose GC fraction lies within the
+    // configured band (with a ±0.1 early-rejection slack), scores each (penalising GC,
+    // Tm, homopolymer, self-complementarity, structure deviations) and returns the top
+    // probes. Two of the four windows are HARD constraints on any returned probe —
+    // length ∈ [MinLength, MaxLength] (loop bound) and GC ∈ [MinGc−0.1, MaxGc+0.1]
+    // (early rejection) — whereas the Tm window is a SOFT scoring term (−0.3 penalty),
+    // so out-of-Tm probes can still be returned. Tm itself is the salt-adjusted formula
+    // 81.5 + 16.6·log10[Na⁺] + 41·GC − 600/N (≥14 nt) — Howley 1979 / SantaLucia.
+    //
+    // The combinatorial point: the four windows interact during the scan. The grid
+    // asserts the HARD invariants hold for EVERY returned probe under EVERY (len×len×
+    // gc×tm) configuration — i.e. the search never emits a probe outside the length or
+    // GC bands regardless of how the other windows are set. The soft Tm axis and the GC
+    // ±0.1 slack are pinned by dedicated witnesses below.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private static readonly string ProbeTarget = DiverseDna(400);
+    private static readonly (double Lo, double Hi)[] ProbeGcWindows = { (0.30, 0.50), (0.40, 0.60), (0.50, 0.70) };
+    private static readonly (double Lo, double Hi)[] ProbeTmWindows = { (50, 65), (55, 70), (60, 80) };
+
+    private static ProbeDesigner.ProbeParameters MkProbeParam(
+        int minLen, int maxLen, double gcLo, double gcHi, double tmLo, double tmHi) =>
+        new(MinLength: minLen, MaxLength: maxLen, MinTm: tmLo, MaxTm: tmHi,
+            MinGc: gcLo, MaxGc: gcHi, MaxHomopolymer: 100,
+            AvoidSecondaryStructure: false, MaxSelfComplementarity: 1.0);
+
+    [Test, Combinatorial]
+    public void ProbeDesign_ReturnedProbes_HonourLengthAndGcWindows(
+        [Values(18, 20, 22)] int minLen,
+        [Values(24, 28, 32)] int maxLen,
+        [Values(0, 1, 2)] int gcWin,
+        [Values(0, 1, 2)] int tmWin)
+    {
+        var (gcLo, gcHi) = ProbeGcWindows[gcWin];
+        var (tmLo, tmHi) = ProbeTmWindows[tmWin];
+
+        var probes = ProbeDesigner.DesignProbes(
+            ProbeTarget, MkProbeParam(minLen, maxLen, gcLo, gcHi, tmLo, tmHi), maxProbes: 20).ToList();
+
+        foreach (var p in probes)
+        {
+            p.Sequence.Length.Should().BeInRange(minLen, maxLen, "probe length is hard-bounded by the window");
+            p.GcContent.Should().BeInRange(gcLo - 0.1 - 1e-9, gcHi + 0.1 + 1e-9,
+                "GC honours the window within the ±0.1 early-rejection slack");
+        }
+    }
+
+    /// <summary>
+    /// Interaction witness: the Tm window is the soft scoring axis. With every other
+    /// term held neutral, moving the Tm band from "includes all probe Tms" to "excludes
+    /// them" lowers each common probe's score by exactly the 0.3 Tm penalty.
+    /// </summary>
+    [Test]
+    public void ProbeDesign_TmWindow_ContributesExactScoringPenalty()
+    {
+        var tmIn = MkProbeParam(20, 20, 0.0, 1.0, 0, 200);    // GC + Tm both always in range
+        var tmOut = tmIn with { MinTm = 200, MaxTm = 300 };    // only the Tm term now fires
+
+        var inByStart = ProbeDesigner.DesignProbes(ProbeTarget, tmIn, maxProbes: 50).ToDictionary(p => p.Start);
+        var outByStart = ProbeDesigner.DesignProbes(ProbeTarget, tmOut, maxProbes: 50).ToDictionary(p => p.Start);
+
+        var common = inByStart.Keys.Intersect(outByStart.Keys).ToList();
+        common.Should().NotBeEmpty("a uniform Tm penalty preserves ranking, so the same probes are returned");
+        foreach (int start in common)
+            (inByStart[start].Score - outByStart[start].Score).Should().BeApproximately(0.3, 1e-6,
+                "an out-of-Tm probe loses exactly the 0.3 Tm penalty");
+    }
+
+    /// <summary>
+    /// Interaction witness: the GC band carries a ±0.1 early-rejection slack. A 65%-GC
+    /// 20-mer is accepted when 0.65 ≤ MaxGc+0.1 (band 0.40–0.60) but rejected once it
+    /// exceeds the slack (band 0.40–0.50 ⇒ ceiling 0.60).
+    /// </summary>
+    [Test]
+    public void ProbeDesign_GcWindow_AppliesTenPercentSlack()
+    {
+        const string gc65 = "GCGCGCGCGCGCGAATATAT"; // 20 nt, 13 GC = 0.65
+
+        ProbeDesigner.DesignProbes(gc65, MkProbeParam(20, 20, 0.40, 0.60, 0, 200), maxProbes: 5)
+            .Should().ContainSingle("0.65 is within MaxGc(0.60)+0.1 slack");
+        ProbeDesigner.DesignProbes(gc65, MkProbeParam(20, 20, 0.40, 0.50, 0, 200), maxProbes: 5)
+            .Should().BeEmpty("0.65 exceeds MaxGc(0.50)+0.1 slack");
+    }
+
+    /// <summary>
+    /// Worked example through the qPCR-defaults pipeline: every returned probe respects
+    /// the strict length window and the result set is capped at maxProbes.
+    /// </summary>
+    [Test]
+    public void ProbeDesign_QpcrDefaults_RespectLengthWindowAndCap()
+    {
+        var param = ProbeDesigner.Defaults.qPCR; // 20–30 nt
+        var probes = ProbeDesigner.DesignProbes(ProbeTarget, param, maxProbes: 10).ToList();
+
+        probes.Count.Should().BeLessThanOrEqualTo(10);
+        foreach (var p in probes)
+            p.Sequence.Length.Should().BeInRange(param.MinLength, param.MaxLength);
+    }
 }
