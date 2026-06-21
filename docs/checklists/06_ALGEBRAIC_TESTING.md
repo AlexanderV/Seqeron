@@ -81,7 +81,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 49 | ✗ | CHROM-CENT-001 | Chromosome | ID: no AT-rich region → no centromere signal; IDEMP: deterministic |
 | 50 | ✗ | CHROM-KARYO-001 | Chromosome | ID: empty input → empty karyotype; IDEMP: deterministic |
 | 51 | ✗ | CHROM-ANEU-001 | Chromosome | ID: normal diploid depth → CN=2; IDEMP: deterministic |
-| 52 | ☐ | CHROM-SYNT-001 | Chromosome | COMM: synteny blocks(A,B) = reversed synteny blocks(B,A); ID: self-comparison → full synteny |
+| 52 | ☑ | CHROM-SYNT-001 | Chromosome | COMM: synteny blocks(A,B) = reversed synteny blocks(B,A); ID: self-comparison → full synteny |
 | 53 | ✗ | META-CLASS-001 | Metagenomics | ID: read from known reference → correct classification; IDEMP: deterministic |
 | 54 | ☐ | META-PROF-001 | Metagenomics | DIST: sum(abundances)=1.0; ID: single species → abundance=1 |
 | 55 | ✗ | META-ALPHA-001 | Metagenomics | ID: single species → Shannon=0; ID: single species → Simpson=0 |
@@ -272,7 +272,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 24 |
-| ☐ Not started | 41 |
+| ☑ Complete | 25 |
+| ☐ Not started | 40 |
 | ✗ Not applicable | 169 |
 | Laws verified | ~172 (≈2 per algorithm) |
