@@ -221,4 +221,124 @@ public class CompositionCombinatorialTests
         "ACGN".AsSpan().IsValidRna().Should().BeFalse();
         "AC GT".AsSpan().IsValidDna().Should().BeFalse(); // whitespace rejected
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: SEQ-COMPLEX-001 — Windowed sequence-complexity profile (Composition)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 5.
+    // Dimensions: method(2: Shannon entropy / linguistic complexity)
+    //             × windowSize(3) × seqLen(3). Full grid 2×3×3 = 18 cells.
+    //
+    // Model (Linguistic_Complexity.md; Shannon_Entropy.md; Troyanskaya et al. 2002):
+    // CalculateWindowedComplexity slides a window of `windowSize` (step `stepSize`)
+    // over the sequence and, for every window fully contained in it, reports BOTH a
+    // per-base Shannon entropy (bits, range [0, log₂4] = [0, 2]) and a linguistic
+    // complexity (observed/possible distinct-word ratio, range [0, 1]). The window
+    // grid has ⌊(L − w)/step⌋ + 1 windows when L ≥ w, and is EMPTY when w > L.
+    //
+    // The combinatorial point: `method` selects which complexity field is read,
+    // while `windowSize` and `seqLen` jointly determine the window grid (including
+    // the w > L boundary that yields no windows). Both methods must (a) stay in
+    // their theoretical range and (b) agree on the ordering low-complexity <
+    // high-complexity, for every (windowSize, seqLen) cell — an interaction a
+    // one-parameter-at-a-time suite would miss.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public enum ComplexityMethod { ShannonEntropy, LinguisticComplexity }
+
+    private const int ComplexityStep = 4;
+
+    private static double ReadMetric(ComplexityPoint p, ComplexityMethod method) => method switch
+    {
+        ComplexityMethod.ShannonEntropy => p.ShannonEntropy,
+        ComplexityMethod.LinguisticComplexity => p.LinguisticComplexity,
+        _ => throw new ArgumentOutOfRangeException(nameof(method)),
+    };
+
+    private static double MetricUpperBound(ComplexityMethod method) => method switch
+    {
+        ComplexityMethod.ShannonEntropy => 2.0,   // log₂(4) bits for the 4-letter DNA alphabet
+        ComplexityMethod.LinguisticComplexity => 1.0,
+        _ => throw new ArgumentOutOfRangeException(nameof(method)),
+    };
+
+    /// <summary>Deterministic well-mixed ACGT sequence (LCG) — high complexity at every window.</summary>
+    private static string DiverseSequence(int n)
+    {
+        const string bases = "ACGT";
+        var chars = new char[n];
+        uint state = 0x9E3779B9u;
+        for (int i = 0; i < n; i++)
+        {
+            state = state * 1664525u + 1013904223u;
+            chars[i] = bases[(int)((state >> 16) & 3u)];
+        }
+        return new string(chars);
+    }
+
+    /// <summary>
+    /// Pairwise grid: every (method × windowSize × seqLen) cell. The window grid has
+    /// the predicted size, every reported metric sits inside the method's theoretical
+    /// range, and — where windows exist — a homopolymer profile is strictly less
+    /// complex than a diverse profile under BOTH methods. When the window exceeds
+    /// the sequence the profile is empty (boundary cell).
+    /// </summary>
+    [Test, Combinatorial]
+    public void SeqComplex_WindowGrid_RangesAndComplexityOrdering(
+        [Values(ComplexityMethod.ShannonEntropy, ComplexityMethod.LinguisticComplexity)] ComplexityMethod method,
+        [Values(8, 16, 32)] int windowSize,
+        [Values(12, 48, 200)] int seqLen)
+    {
+        var homopolymer = new DnaSequence(new string('A', seqLen));
+        var diverse = new DnaSequence(DiverseSequence(seqLen));
+
+        var lowProfile = SequenceComplexity
+            .CalculateWindowedComplexity(homopolymer, windowSize, ComplexityStep).ToList();
+        var highProfile = SequenceComplexity
+            .CalculateWindowedComplexity(diverse, windowSize, ComplexityStep).ToList();
+
+        int expectedWindows = seqLen >= windowSize ? (seqLen - windowSize) / ComplexityStep + 1 : 0;
+        lowProfile.Should().HaveCount(expectedWindows);
+        highProfile.Should().HaveCount(expectedWindows);
+
+        if (expectedWindows == 0)
+            return; // w > L boundary: no fully-contained window exists
+
+        double upper = MetricUpperBound(method);
+        foreach (var p in lowProfile.Concat(highProfile))
+        {
+            double v = ReadMetric(p, method);
+            v.Should().BeInRange(0.0, upper + 1e-9, $"{method} must stay within its theoretical range for w={windowSize}");
+        }
+
+        // Discrimination: a single-symbol window is the least complex possible; a
+        // well-mixed window is more complex — under BOTH metrics, for every window.
+        for (int i = 0; i < expectedWindows; i++)
+        {
+            double low = ReadMetric(lowProfile[i], method);
+            double high = ReadMetric(highProfile[i], method);
+            high.Should().BeGreaterThan(low,
+                $"diverse window {i} must be more complex than the homopolymer window under {method} (w={windowSize}, L={seqLen})");
+        }
+    }
+
+    /// <summary>
+    /// Worked witnesses pinning the two methods so the grid cannot pass vacuously:
+    /// a homopolymer window has Shannon entropy exactly 0 (single symbol → log₂1 = 0)
+    /// and linguistic complexity strictly between 0 and 1 (one distinct word per
+    /// length → small but non-zero ratio); a fully diverse window approaches the
+    /// 2-bit entropy ceiling.
+    /// </summary>
+    [Test]
+    public void SeqComplex_MethodWitnesses()
+    {
+        var homo = new DnaSequence(new string('A', 32));
+        var homoPoint = SequenceComplexity.CalculateWindowedComplexity(homo, 16, ComplexityStep).First();
+        homoPoint.ShannonEntropy.Should().Be(0.0);
+        homoPoint.LinguisticComplexity.Should().BeInRange(0.0, 1.0).And.NotBe(0.0);
+
+        var diverse = new DnaSequence(DiverseSequence(64));
+        var divPoint = SequenceComplexity.CalculateWindowedComplexity(diverse, 32, ComplexityStep).First();
+        divPoint.ShannonEntropy.Should().BeGreaterThan(1.5).And.BeLessThanOrEqualTo(2.0);
+        divPoint.LinguisticComplexity.Should().BeGreaterThan(homoPoint.LinguisticComplexity);
+    }
 }
