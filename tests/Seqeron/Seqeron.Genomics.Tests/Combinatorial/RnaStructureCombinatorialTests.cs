@@ -377,4 +377,109 @@ public class RnaStructureCombinatorialTests
         RnaSecondaryStructure.CalculateHairpinLoopEnergy("AA", 'G', 'C')
             .Should().BeGreaterThanOrEqualTo(100.0, "sub-3-nt loops are sterically prohibited");
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: RNA-INVERT-001 — Inverted repeats / potential stems (RnaStructure)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 151.
+    // Spec: tests/TestSpecs/RNA-INVERT-001.md (canonical FindInvertedRepeats). ADVANCED §10.
+    // Dimensions: minArm(3) × maxGap(3) × seqLen(3). Grid 3×3×3 = 27 (full, exhaustive ⊇ pairwise).
+    //
+    // Model (Alamro 2021 IUPACpal; EMBOSS einverted): an inverted repeat is the pattern W·G·W̄ᴿ — a
+    // left arm W, a loop G (|G| ≥ minSpacing), then a right arm equal to the REVERSE COMPLEMENT of W
+    // (strict Watson-Crick/IUPAC, antiparallel). It is the structural definition of a potential
+    // hairpin stem. FindInvertedRepeats(seq, minLength, minSpacing, maxSpacing) reports maximal,
+    // non-overlapping repeats with arm ≥ minLength and loop length in [minSpacing, maxSpacing].
+    //
+    // Engineered construct: a single planted IR — arm W = GGGCC (5 nt), loop AAAAA (5 nt), right arm
+    // GGCCC = revcomp(GGGCC) — padded with poly-A (which cannot pair, so it adds no spurious stems
+    // and cannot extend the arms). The three knobs jointly gate detection: arm 5 is found iff
+    // minArm ≤ 5, and loop 5 is admitted iff minSpacing ≤ 5 ≤ maxGap. seqLen (padding) must NOT
+    // change the planted repeat's position or length.
+    //
+    // The combinatorial point: every reported repeat must satisfy the full IR definition
+    // (INV-1 antiparallel revcomp, INV-2 equal arms, INV-3 loop bounds, INV-4 min arm, INV-5
+    // ordering) at every grid cell, and the planted IR appears exactly when all bounds admit it —
+    // independent of sequence length.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private const string IrLeftArm = "GGGCC";  // revcomp = GGCCC
+    private const string IrLoop = "AAAAA";      // 5-nt loop
+    private static readonly string IrCore = IrLeftArm + IrLoop + "GGCCC"; // planted IR at (0,4,10,14,5)
+
+    [Test, Combinatorial]
+    public void RnaInvertedRepeats_DefinitionAndPlantedDetection_AcrossArmGapLength(
+        [Values(4, 5, 6)] int minArm,
+        [Values(3, 5, 8)] int maxGap,
+        [Values(15, 24, 33)] int seqLen)
+    {
+        string seq = IrCore + new string('A', seqLen - IrCore.Length);
+
+        var reps = RnaSecondaryStructure.FindInvertedRepeats(seq, minLength: minArm, minSpacing: 3, maxSpacing: maxGap)
+            .ToList();
+
+        // Every reported repeat must satisfy the inverted-repeat definition (INV-1..INV-5).
+        foreach (var r in reps)
+        {
+            (r.End1 - r.Start1 + 1).Should().Be(r.Length, "left arm spans Length (INV-2)");
+            (r.End2 - r.Start2 + 1).Should().Be(r.Length, "right arm spans Length (INV-2)");
+            r.Length.Should().BeGreaterThanOrEqualTo(minArm, "arm meets minLength (INV-4)");
+
+            int loop = r.Start2 - r.End1 - 1;
+            loop.Should().BeInRange(3, maxGap, "loop length is within [minSpacing, maxSpacing] (INV-3)");
+
+            r.Start1.Should().BeLessThan(r.End1, "left arm is ordered (INV-5)");
+            r.End1.Should().BeLessThan(r.Start2, "left arm precedes loop precedes right arm (INV-5)");
+            r.Start2.Should().BeLessThan(r.End2, "right arm is ordered (INV-5)");
+
+            for (int k = 0; k < r.Length; k++)
+            {
+                RnaSecondaryStructure.GetComplement(seq[r.Start2 + r.Length - 1 - k])
+                    .Should().Be(seq[r.Start1 + k],
+                        "the right arm is the antiparallel reverse complement of the left arm (INV-1)");
+            }
+        }
+
+        // Planted-IR gate: arm 5 found iff minArm ≤ 5, loop 5 admitted iff maxGap ≥ 5 (minSpacing 3 ≤ 5).
+        bool expectPlanted = minArm <= 5 && maxGap >= 5;
+        reps.Any(r => r.Length == 5 && r.Start1 == 0 && r.Start2 == 10)
+            .Should().Be(expectPlanted, "the planted 5-bp/5-loop IR appears exactly when all three bounds admit it");
+    }
+
+    /// <summary>
+    /// Interaction witness — each search bound independently gates the planted inverted repeat:
+    /// too-large minArm, too-small maxGap, or too-large minSpacing each remove it.
+    /// </summary>
+    [Test]
+    public void RnaInvertedRepeats_EachBound_GatesDetection()
+    {
+        bool Found(int minArm, int minSpacing, int maxGap) =>
+            RnaSecondaryStructure.FindInvertedRepeats(IrCore, minArm, minSpacing, maxGap)
+                .Any(r => r.Length == 5 && r.Start1 == 0 && r.Start2 == 10);
+
+        Found(4, 3, 8).Should().BeTrue("permissive bounds find the planted IR");
+        Found(6, 3, 8).Should().BeFalse("minArm 6 > arm 5");
+        Found(4, 3, 3).Should().BeFalse("maxGap 3 < loop 5");
+        Found(4, 6, 8).Should().BeFalse("minSpacing 6 > loop 5");
+    }
+
+    /// <summary>
+    /// Worked-example anchors (tests/TestSpecs/RNA-INVERT-001.md M1/M3): the canonical Ussery/IUPACpal
+    /// IR is found at exact coordinates, while a PARALLEL direct repeat (right arm not the reverse
+    /// complement) is correctly rejected.
+    /// </summary>
+    [Test]
+    public void RnaInvertedRepeats_NndbWorkedExamples()
+    {
+        // M1: UUACG · AAAAAA · CGUAA  (CGUAA = revcomp UUACG) ⇒ exactly one IR (0,4,11,15,5).
+        var m1 = RnaSecondaryStructure.FindInvertedRepeats("UUACGAAAAAACGUAA").ToList();
+        m1.Should().ContainSingle();
+        m1[0].Should().Be((0, 4, 11, 15, 5));
+
+        // M3: AAGG · AAAAA · AGG — arms AAGG vs AGG are PARALLEL, not reverse complement ⇒ none.
+        RnaSecondaryStructure.FindInvertedRepeats("AAGGAAAAAGG").Should().BeEmpty(
+            "a parallel direct repeat is not an inverted repeat");
+
+        // No complementary arm at all ⇒ none.
+        RnaSecondaryStructure.FindInvertedRepeats("AAAAAAAAAAAA").Should().BeEmpty();
+    }
 }
