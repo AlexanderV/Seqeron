@@ -1904,6 +1904,102 @@ public class OncologyCombinatorialTests
         return diffs == 1 && diffIndex == expectedIndex;
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ONCO-MHC-001 — MHC–peptide binding classification (Oncology)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 110.
+    // Spec: tests/TestSpecs/ONCO-MHC-001.md (OncologyAnalyzer.ClassifyMhcBinding / ClassifyBindingRank / IsValidPeptideLength).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: Reynisson et al. (2020) NetMHCpan-4.1 (class I 8-11, %Rank strong<0.5/weak<2; class II
+    // 13-25, %Rank strong<2/weak<10); Sette (1994) / IEDB (IC50 strong<50, weak<500 nM, strict <).
+    //
+    // ClassifyMhcBinding gates on the class-specific length range, then tiers the IC50 (strong<50,
+    // weak<500, else non-binder); an invalid length is a NonBinder regardless of affinity.
+    //
+    // Checklist axes allele(3) × peptideLen(3) × affinityThreshold(2). The implemented classifier is
+    // class-level (the per-allele NetMHCpan model is caller-supplied / out of scope); per the campaign
+    // convention we map the axes onto the real knobs and document it:
+    //   • allele           → the supplied IC50 affinity tier {10 nM (strong), 200 nM (weak), 1000 nM
+    //     (non-binder)} — the per-allele model's output, supplied directly.
+    //   • peptideLen       → peptide length {9 (valid class I only), 15 (valid class II only), 7 (invalid
+    //     for both)}.
+    //   • affinityThreshold→ the MHC class {ClassI, ClassII} — which selects the length range / cutoff
+    //     regime.
+    // Grid = 3 × 3 × 2 = 18 = the checklist's "Full Combos" for this row.
+    //
+    // The combinatorial point: the outcome is a JOINT function of length, class and affinity — the same
+    // length is presentable under one class but not the other, and an invalid length forces NonBinder even
+    // for a 10 nM strong binder. Each cell is checked against the gate + tier rule re-derived from inputs.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// For every (IC50 tier, peptide length, MHC class) the end-to-end classification matches the
+    /// length-gate + IC50-tier rule re-derived from the inputs (invalid length ⇒ NonBinder).
+    /// </summary>
+    [Test, Combinatorial]
+    public void ClassifyMhcBinding_AffinityLengthClassGrid_MatchesGateAndTierRule(
+        [Values(10.0, 200.0, 1000.0)] double ic50Nm,
+        [Values(9, 15, 7)] int peptideLength,
+        [Values] OncologyAnalyzer.MhcClass mhcClass)
+    {
+        // Independent ground truth.
+        bool validLength = mhcClass == OncologyAnalyzer.MhcClass.ClassI
+            ? peptideLength is >= 8 and <= 11
+            : peptideLength is >= 13 and <= 25;
+        var affinityTier = ic50Nm < 50.0 ? OncologyAnalyzer.BindingStrength.Strong
+            : ic50Nm < 500.0 ? OncologyAnalyzer.BindingStrength.Weak
+            : OncologyAnalyzer.BindingStrength.NonBinder;
+        var expected = validLength ? affinityTier : OncologyAnalyzer.BindingStrength.NonBinder;
+
+        OncologyAnalyzer.IsValidPeptideLength(peptideLength, mhcClass).Should().Be(validLength,
+            "class I accepts 8-11, class II accepts 13-25");
+        OncologyAnalyzer.ClassifyMhcBinding(peptideLength, ic50Nm, mhcClass).Should().Be(expected,
+            "valid length → IC50 tier; invalid length → NonBinder");
+    }
+
+    /// <summary>
+    /// Interaction witness (length × class): a 9-mer is presentable under class I but not class II, while a
+    /// 15-mer is the reverse — so the same strong-affinity peptide is a Strong binder under one class and a
+    /// NonBinder under the other. The outcome flips on the class axis. Source: Reynisson et al. (2020) /
+    /// IEDB length ranges.
+    /// </summary>
+    [Test]
+    public void ClassifyMhcBinding_ClassAxis_FlipsPresentabilityByLength()
+    {
+        OncologyAnalyzer.ClassifyMhcBinding(9, 10.0, OncologyAnalyzer.MhcClass.ClassI)
+            .Should().Be(OncologyAnalyzer.BindingStrength.Strong, "9-mer valid for class I, 10 nM strong");
+        OncologyAnalyzer.ClassifyMhcBinding(9, 10.0, OncologyAnalyzer.MhcClass.ClassII)
+            .Should().Be(OncologyAnalyzer.BindingStrength.NonBinder, "9-mer too short for class II");
+        OncologyAnalyzer.ClassifyMhcBinding(15, 10.0, OncologyAnalyzer.MhcClass.ClassII)
+            .Should().Be(OncologyAnalyzer.BindingStrength.Strong, "15-mer valid for class II, 10 nM strong");
+    }
+
+    /// <summary>
+    /// Interaction witness (%Rank class-specific cutoffs): the same %Rank = 1.5 is a weak binder under class
+    /// I (≥ 0.5, &lt; 2) but a strong binder under class II (&lt; 2) — the class selects the cutoff set.
+    /// Source: Reynisson et al. (2020).
+    /// </summary>
+    [Test]
+    public void ClassifyBindingRank_SameRankDifferentClass_DiffersByCutoffSet()
+    {
+        OncologyAnalyzer.ClassifyBindingRank(1.5, OncologyAnalyzer.MhcClass.ClassI)
+            .Should().Be(OncologyAnalyzer.BindingStrength.Weak, "class I: 0.5 ≤ 1.5 < 2 → weak");
+        OncologyAnalyzer.ClassifyBindingRank(1.5, OncologyAnalyzer.MhcClass.ClassII)
+            .Should().Be(OncologyAnalyzer.BindingStrength.Strong, "class II: 1.5 < 2 → strong");
+    }
+
+    /// <summary>
+    /// Witness (INV-4 strict IC50 boundaries): the affinity cutoffs are strict — 50 nM is Weak (not Strong)
+    /// and 500 nM is NonBinder (not Weak). Source: IEDB / Sette (1994) strict inequalities.
+    /// </summary>
+    [Test]
+    public void ClassifyBindingAffinity_StrictIc50Boundaries()
+    {
+        OncologyAnalyzer.ClassifyBindingAffinity(49.9).Should().Be(OncologyAnalyzer.BindingStrength.Strong);
+        OncologyAnalyzer.ClassifyBindingAffinity(50.0).Should().Be(OncologyAnalyzer.BindingStrength.Weak, "50 nM is not < 50");
+        OncologyAnalyzer.ClassifyBindingAffinity(500.0).Should().Be(OncologyAnalyzer.BindingStrength.NonBinder, "500 nM is not < 500");
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     // Helpers — engineered constructs + independent ground truth
     // ───────────────────────────────────────────────────────────────────────
