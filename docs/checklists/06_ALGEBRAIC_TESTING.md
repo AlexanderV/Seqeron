@@ -72,11 +72,11 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 40 | ✗ | PHYLO-TREE-001 | Phylogenetic | ID: 1 sequence → trivial tree; IDEMP: same input → same topology |
 | 41 | ☑ | PHYLO-NEWICK-001 | Phylogenetic | RT: parse(toNewick(tree)) = tree; ID: leaf → simple Newick |
 | 42 | ☑ | PHYLO-COMP-001 | Phylogenetic | ID: RF(t,t)=0; COMM: RF(a,b)=RF(b,a); TRI: RF(a,c)≤RF(a,b)+RF(b,c) |
-| 43 | ☐ | POP-FREQ-001 | PopGen | ID: alleleFreq(all same)=1.0; DIST: sum(allele freqs)=1 |
+| 43 | ☑ | POP-FREQ-001 | PopGen | ID: alleleFreq(all same)=1.0; DIST: sum(allele freqs)=1 |
 | 44 | ✗ | POP-DIV-001 | PopGen | ID: identical sequences → π=0; ID: single seq → θ undefined or 0 |
-| 45 | ☐ | POP-HW-001 | PopGen | DIST: p² + 2pq + q² = 1 (algebraic identity); ID: monomorphic → all one genotype |
-| 46 | ☐ | POP-FST-001 | PopGen | ID: Fst(identical pops)=0; COMM: Fst(a,b)=Fst(b,a) |
-| 47 | ☐ | POP-LD-001 | PopGen | ID: independent loci → D'≈0; COMM: LD(a,b)=LD(b,a) |
+| 45 | ☑ | POP-HW-001 | PopGen | DIST: p² + 2pq + q² = 1 (algebraic identity); ID: monomorphic → all one genotype |
+| 46 | ☑ | POP-FST-001 | PopGen | ID: Fst(identical pops)=0; COMM: Fst(a,b)=Fst(b,a) |
+| 47 | ☑ | POP-LD-001 | PopGen | ID: independent loci → D'≈0; COMM: LD(a,b)=LD(b,a) |
 | 48 | ✗ | CHROM-TELO-001 | Chromosome | ID: no TTAGGG → no telomere; IDEMP: deterministic |
 | 49 | ✗ | CHROM-CENT-001 | Chromosome | ID: no AT-rich region → no centromere signal; IDEMP: deterministic |
 | 50 | ✗ | CHROM-KARYO-001 | Chromosome | ID: empty input → empty karyotype; IDEMP: deterministic |
@@ -272,7 +272,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 20 |
-| ☐ Not started | 45 |
+| ☑ Complete | 24 |
+| ☐ Not started | 41 |
 | ✗ Not applicable | 169 |
 | Laws verified | ~172 (≈2 per algorithm) |
