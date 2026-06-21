@@ -445,6 +445,97 @@ public class ComparativeCombinatorialTests
         return count;
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: COMPGEN-REVERSAL-001 — Reversal distance (Comparative)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 138.
+    // Spec: tests/TestSpecs/COMPGEN-REVERSAL-001.md (ComparativeGenomics.CalculateReversalDistance).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: Bafna & Pevzner (1998) — unsigned reversal-distance lower bound d = ⌈b/2⌉ where b is the
+    // breakpoint count of the relative permutation extended with sentinels.
+    //
+    // Checklist axes nGenes(3) × nReversals(3) map onto the real knobs: permutation length n ∈ {4,6,8};
+    // number of reversals applied to build permutation1 from the identity r ∈ {0,1,2}. Grid = 3 × 3 = 9.
+    //
+    // The combinatorial point: the breakpoint lower bound is a JOINT function of the permutation length and
+    // how scrambled it is. Each cell re-derives d = ⌈b/2⌉ from the definition and checks production matches,
+    // that it is a valid lower bound (≤ the reversals actually applied, INV-5), symmetric (INV-3), and 0 for
+    // the identity (INV-1).
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// For every (length, applied-reversal count) the reversal distance equals ⌈b/2⌉ re-derived from the
+    /// definition, never exceeds the reversals applied, is symmetric, and is 0 for the identity.
+    /// </summary>
+    [Test, Combinatorial]
+    public void CalculateReversalDistance_LengthReversalGrid_MatchesBreakpointLowerBound(
+        [Values(4, 6, 8)] int nGenes,
+        [Values(0, 1, 2)] int nReversals)
+    {
+        int[] identity = Enumerable.Range(0, nGenes).ToArray();
+        int[] permuted = ApplyReversals(identity, nReversals);
+
+        int expected = GroundTruthReversalDistance(permuted, identity);
+        int distance = ComparativeGenomics.CalculateReversalDistance(permuted, identity);
+
+        distance.Should().Be(expected, "d = ⌈b/2⌉ of the extended relative permutation");
+        distance.Should().BeGreaterThanOrEqualTo(0, "[INV-2] distance ≥ 0");
+        distance.Should().BeLessThanOrEqualTo(nReversals, "[INV-5] the breakpoint bound never exceeds the reversals applied");
+        ComparativeGenomics.CalculateReversalDistance(identity, permuted).Should().Be(distance, "[INV-3] symmetric");
+        if (nReversals == 0)
+            distance.Should().Be(0, "[INV-1] d(π, π) = 0");
+    }
+
+    /// <summary>
+    /// Interaction witness (reversal axis): a single whole-permutation reversal of the identity has reversal
+    /// distance 1 (one reversal restores it). Source: Bafna & Pevzner (1998).
+    /// </summary>
+    [Test]
+    public void CalculateReversalDistance_FullReversal_IsOne()
+    {
+        int[] identity = { 0, 1, 2, 3, 4, 5 };
+        int[] reversed = identity.Reverse().ToArray();
+
+        ComparativeGenomics.CalculateReversalDistance(reversed, identity).Should().Be(1, "one reversal restores the identity");
+    }
+
+    /// <summary>Witness: permutations of different length throw.</summary>
+    [Test]
+    public void CalculateReversalDistance_LengthMismatch_Throws()
+    {
+        Assert.Throws<ArgumentException>(() =>
+            ComparativeGenomics.CalculateReversalDistance(new[] { 0, 1, 2 }, new[] { 0, 1 }));
+    }
+
+    private static int[] ApplyReversals(int[] identity, int reversals)
+    {
+        var p = (int[])identity.Clone();
+        int n = p.Length;
+        for (int k = 0; k < reversals; k++)
+        {
+            // Deterministic distinct reversals: reverse the suffix starting at position k.
+            int lo = k % (n - 1), hi = n - 1;
+            while (lo < hi) { (p[lo], p[hi]) = (p[hi], p[lo]); lo++; hi--; }
+        }
+        return p;
+    }
+
+    private static int GroundTruthReversalDistance(IReadOnlyList<int> p1, IReadOnlyList<int> p2)
+    {
+        int n = p1.Count;
+        if (n <= 1) return 0;
+        var pos = new Dictionary<int, int>();
+        for (int i = 0; i < n; i++) pos[p2[i]] = i;
+        var rel = p1.Select(x => pos[x]).ToList();
+
+        int b = 0;
+        if (rel[0] != 0) b++;
+        for (int i = 0; i < n - 1; i++)
+            if (Math.Abs(rel[i + 1] - rel[i]) != 1) b++;
+        if (rel[n - 1] != n - 1) b++;
+        return (b + 1) / 2;
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     // Helpers — engineered constructs + independent ANIb ground truth
     // ───────────────────────────────────────────────────────────────────────
