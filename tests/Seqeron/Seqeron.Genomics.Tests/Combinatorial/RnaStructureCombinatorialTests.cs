@@ -482,4 +482,110 @@ public class RnaStructureCombinatorialTests
         // No complementary arm at all ⇒ none.
         RnaSecondaryStructure.FindInvertedRepeats("AAAAAAAAAAAA").Should().BeEmpty();
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: RNA-MFE-001 — Minimum free energy (Zuker–Stiegler DP) (RnaStructure)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 152.
+    // Spec: tests/TestSpecs/RNA-MFE-001.md (canonical CalculateMinimumFreeEnergy + the internal
+    //       CalculateMinimumFreeEnergyClassic baseline). ADVANCED §10.
+    // Dimensions: algorithm(2) × seqLen(3) × temperature(3). Grid 2×3×3 = 18 (full, exhaustive).
+    //
+    // Model (Zuker & Stiegler 1981): the MFE is an O(n³) DP over loop decomposition; the open chain
+    // (ΔG = 0) is always available, so the optimum is ≤ 0 and is non-increasing as the sequence is
+    // extended (extension only adds folding options). Two DP engines realise this:
+    //   • algorithm = TurnerDp     → CalculateMinimumFreeEnergy (Turner-2004 nearest-neighbor, NNDB)
+    //   • algorithm = ClassicPairs → CalculateMinimumFreeEnergyClassic (simplified −2.0/WC, −1.0/GU)
+    // Both engines use FIXED energy tables (Turner-37 °C / simplified constants) so the MFE VALUE is
+    // temperature-independent; temperature enters only the Boltzmann weight of a structure within its
+    // ensemble (CalculateStructureProbability, McCaskill 1990).
+    //
+    // The combinatorial point: INV-01 (≤0), INV-02 (monotone under extension) and INV-03
+    // (determinism) hold for BOTH engines at every length, while the algorithm axis interacts with
+    // composition — only the Turner engine distinguishes a GC stem from an AU stem (witness below).
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public enum MfeEngine { TurnerDp, ClassicPairs }
+
+    private static double Mfe(MfeEngine engine, string rna) => engine == MfeEngine.TurnerDp
+        ? RnaSecondaryStructure.CalculateMinimumFreeEnergy(rna)
+        : RnaSecondaryStructure.CalculateMinimumFreeEnergyClassic(rna);
+
+    [Test, Combinatorial]
+    public void RnaMfe_StructuralLaws_AcrossAlgorithmLengthTemperature(
+        [Values(MfeEngine.TurnerDp, MfeEngine.ClassicPairs)] MfeEngine algorithm,
+        [Values(12, 20, 30)] int seqLen,
+        [Values(283.15, 310.15, 337.15)] double temperatureK)
+    {
+        string rna = Hairpin(seqLen);
+
+        double mfe = Mfe(algorithm, rna);
+        mfe.Should().BeLessThanOrEqualTo(0, "the open chain (ΔG=0) is always available (INV-01)");
+        mfe.Should().BeLessThan(0, "a foldable G/C hairpin actually folds under both engines");
+
+        // INV-03 determinism: the same input yields the same value.
+        Mfe(algorithm, rna).Should().Be(mfe, "the MFE DP is deterministic (INV-03)");
+
+        // INV-02 monotone under suffix extension: extending the sequence cannot raise the MFE.
+        double mfeExtended = Mfe(algorithm, rna + Hairpin(12));
+        mfeExtended.Should().BeLessThanOrEqualTo(mfe + 1e-9, "extension only adds folding options (INV-02)");
+
+        // Temperature is not an MFE parameter — it weights the structure within its ensemble.
+        double p = RnaSecondaryStructure.CalculateStructureProbability(mfe, mfe - 1.0, temperatureK);
+        p.Should().BeInRange(0.0, 1.0 + 1e-9, "a structure's Boltzmann probability lies in (0,1]");
+    }
+
+    /// <summary>
+    /// Interaction witness — the algorithm axis interacts with base composition: the Turner engine
+    /// scores a GC stem as more stable than an AU stem of identical geometry (GC stacking ≫ AU),
+    /// whereas the simplified per-pair engine assigns every Watson-Crick pair the same −2.0 and so
+    /// cannot tell them apart.
+    /// </summary>
+    [Test]
+    public void RnaMfe_TurnerDistinguishesGcFromAu_ClassicDoesNot()
+    {
+        const string gcStem = "GGGGAAAACCCC"; // 4 G-C pairs, 4-nt loop
+        const string auStem = "AAAACCCCUUUU"; // 4 A-U pairs, identical geometry (4-bp stem, 4-nt loop)
+
+        RnaSecondaryStructure.CalculateMinimumFreeEnergy(gcStem)
+            .Should().BeLessThan(RnaSecondaryStructure.CalculateMinimumFreeEnergy(auStem),
+                "Turner stacking makes a GC stem more stable than an AU stem");
+
+        RnaSecondaryStructure.CalculateMinimumFreeEnergyClassic(gcStem)
+            .Should().Be(RnaSecondaryStructure.CalculateMinimumFreeEnergyClassic(auStem),
+                "the simplified engine scores every WC pair at −2.0, so equal pair counts tie");
+    }
+
+    /// <summary>
+    /// Interaction witness — both engines fold a hairpin (MFE &lt; 0) but report 0 for an unpairable
+    /// homopolymer; and the Turner engine reproduces the NNDB worked examples exactly
+    /// (tests/TestSpecs/RNA-MFE-001.md M1/M2), anchoring the absolute energy scale.
+    /// </summary>
+    [Test]
+    public void RnaMfe_HairpinFolds_HomopolymerZero_NndbAnchors()
+    {
+        foreach (var engine in new[] { MfeEngine.TurnerDp, MfeEngine.ClassicPairs })
+        {
+            Mfe(engine, Hairpin(20)).Should().BeLessThan(0, "a G/C hairpin folds");
+            Mfe(engine, new string('A', 20)).Should().Be(0, "poly-A cannot pair ⇒ open chain ΔG=0");
+        }
+
+        // NNDB hairpin worked examples (Turner engine, exact).
+        RnaSecondaryStructure.CalculateMinimumFreeEnergy("CACAAAAAAAUGUG")
+            .Should().BeApproximately(-1.41, 1e-9, "NNDB hairpin-example-1 MFE");
+        RnaSecondaryStructure.CalculateMinimumFreeEnergy("CACAGAAAGUGUG")
+            .Should().BeApproximately(-1.91, 1e-9, "NNDB hairpin-example-2 MFE");
+    }
+
+    /// <summary>
+    /// Interaction witness — temperature re-weights the ensemble: for a fixed MFE structure 1 kcal/mol
+    /// below its ensemble, the Boltzmann probability rises with temperature (RT discounts the gap).
+    /// </summary>
+    [Test]
+    public void RnaMfe_StructureProbability_RisesWithTemperature()
+    {
+        double mfe = RnaSecondaryStructure.CalculateMinimumFreeEnergy(Hairpin(20));
+        double pCold = RnaSecondaryStructure.CalculateStructureProbability(mfe, mfe - 1.0, 283.15);
+        double pWarm = RnaSecondaryStructure.CalculateStructureProbability(mfe, mfe - 1.0, 337.15);
+        pWarm.Should().BeGreaterThan(pCold, "a higher RT shrinks the free-energy gap's penalty");
+    }
 }
