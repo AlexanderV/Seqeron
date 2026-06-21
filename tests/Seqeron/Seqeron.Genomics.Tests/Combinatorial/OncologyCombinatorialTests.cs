@@ -2755,6 +2755,124 @@ public class OncologyCombinatorialTests
         OncologyAnalyzer.TryParseHlaAllele("HLA-A*02", out _).Should().BeFalse("a single-field name is incomplete");
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ONCO-ACTION-001 — Clinical actionability (OncoKB levels) (Oncology)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 118.
+    // Spec: tests/TestSpecs/ONCO-ACTION-001.md (OncologyAnalyzer.AssessActionability / ClassifyActionabilityLevel).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: Chakravarty et al. (2017) OncoKB; oncokb-annotator HIGHEST_LEVEL combined order
+    // R1 > 1 > 2 > 3A > 3B > 4 > R2 > None; sensitivity levels {1,2,3A,3B,4}, resistance {R1,R2}.
+    //
+    // Checklist axes evidenceLevel(4) × variantType(3) map onto the real knobs:
+    //   • evidenceLevel → the OncoKB level of the variant's drug association {Level1, Level3A, R1, None}.
+    //   • variantType   → the variant kind {SNV, Indel, Fusion} — informational gene/protein change; the
+    //     assessment is level-based and INVARIANT to the variant type.
+    // Grid = 4 × 3 = 12 = the checklist's "Full Combos" for this row.
+    //
+    // The combinatorial point: the highest sensitive / resistance / combined level is a function of the
+    // association's level alone — a sensitivity level fills the sensitive axis, a resistance level the
+    // resistance axis, None is not actionable — and the result is the same for every variant type. Each
+    // cell is checked against the OncoKB level partition re-derived from the input.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>Variant kind for the (informational) variantType axis.</summary>
+    public enum ActionVariantKind { Snv, Indel, Fusion }
+
+    private static (string Gene, string ProteinChange) ActionVariant(ActionVariantKind kind) => kind switch
+    {
+        ActionVariantKind.Snv => ("BRAF", "p.V600E"),
+        ActionVariantKind.Indel => ("EGFR", "p.L747_P753del"),
+        ActionVariantKind.Fusion => ("ALK", "EML4-ALK"),
+        _ => throw new ArgumentOutOfRangeException(nameof(kind)),
+    };
+
+    /// <summary>
+    /// For every (evidence level, variant type) the actionability assessment matches the OncoKB level
+    /// partition: the combined level equals the association level, the sensitive/resistance axes are filled
+    /// only by their respective level classes, and the result is invariant to the variant type.
+    /// </summary>
+    [Test, Combinatorial]
+    public void AssessActionability_LevelVariantTypeGrid_MatchesOncoKbPartition(
+        [Values(OncologyAnalyzer.OncoKbLevel.Level1, OncologyAnalyzer.OncoKbLevel.Level3A,
+                OncologyAnalyzer.OncoKbLevel.R1, OncologyAnalyzer.OncoKbLevel.None)] OncologyAnalyzer.OncoKbLevel evidenceLevel,
+        [Values] ActionVariantKind variantType)
+    {
+        var (gene, proteinChange) = ActionVariant(variantType);
+        var associations = evidenceLevel == OncologyAnalyzer.OncoKbLevel.None
+            ? new List<OncologyAnalyzer.TherapyAssociation>()
+            : new List<OncologyAnalyzer.TherapyAssociation> { new("DrugX", evidenceLevel) };
+        var input = new OncologyAnalyzer.VariantActionabilityInput(gene, proteinChange, associations);
+
+        // Independent ground truth from the OncoKB level partition.
+        bool isSensitivity = evidenceLevel is OncologyAnalyzer.OncoKbLevel.Level1 or OncologyAnalyzer.OncoKbLevel.Level3A;
+        bool isResistance = evidenceLevel is OncologyAnalyzer.OncoKbLevel.R1;
+        var expectedSensitive = isSensitivity ? evidenceLevel : OncologyAnalyzer.OncoKbLevel.None;
+        var expectedResistance = isResistance ? evidenceLevel : OncologyAnalyzer.OncoKbLevel.None;
+
+        var assessment = OncologyAnalyzer.AssessActionability(new[] { input })[0];
+
+        assessment.HighestCombinedLevel.Should().Be(evidenceLevel, "combined = the single association's level");
+        assessment.HighestSensitiveLevel.Should().Be(expectedSensitive, "sensitive axis filled only by sensitivity levels");
+        assessment.HighestResistanceLevel.Should().Be(expectedResistance, "resistance axis filled only by resistance levels");
+        assessment.IsActionable.Should().Be(evidenceLevel != OncologyAnalyzer.OncoKbLevel.None, "actionable ⟺ a leveled association exists");
+    }
+
+    /// <summary>
+    /// Interaction witness (combined order R1 > Level1): a variant with BOTH a Level-1 sensitivity and an R1
+    /// resistance association reports the sensitive axis as Level1, the resistance axis as R1, and the
+    /// combined highest as R1 (resistance outranks sensitivity in the combined order). Source: oncokb-annotator.
+    /// </summary>
+    [Test]
+    public void AssessActionability_BothSensitivityAndResistance_CombinedIsHighest()
+    {
+        var input = new OncologyAnalyzer.VariantActionabilityInput("BRAF", "p.V600E",
+            new List<OncologyAnalyzer.TherapyAssociation>
+            {
+                new("Vemurafenib", OncologyAnalyzer.OncoKbLevel.Level1),
+                new("DrugR", OncologyAnalyzer.OncoKbLevel.R1),
+            });
+
+        var assessment = OncologyAnalyzer.AssessActionability(new[] { input })[0];
+
+        assessment.HighestSensitiveLevel.Should().Be(OncologyAnalyzer.OncoKbLevel.Level1);
+        assessment.HighestResistanceLevel.Should().Be(OncologyAnalyzer.OncoKbLevel.R1);
+        assessment.HighestCombinedLevel.Should().Be(OncologyAnalyzer.OncoKbLevel.R1, "R1 > Level1 in the combined order");
+    }
+
+    /// <summary>
+    /// Interaction witness (highest of multiple sensitivity associations): the assessment picks the most
+    /// actionable level — Level1 over Level4. Source: oncokb-annotator HIGHEST_LEVEL.
+    /// </summary>
+    [Test]
+    public void ClassifyActionabilityLevel_MultipleAssociations_PicksHighest()
+    {
+        var input = new OncologyAnalyzer.VariantActionabilityInput("EGFR", "p.L858R",
+            new List<OncologyAnalyzer.TherapyAssociation>
+            {
+                new("DrugA", OncologyAnalyzer.OncoKbLevel.Level4),
+                new("DrugB", OncologyAnalyzer.OncoKbLevel.Level1),
+            });
+
+        OncologyAnalyzer.ClassifyActionabilityLevel(input).Should().Be(OncologyAnalyzer.OncoKbLevel.Level1, "Level1 > Level4");
+    }
+
+    /// <summary>
+    /// Witness (not actionable): a variant with no leveled associations is None / not actionable. Source:
+    /// OncoKB (no leveled association).
+    /// </summary>
+    [Test]
+    public void AssessActionability_NoAssociations_IsNotActionable()
+    {
+        var input = new OncologyAnalyzer.VariantActionabilityInput("TP53", "p.R175H",
+            new List<OncologyAnalyzer.TherapyAssociation>());
+
+        var assessment = OncologyAnalyzer.AssessActionability(new[] { input })[0];
+
+        assessment.HighestCombinedLevel.Should().Be(OncologyAnalyzer.OncoKbLevel.None);
+        assessment.IsActionable.Should().BeFalse();
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     // Helpers — engineered constructs + independent ground truth
     // ───────────────────────────────────────────────────────────────────────
