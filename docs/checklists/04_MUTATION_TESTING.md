@@ -45,9 +45,9 @@ Mutation testing вимірює ефективність тестового на
 | 15 | ☑ | REP-INV-001 | Repeats | RepeatFinder.cs | RepeatFinder_InvertedRepeat_Tests.cs | ≥ 80% |
 | 16 | ☑ | REP-DIRECT-001 | Repeats | RepeatFinder.cs | RepeatFinder_DirectRepeat_Tests.cs | ≥ 80% |
 | 17 | ☑ | REP-PALIN-001 | Repeats | RepeatFinder.cs | RepeatFinder_Palindrome_Tests.cs | ≥ 80% |
-| 18 | ☐ | CRISPR-PAM-001 | MolTools | CrisprDesigner.cs | CrisprDesigner_PAM_Tests.cs | ≥ 80% |
-| 19 | ☐ | CRISPR-GUIDE-001 | MolTools | CrisprDesigner.cs | CrisprDesigner_GuideRNA_Tests.cs | ≥ 80% |
-| 20 | ☐ | CRISPR-OFF-001 | MolTools | CrisprDesigner.cs | CrisprDesigner_OffTarget_Tests.cs | ≥ 80% |
+| 18 | ☑ | CRISPR-PAM-001 | MolTools | CrisprDesigner.cs | CrisprDesigner_PAM_Tests.cs | ≥ 80% |
+| 19 | ☑ | CRISPR-GUIDE-001 | MolTools | CrisprDesigner.cs | CrisprDesigner_GuideRNA_Tests.cs | ≥ 80% |
+| 20 | ☑ | CRISPR-OFF-001 | MolTools | CrisprDesigner.cs | CrisprDesigner_OffTarget_Tests.cs | ≥ 80% |
 | 21 | ☐ | PRIMER-TM-001 | MolTools | PrimerDesigner.cs | PrimerDesigner_MeltingTemperature_Tests.cs | ≥ 80% |
 | 22 | ☐ | PRIMER-DESIGN-001 | MolTools | PrimerDesigner.cs | PrimerDesigner_PrimerDesign_Tests.cs | ≥ 80% |
 | 23 | ☐ | PRIMER-STRUCT-001 | MolTools | PrimerDesigner.cs | PrimerDesigner_PrimerStructure_Tests.cs | ≥ 80% |
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 26 |
-| ☐ Not started | 208 |
+| ☑ Complete (run + killers written) | 29 |
+| ☐ Not started | 205 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
