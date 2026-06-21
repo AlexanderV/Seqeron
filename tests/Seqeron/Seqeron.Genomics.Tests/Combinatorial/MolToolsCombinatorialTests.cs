@@ -317,4 +317,106 @@ public class MolToolsCombinatorialTests
         few.Should().BeLessThan(none);
         many.Should().BeLessThan(few);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: PRIMER-TM-001 — Primer melting-temperature calculation (MolTools)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 21.
+    // Dimensions: method(2) × saltConc(3) × primerLen(3). Full grid 2×3×3 = 18.
+    //
+    // Note on the grid (cf. CRISPR-GUIDE-001 above): the checklist names the method
+    // axis "basic/SantaLucia", but the implemented Tm models are (a) a salt-free
+    // base Tm whose FORMULA is itself length-selected — Wallace's rule 2·(A+T)+4·(G+C)
+    // for short oligos (<14 valid nt) and the Marmur-Doty GC% formula
+    // 64.9 + 41·(#GC − 16.4)/N for ≥14 nt — and (b) that base Tm plus a
+    // Schildkraut-Lifson salt correction 16.6·log10([Na⁺]). (A SantaLucia
+    // nearest-neighbour model exists only as the ΔG-based 3′-stability metric, not a
+    // Tm.) So method = {Basic, SaltCorrected}, and primerLen straddles the
+    // Wallace↔Marmur-Doty switch (10 nt → Wallace; 14, 24 nt → Marmur-Doty).
+    //
+    // The combinatorial point: method and saltConc INTERACT. Under SaltCorrected the
+    // salt axis shifts Tm by +16.6·log10([Na⁺]/1000) and is monotone increasing in
+    // [Na⁺]; under Basic the salt axis is INERT (identical Tm at every saltConc).
+    // primerLen interacts with method by selecting which base formula applies.
+    // — Wallace 1979 NAR 6:3543; Marmur & Doty 1962 JMB 5:109; Schildkraut & Lifson
+    //   1965 Biopolymers 3:195.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public enum TmMethod { Basic, SaltCorrected }
+
+    /// <summary>Deterministic 50%-GC primer of length n ("ACGT…").</summary>
+    private static string PrimerOfLen(int n) => string.Concat(Enumerable.Range(0, n).Select(i => "ACGT"[i % 4]));
+
+    /// <summary>Independent re-derivation of the documented base Tm (no salt).</summary>
+    private static double ExpectedBaseTm(string seq)
+    {
+        int at = seq.Count(c => c is 'A' or 'T'), gc = seq.Count(c => c is 'G' or 'C');
+        int n = at + gc;
+        if (n == 0) return 0;
+        return n < 14 ? 2 * at + 4 * gc : Math.Max(0, 64.9 + 41.0 * (gc - 16.4) / n);
+    }
+
+    [Test, Combinatorial]
+    public void PrimerTm_MatchesDocumentedFormula_SaltActiveOnlyForSaltCorrected(
+        [Values(TmMethod.Basic, TmMethod.SaltCorrected)] TmMethod method,
+        [Values(10.0, 50.0, 200.0)] double saltMm,
+        [Values(10, 14, 24)] int primerLen)
+    {
+        string seq = PrimerOfLen(primerLen);
+        double baseTm = ExpectedBaseTm(seq);
+
+        double actual = method == TmMethod.Basic
+            ? PrimerDesigner.CalculateMeltingTemperature(seq)
+            : PrimerDesigner.CalculateMeltingTemperatureWithSalt(seq, saltMm);
+
+        double expected = method == TmMethod.Basic
+            ? baseTm                                                       // salt axis inert
+            : Math.Round(baseTm + 16.6 * Math.Log10(saltMm / 1000.0), 1);  // Schildkraut-Lifson
+
+        actual.Should().BeApproximately(expected, 1e-9,
+            $"{method} Tm of a {primerLen}-mer at {saltMm} mM follows the documented formula");
+
+        // Only the base Tm is clamped at 0; the additive salt correction may legitimately
+        // drive a low-Tm short primer below 0 at very low [Na⁺] (e.g. 10-mer at 10 mM → −3.2 °C).
+        if (method == TmMethod.Basic)
+            actual.Should().BeGreaterThanOrEqualTo(0.0, "the base melting temperature is clamped non-negative");
+    }
+
+    /// <summary>
+    /// Interaction witness: saltConc drives Tm only under SaltCorrected. The base
+    /// model is constant across [Na⁺]; the salt-corrected model rises strictly with it.
+    /// </summary>
+    [Test]
+    public void PrimerTm_SaltAxis_InertForBasic_MonotoneForSaltCorrected()
+    {
+        string seq = PrimerOfLen(24);
+
+        double b10 = PrimerDesigner.CalculateMeltingTemperature(seq);
+        double b200 = PrimerDesigner.CalculateMeltingTemperature(seq);
+        b10.Should().Be(b200, "the base Tm has no salt term");
+
+        double s10 = PrimerDesigner.CalculateMeltingTemperatureWithSalt(seq, 10.0);
+        double s50 = PrimerDesigner.CalculateMeltingTemperatureWithSalt(seq, 50.0);
+        double s200 = PrimerDesigner.CalculateMeltingTemperatureWithSalt(seq, 200.0);
+        s10.Should().BeLessThan(s50);
+        s50.Should().BeLessThan(s200, "Tm rises with [Na⁺] via +16.6·log10([Na⁺])");
+
+        // At 1 M Na⁺ the correction vanishes, so salt-corrected ≡ base Tm.
+        PrimerDesigner.CalculateMeltingTemperatureWithSalt(seq, 1000.0)
+            .Should().BeApproximately(b10, 0.05);
+    }
+
+    /// <summary>
+    /// Interaction witness: the primerLen axis selects the formula — a 12-mer uses
+    /// Wallace (all-GC ⇒ 4·12 = 48 °C); a 20-mer with 10 GC uses Marmur-Doty
+    /// (64.9 + 41·(10−16.4)/20 = 51.78 °C).
+    /// </summary>
+    [Test]
+    public void PrimerTm_FormulaSwitch_WorkedExamples()
+    {
+        PrimerDesigner.CalculateMeltingTemperature("GCGCGCGCGCGC")  // 12 nt, Wallace
+            .Should().BeApproximately(48.0, 1e-9);
+
+        PrimerDesigner.CalculateMeltingTemperature("ACGTACGTACACGTACGTAC")  // 20 nt, 10 GC, Marmur-Doty
+            .Should().BeApproximately(51.78, 0.01);
+    }
 }
