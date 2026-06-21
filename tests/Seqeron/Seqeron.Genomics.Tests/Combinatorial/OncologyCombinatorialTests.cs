@@ -800,6 +800,80 @@ public class OncologyCombinatorialTests
         small.Status.Should().Be(large.Status).And.Be(OncologyAnalyzer.MsiStatus.MSI_High);
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ONCO-HRD-001 — Homologous-recombination-deficiency genomic-scar score (Oncology)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 94.
+    // Spec: tests/TestSpecs/ONCO-HRD-001.md (OncologyAnalyzer.CalculateHRDScore / ClassifyHRDStatus / DetectHRD).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: Telli et al. (2016) Clin Cancer Res 22:3764 (HRD = unweighted sum LOH+TAI+LST; HRD-High ⟺
+    // score ≥ 42, inclusive); Birkbak et al. (2012) (TAI); Popova et al. (2012) (LST); Stewart et al. (2022).
+    //
+    // HRD score = LOH + TAI + LST;  ClassifyHRDStatus → HrdHigh ⟺ score ≥ 42.
+    //
+    // Checklist axes LOH(3) × TAI(3) × LST(3) map DIRECTLY onto the three real integer component inputs
+    // (no deviation): LOH ∈ {5,14,25}, TAI ∈ {4,14,20}, LST ∈ {3,14,18}. Grid = 3³ = 27 = the checklist's
+    // "Full Combos" for this row.
+    //
+    // The combinatorial point: HrdHigh depends on the SUM of all three scars — no single component decides
+    // it. Each cell checks the unweighted sum and the inclusive 42 cutoff; the end-to-end DetectHRD result
+    // preserves the components and composes the sum and classification.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private const int HrdHighCutoff = 42;
+
+    /// <summary>
+    /// For every (LOH, TAI, LST) the HRD score equals the unweighted sum and the status matches the
+    /// inclusive 42 cutoff; DetectHRD preserves the components and composes the same score/status.
+    /// </summary>
+    [Test, Combinatorial]
+    public void CalculateHRDScore_LohTaiLstGrid_UnweightedSumAndCutoff(
+        [Values(5, 14, 25)] int loh,
+        [Values(4, 14, 20)] int tai,
+        [Values(3, 14, 18)] int lst)
+    {
+        int expectedScore = loh + tai + lst;
+        var expectedStatus = expectedScore >= HrdHighCutoff ? OncologyAnalyzer.HrdStatus.HrdHigh : OncologyAnalyzer.HrdStatus.HrdNegative;
+
+        OncologyAnalyzer.CalculateHRDScore(loh, tai, lst).Should().Be(expectedScore, "[INV-1] HRD = LOH + TAI + LST (unweighted)");
+        OncologyAnalyzer.ClassifyHRDStatus(expectedScore).Should().Be(expectedStatus, "[INV-3] HrdHigh ⟺ score ≥ 42");
+
+        var result = OncologyAnalyzer.DetectHRD(new OncologyAnalyzer.HrdComponents(loh, tai, lst));
+        result.Score.Should().Be(expectedScore);
+        result.Status.Should().Be(expectedStatus);
+        result.Components.Should().Be(new OncologyAnalyzer.HrdComponents(loh, tai, lst), "[INV-4] DetectHRD preserves components");
+    }
+
+    /// <summary>
+    /// Interaction witness: starting from a sub-threshold sum of 41, bumping ANY single scar component by
+    /// one to reach 42 flips HRD-negative → HRD-high — no component is privileged; the call is on the sum.
+    /// Source: Telli et al. (2016) unweighted sum, inclusive ≥42 cutoff.
+    /// </summary>
+    [Test]
+    public void DetectHRD_AnyComponentCrossingFortyTwo_FlipsToHrdHigh()
+    {
+        OncologyAnalyzer.DetectHRD(new OncologyAnalyzer.HrdComponents(13, 14, 14)).Status
+            .Should().Be(OncologyAnalyzer.HrdStatus.HrdNegative, "13+14+14 = 41 < 42");
+        OncologyAnalyzer.DetectHRD(new OncologyAnalyzer.HrdComponents(14, 14, 14)).Status
+            .Should().Be(OncologyAnalyzer.HrdStatus.HrdHigh, "LOH axis: 14+14+14 = 42");
+        OncologyAnalyzer.DetectHRD(new OncologyAnalyzer.HrdComponents(13, 15, 14)).Status
+            .Should().Be(OncologyAnalyzer.HrdStatus.HrdHigh, "TAI axis: 13+15+14 = 42");
+        OncologyAnalyzer.DetectHRD(new OncologyAnalyzer.HrdComponents(13, 14, 15)).Status
+            .Should().Be(OncologyAnalyzer.HrdStatus.HrdHigh, "LST axis: 13+14+15 = 42");
+    }
+
+    /// <summary>
+    /// Interaction witness (INV-2 commutativity): the unweighted sum is order-independent — every
+    /// permutation of (20, 15, 12) gives 47. Source: Telli et al. (2016) "unweighted sum".
+    /// </summary>
+    [Test]
+    public void CalculateHRDScore_ComponentOrderPermuted_SameSum()
+    {
+        OncologyAnalyzer.CalculateHRDScore(20, 15, 12).Should().Be(47);
+        OncologyAnalyzer.CalculateHRDScore(12, 20, 15).Should().Be(47);
+        OncologyAnalyzer.CalculateHRDScore(15, 12, 20).Should().Be(47);
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     // Helpers — engineered constructs + independent ground truth
     // ───────────────────────────────────────────────────────────────────────
