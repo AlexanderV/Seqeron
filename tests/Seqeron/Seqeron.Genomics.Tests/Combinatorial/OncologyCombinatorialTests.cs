@@ -2660,6 +2660,101 @@ public class OncologyCombinatorialTests
         return vafs;
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ONCO-HLA-001 — HLA loss-of-heterozygosity (Oncology)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 117.
+    // Spec: tests/TestSpecs/ONCO-HLA-001.md (OncologyAnalyzer.DetectHlaLoh / ParseHlaAllele).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: McGranahan et al. (2017) LOHHLA — HLA LOH ⟺ exactly one allele has copy number < 0.5 AND the
+    // allelic-imbalance paired-t-test p < 0.01 (over-calling guard); both alleles < 0.5 = homozygous loss.
+    //
+    // Checklist axes locus(3) × zygosity(2) × coverage(3) map onto the real knobs:
+    //   • locus    → HLA gene {A, B, C} — informational; the LOH decision is gene-INDEPENDENT.
+    //   • zygosity → the copy-number loss pattern {Retained (both ≥ 0.5), OneLost (one < 0.5)}.
+    //   • coverage → the allelic-imbalance p value (coverage drives t-test power) {0.001 (significant),
+    //     0.01 (boundary, NOT < 0.01), 0.5 (not significant)}.
+    // Grid = 3 × 2 × 3 = 18 = the checklist's "Full Combos" for this row.
+    //
+    // The combinatorial point: LOH requires BOTH an allele loss AND a significant imbalance — a lost allele
+    // without significance is suppressed by the over-calling guard, and a retained locus is never LOH at any
+    // p; the call is invariant to the locus. Each cell is checked against the LOHHLA rule re-derived from inputs.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// For every (locus, zygosity, p value) the HLA-LOH call matches the LOHHLA rule: LOH ⟺ exactly one
+    /// allele CN < 0.5 AND p < 0.01 — gene-independent, with the significance flag reported separately.
+    /// </summary>
+    [Test, Combinatorial]
+    public void DetectHlaLoh_LocusZygosityCoverageGrid_MatchesLohhlaRule(
+        [Values("A", "B", "C")] string locus,
+        [Values(false, true)] bool oneLost,
+        [Values(0.001, 0.01, 0.5)] double pValue)
+    {
+        double allele1Cn = oneLost ? 0.2 : 1.0;
+        const double allele2Cn = 1.0;
+        var cn = new OncologyAnalyzer.HlaAlleleCopyNumber(
+            $"HLA-{locus}*02:01", allele1Cn, $"HLA-{locus}*03:01", allele2Cn, pValue);
+
+        // Independent ground truth.
+        bool significant = pValue < 0.01;
+        bool expectedLoh = oneLost && significant;
+        var expectedLost = expectedLoh ? OncologyAnalyzer.HlaLostAllele.Allele1 : OncologyAnalyzer.HlaLostAllele.None;
+
+        var result = OncologyAnalyzer.DetectHlaLoh(cn);
+
+        result.IsLoh.Should().Be(expectedLoh, "LOH ⟺ one allele < 0.5 AND p < 0.01");
+        result.LostAllele.Should().Be(expectedLost);
+        result.AllelicImbalanceSignificant.Should().Be(significant, "imbalance significant ⟺ p < 0.01");
+    }
+
+    /// <summary>
+    /// Interaction witness (coverage/significance axis, over-calling guard): a lost allele is called LOH at
+    /// p = 0.001 but suppressed at p = 0.5 and at the strict boundary p = 0.01 (not &lt; 0.01). The call
+    /// flips on the significance axis. Source: McGranahan et al. (2017) p &lt; 0.01 guard.
+    /// </summary>
+    [Test]
+    public void DetectHlaLoh_SignificanceAxis_GuardsAgainstOverCalling()
+    {
+        OncologyAnalyzer.HlaAlleleCopyNumber Cn(double p) =>
+            new("HLA-A*02:01", 0.2, "HLA-A*03:01", 1.0, p);
+
+        OncologyAnalyzer.DetectHlaLoh(Cn(0.001)).IsLoh.Should().BeTrue("significant imbalance → LOH");
+        OncologyAnalyzer.DetectHlaLoh(Cn(0.01)).IsLoh.Should().BeFalse("p = 0.01 is not < 0.01 → guarded");
+        OncologyAnalyzer.DetectHlaLoh(Cn(0.5)).IsLoh.Should().BeFalse("non-significant imbalance → guarded");
+    }
+
+    /// <summary>
+    /// Interaction witness (zygosity axis): a locus with both alleles retained (CN ≥ 0.5) is never LOH even
+    /// with a highly significant imbalance, while both alleles below 0.5 is homozygous loss (Both), not
+    /// allele-specific LOH. Source: McGranahan et al. (2017).
+    /// </summary>
+    [Test]
+    public void DetectHlaLoh_ZygosityAxis_RetainedAndHomozygousLoss()
+    {
+        var retained = OncologyAnalyzer.DetectHlaLoh(new("HLA-B*07:02", 1.0, "HLA-B*08:01", 1.0, 0.0001));
+        retained.IsLoh.Should().BeFalse("both alleles retained → no LOH");
+        retained.LostAllele.Should().Be(OncologyAnalyzer.HlaLostAllele.None);
+
+        var homozygousLoss = OncologyAnalyzer.DetectHlaLoh(new("HLA-B*07:02", 0.2, "HLA-B*08:01", 0.1, 0.0001));
+        homozygousLoss.IsLoh.Should().BeFalse("both below 0.5 → homozygous loss, not allele-specific LOH");
+        homozygousLoss.LostAllele.Should().Be(OncologyAnalyzer.HlaLostAllele.Both);
+    }
+
+    /// <summary>
+    /// Witness (HLA nomenclature parsing, INV-1/2): a two-field allele parses and round-trips, while a
+    /// single-field name is invalid (two-field minimum). Source: WHO HLA Nomenclature.
+    /// </summary>
+    [Test]
+    public void ParseHlaAllele_FieldCountRules()
+    {
+        var allele = OncologyAnalyzer.ParseHlaAllele("HLA-A*02:01");
+        allele.Fields.Should().HaveCount(2);
+        allele.Name.Should().Be("HLA-A*02:01", "the parsed allele round-trips");
+
+        OncologyAnalyzer.TryParseHlaAllele("HLA-A*02", out _).Should().BeFalse("a single-field name is incomplete");
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     // Helpers — engineered constructs + independent ground truth
     // ───────────────────────────────────────────────────────────────────────
