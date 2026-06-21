@@ -83,9 +83,9 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 51 | ✗ | CHROM-ANEU-001 | Chromosome | ID: normal diploid depth → CN=2; IDEMP: deterministic |
 | 52 | ☑ | CHROM-SYNT-001 | Chromosome | COMM: synteny blocks(A,B) = reversed synteny blocks(B,A); ID: self-comparison → full synteny |
 | 53 | ✗ | META-CLASS-001 | Metagenomics | ID: read from known reference → correct classification; IDEMP: deterministic |
-| 54 | ☐ | META-PROF-001 | Metagenomics | DIST: sum(abundances)=1.0; ID: single species → abundance=1 |
+| 54 | ☑ | META-PROF-001 | Metagenomics | DIST: sum(abundances)=1.0; ID: single species → abundance=1 |
 | 55 | ✗ | META-ALPHA-001 | Metagenomics | ID: single species → Shannon=0; ID: single species → Simpson=0 |
-| 56 | ☐ | META-BETA-001 | Metagenomics | ID: dist(x,x)=0; COMM: dist(a,b)=dist(b,a) |
+| 56 | ☑ | META-BETA-001 | Metagenomics | ID: dist(x,x)=0; COMM: dist(a,b)=dist(b,a) |
 | 57 | ✗ | META-BIN-001 | Metagenomics | ID: single contig → single bin; IDEMP: deterministic |
 | 58 | ☐ | CODON-OPT-001 | Codon | RT: translate(optimize(dna)) = translate(dna); IDEMP: optimize(optimize(x)) = optimize(x) |
 | 59 | ✗ | CODON-CAI-001 | Codon | ID: all optimal codons → CAI ≈ 1; IDEMP: CAI deterministic |
@@ -272,7 +272,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 25 |
-| ☐ Not started | 40 |
+| ☑ Complete | 27 |
+| ☐ Not started | 38 |
 | ✗ Not applicable | 169 |
 | Laws verified | ~172 (≈2 per algorithm) |
