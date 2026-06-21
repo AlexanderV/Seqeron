@@ -1,4 +1,4 @@
-# Checklist 03: Mutation Testing (Stryker)
+# Checklist 04: Mutation Testing (Stryker)
 
 **Priority:** P1  
 **Framework:** Stryker.NET  
@@ -28,10 +28,10 @@ Mutation testing вимірює ефективність тестового на
 
 | # | Status | Test Unit | Area | Source File | Test File(s) | Target Score |
 |---|--------|-----------|------|------------|-------------|:---:|
-| 1 | ☐ | SEQ-GC-001 | Composition | SequenceExtensions.cs | SequenceExtensions_CalculateGcContent_Tests.cs | ≥ 80% |
-| 2 | ☐ | SEQ-COMP-001 | Composition | SequenceExtensions.cs | SequenceExtensions_Complement_Tests.cs | ≥ 80% |
-| 3 | ☐ | SEQ-REVCOMP-001 | Composition | SequenceExtensions.cs | SequenceExtensions_ReverseComplement_Tests.cs | ≥ 80% |
-| 4 | ☐ | SEQ-VALID-001 | Composition | SequenceExtensions.cs | SequenceExtensions_SequenceValidation_Tests.cs | ≥ 80% |
+| 1 | ☑ | SEQ-GC-001 | Composition | SequenceExtensions.cs | SequenceExtensions_CalculateGcContent_Tests.cs | ≥ 80% |
+| 2 | ☑ | SEQ-COMP-001 | Composition | SequenceExtensions.cs | SequenceExtensions_Complement_Tests.cs | ≥ 80% |
+| 3 | ☑ | SEQ-REVCOMP-001 | Composition | SequenceExtensions.cs | SequenceExtensions_ReverseComplement_Tests.cs | ≥ 80% |
+| 4 | ☑ | SEQ-VALID-001 | Composition | SequenceExtensions.cs | SequenceExtensions_SequenceValidation_Tests.cs | ≥ 80% |
 | 5 | ☐ | SEQ-COMPLEX-001 | Composition | SequenceComplexity.cs | SequenceComplexityTests.cs | ≥ 80% |
 | 6 | ☐ | SEQ-ENTROPY-001 | Composition | SequenceComplexity.cs | SequenceComplexityTests.cs | ≥ 80% |
 | 7 | ☐ | SEQ-GCSKEW-001 | Composition | GcSkewCalculator.cs | GcSkewCalculatorTests.cs | ≥ 80% |
@@ -239,7 +239,7 @@ Mutation testing вимірює ефективність тестового на
 | 209 | ☐ | POP-SELECT-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_SelectionSignature_Tests.cs | ≥ 80% |
 | 210 | ☐ | SEQ-ATSKEW-001 | Composition | GcSkewCalculator.cs | GcSkewCalculator_CalculateAtSkew_Tests.cs | ≥ 80% |
 | 211 | ☐ | SEQ-REPLICATION-001 | Composition | GcSkewCalculator.cs | GcSkewCalculator_PredictReplicationOrigin_Tests.cs | ≥ 80% |
-| 212 | ☐ | SEQ-RNACOMP-001 | Composition | SequenceExtensions.cs | SequenceExtensions_GetRnaComplementBase_Tests.cs | ≥ 80% |
+| 212 | ☑ | SEQ-RNACOMP-001 | Composition | SequenceExtensions.cs | SequenceExtensions_GetRnaComplementBase_Tests.cs | ≥ 80% |
 | 213 | ☐ | CODON-ENC-001 | Codon | CodonUsageAnalyzer.cs | CodonUsageAnalyzer_CalculateEnc_Tests.cs | ≥ 80% |
 | 214 | ☐ | CODON-RSCU-001 | Codon | CodonUsageAnalyzer.cs | CodonUsageAnalyzer_CalculateRscu_Tests.cs | ≥ 80% |
 | 215 | ☐ | CODON-STATS-001 | Codon | CodonUsageAnalyzer.cs | CodonUsageAnalyzer_GetStatistics_Tests.cs | ≥ 80% |
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 8 |
-| ☐ Not started | 226 |
+| ☑ Complete (run + killers written) | 13 |
+| ☐ Not started | 221 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
