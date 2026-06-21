@@ -3001,6 +3001,118 @@ public class OncologyCombinatorialTests
         return profile;
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ONCO-EXPR-001 — Gene-expression outlier detection (Oncology)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 120.
+    // Spec: tests/TestSpecs/ONCO-EXPR-001.md (OncologyAnalyzer.IdentifyOutlierGenes / CalculateExpressionZScore).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: cBioPortal z-score normalization (z = (value − μ)/σ, sample SD, divisor n−1) and FAQ
+    // (outlier ⟺ z > +threshold over / z < −threshold under, strict; default 2.0).
+    //
+    // Checklist axes nGenes(3) × zThreshold(3) × normalization(2) map onto the real knobs:
+    //   • nGenes        → number of genes in the sample ∈ {1, 3, 5}.
+    //   • zThreshold    → the absolute z-score threshold ∈ {1.5, 2.0, 3.0}.
+    //   • normalization → the outlier direction the z-score normalization yields {Over (z > 0), Under
+    //     (z < 0)} — every gene is engineered to a |z| ≈ 2.5 of the chosen sign.
+    // Grid = 3 × 3 × 2 = 18 = the checklist's "Full Combos" for this row.
+    //
+    // The combinatorial point: outlier status is a JOINT function of the z-score magnitude and the
+    // threshold — every gene (|z| ≈ 2.5) is an outlier at thresholds 1.5 and 2.0 but not at 3.0 — and the
+    // reported direction follows the sign; the count scales with the gene panel. Each cell is checked
+    // against the |z| > threshold rule re-derived from the production z-score.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // Symmetric cohort μ = 0, sample SD σ = √2.5, so value = ±2.5·σ gives z = ±2.5.
+    private static readonly double[] ExprCohort = { -2.0, -1.0, 0.0, 1.0, 2.0 };
+
+    /// <summary>
+    /// For every (gene count, threshold, direction) the outlier set matches the |z| &gt; threshold rule: with
+    /// every gene at |z| ≈ 2.5 of the chosen sign, all genes are outliers at thresholds below 2.5 and none at
+    /// 3.0, and every reported outlier carries the engineered direction.
+    /// </summary>
+    [Test, Combinatorial]
+    public void IdentifyOutlierGenes_GenesThresholdDirectionGrid_MatchesZScoreRule(
+        [Values(1, 3, 5)] int nGenes,
+        [Values(1.5, 2.0, 3.0)] double threshold,
+        [Values(true, false)] bool overExpressed)
+    {
+        double sigma = Math.Sqrt(2.5);
+        double value = (overExpressed ? 1.0 : -1.0) * 2.5 * sigma;
+
+        var sample = new Dictionary<string, double>();
+        var cohorts = new Dictionary<string, IReadOnlyList<double>>();
+        for (int i = 0; i < nGenes; i++)
+        {
+            sample[$"GENE{i}"] = value;
+            cohorts[$"GENE{i}"] = ExprCohort;
+        }
+
+        // Independent ground truth via the production z-score (|z| ≈ 2.5).
+        double z = OncologyAnalyzer.CalculateExpressionZScore(value, ExprCohort);
+        bool isOutlier = Math.Abs(z) > threshold;
+        var expectedDirection = overExpressed ? OncologyAnalyzer.ExpressionDirection.Over : OncologyAnalyzer.ExpressionDirection.Under;
+
+        var outliers = OncologyAnalyzer.IdentifyOutlierGenes(sample, cohorts, threshold);
+
+        outliers.Should().HaveCount(isOutlier ? nGenes : 0, "outlier ⟺ |z| > threshold (strict)");
+        if (isOutlier)
+            outliers.Should().OnlyContain(o => o.Direction == expectedDirection, "direction follows the z-score sign");
+    }
+
+    /// <summary>
+    /// Interaction witness (threshold strictness): a gene at exactly z = 2.0 is NOT an outlier at threshold
+    /// 2.0 (strict &gt;) but is at threshold 1.5. The call flips on the threshold axis. Source: cBioPortal FAQ.
+    /// </summary>
+    [Test]
+    public void IdentifyOutlierGenes_ThresholdIsStrict()
+    {
+        double value = 2.0 * Math.Sqrt(2.5); // z = 2.0 exactly
+        var sample = new Dictionary<string, double> { ["GENE"] = value };
+        var cohorts = new Dictionary<string, IReadOnlyList<double>> { ["GENE"] = ExprCohort };
+
+        OncologyAnalyzer.IdentifyOutlierGenes(sample, cohorts, 2.0).Should().BeEmpty("z = 2.0 is not > 2.0");
+        OncologyAnalyzer.IdentifyOutlierGenes(sample, cohorts, 1.5).Should().ContainSingle("z = 2.0 > 1.5");
+    }
+
+    /// <summary>
+    /// Interaction witness (per-gene independence): in a mixed sample only the gene whose |z| clears the
+    /// threshold is reported, with the correct over/under direction. Source: cBioPortal per-gene z-score.
+    /// </summary>
+    [Test]
+    public void IdentifyOutlierGenes_MixedSample_ReportsOnlyOutliers()
+    {
+        double sigma = Math.Sqrt(2.5);
+        var sample = new Dictionary<string, double>
+        {
+            ["HIGH"] = 3.0 * sigma,  // z = +3 → over
+            ["NORMAL"] = 0.5 * sigma, // z = +0.5 → not an outlier
+            ["LOW"] = -3.0 * sigma,  // z = −3 → under
+        };
+        var cohorts = new Dictionary<string, IReadOnlyList<double>>
+        {
+            ["HIGH"] = ExprCohort, ["NORMAL"] = ExprCohort, ["LOW"] = ExprCohort,
+        };
+
+        var outliers = OncologyAnalyzer.IdentifyOutlierGenes(sample, cohorts, 2.0);
+
+        outliers.Select(o => o.Gene).Should().BeEquivalentTo(new[] { "HIGH", "LOW" }, "only |z| > 2 genes");
+        outliers.Single(o => o.Gene == "HIGH").Direction.Should().Be(OncologyAnalyzer.ExpressionDirection.Over);
+        outliers.Single(o => o.Gene == "LOW").Direction.Should().Be(OncologyAnalyzer.ExpressionDirection.Under);
+    }
+
+    /// <summary>
+    /// Witness (z-score formula): z = (value − μ)/σ with the sample standard deviation (divisor n−1). For
+    /// cohort {0,2,4,6,8} (μ = 4, σ = √10) a sample value of 4 has z = 0. Source: cBioPortal normalization.
+    /// </summary>
+    [Test]
+    public void CalculateExpressionZScore_MatchesSampleStandardDeviationFormula()
+    {
+        var cohort = new[] { 0.0, 2.0, 4.0, 6.0, 8.0 }; // μ = 4, sample SD = √10
+        OncologyAnalyzer.CalculateExpressionZScore(4.0, cohort).Should().BeApproximately(0.0, 1e-12);
+        OncologyAnalyzer.CalculateExpressionZScore(4.0 + Math.Sqrt(10.0), cohort).Should().BeApproximately(1.0, 1e-12);
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     // Helpers — engineered constructs + independent ground truth
     // ───────────────────────────────────────────────────────────────────────
