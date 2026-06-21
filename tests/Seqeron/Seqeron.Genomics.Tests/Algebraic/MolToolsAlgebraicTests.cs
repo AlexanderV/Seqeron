@@ -108,4 +108,75 @@ public class MolToolsAlgebraicTests
         mutated.Should().BeLessThan(perfect);
         mutated.Should().BeGreaterThanOrEqualTo(0.0);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: RESTR-DIGEST-001 — Restriction digest simulation (MolTools)
+    // Checklist: docs/checklists/06_ALGEBRAIC_TESTING.md, row 27.
+    //
+    // Model: a linear digest with k distinct forward-strand cut positions splits
+    //        the sequence into k+1 contiguous, non-overlapping fragments that
+    //        tile the molecule end to end. With zero cuts the whole sequence is a
+    //        single fragment.
+    //   — docs/algorithms/MolTools/Restriction_Digest_Simulation.md;
+    //     RestrictionAnalyzer.Digest.
+    //
+    // Laws under test (checklist row 27):
+    //   • ID   — 0 cut sites → exactly 1 fragment equal to the full sequence.
+    //   • DIST — conservation of length: Σ fragment.Length = sequence.Length, and
+    //            (stronger) the ordered concatenation of fragments reconstructs
+    //            the original sequence — no base is created or destroyed by the cut.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private static Arbitrary<string> DnaArbitrary(int minLen) =>
+        Gen.Elements('A', 'C', 'G', 'T')
+            .ArrayOf()
+            .Where(a => a.Length >= minLen)
+            .Select(a => new string(a))
+            .ToArbitrary();
+
+    /// <summary>
+    /// ID: a sequence with no EcoRI site (no GAATTC) digests into exactly one
+    /// fragment equal to the whole input.
+    /// </summary>
+    [Test]
+    public void Digest_Identity_NoSiteYieldsWholeSequence()
+    {
+        var seq = new DnaSequence("AAAACCCCGGGGTTTTAAAACCCC");
+        var fragments = RestrictionAnalyzer.Digest(seq, "EcoRI").ToList();
+        fragments.Should().HaveCount(1);
+        fragments[0].Sequence.Should().Be(seq.Sequence);
+        fragments[0].Length.Should().Be(seq.Length);
+    }
+
+    /// <summary>
+    /// DIST: length conservation — the EcoRI fragments always sum to the input
+    /// length and concatenate back to the input, for any DNA (cut or not).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Digest_Distributive_LengthIsConserved()
+    {
+        return Prop.ForAll(DnaArbitrary(minLen: 1), seq =>
+        {
+            var dna = new DnaSequence(seq);
+            var fragments = RestrictionAnalyzer.Digest(dna, "EcoRI").ToList();
+            int sum = fragments.Sum(f => f.Length);
+            string reconstructed = string.Concat(fragments.Select(f => f.Sequence));
+            return (sum == dna.Length && reconstructed == dna.Sequence)
+                .Label($"sum={sum}, len={dna.Length}, reconstructed==input:{reconstructed == dna.Sequence}");
+        });
+    }
+
+    /// <summary>
+    /// DIST witness: EcoRI cuts AAAGAATTCAAA once, giving two fragments whose
+    /// lengths sum to 12 and which concatenate to the original.
+    /// </summary>
+    [Test]
+    public void Digest_Distributive_WorkedCut()
+    {
+        var seq = new DnaSequence("AAAGAATTCAAA");
+        var fragments = RestrictionAnalyzer.Digest(seq, "EcoRI").ToList();
+        fragments.Count.Should().BeGreaterThan(1);
+        fragments.Sum(f => f.Length).Should().Be(seq.Length);
+        string.Concat(fragments.Select(f => f.Sequence)).Should().Be(seq.Sequence);
+    }
 }

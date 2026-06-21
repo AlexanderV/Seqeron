@@ -56,7 +56,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 24 | ✗ | PROBE-DESIGN-001 | MolTools | ID: seq too short → no probes; IDEMP: deterministic |
 | 25 | ✗ | PROBE-VALID-001 | MolTools | IDEMP: validate(seq) deterministic; ID: invalid probe fails consistently |
 | 26 | ✗ | RESTR-FIND-001 | MolTools | ID: no recognition site → 0 sites; IDEMP: same seq + enzyme → same sites |
-| 27 | ☐ | RESTR-DIGEST-001 | MolTools | DIST: sum(fragment.Length) = sequence.Length; ID: 0 cut sites → 1 fragment = full seq |
+| 27 | ☑ | RESTR-DIGEST-001 | MolTools | DIST: sum(fragment.Length) = sequence.Length; ID: 0 cut sites → 1 fragment = full seq |
 | 28 | ☐ | ANNOT-ORF-001 | Annotation | ID: no ATG → no ORFs; DIST: ORF length divisible by 3 |
 | 29 | ✗ | ANNOT-GENE-001 | Annotation | ID: no RBS + start codon → no genes; IDEMP: deterministic |
 | 30 | ✗ | ANNOT-PROM-001 | Annotation | ID: no -10/-35 box → no promoters; IDEMP: deterministic |
@@ -272,7 +272,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 10 |
-| ☐ Not started | 55 |
+| ☑ Complete | 11 |
+| ☐ Not started | 54 |
 | ✗ Not applicable | 169 |
 | Laws verified | ~172 (≈2 per algorithm) |
