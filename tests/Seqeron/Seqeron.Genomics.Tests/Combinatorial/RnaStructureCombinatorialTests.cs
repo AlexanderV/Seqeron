@@ -108,4 +108,72 @@ public class RnaStructureCombinatorialTests
         double pWarm = RnaSecondaryStructure.CalculateStructureProbability(-10, -11, 337.15);
         pWarm.Should().BeGreaterThan(pCold, "a higher RT shrinks the energy gap's penalty");
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: RNA-STEMLOOP-001 — Stem-loop (hairpin) detection (RnaStructure)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 72.
+    // Spec: tests/TestSpecs/RNA-STEMLOOP-001.md (canonical FindStemLoops).
+    // Dimensions: minStem(3) × minLoop(3) × maxLoop(3). Grid 3×3×3 = 27.
+    //
+    // Model (Wikipedia Stem-loop; Turner): a hairpin is a base-paired stem closing a terminal
+    // loop. FindStemLoops reports stem-loops whose stem ≥ minStemLength and whose loop size is in
+    // [max(3,minLoopSize), maxLoopSize] (loops < 3 nt are sterically impossible).
+    //
+    // The combinatorial point: the three stringency knobs jointly bound the reported stem-loops;
+    // a planted 5-bp-stem / 5-nt-loop hairpin is detected exactly when minStem ≤ 5, the loop
+    // floor ≤ 5 and 5 ≤ maxLoop, and every returned stem-loop honours all three bounds.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private const string PlantedHairpin = "GGGGGAAAAACCCCC"; // 5-bp stem (GGGGG/CCCCC), 5-nt loop
+
+    [Test, Combinatorial]
+    public void RnaStemLoop_BoundsAndPlantedDetection(
+        [Values(3, 4, 6)] int minStem,
+        [Values(3, 4, 6)] int minLoop,
+        [Values(4, 6, 8)] int maxLoop)
+    {
+        var stemLoops = RnaSecondaryStructure.FindStemLoops(PlantedHairpin, minStem, minLoop, maxLoop).ToList();
+
+        int loopFloor = Math.Max(3, minLoop);
+        foreach (var sl in stemLoops)
+        {
+            sl.Loop.Type.Should().Be(RnaSecondaryStructure.LoopType.Hairpin);
+            sl.Stem.Length.Should().BeGreaterThanOrEqualTo(minStem, "stem meets minStemLength");
+            sl.Loop.Size.Should().BeInRange(loopFloor, maxLoop, "loop size is within the configured window");
+            sl.Stem.BasePairs.Should().OnlyContain(bp => RnaSecondaryStructure.CanPair(bp.Base1, bp.Base2));
+        }
+
+        bool expectPlanted = minStem <= 5 && loopFloor <= 5 && 5 <= maxLoop;
+        stemLoops.Any(sl => sl.Loop.Size == 5 && sl.Stem.Length >= minStem)
+            .Should().Be(expectPlanted, "the 5-stem/5-loop hairpin is found iff all three bounds admit it");
+    }
+
+    /// <summary>
+    /// Interaction witness: each stringency knob independently suppresses the planted hairpin —
+    /// too-large minStem, too-small maxLoop, or too-large minLoop each remove it.
+    /// </summary>
+    [Test]
+    public void RnaStemLoop_EachBound_GatesDetection()
+    {
+        bool Has5(int minStem, int minLoop, int maxLoop) =>
+            RnaSecondaryStructure.FindStemLoops(PlantedHairpin, minStem, minLoop, maxLoop)
+                .Any(sl => sl.Loop.Size == 5 && sl.Stem.Length >= minStem);
+
+        Has5(3, 3, 8).Should().BeTrue("permissive bounds find it");
+        Has5(6, 3, 8).Should().BeFalse("minStem 6 > stem 5");
+        Has5(3, 3, 4).Should().BeFalse("maxLoop 4 < loop 5");
+        Has5(3, 6, 8).Should().BeFalse("minLoop 6 > loop 5");
+    }
+
+    /// <summary>
+    /// Interaction witness: minLoop is clamped to the steric minimum of 3 — requesting a smaller
+    /// loop behaves identically to requesting 3.
+    /// </summary>
+    [Test]
+    public void RnaStemLoop_MinLoop_ClampedToThree()
+    {
+        var asOne = RnaSecondaryStructure.FindStemLoops(PlantedHairpin, 3, 1, 8).Select(sl => sl.Loop.Size).OrderBy(x => x);
+        var asThree = RnaSecondaryStructure.FindStemLoops(PlantedHairpin, 3, 3, 8).Select(sl => sl.Loop.Size).OrderBy(x => x);
+        asOne.Should().Equal(asThree, "minLoop < 3 is treated as 3");
+    }
 }
