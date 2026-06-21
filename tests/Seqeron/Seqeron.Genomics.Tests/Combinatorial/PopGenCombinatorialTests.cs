@@ -418,4 +418,217 @@ public class PopGenCombinatorialTests
         ld.DPrime.Should().BeApproximately(1.0, 1e-9, "complete LD");
         ld.RSquared.Should().BeApproximately(0.5, 1e-9, "but r² < 1 under unequal frequencies");
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: POP-ANCESTRY-001 — Supervised ancestry estimation (PopGen)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 207.
+    // Spec: tests/TestSpecs/POP-ANCESTRY-001.md (canonical EstimateAncestry). ADVANCED §10.
+    // Dimensions: nPops(3) × nMarkers(3) × method(2). Grid 3×3×2 = 18 (full, exhaustive).
+    //
+    // Model (Alexander 2009 FRAPPE EM; supervised/projection): with reference allele frequencies fixed,
+    // the EM returns ancestry fractions q that sum to 1 and lie in [0,1].
+    //
+    // Axis mapping (documented): nPops → number of reference populations; nMarkers → number of SNPs;
+    // method → {Pure (genotypes match pop0's fixed allele-1 frequencies), Admixed (all-heterozygous)}.
+    // Engineered references: pop0 carries allele-1 (freq 1.0), all others allele-2 (freq 0.0). The
+    // combinatorial point: a pure individual is assigned ~100% to pop0, an admixed individual spreads
+    // its ancestry (pop0 dominant but < 100%), and proportions always form a simplex.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public enum AncestryKind { Pure, Admixed }
+
+    [Test, Combinatorial]
+    public void PopAncestry_SimplexAndAssignment_AcrossPopsMarkersMethod(
+        [Values(2, 3, 4)] int nPops,
+        [Values(5, 10, 20)] int nMarkers,
+        [Values(AncestryKind.Pure, AncestryKind.Admixed)] AncestryKind method)
+    {
+        var refs = Enumerable.Range(0, nPops)
+            .Select(p => ($"pop{p}", (IReadOnlyList<double>)Enumerable.Repeat(p == 0 ? 1.0 : 0.0, nMarkers).ToList()))
+            .ToList();
+        int coreGeno = method == AncestryKind.Pure ? 2 : 1; // all allele-1 homozygous vs all heterozygous
+        var individual = ("ind", (IReadOnlyList<int>)Enumerable.Repeat(coreGeno, nMarkers).ToList());
+
+        var result = PopulationGeneticsAnalyzer.EstimateAncestry(new[] { individual }, refs).Single();
+        var props = result.Proportions;
+
+        props.Values.Sum().Should().BeApproximately(1.0, 1e-6, "ancestry proportions form a simplex");
+        props.Values.Should().OnlyContain(v => v >= -1e-9 && v <= 1.0 + 1e-9, "each proportion is in [0,1]");
+
+        if (method == AncestryKind.Pure)
+            props["pop0"].Should().BeGreaterThan(0.99, "a pure pop0 individual is assigned to pop0");
+        else
+        {
+            props["pop0"].Should().Be(props.Values.Max(), "the allele-1 carrier favours pop0");
+            props["pop0"].Should().BeLessThan(0.99, "an admixed individual is not pure");
+        }
+    }
+
+    /// <summary>
+    /// Interaction witness — an all-heterozygous individual between an allele-1 and an allele-2 source
+    /// population is assigned 50/50.
+    /// </summary>
+    [Test]
+    public void PopAncestry_AllHeterozygous_IsFiftyFifty()
+    {
+        var refs = new[]
+        {
+            ("A", (IReadOnlyList<double>)Enumerable.Repeat(1.0, 10).ToList()),
+            ("B", (IReadOnlyList<double>)Enumerable.Repeat(0.0, 10).ToList()),
+        };
+        var ind = ("h", (IReadOnlyList<int>)Enumerable.Repeat(1, 10).ToList());
+
+        var props = PopulationGeneticsAnalyzer.EstimateAncestry(new[] { ind }, refs).Single().Proportions;
+        props["A"].Should().BeApproximately(0.5, 1e-9);
+        props["B"].Should().BeApproximately(0.5, 1e-9);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: POP-ROH-001 — Runs of homozygosity (PopGen)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 208.
+    // Spec: tests/TestSpecs/POP-ROH-001.md (canonical FindROH / CalculateInbreedingFromROH). ADVANCED §10.
+    // Dimensions: minLen(3) × density(3). Grid 3×3 = 9 (full, exhaustive ⊇ pairwise).
+    //
+    // Model (Marras 2015; PLINK --homozyg): a run of consecutive homozygous SNPs is reported when it
+    // has ≥ minSnps SNPs and spans ≥ minLength bp with no gap > maxGap; F_ROH = ΣL_roh / L_auto.
+    //
+    // Axis mapping (documented): minLen → the minimum run length (bp); density → the SNP spacing (bp).
+    // Engineered construct: 10 consecutive homozygous SNPs at the chosen spacing. The combinatorial
+    // point: the run is reported exactly when its span (9·spacing) ≥ minLength, with the correct
+    // SNP count, and the ROH inbreeding coefficient equals ΣL/genomeLength.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    [Test, Combinatorial]
+    public void PopRoh_RunReportedWhenSpanMeetsMinLength_AcrossMinLenAndDensity(
+        [Values(10_000, 50_000, 100_000)] int minLen,
+        [Values(2_000, 10_000, 20_000)] int spacing)
+    {
+        var genotypes = Enumerable.Range(0, 10).Select(i => (i * spacing, 0)).ToList(); // 10 homozygous SNPs
+        int span = 9 * spacing;
+
+        var roh = PopulationGeneticsAnalyzer.FindROH(genotypes, minSnps: 5, minLength: minLen,
+            maxHeterozygotes: 1, maxGap: 1_000_000).ToList();
+
+        bool expectReported = span >= minLen;
+        roh.Any().Should().Be(expectReported, "a run is reported iff its span ≥ minLength");
+        if (expectReported)
+        {
+            var run = roh.Should().ContainSingle().Subject;
+            run.Start.Should().Be(0);
+            run.End.Should().Be(span);
+            run.SnpCount.Should().Be(10);
+
+            double f = PopulationGeneticsAnalyzer.CalculateInbreedingFromROH(
+                new[] { (run.Start, run.End) }, genomeLength: 1_000_000);
+            f.Should().BeApproximately((double)span / 1_000_000, 1e-9, "F_ROH = ΣL_roh / L_auto");
+        }
+    }
+
+    /// <summary>
+    /// Interaction witness — a heterozygous stretch beyond the tolerance breaks a run, and F_ROH is the
+    /// summed ROH length over the genome.
+    /// </summary>
+    [Test]
+    public void PopRoh_HeterozygoteBreaksRun_AndInbreeding()
+    {
+        // 6 homozygous, then two heterozygotes (exceeds maxHeterozygotes 1), then 6 homozygous.
+        var genos = new List<(int, int)>();
+        for (int i = 0; i < 6; i++) genos.Add((i * 10_000, 0));
+        genos.Add((6 * 10_000, 1));
+        genos.Add((7 * 10_000, 1));
+        for (int i = 8; i < 14; i++) genos.Add((i * 10_000, 0));
+
+        var roh = PopulationGeneticsAnalyzer.FindROH(genos, minSnps: 5, minLength: 10_000,
+            maxHeterozygotes: 1, maxGap: 1_000_000).ToList();
+        roh.Should().HaveCount(2, "the heterozygote stretch splits the ROH into two");
+
+        PopulationGeneticsAnalyzer.CalculateInbreedingFromROH(new[] { (0, 100), (200, 350) }, 1000)
+            .Should().BeApproximately(0.25, 1e-9, "(100 + 150) / 1000");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: POP-SELECT-001 — Selection statistics (EHH / iHS / scan) (PopGen)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 209.
+    // Spec: tests/TestSpecs/POP-SELECT-001.md (canonical CalculateEhh / CalculateIHS / ScanForSelection).
+    // ADVANCED §10.
+    // Dimensions: statistic(3) × windowSize(3) × nPops(2). Grid 3×3×2 = 18 (full, exhaustive).
+    //
+    // Model (Sabeti 2002 EHH; Voight 2006 iHS): EHH = Σ C(n_h,2)/C(n_c,2) over haplotype classes;
+    // iHS = ln(iHH_A/iHH_D); a selection scan reports the proportion of |iHS| > 2 per window.
+    //
+    // Axis mapping (documented): statistic → the canonical method (EHH/iHS/Scan); windowSize → the
+    // haplotype count / scan window; nPops → the haplotype length / sample factor. The combinatorial
+    // point: EHH equals its closed form, iHS is deterministic with a valid derived-allele frequency,
+    // and the scan's per-window extreme proportion equals an independent recount.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public enum SelectStat { Ehh, Ihs, Scan }
+
+    private static double Choose2(int n) => n * (n - 1) / 2.0;
+
+    [Test, Combinatorial]
+    public void PopSelect_StatisticsAreCorrect_AcrossStatWindowPops(
+        [Values(SelectStat.Ehh, SelectStat.Ihs, SelectStat.Scan)] SelectStat statistic,
+        [Values(4, 6, 8)] int windowSize,
+        [Values(2, 3)] int popsFactor)
+    {
+        switch (statistic)
+        {
+            case SelectStat.Ehh:
+            {
+                int hapLen = popsFactor * 2;
+                int half = windowSize / 2;
+                var haps = Enumerable.Repeat(new string('A', hapLen), half)
+                    .Concat(Enumerable.Repeat(new string('C', hapLen), windowSize - half)).ToList();
+                double expected = (Choose2(half) + Choose2(windowSize - half)) / Choose2(windowSize);
+                PopulationGeneticsAnalyzer.CalculateEhh(haps).Should().BeApproximately(expected, 1e-9,
+                    "EHH = Σ C(n_h,2)/C(n_c,2)");
+                break;
+            }
+            case SelectStat.Ihs:
+            {
+                int markers = windowSize;
+                int nHaps = popsFactor + 2; // ≥ 3 so the core is polymorphic
+                var positions = Enumerable.Range(0, markers).Select(i => i * 1000).ToList();
+                var haps = Enumerable.Range(0, nHaps)
+                    .Select(h => new string(Enumerable.Range(0, markers).Select(m => (char)('0' + (h + m) % 2)).ToArray()))
+                    .ToList();
+                int core = markers / 2;
+
+                var r1 = PopulationGeneticsAnalyzer.CalculateIHS(haps, positions, core);
+                var r2 = PopulationGeneticsAnalyzer.CalculateIHS(haps, positions, core);
+                r1.Should().Be(r2, "iHS is deterministic");
+                r1.DerivedAlleleFrequency.Should().BeInRange(0.0, 1.0, "a derived-allele frequency is in [0,1]");
+                break;
+            }
+            default:
+            {
+                // Alternating extreme (|score|=3 > 2) and non-extreme (1) scores.
+                var scores = Enumerable.Range(0, windowSize * popsFactor)
+                    .Select(i => i % 2 == 0 ? 3.0 : 1.0).ToList();
+                var windows = PopulationGeneticsAnalyzer.ScanForSelection(scores, windowSize).ToList();
+
+                foreach (var w in windows)
+                {
+                    int start = w.WindowIndex * windowSize;
+                    int bruteExtreme = Enumerable.Range(start, w.SnpCount).Count(i => Math.Abs(scores[i]) > 2.0);
+                    w.ExtremeCount.Should().Be(bruteExtreme, "extreme count = #|score|>2 in the window");
+                    w.ProportionExtreme.Should().BeApproximately((double)bruteExtreme / w.SnpCount, 1e-12);
+                }
+                break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Interaction witness — EHH boundary cases: identical haplotypes give EHH 1, all-distinct give 0.
+    /// </summary>
+    [Test]
+    public void PopSelect_EhhBoundaryCases()
+    {
+        PopulationGeneticsAnalyzer.CalculateEhh(Enumerable.Repeat("ACGT", 5).ToList())
+            .Should().Be(1.0, "all-identical haplotypes are in one class ⇒ EHH 1");
+        PopulationGeneticsAnalyzer.CalculateEhh(new[] { "AAAA", "CCCC", "GGGG", "TTTT" })
+            .Should().Be(0.0, "all-distinct haplotypes ⇒ no shared pairs ⇒ EHH 0");
+    }
 }
