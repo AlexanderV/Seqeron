@@ -159,7 +159,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 127 | ✗ | SEQ-STATS-001 | Statistics | ID: empty → zeros; ADD: counts additive on concatenation |
 | 128 | ✗ | SEQ-SUMMARY-001 | Statistics | ID: empty → zero length; IDEMP: deterministic |
 | 129 | ✗ | SEQ-THERMO-001 | Statistics | ID: empty → 0; IDEMP: deterministic |
-| 130 | ☐ | SEQ-TM-001 | Statistics | ID: empty → 0; HOMO: homopolymer Tm scales linearly with length (Wallace) |
+| 130 | ☑ | SEQ-TM-001 | Statistics | ID: empty → 0; HOMO: homopolymer Tm scales linearly with length (Wallace) |
 | 131 | ☑ | COMPGEN-ANI-001 | Comparative | ID: ANI(A,A)=100; COMM: ANI symmetric |
 | 132 | ✗ | COMPGEN-CLUSTER-001 | Comparative | IDEMP: deterministic; ID: single genome → trivial clusters |
 | 133 | ☑ | COMPGEN-COMPARE-001 | Comparative | COMM: symmetric; IDEMP: deterministic |
@@ -256,14 +256,14 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 224 | ✗ | RESTR-FILTER-001 | MolTools | IDEMP: filter∘filter = filter; SUB: filtered ⊆ all |
 | 225 | ✗ | MIRNA-PAIR-001 | MiRNA | IDEMP: deterministic; ID: no complementarity → no pairing |
 | 226 | ☐ | ALIGN-STATS-001 | Alignment | ID: identity(x,x)=1; COMM: symmetric |
-| 227 | ☐ | SEQ-CODON-FREQ-001 | Statistics | ID: freq("")=∅; IDEMP: deterministic; DIST: Σ counts = len/3 |
+| 227 | ☑ | SEQ-CODON-FREQ-001 | Statistics | ID: freq("")=∅; IDEMP: deterministic; DIST: Σ counts = len/3 |
 | 228 | ✗ | SEQ-COMPLEX-COMPRESS-001 | Complexity | IDEMP: deterministic; ID: homopolymer → minimal ratio |
 | 229 | ✗ | SEQ-COMPLEX-DUST-001 | Complexity | IDEMP: deterministic; INVAR: DUST(complement(x))=DUST(x) |
 | 230 | ✗ | SEQ-COMPLEX-KMER-001 | Complexity | ID: entropy(homopolymer)=0; IDEMP: deterministic; INVAR: reverse-invariant |
-| 231 | ☐ | SEQ-COMPLEX-WINDOW-001 | Complexity | IDEMP: deterministic; DIST: window count = len−w+1 |
-| 232 | ☐ | SEQ-ENTROPY-PROFILE-001 | Statistics | IDEMP: deterministic; INVAR: complement-invariant; DIST: length = len−w+1 |
-| 233 | ☐ | SEQ-GC-ANALYSIS-001 | Composition | ID: GC("")=0; IDEMP: deterministic; DIST: GC(seq)=GC(complement(seq)) |
-| 234 | ☐ | SEQ-GC-PROFILE-001 | Statistics | IDEMP: deterministic; INVAR: complement-invariant; DIST: length = len−w+1 |
+| 231 | ☑ | SEQ-COMPLEX-WINDOW-001 | Complexity | IDEMP: deterministic; DIST: window count = len−w+1 |
+| 232 | ☑ | SEQ-ENTROPY-PROFILE-001 | Statistics | IDEMP: deterministic; INVAR: complement-invariant; DIST: length = len−w+1 |
+| 233 | ☑ | SEQ-GC-ANALYSIS-001 | Composition | ID: GC("")=0; IDEMP: deterministic; DIST: GC(seq)=GC(complement(seq)) |
+| 234 | ☑ | SEQ-GC-PROFILE-001 | Statistics | IDEMP: deterministic; INVAR: complement-invariant; DIST: length = len−w+1 |
 
 ---
 
@@ -272,7 +272,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 55 |
-| ☐ Not started | 10 |
+| ☑ Complete | 61 |
+| ☐ Not started | 4 |
 | ✗ Not applicable | 169 |
 | Laws verified | ~172 (≈2 per algorithm) |

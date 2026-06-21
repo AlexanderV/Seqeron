@@ -302,4 +302,51 @@ public class CompositionAlgebraicTests
             return (skew >= -1.0 && skew <= 1.0).Label($"skew={skew} out of [-1,1] for \"{seq}\"");
         });
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: SEQ-GC-ANALYSIS-001 — Comprehensive GC analysis (Composition)
+    // Checklist: docs/checklists/06_ALGEBRAIC_TESTING.md, row 233.
+    //
+    // Model: a comprehensive GC analysis reports the overall GC content (plus
+    //        windowed skew/content); the overall GC content is the same (G+C)/total
+    //        measure as SEQ-GC-001 and shares its laws.
+    //   — docs/algorithms/Sequence_Composition; GcSkewCalculator.AnalyzeGcContent.
+    //
+    // Laws (row 233): ID — analysis("").OverallGcContent = 0.
+    //                 IDEMP — deterministic on recompute.
+    //                 DIST — OverallGcContent(seq) = OverallGcContent(complement(seq)).
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>ID: the empty sequence yields zero overall GC content.</summary>
+    [Test]
+    public void GcAnalysis_Identity_EmptyIsZero()
+    {
+        GcSkewCalculator.AnalyzeGcContent(string.Empty).OverallGcContent.Should().Be(0.0);
+    }
+
+    /// <summary>IDEMP: the overall GC content is stable on recomputation.</summary>
+    [FsCheck.NUnit.Property]
+    public Property GcAnalysis_Idempotent_StableOnRecompute()
+    {
+        return Prop.ForAll(DnaArbitrary(), seq =>
+        {
+            double first = GcSkewCalculator.AnalyzeGcContent(seq).OverallGcContent;
+            double second = GcSkewCalculator.AnalyzeGcContent(seq).OverallGcContent;
+            return (first == second).Label($"GC analysis drifted: {first} vs {second}");
+        });
+    }
+
+    /// <summary>DIST: overall GC content is invariant under base complement.</summary>
+    [FsCheck.NUnit.Property]
+    public Property GcAnalysis_Distributive_InvariantUnderComplement()
+    {
+        return Prop.ForAll(DnaArbitrary(), seq =>
+        {
+            double original = GcSkewCalculator.AnalyzeGcContent(seq).OverallGcContent;
+            double complemented = GcSkewCalculator.AnalyzeGcContent(new DnaSequence(seq).Complement().Sequence)
+                .OverallGcContent;
+            return (System.Math.Abs(original - complemented) < 1e-12)
+                .Label($"GC analysis not complement-invariant: {original} vs {complemented}");
+        });
+    }
 }
