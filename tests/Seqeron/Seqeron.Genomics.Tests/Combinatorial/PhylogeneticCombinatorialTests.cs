@@ -154,4 +154,99 @@ public class PhylogeneticCombinatorialTests
         k2p.Should().BeApproximately(0.2341, 1e-3);
         jc.Should().NotBe(k2p, "JC and K2P are different evolutionary models");
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: PHYLO-TREE-001 — Distance-based tree construction (Phylogenetic)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 40.
+    // Spec: tests/TestSpecs/PHYLO-TREE-001.md (canonical BuildTree).
+    // Dimensions: method(2: UPGMA/NJ) × nSeqs(3) × seqLen(3). Grid 2×3×3 = 18.
+    //
+    // Model (Sokal & Michener 1958 UPGMA; Saitou & Nei 1987 NJ): both methods cluster a
+    // distance matrix into a binary tree whose leaves are the input taxa. Whatever the
+    // method, the result must keep every taxon as a leaf, label the tree with the method,
+    // expose the distance matrix, and serialise to Newick that round-trips its leaf set.
+    //
+    // The combinatorial point: method × nSeqs × seqLen all vary the tree, yet the leaf
+    // invariants hold universally; and (witness) both methods recover the true grouping —
+    // closely related taxa are joined before distant ones.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private static Dictionary<string, string> MakeNamedFamily(int nSeqs, int seqLen)
+    {
+        var fam = MakeFamily(nSeqs, seqLen);
+        var dict = new Dictionary<string, string>();
+        for (int i = 0; i < nSeqs; i++) dict[$"T{i}"] = fam[i];
+        return dict;
+    }
+
+    [Test, Combinatorial]
+    public void PhyloTree_LeafInvariants_AcrossMethodNSeqsAndLength(
+        [Values(PhylogeneticAnalyzer.TreeMethod.UPGMA, PhylogeneticAnalyzer.TreeMethod.NeighborJoining)]
+        PhylogeneticAnalyzer.TreeMethod method,
+        [Values(3, 4, 5)] int nSeqs,
+        [Values(20, 40, 80)] int seqLen)
+    {
+        var named = MakeNamedFamily(nSeqs, seqLen);
+        var tree = PhylogeneticAnalyzer.BuildTree(named, PhylogeneticAnalyzer.DistanceMethod.JukesCantor, method);
+
+        var leaves = PhylogeneticAnalyzer.GetLeaves(tree.Root).ToList();
+        leaves.Should().HaveCount(nSeqs, "every taxon is a leaf");
+        leaves.Select(l => l.Name).Should().BeEquivalentTo(named.Keys, "leaf labels are the input taxa");
+
+        tree.Taxa.Should().HaveCount(nSeqs);
+        tree.Method.Should().Be(method.ToString());
+        tree.DistanceMatrix.GetLength(0).Should().Be(nSeqs);
+        PhylogeneticAnalyzer.CalculateTreeLength(tree.Root).Should().BeGreaterThanOrEqualTo(0);
+
+        // Newick serialisation round-trips the leaf set.
+        var reparsed = PhylogeneticAnalyzer.ParseNewick(PhylogeneticAnalyzer.ToNewick(tree.Root));
+        PhylogeneticAnalyzer.GetLeaves(reparsed).Should().HaveCount(nSeqs);
+    }
+
+    /// <summary>
+    /// Interaction witness: with two clear groups (A,B from one ancestor; C,D from another),
+    /// both UPGMA and NJ join the within-group pairs more tightly — the patristic distance
+    /// A–B is smaller than A–C.
+    /// </summary>
+    [Test]
+    public void PhyloTree_RecoversTrueGrouping_BothMethods()
+    {
+        string g1 = DiverseDna(80, 11u);
+        string g2 = DiverseDna(80, 999u); // a very different ancestor
+        char Flip(char c) => NextBase(c);
+        string Mut(string s, int p) { var c = s.ToCharArray(); c[p] = Flip(c[p]); return new string(c); }
+
+        var named = new Dictionary<string, string>
+        {
+            ["A"] = g1,
+            ["B"] = Mut(g1, 3),
+            ["C"] = g2,
+            ["D"] = Mut(g2, 3),
+        };
+
+        foreach (var method in new[] { PhylogeneticAnalyzer.TreeMethod.UPGMA, PhylogeneticAnalyzer.TreeMethod.NeighborJoining })
+        {
+            var tree = PhylogeneticAnalyzer.BuildTree(named, PhylogeneticAnalyzer.DistanceMethod.JukesCantor, method);
+            double ab = PhylogeneticAnalyzer.PatristicDistance(tree.Root, "A", "B");
+            double ac = PhylogeneticAnalyzer.PatristicDistance(tree.Root, "A", "C");
+            ab.Should().BeLessThan(ac, $"{method}: the close pair A,B is nearer than the distant A,C");
+        }
+    }
+
+    /// <summary>
+    /// Worked example: a three-taxon UPGMA tree serialises to Newick listing all three taxa
+    /// and terminating with a semicolon.
+    /// </summary>
+    [Test]
+    public void PhyloTree_Newick_ListsAllTaxa()
+    {
+        var named = MakeNamedFamily(3, 40);
+        var tree = PhylogeneticAnalyzer.BuildTree(named, PhylogeneticAnalyzer.DistanceMethod.JukesCantor,
+            PhylogeneticAnalyzer.TreeMethod.UPGMA);
+
+        string newick = PhylogeneticAnalyzer.ToNewick(tree.Root);
+        newick.Should().EndWith(";");
+        foreach (var taxon in named.Keys)
+            newick.Should().Contain(taxon);
+    }
 }
