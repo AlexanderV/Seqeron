@@ -386,8 +386,26 @@ public static class GcSkewCalculator
     private static double CalculateGcContent(string seq)
     {
         if (string.IsNullOrEmpty(seq)) return 0;
-        int gcCount = seq.Count(c => c is 'G' or 'C');
-        return (double)gcCount / seq.Length * PercentScale;
+        // Only A/C/G/T are counted; ambiguous/other symbols are ignored in BOTH the
+        // numerator and the denominator (Biopython gc_fraction "remove" / Comprehensive
+        // GC Analysis §2.2/§3.3). The denominator is A+T+G+C, NOT the raw seq length.
+        int gcCount = 0;
+        int atgcCount = 0;
+        foreach (char c in seq)
+        {
+            switch (c)
+            {
+                case 'G' or 'C':
+                    gcCount++;
+                    atgcCount++;
+                    break;
+                case 'A' or 'T':
+                    atgcCount++;
+                    break;
+            }
+        }
+
+        return atgcCount > 0 ? (double)gcCount / atgcCount * PercentScale : 0;
     }
 
     // Population variance σ² = Σ(xᵢ−μ)²/N (division by N, not Bessel-corrected N−1):

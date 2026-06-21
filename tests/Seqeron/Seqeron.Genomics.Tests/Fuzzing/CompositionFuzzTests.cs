@@ -532,6 +532,76 @@ namespace Seqeron.Genomics.Tests;
 /// `ambiguous_rna_complement` table and the §2.2/§6.1 T→A and case rules — NOT read
 /// off the switch arms in the code. A test that would still pass against a DNA-style
 /// A→T implementation, or against one that dropped the T→A rule, is invalid.
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// Unit: SEQ-GC-ANALYSIS-001 — comprehensive GC analysis (Composition)
+/// Checklist: docs/checklists/03_FUZZING.md, row 233.
+/// Fuzz strategies exercised for THIS unit:
+///   • BE  = Boundary Exploitation — empty input (the zero-denominator / no-window
+///           boundary), all-GC (GC=100, GcSkew bounds), all-AT (GC=0), non-ACGT
+///           characters (ignored in both num &amp; denom), and a very long sequence
+///           (O(n) scalars, no overflow / hang).
+/// — docs/checklists/03_FUZZING.md §Description (strategy codes);
+///   docs/ADVANCED_TESTING_CHECKLIST.md §8 "Fuzzing".
+///
+/// ───────────────────────────────────────────────────────────────────────────
+/// The comprehensive-GC-analysis contract under test
+/// ───────────────────────────────────────────────────────────────────────────
+/// SEQ-GC-ANALYSIS-001 is a single-pass AGGREGATION that bundles exact closed-form
+/// composition statistics into a `GcAnalysisResult` record. For base counts
+/// G, C, A, T over a sequence of length n
+/// (Comprehensive_GC_Analysis.md §2.2, §3.2):
+///   • OverallGcContent = (G+C)/(A+T+G+C)×100   — a PERCENTAGE in [0, 100] (INV-03),
+///     repository/Brock convention (Biopython gc_fraction ×100) [3].
+///   • OverallGcSkew    = (G−C)/(G+C), in [−1, +1] (INV-01); G+C=0 → 0 [1][2][5].
+///   • OverallAtSkew    = (A−T)/(A+T), in [−1, +1] (INV-02); A+T=0 → 0 [6].
+///   • WindowedGcSkew / WindowedGcContent — per-window values over every FULL window
+///     of length `windowSize` advancing by `stepSize`; count = ⌊(n−w)/step⌋+1 when
+///     n ≥ w, else 0 (INV-05) [5].
+///   • GcSkewVariance / GcContentVariance — POPULATION variance σ²=Σ(xᵢ−μ)²/N (÷N,
+///     not Bessel ÷N−1; the windows are the full population) of the windowed values,
+///     both ≥ 0 (INV-04); 0 when there are no windows [7].
+///   • SequenceLength = n.
+/// Counting is CASE-INSENSITIVE; ONLY A/C/G/T contribute — every other symbol (N,
+/// IUPAC ambiguity, U, digits, gaps, whitespace, null byte, unicode) is IGNORED in
+/// BOTH numerator and denominator (Comprehensive_GC_Analysis.md §3.3, §6.2; matches
+/// Biopython GC_skew ignoring ambiguous bases) [5].
+///   — docs/algorithms/Extended_GC_Skew_Analysis/Comprehensive_GC_Analysis.md
+///     §2.2 (model), §2.4 (INV-01..05), §3 (contract), §6.1 (edge cases),
+///     §7.1 (worked examples). Sources: Lobry (1996), Grigoriev (1998),
+///     Madigan &amp; Martinko / Brock, Charneski et al. (2011), Biopython, Cuemath.
+///
+/// SEQ-GC-ANALYSIS-001 has TWO documented surfaces with DIFFERENT validation
+/// contracts. Fuzzing pins both, and the boundary between them, so neither drifts:
+///
+/// (1) The TYPED entry — AnalyzeGcContent(DnaSequence, windowSize, stepSize)
+///     (GcSkewCalculator.cs lines 310–317). The DnaSequence argument has ALREADY
+///     passed the strict ctor validation gate, so only A/C/G/T (upper-cased) ever
+///     reach the metrics. Documented validation (Comprehensive_GC_Analysis.md §3.3,
+///     §6.1): a null DnaSequence → ArgumentNullException (explicit guard, never a
+///     NullReferenceException). Because non-ACGT cannot reach this surface, every
+///     scalar lands in its DNA-bounded interval and never NaN.
+///
+/// (2) The LENIENT string entry — AnalyzeGcContent(string, windowSize, stepSize)
+///     (GcSkewCalculator.cs lines 325–334). By design it short-circuits null/empty
+///     to the ZERO result (all scalars 0, empty windowed lists, SequenceLength 0 —
+///     §3.3, §6.1), upper-cases, and counts ONLY A/C/G/T — every other character is
+///     IGNORED, not validated. So it must NEVER throw on arbitrary chars, every
+///     scalar stays FINITE and in range, and ignored garbage does not shift the
+///     statistics of the A/C/G/T bases that ARE present. When NO counted base is
+///     present at all the zero-denominator guards return the DEFINED 0 rather than a
+///     0/0 NaN (the DivideByZero boundary). We pin that this surface stays finite,
+///     non-throwing and NaN-free on pure random-byte garbage.
+///
+/// Worked examples reproduced as positive-sanity tests (independently hand-derived
+/// from §2.2, NOT read off the code — Comprehensive_GC_Analysis.md §7.1):
+///   • "GGGCCAT" (G=3,C=2,A=1,T=1,n=7): GcContent = 5/7×100 = 71.42857142857143,
+///     GcSkew = (3−2)/5 = 0.2, AtSkew = (1−1)/2 = 0.0.
+///   • "GGCC", window 2 step 2 → windows GG (skew +1, GC% 100) and CC (skew −1,
+///     GC% 100): GcSkewVariance = ((1−0)²+(−1−0)²)/2 = 1.0; GcContentVariance = 0.0.
+/// A test that would still pass against an implementation that used the sample
+/// variance (÷N−1), dropped the zero-denominator guard, or counted non-ACGT bases is
+/// invalid.
 /// ───────────────────────────────────────────────────────────────────────────
 /// </summary>
 [TestFixture]
@@ -3792,6 +3862,374 @@ public class CompositionFuzzTests
             act.Should().NotThrow($"the RNA complement primitive is total over char; input U+{(int)c:X4}");
             result.Should().Be(ExpectedRnaComplement(c),
                 $"the RNA complement must equal the doc-derived reference; input U+{(int)c:X4}");
+        }
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  SEQ-GC-ANALYSIS-001 — comprehensive GC analysis
+    //  Typed entry:  GcSkewCalculator.AnalyzeGcContent(DnaSequence,…) — strict ctor
+    //  Lenient entry: GcSkewCalculator.AnalyzeGcContent(string,…) — counts only ACGT
+    // ═══════════════════════════════════════════════════════════════════
+
+    #region SEQ-GC-ANALYSIS-001 — comprehensive GC analysis
+
+    #region Helpers — independent doc-derived reference
+
+    /// <summary>
+    /// Independent reference for the doc-derived overall scalars
+    /// (Comprehensive_GC_Analysis.md §2.2). Counts ONLY A/C/G/T, case-insensitively,
+    /// and applies the documented zero-denominator → 0 convention. This is computed
+    /// from FIRST PRINCIPLES, NOT from the code under test, so a test comparing the
+    /// algorithm output against it cannot rubber-stamp a wrong implementation.
+    /// </summary>
+    private static (double gcContent, double gcSkew, double atSkew) ExpectedOverallScalars(string input)
+    {
+        int g = 0, c = 0, a = 0, t = 0;
+        foreach (char ch in input)
+        {
+            switch (char.ToUpperInvariant(ch))
+            {
+                case 'G': g++; break;
+                case 'C': c++; break;
+                case 'A': a++; break;
+                case 'T': t++; break;
+            }
+        }
+
+        int counted = g + c + a + t;
+        double gcContent = counted > 0 ? (double)(g + c) / counted * 100.0 : 0.0;
+        double gcSkew = (g + c) > 0 ? (double)(g - c) / (g + c) : 0.0;
+        double atSkew = (a + t) > 0 ? (double)(a - t) / (a + t) : 0.0;
+        return (gcContent, gcSkew, atSkew);
+    }
+
+    /// <summary>Asserts every numeric scalar of a result is a real, finite number (no NaN/Inf).</summary>
+    private static void AssertAllScalarsFinite(GcAnalysisResult r)
+    {
+        double.IsNaN(r.OverallGcContent).Should().BeFalse("OverallGcContent must never be NaN");
+        double.IsNaN(r.OverallGcSkew).Should().BeFalse("OverallGcSkew must never be NaN");
+        double.IsNaN(r.OverallAtSkew).Should().BeFalse("OverallAtSkew must never be NaN");
+        double.IsNaN(r.GcContentVariance).Should().BeFalse("GcContentVariance must never be NaN");
+        double.IsNaN(r.GcSkewVariance).Should().BeFalse("GcSkewVariance must never be NaN");
+        double.IsInfinity(r.OverallGcContent).Should().BeFalse("OverallGcContent must never be Infinity");
+        double.IsInfinity(r.OverallGcSkew).Should().BeFalse("OverallGcSkew must never be Infinity");
+        double.IsInfinity(r.OverallAtSkew).Should().BeFalse("OverallAtSkew must never be Infinity");
+        double.IsInfinity(r.GcContentVariance).Should().BeFalse("GcContentVariance must never be Infinity");
+        double.IsInfinity(r.GcSkewVariance).Should().BeFalse("GcSkewVariance must never be Infinity");
+    }
+
+    /// <summary>Asserts the documented invariant ranges (INV-01..05) of a result.</summary>
+    private static void AssertInvariantRanges(GcAnalysisResult r)
+    {
+        r.OverallGcContent.Should().BeInRange(0.0, 100.0, "INV-03: GC% ∈ [0,100]");
+        r.OverallGcSkew.Should().BeInRange(-1.0, 1.0, "INV-01: GC skew ∈ [−1,+1]");
+        r.OverallAtSkew.Should().BeInRange(-1.0, 1.0, "INV-02: AT skew ∈ [−1,+1]");
+        r.GcContentVariance.Should().BeGreaterThanOrEqualTo(0.0, "INV-04: a variance is ≥ 0");
+        r.GcSkewVariance.Should().BeGreaterThanOrEqualTo(0.0, "INV-04: a variance is ≥ 0");
+    }
+
+    #endregion
+
+    #region Positive sanity — worked examples (Comprehensive_GC_Analysis.md §7.1)
+
+    /// <summary>
+    /// Positive sanity: the §7.1 worked example "GGGCCAT" (G=3,C=2,A=1,T=1,n=7).
+    /// Every overall scalar is hand-derived from §2.2 and pinned EXACTLY:
+    /// GcContent = 5/7×100 = 71.42857142857143, GcSkew = (3−2)/5 = 0.2,
+    /// AtSkew = (1−1)/2 = 0.0. Reproduced from the doc, not the code.
+    /// </summary>
+    [Test]
+    public void AnalyzeGcContent_WorkedExample_Gggccat_MatchesDocScalars()
+    {
+        var result = GcSkewCalculator.AnalyzeGcContent(new DnaSequence("GGGCCAT"));
+
+        result.SequenceLength.Should().Be(7);
+        result.OverallGcContent.Should().BeApproximately(5.0 / 7.0 * 100.0, Tolerance,
+            because: "Gc% = (G+C)/n×100 = 5/7×100 (Comprehensive_GC_Analysis.md §7.1)");
+        result.OverallGcSkew.Should().BeApproximately(0.2, Tolerance,
+            because: "GC skew = (G−C)/(G+C) = (3−2)/5 = 0.2 (§7.1)");
+        result.OverallAtSkew.Should().BeApproximately(0.0, Tolerance,
+            because: "AT skew = (A−T)/(A+T) = (1−1)/2 = 0 (§7.1)");
+    }
+
+    /// <summary>
+    /// Positive sanity: the §7.1 variance worked example. "GGCC", window 2, step 2
+    /// yields exactly two full windows — GG (skew +1, GC% 100) and CC (skew −1,
+    /// GC% 100). The POPULATION variance (÷N) of the per-window skews is
+    /// ((1−0)²+(−1−0)²)/2 = 1.0; of the per-window GC% it is 0.0 (both windows 100).
+    /// This specifically pins the ÷N population variance: the sample variance (÷N−1)
+    /// would give 2.0 for the skew, so a code that used Bessel's correction FAILS.
+    /// </summary>
+    [Test]
+    public void AnalyzeGcContent_WorkedExample_Ggcc_PopulationVarianceMatchesDoc()
+    {
+        var result = GcSkewCalculator.AnalyzeGcContent(new DnaSequence("GGCC"), windowSize: 2, stepSize: 2);
+
+        result.WindowedGcSkew.Should().HaveCount(2, "INV-05: ⌊(4−2)/2⌋+1 = 2 full windows");
+        result.WindowedGcContent.Should().HaveCount(2);
+        result.WindowedGcSkew.Select(p => p.GcSkew).Should().Equal(new[] { 1.0, -1.0 },
+            because: "GG → (2−0)/2 = +1, CC → (0−2)/2 = −1");
+        result.GcSkewVariance.Should().BeApproximately(1.0, Tolerance,
+            because: "population variance ((1−0)²+(−1−0)²)/2 = 1.0; sample variance ÷N−1 would be 2.0 (§7.1)");
+        result.GcContentVariance.Should().BeApproximately(0.0, Tolerance,
+            because: "both windows are 100% GC, so their variance is exactly 0 (§7.1)");
+    }
+
+    #endregion
+
+    #region BE — Boundary: empty input (zero result, no NaN / no divide-by-zero)
+
+    /// <summary>
+    /// BE: the empty input is the lower size boundary and the zero-denominator
+    /// boundary all at once. Per §3.3 / §6.1 it must produce the DEFINED ZERO RESULT
+    /// — all scalars 0, both windowed lists empty, SequenceLength 0 — NOT a
+    /// DivideByZero crash and NOT a NaN. Covered on BOTH surfaces: the typed
+    /// DnaSequence("") path and the lenient string ("" and null) path.
+    /// </summary>
+    [Test]
+    public void AnalyzeGcContent_EmptyInput_IsZeroResultAndDoesNotThrow()
+    {
+        var act = () =>
+        {
+            var typed = GcSkewCalculator.AnalyzeGcContent(new DnaSequence(string.Empty));
+            var emptyStr = GcSkewCalculator.AnalyzeGcContent(string.Empty);
+            var nullStr = GcSkewCalculator.AnalyzeGcContent((string)null!);
+
+            foreach (var r in new[] { typed, emptyStr, nullStr })
+            {
+                r.SequenceLength.Should().Be(0, "empty input has length 0");
+                r.OverallGcContent.Should().Be(0.0, "no bases → GC% 0 (numerator 0)");
+                r.OverallGcSkew.Should().Be(0.0, "G+C=0 → skew 0 (zero-division guard)");
+                r.OverallAtSkew.Should().Be(0.0, "A+T=0 → skew 0 (zero-division guard)");
+                r.GcContentVariance.Should().Be(0.0, "no windows → variance 0");
+                r.GcSkewVariance.Should().Be(0.0, "no windows → variance 0");
+                r.WindowedGcSkew.Should().BeEmpty("no full window fits an empty sequence");
+                r.WindowedGcContent.Should().BeEmpty();
+                AssertAllScalarsFinite(r);
+            }
+        };
+
+        act.Should().NotThrow("empty input is a defined zero-result boundary, never a crash or NaN");
+    }
+
+    /// <summary>
+    /// BE: a null DnaSequence is the documented ArgumentNullException boundary on the
+    /// typed surface (§6.1, contract parity) — an INTENTIONAL validation throw, never
+    /// a raw NullReferenceException.
+    /// </summary>
+    [Test]
+    public void AnalyzeGcContent_NullDnaSequence_ThrowsArgumentNullException()
+    {
+        var act = () => GcSkewCalculator.AnalyzeGcContent((DnaSequence)null!);
+
+        act.Should().Throw<ArgumentNullException>(
+            "a null DnaSequence is rejected by the documented explicit guard, never dereferenced");
+    }
+
+    #endregion
+
+    #region BE — Boundary: all-GC (GC=100, skew bounds)
+
+    /// <summary>
+    /// BE: a pure-G sequence (§6.1) is the GC-content maximum and the GC-skew maximum:
+    /// GcContent = 100, GcSkew = +1; a pure-C sequence gives GcContent = 100,
+    /// GcSkew = −1. With no A/T present the AT-skew zero-denominator guard returns the
+    /// defined 0, not NaN. All scalars stay inside the invariant ranges.
+    /// </summary>
+    [TestCase("GGGGGGGG", 100.0, 1.0, TestName = "AnalyzeGcContent_AllG_Gc100_Skew+1")]
+    [TestCase("CCCCCCCC", 100.0, -1.0, TestName = "AnalyzeGcContent_AllC_Gc100_Skew-1")]
+    [TestCase("GCGCGCGC", 100.0, 0.0, TestName = "AnalyzeGcContent_AlternatingGC_Gc100_Skew0")]
+    public void AnalyzeGcContent_AllGc_GcIs100(string input, double expectedGc, double expectedSkew)
+    {
+        var result = GcSkewCalculator.AnalyzeGcContent(new DnaSequence(input));
+
+        result.OverallGcContent.Should().BeApproximately(expectedGc, Tolerance,
+            because: "a sequence of only G/C is 100% GC");
+        result.OverallGcSkew.Should().BeApproximately(expectedSkew, Tolerance,
+            because: "GC skew = (G−C)/(G+C) for a pure / balanced G·C run");
+        result.OverallAtSkew.Should().Be(0.0,
+            because: "no A and no T present → AT-skew zero-denominator guard returns 0, not NaN");
+        AssertInvariantRanges(result);
+        AssertAllScalarsFinite(result);
+    }
+
+    #endregion
+
+    #region BE — Boundary: all-AT (GC=0)
+
+    /// <summary>
+    /// BE: a pure-A / pure-T / balanced-AT sequence is the GC-content minimum:
+    /// GcContent = 0 (numerator 0). With no G/C present the GC-skew zero-denominator
+    /// guard returns the defined 0 (not NaN). The AT skew follows (A−T)/(A+T):
+    /// all-A → +1, all-T → −1, balanced AT → 0.
+    /// </summary>
+    [TestCase("AAAAAAAA", 1.0, TestName = "AnalyzeGcContent_AllA_Gc0_AtSkew+1")]
+    [TestCase("TTTTTTTT", -1.0, TestName = "AnalyzeGcContent_AllT_Gc0_AtSkew-1")]
+    [TestCase("ATATATAT", 0.0, TestName = "AnalyzeGcContent_AlternatingAT_Gc0_AtSkew0")]
+    public void AnalyzeGcContent_AllAt_GcIs0(string input, double expectedAtSkew)
+    {
+        var result = GcSkewCalculator.AnalyzeGcContent(new DnaSequence(input));
+
+        result.OverallGcContent.Should().Be(0.0,
+            because: "a sequence of only A/T has no G or C → GC% is exactly 0");
+        result.OverallGcSkew.Should().Be(0.0,
+            because: "no G and no C present → GC-skew zero-denominator guard returns 0, not NaN");
+        result.OverallAtSkew.Should().BeApproximately(expectedAtSkew, Tolerance,
+            because: "AT skew = (A−T)/(A+T) for a pure / balanced A·T run");
+        AssertInvariantRanges(result);
+        AssertAllScalarsFinite(result);
+    }
+
+    #endregion
+
+    #region BE — Boundary: non-ACGT characters (ignored in num & denom)
+
+    /// <summary>
+    /// BE: non-A/C/G/T characters are IGNORED in BOTH numerator and denominator on
+    /// the lenient string surface (§3.3, §6.2; Biopython GC_skew ignores ambiguous
+    /// bases). So injecting N/ambiguity/U/digits/gaps/whitespace/null-byte/unicode
+    /// among a known A/C/G/T core must NEVER throw and must leave every overall
+    /// scalar EXACTLY equal to the scalar computed on the counted bases alone.
+    /// Here the counted core of each input is "GC" → GcContent 100, GcSkew 0
+    /// (G=C=1), AtSkew 0 (no A/T). The garbage must not shift any of them.
+    /// </summary>
+    [TestCase("GNCN", TestName = "AnalyzeGcContent_NonAcgt_AmbiguityN_Ignored")]
+    [TestCase("G-C.", TestName = "AnalyzeGcContent_NonAcgt_Gaps_Ignored")]
+    [TestCase("G C ", TestName = "AnalyzeGcContent_NonAcgt_Whitespace_Ignored")]
+    [TestCase("G1C2", TestName = "AnalyzeGcContent_NonAcgt_Digits_Ignored")]
+    [TestCase("GUCU", TestName = "AnalyzeGcContent_NonAcgt_RnaBaseU_Ignored")]
+    [TestCase("G\0C", TestName = "AnalyzeGcContent_NonAcgt_NullByte_Ignored")]
+    [TestCase("GαCβ", TestName = "AnalyzeGcContent_NonAcgt_Unicode_Ignored")]
+    public void AnalyzeGcContent_NonAcgtCharacters_AreIgnoredNotCounted(string input)
+    {
+        GcAnalysisResult result = default!;
+        var act = () => result = GcSkewCalculator.AnalyzeGcContent(input);
+
+        act.Should().NotThrow("non-ACGT symbols are ignored, not validated, on the lenient string surface");
+
+        var (gc, gcSkew, atSkew) = ExpectedOverallScalars(input);
+        gc.Should().BeApproximately(100.0, Tolerance, "sanity: the counted core 'GC' is 100% GC");
+        gcSkew.Should().BeApproximately(0.0, Tolerance, "sanity: counted core G=C → skew 0");
+
+        result.OverallGcContent.Should().BeApproximately(gc, Tolerance,
+            because: "ignored garbage must not shift GC% of the counted A/C/G/T bases");
+        result.OverallGcSkew.Should().BeApproximately(gcSkew, Tolerance,
+            because: "ignored garbage must not shift the GC skew of the counted bases");
+        result.OverallAtSkew.Should().BeApproximately(atSkew, Tolerance,
+            because: "ignored garbage must not shift the AT skew of the counted bases");
+        AssertAllScalarsFinite(result);
+        AssertInvariantRanges(result);
+    }
+
+    /// <summary>
+    /// BE: an input that is ENTIRELY non-ACGT (no counted base at all) is the full
+    /// zero-denominator boundary on the lenient surface: every scalar is the defined
+    /// 0, no NaN, no crash — yet SequenceLength still reflects the raw input length
+    /// (§3.3: only the METRICS ignore the symbols; the length is the analyzed length).
+    /// </summary>
+    [TestCase("NNNNN", TestName = "AnalyzeGcContent_AllNonAcgt_AllN")]
+    [TestCase("-----", TestName = "AnalyzeGcContent_AllNonAcgt_AllGaps")]
+    [TestCase("12345", TestName = "AnalyzeGcContent_AllNonAcgt_AllDigits")]
+    public void AnalyzeGcContent_AllNonAcgt_IsZeroScalarsNoNaN(string input)
+    {
+        GcAnalysisResult result = default!;
+        var act = () => result = GcSkewCalculator.AnalyzeGcContent(input);
+
+        act.Should().NotThrow("an all-garbage input is ignored base-by-base, never a crash");
+        result.OverallGcContent.Should().Be(0.0, "no counted base → GC% 0");
+        result.OverallGcSkew.Should().Be(0.0, "no G/C → zero-division guard → 0, not NaN");
+        result.OverallAtSkew.Should().Be(0.0, "no A/T → zero-division guard → 0, not NaN");
+        result.SequenceLength.Should().Be(input.Length,
+            because: "the analyzed length is the raw input length; only the metrics ignore non-ACGT");
+        AssertAllScalarsFinite(result);
+    }
+
+    #endregion
+
+    #region BE / OVF — Boundary: very long (O(n) scalars, no overflow / hang)
+
+    /// <summary>
+    /// BE/OVF: an extremely long valid sequence (1,000,000 bases) must compute the
+    /// overall scalars without overflow, hang, or NaN, with every scalar inside its
+    /// invariant range. A known-composition long input ("AG" repeated = 50% A,
+    /// 50% G) pins exact values: GcContent 50, GcSkew +1 (all G/C is G), AtSkew +1
+    /// (all A/T is A). [CancelAfter] guards the O(n) scalar path against any hang.
+    /// </summary>
+    [Test]
+    [CancelAfter(30_000)]
+    public void AnalyzeGcContent_ExtremelyLong_StaysInRangeAndDoesNotHang()
+    {
+        const int length = 1_000_000;
+
+        var halfGc = string.Concat(Enumerable.Repeat("AG", length / 2));
+        var known = GcSkewCalculator.AnalyzeGcContent(new DnaSequence(halfGc));
+        known.SequenceLength.Should().Be(length);
+        known.OverallGcContent.Should().BeApproximately(50.0, Tolerance,
+            because: "exactly half the bases are G → 50% GC at any length");
+        known.OverallGcSkew.Should().BeApproximately(1.0, Tolerance,
+            because: "the only G/C base is G → GC skew (G−C)/(G+C) = +1");
+        known.OverallAtSkew.Should().BeApproximately(1.0, Tolerance,
+            because: "the only A/T base is A → AT skew (A−T)/(A+T) = +1");
+        AssertAllScalarsFinite(known);
+        AssertInvariantRanges(known);
+
+        var random = GcSkewCalculator.AnalyzeGcContent(new DnaSequence(RandomDna(length)));
+        AssertAllScalarsFinite(random);
+        AssertInvariantRanges(random);
+    }
+
+    #endregion
+
+    #region BE — randomized boundary sweep (locally-seeded, never the shared Rng)
+
+    /// <summary>
+    /// BE: a LOCALLY-seeded (never the shared static Rng) randomized sweep. For each
+    /// trial a random-length sequence is built either from pure {A,C,G,T} or from a
+    /// soup of {A,C,G,T,N,-,U,space,digit} (forcing the non-ACGT ignore path), the
+    /// analysis is run on the lenient string surface, and we assert on EVERY result:
+    ///   • it NEVER throws and produces no NaN/Infinity in any scalar;
+    ///   • every scalar lands in its documented invariant range (INV-01..04);
+    ///   • the overall scalars EXACTLY equal the independent doc-derived reference
+    ///     (ExpectedOverallScalars) — the real algorithmic contract, so a code that
+    ///     miscounted, dropped the zero-division guard, or counted garbage diverges.
+    /// [CancelAfter] guards against any pathological hang.
+    /// </summary>
+    [Test]
+    [CancelAfter(30_000)]
+    public void AnalyzeGcContent_RandomBoundarySweep_FiniteInRangeAndMatchesReference()
+    {
+        var local = new Random(2330601);
+        const string pure = "ACGT";
+        const string soup = "ACGTN-U 5";
+
+        for (int trial = 0; trial < 3000; trial++)
+        {
+            bool useSoup = local.Next(2) == 0;
+            string alphabet = useSoup ? soup : pure;
+            int len = local.Next(0, 40);
+            var chars = new char[len];
+            for (int i = 0; i < len; i++)
+                chars[i] = alphabet[local.Next(alphabet.Length)];
+            string input = new string(chars);
+
+            GcAnalysisResult result = default!;
+            var act = () => result = GcSkewCalculator.AnalyzeGcContent(input);
+            act.Should().NotThrow($"the analysis must never throw on fuzz input \"{input}\"");
+
+            AssertAllScalarsFinite(result);
+            AssertInvariantRanges(result);
+
+            var (gc, gcSkew, atSkew) = ExpectedOverallScalars(input);
+            result.OverallGcContent.Should().BeApproximately(gc, Tolerance,
+                because: $"GC% must match the doc-derived reference for \"{input}\"");
+            result.OverallGcSkew.Should().BeApproximately(gcSkew, Tolerance,
+                because: $"GC skew must match the doc-derived reference for \"{input}\"");
+            result.OverallAtSkew.Should().BeApproximately(atSkew, Tolerance,
+                because: $"AT skew must match the doc-derived reference for \"{input}\"");
         }
     }
 
