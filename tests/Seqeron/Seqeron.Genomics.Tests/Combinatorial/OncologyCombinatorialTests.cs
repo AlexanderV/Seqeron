@@ -597,6 +597,111 @@ public class OncologyCombinatorialTests
         OncologyAnalyzer.FilterArtifacts(new[] { realVariant }).Should().ContainSingle("A>G is a candidate true variant");
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ONCO-TMB-001 — Tumor mutational burden (Oncology)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 92.
+    // Spec: tests/TestSpecs/ONCO-TMB-001.md (OncologyAnalyzer.CalculateTMB / ClassifyTMB).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: Chalmers et al. (2017) Genome Medicine 9:34 (TMB = somatic coding mutations / Mb;
+    // FoundationOne 315-gene panel = 1.1 Mb); Marcus et al. (2021) FDA pembrolizumab approval
+    // (TMB-High ⟺ TMB ≥ 10 mut/Mb, inclusive).
+    //
+    // TMB = somaticCount / targetRegionMb;  ClassifyTMB → High ⟺ TMB ≥ 10. The SomaticCall overload
+    // counts ONLY Somatic-status calls (Germline / NotDetected are excluded).
+    //
+    // Checklist axes panelSize(3) × mutationCount(3) × includeSilent(2) map onto the real knobs:
+    //   • panelSize     → targetRegionMb ∈ {1.1 (FoundationOne 315-gene panel), 10, 30 (≈WES)} — the
+    //     real denominator.
+    //   • mutationCount → number of somatic calls ∈ {3, 11, 150} — the real numerator.
+    //   • includeSilent → whether non-counted "silent" calls (Germline + NotDetected) pad the call set.
+    //     There is no includeSilent parameter; the business property is that such calls must NOT inflate
+    //     TMB — so TMB is INVARIANT to this axis (the silent calls are correctly excluded).
+    // Grid = 3 × 3 × 2 = 18 = the checklist's "Full Combos" for this row.
+    //
+    // The combinatorial point: TMB and the High/Low call are a JOINT function of numerator and
+    // denominator (a small panel with the same count flips Low→High), while the includeSilent axis must
+    // leave the result unchanged — a genuine three-way interaction with a built-in invariance.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private const int SilentPadGermline = 7;     // non-somatic calls that must not be counted
+    private const int SilentPadNotDetected = 5;
+
+    /// <summary>
+    /// For every (panelSize, somatic count, includeSilent) the TMB equals somaticCount / targetRegionMb
+    /// and the High/Low classification matches the FDA ≥10 cutoff — and both are invariant to padding the
+    /// call set with non-somatic "silent" calls, which must be excluded from the count.
+    /// </summary>
+    [Test, Combinatorial]
+    public void CalculateTMB_PanelCountSilentGrid_CountsOnlySomaticPerMegabase(
+        [Values(1.1, 10.0, 30.0)] double targetRegionMb,
+        [Values(3, 11, 150)] int somaticCount,
+        [Values(false, true)] bool includeSilent)
+    {
+        var calls = new List<OncologyAnalyzer.SomaticCall>();
+        for (int i = 0; i < somaticCount; i++)
+            calls.Add(MakeSomaticCall(OncologyAnalyzer.SomaticStatus.Somatic));
+        if (includeSilent)
+        {
+            for (int i = 0; i < SilentPadGermline; i++)
+                calls.Add(MakeSomaticCall(OncologyAnalyzer.SomaticStatus.Germline));
+            for (int i = 0; i < SilentPadNotDetected; i++)
+                calls.Add(MakeSomaticCall(OncologyAnalyzer.SomaticStatus.NotDetected));
+        }
+
+        // Independent ground truth (counts only somatic, divides by Mb).
+        double expectedTmb = somaticCount / targetRegionMb;
+        var expectedStatus = expectedTmb >= 10.0 ? OncologyAnalyzer.TmbStatus.High : OncologyAnalyzer.TmbStatus.Low;
+
+        double tmb = OncologyAnalyzer.CalculateTMB(calls, targetRegionMb);
+
+        tmb.Should().BeApproximately(expectedTmb, 1e-12, "TMB = somatic count / Mb, silent calls excluded");
+        OncologyAnalyzer.ClassifyTMB(tmb).Should().Be(expectedStatus, "High ⟺ TMB ≥ 10 mut/Mb (FDA, inclusive)");
+    }
+
+    /// <summary>
+    /// Interaction witness (panel × count flips the call): 11 somatic mutations are TMB-High on the 1.1 Mb
+    /// FoundationOne panel (exactly 10.0 mut/Mb) but TMB-Low across a 30 Mb exome (≈0.37 mut/Mb). The
+    /// classification flips purely on the panel-size axis at fixed count — the grid needs the combination.
+    /// </summary>
+    [Test]
+    public void CalculateTMB_PanelSizeAxis_FlipsHighLowAtFixedCount()
+    {
+        OncologyAnalyzer.ClassifyTMB(OncologyAnalyzer.CalculateTMB(11, 1.1))
+            .Should().Be(OncologyAnalyzer.TmbStatus.High, "11 / 1.1 = 10.0 ≥ 10 → High");
+        OncologyAnalyzer.ClassifyTMB(OncologyAnalyzer.CalculateTMB(11, 30.0))
+            .Should().Be(OncologyAnalyzer.TmbStatus.Low, "11 / 30 ≈ 0.37 < 10 → Low");
+    }
+
+    /// <summary>
+    /// Interaction witness (includeSilent invariance): adding germline / not-detected calls to a fixed
+    /// somatic set leaves TMB unchanged — silent variants do not inflate the burden (Chalmers et al. 2017
+    /// count only somatic mutations).
+    /// </summary>
+    [Test]
+    public void CalculateTMB_SilentCalls_DoNotInflateBurden()
+    {
+        var somaticOnly = Enumerable.Range(0, 11)
+            .Select(_ => MakeSomaticCall(OncologyAnalyzer.SomaticStatus.Somatic)).ToList();
+        var padded = new List<OncologyAnalyzer.SomaticCall>(somaticOnly);
+        padded.AddRange(Enumerable.Range(0, 50).Select(_ => MakeSomaticCall(OncologyAnalyzer.SomaticStatus.Germline)));
+        padded.AddRange(Enumerable.Range(0, 50).Select(_ => MakeSomaticCall(OncologyAnalyzer.SomaticStatus.NotDetected)));
+
+        OncologyAnalyzer.CalculateTMB(padded, 1.1)
+            .Should().Be(OncologyAnalyzer.CalculateTMB(somaticOnly, 1.1), "only somatic calls count toward TMB");
+    }
+
+    /// <summary>
+    /// Boundary witness (FDA inclusive cutoff): classification flips only at exactly 10 mut/Mb — 9.9 is
+    /// Low, 10.0 is High. Source: Marcus et al. (2021).
+    /// </summary>
+    [Test]
+    public void ClassifyTMB_FdaCutoff_IsInclusiveAtTen()
+    {
+        OncologyAnalyzer.ClassifyTMB(9.9).Should().Be(OncologyAnalyzer.TmbStatus.Low);
+        OncologyAnalyzer.ClassifyTMB(10.0).Should().Be(OncologyAnalyzer.TmbStatus.High);
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     // Helpers — engineered constructs + independent ground truth
     // ───────────────────────────────────────────────────────────────────────
@@ -670,6 +775,16 @@ public class OncologyCombinatorialTests
             integral += runningSum;
         }
         return integral;
+    }
+
+    /// <summary>
+    /// Builds a <see cref="OncologyAnalyzer.SomaticCall"/> carrying the requested status; only the status
+    /// matters for the TMB count, so the variant and VAF fields are placeholders.
+    /// </summary>
+    private static OncologyAnalyzer.SomaticCall MakeSomaticCall(OncologyAnalyzer.SomaticStatus status)
+    {
+        var variant = new OncologyAnalyzer.VariantObservation("chr1", 1, "C", "T", 0, 0, 0, 0);
+        return new OncologyAnalyzer.SomaticCall(variant, 0.0, 0.0, status, 0.0);
     }
 
     /// <summary>
