@@ -874,6 +874,126 @@ public class OncologyCombinatorialTests
         OncologyAnalyzer.CalculateHRDScore(15, 12, 20).Should().Be(47);
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ONCO-SIG-002 — Mutational signature fitting / refitting (Oncology)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 97.
+    // Spec: tests/TestSpecs/ONCO-SIG-002.md (OncologyAnalyzer.FitSignatures / CosineSimilarity / ReconstructCatalog).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: Blokzijl et al. (2018) MutationalPatterns (NNLS refit min‖Sx−d‖², x≥0; cosine quality);
+    // Rosenthal et al. (2016) deconstructSigs (R = S·W, normalised weights); Lawson & Hanson (1974) NNLS.
+    //
+    // FitSignatures solves x = argmin‖S·x − d‖² s.t. x ≥ 0, then reports normalised exposures, the
+    // reconstruction S·x, and cos(d, S·x).
+    //
+    // Checklist axes nSignatures(3) × nMutations(3) × solver(2). There is a single NNLS solver
+    // (Lawson-Hanson); per the campaign convention we map the axes onto the real knobs and document it:
+    //   • nSignatures → number of reference signatures k ∈ {1,2,3} (here built with DISJOINT channel
+    //     support, so the NNLS reduces to an exact orthogonal projection with closed-form exposures).
+    //   • nMutations  → the per-signature intensity v ∈ {50,500,2500} (∝ total mutation count).
+    //   • solver      → the fit REGIME the single solver lands in: {ExactFit — catalog is an exact non-
+    //     negative mix → reconstruction cosine = 1; ResidualBearing — catalog carries an unmodeled
+    //     orthogonal residual block → exposures unchanged but cosine = √(k/(k+1)) < 1}. The active-set
+    //     clamp branch (negative unconstrained coefficient) is covered by a dedicated witness below.
+    // Grid = 3 × 3 × 2 = 18 = the checklist's "Full Combos" for this row.
+    //
+    // The combinatorial point: the NNLS projection recovers the true per-signature exposures (each = v,
+    // INV-4/INV-7) regardless of intensity or an orthogonal residual, while the reconstruction cosine is a
+    // JOINT function of k and the fit regime (1 for an exact mix, √(k/(k+1)) when a residual is present).
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>Which fit regime the single NNLS solver lands in for the constructed catalog.</summary>
+    public enum FitRegime
+    {
+        /// <summary>Catalog is an exact non-negative mix of the signatures → reconstruction cosine = 1.</summary>
+        ExactFit,
+
+        /// <summary>Catalog carries an unmodeled orthogonal residual block → cosine = √(k/(k+1)) &lt; 1.</summary>
+        ResidualBearing,
+    }
+
+    /// <summary>
+    /// For every (k signatures, intensity v, fit regime) the NNLS projection recovers exposure v for each
+    /// disjoint-support signature (all ≥ 0, normalised to 1/k summing to 1), and the reconstruction cosine
+    /// is 1 for an exact mix or √(k/(k+1)) when an unmodeled orthogonal residual is present — the exposures
+    /// being unchanged by the residual (the projection ignores the unmodeled block).
+    /// </summary>
+    [Test, Combinatorial]
+    public void FitSignatures_SignaturesIntensityRegimeGrid_ProjectsAndScoresReconstruction(
+        [Values(1, 2, 3)] int nSignatures,
+        [Values(50.0, 500.0, 2500.0)] double intensity,
+        [Values] FitRegime regime)
+    {
+        var (catalog, signatures) = BuildOrthogonalFit(nSignatures, intensity, regime == FitRegime.ResidualBearing);
+
+        double expectedCosine = regime == FitRegime.ExactFit ? 1.0 : Math.Sqrt((double)nSignatures / (nSignatures + 1));
+
+        var result = OncologyAnalyzer.FitSignatures(catalog, signatures);
+
+        result.Exposures.Should().HaveCount(nSignatures);
+        result.Exposures.Should().OnlyContain(e => e >= 0.0, "[INV-4] NNLS exposures are non-negative");
+        result.Exposures.Should().OnlyContain(e => Math.Abs(e - intensity) < 1e-9,
+            "[INV-7] orthogonal projection recovers exposure v for each signature, residual ignored");
+        result.NormalizedExposures.Sum().Should().BeApproximately(1.0, 1e-9, "[INV-6] proportions sum to 1");
+        result.NormalizedExposures.Should().OnlyContain(p => Math.Abs(p - 1.0 / nSignatures) < 1e-9, "equal exposures → equal proportions");
+        result.ReconstructionCosineSimilarity.Should().BeApproximately(expectedCosine, 1e-9,
+            "reconstruction cosine is 1 for an exact mix, √(k/(k+1)) with an unmodeled residual");
+    }
+
+    /// <summary>
+    /// Interaction witness (regime axis flips reconstruction quality, not exposures): for fixed k=2 and
+    /// intensity, the exact-mix catalog reconstructs perfectly (cosine 1) while the residual-bearing
+    /// catalog scores √(2/3) ≈ 0.8165 — yet both recover the same exposures. The cosine flips purely on the
+    /// regime axis; the projection is invariant to the unmodeled residual.
+    /// </summary>
+    [Test]
+    public void FitSignatures_RegimeAxis_FlipsCosineNotExposures()
+    {
+        var (exactCatalog, sigs) = BuildOrthogonalFit(2, 500.0, residual: false);
+        var (residualCatalog, _) = BuildOrthogonalFit(2, 500.0, residual: true);
+
+        var exact = OncologyAnalyzer.FitSignatures(exactCatalog, sigs);
+        var residual = OncologyAnalyzer.FitSignatures(residualCatalog, sigs);
+
+        exact.ReconstructionCosineSimilarity.Should().BeApproximately(1.0, 1e-9);
+        residual.ReconstructionCosineSimilarity.Should().BeApproximately(Math.Sqrt(2.0 / 3.0), 1e-9);
+        residual.Exposures.Should().BeEquivalentTo(exact.Exposures, "the unmodeled residual does not change the projection");
+    }
+
+    /// <summary>
+    /// Witness for the active-set clamp branch (solver constraint binds): S columns [1,0] and [1,1] with
+    /// d = [0,1] have a negative unconstrained coefficient for the first signature, so NNLS clamps it to 0
+    /// and refits the second to 0.5 → exposures [0, 0.5]. Source: Lawson & Hanson (1974) active-set NNLS;
+    /// spec M6.
+    /// </summary>
+    [Test]
+    public void FitSignatures_NegativeUnconstrainedCoefficient_ClampsToZero()
+    {
+        var signatures = new IReadOnlyList<double>[]
+        {
+            new double[] { 1.0, 0.0 }, // signature 0
+            new double[] { 1.0, 1.0 }, // signature 1
+        };
+        var catalog = new double[] { 0.0, 1.0 };
+
+        var result = OncologyAnalyzer.FitSignatures(catalog, signatures);
+
+        result.Exposures[0].Should().BeApproximately(0.0, 1e-9, "negative LS coefficient clamps to 0 (NNLS x ≥ 0)");
+        result.Exposures[1].Should().BeApproximately(0.5, 1e-9, "second signature refits to 0.5");
+    }
+
+    /// <summary>
+    /// Witness (cosine formula, spec M1-M4): identical vectors → 1, orthogonal → 0, and positive scaling is
+    /// invariant. Source: Blokzijl et al. (2018) cosine similarity.
+    /// </summary>
+    [Test]
+    public void CosineSimilarity_IdentityOrthogonalScale_MatchFormula()
+    {
+        OncologyAnalyzer.CosineSimilarity(new double[] { 1, 2, 3 }, new double[] { 1, 2, 3 }).Should().BeApproximately(1.0, 1e-12);
+        OncologyAnalyzer.CosineSimilarity(new double[] { 1, 0 }, new double[] { 0, 1 }).Should().BeApproximately(0.0, 1e-12);
+        OncologyAnalyzer.CosineSimilarity(new double[] { 3, 4 }, new double[] { 6, 8 }).Should().BeApproximately(1.0, 1e-12);
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     // Helpers — engineered constructs + independent ground truth
     // ───────────────────────────────────────────────────────────────────────
@@ -947,6 +1067,42 @@ public class OncologyCombinatorialTests
             integral += runningSum;
         }
         return integral;
+    }
+
+    /// <summary>
+    /// Builds <paramref name="k"/> reference signatures with DISJOINT channel support (signature j occupies
+    /// channels [2j, 2j+1]) and a catalog that is their exact non-negative mix with per-signature intensity
+    /// <paramref name="v"/>. With orthogonal signatures the NNLS reduces to a closed-form projection giving
+    /// exposure v for each. When <paramref name="residual"/> is set, an extra unmodeled block [2k, 2k+1] —
+    /// covered by NO signature — is filled with v, so the reconstruction cannot represent it and the cosine
+    /// drops to √(k/(k+1)) while the exposures are unchanged.
+    /// </summary>
+    private static (List<double> catalog, IReadOnlyList<double>[] signatures) BuildOrthogonalFit(int k, double v, bool residual)
+    {
+        int channelCount = 2 * (k + 1);
+
+        var signatures = new IReadOnlyList<double>[k];
+        for (int j = 0; j < k; j++)
+        {
+            var sig = new double[channelCount];
+            sig[2 * j] = 1.0;
+            sig[2 * j + 1] = 1.0;
+            signatures[j] = sig;
+        }
+
+        var catalog = new List<double>(new double[channelCount]);
+        for (int j = 0; j < k; j++)
+        {
+            catalog[2 * j] = v;
+            catalog[2 * j + 1] = v;
+        }
+        if (residual)
+        {
+            catalog[2 * k] = v;
+            catalog[2 * k + 1] = v;
+        }
+
+        return (catalog, signatures);
     }
 
     /// <summary>
