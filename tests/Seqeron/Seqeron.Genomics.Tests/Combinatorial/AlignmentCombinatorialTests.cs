@@ -314,4 +314,120 @@ public class AlignmentCombinatorialTests
         r.AlignedSequence1.Replace("-", "").Should().Be(query);
         r.AlignedSequence1.Should().StartWith("-", "the leading reference flank is a free gap in the query row");
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ALIGN-MULTI-001 — Multiple sequence alignment (Alignment)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 38.
+    // Spec: tests/TestSpecs/ALIGN-MULTI-001.md (canonical MultipleAlign / MultipleAlignProgressive).
+    // Dimensions: nSeqs(3) × seqLen(3) × gapPen(3) × guideTree(2). Grid 3×3×3×2 = 54.
+    //
+    // Model (Wikipedia MSA): an MSA arranges k sequences into a rectangular block by inserting
+    // gaps only (never editing residues); the score is the sum-of-pairs (SP) over all C(k,2)
+    // row pairs, with gap-gap columns neutral. guideTree(2) selects the star anchor method
+    // (MultipleAlign) vs the progressive guide-tree method (MultipleAlignProgressive).
+    //
+    // The combinatorial point: regardless of nSeqs, length, gap weight or assembly strategy,
+    // every result must (a) keep all k rows, (b) be rectangular, (c) reproduce each input when
+    // gaps are stripped, and (d) carry a TotalScore equal to the SP score of the returned block.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public enum MsaMethod { StarAnchor, ProgressiveTree }
+
+    private static char NextBase(char c) => "ACGT"["ACGT".IndexOf(c) is var k && k >= 0 ? (k + 1) % 4 : 0];
+
+    /// <summary>A deterministic family of related sequences; one member carries a deletion (forces gaps).</summary>
+    private static List<DnaSequence> MakeFamily(int nSeqs, int seqLen, uint seed)
+    {
+        string baseSeq = DiverseDna(seqLen, seed);
+        var family = new List<DnaSequence>();
+        for (int i = 0; i < nSeqs; i++)
+        {
+            var chars = baseSeq.ToCharArray();
+            for (int k = 0; k < i; k++) { int p = (k * 5 + i) % chars.Length; chars[p] = NextBase(chars[p]); }
+            string s = new string(chars);
+            if (i == 1) s = s.Remove(seqLen / 2, 1); // a single-base deletion in one member
+            family.Add(new DnaSequence(s));
+        }
+        return family;
+    }
+
+    /// <summary>Independent sum-of-pairs score mirroring the documented MSA convention (gap-gap neutral).</summary>
+    private static int SumOfPairs(string[] rows, int match, int mismatch, int gap)
+    {
+        int len = rows.Max(r => r.Length), total = 0;
+        for (int pos = 0; pos < len; pos++)
+            for (int i = 0; i < rows.Length; i++)
+            {
+                char ci = pos < rows[i].Length ? rows[i][pos] : '-';
+                for (int j = i + 1; j < rows.Length; j++)
+                {
+                    char cj = pos < rows[j].Length ? rows[j][pos] : '-';
+                    if (ci == '-' && cj == '-') continue;
+                    else if (ci == '-' || cj == '-') total += gap;
+                    else total += ci == cj ? match : mismatch;
+                }
+            }
+        return total;
+    }
+
+    [Test, Combinatorial]
+    public void AlignMulti_RectangularReconstructsInputs_AndScoreIsSumOfPairs(
+        [Values(3, 4, 5)] int nSeqs,
+        [Values(8, 12, 20)] int seqLen,
+        [Values(-1, -2, -5)] int gapPen,
+        [Values(MsaMethod.StarAnchor, MsaMethod.ProgressiveTree)] MsaMethod method)
+    {
+        var family = MakeFamily(nSeqs, seqLen, 0x77u);
+        var scoring = new ScoringMatrix(1, -1, GapOpen: gapPen, GapExtend: gapPen);
+
+        var result = method == MsaMethod.StarAnchor
+            ? SequenceAligner.MultipleAlign(family, scoring)
+            : SequenceAligner.MultipleAlignProgressive(family, scoring);
+
+        result.AlignedSequences.Should().HaveCount(nSeqs, "every input keeps a row");
+        int width = result.AlignedSequences[0].Length;
+        result.AlignedSequences.Should().OnlyContain(r => r.Length == width, "the block is rectangular");
+        result.Consensus.Length.Should().Be(width, "the consensus spans the alignment width");
+
+        result.AlignedSequences.Select(r => r.Replace("-", ""))
+            .Should().BeEquivalentTo(family.Select(f => f.Sequence), "gaps-removed rows reproduce the inputs");
+
+        result.TotalScore.Should().Be(SumOfPairs(result.AlignedSequences, 1, -1, gapPen),
+            "TotalScore is the sum-of-pairs score of the returned block");
+    }
+
+    /// <summary>
+    /// Interaction witness: identical sequences need no gaps under either strategy — the block
+    /// is the sequence repeated, the consensus is the sequence, and SP = C(k,2)·L·match.
+    /// </summary>
+    [Test, Combinatorial]
+    public void AlignMulti_IdenticalSequences_TrivialBlock(
+        [Values(3, 4)] int nSeqs,
+        [Values(MsaMethod.StarAnchor, MsaMethod.ProgressiveTree)] MsaMethod method)
+    {
+        string s = DiverseDna(12, 0x2BADu);
+        var family = Enumerable.Repeat(s, nSeqs).Select(x => new DnaSequence(x)).ToList();
+        var scoring = new ScoringMatrix(1, -1, -2, -2);
+
+        var result = method == MsaMethod.StarAnchor
+            ? SequenceAligner.MultipleAlign(family, scoring)
+            : SequenceAligner.MultipleAlignProgressive(family, scoring);
+
+        result.AlignedSequences.Should().OnlyContain(r => r == s, "no gaps for identical inputs");
+        result.Consensus.Should().Be(s);
+        result.TotalScore.Should().Be(nSeqs * (nSeqs - 1) / 2 * s.Length, "C(k,2)·L matches at +1 each");
+    }
+
+    /// <summary>
+    /// Worked example: a single divergent column resolves to the majority base in the consensus.
+    /// </summary>
+    [Test]
+    public void AlignMulti_Consensus_IsColumnMajority()
+    {
+        var family = new[] { "ACGT", "ACGT", "ACTT" }.Select(s => new DnaSequence(s)).ToList();
+        var result = SequenceAligner.MultipleAlign(family, SequenceAligner.SimpleDna);
+
+        result.AlignedSequences.Should().OnlyContain(r => r.Length == 4, "no gaps needed");
+        result.Consensus.Should().Be("ACGT", "column 3 majority is G (2 of 3)");
+    }
 }
