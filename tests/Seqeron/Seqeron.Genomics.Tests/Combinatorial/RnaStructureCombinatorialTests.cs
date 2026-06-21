@@ -713,4 +713,117 @@ public class RnaStructureCombinatorialTests
         RnaSecondaryStructure.CalculateStructureProbability(-5.0, -6.0)
             .Should().BeApproximately(Math.Exp(-1.0 / rt), 1e-9, "p = exp(−ΔE/RT) for a 1 kcal/mol gap");
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: RNA-PSEUDOKNOT-001 — Pseudoknot (crossing pair) detection (RnaStructure)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 155.
+    // Spec: tests/TestSpecs/RNA-PSEUDOKNOT-001.md (canonical DetectPseudoknots). ADVANCED §10.
+    // Dimensions: seqLen(3) × maxKnots(3). Grid 3×3 = 9 (full, exhaustive ⊇ pairwise).
+    //
+    // Model (Antczak 2018; biotite.structure.pseudoknots): two base pairs (i,j) and (k,l), written
+    // open<close, form a pseudoknot iff they CROSS — i < k < j < l. Nested (i<k<l<j) and disjoint
+    // (j<k) arrangements do not. DetectPseudoknots reports ONE Pseudoknot per crossing pair-of-pairs.
+    //
+    // Axis mapping (documented — DetectPseudoknots takes a base-pair set, not literal seqLen/maxKnots
+    // knobs): maxKnots → K mutually-crossing pairs planted as the ladder {(2+t, 2+t+K) : t∈[0,K)}
+    // (every two of which cross), giving EXACTLY C(K,2) pseudoknots; seqLen → the coordinate span,
+    // realised by an enclosing pair (0, seqLen−1) and a trailing disjoint pair — both NESTED/DISJOINT
+    // w.r.t. the ladder so they add zero crossings.
+    //
+    // The combinatorial point: the reported count is the number of crossing pairs (verified against an
+    // independent brute-force crossing test = the definition) and equals C(K,2); it is driven solely
+    // by the crossing topology (maxKnots) and is INVARIANT to the span (seqLen). Every reported knot
+    // satisfies Start1<Start2<End1<End2 (INV-1).
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private static RnaSecondaryStructure.BasePair Bp(int open, int close) =>
+        new(open, close, 'G', 'C', RnaSecondaryStructure.BasePairType.WatsonCrick);
+
+    /// <summary>Independent ground truth: count crossing (pseudoknotted) pair-of-pairs by the definition.</summary>
+    private static int BruteForceCrossingCount(IReadOnlyList<RnaSecondaryStructure.BasePair> pairs)
+    {
+        int count = 0;
+        for (int a = 0; a < pairs.Count; a++)
+            for (int b = a + 1; b < pairs.Count; b++)
+            {
+                int i = Math.Min(pairs[a].Position1, pairs[a].Position2), j = Math.Max(pairs[a].Position1, pairs[a].Position2);
+                int k = Math.Min(pairs[b].Position1, pairs[b].Position2), l = Math.Max(pairs[b].Position1, pairs[b].Position2);
+                if (k < i) (i, j, k, l) = (k, l, i, j);
+                if (i < k && k < j && j < l) count++;
+            }
+        return count;
+    }
+
+    /// <summary>K mutually-crossing pairs (ladder) plus an enclosing pair and a trailing disjoint pair.</summary>
+    private static List<RnaSecondaryStructure.BasePair> PseudoknotConstruct(int seqLen, int knots)
+    {
+        var pairs = new List<RnaSecondaryStructure.BasePair> { Bp(0, seqLen - 1) }; // enclosing (nested w.r.t. ladder)
+        for (int t = 0; t < knots; t++)
+            pairs.Add(Bp(2 + t, 2 + t + knots)); // ladder: any two of these cross
+        pairs.Add(Bp(seqLen - 3, seqLen - 2));   // disjoint from the ladder
+        return pairs;
+    }
+
+    [Test, Combinatorial]
+    public void RnaPseudoknot_CrossingCountAndInvariant_AcrossLengthAndKnots(
+        [Values(16, 24, 32)] int seqLen,
+        [Values(2, 3, 4)] int maxKnots)
+    {
+        var pairs = PseudoknotConstruct(seqLen, maxKnots);
+        var knots = RnaSecondaryStructure.DetectPseudoknots(pairs).ToList();
+
+        int expected = maxKnots * (maxKnots - 1) / 2; // C(K,2) mutually-crossing ladder pairs
+
+        // Construct self-check: the decoys really add no crossing (ground truth = the definition).
+        BruteForceCrossingCount(pairs).Should().Be(expected, "only the ladder pairs cross");
+
+        knots.Should().HaveCount(expected, "one pseudoknot per crossing pair-of-pairs, = C(K,2)");
+        knots.Count.Should().Be(BruteForceCrossingCount(pairs), "detector agrees with the crossing definition");
+
+        foreach (var pk in knots)
+        {
+            pk.Start1.Should().BeLessThan(pk.Start2, "i < k");
+            pk.Start2.Should().BeLessThan(pk.End1, "k < j");
+            pk.End1.Should().BeLessThan(pk.End2, "j < l (crossing, INV-1)");
+        }
+    }
+
+    /// <summary>
+    /// Interaction witness — crossing topology (maxKnots) drives the count; the span (seqLen) does
+    /// not. Same number of mutually-crossing pairs ⇒ same pseudoknot count at any sequence length.
+    /// </summary>
+    [Test]
+    public void RnaPseudoknot_CountDependsOnKnotsNotLength()
+    {
+        int CountAt(int seqLen, int knots) =>
+            RnaSecondaryStructure.DetectPseudoknots(PseudoknotConstruct(seqLen, knots)).Count();
+
+        CountAt(16, 3).Should().Be(3);
+        CountAt(40, 3).Should().Be(3, "span does not change the crossing count");
+        CountAt(16, 2).Should().Be(1, "fewer mutually-crossing pairs ⇒ fewer pseudoknots");
+        CountAt(16, 4).Should().Be(6, "more mutually-crossing pairs ⇒ more pseudoknots");
+    }
+
+    /// <summary>
+    /// Interaction witness — only the CROSSING arrangement is a pseudoknot; nested and disjoint pairs
+    /// are not (tests/TestSpecs/RNA-PSEUDOKNOT-001.md M1/M2/M3), and detection is order-independent.
+    /// </summary>
+    [Test]
+    public void RnaPseudoknot_OnlyCrossingCounts()
+    {
+        // M1: crossing ([)] ⇒ exactly one.
+        RnaSecondaryStructure.DetectPseudoknots(new[] { Bp(0, 2), Bp(1, 3) }).Should().ContainSingle();
+        // M2: nested ⇒ none.
+        RnaSecondaryStructure.DetectPseudoknots(new[] { Bp(0, 5), Bp(1, 4) }).Should().BeEmpty();
+        // M3: disjoint ⇒ none.
+        RnaSecondaryStructure.DetectPseudoknots(new[] { Bp(0, 2), Bp(3, 5) }).Should().BeEmpty();
+
+        // S3/S4: a mixed set reports only the crossing relation, regardless of input order.
+        var mixed = new[] { Bp(1, 4), Bp(0, 5), Bp(0, 2), Bp(3, 5) }; // mix of nested, disjoint and crossing relations
+        var shuffled = new[] { Bp(3, 5), Bp(0, 2), Bp(1, 4), Bp(0, 5) };
+        int a = RnaSecondaryStructure.DetectPseudoknots(mixed).Count();
+        int b = RnaSecondaryStructure.DetectPseudoknots(shuffled).Count();
+        a.Should().Be(b, "detection is order-independent (INV-5)");
+        BruteForceCrossingCount(mixed).Should().Be(a, "count matches the crossing definition on the mixed set");
+    }
 }
