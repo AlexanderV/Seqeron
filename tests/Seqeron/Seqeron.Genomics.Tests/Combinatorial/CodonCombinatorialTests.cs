@@ -104,4 +104,78 @@ public class CodonCombinatorialTests
         second.OptimizedCAI.Should().BeApproximately(first.OptimizedCAI, 1e-9, "the optimum is a fixed point");
         Protein(second.OptimizedSequence).Should().Be(Protein(coding));
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: CODON-RARE-001 — Rare codon detection (Codon)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 60.
+    // Spec: tests/TestSpecs/CODON-RARE-001.md (canonical FindRareCodons).
+    // Dimensions: threshold(3) × referenceTable(3) × seqLen(3). Grid 3×3×3 = 27.
+    //
+    // Model: a codon is "rare" for an organism when its usage frequency in that organism's table
+    // is below a threshold (rare codons slow/stall translation). FindRareCodons reports every
+    // such codon with its position and frequency.
+    //
+    // The combinatorial point: threshold, reference organism and length interact — the flagged
+    // set is exactly the codons below threshold in the chosen table (verified against the table),
+    // it grows monotonically with the threshold, and the same codon can be rare in one organism
+    // but common in another.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private static List<string> RnaCodons(string coding)
+    {
+        string rna = coding.ToUpperInvariant().Replace('T', 'U');
+        return Enumerable.Range(0, rna.Length / 3).Select(i => rna.Substring(i * 3, 3)).ToList();
+    }
+
+    [Test, Combinatorial]
+    public void CodonRare_FlagsExactlyBelowThreshold(
+        [Values(0.10, 0.20, 0.40)] double threshold,
+        [Values(0, 1, 2)] int organism,
+        [Values(10, 30, 60)] int nCodons)
+    {
+        string coding = CodingSequence(nCodons);
+        var table = Table(organism);
+
+        var rare = CodonOptimizer.FindRareCodons(coding, table, threshold).ToList();
+
+        var expected = RnaCodons(coding)
+            .Select((c, i) => (Pos: i * 3, Codon: c, Freq: table.CodonFrequencies.GetValueOrDefault(c, 0)))
+            .Where(x => x.Freq < threshold)
+            .ToList();
+
+        rare.Should().HaveCount(expected.Count, "exactly the sub-threshold codons are flagged");
+        for (int j = 0; j < expected.Count; j++)
+        {
+            rare[j].Position.Should().Be(expected[j].Pos);
+            rare[j].Codon.Should().Be(expected[j].Codon);
+            rare[j].Frequency.Should().BeApproximately(expected[j].Freq, 1e-12);
+        }
+        rare.Should().OnlyContain(r => r.Frequency < threshold);
+    }
+
+    /// <summary>
+    /// Interaction witness: raising the threshold can only add rare codons — the flagged
+    /// position set at a lower threshold is a subset of that at a higher one.
+    /// </summary>
+    [Test]
+    public void CodonRare_Threshold_IsMonotone()
+    {
+        string coding = CodingSequence(40);
+        var low = CodonOptimizer.FindRareCodons(coding, CodonOptimizer.EColiK12, 0.10).Select(r => r.Position).ToHashSet();
+        var high = CodonOptimizer.FindRareCodons(coding, CodonOptimizer.EColiK12, 0.30).Select(r => r.Position).ToHashSet();
+        low.Should().BeSubsetOf(high, "a higher threshold flags at least as many codons");
+    }
+
+    /// <summary>
+    /// Interaction witness: rarity is organism-specific — a codon below threshold in one table
+    /// can be at or above threshold in another, so the flagged sets differ by reference table.
+    /// </summary>
+    [Test]
+    public void CodonRare_IsOrganismSpecific()
+    {
+        string coding = CodingSequence(60);
+        var eColi = CodonOptimizer.FindRareCodons(coding, CodonOptimizer.EColiK12, 0.20).Select(r => r.Position).ToHashSet();
+        var human = CodonOptimizer.FindRareCodons(coding, CodonOptimizer.Human, 0.20).Select(r => r.Position).ToHashSet();
+        eColi.Should().NotBeEquivalentTo(human, "codon rarity depends on the organism's usage table");
+    }
 }
