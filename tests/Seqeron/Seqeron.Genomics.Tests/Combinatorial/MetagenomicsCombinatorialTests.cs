@@ -518,4 +518,292 @@ public class MetagenomicsCombinatorialTests
             groups.Should().ContainSingle("each bin holds contigs from a single source group");
         }
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: META-FUNC-001 — Functional annotation by homology transfer (Metagenomics)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 194.
+    // Spec: tests/TestSpecs/META-FUNC-001.md (canonical PredictFunctions / FunctionalBitScore). ADVANCED §10.
+    // Dimensions: dbSize(3) × nGenes(3). Grid 3×3 = 9 (full, exhaustive ⊇ pairwise).
+    //
+    // Model (Karlin-Altschul; BLAST): each protein is annotated by the best database signature it
+    // contains, ranked by E-value = K·m·n·e^(−λ·S) (lowest wins); the bit score is
+    // S' = (λ·S − ln K)/ln 2 over the ungapped BLOSUM62 self-score S.
+    //
+    // The combinatorial point: database size and the number of query genes interact — each gene's
+    // annotation is its single contained signature, with E-value and bit score equal to the
+    // Karlin-Altschul formulas (cross-checked via the exposed helpers), and decoy DB entries never hit.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private static readonly string[] FuncSignatures = { "WWWWWWWW", "YYYYYYYY", "FFFFFFFF" };
+    private static readonly string[] FuncDecoys = { "MMMMMMMM", "PPPPPPPP", "EEEEEEEE", "QQQQQQQQ", "NNNNNNNN", "RRRRRRRR" };
+
+    [Test, Combinatorial]
+    public void MetaFunc_BestHitAnnotationAndScores_AcrossDbSizeAndGeneCount(
+        [Values(3, 5, 7)] int dbSize,
+        [Values(1, 2, 3)] int nGenes)
+    {
+        // Each gene contains exactly its own signature, padded with A.
+        var proteins = Enumerable.Range(0, nGenes)
+            .Select(i => ($"gene{i}", "AAAA" + FuncSignatures[i] + "AAAA"))
+            .ToList();
+
+        // DB = the nGenes real signatures + decoys to reach dbSize.
+        var db = new Dictionary<string, (string Function, string Pathway, string Ko)>(StringComparer.Ordinal);
+        for (int i = 0; i < nGenes; i++) db[FuncSignatures[i]] = ($"func{i}", $"path{i}", $"K0000{i}");
+        for (int d = 0; db.Count < dbSize; d++) db[FuncDecoys[d]] = ($"decoy{d}", "-", "-");
+
+        var results = MetagenomicsAnalyzer.PredictFunctions(proteins, db).ToList();
+
+        results.Should().HaveCount(nGenes, "every gene matches its embedded signature");
+        foreach (var r in results)
+        {
+            int idx = int.Parse(r.GeneId.Substring(4));
+            string sig = FuncSignatures[idx];
+            r.Function.Should().Be($"func{idx}", "the best hit is the contained signature");
+            int rawScore = MetagenomicsAnalyzer.Blosum62SelfScore(sig);
+            r.BitScore.Should().BeApproximately(MetagenomicsAnalyzer.FunctionalBitScore(rawScore), 1e-9, "bit score = (λS−lnK)/ln2");
+            r.EValue.Should().BeApproximately(MetagenomicsAnalyzer.ExpectedValue(rawScore, proteins[idx].Item2.Length, sig.Length), 1e-9,
+                "E-value = K·m·n·e^(−λS)");
+            r.EValue.Should().BeGreaterThan(0);
+        }
+    }
+
+    /// <summary>
+    /// Interaction witness — when a protein contains two signatures, the higher-raw-score one wins
+    /// (lower E-value); bit score is monotone increasing in the raw score.
+    /// </summary>
+    [Test]
+    public void MetaFunc_BestHitIsLowestEValue()
+    {
+        var db = new Dictionary<string, (string, string, string)>(StringComparer.Ordinal)
+        {
+            ["WWWWWWWW"] = ("tryptophan", "p", "k"),  // W BLOSUM diagonal 11 (higher self-score)
+            ["CCCCCCCC"] = ("cysteine", "p", "k"),    // C BLOSUM diagonal 9 (lower self-score)
+        };
+        var protein = ("g", "WWWWWWWWAAAACCCCCCCC");
+
+        MetagenomicsAnalyzer.PredictFunctions(new[] { protein }, db).Single().Function
+            .Should().Be("tryptophan", "the higher-scoring signature gives the lower E-value");
+
+        MetagenomicsAnalyzer.FunctionalBitScore(MetagenomicsAnalyzer.Blosum62SelfScore("WWWWWWWW"))
+            .Should().BeGreaterThan(MetagenomicsAnalyzer.FunctionalBitScore(MetagenomicsAnalyzer.Blosum62SelfScore("CCCCCCCC")),
+                "bit score increases with raw score");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: META-PATHWAY-001 — Pathway over-representation analysis (Metagenomics)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 195.
+    // Spec: tests/TestSpecs/META-PATHWAY-001.md (canonical FindPathwayEnrichment / HypergeometricUpperTail).
+    // ADVANCED §10.
+    // Dimensions: nGenes(3) × pathwaySet(2). Grid 3×2 = 6 (full, exhaustive ⊇ pairwise).
+    //
+    // Model (hypergeometric ORA): a pathway's enrichment p-value is the right-tail probability
+    // P(X ≥ overlap) of drawing at least the observed overlap of query genes from the background,
+    // P(X≥x) = Σ_{i≥x} C(M,i)C(N−M,n−i)/C(N,n).
+    //
+    // Axis mapping (documented): nGenes → query size; pathwaySet → which pathway database. The
+    // combinatorial point: each reported pathway's p-value equals an independent hypergeometric
+    // recomputation, results are sorted ascending by p-value, and the overlap/size bookkeeping is correct.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private static double Comb(int n, int k)
+    {
+        if (k < 0 || k > n) return 0;
+        double r = 1;
+        for (int i = 0; i < k; i++) r = r * (n - i) / (i + 1);
+        return r;
+    }
+
+    private static double BruteHypergeometricUpperTail(int x, int bigN, int bigM, int n)
+    {
+        double p = 0;
+        for (int i = x; i <= Math.Min(bigM, n); i++)
+            p += Comb(bigM, i) * Comb(bigN - bigM, n - i) / Comb(bigN, n);
+        return p;
+    }
+
+    [Test, Combinatorial]
+    public void MetaPathway_EnrichmentMatchesHypergeometric_AcrossQuerySizeAndDb(
+        [Values(2, 3, 4)] int nGenes,
+        [Values(0, 1)] int pathwaySet)
+    {
+        var db = pathwaySet == 0
+            ? new Dictionary<string, IReadOnlyCollection<string>>
+            {
+                ["P1"] = new[] { "g1", "g2", "g3", "g4" },
+                ["P2"] = new[] { "g5", "g6", "g7", "g8" },
+            }
+            : new Dictionary<string, IReadOnlyCollection<string>>
+            {
+                ["A"] = new[] { "g1", "g2", "g3" },
+                ["B"] = new[] { "g3", "g4", "g5", "g6" },
+                ["C"] = new[] { "g7", "g8" },
+            };
+        var background = Enumerable.Range(1, 10).Select(i => $"g{i}").ToArray();
+        var query = Enumerable.Range(1, nGenes).Select(i => $"g{i}").ToArray();
+
+        var results = MetagenomicsAnalyzer.FindPathwayEnrichment(query, db, background);
+
+        results.Select(r => r.PValue).Should().BeInAscendingOrder("pathways are sorted by p-value");
+        foreach (var r in results)
+        {
+            r.PValue.Should().BeApproximately(
+                MetagenomicsAnalyzer.HypergeometricUpperTail(r.Overlap, r.BackgroundSize, r.PathwaySize, r.QuerySize), 1e-9,
+                "the reported p-value is the hypergeometric upper tail");
+            r.PValue.Should().BeInRange(0.0, 1.0 + 1e-9);
+        }
+    }
+
+    /// <summary>
+    /// Interaction witness — HypergeometricUpperTail matches an independent C(·) summation, and a
+    /// full overlap is more significant (smaller p) than a partial one.
+    /// </summary>
+    [Test]
+    public void MetaPathway_HypergeometricUpperTailIsExact()
+    {
+        foreach (var (x, n, m, k) in new[] { (2, 10, 4, 4), (3, 20, 5, 6), (1, 8, 2, 3) })
+            MetagenomicsAnalyzer.HypergeometricUpperTail(x, n, m, k)
+                .Should().BeApproximately(BruteHypergeometricUpperTail(x, n, m, k), 1e-9);
+
+        MetagenomicsAnalyzer.HypergeometricUpperTail(4, 20, 4, 4)
+            .Should().BeLessThan(MetagenomicsAnalyzer.HypergeometricUpperTail(2, 20, 4, 4), "a larger overlap is more significant");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: META-RESIST-001 — Antibiotic-resistance gene detection (Metagenomics)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 196.
+    // Spec: tests/TestSpecs/META-RESIST-001.md (canonical FindAntibioticResistanceGenes). ADVANCED §10.
+    // Dimensions: dbSize(3) × identity(3). Grid 3×3 = 9 (full, exhaustive ⊇ pairwise).
+    //
+    // Model (ResFinder; Zankari 2012): a contig's best ungapped match to each reference gene gives a
+    // percent identity (identical positions / alignment length) and reference coverage; a gene is
+    // reported only when both clear their thresholds, with the single best-matching reference per contig.
+    //
+    // Axis mapping (documented): dbSize → reference-database size; identity → the identity threshold.
+    // Engineered construct: a contig embedding a reference copy with interior mismatches ⇒ 85% identity,
+    // full coverage. The combinatorial point: the resistance gene is reported exactly when the identity
+    // threshold ≤ 0.85, independent of how many decoy references are present.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private const string ResistRef = "ACGTACGTACGTACGTACGT"; // 20 nt reference resistance gene
+
+    [Test, Combinatorial]
+    public void MetaResist_DetectsResistanceGene_AcrossDbSizeAndIdentity(
+        [Values(1, 3, 5)] int dbSize,
+        [Values(0.8, 0.9, 1.0)] double identity)
+    {
+        // Embed a copy with 3 interior mismatches (positions 5,10,15) ⇒ 17/20 = 0.85 identity, full coverage.
+        var variant = ResistRef.ToCharArray();
+        variant[5] = 'A'; variant[10] = 'A'; variant[15] = 'A';
+        string contig = "TTTT" + new string(variant) + "TTTT";
+
+        var refs = new List<(string, string, string, string)> { ("arr1", ResistRef, "ARR-1", "beta-lactam") };
+        string[] decoys = { "GGGGCCCCGGGGCCCCGGGG", "TTAATTAATTAATTAATTAA", "CCCCGGGGCCCCGGGGCCCC", "AATTAATTAATTAATTAATT" };
+        for (int d = 0; refs.Count < dbSize; d++) refs.Add(($"decoy{d}", decoys[d], $"DCY{d}", "none"));
+
+        var hits = MetagenomicsAnalyzer.FindAntibioticResistanceGenes(
+            new[] { ("contig1", contig) }, refs, identityThreshold: identity).ToList();
+
+        bool expectHit = identity <= 0.85 + 1e-9;
+        if (expectHit)
+        {
+            var hit = hits.Should().ContainSingle().Subject;
+            hit.ResistanceGene.Should().Be("ARR-1");
+            hit.AntibioticClass.Should().Be("beta-lactam");
+            hit.PercentIdentity.Should().BeApproximately(0.85, 1e-9);
+            hit.Coverage.Should().BeApproximately(1.0, 1e-9, "the full reference is covered");
+        }
+        else
+        {
+            hits.Should().BeEmpty("85% identity is below the threshold");
+        }
+    }
+
+    /// <summary>
+    /// Interaction witness — an exact reference copy is detected at every threshold, while an
+    /// unrelated contig yields no hit.
+    /// </summary>
+    [Test]
+    public void MetaResist_ExactCopyAlwaysDetected_UnrelatedNever()
+    {
+        var refs = new[] { ("arr1", ResistRef, "ARR-1", "beta-lactam") };
+
+        MetagenomicsAnalyzer.FindAntibioticResistanceGenes(new[] { ("c", "GG" + ResistRef + "GG") }, refs, 1.0)
+            .Should().ContainSingle(h => h.PercentIdentity >= 1.0 - 1e-9, "an exact copy is 100% identity");
+
+        MetagenomicsAnalyzer.FindAntibioticResistanceGenes(new[] { ("c", new string('G', 30)) }, refs, 0.8)
+            .Should().BeEmpty("an unrelated contig has no passing match");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: META-TAXA-001 — Differential-abundance testing (Metagenomics)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 197.
+    // Spec: tests/TestSpecs/META-TAXA-001.md (canonical FindSignificantTaxa / MannWhitneyU). ADVANCED §10.
+    // Dimensions: nSamples(3) × nTaxa(3) × test(2). Grid 3×3×2 = 18 (full, exhaustive).
+    //
+    // Model (Mann & Whitney 1947): per taxon, a two-group rank-sum test with the asymptotic normal
+    // approximation; the two-tailed p-value flags significance. The continuity correction subtracts
+    // 0.5 from |U − m_U|, enlarging the p-value.
+    //
+    // Axis mapping (documented): nSamples → samples per group; nTaxa → number of taxa; test → the
+    // continuity-correction flag. The combinatorial point: FindSignificantTaxa delegates per taxon to
+    // MannWhitneyU (p-values agree), flags significance at p < threshold, and the U statistic is the
+    // larger of U1/U2 — at every (nSamples, nTaxa, correction) cell.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    [Test, Combinatorial]
+    public void MetaTaxa_DelegatesToMannWhitneyPerTaxon_AcrossSamplesTaxaCorrection(
+        [Values(3, 4, 5)] int nSamples,
+        [Values(2, 3, 4)] int nTaxa,
+        [Values(true, false)] bool continuityCorrection)
+    {
+        var profiles = new List<IReadOnlyDictionary<string, double>>();
+        var groups = new List<int>();
+        for (int s = 0; s < 2 * nSamples; s++)
+        {
+            int group = s < nSamples ? 1 : 2;
+            var profile = new Dictionary<string, double>();
+            for (int t = 0; t < nTaxa; t++)
+            {
+                // taxon0 is strongly differential; the rest overlap between groups.
+                profile[$"taxon{t}"] = t == 0
+                    ? (group == 1 ? s : 100.0 + s)
+                    : (s % 3) + t * 0.1;
+            }
+            profiles.Add(profile);
+            groups.Add(group);
+        }
+
+        var results = MetagenomicsAnalyzer.FindSignificantTaxa(profiles, groups, 0.05, continuityCorrection);
+
+        results.Should().HaveCount(nTaxa, "one result per taxon");
+        foreach (var st in results)
+        {
+            var g1 = Enumerable.Range(0, nSamples).Select(i => profiles[i].GetValueOrDefault(st.Taxon, 0.0)).ToList();
+            var g2 = Enumerable.Range(nSamples, nSamples).Select(i => profiles[i].GetValueOrDefault(st.Taxon, 0.0)).ToList();
+            var mw = MetagenomicsAnalyzer.MannWhitneyU(g1, g2, continuityCorrection);
+
+            st.PValue.Should().BeApproximately(mw.PValue, 1e-12, "the taxon p-value is the Mann–Whitney p-value");
+            st.U.Should().BeApproximately(Math.Max(mw.U1, mw.U2), 1e-12, "U is the larger of U1/U2");
+            st.Significant.Should().Be(st.PValue < 0.05, "significance is p < threshold");
+        }
+    }
+
+    /// <summary>
+    /// Interaction witness — the Mann–Whitney U on a fully separated pair is exact, and the continuity
+    /// correction enlarges the p-value (test axis).
+    /// </summary>
+    [Test]
+    public void MetaTaxa_MannWhitneyExact_AndContinuityCorrectionRaisesP()
+    {
+        var g1 = new double[] { 1, 2, 3 };
+        var g2 = new double[] { 4, 5, 6 };
+        var mw = MetagenomicsAnalyzer.MannWhitneyU(g1, g2, useContinuityCorrection: false);
+        mw.U1.Should().Be(0, "group1 ranks 1+2+3 ⇒ U1 = 6 − 6 = 0");
+        mw.U2.Should().Be(9, "U2 = n1·n2 − U1 = 9");
+
+        double pCc = MetagenomicsAnalyzer.MannWhitneyU(g1, g2, true).PValue;
+        double pNoCc = MetagenomicsAnalyzer.MannWhitneyU(g1, g2, false).PValue;
+        pCc.Should().BeGreaterThanOrEqualTo(pNoCc, "the continuity correction enlarges the p-value");
+    }
 }
