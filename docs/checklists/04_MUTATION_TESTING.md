@@ -32,8 +32,8 @@ Mutation testing вимірює ефективність тестового на
 | 2 | ☑ | SEQ-COMP-001 | Composition | SequenceExtensions.cs | SequenceExtensions_Complement_Tests.cs | ≥ 80% |
 | 3 | ☑ | SEQ-REVCOMP-001 | Composition | SequenceExtensions.cs | SequenceExtensions_ReverseComplement_Tests.cs | ≥ 80% |
 | 4 | ☑ | SEQ-VALID-001 | Composition | SequenceExtensions.cs | SequenceExtensions_SequenceValidation_Tests.cs | ≥ 80% |
-| 5 | ☐ | SEQ-COMPLEX-001 | Composition | SequenceComplexity.cs | SequenceComplexityTests.cs | ≥ 80% |
-| 6 | ☐ | SEQ-ENTROPY-001 | Composition | SequenceComplexity.cs | SequenceComplexityTests.cs | ≥ 80% |
+| 5 | ☑ | SEQ-COMPLEX-001 | Composition | SequenceComplexity.cs | SequenceComplexityTests.cs | ≥ 80% |
+| 6 | ☑ | SEQ-ENTROPY-001 | Composition | SequenceComplexity.cs | SequenceComplexityTests.cs | ≥ 80% |
 | 7 | ☐ | SEQ-GCSKEW-001 | Composition | GcSkewCalculator.cs | GcSkewCalculatorTests.cs | ≥ 80% |
 | 8 | ☑ | PAT-EXACT-001 | Matching | MotifFinder.cs | FindAllOccurrencesTests.cs, ContainsTests.cs, CountOccurrencesTests.cs | ≥ 80% |
 | 9 | ☐ | PAT-APPROX-001 | Matching | ApproximateMatcher.cs | ApproximateMatcher_HammingDistance_Tests.cs | ≥ 80% |
@@ -255,10 +255,10 @@ Mutation testing вимірює ефективність тестового на
 | 225 | ☐ | MIRNA-PAIR-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_AlignMiRnaToTarget_Tests.cs | ≥ 80% |
 | 226 | ☐ | ALIGN-STATS-001 | Alignment | SequenceAligner.cs | SequenceAligner_CalculateStatistics_Tests.cs | ≥ 80% |
 | 227 | ☐ | SEQ-CODON-FREQ-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateCodonFrequencies_Tests.cs | ≥ 80% |
-| 228 | ☐ | SEQ-COMPLEX-COMPRESS-001 | Complexity | SequenceComplexity.cs | SequenceComplexity_EstimateCompressionRatio_Tests.cs | ≥ 80% |
-| 229 | ☐ | SEQ-COMPLEX-DUST-001 | Complexity | SequenceComplexity.cs | SequenceComplexity_CalculateDustScore_Tests.cs | ≥ 80% |
-| 230 | ☐ | SEQ-COMPLEX-KMER-001 | Complexity | SequenceComplexity.cs | SequenceComplexity_CalculateKmerEntropy_Tests.cs | ≥ 80% |
-| 231 | ☐ | SEQ-COMPLEX-WINDOW-001 | Complexity | SequenceComplexity.cs | SequenceComplexity_CalculateWindowedComplexity_Tests.cs | ≥ 80% |
+| 228 | ☑ | SEQ-COMPLEX-COMPRESS-001 | Complexity | SequenceComplexity.cs | SequenceComplexity_EstimateCompressionRatio_Tests.cs | ≥ 80% |
+| 229 | ☑ | SEQ-COMPLEX-DUST-001 | Complexity | SequenceComplexity.cs | SequenceComplexity_CalculateDustScore_Tests.cs | ≥ 80% |
+| 230 | ☑ | SEQ-COMPLEX-KMER-001 | Complexity | SequenceComplexity.cs | SequenceComplexity_CalculateKmerEntropy_Tests.cs | ≥ 80% |
+| 231 | ☑ | SEQ-COMPLEX-WINDOW-001 | Complexity | SequenceComplexity.cs | SequenceComplexity_CalculateWindowedComplexity_Tests.cs | ≥ 80% |
 | 232 | ☐ | SEQ-ENTROPY-PROFILE-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateEntropyProfile_Tests.cs | ≥ 80% |
 | 233 | ☐ | SEQ-GC-ANALYSIS-001 | Composition | GcSkewCalculator.cs | GcSkewCalculator_AnalyzeGcContent_Tests.cs | ≥ 80% |
 | 234 | ☐ | SEQ-GC-PROFILE-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateGcContentProfile_Tests.cs | ≥ 80% |
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 13 |
-| ☐ Not started | 221 |
+| ☑ Complete (run + killers written) | 19 |
+| ☐ Not started | 215 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
