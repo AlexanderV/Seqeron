@@ -42,6 +42,21 @@ public class AlignmentCombinatorialTests
         return dp[m, n];
     }
 
+    /// <summary>Independent linear-gap Smith-Waterman optimal local score (ground truth).</summary>
+    private static int SwOptimalScore(string a, string b, int match, int mismatch, int gap)
+    {
+        int m = a.Length, n = b.Length, best = 0;
+        var dp = new int[m + 1, n + 1];
+        for (int i = 1; i <= m; i++)
+            for (int j = 1; j <= n; j++)
+            {
+                int s = a[i - 1] == b[j - 1] ? match : mismatch;
+                dp[i, j] = Math.Max(0, Math.Max(dp[i - 1, j - 1] + s, Math.Max(dp[i - 1, j] + gap, dp[i, j - 1] + gap)));
+                best = Math.Max(best, dp[i, j]);
+            }
+        return best;
+    }
+
     /// <summary>Score of a concrete column-wise alignment under the linear-gap model.</summary>
     private static int ScoreColumns(string a1, string a2, int match, int mismatch, int gap)
     {
