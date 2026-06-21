@@ -117,16 +117,16 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 85 | ☑ | EPIGEN-CPG-001 | Epigenetics | ID: no CG dinucleotides → CpG ratio = 0; DIST: O/E formula verified |
 | 86 | ✗ | ONCO-IMMUNE-001 | Oncology | ID: zero expression → zero infiltration; IDEMP: deterministic |
 | 87 | ✗ | ONCO-SOMATIC-001 | Oncology | ID: empty tumor reads → no calls; IDEMP: re-calling the call set is stable |
-| 88 | ☐ | ONCO-VAF-001 | Oncology | ID: alt=0 → VAF=0; HOMO: VAF(k·ref,k·alt)=VAF(ref,alt) (scale-invariant) |
+| 88 | ☑ | ONCO-VAF-001 | Oncology | ID: alt=0 → VAF=0; HOMO: VAF(k·ref,k·alt)=VAF(ref,alt) (scale-invariant) |
 | 89 | ✗ | ONCO-DRIVER-001 | Oncology | ID: empty mutation set → empty driver set; IDEMP: deterministic |
 | 90 | ✗ | ONCO-ARTIFACT-001 | Oncology | IDEMP: filter(filter(x))=filter(x); ID: artifact-free input → unchanged |
 | 91 | ✗ | ONCO-ANNOT-001 | Oncology | IDEMP: annotate∘annotate = annotate; ID: empty variants → empty |
-| 92 | ☐ | ONCO-TMB-001 | Oncology | ID: zero mutations → TMB=0; HOMO: TMB scales inversely with panel-Mb |
+| 92 | ☑ | ONCO-TMB-001 | Oncology | ID: zero mutations → TMB=0; HOMO: TMB scales inversely with panel-Mb |
 | 93 | ✗ | ONCO-MSI-001 | Oncology | ID: all-stable loci → score 0; IDEMP: deterministic |
 | 94 | ✗ | ONCO-HRD-001 | Oncology | ID: no scars → HRD=0; ADD: HRD = LOH + TAI + LST (additive decomposition) |
 | 95 | ✗ | ONCO-LOH-001 | Oncology | ID: balanced BAF → no LOH; INVOL: A/B label swap applied twice = identity |
 | 96 | ✗ | ONCO-SIG-001 | Oncology | ID: no SNVs → zero 96-vector; ADD: catalogue(A∪B)=catalogue(A)+catalogue(B) |
-| 97 | ☐ | ONCO-SIG-002 | Oncology | ID: zero catalogue → zero exposures; HOMO: exposure(k·catalogue)=k·exposure |
+| 97 | ☑ | ONCO-SIG-002 | Oncology | ID: zero catalogue → zero exposures; HOMO: exposure(k·catalogue)=k·exposure |
 | 98 | ✗ | ONCO-SIG-003 | Oncology | IDEMP: same seed → identical CI; ID: zero reps → degenerate CI |
 | 99 | ✗ | ONCO-SIG-004 | Oncology | IDEMP: deterministic; ID: single signature → that process dominant |
 | 100 | ✗ | ONCO-FUSION-001 | Oncology | ID: no chimeric reads → no fusions; IDEMP: deterministic |
@@ -140,11 +140,11 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 108 | ✗ | ONCO-CLONAL-001 | Oncology | IDEMP: deterministic; ID: CCF≈1 → clonal |
 | 109 | ✗ | ONCO-NEO-001 | Oncology | ID: silent mutation → no neoantigen; IDEMP: deterministic |
 | 110 | ✗ | ONCO-MHC-001 | Oncology | IDEMP: deterministic; MONO: binding class order-preserving on IC50 |
-| 111 | ☐ | ONCO-CTDNA-001 | Oncology | ID: no tumor reads → fraction 0; HOMO: scale-invariant to total depth |
+| 111 | ☑ | ONCO-CTDNA-001 | Oncology | ID: no tumor reads → fraction 0; HOMO: scale-invariant to total depth |
 | 112 | ✗ | ONCO-MRD-001 | Oncology | ID: no tracked variants → MRD negative; IDEMP: deterministic |
 | 113 | ✗ | ONCO-CHIP-001 | Oncology | IDEMP: filter∘filter = filter; ID: no CHIP genes → unchanged |
 | 114 | ✗ | ONCO-PHYLO-001 | Oncology | ID: single clone → trivial tree; IDEMP: deterministic |
-| 115 | ☐ | ONCO-CCF-001 | Oncology | ID: VAF=0 → CCF=0; HOMO: CCF linear in VAF at fixed CN/purity |
+| 115 | ☑ | ONCO-CCF-001 | Oncology | ID: VAF=0 → CCF=0; HOMO: CCF linear in VAF at fixed CN/purity |
 | 116 | ✗ | ONCO-HETERO-001 | Oncology | ID: single VAF → heterogeneity 0; IDEMP: deterministic |
 | 117 | ✗ | ONCO-HLA-001 | Oncology | IDEMP: deterministic; INVOL: normalise(normalise(allele))=normalise(allele) |
 | 118 | ✗ | ONCO-ACTION-001 | Oncology | IDEMP: deterministic; ID: no evidence → lowest tier |
@@ -272,7 +272,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 50 |
-| ☐ Not started | 15 |
+| ☑ Complete | 55 |
+| ☐ Not started | 10 |
 | ✗ Not applicable | 169 |
 | Laws verified | ~172 (≈2 per algorithm) |
