@@ -328,6 +328,123 @@ public class ComparativeCombinatorialTests
         ComparativeGenomics.FindOrthologs(genome1, genome2).Should().BeEmpty("no sequence → no similarity");
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: COMPGEN-REARR-001 — Genome rearrangement breakpoints (Comparative)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 137.
+    // Spec: tests/TestSpecs/COMPGEN-REARR-001.md (ComparativeGenomics.DetectRearrangements).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: Bafna & Pevzner (1998); Hunter CompBio Lecture 16 — a breakpoint is a consecutive pair (x,y)
+    // of the extended signed permutation [0, π…, n+1] with y ≠ x+1; identity order has 0 breakpoints.
+    //
+    // Checklist axes nBlocks(3) × minBlockSize(3) map onto the real knobs (no minBlockSize parameter
+    // exists): nBlocks → number of orthologous markers n ∈ {2,4,6}; minBlockSize → the permutation
+    // structure {Identity, Reversed, Rotated}. Grid = 3 × 3 = 9 = the checklist's "Full Combos".
+    //
+    // The combinatorial point: the breakpoint count is a JOINT function of marker count and permutation
+    // structure. Each cell re-derives the breakpoint count from the relabelled permutation (the definition)
+    // and checks production reports exactly that many events, within the [0, n+1] bound (INV-4), with the
+    // identity order producing none (INV-1).
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public enum RearrPermutation { Identity, Reversed, Rotated }
+
+    /// <summary>
+    /// For every (marker count, permutation) the number of detected rearrangement events equals the
+    /// breakpoint count re-derived from the relabelled permutation, lies in [0, n+1], and is 0 for identity.
+    /// </summary>
+    [Test, Combinatorial]
+    public void DetectRearrangements_MarkerCountPermutationGrid_MatchesBreakpointCount(
+        [Values(2, 4, 6)] int nMarkers,
+        [Values] RearrPermutation permutation)
+    {
+        int[] perm = BuildPermutation(nMarkers, permutation); // perm[p] = marker at genome-2 position p
+
+        var genome1 = new List<ComparativeGenomics.Gene>();
+        var genome2 = new List<ComparativeGenomics.Gene>();
+        var map = new Dictionary<string, string>();
+        for (int i = 0; i < nMarkers; i++)
+            genome1.Add(new ComparativeGenomics.Gene($"G1_{i}", "G1", i * 100, i * 100 + 50, '+'));
+        for (int p = 0; p < nMarkers; p++)
+            genome2.Add(new ComparativeGenomics.Gene($"G2_{p}", "G2", p * 100, p * 100 + 50, '+'));
+        for (int i = 0; i < nMarkers; i++)
+        {
+            int p = Array.IndexOf(perm, i);     // genome-2 position of marker i
+            map[$"G1_{i}"] = $"G2_{p}";
+        }
+
+        // Independent ground truth: relabelled[i] = genome-2 rank of marker i; breakpoints over [0, …, n+1].
+        var relabelled = new int[nMarkers];
+        for (int i = 0; i < nMarkers; i++) relabelled[i] = Array.IndexOf(perm, i) + 1;
+        int expected = CountBreakpoints(relabelled);
+
+        int events = ComparativeGenomics.DetectRearrangements(genome1, genome2, map).Count();
+
+        events.Should().Be(expected, "events = breakpoints of the extended signed permutation");
+        events.Should().BeInRange(0, nMarkers + 1, "[INV-4] breakpoint count ∈ [0, n+1]");
+        if (permutation == RearrPermutation.Identity)
+            events.Should().Be(0, "[INV-1] identical order → no breakpoints");
+    }
+
+    /// <summary>
+    /// Interaction witness (permutation axis): a reversed gene order introduces breakpoints relative to the
+    /// identity, while the identity order produces none. Source: Hunter Lecture 16.
+    /// </summary>
+    [Test]
+    public void DetectRearrangements_ReversedOrder_HasBreakpoints()
+    {
+        int n = 4;
+        var genome1 = new List<ComparativeGenomics.Gene>();
+        var genome2 = new List<ComparativeGenomics.Gene>();
+        var map = new Dictionary<string, string>();
+        for (int i = 0; i < n; i++)
+            genome1.Add(new ComparativeGenomics.Gene($"G1_{i}", "G1", i * 100, i * 100 + 50, '+'));
+        int[] reversed = BuildPermutation(n, RearrPermutation.Reversed);
+        for (int p = 0; p < n; p++)
+            genome2.Add(new ComparativeGenomics.Gene($"G2_{p}", "G2", p * 100, p * 100 + 50, '+'));
+        for (int i = 0; i < n; i++)
+            map[$"G1_{i}"] = $"G2_{Array.IndexOf(reversed, i)}";
+
+        ComparativeGenomics.DetectRearrangements(genome1, genome2, map).Should().NotBeEmpty("a reversal breaks adjacencies");
+    }
+
+    /// <summary>Witness (INV: &lt; 2 markers): a single orthologous marker has no internal adjacency → no events.</summary>
+    [Test]
+    public void DetectRearrangements_SingleMarker_HasNoEvents()
+    {
+        var genome1 = new[] { new ComparativeGenomics.Gene("G1_0", "G1", 0, 50, '+') };
+        var genome2 = new[] { new ComparativeGenomics.Gene("G2_0", "G2", 0, 50, '+') };
+        var map = new Dictionary<string, string> { ["G1_0"] = "G2_0" };
+
+        ComparativeGenomics.DetectRearrangements(genome1, genome2, map).Should().BeEmpty();
+    }
+
+    private static int[] BuildPermutation(int n, RearrPermutation type)
+    {
+        var perm = new int[n];
+        for (int p = 0; p < n; p++)
+            perm[p] = type switch
+            {
+                RearrPermutation.Identity => p,
+                RearrPermutation.Reversed => n - 1 - p,
+                RearrPermutation.Rotated => (p + 1) % n,
+                _ => throw new ArgumentOutOfRangeException(nameof(type)),
+            };
+        return perm;
+    }
+
+    private static int CountBreakpoints(int[] relabelled)
+    {
+        int n = relabelled.Length, prev = 0, count = 0;
+        for (int i = 0; i <= n; i++)
+        {
+            int curr = i < n ? relabelled[i] : n + 1;
+            if (curr != prev + 1) count++;
+            prev = curr;
+        }
+        return count;
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     // Helpers — engineered constructs + independent ANIb ground truth
     // ───────────────────────────────────────────────────────────────────────
