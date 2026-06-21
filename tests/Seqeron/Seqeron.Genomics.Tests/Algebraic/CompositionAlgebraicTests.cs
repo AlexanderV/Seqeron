@@ -111,4 +111,65 @@ public class CompositionAlgebraicTests
         dna.Complement().Sequence.Should().Be("CCGGTATA");
         dna.Complement().GcContent().Should().Be(50.0);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: SEQ-COMP-001 — DNA complement (Composition)
+    // Checklist: docs/checklists/06_ALGEBRAIC_TESTING.md, row 2.
+    //
+    // Model: complement maps A↔T and C↔G (Watson–Crick base pairing), applied
+    //        base-by-base with no reordering.
+    //   — docs/algorithms/Sequence_Composition/RNA_Complement.md §2.1–2.2;
+    //     DnaSequence.Complement() / SequenceExtensions.GetComplementBase.
+    //
+    // Laws under test (checklist row 2):
+    //   • INV — complement(complement(x)) = x. The base map is its own inverse
+    //           (A→T→A, C→G→C), and complement preserves position, so the
+    //           composition is the identity on the whole sequence.
+    //   • ID  — complement preserves length: |complement(x)| = |x|
+    //           (a length-preserving structural identity).
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// INV: complement is an involution — complement(complement(x)) = x for all DNA.
+    /// Evidence: the base permutation {A↔T, C↔G} is an involution; applied
+    /// position-wise twice it returns the original sequence (RNA_Complement.md §2.2).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Complement_Involution_TwiceIsIdentity()
+    {
+        return Prop.ForAll(DnaArbitrary(), seq =>
+        {
+            var dna = new DnaSequence(seq);
+            string twice = dna.Complement().Complement().Sequence;
+            return (twice == dna.Sequence)
+                .Label($"complement∘complement(\"{seq}\") = \"{twice}\"");
+        });
+    }
+
+    /// <summary>
+    /// ID: complement preserves length — |complement(x)| = |x| for all DNA.
+    /// Evidence: the map is total and position-wise (one output base per input base).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Complement_PreservesLength()
+    {
+        return Prop.ForAll(DnaArbitrary(), seq =>
+        {
+            var dna = new DnaSequence(seq);
+            return (dna.Complement().Length == dna.Length)
+                .Label($"|complement| = {dna.Complement().Length}, |x| = {dna.Length}");
+        });
+    }
+
+    /// <summary>
+    /// INV witness: a worked example so the involution cannot pass vacuously.
+    /// complement("ACGT") = "TGCA"; complement("TGCA") = "ACGT".
+    /// </summary>
+    [Test]
+    public void Complement_Involution_WorkedExample()
+    {
+        var dna = new DnaSequence("ACGT");
+        dna.Complement().Sequence.Should().Be("TGCA");
+        dna.Complement().Complement().Sequence.Should().Be("ACGT");
+    }
 }
