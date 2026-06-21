@@ -160,4 +160,79 @@ public class AlignmentCombinatorialTests
         r.AlignedSequence2.Should().NotContain("-");
         r.AlignedSequence1.Length.Should().Be(a.Length, "a gapless diagonal has one column per position");
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ALIGN-LOCAL-001 — Local (Smith-Waterman) alignment (Alignment)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 36.
+    // Spec: tests/TestSpecs/ALIGN-LOCAL-001.md (canonical SequenceAligner.LocalAlign).
+    // Dimensions: matchScore(3) × mismatchPen(3) × gapPen(3) × seqLen(3). Grid 3⁴ = 81.
+    //
+    // Model (Smith & Waterman 1981): like Needleman-Wunsch but with a zero floor in the
+    // recurrence, H(i,j)=max(0, H(i−1,j−1)+s, H(i−1,j)+d, H(i,j−1)+d); the score is the
+    // matrix maximum and the alignment is traced back from it to the first zero. The optimal
+    // local score is therefore always ≥ 0, the returned rows are substrings of the inputs in
+    // [StartPosition, EndPosition], and their column score equals the reported Score.
+    //
+    // The combinatorial point: the three weights and the length jointly determine the best
+    // local segment; the reported score is checked against an independent SW DP for every
+    // weight combination, and the traceback's column score must reproduce it.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    [Test, Combinatorial]
+    public void AlignLocal_OptimalNonNegativeAndConsistent_AcrossScoringAndLength(
+        [Values(1, 2, 5)] int matchScore,
+        [Values(-1, -3, 0)] int mismatchPen,
+        [Values(-1, -2, -5)] int gapPen,
+        [Values(4, 8, 12)] int seqLen)
+    {
+        string s1 = DiverseDna(seqLen, 0x1234u);
+        string s2 = DiverseDna(seqLen, 0x9ABCu);
+        var scoring = new ScoringMatrix(matchScore, mismatchPen, GapOpen: gapPen, GapExtend: gapPen);
+
+        var r = SequenceAligner.LocalAlign(s1, s2, scoring);
+
+        r.Score.Should().BeGreaterThanOrEqualTo(0, "local alignment has a zero floor");
+        r.Score.Should().Be(SwOptimalScore(s1, s2, matchScore, mismatchPen, gapPen),
+            "the score is the Smith-Waterman optimum for these weights");
+        r.AlignmentType.Should().Be(AlignmentType.Local);
+
+        ScoreColumns(r.AlignedSequence1, r.AlignedSequence2, matchScore, mismatchPen, gapPen)
+            .Should().Be(r.Score, "the reported score is the column score of the returned local alignment");
+
+        if (r.Score > 0)
+        {
+            // The gap-free rows are the reported substrings of each input.
+            r.AlignedSequence1.Replace("-", "")
+                .Should().Be(s1.Substring(r.StartPosition1, r.EndPosition1 - r.StartPosition1 + 1));
+            r.AlignedSequence2.Replace("-", "")
+                .Should().Be(s2.Substring(r.StartPosition2, r.EndPosition2 - r.StartPosition2 + 1));
+        }
+    }
+
+    /// <summary>
+    /// Worked example: an embedded common substring is recovered exactly — the best local
+    /// alignment is that substring with score length × matchScore and no gaps.
+    /// </summary>
+    [Test]
+    public void AlignLocal_EmbeddedCommonSubstring_RecoveredExactly()
+    {
+        string a = "TTTT" + "ACGTACGT" + "TTTT";
+        string b = "GGGG" + "ACGTACGT" + "GGGG";
+        var r = SequenceAligner.LocalAlign(a, b, new ScoringMatrix(2, -1, -2, -2));
+
+        r.Score.Should().Be(8 * 2, "the 8-nt common core scores 8×match with no gaps");
+        r.AlignedSequence1.Should().Be("ACGTACGT");
+        r.AlignedSequence2.Should().Be("ACGTACGT");
+    }
+
+    /// <summary>
+    /// Interaction witness: with no shared bases the zero floor yields score 0 (an empty
+    /// local alignment) rather than a negative score.
+    /// </summary>
+    [Test]
+    public void AlignLocal_NoSharedBases_ScoresZero()
+    {
+        var r = SequenceAligner.LocalAlign("AAAA", "CCCC", new ScoringMatrix(1, -1, -2, -2));
+        r.Score.Should().Be(0);
+    }
 }
