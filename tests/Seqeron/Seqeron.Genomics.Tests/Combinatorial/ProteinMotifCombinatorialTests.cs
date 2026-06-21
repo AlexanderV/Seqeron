@@ -75,4 +75,72 @@ public class ProteinMotifCombinatorialTests
         ProteinMotifFinder.FindCommonMotifs("AAAANASAAAAA")
             .Should().Contain(m => m.MotifName == "ASN_GLYCOSYLATION");
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: PROTMOTIF-DOMAIN-001 — Protein domain identification (ProteinMotif)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 84.
+    // Spec: tests/TestSpecs/PROTMOTIF-DOMAIN-001.md (canonical FindDomains).
+    // Dimensions: eValueThreshold(3) × minDomainLen(3) × nProfiles(3). Grid 3×3×3 = 27.
+    //
+    // Model (Pfam profile scan): FindDomains scans a fixed library of domain signatures (zinc
+    // finger PF00096, kinase PF00069, SH3 PF00018, …) and reports each hit's span and score. The
+    // library is fixed, so nProfiles is realised as the number of distinct domain types planted;
+    // eValueThreshold/minDomainLen are caller-side score/length filters on the output.
+    //
+    // The combinatorial point: planted domain count, score threshold and length threshold interact
+    // — exactly the planted domain types are detected, and a (score ≥ eVal ∧ length ≥ minLen)
+    // filter yields only domains satisfying both, monotonically.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // Peptides matching the FindDomains regexes for the first three domain profiles.
+    private static readonly (string Acc, string Motif)[] DomainMotifs =
+    {
+        ("PF00096", "CAACAAALAAAAAAAAHAAAH"), // zinc finger C2H2
+        ("PF00069", "AAAAAGKS"),             // kinase ATP-binding
+        ("PF00018", "LAAGWFAAAAAL"),         // SH3
+    };
+
+    private static string PlantDomains(int nProfiles)
+    {
+        var sb = new System.Text.StringBuilder(new string('Q', 10));
+        for (int i = 0; i < nProfiles; i++) sb.Append(DomainMotifs[i].Motif).Append(new string('Q', 10));
+        return sb.ToString();
+    }
+
+    [Test, Combinatorial]
+    public void ProtMotifDomain_DetectsPlantedProfiles_AndFilters(
+        [Values(0.0, 0.5, 0.9)] double eValueThreshold,
+        [Values(4, 8, 12)] int minDomainLen,
+        [Values(1, 2, 3)] int nProfiles)
+    {
+        string protein = PlantDomains(nProfiles);
+        var planted = DomainMotifs.Take(nProfiles).Select(d => d.Acc).ToHashSet();
+
+        var domains = ProteinMotifFinder.FindDomains(protein).ToList();
+
+        domains.Should().OnlyContain(d => planted.Contains(d.Accession), "only planted domain types appear");
+        foreach (var acc in planted)
+            domains.Should().Contain(d => d.Accession == acc, "each planted domain is detected");
+        domains.Should().OnlyContain(d => d.Start >= 0 && d.End < protein.Length && d.Start <= d.End, "valid coordinates");
+
+        var filtered = domains.Where(d => d.Score >= eValueThreshold && (d.End - d.Start + 1) >= minDomainLen).ToList();
+        filtered.Should().OnlyContain(d => d.Score >= eValueThreshold && (d.End - d.Start + 1) >= minDomainLen);
+    }
+
+    /// <summary>
+    /// Interaction witness: the score and length filters are monotone — raising either threshold
+    /// can only shrink the retained domain set.
+    /// </summary>
+    [Test]
+    public void ProtMotifDomain_FiltersAreMonotone()
+    {
+        var domains = ProteinMotifFinder.FindDomains(PlantDomains(3)).ToList();
+        int byScoreLow = domains.Count(d => d.Score >= 0.0);
+        int byScoreHigh = domains.Count(d => d.Score >= 0.9);
+        byScoreHigh.Should().BeLessThanOrEqualTo(byScoreLow, "a higher score floor retains no more domains");
+
+        int byLenLow = domains.Count(d => d.End - d.Start + 1 >= 4);
+        int byLenHigh = domains.Count(d => d.End - d.Start + 1 >= 20);
+        byLenHigh.Should().BeLessThanOrEqualTo(byLenLow, "a higher length floor retains no more domains");
+    }
 }
