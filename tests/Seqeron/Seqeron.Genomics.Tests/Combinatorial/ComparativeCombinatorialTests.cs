@@ -99,9 +99,159 @@ public class ComparativeCombinatorialTests
         ComparativeGenomics.CalculateANI(BuildVariedDna(40), "", 10).Should().Be(0.0);
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: COMPGEN-CLUSTER-001 — Conserved gene clusters (common intervals) (Comparative)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 132.
+    // Spec: tests/TestSpecs/COMPGEN-CLUSTER-001.md (ComparativeGenomics.FindConservedClusters).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: Uno & Yagiura (2000); Heber & Stoye (2001); Bui-Xuan et al. (2013) — a conserved cluster is
+    // a COMMON INTERVAL: a set of ortholog groups that occupies a contiguous window in EVERY genome.
+    //
+    // Checklist axes nGenomes(3) × identityThreshold(3) map onto the real knobs (this is a synteny model,
+    // not an identity one): nGenomes → number of genomes K ∈ {2,3,4}; identityThreshold → minClusterSize ∈
+    // {2,3,4} (the cluster-size stringency). Grid = 3 × 3 = 9 = the checklist's "Full Combos" for this row.
+    //
+    // The combinatorial point: the returned clusters are a JOINT function of how many genomes constrain the
+    // synteny and the minimum cluster size — adding genomes can only remove common intervals, and raising
+    // minClusterSize filters by size. Each cell re-derives the common intervals by brute force from the
+    // permutation definition and checks production returns exactly that size-filtered set.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // Four genomes over labels {A,B,C,D,E} in which the block A,B,C stays contiguous (a synteny block).
+    private static readonly string[][] ClusterGenomeLabels =
+    {
+        new[] { "A", "B", "C", "D", "E" },
+        new[] { "D", "A", "B", "C", "E" },
+        new[] { "E", "D", "A", "B", "C" },
+        new[] { "A", "B", "C", "E", "D" },
+    };
+
+    /// <summary>
+    /// For every (genome count, minClusterSize) the reported conserved clusters are exactly the common
+    /// intervals of the permutations (re-derived by brute force) that meet the size threshold.
+    /// </summary>
+    [Test, Combinatorial]
+    public void FindConservedClusters_GenomeCountMinSizeGrid_MatchesCommonIntervals(
+        [Values(2, 3, 4)] int nGenomes,
+        [Values(2, 3, 4)] int minClusterSize)
+    {
+        var labelSets = ClusterGenomeLabels.Take(nGenomes).ToList();
+        var (genomes, map) = BuildGenomes(labelSets);
+
+        var expected = BruteForceCommonIntervals(labelSets, minClusterSize);
+
+        var actual = ComparativeGenomics.FindConservedClusters(genomes, map, minClusterSize)
+            .Select(c => string.Join(",", c.OrderBy(x => x, StringComparer.Ordinal)))
+            .ToHashSet(StringComparer.Ordinal);
+
+        actual.Should().BeEquivalentTo(expected, "reported clusters = size-filtered common intervals");
+    }
+
+    /// <summary>
+    /// Interaction witness (genome-count axis tightens synteny): a block (D,E) that is contiguous in the
+    /// first genome but split apart once a genome that separates them is added is no longer a common
+    /// interval — adding genomes can only remove clusters. Source: Bui-Xuan et al. (2013) Def. 1.
+    /// </summary>
+    [Test]
+    public void FindConservedClusters_AddingGenome_CanOnlyRemoveClusters()
+    {
+        var twoGenomes = ClusterGenomeLabels.Take(2).ToList();   // A B C D E ; D A B C E
+        var threeGenomes = ClusterGenomeLabels.Take(3).ToList(); // + E D A B C
+
+        var (g2, m2) = BuildGenomes(twoGenomes);
+        var (g3, m3) = BuildGenomes(threeGenomes);
+
+        var two = ComparativeGenomics.FindConservedClusters(g2, m2, 2)
+            .Select(c => string.Join(",", c.OrderBy(x => x, StringComparer.Ordinal))).ToHashSet(StringComparer.Ordinal);
+        var three = ComparativeGenomics.FindConservedClusters(g3, m3, 2)
+            .Select(c => string.Join(",", c.OrderBy(x => x, StringComparer.Ordinal))).ToHashSet(StringComparer.Ordinal);
+
+        three.Should().BeSubsetOf(two, "more genomes can only remove common intervals");
+    }
+
+    /// <summary>
+    /// Interaction witness (INV-04): with fewer than two genomes the conserved-cluster question is vacuous
+    /// and the result is empty. Source: common-interval family definition (K ≥ 2).
+    /// </summary>
+    [Test]
+    public void FindConservedClusters_SingleGenome_IsEmpty()
+    {
+        var (genomes, map) = BuildGenomes(ClusterGenomeLabels.Take(1).ToList());
+
+        ComparativeGenomics.FindConservedClusters(genomes, map, 2).Should().BeEmpty("fewer than 2 genomes → empty");
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     // Helpers — engineered constructs + independent ANIb ground truth
     // ───────────────────────────────────────────────────────────────────────
+
+    /// <summary>Builds genomes (Gene lists) and the shared gene→group map from per-genome ortholog-group label arrays.</summary>
+    private static (List<IReadOnlyList<ComparativeGenomics.Gene>> genomes, Dictionary<string, string> map)
+        BuildGenomes(IReadOnlyList<string[]> labelSets)
+    {
+        var genomes = new List<IReadOnlyList<ComparativeGenomics.Gene>>();
+        var map = new Dictionary<string, string>();
+        for (int g = 0; g < labelSets.Count; g++)
+        {
+            string genomeId = $"G{g}";
+            var genes = new List<ComparativeGenomics.Gene>();
+            for (int i = 0; i < labelSets[g].Length; i++)
+            {
+                string geneId = $"{genomeId}_{i}";
+                genes.Add(new ComparativeGenomics.Gene(geneId, genomeId, i * 100, i * 100 + 50, '+'));
+                map[geneId] = labelSets[g][i];
+            }
+            genomes.Add(genes);
+        }
+        return (genomes, map);
+    }
+
+    /// <summary>
+    /// Brute-force common intervals (Bui-Xuan et al. 2013, Def. 1): every label set that occupies a
+    /// contiguous, foreign-free window in EVERY genome, filtered to size ≥ max(minSize, 2). Returns the
+    /// canonical sorted-joined keys.
+    /// </summary>
+    private static HashSet<string> BruteForceCommonIntervals(IReadOnlyList<string[]> genomes, int minSize)
+    {
+        int effectiveMin = Math.Max(minSize, 2);
+        var result = new HashSet<string>(StringComparer.Ordinal);
+        string[] g0 = genomes[0];
+
+        for (int start = 0; start < g0.Length; start++)
+        {
+            var set = new SortedSet<string>(StringComparer.Ordinal);
+            for (int end = start; end < g0.Length; end++)
+            {
+                set.Add(g0[end]);
+                if (set.Count < effectiveMin) continue;
+                if (IsCommonInterval(set, genomes))
+                    result.Add(string.Join(",", set));
+            }
+        }
+        return result;
+    }
+
+    private static bool IsCommonInterval(SortedSet<string> set, IReadOnlyList<string[]> genomes)
+    {
+        foreach (string[] genome in genomes)
+        {
+            int min = int.MaxValue, max = int.MinValue, found = 0;
+            for (int i = 0; i < genome.Length; i++)
+            {
+                if (set.Contains(genome[i]))
+                {
+                    min = Math.Min(min, i);
+                    max = Math.Max(max, i);
+                    found++;
+                }
+            }
+            if (found != set.Count) return false;           // a member is missing from this genome
+            if (max - min + 1 != set.Count) return false;    // a foreign group sits inside the window
+        }
+        return true;
+    }
+
 
     /// <summary>Builds a low-repeat DNA sequence so that the best ungapped placement is at the aligned offset.</summary>
     private static string BuildVariedDna(int length)
