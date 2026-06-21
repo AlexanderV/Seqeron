@@ -177,6 +177,140 @@ public class OncologyCombinatorialTests
         }
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ONCO-SOMATIC-001 — Somatic mutation calling (Oncology)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 87.
+    // Spec: tests/TestSpecs/ONCO-SOMATIC-001.md (OncologyAnalyzer.CallSomaticMutations / Classify).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: Saunders et al. (2012) Strelka; Kim et al. (2018) Strelka2; Benjamin et al. (2019)
+    // Mutect2; Yan et al. (2021) Sci. Rep. 11:11640 (5% WES limit of detection).
+    //
+    // The caller is a deterministic two-threshold rule over (f_t, f_n):
+    //   f_t < tumorThreshold              → NotDetected   (below the tumor LoD; Yan 2021)
+    //   f_t ≥ tumorThreshold, f_n ≤ 0.01  → Somatic       (present in tumor, ref/ref normal; Saunders 2012)
+    //   f_t ≥ tumorThreshold, f_n > 0.01  → Germline      (present in matched normal; Benjamin 2019)
+    //   score = max(0, f_t − f_n) for somatic, else 0.
+    //
+    // Checklist axes minVaf(3) × minDepth(3) × strandBias(2) — the caller has no depth or strand
+    // parameter (those belong to artifact filtering, ONCO-ARTIFACT-001 row 90). Per the campaign
+    // convention we map the nominal axes onto the real knobs and document it:
+    //   • minVaf      → tumorVafThreshold ∈ {0.02, 0.05, 0.10} (the real parameter).
+    //   • minDepth    → tumor sequencing depth ∈ {50, 100, 200}. With the alt-supporting count held
+    //                   FIXED (6 reads), depth genuinely drives f_t = 6/depth, so depth × threshold
+    //                   jointly decide presence — the real "depth matters for low-count calls" effect.
+    //   • strandBias  → the binary normal-channel artifact axis the somatic rule actually responds to:
+    //                   {Clean normal (f_n = 0, ref/ref) → somatic, Contaminated normal (f_n = 0.20,
+    //                   CHIP/germline leakage) → germline}.
+    // Grid = 3 × 3 × 2 = 18 = the checklist's "Full Combos" for this row.
+    //
+    // The combinatorial point: status is a JOINT function of all three axes — no single axis fixes
+    // the outcome (each one appears in at least one status flip). Every cell asserts the full
+    // SomaticCall against the rule re-derived independently from the realized read counts.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private const int SomaticFixedAltReads = 6;        // alt-supporting reads held constant across depths
+    private const double NormalNoiseCeiling = 0.01;    // DefaultNormalVafThreshold
+    private const double ContaminatedNormalVaf = 0.20; // CHIP/germline leakage well above the noise ceiling
+
+    /// <summary>Matched-normal channel state — the binary "artifact" axis the somatic rule responds to.</summary>
+    public enum NormalState
+    {
+        /// <summary>Homozygous-reference normal (f_n = 0): a true somatic site.</summary>
+        Clean,
+
+        /// <summary>Normal carries the allele above the noise ceiling (f_n = 0.20): germline/CHIP leakage.</summary>
+        Contaminated,
+    }
+
+    /// <summary>
+    /// For every (tumorThreshold, depth, normalState) the production classification, VAFs and somatic
+    /// score must equal the two-threshold rule re-derived from the realized read counts. With the alt
+    /// count fixed at 6, depth changes f_t = 6/depth so the depth and threshold axes jointly decide
+    /// presence; the normal axis decides somatic-vs-germline once present.
+    /// </summary>
+    [Test, Combinatorial]
+    public void CallSomaticMutations_VafDepthNormalGrid_MatchesTwoThresholdRule(
+        [Values(0.02, 0.05, 0.10)] double tumorThreshold,
+        [Values(50, 100, 200)] int depth,
+        [Values] NormalState normalState)
+    {
+        int normalAlt = normalState == NormalState.Clean ? 0 : (int)Math.Round(ContaminatedNormalVaf * depth);
+        var variant = new OncologyAnalyzer.VariantObservation(
+            "chr1", 1000, "C", "T",
+            TumorAltReads: SomaticFixedAltReads, TumorTotalReads: depth,
+            NormalAltReads: normalAlt, NormalTotalReads: depth);
+
+        // Independent ground truth from the realized read counts.
+        double tumorVaf = (double)SomaticFixedAltReads / depth;
+        double normalVaf = (double)normalAlt / depth;
+        OncologyAnalyzer.SomaticStatus expectedStatus;
+        if (tumorVaf < tumorThreshold)
+            expectedStatus = OncologyAnalyzer.SomaticStatus.NotDetected;
+        else if (normalVaf <= NormalNoiseCeiling)
+            expectedStatus = OncologyAnalyzer.SomaticStatus.Somatic;
+        else
+            expectedStatus = OncologyAnalyzer.SomaticStatus.Germline;
+        double expectedScore = expectedStatus == OncologyAnalyzer.SomaticStatus.Somatic ? tumorVaf - normalVaf : 0.0;
+
+        var call = OncologyAnalyzer.Classify(variant, tumorThreshold);
+
+        call.Status.Should().Be(expectedStatus, "the two-threshold rule decides status jointly from f_t and f_n");
+        call.TumorVaf.Should().BeApproximately(tumorVaf, 1e-12);
+        call.NormalVaf.Should().BeApproximately(normalVaf, 1e-12);
+        call.SomaticScore.Should().BeApproximately(expectedScore, 1e-12, "somatic score = max(0, f_t − f_n)");
+    }
+
+    /// <summary>
+    /// Interaction witness (depth × threshold): with the alt count fixed at 6 and a strict 10% tumor
+    /// threshold, the very same allele is called Somatic at 50× (f_t = 0.12) but drops to NotDetected
+    /// at 200× (f_t = 0.03). The status flips purely on the depth axis — the grid genuinely needs it.
+    /// </summary>
+    [Test]
+    public void CallSomaticMutations_DepthAxis_FlipsPresence()
+    {
+        var shallow = new OncologyAnalyzer.VariantObservation("chr1", 1, "C", "T", 6, 50, 0, 50);
+        var deep = new OncologyAnalyzer.VariantObservation("chr1", 1, "C", "T", 6, 200, 0, 200);
+
+        OncologyAnalyzer.Classify(deep, tumorVafThreshold: 0.10).Status
+            .Should().Be(OncologyAnalyzer.SomaticStatus.NotDetected, "6/200 = 3% is below the 10% LoD");
+        OncologyAnalyzer.Classify(shallow, tumorVafThreshold: 0.10).Status
+            .Should().Be(OncologyAnalyzer.SomaticStatus.Somatic, "6/50 = 12% clears the 10% LoD with a clean normal");
+    }
+
+    /// <summary>
+    /// Interaction witness (normal axis): a present tumor allele is Somatic against a clean normal but
+    /// Germline once the matched normal carries the allele above the noise ceiling. Source: Mutect2
+    /// germline filtering (Benjamin et al. 2019).
+    /// </summary>
+    [Test]
+    public void CallSomaticMutations_NormalAxis_FlipsSomaticVsGermline()
+    {
+        var clean = new OncologyAnalyzer.VariantObservation("chr1", 1, "C", "T", 30, 100, 0, 100);
+        var contaminated = new OncologyAnalyzer.VariantObservation("chr1", 1, "C", "T", 30, 100, 20, 100);
+
+        OncologyAnalyzer.Classify(clean).Status
+            .Should().Be(OncologyAnalyzer.SomaticStatus.Somatic, "ref/ref normal → somatic");
+        OncologyAnalyzer.Classify(contaminated).Status
+            .Should().Be(OncologyAnalyzer.SomaticStatus.Germline, "normal carries the allele at 20% → germline");
+    }
+
+    /// <summary>
+    /// Worked example (spec M1): a clear somatic SNV, tumor 25/100 against a clean normal 0/100, is
+    /// classified Somatic with score = f_t − f_n = 0.25. Source: Saunders et al. (2012).
+    /// </summary>
+    [Test]
+    public void CallSomaticMutations_ClearSomatic_WorkedExample()
+    {
+        var variant = new OncologyAnalyzer.VariantObservation("chr7", 140_453_136, "A", "T", 25, 100, 0, 100);
+
+        var call = OncologyAnalyzer.Classify(variant);
+
+        call.Status.Should().Be(OncologyAnalyzer.SomaticStatus.Somatic);
+        call.TumorVaf.Should().BeApproximately(0.25, 1e-12);
+        call.SomaticScore.Should().BeApproximately(0.25, 1e-12);
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     // Helpers — engineered constructs + independent ground truth
     // ───────────────────────────────────────────────────────────────────────
