@@ -90,6 +90,74 @@ public class AssemblyCombinatorialTests
         SequenceAssembler.ComputeConsensus(Array.Empty<string>()).Should().Be("");
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ASSEMBLY-CORRECT-001 — k-spectrum read error correction (Assembly)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 141.
+    // Spec: tests/TestSpecs/ASSEMBLY-CORRECT-001.md (SequenceAssembler.ErrorCorrectReads).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: Musket two-sided k-spectrum correction — a position covered only by untrusted (count <
+    // minKmerFrequency) k-mers is substituted to the unique base making all covering k-mers trusted;
+    // trusted positions are never modified; substitution-only (no indels).
+    //
+    // Checklist axes k(3) × coverage(3) × errorRate(3) map onto the real knobs: kmerSize ∈ {3,5,7};
+    // coverage → minKmerFrequency (trust threshold) ∈ {2,3,4}; errorRate → fraction of reads with an
+    // injected substitution ∈ {0.0, 0.1, 0.3}. Grid = 3³ = 27.
+    //
+    // The combinatorial point: correction is a JOINT function of k, the trust threshold and the error
+    // fraction, but the structural invariants must hold in EVERY cell — the read count and each length are
+    // preserved (no indels), error-free reads with trusted k-mers are untouched, and the result is
+    // deterministic. Each cell checks those invariants.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private const string CorrectTrueRead = "ACGTACGTACGTACGTACGT"; // length 20, true[10] = 'G'
+
+    /// <summary>
+    /// For every (k, trust threshold, error rate) error correction preserves the read count and each read
+    /// length, leaves clean reads (and the all-clean case) unchanged, and is deterministic.
+    /// </summary>
+    [Test, Combinatorial]
+    public void ErrorCorrectReads_KCoverageErrorGrid_PreservesStructureAndTrustedBases(
+        [Values(3, 5, 7)] int k,
+        [Values(2, 3, 4)] int minKmerFrequency,
+        [Values(0.0, 0.1, 0.3)] double errorRate)
+    {
+        const int nReads = 10;
+        int errReads = (int)Math.Round(errorRate * nReads);
+        string errorRead = CorrectTrueRead[..10] + "A" + CorrectTrueRead[11..]; // substitution at position 10
+
+        var reads = new List<string>();
+        for (int r = 0; r < nReads; r++)
+            reads.Add(r < errReads ? errorRead : CorrectTrueRead);
+
+        var corrected = SequenceAssembler.ErrorCorrectReads(reads, k, minKmerFrequency);
+
+        corrected.Should().HaveCount(nReads, "[INV-1] read count preserved");
+        corrected.Should().OnlyContain(c => c.Length == CorrectTrueRead.Length, "[INV-2] length preserved (no indels)");
+        for (int i = errReads; i < nReads; i++)
+            corrected[i].Should().Be(CorrectTrueRead, "[INV-3] clean reads (trusted k-mers) are unchanged");
+        if (errorRate == 0.0)
+            corrected.Should().OnlyContain(c => c == CorrectTrueRead, "all-clean input is returned unchanged");
+        SequenceAssembler.ErrorCorrectReads(reads, k, minKmerFrequency).Should().Equal(corrected, "[INV-5] deterministic");
+    }
+
+    /// <summary>
+    /// Interaction witness (correction): one read carrying a single substitution among nine clean copies is
+    /// corrected back to the true sequence — its error k-mers are untrusted and the unique trusted
+    /// alternative restores it. Source: Musket two-sided rule.
+    /// </summary>
+    [Test]
+    public void ErrorCorrectReads_SingleErrorAmongCleanReads_IsCorrected()
+    {
+        string errorRead = CorrectTrueRead[..10] + "A" + CorrectTrueRead[11..];
+        var reads = new List<string> { errorRead };
+        for (int i = 0; i < 9; i++) reads.Add(CorrectTrueRead);
+
+        var corrected = SequenceAssembler.ErrorCorrectReads(reads, kmerSize: 5, minKmerFrequency: 3);
+
+        corrected[0].Should().Be(CorrectTrueRead, "the lone error is corrected to the trusted consensus");
+    }
+
     /// <summary>Independent Biopython column-consensus ground truth.</summary>
     private static string GroundTruthConsensus(IReadOnlyList<string> reads, double threshold, char ambiguous)
     {
