@@ -2873,6 +2873,134 @@ public class OncologyCombinatorialTests
         assessment.IsActionable.Should().BeFalse();
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ONCO-SV-001 — Complex rearrangement (chromothripsis) classification (Oncology)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 119.
+    // Spec: tests/TestSpecs/ONCO-SV-001.md (OncologyAnalyzer.ClassifyComplexRearrangement / TestBreakpointClustering).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: Korbel & Campbell (2013); Cortés-Ciriano et al. (2020); Magrangeas et al. (2011) —
+    // chromothripsis ⟺ copy number oscillates between 2-3 states AND ≥ 10 oscillations AND ≥ 6 clustered SVs.
+    //
+    // Checklist axes nBreakpoints(3) × clustering(3) × svType(3) map onto the three AND-gates of the call:
+    //   • clustering    → copy-number state structure {Mono (1 state), TwoState (2 states), MultiState (4
+    //     states, progressive amplification → excluded)}.
+    //   • nBreakpoints  → segment-profile length driving the oscillation count {6, 11, 15} → {5, 10, 14}
+    //     transitions for the alternating profiles (crosses the ≥ 10 gate).
+    //   • svType        → clustered SV burden {3, 6, 9} (crosses the ≥ 6 gate).
+    // Grid = 3 × 3 × 3 = 27 = the checklist's "Full Combos" for this row.
+    //
+    // The combinatorial point: chromothripsis is a JOINT three-way AND — the state structure, the
+    // oscillation count and the SV burden must ALL clear their thresholds; failing any one gate yields
+    // NotComplex. Each cell is checked against the gate re-derived from the constructed profile.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>Per-segment copy-number state structure (the clustering axis).</summary>
+    public enum RearrangementStateStructure { Mono, TwoState, MultiState }
+
+    /// <summary>
+    /// For every (state structure, profile length, SV burden) the chromothripsis classification, oscillation
+    /// and distinct-state counts, and confidence tier match the Korbel/Cortés-Ciriano gate re-derived from
+    /// the constructed segment profile.
+    /// </summary>
+    [Test, Combinatorial]
+    public void ClassifyComplexRearrangement_StateOscillationSvGrid_MatchesChromothripsisGate(
+        [Values] RearrangementStateStructure stateStructure,
+        [Values(6, 11, 15)] int profileLength,
+        [Values(3, 6, 9)] int svBurden)
+    {
+        var profile = BuildRearrangementProfile(stateStructure, profileLength);
+
+        // Independent ground truth.
+        int oscillations = 0;
+        for (int i = 1; i < profile.Count; i++)
+            if (profile[i] != profile[i - 1]) oscillations++;
+        int distinct = profile.Distinct().Count();
+        int oscillatingSegments = oscillations > 0 ? oscillations + 1 : 0;
+        bool chromo = distinct is >= 2 and <= 3 && oscillations >= 10 && svBurden >= 6;
+        var expectedConfidence = oscillatingSegments >= 7 ? OncologyAnalyzer.ChromothripsisConfidence.High
+            : oscillatingSegments >= 4 ? OncologyAnalyzer.ChromothripsisConfidence.Low
+            : OncologyAnalyzer.ChromothripsisConfidence.None;
+
+        var result = OncologyAnalyzer.ClassifyComplexRearrangement(
+            new OncologyAnalyzer.ComplexRearrangementInput(profile, svBurden));
+
+        result.Type.Should().Be(chromo ? OncologyAnalyzer.ComplexRearrangementType.Chromothripsis
+                                        : OncologyAnalyzer.ComplexRearrangementType.NotComplex,
+            "chromothripsis ⟺ 2-3 states AND ≥10 oscillations AND ≥6 SVs");
+        result.OscillationCount.Should().Be(oscillations);
+        result.DistinctStateCount.Should().Be(distinct);
+        result.StructuralVariantCount.Should().Be(svBurden);
+        result.Confidence.Should().Be(expectedConfidence, "confidence from the oscillating-segment count");
+    }
+
+    /// <summary>
+    /// Interaction witness (three-way AND): a two-state profile with 14 oscillations is chromothripsis only
+    /// when the SV burden also clears 6 — at burden 3 the SV gate fails and the call drops to NotComplex,
+    /// flipping purely on the SV axis. Source: Cortés-Ciriano et al. (2020) operational thresholds.
+    /// </summary>
+    [Test]
+    public void ClassifyComplexRearrangement_SvBurdenAxis_GatesAnOtherwiseChromothripticProfile()
+    {
+        var profile = BuildRearrangementProfile(RearrangementStateStructure.TwoState, 15); // 14 oscillations
+
+        OncologyAnalyzer.ClassifyComplexRearrangement(new(profile, 9)).Type
+            .Should().Be(OncologyAnalyzer.ComplexRearrangementType.Chromothripsis, "all three gates pass");
+        OncologyAnalyzer.ClassifyComplexRearrangement(new(profile, 3)).Type
+            .Should().Be(OncologyAnalyzer.ComplexRearrangementType.NotComplex, "SV burden 3 < 6 fails the gate");
+    }
+
+    /// <summary>
+    /// Interaction witness (state-structure axis): a 4-state progressive-amplification profile is excluded
+    /// even with many oscillations and a high SV burden — chromothripsis requires the 2-3-state hallmark.
+    /// Source: Korbel & Campbell (2013) two-state oscillation.
+    /// </summary>
+    [Test]
+    public void ClassifyComplexRearrangement_MultiStateProfile_IsExcluded()
+    {
+        var profile = BuildRearrangementProfile(RearrangementStateStructure.MultiState, 15);
+
+        var result = OncologyAnalyzer.ClassifyComplexRearrangement(new(profile, 9));
+
+        result.DistinctStateCount.Should().BeGreaterThan(3);
+        result.Type.Should().Be(OncologyAnalyzer.ComplexRearrangementType.NotComplex, "progressive amplification is not chromothripsis");
+    }
+
+    /// <summary>
+    /// Witness (breakpoint clustering): tightly clustered breakpoints (a few short gaps plus a long jump)
+    /// are over-dispersed (CV &gt; 1) and flagged clustered, while near-uniform spacing (CV ≈ 0) is not.
+    /// Source: Korbel & Campbell (2013) exponential null.
+    /// </summary>
+    [Test]
+    public void TestBreakpointClustering_ClusteredVsUniform()
+    {
+        var clustered = OncologyAnalyzer.TestBreakpointClustering(new long[] { 100, 101, 102, 103, 10_000_000 });
+        clustered.IsClustered.Should().BeTrue("short gaps with one long jump → CV > 1");
+
+        var uniform = OncologyAnalyzer.TestBreakpointClustering(new long[] { 0, 1000, 2000, 3000, 4000 });
+        uniform.IsClustered.Should().BeFalse("evenly spaced breakpoints → CV ≈ 0");
+    }
+
+    /// <summary>
+    /// Builds a per-segment copy-number profile of the requested length and state structure: all one state
+    /// (Mono), alternating two states (TwoState), or a four-state cycle (MultiState, progressive).
+    /// </summary>
+    private static List<int> BuildRearrangementProfile(RearrangementStateStructure structure, int length)
+    {
+        var profile = new List<int>(length);
+        for (int i = 0; i < length; i++)
+        {
+            profile.Add(structure switch
+            {
+                RearrangementStateStructure.Mono => 2,
+                RearrangementStateStructure.TwoState => i % 2 == 0 ? 2 : 3,
+                RearrangementStateStructure.MultiState => 2 + (i % 4),
+                _ => throw new ArgumentOutOfRangeException(nameof(structure)),
+            });
+        }
+        return profile;
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     // Helpers — engineered constructs + independent ground truth
     // ───────────────────────────────────────────────────────────────────────
