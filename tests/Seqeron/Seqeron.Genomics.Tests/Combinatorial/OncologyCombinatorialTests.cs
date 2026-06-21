@@ -702,6 +702,104 @@ public class OncologyCombinatorialTests
         OncologyAnalyzer.ClassifyTMB(10.0).Should().Be(OncologyAnalyzer.TmbStatus.High);
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ONCO-MSI-001 — Microsatellite instability detection (Oncology)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 93.
+    // Spec: tests/TestSpecs/ONCO-MSI-001.md (OncologyAnalyzer.DetectMSI / CalculateMSIScore / ClassifyMSIStatus).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: Niu et al. (2014) MSIsensor, Bioinformatics 30(7):1015 (MSI score = unstable sites / valid
+    // sites); niu-lab/msisensor2 README (MSI-High ⟺ score ≥ 20%, inclusive); Boland et al. (1998).
+    //
+    // MSI score = unstableLoci / totalLoci;  ClassifyMSIStatus → MSI-High ⟺ score ≥ 0.20.
+    //
+    // Checklist axes nLoci(3) × instabilityThreshold(3) map onto the real knobs:
+    //   • nLoci → totalLoci (panel size) ∈ {10, 20, 50} valid evaluated loci.
+    //   • instabilityThreshold → the UNSTABLE FRACTION relative to the fixed 20% MSIsensor2 cutoff:
+    //     {BelowCutoff 0.10, AtCutoff 0.20 (inclusive boundary), AboveCutoff 0.40}. The 20% cutoff is a
+    //     fixed constant, so this axis is realised as where the sample's unstable fraction sits w.r.t. it.
+    // Grid = 3 × 3 = 9 = the checklist's "Full Combos" for this row.
+    //
+    // The combinatorial point: the MSI-High call is a function of the FRACTION (it flips MSS↔MSI-High at
+    // exactly 0.20) and is INVARIANT to the panel size — the same fraction gives the same status whether
+    // measured over 10 or 50 loci. The grid exercises both the flip and the invariance jointly.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>Where the sample's unstable fraction sits relative to the fixed 20% MSI-High cutoff.</summary>
+    public enum InstabilityLevel
+    {
+        /// <summary>Unstable fraction 0.10 &lt; 0.20 → MSS.</summary>
+        BelowCutoff,
+
+        /// <summary>Unstable fraction exactly 0.20 ≥ 0.20 → MSI-High (inclusive boundary).</summary>
+        AtCutoff,
+
+        /// <summary>Unstable fraction 0.40 &gt; 0.20 → MSI-High.</summary>
+        AboveCutoff,
+    }
+
+    private static double InstabilityFraction(InstabilityLevel level) => level switch
+    {
+        InstabilityLevel.BelowCutoff => 0.10,
+        InstabilityLevel.AtCutoff => 0.20,
+        InstabilityLevel.AboveCutoff => 0.40,
+        _ => throw new ArgumentOutOfRangeException(nameof(level)),
+    };
+
+    /// <summary>
+    /// For every (panel size, instability level) the MSI score equals unstable/total and the MSI status
+    /// matches the 20% cutoff — and the status depends only on the fraction, not the panel size (the same
+    /// fraction yields the same MSI-High/MSS call at 10, 20 or 50 loci).
+    /// </summary>
+    [Test, Combinatorial]
+    public void DetectMSI_LociFractionGrid_MatchesFractionAndCutoff(
+        [Values(10, 20, 50)] int totalLoci,
+        [Values] InstabilityLevel instability)
+    {
+        int unstable = (int)Math.Round(InstabilityFraction(instability) * totalLoci);
+        var flags = BuildLocusFlags(totalLoci, unstable);
+
+        // Independent ground truth.
+        double expectedScore = (double)unstable / totalLoci;
+        var expectedStatus = expectedScore >= 0.20 ? OncologyAnalyzer.MsiStatus.MSI_High : OncologyAnalyzer.MsiStatus.MSS;
+
+        var result = OncologyAnalyzer.DetectMSI(flags);
+
+        result.UnstableLoci.Should().Be(unstable);
+        result.TotalLoci.Should().Be(totalLoci);
+        result.Score.Should().BeApproximately(expectedScore, 1e-12, "MSI score = unstable / valid loci");
+        result.Status.Should().Be(expectedStatus, "MSI-High ⟺ score ≥ 0.20 (MSIsensor2, inclusive)");
+        OncologyAnalyzer.CalculateMSIScore(unstable, totalLoci).Should().Be(result.Score, "[INV-5] DetectMSI composes CalculateMSIScore");
+    }
+
+    /// <summary>
+    /// Interaction witness (instability axis, inclusive boundary): the MSI call flips MSS→MSI-High exactly
+    /// at the 20% cutoff — 4/25 = 16% is MSS, 5/25 = 20% is MSI-High. Source: niu-lab/msisensor2 (≥20%).
+    /// </summary>
+    [Test]
+    public void ClassifyMSIStatus_TwentyPercentCutoff_IsInclusive()
+    {
+        OncologyAnalyzer.ClassifyMSIStatus(OncologyAnalyzer.CalculateMSIScore(4, 25))
+            .Should().Be(OncologyAnalyzer.MsiStatus.MSS, "16% < 20% → MSS");
+        OncologyAnalyzer.ClassifyMSIStatus(OncologyAnalyzer.CalculateMSIScore(5, 25))
+            .Should().Be(OncologyAnalyzer.MsiStatus.MSI_High, "20% ≥ 20% → MSI-High");
+    }
+
+    /// <summary>
+    /// Interaction witness (panel-size invariance): the same 20% unstable fraction gives an identical
+    /// MSI-High call and identical score whether measured over 10 loci (2/10) or 50 loci (10/50) — the
+    /// status depends on the fraction, not the absolute locus count.
+    /// </summary>
+    [Test]
+    public void DetectMSI_SameFractionDifferentPanelSize_SameStatus()
+    {
+        var small = OncologyAnalyzer.DetectMSI(BuildLocusFlags(10, 2));
+        var large = OncologyAnalyzer.DetectMSI(BuildLocusFlags(50, 10));
+
+        small.Score.Should().Be(large.Score, "2/10 = 10/50 = 0.20");
+        small.Status.Should().Be(large.Status).And.Be(OncologyAnalyzer.MsiStatus.MSI_High);
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     // Helpers — engineered constructs + independent ground truth
     // ───────────────────────────────────────────────────────────────────────
@@ -775,6 +873,18 @@ public class OncologyCombinatorialTests
             integral += runningSum;
         }
         return integral;
+    }
+
+    /// <summary>
+    /// Builds <paramref name="totalLoci"/> per-locus stability flags with <paramref name="unstable"/> of them
+    /// marked unstable (true) and the rest stable (false).
+    /// </summary>
+    private static List<bool> BuildLocusFlags(int totalLoci, int unstable)
+    {
+        var flags = new List<bool>(totalLoci);
+        for (int i = 0; i < unstable; i++) flags.Add(true);
+        for (int i = unstable; i < totalLoci; i++) flags.Add(false);
+        return flags;
     }
 
     /// <summary>
