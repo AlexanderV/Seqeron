@@ -246,9 +246,99 @@ public class ComparativeCombinatorialTests
         Assert.Throws<ArgumentOutOfRangeException>(() => ComparativeGenomics.GenerateDotPlot("ACGT", "ACGT", 2, 0));
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: COMPGEN-ORTHO-001 — Ortholog detection (reciprocal best hits) (Comparative)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 135.
+    // Spec: tests/TestSpecs/COMPGEN-ORTHO-001.md (ComparativeGenomics.FindOrthologs).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: Tatusov et al. (1997); Moreno-Hagelsieb & Latimer (2008) — orthologs are reciprocal best
+    // hits (RBH) above an identity and coverage gate; similarity is alignment-free k-mer Jaccard.
+    //
+    // Checklist axes nGenes(3) × identityThreshold(3) × eValue(2) map onto the real knobs:
+    //   • nGenes           → genes per genome ∈ {2, 4, 6} (each with a unique sequence, ortholog i ↔ i).
+    //   • identityThreshold→ minIdentity ∈ {0.1, 0.3, 0.5}.
+    //   • eValue           → there is no e-value (k-mer model); the analogous quality gate is minCoverage ∈
+    //     {0.0, 0.5}.
+    // Grid = 3 × 3 × 2 = 18 = the checklist's "Full Combos" for this row.
+    //
+    // The combinatorial point: across every (gene count, identity, coverage) combination RBH yields a valid
+    // ortholog MATCHING — every reported pair is reciprocal (i ↔ i), no gene is reused, and every pair
+    // clears both thresholds. Identity-based gating is shown by a diverged-pair witness.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // Distinct dinucleotide patterns with disjoint 5-mer sets, so different genes never cross-match.
+    private static readonly string[] OrthoPatterns = { "AC", "AG", "AT", "CG", "CT", "GT" };
+
+    /// <summary>
+    /// For every (gene count, identity threshold, coverage threshold) with identical orthologs (i ↔ i), RBH
+    /// returns exactly that reciprocal matching: every pair clears both thresholds and no gene is reused.
+    /// </summary>
+    [Test, Combinatorial]
+    public void FindOrthologs_GeneCountIdentityCoverageGrid_YieldsReciprocalMatching(
+        [Values(2, 4, 6)] int nGenes,
+        [Values(0.1, 0.3, 0.5)] double minIdentity,
+        [Values(0.0, 0.5)] double minCoverage)
+    {
+        var genome1 = new List<ComparativeGenomics.Gene>();
+        var genome2 = new List<ComparativeGenomics.Gene>();
+        for (int i = 0; i < nGenes; i++)
+        {
+            string seq = Repeat(OrthoPatterns[i], 12);
+            genome1.Add(new ComparativeGenomics.Gene($"G1_{i}", "G1", i * 100, i * 100 + 12, '+', seq));
+            genome2.Add(new ComparativeGenomics.Gene($"G2_{i}", "G2", i * 100, i * 100 + 12, '+', seq));
+        }
+
+        var orthologs = ComparativeGenomics.FindOrthologs(genome1, genome2, minIdentity, minCoverage).ToList();
+
+        orthologs.Should().HaveCount(nGenes, "each identical ortholog forms one reciprocal pair");
+        orthologs.Should().OnlyContain(o => o.Gene1Id.Replace("G1_", "") == o.Gene2Id.Replace("G2_", ""), "[INV-1] reciprocal i ↔ i");
+        orthologs.Should().OnlyContain(o => o.Identity >= minIdentity && o.Coverage >= minCoverage, "[INV-5] pairs clear both thresholds");
+        orthologs.Select(o => o.Gene1Id).Should().OnlyHaveUniqueItems("[INV-2] genome-1 genes are matched at most once");
+        orthologs.Select(o => o.Gene2Id).Should().OnlyHaveUniqueItems("[INV-2] genome-2 genes are matched at most once");
+    }
+
+    /// <summary>
+    /// Interaction witness (identity-threshold gating): a diverged ortholog pair (k-mer Jaccard ≈ 1/6) is a
+    /// reciprocal best hit at minIdentity 0.1 but excluded at 0.3 — the pair flips on the identity axis.
+    /// Source: Moreno-Hagelsieb & Latimer (2008) identity gate.
+    /// </summary>
+    [Test]
+    public void FindOrthologs_IdentityThreshold_GatesDivergedPair()
+    {
+        var genome1 = new[] { new ComparativeGenomics.Gene("G1_0", "G1", 0, 10, '+', "AAAAAAAAAA") };
+        var genome2 = new[] { new ComparativeGenomics.Gene("G2_0", "G2", 0, 10, '+', "AAAAACCCCC") };
+
+        ComparativeGenomics.FindOrthologs(genome1, genome2, minIdentity: 0.1, minCoverage: 0.0)
+            .Should().ContainSingle("Jaccard ≈ 0.167 ≥ 0.1");
+        ComparativeGenomics.FindOrthologs(genome1, genome2, minIdentity: 0.3, minCoverage: 0.0)
+            .Should().BeEmpty("Jaccard ≈ 0.167 < 0.3");
+    }
+
+    /// <summary>
+    /// Witness: genes without a sequence carry no similarity evidence and never form ortholog pairs. Source:
+    /// RBH requires a comparable sequence.
+    /// </summary>
+    [Test]
+    public void FindOrthologs_GenesWithoutSequence_ProduceNoPairs()
+    {
+        var genome1 = new[] { new ComparativeGenomics.Gene("G1_0", "G1", 0, 10, '+', null) };
+        var genome2 = new[] { new ComparativeGenomics.Gene("G2_0", "G2", 0, 10, '+', null) };
+
+        ComparativeGenomics.FindOrthologs(genome1, genome2).Should().BeEmpty("no sequence → no similarity");
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     // Helpers — engineered constructs + independent ANIb ground truth
     // ───────────────────────────────────────────────────────────────────────
+
+    private static string Repeat(string pattern, int length)
+    {
+        var chars = new char[length];
+        for (int i = 0; i < length; i++) chars[i] = pattern[i % pattern.Length];
+        return new string(chars);
+    }
+
 
     private static string ReverseComplement(string dna)
     {
