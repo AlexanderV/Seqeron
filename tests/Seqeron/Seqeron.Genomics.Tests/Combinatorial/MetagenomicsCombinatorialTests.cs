@@ -321,4 +321,112 @@ public class MetagenomicsCombinatorialTests
         MetagenomicsAnalyzer.CalculateAlphaDiversity(Community(5, Evenness.Even))
             .Chao1Estimate.Should().Be(5, "no singletons ⇒ Chao1 = observed");
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: META-BETA-001 — Beta diversity between samples (Metagenomics)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 56.
+    // Spec: tests/TestSpecs/META-BETA-001.md (canonical CalculateBetaDiversity).
+    // Dimensions: metric(3: BC/Jaccard/UniFrac) × nSamples(3) × nSpecies(3). Grid 3×3×3 = 27.
+    //
+    // Model: between-sample dissimilarity — Bray-Curtis 1 − 2·Σmin(aᵢ,bᵢ)/Σ(aᵢ+bᵢ) (abundance)
+    // and Jaccard 1 − shared/union (presence/absence), both in [0,1]. UniFrac requires a
+    // phylogenetic tree and is not computed here (documented placeholder 0).
+    //
+    // The combinatorial point: the metric, sample count and species count interact — each
+    // implemented dissimilarity equals its closed form for every consecutive sample pair (which
+    // share all but their edge species), and the shared/unique counts are reproduced.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public enum BetaMetric { BrayCurtis, Jaccard, UniFrac }
+
+    // Sliding species window: sample s covers species [s, s+nSpecies) so consecutive samples
+    // share nSpecies−1 species and differ at one edge each.
+    private static Dictionary<string, double> Sample(int s, int nSpecies) =>
+        Enumerable.Range(0, nSpecies).ToDictionary(k => $"sp{s + k}", k => 10.0 + (s + k));
+
+    private static double IndepBrayCurtis(Dictionary<string, double> a, Dictionary<string, double> b)
+    {
+        var union = a.Keys.Union(b.Keys);
+        double sumMin = 0, sumTotal = 0;
+        foreach (var sp in union)
+        {
+            double x = a.GetValueOrDefault(sp), y = b.GetValueOrDefault(sp);
+            sumMin += Math.Min(x, y); sumTotal += x + y;
+        }
+        return sumTotal > 0 ? 1 - 2 * sumMin / sumTotal : 0;
+    }
+
+    private static (int Shared, int U1, int U2) Overlap(Dictionary<string, double> a, Dictionary<string, double> b)
+    {
+        int shared = a.Keys.Count(k => b.ContainsKey(k));
+        return (shared, a.Count - shared, b.Count - shared);
+    }
+
+    [Test, Combinatorial]
+    public void MetaBeta_DissimilaritiesMatchClosedForm(
+        [Values(BetaMetric.BrayCurtis, BetaMetric.Jaccard, BetaMetric.UniFrac)] BetaMetric metric,
+        [Values(2, 3, 4)] int nSamples,
+        [Values(3, 5, 8)] int nSpecies)
+    {
+        var samples = Enumerable.Range(0, nSamples).Select(s => Sample(s, nSpecies)).ToArray();
+
+        for (int i = 0; i + 1 < nSamples; i++)
+        {
+            var b = MetagenomicsAnalyzer.CalculateBetaDiversity($"S{i}", samples[i], $"S{i + 1}", samples[i + 1]);
+            var (shared, u1, u2) = Overlap(samples[i], samples[i + 1]);
+
+            switch (metric)
+            {
+                case BetaMetric.BrayCurtis:
+                    b.BrayCurtis.Should().BeInRange(0.0, 1.0);
+                    b.BrayCurtis.Should().BeApproximately(IndepBrayCurtis(samples[i], samples[i + 1]), 1e-9);
+                    break;
+                case BetaMetric.Jaccard:
+                    b.JaccardDistance.Should().BeInRange(0.0, 1.0);
+                    b.JaccardDistance.Should().BeApproximately(1.0 - (double)shared / (shared + u1 + u2), 1e-9);
+                    b.SharedSpecies.Should().Be(shared);
+                    b.UniqueToSample1.Should().Be(u1);
+                    b.UniqueToSample2.Should().Be(u2);
+                    break;
+                default:
+                    b.UniFracDistance.Should().Be(0, "UniFrac requires a phylogenetic tree and is not computed");
+                    break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Interaction witness: identical samples are maximally similar (BC = Jaccard = 0), while
+    /// fully disjoint samples are maximally dissimilar (BC = Jaccard = 1).
+    /// </summary>
+    [Test]
+    public void MetaBeta_IdenticalAndDisjointExtremes()
+    {
+        var s = Sample(0, 5);
+        var same = MetagenomicsAnalyzer.CalculateBetaDiversity("a", s, "b", new Dictionary<string, double>(s));
+        same.BrayCurtis.Should().BeApproximately(0.0, 1e-9);
+        same.JaccardDistance.Should().BeApproximately(0.0, 1e-9);
+
+        var disjoint = MetagenomicsAnalyzer.CalculateBetaDiversity("a", Sample(0, 3), "b", Sample(100, 3));
+        disjoint.BrayCurtis.Should().BeApproximately(1.0, 1e-9);
+        disjoint.JaccardDistance.Should().BeApproximately(1.0, 1e-9);
+        disjoint.SharedSpecies.Should().Be(0);
+    }
+
+    /// <summary>
+    /// Worked example: two samples sharing one of three species with differing abundances give
+    /// Jaccard 1 − 1/3 and a Bray-Curtis matching the abundance formula.
+    /// </summary>
+    [Test]
+    public void MetaBeta_WorkedExample()
+    {
+        var a = new Dictionary<string, double> { ["x"] = 4, ["y"] = 6 };
+        var b = new Dictionary<string, double> { ["y"] = 2, ["z"] = 8 };
+        var beta = MetagenomicsAnalyzer.CalculateBetaDiversity("a", a, "b", b);
+
+        beta.SharedSpecies.Should().Be(1);   // only y
+        beta.JaccardDistance.Should().BeApproximately(1.0 - 1.0 / 3.0, 1e-9);
+        // sumMin = min(6,2)=2 ; sumTotal = (4)+(6+2)+(8) = 20 ; BC = 1 − 2·2/20 = 0.8
+        beta.BrayCurtis.Should().BeApproximately(0.8, 1e-9);
+    }
 }
