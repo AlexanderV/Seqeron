@@ -2325,6 +2325,160 @@ public class OncologyCombinatorialTests
         retained.Select(v => v.Position).Should().Equal(new[] { 2, 3 }, "the CHIP-heuristic variant is removed, order preserved");
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ONCO-PHYLO-001 — Tumor phylogeny reconstruction (Oncology)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 114.
+    // Spec: tests/TestSpecs/ONCO-PHYLO-001.md (OncologyAnalyzer.ReconstructPhylogeny / IdentifyTrunk/BranchMutations).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: Popic et al. (2015) LICHeE (Eq.2 lineage precedence: parent CCF ≥ child CCF; Eq.5 sum rule:
+    // Σ children CCF ≤ parent CCF, per sample); Zheng et al. (2022) PICTograph.
+    //
+    // ReconstructPhylogeny builds a rooted clonal tree (synthetic normal root, CCF 1) from CCF clusters,
+    // obeying both inequalities within a tolerance ε.
+    //
+    // Checklist axes nClones(3) × nMutations(3) × method(2) map onto the real knobs:
+    //   • nClones    → number of CCF clusters ∈ {2, 3, 4}.
+    //   • nMutations → number of samples per cluster ∈ {1, 2, 3} (the multi-sample constraint dimension).
+    //   • method     → reconstruction tolerance ε ∈ {0.0 (strict perfect phylogeny), 0.1 (noise-tolerant)}.
+    // Grid = 3 × 3 × 2 = 18 = the checklist's "Full Combos" for this row.
+    //
+    // The combinatorial point: for every (clone count, sample count, tolerance) the reconstructed tree must
+    // satisfy the published perfect-phylogeny constraints — every edge obeys lineage precedence and every
+    // node obeys the sum rule, the result is a single rooted tree, and the trunk/branch sets partition the
+    // clusters. Each cell RE-CHECKS those inequalities independently on the produced tree.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// For every (nClones, nSamples, tolerance) the reconstructed tree satisfies lineage precedence (Eq.2)
+    /// on every edge and the sum rule (Eq.5) at every node, is a single rooted tree (one parent per
+    /// cluster), and partitions clusters into trunk ∪ branch.
+    /// </summary>
+    [Test, Combinatorial]
+    public void ReconstructPhylogeny_ClonesSamplesToleranceGrid_SatisfiesLineageConstraints(
+        [Values(2, 3, 4)] int nClones,
+        [Values(1, 2, 3)] int nSamples,
+        [Values(0.0, 0.1)] double tolerance)
+    {
+        var clusters = BuildNestedClusters(nClones, nSamples);
+
+        var phylo = OncologyAnalyzer.ReconstructPhylogeny(clusters, tolerance);
+
+        // INV-3: every non-root cluster has exactly one parent edge.
+        phylo.Edges.Should().HaveCount(nClones, "one parent edge per cluster");
+        phylo.Edges.Select(e => e.ChildId).Should().OnlyHaveUniqueItems("each cluster has exactly one parent");
+
+        // INV-1: lineage precedence on every edge — parent CCF ≥ child CCF − ε for every sample.
+        foreach (var edge in phylo.Edges)
+        {
+            for (int s = 0; s < nSamples; s++)
+            {
+                ClusterCcf(phylo, edge.ParentId, s).Should()
+                    .BeGreaterThanOrEqualTo(ClusterCcf(phylo, edge.ChildId, s) - tolerance - 1e-9,
+                        "[INV-1] ancestor CCF ≥ descendant CCF − ε");
+            }
+        }
+
+        // INV-2: sum rule at every node — Σ children CCF ≤ parent CCF + ε for every sample.
+        foreach (int parentId in phylo.Clusters.Select(c => c.Id).Append(phylo.RootId))
+        {
+            var children = phylo.ChildrenOf(parentId);
+            for (int s = 0; s < nSamples; s++)
+            {
+                double childSum = children.Sum(c => ClusterCcf(phylo, c, s));
+                childSum.Should().BeLessThanOrEqualTo(ClusterCcf(phylo, parentId, s) + tolerance + 1e-9,
+                    "[INV-2] Σ children CCF ≤ parent CCF + ε");
+            }
+        }
+
+        // INV-4: trunk and branch partition the clusters.
+        var trunk = OncologyAnalyzer.IdentifyTrunkMutations(phylo);
+        var branch = OncologyAnalyzer.IdentifyBranchMutations(phylo);
+        trunk.Intersect(branch).Should().BeEmpty("[INV-4] trunk ∩ branch = ∅");
+        trunk.Concat(branch).Should().BeEquivalentTo(clusters.Select(c => c.Id), "[INV-4] trunk ∪ branch = all clusters");
+    }
+
+    /// <summary>
+    /// Interaction witness (worked example, linear chain): a single sample with nested CCFs 1.0, 0.6, 0.3
+    /// reconstructs to the linear lineage Normal→A→B→C. Source: Popic et al. (2015) Eq.2.
+    /// </summary>
+    [Test]
+    public void ReconstructPhylogeny_NestedSingleSample_FormsLinearChain()
+    {
+        var clusters = new[]
+        {
+            new OncologyAnalyzer.CcfCluster(1, new[] { 1.0 }),
+            new OncologyAnalyzer.CcfCluster(2, new[] { 0.6 }),
+            new OncologyAnalyzer.CcfCluster(3, new[] { 0.3 }),
+        };
+
+        var phylo = OncologyAnalyzer.ReconstructPhylogeny(clusters);
+
+        phylo.ParentOf(1).Should().Be(phylo.RootId, "the clonal cluster attaches to the normal root");
+        phylo.ParentOf(2).Should().Be(1, "0.6 descends from 1.0");
+        phylo.ParentOf(3).Should().Be(2, "0.3 descends from 0.6");
+    }
+
+    /// <summary>
+    /// Interaction witness (sum-rule branching): two subclones present in disjoint samples ([0.6,0] and
+    /// [0,0.6]) cannot be each other's ancestor (presence pattern), so they are siblings under the clonal
+    /// cluster — their per-sample CCFs (0.6 each) stay within the parent's 0.9 budget. Source: Popic (2015)
+    /// Eq.2 presence + Eq.5 sum rule.
+    /// </summary>
+    [Test]
+    public void ReconstructPhylogeny_DisjointSubclones_ShareParent()
+    {
+        var clusters = new[]
+        {
+            new OncologyAnalyzer.CcfCluster(1, new[] { 0.9, 0.9 }), // clonal, deepest valid ancestor
+            new OncologyAnalyzer.CcfCluster(2, new[] { 0.6, 0.0 }), // sample-0 subclone
+            new OncologyAnalyzer.CcfCluster(3, new[] { 0.0, 0.6 }), // sample-1 subclone
+        };
+
+        var phylo = OncologyAnalyzer.ReconstructPhylogeny(clusters);
+
+        phylo.ChildrenOf(1).Should().BeEquivalentTo(new[] { 2, 3 },
+            "disjoint-sample subclones branch as siblings under the clonal cluster");
+    }
+
+    /// <summary>
+    /// Interaction witness (determinism, INV-5): the same clusters reconstruct to the identical edge set on
+    /// repeated calls. Source: deterministic deepest-valid-ancestor tie-break.
+    /// </summary>
+    [Test]
+    public void ReconstructPhylogeny_SameInput_IsDeterministic()
+    {
+        var clusters = BuildNestedClusters(4, 2);
+
+        var first = OncologyAnalyzer.ReconstructPhylogeny(clusters);
+        var second = OncologyAnalyzer.ReconstructPhylogeny(clusters);
+
+        second.Edges.Should().BeEquivalentTo(first.Edges, "identical input → identical tree");
+    }
+
+    /// <summary>CCF of a cluster (or 1.0 for the synthetic root) in a given sample.</summary>
+    private static double ClusterCcf(OncologyAnalyzer.ClonalPhylogeny phylo, int clusterId, int sample)
+    {
+        if (clusterId == phylo.RootId) return 1.0;
+        return phylo.Clusters.First(c => c.Id == clusterId).CcfPerSample[sample];
+    }
+
+    /// <summary>
+    /// Builds <paramref name="nClones"/> nested CCF clusters (Ids 1..n) over <paramref name="nSamples"/>
+    /// samples: clone i has CCF 1.0 − 0.2·i in every sample, a strictly descending chain that forms a valid
+    /// linear phylogeny.
+    /// </summary>
+    private static List<OncologyAnalyzer.CcfCluster> BuildNestedClusters(int nClones, int nSamples)
+    {
+        var clusters = new List<OncologyAnalyzer.CcfCluster>(nClones);
+        for (int i = 0; i < nClones; i++)
+        {
+            double ccf = 1.0 - 0.2 * i;
+            clusters.Add(new OncologyAnalyzer.CcfCluster(i + 1, Enumerable.Repeat(ccf, nSamples).ToList()));
+        }
+        return clusters;
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     // Helpers — engineered constructs + independent ground truth
     // ───────────────────────────────────────────────────────────────────────
