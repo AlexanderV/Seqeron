@@ -450,6 +450,153 @@ public class OncologyCombinatorialTests
         c.TruncatingFraction.Should().BeApproximately(0.0, 1e-12);
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ONCO-ARTIFACT-001 — Sequencing artifact detection (Oncology)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 90.
+    // Spec: tests/TestSpecs/ONCO-ARTIFACT-001.md (OncologyAnalyzer.ClassifyArtifact / FilterArtifacts).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: Chen et al. (2017) Science 355:752-756 (OxoG G>T excess, GIV); Nature Methods (2017)
+    // (GIV=1 undamaged, >1.5 damaged); Do & Dobrovic (2015) (FFPE C>T/G>A deamination, disjoint from
+    // OxoG); GATK FisherStrand (FS = −10·log10 two-sided Fisher p).
+    //
+    // IsArtifact rule:  FFPE (C>T/G>A) → always artifact;  OxoG (G>T/C>A) → artifact iff GIV > 1.5;
+    // any other substitution → not an artifact. The Fisher strand-bias FS is computed and reported as a
+    // separate output (it is monotone in strand segregation; it does NOT gate IsArtifact here).
+    //
+    // Checklist axes strandBias(3) × baseQual(3) × position(2) — the model has no base-quality or read-
+    // position field. Per the campaign convention we map them onto the real knobs and document it:
+    //   • strandBias → the 2×2 strand contingency table {Balanced [20,20,20,20] → FS=0, Mild [20,20,16,4],
+    //     Strong [30,0,0,30]}: the real FisherStrand input; drives FS monotonically (INV-3, INV-5).
+    //   • baseQual   → the GIV read-orientation imbalance {Undamaged 100/100=1.0, Boundary 150/100=1.5,
+    //     Damaged 200/100=2.0}: the per-read-pair evidence that gates the OxoG call (strict > 1.5).
+    //   • position   → the artifact substitution FAMILY {FFPE deamination C>T, OxoG oxidation G>T}: the two
+    //     disjoint artifact classes (INV-4). The non-artifact class (e.g. A>G) is covered by a witness.
+    // Grid = 3 × 3 × 2 = 18 = the checklist's "Full Combos" for this row.
+    //
+    // The combinatorial point: IsArtifact is a JOINT function of family and GIV — FFPE ignores GIV while
+    // OxoG flips on the GIV axis at the strict 1.5 boundary — while FS depends only on the strand table.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>Artifact substitution family — the two disjoint artifact classes (Do & Dobrovic; Chen).</summary>
+    public enum ArtifactFamily
+    {
+        /// <summary>FFPE cytosine-deamination C&gt;T: always an artifact by substitution class.</summary>
+        FfpeDeamination,
+
+        /// <summary>OxoG oxidation G&gt;T: an artifact only when the GIV imbalance exceeds 1.5.</summary>
+        OxoG,
+    }
+
+    /// <summary>GIV read-orientation imbalance level (the OxoG-gating evidence).</summary>
+    public enum GivLevel
+    {
+        /// <summary>R1 = R2 → GIV 1.0 (balanced, undamaged).</summary>
+        Undamaged,
+
+        /// <summary>150/100 → GIV exactly 1.5: NOT &gt; 1.5 (strict damaged threshold).</summary>
+        Boundary,
+
+        /// <summary>200/100 → GIV 2.0 &gt; 1.5 (damaged).</summary>
+        Damaged,
+    }
+
+    /// <summary>Strand contingency-table segregation level (drives the FisherStrand FS).</summary>
+    public enum StrandSegregation
+    {
+        /// <summary>[20,20,20,20]: perfectly balanced, Fisher p = 1 → FS = 0.</summary>
+        Balanced,
+
+        /// <summary>[20,20,16,4]: moderate strand skew → FS &gt; 0.</summary>
+        Mild,
+
+        /// <summary>[30,0,0,30]: complete strand segregation → large FS.</summary>
+        Strong,
+    }
+
+    /// <summary>
+    /// For every (family, GIV level, strand segregation) the artifact classification must match the rule:
+    /// FFPE is always an artifact, OxoG is an artifact only at GIV &gt; 1.5, and the GIV score / FS are the
+    /// expected values. The grid checks that FFPE ignores GIV while OxoG flips on it, and that FS = 0 only
+    /// for the balanced strand table; FilterArtifacts keeps a variant iff it is not flagged (INV-1 subset).
+    /// </summary>
+    [Test, Combinatorial]
+    public void ClassifyArtifact_StrandGivFamilyGrid_MatchesArtifactRule(
+        [Values] StrandSegregation strand,
+        [Values] GivLevel giv,
+        [Values] ArtifactFamily family)
+    {
+        var obs = BuildArtifactObservation(family, giv, strand);
+
+        double expectedGiv = giv switch { GivLevel.Undamaged => 1.0, GivLevel.Boundary => 1.5, GivLevel.Damaged => 2.0, _ => double.NaN };
+        var expectedType = family == ArtifactFamily.FfpeDeamination
+            ? OncologyAnalyzer.ArtifactType.FfpeDeamination
+            : OncologyAnalyzer.ArtifactType.OxoG;
+        bool expectedIsArtifact = family == ArtifactFamily.FfpeDeamination || expectedGiv > 1.5;
+
+        var call = OncologyAnalyzer.ClassifyArtifact(obs);
+
+        call.Type.Should().Be(expectedType, "substitution maps to its disjoint artifact class (INV-4)");
+        call.GivScore.Should().BeApproximately(expectedGiv, 1e-12);
+        call.IsArtifact.Should().Be(expectedIsArtifact,
+            "FFPE is always an artifact; OxoG only when GIV > 1.5 (strict)");
+        call.StrandBiasPhred.Should().BeGreaterThanOrEqualTo(0.0, "[INV-3] FS ≥ 0");
+        if (strand == StrandSegregation.Balanced)
+            call.StrandBiasPhred.Should().Be(0.0, "[INV-3] a balanced table has Fisher p = 1 → FS = 0");
+
+        var kept = OncologyAnalyzer.FilterArtifacts(new[] { obs });
+        kept.Should().BeSubsetOf(new[] { obs }, "[INV-1] FilterArtifacts ⊆ input");
+        kept.Should().HaveCount(expectedIsArtifact ? 0 : 1, "a variant is kept iff it is not flagged");
+    }
+
+    /// <summary>
+    /// Interaction witness (GIV axis flips OxoG, but not FFPE): the same OxoG G>T variant is kept at the
+    /// strict 1.5 boundary (GIV = 1.5 is NOT damaged) yet removed at GIV = 2.0, whereas an FFPE C>T variant
+    /// is removed at both — proving the GIV axis only matters in combination with the OxoG family.
+    /// </summary>
+    [Test]
+    public void FilterArtifacts_GivAxis_FlipsOxoGButNotFfpe()
+    {
+        var oxoBoundary = BuildArtifactObservation(ArtifactFamily.OxoG, GivLevel.Boundary, StrandSegregation.Balanced);
+        var oxoDamaged = BuildArtifactObservation(ArtifactFamily.OxoG, GivLevel.Damaged, StrandSegregation.Balanced);
+        var ffpeBoundary = BuildArtifactObservation(ArtifactFamily.FfpeDeamination, GivLevel.Boundary, StrandSegregation.Balanced);
+
+        OncologyAnalyzer.FilterArtifacts(new[] { oxoBoundary }).Should().ContainSingle("GIV 1.5 is not > 1.5 → OxoG kept");
+        OncologyAnalyzer.FilterArtifacts(new[] { oxoDamaged }).Should().BeEmpty("GIV 2.0 > 1.5 → OxoG removed");
+        OncologyAnalyzer.FilterArtifacts(new[] { ffpeBoundary }).Should().BeEmpty("FFPE is removed regardless of GIV");
+    }
+
+    /// <summary>
+    /// Interaction witness (INV-5 monotonicity): the Fisher strand-bias FS is non-decreasing as the strand
+    /// table segregates — 0 for a balanced table, larger for moderate skew, largest for complete
+    /// segregation. Source: GATK FisherStrand (the Fisher p decreases as alleles segregate by strand).
+    /// </summary>
+    [Test]
+    public void CalculateStrandBias_IncreasingSegregation_FsMonotone()
+    {
+        double balanced = OncologyAnalyzer.CalculateStrandBias(20, 20, 20, 20);
+        double mild = OncologyAnalyzer.CalculateStrandBias(20, 20, 16, 4);
+        double strong = OncologyAnalyzer.CalculateStrandBias(30, 0, 0, 30);
+
+        balanced.Should().Be(0.0, "balanced table → p = 1 → FS = 0");
+        mild.Should().BeGreaterThan(balanced);
+        strong.Should().BeGreaterThan(mild);
+    }
+
+    /// <summary>
+    /// Witness (non-artifact class): a transition substitution outside the artifact classes (A>G) is never
+    /// flagged and is always kept, regardless of strand/GIV evidence. Source: artifact classes are specific
+    /// (Do & Dobrovic 2015; Chen et al. 2017).
+    /// </summary>
+    [Test]
+    public void FilterArtifacts_NonArtifactSubstitution_AlwaysKept()
+    {
+        var realVariant = new OncologyAnalyzer.ArtifactObservation('A', 'G', 30, 0, 0, 30, 200, 100);
+
+        OncologyAnalyzer.ClassifyArtifact(realVariant).Type.Should().Be(OncologyAnalyzer.ArtifactType.None);
+        OncologyAnalyzer.FilterArtifacts(new[] { realVariant }).Should().ContainSingle("A>G is a candidate true variant");
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     // Helpers — engineered constructs + independent ground truth
     // ───────────────────────────────────────────────────────────────────────
@@ -523,6 +670,40 @@ public class OncologyCombinatorialTests
             integral += runningSum;
         }
         return integral;
+    }
+
+    /// <summary>
+    /// Builds an artifact observation for the requested substitution family (FFPE C&gt;T or OxoG G&gt;T),
+    /// GIV read-orientation imbalance (R1/R2 ∈ {1.0, 1.5, 2.0}) and strand contingency table
+    /// (Balanced/Mild/Strong). The three knobs populate disjoint fields of the record.
+    /// </summary>
+    private static OncologyAnalyzer.ArtifactObservation BuildArtifactObservation(
+        ArtifactFamily family, GivLevel giv, StrandSegregation strand)
+    {
+        (char reference, char alternate) = family switch
+        {
+            ArtifactFamily.FfpeDeamination => ('C', 'T'), // C>T deamination
+            ArtifactFamily.OxoG => ('G', 'T'),            // G>T oxidation
+            _ => throw new ArgumentOutOfRangeException(nameof(family)),
+        };
+
+        (int r1, int r2) = giv switch
+        {
+            GivLevel.Undamaged => (100, 100), // 1.0
+            GivLevel.Boundary => (150, 100),  // 1.5 (not > 1.5)
+            GivLevel.Damaged => (200, 100),   // 2.0
+            _ => throw new ArgumentOutOfRangeException(nameof(giv)),
+        };
+
+        (int rf, int rr, int af, int ar) = strand switch
+        {
+            StrandSegregation.Balanced => (20, 20, 20, 20),
+            StrandSegregation.Mild => (20, 20, 16, 4),
+            StrandSegregation.Strong => (30, 0, 0, 30),
+            _ => throw new ArgumentOutOfRangeException(nameof(strand)),
+        };
+
+        return new OncologyAnalyzer.ArtifactObservation(reference, alternate, rf, rr, af, ar, r1, r2);
     }
 
     /// <summary>
