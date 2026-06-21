@@ -39,7 +39,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 7 | ☑ | SEQ-GCSKEW-001 | Composition | ID: empty → skew undefined or 0; DIST: skew(G-only)=1, skew(C-only)=-1 |
 | 8 | ✗ | PAT-EXACT-001 | Matching | ID: pattern not in seq → count=0; ID: empty pattern → defined result |
 | 9 | ☑ | PAT-APPROX-001 | Matching | ID: hamming(x,x)=0; COMM: hamming(a,b)=hamming(b,a); TRI: hamming(a,c) ≤ hamming(a,b)+hamming(b,c) |
-| 10 | ☐ | PAT-APPROX-002 | Matching | ID: editDist(x,x)=0; COMM: editDist(a,b)=editDist(b,a); TRI: triangle inequality |
+| 10 | ☑ | PAT-APPROX-002 | Matching | ID: editDist(x,x)=0; COMM: editDist(a,b)=editDist(b,a); TRI: triangle inequality |
 | 11 | ☐ | PAT-IUPAC-001 | Matching | ID: exact base match is reflexive; DIST: N matches all → N is top element |
 | 12 | ✗ | PAT-PWM-001 | Matching | IDEMP: PWM from same sequences always the same; ID: all-zero PWM → no matches |
 | 13 | ✗ | REP-STR-001 | Repeats | ID: no repeats → empty result; IDEMP: same seq → same microsatellites |
@@ -272,7 +272,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 5 |
-| ☐ Not started | 60 |
+| ☑ Complete | 6 |
+| ☐ Not started | 59 |
 | ✗ Not applicable | 169 |
 | Laws verified | ~172 (≈2 per algorithm) |

@@ -34,6 +34,17 @@ public class MatchingAlgebraicTests
          select (new string(a), new string(b), new string(c)))
         .ToArbitrary();
 
+    /// <summary>
+    /// Generates three DNA strings of INDEPENDENT lengths (including empty), the
+    /// natural domain of edit distance, which is defined for unequal lengths.
+    /// </summary>
+    private static Arbitrary<(string A, string B, string C)> FreeLengthTriple() =>
+        (from a in Gen.Elements('A', 'C', 'G', 'T').ArrayOf()
+         from b in Gen.Elements('A', 'C', 'G', 'T').ArrayOf()
+         from c in Gen.Elements('A', 'C', 'G', 'T').ArrayOf()
+         select (new string(a), new string(b), new string(c)))
+        .ToArbitrary();
+
     // ═══════════════════════════════════════════════════════════════════════
     // Unit: PAT-APPROX-001 — Hamming distance (Matching)
     // Checklist: docs/checklists/06_ALGEBRAIC_TESTING.md, row 9.
@@ -102,6 +113,68 @@ public class MatchingAlgebraicTests
             int ab = ApproximateMatcher.HammingDistance(t.A, t.B);
             bool equal = string.Equals(t.A, t.B, StringComparison.OrdinalIgnoreCase);
             return ((ab == 0) == equal).Label($"d={ab}, equal={equal} for a=\"{t.A}\" b=\"{t.B}\"");
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: PAT-APPROX-002 — Edit (Levenshtein) distance (Matching)
+    // Checklist: docs/checklists/06_ALGEBRAIC_TESTING.md, row 10.
+    //
+    // Model: minimum number of single-character insertions, deletions and
+    //        substitutions transforming one string into the other. A metric on
+    //        the free monoid over the alphabet (unequal lengths allowed).
+    //   — ApproximateMatcher.EditDistance; Wikipedia "Levenshtein distance".
+    //
+    // Laws under test (checklist row 10):
+    //   • ID   — d(x, x) = 0 (no edits needed; and d=0 ⟺ x=y).
+    //   • COMM — d(a, b) = d(b, a) (each edit operation has an inverse of equal
+    //            unit cost, so the optimal cost is direction-independent).
+    //   • TRI  — d(a, c) ≤ d(a, b) + d(b, c) (concatenating the edit script
+    //            a→b with b→c yields a valid, not-necessarily-optimal, a→c script).
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// ID: d(x, x) = 0, and more strictly d(a, b) = 0 ⟺ a = b.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Edit_Identity_ZeroIffEqual()
+    {
+        return Prop.ForAll(FreeLengthTriple(), t =>
+        {
+            int self = ApproximateMatcher.EditDistance(t.A, t.A);
+            int ab = ApproximateMatcher.EditDistance(t.A, t.B);
+            bool equal = t.A == t.B;
+            return (self == 0 && (ab == 0) == equal)
+                .Label($"self={self}, d(a,b)={ab}, equal={equal}");
+        });
+    }
+
+    /// <summary>
+    /// COMM: d(a, b) = d(b, a) — edit distance is symmetric.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Edit_Commutative_Symmetric()
+    {
+        return Prop.ForAll(FreeLengthTriple(), t =>
+        {
+            int ab = ApproximateMatcher.EditDistance(t.A, t.B);
+            int ba = ApproximateMatcher.EditDistance(t.B, t.A);
+            return (ab == ba).Label($"d(a,b)={ab} != d(b,a)={ba}");
+        });
+    }
+
+    /// <summary>
+    /// TRI: d(a, c) ≤ d(a, b) + d(b, c) — the triangle inequality.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Edit_TriangleInequality()
+    {
+        return Prop.ForAll(FreeLengthTriple(), t =>
+        {
+            int ac = ApproximateMatcher.EditDistance(t.A, t.C);
+            int ab = ApproximateMatcher.EditDistance(t.A, t.B);
+            int bc = ApproximateMatcher.EditDistance(t.B, t.C);
+            return (ac <= ab + bc).Label($"d(a,c)={ac} > d(a,b)+d(b,c)={ab}+{bc}");
         });
     }
 }
