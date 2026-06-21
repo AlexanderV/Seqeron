@@ -189,4 +189,131 @@ public class PopGenCombinatorialTests
         var pop = new List<char[]> { "AAAA".ToCharArray(), "AAAA".ToCharArray(), "AATA".ToCharArray() };
         PopulationGeneticsAnalyzer.CalculateNucleotideDiversity(pop).Should().BeApproximately(2.0 / 12.0, 1e-12);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: POP-FST-001 — Population differentiation Fst (PopGen)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 46.
+    // Spec: tests/TestSpecs/POP-FST-001.md (canonical CalculateFst / CalculateFStatistics).
+    // Dimensions: nPops(3) × nSamples(3) × method(2: Wright/WC). Grid 3×3×2 = 18.
+    //
+    // Model (Wright 1965; Nei Gst): Fst measures the among-population share of genetic
+    // variance, in [0,1]. The implementation offers two estimators — Wright's variance form
+    // σ²_S/p̄(1−p̄) (CalculateFst) and the heterozygosity form 1−H_S/H_T (CalculateFStatistics).
+    // The "WC" axis maps to the heterozygosity-based estimator (the other implemented form).
+    //
+    // The combinatorial point: number of populations, sample size and estimator interact, yet
+    // both estimators must lie in [0,1], give 0 for identical populations, 1 for a fixed
+    // difference, and match their closed-form definitions; the Wright pairwise matrix over
+    // nPops must be symmetric with a zero diagonal.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public enum FstEstimator { Wright, Heterozygosity }
+
+    private static readonly double[] BaseFreqs = { 0.5, 0.2, 0.8, 0.4, 0.6 };
+
+    private static (double Freq, int N)[] PopProfile(int popIndex, int nSamples) =>
+        BaseFreqs.Select(b => (Math.Clamp(b + popIndex * 0.12, 0.0, 1.0), nSamples)).ToArray();
+
+    private static double IndepWrightFst((double Freq, int N)[] a, (double Freq, int N)[] b)
+    {
+        double num = 0, den = 0;
+        for (int i = 0; i < a.Length; i++)
+        {
+            double p1 = a[i].Freq, p2 = b[i].Freq; int n1 = a[i].N, n2 = b[i].N;
+            double pBar = (n1 * p1 + n2 * p2) / (n1 + n2);
+            num += ((p1 - pBar) * (p1 - pBar) * n1 + (p2 - pBar) * (p2 - pBar) * n2) / (n1 + n2);
+            den += pBar * (1 - pBar);
+        }
+        return den > 0 ? num / den : 0;
+    }
+
+    private static IEnumerable<(int, int, int, int, double, double)> HetData((double Freq, int N)[] a, (double Freq, int N)[] b)
+    {
+        for (int i = 0; i < a.Length; i++)
+        {
+            int h1 = (int)Math.Round(2 * a[i].Freq * (1 - a[i].Freq) * a[i].N);
+            int h2 = (int)Math.Round(2 * b[i].Freq * (1 - b[i].Freq) * b[i].N);
+            yield return (h1, a[i].N, h2, b[i].N, a[i].Freq, b[i].Freq);
+        }
+    }
+
+    private static double IndepHetFst((double Freq, int N)[] a, (double Freq, int N)[] b)
+    {
+        double obs = 0, exp = 0, tot = 0; int totalN = 0;
+        foreach (var (h1, n1, h2, n2, p1, p2) in HetData(a, b))
+        {
+            double pBar = (n1 * p1 + n2 * p2) / (n1 + n2);
+            obs += h1 + h2;
+            exp += 2 * p1 * (1 - p1) * n1 + 2 * p2 * (1 - p2) * n2;
+            tot += 2 * pBar * (1 - pBar) * (n1 + n2);
+            totalN += n1 + n2;
+        }
+        double hs = totalN > 0 ? exp / totalN : 0, ht = totalN > 0 ? tot / totalN : 0;
+        return ht > 0 ? 1 - hs / ht : 0;
+    }
+
+    private static double Fst(FstEstimator method, (double Freq, int N)[] a, (double Freq, int N)[] b) =>
+        method == FstEstimator.Wright
+            ? PopulationGeneticsAnalyzer.CalculateFst(a, b)
+            : PopulationGeneticsAnalyzer.CalculateFStatistics("a", "b", HetData(a, b)).Fst;
+
+    [Test, Combinatorial]
+    public void PopFst_InRangeMatchesFormula_AndMatrixWellFormed(
+        [Values(2, 3, 4)] int nPops,
+        [Values(10, 30, 50)] int nSamples,
+        [Values(FstEstimator.Wright, FstEstimator.Heterozygosity)] FstEstimator method)
+    {
+        var pops = Enumerable.Range(0, nPops).Select(p => PopProfile(p, nSamples)).ToArray();
+
+        // The most-diverged pair (0, nPops-1) differs, so Fst is positive but bounded.
+        double fst = Fst(method, pops[0], pops[nPops - 1]);
+        fst.Should().BeInRange(0.0, 1.0 + 1e-9, "Fst is a variance proportion");
+        double expected = method == FstEstimator.Wright
+            ? IndepWrightFst(pops[0], pops[nPops - 1])
+            : IndepHetFst(pops[0], pops[nPops - 1]);
+        fst.Should().BeApproximately(expected, 1e-9, "Fst equals its closed-form definition");
+
+        // A population against itself shows no differentiation.
+        Fst(method, pops[0], pops[0]).Should().BeApproximately(0.0, 1e-12, "no structure within one population");
+
+        if (method == FstEstimator.Wright)
+        {
+            var matrix = PopulationGeneticsAnalyzer.CalculatePairwiseFst(
+                pops.Select((p, i) => ($"P{i}", (IReadOnlyList<(double, int)>)p)));
+            for (int i = 0; i < nPops; i++)
+            {
+                matrix[i, i].Should().Be(0, "self Fst is zero");
+                for (int j = i + 1; j < nPops; j++)
+                    matrix[i, j].Should().Be(matrix[j, i], "the Fst matrix is symmetric");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Interaction witness: a fixed difference (one population fixed for the allele, the other
+    /// for the alternative) is maximal differentiation — Fst = 1 under both estimators.
+    /// </summary>
+    [Test]
+    public void PopFst_FixedDifference_IsOne()
+    {
+        var fixedA = new[] { (1.0, 40), (1.0, 40) };
+        var fixedB = new[] { (0.0, 40), (0.0, 40) };
+
+        PopulationGeneticsAnalyzer.CalculateFst(fixedA, fixedB).Should().BeApproximately(1.0, 1e-12);
+        PopulationGeneticsAnalyzer.CalculateFStatistics("a", "b", HetData(fixedA, fixedB)).Fst
+            .Should().BeApproximately(1.0, 1e-12);
+    }
+
+    /// <summary>
+    /// Interaction witness: Fst increases with divergence — populations farther apart in
+    /// allele frequency are more differentiated (Wright estimator).
+    /// </summary>
+    [Test]
+    public void PopFst_IncreasesWithDivergence()
+    {
+        var p0 = PopProfile(0, 40);
+        double near = PopulationGeneticsAnalyzer.CalculateFst(p0, PopProfile(1, 40));
+        double far = PopulationGeneticsAnalyzer.CalculateFst(p0, PopProfile(3, 40));
+        far.Should().BeGreaterThan(near, "greater allele-frequency divergence raises Fst");
+    }
 }
