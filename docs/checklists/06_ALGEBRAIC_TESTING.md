@@ -208,7 +208,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 176 | ✗ | GENOMIC-MOTIFS-001 | Analysis | IDEMP: deterministic; ID: empty → none |
 | 177 | ✗ | GENOMIC-ORF-001 | Analysis | ID: no ATG → none; IDEMP: deterministic |
 | 178 | ✗ | GENOMIC-REPEAT-001 | Analysis | IDEMP: deterministic; ID: no repeat → none |
-| 179 | ☐ | GENOMIC-SIMILARITY-001 | Analysis | ID: sim(x,x)=1; COMM: symmetric |
+| 179 | ☑ | GENOMIC-SIMILARITY-001 | Analysis | ID: sim(x,x)=1; COMM: symmetric |
 | 180 | ✗ | GENOMIC-TANDEM-001 | Analysis | IDEMP: deterministic; ID: no tandem → none |
 | 181 | ✗ | EPIGEN-AGE-001 | Epigenetics | ID: no methylation → baseline; IDEMP: deterministic |
 | 182 | ✗ | EPIGEN-BISULF-001 | Epigenetics | IDEMP: bisulfite∘bisulfite = bisulfite; ID: no C → unchanged |
@@ -228,7 +228,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 196 | ✗ | META-RESIST-001 | Metagenomics | IDEMP: deterministic; ID: empty → none |
 | 197 | ✗ | META-TAXA-001 | Metagenomics | ID: no difference → p=1; IDEMP: deterministic |
 | 198 | ✗ | TRANS-DIFF-001 | Transcriptome | ID: A = B → FC = 0; INVOL: FC(A,B) = −FC(B,A) |
-| 199 | ☐ | TRANS-EXPR-001 | Transcriptome | HOMO: scaling depth → same TPM; ID: empty → 0 |
+| 199 | ☑ | TRANS-EXPR-001 | Transcriptome | HOMO: scaling depth → same TPM; ID: empty → 0 |
 | 200 | ✗ | TRANS-SPLICE-001 | Transcriptome | ID: single isoform → PSI = 1; IDEMP: deterministic |
 | 201 | ✗ | SV-BREAKPOINT-001 | StructuralVar | ID: identical → none; IDEMP: deterministic |
 | 202 | ✗ | SV-CNV-001 | StructuralVar | ID: ratio = 1 → CN = 2; IDEMP: deterministic |
@@ -248,14 +248,14 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 216 | ✗ | ANNOT-CODING-001 | Annotation | IDEMP: deterministic; ID: random sequence → low score |
 | 217 | ✗ | ANNOT-CODONUSAGE-001 | Annotation | ID: empty → empty; P: per-AA sum = 1 |
 | 218 | ✗ | ANNOT-REPEAT-001 | Annotation | IDEMP: deterministic; ID: no repeat → none |
-| 219 | ☐ | QUALITY-PHRED-001 | Quality | RT: encode∘decode = identity; ID: defined per char |
+| 219 | ☑ | QUALITY-PHRED-001 | Quality | RT: encode∘decode = identity; ID: defined per char |
 | 220 | ✗ | QUALITY-STATS-001 | Quality | ID: empty → 0; ADD: counts additive |
 | 221 | ✗ | PHYLO-BOOT-001 | Phylogenetic | IDEMP: same seed → same support; ID: single tree → trivial |
 | 222 | ✗ | PHYLO-STATS-001 | Phylogenetic | ID: single leaf → depth 0; IDEMP: deterministic |
 | 223 | ✗ | TRANS-SIXFRAME-001 | Translation | INVOL: frames symmetric under revcomp; ID: defined for all 6 |
 | 224 | ✗ | RESTR-FILTER-001 | MolTools | IDEMP: filter∘filter = filter; SUB: filtered ⊆ all |
 | 225 | ✗ | MIRNA-PAIR-001 | MiRNA | IDEMP: deterministic; ID: no complementarity → no pairing |
-| 226 | ☐ | ALIGN-STATS-001 | Alignment | ID: identity(x,x)=1; COMM: symmetric |
+| 226 | ☑ | ALIGN-STATS-001 | Alignment | ID: identity(x,x)=1; COMM: symmetric |
 | 227 | ☑ | SEQ-CODON-FREQ-001 | Statistics | ID: freq("")=∅; IDEMP: deterministic; DIST: Σ counts = len/3 |
 | 228 | ✗ | SEQ-COMPLEX-COMPRESS-001 | Complexity | IDEMP: deterministic; ID: homopolymer → minimal ratio |
 | 229 | ✗ | SEQ-COMPLEX-DUST-001 | Complexity | IDEMP: deterministic; INVAR: DUST(complement(x))=DUST(x) |
@@ -272,7 +272,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 61 |
-| ☐ Not started | 4 |
+| ☑ Complete | 65 |
+| ☐ Not started | 0 |
 | ✗ Not applicable | 169 |
 | Laws verified | ~172 (≈2 per algorithm) |

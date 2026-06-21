@@ -144,4 +144,61 @@ public class AlignmentAlgebraicTests
             return (ab == ba && ab >= 0).Label($"local score(a,b)={ab} != score(b,a)={ba}");
         });
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ALIGN-STATS-001 — Alignment statistics (Alignment), row 226.
+    //
+    // Model: alignment identity = identical columns / alignment length × 100. A
+    //        self-alignment is 100% identical, and swapping the two sequences
+    //        transposes the alignment columns, leaving the identity unchanged.
+    //   — docs/algorithms/Alignment; SequenceAligner.CalculateStatistics.
+    //
+    // Laws (row 226): ID — identity(align(x, x)) = 100.
+    //                 COMM — symmetric: the optimal alignment the statistics
+    //                 summarise has a symmetric score (the underlying commutative
+    //                 invariant). NOTE: the per-alignment Identity percentage itself
+    //                 is NOT a symmetric function, because align(a,b) and align(b,a)
+    //                 may select different co-optimal tracebacks with different gap
+    //                 placements — only the optimal score is guaranteed symmetric.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    [FsCheck.NUnit.Property]
+    public Property AlignStats_Identity_SelfAlignmentIsFullIdentity()
+    {
+        return Prop.ForAll(DnaArbitrary(1), x =>
+        {
+            var stats = SequenceAligner.CalculateStatistics(SequenceAligner.GlobalAlign(x, x));
+            return (System.Math.Abs(stats.Identity - 100.0) < 1e-9).Label($"identity(x,x)={stats.Identity}");
+        });
+    }
+
+    /// <summary>
+    /// COMM: the optimal alignment score that the statistics summarise is symmetric,
+    /// score(a,b) = score(b,a). (Per-alignment identity is traceback-dependent and
+    /// therefore not asserted symmetric — see the unit note above.)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AlignStats_Commutative_OptimalScoreSymmetric()
+    {
+        return Prop.ForAll(DnaArbitrary(1), DnaArbitrary(1), (a, b) =>
+        {
+            var ab = SequenceAligner.GlobalAlign(a, b);
+            var ba = SequenceAligner.GlobalAlign(b, a);
+            return (ab.Score == ba.Score).Label($"score(a,b)={ab.Score} != score(b,a)={ba.Score}");
+        });
+    }
+
+    /// <summary>
+    /// COMM (statistics level): a self-alignment is symmetric and maximal — its
+    /// identity is 100 and it has zero mismatches, independent of argument order.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AlignStats_SelfAlignmentHasNoMismatches()
+    {
+        return Prop.ForAll(DnaArbitrary(1), x =>
+        {
+            var stats = SequenceAligner.CalculateStatistics(SequenceAligner.GlobalAlign(x, x));
+            return (stats.Mismatches == 0 && stats.Gaps == 0).Label($"self-align stats: {stats.Mismatches} mm, {stats.Gaps} gaps");
+        });
+    }
 }
