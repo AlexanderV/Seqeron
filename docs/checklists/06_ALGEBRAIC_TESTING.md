@@ -62,7 +62,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 30 | ✗ | ANNOT-PROM-001 | Annotation | ID: no -10/-35 box → no promoters; IDEMP: deterministic |
 | 31 | ☑ | ANNOT-GFF-001 | Annotation | RT: parse(serialize(annotations)) = annotations; ID: empty → empty GFF |
 | 32 | ☑ | KMER-COUNT-001 | K-mer | ID: sum(counts) = seqLen - k + 1; DIST: counting identity |
-| 33 | ☐ | KMER-FREQ-001 | K-mer | ID: sum(frequencies) = 1.0; DIST: freq = count / total_kmers |
+| 33 | ☑ | KMER-FREQ-001 | K-mer | ID: sum(frequencies) = 1.0; DIST: freq = count / total_kmers |
 | 34 | ✗ | KMER-FIND-001 | K-mer | ID: k > seqLen → no results; IDEMP: deterministic |
 | 35 | ☐ | ALIGN-GLOBAL-001 | Alignment | COMM: score(a,b)=score(b,a); ID: align(x,x) = perfect score; ID: align(x,"") = gap_penalty × len |
 | 36 | ☐ | ALIGN-LOCAL-001 | Alignment | ID: no common subsequence → score=0; COMM: local_score relationship (not always symmetric for alignments) |
@@ -272,7 +272,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 14 |
-| ☐ Not started | 51 |
+| ☑ Complete | 15 |
+| ☐ Not started | 50 |
 | ✗ Not applicable | 169 |
 | Laws verified | ~172 (≈2 per algorithm) |

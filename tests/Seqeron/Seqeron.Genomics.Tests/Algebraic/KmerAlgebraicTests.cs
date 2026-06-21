@@ -87,4 +87,58 @@ public class KmerAlgebraicTests
             return ok.Label($"a k-mer count did not match its occurrences in \"{seq}\"");
         });
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: KMER-FREQ-001 — K-mer frequencies (K-mer)
+    // Checklist: docs/checklists/06_ALGEBRAIC_TESTING.md, row 33.
+    //
+    // Model: the relative frequency of a k-mer is its count divided by the total
+    //        number of k-mer windows; the frequencies thus form a probability
+    //        distribution over the observed k-mers.
+    //   — docs/algorithms/K-mer; KmerAnalyzer.GetKmerFrequencies / CountKmers.
+    //
+    // Laws under test (checklist row 33):
+    //   • ID   — Σ frequencies = 1.0 (normalization / probability-simplex identity).
+    //   • DIST — freq(kmer) = count(kmer) / total_kmers for every k-mer.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// ID: the k-mer frequencies sum to 1 for any non-empty k-mer set
+    /// (1 ≤ k ≤ n).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property KmerFreq_Identity_FrequenciesSumToOne()
+    {
+        return Prop.ForAll(DnaArbitrary(minLen: 1), seq =>
+        {
+            for (int k = 1; k <= seq.Length; k++)
+            {
+                var freqs = KmerAnalyzer.GetKmerFrequencies(seq, k);
+                double sum = freqs.Values.Sum();
+                if (Math.Abs(sum - 1.0) > 1e-9)
+                    return false.Label($"k={k}: Σfreq={sum} != 1 for \"{seq}\"");
+            }
+            return true.ToProperty();
+        });
+    }
+
+    /// <summary>
+    /// DIST: freq(kmer) = count(kmer) / total — each frequency is exactly the
+    /// k-mer's share of the n−k+1 windows.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property KmerFreq_Distributive_FreqIsCountOverTotal()
+    {
+        return Prop.ForAll(DnaArbitrary(minLen: 2), seq =>
+        {
+            int k = Math.Min(3, seq.Length);
+            var counts = KmerAnalyzer.CountKmers(seq, k);
+            var freqs = KmerAnalyzer.GetKmerFrequencies(seq, k);
+            double total = counts.Values.Sum();
+
+            bool ok = counts.All(kvp =>
+                Math.Abs(freqs[kvp.Key] - kvp.Value / total) < 1e-12);
+            return ok.Label($"a frequency != count/total for \"{seq}\"");
+        });
+    }
 }
