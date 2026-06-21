@@ -210,4 +210,115 @@ public class MetagenomicsCombinatorialTests
         p2.SpeciesAbundance["Sp0"].Should().BeApproximately(p1.SpeciesAbundance["Sp0"], 1e-9, "abundance is over classified reads only");
         p2.SpeciesAbundance["Sp0"].Should().BeApproximately(2.0 / 3.0, 1e-9);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: META-ALPHA-001 — Alpha diversity indices (Metagenomics)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 55.
+    // Spec: tests/TestSpecs/META-ALPHA-001.md (canonical CalculateAlphaDiversity).
+    // Dimensions: index(3: Shannon/Simpson/Chao1) × nSpecies(3) × evenness(3). Grid 3×3×3 = 27.
+    //
+    // Model: within-sample diversity — Shannon H = −Σp·ln p (Shannon-Wiener), Simpson D = Σp²
+    // (Simpson 1949), and Chao1 = S_obs + f1²/(2f2) (or the bias-corrected form when f2=0)
+    // estimating unseen richness from singletons/doubletons (Chao 1984).
+    //
+    // The combinatorial point: the index, the species count and the evenness of the abundance
+    // distribution interact — each reported index equals its closed-form definition for every
+    // community shape, and richness/evenness derivations stay consistent.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public enum AlphaIndex { Shannon, Simpson, Chao1 }
+    public enum Evenness { Even, Moderate, Skewed }
+
+    private static Dictionary<string, double> Community(int nSpecies, Evenness evenness)
+    {
+        var d = new Dictionary<string, double>();
+        for (int i = 0; i < nSpecies; i++)
+        {
+            double count = evenness switch
+            {
+                Evenness.Even => 10,
+                Evenness.Moderate => Math.Max(1, 10 - 2 * i),
+                _ => i == 0 ? 50 : 1, // Skewed: one dominant, the rest singletons
+            };
+            d[$"sp{i}"] = count;
+        }
+        return d;
+    }
+
+    private static double IndepShannon(IReadOnlyCollection<double> c)
+    {
+        double sum = c.Sum();
+        return -c.Where(v => v > 0).Sum(v => { double p = v / sum; return p * Math.Log(p); });
+    }
+
+    private static double IndepSimpson(IReadOnlyCollection<double> c)
+    {
+        double sum = c.Sum();
+        return c.Where(v => v > 0).Sum(v => { double p = v / sum; return p * p; });
+    }
+
+    private static double IndepChao1(List<double> v)
+    {
+        int s = v.Count;
+        int f1 = v.Count(x => Math.Abs(x - 1) < 1e-9), f2 = v.Count(x => Math.Abs(x - 2) < 1e-9);
+        if (f1 == 0) return s;
+        return f2 > 0 ? s + (double)(f1 * f1) / (2 * f2) : s + (double)(f1 * (f1 - 1)) / 2;
+    }
+
+    [Test, Combinatorial]
+    public void MetaAlpha_IndicesMatchClosedForm(
+        [Values(AlphaIndex.Shannon, AlphaIndex.Simpson, AlphaIndex.Chao1)] AlphaIndex index,
+        [Values(3, 5, 8)] int nSpecies,
+        [Values(Evenness.Even, Evenness.Moderate, Evenness.Skewed)] Evenness evenness)
+    {
+        var comm = Community(nSpecies, evenness);
+        var a = MetagenomicsAnalyzer.CalculateAlphaDiversity(comm);
+        var vals = comm.Values.ToList();
+
+        a.ObservedSpecies.Should().Be(nSpecies);
+
+        switch (index)
+        {
+            case AlphaIndex.Shannon:
+                a.ShannonIndex.Should().BeApproximately(IndepShannon(vals), 1e-9);
+                a.PielouEvenness.Should().BeApproximately(a.ShannonIndex / Math.Log(nSpecies), 1e-9);
+                break;
+            case AlphaIndex.Simpson:
+                a.SimpsonIndex.Should().BeApproximately(IndepSimpson(vals), 1e-9);
+                a.InverseSimpson.Should().BeApproximately(1 / IndepSimpson(vals), 1e-9);
+                break;
+            default:
+                a.Chao1Estimate.Should().BeApproximately(IndepChao1(vals), 1e-9);
+                a.Chao1Estimate.Should().BeGreaterThanOrEqualTo(nSpecies, "Chao1 never under-estimates observed richness");
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Interaction witness: an even community is maximally diverse — Pielou evenness 1.0 and
+    /// Shannon ln(S) — whereas a skewed community is strictly less even.
+    /// </summary>
+    [Test]
+    public void MetaAlpha_EvennessExtremes()
+    {
+        var even = MetagenomicsAnalyzer.CalculateAlphaDiversity(Community(5, Evenness.Even));
+        even.PielouEvenness.Should().BeApproximately(1.0, 1e-9);
+        even.ShannonIndex.Should().BeApproximately(Math.Log(5), 1e-9);
+
+        var skewed = MetagenomicsAnalyzer.CalculateAlphaDiversity(Community(5, Evenness.Skewed));
+        skewed.PielouEvenness.Should().BeLessThan(even.PielouEvenness, "a dominant taxon lowers evenness");
+    }
+
+    /// <summary>
+    /// Interaction witness: Chao1 exceeds observed richness when singletons are present (unseen
+    /// species are inferred) but equals it when every species is abundant.
+    /// </summary>
+    [Test]
+    public void MetaAlpha_Chao1_ReflectsSingletons()
+    {
+        MetagenomicsAnalyzer.CalculateAlphaDiversity(Community(5, Evenness.Skewed))
+            .Chao1Estimate.Should().BeGreaterThan(5, "singletons imply unseen richness");
+        MetagenomicsAnalyzer.CalculateAlphaDiversity(Community(5, Evenness.Even))
+            .Chao1Estimate.Should().Be(5, "no singletons ⇒ Chao1 = observed");
+    }
 }
