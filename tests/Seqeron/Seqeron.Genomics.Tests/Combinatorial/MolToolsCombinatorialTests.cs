@@ -743,4 +743,113 @@ public class MolToolsCombinatorialTests
         foreach (var p in probes)
             p.Sequence.Length.Should().BeInRange(param.MinLength, param.MaxLength);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: PROBE-VALID-001 — Probe validation (MolTools)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 25.
+    // Spec: tests/TestSpecs/PROBE-VALID-001.md — canonical methods ValidateProbe &
+    //       CheckSpecificity.
+    //
+    // Axis mapping (documented deviation): the canonical validators have NO gc/tm
+    // windows — those belong to design (PROBE-DESIGN-001). Probe VALIDATION judges a
+    // probe against a reference for (a) cross-hybridization / off-target specificity and
+    // (b) self-complementarity / secondary structure. So the genuine validation axes are
+    // off-target multiplicity, the probe's self-complementarity, and the self-comp
+    // threshold (selfCompMax) — the grid uses offTargetCount × selfCompProbe ×
+    // selfCompThreshold.
+    //
+    // Model (microarray cross-hybridization; off-target editing): specificity is a strict
+    // function of exact hit count — 0 hits ⇒ 0.0 (probe doesn't bind), 1 ⇒ 1.0 (unique),
+    // N ⇒ 1/N (invariants #4-6). A probe is reported invalid when it accumulates issues
+    // (>1 off-target site, self-comp above threshold, secondary structure) UNLESS the
+    // lenient clause holds (≤1 hit AND self-comp ≤ 0.4). The combinatorial point: the
+    // IsValid decision composes the off-target and self-complementarity checks, and the
+    // self-comp threshold interacts with the probe's self-comp to gate that issue.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // selfComp = fraction of positions Watson-Crick-paired with the mirror position; all
+    // three probes are secondary-structure-free by construction (verified independently).
+    private static readonly (string Seq, double SelfComp)[] ValidationProbes =
+    {
+        ("AAAAAAAAAAAAAAAAAAAA", 0.0),
+        ("TGGCGCGGGGTAACGCGCGC", 0.5),
+        ("ACGTACGTACGTACGTACGT", 1.0),
+    };
+
+    /// <summary>Reference holding exactly <paramref name="k"/> exact copies of the probe, C-padded, G-spaced.</summary>
+    private static string BuildOffTargetReference(string probe, int k)
+    {
+        string core = k == 0 ? "" : string.Join(new string('G', 30), Enumerable.Repeat(probe, k));
+        return new string('C', 40) + core + new string('C', 40);
+    }
+
+    [Test, Combinatorial]
+    public void ProbeValid_SpecificityAndIssues_FollowValidationRules(
+        [Values(0, 1, 3)] int offTargetCount,
+        [Values(0, 1, 2)] int probeIdx,
+        [Values(0.25, 0.40, 0.60)] double selfCompThreshold)
+    {
+        var (probe, expSelfComp) = ValidationProbes[probeIdx];
+        string reference = BuildOffTargetReference(probe, offTargetCount);
+
+        var v = ProbeDesigner.ValidateProbe(probe, new[] { reference }, maxMismatches: 0,
+            selfComplementarityThreshold: selfCompThreshold);
+
+        // Specificity invariants (#4/#5/#6) — depend solely on off-target multiplicity.
+        double expSpec = offTargetCount == 0 ? 0.0 : offTargetCount == 1 ? 1.0 : 1.0 / offTargetCount;
+        v.OffTargetHits.Should().Be(offTargetCount);
+        v.SpecificityScore.Should().BeApproximately(expSpec, 1e-9);
+
+        // Self-complementarity measured exactly and bounded to [0,1] (#2).
+        v.SelfComplementarity.Should().BeApproximately(expSelfComp, 1e-9);
+        v.SelfComplementarity.Should().BeInRange(0.0, 1.0);
+        v.HasSecondaryStructure.Should().BeFalse("the three probes are structure-free by construction");
+
+        // IsValid composes the off-target and self-comp checks (with the lenient clause).
+        bool offIssue = offTargetCount > 1;
+        bool selfIssue = expSelfComp > selfCompThreshold;
+        int issueCount = (offIssue ? 1 : 0) + (selfIssue ? 1 : 0);
+        bool expectedValid = issueCount == 0 || (offTargetCount <= 1 && expSelfComp <= 0.4);
+
+        v.IsValid.Should().Be(expectedValid);
+        v.Issues.Any(i => i.Contains("off-target")).Should().Be(offIssue);
+        v.Issues.Any(i => i.StartsWith("Self-complementarity")).Should().Be(selfIssue);
+    }
+
+    /// <summary>
+    /// Interaction witness: at exact matching the suffix-tree CheckSpecificity score
+    /// agrees with ValidateProbe's specificity for every probe × hit-count — the two
+    /// specificity routes are consistent.
+    /// </summary>
+    [Test]
+    public void ProbeValid_CheckSpecificity_AgreesWithValidateProbe()
+    {
+        foreach (var (probe, _) in ValidationProbes)
+            foreach (int k in new[] { 0, 1, 3 })
+            {
+                string reference = BuildOffTargetReference(probe, k);
+                double viaTree = ProbeDesigner.CheckSpecificity(probe, global::SuffixTree.SuffixTree.Build(reference));
+                double viaValidate = ProbeDesigner.ValidateProbe(probe, new[] { reference }, maxMismatches: 0).SpecificityScore;
+                viaTree.Should().BeApproximately(viaValidate, 1e-9, $"both score {k} exact hits identically");
+            }
+    }
+
+    /// <summary>
+    /// Interaction witness: the mismatch budget governs off-target sensitivity — a site
+    /// carrying one substitution is missed under strict matching but found once one
+    /// mismatch is permitted. — spec S4.
+    /// </summary>
+    [Test]
+    public void ProbeValid_MaxMismatches_GovernsOffTargetSensitivity()
+    {
+        string probe = ValidationProbes[1].Seq;
+        char[] mutated = probe.ToCharArray();
+        mutated[10] = mutated[10] == 'A' ? 'C' : 'A';                 // exactly one substitution
+        string reference = new string('C', 30) + new string(mutated) + new string('C', 30);
+
+        ProbeDesigner.ValidateProbe(probe, new[] { reference }, maxMismatches: 0).OffTargetHits
+            .Should().Be(0, "strict matching misses a 1-mismatch site");
+        ProbeDesigner.ValidateProbe(probe, new[] { reference }, maxMismatches: 1).OffTargetHits
+            .Should().Be(1, "allowing one mismatch finds it");
+    }
 }
