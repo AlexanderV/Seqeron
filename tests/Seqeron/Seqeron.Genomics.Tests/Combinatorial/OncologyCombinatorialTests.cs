@@ -2479,6 +2479,87 @@ public class OncologyCombinatorialTests
         return clusters;
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ONCO-CCF-001 — Cancer cell fraction estimation (Oncology)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 115.
+    // Spec: tests/TestSpecs/ONCO-CCF-001.md (OncologyAnalyzer.EstimateCcf).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: McGranahan et al. (2016), Tarabichi et al. (2021) Box 1, Zheng et al. (2022) — CCF =
+    // VAF·(ρ·N_T + 2(1−ρ)) / (ρ·m), capped to [0, 1] (raw exposed separately; CNAqc noise can exceed 1).
+    //
+    // Checklist axes vaf(3) × copyNumber(3) × purity(3) map DIRECTLY onto the three real EstimateCcf
+    // parameters (multiplicity fixed at m=1): vaf ∈ {0.1,0.3,0.5}, tumorCopyNumber ∈ {1,2,4}, purity ∈
+    // {0.4,0.7,1.0}. Grid = 3³ = 27 = the checklist's "Full Combos" for this row.
+    //
+    // The combinatorial point: the CCF is a JOINT function of all three inputs — purity and copy number set
+    // the total DNA per cell that converts the observed VAF into a cancer-cell fraction, and the reported
+    // value is capped at 1 while the raw value can exceed it. Each cell is checked against the closed-form
+    // formula re-derived from the inputs.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// For every (VAF, tumor copy number, purity) the raw and capped CCF match the closed form
+    /// VAF·(ρ·N_T + 2(1−ρ)) / (ρ·m) with m = 1, and the reported CCF stays within [0, 1].
+    /// </summary>
+    [Test, Combinatorial]
+    public void EstimateCcf_VafCopyNumberPurityGrid_MatchesClosedForm(
+        [Values(0.1, 0.3, 0.5)] double vaf,
+        [Values(1, 2, 4)] int tumorCopyNumber,
+        [Values(0.4, 0.7, 1.0)] double purity)
+    {
+        const int multiplicity = 1;
+        double totalDnaPerCell = purity * tumorCopyNumber + 2.0 * (1.0 - purity);
+        double expectedRaw = vaf * totalDnaPerCell / (purity * multiplicity);
+        double expectedCapped = Math.Min(1.0, expectedRaw);
+
+        var estimate = OncologyAnalyzer.EstimateCcf(vaf, purity, tumorCopyNumber, multiplicity);
+
+        estimate.RawCcf.Should().BeApproximately(expectedRaw, 1e-9, "raw CCF = VAF·(ρ·N_T + 2(1−ρ))/(ρ·m)");
+        estimate.Ccf.Should().BeApproximately(expectedCapped, 1e-9, "reported CCF caps the raw value at 1");
+        estimate.Ccf.Should().BeInRange(0.0, 1.0, "[INV-1] CCF ∈ [0, 1]");
+    }
+
+    /// <summary>
+    /// Interaction witness (monotone in VAF, INV-2): with purity, copy number and multiplicity fixed, the
+    /// CCF is strictly increasing in VAF. Source: the CCF formula is linear in VAF (Tarabichi 2021).
+    /// </summary>
+    [Test]
+    public void EstimateCcf_IsMonotoneInVaf()
+    {
+        double low = OncologyAnalyzer.EstimateCcf(0.10, 0.7, 2, 1).RawCcf;
+        double mid = OncologyAnalyzer.EstimateCcf(0.20, 0.7, 2, 1).RawCcf;
+        double high = OncologyAnalyzer.EstimateCcf(0.30, 0.7, 2, 1).RawCcf;
+
+        mid.Should().BeGreaterThan(low);
+        high.Should().BeGreaterThan(mid);
+    }
+
+    /// <summary>
+    /// Interaction witness (copy-number × purity capping, INV-1): a high-VAF mutation on an amplified
+    /// 4-copy locus in an impure sample yields a raw CCF of 3.5 (sampling/CN noise), which the reported CCF
+    /// caps at 1.0. Source: CNAqc / Tarabichi (2021) CCF > 1 cap.
+    /// </summary>
+    [Test]
+    public void EstimateCcf_RawAboveOne_IsCappedButRawExposed()
+    {
+        var estimate = OncologyAnalyzer.EstimateCcf(0.5, 0.4, tumorCopyNumber: 4, multiplicity: 1);
+
+        estimate.RawCcf.Should().BeApproximately(3.5, 1e-9, "0.5·(0.4·4+2·0.6)/0.4 = 3.5");
+        estimate.Ccf.Should().Be(1.0, "the reported CCF caps the raw value at 1");
+    }
+
+    /// <summary>
+    /// Witness (clonal worked example): a clonal heterozygous SNV at a copy-neutral diploid locus
+    /// (VAF = ρ/2 = 0.35 at ρ = 0.7, N_T = 2, m = 1) has CCF exactly 1.0 — the clonal cluster. Source:
+    /// Tarabichi et al. (2021).
+    /// </summary>
+    [Test]
+    public void EstimateCcf_ClonalDiploidHet_CcfIsOne()
+    {
+        OncologyAnalyzer.EstimateCcf(0.35, 0.7, 2, 1).Ccf.Should().BeApproximately(1.0, 1e-9);
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     // Helpers — engineered constructs + independent ground truth
     // ───────────────────────────────────────────────────────────────────────
