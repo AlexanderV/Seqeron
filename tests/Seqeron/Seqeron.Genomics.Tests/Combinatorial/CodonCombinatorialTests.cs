@@ -178,4 +178,72 @@ public class CodonCombinatorialTests
         var human = CodonOptimizer.FindRareCodons(coding, CodonOptimizer.Human, 0.20).Select(r => r.Position).ToHashSet();
         eColi.Should().NotBeEquivalentTo(human, "codon rarity depends on the organism's usage table");
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: CODON-ENC-001 — Effective Number of Codons (Wright 1990) (Codon)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 213.
+    // Spec: tests/TestSpecs/CODON-ENC-001.md (canonical CodonUsageAnalyzer.CalculateEnc). ADVANCED §10.
+    // Dimensions: geneticCode(3) × seqLen(3). Grid 3×3 = 9 (full, exhaustive ⊇ pairwise).
+    //
+    // Model (Wright 1990): the Effective Number of Codons Nc ∈ [20, 61] measures synonymous-codon
+    // bias — 20 when each amino acid uses a single codon (maximal bias), 61 when all synonymous
+    // codons are used equally (no bias).
+    //
+    // Axis mapping (documented — CalculateEnc fixes the standard code): geneticCode → the codon-bias
+    // regime {Biased (one codon used), Mixed, Uniform (all sense codons cycled)}; seqLen → number of
+    // codons. The combinatorial point: Nc stays within the Wright bound [20,61] at every cell, and a
+    // biased sequence has a strictly lower Nc than an unbiased one (witness).
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public enum CodonBias { Biased, Mixed, Uniform }
+
+    private static readonly string[] EncSenseCodons = BuildEncSenseCodons();
+
+    private static string[] BuildEncSenseCodons()
+    {
+        const string b = "ACGT";
+        var stops = new HashSet<string> { "TAA", "TAG", "TGA" };
+        var list = new List<string>();
+        foreach (char x in b) foreach (char y in b) foreach (char z in b)
+        {
+            string c = $"{x}{y}{z}";
+            if (!stops.Contains(c)) list.Add(c);
+        }
+        return list.ToArray();
+    }
+
+    private static string EncSequence(CodonBias bias, int nCodons)
+    {
+        string[] palette = bias switch
+        {
+            CodonBias.Biased => new[] { "GCT" },                 // one codon (Ala) ⇒ maximal bias
+            CodonBias.Mixed => EncSenseCodons.Take(10).ToArray(),
+            _ => EncSenseCodons,                                    // all 61 sense codons ⇒ minimal bias
+        };
+        var sb = new System.Text.StringBuilder(nCodons * 3);
+        for (int i = 0; i < nCodons; i++) sb.Append(palette[i % palette.Length]);
+        return sb.ToString();
+    }
+
+    [Test, Combinatorial]
+    public void CodonEnc_WithinWrightBound_AcrossBiasAndLength(
+        [Values(CodonBias.Biased, CodonBias.Mixed, CodonBias.Uniform)] CodonBias bias,
+        [Values(60, 150, 300)] int nCodons)
+    {
+        double enc = CodonUsageAnalyzer.CalculateEnc(EncSequence(bias, nCodons));
+        enc.Should().BeInRange(20.0, 61.0, "Nc lies in the Wright [20,61] bound");
+    }
+
+    /// <summary>
+    /// Interaction witness — codon bias lowers Nc: a single-codon sequence is near the 20 floor,
+    /// while an all-codons sequence approaches the 61 ceiling.
+    /// </summary>
+    [Test]
+    public void CodonEnc_BiasLowersEffectiveNumber()
+    {
+        double biased = CodonUsageAnalyzer.CalculateEnc(EncSequence(CodonBias.Biased, 200));
+        double uniform = CodonUsageAnalyzer.CalculateEnc(EncSequence(CodonBias.Uniform, 200));
+        biased.Should().BeLessThan(uniform, "stronger codon bias means fewer effective codons");
+        uniform.Should().BeGreaterThan(biased + 1.0, "an unbiased sequence uses many more effective codons");
+    }
 }

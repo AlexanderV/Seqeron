@@ -427,4 +427,116 @@ public class AnnotationCombinatorialTests
         f.FeatureId.Should().Be("id;x=y", "ID is decoded on input");
         f.Attributes["product"].Should().Be("a=b;c");
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ANNOT-CODING-001 — Coding-potential score (Annotation)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 216.
+    // Spec: tests/TestSpecs/ANNOT-CODING-001.md (canonical GenomeAnnotator.CalculateCodingPotential).
+    // ADVANCED §10.
+    // Dimensions: method(2) × seqLen(3). Grid 2×3 = 6 (full, exhaustive ⊇ pairwise).
+    //
+    // Model (CPAT, Wang 2013): the coding potential is the mean log-ratio of coding to non-coding
+    // hexamer frequencies over the frame-0 hexamers — positive for coding-like sequence, negative for
+    // non-coding-like sequence.
+    //
+    // Axis mapping (documented): method → the sequence regime {CodingLike, NoncodingLike}; seqLen →
+    // length. Engineered hexamer tables make AAAAAA coding-favoured and TTTTTT non-coding-favoured.
+    // The combinatorial point: the score is the log-ratio mean (here ±ln 9), with the correct sign for
+    // each regime at every length.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public enum CodingRegime { CodingLike, NoncodingLike }
+
+    [Test, Combinatorial]
+    public void AnnotCoding_LogRatioSign_AcrossRegimeAndLength(
+        [Values(CodingRegime.CodingLike, CodingRegime.NoncodingLike)] CodingRegime method,
+        [Values(12, 30, 60)] int seqLen)
+    {
+        var coding = new Dictionary<string, double> { ["AAAAAA"] = 0.9, ["TTTTTT"] = 0.1 };
+        var noncoding = new Dictionary<string, double> { ["AAAAAA"] = 0.1, ["TTTTTT"] = 0.9 };
+        string seq = new string(method == CodingRegime.CodingLike ? 'A' : 'T', seqLen);
+
+        double score = GenomeAnnotator.CalculateCodingPotential(seq, coding, noncoding);
+        double expected = method == CodingRegime.CodingLike ? Math.Log(0.9 / 0.1) : Math.Log(0.1 / 0.9);
+
+        score.Should().BeApproximately(expected, 1e-9, "coding potential = mean log(coding/noncoding) hexamer ratio");
+        if (method == CodingRegime.CodingLike) score.Should().BeGreaterThan(0);
+        else score.Should().BeLessThan(0);
+    }
+
+    /// <summary>
+    /// Interaction witness — a coding-favoured sequence scores above a non-coding-favoured one, and a
+    /// sequence shorter than one hexamer scores 0.
+    /// </summary>
+    [Test]
+    public void AnnotCoding_CodingScoresAboveNoncoding()
+    {
+        var coding = new Dictionary<string, double> { ["AAAAAA"] = 0.9, ["TTTTTT"] = 0.1 };
+        var noncoding = new Dictionary<string, double> { ["AAAAAA"] = 0.1, ["TTTTTT"] = 0.9 };
+
+        GenomeAnnotator.CalculateCodingPotential(new string('A', 30), coding, noncoding)
+            .Should().BeGreaterThan(GenomeAnnotator.CalculateCodingPotential(new string('T', 30), coding, noncoding));
+        GenomeAnnotator.CalculateCodingPotential("AAA", coding, noncoding).Should().Be(0, "shorter than a hexamer ⇒ 0");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ANNOT-REPEAT-001 — Repetitive-element detection (Annotation)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 218.
+    // Spec: tests/TestSpecs/ANNOT-REPEAT-001.md (canonical FindRepetitiveElements / ClassifyRepeat).
+    // ADVANCED §10.
+    // Dimensions: minLen(3) × repeatType(3). Grid 3×3 = 9 (full, exhaustive ⊇ pairwise).
+    //
+    // Model (RepeatMasker; Wikipedia tandem/inverted repeats): FindRepetitiveElements reports tandem
+    // repeats (head-to-tail copies of a motif) and inverted repeats (W·G·W̄ᴿ) whose total span ≥
+    // minRepeatLength; ClassifyRepeat assigns a RepeatMasker-style class.
+    //
+    // Axis mapping (documented): minLen → minRepeatLength; repeatType → the planted element kind
+    // {Tandem, Inverted, Both}. Engineered constructs span 24 bp. The combinatorial point: the planted
+    // element is reported with its correct type exactly when its span (24) ≥ minLen, and every reported
+    // element meets the length floor.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public enum RepeatKind { Tandem, Inverted, Both }
+
+    [Test, Combinatorial]
+    public void AnnotRepeat_DetectsPlantedElement_AcrossMinLenAndType(
+        [Values(10, 20, 40)] int minLen,
+        [Values(RepeatKind.Tandem, RepeatKind.Inverted, RepeatKind.Both)] RepeatKind repeatType)
+    {
+        const string tandem = "ACGTAC" + "ACGTAC" + "ACGTAC" + "ACGTAC"; // unit ACGTAC ×4 = 24 bp
+        string arm = "GATTACAGGC"; // 10 bp
+        string inverted = arm + "TT" + RevComp(arm); // W·gap·W̄ᴿ, span 22
+
+        string seq = repeatType switch
+        {
+            RepeatKind.Tandem => "CC" + tandem + "CC",
+            RepeatKind.Inverted => "CC" + inverted + "CC",
+            _ => "CC" + tandem + "CCGGCC" + inverted + "CC",
+        };
+
+        var elements = GenomeAnnotator.FindRepetitiveElements(seq, minLen, minCopies: 2).ToList();
+        elements.Should().OnlyContain(e => e.end - e.start + 1 >= minLen, "every element meets the length floor");
+        elements.Should().OnlyContain(e => e.type == "tandem_repeat" || e.type == "inverted_repeat");
+
+        // Tandem gate is on total span (24 bp); inverted gate is on the arm length (10 bp).
+        bool tandemFits = 24 >= minLen, invertedFits = arm.Length >= minLen;
+        if (repeatType is RepeatKind.Tandem or RepeatKind.Both)
+            elements.Any(e => e.type == "tandem_repeat").Should().Be(tandemFits, "tandem found iff its 24-bp span ≥ minLen");
+        if (repeatType is RepeatKind.Inverted or RepeatKind.Both)
+            elements.Any(e => e.type == "inverted_repeat").Should().Be(invertedFits, "inverted found iff its arm length ≥ minLen");
+    }
+
+    /// <summary>
+    /// Interaction witness — ClassifyRepeat: a library element wins by name, a short microsatellite is
+    /// a Simple_repeat, and an unmatched non-repeat is Unknown.
+    /// </summary>
+    [Test]
+    public void AnnotRepeat_ClassifyByLibraryThenSimpleThenUnknown()
+    {
+        var db = new Dictionary<string, string> { ["GGGCCCAAATTT"] = "LINE/L1" };
+
+        GenomeAnnotator.ClassifyRepeat("AAGGGCCCAAATTTAA", db).Should().Be("LINE/L1", "a library element match wins");
+        GenomeAnnotator.ClassifyRepeat("ATATATATAT", db).Should().Be("Simple_repeat", "a 2-bp microsatellite is a simple repeat");
+        GenomeAnnotator.ClassifyRepeat("GATTACAGCTAG", db).Should().Be("Unknown", "no library match and not a simple repeat");
+    }
 }

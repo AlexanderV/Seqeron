@@ -249,4 +249,54 @@ public class PhylogeneticCombinatorialTests
         foreach (var taxon in named.Keys)
             newick.Should().Contain(taxon);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: PHYLO-BOOT-001 — Bootstrap clade support (Phylogenetic)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 221.
+    // Spec: tests/TestSpecs/PHYLO-BOOT-001.md (canonical PhylogeneticAnalyzer.Bootstrap). ADVANCED §10.
+    // Dimensions: nReplicates(3) × method(2) × nSeqs(3). Grid 3×2×3 = 18 (full, exhaustive).
+    //
+    // Model (Felsenstein 1985): bootstrap resamples alignment columns with replacement, rebuilds the
+    // tree per replicate, and reports each reference clade's support = fraction of replicates that
+    // recover it (∈ [0,1]); a fixed seed makes the procedure deterministic.
+    //
+    // Axis mapping (documented): nReplicates → resampling replicates; method → tree method
+    // (UPGMA/NJ); nSeqs → number of taxa. The combinatorial point: support values stay in [0,1] and
+    // are deterministic for a fixed seed, and a clearly-grouped clade earns high support (witness).
+    // ═══════════════════════════════════════════════════════════════════════
+
+    [Test, Combinatorial]
+    public void PhyloBoot_SupportInRangeAndDeterministic_AcrossReplicatesMethodNSeqs(
+        [Values(10, 25, 50)] int replicates,
+        [Values(PhylogeneticAnalyzer.TreeMethod.UPGMA, PhylogeneticAnalyzer.TreeMethod.NeighborJoining)]
+        PhylogeneticAnalyzer.TreeMethod method,
+        [Values(3, 4, 5)] int nSeqs)
+    {
+        var named = MakeNamedFamily(nSeqs, 80);
+
+        var support = PhylogeneticAnalyzer.Bootstrap(named, replicates, PhylogeneticAnalyzer.DistanceMethod.JukesCantor, method, seed: 42);
+
+        support.Values.Should().OnlyContain(v => v >= 0.0 && v <= 1.0, "clade support is a fraction in [0,1]");
+        var again = PhylogeneticAnalyzer.Bootstrap(named, replicates, PhylogeneticAnalyzer.DistanceMethod.JukesCantor, method, seed: 42);
+        support.Should().BeEquivalentTo(again, "a fixed seed makes the bootstrap deterministic");
+    }
+
+    /// <summary>
+    /// Interaction witness — a clearly-defined clade (two near-identical sequences against two
+    /// distant ones) earns near-maximal bootstrap support; a different seed is still in range.
+    /// </summary>
+    [Test]
+    public void PhyloBoot_StrongCladeHasHighSupport()
+    {
+        string g1 = DiverseDna(120, 7u);
+        string g2 = DiverseDna(120, 808u);
+        char Flip(char c) => NextBase(c);
+        string Mut(string s, int p) { var a = s.ToCharArray(); a[p] = Flip(a[p]); return new string(a); }
+
+        var named = new Dictionary<string, string> { ["A"] = g1, ["B"] = Mut(g1, 5), ["C"] = g2, ["D"] = Mut(g2, 5) };
+
+        var support = PhylogeneticAnalyzer.Bootstrap(named, 50, PhylogeneticAnalyzer.DistanceMethod.JukesCantor,
+            PhylogeneticAnalyzer.TreeMethod.NeighborJoining, seed: 1);
+        support.Values.Max().Should().BeGreaterThan(0.9, "a strongly-supported clade is recovered in nearly all replicates");
+    }
 }

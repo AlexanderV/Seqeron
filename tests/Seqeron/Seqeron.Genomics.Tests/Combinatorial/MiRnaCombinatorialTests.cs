@@ -176,4 +176,60 @@ public class MiRnaCombinatorialTests
         Found(25, 30).Should().BeFalse("loop > 25 nt is rejected");
         Found(20, 6).Should().BeFalse("a 46-nt hairpin is below the 55-nt floor");
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: MIRNA-PAIR-001 — miRNA:target duplex pairing (MiRNA)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 225.
+    // Spec: tests/TestSpecs/MIRNA-PAIR-001.md (canonical AlignMiRnaToTarget / GetReverseComplement /
+    //       CanPair / IsWobblePair). ADVANCED §10.
+    // Dimensions: seedType(3) × utrLen(3). Grid 3×3 = 9 (full, exhaustive ⊇ pairwise).
+    //
+    // Model (Lewis 2005; Crick 1966 wobble): the miRNA pairs antiparallel to the target — miRNA index i
+    // with target[len−1−i] — counting Watson-Crick matches, G:U wobbles and mismatches; the target of a
+    // seed is the reverse complement of that seed.
+    //
+    // Axis mapping (documented): seedType → the complementary-seed length (6/7/8); utrLen → target
+    // length. Engineered target ends with the reverse complement of the miRNA seed. The combinatorial
+    // point: the duplex pairs at least the seed (Matches ≥ seedLen) and the alignment is total
+    // (matches + wobbles + mismatches = the overlap length), at every seed length and target length.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    [Test, Combinatorial]
+    public void MiRnaPair_SeedPairsAntiparallel_AcrossSeedAndTargetLength(
+        [Values(6, 7, 8)] int seedLen,
+        [Values(22, 30, 40)] int utrLen)
+    {
+        string seed = MiRnaSeq[..seedLen];
+        string target = new string('A', utrLen - seedLen) + MiRnaAnalyzer.GetReverseComplement(seed);
+
+        var duplex = MiRnaAnalyzer.AlignMiRnaToTarget(MiRnaSeq, target);
+
+        int overlap = Math.Min(MiRnaSeq.Length, target.Length);
+        (duplex.Matches + duplex.Mismatches + duplex.GUWobbles).Should().Be(overlap, "every aligned position is classified");
+        duplex.AlignmentString.Length.Should().Be(overlap, "the alignment string spans the overlap");
+        duplex.Matches.Should().BeGreaterThanOrEqualTo(seedLen, "the reverse-complement seed pairs Watson-Crick");
+    }
+
+    /// <summary>
+    /// Interaction witnesses — pairing predicates and reverse complement: a fully complementary target
+    /// pairs at every position, GetReverseComplement is an involution, and CanPair/IsWobblePair encode
+    /// Watson-Crick + G:U wobble.
+    /// </summary>
+    [Test]
+    public void MiRnaPair_PredicatesAndPerfectComplement()
+    {
+        string perfect = MiRnaAnalyzer.GetReverseComplement(MiRnaSeq);
+        var duplex = MiRnaAnalyzer.AlignMiRnaToTarget(MiRnaSeq, perfect);
+        duplex.Mismatches.Should().Be(0, "the reverse complement pairs at every position");
+        (duplex.Matches + duplex.GUWobbles).Should().Be(MiRnaSeq.Length);
+
+        MiRnaAnalyzer.GetReverseComplement(perfect).Should().Be(MiRnaSeq, "reverse complement is an involution");
+
+        MiRnaAnalyzer.CanPair('A', 'U').Should().BeTrue();
+        MiRnaAnalyzer.CanPair('G', 'C').Should().BeTrue();
+        MiRnaAnalyzer.CanPair('G', 'U').Should().BeTrue("G:U is a wobble pair");
+        MiRnaAnalyzer.CanPair('A', 'G').Should().BeFalse("A:G cannot pair");
+        MiRnaAnalyzer.IsWobblePair('G', 'U').Should().BeTrue();
+        MiRnaAnalyzer.IsWobblePair('A', 'U').Should().BeFalse("a Watson-Crick pair is not a wobble");
+    }
 }

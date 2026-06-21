@@ -243,19 +243,19 @@ Combinatorial (pairwise) тестування генерує мінімальн�
 | 210 | ☑ | SEQ-ATSKEW-001 | Composition | windowSize(3) × step(3) × seqLen(3) | 27 | 12 | Med |
 | 211 | ☑ | SEQ-REPLICATION-001 | Composition | windowSize(3) × seqLen(3) | 9 | 9 | Med |
 | 212 | ✗ | SEQ-RNACOMP-001 | Composition | base(4) × case(2) | 8 | 8 | Low |
-| 213 | ☐ | CODON-ENC-001 | Codon | geneticCode(3) × seqLen(3) | 9 | 9 | Med |
+| 213 | ☑ | CODON-ENC-001 | Codon | geneticCode(3) × seqLen(3) | 9 | 9 | Med |
 | 214 | ✗ | CODON-RSCU-001 | Codon | geneticCode(3) × seqLen(3) | 9 | 9 | Low |
 | 215 | ✗ | CODON-STATS-001 | Codon | geneticCode(3) × seqLen(3) | 9 | 9 | Low |
-| 216 | ☐ | ANNOT-CODING-001 | Annotation | method(2) × seqLen(3) | 6 | 6 | Med |
+| 216 | ☑ | ANNOT-CODING-001 | Annotation | method(2) × seqLen(3) | 6 | 6 | Med |
 | 217 | ✗ | ANNOT-CODONUSAGE-001 | Annotation | geneticCode(3) × seqLen(3) | 9 | 9 | Low |
-| 218 | ☐ | ANNOT-REPEAT-001 | Annotation | minLen(3) × repeatType(3) | 9 | 9 | Med |
-| 219 | ☐ | QUALITY-PHRED-001 | Quality | encoding(3) × seqLen(3) | 9 | 9 | Med |
+| 218 | ☑ | ANNOT-REPEAT-001 | Annotation | minLen(3) × repeatType(3) | 9 | 9 | Med |
+| 219 | ☑ | QUALITY-PHRED-001 | Quality | encoding(3) × seqLen(3) | 9 | 9 | Med |
 | 220 | ✗ | QUALITY-STATS-001 | Quality | encoding(3) × seqLen(3) | 9 | 9 | Low |
-| 221 | ☐ | PHYLO-BOOT-001 | Phylogenetic | nReplicates(3) × method(2) × nSeqs(3) | 18 | 9 | Med |
+| 221 | ☑ | PHYLO-BOOT-001 | Phylogenetic | nReplicates(3) × method(2) × nSeqs(3) | 18 | 9 | Med |
 | 222 | ✗ | PHYLO-STATS-001 | Phylogenetic | nLeaves(3) × topology(3) | 9 | 9 | Low |
-| 223 | ☐ | TRANS-SIXFRAME-001 | Translation | tableId(4) × seqLen(3) | 12 | 12 | Med |
-| 224 | ☐ | RESTR-FILTER-001 | MolTools | enzyme(3) × criteria(3) | 9 | 9 | Med |
-| 225 | ☐ | MIRNA-PAIR-001 | MiRNA | seedType(3) × utrLen(3) | 9 | 9 | Med |
+| 223 | ☑ | TRANS-SIXFRAME-001 | Translation | tableId(4) × seqLen(3) | 12 | 12 | Med |
+| 224 | ☑ | RESTR-FILTER-001 | MolTools | enzyme(3) × criteria(3) | 9 | 9 | Med |
+| 225 | ☑ | MIRNA-PAIR-001 | MiRNA | seedType(3) × utrLen(3) | 9 | 9 | Med |
 | 226 | ✗ | ALIGN-STATS-001 | Alignment | alignType(3) × seqLen(3) | 9 | 9 | Low |
 | 227 | ✗ | SEQ-CODON-FREQ-001 | Statistics | seqType(2) × seqLen(3) | 6 | 6 | Low |
 | 228 | ✗ | SEQ-COMPLEX-COMPRESS-001 | Complexity | seqType(3) × seqLen(3) | 9 | 9 | Low |
@@ -273,8 +273,8 @@ Combinatorial (pairwise) тестування генерує мінімальн�
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 161 |
-| ☐ Not started | 8 |
+| ☑ Complete | 169 |
+| ☐ Not started | 0 |
 | ✗ Not applicable | 65 |
 | High priority (≥4 params, >50 full combos) | 15 |
 | Medium priority (3 params) | 52 |

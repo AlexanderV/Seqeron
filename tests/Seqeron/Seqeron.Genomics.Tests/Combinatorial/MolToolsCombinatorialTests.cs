@@ -951,4 +951,65 @@ public class MolToolsCombinatorialTests
         summary.LargestFragment.Should().BeGreaterThanOrEqualTo(summary.SmallestFragment);
         summary.EnzymesUsed.Should().Contain("EcoRI");
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: RESTR-FILTER-001 — Restriction-enzyme filtering (MolTools)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 224.
+    // Spec: tests/TestSpecs/RESTR-FILTER-001.md (canonical GetEnzymesByCutLength / GetBluntCutters /
+    //       GetStickyCutters). ADVANCED §10.
+    // Dimensions: enzyme(3) × criteria(3). Grid 3×3 = 9 (full, exhaustive ⊇ pairwise).
+    //
+    // Model (Type II restriction enzymes; Wikipedia sticky/blunt ends): recognition sites are 4–8 bp;
+    // an enzyme cuts blunt (both strands at the same offset) or sticky (a 5'/3' overhang). Blunt and
+    // sticky cutters partition the catalogue.
+    //
+    // Axis mapping (documented): criteria → the filter {ByCutLength range, Blunt, Sticky}; enzyme → the
+    // recognition-length band {4, 6, 8} used by the range filter. The combinatorial point: each filter
+    // returns exactly the enzymes satisfying its predicate, and blunt ⊎ sticky = the full set.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public enum RestrFilter { ByCutLength, Blunt, Sticky }
+
+    [Test, Combinatorial]
+    public void RestrFilter_ReturnsMatchingEnzymes_AcrossLengthBandAndCriteria(
+        [Values(4, 6, 8)] int lengthBand,
+        [Values(RestrFilter.ByCutLength, RestrFilter.Blunt, RestrFilter.Sticky)] RestrFilter criteria)
+    {
+        switch (criteria)
+        {
+            case RestrFilter.ByCutLength:
+                RestrictionAnalyzer.GetEnzymesByCutLength(lengthBand, lengthBand)
+                    .Should().OnlyContain(e => e.RecognitionSequence.Length == lengthBand,
+                        "the range filter returns only enzymes whose recognition length is in [min,max]");
+                // The single-length overload agrees with the degenerate range.
+                RestrictionAnalyzer.GetEnzymesByCutLength(lengthBand).Select(e => e.Name)
+                    .Should().BeEquivalentTo(RestrictionAnalyzer.GetEnzymesByCutLength(lengthBand, lengthBand).Select(e => e.Name));
+                break;
+            case RestrFilter.Blunt:
+                RestrictionAnalyzer.GetBluntCutters().Should().OnlyContain(e => e.IsBluntEnd, "blunt cutters cut both strands at one offset");
+                break;
+            default:
+                RestrictionAnalyzer.GetStickyCutters().Should().OnlyContain(e => !e.IsBluntEnd, "sticky cutters leave an overhang");
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Interaction witness — blunt and sticky cutters partition the catalogue (disjoint, and together
+    /// the whole set), and the range filter is monotone in its bounds.
+    /// </summary>
+    [Test]
+    public void RestrFilter_BluntStickyPartition_AndRangeMonotone()
+    {
+        var blunt = RestrictionAnalyzer.GetBluntCutters().Select(e => e.Name).ToHashSet();
+        var sticky = RestrictionAnalyzer.GetStickyCutters().Select(e => e.Name).ToHashSet();
+        blunt.Should().NotIntersectWith(sticky, "an enzyme is either blunt or sticky, not both");
+
+        var all = RestrictionAnalyzer.GetEnzymesByCutLength(1, 100).Select(e => e.Name).ToHashSet();
+        blunt.Union(sticky).Should().BeEquivalentTo(all, "blunt ⊎ sticky = the full catalogue");
+
+        int narrow = RestrictionAnalyzer.GetEnzymesByCutLength(6, 6).Count();
+        int wide = RestrictionAnalyzer.GetEnzymesByCutLength(4, 8).Count();
+        wide.Should().BeGreaterThanOrEqualTo(narrow, "a wider length range admits no fewer enzymes");
+    }
 }

@@ -106,4 +106,58 @@ public class TranslationCombinatorialTests
         readthrough.Should().Contain("*", "the sequence has an in-frame stop");
         truncated.Should().Be(readthrough[..readthrough.IndexOf('*')], "to-first-stop is the pre-stop prefix");
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: TRANS-SIXFRAME-001 — Six-frame translation (Translation)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 223.
+    // Spec: tests/TestSpecs/TRANS-SIXFRAME-001.md (canonical Translator.TranslateSixFrames). ADVANCED §10.
+    // Dimensions: tableId(4) × seqLen(3). Grid 4×3 = 12 (full, exhaustive ⊇ pairwise).
+    //
+    // Model (Biopython six_frame_translations): the three forward frames (offsets 0/1/2) and the three
+    // reverse-complement frames are each translated codon-by-codon with the chosen genetic code; trailing
+    // partial codons are dropped.
+    //
+    // The combinatorial point: across genetic-code table and length, all six frames {±1,±2,±3} are
+    // present and each frame's protein equals an independent codon-by-codon translation (forward frames
+    // on the sequence, reverse frames on its reverse complement).
+    // ═══════════════════════════════════════════════════════════════════════
+
+    [Test, Combinatorial]
+    public void TransSixFrame_AllFramesMatchIndependentTranslation_AcrossTableAndLength(
+        [Values(1, 2, 3, 11)] int tableId,
+        [Values(12, 24, 36)] int seqLen)
+    {
+        var gc = GeneticCode.GetByTableNumber(tableId);
+        var dna = new DnaSequence(Seq2(seqLen));
+        string revComp = dna.ReverseComplement().Sequence;
+
+        var frames = Translator.TranslateSixFrames(dna, gc);
+
+        frames.Keys.Should().BeEquivalentTo(new[] { 1, 2, 3, -1, -2, -3 }, "all six reading frames are returned");
+        for (int offset = 0; offset < 3; offset++)
+        {
+            frames[offset + 1].Sequence.Should().Be(IndepTranslate(dna.Sequence, gc, offset, false),
+                "forward frame +{0} matches an independent translation", offset + 1);
+            frames[-(offset + 1)].Sequence.Should().Be(IndepTranslate(revComp, gc, offset, false),
+                "reverse frame −{0} translates the reverse complement", offset + 1);
+        }
+    }
+
+    /// <summary>A deterministic ACGT sequence of the requested length (≥ 3).</summary>
+    private static string Seq2(int n) => string.Concat(Enumerable.Repeat("ATGAAACCCGGGTTT", n / 15 + 1))[..n];
+
+    /// <summary>
+    /// Interaction witness — the genetic-code table changes a frame's translation: UGA is a stop under
+    /// the standard code (table 1) but tryptophan (W) under the vertebrate-mitochondrial code (table 2).
+    /// </summary>
+    [Test]
+    public void TransSixFrame_TableChangesTranslation()
+    {
+        var dna = new DnaSequence("TGATGATGA"); // frame +1 codons: TGA TGA TGA
+        string standard = Translator.TranslateSixFrames(dna, GeneticCode.GetByTableNumber(1))[1].Sequence;
+        string mito = Translator.TranslateSixFrames(dna, GeneticCode.GetByTableNumber(2))[1].Sequence;
+
+        standard.Should().Be("***", "UGA is a stop under the standard code");
+        mito.Should().Be("WWW", "UGA codes tryptophan under the vertebrate-mitochondrial code");
+    }
 }
