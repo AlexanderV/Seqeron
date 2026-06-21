@@ -110,4 +110,89 @@ public class FileIoCombinatorialTests
         parsed.Select(p => p.Id).Should().Equal(entries.Select(e => e.Id));
         parsed.Select(p => p.Sequence.Sequence).Should().Equal(entries.Select(e => e.Sequence.Sequence));
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: PARSE-FASTQ-001 — FASTQ parsing (FileIO)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 65.
+    // Spec: tests/TestSpecs/PARSE-FASTQ-001.md (canonical FastqParser.Parse).
+    // Dimensions: qualEncoding(3: Phred33/64/auto) × multiRecord(2) × seqLen(3). Grid 3×2×3 = 18.
+    //
+    // Model (Cock 2010, FASTQ): a record is four lines (@id, sequence, +, quality); each quality
+    // character encodes a Phred score as char−offset (33 for Sanger/Illumina 1.8+, 64 for
+    // Illumina 1.3–1.7). The checklist's Solexa encoding is not separately implemented; Auto maps
+    // to detection (which resolves Phred33 for low-score data). QualityString length == sequence length.
+    //
+    // The combinatorial point: encoding offset, record count and read length interact — the
+    // parser recovers each record's sequence, raw quality string and decoded scores (= char−offset)
+    // for every cell, in order.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public enum FastqEncoding { Phred33, Phred64, Auto }
+
+    [Test, Combinatorial]
+    public void ParseFastq_DecodesScores_AcrossEncodingAndLength(
+        [Values(FastqEncoding.Phred33, FastqEncoding.Phred64, FastqEncoding.Auto)] FastqEncoding encoding,
+        [Values(1, 3)] int nRecords,
+        [Values(8, 20, 50)] int seqLen)
+    {
+        int offset = encoding == FastqEncoding.Phred64 ? 64 : 33; // Auto-detect resolves to 33 for these low scores
+        var parseEncoding = encoding switch
+        {
+            FastqEncoding.Phred33 => FastqParser.QualityEncoding.Phred33,
+            FastqEncoding.Phred64 => FastqParser.QualityEncoding.Phred64,
+            _ => FastqParser.QualityEncoding.Auto,
+        };
+
+        var records = new List<(string Id, string Seq, int[] Scores, string Qual)>();
+        for (int r = 0; r < nRecords; r++)
+        {
+            string seq = DiverseDna(seqLen, (uint)(0x200 + r));
+            int[] scores = Enumerable.Range(0, seqLen).Select(i => (i + r) % 40).ToArray(); // 0..39 safe for both offsets
+            string qual = new string(scores.Select(s => (char)(s + offset)).ToArray());
+            records.Add(($"read{r}", seq, scores, qual));
+        }
+
+        string content = string.Concat(records.Select(rec => $"@{rec.Id}\n{rec.Seq}\n+\n{rec.Qual}\n"));
+        var parsed = FastqParser.Parse(content, parseEncoding).ToList();
+
+        parsed.Should().HaveCount(nRecords);
+        for (int r = 0; r < nRecords; r++)
+        {
+            parsed[r].Id.Should().Be(records[r].Id);
+            parsed[r].Sequence.Should().Be(records[r].Seq);
+            parsed[r].QualityString.Should().Be(records[r].Qual);
+            parsed[r].QualityScores.Should().Equal(records[r].Scores, "scores decode as char − offset");
+            parsed[r].QualityScores.Count.Should().Be(seqLen, "one score per base");
+        }
+    }
+
+    /// <summary>
+    /// Interaction witness: the same quality string decodes to different Phred scores under
+    /// Phred33 vs Phred64 (the offsets differ by 31).
+    /// </summary>
+    [Test]
+    public void ParseFastq_EncodingOffsetShiftsScores()
+    {
+        // 'h' = 104 ⇒ Phred33 score 71, Phred64 score 40.
+        const string fastq = "@r\nACGT\n+\nhhhh\n";
+        FastqParser.Parse(fastq, FastqParser.QualityEncoding.Phred33).Single().QualityScores
+            .Should().AllBeEquivalentTo(104 - 33);
+        FastqParser.Parse(fastq, FastqParser.QualityEncoding.Phred64).Single().QualityScores
+            .Should().AllBeEquivalentTo(104 - 64);
+    }
+
+    /// <summary>
+    /// Interaction witness: a quality-score → string → score round-trip is identity for both
+    /// offsets.
+    /// </summary>
+    [Test]
+    public void ParseFastq_EncodeDecode_RoundTrips()
+    {
+        int[] scores = { 0, 10, 20, 30, 40 };
+        foreach (var enc in new[] { FastqParser.QualityEncoding.Phred33, FastqParser.QualityEncoding.Phred64 })
+        {
+            string q = FastqParser.EncodeQualityScores(scores, enc);
+            FastqParser.DecodeQualityScores(q, enc).Should().Equal(scores);
+        }
+    }
 }
