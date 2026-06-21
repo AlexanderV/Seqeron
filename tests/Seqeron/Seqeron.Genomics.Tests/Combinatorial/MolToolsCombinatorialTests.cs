@@ -538,4 +538,104 @@ public class MolToolsCombinatorialTests
             p.MeltingTemperature.Should().BeInRange(param.MinTm, param.MaxTm);
         }
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: PRIMER-STRUCT-001 — Primer secondary-structure analysis (MolTools)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 23.
+    // Spec: tests/TestSpecs/PRIMER-STRUCT-001.md (hairpin / primer-dimer / 3′-end ΔG
+    //       stability / homopolymer / dinucleotide battery).
+    //
+    // Axis mapping (deviation from the checklist, documented per spec): the implemented
+    // structure routines — HasHairpinPotential, HasPrimerDimer, Calculate3PrimeStability
+    // — are SALT- and TEMPERATURE-INDEPENDENT (the SantaLucia 1998 ΔG°37 is the fixed
+    // reference state at 1 M NaCl/37 °C; salt enters the model only through Tm, which is
+    // covered by PRIMER-TM-001). So the checklist's saltConc/tempC axes do not exist in
+    // this code; the parameters that actually gate structure detection are the structural
+    // stringency knobs. The grid is therefore built on the cleanest crisp interaction —
+    // the primer-dimer decision boundary — over 3′-complementarity × minComplementarity ×
+    // primerLen, with hairpin and 3′-stability covered as theory-anchored witnesses.
+    //
+    // Model (Wikipedia Primer-dimer; Primer3): two primers dimerize when their 3′ ends
+    // are complementary. HasPrimerDimer compares the 3′ window (≤8 nt) of primer1 against
+    // the 3′ window of primer2 and reports a dimer iff the complementary-base count meets
+    // minComplementarity. So detection = (3′-complementary count ≥ minComplementarity),
+    // and — crucially — depends ONLY on the 3′ window, not on total primer length.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // Each pair is engineered so the 8-base 3′ comparison window holds EXACTLY K complementary
+    // bases: primer1's 3′ window is fixed (DimerP1Window); E2 is the first 8 bases that
+    // reverse-complement(primer2) must present, complementary to primer1 in its 3′-most K positions.
+    private const string DimerP1Window = "GACTGACT";
+    private static readonly (int K, string E2)[] DimerWindows = { (2, "AAACAAGA"), (4, "AAACCTGA"), (6, "AAGACTGA") };
+
+    private static (string P1, string P2) MakeDimerPair(string e2, int length)
+    {
+        string p1 = new string('T', length - 8) + DimerP1Window;          // 5′ filler outside the 3′ window
+        string p2 = RevComp(e2 + new string('A', length - 8));            // revComp(p2) starts with E2
+        return (p1, p2);
+    }
+
+    [Test, Combinatorial]
+    public void PrimerStruct_DimerDetection_ThresholdOnThreePrimeComplementarity(
+        [Values(0, 1, 2)] int windowIdx,
+        [Values(3, 4, 5)] int minComplementarity,
+        [Values(8, 12, 20)] int primerLen)
+    {
+        var (k, e2) = DimerWindows[windowIdx];
+        var (p1, p2) = MakeDimerPair(e2, primerLen);
+
+        PrimerDesigner.HasPrimerDimer(p1, p2, minComplementarity)
+            .Should().Be(k >= minComplementarity,
+                $"a {k}-base 3′-complementary window dimerizes iff {k} ≥ minComplementarity({minComplementarity})");
+    }
+
+    /// <summary>
+    /// Interaction witness: each engineered pair has EXACTLY K complementary 3′ bases
+    /// (detected at threshold K, rejected at K+1), and detection is invariant to the
+    /// 5′ length — confirming primer-dimer is governed solely by the 3′ window.
+    /// </summary>
+    [Test]
+    public void PrimerStruct_Dimer_HasExactCount_AndIgnoresPrimerLength()
+    {
+        foreach (var (k, e2) in DimerWindows)
+        {
+            foreach (int len in new[] { 8, 12, 20 })
+            {
+                var (p1, p2) = MakeDimerPair(e2, len);
+                PrimerDesigner.HasPrimerDimer(p1, p2, k).Should().BeTrue($"the 3′ window has {k} complementary bases");
+                PrimerDesigner.HasPrimerDimer(p1, p2, k + 1).Should().BeFalse($"the 3′ window has only {k} complementary bases");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Hairpin witness (stem-loop theory): a perfect stem-loop (4-bp stem, 3-nt loop) is
+    /// detected; a non-self-complementary oligo is not; and the structural length guard
+    /// (length ≥ 2·minStem + minLoop) suppresses an otherwise-real hairpin when the
+    /// stringency exceeds what the length can hold. — spec invariant #3.
+    /// </summary>
+    [Test]
+    public void PrimerStruct_Hairpin_DetectsStemLoop_AndRespectsLengthGuard()
+    {
+        const string hairpin = "GGGGAAACCCC"; // 4-bp stem (GGGG/CCCC) + 3-nt loop (AAA), length 11
+        PrimerDesigner.HasHairpinPotential(hairpin).Should().BeTrue("a 4-bp stem with a 3-nt loop folds");
+        PrimerDesigner.HasHairpinPotential("AAAAAAAAAAA").Should().BeFalse("a poly-A oligo is not self-complementary");
+
+        // Requiring a 5-bp stem needs length ≥ 2·5+3 = 13 > 11, so the guard returns false.
+        PrimerDesigner.HasHairpinPotential(hairpin, minStemLength: 5).Should().BeFalse("length 11 < 2·5+3");
+    }
+
+    /// <summary>
+    /// 3′-stability witness (SantaLucia 1998 + Primer3): the most stable 5-mer GCGCG and
+    /// the least stable TATAT match their published ΔG°37, and GC-rich 3′ ends are strictly
+    /// more stable (more negative) than AT-rich ones. — spec M16/M17, invariant #4.
+    /// </summary>
+    [Test]
+    public void PrimerStruct_ThreePrimeStability_MatchesSantaLucia()
+    {
+        PrimerDesigner.Calculate3PrimeStability("GCGCG").Should().BeApproximately(-6.86, 1e-9);
+        PrimerDesigner.Calculate3PrimeStability("TATAT").Should().BeApproximately(-0.86, 1e-9);
+        PrimerDesigner.Calculate3PrimeStability("GCGCG")
+            .Should().BeLessThan(PrimerDesigner.Calculate3PrimeStability("TATAT"), "GC-rich 3′ ends are more stable");
+    }
 }
