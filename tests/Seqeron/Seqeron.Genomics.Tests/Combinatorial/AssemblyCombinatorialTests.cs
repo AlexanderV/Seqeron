@@ -467,6 +467,79 @@ public class AssemblyCombinatorialTests
             .Should().Equal(contigs, "no links → singletons in input order");
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ASSEMBLY-TRIM-001 — Quality trimming (Assembly)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 148.
+    // Spec: tests/TestSpecs/ASSEMBLY-TRIM-001.md (SequenceAssembler.QualityTrimReads).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: BWA bwa_trim_read / cutadapt running-sum — subtract the cutoff from each Phred score and cut
+    // each end at the minimal partial sum; a cutoff < 1 disables trimming; reads below minLength are dropped.
+    //
+    // Checklist axes qualityCutoff(3) × windowSize(3) × readLen(3) map onto the real knobs: minQuality ∈
+    // {10,20,30}; windowSize → minLength (minimum surviving length) ∈ {5,20,40}; read length ∈ {20,50,100}.
+    // Grid = 3³ = 27.
+    //
+    // The combinatorial point: survival is a JOINT function of quality cutoff, length filter and read
+    // length. With a uniform read quality of Phred 25, a read survives iff 25 ≥ cutoff (no trimming) AND its
+    // length ≥ minLength; otherwise it is fully trimmed or filtered out. Each cell predicts the outcome.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private const char Phred25 = (char)(25 + 33); // uniform quality ':'
+
+    /// <summary>
+    /// For every (cutoff, minLength, read length) with uniform Phred-25 quality, the read survives intact
+    /// iff 25 ≥ cutoff and its length ≥ minLength; otherwise the output is empty.
+    /// </summary>
+    [Test, Combinatorial]
+    public void QualityTrimReads_CutoffMinLengthReadLenGrid_MatchesUniformQualityRule(
+        [Values(10, 20, 30)] int cutoff,
+        [Values(5, 20, 40)] int minLength,
+        [Values(20, 50, 100)] int readLen)
+    {
+        string sequence = new string('A', readLen);
+        string quality = new string(Phred25, readLen);
+        var reads = new[] { (sequence, quality) };
+
+        bool kept = 25 >= cutoff && readLen >= minLength;
+
+        var trimmed = SequenceAssembler.QualityTrimReads(reads, cutoff, minLength);
+
+        trimmed.Should().HaveCount(kept ? 1 : 0, "survives iff quality clears the cutoff and length ≥ minLength");
+        if (kept)
+            trimmed[0].Should().Be(sequence, "uniform high quality → no trimming");
+    }
+
+    /// <summary>
+    /// Interaction witness (running-sum trimming): a read with low-quality ends and a high-quality core is
+    /// trimmed to exactly its core. Source: BWA / cutadapt running-sum.
+    /// </summary>
+    [Test]
+    public void QualityTrimReads_LowQualityEnds_TrimmedToCore()
+    {
+        const string sequence = "ACGTACGTACGTACGTACGT"; // length 20
+        char low = (char)(2 + 33), high = (char)(40 + 33);
+        string quality = new string(low, 5) + new string(high, 10) + new string(low, 5);
+
+        var trimmed = SequenceAssembler.QualityTrimReads(new[] { (sequence, quality) }, minQuality: 20, minLength: 1);
+
+        trimmed.Should().ContainSingle().Which.Should().Be(sequence.Substring(5, 10), "the low-quality ends are trimmed to the core");
+    }
+
+    /// <summary>
+    /// Interaction witness (cutoff axis disables trimming): a cutoff below 1 disables trimming, so even a
+    /// low-quality read is returned intact (subject to the length filter). Source: BWA trim_qual &lt; 1 guard.
+    /// </summary>
+    [Test]
+    public void QualityTrimReads_CutoffBelowOne_DisablesTrimming()
+    {
+        const string sequence = "ACGTACGTAC";
+        string quality = new string((char)(2 + 33), 10); // all low quality
+
+        SequenceAssembler.QualityTrimReads(new[] { (sequence, quality) }, minQuality: 0, minLength: 1)
+            .Should().ContainSingle().Which.Should().Be(sequence, "cutoff < 1 → no trimming");
+    }
+
     /// <summary>Independent Biopython column-consensus ground truth.</summary>
     private static string GroundTruthConsensus(IReadOnlyList<string> reads, double threshold, char ambiguous)
     {
