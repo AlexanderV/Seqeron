@@ -316,4 +316,106 @@ public class PopGenCombinatorialTests
         double far = PopulationGeneticsAnalyzer.CalculateFst(p0, PopProfile(3, 40));
         far.Should().BeGreaterThan(near, "greater allele-frequency divergence raises Fst");
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: POP-LD-001 — Linkage disequilibrium (PopGen)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 47.
+    // Spec: tests/TestSpecs/POP-LD-001.md (canonical CalculateLD).
+    // Dimensions: nLoci(3) × nSamples(3) × metric(2: D'/r²). Grid 3×3×2 = 18.
+    //
+    // Model (Lewontin 1964 D'; Hill & Robertson 1968 r²): from diploid genotypes (0/1/2)
+    // CalculateLD reports r² = Cor(X₁,X₂)² and D' = |Cov/2| / D_max, both in [0,1]. They are
+    // distinct measures — D' can be 1 (complete LD) while r² < 1 when allele frequencies differ.
+    //
+    // The combinatorial point: number of loci, sample size and metric choice interact, yet
+    // each reported statistic stays in [0,1] and equals its closed-form definition for every
+    // locus pair, sample size and metric.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public enum LdMetric { DPrime, RSquared }
+
+    private static double IndepRSquared(int[] x, int[] y)
+    {
+        int n = x.Length; double mx = x.Average(), my = y.Average();
+        double cov = 0, vx = 0, vy = 0;
+        for (int i = 0; i < n; i++) { cov += (x[i] - mx) * (y[i] - my); vx += (x[i] - mx) * (x[i] - mx); vy += (y[i] - my) * (y[i] - my); }
+        cov /= n; vx /= n; vy /= n;
+        double r2 = vx > 0 && vy > 0 ? cov * cov / (vx * vy) : 0;
+        return Math.Clamp(r2, 0, 1);
+    }
+
+    private static double IndepDPrime(int[] x, int[] y)
+    {
+        int n = x.Length;
+        double p1 = x.Sum() / (2.0 * n), p2 = y.Sum() / (2.0 * n), q1 = 1 - p1, q2 = 1 - p2;
+        double mx = x.Average(), my = y.Average();
+        double cov = 0; for (int i = 0; i < n; i++) cov += (x[i] - mx) * (y[i] - my);
+        cov /= n;
+        double d = cov / 2;
+        double dMax = d >= 0 ? Math.Min(p1 * q2, q1 * p2) : Math.Min(p1 * p2, q1 * q2);
+        double dp = dMax > 1e-10 ? Math.Abs(d) / dMax : 0;
+        return Math.Min(dp, 1.0);
+    }
+
+    [Test, Combinatorial]
+    public void PopLd_StatisticsInRangeAndMatchFormula(
+        [Values(3, 4, 5)] int nLoci,
+        [Values(12, 30, 60)] int nSamples,
+        [Values(LdMetric.DPrime, LdMetric.RSquared)] LdMetric metric)
+    {
+        // Deterministic 0/1/2 genotypes; locus l = (individual + l) mod 3.
+        var loci = Enumerable.Range(0, nLoci)
+            .Select(l => Enumerable.Range(0, nSamples).Select(i => (i + l) % 3).ToArray()).ToArray();
+
+        for (int a = 0; a < nLoci; a++)
+            for (int b = a + 1; b < nLoci; b++)
+            {
+                var genos = loci[a].Zip(loci[b], (g1, g2) => (g1, g2));
+                var ld = PopulationGeneticsAnalyzer.CalculateLD($"L{a}", $"L{b}", genos, b - a);
+
+                if (metric == LdMetric.RSquared)
+                {
+                    ld.RSquared.Should().BeInRange(0.0, 1.0);
+                    ld.RSquared.Should().BeApproximately(IndepRSquared(loci[a], loci[b]), 1e-9);
+                }
+                else
+                {
+                    ld.DPrime.Should().BeInRange(0.0, 1.0);
+                    ld.DPrime.Should().BeApproximately(IndepDPrime(loci[a], loci[b]), 1e-9);
+                }
+                ld.Distance.Should().Be(b - a);
+            }
+    }
+
+    /// <summary>
+    /// Interaction witness: perfectly correlated loci have r² = D' = 1, while independent loci
+    /// (zero covariance) have r² = D' = 0.
+    /// </summary>
+    [Test]
+    public void PopLd_PerfectAndZeroLinkage()
+    {
+        var same = new[] { 0, 1, 2, 1, 0 };
+        var perfect = PopulationGeneticsAnalyzer.CalculateLD("a", "b", same.Zip(same, (g1, g2) => (g1, g2)), 1);
+        perfect.RSquared.Should().BeApproximately(1.0, 1e-9);
+        perfect.DPrime.Should().BeApproximately(1.0, 1e-9);
+
+        int[] x = { 0, 2, 0, 2 }, y = { 0, 0, 2, 2 }; // orthogonal → zero covariance
+        var none = PopulationGeneticsAnalyzer.CalculateLD("a", "b", x.Zip(y, (g1, g2) => (g1, g2)), 1);
+        none.RSquared.Should().BeApproximately(0.0, 1e-9);
+        none.DPrime.Should().BeApproximately(0.0, 1e-9);
+    }
+
+    /// <summary>
+    /// Interaction witness: D' and r² are distinct metrics — complete LD with unequal allele
+    /// frequencies gives D' = 1 but r² = 0.5.
+    /// </summary>
+    [Test]
+    public void PopLd_DPrimeAndRSquared_Differ()
+    {
+        int[] x = { 0, 1, 2, 1 }, y = { 0, 2, 2, 0 };
+        var ld = PopulationGeneticsAnalyzer.CalculateLD("a", "b", x.Zip(y, (g1, g2) => (g1, g2)), 1);
+
+        ld.DPrime.Should().BeApproximately(1.0, 1e-9, "complete LD");
+        ld.RSquared.Should().BeApproximately(0.5, 1e-9, "but r² < 1 under unequal frequencies");
+    }
 }
