@@ -257,4 +257,83 @@ public class ChromosomeCombinatorialTests
         ChromosomeAnalyzer.DetectAneuploidy(Array.Empty<(string, int, double)>(), MedianDepth, AneuBinSize).Should().BeEmpty();
         ChromosomeAnalyzer.DetectAneuploidy(deep, 0.0, AneuBinSize).Should().BeEmpty("zero median is rejected");
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: CHROM-SYNT-001 — Synteny block detection (Chromosome)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 52.
+    // Spec: tests/TestSpecs/CHROM-SYNT-001.md (canonical FindSyntenyBlocks).
+    // Dimensions: nGenes(3) × minBlockSize(3) × nChroms(3). Grid 3×3×3 = 27.
+    //
+    // Model (comparative genomics): a synteny block is a maximal collinear run of orthologous
+    // genes between two genomes (same strand orientation, gaps within maxGap). FindSyntenyBlocks
+    // groups ortholog pairs by chromosome pair and emits a block per collinear run of ≥ minGenes.
+    //
+    // The combinatorial point: gene count, the minimum-block size and the number of chromosome
+    // pairs interact — a perfectly collinear run of G genes on each of nChroms chromosome pairs
+    // yields nChroms blocks of size G exactly when G ≥ minGenes, and none otherwise.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private static List<(string, int, int, string, string, int, int, string)> Orthologs(int nChroms, int nGenes, bool forward = true)
+    {
+        var list = new List<(string, int, int, string, string, int, int, string)>();
+        for (int c = 0; c < nChroms; c++)
+            for (int g = 0; g < nGenes; g++)
+            {
+                int s1 = g * 1000;
+                int s2 = (forward ? g : nGenes - 1 - g) * 1000;
+                list.Add(($"A{c}", s1, s1 + 500, $"g1_{c}_{g}", $"B{c}", s2, s2 + 500, $"g2_{c}_{g}"));
+            }
+        return list;
+    }
+
+    [Test, Combinatorial]
+    public void ChromSynt_CollinearRuns_PerChromosomePair(
+        [Values(2, 3, 5)] int nGenes,
+        [Values(2, 3, 4)] int minBlockSize,
+        [Values(1, 2, 3)] int nChroms)
+    {
+        var blocks = ChromosomeAnalyzer.FindSyntenyBlocks(Orthologs(nChroms, nGenes), minBlockSize, maxGap: 10).ToList();
+
+        int expected = nGenes >= minBlockSize ? nChroms : 0;
+        blocks.Should().HaveCount(expected, "one block per chromosome pair iff the run meets minGenes");
+
+        if (expected > 0)
+        {
+            blocks.Should().OnlyContain(b => b.GeneCount == nGenes, "the whole collinear run is one block");
+            blocks.Should().OnlyContain(b => b.Strand == '+', "increasing positions are forward synteny");
+            blocks.Should().OnlyContain(b => b.Species1Start <= b.Species1End && b.Species2Start <= b.Species2End);
+            blocks.Select(b => b.Species1Chromosome)
+                .Should().BeEquivalentTo(Enumerable.Range(0, nChroms).Select(c => $"A{c}"));
+        }
+    }
+
+    /// <summary>
+    /// Interaction witness: a run whose orthologs run in the opposite order on the second genome
+    /// is an inverted (reverse-strand) synteny block.
+    /// </summary>
+    [Test]
+    public void ChromSynt_InvertedRun_IsReverseStrand()
+    {
+        var blocks = ChromosomeAnalyzer.FindSyntenyBlocks(Orthologs(1, 5, forward: false), minGenes: 3, maxGap: 10).ToList();
+        blocks.Should().ContainSingle();
+        blocks[0].Strand.Should().Be('-', "decreasing second-genome order is an inversion");
+        blocks[0].GeneCount.Should().Be(5);
+    }
+
+    /// <summary>
+    /// Worked example: four collinear genes on one chromosome pair form a single forward block
+    /// spanning the first gene's start to the last gene's end.
+    /// </summary>
+    [Test]
+    public void ChromSynt_WorkedExample_SingleForwardBlock()
+    {
+        var blocks = ChromosomeAnalyzer.FindSyntenyBlocks(Orthologs(1, 4), minGenes: 3, maxGap: 10).ToList();
+        blocks.Should().ContainSingle();
+        var b = blocks[0];
+        b.GeneCount.Should().Be(4);
+        b.Strand.Should().Be('+');
+        b.Species1Chromosome.Should().Be("A0");
+        b.Species1Start.Should().Be(0);
+        b.Species1End.Should().Be(3 * 1000 + 500);
+    }
 }
