@@ -34,7 +34,7 @@ Mutation testing вимірює ефективність тестового на
 | 4 | ☑ | SEQ-VALID-001 | Composition | SequenceExtensions.cs | SequenceExtensions_SequenceValidation_Tests.cs | ≥ 80% |
 | 5 | ☑ | SEQ-COMPLEX-001 | Composition | SequenceComplexity.cs | SequenceComplexityTests.cs | ≥ 80% |
 | 6 | ☑ | SEQ-ENTROPY-001 | Composition | SequenceComplexity.cs | SequenceComplexityTests.cs | ≥ 80% |
-| 7 | ☐ | SEQ-GCSKEW-001 | Composition | GcSkewCalculator.cs | GcSkewCalculatorTests.cs | ≥ 80% |
+| 7 | ☑ | SEQ-GCSKEW-001 | Composition | GcSkewCalculator.cs | GcSkewCalculatorTests.cs | ≥ 80% |
 | 8 | ☑ | PAT-EXACT-001 | Matching | MotifFinder.cs | FindAllOccurrencesTests.cs, ContainsTests.cs, CountOccurrencesTests.cs | ≥ 80% |
 | 9 | ☐ | PAT-APPROX-001 | Matching | ApproximateMatcher.cs | ApproximateMatcher_HammingDistance_Tests.cs | ≥ 80% |
 | 10 | ☐ | PAT-APPROX-002 | Matching | ApproximateMatcher.cs | ApproximateMatcher_EditDistance_Tests.cs | ≥ 80% |
@@ -237,8 +237,8 @@ Mutation testing вимірює ефективність тестового на
 | 207 | ☐ | POP-ANCESTRY-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_EstimateAncestry_Tests.cs | ≥ 80% |
 | 208 | ☐ | POP-ROH-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_FindROH_Tests.cs | ≥ 80% |
 | 209 | ☐ | POP-SELECT-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_SelectionSignature_Tests.cs | ≥ 80% |
-| 210 | ☐ | SEQ-ATSKEW-001 | Composition | GcSkewCalculator.cs | GcSkewCalculator_CalculateAtSkew_Tests.cs | ≥ 80% |
-| 211 | ☐ | SEQ-REPLICATION-001 | Composition | GcSkewCalculator.cs | GcSkewCalculator_PredictReplicationOrigin_Tests.cs | ≥ 80% |
+| 210 | ☑ | SEQ-ATSKEW-001 | Composition | GcSkewCalculator.cs | GcSkewCalculator_CalculateAtSkew_Tests.cs | ≥ 80% |
+| 211 | ☑ | SEQ-REPLICATION-001 | Composition | GcSkewCalculator.cs | GcSkewCalculator_PredictReplicationOrigin_Tests.cs | ≥ 80% |
 | 212 | ☑ | SEQ-RNACOMP-001 | Composition | SequenceExtensions.cs | SequenceExtensions_GetRnaComplementBase_Tests.cs | ≥ 80% |
 | 213 | ☐ | CODON-ENC-001 | Codon | CodonUsageAnalyzer.cs | CodonUsageAnalyzer_CalculateEnc_Tests.cs | ≥ 80% |
 | 214 | ☐ | CODON-RSCU-001 | Codon | CodonUsageAnalyzer.cs | CodonUsageAnalyzer_CalculateRscu_Tests.cs | ≥ 80% |
@@ -260,7 +260,7 @@ Mutation testing вимірює ефективність тестового на
 | 230 | ☑ | SEQ-COMPLEX-KMER-001 | Complexity | SequenceComplexity.cs | SequenceComplexity_CalculateKmerEntropy_Tests.cs | ≥ 80% |
 | 231 | ☑ | SEQ-COMPLEX-WINDOW-001 | Complexity | SequenceComplexity.cs | SequenceComplexity_CalculateWindowedComplexity_Tests.cs | ≥ 80% |
 | 232 | ☐ | SEQ-ENTROPY-PROFILE-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateEntropyProfile_Tests.cs | ≥ 80% |
-| 233 | ☐ | SEQ-GC-ANALYSIS-001 | Composition | GcSkewCalculator.cs | GcSkewCalculator_AnalyzeGcContent_Tests.cs | ≥ 80% |
+| 233 | ☑ | SEQ-GC-ANALYSIS-001 | Composition | GcSkewCalculator.cs | GcSkewCalculator_AnalyzeGcContent_Tests.cs | ≥ 80% |
 | 234 | ☐ | SEQ-GC-PROFILE-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateGcContentProfile_Tests.cs | ≥ 80% |
 
 ---
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 19 |
-| ☐ Not started | 215 |
+| ☑ Complete (run + killers written) | 23 |
+| ☐ Not started | 211 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
