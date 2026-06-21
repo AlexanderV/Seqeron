@@ -172,4 +172,63 @@ public class CompositionAlgebraicTests
         dna.Complement().Sequence.Should().Be("TGCA");
         dna.Complement().Complement().Sequence.Should().Be("ACGT");
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: SEQ-REVCOMP-001 — DNA reverse complement (Composition)
+    // Checklist: docs/checklists/06_ALGEBRAIC_TESTING.md, row 3.
+    //
+    // Model: reverse complement = reverse ∘ complement (read the opposite strand
+    //        5'→3'); base map A↔T, C↔G with position reversal.
+    //   — docs/algorithms/Sequence_Composition/RNA_Complement.md §2.1–2.2;
+    //     DnaSequence.ReverseComplement().
+    //
+    // Laws under test (checklist row 3):
+    //   • INV — revcomp(revcomp(x)) = x. Reversal is an involution and the base
+    //           complement is an involution, and the two operations commute, so
+    //           their composition applied twice is the identity.
+    //   • ID  — revcomp preserves length: |revcomp(x)| = |x|.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// INV: reverse complement is an involution — revcomp(revcomp(x)) = x.
+    /// Evidence: reverse∘reverse = id and complement∘complement = id, and reverse
+    /// commutes with the position-wise complement (RNA_Complement.md §2.2).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ReverseComplement_Involution_TwiceIsIdentity()
+    {
+        return Prop.ForAll(DnaArbitrary(), seq =>
+        {
+            var dna = new DnaSequence(seq);
+            string twice = dna.ReverseComplement().ReverseComplement().Sequence;
+            return (twice == dna.Sequence)
+                .Label($"revcomp∘revcomp(\"{seq}\") = \"{twice}\"");
+        });
+    }
+
+    /// <summary>
+    /// ID: reverse complement preserves length — |revcomp(x)| = |x|.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ReverseComplement_PreservesLength()
+    {
+        return Prop.ForAll(DnaArbitrary(), seq =>
+        {
+            var dna = new DnaSequence(seq);
+            return (dna.ReverseComplement().Length == dna.Length)
+                .Label($"|revcomp| = {dna.ReverseComplement().Length}, |x| = {dna.Length}");
+        });
+    }
+
+    /// <summary>
+    /// INV witness: revcomp("AACG") = "CGTT" (complement "TTGC" reversed);
+    /// applying revcomp again returns "AACG".
+    /// </summary>
+    [Test]
+    public void ReverseComplement_Involution_WorkedExample()
+    {
+        var dna = new DnaSequence("AACG");
+        dna.ReverseComplement().Sequence.Should().Be("CGTT");
+        dna.ReverseComplement().ReverseComplement().Sequence.Should().Be("AACG");
+    }
 }

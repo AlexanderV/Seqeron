@@ -32,7 +32,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 |---|--------|-----------|------|---------------|
 | 1 | ☑ | SEQ-GC-001 | Composition | ID: GC("")=0; IDEMP: GC(seq) same on recompute; DIST: GC(seq)=GC(complement(seq)) |
 | 2 | ☑ | SEQ-COMP-001 | Composition | INV: complement(complement(x)) = x; ID: complement preserves length |
-| 3 | ☐ | SEQ-REVCOMP-001 | Composition | INV: revcomp(revcomp(x)) = x; ID: revcomp preserves length |
+| 3 | ☑ | SEQ-REVCOMP-001 | Composition | INV: revcomp(revcomp(x)) = x; ID: revcomp preserves length |
 | 4 | ✗ | SEQ-VALID-001 | Composition | IDEMP: validate(validate_result) is consistent; ID: empty string → defined result |
 | 5 | ✗ | SEQ-COMPLEX-001 | Composition | ID: single nucleotide → complexity 0; IDEMP: same result on recompute |
 | 6 | ✗ | SEQ-ENTROPY-001 | Composition | ID: single symbol → entropy 0; ID: uniform → max entropy = log2(|Σ|) |
@@ -272,7 +272,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 2 |
-| ☐ Not started | 63 |
+| ☑ Complete | 3 |
+| ☐ Not started | 62 |
 | ✗ Not applicable | 169 |
 | Laws verified | ~172 (≈2 per algorithm) |
