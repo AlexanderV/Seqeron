@@ -57,6 +57,24 @@ public class AlignmentCombinatorialTests
         return best;
     }
 
+    /// <summary>Independent semi-global (fitting) optimum: query q fully aligned, free leading/trailing reference gaps.</summary>
+    private static int SemiGlobalOptimalScore(string q, string r, int match, int mismatch, int gap)
+    {
+        int m = q.Length, n = r.Length;
+        var dp = new int[m + 1, n + 1];
+        for (int j = 0; j <= n; j++) dp[0, j] = 0;     // free leading reference gaps
+        for (int i = 1; i <= m; i++) dp[i, 0] = i * gap; // query leading deletions are penalised
+        for (int i = 1; i <= m; i++)
+            for (int j = 1; j <= n; j++)
+            {
+                int s = q[i - 1] == r[j - 1] ? match : mismatch;
+                dp[i, j] = Math.Max(dp[i - 1, j - 1] + s, Math.Max(dp[i - 1, j] + gap, dp[i, j - 1] + gap));
+            }
+        int best = int.MinValue;
+        for (int j = 0; j <= n; j++) best = Math.Max(best, dp[m, j]); // free trailing reference gaps
+        return best;
+    }
+
     /// <summary>Score of a concrete column-wise alignment under the linear-gap model.</summary>
     private static int ScoreColumns(string a1, string a2, int match, int mismatch, int gap)
     {
@@ -234,5 +252,66 @@ public class AlignmentCombinatorialTests
     {
         var r = SequenceAligner.LocalAlign("AAAA", "CCCC", new ScoringMatrix(1, -1, -2, -2));
         r.Score.Should().Be(0);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ALIGN-SEMI-001 — Semi-global (fitting) alignment (Alignment)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 37.
+    // Spec: tests/TestSpecs/ALIGN-SEMI-001.md (canonical SequenceAligner.SemiGlobalAlign).
+    // Dimensions: matchScore(3) × mismatchPen(3) × gapPen(3). Grid 3³ = 27.
+    //
+    // Model (fitting alignment): the query (seq1) is aligned end-to-end while leading and
+    // trailing gaps in the reference (seq2) are FREE — DP first row is 0 and the optimum is
+    // the maximum of the last row. So the reported Score excludes the free reference flanks
+    // (it is NOT the raw column score of the whole alignment), and equals the fitting optimum.
+    //
+    // The combinatorial point: the three weights jointly determine where the query fits and
+    // the optimal score; correctness is checked against an independent fitting DP for every
+    // weight combination, with both inputs reconstructed and the trimmed core score matching.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    [Test, Combinatorial]
+    public void AlignSemi_FittingOptimumAndReconstruction_AcrossScoring(
+        [Values(1, 2, 5)] int matchScore,
+        [Values(-1, -3, 0)] int mismatchPen,
+        [Values(-1, -2, -5)] int gapPen)
+    {
+        string query = DiverseDna(8, 0x1234u);
+        string reference = DiverseDna(20, 0x9ABCu);
+        var scoring = new ScoringMatrix(matchScore, mismatchPen, GapOpen: gapPen, GapExtend: gapPen);
+
+        var r = SequenceAligner.SemiGlobalAlign(new DnaSequence(query), new DnaSequence(reference), scoring);
+
+        r.AlignmentType.Should().Be(AlignmentType.SemiGlobal);
+        r.AlignedSequence1.Replace("-", "").Should().Be(query, "the query is aligned end-to-end");
+        r.AlignedSequence2.Replace("-", "").Should().Be(reference, "the reference is fully represented");
+        r.AlignedSequence1.Length.Should().Be(r.AlignedSequence2.Length);
+
+        r.Score.Should().Be(SemiGlobalOptimalScore(query, reference, matchScore, mismatchPen, gapPen),
+            "the score is the fitting optimum (free reference end-gaps)");
+
+        // Trimming the free leading/trailing reference flanks (query-side gaps at the ends)
+        // leaves a core whose column score equals the reported Score.
+        string a1 = r.AlignedSequence1, a2 = r.AlignedSequence2;
+        int lo = 0; while (lo < a1.Length && a1[lo] == '-') lo++;
+        int hi = a1.Length - 1; while (hi >= 0 && a1[hi] == '-') hi--;
+        ScoreColumns(a1[lo..(hi + 1)], a2[lo..(hi + 1)], matchScore, mismatchPen, gapPen)
+            .Should().Be(r.Score, "the core (non-free) columns reproduce the score");
+    }
+
+    /// <summary>
+    /// Worked example: a query embedded in a longer reference fits exactly — leading and
+    /// trailing reference flanks are free, so the score is queryLength × matchScore.
+    /// </summary>
+    [Test]
+    public void AlignSemi_QueryEmbeddedInReference_FreeEndGaps()
+    {
+        string query = "ACGTACGT";
+        string reference = "TTTT" + query + "TTTT";
+        var r = SequenceAligner.SemiGlobalAlign(new DnaSequence(query), new DnaSequence(reference), new ScoringMatrix(2, -1, -2, -2));
+
+        r.Score.Should().Be(query.Length * 2, "the free flanks are not penalised");
+        r.AlignedSequence1.Replace("-", "").Should().Be(query);
+        r.AlignedSequence1.Should().StartWith("-", "the leading reference flank is a free gap in the query row");
     }
 }
