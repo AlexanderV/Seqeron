@@ -114,7 +114,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 82 | ✗ | PROTMOTIF-FIND-001 | ProteinMotif | ID: no matching residues → no motifs; IDEMP: deterministic |
 | 83 | ✗ | PROTMOTIF-PROSITE-001 | ProteinMotif | ID: non-matching seq → no pattern hit; IDEMP: deterministic |
 | 84 | ✗ | PROTMOTIF-DOMAIN-001 | ProteinMotif | ID: seq too short → no domain; IDEMP: deterministic |
-| 85 | ☐ | EPIGEN-CPG-001 | Epigenetics | ID: no CG dinucleotides → CpG ratio = 0; DIST: O/E formula verified |
+| 85 | ☑ | EPIGEN-CPG-001 | Epigenetics | ID: no CG dinucleotides → CpG ratio = 0; DIST: O/E formula verified |
 | 86 | ✗ | ONCO-IMMUNE-001 | Oncology | ID: zero expression → zero infiltration; IDEMP: deterministic |
 | 87 | ✗ | ONCO-SOMATIC-001 | Oncology | ID: empty tumor reads → no calls; IDEMP: re-calling the call set is stable |
 | 88 | ☐ | ONCO-VAF-001 | Oncology | ID: alt=0 → VAF=0; HOMO: VAF(k·ref,k·alt)=VAF(ref,alt) (scale-invariant) |
@@ -213,7 +213,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 181 | ✗ | EPIGEN-AGE-001 | Epigenetics | ID: no methylation → baseline; IDEMP: deterministic |
 | 182 | ✗ | EPIGEN-BISULF-001 | Epigenetics | IDEMP: bisulfite∘bisulfite = bisulfite; ID: no C → unchanged |
 | 183 | ✗ | EPIGEN-CHROM-001 | Epigenetics | IDEMP: deterministic; ID: empty → none |
-| 184 | ☐ | EPIGEN-DMR-001 | Epigenetics | ID: identical methylomes → no DMR; COMM: |Δ| symmetric |
+| 184 | ☑ | EPIGEN-DMR-001 | Epigenetics | ID: identical methylomes → no DMR; COMM: |Δ| symmetric |
 | 185 | ✗ | EPIGEN-METHYL-001 | Epigenetics | ID: no reads → 0; ADD: counts additive |
 | 186 | ✗ | VARIANT-ANNOT-001 | Variants | IDEMP: annotate∘annotate = annotate; ID: empty → empty |
 | 187 | ✗ | VARIANT-CALL-001 | Variants | ID: tumor = ref → no calls; IDEMP: deterministic |
@@ -272,7 +272,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 48 |
-| ☐ Not started | 17 |
+| ☑ Complete | 50 |
+| ☐ Not started | 15 |
 | ✗ Not applicable | 169 |
 | Laws verified | ~172 (≈2 per algorithm) |
