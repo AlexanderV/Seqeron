@@ -44,7 +44,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 12 | ✗ | PAT-PWM-001 | Matching | IDEMP: PWM from same sequences always the same; ID: all-zero PWM → no matches |
 | 13 | ✗ | REP-STR-001 | Repeats | ID: no repeats → empty result; IDEMP: same seq → same microsatellites |
 | 14 | ✗ | REP-TANDEM-001 | Repeats | ID: no tandem pattern → empty result; IDEMP: deterministic output |
-| 15 | ☐ | REP-INV-001 | Repeats | ID: no complement in seq → no inverted repeats; DIST: revcomp(left)=right |
+| 15 | ☑ | REP-INV-001 | Repeats | ID: no complement in seq → no inverted repeats; DIST: revcomp(left)=right |
 | 16 | ✗ | REP-DIRECT-001 | Repeats | ID: all unique chars → no direct repeats; IDEMP: deterministic |
 | 17 | ☐ | REP-PALIN-001 | Repeats | ID: palindrome = revcomp(self); DIST: palindrome len is even (for DNA) |
 | 18 | ✗ | CRISPR-PAM-001 | MolTools | ID: no PAM pattern in seq → 0 sites; IDEMP: same input → same sites |
@@ -272,7 +272,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 7 |
-| ☐ Not started | 58 |
+| ☑ Complete | 8 |
+| ☐ Not started | 57 |
 | ✗ Not applicable | 169 |
 | Laws verified | ~172 (≈2 per algorithm) |
