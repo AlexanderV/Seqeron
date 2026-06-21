@@ -16,6 +16,19 @@ public class ChromosomeCombinatorialTests
     private static string RevComp(string s) => DnaSequence.GetReverseComplementString(s);
     private static string Repeat(string unit, int times) => string.Concat(Enumerable.Repeat(unit, times));
 
+    private static string DiverseDna(int n, uint seed)
+    {
+        const string bases = "ACGT";
+        var chars = new char[n];
+        uint state = seed;
+        for (int i = 0; i < n; i++)
+        {
+            state = state * 1664525u + 1013904223u;
+            chars[i] = bases[(int)((state >> 16) & 3u)];
+        }
+        return new string(chars);
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
     // Unit: CHROM-TELO-001 — Telomere detection (Chromosome)
     // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 48.
@@ -89,5 +102,71 @@ public class ChromosomeCombinatorialTests
             .Has3PrimeTelomere.Should().BeTrue("the matching motif detects it");
         ChromosomeAnalyzer.AnalyzeTelomeres("chr", seq, "TTTAGGG", minTelomereLength: 300)
             .TelomereLength3Prime.Should().BeLessThan(300, "a different motif does not register the array");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: CHROM-CENT-001 — Centromere detection (Chromosome)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 49.
+    // Spec: tests/TestSpecs/CHROM-CENT-001.md (canonical AnalyzeCentromere).
+    // Dimensions: windowSize(3) × threshold(3) × seqLen(3). Grid 3×3×3 = 27.
+    //
+    // Model (alpha-satellite centromeres): a centromere is a long tandem-satellite array of
+    // high repeat content. AnalyzeCentromere slides a window, scoring repeatContent·(1−GC
+    // variability), and calls a centromere where repeat content exceeds minAlphaSatelliteContent.
+    //
+    // The combinatorial point: window size, the satellite-content threshold and chromosome
+    // length interact during the scan, yet a strong planted satellite array is detected and
+    // localised to that array across all window sizes and lengths, for every threshold it clears.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private const int CentFlank = 600;
+
+    [Test, Combinatorial]
+    public void ChromCent_DetectsAndLocalisesSatelliteArray(
+        [Values(200, 400, 800)] int windowSize,
+        [Values(0.3, 0.5, 0.7)] double threshold,
+        [Values(3000, 6000, 12000)] int seqLen)
+    {
+        int blockLen = seqLen - 2 * CentFlank;
+        string unit = DiverseDna(21, 0xA1u);
+        string block = Repeat(unit, blockLen / unit.Length + 1)[..blockLen];
+        string seq = DiverseDna(CentFlank, 0x11u) + block + DiverseDna(CentFlank, 0x22u);
+
+        var r = ChromosomeAnalyzer.AnalyzeCentromere("chr", seq, windowSize, threshold);
+
+        r.Start.Should().NotBeNull("a strong satellite array is a centromere");
+        r.End.Should().NotBeNull();
+        r.Length.Should().BeGreaterThan(0);
+        r.AlphaSatelliteContent.Should().BeGreaterThan(0);
+
+        r.Start!.Value.Should().BeGreaterThanOrEqualTo(0);
+        r.End!.Value.Should().BeLessThanOrEqualTo(seqLen);
+        (r.Start!.Value < seqLen - CentFlank && r.End!.Value > CentFlank)
+            .Should().BeTrue("the detected region overlaps the planted satellite block");
+    }
+
+    /// <summary>
+    /// Interaction witness: a non-repetitive chromosome has no centromere (repeat content is
+    /// below any reasonable satellite threshold).
+    /// </summary>
+    [Test]
+    public void ChromCent_UniqueSequence_NoCentromere()
+    {
+        var r = ChromosomeAnalyzer.AnalyzeCentromere("chr", DiverseDna(4000, 0x33u), windowSize: 400,
+            minAlphaSatelliteContent: 0.3);
+        r.Start.Should().BeNull("unique sequence is not a centromere");
+    }
+
+    /// <summary>
+    /// Interaction witness: an unreachable threshold suppresses detection even for a strong
+    /// satellite array — the content gate is genuinely applied.
+    /// </summary>
+    [Test]
+    public void ChromCent_ThresholdAboveContent_NoCentromere()
+    {
+        string unit = DiverseDna(21, 0xA1u);
+        string seq = DiverseDna(CentFlank, 0x11u) + Repeat(unit, 100) + DiverseDna(CentFlank, 0x22u);
+        var r = ChromosomeAnalyzer.AnalyzeCentromere("chr", seq, windowSize: 400, minAlphaSatelliteContent: 1.5);
+        r.Start.Should().BeNull("no region exceeds an impossible threshold");
     }
 }
