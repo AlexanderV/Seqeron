@@ -429,4 +429,93 @@ public class MetagenomicsCombinatorialTests
         // sumMin = min(6,2)=2 ; sumTotal = (4)+(6+2)+(8) = 20 ; BC = 1 − 2·2/20 = 0.8
         beta.BrayCurtis.Should().BeApproximately(0.8, 1e-9);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: META-BIN-001 — Metagenome contig binning (Metagenomics)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 57.
+    // Spec: tests/TestSpecs/META-BIN-001.md (canonical BinContigs).
+    // Dimensions: nContigs(3) × features(3: GC/tetra/coverage) × nBins(3). Grid 3×3×3 = 27.
+    //
+    // Model (MetaBAT-style binning): contigs are clustered (k-means) on composition+abundance
+    // features — GC content, normalised coverage and tetranucleotide frequency — into genome
+    // bins; bins below minBinSize are discarded. A bin's reported GC/coverage are the means of
+    // its members; completeness is totalLength/expectedGenomeSize.
+    //
+    // The combinatorial point: contig count, the separating feature and the bin count interact;
+    // across all of them the partition is disjoint, every bin clears minBinSize, and the bin
+    // summaries equal the member averages. A separate witness verifies group recovery.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public enum BinFeature { Gc, Tetra, Coverage }
+
+    private static double GcFraction(string s) => s.Count(c => c is 'G' or 'C') / (double)s.Length;
+
+    private static List<(string ContigId, string Sequence, double Coverage)> ContigSet(int nGroups, int perGroup, BinFeature feature)
+    {
+        var tnfMotifs = new[] { "ACGT", "AGCT", "ATCG", "AGTC" }; // all 50% GC, distinct tetranucleotides
+        var contigs = new List<(string, string, double)>();
+        for (int g = 0; g < nGroups; g++)
+            for (int i = 0; i < perGroup; i++)
+            {
+                string seq;
+                double cov;
+                switch (feature)
+                {
+                    case BinFeature.Gc:
+                        int gcCount = (int)Math.Round(250 * (nGroups == 1 ? 0 : (double)g / (nGroups - 1)));
+                        seq = new string('G', gcCount) + new string('A', 250 - gcCount); // GC = g/(K-1)
+                        cov = 20; break;
+                    case BinFeature.Coverage:
+                        seq = DiverseDna(250, 0xC0u); cov = (g + 1) * 50; break;
+                    default: // Tetra
+                        seq = string.Concat(Enumerable.Repeat(tnfMotifs[g % tnfMotifs.Length], 64)); cov = 20; break;
+                }
+                contigs.Add(($"c{g}_{i}", seq, cov));
+            }
+        return contigs;
+    }
+
+    [Test, Combinatorial]
+    public void MetaBin_PartitionIsConsistent_AcrossFeaturesAndBins(
+        [Values(3, 5, 8)] int perGroup,
+        [Values(BinFeature.Gc, BinFeature.Tetra, BinFeature.Coverage)] BinFeature feature,
+        [Values(2, 3, 4)] int nBins)
+    {
+        var contigs = ContigSet(nBins, perGroup, feature);
+        var bins = MetagenomicsAnalyzer.BinContigs(contigs, numBins: nBins, minBinSize: 1000, expectedGenomeSize: 100000).ToList();
+
+        var binned = bins.SelectMany(b => b.ContigIds).ToList();
+        binned.Should().OnlyHaveUniqueItems("bins are disjoint");
+        binned.Count.Should().BeLessThanOrEqualTo(contigs.Count);
+
+        foreach (var bin in bins)
+        {
+            bin.TotalLength.Should().BeGreaterThanOrEqualTo(1000, "bins below minBinSize are dropped");
+            var ids = bin.ContigIds.ToHashSet();
+            var members = contigs.Where(c => ids.Contains(c.ContigId)).ToList();
+
+            bin.GcContent.Should().BeApproximately(members.Average(m => GcFraction(m.Sequence)), 1e-9, "bin GC is the member mean");
+            bin.Coverage.Should().BeApproximately(members.Average(m => m.Coverage), 1e-9, "bin coverage is the member mean");
+            bin.Completeness.Should().BeApproximately(Math.Min(bin.TotalLength / 100000.0 * 100, 100), 1e-9);
+            bin.Contamination.Should().BeGreaterThanOrEqualTo(0);
+        }
+    }
+
+    /// <summary>
+    /// Interaction witness: two contig groups separated by coverage are recovered as two pure
+    /// bins — every contig in a bin comes from the same source group.
+    /// </summary>
+    [Test]
+    public void MetaBin_RecoversCoverageSeparatedGroups()
+    {
+        var contigs = ContigSet(nGroups: 2, perGroup: 5, BinFeature.Coverage);
+        var bins = MetagenomicsAnalyzer.BinContigs(contigs, numBins: 2, minBinSize: 1000, expectedGenomeSize: 100000).ToList();
+
+        bins.Should().HaveCount(2, "both genomes form a qualifying bin");
+        foreach (var bin in bins)
+        {
+            var groups = bin.ContigIds.Select(id => id.Split('_')[0]).Distinct();
+            groups.Should().ContainSingle("each bin holds contigs from a single source group");
+        }
+    }
 }
