@@ -185,6 +185,38 @@ public class ComplexityFuzzTests
         return numerator / wordCount;
     }
 
+    /// <summary>
+    /// Independent reference K-mer entropy, written straight from K-mer_Entropy.md
+    /// §2.2 (overlapping k-mer decomposition, N = L − k + 1) and the Shannon (1948)
+    /// formula H = −Σ p_i·log₂(p_i), p_i = n_i / N — deliberately NOT calling the
+    /// production code, so it cross-checks the implementation rather than echoes it.
+    /// Returns the documented degenerate 0 for L &lt; k (§3.3 / §6.1: no k-mer exists).
+    /// Inputs are treated alphabet-agnostically (each length-k substring is an opaque
+    /// symbol), mirroring the lenient string surface AFTER upper-casing.
+    /// </summary>
+    private static double ReferenceKmerEntropy(string seq, int k)
+    {
+        if (k < 1) throw new ArgumentOutOfRangeException(nameof(k));
+        if (string.IsNullOrEmpty(seq) || seq.Length < k) return 0.0;
+
+        int n = seq.Length - k + 1;
+        var counts = new Dictionary<string, int>();
+        for (int i = 0; i < n; i++)
+        {
+            string kmer = seq.Substring(i, k);
+            counts[kmer] = counts.TryGetValue(kmer, out int c) ? c + 1 : 1;
+        }
+
+        double entropy = 0.0;
+        foreach (int c in counts.Values)
+        {
+            double p = (double)c / n;
+            entropy -= p * Math.Log2(p);
+        }
+
+        return entropy;
+    }
+
     #endregion
 
     // ═══════════════════════════════════════════════════════════════════
@@ -1079,6 +1111,467 @@ public class ComplexityFuzzTests
         homoScore.Should().BeGreaterThan(randomScore,
             "the homopolymer is the lowest-complexity ⇒ highest-score input (INV-04)");
         homoScore.Should().BeGreaterThan(2.0, "a long homopolymer is far above the mask threshold (§4.2)");
+    }
+
+    #endregion
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    //
+    //  SEQ-COMPLEX-KMER-001 — K-mer entropy (CalculateKmerEntropy)
+    //
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #region SEQ-COMPLEX-KMER-001 — K-mer entropy
+
+    /*  ─────────────────────────────────────────────────────────────────────────
+     *  Unit: SEQ-COMPLEX-KMER-001 — K-mer entropy (SequenceComplexity.CalculateKmerEntropy)
+     *  Checklist: docs/checklists/03_FUZZING.md, row 230.
+     *  Fuzz strategies exercised for THIS unit:
+     *    • BE = Boundary Exploitation — empty input, len < k (no k-mer fits), the
+     *      degenerate k=0 parameter (the BE archetype 0, also −1 / MinInt), a
+     *      homopolymer (single distinct k-mer ⇒ minimal entropy 0), and a very long
+     *      sequence (O(N·k) scale guard under CancelAfter).
+     *    — docs/checklists/03_FUZZING.md §Description (strategy codes; BE = 0/-1/MaxInt/empty),
+     *      and docs/ADVANCED_TESTING_CHECKLIST.md §8 "Fuzzing".
+     *
+     *  ─────────────────────────────────────────────────────────────────────────
+     *  The K-mer-entropy contract under test (K-mer_Entropy.md)
+     *  ─────────────────────────────────────────────────────────────────────────
+     *  K-mer entropy (longdust, Li 2025 [1]; Shannon 1948 [3]) measures complexity
+     *  as the Shannon entropy (in BITS) of the frequency distribution of a sequence's
+     *  overlapping k-mers. Decompose a length-L sequence into N = L − k + 1 overlapping
+     *  k-mers (sliding window, step 1); with n_i the count of distinct k-mer i and
+     *  p_i = n_i / N, the score is (§2.2):
+     *
+     *      H = −Σ_i p_i · log₂(p_i)      (bits)
+     *
+     *  A few dominant k-mers (repeats, homopolymers) ⇒ LOW H; a near-uniform k-mer
+     *  distribution (random) ⇒ HIGH H. Documented invariants pinned here:
+     *    • INV-01 0 ≤ H ≤ log₂(N), N = L − k + 1 (Shannon bound [3]).
+     *    • INV-02 a single distinct k-mer (deterministic, p=1) ⇒ H = 0 — homopolymer.
+     *    • INV-03 all k-mers distinct (uniform) ⇒ H = log₂(N) — the maximum.
+     *    • INV-04 result is case-invariant (input upper-cased before counting).
+     *
+     *  NOTE ON UNIT IDENTITY: the doc carrying Test Unit ID SEQ-COMPLEX-KMER-001 is
+     *  docs/algorithms/Complexity/K-mer_Entropy.md, whose implementation is
+     *  CalculateKmerEntropy (Shannon entropy of the k-mer distribution, range
+     *  [0, log₂ N] BITS). It is NOT the observed/possible-subword "linguistic
+     *  complexity" ratio (CalculateLinguisticComplexity = SEQ-COMPLEX-001, row 5).
+     *  The checklist row-230 targets ("len < k", "k=0") match the k-mer-entropy
+     *  contract exactly; we therefore test the entropy contract per the cited doc.
+     *
+     *  Every expected value below is derived INDEPENDENTLY from K-mer_Entropy.md and
+     *  the Shannon formula (see ReferenceKmerEntropy + the by-hand §7.1 walk-through),
+     *  NOT read off the code's arrays. A test that would still pass against an
+     *  implementation that, say, used a natural-log base, or divided by L instead of
+     *  N = L − k + 1, or omitted the L < k guard, is invalid.
+     *
+     *  ─────────────────────────────────────────────────────────────────────────
+     *  Surfaces and their documented validation (§3.1, §3.3, §6.1)
+     *  ─────────────────────────────────────────────────────────────────────────
+     *  (1) TYPED  CalculateKmerEntropy(DnaSequence, k=2): the DnaSequence has already
+     *      passed strict ctor validation, so only A/C/G/T reach the core.
+     *      null DnaSequence ⇒ ArgumentNullException (explicit guard, never an NRE).
+     *  (2) LENIENT CalculateKmerEntropy(string, k=2): null/empty ⇒ 0; the input is
+     *      upper-cased (ToUpperInvariant) and the k-mer tally is alphabet-agnostic,
+     *      so ANY character (digits, gaps, '\0', unicode, surrogate halves) is parsed
+     *      as an opaque k-mer symbol and NEVER throws.
+     *  Both surfaces: k < 1 ⇒ ArgumentOutOfRangeException (the degenerate-k guard,
+     *  including the BE archetype 0); L < k ⇒ 0 (no k-mer exists, §3.3 / §6.1).
+     *  ───────────────────────────────────────────────────────────────────────── */
+
+    // ───────────────────────────────────────────────────────────────────
+    //  Positive sanity — hand-checkable worked examples (KMER §7.1, INV-02/03)
+    // ───────────────────────────────────────────────────────────────────
+
+    #region KMER — Positive sanity — worked examples
+
+    /// <summary>
+    /// The §7.1 worked example, derived independently: "ATATAT", k=2 → dimers
+    /// AT,TA,AT,TA,AT ⇒ AT=3, TA=2, N=5; p = 0.6, 0.4; H = −0.6·log₂0.6 − 0.4·log₂0.4
+    /// = 0.4421793565 + 0.5287712380 = 0.9709505944546686 bits. The distinct-k-mer
+    /// count (2) and the denominator N = L−k+1 = 5 are each verified independently of
+    /// the code. Run on BOTH the strict typed DnaSequence surface and the lenient
+    /// string surface (the input is valid DNA), pinning their agreement.
+    /// </summary>
+    [Test]
+    public void Kmer_AtatatK2_WorkedExample_MatchesDocExactly()
+    {
+        const string s = "ATATAT";
+        const double expected = 0.9709505944546686;
+
+        double viaDna = SequenceComplexity.CalculateKmerEntropy(new DnaSequence(s), 2);
+        viaDna.Should().BeApproximately(expected, Tolerance,
+            "AT=3,TA=2 among N=5 dimers ⇒ H = −0.6log₂0.6 − 0.4log₂0.4 = 0.97095059… (§7.1)");
+
+        double viaString = SequenceComplexity.CalculateKmerEntropy(s, 2);
+        viaString.Should().BeApproximately(viaDna, Tolerance,
+            "the typed and lenient surfaces agree on valid DNA");
+        viaString.Should().BeApproximately(ReferenceKmerEntropy(s, 2), Tolerance,
+            "must match the independent Shannon k-mer-entropy reference");
+    }
+
+    /// <summary>
+    /// INV-03, the maximum: when every k-mer is distinct the distribution is uniform
+    /// and H = log₂(N). "ACGT", k=2 → AC,CG,GT (all distinct), N = 3, so H = log₂3 =
+    /// 1.5849625007211562 bits; and "ACGT", k=1 → A,C,G,T all distinct, N = 4, so
+    /// H = log₂4 = 2.0. The distinct count equals N in each case, independently checked.
+    /// </summary>
+    [Test]
+    public void Kmer_AllDistinct_IsLog2N()
+    {
+        // ACGT, k=2: AC,CG,GT all distinct ⇒ N=3 ⇒ H = log₂3.
+        SequenceComplexity.CalculateKmerEntropy(new DnaSequence("ACGT"), 2)
+            .Should().BeApproximately(Math.Log2(3), Tolerance,
+                "3 distinct dimers over N=3 ⇒ uniform ⇒ H = log₂3 (INV-03)");
+
+        // ACGT, k=1: A,C,G,T all distinct over N=4 ⇒ H = log₂4 = 2.0.
+        SequenceComplexity.CalculateKmerEntropy(new DnaSequence("ACGT"), 1)
+            .Should().BeApproximately(2.0, Tolerance,
+                "A,C,G,T all distinct over N=4 ⇒ H = log₂4 = 2.0 (INV-03)");
+    }
+
+    /// <summary>
+    /// INV-02, the minimum: a homopolymer produces ONE distinct k-mer repeated N
+    /// times (deterministic distribution, p=1), so H = 0 exactly — the lowest
+    /// complexity. Pinned across several lengths/symbols (DNA + a non-DNA symbol on
+    /// the lenient surface) so the value is symbol-agnostic, never a 0/0 NaN.
+    /// </summary>
+    [Test]
+    public void Kmer_Homopolymer_EntropyIsZero()
+    {
+        foreach (char sym in new[] { 'A', 'C', 'G', 'T', '0', 'Z' })
+        {
+            foreach (int n in new[] { 2, 3, 5, 10, 64, 1000 })
+            {
+                string s = new string(sym, n);
+                double h = SequenceComplexity.CalculateKmerEntropy(s, 2);
+
+                h.Should().BeApproximately(0.0, Tolerance,
+                    $"\"{sym}\"×{n}, k=2: a single distinct dimer (p=1) ⇒ H = 0 (INV-02)");
+                double.IsNaN(h).Should().BeFalse("a single deterministic k-mer never yields a 0/0 NaN");
+                h.Should().BeApproximately(ReferenceKmerEntropy(s, 2), Tolerance,
+                    "matches the independent reference");
+            }
+        }
+    }
+
+    /// <summary>
+    /// INV-02 vs the general case, the discriminating contract: a homopolymer (one
+    /// distinct k-mer, H=0) has STRICTLY LOWER k-mer entropy than a diverse
+    /// same-length sequence, which in turn must satisfy the Shannon upper bound
+    /// H ≤ log₂(N). A degenerate implementation returning a constant or echoing the
+    /// count would fail this.
+    /// </summary>
+    [Test]
+    public void Kmer_HomopolymerStrictlyLessEntropyThanDiverse_SameLength()
+    {
+        const int n = 256;
+
+        double homopolymer = SequenceComplexity.CalculateKmerEntropy(
+            new DnaSequence(new string('A', n)), 3);
+        double diverse = SequenceComplexity.CalculateKmerEntropy(
+            new DnaSequence(string.Concat(Enumerable.Repeat("ACGT", n / 4))), 3);
+
+        homopolymer.Should().BeApproximately(0.0, Tolerance, "single distinct 3-mer ⇒ H = 0 (INV-02)");
+        diverse.Should().BeGreaterThan(homopolymer,
+            "a diverse sequence spreads probability over many k-mers ⇒ higher entropy");
+        diverse.Should().BeLessThanOrEqualTo(Math.Log2(n - 3 + 1) + Tolerance,
+            "H ≤ log₂(N), N = L − k + 1 (INV-01)");
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  BE — Boundary: empty / null
+    // ───────────────────────────────────────────────────────────────────
+
+    #region KMER — BE — Boundary: empty / null
+
+    /// <summary>
+    /// BE: empty/null on the lenient string surface short-circuits to a defined 0 —
+    /// NO division by N, NO NaN, NO exception (§3.3, §6.1: null/empty string ⇒ 0).
+    /// </summary>
+    [Test]
+    public void Kmer_EmptyAndNullString_AreZeroAndDoNotThrow()
+    {
+        foreach (var input in new[] { string.Empty, (string?)null })
+        {
+            var act = () => SequenceComplexity.CalculateKmerEntropy(input!, 2);
+            act.Should().NotThrow("empty/null is a defined boundary on the lenient surface (§6.1)");
+            SequenceComplexity.CalculateKmerEntropy(input!, 2).Should().Be(0.0,
+                "null/empty string ⇒ H = 0, no division (§3.3, §6.1)");
+        }
+    }
+
+    /// <summary>
+    /// BE: the empty DnaSequence (built from "" via the ctor short-circuit) yields a
+    /// defined 0 (L = 0 &lt; k ⇒ no k-mer) — no division-by-zero on N, no NaN.
+    /// </summary>
+    [Test]
+    public void Kmer_EmptyDnaSequence_IsZeroAndDoesNotThrow()
+    {
+        var act = () =>
+        {
+            var empty = new DnaSequence(string.Empty);
+            empty.Length.Should().Be(0);
+            double h = SequenceComplexity.CalculateKmerEntropy(empty, 2);
+            h.Should().Be(0.0, "L = 0 < k ⇒ no k-mer ⇒ H = 0 (§6.1)");
+            double.IsNaN(h).Should().BeFalse("the L < k guard avoids a 0/0 NaN");
+        };
+
+        act.Should().NotThrow("an empty sequence is a defined boundary, not an error");
+    }
+
+    /// <summary>
+    /// BE: a null DnaSequence is the documented ArgumentNullException boundary on the
+    /// typed surface (§3.3, §6.1) — an INTENTIONAL validation exception, never a raw
+    /// NullReferenceException.
+    /// </summary>
+    [Test]
+    public void Kmer_NullDnaSequence_ThrowsArgumentNullException()
+    {
+        var act = () => SequenceComplexity.CalculateKmerEntropy((DnaSequence)null!, 2);
+        act.Should().Throw<ArgumentNullException>("the typed overload guards null explicitly (§3.3)");
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  BE — Boundary: len < k  (no k-mer fits)
+    // ───────────────────────────────────────────────────────────────────
+
+    #region KMER — BE — Boundary: len < k
+
+    /// <summary>
+    /// BE: a sequence SHORTER THAN k forms no k-mer, so the documented convention
+    /// (§3.3, §6.1: "k > L ⇒ 0") returns a defined 0 — never a divide by the
+    /// negative/zero count N = L − k + 1, never a NaN, never an IndexOutOfRange from
+    /// Substring(i, k). Pinned across L = 0,1,2,3,4 with k = 5, and the exact boundary
+    /// L == k (one k-mer ⇒ deterministic ⇒ H = 0), on both surfaces.
+    /// </summary>
+    [TestCase("", 5)]
+    [TestCase("A", 5)]
+    [TestCase("AC", 5)]
+    [TestCase("ACG", 5)]
+    [TestCase("ACGT", 5)]    // L=4 < k=5 ⇒ 0
+    [TestCase("ACGTA", 5)]   // L == k ⇒ exactly one k-mer, deterministic ⇒ H = 0
+    public void Kmer_LenLessThanK_IsZero(string s, int k)
+    {
+        double viaString = SequenceComplexity.CalculateKmerEntropy(s, k);
+        viaString.Should().Be(0.0,
+            "L < k ⇒ no k-mer ⇒ H = 0; L == k ⇒ one k-mer (p=1) ⇒ H = 0 (§3.3, §6.1)");
+        double.IsNaN(viaString).Should().BeFalse("no 0/0 on the negative/zero k-mer count N");
+        viaString.Should().Be(ReferenceKmerEntropy(s, k), "matches the independent reference");
+
+        if (s.Length > 0)
+        {
+            double viaDna = SequenceComplexity.CalculateKmerEntropy(new DnaSequence(s), k);
+            viaDna.Should().Be(0.0, "strict surface obeys the same k > L ⇒ 0 convention");
+        }
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  BE — Boundary: degenerate k  (k = 0, −1, MinInt)
+    // ───────────────────────────────────────────────────────────────────
+
+    #region KMER — BE — Boundary: degenerate k
+
+    /// <summary>
+    /// BE: k &lt; 1 is the documented ArgumentOutOfRangeException boundary (§3.3) on
+    /// both surfaces — including the BE archetype 0 and −1 and the MinInt extreme. An
+    /// INTENTIONAL validation throw guarding the would-be divide-by-zero / empty-window
+    /// degenerate, never a DivideByZero, never an IndexOutOfRange, never a silent 0.
+    /// The k &lt; 1 guard fires even on empty/valid input (it is checked before the
+    /// null/empty short-circuit on the string surface — source-verified), so a garbage
+    /// k can never slip a NaN through on any input.
+    /// </summary>
+    [TestCase(0)]
+    [TestCase(-1)]
+    [TestCase(int.MinValue)]
+    public void Kmer_KBelowOne_ThrowsArgumentOutOfRange(int k)
+    {
+        var viaString = () => SequenceComplexity.CalculateKmerEntropy("ACGTACGT", k);
+        var viaDna = () => SequenceComplexity.CalculateKmerEntropy(new DnaSequence("ACGTACGT"), k);
+        // Guard precedes the empty/null short-circuit on the string surface.
+        var viaEmptyString = () => SequenceComplexity.CalculateKmerEntropy(string.Empty, k);
+
+        viaString.Should().Throw<ArgumentOutOfRangeException>("k < 1 is invalid (§3.3)");
+        viaDna.Should().Throw<ArgumentOutOfRangeException>("k < 1 is invalid (§3.3)");
+        viaEmptyString.Should().Throw<ArgumentOutOfRangeException>(
+            "the k < 1 guard fires before the empty short-circuit (source-verified)");
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  BE / INJ — non-ACGT characters
+    // ───────────────────────────────────────────────────────────────────
+
+    #region KMER — BE/INJ — non-ACGT characters
+
+    /// <summary>
+    /// BE/INJ: non-ACGT characters. The STRICT typed surface rejects them at the
+    /// DnaSequence ctor with ArgumentException (so the metric never sees garbage),
+    /// while the LENIENT string surface is alphabet-agnostic: it upper-cases and tallies
+    /// each char as an opaque k-mer symbol, never throwing (§3.3, INV-04). We pin both:
+    /// a non-DNA homopolymer "NNNNNN" scores H = 0 like "AAAAAA" (symbol identity is
+    /// irrelevant), case-folding gives an identical result (INV-04), and a non-DNA
+    /// all-distinct-k-mer string scores its uniform maximum log₂(N).
+    /// </summary>
+    [Test]
+    public void Kmer_NonAcgt_LenientStringScoresStructurally_StrictRejects()
+    {
+        // Lenient surface: alphabet-agnostic, non-DNA homopolymer behaves like a DNA one.
+        SequenceComplexity.CalculateKmerEntropy("NNNNNN", 2)
+            .Should().BeApproximately(0.0, Tolerance,
+                "the core is symbol-agnostic: \"N\"×6 has one distinct dimer ⇒ H = 0 (INV-02)");
+        SequenceComplexity.CalculateKmerEntropy("------", 2)
+            .Should().BeApproximately(0.0, Tolerance, "gap homopolymer scores identically (§3.3)");
+
+        // INV-04: case-invariance — lower-case input is upper-cased before counting.
+        SequenceComplexity.CalculateKmerEntropy("atatat", 2)
+            .Should().BeApproximately(SequenceComplexity.CalculateKmerEntropy("ATATAT", 2), Tolerance,
+                "result is invariant to letter case (INV-04)");
+
+        // Lenient: a non-DNA all-distinct-k-mer string scores its uniform max log₂(N).
+        double digits = SequenceComplexity.CalculateKmerEntropy("123456", 2);
+        digits.Should().BeApproximately(ReferenceKmerEntropy("123456", 2), Tolerance,
+            "matches the independent reference");
+        digits.Should().BeApproximately(Math.Log2(5), Tolerance,
+            "12,23,34,45,56 all distinct over N=5 ⇒ H = log₂5 (INV-03)");
+
+        // Strict surface: non-ACGT is rejected at the ctor, never reaching the metric.
+        var build = () => new DnaSequence("ACGTNACGT");
+        build.Should().Throw<ArgumentException>("the DnaSequence ctor rejects non-ACGT (strict gate)");
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────
+    //  BE / RB — randomized boundary sweep + scale guard
+    // ───────────────────────────────────────────────────────────────────
+
+    #region KMER — BE/RB — randomized sweep + scale guard
+
+    /// <summary>
+    /// BE/RB: a randomized boundary sweep. Over many fixed-seed inputs of varied length
+    /// AND varied k, deliberately including degenerate boundaries (len &lt; k,
+    /// homopolymers, periodic strings), the k-mer entropy must ALWAYS be well-formed:
+    /// finite (no NaN/Infinity), within the Shannon bounds 0 ≤ H ≤ log₂(N) (INV-01),
+    /// exactly equal to the independent Shannon reference, 0 whenever len &lt; k or the
+    /// sequence is a homopolymer (INV-02). Never a throw, hang, or overflow.
+    /// </summary>
+    [Test]
+    [CancelAfter(30000)]
+    public void Kmer_RandomizedSweep_AlwaysWellFormed()
+    {
+        var rng = new Random(Seed + 8);
+
+        for (int iter = 0; iter < 400; iter++)
+        {
+            int n = rng.Next(0, 600);                 // includes 0, 1, 2 …
+            int k = rng.Next(1, 8);                    // valid k ≥ 1
+            int mode = rng.Next(3);
+            string s = mode switch
+            {
+                0 => RandomDna(rng, n),                                 // random DNA
+                1 => new string("ACGT"[rng.Next(4)], n),                // homopolymer (H = 0)
+                _ => string.Concat(Enumerable.Repeat("AC", n / 2)),     // periodic dinucleotide
+            };
+
+            double h = SequenceComplexity.CalculateKmerEntropy(s, k);
+
+            double.IsNaN(h).Should().BeFalse("k-mer entropy must never be NaN");
+            double.IsInfinity(h).Should().BeFalse("k-mer entropy must never be Infinity");
+            h.Should().BeGreaterThanOrEqualTo(0.0, "H ≥ 0 (INV-01)");
+            h.Should().BeApproximately(ReferenceKmerEntropy(s, k), Tolerance,
+                "the production entropy must match the independent Shannon reference");
+
+            int nKmers = s.Length - k + 1;
+            if (nKmers >= 1)
+                h.Should().BeLessThanOrEqualTo(Math.Log2(nKmers) + Tolerance,
+                    "H ≤ log₂(N), N = L − k + 1 (INV-01)");
+
+            if (s.Length < k)
+                h.Should().Be(0.0, "len < k ⇒ no k-mer ⇒ H = 0 (§6.1)");
+
+            // INV-02: a homopolymer is the minimal-entropy (0) extreme at every length/k.
+            if (mode == 1 && s.Length >= k)
+                h.Should().BeApproximately(0.0, Tolerance,
+                    "a homopolymer has one distinct k-mer ⇒ H = 0 (INV-02)");
+        }
+    }
+
+    /// <summary>
+    /// BE/INJ: the lenient string surface must NEVER throw on pure random-byte garbage —
+    /// arbitrary BMP code points including control chars, the null byte, and lone
+    /// surrogate halves. Each char is parsed as an opaque k-mer symbol after upper-casing
+    /// (§3.3), so the result must be a finite non-negative value matching the independent
+    /// reference parse of the UPPER-CASED input, with no encoding surprise.
+    /// </summary>
+    [Test]
+    [CancelAfter(30000)]
+    public void Kmer_LenientStringSurface_RandomBmpGarbage_NeverThrows()
+    {
+        var rng = new Random(Seed + 9);
+
+        for (int iter = 0; iter < 300; iter++)
+        {
+            string s = RandomBmpChars(rng, rng.Next(0, 300));
+            int k = rng.Next(1, 6);
+
+            double h = 0;
+            var act = () => { h = SequenceComplexity.CalculateKmerEntropy(s, k); };
+            act.Should().NotThrow("the lenient string parse is alphabet-agnostic and total over char (§3.3)");
+
+            double.IsNaN(h).Should().BeFalse("never NaN on garbage");
+            double.IsInfinity(h).Should().BeFalse("never Infinity on garbage");
+            h.Should().BeGreaterThanOrEqualTo(0.0, "H ≥ 0 (INV-01)");
+            h.Should().BeApproximately(ReferenceKmerEntropy(s.ToUpperInvariant(), k), Tolerance,
+                "must equal the reference entropy of the upper-cased input (§3.3)");
+        }
+    }
+
+    /// <summary>
+    /// BE/OVF: a very long sequence (200,000 bases) must compute without overflow or
+    /// hang under a CancelAfter guard (the scan is O(N·k), §4.3). A long homopolymer
+    /// (the minimal-entropy extreme, H = 0) and a long random sequence must each yield a
+    /// finite entropy within [0, log₂ N]; random must be far more complex than the
+    /// homopolymer (INV-02) and sit high within its log₂(N) ceiling, with the homopolymer
+    /// pinned to exactly 0.
+    /// </summary>
+    [Test]
+    [CancelAfter(60000)]
+    public void Kmer_VeryLong_NoOverflowNoHang_AndContractHolds()
+    {
+        var rng = new Random(Seed + 10);
+        const int n = 200_000;
+        const int k = 6;
+
+        string homopolymer = new string('A', n);
+        string random = RandomDna(rng, n);
+
+        double homoH = SequenceComplexity.CalculateKmerEntropy(homopolymer, k);
+        double randomH = SequenceComplexity.CalculateKmerEntropy(random, k);
+
+        double.IsNaN(homoH).Should().BeFalse();
+        double.IsNaN(randomH).Should().BeFalse();
+        double.IsInfinity(homoH).Should().BeFalse();
+        double.IsInfinity(randomH).Should().BeFalse();
+
+        homoH.Should().BeApproximately(0.0, Tolerance,
+            "a homopolymer has one distinct k-mer at scale ⇒ H = 0 (INV-02)");
+        randomH.Should().BeGreaterThan(homoH,
+            "random DNA spreads probability over many k-mers ⇒ far higher entropy (INV-02)");
+        randomH.Should().BeLessThanOrEqualTo(Math.Log2(n - k + 1) + Tolerance,
+            "H ≤ log₂(N) even at scale (INV-01)");
+        randomH.Should().BeGreaterThan(2.0,
+            "random DNA at scale sits high within [0, log₂(N≈2e5)≈17.6 bits]");
     }
 
     #endregion
