@@ -1543,6 +1543,123 @@ public class OncologyCombinatorialTests
         OncologyAnalyzer.IdentifyDeletedTumorSuppressors(deletions).Should().Contain("CDKN2A");
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ONCO-PURITY-001 — Tumor purity estimation (Oncology)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 106.
+    // Spec: tests/TestSpecs/ONCO-PURITY-001.md (OncologyAnalyzer.EstimatePurity / EstimatePurityFromVaf).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: Antonello et al. (2024) CNAqc Genome Biology 25:38 — expected VAF v = m·π/[2(1−π)+π·n_tot];
+    // inversion π = 2v/[m + v(2−n_tot)]; copy-neutral diploid heterozygous (m=1,n_tot=2) → π = 2·VAF.
+    //
+    // EstimatePurity inverts the CNAqc relation per variant and aggregates by median.
+    //
+    // Checklist axes nVariants(3) × vafDist(3) × cnModel(2) map onto the real knobs:
+    //   • nVariants → number of clonal variants in the set ∈ {1, 3, 5} (median-aggregated).
+    //   • vafDist   → realised as the TRUE purity that generates the VAFs ∈ {0.3, 0.6, 0.9} (each a
+    //     distinct VAF level).
+    //   • cnModel   → the allele-specific copy-number state {Diploid (m=1,n_tot=2), Amplified (m=1,n_tot=3)}.
+    // Grid = 3 × 3 × 2 = 18 = the checklist's "Full Combos" for this row.
+    //
+    // The combinatorial point: each cell GENERATES the VAF from a known (true purity, cn model) via the
+    // forward CNAqc relation, and the estimator must invert it back to the true purity (INV-3 round-trip)
+    // regardless of how many variants are aggregated — the recovered purity is a JOINT function of the VAF
+    // and the copy-number model (the same VAF gives a different purity under a different cn model).
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>Allele-specific copy-number model (the cnModel axis).</summary>
+    public enum PurityCnModel
+    {
+        /// <summary>Copy-neutral diploid heterozygous SNV: m = 1, n_tot = 2 (π = 2·VAF).</summary>
+        Diploid,
+
+        /// <summary>Single-copy mutation on a 2:1 amplified segment: m = 1, n_tot = 3.</summary>
+        Amplified,
+    }
+
+    private static (int Multiplicity, int TotalCopyNumber) CnModelState(PurityCnModel model) => model switch
+    {
+        PurityCnModel.Diploid => (1, 2),
+        PurityCnModel.Amplified => (1, 3),
+        _ => throw new ArgumentOutOfRangeException(nameof(model)),
+    };
+
+    /// <summary>Forward CNAqc expected-VAF relation v = m·π / [2(1−π) + π·n_tot].</summary>
+    private static double ExpectedVaf(double purity, int m, int nTot)
+        => m * purity / (2.0 * (1.0 - purity) + purity * nTot);
+
+    /// <summary>
+    /// For every (nVariants, true purity, cn model) the VAF is generated from the forward CNAqc relation and
+    /// the estimator must invert it back to the true purity, regardless of the number of aggregated variants.
+    /// </summary>
+    [Test, Combinatorial]
+    public void EstimatePurity_VariantsPurityCnModelGrid_InvertsToTruePurity(
+        [Values(1, 3, 5)] int nVariants,
+        [Values(0.3, 0.6, 0.9)] double truePurity,
+        [Values] PurityCnModel cnModel)
+    {
+        var (m, nTot) = CnModelState(cnModel);
+        double vaf = ExpectedVaf(truePurity, m, nTot);
+
+        var variants = Enumerable.Range(0, nVariants)
+            .Select(_ => new OncologyAnalyzer.PurityVariant(vaf, m, nTot))
+            .ToList();
+
+        double recovered = OncologyAnalyzer.EstimatePurity(variants);
+
+        recovered.Should().BeInRange(0.0, 1.0, "[INV-1] purity ∈ [0, 1]");
+        recovered.Should().BeApproximately(truePurity, 1e-9,
+            "[INV-3] inverting the CNAqc relation recovers the purity that generated the VAF");
+    }
+
+    /// <summary>
+    /// Interaction witness (cnModel axis): the same VAF = 0.3 yields purity 0.6 under the copy-neutral
+    /// diploid model but ≈ 0.857 on a 2:1 amplified segment — the recovered purity flips on the cn-model
+    /// axis. Source: Antonello et al. (2024) allele-specific inversion.
+    /// </summary>
+    [Test]
+    public void EstimatePurity_CnModelAxis_ChangesRecoveredPurityForSameVaf()
+    {
+        var diploid = OncologyAnalyzer.EstimatePurity(new[] { new OncologyAnalyzer.PurityVariant(0.3, 1, 2) });
+        var amplified = OncologyAnalyzer.EstimatePurity(new[] { new OncologyAnalyzer.PurityVariant(0.3, 1, 3) });
+
+        diploid.Should().BeApproximately(0.6, 1e-9, "π = 2·0.3 / [1 + 0.3·0] = 0.6");
+        amplified.Should().BeApproximately(2.0 * 0.3 / (1.0 - 0.3), 1e-9, "π = 2·0.3 / [1 + 0.3·(2−3)] ≈ 0.857");
+    }
+
+    /// <summary>
+    /// Interaction witness (nVariants median robustness): a set of clonal variants plus one subclonal
+    /// outlier still returns the clonal purity, because the per-variant estimates are aggregated by median.
+    /// Source: CNAqc median aggregation (robust to subclonal VAFs).
+    /// </summary>
+    [Test]
+    public void EstimatePurity_SubclonalOutlier_IsRejectedByMedian()
+    {
+        double clonalVaf = ExpectedVaf(0.6, 1, 2); // 0.30
+        var variants = new[]
+        {
+            new OncologyAnalyzer.PurityVariant(clonalVaf, 1, 2),
+            new OncologyAnalyzer.PurityVariant(clonalVaf, 1, 2),
+            new OncologyAnalyzer.PurityVariant(clonalVaf, 1, 2),
+            new OncologyAnalyzer.PurityVariant(0.05, 1, 2), // subclonal outlier
+        };
+
+        OncologyAnalyzer.EstimatePurity(variants).Should().BeApproximately(0.6, 1e-9,
+            "the median ignores the subclonal outlier");
+    }
+
+    /// <summary>
+    /// Witness (INV-2 / domain): the diploid closed form is π = 2·VAF, and a VAF &gt; 0.5 (purity &gt; 1) is
+    /// rejected as not copy-neutral diploid heterozygous. Source: Antonello et al. (2024).
+    /// </summary>
+    [Test]
+    public void EstimatePurityFromVaf_DiploidClosedFormAndDomain()
+    {
+        OncologyAnalyzer.EstimatePurityFromVaf(0.3).Should().BeApproximately(0.6, 1e-12, "ρ = 2·VAF");
+        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.EstimatePurityFromVaf(0.6),
+            "VAF > 0.5 implies purity > 1 under the diploid heterozygous model");
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     // Helpers — engineered constructs + independent ground truth
     // ───────────────────────────────────────────────────────────────────────
