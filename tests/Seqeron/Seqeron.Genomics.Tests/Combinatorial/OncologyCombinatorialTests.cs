@@ -2000,6 +2000,96 @@ public class OncologyCombinatorialTests
         OncologyAnalyzer.ClassifyBindingAffinity(500.0).Should().Be(OncologyAnalyzer.BindingStrength.NonBinder, "500 nM is not < 500");
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ONCO-CTDNA-001 — ctDNA Poisson limit-of-detection (Oncology)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 111.
+    // Spec: tests/TestSpecs/ONCO-CTDNA-001.md (OncologyAnalyzer.CtDnaDetectionProbability / IsCtDnaDetected / ExpectedMutantMolecules).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: US Patent 11,085,084 B2 / Avanzini (2020) — Poisson λ = n·d·k, p = 1 − e^(−λ); Newman et al.
+    // (2014) CAPP-Seq detection range; Pessoa et al. (2023) worked example (n=15000, d=0.001 → λ=15).
+    //
+    // IsCtDnaDetected ⟺ λ = n·d·k ≥ 1 AND p = 1 − e^(−λ) ≥ minDetectionProbability (default 0.95).
+    //
+    // Checklist axes tumorFraction(3) × depth(3) × errorRate(2) map onto the real knobs:
+    //   • tumorFraction → mutant allele fraction d ∈ {0.0005, 0.001, 0.01}.
+    //   • depth         → sequenced genome equivalents n ∈ {1000, 5000, 15000}.
+    //   • errorRate     → there is no explicit error-rate parameter; the implemented robustness knob is the
+    //     number of independent tumour reporters k ∈ {1, 3} (multi-reporter tracking raises λ, counteracting
+    //     per-reporter error/dropout — the MRD strategy).
+    // Grid = 3 × 3 × 2 = 18 = the checklist's "Full Combos" for this row.
+    //
+    // The combinatorial point: all three axes feed the single Poisson mean λ = n·d·k, and detection is a
+    // JOINT threshold on it — detection flips as λ crosses the LoD regime. Each cell checks λ, the closed-
+    // form probability, and the detection decision re-derived from the inputs.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// For every (mutant allele fraction, genome equivalents, reporter count) the expected mutant-molecule
+    /// count, the Poisson detection probability and the detection decision match the closed forms
+    /// λ = n·d·k, p = 1 − e^(−λ), detected ⟺ λ ≥ 1 ∧ p ≥ 0.95.
+    /// </summary>
+    [Test, Combinatorial]
+    public void CtDnaDetection_FractionDepthReporterGrid_MatchesPoissonModel(
+        [Values(0.0005, 0.001, 0.01)] double mutantAlleleFraction,
+        [Values(1000, 5000, 15000)] int genomeEquivalents,
+        [Values(1, 3)] int reporterCount)
+    {
+        double lambda = (double)genomeEquivalents * mutantAlleleFraction * reporterCount;
+        double expectedProbability = 1.0 - Math.Exp(-lambda);
+        bool expectedDetected = lambda >= 1.0 && expectedProbability >= 0.95;
+
+        OncologyAnalyzer.ExpectedMutantMolecules(genomeEquivalents, mutantAlleleFraction, reporterCount)
+            .Should().BeApproximately(lambda, 1e-9, "λ = n·d·k");
+        OncologyAnalyzer.CtDnaDetectionProbability(genomeEquivalents, mutantAlleleFraction, reporterCount)
+            .Should().BeApproximately(expectedProbability, 1e-12, "p = 1 − e^(−λ)");
+        OncologyAnalyzer.IsCtDnaDetected(genomeEquivalents, mutantAlleleFraction, reporterCount)
+            .Should().Be(expectedDetected, "detected ⟺ λ ≥ 1 ∧ p ≥ 0.95");
+    }
+
+    /// <summary>
+    /// Interaction witness (monotonicity, INV-3): the detection probability is strictly increasing in each
+    /// of the three axes — raising the tumor fraction, the depth, or the reporter count raises λ and hence
+    /// p. Source: US Patent 11,085,084 (λ monotone).
+    /// </summary>
+    [Test]
+    public void CtDnaDetectionProbability_IsMonotoneInEachAxis()
+    {
+        double baseP = OncologyAnalyzer.CtDnaDetectionProbability(5000, 0.001, 1);
+
+        OncologyAnalyzer.CtDnaDetectionProbability(5000, 0.01, 1).Should().BeGreaterThan(baseP, "higher tumor fraction");
+        OncologyAnalyzer.CtDnaDetectionProbability(15000, 0.001, 1).Should().BeGreaterThan(baseP, "higher depth");
+        OncologyAnalyzer.CtDnaDetectionProbability(5000, 0.001, 3).Should().BeGreaterThan(baseP, "more reporters");
+    }
+
+    /// <summary>
+    /// Interaction witness (λ ≥ 1 physical gate): even when the probability clears a permissive threshold,
+    /// detection requires at least one expected mutant molecule — a sample with λ = 0.5 is undetectable
+    /// (no molecule expected) while λ = 1.2 is detected. Source: Poisson physical limit (US Patent 11,085,084).
+    /// </summary>
+    [Test]
+    public void IsCtDnaDetected_LambdaBelowOne_IsUndetectableDespiteProbabilityThreshold()
+    {
+        // λ = 1000·0.0005·1 = 0.5 → p ≈ 0.393 ≥ 0.3 threshold, but λ < 1 → not detected.
+        OncologyAnalyzer.IsCtDnaDetected(1000, 0.0005, 1, minDetectionProbability: 0.3)
+            .Should().BeFalse("fewer than one expected mutant molecule cannot be detected");
+        // λ = 1200·0.001·1 = 1.2 → p ≈ 0.699 ≥ 0.3 and λ ≥ 1 → detected.
+        OncologyAnalyzer.IsCtDnaDetected(1200, 0.001, 1, minDetectionProbability: 0.3)
+            .Should().BeTrue("λ ≥ 1 and p clears the threshold");
+    }
+
+    /// <summary>
+    /// Witness (worked example + INV-2): n = 15000 GE at d = 0.001 gives λ = 15 expected molecules
+    /// (Pessoa et al. 2023), p ≈ 1; and a zero allele fraction gives p = 0 (1 − e⁰). Source: Poisson model.
+    /// </summary>
+    [Test]
+    public void CtDnaDetection_WorkedExampleAndZeroFraction()
+    {
+        OncologyAnalyzer.ExpectedMutantMolecules(15000, 0.001).Should().BeApproximately(15.0, 1e-9);
+        OncologyAnalyzer.CtDnaDetectionProbability(15000, 0.001).Should().BeApproximately(1.0 - Math.Exp(-15.0), 1e-12);
+        OncologyAnalyzer.CtDnaDetectionProbability(15000, 0.0).Should().Be(0.0, "[INV-2] d = 0 → λ = 0 → p = 0");
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     // Helpers — engineered constructs + independent ground truth
     // ───────────────────────────────────────────────────────────────────────
