@@ -994,6 +994,129 @@ public class OncologyCombinatorialTests
         OncologyAnalyzer.CosineSimilarity(new double[] { 3, 4 }, new double[] { 6, 8 }).Should().BeApproximately(1.0, 1e-12);
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ONCO-SIG-003 — Bootstrap confidence intervals on signature exposures (Oncology)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 98.
+    // Spec: tests/TestSpecs/ONCO-SIG-003.md (OncologyAnalyzer.BootstrapExposures).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: Senkin (2021) MSA (multinomial resample of the count catalog + NNLS refit + [2.5%,97.5%]
+    // percentile CI); Huang et al. (2018); Efron (1979) percentile method; Hyndman & Fan (1996) type-7.
+    //
+    // BootstrapExposures resamples the catalog as a multinomial draw of N = Σcatalog, refits each draw by
+    // NNLS, and reports a per-signature percentile CI; the point estimate is the NNLS fit of the observed
+    // catalog. All three checklist axes are REAL parameters: nBootstrap → replicates, seed → seed,
+    // nMutations → catalog total N.
+    //
+    // The grid uses a DEGENERATE catalog with a single non-zero channel: the multinomial draw is then
+    // deterministic (every resample reproduces the observed catalog), so the bootstrap distribution
+    // collapses to the point estimate exactly — INDEPENDENT of replicates and seed (Senkin 2021 corner
+    // case). This makes every cell exactly verifiable: the active signature's interval is [N,N,N,N], the
+    // absent signature's is [0,0,0,0].
+    //   • nBootstrap → replicates ∈ {1, 10, 100}  • seed → ∈ {7, 42}  • nMutations → N ∈ {0, 100, 1000}.
+    // Grid = 3 × 2 × 3 = 18 = the checklist's "Full Combos" for this row.
+    //
+    // The combinatorial point: under the degenerate resample the CI collapses to the point estimate for
+    // ALL (replicates, seed) — an invariance across two axes — while the nMutations axis scales the point
+    // estimate (N). Seed-sensitivity on a NON-degenerate catalog (where the axis is genuinely live) and the
+    // confidence-width / determinism properties are covered by witnesses.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// With a single-non-zero-channel catalog the multinomial resample is deterministic, so for every
+    /// (replicates, seed, N) the bootstrap CI collapses exactly to the point estimate: the active signature
+    /// reports [N,N,N,N] and the absent signature [0,0,0,0]. Replicates and seed are provably inert here;
+    /// N scales the point estimate.
+    /// </summary>
+    [Test, Combinatorial]
+    public void BootstrapExposures_ReplicatesSeedMutationsGrid_DegenerateResampleCollapsesToPointEstimate(
+        [Values(1, 10, 100)] int replicates,
+        [Values(7, 42)] int seed,
+        [Values(0, 100, 1000)] int totalMutations)
+    {
+        var catalog = new[] { totalMutations, 0 }; // all mass on channel 0 → deterministic resample
+        var signatures = new IReadOnlyList<double>[]
+        {
+            new double[] { 1.0, 0.0 }, // active signature (channel 0)
+            new double[] { 0.0, 1.0 }, // absent signature (channel 1)
+        };
+
+        var intervals = OncologyAnalyzer.BootstrapExposures(catalog, signatures, replicates, 0.95, seed);
+
+        intervals.Should().HaveCount(2, "[INV-5] one interval per signature, in order");
+
+        var active = intervals[0];
+        active.PointEstimate.Should().BeApproximately(totalMutations, 1e-9, "[INV-5] point estimate = NNLS exposure of observed catalog = N");
+        active.Mean.Should().BeApproximately(totalMutations, 1e-9, "degenerate resample → every replicate = N");
+        active.Lower.Should().BeApproximately(totalMutations, 1e-9);
+        active.Upper.Should().BeApproximately(totalMutations, 1e-9);
+
+        var absent = intervals[1];
+        absent.PointEstimate.Should().Be(0.0);
+        absent.Mean.Should().Be(0.0);
+        absent.Lower.Should().Be(0.0);
+        absent.Upper.Should().Be(0.0);
+
+        foreach (var ci in intervals)
+        {
+            ci.Lower.Should().BeGreaterThanOrEqualTo(0.0, "[INV-1] bounds ≥ 0");
+            ci.Lower.Should().BeLessThanOrEqualTo(ci.Upper, "[INV-2] lower ≤ upper");
+            ci.Mean.Should().BeInRange(ci.Lower, ci.Upper, "[INV-3] lower ≤ mean ≤ upper");
+        }
+    }
+
+    /// <summary>
+    /// Interaction witness (determinism, INV-4): the same (catalog, signatures, replicates, confidence,
+    /// seed) yields an element-wise identical result on a NON-degenerate catalog where the resample is
+    /// genuinely random. Source: fixed RNG seed (Senkin 2021).
+    /// </summary>
+    [Test]
+    public void BootstrapExposures_SameSeed_IsDeterministic()
+    {
+        var catalog = new[] { 13, 7 };
+        var signatures = new IReadOnlyList<double>[] { new double[] { 1.0, 0.0 }, new double[] { 0.0, 1.0 } };
+
+        var first = OncologyAnalyzer.BootstrapExposures(catalog, signatures, 200, 0.95, seed: 42);
+        var second = OncologyAnalyzer.BootstrapExposures(catalog, signatures, 200, 0.95, seed: 42);
+
+        second.Should().BeEquivalentTo(first, "identical inputs + seed → identical bootstrap result");
+    }
+
+    /// <summary>
+    /// Interaction witness (seed axis is live on a non-degenerate catalog): two different seeds produce
+    /// different bootstrap distributions — the seed genuinely matters when the multinomial draw is not
+    /// degenerate (unlike the collapsed grid cells where it is provably inert).
+    /// </summary>
+    [Test]
+    public void BootstrapExposures_DifferentSeeds_ProduceDifferentDistributions()
+    {
+        var catalog = new[] { 13, 7 };
+        var signatures = new IReadOnlyList<double>[] { new double[] { 1.0, 0.0 }, new double[] { 0.0, 1.0 } };
+
+        var seedA = OncologyAnalyzer.BootstrapExposures(catalog, signatures, 200, 0.95, seed: 42);
+        var seedB = OncologyAnalyzer.BootstrapExposures(catalog, signatures, 200, 0.95, seed: 7);
+
+        seedB.Should().NotBeEquivalentTo(seedA, "different seeds explore different resamples");
+    }
+
+    /// <summary>
+    /// Interaction witness (confidence-width monotonicity, S1): a wider confidence level gives a
+    /// wider-or-equal percentile interval — upper grows (or holds) and lower shrinks (or holds). Source:
+    /// Efron (1979) percentile method.
+    /// </summary>
+    [Test]
+    public void BootstrapExposures_WiderConfidence_GivesWiderInterval()
+    {
+        var catalog = new[] { 13, 7 };
+        var signatures = new IReadOnlyList<double>[] { new double[] { 1.0, 0.0 }, new double[] { 0.0, 1.0 } };
+
+        var narrow = OncologyAnalyzer.BootstrapExposures(catalog, signatures, 500, 0.50, seed: 42)[0];
+        var wide = OncologyAnalyzer.BootstrapExposures(catalog, signatures, 500, 0.99, seed: 42)[0];
+
+        wide.Upper.Should().BeGreaterThanOrEqualTo(narrow.Upper, "wider confidence → upper bound does not decrease");
+        wide.Lower.Should().BeLessThanOrEqualTo(narrow.Lower, "wider confidence → lower bound does not increase");
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     // Helpers — engineered constructs + independent ground truth
     // ───────────────────────────────────────────────────────────────────────
