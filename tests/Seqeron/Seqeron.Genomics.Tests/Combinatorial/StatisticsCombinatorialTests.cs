@@ -300,6 +300,84 @@ public class StatisticsCombinatorialTests
             .Should().Be(new SequenceStatistics.ThermodynamicProperties(0, 0, 0, 0), "[INV-06] length < 2 → zeros");
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: SEQ-TM-001 — Simple melting temperature (Wallace / Marmur-Doty) (Statistics)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 130.
+    // Spec: tests/TestSpecs/SEQ-TM-001.md (SequenceStatistics.CalculateMeltingTemperature).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: Wallace rule Tm = 2·(A+T) + 4·(G+C) for short oligos (< 14 bp); Marmur-Doty
+    // Tm = 64.9 + 41·(GC − 16.4)/N otherwise.
+    //
+    // Checklist axes method(2) × seqLen(3) × gcContent(3) map onto the real knobs: useWallaceRule ∈
+    // {true, false}, length ∈ {8, 12, 20}, GC fraction ∈ {0.0, 0.5, 1.0}. Grid = 2 × 3 × 3 = 18.
+    //
+    // The combinatorial point: which formula is applied is a JOINT function of the method flag AND the
+    // length — Wallace applies only when useWallaceRule is set AND length < 14, otherwise Marmur-Doty — and
+    // the Tm value then depends on the GC content. Each cell re-derives the selected formula from the inputs.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// For every (method flag, length, GC) the melting temperature matches the formula the selection logic
+    /// picks: Wallace (2·AT + 4·GC) when useWallaceRule AND length &lt; 14, else Marmur-Doty.
+    /// </summary>
+    [Test, Combinatorial]
+    public void CalculateMeltingTemperature_MethodLengthGcGrid_MatchesSelectedFormula(
+        [Values(true, false)] bool useWallaceRule,
+        [Values(8, 12, 20)] int seqLen,
+        [Values(0.0, 0.5, 1.0)] double gcFraction)
+    {
+        string dna = BuildDna(seqLen, gcFraction);
+        int gc = dna.Count(c => c is 'G' or 'C');
+        int at = dna.Length - gc;
+
+        // Independent ground truth (selection + formula).
+        bool wallace = useWallaceRule && seqLen < 14;
+        double expected = wallace ? 2.0 * at + 4.0 * gc : 64.9 + 41.0 * (gc - 16.4) / seqLen;
+
+        SequenceStatistics.CalculateMeltingTemperature(dna, useWallaceRule)
+            .Should().BeApproximately(expected, 1e-9, "Wallace if requested AND short, else Marmur-Doty");
+    }
+
+    /// <summary>
+    /// Interaction witness (method × length): for a short oligo the method flag selects Wallace vs
+    /// Marmur-Doty (different Tm), but at ≥ 14 bp the flag is ignored and Marmur-Doty always applies — the
+    /// formula choice flips on the method axis only for short oligos. Source: Wallace vs Marmur-Doty regimes.
+    /// </summary>
+    [Test]
+    public void CalculateMeltingTemperature_MethodAxis_OnlyMattersForShortOligos()
+    {
+        string shortOligo = BuildDna(8, 0.5);
+        SequenceStatistics.CalculateMeltingTemperature(shortOligo, useWallaceRule: true)
+            .Should().NotBe(SequenceStatistics.CalculateMeltingTemperature(shortOligo, useWallaceRule: false),
+                "Wallace and Marmur-Doty differ for a short oligo");
+
+        string longOligo = BuildDna(20, 0.5);
+        SequenceStatistics.CalculateMeltingTemperature(longOligo, useWallaceRule: true)
+            .Should().Be(SequenceStatistics.CalculateMeltingTemperature(longOligo, useWallaceRule: false),
+                "at ≥ 14 bp the Wallace flag is ignored");
+    }
+
+    /// <summary>
+    /// Interaction witness (GC axis monotonicity): a GC-rich oligo melts higher than an AT-rich one of the
+    /// same length under both formulas. Source: Wallace / Marmur-Doty GC weighting.
+    /// </summary>
+    [Test]
+    public void CalculateMeltingTemperature_GcAxis_RaisesTm()
+    {
+        SequenceStatistics.CalculateMeltingTemperature(BuildDna(12, 1.0))
+            .Should().BeGreaterThan(SequenceStatistics.CalculateMeltingTemperature(BuildDna(12, 0.0)), "Wallace: 4·GC > 2·AT");
+        SequenceStatistics.CalculateMeltingTemperature(BuildDna(20, 1.0))
+            .Should().BeGreaterThan(SequenceStatistics.CalculateMeltingTemperature(BuildDna(20, 0.0)), "Marmur-Doty: +GC term");
+    }
+
+    /// <summary>Witness (INV-6): an empty sequence returns Tm 0.</summary>
+    [Test]
+    public void CalculateMeltingTemperature_EmptySequence_IsZero()
+    {
+        SequenceStatistics.CalculateMeltingTemperature("").Should().Be(0.0);
+    }
+
     /// <summary>
     /// Builds a DNA sequence of <paramref name="length"/> bp at approximately <paramref name="gcFraction"/>
     /// GC content: AT-only (0.0, A/T alternating), balanced (0.5, GATC repeat), or GC-only (1.0, G/C alternating).
