@@ -311,6 +311,145 @@ public class OncologyCombinatorialTests
         call.SomaticScore.Should().BeApproximately(0.25, 1e-12);
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ONCO-DRIVER-001 — Driver mutation detection, Vogelstein 20/20 rule (Oncology)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 89.
+    // Spec: tests/TestSpecs/ONCO-DRIVER-001.md (OncologyAnalyzer.IdentifyDriverMutations / ClassifyGene).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: Vogelstein et al. (2013) Science 339:1546-1558 (20/20 rule, strict ">20%"); Tokheim &
+    // Karchin (2020); Schroeder et al. (2014) (truncating categories); Miller et al. (2017) (a recurrent
+    // position needs ≥2 mutations at the same codon).
+    //
+    // A mutation is reported by IdentifyDriverMutations iff its gene classifies as a driver
+    // (Oncogene: recurrent-missense fraction > 0.20; TumorSuppressor: truncating fraction > 0.20) OR its
+    // (gene, position) is in the caller-supplied hotspot set.
+    //
+    // Checklist axes recurrence(3) × hotspot(2) × geneList(2) map onto the real predicate inputs:
+    //   • recurrence → copies of the query missense at the SAME codon, k ∈ {1, 2, 4}: 1 = not recurrent
+    //     (needs ≥2); 2 = recurrent but fraction exactly 0.20 (NOT > 0.20, strict); 4 = fraction 0.40 →
+    //     Oncogene. Exercises the strict-inequality OG criterion (INV-2, INV-5).
+    //   • geneList → whether the SAME gene also carries a truncating block making it a TumorSuppressor
+    //     independent of recurrence (the data-derived "driver gene list"): {Absent, Present}.
+    //   • hotspot → whether the query (gene, position) is in the caller hotspot set: {Absent, Present}
+    //     — the rescue path that reports a mutation even when its gene is Ambiguous.
+    // Grid = 3 × 2 × 2 = 12 = the checklist's "Full Combos" for this row.
+    //
+    // The combinatorial point: each axis independently can turn a non-driver into a reported driver —
+    // recurrence (k=4), the TSG background, and the hotspot rescue are three separate routes. The role
+    // and the reported-membership are checked against the 20/20 rule re-derived from the construction.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private const string FocalGene = "GENEX";
+    private const int FocalPosition = 100;
+    private const int DriverSpectrumTotal = 10; // fixed denominator → predictable 20/20 fractions
+
+    /// <summary>Recurrence of the query missense codon — drives the oncogene (recurrent-missense) criterion.</summary>
+    public enum Recurrence
+    {
+        /// <summary>k = 1 copy: a singleton, not a recurrent position (Miller 2017 needs ≥2).</summary>
+        NotRecurrent,
+
+        /// <summary>k = 2 copies: recurrent, fraction exactly 0.20 — NOT &gt; 0.20 (strict threshold).</summary>
+        AtThreshold,
+
+        /// <summary>k = 4 copies: fraction 0.40 &gt; 0.20 → Oncogene.</summary>
+        AboveThreshold,
+    }
+
+    private static int RecurrenceCopies(Recurrence r) => r switch
+    {
+        Recurrence.NotRecurrent => 1,
+        Recurrence.AtThreshold => 2,
+        Recurrence.AboveThreshold => 4,
+        _ => throw new ArgumentOutOfRangeException(nameof(r)),
+    };
+
+    /// <summary>
+    /// For every (recurrence, TSG background, hotspot) the gene's 20/20 role and whether the query
+    /// missense is reported as a driver must match the rule re-derived from the construction. The query
+    /// is reported iff its gene is a driver OR its position is a known hotspot; the result is always a
+    /// subset of the input.
+    /// </summary>
+    [Test, Combinatorial]
+    public void IdentifyDriverMutations_RecurrenceTsgHotspotGrid_MatchesTwentyTwentyRule(
+        [Values] Recurrence recurrence,
+        [Values(false, true)] bool tsgBackground,
+        [Values(false, true)] bool hotspot)
+    {
+        int k = RecurrenceCopies(recurrence);
+        var spectrum = BuildDriverGeneSpectrum(k, tsgBackground);
+        var query = new OncologyAnalyzer.GeneMutation(FocalGene, FocalPosition, OncologyAnalyzer.MutationConsequence.Missense);
+        var hotspots = hotspot
+            ? new HashSet<(string, int)> { (FocalGene, FocalPosition) }
+            : null;
+
+        // Independent ground truth (20/20 rule applied to the known construction; fixed denominator 10).
+        double recurrentMissenseFraction = (k >= 2 ? k : 0) / (double)DriverSpectrumTotal;
+        double truncatingFraction = (tsgBackground ? 5 : 0) / (double)DriverSpectrumTotal;
+        bool isOg = recurrentMissenseFraction > 0.20;
+        bool isTsg = truncatingFraction > 0.20;
+        OncologyAnalyzer.DriverGeneRole expectedRole =
+            isTsg && isOg ? (truncatingFraction > recurrentMissenseFraction ? OncologyAnalyzer.DriverGeneRole.TumorSuppressor
+                           : recurrentMissenseFraction > truncatingFraction ? OncologyAnalyzer.DriverGeneRole.Oncogene
+                           : OncologyAnalyzer.DriverGeneRole.Ambiguous)
+            : isTsg ? OncologyAnalyzer.DriverGeneRole.TumorSuppressor
+            : isOg ? OncologyAnalyzer.DriverGeneRole.Oncogene
+            : OncologyAnalyzer.DriverGeneRole.Ambiguous;
+        bool expectedReported = expectedRole != OncologyAnalyzer.DriverGeneRole.Ambiguous || hotspot;
+
+        var classification = OncologyAnalyzer.ClassifyGene(spectrum);
+        var drivers = OncologyAnalyzer.IdentifyDriverMutations(spectrum, hotspots);
+
+        classification.Role.Should().Be(expectedRole, "the 20/20 rule decides the gene role");
+        classification.RecurrentMissenseFraction.Should().BeApproximately(recurrentMissenseFraction, 1e-12);
+        classification.TruncatingFraction.Should().BeApproximately(truncatingFraction, 1e-12);
+        drivers.Contains(query).Should().Be(expectedReported,
+            "a mutation is reported iff its gene is a driver or its position is a hotspot");
+        drivers.Should().OnlyContain(m => spectrum.Contains(m), "[INV-1] drivers ⊆ input");
+    }
+
+    /// <summary>
+    /// Interaction witness: an otherwise-Ambiguous gene (a singleton missense, no truncating block) is
+    /// NOT reported on its own, yet each of the three axes independently rescues it — bumping recurrence
+    /// to k=4 (Oncogene), adding a truncating block (TumorSuppressor), or listing the position as a
+    /// hotspot. A result that flips on every axis proves the grid genuinely needs the combination.
+    /// </summary>
+    [Test]
+    public void IdentifyDriverMutations_EachAxisIndependentlyRescuesAmbiguousGene()
+    {
+        var query = new OncologyAnalyzer.GeneMutation(FocalGene, FocalPosition, OncologyAnalyzer.MutationConsequence.Missense);
+
+        var ambiguous = BuildDriverGeneSpectrum(1, tsgBackground: false);
+        OncologyAnalyzer.IdentifyDriverMutations(ambiguous).Should().NotContain(query,
+            "a singleton missense in an Ambiguous gene is not a driver");
+
+        OncologyAnalyzer.IdentifyDriverMutations(BuildDriverGeneSpectrum(4, tsgBackground: false))
+            .Should().Contain(query, "recurrence axis: k=4 → Oncogene");
+        OncologyAnalyzer.IdentifyDriverMutations(BuildDriverGeneSpectrum(1, tsgBackground: true))
+            .Should().Contain(query, "geneList axis: truncating block → TumorSuppressor");
+        OncologyAnalyzer.IdentifyDriverMutations(ambiguous, new HashSet<(string, int)> { (FocalGene, FocalPosition) })
+            .Should().Contain(query, "hotspot axis: caller hotspot rescues the Ambiguous gene");
+    }
+
+    /// <summary>
+    /// Worked example (spec M1): IDH1-like gene, all 10 mutations missense at codon 132 → recurrent-
+    /// missense fraction 1.00, Oncogene. Source: Vogelstein et al. (2013); Miller et al. (2017).
+    /// </summary>
+    [Test]
+    public void ClassifyGene_AllRecurrentMissense_OncogeneWorkedExample()
+    {
+        var mutations = Enumerable.Range(0, 10)
+            .Select(_ => new OncologyAnalyzer.GeneMutation("IDH1", 132, OncologyAnalyzer.MutationConsequence.Missense))
+            .ToList();
+
+        var c = OncologyAnalyzer.ClassifyGene(mutations);
+
+        c.Role.Should().Be(OncologyAnalyzer.DriverGeneRole.Oncogene);
+        c.RecurrentMissenseFraction.Should().BeApproximately(1.0, 1e-12);
+        c.TruncatingFraction.Should().BeApproximately(0.0, 1e-12);
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     // Helpers — engineered constructs + independent ground truth
     // ───────────────────────────────────────────────────────────────────────
@@ -384,6 +523,31 @@ public class OncologyCombinatorialTests
             integral += runningSum;
         }
         return integral;
+    }
+
+    /// <summary>
+    /// Builds a 10-mutation spectrum for the focal driver gene: <paramref name="recurrentCopies"/> copies
+    /// of the query missense at the shared focal codon, an optional 5-mutation truncating (nonsense) block
+    /// at distinct codons when <paramref name="tsgBackground"/> is set, and distinct-codon missense filler
+    /// padding the total to a fixed 10 so the 20/20 fractions are exactly predictable. Filler codons never
+    /// collide with the focal or truncating codons, so they add to the denominator only (not recurrent, not
+    /// truncating).
+    /// </summary>
+    private static List<OncologyAnalyzer.GeneMutation> BuildDriverGeneSpectrum(int recurrentCopies, bool tsgBackground)
+    {
+        var mutations = new List<OncologyAnalyzer.GeneMutation>();
+
+        for (int i = 0; i < recurrentCopies; i++)
+            mutations.Add(new OncologyAnalyzer.GeneMutation(FocalGene, FocalPosition, OncologyAnalyzer.MutationConsequence.Missense));
+
+        int truncating = tsgBackground ? 5 : 0;
+        for (int i = 0; i < truncating; i++)
+            mutations.Add(new OncologyAnalyzer.GeneMutation(FocalGene, 200 + i, OncologyAnalyzer.MutationConsequence.Nonsense));
+
+        for (int p = 0; mutations.Count < DriverSpectrumTotal; p++)
+            mutations.Add(new OncologyAnalyzer.GeneMutation(FocalGene, 300 + p, OncologyAnalyzer.MutationConsequence.Missense));
+
+        return mutations;
     }
 
     /// <summary>
