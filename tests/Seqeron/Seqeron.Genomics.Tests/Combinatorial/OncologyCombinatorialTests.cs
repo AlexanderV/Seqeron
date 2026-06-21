@@ -2560,6 +2560,106 @@ public class OncologyCombinatorialTests
         OncologyAnalyzer.EstimateCcf(0.35, 0.7, 2, 1).Ccf.Should().BeApproximately(1.0, 1e-9);
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ONCO-HETERO-001 — Intratumour heterogeneity (MATH) (Oncology)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 116.
+    // Spec: tests/TestSpecs/ONCO-HETERO-001.md (OncologyAnalyzer.CalculateITH).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: Mroz & Rocco (2013) / Mroz et al. (2015) MATH = 100 · 1.4826 · MAD / median over the VAF
+    // distribution, MAD = median(|f − median(f)|).
+    //
+    // Checklist axes nVariants(3) × vafSpread(3) map onto the real knobs:
+    //   • nVariants → number of VAFs ∈ {3, 5, 9} (odd, for a well-defined median).
+    //   • vafSpread → the per-step dispersion δ of a symmetric VAF distribution about median 0.3 ∈ {0.0
+    //     (degenerate), 0.02, 0.05}.
+    // Grid = 3 × 3 = 9 = the checklist's "Full Combos" for this row.
+    //
+    // The combinatorial point: MATH is a JOINT function of how many variants and how widely they disperse —
+    // the same spread δ gives a different MAD (and MATH) at 3 vs 9 variants because the median-of-deviations
+    // depends on the count. Each cell is checked against the MATH formula re-derived from the constructed
+    // distribution.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// For every (variant count, spread) the MATH score equals 100 · 1.4826 · median(|f − median|) / median
+    /// computed independently from the constructed symmetric VAF distribution, and is ≥ 0.
+    /// </summary>
+    [Test, Combinatorial]
+    public void CalculateITH_VariantsSpreadGrid_MatchesMathFormula(
+        [Values(3, 5, 9)] int nVariants,
+        [Values(0.0, 0.02, 0.05)] double spread)
+    {
+        var vafs = BuildSymmetricVafs(nVariants, spread, median: 0.3);
+
+        // Independent ground truth MATH.
+        double median = MedianOf(vafs);
+        double mad = MedianOf(vafs.Select(v => Math.Abs(v - median)).ToList());
+        double expectedMath = 100.0 * 1.4826 * mad / median;
+
+        double math = OncologyAnalyzer.CalculateITH(vafs);
+
+        math.Should().BeApproximately(expectedMath, 1e-9, "MATH = 100·1.4826·MAD/median");
+        math.Should().BeGreaterThanOrEqualTo(0.0, "[INV-1] MATH ≥ 0");
+    }
+
+    /// <summary>
+    /// Interaction witness (zero-spread, INV-2): a distribution of identical VAFs has MAD = 0 and hence
+    /// MATH = 0 — no heterogeneity. Source: Mroz & Rocco (2013) formula.
+    /// </summary>
+    [Test]
+    public void CalculateITH_IdenticalVafs_MathIsZero()
+    {
+        OncologyAnalyzer.CalculateITH(new[] { 0.3, 0.3, 0.3, 0.3, 0.3 }).Should().Be(0.0, "MAD = 0 → MATH = 0");
+    }
+
+    /// <summary>
+    /// Interaction witness (spread axis monotonicity): at a fixed variant count, a wider VAF dispersion
+    /// gives a higher MATH score. Source: MATH measures distribution width (Mroz et al. 2015).
+    /// </summary>
+    [Test]
+    public void CalculateITH_SpreadAxis_IsMonotone()
+    {
+        double tight = OncologyAnalyzer.CalculateITH(BuildSymmetricVafs(5, 0.02, 0.3));
+        double wide = OncologyAnalyzer.CalculateITH(BuildSymmetricVafs(5, 0.05, 0.3));
+
+        wide.Should().BeGreaterThan(tight, "a wider VAF spread is more heterogeneous");
+    }
+
+    /// <summary>
+    /// Witness (1.4826 scaling + undefined median): MATH carries the normal-consistency factor — a 3-variant
+    /// {0.2,0.3,0.4} set scores 100·1.4826·0.1/0.3 ≈ 49.42 — and a zero median is rejected. Source: Mroz et
+    /// al. (2015); maftools.
+    /// </summary>
+    [Test]
+    public void CalculateITH_ScalingConstantAndZeroMedian()
+    {
+        OncologyAnalyzer.CalculateITH(new[] { 0.2, 0.3, 0.4 })
+            .Should().BeApproximately(100.0 * 1.4826 * 0.1 / 0.3, 1e-9, "MAD = 0.1, median = 0.3");
+        Assert.Throws<ArgumentException>(() => OncologyAnalyzer.CalculateITH(new[] { 0.0, 0.0, 0.0 }),
+            "a zero median makes the MATH ratio undefined");
+    }
+
+    private static double MedianOf(IReadOnlyList<double> values)
+    {
+        var sorted = values.OrderBy(v => v).ToList();
+        int n = sorted.Count;
+        return n % 2 == 1 ? sorted[n / 2] : 0.5 * (sorted[n / 2 - 1] + sorted[n / 2]);
+    }
+
+    /// <summary>
+    /// Builds <paramref name="n"/> VAFs symmetrically spaced about <paramref name="median"/> with per-step
+    /// dispersion <paramref name="spread"/>: value_i = median + (i − (n−1)/2)·spread.
+    /// </summary>
+    private static List<double> BuildSymmetricVafs(int n, double spread, double median)
+    {
+        var vafs = new List<double>(n);
+        double centre = (n - 1) / 2.0;
+        for (int i = 0; i < n; i++)
+            vafs.Add(median + (i - centre) * spread);
+        return vafs;
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     // Helpers — engineered constructs + independent ground truth
     // ───────────────────────────────────────────────────────────────────────
