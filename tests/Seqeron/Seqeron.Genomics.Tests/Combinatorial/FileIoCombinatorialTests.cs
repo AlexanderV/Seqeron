@@ -375,4 +375,77 @@ public class FileIoCombinatorialTests
         noSeq.Features.Should().HaveCount(2, "feature table is independent of ORIGIN");
         noSeq.Sequence.Should().BeEmpty();
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: PARSE-EMBL-001 — EMBL flat-file parsing (FileIO)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 70.
+    // Spec: tests/TestSpecs/PARSE-EMBL-001.md (canonical EmblParser.Parse).
+    // Dimensions: nFeatures(3) × hasSequence(2) × division(3). Grid 3×2×3 = 18.
+    //
+    // Model (EMBL flat file): a record opens with an ID line whose 6th ';'-field is the
+    // taxonomic division (HUM/PRO/PLN…), carries an FT feature table and an optional SQ sequence
+    // block, terminated by "//". (EMBL is the European counterpart of GenBank.)
+    //
+    // The combinatorial point: feature count, sequence presence and division code interact — the
+    // parser reads the division from the ID line, the exact feature count, and the SQ residues
+    // only when that block is present.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private static string BuildEmbl(string accession, string division, int nFeatures, bool hasSequence)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.Append($"ID   {accession}; SV 1; linear; genomic DNA; STD; {division}; 20 BP.\n");
+        sb.Append("XX\n");
+        sb.Append("FH   Key             Location/Qualifiers\n");
+        sb.Append("FH\n");
+        for (int i = 0; i < nFeatures; i++)
+        {
+            sb.Append("FT   ").Append(GbFeatureKeys[i % GbFeatureKeys.Length].PadRight(16)).Append($"{i * 3 + 1}..{i * 3 + 3}\n");
+            sb.Append("FT").Append(new string(' ', 19)).Append($"/note=\"f{i}\"\n");
+        }
+        sb.Append("XX\n");
+        if (hasSequence)
+        {
+            sb.Append("SQ   Sequence 20 BP;\n");
+            sb.Append("     acgtacgtac gtacgtacgt                                          20\n");
+        }
+        sb.Append("//\n");
+        return sb.ToString();
+    }
+
+    [Test, Combinatorial]
+    public void ParseEmbl_ReadsDivisionFeaturesAndSequence(
+        [Values(1, 2, 3)] int nFeatures,
+        [Values(true, false)] bool hasSequence,
+        [Values("HUM", "PRO", "PLN")] string division)
+    {
+        var record = EmblParser.Parse(BuildEmbl("REC001", division, nFeatures, hasSequence)).Single();
+
+        record.Topology.Should().Be("linear");
+        record.TaxonomicDivision.Should().Be(division, "division is the 6th ID field");
+        record.Features.Should().HaveCount(nFeatures);
+        record.Features.Select(f => f.Key)
+            .Should().Equal(Enumerable.Range(0, nFeatures).Select(i => GbFeatureKeys[i % GbFeatureKeys.Length]));
+
+        if (hasSequence)
+            record.Sequence.Should().Be("ACGTACGTACGTACGTACGT", "SQ residues are concatenated and upper-cased");
+        else
+            record.Sequence.Should().BeEmpty("no SQ block ⇒ no sequence");
+    }
+
+    /// <summary>
+    /// Interaction witness: feature qualifiers are parsed and the SQ block toggles the sequence
+    /// without affecting the feature table.
+    /// </summary>
+    [Test]
+    public void ParseEmbl_QualifiersParsed_SequenceOptional()
+    {
+        var withSeq = EmblParser.Parse(BuildEmbl("A", "HUM", 2, hasSequence: true)).Single();
+        withSeq.Features[0].Qualifiers.Should().ContainKey("note");
+        withSeq.Sequence.Should().HaveLength(20);
+
+        var noSeq = EmblParser.Parse(BuildEmbl("A", "HUM", 2, hasSequence: false)).Single();
+        noSeq.Features.Should().HaveCount(2);
+        noSeq.Sequence.Should().BeEmpty();
+    }
 }
