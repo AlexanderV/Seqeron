@@ -68,10 +68,10 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 36 | ☑ | ALIGN-LOCAL-001 | Alignment | ID: no common subsequence → score=0; COMM: local_score relationship (not always symmetric for alignments) |
 | 37 | ✗ | ALIGN-SEMI-001 | Alignment | ID: identical overlap → max score region; IDEMP: deterministic |
 | 38 | ✗ | ALIGN-MULTI-001 | Alignment | ID: single sequence → trivial alignment; IDEMP: deterministic output |
-| 39 | ☐ | PHYLO-DIST-001 | Phylogenetic | ID: d(x,x)=0; COMM: d(a,b)=d(b,a); TRI: d(a,c)≤d(a,b)+d(b,c) |
+| 39 | ☑ | PHYLO-DIST-001 | Phylogenetic | ID: d(x,x)=0; COMM: d(a,b)=d(b,a); TRI: d(a,c)≤d(a,b)+d(b,c) |
 | 40 | ✗ | PHYLO-TREE-001 | Phylogenetic | ID: 1 sequence → trivial tree; IDEMP: same input → same topology |
-| 41 | ☐ | PHYLO-NEWICK-001 | Phylogenetic | RT: parse(toNewick(tree)) = tree; ID: leaf → simple Newick |
-| 42 | ☐ | PHYLO-COMP-001 | Phylogenetic | ID: RF(t,t)=0; COMM: RF(a,b)=RF(b,a); TRI: RF(a,c)≤RF(a,b)+RF(b,c) |
+| 41 | ☑ | PHYLO-NEWICK-001 | Phylogenetic | RT: parse(toNewick(tree)) = tree; ID: leaf → simple Newick |
+| 42 | ☑ | PHYLO-COMP-001 | Phylogenetic | ID: RF(t,t)=0; COMM: RF(a,b)=RF(b,a); TRI: RF(a,c)≤RF(a,b)+RF(b,c) |
 | 43 | ☐ | POP-FREQ-001 | PopGen | ID: alleleFreq(all same)=1.0; DIST: sum(allele freqs)=1 |
 | 44 | ✗ | POP-DIV-001 | PopGen | ID: identical sequences → π=0; ID: single seq → θ undefined or 0 |
 | 45 | ☐ | POP-HW-001 | PopGen | DIST: p² + 2pq + q² = 1 (algebraic identity); ID: monomorphic → all one genotype |
@@ -272,7 +272,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 17 |
-| ☐ Not started | 48 |
+| ☑ Complete | 20 |
+| ☐ Not started | 45 |
 | ✗ Not applicable | 169 |
 | Laws verified | ~172 (≈2 per algorithm) |
