@@ -36,8 +36,8 @@ Mutation testing вимірює ефективність тестового на
 | 6 | ☑ | SEQ-ENTROPY-001 | Composition | SequenceComplexity.cs | SequenceComplexityTests.cs | ≥ 80% |
 | 7 | ☑ | SEQ-GCSKEW-001 | Composition | GcSkewCalculator.cs | GcSkewCalculatorTests.cs | ≥ 80% |
 | 8 | ☑ | PAT-EXACT-001 | Matching | MotifFinder.cs | FindAllOccurrencesTests.cs, ContainsTests.cs, CountOccurrencesTests.cs | ≥ 80% |
-| 9 | ☐ | PAT-APPROX-001 | Matching | ApproximateMatcher.cs | ApproximateMatcher_HammingDistance_Tests.cs | ≥ 80% |
-| 10 | ☐ | PAT-APPROX-002 | Matching | ApproximateMatcher.cs | ApproximateMatcher_EditDistance_Tests.cs | ≥ 80% |
+| 9 | ☑ | PAT-APPROX-001 | Matching | ApproximateMatcher.cs | ApproximateMatcher_HammingDistance_Tests.cs | ≥ 80% |
+| 10 | ☑ | PAT-APPROX-002 | Matching | ApproximateMatcher.cs | ApproximateMatcher_EditDistance_Tests.cs | ≥ 80% |
 | 11 | ☑ | PAT-IUPAC-001 | Matching | MotifFinder.cs, IupacHelper.cs | IupacMotifMatchingTests.cs, MutationKillerTests.cs | ≥ 80% |
 | 12 | ☑ | PAT-PWM-001 | Matching | MotifFinder.cs | MotifFinder_PWM_Tests.cs, MutationKillerTests.cs | ≥ 80% |
 | 13 | ☑ | REP-STR-001 | Repeats | RepeatFinder.cs | RepeatFinder_Microsatellite_Tests.cs | ≥ 80% |
@@ -201,7 +201,7 @@ Mutation testing вимірює ефективність тестового на
 | 171 | ☐ | MOTIF-GENERATE-001 | Matching | MotifFinder.cs | MotifFinder_GenerateConsensus_Tests.cs | ≥ 80% |
 | 172 | ☐ | MOTIF-REGULATORY-001 | Matching | MotifFinder.cs | MotifFinder_FindRegulatoryElements_Tests.cs | ≥ 80% |
 | 173 | ☐ | MOTIF-SHARED-001 | Matching | MotifFinder.cs | MotifFinder_FindSharedMotifs_Tests.cs | ≥ 80% |
-| 174 | ☐ | PAT-APPROX-003 | Matching | ApproximateMatcher.cs | ApproximateMatcher_FindBestMatch_Tests.cs | ≥ 80% |
+| 174 | ☑ | PAT-APPROX-003 | Matching | ApproximateMatcher.cs | ApproximateMatcher_FindBestMatch_Tests.cs | ≥ 80% |
 | 175 | ☐ | GENOMIC-COMMON-001 | Analysis | GenomicAnalyzer.cs | GenomicAnalyzer_FindCommonRegion_Tests.cs | ≥ 80% |
 | 176 | ☐ | GENOMIC-MOTIFS-001 | Analysis | GenomicAnalyzer.cs | GenomicAnalyzer_FindKnownMotifs_Tests.cs | ≥ 80% |
 | 177 | ☐ | GENOMIC-ORF-001 | Analysis | GenomicAnalyzer.cs | GenomicAnalyzer_FindOpenReadingFrames_Tests.cs | ≥ 80% |
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 23 |
-| ☐ Not started | 211 |
+| ☑ Complete (run + killers written) | 26 |
+| ☐ Not started | 208 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
