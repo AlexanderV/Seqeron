@@ -108,4 +108,72 @@ public class MiRnaCombinatorialTests
         MiRnaAnalyzer.FindTargetSites(new string('U', 100), miRna, 0.0)
             .Should().BeEmpty("a poly-U UTR has no seed-complementary site");
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: MIRNA-PRECURSOR-001 — Pre-miRNA hairpin detection (MiRNA)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 76.
+    // Spec: tests/TestSpecs/MIRNA-PRECURSOR-001.md (canonical FindPreMiRnaHairpins).
+    // Dimensions: precLen(3) × minStem(3) × maxLoop(3). Grid 3×3×3 = 27.
+    //
+    // Model (Bartel 2004): a pre-miRNA is a ≥55-nt hairpin with a long (~≥18 bp) stem and a small
+    // (3–25 nt) terminal loop. The stem/loop thresholds are FIXED internal constants here, so the
+    // minStem/maxLoop axes vary the PLANTED hairpin's stem/loop against them; precLen is the
+    // search length window (min/maxHairpinLength).
+    //
+    // The combinatorial point: planted stem length, loop size and the length window jointly
+    // determine detection — a hairpin is found exactly when stem ≥ 18, loop ∈ [3,25], and its
+    // length is ≥ 55 and within the search window.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private static readonly int[] StemValues = { 16, 25, 32 };
+    private static readonly int[] LoopValues = { 6, 20, 30 };
+    private static readonly (int Min, int Max)[] LenWindows = { (40, 200), (40, 70), (40, 50) };
+
+    [Test, Combinatorial]
+    public void MiRnaPrecursor_DetectsHairpinAgainstThresholds(
+        [Values(0, 1, 2)] int precLenIdx,
+        [Values(0, 1, 2)] int minStemIdx,
+        [Values(0, 1, 2)] int maxLoopIdx)
+    {
+        int stem = StemValues[minStemIdx];
+        int loop = LoopValues[maxLoopIdx];
+        var (minH, maxH) = LenWindows[precLenIdx];
+
+        string hairpin = new string('G', stem) + new string('A', loop) + new string('C', stem);
+        int innerLen = 2 * stem + loop;
+        string seq = new string('U', 10) + hairpin + new string('U', 10);
+
+        var found = MiRnaAnalyzer.FindPreMiRnaHairpins(seq, minH, maxH, matureLength: 22).ToList();
+
+        bool expected = stem >= 18 && loop is >= 3 and <= 25 && innerLen >= 55 && innerLen >= minH && innerLen <= maxH;
+        found.Any(p => p.Sequence == hairpin)
+            .Should().Be(expected, "the planted hairpin is found iff stem/loop/length all qualify");
+
+        foreach (var p in found)
+        {
+            p.Sequence.Length.Should().Be(p.End - p.Start + 1, "coordinates match the sequence span");
+            p.Structure.Length.Should().Be(p.Sequence.Length, "dot-bracket spans the hairpin");
+            p.MatureSequence.Should().NotBeEmpty("a mature arm is extracted");
+        }
+    }
+
+    /// <summary>
+    /// Interaction witness: each requirement independently rejects a hairpin — a short stem, an
+    /// oversized loop, or a length below 55 nt all prevent detection.
+    /// </summary>
+    [Test]
+    public void MiRnaPrecursor_EachRequirement_GatesDetection()
+    {
+        bool Found(int stem, int loop)
+        {
+            string hp = new string('G', stem) + new string('A', loop) + new string('C', stem);
+            return MiRnaAnalyzer.FindPreMiRnaHairpins(new string('U', 10) + hp + new string('U', 10), 40, 200, 22)
+                .Any(p => p.Sequence == hp);
+        }
+
+        Found(25, 6).Should().BeTrue("a 25-bp stem, 6-nt loop, 56-nt hairpin qualifies");
+        Found(16, 6).Should().BeFalse("stem < 18 bp is rejected");
+        Found(25, 30).Should().BeFalse("loop > 25 nt is rejected");
+        Found(20, 6).Should().BeFalse("a 46-nt hairpin is below the 55-nt floor");
+    }
 }
