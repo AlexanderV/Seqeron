@@ -98,8 +98,8 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 66 | ☑ | PARSE-BED-001 | FileIO | RT: parse(write(regions)) = regions; ID: empty → 0 regions |
 | 67 | ☑ | PARSE-VCF-001 | FileIO | RT: parse(write(variants)) = variants; ID: header only → 0 variants |
 | 68 | ☑ | PARSE-GFF-001 | FileIO | RT: parse(write(features)) = features; ID: empty → 0 features |
-| 69 | ☐ | PARSE-GENBANK-001 | FileIO | RT: parse(write(record)) = record; ID: minimal record → valid |
-| 70 | ☐ | PARSE-EMBL-001 | FileIO | RT: parse(write(record)) = record; ID: minimal record → valid |
+| 69 | ☑ | PARSE-GENBANK-001 | FileIO | RT: parse(write(record)) = record; ID: minimal record → valid |
+| 70 | ☑ | PARSE-EMBL-001 | FileIO | RT: parse(write(record)) = record; ID: minimal record → valid |
 | 71 | ✗ | RNA-STRUCT-001 | RnaStructure | ID: empty sequence → no pairs; ID: single base → no pairs |
 | 72 | ✗ | RNA-STEMLOOP-001 | RnaStructure | ID: no complementary region → no stem-loops; IDEMP: deterministic |
 | 73 | ☐ | RNA-ENERGY-001 | RnaStructure | ID: no structure → ΔG=0; DIST: energy is additive for independent stacks |
@@ -272,7 +272,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 36 |
-| ☐ Not started | 29 |
+| ☑ Complete | 38 |
+| ☐ Not started | 27 |
 | ✗ Not applicable | 169 |
 | Laws verified | ~172 (≈2 per algorithm) |
