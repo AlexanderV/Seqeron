@@ -534,4 +534,240 @@ public class MatchingCombinatorialTests
         double smooth = PwmScore(MotifFinder.CreatePwm(PwmTraining(6), 1.0), consensus);
         sharp.Should().BeGreaterThanOrEqualTo(smooth, "a smaller pseudocount sharpens consensus log-odds");
     }
+
+    // ── Shared helpers for the motif/approximate units below ────────────────────────────────
+    private static string DiverseDna(int n, uint seed)
+    {
+        const string bases = "ACGT";
+        var chars = new char[n];
+        uint state = seed;
+        for (int i = 0; i < n; i++)
+        {
+            state = state * 1664525u + 1013904223u;
+            chars[i] = bases[(int)((state >> 16) & 3u)];
+        }
+        return new string(chars);
+    }
+
+    private static Dictionary<string, List<int>> BruteKmerPositions(string s, int k)
+    {
+        var d = new Dictionary<string, List<int>>();
+        for (int i = 0; i + k <= s.Length; i++)
+        {
+            string km = s.Substring(i, k);
+            (d.TryGetValue(km, out var l) ? l : d[km] = new List<int>()).Add(i);
+        }
+        return d;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: MOTIF-DISCOVER-001 — Overrepresented-motif discovery (Matching)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 170.
+    // Spec: tests/TestSpecs/MOTIF-DISCOVER-001.md (canonical MotifFinder.DiscoverMotifs). ADVANCED §10.
+    // Dimensions: k(3) × support(3) × seqLen(3). Grid 3×3×3 = 27 (full, exhaustive ⊇ pairwise).
+    //
+    // Model (Compeau & Pevzner): DiscoverMotifs enumerates every length-k window, keeps k-mers whose
+    // occurrence count ≥ minCount, and scores each by the O/E enrichment Count / E, where the i.i.d.
+    // uniform background expects E = (N − k + 1) / 4ᵏ occurrences of any specific k-mer.
+    //
+    // The combinatorial point: k, the support floor (minCount) and the sequence length interact —
+    // every returned motif's Count and Positions match an independent recount (INV-1), Count ≥ support
+    // (INV-3), and Enrichment is exactly Count·4ᵏ/(N−k+1) (INV-2) at every cell.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    [Test, Combinatorial]
+    public void MotifDiscover_OverrepresentedKmers_AcrossKSupportLength(
+        [Values(4, 6, 8)] int k,
+        [Values(2, 3, 4)] int support,
+        [Values(48, 96, 160)] int seqLen)
+    {
+        string text = BuildText(seqLen); // periodic ⇒ many recurrent k-mers
+        var dna = new DnaSequence(text);
+
+        var motifs = MotifFinder.DiscoverMotifs(dna, k, support).ToList();
+        var brute = BruteKmerPositions(text, k);
+        int n = text.Length;
+        double expected = (n - k + 1.0) / Math.Pow(4, k);
+
+        motifs.Select(m => m.Sequence).Should().BeEquivalentTo(
+            brute.Where(kv => kv.Value.Count >= support).Select(kv => kv.Key),
+            "exactly the k-mers occurring ≥ support times are reported (INV-3)");
+
+        foreach (var m in motifs)
+        {
+            m.Sequence.Length.Should().Be(k);
+            m.Count.Should().Be(brute[m.Sequence].Count, "Count is the occurrence count (INV-1)");
+            m.Positions.Should().Equal(brute[m.Sequence], "Positions are the 0-based window starts (INV-1)");
+            m.Count.Should().BeGreaterThanOrEqualTo(support, "INV-3");
+            m.Enrichment.Should().BeApproximately(m.Count / expected, 1e-9, "Enrichment = Count/E (INV-2)");
+            m.Enrichment.Should().BeGreaterThan(0, "INV-4");
+        }
+    }
+
+    /// <summary>
+    /// Interaction witness — the support floor is monotone (raising it can only drop motifs) and a
+    /// planted tandem k-mer is enriched far above the chance expectation.
+    /// </summary>
+    [Test]
+    public void MotifDiscover_SupportMonotone_AndEnrichmentReflectsOverrepresentation()
+    {
+        var dna = new DnaSequence(BuildText(160));
+        var at2 = MotifFinder.DiscoverMotifs(dna, 6, 2).Select(m => m.Sequence).ToHashSet();
+        var at4 = MotifFinder.DiscoverMotifs(dna, 6, 4).Select(m => m.Sequence).ToHashSet();
+        at4.Should().BeSubsetOf(at2, "a higher support floor retains no more motifs");
+
+        // A heavily repeated 6-mer is enriched ≫ 1 (observed ≫ expected under the uniform background).
+        var planted = new DnaSequence(string.Concat(Enumerable.Repeat("GGGCCC", 20)));
+        MotifFinder.DiscoverMotifs(planted, 6, 2).Should().Contain(m => m.Sequence == "GGGCCC" && m.Enrichment > 1.0);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: MOTIF-SHARED-001 — Motifs shared across sequences (Matching)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 173.
+    // Spec: tests/TestSpecs/MOTIF-SHARED-001.md (canonical MotifFinder.FindSharedMotifs). ADVANCED §10.
+    // Dimensions: nSeqs(3) × k(3). Grid 3×3 = 9 (full, exhaustive ⊇ pairwise).
+    //
+    // Model (RSAT oligo-analysis; Das & Dai): a length-k word is "shared" when it occurs (exactly, no
+    // substitutions) in at least minSequences of the inputs. FindSharedMotifs counts each word once
+    // per sequence and reports words meeting the quorum, with Prevalence = matching-seqs / total-seqs.
+    //
+    // Axis mapping (documented): the quorum minSequences is fixed at the default 2; the grid varies the
+    // number of input sequences and k. The combinatorial point: every reported motif has length k
+    // (INV-1) with distinct valid sequence indices (INV-2), the reported set is exactly the words
+    // meeting the quorum (INV-3 vs an independent recount), and a word planted in EVERY sequence has
+    // Prevalence 1.0 (INV-4).
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private const string SharedCore = "TTGGCCAATTGGCCAA"; // 16 nt planted in every sequence
+
+    [Test, Combinatorial]
+    public void MotifShared_QuorumWords_AcrossSeqCountAndK(
+        [Values(2, 3, 4)] int nSeqs,
+        [Values(4, 6, 8)] int k)
+    {
+        // Each sequence = unique prefix + the shared core + unique suffix.
+        var texts = Enumerable.Range(0, nSeqs)
+            .Select(i => DiverseDna(12, (uint)(0x1000 + i)) + SharedCore + DiverseDna(12, (uint)(0x9000 + i)))
+            .ToList();
+        var seqs = texts.Select(t => new DnaSequence(t)).ToList();
+
+        var shared = MotifFinder.FindSharedMotifs(seqs, k, 2).ToList();
+
+        // Independent recount: for each word, the set of sequence indices containing it.
+        var present = new Dictionary<string, HashSet<int>>();
+        for (int s = 0; s < texts.Count; s++)
+            foreach (var km in BruteKmerPositions(texts[s], k).Keys)
+                (present.TryGetValue(km, out var set) ? set : present[km] = new HashSet<int>()).Add(s);
+        var quorumTruth = present.Where(kv => kv.Value.Count >= 2).Select(kv => kv.Key).ToHashSet();
+
+        shared.Select(m => m.Sequence).Should().BeEquivalentTo(quorumTruth, "exactly the quorum words are reported (INV-3)");
+
+        foreach (var m in shared)
+        {
+            m.Sequence.Length.Should().Be(k, "INV-1");
+            m.SequenceIndices.Should().OnlyHaveUniqueItems("each sequence appears at most once (INV-2)");
+            m.SequenceIndices.Should().OnlyContain(idx => idx >= 0 && idx < nSeqs, "valid indices (INV-2)");
+            m.Prevalence.Should().BeApproximately((double)m.SequenceIndices.Count / nSeqs, 1e-12, "INV-4");
+            m.Prevalence.Should().BeInRange(2.0 / nSeqs - 1e-12, 1.0 + 1e-12, "quorum ≥ 2 ⇒ prevalence in (0,1]");
+        }
+
+        // The planted core word appears in every sequence ⇒ prevalence 1.0.
+        shared.Should().Contain(m => m.Sequence == SharedCore.Substring(0, k) && Math.Abs(m.Prevalence - 1.0) < 1e-12,
+            "a word in all sequences has full prevalence");
+    }
+
+    /// <summary>
+    /// Interaction witness — matching is exact (a single substitution makes a distinct word that is
+    /// no longer shared) and the quorum gates reporting.
+    /// </summary>
+    [Test]
+    public void MotifShared_ExactMatchingAndQuorum()
+    {
+        var seqs = new[] { "AAAGGGGCCCAAA", "TTTGGGGCCCTTT", "TTTGAGGCCCTTT" } // first two share GGGGCCC; third has GAGGCCC
+            .Select(t => new DnaSequence(t)).ToList();
+
+        var shared = MotifFinder.FindSharedMotifs(seqs, 7, 2).Select(m => m.Sequence).ToHashSet();
+        shared.Should().Contain("GGGGCCC", "two sequences share the exact 7-mer");
+        shared.Should().NotContain("GAGGCCC", "a 1-substitution variant occurs in only one sequence (INV-5)");
+
+        // Raising the quorum to all 3 drops GGGGCCC (only 2 sequences carry it).
+        MotifFinder.FindSharedMotifs(seqs, 7, 3).Select(m => m.Sequence)
+            .Should().NotContain("GGGGCCC", "quorum 3 is not met by a 2-sequence word");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: PAT-APPROX-003 — Frequent words & best match with mismatches (Matching)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 174.
+    // Spec: tests/TestSpecs/PAT-APPROX-003.md (canonical FindFrequentKmersWithMismatches,
+    //       CountApproximateOccurrences, FindBestMatch). ADVANCED §10.
+    // Dimensions: patLen(3) × maxDist(3) × seqLen(3). Grid 3×3×3 = 27 (full, exhaustive).
+    //
+    // Model (Compeau & Pevzner ch.1, ROSALIND BA1H/BA1I): Count_d(Text,Pattern) is the number of
+    // windows within Hamming distance d (INV-2); Count_d ≥ Count_0 = exact count (INV-1).
+    // FindFrequentKmersWithMismatches returns every k-mer maximising Count_d; FindBestMatch returns
+    // the leftmost equal-length window of minimum Hamming distance (IsExact ⇔ distance 0).
+    //
+    // The combinatorial point: pattern length, mismatch budget and text length interact — Count_d
+    // equals an independent Hamming recount and is monotone in d; the most-frequent-with-mismatches
+    // tally cross-checks against Count_d; and the best match's distance is the global window minimum.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    [Test, Combinatorial]
+    public void PatApprox003_CountFrequentAndBestMatch_AcrossPatLenDistLength(
+        [Values(4, 6, 8)] int patLen,
+        [Values(0, 1, 2)] int maxDist,
+        [Values(32, 48, 64)] int seqLen)
+    {
+        string text = BuildText(seqLen);
+        string pattern = BaseUnit.Substring(0, patLen); // occurs exactly in the periodic text
+
+        // Count_d == independent Hamming recount (INV-2), and ≥ exact count (INV-1).
+        int countD = ApproximateMatcher.CountApproximateOccurrences(text, pattern, maxDist);
+        countD.Should().Be(BruteForceHamming(text, pattern, maxDist).Count, "Count_d = #windows within d (INV-2)");
+        int count0 = ApproximateMatcher.CountApproximateOccurrences(text, pattern, 0);
+        countD.Should().BeGreaterThanOrEqualTo(count0, "Count_d ≥ Count_0 (INV-1)");
+
+        // FindFrequentKmersWithMismatches: all returned k-mers tie at the max Count_d, and that count
+        // equals an independent CountApproximateOccurrences for the same k-mer (cross-check, INV-3).
+        var frequent = ApproximateMatcher.FindFrequentKmersWithMismatches(text, patLen, maxDist).ToList();
+        frequent.Should().NotBeEmpty();
+        int maxCount = frequent[0].Count;
+        frequent.Should().OnlyContain(f => f.Count == maxCount, "all returned k-mers share the maximum Count_d (INV-3)");
+        foreach (var (kmer, count) in frequent)
+            ApproximateMatcher.CountApproximateOccurrences(text, kmer, maxDist).Should().Be(count,
+                "the neighborhood tally equals Count_d for that k-mer");
+        maxCount.Should().BeGreaterThanOrEqualTo(countD, "the maximum Count_d is ≥ any specific pattern's Count_d");
+
+        // FindBestMatch: distance is the global minimum Hamming over equal-length windows (INV-4),
+        // and the planted pattern is found exactly at its leftmost occurrence (INV-5).
+        var best = ApproximateMatcher.FindBestMatch(text, pattern);
+        best.Should().NotBeNull();
+        int minDist = Enumerable.Range(0, text.Length - patLen + 1)
+            .Min(i => IndependentHamming(pattern, text.AsSpan(i, patLen)));
+        best!.Value.Distance.Should().Be(minDist, "best distance is the global window minimum (INV-4)");
+        best.Value.IsExact.Should().Be(minDist == 0, "IsExact ⇔ distance 0 (INV-4)");
+        best.Value.Position.Should().Be(text.IndexOf(pattern, StringComparison.Ordinal), "leftmost minimum (INV-5)");
+    }
+
+    /// <summary>
+    /// Interaction witness — Count_d is monotone non-decreasing in the mismatch budget, and a pattern
+    /// absent exactly can still have approximate occurrences once d is large enough.
+    /// </summary>
+    [Test]
+    public void PatApprox003_CountMonotoneInDistance()
+    {
+        string text = BuildText(96);
+        string pattern = BaseUnit.Substring(0, 6);
+
+        int c0 = ApproximateMatcher.CountApproximateOccurrences(text, pattern, 0);
+        int c1 = ApproximateMatcher.CountApproximateOccurrences(text, pattern, 1);
+        int c2 = ApproximateMatcher.CountApproximateOccurrences(text, pattern, 2);
+        c1.Should().BeGreaterThanOrEqualTo(c0);
+        c2.Should().BeGreaterThanOrEqualTo(c1, "a larger mismatch budget admits ≥ as many windows");
+
+        // A pattern one substitution off every occurrence: 0 exact, but > 0 at d ≥ 1.
+        string near = "T" + BaseUnit.Substring(1, 5); // differs from BaseUnit[0..6] only at position 0
+        ApproximateMatcher.CountApproximateOccurrences(text, near, 0)
+            .Should().BeLessThan(ApproximateMatcher.CountApproximateOccurrences(text, near, 1));
+    }
 }
