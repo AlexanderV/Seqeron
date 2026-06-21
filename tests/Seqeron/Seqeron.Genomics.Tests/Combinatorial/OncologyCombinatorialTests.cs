@@ -1786,6 +1786,124 @@ public class OncologyCombinatorialTests
         OncologyAnalyzer.DetectWholeGenomeDoubling(loh).Should().BeTrue("major CN 2 is elevated even at total CN 2");
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ONCO-NEO-001 — Neoantigen candidate peptide window generation (Oncology)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 109.
+    // Spec: tests/TestSpecs/ONCO-NEO-001.md (OncologyAnalyzer.GenerateNeoantigenPeptides).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: Hundal et al. (2020) pVACtools (class I 8-11-mers); Li et al. (2020) ProGeo-neo (21-mer
+    // ±10-flank windowing); Wells et al. (2020) TESLA (mutant/WT agretope pairing).
+    //
+    // For length k, every k-window of the mutant protein that SPANS the mutation is emitted, paired with
+    // the WT window at the same coordinates: count = (min(mutIdx, L−k) − max(0, mutIdx−k+1) + 1).
+    //
+    // Checklist axes peptideLen(3) × mutationPos(3) × mutationType(2) map onto the real knobs:
+    //   • peptideLen   → the single peptide length k ∈ {8, 9, 11} (minLength = maxLength = k).
+    //   • mutationPos  → 1-based mutation position ∈ {1 (N-term), 10 (interior), 21 (C-term)}.
+    //   • mutationType → the substituted mutant residue ∈ {'C', 'D'}: the windowing is INVARIANT to which
+    //     residue is substituted (any missense), while the mutant peptide carries it at the offset.
+    // Grid = 3 × 3 × 2 = 18 = the checklist's "Full Combos" for this row.
+    //
+    // The combinatorial point: the number of windows is a JOINT function of length and position (a
+    // terminal mutation truncates to one window; an interior one yields k), and every window spans the
+    // mutation with a correct agretope pair — invariant to the mutant residue. Each cell is checked
+    // against the windowing formula re-derived from the inputs.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private const string NeoProtein = "MKTAYIAKQRSTVWLNDEFGH"; // L = 21
+
+    /// <summary>
+    /// For every (length k, mutation position, mutant residue) the generated peptides exactly match the
+    /// windowing rule: the count equals the number of k-windows spanning the mutation, every peptide has
+    /// length k, spans the mutation, and forms a valid agretope pair differing only at the mutation offset.
+    /// </summary>
+    [Test, Combinatorial]
+    public void GenerateNeoantigenPeptides_LengthPositionResidueGrid_MatchesWindowingRule(
+        [Values(8, 9, 11)] int peptideLength,
+        [Values(1, 10, 21)] int mutationPosition,
+        [Values('C', 'D')] char mutantResidue)
+    {
+        int mutIdx = mutationPosition - 1;
+        char wildType = NeoProtein[mutIdx];
+
+        // Independent ground truth window count.
+        int firstStart = Math.Max(0, mutIdx - peptideLength + 1);
+        int lastStart = Math.Min(mutIdx, NeoProtein.Length - peptideLength);
+        int expectedCount = lastStart - firstStart + 1;
+
+        var peptides = OncologyAnalyzer.GenerateNeoantigenPeptides(
+            NeoProtein, mutantResidue, mutationPosition, peptideLength, peptideLength);
+
+        peptides.Should().HaveCount(expectedCount, "windows of length k spanning the mutation");
+        peptides.Should().OnlyContain(p => p.Length == peptideLength, "[INV-1] every peptide has the requested length");
+        peptides.Should().OnlyContain(p => p.StartPosition + p.MutationOffset == mutationPosition, "[INV-2] every window spans the mutation");
+        peptides.Should().OnlyContain(p => p.MutantPeptide[p.MutationOffset] == mutantResidue, "[INV-4] mutant residue at the offset");
+        peptides.Should().OnlyContain(p => p.WildTypePeptide[p.MutationOffset] == wildType, "[INV-4] wild-type residue at the offset");
+        peptides.Should().OnlyContain(p => DiffersAtExactlyOneIndex(p.MutantPeptide, p.WildTypePeptide, p.MutationOffset),
+            "[INV-3] agretope pair differs only at the mutation offset");
+    }
+
+    /// <summary>
+    /// Interaction witness (mutationType invariance): substituting a different mutant residue at the same
+    /// position and length produces the SAME window structure (count, start positions, offsets) — only the
+    /// mutant peptide content differs at the offset. Source: any missense drives the same windowing.
+    /// </summary>
+    [Test]
+    public void GenerateNeoantigenPeptides_MutantResidueAxis_PreservesWindowStructure()
+    {
+        var cysteine = OncologyAnalyzer.GenerateNeoantigenPeptides(NeoProtein, 'C', 5, 9, 9);
+        var aspartate = OncologyAnalyzer.GenerateNeoantigenPeptides(NeoProtein, 'D', 5, 9, 9);
+
+        cysteine.Select(p => (p.StartPosition, p.MutationOffset))
+            .Should().Equal(aspartate.Select(p => (p.StartPosition, p.MutationOffset)),
+                "window coordinates are invariant to the substituted residue");
+        cysteine.Should().OnlyContain(p => p.MutantPeptide[p.MutationOffset] == 'C');
+        aspartate.Should().OnlyContain(p => p.MutantPeptide[p.MutationOffset] == 'D');
+    }
+
+    /// <summary>
+    /// Interaction witness (position axis truncates count): an interior k=9 mutation (V10A, ≥ k−1 from both
+    /// ends) yields exactly 9 windows, while an N-terminal mutation (M1V) yields exactly 1 — the count
+    /// flips on the position axis. Source: Li et al. (2020) windowing; ProGeo-neo "if possible".
+    /// </summary>
+    [Test]
+    public void GenerateNeoantigenPeptides_PositionAxis_TruncatesWindowCount()
+    {
+        OncologyAnalyzer.GenerateNeoantigenPeptides(NeoProtein, 'A', 10, 9, 9).Should().HaveCount(9, "interior → k windows");
+
+        var terminal = OncologyAnalyzer.GenerateNeoantigenPeptides(NeoProtein, 'V', 1, 9, 9);
+        terminal.Should().ContainSingle("N-terminal → exactly one window");
+        terminal[0].MutantPeptide.Should().Be("VKTAYIAKQ");
+        terminal[0].WildTypePeptide.Should().Be("MKTAYIAKQ");
+        terminal[0].MutationOffset.Should().Be(0);
+    }
+
+    /// <summary>
+    /// Witness (agretope pairing, spec M3): the first 8-mer window of Y5C is mutant MKTACIAK / WT MKTAYIAK,
+    /// offset 4, differing only at index 4 (C vs Y). Source: Wells et al. (2020); Hundal et al. (2020).
+    /// </summary>
+    [Test]
+    public void GenerateNeoantigenPeptides_FirstWindow_FormsAgretopePair()
+    {
+        var first = OncologyAnalyzer.GenerateNeoantigenPeptides(NeoProtein, 'C', 5, 8, 8)[0];
+
+        first.MutantPeptide.Should().Be("MKTACIAK");
+        first.WildTypePeptide.Should().Be("MKTAYIAK");
+        first.MutationOffset.Should().Be(4);
+    }
+
+    private static bool DiffersAtExactlyOneIndex(string a, string b, int expectedIndex)
+    {
+        if (a.Length != b.Length) return false;
+        int diffs = 0, diffIndex = -1;
+        for (int i = 0; i < a.Length; i++)
+        {
+            if (a[i] != b[i]) { diffs++; diffIndex = i; }
+        }
+        return diffs == 1 && diffIndex == expectedIndex;
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     // Helpers — engineered constructs + independent ground truth
     // ───────────────────────────────────────────────────────────────────────
