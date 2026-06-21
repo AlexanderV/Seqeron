@@ -2210,6 +2210,121 @@ public class OncologyCombinatorialTests
         deep.Should().BeApproximately(shallow / 2.0, 1e-12, "doubling depth halves IMAF at fixed alt reads");
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ONCO-CHIP-001 — Clonal-hematopoiesis (CHIP) filtering (Oncology)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 113.
+    // Spec: tests/TestSpecs/ONCO-CHIP-001.md (OncologyAnalyzer.IdentifyCHIPVariants / FilterCHIP / IsCanonicalChipGene).
+    // ADVANCED_TESTING_CHECKLIST.md §10.
+    //
+    // Sources: Steensma et al. (2015) (CHIP = driver-gene mutation at VAF ≥ 2% in blood); Genovese et al.
+    // (2014) (canonical CH genes); Razavi et al. (2019) (matched-WBC subtraction).
+    //
+    // IdentifyCHIPVariants flags a variant ⟺ its gene ∈ CHIP panel AND its VAF ≥ 0.02 (inclusive).
+    //
+    // Checklist axes geneList(3) × vafBand(3) map onto the real knobs:
+    //   • geneList → the gene category {Driver "DNMT3A", LowercaseDriver "tet2" (case-insensitive
+    //     membership), NonChip "EGFR"}.
+    //   • vafBand  → plasma VAF relative to the 2% threshold {0.01 (below), 0.02 (boundary, inclusive),
+    //     0.30 (above)}.
+    // Grid = 3 × 3 = 9 = the checklist's "Full Combos" for this row.
+    //
+    // The combinatorial point: a variant is CHIP only when BOTH gates pass — a driver gene below 2% VAF is
+    // not CHIP, and a high-VAF non-CHIP gene is not CHIP; case-insensitive membership means "tet2" gates
+    // like "TET2". Each cell is checked against the gene+VAF heuristic re-derived from the inputs.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>Gene category for the CHIP gene-membership axis.</summary>
+    public enum ChipGeneCategory
+    {
+        /// <summary>A canonical CHIP driver gene (DNMT3A).</summary>
+        Driver,
+
+        /// <summary>The same driver in lower case (tet2) — membership is case-insensitive.</summary>
+        LowercaseDriver,
+
+        /// <summary>A non-CHIP gene (EGFR).</summary>
+        NonChip,
+    }
+
+    private static string ChipGeneSymbol(ChipGeneCategory category) => category switch
+    {
+        ChipGeneCategory.Driver => "DNMT3A",
+        ChipGeneCategory.LowercaseDriver => "tet2",
+        ChipGeneCategory.NonChip => "EGFR",
+        _ => throw new ArgumentOutOfRangeException(nameof(category)),
+    };
+
+    /// <summary>
+    /// For every (gene category, VAF band) the CHIP flag matches the gene+VAF heuristic: flagged ⟺ the gene
+    /// is in the CHIP panel (case-insensitive) AND the VAF ≥ 0.02.
+    /// </summary>
+    [Test, Combinatorial]
+    public void IdentifyCHIPVariants_GeneVafGrid_RequiresBothGates(
+        [Values] ChipGeneCategory geneCategory,
+        [Values(0.01, 0.02, 0.30)] double vaf)
+    {
+        string gene = ChipGeneSymbol(geneCategory);
+        bool isChipGene = geneCategory != ChipGeneCategory.NonChip;
+        bool expectedFlagged = isChipGene && vaf >= 0.02;
+
+        var variant = new OncologyAnalyzer.ChipVariant("chr2", 25_457_242, "C", "T", gene, vaf);
+
+        OncologyAnalyzer.IsCanonicalChipGene(gene).Should().Be(isChipGene, "[INV-6] gene membership is case-insensitive");
+        var flagged = OncologyAnalyzer.IdentifyCHIPVariants(new[] { variant });
+        flagged.Should().HaveCount(expectedFlagged ? 1 : 0, "[INV-1] CHIP ⟺ driver gene AND VAF ≥ 0.02");
+    }
+
+    /// <summary>
+    /// Interaction witness (VAF inclusive boundary, INV-2): a driver-gene variant is CHIP at exactly 2% VAF
+    /// but not at 1.99% — the threshold is inclusive. Source: Steensma et al. (2015) "≥2%".
+    /// </summary>
+    [Test]
+    public void IdentifyCHIPVariants_TwoPercentBoundary_IsInclusive()
+    {
+        var atBoundary = new OncologyAnalyzer.ChipVariant("chr2", 1, "C", "T", "DNMT3A", 0.02);
+        var belowBoundary = new OncologyAnalyzer.ChipVariant("chr2", 1, "C", "T", "DNMT3A", 0.0199);
+
+        OncologyAnalyzer.IdentifyCHIPVariants(new[] { atBoundary }).Should().ContainSingle("0.02 ≥ 0.02 → CHIP");
+        OncologyAnalyzer.IdentifyCHIPVariants(new[] { belowBoundary }).Should().BeEmpty("0.0199 < 0.02 → not CHIP");
+    }
+
+    /// <summary>
+    /// Interaction witness (matched-WBC subtraction, INV-4/5): a cfDNA variant present in the matched WBC is
+    /// removed regardless of gene, while the same-gene variant absent from WBC is retained as candidate
+    /// tumor. Source: Razavi et al. (2019).
+    /// </summary>
+    [Test]
+    public void FilterCHIP_MatchedWbcSubtraction_RemovesWbcPresentRetainsAbsent()
+    {
+        var tumorVariant = new OncologyAnalyzer.ChipVariant("chr7", 55_000_000, "C", "T", "EGFR", 0.30);
+        var wbcMatch = new OncologyAnalyzer.ChipVariant("chr7", 55_000_000, "C", "T", "EGFR", 0.40, AltReads: 50);
+
+        OncologyAnalyzer.FilterCHIP(new[] { tumorVariant }, new[] { wbcMatch })
+            .Should().BeEmpty("a variant present in matched WBC is CH-derived and removed");
+        OncologyAnalyzer.FilterCHIP(new[] { tumorVariant }, System.Array.Empty<OncologyAnalyzer.ChipVariant>())
+            .Should().ContainSingle("a non-CHIP variant absent from WBC is retained as candidate tumor");
+    }
+
+    /// <summary>
+    /// Witness (FilterCHIP removes CHIP heuristic, preserves order/subset, INV-3): of a mixed panel, the
+    /// CHIP-gene high-VAF variant is dropped while the others are kept in input order. Source: Steensma /
+    /// Razavi composition.
+    /// </summary>
+    [Test]
+    public void FilterCHIP_RemovesChipHeuristic_PreservesOrder()
+    {
+        var panel = new[]
+        {
+            new OncologyAnalyzer.ChipVariant("chr2", 1, "C", "T", "DNMT3A", 0.30), // CHIP heuristic → removed
+            new OncologyAnalyzer.ChipVariant("chr7", 2, "G", "A", "EGFR", 0.30),   // tumor → kept
+            new OncologyAnalyzer.ChipVariant("chr2", 3, "A", "G", "DNMT3A", 0.01), // driver but VAF < 2% → kept
+        };
+
+        var retained = OncologyAnalyzer.FilterCHIP(panel, System.Array.Empty<OncologyAnalyzer.ChipVariant>());
+
+        retained.Select(v => v.Position).Should().Equal(new[] { 2, 3 }, "the CHIP-heuristic variant is removed, order preserved");
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     // Helpers — engineered constructs + independent ground truth
     // ───────────────────────────────────────────────────────────────────────
