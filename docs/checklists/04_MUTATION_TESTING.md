@@ -167,15 +167,15 @@ Mutation testing вимірює ефективність тестового на
 | 137 | ☑ | COMPGEN-REARR-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_DetectRearrangements_Tests.cs | ≥ 80% |
 | 138 | ☑ | COMPGEN-REVERSAL-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_CalculateReversalDistance_Tests.cs | ≥ 80% |
 | 139 | ☑ | COMPGEN-SYNTENY-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_FindSyntenicBlocks_Tests.cs | ≥ 80% |
-| 140 | ☐ | ASSEMBLY-CONSENSUS-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_ComputeConsensus_Tests.cs | ≥ 80% |
-| 141 | ☐ | ASSEMBLY-CORRECT-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_ErrorCorrectReads_Tests.cs | ≥ 80% |
-| 142 | ☐ | ASSEMBLY-COVER-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_CalculateCoverage_Tests.cs | ≥ 80% |
-| 143 | ☐ | ASSEMBLY-DBG-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_AssembleDeBruijn_Tests.cs | ≥ 80% |
-| 144 | ☐ | ASSEMBLY-MERGE-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_MergeContigs_Tests.cs | ≥ 80% |
-| 145 | ☐ | ASSEMBLY-OLC-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_AssembleOLC_Tests.cs | ≥ 80% |
-| 146 | ☐ | ASSEMBLY-SCAFFOLD-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_Scaffold_Tests.cs | ≥ 80% |
+| 140 | ☑ | ASSEMBLY-CONSENSUS-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_ComputeConsensus_Tests.cs | ≥ 80% |
+| 141 | ☑ | ASSEMBLY-CORRECT-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_ErrorCorrectReads_Tests.cs | ≥ 80% |
+| 142 | ☑ | ASSEMBLY-COVER-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_CalculateCoverage_Tests.cs | ≥ 80% |
+| 143 | ☑ | ASSEMBLY-DBG-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_AssembleDeBruijn_Tests.cs | ≥ 80% |
+| 144 | ☑ | ASSEMBLY-MERGE-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_MergeContigs_Tests.cs | ≥ 80% |
+| 145 | ☑ | ASSEMBLY-OLC-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_AssembleOLC_Tests.cs | ≥ 80% |
+| 146 | ☑ | ASSEMBLY-SCAFFOLD-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_Scaffold_Tests.cs | ≥ 80% |
 | 147 | ☐ | ASSEMBLY-STATS-001 | Assembly | GenomeAssemblyAnalyzer.cs | GenomeAssemblyAnalyzer_AssemblyStatistics_Tests.cs | ≥ 80% |
-| 148 | ☐ | ASSEMBLY-TRIM-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_QualityTrimReads_Tests.cs | ≥ 80% |
+| 148 | ☑ | ASSEMBLY-TRIM-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_QualityTrimReads_Tests.cs | ≥ 80% |
 | 149 | ☑ | RNA-DOTBRACKET-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructure_ParseDotBracket_Tests.cs | ≥ 80% |
 | 150 | ☑ | RNA-HAIRPIN-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructure_HairpinEnergy_Tests.cs | ≥ 80% |
 | 151 | ☑ | RNA-INVERT-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructure_FindInvertedRepeats_Tests.cs | ≥ 80% |
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 195 |
-| ☐ Not started | 39 |
+| ☑ Complete (run + killers written) | 203 |
+| ☐ Not started | 31 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
