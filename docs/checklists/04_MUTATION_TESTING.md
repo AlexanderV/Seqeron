@@ -75,11 +75,11 @@ Mutation testing вимірює ефективність тестового на
 | 45 | ☑ | POP-HW-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_HardyWeinberg_Tests.cs | ≥ 80% |
 | 46 | ☑ | POP-FST-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_FStatistics_Tests.cs | ≥ 80% |
 | 47 | ☑ | POP-LD-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_LinkageDisequilibrium_Tests.cs | ≥ 80% |
-| 48 | ☐ | CHROM-TELO-001 | Chromosome | ChromosomeAnalyzer.cs | ChromosomeAnalyzer_Telomere_Tests.cs | ≥ 80% |
-| 49 | ☐ | CHROM-CENT-001 | Chromosome | ChromosomeAnalyzer.cs | ChromosomeAnalyzer_Centromere_Tests.cs | ≥ 80% |
-| 50 | ☐ | CHROM-KARYO-001 | Chromosome | ChromosomeAnalyzer.cs | ChromosomeAnalyzer_Karyotype_Tests.cs | ≥ 80% |
-| 51 | ☐ | CHROM-ANEU-001 | Chromosome | ChromosomeAnalyzer.cs | ChromosomeAnalyzer_Aneuploidy_Tests.cs | ≥ 80% |
-| 52 | ☐ | CHROM-SYNT-001 | Chromosome | ChromosomeAnalyzer.cs | ChromosomeAnalyzer_Synteny_Tests.cs | ≥ 80% |
+| 48 | ☑ | CHROM-TELO-001 | Chromosome | ChromosomeAnalyzer.cs | ChromosomeAnalyzer_Telomere_Tests.cs | ≥ 80% |
+| 49 | ☑ | CHROM-CENT-001 | Chromosome | ChromosomeAnalyzer.cs | ChromosomeAnalyzer_Centromere_Tests.cs | ≥ 80% |
+| 50 | ☑ | CHROM-KARYO-001 | Chromosome | ChromosomeAnalyzer.cs | ChromosomeAnalyzer_Karyotype_Tests.cs | ≥ 80% |
+| 51 | ☑ | CHROM-ANEU-001 | Chromosome | ChromosomeAnalyzer.cs | ChromosomeAnalyzer_Aneuploidy_Tests.cs | ≥ 80% |
+| 52 | ☑ | CHROM-SYNT-001 | Chromosome | ChromosomeAnalyzer.cs | ChromosomeAnalyzer_Synteny_Tests.cs | ≥ 80% |
 | 53 | ☐ | META-CLASS-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_TaxonomicClassification_Tests.cs | ≥ 80% |
 | 54 | ☐ | META-PROF-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_TaxonomicProfile_Tests.cs | ≥ 80% |
 | 55 | ☐ | META-ALPHA-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_AlphaDiversity_Tests.cs | ≥ 80% |
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 73 |
-| ☐ Not started | 161 |
+| ☑ Complete (run + killers written) | 78 |
+| ☐ Not started | 156 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
