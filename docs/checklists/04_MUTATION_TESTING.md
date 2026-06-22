@@ -89,8 +89,8 @@ Mutation testing вимірює ефективність тестового на
 | 59 | ☑ | CODON-CAI-001 | Codon | CodonOptimizer.cs | CodonOptimizer_CAI_Tests.cs | ≥ 80% |
 | 60 | ☑ | CODON-RARE-001 | Codon | CodonOptimizer.cs | CodonOptimizer_FindRareCodons_Tests.cs | ≥ 80% |
 | 61 | ☑ | CODON-USAGE-001 | Codon | CodonOptimizer.cs | CodonOptimizer_CodonUsage_Tests.cs | ≥ 80% |
-| 62 | ☐ | TRANS-CODON-001 | Translation | GeneticCode.cs | GeneticCodeTests.cs | ≥ 80% |
-| 63 | ☐ | TRANS-PROT-001 | Translation | Translator.cs | TranslatorTests.cs | ≥ 80% |
+| 62 | ☑ | TRANS-CODON-001 | Translation | GeneticCode.cs | GeneticCodeTests.cs | ≥ 80% |
+| 63 | ☑ | TRANS-PROT-001 | Translation | Translator.cs | TranslatorTests.cs | ≥ 80% |
 | 64 | ☐ | PARSE-FASTA-001 | FileIO | FastaParser.cs | FastaParserTests.cs | ≥ 80% |
 | 65 | ☐ | PARSE-FASTQ-001 | FileIO | FastqParser.cs | FastqParserTests.cs | ≥ 80% |
 | 66 | ☐ | PARSE-BED-001 | FileIO | BedParser.cs | BedParserTests.cs | ≥ 80% |
@@ -250,7 +250,7 @@ Mutation testing вимірює ефективність тестового на
 | 220 | ☐ | QUALITY-STATS-001 | Quality | QualityScoreAnalyzer.cs | QualityScoreAnalyzer_CalculateStatistics_Tests.cs | ≥ 80% |
 | 221 | ☑ | PHYLO-BOOT-001 | Phylogenetic | PhylogeneticAnalyzer.cs | PhylogeneticAnalyzer_Bootstrap_Tests.cs | ≥ 80% |
 | 222 | ☑ | PHYLO-STATS-001 | Phylogenetic | PhylogeneticAnalyzer.cs | PhylogeneticAnalyzer_TreeStatistics_Tests.cs | ≥ 80% |
-| 223 | ☐ | TRANS-SIXFRAME-001 | Translation | Translator.cs | Translator_SixFrames_Tests.cs | ≥ 80% |
+| 223 | ☑ | TRANS-SIXFRAME-001 | Translation | Translator.cs | Translator_SixFrames_Tests.cs | ≥ 80% |
 | 224 | ☑ | RESTR-FILTER-001 | MolTools | RestrictionAnalyzer.cs | RestrictionAnalyzer_Filter_Tests.cs | ≥ 80% |
 | 225 | ☐ | MIRNA-PAIR-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_AlignMiRnaToTarget_Tests.cs | ≥ 80% |
 | 226 | ☑ | ALIGN-STATS-001 | Alignment | SequenceAligner.cs | SequenceAligner_CalculateStatistics_Tests.cs | ≥ 80% |
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 91 |
-| ☐ Not started | 143 |
+| ☑ Complete (run + killers written) | 94 |
+| ☐ Not started | 140 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
