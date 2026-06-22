@@ -59,9 +59,9 @@ Mutation testing вимірює ефективність тестового на
 | 29 | ☑ | ANNOT-GENE-001 | Annotation | GenomeAnnotator.cs | GenomeAnnotator_Gene_Tests.cs | ≥ 80% |
 | 30 | ☑ | ANNOT-PROM-001 | Annotation | GenomeAnnotator.cs | GenomeAnnotator_PromoterMotif_Tests.cs | ≥ 80% |
 | 31 | ☑ | ANNOT-GFF-001 | Annotation | GenomeAnnotator.cs | GenomeAnnotator_GFF3_Tests.cs | ≥ 80% |
-| 32 | ☐ | KMER-COUNT-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_CountKmers_Tests.cs | ≥ 80% |
-| 33 | ☐ | KMER-FREQ-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_Frequency_Tests.cs | ≥ 80% |
-| 34 | ☐ | KMER-FIND-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_Find_Tests.cs | ≥ 80% |
+| 32 | ☑ | KMER-COUNT-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_CountKmers_Tests.cs | ≥ 80% |
+| 33 | ☑ | KMER-FREQ-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_Frequency_Tests.cs | ≥ 80% |
+| 34 | ☑ | KMER-FIND-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_Find_Tests.cs | ≥ 80% |
 | 35 | ☐ | ALIGN-GLOBAL-001 | Alignment | SequenceAligner.cs | SequenceAligner_GlobalAlign_Tests.cs | ≥ 80% |
 | 36 | ☐ | ALIGN-LOCAL-001 | Alignment | SequenceAligner.cs | SequenceAligner_LocalAlign_Tests.cs | ≥ 80% |
 | 37 | ☐ | ALIGN-SEMI-001 | Alignment | SequenceAligner.cs | SequenceAligner_SemiGlobalAlign_Tests.cs | ≥ 80% |
@@ -183,13 +183,13 @@ Mutation testing вимірює ефективність тестового на
 | 153 | ☐ | RNA-PAIR-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructure_CanPair_Tests.cs | ≥ 80% |
 | 154 | ☐ | RNA-PARTITION-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructure_PartitionFunction_Tests.cs | ≥ 80% |
 | 155 | ☐ | RNA-PSEUDOKNOT-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructure_DetectPseudoknots_Tests.cs | ≥ 80% |
-| 156 | ☐ | KMER-ASYNC-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_CountKmersAsync_Tests.cs | ≥ 80% |
-| 157 | ☐ | KMER-BOTH-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_CountKmersBothStrands_Tests.cs | ≥ 80% |
-| 158 | ☐ | KMER-DIST-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_KmerDistance_Tests.cs | ≥ 80% |
-| 159 | ☐ | KMER-GENERATE-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_GenerateAllKmers_Tests.cs | ≥ 80% |
-| 160 | ☐ | KMER-POSITIONS-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_FindKmerPositions_Tests.cs | ≥ 80% |
-| 161 | ☐ | KMER-STATS-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_AnalyzeKmers_Tests.cs | ≥ 80% |
-| 162 | ☐ | KMER-UNIQUE-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_FindUniqueAndMinCount_Tests.cs | ≥ 80% |
+| 156 | ☑ | KMER-ASYNC-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_CountKmersAsync_Tests.cs | ≥ 80% |
+| 157 | ☑ | KMER-BOTH-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_CountKmersBothStrands_Tests.cs | ≥ 80% |
+| 158 | ☑ | KMER-DIST-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_KmerDistance_Tests.cs | ≥ 80% |
+| 159 | ☑ | KMER-GENERATE-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_GenerateAllKmers_Tests.cs | ≥ 80% |
+| 160 | ☑ | KMER-POSITIONS-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_FindKmerPositions_Tests.cs | ≥ 80% |
+| 161 | ☑ | KMER-STATS-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_AnalyzeKmers_Tests.cs | ≥ 80% |
+| 162 | ☑ | KMER-UNIQUE-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_FindUniqueAndMinCount_Tests.cs | ≥ 80% |
 | 163 | ☐ | PROTMOTIF-CC-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_PredictCoiledCoils_Tests.cs | ≥ 80% |
 | 164 | ☐ | PROTMOTIF-COMMON-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_FindCommonMotifs_Tests.cs | ≥ 80% |
 | 165 | ☐ | PROTMOTIF-LC-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_FindLowComplexityRegions_Tests.cs | ≥ 80% |
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 44 |
-| ☐ Not started | 190 |
+| ☑ Complete (run + killers written) | 54 |
+| ☐ Not started | 180 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
