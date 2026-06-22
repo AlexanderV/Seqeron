@@ -62,10 +62,10 @@ Mutation testing вимірює ефективність тестового на
 | 32 | ☑ | KMER-COUNT-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_CountKmers_Tests.cs | ≥ 80% |
 | 33 | ☑ | KMER-FREQ-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_Frequency_Tests.cs | ≥ 80% |
 | 34 | ☑ | KMER-FIND-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_Find_Tests.cs | ≥ 80% |
-| 35 | ☐ | ALIGN-GLOBAL-001 | Alignment | SequenceAligner.cs | SequenceAligner_GlobalAlign_Tests.cs | ≥ 80% |
-| 36 | ☐ | ALIGN-LOCAL-001 | Alignment | SequenceAligner.cs | SequenceAligner_LocalAlign_Tests.cs | ≥ 80% |
-| 37 | ☐ | ALIGN-SEMI-001 | Alignment | SequenceAligner.cs | SequenceAligner_SemiGlobalAlign_Tests.cs | ≥ 80% |
-| 38 | ☐ | ALIGN-MULTI-001 | Alignment | SequenceAligner.cs | SequenceAligner_MultipleAlign_Tests.cs | ≥ 80% |
+| 35 | ☑ | ALIGN-GLOBAL-001 | Alignment | SequenceAligner.cs | SequenceAligner_GlobalAlign_Tests.cs | ≥ 80% |
+| 36 | ☑ | ALIGN-LOCAL-001 | Alignment | SequenceAligner.cs | SequenceAligner_LocalAlign_Tests.cs | ≥ 80% |
+| 37 | ☑ | ALIGN-SEMI-001 | Alignment | SequenceAligner.cs | SequenceAligner_SemiGlobalAlign_Tests.cs | ≥ 80% |
+| 38 | ☑ | ALIGN-MULTI-001 | Alignment | SequenceAligner.cs | SequenceAligner_MultipleAlign_Tests.cs | ≥ 80% |
 | 39 | ☐ | PHYLO-DIST-001 | Phylogenetic | PhylogeneticAnalyzer.cs | PhylogeneticAnalyzer_DistanceMatrix_Tests.cs | ≥ 80% |
 | 40 | ☐ | PHYLO-TREE-001 | Phylogenetic | PhylogeneticAnalyzer.cs | PhylogeneticAnalyzer_TreeConstruction_Tests.cs | ≥ 80% |
 | 41 | ☐ | PHYLO-NEWICK-001 | Phylogenetic | PhylogeneticAnalyzer.cs | PhylogeneticAnalyzer_NewickIO_Tests.cs | ≥ 80% |
@@ -253,7 +253,7 @@ Mutation testing вимірює ефективність тестового на
 | 223 | ☐ | TRANS-SIXFRAME-001 | Translation | Translator.cs | Translator_SixFrames_Tests.cs | ≥ 80% |
 | 224 | ☑ | RESTR-FILTER-001 | MolTools | RestrictionAnalyzer.cs | RestrictionAnalyzer_Filter_Tests.cs | ≥ 80% |
 | 225 | ☐ | MIRNA-PAIR-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_AlignMiRnaToTarget_Tests.cs | ≥ 80% |
-| 226 | ☐ | ALIGN-STATS-001 | Alignment | SequenceAligner.cs | SequenceAligner_CalculateStatistics_Tests.cs | ≥ 80% |
+| 226 | ☑ | ALIGN-STATS-001 | Alignment | SequenceAligner.cs | SequenceAligner_CalculateStatistics_Tests.cs | ≥ 80% |
 | 227 | ☐ | SEQ-CODON-FREQ-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateCodonFrequencies_Tests.cs | ≥ 80% |
 | 228 | ☑ | SEQ-COMPLEX-COMPRESS-001 | Complexity | SequenceComplexity.cs | SequenceComplexity_EstimateCompressionRatio_Tests.cs | ≥ 80% |
 | 229 | ☑ | SEQ-COMPLEX-DUST-001 | Complexity | SequenceComplexity.cs | SequenceComplexity_CalculateDustScore_Tests.cs | ≥ 80% |
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 54 |
-| ☐ Not started | 180 |
+| ☑ Complete (run + killers written) | 59 |
+| ☐ Not started | 175 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
