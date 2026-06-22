@@ -101,9 +101,9 @@ Mutation testing вимірює ефективність тестового на
 | 71 | ☑ | RNA-STRUCT-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructureTests.cs | ≥ 80% |
 | 72 | ☑ | RNA-STEMLOOP-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructureTests.cs | ≥ 80% |
 | 73 | ☑ | RNA-ENERGY-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructureTests.cs | ≥ 80% |
-| 74 | ☐ | MIRNA-SEED-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_SeedAnalysis_Tests.cs | ≥ 80% |
-| 75 | ☐ | MIRNA-TARGET-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_TargetPrediction_Tests.cs | ≥ 80% |
-| 76 | ☐ | MIRNA-PRECURSOR-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_PreMiRna_Tests.cs | ≥ 80% |
+| 74 | ☑ | MIRNA-SEED-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_SeedAnalysis_Tests.cs | ≥ 80% |
+| 75 | ☑ | MIRNA-TARGET-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_TargetPrediction_Tests.cs | ≥ 80% |
+| 76 | ☑ | MIRNA-PRECURSOR-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_PreMiRna_Tests.cs | ≥ 80% |
 | 77 | ☐ | SPLICE-DONOR-001 | Splicing | SpliceSitePredictor.cs | SpliceSitePredictor_DonorSite_Tests.cs | ≥ 80% |
 | 78 | ☐ | SPLICE-ACCEPTOR-001 | Splicing | SpliceSitePredictor.cs | SpliceSitePredictor_AcceptorSite_Tests.cs | ≥ 80% |
 | 79 | ☐ | SPLICE-PREDICT-001 | Splicing | SpliceSitePredictor.cs | SpliceSitePredictor_GeneStructure_Tests.cs | ≥ 80% |
@@ -252,7 +252,7 @@ Mutation testing вимірює ефективність тестового на
 | 222 | ☑ | PHYLO-STATS-001 | Phylogenetic | PhylogeneticAnalyzer.cs | PhylogeneticAnalyzer_TreeStatistics_Tests.cs | ≥ 80% |
 | 223 | ☑ | TRANS-SIXFRAME-001 | Translation | Translator.cs | Translator_SixFrames_Tests.cs | ≥ 80% |
 | 224 | ☑ | RESTR-FILTER-001 | MolTools | RestrictionAnalyzer.cs | RestrictionAnalyzer_Filter_Tests.cs | ≥ 80% |
-| 225 | ☐ | MIRNA-PAIR-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_AlignMiRnaToTarget_Tests.cs | ≥ 80% |
+| 225 | ☑ | MIRNA-PAIR-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_AlignMiRnaToTarget_Tests.cs | ≥ 80% |
 | 226 | ☑ | ALIGN-STATS-001 | Alignment | SequenceAligner.cs | SequenceAligner_CalculateStatistics_Tests.cs | ≥ 80% |
 | 227 | ☐ | SEQ-CODON-FREQ-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateCodonFrequencies_Tests.cs | ≥ 80% |
 | 228 | ☑ | SEQ-COMPLEX-COMPRESS-001 | Complexity | SequenceComplexity.cs | SequenceComplexity_EstimateCompressionRatio_Tests.cs | ≥ 80% |
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 111 |
-| ☐ Not started | 123 |
+| ☑ Complete (run + killers written) | 115 |
+| ☐ Not started | 119 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
