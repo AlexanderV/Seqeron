@@ -70,11 +70,11 @@ Mutation testing вимірює ефективність тестового на
 | 40 | ☑ | PHYLO-TREE-001 | Phylogenetic | PhylogeneticAnalyzer.cs | PhylogeneticAnalyzer_TreeConstruction_Tests.cs | ≥ 80% |
 | 41 | ☑ | PHYLO-NEWICK-001 | Phylogenetic | PhylogeneticAnalyzer.cs | PhylogeneticAnalyzer_NewickIO_Tests.cs | ≥ 80% |
 | 42 | ☑ | PHYLO-COMP-001 | Phylogenetic | PhylogeneticAnalyzer.cs | PhylogeneticAnalyzer_TreeComparison_Tests.cs | ≥ 80% |
-| 43 | ☐ | POP-FREQ-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_AlleleFrequency_Tests.cs | ≥ 80% |
-| 44 | ☐ | POP-DIV-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_Diversity_Tests.cs | ≥ 80% |
-| 45 | ☐ | POP-HW-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_HardyWeinberg_Tests.cs | ≥ 80% |
-| 46 | ☐ | POP-FST-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_FStatistics_Tests.cs | ≥ 80% |
-| 47 | ☐ | POP-LD-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_LinkageDisequilibrium_Tests.cs | ≥ 80% |
+| 43 | ☑ | POP-FREQ-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_AlleleFrequency_Tests.cs | ≥ 80% |
+| 44 | ☑ | POP-DIV-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_Diversity_Tests.cs | ≥ 80% |
+| 45 | ☑ | POP-HW-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_HardyWeinberg_Tests.cs | ≥ 80% |
+| 46 | ☑ | POP-FST-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_FStatistics_Tests.cs | ≥ 80% |
+| 47 | ☑ | POP-LD-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_LinkageDisequilibrium_Tests.cs | ≥ 80% |
 | 48 | ☐ | CHROM-TELO-001 | Chromosome | ChromosomeAnalyzer.cs | ChromosomeAnalyzer_Telomere_Tests.cs | ≥ 80% |
 | 49 | ☐ | CHROM-CENT-001 | Chromosome | ChromosomeAnalyzer.cs | ChromosomeAnalyzer_Centromere_Tests.cs | ≥ 80% |
 | 50 | ☐ | CHROM-KARYO-001 | Chromosome | ChromosomeAnalyzer.cs | ChromosomeAnalyzer_Karyotype_Tests.cs | ≥ 80% |
@@ -234,9 +234,9 @@ Mutation testing вимірює ефективність тестового на
 | 204 | ☐ | DISORDER-LC-001 | ProteinPred | DisorderPredictor.cs | DisorderPredictor_LowComplexity_Tests.cs | ≥ 80% |
 | 205 | ☐ | DISORDER-MORF-001 | ProteinPred | DisorderPredictor.cs | DisorderPredictor_MoRF_Tests.cs | ≥ 80% |
 | 206 | ☐ | DISORDER-PROPENSITY-001 | ProteinPred | DisorderPredictor.cs | DisorderPredictor_GetDisorderPropensity_Tests.cs | ≥ 80% |
-| 207 | ☐ | POP-ANCESTRY-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_EstimateAncestry_Tests.cs | ≥ 80% |
-| 208 | ☐ | POP-ROH-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_FindROH_Tests.cs | ≥ 80% |
-| 209 | ☐ | POP-SELECT-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_SelectionSignature_Tests.cs | ≥ 80% |
+| 207 | ☑ | POP-ANCESTRY-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_EstimateAncestry_Tests.cs | ≥ 80% |
+| 208 | ☑ | POP-ROH-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_FindROH_Tests.cs | ≥ 80% |
+| 209 | ☑ | POP-SELECT-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_SelectionSignature_Tests.cs | ≥ 80% |
 | 210 | ☑ | SEQ-ATSKEW-001 | Composition | GcSkewCalculator.cs | GcSkewCalculator_CalculateAtSkew_Tests.cs | ≥ 80% |
 | 211 | ☑ | SEQ-REPLICATION-001 | Composition | GcSkewCalculator.cs | GcSkewCalculator_PredictReplicationOrigin_Tests.cs | ≥ 80% |
 | 212 | ☑ | SEQ-RNACOMP-001 | Composition | SequenceExtensions.cs | SequenceExtensions_GetRnaComplementBase_Tests.cs | ≥ 80% |
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 65 |
-| ☐ Not started | 169 |
+| ☑ Complete (run + killers written) | 73 |
+| ☐ Not started | 161 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
