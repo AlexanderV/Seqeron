@@ -51,8 +51,8 @@ Mutation testing вимірює ефективність тестового на
 | 21 | ☑ | PRIMER-TM-001 | MolTools | PrimerDesigner.cs | PrimerDesigner_MeltingTemperature_Tests.cs | ≥ 80% |
 | 22 | ☑ | PRIMER-DESIGN-001 | MolTools | PrimerDesigner.cs | PrimerDesigner_PrimerDesign_Tests.cs | ≥ 80% |
 | 23 | ☑ | PRIMER-STRUCT-001 | MolTools | PrimerDesigner.cs | PrimerDesigner_PrimerStructure_Tests.cs | ≥ 80% |
-| 24 | ☐ | PROBE-DESIGN-001 | MolTools | ProbeDesigner.cs | ProbeDesigner_ProbeDesign_Tests.cs | ≥ 80% |
-| 25 | ☐ | PROBE-VALID-001 | MolTools | ProbeDesigner.cs | ProbeDesigner_ProbeValidation_Tests.cs | ≥ 80% |
+| 24 | ☑ | PROBE-DESIGN-001 | MolTools | ProbeDesigner.cs | ProbeDesigner_ProbeDesign_Tests.cs | ≥ 80% |
+| 25 | ☑ | PROBE-VALID-001 | MolTools | ProbeDesigner.cs | ProbeDesigner_ProbeValidation_Tests.cs | ≥ 80% |
 | 26 | ☐ | RESTR-FIND-001 | MolTools | RestrictionAnalyzer.cs | RestrictionAnalyzer_FindSites_Tests.cs | ≥ 80% |
 | 27 | ☐ | RESTR-DIGEST-001 | MolTools | RestrictionAnalyzer.cs | RestrictionAnalyzer_Digest_Tests.cs | ≥ 80% |
 | 28 | ☐ | ANNOT-ORF-001 | Annotation | GenomeAnnotator.cs | GenomeAnnotator_ORF_Tests.cs | ≥ 80% |
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 32 |
-| ☐ Not started | 202 |
+| ☑ Complete (run + killers written) | 34 |
+| ☐ Not started | 200 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
