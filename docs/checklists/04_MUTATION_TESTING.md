@@ -98,9 +98,9 @@ Mutation testing вимірює ефективність тестового на
 | 68 | ☑ | PARSE-GFF-001 | FileIO | GffParser.cs | GffParserTests.cs | ≥ 80% |
 | 69 | ☑ | PARSE-GENBANK-001 | FileIO | GenBankParser.cs | GenBankParserTests.cs | ≥ 80% |
 | 70 | ☑ | PARSE-EMBL-001 | FileIO | EmblParser.cs | EmblParserTests.cs | ≥ 80% |
-| 71 | ☐ | RNA-STRUCT-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructureTests.cs | ≥ 80% |
-| 72 | ☐ | RNA-STEMLOOP-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructureTests.cs | ≥ 80% |
-| 73 | ☐ | RNA-ENERGY-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructureTests.cs | ≥ 80% |
+| 71 | ☑ | RNA-STRUCT-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructureTests.cs | ≥ 80% |
+| 72 | ☑ | RNA-STEMLOOP-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructureTests.cs | ≥ 80% |
+| 73 | ☑ | RNA-ENERGY-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructureTests.cs | ≥ 80% |
 | 74 | ☐ | MIRNA-SEED-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_SeedAnalysis_Tests.cs | ≥ 80% |
 | 75 | ☐ | MIRNA-TARGET-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_TargetPrediction_Tests.cs | ≥ 80% |
 | 76 | ☐ | MIRNA-PRECURSOR-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_PreMiRna_Tests.cs | ≥ 80% |
@@ -176,13 +176,13 @@ Mutation testing вимірює ефективність тестового на
 | 146 | ☐ | ASSEMBLY-SCAFFOLD-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_Scaffold_Tests.cs | ≥ 80% |
 | 147 | ☐ | ASSEMBLY-STATS-001 | Assembly | GenomeAssemblyAnalyzer.cs | GenomeAssemblyAnalyzer_AssemblyStatistics_Tests.cs | ≥ 80% |
 | 148 | ☐ | ASSEMBLY-TRIM-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_QualityTrimReads_Tests.cs | ≥ 80% |
-| 149 | ☐ | RNA-DOTBRACKET-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructure_ParseDotBracket_Tests.cs | ≥ 80% |
-| 150 | ☐ | RNA-HAIRPIN-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructure_HairpinEnergy_Tests.cs | ≥ 80% |
-| 151 | ☐ | RNA-INVERT-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructure_FindInvertedRepeats_Tests.cs | ≥ 80% |
-| 152 | ☐ | RNA-MFE-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructure_MinimumFreeEnergy_Tests.cs | ≥ 80% |
-| 153 | ☐ | RNA-PAIR-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructure_CanPair_Tests.cs | ≥ 80% |
-| 154 | ☐ | RNA-PARTITION-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructure_PartitionFunction_Tests.cs | ≥ 80% |
-| 155 | ☐ | RNA-PSEUDOKNOT-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructure_DetectPseudoknots_Tests.cs | ≥ 80% |
+| 149 | ☑ | RNA-DOTBRACKET-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructure_ParseDotBracket_Tests.cs | ≥ 80% |
+| 150 | ☑ | RNA-HAIRPIN-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructure_HairpinEnergy_Tests.cs | ≥ 80% |
+| 151 | ☑ | RNA-INVERT-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructure_FindInvertedRepeats_Tests.cs | ≥ 80% |
+| 152 | ☑ | RNA-MFE-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructure_MinimumFreeEnergy_Tests.cs | ≥ 80% |
+| 153 | ☑ | RNA-PAIR-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructure_CanPair_Tests.cs | ≥ 80% |
+| 154 | ☑ | RNA-PARTITION-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructure_PartitionFunction_Tests.cs | ≥ 80% |
+| 155 | ☑ | RNA-PSEUDOKNOT-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructure_DetectPseudoknots_Tests.cs | ≥ 80% |
 | 156 | ☑ | KMER-ASYNC-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_CountKmersAsync_Tests.cs | ≥ 80% |
 | 157 | ☑ | KMER-BOTH-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_CountKmersBothStrands_Tests.cs | ≥ 80% |
 | 158 | ☑ | KMER-DIST-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_KmerDistance_Tests.cs | ≥ 80% |
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 101 |
-| ☐ Not started | 133 |
+| ☑ Complete (run + killers written) | 111 |
+| ☐ Not started | 123 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
