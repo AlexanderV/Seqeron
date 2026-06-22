@@ -107,8 +107,8 @@ Mutation testing вимірює ефективність тестового на
 | 77 | ☑ | SPLICE-DONOR-001 | Splicing | SpliceSitePredictor.cs | SpliceSitePredictor_DonorSite_Tests.cs | ≥ 80% |
 | 78 | ☑ | SPLICE-ACCEPTOR-001 | Splicing | SpliceSitePredictor.cs | SpliceSitePredictor_AcceptorSite_Tests.cs | ≥ 80% |
 | 79 | ☑ | SPLICE-PREDICT-001 | Splicing | SpliceSitePredictor.cs | SpliceSitePredictor_GeneStructure_Tests.cs | ≥ 80% |
-| 80 | ☐ | DISORDER-PRED-001 | ProteinPred | DisorderPredictor.cs | DisorderPredictor_DisorderPrediction_Tests.cs | ≥ 80% |
-| 81 | ☐ | DISORDER-REGION-001 | ProteinPred | DisorderPredictor.cs | DisorderPredictor_DisorderedRegion_Tests.cs | ≥ 80% |
+| 80 | ☑ | DISORDER-PRED-001 | ProteinPred | DisorderPredictor.cs | DisorderPredictor_DisorderPrediction_Tests.cs | ≥ 80% |
+| 81 | ☑ | DISORDER-REGION-001 | ProteinPred | DisorderPredictor.cs | DisorderPredictor_DisorderedRegion_Tests.cs | ≥ 80% |
 | 82 | ☐ | PROTMOTIF-FIND-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_MotifSearch_Tests.cs | ≥ 80% |
 | 83 | ☐ | PROTMOTIF-PROSITE-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_PrositePattern_Tests.cs | ≥ 80% |
 | 84 | ☐ | PROTMOTIF-DOMAIN-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_DomainPrediction_Tests.cs | ≥ 80% |
@@ -231,9 +231,9 @@ Mutation testing вимірює ефективність тестового на
 | 201 | ☐ | SV-BREAKPOINT-001 | StructuralVar | StructuralVariantAnalyzer.cs | StructuralVariantAnalyzer_FindBreakpoints_Tests.cs | ≥ 80% |
 | 202 | ☐ | SV-CNV-001 | StructuralVar | StructuralVariantAnalyzer.cs | StructuralVariantAnalyzer_DetectCNV_Tests.cs | ≥ 80% |
 | 203 | ☐ | SV-DETECT-001 | StructuralVar | StructuralVariantAnalyzer.cs | StructuralVariantAnalyzer_DetectSVs_Tests.cs | ≥ 80% |
-| 204 | ☐ | DISORDER-LC-001 | ProteinPred | DisorderPredictor.cs | DisorderPredictor_LowComplexity_Tests.cs | ≥ 80% |
-| 205 | ☐ | DISORDER-MORF-001 | ProteinPred | DisorderPredictor.cs | DisorderPredictor_MoRF_Tests.cs | ≥ 80% |
-| 206 | ☐ | DISORDER-PROPENSITY-001 | ProteinPred | DisorderPredictor.cs | DisorderPredictor_GetDisorderPropensity_Tests.cs | ≥ 80% |
+| 204 | ☑ | DISORDER-LC-001 | ProteinPred | DisorderPredictor.cs | DisorderPredictor_LowComplexity_Tests.cs | ≥ 80% |
+| 205 | ☑ | DISORDER-MORF-001 | ProteinPred | DisorderPredictor.cs | DisorderPredictor_MoRF_Tests.cs | ≥ 80% |
+| 206 | ☑ | DISORDER-PROPENSITY-001 | ProteinPred | DisorderPredictor.cs | DisorderPredictor_GetDisorderPropensity_Tests.cs | ≥ 80% |
 | 207 | ☑ | POP-ANCESTRY-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_EstimateAncestry_Tests.cs | ≥ 80% |
 | 208 | ☑ | POP-ROH-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_FindROH_Tests.cs | ≥ 80% |
 | 209 | ☑ | POP-SELECT-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_SelectionSignature_Tests.cs | ≥ 80% |
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 118 |
-| ☐ Not started | 116 |
+| ☑ Complete (run + killers written) | 123 |
+| ☐ Not started | 111 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
