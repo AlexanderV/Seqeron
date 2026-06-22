@@ -66,10 +66,10 @@ Mutation testing вимірює ефективність тестового на
 | 36 | ☑ | ALIGN-LOCAL-001 | Alignment | SequenceAligner.cs | SequenceAligner_LocalAlign_Tests.cs | ≥ 80% |
 | 37 | ☑ | ALIGN-SEMI-001 | Alignment | SequenceAligner.cs | SequenceAligner_SemiGlobalAlign_Tests.cs | ≥ 80% |
 | 38 | ☑ | ALIGN-MULTI-001 | Alignment | SequenceAligner.cs | SequenceAligner_MultipleAlign_Tests.cs | ≥ 80% |
-| 39 | ☐ | PHYLO-DIST-001 | Phylogenetic | PhylogeneticAnalyzer.cs | PhylogeneticAnalyzer_DistanceMatrix_Tests.cs | ≥ 80% |
-| 40 | ☐ | PHYLO-TREE-001 | Phylogenetic | PhylogeneticAnalyzer.cs | PhylogeneticAnalyzer_TreeConstruction_Tests.cs | ≥ 80% |
-| 41 | ☐ | PHYLO-NEWICK-001 | Phylogenetic | PhylogeneticAnalyzer.cs | PhylogeneticAnalyzer_NewickIO_Tests.cs | ≥ 80% |
-| 42 | ☐ | PHYLO-COMP-001 | Phylogenetic | PhylogeneticAnalyzer.cs | PhylogeneticAnalyzer_TreeComparison_Tests.cs | ≥ 80% |
+| 39 | ☑ | PHYLO-DIST-001 | Phylogenetic | PhylogeneticAnalyzer.cs | PhylogeneticAnalyzer_DistanceMatrix_Tests.cs | ≥ 80% |
+| 40 | ☑ | PHYLO-TREE-001 | Phylogenetic | PhylogeneticAnalyzer.cs | PhylogeneticAnalyzer_TreeConstruction_Tests.cs | ≥ 80% |
+| 41 | ☑ | PHYLO-NEWICK-001 | Phylogenetic | PhylogeneticAnalyzer.cs | PhylogeneticAnalyzer_NewickIO_Tests.cs | ≥ 80% |
+| 42 | ☑ | PHYLO-COMP-001 | Phylogenetic | PhylogeneticAnalyzer.cs | PhylogeneticAnalyzer_TreeComparison_Tests.cs | ≥ 80% |
 | 43 | ☐ | POP-FREQ-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_AlleleFrequency_Tests.cs | ≥ 80% |
 | 44 | ☐ | POP-DIV-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_Diversity_Tests.cs | ≥ 80% |
 | 45 | ☐ | POP-HW-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_HardyWeinberg_Tests.cs | ≥ 80% |
@@ -248,8 +248,8 @@ Mutation testing вимірює ефективність тестового на
 | 218 | ☑ | ANNOT-REPEAT-001 | Annotation | GenomeAnnotator.cs | GenomeAnnotator_FindRepetitiveElements_Tests.cs | ≥ 80% |
 | 219 | ☐ | QUALITY-PHRED-001 | Quality | QualityScoreAnalyzer.cs | QualityScoreAnalyzer_ParseQualityString_Tests.cs | ≥ 80% |
 | 220 | ☐ | QUALITY-STATS-001 | Quality | QualityScoreAnalyzer.cs | QualityScoreAnalyzer_CalculateStatistics_Tests.cs | ≥ 80% |
-| 221 | ☐ | PHYLO-BOOT-001 | Phylogenetic | PhylogeneticAnalyzer.cs | PhylogeneticAnalyzer_Bootstrap_Tests.cs | ≥ 80% |
-| 222 | ☐ | PHYLO-STATS-001 | Phylogenetic | PhylogeneticAnalyzer.cs | PhylogeneticAnalyzer_TreeStatistics_Tests.cs | ≥ 80% |
+| 221 | ☑ | PHYLO-BOOT-001 | Phylogenetic | PhylogeneticAnalyzer.cs | PhylogeneticAnalyzer_Bootstrap_Tests.cs | ≥ 80% |
+| 222 | ☑ | PHYLO-STATS-001 | Phylogenetic | PhylogeneticAnalyzer.cs | PhylogeneticAnalyzer_TreeStatistics_Tests.cs | ≥ 80% |
 | 223 | ☐ | TRANS-SIXFRAME-001 | Translation | Translator.cs | Translator_SixFrames_Tests.cs | ≥ 80% |
 | 224 | ☑ | RESTR-FILTER-001 | MolTools | RestrictionAnalyzer.cs | RestrictionAnalyzer_Filter_Tests.cs | ≥ 80% |
 | 225 | ☐ | MIRNA-PAIR-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_AlignMiRnaToTarget_Tests.cs | ≥ 80% |
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 59 |
-| ☐ Not started | 175 |
+| ☑ Complete (run + killers written) | 65 |
+| ☐ Not started | 169 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
