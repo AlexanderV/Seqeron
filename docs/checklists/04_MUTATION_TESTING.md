@@ -148,16 +148,16 @@ Mutation testing вимірює ефективність тестового на
 | 118 | ☑ | ONCO-ACTION-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_AssessActionability_Tests.cs | ≥ 80% |
 | 119 | ☑ | ONCO-SV-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_ClassifyComplexRearrangement_Tests.cs | ≥ 80% |
 | 120 | ☑ | ONCO-EXPR-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_IdentifyOutlierGenes_Tests.cs | ≥ 80% |
-| 121 | ☐ | SEQ-COMPOSITION-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateNucleotideComposition_Tests.cs | ≥ 80% |
-| 122 | ☐ | SEQ-DINUC-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateDinucleotide_Tests.cs | ≥ 80% |
-| 123 | ☐ | SEQ-HYDRO-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateHydrophobicity_Tests.cs | ≥ 80% |
-| 124 | ☐ | SEQ-MW-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateMolecularWeight_Tests.cs | ≥ 80% |
-| 125 | ☐ | SEQ-PI-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateIsoelectricPoint_Tests.cs | ≥ 80% |
-| 126 | ☐ | SEQ-SECSTRUCT-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_PredictSecondaryStructure_Tests.cs | ≥ 80% |
-| 127 | ☐ | SEQ-STATS-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateNucleotideComposition_Tests.cs | ≥ 80% |
-| 128 | ☐ | SEQ-SUMMARY-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_SummarizeNucleotideSequence_Tests.cs | ≥ 80% |
-| 129 | ☐ | SEQ-THERMO-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateThermodynamics_Tests.cs | ≥ 80% |
-| 130 | ☐ | SEQ-TM-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateThermodynamics_Tests.cs | ≥ 80% |
+| 121 | ☑ | SEQ-COMPOSITION-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateNucleotideComposition_Tests.cs | ≥ 80% |
+| 122 | ☑ | SEQ-DINUC-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateDinucleotide_Tests.cs | ≥ 80% |
+| 123 | ☑ | SEQ-HYDRO-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateHydrophobicity_Tests.cs | ≥ 80% |
+| 124 | ☑ | SEQ-MW-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateMolecularWeight_Tests.cs | ≥ 80% |
+| 125 | ☑ | SEQ-PI-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateIsoelectricPoint_Tests.cs | ≥ 80% |
+| 126 | ☑ | SEQ-SECSTRUCT-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_PredictSecondaryStructure_Tests.cs | ≥ 80% |
+| 127 | ☑ | SEQ-STATS-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateNucleotideComposition_Tests.cs | ≥ 80% |
+| 128 | ☑ | SEQ-SUMMARY-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_SummarizeNucleotideSequence_Tests.cs | ≥ 80% |
+| 129 | ☑ | SEQ-THERMO-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateThermodynamics_Tests.cs | ≥ 80% |
+| 130 | ☑ | SEQ-TM-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateThermodynamics_Tests.cs | ≥ 80% |
 | 131 | ☐ | COMPGEN-ANI-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_CalculateANI_Tests.cs | ≥ 80% |
 | 132 | ☐ | COMPGEN-CLUSTER-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_FindConservedClusters_Tests.cs | ≥ 80% |
 | 133 | ☐ | COMPGEN-COMPARE-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_CompareGenomes_Tests.cs | ≥ 80% |
@@ -254,14 +254,14 @@ Mutation testing вимірює ефективність тестового на
 | 224 | ☑ | RESTR-FILTER-001 | MolTools | RestrictionAnalyzer.cs | RestrictionAnalyzer_Filter_Tests.cs | ≥ 80% |
 | 225 | ☑ | MIRNA-PAIR-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_AlignMiRnaToTarget_Tests.cs | ≥ 80% |
 | 226 | ☑ | ALIGN-STATS-001 | Alignment | SequenceAligner.cs | SequenceAligner_CalculateStatistics_Tests.cs | ≥ 80% |
-| 227 | ☐ | SEQ-CODON-FREQ-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateCodonFrequencies_Tests.cs | ≥ 80% |
+| 227 | ☑ | SEQ-CODON-FREQ-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateCodonFrequencies_Tests.cs | ≥ 80% |
 | 228 | ☑ | SEQ-COMPLEX-COMPRESS-001 | Complexity | SequenceComplexity.cs | SequenceComplexity_EstimateCompressionRatio_Tests.cs | ≥ 80% |
 | 229 | ☑ | SEQ-COMPLEX-DUST-001 | Complexity | SequenceComplexity.cs | SequenceComplexity_CalculateDustScore_Tests.cs | ≥ 80% |
 | 230 | ☑ | SEQ-COMPLEX-KMER-001 | Complexity | SequenceComplexity.cs | SequenceComplexity_CalculateKmerEntropy_Tests.cs | ≥ 80% |
 | 231 | ☑ | SEQ-COMPLEX-WINDOW-001 | Complexity | SequenceComplexity.cs | SequenceComplexity_CalculateWindowedComplexity_Tests.cs | ≥ 80% |
-| 232 | ☐ | SEQ-ENTROPY-PROFILE-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateEntropyProfile_Tests.cs | ≥ 80% |
+| 232 | ☑ | SEQ-ENTROPY-PROFILE-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateEntropyProfile_Tests.cs | ≥ 80% |
 | 233 | ☑ | SEQ-GC-ANALYSIS-001 | Composition | GcSkewCalculator.cs | GcSkewCalculator_AnalyzeGcContent_Tests.cs | ≥ 80% |
-| 234 | ☐ | SEQ-GC-PROFILE-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateGcContentProfile_Tests.cs | ≥ 80% |
+| 234 | ☑ | SEQ-GC-PROFILE-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateGcContentProfile_Tests.cs | ≥ 80% |
 
 ---
 
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 173 |
-| ☐ Not started | 61 |
+| ☑ Complete (run + killers written) | 186 |
+| ☐ Not started | 48 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
