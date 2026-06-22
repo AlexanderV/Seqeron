@@ -113,7 +113,7 @@ Mutation testing вимірює ефективність тестового на
 | 83 | ☑ | PROTMOTIF-PROSITE-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_PrositePattern_Tests.cs | ≥ 80% |
 | 84 | ☑ | PROTMOTIF-DOMAIN-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_DomainPrediction_Tests.cs | ≥ 80% |
 | 85 | ☑ | EPIGEN-CPG-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_CpGDetection_Tests.cs | ≥ 80% |
-| 86 | ☐ | ONCO-IMMUNE-001 | Oncology | ImmuneAnalyzer.cs | ImmuneAnalyzer_ImmuneInfiltration_Tests.cs | ≥ 80% |
+| 86 | ☑ | ONCO-IMMUNE-001 | Oncology | ImmuneAnalyzer.cs | ImmuneAnalyzer_ImmuneInfiltration_Tests.cs | ≥ 80% |
 | 87 | ☐ | ONCO-SOMATIC-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_CallSomaticMutations_Tests.cs | ≥ 80% |
 | 88 | ☐ | ONCO-VAF-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_CalculateVAF_Tests.cs | ≥ 80% |
 | 89 | ☐ | ONCO-DRIVER-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_IdentifyDriverMutations_Tests.cs | ≥ 80% |
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 138 |
-| ☐ Not started | 96 |
+| ☑ Complete (run + killers written) | 139 |
+| ☐ Not started | 95 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
