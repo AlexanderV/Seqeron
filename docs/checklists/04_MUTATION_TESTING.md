@@ -158,15 +158,15 @@ Mutation testing вимірює ефективність тестового на
 | 128 | ☑ | SEQ-SUMMARY-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_SummarizeNucleotideSequence_Tests.cs | ≥ 80% |
 | 129 | ☑ | SEQ-THERMO-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateThermodynamics_Tests.cs | ≥ 80% |
 | 130 | ☑ | SEQ-TM-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateThermodynamics_Tests.cs | ≥ 80% |
-| 131 | ☐ | COMPGEN-ANI-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_CalculateANI_Tests.cs | ≥ 80% |
-| 132 | ☐ | COMPGEN-CLUSTER-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_FindConservedClusters_Tests.cs | ≥ 80% |
-| 133 | ☐ | COMPGEN-COMPARE-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_CompareGenomes_Tests.cs | ≥ 80% |
-| 134 | ☐ | COMPGEN-DOTPLOT-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_GenerateDotPlot_Tests.cs | ≥ 80% |
-| 135 | ☐ | COMPGEN-ORTHO-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_FindOrthologs_Tests.cs | ≥ 80% |
-| 136 | ☐ | COMPGEN-RBH-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_FindReciprocalBestHits_Tests.cs | ≥ 80% |
-| 137 | ☐ | COMPGEN-REARR-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_DetectRearrangements_Tests.cs | ≥ 80% |
-| 138 | ☐ | COMPGEN-REVERSAL-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_CalculateReversalDistance_Tests.cs | ≥ 80% |
-| 139 | ☐ | COMPGEN-SYNTENY-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_FindSyntenicBlocks_Tests.cs | ≥ 80% |
+| 131 | ☑ | COMPGEN-ANI-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_CalculateANI_Tests.cs | ≥ 80% |
+| 132 | ☑ | COMPGEN-CLUSTER-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_FindConservedClusters_Tests.cs | ≥ 80% |
+| 133 | ☑ | COMPGEN-COMPARE-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_CompareGenomes_Tests.cs | ≥ 80% |
+| 134 | ☑ | COMPGEN-DOTPLOT-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_GenerateDotPlot_Tests.cs | ≥ 80% |
+| 135 | ☑ | COMPGEN-ORTHO-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_FindOrthologs_Tests.cs | ≥ 80% |
+| 136 | ☑ | COMPGEN-RBH-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_FindReciprocalBestHits_Tests.cs | ≥ 80% |
+| 137 | ☑ | COMPGEN-REARR-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_DetectRearrangements_Tests.cs | ≥ 80% |
+| 138 | ☑ | COMPGEN-REVERSAL-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_CalculateReversalDistance_Tests.cs | ≥ 80% |
+| 139 | ☑ | COMPGEN-SYNTENY-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_FindSyntenicBlocks_Tests.cs | ≥ 80% |
 | 140 | ☐ | ASSEMBLY-CONSENSUS-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_ComputeConsensus_Tests.cs | ≥ 80% |
 | 141 | ☐ | ASSEMBLY-CORRECT-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_ErrorCorrectReads_Tests.cs | ≥ 80% |
 | 142 | ☐ | ASSEMBLY-COVER-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_CalculateCoverage_Tests.cs | ≥ 80% |
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 186 |
-| ☐ Not started | 48 |
+| ☑ Complete (run + killers written) | 195 |
+| ☐ Not started | 39 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
