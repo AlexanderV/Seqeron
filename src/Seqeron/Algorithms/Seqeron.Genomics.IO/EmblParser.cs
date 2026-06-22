@@ -396,6 +396,16 @@ public static partial class EmblParser
         string citation = "", authors = "", title = "", journal = "", xref = "", comment = "";
         string positions = "", group = "";
 
+        // Normalize and append a finished reference. Applied identically whether the block is
+        // flushed on encountering the next RN line or at end-of-record, so every reference in a
+        // multi-reference entry has the same trailing-separator trimming.
+        void AddReference()
+        {
+            references.Add(new Reference(currentRefNum, citation, authors.TrimEnd(';', ' '),
+                title.Trim('"', ';', ' '), journal.TrimEnd(';', ' '), xref, comment,
+                positions, group.TrimEnd(';', ' ')));
+        }
+
         foreach (var line in lines)
         {
             if (line.Length < 5) continue;
@@ -409,8 +419,7 @@ public static partial class EmblParser
                     // Save previous reference
                     if (currentRefNum > 0)
                     {
-                        references.Add(new Reference(currentRefNum, citation, authors, title, journal, xref, comment,
-                            positions, group));
+                        AddReference();
                     }
                     // Parse new reference number
                     var numMatch = ReferenceNumberRegex().Match(content);
@@ -445,9 +454,7 @@ public static partial class EmblParser
         // Save last reference
         if (currentRefNum > 0)
         {
-            references.Add(new Reference(currentRefNum, citation, authors.TrimEnd(';', ' '),
-                title.Trim('"', ';', ' '), journal.TrimEnd(';', ' '), xref, comment,
-                positions, group.TrimEnd(';', ' ')));
+            AddReference();
         }
 
         return references;
@@ -683,12 +690,6 @@ public static partial class EmblParser
         }
 
         return sb.ToString();
-    }
-
-    private static bool IsStandardPrefix(string prefix)
-    {
-        return prefix is ID or AC or SV or DT or DE or KW or OS or OC or OG or
-               RN or RC or RP or RX or RG or RA or RT or RL or DR or CC or FH or FT or SQ or XX;
     }
 
     #endregion

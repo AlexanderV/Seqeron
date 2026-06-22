@@ -91,13 +91,13 @@ Mutation testing вимірює ефективність тестового на
 | 61 | ☑ | CODON-USAGE-001 | Codon | CodonOptimizer.cs | CodonOptimizer_CodonUsage_Tests.cs | ≥ 80% |
 | 62 | ☑ | TRANS-CODON-001 | Translation | GeneticCode.cs | GeneticCodeTests.cs | ≥ 80% |
 | 63 | ☑ | TRANS-PROT-001 | Translation | Translator.cs | TranslatorTests.cs | ≥ 80% |
-| 64 | ☐ | PARSE-FASTA-001 | FileIO | FastaParser.cs | FastaParserTests.cs | ≥ 80% |
-| 65 | ☐ | PARSE-FASTQ-001 | FileIO | FastqParser.cs | FastqParserTests.cs | ≥ 80% |
-| 66 | ☐ | PARSE-BED-001 | FileIO | BedParser.cs | BedParserTests.cs | ≥ 80% |
-| 67 | ☐ | PARSE-VCF-001 | FileIO | VcfParser.cs | VcfParserTests.cs | ≥ 80% |
-| 68 | ☐ | PARSE-GFF-001 | FileIO | GffParser.cs | GffParserTests.cs | ≥ 80% |
-| 69 | ☐ | PARSE-GENBANK-001 | FileIO | GenBankParser.cs | GenBankParserTests.cs | ≥ 80% |
-| 70 | ☐ | PARSE-EMBL-001 | FileIO | EmblParser.cs | EmblParserTests.cs | ≥ 80% |
+| 64 | ☑ | PARSE-FASTA-001 | FileIO | FastaParser.cs | FastaParserTests.cs | ≥ 80% |
+| 65 | ☑ | PARSE-FASTQ-001 | FileIO | FastqParser.cs | FastqParserTests.cs | ≥ 80% |
+| 66 | ☑ | PARSE-BED-001 | FileIO | BedParser.cs | BedParserTests.cs | ≥ 80% |
+| 67 | ☑ | PARSE-VCF-001 | FileIO | VcfParser.cs | VcfParserTests.cs | ≥ 80% |
+| 68 | ☑ | PARSE-GFF-001 | FileIO | GffParser.cs | GffParserTests.cs | ≥ 80% |
+| 69 | ☑ | PARSE-GENBANK-001 | FileIO | GenBankParser.cs | GenBankParserTests.cs | ≥ 80% |
+| 70 | ☑ | PARSE-EMBL-001 | FileIO | EmblParser.cs | EmblParserTests.cs | ≥ 80% |
 | 71 | ☐ | RNA-STRUCT-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructureTests.cs | ≥ 80% |
 | 72 | ☐ | RNA-STEMLOOP-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructureTests.cs | ≥ 80% |
 | 73 | ☐ | RNA-ENERGY-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructureTests.cs | ≥ 80% |
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 94 |
-| ☐ Not started | 140 |
+| ☑ Complete (run + killers written) | 101 |
+| ☐ Not started | 133 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
