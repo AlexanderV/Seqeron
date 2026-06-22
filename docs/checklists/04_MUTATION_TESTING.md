@@ -109,9 +109,9 @@ Mutation testing вимірює ефективність тестового на
 | 79 | ☑ | SPLICE-PREDICT-001 | Splicing | SpliceSitePredictor.cs | SpliceSitePredictor_GeneStructure_Tests.cs | ≥ 80% |
 | 80 | ☑ | DISORDER-PRED-001 | ProteinPred | DisorderPredictor.cs | DisorderPredictor_DisorderPrediction_Tests.cs | ≥ 80% |
 | 81 | ☑ | DISORDER-REGION-001 | ProteinPred | DisorderPredictor.cs | DisorderPredictor_DisorderedRegion_Tests.cs | ≥ 80% |
-| 82 | ☐ | PROTMOTIF-FIND-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_MotifSearch_Tests.cs | ≥ 80% |
-| 83 | ☐ | PROTMOTIF-PROSITE-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_PrositePattern_Tests.cs | ≥ 80% |
-| 84 | ☐ | PROTMOTIF-DOMAIN-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_DomainPrediction_Tests.cs | ≥ 80% |
+| 82 | ☑ | PROTMOTIF-FIND-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_MotifSearch_Tests.cs | ≥ 80% |
+| 83 | ☑ | PROTMOTIF-PROSITE-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_PrositePattern_Tests.cs | ≥ 80% |
+| 84 | ☑ | PROTMOTIF-DOMAIN-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_DomainPrediction_Tests.cs | ≥ 80% |
 | 85 | ☐ | EPIGEN-CPG-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_CpGDetection_Tests.cs | ≥ 80% |
 | 86 | ☐ | ONCO-IMMUNE-001 | Oncology | ImmuneAnalyzer.cs | ImmuneAnalyzer_ImmuneInfiltration_Tests.cs | ≥ 80% |
 | 87 | ☐ | ONCO-SOMATIC-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_CallSomaticMutations_Tests.cs | ≥ 80% |
@@ -190,12 +190,12 @@ Mutation testing вимірює ефективність тестового на
 | 160 | ☑ | KMER-POSITIONS-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_FindKmerPositions_Tests.cs | ≥ 80% |
 | 161 | ☑ | KMER-STATS-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_AnalyzeKmers_Tests.cs | ≥ 80% |
 | 162 | ☑ | KMER-UNIQUE-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_FindUniqueAndMinCount_Tests.cs | ≥ 80% |
-| 163 | ☐ | PROTMOTIF-CC-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_PredictCoiledCoils_Tests.cs | ≥ 80% |
-| 164 | ☐ | PROTMOTIF-COMMON-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_FindCommonMotifs_Tests.cs | ≥ 80% |
-| 165 | ☐ | PROTMOTIF-LC-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_FindLowComplexityRegions_Tests.cs | ≥ 80% |
-| 166 | ☐ | PROTMOTIF-PATTERN-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_FindMotifByPattern_Tests.cs | ≥ 80% |
-| 167 | ☐ | PROTMOTIF-SP-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_PredictSignalPeptide_Tests.cs | ≥ 80% |
-| 168 | ☐ | PROTMOTIF-TM-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_PredictTransmembraneHelices_Tests.cs | ≥ 80% |
+| 163 | ☑ | PROTMOTIF-CC-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_PredictCoiledCoils_Tests.cs | ≥ 80% |
+| 164 | ☑ | PROTMOTIF-COMMON-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_FindCommonMotifs_Tests.cs | ≥ 80% |
+| 165 | ☑ | PROTMOTIF-LC-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_FindLowComplexityRegions_Tests.cs | ≥ 80% |
+| 166 | ☑ | PROTMOTIF-PATTERN-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_FindMotifByPattern_Tests.cs | ≥ 80% |
+| 167 | ☑ | PROTMOTIF-SP-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_PredictSignalPeptide_Tests.cs | ≥ 80% |
+| 168 | ☑ | PROTMOTIF-TM-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_PredictTransmembraneHelices_Tests.cs | ≥ 80% |
 | 169 | ☐ | MOTIF-CONS-001 | Matching | MotifFinder.cs | MotifFinder_CreateConsensusFromAlignment_Tests.cs | ≥ 80% |
 | 170 | ☐ | MOTIF-DISCOVER-001 | Matching | MotifFinder.cs | MotifFinder_DiscoverMotifs_Tests.cs | ≥ 80% |
 | 171 | ☐ | MOTIF-GENERATE-001 | Matching | MotifFinder.cs | MotifFinder_GenerateConsensus_Tests.cs | ≥ 80% |
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 123 |
-| ☐ Not started | 111 |
+| ☑ Complete (run + killers written) | 132 |
+| ☐ Not started | 102 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
