@@ -53,8 +53,8 @@ Mutation testing вимірює ефективність тестового на
 | 23 | ☑ | PRIMER-STRUCT-001 | MolTools | PrimerDesigner.cs | PrimerDesigner_PrimerStructure_Tests.cs | ≥ 80% |
 | 24 | ☑ | PROBE-DESIGN-001 | MolTools | ProbeDesigner.cs | ProbeDesigner_ProbeDesign_Tests.cs | ≥ 80% |
 | 25 | ☑ | PROBE-VALID-001 | MolTools | ProbeDesigner.cs | ProbeDesigner_ProbeValidation_Tests.cs | ≥ 80% |
-| 26 | ☐ | RESTR-FIND-001 | MolTools | RestrictionAnalyzer.cs | RestrictionAnalyzer_FindSites_Tests.cs | ≥ 80% |
-| 27 | ☐ | RESTR-DIGEST-001 | MolTools | RestrictionAnalyzer.cs | RestrictionAnalyzer_Digest_Tests.cs | ≥ 80% |
+| 26 | ☑ | RESTR-FIND-001 | MolTools | RestrictionAnalyzer.cs | RestrictionAnalyzer_FindSites_Tests.cs | ≥ 80% |
+| 27 | ☑ | RESTR-DIGEST-001 | MolTools | RestrictionAnalyzer.cs | RestrictionAnalyzer_Digest_Tests.cs | ≥ 80% |
 | 28 | ☐ | ANNOT-ORF-001 | Annotation | GenomeAnnotator.cs | GenomeAnnotator_ORF_Tests.cs | ≥ 80% |
 | 29 | ☐ | ANNOT-GENE-001 | Annotation | GenomeAnnotator.cs | GenomeAnnotator_Gene_Tests.cs | ≥ 80% |
 | 30 | ☐ | ANNOT-PROM-001 | Annotation | GenomeAnnotator.cs | GenomeAnnotator_PromoterMotif_Tests.cs | ≥ 80% |
@@ -251,7 +251,7 @@ Mutation testing вимірює ефективність тестового на
 | 221 | ☐ | PHYLO-BOOT-001 | Phylogenetic | PhylogeneticAnalyzer.cs | PhylogeneticAnalyzer_Bootstrap_Tests.cs | ≥ 80% |
 | 222 | ☐ | PHYLO-STATS-001 | Phylogenetic | PhylogeneticAnalyzer.cs | PhylogeneticAnalyzer_TreeStatistics_Tests.cs | ≥ 80% |
 | 223 | ☐ | TRANS-SIXFRAME-001 | Translation | Translator.cs | Translator_SixFrames_Tests.cs | ≥ 80% |
-| 224 | ☐ | RESTR-FILTER-001 | MolTools | RestrictionAnalyzer.cs | RestrictionAnalyzer_Filter_Tests.cs | ≥ 80% |
+| 224 | ☑ | RESTR-FILTER-001 | MolTools | RestrictionAnalyzer.cs | RestrictionAnalyzer_Filter_Tests.cs | ≥ 80% |
 | 225 | ☐ | MIRNA-PAIR-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_AlignMiRnaToTarget_Tests.cs | ≥ 80% |
 | 226 | ☐ | ALIGN-STATS-001 | Alignment | SequenceAligner.cs | SequenceAligner_CalculateStatistics_Tests.cs | ≥ 80% |
 | 227 | ☐ | SEQ-CODON-FREQ-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateCodonFrequencies_Tests.cs | ≥ 80% |
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 34 |
-| ☐ Not started | 200 |
+| ☑ Complete (run + killers written) | 37 |
+| ☐ Not started | 197 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
