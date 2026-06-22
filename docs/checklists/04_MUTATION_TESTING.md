@@ -80,11 +80,11 @@ Mutation testing вимірює ефективність тестового на
 | 50 | ☑ | CHROM-KARYO-001 | Chromosome | ChromosomeAnalyzer.cs | ChromosomeAnalyzer_Karyotype_Tests.cs | ≥ 80% |
 | 51 | ☑ | CHROM-ANEU-001 | Chromosome | ChromosomeAnalyzer.cs | ChromosomeAnalyzer_Aneuploidy_Tests.cs | ≥ 80% |
 | 52 | ☑ | CHROM-SYNT-001 | Chromosome | ChromosomeAnalyzer.cs | ChromosomeAnalyzer_Synteny_Tests.cs | ≥ 80% |
-| 53 | ☐ | META-CLASS-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_TaxonomicClassification_Tests.cs | ≥ 80% |
-| 54 | ☐ | META-PROF-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_TaxonomicProfile_Tests.cs | ≥ 80% |
-| 55 | ☐ | META-ALPHA-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_AlphaDiversity_Tests.cs | ≥ 80% |
-| 56 | ☐ | META-BETA-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_BetaDiversity_Tests.cs | ≥ 80% |
-| 57 | ☐ | META-BIN-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_GenomeBinning_Tests.cs | ≥ 80% |
+| 53 | ☑ | META-CLASS-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_TaxonomicClassification_Tests.cs | ≥ 80% |
+| 54 | ☑ | META-PROF-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_TaxonomicProfile_Tests.cs | ≥ 80% |
+| 55 | ☑ | META-ALPHA-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_AlphaDiversity_Tests.cs | ≥ 80% |
+| 56 | ☑ | META-BETA-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_BetaDiversity_Tests.cs | ≥ 80% |
+| 57 | ☑ | META-BIN-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_GenomeBinning_Tests.cs | ≥ 80% |
 | 58 | ☐ | CODON-OPT-001 | Codon | CodonOptimizer.cs | CodonOptimizer_OptimizeSequence_Tests.cs | ≥ 80% |
 | 59 | ☐ | CODON-CAI-001 | Codon | CodonOptimizer.cs | CodonOptimizer_CAI_Tests.cs | ≥ 80% |
 | 60 | ☐ | CODON-RARE-001 | Codon | CodonOptimizer.cs | CodonOptimizer_FindRareCodons_Tests.cs | ≥ 80% |
@@ -221,10 +221,10 @@ Mutation testing вимірює ефективність тестового на
 | 191 | ☐ | PANGEN-CORE-001 | PanGenome | PanGenomeAnalyzer.cs | PanGenomeAnalyzer_ConstructPanGenome_Tests.cs | ≥ 80% |
 | 192 | ☐ | PANGEN-HEAP-001 | PanGenome | PanGenomeAnalyzer.cs | PanGenomeAnalyzer_FitHeapsLaw_Tests.cs | ≥ 80% |
 | 193 | ☐ | PANGEN-MARKER-001 | PanGenome | PanGenomeAnalyzer.cs | PanGenomeAnalyzer_SelectPhylogeneticMarkers_Tests.cs | ≥ 80% |
-| 194 | ☐ | META-FUNC-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_PredictFunctions_Tests.cs | ≥ 80% |
-| 195 | ☐ | META-PATHWAY-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_FindPathwayEnrichment_Tests.cs | ≥ 80% |
-| 196 | ☐ | META-RESIST-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_FindAntibioticResistanceGenes_Tests.cs | ≥ 80% |
-| 197 | ☐ | META-TAXA-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_FindSignificantTaxa_Tests.cs | ≥ 80% |
+| 194 | ☑ | META-FUNC-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_PredictFunctions_Tests.cs | ≥ 80% |
+| 195 | ☑ | META-PATHWAY-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_FindPathwayEnrichment_Tests.cs | ≥ 80% |
+| 196 | ☑ | META-RESIST-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_FindAntibioticResistanceGenes_Tests.cs | ≥ 80% |
+| 197 | ☑ | META-TAXA-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_FindSignificantTaxa_Tests.cs | ≥ 80% |
 | 198 | ☐ | TRANS-DIFF-001 | Transcriptome | TranscriptomeAnalyzer.cs | TranscriptomeAnalyzer_DifferentialExpression_Tests.cs | ≥ 80% |
 | 199 | ☐ | TRANS-EXPR-001 | Transcriptome | TranscriptomeAnalyzer.cs | TranscriptomeAnalyzer_ExpressionQuantification_Tests.cs | ≥ 80% |
 | 200 | ☐ | TRANS-SPLICE-001 | Transcriptome | TranscriptomeAnalyzer.cs | TranscriptomeAnalyzer_AlternativeSplicing_Tests.cs | ≥ 80% |
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 78 |
-| ☐ Not started | 156 |
+| ☑ Complete (run + killers written) | 87 |
+| ☐ Not started | 147 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
