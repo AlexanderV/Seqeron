@@ -112,7 +112,7 @@ Mutation testing вимірює ефективність тестового на
 | 82 | ☑ | PROTMOTIF-FIND-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_MotifSearch_Tests.cs | ≥ 80% |
 | 83 | ☑ | PROTMOTIF-PROSITE-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_PrositePattern_Tests.cs | ≥ 80% |
 | 84 | ☑ | PROTMOTIF-DOMAIN-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_DomainPrediction_Tests.cs | ≥ 80% |
-| 85 | ☐ | EPIGEN-CPG-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_CpGDetection_Tests.cs | ≥ 80% |
+| 85 | ☑ | EPIGEN-CPG-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_CpGDetection_Tests.cs | ≥ 80% |
 | 86 | ☐ | ONCO-IMMUNE-001 | Oncology | ImmuneAnalyzer.cs | ImmuneAnalyzer_ImmuneInfiltration_Tests.cs | ≥ 80% |
 | 87 | ☐ | ONCO-SOMATIC-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_CallSomaticMutations_Tests.cs | ≥ 80% |
 | 88 | ☐ | ONCO-VAF-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_CalculateVAF_Tests.cs | ≥ 80% |
@@ -208,11 +208,11 @@ Mutation testing вимірює ефективність тестового на
 | 178 | ☐ | GENOMIC-REPEAT-001 | Analysis | GenomicAnalyzer.cs | GenomicAnalyzer_FindRepeats_Tests.cs | ≥ 80% |
 | 179 | ☐ | GENOMIC-SIMILARITY-001 | Analysis | GenomicAnalyzer.cs | GenomicAnalyzer_CalculateSimilarity_Tests.cs | ≥ 80% |
 | 180 | ☐ | GENOMIC-TANDEM-001 | Analysis | GenomicAnalyzer.cs | GenomicAnalyzer_TandemRepeat_Tests.cs | ≥ 80% |
-| 181 | ☐ | EPIGEN-AGE-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_CalculateEpigeneticAge_Tests.cs | ≥ 80% |
-| 182 | ☐ | EPIGEN-BISULF-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_Bisulfite_Tests.cs | ≥ 80% |
-| 183 | ☐ | EPIGEN-CHROM-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_ChromatinState_Tests.cs | ≥ 80% |
-| 184 | ☐ | EPIGEN-DMR-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_DMR_Tests.cs | ≥ 80% |
-| 185 | ☐ | EPIGEN-METHYL-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_Methylation_Tests.cs | ≥ 80% |
+| 181 | ☑ | EPIGEN-AGE-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_CalculateEpigeneticAge_Tests.cs | ≥ 80% |
+| 182 | ☑ | EPIGEN-BISULF-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_Bisulfite_Tests.cs | ≥ 80% |
+| 183 | ☑ | EPIGEN-CHROM-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_ChromatinState_Tests.cs | ≥ 80% |
+| 184 | ☑ | EPIGEN-DMR-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_DMR_Tests.cs | ≥ 80% |
+| 185 | ☑ | EPIGEN-METHYL-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_Methylation_Tests.cs | ≥ 80% |
 | 186 | ☐ | VARIANT-ANNOT-001 | Variants | VariantAnnotator.cs | VariantAnnotator_FunctionalImpact_Tests.cs | ≥ 80% |
 | 187 | ☐ | VARIANT-CALL-001 | Variants | VariantCaller.cs | VariantCaller_CallVariants_Tests.cs | ≥ 80% |
 | 188 | ☐ | VARIANT-INDEL-001 | Variants | VariantCaller.cs | VariantCaller_FindIndels_Tests.cs | ≥ 80% |
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 132 |
-| ☐ Not started | 102 |
+| ☑ Complete (run + killers written) | 138 |
+| ☐ Not started | 96 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
