@@ -246,8 +246,8 @@ Mutation testing вимірює ефективність тестового на
 | 216 | ☑ | ANNOT-CODING-001 | Annotation | GenomeAnnotator.cs | GenomeAnnotator_CalculateCodingPotential_Tests.cs | ≥ 80% |
 | 217 | ☑ | ANNOT-CODONUSAGE-001 | Annotation | GenomeAnnotator.cs | GenomeAnnotator_GetCodonUsage_Tests.cs | ≥ 80% |
 | 218 | ☑ | ANNOT-REPEAT-001 | Annotation | GenomeAnnotator.cs | GenomeAnnotator_FindRepetitiveElements_Tests.cs | ≥ 80% |
-| 219 | ☐ | QUALITY-PHRED-001 | Quality | QualityScoreAnalyzer.cs | QualityScoreAnalyzer_ParseQualityString_Tests.cs | ≥ 80% |
-| 220 | ☐ | QUALITY-STATS-001 | Quality | QualityScoreAnalyzer.cs | QualityScoreAnalyzer_CalculateStatistics_Tests.cs | ≥ 80% |
+| 219 | ☑ | QUALITY-PHRED-001 | Quality | QualityScoreAnalyzer.cs | QualityScoreAnalyzer_ParseQualityString_Tests.cs | ≥ 80% |
+| 220 | ☑ | QUALITY-STATS-001 | Quality | QualityScoreAnalyzer.cs | QualityScoreAnalyzer_CalculateStatistics_Tests.cs | ≥ 80% |
 | 221 | ☑ | PHYLO-BOOT-001 | Phylogenetic | PhylogeneticAnalyzer.cs | PhylogeneticAnalyzer_Bootstrap_Tests.cs | ≥ 80% |
 | 222 | ☑ | PHYLO-STATS-001 | Phylogenetic | PhylogeneticAnalyzer.cs | PhylogeneticAnalyzer_TreeStatistics_Tests.cs | ≥ 80% |
 | 223 | ☑ | TRANS-SIXFRAME-001 | Translation | Translator.cs | Translator_SixFrames_Tests.cs | ≥ 80% |
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 232 |
-| ☐ Not started | 2 |
+| ☑ Complete (run + killers written) | 234 |
+| ☐ Not started | 0 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
