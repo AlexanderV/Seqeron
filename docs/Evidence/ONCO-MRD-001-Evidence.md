@@ -54,6 +54,23 @@
 1. **Integration principle:** INVAR ("INtegration of VAriant Reads") improves ctDNA sensitivity by analyzing hundreds–thousands of tumor-informed mutations and integrating signal across all loci, reaching ~1 mutant molecule per 100,000 (and parts-per-million in favorable cases).
 2. **Integrated mutant allele fraction (IMAF):** ctDNA level is summarized as a depth-weighted average of the per-locus mutant fractions across the tracked loci, corrected for per-locus background error. This motivates the depth-weighted (read-pooled) panel VAF reported alongside the MRD call.
 
+### INVAR2 reference implementation — exact GLRT / IMAFv2 formulas (nrlab-CRUK/INVAR2)
+
+**URL:** https://github.com/nrlab-CRUK/INVAR2 — files `R/shared/detectionFunctions.R` and `R/4_detection/generalisedLikelihoodRatioTest.R`
+**Accessed:** 2026-06-23 (repository cloned with `git clone --depth 1 https://github.com/nrlab-CRUK/INVAR2.git`; source files read directly)
+**Authority rank:** 3 (reference implementation of the Wan et al. 2020 INVAR method, by the originating Rosenfeld lab)
+
+**Key Extracted Points (verbatim formulas):**
+
+1. **Per-locus mixture model:** for a locus with tumour allele fraction `AF`, caller-supplied background error rate `e`, and per-sample ctDNA fraction `p`, the probability that a read is mutant is `q = AF·(1−e)·p + (1−AF)·e·p + e·(1−p)` (`calc_log_likelihood`). Equivalently `q = p·g + e·(1−p)` with `g = AF·(1−e) + (1−AF)·e`. Background `e` is the read-error rate under the null (`p = 0`).
+2. **Per-locus-mean log-likelihood:** `logL = Σ[ lchoose(R,M) + M·log(q) + (R−M)·log(1−q) ] / length(R)` where `M` = mutant reads, `R` = depth (`calc_log_likelihood`).
+3. **EM estimator of ctDNA fraction `p`:** E-step `Z0 = (1−g)·p / ((1−g)·p + (1−e)·(1−p))`, `Z1 = g·p / (g·p + e·(1−p))`; M-step `p = Σ(M·Z1 + (R−M)·Z0)/ΣR`; `initial_p = 0.01`, `iterations = 200` (`estimate_p_EM`).
+4. **Generalised likelihood ratio (detection statistic):** `LR = logL(p̂_MLE) − logL(p = 0)` where `p̂_MLE` is the EM estimate (`calc_likelihood_ratio`). Larger `LR` ⇒ stronger ctDNA evidence; for a pure-background sample `p̂ ≈ 0` and `LR ≈ 0`.
+5. **AF / signal-to-noise weighting:** the model weights each locus by its tumour AF and background via `q`; high-`AF`, low-`e` loci contribute more to the likelihood gradient, so detection is signal-to-noise weighted (not a flat read pool).
+6. **IMAFv2 (background-subtracted, depth-weighted aggregate):** per context, `MEAN_AF.BS = pmax(0, MEAN_AF − BACKGROUND_AF)` then `IMAFV2 = weighted.mean(MEAN_AF.BS, TOTAL_DP)` (`calculateIMAFv2`). This is per-locus/per-context background subtraction followed by depth-weighted aggregation.
+7. **Zero-background guard:** `BACKGROUND_AF = ifelse(BACKGROUND_AF > 0, BACKGROUND_AF, 1 / BACKGROUND_DP)` — a zero background is floored to one expected error in the locus depth so `log(e)` stays finite (`doMain`).
+8. **Informative-locus filter:** `filter(TUMOUR_AF > 0)` — only loci with positive tumour AF contribute to the likelihood (`doMain`).
+
 ---
 
 ## Documented Corner Cases and Failure Modes
@@ -67,6 +84,12 @@
 ### From Wan 2020 (INVAR)
 
 1. **Per-locus background error:** real ctDNA signal must exceed background; loci with no supporting alt reads contribute 0 to detected count.
+
+### From INVAR2 (GLRT / IMAFv2)
+
+1. **Pure-background sample:** mutant reads occurring only at the background rate ⇒ EM `p̂ ≈ 0` and `LR ≈ 0` ⇒ not detected. Background subtraction removes pure noise.
+2. **Zero background, zero signal:** `q → 0` at `p = 0`; the implementation clamps `q` to `(0,1)` (and INVAR floors `e` to `1/depth`) so logs are finite.
+3. **No informative locus (all tumour AF = 0):** nothing to estimate ⇒ undefined input (INVAR `filter(TUMOUR_AF > 0)` empties the table).
 
 ---
 
@@ -94,6 +117,33 @@
 | n=1000, f=0.001, m=1 | λ = 1 | 0.6321205588285577 |
 | n=1000, f=0.001, m=16 | λ = 16 | 0.9999998874648253 |
 
+### Dataset: INVAR GLRT synthetic recovery (controlled injection)
+
+**Source:** Derived from the INVAR2 formulas above (`calc_log_likelihood`, `estimate_p_EM`, `calc_likelihood_ratio`), evaluated on synthetic loci. n = 50 loci, depth R = 1000/locus, tumour AF = 0.4, background e = 0.001; mutant reads `M = round(q·R)` with `q = inj·g + e·(1−inj)`, `g = AF·(1−e)+(1−AF)·e`. Values are computed independently of the C# implementation (Python reference of the same equations).
+
+| Injected ctDNA fraction (inj) | Mutant reads/locus M | Estimated p̂ (EM) | Likelihood ratio LR |
+|-------------------------------|----------------------|-------------------|---------------------|
+| 0.000 (pure background)       | 1                    | ≈ 3.3e-5 (≈ 0)    | ≈ −0.0001 (≈ 0)     |
+| 0.005                         | 5                    | ≈ 0.00501         | ≈ 1.30              |
+| 0.010                         | 5                    | ≈ 0.01002         | ≈ 4.06              |
+| 0.020                         | 9                    | ≈ 0.02004         | ≈ 11.81             |
+| 0.050                         | 21                   | ≈ 0.0501          | ≈ 44.14             |
+
+- **Background subtraction:** pure-background (inj=0) ⇒ p̂ ≈ 0, LR ≈ 0 ⇒ not detected.
+- **Recovery:** p̂ tracks the injected fraction to ~3 significant figures.
+- **Monotonicity:** LR strictly increases with injected signal.
+
+### Dataset: AF weighting boosts sensitivity (low-signal mixture)
+
+**Source:** Same INVAR2 GLRT formulas. N = 40 loci (20 with tumour AF = 0.5, 20 with AF = 0.05), depth 2000, e = 0.002, injected ctDNA fraction 0.008; mutant reads per locus from each locus's true AF. "Weighted" uses each locus's true AF; "unweighted" replaces every AF by the panel mean AF (flat pooling, no SNR weighting).
+
+| Model | Likelihood ratio LR |
+|-------|---------------------|
+| AF-weighted (true per-locus AF) | ≈ 2.66 |
+| Unweighted (flat mean AF)       | ≈ 1.91 |
+
+AF-weighting yields a strictly larger detection statistic than flat pooling on the same data ⇒ higher sensitivity at low signal.
+
 ---
 
 ## Assumptions
@@ -111,6 +161,13 @@
 5. **SHOULD Test:** custom positivity threshold (e.g. ≥1, ≥3) shifts the call. — Rationale: threshold is parameterized.
 6. **SHOULD Test:** TrackVariantsOverTime yields per-timepoint MRD status and flags first positive timepoint. — Rationale: longitudinal method in scope.
 7. **COULD Test:** null/empty panel and invalid threshold raise the documented exceptions. — Rationale: input validation.
+8. **MUST Test:** `IntegratedMutantAlleleFractionV2` = depth-weighted mean of `max(0, locusVAF − background)`; a locus whose VAF ≤ background contributes 0. — Evidence: INVAR2 `calculateIMAFv2`.
+9. **MUST Test:** `EstimateInvarSignal` on pure-background loci ⇒ p̂ ≈ 0, LR ≈ 0, not detected. — Evidence: INVAR GLRT synthetic-recovery dataset (inj=0).
+10. **MUST Test:** `EstimateInvarSignal` recovers an injected ctDNA fraction within tolerance and reports detected. — Evidence: synthetic-recovery dataset (inj=0.01, 0.02, 0.05).
+11. **MUST Test:** AF-weighted LR ≥ unweighted (flat-AF) LR on the low-signal mixture. — Evidence: AF-weighting dataset.
+12. **MUST Test:** LR is monotone non-decreasing in injected signal. — Evidence: synthetic-recovery dataset.
+13. **SHOULD Test:** detectionThreshold gates the detection call (high threshold ⇒ not detected even with weak signal). — Rationale: parameterised specificity knob.
+14. **SHOULD Test:** out-of-range tumour AF / background and empty informative panel raise documented exceptions. — Rationale: input validation.
 
 ---
 
@@ -121,9 +178,12 @@
 3. Wan JCM, Heider K, Gale D, et al. (2020). ctDNA monitoring using patient-specific sequencing and integration of variant reads. *Science Translational Medicine* 12(548):eaaz8084. https://www.science.org/doi/10.1126/scitranslmed.aaz8084 (DOI: 10.1126/scitranslmed.aaz8084)
 4. Tie J, et al. / review: Tumor-informed ctDNA MRD assessment in colorectal cancer (quotes the Reinert/Signatera 16-SNV, ≥2-positive rule, Table 1). PMC9265001. https://pmc.ncbi.nlm.nih.gov/articles/PMC9265001/
 5. Avanzini S, et al. (2020). A mathematical model of ctDNA shedding predicts tumor detection size. *Science Advances* 6(50):eabc4308 (Poisson detection model p = 1 − e^(−λ)). DOI: 10.1126/sciadv.abc4308
+6. Rosenfeld lab (nrlab-CRUK). INVAR2 — restructured INVAR pipeline (reference implementation of Wan et al. 2020). `R/shared/detectionFunctions.R`, `R/4_detection/generalisedLikelihoodRatioTest.R`. https://github.com/nrlab-CRUK/INVAR2
+7. Lanczos C. (1964). A precision approximation of the gamma function. *J. SIAM Numer. Anal.* 1(1):86–96 (log-gamma used for the binomial coefficient in the GLRT). DOI: 10.1137/0701008
 
 ---
 
 ## Change History
 
 - **2026-06-15**: Initial documentation (ONCO-MRD-001).
+- **2026-06-23**: Added INVAR2 reference-implementation source and the exact GLRT/EM/IMAFv2 formulas; added synthetic GLRT-recovery and AF-weighting datasets and corner cases; extended coverage recommendations for the new background-subtracted, AF-weighted estimator (`EstimateInvarSignal`, `IntegratedMutantAlleleFractionV2`).

@@ -6628,6 +6628,295 @@ public static class OncologyAnalyzer
         return new MrdLongitudinalResult(results, firstPositiveIndex);
     }
 
+    // ---------------------------------------------------------------------------------------------
+    // INVAR-style background-subtracted, tumour-AF-weighted ctDNA signal estimation (ONCO-MRD-001).
+    //
+    // Faithfully reproduces the core, caller-reproducible part of the INVAR pipeline (Wan et al. 2020,
+    // Sci. Transl. Med. 12(548):eaaz8084; reference implementation INVAR2, nrlab-CRUK/INVAR2,
+    // R/4_detection/generalisedLikelihoodRatioTest.R and R/shared/detectionFunctions.R):
+    //  (a) per-locus / per-context BACKGROUND error subtraction (caller-supplied background AF per locus);
+    //  (b) tumour-allele-fraction-weighted aggregation (IMAFv2) and a generalised-likelihood-ratio (GLRT)
+    //      detection statistic whose mixture model weights each locus by its tumour AF vs background.
+    // The fragment-length (size) weighting, outlier suppression and locus-noise filtering of the full
+    // INVAR pipeline are NOT reproduced here; the caller supplies an already-cleaned background model.
+    // ---------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Initial value of the per-sample ctDNA fraction <c>p</c> for the INVAR EM maximum-likelihood
+    /// estimator. Source: INVAR2 <c>estimate_p_EM</c> (R/shared/detectionFunctions.R) — <c>initial_p = 0.01</c>.
+    /// </summary>
+    private const double InvarEmInitialP = 0.01;
+
+    /// <summary>
+    /// Number of expectation-maximisation iterations used to estimate the ctDNA fraction <c>p</c>.
+    /// Source: INVAR2 <c>estimate_p_EM</c> (R/shared/detectionFunctions.R) — <c>iterations = 200</c>.
+    /// </summary>
+    private const int InvarEmIterations = 200;
+
+    /// <summary>
+    /// A tracked patient-specific locus for INVAR-style ctDNA signal estimation: its plasma read evidence,
+    /// the tumour allele fraction of the variant, and a caller-supplied background (non-reference) error rate.
+    /// </summary>
+    /// <param name="PlasmaAltReads">Mutant (alternate) supporting reads observed in plasma at this locus (≥ 0).</param>
+    /// <param name="PlasmaTotalReads">Total covering reads in plasma at this locus (≥ 0).</param>
+    /// <param name="TumorAlleleFraction">
+    /// Tumour allele fraction of the tracked variant, <c>AF</c> in INVAR (0 &lt; AF ≤ 1). Loci with higher
+    /// tumour AF carry more ctDNA signal and are weighted more strongly in the likelihood (Wan et al. 2020).
+    /// </param>
+    /// <param name="BackgroundErrorRate">
+    /// Caller-supplied per-locus / per-trinucleotide-context background (non-reference) error rate <c>e</c>
+    /// in INVAR (0 ≤ e &lt; 1), estimated from control plasma samples at the same loci. Subtracted from the
+    /// observed plasma signal and used as the null read-error rate in the likelihood model.
+    /// </param>
+    public readonly record struct InvarLocus(
+        int PlasmaAltReads,
+        int PlasmaTotalReads,
+        double TumorAlleleFraction,
+        double BackgroundErrorRate);
+
+    /// <summary>
+    /// Result of an INVAR-style background-subtracted, tumour-AF-weighted ctDNA signal estimate for one sample.
+    /// </summary>
+    /// <param name="IntegratedMutantAlleleFractionV2">
+    /// Background-subtracted, depth-weighted aggregate tumour fraction (INVAR2 IMAFv2): the depth-weighted mean
+    /// over loci of <c>max(0, locusVAF − backgroundRate)</c>. ≥ 0; equals 0 when no locus exceeds background.
+    /// </param>
+    /// <param name="EstimatedTumorFraction">
+    /// Maximum-likelihood ctDNA fraction <c>p̂</c> from the INVAR EM estimator under the AF-weighted mixture model.
+    /// </param>
+    /// <param name="LikelihoodRatio">
+    /// Generalised-likelihood-ratio detection statistic: <c>logL(p̂) − logL(p = 0)</c> (per-locus mean scaled,
+    /// as in INVAR2). Larger ⇒ stronger ctDNA evidence; ≈ 0 for a pure-background sample.
+    /// </param>
+    /// <param name="Detected">
+    /// <c>true</c> when <see cref="LikelihoodRatio"/> reaches <paramref name="detectionThreshold"/> AND at least
+    /// one mutant read is present; otherwise <c>false</c>.
+    /// </param>
+    /// <param name="LocusCount">Number of informative loci used (tumour AF &gt; 0).</param>
+    public readonly record struct InvarSignalResult(
+        double IntegratedMutantAlleleFractionV2,
+        double EstimatedTumorFraction,
+        double LikelihoodRatio,
+        bool Detected,
+        int LocusCount);
+
+    /// <summary>
+    /// Computes the INVAR2 background-subtracted, depth-weighted integrated mutant allele fraction (IMAFv2):
+    /// the depth-weighted mean over loci of <c>max(0, plasmaVAF − backgroundRate)</c>. Source: INVAR2
+    /// <c>calculateIMAFv2</c> (R/4_detection/generalisedLikelihoodRatioTest.R) — per-context
+    /// <c>MEAN_AF.BS = pmax(0, MEAN_AF − BACKGROUND_AF)</c> then
+    /// <c>weighted.mean(MEAN_AF.BS, TOTAL_DP)</c>.
+    /// </summary>
+    /// <param name="loci">The tracked informative loci (non-null). Loci with 0 total reads contribute 0 weight.</param>
+    /// <returns>The background-subtracted depth-weighted tumour fraction (≥ 0); 0 when no covering reads.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="loci"/> is null.</exception>
+    public static double IntegratedMutantAlleleFractionV2(IEnumerable<InvarLocus> loci)
+    {
+        ArgumentNullException.ThrowIfNull(loci);
+
+        double weightedSum = 0.0;
+        long totalDepth = 0;
+        foreach (InvarLocus locus in loci)
+        {
+            int total = Math.Max(0, locus.PlasmaTotalReads);
+            if (total == 0)
+            {
+                continue;
+            }
+
+            double vaf = (double)Math.Max(0, locus.PlasmaAltReads) / total;
+
+            // Per-locus/per-context background subtraction: signal above background only (INVAR2 pmax(0, .)).
+            double backgroundSubtracted = Math.Max(0.0, vaf - locus.BackgroundErrorRate);
+
+            // Depth-weighted aggregation (INVAR2 weighted.mean(., TOTAL_DP)).
+            weightedSum += backgroundSubtracted * total;
+            totalDepth += total;
+        }
+
+        return totalDepth == 0 ? 0.0 : weightedSum / totalDepth;
+    }
+
+    /// <summary>
+    /// INVAR-style estimate of residual ctDNA signal from a panel of tracked loci, each carrying plasma read
+    /// evidence, a tumour allele fraction, and a caller-supplied per-locus background error rate. Performs
+    /// (a) per-locus background subtraction, (b) tumour-AF-weighted aggregation (IMAFv2), (c) maximum-likelihood
+    /// estimation of the ctDNA fraction <c>p̂</c> and (d) a generalised-likelihood-ratio detection statistic,
+    /// faithfully following INVAR2 (Wan et al. 2020; nrlab-CRUK/INVAR2 detectionFunctions.R, no-size variant).
+    ///
+    /// <para>Mixture model (per read at a locus with tumour AF <c>AF</c>, background <c>e</c>, ctDNA fraction
+    /// <c>p</c>): the probability a read is mutant is <c>q = AF·(1−e)·p + (1−AF)·e·p + e·(1−p)</c>; loci with
+    /// higher <c>AF</c> and lower <c>e</c> contribute more signal, so the estimate is signal-to-noise weighted.</para>
+    /// </summary>
+    /// <param name="loci">Tracked informative loci with plasma evidence, tumour AF and background rate (non-empty).</param>
+    /// <param name="detectionThreshold">
+    /// Minimum generalised-likelihood-ratio statistic to call the sample ctDNA-positive (≥ 0; default 0 ⇒
+    /// any positive evidence with a mutant read is detected). Larger values trade sensitivity for specificity.
+    /// </param>
+    /// <returns>The INVAR signal estimate: IMAFv2, ML ctDNA fraction, likelihood-ratio statistic and detection call.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="loci"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="loci"/> has no informative locus (tumour AF &gt; 0).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="detectionThreshold"/> is negative, or a locus has an out-of-range tumour AF
+    /// (must be 0 &lt; AF ≤ 1 to be informative) or background rate (must be 0 ≤ e &lt; 1).
+    /// </exception>
+    public static InvarSignalResult EstimateInvarSignal(
+        IEnumerable<InvarLocus> loci,
+        double detectionThreshold = 0.0)
+    {
+        ArgumentNullException.ThrowIfNull(loci);
+
+        if (detectionThreshold < 0.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(detectionThreshold), detectionThreshold, "Detection threshold cannot be negative.");
+        }
+
+        var materialised = loci as IReadOnlyCollection<InvarLocus> ?? loci.ToList();
+
+        // IMAFv2 is computed over all covered loci (background-subtracted, depth-weighted).
+        double imafV2 = IntegratedMutantAlleleFractionV2(materialised);
+
+        // Build per-informative-locus vectors for the likelihood model (INVAR uses one row per molecule,
+        // i.e. depth = total covering reads, M = mutant reads). Only loci with tumour AF > 0 are informative.
+        var altReads = new List<double>();
+        var totalReads = new List<double>();
+        var tumorAf = new List<double>();
+        var background = new List<double>();
+        bool anyMutantRead = false;
+        foreach (InvarLocus locus in materialised)
+        {
+            if (locus.TumorAlleleFraction < 0.0 || locus.TumorAlleleFraction > 1.0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(loci), locus.TumorAlleleFraction, "Tumour allele fraction must be in [0, 1].");
+            }
+
+            if (locus.BackgroundErrorRate < 0.0 || locus.BackgroundErrorRate >= 1.0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(loci), locus.BackgroundErrorRate, "Background error rate must be in [0, 1).");
+            }
+
+            // INVAR keeps only loci with tumour AF > 0 (filter(TUMOUR_AF > 0)).
+            if (locus.TumorAlleleFraction <= 0.0)
+            {
+                continue;
+            }
+
+            int total = Math.Max(0, locus.PlasmaTotalReads);
+            if (total == 0)
+            {
+                continue;
+            }
+
+            int alt = Math.Clamp(locus.PlasmaAltReads, 0, total);
+
+            // INVAR guards a zero background by flooring it to one expected error in the locus depth
+            // (BACKGROUND_AF = ifelse(BACKGROUND_AF > 0, BACKGROUND_AF, 1 / BACKGROUND_DP)), so log(e) is finite.
+            double e = locus.BackgroundErrorRate > 0.0 ? locus.BackgroundErrorRate : 1.0 / total;
+
+            altReads.Add(alt);
+            totalReads.Add(total);
+            tumorAf.Add(locus.TumorAlleleFraction);
+            background.Add(e);
+            if (alt > 0)
+            {
+                anyMutantRead = true;
+            }
+        }
+
+        if (altReads.Count == 0)
+        {
+            throw new ArgumentException(
+                "No informative locus (tumour AF > 0 with covering reads) to estimate INVAR signal.", nameof(loci));
+        }
+
+        double pMle = EstimateCtDnaFractionEm(altReads, totalReads, tumorAf, background);
+        double nullLogLik = InvarLogLikelihood(altReads, totalReads, tumorAf, background, 0.0);
+        double altLogLik = InvarLogLikelihood(altReads, totalReads, tumorAf, background, pMle);
+        double likelihoodRatio = altLogLik - nullLogLik;
+
+        bool detected = anyMutantRead && likelihoodRatio >= detectionThreshold;
+
+        return new InvarSignalResult(imafV2, pMle, likelihoodRatio, detected, altReads.Count);
+    }
+
+    /// <summary>
+    /// EM maximum-likelihood estimate of the ctDNA fraction <c>p</c> under the INVAR mixture model.
+    /// Source: INVAR2 <c>estimate_p_EM</c> (R/shared/detectionFunctions.R):
+    /// <c>g = AF·(1−e) + (1−AF)·e</c>;
+    /// E-step <c>Z0 = (1−g)·p / ((1−g)·p + (1−e)·(1−p))</c>, <c>Z1 = g·p / (g·p + e·(1−p))</c>;
+    /// M-step <c>p = Σ(M·Z1 + (R−M)·Z0) / ΣR</c>.
+    /// </summary>
+    private static double EstimateCtDnaFractionEm(
+        IReadOnlyList<double> m,
+        IReadOnlyList<double> r,
+        IReadOnlyList<double> af,
+        IReadOnlyList<double> e)
+    {
+        double p = InvarEmInitialP;
+        for (int iter = 0; iter < InvarEmIterations; iter++)
+        {
+            double numerator = 0.0;
+            double denominator = 0.0;
+            for (int i = 0; i < m.Count; i++)
+            {
+                double g = (af[i] * (1.0 - e[i])) + ((1.0 - af[i]) * e[i]);
+                double z0 = ((1.0 - g) * p) / (((1.0 - g) * p) + ((1.0 - e[i]) * (1.0 - p)));
+                double z1 = (g * p) / ((g * p) + (e[i] * (1.0 - p)));
+                numerator += (m[i] * z1) + ((r[i] - m[i]) * z0);
+                denominator += r[i];
+            }
+
+            p = denominator == 0.0 ? 0.0 : numerator / denominator;
+        }
+
+        return p;
+    }
+
+    /// <summary>
+    /// Per-locus-mean log-likelihood of the sample given a ctDNA fraction <c>p</c> under the INVAR mixture model.
+    /// Source: INVAR2 <c>calc_log_likelihood</c> (R/shared/detectionFunctions.R):
+    /// <c>q = AF·(1−e)·p + (1−AF)·e·p + e·(1−p)</c>;
+    /// <c>logL = Σ[ lchoose(R, M) + M·log(q) + (R−M)·log(1−q) ] / length(R)</c>.
+    /// </summary>
+    private static double InvarLogLikelihood(
+        IReadOnlyList<double> m,
+        IReadOnlyList<double> r,
+        IReadOnlyList<double> af,
+        IReadOnlyList<double> e,
+        double p)
+    {
+        double sum = 0.0;
+        for (int i = 0; i < m.Count; i++)
+        {
+            double q = (af[i] * (1.0 - e[i]) * p) + ((1.0 - af[i]) * e[i] * p) + (e[i] * (1.0 - p));
+
+            // Clamp q strictly inside (0, 1) so the logs stay finite at the boundaries (p = 0, e = 0 ⇒ q = 0).
+            q = Math.Clamp(q, double.Epsilon, 1.0 - double.Epsilon);
+
+            double lchoose = LogChoose(r[i], m[i]);
+            sum += lchoose + (m[i] * Math.Log(q)) + ((r[i] - m[i]) * Math.Log(1.0 - q));
+        }
+
+        return sum / m.Count;
+    }
+
+    /// <summary>
+    /// Natural log of the binomial coefficient C(n, k) via log-gamma, matching R's <c>lchoose(n, k)</c>:
+    /// <c>lgamma(n+1) − lgamma(k+1) − lgamma(n−k+1)</c>.
+    /// </summary>
+    private static double LogChoose(double n, double k)
+    {
+        if (k < 0.0 || k > n)
+        {
+            return double.NegativeInfinity;
+        }
+
+        return LogGamma(n + 1.0) - LogGamma(k + 1.0) - LogGamma(n - k + 1.0);
+    }
+
     #endregion
 
     #region Clonal Hematopoiesis Filtering (ONCO-CHIP-001)

@@ -5,6 +5,9 @@
 //         Natera Signatera white paper (2020): 16 tracked SNVs; "at least two" => ctDNA-positive; p = 1 - e^(-nfm).
 //         Wan et al. (2020). Sci Transl Med 12(548):eaaz8084 (INVAR integrated mutant allele fraction / IMAF).
 //         Quoted positivity rule: PMC9265001 Table 1.
+//         INVAR2 reference impl (nrlab-CRUK/INVAR2): R/shared/detectionFunctions.R (calc_log_likelihood,
+//         estimate_p_EM, calc_likelihood_ratio) and R/4_detection/generalisedLikelihoodRatioTest.R
+//         (calculateIMAFv2) — exact GLRT / background-subtraction / AF-weighting formulas for EstimateInvarSignal.
 
 using System;
 using System.Collections.Generic;
@@ -387,6 +390,322 @@ public class OncologyAnalyzer_DetectMRD_Tests
     {
         Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.TrackVariantsOverTime(null!),
             "A null timepoint series is invalid.");
+    }
+
+    #endregion
+
+    #region IntegratedMutantAlleleFractionV2 (INVAR background-subtracted, depth-weighted)
+
+    // Helper: an INVAR locus (alt, total, tumourAF, background).
+    private static OncologyAnalyzer.InvarLocus IL(int alt, int total, double af, double bg) =>
+        new(alt, total, af, bg);
+
+    // M9 — INVAR2 calculateIMAFv2: per-locus bs = max(0, VAF - background), then depth-weighted mean.
+    // Two loci, both above background; hand-derived:
+    //  locus1 VAF = 50/1000 = 0.05, bg = 0.01 => bs = 0.04; depth 1000
+    //  locus2 VAF = 20/1000 = 0.02, bg = 0.01 => bs = 0.01; depth 1000
+    //  IMAFv2 = (0.04*1000 + 0.01*1000) / 2000 = 50/2000 = 0.025
+    [Test]
+    public void IntegratedMutantAlleleFractionV2_TwoLociAboveBackground_DepthWeightedSubtractedMean()
+    {
+        var loci = new[] { IL(50, 1000, 0.5, 0.01), IL(20, 1000, 0.5, 0.01) };
+
+        double imafV2 = OncologyAnalyzer.IntegratedMutantAlleleFractionV2(loci);
+
+        Assert.That(imafV2, Is.EqualTo(0.025).Within(1e-12),
+            "IMAFv2 = weighted.mean(max(0, VAF - bg), depth) = (0.04*1000 + 0.01*1000)/2000 = 0.025 (INVAR2).");
+    }
+
+    // M10 — a locus whose VAF is at/below background contributes 0 (pmax(0, .) clamps the subtraction).
+    //  locus1 VAF = 0.05, bg = 0.01 => bs = 0.04 (depth 1000)
+    //  locus2 VAF = 0.005, bg = 0.01 => bs = max(0, -0.005) = 0 (depth 1000)
+    //  IMAFv2 = (0.04*1000 + 0*1000)/2000 = 40/2000 = 0.02
+    [Test]
+    public void IntegratedMutantAlleleFractionV2_LocusBelowBackground_ContributesZero()
+    {
+        var loci = new[] { IL(50, 1000, 0.5, 0.01), IL(5, 1000, 0.5, 0.01) };
+
+        double imafV2 = OncologyAnalyzer.IntegratedMutantAlleleFractionV2(loci);
+
+        Assert.That(imafV2, Is.EqualTo(0.02).Within(1e-12),
+            "Below-background locus subtracts to 0 (pmax) => IMAFv2 = 0.04*1000/2000 = 0.02 (INVAR2).");
+    }
+
+    // M11 — pure background everywhere => every bs = 0 => IMAFv2 = 0 (background subtraction removes noise).
+    [Test]
+    public void IntegratedMutantAlleleFractionV2_PureBackground_Zero()
+    {
+        // Each locus has VAF exactly equal to background (1/1000 = 0.001 == bg).
+        var loci = new[] { IL(1, 1000, 0.5, 0.001), IL(1, 1000, 0.5, 0.001), IL(1, 1000, 0.5, 0.001) };
+
+        double imafV2 = OncologyAnalyzer.IntegratedMutantAlleleFractionV2(loci);
+
+        Assert.That(imafV2, Is.EqualTo(0.0).Within(1e-12),
+            "VAF == background at every locus => max(0, VAF-bg) = 0 => IMAFv2 = 0.");
+    }
+
+    // C7 — zero-coverage loci contribute no weight; all-zero-coverage => IMAFv2 = 0.
+    [Test]
+    public void IntegratedMutantAlleleFractionV2_NoCoverage_Zero()
+    {
+        var loci = new[] { IL(0, 0, 0.5, 0.01) };
+
+        double imafV2 = OncologyAnalyzer.IntegratedMutantAlleleFractionV2(loci);
+
+        Assert.That(imafV2, Is.EqualTo(0.0).Within(1e-12),
+            "Total depth 0 => no weight => IMAFv2 = 0.");
+    }
+
+    // C8 — null loci => ArgumentNullException.
+    [Test]
+    public void IntegratedMutantAlleleFractionV2_Null_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(
+            () => OncologyAnalyzer.IntegratedMutantAlleleFractionV2(null!),
+            "Null loci collection is invalid.");
+    }
+
+    #endregion
+
+    #region EstimateInvarSignal (INVAR GLRT: background subtraction + AF weighting)
+
+    // Builds n identical loci with the given per-locus mutant-read count, depth, tumour AF and background.
+    private static OncologyAnalyzer.InvarLocus[] UniformLoci(int n, int alt, int total, double af, double bg)
+    {
+        var loci = new OncologyAnalyzer.InvarLocus[n];
+        for (int i = 0; i < n; i++)
+        {
+            loci[i] = IL(alt, total, af, bg);
+        }
+
+        return loci;
+    }
+
+    // M12 — Background subtraction removes pure noise: mutant reads only at the background rate
+    // (M = 1 per 1000 reads, e = 0.001) => EM p-hat ~ 0 and LR ~ 0 => NOT detected.
+    // Reference (INVAR2 formulas, Evidence dataset inj=0): p-hat ~ 3.3e-5, LR ~ -0.0001.
+    [Test]
+    public void EstimateInvarSignal_PureBackground_NotDetectedAndZeroFraction()
+    {
+        var loci = UniformLoci(n: 50, alt: 1, total: 1000, af: 0.4, bg: 0.001);
+
+        OncologyAnalyzer.InvarSignalResult result = OncologyAnalyzer.EstimateInvarSignal(loci);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.EstimatedTumorFraction, Is.EqualTo(0.0).Within(1e-3),
+                "Pure-background reads => EM ctDNA fraction p-hat ~ 0 (INVAR2 estimate_p_EM).");
+            Assert.That(result.LikelihoodRatio, Is.EqualTo(0.0).Within(1e-2),
+                "Pure background => GLRT LR ~ 0 (no ctDNA evidence above background).");
+            Assert.That(result.Detected, Is.False,
+                "LR ~ 0 (and barely any signal) => not detected with default threshold 0 only via near-zero LR.");
+        });
+    }
+
+    // M13 — Injected signal is recovered: tumour AF 0.4, background 0.001, depth 1000, injected p = 0.01
+    // => expected mutant rate q = 0.01*g + 0.001*0.99 with g = 0.4*0.999+0.6*0.001 => M = round(q*1000) = 5.
+    // Reference (Evidence dataset inj=0.01): p-hat ~ 0.01002, LR ~ 4.06.
+    [Test]
+    public void EstimateInvarSignal_InjectedOnePercent_RecoversFractionAndDetects()
+    {
+        var loci = UniformLoci(n: 50, alt: 5, total: 1000, af: 0.4, bg: 0.001);
+
+        OncologyAnalyzer.InvarSignalResult result = OncologyAnalyzer.EstimateInvarSignal(loci);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.EstimatedTumorFraction, Is.EqualTo(0.01002).Within(5e-4),
+                "EM recovers the injected ctDNA fraction ~ 0.010 (INVAR2 estimate_p_EM reference).");
+            Assert.That(result.LikelihoodRatio, Is.EqualTo(4.06).Within(0.05),
+                "GLRT statistic ~ 4.06 for injected p = 0.01 (INVAR2 calc_likelihood_ratio reference).");
+            Assert.That(result.Detected, Is.True,
+                "LR > 0 with mutant reads present => detected at default threshold.");
+            Assert.That(result.LocusCount, Is.EqualTo(50), "All 50 loci are informative (AF > 0).");
+        });
+    }
+
+    // M14 — Recovery at higher injection: injected p = 0.05 (M = 21) => p-hat ~ 0.0501, LR ~ 44.14.
+    [Test]
+    public void EstimateInvarSignal_InjectedFivePercent_RecoversFraction()
+    {
+        var loci = UniformLoci(n: 50, alt: 21, total: 1000, af: 0.4, bg: 0.001);
+
+        OncologyAnalyzer.InvarSignalResult result = OncologyAnalyzer.EstimateInvarSignal(loci);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.EstimatedTumorFraction, Is.EqualTo(0.0501).Within(1e-3),
+                "EM recovers injected ctDNA fraction ~ 0.050 (INVAR2 reference).");
+            Assert.That(result.LikelihoodRatio, Is.EqualTo(44.14).Within(0.3),
+                "GLRT statistic ~ 44.1 for injected p = 0.05 (INVAR2 reference).");
+            Assert.That(result.Detected, Is.True, "Strong signal => detected.");
+        });
+    }
+
+    // M15 — Monotonicity: more injected signal => strictly larger GLRT statistic (INVAR2 reference table).
+    // M/locus for inj {0, 0.005, 0.01, 0.02, 0.05} at AF 0.4, e 0.001, depth 1000 => {1, 5, 5, 9, 21}.
+    [Test]
+    public void EstimateInvarSignal_RisingSignal_LikelihoodRatioMonotoneIncreasing()
+    {
+        int[] mutantReads = { 1, 5, 5, 9, 21 };
+        var lrs = new double[mutantReads.Length];
+        for (int i = 0; i < mutantReads.Length; i++)
+        {
+            var loci = UniformLoci(n: 50, alt: mutantReads[i], total: 1000, af: 0.4, bg: 0.001);
+            lrs[i] = OncologyAnalyzer.EstimateInvarSignal(loci).LikelihoodRatio;
+        }
+
+        Assert.Multiple(() =>
+        {
+            for (int i = 1; i < lrs.Length; i++)
+            {
+                Assert.That(lrs[i], Is.GreaterThanOrEqualTo(lrs[i - 1] - 1e-9),
+                    $"LR must be non-decreasing as injected signal rises (step {i}): {lrs[i - 1]} -> {lrs[i]}.");
+            }
+
+            // Pinned reference endpoints: pure background ~ 0, strongest ~ 44 (INVAR2 dataset).
+            Assert.That(lrs[0], Is.EqualTo(0.0).Within(1e-2), "Pure background LR ~ 0.");
+            Assert.That(lrs[^1], Is.EqualTo(44.14).Within(0.3), "Strongest signal LR ~ 44.1.");
+        });
+    }
+
+    // M16 — AF weighting boosts sensitivity vs flat pooling on a low-signal mixture.
+    // 20 high-AF loci (0.5) + 20 low-AF loci (0.05), depth 2000, e 0.002, injected p = 0.008.
+    // Mutant reads per locus from its TRUE AF: high-AF M = round(q_high*2000), low-AF M = round(q_low*2000).
+    // Weighted model uses true per-locus AF; "unweighted" replaces every AF by the panel mean AF (0.275).
+    // Reference (Evidence AF-weighting dataset): weighted LR ~ 2.66 > unweighted LR ~ 1.91.
+    [Test]
+    public void EstimateInvarSignal_AfWeighting_HigherLikelihoodRatioThanFlatPooling()
+    {
+        const int depth = 2000;
+        const double e = 0.002;
+        const double injected = 0.008;
+        const double highAf = 0.5;
+        const double lowAf = 0.05;
+
+        double G(double af) => (af * (1 - e)) + ((1 - af) * e);
+        int MutantReads(double af)
+        {
+            double q = (injected * G(af)) + (e * (1 - injected));
+            return (int)Math.Round(q * depth);
+        }
+
+        int mHigh = MutantReads(highAf);
+        int mLow = MutantReads(lowAf);
+        double meanAf = ((20 * highAf) + (20 * lowAf)) / 40.0; // 0.275
+
+        var weighted = new List<OncologyAnalyzer.InvarLocus>();
+        var flat = new List<OncologyAnalyzer.InvarLocus>();
+        for (int i = 0; i < 20; i++)
+        {
+            weighted.Add(IL(mHigh, depth, highAf, e));
+            flat.Add(IL(mHigh, depth, meanAf, e));
+        }
+
+        for (int i = 0; i < 20; i++)
+        {
+            weighted.Add(IL(mLow, depth, lowAf, e));
+            flat.Add(IL(mLow, depth, meanAf, e));
+        }
+
+        double weightedLr = OncologyAnalyzer.EstimateInvarSignal(weighted).LikelihoodRatio;
+        double flatLr = OncologyAnalyzer.EstimateInvarSignal(flat).LikelihoodRatio;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(weightedLr, Is.GreaterThan(flatLr),
+                "Per-locus AF weighting concentrates signal at high-SNR loci => larger GLRT than flat pooling.");
+            Assert.That(weightedLr, Is.EqualTo(2.66).Within(0.1),
+                "Weighted GLRT ~ 2.66 (INVAR2 AF-weighting reference).");
+            Assert.That(flatLr, Is.EqualTo(1.91).Within(0.1),
+                "Flat-pooled GLRT ~ 1.91 (INVAR2 AF-weighting reference).");
+        });
+    }
+
+    // S5 — detectionThreshold gates the call: a weak signal whose LR is below the threshold is NOT detected.
+    [Test]
+    public void EstimateInvarSignal_HighDetectionThreshold_WeakSignalNotDetected()
+    {
+        // Injected p = 0.005 => LR ~ 1.30 (Evidence dataset). A threshold of 5 is not reached.
+        var loci = UniformLoci(n: 50, alt: 5, total: 1000, af: 0.4, bg: 0.001);
+
+        OncologyAnalyzer.InvarSignalResult low = OncologyAnalyzer.EstimateInvarSignal(loci, detectionThreshold: 0.0);
+        OncologyAnalyzer.InvarSignalResult high = OncologyAnalyzer.EstimateInvarSignal(loci, detectionThreshold: 5.0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(low.Detected, Is.True, "At threshold 0 the positive LR is detected.");
+            Assert.That(high.Detected, Is.False,
+                "LR ~ 4.06 < threshold 5 => not detected (specificity knob).");
+        });
+    }
+
+    // S6 — zero background is floored to 1/depth so the likelihood stays finite (INVAR2 doMain guard);
+    // a clear signal with e = 0 is still recovered and detected.
+    [Test]
+    public void EstimateInvarSignal_ZeroBackground_FiniteAndDetects()
+    {
+        var loci = UniformLoci(n: 50, alt: 10, total: 1000, af: 0.4, bg: 0.0);
+
+        OncologyAnalyzer.InvarSignalResult result = OncologyAnalyzer.EstimateInvarSignal(loci);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(double.IsFinite(result.LikelihoodRatio), Is.True,
+                "Zero background is floored to 1/depth => log-likelihood finite.");
+            Assert.That(result.EstimatedTumorFraction, Is.GreaterThan(0.0),
+                "Clear mutant signal => positive ctDNA fraction estimate.");
+            Assert.That(result.Detected, Is.True, "Clear signal => detected.");
+        });
+    }
+
+    // C9 — null loci => ArgumentNullException.
+    [Test]
+    public void EstimateInvarSignal_NullLoci_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.EstimateInvarSignal(null!),
+            "Null loci collection is invalid.");
+    }
+
+    // C10 — no informative locus (every tumour AF = 0) => ArgumentException.
+    [Test]
+    public void EstimateInvarSignal_NoInformativeLocus_Throws()
+    {
+        var loci = new[] { IL(5, 1000, 0.0, 0.001), IL(3, 1000, 0.0, 0.001) };
+
+        Assert.Throws<ArgumentException>(() => OncologyAnalyzer.EstimateInvarSignal(loci),
+            "All tumour AF = 0 => no informative locus to estimate signal.");
+    }
+
+    // C11 — negative detection threshold => ArgumentOutOfRangeException.
+    [Test]
+    public void EstimateInvarSignal_NegativeThreshold_Throws()
+    {
+        var loci = UniformLoci(n: 5, alt: 5, total: 1000, af: 0.4, bg: 0.001);
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => OncologyAnalyzer.EstimateInvarSignal(loci, detectionThreshold: -1.0),
+            "Detection threshold cannot be negative.");
+    }
+
+    // C12 — out-of-range tumour AF (> 1) => ArgumentOutOfRangeException.
+    [Test]
+    public void EstimateInvarSignal_TumourAfAboveOne_Throws()
+    {
+        var loci = new[] { IL(5, 1000, 1.5, 0.001) };
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.EstimateInvarSignal(loci),
+            "Tumour allele fraction must be in [0, 1].");
+    }
+
+    // C13 — out-of-range background rate (>= 1) => ArgumentOutOfRangeException.
+    [Test]
+    public void EstimateInvarSignal_BackgroundRateAtOne_Throws()
+    {
+        var loci = new[] { IL(5, 1000, 0.4, 1.0) };
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.EstimateInvarSignal(loci),
+            "Background error rate must be in [0, 1).");
     }
 
     #endregion

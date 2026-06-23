@@ -41,7 +41,7 @@ validated clinical-grade predictors.**
 | ONCO-PURITY/PLOIDY/CCF/CLONAL | Purity/ploidy/CCF formulas + clonal rule | Allele-specific CN segments, multiplicity, VAF — supplied. |
 | EPIGEN-AGE-001 | Horvath `anti.trafo` + linear predictor + **embedded published 353-CpG multi-tissue clock** (intercept 0.695507258, Additional file 3, cross-verified) | Only the **multi-tissue** clock is embedded; the skin-&-blood (2018) and PhenoAge (2018) clocks use the caller-supplied-coefficients overload. |
 | ONCO-CHIP-001 | CHIP filter (gene panel + ≥2% VAF + WBC subtraction) | Origin call uses a **gene+VAF heuristic** where matched-WBC data is absent (over-removes vs strict matched-WBC origin). |
-| ONCO-MRD-001 | ≥2-of-N positivity, IMAF, Poisson LoD | IMAF is read-pooled, **without** INVAR-style background subtraction / tumour-AF weighting. |
+| ONCO-MRD-001 | ≥2-of-N positivity, read-pooled IMAF, Poisson LoD; **plus INVAR-style background-subtracted, tumour-AF-weighted estimator** (`EstimateInvarSignal`, `IntegratedMutantAlleleFractionV2`): per-locus background subtraction (caller-supplied `e`), AF-weighted mixture GLRT with EM-estimated ctDNA fraction `p̂`, and IMAFv2 — formulas verbatim from INVAR2 (Wan 2020 / nrlab-CRUK INVAR2). | Residual: INVAR **fragment-length (size) weighting**, patient-specific **outlier suppression** and **locus-noise filtering** are not reproduced; the background error model `e` is **caller-supplied** rather than estimated from control plasma here. |
 
 ## 3. Convention divergences (documented, internally consistent)
 

@@ -6,7 +6,7 @@
 | Test Unit ID | ONCO-MRD-001 |
 | Related Projects | Seqeron.Genomics.Oncology |
 | Implementation Status | Simplified |
-| Last Reviewed | 2026-06-15 |
+| Last Reviewed | 2026-06-23 |
 
 ## 1. Overview
 
@@ -44,6 +44,29 @@ alternate (mutant) supporting reads and `t_i` its total covering reads.
   equivalents, `f` = ctDNA VAF (here IMAF), `m` = number of tracked mutations [2]. This reuses the
   ONCO-CTDNA-001 primitive `CtDnaDetectionProbability` (p = 1 − e^(−n·d·k)) with `k = m`.
 
+#### INVAR-style background-subtracted, tumour-AF-weighted estimator
+
+In addition to the read-pooled IMAF above, the analyzer implements the core, caller-reproducible part of the
+INVAR pipeline [3][6]. Each tracked locus `i` carries plasma mutant reads `M_i`, depth `R_i`, tumour allele
+fraction `AF_i`, and a **caller-supplied** per-locus/per-context background error rate `e_i` (from control
+plasma). With per-sample ctDNA fraction `p`:
+
+- **Per-read mixture model** [6]: the probability a read at locus `i` is mutant is
+  `q_i = AF_i·(1−e_i)·p + (1−AF_i)·e_i·p + e_i·(1−p) = p·g_i + e_i·(1−p)`, with `g_i = AF_i·(1−e_i) + (1−AF_i)·e_i`.
+  At `p = 0` (no ctDNA) `q_i = e_i`, the background rate; loci with higher `AF_i` and lower `e_i` carry more
+  signal, so the fit is signal-to-noise (AF) weighted.
+- **Log-likelihood** [6]: `logL(p) = Σ_i [ lchoose(R_i, M_i) + M_i·log(q_i) + (R_i − M_i)·log(1 − q_i) ] / n`.
+- **ML ctDNA fraction `p̂`** by EM [6]: E-step `Z0_i = (1−g_i)p / ((1−g_i)p + (1−e_i)(1−p))`,
+  `Z1_i = g_i·p / (g_i·p + e_i(1−p))`; M-step `p = Σ(M_i·Z1_i + (R_i − M_i)·Z0_i) / ΣR_i`
+  (`initial_p = 0.01`, 200 iterations).
+- **Generalised likelihood-ratio (GLRT) detection statistic** [3][6]: `LR = logL(p̂) − logL(0)`.
+  Pure background ⇒ `p̂ ≈ 0`, `LR ≈ 0`; LR increases monotonically with ctDNA signal.
+- **Background-subtracted, depth-weighted aggregate (IMAFv2)** [6]: per locus/context subtract background,
+  `bs_i = max(0, M_i/R_i − e_i)`, then `IMAFv2 = Σ_i bs_i·R_i / Σ_i R_i`.
+
+The full INVAR pipeline additionally applies fragment-length weighting, locus-noise filtering and outlier
+suppression; these are **not** reproduced here — the caller supplies an already-cleaned background model.
+
 ### 2.3 Modeling Assumptions
 
 | ID | Assumption | Consequence if Violated |
@@ -60,6 +83,10 @@ alternate (mutant) supporting reads and `t_i` its total covering reads.
 | INV-03 | `IMAF ∈ [0, 1]` | `IMAF = Σa / Σt` with `0 ≤ a_i ≤ t_i` |
 | INV-04 | `p = 1 − e^(−n·f·m) ∈ [0, 1]`, non-decreasing in `m` | exponential of a non-negative rate [2] |
 | INV-05 | Longitudinal order preserved; `FirstPositiveIndex` = earliest positive (or −1) | sequential scan of timepoints |
+| INV-06 | `IMAFv2 ≥ 0`; a locus with VAF ≤ background contributes 0 | `max(0, VAF − e)` then depth-weighted mean [6] |
+| INV-07 | Pure-background sample ⇒ `p̂ ≈ 0` and `LR ≈ 0` (not detected) | at `p=0`, `q_i = e_i` is the MLE for background-only reads [6] |
+| INV-08 | `LR` is monotone non-decreasing in injected ctDNA signal | larger true `p` raises `logL(p̂)` while `logL(0)` is fixed [6] |
+| INV-09 | AF-weighted `LR` ≥ flat-pooled (mean-AF) `LR` on the same data | per-locus AF concentrates signal at high-SNR loci [3][6] |
 
 ## 3. Contract
 
@@ -71,6 +98,8 @@ alternate (mutant) supporting reads and `t_i` its total covering reads.
 | positivityThreshold | int | 2 | Min detected variants to call positive (τ) | ≥ 1 |
 | minSupportingReads | int | 1 | Min alt reads for a marker to count as detected (r_min) | ≥ 1 |
 | genomeEquivalents | int | 0 | Sequenced haploid genome equivalents n for panel Poisson p | ≥ 0 |
+| loci (EstimateInvarSignal) | IEnumerable\<InvarLocus\> | required | Tracked loci with plasma reads, tumour AF, caller-supplied background rate | non-null; ≥1 informative locus (AF>0) |
+| detectionThreshold | double | 0 | Min GLRT statistic to call ctDNA-positive | ≥ 0 |
 
 ### 3.2 Output / Return Value
 
@@ -81,6 +110,11 @@ alternate (mutant) supporting reads and `t_i` its total covering reads.
 | TrackedVariantCount | int | `m` — panel size |
 | IntegratedMutantAlleleFraction | double | IMAF = Σalt / Σtotal across loci |
 | DetectionProbability | double | Panel Poisson `p = 1 − e^(−n·IMAF·m)` |
+| InvarSignalResult.IntegratedMutantAlleleFractionV2 | double | Background-subtracted, depth-weighted aggregate tumour fraction (IMAFv2) |
+| InvarSignalResult.EstimatedTumorFraction | double | ML ctDNA fraction `p̂` (EM) under the AF-weighted mixture |
+| InvarSignalResult.LikelihoodRatio | double | GLRT statistic `logL(p̂) − logL(0)` |
+| InvarSignalResult.Detected | bool | `LR ≥ detectionThreshold` AND ≥1 mutant read present |
+| InvarSignalResult.LocusCount | int | Number of informative loci (AF > 0) |
 
 ### 3.3 Preconditions and Validation
 
@@ -101,6 +135,14 @@ throws).
 5. Call MRD-positive iff `D ≥ τ`.
 6. Longitudinal: repeat per timepoint in order; record the earliest positive index.
 
+INVAR signal estimation (`EstimateInvarSignal`):
+
+1. Compute IMAFv2 over covered loci: `bs_i = max(0, M_i/R_i − e_i)`, `IMAFv2 = Σ bs_i·R_i / Σ R_i`.
+2. Keep informative loci (`AF_i > 0`, `R_i > 0`); floor zero background to `1/R_i` (finite logs).
+3. EM-estimate `p̂` (E/M steps above, 200 iterations from `p = 0.01`).
+4. Compute `logL(0)` and `logL(p̂)`; `LR = logL(p̂) − logL(0)`.
+5. Detected ⟺ `LR ≥ detectionThreshold` and at least one mutant read present.
+
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
 - Positivity threshold `τ = 2` (default), per Reinert 2019 / Signatera [1][4].
@@ -113,6 +155,8 @@ throws).
 |-----------|------|-------|-------|
 | DetectMRD | O(m) | O(1) | single pass over `m` markers |
 | TrackVariantsOverTime | O(T·m) | O(T) | T timepoints, m markers each |
+| EstimateInvarSignal | O(m·I) | O(m) | I = EM iterations (200); m informative loci |
+| IntegratedMutantAlleleFractionV2 | O(m) | O(1) | single pass over loci |
 
 ## 5. Implementation Notes
 
@@ -123,6 +167,8 @@ throws).
 - `OncologyAnalyzer.DetectMRD(...)`: tumour-informed panel-level MRD call (≥2 detected ⇒ positive).
 - `OncologyAnalyzer.TrackVariantsOverTime(...)`: longitudinal per-timepoint MRD with first-positive index.
 - `OncologyAnalyzer.IsVariantDetected(...)`: per-locus presence (alt reads ≥ minSupportingReads).
+- `OncologyAnalyzer.EstimateInvarSignal(...)`: INVAR-style background-subtracted, AF-weighted ctDNA estimate (IMAFv2, ML `p̂`, GLRT, detection call).
+- `OncologyAnalyzer.IntegratedMutantAlleleFractionV2(...)`: background-subtracted, depth-weighted aggregate (IMAFv2).
 - Reuses `OncologyAnalyzer.CtDnaDetectionProbability(...)` (ONCO-CTDNA-001) for the panel Poisson `p`.
 
 ### 5.2 Current Behavior
@@ -139,17 +185,25 @@ sequence search).
 - Panel positivity rule `D ≥ 2` ⇒ MRD-positive [1][4].
 - IMAF = depth-weighted plasma VAF across loci [3].
 - Panel Poisson detection `p = 1 − e^(−n·f·m)` [2].
+- INVAR per-locus background subtraction with caller-supplied `e_i`, and the background-subtracted,
+  depth-weighted aggregate IMAFv2 = `weighted.mean(max(0, VAF − e), depth)` [6] (`calculateIMAFv2`).
+- INVAR AF-weighted mixture model `q = p·g + e(1−p)`, EM ML estimate of the ctDNA fraction `p̂`, and the
+  generalised likelihood-ratio statistic `LR = logL(p̂) − logL(0)` [3][6] (`calc_log_likelihood`,
+  `estimate_p_EM`, `calc_likelihood_ratio`, no-size variant).
 
 **Intentionally simplified:**
 
-- Per-locus detection uses a supporting-read cutoff (`r_min`, default 1); **consequence:** INVAR's exact
-  per-locus trinucleotide-context background error model / GLRT is not reproduced, so the per-variant flag is
-  a presence call rather than a calibrated per-locus p-value. The panel-level call and IMAF are source-exact.
+- The per-variant *detected* flag of `DetectMRD` uses a supporting-read cutoff (`r_min`, default 1);
+  **consequence:** the legacy ≥2-of-N panel call is a presence call. The calibrated per-locus signal is now
+  available via `EstimateInvarSignal` (GLRT). The legacy panel call and read-pooled IMAF are unchanged.
+- The INVAR background error rate `e_i` is **caller-supplied** rather than estimated here from control-plasma
+  reads at the same loci; **consequence:** the quality of the GLRT depends on the caller's background model.
 
 **Not implemented:**
 
-- Trinucleotide-context background error suppression and the INVAR likelihood-ratio score; **users should
-  rely on:** an error-modelled per-locus caller upstream, then pass detected markers here for the panel call.
+- INVAR fragment-length (size) weighting (`calc_likelihood_ratio_with_RL`), patient-specific outlier
+  suppression, and locus-noise / both-strands filtering; **users should rely on:** an upstream INVAR-style
+  pipeline for those refinements, then pass cleaned loci + background to `EstimateInvarSignal`.
 - CHIP/germline filtering of markers; **users should rely on:** ONCO-CHIP-001 (`FilterCHIP`).
 
 ### 5.4 Deviations and Assumptions
@@ -157,6 +211,7 @@ sequence search).
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
 | 1 | Per-locus detection = alt reads ≥ r_min | Assumption | Affects per-variant flag, not the ≥2 panel rule | accepted | r_min is a tunable parameter (default 1); see Evidence §Assumptions |
+| 2 | INVAR background rate `e_i` is caller-supplied | Assumption | GLRT quality depends on the caller's background model | accepted | INVAR derives `e_i` from control plasma; here it is an explicit input (`InvarLocus.BackgroundErrorRate`) |
 
 ## 6. Edge Cases and Limitations
 
@@ -193,11 +248,21 @@ var panel = new[]
 OncologyAnalyzer.MrdResult mrd = OncologyAnalyzer.DetectMRD(panel);
 // DetectedVariantCount = 2  (loci 1 and 2 have alt reads), Status = Positive,
 // IMAF = (3+1+0)/(200+150+180) = 4/530 ≈ 0.0075472.
+
+// INVAR-style background-subtracted, AF-weighted estimate (caller supplies background e per locus):
+var loci = new[]
+{
+    new OncologyAnalyzer.InvarLocus(5, 1000, 0.4, 0.001),  // alt, total, tumourAF, background
+    new OncologyAnalyzer.InvarLocus(5, 1000, 0.4, 0.001),
+    // ... many loci ...
+};
+OncologyAnalyzer.InvarSignalResult inv = OncologyAnalyzer.EstimateInvarSignal(loci);
+// EstimatedTumorFraction p̂ ≈ injected ctDNA fraction; LikelihoodRatio grows with signal; Detected when LR ≥ threshold.
 ```
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_DetectMRD_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectMRD_Tests.cs) — covers `INV-01`..`INV-05`
+- Tests: [OncologyAnalyzer_DetectMRD_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectMRD_Tests.cs) — covers `INV-01`..`INV-09`
 - Evidence: [ONCO-MRD-001-Evidence.md](../../../docs/Evidence/ONCO-MRD-001-Evidence.md)
 - Related algorithms: [CtDNA_Analysis](../Oncology/CtDNA_Analysis.md)
 
@@ -208,3 +273,5 @@ OncologyAnalyzer.MrdResult mrd = OncologyAnalyzer.DetectMRD(panel);
 3. Wan JCM, Heider K, Gale D, et al. 2020. ctDNA monitoring using patient-specific sequencing and integration of variant reads. *Science Translational Medicine* 12(548):eaaz8084. https://www.science.org/doi/10.1126/scitranslmed.aaz8084 (DOI:10.1126/scitranslmed.aaz8084)
 4. Tumor-informed ctDNA MRD review (quotes the Reinert/Signatera 16-SNV, ≥2-positive rule, Table 1). PMC9265001. https://pmc.ncbi.nlm.nih.gov/articles/PMC9265001/
 5. Avanzini S, et al. 2020. A mathematical model of ctDNA shedding predicts tumor detection size. *Science Advances* 6(50):eabc4308. https://doi.org/10.1126/sciadv.abc4308
+6. Rosenfeld lab (nrlab-CRUK). INVAR2 — restructured INVAR pipeline (reference implementation of [3]). `R/shared/detectionFunctions.R`, `R/4_detection/generalisedLikelihoodRatioTest.R`. https://github.com/nrlab-CRUK/INVAR2
+7. Lanczos C. 1964. A precision approximation of the gamma function. *J. SIAM Numer. Anal.* 1(1):86–96. https://doi.org/10.1137/0701008
