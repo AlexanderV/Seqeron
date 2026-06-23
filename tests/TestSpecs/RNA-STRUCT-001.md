@@ -18,7 +18,9 @@ Testing RNA secondary structure prediction algorithms including the Nussinov/Zuk
 
 | Method | Class | Type | Priority |
 |--------|-------|------|----------|
-| `PredictStructure(sequence, ...)` | RnaSecondaryStructure | Canonical | Must |
+| `CalculateMfeStructure(sequence, ...)` | RnaSecondaryStructure | Canonical | Must |
+| `PredictStructureMfe(sequence, ...)` | RnaSecondaryStructure | Canonical | Must |
+| `PredictStructure(sequence, ...)` | RnaSecondaryStructure | Canonical (greedy fast path) | Must |
 | `FindStemLoops(sequence, ...)` | RnaSecondaryStructure | Canonical | Must |
 | `CalculateMinimumFreeEnergy(sequence)` | RnaSecondaryStructure | Canonical | Must |
 | `ToDotBracket` / `FromDotBracket` | RnaSecondaryStructure | Notation | Must |
@@ -87,7 +89,7 @@ Testing RNA secondary structure prediction algorithms including the Nussinov/Zuk
 | DB-005 | Validate unbalanced | Returns false |
 | DB-006 | Validate extra closing | Returns false |
 
-#### Structure Prediction (Evidence: Nussinov 1980, Zuker 1981)
+#### Structure Prediction — greedy (Evidence: Nussinov 1980, Zuker 1981)
 
 | Test ID | Description | Expected |
 |---------|-------------|----------|
@@ -96,6 +98,24 @@ Testing RNA secondary structure prediction algorithms including the Nussinov/Zuk
 | SP-003 | Has base pairs for structured | Non-empty pairs |
 | SP-004 | Empty sequence | Returns empty structure |
 | SP-005 | Non-overlapping structures | No overlap in selected |
+
+#### Structure Prediction — MFE-optimal traceback (Evidence: Zuker & Stiegler 1981; MIT 6.047 Fig. 13)
+
+| Test ID | Description | Expected |
+|---------|-------------|----------|
+| MS-001 | Reconstructed energy equals scalar MFE (hairpin/multi-stem/multiloop) | `FreeEnergy == CalculateMinimumFreeEnergy` within 1e-9 |
+| MS-002 | Simple hairpin GGGAAACCC | `(((...)))`, ΔG = −1.12 |
+| MS-003 | Four-pair hairpin GGGGAAAACCCC | `((((....))))`, ΔG = −5.28 |
+| MS-004 | Nestable GGGAAACCCAAAGGGAAACCC | `(((...(((...)))...)))` (nested fold) |
+| MS-005 | Outperforms greedy on nested-optimum sequence | optimal ΔG < greedy ΔG; `((((....((((....))))....))))` |
+| MS-006 | tRNA-like branched structure | valid, full-length, energy-consistent |
+| MS-007 | Base pairs match dot-bracket pairs | set equality |
+| MS-008 | All pairs WC/wobble | true |
+| MS-009 | No crossing pairs (pseudoknot-free) | true |
+| MS-010 | Null / empty / too-short / poly-A | open chain, ΔG = 0 |
+| MS-011 | Lowercase and DNA (T→U) | fold like uppercase RNA |
+| MS-012 | `PredictStructureMfe` shape | dot-bracket + energy match `CalculateMfeStructure`; no pseudoknots |
+| MS-013 | Property: random sequences (seed 20260622) | always energy-consistent, valid, canonical |
 
 ### 2.2 Should Tests (Recommended)
 
@@ -228,6 +248,7 @@ All coverage actions completed:
 |---|-----------|--------|-------|
 | D1 | n=1 bulge missing −RT·ln(states) degeneracy term | 🔧 FIXED | `CalculateBulgeLoopEnergy_SingleNucleotide_DegeneracyTerm` |
 | D2 | Dangling ends (d2) not in multiloop WM decomposition | 🔧 FIXED | Verified via existing MFE integration tests |
+| D5 | No Zuker traceback for optimal structure | 🔧 FIXED (2026-06-23) | `CalculateMfeStructure` / `PredictStructureMfe` add the DP traceback; energy == scalar MFE. Tests: `RnaSecondaryStructure_MfeStructure_Tests` (MS-001…MS-013). |
 
 ### 7.2 Open
 
@@ -235,7 +256,7 @@ All coverage actions completed:
 |---|-----------|--------|--------|
 | D3 | int21 (1×2) lookup table missing | ⛔ BLOCKED | Uses generic model; NNDB table too large (2,304 entries) for inline |
 | D4 | int22 (2×2) lookup table missing | ⛔ BLOCKED | Uses generic model; NNDB table too large (36,864 entries) for inline |
-| D5 | No Zuker traceback in PredictStructure | ⚠ ASSUMPTION | MFE value correct; dot-bracket from greedy selection, not DP traceback |
+| D6 | Pseudoknotted optima not predicted | BY-DESIGN | The O(n³) Zuker recurrences are pseudoknot-free by construction; a different algorithm class is required. |
 
 ---
 

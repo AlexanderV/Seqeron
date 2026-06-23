@@ -98,7 +98,7 @@ Mutation testing вимірює ефективність тестового на
 | 68 | ☑ | PARSE-GFF-001 | FileIO | GffParser.cs | GffParserTests.cs | ≥ 80% |
 | 69 | ☑ | PARSE-GENBANK-001 | FileIO | GenBankParser.cs | GenBankParserTests.cs | ≥ 80% |
 | 70 | ☑ | PARSE-EMBL-001 | FileIO | EmblParser.cs | EmblParserTests.cs | ≥ 80% |
-| 71 | ☑ | RNA-STRUCT-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructureTests.cs | ≥ 80% |
+| 71 | ☐ | RNA-STRUCT-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructureTests.cs | ≥ 80% |
 | 72 | ☑ | RNA-STEMLOOP-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructureTests.cs | ≥ 80% |
 | 73 | ☑ | RNA-ENERGY-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructureTests.cs | ≥ 80% |
 | 74 | ☑ | MIRNA-SEED-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_SeedAnalysis_Tests.cs | ≥ 80% |
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 230 |
-| ☐ Not started | 4 |
+| ☑ Complete (run + killers written) | 229 |
+| ☐ Not started | 5 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |

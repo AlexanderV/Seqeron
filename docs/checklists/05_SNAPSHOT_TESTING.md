@@ -96,7 +96,7 @@ Snapshot (approval) тести серіалізують повний вихід 
 | 68 | ☑ | PARSE-GFF-001 | FileIO | Parsed GFF features та statistics | FileIOSnapshotTests.cs |
 | 69 | ☐ | PARSE-GENBANK-001 | FileIO | Parsed GenBank record | FileIOSnapshotTests.cs |
 | 70 | ☐ | PARSE-EMBL-001 | FileIO | Parsed EMBL record | FileIOSnapshotTests.cs |
-| 71 | ☑ | RNA-STRUCT-001 | RnaStructure | Predicted structure (pairs, dot-bracket) | RnaSnapshotTests.cs |
+| 71 | ☐ | RNA-STRUCT-001 | RnaStructure | Predicted structure (pairs, dot-bracket) | RnaSnapshotTests.cs |
 | 72 | ☑ | RNA-STEMLOOP-001 | RnaStructure | Stem-loop detection результати | RnaSnapshotTests.cs |
 | 73 | ☑ | RNA-ENERGY-001 | RnaStructure | MFE computation результати | RnaSnapshotTests.cs |
 | 74 | ☑ | MIRNA-SEED-001 | MiRNA | miRNA creation та seed analysis | MiRnaSnapshotTests.cs |
@@ -268,7 +268,7 @@ Snapshot (approval) тести серіалізують повний вихід 
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 55 |
-| ☐ Not started | 179 |
+| ☑ Complete | 54 |
+| ☐ Not started | 180 |
 | New snapshot test files needed | 5 (Composition, Kmer, Translation, Oncology) |
 | Existing snapshot files to extend | ~10 |

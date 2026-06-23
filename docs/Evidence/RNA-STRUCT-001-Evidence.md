@@ -24,7 +24,8 @@ This document provides evidence for the RNA secondary structure prediction algor
 | Wikipedia - Nussinov algorithm | Encyclopedia | O(n³) DP algorithm for maximizing base pairs |
 | Wikipedia - Nucleic acid secondary structure | Encyclopedia | Base pairing rules, stem-loop motifs, dot-bracket notation |
 | Nussinov & Jacobson (1980) | Peer-reviewed paper | Original Nussinov algorithm, PNAS 77(11):6309-6313 |
-| Zuker & Stiegler (1981) | Peer-reviewed paper | MFE-based prediction, Nucleic Acids Research 9(1):133-148 |
+| Zuker & Stiegler (1981) | Peer-reviewed paper | MFE-based prediction + W/V matrices and traceback, Nucleic Acids Research 9(1):133-148. Retrieved 2026-06-23: PMC326673 (scanned), recurrences/traceback via MIT 6.047 Lecture 08 Fig. 13 (below). |
+| MIT 6.047 Lecture 08 (Washietl, 2012) | Course lecture (cites Zuker 1981) | Explicit Zuker recurrences F/C/M/M¹ (Fig. 13) and traceback. Retrieved 2026-06-23: web.mit.edu/6.047/book-2012/Lecture10_RNAStructure/Lecture10_RNAStructure_standalone.pdf. F_ij = min{F_{i+1,j}, min_k C_ik + F_{k+1,j}}; C_ij = min{hairpin, interior, multiloop}. |
 | Turner (2004) | Thermodynamic parameters | Nearest-neighbor parameters for RNA folding |
 | Mathews et al. (2004) | Peer-reviewed paper | PNAS 101(19):7287-7292, modern prediction constraints |
 
@@ -299,6 +300,7 @@ Extrapolation for n>9: ΔG°(n) = 6.4 + 1.75·R·T·ln(n/9) where R=1.987 cal/(m
 |---|------|--------|------------|
 | D1 | Single-nucleotide bulge missing −RT·ln(states) degeneracy | 🔧 FIXED | Added `numStates` parameter to `CalculateBulgeLoopEnergy`; DP computes states from adjacent identical bases. Verified against NNDB Example 1: 3 C's → −0.616·ln(3) = −0.68 kcal/mol. |
 | D2 | Dangling ends (model d2) not in multiloop WM | 🔧 FIXED | Added Options A2/A3/A4 to WM recurrence: helix with 5' dangle, 3' dangle, or both. Matches exterior loop (W) treatment. |
+| D5 | No Zuker traceback for optimal structure | 🔧 FIXED (2026-06-23) | Added `CalculateMfeStructure` / `PredictStructureMfe`: Zuker–Stiegler (1981) DP traceback over the SAME V/W/WM matrices used for the scalar MFE (recurrences as taught with explicit equations in MIT 6.047 Lecture 08, Fig. 13). The reconstructed structure's energy equals `CalculateMinimumFreeEnergy` for the same input (asserted in tests across hairpin, multi-stem, and multiloop cases). The greedy `PredictStructure` is retained as a fast path. Residual: pseudoknotted optima are still excluded (the O(n³) recurrences are pseudoknot-free by construction). |
 
 ### 8.2 Open
 
@@ -306,7 +308,6 @@ Extrapolation for n>9: ΔG°(n) = 6.4 + 1.75·R·T·ln(n/9) where R=1.987 cal/(m
 |---|------|--------|-----------|
 | D3 | 1×2 internal loop (int21) lookup table | ⛔ BLOCKED | NNDB int21 table has 2,304 entries. Currently uses generic initiation + asymmetry + mismatch model. Data too large for inline static table; would require external data file. |
 | D4 | 2×2 internal loop (int22) lookup table | ⛔ BLOCKED | NNDB int22 table has 36,864 entries. Same issue as int21. |
-| D5 | No Zuker traceback for optimal structure | ⚠ ASSUMPTION | `CalculateMinimumFreeEnergy` computes correct MFE value via Zuker DP, but `PredictStructure` uses greedy stem-loop selection instead of DP traceback. MFE value is correct; predicted structure may differ from global optimum. |
 
 ### 8.3 Design Decisions (not deviations)
 

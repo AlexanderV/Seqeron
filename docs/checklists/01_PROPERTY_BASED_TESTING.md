@@ -100,7 +100,7 @@ Property-based testing генерує сотні випадкових вході
 | 68 | ☑ | PARSE-GFF-001 | FileIO | RT: round-trip; R: start ≤ end; R: strand ∈ {+,-,.}; D: deterministic | FileIOProperties.cs |
 | 69 | ☑ | PARSE-GENBANK-001 | FileIO | RT: round-trip; P: locus line present; P: sequence preserved; D: deterministic | FileIOProperties.cs |
 | 70 | ☑ | PARSE-EMBL-001 | FileIO | RT: round-trip; P: ID line present; P: sequence preserved; D: deterministic | FileIOProperties.cs |
-| 71 | ☑ | RNA-STRUCT-001 | RnaStructure | R: pairs count ≤ len/2; P: no crossing pairs (Nussinov); P: paired bases complementary; D: deterministic | RnaStructureProperties.cs |
+| 71 | ☐ | RNA-STRUCT-001 | RnaStructure | R: pairs count ≤ len/2; P: no crossing pairs (Nussinov); P: paired bases complementary; D: deterministic | RnaStructureProperties.cs |
 | 72 | ☑ | RNA-STEMLOOP-001 | RnaStructure | R: stem len > 0; P: loop len ≥ minLoop; P: stem arms complementary; D: deterministic | RnaStructureProperties.cs |
 | 73 | ☑ | RNA-ENERGY-001 | RnaStructure | R: ΔG ≤ 0 for stable structures; M: more GC pairs → lower energy; D: deterministic | RnaStructureProperties.cs |
 | 74 | ☑ | MIRNA-SEED-001 | MiRNA | R: seed len = 6–8; P: seed at 5' end (pos 2–8); D: deterministic | MiRnaProperties.cs |
@@ -272,7 +272,7 @@ Property-based testing генерує сотні випадкових вході
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 230 |
-| ☐ Not started | 4 |
+| ☑ Complete | 229 |
+| ☐ Not started | 5 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |

@@ -109,6 +109,28 @@ public static class RnaSecondaryStructure
         double PartitionFunction,
         IReadOnlyDictionary<(int I, int J), double> BasePairProbabilities);
 
+    /// <summary>
+    /// The minimum-free-energy (MFE) secondary structure recovered by Zuker–Stiegler (1981)
+    /// dynamic-programming traceback over the same V/W/WM matrices used to compute the scalar MFE.
+    /// </summary>
+    /// <param name="Sequence">The folded sequence (upper-cased; T read as U), as scored by the DP.</param>
+    /// <param name="DotBracket">
+    /// Dot-bracket notation of the optimal structure: <c>(</c>/<c>)</c> for the two ends of every
+    /// base pair, <c>.</c> for unpaired positions. Always balanced and pseudoknot-free.
+    /// </param>
+    /// <param name="BasePairs">
+    /// The optimal base pairs as 0-based (5' &lt; 3') index tuples, sorted by 5' position.
+    /// </param>
+    /// <param name="FreeEnergy">
+    /// ΔG° (kcal/mol) of <see cref="DotBracket"/>. By construction this equals the scalar value
+    /// returned by <see cref="CalculateMinimumFreeEnergy"/> for the same input and parameters.
+    /// </param>
+    public readonly record struct MfeStructure(
+        string Sequence,
+        string DotBracket,
+        IReadOnlyList<(int Position1, int Position2)> BasePairs,
+        double FreeEnergy);
+
     #endregion
 
     #region Free Energy Parameters
@@ -1051,13 +1073,6 @@ public static class RnaSecondaryStructure
         // A/C/G/U-indexed tables below treat the two interchangeably.
         string seq = rnaSequence.ToUpperInvariant().Replace('T', 'U');
         int n = seq.Length;
-        const double INF = 1e18;
-        const int MAXLOOP = 30;
-
-        // Multibranch loop parameters (NNDB Turner 2004)
-        const double ML_offset = 9.25;   // a — initiation
-        const double ML_helix = -0.63;   // c — per helix
-        const double ML_unpaired = 0.0;  // free base cost (simplified to 0)
 
         var pool = ArrayPool<double>.Shared;
         double[] vBuf = pool.Rent(n * n);  // V(i,j)
@@ -1065,6 +1080,44 @@ public static class RnaSecondaryStructure
         double[] w = pool.Rent(n);          // W(j)
 
         try
+        {
+            FillDp(seq, n, minLoopSize, vBuf, wmBuf, w);
+            double result = w[n - 1];
+            return Math.Round(result, 2);
+        }
+        finally
+        {
+            pool.Return(vBuf);
+            pool.Return(wmBuf);
+            pool.Return(w);
+        }
+    }
+
+    // DP constants shared by the matrix fill, the scalar MFE, and the traceback.
+    private const double Dp_INF = 1e18;
+    private const int Dp_MAXLOOP = 30;
+    // Multibranch loop parameters (NNDB Turner 2004 — mb-parameters.html).
+    private const double Dp_ML_offset = 9.25;   // a — initiation
+    private const double Dp_ML_helix = -0.63;   // c — per helix
+    private const double Dp_ML_unpaired = 0.0;  // free base cost (simplified to 0)
+
+    /// <summary>
+    /// Fills the Zuker–Stiegler (1981) MFE dynamic-programming matrices in place:
+    /// V(i,j) (minimum energy with i·j paired), WM(i,j) (multiloop region), and W(j)
+    /// (overall MFE of the prefix 0..j). Caller supplies n×n buffers for <paramref name="vBuf"/>
+    /// and <paramref name="wmBuf"/> (row-major, index i*n+j) and an n-length buffer for
+    /// <paramref name="w"/>. The traceback (<see cref="TracebackMfe"/>) and the scalar MFE
+    /// (<see cref="CalculateMinimumFreeEnergy"/>) reuse the SAME fill so the reconstructed
+    /// structure's energy equals the scalar W(0,n-1).
+    /// </summary>
+    private static void FillDp(string seq, int n, int minLoopSize, double[] vBuf, double[] wmBuf, double[] w)
+    {
+        const double INF = Dp_INF;
+        const int MAXLOOP = Dp_MAXLOOP;
+        const double ML_offset = Dp_ML_offset;
+        const double ML_helix = Dp_ML_helix;
+        const double ML_unpaired = Dp_ML_unpaired;
+
         {
             // Initialize to +INF (no valid structure)
             Array.Fill(vBuf, INF, 0, n * n);
@@ -1387,16 +1440,367 @@ public static class RnaSecondaryStructure
 
                 w[j] = wBest;
             }
+        }
+    }
 
-            double result = w[n - 1];
-            return Math.Round(result, 2);
-        }
-        finally
+    /// <summary>
+    /// Computes the MFE-OPTIMAL secondary structure of an RNA sequence by Zuker–Stiegler (1981)
+    /// dynamic-programming traceback over the same V/W/WM matrices used by
+    /// <see cref="CalculateMinimumFreeEnergy"/>. Unlike <see cref="PredictStructure"/> (a greedy
+    /// stem-loop heuristic), this returns the globally optimal pseudoknot-free structure for the
+    /// Turner 2004 energy model, and its <see cref="MfeStructure.FreeEnergy"/> equals the scalar
+    /// MFE for the same input and parameters.
+    /// </summary>
+    /// <remarks>
+    /// Recurrences and traceback per Zuker M, Stiegler P (1981) Nucleic Acids Res. 9(1):133-148
+    /// (W/V matrices; F/C/M/M¹ decomposition as taught in MIT 6.047 Lecture 08, Fig. 13). The
+    /// traceback re-derives, at each cell, which recurrence option attained the stored minimum and
+    /// recurses into the corresponding sub-problem(s), recording a base pair whenever a V(i,j) cell
+    /// is entered — exactly mirroring <see cref="FillDp"/>, so the two are mutually consistent.
+    /// </remarks>
+    /// <param name="rnaSequence">RNA (or DNA; T read as U) sequence; case-insensitive.</param>
+    /// <param name="minLoopSize">Minimum hairpin loop size (NNDB minimum 3; smaller is clamped to 3).</param>
+    /// <returns>The optimal structure; empty (no pairs, all dots, ΔG = 0) for null/empty/too-short input.</returns>
+    public static MfeStructure CalculateMfeStructure(string rnaSequence, int minLoopSize = 3)
+    {
+        // NNDB Turner 2004: hairpin loops < 3 nt are prohibited.
+        if (minLoopSize < 3) minLoopSize = 3;
+
+        if (string.IsNullOrEmpty(rnaSequence) || rnaSequence.Length < minLoopSize + 2)
         {
-            pool.Return(vBuf);
-            pool.Return(wmBuf);
-            pool.Return(w);
+            string s0 = rnaSequence is null ? "" : rnaSequence.ToUpperInvariant().Replace('T', 'U');
+            return new MfeStructure(s0, new string('.', s0.Length),
+                new List<(int, int)>(), 0.0);
         }
+
+        // Accept DNA input by reading thymine as uracil (see CalculateMinimumFreeEnergy).
+        string seq = rnaSequence.ToUpperInvariant().Replace('T', 'U');
+        int n = seq.Length;
+
+        // Non-pooled arrays: they must survive past the fill so the traceback can read them.
+        double[] vBuf = new double[n * n];
+        double[] wmBuf = new double[n * n];
+        double[] w = new double[n];
+
+        FillDp(seq, n, minLoopSize, vBuf, wmBuf, w);
+
+        var pairs = TracebackMfe(seq, n, minLoopSize, vBuf, wmBuf, w);
+        pairs.Sort((a, b) => a.Position1.CompareTo(b.Position1));
+
+        string dotBracket = GenerateFullDotBracket(n, pairs);
+        double energy = Math.Round(w[n - 1], 2);
+
+        return new MfeStructure(seq, dotBracket, pairs, energy);
+    }
+
+    /// <summary>
+    /// Predicts the MFE-optimal secondary structure via DP traceback and returns it in the same
+    /// <see cref="SecondaryStructure"/> shape as <see cref="PredictStructure"/>. This is the
+    /// optimal counterpart of the greedy <see cref="PredictStructure"/>: the dot-bracket and base
+    /// pairs are the DP optimum (Zuker–Stiegler 1981) and <see cref="SecondaryStructure.MinimumFreeEnergy"/>
+    /// equals <see cref="CalculateMinimumFreeEnergy"/>.
+    /// </summary>
+    /// <param name="rnaSequence">RNA (or DNA; T read as U) sequence; case-insensitive.</param>
+    /// <param name="minLoopSize">Minimum hairpin loop size (NNDB minimum 3; smaller is clamped to 3).</param>
+    public static SecondaryStructure PredictStructureMfe(string rnaSequence, int minLoopSize = 3)
+    {
+        var mfe = CalculateMfeStructure(rnaSequence, minLoopSize);
+
+        var basePairs = new List<BasePair>(mfe.BasePairs.Count);
+        foreach (var (p1, p2) in mfe.BasePairs)
+        {
+            var type = GetBasePairType(mfe.Sequence[p1], mfe.Sequence[p2]) ?? BasePairType.NonCanonical;
+            basePairs.Add(new BasePair(p1, p2, mfe.Sequence[p1], mfe.Sequence[p2], type));
+        }
+
+        var pseudoknots = DetectPseudoknots(basePairs).ToList(); // optimal DP is pseudoknot-free → empty
+
+        return new SecondaryStructure(
+            Sequence: mfe.Sequence,
+            DotBracket: mfe.DotBracket,
+            BasePairs: basePairs,
+            StemLoops: new List<StemLoop>(),
+            Pseudoknots: pseudoknots,
+            MinimumFreeEnergy: mfe.FreeEnergy);
+    }
+
+    // Comparison tolerance for "this option achieved the stored DP optimum". The DP sums a bounded
+    // number of table values (each ≤ 2 decimals), so the optimum is reproduced to well within this.
+    private const double Dp_TraceEps = 1e-6;
+
+    /// <summary>
+    /// Reconstructs the optimal base-pair set from the filled V/W/WM matrices by Zuker–Stiegler
+    /// traceback. At each sub-problem it recomputes the candidate values of the SAME recurrence
+    /// options as <see cref="FillDp"/> and follows the one that attains the stored optimum.
+    /// </summary>
+    private static List<(int Position1, int Position2)> TracebackMfe(
+        string seq, int n, int minLoopSize, double[] vBuf, double[] wmBuf, double[] w)
+    {
+        const double INF = Dp_INF;
+        const int MAXLOOP = Dp_MAXLOOP;
+        const double ML_offset = Dp_ML_offset;
+        const double ML_helix = Dp_ML_helix;
+        const double ML_unpaired = Dp_ML_unpaired;
+        const double EPS = Dp_TraceEps;
+
+        var pairs = new List<(int, int)>();
+
+        // Work items. Kind W → reconstruct prefix [0..j]; V → pair (i,j) already recorded,
+        // reconstruct what (i,j) encloses; WM → reconstruct the multiloop region [i..j].
+        var stack = new Stack<(char Kind, int I, int J)>();
+        stack.Push(('W', 0, n - 1));
+
+        while (stack.Count > 0)
+        {
+            var (kind, i, j) = stack.Pop();
+
+            if (kind == 'W')
+            {
+                int jj = j;
+                if (jj < minLoopSize + 1) continue; // too short — all unpaired
+                double target = w[jj];
+
+                // Option: j unpaired → W(j-1).
+                if (Math.Abs(target - w[jj - 1]) <= EPS)
+                {
+                    stack.Push(('W', 0, jj - 1));
+                    continue;
+                }
+
+                // Option: helix (k,j) closes the last branch, with W(k-1) before it.
+                bool matched = false;
+                for (int k = 0; k <= jj && !matched; k++)
+                {
+                    double vij = vBuf[k * n + jj];
+                    if (vij >= INF) continue;
+                    double auPenalty = IsAUorGU(seq[k], seq[jj]) ? TerminalAU_GU_Penalty : 0;
+                    double dangle = 0;
+                    if (k > 0) dangle += GetDanglingEndEnergy(seq[k], seq[jj], seq[k - 1], false);
+                    if (jj < n - 1) dangle += GetDanglingEndEnergy(seq[k], seq[jj], seq[jj + 1], true);
+                    double left = k > 0 ? w[k - 1] : 0;
+                    if (Math.Abs(target - (left + vij + auPenalty + dangle)) <= EPS)
+                    {
+                        if (k > 0) stack.Push(('W', 0, k - 1));
+                        stack.Push(('V', k, jj));
+                        matched = true;
+                    }
+                }
+                // If nothing matched (numerical corner), leave the region unpaired.
+                continue;
+            }
+
+            if (kind == 'V')
+            {
+                pairs.Add((i, j)); // i·j is paired in the optimal structure
+                double target = vBuf[i * n + j];
+
+                // --- Option 1: Hairpin loop ---
+                int loopLen = j - i - 1;
+                if (loopLen >= minLoopSize)
+                {
+                    string loopSeq = seq.Substring(i + 1, loopLen);
+                    bool specialGU = seq[i] == 'G' && seq[j] == 'U' &&
+                                     i >= 2 && seq[i - 1] == 'G' && seq[i - 2] == 'G';
+                    double hEnergy = CalculateHairpinLoopEnergy(loopSeq, seq[i], seq[j], specialGU);
+                    if (IsAUorGU(seq[i], seq[j])) hEnergy += TerminalAU_GU_Penalty;
+                    if (Math.Abs(target - hEnergy) <= EPS) continue; // hairpin closes here
+                }
+
+                // --- Option 2b: Special GGUC/CUGG 3-stack ---
+                bool consumed = false;
+                if (j - i >= 7 &&
+                    seq[i] == 'G' && seq[j] == 'C' &&
+                    seq[i + 1] == 'G' && seq[j - 1] == 'U' && PairType(seq[i + 1], seq[j - 1]) != 0 &&
+                    seq[i + 2] == 'U' && seq[j - 2] == 'G' && PairType(seq[i + 2], seq[j - 2]) != 0 &&
+                    seq[i + 3] == 'C' && seq[j - 3] == 'G' && PairType(seq[i + 3], seq[j - 3]) != 0)
+                {
+                    double vInner3 = vBuf[(i + 3) * n + (j - 3)];
+                    if (vInner3 < INF && Math.Abs(target - (SpecialGGUC_CUGG_3Stack + vInner3)) <= EPS)
+                    {
+                        // The 3-stack records the two intermediate pairs too (i+1,j-1),(i+2,j-2).
+                        pairs.Add((i + 1, j - 1));
+                        pairs.Add((i + 2, j - 2));
+                        stack.Push(('V', i + 3, j - 3));
+                        consumed = true;
+                    }
+                }
+                if (consumed) continue;
+
+                // --- Option 2: Stacking (i,j) over (i+1,j-1) ---
+                if (j - i > 2 && PairType(seq[i + 1], seq[j - 1]) != 0)
+                {
+                    double vInner = vBuf[(i + 1) * n + (j - 1)];
+                    if (vInner < INF)
+                    {
+                        string stackKey = $"{seq[i]}{seq[i + 1]}/{seq[j]}{seq[j - 1]}";
+                        if (StackingEnergies.TryGetValue(stackKey, out double stackE) &&
+                            Math.Abs(target - (stackE + vInner)) <= EPS)
+                        {
+                            stack.Push(('V', i + 1, j - 1));
+                            continue;
+                        }
+                    }
+                }
+
+                // --- Option 3: Internal loop or bulge ---
+                bool matchedIL = false;
+                for (int ip = i + 1; ip < j - 1 && ip - i - 1 <= MAXLOOP && !matchedIL; ip++)
+                {
+                    int maxN2 = MAXLOOP - (ip - i - 1);
+                    int jpMin = Math.Max(ip + 1, j - maxN2 - 1);
+                    for (int jp = j - 1; jp >= jpMin && !matchedIL; jp--)
+                    {
+                        if (ip == i + 1 && jp == j - 1) continue; // handled by stacking
+                        byte pairIpJp = PairType(seq[ip], seq[jp]);
+                        if (pairIpJp == 0) continue;
+                        double vInner = vBuf[ip * n + jp];
+                        if (vInner >= INF) continue;
+
+                        int n1 = ip - i - 1;
+                        int n2 = j - jp - 1;
+                        double loopE;
+                        if (n1 == 0 || n2 == 0)
+                        {
+                            int bulgeSize = n1 + n2;
+                            char bulgedBase = n1 > 0 ? seq[i + 1] : seq[j - 1];
+                            int numStates = 1;
+                            if (bulgeSize == 1)
+                            {
+                                if (n1 == 1)
+                                {
+                                    if (seq[i] == seq[i + 1]) numStates++;
+                                    if (seq[ip] == seq[i + 1]) numStates++;
+                                }
+                                else
+                                {
+                                    if (seq[j] == seq[j - 1]) numStates++;
+                                    if (seq[jp] == seq[j - 1]) numStates++;
+                                }
+                            }
+                            loopE = CalculateBulgeLoopEnergy(
+                                bulgeSize, bulgedBase, seq[i], seq[j], seq[ip], seq[jp], numStates);
+                        }
+                        else
+                        {
+                            loopE = CalculateInternalLoopEnergy(
+                                n1, n2, seq[i], seq[j], seq[ip], seq[jp],
+                                seq[i + 1], seq[j - 1], seq[ip - 1], seq[jp + 1]);
+                        }
+
+                        if (Math.Abs(target - (loopE + vInner)) <= EPS)
+                        {
+                            stack.Push(('V', ip, jp));
+                            matchedIL = true;
+                        }
+                    }
+                }
+                if (matchedIL) continue;
+
+                // --- Option 4: Multiloop — V(i,j) = ML_offset + ML_helix + AU + WM(i+1,j-1) ---
+                {
+                    double wmInner = wmBuf[(i + 1) * n + (j - 1)];
+                    if (wmInner < INF)
+                    {
+                        double mEnergy = ML_offset + ML_helix + wmInner;
+                        if (IsAUorGU(seq[i], seq[j])) mEnergy += TerminalAU_GU_Penalty;
+                        if (Math.Abs(target - mEnergy) <= EPS)
+                        {
+                            stack.Push(('M', i + 1, j - 1));
+                            continue;
+                        }
+                    }
+                }
+                continue;
+            }
+
+            // kind == 'M' : reconstruct the multiloop region [i..j].
+            {
+                if (i > j) continue;
+                double target = wmBuf[i * n + j];
+                if (target >= INF) continue;
+
+                // Option A: V(i,j) is a single helix.
+                if (vBuf[i * n + j] < INF)
+                {
+                    double e = vBuf[i * n + j] + ML_helix;
+                    if (IsAUorGU(seq[i], seq[j])) e += TerminalAU_GU_Penalty;
+                    if (Math.Abs(target - e) <= EPS) { stack.Push(('V', i, j)); continue; }
+                }
+
+                // Option A2: i is a 5' dangle, helix at (i+1, j).
+                if (i + 1 <= j)
+                {
+                    double vij2 = vBuf[(i + 1) * n + j];
+                    if (vij2 < INF)
+                    {
+                        double e = vij2 + ML_helix;
+                        if (IsAUorGU(seq[i + 1], seq[j])) e += TerminalAU_GU_Penalty;
+                        e += GetDanglingEndEnergy(seq[i + 1], seq[j], seq[i], false);
+                        if (Math.Abs(target - e) <= EPS) { stack.Push(('V', i + 1, j)); continue; }
+                    }
+                }
+
+                // Option A3: j is a 3' dangle, helix at (i, j-1).
+                if (j - 1 >= i)
+                {
+                    double vij3 = vBuf[i * n + (j - 1)];
+                    if (vij3 < INF)
+                    {
+                        double e = vij3 + ML_helix;
+                        if (IsAUorGU(seq[i], seq[j - 1])) e += TerminalAU_GU_Penalty;
+                        e += GetDanglingEndEnergy(seq[i], seq[j - 1], seq[j], true);
+                        if (Math.Abs(target - e) <= EPS) { stack.Push(('V', i, j - 1)); continue; }
+                    }
+                }
+
+                // Option A4: both i and j are dangles, helix at (i+1, j-1).
+                if (i + 1 < j - 1)
+                {
+                    double vij4 = vBuf[(i + 1) * n + (j - 1)];
+                    if (vij4 < INF)
+                    {
+                        double e = vij4 + ML_helix;
+                        if (IsAUorGU(seq[i + 1], seq[j - 1])) e += TerminalAU_GU_Penalty;
+                        e += GetDanglingEndEnergy(seq[i + 1], seq[j - 1], seq[i], false);
+                        e += GetDanglingEndEnergy(seq[i + 1], seq[j - 1], seq[j], true);
+                        if (Math.Abs(target - e) <= EPS) { stack.Push(('V', i + 1, j - 1)); continue; }
+                    }
+                }
+
+                // Option B: i unpaired in the multiloop.
+                if (i + 1 <= j)
+                {
+                    double e = wmBuf[(i + 1) * n + j];
+                    if (e < INF && Math.Abs(target - (e + ML_unpaired)) <= EPS)
+                    { stack.Push(('M', i + 1, j)); continue; }
+                }
+
+                // Option C: j unpaired in the multiloop.
+                if (j - 1 >= i)
+                {
+                    double e = wmBuf[i * n + (j - 1)];
+                    if (e < INF && Math.Abs(target - (e + ML_unpaired)) <= EPS)
+                    { stack.Push(('M', i, j - 1)); continue; }
+                }
+
+                // Option D: split WM(i,k) + WM(k+1,j).
+                bool split = false;
+                for (int k = i; k < j && !split; k++)
+                {
+                    double left = wmBuf[i * n + k];
+                    double right = wmBuf[(k + 1) * n + j];
+                    if (left < INF && right < INF && Math.Abs(target - (left + right)) <= EPS)
+                    {
+                        stack.Push(('M', i, k));
+                        stack.Push(('M', k + 1, j));
+                        split = true;
+                    }
+                }
+                // else: numerical corner — leave region unpaired.
+            }
+        }
+
+        return pairs;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1634,6 +2038,24 @@ public static class RnaSecondaryStructure
     }
 
     private static string GenerateFullDotBracket(int length, IReadOnlyList<BasePair> basePairs)
+    {
+        var notation = new char[length];
+        for (int i = 0; i < length; i++)
+            notation[i] = '.';
+
+        foreach (var bp in basePairs)
+        {
+            int left = Math.Min(bp.Position1, bp.Position2);
+            int right = Math.Max(bp.Position1, bp.Position2);
+            notation[left] = '(';
+            notation[right] = ')';
+        }
+
+        return new string(notation);
+    }
+
+    // Tuple overload used by the MFE traceback (pseudoknot-free → single bracket family).
+    private static string GenerateFullDotBracket(int length, IReadOnlyList<(int Position1, int Position2)> basePairs)
     {
         var notation = new char[length];
         for (int i = 0; i < length; i++)
