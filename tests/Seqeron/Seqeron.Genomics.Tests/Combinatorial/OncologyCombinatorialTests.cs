@@ -1726,7 +1726,7 @@ public class OncologyCombinatorialTests
         bool expectedWgd = (double)elevatedLength / totalLength > 0.5;
 
         double ploidy = OncologyAnalyzer.EstimatePloidy(segments);
-        bool wgd = OncologyAnalyzer.DetectWholeGenomeDoubling(segments);
+        bool wgd = OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(segments);
 
         ploidy.Should().BeApproximately(expectedPloidy, 1e-9, "ψ = Σ(CN·L)/ΣL");
         ploidy.Should().BeInRange(minCn, maxCn, "[INV-3] weighted mean lies within the CN range");
@@ -1741,9 +1741,9 @@ public class OncologyCombinatorialTests
     [Test]
     public void DetectWholeGenomeDoubling_NSegmentsAxis_FlipsForMinorityGain()
     {
-        OncologyAnalyzer.DetectWholeGenomeDoubling(BuildPloidySegments(1, PloidyCnDist.MinorityGain))
+        OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(BuildPloidySegments(1, PloidyCnDist.MinorityGain))
             .Should().BeTrue("the lone gained segment is 100% of the genome");
-        OncologyAnalyzer.DetectWholeGenomeDoubling(BuildPloidySegments(3, PloidyCnDist.MinorityGain))
+        OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(BuildPloidySegments(3, PloidyCnDist.MinorityGain))
             .Should().BeFalse("one gained segment of three is a 1/3 minority (≤ 0.5)");
     }
 
@@ -1779,11 +1779,11 @@ public class OncologyCombinatorialTests
             new OncologyAnalyzer.AlleleSpecificSegment("1", 0, 1_000_000, 2, 2),         // elevated
             new OncologyAnalyzer.AlleleSpecificSegment("1", 1_000_000, 2_000_000, 1, 1), // not
         };
-        OncologyAnalyzer.DetectWholeGenomeDoubling(half).Should().BeFalse("exactly 0.5 is not > 0.5");
+        OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(half).Should().BeFalse("exactly 0.5 is not > 0.5");
 
         // 2:0 LOH (major 2, total CN 2) over the whole genome → doubled by major allele.
         var loh = new[] { new OncologyAnalyzer.AlleleSpecificSegment("1", 0, 1_000_000, 2, 0) };
-        OncologyAnalyzer.DetectWholeGenomeDoubling(loh).Should().BeTrue("major CN 2 is elevated even at total CN 2");
+        OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(loh).Should().BeTrue("major CN 2 is elevated even at total CN 2");
     }
 
     // ═══════════════════════════════════════════════════════════════════════

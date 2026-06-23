@@ -38,7 +38,7 @@ validated clinical-grade predictors.**
 | ONCO-SIG-002/003/004 | NNLS signature **refitting**, bootstrap CIs, aetiology mapping | **De-novo signature extraction (NMF)** is not implemented — reference signatures are an input. |
 | ONCO-MHC-001 | Strong/weak-binder **classification** by IC50 / %Rank cutoffs | The **affinity / %Rank prediction** (NetMHCpan-style learned model) — supplied by caller. |
 | ONCO-HRD-001 | HRD score = LOH + TAI + LST, ≥42 cutoff | The three component scores are **inputs** (per-segment derivation is ONCO-LOH/CNA). |
-| ONCO-PURITY/PLOIDY/CCF/CLONAL | Purity/ploidy/CCF formulas + clonal rule | Allele-specific CN segments, multiplicity, VAF — supplied; ploidy-WGD uses supplied-segment length, not a chromosome-size table. |
+| ONCO-PURITY/PLOIDY/CCF/CLONAL | Purity/ploidy/CCF formulas + clonal rule | Allele-specific CN segments, multiplicity, VAF — supplied. |
 | EPIGEN-AGE-001 | Horvath `anti.trafo` + linear predictor | The **353-CpG coefficient table** is a caller-supplied input (framework, no fabricated coefficients). |
 | ONCO-CHIP-001 | CHIP filter (gene panel + ≥2% VAF + WBC subtraction) | Origin call uses a **gene+VAF heuristic** where matched-WBC data is absent (over-removes vs strict matched-WBC origin). |
 | ONCO-MRD-001 | ≥2-of-N positivity, IMAF, Poisson LoD | IMAF is read-pooled, **without** INVAR-style background subtraction / tumour-AF weighting. |

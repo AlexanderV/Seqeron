@@ -55,6 +55,21 @@
 2. **Major copy number (verbatim):** `mcn = tcn - lcn` (major CN = total CN − minor/lesser CN). In the allele-specific segment record used here this is the larger allele copy number directly.
 3. **Bielski attribution (verbatim comment):** `# Check for whole-genome duplication // PMID 30013179` → Bielski et al. 2018.
 
+### UCSC Genome Browser — hg38.chrom.sizes / hg19.chrom.sizes (reference chromosome-size tables)
+
+**URL (GRCh38):** https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/latest/hg38.chrom.sizes
+**URL (GRCh37):** https://hgdownload.soe.ucsc.edu/goldenPath/hg19/bigZips/hg19.chrom.sizes
+**Retrieved by:** WebFetch of the two raw UCSC files above, 2026-06-22, prompting for the exact integer base-pair size of chr1–chr22, chrX, chrY, chrM.
+**Cross-verification (GRCh38):** Ensembl REST `https://rest.ensembl.org/info/assembly/homo_sapiens?content-type=application/json` (WebFetch, 2026-06-22) — assembly "GRCh38.p14"; chr1 = 248,956,422; chr21 = 46,709,983; chr22 = 50,818,468; chrX = 156,040,895 — identical to the UCSC values.
+**Accessed:** 2026-06-22
+**Authority rank:** 5 (well-maintained genome database, UCSC/Ensembl assembly metadata) — the canonical published chromosome lengths of the named human reference assemblies.
+
+**Key Extracted Points:**
+
+1. **GRCh38 / hg38 autosome lengths (bp), chr1…chr22:** 248,956,422; 242,193,529; 198,295,559; 190,214,555; 181,538,259; 170,805,979; 159,345,973; 145,138,636; 138,394,717; 133,797,422; 135,086,622; 133,275,309; 114,364,328; 107,043,718; 101,991,189; 90,338,345; 83,257,441; 80,373,285; 58,617,616; 64,444,167; 46,709,983; 50,818,468. **Σ(chr1–22) = 2,875,001,522 bp** (the WGD denominator).
+2. **GRCh37 / hg19 autosome lengths (bp), chr1…chr22:** 249,250,621; 243,199,373; 198,022,430; 191,154,276; 180,915,260; 171,115,067; 159,138,663; 146,364,022; 141,213,431; 135,534,747; 135,006,516; 133,851,895; 115,169,878; 107,349,540; 102,531,392; 90,354,753; 81,195,210; 78,077,248; 59,128,983; 63,025,520; 48,129,895; 51,304,566. **Σ(chr1–22) = 2,881,033,286 bp**.
+3. **facets-suite denominator:** `autosomal_genome = sum(chrom_info$size[chrom_info$chr %in% 1:22])` — exactly the autosomal sum above, taken from a reference chromosome-size table (parameterised by genome build hg19/hg18/hg38), NOT from the interrogated segments.
+
 ### Bielski et al. — Genome doubling shapes the evolution and prognosis of advanced cancers (Nature Genetics 2018; PMID 30013179)
 
 **URL / retrieval:** Citation verified via Europe PMC REST core record
@@ -107,24 +122,30 @@
 |---------|----------|-------------|
 | all | 2 (1:1) | any positive | → ψ = **2.0** exactly. |
 
-### Dataset: WGD calls (facets-suite is_genome_doubled rule, threshold 0.5, autosomes)
+### Dataset: WGD calls against the reference chromosome-size table (facets-suite is_genome_doubled, autosomes)
 
-**Source:** facets-suite `copy-number-scores.R`; PMID 30013179.
+**Source:** facets-suite `copy-number-scores.R` (`autosomal_genome = sum(chrom_info$size[chr %in% 1:22])`,
+`frac_elevated_mcn = sum(length where mcn≥2 & chrom %in% 1:22) / autosomal_genome`, `wgd = frac_elevated_mcn > 0.5`);
+PMID 30013179; UCSC hg38.chrom.sizes. **GRCh38 autosomal genome = 2,875,001,522 bp; half = 1,437,500,761 bp.**
 
-| Case | Major-CN≥2 length / autosomal length | WGD? |
-|------|--------------------------------------|------|
-| 60% of autosomal genome at major CN ≥ 2 | 0.60 > 0.50 | **true** (doubled) |
-| exactly 50% at major CN ≥ 2 | 0.50, not > 0.50 | **false** (boundary, strict) |
-| 40% at major CN ≥ 2 | 0.40 ≤ 0.50 | **false** |
-| all segments 1:1 (major = 1) | 0.0 | **false** |
-| all segments 2:0/2:2 (major ≥ 2) | 1.0 > 0.50 | **true** |
+| Case (denominator = GRCh38 Σchr1–22) | Major-CN≥2 autosomal length / 2,875,001,522 | WGD? |
+|--------------------------------------|---------------------------------------------|------|
+| 1,437,500,762 bp at major CN ≥ 2 (half + 1) | > 0.5 (strict) | **true** (doubled) |
+| 1,437,500,761 bp at major CN ≥ 2 (exactly half) | = 0.5, not > 0.5 | **false** (boundary, strict) |
+| 1,437,500,760 bp at major CN ≥ 2 (half − 1) | < 0.5 | **false** |
+| 100 Mb fully amplified (major ≥ 2), genome not tiled | 100M / 2.875G ≈ 0.035 | **false** (no supplied-segment bias) |
+| all 1:1 autosomal segments (major = 1) | 0.0 | **false** |
+| chrX/chrY amplified, no autosomal elevation | 0.0 (sex chromosomes excluded) | **false** |
+
+**Legacy supplied-segment-length variant** (`DetectWholeGenomeDoublingFromSuppliedLength`, denominator = Σ supplied
+segment length): retains the pre-fix semantics — 60% of supplied length at major CN ≥ 2 → true; exactly 50% → false.
 
 ---
 
 ## Assumptions
 
 1. **ASSUMPTION: per-segment total copy number is supplied as an allele-specific segment (Major + Minor CN).** The unit reuses the existing `AlleleSpecificSegment` record (ONCO-LOH-001 / ONCO-HRD-001), whose total copy number is `Major + Minor` and whose length is `End − Start`. Patchwork defines ploidy on per-segment **total** copy number; representing total CN as Major+Minor is exactly that total and is also required to evaluate the major-CN≥2 WGD rule. This is an input-shape reuse decision, not an invented numeric constant.
-2. **ASSUMPTION: WGD fraction is computed over the supplied segments' total length.** facets-suite divides the elevated-major-CN length by the **autosomal genome** length from a chromosome-size table. With no external chromosome-size table in scope, the denominator is the total length of the supplied segments (the interrogated genome). This preserves the fraction semantics exactly when the caller supplies autosomal segments covering the genome, and the ≥2/>0.5 rule is unchanged. Recorded for transparency; it does not alter the threshold or comparison operator.
+2. **RESOLVED (2026-06-22): WGD fraction denominator is now the reference autosomal genome length, not supplied-segment length.** facets-suite divides the elevated-major-CN length by `autosomal_genome = sum(chrom_info$size[chr %in% 1:22])` — a reference chromosome-size table. The previous assumption (supplied-segment-length denominator) is replaced by the embedded UCSC `hg38.chrom.sizes` / `hg19.chrom.sizes` tables (cross-verified against Ensembl GRCh38.p14), selected via a `ReferenceGenome { GRCh38, GRCh37 }` parameter (default GRCh38). Only autosomal (chr1–22) segments contribute to the numerator (facets-suite `chrom %in% 1:22`); sex chromosomes and contigs are excluded. The legacy supplied-segment-length behaviour remains available via `DetectWholeGenomeDoublingFromSuppliedLength`. No invented constants: every chromosome length is the published value from the retrieved UCSC table.
 
 ---
 
@@ -134,10 +155,12 @@
 2. **MUST Test:** `EstimatePloidy` on a pure-diploid genome (all 1:1) returns exactly 2.0. — Evidence: n-scale 2n diploid baseline.
 3. **MUST Test:** `EstimatePloidy` is length-weighted, not a plain segment mean — a long CN-2 segment plus a short CN-4 segment must weight toward 2, not toward 3. — Evidence: "weighted by segment length".
 4. **MUST Test:** `EstimatePloidy` rejects an empty segment set and any segment with Length ≤ 0 or negative copy number. — Evidence: weighted mean undefined for Σ(L)=0; invalid segment.
-5. **MUST Test:** `DetectWholeGenomeDoubling` returns true when 60% of length has major CN ≥ 2, false at exactly 50% (strict `>`), false at 40%, false for all-1:1, true for all major-CN≥2. — Evidence: facets-suite `frac_elevated_mcn > 0.5`, mcn = tcn − lcn.
-6. **MUST Test:** `DetectWholeGenomeDoubling` uses the **major** allele CN, not total CN: a genome entirely of 1:1 (total 2) segments is NOT doubled. — Evidence: facets-suite `mcn >= 2`.
-7. **SHOULD Test:** `DetectWholeGenomeDoubling` rejects empty / invalid-length segments consistently with `EstimatePloidy`. — Rationale: shared validation, fraction denominator undefined.
-8. **COULD Test:** a ploidy-based overload of the WGD flag (ploidy above a stated cutoff) agrees with the n-scale aneuploidy direction (>2.7n elevated). — Rationale: Van Loo aneuploidy direction (kept as a derived convenience only if it is itself source-backed).
+5. **MUST Test:** `DetectWholeGenomeDoubling` flips at the 0.5 boundary computed against the **GRCh38 autosomal genome** (2,875,001,522 bp): true at half+1 bp at major CN ≥ 2, false at exactly half (strict `>`), false at half−1 bp. — Evidence: facets-suite `frac_elevated_mcn > 0.5`, denominator `sum(chrom_info$size[chr %in% 1:22])`.
+6. **MUST Test:** the embedded GRCh38 and GRCh37 autosome length tables equal the authoritative UCSC `hg38.chrom.sizes` / `hg19.chrom.sizes` values exactly; the autosomal genome sums equal 2,875,001,522 / 2,881,033,286 bp. — Evidence: UCSC chrom.sizes (Ensembl-cross-verified).
+7. **MUST Test:** `DetectWholeGenomeDoubling` uses the **major** allele CN, not total CN: a genome entirely of 1:1 (total 2) segments is NOT doubled. — Evidence: facets-suite `mcn >= 2`.
+8. **MUST Test:** a small fully-amplified region (e.g. 100 Mb all major ≥ 2) is NOT WGD against the reference genome (no supplied-segment bias); non-autosomal (chrX/chrY) segments are excluded from the numerator; "chr"-prefixed autosomes are recognised. — Evidence: facets-suite `chrom %in% 1:22`, reference denominator.
+9. **SHOULD Test:** `DetectWholeGenomeDoubling` rejects invalid-length / negative-CN / null segments (shared validation); an empty set returns false (numerator 0 over a fixed denominator). The legacy `DetectWholeGenomeDoublingFromSuppliedLength` retains the supplied-length denominator (60% → true, exactly 50% → false, empty → throws). — Rationale: shared validation; both overloads source-backed.
+10. **COULD Test:** the GRCh37 selector uses the hg19 denominator and can disagree with GRCh38 near the boundary. — Rationale: build-dependent denominator (facets-suite `genome` parameter).
 
 ---
 
@@ -146,12 +169,15 @@
 1. Mayrhofer M, Viklund B, Isaksson A (2016 reprint of 2014 method). [Patchwork as PMC4053982] Allele-specific copy number analysis of whole-genome sequenced tumor tissue. *Genome Biology*. https://pmc.ncbi.nlm.nih.gov/articles/PMC4053982/ (accessed 2026-06-14) — verbatim ploidy definition.
 2. Van Loo P, Nordgard SH, Lingjærde OC, et al. (2010). Allele-specific copy number analysis of tumors. *PNAS* 107(39):16910–16915. https://doi.org/10.1073/pnas.1009843107
 3. Bielski CM, Zehir A, Penson AV, et al. (2018). Genome doubling shapes the evolution and prognosis of advanced cancers. *Nature Genetics* 50(8):1189–1195. https://doi.org/10.1038/s41588-018-0165-1
-4. facets-suite (MSKCC), `R/copy-number-scores.R`, `is_genome_doubled` (treshold = 0.5, mcn = tcn − lcn, PMID 30013179). https://github.com/mskcc/facets-suite/blob/master/R/copy-number-scores.R (accessed 2026-06-14)
+4. facets-suite (MSKCC), `R/copy-number-scores.R`, `is_genome_doubled` (treshold = 0.5, mcn = tcn − lcn, `autosomal_genome = sum(chrom_info$size[chr %in% 1:22])`, PMID 30013179). https://github.com/mskcc/facets-suite/blob/master/R/copy-number-scores.R (accessed 2026-06-14, re-fetched 2026-06-22 for the denominator)
+5. UCSC Genome Browser, `hg38.chrom.sizes` (https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/latest/hg38.chrom.sizes) and `hg19.chrom.sizes` (https://hgdownload.soe.ucsc.edu/goldenPath/hg19/bigZips/hg19.chrom.sizes) — reference chromosome lengths (accessed 2026-06-22).
+6. Ensembl REST, assembly metadata for *Homo sapiens* GRCh38.p14 (https://rest.ensembl.org/info/assembly/homo_sapiens) — cross-verification of GRCh38 chromosome lengths (accessed 2026-06-22).
 
 ---
 
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+- **2026-06-22**: Limitation fix (ONCO-PLOIDY-001) — WGD genome fraction now uses a reference chromosome-size table (UCSC hg38/hg19, Ensembl-cross-verified) as the denominator per facets-suite `autosomal_genome`, replacing the supplied-segment-length denominator. Added `ReferenceGenome` selector; resolved Assumption #2; legacy supplied-length behaviour kept as `DetectWholeGenomeDoublingFromSuppliedLength`.
 </content>
 </invoke>

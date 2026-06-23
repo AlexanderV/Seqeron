@@ -4580,6 +4580,155 @@ public static class OncologyAnalyzer
     private const double WholeGenomeDoublingFractionThreshold = 0.5;
 
     /// <summary>
+    /// Reference human genome assembly whose chromosome-size table is used as the denominator of the
+    /// whole-genome-doubling genome fraction. Source: facets-suite <c>is_genome_doubled(segs, chrom_info, ...)</c>
+    /// is parameterised by a <c>genome</c> build (<c>'hg19' | 'hg18' | 'hg38'</c>), each supplying its own
+    /// chromosome-size object; the denominator <c>autosomal_genome = sum(chrom_info$size[chr %in% 1:22])</c> is the
+    /// reference assembly's autosomal length, NOT the interrogated-segment length.
+    /// </summary>
+    public enum ReferenceGenome
+    {
+        /// <summary>GRCh38 / hg38 (the current human reference assembly).</summary>
+        GRCh38,
+
+        /// <summary>GRCh37 / hg19 (the legacy human reference assembly).</summary>
+        GRCh37,
+    }
+
+    /// <summary>
+    /// Autosomal chromosome lengths (chromosomes 1–22, base pairs) of GRCh38 / hg38, indexed by chromosome
+    /// number (entry 0 = chr1 … entry 21 = chr22). Embedded published reference data. Source: UCSC
+    /// <c>hg38.chrom.sizes</c> (https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/latest/hg38.chrom.sizes,
+    /// retrieved 2026-06-22), cross-verified against the Ensembl REST assembly endpoint for GRCh38.p14
+    /// (https://rest.ensembl.org/info/assembly/homo_sapiens — chr1 248,956,422; chr21 46,709,983; chr22
+    /// 50,818,468; chrX 156,040,895). Only autosomes are used for the WGD denominator (facets-suite restricts to
+    /// <c>chrom %in% 1:22</c>).
+    /// </summary>
+    private static readonly long[] GRCh38AutosomeLengths =
+    {
+        248_956_422L, // chr1
+        242_193_529L, // chr2
+        198_295_559L, // chr3
+        190_214_555L, // chr4
+        181_538_259L, // chr5
+        170_805_979L, // chr6
+        159_345_973L, // chr7
+        145_138_636L, // chr8
+        138_394_717L, // chr9
+        133_797_422L, // chr10
+        135_086_622L, // chr11
+        133_275_309L, // chr12
+        114_364_328L, // chr13
+        107_043_718L, // chr14
+        101_991_189L, // chr15
+        90_338_345L,  // chr16
+        83_257_441L,  // chr17
+        80_373_285L,  // chr18
+        58_617_616L,  // chr19
+        64_444_167L,  // chr20
+        46_709_983L,  // chr21
+        50_818_468L,  // chr22
+    };
+
+    /// <summary>
+    /// Autosomal chromosome lengths (chromosomes 1–22, base pairs) of GRCh37 / hg19, indexed by chromosome
+    /// number (entry 0 = chr1 … entry 21 = chr22). Embedded published reference data. Source: UCSC
+    /// <c>hg19.chrom.sizes</c> (https://hgdownload.soe.ucsc.edu/goldenPath/hg19/bigZips/hg19.chrom.sizes,
+    /// retrieved 2026-06-22). Only autosomes are used for the WGD denominator (facets-suite restricts to
+    /// <c>chrom %in% 1:22</c>).
+    /// </summary>
+    private static readonly long[] GRCh37AutosomeLengths =
+    {
+        249_250_621L, // chr1
+        243_199_373L, // chr2
+        198_022_430L, // chr3
+        191_154_276L, // chr4
+        180_915_260L, // chr5
+        171_115_067L, // chr6
+        159_138_663L, // chr7
+        146_364_022L, // chr8
+        141_213_431L, // chr9
+        135_534_747L, // chr10
+        135_006_516L, // chr11
+        133_851_895L, // chr12
+        115_169_878L, // chr13
+        107_349_540L, // chr14
+        102_531_392L, // chr15
+        90_354_753L,  // chr16
+        81_195_210L,  // chr17
+        78_077_248L,  // chr18
+        59_128_983L,  // chr19
+        63_025_520L,  // chr20
+        48_129_895L,  // chr21
+        51_304_566L,  // chr22
+    };
+
+    /// <summary>Number of autosomes in the human genome (chromosomes 1–22). Trivial structural constant.</summary>
+    private const int AutosomeCount = 22;
+
+    /// <summary>
+    /// Returns the embedded autosomal chromosome-length table (chromosomes 1–22, base pairs) for a reference
+    /// assembly, indexed 0 = chr1 … 21 = chr22. Source: UCSC <c>*.chrom.sizes</c> (see
+    /// <see cref="GRCh38AutosomeLengths"/> / <see cref="GRCh37AutosomeLengths"/>).
+    /// </summary>
+    /// <param name="genome">The reference assembly.</param>
+    /// <returns>The 22-element autosome length table for the assembly.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="genome"/> is not a defined value.</exception>
+    public static IReadOnlyList<long> GetAutosomeLengths(ReferenceGenome genome) => genome switch
+    {
+        ReferenceGenome.GRCh38 => GRCh38AutosomeLengths,
+        ReferenceGenome.GRCh37 => GRCh37AutosomeLengths,
+        _ => throw new ArgumentOutOfRangeException(nameof(genome), genome, "Unknown reference genome."),
+    };
+
+    /// <summary>
+    /// Total autosomal genome length (Σ of chromosome-1–22 lengths, base pairs) of a reference assembly — the
+    /// denominator of the whole-genome-doubling genome fraction. Source: facets-suite
+    /// <c>autosomal_genome = sum(chrom_info$size[chr %in% 1:22])</c>; sizes from UCSC <c>*.chrom.sizes</c>.
+    /// GRCh38 = 2,875,001,522 bp; GRCh37 = 2,881,033,286 bp.
+    /// </summary>
+    /// <param name="genome">The reference assembly.</param>
+    /// <returns>The summed autosomal length in base pairs.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="genome"/> is not a defined value.</exception>
+    public static long GetAutosomalGenomeLength(ReferenceGenome genome)
+    {
+        IReadOnlyList<long> lengths = GetAutosomeLengths(genome);
+        long sum = 0L;
+        for (int i = 0; i < lengths.Count; i++)
+        {
+            sum += lengths[i];
+        }
+
+        return sum;
+    }
+
+    /// <summary>
+    /// Parses a chromosome identifier to its autosome number (1–22), accepting both bare ("7") and "chr"-prefixed
+    /// ("chr7") forms. Returns <c>false</c> for sex chromosomes, mitochondria, contigs, or anything outside 1–22,
+    /// which the WGD fraction excludes (facets-suite <c>chrom %in% 1:22</c>).
+    /// </summary>
+    /// <param name="chromosome">The chromosome identifier from a segment.</param>
+    /// <param name="number">The parsed autosome number (1–22) when the method returns <c>true</c>.</param>
+    /// <returns><c>true</c> when the identifier denotes an autosome (1–22).</returns>
+    private static bool TryGetAutosomeNumber(string? chromosome, out int number)
+    {
+        number = 0;
+        if (string.IsNullOrEmpty(chromosome))
+        {
+            return false;
+        }
+
+        ReadOnlySpan<char> name = chromosome.AsSpan();
+        if (name.Length > 3 &&
+            (name[0] is 'c' or 'C') && (name[1] is 'h' or 'H') && (name[2] is 'r' or 'R'))
+        {
+            name = name[3..];
+        }
+
+        return int.TryParse(name, out number) && number is >= 1 and <= AutosomeCount;
+    }
+
+    /// <summary>
     /// Estimates the average tumour ploidy ψ as the segment-length-weighted mean of per-segment total copy
     /// number: ψ = Σ(CN_i · L_i) / Σ(L_i), where CN_i = MajorCopyNumber + MinorCopyNumber and L_i = End − Start.
     /// Source: Patchwork (Genome Biology) — "The average ploidy, PloidyTum, is the average total copy number of
@@ -4625,26 +4774,85 @@ public static class OncologyAnalyzer
     }
 
     /// <summary>
-    /// Determines whether a tumour genome has undergone whole-genome doubling (WGD). WGD is called when the
-    /// fraction of the genome (by segment length) with major-allele copy number ≥ 2 is strictly greater than
-    /// 0.5. Source: facets-suite <c>is_genome_doubled</c> (PMID 30013179, Bielski et al. 2018, Nat Genet
-    /// 50:1189–1195): <c>frac_elevated_mcn = Σ(length where mcn ≥ 2) / genome; wgd = frac_elevated_mcn &gt; 0.5</c>,
-    /// with <c>mcn = tcn − lcn</c> (the major-allele copy number). The test uses the major (not total) copy
-    /// number, so a balanced diploid genome (all 1:1, total CN 2, major CN 1) is NOT doubled, whereas a 2:0 LOH
-    /// or 2:2 genome IS.
+    /// Determines whether a tumour genome has undergone whole-genome doubling (WGD), computing the genome
+    /// fraction against a <b>reference chromosome-size table</b> (the authoritative autosomal genome length),
+    /// exactly as facets-suite does. WGD is called when the fraction of the <i>reference autosomal genome</i>
+    /// (chromosomes 1–22) covered by segments with major-allele copy number ≥ 2 is strictly greater than 0.5.
+    /// Source: facets-suite <c>is_genome_doubled(segs, chrom_info, treshold = 0.5)</c> (PMID 30013179, Bielski
+    /// et al. 2018, Nat Genet 50:1189–1195):
+    /// <c>autosomal_genome = sum(chrom_info$size[chr %in% 1:22])</c>;
+    /// <c>frac_elevated_mcn = sum(length where mcn ≥ 2 &amp; chrom %in% 1:22) / autosomal_genome</c>;
+    /// <c>wgd = frac_elevated_mcn &gt; treshold</c>, with <c>mcn = tcn − lcn</c> (major-allele copy number).
+    /// Because the denominator is the true genome length (not the sum of supplied segments), segments that do not
+    /// tile the genome no longer bias the fraction; only autosomal (chr1–22) segments contribute to the numerator
+    /// (sex chromosomes / contigs are ignored). The test uses the major (not total) copy number, so a balanced
+    /// diploid genome (all 1:1, total CN 2, major CN 1) is NOT doubled, whereas a 2:0 LOH or 2:2 genome IS.
     /// </summary>
     /// <param name="segments">
-    /// Allele-specific copy-number segments (<see cref="AlleleSpecificSegment"/>). The fraction denominator is
-    /// the total length of the supplied segments (the interrogated genome). Must not be null, must be non-empty,
-    /// and every segment must have End &gt; Start and non-negative copy numbers.
+    /// Allele-specific copy-number segments (<see cref="AlleleSpecificSegment"/>). Only segments on autosomes
+    /// (chromosomes 1–22, "chr"-prefixed or bare) contribute to the elevated-major-CN numerator. Must not be
+    /// null, and every segment must have End &gt; Start and non-negative copy numbers.
     /// </param>
-    /// <returns><c>true</c> when more than half the genome (by length) has major copy number ≥ 2.</returns>
+    /// <param name="genome">
+    /// Reference assembly whose autosomal chromosome-size table is the fraction denominator
+    /// (default <see cref="ReferenceGenome.GRCh38"/>).
+    /// </param>
+    /// <returns><c>true</c> when more than half the reference autosomal genome has major copy number ≥ 2.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="segments"/> is null.</exception>
+    /// <exception cref="ArgumentException">A segment has End ≤ Start or a negative copy number.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="genome"/> is not a defined value.</exception>
+    public static bool DetectWholeGenomeDoubling(
+        IEnumerable<AlleleSpecificSegment> segments,
+        ReferenceGenome genome = ReferenceGenome.GRCh38)
+    {
+        ArgumentNullException.ThrowIfNull(segments);
+
+        long autosomalGenomeLength = GetAutosomalGenomeLength(genome);
+
+        long elevatedLength = 0L;
+        foreach (AlleleSpecificSegment segment in segments)
+        {
+            ValidateSegment(segment);
+            // facets-suite: numerator restricted to autosomes (chrom %in% 1:22). Non-autosomal segments are
+            // ignored (sex chromosomes / contigs do not contribute to the autosomal WGD fraction).
+            if (!TryGetAutosomeNumber(segment.Chromosome, out _))
+            {
+                continue;
+            }
+
+            // mcn = major-allele copy number; elevated when major CN ≥ 2 (facets-suite segs$mcn >= 2).
+            if (segment.MajorCopyNumber >= WholeGenomeDoublingMajorCopyNumber)
+            {
+                elevatedLength += segment.Length;
+            }
+        }
+
+        // wgd = frac_elevated_mcn > 0.5 (strict), denominator = reference autosomal genome length.
+        double fractionElevatedMajorCn = (double)elevatedLength / autosomalGenomeLength;
+        return fractionElevatedMajorCn > WholeGenomeDoublingFractionThreshold;
+    }
+
+    /// <summary>
+    /// Determines whole-genome doubling using the <b>supplied segments' total length</b> as the genome-fraction
+    /// denominator (the legacy behaviour), rather than a reference chromosome-size table. This is correct only
+    /// when the supplied segments tile the interrogated (autosomal) genome; otherwise prefer the reference-table
+    /// overload <see cref="DetectWholeGenomeDoubling(IEnumerable{AlleleSpecificSegment}, ReferenceGenome)"/>.
+    /// WGD is called when Σ(length where major CN ≥ 2) ÷ Σ(all supplied segment length) is strictly greater than
+    /// 0.5. Source: facets-suite <c>is_genome_doubled</c> rule (PMID 30013179) applied with the interrogated
+    /// segments as the denominator; <c>mcn = tcn − lcn</c>.
+    /// </summary>
+    /// <param name="segments">
+    /// Allele-specific copy-number segments. The fraction denominator is the total length of <b>all</b> supplied
+    /// segments (the interrogated genome), regardless of chromosome. Must not be null, must be non-empty, and
+    /// every segment must have End &gt; Start and non-negative copy numbers.
+    /// </param>
+    /// <returns><c>true</c> when more than half the supplied genome (by length) has major copy number ≥ 2.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="segments"/> is null.</exception>
     /// <exception cref="ArgumentException">
     /// <paramref name="segments"/> is empty (the fraction is undefined), or a segment has End ≤ Start or a
     /// negative copy number.
     /// </exception>
-    public static bool DetectWholeGenomeDoubling(IEnumerable<AlleleSpecificSegment> segments)
+    public static bool DetectWholeGenomeDoublingFromSuppliedLength(IEnumerable<AlleleSpecificSegment> segments)
     {
         ArgumentNullException.ThrowIfNull(segments);
 
@@ -4669,7 +4877,7 @@ public static class OncologyAnalyzer
                 nameof(segments));
         }
 
-        // wgd = frac_elevated_mcn > 0.5 (strict) — facets-suite is_genome_doubled.
+        // wgd = frac_elevated_mcn > 0.5 (strict) — facets-suite is_genome_doubled, supplied-length denominator.
         double fractionElevatedMajorCn = (double)elevatedLength / totalLength;
         return fractionElevatedMajorCn > WholeGenomeDoublingFractionThreshold;
     }

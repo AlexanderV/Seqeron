@@ -134,7 +134,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 104 | ☑ | ONCO-CNA-002 | Oncology | MON: higher CN keeps focal amplification; INV: prepend flank shifts focal coordinates |
 | 105 | ☑ | ONCO-CNA-003 | Oncology | MON: lower CN keeps homozygous deletion; INV: segment order independent |
 | 106 | ☑ | ONCO-PURITY-001 | Oncology | MON: scaling clonal VAFs up → ≥ purity; INV: variant order independent |
-| 107 | ☑ | ONCO-PLOIDY-001 | Oncology | MON: amplifying more segments → ≥ ploidy; INV: segment order independent |
+| 107 | ☐ | ONCO-PLOIDY-001 | Oncology | MON: amplifying more segments → ≥ ploidy; INV: segment order independent |
 | 108 | ☑ | ONCO-CLONAL-001 | Oncology | MON: higher CCF keeps a clonal call clonal; INV: variant order independent |
 | 109 | ☑ | ONCO-NEO-001 | Oncology | INV: flanking-context shift preserves the peptide set tiling the mutation |
 | 110 | ☑ | ONCO-MHC-001 | Oncology | MON: lower IC50 → stronger-or-equal binding class; INV: peptide order independent |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 233 |
-| ☐ Not started | 1 |
+| ☑ Complete | 232 |
+| ☐ Not started | 2 |
 | MR relations defined | ~200+ |
