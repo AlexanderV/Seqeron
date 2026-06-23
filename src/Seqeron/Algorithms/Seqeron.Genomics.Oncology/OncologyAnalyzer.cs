@@ -7184,6 +7184,426 @@ public static class OncologyAnalyzer
 
     #endregion
 
+    #region Upstream allele-specific derivation: segmentation, purity/ploidy fit, multiplicity (ONCO-ASCAT-001)
+
+    /// <summary>
+    /// Platform/technology parameter γ in the ASCAT logR model. For massively parallel sequencing data
+    /// (WGS/WES/TS) γ = 1; the SNP-array default 0.55 does not apply. Source: ASCAT README / Van Loo lab
+    /// (VanLoo-lab/ascat): "For massively parallel sequencing data, gamma should always be set to 1."
+    /// </summary>
+    public const double AscatSequencingGamma = 1.0;
+
+    /// <summary>
+    /// Worst-case squared distance of a value to the nearest integer, (1/2)² = 0.25; the per-segment term in
+    /// the ASCAT theoretical-maximum-distance used to normalise goodness of fit to a percentage. Source:
+    /// ascat.runAscat.R — <c>TheoretMaxdist = sum(rep(0.25, n) * length * ...)</c>.
+    /// </summary>
+    private const double AscatWorstCaseIntegerDistance = 0.25;
+
+    /// <summary>
+    /// Down-weight applied to balanced (BAF = 0.5) segments in the ASCAT goodness-of-fit, because such
+    /// segments carry little allele-specific information. Source: ascat.runAscat.R —
+    /// <c>ifelse(b == 0.5, 0.05, 1)</c>.
+    /// </summary>
+    private const double AscatBalancedSegmentWeight = 0.05;
+
+    /// <summary>BAF value of a perfectly balanced (1:1) heterozygous segment; the down-weight pivot in the GoF.</summary>
+    private const double BalancedBaf = 0.5;
+
+    /// <summary>
+    /// A single per-locus allele-specific measurement at a germline-heterozygous SNP: the log-R ratio (total
+    /// signal, "r") and the B-allele frequency (allelic contrast, "b"). These are the two ASCAT input tracks
+    /// (Van Loo et al. 2010, PNAS) and are <b>observed measurements</b> supplied by the caller — they are the
+    /// raw data, not a derived quantity.
+    /// </summary>
+    /// <param name="Chromosome">Contig label (used to group loci into per-chromosome segments).</param>
+    /// <param name="Position">0-based genomic coordinate of the SNP.</param>
+    /// <param name="LogR">Log-R ratio r (log2 total-signal ratio vs the reference baseline).</param>
+    /// <param name="BAF">B-allele frequency b ∈ [0, 1] at the germline-heterozygous SNP.</param>
+    public readonly record struct AlleleSpecificLocus(string Chromosome, long Position, double LogR, double BAF);
+
+    /// <summary>
+    /// A genomic segment summarised by its mean logR and mean BAF, produced by allele-specific segmentation
+    /// of per-locus <see cref="AlleleSpecificLocus"/> data. A single fitted logR value and a BAF value are
+    /// obtained per segment (Van Loo et al. 2010, ASCAT).
+    /// </summary>
+    /// <param name="Chromosome">Contig label.</param>
+    /// <param name="Start">0-based start coordinate (first locus position in the segment).</param>
+    /// <param name="End">End coordinate (last locus position in the segment; End ≥ Start).</param>
+    /// <param name="MeanLogR">Length-unweighted mean logR over the segment's loci.</param>
+    /// <param name="MeanBAF">Mean "folded" BAF (distance from 0.5, re-centred) over the segment's loci.</param>
+    /// <param name="LocusCount">Number of loci summarised by the segment.</param>
+    public readonly record struct AlleleSpecificSegmentSummary(
+        string Chromosome,
+        long Start,
+        long End,
+        double MeanLogR,
+        double MeanBAF,
+        int LocusCount)
+    {
+        /// <summary>Segment length in base pairs (End − Start).</summary>
+        public long Length => End - Start;
+    }
+
+    /// <summary>
+    /// Result of the joint ASCAT purity/ploidy fit: the recovered purity ρ and ploidy ψ, the goodness of fit,
+    /// and the allele-specific integer copy-number segments those parameters imply.
+    /// </summary>
+    /// <param name="Purity">Recovered tumour purity ρ (aberrant cell fraction) ∈ (0, 1].</param>
+    /// <param name="Ploidy">Recovered tumour ploidy ψ (length-weighted mean total copy number).</param>
+    /// <param name="GoodnessOfFit">Percentage goodness of fit (1 − distance/TheoretMaxdist)·100, in (−∞, 100].</param>
+    /// <param name="Segments">The allele-specific integer copy-number segments (major/minor CN) implied by (ρ, ψ).</param>
+    public readonly record struct PurityPloidyFit(
+        double Purity,
+        double Ploidy,
+        double GoodnessOfFit,
+        IReadOnlyList<AlleleSpecificSegment> Segments);
+
+    /// <summary>
+    /// Segments per-locus allele-specific signal (logR, BAF) into contiguous regions, producing one
+    /// (mean logR, mean BAF) summary per segment. Implements a deterministic <b>joint</b> mean-shift changepoint
+    /// scan on both the logR and the (mirrored) BAF tracks — the allele-specific segmentation step that precedes
+    /// the ASCAT model (ASPCF; Nilsen et al. 2012, <i>BMC Genomics</i> 13:591; CBS, Olshen et al. 2004): a new
+    /// segment starts when the next locus's logR deviates from the running segment mean by more than
+    /// <paramref name="logRChangeThreshold"/>, OR its mirrored BAF deviates by more than
+    /// <paramref name="bafChangeThreshold"/>, or when the chromosome changes. Segmenting on BAF as well as logR is
+    /// essential: a copy-neutral LOH region (e.g. 2:0) has the same logR as a balanced 1:1 region but a very
+    /// different BAF, so a logR-only scan would wrongly merge them. The BAF is "folded" to its distance from 0.5
+    /// and re-centred (b' = 0.5 + |b − 0.5|) before averaging so that the two symmetric heterozygous BAF clusters
+    /// (b and 1 − b) do not cancel — the standard mirrored-BAF summary used by allele-specific callers.
+    /// </summary>
+    /// <param name="loci">Per-locus measurements; processed in input order within each chromosome.</param>
+    /// <param name="logRChangeThreshold">logR mean-shift threshold that starts a new segment. Must be &gt; 0.</param>
+    /// <param name="bafChangeThreshold">Mirrored-BAF mean-shift threshold that starts a new segment. Must be &gt; 0.</param>
+    /// <param name="minLociPerSegment">Minimum loci a running segment must have before a change can split it. Must be ≥ 1.</param>
+    /// <returns>The segment summaries in input order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="loci"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">a threshold ≤ 0 or minLociPerSegment &lt; 1.</exception>
+    public static IReadOnlyList<AlleleSpecificSegmentSummary> SegmentAlleleSpecific(
+        IEnumerable<AlleleSpecificLocus> loci,
+        double logRChangeThreshold,
+        double bafChangeThreshold = 0.1,
+        int minLociPerSegment = 1)
+    {
+        ArgumentNullException.ThrowIfNull(loci);
+
+        if (double.IsNaN(logRChangeThreshold) || logRChangeThreshold <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(logRChangeThreshold), logRChangeThreshold, "The logR change threshold must be positive.");
+        }
+
+        if (double.IsNaN(bafChangeThreshold) || bafChangeThreshold <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(bafChangeThreshold), bafChangeThreshold, "The BAF change threshold must be positive.");
+        }
+
+        if (minLociPerSegment < 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(minLociPerSegment), minLociPerSegment, "At least one locus per segment is required.");
+        }
+
+        var result = new List<AlleleSpecificSegmentSummary>();
+        var current = new List<AlleleSpecificLocus>();
+        double runningLogRSum = 0.0;
+        double runningFoldedBafSum = 0.0;
+
+        foreach (AlleleSpecificLocus locus in loci)
+        {
+            if (locus.Chromosome is null)
+            {
+                throw new ArgumentException("A locus has a null chromosome label.", nameof(loci));
+            }
+
+            double foldedBaf = BalancedBaf + Math.Abs(locus.BAF - BalancedBaf);
+            bool chromosomeChanged = current.Count > 0 && current[^1].Chromosome != locus.Chromosome;
+            bool meanShift = false;
+            if (!chromosomeChanged && current.Count >= minLociPerSegment)
+            {
+                double currentLogRMean = runningLogRSum / current.Count;
+                double currentBafMean = runningFoldedBafSum / current.Count;
+                // ASPCF/CBS joint mean-shift: split on a logR change OR a (mirrored) BAF change.
+                meanShift = Math.Abs(locus.LogR - currentLogRMean) > logRChangeThreshold
+                            || Math.Abs(foldedBaf - currentBafMean) > bafChangeThreshold;
+            }
+
+            if ((chromosomeChanged || meanShift) && current.Count > 0)
+            {
+                result.Add(BuildSegmentSummary(current));
+                current = new List<AlleleSpecificLocus>();
+                runningLogRSum = 0.0;
+                runningFoldedBafSum = 0.0;
+            }
+
+            current.Add(locus);
+            runningLogRSum += locus.LogR;
+            runningFoldedBafSum += foldedBaf;
+        }
+
+        if (current.Count > 0)
+        {
+            result.Add(BuildSegmentSummary(current));
+        }
+
+        return result;
+    }
+
+    /// <summary>Builds a (mean logR, mirrored-mean BAF) summary from a non-empty run of same-chromosome loci.</summary>
+    private static AlleleSpecificSegmentSummary BuildSegmentSummary(List<AlleleSpecificLocus> loci)
+    {
+        double logRSum = 0.0;
+        double foldedBafSum = 0.0;
+        foreach (AlleleSpecificLocus locus in loci)
+        {
+            logRSum += locus.LogR;
+            // Mirror BAF about 0.5 so the two symmetric het clusters (b, 1−b) reinforce instead of cancel.
+            foldedBafSum += BalancedBaf + Math.Abs(locus.BAF - BalancedBaf);
+        }
+
+        return new AlleleSpecificSegmentSummary(
+            Chromosome: loci[0].Chromosome,
+            Start: loci[0].Position,
+            End: loci[^1].Position,
+            MeanLogR: logRSum / loci.Count,
+            MeanBAF: foldedBafSum / loci.Count,
+            LocusCount: loci.Count);
+    }
+
+    /// <summary>
+    /// Raw (real-valued) ASCAT allele-specific copy numbers (nA, nB) for one segment given (r, b, ρ, ψ, γ).
+    /// Source: ascat.runAscat.R (VanLoo-lab/ascat), verbatim:
+    /// <code>
+    /// nA = (rho-1 - (b-1)*2^(r/gamma) * ((1-rho)*2+rho*psi))/rho
+    /// nB = (rho-1 +  b   *2^(r/gamma) * ((1-rho)*2+rho*psi))/rho
+    /// </code>
+    /// </summary>
+    private static (double NA, double NB) AscatRawCopyNumbers(double r, double b, double rho, double psi, double gamma)
+    {
+        double scaledTotal = Math.Pow(2.0, r / gamma) * ((1.0 - rho) * NormalDiploidCopyNumber + rho * psi);
+        double nA = (rho - 1.0 - (b - 1.0) * scaledTotal) / rho;
+        double nB = (rho - 1.0 + b * scaledTotal) / rho;
+        return (nA, nB);
+    }
+
+    /// <summary>
+    /// Jointly estimates tumour purity ρ and ploidy ψ from segment-level (logR, BAF) summaries by grid search,
+    /// mapping each segment to allele-specific copy numbers (nA, nB) with the ASCAT equations and minimising the
+    /// segment-length-weighted squared distance of the minor allele to the nearest non-negative integer (the
+    /// ASCAT "sunrise" goodness of fit). Source: Van Loo et al. (2010), <i>PNAS</i> 107:16910 (grid over ploidy ×
+    /// aberrant-cell-fraction, "copy number calls as close as possible to nonnegative whole numbers"); equations
+    /// and objective ported verbatim from ascat.runAscat.R. The returned segments carry the rounded, clamped
+    /// integer major/minor copy numbers at the optimal (ρ, ψ), ready for the downstream ploidy / LOH / CCF code.
+    /// </summary>
+    /// <param name="segments">Segment summaries (from <see cref="SegmentAlleleSpecific"/> or a caller's segmenter). Non-empty.</param>
+    /// <param name="purityMin">Lower bound of the purity grid, in (0, 1].</param>
+    /// <param name="purityMax">Upper bound of the purity grid, in (0, 1] and ≥ purityMin.</param>
+    /// <param name="purityStep">Purity grid step (&gt; 0).</param>
+    /// <param name="ploidyMin">Lower bound of the ploidy grid (&gt; 0).</param>
+    /// <param name="ploidyMax">Upper bound of the ploidy grid (≥ ploidyMin).</param>
+    /// <param name="ploidyStep">Ploidy grid step (&gt; 0).</param>
+    /// <param name="gamma">Platform parameter γ (sequencing = <see cref="AscatSequencingGamma"/> = 1).</param>
+    /// <returns>The recovered (ρ, ψ), the percentage goodness of fit, and the implied integer copy-number segments.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="segments"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="segments"/> is empty.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">a grid bound or step is out of range.</exception>
+    public static PurityPloidyFit FitPurityPloidy(
+        IReadOnlyList<AlleleSpecificSegmentSummary> segments,
+        double purityMin = 0.05,
+        double purityMax = 1.0,
+        double purityStep = 0.01,
+        double ploidyMin = 1.5,
+        double ploidyMax = 5.0,
+        double ploidyStep = 0.05,
+        double gamma = AscatSequencingGamma)
+    {
+        ArgumentNullException.ThrowIfNull(segments);
+        if (segments.Count == 0)
+        {
+            throw new ArgumentException("At least one segment is required to fit purity and ploidy.", nameof(segments));
+        }
+
+        ValidateGrid(purityMin, purityMax, purityStep, ploidyMin, ploidyMax, ploidyStep, gamma);
+
+        // Per-segment GoF weight = segment length (≥ 1) × balanced down-weight, exactly as ascat.runAscat.R.
+        double[] weights = new double[segments.Count];
+        double theoreticalMaxDistance = 0.0;
+        for (int i = 0; i < segments.Count; i++)
+        {
+            AlleleSpecificSegmentSummary s = segments[i];
+            long length = s.Length;
+            // A single-locus or zero-span segment still contributes; use LocusCount as a positive weight floor.
+            double baseWeight = length > 0 ? length : Math.Max(1, s.LocusCount);
+            double balancedWeight = Math.Abs(s.MeanBAF - BalancedBaf) < 1e-9 ? AscatBalancedSegmentWeight : 1.0;
+            weights[i] = baseWeight * balancedWeight;
+            theoreticalMaxDistance += AscatWorstCaseIntegerDistance * weights[i];
+        }
+
+        double bestSelectionDistance = double.PositiveInfinity;
+        double bestMinorDistance = double.PositiveInfinity;
+        double bestPurity = purityMin;
+        double bestPloidy = ploidyMin;
+
+        for (double rho = purityMin; rho <= purityMax + 1e-12; rho += purityStep)
+        {
+            for (double psi = ploidyMin; psi <= ploidyMax + 1e-12; psi += ploidyStep)
+            {
+                double minorDistance = 0.0;     // ASCAT GoF objective (minor allele only).
+                double selectionDistance = 0.0; // selection objective (both alleles → integers) to break 2n/4n ties.
+                bool feasible = true;
+                for (int i = 0; i < segments.Count; i++)
+                {
+                    AlleleSpecificSegmentSummary s = segments[i];
+                    (double nA, double nB) = AscatRawCopyNumbers(s.MeanLogR, s.MeanBAF, rho, psi, gamma);
+                    double minor = Math.Min(nA, nB);
+                    double major = Math.Max(nA, nB);
+                    // Physical feasibility: copy numbers cannot be meaningfully negative beyond rounding noise.
+                    if (minor < -0.5 || major < -0.5)
+                    {
+                        feasible = false;
+                        break;
+                    }
+
+                    double minorInt = Math.Max(0.0, Math.Round(minor, MidpointRounding.AwayFromZero));
+                    double majorInt = Math.Max(0.0, Math.Round(major, MidpointRounding.AwayFromZero));
+                    double minorDev = minor - minorInt;
+                    double majorDev = major - majorInt;
+                    // ascat.runAscat.R: d = sum( |nMinor - round(nMinor)|^2 * length * balancedWeight ).
+                    minorDistance += minorDev * minorDev * weights[i];
+                    // ASCAT rounds BOTH alleles to integers; including the major-allele deviation in the
+                    // selection objective disambiguates the 2n vs 4n (doubled) solutions that share a minor fit.
+                    selectionDistance += (minorDev * minorDev + majorDev * majorDev) * weights[i];
+                }
+
+                if (!feasible)
+                {
+                    continue;
+                }
+
+                // Prefer the lower selection distance; on a (near-)exact tie prefer the lower ploidy ψ, the ASCAT
+                // parsimony convention (Van Loo 2010 selects the non-doubled solution when both fit equally well).
+                bool strictlyBetter = selectionDistance < bestSelectionDistance - 1e-12;
+                bool tieLowerPloidy = Math.Abs(selectionDistance - bestSelectionDistance) <= 1e-12 && psi < bestPloidy - 1e-12;
+                if (strictlyBetter || tieLowerPloidy)
+                {
+                    bestSelectionDistance = selectionDistance;
+                    bestMinorDistance = minorDistance;
+                    bestPurity = rho;
+                    bestPloidy = psi;
+                }
+            }
+        }
+
+        var bestSegments = new List<AlleleSpecificSegment>(segments.Count);
+        for (int i = 0; i < segments.Count; i++)
+        {
+            AlleleSpecificSegmentSummary s = segments[i];
+            (double nA, double nB) = AscatRawCopyNumbers(s.MeanLogR, s.MeanBAF, bestPurity, bestPloidy, gamma);
+            int rMajor = (int)Math.Max(0.0, Math.Round(Math.Max(nA, nB), MidpointRounding.AwayFromZero));
+            int rMinor = (int)Math.Max(0.0, Math.Round(Math.Min(nA, nB), MidpointRounding.AwayFromZero));
+            // Segments with End == Start (single-position) get a 1 bp span so AlleleSpecificSegment.Length > 0.
+            long end = s.End > s.Start ? s.End : s.Start + 1;
+            bestSegments.Add(new AlleleSpecificSegment(s.Chromosome, s.Start, end, rMajor, rMinor));
+        }
+
+        // goodnessOfFit = (1 - distance/TheoretMaxdist) * 100, per ascat.runAscat.R (minor-allele distance).
+        double goodnessOfFit = theoreticalMaxDistance > 0.0
+            ? (1.0 - bestMinorDistance / theoreticalMaxDistance) * 100.0
+            : 100.0;
+
+        return new PurityPloidyFit(bestPurity, bestPloidy, goodnessOfFit, bestSegments);
+    }
+
+    private static void ValidateGrid(
+        double purityMin, double purityMax, double purityStep,
+        double ploidyMin, double ploidyMax, double ploidyStep, double gamma)
+    {
+        if (double.IsNaN(purityMin) || purityMin <= 0.0 || purityMin > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(purityMin), purityMin, "purityMin must be in (0, 1].");
+        }
+
+        if (double.IsNaN(purityMax) || purityMax <= 0.0 || purityMax > 1.0 || purityMax < purityMin)
+        {
+            throw new ArgumentOutOfRangeException(nameof(purityMax), purityMax, "purityMax must be in (0, 1] and ≥ purityMin.");
+        }
+
+        if (double.IsNaN(purityStep) || purityStep <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(purityStep), purityStep, "purityStep must be positive.");
+        }
+
+        if (double.IsNaN(ploidyMin) || ploidyMin <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(ploidyMin), ploidyMin, "ploidyMin must be positive.");
+        }
+
+        if (double.IsNaN(ploidyMax) || ploidyMax < ploidyMin)
+        {
+            throw new ArgumentOutOfRangeException(nameof(ploidyMax), ploidyMax, "ploidyMax must be ≥ ploidyMin.");
+        }
+
+        if (double.IsNaN(ploidyStep) || ploidyStep <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(ploidyStep), ploidyStep, "ploidyStep must be positive.");
+        }
+
+        if (double.IsNaN(gamma) || gamma <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(gamma), gamma, "gamma must be positive.");
+        }
+    }
+
+    /// <summary>
+    /// Derives the integer mutation multiplicity m (number of mutated copies per cancer cell) of a somatic
+    /// variant from its VAF, the tumour purity ρ, and the local total / major copy number, so that
+    /// <see cref="EstimateCcf"/> can be driven without a caller-supplied multiplicity. The expected number of
+    /// mutated copies for a clonal mutation is n_mut = VAF·(1/ρ)·[ρ·N_T + 2(1−ρ)] (McGranahan et al. 2016,
+    /// <i>Science</i> 351:1463; equivalently the inversion of the PICTograph model VAF = m·CCF·ρ /
+    /// (N_T·ρ + 2(1−ρ)) at CCF = 1, Zheng et al. 2022, <i>Bioinformatics</i> 38:3677). The result is rounded to
+    /// the nearest integer and clamped to [1, majorCopyNumber] (a variant present on at least one copy cannot
+    /// exceed the major-allele copy number).
+    /// </summary>
+    /// <param name="vaf">Observed variant allele fraction ∈ [0, 1].</param>
+    /// <param name="purity">Tumour purity ρ ∈ (0, 1].</param>
+    /// <param name="totalCopyNumber">Local tumour total copy number N_T (≥ 1).</param>
+    /// <param name="majorCopyNumber">Local major-allele copy number, the upper bound on multiplicity (in [1, N_T]).</param>
+    /// <returns>The integer mutation multiplicity m ∈ [1, majorCopyNumber].</returns>
+    /// <exception cref="ArgumentOutOfRangeException">vaf ∉ [0,1], purity ∉ (0,1], totalCopyNumber &lt; 1, or majorCopyNumber ∉ [1, totalCopyNumber].</exception>
+    public static int DeriveMultiplicity(double vaf, double purity, int totalCopyNumber, int majorCopyNumber)
+    {
+        if (double.IsNaN(vaf) || vaf < 0.0 || vaf > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(vaf), vaf, "VAF must be in [0, 1].");
+        }
+
+        if (double.IsNaN(purity) || purity <= 0.0 || purity > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(purity), purity, "Purity must be in (0, 1].");
+        }
+
+        if (totalCopyNumber < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(totalCopyNumber), totalCopyNumber, "Total copy number must be ≥ 1.");
+        }
+
+        if (majorCopyNumber < 1 || majorCopyNumber > totalCopyNumber)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(majorCopyNumber), majorCopyNumber, $"Major copy number must be in [1, {totalCopyNumber}].");
+        }
+
+        // n_mut = VAF·(1/ρ)·[ρ·N_T + 2(1−ρ)] — McGranahan 2016 observed mutation copy number (CCF=1 ⇒ m = n_mut).
+        double totalDnaPerCell = purity * totalCopyNumber + NormalDiploidCopyNumber * (1.0 - purity);
+        double rawMultiplicity = vaf * totalDnaPerCell / purity;
+        int rounded = (int)Math.Round(rawMultiplicity, MidpointRounding.AwayFromZero);
+        // Clamp to [1, major CN]: an observed variant sits on ≥ 1 copy and ≤ the major-allele copy number.
+        return Math.Clamp(rounded, 1, majorCopyNumber);
+    }
+
+    #endregion
+
     #region GenerateNeoantigenPeptides
 
     /// <summary>
