@@ -1,4 +1,4 @@
-# Checklist 07: Differential Testing
+# Checklist 08: Differential Testing
 
 **Priority:** P2
 **Date:** 2026-03-19

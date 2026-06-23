@@ -1,4 +1,4 @@
-# Checklist 09: Characterization Testing
+# Checklist 10: Characterization Testing
 
 **Priority:** P3  
 **Date:** 2026-03-19  
