@@ -709,4 +709,362 @@ public class OncologyAnalyzer_DetectMRD_Tests
     }
 
     #endregion
+
+    #region EstimateInvarSignalWithSize (INVAR fragment-size-weighted GLRT)
+
+    // Builds the canonical short-tumour-fragment molecule set used by the size-weighting reference
+    // (Evidence "SIZE scenario", INVAR2 calc_likelihood_ratio_with_RL). Two size bins: SHORT (len 120,
+    // tumour-enriched) and LONG (len 170, normal-enriched). 200 molecules; 12 mutant (10 short, 2 long),
+    // 188 wild-type (38 short, 150 long). Tumour AF 0.4, background 0.002.
+    private const int ShortLen = 120;
+    private const int LongLen = 170;
+    private const double SizeAf = 0.4;
+    private const double SizeBg = 0.002;
+
+    private static List<OncologyAnalyzer.InvarMolecule> ShortTumourMolecules()
+    {
+        var mols = new List<OncologyAnalyzer.InvarMolecule>();
+        void Add(bool mut, int len, int n)
+        {
+            for (int i = 0; i < n; i++)
+            {
+                mols.Add(new OncologyAnalyzer.InvarMolecule(mut, len, SizeAf, SizeBg));
+            }
+        }
+
+        Add(mut: true, ShortLen, 10);
+        Add(mut: true, LongLen, 2);
+        Add(mut: false, ShortLen, 38);
+        Add(mut: false, LongLen, 150);
+        return mols;
+    }
+
+    // Size profile (empirical proportions): tumour short-enriched (0.8 short / 0.2 long),
+    // normal long-enriched (0.2 short / 0.8 long). INVAR2 sizeCharacterisation PROPORTION = COUNT/TOTAL.
+    private static OncologyAnalyzer.FragmentSizeProfile ShortTumourProfile()
+    {
+        var mutantCounts = new Dictionary<int, int> { [ShortLen] = 80, [LongLen] = 20 };
+        var normalCounts = new Dictionary<int, int> { [ShortLen] = 20, [LongLen] = 80 };
+        return new OncologyAnalyzer.FragmentSizeProfile(mutantCounts, normalCounts);
+    }
+
+    // SW1 — size-weighting increases the detection statistic vs the no-size GLRT when tumour fragments are
+    // shorter than background. Reference (Python port of INVAR2 with-RL formulas, Evidence SIZE scenario):
+    //  size-weighted LR = 0.19691792427890276, p-hat = 0.12042621132507245.
+    [Test]
+    public void EstimateInvarSignalWithSize_ShortTumourFragments_HigherLikelihoodRatioThanNoSize()
+    {
+        List<OncologyAnalyzer.InvarMolecule> mols = ShortTumourMolecules();
+        OncologyAnalyzer.FragmentSizeProfile profile = ShortTumourProfile();
+
+        OncologyAnalyzer.InvarSignalResult sized =
+            OncologyAnalyzer.EstimateInvarSignalWithSize(mols, profile);
+
+        // No-size GLRT on the same molecules: one InvarLocus per molecule (depth 1, alt = mutant indicator).
+        var noSizeLoci = new List<OncologyAnalyzer.InvarLocus>();
+        foreach (OncologyAnalyzer.InvarMolecule m in mols)
+        {
+            noSizeLoci.Add(IL(m.IsMutant ? 1 : 0, 1, m.TumorAlleleFraction, m.BackgroundErrorRate));
+        }
+
+        OncologyAnalyzer.InvarSignalResult noSize = OncologyAnalyzer.EstimateInvarSignal(noSizeLoci);
+
+        Assert.Multiple(() =>
+        {
+            // Pinned reference values from the INVAR2 with-RL formulas (computed independently in Python).
+            Assert.That(sized.LikelihoodRatio, Is.EqualTo(0.19691792427890276).Within(1e-9),
+                "Size-weighted GLRT LR matches the INVAR2 calc_likelihood_ratio_with_RL reference.");
+            Assert.That(sized.EstimatedTumorFraction, Is.EqualTo(0.12042621132507245).Within(1e-9),
+                "Size-weighted EM p-hat matches the INVAR2 estimate_p_EM_with_RL reference.");
+            Assert.That(sized.LikelihoodRatio, Is.GreaterThan(noSize.LikelihoodRatio),
+                "Short tumour fragments => size-weighting raises the GLRT above the no-size statistic.");
+            Assert.That(sized.Detected, Is.True, "Positive size-weighted LR with mutant molecules => detected.");
+        });
+    }
+
+    // SW2 — uniform size profile (mutant and normal identical) reduces to the no-size GLRT magnitude:
+    // when P1 == P0 the size factor cancels and the with-RL statistic carries no extra discrimination.
+    [Test]
+    public void EstimateInvarSignalWithSize_FlatProfile_NoSizeAdvantage()
+    {
+        var mutantCounts = new Dictionary<int, int> { [ShortLen] = 50, [LongLen] = 50 };
+        var normalCounts = new Dictionary<int, int> { [ShortLen] = 50, [LongLen] = 50 };
+        var flat = new OncologyAnalyzer.FragmentSizeProfile(mutantCounts, normalCounts);
+
+        List<OncologyAnalyzer.InvarMolecule> mols = ShortTumourMolecules();
+        OncologyAnalyzer.InvarSignalResult sized = OncologyAnalyzer.EstimateInvarSignalWithSize(mols, flat);
+
+        var noSizeLoci = new List<OncologyAnalyzer.InvarLocus>();
+        foreach (OncologyAnalyzer.InvarMolecule m in mols)
+        {
+            noSizeLoci.Add(IL(m.IsMutant ? 1 : 0, 1, m.TumorAlleleFraction, m.BackgroundErrorRate));
+        }
+
+        OncologyAnalyzer.InvarSignalResult noSize = OncologyAnalyzer.EstimateInvarSignal(noSizeLoci);
+
+        Assert.That(sized.LikelihoodRatio, Is.EqualTo(noSize.LikelihoodRatio).Within(1e-9),
+            "A flat (P1 == P0) size profile makes the with-RL GLRT equal to the no-size GLRT.");
+    }
+
+    // SW3 — null molecules => ArgumentNullException.
+    [Test]
+    public void EstimateInvarSignalWithSize_NullMolecules_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(
+            () => OncologyAnalyzer.EstimateInvarSignalWithSize(null!, ShortTumourProfile()),
+            "Null molecule set is invalid.");
+    }
+
+    // SW4 — null size profile => ArgumentNullException.
+    [Test]
+    public void EstimateInvarSignalWithSize_NullProfile_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(
+            () => OncologyAnalyzer.EstimateInvarSignalWithSize(ShortTumourMolecules(), null!),
+            "Null size profile is invalid.");
+    }
+
+    // SW5 — no informative molecule (all tumour AF = 0) => ArgumentException.
+    [Test]
+    public void EstimateInvarSignalWithSize_NoInformativeMolecule_Throws()
+    {
+        var mols = new[] { new OncologyAnalyzer.InvarMolecule(true, ShortLen, 0.0, SizeBg) };
+
+        Assert.Throws<ArgumentException>(
+            () => OncologyAnalyzer.EstimateInvarSignalWithSize(mols, ShortTumourProfile()),
+            "All tumour AF = 0 => no informative molecule.");
+    }
+
+    #endregion
+
+    #region SuppressOutlierLoci (INVAR patient-specific outlier suppression)
+
+    // OS1 — a planted high-signal locus among background-only loci is flagged as an outlier and removed,
+    // recovering the true (background-only) signal. Reference (Python port of INVAR2 repolish, Evidence
+    // OUTLIER dataset): 9 clean loci (1 mutant read / 1000) + 1 planted locus (50 / 1000), tumour AF 0.4,
+    // background 0.001. P_ESTIMATE = 0.001, P_THRESHOLD = 0.05/10 = 0.005.
+    //  tail(1,1000,0.001) = 0.6323 > 0.005 => clean loci PASS (not outliers);
+    //  tail(50,1000,0.001) = 3.73e-66 <= 0.005 => planted locus flagged as outlier.
+    [Test]
+    public void SuppressOutlierLoci_PlantedHighSignalLocus_FlaggedAndRemoved()
+    {
+        var loci = new List<OncologyAnalyzer.InvarLocus>();
+        for (int i = 0; i < 9; i++)
+        {
+            loci.Add(IL(1, 1000, 0.4, 0.001));
+        }
+
+        loci.Add(IL(50, 1000, 0.4, 0.001)); // planted outlier
+
+        IReadOnlyList<OncologyAnalyzer.InvarOutlierResult> results = OncologyAnalyzer.SuppressOutlierLoci(loci);
+
+        Assert.Multiple(() =>
+        {
+            for (int i = 0; i < 9; i++)
+            {
+                Assert.That(results[i].IsOutlier, Is.False,
+                    $"Clean locus {i} (1/1000) is consistent with the null estimate => not an outlier.");
+            }
+
+            Assert.That(results[9].IsOutlier, Is.True,
+                "Planted locus (50/1000) is far above the null ctDNA estimate => flagged as an outlier.");
+            Assert.That(results[9].BinomialTailProbability, Is.EqualTo(3.7264670792676273e-66).Within(1e-72),
+                "One-sided binomial tail P(X>=50 | n=1000, p=0.001) matches the INVAR2 binom.test reference.");
+            Assert.That(results[0].BinomialTailProbability, Is.EqualTo(0.6323045752290356).Within(1e-9),
+                "One-sided binomial tail P(X>=1 | n=1000, p=0.001) matches the INVAR2 binom.test reference.");
+        });
+    }
+
+    // OS2 — IMAFv2 recovered after dropping the flagged outlier locus equals the clean-only IMAFv2.
+    [Test]
+    public void SuppressOutlierLoci_RemovingOutlier_RecoversCleanSignal()
+    {
+        var loci = new List<OncologyAnalyzer.InvarLocus>();
+        for (int i = 0; i < 9; i++)
+        {
+            loci.Add(IL(1, 1000, 0.4, 0.001));
+        }
+
+        loci.Add(IL(50, 1000, 0.4, 0.001));
+
+        IReadOnlyList<OncologyAnalyzer.InvarOutlierResult> results = OncologyAnalyzer.SuppressOutlierLoci(loci);
+
+        var kept = new List<OncologyAnalyzer.InvarLocus>();
+        foreach (OncologyAnalyzer.InvarOutlierResult r in results)
+        {
+            if (!r.IsOutlier)
+            {
+                kept.Add(r.Locus);
+            }
+        }
+
+        double imafWithOutlier = OncologyAnalyzer.IntegratedMutantAlleleFractionV2(loci);
+        double imafCleaned = OncologyAnalyzer.IntegratedMutantAlleleFractionV2(kept);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(kept, Has.Count.EqualTo(9), "Only the planted outlier is removed.");
+            // Clean loci have VAF 0.001 == background => background-subtracted signal is 0.
+            Assert.That(imafCleaned, Is.EqualTo(0.0).Within(1e-12),
+                "After outlier removal the residual signal is pure background => IMAFv2 = 0.");
+            Assert.That(imafWithOutlier, Is.GreaterThan(imafCleaned),
+                "The outlier inflated IMAFv2 before suppression.");
+        });
+    }
+
+    // OS3 — null loci => ArgumentNullException.
+    [Test]
+    public void SuppressOutlierLoci_Null_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.SuppressOutlierLoci(null!),
+            "Null loci collection is invalid.");
+    }
+
+    // OS4 — empty loci => ArgumentException.
+    [Test]
+    public void SuppressOutlierLoci_Empty_Throws()
+    {
+        Assert.Throws<ArgumentException>(
+            () => OncologyAnalyzer.SuppressOutlierLoci(Array.Empty<OncologyAnalyzer.InvarLocus>()),
+            "Cannot suppress outliers in an empty locus set.");
+    }
+
+    // OS5 — out-of-range suppression α => ArgumentOutOfRangeException.
+    [Test]
+    public void SuppressOutlierLoci_InvalidAlpha_Throws()
+    {
+        var loci = new[] { IL(1, 1000, 0.4, 0.001) };
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => OncologyAnalyzer.SuppressOutlierLoci(loci, outlierSuppression: 0.0),
+            "Outlier suppression α must be in (0, 1].");
+    }
+
+    #endregion
+
+    #region EstimateLocusBackground / locus-noise & both-strands filtering (INVAR createLociErrorRateTable)
+
+    private static OncologyAnalyzer.ControlLocusObservation Ctrl(string id, int altF, int altR, int dp) =>
+        new(id, altF, altR, dp);
+
+    // Builds a panel of control observations: `withSignal` samples carry `altPerSignal` alt reads (split as
+    // forward+reverse), the rest carry none; every sample has depth `depth`.
+    private static List<OncologyAnalyzer.ControlLocusObservation> Controls(
+        int total, int withSignal, int altPerSignal, int depth)
+    {
+        var obs = new List<OncologyAnalyzer.ControlLocusObservation>();
+        for (int i = 0; i < total; i++)
+        {
+            int alt = i < withSignal ? altPerSignal : 0;
+            int f = alt / 2;
+            int r = alt - f;
+            obs.Add(Ctrl($"C{i}", f, r, depth));
+        }
+
+        return obs;
+    }
+
+    // LN1 — a clean locus (signal in 1/20 controls, low pooled background AF) passes the locus-noise filter.
+    // Reference (Evidence FINAL LOCUS-NOISE): bg = 1/20000 = 5e-5, signalFrac = 0.05 < 0.1 => PASS.
+    [Test]
+    public void EstimateLocusBackground_CleanLocus_PassesNoiseFilter()
+    {
+        List<OncologyAnalyzer.ControlLocusObservation> controls = Controls(total: 20, withSignal: 1, altPerSignal: 1, depth: 1000);
+
+        OncologyAnalyzer.LocusErrorRate result = OncologyAnalyzer.EstimateLocusBackground(controls);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.BackgroundErrorRate, Is.EqualTo(5e-5).Within(1e-12),
+                "BACKGROUND_AF = sum(alt)/sum(DP) = 1/20000 = 5e-5 (INVAR2 createLociErrorRateTable).");
+            Assert.That(result.ControlSamplesWithSignal, Is.EqualTo(1), "One control sample carries an alt read.");
+            Assert.That(result.LocusNoisePass, Is.True,
+                "signalFrac 0.05 < 0.1 AND bg 5e-5 < 0.01 => locus passes the noise filter.");
+        });
+    }
+
+    // LN2 — a recurrently noisy locus (signal in 5/20 = 0.25 of controls) fails the noise filter.
+    [Test]
+    public void EstimateLocusBackground_RecurrentSignal_FailsNoiseFilter()
+    {
+        List<OncologyAnalyzer.ControlLocusObservation> controls = Controls(total: 20, withSignal: 5, altPerSignal: 1, depth: 1000);
+
+        OncologyAnalyzer.LocusErrorRate result = OncologyAnalyzer.EstimateLocusBackground(controls);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.ControlSamplesWithSignal, Is.EqualTo(5), "Five control samples carry signal.");
+            Assert.That(result.LocusNoisePass, Is.False,
+                "signalFrac 0.25 >= 0.1 => recurrent control signal => blacklisted (LOCUS_NOISE.PASS = false).");
+        });
+    }
+
+    // LN3 — a high-background locus (pooled control AF above the max) fails the noise filter even when signal
+    // is in few samples. Reference: 250 alt / 20000 = 0.0125 > 0.01 => fail.
+    [Test]
+    public void EstimateLocusBackground_HighBackgroundAf_FailsNoiseFilter()
+    {
+        List<OncologyAnalyzer.ControlLocusObservation> controls = Controls(total: 20, withSignal: 1, altPerSignal: 250, depth: 1000);
+
+        OncologyAnalyzer.LocusErrorRate result = OncologyAnalyzer.EstimateLocusBackground(controls);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.BackgroundErrorRate, Is.EqualTo(0.0125).Within(1e-12),
+                "BACKGROUND_AF = 250/20000 = 0.0125 (INVAR2).");
+            Assert.That(result.LocusNoisePass, Is.False,
+                "bg 0.0125 >= max 0.01 => locus fails the noise filter.");
+        });
+    }
+
+    // LN4 — the estimated background rate from clean controls equals the injected control error rate.
+    // 20 controls each depth 1000 with 2 alt reads => injected error 0.002; pooled bg = 40/20000 = 0.002.
+    [Test]
+    public void EstimateLocusBackground_CleanControls_RecoversInjectedErrorRate()
+    {
+        const double injectedError = 0.002;
+        List<OncologyAnalyzer.ControlLocusObservation> controls = Controls(total: 20, withSignal: 20, altPerSignal: 2, depth: 1000);
+
+        OncologyAnalyzer.LocusErrorRate result = OncologyAnalyzer.EstimateLocusBackground(controls);
+
+        Assert.That(result.BackgroundErrorRate, Is.EqualTo(injectedError).Within(1e-12),
+            "Pooled control allele fraction recovers the injected per-locus background error rate (0.002).");
+    }
+
+    // LN5 — null control observations => ArgumentNullException.
+    [Test]
+    public void EstimateLocusBackground_Null_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.EstimateLocusBackground(null!),
+            "Null control observations are invalid.");
+    }
+
+    // LN6 — empty control observations => ArgumentException.
+    [Test]
+    public void EstimateLocusBackground_Empty_Throws()
+    {
+        Assert.Throws<ArgumentException>(
+            () => OncologyAnalyzer.EstimateLocusBackground(Array.Empty<OncologyAnalyzer.ControlLocusObservation>()),
+            "At least one control observation is required.");
+    }
+
+    // BS1 — both-strands filter: alt on both strands passes; alt on a single strand fails; no alt passes.
+    // Reference (INVAR2): BOTH_STRANDS.PASS = ALT_F > 0 & ALT_R > 0 | AF == 0.
+    [Test]
+    public void PassesBothStrandsFilter_StrandSupport_MatchesInvarRule()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.PassesBothStrandsFilter(3, 2), Is.True,
+                "Alt on both strands (3 fwd, 2 rev) => passes (INVAR2 BOTH_STRANDS.PASS).");
+            Assert.That(OncologyAnalyzer.PassesBothStrandsFilter(3, 0), Is.False,
+                "Alt only on the forward strand => strand-biased => fails.");
+            Assert.That(OncologyAnalyzer.PassesBothStrandsFilter(0, 4), Is.False,
+                "Alt only on the reverse strand => strand-biased => fails.");
+            Assert.That(OncologyAnalyzer.PassesBothStrandsFilter(0, 0), Is.True,
+                "No alt reads (AF == 0) => passes (nothing to be strand-biased).");
+        });
+    }
+
+    #endregion
 }

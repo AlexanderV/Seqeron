@@ -64,8 +64,23 @@ plasma). With per-sample ctDNA fraction `p`:
 - **Background-subtracted, depth-weighted aggregate (IMAFv2)** [6]: per locus/context subtract background,
   `bs_i = max(0, M_i/R_i − e_i)`, then `IMAFv2 = Σ_i bs_i·R_i / Σ_i R_i`.
 
-The full INVAR pipeline additionally applies fragment-length weighting, locus-noise filtering and outlier
-suppression; these are **not** reproduced here — the caller supplies an already-cleaned background model.
+#### INVAR fragment-size weighting, outlier suppression, locus-noise filtering, background estimation
+
+The full INVAR refinements are also reproduced from INVAR2 [6]:
+
+- **Fragment-size-weighted GLRT** [6] (`calc_likelihood_ratio_with_RL`): per molecule (`DP = 1`) with mutant
+  indicator `M ∈ {0,1}`, fragment length `L`, and size-likelihoods `P0(L)` (normal) and `P1(L)` (tumour), the
+  wild-type and mutant read likelihoods are `L0 = (1−e)·P0·(1−p) + (1−g)·P1·p` and
+  `L1 = e·P0·(1−p) + g·P1·p` (with `g = AF·(1−e)+(1−AF)·e`); `logL = Σ[M·log L1 + (1−M)·log L0]/n`; EM and the
+  detection statistic `LR = logL(p̂)−logL(0)` mirror the no-size form. Tumour-derived cfDNA is shorter, so a
+  short fragment has higher `P1` and is up-weighted ⇒ higher sensitivity.
+- **Patient-specific outlier suppression** [6] (`repolish`): estimate the sample null ctDNA fraction
+  `P_ESTIMATE = max(EM, weighted.mean(AF, TUMOUR_AF))` over background-consistent loci, then flag a locus as an
+  outlier when its one-sided binomial tail `P(X ≥ mutReads | DP, P_ESTIMATE)` ≤ `α / (#loci)` (Bonferroni).
+- **Locus-noise filtering + control-derived background** [6] (`createLociErrorRateTable`): per locus over
+  control plasma, `e = BACKGROUND_AF = Σ(ALT_F+ALT_R)/Σ DP`; the locus passes the noise filter when alt signal
+  recurs in fewer than `controlProportion` of controls AND `BACKGROUND_AF < maxBackgroundAF`. The both-strands
+  filter requires `ALT_F > 0 & ALT_R > 0` (or no alt reads).
 
 ### 2.3 Modeling Assumptions
 
@@ -87,6 +102,11 @@ suppression; these are **not** reproduced here — the caller supplies an alread
 | INV-07 | Pure-background sample ⇒ `p̂ ≈ 0` and `LR ≈ 0` (not detected) | at `p=0`, `q_i = e_i` is the MLE for background-only reads [6] |
 | INV-08 | `LR` is monotone non-decreasing in injected ctDNA signal | larger true `p` raises `logL(p̂)` while `logL(0)` is fixed [6] |
 | INV-09 | AF-weighted `LR` ≥ flat-pooled (mean-AF) `LR` on the same data | per-locus AF concentrates signal at high-SNR loci [3][6] |
+| INV-10 | Short-tumour-fragment size-weighted `LR` ≥ no-size `LR` on the same molecules | short fragments have higher `P1` ⇒ up-weighted toward the tumour state [6] |
+| INV-11 | Flat size profile (`P1 == P0`) ⇒ size-weighted `LR` == no-size `LR` | the size factor cancels in `L0`/`L1` [6] |
+| INV-12 | A locus whose mutant-read count gives a binomial tail ≤ `α/n` is flagged as an outlier | one-sided `binom.test(..., "greater")` vs Bonferroni threshold [6] |
+| INV-13 | Estimated `e = Σ(ALT_F+ALT_R)/Σ DP`; locus passes noise filter ⟺ `signalFrac < proportion` AND `e < maxBg` | control-pooled allele fraction and recurrence rule [6] |
+| INV-14 | Both-strands pass ⟺ (`ALT_F>0` AND `ALT_R>0`) OR no alt reads | strand-bias filter [6] |
 
 ## 3. Contract
 
@@ -169,6 +189,10 @@ INVAR signal estimation (`EstimateInvarSignal`):
 - `OncologyAnalyzer.IsVariantDetected(...)`: per-locus presence (alt reads ≥ minSupportingReads).
 - `OncologyAnalyzer.EstimateInvarSignal(...)`: INVAR-style background-subtracted, AF-weighted ctDNA estimate (IMAFv2, ML `p̂`, GLRT, detection call).
 - `OncologyAnalyzer.IntegratedMutantAlleleFractionV2(...)`: background-subtracted, depth-weighted aggregate (IMAFv2).
+- `OncologyAnalyzer.EstimateInvarSignalWithSize(...)`: INVAR fragment-size-weighted GLRT (with-RL) over per-molecule `InvarMolecule` + `FragmentSizeProfile`.
+- `OncologyAnalyzer.SuppressOutlierLoci(...)`: INVAR patient-specific outlier suppression (Bonferroni one-sided binomial test).
+- `OncologyAnalyzer.EstimateLocusBackground(...)`: control-derived per-locus background error rate + locus-noise verdict.
+- `OncologyAnalyzer.PassesBothStrandsFilter(...)`: INVAR both-strands filter.
 - Reuses `OncologyAnalyzer.CtDnaDetectionProbability(...)` (ONCO-CTDNA-001) for the panel Poisson `p`.
 
 ### 5.2 Current Behavior
@@ -190,20 +214,27 @@ sequence search).
 - INVAR AF-weighted mixture model `q = p·g + e(1−p)`, EM ML estimate of the ctDNA fraction `p̂`, and the
   generalised likelihood-ratio statistic `LR = logL(p̂) − logL(0)` [3][6] (`calc_log_likelihood`,
   `estimate_p_EM`, `calc_likelihood_ratio`, no-size variant).
+- INVAR fragment-size-weighted GLRT `L0 = (1−e)·P0·(1−p) + (1−g)·P1·p`, `L1 = e·P0·(1−p) + g·P1·p` with the
+  with-RL EM and `LR = logL(p̂)−logL(0)` [6] (`calc_log_likelihood_with_RL`, `estimate_p_EM_with_RL`,
+  `calc_likelihood_ratio_with_RL`).
+- INVAR patient-specific outlier suppression: `P_THRESHOLD = α/n`,
+  `P_ESTIMATE = max(EM, weighted.mean(AF, TUMOUR_AF))`, one-sided binomial tail test [6] (`repolish`).
+- INVAR control-derived background error `BACKGROUND_AF = Σ(ALT_F+ALT_R)/Σ DP`, locus-noise filter
+  `(N_with_signal/N) < proportion AND BACKGROUND_AF < maxBg`, and both-strands filter [6]
+  (`createLociErrorRateTable`).
 
 **Intentionally simplified:**
 
 - The per-variant *detected* flag of `DetectMRD` uses a supporting-read cutoff (`r_min`, default 1);
   **consequence:** the legacy ≥2-of-N panel call is a presence call. The calibrated per-locus signal is now
   available via `EstimateInvarSignal` (GLRT). The legacy panel call and read-pooled IMAF are unchanged.
-- The INVAR background error rate `e_i` is **caller-supplied** rather than estimated here from control-plasma
-  reads at the same loci; **consequence:** the quality of the GLRT depends on the caller's background model.
+- The fragment-size likelihood uses the discrete empirical proportion `COUNT/TOTAL` per length bin rather than
+  INVAR2's weighted KDE (`estimate_real_length_probability`, bandwidth `adjust = 0.03`); **consequence:** on
+  sparsely-populated length bins the exact size weight differs slightly from the smoothed estimate, but the
+  with-RL GLRT and the short-fragment up-weighting are exact.
 
 **Not implemented:**
 
-- INVAR fragment-length (size) weighting (`calc_likelihood_ratio_with_RL`), patient-specific outlier
-  suppression, and locus-noise / both-strands filtering; **users should rely on:** an upstream INVAR-style
-  pipeline for those refinements, then pass cleaned loci + background to `EstimateInvarSignal`.
 - CHIP/germline filtering of markers; **users should rely on:** ONCO-CHIP-001 (`FilterCHIP`).
 
 ### 5.4 Deviations and Assumptions
@@ -211,7 +242,8 @@ sequence search).
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
 | 1 | Per-locus detection = alt reads ≥ r_min | Assumption | Affects per-variant flag, not the ≥2 panel rule | accepted | r_min is a tunable parameter (default 1); see Evidence §Assumptions |
-| 2 | INVAR background rate `e_i` is caller-supplied | Assumption | GLRT quality depends on the caller's background model | accepted | INVAR derives `e_i` from control plasma; here it is an explicit input (`InvarLocus.BackgroundErrorRate`) |
+| 2 | INVAR background rate `e_i` may be caller-supplied OR estimated from controls | Assumption | GLRT quality depends on the background model | accepted | `EstimateLocusBackground` now derives `e_i` from control-plasma reads (`BACKGROUND_AF`); `InvarLocus.BackgroundErrorRate` still accepts a caller value |
+| 3 | Fragment-size likelihood uses empirical `COUNT/TOTAL` per length bin, not INVAR2's weighted KDE | Assumption | Slightly different weight on sparse length bins | accepted | with-RL GLRT/EM are exact; KDE bandwidth smoothing (`adjust = 0.03`) not reproduced (Evidence §Assumptions) |
 
 ## 6. Edge Cases and Limitations
 
@@ -262,7 +294,7 @@ OncologyAnalyzer.InvarSignalResult inv = OncologyAnalyzer.EstimateInvarSignal(lo
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_DetectMRD_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectMRD_Tests.cs) — covers `INV-01`..`INV-09`
+- Tests: [OncologyAnalyzer_DetectMRD_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectMRD_Tests.cs) — covers `INV-01`..`INV-14`
 - Evidence: [ONCO-MRD-001-Evidence.md](../../../docs/Evidence/ONCO-MRD-001-Evidence.md)
 - Related algorithms: [CtDNA_Analysis](../Oncology/CtDNA_Analysis.md)
 
@@ -273,5 +305,5 @@ OncologyAnalyzer.InvarSignalResult inv = OncologyAnalyzer.EstimateInvarSignal(lo
 3. Wan JCM, Heider K, Gale D, et al. 2020. ctDNA monitoring using patient-specific sequencing and integration of variant reads. *Science Translational Medicine* 12(548):eaaz8084. https://www.science.org/doi/10.1126/scitranslmed.aaz8084 (DOI:10.1126/scitranslmed.aaz8084)
 4. Tumor-informed ctDNA MRD review (quotes the Reinert/Signatera 16-SNV, ≥2-positive rule, Table 1). PMC9265001. https://pmc.ncbi.nlm.nih.gov/articles/PMC9265001/
 5. Avanzini S, et al. 2020. A mathematical model of ctDNA shedding predicts tumor detection size. *Science Advances* 6(50):eabc4308. https://doi.org/10.1126/sciadv.abc4308
-6. Rosenfeld lab (nrlab-CRUK). INVAR2 — restructured INVAR pipeline (reference implementation of [3]). `R/shared/detectionFunctions.R`, `R/4_detection/generalisedLikelihoodRatioTest.R`. https://github.com/nrlab-CRUK/INVAR2
+6. Rosenfeld lab (nrlab-CRUK). INVAR2 — restructured INVAR pipeline (reference implementation of [3]). `R/shared/detectionFunctions.R`, `R/4_detection/generalisedLikelihoodRatioTest.R`, `R/3_outlier_suppression/outlierSuppression.R`, `R/3_outlier_suppression/sizeCharacterisation.R`, `R/1_parse/onTargetErrorRatesAndFilter.R`. https://github.com/nrlab-CRUK/INVAR2
 7. Lanczos C. 1964. A precision approximation of the gamma function. *J. SIAM Numer. Anal.* 1(1):86–96. https://doi.org/10.1137/0701008

@@ -7093,8 +7093,10 @@ public static class OncologyAnalyzer
     //  (a) per-locus / per-context BACKGROUND error subtraction (caller-supplied background AF per locus);
     //  (b) tumour-allele-fraction-weighted aggregation (IMAFv2) and a generalised-likelihood-ratio (GLRT)
     //      detection statistic whose mixture model weights each locus by its tumour AF vs background.
-    // The fragment-length (size) weighting, outlier suppression and locus-noise filtering of the full
-    // INVAR pipeline are NOT reproduced here; the caller supplies an already-cleaned background model.
+    // This no-size variant takes an already-cleaned background model per locus. The full INVAR pipeline's
+    // fragment-length (size) weighting, patient-specific outlier suppression, locus-noise filtering and
+    // control-derived background-error estimation are implemented separately below (see
+    // EstimateInvarSignalWithSize, SuppressOutlierLoci, EstimateLocusBackground / PassesBothStrandsFilter).
     // ---------------------------------------------------------------------------------------------
 
     /// <summary>
@@ -7371,6 +7373,581 @@ public static class OncologyAnalyzer
         }
 
         return LogGamma(n + 1.0) - LogGamma(k + 1.0) - LogGamma(n - k + 1.0);
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // INVAR fragment-size weighting, patient-specific outlier suppression, locus-noise filtering
+    // and control-derived background-error estimation (ONCO-MRD-001 — closing the residual).
+    //
+    // Ports of the open-source INVAR2 pipeline (nrlab-CRUK/INVAR2; Wan et al. 2020, Sci. Transl. Med.
+    // 12(548):eaaz8084):
+    //  (1) size-weighted GLRT — calc_likelihood_ratio_with_RL / calc_log_likelihood_with_RL /
+    //      estimate_p_EM_with_RL (R/shared/detectionFunctions.R);
+    //  (2) outlier suppression — repolish (R/3_outlier_suppression/outlierSuppression.R);
+    //  (3) locus-noise filtering and (4) background-error estimation from control samples —
+    //      createLociErrorRateTable (R/1_parse/onTargetErrorRatesAndFilter.R).
+    // ---------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Default outlier-suppression threshold <c>α</c>: a tracked locus is flagged as a patient-specific
+    /// outlier when its one-sided binomial tail probability under the sample ctDNA estimate falls at or below
+    /// <c>α / (number of loci)</c> (Bonferroni). Source: INVAR2 <c>outlierSuppression.R</c> option
+    /// <c>--outlier-suppression</c> default <c>0.05</c>.
+    /// </summary>
+    public const double InvarDefaultOutlierSuppression = 0.05;
+
+    /// <summary>
+    /// Default maximum per-locus allele fraction for a control/plasma locus to be used when estimating the
+    /// sample ctDNA fraction during outlier suppression (loci above this are assumed to carry real signal and
+    /// are excluded from the null estimate). Source: INVAR2 <c>--allele-frequency-threshold</c> default <c>0.01</c>.
+    /// </summary>
+    public const double InvarDefaultAlleleFrequencyThreshold = 0.01;
+
+    /// <summary>
+    /// Default maximum mutant-read count for a locus to contribute to the null ctDNA estimate during outlier
+    /// suppression. Source: INVAR2 <c>--maximum-mutant-reads</c> default <c>10</c>.
+    /// </summary>
+    public const int InvarDefaultMaximumMutantReads = 10;
+
+    /// <summary>
+    /// Default maximum fraction of control samples that may carry any alt read at a locus before the locus is
+    /// blacklisted as recurrently noisy. Source: INVAR2 <c>--control-proportion</c> default <c>0.1</c>
+    /// (<c>createLociErrorRateTable</c>: <c>N_SAMPLES_WITH_SIGNAL / N_SAMPLES &lt; proportion_of_controls</c>).
+    /// </summary>
+    public const double InvarDefaultControlProportion = 0.1;
+
+    /// <summary>
+    /// Default maximum mean control background allele fraction for a locus to pass the locus-noise filter.
+    /// Source: INVAR2 <c>--max-background-allele-frequency</c> default <c>0.01</c>
+    /// (<c>createLociErrorRateTable</c>: <c>BACKGROUND_AF &lt; max_background_mean_AF</c>).
+    /// </summary>
+    public const double InvarDefaultMaxBackgroundAlleleFrequency = 0.01;
+
+    /// <summary>
+    /// One molecule (read/fragment) covering a tracked locus, used by the INVAR fragment-size-weighted GLRT.
+    /// Each molecule is mutant or wild-type and carries its cfDNA fragment length, the tumour allele fraction of
+    /// the tracked variant, and the per-locus background error rate. Source: INVAR2
+    /// <c>calculateLikelihoodRatioForSampleWithSize</c> (one row per molecule, <c>DP = 1</c>).
+    /// </summary>
+    /// <param name="IsMutant"><c>true</c> when this molecule supports the tumour (alternate) allele.</param>
+    /// <param name="FragmentLength">cfDNA fragment length in bp (&gt; 0).</param>
+    /// <param name="TumorAlleleFraction">Tumour allele fraction <c>AF</c> of the tracked variant (0 &lt; AF ≤ 1).</param>
+    /// <param name="BackgroundErrorRate">Per-locus background (non-reference) error rate <c>e</c> (0 ≤ e &lt; 1).</param>
+    public readonly record struct InvarMolecule(
+        bool IsMutant,
+        int FragmentLength,
+        double TumorAlleleFraction,
+        double BackgroundErrorRate);
+
+    /// <summary>
+    /// An empirical cfDNA fragment-size profile: for each fragment length, the probability that a molecule of
+    /// that length is drawn from the distribution (mutant/tumour or wild-type/normal). Tumour-derived cfDNA is
+    /// shorter, so the mutant profile is enriched at short lengths. Source: INVAR2
+    /// <c>estimate_real_length_probability</c> / <c>sizeCharacterisation.R</c> (per-size <c>PROPORTION = COUNT/TOTAL</c>).
+    /// </summary>
+    public sealed class FragmentSizeProfile
+    {
+        private readonly IReadOnlyDictionary<int, double> _mutantProbability;
+        private readonly IReadOnlyDictionary<int, double> _normalProbability;
+        private readonly double _uniformProbability;
+
+        /// <summary>
+        /// Builds a size profile from per-length molecule counts for mutant (tumour) and wild-type (normal)
+        /// fragments. Each profile is normalised to a probability mass (INVAR2 <c>PROPORTION = COUNT/TOTAL</c>).
+        /// Lengths absent from a profile fall back to the uniform probability <c>1/(maxLength−minLength+1)</c>
+        /// over the supplied length range (INVAR2 <c>onlyWeighMutants</c> fallback).
+        /// </summary>
+        /// <param name="mutantCounts">Per-fragment-length molecule counts for tumour-derived (mutant) reads.</param>
+        /// <param name="normalCounts">Per-fragment-length molecule counts for wild-type (normal) reads.</param>
+        /// <param name="minLength">Minimum fragment length in the size window (INVAR2 default 60).</param>
+        /// <param name="maxLength">Maximum fragment length in the size window (INVAR2 default 300).</param>
+        public FragmentSizeProfile(
+            IReadOnlyDictionary<int, int> mutantCounts,
+            IReadOnlyDictionary<int, int> normalCounts,
+            int minLength = InvarDefaultMinFragmentLength,
+            int maxLength = InvarDefaultMaxFragmentLength)
+        {
+            ArgumentNullException.ThrowIfNull(mutantCounts);
+            ArgumentNullException.ThrowIfNull(normalCounts);
+            if (minLength <= 0 || maxLength < minLength)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(maxLength), maxLength, "Require 0 < minLength <= maxLength for the size window.");
+            }
+
+            _mutantProbability = Normalise(mutantCounts);
+            _normalProbability = Normalise(normalCounts);
+
+            // Uniform fall-back over the size window (INVAR2: 1/((max-min)+1)).
+            _uniformProbability = 1.0 / ((maxLength - minLength) + 1);
+        }
+
+        /// <summary>Probability that a tumour-derived (mutant) molecule has the given fragment length.</summary>
+        public double MutantProbability(int fragmentLength) =>
+            _mutantProbability.TryGetValue(fragmentLength, out double p) ? p : _uniformProbability;
+
+        /// <summary>Probability that a wild-type (normal) molecule has the given fragment length.</summary>
+        public double NormalProbability(int fragmentLength) =>
+            _normalProbability.TryGetValue(fragmentLength, out double p) ? p : _uniformProbability;
+
+        private static IReadOnlyDictionary<int, double> Normalise(IReadOnlyDictionary<int, int> counts)
+        {
+            long total = 0;
+            foreach (KeyValuePair<int, int> kv in counts)
+            {
+                total += Math.Max(0, kv.Value);
+            }
+
+            var result = new Dictionary<int, double>(counts.Count);
+            if (total == 0)
+            {
+                return result;
+            }
+
+            foreach (KeyValuePair<int, int> kv in counts)
+            {
+                result[kv.Key] = Math.Max(0, kv.Value) / (double)total;
+            }
+
+            return result;
+        }
+    }
+
+    /// <summary>Default minimum cfDNA fragment length for the INVAR size window. Source: INVAR2
+    /// <c>--minimum-fragment-length</c> default <c>60</c>.</summary>
+    public const int InvarDefaultMinFragmentLength = 60;
+
+    /// <summary>Default maximum cfDNA fragment length for the INVAR size window. Source: INVAR2
+    /// <c>--maximum-fragment-length</c> default <c>300</c>.</summary>
+    public const int InvarDefaultMaxFragmentLength = 300;
+
+    /// <summary>
+    /// INVAR fragment-size-weighted generalised-likelihood-ratio statistic. Each molecule contributes a size
+    /// likelihood: a read of length L is weighted by the ratio of its probability under the tumour size profile
+    /// (P1) to the normal size profile (P0), so that short, tumour-like fragments carry more ctDNA evidence.
+    /// Source: INVAR2 <c>calc_likelihood_ratio_with_RL</c> / <c>calc_log_likelihood_with_RL</c> /
+    /// <c>estimate_p_EM_with_RL</c> (R/shared/detectionFunctions.R):
+    /// per molecule <c>L0 = (1−e)·P0·(1−p) + (1−g)·P1·p</c>, <c>L1 = e·P0·(1−p) + g·P1·p</c> with
+    /// <c>g = AF·(1−e) + (1−AF)·e</c>; <c>logL = Σ[ M·log(L1) + (1−M)·log(L0) ] / n</c>; the EM and the
+    /// detection statistic <c>LR = logL(p̂) − logL(0)</c> mirror the no-size variant.
+    /// </summary>
+    /// <param name="molecules">Per-molecule observations covering the tracked loci (non-empty, AF &gt; 0).</param>
+    /// <param name="sizeProfile">Mutant/normal cfDNA fragment-size profiles (non-null).</param>
+    /// <param name="detectionThreshold">Minimum LR to call ctDNA-positive (≥ 0; default 0).</param>
+    /// <returns>The size-weighted INVAR signal estimate (ML <c>p̂</c>, LR, detection call).</returns>
+    /// <exception cref="ArgumentNullException">Any argument is null.</exception>
+    /// <exception cref="ArgumentException">No informative molecule (tumour AF &gt; 0).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Negative threshold or out-of-range AF / background.</exception>
+    public static InvarSignalResult EstimateInvarSignalWithSize(
+        IEnumerable<InvarMolecule> molecules,
+        FragmentSizeProfile sizeProfile,
+        double detectionThreshold = 0.0)
+    {
+        ArgumentNullException.ThrowIfNull(molecules);
+        ArgumentNullException.ThrowIfNull(sizeProfile);
+        if (detectionThreshold < 0.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(detectionThreshold), detectionThreshold, "Detection threshold cannot be negative.");
+        }
+
+        var af = new List<double>();
+        var background = new List<double>();
+        var mutant = new List<double>();
+        var p0 = new List<double>();
+        var p1 = new List<double>();
+        bool anyMutant = false;
+        foreach (InvarMolecule mol in molecules)
+        {
+            if (mol.TumorAlleleFraction < 0.0 || mol.TumorAlleleFraction > 1.0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(molecules), mol.TumorAlleleFraction, "Tumour allele fraction must be in [0, 1].");
+            }
+
+            if (mol.BackgroundErrorRate < 0.0 || mol.BackgroundErrorRate >= 1.0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(molecules), mol.BackgroundErrorRate, "Background error rate must be in [0, 1).");
+            }
+
+            // Only informative molecules (tumour AF > 0) contribute (INVAR filter(TUMOUR_AF > 0)).
+            if (mol.TumorAlleleFraction <= 0.0)
+            {
+                continue;
+            }
+
+            af.Add(mol.TumorAlleleFraction);
+            // Background floored to a tiny positive value so log(L) stays finite (INVAR 1/BACKGROUND_DP guard).
+            background.Add(mol.BackgroundErrorRate > 0.0 ? mol.BackgroundErrorRate : 1.0 / Math.Max(1, af.Count));
+            mutant.Add(mol.IsMutant ? 1.0 : 0.0);
+            p0.Add(sizeProfile.NormalProbability(mol.FragmentLength));
+            p1.Add(sizeProfile.MutantProbability(mol.FragmentLength));
+            if (mol.IsMutant)
+            {
+                anyMutant = true;
+            }
+        }
+
+        if (af.Count == 0)
+        {
+            throw new ArgumentException(
+                "No informative molecule (tumour AF > 0) to estimate INVAR signal.", nameof(molecules));
+        }
+
+        double pMle = EstimateCtDnaFractionEmWithRl(mutant, af, background, p0, p1);
+        double nullLogLik = InvarLogLikelihoodWithRl(mutant, af, background, p0, p1, 0.0);
+        double altLogLik = InvarLogLikelihoodWithRl(mutant, af, background, p0, p1, pMle);
+        double likelihoodRatio = altLogLik - nullLogLik;
+
+        bool detected = anyMutant && likelihoodRatio >= detectionThreshold;
+        return new InvarSignalResult(double.NaN, pMle, likelihoodRatio, detected, af.Count);
+    }
+
+    /// <summary>
+    /// EM estimate of the ctDNA fraction <c>p</c> under the INVAR fragment-size-weighted mixture (per molecule).
+    /// Source: INVAR2 <c>estimate_p_EM_with_RL</c> (R/shared/detectionFunctions.R):
+    /// E-step <c>Z0 = (1−g)·P1·p / ((1−g)·P1·p + (1−e)·P0·(1−p))</c>,
+    /// <c>Z1 = g·P1·p / (g·P1·p + e·P0·(1−p))</c>; M-step <c>p = Σ(M·Z1 + (1−M)·Z0) / n</c>.
+    /// </summary>
+    private static double EstimateCtDnaFractionEmWithRl(
+        IReadOnlyList<double> m,
+        IReadOnlyList<double> af,
+        IReadOnlyList<double> e,
+        IReadOnlyList<double> p0,
+        IReadOnlyList<double> p1)
+    {
+        double p = InvarEmInitialP;
+        for (int iter = 0; iter < InvarEmIterations; iter++)
+        {
+            double numerator = 0.0;
+            for (int i = 0; i < m.Count; i++)
+            {
+                double g = (af[i] * (1.0 - e[i])) + ((1.0 - af[i]) * e[i]);
+                double intNorm = (1.0 - g) * p1[i] * p;
+                double z0 = intNorm / (intNorm + ((1.0 - e[i]) * p0[i] * (1.0 - p)));
+                double intMut = g * p1[i] * p;
+                double z1 = intMut / (intMut + (e[i] * p0[i] * (1.0 - p)));
+                numerator += (m[i] * z1) + ((1.0 - m[i]) * z0);
+            }
+
+            p = numerator / m.Count;
+        }
+
+        return p;
+    }
+
+    /// <summary>
+    /// Per-molecule-mean log-likelihood of the sample under the INVAR fragment-size-weighted mixture.
+    /// Source: INVAR2 <c>calc_log_likelihood_with_RL</c> (R/shared/detectionFunctions.R):
+    /// <c>L0 = (1−e)·P0·(1−p) + (1−g)·P1·p</c>, <c>L1 = e·P0·(1−p) + g·P1·p</c>;
+    /// <c>logL = Σ[ M·log(L1) + (1−M)·log(L0) ] / n</c>.
+    /// </summary>
+    private static double InvarLogLikelihoodWithRl(
+        IReadOnlyList<double> m,
+        IReadOnlyList<double> af,
+        IReadOnlyList<double> e,
+        IReadOnlyList<double> p0,
+        IReadOnlyList<double> p1,
+        double p)
+    {
+        double sum = 0.0;
+        for (int i = 0; i < m.Count; i++)
+        {
+            double g = (af[i] * (1.0 - e[i])) + ((1.0 - af[i]) * e[i]);
+            double l0 = ((1.0 - e[i]) * p0[i] * (1.0 - p)) + ((1.0 - g) * p1[i] * p);
+            double l1 = (e[i] * p0[i] * (1.0 - p)) + (g * p1[i] * p);
+
+            // Keep the logs finite at the boundaries (p = 0, profile zero).
+            l0 = Math.Max(l0, double.Epsilon);
+            l1 = Math.Max(l1, double.Epsilon);
+            sum += (m[i] * Math.Log(l1)) + ((1.0 - m[i]) * Math.Log(l0));
+        }
+
+        return sum / m.Count;
+    }
+
+    /// <summary>
+    /// Result of INVAR patient-specific outlier suppression for one tracked locus.
+    /// </summary>
+    /// <param name="Locus">The tracked locus.</param>
+    /// <param name="IsOutlier">
+    /// <c>true</c> when the locus carries more mutant signal than the sample-wide ctDNA estimate explains —
+    /// its one-sided binomial tail probability is ≤ the Bonferroni outlier threshold (INVAR <c>OUTLIER.PASS = FALSE</c>).
+    /// </param>
+    /// <param name="BinomialTailProbability">
+    /// One-sided binomial probability <c>P(X ≥ observed mutant reads)</c> under the sample ctDNA estimate
+    /// (INVAR2 <c>binom.test(..., alternative = "greater")</c>).
+    /// </param>
+    public readonly record struct InvarOutlierResult(
+        InvarLocus Locus,
+        bool IsOutlier,
+        double BinomialTailProbability);
+
+    /// <summary>
+    /// INVAR patient-specific outlier suppression. Estimates the sample ctDNA fraction from the loci that are
+    /// consistent with the null (low AF, few mutant reads), then flags any locus whose mutant-read count is a
+    /// one-sided binomial outlier under that estimate, using a Bonferroni-corrected threshold over the loci.
+    /// Source: INVAR2 <c>repolish</c> (R/3_outlier_suppression/outlierSuppression.R):
+    /// <c>P_THRESHOLD = outlierSuppression / n_distinct(loci)</c>;
+    /// <c>P_ESTIMATE = max(estimate_p_EM(...), weighted.mean(AF, TUMOUR_AF))</c>;
+    /// <c>OUTLIER.PASS = binom.test(mutReads, DP, P_ESTIMATE, "greater")$p.value &gt; P_THRESHOLD</c>.
+    /// </summary>
+    /// <param name="loci">Tracked informative loci (non-empty).</param>
+    /// <param name="outlierSuppression">Family-wise outlier threshold α (default 0.05).</param>
+    /// <param name="alleleFrequencyThreshold">Max per-locus AF used in the null estimate (default 0.01).</param>
+    /// <param name="maximumMutantReads">Max mutant reads for a locus in the null estimate (default 10).</param>
+    /// <returns>Per-locus outlier verdicts in input order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="loci"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="loci"/> is empty.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A threshold is out of range.</exception>
+    public static IReadOnlyList<InvarOutlierResult> SuppressOutlierLoci(
+        IEnumerable<InvarLocus> loci,
+        double outlierSuppression = InvarDefaultOutlierSuppression,
+        double alleleFrequencyThreshold = InvarDefaultAlleleFrequencyThreshold,
+        int maximumMutantReads = InvarDefaultMaximumMutantReads)
+    {
+        ArgumentNullException.ThrowIfNull(loci);
+        if (outlierSuppression <= 0.0 || outlierSuppression > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(outlierSuppression), outlierSuppression, "Outlier suppression α must be in (0, 1].");
+        }
+
+        if (alleleFrequencyThreshold <= 0.0 || alleleFrequencyThreshold > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(alleleFrequencyThreshold), alleleFrequencyThreshold, "AF threshold must be in (0, 1].");
+        }
+
+        if (maximumMutantReads < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maximumMutantReads), maximumMutantReads, "Maximum mutant reads cannot be negative.");
+        }
+
+        var materialised = loci as IReadOnlyList<InvarLocus> ?? loci.ToList();
+        if (materialised.Count == 0)
+        {
+            throw new ArgumentException("Cannot suppress outliers in an empty locus set.", nameof(loci));
+        }
+
+        // Null ctDNA estimate from loci consistent with background (INVAR repolish forPEstimate filter).
+        var nullM = new List<double>();
+        var nullR = new List<double>();
+        var nullAf = new List<double>();
+        var nullBg = new List<double>();
+        double afWeightSum = 0.0;
+        double afWeight = 0.0;
+        foreach (InvarLocus locus in materialised)
+        {
+            int total = Math.Max(0, locus.PlasmaTotalReads);
+            if (total == 0 || locus.TumorAlleleFraction <= 0.0)
+            {
+                continue;
+            }
+
+            int alt = Math.Clamp(locus.PlasmaAltReads, 0, total);
+            double vaf = (double)alt / total;
+            if (vaf > alleleFrequencyThreshold || alt > maximumMutantReads)
+            {
+                continue;
+            }
+
+            double e = locus.BackgroundErrorRate > 0.0 ? locus.BackgroundErrorRate : 1.0 / total;
+            nullM.Add(alt);
+            nullR.Add(total);
+            nullAf.Add(locus.TumorAlleleFraction);
+            nullBg.Add(e);
+
+            // weighted.mean(AF, TUMOUR_AF): weight the observed VAF by tumour AF.
+            afWeightSum += vaf * locus.TumorAlleleFraction;
+            afWeight += locus.TumorAlleleFraction;
+        }
+
+        double pEstimate = 0.0;
+        if (nullM.Count > 0)
+        {
+            double emP = EstimateCtDnaFractionEm(nullM, nullR, nullAf, nullBg);
+            double weightedMean = afWeight > 0.0 ? afWeightSum / afWeight : 0.0;
+            pEstimate = Math.Max(emP, weightedMean);
+        }
+
+        // Bonferroni threshold over the distinct loci (INVAR P_THRESHOLD).
+        double pThreshold = outlierSuppression / materialised.Count;
+
+        var results = new List<InvarOutlierResult>(materialised.Count);
+        foreach (InvarLocus locus in materialised)
+        {
+            int total = Math.Max(0, locus.PlasmaTotalReads);
+            int alt = total == 0 ? 0 : Math.Clamp(locus.PlasmaAltReads, 0, total);
+            double tail = BinomialUpperTail(alt, total, pEstimate);
+            bool isOutlier = tail <= pThreshold;
+            results.Add(new InvarOutlierResult(locus, isOutlier, tail));
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    /// One-sided upper-tail binomial probability <c>P(X ≥ x)</c> for <c>x</c> successes in <c>n</c> trials with
+    /// success probability <c>p</c>, matching R's <c>binom.test(x, n, p, alternative = "greater")$p.value</c>.
+    /// Returns 1 for <c>x ≤ 0</c> (INVAR <c>ifelse(x &lt;= 0, 1, ...)</c>).
+    /// </summary>
+    private static double BinomialUpperTail(int x, int n, double p)
+    {
+        if (x <= 0 || n <= 0)
+        {
+            return 1.0;
+        }
+
+        if (x > n)
+        {
+            return 0.0;
+        }
+
+        // Numerically stable: sum exp(lchoose + i·log p + (n−i)·log(1−p)) over i = x..n.
+        if (p <= 0.0)
+        {
+            return 0.0; // No mutant reads expected under p = 0, yet x ≥ 1 ⇒ tail mass 0.
+        }
+
+        if (p >= 1.0)
+        {
+            return 1.0;
+        }
+
+        double logP = Math.Log(p);
+        double log1MinusP = Math.Log(1.0 - p);
+        double tail = 0.0;
+        for (int i = x; i <= n; i++)
+        {
+            tail += Math.Exp(LogChoose(n, i) + (i * logP) + ((n - i) * log1MinusP));
+        }
+
+        return Math.Min(1.0, tail);
+    }
+
+    /// <summary>
+    /// Per-control-sample observation of a tracked locus, used to estimate the per-locus background error rate
+    /// and the locus-noise (blacklist) flag from a panel of control (non-cancer) plasma samples.
+    /// Source: INVAR2 <c>createLociErrorRateTable</c> (R/1_parse/onTargetErrorRatesAndFilter.R).
+    /// </summary>
+    /// <param name="ControlSampleId">Identifier of the control sample this observation comes from.</param>
+    /// <param name="AltForwardReads">Alt reads on the forward strand (<c>ALT_F</c>, ≥ 0).</param>
+    /// <param name="AltReverseReads">Alt reads on the reverse strand (<c>ALT_R</c>, ≥ 0).</param>
+    /// <param name="TotalReads">Total covering reads at the locus in this sample (<c>DP</c>, ≥ 0).</param>
+    public readonly record struct ControlLocusObservation(
+        string ControlSampleId,
+        int AltForwardReads,
+        int AltReverseReads,
+        int TotalReads);
+
+    /// <summary>
+    /// Estimated background error model and locus-noise verdict for one tracked locus, derived from control samples.
+    /// </summary>
+    /// <param name="BackgroundErrorRate">
+    /// Pooled control background allele fraction <c>BACKGROUND_AF = Σ(ALT_F+ALT_R) / Σ DP</c> across control samples.
+    /// </param>
+    /// <param name="ControlSampleCount">Number of control samples observed at this locus (<c>N_SAMPLES</c>).</param>
+    /// <param name="ControlSamplesWithSignal">Number of control samples with ≥ 1 alt read (<c>N_SAMPLES_WITH_SIGNAL</c>).</param>
+    /// <param name="LocusNoisePass">
+    /// <c>true</c> when the locus is NOT recurrently noisy: signal appears in fewer than
+    /// <c>controlProportion</c> of control samples AND the pooled background AF is below
+    /// <c>maxBackgroundAlleleFrequency</c> (INVAR <c>LOCUS_NOISE.PASS</c>).
+    /// </param>
+    public readonly record struct LocusErrorRate(
+        double BackgroundErrorRate,
+        int ControlSampleCount,
+        int ControlSamplesWithSignal,
+        bool LocusNoisePass);
+
+    /// <summary>
+    /// Estimates a tracked locus's per-locus background error rate from a panel of control (non-cancer) plasma
+    /// samples and computes the INVAR locus-noise (blacklist) verdict. The background error is the pooled control
+    /// allele fraction; a locus fails the noise filter when alt reads recur in too many control samples or the
+    /// pooled background AF is too high. Source: INVAR2 <c>createLociErrorRateTable</c>
+    /// (R/1_parse/onTargetErrorRatesAndFilter.R): <c>BACKGROUND_AF = Σ(ALT_F+ALT_R)/Σ DP</c>;
+    /// <c>LOCUS_NOISE.PASS = (N_SAMPLES_WITH_SIGNAL / N_SAMPLES) &lt; proportion_of_controls AND
+    /// BACKGROUND_AF &lt; max_background_mean_AF</c>.
+    /// </summary>
+    /// <param name="controlObservations">Per-control-sample observations of the locus (non-empty).</param>
+    /// <param name="controlProportion">Max fraction of control samples with signal before blacklisting (default 0.1).</param>
+    /// <param name="maxBackgroundAlleleFrequency">Max pooled control background AF (default 0.01).</param>
+    /// <returns>The estimated background rate and locus-noise verdict.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="controlObservations"/> is null.</exception>
+    /// <exception cref="ArgumentException">No control observation supplied.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A threshold is out of range.</exception>
+    public static LocusErrorRate EstimateLocusBackground(
+        IEnumerable<ControlLocusObservation> controlObservations,
+        double controlProportion = InvarDefaultControlProportion,
+        double maxBackgroundAlleleFrequency = InvarDefaultMaxBackgroundAlleleFrequency)
+    {
+        ArgumentNullException.ThrowIfNull(controlObservations);
+        if (controlProportion <= 0.0 || controlProportion > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(controlProportion), controlProportion, "Control proportion must be in (0, 1].");
+        }
+
+        if (maxBackgroundAlleleFrequency <= 0.0 || maxBackgroundAlleleFrequency > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maxBackgroundAlleleFrequency),
+                maxBackgroundAlleleFrequency,
+                "Maximum background allele frequency must be in (0, 1].");
+        }
+
+        long altSum = 0;
+        long depthSum = 0;
+        int sampleCount = 0;
+        int samplesWithSignal = 0;
+        foreach (ControlLocusObservation obs in controlObservations)
+        {
+            int alt = Math.Max(0, obs.AltForwardReads) + Math.Max(0, obs.AltReverseReads);
+            int depth = Math.Max(0, obs.TotalReads);
+            altSum += alt;
+            depthSum += depth;
+            sampleCount++;
+            if (alt > 0)
+            {
+                samplesWithSignal++;
+            }
+        }
+
+        if (sampleCount == 0)
+        {
+            throw new ArgumentException(
+                "At least one control observation is required to estimate background.", nameof(controlObservations));
+        }
+
+        double backgroundAf = depthSum == 0 ? 0.0 : (double)altSum / depthSum;
+        double signalFraction = (double)samplesWithSignal / sampleCount;
+        bool locusNoisePass = signalFraction < controlProportion && backgroundAf < maxBackgroundAlleleFrequency;
+
+        return new LocusErrorRate(backgroundAf, sampleCount, samplesWithSignal, locusNoisePass);
+    }
+
+    /// <summary>
+    /// INVAR both-strands filter for a tracked locus: a locus passes when the alt allele is observed on BOTH the
+    /// forward and reverse strands, or when there is no alt signal at all. Source: INVAR2
+    /// <c>onTargetErrorRatesAndFilter.R</c> — <c>BOTH_STRANDS.PASS = ALT_F &gt; 0 &amp; ALT_R &gt; 0 | AF == 0</c>.
+    /// </summary>
+    /// <param name="altForwardReads">Alt reads on the forward strand (≥ 0).</param>
+    /// <param name="altReverseReads">Alt reads on the reverse strand (≥ 0).</param>
+    /// <returns><c>true</c> when the locus passes the both-strands filter.</returns>
+    public static bool PassesBothStrandsFilter(int altForwardReads, int altReverseReads)
+    {
+        int f = Math.Max(0, altForwardReads);
+        int r = Math.Max(0, altReverseReads);
+
+        // AF == 0 ⟺ no alt reads on either strand.
+        if (f == 0 && r == 0)
+        {
+            return true;
+        }
+
+        return f > 0 && r > 0;
     }
 
     #endregion

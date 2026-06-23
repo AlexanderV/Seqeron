@@ -55,6 +55,10 @@
 | `TrackVariantsOverTime(timepoints, ...)` | OncologyAnalyzer | Canonical | Longitudinal per-timepoint MRD status + first-positive timepoint |
 | `EstimateInvarSignal(loci, detectionThreshold)` | OncologyAnalyzer | Canonical | INVAR background-subtracted, AF-weighted GLRT: IMAFv2, ML `p̂`, LR, detection call |
 | `IntegratedMutantAlleleFractionV2(loci)` | OncologyAnalyzer | Canonical | Background-subtracted, depth-weighted aggregate (IMAFv2) |
+| `EstimateInvarSignalWithSize(molecules, sizeProfile, detectionThreshold)` | OncologyAnalyzer | Canonical | INVAR fragment-size-weighted GLRT (with-RL): ML `p̂`, LR, detection call |
+| `SuppressOutlierLoci(loci, α, afThreshold, maxMutantReads)` | OncologyAnalyzer | Canonical | INVAR patient-specific outlier suppression (Bonferroni binomial test) |
+| `EstimateLocusBackground(controlObservations, controlProportion, maxBgAf)` | OncologyAnalyzer | Canonical | Control-derived per-locus background error + locus-noise verdict |
+| `PassesBothStrandsFilter(altF, altR)` | OncologyAnalyzer | Canonical | INVAR both-strands filter |
 | `IsVariantDetected(variant, minSupportingReads)` | OncologyAnalyzer | Internal | Per-locus presence (alt reads ≥ min) |
 
 ---
@@ -72,6 +76,11 @@
 | INV-7 | Pure-background sample ⇒ p̂ ≈ 0 and LR ≈ 0 (not detected) | Yes | INVAR2 GLRT (synthetic dataset inj=0) |
 | INV-8 | LR monotone non-decreasing in injected ctDNA signal | Yes | INVAR2 GLRT (synthetic dataset) |
 | INV-9 | AF-weighted LR ≥ flat-pooled (mean-AF) LR on same data | Yes | INVAR2 GLRT (AF-weighting dataset) |
+| INV-10 | Short-tumour-fragment size-weighted LR ≥ no-size LR on same molecules | Yes | INVAR2 calc_likelihood_ratio_with_RL (size dataset) |
+| INV-11 | Flat size profile (P1==P0) ⇒ size-weighted LR == no-size LR | Yes | INVAR2 with-RL (size factor cancels) |
+| INV-12 | A locus whose mutant-read count exceeds the null binomial tail (≤ Bonferroni α/n) is flagged outlier | Yes | INVAR2 repolish |
+| INV-13 | Estimated background = Σ(ALT_F+ALT_R)/Σ DP over controls; locus-noise pass ⟺ signalFrac < proportion AND bg < maxBg | Yes | INVAR2 createLociErrorRateTable |
+| INV-14 | BothStrands pass ⟺ (ALT_F>0 AND ALT_R>0) OR no alt reads | Yes | INVAR2 BOTH_STRANDS.PASS |
 
 ---
 
@@ -97,6 +106,15 @@
 | M14 | GLRT recovers 5% | 50 loci, M=21/1000, AF=0.4 | p̂ ≈ 0.0501, LR ≈ 44.14; detected | INVAR2 GLRT (inj=0.05) |
 | M15 | GLRT monotonicity | M/locus=[1,5,5,9,21] | LR non-decreasing; endpoints ≈0 and ≈44.14 | INVAR2 GLRT (dataset) |
 | M16 | AF weighting boosts LR | mixture AF{0.5,0.05}, inj 0.008 | weighted LR ≈ 2.66 > flat LR ≈ 1.91 | INVAR2 GLRT (AF-weighting dataset) |
+| M17 | Size weighting boosts LR | 200 mols, short tumour frags, AF 0.4, e 0.002 | size LR = 0.19691792427890276, p̂ = 0.12042621132507245; size LR > no-size LR | INVAR2 calc_likelihood_ratio_with_RL (size dataset) |
+| M18 | Flat profile = no-size | same mols, P1==P0 | size-weighted LR == no-size LR | INVAR2 with-RL (cancellation) |
+| M19 | Outlier flagged & removed | 9×(1/1000) + 1×(50/1000), AF 0.4, e 0.001 | clean tail 0.6323…, planted tail 3.726e-66 ≤ 0.005 ⇒ planted is outlier, clean are not | INVAR2 repolish |
+| M20 | Outlier removal recovers signal | drop planted locus | kept = 9 loci; IMAFv2 = 0 (clean = background); inflated before removal | INVAR2 repolish + calculateIMAFv2 |
+| M21 | Background = pooled control AF | 20 controls, 2 alt/1000 each | BACKGROUND_AF = 40/20000 = 0.002 (= injected) | INVAR2 createLociErrorRateTable |
+| M22 | Locus-noise clean passes | 20 controls, signal in 1 (1 alt) | bg 5e-5, signalFrac 0.05 ⇒ LOCUS_NOISE.PASS true | INVAR2 createLociErrorRateTable |
+| M23 | Recurrent signal fails | signal in 5/20 | signalFrac 0.25 ≥ 0.1 ⇒ LOCUS_NOISE.PASS false | INVAR2 createLociErrorRateTable |
+| M24 | High background fails | 1 control, 250 alt/1000 | bg 0.0125 ≥ 0.01 ⇒ LOCUS_NOISE.PASS false | INVAR2 createLociErrorRateTable |
+| M25 | Both-strands filter | (3,2),(3,0),(0,4),(0,0) | true, false, false, true | INVAR2 BOTH_STRANDS.PASS |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -124,6 +142,14 @@
 | C11 | negative threshold | detectionThreshold < 0 | ArgumentOutOfRangeException | validation |
 | C12 | tumour AF > 1 | AF = 1.5 | ArgumentOutOfRangeException | validation |
 | C13 | background ≥ 1 | e = 1.0 | ArgumentOutOfRangeException | validation |
+| C14 | size: null molecules | EstimateInvarSignalWithSize(null, profile) | ArgumentNullException | validation |
+| C15 | size: null profile | EstimateInvarSignalWithSize(mols, null) | ArgumentNullException | validation |
+| C16 | size: no informative molecule | all AF = 0 | ArgumentException | validation |
+| C17 | outlier: null loci | SuppressOutlierLoci(null) | ArgumentNullException | validation |
+| C18 | outlier: empty loci | SuppressOutlierLoci(empty) | ArgumentException | validation |
+| C19 | outlier: invalid α | α = 0 | ArgumentOutOfRangeException | validation |
+| C20 | background: null controls | EstimateLocusBackground(null) | ArgumentNullException | validation |
+| C21 | background: empty controls | EstimateLocusBackground(empty) | ArgumentException | validation |
 
 ---
 
@@ -133,6 +159,7 @@
 
 - Initial unit: 16 tests for `DetectMRD` / `TrackVariantsOverTime` in `OncologyAnalyzer_DetectMRD_Tests.cs`. ctDNA primitives tested in `OncologyAnalyzer_CtDnaAnalysis_Tests.cs` (ONCO-CTDNA-001), reused for the Poisson model.
 - 2026-06-23 INVAR extension: no prior tests for `EstimateInvarSignal` / `IntegratedMutantAlleleFractionV2` — all new (M9–M16, S5–S6, C7–C13).
+- 2026-06-23 residual closure: no prior tests for `EstimateInvarSignalWithSize` / `SuppressOutlierLoci` / `EstimateLocusBackground` / `PassesBothStrandsFilter` — all new (M17–M25, C14–C21).
 
 ### 5.2 Coverage Classification
 
@@ -157,6 +184,8 @@
 | M9–M16 | ❌ Missing | INVAR extension (GLRT / IMAFv2) |
 | S5–S6 | ❌ Missing | INVAR extension |
 | C7–C13 | ❌ Missing | INVAR extension (validation) |
+| M17–M25 | ❌ Missing | residual closure (size / outlier / background / both-strands) |
+| C14–C21 | ❌ Missing | residual closure (validation) |
 
 ### 5.3 Consolidation Plan
 
@@ -167,7 +196,7 @@
 
 | File | Role | Test Count |
 |------|------|------------|
-| `OncologyAnalyzer_DetectMRD_Tests.cs` | canonical | 40 |
+| `OncologyAnalyzer_DetectMRD_Tests.cs` | canonical | 57 |
 
 ### 5.5 Phase 7 Work Queue
 
@@ -206,9 +235,26 @@
 | 31 | C11 | ❌ Missing | implemented | ✅ Done |
 | 32 | C12 | ❌ Missing | implemented | ✅ Done |
 | 33 | C13 | ❌ Missing | implemented | ✅ Done |
+| 34 | M17 | ❌ Missing | implemented | ✅ Done |
+| 35 | M18 | ❌ Missing | implemented | ✅ Done |
+| 36 | M19 | ❌ Missing | implemented | ✅ Done |
+| 37 | M20 | ❌ Missing | implemented | ✅ Done |
+| 38 | M21 | ❌ Missing | implemented | ✅ Done |
+| 39 | M22 | ❌ Missing | implemented | ✅ Done |
+| 40 | M23 | ❌ Missing | implemented | ✅ Done |
+| 41 | M24 | ❌ Missing | implemented | ✅ Done |
+| 42 | M25 | ❌ Missing | implemented | ✅ Done |
+| 43 | C14 | ❌ Missing | implemented | ✅ Done |
+| 44 | C15 | ❌ Missing | implemented | ✅ Done |
+| 45 | C16 | ❌ Missing | implemented | ✅ Done |
+| 46 | C17 | ❌ Missing | implemented | ✅ Done |
+| 47 | C18 | ❌ Missing | implemented | ✅ Done |
+| 48 | C19 | ❌ Missing | implemented | ✅ Done |
+| 49 | C20 | ❌ Missing | implemented | ✅ Done |
+| 50 | C21 | ❌ Missing | implemented | ✅ Done |
 
-**Total items:** 33
-**✅ Done:** 33 | **⛔ Blocked:** 0 | **Remaining:** 0
+**Total items:** 50
+**✅ Done:** 50 | **⛔ Blocked:** 0 | **Remaining:** 0
 
 ### 5.6 Post-Implementation Coverage
 
@@ -247,6 +293,23 @@
 | C11 | ✅ Covered | `EstimateInvarSignal_NegativeThreshold_Throws` |
 | C12 | ✅ Covered | `EstimateInvarSignal_TumourAfAboveOne_Throws` |
 | C13 | ✅ Covered | `EstimateInvarSignal_BackgroundRateAtOne_Throws` |
+| M17 | ✅ Covered | `EstimateInvarSignalWithSize_ShortTumourFragments_HigherLikelihoodRatioThanNoSize` |
+| M18 | ✅ Covered | `EstimateInvarSignalWithSize_FlatProfile_NoSizeAdvantage` |
+| M19 | ✅ Covered | `SuppressOutlierLoci_PlantedHighSignalLocus_FlaggedAndRemoved` |
+| M20 | ✅ Covered | `SuppressOutlierLoci_RemovingOutlier_RecoversCleanSignal` |
+| M21 | ✅ Covered | `EstimateLocusBackground_CleanControls_RecoversInjectedErrorRate` |
+| M22 | ✅ Covered | `EstimateLocusBackground_CleanLocus_PassesNoiseFilter` |
+| M23 | ✅ Covered | `EstimateLocusBackground_RecurrentSignal_FailsNoiseFilter` |
+| M24 | ✅ Covered | `EstimateLocusBackground_HighBackgroundAf_FailsNoiseFilter` |
+| M25 | ✅ Covered | `PassesBothStrandsFilter_StrandSupport_MatchesInvarRule` |
+| C14 | ✅ Covered | `EstimateInvarSignalWithSize_NullMolecules_Throws` |
+| C15 | ✅ Covered | `EstimateInvarSignalWithSize_NullProfile_Throws` |
+| C16 | ✅ Covered | `EstimateInvarSignalWithSize_NoInformativeMolecule_Throws` |
+| C17 | ✅ Covered | `SuppressOutlierLoci_Null_Throws` |
+| C18 | ✅ Covered | `SuppressOutlierLoci_Empty_Throws` |
+| C19 | ✅ Covered | `SuppressOutlierLoci_InvalidAlpha_Throws` |
+| C20 | ✅ Covered | `EstimateLocusBackground_Null_Throws` |
+| C21 | ✅ Covered | `EstimateLocusBackground_Empty_Throws` |
 
 ---
 
@@ -257,11 +320,11 @@
 | # | Assumption | Used In |
 |---|-----------|---------|
 | 1 | Per-variant "detected" = alt reads ≥ minSupportingReads (default 1); panel-level ≥2 rule is source-exact. Threshold is a tunable parameter. | DetectMRD per-locus detection |
-| 2 | INVAR background error rate `e` is caller-supplied (not estimated from control plasma here); GLRT quality depends on the caller's model. The mixture/EM/GLRT/IMAFv2 formulas are exact from INVAR2. | EstimateInvarSignal |
+| 2 | Fragment-size likelihood uses the discrete empirical proportion `COUNT/TOTAL` per length bin (the un-smoothed estimator); INVAR2's KDE bandwidth smoothing (`adjust = 0.03`) is not reproduced. The with-RL mixture/EM/GLRT equations are exact from INVAR2; affects only the exact weight on sparse length bins. | EstimateInvarSignalWithSize / FragmentSizeProfile |
 
 ---
 
 ## 7. Open Questions / Decisions
 
 1. INVAR's exact per-locus GLRT/trinucleotide background model is not publicly specified verbatim in the paper; the EXACT formulas are taken from the INVAR2 reference implementation (nrlab-CRUK/INVAR2). `EstimateInvarSignal` implements the no-size GLRT (mixture model, EM `p̂`, `LR`) and IMAFv2 verbatim from that source; the per-variant presence cutoff of the legacy `DetectMRD` remains `minSupportingReads` (default 1). The panel-level ≥2 rule and Poisson/IMAF formulas are unchanged and source-exact.
-2. INVAR fragment-length (size) weighting, outlier suppression and locus-noise filtering are intentionally out of scope (residual) — the caller supplies an already-cleaned background model and AF per locus.
+2. RESIDUAL CLOSED (2026-06-23): fragment-size weighting (`EstimateInvarSignalWithSize` from `calc_likelihood_ratio_with_RL`), patient-specific outlier suppression (`SuppressOutlierLoci` from `repolish`), locus-noise filtering and control-derived background-error estimation (`EstimateLocusBackground` / `PassesBothStrandsFilter` from `createLociErrorRateTable`) are now implemented, ported verbatim from INVAR2. The only un-reproduced sub-step is the KDE bandwidth smoothing of the size histogram (assumption #2) — the empirical size proportion is used instead.
