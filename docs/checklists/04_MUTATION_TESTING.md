@@ -202,12 +202,12 @@ Mutation testing вимірює ефективність тестового на
 | 172 | ☐ | MOTIF-REGULATORY-001 | Matching | MotifFinder.cs | MotifFinder_FindRegulatoryElements_Tests.cs | ≥ 80% |
 | 173 | ☐ | MOTIF-SHARED-001 | Matching | MotifFinder.cs | MotifFinder_FindSharedMotifs_Tests.cs | ≥ 80% |
 | 174 | ☑ | PAT-APPROX-003 | Matching | ApproximateMatcher.cs | ApproximateMatcher_FindBestMatch_Tests.cs | ≥ 80% |
-| 175 | ☐ | GENOMIC-COMMON-001 | Analysis | GenomicAnalyzer.cs | GenomicAnalyzer_FindCommonRegion_Tests.cs | ≥ 80% |
-| 176 | ☐ | GENOMIC-MOTIFS-001 | Analysis | GenomicAnalyzer.cs | GenomicAnalyzer_FindKnownMotifs_Tests.cs | ≥ 80% |
-| 177 | ☐ | GENOMIC-ORF-001 | Analysis | GenomicAnalyzer.cs | GenomicAnalyzer_FindOpenReadingFrames_Tests.cs | ≥ 80% |
-| 178 | ☐ | GENOMIC-REPEAT-001 | Analysis | GenomicAnalyzer.cs | GenomicAnalyzer_FindRepeats_Tests.cs | ≥ 80% |
-| 179 | ☐ | GENOMIC-SIMILARITY-001 | Analysis | GenomicAnalyzer.cs | GenomicAnalyzer_CalculateSimilarity_Tests.cs | ≥ 80% |
-| 180 | ☐ | GENOMIC-TANDEM-001 | Analysis | GenomicAnalyzer.cs | GenomicAnalyzer_TandemRepeat_Tests.cs | ≥ 80% |
+| 175 | ☑ | GENOMIC-COMMON-001 | Analysis | GenomicAnalyzer.cs | GenomicAnalyzer_FindCommonRegion_Tests.cs | ≥ 80% |
+| 176 | ☑ | GENOMIC-MOTIFS-001 | Analysis | GenomicAnalyzer.cs | GenomicAnalyzer_FindKnownMotifs_Tests.cs | ≥ 80% |
+| 177 | ☑ | GENOMIC-ORF-001 | Analysis | GenomicAnalyzer.cs | GenomicAnalyzer_FindOpenReadingFrames_Tests.cs | ≥ 80% |
+| 178 | ☑ | GENOMIC-REPEAT-001 | Analysis | GenomicAnalyzer.cs | GenomicAnalyzer_FindRepeats_Tests.cs | ≥ 80% |
+| 179 | ☑ | GENOMIC-SIMILARITY-001 | Analysis | GenomicAnalyzer.cs | GenomicAnalyzer_CalculateSimilarity_Tests.cs | ≥ 80% |
+| 180 | ☑ | GENOMIC-TANDEM-001 | Analysis | GenomicAnalyzer.cs | GenomicAnalyzer_TandemRepeat_Tests.cs | ≥ 80% |
 | 181 | ☑ | EPIGEN-AGE-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_CalculateEpigeneticAge_Tests.cs | ≥ 80% |
 | 182 | ☑ | EPIGEN-BISULF-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_Bisulfite_Tests.cs | ≥ 80% |
 | 183 | ☑ | EPIGEN-CHROM-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_ChromatinState_Tests.cs | ≥ 80% |
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 204 |
-| ☐ Not started | 30 |
+| ☑ Complete (run + killers written) | 210 |
+| ☐ Not started | 24 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
