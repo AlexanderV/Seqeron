@@ -23,7 +23,7 @@ limitations are tracked separately as the "Deferred BIG fixes" backlog in the le
 
 | Unit(s) | Not implemented | Note |
 |---------|-----------------|------|
-| RNA-STRUCT-001 | Pseudoknotted (crossing-helix) structure prediction | The O(n³) nearest-neighbour recurrences are pseudoknot-free by construction; pseudoknots need a different algorithm class. |
+| RNA-STRUCT-001 | Pseudoknot classes beyond the canonical single H-type (recursive / multiple / over-arching knots, kissing hairpins, non-canonical bulged or unequal-length helices); tertiary-stabilised knots as the MFE structure | `PredictStructurePseudoknot` now predicts the **canonical simple recursive (H-type) pseudoknot** class of pknotsRG (Reeder & Giegerich 2004): two crossing helices + three foldable loops, Turner 2004 stacking + sourced pseudoknot penalties (init 9.0, unpaired-loop 0.3 kcal/mol). The plain O(n³) recurrences (`CalculateMfeStructure`) remain pseudoknot-free by construction. The full pknotsRG O(n⁴) grammar (recursive/multiple knots) is not implemented, and as a nearest-neighbour thermodynamic predictor it does not recover tertiary-stabilised knots (e.g. BWYV / PDB 437D) as the MFE structure. See RNA-PKPREDICT-001. |
 
 ## 2. "Threshold / aggregation / framework" layers — they classify or combine caller-supplied inputs, they do not predict upstream
 

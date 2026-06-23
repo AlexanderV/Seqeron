@@ -2528,4 +2528,268 @@ public static class RnaSecondaryStructure
     }
 
     #endregion
+
+    #region Pseudoknot Prediction (pknotsRG canonical H-type)
+
+    // Pseudoknot-specific energy parameters (kcal/mol) from pknotsRG.
+    // Source: Reeder J, Giegerich R (2004) "Design, implementation and evaluation of a
+    //   practical pseudoknot folding algorithm based on thermodynamics." BMC Bioinformatics
+    //   5:104 (PMC514697), and the pknotsRG reference source (github.com/jensreeder/pknotsRG,
+    //   Energy.lhs): "creating a new pseudoknot: 9.0", "not paired base in pk: 0.3",
+    //   "basepair inside pseudoknot: 0.0". The paper states the pseudoknot initiation
+    //   parameter was set to 9 kcal/mol and each unpaired nucleotide inside a pseudoknot
+    //   loop is penalized 0.3 kcal/mol; base pairs inside the pseudoknot carry no extra term.
+    private const double Pseudoknot_InitiationPenalty = 9.0;       // Pi — new-pseudoknot cost
+    private const double Pseudoknot_UnpairedLoopPenalty = 0.3;     // per unpaired nt in a pk loop
+    // Minimum nucleotides between two co-axial strands of a stem so a connecting loop can span.
+    // The pknotsRG canonical motif requires the three loops (u, v, w) to be non-empty enough to
+    // physically connect the crossing helices; a single nt is the practical minimum used here.
+    private const int Pseudoknot_MinLoop = 1;
+    private const int Pseudoknot_MinStemPairs = 2; // a helix needs ≥2 base pairs to stack
+
+    /// <summary>
+    /// An H-type (canonical simple recursive) pseudoknot prediction: the folded sequence, a
+    /// two-layer dot-bracket annotation (<c>()</c> for stem 1, <c>[]</c> for the crossing
+    /// stem 2), the full base-pair set (which genuinely cross), and the total free energy.
+    /// </summary>
+    /// <param name="Sequence">The folded sequence (upper-cased; T read as U).</param>
+    /// <param name="DotBracket">
+    /// Two-layer dot-bracket: stem 1 uses <c>(</c>/<c>)</c>, the crossing stem 2 uses
+    /// <c>[</c>/<c>]</c>, <c>.</c> for unpaired positions. When no pseudoknot improves on the
+    /// plain MFE structure, this is the pseudoknot-free MFE dot-bracket (single bracket family).
+    /// </param>
+    /// <param name="BasePairs">All base pairs as 0-based (5' &lt; 3') tuples, sorted by 5' position.</param>
+    /// <param name="FreeEnergy">ΔG° (kcal/mol) of the returned structure.</param>
+    /// <param name="HasPseudoknot">True iff the returned structure contains a crossing (pseudoknotted) helix.</param>
+    public readonly record struct PseudoknotStructure(
+        string Sequence,
+        string DotBracket,
+        IReadOnlyList<(int Position1, int Position2)> BasePairs,
+        double FreeEnergy,
+        bool HasPseudoknot);
+
+    /// <summary>
+    /// Predicts an RNA secondary structure that MAY contain a single canonical H-type
+    /// pseudoknot, using the pknotsRG <em>canonical simple recursive pseudoknot</em> class of
+    /// Reeder &amp; Giegerich (2004). The two crossing helices (stem 1 = <c>a·a'</c>, stem 2 =
+    /// <c>b·b'</c>) are scored with the SAME Turner 2004 nearest-neighbour stacking model used by
+    /// <see cref="CalculateStemEnergy"/>; the three connecting loops fold independently with the
+    /// pseudoknot-free MFE (<see cref="CalculateMinimumFreeEnergy"/>); and the pknotsRG
+    /// pseudoknot-specific penalties are added (initiation 9.0 kcal/mol; 0.3 kcal/mol per
+    /// unpaired loop nucleotide). The candidate H-type fold is accepted ONLY if its total free
+    /// energy is strictly lower than the plain MFE structure (no spurious pseudoknots); otherwise
+    /// the pseudoknot-free MFE structure is returned unchanged.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// H-type geometry (5'→3'): stem1-5' · loop1 · stem2-5' · loop2 · stem1-3' · loop3 · stem2-3',
+    /// i.e. helix <c>a</c> at [i..) pairs with <c>a'</c> downstream and helix <c>b</c> is
+    /// intercalated between the two strands of <c>a</c>, so the two helices cross. Per pknotsRG
+    /// canonization rules, both strands of a helix have equal length and no bulges (rule 1) and
+    /// each helix is extended to maximal Watson–Crick/GU length (rule 2). The class is the
+    /// single-pseudoknot canonical subclass; recursively nested pseudoknots and the full pknotsRG
+    /// grammar (multiple/over-arching knots) are out of scope — see the algorithm doc §6.2.
+    /// </para>
+    /// <para>Time O(n³) for the two stem-start scan with maximal extension and loop folding,
+    /// O(n²) extra space for the loop MFE; well within the pknotsRG O(n⁴)/O(n²) envelope for
+    /// the canonical class.</para>
+    /// </remarks>
+    /// <param name="rnaSequence">RNA (or DNA; T read as U) sequence; case-insensitive.</param>
+    /// <param name="minLoopSize">Minimum hairpin loop size for the loop MFE folding (NNDB minimum 3).</param>
+    /// <returns>
+    /// The best structure; for null/empty/too-short input, an empty pseudoknot-free structure
+    /// (no pairs, all dots, ΔG = 0).
+    /// </returns>
+    public static PseudoknotStructure PredictStructurePseudoknot(string rnaSequence, int minLoopSize = 3)
+    {
+        if (minLoopSize < 3) minLoopSize = 3;
+
+        // Plain MFE structure is always the baseline and the fallback.
+        var mfe = CalculateMfeStructure(rnaSequence, minLoopSize);
+        string seq = mfe.Sequence;
+        int n = seq.Length;
+
+        // The shortest possible H-type pseudoknot needs two 2-bp helices plus three ≥1-nt loops:
+        // 2+2 (a,a') + 2+2 (b,b') + 3 loops = 11 nt. Below that no canonical knot can form.
+        const int MinPseudoknotLength = 2 * (2 * Pseudoknot_MinStemPairs) + 3 * Pseudoknot_MinLoop;
+        if (n < MinPseudoknotLength)
+        {
+            return new PseudoknotStructure(seq, mfe.DotBracket, mfe.BasePairs, mfe.FreeEnergy, HasPseudoknot: false);
+        }
+
+        double bestEnergy = mfe.FreeEnergy;
+        List<(int, int)>? bestPairs = null;
+        HashSet<(int, int)>? bestStem2 = null; // the crossing-helix pairs (the []-layer)
+
+        // Enumerate the two crossing helices of the canonical H-type motif.
+        // Stem 1 (a): 5' strand starts at i, 3' strand (a') ends at p; a pairs i..i+L1-1 with
+        //   p-L1+1..p (antiparallel). Stem 2 (b): 5' strand starts at q (inside a's span), 3'
+        //   strand (b') ends at r (outside a's span), so b crosses a.
+        // Layout: i < q < (i+L1) ≤ (loop2) ≤ (a' start) < r-strand of b after a'.
+        for (int i = 0; i < n; i++)
+        {
+            // a' 3' end: try every downstream position; maximal-extend the a/a' helix (rule 2).
+            for (int aPrimeEnd = i + 2 * Pseudoknot_MinStemPairs + 2; aPrimeEnd < n; aPrimeEnd++)
+            {
+                int l1 = MaxHelixLength(seq, i, aPrimeEnd, n);
+                if (l1 < Pseudoknot_MinStemPairs) continue;
+
+                int aLastStrand5 = i + l1 - 1;       // last nt of a (5' strand)
+                int aPrimeStart = aPrimeEnd - l1 + 1; // first nt of a' (3' strand)
+                if (aPrimeStart <= aLastStrand5 + 1) continue; // need room for stem 2 + loops
+
+                // Stem 2 (b): 5' strand starts at q in (aLastStrand5, aPrimeStart); 3' strand (b')
+                // ends at r in (aPrimeEnd, n). b crosses a because q < aPrimeStart ≤ aPrimeEnd < r.
+                for (int q = aLastStrand5 + 1 + Pseudoknot_MinLoop; q < aPrimeStart; q++)
+                {
+                    for (int r = aPrimeEnd + 1 + Pseudoknot_MinLoop; r < n; r++)
+                    {
+                        int l2 = MaxHelixLength(seq, q, r, n);
+                        if (l2 < Pseudoknot_MinStemPairs) continue;
+
+                        int bLastStrand5 = q + l2 - 1;       // last nt of b (5' strand)
+                        int bPrimeStart = r - l2 + 1;        // first nt of b' (3' strand)
+
+                        // b's 5' strand must stay left of a' start (it is loop-2 region);
+                        // b's 3' strand must stay right of a' end (loop-3 region).
+                        if (bLastStrand5 >= aPrimeStart) continue;     // overlap with a' (rule 3)
+                        if (bPrimeStart <= aPrimeEnd) continue;        // overlap with a' (rule 3)
+
+                        var candidate = EvaluateHType(
+                            seq, n, minLoopSize,
+                            i, aLastStrand5, aPrimeStart, aPrimeEnd, l1,
+                            q, bLastStrand5, bPrimeStart, r, l2);
+
+                        if (candidate is { } cand && cand.Energy < bestEnergy - Dp_TraceEps)
+                        {
+                            bestEnergy = cand.Energy;
+                            bestPairs = cand.Pairs;
+                            bestStem2 = cand.Stem2Pairs;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (bestPairs is null || bestStem2 is null)
+        {
+            return new PseudoknotStructure(seq, mfe.DotBracket, mfe.BasePairs, mfe.FreeEnergy, HasPseudoknot: false);
+        }
+
+        bestPairs.Sort((a, b) => a.Item1.CompareTo(b.Item1));
+        string dotBracket = GeneratePseudoknotDotBracket(n, bestPairs, bestStem2);
+
+        return new PseudoknotStructure(seq, dotBracket, bestPairs, Math.Round(bestEnergy, 2), HasPseudoknot: true);
+    }
+
+    // Maximal antiparallel helix length starting from outer 5' index <paramref name="o5"/> and
+    // outer 3' index <paramref name="o3"/> (o5 &lt; o3): extend while seq[o5+t] pairs seq[o3-t]
+    // (canonization rule 2: maximal extent; rule 1: equal-length, no bulges). Stops when the two
+    // strands would meet (o5+t ≥ o3-t).
+    private static int MaxHelixLength(string seq, int o5, int o3, int n)
+    {
+        int t = 0;
+        while (o5 + t < o3 - t && PairType(seq[o5 + t], seq[o3 - t]) != 0)
+            t++;
+        return t;
+    }
+
+    // Result of scoring one canonical H-type configuration. Stem2Pairs identifies the crossing
+    // helix so the renderer can place it on the []-layer.
+    private readonly record struct HTypeCandidate(double Energy, List<(int, int)> Pairs, HashSet<(int, int)> Stem2Pairs);
+
+    // Scores one canonical H-type pseudoknot: stem a (i..aLast5 / aPrimeStart..aPrimeEnd, length
+    // l1) crossing stem b (q..bLast5 / bPrimeStart..r, length l2). Energy = stacking(a) +
+    // stacking(b) + Pi + 0.3·(unpaired loop nts) + MFE(loop spans). Returns null if any loop
+    // span is malformed.
+    private static HTypeCandidate? EvaluateHType(
+        string seq, int n, int minLoopSize,
+        int i, int aLast5, int aPrimeStart, int aPrimeEnd, int l1,
+        int q, int bLast5, int bPrimeStart, int r, int l2)
+    {
+        // Build stem base-pair lists (5' index ascending) for Turner stacking via CalculateStemEnergy.
+        var stemA = new List<BasePair>(l1);
+        for (int t = 0; t < l1; t++)
+        {
+            int p5 = i + t, p3 = aPrimeEnd - t;
+            stemA.Add(new BasePair(p5, p3, seq[p5], seq[p3], GetBasePairType(seq[p5], seq[p3]) ?? BasePairType.NonCanonical));
+        }
+        var stemB = new List<BasePair>(l2);
+        for (int t = 0; t < l2; t++)
+        {
+            int p5 = q + t, p3 = r - t;
+            stemB.Add(new BasePair(p5, p3, seq[p5], seq[p3], GetBasePairType(seq[p5], seq[p3]) ?? BasePairType.NonCanonical));
+        }
+
+        double energy = Pseudoknot_InitiationPenalty;
+        energy += CalculateStemEnergy(seq, stemA);
+        energy += CalculateStemEnergy(seq, stemB);
+
+        var pairs = new List<(int, int)>(l1 + l2);
+        var stem2Pairs = new HashSet<(int, int)>();
+        foreach (var bp in stemA) pairs.Add((bp.Position1, bp.Position2));
+        foreach (var bp in stemB) { pairs.Add((bp.Position1, bp.Position2)); stem2Pairs.Add((bp.Position1, bp.Position2)); }
+
+        // The three connecting loop spans (between the helix strands), each foldable by the
+        // pseudoknot-free MFE. Unpaired loop nucleotides are penalized 0.3 kcal/mol (pknotsRG).
+        //   loop1 (u): between a 5' strand and b 5' strand   = (aLast5+1 .. q-1)
+        //   loop2 (v): between b 5' strand and a' 3' strand  = (bLast5+1 .. aPrimeStart-1)
+        //   loop3 (w): between a' 3' strand and b' 3' strand = (aPrimeEnd+1 .. bPrimeStart-1)
+        energy += ScoreLoop(seq, aLast5 + 1, q - 1, minLoopSize, pairs);
+        energy += ScoreLoop(seq, bLast5 + 1, aPrimeStart - 1, minLoopSize, pairs);
+        energy += ScoreLoop(seq, aPrimeEnd + 1, bPrimeStart - 1, minLoopSize, pairs);
+
+        return new HTypeCandidate(Math.Round(energy, 2), pairs, stem2Pairs);
+    }
+
+    // Scores one connecting loop span [start..end] (inclusive). The span folds independently with
+    // the pseudoknot-free MFE; nucleotides left unpaired by that fold are charged the pknotsRG
+    // per-unpaired-base pseudoknot penalty (0.3 kcal/mol). Base pairs found inside the loop are
+    // added to <paramref name="pairs"/> at absolute coordinates. Empty/negative spans score 0.
+    private static double ScoreLoop(string seq, int start, int end, int minLoopSize, List<(int, int)> pairs)
+    {
+        if (end < start) return 0;
+        int len = end - start + 1;
+
+        // Too short to fold: every nucleotide is an unpaired pseudoknot-loop base.
+        if (len < minLoopSize + 2)
+            return Pseudoknot_UnpairedLoopPenalty * len;
+
+        string sub = seq.Substring(start, len);
+        var subMfe = CalculateMfeStructure(sub, minLoopSize);
+        int pairedNts = 0;
+        foreach (var (a, b) in subMfe.BasePairs)
+        {
+            pairs.Add((start + a, start + b));
+            pairedNts += 2;
+        }
+        int unpaired = len - pairedNts;
+        return subMfe.FreeEnergy + Pseudoknot_UnpairedLoopPenalty * unpaired;
+    }
+
+    // Renders a two-layer dot-bracket for the pseudoknotted structure. Every base pair in
+    // <paramref name="stem2Pairs"/> (the crossing helix b·b') is annotated with the [] family;
+    // all other pairs (stem 1 a·a' and any loop-internal helices, which are mutually nested and
+    // do not cross stem 1) use the () family. Per ViennaRNA / WUSS two-layer notation, the two
+    // independent bracket families annotate the crossing helices of a pseudoknot.
+    private static string GeneratePseudoknotDotBracket(
+        int length, IReadOnlyList<(int Position1, int Position2)> basePairs,
+        HashSet<(int, int)> stem2Pairs)
+    {
+        var notation = new char[length];
+        for (int k = 0; k < length; k++) notation[k] = '.';
+
+        foreach (var bp in basePairs)
+        {
+            int left = Math.Min(bp.Position1, bp.Position2);
+            int right = Math.Max(bp.Position1, bp.Position2);
+            bool isStem2 = stem2Pairs.Contains((bp.Position1, bp.Position2)) || stem2Pairs.Contains((left, right));
+            notation[left] = isStem2 ? '[' : '(';
+            notation[right] = isStem2 ? ']' : ')';
+        }
+
+        return new string(notation);
+    }
+
+    #endregion
 }
