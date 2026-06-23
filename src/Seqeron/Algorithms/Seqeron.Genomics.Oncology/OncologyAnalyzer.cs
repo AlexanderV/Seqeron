@@ -7602,6 +7602,343 @@ public static class OncologyAnalyzer
         return Math.Clamp(rounded, 1, majorCopyNumber);
     }
 
+    /// <summary>
+    /// Default ASPCF penalty γ used when a caller does not supply one. The copynumber package default is γ = 40
+    /// (Nilsen et al. 2012, <i>BMC Genomics</i> 13:591 — "A fairly conservative penalty of γ = 40 is the default
+    /// in the copynumber package"); ASCAT later raised its internal default to 70 (Ross et al. 2021,
+    /// <i>Bioinformatics</i> 37:1909). Because the repository ASPCF API segments caller-supplied logR/BAF tracks on
+    /// the caller's own scale, γ is exposed as a parameter; this constant only documents the published default.
+    /// </summary>
+    public const double AspcfDefaultPenalty = 40.0;
+
+    /// <summary>
+    /// Allele-Specific Piecewise Constant Fitting (ASPCF): the penalised-least-squares changepoint segmentation
+    /// that ASCAT uses, jointly segmenting the logR and (mirrored) BAF tracks on a single common breakpoint set.
+    /// Source: Nilsen et al. (2012), <i>BMC Genomics</i> 13:591 — minimise
+    /// <c>L(S | y, γ) = Σ_{I∈S} Σ_{j∈I} (y_j − ȳ_I)² + γ·|S|</c> with the dynamic-program recurrence
+    /// <c>e_k = min_{j≤k} ( d_{jk} + e_{j−1} + γ )</c>, <c>e_0 = 0</c>, where <c>d_{jk}</c> is the within-segment
+    /// SSE of loci j..k; extended to the allele-specific joint cost
+    /// <c>L(S | y₁,y₂, γ) = L(S | y₁,γ) + L(S | y₂,γ)</c> (Nilsen 2012; Ross et al. 2021, <i>Bioinformatics</i>
+    /// 37:1909): a single segmentation with common breakpoints but a separate per-track segment mean, so the
+    /// per-segment data cost is <c>(logR-SSE + mirroredBAF-SSE)</c> and γ is charged once per segment. This returns
+    /// the GLOBAL optimum of the penalised cost (unlike the greedy <see cref="SegmentAlleleSpecific"/> mean-shift).
+    /// BAF is mirrored to its distance from 0.5 and re-centred (<c>b' = 0.5 + |b − 0.5|</c>) so the two symmetric
+    /// het clusters collapse to one track (Ross 2021 — "mirroring BAFs to obtain a single track in regions of
+    /// allelic imbalance"); without this a copy-neutral LOH (2:0) and a balanced 1:1 region — equal logR — would be
+    /// merged. The DP runs per chromosome (breakpoints never cross a contig boundary). Time O(n²) per chromosome.
+    /// </summary>
+    /// <param name="loci">Per-locus measurements; processed in input order within each chromosome.</param>
+    /// <param name="penalty">Penalty γ &gt; 0 charged per segment (see <see cref="AspcfDefaultPenalty"/>).</param>
+    /// <returns>The segment summaries (mean logR, mirrored-mean BAF) in input order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="loci"/> is null.</exception>
+    /// <exception cref="ArgumentException">a locus has a null chromosome label.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="penalty"/> ≤ 0 or NaN.</exception>
+    public static IReadOnlyList<AlleleSpecificSegmentSummary> SegmentAlleleSpecificAspcf(
+        IEnumerable<AlleleSpecificLocus> loci,
+        double penalty = AspcfDefaultPenalty)
+    {
+        ArgumentNullException.ThrowIfNull(loci);
+        if (double.IsNaN(penalty) || penalty <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(penalty), penalty, "The ASPCF penalty γ must be positive.");
+        }
+
+        // Materialise and group into contiguous same-chromosome runs (input order preserved within each).
+        var ordered = new List<AlleleSpecificLocus>();
+        foreach (AlleleSpecificLocus locus in loci)
+        {
+            if (locus.Chromosome is null)
+            {
+                throw new ArgumentException("A locus has a null chromosome label.", nameof(loci));
+            }
+
+            ordered.Add(locus);
+        }
+
+        var result = new List<AlleleSpecificSegmentSummary>();
+        int start = 0;
+        while (start < ordered.Count)
+        {
+            int end = start;
+            while (end + 1 < ordered.Count && ordered[end + 1].Chromosome == ordered[start].Chromosome)
+            {
+                end++;
+            }
+
+            SegmentChromosomeAspcf(ordered, start, end, penalty, result);
+            start = end + 1;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Runs the PCF dynamic program on one chromosome's run of loci (inclusive indices [lo, hi]) and appends the
+    /// optimal segments to <paramref name="output"/>. Implements Nilsen et al. (2012) eq. for the joint cost.
+    /// </summary>
+    private static void SegmentChromosomeAspcf(
+        List<AlleleSpecificLocus> loci, int lo, int hi, double penalty,
+        List<AlleleSpecificSegmentSummary> output)
+    {
+        int n = hi - lo + 1;
+
+        // Prefix sums for O(1) within-segment SSE: SSE(a..b) = Σx² − (Σx)²/m, for both tracks (Nilsen 2012 L′).
+        double[] logRPrefix = new double[n + 1];
+        double[] logRSqPrefix = new double[n + 1];
+        double[] bafPrefix = new double[n + 1];
+        double[] bafSqPrefix = new double[n + 1];
+        for (int i = 0; i < n; i++)
+        {
+            double r = loci[lo + i].LogR;
+            // Mirror BAF about 0.5 → single allelic-imbalance track (Ross 2021).
+            double b = BalancedBaf + Math.Abs(loci[lo + i].BAF - BalancedBaf);
+            logRPrefix[i + 1] = logRPrefix[i] + r;
+            logRSqPrefix[i + 1] = logRSqPrefix[i] + r * r;
+            bafPrefix[i + 1] = bafPrefix[i] + b;
+            bafSqPrefix[i + 1] = bafSqPrefix[i] + b * b;
+        }
+
+        // e[k] = min penalised cost of segmenting the first k loci; back[k] = start index of the last segment.
+        double[] e = new double[n + 1];
+        int[] back = new int[n + 1];
+        e[0] = 0.0;
+        for (int k = 1; k <= n; k++)
+        {
+            double best = double.PositiveInfinity;
+            int bestStart = 0;
+            for (int j = 1; j <= k; j++)
+            {
+                // d_{jk} = within-segment SSE of loci (j..k) on both tracks (joint cost = sum of the two SSEs).
+                double cost = e[j - 1] + AspcfSegmentSse(logRPrefix, logRSqPrefix, j - 1, k)
+                              + AspcfSegmentSse(bafPrefix, bafSqPrefix, j - 1, k)
+                              + penalty;
+                if (cost < best - 1e-12)
+                {
+                    best = cost;
+                    bestStart = j - 1;
+                }
+            }
+
+            e[k] = best;
+            back[k] = bestStart;
+        }
+
+        // Backtrack the optimal segmentation, then emit in genomic (left-to-right) order.
+        var bounds = new List<(int Start, int End)>();
+        int cursor = n;
+        while (cursor > 0)
+        {
+            int segStart = back[cursor];
+            bounds.Add((segStart, cursor)); // half-open [segStart, cursor) over the local 0-based run.
+            cursor = segStart;
+        }
+
+        bounds.Reverse();
+        foreach ((int segStart, int segEnd) in bounds)
+        {
+            var run = new List<AlleleSpecificLocus>(segEnd - segStart);
+            for (int i = segStart; i < segEnd; i++)
+            {
+                run.Add(loci[lo + i]);
+            }
+
+            output.Add(BuildSegmentSummary(run));
+        }
+    }
+
+    /// <summary>Within-segment SSE for the half-open prefix range (a, b]: Σx² − (Σx)²/m (m = b − a). 0 if m ≤ 1.</summary>
+    private static double AspcfSegmentSse(double[] prefix, double[] sqPrefix, int a, int b)
+    {
+        int m = b - a;
+        if (m <= 1)
+        {
+            return 0.0; // a single point has zero within-segment variance.
+        }
+
+        double sum = prefix[b] - prefix[a];
+        double sumSq = sqPrefix[b] - sqPrefix[a];
+        double sse = sumSq - (sum * sum) / m;
+        return sse > 0.0 ? sse : 0.0; // guard tiny negative round-off.
+    }
+
+    /// <summary>
+    /// One integer allele-specific copy-number state of a (possibly sub-clonal) segment, present in a given
+    /// fraction of tumour cells. Mirrors the Battenberg output (Nik-Zainal et al. 2012, <i>Cell</i> 149:994:
+    /// <c>nMaj1_A, nMin1_A, frac1_A</c>): a state is a (major, minor) integer pair plus the cellular fraction.
+    /// </summary>
+    /// <param name="MajorCopyNumber">Major-allele integer copy number of this state (≥ 0).</param>
+    /// <param name="MinorCopyNumber">Minor-allele integer copy number of this state (≥ 0).</param>
+    /// <param name="CellFraction">Fraction of tumour cells carrying this state, ∈ [0, 1].</param>
+    public readonly record struct SubclonalCopyNumberState(
+        int MajorCopyNumber,
+        int MinorCopyNumber,
+        double CellFraction)
+    {
+        /// <summary>Total integer copy number of this state (major + minor).</summary>
+        public int TotalCopyNumber => MajorCopyNumber + MinorCopyNumber;
+    }
+
+    /// <summary>
+    /// Sub-clonal copy-number fit of one segment under the Battenberg two-population model (Nik-Zainal et al. 2012,
+    /// <i>Cell</i> 149:994): a segment is either <b>clonal</b> (one integer state in all tumour cells) or
+    /// <b>sub-clonal</b> (a mixture of two adjacent integer states, fractions summing to 1).
+    /// </summary>
+    /// <param name="Segment">The segment these states describe.</param>
+    /// <param name="PrimaryState">State 1 (Battenberg <c>frac1</c>) — the higher-fraction state.</param>
+    /// <param name="SecondaryState">State 2 (Battenberg <c>frac2</c>), or <c>null</c> for a clonal segment.</param>
+    /// <param name="IsSubclonal">True when two states were needed (the observed CN was not (near-)integer).</param>
+    public readonly record struct SubclonalSegmentFit(
+        AlleleSpecificSegmentSummary Segment,
+        SubclonalCopyNumberState PrimaryState,
+        SubclonalCopyNumberState? SecondaryState,
+        bool IsSubclonal);
+
+    /// <summary>
+    /// Maximum distance of an allele-specific copy number from the nearest integer below which the segment is
+    /// called <b>clonal</b> (a single integer state). Beyond it the segment is modelled as a sub-clonal mixture of
+    /// the two bracketing integers. 0.05 mirrors ASCAT's "as close as possible to nonnegative whole numbers"
+    /// integer-snapping tolerance (Van Loo et al. 2010) used by Battenberg to decide clonal vs sub-clonal.
+    /// </summary>
+    public const double SubclonalIntegerTolerance = 0.05;
+
+    /// <summary>
+    /// Fits each segment's allele-specific copy number to one integer state (clonal) or a mixture of two adjacent
+    /// integer states with a sub-clonal cellular fraction (sub-clonal), implementing the Battenberg two-population
+    /// model (Nik-Zainal et al. 2012, <i>Cell</i> 149:994; Wedge-lab/battenberg): "if there are two states it
+    /// represents subclonal copy number … two populations of cells, each with a different state … which together
+    /// give the total copy number for that segment and a fraction of tumour cells that carry each allele." The
+    /// real-valued ASCAT allele-specific copy numbers (nA, nB) are computed for the segment at the fitted (ρ, ψ)
+    /// via the ASCAT equations (Van Loo et al. 2010); a value that is within <see cref="SubclonalIntegerTolerance"/>
+    /// of an integer collapses to a single (clonal) state, otherwise it is decomposed as
+    /// <c>n_obs = f·⌈n_obs⌉ + (1 − f)·⌊n_obs⌋</c> with <c>f = n_obs − ⌊n_obs⌋ ∈ [0,1]</c> (the unique two-state
+    /// mixture reproducing n_obs). The two alleles are decomposed jointly with a single shared fraction f estimated
+    /// as the mean of the per-allele fractions, so the two states are (⌈nA⌉, ⌈nB⌉) at fraction f and
+    /// (⌊nA⌋, ⌊nB⌋) at fraction 1 − f, matching the Battenberg (nMaj1/nMin1/frac1, nMaj2/nMin2/frac2) layout.
+    /// </summary>
+    /// <param name="segments">Segment summaries (e.g. from <see cref="SegmentAlleleSpecificAspcf"/>). Non-null.</param>
+    /// <param name="purity">Fitted tumour purity ρ ∈ (0, 1].</param>
+    /// <param name="ploidy">Fitted tumour ploidy ψ (&gt; 0).</param>
+    /// <param name="gamma">Platform parameter γ (sequencing = <see cref="AscatSequencingGamma"/> = 1).</param>
+    /// <returns>Per-segment clonal/sub-clonal copy-number fits in input order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="segments"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">ρ ∉ (0,1], ψ ≤ 0, or γ ≤ 0.</exception>
+    public static IReadOnlyList<SubclonalSegmentFit> FitSubclonalCopyNumber(
+        IReadOnlyList<AlleleSpecificSegmentSummary> segments,
+        double purity,
+        double ploidy,
+        double gamma = AscatSequencingGamma)
+    {
+        ArgumentNullException.ThrowIfNull(segments);
+        if (double.IsNaN(purity) || purity <= 0.0 || purity > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(purity), purity, "Purity ρ must be in (0, 1].");
+        }
+
+        if (double.IsNaN(ploidy) || ploidy <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(ploidy), ploidy, "Ploidy ψ must be positive.");
+        }
+
+        if (double.IsNaN(gamma) || gamma <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(gamma), gamma, "gamma must be positive.");
+        }
+
+        var fits = new List<SubclonalSegmentFit>(segments.Count);
+        foreach (AlleleSpecificSegmentSummary s in segments)
+        {
+            (double nA, double nB) = AscatRawCopyNumbers(s.MeanLogR, s.MeanBAF, purity, ploidy, gamma);
+            double major = Math.Max(0.0, Math.Max(nA, nB));
+            double minor = Math.Max(0.0, Math.Min(nA, nB));
+
+            double majorFrac = major - Math.Floor(major); // distance above the lower bracketing integer.
+            double minorFrac = minor - Math.Floor(minor);
+
+            // Clonal when BOTH alleles snap to integers within tolerance; else a two-state mixture is required.
+            bool majorClonal = majorFrac <= SubclonalIntegerTolerance || majorFrac >= 1.0 - SubclonalIntegerTolerance;
+            bool minorClonal = minorFrac <= SubclonalIntegerTolerance || minorFrac >= 1.0 - SubclonalIntegerTolerance;
+
+            if (majorClonal && minorClonal)
+            {
+                int majInt = (int)Math.Max(0.0, Math.Round(major, MidpointRounding.AwayFromZero));
+                int minInt = (int)Math.Max(0.0, Math.Round(minor, MidpointRounding.AwayFromZero));
+                fits.Add(new SubclonalSegmentFit(
+                    s,
+                    new SubclonalCopyNumberState(majInt, minInt, 1.0),
+                    SecondaryState: null,
+                    IsSubclonal: false));
+                continue;
+            }
+
+            // Two-state mixture (Battenberg single shared fraction): each allele is a convex combination of its two
+            // bracketing integers, both alleles sharing ONE fraction f. The pairing of the alleles' ceil/floor
+            // integers into the two cell populations is ambiguous, so both pairings are tried and the one with the
+            // smaller least-squares residual is kept — the unique two-state decomposition reproducing (major, minor).
+            int majCeil = (int)Math.Ceiling(major);
+            int majFloor = (int)Math.Floor(major);
+            int minCeil = (int)Math.Ceiling(minor);
+            int minFloor = (int)Math.Floor(minor);
+
+            // Pairing P1 (co-monotone): state_hi = (majCeil, minCeil), state_lo = (majFloor, minFloor).
+            (double fP1, double resP1) = SolveSharedFraction(major, minor, majCeil, minCeil, majFloor, minFloor);
+            // Pairing P2 (anti-monotone): state_hi = (majCeil, minFloor), state_lo = (majFloor, minCeil).
+            (double fP2, double resP2) = SolveSharedFraction(major, minor, majCeil, minFloor, majFloor, minCeil);
+
+            SubclonalCopyNumberState hiState, loState; // hi = the "ceiling-on-major" state (fraction f).
+            double f;
+            if (resP1 <= resP2)
+            {
+                f = fP1;
+                hiState = new SubclonalCopyNumberState(majCeil, minCeil, f);
+                loState = new SubclonalCopyNumberState(majFloor, minFloor, 1.0 - f);
+            }
+            else
+            {
+                f = fP2;
+                hiState = new SubclonalCopyNumberState(majCeil, minFloor, f);
+                loState = new SubclonalCopyNumberState(majFloor, minCeil, 1.0 - f);
+            }
+
+            // Battenberg frac1 ≥ frac2: the higher-fraction state is the primary (state 1).
+            (SubclonalCopyNumberState primary, SubclonalCopyNumberState secondary) =
+                f >= 0.5 ? (hiState, loState) : (loState, hiState);
+
+            fits.Add(new SubclonalSegmentFit(s, primary, secondary, IsSubclonal: true));
+        }
+
+        return fits;
+    }
+
+    /// <summary>
+    /// Solves for the single shared cellular fraction f that best reproduces both observed alleles as
+    /// <c>major = f·aHi + (1−f)·aLo</c> and <c>minor = f·bHi + (1−f)·bLo</c> by least squares, returning f
+    /// (clamped to [0,1]) and the residual sum of squares of the fit. Two integer states share one f per the
+    /// Battenberg single-fraction segment model (Nik-Zainal et al. 2012).
+    /// </summary>
+    private static (double F, double Residual) SolveSharedFraction(
+        double major, double minor, int aHi, int bHi, int aLo, int bLo)
+    {
+        // For each allele: observed = aLo + f·(aHi − aLo)  ⇒ stack the two equations and solve LS for f.
+        double da = aHi - aLo;
+        double db = bHi - bLo;
+        double denom = da * da + db * db;
+        double f;
+        if (denom < 1e-12)
+        {
+            f = 0.0; // both states identical for both alleles → degenerate; fraction is irrelevant.
+        }
+        else
+        {
+            f = (da * (major - aLo) + db * (minor - bLo)) / denom;
+            f = Math.Clamp(f, 0.0, 1.0);
+        }
+
+        double majFit = aLo + f * da;
+        double minFit = bLo + f * db;
+        double residual = (major - majFit) * (major - majFit) + (minor - minFit) * (minor - minFit);
+        return (f, residual);
+    }
+
     #endregion
 
     #region GenerateNeoantigenPeptides

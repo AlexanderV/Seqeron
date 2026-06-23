@@ -34,7 +34,6 @@ validated clinical-grade predictors.**
 | Unit | Not modelled / caller-supplied |
 |------|--------------------------------|
 | ONCO-MHC-001 | The affinity / %Rank prediction (NetMHCpan-style learned model) — caller-supplied. |
-| ONCO-PURITY/PLOIDY/CCF/CLONAL | Allele-specific segmentation is a greedy joint logR+BAF mean-shift, not ASCAT's full ASPCF penalised-least-squares; the purity/ploidy fit is a single-clone fixed-grid minimum (no sub-clonal copy number / refit heuristics). |
 
 ## 3. Convention divergences (documented, internally consistent)
 
