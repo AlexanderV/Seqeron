@@ -21,11 +21,11 @@ limitations are tracked separately as the "Deferred BIG fixes" backlog in the le
 
 ## 1. Algorithmic simplifications (a fuller method exists; the simpler one is correct for its scope)
 
-| Unit(s) | Implemented | Fuller method not implemented | Note |
-|---------|-------------|-------------------------------|------|
-| ALIGN-MULTI-001 | SP-guided progressive + iterative-refinement MSA (Feng–Doolittle; `MultipleAlignIterative`, MUSCLE-style, Edgar 2004) | Full consistency-based refinement à la T-Coffee (consistency library / objective) | The refinement is SP-guided and restricted to guide-tree edge partitions, not a full consistency-based optimizer. |
-| RNA-STRUCT-001 | MFE-optimal **pseudoknot-free** structure (Zuker–Stiegler DP traceback) | Pseudoknotted (crossing-helix) optima | The O(n³) recurrences are pseudoknot-free by construction; pseudoknots require a different algorithm class. |
-| PRIMER-TM-001 | Heuristic primer-design scoring (NN-thermodynamics ΔH/ΔS/Tm validated separately, SEQ-THERMO-001) | A validated primer-design objective | The primer-design convenience scoring is heuristic; there is no single canonical primer-score ground truth to assert against. |
+| Unit(s) | Not implemented | Note |
+|---------|-----------------|------|
+| ALIGN-MULTI-001 | Full consistency-based MSA refinement (T-Coffee consistency library / objective) | A distinct objective class from the sum-of-pairs score the library optimizes. |
+| RNA-STRUCT-001 | Pseudoknotted (crossing-helix) structure prediction | The O(n³) nearest-neighbour recurrences are pseudoknot-free by construction; pseudoknots need a different algorithm class. |
+| PRIMER-TM-001 | A validated primer-design scoring objective | The convenience primer score is heuristic; there is no single canonical primer-score ground truth to assert against (NN-thermodynamics ΔH/ΔS/Tm itself is validated under SEQ-THERMO-001). |
 
 ## 2. "Threshold / aggregation / framework" layers — they classify or combine caller-supplied inputs, they do not predict upstream
 
@@ -33,15 +33,15 @@ These units are correct implementations of a published **rule or formula**, but 
 of a model/measurement the caller must provide. They are **decision-support computations, not
 validated clinical-grade predictors.**
 
-| Unit | Computes (validated) | Caller must supply / not modelled |
-|------|----------------------|-----------------------------------|
-| ONCO-SIG-002/003/004 | NNLS refitting, de-novo NMF extraction at a caller-specified rank k, bootstrap CIs, aetiology mapping | **Automatic rank / model-stability selection** is not implemented (k is caller-specified); the Frobenius (not Poisson/KL) objective is used; extracted signatures are not auto-matched to COSMIC references. |
-| ONCO-MHC-001 | Strong/weak-binder classification by IC50 / %Rank cutoffs | The **affinity / %Rank prediction** (NetMHCpan-style learned model) is caller-supplied — not modelled. |
-| ONCO-HRD-001 | HRD score = LOH + TAI + LST (≥42 cutoff); LOH derived from allele-specific segments | **TAI and LST are caller-supplied** — their faithful derivation (scarHRD `calc.ai_new` / `calc.lst`) needs scarHRD's exact per-build centromere `chrominfo` table (ships only as binary `sysdata.rda`, not citably retrievable), so they are not approximated. |
-| ONCO-PURITY/PLOIDY/CCF/CLONAL | Purity/ploidy/CCF formulas + clonal rule | Allele-specific CN segments, multiplicity and VAF are caller-supplied — not derived upstream. |
-| EPIGEN-AGE-001 | Horvath `anti.trafo` + linear predictor over the embedded 353-CpG multi-tissue clock | Only the **multi-tissue** clock is embedded; the skin-&-blood (2018) and PhenoAge (2018) clocks require caller-supplied coefficients. |
-| ONCO-CHIP-001 | CHIP filter (gene panel + ≥2% VAF + WBC subtraction) | Origin call falls back to a **gene+VAF heuristic** where matched-WBC data is absent (over-removes vs strict matched-WBC origin). |
-| ONCO-MRD-001 | ≥2-of-N positivity, IMAF, Poisson LoD, INVAR-style background-subtracted AF-weighted estimator | INVAR **fragment-length (size) weighting**, patient-specific **outlier suppression** and **locus-noise filtering** are not reproduced; the background error model `e` is **caller-supplied**, not estimated from control plasma. |
+| Unit | Not modelled / caller-supplied |
+|------|--------------------------------|
+| ONCO-SIG-002/003/004 | Automatic NMF rank / model-stability selection (k is caller-specified); de-novo extraction uses the Frobenius, not the Poisson/KL, objective; extracted signatures are not auto-matched to COSMIC references. |
+| ONCO-MHC-001 | The affinity / %Rank prediction (NetMHCpan-style learned model) — caller-supplied. |
+| ONCO-HRD-001 | TAI and LST components — caller-supplied; their faithful per-segment derivation (scarHRD `calc.ai_new` / `calc.lst`) needs scarHRD's per-build centromere `chrominfo` table, which ships only as binary `sysdata.rda` and is not citably retrievable. |
+| ONCO-PURITY/PLOIDY/CCF/CLONAL | Allele-specific CN segments, multiplicity and VAF — caller-supplied, not derived upstream. |
+| EPIGEN-AGE-001 | The skin-&-blood (2018) and PhenoAge (2018) clock coefficient tables — caller-supplied (only the multi-tissue 353-CpG clock is embedded). |
+| ONCO-CHIP-001 | Strict matched-WBC origin calling — absent matched-WBC data, origin falls back to a gene+VAF heuristic (over-removes). |
+| ONCO-MRD-001 | INVAR fragment-length (size) weighting, patient-specific outlier suppression and locus-noise filtering; the per-locus background error model is caller-supplied, not estimated from control plasma. |
 
 ## 3. Convention divergences (documented, internally consistent)
 
