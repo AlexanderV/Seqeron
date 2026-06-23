@@ -30,13 +30,13 @@ Property-based testing генерує сотні випадкових вході
 
 | # | Status | Test Unit | Area | Invariants to Verify | Property File |
 |---|--------|-----------|------|---------------------|---------------|
-| 1 | ☑ | SEQ-GC-001 | Composition | R: GC% ∈ [0,100]; P: complement preserves GC%; R: GcFraction ∈ [0,1]; P: GC%=Frac×100 | GcContentProperties.cs |
+| 1 | ☐ | SEQ-GC-001 | Composition | R: GC% ∈ [0,100]; P: complement preserves GC%; R: GcFraction ∈ [0,1]; P: GC%=Frac×100 | GcContentProperties.cs |
 | 2 | ☑ | SEQ-COMP-001 | Composition | I: complement(complement(x))=x; P: length preserved | SequenceProperties.cs |
 | 3 | ☑ | SEQ-REVCOMP-001 | Composition | I: revcomp(revcomp(x))=x; P: length preserved | SequenceProperties.cs |
 | 4 | ☑ | SEQ-VALID-001 | Composition | R: result ∈ {true,false}; P: case-insensitive; D: deterministic; P: valid DNA ⊂ valid IUPAC | SequenceCompositionProperties.cs |
 | 5 | ☑ | SEQ-COMPLEX-001 | Composition | R: complexity ∈ [0,1]; M: homopolymer → min; M: random long → high; P: permutation invariance | SequenceCompositionProperties.cs |
 | 6 | ☑ | SEQ-ENTROPY-001 | Composition | R: entropy ≥ 0; P: permutation invariance; M: uniform dist → max entropy; D: deterministic | SequenceCompositionProperties.cs |
-| 7 | ☑ | SEQ-GCSKEW-001 | Composition | R: skew ∈ [-1,1]; S: complement reverses sign; P: cumulative array length = seq length | GcSkewProperties.cs |
+| 7 | ☐ | SEQ-GCSKEW-001 | Composition | R: skew ∈ [-1,1]; S: complement reverses sign; P: cumulative array length = seq length | GcSkewProperties.cs |
 | 8 | ☑ | PAT-EXACT-001 | Matching | R: positions ∈ [0, len-patLen]; M: substring → count≥1; D: deterministic; P: total matches ≤ len-patLen+1 | PatternMatchingProperties.cs |
 | 9 | ☑ | PAT-APPROX-001 | Matching | R: distance ≥ 0; S: hamming(a,b)=hamming(b,a); I: hamming(x,x)=0; R: distance ≤ len | HammingDistanceProperties.cs |
 | 10 | ☑ | PAT-APPROX-002 | Matching | R: edit dist ≥ 0; S: editDist(a,b)=editDist(b,a); I: editDist(x,x)=0; triangle inequality | EditDistanceProperties.cs |
@@ -156,7 +156,7 @@ Property-based testing генерує сотні випадкових вході
 | 124 | ☑ | SEQ-MW-001 | Statistics | R: MW > 0 for non-empty; M: longer sequence → higher MW; P: MW additive over residues; D: deterministic | SequenceStatisticsProperties.cs (new) |
 | 125 | ☑ | SEQ-PI-001 | Statistics | R: pI ∈ [0,14]; P: net charge at pI ≈ 0; D: deterministic | SequenceStatisticsProperties.cs (new) |
 | 126 | ☑ | SEQ-SECSTRUCT-001 | Statistics | R: each propensity ≥ 0; P: every residue assigned H/E/C; D: deterministic | SequenceStatisticsProperties.cs (new) |
-| 127 | ☑ | SEQ-STATS-001 | Statistics | R: counts ≥ 0; P: Σ counts = length; R: GC% ∈ [0,100]; D: deterministic | SequenceStatisticsProperties.cs (new) |
+| 127 | ☐ | SEQ-STATS-001 | Statistics | R: counts ≥ 0; P: Σ counts = length; R: GC% ∈ [0,100]; D: deterministic | SequenceStatisticsProperties.cs (new) |
 | 128 | ☑ | SEQ-SUMMARY-001 | Statistics | P: reported length = sequence length; R: GC% ∈ [0,100]; D: deterministic | SequenceStatisticsProperties.cs (new) |
 | 129 | ☑ | SEQ-THERMO-001 | Statistics | R: ΔG, ΔH, ΔS finite; M: more GC → more stable (lower ΔG); D: deterministic | SequenceStatisticsProperties.cs (new) |
 | 130 | ☑ | SEQ-TM-001 | Statistics | R: Tm ≥ 0; M: more GC → higher Tm; D: deterministic | SequenceStatisticsProperties.cs (new) |
@@ -216,7 +216,7 @@ Property-based testing генерує сотні випадкових вході
 | 184 | ☑ | EPIGEN-DMR-001 | Epigenetics | R: region start < end; M: lower threshold → ≥ DMRs; P: |Δmethylation| ≥ threshold; D: deterministic | EpigeneticsProperties.cs (new) |
 | 185 | ☑ | EPIGEN-METHYL-001 | Epigenetics | R: methylation level ∈ [0,1]; P: = methylated/total; D: deterministic | EpigeneticsProperties.cs (new) |
 | 186 | ☑ | VARIANT-ANNOT-001 | Variants | R: impact ∈ ordered categories; P: annotation preserves position; D: deterministic | VariantProperties.cs (new) |
-| 187 | ☑ | VARIANT-CALL-001 | Variants | R: positions valid; P: called only where pileup differs from ref; M: higher depth → ≥ confidence; D: deterministic | VariantProperties.cs (new) |
+| 187 | ☐ | VARIANT-CALL-001 | Variants | R: positions valid; P: called only where pileup differs from ref; M: higher depth → ≥ confidence; D: deterministic | VariantProperties.cs (new) |
 | 188 | ☑ | VARIANT-INDEL-001 | Variants | R: indel length > 0; P: ref and alt lengths differ; R: positions valid; D: deterministic | VariantProperties.cs (new) |
 | 189 | ☑ | VARIANT-SNP-001 | Variants | P: ref/alt single bases, ref≠alt; R: positions valid; D: deterministic | VariantProperties.cs (new) |
 | 190 | ☑ | PANGEN-CLUSTER-001 | PanGenome | P: each gene in exactly one cluster; M: lower identity → ≥ merging; D: deterministic | PanGenomeProperties.cs (new) |
@@ -272,7 +272,7 @@ Property-based testing генерує сотні випадкових вході
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 224 |
-| ☐ Not started | 10 |
+| ☑ Complete | 220 |
+| ☐ Not started | 14 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |

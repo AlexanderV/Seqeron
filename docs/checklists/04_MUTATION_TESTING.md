@@ -28,13 +28,13 @@ Mutation testing вимірює ефективність тестового на
 
 | # | Status | Test Unit | Area | Source File | Test File(s) | Target Score |
 |---|--------|-----------|------|------------|-------------|:---:|
-| 1 | ☑ | SEQ-GC-001 | Composition | SequenceExtensions.cs | SequenceExtensions_CalculateGcContent_Tests.cs | ≥ 80% |
+| 1 | ☐ | SEQ-GC-001 | Composition | SequenceExtensions.cs | SequenceExtensions_CalculateGcContent_Tests.cs | ≥ 80% |
 | 2 | ☑ | SEQ-COMP-001 | Composition | SequenceExtensions.cs | SequenceExtensions_Complement_Tests.cs | ≥ 80% |
 | 3 | ☑ | SEQ-REVCOMP-001 | Composition | SequenceExtensions.cs | SequenceExtensions_ReverseComplement_Tests.cs | ≥ 80% |
 | 4 | ☑ | SEQ-VALID-001 | Composition | SequenceExtensions.cs | SequenceExtensions_SequenceValidation_Tests.cs | ≥ 80% |
 | 5 | ☑ | SEQ-COMPLEX-001 | Composition | SequenceComplexity.cs | SequenceComplexityTests.cs | ≥ 80% |
 | 6 | ☑ | SEQ-ENTROPY-001 | Composition | SequenceComplexity.cs | SequenceComplexityTests.cs | ≥ 80% |
-| 7 | ☑ | SEQ-GCSKEW-001 | Composition | GcSkewCalculator.cs | GcSkewCalculatorTests.cs | ≥ 80% |
+| 7 | ☐ | SEQ-GCSKEW-001 | Composition | GcSkewCalculator.cs | GcSkewCalculatorTests.cs | ≥ 80% |
 | 8 | ☑ | PAT-EXACT-001 | Matching | MotifFinder.cs | FindAllOccurrencesTests.cs, ContainsTests.cs, CountOccurrencesTests.cs | ≥ 80% |
 | 9 | ☑ | PAT-APPROX-001 | Matching | ApproximateMatcher.cs | ApproximateMatcher_HammingDistance_Tests.cs | ≥ 80% |
 | 10 | ☑ | PAT-APPROX-002 | Matching | ApproximateMatcher.cs | ApproximateMatcher_EditDistance_Tests.cs | ≥ 80% |
@@ -154,7 +154,7 @@ Mutation testing вимірює ефективність тестового на
 | 124 | ☑ | SEQ-MW-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateMolecularWeight_Tests.cs | ≥ 80% |
 | 125 | ☑ | SEQ-PI-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateIsoelectricPoint_Tests.cs | ≥ 80% |
 | 126 | ☑ | SEQ-SECSTRUCT-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_PredictSecondaryStructure_Tests.cs | ≥ 80% |
-| 127 | ☑ | SEQ-STATS-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateNucleotideComposition_Tests.cs | ≥ 80% |
+| 127 | ☐ | SEQ-STATS-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateNucleotideComposition_Tests.cs | ≥ 80% |
 | 128 | ☑ | SEQ-SUMMARY-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_SummarizeNucleotideSequence_Tests.cs | ≥ 80% |
 | 129 | ☑ | SEQ-THERMO-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateThermodynamics_Tests.cs | ≥ 80% |
 | 130 | ☑ | SEQ-TM-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateThermodynamics_Tests.cs | ≥ 80% |
@@ -214,7 +214,7 @@ Mutation testing вимірює ефективність тестового на
 | 184 | ☑ | EPIGEN-DMR-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_DMR_Tests.cs | ≥ 80% |
 | 185 | ☑ | EPIGEN-METHYL-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_Methylation_Tests.cs | ≥ 80% |
 | 186 | ☑ | VARIANT-ANNOT-001 | Variants | VariantAnnotator.cs | VariantAnnotator_FunctionalImpact_Tests.cs | ≥ 80% |
-| 187 | ☑ | VARIANT-CALL-001 | Variants | VariantCaller.cs | VariantCaller_CallVariants_Tests.cs | ≥ 80% |
+| 187 | ☐ | VARIANT-CALL-001 | Variants | VariantCaller.cs | VariantCaller_CallVariants_Tests.cs | ≥ 80% |
 | 188 | ☑ | VARIANT-INDEL-001 | Variants | VariantCaller.cs | VariantCaller_FindIndels_Tests.cs | ≥ 80% |
 | 189 | ☑ | VARIANT-SNP-001 | Variants | VariantCaller.cs | VariantCaller_FindSnps_Tests.cs | ≥ 80% |
 | 190 | ☑ | PANGEN-CLUSTER-001 | PanGenome | PanGenomeAnalyzer.cs | PanGenomeAnalyzer_ClusterGenes_Tests.cs | ≥ 80% |
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 224 |
-| ☐ Not started | 10 |
+| ☑ Complete (run + killers written) | 220 |
+| ☐ Not started | 14 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |

@@ -35,15 +35,29 @@ validated clinical-grade predictors.**
 |------|--------------------------------|
 | ONCO-MHC-001 | The affinity / %Rank prediction (NetMHCpan-style learned model) — caller-supplied. |
 
-## 3. Convention divergences (documented, internally consistent)
+## ~~3. Convention divergences~~ — retired (all addressed via opt-in modes or by-design configurability)
 
-| Area | Convention used | Differs from |
-|------|-----------------|--------------|
-| Variant units (VARIANT-*, SV-*, ONCO somatic) | 0-based internal `Position` | VCF 1-based (1-based only on serialization, e.g. `ToVcfLines`). |
-| GC / skew / composition outputs | Percentage (×100) in several units | Biopython fraction [0,1]. |
-| Default thresholds | Configurable defaults that may differ from a named tool's published default (e.g. MSI 20% (MSIsensor2) vs MSIsensor ~3.5; ConsensusThreshold 0.5 vs Biopython 0.7; CNA inner cutoffs) | The named tool — but the value is sourced and the parameter is exposed. |
-| DUST / compression complexity | `k=3` (DUST) and the LZ base-2 clamp are exactly sourced | `k≠3` is a documented, non-exact-asserted extrapolation. |
-| Non-ACGT / ambiguous bases | Skipped or tracked as "Other" in several composition/thermo units | Tools that throw or partially count (e.g. Biopython S/W handling). |
+The former §3 "Convention divergences" rows were retired on 2026-06-23. None represented a defect;
+each was either made caller-selectable via an opt-in mode (defaults unchanged) or was already
+by-design configurability. For the record:
+
+- **Variant 0-based vs VCF 1-based** — already handled at serialization (`ToVcfLines` emits
+  `Position + 1`). A convenience `Variant.VcfPosition` (1-based) accessor was added for callers that
+  consume the record directly (VCF v4.3 §1.4.1). No default change.
+- **GC / skew / composition percentage vs Biopython fraction [0,1]** — added an opt-in `fraction`
+  parameter to `GcSkewCalculator.AnalyzeGcContent` and `SequenceStatistics.CalculateGcContentProfile`
+  (and a `CalculateGcFraction` already exists on `SequenceExtensions`), so callers can request
+  Biopython's [0,1] convention. Default percentage output unchanged.
+- **Default thresholds differing from a named tool's default** — by-design: every such threshold is
+  already exposed as a configurable parameter and the named tool's value is sourced; the caller can
+  set it. Not a code gap.
+- **DUST `k=3` / LZ base-2 clamp** — by-design: `k=3` and the clamp are exactly sourced and `wordSize`
+  is already a caller parameter; `k≠3` was only a *test-assertion-scope* note (exact values asserted
+  at k=3), not a behaviour gap. Nothing to fix.
+- **Non-ACGT / ambiguous bases skipped or "Other"** — added an opt-in
+  `SequenceExtensions.CalculateGcFraction(GcAmbiguityMode)` (Remove/Ignore/Weighted) that reproduces
+  Biopython `gc_fraction`'s IUPAC handling (S counts as GC, W as length, weighted `_gc_values`). The
+  existing default (A/T/G/C/U only) is unchanged.
 
 ---
 

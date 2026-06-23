@@ -28,13 +28,13 @@ Fuzzing подає випадкові, невалідні або граничн�
 
 | # | Status | Test Unit | Area | Fuzz Strategy | Fuzz Targets |
 |---|--------|-----------|------|:---:|-------------|
-| 1 | ☑ | SEQ-GC-001 | Composition | BE, INJ | Empty string, single char, non-ACGT chars, null, unicode, extremely long |
+| 1 | ☐ | SEQ-GC-001 | Composition | BE, INJ | Empty string, single char, non-ACGT chars, null, unicode, extremely long |
 | 2 | ☑ | SEQ-COMP-001 | Composition | BE, INJ | Non-DNA chars, empty, null, mixed case, unicode |
 | 3 | ☑ | SEQ-REVCOMP-001 | Composition | BE, INJ | Non-DNA chars, empty, null, single char, unicode |
 | 4 | ☑ | SEQ-VALID-001 | Composition | RB, INJ, BE | Non-ASCII, null bytes, mixed-case, unicode, extremely long, control chars |
 | 5 | ☑ | SEQ-COMPLEX-001 | Composition | BE, RB | Empty, single char, all same nucleotide, very long, random bytes |
 | 6 | ☑ | SEQ-ENTROPY-001 | Composition | BE, RB | Empty, single symbol, all same, very long, non-nucleotide chars |
-| 7 | ☑ | SEQ-GCSKEW-001 | Composition | BE | Empty, single base, no G or C, alternating GC, extremely long |
+| 7 | ☐ | SEQ-GCSKEW-001 | Composition | BE | Empty, single base, no G or C, alternating GC, extremely long |
 | 8 | ☑ | PAT-EXACT-001 | Matching | BE, MC | Pattern > seq length, empty pattern, 1-char pattern, empty seq, pattern = seq |
 | 9 | ☑ | PAT-APPROX-001 | Matching | BE, MC | Empty strings, unequal lengths, maxDist > len, non-DNA chars |
 | 10 | ☑ | PAT-APPROX-002 | Matching | BE, MC | Empty strings, maxEdits negative, maxEdits > seq len, non-DNA chars |
@@ -154,7 +154,7 @@ Fuzzing подає випадкові, невалідні або граничн�
 | 124 | ☑ | SEQ-MW-001 | Statistics | BE, MC | empty, unknown residue, single base, very long |
 | 125 | ☑ | SEQ-PI-001 | Statistics | BE | no charged residues, all-acidic, all-basic, empty |
 | 126 | ☑ | SEQ-SECSTRUCT-001 | Statistics | BE, MC | empty, single residue, unknown residue |
-| 127 | ☑ | SEQ-STATS-001 | Statistics | BE | empty, all-N, lowercase, mixed alphabet |
+| 127 | ☐ | SEQ-STATS-001 | Statistics | BE | empty, all-N, lowercase, mixed alphabet |
 | 128 | ☑ | SEQ-SUMMARY-001 | Statistics | BE | empty, single base, very long, mixed case |
 | 129 | ☑ | SEQ-THERMO-001 | Statistics | BE | empty, single base, all-AT, all-GC |
 | 130 | ☑ | SEQ-TM-001 | Statistics | BE | empty, single base, all-AT, all-GC, non-ACGT |
@@ -214,7 +214,7 @@ Fuzzing подає випадкові, невалідні або граничн�
 | 184 | ☑ | EPIGEN-DMR-001 | Epigenetics | BE | identical methylomes, threshold edge, single site |
 | 185 | ☑ | EPIGEN-METHYL-001 | Epigenetics | BE | no reads, all-methylated, zero coverage |
 | 186 | ☑ | VARIANT-ANNOT-001 | Variants | MC | out-of-bounds, unknown consequence, empty |
-| 187 | ☑ | VARIANT-CALL-001 | Variants | BE | zero depth, tumor=normal, all-N |
+| 187 | ☐ | VARIANT-CALL-001 | Variants | BE | zero depth, tumor=normal, all-N |
 | 188 | ☑ | VARIANT-INDEL-001 | Variants | BE | length-0 indel, indel at edge, empty |
 | 189 | ☑ | VARIANT-SNP-001 | Variants | BE | ref=alt, multi-allelic, zero depth |
 | 190 | ☑ | PANGEN-CLUSTER-001 | PanGenome | BE | single gene, all-identical, identity edge |
@@ -270,8 +270,8 @@ Fuzzing подає випадкові, невалідні або граничн�
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 224 |
-| ☐ Not started | 10 |
+| ☑ Complete | 220 |
+| ☐ Not started | 14 |
 | High-priority (parsers + validation) | 12 |
 | Medium-priority (boundary inputs) | 45 |
 | Lower-priority (algorithm-specific edge cases) | 29 |
