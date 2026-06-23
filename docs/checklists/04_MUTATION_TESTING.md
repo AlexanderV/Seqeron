@@ -240,9 +240,9 @@ Mutation testing вимірює ефективність тестового на
 | 210 | ☑ | SEQ-ATSKEW-001 | Composition | GcSkewCalculator.cs | GcSkewCalculator_CalculateAtSkew_Tests.cs | ≥ 80% |
 | 211 | ☑ | SEQ-REPLICATION-001 | Composition | GcSkewCalculator.cs | GcSkewCalculator_PredictReplicationOrigin_Tests.cs | ≥ 80% |
 | 212 | ☑ | SEQ-RNACOMP-001 | Composition | SequenceExtensions.cs | SequenceExtensions_GetRnaComplementBase_Tests.cs | ≥ 80% |
-| 213 | ☐ | CODON-ENC-001 | Codon | CodonUsageAnalyzer.cs | CodonUsageAnalyzer_CalculateEnc_Tests.cs | ≥ 80% |
-| 214 | ☐ | CODON-RSCU-001 | Codon | CodonUsageAnalyzer.cs | CodonUsageAnalyzer_CalculateRscu_Tests.cs | ≥ 80% |
-| 215 | ☐ | CODON-STATS-001 | Codon | CodonUsageAnalyzer.cs | CodonUsageAnalyzer_GetStatistics_Tests.cs | ≥ 80% |
+| 213 | ☑ | CODON-ENC-001 | Codon | CodonUsageAnalyzer.cs | CodonUsageAnalyzer_CalculateEnc_Tests.cs | ≥ 80% |
+| 214 | ☑ | CODON-RSCU-001 | Codon | CodonUsageAnalyzer.cs | CodonUsageAnalyzer_CalculateRscu_Tests.cs | ≥ 80% |
+| 215 | ☑ | CODON-STATS-001 | Codon | CodonUsageAnalyzer.cs | CodonUsageAnalyzer_GetStatistics_Tests.cs | ≥ 80% |
 | 216 | ☑ | ANNOT-CODING-001 | Annotation | GenomeAnnotator.cs | GenomeAnnotator_CalculateCodingPotential_Tests.cs | ≥ 80% |
 | 217 | ☑ | ANNOT-CODONUSAGE-001 | Annotation | GenomeAnnotator.cs | GenomeAnnotator_GetCodonUsage_Tests.cs | ≥ 80% |
 | 218 | ☑ | ANNOT-REPEAT-001 | Annotation | GenomeAnnotator.cs | GenomeAnnotator_FindRepetitiveElements_Tests.cs | ≥ 80% |
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 229 |
-| ☐ Not started | 5 |
+| ☑ Complete (run + killers written) | 232 |
+| ☐ Not started | 2 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
