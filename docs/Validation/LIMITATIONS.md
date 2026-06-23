@@ -23,7 +23,7 @@ limitations are tracked separately as the "Deferred BIG fixes" backlog in the le
 
 | Unit(s) | Not implemented | Note |
 |---------|-----------------|------|
-| RNA-STRUCT-001 | Pseudoknot classes beyond the canonical single H-type (recursive / multiple / over-arching knots, kissing hairpins, non-canonical bulged or unequal-length helices); tertiary-stabilised knots as the MFE structure | The canonical H-type class is predicted (RNA-PKPREDICT-001); beyond it the full pknotsRG O(n⁴) grammar is a different complexity tier, and tertiary-stabilised knots (e.g. BWYV / PDB 437D) are not recoverable by *any* nearest-neighbour thermodynamic model — a different energy class, not specific to this library. |
+| RNA-STRUCT-001 | Pseudoknot classes outside the pknotsRG canonical csr-PK grammar (kissing hairpins, triple-crossing / chained "complex" helix interactions, non-canonical bulged or unequal-length helices); tertiary-stabilised knots as the MFE structure | Classes Reeder & Giegerich (2004) explicitly exclude from csr-PK; and tertiary-stabilised knots (e.g. BWYV / PDB 437D) are not recoverable by *any* nearest-neighbour thermodynamic model — an energy-model floor, not an algorithm gap. (csr-PK incl. nested/multiple/over-arching knots is handled — RNA-PKPREDICT-001 / RNA-PKRECURSIVE-001.) |
 
 ## 2. "Threshold / aggregation / framework" layers — they classify or combine caller-supplied inputs, they do not predict upstream
 

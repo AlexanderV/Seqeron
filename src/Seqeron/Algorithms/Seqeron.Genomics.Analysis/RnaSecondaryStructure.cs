@@ -2792,4 +2792,314 @@ public static class RnaSecondaryStructure
     }
 
     #endregion
+
+    #region Pseudoknot Prediction (recursive pknotsRG grammar — nested / multiple knots)
+
+    // Per Reeder & Giegerich (2004) BMC Bioinformatics 5:104 (PMC514697), a *simple recursive*
+    // pseudoknot is "two crossing helices with three intervening loops u, v, w" where "we allow the
+    // unpaired strands u, v, w in a simple pseudoknot to fold internally in an arbitrary way,
+    // INCLUDING simple recursive pseudoknots." The pknotsRG O(n⁴)/O(n²) DP folds the WHOLE sequence
+    // so the pseudoknot value "competes with values of unknotted foldings for the interval (i, j)"
+    // (Reeder & Giegerich 2007, NAR 35:W320, PMC1933184) — hence the optimal structure may contain
+    // SEVERAL pseudoknots in different regions and pseudoknots nested inside the loops of an outer
+    // structure. This method realises that recursion; PredictStructurePseudoknot (single top-level
+    // H-type) is left unchanged. Energy parameters are the SAME already-sourced ones: Turner-2004
+    // stacking (CalculateStemEnergy), pseudoknot initiation 9.0 kcal/mol, 0.3 kcal/mol per unpaired
+    // pseudoknot-loop nucleotide, 0.0 for base pairs inside the knot (no new parameter introduced).
+
+    /// <summary>
+    /// Predicts an RNA secondary structure that may contain MULTIPLE and RECURSIVELY-NESTED
+    /// canonical H-type pseudoknots, applying the recursive pknotsRG grammar of Reeder &amp;
+    /// Giegerich (2004) throughout the sequence rather than only to a single top-level knot.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The whole sequence is folded by a memoised interval recurrence
+    /// <c>F(i,j)</c> = best ΔG over the closed interval <c>[i,j]</c>, where each interval may
+    /// decompose into a chain of side-by-side components and each component is EITHER a
+    /// pseudoknot-free block (the existing Zuker–Stiegler MFE, <see cref="CalculateMfeStructure"/>)
+    /// OR a canonical H-type pseudoknot whose three loops <c>u,v,w</c> fold by the SAME recurrence
+    /// <c>F</c> — so a loop may itself contain further pseudoknots. The pseudoknot value competes
+    /// with the unknotted value at every interval (Reeder &amp; Giegerich 2004/2007), so the optimum
+    /// can contain several knots and nested knots; a knot is taken only when it lowers ΔG (the
+    /// 9 kcal/mol initiation penalty suppresses spurious knots).
+    /// </para>
+    /// <para>
+    /// Energy model is unchanged from <see cref="PredictStructurePseudoknot"/>: Turner-2004
+    /// nearest-neighbour stacking for both helices (<see cref="CalculateStemEnergy"/>), pknotsRG
+    /// initiation 9.0 kcal/mol, 0.3 kcal/mol per unpaired pseudoknot-loop nucleotide, 0.0 per
+    /// in-knot base pair. No new energy parameter is introduced.
+    /// </para>
+    /// <para>
+    /// Scope (PARTIAL, documented): the canonical csr-PK class of pknotsRG. NOT in this class and
+    /// therefore not predicted — kissing hairpins, triple-crossing / chained ("complex") helix
+    /// interactions, and bulged/unequal-length pseudoknot helices (canonization rule 1), per Reeder
+    /// &amp; Giegerich (2004). Tertiary-stabilised knots (e.g. BWYV / PDB 437D) are not recoverable by
+    /// any nearest-neighbour thermodynamic model — an energy-model floor, not an algorithm gap.
+    /// To bound the cost the H-type helix start/end scan is enumerated explicitly (see remarks on
+    /// <see cref="PredictStructurePseudoknot"/>); intervals shorter than the minimum knot length
+    /// fold pseudoknot-free.
+    /// </para>
+    /// </remarks>
+    /// <param name="rnaSequence">RNA (or DNA; T read as U) sequence; case-insensitive.</param>
+    /// <param name="minLoopSize">Minimum hairpin loop size for the nested folds (NNDB minimum 3).</param>
+    /// <returns>
+    /// The best structure; for null/empty/too-short input, an empty pseudoknot-free structure
+    /// (no pairs, all dots, ΔG = 0). <see cref="PseudoknotStructure.HasPseudoknot"/> is true iff at
+    /// least one crossing (pseudoknotted) helix is present.
+    /// </returns>
+    public static PseudoknotStructure PredictStructurePseudoknotRecursive(string rnaSequence, int minLoopSize = 3)
+    {
+        if (minLoopSize < 3) minLoopSize = 3;
+
+        // Plain MFE is the baseline / fallback and parity with the single-knot method's empty cases.
+        var mfe = CalculateMfeStructure(rnaSequence, minLoopSize);
+        string seq = mfe.Sequence;
+        int n = seq.Length;
+
+        const int MinPseudoknotLength = 2 * (2 * Pseudoknot_MinStemPairs) + 3 * Pseudoknot_MinLoop;
+        if (n < MinPseudoknotLength)
+            return new PseudoknotStructure(seq, mfe.DotBracket, mfe.BasePairs, mfe.FreeEnergy, HasPseudoknot: false);
+
+        var folder = new RecursivePkFolder(seq, n, minLoopSize);
+        var (energy, pairs, knotPairs) = folder.Fold(0, n - 1);
+
+        // Never return a structure worse than the plain pseudoknot-free MFE (always-available fallback).
+        if (energy > mfe.FreeEnergy - Dp_TraceEps)
+            return new PseudoknotStructure(seq, mfe.DotBracket, mfe.BasePairs, mfe.FreeEnergy, HasPseudoknot: false);
+
+        pairs.Sort((a, b) => a.Item1.CompareTo(b.Item1));
+        bool hasPk = knotPairs.Count > 0;
+        string dotBracket = hasPk
+            ? GeneratePseudoknotDotBracket(n, pairs, knotPairs)
+            : GenerateFullDotBracket(n, pairs);
+
+        return new PseudoknotStructure(seq, dotBracket, pairs, Math.Round(energy, 2), HasPseudoknot: hasPk);
+    }
+
+    // Memoised interval folder implementing the recursive pknotsRG decomposition. F(i,j) is the best
+    // ΔG over the closed interval [i,j]; each interval chains components left-to-right, each component
+    // being a pseudoknot-free block (Zuker MFE on the sub-span) OR a canonical H-type knot whose three
+    // loops fold by F again (so loops may contain further knots). Memoisation on (i,j) keeps the whole
+    // recursion within the pknotsRG O(n⁴)-time / O(n²)-space envelope for the canonical class.
+    private sealed class RecursivePkFolder
+    {
+        private readonly string _seq;
+        private readonly int _n;
+        private readonly int _minLoopSize;
+        // Memo over (i,j): cached best energy and the chosen pairs / crossing-pairs for that interval.
+        private readonly Dictionary<(int, int), (double Energy, List<(int, int)> Pairs, HashSet<(int, int)> Knot)> _memo
+            = new();
+
+        internal RecursivePkFolder(string seq, int n, int minLoopSize)
+        {
+            _seq = seq;
+            _n = n;
+            _minLoopSize = minLoopSize;
+        }
+
+        // Best fold of the closed interval [i, j]. Returns ΔG, the absolute-coordinate pairs, and the
+        // subset of those pairs that belong to a crossing (pseudoknot) helix (the []-layer).
+        internal (double Energy, List<(int, int)> Pairs, HashSet<(int, int)> Knot) Fold(int i, int j)
+        {
+            if (j < i) return (0.0, new List<(int, int)>(), new HashSet<(int, int)>());
+            if (_memo.TryGetValue((i, j), out var cached)) return cached;
+
+            int len = j - i + 1;
+            string sub = _seq.Substring(i, len);
+
+            // Component 1: the whole interval folds pseudoknot-free (Zuker–Stiegler MFE). This is the
+            // baseline the pseudoknot must beat, and the only option for intervals too short to knot.
+            var nested = CalculateMfeStructure(sub, _minLoopSize);
+            double bestEnergy = nested.FreeEnergy;
+            var bestPairs = new List<(int, int)>(nested.BasePairs.Count);
+            foreach (var (a, b) in nested.BasePairs) bestPairs.Add((i + a, i + b));
+            var bestKnot = new HashSet<(int, int)>();
+
+            // Component 2: an H-type knot occupies [i, kEnd] and the remainder [kEnd+1, j] folds by F.
+            // The knot's first helix necessarily starts at i (left-anchored component); we scan the
+            // knot's end kEnd and its inner boundaries, scoring loops recursively via F.
+            const int MinPseudoknotLength = 2 * (2 * Pseudoknot_MinStemPairs) + 3 * Pseudoknot_MinLoop;
+            if (len >= MinPseudoknotLength)
+            {
+                TryKnotAnchoredAt(i, j, ref bestEnergy, ref bestPairs, ref bestKnot);
+            }
+
+            // Component 3: an enclosing helix a·a' (i pairs k, maximally extended) whose ENCLOSED region
+            // folds RECURSIVELY by F — this is the production that lets an outer helix overarch a
+            // pseudoknot (a knot inside the loop of an outer structure). Without it the enclosed region
+            // would only fold pseudoknot-free (Component 1). The helix is scored with Turner stacking
+            // (CalculateStemEnergy); its interior [i+L .. k-L] and the tail [k+1 .. j] fold by F.
+            for (int k = j; k >= i + 2 * Pseudoknot_MinStemPairs + _minLoopSize; k--)
+            {
+                int hl = MaxHelixLength(_seq, i, k, _n);
+                if (hl < Pseudoknot_MinStemPairs) continue;
+                int innerStart = i + hl;
+                int innerEnd = k - hl;
+                if (innerEnd - innerStart + 1 < _minLoopSize) continue; // need a foldable loop inside
+
+                var helix = new List<BasePair>(hl);
+                for (int t = 0; t < hl; t++)
+                {
+                    int p5 = i + t, p3 = k - t;
+                    helix.Add(new BasePair(p5, p3, _seq[p5], _seq[p3], GetBasePairType(_seq[p5], _seq[p3]) ?? BasePairType.NonCanonical));
+                }
+                double helixE = CalculateStemEnergy(_seq, helix);
+
+                var inner = Fold(innerStart, innerEnd);
+                var tail = Fold(k + 1, j);
+                // Only worth pursuing when the enclosed region is itself knotted (otherwise Component 1
+                // already covers the pseudoknot-free enclosing structure at least as well).
+                if (inner.Knot.Count == 0) continue;
+
+                double total = helixE + inner.Energy + tail.Energy;
+                if (total < bestEnergy - Dp_TraceEps)
+                {
+                    bestEnergy = total;
+                    var pairs = new List<(int, int)>(helix.Count + inner.Pairs.Count + tail.Pairs.Count);
+                    foreach (var bp in helix) pairs.Add((bp.Position1, bp.Position2));
+                    pairs.AddRange(inner.Pairs);
+                    pairs.AddRange(tail.Pairs);
+                    var knotSet = new HashSet<(int, int)>(inner.Knot);
+                    foreach (var kp in tail.Knot) knotSet.Add(kp);
+                    bestPairs = pairs;
+                    bestKnot = knotSet;
+                }
+            }
+
+            // Also allow i to be unpaired and the rest to fold (covers single-stranded prefixes that the
+            // nested MFE already handles, but keeps the chain decomposition complete and minimal-cost).
+            if (len >= 1)
+            {
+                var rest = Fold(i + 1, j);
+                if (rest.Energy < bestEnergy - Dp_TraceEps)
+                {
+                    bestEnergy = rest.Energy;
+                    bestPairs = new List<(int, int)>(rest.Pairs);
+                    bestKnot = new HashSet<(int, int)>(rest.Knot);
+                }
+            }
+
+            var result = (bestEnergy, bestPairs, bestKnot);
+            _memo[(i, j)] = result;
+            return result;
+        }
+
+        // Scans canonical H-type knots whose stem-1 5' strand starts at i and whose 3' extent ends at
+        // some kEnd ≤ j, with the remainder (kEnd+1..j) folded by F. The three loops u,v,w fold by F
+        // (recursive: they may contain further knots). Updates the best fold in place.
+        private void TryKnotAnchoredAt(
+            int i, int j,
+            ref double bestEnergy, ref List<(int, int)> bestPairs, ref HashSet<(int, int)> bestKnot)
+        {
+            // a' 3' end (kEnd) ranges within the interval; the helix a/a' is maximally extended (rule 2).
+            for (int aPrimeEnd = i + 2 * Pseudoknot_MinStemPairs + 2; aPrimeEnd <= j; aPrimeEnd++)
+            {
+                int l1 = MaxHelixLength(_seq, i, aPrimeEnd, _n);
+                if (l1 < Pseudoknot_MinStemPairs) continue;
+
+                int aLast5 = i + l1 - 1;
+                int aPrimeStart = aPrimeEnd - l1 + 1;
+                if (aPrimeStart <= aLast5 + 1) continue;
+
+                // Stem 2 (b): 5' strand starts at q inside a's span; 3' strand (b') ends at r in
+                // (aPrimeEnd, j], so b crosses a. b' must stay within the knot's right boundary r ≤ j.
+                for (int q = aLast5 + 1 + Pseudoknot_MinLoop; q < aPrimeStart; q++)
+                {
+                    for (int r = aPrimeEnd + 1 + Pseudoknot_MinLoop; r <= j; r++)
+                    {
+                        int l2 = MaxHelixLength(_seq, q, r, _n);
+                        if (l2 < Pseudoknot_MinStemPairs) continue;
+
+                        int bLast5 = q + l2 - 1;
+                        int bPrimeStart = r - l2 + 1;
+                        if (bLast5 >= aPrimeStart) continue;   // overlap with a' (rule 3)
+                        if (bPrimeStart <= aPrimeEnd) continue; // overlap with a' (rule 3)
+
+                        var knot = EvaluateHTypeRecursive(
+                            i, aLast5, aPrimeStart, aPrimeEnd, l1,
+                            q, bLast5, bPrimeStart, r, l2);
+                        if (knot is not { } k) continue;
+
+                        // Remainder of the interval after the knot's right boundary r folds by F.
+                        var tail = Fold(r + 1, j);
+                        double total = k.Energy + tail.Energy;
+                        if (total < bestEnergy - Dp_TraceEps)
+                        {
+                            bestEnergy = total;
+                            var pairs = new List<(int, int)>(k.Pairs);
+                            pairs.AddRange(tail.Pairs);
+                            var knotSet = new HashSet<(int, int)>(k.Stem2Pairs);
+                            foreach (var kp in tail.Knot) knotSet.Add(kp);
+                            bestPairs = pairs;
+                            bestKnot = knotSet;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Scores one canonical H-type knot whose three loops u,v,w fold RECURSIVELY via F (so a loop
+        // may contain a further pseudoknot). Energy = Turner stacking(a) + stacking(b) + 9.0 init +
+        // Σ over loops [ F(loop) + 0.3·(unpaired nts in that loop) ]. Returns null if a loop span is
+        // malformed. Mirrors EvaluateHType but recurses into the loops instead of pseudoknot-free MFE.
+        private (double Energy, List<(int, int)> Pairs, HashSet<(int, int)> Stem2Pairs)? EvaluateHTypeRecursive(
+            int i, int aLast5, int aPrimeStart, int aPrimeEnd, int l1,
+            int q, int bLast5, int bPrimeStart, int r, int l2)
+        {
+            var stemA = new List<BasePair>(l1);
+            for (int t = 0; t < l1; t++)
+            {
+                int p5 = i + t, p3 = aPrimeEnd - t;
+                stemA.Add(new BasePair(p5, p3, _seq[p5], _seq[p3], GetBasePairType(_seq[p5], _seq[p3]) ?? BasePairType.NonCanonical));
+            }
+            var stemB = new List<BasePair>(l2);
+            for (int t = 0; t < l2; t++)
+            {
+                int p5 = q + t, p3 = r - t;
+                stemB.Add(new BasePair(p5, p3, _seq[p5], _seq[p3], GetBasePairType(_seq[p5], _seq[p3]) ?? BasePairType.NonCanonical));
+            }
+
+            double energy = Pseudoknot_InitiationPenalty;
+            energy += CalculateStemEnergy(_seq, stemA);
+            energy += CalculateStemEnergy(_seq, stemB);
+
+            var pairs = new List<(int, int)>(l1 + l2);
+            var stem2Pairs = new HashSet<(int, int)>();
+            foreach (var bp in stemA) pairs.Add((bp.Position1, bp.Position2));
+            foreach (var bp in stemB) { pairs.Add((bp.Position1, bp.Position2)); stem2Pairs.Add((bp.Position1, bp.Position2)); }
+
+            // The three connecting loops fold RECURSIVELY (this is the recursive-grammar extension):
+            //   loop1 (u): (aLast5+1 .. q-1); loop2 (v): (bLast5+1 .. aPrimeStart-1);
+            //   loop3 (w): (aPrimeEnd+1 .. bPrimeStart-1). Each unpaired nt costs 0.3 (pknotsRG).
+            energy += ScoreLoopRecursive(aLast5 + 1, q - 1, pairs, stem2Pairs);
+            energy += ScoreLoopRecursive(bLast5 + 1, aPrimeStart - 1, pairs, stem2Pairs);
+            energy += ScoreLoopRecursive(aPrimeEnd + 1, bPrimeStart - 1, pairs, stem2Pairs);
+
+            return (Math.Round(energy, 2), pairs, stem2Pairs);
+        }
+
+        // Scores one connecting loop span [start..end] by the SAME recursive folder F, so a loop may
+        // itself contain a pseudoknot (the recursive-pknotsRG case). Pairs found are added at absolute
+        // coordinates; nucleotides left unpaired by F are charged 0.3 kcal/mol each (pknotsRG). Any
+        // crossing pairs discovered inside the loop are merged into the knot ([]) layer. Empty span → 0.
+        private double ScoreLoopRecursive(int start, int end, List<(int, int)> pairs, HashSet<(int, int)> knotLayer)
+        {
+            if (end < start) return 0.0;
+            int len = end - start + 1;
+
+            var fold = Fold(start, end);
+            int pairedNts = 0;
+            foreach (var (a, b) in fold.Pairs)
+            {
+                pairs.Add((a, b));
+                pairedNts += 2;
+            }
+            foreach (var kp in fold.Knot) knotLayer.Add(kp);
+            int unpaired = len - pairedNts;
+            return fold.Energy + Pseudoknot_UnpairedLoopPenalty * unpaired;
+        }
+    }
+
+    #endregion
 }
