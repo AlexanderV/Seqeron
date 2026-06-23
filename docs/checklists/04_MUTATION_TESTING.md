@@ -174,7 +174,7 @@ Mutation testing вимірює ефективність тестового на
 | 144 | ☑ | ASSEMBLY-MERGE-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_MergeContigs_Tests.cs | ≥ 80% |
 | 145 | ☑ | ASSEMBLY-OLC-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_AssembleOLC_Tests.cs | ≥ 80% |
 | 146 | ☑ | ASSEMBLY-SCAFFOLD-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_Scaffold_Tests.cs | ≥ 80% |
-| 147 | ☐ | ASSEMBLY-STATS-001 | Assembly | GenomeAssemblyAnalyzer.cs | GenomeAssemblyAnalyzer_AssemblyStatistics_Tests.cs | ≥ 80% |
+| 147 | ☑ | ASSEMBLY-STATS-001 | Assembly | GenomeAssemblyAnalyzer.cs | GenomeAssemblyAnalyzer_AssemblyStatistics_Tests.cs | ≥ 80% |
 | 148 | ☑ | ASSEMBLY-TRIM-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_QualityTrimReads_Tests.cs | ≥ 80% |
 | 149 | ☑ | RNA-DOTBRACKET-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructure_ParseDotBracket_Tests.cs | ≥ 80% |
 | 150 | ☑ | RNA-HAIRPIN-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructure_HairpinEnergy_Tests.cs | ≥ 80% |
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 203 |
-| ☐ Not started | 31 |
+| ☑ Complete (run + killers written) | 204 |
+| ☐ Not started | 30 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
