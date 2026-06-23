@@ -213,7 +213,7 @@ Mutation testing вимірює ефективність тестового на
 | 183 | ☑ | EPIGEN-CHROM-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_ChromatinState_Tests.cs | ≥ 80% |
 | 184 | ☑ | EPIGEN-DMR-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_DMR_Tests.cs | ≥ 80% |
 | 185 | ☑ | EPIGEN-METHYL-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_Methylation_Tests.cs | ≥ 80% |
-| 186 | ☐ | VARIANT-ANNOT-001 | Variants | VariantAnnotator.cs | VariantAnnotator_FunctionalImpact_Tests.cs | ≥ 80% |
+| 186 | ☑ | VARIANT-ANNOT-001 | Variants | VariantAnnotator.cs | VariantAnnotator_FunctionalImpact_Tests.cs | ≥ 80% |
 | 187 | ☑ | VARIANT-CALL-001 | Variants | VariantCaller.cs | VariantCaller_CallVariants_Tests.cs | ≥ 80% |
 | 188 | ☑ | VARIANT-INDEL-001 | Variants | VariantCaller.cs | VariantCaller_FindIndels_Tests.cs | ≥ 80% |
 | 189 | ☑ | VARIANT-SNP-001 | Variants | VariantCaller.cs | VariantCaller_FindSnps_Tests.cs | ≥ 80% |
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 222 |
-| ☐ Not started | 12 |
+| ☑ Complete (run + killers written) | 223 |
+| ☐ Not started | 11 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
