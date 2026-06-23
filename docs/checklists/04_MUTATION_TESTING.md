@@ -225,9 +225,9 @@ Mutation testing вимірює ефективність тестового на
 | 195 | ☑ | META-PATHWAY-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_FindPathwayEnrichment_Tests.cs | ≥ 80% |
 | 196 | ☑ | META-RESIST-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_FindAntibioticResistanceGenes_Tests.cs | ≥ 80% |
 | 197 | ☑ | META-TAXA-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_FindSignificantTaxa_Tests.cs | ≥ 80% |
-| 198 | ☐ | TRANS-DIFF-001 | Transcriptome | TranscriptomeAnalyzer.cs | TranscriptomeAnalyzer_DifferentialExpression_Tests.cs | ≥ 80% |
-| 199 | ☐ | TRANS-EXPR-001 | Transcriptome | TranscriptomeAnalyzer.cs | TranscriptomeAnalyzer_ExpressionQuantification_Tests.cs | ≥ 80% |
-| 200 | ☐ | TRANS-SPLICE-001 | Transcriptome | TranscriptomeAnalyzer.cs | TranscriptomeAnalyzer_AlternativeSplicing_Tests.cs | ≥ 80% |
+| 198 | ☑ | TRANS-DIFF-001 | Transcriptome | TranscriptomeAnalyzer.cs | TranscriptomeAnalyzer_DifferentialExpression_Tests.cs | ≥ 80% |
+| 199 | ☑ | TRANS-EXPR-001 | Transcriptome | TranscriptomeAnalyzer.cs | TranscriptomeAnalyzer_ExpressionQuantification_Tests.cs | ≥ 80% |
+| 200 | ☑ | TRANS-SPLICE-001 | Transcriptome | TranscriptomeAnalyzer.cs | TranscriptomeAnalyzer_AlternativeSplicing_Tests.cs | ≥ 80% |
 | 201 | ☐ | SV-BREAKPOINT-001 | StructuralVar | StructuralVariantAnalyzer.cs | StructuralVariantAnalyzer_FindBreakpoints_Tests.cs | ≥ 80% |
 | 202 | ☐ | SV-CNV-001 | StructuralVar | StructuralVariantAnalyzer.cs | StructuralVariantAnalyzer_DetectCNV_Tests.cs | ≥ 80% |
 | 203 | ☐ | SV-DETECT-001 | StructuralVar | StructuralVariantAnalyzer.cs | StructuralVariantAnalyzer_DetectSVs_Tests.cs | ≥ 80% |
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 223 |
-| ☐ Not started | 11 |
+| ☑ Complete (run + killers written) | 226 |
+| ☐ Not started | 8 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
