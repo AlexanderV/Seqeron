@@ -121,7 +121,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 91 | ☑ | ONCO-ANNOT-001 | Oncology | INV: uniform identity shift carries annotations equally (no coordinate field; identity is the analog); INV: variant order independent |
 | 92 | ☑ | ONCO-TMB-001 | Oncology | INV: doubling panel-Mb and mutations → same TMB density; MON: +1 coding mutation → ≥ TMB; INV: order independent |
 | 93 | ☑ | ONCO-MSI-001 | Oncology | MON: more unstable loci → ≥ MSI score; INV: locus order independent |
-| 94 | ☑ | ONCO-HRD-001 | Oncology | MON: adding an LOH/TAI/LST event → ≥ HRD; INV: event order independent |
+| 94 | ☐ | ONCO-HRD-001 | Oncology | MON: adding an LOH/TAI/LST event → ≥ HRD; INV: event order independent |
 | 95 | ☑ | ONCO-LOH-001 | Oncology | INV: allele symmetry (retained-allele value irrelevant) + segment order; MON: looser size criterion / more regions → superset (CN-based, not BAF) |
 | 96 | ☑ | ONCO-SIG-001 | Oncology | INV: reverse-complementing a variant maps to the same pyrimidine channel; INV: variant order independent |
 | 97 | ☑ | ONCO-SIG-002 | Oncology | INV: scaling the catalogue by k scales exposures by k; MON: adding signature-consistent mutations → ≥ that exposure |

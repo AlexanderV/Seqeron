@@ -37,7 +37,7 @@ validated clinical-grade predictors.**
 |------|----------------------|-----------------------------------|
 | ONCO-SIG-002/003/004 | NNLS signature **refitting**, bootstrap CIs, aetiology mapping | **De-novo signature extraction (NMF)** is not implemented — reference signatures are an input. |
 | ONCO-MHC-001 | Strong/weak-binder **classification** by IC50 / %Rank cutoffs | The **affinity / %Rank prediction** (NetMHCpan-style learned model) — supplied by caller. |
-| ONCO-HRD-001 | HRD score = LOH + TAI + LST, ≥42 cutoff | The three component scores are **inputs** (per-segment derivation is ONCO-LOH/CNA). |
+| ONCO-HRD-001 | HRD score = LOH + TAI + LST, ≥42 cutoff; **LOH derived from allele-specific segments** end-to-end (`DetectHRD(segments,tai,lst)`, Abkevich 2012 / scarHRD `calc.hrd`) | TAI and LST remain **caller-supplied**: their faithful derivation (scarHRD `calc.ai_new` / `calc.lst`) needs scarHRD's exact per-build centromere `chrominfo` table, which ships only as binary `sysdata.rda` and could not be retrieved/cross-verified, so they are not approximated. |
 | ONCO-PURITY/PLOIDY/CCF/CLONAL | Purity/ploidy/CCF formulas + clonal rule | Allele-specific CN segments, multiplicity, VAF — supplied. |
 | EPIGEN-AGE-001 | Horvath `anti.trafo` + linear predictor + **embedded published 353-CpG multi-tissue clock** (intercept 0.695507258, Additional file 3, cross-verified) | Only the **multi-tissue** clock is embedded; the skin-&-blood (2018) and PhenoAge (2018) clocks use the caller-supplied-coefficients overload. |
 | ONCO-CHIP-001 | CHIP filter (gene panel + ≥2% VAF + WBC subtraction) | Origin call uses a **gene+VAF heuristic** where matched-WBC data is absent (over-removes vs strict matched-WBC origin). |

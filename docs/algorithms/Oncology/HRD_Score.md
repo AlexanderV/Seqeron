@@ -6,11 +6,11 @@
 | Test Unit ID | ONCO-HRD-001 |
 | Related Projects | Seqeron.Genomics.Oncology |
 | Implementation Status | Simplified |
-| Last Reviewed | 2026-06-14 |
+| Last Reviewed | 2026-06-23 |
 
 ## 1. Overview
 
-The HRD score is a composite genomic-instability biomarker used to identify tumours with homologous-recombination repair deficiency (e.g. *BRCA1/2*, *PALB2*), which predicts response to platinum chemotherapy and PARP inhibitors. It is the unweighted sum of three independent genomic-scar metrics: loss of heterozygosity (LOH), telomeric allelic imbalance (TAI), and large-scale state transitions (LST) [1]. A tumour is classified HRD-high when the sum is at or above a fixed clinical cutoff of 42 [1]. This implementation is specification-driven and exact: it computes the composite sum and the threshold classification from the three already-computed component counts.
+The HRD score is a composite genomic-instability biomarker used to identify tumours with homologous-recombination repair deficiency (e.g. *BRCA1/2*, *PALB2*), which predicts response to platinum chemotherapy and PARP inhibitors. It is the unweighted sum of three independent genomic-scar metrics: loss of heterozygosity (LOH), telomeric allelic imbalance (TAI), and large-scale state transitions (LST) [1]. A tumour is classified HRD-high when the sum is at or above a fixed clinical cutoff of 42 [1]. This implementation computes the composite sum and the threshold classification, and additionally **derives the HRD-LOH component end-to-end from allele-specific copy-number segments** (Abkevich 2012 / scarHRD `calc.hrd` [2][7]); the TAI and LST components remain caller-supplied because their faithful derivation requires scarHRD's exact binary centromere coordinate table (see §5.3 / §6.2).
 
 ## 2. Scientific / Formal Basis
 
@@ -47,6 +47,7 @@ status = HRD-high   if HRD ≥ 42
 | INV-02 | Sum is order-independent (commutative) | integer addition; "unweighted" [1] |
 | INV-03 | status = HRD-high iff score ≥ 42 (inclusive) | Telli 2016 cutoff "≥42" [1] |
 | INV-04 | score ≥ 0 and each component ≥ 0 | components are event counts [2][3][4] |
+| INV-05 | `DetectHRD(segments, tai, lst).Components.Loh == DetectLOH(segments).Score` | LOH derived from segments, not supplied [2][7] |
 
 ## 3. Contract
 
@@ -59,6 +60,7 @@ status = HRD-high   if HRD ≥ 42
 | lst | int | required | LST component count | ≥ 0 |
 | score | int | required | combined HRD score for classification | ≥ 0 |
 | components | HrdComponents | required | bundle of (Loh, Tai, Lst) for `DetectHRD` | each ≥ 0 |
+| segments | IEnumerable&lt;AlleleSpecificSegment&gt; | required | allele-specific CN segments LOH is derived from (`DetectHRD(segments,tai,lst)`) | non-null; End > Start; CN ≥ 0 |
 
 ### 3.2 Output / Return Value
 
@@ -67,10 +69,11 @@ status = HRD-high   if HRD ≥ 42
 | CalculateHRDScore | int | combined score = loh + tai + lst |
 | ClassifyHRDStatus | HrdStatus | HrdHigh (≥ 42) or HrdNegative |
 | DetectHRD | HrdResult | components, summed score, and status |
+| DetectHRD(segments,tai,lst) | HrdResult | LOH derived from segments + caller-supplied TAI/LST, summed score, and status |
 
 ### 3.3 Preconditions and Validation
 
-Any negative component count throws `ArgumentOutOfRangeException` (`CalculateHRDScore`, `DetectHRD`). A negative score throws `ArgumentOutOfRangeException` (`ClassifyHRDStatus`). The cutoff comparison is inclusive at 42.
+Any negative component count throws `ArgumentOutOfRangeException` (`CalculateHRDScore`, `DetectHRD`). A negative score throws `ArgumentOutOfRangeException` (`ClassifyHRDStatus`). The cutoff comparison is inclusive at 42. The segment-driven `DetectHRD(segments, tai, lst)` throws `ArgumentNullException` for null segments, `ArgumentException` for a segment with non-positive length or negative copy number (via `DetectLOH`), and `ArgumentOutOfRangeException` for a negative `tai`/`lst`.
 
 ## 4. Algorithm
 
@@ -100,26 +103,28 @@ Any negative component count throws `ArgumentOutOfRangeException` (`CalculateHRD
 
 - `OncologyAnalyzer.CalculateHRDScore(int, int, int)`: returns the unweighted sum.
 - `OncologyAnalyzer.ClassifyHRDStatus(int)`: returns `HrdStatus` against the 42 cutoff.
-- `OncologyAnalyzer.DetectHRD(HrdComponents)`: end-to-end sum + classification.
+- `OncologyAnalyzer.DetectHRD(HrdComponents)`: end-to-end sum + classification from supplied counts.
+- `OncologyAnalyzer.DetectHRD(IEnumerable<AlleleSpecificSegment>, int tai, int lst)`: derives the HRD-LOH count from segments via `DetectLOH` (Abkevich 2012 / scarHRD `calc.hrd`), then sums with caller-supplied TAI/LST and classifies.
 
 ### 5.2 Current Behavior
 
-Takes the three component counts as already-computed inputs. The cutoff is exposed as the public constant `HrdHighScoreThreshold = 42`. No search/matching is involved, so the repository suffix tree is not applicable (N/A).
+`CalculateHRDScore` / `ClassifyHRDStatus` / `DetectHRD(HrdComponents)` take the three counts as already-computed inputs. The segment overload `DetectHRD(segments, tai, lst)` derives LOH end-to-end from allele-specific segments (delegating to the scarHRD-faithful `DetectLOH`) while TAI/LST stay caller-supplied (see §5.3). The cutoff is exposed as the public constant `HrdHighScoreThreshold = 42`. LOH derivation reuses the per-chromosome grouping + same-state merge already in the LOH path; no substring/pattern search is involved, so the repository suffix tree is not applicable (N/A).
 
 ### 5.3 Conformance to Theory / Spec
 
 **Implemented (verbatim from the cited theory/spec):**
 
-- HRD = LOH + TAI + LST as an unweighted sum [1].
+- HRD = LOH + TAI + LST as an unweighted sum [1] (scarHRD `scar_score.R`: `sum_HRD0 <- res_lst + res_hrd + res_ai[1]` [7]).
 - HRD-high classification at score ≥ 42, boundary inclusive [1][5].
+- **HRD-LOH derived from allele-specific segments**: `DetectHRD(segments, tai, lst)` derives LOH via `DetectLOH` — LOH regions with minor==0 & major≠0, length > 15 Mb, whole-chromosome-LOH excluded, after same-state merge (Abkevich 2012 [2]; scarHRD `calc.hrd.R` [7]; oncoscanR `score_loh` [6]).
 
 **Intentionally simplified:**
 
-- Component computation from raw segmented copy-number/allelic data (15 Mb LOH segmentation [2][6], sub-telomere/centromere TAI geometry [3], Popova LST smoothing/filtering [4]) is **not** performed here; the three counts are taken as inputs. **Consequence:** callers must supply valid component counts (produced by ONCO-LOH-001 / ONCO-CNA-001 once implemented).
+- TAI and LST are **not** derived from segments; they are taken as caller-supplied counts. **Consequence:** for those two components callers must supply valid counts from an external tool (e.g. scarHRD). See "Not implemented" for why.
 
 **Not implemented:**
 
-- Per-segment LOH/TAI/LST derivation; **users should rely on:** the dependent units ONCO-LOH-001 and ONCO-CNA-001.
+- **Per-segment TAI derivation** (scarHRD `calc.ai_new` [7]) and **per-segment LST derivation** (scarHRD `calc.lst` [7]); **users should rely on:** an external scarHRD run for these two counts. Reason: both require scarHRD's exact per-build centromere/telomere `chrominfo` coordinate table — TAI's telomeric-vs-interstitial classification (`chrominfo[i,2]`/`[i,3]`) and LST's p/q-arm split (`q.arm[1,3] <- chrominfo[i,3]`, `p.arm[nrow,4] <- chrominfo[i,2]`) are sensitive to those coordinates. That table ships only as binary `R/sysdata.rda` and could not be retrieved as a verifiable numeric reference in this session; deriving TAI/LST from an unverified centromere table would not reproduce scarHRD, so it is deliberately not attempted (Evidence §scarHRD point 4).
 
 ## 6. Edge Cases and Limitations
 
@@ -134,7 +139,7 @@ Takes the three component counts as already-computed inputs. The cutoff is expos
 
 ### 6.2 Limitations
 
-Quality of the result depends entirely on the upstream component counts; this unit does not validate their biological derivation. The 42 cutoff is the myChoice/Telli-2016 value validated primarily in breast and ovarian carcinoma [1][5]; tissue-specific cutoffs are out of scope.
+The HRD-LOH component is derived from segments, but TAI and LST are taken as caller-supplied counts; the quality of the final score therefore still depends on the upstream TAI/LST values. Their in-library derivation is blocked on scarHRD's exact centromere `chrominfo` table (binary, not retrievable as a verifiable reference; see §5.3). The 42 cutoff is the myChoice/Telli-2016 value validated primarily in breast and ovarian carcinoma [1][5]; tissue-specific cutoffs are out of scope.
 
 ## 7. Examples and Related Material
 
@@ -143,15 +148,21 @@ Quality of the result depends entirely on the upstream component counts; this un
 **API usage example:**
 
 ```csharp
+// Supplied-components path:
 var result = OncologyAnalyzer.DetectHRD(new OncologyAnalyzer.HrdComponents(Loh: 20, Tai: 15, Lst: 12));
 // result.Score  == 47
 // result.Status == OncologyAnalyzer.HrdStatus.HrdHigh   (47 ≥ 42)
+
+// Segment-driven path: LOH derived from allele-specific segments, TAI/LST supplied:
+var fromSegments = OncologyAnalyzer.DetectHRD(segments, tai: 25, lst: 16);
+// fromSegments.Components.Loh is derived via DetectLOH (scarHRD calc.hrd)
 ```
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_CalculateHRDScore_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CalculateHRDScore_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [OncologyAnalyzer_CalculateHRDScore_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CalculateHRDScore_Tests.cs) — covers `INV-01`–`INV-05`
 - Evidence: [ONCO-HRD-001-Evidence.md](../../../docs/Evidence/ONCO-HRD-001-Evidence.md)
+- Related algorithm: [Loss of Heterozygosity (HRD-LOH)](Loss_Of_Heterozygosity.md) (ONCO-LOH-001) — the derived LOH component
 
 ## 8. References
 
@@ -161,3 +172,4 @@ var result = OncologyAnalyzer.DetectHRD(new OncologyAnalyzer.HrdComponents(Loh: 
 4. Popova T, Manié E, Rieunier G, et al. 2012. Ploidy and large-scale genomic instability consistently identify basal-like breast carcinomas with BRCA1/2 inactivation. Cancer Res 72(21):5454–5462. https://aacrjournals.org/cancerres/article/72/21/5454/576090/
 5. Stewart MD, Merino Vega D, Arend RC, et al. 2022. Homologous Recombination Deficiency: Concepts, Definitions, and Assays. Oncologist 27(3):167–174. https://pmc.ncbi.nlm.nih.gov/articles/PMC8914493/
 6. Christinat Y. oncoscanR `score_loh` documentation. https://rdrr.io/github/yannchristinat/oncoscanR/man/score_loh.html
+7. Sztupinszki Z, Diossy M, Krzystanek M, et al. 2018. scarHRD — reference implementation (`R/calc.hrd.R`, `R/calc.ai_new.R`, `R/calc.lst.R`, `R/scar_score.R`). GitHub. https://github.com/sztup/scarHRD

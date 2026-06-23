@@ -1871,6 +1871,40 @@ public static class OncologyAnalyzer
         return new HrdResult(components, score, ClassifyHRDStatus(score));
     }
 
+    /// <summary>
+    /// End-to-end HRD determination that <b>derives the HRD-LOH component directly from allele-specific
+    /// copy-number segments</b> (via <see cref="DetectLOH(IEnumerable{AlleleSpecificSegment})"/>, the
+    /// Abkevich et al. 2012 / scarHRD <c>calc.hrd</c> rule: LOH regions &gt; 15 Mb that do not span a whole
+    /// chromosome), then sums it with the caller-supplied telomeric-allelic-imbalance (<paramref name="tai"/>)
+    /// and large-scale-state-transition (<paramref name="lst"/>) counts into the combined HRD score and
+    /// classifies it against the myChoice/Telli 2016 cutoff (≥ <see cref="HrdHighScoreThreshold"/>).
+    /// <para>
+    /// TAI and LST remain caller-supplied here because their faithful derivation (scarHRD
+    /// <c>calc.ai_new</c> / <c>calc.lst</c>) requires the exact per-build centromere/telomere
+    /// <c>chrominfo</c> coordinate table that scarHRD ships as binary package data and that could not be
+    /// retrieved as a citable reference table; their telomeric-vs-interstitial classification (TAI) and
+    /// p/q-arm split (LST) are sensitive to those coordinates, so deriving them from an unverified table
+    /// would not reproduce scarHRD. Only the LOH component, whose definition needs no centromere table,
+    /// is derived here. See <c>docs/Validation/LIMITATIONS.md</c> §2 (ONCO-HRD-001).
+    /// </para>
+    /// Source: Telli ML et al. (2016), Clin Cancer Res 22(15):3764–3773 ("unweighted sum of LOH, TAI, and
+    /// LST scores"; "HRD score ≥42"); Abkevich et al. (2012) for the derived LOH component.
+    /// </summary>
+    /// <param name="segments">Allele-specific copy-number segments the HRD-LOH count is derived from. Must not be null.</param>
+    /// <param name="tai">Caller-supplied telomeric-allelic-imbalance (NtAI) count (Birkbak et al. 2012); must be ≥ 0.</param>
+    /// <param name="lst">Caller-supplied large-scale-state-transition count (Popova et al. 2012); must be ≥ 0.</param>
+    /// <returns>The components (LOH derived, TAI/LST as supplied), the combined HRD score, and the HRD status.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="segments"/> is null.</exception>
+    /// <exception cref="ArgumentException">A segment has non-positive length or a negative copy number.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="tai"/> or <paramref name="lst"/> is negative.</exception>
+    public static HrdResult DetectHRD(IEnumerable<AlleleSpecificSegment> segments, int tai, int lst)
+    {
+        ArgumentNullException.ThrowIfNull(segments);
+
+        int loh = DetectLOH(segments).Score;
+        return DetectHRD(new HrdComponents(loh, tai, lst));
+    }
+
     #endregion
 
     #region Loss of heterozygosity (ONCO-LOH-001)

@@ -121,7 +121,7 @@ Mutation testing вимірює ефективність тестового на
 | 91 | ☑ | ONCO-ANNOT-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_AnnotateCancerVariants_Tests.cs | ≥ 80% |
 | 92 | ☑ | ONCO-TMB-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_CalculateTMB_Tests.cs | ≥ 80% |
 | 93 | ☑ | ONCO-MSI-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_DetectMSI_Tests.cs | ≥ 80% |
-| 94 | ☑ | ONCO-HRD-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_CalculateHRDScore_Tests.cs | ≥ 80% |
+| 94 | ☐ | ONCO-HRD-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_CalculateHRDScore_Tests.cs | ≥ 80% |
 | 95 | ☑ | ONCO-LOH-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_DetectLOH_Tests.cs | ≥ 80% |
 | 96 | ☑ | ONCO-SIG-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_ClassifySbsContext_Tests.cs | ≥ 80% |
 | 97 | ☑ | ONCO-SIG-002 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_FitSignatures_Tests.cs | ≥ 80% |

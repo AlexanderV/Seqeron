@@ -2,7 +2,7 @@
 
 **Test Unit ID:** ONCO-HRD-001
 **Algorithm:** Homologous Recombination Deficiency (HRD) composite genomic-scar score
-**Date Collected:** 2026-06-14
+**Date Collected:** 2026-06-14 (updated 2026-06-23 for segment-driven LOH derivation)
 
 ---
 
@@ -74,6 +74,27 @@
 
 1. **LST (verbatim snippet):** "LST was defined as a chromosomal breakpoint (change in copy number or allelic content) between adjacent regions each of at least 10 megabases (Mb) obtained after smoothing and filtering <3 Mb small-scale copy number variation."
 
+### scarHRD reference implementation (Sztupinszki et al. 2018) — derivation feasibility of LOH/TAI/LST
+
+**URLs / retrieval (2026-06-23):**
+
+- `R/calc.hrd.R` — https://raw.githubusercontent.com/sztup/scarHRD/master/R/calc.hrd.R (WebFetch)
+- `R/calc.ai_new.R` (TAI) — https://raw.githubusercontent.com/sztup/scarHRD/master/R/calc.ai_new.R (WebFetch)
+- `R/calc.lst.R` (LST) — https://raw.githubusercontent.com/sztup/scarHRD/master/R/calc.lst.R (WebFetch)
+- `R/scar_score.R` (build switch + sum) — https://raw.githubusercontent.com/sztup/scarHRD/master/R/scar_score.R (WebFetch)
+- `R/shrink.seg.ai.R` (smoothing) — https://raw.githubusercontent.com/sztup/scarHRD/master/R/shrink.seg.ai.R (WebFetch)
+- repo tree (file list incl. binary `R/sysdata.rda`, 706 bytes) — https://api.github.com/repos/sztup/scarHRD/git/trees/master?recursive=1 (WebFetch)
+
+**Authority rank:** 3 (reference implementation cross-checking the primary papers).
+
+**Key Extracted Points:**
+
+1. **HRD-LOH (`calc.hrd.R`, verbatim):** whole-chromosome exclusion `if(all(segSamp[segSamp[,2]==j,nB]==0))` → `chrDel`; LOH `segLOH <- segSamp[segSamp[,nB]==0 & segSamp[,nA]!=0,]`; size filter `segLOH[,4]-segLOH[,3] > sizelimit1`; whole-chr removal `!segLOH[,2] %in% chrDel`; preceded by `shrink.seg.ai.wrapper`. → reproducible from the repo's `AlleleSpecificSegment` (Major/Minor CN) with NO centromere table needed. This is exactly what `DetectLOH` implements.
+2. **TAI (`calc.ai_new.R`) needs the centromere table:** signature `calc.ai_new(seg, chrominfo, min.size=1e6, cont=0, ploidyByChromosome=TRUE, shrink=TRUE)`. Telomeric-vs-interstitial classification is decided by the centromere coordinates `chrominfo[i,2]`/`chrominfo[i,3]` (e.g. `if(sample.chrom.seg[1,'AI']==2 & nrow!=1 & sample.chrom.seg[1,4] < chrominfo[i,2])` downgrades the first segment 2→1). It also requires per-chromosome ploidy (`ploidyByChromosome`) and an aberrant-cell-fraction column — modelling state absent from `AlleleSpecificSegment`.
+3. **LST (`calc.lst.R`) needs the centromere table:** signature `calc.lst(seg, chrominfo, nA=7, chr.arm='no')`. With `chr.arm='no'` the centromere positions split each chromosome into p/q arms and set arm boundaries `q.arm[1,3] <- chrominfo[i,3]`, `p.arm[nrow(p.arm),4] <- chrominfo[i,2]`. The 3 Mb iterative shrink (`while(length(n.3mb)>0){...shrink.seg.ai...}`), the 10 Mb flag `(p.arm[,4]-p.arm[,3]) >= 10e6`, and the breakpoint rule `if(q.arm[k,9]==1 & q.arm[(k-1),9]==1 & (q.arm[k,3]-q.arm[(k-1),4]) < 3e6)` are algorithmically reproducible, but the arm split itself depends on the exact centromere coordinates.
+4. **The centromere `chrominfo` table is binary, unretrievable as citable text:** `scar_score.R` selects `chrominfo = chrominfo_grch38 / chrominfo_grch37 / chrominfo_mouse`; those objects live only in `R/sysdata.rda` (706-byte binary). They could NOT be retrieved as a verifiable numeric table in this session. Public centromere tables (CNAqc `chr_coordinates_GRCh38`, rCGH `hg38`) render truncated on their doc pages and come from a different lineage, so they cannot be confirmed to match scarHRD's embedded coordinates. Since TAI's telomeric classification and LST's arm split are sensitive to these exact coordinates, deriving TAI/LST from an unverified centromere table would not reproduce scarHRD within tolerance.
+5. **Combination (`scar_score.R`, verbatim):** `sum_HRD0 <- res_lst + res_hrd + res_ai[1]` — confirms the unweighted three-way sum (`res_hrd`=LOH, `res_ai[1]`=TAI, `res_lst`=LST).
+
 ---
 
 ## Documented Corner Cases and Failure Modes
@@ -116,7 +137,7 @@
 
 ## Assumptions
 
-1. **ASSUMPTION: component-count input shape** — This unit implements only the retrievable composite-sum + threshold classification, taking the three component counts (LOH, TAI, LST) as already-computed integer inputs (per the unit NOTE). Computing the components from raw segmented copy-number/allelic data (the 15 Mb LOH segmentation, NtAI sub-telomere/centromere geometry, Popova LST smoothing) is out of scope here and is left to ONCO-LOH-001 / ONCO-CNA-001. This is an API-shape decision, not a correctness-affecting parameter: the sum and the 42 cutoff are fully source-backed.
+1. **ASSUMPTION: TAI / LST remain caller-supplied** — The HRD-LOH component is now DERIVED end-to-end from allele-specific segments (`DetectHRD(segments, tai, lst)` → `DetectLOH`), faithful to Abkevich 2012 / scarHRD `calc.hrd` (no centromere table needed). TAI (`calc.ai_new`) and LST (`calc.lst`) are NOT derived: both require scarHRD's exact per-build centromere/telomere `chrominfo` coordinate table, which ships only as binary `R/sysdata.rda` and could not be retrieved as a verifiable numeric table in this session (point 4 under the scarHRD source above). Public centromere tables come from a different lineage and could not be cross-confirmed to match scarHRD, and TAI's telomeric classification + LST's p/q-arm split are sensitive to those exact coordinates. Per the conditional guard, TAI/LST are therefore left caller-supplied rather than approximated from an unverified table — this is a documented blocker on the centromere coordinates, not an invented constant. The sum, the 42 cutoff, and the LOH derivation are fully source-backed.
 
 ---
 
