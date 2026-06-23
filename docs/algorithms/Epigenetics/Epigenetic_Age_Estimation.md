@@ -6,18 +6,19 @@
 | Test Unit ID | EPIGEN-AGE-001 |
 | Related Projects | Seqeron.Genomics.Annotation |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-22 |
+| Last Reviewed | 2026-06-23 |
 
 ## 1. Overview
 
 Estimates DNA methylation ("epigenetic") age from methylation β-values measured at clock CpG sites,
-following the Horvath (2013) multi-tissue epigenetic clock [1]. The estimate is a two-stage,
-specification-driven computation: a linear predictor `Y = intercept + Σ coef_i · β_i` over the clock
-CpGs, followed by the Horvath inverse calibration `F⁻¹` that maps transformed age to years [2][3].
-The **published 353-CpG multi-tissue coefficient table and intercept (0.695507258)** from Additional file 3
-of the paper [4] are embedded in the library, so a caller can compute DNAm age directly via the
-parameterless overload. A caller-supplied-coefficients overload is also retained for other clocks
-(e.g. skin-&-blood, PhenoAge), which are out of scope for this unit.
+following three published epigenetic clocks: the Horvath (2013) multi-tissue clock [1], the Horvath
+(2018) skin &amp; blood clock [5], and the Levine (2018) DNAm PhenoAge clock [6]. The Horvath clocks are a
+two-stage computation — a linear predictor `Y = intercept + Σ coef_i · β_i` over the clock CpGs, followed
+by the Horvath inverse calibration `F⁻¹` (`anti.trafo`, adult.age = 20) that maps transformed age to years
+[2][3]. PhenoAge is a one-stage linear predictor in years with **no** transform [6]. All three coefficient
+tables (353, 391, and 513 CpGs) and their intercepts are **embedded** from the papers' supplements and
+cross-verified against an independent reimplementation, so a caller can compute each age directly via a
+parameterless overload. Caller-supplied-coefficients overloads are also retained for other clocks.
 
 ## 2. Scientific / Formal Basis
 
@@ -41,7 +42,10 @@ DNAm age in years is the inverse calibration `F⁻¹(Y)`, with adult-age constan
 
 This is the `anti.trafo` function from the Horvath 2013 reference R code [2]; the forward calibration `F`
 is logarithmic below adult age and linear above, reflecting the paper's observation that methylation–age
-dependence is "logarithmic until adulthood … linear later in life" [1].
+dependence is "logarithmic until adulthood … linear later in life" [1]. The **Horvath (2018) skin &amp;
+blood clock** uses the SAME `anti.trafo` (adult.age = 20) with its own 391-CpG table and intercept
+−0.447119319 [5][7]. The **Levine (2018) PhenoAge clock** is different: DNAm PhenoAge = `intercept + Σ
+weight_i · β_i` is returned directly with **no** transform — the linear predictor is already in years [6].
 
 ### 2.3 Modeling Assumptions
 
@@ -70,8 +74,10 @@ dependence is "logarithmic until adulthood … linear later in life" [1].
 | coefficients | `IReadOnlyDictionary<string,double>` | required (explicit overload) | CpG id → clock coefficient | non-null, non-empty |
 | intercept | `double` | 0.0 (explicit overload) | Model intercept added before the inverse transform | finite |
 
-The parameterless overload `CalculateEpigeneticAge(methylationAtClockCpGs)` uses the embedded Horvath
-multi-tissue table (`HorvathMultiTissueCoefficients`) and intercept (`HorvathMultiTissueIntercept` = 0.695507258).
+The parameterless overloads use embedded tables: `CalculateEpigeneticAge(methylation)` →
+`HorvathMultiTissueCoefficients` / intercept 0.695507258; `CalculateSkinBloodAge(methylation)` →
+`HorvathSkinBloodCoefficients` / intercept −0.447119319 (anti.trafo path); `CalculatePhenoAge(methylation)`
+→ `PhenoAgeCoefficients` / intercept 60.664 (no transform).
 
 ### 3.2 Output / Return Value
 
