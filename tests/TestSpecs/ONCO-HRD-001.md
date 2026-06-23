@@ -21,14 +21,17 @@
 | 4 | Popova T et al. (2012), Cancer Res 72(21):5454–5462 (LST) | 1 | https://aacrjournals.org/cancerres/article/72/21/5454/576090/ | 2026-06-14 |
 | 5 | oncoscanR `score_loh` reference impl (Abkevich LOH) | 3 | https://rdrr.io/github/yannchristinat/oncoscanR/man/score_loh.html | 2026-06-14 |
 | 6 | scarHRD `calc.hrd.R` / `calc.ai_new.R` / `calc.lst.R` / `scar_score.R` (Sztupinszki 2018) | 3 | https://github.com/sztup/scarHRD | 2026-06-23 |
+| 7 | UCSC Genome Browser cytoBand acen — hg38 + hg19 centromere coordinates | 5 | https://api.genome.ucsc.edu/getData/track?genome=hg38;track=cytoBand | 2026-06-23 |
+| 8 | NCBI GRC modeled centromeres (GRCh38 cross-verification) | 2 | https://www.ncbi.nlm.nih.gov/grc/human | 2026-06-23 |
 
 ### 1.2 Key Evidence Points
 
 1. The combined HRD score is an **unweighted sum of LOH, TAI, and LST scores** — Telli 2016 (verbatim). Corroborated by Stewart 2022 ("gLOH + TAI + LST").
 2. **HRD-high cutoff is ≥ 42** (inclusive) — Telli 2016 ("HRD score ≥42"); Stewart 2022 ("a cutoff of 42").
 3. LOH component: LOH regions > 15 Mb and < whole chromosome (Abkevich; oncoscanR `score_loh`).
-4. TAI component: allelic-imbalance regions extending to a sub-telomere but not crossing the centromere (Birkbak 2012).
-5. LST component: chromosomal breaks between adjacent ≥ 10 Mb regions after filtering < 3 Mb (Popova 2012).
+4. TAI component: allelic-imbalance (major≠minor) regions extending to a sub-telomere but not crossing the centromere (Birkbak 2012; scarHRD `calc.ai_new`: AI==2 at a chromosome end on one arm relative to the centromere → telomeric AI==1; ≥1 Mb segments only; single-segment imbalance is whole-chr AI==3, not telomeric).
+5. LST component: chromosomal breaks between two adjacent ≥ 10 Mb regions after smoothing < 3 Mb regions, gap between the pair < 3 Mb, counted per arm (Popova 2012; scarHRD `calc.lst`).
+6. Centromere coordinates (p-arm end = `chrominfo[i,2]`, q-arm start = `chrominfo[i,3]`) are the UCSC cytoBand acen bands, embedded for GRCh38 + GRCh37, cross-verified vs NCBI GRC modeled centromeres.
 
 ### 1.3 Documented Corner Cases
 
@@ -51,6 +54,9 @@
 | `ClassifyHRDStatus(int score)` | OncologyAnalyzer | Canonical | ≥ 42 → HrdHigh |
 | `DetectHRD(HrdComponents)` | OncologyAnalyzer | Canonical | End-to-end sum + classify |
 | `DetectHRD(IEnumerable<AlleleSpecificSegment>, int tai, int lst)` | OncologyAnalyzer | Canonical | Derives LOH from segments (scarHRD `calc.hrd`); TAI/LST caller-supplied |
+| `CalculateHrdTaiScore(IEnumerable<AlleleSpecificSegment>, ReferenceGenome)` | OncologyAnalyzer | Canonical | Derives HRD-TAI (scarHRD `calc.ai_new`, even-ploidy path) |
+| `CalculateHrdLstScore(IEnumerable<AlleleSpecificSegment>, ReferenceGenome)` | OncologyAnalyzer | Canonical | Derives HRD-LST (scarHRD `calc.lst`, `chr.arm='no'`) |
+| `DetectHRD(IEnumerable<AlleleSpecificSegment>, ReferenceGenome)` | OncologyAnalyzer | Canonical | Derives ALL THREE components (LOH+TAI+LST) end-to-end (scarHRD `sum_HRD0`) |
 
 ---
 
@@ -64,6 +70,8 @@
 | INV-4 | `DetectHRD(c).Score == CalculateHRDScore(c.Loh,c.Tai,c.Lst)` and Status matches `ClassifyHRDStatus(Score)` | Yes | composition contract |
 | INV-5 | Component counts and score are ≥ 0 | Yes | counts are event counts (Birkbak/Popova/Abkevich) |
 | INV-6 | `DetectHRD(segments,tai,lst).Components.Loh == DetectLOH(segments).Score` (LOH derived, not supplied) | Yes | scarHRD `calc.hrd`; ONCO-LOH-001 |
+| INV-7 | TAI and LST are ≥ 0 event counts derived from segments; sex chromosomes contribute 0 to both | Yes | scarHRD `calc.ai_new` / `calc.lst` (autosome-only) |
+| INV-8 | `DetectHRD(segments).Components == (DetectLOH(segments).Score, CalculateHrdTaiScore(segments), CalculateHrdLstScore(segments))` | Yes | scarHRD `sum_HRD0` |
 
 ---
 
@@ -85,6 +93,18 @@
 | M10 | Segment-driven LOH derivation | DetectHRD(LOH-dataset, tai=25, lst=16) derives LOH=1 | Loh=1, Score 42, HrdHigh | scarHRD `calc.hrd` (ONCO-LOH-001 dataset = 1); Telli 2016 sum |
 | M11 | Two-path consistency | DetectHRD(segments,4,3) == DetectHRD(HrdComponents(DetectLOH(segments).Score,4,3)) | equal; Score 8, HrdNegative | INV-6 |
 | M12 | No LOH segments | DetectHRD(balanced segments, tai=10, lst=5) | Loh=0, Score 15, HrdNegative | scarHRD `calc.hrd`; Telli 2016 |
+| M13 | TAI both telomeric arms | chr1: p-terminal imbalance (end<cen start) + q-terminal imbalance (start>cen end) | TAI=2 | Birkbak 2012; scarHRD `calc.ai_new` |
+| M14 | TAI interstitial | chr1 imbalanced interior segment, balanced ends | TAI=0 | scarHRD `calc.ai_new` (AI=2 interstitial) |
+| M15 | TAI crossing centromere | first imbalanced segment whose end ≥ cen start | TAI=0 | Birkbak 2012 ("not cross the centromere") |
+| M16 | TAI whole-chromosome | single imbalanced segment spanning chr1 | TAI=0 | scarHRD `calc.ai_new` (AI=3) |
+| M17 | TAI sub-1 Mb dropped | < 1 Mb terminal imbalanced fragment + balanced rest | TAI=0 | scarHRD `min.size=1e6` |
+| M18 | LST adjacent large pair | two adjacent ≥10 Mb p-arm segments, diff state, gap<3 Mb | LST=1 | Popova 2012; scarHRD `calc.lst` |
+| M19 | LST one side <10 Mb | 40 Mb / 5 Mb / 65 Mb chain (middle ≥3 Mb, <10 Mb) | LST=0 | Popova 2012 ("each ≥10 Mb") |
+| M20 | LST 3 Mb smoothing | 40 Mb / 2 Mb / 48 Mb (middle <3 Mb smoothed) | LST=1 | scarHRD smoothing while-loop |
+| M21 | LST single segment | one segment on chr1 | LST=0 | scarHRD (`nrow<2 → next`) |
+| M22 | LST q-arm transition | two adjacent ≥10 Mb q-arm segments past cen end | LST=1 | scarHRD `calc.lst` q.arm block |
+| M23 | All-derived sum | DetectHRD(segments) derives LOH=0,TAI=2,LST=1 | Score 3, HrdNegative | scarHRD `sum_HRD0`; Telli 2016 |
+| M24 | All-derived consistency | DetectHRD(segments) == DetectHRD(HrdComponents(DetectLOH, CalcTai, CalcLst)) | equal | INV-8 |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -96,6 +116,11 @@
 | S4 | Zero score classify | ClassifyHRDStatus(0) | HrdNegative | well-defined low signal |
 | S5 | Null segments | DetectHRD(null, 0, 0) | ArgumentNullException | segment-driven overload guard |
 | S6 | Negative TAI/LST (segment path) | DetectHRD(segments, -1, 0) / (segments, 0, -1) | ArgumentOutOfRangeException | counts ≥ 0 (Birkbak/Popova) |
+| S7 | TAI only q-arm | chr1: balanced first, q-terminal imbalance only | TAI=1 | one telomeric side |
+| S8 | TAI sex chromosome | chrX imbalanced terminal segments | TAI=0 | autosome-only table |
+| S9 | TAI GRCh37 table | chr1 q-terminal at 130 Mb under hg19 (cen end 128.9 Mb) | TAI=1 | hg19 cytoBand acen |
+| S10 | LST sex chromosome | chrX adjacent large segments | LST=0 | scarHRD excludes X/Y |
+| S11 | TAI/LST null + empty | null → throw; empty → 0 | guards | input validation |
 
 ### 4.3 COULD Tests (Nice to have)
 
@@ -110,7 +135,8 @@
 ### 5.1 Discovery Summary
 
 - Original unit (2026-06-14): no prior HRD tests/implementation; M1–M9, S1–S4, C1 implemented in `OncologyAnalyzer_CalculateHRDScore_Tests.cs`.
-- Segment-driven LOH derivation (2026-06-23): the new `DetectHRD(segments, tai, lst)` overload adds M10–M12, S5, S6 to the same canonical fixture. LOH derivation reuses `DetectLOH` (ONCO-LOH-001, already scarHRD-verified).
+- Segment-driven LOH derivation (2026-06-23): the `DetectHRD(segments, tai, lst)` overload adds M10–M12, S5, S6 to the same canonical fixture. LOH derivation reuses `DetectLOH` (ONCO-LOH-001, already scarHRD-verified).
+- Segment-driven TAI + LST derivation (2026-06-23, this fix): adds `CalculateHrdTaiScore`, `CalculateHrdLstScore`, and the all-derived `DetectHRD(segments, ReferenceGenome)` overload, with M13–M24 and S7–S11 in the same canonical fixture. Centromere coordinates embedded from UCSC cytoBand acen (GRCh38 + GRCh37).
 
 ### 5.2 Coverage Classification
 
@@ -135,6 +161,23 @@
 | S5 | ❌ Missing → ✅ | new (2026-06-23, null segments) |
 | S6 | ❌ Missing → ✅ | new (2026-06-23, negative TAI/LST) |
 | C1 | ❌ Missing → ✅ | new (2026-06-14) |
+| M13 | ❌ Missing → ✅ | new (2026-06-23, TAI both arms) |
+| M14 | ❌ Missing → ✅ | new (2026-06-23, TAI interstitial) |
+| M15 | ❌ Missing → ✅ | new (2026-06-23, TAI crossing centromere) |
+| M16 | ❌ Missing → ✅ | new (2026-06-23, TAI whole-chromosome) |
+| M17 | ❌ Missing → ✅ | new (2026-06-23, TAI sub-1 Mb dropped) |
+| M18 | ❌ Missing → ✅ | new (2026-06-23, LST adjacent large pair) |
+| M19 | ❌ Missing → ✅ | new (2026-06-23, LST one side <10 Mb) |
+| M20 | ❌ Missing → ✅ | new (2026-06-23, LST 3 Mb smoothing) |
+| M21 | ❌ Missing → ✅ | new (2026-06-23, LST single segment) |
+| M22 | ❌ Missing → ✅ | new (2026-06-23, LST q-arm) |
+| M23 | ❌ Missing → ✅ | new (2026-06-23, all-derived sum) |
+| M24 | ❌ Missing → ✅ | new (2026-06-23, all-derived consistency) |
+| S7 | ❌ Missing → ✅ | new (2026-06-23, TAI only q-arm) |
+| S8 | ❌ Missing → ✅ | new (2026-06-23, TAI sex chr) |
+| S9 | ❌ Missing → ✅ | new (2026-06-23, TAI GRCh37 table) |
+| S10 | ❌ Missing → ✅ | new (2026-06-23, LST sex chr) |
+| S11 | ❌ Missing → ✅ | new (2026-06-23, TAI/LST null+empty) |
 
 ### 5.3 Consolidation Plan
 
@@ -145,7 +188,7 @@
 
 | File | Role | Test Count |
 |------|------|------------|
-| `OncologyAnalyzer_CalculateHRDScore_Tests.cs` | Canonical HRD fixture | 21 |
+| `OncologyAnalyzer_CalculateHRDScore_Tests.cs` | Canonical HRD fixture | 42 |
 
 ### 5.5 Phase 7 Work Queue
 
@@ -170,9 +213,26 @@
 | 17 | M12 | ❌ Missing | Implemented | ✅ Done |
 | 18 | S5 | ❌ Missing | Implemented | ✅ Done |
 | 19 | S6 | ❌ Missing | Implemented | ✅ Done |
+| 20 | M13 | ❌ Missing | Implemented | ✅ Done |
+| 21 | M14 | ❌ Missing | Implemented | ✅ Done |
+| 22 | M15 | ❌ Missing | Implemented | ✅ Done |
+| 23 | M16 | ❌ Missing | Implemented | ✅ Done |
+| 24 | M17 | ❌ Missing | Implemented | ✅ Done |
+| 25 | M18 | ❌ Missing | Implemented | ✅ Done |
+| 26 | M19 | ❌ Missing | Implemented | ✅ Done |
+| 27 | M20 | ❌ Missing | Implemented | ✅ Done |
+| 28 | M21 | ❌ Missing | Implemented | ✅ Done |
+| 29 | M22 | ❌ Missing | Implemented | ✅ Done |
+| 30 | M23 | ❌ Missing | Implemented | ✅ Done |
+| 31 | M24 | ❌ Missing | Implemented | ✅ Done |
+| 32 | S7 | ❌ Missing | Implemented | ✅ Done |
+| 33 | S8 | ❌ Missing | Implemented | ✅ Done |
+| 34 | S9 | ❌ Missing | Implemented | ✅ Done |
+| 35 | S10 | ❌ Missing | Implemented | ✅ Done |
+| 36 | S11 | ❌ Missing | Implemented | ✅ Done |
 
-**Total items:** 19
-**✅ Done:** 19 | **⛔ Blocked:** 0 | **Remaining:** 0
+**Total items:** 36
+**✅ Done:** 36 | **⛔ Blocked:** 0 | **Remaining:** 0
 
 ### 5.6 Post-Implementation Coverage
 
@@ -197,8 +257,25 @@
 | M12 | ✅ | DetectHRD_FromSegmentsWithNoLoh_DerivesZeroLoh |
 | S5 | ✅ | DetectHRD_FromSegments_NullSegments_Throws |
 | S6 | ✅ | DetectHRD_FromSegments_NegativeTaiOrLst_Throws |
+| M13 | ✅ | CalculateHrdTaiScore_BothTelomericArmsImbalanced_CountsTwo |
+| M14 | ✅ | CalculateHrdTaiScore_InterstitialImbalance_NotCounted |
+| M15 | ✅ | CalculateHrdTaiScore_FirstSegmentCrossingCentromere_NotCounted |
+| M16 | ✅ | CalculateHrdTaiScore_SingleImbalancedSegment_WholeChromosomeNotCounted |
+| M17 | ✅ | CalculateHrdTaiScore_SubMegabaseTerminalSegment_Dropped |
+| M18 | ✅ | CalculateHrdLstScore_TwoAdjacentLargeArmSegments_CountsOne |
+| M19 | ✅ | CalculateHrdLstScore_OneNeighbourBelow10Mb_NotCounted |
+| M20 | ✅ | CalculateHrdLstScore_ShortSegmentSmoothed_ExposesTransition |
+| M21 | ✅ | CalculateHrdLstScore_SingleSegment_NotCounted |
+| M22 | ✅ | CalculateHrdLstScore_QArmTransition_CountsOne |
+| M23 | ✅ | DetectHRD_AllDerivedFromSegments_SumsThreeComponents |
+| M24 | ✅ | DetectHRD_AllDerived_MatchesStandaloneComponentDerivations |
+| S7 | ✅ | CalculateHrdTaiScore_OnlyQArmTelomericImbalanced_CountsOne |
+| S8 | ✅ | CalculateHrdTaiScore_SexChromosome_Excluded |
+| S9 | ✅ | CalculateHrdTaiScore_GRCh37CentromereTable_Used |
+| S10 | ✅ | CalculateHrdLstScore_SexChromosome_Excluded |
+| S11 | ✅ | CalculateHrdTaiScore_Null/Empty + CalculateHrdLstScore_Null/Empty + DetectHRD_AllDerived_NullSegments |
 
-All in-scope cases ✅ (19 of 19).
+All in-scope cases ✅ (36 of 36).
 
 ---
 
@@ -208,10 +285,13 @@ All in-scope cases ✅ (19 of 19).
 
 | # | Assumption | Used In |
 |---|-----------|---------|
-| 1 | TAI and LST remain caller-supplied. Their faithful derivation (scarHRD `calc.ai_new` / `calc.lst`) requires the exact per-build centromere/telomere `chrominfo` table, shipped only as binary `R/sysdata.rda` and not retrievable as a verifiable numeric table; TAI's telomeric classification and LST's p/q-arm split are sensitive to those coordinates. Per the conditional guard they are left caller-supplied rather than approximated. LOH IS now derived (source-backed). | `DetectHRD(segments,tai,lst)` |
+| 1 | Even-ploidy / standard allelic-imbalance path for TAI: AI present ⟺ major ≠ minor (scarHRD `calc.ai_new` default even/diploid path `seg[,7]==seg[,8]`). `AlleleSpecificSegment` lacks the ASCAT per-sample ploidy / aberrant-cell-fraction columns scarHRD uses to re-derive AI on odd-ploidy chromosomes, so that branch is not reproduced. This is the dominant path and matches Birkbak's "regions of allelic imbalance". | `CalculateHrdTaiScore` |
+
+The prior caller-supplied-TAI/LST assumption is **RESOLVED**: the per-chromosome centromere coordinates are the UCSC cytoBand `acen` regions, retrieved as citable text and cross-verified vs the NCBI GRC modeled-centromere table, then embedded for GRCh38 + GRCh37. TAI and LST are now derived from segments.
 
 ---
 
 ## 7. Open Questions / Decisions
 
-1. **Decision (2026-06-23):** HRD-LOH is now derived end-to-end from allele-specific segments via `DetectHRD(segments, tai, lst)` → `DetectLOH` (Abkevich 2012 / scarHRD `calc.hrd`, no centromere table needed). TAI and LST stay caller-supplied: their derivation depends on scarHRD's exact binary centromere `chrominfo` table, which could not be retrieved/cross-verified in this session (Evidence §scarHRD point 4). Deriving them from an unverified centromere table would not reproduce scarHRD, so per the conditional guard they are not approximated. The sum and the 42 cutoff remain source-verified (Telli 2016, Stewart 2022).
+1. **Decision (2026-06-23):** All three HRD components — LOH, TAI, LST — are now derived end-to-end from allele-specific segments. `DetectHRD(segments)` (genome-parameterised, default GRCh38) computes `DetectLOH` (Abkevich 2012 / scarHRD `calc.hrd`), `CalculateHrdTaiScore` (Birkbak 2012 / scarHRD `calc.ai_new`), and `CalculateHrdLstScore` (Popova 2012 / scarHRD `calc.lst`), then sums them (`sum_HRD0`) and classifies at ≥42 (Telli 2016). The earlier blocker — scarHRD's binary `chrominfo` centromere table — is resolved by embedding the UCSC cytoBand `acen` coordinates (citable, cross-verified vs NCBI GRC). Caller-supplied TAI/LST remains available via the `DetectHRD(segments, tai, lst)` overload for externally computed components.
+2. **Verification:** scarHRD's published bundled example (`test1.small.seqz`) yields HRD-LOH=1, TAI=2, LST=0, HRD-sum=3, but it is a Sequenza file requiring ASCAT ploidy/cellularity preprocessing absent from `AlleleSpecificSegment`, so it is recorded but not reproduced end-to-end. TAI/LST expected values are instead derived from the verbatim `calc.ai_new` / `calc.lst` logic and the embedded centromere coordinates (deterministic worked examples M13–M24).

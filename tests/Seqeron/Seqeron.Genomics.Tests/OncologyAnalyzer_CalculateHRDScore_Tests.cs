@@ -3,6 +3,9 @@
 // TestSpec: tests/TestSpecs/ONCO-HRD-001.md
 // Source: Telli ML et al. (2016). Clin Cancer Res 22(15):3764–3773.
 //         HRD score = unweighted sum of LOH + TAI + LST; HR deficiency defined as HRD score >= 42.
+//         HRD-TAI: Birkbak NJ et al. (2012). Cancer Discov 2(4):366. HRD-LST: Popova T et al. (2012).
+//         Cancer Res 72(21):5454. TAI/LST derivation + centromere coords: scarHRD calc.ai_new / calc.lst
+//         (https://github.com/sztup/scarHRD) and UCSC cytoBand acen (hg38/hg19), retrieved 2026-06-23.
 
 using System;
 using System.Collections.Generic;
@@ -321,6 +324,362 @@ public class OncologyAnalyzer_CalculateHRDScore_Tests
                 () => OncologyAnalyzer.DetectHRD(segments, tai: 0, lst: -1),
                 "Negative caller-supplied LST must be rejected (Popova 2012: counts are non-negative).");
         });
+    }
+
+    #endregion
+
+    #region CalculateHrdTaiScore (TAI derived from segments — Birkbak 2012 / scarHRD calc.ai_new)
+
+    // GRCh38 chr1 centromere (UCSC cytoBand acen) = [121_700_000, 125_100_000].
+    private const long Chr1CentromereStart = 121_700_000L;
+    private const long Chr1CentromereEnd = 125_100_000L;
+
+    // M13 — TAI counts a p-telomeric imbalance (first segment, end before centromere start) AND a
+    // q-telomeric imbalance (last segment, start after centromere end) on the same chromosome → 2.
+    // scarHRD calc.ai_new: AI==2 at a chromosome end on one arm relative to the centromere → AI<-1.
+    [Test]
+    public void CalculateHrdTaiScore_BothTelomericArmsImbalanced_CountsTwo()
+    {
+        var segments = new[]
+        {
+            new Segment("1", 0, 50_000_000, 2, 1),                       // first, imbalanced, end < cen start → p-telomeric
+            new Segment("1", 50_000_000, Chr1CentromereStart, 1, 1),     // balanced interior
+            new Segment("1", 130_000_000, 248_956_422, 2, 1),            // last, imbalanced, start > cen end → q-telomeric
+        };
+
+        int tai = OncologyAnalyzer.CalculateHrdTaiScore(segments);
+
+        Assert.That(tai, Is.EqualTo(2),
+            "Both the p-arm-terminal and q-arm-terminal imbalanced segments touch a sub-telomere without crossing the centromere → TAI = 2 (Birkbak 2012; scarHRD calc.ai_new).");
+    }
+
+    // M14 — an interstitial imbalance (neither first nor last) is NOT telomeric → not counted.
+    [Test]
+    public void CalculateHrdTaiScore_InterstitialImbalance_NotCounted()
+    {
+        var segments = new[]
+        {
+            new Segment("1", 0, 50_000_000, 1, 1),                  // first, balanced
+            new Segment("1", 50_000_000, 110_000_000, 3, 1),        // interior, imbalanced (interstitial AI=2)
+            new Segment("1", 130_000_000, 248_956_422, 1, 1),       // last, balanced
+        };
+
+        int tai = OncologyAnalyzer.CalculateHrdTaiScore(segments);
+
+        Assert.That(tai, Is.EqualTo(0),
+            "An imbalanced interstitial segment (neither chromosome end) is interstitial AI, not telomeric → TAI = 0 (scarHRD calc.ai_new).");
+    }
+
+    // M15 — a first imbalanced segment whose END crosses the centromere start is NOT telomeric.
+    // scarHRD condition is strict: sample.chrom.seg[1,4] < chrominfo[i,2].
+    [Test]
+    public void CalculateHrdTaiScore_FirstSegmentCrossingCentromere_NotCounted()
+    {
+        var segments = new[]
+        {
+            new Segment("1", 0, 130_000_000, 2, 1),                 // first, imbalanced, END 130M > cen start 121.7M → crosses
+            new Segment("1", 130_000_000, 248_956_422, 1, 1),       // last, balanced
+        };
+
+        int tai = OncologyAnalyzer.CalculateHrdTaiScore(segments);
+
+        Assert.That(tai, Is.EqualTo(0),
+            "A terminal imbalanced segment that crosses the centromere (end ≥ centromere start) is not telomeric → TAI = 0 (Birkbak 2012: must not cross the centromere).");
+    }
+
+    // M16 — a single imbalanced segment spanning the chromosome is whole-chromosome AI (scarHRD AI=3), not telomeric.
+    [Test]
+    public void CalculateHrdTaiScore_SingleImbalancedSegment_WholeChromosomeNotCounted()
+    {
+        var segments = new[] { new Segment("1", 0, 248_956_422, 2, 1) }; // one segment, imbalanced
+
+        int tai = OncologyAnalyzer.CalculateHrdTaiScore(segments);
+
+        Assert.That(tai, Is.EqualTo(0),
+            "A single imbalanced segment is whole-chromosome AI (AI=3 in scarHRD), never telomeric → TAI = 0.");
+    }
+
+    // M17 — sub-1 Mb segments are dropped before TAI assignment (scarHRD min.size = 1e6); a < 1 Mb terminal
+    // imbalanced fragment does not produce a telomeric event.
+    [Test]
+    public void CalculateHrdTaiScore_SubMegabaseTerminalSegment_Dropped()
+    {
+        var segments = new[]
+        {
+            new Segment("1", 0, 500_000, 2, 1),                     // < 1 Mb imbalanced terminal fragment → dropped
+            new Segment("1", 500_000, 248_956_422, 1, 1),           // balanced, spans the rest
+        };
+
+        int tai = OncologyAnalyzer.CalculateHrdTaiScore(segments);
+
+        Assert.That(tai, Is.EqualTo(0),
+            "The < 1 Mb terminal fragment is removed before AI assignment (scarHRD min.size=1e6), leaving one balanced segment → TAI = 0.");
+    }
+
+    // S7 — only the q-telomeric side imbalanced → exactly 1.
+    [Test]
+    public void CalculateHrdTaiScore_OnlyQArmTelomericImbalanced_CountsOne()
+    {
+        var segments = new[]
+        {
+            new Segment("1", 0, 50_000_000, 1, 1),                  // first, balanced
+            new Segment("1", 130_000_000, 248_956_422, 2, 1),       // last, imbalanced, start > cen end → q-telomeric
+        };
+
+        int tai = OncologyAnalyzer.CalculateHrdTaiScore(segments);
+
+        Assert.That(tai, Is.EqualTo(1),
+            "Only the q-arm-terminal segment is imbalanced and clears the centromere end → TAI = 1.");
+    }
+
+    // S8 — sex chromosomes are excluded from TAI (centromere table is autosome-only).
+    [Test]
+    public void CalculateHrdTaiScore_SexChromosome_Excluded()
+    {
+        var segments = new[]
+        {
+            new Segment("X", 0, 50_000_000, 2, 1),
+            new Segment("X", 60_000_000, 156_040_895, 2, 1),
+        };
+
+        int tai = OncologyAnalyzer.CalculateHrdTaiScore(segments);
+
+        Assert.That(tai, Is.EqualTo(0),
+            "Segments on chrX are excluded from TAI — the centromere table is autosome-only (scarHRD restricts to autosomes).");
+    }
+
+    // S9 — GRCh37 uses the hg19 centromere table; chr1 q-arm telomeric event clears the hg19 centromere end.
+    [Test]
+    public void CalculateHrdTaiScore_GRCh37CentromereTable_Used()
+    {
+        // hg19 chr1 centromere end = 128_900_000; a last segment starting at 130M is q-telomeric under hg19.
+        var segments = new[]
+        {
+            new Segment("1", 0, 50_000_000, 1, 1),
+            new Segment("1", 130_000_000, 249_250_621, 2, 1),
+        };
+
+        int tai = OncologyAnalyzer.CalculateHrdTaiScore(segments, OncologyAnalyzer.ReferenceGenome.GRCh37);
+
+        Assert.That(tai, Is.EqualTo(1),
+            "Under GRCh37 (hg19 chr1 centromere end 128.9 Mb) the last imbalanced segment starting at 130 Mb is q-telomeric → TAI = 1.");
+    }
+
+    [Test]
+    public void CalculateHrdTaiScore_NullSegments_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.CalculateHrdTaiScore(null!),
+            "TAI derivation must reject null segments.");
+    }
+
+    [Test]
+    public void CalculateHrdTaiScore_EmptySegments_ReturnsZero()
+    {
+        int tai = OncologyAnalyzer.CalculateHrdTaiScore(Array.Empty<Segment>());
+
+        Assert.That(tai, Is.EqualTo(0), "No segments → no telomeric AI → TAI = 0.");
+    }
+
+    #endregion
+
+    #region CalculateHrdLstScore (LST derived from segments — Popova 2012 / scarHRD calc.lst)
+
+    // M18 — two adjacent ≥10 Mb segments on the p-arm separated by a < 3 Mb gap, with different allele state
+    // (so they are not merged) → 1 LST. scarHRD calc.lst: both flagged large, gap < 3 Mb → one break.
+    [Test]
+    public void CalculateHrdLstScore_TwoAdjacentLargeArmSegments_CountsOne()
+    {
+        var segments = new[]
+        {
+            new Segment("1", 0, 40_000_000, 2, 1),                  // p-arm, 40 Mb, large
+            new Segment("1", 40_000_000, 80_000_000, 1, 1),         // p-arm, 40 Mb, large, different state → not merged
+        };
+
+        int lst = OncologyAnalyzer.CalculateHrdLstScore(segments);
+
+        Assert.That(lst, Is.EqualTo(1),
+            "Two adjacent ≥10 Mb p-arm segments of different allele state with a < 3 Mb gap form one large-scale state transition → LST = 1 (Popova 2012; scarHRD calc.lst).");
+    }
+
+    // M19 — when one of the two neighbours is < 10 Mb the break is NOT counted (only one side is large).
+    [Test]
+    public void CalculateHrdLstScore_OneNeighbourBelow10Mb_NotCounted()
+    {
+        var segments = new[]
+        {
+            new Segment("1", 0, 40_000_000, 2, 1),                  // 40 Mb, large
+            new Segment("1", 40_000_000, 45_000_000, 1, 1),         // 5 Mb (≥3 Mb so not smoothed) but < 10 Mb → not large
+            new Segment("1", 45_000_000, 110_000_000, 3, 1),        // 65 Mb large, but its left neighbour is not large
+        };
+
+        int lst = OncologyAnalyzer.CalculateHrdLstScore(segments);
+
+        Assert.That(lst, Is.EqualTo(0),
+            "Neither adjacent pair has BOTH sides ≥10 Mb (the 5 Mb middle segment breaks both pairs) → LST = 0 (Popova 2012: both regions must be ≥10 Mb).");
+    }
+
+    // M20 — 3 Mb smoothing removes a short interstitial segment so the two flanking ≥10 Mb segments become
+    // adjacent and count as one LST. scarHRD iterative while(<3e6) removal + re-merge.
+    [Test]
+    public void CalculateHrdLstScore_ShortSegmentSmoothed_ExposesTransition()
+    {
+        var segments = new[]
+        {
+            new Segment("1", 0, 40_000_000, 2, 1),                  // 40 Mb large
+            new Segment("1", 40_000_000, 42_000_000, 4, 0),         // 2 Mb (< 3 Mb) → smoothed away
+            new Segment("1", 42_000_000, 90_000_000, 1, 1),         // 48 Mb large, different state from the first
+        };
+
+        int lst = OncologyAnalyzer.CalculateHrdLstScore(segments);
+
+        Assert.That(lst, Is.EqualTo(1),
+            "The 2 Mb middle segment is smoothed out (< 3 Mb), leaving two adjacent ≥10 Mb p-arm segments → LST = 1 (scarHRD 3 Mb smoothing then break count).");
+    }
+
+    // M21 — a chromosome with fewer than 2 segments yields no transition (scarHRD: nrow < 2 → next).
+    [Test]
+    public void CalculateHrdLstScore_SingleSegment_NotCounted()
+    {
+        var segments = new[] { new Segment("1", 0, 80_000_000, 2, 1) };
+
+        int lst = OncologyAnalyzer.CalculateHrdLstScore(segments);
+
+        Assert.That(lst, Is.EqualTo(0), "A single segment cannot form a transition → LST = 0 (scarHRD skips chromosomes with < 2 segments).");
+    }
+
+    // M22 — a q-arm transition is counted: two adjacent ≥10 Mb segments past the centromere end.
+    [Test]
+    public void CalculateHrdLstScore_QArmTransition_CountsOne()
+    {
+        var segments = new[]
+        {
+            new Segment("1", Chr1CentromereEnd, 180_000_000, 2, 1),       // q-arm, ~55 Mb large
+            new Segment("1", 180_000_000, 248_956_422, 1, 1),            // q-arm, ~69 Mb large, different state
+        };
+
+        int lst = OncologyAnalyzer.CalculateHrdLstScore(segments);
+
+        Assert.That(lst, Is.EqualTo(1),
+            "Two adjacent ≥10 Mb q-arm segments of different state with a < 3 Mb gap → one q-arm LST = 1 (scarHRD calc.lst q.arm block).");
+    }
+
+    // S10 — sex chromosomes are excluded from LST (scarHRD removes chr23/24/X/Y).
+    [Test]
+    public void CalculateHrdLstScore_SexChromosome_Excluded()
+    {
+        var segments = new[]
+        {
+            new Segment("X", 0, 40_000_000, 2, 1),
+            new Segment("X", 40_000_000, 80_000_000, 1, 1),
+        };
+
+        int lst = OncologyAnalyzer.CalculateHrdLstScore(segments);
+
+        Assert.That(lst, Is.EqualTo(0),
+            "chrX segments are excluded from LST (scarHRD calc.lst removes chr23/24/X/Y) → LST = 0.");
+    }
+
+    [Test]
+    public void CalculateHrdLstScore_NullSegments_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.CalculateHrdLstScore(null!),
+            "LST derivation must reject null segments.");
+    }
+
+    [Test]
+    public void CalculateHrdLstScore_EmptySegments_ReturnsZero()
+    {
+        int lst = OncologyAnalyzer.CalculateHrdLstScore(Array.Empty<Segment>());
+
+        Assert.That(lst, Is.EqualTo(0), "No segments → no transitions → LST = 0.");
+    }
+
+    // P1 — property/invariant (INV-6/INV-7): TAI and LST are order-independent — both sort segments
+    // per chromosome before scoring, so permuting the input must not change either count.
+    [Test]
+    public void CalculateHrdTaiAndLstScore_InputOrderPermuted_ReturnsSameCounts()
+    {
+        var inOrder = new[]
+        {
+            new Segment("1", 0, 40_000_000, 2, 1),
+            new Segment("1", 40_000_000, Chr1CentromereStart, 1, 1),
+            new Segment("1", 130_000_000, 248_956_422, 2, 1),
+        };
+        var permuted = new[] { inOrder[2], inOrder[0], inOrder[1] };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.CalculateHrdTaiScore(permuted),
+                Is.EqualTo(OncologyAnalyzer.CalculateHrdTaiScore(inOrder)),
+                "TAI must be order-independent (segments are sorted per chromosome before scoring).");
+            Assert.That(OncologyAnalyzer.CalculateHrdLstScore(permuted),
+                Is.EqualTo(OncologyAnalyzer.CalculateHrdLstScore(inOrder)),
+                "LST must be order-independent (segments are sorted per chromosome before scoring).");
+        });
+    }
+
+    #endregion
+
+    #region DetectHRD from segments — all three components derived (scarHRD sum_HRD0)
+
+    // M23 — the all-derived overload computes LOH, TAI and LST from one segment set and sums them.
+    // chr1 here yields: TAI = 2 (both terminal imbalances clear the centromere) and LST = 1 (two adjacent
+    // ≥10 Mb p-arm segments of different state). LOH = 0 (no minor==0 region > 15 Mb that isn't whole-chr).
+    [Test]
+    public void DetectHRD_AllDerivedFromSegments_SumsThreeComponents()
+    {
+        var segments = new[]
+        {
+            new Segment("1", 0, 40_000_000, 2, 1),                  // p-arm large, imbalanced, terminal (end < cen start) → p-telomeric TAI; p-arm LST side
+            new Segment("1", 40_000_000, Chr1CentromereStart, 1, 1),// p-arm large, balanced, adjacent → forms the LST pair with the first
+            new Segment("1", 130_000_000, 248_956_422, 2, 1),       // q-arm, imbalanced, terminal (start > cen end) → q-telomeric TAI
+        };
+
+        OncologyAnalyzer.HrdResult result = OncologyAnalyzer.DetectHRD(segments);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Components.Loh, Is.EqualTo(0), "No qualifying LOH region (no minor==0 region > 15 Mb) → derived LOH = 0.");
+            Assert.That(result.Components.Tai, Is.EqualTo(2),
+                "Derived TAI = 2: first segment p-telomeric (end < centromere start) and last segment q-telomeric (start > centromere end).");
+            Assert.That(result.Components.Lst, Is.EqualTo(1),
+                "Derived LST = 1: the two adjacent ≥10 Mb p-arm segments of different allele state.");
+            Assert.That(result.Score, Is.EqualTo(3), "Unweighted sum 0 + 2 + 1 = 3 (scarHRD sum_HRD0; Telli 2016).");
+            Assert.That(result.Status, Is.EqualTo(OncologyAnalyzer.HrdStatus.HrdNegative),
+                "Score 3 < 42 → HRD-negative (Telli 2016).");
+        });
+    }
+
+    // M24 — the all-derived overload must equal the components overload fed the three standalone derivations
+    // (consistency: DetectHRD(segments) == DetectHRD(HrdComponents(DetectLOH, CalculateHrdTaiScore, CalculateHrdLstScore))).
+    [Test]
+    public void DetectHRD_AllDerived_MatchesStandaloneComponentDerivations()
+    {
+        var segments = new[]
+        {
+            new Segment("1", 0, 40_000_000, 2, 1),
+            new Segment("1", 40_000_000, Chr1CentromereStart, 1, 1),
+            new Segment("1", 130_000_000, 248_956_422, 2, 1),
+        };
+
+        int loh = OncologyAnalyzer.DetectLOH(segments).Score;
+        int tai = OncologyAnalyzer.CalculateHrdTaiScore(segments);
+        int lst = OncologyAnalyzer.CalculateHrdLstScore(segments);
+
+        OncologyAnalyzer.HrdResult viaSegments = OncologyAnalyzer.DetectHRD(segments);
+        OncologyAnalyzer.HrdResult viaComponents =
+            OncologyAnalyzer.DetectHRD(new OncologyAnalyzer.HrdComponents(loh, tai, lst));
+
+        Assert.That(viaSegments, Is.EqualTo(viaComponents),
+            "The all-derived overload must equal the components overload fed the three standalone derivations (LOH/TAI/LST).");
+    }
+
+    [Test]
+    public void DetectHRD_AllDerived_NullSegments_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(
+            () => OncologyAnalyzer.DetectHRD((IEnumerable<Segment>)null!),
+            "The all-derived overload must reject null segments.");
     }
 
     #endregion
