@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Annotation;
 /// <summary>
 /// Provides algorithms for epigenetic analysis including methylation and chromatin state.
 /// </summary>
-public static class EpigeneticsAnalyzer
+public static partial class EpigeneticsAnalyzer
 {
     #region Records and Types
 
@@ -1124,6 +1124,32 @@ public static class EpigeneticsAnalyzer
     // Source: Horvath S (2013), Genome Biology 14:R115, "A transformed version of age"
     // (Additional file 2); reference implementations use adult.age = 20.
     private const double HorvathAdultAge = 20.0;
+
+    /// <summary>
+    /// Estimates DNA methylation (epigenetic) age from methylation β-values using the
+    /// <b>published Horvath (2013) 353-CpG multi-tissue clock</b> embedded in this library.
+    /// </summary>
+    /// <remarks>
+    /// Computes DNAmAge = anti.trafo(<see cref="HorvathMultiTissueIntercept"/> + Σ coef_i · β_i)
+    /// over the clock CpGs present in <paramref name="methylationAtClockCpGs"/>, using the
+    /// built-in <see cref="HorvathMultiTissueCoefficients"/> table (intercept 0.695507258 and the
+    /// 353 <c>CoefficientTraining</c> weights from Additional file 3 of the paper). CpGs absent
+    /// from the supplied map contribute nothing to the sum, exactly as in the reference R code
+    /// where the clock vector is multiplied only by the methylation matrix columns provided
+    /// (Horvath 2013, StepwiseAnalysis.R). The inverse calibration F⁻¹ is
+    /// <see cref="HorvathAntiTransform"/> with adult.age = 20.
+    /// </remarks>
+    /// <param name="methylationAtClockCpGs">Methylation β-values keyed by CpG identifier (0..1).</param>
+    /// <returns>Estimated DNAm age in years from the built-in Horvath multi-tissue clock.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="methylationAtClockCpGs"/> is null.</exception>
+    public static double CalculateEpigeneticAge(
+        IReadOnlyDictionary<string, double> methylationAtClockCpGs)
+    {
+        return CalculateEpigeneticAge(
+            methylationAtClockCpGs,
+            HorvathMultiTissueCoefficientsTable,
+            HorvathMultiTissueIntercept);
+    }
 
     /// <summary>
     /// Estimates DNA methylation (epigenetic) age from methylation values at clock CpGs using a

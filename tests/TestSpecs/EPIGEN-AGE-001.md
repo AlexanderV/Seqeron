@@ -5,7 +5,7 @@
 **Algorithm:** Epigenetic Age Estimation (Horvath DNA methylation clock)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-13
+**Last Updated:** 2026-06-22
 
 ---
 
@@ -19,12 +19,14 @@
 | 2 | Horvath 2013 reference R, `horvath2013.R` (trafo / anti.trafo, adult.age=20) | 3 | https://raw.githubusercontent.com/aldringsvitenskap/epigeneticclock/master/horvath2013.R | 2026-06-13 |
 | 3 | Horvath 2013 reference R, `StepwiseAnalysis.R` (predictedAge = anti.trafo(intercept + meth·coef)) | 3 | https://raw.githubusercontent.com/aldringsvitenskap/epigeneticclock/master/StepwiseAnalysis.R | 2026-06-13 |
 | 4 | perishky/meffonym (independent anti.trafo confirmation) | 3 | https://github.com/perishky/meffonym | 2026-06-13 |
+| 5 | Horvath 2013 Additional file 3 — 353-CpG `CoefficientTraining` table (intercept 0.695507258) | 1 | https://static-content.springer.com/esm/art%3A10.1186%2Fgb-2013-14-10-r115/MediaObjects/13059_2013_3156_MOESM3_ESM.csv | 2026-06-22 |
+| 6 | aldringsvitenskap/epigeneticclock AdditionalFile3.csv (cross-verification mirror) | 3 | https://raw.githubusercontent.com/aldringsvitenskap/epigeneticclock/master/AdditionalFile3.csv | 2026-06-22 |
 
 ### 1.2 Key Evidence Points
 
 1. DNAm age = `anti.trafo(intercept + Σ coef_i · β_i)` over clock CpGs — source #3.
 2. `anti.trafo(x) = (1+20)·exp(x) − 1` if `x < 0`, else `(1+20)·x + 20`; adult.age = 20 — source #2.
-3. The clock uses 353 elastic-net-selected CpGs; coefficient table is large/published, not bundled here — source #1.
+3. The clock uses 353 elastic-net-selected CpGs; the table (intercept 0.695507258 + 353 weights) is embedded verbatim from Additional file 3, cross-verified byte-identical across two independent sources — sources #1, #5, #6.
 4. Only CpGs present in the coefficient table contribute to the sum — source #3.
 
 ### 1.3 Documented Corner Cases
@@ -46,6 +48,8 @@
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
 | `CalculateEpigeneticAge(methylationAtClockCpGs, coefficients, intercept)` | EpigeneticsAnalyzer | Canonical | Linear predictor + Horvath inverse transform |
+| `CalculateEpigeneticAge(methylationAtClockCpGs)` | EpigeneticsAnalyzer | Canonical | Built-in Horvath 353-CpG multi-tissue clock (embedded table + intercept) |
+| `HorvathMultiTissueCoefficients` / `HorvathMultiTissueIntercept` | EpigeneticsAnalyzer | Canonical | Embedded published table (353 weights) + intercept 0.695507258 |
 | `HorvathAntiTransform(transformedAge)` | EpigeneticsAnalyzer | Canonical | Published two-branch `anti.trafo` (also exercised directly) |
 | `PredictImprintedGenes(...)` | EpigeneticsAnalyzer | Out of scope | Listed under unit in Registry but unrelated to the age clock; its ad-hoc imprinting score has no retrieved authoritative basis — see §7. Not modified, not tested here. |
 
@@ -60,6 +64,7 @@
 | INV-3 | At Y = 0 exactly, age = 20.0 (adult age) | Yes | Source #2 |
 | INV-4 | Age is monotonically non-decreasing in the linear predictor Y | Yes | Source #2 (both branches strictly increasing; continuous at 0) |
 | INV-5 | CpGs absent from the coefficient table do not affect the result | Yes | Source #3 |
+| INV-6 | The embedded multi-tissue clock has exactly 353 CpG weights + intercept 0.695507258 | Yes | Sources #5, #6 |
 
 ---
 
@@ -77,6 +82,13 @@
 | M6 | Null methylation map | null first arg | `ArgumentNullException` | Contract |
 | M7 | Null coefficients | null coefficient table | `ArgumentNullException` | Contract |
 | M8 | Empty coefficients | empty coefficient table | `ArgumentException` | Contract (empty clock undefined) |
+| E1 | Embedded table integrity | built-in clock count + intercept | 353 CpGs; intercept = 0.695507258 | Sources #5, #6 |
+| E2 | Named probe coefficients | cg00075967/cg00374717/cg00864867/cg09809672/cg27544190 | 0.12933661 / 0.005017857 / 1.59976405 / −0.391318905 / −0.869124446 | Sources #5, #6 |
+| E3 | Built-in clock, empty methylation | parameterless overload, empty map → Y=intercept | age = 21·0.695507258 + 20 = 34.605652418 | Sources #2, #4, #5 |
+| E4 | Built-in clock, single probe | cg00864867 β=1.0 → Y=2.295271308 | age = 21·Y + 20 = 68.200697468 | Sources #2, #3, #5 |
+| E5 | Built-in clock, negative predictor | cg09809672 + cg27544190 β=1.0 → Y=−0.564936093 | age = 21·exp(Y) − 1 = 10.936325872311789 | Sources #2, #3, #5 |
+| E6 | Built-in == explicit overload | parameterless equals explicit with built-in table/intercept | equal within 1e-12 | Source #3 (delegation) |
+| E7 | Built-in clock, null methylation | null first arg to parameterless overload | `ArgumentNullException` | Contract |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -116,6 +128,13 @@
 | S2 | ❌ Missing | New unit |
 | S3 | ❌ Missing | New unit |
 | C1 | ❌ Missing | New unit |
+| E1 | ❌ Missing | Added 2026-06-22 (embedded table) |
+| E2 | ❌ Missing | Added 2026-06-22 (embedded table) |
+| E3 | ❌ Missing | Added 2026-06-22 (embedded table) |
+| E4 | ❌ Missing | Added 2026-06-22 (embedded table) |
+| E5 | ❌ Missing | Added 2026-06-22 (embedded table) |
+| E6 | ❌ Missing | Added 2026-06-22 (embedded table) |
+| E7 | ❌ Missing | Added 2026-06-22 (embedded table) |
 
 ### 5.3 Consolidation Plan
 
@@ -126,7 +145,7 @@
 
 | File | Role | Test Count |
 |------|------|------------|
-| EpigeneticsAnalyzer_CalculateEpigeneticAge_Tests.cs | Canonical fixture | 12 |
+| EpigeneticsAnalyzer_CalculateEpigeneticAge_Tests.cs | Canonical fixture | 19 |
 
 ### 5.5 Phase 7 Work Queue
 
@@ -144,9 +163,16 @@
 | 10 | S2 | ❌ Missing | Implemented | ✅ Done |
 | 11 | S3 | ❌ Missing | Implemented | ✅ Done |
 | 12 | C1 | ❌ Missing | Implemented | ✅ Done |
+| 13 | E1 | ❌ Missing | Implemented | ✅ Done |
+| 14 | E2 | ❌ Missing | Implemented | ✅ Done |
+| 15 | E3 | ❌ Missing | Implemented | ✅ Done |
+| 16 | E4 | ❌ Missing | Implemented | ✅ Done |
+| 17 | E5 | ❌ Missing | Implemented | ✅ Done |
+| 18 | E6 | ❌ Missing | Implemented | ✅ Done |
+| 19 | E7 | ❌ Missing | Implemented | ✅ Done |
 
-**Total items:** 12
-**✅ Done:** 12 | **⛔ Blocked:** 0 | **Remaining:** 0
+**Total items:** 19
+**✅ Done:** 19 | **⛔ Blocked:** 0 | **Remaining:** 0
 
 ### 5.6 Post-Implementation Coverage
 
@@ -164,22 +190,29 @@
 | S2 | ✅ Covered | 20.0 transform boundary |
 | S3 | ✅ Covered | Monotonicity property |
 | C1 | ✅ Covered | 41.0 transform positive |
+| E1 | ✅ Covered | 353 CpGs + intercept 0.695507258 |
+| E2 | ✅ Covered | Five named probe coefficients exact |
+| E3 | ✅ Covered | 34.605652418 (built-in, empty map) |
+| E4 | ✅ Covered | 68.200697468 (built-in, cg00864867) |
+| E5 | ✅ Covered | 10.936325872311789 (built-in, exp branch) |
+| E6 | ✅ Covered | Default == explicit overload |
+| E7 | ✅ Covered | ArgumentNullException |
 
-**Total in-scope cases:** 12 | **✅:** 12
+**Total in-scope cases:** 19 | **✅:** 19
 
 ---
 
 ## 6. Assumption Register
 
-**Total assumptions:** 1
+**Total assumptions:** 0
 
 | # | Assumption | Used In |
 |---|-----------|---------|
-| 1 | Clock coefficient set is caller-supplied (353-CpG Horvath table not bundled; framework design) | Implementation contract; §2 Notes |
+| — | (none) — the 353-CpG table is now embedded verbatim (sources #5, #6); the prior "caller-supplied" assumption is resolved. | — |
 
 ---
 
 ## 7. Open Questions / Decisions
 
-1. **Decision:** `CalculateEpigeneticAge` is implemented as a generic linear-predictor framework taking caller-supplied coefficients + intercept, per the task policy forbidding fabricated coefficient tables. The prior repo code's hard-coded 5-CpG "example coefficients" and single-branch `exp(x)−1` transform were defects and were removed.
+1. **Decision (updated 2026-06-22):** the published Horvath 353-CpG multi-tissue table (intercept 0.695507258 + 353 weights) is now embedded verbatim from Additional file 3 (source #5), cross-verified byte-identical against an independent mirror (source #6). A parameterless `CalculateEpigeneticAge(methylation)` overload computes age from the built-in clock; the caller-supplied-coefficients overload is retained unchanged for other clocks. The earlier framework-only decision (no bundled table) is superseded. The prior repo code's hard-coded 5-CpG "example coefficients" and single-branch `exp(x)−1` transform were defects and remain removed.
 2. **Decision:** `PredictImprintedGenes` is listed under this unit in the Registry but is unrelated to the epigenetic-age clock and its `ImprintingScore = diff/(maternal+paternal+0.01)` / `HasDMR = diff > 0.5` formulas have no retrieved authoritative basis. It is left out of scope for EPIGEN-AGE-001 (its own evidence-based validation would be a separate unit) and is neither modified nor tested here.

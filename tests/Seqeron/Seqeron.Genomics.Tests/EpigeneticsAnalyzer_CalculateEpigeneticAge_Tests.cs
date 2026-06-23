@@ -167,6 +167,119 @@ public class EpigeneticsAnalyzer_CalculateEpigeneticAge_Tests
 
     #endregion
 
+    #region Embedded Horvath 2013 multi-tissue clock
+
+    // E1 — table integrity: the embedded clock has exactly 353 CpG coefficients and the
+    //      published intercept. Source: Horvath (2013) Additional file 3 (CoefficientTraining).
+    [Test]
+    public void HorvathMultiTissueClock_TableIntegrity_Has353CpGsAndPublishedIntercept()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(EpigeneticsAnalyzer.HorvathMultiTissueCoefficients.Count, Is.EqualTo(353),
+                "Horvath 2013 multi-tissue clock selects exactly 353 CpGs (Additional file 3)");
+            Assert.That(EpigeneticsAnalyzer.HorvathMultiTissueIntercept, Is.EqualTo(0.695507258).Within(1e-12),
+                "Embedded intercept must equal CoefficientTraining[1] = 0.695507258 (Additional file 3)");
+        });
+    }
+
+    // E2 — spot-check four named probe coefficients against the published table
+    //      (verified byte-identical across Springer supplement + GitHub mirror).
+    [Test]
+    public void HorvathMultiTissueClock_NamedProbes_MatchPublishedCoefficients()
+    {
+        var c = EpigeneticsAnalyzer.HorvathMultiTissueCoefficients;
+        Assert.Multiple(() =>
+        {
+            Assert.That(c["cg00075967"], Is.EqualTo(0.12933661).Within(1e-12),
+                "cg00075967 CoefficientTraining = 0.12933661 (Additional file 3)");
+            Assert.That(c["cg00374717"], Is.EqualTo(0.005017857).Within(1e-12),
+                "cg00374717 CoefficientTraining = 0.005017857 (Additional file 3)");
+            Assert.That(c["cg00864867"], Is.EqualTo(1.59976405).Within(1e-12),
+                "cg00864867 CoefficientTraining = 1.59976405 (Additional file 3)");
+            Assert.That(c["cg09809672"], Is.EqualTo(-0.391318905).Within(1e-12),
+                "cg09809672 (EDARADD) CoefficientTraining = -0.391318905 (Additional file 3)");
+            Assert.That(c["cg27544190"], Is.EqualTo(-0.869124446).Within(1e-12),
+                "cg27544190 CoefficientTraining = -0.869124446 (last supplement row, Additional file 3)");
+        });
+    }
+
+    // E3 — default overload, empty methylation map → DNAmAge = anti.trafo(intercept).
+    //      LP = 0.695507258 (>=0) → 21*LP + 20 = 34.605652418 (Horvath anti.trafo, adult.age=20).
+    [Test]
+    public void CalculateEpigeneticAge_BuiltInClock_EmptyMethylation_ReturnsAntiTransformOfIntercept()
+    {
+        double age = EpigeneticsAnalyzer.CalculateEpigeneticAge(new Dictionary<string, double>());
+
+        Assert.That(age, Is.EqualTo(34.605652418).Within(1e-9),
+            "No CpGs → LP = intercept 0.695507258 → 21*LP+20 = 34.605652418 (built-in clock + anti.trafo)");
+    }
+
+    // E4 — default overload, linear branch: one clock CpG with β=1 contributes its exact
+    //      published coefficient. LP = 0.695507258 + 1.59976405*1 = 2.295271308 (>=0)
+    //      → 21*LP + 20 = 68.200697468.
+    [Test]
+    public void CalculateEpigeneticAge_BuiltInClock_SingleProbe_ReturnsExactLinearBranch()
+    {
+        var methylation = new Dictionary<string, double> { ["cg00864867"] = 1.0 };
+
+        double age = EpigeneticsAnalyzer.CalculateEpigeneticAge(methylation);
+
+        Assert.That(age, Is.EqualTo(68.200697468).Within(1e-9),
+            "LP = 0.695507258 + 1.59976405 = 2.295271308 → 21*LP+20 = 68.200697468 (built-in coef)");
+    }
+
+    // E5 — default overload, exponential branch: two negative-weight clock CpGs at β=1 push
+    //      LP below 0. LP = 0.695507258 + (-0.391318905) + (-0.869124446) = -0.564936093 (<0)
+    //      → 21*exp(LP) - 1 = 10.936325872311789.
+    [Test]
+    public void CalculateEpigeneticAge_BuiltInClock_NegativePredictor_ReturnsExponentialBranch()
+    {
+        var methylation = new Dictionary<string, double>
+        {
+            ["cg09809672"] = 1.0,
+            ["cg27544190"] = 1.0,
+        };
+
+        double age = EpigeneticsAnalyzer.CalculateEpigeneticAge(methylation);
+
+        Assert.That(age, Is.EqualTo(10.936325872311789).Within(1e-9),
+            "LP = -0.564936093 (<0) → 21*exp(LP)-1 = 10.9363... (built-in coef, exponential branch)");
+    }
+
+    // E6 — default overload equals the explicit overload called with the built-in table+intercept
+    //      (the parameterless form is a thin wrapper; it must not alter the result).
+    [Test]
+    public void CalculateEpigeneticAge_BuiltInClock_EqualsExplicitOverloadWithSameTable()
+    {
+        var methylation = new Dictionary<string, double>
+        {
+            ["cg00075967"] = 0.42,
+            ["cg00864867"] = 0.61,
+            ["cg09809672"] = 0.33,
+        };
+
+        double viaDefault = EpigeneticsAnalyzer.CalculateEpigeneticAge(methylation);
+        double viaExplicit = EpigeneticsAnalyzer.CalculateEpigeneticAge(
+            methylation,
+            EpigeneticsAnalyzer.HorvathMultiTissueCoefficients,
+            EpigeneticsAnalyzer.HorvathMultiTissueIntercept);
+
+        Assert.That(viaDefault, Is.EqualTo(viaExplicit).Within(1e-12),
+            "Parameterless overload must delegate to the explicit one with the built-in table/intercept");
+    }
+
+    // E7 — default overload rejects a null methylation map (same contract as the explicit overload).
+    [Test]
+    public void CalculateEpigeneticAge_BuiltInClock_NullMethylation_Throws()
+    {
+        Assert.That(() => EpigeneticsAnalyzer.CalculateEpigeneticAge(null!),
+            NUnit.Framework.Throws.ArgumentNullException,
+            "A null methylation map is invalid input for the built-in clock (contract)");
+    }
+
+    #endregion
+
     #region HorvathAntiTransform
 
     // M5 — published anti.trafo in isolation, negative branch: x=-2.5 → 21*exp(-2.5)-1.
