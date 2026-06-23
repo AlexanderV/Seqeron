@@ -35,7 +35,7 @@ validated clinical-grade predictors.**
 
 | Unit | Computes (validated) | Caller must supply / not modelled |
 |------|----------------------|-----------------------------------|
-| ONCO-SIG-002/003/004 | NNLS signature **refitting**, bootstrap CIs, aetiology mapping | **De-novo signature extraction (NMF)** is not implemented — reference signatures are an input. |
+| ONCO-SIG-002/003/004 | NNLS signature **refitting**, **de-novo signature extraction (NMF)** at a caller-specified rank k (`ExtractSignatures`, Lee & Seung Frobenius multiplicative updates), bootstrap CIs, aetiology mapping | **Automatic rank / model-stability selection** is not implemented — k is caller-specified; the Frobenius (not Poisson/KL) objective is used; no automatic matching of extracted signatures to COSMIC references. |
 | ONCO-MHC-001 | Strong/weak-binder **classification** by IC50 / %Rank cutoffs | The **affinity / %Rank prediction** (NetMHCpan-style learned model) — supplied by caller. |
 | ONCO-HRD-001 | HRD score = LOH + TAI + LST, ≥42 cutoff; **LOH derived from allele-specific segments** end-to-end (`DetectHRD(segments,tai,lst)`, Abkevich 2012 / scarHRD `calc.hrd`) | TAI and LST remain **caller-supplied**: their faithful derivation (scarHRD `calc.ai_new` / `calc.lst`) needs scarHRD's exact per-build centromere `chrominfo` table, which ships only as binary `sysdata.rda` and could not be retrieved/cross-verified, so they are not approximated. |
 | ONCO-PURITY/PLOIDY/CCF/CLONAL | Purity/ploidy/CCF formulas + clonal rule | Allele-specific CN segments, multiplicity, VAF — supplied. |

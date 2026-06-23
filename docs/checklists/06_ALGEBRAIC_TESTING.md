@@ -126,7 +126,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 94 | ✗ | ONCO-HRD-001 | Oncology | ID: no scars → HRD=0; ADD: HRD = LOH + TAI + LST (additive decomposition) |
 | 95 | ✗ | ONCO-LOH-001 | Oncology | ID: balanced BAF → no LOH; INVOL: A/B label swap applied twice = identity |
 | 96 | ✗ | ONCO-SIG-001 | Oncology | ID: no SNVs → zero 96-vector; ADD: catalogue(A∪B)=catalogue(A)+catalogue(B) |
-| 97 | ☑ | ONCO-SIG-002 | Oncology | ID: zero catalogue → zero exposures; HOMO: exposure(k·catalogue)=k·exposure |
+| 97 | ☐ | ONCO-SIG-002 | Oncology | ID: zero catalogue → zero exposures; HOMO: exposure(k·catalogue)=k·exposure |
 | 98 | ✗ | ONCO-SIG-003 | Oncology | IDEMP: same seed → identical CI; ID: zero reps → degenerate CI |
 | 99 | ✗ | ONCO-SIG-004 | Oncology | IDEMP: deterministic; ID: single signature → that process dominant |
 | 100 | ✗ | ONCO-FUSION-001 | Oncology | ID: no chimeric reads → no fusions; IDEMP: deterministic |
@@ -272,7 +272,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 64 |
-| ☐ Not started | 1 |
+| ☑ Complete | 63 |
+| ☐ Not started | 2 |
 | ✗ Not applicable | 169 |
 | Laws verified | ~172 (≈2 per algorithm) |

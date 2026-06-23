@@ -2,10 +2,10 @@
 
 **Test Unit ID:** ONCO-SIG-002
 **Area:** Oncology
-**Algorithm:** Mutational Signature Fitting / Refitting (NNLS decomposition + cosine similarity)
-**Status:** ☑ Validated (2026-06-16; +3 coverage tests: imperfect-fit recon cosine = 1/√3, empty-vector cosine throw, null ReconstructCatalog)
+**Algorithm:** Mutational Signature Fitting / Refitting (NNLS) **+ De-novo Signature Extraction via NMF**
+**Status:** ☐ In Progress (2026-06-23: extended with de-novo NMF extraction `ExtractSignatures` at a caller-specified rank k; NNLS refitting portion unchanged)
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-06-23
 
 ---
 
@@ -178,3 +178,79 @@
    MutationalPatterns NNLS objective (Source 1); deconstructSigs' iterative greedy heuristic (Source 2) is NOT
    reproduced (it is a non-deterministic threshold heuristic), but its reconstruction model R=S·W,
    non-negativity, and proportion normalisation are adopted as they coincide with the NNLS minimiser.
+
+---
+
+## Appendix A — De-novo NMF Signature Extraction (`ExtractSignatures`, added 2026-06-23)
+
+### A.1 Authoritative Sources (extension)
+
+| # | Source | Authority Rank | DOI or URL | Accessed |
+|---|--------|---------------|------------|----------|
+| 5 | Lee & Seung (2001), Algorithms for NMF, NIPS 13 | 1 | https://papers.nips.cc/paper/1861-algorithms-for-non-negative-matrix-factorization (proof guide https://arxiv.org/html/2501.11341v1) | 2026-06-23 |
+| 6 | Non-negative matrix factorization, Wikipedia (citing Lee & Seung) | 4 | https://en.wikipedia.org/wiki/Non-negative_matrix_factorization | 2026-06-23 |
+| 7 | Alexandrov et al. (2013), Cell Reports 3(1):246–259 | 1 | https://doi.org/10.1016/j.celrep.2012.12.008 | 2026-06-23 |
+| 8 | Alexandrov et al. (2020), Nature 578:94–101; COSMIC SBS96 | 1–2 | https://cancer.sanger.ac.uk/signatures/sbs/sbs96/ | 2026-06-23 |
+
+### A.2 Key Evidence Points (extension)
+
+1. NMF model V ≈ W·H, W ≥ 0 (channels × k = signatures), H ≥ 0 (k × samples = exposures); blind-source-separation framing — Source 7.
+2. Lee & Seung Frobenius multiplicative updates (Theorem 1): H ← H ⊙ (WᵀV) ⊘ (WᵀWH); W ← W ⊙ (VHᵀ) ⊘ (WHHᵀ) — Source 5/6.
+3. Objective ‖V − WH‖²_F is monotonically non-increasing under these updates (Theorem 1) — Source 5/6.
+4. Fixed point at exact factorization: multiplicative factors are all-ones when V = WH — Source 6.
+5. NMF is non-convex → local minimum only; initialisation-dependent; fixed seed for reproducibility — Source 5/6.
+6. Each signature is L1-normalised to sum to 1 (a probability distribution over the channels) — Source 7/8 (COSMIC).
+
+### A.3 Canonical Methods Under Test (extension)
+
+| Method | Class | Type | Notes |
+|--------|-------|------|-------|
+| `ExtractSignatures(countMatrix, rank, maxIterations, tolerance, seed)` | OncologyAnalyzer | Canonical | NMF V≈WH via Lee & Seung Frobenius MU rules (Source 5/7) |
+| `SignatureExtractionResult` (record) | OncologyAnalyzer | Internal | signatures (L1-normalised) + exposures + residual + iterations + objective history |
+
+### A.4 Invariants (extension)
+
+| ID | Invariant | Verifiable | Evidence |
+|----|-----------|------------|----------|
+| INV-NMF-1 | All extracted signature weights ≥ 0 and all exposures ≥ 0 | Yes | Source 5/6 (MU preserve nonnegativity) |
+| INV-NMF-2 | Each extracted signature is L1-normalised (Σ channels = 1) | Yes | Source 7/8 (COSMIC probability distribution) |
+| INV-NMF-3 | Objective ‖V − WH‖²_F is monotonically non-increasing across iterations | Yes | Source 5/6 (Theorem 1) |
+| INV-NMF-4 | Exactly factorable V = W₀·H₀ ⇒ residual → 0 at convergence | Yes | Source 6 (factors of ones at V=WH) |
+| INV-NMF-5 | Planted signatures recovered up to column permutation & positive scaling (separable W₀,H₀) | Yes | Source 7 (blind source separation); separability uniqueness |
+
+### A.5 Test Cases (extension)
+
+| ID | Test Case | Description | Expected Outcome | Evidence |
+|----|-----------|-------------|------------------|----------|
+| M1 | Exact reconstruction | V = W₀·H₀, rank 2, tol 0 | FinalResidual < 1e-6 | Source 6 (V=WH fixed point) |
+| M2 | Product recovers V | each (W·H)[c,s] ≈ V[c,s] | within 1e-3 | Source 7 (V≈WH) |
+| M3 | Planted recovery | separable W₀,H₀ | each planted sig cosine ~1 with some extracted (perm/scale) | Source 7; separability |
+| M4 | Nonnegativity | any input | min W ≥ 0 and min H ≥ 0 | Source 5/6 (INV-NMF-1) |
+| M5 | L1 normalisation | any input | each signature sums to 1 | Source 7/8 (INV-NMF-2) |
+| M6 | Monotonicity | objective history | non-increasing (within 1e-9 slack) | Source 5/6 (INV-NMF-3) |
+| S1 | SBS-96 planted | 96 channels, k=2 | low relative residual; signatures 96-long, sum to 1 | Source 7/8 |
+| S2 | Determinism | same seed twice | identical factors & iteration count | Source 5 (seeded init) |
+| S3 | Scale absorption | exactly factorable | exposures total > 0 (scale absorbed, not zeroed) | Source 7 (W·H invariant) |
+| V1–V10 | Validation | null/empty/zero-samples/ragged/negative/NaN/rank<1/rank>channels/maxIter≤0/tol<0 | throws ArgumentNullException / ArgumentException | documented failure modes |
+
+### A.6 Coverage (extension)
+
+Canonical file: `tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ExtractSignatures_Tests.cs` (19 tests). All cases
+M1–M6, S1–S3, V1–V10 ✅ Implemented and passing. Work queue remaining = 0.
+
+### A.7 Assumptions (extension)
+
+| # | Assumption | Used In |
+|---|-----------|---------|
+| 3 | NMF objective = squared Euclidean (Frobenius), Lee & Seung Theorem 1 (KL/Poisson variant not implemented) | M1–M6 |
+| 4 | Deterministic seeded non-negative random initialisation (seed default 42) | S2 |
+
+### A.8 Open Questions / Decisions (extension)
+
+1. Decision: implement the **Frobenius** objective (clean monotone-non-increase property; faithful Lee & Seung
+   Theorem 1). KL/Poisson variant documented as a not-implemented refinement.
+2. Out of scope (residual limitation): automatic rank selection / model-stability selection (many NMF restarts
+   choosing k by reproducibility + error, à la SigProfiler). Extraction is at a **caller-specified** k only.
+3. Planted-truth recovery (M3) uses **separable** W₀, H₀ (pure-pixel condition) so the nonnegative factorisation
+   is unique up to permutation/scaling, making ground truth recoverable; verification runs to tight convergence
+   (tolerance 0) since the default relative-change stop halts before full stationarity.

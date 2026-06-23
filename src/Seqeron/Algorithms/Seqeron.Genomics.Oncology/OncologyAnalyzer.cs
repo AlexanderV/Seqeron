@@ -2874,6 +2874,441 @@ public static class OncologyAnalyzer
 
     #endregion
 
+    #region De-novo Signature Extraction via NMF (ONCO-SIG-002)
+
+    /// <summary>
+    /// Maximum number of multiplicative-update iterations for the de-novo NMF signature extraction. Source:
+    /// Lee &amp; Seung (2001), <i>Algorithms for Non-negative Matrix Factorization</i>, NIPS 13 — the
+    /// multiplicative updates are "applied iteratively until W and H converge"
+    /// (https://en.wikipedia.org/wiki/Non-negative_matrix_factorization). NMF is non-convex, so a finite cap is
+    /// a safety bound; this default mirrors the iteration budgets used by SigProfiler-style extractors.
+    /// </summary>
+    public const int DefaultNmfMaxIterations = 10_000;
+
+    /// <summary>
+    /// Default relative-improvement convergence tolerance for the NMF objective: iteration stops when the
+    /// per-iteration decrease of the Frobenius residual ‖V − WH‖²_F, relative to the previous value, drops below
+    /// this threshold. Source: Lee &amp; Seung (2001), Theorem 1 — the objective is monotonically non-increasing,
+    /// so a small relative-change stop is a valid convergence test. Value = 1e-10.
+    /// </summary>
+    public const double DefaultNmfTolerance = 1e-10;
+
+    /// <summary>
+    /// Default RNG seed for the non-negative random initialisation of the NMF factors. Fixed so that, for a
+    /// given count matrix V, rank k, iteration budget and tolerance, the extracted signatures and exposures are
+    /// reproducible (NMF is non-convex and initialisation-dependent). Mirrors the fixed-seed convention used by
+    /// <see cref="DefaultBootstrapSeed"/>. Value = 42.
+    /// </summary>
+    public const int DefaultNmfSeed = 42;
+
+    /// <summary>
+    /// A small additive floor on the multiplicative-update denominators (and on the random initialisation) to
+    /// avoid 0/0 when a row or column of a factor collapses to zero. Source: standard regularisation of the
+    /// Lee &amp; Seung multiplicative updates whose denominators (WᵀWH, WHHᵀ) can vanish
+    /// (https://en.wikipedia.org/wiki/Non-negative_matrix_factorization). Value = 1e-12, far below any
+    /// meaningful mutation count.
+    /// </summary>
+    private const double NmfEpsilon = 1e-12;
+
+    /// <summary>
+    /// The result of de-novo NMF signature extraction from a mutation-count matrix V ≈ W·H at a caller-specified
+    /// rank k (Lee &amp; Seung 2001; Alexandrov et al. 2013).
+    /// </summary>
+    /// <param name="Signatures">
+    /// The extracted signatures W as a list of k channel vectors (one vector of length <c>ChannelCount</c> per
+    /// signature). Each signature is L1-normalised so its channel weights sum to 1 — a probability distribution
+    /// across the mutation channels, per the COSMIC / SigProfiler convention (Alexandrov et al. 2020).
+    /// </param>
+    /// <param name="Exposures">
+    /// The exposures H as a k × samples matrix (<c>Exposures[j][s]</c> = activity of signature j in sample s).
+    /// Non-negative; absorbs the per-signature scale removed by L1-normalising <paramref name="Signatures"/>.
+    /// </param>
+    /// <param name="FinalResidual">
+    /// The final Frobenius reconstruction residual ‖V − W·H‖²_F (squared) after the last iteration.
+    /// </param>
+    /// <param name="Iterations">The number of multiplicative-update iterations actually performed.</param>
+    /// <param name="ObjectiveHistory">
+    /// The Frobenius residual ‖V − W·H‖²_F recorded after each iteration (length = <see cref="Iterations"/>),
+    /// which is monotonically non-increasing (Lee &amp; Seung 2001, Theorem 1).
+    /// </param>
+    public readonly record struct SignatureExtractionResult(
+        IReadOnlyList<IReadOnlyList<double>> Signatures,
+        IReadOnlyList<IReadOnlyList<double>> Exposures,
+        double FinalResidual,
+        int Iterations,
+        IReadOnlyList<double> ObjectiveHistory);
+
+    /// <summary>
+    /// De-novo mutational-signature extraction by Non-negative Matrix Factorization (NMF). Given a non-negative
+    /// mutation-count matrix V (channels × samples) and a caller-specified rank k, factorises
+    /// <code>V ≈ W·H,  W ≥ 0  (channels × k),  H ≥ 0  (k × samples)</code>
+    /// where the columns of W are the de-novo signatures and H holds their per-sample exposures. Unlike
+    /// <see cref="FitSignatures"/> (which refits exposures against caller-supplied reference signatures), the
+    /// signatures here are <b>discovered from the data</b> — no reference profiles are required. The factors are
+    /// found with the Lee &amp; Seung (2001) multiplicative update rules for the squared Euclidean (Frobenius)
+    /// objective ‖V − W·H‖²_F:
+    /// <code>
+    /// H ← H ⊙ (Wᵀ V) ⊘ (Wᵀ W H)
+    /// W ← W ⊙ (V Hᵀ) ⊘ (W H Hᵀ)
+    /// </code>
+    /// iterated until the relative decrease of the objective falls below <paramref name="tolerance"/> or
+    /// <paramref name="maxIterations"/> is reached. Each extracted signature column of W is then L1-normalised to
+    /// sum to 1 (a probability distribution over the channels), with the removed scale absorbed into H, per the
+    /// COSMIC / SigProfiler convention (Alexandrov et al. 2013, 2020). NMF is non-convex, so the factorisation is
+    /// a local optimum dependent on the (seeded, deterministic) non-negative random initialisation.
+    /// </summary>
+    /// <param name="countMatrix">
+    /// The mutation-count matrix V as a list of rows, one per channel (e.g. 96 SBS channels); each row is a
+    /// vector over the samples (<c>countMatrix[channel][sample]</c>). All entries must be finite and ≥ 0. Every
+    /// row must have the same length (the sample count), and there must be at least one sample.
+    /// </param>
+    /// <param name="rank">The number of signatures k to extract; 1 ≤ k ≤ channel count.</param>
+    /// <param name="maxIterations">Maximum multiplicative-update iterations (&gt; 0).</param>
+    /// <param name="tolerance">Relative-improvement convergence tolerance (≥ 0).</param>
+    /// <param name="seed">RNG seed for the non-negative random initialisation (reproducibility).</param>
+    /// <returns>The extracted signatures W (L1-normalised), exposures H, residual, iteration count and history.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="countMatrix"/> or any row is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// Empty matrix, zero samples, ragged rows, a negative or non-finite entry, rank &lt; 1, rank &gt; channel
+    /// count, maxIterations ≤ 0, or tolerance &lt; 0.
+    /// </exception>
+    public static SignatureExtractionResult ExtractSignatures(
+        IReadOnlyList<IReadOnlyList<double>> countMatrix,
+        int rank,
+        int maxIterations = DefaultNmfMaxIterations,
+        double tolerance = DefaultNmfTolerance,
+        int seed = DefaultNmfSeed)
+    {
+        double[][] v = ValidateCountMatrix(countMatrix, out int channelCount, out int sampleCount);
+
+        if (rank < 1)
+        {
+            throw new ArgumentException($"Rank k must be ≥ 1 (got {rank}).", nameof(rank));
+        }
+
+        if (rank > channelCount)
+        {
+            throw new ArgumentException(
+                $"Rank k ({rank}) cannot exceed the channel count ({channelCount}).", nameof(rank));
+        }
+
+        if (maxIterations <= 0)
+        {
+            throw new ArgumentException($"maxIterations must be > 0 (got {maxIterations}).", nameof(maxIterations));
+        }
+
+        if (tolerance < 0)
+        {
+            throw new ArgumentException($"tolerance must be ≥ 0 (got {tolerance}).", nameof(tolerance));
+        }
+
+        // Non-negative random initialisation (Lee & Seung do not prescribe one; uniform (0,1] is standard).
+        var rng = new Random(seed);
+        double[][] w = InitializeNonNegativeFactor(rng, channelCount, rank);   // channels × k
+        double[][] h = InitializeNonNegativeFactor(rng, rank, sampleCount);    // k × samples
+
+        var history = new List<double>(maxIterations);
+        double previousObjective = double.PositiveInfinity;
+        int iterations = 0;
+
+        for (int iter = 0; iter < maxIterations; iter++)
+        {
+            // H ← H ⊙ (Wᵀ V) ⊘ (Wᵀ W H)   — Lee & Seung (2001), Theorem 1.
+            UpdateH(w, h, v, channelCount, rank, sampleCount);
+            // W ← W ⊙ (V Hᵀ) ⊘ (W H Hᵀ)   — Lee & Seung (2001), Theorem 1.
+            UpdateW(w, h, v, channelCount, rank, sampleCount);
+
+            iterations = iter + 1;
+            double objective = FrobeniusResidualSquared(w, h, v, channelCount, rank, sampleCount);
+            history.Add(objective);
+
+            // Relative-improvement stop. The objective is monotonically non-increasing (Theorem 1), so
+            // previousObjective ≥ objective; the decrease is non-negative.
+            double decrease = previousObjective - objective;
+            double denominator = previousObjective > NmfEpsilon ? previousObjective : 1.0;
+            if (!double.IsInfinity(previousObjective) && decrease / denominator < tolerance)
+            {
+                previousObjective = objective;
+                break;
+            }
+
+            previousObjective = objective;
+        }
+
+        // L1-normalise each signature column of W so its channel weights sum to 1, absorbing the scale into the
+        // corresponding row of H (Alexandrov et al. 2013/2020; COSMIC SBS — signatures are probability
+        // distributions over the channels). This fixes the NMF scaling ambiguity without changing W·H.
+        NormalizeSignatureColumns(w, h, channelCount, rank, sampleCount);
+
+        double finalResidual = FrobeniusResidualSquared(w, h, v, channelCount, rank, sampleCount);
+
+        IReadOnlyList<IReadOnlyList<double>> signatures = TransposeColumnsToSignatures(w, channelCount, rank);
+        IReadOnlyList<IReadOnlyList<double>> exposures = RowsToReadOnly(h);
+
+        return new SignatureExtractionResult(signatures, exposures, finalResidual, iterations, history);
+    }
+
+    /// <summary>
+    /// Validates the count matrix V (non-null, non-empty, rectangular, finite, non-negative) and returns it as a
+    /// dense jagged array of rows, with the channel and sample counts.
+    /// </summary>
+    private static double[][] ValidateCountMatrix(
+        IReadOnlyList<IReadOnlyList<double>> countMatrix, out int channelCount, out int sampleCount)
+    {
+        ArgumentNullException.ThrowIfNull(countMatrix);
+
+        channelCount = countMatrix.Count;
+        if (channelCount == 0)
+        {
+            throw new ArgumentException("The count matrix must have at least one channel (row).", nameof(countMatrix));
+        }
+
+        IReadOnlyList<double> firstRow = countMatrix[0]
+            ?? throw new ArgumentException("Count-matrix rows cannot be null.", nameof(countMatrix));
+        sampleCount = firstRow.Count;
+        if (sampleCount == 0)
+        {
+            throw new ArgumentException("The count matrix must have at least one sample (column).", nameof(countMatrix));
+        }
+
+        var v = new double[channelCount][];
+        for (int c = 0; c < channelCount; c++)
+        {
+            IReadOnlyList<double> row = countMatrix[c]
+                ?? throw new ArgumentException("Count-matrix rows cannot be null.", nameof(countMatrix));
+            if (row.Count != sampleCount)
+            {
+                throw new ArgumentException(
+                    $"All channel rows must have the same sample count (row 0 has {sampleCount}, " +
+                    $"row {c} has {row.Count}).",
+                    nameof(countMatrix));
+            }
+
+            var dense = new double[sampleCount];
+            for (int s = 0; s < sampleCount; s++)
+            {
+                double value = row[s];
+                if (double.IsNaN(value) || double.IsInfinity(value) || value < 0)
+                {
+                    throw new ArgumentException(
+                        $"Count-matrix entries must be finite and ≥ 0 (row {c}, sample {s} = {value}).",
+                        nameof(countMatrix));
+                }
+
+                dense[s] = value;
+            }
+
+            v[c] = dense;
+        }
+
+        return v;
+    }
+
+    /// <summary>
+    /// Builds a non-negative factor of the given shape with entries drawn uniformly from (0, 1], floored by
+    /// <see cref="NmfEpsilon"/> so no entry is exactly zero (a zero row/column cannot recover under the
+    /// multiplicative updates). Source: standard non-negative random initialisation for Lee &amp; Seung NMF.
+    /// </summary>
+    private static double[][] InitializeNonNegativeFactor(Random rng, int rows, int cols)
+    {
+        var factor = new double[rows][];
+        for (int i = 0; i < rows; i++)
+        {
+            var rowValues = new double[cols];
+            for (int j = 0; j < cols; j++)
+            {
+                rowValues[j] = rng.NextDouble() + NmfEpsilon;
+            }
+
+            factor[i] = rowValues;
+        }
+
+        return factor;
+    }
+
+    /// <summary>
+    /// Multiplicative update of H: <c>H ← H ⊙ (Wᵀ V) ⊘ (Wᵀ W H)</c>. Source: Lee &amp; Seung (2001), Theorem 1
+    /// (Euclidean objective). The denominator is floored by <see cref="NmfEpsilon"/> to avoid 0/0.
+    /// </summary>
+    private static void UpdateH(double[][] w, double[][] h, double[][] v, int channels, int k, int samples)
+    {
+        // numerator = Wᵀ V  (k × samples); denominator = Wᵀ (W H)  (k × samples).
+        double[][] wh = MultiplyWh(w, h, channels, k, samples);
+
+        for (int a = 0; a < k; a++)
+        {
+            for (int s = 0; s < samples; s++)
+            {
+                double numerator = 0.0;
+                double denominator = 0.0;
+                for (int c = 0; c < channels; c++)
+                {
+                    numerator += w[c][a] * v[c][s];
+                    denominator += w[c][a] * wh[c][s];
+                }
+
+                if (denominator < NmfEpsilon)
+                {
+                    denominator = NmfEpsilon;
+                }
+
+                h[a][s] *= numerator / denominator;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Multiplicative update of W: <c>W ← W ⊙ (V Hᵀ) ⊘ (W H Hᵀ)</c>. Source: Lee &amp; Seung (2001), Theorem 1
+    /// (Euclidean objective). The denominator is floored by <see cref="NmfEpsilon"/> to avoid 0/0.
+    /// </summary>
+    private static void UpdateW(double[][] w, double[][] h, double[][] v, int channels, int k, int samples)
+    {
+        // numerator = V Hᵀ  (channels × k); denominator = (W H) Hᵀ  (channels × k).
+        double[][] wh = MultiplyWh(w, h, channels, k, samples);
+
+        for (int c = 0; c < channels; c++)
+        {
+            for (int a = 0; a < k; a++)
+            {
+                double numerator = 0.0;
+                double denominator = 0.0;
+                for (int s = 0; s < samples; s++)
+                {
+                    numerator += v[c][s] * h[a][s];
+                    denominator += wh[c][s] * h[a][s];
+                }
+
+                if (denominator < NmfEpsilon)
+                {
+                    denominator = NmfEpsilon;
+                }
+
+                w[c][a] *= numerator / denominator;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Computes the dense product W·H (channels × samples) of the current factors.
+    /// </summary>
+    private static double[][] MultiplyWh(double[][] w, double[][] h, int channels, int k, int samples)
+    {
+        var wh = new double[channels][];
+        for (int c = 0; c < channels; c++)
+        {
+            var row = new double[samples];
+            for (int s = 0; s < samples; s++)
+            {
+                double sum = 0.0;
+                for (int a = 0; a < k; a++)
+                {
+                    sum += w[c][a] * h[a][s];
+                }
+
+                row[s] = sum;
+            }
+
+            wh[c] = row;
+        }
+
+        return wh;
+    }
+
+    /// <summary>
+    /// The squared Frobenius reconstruction residual ‖V − W·H‖²_F = Σ (V − W·H)². Source: Lee &amp; Seung (2001),
+    /// the Euclidean objective F(W,H) = ‖V − WH‖²_F.
+    /// </summary>
+    private static double FrobeniusResidualSquared(double[][] w, double[][] h, double[][] v, int channels, int k, int samples)
+    {
+        double sum = 0.0;
+        for (int c = 0; c < channels; c++)
+        {
+            for (int s = 0; s < samples; s++)
+            {
+                double reconstructed = 0.0;
+                for (int a = 0; a < k; a++)
+                {
+                    reconstructed += w[c][a] * h[a][s];
+                }
+
+                double diff = v[c][s] - reconstructed;
+                sum += diff * diff;
+            }
+        }
+
+        return sum;
+    }
+
+    /// <summary>
+    /// L1-normalises each signature column of W so its channel weights sum to 1, absorbing the removed scale into
+    /// the matching row of H so that W·H is unchanged. Source: Alexandrov et al. (2013/2020); COSMIC SBS — each
+    /// signature is a probability distribution over the channels. A column that sums to zero is left as zeros.
+    /// </summary>
+    private static void NormalizeSignatureColumns(double[][] w, double[][] h, int channels, int k, int samples)
+    {
+        for (int a = 0; a < k; a++)
+        {
+            double columnSum = 0.0;
+            for (int c = 0; c < channels; c++)
+            {
+                columnSum += w[c][a];
+            }
+
+            if (columnSum <= NmfEpsilon)
+            {
+                continue;
+            }
+
+            for (int c = 0; c < channels; c++)
+            {
+                w[c][a] /= columnSum;
+            }
+
+            // Absorb the scale into H so W·H is invariant: H[a][·] *= columnSum.
+            for (int s = 0; s < samples; s++)
+            {
+                h[a][s] *= columnSum;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Converts the channels × k factor W into k signature vectors (column a of W → signature a of length
+    /// <paramref name="channels"/>), the per-signature channel-vector layout used elsewhere in this class.
+    /// </summary>
+    private static IReadOnlyList<IReadOnlyList<double>> TransposeColumnsToSignatures(double[][] w, int channels, int k)
+    {
+        var signatures = new List<IReadOnlyList<double>>(k);
+        for (int a = 0; a < k; a++)
+        {
+            var signature = new double[channels];
+            for (int c = 0; c < channels; c++)
+            {
+                signature[c] = w[c][a];
+            }
+
+            signatures.Add(signature);
+        }
+
+        return signatures;
+    }
+
+    /// <summary>
+    /// Wraps the rows of H as a read-only list of read-only rows.
+    /// </summary>
+    private static IReadOnlyList<IReadOnlyList<double>> RowsToReadOnly(double[][] h)
+    {
+        var rows = new List<IReadOnlyList<double>>(h.Length);
+        foreach (double[] row in h)
+        {
+            rows.Add(row);
+        }
+
+        return rows;
+    }
+
+    #endregion
+
     #region Signature Exposure Bootstrap Confidence Intervals (ONCO-SIG-003)
 
     /// <summary>
