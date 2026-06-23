@@ -262,8 +262,8 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 230 | ✗ | SEQ-COMPLEX-KMER-001 | Complexity | ID: entropy(homopolymer)=0; IDEMP: deterministic; INVAR: reverse-invariant |
 | 231 | ☑ | SEQ-COMPLEX-WINDOW-001 | Complexity | IDEMP: deterministic; DIST: window count = len−w+1 |
 | 232 | ☑ | SEQ-ENTROPY-PROFILE-001 | Statistics | IDEMP: deterministic; INVAR: complement-invariant; DIST: length = len−w+1 |
-| 233 | ☑ | SEQ-GC-ANALYSIS-001 | Composition | ID: GC("")=0; IDEMP: deterministic; DIST: GC(seq)=GC(complement(seq)) |
-| 234 | ☑ | SEQ-GC-PROFILE-001 | Statistics | IDEMP: deterministic; INVAR: complement-invariant; DIST: length = len−w+1 |
+| 233 | ☐ | SEQ-GC-ANALYSIS-001 | Composition | ID: GC("")=0; IDEMP: deterministic; DIST: GC(seq)=GC(complement(seq)) |
+| 234 | ☐ | SEQ-GC-PROFILE-001 | Statistics | IDEMP: deterministic; INVAR: complement-invariant; DIST: length = len−w+1 |
 
 ---
 
@@ -272,7 +272,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 61 |
-| ☐ Not started | 4 |
+| ☑ Complete | 59 |
+| ☐ Not started | 6 |
 | ✗ Not applicable | 169 |
 | Laws verified | ~172 (≈2 per algorithm) |
