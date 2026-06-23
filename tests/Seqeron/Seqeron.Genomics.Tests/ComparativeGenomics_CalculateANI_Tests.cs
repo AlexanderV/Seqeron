@@ -9,6 +9,13 @@
 // length, keeping only fragments with >30% identity over >=70% alignable length.
 // Expected values below are derived by hand from that formula (independently re-derived in
 // Python), NOT read back from the implementation.
+//
+// Gapped placement + reciprocal ANI (COMPGEN-ANI-001 limitation fix):
+//   Goris 2007 use GAPPED BLASTN and "reverse searching ... to provide reciprocal values".
+//   pyani (reference impl) recalculates identity over the query length (ani_pid = ani_alnids/qlen)
+//   and coverage as ani_alnlen/qlen where ani_alnlen = blast_alnlen - blast_gaps. Gapped tests
+//   below encode hand-derived alignment identities; reciprocal tests encode the mean of the two
+//   directional ANIs.
 
 using NUnit.Framework;
 using Seqeron.Genomics.Analysis;
@@ -186,6 +193,160 @@ public class ComparativeGenomics_CalculateANI_Tests
             Assert.That(aniLow, Is.EqualTo(0.625).Within(Tolerance),
                 "Lowering minIdentity to 0.20 includes the 0.25-identity fragment => ANI = (1.0+0.25)/2 = 0.625.");
         });
+    }
+
+    #endregion
+
+    #region CalculateANI (gapped placement)
+
+    // G1 — Identical genomes with gapped placement still yield ANI = 1.0: every fragment aligns to
+    // an exact copy with no gaps, so identical columns = fragment length (Goris 2007; INV-02).
+    [Test]
+    public void CalculateANI_Gapped_IdenticalGenomes_ReturnsOne()
+    {
+        double ani = ComparativeGenomics.CalculateANI(Reference, Reference, fragmentLength: 4, gapped: true);
+
+        Assert.That(ani, Is.EqualTo(1.0).Within(Tolerance),
+            "Gapped identical genomes must yield ANI = 1.0: the fragment aligns to an exact copy (Goris 2007).");
+    }
+
+    // G2 — Gapped placement recovers an indel that the ungapped scan cannot. Query fragment
+    // "AAAACCCC" (8 nt) vs reference "AAAATCCCC" (a single T inserted after AAAA).
+    //   Ungapped: the 8-mer cannot slide over the inserted T without losing column registration;
+    //     the best full-length offset matches only 7 of 8 bases => identity 7/8 = 0.875.
+    //   Gapped (Smith-Waterman): "AAAA-CCCC" vs "AAAATCCCC" aligns all 8 query bases identically
+    //     (one gap opposite the inserted T) => 8 identical columns / 8 = identity 1.0; the 8 ungapped
+    //     columns / 8 = coverage 1.0 (>= 0.70), so the fragment qualifies.
+    // The gapped result (1.0) is strictly higher than the ungapped result (0.875), and is the
+    // correct recalculated-over-fragment identity per Goris 2007 / pyani (ani_pid = ani_alnids/qlen).
+    [Test]
+    public void CalculateANI_Gapped_IndelFragment_RecoversHigherIdentityThanUngapped()
+    {
+        const string query = "AAAACCCC";       // 8-nt fragment
+        const string reference = "AAAATCCCC";   // same fragment with one inserted base (indel)
+
+        double ungapped = ComparativeGenomics.CalculateANI(query, reference, fragmentLength: 8, gapped: false);
+        double gapped = ComparativeGenomics.CalculateANI(query, reference, fragmentLength: 8, gapped: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ungapped, Is.EqualTo(0.875).Within(Tolerance),
+                "Ungapped best offset matches only 7/8 bases across the inserted base => 0.875.");
+            Assert.That(gapped, Is.EqualTo(1.0).Within(Tolerance),
+                "Gapped alignment places a gap opposite the inserted base => all 8 query bases match => identity 1.0 (Goris 2007 gapped BLASTN).");
+            Assert.That(gapped, Is.GreaterThan(ungapped),
+                "Gapped placement must recover strictly higher correct identity than ungapped for an indel.");
+        });
+    }
+
+    // G3 — Gapped alignable-region cut-off: reference far shorter than the fragment cannot cover
+    // >= 70% of the fragment length, so the fragment is excluded => ANI = 0. Query fragment "AAAACCCC"
+    // (8 nt), reference "AA" (2 nt): the best local alignment covers at most 2 of 8 query columns
+    // (coverage 2/8 = 0.25 < 0.70). No fragment qualifies (Goris 2007 ">= 70% alignable region").
+    [Test]
+    public void CalculateANI_Gapped_FragmentBelowAlignableCutoff_ReturnsZero()
+    {
+        double ani = ComparativeGenomics.CalculateANI("AAAACCCC", "AA", fragmentLength: 8, gapped: true);
+
+        Assert.That(ani, Is.EqualTo(0.0).Within(Tolerance),
+            "Gapped coverage 2/8 = 0.25 < 0.70 excludes the fragment => ANI = 0 (Goris 2007 alignable cut-off).");
+    }
+
+    // G4 — Gapped identity cut-off still gates: a fragment whose best gapped identity is <= 0.30 is
+    // discarded. Reference all A's; query "AAAACGTC" splits into "AAAA" (identity 1.0, kept) and
+    // "CGTC" (best gapped alignment to AAAA has 0 identical columns => identity 0.0, NOT > 0.30,
+    // excluded). ANI = mean of the single kept fragment = 1.0 (Goris 2007 ">30% identity").
+    [Test]
+    public void CalculateANI_Gapped_FragmentBelowIdentityCutoff_IsExcludedFromMean()
+    {
+        double ani = ComparativeGenomics.CalculateANI("AAAACGTC", "AAAAAAAA", fragmentLength: 4, gapped: true);
+
+        Assert.That(ani, Is.EqualTo(1.0).Within(Tolerance),
+            "A gapped fragment with identity <= 0.30 is discarded; ANI = mean of qualifying fragments = 1.0 (Goris 2007).");
+    }
+
+    #endregion
+
+    #region CalculateReciprocalAni
+
+    // R1 — Reciprocal ANI of identical genomes is 1.0 in both directions => mean = 1.0
+    // (Goris 2007 reverse searching; both directional ANIs are 1.0).
+    [Test]
+    public void CalculateReciprocalAni_IdenticalGenomes_ReturnsOne()
+    {
+        double ani = ComparativeGenomics.CalculateReciprocalAni(Reference, Reference, fragmentLength: 4);
+
+        Assert.That(ani, Is.EqualTo(1.0).Within(Tolerance),
+            "Reciprocal ANI of identical genomes = mean(1.0, 1.0) = 1.0 (Goris 2007 reciprocal values).");
+    }
+
+    // R2 — Reciprocal ANI is symmetric: ANI(A,B) == ANI(B,A) by construction (mean of the two
+    // directions is order-independent). Uses an asymmetric pair where the single-direction values
+    // genuinely differ, proving the averaging — not a trivially symmetric input — is what makes it
+    // symmetric. Query A = "AAAACCCCGGGGTTTT", B = "AAAACCCCGGGGTTTA" (one base differs).
+    [Test]
+    public void CalculateReciprocalAni_IsSymmetric()
+    {
+        const string a = "AAAACCCCGGGGTTTT";
+        const string b = "AAAACCCCGGGGTTTA";
+
+        double ab = ComparativeGenomics.CalculateReciprocalAni(a, b, fragmentLength: 4);
+        double ba = ComparativeGenomics.CalculateReciprocalAni(b, a, fragmentLength: 4);
+
+        Assert.That(ab, Is.EqualTo(ba).Within(Tolerance),
+            "Reciprocal ANI must satisfy ANI(A,B) == ANI(B,A) (mean of both directions is symmetric).");
+    }
+
+    // R3 — Reciprocal ANI equals the mean of the two single-direction ANIb values. Hand-derived:
+    // A = "AAAACGTC", B = "AAAAAAAA", fragLen 4, default cut-offs.
+    //   A->B: frag1 "AAAA"=1.0 kept; frag2 "CGTC" best vs AAAA = 0 identical => 0.0 not >0.30,
+    //         excluded => ANI(A->B) = 1.0.
+    //   B->A: B fragments are "AAAA","AAAA"; against A="AAAACGTC" each best-matches the leading
+    //         "AAAA" with identity 1.0 => ANI(B->A) = 1.0.
+    //   Reciprocal = (1.0 + 1.0)/2 = 1.0.
+    [Test]
+    public void CalculateReciprocalAni_EqualsMeanOfBothDirections()
+    {
+        const string a = "AAAACGTC";
+        const string b = "AAAAAAAA";
+
+        double forward = ComparativeGenomics.CalculateANI(a, b, fragmentLength: 4);
+        double reverse = ComparativeGenomics.CalculateANI(b, a, fragmentLength: 4);
+        double reciprocal = ComparativeGenomics.CalculateReciprocalAni(a, b, fragmentLength: 4);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(forward, Is.EqualTo(1.0).Within(Tolerance),
+                "A->B: only 'AAAA' qualifies (CGTC excluded) => 1.0.");
+            Assert.That(reverse, Is.EqualTo(1.0).Within(Tolerance),
+                "B->A: both 'AAAA' fragments match the leading AAAA of A => 1.0.");
+            Assert.That(reciprocal, Is.EqualTo((forward + reverse) / 2.0).Within(Tolerance),
+                "Reciprocal ANI = mean of the two directional ANIs (Goris 2007 reciprocal values).");
+        });
+    }
+
+    // R4 — Reciprocal ANI null/empty inputs return 0 (validation contract, same as CalculateANI).
+    [Test]
+    public void CalculateReciprocalAni_NullOrEmptyInput_ReturnsZero()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(ComparativeGenomics.CalculateReciprocalAni(null!, Reference), Is.EqualTo(0.0),
+                "Null genomeA must return 0.");
+            Assert.That(ComparativeGenomics.CalculateReciprocalAni(Reference, null!), Is.EqualTo(0.0),
+                "Null genomeB must return 0.");
+            Assert.That(ComparativeGenomics.CalculateReciprocalAni("", Reference), Is.EqualTo(0.0),
+                "Empty genomeA must return 0.");
+        });
+    }
+
+    // R5 — Reciprocal ANI rejects non-positive fragmentLength (validation contract).
+    [Test]
+    public void CalculateReciprocalAni_NonPositiveFragmentLength_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => ComparativeGenomics.CalculateReciprocalAni(Reference, Reference, fragmentLength: 0),
+            "fragmentLength <= 0 must throw ArgumentOutOfRangeException.");
     }
 
     #endregion

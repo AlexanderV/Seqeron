@@ -160,7 +160,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 128 | ✗ | SEQ-SUMMARY-001 | Statistics | ID: empty → zero length; IDEMP: deterministic |
 | 129 | ✗ | SEQ-THERMO-001 | Statistics | ID: empty → 0; IDEMP: deterministic |
 | 130 | ☑ | SEQ-TM-001 | Statistics | ID: empty → 0; HOMO: homopolymer Tm scales linearly with length (Wallace) |
-| 131 | ☑ | COMPGEN-ANI-001 | Comparative | ID: ANI(A,A)=100; COMM: ANI symmetric |
+| 131 | ☐ | COMPGEN-ANI-001 | Comparative | ID: ANI(A,A)=100; COMM: ANI symmetric |
 | 132 | ✗ | COMPGEN-CLUSTER-001 | Comparative | IDEMP: deterministic; ID: single genome → trivial clusters |
 | 133 | ☑ | COMPGEN-COMPARE-001 | Comparative | COMM: symmetric; IDEMP: deterministic |
 | 134 | ✗ | COMPGEN-DOTPLOT-001 | Comparative | IDEMP: deterministic; ID: A vs A → main diagonal |
@@ -272,7 +272,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 65 |
-| ☐ Not started | 0 |
+| ☑ Complete | 64 |
+| ☐ Not started | 1 |
 | ✗ Not applicable | 169 |
 | Laws verified | ~172 (≈2 per algorithm) |
