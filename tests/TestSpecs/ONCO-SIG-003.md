@@ -3,9 +3,9 @@
 **Test Unit ID:** ONCO-SIG-003
 **Area:** Oncology
 **Algorithm:** Signature Exposure Estimation — Bootstrap Confidence Intervals
-**Status:** ☑ Complete
+**Status:** ☐ Pending re-validation (Poisson variant added 2026-06-23; verification reset across checklists)
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-06-23
 
 ---
 
@@ -20,6 +20,8 @@
 | 3 | sigminer `sig_fit_bootstrap` (Wang S. et al.) | 3 | https://raw.githubusercontent.com/ShixiangWang/sigminer/master/R/sig_fit_bootstrap.R | 2026-06-14 |
 | 4 | Efron B. (1979). *Annals of Statistics* 7(1):1–26 (percentile method) | 1 | https://doi.org/10.1214/aos/1176344552 | 2026-06-14 |
 | 5 | Hyndman R.J., Fan Y. (1996). *The American Statistician* 50(4):361–365 (type-7) | 1 | https://doi.org/10.1080/00031305.1996.10473566 | 2026-06-14 |
+| 6 | Senkin S. (2021), MSA — Poisson resampling variant (re-retrieved verbatim quotes) | 1 | https://pmc.ncbi.nlm.nih.gov/articles/PMC8567580/ | 2026-06-23 |
+| 7 | Knuth D.E. (1997). TAOCP Vol. 2 §3.4.1 (Poisson deviate generation) | 1 | https://en.wikipedia.org/wiki/Poisson_distribution#Random_variate_generation | 2026-06-23 |
 
 ### 1.2 Key Evidence Points
 
@@ -29,12 +31,15 @@
 4. 1000 replicates is the standard count; ≥ 100 recommended — Senkin 2021 (Fig. 2); sigminer doc.
 5. The point estimate is the NNLS exposure of the observed (un-resampled) catalog — Senkin 2021; Huang 2018.
 6. Type-7 quantile Q(p) = x₍⌊h⌋₎ + (h−⌊h⌋)(x₍⌊h⌋₊₁₎ − x₍⌊h⌋₎), h = p·(n−1) — Hyndman & Fan 1996.
+7. **Poisson variant (Senkin 2021):** "mutations are accumulated following Poisson distributions for each mutation class"; the modified scheme draws "counts from independent binomial distributions, so that the total mutational burden is no longer fixed" and "for any given mutation category … the distribution of bootstrapped mutation counts follows a Poisson distribution." Construction: each channel k resampled as Poisson(catalogₖ), refit by NNLS, same percentile CI. The default scheme remains the fixed-N multinomial (sigminer); the Poisson scheme is opt-in via the `resampling` parameter.
 
 ### 1.3 Documented Corner Cases
 
 - **N = 0 (zero-mutation catalog):** every resample all-zero ⇒ all replicate exposures 0 ⇒ interval [0, 0] (Senkin 2021 resampling definition).
 - **Single non-zero channel:** multinomial draw is deterministic ⇒ resample equals observed ⇒ each replicate exposure equals the point estimate.
 - **Single replicate (R = 1):** percentile of a one-element sample is that element ⇒ lower = upper = mean.
+- **Poisson variant — zero-count channel:** Poisson(0) = 0 ⇒ that channel/signature is 0 in every replicate.
+- **Poisson variant — single non-zero channel:** Poisson(λ) fluctuates (variance = mean) ⇒ interval has positive width (NOT the deterministic collapse of the multinomial scheme).
 
 ### 1.4 Known Failure Modes / Pitfalls
 
@@ -47,8 +52,9 @@
 
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
-| `BootstrapExposures(catalog, signatures, replicates, confidence, seed)` | OncologyAnalyzer | Canonical | Multinomial bootstrap + NNLS refit + percentile CI per signature. |
-| `Percentile(values, probability)` (internal) | OncologyAnalyzer | Internal | Type-7 quantile; tested indirectly via deterministic CI cases and directly via reflection-free deterministic distributions. |
+| `BootstrapExposures(catalog, signatures, replicates, confidence, seed, resampling)` | OncologyAnalyzer | Canonical | Multinomial (default) or Poisson bootstrap + NNLS refit + percentile CI per signature. |
+| `BootstrapResampling` (enum) | OncologyAnalyzer | Canonical | Selects `Multinomial` (default, fixed N) or `Poisson` (Senkin 2021, per-channel Poisson). |
+| `Percentile(values, probability)` (internal) | OncologyAnalyzer | Internal | Type-7 quantile; tested directly via reflection and indirectly via deterministic CI cases. |
 
 ---
 
@@ -59,8 +65,10 @@
 | INV-1 | All bootstrap exposures and interval bounds ≥ 0 | Yes | NNLS x ≥ 0 (Lawson & Hanson 1974); resampled counts ≥ 0 |
 | INV-2 | Lower ≤ Upper for every signature | Yes | percentile ordering, ½(1−c) < 1−½(1−c) (Efron 1979) |
 | INV-3 | Lower ≤ Mean ≤ Upper for c such that bounds bracket central mass; Mean ≥ 0 | Yes | mean lies within [min,max] ⊇ [2.5%,97.5%]-adjacent; for the deterministic cases equals the bounds |
-| INV-4 | Determinism: same (catalog, signatures, replicates, confidence, seed) ⇒ identical result | Yes | fixed RNG seed |
-| INV-5 | One interval per signature, in signature order; PointEstimate = `FitSignatures(observed).Exposures[j]` | Yes | contract (Senkin 2021 point estimate) |
+| INV-4 | Determinism: same (catalog, signatures, replicates, confidence, seed, scheme) ⇒ identical result | Yes | fixed RNG seed |
+| INV-5 | One interval per signature, in signature order; PointEstimate = `FitSignatures(observed).Exposures[j]` (scheme-independent) | Yes | contract (Senkin 2021 point estimate) |
+| INV-6 | Poisson scheme: observed count 0 ⇒ that channel resamples to 0 every replicate | Yes | Poisson(0) = 0 (Senkin 2021) |
+| INV-7 | Default (no `resampling` arg) is byte-for-byte equal to explicit `Multinomial` | Yes | backward compatibility |
 
 ---
 
@@ -79,6 +87,11 @@
 | M7 | One interval per signature in order | k signatures | result.Count == k | INV-5 |
 | M8 | Percentile type-7 [0,1,2,3,4] | via deterministic constant per-rep distribution; verify median bound | exact type-7 value 2.0 at p=0.5 | Hyndman & Fan 1996 |
 | M9 | Single replicate R=1 | catalog [10], [[1.0]], replicates 1 | lower=upper=mean=10 | R=1 corner case |
+| P1 | Poisson single-channel matches independent Poisson draws | catalog [12], [[1.0]], 300 reps, seed 42, Poisson | mean/bounds == mean/[2.5%,97.5%] type-7 of independent Poisson(12) draws (Knuth reference, same seeded order) | Senkin 2021 Poisson construction; INV (variance=mean) |
+| P2 | Poisson zero-count channel stays 0 | catalog [0,20] over [[1,0],[0,1]], Poisson | sig0: point=mean=lower=upper=0; sig1 point=20 | Poisson(0)=0; INV-6 |
+| P3 | Poisson single-channel non-degenerate | catalog [25], [[1.0]], 400 reps, Poisson | Upper − Lower > 0 | variance=mean (NOT multinomial collapse) |
+| P4 | Poisson determinism | two identical Poisson calls, seed 42 | element-wise identical intervals | INV-4 |
+| P5 | Default == Multinomial, ≠ Poisson | same inputs, default vs explicit Multinomial vs Poisson | default == Multinomial byte-for-byte; Poisson differs | INV-7; backward compatibility |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -116,7 +129,12 @@
 | M9 | ❌ Missing | new |
 | S1 | ❌ Missing | new |
 | S2 | ❌ Missing | new |
-| Failure modes (null/ragged/mismatch/negative/replicates/confidence) | ❌ Missing | new |
+| P1 | ❌ Missing | Poisson variant (2026-06-23) |
+| P2 | ❌ Missing | Poisson variant (2026-06-23) |
+| P3 | ❌ Missing | Poisson variant (2026-06-23) |
+| P4 | ❌ Missing | Poisson variant (2026-06-23) |
+| P5 | ❌ Missing | Poisson variant (2026-06-23) |
+| Failure modes (null/ragged/mismatch/negative/replicates/confidence/undefined-scheme) | ❌ Missing | undefined-scheme added 2026-06-23 |
 
 ### 5.3 Consolidation Plan
 
@@ -127,7 +145,7 @@
 
 | File | Role | Test Count |
 |------|------|------------|
-| OncologyAnalyzer_BootstrapExposures_Tests.cs | Canonical ONCO-SIG-003 fixture | 18 |
+| OncologyAnalyzer_BootstrapExposures_Tests.cs | Canonical ONCO-SIG-003 fixture | 25 |
 
 ### 5.5 Phase 7 Work Queue
 
@@ -145,9 +163,15 @@
 | 10 | S1 | ❌ Missing | implemented | ✅ Done |
 | 11 | S2 | ❌ Missing | implemented | ✅ Done |
 | 12 | Failure modes | ❌ Missing | implemented (7 tests) | ✅ Done |
+| 13 | P1 | ❌ Missing | implemented (Poisson vs independent Knuth Poisson reference) | ✅ Done |
+| 14 | P2 | ❌ Missing | implemented | ✅ Done |
+| 15 | P3 | ❌ Missing | implemented | ✅ Done |
+| 16 | P4 | ❌ Missing | implemented | ✅ Done |
+| 17 | P5 | ❌ Missing | implemented | ✅ Done |
+| 18 | Undefined-scheme failure mode | ❌ Missing | implemented | ✅ Done |
 
-**Total items:** 12
-**✅ Done:** 12 | **⛔ Blocked:** 0 | **Remaining:** 0
+**Total items:** 18
+**✅ Done:** 18 | **⛔ Blocked:** 0 | **Remaining:** 0
 
 ### 5.6 Post-Implementation Coverage
 
@@ -164,21 +188,28 @@
 | M9 | ✅ Covered | BootstrapExposures_SingleReplicate_BoundsEqualMean |
 | S1 | ✅ Covered | BootstrapExposures_WiderConfidence_GivesWiderInterval |
 | S2 | ✅ Covered | BootstrapExposures_TwoChannelDeterministicSplit_ExactExposures |
-| Failure modes | ✅ Covered | 7 validation tests (null/empty/ragged/mismatch/negative/replicates/confidence) |
+| P1 | ✅ Covered | BootstrapExposures_Poisson_SingleChannel_MatchesIndependentPoissonDraws |
+| P2 | ✅ Covered | BootstrapExposures_Poisson_ZeroCountChannel_StaysZero |
+| P3 | ✅ Covered | BootstrapExposures_Poisson_SingleChannel_HasNonZeroSpread |
+| P4 | ✅ Covered | BootstrapExposures_Poisson_SameSeed_IsDeterministic |
+| P5 | ✅ Covered | BootstrapExposures_DefaultEqualsMultinomial_AndDiffersFromPoisson |
+| Failure modes | ✅ Covered | 8 validation tests (null/empty/ragged/mismatch/negative/replicates/confidence/undefined-scheme) |
 
 ---
 
 ## 6. Assumption Register
 
-**Total assumptions:** 2
+**Total assumptions:** 3
 
 | # | Assumption | Used In |
 |---|-----------|---------|
-| 1 | Type-7 quantile interpolation (R/NumPy default; Hyndman & Fan 1996) realizes the percentile method | M8, M5, S1 bound values |
-| 2 | Fixed default RNG seed 42 for reproducibility (sources do not prescribe a seed) | M5, M6, S1 (randomized cases); deterministic cases M1–M3, M9, S2 are seed-independent |
+| 1 | Type-7 quantile interpolation (R/NumPy default; Hyndman & Fan 1996) realizes the percentile method | M8, M5, S1, P1 bound values |
+| 2 | Fixed default RNG seed 42 for reproducibility (sources do not prescribe a seed) | M5, M6, S1, P1, P4 (randomized cases); deterministic cases M1–M3, M9, S2, P2 are seed-independent |
+| 3 | Poisson deviates generated by Knuth multiplication-of-uniforms (TAOCP §3.4.1); the source fixes the Poisson distribution but not the generation algorithm. Non-correctness-affecting for the distribution (any exact Poisson sampler yields the same distribution); the test reproduces this exact sampler only to derive deterministic seeded expected values | P1 |
 
 ---
 
 ## 7. Open Questions / Decisions
 
 1. **Decision:** the registry titled ONCO-SIG-003 "Signature Exposure Estimation" with `EstimateExposures`, but point exposure estimation (NNLS) was already delivered by ONCO-SIG-002 (`FitSignatures`). The genuine next mutational-signature piece — and the registry's second listed method `BootstrapConfidenceIntervals(spectrum)` — is **bootstrap confidence intervals on exposures**, implemented here as `BootstrapExposures`. External evidence (Senkin 2021; Huang 2018) supersedes the original by-area title; recorded in the registry scope note.
+2. **Decision (2026-06-23, limitation fix):** LIMITATIONS.md §2 recorded that only the sigminer fixed-N multinomial resample was implemented, not Senkin's Poisson variant. The Poisson scheme is now added behind a `resampling` enum defaulting to `Multinomial`, so existing behaviour is byte-for-byte unchanged (INV-7) while the Senkin 2021 Poisson construction (per-channel Poisson(observedₖ), non-fixed N) is available opt-in. The limitation row is removed. Because the algorithm changed, prior cross-checklist verification for ONCO-SIG-003 is stale and was reset (☑→☐) pending re-validation; this TestSpec's own status is likewise ☐ pending re-validation.

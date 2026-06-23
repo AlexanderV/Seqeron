@@ -2868,6 +2868,35 @@ public static class OncologyAnalyzer
     public const double DefaultBootstrapConfidence = 0.95;
 
     /// <summary>
+    /// Selects how each bootstrap replicate of the mutational catalog is resampled in
+    /// <see cref="BootstrapExposures"/>. Both schemes are described by Senkin (2021), MSA
+    /// (<i>BMC Bioinformatics</i> 22:540, https://pmc.ncbi.nlm.nih.gov/articles/PMC8567580/), which notes that
+    /// "the conditional distribution of a vector of independent Poisson variables is equivalent to multinomial
+    /// distribution" — the two differ only in whether the total mutational burden N is held fixed.
+    /// </summary>
+    public enum BootstrapResampling
+    {
+        /// <summary>
+        /// Fixed-N multinomial resample: the observed total N = Σ catalog mutations is redistributed across
+        /// channels with probabilities pₖ = catalogₖ / N, so every replicate has exactly N mutations.
+        /// This is the sigminer <c>sig_fit_bootstrap</c> scheme,
+        /// <c>sample(K, total, replace=TRUE, prob=catalog/sum(catalog))</c>
+        /// (https://github.com/ShixiangWang/sigminer/blob/master/R/sig_fit_bootstrap.R). Default — preserves the
+        /// historical behaviour of <see cref="BootstrapExposures"/> byte-for-byte.
+        /// </summary>
+        Multinomial = 0,
+
+        /// <summary>
+        /// Poisson resample (Senkin 2021, MSA): each channel count is drawn independently as
+        /// Poisson(observedₖ), so "for any given mutation category … the distribution of bootstrapped mutation
+        /// counts follows a Poisson distribution" and "the total mutational burden is no longer fixed". This is
+        /// the Poisson noise variant of the MSA parametric bootstrap, where the variance of each channel equals
+        /// its mean (the observed count).
+        /// </summary>
+        Poisson = 1,
+    }
+
+    /// <summary>
     /// A bootstrap confidence interval for one signature's exposure (activity), produced by
     /// <see cref="BootstrapExposures"/>.
     /// </summary>
@@ -2892,43 +2921,59 @@ public static class OncologyAnalyzer
         double Confidence);
 
     /// <summary>
-    /// Estimates per-signature exposure confidence intervals by the parametric (multinomial) bootstrap:
-    /// the observed integer mutational catalog is repeatedly resampled as a draw of N = Σ catalog
-    /// mutations from the multinomial distribution with per-channel probabilities pₖ = catalogₖ / N, each
-    /// resampled catalog is refit to the reference signatures by NNLS
-    /// (<see cref="FitSignatures(IReadOnlyList{double}, IReadOnlyList{IReadOnlyList{double}})"/>), and a
-    /// two-sided percentile confidence interval is taken per signature from the resulting bootstrap
-    /// exposure distribution. The point estimate is the NNLS exposure of the un-resampled observed catalog.
+    /// Estimates per-signature exposure confidence intervals by the parametric bootstrap: the observed integer
+    /// mutational catalog is repeatedly resampled, each resampled catalog is refit to the reference signatures
+    /// by NNLS (<see cref="FitSignatures(IReadOnlyList{double}, IReadOnlyList{IReadOnlyList{double}})"/>), and a
+    /// two-sided percentile confidence interval is taken per signature from the resulting bootstrap exposure
+    /// distribution. The point estimate is the NNLS exposure of the un-resampled observed catalog. The
+    /// <paramref name="resampling"/> parameter selects the resampling scheme:
+    /// <list type="bullet">
+    /// <item><see cref="BootstrapResampling.Multinomial"/> (default) — each replicate is a draw of
+    /// N = Σ catalog mutations from the multinomial distribution with per-channel probabilities
+    /// pₖ = catalogₖ / N (fixed total N).</item>
+    /// <item><see cref="BootstrapResampling.Poisson"/> — each channel count is drawn independently as
+    /// Poisson(observedₖ); the total burden is no longer fixed (Senkin 2021, MSA Poisson variant).</item>
+    /// </list>
     /// <para>
     /// Sources: Huang X., Wojtowicz D., Przytycka T.M. (2018), <i>Bioinformatics</i> 34(2):330–337 — bootstrap
     /// resampling of the mutation-count vector to assess decomposition confidence; Senkin S. (2021), MSA,
     /// <i>BMC Bioinformatics</i> 22:540 — "mutations are accumulated following Poisson distributions for each
-    /// mutation class", "For each bootstrap sample, NNLS attribution is applied", "95% confidence intervals …
-    /// taking [2.5%, 97.5%] percentiles"; Wang S. et al., sigminer <c>sig_fit_bootstrap</c> — resample via
+    /// mutation class", "drawing counts from independent binomial distributions, so that the total mutational
+    /// burden is no longer fixed … for any given mutation category … the distribution of bootstrapped mutation
+    /// counts follows a Poisson distribution", "the conditional distribution of a vector of independent Poisson
+    /// variables is equivalent to multinomial distribution", "95% confidence intervals … taking [2.5%, 97.5%]
+    /// percentiles"; Wang S. et al., sigminer <c>sig_fit_bootstrap</c> — resample via
     /// <c>sample(K, total, replace=TRUE, prob=catalog/sum(catalog))</c> (a multinomial draw) then refit;
     /// Efron B. (1979) percentile interval. Reference signature profiles are caller-supplied (not fabricated).
     /// </para>
     /// </summary>
     /// <param name="catalog">
     /// The observed mutational catalog as non-negative integer per-channel mutation counts (e.g. a 96-channel
-    /// SBS spectrum). Counts (not proportions) are required because the multinomial draw needs the total N.
+    /// SBS spectrum). Counts (not proportions) are required because each resample needs the per-channel totals.
     /// </param>
     /// <param name="signatures">Reference signatures as equal-length channel vectors (one per signature).</param>
     /// <param name="replicates">Number of bootstrap replicates (≥ 1; default <see cref="DefaultBootstrapReplicates"/>).</param>
     /// <param name="confidence">Two-sided confidence level in (0, 1); default <see cref="DefaultBootstrapConfidence"/>.</param>
-    /// <param name="seed">RNG seed for the multinomial resampling; fixed value makes results reproducible.</param>
+    /// <param name="seed">RNG seed for the resampling; fixed value makes results reproducible.</param>
+    /// <param name="resampling">
+    /// The bootstrap resampling scheme; <see cref="BootstrapResampling.Multinomial"/> (the historical default,
+    /// fixed N) or <see cref="BootstrapResampling.Poisson"/> (Senkin 2021 Poisson variant).
+    /// </param>
     /// <returns>One <see cref="ExposureConfidenceInterval"/> per signature, in signature order.</returns>
     /// <exception cref="ArgumentNullException">Any argument (or a signature vector) is null.</exception>
     /// <exception cref="ArgumentException">
     /// No signatures, ragged signatures, catalog length ≠ channel count, or a negative catalog count.
     /// </exception>
-    /// <exception cref="ArgumentOutOfRangeException">replicates &lt; 1, or confidence outside (0, 1).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// replicates &lt; 1, confidence outside (0, 1), or an unrecognised <paramref name="resampling"/> value.
+    /// </exception>
     public static IReadOnlyList<ExposureConfidenceInterval> BootstrapExposures(
         IReadOnlyList<int> catalog,
         IReadOnlyList<IReadOnlyList<double>> signatures,
         int replicates = DefaultBootstrapReplicates,
         double confidence = DefaultBootstrapConfidence,
-        int seed = DefaultBootstrapSeed)
+        int seed = DefaultBootstrapSeed,
+        BootstrapResampling resampling = BootstrapResampling.Multinomial)
     {
         ArgumentNullException.ThrowIfNull(catalog);
         int channelCount = ValidateSignatures(signatures);
@@ -2950,6 +2995,12 @@ public static class OncologyAnalyzer
         {
             throw new ArgumentOutOfRangeException(
                 nameof(confidence), confidence, "Confidence must be in the open interval (0, 1).");
+        }
+
+        if (resampling != BootstrapResampling.Multinomial && resampling != BootstrapResampling.Poisson)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(resampling), resampling, "Unrecognised bootstrap resampling scheme.");
         }
 
         // Observed counts and total N = Σ catalog (the multinomial sample size).
@@ -2983,7 +3034,15 @@ public static class OncologyAnalyzer
         var resampled = new double[channelCount];
         for (int rep = 0; rep < replicates; rep++)
         {
-            MultinomialResample(observed, total, random, resampled);
+            if (resampling == BootstrapResampling.Poisson)
+            {
+                PoissonResample(observed, random, resampled);
+            }
+            else
+            {
+                MultinomialResample(observed, total, random, resampled);
+            }
+
             IReadOnlyList<double> exposures = FitSignatures(resampled, signatures).Exposures;
             for (int j = 0; j < signatureCount; j++)
             {
@@ -3052,6 +3111,49 @@ public static class OncologyAnalyzer
 
             remainingProbabilityMass -= weight;
         }
+    }
+
+    /// <summary>
+    /// Draws one Poisson resample of the catalog: each channel k is independently assigned
+    /// Poisson(observedₖ) mutations, written into <paramref name="destination"/>. Implements the Senkin (2021)
+    /// MSA Poisson-noise variant — "for any given mutation category … the distribution of bootstrapped mutation
+    /// counts follows a Poisson distribution" with mean equal to the observed count (variance = mean) — so the
+    /// total mutational burden is not fixed across replicates. Source: Senkin S. (2021), MSA,
+    /// <i>BMC Bioinformatics</i> 22:540 (https://pmc.ncbi.nlm.nih.gov/articles/PMC8567580/). A channel whose
+    /// observed count is 0 has mean 0 and therefore always resamples to 0.
+    /// </summary>
+    private static void PoissonResample(double[] observed, Random random, double[] destination)
+    {
+        int channelCount = observed.Length;
+        for (int k = 0; k < channelCount; k++)
+        {
+            destination[k] = SamplePoisson(observed[k], random);
+        }
+    }
+
+    /// <summary>
+    /// Samples a Poisson(lambda) variate by Knuth's multiplication-of-uniforms algorithm: draw uniforms until
+    /// their running product falls below e^(−lambda); the number of draws minus one is the variate. Source:
+    /// Knuth D.E., <i>The Art of Computer Programming</i>, Vol. 2 (Seminumerical Algorithms), §3.4.1 — the
+    /// standard exact algorithm for generating Poisson deviates. lambda ≤ 0 returns 0 (degenerate mean-0 case).
+    /// </summary>
+    private static long SamplePoisson(double lambda, Random random)
+    {
+        if (lambda <= 0.0)
+        {
+            return 0;
+        }
+
+        double limit = Math.Exp(-lambda);
+        long count = 0;
+        double product = random.NextDouble();
+        while (product > limit)
+        {
+            count++;
+            product *= random.NextDouble();
+        }
+
+        return count;
     }
 
     /// <summary>

@@ -42,7 +42,6 @@ validated clinical-grade predictors.**
 | EPIGEN-AGE-001 | Horvath `anti.trafo` + linear predictor | The **353-CpG coefficient table** is a caller-supplied input (framework, no fabricated coefficients). |
 | ONCO-CHIP-001 | CHIP filter (gene panel + ≥2% VAF + WBC subtraction) | Origin call uses a **gene+VAF heuristic** where matched-WBC data is absent (over-removes vs strict matched-WBC origin). |
 | ONCO-MRD-001 | ≥2-of-N positivity, IMAF, Poisson LoD | IMAF is read-pooled, **without** INVAR-style background subtraction / tumour-AF weighting. |
-| ONCO-SIG-003 | Bootstrap exposure CIs | Uses sigminer fixed-N **multinomial** resample (not Senkin's Poisson variant). |
 | COMPGEN-ANI-001 | Goris ANI mean-identity formula | **Ungapped, single-direction** fragment placement (not gapped BLASTN, not reciprocal). |
 
 ## 3. Convention divergences (documented, internally consistent)

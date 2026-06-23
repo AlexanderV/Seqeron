@@ -127,7 +127,7 @@ Property-based testing генерує сотні випадкових вході
 | 95 | ☑ | ONCO-LOH-001 | Oncology | R: region positions valid; P: LOH ⟺ BAF → 0/1 (one allele lost); M: lower BAF-dev threshold → ≥ LOH; D: deterministic | OncologyProperties.cs (new) |
 | 96 | ☑ | ONCO-SIG-001 | Oncology | R: exactly 96 SBS channels; P: each SNV → one pyrimidine-centred trinucleotide; P: channel counts sum = #SNVs; D: deterministic | OncologyProperties.cs (new) |
 | 97 | ☑ | ONCO-SIG-002 | Oncology | R: exposures ≥ 0; P: Σ exposures = #mutations (or normalised 1.0); M: better fit → lower reconstruction error; D: deterministic | OncologyProperties.cs (new) |
-| 98 | ☑ | ONCO-SIG-003 | Oncology | R: CI_lower ≤ point ≤ CI_upper; P: bootstrap mean ≈ point estimate; D: deterministic given seed | OncologyProperties.cs (new) |
+| 98 | ☐ | ONCO-SIG-003 | Oncology | R: CI_lower ≤ point ≤ CI_upper; P: bootstrap mean ≈ point estimate; D: deterministic given seed | OncologyProperties.cs (new) |
 | 99 | ☑ | ONCO-SIG-004 | Oncology | P: dominant process = argmax exposure; R: confidence ∈ [0,1]; D: deterministic | OncologyProperties.cs (new) |
 | 100 | ☑ | ONCO-FUSION-001 | Oncology | R: breakpoint positions valid; P: fusion joins two distinct genes; M: more split/spanning reads → higher confidence; D: deterministic | OncologyProperties.cs (new) |
 | 101 | ☑ | ONCO-FUSION-002 | Oncology | P: matched fusions ⊆ known DB; R: match ∈ {true,false}; D: deterministic | OncologyProperties.cs (new) |
@@ -272,7 +272,7 @@ Property-based testing генерує сотні випадкових вході
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 234 |
-| ☐ Not started | 0 |
+| ☑ Complete | 233 |
+| ☐ Not started | 1 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |

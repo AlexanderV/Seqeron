@@ -6,6 +6,7 @@
 //         Wang S. et al. sigminer sig_fit_bootstrap. https://raw.githubusercontent.com/ShixiangWang/sigminer/master/R/sig_fit_bootstrap.R
 //         Efron B. (1979). Annals of Statistics 7(1):1-26 (percentile method). https://doi.org/10.1214/aos/1176344552
 //         Hyndman R.J., Fan Y. (1996). The American Statistician 50(4):361-365 (type-7). https://doi.org/10.1080/00031305.1996.10473566
+//         Knuth D.E. (1997). TAOCP Vol. 2, §3.4.1 (Poisson deviate generation). [Poisson variant]
 
 using System;
 using System.Collections.Generic;
@@ -334,6 +335,219 @@ public class OncologyAnalyzer_BootstrapExposures_Tests
                     $"A higher confidence level cannot lower the upper bound (signature {j}).");
             }
         });
+    }
+
+    #endregion
+
+    #region Poisson resampling variant (Senkin 2021 MSA Poisson noise)
+
+    // Independent reference implementation of the per-channel Poisson draw used to derive expected values,
+    // NOT a copy of production code: Knuth's exact multiplication-of-uniforms generator (Knuth, TAOCP Vol. 2,
+    // §3.4.1) for Poisson(lambda). Consumes Random in exactly the order BootstrapExposures does so the seeded
+    // draw sequence is reproduced. lambda <= 0 returns 0 (mean-0 degenerate case, Senkin 2021).
+    private static long ReferencePoisson(double lambda, Random random)
+    {
+        if (lambda <= 0.0)
+        {
+            return 0;
+        }
+
+        double limit = Math.Exp(-lambda);
+        long count = 0;
+        double product = random.NextDouble();
+        while (product > limit)
+        {
+            count++;
+            product *= random.NextDouble();
+        }
+
+        return count;
+    }
+
+    // P1 — Degenerate single-channel catalog under the Poisson variant: the unit signature makes NNLS
+    // exposure == the resampled count, so each replicate exposure must equal an independent Poisson(observed)
+    // draw. We reproduce the seeded draw sequence with the Knuth reference generator and require an EXACT,
+    // element-wise match of the bootstrap mean to the mean of those independent Poisson draws. This proves the
+    // Poisson construction (per-channel Poisson(observedₖ)), not just "some randomness".
+    // Source: Senkin S. (2021), MSA — bootstrapped per-category counts follow a Poisson distribution.
+    [Test]
+    public void BootstrapExposures_Poisson_SingleChannel_MatchesIndependentPoissonDraws()
+    {
+        const int Lambda = 12;
+        const int Replicates = 300;
+        const int Seed = 42;
+        var catalog = new[] { Lambda };
+
+        // Independent expected bootstrap distribution: Poisson(12) draws in the same seeded order.
+        var reference = new Random(Seed);
+        double sum = 0.0;
+        double[] draws = new double[Replicates];
+        for (int rep = 0; rep < Replicates; rep++)
+        {
+            draws[rep] = ReferencePoisson(Lambda, reference);
+            sum += draws[rep];
+        }
+
+        double expectedMean = sum / Replicates;
+        Array.Sort(draws);
+        double expectedLower = Type7Percentile(draws, 0.025);
+        double expectedUpper = Type7Percentile(draws, 0.975);
+
+        var intervals = OncologyAnalyzer.BootstrapExposures(
+            catalog, SingleUnitSignature, replicates: Replicates, confidence: 0.95, seed: Seed,
+            resampling: OncologyAnalyzer.BootstrapResampling.Poisson);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(intervals[0].PointEstimate, Is.EqualTo((double)Lambda).Within(1e-10),
+                "Point estimate is the NNLS fit of the observed (un-resampled) catalog, independent of resampling.");
+            Assert.That(intervals[0].Mean, Is.EqualTo(expectedMean).Within(1e-10),
+                "Each replicate exposure equals an independent Poisson(12) draw; mean must match the reference draws.");
+            Assert.That(intervals[0].Lower, Is.EqualTo(expectedLower).Within(1e-10),
+                "Lower bound is the 2.5th type-7 percentile of the independent Poisson(12) bootstrap distribution.");
+            Assert.That(intervals[0].Upper, Is.EqualTo(expectedUpper).Within(1e-10),
+                "Upper bound is the 97.5th type-7 percentile of the independent Poisson(12) bootstrap distribution.");
+        });
+    }
+
+    // P2 — A channel with observed count 0 has Poisson mean 0, so it resamples to 0 every replicate: that
+    // signature's exposure is exactly 0 (point estimate and all bounds). The non-zero channel is non-degenerate
+    // (Poisson does not fix N), so its bounds straddle the point estimate. Source: Senkin 2021 (Poisson(0)=0).
+    [Test]
+    public void BootstrapExposures_Poisson_ZeroCountChannel_StaysZero()
+    {
+        var catalog = new[] { 0, 20 };
+
+        var intervals = OncologyAnalyzer.BootstrapExposures(
+            catalog, TwoOrthogonalSignatures, replicates: 400, confidence: 0.95, seed: 42,
+            resampling: OncologyAnalyzer.BootstrapResampling.Poisson);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(intervals[0].PointEstimate, Is.EqualTo(0.0).Within(1e-12), "Channel 0 observed 0 -> exposure 0.");
+            Assert.That(intervals[0].Mean, Is.EqualTo(0.0).Within(1e-12), "Poisson(0) draws are always 0.");
+            Assert.That(intervals[0].Lower, Is.EqualTo(0.0).Within(1e-12), "All replicates 0 -> lower 0.");
+            Assert.That(intervals[0].Upper, Is.EqualTo(0.0).Within(1e-12), "All replicates 0 -> upper 0.");
+            Assert.That(intervals[1].PointEstimate, Is.EqualTo(20.0).Within(1e-10), "Channel 1 NNLS exposure 20.");
+        });
+    }
+
+    // P3 — Poisson variance is non-zero: unlike the fixed-N multinomial collapse of a single channel
+    // (every replicate == observed), the Poisson single-channel resample fluctuates, so the 95% interval is
+    // strictly wider than the degenerate point. Locks that the Poisson path is genuinely Poisson, not a
+    // fixed-N copy. Source: Senkin 2021 (total burden no longer fixed; variance = mean).
+    [Test]
+    public void BootstrapExposures_Poisson_SingleChannel_HasNonZeroSpread()
+    {
+        var catalog = new[] { 25 };
+
+        var interval = OncologyAnalyzer.BootstrapExposures(
+            catalog, SingleUnitSignature, replicates: 400, confidence: 0.95, seed: 42,
+            resampling: OncologyAnalyzer.BootstrapResampling.Poisson)[0];
+
+        Assert.That(interval.Upper - interval.Lower, Is.GreaterThan(0.0),
+            "Poisson(25) resampling fluctuates (variance = mean = 25), so the interval has positive width "
+            + "— in contrast to the deterministic fixed-N multinomial collapse of a single channel.");
+    }
+
+    // P4 — Determinism of the Poisson path: identical inputs + seed give element-wise identical intervals.
+    // Source: fixed-seed reproducibility convention (deterministic clinical re-runs).
+    [Test]
+    public void BootstrapExposures_Poisson_SameSeed_IsDeterministic()
+    {
+        var catalog = new[] { 12, 8, 0, 4 };
+        var signatures = new IReadOnlyList<double>[]
+        {
+            new double[] { 1, 0, 0, 0 },
+            new double[] { 0, 1, 0, 1 },
+        };
+
+        var a = OncologyAnalyzer.BootstrapExposures(catalog, signatures, replicates: 300, confidence: 0.95,
+            seed: 42, resampling: OncologyAnalyzer.BootstrapResampling.Poisson);
+        var b = OncologyAnalyzer.BootstrapExposures(catalog, signatures, replicates: 300, confidence: 0.95,
+            seed: 42, resampling: OncologyAnalyzer.BootstrapResampling.Poisson);
+
+        Assert.Multiple(() =>
+        {
+            for (int j = 0; j < a.Count; j++)
+            {
+                Assert.That(b[j].Lower, Is.EqualTo(a[j].Lower).Within(1e-12), $"Lower[{j}] reproducible for a fixed seed.");
+                Assert.That(b[j].Upper, Is.EqualTo(a[j].Upper).Within(1e-12), $"Upper[{j}] reproducible for a fixed seed.");
+                Assert.That(b[j].Mean, Is.EqualTo(a[j].Mean).Within(1e-12), $"Mean[{j}] reproducible for a fixed seed.");
+            }
+        });
+    }
+
+    // P5 — Default path is unchanged: omitting the resampling argument is byte-for-byte equal to explicitly
+    // requesting Multinomial, and the Poisson path differs (proving the default did not silently change).
+    // Source: backward-compatibility requirement (sigminer fixed-N multinomial remains the default).
+    [Test]
+    public void BootstrapExposures_DefaultEqualsMultinomial_AndDiffersFromPoisson()
+    {
+        var catalog = new[] { 30, 10, 0, 5 };
+        var signatures = new IReadOnlyList<double>[]
+        {
+            new double[] { 1, 0, 0, 0 },
+            new double[] { 0, 1, 0, 1 },
+            new double[] { 0, 0, 1, 0 },
+        };
+
+        var defaulted = OncologyAnalyzer.BootstrapExposures(catalog, signatures, replicates: 300, confidence: 0.95, seed: 42);
+        var multinomial = OncologyAnalyzer.BootstrapExposures(catalog, signatures, replicates: 300, confidence: 0.95,
+            seed: 42, resampling: OncologyAnalyzer.BootstrapResampling.Multinomial);
+        var poisson = OncologyAnalyzer.BootstrapExposures(catalog, signatures, replicates: 300, confidence: 0.95,
+            seed: 42, resampling: OncologyAnalyzer.BootstrapResampling.Poisson);
+
+        bool poissonDiffers = false;
+        Assert.Multiple(() =>
+        {
+            for (int j = 0; j < defaulted.Count; j++)
+            {
+                Assert.That(multinomial[j].Lower, Is.EqualTo(defaulted[j].Lower).Within(1e-12),
+                    $"Default Lower[{j}] must equal explicit Multinomial (default is unchanged).");
+                Assert.That(multinomial[j].Upper, Is.EqualTo(defaulted[j].Upper).Within(1e-12),
+                    $"Default Upper[{j}] must equal explicit Multinomial.");
+                Assert.That(multinomial[j].Mean, Is.EqualTo(defaulted[j].Mean).Within(1e-12),
+                    $"Default Mean[{j}] must equal explicit Multinomial.");
+                if (Math.Abs(poisson[j].Upper - multinomial[j].Upper) > 1e-9
+                    || Math.Abs(poisson[j].Mean - multinomial[j].Mean) > 1e-9)
+                {
+                    poissonDiffers = true;
+                }
+            }
+        });
+        Assert.That(poissonDiffers, Is.True,
+            "The Poisson path must produce a different bootstrap distribution than the multinomial default.");
+    }
+
+    [Test]
+    public void BootstrapExposures_UnrecognisedResampling_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => OncologyAnalyzer.BootstrapExposures(new[] { 10 }, SingleUnitSignature,
+                resampling: (OncologyAnalyzer.BootstrapResampling)99),
+            "An undefined resampling enum value must throw ArgumentOutOfRangeException.");
+    }
+
+    // Type-7 (R-7 / NumPy default) percentile on a pre-sorted sample, used only to derive P1 expected bounds
+    // independently of production code. Hyndman & Fan (1996), The American Statistician 50(4):361-365.
+    private static double Type7Percentile(double[] sorted, double probability)
+    {
+        int n = sorted.Length;
+        if (n == 1)
+        {
+            return sorted[0];
+        }
+
+        double rank = probability * (n - 1);
+        int lower = (int)Math.Floor(rank);
+        int upper = (int)Math.Ceiling(rank);
+        if (lower == upper)
+        {
+            return sorted[lower];
+        }
+
+        return sorted[lower] + (rank - lower) * (sorted[upper] - sorted[lower]);
     }
 
     #endregion
