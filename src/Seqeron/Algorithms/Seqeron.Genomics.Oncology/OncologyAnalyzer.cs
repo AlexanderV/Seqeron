@@ -7557,6 +7557,179 @@ public static class OncologyAnalyzer
     private static (string, int, string, string) LocusKey(ChipVariant v) =>
         (v.Chromosome, v.Position, v.ReferenceAllele, v.AlternateAllele);
 
+    /// <summary>Locus identity key (chromosome, 1-based position, ref allele, alt allele) for a matched-WBC observation.</summary>
+    private static (string, int, string, string) LocusKey(WbcObservation o) =>
+        (o.Chromosome, o.Position, o.ReferenceAllele, o.AlternateAllele);
+
+    /// <summary>
+    /// Minimum supporting alternate reads in the matched white-blood-cell (WBC) sample for a variant to count
+    /// as a confident clonal-hematopoiesis (CH) call. Source: Bolton et al. (2020), <i>Nat Genet</i>
+    /// 52(11):1219–1226 — CH mutations were defined as having "a variant allele fraction of at least 2% and
+    /// at least 10 supporting reads."
+    /// </summary>
+    public const int ChipMinWbcSupportingReads = 10;
+
+    /// <summary>
+    /// Default WBC-to-tumour VAF fold ratio at or above which a variant is called WBC / clonal-hematopoiesis
+    /// origin rather than tumour-derived. Source: Bolton et al. (2020), <i>Nat Genet</i> 52(11):1219–1226 —
+    /// a variant detected in blood with "a VAF of at least twice that in the tumor … were considered" CH
+    /// (the ratio "was chosen … through simulations of leukocyte contamination in the tumor").
+    /// </summary>
+    public const double DefaultWbcVafFold = 2.0;
+
+    /// <summary>
+    /// WBC-to-tumour VAF fold ratio for lymph-node tumour biopsy sites, where leukocyte admixture is higher.
+    /// Source: Bolton et al. (2020), <i>Nat Genet</i> 52(11):1219–1226 — "1.5 times the VAF if the tumor
+    /// biopsy site was a lymph node."
+    /// </summary>
+    public const double LymphNodeWbcVafFold = 1.5;
+
+    /// <summary>
+    /// The called origin of a tumour/plasma variant under strict matched-WBC origin calling.
+    /// Source: Bolton et al. (2020), <i>Nat Genet</i> 52(11):1219–1226; Razavi et al. (2019), <i>Nat Med</i>
+    /// 25:1928–1937.
+    /// </summary>
+    public enum VariantOrigin
+    {
+        /// <summary>The variant is tumour-derived (somatic): not confidently present in the matched WBC.</summary>
+        Tumor = 0,
+
+        /// <summary>
+        /// The variant is white-blood-cell / clonal-hematopoiesis derived: present in the matched WBC at a
+        /// VAF ≥ <see cref="ChipVafThreshold"/> with ≥ <see cref="ChipMinWbcSupportingReads"/> supporting
+        /// reads, and a WBC-to-tumour VAF ratio ≥ the configured fold (Bolton et al. 2020).
+        /// </summary>
+        Chip = 1
+    }
+
+    /// <summary>
+    /// A variant observation in the matched white-blood-cell (WBC) sample: the locus plus the WBC variant
+    /// allele fraction and supporting alt-read count used to call origin in
+    /// <see cref="CallVariantOrigin(IEnumerable{ChipVariant}, IEnumerable{WbcObservation}, double, double, int)"/>.
+    /// Source: Bolton et al. (2020), <i>Nat Genet</i> 52(11):1219–1226.
+    /// </summary>
+    /// <param name="Chromosome">Contig / chromosome identifier of the locus.</param>
+    /// <param name="Position">1-based reference position.</param>
+    /// <param name="ReferenceAllele">Reference allele.</param>
+    /// <param name="AlternateAllele">Alternate (mutant) allele.</param>
+    /// <param name="Vaf">WBC variant allele fraction in [0, 1].</param>
+    /// <param name="AltReads">Alternate (mutant) supporting reads in the WBC sample (≥ 0).</param>
+    public readonly record struct WbcObservation(
+        string Chromosome,
+        int Position,
+        string ReferenceAllele,
+        string AlternateAllele,
+        double Vaf,
+        int AltReads = 0);
+
+    /// <summary>
+    /// The called origin of a single tumour/plasma <see cref="ChipVariant"/> together with the matched-WBC
+    /// evidence the call was based on.
+    /// </summary>
+    /// <param name="Variant">The tumour/plasma variant whose origin was called.</param>
+    /// <param name="Origin">The called origin (<see cref="VariantOrigin.Chip"/> or <see cref="VariantOrigin.Tumor"/>).</param>
+    /// <param name="WbcVaf">The matched-WBC VAF at this locus, or <c>0</c> when the locus is absent from the WBC sample.</param>
+    /// <param name="WbcAltReads">The matched-WBC supporting alt reads at this locus, or <c>0</c> when absent.</param>
+    public readonly record struct VariantOriginCall(
+        ChipVariant Variant,
+        VariantOrigin Origin,
+        double WbcVaf,
+        int WbcAltReads);
+
+    /// <summary>
+    /// Performs <b>strict matched-WBC origin calling</b>: given per-variant matched white-blood-cell (WBC)
+    /// observations, assigns each tumour/plasma variant an origin instead of using the gene + VAF heuristic.
+    /// A variant is called <see cref="VariantOrigin.Chip"/> (white-blood-cell / clonal-hematopoiesis derived)
+    /// when a matched-WBC observation exists at the same locus that ALL hold: its WBC VAF is at or above
+    /// <paramref name="chipMinWbcVaf"/> (Bolton et al. 2020: ≥ 2%), it carries at least
+    /// <paramref name="minWbcAltReads"/> supporting reads (Bolton et al. 2020: ≥ 10), and its WBC VAF is at
+    /// least <paramref name="wbcVafFold"/> times the variant's tumour/plasma VAF (Bolton et al. 2020: ≥ 2×,
+    /// or use <see cref="LymphNodeWbcVafFold"/> = 1.5× for a lymph-node biopsy). Otherwise the variant is
+    /// called <see cref="VariantOrigin.Tumor"/> (tumour-derived / somatic). This is the definitive
+    /// origin test (Razavi et al. 2019: matched cfDNA–WBC sequencing assigns variant origin tumour-vs-CH);
+    /// it does NOT apply the <see cref="IdentifyCHIPVariants"/> gene + VAF fallback, so it does not
+    /// over-remove driver-gene variants that are genuinely absent from the matched WBC.
+    /// </summary>
+    /// <param name="variants">Tumour/plasma variants whose origin is to be called (non-null).</param>
+    /// <param name="whiteBloodCellObservations">Matched-WBC observations carrying per-locus WBC VAF and alt reads (non-null).</param>
+    /// <param name="wbcVafFold">
+    /// Minimum WBC-to-tumour VAF ratio for a WBC call (default <see cref="DefaultWbcVafFold"/> = 2.0; pass
+    /// <see cref="LymphNodeWbcVafFold"/> = 1.5 for a lymph-node biopsy site); must be ≥ 1.
+    /// </param>
+    /// <param name="chipMinWbcVaf">Minimum WBC VAF for a WBC call (default <see cref="ChipVafThreshold"/> = 0.02); in (0, 1].</param>
+    /// <param name="minWbcAltReads">Minimum WBC supporting alt reads for a WBC call (default <see cref="ChipMinWbcSupportingReads"/> = 10); ≥ 1.</param>
+    /// <returns>One <see cref="VariantOriginCall"/> per input variant, in input order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="variants"/> or <paramref name="whiteBloodCellObservations"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="wbcVafFold"/> &lt; 1, <paramref name="chipMinWbcVaf"/> ∉ (0, 1], or <paramref name="minWbcAltReads"/> &lt; 1.</exception>
+    public static IReadOnlyList<VariantOriginCall> CallVariantOrigin(
+        IEnumerable<ChipVariant> variants,
+        IEnumerable<WbcObservation> whiteBloodCellObservations,
+        double wbcVafFold = DefaultWbcVafFold,
+        double chipMinWbcVaf = ChipVafThreshold,
+        int minWbcAltReads = ChipMinWbcSupportingReads)
+    {
+        ArgumentNullException.ThrowIfNull(variants);
+        ArgumentNullException.ThrowIfNull(whiteBloodCellObservations);
+
+        if (!(wbcVafFold >= 1.0))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(wbcVafFold), wbcVafFold, "WBC-to-tumour VAF fold ratio must be at least 1.");
+        }
+
+        if (!(chipMinWbcVaf > 0.0) || chipMinWbcVaf > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(chipMinWbcVaf), chipMinWbcVaf, "Minimum WBC VAF must be in the interval (0, 1].");
+        }
+
+        if (minWbcAltReads < 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(minWbcAltReads), minWbcAltReads, "Minimum WBC alt reads must be at least 1.");
+        }
+
+        // Index the matched-WBC observations by locus. If several observations map to the same locus, keep
+        // the one with the strongest evidence (highest VAF) so a confident WBC call is not missed.
+        var wbcByLocus = new Dictionary<(string, int, string, string), WbcObservation>();
+        foreach (WbcObservation obs in whiteBloodCellObservations)
+        {
+            (string, int, string, string) key = LocusKey(obs);
+            if (!wbcByLocus.TryGetValue(key, out WbcObservation existing) || obs.Vaf > existing.Vaf)
+            {
+                wbcByLocus[key] = obs;
+            }
+        }
+
+        var calls = new List<VariantOriginCall>();
+        foreach (ChipVariant variant in variants)
+        {
+            double wbcVaf = 0.0;
+            int wbcAltReads = 0;
+            VariantOrigin origin = VariantOrigin.Tumor;
+
+            if (wbcByLocus.TryGetValue(LocusKey(variant), out WbcObservation wbc))
+            {
+                wbcVaf = wbc.Vaf;
+                wbcAltReads = wbc.AltReads;
+
+                // Bolton et al. (2020): WBC/CH origin requires WBC VAF >= 2%, >= 10 supporting reads, and a
+                // WBC VAF at least (fold) x the tumour VAF.
+                bool meetsVaf = wbc.Vaf >= chipMinWbcVaf;
+                bool meetsReads = wbc.AltReads >= minWbcAltReads;
+                bool meetsFold = wbc.Vaf >= wbcVafFold * variant.Vaf;
+                if (meetsVaf && meetsReads && meetsFold)
+                {
+                    origin = VariantOrigin.Chip;
+                }
+            }
+
+            calls.Add(new VariantOriginCall(variant, origin, wbcVaf, wbcAltReads));
+        }
+
+        return calls;
+    }
+
     #endregion
 
     #region Tumor Phylogeny Reconstruction (ONCO-PHYLO-001)

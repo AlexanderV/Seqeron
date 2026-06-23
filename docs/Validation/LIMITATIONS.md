@@ -38,7 +38,6 @@ validated clinical-grade predictors.**
 | ONCO-SIG-002/003/004 | Automatic NMF rank / model-stability selection (k is caller-specified); de-novo extraction uses the Frobenius, not the Poisson/KL, objective; extracted signatures are not auto-matched to COSMIC references. |
 | ONCO-MHC-001 | The affinity / %Rank prediction (NetMHCpan-style learned model) — caller-supplied. |
 | ONCO-PURITY/PLOIDY/CCF/CLONAL | Allele-specific CN segments, multiplicity and VAF — caller-supplied, not derived upstream. |
-| ONCO-CHIP-001 | Strict matched-WBC origin calling — absent matched-WBC data, origin falls back to a gene+VAF heuristic (over-removes). |
 | ONCO-MRD-001 | INVAR fragment-length (size) weighting, patient-specific outlier suppression and locus-noise filtering; the per-locus background error model is caller-supplied, not estimated from control plasma. |
 
 ## 3. Convention divergences (documented, internally consistent)

@@ -59,6 +59,19 @@
 2. **Most prevalent CH genes:** Quoted: "all variants in the most prevalent genes in clonal hematopoietic cells (DNMT3A, TET2, and ASXL1) were removed." (Confirms the canonical top-3.)
 3. **VAF caveat:** "The VAF of key hematologic cancer driver genes has also been suggested as way to identify CH variants in cfDNA samples, but the exact relationship between VAF and variant origin remains unclear." (⇒ the gene+VAF heuristic flags *candidate* CHIP; the matched-WBC subtraction is the definitive origin test.)
 
+### Bolton et al. (2020) — Strict matched-WBC origin rule (Nature Genetics)
+
+**URL:** https://pmc.ncbi.nlm.nih.gov/articles/PMC7891089/ (PMC mirror of *Nat Genet* 52(11):1219–1226, doi:10.1038/s41588-020-00710-0)
+**Retrieved how:** WebSearch query `Bolton 2020 Nature Genetics clonal hematopoiesis CH-PD origin assignment matched blood somatic tumor`, then WebFetch of the PMC article URL (the Methods origin-assignment rule was extracted from the retrieved text).
+**Accessed:** 2026-06-23
+**Authority rank:** 1 (peer-reviewed; 24,439-patient paired blood–tumour MSK-IMPACT study)
+
+**Key Extracted Points:**
+
+1. **CH definition (VAF + read floor):** Quoted from the Methods: clonal-hematopoiesis mutations were defined as those with "a variant allele fraction of at least 2% and at least 10 supporting reads." ⇒ a confident WBC/CH call requires WBC VAF ≥ 0.02 AND ≥ 10 supporting reads.
+2. **Blood-to-tumour VAF fold rule (origin assignment):** Quoted: variants detected in blood with "a VAF of at least twice that in the tumor or 1.5 times the VAF if the tumor biopsy site was a lymph node were considered" CH/somatic-blood. ⇒ WBC VAF ≥ 2× tumour VAF (1.5× for lymph node) ⇒ WBC/CH origin; otherwise tumour-derived.
+3. **Rationale for the fold ratio:** Quoted: the ratio "was chosen … through simulations of leukocyte contamination in the tumor" (minimising sensitivity/specificity loss of CH calls). ⇒ the fold thresholds are a sourced, not invented, value; they are exposed as parameters.
+
 ---
 
 ## Documented Corner Cases and Failure Modes
@@ -99,6 +112,20 @@
 | 4 | EGFR | 0.30 | yes | n/a (gene rule) | removed (WBC-matched ⇒ CH) |
 | 5 | TP53 | 0.40 | no | CHIP candidate (driver gene) | removed (gene+VAF heuristic, rule b) |
 
+### Dataset: Strict matched-WBC origin calls (Bolton 2020 rule)
+
+**Source:** Bolton et al. (2020) — WBC VAF ≥ 0.02 AND ≥ 10 reads AND WBC VAF ≥ φ × tumour VAF (φ = 2.0; 1.5 lymph node).
+
+| # | Tumour VAF | WBC VAF | WBC reads | Fold φ | Expected CallVariantOrigin |
+|---|-----------|---------|-----------|--------|----------------------------|
+| 1 | 0.10 | 0.30 | 40 | 2.0 | Chip (0.30 ≥ 2%, 40 ≥ 10, 0.30 ≥ 2×0.10) |
+| 2 | 0.40 | — (absent) | — | 2.0 | Tumor (no WBC evidence) |
+| 3 | 0.10 | 0.30 | 9 | 2.0 | Tumor (9 < 10 reads) |
+| 4 | 0.01 | 0.02 | 10 | 2.0 | Chip (all boundaries inclusive: 0.02=2%, 0.02=2×0.01, 10=10) |
+| 5 | 0.005 | 0.015 | 50 | 2.0 | Tumor (0.015 < 0.02 WBC-VAF minimum) |
+| 6 | 0.30 | 0.40 | 40 | 2.0 | Tumor (0.40 < 2×0.30=0.60) |
+| 7 | 0.25 | 0.40 | 40 | 1.5 | Chip (0.40 ≥ 1.5×0.25=0.375); Tumor under default 2.0 |
+
 > **Note on row 5 (origin caveat).** Under a *strict matched-WBC-only* origin call (Razavi 2019), a CH-gene variant **absent** from the matched WBC would be retained as a candidate tumour variant — the matched-WBC presence test, not gene identity, is the definitive origin test, and "the exact relationship between VAF and variant origin remains unclear" (Arango-Argoty 2025). `FilterCHIP` is deliberately **conservative**: rule (b) is a labelled gene+VAF *heuristic fallback* (see `Clonal_Hematopoiesis_Filtering.md` §2.2) that removes a CH-driver-gene variant meeting VAF ≥ τ even with no WBC evidence, exactly as rows 1 and 5 show. The heuristic over-removes relative to the strict matched-WBC definition; callers who want the strict rule pass an empty/custom `chipGenes` panel so only matched-WBC subtraction applies. The earlier "kept" entry for row 5 contradicted both row 1 and the documented contract and was corrected on 2026-06-16.
 
 ---
@@ -118,6 +145,9 @@
 4. **MUST Test:** `FilterCHIP` removes a cfDNA variant present in matched WBC (even a non-CHIP-gene one) — Evidence: Razavi 2019 matched-WBC rule.
 5. **MUST Test:** `FilterCHIP` retains a cfDNA variant absent from matched WBC — Evidence: Razavi 2019.
 6. **MUST Test:** VAF exactly at 0.02 boundary is CHIP (≥, inclusive) — Evidence: Steensma 2015 ("≥2%").
+6b. **MUST Test:** `CallVariantOrigin` calls CHIP when WBC VAF ≥ 2%, ≥ 10 reads, and WBC VAF ≥ 2× tumour VAF — Evidence: Bolton 2020.
+6c. **MUST Test:** `CallVariantOrigin` calls tumour when the locus is absent from matched WBC (even a CH driver gene) — Evidence: Bolton 2020 (no WBC evidence ⇒ tumour).
+6d. **MUST Test:** `CallVariantOrigin` read floor (9 < 10 ⇒ tumour) and VAF floor (< 2% ⇒ tumour) and fold rule (< 2× ⇒ tumour); lymph-node 1.5× changes the call — Evidence: Bolton 2020.
 7. **SHOULD Test:** case-insensitive gene matching — Rationale: HGNC symbols upper-case but inputs vary.
 8. **SHOULD Test:** null / empty inputs throw / return empty — Rationale: repository convention.
 9. **COULD Test:** order preservation of kept variants — Rationale: deterministic output contract.
@@ -131,9 +161,11 @@
 3. Razavi P, Li BT, Brown DN, et al. (2019). High-intensity sequencing reveals the sources of plasma circulating cell-free DNA variants. *Nat Med* 25:1928–1937. https://doi.org/10.1038/s41591-019-0652-7
 4. Arango-Argoty G, et al. (2025). An artificial intelligence-based model for prediction of clonal hematopoiesis variants in cell-free DNA samples. *NPJ Precis Oncol* 9:147. https://doi.org/10.1038/s41698-025-00921-w (PMC12092662)
 5. Wan JCM, Heider K, Gale D, et al. (2020). ctDNA monitoring using patient-specific sequencing and integration of variant reads. *Sci Transl Med* 12(548):eaaz8084. https://doi.org/10.1126/scitranslmed.aaz8084
+6. Bolton KL, Ptashkin RN, Gao T, et al. (2020). Cancer therapy shapes the fitness landscape of clonal hematopoiesis. *Nat Genet* 52(11):1219–1226. https://doi.org/10.1038/s41588-020-00710-0 (PMC7891089)
 
 ---
 
 ## Change History
 
 - **2026-06-15**: Initial documentation.
+- **2026-06-23**: Added Bolton et al. (2020) strict matched-WBC origin rule (WBC VAF ≥ 2%, ≥ 10 reads, ≥ 2×/1.5× tumour VAF) for the new `CallVariantOrigin` method; added the strict-origin dataset and MUST tests 6b–6d.

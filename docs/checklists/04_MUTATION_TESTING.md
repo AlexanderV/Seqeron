@@ -140,7 +140,7 @@ Mutation testing вимірює ефективність тестового на
 | 110 | ☑ | ONCO-MHC-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_ClassifyMhcBinding_Tests.cs | ≥ 80% |
 | 111 | ☑ | ONCO-CTDNA-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_CtDnaAnalysis_Tests.cs | ≥ 80% |
 | 112 | ☐ | ONCO-MRD-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_DetectMRD_Tests.cs | ≥ 80% |
-| 113 | ☑ | ONCO-CHIP-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_FilterCHIP_Tests.cs | ≥ 80% |
+| 113 | ☐ | ONCO-CHIP-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_FilterCHIP_Tests.cs | ≥ 80% |
 | 114 | ☑ | ONCO-PHYLO-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_ReconstructPhylogeny_Tests.cs | ≥ 80% |
 | 115 | ☑ | ONCO-CCF-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_EstimateCcf_Tests.cs | ≥ 80% |
 | 116 | ☑ | ONCO-HETERO-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_AnalyzeHeterogeneity_Tests.cs | ≥ 80% |
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 226 |
-| ☐ Not started | 8 |
+| ☑ Complete (run + killers written) | 225 |
+| ☐ Not started | 9 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |

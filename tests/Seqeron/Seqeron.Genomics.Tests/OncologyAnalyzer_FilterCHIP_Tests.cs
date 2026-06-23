@@ -4,6 +4,8 @@
 // Source: Steensma DP et al. (2015). Blood 126(1):9-16 — CHIP = driver-gene somatic mutation at VAF >= 2% (0.02).
 //         Genovese G et al. (2014). NEJM 371(26):2477-2487 — DNMT3A/TET2/ASXL1/PPM1D/JAK2/SF3B1 CH driver genes.
 //         Razavi P et al. (2019). Nat Med 25:1928-1937 — matched-WBC subtraction identifies CH (non-tumour) cfDNA variants.
+//         Bolton KL et al. (2020). Nat Genet 52(11):1219-1226 — strict matched-WBC origin call: CH = WBC VAF >= 2%
+//                                  and >= 10 supporting reads and WBC VAF >= 2x tumour VAF (1.5x for lymph-node biopsy).
 //         Wan JCM et al. (2020). Sci Transl Med 12(548):eaaz8084 — per-locus alt-read evidence.
 
 using System;
@@ -435,6 +437,225 @@ public class OncologyAnalyzer_FilterCHIP_Tests
                 "A null gene is not a CHIP gene.");
             Assert.That(OncologyAnalyzer.IsCanonicalChipGene(""), Is.False,
                 "An empty gene symbol is not a CHIP gene.");
+        });
+    }
+
+    #endregion
+
+    #region CallVariantOrigin (strict matched-WBC origin calling)
+
+    // Helper: a matched-WBC observation at a locus with WBC VAF and supporting alt reads.
+    private static OncologyAnalyzer.WbcObservation Wbc(
+        double vaf, int altReads, string chrom = "1", int pos = 100,
+        string refA = "A", string altA = "T") =>
+        new(chrom, pos, refA, altA, vaf, altReads);
+
+    // OC1 — Bolton 2020: a variant present in matched WBC at VAF >= 2%, >= 10 reads, and WBC VAF >= 2x the
+    // tumour VAF is called CHIP/WBC origin (here WBC 0.30 >= 2 x tumour 0.10).
+    [Test]
+    public void CallVariantOrigin_PresentInWbcAtComparableVaf_CallsChip()
+    {
+        // Arrange: tumour variant at VAF 0.10; matched WBC at VAF 0.30 (3x), 40 reads.
+        var variants = new[] { Var("DNMT3A", 0.10) };
+        var wbc = new[] { Wbc(0.30, 40) };
+
+        // Act
+        IReadOnlyList<OncologyAnalyzer.VariantOriginCall> calls =
+            OncologyAnalyzer.CallVariantOrigin(variants, wbc);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(calls, Has.Count.EqualTo(1), "One call per input variant.");
+            Assert.That(calls[0].Origin, Is.EqualTo(OncologyAnalyzer.VariantOrigin.Chip),
+                "WBC VAF 0.30 >= 2% and 40 reads >= 10 and 0.30 >= 2x0.10 ⇒ CHIP/WBC origin (Bolton 2020).");
+            Assert.That(calls[0].WbcVaf, Is.EqualTo(0.30).Within(1e-10),
+                "The call reports the matched-WBC VAF used.");
+            Assert.That(calls[0].WbcAltReads, Is.EqualTo(40),
+                "The call reports the matched-WBC supporting reads used.");
+        });
+    }
+
+    // OC2 — Bolton 2020: a variant absent from the matched WBC (no observation at the locus) is tumour/somatic,
+    // even when it is a CH driver gene — the strict rule does NOT over-remove via the gene+VAF heuristic.
+    [Test]
+    public void CallVariantOrigin_AbsentFromWbc_CallsTumor()
+    {
+        // Arrange: CH-driver-gene variant at high VAF, but NO matched-WBC observation at its locus.
+        var variants = new[] { Var("DNMT3A", 0.40) };
+        var wbc = Array.Empty<OncologyAnalyzer.WbcObservation>();
+
+        // Act
+        IReadOnlyList<OncologyAnalyzer.VariantOriginCall> calls =
+            OncologyAnalyzer.CallVariantOrigin(variants, wbc);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(calls[0].Origin, Is.EqualTo(OncologyAnalyzer.VariantOrigin.Tumor),
+                "Absent from matched WBC ⇒ tumour/somatic origin under strict calling, despite being a CH gene.");
+            Assert.That(calls[0].WbcVaf, Is.EqualTo(0.0).Within(1e-10),
+                "No WBC observation ⇒ reported WBC VAF is 0.");
+            Assert.That(calls[0].WbcAltReads, Is.EqualTo(0),
+                "No WBC observation ⇒ reported WBC reads is 0.");
+        });
+    }
+
+    // OC3 — Bolton 2020 read floor: present in WBC at adequate VAF but with < 10 supporting reads ⇒ NOT a
+    // confident WBC call ⇒ tumour/somatic.
+    [Test]
+    public void CallVariantOrigin_WbcReadsBelowFloor_CallsTumor()
+    {
+        // Arrange: WBC VAF 0.30 (>= 2x tumour 0.10) but only 9 supporting reads (< 10).
+        var variants = new[] { Var("DNMT3A", 0.10) };
+        var wbc = new[] { Wbc(0.30, 9) };
+
+        // Act
+        IReadOnlyList<OncologyAnalyzer.VariantOriginCall> calls =
+            OncologyAnalyzer.CallVariantOrigin(variants, wbc);
+
+        // Assert
+        Assert.That(calls[0].Origin, Is.EqualTo(OncologyAnalyzer.VariantOrigin.Tumor),
+            "WBC supporting reads 9 < 10 ⇒ not a confident WBC call ⇒ tumour (Bolton 2020 >= 10 reads).");
+    }
+
+    // OC4 — boundary: exactly 10 reads, WBC VAF exactly 2% and exactly 2x tumour VAF ⇒ CHIP (all thresholds
+    // are inclusive: >=). Tumour VAF 0.01, WBC VAF 0.02 = 2 x 0.01, 10 reads.
+    [Test]
+    public void CallVariantOrigin_AllThresholdsExactlyAtBoundary_CallsChip()
+    {
+        // Arrange
+        var variants = new[] { Var("DNMT3A", 0.01) };
+        var wbc = new[] { Wbc(0.02, 10) };
+
+        // Act
+        IReadOnlyList<OncologyAnalyzer.VariantOriginCall> calls =
+            OncologyAnalyzer.CallVariantOrigin(variants, wbc);
+
+        // Assert
+        Assert.That(calls[0].Origin, Is.EqualTo(OncologyAnalyzer.VariantOrigin.Chip),
+            "WBC VAF 0.02 == 2% and == 2x0.01 and reads 10 == 10: all inclusive boundaries met ⇒ CHIP.");
+    }
+
+    // OC5 — Bolton 2020 VAF below 2%: WBC VAF 0.015 < 0.02 ⇒ not CHIP even with many reads and high fold.
+    [Test]
+    public void CallVariantOrigin_WbcVafBelowChipMinimum_CallsTumor()
+    {
+        // Arrange: tumour VAF 0.005; WBC VAF 0.015 (3x fold) with 50 reads, but 0.015 < 0.02.
+        var variants = new[] { Var("DNMT3A", 0.005) };
+        var wbc = new[] { Wbc(0.015, 50) };
+
+        // Act
+        IReadOnlyList<OncologyAnalyzer.VariantOriginCall> calls =
+            OncologyAnalyzer.CallVariantOrigin(variants, wbc);
+
+        // Assert
+        Assert.That(calls[0].Origin, Is.EqualTo(OncologyAnalyzer.VariantOrigin.Tumor),
+            "WBC VAF 0.015 < 0.02 ⇒ below CHIP minimum ⇒ tumour (Bolton 2020 VAF >= 2%).");
+    }
+
+    // OC6 — Bolton 2020 fold rule: WBC present at >= 2% and >= 10 reads, but WBC VAF < 2x tumour VAF ⇒ the
+    // tumour clone dominates ⇒ tumour-derived. Tumour 0.30, WBC 0.40 (only 1.33x).
+    [Test]
+    public void CallVariantOrigin_WbcVafBelowFold_CallsTumor()
+    {
+        // Arrange
+        var variants = new[] { Var("DNMT3A", 0.30) };
+        var wbc = new[] { Wbc(0.40, 40) };
+
+        // Act
+        IReadOnlyList<OncologyAnalyzer.VariantOriginCall> calls =
+            OncologyAnalyzer.CallVariantOrigin(variants, wbc);
+
+        // Assert
+        Assert.That(calls[0].Origin, Is.EqualTo(OncologyAnalyzer.VariantOrigin.Tumor),
+            "WBC VAF 0.40 < 2x0.30=0.60 ⇒ fold not met ⇒ tumour-derived (Bolton 2020 >= 2x).");
+    }
+
+    // OC7 — Bolton 2020 lymph-node fold: with the 1.5x fold, WBC 0.40 >= 1.5x0.20=0.30 ⇒ CHIP, whereas the
+    // default 2x (0.40 < 0.40? 2x0.20=0.40, equal ⇒ CHIP) — use tumour 0.25 so 2x=0.50 > 0.40 (tumour) but
+    // 1.5x=0.375 <= 0.40 (CHIP). Demonstrates the lymph-node parameter changes the call.
+    [Test]
+    public void CallVariantOrigin_LymphNodeFold_ChangesCallVersusDefault()
+    {
+        // Arrange: tumour 0.25, WBC 0.40, 40 reads.
+        var variants = new[] { Var("DNMT3A", 0.25) };
+        var wbc = new[] { Wbc(0.40, 40) };
+
+        // Act
+        IReadOnlyList<OncologyAnalyzer.VariantOriginCall> defaultFold =
+            OncologyAnalyzer.CallVariantOrigin(variants, wbc);
+        IReadOnlyList<OncologyAnalyzer.VariantOriginCall> lymphNode =
+            OncologyAnalyzer.CallVariantOrigin(variants, wbc, OncologyAnalyzer.LymphNodeWbcVafFold);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(defaultFold[0].Origin, Is.EqualTo(OncologyAnalyzer.VariantOrigin.Tumor),
+                "Default 2x: WBC 0.40 < 2x0.25=0.50 ⇒ tumour.");
+            Assert.That(lymphNode[0].Origin, Is.EqualTo(OncologyAnalyzer.VariantOrigin.Chip),
+                "Lymph-node 1.5x: WBC 0.40 >= 1.5x0.25=0.375 ⇒ CHIP (Bolton 2020 lymph-node rule).");
+        });
+    }
+
+    // OC8 — order preservation: one call per input variant, in input order.
+    [Test]
+    public void CallVariantOrigin_MixedVariants_PreservesOrderAndCallsEach()
+    {
+        // Arrange: variant A present in WBC (CHIP), variant B absent (tumour).
+        var variants = new[]
+        {
+            Var("DNMT3A", 0.10, chrom: "1", pos: 100),
+            Var("EGFR", 0.20, chrom: "7", pos: 200)
+        };
+        var wbc = new[] { Wbc(0.30, 40, chrom: "1", pos: 100) };
+
+        // Act
+        IReadOnlyList<OncologyAnalyzer.VariantOriginCall> calls =
+            OncologyAnalyzer.CallVariantOrigin(variants, wbc);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(calls, Has.Count.EqualTo(2), "One call per input variant.");
+            Assert.That(calls[0].Variant.Gene, Is.EqualTo("DNMT3A"), "Order preserved: first input first.");
+            Assert.That(calls[0].Origin, Is.EqualTo(OncologyAnalyzer.VariantOrigin.Chip),
+                "First variant present in matched WBC at 3x fold ⇒ CHIP.");
+            Assert.That(calls[1].Origin, Is.EqualTo(OncologyAnalyzer.VariantOrigin.Tumor),
+                "Second variant absent from matched WBC ⇒ tumour.");
+        });
+    }
+
+    // OC9 — null/empty/invalid-argument guards.
+    [Test]
+    public void CallVariantOrigin_InvalidArguments_Throw()
+    {
+        var variants = new[] { Var("DNMT3A", 0.10) };
+        var wbc = new[] { Wbc(0.30, 40) };
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(
+                () => OncologyAnalyzer.CallVariantOrigin(null!, wbc),
+                "Null variants must throw.");
+            Assert.Throws<ArgumentNullException>(
+                () => OncologyAnalyzer.CallVariantOrigin(variants, null!),
+                "Null WBC observations must throw.");
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => OncologyAnalyzer.CallVariantOrigin(variants, wbc, wbcVafFold: 0.99),
+                "Fold < 1 must throw.");
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => OncologyAnalyzer.CallVariantOrigin(variants, wbc, chipMinWbcVaf: 0.0),
+                "chipMinWbcVaf <= 0 must throw.");
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => OncologyAnalyzer.CallVariantOrigin(variants, wbc, chipMinWbcVaf: 1.01),
+                "chipMinWbcVaf > 1 must throw.");
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => OncologyAnalyzer.CallVariantOrigin(variants, wbc, minWbcAltReads: 0),
+                "minWbcAltReads < 1 must throw.");
+            Assert.That(OncologyAnalyzer.CallVariantOrigin(
+                    Array.Empty<OncologyAnalyzer.ChipVariant>(), wbc),
+                Is.Empty, "No variants ⇒ no calls.");
         });
     }
 

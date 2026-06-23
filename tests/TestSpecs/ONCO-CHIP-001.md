@@ -5,7 +5,7 @@
 **Algorithm:** Clonal Hematopoiesis (CHIP) Filtering for cfDNA Liquid Biopsy
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-15
+**Last Updated:** 2026-06-23
 
 ---
 
@@ -19,6 +19,7 @@
 | 2 | Genovese et al. (2014) *NEJM* 371(26):2477–2487 — CH driver genes | 1 | https://doi.org/10.1056/NEJMoa1409405 (PMC4290021) | 2026-06-15 |
 | 3 | Razavi et al. (2019) *Nat Med* 25:1928–1937 — matched-WBC cfDNA filtering | 1 | https://doi.org/10.1038/s41591-019-0652-7 | 2026-06-15 |
 | 4 | Arango-Argoty et al. (2025) *NPJ Precis Oncol* 9:147 — matched-WBC rule, top-3 genes | 3 | https://doi.org/10.1038/s41698-025-00921-w (PMC12092662) | 2026-06-15 |
+| 5 | Bolton et al. (2020) *Nat Genet* 52(11):1219–1226 — strict matched-WBC origin rule | 1 | https://doi.org/10.1038/s41588-020-00710-0 (PMC7891089) | 2026-06-23 |
 
 ### 1.2 Key Evidence Points
 
@@ -26,6 +27,7 @@
 2. Canonical CH driver genes: DNMT3A, TET2, ASXL1, PPM1D, JAK2, SF3B1 (and TP53, SRSF2) — Genovese 2014 ("Four genes (DNMT3A, TET2, ASXL1, and PPM1D) had disproportionately high numbers of somatic mutations"); top-3 DNMT3A/TET2/ASXL1 — Arango-Argoty 2025.
 3. In cfDNA liquid biopsy, CH variants are the dominant non-tumor confounder (81.6% controls / 53.2% cancer patients) and are identified by matched white-blood-cell (WBC) sequencing — a cfDNA variant also present in matched WBC is CH-derived, not tumor — Razavi 2019; Arango-Argoty 2025.
 4. The gene+VAF heuristic flags *candidate* CHIP; matched-WBC subtraction is the definitive origin test (VAF–origin relationship "remains unclear") — Arango-Argoty 2025.
+5. Strict matched-WBC origin call: a variant is WBC/CH origin when its matched-WBC VAF is ≥ 2% with ≥ 10 supporting reads AND its WBC VAF is ≥ 2× the tumour VAF (1.5× if the biopsy site is a lymph node); otherwise tumour-derived — Bolton 2020 (Methods: "a variant allele fraction of at least 2% and at least 10 supporting reads"; blood VAF "at least twice that in the tumor or 1.5 times … if the tumor biopsy site was a lymph node").
 
 ### 1.3 Documented Corner Cases
 
@@ -46,6 +48,7 @@
 |--------|-------|------|-------|
 | `IdentifyCHIPVariants(variants, chipGenes?, minVaf?)` | OncologyAnalyzer | Canonical | Gene+VAF heuristic (Steensma 2015) |
 | `FilterCHIP(variants, whiteBloodCellVariants, ...)` | OncologyAnalyzer | Canonical | Matched-WBC subtraction (Razavi 2019) |
+| `CallVariantOrigin(variants, whiteBloodCellObservations, wbcVafFold?, chipMinWbcVaf?, minWbcAltReads?)` | OncologyAnalyzer | Canonical | Strict matched-WBC origin call (Bolton 2020) |
 | `IsCanonicalChipGene(gene, chipGenes?)` | OncologyAnalyzer | Internal | Case-insensitive gene membership |
 
 ---
@@ -60,6 +63,9 @@
 | INV-4 | A cfDNA variant present in matched WBC is removed regardless of gene | Yes | Razavi 2019 |
 | INV-5 | A cfDNA variant absent from matched WBC is retained | Yes | Razavi 2019 |
 | INV-6 | Gene membership comparison is case-insensitive | Yes | HGNC symbol convention (ASSUMPTION) |
+| INV-7 | `CallVariantOrigin` calls CHIP ⟺ WBC VAF ≥ τ_w (0.02) AND WBC reads ≥ ρ (10) AND WBC VAF ≥ φ·tumour VAF (φ=2.0; 1.5 lymph node), at the matched locus | Yes | Bolton 2020 |
+| INV-8 | `CallVariantOrigin` calls tumour when the locus is absent from matched WBC (even a CH driver gene) | Yes | Bolton 2020 (no WBC evidence ⇒ tumour) |
+| INV-9 | `CallVariantOrigin` emits exactly one call per input variant, in input order | Yes | single-pass contract |
 
 ---
 
@@ -81,6 +87,13 @@
 | M10 | FilterCHIP removes CHIP-gene variant by gene+VAF even if not in WBC | DNMT3A VAF 0.05, not in WBC | removed (CHIP heuristic) | Steensma 2015 |
 | M11 | FilterCHIP retains sub-threshold CHIP-gene variant absent from WBC | DNMT3A VAF 0.01, not in WBC | retained | Steensma 2015 |
 | M12 | Mixed panel filtering | tumor EGFR(absent), CH DNMT3A(0.06), WBC-matched KRAS | only EGFR retained | Razavi 2019 + Steensma 2015 |
+| OC1 | CallVariantOrigin: present in WBC at comparable VAF | tumour 0.10, WBC 0.30, 40 reads | Chip | Bolton 2020 |
+| OC2 | CallVariantOrigin: absent from WBC (CH gene) | DNMT3A 0.40, no WBC observation | Tumor | Bolton 2020 (no WBC evidence) |
+| OC3 | CallVariantOrigin: WBC reads below floor | tumour 0.10, WBC 0.30, 9 reads | Tumor | Bolton 2020 (≥ 10 reads) |
+| OC4 | CallVariantOrigin: all thresholds at boundary | tumour 0.01, WBC 0.02, 10 reads | Chip (inclusive) | Bolton 2020 |
+| OC5 | CallVariantOrigin: WBC VAF below 2% | tumour 0.005, WBC 0.015, 50 reads | Tumor | Bolton 2020 (VAF ≥ 2%) |
+| OC6 | CallVariantOrigin: WBC VAF below fold | tumour 0.30, WBC 0.40, 40 reads | Tumor | Bolton 2020 (≥ 2×) |
+| OC7 | CallVariantOrigin: lymph-node fold changes call | tumour 0.25, WBC 0.40, 40 reads | Tumor (2.0) / Chip (1.5) | Bolton 2020 (1.5× lymph node) |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -95,6 +108,7 @@
 | ID | Test Case | Description | Expected Outcome | Notes |
 |----|-----------|-------------|------------------|-------|
 | C1 | Order preservation | 3 retained variants | same relative order | INV-3 |
+| C2 | CallVariantOrigin order/multiplicity | mixed CHIP + tumour variants | one call per input, input order | INV-9 |
 
 ### 4.4 Validation / Error Tests
 
@@ -106,6 +120,7 @@
 | V4 | minVaf out of (0,1] | minVaf 0 or 1.5 | ArgumentOutOfRangeException | domain |
 | V5 | empty cfDNA input | empty list | empty result | repo convention |
 | V6 | empty matched WBC | nothing to subtract; only gene/VAF heuristic applies | CH-gene variants removed, rest kept | Razavi 2019 |
+| V7 | CallVariantOrigin invalid args | null variants/WBC, fold<1, chipMinWbcVaf∉(0,1], minWbcAltReads<1, empty variants | throws / empty result | domain + repo convention |
 
 ---
 
@@ -113,13 +128,15 @@
 
 ### 5.1 Discovery Summary
 
-- New Test Unit. No prior `FilterCHIP` / `IdentifyCHIPVariants` implementation or tests existed in `OncologyAnalyzer` or `tests/Seqeron/Seqeron.Genomics.Tests/`. Canonical test file created: `tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_FilterCHIP_Tests.cs`.
+- New Test Unit (2026-06-15). No prior `FilterCHIP` / `IdentifyCHIPVariants` implementation or tests existed in `OncologyAnalyzer` or `tests/Seqeron/Seqeron.Genomics.Tests/`. Canonical test file: `tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_FilterCHIP_Tests.cs`.
+- 2026-06-23 limitation-fix: added the strict matched-WBC origin-calling method `CallVariantOrigin` (Bolton 2020) and its tests (OC1–OC9 region) to the same canonical file; the gene+VAF `FilterCHIP` heuristic is unchanged and remains the no-WBC fallback.
 
 ### 5.2 Coverage Classification
 
 | Area / Test Case ID | Status | Notes |
 |---------------------|--------|-------|
-| M1–M12, S1–S3, C1, V1–V6 | ❌ Missing | New unit; no tests existed |
+| M1–M12, S1–S3, C1, V1–V6 | ✅ Covered | Implemented at unit creation (2026-06-15) |
+| OC1–OC7, C2, V7 | ❌ Missing | New strict-origin cases for `CallVariantOrigin` (2026-06-23) |
 
 ### 5.3 Consolidation Plan
 
@@ -130,7 +147,7 @@
 
 | File | Role | Test Count |
 |------|------|------------|
-| `OncologyAnalyzer_FilterCHIP_Tests.cs` | canonical | 22 |
+| `OncologyAnalyzer_FilterCHIP_Tests.cs` | canonical | 35 |
 
 ### 5.5 Phase 7 Work Queue
 
@@ -158,9 +175,18 @@
 | 20 | V4 | ❌ Missing | implemented | ✅ Done |
 | 21 | V5 | ❌ Missing | implemented | ✅ Done |
 | 22 | V6 | ❌ Missing | implemented | ✅ Done |
+| 23 | OC1 | ❌ Missing | implemented (2026-06-23) | ✅ Done |
+| 24 | OC2 | ❌ Missing | implemented (2026-06-23) | ✅ Done |
+| 25 | OC3 | ❌ Missing | implemented (2026-06-23) | ✅ Done |
+| 26 | OC4 | ❌ Missing | implemented (2026-06-23) | ✅ Done |
+| 27 | OC5 | ❌ Missing | implemented (2026-06-23) | ✅ Done |
+| 28 | OC6 | ❌ Missing | implemented (2026-06-23) | ✅ Done |
+| 29 | OC7 | ❌ Missing | implemented (2026-06-23) | ✅ Done |
+| 30 | C2 | ❌ Missing | implemented (2026-06-23) | ✅ Done |
+| 31 | V7 | ❌ Missing | implemented (2026-06-23) | ✅ Done |
 
-**Total items:** 22
-**✅ Done:** 22 | **⛔ Blocked:** 0 | **Remaining:** 0
+**Total items:** 31
+**✅ Done:** 31 | **⛔ Blocked:** 0 | **Remaining:** 0
 
 ### 5.6 Post-Implementation Coverage
 
@@ -188,6 +214,15 @@
 | V4 | ✅ | IdentifyCHIPVariants_MinVafOutOfRange_Throws |
 | V5 | ✅ | FilterCHIP_EmptyVariants_ReturnsEmpty |
 | V6 | ✅ | FilterCHIP_EmptyWbc_AppliesGeneHeuristicOnly |
+| OC1 | ✅ | CallVariantOrigin_PresentInWbcAtComparableVaf_CallsChip |
+| OC2 | ✅ | CallVariantOrigin_AbsentFromWbc_CallsTumor |
+| OC3 | ✅ | CallVariantOrigin_WbcReadsBelowFloor_CallsTumor |
+| OC4 | ✅ | CallVariantOrigin_AllThresholdsExactlyAtBoundary_CallsChip |
+| OC5 | ✅ | CallVariantOrigin_WbcVafBelowChipMinimum_CallsTumor |
+| OC6 | ✅ | CallVariantOrigin_WbcVafBelowFold_CallsTumor |
+| OC7 | ✅ | CallVariantOrigin_LymphNodeFold_ChangesCallVersusDefault |
+| C2 | ✅ | CallVariantOrigin_MixedVariants_PreservesOrderAndCallsEach |
+| V7 | ✅ | CallVariantOrigin_InvalidArguments_Throw |
 
 ---
 
