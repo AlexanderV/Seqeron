@@ -23,7 +23,6 @@ limitations are tracked separately as the "Deferred BIG fixes" backlog in the le
 
 | Unit(s) | Not implemented | Note |
 |---------|-----------------|------|
-| ALIGN-MULTI-001 | Full consistency-based MSA refinement (T-Coffee consistency library / objective) | A distinct objective class from the sum-of-pairs score the library optimizes. |
 | RNA-STRUCT-001 | Pseudoknotted (crossing-helix) structure prediction | The O(n³) nearest-neighbour recurrences are pseudoknot-free by construction; pseudoknots need a different algorithm class. |
 
 ## 2. "Threshold / aggregation / framework" layers — they classify or combine caller-supplied inputs, they do not predict upstream

@@ -1830,5 +1830,528 @@ public static class SequenceAligner
     }
 
     #endregion
+
+    #region Multiple Sequence Alignment (Consistency-based — T-Coffee)
+
+    // Consistency-based multiple sequence alignment, the T-Coffee method (Notredame, Higgins &
+    // Heringa 2000), added as a FOURTH aligner alongside the star (MultipleAlign), progressive
+    // (MultipleAlignProgressive) and iterative (MultipleAlignIterative) methods. All three of those
+    // remain byte-for-byte unchanged. This optimises the T-Coffee CONSISTENCY objective — a distinct
+    // objective class from the fixed-matrix sum-of-pairs (SP) score the other methods optimise.
+    //
+    // Algorithm — Notredame, Higgins & Heringa (2000) "T-Coffee: A novel method for fast and accurate
+    // multiple sequence alignment", J Mol Biol 302:205-217 (DOI 10.1006/jmbi.2000.4042). Figure 1
+    // pipeline: primary library -> extension -> extended library -> progressive alignment.
+    //
+    //   1. PRIMARY LIBRARY (p.207). For every pair of sequences (i,j) compute pairwise alignments —
+    //      a GLOBAL (Needleman-Wunsch, the ClustalW library in the paper) and a LOCAL (Smith-Waterman,
+    //      the Lalign library). Each aligned residue pair (residue at position p in Si aligned to the
+    //      residue at position q in Sj) "receives a weight equal to percent identity within the
+    //      pair-wise alignment it comes from". The global and local libraries are combined by
+    //      "signal addition": "If any pair is duplicated between the two libraries, it is merged into
+    //      a single entry that has a weight equal to the sum of the two weights." Pairs that never
+    //      occur have weight 0.
+    //
+    //   2. LIBRARY EXTENSION — the triplet consistency transformation (pp.208-209). For each library
+    //      pair (Si.p, Sj.q), and for every intermediate sequence Sk, if Si.p aligns to Sk.r (weight
+    //      W1) and Sk.r aligns to Sj.q (weight W2), the triplet through Sk contributes min(W1, W2):
+    //      "we associate that alignment with a weight equal to the minimum of W1 and W2". The extended
+    //      weight is "the sum of all the weights gathered through the examination of all the triplets
+    //      involving that pair" PLUS the direct primary weight — the paper's worked example: direct
+    //      88, through-C min(77,100)=77, extended = 88 + 77 = 165. Uninformative triplets contribute 0,
+    //      so extension never lowers a weight.
+    //
+    //   3. PROGRESSIVE ALIGNMENT (pp.209-210). A UPGMA guide tree (the existing
+    //      BuildProgressiveGuideTree; the paper uses NJ — merge order only, same library and objective)
+    //      directs a progressive alignment. Profiles are aligned by dynamic programming whose
+    //      position-specific column score is the SUM of the EXTENDED-LIBRARY weights over all
+    //      cross-profile residue pairs in the two columns (group-vs-group: "the average library scores
+    //      in each column of existing alignment are taken" — here summed over the cross pairs, which
+    //      is the same objective up to a per-merge constant). No fixed substitution matrix is used and
+    //      "gap-opening penalties and gap-extension penalties [are] set to zero" (p.210): a gap column
+    //      scores 0. "Once a gap is introduced ... it cannot be shifted later" is enforced as in the
+    //      progressive aligner (whole all-gap columns inserted, existing columns never edited).
+    //
+    // Determinism: no RNG. Primary alignments, the guide tree, the extension sum and the DP tie-breaks
+    // are all deterministic.
+    //
+    // Sources retrieved this session (2026-06-23):
+    //   - Notredame C, Higgins DG, Heringa J (2000) J Mol Biol 302:205-217. Full text fetched/read:
+    //     https://web.stanford.edu/class/gene211/pdfs/Notredame-Tcoffee.pdf (Figures 1-2, pp.207-211).
+    //   - T-Coffee Technical Documentation (min() rule for triplet legs):
+    //     https://tcoffee.readthedocs.io/en/latest/tcoffee_technical_documentation.html
+    //   - Gotoh O (1982) J Mol Biol 162:705-708 (the DP used in the progressive phase).
+
+    /// <summary>
+    /// Performs <b>consistency-based</b> multiple sequence alignment — the T-Coffee method of
+    /// Notredame, Higgins &amp; Heringa (2000) — optimising the T-Coffee consistency objective rather
+    /// than the fixed-matrix sum-of-pairs score used by
+    /// <see cref="MultipleAlign(IEnumerable{DnaSequence}, ScoringMatrix?)"/>,
+    /// <see cref="MultipleAlignProgressive(IEnumerable{DnaSequence}, ScoringMatrix?)"/> and
+    /// <see cref="MultipleAlignIterative(IEnumerable{DnaSequence}, ScoringMatrix?, int)"/>
+    /// (all of which are unchanged).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Pipeline (Notredame et al. 2000, J Mol Biol 302:205-217):
+    /// </para>
+    /// <list type="number">
+    /// <item>Build a <b>primary library</b> from all pairwise global (Needleman-Wunsch) and local
+    /// (Smith-Waterman) alignments; each aligned residue pair is weighted by the pairwise percent
+    /// identity, and global+local weights are summed (signal addition).</item>
+    /// <item><b>Extend</b> the library by the triplet consistency transformation: each residue pair
+    /// accumulates, over every intermediate sequence, the minimum of the two connecting weights,
+    /// added to the direct weight.</item>
+    /// <item><b>Progressively align</b> along a UPGMA guide tree with dynamic programming whose
+    /// column score is the summed extended-library weight (no substitution matrix, zero gap
+    /// penalty).</item>
+    /// </list>
+    /// </remarks>
+    /// <param name="sequences">Collection of sequences to align.</param>
+    /// <param name="scoring">
+    /// Scoring matrix used only to compute the pairwise alignments that seed the library
+    /// (default: <see cref="SimpleDna"/>). The progressive phase uses the library weights, not this
+    /// matrix, as the substitution score.
+    /// </param>
+    /// <returns>Multiple alignment result (aligned rows, majority consensus, sum-of-pairs score).</returns>
+    /// <exception cref="ArgumentNullException">When <paramref name="sequences"/> is null.</exception>
+    public static MultipleAlignmentResult MultipleAlignConsistency(
+        IEnumerable<DnaSequence> sequences,
+        ScoringMatrix? scoring = null)
+    {
+        ArgumentNullException.ThrowIfNull(sequences);
+
+        var seqList = sequences.ToList();
+        if (seqList.Count == 0)
+            return MultipleAlignmentResult.Empty;
+
+        if (seqList.Count == 1)
+        {
+            return new MultipleAlignmentResult(
+                AlignedSequences: new[] { seqList[0].Sequence },
+                Consensus: seqList[0].Sequence,
+                TotalScore: 0);
+        }
+
+        var effectiveScoring = scoring ?? SimpleDna;
+        int k = seqList.Count;
+        var rawSeqs = seqList.Select(s => s.Sequence).ToArray();
+
+        // Steps 1-2: primary library (global + local, signal-added) then triplet extension.
+        var library = BuildExtendedLibrary(rawSeqs, effectiveScoring);
+
+        // Step 3a: UPGMA guide tree over (1 - fractional identity), reusing the progressive pipeline.
+        var distance = new double[k, k];
+        for (int i = 0; i < k; i++)
+            for (int j = i + 1; j < k; j++)
+            {
+                double d = PairwiseIdentityDistance(rawSeqs[i], rawSeqs[j], effectiveScoring);
+                distance[i, j] = d;
+                distance[j, i] = d;
+            }
+        ProgressiveGuideNode root = BuildProgressiveGuideTree(k, distance);
+
+        // Step 3b: progressive alignment driven by the EXTENDED-LIBRARY weights.
+        ConsistencyProfile aligned = AlignConsistencySubtree(root, rawSeqs, library);
+
+        // Reproject rows back to input order.
+        var orderedRows = new string[k];
+        for (int r = 0; r < aligned.Rows.Count; r++)
+            orderedRows[aligned.SequenceIndices[r]] = aligned.Rows[r];
+
+        var alignedList = orderedRows.ToList();
+        int maxLen = alignedList.Count == 0 ? 0 : alignedList.Max(s => s.Length);
+        string consensus = BuildConsensus(alignedList, maxLen);
+        // TotalScore is reported in the same SP currency as the sibling aligners for comparability.
+        int spScore = ComputeSumOfPairsScore(alignedList, effectiveScoring);
+
+        return new MultipleAlignmentResult(
+            AlignedSequences: orderedRows,
+            Consensus: consensus,
+            TotalScore: spScore);
+    }
+
+    // ----- Library representation -------------------------------------------------------------
+
+    // A residue-pair key (Si.posI, Sj.posJ) with i &lt; j, used to store library weights. Stored
+    // canonically with the smaller sequence index first so lookups are symmetric.
+    private readonly record struct ResiduePairKey(int SeqA, int PosA, int SeqB, int PosB);
+
+    private static ResiduePairKey MakeKey(int s1, int p1, int s2, int p2) =>
+        s1 < s2 || (s1 == s2 && p1 <= p2)
+            ? new ResiduePairKey(s1, p1, s2, p2)
+            : new ResiduePairKey(s2, p2, s1, p1);
+
+    /// <summary>
+    /// Builds the T-Coffee <b>extended</b> library: the primary library (global + local pairwise
+    /// alignments, weighted by percent identity and combined by signal addition) transformed by the
+    /// triplet consistency extension (Notredame et al. 2000, pp.207-209).
+    /// </summary>
+    private static Dictionary<ResiduePairKey, double> BuildExtendedLibrary(
+        string[] seqs, ScoringMatrix scoring)
+    {
+        int k = seqs.Length;
+
+        // ---- Step 1: primary library (global + local), keyed per (sequence,position) pair. ----
+        var primary = new Dictionary<ResiduePairKey, double>();
+
+        // Per-(i,j) adjacency used by the extension: position p in Si -> list of (Sj, q, weight).
+        // Built from the primary library after combination so weights are the signal-added totals.
+        for (int i = 0; i < k; i++)
+        {
+            for (int j = i + 1; j < k; j++)
+            {
+                AddAlignmentToPrimary(primary, i, j, seqs[i], seqs[j],
+                    GlobalAlignCore(seqs[i], seqs[j], scoring));
+
+                if (seqs[i].Length > 0 && seqs[j].Length > 0)
+                {
+                    var local = LocalAlignCore(seqs[i], seqs[j], scoring);
+                    AddLocalAlignmentToPrimary(primary, i, j, seqs[i], seqs[j], local);
+                }
+            }
+        }
+
+        // ---- Step 2: triplet consistency extension. ----
+        // Build, per sequence position, the list of partners (other sequence, position, weight) from
+        // the primary library, so triplets can be enumerated in O(neighbours) per residue.
+        var neighbours = BuildNeighbourIndex(primary);
+
+        // Extended weight = direct primary weight + sum over intermediates Sk of min(W1, W2).
+        var extended = new Dictionary<ResiduePairKey, double>(primary);
+
+        foreach (var entry in primary)
+        {
+            var key = entry.Key; // (SeqA.PosA, SeqB.PosB), SeqA < SeqB
+            int sA = key.SeqA, pA = key.PosA, sB = key.SeqB, pB = key.PosB;
+
+            // Every intermediate residue r in some Sk that aligns to BOTH endpoints contributes
+            // min(W(A,k), W(k,B)). We iterate the neighbours of A and intersect on (Sk, r).
+            if (!neighbours.TryGetValue((sA, pA), out var partnersOfA))
+                continue;
+            if (!neighbours.TryGetValue((sB, pB), out var partnersOfB))
+                continue;
+
+            // Index B's partners by (seq,pos) for O(1) intersection.
+            foreach (var partner in partnersOfA)
+            {
+                int kSeq = partner.Key.Item1;
+                int kPos = partner.Key.Item2;
+                double w1 = partner.Value;
+                if (kSeq == sA || kSeq == sB) continue; // intermediate must be a third sequence
+                if (!partnersOfB.TryGetValue((kSeq, kPos), out double w2)) continue;
+                double contribution = Math.Min(w1, w2);
+                if (contribution <= 0) continue;
+                extended[key] = extended.GetValueOrDefault(key) + contribution;
+            }
+        }
+
+        return extended;
+    }
+
+    /// <summary>
+    /// Adds a global pairwise alignment to the primary library. Every aligned residue pair (both
+    /// non-gap) gets the alignment's percent identity weight; duplicate pairs are signal-added.
+    /// </summary>
+    private static void AddAlignmentToPrimary(
+        Dictionary<ResiduePairKey, double> primary,
+        int i, int j, string si, string sj, AlignmentResult pa)
+    {
+        double weight = PercentIdentity(pa.AlignedSequence1, pa.AlignedSequence2);
+        if (weight <= 0) return;
+
+        int posI = 0, posJ = 0;
+        string a = pa.AlignedSequence1, b = pa.AlignedSequence2;
+        for (int c = 0; c < a.Length; c++)
+        {
+            char ca = a[c], cb = b[c];
+            if (ca != '-' && cb != '-')
+            {
+                AddPairWeight(primary, i, posI, j, posJ, weight);
+                posI++; posJ++;
+            }
+            else if (ca != '-') posI++;
+            else if (cb != '-') posJ++;
+        }
+    }
+
+    /// <summary>
+    /// Adds a local pairwise alignment to the primary library. The local alignment covers a segment
+    /// of each sequence starting at <c>StartPosition1</c>/<c>StartPosition2</c>; matched residue pairs
+    /// in that segment are weighted by the local segment's percent identity and signal-added.
+    /// </summary>
+    private static void AddLocalAlignmentToPrimary(
+        Dictionary<ResiduePairKey, double> primary,
+        int i, int j, string si, string sj, AlignmentResult la)
+    {
+        double weight = PercentIdentity(la.AlignedSequence1, la.AlignedSequence2);
+        if (weight <= 0) return;
+
+        int posI = la.StartPosition1, posJ = la.StartPosition2;
+        string a = la.AlignedSequence1, b = la.AlignedSequence2;
+        for (int c = 0; c < a.Length; c++)
+        {
+            char ca = a[c], cb = b[c];
+            if (ca != '-' && cb != '-')
+            {
+                AddPairWeight(primary, i, posI, j, posJ, weight);
+                posI++; posJ++;
+            }
+            else if (ca != '-') posI++;
+            else if (cb != '-') posJ++;
+        }
+    }
+
+    private static void AddPairWeight(
+        Dictionary<ResiduePairKey, double> lib, int s1, int p1, int s2, int p2, double weight)
+    {
+        var key = MakeKey(s1, p1, s2, p2);
+        lib[key] = lib.GetValueOrDefault(key) + weight;
+    }
+
+    /// <summary>
+    /// Percent identity of a pairwise alignment = 100 × (columns where both residues are equal and
+    /// non-gap) / (alignment length). The percent-identity weight per Notredame et al. (2000) p.207.
+    /// </summary>
+    private static double PercentIdentity(string a, string b)
+    {
+        int len = a.Length;
+        if (len == 0) return 0;
+        int identical = 0;
+        for (int c = 0; c < len; c++)
+            if (a[c] != '-' && a[c] == b[c])
+                identical++;
+        // PercentIdentityScale: the weight is a percentage (Notredame et al. 2000, p.207).
+        return Math.Round(PercentIdentityScale * identical / len);
+    }
+
+    // Weight is expressed as a percentage (0-100), matching the paper's integer "Prim Weight" values.
+    private const double PercentIdentityScale = 100.0;
+
+    /// <summary>
+    /// Inverts the primary library into a per-residue adjacency: (seq,pos) -&gt; {(otherSeq,otherPos):
+    /// weight}. Both directions of each stored pair are emitted so the triplet extension can walk from
+    /// either endpoint.
+    /// </summary>
+    private static Dictionary<(int Seq, int Pos), Dictionary<(int Seq, int Pos), double>>
+        BuildNeighbourIndex(Dictionary<ResiduePairKey, double> primary)
+    {
+        var index = new Dictionary<(int, int), Dictionary<(int, int), double>>();
+
+        void Add(int s1, int p1, int s2, int p2, double w)
+        {
+            if (!index.TryGetValue((s1, p1), out var inner))
+            {
+                inner = new Dictionary<(int, int), double>();
+                index[(s1, p1)] = inner;
+            }
+            inner[(s2, p2)] = w;
+        }
+
+        foreach (var (key, w) in primary)
+        {
+            Add(key.SeqA, key.PosA, key.SeqB, key.PosB, w);
+            Add(key.SeqB, key.PosB, key.SeqA, key.PosA, w);
+        }
+
+        return index;
+    }
+
+    // ----- Consistency profile + progressive DP ----------------------------------------------
+
+    /// <summary>
+    /// A profile for consistency alignment: like <see cref="Profile"/> but every cell also records the
+    /// original residue position in its source sequence (or -1 for a gap), so the library weight for a
+    /// residue pair can be looked up during the position-specific DP.
+    /// </summary>
+    private sealed class ConsistencyProfile
+    {
+        public List<string> Rows { get; } = new();
+        public List<int> SequenceIndices { get; } = new();
+        // PositionMaps[r][col] = original residue index in sequence SequenceIndices[r], or -1 for gap.
+        public List<int[]> PositionMaps { get; } = new();
+        public int Width => Rows.Count == 0 ? 0 : Rows[0].Length;
+    }
+
+    private static ConsistencyProfile AlignConsistencySubtree(
+        ProgressiveGuideNode node, string[] rawSeqs, Dictionary<ResiduePairKey, double> library)
+    {
+        if (node.IsLeaf)
+        {
+            int idx = node.LeafIndex;
+            string seq = rawSeqs[idx];
+            var leaf = new ConsistencyProfile();
+            leaf.Rows.Add(seq);
+            leaf.SequenceIndices.Add(idx);
+            var map = new int[seq.Length];
+            for (int p = 0; p < seq.Length; p++) map[p] = p;
+            leaf.PositionMaps.Add(map);
+            return leaf;
+        }
+
+        var left = AlignConsistencySubtree(node.Left!, rawSeqs, library);
+        var right = AlignConsistencySubtree(node.Right!, rawSeqs, library);
+        return AlignConsistencyProfiles(left, right, library);
+    }
+
+    /// <summary>
+    /// Aligns two consistency profiles with the Needleman-Wunsch recurrence over columns, scoring a
+    /// column pair by the SUM of extended-library weights over all cross-profile residue pairs (gap
+    /// columns score 0 — zero gap penalty, Notredame et al. 2000 p.210). Existing columns are never
+    /// edited; gaps are inserted as whole all-gap columns ("once a gap, always a gap").
+    /// </summary>
+    private static ConsistencyProfile AlignConsistencyProfiles(
+        ConsistencyProfile p1, ConsistencyProfile p2, Dictionary<ResiduePairKey, double> library)
+    {
+        int m = p1.Width;
+        int n = p2.Width;
+
+        var f = new double[m + 1, n + 1];
+        // First row/column: aligning a column against a gap scores 0 (zero gap penalty).
+        // (f[i,0] = f[0,j] = 0 for all i,j.)
+
+        for (int i = 1; i <= m; i++)
+        {
+            for (int j = 1; j <= n; j++)
+            {
+                double diag = f[i - 1, j - 1] + ColumnLibraryScore(p1, i - 1, p2, j - 1, library);
+                double up = f[i - 1, j];     // gap in p2: 0
+                double left = f[i, j - 1];   // gap in p1: 0
+                f[i, j] = Math.Max(diag, Math.Max(up, left));
+            }
+        }
+
+        var cols1 = new List<int>();
+        var cols2 = new List<int>();
+        int ii = m, jj = n;
+        while (ii > 0 || jj > 0)
+        {
+            if (ii > 0 && jj > 0)
+            {
+                double diag = f[ii - 1, jj - 1] + ColumnLibraryScore(p1, ii - 1, p2, jj - 1, library);
+                if (AreClose(f[ii, jj], diag))
+                {
+                    cols1.Add(ii - 1);
+                    cols2.Add(jj - 1);
+                    ii--; jj--;
+                    continue;
+                }
+            }
+
+            if (ii > 0 && (jj == 0 || AreClose(f[ii, jj], f[ii - 1, jj])))
+            {
+                cols1.Add(ii - 1);
+                cols2.Add(-1);
+                ii--;
+                continue;
+            }
+
+            cols1.Add(-1);
+            cols2.Add(jj - 1);
+            jj--;
+        }
+
+        cols1.Reverse();
+        cols2.Reverse();
+
+        var merged = new ConsistencyProfile();
+        merged.SequenceIndices.AddRange(p1.SequenceIndices);
+        merged.SequenceIndices.AddRange(p2.SequenceIndices);
+        AppendConsistencyRows(merged, p1, cols1);
+        AppendConsistencyRows(merged, p2, cols2);
+        return merged;
+    }
+
+    private static void AppendConsistencyRows(
+        ConsistencyProfile dest, ConsistencyProfile source, List<int> columnMap)
+    {
+        for (int r = 0; r < source.Rows.Count; r++)
+        {
+            string row = source.Rows[r];
+            int[] srcMap = source.PositionMaps[r];
+            var sb = new StringBuilder(columnMap.Count);
+            var newMap = new int[columnMap.Count];
+            for (int c = 0; c < columnMap.Count; c++)
+            {
+                int col = columnMap[c];
+                if (col < 0)
+                {
+                    sb.Append('-');
+                    newMap[c] = -1;
+                }
+                else
+                {
+                    sb.Append(row[col]);
+                    newMap[c] = srcMap[col];
+                }
+            }
+            dest.Rows.Add(sb.ToString());
+            dest.PositionMaps.Add(newMap);
+        }
+    }
+
+    /// <summary>
+    /// Column-vs-column score = sum over all cross-profile residue pairs of their extended-library
+    /// weight (0 when a residue is a gap or the pair is absent from the library). This realises the
+    /// position-specific library scoring of Notredame et al. (2000): the DP maximises the summed
+    /// consistency weight rather than a fixed substitution matrix.
+    /// </summary>
+    private static double ColumnLibraryScore(
+        ConsistencyProfile p1, int col1, ConsistencyProfile p2, int col2,
+        Dictionary<ResiduePairKey, double> library)
+    {
+        double total = 0;
+        for (int r1 = 0; r1 < p1.Rows.Count; r1++)
+        {
+            int posA = p1.PositionMaps[r1][col1];
+            if (posA < 0) continue; // gap contributes 0
+            int seqA = p1.SequenceIndices[r1];
+            for (int r2 = 0; r2 < p2.Rows.Count; r2++)
+            {
+                int posB = p2.PositionMaps[r2][col2];
+                if (posB < 0) continue;
+                int seqB = p2.SequenceIndices[r2];
+                var key = MakeKey(seqA, posA, seqB, posB);
+                if (library.TryGetValue(key, out double w))
+                    total += w;
+            }
+        }
+        return total;
+    }
+
+    /// <summary>
+    /// Test/diagnostic accessor: builds the T-Coffee extended library for the given sequences and
+    /// returns the extended weight of the residue pair (Si.posI, Sj.posJ), and that pair's primary
+    /// (pre-extension) weight, so the consistency transformation can be verified directly
+    /// (Notredame et al. 2000, p.209).
+    /// </summary>
+    internal static (double Primary, double Extended) GetLibraryWeights(
+        string[] seqs, int seqI, int posI, int seqJ, int posJ, ScoringMatrix? scoring = null)
+    {
+        var effectiveScoring = scoring ?? SimpleDna;
+        var primaryOnly = BuildPrimaryLibraryForDiagnostics(seqs, effectiveScoring);
+        var extended = BuildExtendedLibrary(seqs, effectiveScoring);
+        var key = MakeKey(seqI, posI, seqJ, posJ);
+        return (primaryOnly.GetValueOrDefault(key), extended.GetValueOrDefault(key));
+    }
+
+    private static Dictionary<ResiduePairKey, double> BuildPrimaryLibraryForDiagnostics(
+        string[] seqs, ScoringMatrix scoring)
+    {
+        var primary = new Dictionary<ResiduePairKey, double>();
+        int k = seqs.Length;
+        for (int i = 0; i < k; i++)
+            for (int j = i + 1; j < k; j++)
+            {
+                AddAlignmentToPrimary(primary, i, j, seqs[i], seqs[j],
+                    GlobalAlignCore(seqs[i], seqs[j], scoring));
+                if (seqs[i].Length > 0 && seqs[j].Length > 0)
+                    AddLocalAlignmentToPrimary(primary, i, j, seqs[i], seqs[j],
+                        LocalAlignCore(seqs[i], seqs[j], scoring));
+            }
+        return primary;
+    }
+
+    #endregion
 }
 

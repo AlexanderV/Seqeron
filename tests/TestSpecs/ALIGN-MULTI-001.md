@@ -246,3 +246,71 @@ single-pass "once a gap, always a gap" limitation.
 |---|-----------|---------|
 | 1 | Edge-partition refinement (MUSCLE) chosen over remove-one-sequence (Barton-Sternberg); identical accept semantics. | implementation structure |
 | 2 | SP gap-gap = 0 / residue-gap = GapExtend (inherited from `ComputeSumOfPairsScore`). | SP scoring |
+
+---
+
+# Addendum: Consistency-based MSA (`MultipleAlignConsistency`, T-Coffee) — 2026-06-23
+
+Adds the consistency-based aligner that optimises the **T-Coffee consistency objective** (a distinct
+objective class from the SP score), via primary library + library extension + progressive alignment
+on the extended library.
+
+- **Canonical Method:** `SequenceAligner.MultipleAlignConsistency(IEnumerable<DnaSequence>, ScoringMatrix?)`
+- **Type:** Canonical (deep evidence-based testing)
+- **Status:** ☐ In Progress (checklists reset)
+- **Canonical test file:** `tests/Seqeron/Seqeron.Genomics.Tests/SequenceAligner_MultipleAlignConsistency_Tests.cs`
+
+## Evidence Sources (addendum)
+
+| Source | Type | URL |
+|--------|------|-----|
+| Notredame, Higgins & Heringa (2000) T-Coffee, J Mol Biol 302:205–217 | Primary (rank 1) | https://doi.org/10.1006/jmbi.2000.4042 |
+| T-Coffee Technical Documentation (min() rule) | Project docs (rank 3) | https://tcoffee.readthedocs.io/en/latest/tcoffee_technical_documentation.html |
+| Gotoh (1982) DP, J Mol Biol 162:705–708 | Primary (rank 1) | https://doi.org/10.1016/0022-2836(82)90398-9 |
+
+## Invariants Under Test (addendum)
+
+| ID | Invariant | Evidence |
+|----|-----------|----------|
+| INV-08 | Extended-library weight = primary weight + Σ min(W1,W2) over informative triplets; ≥ primary (extension never lowers). | T-Coffee p.209 (GARFIELD: 88 → 165) |
+| INV-09 | A consistency-supported residue pair has strictly greater extended weight than an unsupported pair. | T-Coffee p.209 |
+| INV-10 | Result is a valid MSA: rows equal length; degap recovers each input; no all-gap column; count preserved. | MSA definition |
+| INV-11 | On a case engineered to mislead a single pairwise alignment, the consistency objective of the consistency alignment ≥ that of the plain progressive seed. (Not a universal guarantee: T-Coffee is a progressive heuristic; on arbitrary inputs a different UPGMA merge order can lower the total objective.) | T-Coffee central claim |
+| INV-12 | Deterministic (no RNG); identical inputs → trivial gapless exact alignment. | T-Coffee identity corner case |
+
+## Test Cases (addendum)
+
+### MUST
+
+| ID | Test Name | Description | Expected | Evidence |
+|----|-----------|-------------|----------|----------|
+| TM01 | `MultipleAlignConsistency_NullInput_ThrowsArgumentNullException` | null guard | throws | .NET convention |
+| TM02 | `MultipleAlignConsistency_EmptyCollection_ReturnsEmpty` | empty input | `Empty`, SP=0 | MSA edge |
+| TM03 | `MultipleAlignConsistency_SingleSequence_ReturnsSameSequence` | single seq | verbatim, SP=0 | MSA |
+| TM04 | `ExtendedWeight_ConsistencyPair_ExceedsPrimaryWeight` | GARFIELD-style integer relation on the primary→extended weight of a pair supported through an intermediate | extended == primary + min(W1,W2) and > primary | T-Coffee p.209 (88→165) |
+| TM05 | `ExtendedWeight_SupportedPair_GreaterThanUnsupportedPair` | a pair backed by an intermediate vs an inconsistent pair | supported > unsupported | T-Coffee p.209 |
+| TM06 | `MultipleAlignConsistency_IdenticalSequences_TrivialExactAlignment` | 3 identical seqs | rows == input, gap-free | identity corner case |
+| TM07 | `MultipleAlignConsistency_ValidMsa_Invariants` | equal length / degap / count / no all-gap col | invariants hold | MSA definition |
+| TM08 | `MultipleAlignConsistency_ConsistencyObjective_NotBelowProgressiveSeed` | objective(consistency) ≥ objective(progressive seed) on a misleading case | ≥ holds | T-Coffee central claim |
+| TM09 | `MultipleAlignConsistency_TwoSequences_EqualsPairwiseGlobal` | k=2: no triplets → pairwise global | rows == global align rows | extended=primary |
+| TM10 | `MultipleAlignConsistency_IsDeterministic` | repeat runs identical | byte-identical | no RNG |
+
+### SHOULD
+
+| ID | Test Name | Description | Expected | Notes |
+|----|-----------|-------------|----------|-------|
+| TS01 | `SiblingAligners_Unchanged_WhenConsistencyAdded` | star / progressive / iterative byte-for-byte unchanged | documented rows | additivity guarantee |
+| TS02 | `MultipleAlignConsistency_RandomInputs_AlwaysValidMsa` | random panel (100 trials): always a structurally valid MSA | equal length / degap / count / no all-gap col | property test (O(N³L²) extension path); objective dominance asserted only on the engineered TM08 case |
+
+## Coverage (addendum)
+
+- ✅ Covered: 12 (10 MUST + 2 SHOULD) — all in the canonical consistency test file.
+- ❌ Missing: 0 | ⚠ Weak: 0 | 🔁 Duplicate: 0 | Remaining: 0
+
+## Assumptions (addendum)
+
+| # | Assumption | Used In |
+|---|-----------|---------|
+| 1 | Primary weight = integer percent identity of the pairwise global alignment; local entries from Smith–Waterman added by signal addition. | primary library |
+| 2 | Guide tree = existing UPGMA (NJ in paper); affects merge order only. | progressive step |
+| 3 | Progressive DP gap score = 0 (T-Coffee p.210); group columns use average extended-library score. | progressive DP |
