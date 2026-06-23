@@ -2,7 +2,7 @@
 
 **Priority:** P3  
 **Date:** 2026-03-19  
-**Total algorithms:** 234
+**Total algorithms:** 237
 
 ---
 
@@ -267,6 +267,9 @@ Characterization tests (golden master tests) фіксують поточну п�
 | 232 | ☐ | SEQ-ENTROPY-PROFILE-001 | Statistics | Entropy profile for edge seqs | Window-stepping optimization |
 | 233 | ☐ | SEQ-GC-ANALYSIS-001 | Composition | GC analysis for edge seqs | Span-based optimization |
 | 234 | ☐ | SEQ-GC-PROFILE-001 | Statistics | GC profile for edge seqs | Window-stepping optimization |
+| 235 | ☐ | ONCO-ASCAT-001 | Oncology | purity/ploidy for planted-truth profiles | grid optimization |
+| 236 | ☐ | RNA-PKPREDICT-001 | Analysis | PK structures for known H-type RNAs | O(n³) scan |
+| 237 | ☐ | RNA-PKRECURSIVE-001 | Analysis | nested-knot structures for designed RNAs | recursive DP |
 
 ---
 
@@ -276,7 +279,7 @@ Characterization tests (golden master tests) фіксують поточну п�
 |--------|-------|
 | Total algorithms | 234 |
 | ☑ Complete | 0 |
-| ☐ Not started | 234 |
+| ☐ Not started | 237 |
 | Applies on-demand (before refactoring) | All 234 |
 | High refactoring risk (complex algorithms) | ~20 (Alignment, Phylogenetic, RNA, Annotation) |
 | Medium refactoring risk | ~40 |
