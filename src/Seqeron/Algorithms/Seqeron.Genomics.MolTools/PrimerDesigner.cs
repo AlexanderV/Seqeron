@@ -499,6 +499,98 @@ public static class PrimerDesigner
         }
     }
 
+    // ---- Primer3 weighted penalty objective (PRIMER-TM-001) -------------------
+    // Reproduces the per-primer objective function `p_obj_fn` (left/right primer
+    // branch) from Primer3's reference source `libprimer3.cc`, with the documented
+    // default weights and optima. Lower penalty = better primer, exactly as Primer3.
+    // Source: Primer3 source libprimer3.cc p_obj_fn / pr_set_default_global_args_2;
+    //         Primer3 manual §19 "HOW PRIMER3 CALCULATES THE PENALTY VALUE";
+    //         Untergasser et al. (2012) NAR 40(15):e115; Koressaar & Remm (2007).
+
+    /// <summary>
+    /// Primer3 default per-primer objective weights, taken verbatim from
+    /// <c>pr_set_default_global_args_2</c> in Primer3's <c>libprimer3.cc</c>:
+    /// length/Tm weights = 1; GC, self-complementarity and N weights = 0.
+    /// Source: Primer3 source (branch main), function pr_set_default_global_args_2.
+    /// </summary>
+    public static readonly Primer3PenaltyWeights DefaultPrimer3Weights = new(
+        TmGt: 1.0,           // PRIMER_WT_TM_GT  (libprimer3.cc: weights.temp_gt = 1)
+        TmLt: 1.0,           // PRIMER_WT_TM_LT  (weights.temp_lt = 1)
+        SizeGt: 1.0,         // PRIMER_WT_SIZE_GT (weights.length_gt = 1)
+        SizeLt: 1.0,         // PRIMER_WT_SIZE_LT (weights.length_lt = 1)
+        GcGt: 0.0,           // PRIMER_WT_GC_PERCENT_GT (weights.gc_content_gt = 0)
+        GcLt: 0.0,           // PRIMER_WT_GC_PERCENT_LT (weights.gc_content_lt = 0)
+        SelfAny: 0.0,        // PRIMER_WT_SELF_ANY (weights.compl_any = 0)
+        SelfEnd: 0.0,        // PRIMER_WT_SELF_END (weights.compl_end = 0)
+        NumNs: 0.0           // PRIMER_WT_NUM_NS  (weights.num_ns = 0)
+    );
+
+    /// <summary>
+    /// Primer3 default per-primer optima. OPT_TM = 60 °C and OPT_SIZE = 20 bases are
+    /// from <c>libprimer3.cc</c> (opt_tm = 60.0, opt_size = 20); OPT_GC_PERCENT = 50.0 %
+    /// is the published default in the Primer3 manual (PRIMER_OPT_GC_PERCENT, default 50.0).
+    /// </summary>
+    public static readonly Primer3Optima DefaultPrimer3Optima = new(
+        OptTm: 60.0,         // PRIMER_OPT_TM (libprimer3.cc: opt_tm = 60.0) °C
+        OptSize: 20,         // PRIMER_OPT_SIZE (libprimer3.cc: opt_size = 20) bases
+        OptGcPercent: 50.0   // PRIMER_OPT_GC_PERCENT (manual default 50.0) %
+    );
+
+    /// <summary>
+    /// Computes the Primer3 per-primer penalty (objective function value) for a single
+    /// primer, faithfully reproducing the left/right-primer branch of Primer3's
+    /// <c>p_obj_fn</c>. The penalty is the weighted sum of one-sided deviations of Tm,
+    /// length and GC% from their optima, plus the weighted self-/3'-complementarity and
+    /// number-of-Ns terms. Each term is added only when its weight is non-zero and the
+    /// deviation has the matching sign, so the result is always ≥ 0; <b>lower is better</b>,
+    /// exactly as Primer3 sorts candidates.
+    /// </summary>
+    /// <param name="inputs">Measured primer properties (Tm in °C, length in bases, GC in
+    /// percent 0–100, self/3' local-alignment scores, count of N bases).</param>
+    /// <param name="weights">Objective weights; defaults to <see cref="DefaultPrimer3Weights"/>.</param>
+    /// <param name="optima">Parameter optima; defaults to <see cref="DefaultPrimer3Optima"/>.</param>
+    /// <returns>The Primer3 objective-function value (penalty); 0 means every term is at its optimum.</returns>
+    public static double CalculatePrimer3Penalty(
+        Primer3PenaltyInputs inputs,
+        Primer3PenaltyWeights? weights = null,
+        Primer3Optima? optima = null)
+    {
+        var w = weights ?? DefaultPrimer3Weights;
+        var o = optima ?? DefaultPrimer3Optima;
+
+        double sum = 0.0;
+
+        // Tm term: one-sided, separate _gt / _lt weights (p_obj_fn temp_gt / temp_lt).
+        if (w.TmGt != 0 && inputs.Tm > o.OptTm)
+            sum += w.TmGt * (inputs.Tm - o.OptTm);
+        if (w.TmLt != 0 && inputs.Tm < o.OptTm)
+            sum += w.TmLt * (o.OptTm - inputs.Tm);
+
+        // GC% term (gc_content is a percentage 0–100 in libprimer3.cc, line 3856).
+        if (w.GcGt != 0 && inputs.GcPercent > o.OptGcPercent)
+            sum += w.GcGt * (inputs.GcPercent - o.OptGcPercent);
+        if (w.GcLt != 0 && inputs.GcPercent < o.OptGcPercent)
+            sum += w.GcLt * (o.OptGcPercent - inputs.GcPercent);
+
+        // Length/size term (p_obj_fn length_lt / length_gt).
+        if (w.SizeLt != 0 && inputs.Length < o.OptSize)
+            sum += w.SizeLt * (o.OptSize - inputs.Length);
+        if (w.SizeGt != 0 && inputs.Length > o.OptSize)
+            sum += w.SizeGt * (inputs.Length - o.OptSize);
+
+        // Self-complementarity terms (non-thermodynamic branch: compl_any, compl_end).
+        if (w.SelfAny != 0)
+            sum += w.SelfAny * inputs.SelfAny;
+        if (w.SelfEnd != 0)
+            sum += w.SelfEnd * inputs.SelfEnd;
+
+        // Number-of-Ns term (num_ns).
+        if (w.NumNs != 0)
+            sum += w.NumNs * inputs.NumNs;
+
+        return sum;
+    }
+
     private static double CalculatePrimerScore(string seq, double gc, double tm, int homopolymer, PrimerParameters param)
     {
         double score = 100;
@@ -582,6 +674,53 @@ public sealed record PrimerCandidate(
     bool IsValid,
     IReadOnlyList<string> Issues,
     double Score);
+
+/// <summary>
+/// Measured properties of a single primer used as input to the Primer3 penalty
+/// objective (<see cref="PrimerDesigner.CalculatePrimer3Penalty"/>). Units mirror
+/// Primer3's <c>p_obj_fn</c>: Tm in °C, length in bases, GC in percent (0–100),
+/// self/3'-complementarity as local-alignment scores, and the count of N bases.
+/// </summary>
+/// <param name="Tm">Primer melting temperature in °C.</param>
+/// <param name="Length">Primer length in bases.</param>
+/// <param name="GcPercent">GC content as a percentage in [0, 100].</param>
+/// <param name="SelfAny">Self-complementarity local-alignment score (PRIMER_SELF_ANY); 0 if unused.</param>
+/// <param name="SelfEnd">3'-self-complementarity local-alignment score (PRIMER_SELF_END); 0 if unused.</param>
+/// <param name="NumNs">Number of ambiguous N bases in the primer.</param>
+public readonly record struct Primer3PenaltyInputs(
+    double Tm,
+    int Length,
+    double GcPercent,
+    double SelfAny = 0.0,
+    double SelfEnd = 0.0,
+    int NumNs = 0);
+
+/// <summary>
+/// Weights for the Primer3 per-primer penalty objective (the <c>PRIMER_WT_*</c>
+/// parameters). Tm, GC and size each have separate "greater-than" (_gt) and
+/// "less-than" (_lt) weights, applied one-sidedly relative to the optimum.
+/// Defaults are <see cref="PrimerDesigner.DefaultPrimer3Weights"/>.
+/// </summary>
+public readonly record struct Primer3PenaltyWeights(
+    double TmGt,
+    double TmLt,
+    double SizeGt,
+    double SizeLt,
+    double GcGt,
+    double GcLt,
+    double SelfAny,
+    double SelfEnd,
+    double NumNs);
+
+/// <summary>
+/// Optimal parameter values for the Primer3 penalty objective
+/// (<c>PRIMER_OPT_TM</c>, <c>PRIMER_OPT_SIZE</c>, <c>PRIMER_OPT_GC_PERCENT</c>).
+/// Defaults are <see cref="PrimerDesigner.DefaultPrimer3Optima"/>.
+/// </summary>
+public readonly record struct Primer3Optima(
+    double OptTm,
+    int OptSize,
+    double OptGcPercent);
 
 /// <summary>
 /// Result of primer pair design.

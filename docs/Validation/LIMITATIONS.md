@@ -25,7 +25,6 @@ limitations are tracked separately as the "Deferred BIG fixes" backlog in the le
 |---------|-----------------|------|
 | ALIGN-MULTI-001 | Full consistency-based MSA refinement (T-Coffee consistency library / objective) | A distinct objective class from the sum-of-pairs score the library optimizes. |
 | RNA-STRUCT-001 | Pseudoknotted (crossing-helix) structure prediction | The O(n³) nearest-neighbour recurrences are pseudoknot-free by construction; pseudoknots need a different algorithm class. |
-| PRIMER-TM-001 | A validated primer-design scoring objective | The convenience primer score is heuristic; there is no single canonical primer-score ground truth to assert against (NN-thermodynamics ΔH/ΔS/Tm itself is validated under SEQ-THERMO-001). |
 
 ## 2. "Threshold / aggregation / framework" layers — they classify or combine caller-supplied inputs, they do not predict upstream
 

@@ -46,7 +46,7 @@ Snapshot (approval) тести серіалізують повний вихід 
 | 18 | ☑ | CRISPR-PAM-001 | MolTools | PAM sites SpCas9 результати | CrisprSnapshotTests.cs |
 | 19 | ☑ | CRISPR-GUIDE-001 | MolTools | Guide RNA design результати | CrisprSnapshotTests.cs |
 | 20 | ☐ | CRISPR-OFF-001 | MolTools | Off-target analysis повний output | CrisprSnapshotTests.cs |
-| 21 | ☑ | PRIMER-TM-001 | MolTools | Melting temperature результати | PrimerProbeSnapshotTests.cs |
+| 21 | ☐ | PRIMER-TM-001 | MolTools | Melting temperature результати | PrimerProbeSnapshotTests.cs |
 | 22 | ☑ | PRIMER-DESIGN-001 | MolTools | Primer design результати | PrimerProbeSnapshotTests.cs |
 | 23 | ☐ | PRIMER-STRUCT-001 | MolTools | Primer structure analysis (hairpin, dimer) | PrimerProbeSnapshotTests.cs |
 | 24 | ☑ | PROBE-DESIGN-001 | MolTools | Probe design результати | PrimerProbeSnapshotTests.cs |
@@ -268,7 +268,7 @@ Snapshot (approval) тести серіалізують повний вихід 
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 54 |
-| ☐ Not started | 180 |
+| ☑ Complete | 53 |
+| ☐ Not started | 181 |
 | New snapshot test files needed | 5 (Composition, Kmer, Translation, Oncology) |
 | Existing snapshot files to extend | ~10 |
