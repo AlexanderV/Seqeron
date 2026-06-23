@@ -463,18 +463,18 @@ public static class StructuralVariantAnalyzer
     private static int GetAlignedLength(string cigar)
     {
         int length = 0;
-        int numStart = 0;
+        int numStart = -1;
 
         for (int i = 0; i < cigar.Length; i++)
         {
             if (char.IsDigit(cigar[i]))
             {
-                if (numStart == 0 || !char.IsDigit(cigar[numStart]))
+                if (numStart < 0)
                     numStart = i;
             }
             else
             {
-                if (i > numStart && char.IsDigit(cigar[numStart]))
+                if (numStart >= 0)
                 {
                     int len = int.Parse(cigar.Substring(numStart, i - numStart));
                     if (cigar[i] == 'M' || cigar[i] == 'D' || cigar[i] == 'N')
@@ -482,7 +482,7 @@ public static class StructuralVariantAnalyzer
                         length += len;
                     }
                 }
-                numStart = i + 1;
+                numStart = -1;
             }
         }
 

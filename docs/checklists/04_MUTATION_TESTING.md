@@ -228,9 +228,9 @@ Mutation testing вимірює ефективність тестового на
 | 198 | ☑ | TRANS-DIFF-001 | Transcriptome | TranscriptomeAnalyzer.cs | TranscriptomeAnalyzer_DifferentialExpression_Tests.cs | ≥ 80% |
 | 199 | ☑ | TRANS-EXPR-001 | Transcriptome | TranscriptomeAnalyzer.cs | TranscriptomeAnalyzer_ExpressionQuantification_Tests.cs | ≥ 80% |
 | 200 | ☑ | TRANS-SPLICE-001 | Transcriptome | TranscriptomeAnalyzer.cs | TranscriptomeAnalyzer_AlternativeSplicing_Tests.cs | ≥ 80% |
-| 201 | ☐ | SV-BREAKPOINT-001 | StructuralVar | StructuralVariantAnalyzer.cs | StructuralVariantAnalyzer_FindBreakpoints_Tests.cs | ≥ 80% |
-| 202 | ☐ | SV-CNV-001 | StructuralVar | StructuralVariantAnalyzer.cs | StructuralVariantAnalyzer_DetectCNV_Tests.cs | ≥ 80% |
-| 203 | ☐ | SV-DETECT-001 | StructuralVar | StructuralVariantAnalyzer.cs | StructuralVariantAnalyzer_DetectSVs_Tests.cs | ≥ 80% |
+| 201 | ☑ | SV-BREAKPOINT-001 | StructuralVar | StructuralVariantAnalyzer.cs | StructuralVariantAnalyzer_FindBreakpoints_Tests.cs | ≥ 80% |
+| 202 | ☑ | SV-CNV-001 | StructuralVar | StructuralVariantAnalyzer.cs | StructuralVariantAnalyzer_DetectCNV_Tests.cs | ≥ 80% |
+| 203 | ☑ | SV-DETECT-001 | StructuralVar | StructuralVariantAnalyzer.cs | StructuralVariantAnalyzer_DetectSVs_Tests.cs | ≥ 80% |
 | 204 | ☑ | DISORDER-LC-001 | ProteinPred | DisorderPredictor.cs | DisorderPredictor_LowComplexity_Tests.cs | ≥ 80% |
 | 205 | ☑ | DISORDER-MORF-001 | ProteinPred | DisorderPredictor.cs | DisorderPredictor_MoRF_Tests.cs | ≥ 80% |
 | 206 | ☑ | DISORDER-PROPENSITY-001 | ProteinPred | DisorderPredictor.cs | DisorderPredictor_GetDisorderPropensity_Tests.cs | ≥ 80% |
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 226 |
-| ☐ Not started | 8 |
+| ☑ Complete (run + killers written) | 229 |
+| ☐ Not started | 5 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
