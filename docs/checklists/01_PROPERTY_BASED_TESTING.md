@@ -67,7 +67,7 @@ Property-based testing генерує сотні випадкових вході
 | 35 | ☑ | ALIGN-GLOBAL-001 | Alignment | S: score(a,b)=score(b,a); R: aligned len ≥ max(len1,len2); P: identity → max score; P: aligned1.len = aligned2.len | AlignmentProperties.cs |
 | 36 | ☑ | ALIGN-LOCAL-001 | Alignment | R: score ≥ 0; P: aligned1.len = aligned2.len; M: identical substring → score ≥ matchScore×len | AlignmentProperties.cs |
 | 37 | ☑ | ALIGN-SEMI-001 | Alignment | P: aligned1.len = aligned2.len; R: score ≥ 0; D: deterministic | AlignmentProperties.cs |
-| 38 | ☑ | ALIGN-MULTI-001 | Alignment | P: all aligned sequences same length; R: score ≥ 0; D: deterministic | AlignmentProperties.cs |
+| 38 | ☐ | ALIGN-MULTI-001 | Alignment | P: all aligned sequences same length; R: score ≥ 0; D: deterministic | AlignmentProperties.cs |
 | 39 | ☑ | PHYLO-DIST-001 | Phylogenetic | S: d(a,b)=d(b,a); I: d(x,x)=0; R: d ≥ 0; triangle inequality | PhylogeneticProperties.cs |
 | 40 | ☑ | PHYLO-TREE-001 | Phylogenetic | R: N leaves = N input sequences; P: tree connected; R: all branch lengths ≥ 0 | PhylogeneticProperties.cs |
 | 41 | ☑ | PHYLO-NEWICK-001 | Phylogenetic | RT: parse(serialize(tree))=tree; P: leaf labels preserved; D: deterministic | PhylogeneticProperties.cs |
@@ -272,7 +272,7 @@ Property-based testing генерує сотні випадкових вході
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 231 |
-| ☐ Not started | 3 |
+| ☑ Complete | 230 |
+| ☐ Not started | 4 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |

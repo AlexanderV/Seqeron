@@ -138,3 +138,128 @@ The `SequenceAligner.MultipleAlign()` method implements an **anchor-based star a
 3. Nuin PA, Wang Z, Tillier ER (2006). "The accuracy of several multiple sequence alignment programs for proteins." BMC Bioinformatics. 7:471.
 4. Thompson JD, Higgins DG, Gibson TJ (1994). "CLUSTAL W: improving the sensitivity of progressive multiple sequence alignment." Nucleic Acids Res. 22(22):4673-80.
 5. Wikipedia. "Consensus sequence." https://en.wikipedia.org/wiki/Consensus_sequence
+
+---
+
+# Addendum: Iterative Refinement (MultipleAlignIterative) — collected 2026-06-23
+
+This addendum covers the **iterative refinement** aligner `SequenceAligner.MultipleAlignIterative`,
+which removes the single-pass "once a gap, always a gap" limitation of the progressive method by
+re-splitting the alignment along guide-tree edges and re-aligning the two sub-profiles, keeping the
+result only on a non-decreasing sum-of-pairs (SP) score.
+
+## Online Sources (retrieved this session)
+
+### Source A — Edgar RC (2004), MUSCLE (PRIMARY, authority rank 1)
+
+**URL:** https://academic.oup.com/nar/article/32/5/1792/2380623
+**Retrieved by:** WebSearch "MUSCLE Edgar 2004 tree-dependent restricted partitioning iterative
+refinement sum of pairs SP score profile realignment" → WebFetch of the article page.
+**Accessed:** 2026-06-23   **Authority rank:** 1 (peer-reviewed, Nucleic Acids Research)
+
+**Key Extracted Points (verbatim from the fetched Stage 3 description):**
+
+1. **Edge selection (3.1):** "An edge is chosen from TREE2 (edges are visited in order of
+   decreasing distance from the root). TREE2 is divided into two subtrees by deleting the edge."
+2. **Profile + realign (3.2/3.3):** "The profile of the multiple alignment in each subtree is
+   computed. A new multiple alignment is produced by re-aligning the two profiles."
+3. **Accept on SP improvement (3.4):** "If the SP score is improved, the new alignment is kept,
+   otherwise it is discarded."
+4. **Convergence / cap:** "Steps 3.1–3.4 are repeated until convergence or until a user-defined
+   limit is reached."
+5. **Name:** this is MUSCLE's Stage 3, "Refinement", a variant of *tree-dependent restricted
+   partitioning*.
+
+### Source B — Barton GJ & Sternberg MJ (1987) (PRIMARY, authority rank 1)
+
+**URL:** https://pubmed.ncbi.nlm.nih.gov/3430611/
+**Retrieved by:** WebSearch "Barton Sternberg 1987 ... iterative refinement remove sequence
+realign J Mol Biol 198 327" → WebFetch of the PubMed abstract.
+**Accessed:** 2026-06-23   **Authority rank:** 1 (peer-reviewed, J Mol Biol)
+
+**Key Extracted Points:**
+
+1. **Progressive seed:** "Initially, two sequences are aligned, then the third sequence is aligned
+   against the alignment of both sequences one and two ... repeated until all sequences have been
+   aligned."
+2. **Iteration:** "Iteration is then performed to yield a final alignment." (The abstract confirms
+   iterative refinement of an existing alignment; the exact remove-one mechanism is in the body.)
+3. **Citation:** Barton, G.J. and Sternberg, M.J. "A strategy for the rapid multiple alignment of
+   protein sequences. Confidence levels from tertiary structure comparisons." J Mol Biol. 1987 Nov
+   20;198(2):327-37.
+
+### Source C — Wallace, O'Sullivan & Higgins (2005), "Evaluation of iterative alignment algorithms" (rank 1)
+
+**URL:** https://academic.oup.com/bioinformatics/article/21/8/1408/249176
+**Retrieved by:** WebSearch (MUSCLE / iterative refinement) → WebFetch.
+**Accessed:** 2026-06-23   **Authority rank:** 1 (peer-reviewed, Bioinformatics)
+
+**Key Extracted Points:**
+
+1. **Barton-Sternberg "Remove First" scheme:** "In each iteration step a sequence is removed from
+   the alignment and realigned to the remaining alignment."
+2. **Iteration bound:** the procedure "continues until the alignment score converges or reaches a
+   computational limit," confirming a convergence-or-cap stopping rule.
+
+### Source D — Wikipedia, "Multiple sequence alignment" (rank 4; used for the SP-score definition)
+
+**URL:** https://en.wikipedia.org/wiki/Multiple_sequence_alignment
+**Retrieved by:** WebFetch.   **Accessed:** 2026-06-23   **Authority rank:** 4
+
+**Key Extracted Points:**
+
+1. **SP score definition:** the program "optimizes the sum of all of the pairs of characters at
+   each position in the alignment (the so-called *sum of pair* score)."
+2. **Iterative methods overcome single-pass error:** "iterative methods can return to previously
+   calculated pairwise alignments or sub-MSAs incorporating subsets of the query sequence as a
+   means of optimizing a general objective function," addressing that in progressive methods "once
+   a sequence has been aligned into the MSA, its alignment is not considered further."
+
+## Documented Corner Cases and Failure Modes (iterative refinement)
+
+### From Source A (Edgar 2004)
+
+1. **No improvement found:** if no edge improves the SP score, the seed is returned unchanged (the
+   refinement is a strict-improvement filter). Implemented: convergence stops the loop.
+2. **User-defined limit:** refinement passes are capped; convergence usually halts earlier.
+
+## Test Datasets (iterative refinement)
+
+### Dataset: Hand-derived gap-relocation correction
+
+**Source:** Derived from the SP definition (Source D) under SimpleDna (match +1, mismatch −1,
+gap −1); independently recomputed with a stand-alone SP function during test authoring.
+
+| Parameter | Value |
+|-----------|-------|
+| Input | CGA, GAGAT, CGC, GAC |
+| Progressive seed | `-CG-A` / `GAGAT` / `-CG-C` / `--GAC`, SP = −8 |
+| Refined (iterative) | `-CGA-` / `GAGAT` / `-CGC-` / `--GAC`, SP = −6 |
+| Improvement | +2 (gap relocated from an internal to a terminal column) |
+
+## Assumptions (iterative refinement)
+
+1. **ASSUMPTION: Edge-partition refinement (not single-sequence removal).** The implementation uses
+   MUSCLE's guide-tree edge partitioning (Source A) rather than Barton-Sternberg's remove-one-
+   sequence loop (Sources B/C). Both are accept-on-SP-improvement iterative refinement of the same
+   seed; the edge scheme reuses the existing UPGMA guide tree and profile–profile NW. This is an
+   API/structure choice, not a correctness-affecting parameter: the accept rule (non-decreasing SP)
+   is identical and is the property the tests verify.
+2. **ASSUMPTION: SP scoring conventions (gap-gap = 0, residue-gap = GapExtend).** Inherited from the
+   existing `ComputeSumOfPairsScore`; the gap-gap = 0 convention is standard but not stated verbatim
+   in Source D (already documented for the star/progressive aligners above).
+
+## Recommendations for Test Coverage (iterative refinement)
+
+1. **MUST Test:** refined SP ≥ progressive seed SP for every input (monotonicity) — Evidence: Source A step 3.4.
+2. **MUST Test:** a constructed case where progressive misplaces a gap and refinement corrects it, with hand-derived SP — Evidence: Source D (SP) + hand derivation.
+3. **MUST Test:** all rows equal length and degap to input; no all-gap column — Evidence: Wikipedia MSA invariants (main doc).
+4. **MUST Test:** idempotence on an already-optimal alignment; convergence within the cap — Evidence: Source A convergence clause.
+5. **MUST Test:** determinism across repeated runs (no RNG) — Evidence: implementation contract.
+
+## References (iterative refinement addendum)
+
+6. Edgar RC (2004). "MUSCLE: multiple sequence alignment with high accuracy and high throughput." Nucleic Acids Res. 32(5):1792-1797. https://academic.oup.com/nar/article/32/5/1792/2380623
+7. Barton GJ, Sternberg MJ (1987). "A strategy for the rapid multiple alignment of protein sequences. Confidence levels from tertiary structure comparisons." J Mol Biol. 198(2):327-337. https://pubmed.ncbi.nlm.nih.gov/3430611/
+8. Wallace IM, O'Sullivan O, Higgins DG (2005). "Evaluation of iterative alignment algorithms for multiple alignment." Bioinformatics. 21(8):1408-1414. https://academic.oup.com/bioinformatics/article/21/8/1408/249176
+9. Wikipedia. "Multiple sequence alignment." https://en.wikipedia.org/wiki/Multiple_sequence_alignment

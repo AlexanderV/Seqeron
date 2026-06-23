@@ -23,7 +23,7 @@ limitations are tracked separately as the "Deferred BIG fixes" backlog in the le
 
 | Unit(s) | Implemented | Fuller method not implemented | Note |
 |---------|-------------|-------------------------------|------|
-| ALIGN-MULTI-001 | Star (center-star) MSA **and** guide-tree progressive MSA (Feng–Doolittle: pairwise-NW identity distances → UPGMA guide tree → profile–profile NW) | Iterative refinement (consistency-based / MUSCLE-style re-alignment) | Progressive alignment is single-pass and inherits the standard "once a gap, always a gap" limitation — early gap-placement errors are not later corrected. |
+| ALIGN-MULTI-001 | Star (center-star) MSA, guide-tree progressive MSA (Feng–Doolittle), **and** iterative refinement (`MultipleAlignIterative`: MUSCLE-style tree-dependent restricted partitioning, Edgar 2004 — re-split the alignment at each guide-tree edge, realign the two profiles, keep on non-decreasing SP) | Full consistency-based refinement à la T-Coffee (consistency library / objective) | Iterative refinement removes the single-pass "once a gap, always a gap" limitation (early gap-placement errors are now corrected; refined SP is provably ≥ the progressive seed). Residual: the refinement is SP-guided and restricted to guide-tree edge partitions, not a full consistency-based optimizer. |
 | RNA-STRUCT-001 | Greedy dot-bracket structure | Nussinov/Zuker DP traceback structure | The DP **energy/score values** themselves are correct; only the returned structure is the greedy approximation. |
 | PRIMER-TM-001 | Honest heuristic / NN-thermodynamics | — | NN-thermodynamics (ΔH/ΔS/Tm) **is** validated (SEQ-THERMO-001); the primer-design convenience scoring is heuristic. |
 

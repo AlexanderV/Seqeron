@@ -1514,5 +1514,321 @@ public static class SequenceAligner
     private static bool AreClose(double x, double y) => Math.Abs(x - y) <= ProfileScoreEpsilon;
 
     #endregion
+
+    #region Multiple Sequence Alignment (Iterative Refinement — MUSCLE tree-dependent restricted partitioning)
+
+    // Iterative refinement of a progressive MSA, added as a THIRD aligner alongside the star
+    // (MultipleAlign) and progressive (MultipleAlignProgressive) methods. Both of those remain
+    // byte-for-byte unchanged. This removes the single-pass "once a gap, always a gap" limitation
+    // of the progressive seed: an early gap-placement error CAN now be corrected, because the
+    // alignment is repeatedly re-split and re-aligned and a strictly better arrangement replaces it.
+    //
+    // Algorithm — MUSCLE Stage 3, "tree-dependent restricted partitioning" (Edgar 2004):
+    //   Quoting Edgar (2004), Nucleic Acids Res 32(5):1792-1797, §"Stage 3, Refinement":
+    //   3.1 "An edge is chosen from TREE2 (edges are visited in order of decreasing distance from
+    //        the root). TREE2 is divided into two subtrees by deleting the edge."
+    //   3.2/3.3 "The profile of the multiple alignment in each subtree is computed. A new multiple
+    //        alignment is produced by re-aligning the two profiles."
+    //   3.4 "If the SP score is improved, the new alignment is kept, otherwise it is discarded."
+    //   "Steps 3.1-3.4 are repeated until convergence or until a user-defined limit is reached."
+    //
+    //   The same scheme also realises the Barton-Sternberg (1987) idea of returning to an existing
+    //   alignment and re-aligning a part of it against the rest; here the partition is the
+    //   guide-tree edge rather than a single removed sequence, which is exactly Edgar's restricted
+    //   partitioning. Re-aligning the two sub-profiles uses the EXISTING profile-profile NW
+    //   (AlignProfiles) and is accepted only on a non-decreasing sum-of-pairs (SP) score, so the
+    //   refined alignment is provably never worse than the progressive seed.
+    //
+    //   SP score: "the MSA program optimizes the sum of all of the pairs of characters at each
+    //   position in the alignment (the so-called sum of pair score)" (Wikipedia "Multiple sequence
+    //   alignment"). Computed by the existing ComputeSumOfPairsScore (column-based: match/mismatch
+    //   from the matrix, residue-gap = GapExtend, gap-gap neutral).
+    //
+    // Determinism: edges are enumerated in a fixed order (decreasing distance from the root, i.e.
+    // internal nodes nearest the leaves first, with a deterministic tie-break); profile splitting,
+    // re-projection and the accept-on-improvement rule are deterministic. No RNG is used.
+    //
+    // Sources retrieved this session (2026-06-23):
+    //   - Edgar RC (2004) "MUSCLE: multiple sequence alignment with high accuracy and high
+    //     throughput", Nucleic Acids Res 32(5):1792-1797.
+    //     https://academic.oup.com/nar/article/32/5/1792/2380623 — Stage 3 steps 3.1-3.4 quoted above.
+    //   - Barton GJ, Sternberg MJ (1987) "A strategy for the rapid multiple alignment of protein
+    //     sequences...", J Mol Biol 198(2):327-337. https://pubmed.ncbi.nlm.nih.gov/3430611/ —
+    //     iterative refinement: re-align a part of the alignment to the rest, iterate to a final
+    //     alignment.
+    //   - Wikipedia "Multiple sequence alignment", §Iterative methods / sum-of-pairs score
+    //     https://en.wikipedia.org/wiki/Multiple_sequence_alignment — SP-score definition; iterative
+    //     methods "can return to previously calculated ... sub-MSAs ... optimizing a general
+    //     objective function".
+
+    // Default cap on full refinement passes over all edges (Edgar's "user-defined limit"). A pass
+    // that makes no accepted change means convergence, so this is only an upper bound.
+    private const int DefaultMaxRefinementIterations = 16;
+
+    /// <summary>
+    /// Performs <b>iterative refinement</b> of a progressive multiple sequence alignment using
+    /// MUSCLE-style tree-dependent restricted partitioning (Edgar 2004, Stage 3), removing the
+    /// single-pass "once a gap, always a gap" limitation of
+    /// <see cref="MultipleAlignProgressive(IEnumerable{DnaSequence}, ScoringMatrix?)"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Pipeline (Edgar 2004, Nucleic Acids Res 32(5):1792-1797; Barton &amp; Sternberg 1987):
+    /// </para>
+    /// <list type="number">
+    /// <item>Build the progressive (Feng-Doolittle / UPGMA) seed alignment and keep its guide tree.</item>
+    /// <item>Visit each internal guide-tree edge (leaves-first, deterministic order). Deleting the
+    /// edge partitions the sequences into two groups.</item>
+    /// <item>Project the current alignment onto each group, drop columns that became all-gap, and
+    /// realign the two sub-profiles with the existing profile-profile Needleman-Wunsch.</item>
+    /// <item>Accept the re-alignment only if the sum-of-pairs (SP) score does not decrease.</item>
+    /// <item>Repeat full passes until no edge yields an improvement (convergence) or the iteration
+    /// cap is reached.</item>
+    /// </list>
+    /// <para>
+    /// The result is therefore guaranteed to have an SP score <b>≥</b> that of the progressive seed,
+    /// and is deterministic (no RNG; fixed edge order). The star
+    /// <see cref="MultipleAlign(IEnumerable{DnaSequence}, ScoringMatrix?)"/> and progressive
+    /// aligners are unchanged.
+    /// </para>
+    /// </remarks>
+    /// <param name="sequences">Collection of sequences to align.</param>
+    /// <param name="scoring">Scoring matrix (default: <see cref="SimpleDna"/>).</param>
+    /// <param name="maxIterations">
+    /// Upper bound on full refinement passes (Edgar's "user-defined limit"); must be positive.
+    /// Defaults to <see cref="DefaultMaxRefinementIterations"/>. Convergence usually stops earlier.
+    /// </param>
+    /// <returns>Multiple alignment result (aligned rows, majority consensus, sum-of-pairs score).</returns>
+    /// <exception cref="ArgumentNullException">When <paramref name="sequences"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">When <paramref name="maxIterations"/> &lt; 1.</exception>
+    public static MultipleAlignmentResult MultipleAlignIterative(
+        IEnumerable<DnaSequence> sequences,
+        ScoringMatrix? scoring = null,
+        int maxIterations = DefaultMaxRefinementIterations)
+    {
+        ArgumentNullException.ThrowIfNull(sequences);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxIterations, 1);
+
+        var seqList = sequences.ToList();
+        if (seqList.Count == 0)
+            return MultipleAlignmentResult.Empty;
+
+        if (seqList.Count == 1)
+        {
+            return new MultipleAlignmentResult(
+                AlignedSequences: new[] { seqList[0].Sequence },
+                Consensus: seqList[0].Sequence,
+                TotalScore: 0);
+        }
+
+        var effectiveScoring = scoring ?? SimpleDna;
+        int k = seqList.Count;
+        var rawSeqs = seqList.Select(s => s.Sequence).ToArray();
+
+        // Step 1: progressive seed (same pipeline as MultipleAlignProgressive) + retain guide tree.
+        var distance = new double[k, k];
+        for (int i = 0; i < k; i++)
+            for (int j = i + 1; j < k; j++)
+            {
+                double d = PairwiseIdentityDistance(rawSeqs[i], rawSeqs[j], effectiveScoring);
+                distance[i, j] = d;
+                distance[j, i] = d;
+            }
+
+        ProgressiveGuideNode root = BuildProgressiveGuideTree(k, distance);
+        Profile current = AlignProfileSubtree(root, rawSeqs, effectiveScoring);
+
+        // Step 2-5: iterative refinement over the guide-tree edges.
+        current = RefineByTreePartitioning(current, root, effectiveScoring, maxIterations);
+
+        // Reproject rows back into input order.
+        var orderedRows = new string[k];
+        for (int r = 0; r < current.Rows.Count; r++)
+            orderedRows[current.SequenceIndices[r]] = current.Rows[r];
+
+        var alignedList = orderedRows.ToList();
+        int maxLen = alignedList.Count == 0 ? 0 : alignedList.Max(s => s.Length);
+        string consensus = BuildConsensus(alignedList, maxLen);
+        int spScore = ComputeSumOfPairsScore(alignedList, effectiveScoring);
+
+        return new MultipleAlignmentResult(
+            AlignedSequences: orderedRows,
+            Consensus: consensus,
+            TotalScore: spScore);
+    }
+
+    /// <summary>
+    /// Repeatedly splits the current alignment at each internal guide-tree edge into two
+    /// sub-profiles, realigns them with profile-profile NW, and keeps the result only when the SP
+    /// score does not decrease (Edgar 2004 Stage 3, steps 3.1-3.4). Iterates full passes until a
+    /// pass accepts no change (convergence) or <paramref name="maxIterations"/> is reached.
+    /// </summary>
+    private static Profile RefineByTreePartitioning(
+        Profile current, ProgressiveGuideNode root, ScoringMatrix scoring, int maxIterations)
+    {
+        // 3.1 enumerate the partitions induced by deleting each internal edge of the guide tree.
+        // An internal edge is the edge above each non-root internal node; deleting it isolates that
+        // node's leaf set as one group and the remaining leaves as the other. Edges are ordered by
+        // decreasing distance from the root (deepest internal nodes — nearest the leaves — first),
+        // with a deterministic tie-break on the sorted leaf-set, matching Edgar's visiting order.
+        var partitions = EnumerateEdgePartitions(root);
+        if (partitions.Count == 0)
+            return current; // 2 leaves: the single edge is the root split, no internal edge to refine.
+
+        // The SP score the existing pipeline reports for this alignment (input-order independent).
+        int CurrentSpScore(Profile p) => ComputeSumOfPairsScore(p.Rows, scoring);
+
+        int bestScore = CurrentSpScore(current);
+
+        for (int iter = 0; iter < maxIterations; iter++)
+        {
+            bool improvedThisPass = false;
+
+            foreach (var group in partitions)
+            {
+                // 3.1 split the current alignment into the two leaf groups.
+                var groupSet = group;
+                var sideA = SplitProfile(current, idx => groupSet.Contains(idx));
+                var sideB = SplitProfile(current, idx => !groupSet.Contains(idx));
+                if (sideA.Rows.Count == 0 || sideB.Rows.Count == 0)
+                    continue;
+
+                // 3.2/3.3 realign the two profiles with the existing profile-profile NW.
+                Profile candidate = AlignProfiles(sideA, sideB, scoring);
+                int candidateScore = CurrentSpScore(candidate);
+
+                // 3.4 keep only if the SP score does not decrease. Strict ">" would also be valid;
+                // ">=" lets an equal-score rearrangement settle, but acceptance still never lowers
+                // the score, so the monotonic-non-decreasing guarantee holds. To keep convergence
+                // well-defined we only treat a STRICT improvement as "made progress".
+                if (candidateScore > bestScore)
+                {
+                    current = candidate;
+                    bestScore = candidateScore;
+                    improvedThisPass = true;
+                }
+            }
+
+            if (!improvedThisPass)
+                break; // convergence: a full pass changed nothing.
+        }
+
+        return current;
+    }
+
+    /// <summary>
+    /// Returns, for each internal (non-root) node of the guide tree, the set of input-sequence
+    /// indices in its subtree — i.e. one side of the partition obtained by deleting that node's
+    /// parent edge. Ordered by decreasing distance from the root (deepest first) with a
+    /// deterministic tie-break, per Edgar (2004) "edges are visited in order of decreasing distance
+    /// from the root".
+    /// </summary>
+    private static List<HashSet<int>> EnumerateEdgePartitions(ProgressiveGuideNode root)
+    {
+        var result = new List<(int Depth, List<int> Sorted, HashSet<int> Set)>();
+
+        void Visit(ProgressiveGuideNode node, int depth, bool isRoot)
+        {
+            if (node.IsLeaf)
+                return;
+
+            // The root edge is not an internal edge (deleting it gives the trivial whole-vs-empty
+            // split handled by the seed); only record proper internal nodes.
+            if (!isRoot)
+            {
+                var leaves = new List<int>();
+                CollectLeaves(node, leaves);
+                leaves.Sort();
+                result.Add((depth, leaves, new HashSet<int>(leaves)));
+            }
+
+            Visit(node.Left!, depth + 1, false);
+            Visit(node.Right!, depth + 1, false);
+        }
+
+        Visit(root, 0, true);
+
+        // Decreasing distance from the root = larger depth first; tie-break deterministically on the
+        // sorted leaf list so the iteration order is fully reproducible.
+        result.Sort((a, b) =>
+        {
+            int byDepth = b.Depth.CompareTo(a.Depth);
+            if (byDepth != 0) return byDepth;
+            return CompareIntLists(a.Sorted, b.Sorted);
+        });
+
+        return result.Select(r => r.Set).ToList();
+    }
+
+    private static int CompareIntLists(List<int> a, List<int> b)
+    {
+        int n = Math.Min(a.Count, b.Count);
+        for (int i = 0; i < n; i++)
+        {
+            int c = a[i].CompareTo(b[i]);
+            if (c != 0) return c;
+        }
+        return a.Count.CompareTo(b.Count);
+    }
+
+    private static void CollectLeaves(ProgressiveGuideNode node, List<int> leaves)
+    {
+        if (node.IsLeaf)
+        {
+            leaves.Add(node.LeafIndex);
+            return;
+        }
+        CollectLeaves(node.Left!, leaves);
+        CollectLeaves(node.Right!, leaves);
+    }
+
+    /// <summary>
+    /// Projects the current alignment onto the rows whose input-sequence index satisfies
+    /// <paramref name="keep"/>, then drops every column that is all-gap within the selected rows.
+    /// The result is a valid profile of the selected subset; gaps inside retained columns are
+    /// preserved (no existing column is edited — "once a gap, always a gap" within the sub-profile).
+    /// </summary>
+    private static Profile SplitProfile(Profile current, Func<int, bool> keep)
+    {
+        var rowIdx = new List<int>();
+        for (int r = 0; r < current.Rows.Count; r++)
+            if (keep(current.SequenceIndices[r]))
+                rowIdx.Add(r);
+
+        var sub = new Profile();
+        if (rowIdx.Count == 0)
+            return sub;
+
+        int width = current.Width;
+        // Identify columns that are NOT all-gap within the selected rows.
+        var keptCols = new List<int>(width);
+        for (int c = 0; c < width; c++)
+        {
+            bool allGap = true;
+            foreach (int r in rowIdx)
+            {
+                if (current.Rows[r][c] != '-')
+                {
+                    allGap = false;
+                    break;
+                }
+            }
+            if (!allGap)
+                keptCols.Add(c);
+        }
+
+        foreach (int r in rowIdx)
+        {
+            var sb = new StringBuilder(keptCols.Count);
+            foreach (int c in keptCols)
+                sb.Append(current.Rows[r][c]);
+            sub.Rows.Add(sb.ToString());
+            sub.SequenceIndices.Add(current.SequenceIndices[r]);
+        }
+
+        return sub;
+    }
+
+    #endregion
 }
 
