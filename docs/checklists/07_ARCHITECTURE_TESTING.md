@@ -3,7 +3,7 @@
 **Priority:** P2  
 **Framework:** ArchUnitNET  
 **Date:** 2026-03-19  
-**Total algorithms:** 94
+**Total algorithms:** 97
 
 ---
 
@@ -158,6 +158,9 @@ Architecture тести запобігають архітектурному др
 | 92 | SEQ-ENTROPY-PROFILE-001 | Statistics | Analysis | Core !→ Analysis |
 | 93 | SEQ-GC-ANALYSIS-001 | Composition | Analysis | Core !→ Analysis |
 | 94 | SEQ-GC-PROFILE-001 | Statistics | Analysis | Core !→ Analysis |
+| 95 | ONCO-ASCAT-001 | Oncology | Oncology | Core !→ Oncology, IO !→ Oncology |
+| 96 | RNA-PKPREDICT-001 | RnaStructure | Analysis | Core !→ Analysis |
+| 97 | RNA-PKRECURSIVE-001 | RnaStructure | Analysis | Core !→ Analysis |
 
 ---
 
@@ -165,7 +168,7 @@ Architecture тести запобігають архітектурному др
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 94 |
+| Total algorithms | 97 |
 | Module-level rules | 19 (all ☑) |
 | Modules covered | 13 |
 | Rules complete ☑ | 19 |
