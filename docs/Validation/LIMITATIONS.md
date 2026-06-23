@@ -35,7 +35,6 @@ validated clinical-grade predictors.**
 
 | Unit | Not modelled / caller-supplied |
 |------|--------------------------------|
-| ONCO-SIG-002/003/004 | Automatic NMF rank / model-stability selection (k is caller-specified); de-novo extraction uses the Frobenius, not the Poisson/KL, objective; extracted signatures are not auto-matched to COSMIC references. |
 | ONCO-MHC-001 | The affinity / %Rank prediction (NetMHCpan-style learned model) — caller-supplied. |
 | ONCO-PURITY/PLOIDY/CCF/CLONAL | Allele-specific CN segments, multiplicity and VAF — caller-supplied, not derived upstream. |
 

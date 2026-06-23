@@ -329,8 +329,149 @@ NNLS solution = [0, 0.5].
 
 ---
 
+## Online Sources — ONCO-SIG-002 enhancement: rank selection + KL/Poisson objective + reference matching (2026-06-23)
+
+### Lee & Seung (2001) — KL (divergence/Poisson) multiplicative updates (Theorem 2)
+
+**Retrieved (full text, HTML proof guide):** https://arxiv.org/html/2501.11341v1
+**Primary PDF:** https://proceedings.neurips.cc/paper/2000/file/f9d1152547c0bde01830b7e8bd60024c-Paper.pdf
+**Accessed:** 2026-06-23 (WebFetch of both; formulas extracted verbatim)
+**Authority rank:** 1
+
+**Key Extracted Points (verbatim):**
+
+1. **KL (divergence) objective:** `D(V‖WH) = Σ_{ij} ( V_ij log(V_ij/(WH)_ij) − V_ij + (WH)_ij )`. This is the
+   generalized KL divergence; it is the Poisson negative-log-likelihood up to a V-only constant — the objective
+   SigProfiler uses for mutational-signature extraction.
+2. **KL update for H (Theorem 2):** `H_aμ ← H_aμ · ( Σ_i W_ia V_iμ/(WH)_iμ ) / ( Σ_k W_ka )`.
+3. **KL update for W (Theorem 2):** `W_ia ← W_ia · ( Σ_μ H_aμ V_iμ/(WH)_iμ ) / ( Σ_v H_av )`.
+4. **Monotonicity:** "Both update sequences guarantee nonincreasing cost functions at each iteration" — so
+   D(V‖WH) is monotone non-increasing under the KL updates (verification handle).
+
+### Brunet, Tamayo, Golub & Mesirov (2004) — consensus clustering & cophenetic correlation (PNAS 101(12):4164)
+
+**Primary:** https://www.pnas.org/doi/10.1073/pnas.0308531101 (PMC https://pmc.ncbi.nlm.nih.gov/articles/PMC384712/ — gated)
+**Definitions retrieved verbatim from reference implementations citing Brunet (2004):**
+https://nimfa.biolab.si/nimfa.models.nmf.html ; https://search.r-project.org/CRAN/refmans/NMF/html/cophcor.html
+**Accessed:** 2026-06-23 (WebFetch)
+**Authority rank:** 1 (paper) + 3 (impl docs for verbatim text)
+
+**Key Extracted Points (verbatim):**
+
+1. **Connectivity matrix:** "entry C_ij is 1 iff sample i and sample j belong to the same cluster, 0 otherwise.
+   Sample assignment is determined by its largest metagene expression value." (cluster = argmax over the k
+   exposure rows of that sample's H column.)
+2. **Consensus matrix:** "the mean connectivity matrix across multiple runs of the factorization", used to
+   "measure the stability of the clusters obtained by NMF."
+3. **Cophenetic correlation coefficient:** the "Pearson correlation between the samples' distances induced by
+   the consensus matrix (seen as a similarity matrix) and their cophenetic distances from a hierarchical
+   clustering" (average linkage). "In a perfect consensus matrix, the coefficient equals 1."
+4. **Rank-selection rule:** "Select the first rank, where the magnitude of the cophenetic correlation
+   coefficient begins to fall."
+
+### Alexandrov 2013 / SigProfilerExtractor (Islam et al. 2022) — stability (silhouette) + cosine matching
+
+**URL:** https://www.cell.com/cell-reports/fulltext/S2211-1247(12)00433-0 ; https://github.com/AlexandrovLab/SigProfilerExtractor ;
+https://www.cell.com/cell-genomics/fulltext/S2666-979X(22)00124-0
+**Accessed:** 2026-06-23 (WebSearch summaries + WebFetch of the GitHub page)
+**Authority rank:** 1 (paper) + 3 (reference implementation)
+
+**Key Extracted Points (verbatim where quoted):**
+
+1. **Stability via silhouette:** "stability is calculated for each signature by computing the silhouette value
+   of the cluster corresponding to that signature"; partition clustering of the replicate factorizations is
+   evaluated "in silhouette values."
+2. **Selection rule:** "solutions stable if signatures have an average stability above 0.80 with no individual
+   signature having stability below 0.20"; defaults `stability=0.8`, `min_stability=0.2`. "Model selection …
+   based on each solution's stability and its reconstruction of the original data."
+3. **Cosine matching:** "SigProfilerExtractor implements the Hungarian algorithm to pair consensus vectors from
+   two matrices; the Hungarian algorithm maximizes the total cosine similarities of all paired vectors between
+   two matrices." De-novo signatures are matched/decomposed to COSMIC references by cosine similarity.
+
+### Rousseeuw (1987) — silhouette width definition
+
+**URL:** https://doi.org/10.1016/0377-0427(87)90125-7
+**Accessed:** 2026-06-23 (citation for the silhouette formula s(i) = (b−a)/max(a,b))
+**Authority rank:** 1
+
+**Key Extracted Points:** silhouette s(i) = (b(i) − a(i)) / max(a(i), b(i)), where a(i) is the mean
+intra-cluster distance and b(i) the lowest mean distance to any other cluster; s ∈ [−1, 1].
+
+---
+
+## Documented Corner Cases — ONCO-SIG-002 enhancement (2026-06-23)
+
+1. **Rank 1 cophenetic = 1 trivially:** with k = 1 every sample is in the single cluster, so every connectivity
+   matrix is all-ones, the consensus is all-ones, and cophenetic correlation = 1 by construction (Brunet 2004).
+   Rank 1 is therefore uninformative for stability-based selection.
+2. **KL with zero entries:** `V_ij = 0` contributes `lim x→0 x log x = 0` to D; `(WH)_ij` must be floored to
+   avoid log(·/0). `V_ij = 0` still adds `(WH)_ij` to D.
+3. **Single candidate rank:** automatic selection over a range [kMin,kMax] degenerates to that rank.
+4. **Cosine scale/permutation invariance:** matching a positively-scaled or channel-permuted copy of a
+   reference returns cosine 1.0 to that reference (cosine is scale-invariant).
+
+---
+
+## Test Datasets — ONCO-SIG-002 enhancement (2026-06-23)
+
+### Dataset: Planted-truth k0 = 2 (KL recovery + rank selection)
+
+**Source:** Alexandrov (2013) blind-source-separation framing; V = W₀·H₀.
+
+| Parameter | Value |
+|-----------|-------|
+| Channels | 4 |
+| True signatures W₀ (L1) | s1 = [0.70,0.10,0.10,0.10], s2 = [0.10,0.10,0.70,0.10] |
+| Samples | 6 (3 dominated by s1, 3 by s2, with mild mixing) |
+| True rank k0 | 2 |
+| Expected | KL recovers s1,s2 with cosine ≈ 1 (after matching); auto-rank reports per-k stability+error and selects k = 2 |
+
+### Dataset: Cosine reference-matching cases
+
+**Source:** cosine scale-invariance (Blokzijl 2018); SigProfiler cosine matching.
+
+| Parameter | Value |
+|-----------|-------|
+| references | refA = [0.7,0.1,0.1,0.1], refB = [0.1,0.1,0.7,0.1] |
+| query = 5·refA (scaled) | best match = refA, cosine = 1.0 |
+| query = refB | best match to refA has low cosine (< 0.5), best overall = refB cosine = 1.0 |
+
+---
+
+## Assumptions — ONCO-SIG-002 enhancement (2026-06-23)
+
+1. **ASSUMPTION: consensus clustering = argmax over H columns + average-linkage cophenetic distance.** Taken
+   verbatim from the nimfa / renozao-NMF reference implementations of Brunet (2004) (PNAS PMC full text gated).
+   Authority rank 3, consistent across both implementations.
+2. **ASSUMPTION: per-signature stability = average silhouette width (cosine distance) of the run-signatures
+   clustered to that consensus signature.** SigProfiler states "silhouette value of the cluster corresponding
+   to that signature"; the silhouette is the standard Rousseeuw (1987) definition; cosine distance = 1 − cosine
+   similarity is the signature-space metric used throughout this class.
+3. **ASSUMPTION: matching = greedy best-cosine per extracted signature** (label each with its single closest
+   reference + the cosine), the per-signature reduction of SigProfiler's global Hungarian assignment, which is
+   exactly the "label each extracted signature with its closest reference and the cosine" contract requested.
+
+---
+
+## Recommendations for Test Coverage — ONCO-SIG-002 enhancement (2026-06-23)
+
+1. **MUST:** KL update monotonically decreases D(V‖WH) each iteration — Lee & Seung (2001) Theorem 2.
+2. **MUST:** KL extraction recovers planted s1/s2 (cosine ≈ 1 after matching) on k0 = 2 data — Alexandrov 2013.
+3. **MUST:** auto rank selection picks k0 = 2 and reports per-k stability + reconstruction error — Brunet 2004 +
+   Alexandrov 2013/SigProfiler.
+4. **MUST:** cophenetic = 1.0 at rank 1 (all-ones consensus) — Brunet 2004.
+5. **MUST:** cosine matching maps scaled/permuted reference to itself (cosine = 1.0) and unrelated to low cosine
+   — cosine scale-invariance; SigProfiler.
+6. **SHOULD:** determinism (same fixed seed-sequence ⇒ identical KL result, identical selection report).
+7. **SHOULD:** validation (null/empty/ragged/negative; rank/k-range; runs < 1; empty reference) throws.
+
+---
+
 ## Change History
 
 - **2026-06-14**: Initial documentation (NNLS refitting).
 - **2026-06-23**: Added de-novo NMF signature extraction (Lee & Seung Frobenius MU rules; Alexandrov NMF
   framing; COSMIC L1 signature normalization) for the ONCO-SIG-002 extension.
+- **2026-06-23**: Added ONCO-SIG-002 enhancement evidence — Lee & Seung KL/Poisson Theorem 2 updates, Brunet
+  (2004) consensus/cophenetic rank selection, Alexandrov 2013 / SigProfiler silhouette stability + cosine
+  reference matching (closing all three LIMITATIONS clauses).

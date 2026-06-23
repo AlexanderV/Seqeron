@@ -3,7 +3,7 @@
 **Test Unit ID:** ONCO-SIG-002
 **Area:** Oncology
 **Algorithm:** Mutational Signature Fitting / Refitting (NNLS) **+ De-novo Signature Extraction via NMF**
-**Status:** ☐ In Progress (2026-06-23: extended with de-novo NMF extraction `ExtractSignatures` at a caller-specified rank k; NNLS refitting portion unchanged)
+**Status:** ☐ In Progress (2026-06-23: enhancement — automatic NMF rank selection `SelectRank`, KL/Poisson objective overload of `ExtractSignatures`, and cosine reference matching `MatchToReferenceSignatures`; NNLS refitting + Frobenius extraction unchanged)
 **Owner:** Algorithm QA Architect
 **Last Updated:** 2026-06-23
 
@@ -254,3 +254,87 @@ M1–M6, S1–S3, V1–V10 ✅ Implemented and passing. Work queue remaining = 0
 3. Planted-truth recovery (M3) uses **separable** W₀, H₀ (pure-pixel condition) so the nonnegative factorisation
    is unique up to permutation/scaling, making ground truth recoverable; verification runs to tight convergence
    (tolerance 0) since the default relative-change stop halts before full stationarity.
+
+---
+
+## Appendix B — ONCO-SIG-002 enhancement: rank selection + KL/Poisson objective + cosine reference matching (2026-06-23)
+
+Closes all three clauses of LIMITATIONS §2 ("Automatic NMF rank / model-stability selection … de-novo
+extraction uses the Frobenius, not the Poisson/KL, objective … extracted signatures are not auto-matched to
+COSMIC references").
+
+### B.1 Authoritative Sources (enhancement)
+
+| # | Source | Authority Rank | DOI or URL | Accessed |
+|---|--------|---------------|------------|----------|
+| 9 | Lee & Seung (2001), Theorem 2 (KL/divergence updates) | 1 | https://arxiv.org/html/2501.11341v1 ; https://proceedings.neurips.cc/paper/2000/file/f9d1152547c0bde01830b7e8bd60024c-Paper.pdf | 2026-06-23 |
+| 10 | Brunet et al. (2004), PNAS 101(12):4164 (consensus / cophenetic) | 1 | https://doi.org/10.1073/pnas.0308531101 (defns via https://nimfa.biolab.si/nimfa.models.nmf.html , https://search.r-project.org/CRAN/refmans/NMF/html/cophcor.html) | 2026-06-23 |
+| 11 | Islam et al. (2022), SigProfilerExtractor, Cell Genomics 2(11):100179 | 1/3 | https://doi.org/10.1016/j.xgen.2022.100179 ; https://github.com/AlexandrovLab/SigProfilerExtractor | 2026-06-23 |
+| 12 | Rousseeuw (1987), silhouette width, J. Comput. Appl. Math. 20:53 | 1 | https://doi.org/10.1016/0377-0427(87)90125-7 | 2026-06-23 |
+
+### B.2 Key Evidence Points (enhancement)
+
+1. KL/divergence objective `D(V‖WH)=Σ(V·log(V/WH)−V+WH)`; Theorem-2 updates `H_aμ←H_aμ·(Σ_i W_ia V_iμ/(WH)_iμ)/Σ_i W_ia`, `W_ia←W_ia·(Σ_μ H_aμ V_iμ/(WH)_iμ)/Σ_μ H_aμ`; monotone non-increasing — Source 9.
+2. Connectivity matrix C_ij = 1 iff samples i,j share the argmax metagene; consensus = mean connectivity over runs; cophenetic correlation = Pearson(consensus-distance, average-linkage cophenetic distance); rank = first where cophenetic begins to fall — Source 10.
+3. Stability = per-signature average silhouette width across replicate runs; select rank with average stability ≥ 0.80 and minimum ≥ 0.20, plus reconstruction error — Source 11; silhouette s=(b−a)/max(a,b) — Source 12.
+4. De-novo signatures matched to references by maximising cosine similarity (Hungarian) — Source 11.
+
+### B.3 Canonical Methods Under Test (enhancement)
+
+| Method | Class | Type | Notes |
+|--------|-------|------|-------|
+| `ExtractSignatures(countMatrix, rank, NmfObjective, …)` | OncologyAnalyzer | Canonical | KL/Poisson (Theorem 2) and Frobenius (Theorem 1) variants (Source 9) |
+| `SelectRank(countMatrix, minRank, maxRank, …)` | OncologyAnalyzer | Canonical | cophenetic + silhouette stability + error rank selection (Source 10/11) |
+| `MatchToReferenceSignatures(extracted, references)` | OncologyAnalyzer | Canonical | greedy best-cosine label per extracted signature (Source 11) |
+| `RankStability`, `RankSelectionResult`, `SignatureMatch` (records) | OncologyAnalyzer | Internal | diagnostics / outputs |
+
+### B.4 Invariants (enhancement)
+
+| ID | Invariant | Verifiable | Evidence |
+|----|-----------|------------|----------|
+| INV-KL-1 | KL divergence D(V‖WH) is monotonically non-increasing across iterations | Yes | Source 9 (Theorem 2) |
+| INV-KL-2 | KL extraction recovers separable planted signatures (cosine ~1) | Yes | Source 7/9 |
+| INV-RS-1 | Rank 1 ⇒ cophenetic correlation = 1.0 (all-ones consensus) | Yes | Source 10 |
+| INV-RS-2 | Mean reconstruction error is non-increasing in rank on factorable data | Yes | Source 7/11 |
+| INV-RS-3 | Selection is deterministic for a fixed base seed (derived seed sequence) | Yes | fixed seed convention |
+| INV-MT-1 | Cosine match of a positively-scaled/exact copy of a reference = that reference, cosine 1.0 | Yes | Source 1/11 (cosine scale-invariance) |
+
+### B.5 Test Cases (enhancement)
+
+| ID | Test Case | Description | Expected Outcome | Evidence |
+|----|-----------|-------------|------------------|----------|
+| M-KL1 | KL monotonicity | D(V‖WH) history | non-increasing (within 1e-7 slack) | Source 9 |
+| M-KL2 | KL planted recovery | separable k0=2 | both true sigs cosine > 0.999 | Source 7/9 |
+| M-KL3 | KL normalisation | any input | nonneg; each signature sums to 1 | Source 8/9 |
+| M-KL4 | KL determinism | same seed twice | identical factors | seeded init |
+| M-KL5 | Frobenius backward-compat | default overload == explicit Frobenius | equal FinalResidual | this overload routing |
+| M-RS1 | Rank selection true k | planted k0=2, ranks 1..3 | SelectedRank = 2; 3 diagnostic rows ascending | Source 10/11 |
+| M-RS2 | Rank-1 cophenetic | rank 1 row | cophenetic = 1.0 | Source 10 |
+| M-RS3 | Error vs rank | Frobenius, ranks 1..3 | err(2) ≤ err(1) | Source 7/11 |
+| M-RS4 | Selection determinism | same seed | identical report | fixed seed |
+| S-RS5 | Single candidate | minRank=maxRank=2 | SelectedRank=2; 1 row | range degenerate |
+| M-MT1 | Cosine match scaled/unrelated | 5·ref0, ref1 | ref0 cosine 1.0; ref1 cosine 1.0; cross < 0.5 | Source 1/11 |
+| M-MT2 | One match per extracted | exact copy of ref1 | ReferenceIndex 1, cosine 1.0 | Source 11 |
+| V (enh) | Validation | null/minRank<1/maxRank<minRank/maxRank>channels/runs<1/threshold range; match null/mismatch/empty refs | throws | contract |
+
+### B.6 Coverage (enhancement)
+
+Canonical file: `tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_SelectRank_Tests.cs` (21 tests). All cases
+M-KL1..5, M-RS1..4, S-RS5, M-MT1..2, and validation guards ✅ Implemented and passing. Work queue remaining = 0.
+
+### B.7 Assumptions (enhancement)
+
+| # | Assumption | Used In |
+|---|-----------|---------|
+| 5 | Consensus clustering = argmax over H columns + average-linkage cophenetic distance (Brunet 2004 via nimfa/renozao-NMF) | M-RS1, M-RS2 |
+| 6 | Per-signature stability = average silhouette width with cosine distance (SigProfiler "silhouette of the cluster"; Rousseeuw 1987) | M-RS1 |
+| 7 | Matching = greedy best-cosine per extracted signature (per-signature reduction of SigProfiler Hungarian) | M-MT1, M-MT2 |
+
+### B.8 Open Questions / Decisions (enhancement)
+
+1. KL/Poisson is offered as a caller-selectable objective (`NmfObjective.KullbackLeibler`); the original
+   `ExtractSignatures` Frobenius behaviour is preserved byte-for-byte via overload routing (M-KL5).
+2. `SelectRank` defaults to the KL objective (the SigProfiler choice) but accepts either; per-rank cophenetic,
+   average/minimum stability, and mean reconstruction error are all returned for auditability.
+3. The reference set for `MatchToReferenceSignatures` is caller-supplied (COSMIC not embedded), per the existing
+   `FitSignatures` convention; "auto-matching" = labelling each extracted signature with its closest reference.

@@ -3434,9 +3434,79 @@ public static class OncologyAnalyzer
         int maxIterations = DefaultNmfMaxIterations,
         double tolerance = DefaultNmfTolerance,
         int seed = DefaultNmfSeed)
+        => ExtractSignatures(countMatrix, rank, NmfObjective.Frobenius, maxIterations, tolerance, seed);
+
+    /// <summary>
+    /// Selects the NMF objective (and hence the multiplicative-update variant) used by
+    /// <see cref="ExtractSignatures(IReadOnlyList{IReadOnlyList{double}}, int, NmfObjective, int, double, int)"/>.
+    /// Both variants are from Lee &amp; Seung (2001) and both are monotonically non-increasing in their respective
+    /// objective (Theorems 1 and 2).
+    /// </summary>
+    public enum NmfObjective
+    {
+        /// <summary>
+        /// Squared-Euclidean (Frobenius) objective ‖V − WH‖²_F with the Theorem-1 multiplicative updates
+        /// <c>H ← H ⊙ (Wᵀ V) ⊘ (Wᵀ W H)</c>, <c>W ← W ⊙ (V Hᵀ) ⊘ (W H Hᵀ)</c>. Lee &amp; Seung (2001), Theorem 1.
+        /// </summary>
+        Frobenius = 0,
+
+        /// <summary>
+        /// Generalized Kullback-Leibler (Poisson) divergence
+        /// <c>D(V‖WH) = Σ ( V·log(V/WH) − V + WH )</c> with the Theorem-2 multiplicative updates
+        /// <c>H_aμ ← H_aμ · (Σ_i W_ia V_iμ/(WH)_iμ) / (Σ_i W_ia)</c> and
+        /// <c>W_ia ← W_ia · (Σ_μ H_aμ V_iμ/(WH)_iμ) / (Σ_μ H_aμ)</c>. This is the objective the SigProfiler
+        /// mutational-signature extractor actually optimises (Alexandrov et al. 2013; Islam et al. 2022).
+        /// Lee &amp; Seung (2001), Theorem 2.
+        /// </summary>
+        KullbackLeibler = 1,
+    }
+
+    /// <summary>
+    /// De-novo mutational-signature extraction by NMF (V ≈ W·H) at a caller-specified rank k, allowing the caller
+    /// to pick the objective: the squared-Euclidean (Frobenius) variant (Lee &amp; Seung 2001, Theorem 1) or the
+    /// generalized Kullback-Leibler / Poisson variant (Theorem 2) — the latter being the objective SigProfiler
+    /// uses for mutational signatures (Alexandrov et al. 2013; Islam et al. 2022). The chosen objective is
+    /// monotonically non-increasing across iterations; iteration stops on relative-improvement
+    /// <paramref name="tolerance"/> or <paramref name="maxIterations"/>. Signatures (columns of W) are then
+    /// L1-normalised to sum to 1 with the scale absorbed into H (COSMIC convention).
+    /// <see cref="SignatureExtractionResult.FinalResidual"/> and
+    /// <see cref="SignatureExtractionResult.ObjectiveHistory"/> hold the value of the <em>selected</em>
+    /// objective (Frobenius residual ‖V − WH‖²_F, or KL divergence D(V‖WH)).
+    /// </summary>
+    /// <param name="countMatrix">Mutation-count matrix V (channels × samples); rows are channels.</param>
+    /// <param name="rank">Number of signatures k to extract; 1 ≤ k ≤ channel count.</param>
+    /// <param name="objective">Which Lee &amp; Seung objective / update variant to optimise.</param>
+    /// <param name="maxIterations">Maximum multiplicative-update iterations (&gt; 0).</param>
+    /// <param name="tolerance">Relative-improvement convergence tolerance (≥ 0).</param>
+    /// <param name="seed">RNG seed for the non-negative random initialisation (reproducibility).</param>
+    /// <returns>The extracted signatures W (L1-normalised), exposures H, objective value, iteration count, history.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="countMatrix"/> or any row is null.</exception>
+    /// <exception cref="ArgumentException">Invalid matrix, rank, maxIterations or tolerance (see other overload).</exception>
+    public static SignatureExtractionResult ExtractSignatures(
+        IReadOnlyList<IReadOnlyList<double>> countMatrix,
+        int rank,
+        NmfObjective objective,
+        int maxIterations = DefaultNmfMaxIterations,
+        double tolerance = DefaultNmfTolerance,
+        int seed = DefaultNmfSeed)
     {
         double[][] v = ValidateCountMatrix(countMatrix, out int channelCount, out int sampleCount);
+        ValidateRankAndStop(rank, channelCount, maxIterations, tolerance);
 
+        (double[][] w, double[][] h, double finalObjective, int iterations, List<double> history) =
+            RunNmf(v, rank, objective, maxIterations, tolerance, seed, channelCount, sampleCount);
+
+        IReadOnlyList<IReadOnlyList<double>> signatures = TransposeColumnsToSignatures(w, channelCount, rank);
+        IReadOnlyList<IReadOnlyList<double>> exposures = RowsToReadOnly(h);
+
+        return new SignatureExtractionResult(signatures, exposures, finalObjective, iterations, history);
+    }
+
+    /// <summary>
+    /// Validates rank and stop-criterion parameters shared by the extraction entry points.
+    /// </summary>
+    private static void ValidateRankAndStop(int rank, int channelCount, int maxIterations, double tolerance)
+    {
         if (rank < 1)
         {
             throw new ArgumentException($"Rank k must be ≥ 1 (got {rank}).", nameof(rank));
@@ -3457,7 +3527,17 @@ public static class OncologyAnalyzer
         {
             throw new ArgumentException($"tolerance must be ≥ 0 (got {tolerance}).", nameof(tolerance));
         }
+    }
 
+    /// <summary>
+    /// Core multiplicative-update NMF loop shared by both objectives. Returns the (L1-column-normalised) factors,
+    /// the final value of the selected objective, the iteration count, and the per-iteration objective history.
+    /// The objective is monotonically non-increasing (Lee &amp; Seung 2001, Theorems 1 &amp; 2).
+    /// </summary>
+    private static (double[][] W, double[][] H, double FinalObjective, int Iterations, List<double> History) RunNmf(
+        double[][] v, int rank, NmfObjective objective, int maxIterations, double tolerance, int seed,
+        int channelCount, int sampleCount)
+    {
         // Non-negative random initialisation (Lee & Seung do not prescribe one; uniform (0,1] is standard).
         var rng = new Random(seed);
         double[][] w = InitializeNonNegativeFactor(rng, channelCount, rank);   // channels × k
@@ -3469,26 +3549,38 @@ public static class OncologyAnalyzer
 
         for (int iter = 0; iter < maxIterations; iter++)
         {
-            // H ← H ⊙ (Wᵀ V) ⊘ (Wᵀ W H)   — Lee & Seung (2001), Theorem 1.
-            UpdateH(w, h, v, channelCount, rank, sampleCount);
-            // W ← W ⊙ (V Hᵀ) ⊘ (W H Hᵀ)   — Lee & Seung (2001), Theorem 1.
-            UpdateW(w, h, v, channelCount, rank, sampleCount);
+            if (objective == NmfObjective.KullbackLeibler)
+            {
+                // H_aμ ← H_aμ · (Σ_i W_ia V_iμ/(WH)_iμ) / (Σ_i W_ia)   — Lee & Seung (2001), Theorem 2.
+                UpdateHKl(w, h, v, channelCount, rank, sampleCount);
+                // W_ia ← W_ia · (Σ_μ H_aμ V_iμ/(WH)_iμ) / (Σ_μ H_aμ)   — Lee & Seung (2001), Theorem 2.
+                UpdateWKl(w, h, v, channelCount, rank, sampleCount);
+            }
+            else
+            {
+                // H ← H ⊙ (Wᵀ V) ⊘ (Wᵀ W H)   — Lee & Seung (2001), Theorem 1.
+                UpdateH(w, h, v, channelCount, rank, sampleCount);
+                // W ← W ⊙ (V Hᵀ) ⊘ (W H Hᵀ)   — Lee & Seung (2001), Theorem 1.
+                UpdateW(w, h, v, channelCount, rank, sampleCount);
+            }
 
             iterations = iter + 1;
-            double objective = FrobeniusResidualSquared(w, h, v, channelCount, rank, sampleCount);
-            history.Add(objective);
+            double currentObjective = objective == NmfObjective.KullbackLeibler
+                ? KullbackLeiblerDivergence(w, h, v, channelCount, rank, sampleCount)
+                : FrobeniusResidualSquared(w, h, v, channelCount, rank, sampleCount);
+            history.Add(currentObjective);
 
-            // Relative-improvement stop. The objective is monotonically non-increasing (Theorem 1), so
-            // previousObjective ≥ objective; the decrease is non-negative.
-            double decrease = previousObjective - objective;
+            // Relative-improvement stop. The objective is monotonically non-increasing (Theorems 1 & 2), so
+            // previousObjective ≥ currentObjective; the decrease is non-negative.
+            double decrease = previousObjective - currentObjective;
             double denominator = previousObjective > NmfEpsilon ? previousObjective : 1.0;
             if (!double.IsInfinity(previousObjective) && decrease / denominator < tolerance)
             {
-                previousObjective = objective;
+                previousObjective = currentObjective;
                 break;
             }
 
-            previousObjective = objective;
+            previousObjective = currentObjective;
         }
 
         // L1-normalise each signature column of W so its channel weights sum to 1, absorbing the scale into the
@@ -3496,12 +3588,11 @@ public static class OncologyAnalyzer
         // distributions over the channels). This fixes the NMF scaling ambiguity without changing W·H.
         NormalizeSignatureColumns(w, h, channelCount, rank, sampleCount);
 
-        double finalResidual = FrobeniusResidualSquared(w, h, v, channelCount, rank, sampleCount);
+        double finalObjective = objective == NmfObjective.KullbackLeibler
+            ? KullbackLeiblerDivergence(w, h, v, channelCount, rank, sampleCount)
+            : FrobeniusResidualSquared(w, h, v, channelCount, rank, sampleCount);
 
-        IReadOnlyList<IReadOnlyList<double>> signatures = TransposeColumnsToSignatures(w, channelCount, rank);
-        IReadOnlyList<IReadOnlyList<double>> exposures = RowsToReadOnly(h);
-
-        return new SignatureExtractionResult(signatures, exposures, finalResidual, iterations, history);
+        return (w, h, finalObjective, iterations, history);
     }
 
     /// <summary>
@@ -3645,6 +3736,122 @@ public static class OncologyAnalyzer
     }
 
     /// <summary>
+    /// Multiplicative KL/Poisson update of H:
+    /// <c>H_aμ ← H_aμ · (Σ_i W_ia V_iμ/(WH)_iμ) / (Σ_i W_ia)</c>. Source: Lee &amp; Seung (2001), Theorem 2
+    /// (divergence objective). The reconstruction (WH)_iμ is floored by <see cref="NmfEpsilon"/> to avoid V/0,
+    /// and the column-sum denominator Σ_i W_ia is floored to avoid 0/0.
+    /// </summary>
+    private static void UpdateHKl(double[][] w, double[][] h, double[][] v, int channels, int k, int samples)
+    {
+        double[][] wh = MultiplyWh(w, h, channels, k, samples);
+
+        for (int a = 0; a < k; a++)
+        {
+            // Denominator Σ_i W_ia is independent of the sample μ.
+            double columnSum = 0.0;
+            for (int c = 0; c < channels; c++)
+            {
+                columnSum += w[c][a];
+            }
+
+            if (columnSum < NmfEpsilon)
+            {
+                columnSum = NmfEpsilon;
+            }
+
+            for (int s = 0; s < samples; s++)
+            {
+                double numerator = 0.0;
+                for (int c = 0; c < channels; c++)
+                {
+                    double reconstructed = wh[c][s] < NmfEpsilon ? NmfEpsilon : wh[c][s];
+                    numerator += w[c][a] * v[c][s] / reconstructed;
+                }
+
+                h[a][s] *= numerator / columnSum;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Multiplicative KL/Poisson update of W:
+    /// <c>W_ia ← W_ia · (Σ_μ H_aμ V_iμ/(WH)_iμ) / (Σ_μ H_aμ)</c>. Source: Lee &amp; Seung (2001), Theorem 2
+    /// (divergence objective). The reconstruction (WH)_iμ is floored by <see cref="NmfEpsilon"/> to avoid V/0,
+    /// and the row-sum denominator Σ_μ H_aμ is floored to avoid 0/0.
+    /// </summary>
+    private static void UpdateWKl(double[][] w, double[][] h, double[][] v, int channels, int k, int samples)
+    {
+        double[][] wh = MultiplyWh(w, h, channels, k, samples);
+
+        // Denominator Σ_μ H_aμ is independent of the channel i.
+        var rowSum = new double[k];
+        for (int a = 0; a < k; a++)
+        {
+            double sum = 0.0;
+            for (int s = 0; s < samples; s++)
+            {
+                sum += h[a][s];
+            }
+
+            rowSum[a] = sum < NmfEpsilon ? NmfEpsilon : sum;
+        }
+
+        for (int c = 0; c < channels; c++)
+        {
+            for (int a = 0; a < k; a++)
+            {
+                double numerator = 0.0;
+                for (int s = 0; s < samples; s++)
+                {
+                    double reconstructed = wh[c][s] < NmfEpsilon ? NmfEpsilon : wh[c][s];
+                    numerator += h[a][s] * v[c][s] / reconstructed;
+                }
+
+                w[c][a] *= numerator / rowSum[a];
+            }
+        }
+    }
+
+    /// <summary>
+    /// The generalized Kullback-Leibler divergence <c>D(V‖WH) = Σ_iμ ( V_iμ log(V_iμ/(WH)_iμ) − V_iμ + (WH)_iμ )</c>.
+    /// Source: Lee &amp; Seung (2001), the divergence objective. The term V·log(V/WH) is taken as 0 when V = 0
+    /// (limit x log x → 0); (WH)_iμ is floored by <see cref="NmfEpsilon"/> to avoid log(·/0).
+    /// </summary>
+    private static double KullbackLeiblerDivergence(double[][] w, double[][] h, double[][] v, int channels, int k, int samples)
+    {
+        double sum = 0.0;
+        for (int c = 0; c < channels; c++)
+        {
+            for (int s = 0; s < samples; s++)
+            {
+                double reconstructed = 0.0;
+                for (int a = 0; a < k; a++)
+                {
+                    reconstructed += w[c][a] * h[a][s];
+                }
+
+                if (reconstructed < NmfEpsilon)
+                {
+                    reconstructed = NmfEpsilon;
+                }
+
+                double observed = v[c][s];
+                if (observed > 0.0)
+                {
+                    sum += observed * Math.Log(observed / reconstructed) - observed + reconstructed;
+                }
+                else
+                {
+                    // V = 0: the log term vanishes (limit x log x → 0); only +(WH) remains.
+                    sum += reconstructed;
+                }
+            }
+        }
+
+        return sum;
+    }
+
+    /// <summary>
     /// Computes the dense product W·H (channels × samples) of the current factors.
     /// </summary>
     private static double[][] MultiplyWh(double[][] w, double[][] h, int channels, int k, int samples)
@@ -3761,6 +3968,678 @@ public static class OncologyAnalyzer
         }
 
         return rows;
+    }
+
+    // ---- Automatic rank / model-stability selection (Brunet 2004; Alexandrov 2013 / SigProfiler) ----
+
+    /// <summary>
+    /// Default number of independent NMF runs (random restarts) per candidate rank used by
+    /// <see cref="SelectRank"/>. Source: Brunet et al. (2004) build the consensus matrix as the average of the
+    /// connectivity matrices over "multiple runs"; SigProfilerExtractor uses partition clustering of replicate
+    /// factorizations (Islam et al. 2022). A modest default keeps deterministic tests fast; callers raise it for
+    /// production. Value = 20.
+    /// </summary>
+    public const int DefaultRankSelectionRuns = 20;
+
+    /// <summary>
+    /// Default average-stability acceptance threshold for <see cref="SelectRank"/>. Source: SigProfilerExtractor
+    /// considers a solution stable when "signatures have an average stability above 0.80" (Islam et al. 2022;
+    /// default <c>stability=0.8</c>). Value = 0.80.
+    /// </summary>
+    public const double DefaultRankStabilityThreshold = 0.80;
+
+    /// <summary>
+    /// Per-candidate-rank diagnostics produced by <see cref="SelectRank"/>, making the rank choice auditable
+    /// (Brunet et al. 2004; Alexandrov et al. 2013).
+    /// </summary>
+    /// <param name="Rank">The candidate rank k.</param>
+    /// <param name="CopheneticCorrelation">
+    /// The cophenetic correlation coefficient of the consensus matrix over the runs — the Pearson correlation
+    /// between the consensus-induced sample distances and their cophenetic distances from average-linkage
+    /// hierarchical clustering (Brunet et al. 2004). 1.0 = perfectly stable clustering; the first rank where it
+    /// "begins to fall" is the Brunet rank estimate.
+    /// </param>
+    /// <param name="AverageStability">
+    /// The mean over signatures of the per-signature average silhouette width across the runs (cosine distance
+    /// in signature space). Source: Alexandrov et al. (2013) / SigProfilerExtractor "silhouette value of the
+    /// cluster corresponding to that signature" (Islam et al. 2022); silhouette per Rousseeuw (1987).
+    /// </param>
+    /// <param name="MinimumStability">The minimum per-signature silhouette stability over the k clusters.</param>
+    /// <param name="MeanReconstructionError">
+    /// The mean over runs of the final reconstruction error (selected objective; Frobenius residual ‖V−WH‖²_F or
+    /// KL divergence) — lower is a better data fit.
+    /// </param>
+    public readonly record struct RankStability(
+        int Rank,
+        double CopheneticCorrelation,
+        double AverageStability,
+        double MinimumStability,
+        double MeanReconstructionError);
+
+    /// <summary>
+    /// The result of automatic NMF rank selection over a candidate range (Brunet et al. 2004; Alexandrov et al.
+    /// 2013 / SigProfilerExtractor, Islam et al. 2022).
+    /// </summary>
+    /// <param name="SelectedRank">
+    /// The chosen number of signatures: the largest candidate rank whose average signature stability is at least
+    /// <c>stabilityThreshold</c> and whose minimum per-signature stability is at least <c>minStability</c>
+    /// (SigProfiler: "average stability above 0.80 with no individual signature having stability below 0.20").
+    /// If no rank meets the threshold, the rank with the highest average stability is returned.
+    /// </param>
+    /// <param name="PerRank">Per-candidate-rank diagnostics (cophenetic, stability, error), in ascending rank order.</param>
+    public readonly record struct RankSelectionResult(
+        int SelectedRank,
+        IReadOnlyList<RankStability> PerRank);
+
+    /// <summary>
+    /// Automatically selects the number of de-novo signatures (NMF rank) for a mutation-count matrix by the
+    /// SigProfiler/Brunet model-stability approach. For each candidate rank k in <paramref name="minRank"/>..
+    /// <paramref name="maxRank"/>, NMF is run <paramref name="runs"/> times from a <b>fixed, deterministic seed
+    /// sequence</b>; the runs are summarised by (a) the cophenetic correlation coefficient of the consensus
+    /// matrix (Brunet et al. 2004), (b) the average signature <em>stability</em> measured as the per-signature
+    /// average silhouette width across runs (Alexandrov et al. 2013; Islam et al. 2022), and (c) the mean
+    /// reconstruction error. The selected rank is the largest k whose average stability is ≥
+    /// <paramref name="stabilityThreshold"/> and whose minimum per-signature stability is ≥
+    /// <paramref name="minStability"/> (SigProfiler default 0.80 / 0.20); if none qualifies, the highest-average-
+    /// stability rank is returned. All per-rank diagnostics are returned so the choice is auditable.
+    /// </summary>
+    /// <param name="countMatrix">Mutation-count matrix V (channels × samples); rows are channels.</param>
+    /// <param name="minRank">Smallest candidate rank (≥ 1).</param>
+    /// <param name="maxRank">Largest candidate rank (≥ <paramref name="minRank"/>, ≤ channel count).</param>
+    /// <param name="objective">NMF objective for the per-run extractions.</param>
+    /// <param name="runs">Independent NMF runs per candidate rank (≥ 1).</param>
+    /// <param name="stabilityThreshold">Minimum acceptable average signature stability (default 0.80).</param>
+    /// <param name="minStability">Minimum acceptable per-signature stability (default 0.20).</param>
+    /// <param name="maxIterations">Maximum multiplicative-update iterations per run (&gt; 0).</param>
+    /// <param name="tolerance">Relative-improvement convergence tolerance (≥ 0).</param>
+    /// <param name="seed">Base RNG seed; run r at rank k uses a deterministic derived seed for reproducibility.</param>
+    /// <returns>The selected rank plus per-rank stability/error diagnostics.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="countMatrix"/> or a row is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// Invalid matrix; minRank &lt; 1; maxRank &lt; minRank; maxRank &gt; channel count; runs &lt; 1; bad iteration
+    /// / tolerance; or a stability threshold outside [0, 1].
+    /// </exception>
+    public static RankSelectionResult SelectRank(
+        IReadOnlyList<IReadOnlyList<double>> countMatrix,
+        int minRank,
+        int maxRank,
+        NmfObjective objective = NmfObjective.KullbackLeibler,
+        int runs = DefaultRankSelectionRuns,
+        double stabilityThreshold = DefaultRankStabilityThreshold,
+        double minStability = DefaultMinSignatureStability,
+        int maxIterations = DefaultNmfMaxIterations,
+        double tolerance = DefaultNmfTolerance,
+        int seed = DefaultNmfSeed)
+    {
+        double[][] v = ValidateCountMatrix(countMatrix, out int channelCount, out int sampleCount);
+
+        if (minRank < 1)
+        {
+            throw new ArgumentException($"minRank must be ≥ 1 (got {minRank}).", nameof(minRank));
+        }
+
+        if (maxRank < minRank)
+        {
+            throw new ArgumentException(
+                $"maxRank ({maxRank}) must be ≥ minRank ({minRank}).", nameof(maxRank));
+        }
+
+        if (maxRank > channelCount)
+        {
+            throw new ArgumentException(
+                $"maxRank ({maxRank}) cannot exceed the channel count ({channelCount}).", nameof(maxRank));
+        }
+
+        if (runs < 1)
+        {
+            throw new ArgumentException($"runs must be ≥ 1 (got {runs}).", nameof(runs));
+        }
+
+        if (stabilityThreshold < 0.0 || stabilityThreshold > 1.0)
+        {
+            throw new ArgumentException(
+                $"stabilityThreshold must be in [0, 1] (got {stabilityThreshold}).", nameof(stabilityThreshold));
+        }
+
+        if (minStability < 0.0 || minStability > 1.0)
+        {
+            throw new ArgumentException(
+                $"minStability must be in [0, 1] (got {minStability}).", nameof(minStability));
+        }
+
+        ValidateRankAndStop(minRank, channelCount, maxIterations, tolerance);
+
+        var perRank = new List<RankStability>(maxRank - minRank + 1);
+        for (int k = minRank; k <= maxRank; k++)
+        {
+            // Collect the signature sets and per-sample cluster assignments of all runs at this rank.
+            var runSignatures = new List<double[][]>(runs); // each: k signatures × channels
+            var connectivity = new double[sampleCount][];   // accumulated consensus (sum of connectivity)
+            for (int s = 0; s < sampleCount; s++)
+            {
+                connectivity[s] = new double[sampleCount];
+            }
+
+            double errorSum = 0.0;
+            for (int r = 0; r < runs; r++)
+            {
+                // Deterministic per-(rank, run) seed so the whole procedure is reproducible.
+                int runSeed = DerivedSeed(seed, k, r);
+                (double[][] w, double[][] h, double finalObjective, _, _) =
+                    RunNmf(v, k, objective, maxIterations, tolerance, runSeed, channelCount, sampleCount);
+
+                errorSum += finalObjective;
+
+                // Signatures of this run as k channel-vectors (column a of W).
+                var sigs = new double[k][];
+                for (int a = 0; a < k; a++)
+                {
+                    sigs[a] = new double[channelCount];
+                    for (int c = 0; c < channelCount; c++)
+                    {
+                        sigs[a][c] = w[c][a];
+                    }
+                }
+
+                runSignatures.Add(sigs);
+
+                // Connectivity: samples assigned to the same metagene (argmax over H column) are connected.
+                int[] assignment = AssignSamplesToClusters(h, k, sampleCount);
+                for (int i = 0; i < sampleCount; i++)
+                {
+                    for (int j = 0; j < sampleCount; j++)
+                    {
+                        if (assignment[i] == assignment[j])
+                        {
+                            connectivity[i][j] += 1.0;
+                        }
+                    }
+                }
+            }
+
+            // Consensus matrix = average connectivity over runs (Brunet 2004).
+            for (int i = 0; i < sampleCount; i++)
+            {
+                for (int j = 0; j < sampleCount; j++)
+                {
+                    connectivity[i][j] /= runs;
+                }
+            }
+
+            double cophenetic = CopheneticCorrelation(connectivity, sampleCount);
+            (double avgStability, double minStab) = SignatureStability(runSignatures, k, channelCount);
+            double meanError = errorSum / runs;
+
+            perRank.Add(new RankStability(k, cophenetic, avgStability, minStab, meanError));
+        }
+
+        int selected = ChooseRank(perRank, stabilityThreshold, minStability);
+        return new RankSelectionResult(selected, perRank);
+    }
+
+    /// <summary>
+    /// Default minimum acceptable per-signature stability for <see cref="SelectRank"/>. Source:
+    /// SigProfilerExtractor requires "no individual signature having stability below 0.20" (Islam et al. 2022;
+    /// default <c>min_stability=0.2</c>). Value = 0.20.
+    /// </summary>
+    public const double DefaultMinSignatureStability = 0.20;
+
+    /// <summary>
+    /// Deterministic per-(rank, run) seed derivation so the whole rank-selection procedure is reproducible while
+    /// each run still gets a distinct initialisation. Combines the base seed, rank and run index.
+    /// </summary>
+    private static int DerivedSeed(int baseSeed, int rank, int run)
+    {
+        unchecked
+        {
+            int hash = baseSeed;
+            hash = (hash * 397) ^ rank;
+            hash = (hash * 397) ^ run;
+            return hash;
+        }
+    }
+
+    /// <summary>
+    /// Assigns each sample (column of H) to the cluster of its largest exposure (metagene), per Brunet et al.
+    /// (2004): "Sample assignment is determined by its largest metagene expression value."
+    /// </summary>
+    private static int[] AssignSamplesToClusters(double[][] h, int k, int samples)
+    {
+        var assignment = new int[samples];
+        for (int s = 0; s < samples; s++)
+        {
+            int best = 0;
+            double bestValue = h[0][s];
+            for (int a = 1; a < k; a++)
+            {
+                if (h[a][s] > bestValue)
+                {
+                    bestValue = h[a][s];
+                    best = a;
+                }
+            }
+
+            assignment[s] = best;
+        }
+
+        return assignment;
+    }
+
+    /// <summary>
+    /// The cophenetic correlation coefficient of the consensus matrix (Brunet et al. 2004): the Pearson
+    /// correlation between the sample distances induced by the consensus matrix (distance = 1 − consensus) and
+    /// the cophenetic distances from average-linkage hierarchical clustering on those distances. Returns 1.0 when
+    /// every consensus entry equals 1 (perfectly stable clustering — e.g. rank 1), the value defined by Brunet.
+    /// </summary>
+    private static double CopheneticCorrelation(double[][] consensus, int samples)
+    {
+        if (samples < 2)
+        {
+            return 1.0;
+        }
+
+        // Distance induced by the consensus matrix: d = 1 − consensus (consensus is a similarity in [0, 1]).
+        var distance = new double[samples][];
+        for (int i = 0; i < samples; i++)
+        {
+            distance[i] = new double[samples];
+            for (int j = 0; j < samples; j++)
+            {
+                distance[i][j] = 1.0 - consensus[i][j];
+            }
+        }
+
+        double[][] cophenetic = AverageLinkageCopheneticDistances(distance, samples);
+
+        // Pearson correlation over the strictly-upper-triangular pairs (i < j).
+        double sumX = 0.0, sumY = 0.0, sumXY = 0.0, sumXX = 0.0, sumYY = 0.0;
+        int n = 0;
+        for (int i = 0; i < samples; i++)
+        {
+            for (int j = i + 1; j < samples; j++)
+            {
+                double x = distance[i][j];
+                double y = cophenetic[i][j];
+                sumX += x;
+                sumY += y;
+                sumXY += x * y;
+                sumXX += x * x;
+                sumYY += y * y;
+                n++;
+            }
+        }
+
+        double meanX = sumX / n;
+        double meanY = sumY / n;
+        double covXY = sumXY / n - meanX * meanY;
+        double varX = sumXX / n - meanX * meanX;
+        double varY = sumYY / n - meanY * meanY;
+
+        // Degenerate: a constant distance vector (e.g. all-ones consensus ⇒ all-zero distance) has zero
+        // variance; Brunet's "perfect consensus" case maps to cophenetic = 1.
+        if (varX <= NmfEpsilon || varY <= NmfEpsilon)
+        {
+            return 1.0;
+        }
+
+        return covXY / Math.Sqrt(varX * varY);
+    }
+
+    /// <summary>
+    /// Computes the cophenetic distance matrix from average-linkage (UPGMA) agglomerative clustering of the given
+    /// distance matrix. The cophenetic distance between two samples is the linkage distance at which their
+    /// clusters first merge (Brunet et al. 2004 use average linkage by default).
+    /// </summary>
+    private static double[][] AverageLinkageCopheneticDistances(double[][] distance, int samples)
+    {
+        // Active clusters: each starts as a singleton {i}. clusterMembers holds the sample indices per cluster.
+        var members = new List<List<int>>(samples);
+        var active = new List<int>(samples);
+        for (int i = 0; i < samples; i++)
+        {
+            members.Add(new List<int> { i });
+            active.Add(i);
+        }
+
+        // Pairwise average-linkage distances between active clusters, indexed by cluster id.
+        var clusterDistance = new Dictionary<(int, int), double>();
+        for (int a = 0; a < active.Count; a++)
+        {
+            for (int b = a + 1; b < active.Count; b++)
+            {
+                clusterDistance[(active[a], active[b])] = distance[active[a]][active[b]];
+            }
+        }
+
+        var cophenetic = new double[samples][];
+        for (int i = 0; i < samples; i++)
+        {
+            cophenetic[i] = new double[samples];
+        }
+
+        int nextId = samples;
+        while (active.Count > 1)
+        {
+            // Find the closest pair of active clusters.
+            double best = double.PositiveInfinity;
+            int bi = 0, bj = 1;
+            for (int a = 0; a < active.Count; a++)
+            {
+                for (int b = a + 1; b < active.Count; b++)
+                {
+                    double d = clusterDistance[Key(active[a], active[b])];
+                    if (d < best)
+                    {
+                        best = d;
+                        bi = a;
+                        bj = b;
+                    }
+                }
+            }
+
+            int ci = active[bi];
+            int cj = active[bj];
+
+            // The merge height 'best' is the cophenetic distance between every member of ci and every member of cj.
+            foreach (int p in members[ci])
+            {
+                foreach (int q in members[cj])
+                {
+                    cophenetic[p][q] = best;
+                    cophenetic[q][p] = best;
+                }
+            }
+
+            // Merge cj into a new cluster id; average-linkage distance to every other active cluster.
+            var merged = new List<int>(members[ci]);
+            merged.AddRange(members[cj]);
+            members.Add(merged);
+            int newId = nextId++;
+
+            foreach (int other in active)
+            {
+                if (other == ci || other == cj)
+                {
+                    continue;
+                }
+
+                // Average linkage: mean over all member-pairs (size-weighted average of the two sub-distances).
+                double dCi = clusterDistance[Key(ci, other)];
+                double dCj = clusterDistance[Key(cj, other)];
+                double weighted = (members[ci].Count * dCi + members[cj].Count * dCj)
+                                  / (members[ci].Count + members[cj].Count);
+                clusterDistance[Key(newId, other)] = weighted;
+            }
+
+            active.RemoveAt(bj);
+            active.RemoveAt(bi);
+            active.Add(newId);
+        }
+
+        return cophenetic;
+
+        static (int, int) Key(int a, int b) => a < b ? (a, b) : (b, a);
+    }
+
+    /// <summary>
+    /// Computes signature stability across the NMF runs as the per-signature average silhouette width
+    /// (Alexandrov et al. 2013; Islam et al. 2022 "silhouette value of the cluster corresponding to that
+    /// signature"; silhouette per Rousseeuw 1987), clustering the <c>runs × k</c> extracted signatures into k
+    /// clusters by greedy cosine matching against the first run's signatures as the reference partition. Distance
+    /// is cosine distance (1 − cosine similarity). Returns (mean over signatures of average silhouette,
+    /// minimum over signatures). Each signature is L1-normalised, so cosine distance is well defined.
+    /// </summary>
+    private static (double Average, double Minimum) SignatureStability(
+        IReadOnlyList<double[][]> runSignatures, int k, int channels)
+    {
+        int runs = runSignatures.Count;
+        if (runs < 2 || k < 1)
+        {
+            // With a single run there is no cross-run dispersion to measure; treat as perfectly stable.
+            return (1.0, 1.0);
+        }
+
+        // Flatten all signatures and assign each to the cluster (reference signature of run 0) it is closest to
+        // by cosine, requiring a one-to-one match within each run (Hungarian reduced to greedy per run).
+        int total = runs * k;
+        var points = new double[total][];
+        var cluster = new int[total];
+        var reference = runSignatures[0];
+
+        int idx = 0;
+        for (int r = 0; r < runs; r++)
+        {
+            double[][] sigs = runSignatures[r];
+            bool[] taken = new bool[k];
+            // Greedily assign each signature of this run to its best unused reference cluster.
+            for (int a = 0; a < k; a++)
+            {
+                points[idx] = sigs[a];
+                int bestCluster = -1;
+                double bestSim = double.NegativeInfinity;
+                for (int c = 0; c < k; c++)
+                {
+                    if (taken[c])
+                    {
+                        continue;
+                    }
+
+                    double sim = CosineSimilarity(sigs[a], reference[c]);
+                    if (sim > bestSim)
+                    {
+                        bestSim = sim;
+                        bestCluster = c;
+                    }
+                }
+
+                taken[bestCluster] = true;
+                cluster[idx] = bestCluster;
+                idx++;
+            }
+        }
+
+        // Per-point silhouette with cosine distance.
+        var clusterSilhouetteSum = new double[k];
+        var clusterSize = new int[k];
+        for (int i = 0; i < total; i++)
+        {
+            clusterSize[cluster[i]]++;
+        }
+
+        for (int i = 0; i < total; i++)
+        {
+            int ci = cluster[i];
+
+            // a(i): mean intra-cluster distance.
+            double aSum = 0.0;
+            int aCount = 0;
+            // b(i): min over other clusters of mean distance to that cluster.
+            var otherSum = new double[k];
+            var otherCount = new int[k];
+            for (int j = 0; j < total; j++)
+            {
+                if (j == i)
+                {
+                    continue;
+                }
+
+                double d = 1.0 - CosineSimilarity(points[i], points[j]);
+                if (cluster[j] == ci)
+                {
+                    aSum += d;
+                    aCount++;
+                }
+                else
+                {
+                    otherSum[cluster[j]] += d;
+                    otherCount[cluster[j]]++;
+                }
+            }
+
+            double a = aCount > 0 ? aSum / aCount : 0.0;
+            double b = double.PositiveInfinity;
+            for (int c = 0; c < k; c++)
+            {
+                if (c == ci || otherCount[c] == 0)
+                {
+                    continue;
+                }
+
+                double mean = otherSum[c] / otherCount[c];
+                if (mean < b)
+                {
+                    b = mean;
+                }
+            }
+
+            double silhouette;
+            if (double.IsPositiveInfinity(b))
+            {
+                // Only one cluster present: silhouette is conventionally 0 (Rousseeuw 1987).
+                silhouette = 0.0;
+            }
+            else
+            {
+                double denom = Math.Max(a, b);
+                silhouette = denom <= NmfEpsilon ? 0.0 : (b - a) / denom;
+            }
+
+            clusterSilhouetteSum[ci] += silhouette;
+        }
+
+        double avg = 0.0;
+        double min = double.PositiveInfinity;
+        int nonEmpty = 0;
+        for (int c = 0; c < k; c++)
+        {
+            if (clusterSize[c] == 0)
+            {
+                continue;
+            }
+
+            double clusterStability = clusterSilhouetteSum[c] / clusterSize[c];
+            avg += clusterStability;
+            min = Math.Min(min, clusterStability);
+            nonEmpty++;
+        }
+
+        avg = nonEmpty > 0 ? avg / nonEmpty : 0.0;
+        if (double.IsPositiveInfinity(min))
+        {
+            min = 0.0;
+        }
+
+        return (avg, min);
+    }
+
+    /// <summary>
+    /// Chooses the rank: the largest candidate whose average stability ≥ <paramref name="stabilityThreshold"/>
+    /// and minimum per-signature stability ≥ <paramref name="minStability"/> (SigProfiler 0.80 / 0.20); if none
+    /// qualifies, the rank with the highest average stability (Alexandrov 2013 stability/error trade-off).
+    /// </summary>
+    private static int ChooseRank(
+        IReadOnlyList<RankStability> perRank, double stabilityThreshold, double minStability)
+    {
+        int selected = -1;
+        for (int i = 0; i < perRank.Count; i++)
+        {
+            RankStability rs = perRank[i];
+            if (rs.AverageStability >= stabilityThreshold && rs.MinimumStability >= minStability)
+            {
+                selected = rs.Rank; // keep the largest qualifying rank
+            }
+        }
+
+        if (selected >= 0)
+        {
+            return selected;
+        }
+
+        // Fallback: highest average stability (ties → smallest rank, the most parsimonious model).
+        RankStability best = perRank[0];
+        for (int i = 1; i < perRank.Count; i++)
+        {
+            if (perRank[i].AverageStability > best.AverageStability)
+            {
+                best = perRank[i];
+            }
+        }
+
+        return best.Rank;
+    }
+
+    // ---- COSMIC / reference matching by cosine similarity (Alexandrov 2013/2020; Islam et al. 2022) ----
+
+    /// <summary>
+    /// The best-matching reference signature for one extracted signature, by cosine similarity
+    /// (Alexandrov et al. 2013/2020; Islam et al. 2022 — de-novo signatures are matched to references by
+    /// maximising cosine similarity).
+    /// </summary>
+    /// <param name="ExtractedIndex">Index of the extracted signature this match describes.</param>
+    /// <param name="ReferenceIndex">Index of the closest reference signature.</param>
+    /// <param name="CosineSimilarity">
+    /// The cosine similarity in [0, 1] between the extracted signature and the closest reference (1 = identical
+    /// direction). Cosine is scale-invariant, so a positively-scaled copy of a reference matches it with 1.0.
+    /// </param>
+    public readonly record struct SignatureMatch(
+        int ExtractedIndex,
+        int ReferenceIndex,
+        double CosineSimilarity);
+
+    /// <summary>
+    /// Matches each extracted (de-novo) signature to its closest reference signature by cosine similarity,
+    /// labelling each extracted signature with the index of the best-matching reference and the cosine value
+    /// (Alexandrov et al. 2013/2020; Islam et al. 2022). The reference set is <b>caller-supplied</b> (e.g. COSMIC
+    /// SBS profiles) — no profiles are hardcoded. This is the per-signature reduction of SigProfiler's Hungarian
+    /// "maximise total cosine" pairing: each extracted signature is labelled with its single nearest reference.
+    /// </summary>
+    /// <param name="extractedSignatures">
+    /// The de-novo signatures to label (e.g. <see cref="SignatureExtractionResult.Signatures"/>); one channel
+    /// vector per signature.
+    /// </param>
+    /// <param name="referenceSignatures">
+    /// The reference signatures to match against (e.g. COSMIC SBS); one channel vector per reference, each of the
+    /// same channel count as the extracted signatures.
+    /// </param>
+    /// <returns>One <see cref="SignatureMatch"/> per extracted signature, in extracted order.</returns>
+    /// <exception cref="ArgumentNullException">Any argument or signature vector is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// Either set is empty, signatures are ragged, or the extracted and reference channel counts differ.
+    /// </exception>
+    public static IReadOnlyList<SignatureMatch> MatchToReferenceSignatures(
+        IReadOnlyList<IReadOnlyList<double>> extractedSignatures,
+        IReadOnlyList<IReadOnlyList<double>> referenceSignatures)
+    {
+        int extractedChannels = ValidateSignatures(extractedSignatures);
+        int referenceChannels = ValidateSignatures(referenceSignatures);
+
+        if (extractedChannels != referenceChannels)
+        {
+            throw new ArgumentException(
+                $"Extracted signatures have {extractedChannels} channels but reference signatures have "
+                + $"{referenceChannels}; they must match.", nameof(referenceSignatures));
+        }
+
+        var matches = new List<SignatureMatch>(extractedSignatures.Count);
+        for (int e = 0; e < extractedSignatures.Count; e++)
+        {
+            IReadOnlyList<double> extracted = extractedSignatures[e];
+            int bestRef = 0;
+            double bestCosine = CosineSimilarity(extracted, referenceSignatures[0]);
+            for (int r = 1; r < referenceSignatures.Count; r++)
+            {
+                double cosine = CosineSimilarity(extracted, referenceSignatures[r]);
+                if (cosine > bestCosine)
+                {
+                    bestCosine = cosine;
+                    bestRef = r;
+                }
+            }
+
+            matches.Add(new SignatureMatch(e, bestRef, bestCosine));
+        }
+
+        return matches;
     }
 
     #endregion
