@@ -217,10 +217,10 @@ Mutation testing вимірює ефективність тестового на
 | 187 | ☐ | VARIANT-CALL-001 | Variants | VariantCaller.cs | VariantCaller_CallVariants_Tests.cs | ≥ 80% |
 | 188 | ☐ | VARIANT-INDEL-001 | Variants | VariantCaller.cs | VariantCaller_FindIndels_Tests.cs | ≥ 80% |
 | 189 | ☐ | VARIANT-SNP-001 | Variants | VariantCaller.cs | VariantCaller_FindSnps_Tests.cs | ≥ 80% |
-| 190 | ☐ | PANGEN-CLUSTER-001 | PanGenome | PanGenomeAnalyzer.cs | PanGenomeAnalyzer_ClusterGenes_Tests.cs | ≥ 80% |
-| 191 | ☐ | PANGEN-CORE-001 | PanGenome | PanGenomeAnalyzer.cs | PanGenomeAnalyzer_ConstructPanGenome_Tests.cs | ≥ 80% |
-| 192 | ☐ | PANGEN-HEAP-001 | PanGenome | PanGenomeAnalyzer.cs | PanGenomeAnalyzer_FitHeapsLaw_Tests.cs | ≥ 80% |
-| 193 | ☐ | PANGEN-MARKER-001 | PanGenome | PanGenomeAnalyzer.cs | PanGenomeAnalyzer_SelectPhylogeneticMarkers_Tests.cs | ≥ 80% |
+| 190 | ☑ | PANGEN-CLUSTER-001 | PanGenome | PanGenomeAnalyzer.cs | PanGenomeAnalyzer_ClusterGenes_Tests.cs | ≥ 80% |
+| 191 | ☑ | PANGEN-CORE-001 | PanGenome | PanGenomeAnalyzer.cs | PanGenomeAnalyzer_ConstructPanGenome_Tests.cs | ≥ 80% |
+| 192 | ☑ | PANGEN-HEAP-001 | PanGenome | PanGenomeAnalyzer.cs | PanGenomeAnalyzer_FitHeapsLaw_Tests.cs | ≥ 80% |
+| 193 | ☑ | PANGEN-MARKER-001 | PanGenome | PanGenomeAnalyzer.cs | PanGenomeAnalyzer_SelectPhylogeneticMarkers_Tests.cs | ≥ 80% |
 | 194 | ☑ | META-FUNC-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_PredictFunctions_Tests.cs | ≥ 80% |
 | 195 | ☑ | META-PATHWAY-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_FindPathwayEnrichment_Tests.cs | ≥ 80% |
 | 196 | ☑ | META-RESIST-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_FindAntibioticResistanceGenes_Tests.cs | ≥ 80% |
@@ -270,7 +270,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete (run + killers written) | 215 |
-| ☐ Not started | 19 |
+| ☑ Complete (run + killers written) | 219 |
+| ☐ Not started | 15 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
