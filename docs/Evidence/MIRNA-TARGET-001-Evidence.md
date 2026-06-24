@@ -84,7 +84,7 @@ For a 6mer site: `...UACCUC...` (match to pos 2-7 only)
 | Source | How retrieved | Key fact extracted |
 |--------|---------------|--------------------|
 | `Agarwal_2015_parameters.txt` (TargetScan distribution) | `curl https://raw.githubusercontent.com/nsoranzo/targetscan/main/Agarwal_2015_parameters.txt` (2026-06-24) | Plaintext fitted coefficients (coeff/min/max) for 21 feature rows + Intercept, one column **per site type** (column order: 8mer / 7mer-m8 / 7mer-A1 / 6mer). |
-| `targetscan_70_context_scores.pl` (TargetScan distribution) | `curl https://raw.githubusercontent.com/nsoranzo/targetscan/main/targetscan_70_context_scores.pl` (2026-06-24) | `getAgarwalContribution`, `getLocalAU_contribution`, `get_sRNA1_8_contributions`, `getSite8_contribution`, `readAgarwalParameters`, CS sum (lines ~404–411). Defines feature computation + scaling. |
+| `targetscan_70_context_scores.pl` (TargetScan distribution) | `curl https://raw.githubusercontent.com/nsoranzo/targetscan/main/targetscan_70_context_scores.pl` (2026-06-24) | `getAgarwalContribution` (l.1678), `getLocalAU_contribution` (l.1081), `get_sRNA1_8_contributions`, `getSite8_contribution`, `get3primePairingContribution` (l.1234) + `extractSubseqForAlignment` (l.936) + `modifySubseqForAlignment` (l.1026), `getMinDist_weighted_contribution` (l.1182), `get_len3UTR_weighted_contribution` (l.1912), `getOffset6merSites` (l.2185) + `getOffset6mer_weighted_contribution` (l.2046), CS sum (l.404–411). Defines feature computation + scaling. 3P_score raw values reproduced by running these subs on test fixtures. |
 | Agarwal V, Bell GW, Nam JW, Bartel DP (2015) eLife 4:e05005 | WebFetch https://pmc.ncbi.nlm.nih.gov/articles/PMC4532895/ (2026-06-24) | "Using the 14 robustly selected features, we trained multiple linear regression models on all of the data. The resulting models, **one for each of the four site types**, were collectively called the context++ model." Continuous features scaled to comparable ranges; nucleotide-identity features categorical. doi:10.7554/eLife.05005 |
 | hsa-miR-122-5p | WebFetch https://mirbase.org/mature/MIMAT0000421 (2026-06-24) | Mature sequence `UGGAGUGUGACAAUGGUGUUUG` (cross-check of nt1/nt8 handling). |
 
@@ -111,12 +111,42 @@ The context++ score (CS) of a site is the **sum of per-feature contributions** o
 | Site8A | (n/a) | (n/a) | 0.000 | -0.002 | 0 | 1 |
 | Site8C | (n/a) | (n/a) | 0.036 | 0.015 | 0 | 1 |
 | Site8G | (n/a) | (n/a) | 0.015 | 0.012 | 0 | 1 |
+| 3P_score | -0.040 | -0.055 | -0.060 | -0.024 | 1 / 1 / 1 / 1 | 3.5 / 3.5 / 3.5 / 3.5 |
+| Min_dist | 0.118 | 0.056 | 0.045 | 0.036 | 1.415 / 1.491 / 1.431 / 1.477 | 3.113 / 3.096 / 3.117 / 3.106 |
+| Len_3UTR | 0.310 | 0.154 | 0.129 | 0.045 | 2.392 / 2.409 / 2.413 / 2.405 | 3.637 / 3.615 / 3.630 / 3.620 |
+| Off6m | -0.020 | -0.011 | -0.020 | -0.010 | 0 (used raw) | — |
+| SPS | 0.210 | 0.135 | 0.095 | 0.035 | -11.13 / -11.13 / -8.41 / -8.57 | -5.52 / -5.49 / -3.33 / -3.33 |
+| TA_3UTR | 0.222 | 0.139 | 0.117 | 0.058 | 3.113 / 3.067 / 3.145 / 3.113 | 3.865 / 3.887 / 3.887 / 3.887 |
+| Len_ORF | 0.205 | 0.100 | 0.063 | 0.029 | 2.788 / 2.773 / 2.773 / 2.775 | 3.753 / 3.729 / 3.730 / 3.731 |
+| ORF8m | -0.118 | -0.044 | -0.058 | -0.060 | 0 (used raw) | — |
+| SA | -0.115 | -0.134 | -0.077 | -0.028 | -4.356 / -5.218 / -4.230 / -5.082 | -0.661 / -0.725 / -0.588 / -0.666 |
+| PCT | -0.103 | -0.048 | -0.048 | 0.005 | 0 | 0.816 / 0.364 / 0.449 / 0.193 |
 
-Site8 features are computed by the perl **only for 7mer-A1 (siteType 1) and 6mer (siteType 4)**; the parameter file leaves the 8mer/7mer-m8 cells blank.
+Site8 features are computed by the perl **only for 7mer-A1 (siteType 1) and 6mer (siteType 4)**; the parameter file leaves the 8mer/7mer-m8 cells blank. (Verbatim from `Agarwal_2015_parameters.txt`, column order 8mer / 7mer-m8 / 7mer-A1 / 6mer.)
 
-### Locally-computable subset realised (and the honest residual)
+### 3P_score — 3' supplementary pairing (verbatim from `get3primePairingContribution`)
 
-Only features depending solely on the **miRNA** and the **local 3'UTR** are realised: **Intercept, Local_AU, sRNA1{A,C,G}, sRNA8{A,C,G}, Site8{A,C,G}**. The remaining full-transcript features are **NOT computed** and are reported as the residual: `3P_score` (3' supplementary pairing), `SPS`, `TA_3UTR`, `Min_dist`, `SA` (structural accessibility), `PCT`, `Len_3UTR`, `Len_ORF`, `ORF8m`, `Off6m`. Because most omitted coefficients are negative, the partial CS is an **upper bound** on the full context++ score.
+The UTR subsequence and reversed mature miRNA are built by `extractSubseqForAlignment` (UTR window from `utrStart−16` to `utrEnd(+1)`, padded to `$DESIRED_UTR_ALIGNMENT_LENGTH = 23` with N's) and `modifySubseqForAlignment`. `get3primePairingContribution` then reverses both, drops the seed-paired prefix using per-site-type `seedinfo{utrstart}` / `mirnastart` / `overhang`, and for every single-gap offset (in both the UTR and the miRNA strand) sums, over each contiguous run of ≥2 base pairs, `+1.0` when the offset-adjusted position `(i+offset−overhang)` (top) or `(i−overhang)` (bottom) is in `4..7`, else `+0.5`; base pairs are A:U/U:A (`code product = 2`) or G:C/C:G (`= 12`). The per-offset run score has `max(0,(offset−2)/2)` subtracted; the raw 3P score is the maximum over all offsets/orientations. Then `getAgarwalContribution(type,"3P_score",raw)` min-max scales with min=1, max=3.5.
+
+### Min_dist (verbatim from `getMinDist_weighted_contribution`)
+
+Single-isoform: `distTo5primeEndOfUTR = siteStart − 1`, `distTo3primeEndOfUTR = AIR_end − siteEnd` (AIR_end = UTR length), `distToNearestEndOfUTR = min(...)`; transformed `log10(dist)` (0 when dist=0), then min-max scaled by the per-site-type Min_dist coeff.
+
+### Len_3UTR (verbatim from `get_len3UTR_weighted_contribution`)
+
+Single-isoform: `utrLength = AIR_end` (UTR length); `log10(utrLength)`, then min-max scaled by the per-site-type Len_3UTR coeff.
+
+### Off6m (verbatim from `getOffset6merSites` + `getOffset6mer_weighted_contribution`)
+
+`siteToFind = substr(reverse_complement(seedRegion), 0, 6)` where `seedRegion = miRNA nt 2–8`; Off6m = number of (case-insensitive) occurrences of that 6mer in the UTR (single-isoform). Used **raw** (Off6m is not in the min-max regex): contribution = `coeff × count`.
+
+### Caller-supplied (data-blocked) features — SPS / TA_3UTR / Len_ORF / ORF8m
+
+These cannot be derived from a single 3'UTR sequence: **SPS** is a lookup in the Garcia et al. (2011) `TA_SPS_by_seed_region.txt` table (4096 seed regions; not a formula), **TA_3UTR** is a transcriptome-wide site count, **Len_ORF** needs the transcript ORF length, **ORF8m** needs a precomputed ORF 8mer count. The implementation accepts each as an OPTIONAL caller-supplied value and applies the exact `getAgarwalContribution` math (SPS/TA/Len_ORF min-max scaled — Len_ORF after `log10` — and ORF8m used raw); when not supplied they stay residual.
+
+### Honest residual (always omitted)
+
+**SA** (structural accessibility) is the **RNAplfold partition-function** unpaired probability of a 14-nt window (`RNAplfold -L 40 -W 80 -u 20`, then `log10`), NOT an MFE quantity; the library has only MFE folding, so SA is left as an honest residual rather than MFE-approximated. **PCT** (probability of conserved targeting) requires a multiple-species alignment / branch length. These two are reported in `OmittedFeatures` for every call.
 
 ### Local_AU computation (verbatim from `getLocalAU_contribution`)
 

@@ -464,10 +464,13 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
     //   Agarwal_2015_parameters.txt — TargetScan distribution
     //   https://raw.githubusercontent.com/nsoranzo/targetscan/main/Agarwal_2015_parameters.txt
     // Source (feature computation/scaling, retrieved verbatim this session):
-    //   targetscan_70_context_scores.pl getAgarwalContribution/getLocalAU_contribution/
-    //   get_sRNA1_8_contributions/getSite8_contribution
+    //   targetscan_70_context_scores.pl getAgarwalContribution / getLocalAU_contribution /
+    //   get_sRNA1_8_contributions / getSite8_contribution / get3primePairingContribution /
+    //   getMinDist_weighted_contribution / get_len3UTR_weighted_contribution /
+    //   getOffset6mer_weighted_contribution + getOffset6merSites
     //   https://raw.githubusercontent.com/nsoranzo/targetscan/main/targetscan_70_context_scores.pl
     // Peer-reviewed model: Agarwal V et al. (2015) eLife 4:e05005, doi:10.7554/eLife.05005.
+    // 3P_score raw values below were cross-checked by running the perl on the same UTR/miRNA.
     //
     // Each expected value below is hand-derived from those retrieved coefficients × feature
     // values (see per-test derivation comments), NOT copied from the implementation output.
@@ -479,12 +482,15 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
     public void ScoreTargetSiteContextPlusPlus_8merLet7a_GcFlanks_MatchesHandDerivedScore()
     {
         // let-7a-5p UGAGGUAGUAGGUUGUAUAGUU: nt1=U (⇒ sRNA1=0), nt8=G (⇒ sRNA8G).
-        // 8mer layout: GGGGG + CUACCUCA + GGGGG → site Start=5,End=12; flanks all G ⇒ local-AU fraction=0.
-        // CS_partial = Intercept(8mer) + Local_AU + sRNA8G(8mer)
-        //   Intercept(8mer)          = -0.589
-        //   Local_AU = -0.254 × ((0 - 0.308)/(0.814 - 0.308)) = +0.154608695652174
-        //   sRNA8G(8mer)             = +0.015  ;  sRNA1=0 (nt1=U), Site8=0 (8mer)
-        //   ⇒ CS_partial            = -0.419391304347826
+        // 8mer layout: GGGGG + CUACCUCA + GGGGG → site Start=5,End=12 (len 18); flanks all G ⇒ local-AU fraction=0.
+        // Now-computed local UTR features (all derived independently below; 3P raw=0 verified vs perl):
+        //   3P_score : raw=0 (no 3' complementarity) ⇒ scaled=(0-1)/(3.5-1)=-0.4 ; coeff(8mer)=-0.040 ⇒ +0.016
+        //   Min_dist : perlStart=6,distTo5=5 ; perlEnd=13,distTo3=18-13=5 ; min=5 ; log10(5)=0.698970004336
+        //              scaled=(0.698970004336-1.415)/(3.113-1.415) ; coeff=0.118 ⇒ -0.049759446106213065
+        //   Len_3UTR : log10(18)=1.255272505103 ; scaled=(…-2.392)/(3.637-2.392) ; coeff=0.310 ⇒ -0.2830405810586145
+        //   Off6m    : pattern "CUACCU" (first 6 of revcomp of seed GAGGUAG) occurs 1× ; coeff(8mer)=-0.020 ⇒ -0.020
+        //   Intercept(8mer)=-0.589 ; Local_AU=-0.254×((0-0.308)/(0.814-0.308))=+0.154608695652174 ; sRNA8G(8mer)=+0.015
+        //   ⇒ CS_partial = -0.7561913315126536
         string mrna = "GGGGG" + Let7aSeedRC + "A" + "GGGGG";
         var site = FindTargetSites(mrna, Let7a, minScore: 0.0).Single();
 
@@ -499,7 +505,15 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
             Assert.That(ctx.SRna1Contribution, Is.EqualTo(0.0).Within(1e-9), "nt1=U ⇒ sRNA1 not scored");
             Assert.That(ctx.SRna8Contribution, Is.EqualTo(0.015).Within(1e-9), "nt8=G ⇒ sRNA8G(8mer)=0.015");
             Assert.That(ctx.Site8Contribution, Is.EqualTo(0.0).Within(1e-9), "Site8 undefined for 8mer");
-            Assert.That(ctx.ContextScorePartial, Is.EqualTo(-0.419391304347826).Within(1e-9),
+            Assert.That(ctx.ThreePrimePairingContribution, Is.EqualTo(0.016).Within(1e-9),
+                "3P raw=0 ⇒ -0.040×((0-1)/(3.5-1)) = +0.016");
+            Assert.That(ctx.MinDistContribution, Is.EqualTo(-0.049759446106213065).Within(1e-9),
+                "Min_dist = 0.118×((log10(5)-1.415)/(3.113-1.415))");
+            Assert.That(ctx.Len3UtrContribution, Is.EqualTo(-0.2830405810586145).Within(1e-9),
+                "Len_3UTR = 0.310×((log10(18)-2.392)/(3.637-2.392))");
+            Assert.That(ctx.Off6mContribution, Is.EqualTo(-0.020).Within(1e-9),
+                "Off6m = -0.020×1 (one offset-6mer 'CUACCU' in the UTR)");
+            Assert.That(ctx.ContextScorePartial, Is.EqualTo(-0.7561913315126536).Within(1e-9),
                 "8mer partial context++ = sum of realised contributions");
         });
     }
@@ -530,7 +544,15 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
                 "Local_AU = -0.177×((0-0.277)/(0.782-0.277))");
             Assert.That(ctx.SRna8Contribution, Is.EqualTo(-0.008).Within(1e-9), "nt8=G ⇒ sRNA8G(7mer-m8)=-0.008");
             Assert.That(ctx.Site8Contribution, Is.EqualTo(0.0).Within(1e-9), "Site8 undefined for 7mer-m8");
-            Assert.That(ctx.ContextScorePartial, Is.EqualTo(-0.134912871287129).Within(1e-9),
+            // 3P raw=0 ⇒ -0.055×((0-1)/2.5)=+0.022 ; Off6m 'CUACCU' once ⇒ -0.011 ; len=16, site Start=5/End=11.
+            Assert.That(ctx.ThreePrimePairingContribution, Is.EqualTo(0.022).Within(1e-9),
+                "3P raw=0 ⇒ -0.055×((0-1)/(3.5-1)) = +0.022");
+            Assert.That(ctx.MinDistContribution, Is.EqualTo(-0.031015975380457392).Within(1e-9),
+                "Min_dist(7mer-m8) = 0.056×((log10(4)-1.491)/(3.096-1.491)) [distTo3=16-12=4]");
+            Assert.That(ctx.Len3UtrContribution, Is.EqualTo(-0.15385698397262643).Within(1e-9),
+                "Len_3UTR(7mer-m8) = 0.154×((log10(16)-2.409)/(3.615-2.409))");
+            Assert.That(ctx.Off6mContribution, Is.EqualTo(-0.011).Within(1e-9), "Off6m = -0.011×1");
+            Assert.That(ctx.ContextScorePartial, Is.EqualTo(-0.3087858306402126).Within(1e-9),
                 "7mer-m8 partial context++");
         });
     }
@@ -563,7 +585,16 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
             Assert.That(ctx.SRna8Contribution, Is.EqualTo(-0.017).Within(1e-9), "nt8=G ⇒ sRNA8G(7mer-A1)=-0.017");
             Assert.That(ctx.Site8Contribution, Is.EqualTo(0.015).Within(1e-9),
                 "Site8 base 'G' ⇒ Site8G(7mer-A1)=0.015 (only defined for 7mer-A1/6mer)");
-            Assert.That(ctx.ContextScorePartial, Is.EqualTo(-0.141117647058824).Within(1e-9),
+            // 3P raw=0 ⇒ -0.060×((0-1)/2.5)=+0.024 ; Off6m: 'CUACCU' absent (UACCUC core only) ⇒ 0 ; len=16, Start=5/End=11.
+            Assert.That(ctx.ThreePrimePairingContribution, Is.EqualTo(0.024).Within(1e-9),
+                "3P raw=0 ⇒ -0.060×((0-1)/(3.5-1)) = +0.024");
+            Assert.That(ctx.MinDistContribution, Is.EqualTo(-0.022124733327545488).Within(1e-9),
+                "Min_dist(7mer-A1) = 0.045×((log10(4)-1.431)/(3.117-1.431))");
+            Assert.That(ctx.Len3UtrContribution, Is.EqualTo(-0.12813929518273268).Within(1e-9),
+                "Len_3UTR(7mer-A1) = 0.129×((log10(16)-2.413)/(3.630-2.413))");
+            Assert.That(ctx.Off6mContribution, Is.EqualTo(0.0).Within(1e-9),
+                "no 'CUACCU' offset-6mer in this UTR ⇒ Off6m=0");
+            Assert.That(ctx.ContextScorePartial, Is.EqualTo(-0.2673816755691017).Within(1e-9),
                 "7mer-A1 partial context++");
         });
     }
@@ -599,7 +630,15 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
             Assert.That(ctx.SRna8Contribution, Is.EqualTo(0.0).Within(1e-9), "nt8=U ⇒ sRNA8 not scored");
             Assert.That(ctx.Site8Contribution, Is.EqualTo(0.015).Within(1e-9),
                 "Site8 base 'C' ⇒ Site8C(6mer)=0.015");
-            Assert.That(ctx.ContextScorePartial, Is.EqualTo(-0.069211141060198).Within(1e-9),
+            // 3P raw=0 ⇒ -0.024×((0-1)/2.5)=+0.0096 ; miR-21 seed AGCUUAU ⇒ Off6m pattern absent ⇒ 0 ; len=16, Start=5/End=10.
+            Assert.That(ctx.ThreePrimePairingContribution, Is.EqualTo(0.0096).Within(1e-9),
+                "3P raw=0 ⇒ -0.024×((0-1)/(3.5-1)) = +0.0096");
+            Assert.That(ctx.MinDistContribution, Is.EqualTo(-0.017194033053347654).Within(1e-9),
+                "Min_dist(6mer) = 0.036×((log10(5)-1.477)/(3.106-1.477)) [distTo3=16-11=5]");
+            Assert.That(ctx.Len3UtrContribution, Is.EqualTo(-0.04447703767941017).Within(1e-9),
+                "Len_3UTR(6mer) = 0.045×((log10(16)-2.405)/(3.620-2.405))");
+            Assert.That(ctx.Off6mContribution, Is.EqualTo(0.0).Within(1e-9), "no miR-21 offset-6mer in this UTR");
+            Assert.That(ctx.ContextScorePartial, Is.EqualTo(-0.12128221179295548).Within(1e-9),
                 "6mer partial context++");
         });
     }
@@ -649,13 +688,14 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
 
     #endregion
 
-    #region CTX-007: omitted full-transcript features reported — honest residual
+    #region CTX-007: residual features reported when no optional inputs supplied — honest residual
 
     [Test]
-    public void ScoreTargetSiteContextPlusPlus_ReportsOmittedFullTranscriptFeatures()
+    public void ScoreTargetSiteContextPlusPlus_NoOptionalInputs_ReportsResidualFeatures()
     {
-        // The locally-computable score is a PARTIAL context++; the omitted full-transcript
-        // features must be reported so callers know the residual (algorithm doc §5.3).
+        // With no caller-supplied inputs, the residual is exactly: SA, PCT (always blocked) +
+        // SPS, TA_3UTR, Len_ORF, ORF8m (data-blocked unless supplied). 3P_score, Min_dist,
+        // Len_3UTR and Off6m are now COMPUTED, so they must NOT appear as omitted.
         string mrna = "GGGGG" + Let7aSeedRC + "A" + "GGGGG";
         var site = FindTargetSites(mrna, Let7a, minScore: 0.0).Single();
 
@@ -663,11 +703,119 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(ctx.OmittedFeatures, Is.Not.Empty, "residual feature list must be reported");
-            Assert.That(ctx.OmittedFeatures, Has.Some.Contains("SPS"), "SPS is an omitted full-transcript feature");
-            Assert.That(ctx.OmittedFeatures, Has.Some.Contains("3P_score"),
-                "3' supplementary pairing is omitted");
-            Assert.That(ctx.OmittedFeatures, Has.Some.Contains("TA_3UTR"), "target-site abundance is omitted");
+            Assert.That(ctx.OmittedFeatures, Has.Some.Contains("SA"), "SA stays residual (RNAplfold PF, not MFE)");
+            Assert.That(ctx.OmittedFeatures, Has.Some.Contains("PCT"), "PCT stays residual (needs alignment)");
+            Assert.That(ctx.OmittedFeatures, Has.Some.Contains("SPS"), "SPS omitted unless supplied");
+            Assert.That(ctx.OmittedFeatures, Has.Some.Contains("TA_3UTR"), "TA omitted unless supplied");
+            Assert.That(ctx.OmittedFeatures, Has.Some.Contains("Len_ORF"), "Len_ORF omitted unless supplied");
+            Assert.That(ctx.OmittedFeatures, Has.Some.Contains("ORF8m"), "ORF8m omitted unless supplied");
+            Assert.That(ctx.OmittedFeatures, Has.None.Contains("3P_score"),
+                "3' supplementary pairing is now computed, not omitted");
+            Assert.That(ctx.OmittedFeatures, Has.None.Contains("Min_dist"), "Min_dist is now computed");
+            Assert.That(ctx.OmittedFeatures, Has.None.Contains("Len_3UTR"), "Len_3UTR is now computed");
+            Assert.That(ctx.OmittedFeatures, Has.None.Contains("Off6m"), "Off6m is now computed");
+        });
+    }
+
+    #endregion
+
+    #region CTX-008: 3P_score with real 3' supplementary pairing — DP raw score (vs targetscan perl)
+
+    [Test]
+    public void ScoreTargetSiteContextPlusPlus_3PrimeSupplementaryPairing_8mer_MatchesScaledRawScore()
+    {
+        // UTR carries a 3'-supplementary complement (ACAACCUA…) upstream of the let-7a seed match.
+        // get3primePairingContribution (faithful port) yields raw 3P score = 6 for this site, which
+        // was reproduced exactly by running targetscan_70_context_scores.pl on the same UTR/miRNA.
+        // scaled = (6 - 1)/(3.5 - 1) = 2.0 ; coeff(8mer)=-0.040 ⇒ 3P contribution = -0.080.
+        string mrna = "AAAAAACAACCUAACUACCUCAGGG";
+        var site = FindTargetSites(mrna, Let7a, minScore: 0.0).First(s => s.Type == TargetSiteType.Seed8mer);
+
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, Let7a, site);
+
+        Assert.That(ctx.ThreePrimePairingContribution, Is.EqualTo(-0.080).Within(1e-9),
+            "raw 3P=6 (perl-verified) ⇒ -0.040×((6-1)/(3.5-1)) = -0.080");
+    }
+
+    #endregion
+
+    #region CTX-009: 3P_score across site types — raw scores reproduce the perl reference
+
+    [TestCase("GGGACAACCUAGGGGGCUACCUCAGGG", TargetSiteType.Seed8mer, -0.040, 4.5)]   // raw 4.5
+    [TestCase("AAAACAACCUAAUACCUCAGGGG", TargetSiteType.Seed7merA1, -0.060, 6.0)]     // raw 6
+    public void ScoreTargetSiteContextPlusPlus_3PrimeRawScore_PerlReference(
+        string mrna, TargetSiteType expectedType, double coeff3P, double rawScore)
+    {
+        // Raw 3P score for each fixture was computed by running the TargetScan reference perl
+        // (get3primePairingContribution) on the identical UTR/miRNA/site coordinates.
+        // Expected contribution = coeff(siteType,3P_score) × ((raw - 1)/(3.5 - 1)).
+        double expected = coeff3P * ((rawScore - 1.0) / (3.5 - 1.0));
+        var site = FindTargetSites(mrna, Let7a, minScore: 0.0).First(s => s.Type == expectedType);
+
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, Let7a, site);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(site.Type, Is.EqualTo(expectedType), "fixture must be the expected site type");
+            Assert.That(ctx.ThreePrimePairingContribution, Is.EqualTo(expected).Within(1e-9),
+                $"3P = {coeff3P}×((raw {rawScore} - 1)/2.5)");
+        });
+    }
+
+    #endregion
+
+    #region CTX-010: Off6m counts every offset-6mer occurrence (used raw, no scaling)
+
+    [Test]
+    public void ScoreTargetSiteContextPlusPlus_TwoOffset6mers_CountedRaw()
+    {
+        // Offset-6mer pattern = first 6 nt of revcomp(let-7a seed GAGGUAG) = "CUACCU".
+        // This UTR contains it twice (a bare CUACCU and the CUACCU inside the 8mer CUACCUCA).
+        // Off6m is used RAW (not min-max scaled): contribution = coeff(8mer) × count = -0.020 × 2.
+        string mrna = "GGGCUACCUGGGGGCUACCUCAGGG";
+        var site = FindTargetSites(mrna, Let7a, minScore: 0.0).First(s => s.Type == TargetSiteType.Seed8mer);
+
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, Let7a, site);
+
+        Assert.That(ctx.Off6mContribution, Is.EqualTo(-0.040).Within(1e-9),
+            "two 'CUACCU' offset-6mers ⇒ -0.020 × 2 = -0.040");
+    }
+
+    #endregion
+
+    #region CTX-011: caller-supplied SPS / TA / Len_ORF / ORF8m computed and removed from residual
+
+    [Test]
+    public void ScoreTargetSiteContextPlusPlus_SuppliedInputs_8mer_MatchHandDerivedAndDropFromResidual()
+    {
+        // Faithful Agarwal contributions for caller-supplied values on an 8mer site:
+        //   SPS=-8.0   : scaled=(-8.0-(-11.13))/(-5.52-(-11.13)) ; coeff=0.210 ⇒ +0.11716577540106952
+        //   TA=3.5     : scaled=(3.5-3.113)/(3.865-3.113)         ; coeff=0.222 ⇒ +0.11424734042553189
+        //   Len_ORF=1000: log10=3 ; scaled=(3-2.788)/(3.753-2.788); coeff=0.205 ⇒ +0.04503626943005184
+        //   ORF8m=2    : used raw ; coeff=-0.118 × 2              ⇒ -0.236
+        string mrna = "AAAAAACAACCUAACUACCUCAGGG";
+        var site = FindTargetSites(mrna, Let7a, minScore: 0.0).First(s => s.Type == TargetSiteType.Seed8mer);
+        var inputs = new ContextPlusPlusInputs(Sps: -8.0, Ta: 3.5, OrfLength: 1000, Orf8mCount: 2);
+
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, Let7a, site, inputs);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ctx.SpsContribution, Is.EqualTo(0.11716577540106952).Within(1e-9),
+                "SPS = 0.210×((-8.0+11.13)/(-5.52+11.13))");
+            Assert.That(ctx.TaContribution, Is.EqualTo(0.11424734042553189).Within(1e-9),
+                "TA = 0.222×((3.5-3.113)/(3.865-3.113))");
+            Assert.That(ctx.LenOrfContribution, Is.EqualTo(0.04503626943005184).Within(1e-9),
+                "Len_ORF = 0.205×((log10(1000)-2.788)/(3.753-2.788))");
+            Assert.That(ctx.Orf8mContribution, Is.EqualTo(-0.236).Within(1e-9),
+                "ORF8m raw = -0.118×2");
+            Assert.That(ctx.OmittedFeatures, Has.None.Contains("SPS"), "supplied SPS leaves residual");
+            Assert.That(ctx.OmittedFeatures, Has.None.Contains("TA_3UTR"), "supplied TA leaves residual");
+            Assert.That(ctx.OmittedFeatures, Has.None.Contains("Len_ORF"), "supplied Len_ORF leaves residual");
+            Assert.That(ctx.OmittedFeatures, Has.None.Contains("ORF8m"), "supplied ORF8m leaves residual");
+            // Only SA and PCT remain residual once all data-blocked inputs are supplied.
+            Assert.That(ctx.OmittedFeatures, Has.Some.Contains("SA"), "SA still residual");
+            Assert.That(ctx.OmittedFeatures, Has.Some.Contains("PCT"), "PCT still residual");
         });
     }
 

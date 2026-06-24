@@ -499,8 +499,16 @@ public static class MiRnaAnalyzer
     /// <param name="SRna1Contribution">Sum of sRNA1A/C/G indicator contributions (0 if miRNA nt1 = U).</param>
     /// <param name="SRna8Contribution">Sum of sRNA8A/C/G indicator contributions (0 if miRNA nt8 = U).</param>
     /// <param name="Site8Contribution">Sum of Site8A/C/G contributions (only 7mer-A1 / 6mer; else 0).</param>
+    /// <param name="ThreePrimePairingContribution">coeff(3P_score) × scaled(3' supplementary-pairing raw score). Computed from miRNA + 3'UTR.</param>
+    /// <param name="MinDistContribution">coeff(Min_dist) × scaled(log10 distance to nearest 3'UTR end). Computed from the 3'UTR.</param>
+    /// <param name="Len3UtrContribution">coeff(Len_3UTR) × scaled(log10 3'UTR length). Computed from the 3'UTR.</param>
+    /// <param name="Off6mContribution">coeff(Off6m) × offset-6mer count in the 3'UTR (used raw). Computed from miRNA + 3'UTR.</param>
+    /// <param name="SpsContribution">coeff(SPS) × scaled(caller-supplied SPS). 0 (and listed as omitted) unless an SPS value is supplied.</param>
+    /// <param name="TaContribution">coeff(TA_3UTR) × scaled(caller-supplied TA). 0 (and listed as omitted) unless a TA value is supplied.</param>
+    /// <param name="LenOrfContribution">coeff(Len_ORF) × scaled(log10 caller-supplied ORF length). 0 (and listed as omitted) unless an ORF length is supplied.</param>
+    /// <param name="Orf8mContribution">coeff(ORF8m) × caller-supplied ORF-8mer count (used raw). 0 (and listed as omitted) unless an ORF-8mer count is supplied.</param>
     /// <param name="ContextScorePartial">Sum of all realised contributions above.</param>
-    /// <param name="OmittedFeatures">Full-transcript context++ features NOT included (honest residual).</param>
+    /// <param name="OmittedFeatures">context++ features NOT included for this call (honest residual; depends on which optional inputs were supplied).</param>
     public readonly record struct ContextPlusPlusScore(
         TargetSiteType SiteType,
         double Intercept,
@@ -508,8 +516,33 @@ public static class MiRnaAnalyzer
         double SRna1Contribution,
         double SRna8Contribution,
         double Site8Contribution,
+        double ThreePrimePairingContribution,
+        double MinDistContribution,
+        double Len3UtrContribution,
+        double Off6mContribution,
+        double SpsContribution,
+        double TaContribution,
+        double LenOrfContribution,
+        double Orf8mContribution,
         double ContextScorePartial,
         IReadOnlyList<string> OmittedFeatures);
+
+    /// <summary>
+    /// Optional, caller-supplied context++ feature inputs that the library cannot derive from the
+    /// miRNA and 3'UTR sequence alone, but whose contribution is computed FAITHFULLY (verbatim
+    /// Agarwal et al. 2015 coefficient × scaling) when the caller provides the value.
+    /// All are <c>null</c> by default; a null input means the feature stays an honest residual
+    /// (reported in <see cref="ContextPlusPlusScore.OmittedFeatures"/>) and contributes 0.
+    /// </summary>
+    /// <param name="Sps">Predicted seed-pairing stability (Garcia et al. 2011 table value, kcal/mol; min-max scaled per site type). Data-blocked: requires the Garcia seed-region table.</param>
+    /// <param name="Ta">Target-site abundance (transcriptome-wide log10 site count; min-max scaled). Data-blocked: requires a transcriptome.</param>
+    /// <param name="OrfLength">ORF (CDS) length in nucleotides (log10-transformed, then min-max scaled). Requires the transcript's ORF.</param>
+    /// <param name="Orf8mCount">Count of cognate 8mer sites in the ORF (used raw, no scaling). Requires the transcript's ORF.</param>
+    public readonly record struct ContextPlusPlusInputs(
+        double? Sps = null,
+        double? Ta = null,
+        double? OrfLength = null,
+        int? Orf8mCount = null);
 
     // ── Agarwal et al. (2015) context++ fitted coefficients ──────────────────────────────
     // Source (retrieved verbatim this session): TargetScan distribution parameter file
@@ -551,9 +584,61 @@ public static class MiRnaAnalyzer
     private const double CtxSite8C7merA1 = 0.036, CtxSite8C6mer = 0.015;
     private const double CtxSite8G7merA1 = 0.015, CtxSite8G6mer = 0.012;
 
+    // 3P_score row (3' supplementary pairing): coeff, then min/max for min-max scaling of the raw
+    // pairing score. Agarwal_2015_parameters.txt: min=1, max=3.5 for all four site types.
+    private const double Ctx3PCoeff8mer = -0.040, Ctx3PCoeff7merM8 = -0.055, Ctx3PCoeff7merA1 = -0.060, Ctx3PCoeff6mer = -0.024;
+    private const double Ctx3PMin = 1.0, Ctx3PMax = 3.5;
+
+    // Min_dist row: coeff, then min/max for min-max scaling of log10(distance to nearest 3'UTR end).
+    private const double CtxMinDistCoeff8mer = 0.118, CtxMinDistCoeff7merM8 = 0.056, CtxMinDistCoeff7merA1 = 0.045, CtxMinDistCoeff6mer = 0.036;
+    private const double CtxMinDistMin8mer = 1.415, CtxMinDistMax8mer = 3.113;
+    private const double CtxMinDistMin7merM8 = 1.491, CtxMinDistMax7merM8 = 3.096;
+    private const double CtxMinDistMin7merA1 = 1.431, CtxMinDistMax7merA1 = 3.117;
+    private const double CtxMinDistMin6mer = 1.477, CtxMinDistMax6mer = 3.106;
+
+    // Len_3UTR row: coeff, then min/max for min-max scaling of log10(3'UTR length).
+    private const double CtxLen3UtrCoeff8mer = 0.310, CtxLen3UtrCoeff7merM8 = 0.154, CtxLen3UtrCoeff7merA1 = 0.129, CtxLen3UtrCoeff6mer = 0.045;
+    private const double CtxLen3UtrMin8mer = 2.392, CtxLen3UtrMax8mer = 3.637;
+    private const double CtxLen3UtrMin7merM8 = 2.409, CtxLen3UtrMax7merM8 = 3.615;
+    private const double CtxLen3UtrMin7merA1 = 2.413, CtxLen3UtrMax7merA1 = 3.630;
+    private const double CtxLen3UtrMin6mer = 2.405, CtxLen3UtrMax6mer = 3.620;
+
+    // Off6m row (offset-6mer count): coeff only — used raw (NOT in the min-max regex of getAgarwalContribution).
+    private const double CtxOff6mCoeff8mer = -0.020, CtxOff6mCoeff7merM8 = -0.011, CtxOff6mCoeff7merA1 = -0.020, CtxOff6mCoeff6mer = -0.010;
+
+    // SPS row (seed-pairing stability; caller-supplied): coeff, then min/max for min-max scaling.
+    private const double CtxSpsCoeff8mer = 0.210, CtxSpsCoeff7merM8 = 0.135, CtxSpsCoeff7merA1 = 0.095, CtxSpsCoeff6mer = 0.035;
+    private const double CtxSpsMin8mer = -11.13, CtxSpsMax8mer = -5.52;
+    private const double CtxSpsMin7merM8 = -11.13, CtxSpsMax7merM8 = -5.49;
+    private const double CtxSpsMin7merA1 = -8.41, CtxSpsMax7merA1 = -3.33;
+    private const double CtxSpsMin6mer = -8.57, CtxSpsMax6mer = -3.33;
+
+    // TA_3UTR row (target-site abundance; caller-supplied): coeff, then min/max for min-max scaling.
+    private const double CtxTaCoeff8mer = 0.222, CtxTaCoeff7merM8 = 0.139, CtxTaCoeff7merA1 = 0.117, CtxTaCoeff6mer = 0.058;
+    private const double CtxTaMin8mer = 3.113, CtxTaMax8mer = 3.865;
+    private const double CtxTaMin7merM8 = 3.067, CtxTaMax7merM8 = 3.887;
+    private const double CtxTaMin7merA1 = 3.145, CtxTaMax7merA1 = 3.887;
+    private const double CtxTaMin6mer = 3.113, CtxTaMax6mer = 3.887;
+
+    // Len_ORF row (ORF length; caller-supplied): coeff, then min/max for min-max scaling of log10(ORF length).
+    private const double CtxLenOrfCoeff8mer = 0.205, CtxLenOrfCoeff7merM8 = 0.100, CtxLenOrfCoeff7merA1 = 0.063, CtxLenOrfCoeff6mer = 0.029;
+    private const double CtxLenOrfMin8mer = 2.788, CtxLenOrfMax8mer = 3.753;
+    private const double CtxLenOrfMin7merM8 = 2.773, CtxLenOrfMax7merM8 = 3.729;
+    private const double CtxLenOrfMin7merA1 = 2.773, CtxLenOrfMax7merA1 = 3.730;
+    private const double CtxLenOrfMin6mer = 2.775, CtxLenOrfMax6mer = 3.731;
+
+    // ORF8m row (ORF 8mer count; caller-supplied): coeff only — used raw (NOT min-max scaled).
+    private const double CtxOrf8mCoeff8mer = -0.118, CtxOrf8mCoeff7merM8 = -0.044, CtxOrf8mCoeff7merA1 = -0.058, CtxOrf8mCoeff6mer = -0.060;
+
     // Number of flanking nucleotides used for the local-AU feature (getLocalAU_contribution
     // extracts 30 nt up- and downstream of the site).
     private const int LocalAuFlankLength = 30;
+
+    // 3' supplementary-pairing alignment constants (targetscan_70_context_scores.pl):
+    //   $DESIRED_UTR_ALIGNMENT_LENGTH = 23; site-type-specific UTR start offset is 16 nt
+    //   upstream of the seed match.
+    private const int DesiredUtrAlignmentLength = 23;
+    private const int ThreePrimeUtrStartOffset = 16;
 
     /// <summary>
     /// Computes the locally-computable TargetScan context++ score (Agarwal et al. 2015) for one
@@ -562,20 +647,27 @@ public static class MiRnaAnalyzer
     /// on the miRNA and the local 3'UTR sequence — site-type intercept, local-AU, sRNA position-1/8
     /// nucleotide identity, and (for 7mer-A1 / 6mer) target site-position-8 identity — each computed
     /// and scaled exactly as in <c>targetscan_70_context_scores.pl</c>. Full-transcript features
-    /// (3' supplementary pairing, SPS, TA, minimum distance, structural accessibility, PCT, 3'UTR
-    /// and ORF length, ORF-8mer and offset-6mer counts) are NOT computed and are listed in
-    /// <see cref="ContextPlusPlusScore.OmittedFeatures"/>; the returned score is therefore a partial
-    /// context++ score, not the published headline CS.
+    /// 3' supplementary pairing (3P_score), minimum distance to the nearest 3'UTR end (Min_dist),
+    /// 3'UTR length (Len_3UTR), and offset-6mer count (Off6m) — each computed and scaled exactly as
+    /// in <c>targetscan_70_context_scores.pl</c>. Features that depend on data the library cannot
+    /// derive from the miRNA and 3'UTR (SPS, TA, ORF length, ORF-8mer count) are computed faithfully
+    /// only when the caller supplies them via <paramref name="inputs"/>; otherwise they contribute 0
+    /// and are reported in <see cref="ContextPlusPlusScore.OmittedFeatures"/>. Structural
+    /// accessibility (SA, an RNAplfold partition-function quantity) and conservation (PCT) remain
+    /// honest residuals. The returned score is therefore a PARTIAL context++ score, not the published
+    /// headline CS.
     /// </summary>
-    /// <param name="mRnaSequence">The mRNA / 3'UTR sequence the site was found in (RNA or DNA; T→U; case-insensitive).</param>
-    /// <param name="miRna">The miRNA (its <c>Sequence</c> supplies nt1 and nt8).</param>
+    /// <param name="mRnaSequence">The mRNA / 3'UTR sequence the site was found in (RNA or DNA; T→U; case-insensitive). Treated as the 3'UTR for the length / Min_dist / Off6m features.</param>
+    /// <param name="miRna">The miRNA (its <c>Sequence</c> supplies nt1, nt8, the seed and the 3' supplementary region).</param>
     /// <param name="site">A target site whose <c>Type</c> is one of the four canonical seed-match types.</param>
+    /// <param name="inputs">Optional caller-supplied feature values (SPS / TA / ORF length / ORF-8mer count) that cannot be derived from sequence alone.</param>
     /// <returns>The per-feature context++ contribution breakdown and their partial sum.</returns>
     /// <exception cref="ArgumentException">Thrown when <paramref name="site"/> is not one of the four canonical seed-match site types (8mer / 7mer-m8 / 7mer-A1 / 6mer).</exception>
     public static ContextPlusPlusScore ScoreTargetSiteContextPlusPlus(
         string mRnaSequence,
         MiRna miRna,
-        TargetSite site)
+        TargetSite site,
+        ContextPlusPlusInputs inputs = default)
     {
         if (site.Type is not (TargetSiteType.Seed8mer or TargetSiteType.Seed7merM8
             or TargetSiteType.Seed7merA1 or TargetSiteType.Seed6mer))
@@ -606,8 +698,19 @@ public static class MiRnaAnalyzer
         double sRna1 = SRna1Contribution(mirna, type);
         double sRna8 = SRna8Contribution(mirna, type);
         double site8 = Site8Contribution(mrna, site.Start, type);
+        double threeP = ThreePrimePairingContribution(mrna, mirna, site.Start, site.End, type);
+        double minDist = MinDistContribution(mrna, site.Start, site.End, type);
+        double len3Utr = Len3UtrContribution(mrna, type);
+        double off6m = Off6mContribution(mrna, mirna, type);
 
-        double partial = intercept + localAu + sRna1 + sRna8 + site8;
+        double sps = inputs.Sps is double spsRaw ? SpsContribution(spsRaw, type) : 0.0;
+        double ta = inputs.Ta is double taRaw ? TaContribution(taRaw, type) : 0.0;
+        double lenOrf = inputs.OrfLength is double orfLen ? LenOrfContribution(orfLen, type) : 0.0;
+        double orf8m = inputs.Orf8mCount is int orf8mCount ? Orf8mContribution(orf8mCount, type) : 0.0;
+
+        double partial = intercept + localAu + sRna1 + sRna8 + site8
+            + threeP + minDist + len3Utr + off6m
+            + sps + ta + lenOrf + orf8m;
 
         return new ContextPlusPlusScore(
             SiteType: type,
@@ -616,24 +719,36 @@ public static class MiRnaAnalyzer
             SRna1Contribution: sRna1,
             SRna8Contribution: sRna8,
             Site8Contribution: site8,
+            ThreePrimePairingContribution: threeP,
+            MinDistContribution: minDist,
+            Len3UtrContribution: len3Utr,
+            Off6mContribution: off6m,
+            SpsContribution: sps,
+            TaContribution: ta,
+            LenOrfContribution: lenOrf,
+            Orf8mContribution: orf8m,
             ContextScorePartial: partial,
-            OmittedFeatures: OmittedContextPlusPlusFeatures);
+            OmittedFeatures: BuildOmittedFeatures(inputs));
     }
 
-    /// <summary>Full-transcript context++ features that this local implementation does NOT compute.</summary>
-    private static readonly IReadOnlyList<string> OmittedContextPlusPlusFeatures = new[]
+    /// <summary>
+    /// context++ features that remain residual for a given call. SA (RNAplfold partition-function
+    /// accessibility) and PCT (conservation) are ALWAYS omitted (data-/method-blocked). SPS, TA,
+    /// ORF length and ORF-8mer count are omitted only when the caller did not supply them.
+    /// </summary>
+    private static IReadOnlyList<string> BuildOmittedFeatures(ContextPlusPlusInputs inputs)
     {
-        "3P_score (3' supplementary pairing)",
-        "SPS (predicted seed-pairing stability)",
-        "TA_3UTR (target-site abundance)",
-        "Min_dist (minimum distance to nearest 3'UTR end)",
-        "SA (structural accessibility)",
-        "PCT (probability of conserved targeting)",
-        "Len_3UTR (3'UTR length)",
-        "Len_ORF (ORF length)",
-        "ORF8m (ORF 8mer count)",
-        "Off6m (offset-6mer count in 3'UTR)"
-    };
+        var omitted = new List<string>
+        {
+            "SA (structural accessibility — RNAplfold partition-function unpaired probability)",
+            "PCT (probability of conserved targeting)"
+        };
+        if (inputs.Sps is null) omitted.Add("SPS (predicted seed-pairing stability — requires Garcia et al. 2011 seed-region table)");
+        if (inputs.Ta is null) omitted.Add("TA_3UTR (target-site abundance — requires a transcriptome)");
+        if (inputs.OrfLength is null) omitted.Add("Len_ORF (ORF length — requires the transcript ORF)");
+        if (inputs.Orf8mCount is null) omitted.Add("ORF8m (ORF 8mer count — requires the transcript ORF)");
+        return omitted;
+    }
 
     // Local_AU: faithful port of getLocalAU_contribution. The local-AU fraction is the
     // position-weighted A/U content of the 30 nt up- and downstream of the site; it is then
@@ -752,6 +867,371 @@ public static class MiRnaAnalyzer
             : (CtxSite8A6mer, CtxSite8C6mer, CtxSite8G6mer);
 
         return sitePos8 switch { 'A' => a, 'C' => c, 'G' => g, _ => 0.0 };
+    }
+
+    // ── Generic min-max scaling (getAgarwalContribution) ──────────────────────────────────
+    // Perl: scaledScore = (raw - min) / (max - min); contribution = coeff × scaledScore.
+    // NOT clamped to [0,1] (scaled values < 0 or > 1 are kept, exactly as in the perl).
+    private static double ScaledContribution(double raw, double coeff, double min, double max)
+        => max == min ? coeff * raw : coeff * ((raw - min) / (max - min));
+
+    // ── 3' supplementary pairing (3P_score) ───────────────────────────────────────────────
+    // Faithful port of get3primePairingContribution, fed by extractSubseqForAlignment +
+    // modifySubseqForAlignment (targetscan_70_context_scores.pl). The raw score is the maximum,
+    // over all single-gap offsets in both the UTR and the miRNA, of: 1.0 per contiguous-stretch
+    // base pair in the 3' "seed-supplementary" window (offset-adjusted positions 4..7) and 0.5
+    // elsewhere, summed only over runs of ≥2 consecutive pairs, minus max(0,(offset-2)/2). The
+    // raw score is then min-max scaled (min=1, max=3.5) and multiplied by the 3P_score coeff.
+    private static readonly int[] ThreePrimeUtrStart  = { 0, 8, 8, 8, 8 }; // index by perl siteType 1..4
+    private static readonly int[] ThreePrimeMiRnaStart = { 0, 7, 8, 8, 8 };
+    private static readonly int[] ThreePrimeOverhang   = { 0, 1, 0, 0, 0 };
+
+    private static double ThreePrimePairingContribution(string mrna, string mirna, int siteStart, int siteEnd, TargetSiteType type)
+    {
+        double raw = ThreePrimePairingRaw(mrna, mirna, siteStart, siteEnd, type);
+        (double coeff, double min, double max) = type switch
+        {
+            TargetSiteType.Seed8mer => (Ctx3PCoeff8mer, Ctx3PMin, Ctx3PMax),
+            TargetSiteType.Seed7merM8 => (Ctx3PCoeff7merM8, Ctx3PMin, Ctx3PMax),
+            TargetSiteType.Seed7merA1 => (Ctx3PCoeff7merA1, Ctx3PMin, Ctx3PMax),
+            _ => (Ctx3PCoeff6mer, Ctx3PMin, Ctx3PMax)
+        };
+        return ScaledContribution(raw, coeff, min, max);
+    }
+
+    // Perl site-type integers: 1 = 7mer-A1, 2 = 7mer-m8, 3 = 8mer, 4 = 6mer.
+    private static int PerlSiteType(TargetSiteType type) => type switch
+    {
+        TargetSiteType.Seed7merA1 => 1,
+        TargetSiteType.Seed7merM8 => 2,
+        TargetSiteType.Seed8mer => 3,
+        _ => 4
+    };
+
+    // Returns the raw 3P pairing score (the value getAgarwalContribution receives for "3P_score").
+    private static double ThreePrimePairingRaw(string mrna, string mirna, int siteStart, int siteEnd, TargetSiteType type)
+    {
+        if (mrna.Length == 0 || mirna.Length == 0) return 0.0;
+
+        int perlType = PerlSiteType(type);
+        // C# 0-based inclusive Start/End ↔ perl 1-based utrStart/utrEnd.
+        int utrStart = siteStart + 1;
+        int utrEnd = siteEnd + 1;
+
+        string subseq = ExtractSubseqForAlignment(mrna, utrStart, utrEnd, perlType);
+        (string finalUtr, string mirnaForAlign) = ModifySubseqForAlignment(mirna, subseq, perlType);
+        return ThreePrimePairingScore(perlType, finalUtr, mirnaForAlign);
+    }
+
+    // Port of extractSubseqForAlignment (siteType < 5 path only; the four canonical types).
+    private static string ExtractSubseqForAlignment(string utr, int utrStart, int utrEnd, int perlType)
+    {
+        int realStart = utrStart - ThreePrimeUtrStartOffset;
+        if (realStart < 0) realStart = 0;
+
+        // real_end = utrEnd + 1 for siteType 1, 2, 4; else utrEnd.
+        int realEnd = (perlType == 1 || perlType == 2 || perlType == 4) ? utrEnd + 1 : utrEnd;
+        if (realStart >= realEnd) realStart = 0;
+
+        int length = realEnd - realStart;
+        // substr in 0-based: perl coordinates are 1-based, so the 0-based offset is realStart-1...
+        // but the perl applies substr($seq, $real_start, $length) with $real_start already a
+        // sequence offset (it is utrStart-16 where utrStart is 1-based, so it doubles as 0-based
+        // start of the window). We mirror the perl arithmetic exactly using 0-based realStart.
+        int begin = realStart;
+        if (begin < 0) begin = 0;
+        int avail = Math.Max(0, utr.Length - begin);
+        int take = Math.Min(length, avail);
+        string sub = take > 0 ? utr.Substring(begin, take) : "";
+
+        // Pad leading N's up to DESIRED_UTR_ALIGNMENT_LENGTH (perl loop adds 23-len+1 N's).
+        if (DesiredUtrAlignmentLength > sub.Length)
+        {
+            int nCount = DesiredUtrAlignmentLength - sub.Length + 1;
+            sub = new string('N', nCount) + sub;
+        }
+
+        // Site at the very end of the UTR: perl appends trailing N's and converts a leading "NN".
+        if (utr.Length < (begin + length))
+        {
+            int lengthDiff = begin + length - utr.Length;
+            for (int i = 0; i < lengthDiff; i++)
+            {
+                sub += "N";
+                if (sub.StartsWith("NN", StringComparison.Ordinal))
+                    sub = "  " + sub.Substring(2);
+            }
+        }
+        return sub;
+    }
+
+    // Port of modifySubseqForAlignment.
+    private static (string finalUtr, string mirnaForAlign) ModifySubseqForAlignment(string matureMiRna, string subseq, int perlType)
+    {
+        int spacer1Length = matureMiRna.Length - DesiredUtrAlignmentLength;
+        string spacer1 = spacer1Length > 0 ? new string(' ', spacer1Length) : "";
+
+        int spacer2Length = spacer1Length < 0 ? -spacer1Length : 0;
+        var spacer2 = new StringBuilder(new string(' ', spacer2Length));
+
+        if (DesiredUtrAlignmentLength > subseq.Length)
+        {
+            int extra = DesiredUtrAlignmentLength - subseq.Length + 1;
+            spacer2.Append(' ', extra);
+        }
+
+        // 7mer-A1 (1) and 8mer (3): chop one char off spacer2.
+        if ((perlType == 1 || perlType == 3) && spacer2.Length > 0)
+            spacer2.Length -= 1;
+
+        string finalUtr = spacer1 + subseq;
+        char[] rev = matureMiRna.ToCharArray();
+        Array.Reverse(rev);
+        string mirnaForAlign = spacer2.ToString() + new string(rev);
+        return (finalUtr, mirnaForAlign);
+    }
+
+    // Port of get3primePairingContribution — returns the raw best score only.
+    private static double ThreePrimePairingScore(int perlType, string utrIn, string mirnaIn)
+    {
+        // Normalise: strip spaces/newlines, uppercase, T→U.
+        string utr = NormaliseForPairing(utrIn);
+        string mirna = NormaliseForPairing(mirnaIn);
+
+        // Reverse both (perl: $utr = reverse $utr; $mirna = reverse $mirna).
+        utr = Reverse(utr);
+        mirna = Reverse(mirna);
+
+        int utrStart = ThreePrimeUtrStart[perlType];
+        int mirnaStart = ThreePrimeMiRnaStart[perlType];
+        int overhang = ThreePrimeOverhang[perlType];
+
+        string utrNum = utrStart < utr.Length ? utr.Substring(utrStart) : "";
+        string mirnaNum = mirnaStart < mirna.Length ? mirna.Substring(mirnaStart) : "";
+
+        int maxScoreLen = Math.Max(utrNum.Length, mirnaNum.Length);
+
+        int[] UTR = ToBaseCodes(utrNum);
+        int[] MIRNA = ToBaseCodes(mirnaNum);
+
+        double bestScore = double.NegativeInfinity;
+
+        for (int offset = 0; offset < maxScoreLen; offset++)
+        {
+            // "top" gap orientation: MIRNA shifted by offset.
+            double topScore = PairingRunScore(UTR, MIRNA, offset, overhang, gapOnTop: true);
+            topScore -= Math.Max(0.0, (offset - 2) / 2.0);
+            if (topScore > bestScore) bestScore = topScore;
+
+            // "bottom" gap orientation: UTR shifted by offset.
+            double bottomScore = PairingRunScore(UTR, MIRNA, offset, overhang, gapOnTop: false);
+            bottomScore -= Math.Max(0.0, (offset - 2) / 2.0);
+            if (bottomScore > bestScore) bestScore = bottomScore;
+        }
+
+        return double.IsNegativeInfinity(bestScore) ? 0.0 : bestScore;
+    }
+
+    // One alignment offset: scores only runs of ≥2 consecutive base pairs, taking the best such run.
+    private static double PairingRunScore(int[] UTR, int[] MIRNA, int offset, int overhang, bool gapOnTop)
+    {
+        double score = 0.0;     // best committed run score for this offset
+        double tempscore = 0.0; // current run score
+        int prevmatch = 0;      // current run length
+
+        int limit = gapOnTop
+            ? Math.Min(MIRNA.Length - 1 - offset, UTR.Length - 1)
+            : Math.Min(UTR.Length - 1 - offset, MIRNA.Length - 1);
+
+        for (int i = 0; i <= limit; i++)
+        {
+            int u = gapOnTop ? UTR[i] : UTR[i + offset];
+            int m = gapOnTop ? MIRNA[i + offset] : MIRNA[i];
+            // Watson-Crick A:U/U:A → product 1×2 or 2×1 = 2; G:C/C:G → 3×4 or 4×3 = 12.
+            bool isPair = (u * m == 2) || (u * m == 12);
+
+            if (isPair)
+            {
+                int posCheck = gapOnTop ? (i + offset - overhang) : (i - overhang);
+                if (prevmatch == 0) tempscore = 0.0;
+                tempscore += (posCheck >= 4 && posCheck <= 7) ? 1.0 : 0.5;
+                prevmatch++;
+            }
+            else
+            {
+                if (prevmatch >= 2 && tempscore > score) score = tempscore;
+                tempscore = 0.0;
+                prevmatch = 0;
+            }
+        }
+        if (prevmatch >= 2 && tempscore > score) score = tempscore;
+        return score;
+    }
+
+    private static string NormaliseForPairing(string s)
+    {
+        var sb = new StringBuilder(s.Length);
+        foreach (char ch in s)
+        {
+            if (ch == ' ' || ch == '\n' || ch == '\r') continue;
+            char u = char.ToUpperInvariant(ch);
+            sb.Append(u == 'T' ? 'U' : u);
+        }
+        return sb.ToString();
+    }
+
+    private static string Reverse(string s)
+    {
+        char[] c = s.ToCharArray();
+        Array.Reverse(c);
+        return new string(c);
+    }
+
+    // tr/AUCGN/12345/ — any other character maps to 0 (cannot pair).
+    private static int[] ToBaseCodes(string s)
+    {
+        var codes = new int[s.Length];
+        for (int i = 0; i < s.Length; i++)
+            codes[i] = s[i] switch { 'A' => 1, 'U' => 2, 'C' => 3, 'G' => 4, 'N' => 5, _ => 0 };
+        return codes;
+    }
+
+    // ── Min_dist ───────────────────────────────────────────────────────────────────────────
+    // Port of getMinDist_weighted_contribution for the single-isoform case (AIR_end = UTR length).
+    // distTo5 = siteStart-1 (perl 1-based) ; distTo3 = UTRlen - siteEnd ; take the smaller, log10,
+    // then min-max scale by the site-type Min_dist coefficients.
+    private static double MinDistContribution(string mrna, int siteStart, int siteEnd, TargetSiteType type)
+    {
+        if (mrna.Length == 0) return 0.0;
+        // perl 1-based site coordinates and UTR length (= AIR_end).
+        int perlStart = siteStart + 1;
+        int perlEnd = siteEnd + 1;
+        int airEnd = mrna.Length;
+        if (airEnd < perlEnd) return 0.0; // UTR shorter than the site (defensive)
+
+        int distTo5 = perlStart - 1;
+        int distTo3 = airEnd - perlEnd;
+        int nearest = Math.Min(distTo5, distTo3);
+
+        double log10 = nearest > 0 ? Math.Log10(nearest) : 0.0;
+
+        (double coeff, double min, double max) = type switch
+        {
+            TargetSiteType.Seed8mer => (CtxMinDistCoeff8mer, CtxMinDistMin8mer, CtxMinDistMax8mer),
+            TargetSiteType.Seed7merM8 => (CtxMinDistCoeff7merM8, CtxMinDistMin7merM8, CtxMinDistMax7merM8),
+            TargetSiteType.Seed7merA1 => (CtxMinDistCoeff7merA1, CtxMinDistMin7merA1, CtxMinDistMax7merA1),
+            _ => (CtxMinDistCoeff6mer, CtxMinDistMin6mer, CtxMinDistMax6mer)
+        };
+        return ScaledContribution(log10, coeff, min, max);
+    }
+
+    // ── Len_3UTR ──────────────────────────────────────────────────────────────────────────
+    // Port of get_len3UTR_weighted_contribution (single-isoform: UTR length = AIR_end = mrna.Length).
+    private static double Len3UtrContribution(string mrna, TargetSiteType type)
+    {
+        int utrLength = mrna.Length;
+        double log10 = utrLength > 0 ? Math.Log10(utrLength) : 0.0;
+
+        (double coeff, double min, double max) = type switch
+        {
+            TargetSiteType.Seed8mer => (CtxLen3UtrCoeff8mer, CtxLen3UtrMin8mer, CtxLen3UtrMax8mer),
+            TargetSiteType.Seed7merM8 => (CtxLen3UtrCoeff7merM8, CtxLen3UtrMin7merM8, CtxLen3UtrMax7merM8),
+            TargetSiteType.Seed7merA1 => (CtxLen3UtrCoeff7merA1, CtxLen3UtrMin7merA1, CtxLen3UtrMax7merA1),
+            _ => (CtxLen3UtrCoeff6mer, CtxLen3UtrMin6mer, CtxLen3UtrMax6mer)
+        };
+        return ScaledContribution(log10, coeff, min, max);
+    }
+
+    // ── Off6m ─────────────────────────────────────────────────────────────────────────────
+    // Port of getOffset6merSites + getOffset6mer_weighted_contribution (single-isoform). The
+    // offset-6mer target pattern is the first 6 nt of reverse_complement(seed region 2-8); Off6m is
+    // the count of (case-insensitive, overlapping) occurrences of that 6mer in the 3'UTR. Used RAW
+    // (Off6m is not in the min-max regex of getAgarwalContribution).
+    private static double Off6mContribution(string mrna, string mirna, TargetSiteType type)
+    {
+        if (mrna.Length == 0 || mirna.Length < 8) return 0.0;
+
+        string seedRegion = mirna.Substring(1, 7);          // miRNA nt 2-8
+        string revComp = ReverseComplementRna(seedRegion);  // 7 nt
+        string pattern = revComp.Substring(0, 6);           // first 6 nt
+
+        int count = 0;
+        for (int i = 0; i + 6 <= mrna.Length; i++)
+        {
+            if (string.CompareOrdinal(mrna, i, pattern, 0, 6) == 0)
+                count++;
+        }
+
+        double coeff = type switch
+        {
+            TargetSiteType.Seed8mer => CtxOff6mCoeff8mer,
+            TargetSiteType.Seed7merM8 => CtxOff6mCoeff7merM8,
+            TargetSiteType.Seed7merA1 => CtxOff6mCoeff7merA1,
+            _ => CtxOff6mCoeff6mer
+        };
+        return coeff * count; // used raw (no scaling)
+    }
+
+    // reverse_complement over RNA (A↔U, G↔C); mirrors the perl reverse_complement after T→U.
+    private static string ReverseComplementRna(string seq)
+    {
+        var c = new char[seq.Length];
+        for (int i = 0; i < seq.Length; i++)
+        {
+            char b = seq[seq.Length - 1 - i];
+            c[i] = b switch { 'A' => 'U', 'U' => 'A', 'T' => 'A', 'G' => 'C', 'C' => 'G', _ => b };
+        }
+        return new string(c);
+    }
+
+    // ── SPS / TA / Len_ORF / ORF8m (caller-supplied) ─────────────────────────────────────────
+    private static double SpsContribution(double sps, TargetSiteType type)
+    {
+        (double coeff, double min, double max) = type switch
+        {
+            TargetSiteType.Seed8mer => (CtxSpsCoeff8mer, CtxSpsMin8mer, CtxSpsMax8mer),
+            TargetSiteType.Seed7merM8 => (CtxSpsCoeff7merM8, CtxSpsMin7merM8, CtxSpsMax7merM8),
+            TargetSiteType.Seed7merA1 => (CtxSpsCoeff7merA1, CtxSpsMin7merA1, CtxSpsMax7merA1),
+            _ => (CtxSpsCoeff6mer, CtxSpsMin6mer, CtxSpsMax6mer)
+        };
+        return ScaledContribution(sps, coeff, min, max);
+    }
+
+    private static double TaContribution(double ta, TargetSiteType type)
+    {
+        (double coeff, double min, double max) = type switch
+        {
+            TargetSiteType.Seed8mer => (CtxTaCoeff8mer, CtxTaMin8mer, CtxTaMax8mer),
+            TargetSiteType.Seed7merM8 => (CtxTaCoeff7merM8, CtxTaMin7merM8, CtxTaMax7merM8),
+            TargetSiteType.Seed7merA1 => (CtxTaCoeff7merA1, CtxTaMin7merA1, CtxTaMax7merA1),
+            _ => (CtxTaCoeff6mer, CtxTaMin6mer, CtxTaMax6mer)
+        };
+        return ScaledContribution(ta, coeff, min, max);
+    }
+
+    private static double LenOrfContribution(double orfLength, TargetSiteType type)
+    {
+        double log10 = orfLength > 0 ? Math.Log10(orfLength) : 0.0;
+        (double coeff, double min, double max) = type switch
+        {
+            TargetSiteType.Seed8mer => (CtxLenOrfCoeff8mer, CtxLenOrfMin8mer, CtxLenOrfMax8mer),
+            TargetSiteType.Seed7merM8 => (CtxLenOrfCoeff7merM8, CtxLenOrfMin7merM8, CtxLenOrfMax7merM8),
+            TargetSiteType.Seed7merA1 => (CtxLenOrfCoeff7merA1, CtxLenOrfMin7merA1, CtxLenOrfMax7merA1),
+            _ => (CtxLenOrfCoeff6mer, CtxLenOrfMin6mer, CtxLenOrfMax6mer)
+        };
+        return ScaledContribution(log10, coeff, min, max);
+    }
+
+    private static double Orf8mContribution(int count, TargetSiteType type)
+    {
+        double coeff = type switch
+        {
+            TargetSiteType.Seed8mer => CtxOrf8mCoeff8mer,
+            TargetSiteType.Seed7merM8 => CtxOrf8mCoeff7merM8,
+            TargetSiteType.Seed7merA1 => CtxOrf8mCoeff7merA1,
+            _ => CtxOrf8mCoeff6mer
+        };
+        return coeff * count; // used raw (no scaling)
     }
 
     #endregion
