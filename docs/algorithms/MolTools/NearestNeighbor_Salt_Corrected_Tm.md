@@ -134,8 +134,10 @@ regime thresholds 0.22 / 6.0) [4][5]. Every constant is named and source-cited i
 
 **Implementation location:** [PrimerDesigner.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs)
 
-- `PrimerDesigner.CalculateMeltingTemperatureNN(string, double, double, double, double, SaltCorrectionMode)`: opt-in NN salt-corrected Tm.
+- `PrimerDesigner.CalculateMeltingTemperatureNN(string, double, double, double, double, SaltCorrectionMode)`: opt-in NN salt-corrected Tm (perfectly complementary duplex).
 - `PrimerDesigner.CalculateNearestNeighborThermodynamics(string)`: ΔH°/ΔS° + self-comp flag.
+- `PrimerDesigner.CalculateMeltingTemperatureNNMismatch(string top, string bottom3to5, …, SaltCorrectionMode)`: **opt-in extension** — NN Tm for a probe–target duplex with a single internal mismatch and/or dangling end (mirrors Biopython `Tm_NN(imm_table=DNA_IMM, de_table=DNA_DE)`).
+- `PrimerDesigner.CalculateNearestNeighborThermodynamicsMismatch(string top, string bottom3to5)`: ΔH°/ΔS° + self-comp flag for a mismatch/dangling-end duplex.
 - `PrimerDesigner.SaltCorrectionMode`: None / SantaLuciaEntropy / Owczarzy2004Monovalent / Owczarzy2008Divalent.
 
 ### 5.2 Current Behavior
@@ -156,17 +158,25 @@ not modified here. No substring search / matching is involved, so the repository
 - SantaLucia Eq. 5 entropy salt correction (N = 2·(L−1)) [2].
 - Owczarzy 2004 monovalent quadratic 1/Tm correction [3][5].
 - Owczarzy 2008 divalent Mg²⁺/dNTP correction with R-regime selection [4][5].
+- Internal single-mismatch NN ΔH°/ΔS° (Allawi/SantaLucia 1997/1998; Peyret 1999) [6][7][9] and single
+  dangling-end NN ΔH°/ΔS° (Bommarito 2000) [8], via `CalculateMeltingTemperatureNNMismatch` (opt-in).
+  Convention mirrors Biopython `Tm_NN` (bottom strand 3'→5'; `top2/bottom2` keys tried forward then
+  character-reversed; `.` marks the dangling base; terminal-AT from the un-dotted top termini). A
+  perfectly paired duplex through this path equals the perfect-match `CalculateMeltingTemperatureNN`.
 
 **Intentionally simplified:**
 
 - Owczarzy 2004/2008 coefficients are taken from the Biopython reference implementation
   (the Biochemistry 43:3537 full text is paywalled); **consequence:** none — values are
   cross-corroborated and the published 35.8 °C worked example reproduces exactly.
+- The internal-mismatch table covers a **single** internal mismatch (one mismatched column per NN step);
+  two adjacent mismatches (a tandem mismatch) or a non-ACGT character yield no NN parameter → not
+  computable (null/NaN). Terminal mismatches and coaxial stacking are out of scope.
 
 **Not implemented:**
 
-- Mismatch / dangling-end NN terms and hairpin/secondary-structure Tm; **users should rely on:**
-  dedicated tools (Biopython `Tm_NN`, MELTING 5, UNAFold) for those.
+- Hairpin / secondary-structure Tm (folding-based melting); **users should rely on:** dedicated
+  folding tools (UNAFold, ViennaRNA, MELTING 5) for those.
 
 ### 5.4 Deviations and Assumptions
 
@@ -185,12 +195,18 @@ not modified here. No substring search / matching is involved, so the repository
 | Self-complementary | x = 1 + symmetry ΔS° | Eq. 3 / Table 1 [2] |
 | Both ends A·T | terminal-A·T penalty applied twice | Per-end penalty [2] |
 | Lowercase input | same as uppercase | case-insensitive |
+| Single internal mismatch | mismatch NN term applied | Allawi/SantaLucia/Peyret [6][7][9] |
+| Single dangling end (`.` marker) | dangling-end NN term applied | Bommarito 2000 [8] |
+| Perfect duplex via `*Mismatch` path | equals perfect-match path | strict superset |
+| Tandem mismatch / unequal length / null | null (thermo) / NaN (Tm) | no NN parameter |
 
 ### 6.2 Limitations
 
-The NN model assumes two-state melting and a fixed buffer; mismatches, dangling ends, and
-secondary structure are not modelled. The salt corrections are valid within their published
-ranges ([Na⁺] 0.05–1.1 M; Eq. 5 for ≤16 bp). Outside these ranges Tm is an extrapolation.
+The NN model assumes two-state melting and a fixed buffer. A **single** internal mismatch and a
+**single** dangling end are now modelled (opt-in `*Mismatch` path); tandem/adjacent mismatches,
+terminal mismatches, coaxial stacking, and hairpin/secondary-structure Tm are not — use a folding
+tool (UNAFold, ViennaRNA, MELTING 5). The salt corrections are valid within their published ranges
+([Na⁺] 0.05–1.1 M; Eq. 5 for ≤16 bp). Outside these ranges Tm is an extrapolation.
 
 ## 7. Examples and Related Material
 
@@ -206,6 +222,17 @@ double tm = PrimerDesigner.CalculateMeltingTemperatureNN("ATGCATGC", sodiumMolar
 // Raw duplex thermodynamics.
 var t = PrimerDesigner.CalculateNearestNeighborThermodynamics("GCGCGC");
 // t.DeltaH == -50.4, t.DeltaS == -134.7, t.IsSelfComplementary == true
+
+// Opt-in extension: a probe–target duplex with one internal T·G mismatch
+// (bottom strand written 3'→5', aligned base-for-base under the top).
+double tmMm = PrimerDesigner.CalculateMeltingTemperatureNNMismatch(
+    "CGTGAC", "GCGCTG", saltMode: PrimerDesigner.SaltCorrectionMode.None);
+// ΔH° = -35.5, ΔS° = -101.5  →  Tm = -6.41 °C (x=4)
+
+// A 5'-dangling A on a GCGCGC core ('.' marks the unpaired base).
+double tmDe = PrimerDesigner.CalculateMeltingTemperatureNNMismatch(
+    "AGCGCGC", ".CGCGCG", saltMode: PrimerDesigner.SaltCorrectionMode.None);
+// ΔH° = -51.9, ΔS° = -136.4  →  Tm = 35.80 °C
 ```
 
 **Numerical walk-through:** ATGCATGC (non-self-comp, x=4): stacks AT+TG+GC+CA+AT+TG+GC give
@@ -220,7 +247,7 @@ var t = PrimerDesigner.CalculateNearestNeighborThermodynamics("GCGCGC");
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [PrimerDesigner_NearestNeighborTm_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/PrimerDesigner_NearestNeighborTm_Tests.cs) — covers `INV-01`–`INV-06`
+- Tests: [PrimerDesigner_NearestNeighborTm_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/PrimerDesigner_NearestNeighborTm_Tests.cs) — covers `INV-1`–`INV-9` (incl. mismatch/dangling-end MM1/DE1, perfect-match equivalence EQ1/EQ2)
 - Evidence: [PRIMER-TM-001-NN-Evidence.md](../../../docs/Evidence/PRIMER-TM-001-NN-Evidence.md)
 - Related algorithms: [Melting_Temperature.md](../Statistics/Melting_Temperature.md) (SEQ-TM-001), [DNA_Thermodynamics.md](../Statistics/DNA_Thermodynamics.md) (SEQ-THERMO-001)
 
@@ -229,6 +256,7 @@ var t = PrimerDesigner.CalculateNearestNeighborThermodynamics("GCGCGC");
 | Date | Version | Changes |
 |------|---------|---------|
 | 2026-06-24 | 1.0 | Initial NN salt-corrected Tm (opt-in) under PRIMER-TM-001 |
+| 2026-06-24 | 1.1 | Added internal single-mismatch (Allawi/SantaLucia/Peyret) + single dangling-end (Bommarito 2000) NN terms via `*Mismatch` path (opt-in extension) |
 
 ## 8. References
 
@@ -236,4 +264,8 @@ var t = PrimerDesigner.CalculateNearestNeighborThermodynamics("GCGCGC");
 2. SantaLucia J, Hicks D. 2004. The thermodynamics of DNA structural motifs. *Annu Rev Biophys Biomol Struct* 33:415–440. https://doi.org/10.1146/annurev.biophys.32.110601.141800
 3. Owczarzy R, You Y, Moreira BG, et al. 2004. Effects of sodium ions on DNA duplex oligomers: improved predictions of melting temperatures. *Biochemistry* 43(12):3537–3554. https://doi.org/10.1021/bi034621r
 4. Owczarzy R, Moreira BG, You Y, et al. 2008. Predicting stability of DNA duplexes in solutions containing magnesium and monovalent cations. *Biochemistry* 47(19):5336–5353. https://doi.org/10.1021/bi702363u
-5. Cock PJA et al. Biopython, `Bio.SeqUtils.MeltingTemp` (`DNA_NN4`, `Tm_NN`, `salt_correction`). https://github.com/biopython/biopython/blob/master/Bio/SeqUtils/MeltingTemp.py (accessed 2026-06-24)
+5. Cock PJA et al. Biopython, `Bio.SeqUtils.MeltingTemp` (`DNA_NN4`, `DNA_IMM`, `DNA_DE`, `Tm_NN`, `salt_correction`). https://github.com/biopython/biopython/blob/master/Bio/SeqUtils/MeltingTemp.py (accessed 2026-06-24)
+6. Allawi HT, SantaLucia J. 1997. Thermodynamics and NMR of internal G·T mismatches in DNA. *Biochemistry* 36(34):10581–10594. https://doi.org/10.1021/bi962590c
+7. Allawi HT, SantaLucia J. 1998. Internal G·A (Biochemistry 37:2170), C·T (Nucleic Acids Res 26:2694), and A·C (Biochemistry 37:9435) mismatch parameters. https://doi.org/10.1021/bi9724873
+8. Bommarito S, Peyret N, SantaLucia J. 2000. Thermodynamic parameters for DNA sequences with dangling ends. *Nucleic Acids Res* 28(9):1929–1934. https://doi.org/10.1093/nar/28.9.1929
+9. Peyret N, Seneviratne PA, Allawi HT, SantaLucia J. 1999. Nearest-neighbor thermodynamics and NMR of DNA sequences with internal A·A, C·C, G·G, and T·T mismatches. *Biochemistry* 38(12):3468–3477. https://doi.org/10.1021/bi9825091

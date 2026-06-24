@@ -124,6 +124,35 @@ secondary-structure terms). The default Wallace/Marmur-Doty Tm and the Primer3 p
   **Algorithm doc:** `docs/algorithms/MolTools/NearestNeighbor_Salt_Corrected_Tm.md`.
 - **Checklist:** root-registry Status reset `☑`→`☐` for re-validation; Quick-Reference counts adjusted.
 
+## 2026-06-24 update — NN internal-mismatch + dangling-end Tm terms added (opt-in extension)
+
+The earlier residual "no mismatch / dangling-end terms" is now resolved by an **opt-in extension**;
+only the hairpin / secondary-structure (folding-based) Tm residual remains. The perfect-match
+`CalculateMeltingTemperatureNN` and the default Wallace/Marmur-Doty Tm are unchanged.
+
+- **New API (`PrimerDesigner`):** `CalculateMeltingTemperatureNNMismatch(string top, string bottom3to5,
+  …, SaltCorrectionMode)` and `CalculateNearestNeighborThermodynamicsMismatch(string top, string bottom3to5)
+  → (ΔH°, ΔS°, IsSelfComplementary)?`. The bottom strand is supplied **3'→5'** (complement direction,
+  aligned base-for-base under the top), with `.` marking a single dangling base — the Biopython
+  `Tm_NN(imm_table=DNA_IMM, de_table=DNA_DE)` convention.
+- **Sources retrieved this session:** Allawi & SantaLucia (1997 G·T; 1998 G·A/C·T/A·C) and Peyret et al.
+  (1999 A·A/C·C/G·G/T·T) internal-mismatch NN ΔH°/ΔS°; Bommarito, Peyret & SantaLucia (2000, NAR 28:1929)
+  single dangling-end NN ΔH°/ΔS°; transcribed verbatim from Biopython `DNA_IMM`/`DNA_DE`. **Primary-source
+  cross-checks:** the mismatch table reproduces the SantaLucia & Hicks (2004) Table 2 worked example
+  `5'-GGACTGACG-3'/3'-CCTGGCTGC-5'` (ΔG°37 = −8.35 vs the paper's −8.32 kcal/mol); all 32 dangling-end
+  ΔH° values reproduce SantaLucia & Hicks (2004) Table 3 ΔH° exactly (term-by-term, `pdftotext` of the
+  Duke PDF).
+- **Hand-derived test values (1e-8):** internal T·G mismatch `CGTGAC/GCGCTG` → ΔH°=−35.5, ΔS°=−101.5,
+  Tm(no salt)=−6.4060879279 °C; 5'-dangling A `AGCGCGC/.CGCGCG` → ΔH°=−51.9, ΔS°=−136.4,
+  Tm(no salt)=35.8034921829 °C. **Perfect-match equivalence:** a fully paired `GCGCGC/CGCGCG` through the
+  extension equals `CalculateMeltingTemperatureNN("GCGCGC")` (35.0473059911 °C) and the ΔH°/ΔS°/self-comp
+  tuple. A tandem (adjacent) mismatch / unequal length / null → null/NaN. Tests:
+  `PrimerDesigner_NearestNeighborTm_Tests.cs` (now 25 tests, all green).
+- **Residual (genuinely open):** hairpin / secondary-structure (folding-based) Tm only — a `[scope]` item;
+  use UNAFold / ViennaRNA / MELTING 5.
+- **Checklist:** root-registry Status remains `☐` (re-validation); Quick-Reference counts unchanged
+  (already counted as Not-Started).
+
 ## Verdict & follow-ups
 - **Stage A: PASS-WITH-NOTES** (Tm portion: documented Wallace −7 omission + Marmur-Doty simplification; prompt's
   "Tm uses SantaLucia NN" is a framing inaccuracy — NN is in 3'-stability only). **Stage B: PASS.**

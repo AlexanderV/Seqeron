@@ -38,7 +38,7 @@ boundaries, never defects. They fall into three kinds:
 
 | Unit | Not done | Use instead |
 |------|----------|-------------|
-| PRIMER-TM-001 | Mismatch / dangling-end / hairpin (secondary-structure) Tm terms. | Biopython `Tm_NN`, MELTING 5, UNAFold. |
+| PRIMER-TM-001 | Hairpin / secondary-structure (folding-based) Tm. Internal single-mismatch and single dangling-end NN Tm are now implemented (opt-in `CalculateMeltingTemperatureNNMismatch`). | UNAFold, ViennaRNA, MELTING 5 for folding-based Tm. |
 | REP-STR-001 | TRF probabilistic k-tuple seeding + sum-of-Bernoulli significance + whole-genome-scale repeat discovery. | The reference Tandem Repeats Finder. |
 | CHROM-CENT-001 | Higher-order repeat (HOR) structure / suprachromosomal-family classification (detection is monomer-level). | Dedicated centromere/HOR tooling. |
 | PROBE-DESIGN-001 | MGB (minor-groove binder), LNA, and dual-quencher probe chemistries. | Chemistry-specific design tools. |

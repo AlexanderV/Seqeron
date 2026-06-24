@@ -24,7 +24,11 @@
 | 2 | SantaLucia & Hicks (2004) Annu Rev Biophys 33:415 (Table 1, Eq. 3, Eq. 5) | 1 | https://doi.org/10.1146/annurev.biophys.32.110601.141800 | 2026-06-24 |
 | 3 | Owczarzy et al. (2004) Biochemistry 43:3537 (monovalent) | 1 | https://doi.org/10.1021/bi034621r | 2026-06-24 |
 | 4 | Owczarzy et al. (2008) Biochemistry 47:5336 (divalent) | 1 | https://doi.org/10.1021/bi702363u | 2026-06-24 |
-| 5 | Biopython Bio.SeqUtils.MeltingTemp (DNA_NN4, salt_correction 6/7) | 3 | https://github.com/biopython/biopython/blob/master/Bio/SeqUtils/MeltingTemp.py | 2026-06-24 |
+| 5 | Biopython Bio.SeqUtils.MeltingTemp (DNA_NN4, DNA_IMM, DNA_DE, salt_correction 6/7) | 3 | https://github.com/biopython/biopython/blob/master/Bio/SeqUtils/MeltingTemp.py | 2026-06-24 |
+| 6 | Allawi & SantaLucia (1997/1998) internal mismatches (G·T, G·A, C·T, A·C) | 1 | https://doi.org/10.1021/bi962590c | 2026-06-24 |
+| 7 | Peyret et al. (1999) internal A·A/C·C/G·G/T·T mismatches | 1 | https://doi.org/10.1021/bi9825091 | 2026-06-24 |
+| 8 | Bommarito, Peyret & SantaLucia (2000) dangling ends, NAR 28:1929 | 1 | https://doi.org/10.1093/nar/28.9.1929 | 2026-06-24 |
+| 9 | SantaLucia & Hicks (2004) Table 2/3 (mismatch + dangling-end primary cross-check) | 1 | https://doi.org/10.1146/annurev.biophys.32.110601.141800 | 2026-06-24 |
 
 ### 1.2 Key Evidence Points
 
@@ -34,6 +38,12 @@
 4. Owczarzy 2004 monovalent: `1/Tm[Na]=1/Tm[1M]+(4.29·fGC−3.95)·1e-5·ln[Na]+9.40e-6·ln[Na]²` — sources 3, 5.
 5. SantaLucia Eq. 5 entropy: `ΔS°[Na]=ΔS°+0.368·(N/2)·ln[Na]`, N=2·(L−1) — source 2 Eq. 5 (6-bp → N=10).
 6. Owczarzy 2008 divalent Mg²⁺ 1/Tm correction with R=√[Mg]/[Mon] regimes — sources 4, 5.
+7. Internal single-mismatch NN ΔH°/ΔS° (52 A/C/G/T keys) — sources 6, 7 (verbatim via DNA_IMM, source 5);
+   cross-checked vs source 9 Table 2 worked example `5'-GGACTGACG-3'/3'-CCTGGCTGC-5'` → ΔG°37 ≈ −8.3 kcal/mol.
+8. Single dangling-end NN ΔH°/ΔS° (32 keys) — source 8 (verbatim via DNA_DE, source 5); all 32 ΔH° cross-checked
+   term-by-term vs source 9 Table 3. Tm_NN convention: bottom strand 3'→5' (complement, not reverse complement);
+   key `top2/bottom2`, tried forward then character-reversed; left DE `top[:2]/bottom[:2]`, right DE reversed
+   last-2 of each; `ends=seq[0]+seq[-1]` uses the un-dotted top strand; symmetry only for a self-comp duplex.
 
 ### 1.3 Documented Corner Cases
 
@@ -55,6 +65,8 @@
 |--------|-------|------|-------|
 | `CalculateMeltingTemperatureNN(string, double, double, double, double, SaltCorrectionMode)` | `PrimerDesigner` | **Canonical** | NN Tm + salt corrections |
 | `CalculateNearestNeighborThermodynamics(string)` | `PrimerDesigner` | **Canonical** | ΔH°/ΔS° + self-comp flag |
+| `CalculateMeltingTemperatureNNMismatch(string top, string bottom3to5, double, double, double, double, SaltCorrectionMode)` | `PrimerDesigner` | **Canonical** | NN Tm with internal mismatch + dangling end (opt-in extension) |
+| `CalculateNearestNeighborThermodynamicsMismatch(string top, string bottom3to5)` | `PrimerDesigner` | **Canonical** | ΔH°/ΔS° for a duplex with mismatch/dangling end |
 | `CalculateMeltingTemperature(string)` | `PrimerDesigner` | **Internal** | unchanged default; guarded by E2 |
 
 ---
@@ -69,6 +81,9 @@
 | INV-4 | Adding Mg²⁺ ⇒ higher Tm than the Mg²⁺-free buffer | Yes | Source 4 |
 | INV-5 | Divalent mode with [Mg²⁺]=0 ≡ monovalent 2004 mode | Yes | Source 5 method 7 fallback |
 | INV-6 | Default Tm method (Wallace/Marmur-Doty) unchanged | Yes | Scope requirement |
+| INV-7 | Mismatch/dangling ΔH°/ΔS° = init + terminal-AT + Σ(WC stacks) + Σ(internal-mismatch) + dangling-end term | Yes | Sources 6–9 |
+| INV-8 | A perfectly paired duplex through the `*Mismatch` path equals the perfect-match path (strict superset) | Yes | Sources 2,6–9 |
+| INV-9 | An internal mismatch destabilises ⇒ lower Tm than the perfectly paired duplex | Yes | Sources 6,9 |
 
 ---
 
@@ -86,6 +101,25 @@
 | M6 | Owczarzy 2004, self-comp | GCGCGC, 50 mM Na | 28.1593085080 °C | Sources 3,5 |
 | M7 | Owczarzy 2004, non-self-comp | ATGCATGC, 50 mM Na | 18.1899960529 °C | Sources 3,5 |
 | M8 | Default salt mode | omit saltMode ≡ Owczarzy2004Monovalent | equal | Source 3 (default) |
+| MM1 | Internal mismatch ΔH°/ΔS° | CGTGAC / GCGCTG (one T·G mismatch) | ΔH°=−35.5, ΔS°=−101.5, selfComp=false | Sources 6,9 |
+| MM1-Tm | Internal mismatch Tm | CGTGAC / GCGCTG, x=4, mode None | −6.4060879279 °C | Sources 6,9 |
+| DE1 | Dangling-end ΔH°/ΔS° | AGCGCGC / .CGCGCG (5'-dangling A) | ΔH°=−51.9, ΔS°=−136.4, selfComp=false | Source 8 |
+| DE1-Tm | Dangling-end Tm | AGCGCGC / .CGCGCG, x=4, mode None | 35.8034921829 °C | Source 8 |
+| EQ1 | Perfect-duplex Tm equivalence | GCGCGC / CGCGCG via `*Mismatch` ≡ `CalculateMeltingTemperatureNN` | equal | INV-8 |
+| EQ2 | Perfect-duplex thermo equivalence | GCGCGC / CGCGCG ΔH°/ΔS°/selfComp ≡ perfect-match path | equal tuple | INV-8 |
+
+**MM1 arithmetic** (CGTGAC top 5'→3' / GCGCTG bottom 3'→5'; perfect complement of CGTGAC = GCACTG,
+column 2 A→G gives one T·G mismatch): init(+0.2,−5.7); ends C,C → no terminal-AT; not self-comp → no symmetry.
+Stacks: `CG/GC`(WC −10.6,−27.2), `GT/CG`(IMM G·T −4.4,−12.3), `TG/GC`=`CG/GT`rev(IMM −4.1,−11.7),
+`GA/CT`(WC −8.2,−22.2), `AC/TG`=`GT/CA`rev(WC −8.4,−22.4).
+ΔH° = 0.2−10.6−4.4−4.1−8.2−8.4 = **−35.5**; ΔS° = −5.7−27.2−12.3−11.7−22.2−22.4 = **−101.5**.
+Tm = −35.5·1000/(−101.5 + 1.9872·ln(0.5e−6/4)) − 273.15 = **−6.4060879279 °C**.
+
+**DE1 arithmetic** (AGCGCGC top / .CGCGCG bottom; 5'-dangling A over the GCGCGC/CGCGCG core):
+init(+0.2,−5.7); `ends = seq[0]+seq[-1] = A,C` → one terminal-AT(+2.2,+6.9); dangling present → no symmetry.
+Left DE `AG/.C`=(−3.7,−10.0); strip → GCGCGC/CGCGCG: `GC/CG`×3 (−9.8,−24.4), `CG/GC`×2 (−10.6,−27.2).
+ΔH° = 0.2+2.2−3.7+3·(−9.8)+2·(−10.6) = **−51.9**; ΔS° = −5.7+6.9−10.0+3·(−24.4)+2·(−27.2) = **−136.4**.
+Tm = −51.9·1000/(−136.4 + 1.9872·ln(0.5e−6/4)) − 273.15 = **35.8034921829 °C**.
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -105,6 +139,8 @@
 | C2 | add Mg²⁺ | 3 mM Mg raises Tm | withMg > noMg | INV-4 |
 | E1 | invalid input | "", null, "ATGN", "A" | NaN | no crash |
 | E2 | default Tm unchanged | Wallace ATATATAT | 16.0 | INV-6 |
+| MM2 | mismatch destabilises | CGTGAC/GCGCTG vs CGTGAC/GCACTG | mismatched < perfect | INV-9 |
+| C3 | mismatch-path invalid/uncomputable | null top; unequal length; tandem mismatch (AGGT/TGGA) | NaN / null | no NN parameter |
 
 ---
 
@@ -122,7 +158,8 @@
 
 | Area / Test Case ID | Status | Notes |
 |---------------------|--------|-------|
-| M1–M8, S1–S5, C1–C2, E1–E2 | ❌ Missing | New method; no prior coverage |
+| M1–M8, S1–S5, C1–C2, E1–E2 | ✅ Covered | NN salt-corrected Tm (initial pass, 2026-06-24) |
+| MM1, MM1-Tm, MM2, DE1, DE1-Tm, EQ1, EQ2, C3 | ❌ Missing | Mismatch + dangling-end extension (this pass) |
 
 ### 5.3 Consolidation Plan
 
@@ -133,7 +170,7 @@
 
 | File | Role | Test Count |
 |------|------|------------|
-| PrimerDesigner_NearestNeighborTm_Tests.cs | Canonical NN salt-corrected Tm | 17 |
+| PrimerDesigner_NearestNeighborTm_Tests.cs | Canonical NN salt-corrected Tm + mismatch/dangling extension | 25 |
 
 ### 5.5 Phase 7 Work Queue
 
@@ -156,9 +193,17 @@
 | 15 | C2 | ❌ Missing | Implemented | ✅ Done |
 | 16 | E1 | ❌ Missing | Implemented | ✅ Done |
 | 17 | E2 | ❌ Missing | Implemented | ✅ Done |
+| 18 | MM1 | ❌ Missing | Implemented | ✅ Done |
+| 19 | MM1-Tm | ❌ Missing | Implemented | ✅ Done |
+| 20 | MM2 | ❌ Missing | Implemented | ✅ Done |
+| 21 | DE1 | ❌ Missing | Implemented | ✅ Done |
+| 22 | DE1-Tm | ❌ Missing | Implemented | ✅ Done |
+| 23 | EQ1 | ❌ Missing | Implemented | ✅ Done |
+| 24 | EQ2 | ❌ Missing | Implemented | ✅ Done |
+| 25 | C3 | ❌ Missing | Implemented | ✅ Done |
 
-**Total items:** 17
-**✅ Done:** 17 | **⛔ Blocked:** 0 | **Remaining:** 0
+**Total items:** 25
+**✅ Done:** 25 | **⛔ Blocked:** 0 | **Remaining:** 0
 
 ### 5.6 Post-Implementation Coverage
 
@@ -181,6 +226,14 @@
 | C2 | ✅ | CalculateMeltingTemperatureNN_AddMagnesium_RaisesTm |
 | E1 | ✅ | CalculateMeltingTemperatureNN_InvalidInput_ReturnsNaN |
 | E2 | ✅ | CalculateMeltingTemperature_DefaultMethod_Unchanged |
+| MM1 | ✅ | CalculateNearestNeighborThermodynamicsMismatch_InternalMismatch_MatchesImmSum |
+| MM1-Tm | ✅ | CalculateMeltingTemperatureNNMismatch_InternalMismatch_MatchesEquation |
+| MM2 | ✅ | CalculateMeltingTemperatureNNMismatch_Mismatch_LowersTmVsPerfect |
+| DE1 | ✅ | CalculateNearestNeighborThermodynamicsMismatch_FivePrimeDanglingEnd_MatchesDeSum |
+| DE1-Tm | ✅ | CalculateMeltingTemperatureNNMismatch_DanglingEnd_MatchesEquation |
+| EQ1 | ✅ | CalculateMeltingTemperatureNNMismatch_PerfectDuplex_EqualsPerfectMatchPath |
+| EQ2 | ✅ | CalculateNearestNeighborThermodynamicsMismatch_PerfectDuplex_EqualsPerfectMatchThermo |
+| C3 | ✅ | CalculateMeltingTemperatureNNMismatch_InvalidOrUncomputable_ReturnsNaN |
 
 ---
 
@@ -192,6 +245,7 @@
 |---|-----------|---------|
 | 1 | Default C_T = 0.5 µM (PCR working conc.) | method default |
 | 2 | Eq. 5 N = 2·(length−1) phosphates (confirmed by 6-bp→N=10 example) | SantaLuciaEntropy mode |
+| 3 | Mismatch/dangling salt correction uses the paired-base count (dangling '.' excluded) for N and GC fraction | `*Mismatch` salt path |
 
 ---
 

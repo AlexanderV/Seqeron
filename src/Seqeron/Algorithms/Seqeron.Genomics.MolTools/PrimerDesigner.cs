@@ -701,6 +701,270 @@ public static class PrimerDesigner
         return tmKelvin - KelvinOffset;
     }
 
+    // ---- NN internal-mismatch + dangling-end Tm (PRIMER-TM-001, opt-in extension) -------
+    // Extends the perfect-match NN model with published internal single-mismatch and
+    // single-dangling-end ΔH°/ΔS° terms so the NN Tm can be computed for a probe–target
+    // duplex that contains an internal mismatch and/or an unpaired dangling end. The
+    // perfect-match CalculateMeltingTemperatureNN above is UNCHANGED; this is opt-in.
+    //
+    // Convention (mirrors Biopython Bio.SeqUtils.MeltingTemp.Tm_NN with imm_table=DNA_IMM,
+    // de_table=DNA_DE): the top strand is 5'→3'; the bottom strand is supplied 3'→5'
+    // (i.e. the complement of the top read in the SAME left-to-right order, NOT the
+    // reverse complement), so position i of the bottom is the base paired under position i
+    // of the top. A '.' in either strand marks the single unpaired base of a dangling end.
+    // A nearest-neighbour key is "topPair/bottomPair" (two bases of each strand, slash-
+    // separated); an internal mismatch is looked up in the mismatch table, trying the
+    // forward key then its character-reverse, exactly as Tm_NN does.
+    //
+    // Sources (retrieved & cross-checked this session):
+    //   Internal single mismatches — Allawi & SantaLucia (1997) Biochemistry 36:10581
+    //     (G·T); Allawi & SantaLucia (1998) Biochemistry 37:9435 (G·A), 37:2170 (C·T),
+    //     Nucleic Acids Res 26:2694 (A·C, C·C variants); Peyret et al. (1999) Biochemistry
+    //     38:3468 (A·A, C·C, G·G, T·T). Values transcribed verbatim from Biopython DNA_IMM
+    //     and cross-checked against the SantaLucia & Hicks (2004) Table 2 worked example
+    //     (5'-GGACTGACG-3'/3'-CCTGGCTGC-5' → ΔG°37 ≈ −8.3 kcal/mol).
+    //   Single dangling ends — Bommarito, Peyret & SantaLucia (2000) Nucleic Acids Res
+    //     28:1929. Values transcribed from Biopython DNA_DE and cross-checked term-by-term
+    //     against SantaLucia & Hicks (2004) Table 3 ΔH° (all 32 entries reproduce exactly).
+
+    /// <summary>
+    /// Allawi/SantaLucia/Peyret internal single-mismatch nearest-neighbour parameters
+    /// (ΔH° kcal/mol, ΔS° cal/(K·mol)) at 1 M NaCl. Key = "topPair/bottomPair" with the
+    /// bottom strand written 3'→5' (complement direction); the mismatched base pair is one
+    /// of the two columns. Transcribed verbatim from Biopython <c>DNA_IMM</c> (the Watson-
+    /// Crick / inosine entries are excluded — only A/C/G/T single mismatches are kept).
+    /// Source: Allawi &amp; SantaLucia (1997/1998); Peyret et al. (1999); cross-checked
+    /// against SantaLucia &amp; Hicks (2004) Table 2.
+    /// </summary>
+    private static readonly Dictionary<string, (double DeltaH, double DeltaS)> NnInternalMismatch = new()
+    {
+        ["AG/TT"] = (1.0, 0.9), ["AT/TG"] = (-2.5, -8.3), ["CG/GT"] = (-4.1, -11.7),
+        ["CT/GG"] = (-2.8, -8.0), ["GG/CT"] = (3.3, 10.4), ["GG/TT"] = (5.8, 16.3),
+        ["GT/CG"] = (-4.4, -12.3), ["GT/TG"] = (4.1, 9.5), ["TG/AT"] = (-0.1, -1.7),
+        ["TG/GT"] = (-1.4, -6.2), ["TT/AG"] = (-1.3, -5.3), ["AA/TG"] = (-0.6, -2.3),
+        ["AG/TA"] = (-0.7, -2.3), ["CA/GG"] = (-0.7, -2.3), ["CG/GA"] = (-4.0, -13.2),
+        ["GA/CG"] = (-0.6, -1.0), ["GG/CA"] = (0.5, 3.2), ["TA/AG"] = (0.7, 0.7),
+        ["TG/AA"] = (3.0, 7.4), ["AC/TT"] = (0.7, 0.2), ["AT/TC"] = (-1.2, -6.2),
+        ["CC/GT"] = (-0.8, -4.5), ["CT/GC"] = (-1.5, -6.1), ["GC/CT"] = (2.3, 5.4),
+        ["GT/CC"] = (5.2, 13.5), ["TC/AT"] = (1.2, 0.7), ["TT/AC"] = (1.0, 0.7),
+        ["AA/TC"] = (2.3, 4.6), ["AC/TA"] = (5.3, 14.6), ["CA/GC"] = (1.9, 3.7),
+        ["CC/GA"] = (0.6, -0.6), ["GA/CC"] = (5.2, 14.2), ["GC/CA"] = (-0.7, -3.8),
+        ["TA/AC"] = (3.4, 8.0), ["TC/AA"] = (7.6, 20.2), ["AA/TA"] = (1.2, 1.7),
+        ["CA/GA"] = (-0.9, -4.2), ["GA/CA"] = (-2.9, -9.8), ["TA/AA"] = (4.7, 12.9),
+        ["AC/TC"] = (0.0, -4.4), ["CC/GC"] = (-1.5, -7.2), ["GC/CC"] = (3.6, 8.9),
+        ["TC/AC"] = (6.1, 16.4), ["AG/TG"] = (-3.1, -9.5), ["CG/GG"] = (-4.9, -15.3),
+        ["GG/CG"] = (-6.0, -15.8), ["TG/AG"] = (1.6, 3.6), ["AT/TT"] = (-2.7, -10.8),
+        ["CT/GT"] = (-5.0, -15.8), ["GT/CT"] = (-2.2, -8.4), ["TT/AT"] = (0.2, -1.5)
+    };
+
+    /// <summary>
+    /// Bommarito et al. (2000) single dangling-end nearest-neighbour parameters
+    /// (ΔH° kcal/mol, ΔS° cal/(K·mol)) at 1 M NaCl. The '.' marks the unpaired (dangling)
+    /// base. Key form for a 5'-side (left) dangling end is "topPair/bottomPair" of the
+    /// first two columns; for a 3'-side (right) dangling end the reversed last two columns
+    /// of each strand are used (per Tm_NN). Transcribed verbatim from Biopython
+    /// <c>DNA_DE</c>; cross-checked term-by-term against SantaLucia &amp; Hicks (2004)
+    /// Table 3 ΔH°. Source: Bommarito, Peyret &amp; SantaLucia (2000) NAR 28:1929.
+    /// </summary>
+    private static readonly Dictionary<string, (double DeltaH, double DeltaS)> NnDanglingEnd = new()
+    {
+        ["AA/.T"] = (0.2, 2.3), ["AC/.G"] = (-6.3, -17.1), ["AG/.C"] = (-3.7, -10.0), ["AT/.A"] = (-2.9, -7.6),
+        ["CA/.T"] = (0.6, 3.3), ["CC/.G"] = (-4.4, -12.6), ["CG/.C"] = (-4.0, -11.9), ["CT/.A"] = (-4.1, -13.0),
+        ["GA/.T"] = (-1.1, -1.6), ["GC/.G"] = (-5.1, -14.0), ["GG/.C"] = (-3.9, -10.9), ["GT/.A"] = (-4.2, -15.0),
+        ["TA/.T"] = (-6.9, -20.0), ["TC/.G"] = (-4.0, -10.9), ["TG/.C"] = (-4.9, -13.8), ["TT/.A"] = (-0.2, -0.5),
+        [".A/AT"] = (-0.7, -0.8), [".C/AG"] = (-2.1, -3.9), [".G/AC"] = (-5.9, -16.5), [".T/AA"] = (-0.5, -1.1),
+        [".A/CT"] = (4.4, 14.9), [".C/CG"] = (-0.2, -0.1), [".G/CC"] = (-2.6, -7.4), [".T/CA"] = (4.7, 14.2),
+        [".A/GT"] = (-1.6, -3.6), [".C/GG"] = (-3.9, -11.2), [".G/GC"] = (-3.2, -10.4), [".T/GA"] = (-4.1, -13.1),
+        [".A/TT"] = (2.9, 10.4), [".C/TG"] = (-4.4, -13.1), [".G/TC"] = (-5.2, -15.0), [".T/TA"] = (-3.8, -12.6)
+    };
+
+    /// <summary>
+    /// Computes the duplex ΔH° (kcal/mol) and ΔS° (cal/(K·mol)) for a probe–target DNA
+    /// duplex that may contain a single internal mismatch and/or a single dangling end,
+    /// using the SantaLucia (1998) Watson-Crick NN parameters together with the Allawi/
+    /// SantaLucia/Peyret internal-mismatch and Bommarito (2000) dangling-end NN terms.
+    /// Mirrors Biopython <c>Tm_NN(..., imm_table=DNA_IMM, de_table=DNA_DE)</c>.
+    /// </summary>
+    /// <param name="topStrand">Top strand 5'→3'. May start/end with a single '.' marking a
+    /// dangling end on the bottom strand.</param>
+    /// <param name="bottomStrand">Bottom strand written 3'→5' (the complement of the top
+    /// read left-to-right, NOT the reverse complement), so base i pairs with top base i.
+    /// May start/end with a single '.' marking a dangling end on the top strand.</param>
+    /// <returns>(ΔH°, ΔS°, IsSelfComplementary) or <c>null</c> if the strands are null,
+    /// unequal length, shorter than two columns, or contain a stack with no NN parameter
+    /// (e.g. two adjacent mismatches, a tandem mismatch, or a non-ACGT character).</returns>
+    public static (double DeltaH, double DeltaS, bool IsSelfComplementary)? CalculateNearestNeighborThermodynamicsMismatch(
+        string topStrand, string bottomStrand)
+    {
+        if (topStrand is null || bottomStrand is null)
+            return null;
+
+        string top = topStrand.ToUpperInvariant();
+        string bot = bottomStrand.ToUpperInvariant();
+        if (top.Length != bot.Length || top.Length < 2)
+            return null;
+
+        double dH = NnInitDeltaH;
+        double dS = NnInitDeltaS;
+
+        // Terminal A·T penalty per end that closes with an A·T pair, using the (un-dotted)
+        // top-strand termini exactly as Tm_NN computes `ends = seq[0] + seq[-1]`.
+        if (top[0] is 'A' or 'T') { dH += NnTerminalAtDeltaH; dS += NnTerminalAtDeltaS; }
+        if (top[^1] is 'A' or 'T') { dH += NnTerminalAtDeltaH; dS += NnTerminalAtDeltaS; }
+
+        // Symmetry correction only for a fully paired self-complementary duplex.
+        bool hasDangling = top.Contains('.') || bot.Contains('.');
+        bool selfComp = !hasDangling && IsSelfComplementary(top)
+                        && string.Equals(bot, Complement(top), StringComparison.Ordinal);
+        if (selfComp)
+            dS += NnSymmetryDeltaS;
+
+        string ts = top, tc = bot;
+
+        // Left (5'-side) dangling end.
+        if (ts[0] == '.' || tc[0] == '.')
+        {
+            string leftDe = ts.Substring(0, 2) + "/" + tc.Substring(0, 2);
+            if (!NnDanglingEnd.TryGetValue(leftDe, out var ld))
+                return null;
+            dH += ld.DeltaH; dS += ld.DeltaS;
+            ts = ts.Substring(1); tc = tc.Substring(1);
+        }
+
+        // Right (3'-side) dangling end: reversed last two columns of each strand.
+        if (ts[^1] == '.' || tc[^1] == '.')
+        {
+            string rightDe = Reverse(tc.Substring(tc.Length - 2)) + "/" + Reverse(ts.Substring(ts.Length - 2));
+            if (!NnDanglingEnd.TryGetValue(rightDe, out var rd))
+                return null;
+            dH += rd.DeltaH; dS += rd.DeltaS;
+            ts = ts.Substring(0, ts.Length - 1); tc = tc.Substring(0, tc.Length - 1);
+        }
+
+        // Nearest-neighbour stack over the paired region (Watson-Crick or internal mismatch).
+        for (int i = 0; i < ts.Length - 1; i++)
+        {
+            string key = ts.Substring(i, 2) + "/" + tc.Substring(i, 2);
+            if (!TryNnOrMismatch(key, out var p))
+                return null;
+            dH += p.DeltaH; dS += p.DeltaS;
+        }
+
+        return (dH, dS, selfComp);
+
+        static bool TryNnOrMismatch(string key, out (double DeltaH, double DeltaS) p)
+        {
+            // key = "t0t1/b0b1" (bottom written 3'→5' aligned). The stack is a perfect
+            // Watson-Crick step ONLY when both columns are complementary pairs; in that
+            // case the perfect-match table (keyed by the top dinucleotide) applies. Any
+            // non-WC column makes it an internal mismatch → use the mismatch table.
+            char t0 = key[0], t1 = key[1], b0 = key[3], b1 = key[4];
+            bool col0Wc = IsWatsonCrick(t0, b0);
+            bool col1Wc = IsWatsonCrick(t1, b1);
+            if (col0Wc && col1Wc)
+            {
+                string top2 = key.Substring(0, 2);
+                if (NnUnifiedParams.TryGetValue(top2, out p)) return true;
+                p = default;
+                return false;
+            }
+
+            string rev = Reverse(key);
+            if (NnInternalMismatch.TryGetValue(key, out p)) return true;
+            if (NnInternalMismatch.TryGetValue(rev, out p)) return true;
+            p = default;
+            return false;
+        }
+
+        static bool IsWatsonCrick(char a, char b) =>
+            (a == 'A' && b == 'T') || (a == 'T' && b == 'A') ||
+            (a == 'G' && b == 'C') || (a == 'C' && b == 'G');
+    }
+
+    /// <summary>
+    /// Computes the design melting temperature (°C) for a probe–target DNA duplex that may
+    /// contain a single internal mismatch and/or a single dangling end, using the
+    /// SantaLucia (1998) NN parameters plus the Allawi/SantaLucia/Peyret internal-mismatch
+    /// and Bommarito (2000) dangling-end terms, the same bimolecular Tm equation and salt
+    /// corrections as <see cref="CalculateMeltingTemperatureNN"/>. <b>Opt-in extension</b>:
+    /// the perfect-match <see cref="CalculateMeltingTemperatureNN"/> is unchanged, and a
+    /// fully paired duplex through this path equals it.
+    /// </summary>
+    /// <param name="topStrand">Top strand 5'→3' (may carry a leading/trailing '.' dangling-end marker).</param>
+    /// <param name="bottomStrand">Bottom strand 3'→5', aligned base-for-base under the top
+    /// (complement direction, NOT reverse complement; may carry a '.' dangling-end marker).</param>
+    /// <param name="strandConcentrationMolar">Total strand concentration C_T in mol/L (default 0.5 µM).</param>
+    /// <param name="sodiumMolar">Monovalent cation concentration in mol/L (default 50 mM).</param>
+    /// <param name="magnesiumMolar">[Mg²⁺] in mol/L (default 0; only used by the divalent mode).</param>
+    /// <param name="dntpMolar">Total dNTP concentration in mol/L (default 0).</param>
+    /// <param name="saltMode">Salt correction to apply (default Owczarzy2004Monovalent).</param>
+    /// <returns>The NN Tm in °C, or <c>double.NaN</c> if the duplex is not computable
+    /// (null/unequal-length strands, &lt; 2 columns, or a stack with no NN parameter).</returns>
+    public static double CalculateMeltingTemperatureNNMismatch(
+        string topStrand,
+        string bottomStrand,
+        double strandConcentrationMolar = DefaultStrandConcentrationMolar,
+        double sodiumMolar = ThermoConstants.DefaultNaConcentration,
+        double magnesiumMolar = 0.0,
+        double dntpMolar = 0.0,
+        SaltCorrectionMode saltMode = SaltCorrectionMode.Owczarzy2004Monovalent)
+    {
+        var thermo = CalculateNearestNeighborThermodynamicsMismatch(topStrand, bottomStrand);
+        if (thermo is null)
+            return double.NaN;
+
+        var (dH, dS, selfComp) = thermo.Value;
+
+        // Use the paired-base count (excluding any dangling '.') for salt-correction length
+        // and GC fraction, consistent with the duplex actually formed.
+        string topPaired = topStrand.ToUpperInvariant().Replace(".", string.Empty);
+        int length = topPaired.Length;
+        double x = selfComp ? SelfComplementaryFactor : NonSelfComplementaryFactor;
+
+        double dSeff = dS;
+        if (saltMode == SaltCorrectionMode.SantaLuciaEntropy)
+        {
+            double phosphates = 2.0 * (length - 1);
+            dSeff += SantaLuciaEntropySaltCoefficient * (phosphates / 2.0) * Math.Log(sodiumMolar);
+        }
+
+        double tmKelvin = (dH * 1000.0) / (dSeff + GasConstant * Math.Log(strandConcentrationMolar / x));
+
+        switch (saltMode)
+        {
+            case SaltCorrectionMode.Owczarzy2004Monovalent:
+                tmKelvin = ApplyOwczarzy2004(tmKelvin, topPaired, sodiumMolar);
+                break;
+            case SaltCorrectionMode.Owczarzy2008Divalent:
+                tmKelvin = ApplyOwczarzy2008(tmKelvin, topPaired, sodiumMolar, magnesiumMolar, dntpMolar);
+                break;
+            case SaltCorrectionMode.None:
+            case SaltCorrectionMode.SantaLuciaEntropy:
+            default:
+                break;
+        }
+
+        return tmKelvin - KelvinOffset;
+    }
+
+    /// <summary>Watson-Crick complement of an ACGT string (same 5'→3'/left-to-right order).</summary>
+    private static string Complement(string seq)
+    {
+        var sb = new StringBuilder(seq.Length);
+        foreach (char c in seq)
+        {
+            sb.Append(c switch
+            {
+                'A' => 'T',
+                'T' => 'A',
+                'G' => 'C',
+                'C' => 'G',
+                _ => c
+            });
+        }
+        return sb.ToString();
+    }
+
     /// <summary>GC fraction over A/C/G/T bases only (denominator excludes non-ACGT).</summary>
     private static double GcFraction(string seq)
     {

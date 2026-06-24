@@ -81,6 +81,65 @@
    to ΔS. **method 6** (Owczarzy 2004): `corr = (4.29·gc − 3.95)·1e-5·ln(mon) + 9.40e-6·ln(mon)²`, applied
    as `1/Tm_new = 1/Tm_old + corr`. **method 7** (Owczarzy 2008 divalent) as above.
 
+### SantaLucia & Hicks (2004) Table 2 / Table 3 — mismatch + dangling-end ΔH° (primary cross-check)
+
+**URL:** https://users.cs.duke.edu/~reif/courses/molcomplectures/DNA.Thermodynamics&Kinetics/Annu._Rev._Biophys._Biomol._Struct._2004_SantaLucia_Jr.pdf
+**Accessed:** 2026-06-24 (fetched the PDF, ran `pdftotext -layout`, read Tables 2 and 3 directly)
+**Authority rank:** 1 (peer-reviewed review reproducing the original mismatch/dangling-end measurements)
+
+**Key Extracted Points:**
+
+1. **Internal single mismatches (Table 2).** The review tabulates only the ΔG°37 increments and states
+   verbatim: *"Error bars and ΔH° and ΔS° parameters are provided in the original references."* It gives a
+   **worked example** (Eq. 6): the duplex `5'-GGACTGACG-3'` / `3'-CCTGGCTGC-5'` (two internal mismatches)
+   has predicted **ΔG°37 = −8.32 kcal/mol** summed as `init + sym + GG + GA + AC + CT + CG + GA + AC + CG`.
+   - **Cross-check performed this session:** summing the Biopython `DNA_NN` + `DNA_IMM` ΔH°/ΔS° for this exact
+     duplex and converting `ΔG°37 = ΔH° − 310.15·ΔS°/1000` gives **−8.349 kcal/mol** (ΔH° = −58.5, ΔS° = −161.7),
+     within rounding of the paper's −8.32 (the paper sums independently-rounded ΔG°37 increments). This confirms
+     the Biopython `DNA_IMM` table is a faithful transcription of the Allawi/SantaLucia/Peyret mismatch parameters.
+2. **Dangling ends (Table 3).** The review gives **both ΔH° and ΔG°37** for all 32 single dangling ends, in the
+   antiparallel `XB/C` notation (`XB/C` = `5'-XB-3'` over `3'-C-5'`, X unpaired). Example ΔH° rows:
+   5'-dangling `XA/T`: A=0.2, C=0.6, G=−1.1, T=−6.9; `XC/G`: A=−6.3, C=−4.4, G=−5.1, T=−4.0; …
+   3'-dangling `AX/T`: A=−0.5, C=4.7, G=−4.1, T=−3.8; `TX/A`: A=−0.7, C=4.4, G=−1.6, T=2.9; …
+   - **Cross-check performed this session:** mapping every Biopython `DNA_DE` key to the SantaLucia Table 3 cell
+     (16 `XY/.Z` keys = 5'-dangling; 16 `.X/YZ` keys = 3'-dangling) reproduced **all 32 ΔH° values exactly**
+     (`scratchpad/de_check3.py`). The Biopython `DNA_DE` table is a verbatim transcription of Bommarito (2000) /
+     SantaLucia & Hicks (2004) Table 3.
+
+### Bommarito, Peyret & SantaLucia (2000) — dangling-end primary reference
+
+**URL:** https://pmc.ncbi.nlm.nih.gov/articles/PMC103285/ (open-access PMC mirror of NAR 28(9):1929-1934)
+**Accessed:** 2026-06-24
+**Authority rank:** 1 (the primary dangling-end measurement)
+
+**Key Extracted Points:**
+
+1. All 32 single-nucleotide dangling ends measured by UV melting in **1 M NaCl**; ΔG°37 contributions range
+   **+0.48 to −0.96 kcal/mol** (Table 2 of the paper; the numeric grid is published as figure images on PMC, so
+   the ΔH°/ΔS° values were cross-confirmed against SantaLucia & Hicks (2004) Table 3 ΔH° and the Biopython
+   `DNA_DE` table above).
+
+### Biopython `DNA_IMM` / `DNA_DE` + `Tm_NN` mismatch/dangling path — reference implementation
+
+**URL:** https://raw.githubusercontent.com/biopython/biopython/master/Bio/SeqUtils/MeltingTemp.py
+**Accessed:** 2026-06-24 (fetched the raw source; read the `Tm_NN` body verbatim)
+**Authority rank:** 3 (well-maintained reference library transcribing the papers above)
+
+**Key Extracted Points:**
+
+1. **`DNA_IMM` references** (verbatim header): *"Allawi & SantaLucia (1997), Biochemistry 36: 10581-10594;
+   (1998) 37: 9435-9444, 2170-2179, Nucl Acids Res 26: 2694-2701; Peyret et al. (1999), Biochemistry 38: 3468-3477."*
+   The A/C/G/T single-mismatch entries (52 keys) were copied verbatim into `NnInternalMismatch` (the
+   Watson-Crick `WC` placeholders and the inosine `I` entries are excluded — only true A/C/G/T mismatches kept).
+2. **`DNA_DE` reference** (verbatim header): *"Bommarito et al. (2000), Nucl Acids Res 28: 1929-1934."* All 32
+   keys copied verbatim into `NnDanglingEnd`.
+3. **`Tm_NN` convention (read verbatim):** `c_seq = Seq(seq).complement()` (NOT reverse complement); the NN/
+   mismatch key is `tmp_seq[i:i+2] + "/" + tmp_cseq[i:i+2]`, looked up forward then character-reversed
+   (`neighbors[::-1]`); a left dangling end uses `tmp_seq[:2] + "/" + tmp_cseq[:2]` then strips the first column;
+   a right dangling end uses `tmp_cseq[-2:][::-1] + "/" + tmp_seq[-2:][::-1]` then strips the last column;
+   `ends = seq[0] + seq[-1]` (terminal-AT count uses the **un-dotted** top strand); `sym` applied only for a
+   self-complementary duplex. The C# `CalculateNearestNeighborThermodynamicsMismatch` mirrors this exactly.
+
 ### OligoPool SantaLucia Tm tutorial (cross-check of equation form)
 
 **URL:** https://oligopool.com/resources/tutorials/calculating-tm
@@ -138,6 +197,20 @@
 | GCGCGC | 28.1593085080 | 24.9976652723 |
 | ATGCATGC | 18.1899960529 | — |
 
+### Dataset: Internal-mismatch + dangling-end hand-derived sums (DNA_IMM / DNA_DE)
+
+**Source:** Allawi/SantaLucia/Peyret `DNA_IMM` + Bommarito (2000) `DNA_DE`, summed by the Tm_NN convention.
+Bottom strand written 3'→5' (complement direction). Full arithmetic in `tests/TestSpecs/PRIMER-TM-001-NN.md` §4.
+
+| Duplex (top 5'→3' / bottom 3'→5') | Feature | ΔH° (kcal/mol) | ΔS° (e.u.) | Tm @ no-salt, C_T=0.5 µM (°C) |
+|-----------------------------------|---------|----------------|------------|-------------------------------|
+| CGTGAC / GCGCTG | one internal T·G mismatch | −35.5 | −101.5 | −6.4060879279 |
+| AGCGCGC / .CGCGCG | one 5'-dangling A (on a C·G pair) | −51.9 | −136.4 | 35.8034921829 |
+| GCGCGC / CGCGCG | perfect (equivalence check) | −50.4 | −134.7 | 35.0473059911 (= perfect-match path) |
+
+Stack-by-stack (CGTGAC/GCGCTG): `CG/GC`(WC) `GT/CG`(IMM,G·T) `TG/GC`→`CG/GT`rev(IMM) `GA/CT`(WC) `AC/TG`→`GT/CA`rev(WC).
+Stack-by-stack (AGCGCGC/.CGCGCG): left-DE `AG/.C`(−3.7,−10.0), then WC `GC/CG`×3, `CG/GC`×2; terminal-AT once (top ends A,C).
+
 ---
 
 ## Assumptions
@@ -168,10 +241,18 @@
 2. SantaLucia J, Hicks D (2004). The thermodynamics of DNA structural motifs. Annu Rev Biophys Biomol Struct 33:415-440. https://doi.org/10.1146/annurev.biophys.32.110601.141800
 3. Owczarzy R, You Y, Moreira BG, et al. (2004). Effects of sodium ions on DNA duplex oligomers: improved predictions of melting temperatures. Biochemistry 43(12):3537-3554. https://doi.org/10.1021/bi034621r
 4. Owczarzy R, Moreira BG, You Y, et al. (2008). Predicting stability of DNA duplexes in solutions containing magnesium and monovalent cations. Biochemistry 47(19):5336-5353. https://doi.org/10.1021/bi702363u
-5. Biopython `Bio.SeqUtils.MeltingTemp` (DNA_NN4, Tm_NN, salt_correction). https://github.com/biopython/biopython/blob/master/Bio/SeqUtils/MeltingTemp.py (accessed 2026-06-24)
+5. Biopython `Bio.SeqUtils.MeltingTemp` (DNA_NN4, DNA_IMM, DNA_DE, Tm_NN, salt_correction). https://github.com/biopython/biopython/blob/master/Bio/SeqUtils/MeltingTemp.py (accessed 2026-06-24)
+6. Allawi HT, SantaLucia J (1997). Thermodynamics and NMR of internal G·T mismatches in DNA. Biochemistry 36(34):10581-10594. https://doi.org/10.1021/bi962590c
+7. Allawi HT, SantaLucia J (1998). Nearest-neighbor thermodynamic parameters for internal G·A mismatches in DNA. Biochemistry 37(8):2170-2179. https://doi.org/10.1021/bi9724873 ; Thermodynamics of internal C·T mismatches in DNA. Nucleic Acids Res 26(11):2694-2701. https://doi.org/10.1093/nar/26.11.2694 ; Nearest-neighbor parameters for internal A·C mismatches. Biochemistry 37(26):9435-9444. https://doi.org/10.1021/bi9803729
+8. Peyret N, Seneviratne PA, Allawi HT, SantaLucia J (1999). Nearest-neighbor thermodynamics and NMR of DNA sequences with internal A·A, C·C, G·G and T·T mismatches. Biochemistry 38(12):3468-3477. https://doi.org/10.1021/bi9825091
+9. Bommarito S, Peyret N, SantaLucia J (2000). Thermodynamic parameters for DNA sequences with dangling ends. Nucleic Acids Res 28(9):1929-1934. https://doi.org/10.1093/nar/28.9.1929
 
 ---
 
 ## Change History
 
 - **2026-06-24**: Initial documentation — NN salt-corrected Tm added (opt-in) under PRIMER-TM-001.
+- **2026-06-24**: Added the internal single-mismatch (Allawi/SantaLucia/Peyret) and single-dangling-end
+  (Bommarito 2000) NN ΔH°/ΔS° tables and the `*Mismatch` Tm path (opt-in extension). The mismatch table was
+  cross-checked against the SantaLucia & Hicks (2004) Table 2 worked example; all 32 dangling-end ΔH° values
+  were cross-checked term-by-term against SantaLucia & Hicks (2004) Table 3.

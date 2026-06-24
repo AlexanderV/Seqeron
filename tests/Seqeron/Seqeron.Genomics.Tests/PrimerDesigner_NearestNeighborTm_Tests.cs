@@ -269,4 +269,164 @@ public class PrimerDesigner_NearestNeighborTm_Tests
     }
 
     #endregion
+
+    #region Internal mismatch + dangling-end NN (opt-in extension)
+    // Convention (Biopython Tm_NN with imm_table=DNA_IMM, de_table=DNA_DE): top strand
+    // 5'→3'; bottom strand written 3'→5' aligned base-for-base (complement direction, NOT
+    // reverse complement); '.' marks a single unpaired dangling base.
+    // Sources: Allawi & SantaLucia (1997/1998); Peyret et al. (1999) [internal mismatches];
+    //          Bommarito, Peyret & SantaLucia (2000) NAR 28:1929 [dangling ends].
+
+    // MM1 — Internal single T·G mismatch (G·T pair, Allawi & SantaLucia 1997).
+    // Top 5'-CGTGAC-3' / bottom 3'-GCGCTG-5' (perfect complement of CGTGAC is GCACTG;
+    // column 2 changed A→G → a T·G mismatch under the top T). Hand-derived from the
+    // NN + DNA_IMM tables (bottom written 3'→5'):
+    //   init (+0.2,-5.7); ends C/C → no terminal-AT; not self-comp → no symmetry.
+    //   CG/GC = (-10.6,-27.2)  [WC]
+    //   GT/CG = (-4.4,-12.3)   [IMM, G·T]
+    //   TG/GC = CG/GT reversed = (-4.1,-11.7)  [IMM, T·G]
+    //   GA/CT = (-8.2,-22.2)   [WC]
+    //   AC/TG = GT/CA reversed = (-8.4,-22.4)  [WC]
+    //   ΔH° = 0.2 - 10.6 - 4.4 - 4.1 - 8.2 - 8.4 = -35.5 kcal/mol
+    //   ΔS° = -5.7 - 27.2 - 12.3 - 11.7 - 22.2 - 22.4 = -101.5 cal/(K·mol)
+    [Test]
+    public void CalculateNearestNeighborThermodynamicsMismatch_InternalMismatch_MatchesImmSum()
+    {
+        var r = PrimerDesigner.CalculateNearestNeighborThermodynamicsMismatch("CGTGAC", "GCGCTG");
+
+        Assert.That(r, Is.Not.Null, "Single internal mismatch is computable (each stack has an NN parameter).");
+        Assert.Multiple(() =>
+        {
+            Assert.That(r!.Value.DeltaH, Is.EqualTo(-35.5).Within(Tol),
+                "ΔH° = init + Σ(WC stacks) + Σ(internal-mismatch stacks) per Allawi & SantaLucia.");
+            Assert.That(r.Value.DeltaS, Is.EqualTo(-101.5).Within(Tol),
+                "ΔS° = init + Σ(WC) + Σ(internal-mismatch) cal/(K·mol).");
+            Assert.That(r.Value.IsSelfComplementary, Is.False,
+                "A mismatched duplex is not self-complementary.");
+        });
+    }
+
+    // MM1-Tm — Tm of the MM1 mismatched duplex, no salt correction, x=4 (non-self-comp).
+    // Tm = -35.5·1000/(-101.5 + R·ln(0.5e-6/4)) − 273.15 = -6.4060879279 °C.
+    [Test]
+    public void CalculateMeltingTemperatureNNMismatch_InternalMismatch_MatchesEquation()
+    {
+        double tm = PrimerDesigner.CalculateMeltingTemperatureNNMismatch(
+            "CGTGAC", "GCGCTG", strandConcentrationMolar: 0.5e-6,
+            saltMode: PrimerDesigner.SaltCorrectionMode.None);
+
+        Assert.That(tm, Is.EqualTo(-6.4060879279).Within(1e-8),
+            "NN Tm of a single-internal-mismatch duplex via the bimolecular Tm equation (x=4).");
+    }
+
+    // MM2 — A mismatch DESTABILISES: the same duplex with the mismatch repaired has a
+    // higher ΔH°-magnitude and a higher Tm. Repaired bottom = GCACTG (perfect complement).
+    [Test]
+    public void CalculateMeltingTemperatureNNMismatch_Mismatch_LowersTmVsPerfect()
+    {
+        double mismatched = PrimerDesigner.CalculateMeltingTemperatureNNMismatch(
+            "CGTGAC", "GCGCTG", saltMode: PrimerDesigner.SaltCorrectionMode.None);
+        double perfect = PrimerDesigner.CalculateMeltingTemperatureNNMismatch(
+            "CGTGAC", "GCACTG", saltMode: PrimerDesigner.SaltCorrectionMode.None);
+
+        Assert.That(mismatched, Is.LessThan(perfect),
+            "An internal mismatch destabilises the duplex → lower Tm than the perfectly paired duplex.");
+    }
+
+    // DE1 — 5'-dangling A on a self-complementary GCGCGC core (Bommarito 2000).
+    // Top 5'-AGCGCGC-3' / bottom 3'-.CGCGCG-5' ('.' under the dangling A; the paired
+    // region is GCGCGC/CGCGCG). Hand-derived:
+    //   init (+0.2,-5.7); ends (top[0],top[-1]) = A,C → one terminal-AT (+2.2,+6.9);
+    //   dangling present → not self-comp → no symmetry.
+    //   left dangling end AG/.C = (-3.7,-10.0)  [DNA_DE, 5'-dangling A on a C·G pair]
+    //   then strip → GCGCGC/CGCGCG, WC stacks:
+    //     GC/CG ·3 = 3·(-9.8,-24.4); CG/GC ·2 = 2·(-10.6,-27.2)
+    //   ΔH° = 0.2 + 2.2 - 3.7 + 3·(-9.8) + 2·(-10.6) = -51.9 kcal/mol
+    //   ΔS° = -5.7 + 6.9 - 10.0 + 3·(-24.4) + 2·(-27.2) = -136.4 cal/(K·mol)
+    [Test]
+    public void CalculateNearestNeighborThermodynamicsMismatch_FivePrimeDanglingEnd_MatchesDeSum()
+    {
+        var r = PrimerDesigner.CalculateNearestNeighborThermodynamicsMismatch("AGCGCGC", ".CGCGCG");
+
+        Assert.That(r, Is.Not.Null, "A single 5'-dangling end has a DNA_DE parameter.");
+        Assert.Multiple(() =>
+        {
+            Assert.That(r!.Value.DeltaH, Is.EqualTo(-51.9).Within(Tol),
+                "ΔH° = init + terminal-AT + Bommarito dangling-end term + Σ(WC stacks).");
+            Assert.That(r.Value.DeltaS, Is.EqualTo(-136.4).Within(Tol),
+                "ΔS° = init + terminal-AT + dangling-end + Σ(WC stacks).");
+            Assert.That(r.Value.IsSelfComplementary, Is.False,
+                "A duplex with a dangling end is not treated as self-complementary.");
+        });
+    }
+
+    // DE1-Tm — Tm of the 5'-dangling duplex, no salt, x=4.
+    // Tm = -51.9·1000/(-136.4 + R·ln(0.5e-6/4)) − 273.15 = 35.8034921829 °C.
+    [Test]
+    public void CalculateMeltingTemperatureNNMismatch_DanglingEnd_MatchesEquation()
+    {
+        double tm = PrimerDesigner.CalculateMeltingTemperatureNNMismatch(
+            "AGCGCGC", ".CGCGCG", strandConcentrationMolar: 0.5e-6,
+            saltMode: PrimerDesigner.SaltCorrectionMode.None);
+
+        Assert.That(tm, Is.EqualTo(35.8034921829).Within(1e-8),
+            "NN Tm of a 5'-dangling-end duplex via the bimolecular Tm equation (x=4).");
+    }
+
+    // EQ1 — A perfectly complementary duplex through the mismatch/dangling path equals the
+    // existing perfect-match CalculateMeltingTemperatureNN exactly (the extension is a
+    // strict superset). GCGCGC top / CGCGCG bottom (3'→5') is fully Watson-Crick paired.
+    [Test]
+    public void CalculateMeltingTemperatureNNMismatch_PerfectDuplex_EqualsPerfectMatchPath()
+    {
+        double viaExtension = PrimerDesigner.CalculateMeltingTemperatureNNMismatch(
+            "GCGCGC", "CGCGCG", strandConcentrationMolar: 0.5e-6,
+            saltMode: PrimerDesigner.SaltCorrectionMode.None);
+        double viaPerfect = PrimerDesigner.CalculateMeltingTemperatureNN(
+            "GCGCGC", strandConcentrationMolar: 0.5e-6,
+            saltMode: PrimerDesigner.SaltCorrectionMode.None);
+
+        Assert.That(viaExtension, Is.EqualTo(viaPerfect).Within(1e-9),
+            "A fully paired duplex through the extension must equal the perfect-match NN Tm.");
+    }
+
+    // EQ2 — The perfect-duplex thermodynamics also match the perfect-match path's
+    // (ΔH°, ΔS°, IsSelfComplementary) tuple, including the self-complementary flag.
+    [Test]
+    public void CalculateNearestNeighborThermodynamicsMismatch_PerfectDuplex_EqualsPerfectMatchThermo()
+    {
+        var ext = PrimerDesigner.CalculateNearestNeighborThermodynamicsMismatch("GCGCGC", "CGCGCG");
+        var perfect = PrimerDesigner.CalculateNearestNeighborThermodynamics("GCGCGC");
+
+        Assert.That(ext, Is.Not.Null);
+        Assert.That(perfect, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(ext!.Value.DeltaH, Is.EqualTo(perfect!.Value.DeltaH).Within(Tol),
+                "Perfect-duplex ΔH° must match the perfect-match path.");
+            Assert.That(ext.Value.DeltaS, Is.EqualTo(perfect.Value.DeltaS).Within(Tol),
+                "Perfect-duplex ΔS° must match the perfect-match path.");
+            Assert.That(ext.Value.IsSelfComplementary, Is.EqualTo(perfect.Value.IsSelfComplementary),
+                "Self-complementary detection must agree (GCGCGC is self-complementary).");
+        });
+    }
+
+    // C3 — Invalid inputs → NaN / null: null strands, unequal length, a tandem (two adjacent)
+    // mismatch with no NN parameter.
+    [Test]
+    public void CalculateMeltingTemperatureNNMismatch_InvalidOrUncomputable_ReturnsNaN()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(double.IsNaN(PrimerDesigner.CalculateMeltingTemperatureNNMismatch(null!, "AT")), Is.True,
+                "Null top strand → NaN.");
+            Assert.That(double.IsNaN(PrimerDesigner.CalculateMeltingTemperatureNNMismatch("ATGC", "TAC")), Is.True,
+                "Unequal-length strands → NaN.");
+            // Tandem mismatch: top GG / bottom GG (3'→5') = both columns mismatched, no NN term.
+            Assert.That(PrimerDesigner.CalculateNearestNeighborThermodynamicsMismatch("AGGT", "TGGA"), Is.Null,
+                "A stack with two adjacent mismatches has no NN parameter → not computable.");
+        });
+    }
+
+    #endregion
 }
