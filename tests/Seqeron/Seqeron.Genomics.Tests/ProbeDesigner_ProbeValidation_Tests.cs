@@ -670,4 +670,142 @@ public class ProbeDesigner_ProbeValidation_Tests
     }
 
     #endregion
+
+    #region Karlin–Altschul E-value / bit-score for off-target hits (Must)
+
+    // KA1–KA7 — Karlin–Altschul statistics (Karlin & Altschul 1990, PNAS 87:2264;
+    // Altschul et al. 1990, J Mol Biol 215:403).
+    // Verbatim formulas (retrieved 2026-06-24):
+    //   E = K·m·n·e^{−λS};  S' = (λS − ln K)/ln 2;  E = m·n·2^{−S'};
+    //   λ = unique positive root of Σ p_i p_j e^{λ s_ij} = 1.
+    //   Sources: NCBI "The Statistics of Sequence Similarity Scores" (Altschul),
+    //   https://www.ncbi.nlm.nih.gov/BLAST/tutorial/Altschul-1.html ; Durand,
+    //   "BLAST (Karlin–Altschul) Statistics", CMU 03-711 (cites both 1990 papers).
+
+    // +1/−3 nucleotide scoring scheme (the scheme NCBI blastn reports λ ≈ 1.37, K ≈ 0.711 for).
+    private static readonly Seqeron.Genomics.Infrastructure.ScoringMatrix MatchMismatch1_3 =
+        new(Match: 1, Mismatch: -3, GapOpen: -5, GapExtend: -2);
+
+    // KA1 — λ for the +1/−3, uniform-0.25 scheme equals the published NCBI blastn value ≈ 1.374.
+    // This pins the numeric root-solver to a sourced value: a wrong solver fails this assertion.
+    [Test]
+    public void ComputeLambdaNucleotide_Plus1Minus3_UniformFrequencies_MatchesPublishedValue()
+    {
+        // 0.25·e^{λ·1} + 0.75·e^{λ·(−3)} = 1 → λ ≈ 1.3740631 (NCBI blastn +1/−3).
+        double lambda = ProbeDesigner.ComputeLambdaNucleotide(match: 1, mismatch: -3);
+
+        Assert.That(lambda, Is.EqualTo(1.3740631224599755).Within(1e-6),
+            "λ for +1/−3 with uniform 0.25 base frequencies must equal the published NCBI blastn value ≈ 1.374");
+    }
+
+    // KA2 — the solved λ actually satisfies the defining equation Σ p_i p_j e^{λ s_ij} = 1.
+    [Test]
+    public void ComputeLambdaNucleotide_SolvedRoot_SatisfiesDefiningEquation()
+    {
+        double lambda = ProbeDesigner.ComputeLambdaNucleotide(match: 1, mismatch: -3);
+
+        // p(match)=0.25, p(mismatch)=0.75 for four equiprobable bases.
+        double f = 0.25 * Math.Exp(lambda * 1) + 0.75 * Math.Exp(lambda * -3);
+
+        Assert.That(f, Is.EqualTo(1.0).Within(1e-9),
+            "The returned λ must be a root of Σ p_i p_j e^{λ s_ij} = 1 (Karlin & Altschul 1990)");
+    }
+
+    // KA3 — bit score and E-value for a hand-derived (S, m, n) with the +1/−3 scheme.
+    // S=30, m=20, n=1000, K=0.711, λ=1.3740631224599755:
+    //   S' = (λ·30 − ln 0.711)/ln 2 = 59.9627001142850
+    //   E  = 0.711·20·1000·e^{−λ·30} = 1.78015836860839e-14
+    [Test]
+    public void ComputeKarlinAltschul_HandDerivedExample_MatchesBitScoreAndEValue()
+    {
+        var stats = ProbeDesigner.ComputeKarlinAltschul(
+            rawScore: 30, queryLength: 20, databaseLength: 1000, scoring: MatchMismatch1_3, k: 0.711);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(stats.Lambda, Is.EqualTo(1.3740631224599755).Within(1e-6),
+                "λ must be the +1/−3 published value");
+            Assert.That(stats.BitScore, Is.EqualTo(59.962700114285006).Within(1e-6),
+                "S' = (λS − ln K)/ln 2 (Altschul et al. 1990)");
+            Assert.That(stats.EValue, Is.EqualTo(1.7801583686083893e-14).Within(1e-24),
+                "E = K·m·n·e^{−λS} (Karlin & Altschul 1990)");
+        });
+    }
+
+    // KA4 — the two equivalent E-value forms agree: E = K·m·n·e^{−λS} = m·n·2^{−S'}.
+    [Test]
+    public void ComputeKarlinAltschul_EValue_EqualsSearchSpaceTimesTwoToMinusBitScore()
+    {
+        var stats = ProbeDesigner.ComputeKarlinAltschul(
+            rawScore: 18, queryLength: 25, databaseLength: 5000, scoring: MatchMismatch1_3, k: 0.711);
+
+        double fromBits = (double)stats.QueryLength * stats.DatabaseLength * Math.Pow(2.0, -stats.BitScore);
+
+        Assert.That(stats.EValue, Is.EqualTo(fromBits).Within(stats.EValue * 1e-9),
+            "E = m·n·2^{−S'} must equal E = K·m·n·e^{−λS} (Altschul et al. 1990)");
+    }
+
+    // KA5 — E-value strictly decreases as the raw score increases (a better hit is less likely by chance).
+    [Test]
+    public void ComputeKarlinAltschul_EValue_DecreasesAsScoreIncreases()
+    {
+        var low = ProbeDesigner.ComputeKarlinAltschul(
+            rawScore: 20, queryLength: 30, databaseLength: 1000, scoring: MatchMismatch1_3, k: 0.711);
+        var high = ProbeDesigner.ComputeKarlinAltschul(
+            rawScore: 21, queryLength: 30, databaseLength: 1000, scoring: MatchMismatch1_3, k: 0.711);
+
+        Assert.That(high.EValue, Is.LessThan(low.EValue),
+            "Higher score → lower E (E = K·m·n·e^{−λS} is monotonically decreasing in S)");
+    }
+
+    // KA6 — E-value scales linearly with the search space m·n (double n → double E).
+    [Test]
+    public void ComputeKarlinAltschul_EValue_ScalesLinearlyWithSearchSpace()
+    {
+        var baseStats = ProbeDesigner.ComputeKarlinAltschul(
+            rawScore: 22, queryLength: 20, databaseLength: 1000, scoring: MatchMismatch1_3, k: 0.711);
+        var doubledN = ProbeDesigner.ComputeKarlinAltschul(
+            rawScore: 22, queryLength: 20, databaseLength: 2000, scoring: MatchMismatch1_3, k: 0.711);
+
+        Assert.That(doubledN.EValue, Is.EqualTo(2.0 * baseStats.EValue).Within(baseStats.EValue * 1e-9),
+            "Doubling n doubles E (E is linear in the search space m·n; Karlin & Altschul 1990)");
+    }
+
+    // KA7 (guards) — the Karlin–Altschul preconditions and argument validation.
+    [Test]
+    public void ComputeLambdaNucleotide_NonPositiveMatch_Throws()
+    {
+        // No positive score → λ undefined (Altschul et al. 1990).
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => ProbeDesigner.ComputeLambdaNucleotide(match: 0, mismatch: -3),
+            "A scheme with no positive score has no λ");
+    }
+
+    [Test]
+    public void ComputeLambdaNucleotide_NonNegativeExpectedScore_Throws()
+    {
+        // match=3, mismatch=−1 → expected = 0.25·3 + 0.75·(−1) = 0 → not negative → λ undefined.
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => ProbeDesigner.ComputeLambdaNucleotide(match: 3, mismatch: -1),
+            "Expected per-pair score must be negative for λ to be defined");
+    }
+
+    [Test]
+    public void ComputeKarlinAltschul_NonPositiveLength_Throws()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => ProbeDesigner.ComputeKarlinAltschul(10, 0, 1000, MatchMismatch1_3),
+                "Query length m must be positive");
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => ProbeDesigner.ComputeKarlinAltschul(10, 20, 0, MatchMismatch1_3),
+                "Database length n must be positive");
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => ProbeDesigner.ComputeKarlinAltschul(10, 20, 1000, MatchMismatch1_3, k: 0),
+                "K must be positive");
+        });
+    }
+
+    #endregion
 }

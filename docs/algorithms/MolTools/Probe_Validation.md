@@ -12,7 +12,7 @@
 
 Probe validation assesses whether a hybridization probe is likely to bind specifically to its intended targets with limited cross-hybridization. In this repository, validation combines substitution-tolerant fixed-length window matching against reference sequences with self-complementarity and secondary-structure screening. The result is a simple validation record with a specificity score, issue list, and probe-quality flags.
 
-An opt-in **gapped** off-target scan (`ScanOffTargetsGapped`) supplements the default ungapped scan: it reuses the library's validated Smith–Waterman local aligner [1] to find off-target sites reachable through insertions or deletions — the indel-aware "BLAST-grade" improvement over a pure ungapped Hamming scan [2] — and it separates the single intended on-target match from genuine off-target hits (correcting the on/off-target pooling of `ValidateProbe`'s `OffTargetHits`). The default `ValidateProbe`/`CheckSpecificity` behaviour is unchanged.
+An opt-in **gapped** off-target scan (`ScanOffTargetsGapped`) supplements the default ungapped scan: it reuses the library's validated Smith–Waterman local aligner [1] to find off-target sites reachable through insertions or deletions — the indel-aware "BLAST-grade" improvement over a pure ungapped Hamming scan [2] — and it separates the single intended on-target match from genuine off-target hits (correcting the on/off-target pooling of `ValidateProbe`'s `OffTargetHits`). An opt-in **Karlin–Altschul statistics** layer (`ComputeKarlinAltschul` / `ComputeLambdaNucleotide`) quantifies the statistical significance of an off-target hit's raw alignment score as a bit score and an E-value [8][9]. The default `ValidateProbe`/`CheckSpecificity` behaviour is unchanged.
 
 ## 2. Scientific / Formal Basis
 
@@ -37,6 +37,16 @@ $$
 
 It also computes self-complementarity as a fraction of aligned matches against the reverse complement and checks for secondary-structure potential with a sequence-level hairpin screen.
 
+**Karlin–Altschul statistics of an off-target hit (opt-in).** For a hit's raw alignment score `S` against a search space of query length `m` and database length `n`, the statistical significance follows the Karlin–Altschul framework [8][9]:
+
+$$E = K \cdot m \cdot n \cdot e^{-\lambda S}, \qquad S' = \frac{\lambda S - \ln K}{\ln 2}, \qquad E = m \cdot n \cdot 2^{-S'}$$
+
+where the scale parameter `λ` is the unique positive root of the defining equation [8]
+
+$$\sum_{i,j} p_i\, p_j\, e^{\lambda s_{ij}} = 1$$
+
+with `p_i` the background base frequencies and `s_ij` the score matrix. For four equiprobable bases (`p_i = 0.25`) and a match/mismatch scheme this reduces to `0.25·e^{λ·match} + 0.75·e^{λ·mismatch} = 1`; for the BLAST `+1/−3` scheme it solves to `λ ≈ 1.374` (matching the value NCBI blastn reports). The theory requires a scoring scheme with **negative expected per-pair score** and **at least one positive score** [9]; both are checked. `K` (whose full closed form needs the Karlin–Altschul score-lattice machinery) is exposed as a caller parameter, defaulted to the published nucleotide value `0.711`.
+
 ### 2.4 Properties and Invariants
 
 | ID | Invariant | Holds because |
@@ -48,6 +58,8 @@ It also computes self-complementarity as a fraction of aligned matches against t
 | INV-05 | Each gapped hit has `0.0 <= Identity <= 1.0` and `0.0 <= Coverage <= 1.0` | Both are counts of aligned columns divided by probe length |
 | INV-06 | The intended on-target (first perfect ungapped full-coverage exact match) is excluded from `OffTargetHits` | On/off separation in `ScanOffTargetsGapped` |
 | INV-07 | An indel-only off-target has `HasGaps == true` and is found by `ScanOffTargetsGapped` but not by the ungapped `ValidateProbe` scan | Gapped local alignment admits indels [1][2] |
+| INV-08 | `ComputeLambdaNucleotide` returns the unique positive root of `Σ p_i p_j e^{λ s_ij} = 1`; for `+1/−3`, `p=0.25` it equals `1.374` to numerical tolerance | Bisection on the strictly-crossing Karlin–Altschul equation [8] |
+| INV-09 | The two E-value forms agree: `K·m·n·e^{−λS} == m·n·2^{−S'}`; E decreases as `S` increases and scales linearly with `m·n` | Algebraic identity of the Karlin–Altschul formulas [8][9] |
 
 ## 3. Contract
 
@@ -113,6 +125,8 @@ Validation defaults preserved from the original document and source:
 - `ProbeDesigner.ValidateProbe(string, IEnumerable<string>, int, double)`: Performs ungapped approximate-match, self-complementarity, and secondary-structure validation (default behaviour, unchanged).
 - `ProbeDesigner.CheckSpecificity(string, ISuffixTree)`: Computes exact-hit specificity from suffix-tree occurrence counts.
 - `ProbeDesigner.ScanOffTargetsGapped(string, IEnumerable<string>, double, ScoringMatrix?)`: Opt-in gapped (Smith–Waterman) off-target scan. Returns a `GappedSpecificityResult` separating `OnTargetHits` (the perfect ungapped full-coverage exact match) from `OffTargetHits` (imperfect/indel hits ≥ `minIdentity`, default 0.75). Reuses `SequenceAligner.LocalAlign` for the indel-aware alignment.
+- `ProbeDesigner.ComputeLambdaNucleotide(int, int, double)`: Opt-in. Solves `Σ p_i p_j e^{λ s_ij} = 1` numerically (bisection) for a match/mismatch scheme under uniform base frequencies; returns the Karlin–Altschul `λ` [8][9]. Throws when the scheme has no positive score or a non-negative expected score.
+- `ProbeDesigner.ComputeKarlinAltschul(double, int, long, ScoringMatrix?, double, double)`: Opt-in. Returns a `KarlinAltschulStatistics` (`RawScore`, `Lambda`, `K`, `BitScore`, `EValue`, `QueryLength`, `DatabaseLength`) for a hit's raw score over a search space `m·n`, using `E = K·m·n·e^{−λS}` and `S' = (λS − ln K)/ln 2` [8][9]. `K` defaults to the published nucleotide value `0.711`.
 
 ### 5.2 Current Behavior
 
@@ -129,6 +143,7 @@ The current validator treats an empty probe as invalid rather than throwing. It 
 - Self-complementarity and secondary-structure checks.
 - Specificity scoring as `0`, `1`, or `1 / hits` depending on hit count (`ValidateProbe`).
 - Off-target identity threshold (default 0.75 over the probe length) per Kane et al. (2000) [7].
+- Karlin–Altschul E-value, bit score, and the `λ` defining equation (`ComputeKarlinAltschul` / `ComputeLambdaNucleotide`), with the negative-expected-score and at-least-one-positive-score preconditions [8][9].
 
 **Intentionally simplified:**
 
@@ -136,11 +151,13 @@ The current validator treats an empty probe as invalid rather than throwing. It 
 - `ValidateProbe`'s approximate matching is substitution-only and fixed-length, and its `OffTargetHits` pools the on-target match with off-targets; **consequence:** for indel-aware detection and on/off separation use `ScanOffTargetsGapped` instead.
 - Suffix-tree specificity uses exact hits only; **consequence:** approximate off-targets are only modeled through `ValidateProbe(...)`/`ScanOffTargetsGapped(...)`, not through `CheckSpecificity(...)`.
 - On/off-target labelling: the first perfect ungapped full-coverage exact match is taken as the intended on-target; **consequence:** when several identical perfect sites exist, the first is on-target and the rest are off-targets.
+- The Karlin–Altschul `K` parameter is a caller-supplied value (default the published nucleotide `0.711`) rather than computed from its full closed form; **consequence:** `λ`, the bit score, and the E-value's score-dependence are exact, but `K`'s value depends on the supplied constant (use the matching published `K` for a non-default scoring scheme).
 
 **Not implemented:**
 
-- A seeded BLAST k-mer index over a whole genome; `ScanOffTargetsGapped` is an exhaustive sliding Smith–Waterman scan (O(g · n·m)), not a genome-scale seed-and-extend index [2]; **users should rely on:** an external seeded aligner for genome-scale off-target search.
-- Thermodynamic hybridization (duplex-Tm) modeling and E-value ranking; **users should rely on:** external experimental validation or richer sequence-search tools when required.
+- A seeded BLAST k-mer index over a whole genome; `ScanOffTargetsGapped` is an exhaustive sliding Smith–Waterman scan (O(g · n·m)), not a genome-scale seed-and-extend index [2]; **users should rely on:** an external seeded aligner for genome-scale off-target *performance* (the exhaustive scan already finds every hit a seed would, so this is a speed, not a correctness, gap).
+- The Karlin–Altschul `K` closed form (score-probability lattice / geometric-spacing machinery of [8]); **users should rely on:** the caller-supplied `K` parameter (published values per scoring scheme).
+- Thermodynamic hybridization (duplex-Tm) off-target modeling; **users should rely on:** external experimental validation or thermodynamic tools when required.
 
 ## 6. Edge Cases and Limitations
 
@@ -155,7 +172,7 @@ The current validator treats an empty probe as invalid rather than throwing. It 
 
 ### 6.2 Limitations
 
-The implementation is a screening tool. The opt-in `ScanOffTargetsGapped` adds indel-aware (gapped) off-target detection and on/off-target separation, but it remains an exhaustive sliding Smith–Waterman scan, not a seeded BLAST k-mer index over a whole genome; it does not incorporate thermodynamic binding (duplex-Tm) models, mismatch-position weighting, assay stringency, or E-value ranking, and the suffix-tree helper only captures exact-hit uniqueness.
+The implementation is a screening tool. The opt-in `ScanOffTargetsGapped` adds indel-aware (gapped) off-target detection and on/off-target separation, and `ComputeKarlinAltschul` adds the Karlin–Altschul bit-score / E-value significance of a hit; but off-target search remains an exhaustive sliding Smith–Waterman scan, not a seeded BLAST k-mer index over a whole genome (a genome-scale *performance* technique — the exhaustive scan already finds every hit a seed would). It does not incorporate thermodynamic binding (duplex-Tm) models, mismatch-position weighting, or assay stringency, and the suffix-tree helper only captures exact-hit uniqueness.
 
 ## 8. References
 
@@ -166,3 +183,5 @@ The implementation is a screening tool. The opt-in `ScanOffTargetsGapped` adds i
 5. Wikipedia: Off-target genome editing - https://en.wikipedia.org/wiki/Off-target_genome_editing
 6. Amann R, Ludwig W (2000) - Ribosomal RNA-targeted nucleic acid probes for studies in microbial ecology, FEMS Microbiology Reviews.
 7. Kane MD, Jatkoe TA, Stumpf CR, Lu J, Thomas JD, Madore SJ (2000) - Assessment of the sensitivity and specificity of oligonucleotide (50mer) microarrays, Nucleic Acids Research 28(22):4552–4557. https://pmc.ncbi.nlm.nih.gov/articles/PMC113865/
+8. Karlin S, Altschul SF (1990) - Methods for assessing the statistical significance of molecular sequence features by using general scoring schemes, PNAS 87(6):2264–2268. https://doi.org/10.1073/pnas.87.6.2264 (formulas via https://www.ncbi.nlm.nih.gov/BLAST/tutorial/Altschul-1.html and http://www.cs.cmu.edu/~durand/03-711/2011/Lectures/Blast-informationContent-2011.pdf)
+9. Altschul SF, Gish W, Miller W, Myers EW, Lipman DJ (1990) - Basic local alignment search tool (E-value / bit-score statistics), J. Mol. Biol. 215(3):403–410. https://doi.org/10.1016/S0022-2836(05)80360-2 (statements via the NCBI tutorial "The Statistics of Sequence Similarity Scores")

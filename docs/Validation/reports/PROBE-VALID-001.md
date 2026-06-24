@@ -177,3 +177,32 @@ on-target from off-target hits**, addressing both PASS-WITH-NOTES findings:
 - **Status reset to ☐** in the root registry for independent re-validation of the changed unit.
 
 (Optional `hasStructure`-in-`IsValid` change was NOT made; structure remains advisory by design.)
+
+---
+
+## 2026-06-24 — Limitation fix: Karlin–Altschul E-value / bit-score (re-validation pending)
+
+The follow-up below was implemented. The citable statistical piece of "BLAST-grade" off-target search —
+the **Karlin–Altschul E-value and bit score** — was added as opt-in methods; the scan, `ValidateProbe`,
+and all defaults are unchanged.
+
+- **New methods:**
+  - `ProbeDesigner.ComputeLambdaNucleotide(int match, int mismatch, double baseFrequency = 0.25)` →
+    `double` λ, the unique positive root of Σ p_i p_j e^{λ s_ij} = 1, solved numerically by bisection.
+  - `ProbeDesigner.ComputeKarlinAltschul(double rawScore, int queryLength, long databaseLength, ScoringMatrix? scoring = null, double k = 0.711, double baseFrequency = 0.25)`
+    → `KarlinAltschulStatistics(RawScore, Lambda, K, BitScore, EValue, QueryLength, DatabaseLength)`.
+- **Formulas (verbatim, Karlin & Altschul 1990 PNAS 87:2264; Altschul et al. 1990 J Mol Biol 215:403):**
+  E = K·m·n·e^{−λS}; S' = (λS − ln K)/ln 2; E = m·n·2^{−S'}; λ = root of Σ p_i p_j e^{λ s_ij} = 1.
+  Preconditions enforced: at least one positive score and negative expected per-pair score.
+- **λ derived, not hard-coded:** the +1/−3 uniform-0.25 scheme solves to λ = 1.3740631 (asserted ≈ 1.374,
+  matching the published NCBI blastn value). K is exposed as a caller parameter (its closed form needs the
+  Karlin–Altschul score-lattice machinery), defaulted to the published nucleotide value 0.711.
+- **Tests:** 9 new evidence-based tests (KA1–KA7) in `ProbeDesigner_ProbeValidation_Tests.cs`: λ ≈ 1.374
+  to 1e-6, the root satisfies its defining equation, a hand-derived (S=30, m=20, n=1000) bit score
+  59.9627 and E = 1.7802e-14, the two E-value forms agree, E decreases with score and scales linearly
+  with m·n, plus precondition/argument guards. Full fixture 37/37 pass.
+- **`ScanOffTargetsGapped`, `ValidateProbe`, `CheckSpecificity` and every default unchanged.**
+- **Residual:** genome-scale **performance** only — no precomputed seeded k-mer index over a whole-genome
+  database. The exhaustive sliding Smith–Waterman scan already finds every hit a seed would (correctness
+  is complete); the seed index is purely a speed optimization. No capability-level gap remains.
+- **Status stays ☐** in the root registry for independent re-validation of the changed unit.

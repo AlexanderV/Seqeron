@@ -164,6 +164,34 @@ public static class ProbeDesigner
     }
 
     /// <summary>
+    /// Karlin–Altschul statistics of an off-target alignment hit: the raw alignment score's
+    /// statistical significance expressed as a bit score and an expectation (E) value.
+    /// </summary>
+    /// <remarks>
+    /// Karlin &amp; Altschul (1990, PNAS 87:2264); Altschul et al. (1990, J Mol Biol 215:403).
+    /// </remarks>
+    /// <param name="RawScore">The raw alignment score S (sum of substitution/gap scores).</param>
+    /// <param name="Lambda">
+    /// The Karlin–Altschul scale parameter λ — the unique positive root of
+    /// Σ_{i,j} p_i p_j e^{λ s_ij} = 1 for the scoring scheme and base frequencies.
+    /// </param>
+    /// <param name="K">The Karlin–Altschul search-space scale parameter K (supplied by the caller).</param>
+    /// <param name="BitScore">The normalized bit score S' = (λS − ln K) / ln 2.</param>
+    /// <param name="EValue">
+    /// The expected number of distinct alignments scoring ≥ S by chance: E = K·m·n·e^{−λS} = m·n·2^{−S'}.
+    /// </param>
+    /// <param name="QueryLength">The query (probe) length m used in the search space.</param>
+    /// <param name="DatabaseLength">The database (reference) length n used in the search space.</param>
+    public readonly record struct KarlinAltschulStatistics(
+        double RawScore,
+        double Lambda,
+        double K,
+        double BitScore,
+        double EValue,
+        int QueryLength,
+        long DatabaseLength);
+
+    /// <summary>
     /// Probe type.
     /// </summary>
     public enum ProbeType
@@ -1031,6 +1059,158 @@ public static class ProbeDesigner
         accepted.Sort((a, b) => a.Start.CompareTo(b.Start));
         return accepted;
     }
+
+    // --- Karlin–Altschul statistics (opt-in) ---
+    //
+    // Karlin & Altschul (1990, PNAS 87:2264) / Altschul et al. (1990, J Mol Biol 215:403):
+    //   E = K·m·n·e^{−λS}                       (expected HSPs with score ≥ S by chance)
+    //   S' = (λS − ln K) / ln 2                  (normalized "bit" score)
+    //   E = m·n·2^{−S'}                          (E in terms of the bit score)
+    //   λ is the unique positive root of  Σ_{i,j} p_i p_j e^{λ s_ij} = 1.
+    // Verbatim formulas retrieved 2026-06-24 from the NCBI BLAST course
+    //   "The Statistics of Sequence Similarity Scores" (Altschul),
+    //   https://www.ncbi.nlm.nih.gov/BLAST/tutorial/Altschul-1.html, and from Durand,
+    //   "BLAST (Karlin–Altschul) Statistics" (CMU 03-711, citing Karlin & Altschul 1990 and
+    //   Altschul et al. 1990), http://www.cs.cmu.edu/~durand/03-711/2011/Lectures/Blast-informationContent-2011.pdf.
+    // The theory requires a scoring scheme whose expected per-pair score is negative and that
+    // has at least one positive score (Altschul, ibid.); otherwise λ is undefined.
+
+    // Uniform nucleotide background frequency p_i = 0.25 for the four bases A,C,G,T
+    // (the standard assumption when computing the +1/−3 nucleotide λ ≈ 1.374, NCBI blastn).
+    private const double UniformBaseFrequency = 0.25;
+
+    // Bisection bounds/iterations for solving Σ p_i p_j e^{λ s_ij} = 1. The function is strictly
+    // increasing in λ once it crosses 1 (the expected score is negative, so it starts < 1 and a
+    // positive score makes it diverge), so a simple bisection converges to the unique positive root.
+    private const double LambdaSearchUpperBound = 100.0;
+    private const int LambdaBisectionIterations = 200;
+
+    /// <summary>
+    /// Computes the Karlin–Altschul scale parameter λ for a match/mismatch nucleotide scoring
+    /// scheme under uniform (0.25) base frequencies, by solving the defining equation
+    /// Σ_{i,j} p_i p_j e^{λ s_ij} = 1 numerically (bisection on the unique positive root).
+    /// </summary>
+    /// <remarks>
+    /// With four equiprobable bases and a simple match/mismatch matrix, the 16 ordered pairs split
+    /// into 4 matches (probability 4·0.25² = 0.25) and 12 mismatches (probability 0.75), so the
+    /// equation reduces to 0.25·e^{λ·match} + 0.75·e^{λ·mismatch} = 1. For the BLAST +1/−3 scheme
+    /// this yields λ ≈ 1.374 (NCBI blastn). Karlin &amp; Altschul (1990); Altschul et al. (1990).
+    /// </remarks>
+    /// <param name="match">Match score (must be &gt; 0 — the required positive score).</param>
+    /// <param name="mismatch">Mismatch score (must be &lt; 0).</param>
+    /// <param name="baseFrequency">
+    /// Per-base background frequency (default 0.25, uniform). The four bases are assumed equiprobable
+    /// at this value; the four base frequencies must sum to 1, i.e. <paramref name="baseFrequency"/> = 0.25.
+    /// </param>
+    /// <returns>The positive λ solving the Karlin–Altschul equation.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// Thrown when the scheme cannot define λ: the match score is not positive, the mismatch score is
+    /// not negative, or the expected per-pair score is not negative (the theory's preconditions).
+    /// </exception>
+    public static double ComputeLambdaNucleotide(
+        int match,
+        int mismatch,
+        double baseFrequency = UniformBaseFrequency)
+    {
+        // Karlin–Altschul preconditions: at least one positive score, and negative expected score.
+        if (match <= 0)
+            throw new ArgumentOutOfRangeException(nameof(match),
+                "Karlin–Altschul λ is undefined: the scoring scheme must have at least one positive score.");
+        if (mismatch >= 0)
+            throw new ArgumentOutOfRangeException(nameof(mismatch),
+                "Karlin–Altschul λ is undefined: the mismatch score must be negative.");
+
+        // p(match) = 4 · p² (the four identical ordered pairs); p(mismatch) = 1 − p(match).
+        double pMatch = 4.0 * baseFrequency * baseFrequency;
+        double pMismatch = 1.0 - pMatch;
+
+        // Expected per-pair score must be negative for the theory to hold.
+        double expectedScore = pMatch * match + pMismatch * mismatch;
+        if (expectedScore >= 0)
+            throw new ArgumentOutOfRangeException(nameof(mismatch),
+                "Karlin–Altschul λ is undefined: the expected per-pair score must be negative.");
+
+        // f(λ) = p(match)·e^{λ·match} + p(mismatch)·e^{λ·mismatch} − 1.
+        // f(0) = 0; f'(0) = expectedScore < 0 so f dips below 0 for small λ>0, then a positive
+        // match score drives e^{λ·match} → ∞, so f crosses 0 exactly once at the positive root.
+        static double F(double lambda, double pM, int m, double pMm, int mm)
+            => pM * Math.Exp(lambda * m) + pMm * Math.Exp(lambda * mm) - 1.0;
+
+        double lo = 0.0;
+        double hi = LambdaSearchUpperBound;
+        for (int i = 0; i < LambdaBisectionIterations; i++)
+        {
+            double mid = 0.5 * (lo + hi);
+            if (F(mid, pMatch, match, pMismatch, mismatch) > 0.0)
+                hi = mid;
+            else
+                lo = mid;
+        }
+
+        return 0.5 * (lo + hi);
+    }
+
+    /// <summary>
+    /// Computes the Karlin–Altschul bit score and E-value for an off-target alignment hit's raw
+    /// score, given the search-space dimensions and the scoring scheme.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// E = K·m·n·e^{−λS}, S' = (λS − ln K) / ln 2, E = m·n·2^{−S'} (Karlin &amp; Altschul 1990;
+    /// Altschul et al. 1990). λ is computed from <paramref name="scoring"/> by
+    /// <see cref="ComputeLambdaNucleotide"/>; K is supplied by the caller (the closed form requires
+    /// the score-lattice machinery of Karlin–Altschul; for the BLAST +1/−3 nucleotide scheme the
+    /// published value is K ≈ 0.711, NCBI blastn).
+    /// </para>
+    /// <para>This is additive and opt-in; <see cref="ScanOffTargetsGapped"/> and its defaults are unchanged.</para>
+    /// </remarks>
+    /// <param name="rawScore">The raw alignment score S of the hit.</param>
+    /// <param name="queryLength">Query (probe) length m (&gt; 0).</param>
+    /// <param name="databaseLength">Database (reference) length n (&gt; 0).</param>
+    /// <param name="scoring">
+    /// The scoring scheme. Its <see cref="ScoringMatrix.Match"/>/<see cref="ScoringMatrix.Mismatch"/>
+    /// determine λ. Defaults to <see cref="SequenceAligner.BlastDna"/> (+2/−3). Pass a +1/−3 matrix to
+    /// reproduce the published λ ≈ 1.374.
+    /// </param>
+    /// <param name="k">The Karlin–Altschul K parameter (default 0.711, the published nucleotide value).</param>
+    /// <param name="baseFrequency">Per-base background frequency for λ (default 0.25, uniform).</param>
+    /// <returns>The <see cref="KarlinAltschulStatistics"/> for the hit.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="scoring"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown for non-positive lengths or K, or a scheme for which λ is undefined.</exception>
+    public static KarlinAltschulStatistics ComputeKarlinAltschul(
+        double rawScore,
+        int queryLength,
+        long databaseLength,
+        ScoringMatrix? scoring = null,
+        double k = DefaultNucleotideK,
+        double baseFrequency = UniformBaseFrequency)
+    {
+        var matrix = scoring ?? SequenceAligner.BlastDna;
+        ArgumentNullException.ThrowIfNull(matrix);
+        if (queryLength <= 0)
+            throw new ArgumentOutOfRangeException(nameof(queryLength), "Query length m must be positive.");
+        if (databaseLength <= 0)
+            throw new ArgumentOutOfRangeException(nameof(databaseLength), "Database length n must be positive.");
+        if (k <= 0)
+            throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
+
+        double lambda = ComputeLambdaNucleotide(matrix.Match, matrix.Mismatch, baseFrequency);
+
+        // S' = (λS − ln K) / ln 2  (Altschul et al. 1990).
+        double bitScore = (lambda * rawScore - Math.Log(k)) / Math.Log(2.0);
+
+        // E = K·m·n·e^{−λS}  (Karlin & Altschul 1990).
+        double eValue = k * queryLength * databaseLength * Math.Exp(-lambda * rawScore);
+
+        return new KarlinAltschulStatistics(
+            rawScore, lambda, k, bitScore, eValue, queryLength, databaseLength);
+    }
+
+    // Published Karlin–Altschul K for the BLAST +1/−3 nucleotide scheme (NCBI blastn reports
+    // Lambda ≈ 1.37, K ≈ 0.711 for match=1/mismatch=−3). K's full closed form needs the
+    // score-probability lattice/geometric-spacing machinery of Karlin & Altschul (1990); it is
+    // therefore exposed as a caller parameter, defaulted to this published value.
+    private const double DefaultNucleotideK = 0.711;
 
     #endregion
 
