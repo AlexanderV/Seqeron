@@ -408,6 +408,79 @@ public static class ProbeDesigner
 
     #endregion
 
+    #region MGB (minor-groove binder) design rules — opt-in (qualitative; quantitative ΔTm is a residual)
+
+    // --- Citable 3'-MGB probe-design rules (Kutyavin et al. 2000, Nucleic Acids Res 28(2):655-661) ---
+    //
+    // Kutyavin et al. (2000) established that conjugating a minor-groove binder (MGB) to the 3' end
+    // of a DNA probe greatly stabilises the duplex, so MGB probes are designed SHORTER than
+    // unmodified probes: "for MGB probes this length variation is narrowed to a range of 12-20mers"
+    // (a 12mer MGB has ~the same Tm as a 27mer unmodified probe). The MGB is attached at the 3' end
+    // ("3'-MGB-ODNs are easier to prepare … MGB-modified solid supports and automated DNA synthesis
+    // can be used"). The QUANTITATIVE MGB ΔTm is empirical with no published closed-form model
+    // (the stabilisation "varies by sequence"; A+T-rich MGB sites gain more than G+C-rich ones), so
+    // only these qualitative DESIGN rules are implemented here; the quantitative MGB ΔTm is left as
+    // an honest residual (see docs/Validation/LIMITATIONS.md).
+    // Source (retrieved 2026-06-24): Kutyavin IV et al. (2000) Nucleic Acids Res 28(2):655-661,
+    //   https://doi.org/10.1093/nar/28.2.655.
+
+    // Kutyavin (2000): MGB-probe length range narrowed to 12-20mers.
+    private const int MgbMinLength = 12;
+    private const int MgbMaxLength = 20;
+
+    /// <summary>
+    /// Result of checking a candidate probe against the citable 3'-MGB (minor-groove binder)
+    /// design rules of Kutyavin et al. (2000). These are <b>qualitative</b> design-rule checks
+    /// only; the quantitative MGB ΔTm is empirical (no published formula) and is not computed.
+    /// </summary>
+    /// <param name="Sequence">The (upper-cased) probe sequence checked.</param>
+    /// <param name="LengthInMgbRange">True when the probe length is within the MGB 12–20mer window.</param>
+    /// <param name="Length">The probe length in nucleotides.</param>
+    /// <param name="MgbAttachmentEnd">The recommended MGB attachment end (always 3', per Kutyavin 2000).</param>
+    /// <param name="Guidance">Human-readable design guidance / any rule violations.</param>
+    public readonly record struct MgbProbeDesign(
+        string Sequence,
+        bool LengthInMgbRange,
+        int Length,
+        string MgbAttachmentEnd,
+        IReadOnlyList<string> Guidance);
+
+    /// <summary>
+    /// Evaluates a candidate probe against the citable 3'-MGB (minor-groove binder) probe-design
+    /// rules of Kutyavin et al. (2000): the MGB is attached at the <b>3' end</b>, and MGB probes are
+    /// designed <b>shorter</b> (12–20mer) than unmodified probes. This is an opt-in, qualitative
+    /// design-rule check; the generic <see cref="DesignProbes(string, ProbeParameters?, int)"/>
+    /// designer and all defaults are unchanged. The <b>quantitative</b> MGB ΔTm is empirical (no
+    /// published closed-form model in Kutyavin 2000) and is deliberately NOT computed.
+    /// </summary>
+    /// <param name="probeSequence">The candidate probe sequence (5'→3').</param>
+    /// <returns>An <see cref="MgbProbeDesign"/> recording the length-window outcome and 3'-MGB guidance.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="probeSequence"/> is null.</exception>
+    public static MgbProbeDesign EvaluateMgbProbeDesign(string probeSequence)
+    {
+        ArgumentNullException.ThrowIfNull(probeSequence);
+
+        string seq = probeSequence.ToUpperInvariant();
+        var guidance = new List<string>();
+
+        bool lengthInRange = seq.Length >= MgbMinLength && seq.Length <= MgbMaxLength;
+        if (!lengthInRange)
+            guidance.Add(
+                $"length {seq.Length} outside the MGB {MgbMinLength}-{MgbMaxLength}mer window (Kutyavin 2000)");
+
+        // 3'-MGB placement guidance (always applies).
+        guidance.Add("attach the minor-groove binder at the 3' end (Kutyavin 2000)");
+
+        return new MgbProbeDesign(
+            seq,
+            lengthInRange,
+            seq.Length,
+            MgbAttachmentEnd: "3'",
+            guidance);
+    }
+
+    #endregion
+
     #region Probe Design
 
     /// <summary>

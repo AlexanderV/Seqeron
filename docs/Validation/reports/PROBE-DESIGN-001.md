@@ -130,3 +130,43 @@ MGB (minor-groove binder), LNA, and dual-quencher probe chemistries remain out o
 implemented rules target standard single reporter/quencher hydrolysis probes.
 
 Status reset to **☐** in `ALGORITHMS_CHECKLIST_V2.md` pending independent re-validation of the new mode.
+
+## 2026-06-24 update — LNA-adjusted NN Tm + citable MGB design rules added (Status stays ☐)
+
+A second opt-in chemistry extension was added; the generic designer, the TaqMan rules, and all Tm
+defaults remain unchanged.
+
+### LNA (locked nucleic acid)-adjusted NN Tm — CITABLE, implemented
+- **Source (retrieved 2026-06-24):** McTigue PM, Peterson RJ, Kahn JD (2004), *Biochemistry*
+  43:5388–5405 (DOI 10.1021/bi035976d) — sequence-dependent ΔΔH°/ΔΔS° for all 32 LNA-DNA nearest
+  neighbours. The 32 increments were transcribed **verbatim** from the MELTING 5 reference data file
+  `McTigue2004lockedmn.xml` (Dumousseau et al. 2012, BMC Bioinformatics 13:101; mirrored in
+  `aravind-j/rmelting`); units cal/mol and cal/(mol·K) → stored as kcal/mol (÷1000).
+- **API added (opt-in; defaults unchanged):**
+  - `PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(string sequence, IReadOnlyCollection<int> lnaPositions)` → LNA-adjusted (ΔH°, ΔS°, IsSelfComplementary)? (base SantaLucia 1998 DNA NN + McTigue increments per LNA-containing step; terminal/out-of-range LNA → null).
+  - `PrimerDesigner.CalculateMeltingTemperatureNNLna(...)` → LNA-adjusted NN Tm (reuses the bimolecular Tm equation + salt corrections of `CalculateMeltingTemperatureNN`).
+- **Worked example (independently hand-derived, reproduced by the code):** `CCATTGCTACC`, LNA at
+  index 4, C=1e-4, Na=1 → ΔH° = **−80.014 kcal/mol**, ΔS° = **−216.6 cal/(mol·K)**, Tm = **63.52759 °C**
+  (MELTING `mct04`: 63.61426 °C — within 0.09 °C; residual is the base DNA NN model choice). The
+  all-DNA Tm is 59.69226 °C, so the internal LNA **raises Tm by +3.84 °C** (McTigue stabilization).
+
+### MGB design rules — qualitative rules CITABLE, quantitative ΔTm a residual
+- **Source (retrieved 2026-06-24):** Kutyavin IV et al. (2000), *Nucleic Acids Res* 28(2):655–661
+  (DOI 10.1093/nar/28.2.655): MGB at the **3' end**; MGB probes designed **shorter (12–20mer)**;
+  a 12mer MGB ≈ Tm of a 27mer unmodified probe. The quantitative MGB ΔTm is described as **empirical
+  with no published closed-form formula** (sequence-dependent; A+T-rich MGB sites gain more).
+- **API added:** `ProbeDesigner.EvaluateMgbProbeDesign(string)` → `MgbProbeDesign` (12–20mer
+  length-window check + 3'-MGB attachment guidance). The quantitative MGB ΔTm is **deliberately not
+  computed** (honest residual).
+
+### Tests
+13 evidence-based tests in `ProbeDesigner_LnaTm_Tests.cs` (M1–M7, S1–S4, C1) with exact hand-derived
+values (ΔH°/ΔS°, Tm 63.52759 °C, terminal-LNA rejection, additivity, negative-increment sign, MGB
+length window). Full unfiltered suite green.
+
+### Residual after this round (honest)
+- **Quantitative MGB ΔTm** — empirical/proprietary, no published formula (Kutyavin 2000) → data-blocked.
+- **Dual-quencher** — a labelling note with no Tm impact.
+
+Status remains **☐** in `ALGORITHMS_CHECKLIST_V2.md` (it was already ☐ from the TaqMan round; not
+reset, no Quick-Reference change), pending independent re-validation of the new mode.

@@ -947,6 +947,207 @@ public static class PrimerDesigner
         return tmKelvin - KelvinOffset;
     }
 
+    // ---- LNA (locked nucleic acid)-adjusted NN Tm (PROBE-DESIGN-001, opt-in extension) ----
+    // Extends the perfect-match DNA NN model with the McTigue, Peterson & Kahn (2004) LNA-DNA
+    // nearest-neighbour increments so the NN Tm can be computed for a DNA oligo carrying one or
+    // more INTERNAL LNA substitutions on one strand. The LNA value is an ADDITIVE increment
+    // (ΔΔH°, ΔΔS°) added to the underlying DNA NN stack for each step containing the LNA base,
+    // exactly as the MELTING 5 reference implementation realises it (McTigue04LockedAcid.java:
+    // DNA NN sum, then `enthalpy += lockedAcidValue.getEnthalpy()`). The perfect-match
+    // CalculateMeltingTemperatureNN above is UNCHANGED; this is opt-in.
+    //
+    // Convention: the increment for a step is keyed by the DNA dinucleotide step (e.g. "TT")
+    // and which of the two bases of that step is locked (0 = the 5' base, 1 = the 3' base),
+    // matching the paper's MX_L / X_L N notation (XML keys e.g. "TTL/AA" = step TT, 3' base
+    // locked; "TLG/AC" = step TG, 5' base locked). Terminal LNA positions are NOT parameterised
+    // by McTigue (2004) and are rejected (return not-computable), per MELTING isApplicable.
+    //
+    // Source (retrieved & cross-checked this session, 2026-06-24):
+    //   McTigue PM, Peterson RJ, Kahn JD (2004) Biochemistry 43:5388-5405, DOI 10.1021/bi035976d
+    //   — ΔΔH°/ΔΔS° for all 32 LNA+DNA:DNA nearest neighbours.
+    //   Parameter values transcribed VERBATIM from the MELTING 5 data file
+    //   "McTigue2004lockedmn.xml" (Dumousseau et al. 2012, BMC Bioinformatics 13:101; mirrored in
+    //   aravind-j/rmelting). MELTING stores ΔΔH°/ΔΔS° in cal/mol and cal/(mol·K); the kcal/mol
+    //   values below are XML_value / 1000. Worked example reproduced: CCATT(L)GCTACC at C=1e-4,
+    //   Na=1 → ΔH°=-80.014 kcal/mol, ΔS°=-216.6 cal/(mol·K), Tm=63.528 °C (MELTING mct04: 63.614).
+
+    /// <summary>Which base of a nearest-neighbour dinucleotide step is the LNA monomer.</summary>
+    private enum LnaStepPosition
+    {
+        /// <summary>The 5' (first) base of the step is locked — McTigue X_L N (key e.g. "TLG/AC").</summary>
+        FivePrime = 0,
+
+        /// <summary>The 3' (second) base of the step is locked — McTigue MX_L (key e.g. "TTL/AA").</summary>
+        ThreePrime = 1
+    }
+
+    /// <summary>
+    /// McTigue, Peterson &amp; Kahn (2004) LNA-DNA nearest-neighbour increments
+    /// (ΔΔH° in kcal/mol, ΔΔS° in cal/(K·mol)), added to the base DNA NN stack for the step
+    /// containing the LNA base. Key = (DNA dinucleotide step 5'→3', which base is locked).
+    /// All 32 nearest neighbours are present (16 with the 5' base locked, 16 with the 3' base
+    /// locked). Values transcribed verbatim from MELTING 5 <c>McTigue2004lockedmn.xml</c>
+    /// (cal/mol ÷ 1000 = kcal/mol); the XML <c>sequence</c> key is shown in the comment.
+    /// Source: McTigue et al. (2004) Biochemistry 43:5388-5405 (DOI 10.1021/bi035976d).
+    /// </summary>
+    private static readonly Dictionary<(string Step, LnaStepPosition Locked), (double DeltaH, double DeltaS)> McTigueLnaIncrements = new()
+    {
+        // 5'-base locked (X_L N): XML key "XLY/comp".
+        [("AA", LnaStepPosition.FivePrime)] = (0.707, 2.5),    // ALA/TT
+        [("AT", LnaStepPosition.FivePrime)] = (2.282, 7.5),    // ALT/TA
+        [("AG", LnaStepPosition.FivePrime)] = (0.264, 2.6),    // ALG/TC
+        [("AC", LnaStepPosition.FivePrime)] = (1.131, 4.1),    // ALC/TG
+        [("TA", LnaStepPosition.FivePrime)] = (-0.046, 1.6),   // TLA/AT
+        [("TT", LnaStepPosition.FivePrime)] = (1.528, 5.3),    // TLT/AA
+        [("TG", LnaStepPosition.FivePrime)] = (-1.540, -3.0),  // TLG/AC
+        [("TC", LnaStepPosition.FivePrime)] = (1.893, 6.7),    // TLC/AG
+        [("GA", LnaStepPosition.FivePrime)] = (3.162, 10.5),   // GLA/CT
+        [("GT", LnaStepPosition.FivePrime)] = (-0.212, 0.1),   // GLT/CA
+        [("GG", LnaStepPosition.FivePrime)] = (-2.844, -6.7),  // GLG/CC
+        [("GC", LnaStepPosition.FivePrime)] = (-0.360, -0.3),  // GLC/CG
+        [("CA", LnaStepPosition.FivePrime)] = (1.049, 4.3),    // CLA/GT
+        [("CT", LnaStepPosition.FivePrime)] = (0.708, 4.2),    // CLT/GA
+        [("CG", LnaStepPosition.FivePrime)] = (0.785, 3.7),    // CLG/GC
+        [("CC", LnaStepPosition.FivePrime)] = (2.096, 8.0),    // CLC/GG
+
+        // 3'-base locked (MX_L): XML key "MXL/comp".
+        [("AA", LnaStepPosition.ThreePrime)] = (0.992, 4.1),   // AAL/TT
+        [("AT", LnaStepPosition.ThreePrime)] = (1.816, 6.9),   // ATL/TA
+        [("AG", LnaStepPosition.ThreePrime)] = (-1.200, -1.8), // AGL/TC
+        [("AC", LnaStepPosition.ThreePrime)] = (2.890, 10.6),  // ACL/TG
+        [("TA", LnaStepPosition.ThreePrime)] = (1.591, 5.3),   // TAL/AT
+        [("TT", LnaStepPosition.ThreePrime)] = (2.326, 8.1),   // TTL/AA
+        [("TG", LnaStepPosition.ThreePrime)] = (2.165, 7.2),   // TGL/AC
+        [("TC", LnaStepPosition.ThreePrime)] = (0.609, 3.2),   // TCL/AG
+        [("GA", LnaStepPosition.ThreePrime)] = (0.444, 2.9),   // GAL/CT
+        [("GT", LnaStepPosition.ThreePrime)] = (-0.635, -0.3), // GTL/CA
+        [("GG", LnaStepPosition.ThreePrime)] = (-0.943, -0.9), // GGL/CC
+        [("GC", LnaStepPosition.ThreePrime)] = (-0.925, -1.1), // GCL/CG
+        [("CA", LnaStepPosition.ThreePrime)] = (1.358, 4.4),   // CAL/GT
+        [("CT", LnaStepPosition.ThreePrime)] = (-1.671, -4.1), // CTL/GA
+        [("CG", LnaStepPosition.ThreePrime)] = (-0.276, -0.7), // CGL/GC
+        [("CC", LnaStepPosition.ThreePrime)] = (2.063, 7.6)    // CCL/GG
+    };
+
+    /// <summary>
+    /// Computes the duplex ΔH° (kcal/mol) and ΔS° (cal/(K·mol)) of a DNA oligonucleotide that
+    /// carries one or more <b>internal</b> LNA (locked nucleic acid) substitutions, by adding the
+    /// McTigue, Peterson &amp; Kahn (2004) LNA-DNA nearest-neighbour increments to the SantaLucia
+    /// (1998) DNA NN stack (initiation + terminal-A·T + symmetry are computed on the underlying
+    /// DNA sequence, unchanged). <b>Opt-in</b>: the perfect-match
+    /// <see cref="CalculateNearestNeighborThermodynamics"/> is unchanged, and an empty
+    /// <paramref name="lnaPositions"/> reproduces it exactly.
+    /// </summary>
+    /// <param name="sequence">DNA sequence (one strand, 5'→3'); the LNA monomers are at the given
+    /// positions of this sequence. Must be ≥ 2 ACGT bases.</param>
+    /// <param name="lnaPositions">Zero-based positions of the LNA monomers within
+    /// <paramref name="sequence"/>. Order and duplicates are tolerated. A <b>terminal</b> position
+    /// (0 or length−1) is not parameterised by McTigue (2004) and makes the result not computable.</param>
+    /// <returns>(ΔH°, ΔS°, IsSelfComplementary) of the LNA-substituted duplex, or <c>null</c> if the
+    /// sequence is empty/&lt; 2 bases/contains a non-ACGT base, or any LNA position is out of range
+    /// or terminal.</returns>
+    public static (double DeltaH, double DeltaS, bool IsSelfComplementary)? CalculateNearestNeighborThermodynamicsLna(
+        string sequence,
+        IReadOnlyCollection<int> lnaPositions)
+    {
+        ArgumentNullException.ThrowIfNull(lnaPositions);
+
+        var dna = CalculateNearestNeighborThermodynamics(sequence);
+        if (dna is null)
+            return null;
+
+        string seq = sequence.ToUpperInvariant();
+        var locked = new HashSet<int>();
+        foreach (int pos in lnaPositions)
+        {
+            // McTigue (2004) parameters are for internal LNA only — reject terminal/out-of-range.
+            if (pos <= 0 || pos >= seq.Length - 1)
+                return null;
+            locked.Add(pos);
+        }
+
+        var (dH, dS, selfComp) = dna.Value;
+
+        // Add the McTigue increment to each NN step (i, i+1) that contains an LNA base.
+        for (int i = 0; i < seq.Length - 1; i++)
+        {
+            string step = seq.Substring(i, 2);
+            if (locked.Contains(i)
+                && McTigueLnaIncrements.TryGetValue((step, LnaStepPosition.FivePrime), out var inc5))
+            {
+                dH += inc5.DeltaH; dS += inc5.DeltaS;
+            }
+            if (locked.Contains(i + 1)
+                && McTigueLnaIncrements.TryGetValue((step, LnaStepPosition.ThreePrime), out var inc3))
+            {
+                dH += inc3.DeltaH; dS += inc3.DeltaS;
+            }
+        }
+
+        return (dH, dS, selfComp);
+    }
+
+    /// <summary>
+    /// Computes the design melting temperature (°C) of a DNA oligonucleotide carrying one or more
+    /// <b>internal</b> LNA substitutions, using the McTigue (2004) LNA-DNA nearest-neighbour
+    /// increments on top of the SantaLucia (1998) DNA NN model, with the same bimolecular Tm
+    /// equation and optional salt corrections as <see cref="CalculateMeltingTemperatureNN"/>.
+    /// <b>Opt-in</b>: the perfect-match <see cref="CalculateMeltingTemperatureNN"/> is unchanged,
+    /// and an empty <paramref name="lnaPositions"/> equals it exactly.
+    /// </summary>
+    /// <param name="sequence">DNA sequence (5'→3'). Must be ≥ 2 ACGT bases.</param>
+    /// <param name="lnaPositions">Zero-based positions of the internal LNA monomers (see
+    /// <see cref="CalculateNearestNeighborThermodynamicsLna"/>).</param>
+    /// <param name="strandConcentrationMolar">Total strand concentration C_T in mol/L (default 0.5 µM).</param>
+    /// <param name="sodiumMolar">Monovalent cation concentration in mol/L (default 50 mM).</param>
+    /// <param name="magnesiumMolar">[Mg²⁺] in mol/L (default 0; only used by the divalent mode).</param>
+    /// <param name="dntpMolar">Total dNTP concentration in mol/L (default 0).</param>
+    /// <param name="saltMode">Salt correction to apply (default Owczarzy2004Monovalent).</param>
+    /// <returns>The LNA-adjusted NN Tm in °C, or <c>double.NaN</c> if the duplex is not computable
+    /// (empty/&lt; 2 bases/non-ACGT, or an out-of-range/terminal LNA position).</returns>
+    public static double CalculateMeltingTemperatureNNLna(
+        string sequence,
+        IReadOnlyCollection<int> lnaPositions,
+        double strandConcentrationMolar = DefaultStrandConcentrationMolar,
+        double sodiumMolar = ThermoConstants.DefaultNaConcentration,
+        double magnesiumMolar = 0.0,
+        double dntpMolar = 0.0,
+        SaltCorrectionMode saltMode = SaltCorrectionMode.Owczarzy2004Monovalent)
+    {
+        var thermo = CalculateNearestNeighborThermodynamicsLna(sequence, lnaPositions);
+        if (thermo is null)
+            return double.NaN;
+
+        var (dH, dS, selfComp) = thermo.Value;
+        int length = sequence.Length;
+        double x = selfComp ? SelfComplementaryFactor : NonSelfComplementaryFactor;
+
+        double dSeff = dS;
+        if (saltMode == SaltCorrectionMode.SantaLuciaEntropy)
+        {
+            double phosphates = 2.0 * (length - 1);
+            dSeff += SantaLuciaEntropySaltCoefficient * (phosphates / 2.0) * Math.Log(sodiumMolar);
+        }
+
+        double tmKelvin = (dH * 1000.0) / (dSeff + GasConstant * Math.Log(strandConcentrationMolar / x));
+
+        switch (saltMode)
+        {
+            case SaltCorrectionMode.Owczarzy2004Monovalent:
+                tmKelvin = ApplyOwczarzy2004(tmKelvin, sequence.ToUpperInvariant(), sodiumMolar);
+                break;
+            case SaltCorrectionMode.Owczarzy2008Divalent:
+                tmKelvin = ApplyOwczarzy2008(tmKelvin, sequence.ToUpperInvariant(), sodiumMolar, magnesiumMolar, dntpMolar);
+                break;
+            case SaltCorrectionMode.None:
+            case SaltCorrectionMode.SantaLuciaEntropy:
+            default:
+                break;
+        }
+
+        return tmKelvin - KelvinOffset;
+    }
+
     /// <summary>Watson-Crick complement of an ACGT string (same 5'→3'/left-to-right order).</summary>
     private static string Complement(string seq)
     {
