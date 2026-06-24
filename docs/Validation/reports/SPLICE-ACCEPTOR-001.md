@@ -1,9 +1,37 @@
 # Validation Report: SPLICE-ACCEPTOR-001 — Acceptor Site Detection (3' splice site)
 
 - **Validated:** 2026-06-24   **Area:** Splicing
-- **Canonical method(s):** `SpliceSitePredictor.FindAcceptorSites(sequence, minScore, includeNonCanonical)`; internal `ScoreAcceptorSite`, `ScoreU12AcceptorSite`
+- **Canonical method(s):** `SpliceSitePredictor.FindAcceptorSites(sequence, minScore, includeNonCanonical)`; `SpliceSitePredictor.FindAcceptorBranchPoint(sequence, acceptorAgPosition, minScore)`; internal `ScoreAcceptorSite`, `ScoreU12AcceptorSite`, `ScoreBranchPointConsensus`
 - **Stage A verdict:** PASS-WITH-NOTES
 - **Stage B verdict:** PASS
+- **Status reset to ☐ (re-validation required):** 2026-06-24 limitation-fix campaign added explicit branch-point detection (Gao et al. 2008 `yUnAy`). Re-validate the new method before flipping back to ☑.
+
+## 2026-06-24 update — explicit branch-point detection added (limitation fix)
+
+A new opt-in method `FindAcceptorBranchPoint` performs explicit branch-point detection
+upstream of a 3' acceptor AG, sourced this session from primary literature:
+
+- **Branch-point consensus `yUnAy`** at positions −3..+1, branch adenosine at position 0;
+  per-position conservation (Gao et al. 2008, lariat RT-PCR, n=181): y@−3 = 79.0% (C 47.0% + U 32.0%),
+  U@−2 = 74.6%, A@0 = 92.3%, y@+1 = 75.1% (C 33.1% + U 42.0%). Source retrieved this session:
+  https://pmc.ncbi.nlm.nih.gov/articles/PMC2367711/ and https://academic.oup.com/nar/article/36/7/2257/2410214 (DOI 10.1093/nar/gkn073).
+- **Location:** 83% of branch sites at −34..−21 (median −26, mean −27.7 ± 7.6); corroborated by
+  Mercer et al. (2015, Genome Res 25:290–303) "19–35 nt from the 3′ss". Implementation uses the
+  conservative 18–40 nt window bracketing the Gao core.
+- **PPT:** spans 4–24 nt downstream of the branch point (Gao 2008).
+
+The detector scans the window for the best `yUnAy` match (conservation-weighted score in [0,1],
+perfect = 1.0), reporting branch-point position, distance to the AG, motif, score, and PPT fraction.
+**The default `FindAcceptorSites` PWM+PPT scoring is unchanged** (additive, opt-in).
+
+**Honest residual (left, not fabricated):** the Yeo & Burge (2004) MaxEntScan 23-nt maximum-entropy
+3' model needs the Burge-lab precomputed score tables (`me2x3acc1`…`me2x3acc9`, the `splicemodels`
+tarball) — large trained data files with no clean redistribution licence; verified unavailable for
+bundling this session. Left as the LIMITATIONS residual rather than fabricated.
+
+Tests: 8 new branch-point cases (BP1–BP8) added to `SpliceSitePredictor_AcceptorSite_Tests.cs`
+(25 total), with hand-derived exact positions, distances, motifs, scores (1.0, 0.753894, 0.712461),
+and PPT fractions. Full solution suite green.
 
 ## Stage A — Description
 

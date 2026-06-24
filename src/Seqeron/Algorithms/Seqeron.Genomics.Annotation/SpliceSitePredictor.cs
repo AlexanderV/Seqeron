@@ -23,6 +23,31 @@ public static class SpliceSitePredictor
         double Confidence);
 
     /// <summary>
+    /// Result of explicit branch-point detection for a 3' acceptor site,
+    /// per the human <c>yUnAy</c> consensus (Gao et al. 2008).
+    /// </summary>
+    /// <param name="Found">True when a candidate branch point scoring at or above the
+    /// requested minimum was located in the upstream search window.</param>
+    /// <param name="BranchPointPosition">0-based index of the branch-point adenosine
+    /// (motif position 0) in the input sequence, or -1 when none was found.</param>
+    /// <param name="DistanceFromAg">Distance in nucleotides from the branch-point
+    /// adenosine to the AG (number of bases between the branch point and the splice
+    /// site); 0 when none was found.</param>
+    /// <param name="Motif">The 5-nt <c>yUnAy</c> motif (positions -3..+1) at the
+    /// detected branch point, or the empty string when none was found.</param>
+    /// <param name="Score">Conservation-weighted match score in [0, 1] of the best
+    /// candidate (1.0 = perfect yUnAy consensus); 0 when none was found.</param>
+    /// <param name="PolypyrimidineTractFraction">Pyrimidine (C/U) fraction of the
+    /// tract between the branch point and the AG (the 4-24 nt downstream window).</param>
+    public readonly record struct BranchPointResult(
+        bool Found,
+        int BranchPointPosition,
+        int DistanceFromAg,
+        string Motif,
+        double Score,
+        double PolypyrimidineTractFraction);
+
+    /// <summary>
     /// Types of splice sites.
     /// </summary>
     public enum SpliceSiteType
@@ -125,6 +150,33 @@ public static class SpliceSitePredictor
         { -1,  new Dictionary<char, double> { {'A', 0.00}, {'C', 0.00}, {'G', 1.00}, {'U', 0.00} } }, // G
         { 0,   new Dictionary<char, double> { {'A', 0.20}, {'C', 0.15}, {'G', 0.50}, {'U', 0.15} } }
     };
+
+    // --- Human branch-point consensus (Gao et al. 2008) ---
+    // Consensus BPS = yUnAy at motif positions -3..+1, with the branch-point
+    // adenosine at position 0. Per-position conservation (lariat RT-PCR, n=181
+    // confirmed branch sites): pos -3 pyrimidine C+U = 47.0%+32.0% = 79.0%;
+    // pos -2 U = 74.6%; pos 0 A = 92.3%; pos +1 pyrimidine C+U = 33.1%+42.0% = 75.1%;
+    // pos -1 = n (any, uninformative). Source: Gao K, Masuda A, Matsuura T, Ohno K
+    // (2008) "Human branch point consensus sequence is yUnAy", Nucleic Acids Res
+    // 36(7):2257-2267, Table 1 / Figure 2 (DOI 10.1093/nar/gkn073).
+    private const double BpPos3PyrimidineConservation = 0.790;  // pos -3 y (C+U)
+    private const double BpPos2UracilConservation = 0.746;      // pos -2 U
+    private const double BpBranchAdenosineConservation = 0.923; // pos  0 A (branch point)
+    private const double BpPos1PyrimidineConservation = 0.751;  // pos +1 y (C+U)
+
+    // Branch-point search window upstream of the 3' acceptor AG. Gao et al. (2008)
+    // report 83% of branch sites at positions -34..-21 relative to the 3' end of the
+    // intron (median -26, mean -27.7 +/- 7.6); Mercer et al. (2015, Genome Res
+    // 25:290-303) report most branch sites 19-35 nt from the 3'ss; the spliceosome
+    // literature gives an outer envelope of ~18-50 nt. The default window uses the
+    // conservative 18-40 nt envelope that brackets the Gao -34..-21 core.
+    private const int BranchPointMinDistanceFromAg = 18; // nt upstream of AG (inclusive)
+    private const int BranchPointMaxDistanceFromAg = 40; // nt upstream of AG (inclusive)
+
+    // Polypyrimidine tract between the branch point and the AG spans 4-24 nt
+    // downstream of the branch point (Gao et al. 2008).
+    private const int BranchPointPptMinSpan = 4;  // nt downstream of branch point
+    private const int BranchPointPptMaxSpan = 24; // nt downstream of branch point
 
     // Branch point consensus: YNYURAC (Y=C/U, R=A/G, N=any)
     // Typically 18-40 nt upstream of 3' splice site
@@ -250,6 +302,79 @@ public static class SpliceSitePredictor
     }
 
     /// <summary>
+    /// Detects the explicit branch point upstream of a 3' acceptor AG using the human
+    /// <c>yUnAy</c> branch-point consensus (Gao et al. 2008). This is an opt-in,
+    /// additive analysis; the default <see cref="FindAcceptorSites"/> scoring
+    /// (PWM consensus + polypyrimidine-tract fraction) is unchanged.
+    /// </summary>
+    /// <remarks>
+    /// The branch-point adenosine sits at motif position 0 of the consensus
+    /// <c>yUnAy</c> (positions -3..+1). It is searched in the
+    /// <see cref="BranchPointMinDistanceFromAg"/>..<see cref="BranchPointMaxDistanceFromAg"/>
+    /// (default 18-40) nt window upstream of the AG, bracketing the -34..-21 core
+    /// reported by Gao et al. (2008). Each candidate is scored by a conservation-weighted
+    /// fraction over the four informative positions (-3 pyrimidine, -2 U, 0 A, +1
+    /// pyrimidine); position -1 is uninformative ('n'). The polypyrimidine-tract fraction
+    /// between the branch point and the AG is reported alongside the best candidate.
+    /// </remarks>
+    /// <param name="sequence">The pre-mRNA / intron sequence (DNA or RNA; case-insensitive).</param>
+    /// <param name="acceptorAgPosition">0-based index of the terminal <c>G</c> of the 3'
+    /// acceptor AG (i.e. the <see cref="SpliceSite.Position"/> reported by
+    /// <see cref="FindAcceptorSites"/>).</param>
+    /// <param name="minScore">Minimum conservation-weighted score in [0, 1] for a
+    /// candidate to count as found. Defaults to 0.5.</param>
+    /// <returns>The best branch-point candidate in the upstream window, or a
+    /// <see cref="BranchPointResult"/> with <c>Found = false</c> when none qualifies.</returns>
+    public static BranchPointResult FindAcceptorBranchPoint(
+        string sequence,
+        int acceptorAgPosition,
+        double minScore = 0.5)
+    {
+        var notFound = new BranchPointResult(false, -1, 0, string.Empty, 0, 0);
+
+        if (string.IsNullOrEmpty(sequence) || acceptorAgPosition <= 0 ||
+            acceptorAgPosition >= sequence.Length)
+            return notFound;
+
+        string upper = sequence.ToUpperInvariant().Replace('T', 'U');
+
+        // The reported acceptor Position is the terminal G of the AG; the splice
+        // junction (3' end of the intron) lies just after it. Distance is measured
+        // from the branch-point adenosine to that 3' end.
+        int agEnd = acceptorAgPosition; // index of the G of AG (last intronic nt)
+
+        BranchPointResult best = notFound;
+
+        // Scan the upstream window. distance = (agEnd - branchA), so branchA = agEnd - distance.
+        for (int distance = BranchPointMinDistanceFromAg;
+             distance <= BranchPointMaxDistanceFromAg;
+             distance++)
+        {
+            int branchA = agEnd - distance;
+            // Need motif positions -3..+1 → indices [branchA-3, branchA+1] in bounds.
+            if (branchA - 3 < 0 || branchA + 1 >= upper.Length)
+                continue;
+
+            double score = ScoreBranchPointConsensus(upper, branchA);
+            if (score < minScore || score <= best.Score)
+                continue;
+
+            string motif = upper.Substring(branchA - 3, 5); // yUnAy (positions -3..+1)
+            double pptFraction = ComputeBranchPointPptFraction(upper, branchA, agEnd);
+
+            best = new BranchPointResult(
+                Found: true,
+                BranchPointPosition: branchA,
+                DistanceFromAg: distance,
+                Motif: motif,
+                Score: score,
+                PolypyrimidineTractFraction: pptFraction);
+        }
+
+        return best;
+    }
+
+    /// <summary>
     /// Finds branch point sites in a sequence.
     /// </summary>
     public static IEnumerable<SpliceSite> FindBranchPoints(
@@ -340,6 +465,64 @@ public static class SpliceSitePredictor
 
         double normalized = (score / (count + 1) + 2) / 4;
         return Math.Max(0, Math.Min(1, normalized));
+    }
+
+    /// <summary>
+    /// Scores a candidate branch point against the human <c>yUnAy</c> consensus
+    /// (Gao et al. 2008) as a conservation-weighted match fraction in [0, 1].
+    /// <paramref name="branchA"/> is the 0-based index of the candidate branch-point
+    /// adenosine (motif position 0). Position -1 ('n') is uninformative and ignored.
+    /// A perfect canonical branch point (y at -3, U at -2, A at 0, y at +1) scores 1.0.
+    /// </summary>
+    private static double ScoreBranchPointConsensus(string sequence, int branchA)
+    {
+        // Caller guarantees [branchA-3, branchA+1] are in bounds.
+        char pos3 = sequence[branchA - 3]; // y (C/U)
+        char pos2 = sequence[branchA - 2]; // U
+        char pos0 = sequence[branchA];     // A (branch point)
+        char pos1 = sequence[branchA + 1]; // y (C/U)
+
+        double matched = 0;
+        if (pos3 == 'C' || pos3 == 'U') matched += BpPos3PyrimidineConservation;
+        if (pos2 == 'U') matched += BpPos2UracilConservation;
+        if (pos0 == 'A') matched += BpBranchAdenosineConservation;
+        if (pos1 == 'C' || pos1 == 'U') matched += BpPos1PyrimidineConservation;
+
+        const double maxScore = BpPos3PyrimidineConservation + BpPos2UracilConservation +
+                                BpBranchAdenosineConservation + BpPos1PyrimidineConservation;
+        return matched / maxScore;
+    }
+
+    /// <summary>
+    /// Pyrimidine (C/U) fraction of the polypyrimidine tract between a branch point and
+    /// the AG. The tract spans 4-24 nt downstream of the branch point (Gao et al. 2008);
+    /// this measures the bases strictly between the branch-point adenosine and the AG,
+    /// clamped to that 4-24 nt span.
+    /// </summary>
+    private static double ComputeBranchPointPptFraction(string sequence, int branchA, int agEnd)
+    {
+        // The AG occupies [agEnd-1, agEnd]; the tract lies between the branch point
+        // and the A of the AG. Start one base after the branch point.
+        int tractStart = branchA + BranchPointPptMinSpan;
+        int tractEnd = Math.Min(branchA + BranchPointPptMaxSpan, agEnd - 2); // up to base before A of AG
+        if (tractEnd < tractStart)
+        {
+            tractStart = branchA + 1;
+            tractEnd = agEnd - 2;
+        }
+
+        int count = 0;
+        int total = 0;
+        for (int i = tractStart; i <= tractEnd; i++)
+        {
+            if (i < 0 || i >= sequence.Length)
+                continue;
+            total++;
+            if (sequence[i] == 'C' || sequence[i] == 'U')
+                count++;
+        }
+
+        return total > 0 ? (double)count / total : 0;
     }
 
     private static double ScoreBranchPoint(string sequence, int position)

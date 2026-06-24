@@ -14,6 +14,9 @@ namespace Seqeron.Genomics.Tests;
 ///   - Burge, Tuschl &amp; Sharp (1999) The RNA World, 2nd ed., pp. 525–560
 ///   - Yeo &amp; Burge (2004) J Comput Biol 11(2–3):377–394
 ///   - Patel &amp; Steitz (2003) Nat Rev Mol Cell Biol 4(12):960–970
+///   - Gao, Masuda, Matsuura &amp; Ohno (2008) Nucleic Acids Res 36(7):2257–2267
+///     (branch-point consensus yUnAy; DOI 10.1093/nar/gkn073)
+///   - Mercer et al. (2015) Genome Res 25(2):290–303 (branch-point distribution)
 /// </summary>
 [TestFixture]
 public class SpliceSitePredictor_AcceptorSite_Tests
@@ -412,6 +415,192 @@ public class SpliceSitePredictor_AcceptorSite_Tests
         }
 
         return total > 0 ? (double)pptCount / total : 0;
+    }
+
+    #endregion
+
+    #region BP: Branch-Point Detection — Gao et al. (2008) yUnAy consensus
+
+    // BP1 — Canonical branch point at a known position and distance.
+    // Consensus yUnAy (positions -3..+1); branch A at position 0.
+    // Sequence: GG(pad) + C U U A C (branchA index 5) + U×22 (PPT) + A G + GGG.
+    //   index 2=C(-3 y), 3=U(-2 U), 4=U(-1 n), 5=A(0 branch), 6=C(+1 y) → perfect yUnAy.
+    //   AG: A at index 29, G at index 30 → FindAcceptorSites Position = 30.
+    //   distance = agEnd(30) − branchA(5) = 25 nt (within 18..40 window).
+    // Conservation-weighted score = (0.790+0.746+0.923+0.751)/3.210 = 1.0 (perfect).
+    [Test]
+    public void FindAcceptorBranchPoint_CanonicalYUnAy_DetectsPositionMotifAndScore()
+    {
+        string sequence = "UU" + "CUUAC" + new string('U', 22) + "AG" + "GGG";
+
+        var bp = FindAcceptorBranchPoint(sequence, acceptorAgPosition: 30);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(bp.Found, Is.True,
+                "A canonical yUnAy branch point 25 nt upstream of the AG must be detected — Gao et al. (2008)");
+            Assert.That(bp.BranchPointPosition, Is.EqualTo(5),
+                "Branch-point adenosine is at index 5 (motif position 0)");
+            Assert.That(bp.DistanceFromAg, Is.EqualTo(25),
+                "Branch point is 25 nt upstream of the AG (within the 18–40 nt window) — Gao et al. (2008)");
+            Assert.That(bp.Motif, Is.EqualTo("CUUAC"),
+                "Reported motif is the 5-nt yUnAy window (positions -3..+1)");
+            Assert.That(bp.Score, Is.EqualTo(1.0).Within(1e-10),
+                "Perfect yUnAy (y@-3, U@-2, A@0, y@+1) → conservation-weighted score = 1.0");
+            Assert.That(bp.PolypyrimidineTractFraction, Is.EqualTo(1.0).Within(1e-10),
+                "Tract between branch point and AG is all U → pyrimidine fraction = 1.0");
+        });
+    }
+
+    // BP2 — Integration with FindAcceptorSites: the AG position fed to the
+    // branch-point detector is the one the acceptor scanner reports.
+    [Test]
+    public void FindAcceptorBranchPoint_UsingAcceptorSitePosition_LocatesBranchPoint()
+    {
+        string sequence = "UU" + "CUUAC" + new string('U', 22) + "AG" + "GGG";
+
+        var acceptor = FindAcceptorSites(sequence, minScore: 0.0).Single();
+        var bp = FindAcceptorBranchPoint(sequence, acceptor.Position);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(acceptor.Position, Is.EqualTo(30),
+                "Acceptor AG terminal G is at index 30");
+            Assert.That(bp.Found, Is.True,
+                "Branch point found upstream of the detected acceptor");
+            Assert.That(bp.BranchPointPosition, Is.EqualTo(5),
+                "Branch-point adenosine at index 5");
+            Assert.That(bp.DistanceFromAg, Is.EqualTo(25),
+                "25 nt between branch point and the acceptor AG");
+        });
+    }
+
+    // BP3 — No branch adenosine in window → not found at a threshold requiring the A.
+    // All-pyrimidine intron: every candidate lacks the conserved A (position 0),
+    // so the best score is (0.790+0.746+0+0.751)/3.210 = 0.712461, below 0.8.
+    [Test]
+    public void FindAcceptorBranchPoint_NoBranchAdenosine_NotFoundAtAdenosineThreshold()
+    {
+        string sequence = "UU" + "CUUUC" + new string('U', 22) + "AG" + "GGG";
+
+        var bp = FindAcceptorBranchPoint(sequence, acceptorAgPosition: 30, minScore: 0.8);
+
+        Assert.That(bp.Found, Is.False,
+            "Without the conserved branch adenosine, the best score (0.712) is below 0.8 — Gao et al. (2008)");
+    }
+
+    // BP4 — Degenerate branch point with a purine at position -3 scores below a
+    // perfect yUnAy but is still found. Motif AUUAC: A@-3 (purine, loses the 0.790
+    // pyrimidine term), U@-2, A@0, C@+1 → (0+0.746+0.923+0.751)/3.210 = 0.753894.
+    // Purine (G) tract isolates the single branch A so no other candidate competes.
+    [Test]
+    public void FindAcceptorBranchPoint_PurineAtMinus3_ScoresBelowPerfectButFound()
+    {
+        string sequence = "GG" + "AUUAC" + new string('G', 22) + "AG" + "GGG";
+
+        var bp = FindAcceptorBranchPoint(sequence, acceptorAgPosition: 30);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(bp.Found, Is.True,
+                "Branch adenosine present → candidate qualifies above default 0.5 threshold");
+            Assert.That(bp.BranchPointPosition, Is.EqualTo(5),
+                "Branch-point adenosine at index 5");
+            Assert.That(bp.Motif, Is.EqualTo("AUUAC"),
+                "Reported motif spans positions -3..+1");
+            Assert.That(bp.Score, Is.EqualTo(0.753894).Within(1e-6),
+                "Purine at -3 forfeits the 0.790 pyrimidine term → score = 0.753894 — Gao et al. (2008) frequencies");
+            Assert.That(bp.PolypyrimidineTractFraction, Is.EqualTo(0.0).Within(1e-10),
+                "Purine (G) tract between branch point and AG → pyrimidine fraction = 0.0");
+        });
+    }
+
+    // BP5 — Branch point exactly at the near window edge (distance 18) is found;
+    // one nt closer (distance 17) is outside the 18–40 nt window → not found.
+    [Test]
+    public void FindAcceptorBranchPoint_NearWindowEdge_18Found_17NotFound()
+    {
+        // distance = agEnd − branchA. branchA = 5 in both; vary the G fill so the AG lands
+        // at distance 18 vs 17. Purine (G) fill so only the real branch A scores.
+        // dist 18: GG + CUUAC + G×15 + AG + GGG  → G of AG index 23, distance 23−5 = 18.
+        string seq18 = "GG" + "CUUAC" + new string('G', 15) + "AG" + "GGG";
+        // dist 17: GG + CUUAC + G×14 + AG + GGG  → G of AG index 22, distance 22−5 = 17.
+        string seq17 = "GG" + "CUUAC" + new string('G', 14) + "AG" + "GGG";
+
+        var bp18 = FindAcceptorBranchPoint(seq18, acceptorAgPosition: 23);
+        var bp17 = FindAcceptorBranchPoint(seq17, acceptorAgPosition: 22);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(bp18.Found, Is.True,
+                "Branch point 18 nt upstream is at the inclusive near edge of the window → found");
+            Assert.That(bp18.DistanceFromAg, Is.EqualTo(18),
+                "Distance at the near edge is 18 nt");
+            Assert.That(bp17.Found, Is.False,
+                "Branch point 17 nt upstream is closer than the 18 nt minimum → not found");
+        });
+    }
+
+    // BP6 — Branch point at the far window edge (distance 40) is found; one nt
+    // farther (distance 41) is outside the window → not found.
+    [Test]
+    public void FindAcceptorBranchPoint_FarWindowEdge_40Found_41NotFound()
+    {
+        // dist 40: GG + CUUAC + G×37 + AG + GGG → G of AG index 45, distance 45−5 = 40.
+        string seq40 = "GG" + "CUUAC" + new string('G', 37) + "AG" + "GGG";
+        // dist 41: GG + CUUAC + G×38 + AG + GGG → G of AG index 46, distance 46−5 = 41.
+        string seq41 = "GG" + "CUUAC" + new string('G', 38) + "AG" + "GGG";
+
+        var bp40 = FindAcceptorBranchPoint(seq40, acceptorAgPosition: 45);
+        var bp41 = FindAcceptorBranchPoint(seq41, acceptorAgPosition: 46);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(bp40.Found, Is.True,
+                "Branch point 40 nt upstream is at the inclusive far edge of the window → found");
+            Assert.That(bp40.DistanceFromAg, Is.EqualTo(40),
+                "Distance at the far edge is 40 nt");
+            Assert.That(bp41.Found, Is.False,
+                "Branch point 41 nt upstream is farther than the 40 nt maximum → not found");
+        });
+    }
+
+    // BP7 — Guards: empty/null sequence and out-of-range AG position → not found.
+    [Test]
+    public void FindAcceptorBranchPoint_InvalidInput_ReturnsNotFound()
+    {
+        var nullResult = FindAcceptorBranchPoint(null!, acceptorAgPosition: 30);
+        var emptyResult = FindAcceptorBranchPoint("", acceptorAgPosition: 30);
+        var oob = FindAcceptorBranchPoint("CUUAC" + new string('U', 30), acceptorAgPosition: 999);
+        var zeroPos = FindAcceptorBranchPoint("CUUAC" + new string('U', 30), acceptorAgPosition: 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(nullResult.Found, Is.False, "Null sequence → not found");
+            Assert.That(nullResult.BranchPointPosition, Is.EqualTo(-1), "Not-found position sentinel is -1");
+            Assert.That(emptyResult.Found, Is.False, "Empty sequence → not found");
+            Assert.That(oob.Found, Is.False, "AG position past sequence end → not found");
+            Assert.That(zeroPos.Found, Is.False, "AG position 0 leaves no upstream window → not found");
+        });
+    }
+
+    // BP8 — DNA (T) input is treated identically to RNA (U) input.
+    [Test]
+    public void FindAcceptorBranchPoint_DnaInput_MatchesRnaResult()
+    {
+        string rna = "UU" + "CUUAC" + new string('U', 22) + "AG" + "GGG";
+        string dna = "TT" + "CTTAC" + new string('T', 22) + "AG" + "GGG";
+
+        var bpRna = FindAcceptorBranchPoint(rna, acceptorAgPosition: 30);
+        var bpDna = FindAcceptorBranchPoint(dna, acceptorAgPosition: 30);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(bpDna.Found, Is.EqualTo(bpRna.Found), "DNA and RNA inputs both detect the branch point");
+            Assert.That(bpDna.BranchPointPosition, Is.EqualTo(bpRna.BranchPointPosition), "Same branch-point position");
+            Assert.That(bpDna.Score, Is.EqualTo(bpRna.Score).Within(1e-10), "Same score (T↔U normalization)");
+            Assert.That(bpDna.Motif, Is.EqualTo(bpRna.Motif), "Motif reported in RNA alphabet for both");
+        });
     }
 
     #endregion

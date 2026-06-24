@@ -6,11 +6,13 @@
 | Test Unit ID | SPLICE-ACCEPTOR-001 |
 | Related Projects | N/A |
 | Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Last Reviewed | 2026-06-24 |
 
 ## 1. Overview
 
 Acceptor splice-site detection identifies candidate 3' splice sites at the ends of introns. In this repository, `SpliceSitePredictor.FindAcceptorSites` scans a normalized RNA sequence for canonical `AG` acceptors and, when requested, U12-style `AC` acceptors. Canonical scoring combines a polypyrimidine-tract contribution with a sparse position-weight matrix, while U12 acceptors are scored against a `YCCAC`-style consensus plus upstream pyrimidine content. Candidates meeting the configured threshold are returned as `SpliceSite` records.[1][2]
+
+An opt-in, additive companion — `SpliceSitePredictor.FindAcceptorBranchPoint` — performs explicit **branch-point detection** for a given acceptor `AG`: it scans the 18–40 nt window upstream of the `AG` for the human `yUnAy` branch-point consensus (positions `-3..+1`, branch adenosine at position `0`) and reports the branch-point position, distance from the `AG`, the `yUnAy` motif, a conservation-weighted score in `[0, 1]`, and the polypyrimidine-tract fraction between the branch point and the `AG`.[9][10] This is additive: the default `FindAcceptorSites` scoring is unchanged and the acceptor score itself still carries no branch-point term.
 
 ## 2. Scientific / Formal Basis
 
@@ -40,6 +42,14 @@ The combined value is normalized with:
 
 U12 acceptors are scored by matching `C` at `-1` and `-2`, a pyrimidine at `-3`, and an upstream PPT fraction, then normalizing by the maximum score of `3.5`.
 
+**Branch-point detection (opt-in).** The human branch-point consensus is `yUnAy` at motif positions `-3..+1`, with the branch adenosine at position `0`.[9] Each candidate adenosine in the 18–40 nt window upstream of the `AG` is scored as a conservation-weighted match fraction over the four informative positions:
+
+```text
+score = ( w₋₃·[−3 ∈ {C,U}] + w₋₂·[−2 = U] + w₀·[0 = A] + w₊₁·[+1 ∈ {C,U}] ) / (w₋₃ + w₋₂ + w₀ + w₊₁)
+```
+
+where the weights are the Gao et al. (2008) lariat-RT-PCR conservation frequencies `w₋₃ = 0.790` (pyrimidine at −3), `w₋₂ = 0.746` (U at −2), `w₀ = 0.923` (branch A at 0), `w₊₁ = 0.751` (pyrimidine at +1); position `-1` is `n` (uninformative). A perfect `yUnAy` scores `1.0`. The best-scoring candidate in the window (default `minScore = 0.5`) is reported, together with the pyrimidine fraction of the tract between the branch point and the `AG` (the 4–24 nt downstream window).[9]
+
 ### 2.3 Modeling Assumptions
 
 | ID | Assumption | Consequence if Violated |
@@ -55,6 +65,9 @@ U12 acceptors are scored by matching `C` at `-1` and `-2`, a pyrimidine at `-3`,
 | INV-02 | Returned `Confidence` values are in `[0, 1]`. | Confidence is computed through a clamped linear interpolation. |
 | INV-03 | Canonical `AG` sites use `Type = Acceptor`; optional `AC` sites use `Type = U12Acceptor`. | The public method assigns those enum values explicitly. |
 | INV-04 | Returned `Position` for a canonical acceptor is `i + 1`, the index of the `G` in `AG`. | The method yields `Position: i + 1`. |
+| INV-05 | Branch-point `Score` is in `[0, 1]`; a perfect `yUnAy` scores `1.0`. | `matched / maxScore` with `maxScore` = sum of the four conservation weights. |
+| INV-06 | A branch point is reported only when located 18–40 nt (inclusive) upstream of the `AG`. | The search window is `[BranchPointMinDistanceFromAg, BranchPointMaxDistanceFromAg]`. |
+| INV-07 | Branch-point detection is additive: `FindAcceptorSites` output is unchanged. | The branch-point logic is a separate method/record; the acceptor score path is untouched. |
 
 ## 3. Contract
 
@@ -113,8 +126,10 @@ The current scoring rules are:
 **Implementation location:** [SpliceSitePredictor.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/SpliceSitePredictor.cs)
 
 - `SpliceSitePredictor.FindAcceptorSites(string, double, bool)`
+- `SpliceSitePredictor.FindAcceptorBranchPoint(string, int, double)` (opt-in branch-point detection; returns `BranchPointResult`)
 - `SpliceSitePredictor.ScoreAcceptorSite(string, int)` (private helper)
 - `SpliceSitePredictor.ScoreU12AcceptorSite(string, int)` (private helper)
+- `SpliceSitePredictor.ScoreBranchPointConsensus(string, int)` (private helper)
 
 ### 5.2 Current Behavior
 
@@ -126,6 +141,7 @@ Canonical acceptor scoring uses a separate PPT component and applies the `Accept
 
 - Canonical acceptor recognition is based on the `AG` terminus and upstream PPT-rich context of `(Y)nNCAG|G`.[1][2]
 - Optional U12-style acceptor handling is based on `AC` and `YCCAC`-style context.[4][5][6]
+- Explicit branch-point detection uses the human `yUnAy` consensus (positions `-3..+1`, branch A at `0`), the per-position conservation weights, the 18–40 nt upstream window, and the 4–24 nt PPT span — all taken from Gao et al. (2008), corroborated by Mercer et al. (2015).[9][10]
 
 **Intentionally simplified:**
 
@@ -134,7 +150,7 @@ Canonical acceptor scoring uses a separate PPT component and applies the `Accept
 
 **Not implemented:**
 
-- Full-length acceptor models such as maximum-entropy or species-trained acceptor predictors; **users should rely on:** no current alternative.
+- The Yeo & Burge (2004) **MaxEntScan** 23-nt maximum-entropy 3' acceptor model; **users should rely on:** the MaxEntScan reference tool. This is an honest residual — the maximum-entropy 3' model requires the Burge-lab precomputed score-matrix data files (`me2x3acc1`…`me2x3acc9`, the `splicemodels` tarball), which are large trained data files with no clean redistribution licence and are not bundled here. The `CalculateMaxEntScore` helper is an explicitly named PWM-based approximation, not the true MaxEntScan model.[3]
 - Automatic disambiguation between cryptic and functional `AG` sites beyond local scoring; **users should rely on:** caller-side thresholding and downstream intron pairing.
 
 ### 5.4 Deviations and Assumptions
@@ -157,13 +173,13 @@ Canonical acceptor scoring uses a separate PPT component and applies the `Accept
 
 ### 6.2 Limitations
 
-Acceptor detection in this repository is a local motif-and-PPT scorer. It does not use a full statistical acceptor model and does not decide exon or intron structure by itself.
+Acceptor detection in this repository is a local motif-and-PPT scorer. It does not use a full statistical acceptor model and does not decide exon or intron structure by itself. Explicit branch-point detection (`FindAcceptorBranchPoint`) is available as an opt-in companion, but the Yeo & Burge (2004) MaxEntScan maximum-entropy 3' acceptor model is **not** bundled (it needs the Burge-lab trained score tables — see §5.3). The branch-point window and weights are human/mammalian (Gao 2008); other species may have different branch-point statistics.
 
 ## 7. Examples and Related Material
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [SpliceSitePredictor_AcceptorSite_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_AcceptorSite_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
+- Tests: [SpliceSitePredictor_AcceptorSite_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_AcceptorSite_Tests.cs) — covers `INV-01`–`INV-07` (acceptor scoring + branch-point detection)
 - Test specification: [SPLICE-ACCEPTOR-001.md](../../../tests/TestSpecs/SPLICE-ACCEPTOR-001.md)
 - Related algorithms: [Donor_Site_Detection.md](Donor_Site_Detection.md), [Gene_Structure_Prediction.md](Gene_Structure_Prediction.md)
 
@@ -171,9 +187,11 @@ Acceptor detection in this repository is a local motif-and-PPT scorer. It does n
 
 1. Shapiro MB, Senapathy P. 1987. RNA splice junctions of different classes of eukaryotes. Nucleic Acids Research. N/A
 2. Burge CB, Tuschl T, Sharp PA. 1999. The RNA World. N/A
-3. Yeo G, Burge CB. 2004. Journal of Computational Biology. N/A
+3. Yeo G, Burge CB. 2004. Maximum entropy modeling of short sequence motifs with applications to RNA splicing signals. Journal of Computational Biology 11(2–3):377–394.
 4. Patel AA, Steitz JA. 2003. Nature Reviews Molecular Cell Biology. N/A
 5. Hall SL, Padgett RA. 1994. Journal of Molecular Biology. N/A
 6. Jackson IJ. 1991. Nucleic Acids Research. N/A
 7. Dietrich RC, Incorvaia R, Padgett RA. 1997. Molecular Cell. N/A
 8. Test specification: [SPLICE-ACCEPTOR-001.md](../../../tests/TestSpecs/SPLICE-ACCEPTOR-001.md)
+9. Gao K, Masuda A, Matsuura T, Ohno K. 2008. Human branch point consensus sequence is yUnAy. Nucleic Acids Research 36(7):2257–2267. DOI 10.1093/nar/gkn073. https://pmc.ncbi.nlm.nih.gov/articles/PMC2367711/
+10. Mercer TR, Clark MB, Andersen SB, et al. 2015. Genome-wide discovery of human splicing branchpoints. Genome Research 25(2):290–303. DOI 10.1101/gr.182899.114.
