@@ -52,6 +52,23 @@
 6. **Tumor purity formula:** Purity = cos(0.6049872018 + 0.0001467884 × ESTIMATE_score).
 7. **ssGSEA enrichment score:** For each sample, rank genes by expression, compute running sum statistic similar to GSEA but at single-sample level.
 
+**Re-retrieval (2026-06-24) — verbatim purity transform + domain (for `EstimateTumorPurity`):**
+
+- **Search:** `Yoshihara 2013 ESTIMATE tumor purity cos(0.6049872018 + 0.0001467884 ESTIMATEScore) formula`. Snippet (Nature Communications / Verhaak Lab): *"The tumor purity was estimated by the formula: Tumor_purity = cos (0.6049872018 + 0.0001467884\*ESTIMATEScore)."*
+- **Fetched** `https://search.r-project.org/CRAN/refmans/hacksig/html/hack_estimate.html` (R `hacksig::hack_estimate` doc, a re-implementation of the ESTIMATE transform). Verbatim: **"Purity = cos(0.6049872018 + 0.0001467884 * ESTIMATE)"**. No additional domain restriction stated there.
+- **Fetched** `https://www.aging-us.com/article/203714/text` (Aging journal). Verbatim: **"Tumor_purity = cos (0.6049872018 + 0.0001467884\*ESTIMATEScore)"** — coefficients confirmed identical, third independent source.
+- **Search + fetch** of the ESTIMATE/`tidyestimate` reference implementation. The biostars / open-source-biology discussion states: *"This formula was derived using only Affymetrix data, and therefore cannot be used to convert RNAseq-based ESTIMATE score to tumor purity."* The PMC full text confirms: *"established a regression curve for ESTIMATE score and tumor purity based on ABSOLUTE in the TCGA data set by applying the nonlinear least squares method."*
+- **Fetched** `https://raw.githubusercontent.com/KaiAragaki/tidyestimate/main/R/estimate_score.R` (reference implementation source). Verbatim R:
+  ```r
+  if (is_affymetrix) {
+      scores <- scores |>
+          dplyr::mutate(purity = cos(0.6049872018 + 0.0001467884 * .data$estimate),
+                        purity = ifelse(.data$purity < 0, NA, .data$purity))
+  }
+  ```
+  → **Decisive domain rule:** the reference implementation computes `cos(a + b·score)` and sets the purity to **NA when it is negative** (out of the calibrated domain), and only computes it at all when `is_affymetrix = TRUE`. The `tidyestimate` vignette states: *"As the data used to train the model to convert ESTIMATE scores to purity scores were produced by Affymetrix, it is unwise to infer a tumor purity score using the same method for RNAseq data."*
+8. **Domain/calibration (for the opt-in absolute-purity method):** the cosine model is fit by nonlinear least squares against ABSOLUTE purity on TCGA Affymetrix data; valid only for Affymetrix-derived scores; negative cosine values are out of domain → NA (mirrored as `double.NaN`). cos is monotone-decreasing on [0, π], so purity strictly decreases with ESTIMATE score over the calibrated range.
+
 ### 4. Wikipedia — Tumor Microenvironment
 
 **URL:** https://en.wikipedia.org/wiki/Tumor_microenvironment

@@ -54,6 +54,7 @@
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
 | `EstimateInfiltration` | `ImmuneAnalyzer` | **Canonical** | ssGSEA-based immune/stromal scoring (integral form, τ=0.25) + tumor purity per Yoshihara et al. (2013), Barbie et al. (2009), Hänzelmann et al. (2013) |
+| `EstimateTumorPurity` | `ImmuneAnalyzer` | **Canonical** | Opt-in absolute-purity transform `cos(0.6049872018 + 0.0001467884 × score)` with NaN-on-negative domain handling per Yoshihara et al. (2013) + ESTIMATE/tidyestimate reference implementation |
 | `DeconvoluteImmuneCells` | `ImmuneAnalyzer` | **Canonical** | NNLS-based immune cell type deconvolution per Lawson & Hanson (1995), Abbas et al. (2009) |
 
 ---
@@ -67,6 +68,7 @@
 | INV-3 | Tumor purity ∈ [0, 1] | Yes | Yoshihara et al. (2013): clamped cosine formula |
 | INV-4 | ESTIMATE score = Immune score + Stromal score | Yes | Yoshihara et al. (2013): definition |
 | INV-5 | OverlappingGenes ≥ 0 and ≤ total signature genes | Yes | Mathematical property |
+| INV-6 | `EstimateTumorPurity` is monotone-decreasing in the ESTIMATE score over the valid domain | Yes | Yoshihara et al. (2013): cos is decreasing on [0, π] |
 
 ---
 
@@ -88,6 +90,13 @@
 | M12 | Null expression throws ArgumentNullException | `EstimateInfiltration(null)` | ArgumentNullException | Robustness |
 | M13 | Null expression throws for deconvolution | `DeconvoluteImmuneCells(null)` | ArgumentNullException | Robustness |
 | M14 | ssGSEA exact value against hand-computed reference | Custom genes, rank-based integral | (a) score = (3^(1/4)−1)/(3^(1/4)+1); (b) top hit = 1.5; (c) bottom hit = −1.5 | Barbie et al. (2009), Hänzelmann et al. (2013): rank-based ssGSEA |
+| E1 | `EstimateTumorPurity(0)` exact | Yoshihara transform at score 0 | cos(0.6049872018) = 0.8225093766958238 | Yoshihara et al. (2013); hacksig/tidyestimate |
+| E2 | `EstimateTumorPurity(1000)` exact | mid-range score | cos(0.7517756018) = 0.7304773970805112 | Yoshihara et al. (2013) |
+| E3 | `EstimateTumorPurity(3000)` exact | high score | cos(1.0453524018) = 0.5015970942006772 | Yoshihara et al. (2013) |
+| E4 | Out-of-domain → NaN | `EstimateTumorPurity(7000)` (cos arg > π/2 → negative) | `double.NaN` | tidyestimate `estimate_score()`: `ifelse(purity<0, NA, purity)` |
+| E5 | Negative-cosine cutoff boundary | score 6000 (defined) vs 6600 (NaN); cutoff at (π/2−a)/b ≈ 6579.6 | 6000 → 0.0849761233112934; 6600 → NaN | tidyestimate reference impl |
+| E6 | Monotone decreasing (INV-6) | increasing scores −2000…6000 | purity strictly decreases | Yoshihara et al. (2013): cos decreasing on [0, π] |
+| E7 | Closed-form identity | score 2500 | equals `cos(a + b × 2500)` | Yoshihara et al. (2013) |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -142,7 +151,7 @@
 
 | File | Role | Test Count |
 |------|------|------------|
-| `ImmuneAnalyzer_ImmuneInfiltration_Tests.cs` | Canonical | 33 |
+| `ImmuneAnalyzer_ImmuneInfiltration_Tests.cs` | Canonical | 40 |
 
 ### 5.5 Phase 7–8 Work Queue
 
@@ -172,12 +181,21 @@
 | 22 | INV-1/2 | ✅ Covered | No change (6 parameterized, now also covers former M7/M8) | ✅ Done |
 | 23 | INV-3/4 | ⚠ Weak | Strengthened: added purity formula verification | ✅ Done |
 | 24 | INV-5 | ✅ Covered | No change | ✅ Done |
-| 25 | INV-6 | 🔁 Duplicate | Removed: subsumed by M1 + M2 | 🗑 Removed |
+| 25 | (legacy INV-6 dup) | 🔁 Duplicate | Removed: subsumed by M1 + M2 | 🗑 Removed |
+| 26 | E1 | ❌ Missing | NEW: exact `EstimateTumorPurity(0)` = 0.8225093766958238 | ✅ Done |
+| 27 | E2 | ❌ Missing | NEW: exact `EstimateTumorPurity(1000)` = 0.7304773970805112 | ✅ Done |
+| 28 | E3 | ❌ Missing | NEW: exact `EstimateTumorPurity(3000)` = 0.5015970942006772 | ✅ Done |
+| 29 | E4 | ❌ Missing | NEW: out-of-domain (negative cosine) → NaN | ✅ Done |
+| 30 | E5 | ❌ Missing | NEW: negative-cosine cutoff boundary (6000 defined, 6600 NaN) | ✅ Done |
+| 31 | E6 | ❌ Missing | NEW: monotone-decreasing purity (INV-6) | ✅ Done |
+| 32 | E7 | ❌ Missing | NEW: closed-form cosine identity at score 2500 | ✅ Done |
 
-**Implementation fix:** ssGSEA `ComputeSsGseaScore` changed from expression-value weighting (`|expr|^τ`) to rank-based weighting (`rank^τ`, rank = N−i) per Barbie et al. (2009) / GSVA package (Hänzelmann et al. 2013). Previous weighting produced scores on wrong scale for ESTIMATE purity coefficients.
+**Implementation fix (prior session):** ssGSEA `ComputeSsGseaScore` changed from expression-value weighting (`|expr|^τ`) to rank-based weighting (`rank^τ`, rank = N−i) per Barbie et al. (2009) / GSVA package (Hänzelmann et al. 2013). Previous weighting produced scores on wrong scale for ESTIMATE purity coefficients.
 
-**Total items:** 25
-**✅ Done:** 22 | **🗑 Removed:** 3 | **Remaining:** 0
+**Implementation addition (this session):** added opt-in public `EstimateTumorPurity(double)` applying the Yoshihara (2013) `cos(a + b·score)` transform with NaN-on-negative-cosine domain handling (mirrors ESTIMATE/tidyestimate `ifelse(purity<0, NA, purity)`). Default 5-marker/ssGSEA `EstimateInfiltration` path unchanged.
+
+**Total items:** 32
+**✅ Done:** 29 | **🗑 Removed:** 3 | **Remaining:** 0
 
 ### 5.6 Post-Implementation Coverage
 
@@ -192,9 +210,10 @@
 | INV-1, INV-2 | ✅ Covered | 6 parameterized cases (also covers former M7/M8 scope) |
 | INV-3, INV-4 | ✅ Covered | 4 parameterized cases; strengthened with formula verification |
 | INV-5 | ✅ Covered | 1 test |
-| INV-6 | 🗑 Removed | Subsumed by M1 + M2 |
+| INV-6 (monotone purity) | ✅ Covered | E6 |
+| E1–E7 (`EstimateTumorPurity`) | ✅ Covered | NEW: 7 tests — exact cosine values, NaN domain handling, boundary, monotonicity, closed-form identity |
 
-**Total test methods:** 33 (removed M7, M8, INV-6; added M14a, M14b, M14c)
+**Total test methods:** 40 (prior 33 + E1–E7 for the opt-in `EstimateTumorPurity` transform)
 
 ---
 

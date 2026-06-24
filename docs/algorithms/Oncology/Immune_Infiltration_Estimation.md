@@ -111,6 +111,7 @@ and then normalizes the solution so that the fraction vector sums to `1` when th
 | `[EstimateInfiltration] expressionProfile` | `IReadOnlyDictionary<string, double>` | required | Gene-expression profile keyed by gene symbol | `null` throws `ArgumentNullException` |
 | `[EstimateInfiltration] immuneGenes` | `IReadOnlyList<string>?` | `null` | Optional immune signature gene list | Defaults to the built-in 141-gene ESTIMATE immune signature |
 | `[EstimateInfiltration] stromalGenes` | `IReadOnlyList<string>?` | `null` | Optional stromal signature gene list | Defaults to the built-in 141-gene ESTIMATE stromal signature |
+| `[EstimateTumorPurity] estimateScore` | `double` | required | Affymetrix/ABSOLUTE-calibrated ESTIMATE score (immune + stromal) | Negative-cosine (out-of-domain) scores yield `NaN` |
 | `[DeconvoluteImmuneCells] expressionProfile` | `IReadOnlyDictionary<string, double>` | required | Bulk expression profile for deconvolution | `null` throws `ArgumentNullException` |
 | `[DeconvoluteImmuneCells] signatureMatrix` | `IReadOnlyDictionary<string, IReadOnlyDictionary<string, double>>?` | `null` | Optional cell-type signature matrix | Defaults to the built-in 22-cell-type matrix with representative marker genes |
 | `[DeconvoluteImmuneCells] maxIterations` | `int` | `1000` | Maximum Lawson-Hanson NNLS iterations | Used by the active-set solver |
@@ -125,6 +126,7 @@ and then normalizes the solution so that the fraction vector sums to `1` when th
 | `[EstimateInfiltration] TumorPurity` | `double` | Cosine-derived purity estimate clamped to `[0, 1]` |
 | `[EstimateInfiltration] OverlappingImmuneGenes` | `int` | Number of immune signature genes present in the expression profile |
 | `[EstimateInfiltration] OverlappingStromalGenes` | `int` | Number of stromal signature genes present in the expression profile |
+| `[EstimateTumorPurity] return` | `double` | Absolute tumor purity in `(0, 1]`, or `NaN` when the score is out of the calibrated (non-negative-cosine) domain |
 | `[DeconvoluteImmuneCells] CellFractions` | `IReadOnlyDictionary<string, double>` | Estimated fractions by cell type |
 | `[DeconvoluteImmuneCells] Correlation` | `double` | Pearson correlation between observed and reconstructed expression |
 | `[DeconvoluteImmuneCells] Rmse` | `double` | Root mean square reconstruction error |
@@ -184,7 +186,8 @@ The built-in signature matrix contains 22 immune cell phenotypes with representa
 
 **Implementation location:** [ImmuneAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/ImmuneAnalyzer.cs)
 
-- `ImmuneAnalyzer.EstimateInfiltration(IReadOnlyDictionary<string, double>, IReadOnlyList<string>?, IReadOnlyList<string>?)`: Computes immune and stromal enrichment plus ESTIMATE score and tumor purity.
+- `ImmuneAnalyzer.EstimateInfiltration(IReadOnlyDictionary<string, double>, IReadOnlyList<string>?, IReadOnlyList<string>?)`: Computes immune and stromal enrichment plus ESTIMATE score and a *relative* tumor purity.
+- `ImmuneAnalyzer.EstimateTumorPurity(double)`: Opt-in closed-form transform from a cohort-/Affymetrix-scaled ESTIMATE score to an *absolute* tumor purity via the Yoshihara et al. (2013) cosine model; returns `NaN` for out-of-domain (negative-cosine) scores.
 - `ImmuneAnalyzer.DeconvoluteImmuneCells(IReadOnlyDictionary<string, double>, IReadOnlyDictionary<string, IReadOnlyDictionary<string, double>>?, int)`: Fits cell-type fractions with NNLS and reports fit diagnostics.
 
 ### 5.2 Current Behavior
@@ -199,11 +202,12 @@ The repository currently ships the full 141-gene ESTIMATE immune and stromal sig
 
 - Rank-based ssGSEA-style enrichment scoring for immune and stromal signatures.
 - ESTIMATE score as the sum of immune and stromal enrichment scores.
-- Tumor-purity calculation with the Yoshihara et al. cosine formula.
+- Tumor-purity calculation with the Yoshihara et al. cosine formula `purity = cos(0.6049872018 + 0.0001467884 × ESTIMATEScore)`.
+- **Opt-in absolute purity** via `EstimateTumorPurity(double)`: applies the same Yoshihara cosine to a caller-supplied, Affymetrix/ABSOLUTE-calibrated ESTIMATE score, and — mirroring the ESTIMATE/`tidyestimate` reference implementation (`purity = ifelse(purity < 0, NA, purity)`) — returns `NaN` when the cosine is negative (out of the calibrated domain) instead of clamping.
 
 **Intentionally simplified:**
 
-- (none)
+- The default `EstimateInfiltration.TumorPurity` field applies the Yoshihara cosine to the library's single-sample **un-normalised** ssGSEA integral, which is on a different numeric scale than the cohort-/rank-normalised ESTIMATE score the coefficients were calibrated for; **consequence:** that default field is a **relative** indicator. For an **absolute** Affymetrix-calibrated purity, callers supply a true ESTIMATE score to the opt-in `EstimateTumorPurity`.
 
 **Not implemented:**
 
@@ -245,6 +249,8 @@ The repository currently ships the full 141-gene ESTIMATE immune and stromal sig
 ### 6.2 Limitations
 
 The deconvolution path is only as strong as its signature matrix. The built-in ESTIMATE signatures are complete, but the built-in deconvolution matrix is intentionally compact and not a substitute for a production reference such as LM22. The current implementation also uses NNLS rather than ν-SVR, so it should not be described as a direct reimplementation of CIBERSORT.
+
+The opt-in `EstimateTumorPurity` transform is calibrated, per Yoshihara et al. (2013), against ABSOLUTE purity on TCGA **Affymetrix** data by nonlinear least squares; it is valid for Affymetrix-derived ESTIMATE scores and should not be applied to RNA-seq-derived scores. It is the caller's responsibility to pass a true ESTIMATE-scale score (e.g. from the ESTIMATE R package); applying it to this library's single-sample un-normalised ssGSEA integral would reproduce only the relative `EstimateInfiltration.TumorPurity` value.
 
 ## 8. References
 

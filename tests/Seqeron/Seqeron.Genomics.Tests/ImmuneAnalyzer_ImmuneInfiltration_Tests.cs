@@ -880,4 +880,132 @@ public class ImmuneAnalyzer_ImmuneInfiltration_Tests
     }
 
     #endregion
+
+    #region ONCO-IMMUNE-001 — EstimateTumorPurity (Yoshihara 2013 closed-form transform)
+
+    // E1 — Yoshihara (2013) purity transform at score 0.
+    // purity = cos(0.6049872018 + 0.0001467884 × 0) = cos(0.6049872018).
+    // Hand-computed: 0.8225093766958238.
+    // Source: Yoshihara et al. (2013), Nat Commun 4:2612; ESTIMATE/tidyestimate estimate_score().
+    [Test]
+    public void EstimateTumorPurity_ZeroScore_EqualsCosOfCoefficientA()
+    {
+        // Arrange
+        const double expected = 0.8225093766958238;
+
+        // Act
+        double purity = ImmuneAnalyzer.EstimateTumorPurity(0.0);
+
+        // Assert
+        Assert.That(purity, Is.EqualTo(expected).Within(ExactTolerance),
+            "purity(0) must equal cos(0.6049872018) per Yoshihara et al. (2013)");
+    }
+
+    // E2 — Purity at a mid-range Affymetrix-scale ESTIMATE score.
+    // purity = cos(0.6049872018 + 0.0001467884 × 1000) = cos(0.7517756018) = 0.7304773970805112.
+    [Test]
+    public void EstimateTumorPurity_Score1000_EqualsHandComputedCosine()
+    {
+        // Arrange
+        const double expected = 0.7304773970805112;
+
+        // Act
+        double purity = ImmuneAnalyzer.EstimateTumorPurity(1000.0);
+
+        // Assert
+        Assert.That(purity, Is.EqualTo(expected).Within(ExactTolerance),
+            "purity(1000) must equal cos(0.6049872018 + 0.0001467884 × 1000)");
+    }
+
+    // E3 — Purity at a high ESTIMATE score.
+    // purity = cos(0.6049872018 + 0.0001467884 × 3000) = cos(1.0453524018) = 0.5015970942006772.
+    [Test]
+    public void EstimateTumorPurity_Score3000_EqualsHandComputedCosine()
+    {
+        // Arrange
+        const double expected = 0.5015970942006772;
+
+        // Act
+        double purity = ImmuneAnalyzer.EstimateTumorPurity(3000.0);
+
+        // Assert
+        Assert.That(purity, Is.EqualTo(expected).Within(ExactTolerance),
+            "purity(3000) must equal cos(0.6049872018 + 0.0001467884 × 3000)");
+    }
+
+    // E4 — Domain handling: when the cosine argument exceeds π/2 the cosine is negative,
+    // which is outside the calibrated domain → NaN (the R packages set such values to NA).
+    // At score 7000: arg = 1.6325060018 > π/2, cos = -0.0617 < 0 → NaN.
+    // Source: tidyestimate estimate_score(): purity = ifelse(purity < 0, NA, purity).
+    [Test]
+    public void EstimateTumorPurity_NegativeCosineDomain_ReturnsNaN()
+    {
+        // Act
+        double purity = ImmuneAnalyzer.EstimateTumorPurity(7000.0);
+
+        // Assert
+        Assert.That(double.IsNaN(purity), Is.True,
+            "Out-of-domain score (negative cosine) must return NaN, mirroring the reference NA handling");
+    }
+
+    // E5 — Boundary: a score just below the negative-cosine cutoff (~6579.6) stays defined,
+    // and a score just above it becomes NaN. cos crosses 0 at score (π/2 − a)/b ≈ 6579.60.
+    [Test]
+    public void EstimateTumorPurity_AroundNegativeCutoff_DefinedBelowNaNAbove()
+    {
+        // Act
+        double below = ImmuneAnalyzer.EstimateTumorPurity(6000.0); // arg < π/2 → positive
+        double above = ImmuneAnalyzer.EstimateTumorPurity(6600.0); // arg > π/2 → negative
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(below, Is.EqualTo(0.0849761233112934).Within(ExactTolerance),
+                "purity(6000) must equal cos(0.6049872018 + 0.0001467884 × 6000) and be positive");
+            Assert.That(double.IsNaN(above), Is.True,
+                "purity(6600) is past the negative-cosine cutoff (~6579.6) and must be NaN");
+        });
+    }
+
+    // E6 — Monotonic decreasing: within the valid domain (cosine argument in [0, π/2]),
+    // higher ESTIMATE score ⇒ lower tumour purity (cos is decreasing on [0, π]).
+    // Source: Yoshihara et al. (2013) — purity is a monotone-decreasing function of ESTIMATE score.
+    [Test]
+    public void EstimateTumorPurity_IncreasingScore_PurityMonotonicallyDecreases()
+    {
+        // Arrange
+        double[] scores = { -2000.0, 0.0, 1000.0, 3000.0, 5000.0, 6000.0 };
+
+        // Act
+        double[] purities = scores.Select(ImmuneAnalyzer.EstimateTumorPurity).ToArray();
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            for (int i = 1; i < purities.Length; i++)
+            {
+                Assert.That(purities[i], Is.LessThan(purities[i - 1]),
+                    $"purity must strictly decrease as ESTIMATE score increases (score {scores[i]} vs {scores[i - 1]})");
+            }
+        });
+    }
+
+    // E7 — The opt-in transform matches the same cosine the default InfiltrationResult applies,
+    // confirming it is the identical Yoshihara formula (applied here to a caller-supplied score).
+    [Test]
+    public void EstimateTumorPurity_MatchesClosedFormCosine_ForRepresentativeScore()
+    {
+        // Arrange
+        const double score = 2500.0;
+        double expected = Math.Cos(EstimateCoefficientA + EstimateCoefficientB * score);
+
+        // Act
+        double purity = ImmuneAnalyzer.EstimateTumorPurity(score);
+
+        // Assert
+        Assert.That(purity, Is.EqualTo(expected).Within(ExactTolerance),
+            "EstimateTumorPurity must apply cos(a + b × score) with the Yoshihara coefficients");
+    }
+
+    #endregion
 }

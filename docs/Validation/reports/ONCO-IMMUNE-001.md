@@ -88,6 +88,16 @@ None. Build succeeds (0 warnings). `ImmuneAnalyzer_ImmuneInfiltration_Tests`: **
 
 ---
 
+## Update 2026-06-24 — limitation fix: opt-in absolute purity (`EstimateTumorPurity`)
+
+The "relative, not clinically-absolute purity" limitation (Finding 1 / Finding 3) is now addressed by an **opt-in** addition; the default 5-marker/ssGSEA `EstimateInfiltration` path is unchanged.
+
+- **New public method:** `ImmuneAnalyzer.EstimateTumorPurity(double estimateScore)`. Applies the verbatim Yoshihara (2013) closed-form transform `purity = cos(0.6049872018 + 0.0001467884 × ESTIMATEScore)` to a **caller-supplied, Affymetrix/ABSOLUTE-calibrated ESTIMATE score** (the original ESTIMATE numeric scale), producing an absolute purity rather than the relative single-sample value of the `InfiltrationResult.TumorPurity` field.
+- **Domain handling (reference-grounded):** mirrors the ESTIMATE/`tidyestimate` reference implementation `purity = ifelse(purity < 0, NA, purity)` — when the cosine evaluates negative (cos argument past π/2, ESTIMATE score ≳ 6579.6) the result is `double.NaN` (out of the calibrated domain), **not** a clamped 0. Calibration is Affymetrix-only (nonlinear least squares vs ABSOLUTE on TCGA), so it is invalid for RNA-seq-derived scores — documented in the XML doc, algorithm doc, and Evidence.
+- **Sources retrieved this session (URLs):** `https://search.r-project.org/CRAN/refmans/hacksig/html/hack_estimate.html` and `https://www.aging-us.com/article/203714/text` (formula + coefficients verbatim, two independent sources); `https://raw.githubusercontent.com/KaiAragaki/tidyestimate/main/R/estimate_score.R` (reference R: `cos(0.6049872018 + 0.0001467884 * estimate)` + `ifelse(purity < 0, NA, purity)` + `is_affymetrix` gate); CIBERSORT download page search (LM22 gated behind academic registration).
+- **Tests added (E1–E7):** exact hand-computed cosine values — purity(0)=0.8225093766958238, purity(1000)=0.7304773970805112, purity(3000)=0.5015970942006772, purity(6000)=0.0849761233112934 — `Within(1e-10)`; NaN for out-of-domain score 7000/6600; strict monotone-decreasing across −2000…6000; closed-form identity at 2500. Fixture now 40/40 green; full suite green.
+- **Honest residual (per STOP RULE):** the CIBERSORT **LM22** 547-gene × 22-cell-type signature matrix and **ν-SVR** solver (Newman et al., 2015) were **not** implemented — LM22 is gated behind academic registration on the CIBERSORT website (not cleanly retrievable as plaintext this session) and a faithful ν-SVR depends on the trained matrix. Not fabricated; the default deconvolution remains the NNLS/LLSR baseline on a representative 5-marker matrix.
+
 ## Verdict & follow-ups
 - **Stage A: PASS-WITH-NOTES** — every formula/coefficient matches authoritative primary sources exactly. The decisive ssGSEA rank-order weighting (`rank^τ`, τ=0.25, integral form) was independently re-confirmed against the GSVA/Barbie description this session. Notes are honestly-declared simplifications (5-marker matrix vs LM22; NNLS vs ν-SVR; un-normalized single-sample integral on a non-cohort scale ⇒ absolute purity not clinically meaningful, never advertised as such).
 - **Stage B: PASS** — code faithfully realises the validated formulas; all cross-checks recomputed by hand and via tests, all match.

@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 222 |
+| **Completed** | 221 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 12 |
+| **Not Started** | 13 |
 
 ---
 
@@ -245,7 +245,7 @@
 | ☑ | ONCO-CLONAL-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-CLONAL-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CLONAL-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyClonality_Tests.cs) |
 | ☑ | ONCO-NEO-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-NEO-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-NEO-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_GenerateNeoantigenPeptides_Tests.cs) |
 | ☑ | ONCO-MHC-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-MHC-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-MHC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyMhcBinding_Tests.cs) |
-| ☑ | ONCO-IMMUNE-001 | Oncology | 2 | 33 | [Evidence](docs/Evidence/ONCO-IMMUNE-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-IMMUNE-001.md) |
+| ☐ | ONCO-IMMUNE-001 | Oncology | 3 | 40 | [Evidence](docs/Evidence/ONCO-IMMUNE-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-IMMUNE-001.md) |
 | ☑ | ONCO-CTDNA-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-CTDNA-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CTDNA-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CtDnaAnalysis_Tests.cs) |
 | ☐ | ONCO-MRD-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-MRD-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-MRD-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectMRD_Tests.cs) |
 | ☑ | ONCO-CHIP-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-CHIP-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CHIP-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_FilterCHIP_Tests.cs) |

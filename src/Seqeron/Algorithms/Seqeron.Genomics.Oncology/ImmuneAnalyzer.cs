@@ -377,6 +377,55 @@ public static class ImmuneAnalyzer
             stromalOverlap.Count);
     }
 
+    /// <summary>
+    /// Converts a cohort-scaled ESTIMATE score into an <b>absolute</b> tumour-purity estimate
+    /// using the closed-form transform published in the ESTIMATE paper.
+    /// <para>
+    /// <c>purity = cos(0.6049872018 + 0.0001467884 × ESTIMATEScore)</c>
+    /// </para>
+    /// <para>
+    /// This is an <b>opt-in</b> alternative to the relative <see cref="InfiltrationResult.TumorPurity"/>
+    /// returned by <see cref="EstimateInfiltration"/>: that field applies the same cosine to the
+    /// library's <i>single-sample, un-normalised</i> ssGSEA integral and is therefore a relative
+    /// value, whereas this method applies the transform to a caller-supplied ESTIMATE score that is
+    /// on the original ESTIMATE numeric scale (the sum of the cohort-/rank-normalised immune and
+    /// stromal ssGSEA scores produced by the ESTIMATE R package).
+    /// </para>
+    /// <para>
+    /// <b>Domain.</b> The regression curve was fit by nonlinear least squares against ABSOLUTE
+    /// purity on TCGA <b>Affymetrix</b> data; it is calibrated for, and should only be applied to,
+    /// Affymetrix-derived ESTIMATE scores (it is not valid for RNA-seq-derived scores). Following the
+    /// reference implementation, when the cosine evaluates to a <b>negative</b> value the purity is
+    /// undefined and this method returns <see cref="double.NaN"/> (the R <c>estimate</c>/
+    /// <c>tidyestimate</c> packages set such values to <c>NA</c>); otherwise the returned purity lies
+    /// in (0, 1].
+    /// </para>
+    /// <para>
+    /// Source: Yoshihara et al. (2013), Nature Communications 4:2612, doi:10.1038/ncomms3612
+    /// ("Tumor purity was estimated …  Tumor_purity = cos(0.6049872018 + 0.0001467884 × ESTIMATEScore)";
+    /// "regression curve … based on ABSOLUTE … by applying the nonlinear least squares method").
+    /// Reference implementation: ESTIMATE R package; tidyestimate <c>estimate_score()</c>
+    /// (<c>purity = cos(0.6049872018 + 0.0001467884 * estimate); purity = ifelse(purity &lt; 0, NA, purity)</c>).
+    /// </para>
+    /// </summary>
+    /// <param name="estimateScore">
+    /// The ESTIMATE score (immune + stromal enrichment) on the original ESTIMATE numeric scale,
+    /// derived from Affymetrix expression data.
+    /// </param>
+    /// <returns>
+    /// The absolute tumour purity in (0, 1], or <see cref="double.NaN"/> when the score lies outside
+    /// the domain where the cosine model yields a non-negative purity.
+    /// </returns>
+    public static double EstimateTumorPurity(double estimateScore)
+    {
+        double purity = Math.Cos(EstimatePurityCoefficientA + EstimatePurityCoefficientB * estimateScore);
+
+        // Reference implementation (ESTIMATE / tidyestimate): negative cosine values are out of the
+        // calibrated domain and are reported as NA. We mirror that as NaN rather than clamping,
+        // because a clamped 0 would falsely imply a valid (fully non-tumour) estimate.
+        return purity < 0.0 ? double.NaN : purity;
+    }
+
     #endregion
 
     #region Immune Cell Deconvolution (NNLS)
