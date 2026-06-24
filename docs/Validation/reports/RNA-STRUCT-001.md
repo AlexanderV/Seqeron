@@ -122,7 +122,31 @@ H-type / nested knots with ΔG strictly below the pseudoknot-free MFE.
 - **Stage B: PASS** — MFE traceback returns the thermodynamically optimal pseudoknot-free structure (energy ==
   scalar MFE for all tested inputs); H-type and recursive predictors recover designed knots with lower ΔG than
   the MFE; BWYV correctly not recovered.
-- **State: CLEAN** — the only residual (non-csr-PK classes — kissing hairpins, triple-crossing — and
-  tertiary-stabilised knots as the MFE) is a DOCUMENTED energy-model floor recorded in
-  `docs/Validation/LIMITATIONS.md` (by-design; not recoverable by any NN-only thermodynamic model).
-- No code changed. No new defects logged.
+- **State: CLEAN** — the residual has two distinct, both-documented parts (recorded in
+  `docs/Validation/LIMITATIONS.md` §1), sharpened during a focused re-evaluation of part (a):
+  - **(a) Non-csr-PK algorithm-class boundary** — kissing hairpins (loop–loop / "H-H" pseudoknots),
+    triple-crossing / complex helix interactions, non-canonical bulged or unequal-length helices.
+    Reeder & Giegerich (2004), [PMC514697](https://pmc.ncbi.nlm.nih.gov/articles/PMC514697/), state
+    *verbatim*: "*More complex knotted structures like triple crossing helices or kissing hairpins …
+    are excluded from sr-PK*" — so these classes are genuinely outside the two-crossing-helix csr-PK
+    grammar realised by `PredictStructurePseudoknot(Recursive)` (a real extension, not a duplicate of
+    the existing predictors). **A faithful kissing-hairpin detector is *not* bundled because no
+    sourceable energy model for the loop–loop interaction exists.** The principal algorithm for
+    *intramolecular* kissing hairpins — Sperschneider, Datta & Wise (2011), RNA 17:27–38,
+    [PMC3004063](https://pmc.ncbi.nlm.nih.gov/articles/PMC3004063/) — states *verbatim*: "*No
+    experimentally measured energy parameters for intramolecular kissing hairpins have been established
+    to date and thus heuristic energy estimation has to be used*" and "*heuristic methods that allow
+    arbitrary pseudoknots strongly depend on the quality of energy parameters, which are not yet
+    available for complex pseudoknots*". Its loop–loop model
+    `ΔG = Σ stack(S₁,S₂,S₃) + α + β(l₁+l₂+l₄+l₅) + γ·l₃` with **α = 9.0, β = 0.5, γ = 0.0 kcal/mol**
+    relies on an *estimated* per-loop-nucleotide penalty (β), which is NOT a Turner-2004
+    nearest-neighbour parameter. Adding it would require introducing an unsourced (heuristic,
+    non-measured) thermodynamic constant — forbidden under the no-fabrication / cite-verbatim policy —
+    so the class is left as an honest documented residual; use the DotKnot / pknotsRG-kissing reference
+    tools for it. This boundary is potentially extendable only if/when measured loop–loop parameters
+    are published.
+  - **(b) Energy-model floor (irreducible)** — tertiary-stabilised knots as the MFE structure (e.g.
+    BWYV / PDB 437D) are not recoverable by *any* nearest-neighbour thermodynamic model. This is a
+    physics-of-the-model floor, not an algorithm gap, and is not recoverable in this unit.
+- No code changed (the re-evaluation confirmed no faithful, citable, deterministically-testable
+  kissing-hairpin energy model is available to bundle). No new defects logged. Registry Status unchanged.
