@@ -39,8 +39,6 @@ boundaries, never defects. They fall into three kinds:
 | Unit | Not done | Use instead |
 |------|----------|-------------|
 | PRIMER-TM-001 | Hairpin / secondary-structure (folding-based) Tm. | UNAFold, ViennaRNA, MELTING 5. |
-| REP-STR-001 | Whole-genome-scale **seeded** repeat discovery (TRF's k-tuple seeding uses non-redistributable simulation-table cut-offs); a performance index, not a correctness gap — the exhaustive scan already finds every candidate. | The reference Tandem Repeats Finder for genome-scale detection. |
-| PROBE-VALID-001 | A precomputed **seeded k-mer index** over a whole-genome database — a speed index, not a correctness gap (the exhaustive Smith–Waterman scan already finds every hit). | BLAST / a genome-scale aligner for whole-genome speed. |
 | PROBE-DESIGN-001 | The quantitative **MGB (minor-groove binder) ΔTm**, and dual-quencher labelling. | The MGB ΔTm model (Kutyavin 2000 / MGB-Eclipse) is empirical/proprietary with no published closed form — use a chemistry-specific tool; dual-quencher has no Tm impact. |
 | MIRNA-TARGET-001 | The context++ features `SA` (RNAplfold partition-function accessibility) and `PCT` (multi-species conservation); `TA_3UTR` / `SPS` / `Len_ORF` / `ORF8m` are caller-supplied. The computed score is a partial context++. | The TargetScan reference pipeline for the headline context++ score (RNAplfold for SA, a multi-species alignment for PCT, a transcriptome for TA). |
 | MIRNA-PRECURSOR-001 | A **trained** natural-vs-background precursor classifier (read-stacking probabilistic model). | miRDeep2 / a trained miRNA caller. |
@@ -50,6 +48,7 @@ boundaries, never defects. They fall into three kinds:
 
 ## How to read this
 
+- This file lists capability/scope limitations only; pure **performance** optimisations (e.g. a genome-scale seeded index where an exhaustive scan already returns the same result) are not limitations and are not listed.
 - For **research / pipeline** use, every row is a normal scope boundary of a from-first-principles library — the algorithm is validated correct for its stated contract.
 - For **clinical / decision-grade** use, the §2 oncology rows mark layers that require an external validated predictor and clinical sign-off — the library computes the rule, not the trained model behind it.
 - **Irreducible** rows can never be closed; **data-blocked** rows reopen only when the gated / unmeasured data becomes available (several already accept it via a caller-supplied loader); **scope** rows point to the reference tool to use instead.
