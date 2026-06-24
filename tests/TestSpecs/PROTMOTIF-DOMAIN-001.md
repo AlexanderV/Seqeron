@@ -251,3 +251,57 @@ Canonical file: `tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindDom
 Full unfiltered suite green (all projects Failed: 0). Branch coverage on `Plan7ProfileHmm` /
 `FindDomainsByHmm` / `ScoreDomainHmm` ≥ 80% (parser header/COMPO/`*`/node lines, Viterbi, Forward,
 both detection methods, and all guard paths exercised).
+
+---
+
+## Addendum 2026-06-25 — HMMER E-value / P-value statistics from profile STATS (opt-in)
+
+Adds the Gumbel (MSV/Viterbi) and exponential-tail (Forward) P-value and `E = P·Z` E-value layer.
+Detection and defaults unchanged. Evidence: Evidence-doc addendum "HMMER E-value / P-value
+statistics from profile STATS".
+
+### B.1 Canonical Methods Under Test (statistics)
+
+| Method | Class | Type | Notes |
+|--------|-------|------|-------|
+| `Plan7ProfileHmm.Statistics` (STATS parse) | Plan7ProfileHmm | Canonical | parses `STATS LOCAL MSV/VITERBI/FORWARD` µ/λ/τ; null if uncalibrated |
+| `Plan7ProfileHmm.GumbelSurvival` / `ExponentialSurvival` | Plan7ProfileHmm | Canonical | Easel `esl_gumbel_surv` / `esl_exp_surv` |
+| `Plan7ProfileHmm.ViterbiPValue/MsvPValue/ForwardPValue` | Plan7ProfileHmm | Canonical | survival at the profile's µ/λ/τ |
+| `Plan7ProfileHmm.ViterbiEValue/ForwardEValue` / `EValue` | Plan7ProfileHmm | Canonical | `E = P·Z` |
+| `ProteinMotifFinder.FindDomainHitsByHmm` | ProteinMotifFinder | Canonical | detection + E-value hit |
+| `ProteinMotifFinder.ScoreDomainHmmEValue` | ProteinMotifFinder | Canonical | bit score + E-value |
+
+### B.2 Invariants — see algorithm doc INV-HMM-05 (E monotone in S, linear in Z)
+
+### B.3 MUST Tests (statistics)
+
+| ID | Test Case | Description | Expected Outcome | Evidence |
+|----|-----------|-------------|------------------|----------|
+| H13 | STATS parsed | parse PF00018 | Statistics = (MSV −8.1284/0.71923, VIT −8.2932/0.71923, FWD −4.5735/0.71923); hand-HMM → null + ViterbiPValue throws | HMMER guide STATS line; `Resources/PF00018_SH3_1.hmm` |
+| H14 | Exact Gumbel/exponential P + E | SH3 STATS, S=40, Z=1000 | VIT P=8.227179545686635e-16, E=8.227…e-13; FWD P=1.1943390031599535e-14, E=1.1943…e-11 (Within 1e-9 rel); FWD below τ → P=1 | Easel esl_gumbel_surv/esl_exp_surv; Eddy 2008; hand-derived |
+| H15 | Monotonicity / Z-scaling | E(40)<E(20); E(Z=1000)=1000·E(Z=1); Z<0 throws | INV-HMM-05 | HMMER guide `E=P·Z` |
+| H16 | End-to-end E-value | SH3 true positive E≪1e-3; negative E>1 (≈Z); FindDomainHitsByHmm reports hit with E + bit Score; negative/empty/null → no hit | UniProt P12931; low-complexity negative; `E=P·Z` |
+
+### B.4 Honest residual (narrowed)
+
+The Gumbel/exponential P-value and `E = P·Z` are now implemented exactly (and read the profile's own
+`STATS LOCAL` calibration). What remains out of scope is exact `hmmsearch`-**reported** E-value
+*pipeline* parity: HMMER applies these formulas to its local-multihit sequence bit score after the
+MSV/bias prefilters and the **null2 biased-composition correction**, which this glocal scorer does
+not compute, so absolute bit scores (and hence absolute reported E-values) differ from `hmmsearch`.
+Pfam coverage beyond the three bundled (caller-supplied `.hmm`) profiles is likewise out of scope.
+Status remains ☐ in the root registry (independent re-validation).
+
+### B.5 Post-implementation coverage (statistics)
+
+Canonical file: `tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindDomainsByHmm_Tests.cs`
+(now 33 tests). All H13–H16 implemented and ✅ green:
+
+| Case | Test method(s) | Status |
+|------|----------------|--------|
+| H13 | Parse_EmbeddedSh3Profile_ReadsStatsLinesExactly; Statistics_UncalibratedProfile_IsNull_AndPValueThrows | ✅ |
+| H14 | ViterbiPValue_Sh3At40Bits_MatchesHandDerivedGumbel; ViterbiEValue_Sh3At40Bits_Z1000_MatchesHandDerived; ForwardPValue_Sh3At40Bits_MatchesHandDerivedExponential; ForwardEValue_Sh3At40Bits_Z1000_MatchesHandDerived; ForwardPValue_BelowTau_IsClampedToOne; GumbelSurvival_PureFormula_MatchesHandDerived | ✅ |
+| H15 | ViterbiEValue_DecreasesAsScoreIncreases; ViterbiEValue_ScalesLinearlyWithDatabaseSize; EValue_NegativeDatabaseSize_Throws | ✅ |
+| H16 | ScoreDomainHmmEValue_Sh3TruePositive_HasTinyEValue; ScoreDomainHmmEValue_TrueNegative_HasLargeEValue; FindDomainHitsByHmm_Sh3TruePositive_ReportsHitWithEValue; FindDomainHitsByHmm_TrueNegative_ReportsNoHit; FindDomainHitsByHmm_NullOrEmpty_ReturnsEmpty | ✅ |
+
+Full unfiltered suite green (all projects Failed: 0). Work Queue Remaining = 0.

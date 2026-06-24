@@ -61,6 +61,15 @@ public sealed class Plan7ProfileHmm
     /// <summary>Pfam gathering threshold GA1 (per-sequence bit score), or <c>null</c> if absent.</summary>
     public double? GatheringThreshold { get; }
 
+    /// <summary>
+    /// E-value calibration parameters from the profile's <c>STATS LOCAL …</c> lines, or <c>null</c>
+    /// if the profile is not calibrated (HMMER User's Guide v3.4: "All three lines or none of them
+    /// must be present; when all three are present, the model is considered to be calibrated for
+    /// E-value statistics."). MSV and Viterbi bit scores are Gumbel-distributed with location μ and
+    /// slope λ; the Forward score's high-scoring tail is exponential with location τ and slope λ.
+    /// </summary>
+    public ScoreStatistics? Statistics { get; }
+
     // Natural-log probabilities (NOT negated): matchEmissionLn[k][a] = ln P(emit residue a | M_k).
     // k is 1-based (index 0 unused). -inf where the file stored '*'.
     private readonly double[][] _matchEmissionLn;   // [Length+1][20]
@@ -70,6 +79,7 @@ public sealed class Plan7ProfileHmm
 
     private Plan7ProfileHmm(
         string name, string accession, string description, int length, double? gatheringThreshold,
+        ScoreStatistics? statistics,
         double[][] matchEmissionLn, double[][] insertEmissionLn, double[][] transitionLn, double[] backgroundLn)
     {
         Name = name;
@@ -77,11 +87,33 @@ public sealed class Plan7ProfileHmm
         Description = description;
         Length = length;
         GatheringThreshold = gatheringThreshold;
+        Statistics = statistics;
         _matchEmissionLn = matchEmissionLn;
         _insertEmissionLn = insertEmissionLn;
         _transitionLn = transitionLn;
         _backgroundLn = backgroundLn;
     }
+
+    /// <summary>
+    /// E-value calibration parameters parsed from a profile's three <c>STATS LOCAL …</c> lines.
+    /// </summary>
+    /// <remarks>
+    /// HMMER User's Guide v3.4 (Eddy 2023), HMM file format: <c>STATS &lt;s1&gt; &lt;s2&gt; &lt;f1&gt; &lt;f2&gt;</c> —
+    /// "&lt;f1&gt; and &lt;f2&gt; are two real-valued parameters controlling location and slope of each
+    /// distribution, respectively; µ and λ for Gumbel distributions for MSV and Viterbi scores, and
+    /// τ and λ for exponential tails for Forward scores. λ values must be positive."
+    /// All parameters are in <b>bits</b> (HMMER reports scores in bits, log base 2; λ ≈ log 2).
+    /// </remarks>
+    /// <param name="MsvMu">Gumbel location μ for the MSV bit-score distribution.</param>
+    /// <param name="MsvLambda">Gumbel slope λ for the MSV bit-score distribution.</param>
+    /// <param name="ViterbiMu">Gumbel location μ for the Viterbi bit-score distribution.</param>
+    /// <param name="ViterbiLambda">Gumbel slope λ for the Viterbi bit-score distribution.</param>
+    /// <param name="ForwardTau">Exponential-tail location τ for the Forward bit-score distribution.</param>
+    /// <param name="ForwardLambda">Exponential-tail slope λ for the Forward bit-score distribution.</param>
+    public readonly record struct ScoreStatistics(
+        double MsvMu, double MsvLambda,
+        double ViterbiMu, double ViterbiLambda,
+        double ForwardTau, double ForwardLambda);
 
     #region Parsing
 
@@ -106,6 +138,10 @@ public sealed class Plan7ProfileHmm
         int length = -1;
         bool amino = false;
         double? ga1 = null;
+        // STATS LOCAL <MSV|VITERBI|FORWARD> <location> <slope>. null until a line is seen.
+        double? msvMu = null, msvLambda = null;
+        double? vitMu = null, vitLambda = null;
+        double? fwdTau = null, fwdLambda = null;
 
         // Header section: parsed line-by-line as tag/value until the 'HMM' keyword line.
         string? line;
@@ -126,6 +162,22 @@ public sealed class Plan7ProfileHmm
                     var gaToks = Rest(line).TrimEnd(';').Split(new[] { ' ', '\t', ';' }, StringSplitOptions.RemoveEmptyEntries);
                     if (gaToks.Length >= 1 && double.TryParse(gaToks[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var ga))
                         ga1 = ga;
+                    break;
+                case "STATS":
+                    // STATS LOCAL <distribution> <location> <slope> (HMMER User's Guide v3.4, file format).
+                    var sToks = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+                    if (sToks.Length >= 5 &&
+                        string.Equals(sToks[1], "LOCAL", StringComparison.OrdinalIgnoreCase) &&
+                        double.TryParse(sToks[3], NumberStyles.Float, CultureInfo.InvariantCulture, out var loc) &&
+                        double.TryParse(sToks[4], NumberStyles.Float, CultureInfo.InvariantCulture, out var slope))
+                    {
+                        switch (sToks[2].ToUpperInvariant())
+                        {
+                            case "MSV": msvMu = loc; msvLambda = slope; break;
+                            case "VITERBI": vitMu = loc; vitLambda = slope; break;
+                            case "FORWARD": fwdTau = loc; fwdLambda = slope; break;
+                        }
+                    }
                     break;
             }
         }
@@ -185,7 +237,16 @@ public sealed class Plan7ProfileHmm
         // If COMPO was absent, fall back to a uniform background (every residue equally likely).
         backgroundLn ??= Enumerable.Repeat(Math.Log(1.0 / K), K).ToArray();
 
-        return new Plan7ProfileHmm(name, accession, description, length, ga1,
+        // E-value statistics: only when ALL THREE STATS lines are present is the model calibrated
+        // (HMMER User's Guide v3.4: "All three lines or none of them must be present").
+        ScoreStatistics? stats = null;
+        if (msvMu is not null && vitMu is not null && fwdTau is not null)
+            stats = new ScoreStatistics(
+                msvMu.Value, msvLambda!.Value,
+                vitMu.Value, vitLambda!.Value,
+                fwdTau.Value, fwdLambda!.Value);
+
+        return new Plan7ProfileHmm(name, accession, description, length, ga1, stats,
             matchEmissionLn, insertEmissionLn, transitionLn, backgroundLn);
     }
 
@@ -344,6 +405,114 @@ public sealed class Plan7ProfileHmm
 
     #endregion
 
+    #region E-value / P-value statistics (opt-in; requires STATS calibration)
+
+    // Numerical guard mirroring Easel esl_gumbel.c (eslSMALLX1): below this magnitude the
+    // 1 - e^x ≈ -x approximation is used instead of the direct 1 - exp(ey) to avoid catastrophic
+    // cancellation in the deep tail. esl_gumbel.c uses eslSMALLX1 = 5e-9.
+    private const double SmallX1 = 5e-9;
+
+    /// <summary>
+    /// Gumbel (Type-I extreme value) survival function P(X ≥ <paramref name="bitScore"/>) for a
+    /// Viterbi or MSV bit score: <c>1 − exp(−exp(−λ(S − μ)))</c>.
+    /// </summary>
+    /// <remarks>
+    /// Verbatim from Easel <c>esl_gumbel_surv</c> (EddyRivasLab/easel, <c>esl_gumbel.c</c>): given
+    /// <c>y = λ(x − μ)</c> and <c>ey = −exp(−y)</c>, return <c>−ey</c> when <c>|ey| &lt; eslSMALLX1</c>
+    /// else <c>1 − exp(ey)</c>. This is the Gumbel "survivor function, P(X&gt;x) … the right tail's
+    /// probability mass". Eddy (2008) <i>PLoS Comput Biol</i> 4:e1000069: Viterbi bit scores are
+    /// Gumbel-distributed with parametric λ = log 2.
+    /// </remarks>
+    public static double GumbelSurvival(double bitScore, double mu, double lambda)
+    {
+        double y = lambda * (bitScore - mu);
+        double ey = -Math.Exp(-y);
+        // 1 - e^x ≈ -x for tiny |x|, avoiding cancellation in the extreme tail (Easel esl_gumbel.c).
+        return Math.Abs(ey) < SmallX1 ? -ey : 1.0 - Math.Exp(ey);
+    }
+
+    /// <summary>
+    /// Exponential-tail survival function P(X ≥ <paramref name="bitScore"/>) for a Forward bit score:
+    /// <c>exp(−λ(S − τ))</c>, clamped to 1.0 for scores below the tail location τ.
+    /// </summary>
+    /// <remarks>
+    /// Verbatim from Easel <c>esl_exp_surv</c> (EddyRivasLab/easel, <c>esl_exponential.c</c>):
+    /// "if (x &lt; mu) return 1.0; return exp(-lambda * (x-mu));". Eddy (2008) §"the high-scoring
+    /// tail of Forward scores is exponentially distributed with … λ = log 2".
+    /// </remarks>
+    public static double ExponentialSurvival(double bitScore, double tau, double lambda)
+    {
+        if (bitScore < tau) return 1.0;
+        return Math.Exp(-lambda * (bitScore - tau));
+    }
+
+    /// <summary>
+    /// P-value of a Viterbi <paramref name="bitScore"/> against this profile's calibrated Gumbel
+    /// distribution (<see cref="ScoreStatistics.ViterbiMu"/> / <see cref="ScoreStatistics.ViterbiLambda"/>).
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The profile has no STATS calibration.</exception>
+    public double ViterbiPValue(double bitScore)
+    {
+        var s = RequireStatistics();
+        return GumbelSurvival(bitScore, s.ViterbiMu, s.ViterbiLambda);
+    }
+
+    /// <summary>
+    /// P-value of an MSV <paramref name="bitScore"/> against this profile's calibrated Gumbel
+    /// distribution (<see cref="ScoreStatistics.MsvMu"/> / <see cref="ScoreStatistics.MsvLambda"/>).
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The profile has no STATS calibration.</exception>
+    public double MsvPValue(double bitScore)
+    {
+        var s = RequireStatistics();
+        return GumbelSurvival(bitScore, s.MsvMu, s.MsvLambda);
+    }
+
+    /// <summary>
+    /// P-value of a Forward <paramref name="bitScore"/> against this profile's calibrated exponential
+    /// tail (<see cref="ScoreStatistics.ForwardTau"/> / <see cref="ScoreStatistics.ForwardLambda"/>).
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The profile has no STATS calibration.</exception>
+    public double ForwardPValue(double bitScore)
+    {
+        var s = RequireStatistics();
+        return ExponentialSurvival(bitScore, s.ForwardTau, s.ForwardLambda);
+    }
+
+    /// <summary>
+    /// Converts a P-value to an E-value over a database of <paramref name="databaseSize"/> sequences:
+    /// <c>E = P × Z</c> (HMMER User's Guide: a hit "would be expected to happen Z times as often").
+    /// </summary>
+    /// <param name="pValue">A per-sequence P-value in [0, 1].</param>
+    /// <param name="databaseSize">Z — the number of target sequences searched (must be ≥ 0).</param>
+    public static double EValue(double pValue, double databaseSize)
+    {
+        if (databaseSize < 0) throw new ArgumentOutOfRangeException(nameof(databaseSize), "Z must be ≥ 0.");
+        return pValue * databaseSize;
+    }
+
+    /// <summary>
+    /// Viterbi E-value of a <paramref name="bitScore"/> over <paramref name="databaseSize"/> target
+    /// sequences (<c>E = P × Z</c> with the Gumbel P-value).
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The profile has no STATS calibration.</exception>
+    public double ViterbiEValue(double bitScore, double databaseSize)
+        => EValue(ViterbiPValue(bitScore), databaseSize);
+
+    /// <summary>
+    /// Forward E-value of a <paramref name="bitScore"/> over <paramref name="databaseSize"/> target
+    /// sequences (<c>E = P × Z</c> with the exponential-tail P-value).
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The profile has no STATS calibration.</exception>
+    public double ForwardEValue(double bitScore, double databaseSize)
+        => EValue(ForwardPValue(bitScore), databaseSize);
+
+    private ScoreStatistics RequireStatistics()
+        => Statistics ?? throw new InvalidOperationException(
+            $"Profile '{Name}' is not calibrated for E-value statistics (no STATS LOCAL lines).");
+
+    #endregion
+
     #region Residue / number helpers
 
     private static int ResidueOf(char c)
@@ -428,6 +597,6 @@ public sealed class Plan7ProfileHmm
     internal static Plan7ProfileHmm FromLogParameters(
         string name, int length,
         double[][] matchEmissionLn, double[][] insertEmissionLn, double[][] transitionLn, double[] backgroundLn)
-        => new(name, string.Empty, string.Empty, length, null,
+        => new(name, string.Empty, string.Empty, length, null, null,
             matchEmissionLn, insertEmissionLn, transitionLn, backgroundLn);
 }

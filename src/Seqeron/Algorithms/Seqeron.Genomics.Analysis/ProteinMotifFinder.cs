@@ -37,6 +37,26 @@ public static class ProteinMotifFinder
         string Description);
 
     /// <summary>
+    /// A profile-HMM domain hit carrying the Viterbi bit <see cref="Score"/> and the HMMER
+    /// E-value derived from the profile's <c>STATS LOCAL VITERBI</c> Gumbel calibration.
+    /// </summary>
+    /// <param name="Name">Domain family name (e.g. "SH3").</param>
+    /// <param name="Accession">Pfam accession (e.g. "PF00018").</param>
+    /// <param name="Start">0-based start of the scored span (sequence start for the glocal score).</param>
+    /// <param name="End">0-based inclusive end of the scored span.</param>
+    /// <param name="Score">Viterbi log-odds score in bits.</param>
+    /// <param name="EValue">Viterbi E-value E = P·Z (P from the profile's Gumbel STATS, Z = database size).</param>
+    /// <param name="Description">Domain description.</param>
+    public readonly record struct ProteinDomainHit(
+        string Name,
+        string Accession,
+        int Start,
+        int End,
+        double Score,
+        double EValue,
+        string Description);
+
+    /// <summary>
     /// Represents a PROSITE-style pattern.
     /// </summary>
     public readonly record struct PrositePattern(
@@ -1456,12 +1476,70 @@ public static class ProteinMotifFinder
     private const double LogOddsBitsPerNat = 0.69314718055994530941723212145818; // ln 2
     // Default reporting threshold (bits) for FindDomainsByHmm.
     private const double DefaultHmmMinBitScore = 10.0;
+    // Default database size Z for E-value reporting (single-target search).
+    private const double DefaultDatabaseSize = 1.0;
 
     private static double ScoreBits(Plan7ProfileHmm hmm, string sequence)
     {
         double nats = hmm.ViterbiScore(sequence);
         if (double.IsNegativeInfinity(nats)) return double.NegativeInfinity;
         return nats / LogOddsBitsPerNat;
+    }
+
+    /// <summary>
+    /// Detects SH3/PDZ/WD40 domains and reports each hit's Viterbi bit score together with its
+    /// HMMER E-value, derived from the bundled profile's <c>STATS LOCAL VITERBI</c> Gumbel
+    /// calibration (E = P·Z, P = <c>1 − exp(−exp(−λ(S − μ)))</c>).
+    /// </summary>
+    /// <remarks>
+    /// Opt-in; the exact-PROSITE <see cref="FindDomains"/> path and the bit-score-only
+    /// <see cref="FindDomainsByHmm(string, double)"/> overload are unchanged. The reported E-value is
+    /// computed from the profile's stored STATS parameters applied to the engine's Viterbi bit score.
+    /// Exact <c>hmmsearch</c>-reported-E-value parity additionally requires HMMER's full pipeline
+    /// (MSV/bias prefilters and the null2 biased-composition correction); see the algorithm doc.
+    /// </remarks>
+    /// <param name="proteinSequence">Amino-acid sequence.</param>
+    /// <param name="databaseSize">Z — number of target sequences searched. Default 1.</param>
+    /// <param name="minBitScore">Minimum Viterbi bit score to report a domain. Default 10 bits.</param>
+    public static IEnumerable<ProteinDomainHit> FindDomainHitsByHmm(
+        string proteinSequence, double databaseSize = DefaultDatabaseSize, double minBitScore = DefaultHmmMinBitScore)
+    {
+        if (string.IsNullOrEmpty(proteinSequence))
+            yield break;
+
+        var hmms = LazyBundledHmms.Value;
+        for (int p = 0; p < BundledProfiles.Length; p++)
+        {
+            double bits = ScoreBits(hmms[p], proteinSequence);
+            if (bits >= minBitScore)
+            {
+                var meta = BundledProfiles[p];
+                double eValue = hmms[p].ViterbiEValue(bits, databaseSize);
+                yield return new ProteinDomainHit(meta.Name, meta.Accession,
+                    0, proteinSequence.Length - 1, bits, eValue, meta.Description);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Scores a protein against a single bundled Pfam profile HMM and returns its Viterbi bit score
+    /// and HMMER E-value (E = P·Z) from the profile's Gumbel <c>STATS LOCAL VITERBI</c> calibration.
+    /// </summary>
+    /// <param name="proteinSequence">Amino-acid sequence.</param>
+    /// <param name="accession">Pfam accession: "PF00018" (SH3), "PF00595" (PDZ) or "PF00400" (WD40).</param>
+    /// <param name="databaseSize">Z — number of target sequences searched. Default 1.</param>
+    public static (double BitScore, double EValue) ScoreDomainHmmEValue(
+        string proteinSequence, string accession, double databaseSize = DefaultDatabaseSize)
+    {
+        ArgumentNullException.ThrowIfNull(proteinSequence);
+        ArgumentNullException.ThrowIfNull(accession);
+        int idx = Array.FindIndex(BundledProfiles, p => p.Accession == accession);
+        if (idx < 0)
+            throw new ArgumentException($"Unknown bundled Pfam profile: '{accession}'.", nameof(accession));
+        var hmm = LazyBundledHmms.Value[idx];
+        double bits = ScoreBits(hmm, proteinSequence);
+        double eValue = hmm.ViterbiEValue(bits, databaseSize);
+        return (bits, eValue);
     }
 
     #endregion

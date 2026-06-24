@@ -2,7 +2,9 @@
 // Evidence: docs/Evidence/PROTMOTIF-DOMAIN-001-Evidence.md  (addendum 2026-06-25)
 // TestSpec: tests/TestSpecs/PROTMOTIF-DOMAIN-001.md          (addendum 2026-06-25)
 // Source:   Durbin et al. (1998) Biological Sequence Analysis §5.4 (Viterbi recurrence);
-//           HMMER User's Guide v3.4 (Eddy 2023) — HMMER3/f file format; Pfam PF00018/PF00595/PF00400 (CC0).
+//           HMMER User's Guide v3.4 (Eddy 2023) — HMMER3/f file format + STATS lines;
+//           Eddy (2008) PLoS Comput Biol 4:e1000069 (Gumbel for Viterbi/MSV, exponential tail for Forward);
+//           Easel esl_gumbel.c / esl_exponential.c survival functions; Pfam PF00018/PF00595/PF00400 (CC0).
 using System;
 using System.Collections.Generic;
 using NUnit.Framework;
@@ -49,6 +51,27 @@ public class ProteinMotifFinder_FindDomainsByHmm_Tests
         "AAAAAAAAAAAAAAEEEEEEEEEEEEEEKKKKKKKKKKKK";
 
     private const double DetectionThresholdBits = 10.0;
+
+    // H13–H17 — HMMER E-value statistics. STATS lines read VERBATIM from the bundled
+    // Resources/PF00018_SH3_1.hmm:
+    //   STATS LOCAL MSV       -8.1284  0.71923
+    //   STATS LOCAL VITERBI   -8.2932  0.71923
+    //   STATS LOCAL FORWARD   -4.5735  0.71923
+    private const double Sh3MsvMu = -8.1284;
+    private const double Sh3ViterbiMu = -8.2932;
+    private const double Sh3ForwardTau = -4.5735;
+    private const double Sh3Lambda = 0.71923;
+
+    // Hand-derived (Python, full double precision) at S = 40 bits using the exact Easel formulas:
+    //   Gumbel survival  P = 1 − exp(−exp(−λ(S−μ))), with Easel's |ey|<5e-9 → return −ey tail branch.
+    //   Exponential surv P = exp(−λ(S−τ)).
+    // Viterbi: y = 0.71923*(40−(−8.2932)) = 34.7326…, exp(−y)=8.227179545686635e-16 (deep tail → −ey).
+    private const double HandBitScore = 40.0;
+    private const double HandZ = 1000.0;
+    private const double Sh3ViterbiPValueAt40 = 8.227179545686635e-16;
+    private const double Sh3ViterbiEValueAt40Z1000 = 8.227179545686635e-13;
+    private const double Sh3ForwardPValueAt40 = 1.1943390031599535e-14;
+    private const double Sh3ForwardEValueAt40Z1000 = 1.1943390031599535e-11;
 
     #endregion
 
@@ -331,6 +354,225 @@ public class ProteinMotifFinder_FindDomainsByHmm_Tests
     {
         Assert.Throws<ArgumentException>(() => ProteinMotifFinder.ScoreDomainHmm(Sh3TruePositive, "PF99999"),
             "Only PF00018/PF00595/PF00400 are bundled.");
+    }
+
+    #endregion
+
+    #region H13 — STATS lines parsed from the bundled profile
+
+    [Test]
+    public void Parse_EmbeddedSh3Profile_ReadsStatsLinesExactly()
+    {
+        // H13 — the three STATS LOCAL lines are read verbatim into the calibration record.
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00018_SH3_1.hmm"));
+
+        Assert.That(hmm.Statistics, Is.Not.Null, "PF00018 carries all three STATS lines → calibrated.");
+        var s = hmm.Statistics!.Value;
+        Assert.Multiple(() =>
+        {
+            Assert.That(s.MsvMu, Is.EqualTo(Sh3MsvMu).Within(1e-12), "STATS LOCAL MSV location μ.");
+            Assert.That(s.MsvLambda, Is.EqualTo(Sh3Lambda).Within(1e-12), "STATS LOCAL MSV slope λ.");
+            Assert.That(s.ViterbiMu, Is.EqualTo(Sh3ViterbiMu).Within(1e-12), "STATS LOCAL VITERBI location μ.");
+            Assert.That(s.ViterbiLambda, Is.EqualTo(Sh3Lambda).Within(1e-12), "STATS LOCAL VITERBI slope λ.");
+            Assert.That(s.ForwardTau, Is.EqualTo(Sh3ForwardTau).Within(1e-12), "STATS LOCAL FORWARD location τ.");
+            Assert.That(s.ForwardLambda, Is.EqualTo(Sh3Lambda).Within(1e-12), "STATS LOCAL FORWARD slope λ.");
+        });
+    }
+
+    [Test]
+    public void Statistics_UncalibratedProfile_IsNull_AndPValueThrows()
+    {
+        // H13 — the hand-built HMM has no STATS lines; it is not calibrated.
+        var hmm = BuildHandHmm();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(hmm.Statistics, Is.Null, "A profile with no STATS lines is uncalibrated.");
+            Assert.Throws<InvalidOperationException>(() => hmm.ViterbiPValue(0.0),
+                "Requesting a P-value from an uncalibrated profile is an error.");
+        });
+    }
+
+    #endregion
+
+    #region H14 — exact hand-derived Gumbel / exponential P-value and E-value
+
+    [Test]
+    public void ViterbiPValue_Sh3At40Bits_MatchesHandDerivedGumbel()
+    {
+        // H14 — Gumbel survival P = 1 − exp(−exp(−λ(S−μ))) with μ=−8.2932, λ=0.71923, S=40.
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00018_SH3_1.hmm"));
+
+        double p = hmm.ViterbiPValue(HandBitScore);
+
+        Assert.That(p, Is.EqualTo(Sh3ViterbiPValueAt40).Within(1e-9 * Sh3ViterbiPValueAt40),
+            "Viterbi Gumbel P-value at 40 bits must equal the hand-derived 8.227179545686635e-16.");
+    }
+
+    [Test]
+    public void ViterbiEValue_Sh3At40Bits_Z1000_MatchesHandDerived()
+    {
+        // H14 — E = P · Z with Z = 1000.
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00018_SH3_1.hmm"));
+
+        double e = hmm.ViterbiEValue(HandBitScore, HandZ);
+
+        Assert.That(e, Is.EqualTo(Sh3ViterbiEValueAt40Z1000).Within(1e-9 * Sh3ViterbiEValueAt40Z1000),
+            "Viterbi E-value = P·1000 must equal the hand-derived 8.227179545686635e-13.");
+    }
+
+    [Test]
+    public void ForwardPValue_Sh3At40Bits_MatchesHandDerivedExponential()
+    {
+        // H14 — exponential-tail survival P = exp(−λ(S−τ)) with τ=−4.5735, λ=0.71923, S=40.
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00018_SH3_1.hmm"));
+
+        double p = hmm.ForwardPValue(HandBitScore);
+
+        Assert.That(p, Is.EqualTo(Sh3ForwardPValueAt40).Within(1e-9 * Sh3ForwardPValueAt40),
+            "Forward exponential P-value at 40 bits must equal the hand-derived 1.1943390031599535e-14.");
+    }
+
+    [Test]
+    public void ForwardEValue_Sh3At40Bits_Z1000_MatchesHandDerived()
+    {
+        // H14 — E = P · Z with Z = 1000 for the Forward exponential tail.
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00018_SH3_1.hmm"));
+
+        double e = hmm.ForwardEValue(HandBitScore, HandZ);
+
+        Assert.That(e, Is.EqualTo(Sh3ForwardEValueAt40Z1000).Within(1e-9 * Sh3ForwardEValueAt40Z1000),
+            "Forward E-value = P·1000 must equal the hand-derived 1.1943390031599535e-11.");
+    }
+
+    [Test]
+    public void ForwardPValue_BelowTau_IsClampedToOne()
+    {
+        // H14 — Easel esl_exp_surv returns 1.0 for x < mu (τ); a score below the tail base is non-significant.
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00018_SH3_1.hmm"));
+
+        // τ = −4.5735; any score below that clamps to P = 1.
+        double p = hmm.ForwardPValue(-10.0);
+
+        Assert.That(p, Is.EqualTo(1.0).Within(1e-12),
+            "Forward P-value clamps to 1.0 for scores below the exponential-tail location τ.");
+    }
+
+    [Test]
+    public void GumbelSurvival_PureFormula_MatchesHandDerived()
+    {
+        // H14 — the static Gumbel survival evaluated directly with the SH3 Viterbi parameters.
+        double p = Plan7ProfileHmm.GumbelSurvival(HandBitScore, Sh3ViterbiMu, Sh3Lambda);
+
+        Assert.That(p, Is.EqualTo(Sh3ViterbiPValueAt40).Within(1e-9 * Sh3ViterbiPValueAt40),
+            "GumbelSurvival(40, −8.2932, 0.71923) must equal the hand-derived value.");
+    }
+
+    #endregion
+
+    #region H15 — monotonicity and Z-scaling
+
+    [Test]
+    public void ViterbiEValue_DecreasesAsScoreIncreases()
+    {
+        // H15 — a higher bit score is more significant: smaller P, hence smaller E (strictly).
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00018_SH3_1.hmm"));
+
+        double eLow = hmm.ViterbiEValue(20.0, 1.0);
+        double eHigh = hmm.ViterbiEValue(40.0, 1.0);
+
+        Assert.That(eHigh, Is.LessThan(eLow),
+            "E-value must strictly decrease as the bit score increases (Gumbel is monotone).");
+    }
+
+    [Test]
+    public void ViterbiEValue_ScalesLinearlyWithDatabaseSize()
+    {
+        // H15 — E = P·Z is exactly linear in Z. E(Z=1000) = 1000 · E(Z=1).
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00018_SH3_1.hmm"));
+
+        double e1 = hmm.ViterbiEValue(HandBitScore, 1.0);
+        double e1000 = hmm.ViterbiEValue(HandBitScore, 1000.0);
+
+        Assert.That(e1000, Is.EqualTo(e1 * 1000.0).Within(1e-9 * (e1 * 1000.0)),
+            "E-value scales linearly with the database size Z (E = P·Z).");
+    }
+
+    [Test]
+    public void EValue_NegativeDatabaseSize_Throws()
+    {
+        // H15 — Z must be non-negative.
+        Assert.Throws<ArgumentOutOfRangeException>(() => Plan7ProfileHmm.EValue(0.5, -1.0),
+            "A negative database size Z is invalid.");
+    }
+
+    #endregion
+
+    #region H16 — end-to-end true-positive small-E, negative large-E
+
+    [Test]
+    public void ScoreDomainHmmEValue_Sh3TruePositive_HasTinyEValue()
+    {
+        // H16 — a real SH3 domain (SRC_HUMAN core) is highly significant: E ≪ 1e-3 even at Z=1.
+        var (bits, e) = ProteinMotifFinder.ScoreDomainHmmEValue(Sh3TruePositive, Sh3Accession, 1.0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(bits, Is.GreaterThan(DetectionThresholdBits), "True-positive bit score is well above threshold.");
+            Assert.That(e, Is.LessThan(1e-3), "A genuine SH3 domain must have a tiny E-value (highly significant).");
+        });
+    }
+
+    [Test]
+    public void ScoreDomainHmmEValue_TrueNegative_HasLargeEValue()
+    {
+        // H16 — a low-complexity non-domain sequence is non-significant: P=1 → E=Z (here 1000).
+        var (bits, e) = ProteinMotifFinder.ScoreDomainHmmEValue(TrueNegative, Sh3Accession, 1000.0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(bits, Is.LessThan(0.0), "A non-domain sequence scores negative bits against SH3.");
+            Assert.That(e, Is.GreaterThan(1.0), "A non-domain sequence is non-significant: large E-value (≈ Z).");
+        });
+    }
+
+    [Test]
+    public void FindDomainHitsByHmm_Sh3TruePositive_ReportsHitWithEValue()
+    {
+        // H16 — the E-value-bearing detection path reports SH3 with a tiny E-value and the bit Score.
+        var hits = new List<ProteinMotifFinder.ProteinDomainHit>(
+            ProteinMotifFinder.FindDomainHitsByHmm(Sh3TruePositive, databaseSize: 1.0));
+
+        Assert.That(hits, Has.Count.EqualTo(1), "Exactly one bundled family matches the SH3 core.");
+        Assert.Multiple(() =>
+        {
+            Assert.That(hits[0].Accession, Is.EqualTo(Sh3Accession), "Detected family is SH3 (PF00018).");
+            Assert.That(hits[0].Score, Is.GreaterThan(DetectionThresholdBits), "Reported Score is the Viterbi bit score.");
+            Assert.That(hits[0].EValue, Is.LessThan(1e-3), "Reported E-value is tiny for the true positive.");
+            Assert.That(hits[0].Start, Is.EqualTo(0), "Glocal score spans from sequence start.");
+            Assert.That(hits[0].End, Is.EqualTo(Sh3TruePositive.Length - 1), "…to sequence end (0-based inclusive).");
+        });
+    }
+
+    [Test]
+    public void FindDomainHitsByHmm_TrueNegative_ReportsNoHit()
+    {
+        // H16 — the non-domain sequence is reported by no bundled profile.
+        var hits = new List<ProteinMotifFinder.ProteinDomainHit>(
+            ProteinMotifFinder.FindDomainHitsByHmm(TrueNegative));
+
+        Assert.That(hits, Is.Empty, "A non-domain sequence must not be reported as SH3/PDZ/WD40.");
+    }
+
+    [Test]
+    public void FindDomainHitsByHmm_NullOrEmpty_ReturnsEmpty()
+    {
+        // H16 — null/empty guard on the E-value detection path.
+        Assert.Multiple(() =>
+        {
+            Assert.That(ProteinMotifFinder.FindDomainHitsByHmm(null!), Is.Empty, "Null → empty.");
+            Assert.That(ProteinMotifFinder.FindDomainHitsByHmm(string.Empty), Is.Empty, "Empty → empty.");
+        });
     }
 
     #endregion

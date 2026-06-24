@@ -362,6 +362,85 @@ on the three real domains. Only these 3 Pfam domains are bundled; the full Pfam 
 
 ---
 
+## Addendum 2026-06-25 — HMMER E-value / P-value statistics from profile STATS
+
+This addendum records the evidence for the **opt-in** E-value / P-value layer (Gumbel for
+MSV/Viterbi, exponential tail for Forward; `E = P·Z`). Existing detection and defaults unchanged.
+
+### Online Source: HMMER User's Guide v3.4 — STATS line semantics (file format)
+
+**Retrieved (how):** `WebFetch http://eddylab.org/software/hmmer/Userguide.pdf` (mirror
+`https://i5k.nal.usda.gov/training/webapp/static/hmmer/pdf/Userguide.pdf`), 2026-06-25; PDF saved
+locally and read with `pdftotext`. **Verbatim** (HMM file format section): *"STATS &lt;s1&gt;
+&lt;s2&gt; &lt;f1&gt; &lt;f2&gt; — Statistical parameters needed for E-value calculations. &lt;s1&gt;
+is the model's alignment mode configuration: currently only LOCAL is recognized. &lt;s2&gt; is the
+name of the score distribution: currently MSV, VITERBI, and FORWARD are recognized. &lt;f1&gt; and
+&lt;f2&gt; are two real-valued parameters controlling location and slope of each distribution,
+respectively; µ and λ for Gumbel distributions for MSV and Viterbi scores, and τ and λ for
+exponential tails for Forward scores. λ values must be positive. All three lines or none of them
+must be present; when all three are present, the model is considered to be calibrated for E-value
+statistics."* The tutorial confirms scores are in **bits** and `E = P · Z`: *"a hit scoring 47.2
+bits would be expected to happen 539165 times as often: 1.2e-16 × 539165 = 6.47e-11"* — i.e. the
+per-sequence P-value times the number Z of database sequences.
+
+### Online Source: Eddy (2008) PLoS Comput Biol 4:e1000069 — Gumbel / exponential
+
+**Retrieved (how):** `WebFetch https://pmc.ncbi.nlm.nih.gov/articles/PMC2396288/`, 2026-06-25.
+**Facts extracted:** Viterbi (and MSV) bit scores are **Gumbel** (Type-I extreme value) distributed
+with parametric **λ = log 2**; the high-scoring tail of **Forward** scores is **exponentially**
+distributed with the same λ. The E-value is the P-value times the number of database sequences.
+
+### Online Source: Easel survival functions (HMMER's actual implementation)
+
+**Retrieved (how):** `WebFetch https://raw.githubusercontent.com/EddyRivasLab/easel/master/esl_gumbel.c`
+and `.../esl_exponential.c`, 2026-06-25. **Verbatim code:**
+```c
+double esl_gumbel_surv(double x, double mu, double lambda) {       // P(X>x), 1-cdf, right tail
+  double y  = lambda*(x-mu);
+  double ey = -exp(-y);
+  if (fabs(ey) < eslSMALLX1) return -ey;       /* 1-e^x ~ -x when e^-y is small */
+  else                       return 1 - exp(ey);
+}
+double esl_exp_surv(double x, double mu, double lambda) {
+  if (x < mu) return 1.0;
+  return exp(-lambda * (x-mu));
+}
+```
+i.e. Gumbel `P(S≥x) = 1 − exp(−exp(−λ(x−µ)))` (with the `eslSMALLX1 = 5e-9` tail branch returning
+`exp(−λ(x−µ))`) and exponential `P(S≥x) = exp(−λ(x−τ))`, clamped to 1 for `x < τ`.
+
+### Online Source: HMMER pipeline — score → P-value → E-value
+
+**Retrieved (how):** `WebFetch
+https://raw.githubusercontent.com/Janelia-Farm-Xfam/Bio-HMM-Logo/master/src/src/p7_pipeline.c`,
+2026-06-25. **Verbatim usage:** MSV `P = esl_gumbel_surv(seq_score, om->evparam[p7_MMU],
+om->evparam[p7_MLAMBDA])`; Viterbi `P = esl_gumbel_surv(seq_score, om->evparam[p7_VMU],
+om->evparam[p7_VLAMBDA])`; Forward `P = esl_exp_surv(seq_score, om->evparam[p7_FTAU],
+om->evparam[p7_FLAMBDA])`; E-value `exp(lnP) * pli->Z` — confirming the **per-sequence bit score**
+is the survival-function argument and `E = P · Z`.
+
+### Hand-derived test pin (bundled PF00018 STATS)
+
+`STATS LOCAL VITERBI -8.2932 0.71923` and `STATS LOCAL FORWARD -4.5735 0.71923`, read verbatim from
+`Resources/PF00018_SH3_1.hmm`. At bit score `S = 40`:
+- Gumbel: `y = 0.71923·(40−(−8.2932)) = 34.7326…`; `exp(−y) = 8.227179545686635e-16`; `|ey| < 5e-9`
+  → `P = 8.227179545686635e-16`; `E(Z=1000) = 8.227179545686635e-13`.
+- Exponential: `P = exp(−0.71923·(40−(−4.5735))) = 1.1943390031599535e-14`;
+  `E(Z=1000) = 1.1943390031599535e-11`.
+Computed at full double precision (Python) independently of the implementation; the engine matches
+to 1e-9 relative (tests H14).
+
+### Honest residual (narrowed)
+
+The Gumbel/exponential P-value and `E = P·Z` are now implemented exactly. What remains out of scope
+is exact `hmmsearch`-**reported** E-value *pipeline* parity: HMMER applies these formulas to its
+local-multihit sequence bit score after the MSV/bias prefilters and the **null2 biased-composition
+correction**, which this glocal scorer does not compute, so absolute bit scores (and hence absolute
+reported E-values) differ from `hmmsearch`. Pfam coverage beyond the three bundled (caller-supplied
+`.hmm`) profiles is likewise out of scope.
+
+---
+
 ## References
 
 1. von Heijne G (1986). Signal sequences. The limits of variation. J Mol Biol 184(1):99-105. https://doi.org/10.1016/0022-2836(85)90046-4
@@ -381,3 +460,7 @@ on the three real domains. Only these 3 Pfam domains are bundled; the full Pfam 
 15. Durbin R, Eddy SR, Krogh A, Mitchison G (1998). Biological Sequence Analysis, Ch. 5.4. Cambridge Univ Press; recurrences reproduced in Stanford CS273 Lecture 7: https://web.stanford.edu/class/cs273/scribing/scribe7.pdf
 16. Eddy SR (2011). Accelerated Profile HMM Searches. PLoS Comput Biol 7:e1002195. https://doi.org/10.1371/journal.pcbi.1002195
 17. Pfam licence (CC0): https://interpro-documentation.readthedocs.io/en/latest/pfam.html
+18. Eddy SR (2008). A Probabilistic Model of Local Sequence Alignment That Simplifies Statistical Significance Estimation. PLoS Comput Biol 4:e1000069. https://doi.org/10.1371/journal.pcbi.1000069 (PMC2396288)
+19. Easel esl_gumbel.c (esl_gumbel_surv): https://github.com/EddyRivasLab/easel/blob/master/esl_gumbel.c
+20. Easel esl_exponential.c (esl_exp_surv): https://github.com/EddyRivasLab/easel/blob/master/esl_exponential.c
+21. HMMER p7_pipeline.c (score→P-value→E-value via esl_gumbel_surv / esl_exp_surv, E=P·Z): https://github.com/Janelia-Farm-Xfam/Bio-HMM-Logo/blob/master/src/src/p7_pipeline.c

@@ -1,5 +1,38 @@
 # Validation Report: PROTMOTIF-DOMAIN-001 — Protein Domain Identification
 
+## Update 2026-06-25 — HMMER Gumbel/exponential E-value from profile STATS (limitation fix); Status stays ☐
+
+The Plan7 engine now computes the HMMER **P-value / E-value statistics** from the profile's
+`STATS LOCAL` calibration lines, as an **opt-in** addition. Existing detection + defaults unchanged.
+
+- **STATS semantics (verbatim, HMMER User's Guide v3.4, HMM file format):** `STATS <s1> <s2> <f1>
+  <f2>` — "<f1> and <f2> are two real-valued parameters controlling location and slope of each
+  distribution, respectively; µ and λ for Gumbel distributions for MSV and Viterbi scores, and τ
+  and λ for exponential tails for Forward scores. λ values must be positive. All three lines or none
+  of them must be present; when all three are present, the model is considered to be calibrated for
+  E-value statistics." Parameters are in bits; `E = P·Z` (tutorial: `1.2e-16 × 539165 = 6.47e-11`).
+- **Formulas (verbatim, Easel):** `esl_gumbel_surv(x,µ,λ) = 1 − exp(−exp(−λ(x−µ)))` (with the
+  `|ey|<5e-9` tail branch → `exp(−λ(x−µ))`); `esl_exp_surv(x,µ,λ) = exp(−λ(x−µ))`, `=1` for `x<µ`.
+  Pipeline (`p7_pipeline.c`) confirms the per-sequence **bit score** is the survival argument and
+  `E = P·Z`. Distribution basis: Eddy (2008) PLoS Comput Biol 4:e1000069 (Viterbi/MSV Gumbel,
+  Forward exponential, λ = log 2).
+- **Methods added:** `Plan7ProfileHmm.Statistics` (parsed `STATS`), `GumbelSurvival` /
+  `ExponentialSurvival`, `MsvPValue` / `ViterbiPValue` / `ForwardPValue`, `EValue` /
+  `ViterbiEValue` / `ForwardEValue`; `ProteinMotifFinder.FindDomainHitsByHmm(seq, Z, minBitScore)`
+  (new `ProteinDomainHit` with an `EValue`) and `ScoreDomainHmmEValue(seq, accession, Z)`.
+- **Exact pin (hand-derived):** PF00018 `STATS LOCAL VITERBI -8.2932 0.71923` / `FORWARD -4.5735
+  0.71923`, S=40: Gumbel P=8.227179545686635e-16 (Easel tail branch), E(Z=1000)=8.227…e-13;
+  exponential P=1.1943390031599535e-14, E(Z=1000)=1.1943…e-11; engine matches to 1e-9. Monotone in
+  S, linear in Z. End-to-end: SH3 true positive E≪1e-3 (Z=1); low-complexity negative P=1 → E=Z.
+  16 new tests (H13–H16); full suite green.
+- **Honest residual (narrowed):** exact `hmmsearch`-*reported* E-value **pipeline** parity (null2
+  biased-composition correction + MSV/bias prefilters applied to a local-multihit bit score, which
+  this glocal scorer does not compute) and Pfam coverage beyond the three bundled (caller-supplied
+  `.hmm`) profiles remain out of scope.
+- Status stays **☐** in the root registry (independent re-validation; not a ☑ self-claim).
+
+---
+
 ## Update 2026-06-25 — Plan7 profile-HMM engine + bundled Pfam SH3/PDZ/WD40 (limitation fix); Status stays ☐
 
 The data-blocked residual ("SH3/PDZ and any full Pfam HMM have no deterministic pattern") is
