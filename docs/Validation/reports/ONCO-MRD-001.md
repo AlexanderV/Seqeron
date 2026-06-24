@@ -1,81 +1,99 @@
 # Validation Report: ONCO-MRD-001 — Minimal/Molecular Residual Disease (MRD) Detection
 
-- **Validated:** 2026-06-16   **Area:** Oncology
-- **Canonical method(s):** `OncologyAnalyzer.DetectMRD`, `OncologyAnalyzer.TrackVariantsOverTime`, `OncologyAnalyzer.IsVariantDetected` (reuses `CtDnaDetectionProbability`, ONCO-CTDNA-001)
+- **Validated:** 2026-06-24   **Area:** Oncology
+- **Canonical method(s):** `OncologyAnalyzer.DetectMRD`, `TrackVariantsOverTime`, `IsVariantDetected` (legacy ≥2-of-N panel rule + Poisson LoD, ONCO-CTDNA-001 reuse); **INVAR/INVAR2 extension under review:** `EstimateInvarSignal`, `IntegratedMutantAlleleFractionV2`, `EstimateInvarSignalWithSize` (+`FragmentSizeProfile`/`InvarMolecule`), `SuppressOutlierLoci`, `EstimateLocusBackground`, `PassesBothStrandsFilter`
 - **Stage A verdict:** PASS-WITH-NOTES
 - **Stage B verdict:** PASS
+
+This session re-validates the INVAR/INVAR2 extension added by commits `28b1199a` (background-subtracted AF-weighted GLRT + IMAFv2) and `01e21a8a` (fragment-size weighting, outlier suppression, locus-noise filtering, control-derived background estimation). The legacy panel-rule path was already validated in the prior report (2026-06-16); it is unchanged and re-confirmed.
 
 ## Stage A — Description
 
 ### Sources opened this session
-- **Chen et al. (2021), "Commercial ctDNA Assays for Minimal Residual Disease"** (review PDF, learn.colontown.org) — independent review, NOT the repo's cited PMC9265001. Confirms verbatim: Signatera "selects up to 16 somatic SNVs"; a plasma sample is ctDNA-positive/MRD-positive when "at least 2 of the 16 variants are detected"; ~1 million reads/sample (ultra-deep, ~100,000×).
-- **WebSearch — Signatera positivity rule** (Natera + multiple peer-reviewed sources): "Samples with at least two tumor-specific variants are defined as ctDNA-positive … those with fewer than 2 variants are considered negative." Top 16 somatic variants selected from tumour WES with matched normal/buffy-coat to remove germline + CHIP.
-- **Reinert et al. (2019), JAMA Oncol 5(8):1124–1131** (PubMed 31070691) — primary tumour-informed multiplex-PCR MRD study (assay later commercialised as Signatera); serial ctDNA detects relapse ahead of imaging.
-- **Wan et al. (2020), Sci Transl Med 12(548):eaaz8084 — INVAR** (search of GenomeWeb/EurekAlert/Science abstract): IMAF = "background-subtracted, depth-weighted mean allele fraction across patient-specific tumor-mutated loci"; IMAF as low as 0.0011 at ~97% specificity.
+- **INVAR2 reference implementation, `R/shared/detectionFunctions.R`** (nrlab-CRUK/INVAR2, the Rosenfeld-lab pipeline implementing Wan et al. 2020) — fetched the verbatim R bodies of `calc_log_likelihood`, `estimate_p_EM`, `calc_likelihood_ratio`, `calc_log_likelihood_with_RL`, `estimate_p_EM_with_RL`, `calc_likelihood_ratio_with_RL`.
+- **Wan et al. 2020, Sci Transl Med 12(548):eaaz8084 (INVAR/IMAF)** — integration of variant reads across many patient-specific loci; depth-weighted, background-subtracted IMAF; tumour-derived cfDNA is shorter (size weighting); sensitivity to ~ppm.
+- **Reinert 2019 / Signatera white paper / PMC9265001** — legacy ≥2-of-16 positivity rule and Poisson LoD `p = 1 − e^(−nfm)` (unchanged; carried from prior report).
+- TestSpec `tests/TestSpecs/ONCO-MRD-001.md` and `docs/Evidence/ONCO-MRD-001-Evidence.md` (the cited verbatim formulas and synthetic datasets).
 
-### Formula check
-| Claim | Source | Status |
-|-------|--------|--------|
-| MRD-positive ⟺ ≥2 of tracked variants detected (τ=2 default) | Chen 2021; multiple independent | Confirmed verbatim |
-| Panel size up to 16 SNVs | Chen 2021; Natera | Confirmed |
-| IMAF = depth-weighted mean AF over loci | Wan 2020 | Confirmed (with note below) |
-| Panel Poisson p = 1 − e^(−n·f·m) | Standard Poisson detection model; Avanzini 2020 | Confirmed |
+### Formula check (INVAR2 source vs description vs code)
+| Quantity | INVAR2 source (verbatim) | Description / code | Status |
+|----------|--------------------------|--------------------|--------|
+| mixture `q` | `q = AF(1−e)p + (1−AF)e·p + e(1−p)` | identical | ✅ |
+| `g` | `g = AF(1−e) + (1−AF)e` | identical | ✅ |
+| logL | `Σ[lchoose(R,M)+M·log q+(R−M)·log(1−q)] / length(R)` | identical (normalised by locus count) | ✅ |
+| EM E-step | `Z0=(1−g)p/((1−g)p+(1−e)(1−p))`, `Z1=gp/(gp+e(1−p))` | identical | ✅ |
+| EM M-step | `p=Σ(M·Z1+(R−M)·Z0)/ΣR`, init 0.01, 200 iters | identical | ✅ |
+| LR | `logL(p̂)−logL(0)` | identical | ✅ |
+| IMAFv2 | `pmax(0, MEAN_AF−BACKGROUND_AF)` then `weighted.mean(·, TOTAL_DP)` | identical | ✅ |
+| zero-bg floor | `ifelse(bg>0, bg, 1/BACKGROUND_DP)` | floored to `1/depth` | ✅ |
+| informative filter | `filter(TUMOUR_AF>0)` | identical | ✅ |
+| with-RL `L0/L1` | `L0=(1−e)P0(1−p)+(1−g)P1·p`, `L1=e·P0(1−p)+g·P1·p`; `logL=Σ[M·log L1+(R−M)·log L0]/length(R)` | identical | ✅ |
+| with-RL EM | `Z0=(1−g)P1·p/(…+(1−e)P0(1−p))`, `Z1=g·P1·p/(…+e·P0(1−p))` | identical | ✅ |
+| outlier | `P_THRESHOLD=α/n_loci`; `P_ESTIMATE=max(EM, weighted.mean(AF,TUMOUR_AF))`; `binom.test(x,DP,p,"greater")`; OUTLIER ⟺ `p.value ≤ P_THRESHOLD` | identical (tail ≤ threshold flags outlier) | ✅ |
+| locus-noise/bg | `BACKGROUND_AF=Σ(ALT_F+ALT_R)/ΣDP`; `LOCUS_NOISE.PASS=(N_signal/N)<prop ∧ bg<maxBg` | identical | ✅ |
+| both-strands | `ALT_F>0 ∧ ALT_R>0 ∨ AF==0` | identical | ✅ |
+
+Every formula in the Evidence/TestSpec matches the INVAR2 source line-for-line.
 
 ### Edge-case semantics
-- Exactly 1 detected ⇒ negative; 0 detected ⇒ negative — confirmed ("fewer than 2 … negative").
-- Empty panel ⇒ invalid input — reasonable (nothing to interrogate).
-- All total reads = 0 ⇒ IMAF = 0, p = 0 — consistent with definition.
+- Pure-background sample ⇒ `p̂≈0`, `LR≈0`, not detected (INV-7). Confirmed.
+- No informative locus (all tumour AF=0) ⇒ `ArgumentException` (INVAR `filter(TUMOUR_AF>0)` empties the table). Confirmed.
+- Zero background ⇒ floored to `1/depth` so logs are finite (INVAR `doMain`). Confirmed.
+- Flat size profile (P1==P0) ⇒ size factor cancels ⇒ with-RL LR == no-size LR (INV-11). Confirmed numerically.
+- Outlier `x≤0` ⇒ binomial tail 1, never an outlier. Confirmed.
+- Both-strands: `AF==0` passes vacuously; single-strand-only fails. Confirmed.
 
-### Independent cross-check (numbers)
-- **M6 IMAF** = (3+1+0)/(200+150+180) = 4/530 = **0.007547169811320755** (Python recompute — matches).
-- **M7 Poisson** p = 1 − e^(−16) = **0.9999998874648253** (Python recompute, IEEE-754 double — matches test).
+### Independent cross-check (numbers — Python port of the INVAR2 equations, computed this session)
+| Case | Expected (TestSpec/Evidence) | Python reference | Match |
+|------|------------------------------|------------------|-------|
+| GLRT inj=0 (alt=1) | p̂≈3.3e-5, LR≈0 | p̂=3.276e-5, LR=−8.5e-5 | ✅ |
+| GLRT inj=0.01 (alt=5) | p̂≈0.01002, LR≈4.06 | p̂=0.01002, LR=4.0552 | ✅ |
+| GLRT inj=0.05 (alt=21) | p̂≈0.0501, LR≈44.14 | p̂=0.05010, LR=44.137 | ✅ |
+| size-weighted (M17) | p̂=0.12042621132507245, LR=0.19691792427890276 | identical to 17 sig figs | ✅ |
+| binom tail P(X≥1\|1000,0.001) | 0.6323045752290356 | 0.6323045752289 | ✅ |
+| binom tail P(X≥50\|1000,0.001) | 3.7264670792676e-66 | 3.7264670792654e-66 | ✅ |
+| control bg (M21) | 40/20000 = 0.002 | 0.002 (by hand) | ✅ |
 
 ### Findings / divergences (Stage A → PASS-WITH-NOTES)
-1. **IMAF simplification (documented).** Wan's true IMAF is *background-subtracted* and *weighted by tumour AF / fragment-size likelihood*. The implementation computes a plain read-pooled Σalt/Σtotal depth-weighted mean. This is correctly labelled as an intentional simplification in `MRD_Detection.md §5.3` and the Evidence assumption register. It remains a depth-weighted mean AF; acceptable as a documented divergence, not a defect.
-2. **Evidence-doc numeric typo (fixed this session).** The Evidence dataset table listed the m=16 Poisson value as `0.9999998874648379`; the correct IEEE-754 double (and the test's value) is `0.9999998874648253`. Corrected in `docs/Evidence/ONCO-MRD-001-Evidence.md`. The test was already correct (it asserts `1.0 - Math.Exp(-16.0)`).
+1. **KDE size-smoothing not reproduced (by design, Assumption #2).** INVAR2's `estimate_real_length_probability` smooths the per-length size histogram with a weighted KDE (`adjust=0.03`); `FragmentSizeProfile` uses the un-smoothed empirical `COUNT/TOTAL` proportion (the estimator the KDE converges to) with the same `1/((max−min)+1)` uniform fall-back. The mixture/EM/GLRT-with-RL equations are exact; only sparse-bin smoothing differs. Documented residual, not a defect.
+2. **Per-locus background `e` is caller-supplied in `EstimateInvarSignal`** (the no-size GLRT), with `EstimateLocusBackground` providing the control-derived estimate as a separate step rather than an integrated pipeline. This matches INVAR2's separation of `createLociErrorRateTable` (parse stage) from the detection GLRT. Disclosed in TestSpec §7 / Assumption register.
+3. INVAR2 returns the LR normalised per-locus (`/length(R)`); the code reproduces this exactly. The absolute LR scale therefore depends on locus count (a property of the source, preserved faithfully).
 
 ## Stage B — Implementation
 
 ### Code path reviewed
-`src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs`
-- `DetectMRD` L5734–5790; `TrackVariantsOverTime` L5805–5830; `IsVariantDetected` L5703–5712; `CtDnaDetectionProbability` L5423–5447.
+`src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs`:
+- `IntegratedMutantAlleleFractionV2` L8807–8832; `EstimateInvarSignal` L8857–8937; `EstimateCtDnaFractionEm` L8946–8970; `InvarLogLikelihood` L8978–8998; `LogChoose` L9004–9012.
+- `EstimateInvarSignalWithSize` L9177–9241; `EstimateCtDnaFractionEmWithRl` L9249–9274; `InvarLogLikelihoodWithRl` L9282–9304; `FragmentSizeProfile` L9084–9150.
+- `SuppressOutlierLoci` L9340–9426; `BinomialUpperTail` L9433–9465; `EstimateLocusBackground` L9517–9565; `PassesBothStrandsFilter` L9575–9587.
 
-### Formula realised correctly?
-- Single pass: counts `trackedCount`, `detectedCount` (via `IsVariantDetected`: alt ≥ r_min), `altReadSum`, `totalReadSum`.
-- IMAF = `altReadSum / totalReadSum` (0 when Σtotal=0). Negative read counts clamped to 0 via `Math.Max`.
-- Poisson delegated to `CtDnaDetectionProbability(n, imaf, m)` ⇒ p = 1 − e^(−n·imaf·m). No duplicated formula.
-- Status = Positive ⟺ `detectedCount ≥ positivityThreshold`. Default τ=2 (`DefaultMrdPositivityThreshold`). Matches sourced rule.
-- Longitudinal: per-timepoint `DetectMRD`, preserves order, records earliest positive index (−1 if none). Correct.
+### Formula realised correctly? (evidence)
+- `InvarLogLikelihood` computes `q = AF(1−e)p+(1−AF)e·p+e(1−p)`, clamps to `(ε,1−ε)`, sums `lchoose+M·log q+(R−M)·log(1−q)` then divides by locus count — exact INVAR2 `calc_log_likelihood`.
+- `EstimateCtDnaFractionEm` uses `g`, the exact Z0/Z1 E-step and the `ΣR`-normalised M-step, init 0.01, 200 iters — exact `estimate_p_EM`.
+- LR = `logL(p̂)−logL(0)` — exact `calc_likelihood_ratio`.
+- `LogChoose` via `LogGamma` = R's `lchoose`; verified against the Python `math.lgamma` reference (binomial tails match to 13 sig figs).
+- With-RL: `L0=(1−e)P0(1−p)+(1−g)P1·p`, `L1=e·P0(1−p)+g·P1·p`, EM with the P1/P0 factors — exact `*_with_RL`; reproduces the pinned `0.19691792427890276`/`0.12042621132507245` to full double precision.
+- `SuppressOutlierLoci`: null `P_ESTIMATE=max(EM, weighted.mean(VAF,TUMOUR_AF))` restricted to loci with `VAF≤afThreshold ∧ alt≤maxMutantReads ∧ AF>0`; Bonferroni `α/n`; one-sided upper-tail binomial; flags outlier when `tail ≤ threshold` — exact `repolish`.
+- `EstimateLocusBackground`/`PassesBothStrandsFilter`: pooled `Σ(ALT_F+ALT_R)/ΣDP`, recurrence+bg AND rule, both-strands rule — exact `createLociErrorRateTable`.
 
 ### Cross-verification table recomputed vs code
-| Case | Expected (source) | Code result | Match |
-|------|-------------------|-------------|-------|
-| 2 of 3 detected | Positive, D=2 | Positive, D=2 | ✅ |
-| 1 of 3 | Negative, D=1 | Negative, D=1 | ✅ |
-| 0 of 3 | Negative, D=0, IMAF=0 | same | ✅ |
-| 16 markers, 2 det | Positive, tracked=16 | same | ✅ |
-| IMAF (3,200)(1,150)(0,180) | 4/530 | 0.0075471698… | ✅ |
-| Poisson n=1000 f=0.001 m=16 | 1−e^−16 = 0.9999998874648253 | same | ✅ |
-| n=0 default | p=0 | p=0 | ✅ |
-| Longitudinal [0,1,2,3] | FirstPositive=2 | 2 | ✅ |
+The 57-test class pins exact INVAR2-derived values (LR 4.06/44.14, size LR `0.19691792427890276`, binomial tails `0.6323045752290356`/`3.7264670792676273e-66`, bg `5e-5`/`0.0125`/`0.002`). All independently reproduced this session by the Python port (table above) and all pass under the actual code.
 
 ### Variant/delegate consistency
-`IsVariantDetected` is the per-locus primitive reused by `DetectMRD`/`TrackVariantsOverTime`; default r_min=1 consistent across all three. Poisson reuse of `CtDnaDetectionProbability` is exact.
+- The no-size and with-RL GLRTs reduce to one another when P1==P0 (SW2) — verified the with-RL path on a flat profile equals `EstimateInvarSignal` on the equivalent one-molecule-per-locus loci (`Within(1e-9)`).
+- `SuppressOutlierLoci` reuses `EstimateCtDnaFractionEm` and `BinomialUpperTail`; `EstimateInvarSignal` reuses `IntegratedMutantAlleleFractionV2`. Shared primitives, consistent.
+
+### Numerical robustness
+- `q` clamped to `(double.Epsilon, 1−double.Epsilon)`; with-RL `L0/L1` floored to `double.Epsilon`; zero background floored to `1/depth`; `BinomialUpperTail` uses log-space `exp(lchoose+i·logp+(n−i)·log(1−p))` summation (no overflow at n=1000); `alt` clamped to `[0,total]`; denominators guarded against zero. No div-by-zero or overflow on the stated ranges.
 
 ### Test quality audit (HARD gate)
-Pre-existing suite (16 tests) used exact sourced values throughout (no Greater/AtLeast/range green-washing, deterministic). **Gaps found and fixed this session — 7 tests added (now 23):**
-- `IsVariantDetected` (public canonical method) was untested directly → added 3 tests: default-cutoff boundary (alt=1 detected, 0 not), custom-cutoff boundary (alt=3 detected, 2 not), invalid `minSupportingReads` throws.
-- `DetectMRD` validation gaps: `minSupportingReads < 1` and `genomeEquivalents < 0` (both `ArgumentOutOfRangeException`) were untested → added C5, C6.
-- Documented edge cases untested: default `genomeEquivalents=0 ⇒ p=0` (M7b) and "all total reads = 0 ⇒ IMAF=0, p=0" (M3b) → added.
-
-All assertions trace to the description/source values (alt≥r_min rule from Wan 2020; n=0⇒λ=0⇒p=0 from the Poisson model), not to code echoes. Build warning-free for the changed file.
+57 tests, all deterministic, asserting **exact** sourced values via `Within` tolerances tight enough to be real (1e-9 on the pinned size/binomial/background values; ≤0.05 on the LR references derived independently). Coverage spans all 25 MUST cases (M1–M25), SHOULD (S1–S6) and COULD validation cases (C1–C21). No `Greater`-only green-washing on the load-bearing assertions (directional INV-9/INV-10 checks are paired with exact pinned magnitudes). Edge/error paths (null, empty, out-of-range AF/bg/threshold/α, no-informative-locus) all covered.
 
 ### Findings / defects
-- **No code defect.** All formulas and edge cases realise the validated description.
-- IMAF simplification is documented (Stage A note 1), not a code bug.
+- **No code defect.** Every formula realises the INVAR2 source exactly; all pinned values reproduce to full precision against an independent Python port.
 
 ## Verdict & follow-ups
-- **Stage A: PASS-WITH-NOTES** — biology/maths confirmed against independent sources; two documentation notes (IMAF simplification already disclosed; Evidence numeric typo fixed).
-- **Stage B: PASS** — implementation faithful; test coverage extended to all public methods + documented edge/error cases.
-- **End-state: CLEAN** — Evidence typo corrected; 7 coverage-gap tests added; `dotnet build` 0 errors / no new warnings; full unfiltered suite **6674 passed, 0 failed** (1 pre-existing skipped benchmark).
-- **Test-quality gate: PASS** (after adding the 7 tests; previously LIMITED on public-method/edge coverage).
+- **Stage A: PASS-WITH-NOTES** — INVAR/INVAR2 maths confirmed line-for-line against the nrlab-CRUK reference implementation; two documented by-design residuals (KDE size-smoothing → empirical proportion; caller-supplied vs separately-estimated background) and the per-locus LR normalisation (a faithful property of the source).
+- **Stage B: PASS** — implementation faithful; all 57 tests pass; independent cross-checks match to full double precision.
+- **End-state: CLEAN** — no defect found; no code changed this session. Build 0 warnings / 0 errors; `OncologyAnalyzer_DetectMRD_Tests` = **57 passed, 0 failed**.
+- The two residuals are intentional, sourced and disclosed (Assumption register, TestSpec §6/§7) — they bound only sparse-bin size weights, not the GLRT/EM/IMAFv2 maths.

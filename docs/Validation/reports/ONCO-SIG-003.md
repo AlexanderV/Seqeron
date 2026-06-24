@@ -1,120 +1,116 @@
 # Validation Report: ONCO-SIG-003 — Signature Exposure Estimation: Bootstrap Confidence Intervals
 
-- **Validated:** 2026-06-16   **Area:** Oncology
-- **Canonical method(s):** `OncologyAnalyzer.BootstrapExposures(catalog, signatures, replicates, confidence, seed)`; internals `Percentile` (type-7 quantile), `MultinomialResample`, `SampleBinomial`, `Mean`
-- **Stage A verdict:** PASS-WITH-NOTES
-- **Stage B verdict:** PASS-WITH-NOTES
+- **Validated:** 2026-06-24   **Area:** Oncology
+- **Canonical method(s):** `OncologyAnalyzer.BootstrapExposures(catalog, signatures, replicates, confidence, seed, resampling)`; enum `BootstrapResampling` (Multinomial / Poisson); internals `MultinomialResample`, `PoissonResample`, `SamplePoisson` (Knuth), `SampleBinomial`, `Percentile` (type-7), `Mean`; point estimate via `FitSignatures` (NNLS / Lawson-Hanson, ONCO-SIG-002).
+- **Stage A verdict:** PASS
+- **Stage B verdict:** PASS
 - **End-state:** ✅ CLEAN
 
-> Note: the orchestrator's session brief guessed this unit was "signature-aetiology mapping
-> (SBS1/SBS2/SBS4…)". That is **ONCO-SIG-004** (Mutational Process Classification). ONCO-SIG-003 is
-> the bootstrap confidence-interval algorithm on NNLS signature exposures, per its Registry row,
-> TestSpec, and Evidence. This report validates the actual unit.
+> Re-validation trigger: commit `4b5c1160` added the Senkin (2021) MSA **Poisson** resampling
+> variant behind a `BootstrapResampling` enum that defaults to `Multinomial`. Prior cross-checklist
+> verification was reset (☑→☐). This session re-validates both schemes from external sources.
 
 ## Stage A — Description
 
 ### Sources opened & what they confirm
-- **Senkin S. (2021), MSA, BMC Bioinformatics 22:540** (WebFetched PMC8567580) — confirmed verbatim:
-  "For each bootstrap sample, NNLS attribution is applied to derive the vector of signature
-  activities"; "95% confidence intervals … taking [2.5%, 97.5%] percentiles of the resulting
-  bootstrap activities". The MSA resampling is described as accumulating mutations following
-  **Poisson** distributions per mutation class (variable total burden).
-- **sigminer `sig_fit_bootstrap`** (per Evidence) — resamples via
-  `sample(K, total, replace=TRUE, prob=catalog/sum(catalog))`, i.e. a **fixed-N multinomial** draw
-  with N = Σ catalog, pₖ = catalogₖ/N, then NNLS-refits each resample. Cites Huang 2018 as the method.
-- **Huang, Wojtowicz & Przytycka (2018), Bioinformatics 34(2):330–337** — bootstrap of the
-  mutation-count vector to assess decomposition confidence (`bootstrapSigExposures`, fixed-N multinomial).
-- **Efron (1979) percentile method** — 95% CI = [2.5%, 97.5%] percentiles of the bootstrap distribution;
-  generally [½(1−c), 1−½(1−c)].
-- **Hyndman & Fan (1996) type-7 quantile** (WebFetched Wikipedia "Quantile") — R/NumPy default linear
-  interpolation; 0-based rank h = p·(n−1), Q(p) = x₍⌊h⌋₎ + (h−⌊h⌋)(x₍⌈h⌉₎ − x₍⌊h⌋₎).
+- **Senkin S. (2021), MSA, BMC Bioinformatics 22:540** — re-fetched PMC8567580 this session.
+  Confirmed verbatim:
+  - *"For each bootstrap sample, NNLS attribution is applied to derive the vector of signature activities."*
+  - *"95% confidence intervals are then derived for each signature attribution by taking [2.5%, 97.5%] percentiles of the resulting bootstrap activities."*
+  - Poisson variant: *"Since the mutational burden of each bootstrap sample is fixed and equal to M, we slightly modify the method by drawing counts from independent binomial distributions, so that the total mutational burden is no longer fixed"*, and *"for any given mutation category … the distribution of bootstrapped mutation counts follows a Poisson distribution."*
+  These match the Evidence artifact's quotes exactly. The Poisson construction = per-channel
+  Poisson(observedₖ), N not fixed, NNLS refit per replicate, [2.5%, 97.5%] percentile CI.
+- **sigminer `sig_fit_bootstrap`** (per Evidence, re-confirmed 2026-06-23 in the commit) — fixed-N
+  **multinomial** resample `sample(K, ΣN, replace=TRUE, prob=catalog/Σcatalog)`; this is the default
+  scheme. Cites Huang 2018 as the underlying method.
+- **Efron (1979) percentile method** — 95% CI = [2.5%, 97.5%] percentiles; generally
+  [½(1−c), 1−½(1−c)].
+- **Hyndman & Fan (1996) type-7 quantile** — R/NumPy default linear interpolation; 0-based rank
+  h = p·(n−1), Q(p) = x₍⌊h⌋₎ + (h−⌊h⌋)(x₍⌈h⌉₎ − x₍⌊h⌋₎).
+- **Knuth, TAOCP Vol. 2 §3.4.1** (Poisson deviate) — re-confirmed via web search: L = e^(−λ),
+  k = 0, p = 1, multiply uniforms until p ≤ L, return k−1. This is exactly the production
+  `SamplePoisson`.
 
 ### Formula check
-- Resample: Multinomial(N, p), N = Σ catalog, pₖ = catalogₖ/N. Matches sigminer/Huang exactly.
-- Percentile interval: Lower = Q((1−c)/2), Upper = Q(1−(1−c)/2) → 2.5/97.5 for c=0.95. Matches Efron/Senkin.
-- Quantile estimator: 0-based h = p·(n−1) linear interpolation = type-7. Matches Hyndman & Fan.
+- Point estimate = NNLS exposures of the **observed** (un-resampled) catalog — matches Senkin/Huang.
+- Multinomial resample: Multinomial(N, p), N = Σ catalog, pₖ = catalogₖ/N — matches sigminer/Huang.
+- Poisson resample: each channel k ~ Poisson(observedₖ), independent, N free — matches Senkin Poisson variant.
+- Percentile interval: Lower = Q((1−c)/2), Upper = Q(1−(1−c)/2) → 2.5/97.5 at c=0.95 — matches Efron/Senkin.
+- Quantile: 0-based h = p·(n−1) linear interpolation = type-7 — matches Hyndman & Fan.
 
 ### Edge-case semantics check
-- **N = 0** → every resample all-zero → all replicate exposures 0 → interval [0,0]. Sourced corner case. ✅
-- **Single non-zero channel** → multinomial collapses deterministically → every replicate = point estimate. ✅
-- **R = 1** → percentile of a one-element sample is that element → lower = upper = mean. ✅
+- **N = 0** → every multinomial resample all-zero → all replicate exposures 0 → [0,0]. ✅
+- **Single non-zero channel (multinomial)** → deterministic collapse → every replicate = point estimate. ✅
+- **R = 1** → percentile of one element = that element → lower = upper = mean. ✅
+- **Poisson zero-count channel** → Poisson(0) = 0 every replicate → that signature ≡ 0. ✅
+- **Poisson single non-zero channel** → variance = mean > 0 → positive interval width (NOT collapse). ✅
 
-### Independent cross-check (numbers)
-Type-7 worked values, **independently recomputed with `numpy.quantile(method='linear')`** this session:
-
-| Sample | p | type-7 Q(p) |
-|--------|------|------|
-| [0,1,2,3,4] | 0.025 | 0.1 |
-| [0,1,2,3,4] | 0.5 | 2.0 |
-| [0,1,2,3,4] | 0.975 | 3.9 |
-| [2,4,6,8] | 0.025 | 2.15 |
-| [2,4,6,8] | 0.5 | 5.0 |
-| [2,4,6,8] | 0.975 | **7.85** |
-
-These match the Evidence artifact's hand-derived table exactly. (A WebFetch page-summarizer reported the
-last value as 9.85 — an arithmetic slip using x₍4₎=8 as the interpolation base instead of x₍3₎=6; the
-correct type-7 value is 7.85, confirmed by NumPy.)
+### Independent cross-check (numbers, recomputed this session)
+- **NNLS planted-exposure recovery (scipy `nnls`):** 5-channel × 3-signature toy matrix, planted
+  exposures [40, 25, 10]; built catalogue = W·planted; refit → recovered **[40, 25, 10]** exactly.
+  Confirms the refitting recovers known exposures.
+- **Type-7 percentiles vs `numpy.quantile(method='linear')`:** [0,1,2,3,4] at p=0.025/0.5/0.975 →
+  **0.1 / 2.0 / 3.9**; [2,4,6,8] → **2.15 / 5.0 / 7.85**. Matches the Evidence table and the code's `Percentile`.
+- **Poisson bootstrap CI brackets the point estimate:** 20 000 Poisson(12) draws → 95% type-7 CI
+  **[6, 19]**, brackets the point estimate 12. ✅
 
 ### Findings / divergences
-- **NOTE (PASS-WITH-NOTES):** Senkin's MSA uses an unconditioned **Poisson** resample (variable N), while
-  this unit (and its spec) use sigminer's **fixed-N multinomial**. Both are published, peer-reviewed
-  approaches; fixed-N multinomial is exactly sigminer `sig_fit_bootstrap` and SignatureEstimation
-  `bootstrapSigExposures` (Huang 2018). The divergence is documented in the Registry scope note and is a
-  legitimate, source-grounded modelling choice — not a defect.
+- **Resolved divergence (prior report's PASS-WITH-NOTES note):** the prior report flagged that only
+  the sigminer fixed-N multinomial was implemented while Senkin uses an unconditioned Poisson resample.
+  Commit `4b5c1160` adds the Poisson scheme behind an opt-in enum (default still multinomial). Both
+  published schemes are now available and externally grounded; the divergence is resolved → **PASS**.
 
 ## Stage B — Implementation
 
 ### Code path reviewed
-- `BootstrapExposures` — `OncologyAnalyzer.cs:2914–2997`
-- `MultinomialResample` (sequential conditional-binomial) — `:3007–3043`
-- `SampleBinomial` (sum of Bernoulli) — `:3050–3072`
-- `Percentile` (type-7) — `:3094–3116`; `Mean` — `:3075–3084`
+- `BootstrapExposures` — `OncologyAnalyzer.cs:4774–4872` (validation, point estimate, replicate loop, percentile CI)
+- `MultinomialResample` (sequential conditional-binomial) — `:4882–4918`
+- `PoissonResample` — `:4929–4936`; `SamplePoisson` (Knuth) — `:4944–4961`
+- `SampleBinomial` (sum of Bernoulli) — `:4968–4990`; `Mean` — `:4993–5002`; `Percentile` (type-7) — `:5012–5034`
+- `BootstrapResampling` enum — `:4681`
 
-### Formula realised correctly?
-- Multinomial via conditional binomials: channel k draws Binomial(remaining, pₖ/Σ_{i≥k}pᵢ). Standard,
-  exact construction; total conserved; N=0 → all zeros. ✅
-- Lower/Upper probabilities `(1−c)/2` and `1−(1−c)/2`. ✅
-- `Percentile`: 0-based h = p·(n−1), linear interpolation; n=1 returns the element. This is type-7. ✅
-- PointEstimate = `FitSignatures(observed).Exposures` (un-resampled). Matches Senkin/Huang. ✅
+### Formula realised correctly? (evidence)
+- **Point estimate** = `FitSignatures(observed, signatures).Exposures` (un-resampled). ✅ (Senkin/Huang; INV-5)
+- **Multinomial** via conditional binomials: channel k draws Binomial(remaining, pₖ/Σ_{i≥k}pᵢ); total
+  conserved; N=0 → all zeros; last channel with mass takes the remainder. Standard exact construction. ✅
+- **Poisson**: independent `SamplePoisson(observedₖ)` per channel; N not conserved; λ≤0 → 0. ✅
+- **SamplePoisson** byte-matches Knuth (L=e^(−λ), multiply uniforms, return #draws−1). ✅
+- **Percentile**: 0-based h = p·(n−1), linear interpolation; n=1 returns the element. Type-7. ✅
+- **CI probabilities** `(1−c)/2` and `1−(1−c)/2`. ✅
 
 ### Cross-verification table recomputed vs code
-The private `Percentile` was driven directly (reflection) on the two NumPy-confirmed datasets; every
-bound matched type-7 to 1e-12 (new test `Percentile_Type7_NonConstantSamples_MatchesHandDerivedValues`).
-Degenerate API cases (single-channel collapse, N=0, R=1, two-channel split) reproduce the sourced
-point/mean/lower/upper exactly.
+| Check | External value | Code result |
+|-------|----------------|-------------|
+| NNLS recovery [40,25,10] | [40,25,10] (scipy nnls) | M4 / FitSignatures path (exact) |
+| type-7 [0..4] @0.025/0.5/0.975 | 0.1 / 2.0 / 3.9 (numpy) | `Percentile` test exact (1e-12) |
+| type-7 [2,4,6,8] @0.025/0.5/0.975 | 2.15 / 5.0 / 7.85 (numpy) | `Percentile` test exact (1e-12) |
+| Poisson(12) 95% CI brackets 12 | [6,19] ⊃ 12 | P1/P3 positive-width, brackets point |
+| Poisson(0)=0 channel | 0 always | P2 exact 0 |
 
 ### Variant/delegate consistency
-Single public method; no `*Fast`/delegate variants. Defaults: replicates 1000, confidence 0.95, seed 42
-— all documented and source-attributed.
+- Default (no `resampling`) is byte-for-byte equal to explicit `Multinomial` (P5, INV-7). ✅
+- Poisson path produces a genuinely different bootstrap distribution (P5). ✅
+- No `*Fast`/delegate variants. Defaults: replicates 1000, confidence 0.95, seed 42 — source-attributed.
 
-### Test quality audit (HARD gate)
-- **Sourced expectations:** exact `Is.EqualTo(...).Within(1e-10/1e-12)` for all deterministic cases.
-- **Defect found & fixed:** the type-7 interpolation — the *only* place exact bound values are set — was
-  exercised **only on constant/degenerate distributions** (M1/M2/M3/M8/M9/S2). On a constant sample every
-  quantile rule returns the constant, so M8 ("Type-7 median is exact") would still pass against a wrong
-  estimator (nearest-rank, 1-based offset, etc.). That is a code-echo defect per the gate. **Fixed** by
-  adding `Percentile_Type7_NonConstantSamples_MatchesHandDerivedValues`, asserting exact type-7 values on
-  [0,1,2,3,4] and [2,4,6,8] at p∈{0,0.025,0.5,0.975,1}, traced to Hyndman & Fan 1996 and cross-checked
-  against `numpy.quantile(method='linear')` — it fails against any non-type-7 rule. Added an honest NOTE
-  on M8 clarifying it cannot distinguish the interpolation rule.
-- **No green-washing:** no assertion weakened, no tolerance widened, no test skipped, no expected value
-  bent to actual output. No code change was needed (the implementation already computes type-7 correctly).
-- **Coverage:** all 11 MUST/SHOULD cases (M1–M9, S1–S2), failure modes (null catalog/signatures, empty
-  signatures, length mismatch, negative count, replicates<1, confidence∉(0,1)), invariants INV-1..5, and
-  now the type-7 interpolation on non-constant samples.
-- **Honest green:** full **unfiltered** suite = 6641 passed, 0 failed, 1 skipped (pre-existing
-  `MFE_Benchmark_AllScenarios`); `dotnet build` 0 errors; changed test file warning-free.
+### Test quality audit
+- **Sourced, exact assertions** (`Within(1e-10/1e-12)`) for all deterministic cases; ordering/non-negativity
+  invariants on non-degenerate catalogs; determinism (M6, P4); failure modes (8 guards incl. undefined-scheme).
+- **P1 is a real distribution lock, not a tautology:** the test re-derives the per-replicate exposures with
+  an *independent* Knuth Poisson reference consuming `Random` in the same seeded order, and asserts the
+  bootstrap mean and **both** type-7 percentile bounds match exactly. It would fail against any non-Poisson
+  resample or any RNG-order mismatch.
+- **Type-7 interpolation locked on non-constant samples** (M8b) via reflection on the two NumPy-confirmed
+  datasets — fails against nearest-rank / 1-based / non-type-7 rules. (This was the prior session's A46 fix.)
+- **Honest green:** ONCO-SIG-003 class = **25 passed, 0 failed**. Build: 0 warnings, 0 errors. No code
+  changed this session; full suite not required, but the class is green against a freshly built test DLL.
 
 ### Findings / defects
-- One test-quality defect (type-7 only tested on constant distributions) — completely fixed this session
-  (logged FINDINGS_REGISTER A46). No implementation or description defect.
+- None. No implementation, description, or test-quality defect found this session.
 
 ## Verdict & follow-ups
-- **Stage A: PASS-WITH-NOTES** — formula, percentile method, and edge cases are correct and externally
-  sourced; the multinomial-vs-Poisson resample choice is a documented, reference-implementation-backed
-  divergence from Senkin's Poisson variant.
-- **Stage B: PASS-WITH-NOTES** — code faithfully realises the validated formula (type-7 confirmed against
-  NumPy); the one test-quality gap (interpolation tested only on constant samples) was fixed by a new
-  source-locked non-constant type-7 test.
-- **End-state: ✅ CLEAN** — algorithm fully functional; defect completely fixed; full suite green.
-- Follow-up logged: FINDINGS_REGISTER A46.
+- **Stage A: PASS** — multinomial and Poisson schemes, NNLS point estimate, percentile method, and type-7
+  quantile are all externally sourced and correct; the prior multinomial-vs-Poisson note is resolved by the
+  added opt-in Poisson variant.
+- **Stage B: PASS** — code faithfully realises both schemes (Poisson = Knuth, multinomial = conditional
+  binomial, type-7 = NumPy-confirmed); 25/25 tests green; no defect.
+- **End-state: ✅ CLEAN** — algorithm fully functional; no code changed.

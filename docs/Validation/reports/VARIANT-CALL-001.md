@@ -1,11 +1,73 @@
 # Validation Report: VARIANT-CALL-001 — Variant Detection
 
-- **Validated:** 2026-06-15   **Area:** Variants
+- **Validated:** 2026-06-24 (re-validated after commit 6e900e92)   **Area:** Variants
 - **Canonical method(s):** `VariantCaller.CallVariants(DnaSequence, DnaSequence)`,
   `VariantCaller.CallVariantsFromAlignment(string, string)`,
-  `VariantCaller.ClassifyMutation(Variant)`, `VariantCaller.CalculateTiTvRatio(IEnumerable<Variant>)`
+  `VariantCaller.ClassifyMutation(Variant)`, `VariantCaller.CalculateTiTvRatio(IEnumerable<Variant>)`;
+  plus the new opt-in `Variant.VcfPosition` accessor (= `Position` + 1).
 - **Stage A verdict:** PASS
 - **Stage B verdict:** PASS
+
+## Re-validation note (2026-06-24) — VcfPosition opt-in accessor
+
+The limitations campaign (commit `6e900e92`, "opt-in Biopython/VCF compatibility modes")
+added a single opt-in accessor `Variant.VcfPosition => Position + 1` and an XML-doc remark on
+the `Variant` record. The diff is purely additive: the record's positional members
+(`Position`, `ReferenceAllele`, `AlternateAllele`, `Type`, `QueryPosition`) and every call site
+are unchanged, so the default 0-based `Position` contract and all prior canonical results stand.
+`git show 6e900e92 -- VariantCaller.cs` confirms the change is exactly the doc remark + the
+`VcfPosition` property; nothing else in the file moved.
+
+### Calling model (what this unit actually is)
+
+This is the **alignment-based** detector (reference vs query), not a per-position pileup/VAF
+caller. There is therefore no depth / min-alt-count / VAF threshold in the code: each gapped
+alignment column yields at most one variant (the conceptual VAF of an emitted call ≡ 1.0; a
+matched column emits nothing, the analogue of a "sub-threshold, not called" position).
+The pileup conventions confirmed externally this session (VAF = alt/(ref+alt); VarScan defaults
+min-coverage 8, min-reads2 2) are the standard model for a *pileup* caller and are the context
+for the threshold reasoning, but are out of scope for this alignment-based detection method.
+
+### External sources confirmed this session (not memory)
+
+- **VCF POS is 1-based** — VCFv4.3 spec, POS field: "the reference position, with the 1st base
+  having position 1." (https://samtools.github.io/hts-specs/VCFv4.3.pdf). Cross-confirmed via web.
+- **VAF / pileup thresholds** — VAF = reads supporting alt / total coverage = alt/(ref+alt);
+  VarScan defaults min-coverage 8, min-reads2 2 (varscan.sourceforge.net; bcftools mpileup→call).
+
+### Hand cross-check of VcfPosition (designed values)
+
+| Internal `Position` (0-based) | `VcfPosition` (1-based) | `ToVcfLines` POS column |
+|---|---|---|
+| 0 | 1  (first base → POS 1, per VCF §1.4.1) | 1 |
+| 41 | 42 | 42 |
+
+`VcfPosition` exactly reproduces the `Position + 1` already emitted by `ToVcfLines`
+(`{variant.Position + 1}` in the POS column), so the two 1-based surfaces are consistent.
+Designed pileup cross-check of the calling logic: `ATGC`/`ATTC` → 1 SNP at internal Position=2
+(0-based), REF="G", ALT="T" (G purine ↔ T pyrimidine = Transversion); its VcfPosition = 3 (the
+1-based VCF coordinate of the changed base). An identical column (e.g. position 0 ref=A/qry=A)
+emits no variant — the "not called" analogue. Defaults (no accessor used) reproduce the prior
+report's results unchanged.
+
+### Tests covering the accessor
+
+`ConventionCompatibility_OptIn_Tests.cs`:
+- `VcfPosition_IsOneBasedOffsetOfInternalPosition` — Position 0 → VcfPosition 1; asserts
+  `Position` stays 0-based. ✓
+- `VcfPosition_MatchesToVcfLinesPosColumn` — Position 41 → POS column "42" == `VcfPosition`. ✓
+
+Both are evidence-based (cite VCF v4.3 §1.4.1), assert exact values with messages.
+
+### Re-validation result
+
+Build: 0 warnings / 0 errors. Filtered run (`VariantCaller_CallVariants_Tests` +
+`ConventionCompatibility_OptIn_Tests`): **Failed: 0, Passed: 34**. No code changed in this
+session. End-state **CLEAN**: the convention divergence (0-based internal Position) is opt-in
+by-design, the accessor is correct and non-breaking.
+
+---
+
 
 ## Stage A — Description
 

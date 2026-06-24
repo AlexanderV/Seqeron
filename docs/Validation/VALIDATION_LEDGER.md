@@ -151,7 +151,7 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 |---|---------|------|:---:|:---:|:---:|--------|
 | 1 | EPIGEN-METHYL-001 | Epigenetics | ⬜ | ⬜ | ⬜ pending | - |
 | 2 | EPIGEN-DMR-001 | Epigenetics | ⬜ | ⬜ | ⬜ pending | - |
-| 3 | VARIANT-CALL-001 | Variants | ⬜ | ⬜ | ⬜ pending | - |
+| 3 | VARIANT-CALL-001 | Variants | ✅ | ✅ | ✅ CLEAN | reports/VARIANT-CALL-001.md |
 | 4 | VARIANT-SNP-001 | Variants | ⬜ | ⬜ | ⬜ pending | - |
 | 5 | VARIANT-INDEL-001 | Variants | ⬜ | ⬜ | ⬜ pending | - |
 | 6 | VARIANT-ANNOT-001 | Variants | ⬜ | ⬜ | ⬜ pending | - |
@@ -171,7 +171,7 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 20 | PANGEN-CLUSTER-001 | PanGenome | ⬜ | ⬜ | ⬜ pending | - |
 | 21 | QUALITY-PHRED-001 | Quality | ⬜ | ⬜ | ⬜ pending | - |
 | 22 | QUALITY-STATS-001 | Quality | ⬜ | ⬜ | ⬜ pending | - |
-| 23 | SEQ-STATS-001 | Statistics | ⬜ | ⬜ | ⬜ pending | - |
+| 23 | SEQ-STATS-001 | Statistics | 🟡 | ✅ | ✅ CLEAN | reports/SEQ-STATS-001.md |
 | 24 | SEQ-MW-001 | Statistics | ⬜ | ⬜ | ⬜ pending | - |
 | 25 | SEQ-PI-001 | Statistics | ⬜ | ⬜ | ⬜ pending | - |
 | 26 | SEQ-HYDRO-001 | Statistics | ⬜ | ⬜ | ⬜ pending | - |
@@ -192,7 +192,7 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 41 | ALIGN-STATS-001 | Alignment | ⬜ | ⬜ | ⬜ pending | - |
 | 42 | EPIGEN-BISULF-001 | Epigenetics | ⬜ | ⬜ | ⬜ pending | - |
 | 43 | EPIGEN-CHROM-001 | Epigenetics | ⬜ | ⬜ | ⬜ pending | - |
-| 44 | EPIGEN-AGE-001 | Epigenetics | ⬜ | ⬜ | ⬜ pending | - |
+| 44 | EPIGEN-AGE-001 | Epigenetics | ✅ | ✅ | ✅ CLEAN | reports/EPIGEN-AGE-001.md |
 | 45 | MIRNA-PAIR-001 | MiRNA | ⬜ | ⬜ | ⬜ pending | - |
 | 46 | PANGEN-HEAP-001 | PanGenome | ⬜ | ⬜ | ⬜ pending | - |
 | 47 | PANGEN-MARKER-001 | PanGenome | ⬜ | ⬜ | ⬜ pending | - |
@@ -236,7 +236,7 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 85 | COMPGEN-COMPARE-001 | Comparative | ⬜ | ⬜ | ⬜ pending | - |
 | 86 | COMPGEN-REVERSAL-001 | Comparative | ⬜ | ⬜ | ⬜ pending | - |
 | 87 | COMPGEN-CLUSTER-001 | Comparative | ⬜ | ⬜ | ⬜ pending | - |
-| 88 | COMPGEN-ANI-001 | Comparative | ⬜ | ⬜ | ⬜ pending | - |
+| 88 | COMPGEN-ANI-001 | Comparative | ✅ | ✅ | ✅ CLEAN | reports/COMPGEN-ANI-001.md |
 | 89 | COMPGEN-DOTPLOT-001 | Comparative | ⬜ | ⬜ | ⬜ pending | - |
 | 90 | MOTIF-DISCOVER-001 | Matching | ⬜ | ⬜ | ⬜ pending | - |
 | 91 | MOTIF-SHARED-001 | Matching | ⬜ | ⬜ | ⬜ pending | - |
@@ -270,11 +270,11 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 119 | ONCO-ANNOT-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
 | 120 | ONCO-TMB-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
 | 121 | ONCO-MSI-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
-| 122 | ONCO-HRD-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
+| 122 | ONCO-HRD-001 | Oncology | ✅ | ✅ | ✅ CLEAN | reports/ONCO-HRD-001.md |
 | 123 | ONCO-LOH-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
 | 124 | ONCO-SIG-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
-| 125 | ONCO-SIG-002 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
-| 126 | ONCO-SIG-003 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
+| 125 | ONCO-SIG-002 | Oncology | ✅ | ✅ | ✅ CLEAN | reports/ONCO-SIG-002.md |
+| 126 | ONCO-SIG-003 | Oncology | ✅ | ✅ | ✅ CLEAN | reports/ONCO-SIG-003.md |
 | 127 | ONCO-SIG-004 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
 | 128 | ONCO-FUSION-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
 | 129 | ONCO-FUSION-002 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
@@ -282,14 +282,14 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 131 | ONCO-CNA-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
 | 132 | ONCO-CNA-002 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
 | 133 | ONCO-CNA-003 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
-| 134 | ONCO-PURITY-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
-| 135 | ONCO-PLOIDY-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
+| 134 | ONCO-PURITY-001 | Oncology | ✅ | ✅ | ✅ CLEAN | reports/ONCO-PURITY-001.md |
+| 135 | ONCO-PLOIDY-001 | Oncology | ✅ | ✅ | ✅ CLEAN | reports/ONCO-PLOIDY-001.md |
 | 136 | ONCO-CLONAL-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
 | 137 | ONCO-NEO-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
 | 138 | ONCO-MHC-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
 | 139 | ONCO-CTDNA-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
-| 140 | ONCO-MRD-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
-| 141 | ONCO-CHIP-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
+| 140 | ONCO-MRD-001 | Oncology | 🟡 | ✅ | ✅ CLEAN | reports/ONCO-MRD-001.md |
+| 141 | ONCO-CHIP-001 | Oncology | ✅ | ✅ | ✅ CLEAN | reports/ONCO-CHIP-001.md |
 | 142 | ONCO-PHYLO-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
 | 143 | ONCO-CCF-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
 | 144 | ONCO-HETERO-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |

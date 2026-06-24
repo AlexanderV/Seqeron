@@ -1,91 +1,135 @@
-# Validation Report: SEQ-STATS-001 — Sequence Composition Statistics
+# Validation Report: SEQ-STATS-001 — Sequence Composition Statistics (+ opt-in Biopython conventions)
 
-- **Validated:** 2026-06-15   **Area:** Statistics
-- **Canonical method(s):** `SequenceStatistics.CalculateNucleotideComposition(string)`; delegates `SummarizeNucleotideSequence(string?)`, `CalculateAminoAcidComposition(string)`
+- **Validated:** 2026-06-24   **Area:** Statistics
+- **Canonical method(s):** `SequenceStatistics.CalculateNucleotideComposition(string)`; delegates `SummarizeNucleotideSequence(string?)`, `CalculateAminoAcidComposition(string)`. Opt-in convention surfaces (commit `6e900e92`): `SequenceStatistics.CalculateGcContentProfile(..., bool fraction=false)`, `SequenceExtensions.CalculateGcFraction(this string/ReadOnlySpan<char>, GcAmbiguityMode)`.
 - **Stage A verdict:** PASS-WITH-NOTES
 - **Stage B verdict:** PASS
+
+## Scope of this revalidation
+
+SEQ-STATS-001 was reset by the limitations campaign (commit `6e900e92`, "opt-in
+Biopython/VCF compatibility modes"). The core composition statistics (length, base counts,
+GC content, GC/AT skew) were already validated CLEAN on 2026-06-15; this session re-confirms
+them and validates the **new opt-in convention behaviour** added by that commit:
+
+1. `CalculateGcContentProfile(..., fraction:true)` — emit GC as a [0,1] fraction instead of
+   the default percentage [0,100].
+2. `CalculateGcFraction(GcAmbiguityMode {Remove,Ignore,Weighted})` — Biopython `gc_fraction`
+   IUPAC-ambiguity parity overload.
+
+Defaults are unchanged: GC profile defaults to percentage, the parameterless
+`CalculateGcFraction()` keeps the existing A/T/G/C/U-only behaviour.
 
 ## Stage A — Description
 
 ### Sources opened this session (with extracted numbers)
 
-1. **Biopython `Bio.SeqUtils` source** — https://raw.githubusercontent.com/biopython/biopython/master/Bio/SeqUtils/__init__.py (fetched 2026-06-15).
-   - `gc_fraction`: numerator counts C, G, S (case-insensitive); default `ambiguous="remove"` denominator counts only C, G, S, A, T, W, U. **Returns 0 for an empty sequence.**
-   - `GC_skew`: formula `(g - c) / (g + c)`, counts G and C upper+lowercase; **returns 0.0 when g+c = 0** (catches `ZeroDivisionError`); default `window=100`.
-2. **Wikipedia "GC skew"** — https://en.wikipedia.org/wiki/GC_skew (fetched 2026-06-15).
-   - Modern GC skew = **(G − C)/(G + C)**; AT skew = **(A − T)/(A + T)**.
-   - Lobry's original 1996 convention was (C − G)/(C + G); modern implementations flip it.
-   - Under the modern flipped definition: **positive GC skew = G-rich, negative = C-rich.**
-3. **Lobry (1996)** Mol Biol Evol 13(5):660–665 (DOI 10.1093/oxfordjournals.molbev.a025626) — primary source for strand compositional asymmetry; cited via Wikipedia.
+1. **Biopython `Bio.SeqUtils.gc_fraction` + `_gc_values`** — raw master source fetched
+   2026-06-24 (https://raw.githubusercontent.com/biopython/biopython/master/Bio/SeqUtils/__init__.py):
+   - Numerator (all modes start): `gc = sum(seq.count(x) for x in "CGScgs")`.
+   - **remove** (default): `length = gc + sum(seq.count(x) for x in "ATWUatwu")`.
+   - **ignore**: `length = len(seq)` (no extra numerator).
+   - **weighted**: `gc += Σ count(x)·_gc_values[x]` for `x in "BDHKMNRVXY"`; `length = len(seq)`.
+   - `_gc_values = {G:1, C:1, A:0, T:0, U:0, S:1, W:0, M:0.5, R:0.5, Y:0.5, K:0.5, V:0.667,
+     B:0.667, H:0.333, D:0.333, X:0.5, N:0.5}`.
+   - "Note that this will return zero for an empty sequence." Returns a float in [0,1].
+2. **Wikipedia "GC content"** — GC content = (G+C)/(A+T+G+C); standard fraction in [0,1].
+3. (Carried, unchanged from 2026-06-15) Wikipedia "GC skew" + Lobry 1996 for skew formulas.
 
 ### Formula check
-- GC content = (G+C)/(A+T+G+C+U), float in [0,1] — matches Biopython `gc_fraction` over the standard alphabet (numerator G+C, denominator the unambiguous bases). ✓
-- GC skew = (G−C)/(G+C), 0 when G+C=0 — matches Biopython/Wikipedia exactly, including the modern sign convention. ✓
-- AT skew = (A−T)/(A+T), 0 when A+T=0 — matches Wikipedia. ✓
-- Sign interpretation (positive GC skew = G-rich) matches Wikipedia. ✓
+- GC content (default) = (G+C)/(A+T+G+C+U), [0,1] — matches Wikipedia and Biopython remove
+  mode over the standard alphabet. ✓
+- Opt-in fraction profile: identical windows to the percentage profile, divided by 100 (scale
+  1.0 vs 100). A correct, source-cited representation toggle. ✓
+- `CalculateGcFraction(mode)` reproduces Biopython `gc_fraction` exactly per the three modes
+  and `_gc_values` (see cross-check below). ✓
+- GC skew = (G−C)/(G+C), AT skew = (A−T)/(A+T), zero-denominator → 0 — unchanged, sourced. ✓
 
 ### Edge-case semantics
-- Empty/null → all-zero composition, GC content 0: sourced to Biopython "returns zero for an empty sequence". ✓
-- Zero-denominator skew → 0: sourced to Biopython `ZeroDivisionError` handling. ✓
-- Case-insensitive: Biopython counts lowercase; impl upper-cases first. ✓
+- Empty/null → 0 in every GC-fraction mode (sourced to Biopython "return zero for an empty
+  sequence"). ✓
+- Zero-length denominator (e.g. `VH` in Remove: no A/T/G/C/S/W/U) → 0 (guarded). ✓
+- Default (percentage / A,T,G,C,U-only) is explicitly preserved; opt-in is by-design. ✓
 
-### Independent cross-check (hand computation, all from the sourced formulas)
-| Input | A T G C U | GC content | AT content | GC skew | AT skew |
-|-------|-----------|-----------|-----------|---------|---------|
-| ATGC | 1 1 1 1 0 | 2/4 = 0.5 | 2/4 = 0.5 | 0/2 = 0 | 0/2 = 0 |
-| GGGC | 0 0 3 1 0 | 4/4 = 1.0 | 0 | 2/4 = 0.5 | 0 (A+T=0) |
-| GCCC | 0 0 1 3 0 | 4/4 = 1.0 | 0 | −2/4 = −0.5 | 0 (A+T=0) |
-| AAAT | 3 1 0 0 0 | 0 | 1.0 | 0 (G+C=0) | 2/4 = 0.5 |
-| AAUUGGCC | 2 0 2 2 2 | 4/8 = 0.5 | (2+0+2)/8 = 0.5 | 0/4 = 0 | (2−0)/2 = 1.0 |
+### Independent cross-check (hand computation vs Biopython gc_fraction)
+
+| Input | default frac | Remove | Ignore | Weighted | Biopython reasoning |
+|-------|-------------|--------|--------|----------|---------------------|
+| `GCAT`   | 0.5 | 0.5    | 0.5    | 0.5    | gc=2, no ambiguity, len=4 |
+| `GCATN`  | 0.5 | **0.5** (2/4) | **0.4** (2/5) | **0.5** (2.5/5) | N: dropped / in-len / +0.5 |
+| `GCVBHD` | 1.0 | **1.0** (2/2) | **0.333** (2/6) | **0.667** (4/6) | V,B=2/3; H,D=1/3 |
+| `GCSW`   | 1.0 | 0.75 (3/4) | 0.75 | 0.75 | S→num+len, W→len only |
+| `VH`     | 0.0 | 0.0 | 0.0 | **0.5** (1/2) | weighted V=2/3,H=1/3 |
+| `""`     | 0.0 | 0.0 | 0.0 | 0.0 | empty → 0 |
+
+Default (percentage) for the profile: windows `GC,AT,GC` → `100,0,100`; with `fraction:true`
+→ `1.0,0.0,1.0`. `GCATGCAT` overall → 50% (default) vs 0.5 (fraction). All confirmed.
 
 ### Findings / divergences (Stage A → PASS-WITH-NOTES)
-- **N1 (documented divergence):** Degenerate IUPAC codes (S, W, R, Y, …) are counted as `Other` and excluded from GC/AT totals, whereas Biopython's `gc_fraction` partially counts S toward GC and W toward the length. For the unit's declared scope ({A,T,G,C,U}) the two agree exactly. Explicitly documented in the algorithm doc §5.3 and the assumption register. Acceptable.
-- **N2 (documented convention):** `AtContent` uses (A+T+U)/total — it counts U with A/T for RNA. No external source defines an "AT content" for RNA, so this is a defensible, documented convention (algorithm doc §5.2 / §7). `AtSkew` correctly uses the DNA-specific (A−T)/(A+T) without U, matching Lobry/Wikipedia. No correctness issue.
+- **N1 (carried, documented):** the *default* composition counts degenerate IUPAC codes as
+  Other and excludes them from GC/AT totals (differs from Biopython on degenerate symbols).
+  This is now explicitly addressed by the opt-in `CalculateGcFraction(GcAmbiguityMode)`
+  overload, which reproduces Biopython's degenerate handling exactly. Documented intentional
+  convention, not a defect.
+- **N2 (carried, documented):** `AtContent` uses (A+T+U)/total for RNA; AtSkew uses the
+  DNA-specific (A−T)/(A+T). Defensible documented convention. No correctness issue.
 
 ## Stage B — Implementation
 
 ### Code path reviewed
-`src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs`
-- `CalculateNucleotideComposition` lines 49–94.
-- `CalculateAminoAcidComposition` lines 99–139.
-- `SummarizeNucleotideSequence` lines 990–1019.
+- `src/Seqeron/Algorithms/Seqeron.Genomics.Core/SequenceExtensions.cs`:
+  - `CalculateGcFraction(ReadOnlySpan<char>)` lines 81–111 (default, A/T/G/C/U only).
+  - `enum GcAmbiguityMode` lines 136–155; `_gc_values` constants 160–164.
+  - `CalculateGcFraction(ReadOnlySpan<char>, GcAmbiguityMode)` lines 181–214; string overload
+    220–223; `WeightedGcValue` 225–233.
+- `src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs`:
+  `CalculateGcContentProfile(..., bool fraction=false)` lines 905–944 — `scale = fraction ? 1.0
+  : PercentScale`, applied at the single `yield return` (line 940).
 
-### Formula realised correctly?
-- Null/empty → all-zero record (lines 51–54). ✓
-- Single-pass switch counting A/T/G/C/U/N, everything else → Other (lines 56–70). ✓
-- `total = a+t+g+c+u`; `gcContent = gc/total` guarded by `total>0` (lines 72–76). ✓
-- `gcSkew = (g-c)/(g+c)` guarded by `(g+c)>0`, else 0 (line 78). ✓ Matches Biopython/Wikipedia incl. sign.
-- `atSkew = (a-t)/(a+t)` guarded by `(a+t)>0`, else 0 (line 79). ✓
-- `Length = sequence.Length` (line 82) — includes N/Other, so INV-03 partition holds. ✓
-- `SummarizeNucleotideSequence` delegates GcContent/counts to the canonical method (line 996, 1015). ✓
-- `CalculateAminoAcidComposition` counts letters case-insensitively; Length = sum of counts (lines 106–115). ✓
+### Formula realised correctly? (evidence)
+- Remove: numerator counts G/C/S (case-insensitive via `char.ToUpperInvariant`); A/T/U/W add to
+  `strongWeakCount` (the Remove denominator); everything else excluded from both. `length =
+  strongWeakCount`. Matches Biopython remove. ✓
+- Ignore/Weighted: `length = totalLength` (full sequence). Weighted adds `WeightedGcValue` for
+  the default (non-G/C/S/A/T/U/W) branch only. Matches Biopython ignore/weighted. ✓
+- `WeightedGcValue`: V/B=2/3, H/D=1/3, M/R/Y/K/X/N=0.5, else 0 — verbatim `_gc_values`. Note S
+  is handled in the strong branch (=1) and W in the weak branch (=0), matching Biopython's
+  split (S in "CGS", W in "ATWU", and W also has _gc_values[W]=0 so the omission is exact). ✓
+- Empty/null → 0 (both overloads guard); zero denominator → 0. ✓
+- Profile fraction toggle: pure scale factor; defaults `false` → unchanged percentage. ✓
 
 ### Cross-verification table recomputed vs code
-All five sequences above were checked against the code logic and the canonical test assertions; every value matches the externally-sourced hand computation (GC content 0.5/1.0, GC skew 0.5/−0.5/0, AT skew 0.5/1.0/0).
+Executed the actual compiled `Seqeron.Genomics.Core` against the table above (small driver,
+since deleted). Output matched every hand value exactly: `GCATN` Remove/Ignore/Weighted =
+0.5 / 0.4 / 0.5; `GCVBHD` = 1.0 / 0.333 / 0.667; `GCSW` = 0.75; `VH` Weighted = 0.5; empty = 0.
+Default parameterless `GCAT` = 0.5 (unchanged). ✓
 
 ### Variant/delegate consistency
-`SummarizeNucleotideSequence` returns the same GcContent and per-base counts as the canonical method (verified by code path and test C1). `CalculateAminoAcidComposition` residue counts verified exact (test C2). ✓
+- Default `CalculateGcFraction()` and `CalculateGcFractionFast(string)` agree (the latter
+  forwards to the span overload). The mode overload is a separate opt-in surface and does not
+  alter the default path. ✓
+- `CalculateGcContentProfile(fraction:true)` yields the same windows as `fraction:false` scaled
+  by 1/100 (test asserts `[100,0,100]` vs `[1.0,0.0,1.0]`). ✓
 
 ### Test quality audit (HARD gate)
-- **Sourced, not code-echoes:** Canonical file `SequenceStatistics_CalculateNucleotideComposition_Tests.cs` asserts exact values traced to Biopython/Wikipedia (GC content 0.5/1.0, GC skew ±0.5 exact, AT skew 0.5 exact, empty→0, zero-denominator→0). These would fail a deliberately-wrong implementation. ✓
-- **No green-washing:** No weakened assertions in the canonical file — all use `Is.EqualTo(...)` within 1e-10, not Greater/Less/ranges. ✓
-- **Coverage:** All Stage-A branches exercised — counts partition (M1, S5), GC content (M2/M3/S4), AT content incl. U (added M4b), GC skew ±/zero (M5/M6/S2), AT skew/zero (M7/S3), AT skew RNA U-exclusion (added M7b), empty (M8), null (M9), case-insensitivity (S1), N/Other (S4), delegates (C1/C2/C2b). ✓
-- **Legacy weak tests:** `SequenceStatisticsTests.cs` retains pre-existing permissive SEQ-STATS-001 assertions (`GcSkew Is.GreaterThan(0)`, Summary `GreaterThan(0)`). These are true-but-weak and explicitly superseded by the exact canonical file (TestSpec §5.2/§5.3); they are not green-wash substitutes since the exact assertions exist independently. Left in place (they also support neighbouring concerns) — no defect.
-
-### Tests added this session (lock the documented RNA conventions)
-- **M4b** `CalculateNucleotideComposition_RnaSequence_AtContentIncludesUracil` — `AAUUGGCC` AtContent = 0.5 exact (locks the (A+T+U)/total branch, sourced from the Evidence worked example).
-- **M7b** `CalculateNucleotideComposition_RnaSequence_AtSkewExcludesUracil` — `AAUUGGCC` AtSkew = 1.0 exact (locks the DNA-specific (A−T)/(A+T) skew formula, sourced from Wikipedia + Evidence table).
-
-### Build & test result
-- `dotnet build` — 0 errors (4 pre-existing warnings, none in SEQ-STATS-001 files).
-- Full unfiltered `dotnet test` — **Failed: 0, Passed: 6512, Skipped: 0** (confirmed on two consecutive runs). One transient single-test flake observed on an intermediate run (not in any SEQ-STATS-001 test; isolated class run was 19/19, trx confirmed no SEQ-STATS failures); both clean full runs ended Failed: 0.
+- `ConventionCompatibility_OptIn_Tests.cs` (the relevant SEQ-STATS-001 cases): Remove
+  unambiguous 0.5, Remove S/W split 0.75, Remove N-excluded 0.5, Ignore 0.4, Weighted N=0.5,
+  Weighted V/H 0.5, empty/null 0, default-overload-unchanged 0.5, profile fraction `[1,0,1]`
+  vs `[100,0,100]`. All `Is.EqualTo(...).Within(1e-10)` against externally-sourced Biopython
+  values — would fail a wrong implementation. ✓
+- Canonical `SequenceStatistics_CalculateNucleotideComposition_Tests.cs` (core stats) retains
+  exact-value assertions (counts partition, GC content 0.5/1.0, GC skew ±0.5, AT skew 0.5/1.0,
+  empty/null 0). ✓
+- Filtered run: **Failed: 0, Passed: 31** (canonical composition tests + convention tests).
 
 ### Findings / defects
-None. No code change required; two exact-value tests added to lock the documented RNA conventions.
+None. The opt-in surfaces reproduce Biopython `gc_fraction` exactly; defaults are unchanged.
 
 ## Verdict & follow-ups
-- **Stage A:** PASS-WITH-NOTES (two documented, sourced-or-defensible divergences: IUPAC handling N1, RNA AtContent convention N2 — both correct within scope).
-- **Stage B:** PASS — implementation faithfully realises the validated formulas; tests assert exact externally-sourced values and cover all branches.
-- **Test-quality gate:** PASS.
-- **End-state:** CLEAN — fully functional; no defect found; coverage strengthened.
-- No defect logged in FINDINGS_REGISTER (N1/N2 are documented intentional conventions, not defects).
+- **Stage A:** PASS-WITH-NOTES (carried documented conventions N1/N2; the new opt-in API
+  directly addresses N1 with exact Biopython parity).
+- **Stage B:** PASS — implementation faithfully realises the validated formulas and the
+  Biopython ambiguity modes; tests assert exact externally-sourced values and cover all modes
+  + the default-unchanged guards.
+- **End-state:** CLEAN — fully functional; no defect found; no code changed this session.
+- Build: 0 errors / 0 warnings. Filtered SEQ-STATS-001 + ConventionCompatibility tests: 31/0.
