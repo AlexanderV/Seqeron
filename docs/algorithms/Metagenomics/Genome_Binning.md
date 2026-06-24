@@ -147,17 +147,17 @@ The repository implementation fixes the clustering method to k-means and uses de
 - The full TETRA z-score signature (opt-in): reverse-complement strand extension, the maximal-order (2nd-order) Markov expected count `E = N(n1n2n3)·N(n2n3n4)/N(n2n3)`, the Schbath variance approximation `var = E·[N(n2n3)−N(n1n2n3)][N(n2n3)−N(n2n3n4)]/N(n2n3)²`, the z-score `(N−E)/√var` over all 256 tetranucleotides, and Pearson correlation of the z-score vectors (Teeling et al., 2004; Schbath, 1997).
 - Pearson-correlation-based TNF comparison (the default `BinContigs` path uses raw 4-mer frequencies).
 - Hard clustering of contigs into bins.
+- **CheckM-style marker-gene completeness/contamination (opt-in):** the exact CheckM formula over collocated single-copy marker SETS — Completeness `= 100·(1/|M|)·Σ_{s∈M} |s∩G_M|/|s|` and Contamination `= 100·(1/|M|)·Σ_{s∈M} Σ_{g∈s}(N_g−1)/|s|` (Parks et al., 2015, Eqs. 1–2; reference impl `MarkerSet.genomeCheck`). Markers are detected by scoring a bin's predicted proteins against marker HMMs with the Plan7 Viterbi log-odds engine (a hit is a per-sequence bit score ≥ the Pfam GA1 gathering threshold). A small **CC0** universal single-copy marker set (nine ribosomal-protein Pfam HMMs: S2, S7, S8, S9, S10, S11, S19, L1, L3) is bundled; a caller-supplied loader accepts arbitrary marker HMMs. Methods: `EstimateBinQualityFromMarkerCounts`, `DetectMarkers`, `EstimateBinQualityFromMarkers`, `LoadBundledRibosomalMarkerHmms`, `BundledRibosomalMarkerSets`, `LoadMarkerHmms`.
 
 **Intentionally simplified:**
 
 - The default `BinContigs` TNF distance correlates **raw 4-mer relative frequencies**, not z-scores; **consequence:** the default binning path omits the Markov normalisation. Callers wanting the full TETRA signature use `CalculateTetranucleotideZScores` / `TetranucleotideZScoreCorrelation` (this is now provided, opt-in).
-- Bin quality uses `totalLength / expectedGenomeSize` as a completeness proxy instead of single-copy marker genes; **consequence:** completeness tracks assembled length rather than marker-gene recovery.
-- Contamination uses within-bin GC standard deviation instead of duplicated marker genes; **consequence:** contamination is a composition-based proxy and not a CheckM-equivalent estimate.
+- The **default** `BinContigs` bin quality still uses `totalLength / expectedGenomeSize` as a completeness proxy and within-bin GC standard deviation as a contamination proxy (unchanged for backward compatibility); **consequence:** the `GenomeBin.Completeness`/`Contamination` fields are proxies. For marker-gene-based estimates use the opt-in `EstimateBinQualityFromMarkers` path (above), which is the CheckM-equivalent calculation.
 - The implementation fixes the clustering method to k-means; **consequence:** density-based or hierarchical alternatives discussed in the document are not available in this API.
 
 **Not implemented:**
 
-- Marker-gene-based completeness and contamination estimation (CheckM single-copy marker genes); **users should rely on:** external MAG quality tools such as CheckM. The CheckM lineage-specific Pfam/TIGRFAM HMM marker sets + reference genome tree are a large trained database (the `checkm_data` package) with no clean plaintext source, so they are not bundled.
+- The **full CheckM lineage-specific marker database** (the `checkm_data` package: per-lineage Pfam/TIGRFAM collocated marker sets) and the **reference-genome tree** used for tree-based lineage placement; **users should rely on:** running CheckM itself, or supplying their lineage-specific marker HMMs via `LoadMarkerHmms`. This large gated trained DB is not bundled; the bundled universal ribosomal set treats each Pfam family as its own singleton marker set (CheckM's operon-based collocation grouping needs the lineage DB).
 - Predicted taxonomy assignment for output bins; **users should rely on:** no current alternative in this method.
 
 ### 5.4 Deviations and Assumptions (Optional)
@@ -188,15 +188,18 @@ This implementation does not include marker-gene databases, lineage-specific mod
 
 - Tests (default binning): [MetagenomicsAnalyzer_GenomeBinning_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_GenomeBinning_Tests.cs)
 - Tests (TETRA z-score signature): [MetagenomicsAnalyzer_TetranucleotideZScore_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_TetranucleotideZScore_Tests.cs) — covers `INV-04`
+- Tests (CheckM marker-gene QC): [MetagenomicsAnalyzer_MarkerGeneQuality_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_MarkerGeneQuality_Tests.cs)
 - TestSpec: [META-BIN-001](../../../tests/TestSpecs/META-BIN-001.md)
-- Evidence: [META-BIN-001-Evidence.md](../../../docs/Evidence/META-BIN-001-Evidence.md)
+- Evidence: [META-BIN-001-Evidence.md](../../../docs/Evidence/META-BIN-001-Evidence.md), [META-BIN-001-MarkerQC-Evidence.md](../../../docs/Evidence/META-BIN-001-MarkerQC-Evidence.md)
 
 ## 8. References
 
 1. Teeling, H., et al. 2004. TETRA: a web-service and a stand-alone program for the analysis and comparison of tetranucleotide usage patterns in DNA sequences. BMC Bioinformatics 5:163. doi:10.1186/1471-2105-5-163.
 2. Teeling, H., Meyerdierks, A., Bauer, M., Amann, R., Glöckner, F. O. 2004. Application of tetranucleotide frequencies for the assignment of genomic fragments. Environmental Microbiology 6(9):938-947. doi:10.1111/j.1462-2920.2004.00624.x.
 3. Schbath, S. 1997. An efficient statistic to detect over- and under-represented words in DNA sequences. Journal of Computational Biology 4(2):189-192. https://pubmed.ncbi.nlm.nih.gov/9228617/
-4. Parks, D. H., et al. 2015. CheckM: assessing the quality of microbial genomes recovered from isolates, single cells, and metagenomes. Genome Research 25(7):1043-1055. https://genome.cshlp.org/content/25/7/1043
+4. Parks, D. H., et al. 2015. CheckM: assessing the quality of microbial genomes recovered from isolates, single cells, and metagenomes. Genome Research 25(7):1043-1055. https://pmc.ncbi.nlm.nih.gov/articles/PMC4484387/ (reference implementation: `MarkerSet.genomeCheck`, https://raw.githubusercontent.com/Ecogenomics/CheckM/master/checkm/markerSets.py)
+7. Xu, L., et al. 2022. A revisit to universal single-copy genes in bacterial genomes. https://pmc.ncbi.nlm.nih.gov/articles/PMC9411617/
+8. EMBL-EBI InterPro / Pfam profile HMMs (CC0). https://www.ebi.ac.uk/interpro/wwwapi/entry/pfam/PF00410/?annotation=hmm ; licence: https://interpro-documentation.readthedocs.io/en/latest/pfam.html
 5. Maguire, F., et al. 2020. Metagenome-assembled genome binning methods with short reads disproportionately fail for plasmids and genomic Islands. Microbial Genomics 6(10). doi:10.1099/mgen.0.000436.
 6. Wikipedia contributors. Binning (metagenomics). Wikipedia. https://en.wikipedia.org/wiki/Binning_(metagenomics)
 

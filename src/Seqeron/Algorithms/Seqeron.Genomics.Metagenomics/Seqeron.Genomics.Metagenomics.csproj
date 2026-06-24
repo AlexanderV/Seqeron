@@ -27,4 +27,22 @@
     <Using Include="Seqeron.Genomics.Analysis" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Seqeron.Genomics.Tests" />
+  </ItemGroup>
+
+  <!-- Bundled universal single-copy ribosomal-protein marker HMMs (CC0 / public domain;
+       META-BIN-001 CheckM-style completeness/contamination). See Resources/README.md. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\PF00318_Ribosomal_S2.hmm" />
+    <EmbeddedResource Include="Resources\PF00177_Ribosomal_S7.hmm" />
+    <EmbeddedResource Include="Resources\PF00410_Ribosomal_S8.hmm" />
+    <EmbeddedResource Include="Resources\PF00380_Ribosomal_S9.hmm" />
+    <EmbeddedResource Include="Resources\PF00338_Ribosomal_S10.hmm" />
+    <EmbeddedResource Include="Resources\PF00411_Ribosomal_S11.hmm" />
+    <EmbeddedResource Include="Resources\PF00203_Ribosomal_S19.hmm" />
+    <EmbeddedResource Include="Resources\PF00687_Ribosomal_L1.hmm" />
+    <EmbeddedResource Include="Resources\PF00297_Ribosomal_L3.hmm" />
+  </ItemGroup>
+
 </Project>

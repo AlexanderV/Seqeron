@@ -1836,4 +1836,278 @@ public static class MetagenomicsAnalyzer
     }
 
     #endregion
+
+    #region CheckM-style marker-gene completeness / contamination (opt-in; META-BIN-001)
+
+    /// <summary>
+    /// A collocated single-copy marker set <c>s</c> — one of the marker sets <c>M</c> over which
+    /// CheckM averages completeness and contamination (Parks et al. 2015). The marker IDs are
+    /// opaque identifiers (e.g. Pfam accessions) keyed against a per-bin marker-count map.
+    /// </summary>
+    /// <param name="MarkerIds">The marker identifiers in this collocated set (set <c>s</c>).</param>
+    public readonly record struct MarkerSet(IReadOnlyList<string> MarkerIds);
+
+    /// <summary>
+    /// CheckM-style marker-gene quality of a bin: completeness and contamination (percentages),
+    /// computed from collocated single-copy marker sets per Parks et al. (2015).
+    /// </summary>
+    /// <param name="Completeness">Completeness in % (0–100).</param>
+    /// <param name="Contamination">Contamination in % (≥ 0; can exceed 100 with heavy duplication).</param>
+    /// <param name="MarkerSetCount">Number of collocated marker sets |M| used.</param>
+    /// <param name="MarkerCount">Total number of markers across all sets.</param>
+    /// <param name="MarkersPresent">Distinct markers found at least once.</param>
+    public readonly record struct BinMarkerQuality(
+        double Completeness,
+        double Contamination,
+        int MarkerSetCount,
+        int MarkerCount,
+        int MarkersPresent);
+
+    /// <summary>
+    /// A loaded single-copy marker HMM: a Plan7 profile plus its marker identifier and the
+    /// per-sequence bit-score threshold used to call the marker present.
+    /// </summary>
+    /// <param name="MarkerId">Marker identifier (e.g. Pfam accession "PF00318").</param>
+    /// <param name="Hmm">The parsed Plan7 profile HMM.</param>
+    /// <param name="BitScoreThreshold">Bit-score gate for a hit (the Pfam GA1 gathering threshold).</param>
+    public readonly record struct MarkerHmm(string MarkerId, Plan7ProfileHmm Hmm, double BitScoreThreshold);
+
+    // ln 2, for converting Plan7 natural-log (nat) log-odds scores to bits.
+    // Source: Eddy (2011) PLoS Comput Biol 7:e1002195 — HMMER reports log-odds in bits = nats / ln 2.
+    private const double LogOddsBitsPerNat = 0.69314718055994530941723212145818;
+
+    // Fallback per-sequence bit-score gate when a profile has no GA1 gathering threshold.
+    // Conservative default mirroring ProteinMotifFinder.FindDomainsByHmm.
+    private const double DefaultMarkerBitScoreThreshold = 10.0;
+
+    // The bundled CC0 universal single-copy ribosomal-protein marker HMMs (see Resources/README.md).
+    // Each is treated as its own singleton collocated marker set in the default set (ribosomal
+    // proteins of distinct families are not collocated as one operon-set here — see algorithm doc).
+    // Provenance: EMBL-EBI InterPro Pfam HMM API, 2026-06-25; licence CC0 (public domain).
+    private static readonly (string Resource, string MarkerId)[] BundledRibosomalMarkers =
+    {
+        ("PF00318_Ribosomal_S2.hmm",  "PF00318"),
+        ("PF00177_Ribosomal_S7.hmm",  "PF00177"),
+        ("PF00410_Ribosomal_S8.hmm",  "PF00410"),
+        ("PF00380_Ribosomal_S9.hmm",  "PF00380"),
+        ("PF00338_Ribosomal_S10.hmm", "PF00338"),
+        ("PF00411_Ribosomal_S11.hmm", "PF00411"),
+        ("PF00203_Ribosomal_S19.hmm", "PF00203"),
+        ("PF00687_Ribosomal_L1.hmm",  "PF00687"),
+        ("PF00297_Ribosomal_L3.hmm",  "PF00297"),
+    };
+
+    /// <summary>
+    /// Computes CheckM-style genome completeness and contamination from collocated single-copy
+    /// marker SETS and a per-marker copy-count map, using the exact CheckM formula
+    /// (Parks et al. 2015, <i>Genome Res</i> 25:1043; reference implementation
+    /// <c>MarkerSet.genomeCheck</c>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Let <c>M</c> be the set of collocated marker sets and <c>G_M</c> the markers identified in
+    /// the genome. For each set <c>s ∈ M</c>:
+    /// </para>
+    /// <list type="bullet">
+    /// <item><description><c>present_s = |s ∩ G_M|</c> — markers in <c>s</c> found ≥ 1 time.</description></item>
+    /// <item><description><c>multiCopy_s = Σ_{g ∈ s} C_g</c>, where <c>C_g = N − 1</c> for a marker
+    /// found <c>N ≥ 1</c> times and <c>0</c> for a missing marker.</description></item>
+    /// </list>
+    /// <para>
+    /// Completeness = <c>100 · (1/|M|) · Σ_{s∈M} present_s/|s|</c>;
+    /// Contamination = <c>100 · (1/|M|) · Σ_{s∈M} multiCopy_s/|s|</c>.
+    /// </para>
+    /// </remarks>
+    /// <param name="markerSets">The collocated marker sets <c>M</c>. Empty sets are ignored.</param>
+    /// <param name="markerCounts">
+    /// Map from marker id to the number of copies found in the bin. Missing keys (or values ≤ 0)
+    /// are treated as absent.
+    /// </param>
+    /// <returns>The completeness/contamination percentages and marker tallies.</returns>
+    /// <exception cref="ArgumentNullException">If an argument is null.</exception>
+    public static BinMarkerQuality EstimateBinQualityFromMarkerCounts(
+        IEnumerable<MarkerSet> markerSets,
+        IReadOnlyDictionary<string, int> markerCounts)
+    {
+        ArgumentNullException.ThrowIfNull(markerSets);
+        ArgumentNullException.ThrowIfNull(markerCounts);
+
+        double comp = 0.0;
+        double cont = 0.0;
+        int usedSets = 0;
+        int totalMarkers = 0;
+        var distinctPresent = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var set in markerSets)
+        {
+            var ids = set.MarkerIds;
+            if (ids is null || ids.Count == 0)
+                continue; // empty marker set contributes nothing and would divide by zero
+
+            int present = 0;
+            int multiCopy = 0;
+            foreach (var marker in ids)
+            {
+                int count = markerCounts.TryGetValue(marker, out var c) && c > 0 ? c : 0;
+                if (count >= 1)
+                {
+                    present++;                       // C_g counted once toward |s ∩ G_M|
+                    distinctPresent.Add(marker);
+                }
+                if (count > 1)
+                    multiCopy += count - 1;           // C_g = N - 1 for a duplicated marker
+            }
+
+            comp += (double)present / ids.Count;
+            cont += (double)multiCopy / ids.Count;
+            usedSets++;
+            totalMarkers += ids.Count;
+        }
+
+        // |M| = 0 ⇒ no information; completeness and contamination are both 0 (avoid div-by-zero).
+        double completeness = usedSets > 0 ? 100.0 * comp / usedSets : 0.0;
+        double contamination = usedSets > 0 ? 100.0 * cont / usedSets : 0.0;
+
+        return new BinMarkerQuality(
+            Completeness: completeness,
+            Contamination: contamination,
+            MarkerSetCount: usedSets,
+            MarkerCount: totalMarkers,
+            MarkersPresent: distinctPresent.Count);
+    }
+
+    /// <summary>
+    /// Counts, for each marker HMM, how many of a bin's predicted proteins it detects — i.e. the
+    /// copy number of that marker in the bin. A protein is a hit for a marker when its Plan7
+    /// Viterbi log-odds bit score against the marker's profile meets the marker's bit-score
+    /// threshold (the Pfam GA1 gathering threshold). Reuses the <see cref="Plan7ProfileHmm"/> engine.
+    /// </summary>
+    /// <param name="proteins">The bin's predicted protein sequences (single-letter amino acids).</param>
+    /// <param name="markerHmms">The single-copy marker HMMs to score.</param>
+    /// <returns>Map from marker id to the number of proteins detected as that marker.</returns>
+    /// <exception cref="ArgumentNullException">If an argument is null.</exception>
+    public static IReadOnlyDictionary<string, int> DetectMarkers(
+        IEnumerable<string> proteins,
+        IEnumerable<MarkerHmm> markerHmms)
+    {
+        ArgumentNullException.ThrowIfNull(proteins);
+        ArgumentNullException.ThrowIfNull(markerHmms);
+
+        var hmms = markerHmms.ToList();
+        var proteinList = proteins.Where(p => !string.IsNullOrEmpty(p)).ToList();
+
+        var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var marker in hmms)
+        {
+            int copies = 0;
+            foreach (var protein in proteinList)
+            {
+                double nats = marker.Hmm.ViterbiScore(protein);
+                double bits = double.IsNegativeInfinity(nats) ? double.NegativeInfinity : nats / LogOddsBitsPerNat;
+                if (bits >= marker.BitScoreThreshold)
+                    copies++;
+            }
+            // A marker id may appear once; if duplicated in the input, accumulate.
+            counts[marker.MarkerId] = counts.TryGetValue(marker.MarkerId, out var prev) ? prev + copies : copies;
+        }
+        return counts;
+    }
+
+    /// <summary>
+    /// Detects single-copy markers in a bin's proteins with the Plan7 HMM engine and computes
+    /// CheckM-style completeness and contamination (Parks et al. 2015) over the supplied collocated
+    /// marker sets. Opt-in; the TNF/proxy <see cref="BinContigs"/> path and its defaults are unchanged.
+    /// </summary>
+    /// <param name="proteins">The bin's predicted protein sequences.</param>
+    /// <param name="markerSets">The collocated marker sets <c>M</c> (ids must match the HMM marker ids).</param>
+    /// <param name="markerHmms">The marker HMMs used to detect the markers.</param>
+    /// <returns>The bin's completeness/contamination quality.</returns>
+    /// <exception cref="ArgumentNullException">If an argument is null.</exception>
+    public static BinMarkerQuality EstimateBinQualityFromMarkers(
+        IEnumerable<string> proteins,
+        IEnumerable<MarkerSet> markerSets,
+        IEnumerable<MarkerHmm> markerHmms)
+    {
+        ArgumentNullException.ThrowIfNull(proteins);
+        ArgumentNullException.ThrowIfNull(markerSets);
+        ArgumentNullException.ThrowIfNull(markerHmms);
+
+        var counts = DetectMarkers(proteins, markerHmms);
+        return EstimateBinQualityFromMarkerCounts(markerSets, counts);
+    }
+
+    /// <summary>
+    /// Loads the bundled CC0 universal single-copy ribosomal-protein marker HMMs (9 Pfam families:
+    /// S2, S7, S8, S9, S10, S11, S19, L1, L3). Each marker's bit-score gate is its Pfam GA1
+    /// gathering threshold (falling back to a conservative default if the profile has none).
+    /// </summary>
+    /// <remarks>
+    /// This is a SMALL universal set, not CheckM's full lineage-specific marker DB. For lineage-
+    /// specific marker sets + tree-based placement, supply your own marker HMMs via
+    /// <see cref="LoadMarkerHmms(IEnumerable{System.IO.TextReader}, System.Collections.Generic.IReadOnlyDictionary{string, double})"/>.
+    /// Provenance + CC0 licence: see <c>Resources/README.md</c>.
+    /// </remarks>
+    /// <returns>The bundled marker HMMs.</returns>
+    public static IReadOnlyList<MarkerHmm> LoadBundledRibosomalMarkerHmms()
+    {
+        var result = new List<MarkerHmm>(BundledRibosomalMarkers.Length);
+        var asm = typeof(MetagenomicsAnalyzer).Assembly;
+        foreach (var (resource, markerId) in BundledRibosomalMarkers)
+        {
+            string resourceName = $"Seqeron.Genomics.Metagenomics.Resources.{resource}";
+            using var stream = asm.GetManifestResourceStream(resourceName)
+                ?? throw new InvalidOperationException($"Embedded marker HMM not found: {resourceName}");
+            using var reader = new System.IO.StreamReader(stream);
+            var hmm = Plan7ProfileHmm.Parse(reader);
+            double threshold = hmm.GatheringThreshold ?? DefaultMarkerBitScoreThreshold;
+            result.Add(new MarkerHmm(markerId, hmm, threshold));
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Builds the default marker SETS for the bundled universal ribosomal markers: one singleton
+    /// collocated set per Pfam family (these distinct ribosomal families are scored independently;
+    /// CheckM's operon-based collocation grouping requires the full lineage DB — see algorithm doc).
+    /// </summary>
+    /// <returns>One singleton <see cref="MarkerSet"/> per bundled marker id.</returns>
+    public static IReadOnlyList<MarkerSet> BundledRibosomalMarkerSets()
+        => BundledRibosomalMarkers
+            .Select(m => new MarkerSet(new[] { m.MarkerId }))
+            .ToList();
+
+    /// <summary>
+    /// Caller-supplied marker-HMM loader: parses HMMER3/f ASCII profiles from the given readers
+    /// (e.g. lineage-specific Pfam/TIGRFAM marker HMMs from the full CheckM data) into
+    /// <see cref="MarkerHmm"/> entries keyed by each profile's accession (falling back to its name).
+    /// Lets users with the full CheckM marker database supply their own markers.
+    /// </summary>
+    /// <param name="hmmReaders">Readers over HMMER3/f ASCII <c>.hmm</c> profiles.</param>
+    /// <param name="bitScoreThresholds">
+    /// Optional per-marker-id bit-score gates. When absent for a marker, the profile's GA1
+    /// gathering threshold is used, falling back to a conservative default.
+    /// </param>
+    /// <returns>The loaded marker HMMs, in reader order.</returns>
+    /// <exception cref="ArgumentNullException">If <paramref name="hmmReaders"/> is null.</exception>
+    public static IReadOnlyList<MarkerHmm> LoadMarkerHmms(
+        IEnumerable<System.IO.TextReader> hmmReaders,
+        IReadOnlyDictionary<string, double>? bitScoreThresholds = null)
+    {
+        ArgumentNullException.ThrowIfNull(hmmReaders);
+
+        var result = new List<MarkerHmm>();
+        foreach (var reader in hmmReaders)
+        {
+            var hmm = Plan7ProfileHmm.Parse(reader);
+            string markerId = !string.IsNullOrEmpty(hmm.Accession) ? hmm.Accession : hmm.Name;
+            double threshold =
+                bitScoreThresholds is not null && bitScoreThresholds.TryGetValue(markerId, out var t)
+                    ? t
+                    : hmm.GatheringThreshold ?? DefaultMarkerBitScoreThreshold;
+            result.Add(new MarkerHmm(markerId, hmm, threshold));
+        }
+        return result;
+    }
+
+    #endregion
 }

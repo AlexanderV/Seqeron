@@ -196,13 +196,59 @@ Covers the new opt-in methods `CalculateTetranucleotideZScores` and
 
 ## 7. Open Questions / Decisions
 
-1. CheckM single-copy-marker-gene completeness/contamination remains an **honest residual** — the
-   marker HMM sets + reference tree are a large trained database, not cleanly retrievable as
-   plaintext; not implemented (see Evidence addendum point 10).
+1. CheckM marker-gene completeness/contamination is now **implemented** as an opt-in addendum
+   (see §8). The residual is narrowed to the full CheckM lineage-specific marker DB + reference
+   tree (large gated data); a small CC0 universal ribosomal marker set + caller-supplied loader
+   ship instead.
 
 ---
 
-**Specification Version:** 3.0
+## 8. Addendum — CheckM-style marker-gene completeness/contamination (opt-in)
+
+**Evidence:** [META-BIN-001-MarkerQC-Evidence.md](../../docs/Evidence/META-BIN-001-MarkerQC-Evidence.md)
+**Canonical file:** `tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_MarkerGeneQuality_Tests.cs`
+
+### 8.1 Methods Under Test
+
+| Method | Type | Notes |
+|--------|------|-------|
+| `EstimateBinQualityFromMarkerCounts(markerSets, markerCounts)` | Canonical | exact CheckM Eqs.1–2 |
+| `DetectMarkers(proteins, markerHmms)` | Canonical | Plan7 Viterbi-bits ≥ GA1 ⇒ copy count |
+| `EstimateBinQualityFromMarkers(proteins, markerSets, markerHmms)` | Canonical | detect + formula |
+| `LoadBundledRibosomalMarkerHmms()` / `BundledRibosomalMarkerSets()` | Canonical | 9 CC0 markers |
+| `LoadMarkerHmms(readers, thresholds?)` | Canonical | caller-supplied loader |
+
+### 8.2 Invariants
+
+| ID | Invariant | Evidence |
+|----|-----------|----------|
+| INV-M1 | Completeness = 100·(1/|M|)·Σ |s∩G_M|/|s| | Parks 2015 Eq.1 / `genomeCheck` |
+| INV-M2 | Contamination = 100·(1/|M|)·Σ Σ(N_g−1)/|s| | Parks 2015 Eq.2 / `genomeCheck` |
+| INV-M3 | A multi-copy marker counts once toward completeness | `genomeCheck` |
+| INV-M4 | Empty marker sets / |M|=0 ⇒ no div-by-zero (0/0) | corner cases |
+
+### 8.3 Test Cases (all MUST, all ✅ Covered)
+
+| ID | Test Case | Expected | Evidence |
+|----|-----------|----------|----------|
+| M-FORMULA | synthetic bin {A,B},{C,D,E},{F}; A1,B0,C2,D1,E1,F1 | Comp 250/3 %, Cont 100/9 % | Eqs.1–2 hand-derived |
+| M-ALLPRESENT | all single-copy present | 100% / 0% | Eq.1–2 |
+| M-ALLABSENT | none found | 0% / 0% | Eq.1–2 |
+| M-TRIPLICATE | {A}, A=3 | 100% / 200% | Eq.2 C_g=N−1 |
+| M-EMPTYSET | one empty set | excluded from |M| | corner case 3 |
+| M-NOMARKERSETS | |M|=0 | 0% / 0% | corner case 4 |
+| H-TRUEPOSITIVE | bundled PF00410 vs E. coli uS8 | hit; 0 for all 8 others | UniProt P0A7W7 |
+| H-COMPLETENESS | bin = {uS8}, 9 singleton sets | Comp 100/9 %, Cont 0 | integration |
+| H-DUPLICATE | bin = {uS8,uS8} | Comp 100/9 %, Cont 100/9 % | Eq.2 |
+| L-CALLERSUPPLIED | reader-loaded S8 keyed by ACC, detects uS8 | PF00410.25 = 1 | loader |
+| (guards) | null args throw; loader counts | ArgumentNullException; 9 markers, GA1=24 | — |
+
+**Coverage:** 14 tests, all ✅; Remaining ❌/⚠ = 0.
+
+---
+
+**Specification Version:** 4.0
 **Created:** 2026-02-04
-**Updated:** 2026-06-24 (TETRA z-score signature added; CheckM marker QC left as residual)
-**Status:** Complete — z-score signature implemented, evidence-based, and verified
+**Updated:** 2026-06-25 (CheckM marker-gene completeness/contamination implemented, opt-in;
+residual narrowed to the full lineage DB + tree)
+**Status:** Complete — TNF z-score + CheckM marker QC implemented, evidence-based, and verified

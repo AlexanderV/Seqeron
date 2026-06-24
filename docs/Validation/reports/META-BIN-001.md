@@ -150,3 +150,37 @@ binning path is unchanged):
   declared residual. Use CheckM for marker-gene-based MAG quality.
 - **Registry:** META-BIN-001 Status reset `☑`→`☐` in the root `ALGORITHMS_CHECKLIST_V2.md` for the
   re-validation pass (Completed 221→220, Not Started 13→14).
+
+## Update 2026-06-25 — CheckM-style marker-gene completeness/contamination implemented (opt-in)
+
+The prior residual is now implemented as an **opt-in** API (the default `BinContigs` TNF/proxy path
+and its defaults are unchanged):
+
+- **Formula retrieved verbatim** from Parks et al. (2015) *Genome Res* 25:1043 (open-access PMC4484387)
+  and cross-confirmed against the CheckM reference implementation `MarkerSet.genomeCheck`
+  (Ecogenomics/CheckM, `checkm/markerSets.py`). For collocated marker sets `M`:
+  - Completeness = `100·(1/|M|)·Σ_{s∈M} |s∩G_M|/|s|` (Eq. 1).
+  - Contamination = `100·(1/|M|)·Σ_{s∈M} Σ_{g∈s} C_g/|s|`, `C_g = N−1` for a marker found `N≥1`
+    times, 0 if missing (Eq. 2). A multi-copy marker counts **once** toward completeness.
+- **New methods** (`MetagenomicsAnalyzer.cs`): `EstimateBinQualityFromMarkerCounts(markerSets,
+  markerCounts)` (pure formula), `DetectMarkers(proteins, markerHmms)` (Plan7 Viterbi bits ≥ GA1 ⇒
+  copy count, reusing `Plan7ProfileHmm`), `EstimateBinQualityFromMarkers(...)` (detect + formula),
+  `LoadBundledRibosomalMarkerHmms()` / `BundledRibosomalMarkerSets()` (9 bundled CC0 markers),
+  `LoadMarkerHmms(readers, thresholds?)` (caller-supplied loader). New records `MarkerSet`,
+  `MarkerHmm`, `BinMarkerQuality`.
+- **Bundled marker set — CC0:** 9 universal single-copy ribosomal-protein Pfam HMMs (S2 PF00318,
+  S7 PF00177, S8 PF00410, S9 PF00380, S10 PF00338, S11 PF00411, S19 PF00203, L1 PF00687, L3 PF00297),
+  retrieved 2026-06-25 from the EMBL-EBI InterPro Pfam HMM API (verbatim HMMER3/f), licence CC0
+  (public domain). Provenance + licence in `Resources/README.md` and the Evidence addendum.
+- **Verified exactly:** hand-derived synthetic bin (`M={{A,B},{C,D,E},{F}}`, counts A1 B0 C2 D1 E1 F1)
+  ⇒ Completeness = 250/3 % = 83.333…, Contamination = 100/9 % = 11.111… (asserted `Within(1e-10)`);
+  triplicated marker ⇒ Contamination 200 %; HMM detection — bundled PF00410 detects E. coli uS8
+  (UniProt P0A7W7) at ≈176 bits (GA1 24) and **none** of the 8 other ribosomal families do, so the
+  end-to-end completeness over 9 singleton sets = 100/9 %. 14 tests in
+  `MetagenomicsAnalyzer_MarkerGeneQuality_Tests.cs`.
+- **HONEST RESIDUAL (narrowed):** the full CheckM `checkm_data` lineage-specific marker sets +
+  reference-genome tree (tree-based lineage placement, operon-based marker-set collocation) are a
+  large gated trained DB, not bundled — run CheckM itself or supply lineage-specific marker HMMs via
+  `LoadMarkerHmms`.
+- **Status:** META-BIN-001 remains `☐` (re-validation pass ongoing); Quick-Reference counts unchanged.
+- **Tests:** marker-QC fixture 14/14 pass.
