@@ -48,6 +48,28 @@ validation report `docs/Validation/reports/REP-STR-001.md`.
 1. **Statistic definitions:** "Period Size: Period size of the repeat"; "Copy Number: Number of copies aligned with the consensus pattern"; "Consensus Size: Size of consensus pattern (may differ slightly from the period size)"; "Percent Matches: Percent of matches between adjacent copies overall"; "Percent Indels: Percent of indels between adjacent copies overall"; "Alignment score".
 2. **Scoring (verbatim):** match weight is "+2 in all options here. Mismatch and indel weights (interpreted as negative numbers) are either 3, 5, or 7."
 
+### Tandem Repeats Finder — detailed description / Bernoulli model (trf.desc.html, trf.definitions.html)
+
+**URL:** https://tandem.bu.edu/trf/trf.desc.html and https://tandem.bu.edu/trf/trf.definitions.html
+**Accessed:** 2026-06-24 (fetched via WebFetch in this session)
+**Authority rank:** 2 (official tool documentation accompanying the Benson 1999 paper)
+
+**Key Extracted Points (verbatim):**
+
+1. **Bernoulli model (verbatim):** "We model alignment of two tandem copies of a pattern of length n by a sequence of n independent Bernoulli trials (coin-tosses)."
+2. **Matching probability PM (verbatim):** "The probability of success, P(Heads), which we also call PM or matching probability, represents the average percent identity between the copies."
+3. **Indel probability PI (verbatim):** "A second probability, PI or indel probability, specifies the average percentage of insertions and deletions between the copies."
+4. **Statistics are between ADJACENT copies (verbatim):** the statistics refer to "the matches, mismatches and indels overall between adjacent copies in the sequence, not between the sequence and the consensus pattern."
+5. **Sum-of-heads random variable (verbatim):** "Let the random variable R(d,k,pM) = the total number of heads in head runs of length k or longer in an iid Bernoulli sequence of length d with success probability pM." "The distribution of R(d,k,pM) is well approximated by the normal distribution and its exact mean and variance can be calculated in constant time." The criterion uses "the largest number, x, such that 95% of the time R(d,k,pM) ≥ x".
+6. **Random walk variable (verbatim):** "Let the random variable W(d,pI) = the maximum displacement from the origin of a one dimensional random walk with expected number of steps equal to pI·d."
+7. **Default probabilities (verbatim):** "PM = .80 and PI = .10 by default"; "The best performance can be achieved with values of PM=80 and PI=10."
+
+> Note on reproducibility: points 1–4 and 7 are the *reported probabilistic measures* and are faithfully
+> reproducible (PM/PI estimated between adjacent copies). Points 5–6 (R(d,k,pM) and W(d,pI)) are the
+> *k-tuple SEEDING* machinery; the actual 95% percentile cut-offs are obtained by TRF from
+> non-redistributable simulation tables and the closed-form mean/variance of R(d,k,pM) is not stated
+> verbatim on these pages — so the percentile-based seeding is the honest, non-reproducible residual.
+
 ### Tandem Repeats Finder — reference implementation (Benson-Genomics-Lab/TRF)
 
 **URL:** https://github.com/Benson-Genomics-Lab/TRF
@@ -138,6 +160,26 @@ validation report `docs/Validation/reports/REP-STR-001.md`.
 | Minscore | 51 ≥ 50 → reported at the default `minScore = 50` |
 | Perfect detector | fragments into `CAG`×5 + several 4-copy frame rotations |
 
+### Dataset: Bernoulli PM/PI estimates between adjacent copies (TRF statistical model)
+
+**Source:** Benson (1999) Bernoulli model — PM = average percent identity between adjacent copies,
+PI = average percentage of indels between adjacent copies; statistics "between adjacent copies … not
+between the sequence and the consensus pattern". Each Bernoulli trial = one alignment column between two
+adjacent copies (heads = match). Expected matches = Bernoulli mean E[heads] = PM·d over d trials.
+
+| Sequence | Period | Adjacent copy pairs (cols) | Matches / Mismatches / Indels | PM | PI | E[matches] = PM·d |
+|----------|--------|----------------------------|-------------------------------|----|----|-------------------|
+| `CACACACACA` (perfect CA×5) | 2 | 4 pairs (8 cols) | 8 / 0 / 0 | 8/8 = **1.00** | **0** | 1.00·8 = **8** |
+| `CAGCAGCAGTAGCAGCAG` (CAG×6, copy 4 = TAG) | 3 | 5 pairs (15 cols) | 13 / 2 / 0 | 13/15 ≈ **0.8667** | **0** | (13/15)·15 = **13** |
+| `CACACATACACA` (CA×6, index 6 = T) | 2 | 5 pairs (10 cols) | 8 / 2 / 0 | 8/10 = **0.80** | **0** | 0.80·10 = **8** |
+| `ACACTGTG` (two unrelated period-4 copies) | 4 | 1 pair (4 cols) | 0 / 4 / 0 | 0/4 = **0.00** | **0** | **0** |
+
+The single-substitution tracts show the adjacent-copy PM (`13/15`, `0.80`) is distinct from the
+consensus-based percent matches (`17/18`, `11/12`) computed by `FindApproximateTandemRepeats`, which is
+exactly the distinction Benson draws ("between adjacent copies … not between the sequence and the
+consensus pattern"). A tract is "significant" under the model when its estimated PM is at least Benson's
+default PM = 0.80; the `CACACATACACA` tract sits exactly on that threshold (PM = 0.80, inclusive).
+
 ---
 
 ## Assumptions
@@ -154,6 +196,16 @@ validation report `docs/Validation/reports/REP-STR-001.md`.
    consistent and reproduces the worked numbers above. (Match weight, mismatch/indel penalties, Minscore,
    and the statistic *names* are all source-verbatim; only the percentage denominator convention is fixed
    here.)
+3. **ASSUMPTION: adjacent-copy segmentation for the Bernoulli PM/PI estimate.** `ComputeBernoulliStatistics`
+   estimates PM/PI "between adjacent copies" (Benson 1999, verbatim) by segmenting the tract into
+   period-length copies and aligning each adjacent pair with the recommended TRF scoring. For pure-
+   substitution and perfect tracts this segmentation is unambiguous and the PM/PI values are exact (see
+   the dataset above). For tracts containing indels the per-pair alignment frame is alignment-dependent,
+   so only the *qualitative* Bernoulli property (PI > 0; PM + mismatch-fraction + PI = 1) is asserted for
+   those cases, not a fragile exact PI. The Bernoulli mean E[heads] = PM·d is the only moment stated
+   exactly by the source ("average percent identity"); the closed-form mean/variance of the sum-of-heads
+   R(d,k,pM) and its 95% percentile are NOT reproduced (non-redistributable simulation tables — the
+   genome-scale seeding residual).
 
 ---
 
@@ -165,6 +217,10 @@ validation report `docs/Validation/reports/REP-STR-001.md`.
 4. **MUST Test:** Minscore gate — a tract below the threshold is not reported; default 50 — Evidence: Benson (1999) "Only those repeats scoring at least 50 … are reported".
 5. **SHOULD Test:** scoring constants are the recommended TRF set (+2, −7, −7) — Rationale: traceability of the score to the source.
 6. **COULD Test:** determinism / null / empty / invalid-parameter guards — Rationale: API contract.
+7. **MUST Test (Bernoulli):** perfect tract → PM = 1.0, PI = 0, E[matches] = PM·d — Evidence: Benson (1999) PM = average percent identity.
+8. **MUST Test (Bernoulli):** one-substitution tract → exact adjacent-copy PM (13/15; 8/10), distinct from the consensus percent matches — Evidence: "between adjacent copies … not … the consensus pattern".
+9. **MUST Test (Bernoulli):** indel tract → PI > 0 and match + mismatch + indel fractions partition the trials — Evidence: Benson (1999) PI = average percentage of indels.
+10. **SHOULD Test (Bernoulli):** PM threshold (default 0.80, custom) and exposed defaults PM = .80 / PI = .10 — Evidence: TRF desc "PM = .80 and PI = .10 by default".
 
 ---
 
@@ -180,3 +236,4 @@ validation report `docs/Validation/reports/REP-STR-001.md`.
 ## Change History
 
 - **2026-06-24**: Initial documentation — Benson (1999) TRF approximate-repeat model added to support the opt-in `FindApproximateTandemRepeats` detector (REP-STR-001 limitation fix). Perfect-repeat detector evidence (Wikipedia / MISA) carried from the prior validation.
+- **2026-06-24**: Added the TRF Bernoulli statistical-significance model (Benson 1999) — verbatim PM/PI/Bernoulli-trial definitions from the TRF desc/definitions pages, the adjacent-copy PM/PI dataset, and the supporting assumption — for the new opt-in `ComputeBernoulliStatistics`. The R(d,k,pM)/W(d,pI) k-tuple seeding remains the documented genome-scale-performance residual.

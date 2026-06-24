@@ -274,4 +274,31 @@ All A1–A11 implemented in `tests/Seqeron/Seqeron.Genomics.Tests/RepeatFinder_A
 
 ### 9.5 Residual (honest)
 
-TRF's probabilistic k-tuple distance-list **seeding** and the **sum-of-Bernoulli statistical-significance** scoring of detected repeats are not reproduced; candidate discovery is a deterministic exhaustive (start, period) scan. The reported per-repeat **statistics** follow Benson (1999) exactly. See Evidence ASSUMPTION 1 and 2.
+The per-repeat **Bernoulli statistical-significance** measures are now reproduced (see §10). What remains unreproduced is TRF's probabilistic k-tuple distance-list **seeding** (the `R(d,k,pM)` 95% sum-of-heads percentile cut-off and the `W(d,pI)` random-walk band, whose values come from TRF's non-redistributable simulation tables) — a whole-genome-scale **performance** index, not a per-repeat-correctness gap; the deterministic exhaustive (start, period) scan already finds every candidate a seed would. See Evidence ASSUMPTION 1, 2 and 3.
+
+## 10. TRF Bernoulli statistical-significance measures (Benson 1999 — opt-in)
+
+**Method under test:** `RepeatFinder.ComputeBernoulliStatistics(string repeatTract, int period, double expectedMatchProbability = 0.80)` → `TandemRepeatBernoulliStatistics`.
+
+### 10.1 Evidence
+
+Benson (1999) NAR 27(2):573–580; TRF desc/definitions pages (verbatim): "We model alignment of two tandem copies of a pattern of length n by a sequence of n independent Bernoulli trials"; PM = P(Heads) = "the average percent identity between the copies"; PI = "the average percentage of insertions and deletions between the copies"; statistics "between adjacent copies … not between the sequence and the consensus pattern"; defaults "PM = .80 and PI = .10".
+
+### 10.2 MUST cases (exact hand-derived values; each trial = one alignment column between adjacent copies)
+
+| ID | Input | Expected | Evidence |
+|----|-------|----------|----------|
+| B1 | `CACACACACA`, period 2 | 4 pairs, 8 trials, 8/0/0, PM **1.0**, PI **0**, E[matches] **8**, meets-0.80 **true** | PM = average % identity; perfect tract |
+| B2 | `CAGCAGCAGTAGCAGCAG`, period 3 | 5 pairs, 15 trials, 13/2/0, PM **13/15**, PI **0**, E[matches] **13** | adjacent-copy PM (≠ 17/18 consensus) |
+| B3 | `CACACATACACA`, period 2 | 10 trials, 8/2/0, PM **0.80**, E[matches] **8**, meets-0.80 **true** (inclusive) | PM on the default threshold |
+| B4 | `ACACTGTG`, period 4 | 1 pair, PM **0**, meets-0.80 **false** | low-identity tract below PM = 0.80 |
+| B5 | `CAGCAGCAGTAGCAGCAG`, period 3, PM-threshold 0.80 / 0.90 | meets 0.80 **true**, meets 0.90 **false** | custom PM threshold |
+| B6 | `CAGCAGCAGCAGCAGAGCAGCAGCAGCAG` (deletion), period 3 | PI **> 0**; match+mismatch+indel = trials; PM+PI ≤ 1 | PI = average % indels |
+| B7 | `CAGCAGCAGTAGCAGCAG`, period 3 | PM + mismatch-fraction + PI = **1.0** | Bernoulli outcomes partition the trials |
+| B8 | `CAG`, period 3 | `ArgumentException` | model of two copies undefined for one copy |
+| B9 | `null` / period 0 / PM 1.5 | `ArgumentNullException` / `ArgumentOutOfRangeException` ×2 | parameter validation |
+| B10 | exposed defaults | `TrfDefaultMatchProbability` **0.80**, `TrfDefaultIndelProbability` **0.10** | Benson (1999) defaults |
+
+### 10.3 Coverage status
+
+All B1–B10 implemented in `tests/Seqeron/Seqeron.Genomics.Tests/RepeatFinder_ApproximateTandemRepeats_Tests.cs` (region "ComputeBernoulliStatistics"), exact assertions with `.Within(1e-9)` on the probabilities/expected matches. ✅ Done = 10 / 10; Remaining = 0. Invariants INV-09, INV-10.

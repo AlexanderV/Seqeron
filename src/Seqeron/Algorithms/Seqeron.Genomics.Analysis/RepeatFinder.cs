@@ -536,6 +536,142 @@ public static class RepeatFinder
 
     #endregion
 
+    #region TRF Bernoulli statistical-significance scoring (Benson 1999)
+
+    // --- Tandem Repeats Finder probabilistic / Bernoulli model (Benson 1999) -------------------------
+    // Benson G (1999) "Tandem repeats finder: a program to analyze DNA sequences", Nucleic Acids Res
+    // 27(2):573-580, https://doi.org/10.1093/nar/27.2.573. TRF detailed description / definitions pages
+    // (tandem.bu.edu/trf/trf.desc.html, trf.definitions.html; Benson-Genomics-Lab/TRF README), captured
+    // VERBATIM 2026-06-24:
+    //   * "We model alignment of two tandem copies of a pattern of length n by a sequence of n
+    //      independent Bernoulli trials (coin-tosses)."
+    //   * "The probability of success, P(Heads), which we also call PM or matching probability,
+    //      represents the average percent identity between the copies."
+    //   * "A second probability, PI or indel probability, specifies the average percentage of
+    //      insertions and deletions between the copies."
+    //   * The reported statistics (definitions page items 5-6) are "Percent of matches between adjacent
+    //      copies overall" and "Percent of indels between adjacent copies overall", and the alignment
+    //      explanation states the statistics refer to "the matches, mismatches and indels overall between
+    //      adjacent copies in the sequence, NOT between the sequence and the consensus pattern."
+    //   * Default probabilistic data: "PM=80 and PI=10" ("PM = .80 and PI = .10 by default").
+    // Faithfully reproducible here: the Bernoulli match/indel PROBABILITY ESTIMATES (PM, PI) computed
+    // between ADJACENT COPIES, and the Bernoulli-mean expected matches PM*d over d aligned positions.
+    // NOT reproducible without TRF's non-redistributable simulation tables: the percentile cut-offs of
+    // R(d,k,PM) (sum-of-heads, "the largest x such that 95% of the time R(d,k,PM) >= x") and the random
+    // walk W(d,PI) distance band used for k-tuple SEEDING — that residual is genome-scale performance.
+
+    /// <summary>Benson (1999) default Bernoulli matching probability PM = 0.80 ("PM = .80 by default").</summary>
+    public const double TrfDefaultMatchProbability = 0.80;
+
+    /// <summary>Benson (1999) default Bernoulli indel probability PI = 0.10 ("PI = .10 by default").</summary>
+    public const double TrfDefaultIndelProbability = 0.10;
+
+    /// <summary>
+    /// Computes the Tandem Repeats Finder Bernoulli-model statistical measures (Benson 1999) for a
+    /// detected tandem-repeat tract. Benson models the alignment of two adjacent copies of the pattern
+    /// as a sequence of independent Bernoulli trials whose success probability P(Heads) = <c>PM</c>
+    /// (matching probability) is "the average percent identity between the copies", with a second
+    /// probability <c>PI</c> (indel probability) = "the average percentage of insertions and deletions
+    /// between the copies". This method estimates <c>PM</c> and <c>PI</c> from the observed tract by
+    /// aligning each pair of ADJACENT copies (TRF: statistics are "between adjacent copies in the
+    /// sequence, not between the sequence and the consensus pattern") and counting match / mismatch /
+    /// indel columns. The Bernoulli-mean expected number of matches over the aligned positions
+    /// (<c>PM × columns</c>) is reported as a significance reference, and the estimate is compared to
+    /// Benson's default PM (0.80) so callers can judge whether the tract is at least as conserved as a
+    /// "significant" random tandem repeat under the model.
+    /// </summary>
+    /// <remarks>
+    /// This is the opt-in probabilistic measure; <see cref="FindMicrosatellites(DnaSequence,int,int,int)"/>
+    /// and <see cref="FindApproximateTandemRepeats(DnaSequence,int,int,int)"/> are unchanged. Candidate
+    /// k-tuple SEEDING (the R(d,k,PM) sum-of-heads percentile cut-off and the W(d,PI) random-walk band)
+    /// is NOT reproduced — it depends on TRF's non-redistributable simulation tables and is a
+    /// genome-scale performance heuristic, not a per-repeat statistic.
+    /// </remarks>
+    /// <param name="repeatTract">The observed tandem-repeat tract (≥ 2 copies of the period).</param>
+    /// <param name="period">The repeat period (copy length), ≥ 1.</param>
+    /// <param name="expectedMatchProbability">
+    /// The Bernoulli PM the tract is assessed against (default <see cref="TrfDefaultMatchProbability"/> = 0.80,
+    /// Benson 1999). The tract is flagged <see cref="TandemRepeatBernoulliStatistics.MeetsExpectedMatchProbability"/>
+    /// when its estimated PM ≥ this value.
+    /// </param>
+    /// <returns>The Bernoulli-model statistics for the tract.</returns>
+    public static TandemRepeatBernoulliStatistics ComputeBernoulliStatistics(
+        string repeatTract,
+        int period,
+        double expectedMatchProbability = TrfDefaultMatchProbability)
+    {
+        ArgumentNullException.ThrowIfNull(repeatTract);
+        if (period < 1) throw new ArgumentOutOfRangeException(nameof(period));
+        if (expectedMatchProbability < 0.0 || expectedMatchProbability > 1.0)
+            throw new ArgumentOutOfRangeException(nameof(expectedMatchProbability));
+
+        string tract = repeatTract.ToUpperInvariant();
+        if (tract.Length < period * 2)
+            throw new ArgumentException(
+                "A tandem repeat needs at least two contiguous copies of the period.", nameof(repeatTract));
+
+        // Segment the tract into copies of the period (the last copy may be partial) and align each pair
+        // of ADJACENT copies. Each Bernoulli trial is one alignment column between the two adjacent
+        // copies: heads = match, tails = mismatch or indel (Benson 1999).
+        int matches = 0;
+        int mismatches = 0;
+        int indels = 0;
+
+        int copyCount = (tract.Length + period - 1) / period;
+        for (int c = 0; c + 1 < copyCount; c++)
+        {
+            int leftStart = c * period;
+            int rightStart = (c + 1) * period;
+            string left = tract.Substring(leftStart, Math.Min(period, tract.Length - leftStart));
+            string right = tract.Substring(rightStart, Math.Min(period, tract.Length - rightStart));
+
+            AlignmentResult pair = SequenceAligner.GlobalAlign(left, right, TrfScoring);
+            string a = pair.AlignedSequence1;
+            string b = pair.AlignedSequence2;
+
+            // GlobalAlign returns AlignmentResult.Empty (no aligned strings) only when an input copy is
+            // empty; with ≥ 2 whole copies both adjacent copies are non-empty, so columns are present.
+            int columns = a.Length;
+            for (int i = 0; i < columns; i++)
+            {
+                if (a[i] == '-' || b[i] == '-') indels++;
+                else if (a[i] == b[i]) matches++;
+                else mismatches++;
+            }
+        }
+
+        int totalColumns = matches + mismatches + indels;
+
+        // PM = matching probability = average percent identity between adjacent copies (Benson 1999).
+        // Heads in the Bernoulli model are matches; PM is the fraction of trials that are heads.
+        double matchProbability = totalColumns > 0 ? (double)matches / totalColumns : 0.0;
+
+        // PI = indel probability = average percentage of insertions and deletions between the copies.
+        double indelProbability = totalColumns > 0 ? (double)indels / totalColumns : 0.0;
+
+        // Bernoulli-mean expected matches over the aligned positions: E[heads] = PM * d for d trials with
+        // success probability PM (the mean of a length-d Bernoulli(PM) sequence). Reported as the
+        // significance reference (the expected number of matching positions a random tandem repeat with
+        // this match probability would show over the same number of trials).
+        double expectedMatches = matchProbability * totalColumns;
+
+        return new TandemRepeatBernoulliStatistics(
+            Period: period,
+            AdjacentCopyPairs: Math.Max(0, copyCount - 1),
+            BernoulliTrials: totalColumns,
+            Matches: matches,
+            Mismatches: mismatches,
+            Indels: indels,
+            MatchProbability: matchProbability,
+            IndelProbability: indelProbability,
+            PercentMatches: matchProbability * 100.0,
+            PercentIndels: indelProbability * 100.0,
+            ExpectedMatches: expectedMatches,
+            MeetsExpectedMatchProbability: matchProbability >= expectedMatchProbability);
+    }
+
+    #endregion
+
     #region Inverted Repeat Detection
 
     /// <summary>
@@ -930,6 +1066,28 @@ public readonly record struct ApproximateTandemRepeatResult(
     double PercentMatches,
     double PercentIndels,
     int AlignmentScore);
+
+/// <summary>
+/// Tandem Repeats Finder Bernoulli-model statistical measures (Benson 1999) for a detected repeat tract.
+/// Benson models the alignment of two adjacent copies as a sequence of independent Bernoulli trials;
+/// <see cref="MatchProbability"/> = P(Heads) = PM (matching probability) is the average percent identity
+/// between adjacent copies, and <see cref="IndelProbability"/> = PI (indel probability) is the average
+/// percentage of insertions and deletions between them. The statistics are computed between ADJACENT
+/// copies, not between the tract and the consensus pattern.
+/// </summary>
+public readonly record struct TandemRepeatBernoulliStatistics(
+    int Period,
+    int AdjacentCopyPairs,
+    int BernoulliTrials,
+    int Matches,
+    int Mismatches,
+    int Indels,
+    double MatchProbability,
+    double IndelProbability,
+    double PercentMatches,
+    double PercentIndels,
+    double ExpectedMatches,
+    bool MeetsExpectedMatchProbability);
 
 /// <summary>
 /// Result of inverted repeat detection.

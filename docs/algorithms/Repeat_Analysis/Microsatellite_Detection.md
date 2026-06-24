@@ -54,7 +54,10 @@ The implementation searches candidate motif lengths from `minUnitLength` through
 | INV-07 | For an approximate result, `0 <= PercentMatches <= 100` and `0 <= PercentIndels <= 100`, and a perfect tract yields `PercentMatches = 100`, `PercentIndels = 0`. | Each percentage is a column count divided by the total alignment-column count; a perfect alignment has only match columns. |
 | INV-08 | For an approximate result, `CopyNumber = (non-gap aligned bases) / Period` and `ConsensusSize = Period`. | Copy number is the aligned observed length over the period [6]; the majority-rule consensus is built with exactly `Period` columns. |
 
-> A = perfect STR detection (`FindMicrosatellites`), B = approximate / imperfect tandem-repeat detection (`FindApproximateTandemRepeats`, TRF model [6]). Invariants INV-01..INV-05 govern A; INV-06..INV-08 govern B.
+| INV-09 | (Bernoulli) For `ComputeBernoulliStatistics`, `MatchProbability ∈ [0,1]`, `IndelProbability ∈ [0,1]`, and `Matches + Mismatches + Indels = BernoulliTrials`; a perfect tract yields `MatchProbability = 1`, `IndelProbability = 0`. | Each Bernoulli trial is one alignment column between two adjacent copies, classified as exactly match / mismatch / indel [6]. |
+| INV-10 | (Bernoulli) `ExpectedMatches = MatchProbability × BernoulliTrials` and `MeetsExpectedMatchProbability ⇔ MatchProbability ≥ expectedMatchProbability`. | `ExpectedMatches` is the Bernoulli mean E[heads] = PM·d; the flag is the direct comparison to the assessed PM [6]. |
+
+> A = perfect STR detection (`FindMicrosatellites`), B = approximate / imperfect tandem-repeat detection (`FindApproximateTandemRepeats`, TRF model [6]), C = TRF Bernoulli statistical measures (`ComputeBernoulliStatistics`, Benson 1999 [6]). Invariants INV-01..INV-05 govern A; INV-06..INV-08 govern B; INV-09..INV-10 govern C.
 
 ## 3. Contract
 
@@ -71,6 +74,9 @@ The implementation searches candidate motif lengths from `minUnitLength` through
 | `minPeriod` | `int` | `1` | (approximate) Minimum period (motif) size to consider. | `FindApproximateTandemRepeats`; values below `1` throw `ArgumentOutOfRangeException`. |
 | `maxPeriod` | `int` | `6` | (approximate) Maximum period (motif) size to consider. | `FindApproximateTandemRepeats`; values below `minPeriod` throw `ArgumentOutOfRangeException`. |
 | `minScore` | `int` | `50` | (approximate) Minimum TRF alignment score to report. | `FindApproximateTandemRepeats`; default `DefaultApproximateMinScore = 50` per Benson (1999) [6]. |
+| `repeatTract` | `string` | required | (Bernoulli) Observed tandem-repeat tract (≥ 2 copies). | `ComputeBernoulliStatistics`; `null` throws `ArgumentNullException`; fewer than two copies throws `ArgumentException`. |
+| `period` | `int` | required | (Bernoulli) Repeat period (copy length). | `ComputeBernoulliStatistics`; values below `1` throw `ArgumentOutOfRangeException`. |
+| `expectedMatchProbability` | `double` | `0.80` | (Bernoulli) PM threshold the tract is assessed against. | `ComputeBernoulliStatistics`; values outside `[0,1]` throw `ArgumentOutOfRangeException`; default `TrfDefaultMatchProbability = 0.80` per Benson (1999) [6]. |
 
 ### 3.2 Output / Return Value
 
@@ -95,6 +101,20 @@ The implementation searches candidate motif lengths from `minUnitLength` through
 | `PercentMatches` | `double` | Percent of matches between adjacent copies overall (0–100) [6]. |
 | `PercentIndels` | `double` | Percent of indels between adjacent copies overall (0–100) [6]. |
 | `AlignmentScore` | `int` | TRF alignment score (sum of column weights) [6]. |
+
+`ComputeBernoulliStatistics` returns `TandemRepeatBernoulliStatistics` (the TRF Bernoulli statistical measures, Benson 1999 [6]):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `Period` | `int` | Repeat period (copy length). |
+| `AdjacentCopyPairs` | `int` | Number of adjacent copy pairs compared. |
+| `BernoulliTrials` | `int` | Total Bernoulli trials = total alignment columns over all adjacent pairs [6]. |
+| `Matches` / `Mismatches` / `Indels` | `int` | Column counts (heads = matches) over all adjacent-copy alignments. |
+| `MatchProbability` | `double` | PM = P(Heads) = average percent identity between adjacent copies, as a fraction (0–1) [6]. |
+| `IndelProbability` | `double` | PI = average percentage of insertions/deletions between adjacent copies, as a fraction (0–1) [6]. |
+| `PercentMatches` / `PercentIndels` | `double` | PM / PI as percentages (0–100) [6]. |
+| `ExpectedMatches` | `double` | Bernoulli mean E[heads] = `MatchProbability × BernoulliTrials` [6]. |
+| `MeetsExpectedMatchProbability` | `bool` | `true` when `MatchProbability ≥ expectedMatchProbability` (default PM = 0.80, Benson 1999 [6]). |
 
 ### 3.3 Preconditions and Validation
 
@@ -147,6 +167,7 @@ Approximate-detector scoring constants (Tandem Repeats Finder recommended set "2
 - `RepeatFinder.FindMicrosatellites(string, int, int, int)`: Raw-string overload with uppercase normalization.
 - `RepeatFinder.FindMicrosatellites(string, int, int, int, CancellationToken, IProgress<double>?)`: Cancellable raw-string overload.
 - `RepeatFinder.FindApproximateTandemRepeats(DnaSequence | string, int minPeriod, int maxPeriod, int minScore)`: Opt-in approximate / imperfect / interrupted tandem-repeat detector (TRF model [6]); reuses [`SequenceAligner.GlobalAlign`](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs) for the underlying alignment.
+- `RepeatFinder.ComputeBernoulliStatistics(string repeatTract, int period, double expectedMatchProbability = 0.80)`: Opt-in TRF Bernoulli statistical-significance measures (Benson 1999 [6]) — PM (matching probability), PI (indel probability), and the Bernoulli-mean expected matches `PM·d`, estimated **between adjacent copies** (not against the consensus); flags whether the tract is at least as conserved as a random tandem repeat with the default PM = 0.80.
 
 ### 5.2 Current Behavior
 
@@ -163,15 +184,19 @@ The implementation filters redundant motifs with `IsRedundantUnit`, so larger pa
 - (Approximate, TRF [6]) Reported statistics — period size, copy number, consensus size, percent matches and percent indels between adjacent copies overall, alignment score — computed from an alignment of the sequence against tandem copies of the majority-rule consensus.
 - (Approximate, TRF [6]) Recommended scoring constants match `+2`, mismatch `−7`, indel `−7`, and the `Minscore = 50` report threshold.
 
+- (Bernoulli, TRF [6]) The probabilistic measures: "We model alignment of two tandem copies … by … independent Bernoulli trials"; PM = P(Heads) = "the average percent identity between the copies"; PI = "the average percentage of insertions and deletions between the copies"; statistics "between adjacent copies … not between the sequence and the consensus pattern"; Bernoulli mean expected matches `PM·d`; default `PM = .80`, `PI = .10`. Implemented as `ComputeBernoulliStatistics`.
+
 **Intentionally simplified:**
 
 - The default `FindMicrosatellites` uses exact motif matching only; **consequence:** interrupted, impure, or mismatch-tolerant microsatellites are split into separate perfect tracts (use the opt-in `FindApproximateTandemRepeats` for those).
 - Redundant-unit filtering and contained-interval suppression; **consequence:** output favors a canonical representative interval rather than an exhaustive list of every possible equivalent unit decomposition.
 - (Approximate, TRF [6]) Candidate repeats are found by a **deterministic exhaustive (start, period) scan with alignment scoring**, in place of TRF's probabilistic k-tuple distance-list seeding; **consequence:** the reported statistics of a repeat are faithful to Benson (1999), but the candidate-discovery heuristic differs (the subset examines all windows up to `maxPeriod`, which limits practical sequence/period size rather than scaling to whole genomes).
 
+- (Bernoulli, TRF [6]) PM/PI are estimated **between adjacent copies** by segmenting the tract into period-length copies and aligning each adjacent pair; **consequence:** for substitution/perfect tracts the estimate is exact, while for indel-containing tracts the per-pair alignment frame is alignment-dependent (the qualitative Bernoulli partition still holds, but the exact PI is frame-sensitive).
+
 **Not implemented:**
 
-- TRF's probabilistic k-tuple seeding and sum-of-Bernoulli statistical-significance scoring of detected repeats; **users should rely on:** the reference Tandem Repeats Finder tool [6][7] for genome-scale detection and statistical-significance reporting.
+- TRF's probabilistic k-tuple **seeding** — the sum-of-heads percentile cut-off `R(d,k,pM)` ("the largest x such that 95% of the time R(d,k,pM) ≥ x") and the random-walk band `W(d,pI)` — which drive whole-genome-scale candidate discovery. The per-repeat Bernoulli statistical measures (PM, PI, expected matches) ARE now computed by `ComputeBernoulliStatistics`; the residual is the **genome-scale-performance** seeding index (the deterministic exhaustive scan is not a seeded genome-scale index), whose 95% percentile cut-offs come from TRF's non-redistributable simulation tables; **users should rely on:** the reference Tandem Repeats Finder tool [6][7] for genome-scale seeded detection.
 - PCR-stutter modeling and locus-specific forensic interpretation; **users should rely on:** dedicated forensic STR pipelines.
 
 ### 5.4 Deviations and Assumptions

@@ -225,4 +225,179 @@ public class RepeatFinder_ApproximateTandemRepeats_Tests
     }
 
     #endregion
+
+    #region ComputeBernoulliStatistics — TRF Bernoulli model (B1-B10)
+    //
+    // Benson G (1999), Nucleic Acids Res 27(2):573-580, https://doi.org/10.1093/nar/27.2.573;
+    // TRF desc/definitions (tandem.bu.edu/trf/trf.desc.html, trf.definitions.html; Benson-Genomics-Lab/TRF):
+    //   "We model alignment of two tandem copies of a pattern ... by ... independent Bernoulli trials";
+    //   "P(Heads), which we also call PM or matching probability, represents the average percent identity
+    //   between the copies"; "PI or indel probability ... the average percentage of insertions and
+    //   deletions between the copies"; statistics are "between adjacent copies ... not between the
+    //   sequence and the consensus pattern"; defaults "PM = .80 and PI = .10".
+    // Each Bernoulli trial = one alignment column between two ADJACENT copies (heads = match).
+    // All expected PM/PI/E[matches] below are hand-derived per copy-pair; see comments.
+
+    // B1 — Perfect CA x5: copies CA|CA|CA|CA|CA -> 4 adjacent pairs, 8 columns, all match.
+    // PM = 8/8 = 1.0; PI = 0; E[matches] = PM*d = 1.0*8 = 8.
+    [Test]
+    public void ComputeBernoulliStatistics_PerfectTract_MatchProbabilityIsOne()
+    {
+        var stats = RepeatFinder.ComputeBernoulliStatistics("CACACACACA", period: 2);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(stats.Period, Is.EqualTo(2));
+            Assert.That(stats.AdjacentCopyPairs, Is.EqualTo(4), "5 copies -> 4 adjacent pairs");
+            Assert.That(stats.BernoulliTrials, Is.EqualTo(8), "4 pairs * 2 columns each");
+            Assert.That(stats.Matches, Is.EqualTo(8), "every column matches in a perfect tract");
+            Assert.That(stats.Mismatches, Is.EqualTo(0));
+            Assert.That(stats.Indels, Is.EqualTo(0));
+            Assert.That(stats.MatchProbability, Is.EqualTo(1.0).Within(Tol), "PM = 8/8 (perfect identity)");
+            Assert.That(stats.IndelProbability, Is.EqualTo(0.0).Within(Tol), "PI = 0 (no indels)");
+            Assert.That(stats.PercentMatches, Is.EqualTo(100.0).Within(Tol));
+            Assert.That(stats.PercentIndels, Is.EqualTo(0.0).Within(Tol));
+            Assert.That(stats.ExpectedMatches, Is.EqualTo(8.0).Within(Tol), "E[heads] = PM*d = 1.0*8");
+            Assert.That(stats.MeetsExpectedMatchProbability, Is.True, "PM 1.0 >= default PM 0.80");
+        });
+    }
+
+    // B2 — CAG x6 with copy 4 = TAG (one substitution): copies CAG|CAG|CAG|TAG|CAG|CAG.
+    // Pairs: (CAG,CAG)3 (CAG,CAG)3 (CAG,TAG)2m+1mis (TAG,CAG)2m+1mis (CAG,CAG)3 ->
+    // matches=13, mismatches=2, indels=0, trials=15. PM = 13/15; PI = 0; E[matches] = 13.
+    [Test]
+    public void ComputeBernoulliStatistics_OneSubstitution_EstimatesAdjacentCopyPm()
+    {
+        var stats = RepeatFinder.ComputeBernoulliStatistics("CAGCAGCAGTAGCAGCAG", period: 3);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(stats.AdjacentCopyPairs, Is.EqualTo(5), "6 copies -> 5 adjacent pairs");
+            Assert.That(stats.BernoulliTrials, Is.EqualTo(15), "5 pairs * 3 columns each");
+            Assert.That(stats.Matches, Is.EqualTo(13), "the substituted base mismatches in the 2 pairs it joins");
+            Assert.That(stats.Mismatches, Is.EqualTo(2));
+            Assert.That(stats.Indels, Is.EqualTo(0));
+            Assert.That(stats.MatchProbability, Is.EqualTo(13.0 / 15.0).Within(Tol), "PM = 13/15 between adjacent copies");
+            Assert.That(stats.IndelProbability, Is.EqualTo(0.0).Within(Tol));
+            Assert.That(stats.PercentMatches, Is.EqualTo(13.0 / 15.0 * 100.0).Within(Tol));
+            Assert.That(stats.ExpectedMatches, Is.EqualTo(13.0).Within(Tol), "E[heads] = (13/15)*15 = 13");
+        });
+    }
+
+    // B3 — CA x6 with index 6 C->T: copies CA|CA|CA|TA|CA|CA.
+    // Pairs: 2 2 (CA,TA)=1m+1mis (TA,CA)=1m+1mis 2 -> matches=8, mismatches=2, trials=10.
+    // PM = 8/10 = 0.80 (exactly the default threshold); PI = 0; E[matches] = 8.
+    [Test]
+    public void ComputeBernoulliStatistics_PmEqualToDefault_MeetsThreshold()
+    {
+        var stats = RepeatFinder.ComputeBernoulliStatistics("CACACATACACA", period: 2);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(stats.BernoulliTrials, Is.EqualTo(10), "5 adjacent pairs * 2 columns");
+            Assert.That(stats.Matches, Is.EqualTo(8));
+            Assert.That(stats.Mismatches, Is.EqualTo(2));
+            Assert.That(stats.MatchProbability, Is.EqualTo(0.80).Within(Tol), "PM = 8/10 = 0.80");
+            Assert.That(stats.ExpectedMatches, Is.EqualTo(8.0).Within(Tol), "E[heads] = 0.80*10 = 8");
+            Assert.That(stats.MeetsExpectedMatchProbability, Is.True, "PM 0.80 >= default PM 0.80 (>= is inclusive)");
+        });
+    }
+
+    // B4 — a poorly conserved tract falls below the default PM = 0.80.
+    // ACAC|TGTG: one adjacent pair of period 4, aligned A/T C/G A/T C/G -> 0 match, 4 mismatch.
+    // PM = 0/4 = 0 < 0.80 -> MeetsExpectedMatchProbability = false.
+    [Test]
+    public void ComputeBernoulliStatistics_LowIdentityTract_DoesNotMeetThreshold()
+    {
+        var stats = RepeatFinder.ComputeBernoulliStatistics("ACACTGTG", period: 4);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(stats.AdjacentCopyPairs, Is.EqualTo(1), "2 copies -> 1 adjacent pair");
+            Assert.That(stats.MatchProbability, Is.EqualTo(0.0).Within(Tol), "no column matches");
+            Assert.That(stats.MeetsExpectedMatchProbability, Is.False, "PM 0 < default PM 0.80");
+        });
+    }
+
+    // B5 — caller-supplied PM threshold. The B2 tract has PM = 13/15 = 0.8667; it meets PM=0.80 but
+    // not PM=0.90.
+    [Test]
+    public void ComputeBernoulliStatistics_CustomExpectedPm_FlagsAgainstThatThreshold()
+    {
+        var meets = RepeatFinder.ComputeBernoulliStatistics("CAGCAGCAGTAGCAGCAG", 3, expectedMatchProbability: 0.80);
+        var fails = RepeatFinder.ComputeBernoulliStatistics("CAGCAGCAGTAGCAGCAG", 3, expectedMatchProbability: 0.90);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(meets.MeetsExpectedMatchProbability, Is.True, "PM 0.8667 >= 0.80");
+            Assert.That(fails.MeetsExpectedMatchProbability, Is.False, "PM 0.8667 < 0.90");
+        });
+    }
+
+    // B6 — an indel tract reports PI > 0 (insertions/deletions between adjacent copies). Exact PI is
+    // alignment-frame dependent, so we assert the qualitative Bernoulli property: with a single-base
+    // deletion the indel probability is strictly positive and PM + PI account for the trials.
+    [Test]
+    public void ComputeBernoulliStatistics_DeletionTract_ReportsPositiveIndelProbability()
+    {
+        // (CAG)x10 with one base deleted (29 bp): adjacent copies must absorb the frame shift via indels.
+        var stats = RepeatFinder.ComputeBernoulliStatistics("CAGCAGCAGCAGCAGAGCAGCAGCAGCAG", period: 3);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(stats.IndelProbability, Is.GreaterThan(0.0), "a deletion forces indel columns between adjacent copies");
+            Assert.That(stats.Matches + stats.Mismatches + stats.Indels, Is.EqualTo(stats.BernoulliTrials),
+                "every Bernoulli trial is exactly one of match / mismatch / indel");
+            Assert.That(stats.MatchProbability + stats.IndelProbability, Is.LessThanOrEqualTo(1.0 + Tol),
+                "PM + PI <= 1 (mismatches make up the remainder)");
+        });
+    }
+
+    // B7 — PM + (mismatch fraction) + PI = 1 exactly (the three Bernoulli outcomes partition the trials).
+    [Test]
+    public void ComputeBernoulliStatistics_Probabilities_PartitionTheTrials()
+    {
+        var stats = RepeatFinder.ComputeBernoulliStatistics("CAGCAGCAGTAGCAGCAG", period: 3);
+
+        double mismatchFraction = (double)stats.Mismatches / stats.BernoulliTrials;
+        Assert.That(stats.MatchProbability + mismatchFraction + stats.IndelProbability,
+            Is.EqualTo(1.0).Within(Tol), "match + mismatch + indel fractions sum to 1");
+    }
+
+    // B8 — too-short tract (fewer than two copies) is rejected: a Bernoulli model of "two tandem copies"
+    // is undefined.
+    [Test]
+    public void ComputeBernoulliStatistics_FewerThanTwoCopies_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => RepeatFinder.ComputeBernoulliStatistics("CAG", period: 3),
+            "one copy cannot model alignment of two adjacent copies");
+    }
+
+    // B9 — invalid parameters throw.
+    [Test]
+    public void ComputeBernoulliStatistics_InvalidArguments_Throw()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() => RepeatFinder.ComputeBernoulliStatistics(null!, 2));
+            Assert.Throws<ArgumentOutOfRangeException>(() => RepeatFinder.ComputeBernoulliStatistics("CACA", 0));
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => RepeatFinder.ComputeBernoulliStatistics("CACA", 2, expectedMatchProbability: 1.5));
+        });
+    }
+
+    // B10 — Benson (1999) documented defaults are exposed verbatim (PM = .80, PI = .10).
+    [Test]
+    public void ComputeBernoulliStatistics_DocumentedDefaults_MatchBenson1999()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(RepeatFinder.TrfDefaultMatchProbability, Is.EqualTo(0.80).Within(Tol),
+                "Benson (1999) default PM = .80");
+            Assert.That(RepeatFinder.TrfDefaultIndelProbability, Is.EqualTo(0.10).Within(Tol),
+                "Benson (1999) default PI = .10");
+        });
+    }
+
+    #endregion
 }
