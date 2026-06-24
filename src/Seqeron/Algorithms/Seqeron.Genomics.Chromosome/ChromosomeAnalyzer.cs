@@ -22,6 +22,24 @@ public static class ChromosomeAnalyzer
     /// </summary>
     public const string AlphaSatelliteConsensus = "AATGAATATTTCTTTTATGTTCCTTAAAGTAGAAATGTCAAGAATATGTTAAGCCTTAAATG";
 
+    /// <summary>
+    /// Length in base pairs of the human alpha-satellite (alphoid) monomer — the fundamental
+    /// tandemly-repeated unit of human centromeric DNA.
+    /// Source: Willard HF (1985); Waye JS, Willard HF (1987); review Hartley G, O'Neill RJ (2019),
+    /// Alpha satellite DNA biology (PMC6121732): "Alpha satellite DNA is composed of fundamental
+    /// 171bp monomeric repeat units."
+    /// </summary>
+    public const int AlphaSatelliteMonomerLength = 171;
+
+    /// <summary>
+    /// Canonical 17-bp CENP-B box consensus motif, written with IUPAC ambiguity codes:
+    /// 5'-YTTCGTTGGAARCGGGA-3' (Y = C/T, R = A/G).
+    /// Source: Masumoto H, Masukata H, Muro Y, Nozaki N, Okazaki T (1989), J Cell Biol 109(4):1963-1973;
+    /// consensus as reported in PMC6121732 ("5'-T/CTCGTTGGAAA/GCGGGA-3'") and PMC4843215
+    /// ("YTTCGTTGGAARCGGGA"). CENP-B binds this 17-bp sequence within a subset of alpha-satellite monomers.
+    /// </summary>
+    public const string CenpBBoxConsensus = "YTTCGTTGGAARCGGGA";
+
     #endregion
 
     #region Records
@@ -88,6 +106,28 @@ public static class ChromosomeAnalyzer
         string CentromereType,
         double AlphaSatelliteContent,
         bool IsAcrocentric);
+
+    /// <summary>
+    /// Alpha-satellite (alphoid) specific detection result.
+    /// Unlike <see cref="CentromereResult.AlphaSatelliteContent"/> (a generic tandem-repeat-density
+    /// score), this captures alpha-satellite-specific molecular signatures: a ~171 bp tandem
+    /// periodicity and CENP-B box occurrences.
+    /// </summary>
+    /// <param name="IsAlphaSatellite">True when both molecular signatures are met:
+    /// strong ~171 bp tandem periodicity AND the sequence is AT-rich (alpha satellite is AT-rich).</param>
+    /// <param name="PeriodicityScore">Self-similarity (fraction of bases identical to the base
+    /// <see cref="AlphaSatelliteMonomerLength"/> positions upstream), in [0,1]. ~1 for a clean
+    /// tandem array, ~0.25 for random DNA.</param>
+    /// <param name="BestPeriod">The repeat period (bp) with the highest self-similarity within the
+    /// searched tolerance window around 171 bp, or 0 if none searched.</param>
+    /// <param name="AtContent">Fraction of A/T bases in [0,1].</param>
+    /// <param name="CenpBBoxCount">Number of CENP-B box (17-bp) matches found.</param>
+    public readonly record struct AlphaSatelliteResult(
+        bool IsAlphaSatellite,
+        double PeriodicityScore,
+        int BestPeriod,
+        double AtContent,
+        int CenpBBoxCount);
 
     /// <summary>
     /// Synteny block between species.
@@ -513,6 +553,160 @@ public static class ChromosomeAnalyzer
             < 7.0 => "Subtelocentric",
             _ => "Acrocentric"
         };
+    }
+
+    #endregion
+
+    #region Alpha-Satellite-Specific Detection
+
+    // Sourced parameters for alpha-satellite-specific detection.
+    //
+    // Monomer period: alpha satellite is a tandem repeat of a ~171 bp monomer
+    //   (Willard 1985; Waye & Willard 1987; review PMC6121732). See AlphaSatelliteMonomerLength.
+    // Period tolerance: monomers diverge and indels occur, so the observed tandem period varies
+    //   slightly around 171 bp; we scan a small window around the canonical length and take the best.
+    // AT-richness: alpha satellite is described as an "AT-rich 171-bp alphoid monomer" (PMC6121732).
+    //   A balanced AT content is 0.5; alpha satellite sits above it, so we require AT > 0.5.
+    // Periodicity threshold: monomers within an array share 50-70% identity (PMC6121732), so
+    //   base-level self-similarity at the monomer period for a genuine tandem array is well above
+    //   the ~0.25 expected for random DNA. We require periodicity >= 0.50 (the lower bound of the
+    //   reported 50-70% monomer identity).
+
+    /// <summary>Half-width (bp) of the period search window scanned around the 171 bp monomer length.</summary>
+    private const int MonomerPeriodTolerance = 5;
+
+    /// <summary>Minimum base-level self-similarity at the monomer period to call a tandem array
+    /// (lower bound of the 50-70% intra-array monomer identity, PMC6121732).</summary>
+    private const double MinPeriodicityScore = 0.50;
+
+    /// <summary>Minimum AT fraction for the AT-rich alpha-satellite signature (above the 0.5 balance point).</summary>
+    private const double MinAlphaSatelliteAtContent = 0.50;
+
+    /// <summary>Length (bp) of the CENP-B box motif (Masumoto et al. 1989).</summary>
+    private const int CenpBBoxLength = 17;
+
+    /// <summary>
+    /// Detects alpha-satellite (alphoid)-specific signal in a sequence: a ~171 bp tandem periodicity
+    /// combined with AT-richness, plus a count of CENP-B box occurrences. This is alpha-satellite
+    /// SPECIFIC, in contrast to <see cref="AnalyzeCentromere"/> whose
+    /// <see cref="CentromereResult.AlphaSatelliteContent"/> is a generic tandem-repeat-density score.
+    /// </summary>
+    /// <param name="sequence">DNA sequence to test (case-insensitive).</param>
+    /// <returns>An <see cref="AlphaSatelliteResult"/>. For an empty/too-short sequence, returns a
+    /// no-signal result (not alpha-satellite, zero scores).</returns>
+    public static AlphaSatelliteResult DetectAlphaSatellite(string sequence)
+    {
+        // Need at least two monomers plus the tolerance to measure periodicity at the monomer period.
+        int minLength = AlphaSatelliteMonomerLength + MonomerPeriodTolerance + 1;
+        if (string.IsNullOrEmpty(sequence) || sequence.Length < minLength)
+            return new AlphaSatelliteResult(false, 0, 0, 0, 0);
+
+        sequence = sequence.ToUpperInvariant();
+
+        // 1) AT content (alpha satellite is AT-rich).
+        int atCount = 0;
+        int acgtCount = 0;
+        foreach (char c in sequence)
+        {
+            if (c is 'A' or 'T') { atCount++; acgtCount++; }
+            else if (c is 'C' or 'G') { acgtCount++; }
+        }
+        double atContent = acgtCount > 0 ? atCount / (double)acgtCount : 0;
+
+        // 2) Tandem periodicity: scan periods around the 171 bp monomer length and keep the best
+        //    base-level self-similarity (fraction of positions identical to the base `period` upstream).
+        double bestScore = 0;
+        int bestPeriod = 0;
+        int lowPeriod = AlphaSatelliteMonomerLength - MonomerPeriodTolerance;
+        int highPeriod = AlphaSatelliteMonomerLength + MonomerPeriodTolerance;
+
+        for (int period = lowPeriod; period <= highPeriod; period++)
+        {
+            if (period >= sequence.Length)
+                break;
+
+            int matches = 0;
+            int comparisons = sequence.Length - period;
+            for (int i = period; i < sequence.Length; i++)
+            {
+                if (sequence[i] == sequence[i - period])
+                    matches++;
+            }
+
+            double score = comparisons > 0 ? matches / (double)comparisons : 0;
+            if (score > bestScore)
+            {
+                bestScore = score;
+                bestPeriod = period;
+            }
+        }
+
+        // 3) CENP-B box occurrences.
+        int cenpBCount = CountCenpBBoxes(sequence);
+
+        bool isAlphaSatellite = bestScore >= MinPeriodicityScore && atContent > MinAlphaSatelliteAtContent;
+
+        return new AlphaSatelliteResult(isAlphaSatellite, bestScore, bestPeriod, atContent, cenpBCount);
+    }
+
+    /// <summary>
+    /// Finds the start positions (0-based) of all forward-strand CENP-B box matches in a sequence.
+    /// The CENP-B box is the 17-bp consensus 5'-YTTCGTTGGAARCGGGA-3' (Masumoto et al. 1989), where
+    /// Y = C/T and R = A/G; all other consensus positions must match exactly.
+    /// </summary>
+    /// <param name="sequence">DNA sequence to scan (case-insensitive).</param>
+    /// <returns>0-based start indices of each match, in ascending order.</returns>
+    public static IReadOnlyList<int> FindCenpBBoxes(string sequence)
+    {
+        var positions = new List<int>();
+        if (string.IsNullOrEmpty(sequence) || sequence.Length < CenpBBoxLength)
+            return positions;
+
+        string upper = sequence.ToUpperInvariant();
+        for (int i = 0; i <= upper.Length - CenpBBoxLength; i++)
+        {
+            if (MatchesIupac(upper, i, CenpBBoxConsensus))
+                positions.Add(i);
+        }
+
+        return positions;
+    }
+
+    /// <summary>Counts CENP-B box matches (see <see cref="FindCenpBBoxes"/>).</summary>
+    private static int CountCenpBBoxes(string upperSequence)
+    {
+        int count = 0;
+        for (int i = 0; i <= upperSequence.Length - CenpBBoxLength; i++)
+        {
+            if (MatchesIupac(upperSequence, i, CenpBBoxConsensus))
+                count++;
+        }
+
+        return count;
+    }
+
+    /// <summary>
+    /// Returns true if the window of <paramref name="upperSequence"/> starting at
+    /// <paramref name="start"/> matches the IUPAC <paramref name="pattern"/>. Only the ambiguity
+    /// codes occurring in the CENP-B box consensus (Y = C/T, R = A/G) are supported.
+    /// </summary>
+    private static bool MatchesIupac(string upperSequence, int start, string pattern)
+    {
+        for (int j = 0; j < pattern.Length; j++)
+        {
+            char c = upperSequence[start + j];
+            char p = pattern[j];
+            bool ok = p switch
+            {
+                'Y' => c is 'C' or 'T',
+                'R' => c is 'A' or 'G',
+                _ => c == p
+            };
+            if (!ok)
+                return false;
+        }
+
+        return true;
     }
 
     #endregion

@@ -11,6 +11,8 @@
 | Method | Class | Type | Deep Test |
 |--------|-------|------|-----------|
 | `AnalyzeCentromere(chrName, seq, windowSize)` | ChromosomeAnalyzer | Canonical | Yes |
+| `DetectAlphaSatellite(seq)` | ChromosomeAnalyzer | Canonical (alpha-satellite-specific) | Yes |
+| `FindCenpBBoxes(seq)` | ChromosomeAnalyzer | Canonical (CENP-B box scan) | Yes |
 
 ## Test Classification
 
@@ -85,3 +87,40 @@ Classification uses arm ratio (q/p) where p = short arm, q = long arm, computed 
 | Test | Status |
 |------|--------|
 | AlphaSatelliteConsensus: non-empty, length > 50, valid DNA bases only | ✅ |
+| AlphaSatelliteMonomerLength == 171 (Willard 1985 / PMC6121732) | ✅ |
+| CenpBBoxConsensus == "YTTCGTTGGAARCGGGA", length 17 (Masumoto 1989) | ✅ |
+
+## Alpha-Satellite-Specific Detection (added 2026-06-24)
+
+Tests in `ChromosomeAnalyzer_AlphaSatellite_Tests.cs`. These verify the **alpha-satellite-specific**
+methods, distinct from the generic `AnalyzeCentromere` repeat heuristic. All expected values are
+hand-derived from the synthetic fixtures and the sourced parameters in the Evidence (171-bp tandem
+period; AT > 0.50; CENP-B box `YTTCGTTGGAARCGGGA`, Y=C/T, R=A/G).
+
+### Must Tests
+
+| ID | Test Case | Expected (exact) | Source |
+|----|-----------|------------------|--------|
+| M-ALPHA-1 | Perfect tandem 171-bp AT-rich array detected | IsAlphaSatellite=true; PeriodicityScore=1.0; BestPeriod=171; AtContent=100/171 | 171 bp monomer (PMC6121732) |
+| M-ALPHA-2 | Random 4-letter sequence not detected | IsAlphaSatellite=false; PeriodicityScore<0.50 | — |
+| M-ALPHA-3 | AT-rich (~0.70) but non-repetitive not detected | AtContent>0.50; PeriodicityScore<0.50; IsAlphaSatellite=false | AT-richness alone insufficient |
+| M-ALPHA-4 | GC-rich 16-bp tandem repeat not detected | AtContent=0.0; IsAlphaSatellite=false | not AT-rich, not 171-bp period |
+| M-ALPHA-5 | Tandem array, 1 CENP-B box per 171-bp monomer × 10 copies | IsAlphaSatellite=true; BestPeriod=171; CenpBBoxCount=10 | Masumoto 1989 |
+| C-ALPHA-1 | Canonical box `CTTCGTTGGAAACGGGA` matches at index 0 | 1 hit at position 0 | Masumoto 1989 |
+| C-ALPHA-2 | All four Y/R ambiguity resolutions match | 1 hit each | IUPAC Y=C/T, R=A/G |
+| C-ALPHA-3 | Mutating a fixed consensus base prevents a match | 0 hits | exact-match requirement |
+| C-ALPHA-4 | A (≠ C/T) in the leading Y position prevents a match | 0 hits | Y ambiguity scope |
+| C-ALPHA-5 | Box embedded after 50-bp flank reported at offset 50 | 1 hit at position 50 | 0-based offset contract |
+
+### Edge Cases (alpha-satellite methods)
+
+| Case | Input | Expected | Status |
+|------|-------|----------|--------|
+| Empty / null sequence | `""` / `null` | DetectAlphaSatellite → no-signal (false, 0,0,0,0); FindCenpBBoxes → empty | ✅ |
+| Too short to measure period | 100 bp | DetectAlphaSatellite → BestPeriod=0, PeriodicityScore=0, false | ✅ |
+| 16-bp input to FindCenpBBoxes | 16 bp | empty (shorter than 17-bp box) | ✅ |
+| Mixed-case input | lower vs upper | identical result | ✅ |
+
+### Residual / out of scope
+Higher-order repeat (HOR) structure and suprachromosomal family classification are not modelled;
+`DetectAlphaSatellite` detects the monomer-level (171-bp tandem + AT + CENP-B) signal only.

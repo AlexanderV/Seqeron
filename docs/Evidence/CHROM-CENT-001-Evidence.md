@@ -100,3 +100,62 @@ The implementation uses:
 - GC content variability as discriminating feature (centromeres have low GC variability)
 - Repeat content estimation using k-mer counting (k=15)
 - Arm ratio classification matching Levan (1964) nomenclature exactly
+
+## Alpha-Satellite-Specific Detection (added 2026-06-24)
+
+`AnalyzeCentromere` is a **generic tandem-repeat-density** heuristic — its `AlphaSatelliteContent`
+is a repeat score, not an alpha-satellite-specific measurement. The methods
+`DetectAlphaSatellite` and `FindCenpBBoxes` add **alpha-satellite-specific** detection based on
+the two defining molecular signatures of human alphoid DNA, sourced below. Defaults of
+`AnalyzeCentromere` and the meaning of `AlphaSatelliteContent` are unchanged (additive).
+
+### Sources actually retrieved this session (2026-06-24)
+
+1. **Hartley G, O'Neill RJ (2019). "Alpha satellite DNA biology: Finding function in the recesses of
+   the genome." Genes (Basel).** — retrieved via PMC.
+   - URL fetched: https://pmc.ncbi.nlm.nih.gov/articles/PMC6121732/
+   - Verbatim: *"Alpha satellite DNA is composed of fundamental 171bp monomeric repeat units."*
+   - Verbatim: the CENP-B box is *"a 17-bp sequence motif (5'-T/CTCGTTGGAAA/GCGGGA-3')"*; *"the CENP-B
+     box is present in only a subset of alpha satellite monomers"* (e.g. D7Z1 has an alternating /
+     every-other-monomer pattern; pentameric arrays irregular).
+   - Verbatim: *"The individual monomers within a HOR unit have 50–70% identity …"*; monomers *"differ
+     in sequence by 10–40%."*
+
+2. **Masumoto H, Masukata H, Muro Y, Nozaki N, Okazaki T (1989). "A human centromere antigen
+   (CENP-B) interacts with a short specific sequence in alphoid DNA, a human centromeric satellite."
+   J Cell Biol 109(4):1963-1973.** — the primary CENP-B box source; canonical 17-bp consensus
+   confirmed via the secondary retrieval below.
+   - DOI/stable: https://doi.org/10.1083/jcb.109.4.1963 ; PubMed record retrieved at
+     https://pubmed.ncbi.nlm.nih.gov/1730770/ (Masumoto 1992 follow-up; confirms "the 17-bp sequence,
+     designated previously as CENP-B box").
+
+3. **Centromere-formation / CENP-B-box review (PMC4843215, "CENP-B box … occurs in a New World
+   monkey").** — retrieved via PMC; used to confirm the exact canonical 17-bp consensus string.
+   - URL fetched: https://pmc.ncbi.nlm.nih.gov/articles/PMC4843215/
+   - Verbatim canonical consensus (from Masumoto et al. 1989): **`YTTCGTTGGAARCGGGA`** (Y = C/T, R = A/G);
+     broader/looser definition `NTTCGNNNNANNCGGGN` retains the TTCG and CGGG core recognition elements.
+
+4. **Willard HF (1985); Waye JS, Willard HF (1987)** — original definition of the 171-bp alpha-satellite
+   monomer and higher-order repeat (HOR) organization; referenced and quoted via PMC6121732 (source 1)
+   and a literature search (Nature JHG; Genome Research 26:1301). Monomers are 50–70% identical and
+   arranged into HOR units that are tandemly amplified.
+
+### Derived detection parameters (all source-backed)
+
+| Parameter | Value | Source |
+|-----------|-------|--------|
+| Alpha-satellite monomer length / tandem period | 171 bp | PMC6121732 (Willard 1985; Waye & Willard 1987) |
+| Period search tolerance (±) | 5 bp | Indel/divergence allowance around the 171-bp period (monomers diverge 10–40%) |
+| Min periodicity (base-level self-similarity) to call a tandem array | 0.50 | Lower bound of the 50–70% intra-array monomer identity (PMC6121732) |
+| Min AT content (AT-richness signature) | > 0.50 | Alpha satellite described as "AT-rich 171-bp alphoid monomer" (PMC6121732); 0.5 = balance point |
+| CENP-B box length | 17 bp | Masumoto et al. 1989 |
+| CENP-B box consensus | `YTTCGTTGGAARCGGGA` (Y=C/T, R=A/G) | Masumoto et al. 1989 (PMC4843215, PMC6121732) |
+
+**No consensus monomer sequence is embedded in the implementation.** Detection uses tandem-period
+self-similarity + AT-richness + CENP-B box (IUPAC) matching, so no alphoid monomer string is invented.
+The 62-bp `AlphaSatelliteConsensus` constant predates this work and remains unused by the new methods.
+
+### Residual (out of scope)
+Higher-order repeat (HOR) structure — the chromosome-specific organization of monomers into HOR units
+(2–34 monomers) and the suprachromosomal family classification — is not modelled. `DetectAlphaSatellite`
+detects the monomer-level tandem + AT + CENP-B signal, not the HOR hierarchy.

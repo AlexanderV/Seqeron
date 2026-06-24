@@ -66,3 +66,42 @@ This confirms the criterion is **repeat density**, independent of period length 
 - **Stage B:** PASS-WITH-NOTES — code faithfully realises the declared heuristic and the Levan classification; region coords 0-based half-open; non-centromeric region not flagged. Notes: `AlphaSatelliteContent` field is a generic score (misnamed); `AlphaSatelliteConsensus` (62 bp) is unused dead code mislabeled as the ~171 bp monomer.
 - **State:** CLEAN — no algorithmic correctness defect against the declared description; the heuristic is honestly declared in the Evidence. The three notes are naming/documentation caveats, not behavioural bugs, so no code change is made (changing the misnomer/constant would be cosmetic and risk churning passing tests/snapshots without improving correctness). FullSuite not re-run end-to-end since no code changed; Centromere filter 24/24 passing.
 - **Suggested (non-blocking) follow-ups for a future session:** rename `AlphaSatelliteContent`→`RepeatScore` (or document it as a repeat score), and either replace the 62-bp `AlphaSatelliteConsensus` with a sourced 171-bp α-satellite monomer or drop the "~171 bp" claim from the test comment.
+
+---
+
+## Limitation fix (2026-06-24): alpha-satellite-specific detection added
+
+The PASS-WITH-NOTES "not alpha-satellite-specific" item (Stage A Note 1 / Stage B finding 3) is now
+addressed by an **opt-in, additive** capability. Defaults preserved: `AnalyzeCentromere` and the
+semantics of its `AlphaSatelliteContent` generic-repeat score are unchanged.
+
+### New methods (`ChromosomeAnalyzer.cs`)
+- `AlphaSatelliteResult DetectAlphaSatellite(string sequence)` — returns
+  `(IsAlphaSatellite, PeriodicityScore, BestPeriod, AtContent, CenpBBoxCount)`. It combines the two
+  defining molecular signatures of human alphoid DNA: **(1)** a ~171-bp tandem periodicity (best
+  base-level self-similarity over periods 171±5 bp) and **(2)** AT-richness (AT > 0.50), and counts
+  **(3)** CENP-B box occurrences. `IsAlphaSatellite` requires periodicity ≥ 0.50 (lower bound of the
+  50–70% intra-array monomer identity) AND AT > 0.50.
+- `IReadOnlyList<int> FindCenpBBoxes(string sequence)` — 0-based positions of the 17-bp CENP-B box
+  consensus `YTTCGTTGGAARCGGGA` (Y=C/T, R=A/G; all other positions exact).
+- New sourced constants: `AlphaSatelliteMonomerLength = 171`, `CenpBBoxConsensus = "YTTCGTTGGAARCGGGA"`.
+
+### Sources retrieved this session
+- 171-bp monomer: Willard HF (1985); Waye JS, Willard HF (1987); review PMC6121732 (*"fundamental
+  171bp monomeric repeat units"*).
+- CENP-B box 17-bp consensus `YTTCGTTGGAARCGGGA`: Masumoto H et al. (1989) J Cell Biol 109(4):1963-1973,
+  confirmed via PMC4843215 and PMC6121732.
+- No alphoid consensus monomer sequence is embedded — detection is period/AT/motif-based, so nothing
+  was fabricated.
+
+### Tests
+`ChromosomeAnalyzer_AlphaSatellite_Tests.cs` — 20 tests, all green. Positive control (perfect tandem
+171-bp AT-rich array → detected, periodicity 1.0, BestPeriod 171, AT 100/171; CENP-B count 10 over
+10 monomers), negatives (random; AT-rich-but-non-repetitive; GC-rich 16-bp tandem → all not detected),
+CENP-B box IUPAC matching incl. all four Y/R resolutions and exact-base rejection, and edge cases.
+
+### State
+CLEAN. The alpha-satellite-specific signal is now genuinely measured (the prior note is resolved as an
+opt-in addition). **Residual (honest, out of scope):** higher-order repeat (HOR) structure and
+suprachromosomal-family classification are not modelled — detection is monomer-level. Registry Status
+reset `☑`→`☐` for independent re-validation per the campaign protocol.

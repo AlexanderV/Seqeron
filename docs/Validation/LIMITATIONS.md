@@ -35,7 +35,7 @@ Every row traces to its per-unit report under `docs/Validation/reports/{UNIT}.md
 
 | Unit | Heuristic in place of |
 |------|-----------------------|
-| CHROM-CENT-001 | Centromere region detection is a **generic tandem-repeat-density** heuristic (k-mer recurrence × GC-uniformity), not alpha-satellite / 171-bp-monomer-specific; the result field `AlphaSatelliteContent` carries this generic repeat score. Levan (1964) arm-ratio classification is exact. |
+| CHROM-CENT-001 | Alpha-satellite-specific detection is now provided opt-in (`DetectAlphaSatellite`: ~171-bp tandem periodicity + AT-richness + CENP-B box `YTTCGTTGGAARCGGGA` count; `FindCenpBBoxes`) — Willard (1985) / Waye & Willard (1987) / Masumoto et al. (1989). The default `AnalyzeCentromere` (and its `AlphaSatelliteContent` generic repeat score) is unchanged, and Levan (1964) arm-ratio classification is exact. **Residual:** higher-order repeat (HOR) structure / suprachromosomal-family classification is out of scope — detection is monomer-level only. |
 | PROBE-DESIGN-001 | Generic hybridization-probe designer; the symmetric 5'/3' G·C position penalty is a declared heuristic. Chemistry-specific rules (TaqMan no-5'-G / more-C-than-G / probe-Tm+10) are out of this unit's scope. |
 | PROBE-VALID-001 | Off-target specificity via an ungapped Hamming-distance scan (not BLAST-grade); `OffTargetHits` pools on- plus off-target matches. |
 | DISORDER-REGION-001 | `RegionType` / `Confidence` labelling heuristics (0.25 enrichment, priority order, confidence rescaling) affect the **labels only**, never the region boundaries (which follow the validated TOP-IDP threshold). |
