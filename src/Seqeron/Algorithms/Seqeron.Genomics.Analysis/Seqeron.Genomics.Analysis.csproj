@@ -31,4 +31,11 @@
     <InternalsVisibleTo Include="Seqeron.Genomics.Tests" />
   </ItemGroup>
 
+  <!-- Bundled Pfam profile HMMs (CC0 / public domain; PROTMOTIF-DOMAIN-001). See Resources/README.md. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\PF00018_SH3_1.hmm" />
+    <EmbeddedResource Include="Resources\PF00595_PDZ.hmm" />
+    <EmbeddedResource Include="Resources\PF00400_WD40.hmm" />
+  </ItemGroup>
+
 </Project>

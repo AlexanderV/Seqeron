@@ -182,3 +182,72 @@
 | ~~PredictSignalPeptide_*~~ | — | **Moved to PROTMOTIF-SP-001** (not in this fixture) |
 
 **Total: 14 tests in `ProteinMotifFinder_DomainPrediction_Tests.cs` — all passing (0 failures, 0 warnings).**
+
+---
+
+## Addendum 2026-06-25 — Plan7 profile-HMM engine + bundled Pfam SH3/PDZ/WD40 (opt-in)
+
+Limitation fix: SH3 (PF00018), PDZ (PF00595) and WD40 (PF00400) — which have **no deterministic
+PROSITE pattern** — are now detectable via an **opt-in** Plan7 profile-HMM scorer. The exact
+PROSITE-pattern `FindDomains` path and its defaults are unchanged. Evidence: Evidence-doc addendum
+"Plan7 profile-HMM engine + bundled Pfam SH3/PDZ/WD40".
+
+### A.1 Canonical Methods Under Test (HMM)
+
+| Method | Class | Type | Notes |
+|--------|-------|------|-------|
+| `Plan7ProfileHmm.Parse` | Plan7ProfileHmm | Canonical | HMMER3/f parser |
+| `Plan7ProfileHmm.ViterbiScore` | Plan7ProfileHmm | Canonical | glocal log-odds Viterbi (nats) |
+| `Plan7ProfileHmm.ForwardScore` | Plan7ProfileHmm | Canonical | glocal log-odds Forward (nats) |
+| `ProteinMotifFinder.FindDomainsByHmm` | ProteinMotifFinder | Canonical | SH3/PDZ/WD40 detection |
+| `ProteinMotifFinder.ScoreDomainHmm` | ProteinMotifFinder | Canonical | one-profile bit score |
+
+### A.2 Invariants (HMM) — see algorithm doc INV-HMM-01..04
+
+### A.3 MUST Tests (HMM)
+
+| ID | Test Case | Description | Expected Outcome | Evidence |
+|----|-----------|-------------|------------------|----------|
+| H1 | Exact DP on hand-built HMM | tiny 2-match-state HMM, seq "AC", path B→M1→M2→E | Viterbi = 0.5187937934151676 nats (Within 1e-9) | Durbin §5.4 (Evidence addendum hand-HMM dataset) |
+| H2 | Forward ≥ Viterbi | same hand HMM | ForwardScore ≥ ViterbiScore | INV-HMM-01 |
+| H3 | SH3 true positive | SRC_HUMAN SH3 core vs PF00018 | bit score > 10 (≈ +60) | UniProt P12931; Pfam PF00018 |
+| H4 | PDZ true positive | DLG4_HUMAN PDZ1 (res 61–151) vs PF00595 | bit score > 10 (≈ +83) | UniProt P78352; Pfam PF00595 |
+| H5 | WD40 true positive | GBB1_HUMAN vs PF00400 | bit score > 10 (≈ +36) | UniProt P62873; Pfam PF00400 |
+| H6 | True negative rejected | low-complexity A14E14K12 vs all 3 | bit score < 0; not reported by FindDomainsByHmm | INV-HMM-02 |
+| H7 | Cross-domain specificity | SH3 core vs PF00400 < its PF00018 score | strongly negative for the wrong profile | INV-HMM-02 |
+| H8 | `.hmm` parser round-trip | parse embedded PF00018 | Name=SH3_1, Acc=PF00018.35, Length=48, GA=22.9 | HMMER3/f header; PF00018.35 |
+| H9 | Parser handles '*' | tiny HMM with a `*` on the only path | path forbidden (−∞ score) | INV-HMM-04; HMMER guide |
+| H10 | FindDomainsByHmm assigns correct family | SH3 core / PDZ1 / GBB1 each detected as own family | one matching ProteinDomain each | Pfam |
+| H11 | Determinism | re-score same input twice | identical scores | INV-HMM-03 |
+| H12 | Null/empty + unknown accession | guards | empty / ArgumentNullException / ArgumentException / FormatException | contract §3.3 |
+
+### A.4 Honest residual
+
+Exact `hmmsearch` bit-score / E-value parity is NOT reproduced (filter pipeline, null2, Gumbel
+calibration out of scope); the DP is verified exactly on the hand HMM (1e-9) and by correct
+ranking on real true/false positives. Only 3 Pfam domains bundled. This keeps the unit's status
+as an honest, partial-but-verified fix (Status remains ☐ in the root registry).
+
+### A.5 Post-implementation coverage (HMM)
+
+Canonical file: `tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindDomainsByHmm_Tests.cs`
+(17 tests). All H1–H12 implemented and ✅ green:
+
+| Case | Test method | Status |
+|------|-------------|--------|
+| H1 | ViterbiScore_HandBuiltHmm_MatchesExactDurbinDerivation | ✅ |
+| H2 | ForwardScore_HandBuiltHmm_IsAtLeastViterbiScore | ✅ |
+| H3 | ScoreDomainHmm_Sh3TruePositive_ScoresAboveThreshold | ✅ |
+| H4 | ScoreDomainHmm_PdzTruePositive_ScoresAboveThreshold | ✅ |
+| H5 | ScoreDomainHmm_Wd40TruePositive_ScoresAboveThreshold | ✅ |
+| H6 | ScoreDomainHmm_TrueNegative_ScoresBelowZeroForAllProfiles; FindDomainsByHmm_TrueNegative_ReportsNoDomain | ✅ |
+| H7 | ScoreDomainHmm_CrossDomain_TruePositiveScoresHigherOnItsOwnFamily | ✅ |
+| H8 | Parse_EmbeddedSh3Profile_ReadsHeaderFieldsExactly | ✅ |
+| H9 | ViterbiScore_StarOnOnlyPath_ForbidsPath_ReturnsNegativeInfinity | ✅ |
+| H10 | FindDomainsByHmm_Sh3TruePositive_DetectsOnlySh3; FindDomainsByHmm_Wd40TruePositive_DetectsWd40 | ✅ |
+| H11 | ScoreDomainHmm_RepeatedCalls_AreDeterministic | ✅ |
+| H12 | FindDomainsByHmm_NullOrEmpty_ReturnsEmpty; ScoreDomainHmm_NullSequence_Throws; ScoreDomainHmm_UnknownAccession_Throws; Parse_NonHmmer3Text_ThrowsFormatException | ✅ |
+
+Full unfiltered suite green (all projects Failed: 0). Branch coverage on `Plan7ProfileHmm` /
+`FindDomainsByHmm` / `ScoreDomainHmm` ≥ 80% (parser header/COMPO/`*`/node lines, Viterbi, Forward,
+both detection methods, and all guard paths exercised).

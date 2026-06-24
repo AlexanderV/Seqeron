@@ -1390,4 +1390,79 @@ public static class ProteinMotifFinder
     }
 
     #endregion
+
+    #region Profile-HMM Domain Detection (Plan7; opt-in)
+
+    // Bundled CC0 Pfam profile HMMs (see Resources/README.md). These domains have NO deterministic
+    // PROSITE pattern — they are trained profile HMMs — so they are detected with the Plan7 engine,
+    // not the regex FindDomains path. Provenance + CC0 licence documented in the Evidence artifact.
+    private static readonly (string Resource, string Name, string Accession, string Description)[] BundledProfiles =
+    {
+        ("PF00018_SH3_1.hmm", "SH3", "PF00018", "SH3 domain"),
+        ("PF00595_PDZ.hmm",   "PDZ", "PF00595", "PDZ domain"),
+        ("PF00400_WD40.hmm",  "WD40", "PF00400", "WD domain, G-beta repeat"),
+    };
+
+    private static readonly Lazy<Plan7ProfileHmm[]> LazyBundledHmms = new(() =>
+        BundledProfiles.Select(p => Plan7ProfileHmm.LoadEmbedded(p.Resource)).ToArray());
+
+    /// <summary>
+    /// Detects SH3, PDZ and WD40 domains by scoring the protein against bundled Pfam profile HMMs
+    /// (PF00018, PF00595, PF00400) with the Plan7 Viterbi log-odds algorithm.
+    /// </summary>
+    /// <remarks>
+    /// This is an <b>opt-in</b> path, independent of <see cref="FindDomains"/> (which uses exact
+    /// PROSITE patterns and is unchanged). A domain is reported when its Viterbi log-odds score in
+    /// bits is at least <paramref name="minBitScore"/>. The reported <c>Score</c> is the Viterbi
+    /// bit score; <c>Start</c>/<c>End</c> span the whole input (the glocal full-profile score is a
+    /// whole-sequence quantity, not a sub-alignment envelope — see the algorithm doc residual).
+    /// </remarks>
+    /// <param name="proteinSequence">Amino-acid sequence.</param>
+    /// <param name="minBitScore">Minimum Viterbi bit score to report a domain. Default 10 bits.</param>
+    public static IEnumerable<ProteinDomain> FindDomainsByHmm(string proteinSequence, double minBitScore = DefaultHmmMinBitScore)
+    {
+        if (string.IsNullOrEmpty(proteinSequence))
+            yield break;
+
+        var hmms = LazyBundledHmms.Value;
+        for (int p = 0; p < BundledProfiles.Length; p++)
+        {
+            double bits = ScoreBits(hmms[p], proteinSequence);
+            if (bits >= minBitScore)
+            {
+                var meta = BundledProfiles[p];
+                yield return new ProteinDomain(meta.Name, meta.Accession,
+                    0, proteinSequence.Length - 1, bits, meta.Description);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Scores a protein against a single bundled Pfam profile HMM, returning the Plan7 Viterbi
+    /// log-odds score in <b>bits</b> (natural-log score / ln 2). Opt-in; PROSITE path unchanged.
+    /// </summary>
+    /// <param name="accession">Pfam accession: "PF00018" (SH3), "PF00595" (PDZ) or "PF00400" (WD40).</param>
+    public static double ScoreDomainHmm(string proteinSequence, string accession)
+    {
+        ArgumentNullException.ThrowIfNull(proteinSequence);
+        ArgumentNullException.ThrowIfNull(accession);
+        int idx = Array.FindIndex(BundledProfiles, p => p.Accession == accession);
+        if (idx < 0)
+            throw new ArgumentException($"Unknown bundled Pfam profile: '{accession}'.", nameof(accession));
+        return ScoreBits(LazyBundledHmms.Value[idx], proteinSequence);
+    }
+
+    // ln 2, for converting natural-log (nat) log-odds scores to bits.
+    private const double LogOddsBitsPerNat = 0.69314718055994530941723212145818; // ln 2
+    // Default reporting threshold (bits) for FindDomainsByHmm.
+    private const double DefaultHmmMinBitScore = 10.0;
+
+    private static double ScoreBits(Plan7ProfileHmm hmm, string sequence)
+    {
+        double nats = hmm.ViterbiScore(sequence);
+        if (double.IsNegativeInfinity(nats)) return double.NegativeInfinity;
+        return nats / LogOddsBitsPerNat;
+    }
+
+    #endregion
 }

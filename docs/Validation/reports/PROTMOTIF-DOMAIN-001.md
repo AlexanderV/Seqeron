@@ -1,5 +1,32 @@
 # Validation Report: PROTMOTIF-DOMAIN-001 — Protein Domain Identification
 
+## Update 2026-06-25 — Plan7 profile-HMM engine + bundled Pfam SH3/PDZ/WD40 (limitation fix); Status stays ☐
+
+The data-blocked residual ("SH3/PDZ and any full Pfam HMM have no deterministic pattern") is
+now **addressed for SH3/PDZ/WD40** with a faithful, opt-in profile-HMM scorer. The exact
+PROSITE-pattern `FindDomains` path and its defaults are **unchanged**.
+
+- **Profiles bundled (CC0 / public domain):** HMMER3/f ASCII profiles `PF00018.35` (SH3_1, LENG 48),
+  `PF00595.30` (PDZ, LENG 81), `PF00400.39` (WD40, LENG 39), retrieved 2026-06-25 from the EMBL-EBI
+  InterPro web API (`.../interpro/wwwapi/entry/pfam/<ACC>/?annotation=hmm`) and embedded verbatim
+  under `Seqeron.Genomics.Analysis/Resources/`. Licence verbatim: "Pfam is freely available under
+  the Creative Commons Zero ('CC0') licence" (InterPro/Pfam docs).
+- **Engine:** new `Plan7ProfileHmm` (HMMER3/f parser + glocal Viterbi/Forward log-odds DP) per the
+  HMMER User's Guide v3.4 file format ("negative natural-log probabilities; '*' = zero") and the
+  Durbin et al. (1998) §5.4 / Eddy (2011) Plan7 recurrences. New opt-in methods
+  `ProteinMotifFinder.FindDomainsByHmm(seq, minBitScore)` and `ScoreDomainHmm(seq, accession)`.
+- **Exact DP verification:** a hand-built 2-match-state HMM scores "AC" via B→M1→M2→E to
+  **0.5187937934151676 nats** = ln(0.7/0.6)+ln 0.9+ln(0.8/0.4)+ln 0.8; engine matches to 1e-9 (test H1).
+- **Real detection (ranking):** SRC_HUMAN SH3 core ≈ +60 bits vs PF00018; DLG4_HUMAN PDZ1 (res 61–151)
+  ≈ +83 bits vs PF00595; GBB1_HUMAN ≈ +36 bits vs PF00400; a low-complexity negative is strongly
+  negative for all three and reported by none. Cross-domain specificity confirmed (SH3 core vs
+  PF00400 ≈ −25 bits). 17 new tests (H1–H12), full suite green.
+- **Honest residual:** exact `hmmsearch` bit-score / E-value parity (MSV/bias filters, null2,
+  Gumbel/exponential calibration) and the full Pfam library beyond these 3 domains are out of scope.
+- Status stays **☐** in the root registry (independent re-validation; this is not a ☑ self-claim).
+
+---
+
 - **Validated:** 2026-06-24   **Area:** ProteinMotif
 - **Canonical method(s):** `ProteinMotifFinder.FindDomains(string)`
 - **Source:** `src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/ProteinMotifFinder.cs` (Domain Finding region)

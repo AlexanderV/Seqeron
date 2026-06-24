@@ -275,6 +275,93 @@ EBI InterPro profile entries https://www.ebi.ac.uk/interpro/entry/profile/PS5000
 
 ---
 
+## Addendum 2026-06-25 — Plan7 profile-HMM engine + bundled Pfam SH3/PDZ/WD40 (limitation fix)
+
+This addendum records the evidence for the **opt-in** Plan7 profile-HMM scorer
+(`Plan7ProfileHmm` + `ProteinMotifFinder.FindDomainsByHmm`/`ScoreDomainHmm`) that detects the
+SH3, PDZ and WD40 domains, which have **no deterministic PROSITE pattern** (they are trained
+profile HMMs). The exact-PROSITE-pattern `FindDomains` path and its defaults are unchanged.
+
+### Online Source: EMBL-EBI InterPro / Pfam profile HMMs (data)
+
+**Retrieved (how):** `curl https://www.ebi.ac.uk/interpro/wwwapi/entry/pfam/PF00018/?annotation=hmm`
+(and PF00595, PF00400) on 2026-06-25 — gzip of the HMMER3/f ASCII profile, decompressed verbatim.
+**Authority rank:** 5 (well-maintained bioinformatics database) for the data; format/algorithm below.
+
+1. **Profiles obtained:** `PF00018.35` (SH3_1, LENG 48), `PF00595.30` (PDZ, LENG 81),
+   `PF00400.39` (WD40, LENG 39). All `HMMER3/f [3.3 | Nov 2019]`, `ALPH amino`, with `GA`/`TC`/`NC`
+   cutoffs, `STATS LOCAL MSV/VITERBI/FORWARD` lines, `COMPO`, and per-node M/I/D emissions+transitions.
+   Header of PF00018: `NAME SH3_1`, `ACC PF00018.35`, `LENG 48`, `GA 22.9 22.9;`.
+2. **Licence — CC0 (public domain), verbatim:** "Pfam is freely available under the Creative Commons
+   Zero ('CC0') licence." — InterPro/Pfam documentation
+   (https://interpro-documentation.readthedocs.io/en/latest/pfam.html, retrieved 2026-06-25).
+   CC0 places the data in the public domain → freely redistributable; the three `.hmm` files are
+   embedded as-is under `Seqeron.Genomics.Analysis/Resources/` (see that folder's README.md).
+
+### Online Source: HMMER User's Guide v3.4 (Eddy, Aug 2023) — file format + pipeline
+
+**Retrieved (how):** `curl http://eddylab.org/software/hmmer/Userguide.pdf` on 2026-06-25; read
+pp. 210–215 ("HMMER profile HMM files") and pp. 57–62 (pipeline / null model).
+**Authority rank:** 2 (canonical project specification).
+
+1. **Score storage (verbatim):** "All probability parameters are stored as negative natural log
+   probabilities with five digits of precision... a probability of 0.25 is stored as
+   −log 0.25 = 1.38629. The special case of a zero probability is stored as '*'."
+2. **Alphabet (verbatim):** for `ALPH amino`, "the alphabet size K is set to 20 and the symbol
+   alphabet to 'ACDEFGHIKLMNPQRSTVWY' (alphabetic order)".
+3. **Node layout:** match emission line (node #, K emissions, MAP/CONS/RF/MM/CS), insert emission
+   line (K), state transition line (7: `Mk→Mk+1, Mk→Ik, Mk→Dk+1, Ik→Mk+1, Ik→Ik, Dk→Mk+1, Dk→Dk+1`).
+   The two lines after `COMPO` are the BEGIN node (`B→M1, B→I0, B→D1, I0→M1, I0→I0, 0.0, *`). The
+   single line after the `HMM` tag (the transition header) is always skipped by the parser.
+4. **Bit score / null model (verbatim):** "A HMMER bit score is the log of the ratio of the
+   sequence's probability according to the profile... over the null model probability." The null
+   model is a one-state i.i.d. background; emission probabilities are turned into odds ratios.
+
+### Online Source: Durbin et al. (1998) §5.4 — Viterbi/Forward recurrences
+
+**Retrieved (how):** Stanford CS273 Lecture 7 PDF
+(https://web.stanford.edu/class/cs273/scribing/scribe7.pdf), read pp. 10–12, reproducing the
+profile-HMM Viterbi equations verbatim. **Authority rank:** 1 (textbook, via course notes).
+
+1. **Viterbi recurrence (verbatim):**
+   `V^M_j(i) = log(e_Mj(x_i)/q_xi) + max{ V^M_{j-1}(i-1)+log a_{M(j-1)M(j)}, V^I_{j-1}(i-1)+log a_{I(j-1)M(j)}, V^D_{j-1}(i-1)+log a_{D(j-1)M(j)} }`;
+   `V^I_j(i) = log(e_Ij(x_i)/q_xi) + max{ V^M_j(i-1)+log a_{M(j)I(j)}, V^I_j(i-1)+log a_{I(j)I(j)}, V^D_j(i-1)+log a_{D(j)I(j)} }`;
+   `V^D_j(i) = max{ V^M_{j-1}(i)+log a_{M(j-1)D(j)}, V^I_{j-1}(i)+log a_{I(j-1)D(j)}, V^D_{j-1}(i)+log a_{D(j-1)D(j)} }`.
+   Insert emissions equal the background, so insert log-odds ≈ 0. Forward = same with max → log-sum-exp.
+
+### Test Dataset — hand-built HMM (exact DP pin)
+
+| Parameter | Value |
+|-----------|-------|
+| Alphabet | {A,C} (others negligible) |
+| Background q | A=0.6, C=0.4 |
+| M1 emissions | A=0.7, C=0.3 |
+| M2 emissions | A=0.2, C=0.8 |
+| Transitions | B→M1=0.9, M1→M2=0.8 |
+| Sequence | "AC", path B→M1(A)→M2(C)→E |
+| **Exact Viterbi (nats)** | **0.5187937934151676** = ln(0.7/0.6)+ln 0.9+ln(0.8/0.4)+ln 0.8 |
+
+### Test Dataset — real true positives (UniProt, retrieved 2026-06-25)
+
+| Domain | Source region | Accession | Observed Viterbi (bits) |
+|--------|---------------|-----------|--------------------------|
+| SH3 | SRC_HUMAN P12931 SH3 core `TFVALYDYE…GYIPSNYVAP` | PF00018 | ≈ +60 (≫ 10) |
+| PDZ | DLG4_HUMAN P78352 PDZ1 (res 61–151) | PF00595 | ≈ +83 (≫ 10) |
+| WD40 | GBB1_HUMAN P62873 (full β-propeller) | PF00400 | ≈ +36 (≫ 10) |
+| negative | low-complexity `A14E14K12` | all three | strongly negative (rejected) |
+
+Cross-domain specificity confirmed: SH3 core vs PF00400 ≈ −25 bits; PDZ1 vs PF00018 ≈ −35 bits.
+
+### Honest residual
+
+Exact `hmmsearch` bit-score / E-value parity is **not** reproduced: the MSV/bias/Viterbi/Forward
+filter pipeline, null2 biased-composition correction, and Gumbel/exponential calibration
+(`STATS LOCAL`) are out of scope. The Plan7 Viterbi/Forward log-odds is verified exactly on the
+hand-built HMM (1e-9) and verified by correct ranking (true positive ≫ threshold ≫ true negative)
+on the three real domains. Only these 3 Pfam domains are bundled; the full Pfam library is not.
+
+---
+
 ## References
 
 1. von Heijne G (1986). Signal sequences. The limits of variation. J Mol Biol 184(1):99-105. https://doi.org/10.1016/0022-2836(85)90046-4
@@ -289,3 +376,8 @@ EBI InterPro profile entries https://www.ebi.ac.uk/interpro/entry/profile/PS5000
 10. Owji H et al. (2018). A comprehensive review of signal peptides. Eur J Cell Biol 97(6):422-441. https://doi.org/10.1016/j.ejcb.2018.06.003
 11. von Heijne G (1986). A new method for predicting signal sequence cleavage sites. Nucl Acids Res 14(11):4683–4690. https://doi.org/10.1093/nar/14.11.4683
 12. von Heijne G (1984). How signal sequences maintain cleavage specificity. J Mol Biol 173(2):243–251. https://doi.org/10.1016/0022-2836(84)90192-x
+13. Mistry J et al. (2021). Pfam: The protein families database in 2021. Nucleic Acids Res 49:D412–D419. https://doi.org/10.1093/nar/gkaa913
+14. Eddy SR & the HMMER team (2023). HMMER User's Guide, v3.4. http://eddylab.org/software/hmmer/Userguide.pdf
+15. Durbin R, Eddy SR, Krogh A, Mitchison G (1998). Biological Sequence Analysis, Ch. 5.4. Cambridge Univ Press; recurrences reproduced in Stanford CS273 Lecture 7: https://web.stanford.edu/class/cs273/scribing/scribe7.pdf
+16. Eddy SR (2011). Accelerated Profile HMM Searches. PLoS Comput Biol 7:e1002195. https://doi.org/10.1371/journal.pcbi.1002195
+17. Pfam licence (CC0): https://interpro-documentation.readthedocs.io/en/latest/pfam.html
