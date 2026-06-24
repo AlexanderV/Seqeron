@@ -125,7 +125,84 @@ Snapshot test in `MetagenomicsSnapshotTests.cs` remains independent.
 
 ---
 
-**Specification Version:** 2.0
+# Addendum (2026-06-24): TETRA z-score tetranucleotide signature (opt-in)
+
+Covers the new opt-in methods `CalculateTetranucleotideZScores` and
+`TetranucleotideZScoreCorrelation`. The default `BinContigs` raw-frequency path is unchanged.
+
+## 1. Evidence Summary
+
+### 1.1 Authoritative Sources
+
+| # | Source | Authority Rank | DOI or URL | Accessed |
+|---|--------|---------------|------------|----------|
+| 1 | Teeling et al. 2004, TETRA (BMC Bioinformatics 5:163) | 1 | https://pmc.ncbi.nlm.nih.gov/articles/PMC529438/ | 2026-06-24 |
+| 2 | Teeling et al. 2004, Environ Microbiol 6(9):938–947 | 1 | https://doi.org/10.1111/j.1462-2920.2004.00624.x | 2026-06-24 |
+| 3 | Schbath 1997, J Comput Biol 4(2):189–192 (variance) | 1 | https://pubmed.ncbi.nlm.nih.gov/9228617/ | 2026-06-24 |
+| 4 | Bohlin & Skjerve 2009 (PLOS ONE, expected-count form) | 1 | https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0008113 | 2026-06-24 |
+
+### 1.2 Key Evidence Points
+
+1. Expected count `E(n1n2n3n4) = N(n1n2n3)·N(n2n3n4)/N(n2n3)` (maximal-order Markov) — source 1, 4.
+2. Variance `var = E·[N(n2n3)−N(n1n2n3)][N(n2n3)−N(n2n3n4)]/N(n2n3)²`; z `=(N−E)/√var` — source 1, 3.
+3. Sequence is extended by its reverse complement; signatures compared by Pearson correlation — source 1.
+
+## 2. Canonical Methods Under Test
+
+| Method | Class | Type | Notes |
+|--------|-------|------|-------|
+| `CalculateTetranucleotideZScores(string)` | MetagenomicsAnalyzer | Canonical | 256-component TETRA z-score signature |
+| `TetranucleotideZScoreCorrelation(string,string)` | MetagenomicsAnalyzer | Canonical | Pearson r of two z-score vectors |
+
+## 3. Invariants
+
+| ID | Invariant | Verifiable | Evidence |
+|----|-----------|------------|----------|
+| INV-Z1 | Signature has exactly 256 components | Yes | source 1 (4^4 tetramers) |
+| INV-Z2 | Self-correlation = 1.0 | Yes | Pearson identity |
+| INV-Z3 | z=0 when N(n2n3)=0 or var≤0 | Yes | formula domain (source 1, 3) |
+
+## 4. Test Cases
+
+### 4.1 MUST Tests
+
+| ID | Test Case | Description | Expected Outcome | Evidence |
+|----|-----------|-------------|------------------|----------|
+| M-Z1 | Hand-derived z(ACGT) | `ACGTACGTGGCC`: E=3.2, var=0.128 | z = √5 = 2.2360679774997896 (±1e-10) | §1.2 pt 1–2 + Evidence dataset |
+| M-Z2 | 256 components | any sequence | `Count==256`, contains AAAA/ACGT/TTTT | source 1 |
+| M-Z3 | Absent middle dinucleotide | `AAAAAAAA`, tetramer ACGT (N(CG)=0) | z(ACGT)=0 | INV-Z3 |
+| M-Z4 | Null/empty/single-base | null, "", "A" | all-zero 256-vector | corner cases |
+| M-Z5 | Non-ACGT / case filtering | `acgtACGTGGCC` vs `ACGTACGTGGCC` | identical z(ACGT) | source 1 (ACGT words) |
+| M-Z6 | Self-correlation | corr(s,s) | 1.0 (±1e-10) | INV-Z2 |
+| M-Z7 | Similar > dissimilar | s1~s2 vs s1 vs AT-homopolymer | r_similar > r_dissimilar | source 1 (binning basis) |
+
+### 4.2 SHOULD Tests
+
+| ID | Test Case | Description | Expected Outcome | Notes |
+|----|-----------|-------------|------------------|-------|
+| M-Z8 | Symmetry | corr(a,b)=corr(b,a) | equal (±1e-12) | Pearson symmetry |
+| S-Z1 | Degenerate vs empty | corr(s,"") | 0, not NaN | zero-variance guard |
+
+## 5. Audit / Coverage
+
+- **Canonical file:** `tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_TetranucleotideZScore_Tests.cs`
+- All MUST/SHOULD cases (M-Z1..M-Z8, S-Z1) implemented and ✅ Covered (9 tests). Remaining ❌/⚠ = 0.
+
+## 6. Assumption Register
+
+| # | Assumption | Used In |
+|---|-----------|---------|
+| 1 | Counting on the concatenated RC-extended strand reproduces the published E/var | M-Z1 |
+
+## 7. Open Questions / Decisions
+
+1. CheckM single-copy-marker-gene completeness/contamination remains an **honest residual** — the
+   marker HMM sets + reference tree are a large trained database, not cleanly retrievable as
+   plaintext; not implemented (see Evidence addendum point 10).
+
+---
+
+**Specification Version:** 3.0
 **Created:** 2026-02-04
-**Updated:** 2026-03-09
-**Status:** Complete — all tests implemented, strengthened, and verified
+**Updated:** 2026-06-24 (TETRA z-score signature added; CheckM marker QC left as residual)
+**Status:** Complete — z-score signature implemented, evidence-based, and verified

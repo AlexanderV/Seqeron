@@ -120,3 +120,33 @@ Evidence — honest scope, not a defect.
 - **Follow-up (optional, not a defect):** for MetaBAT/CheckM-grade fidelity, add z-score
   normalisation (Markov expected frequencies) to TNF and replace the length/GC proxies with
   single-copy-marker-gene completeness/contamination.
+
+## Update 2026-06-24 — z-score-normalised TETRA signature added (opt-in)
+
+The first follow-up above is now implemented as an **opt-in** API (the default raw-frequency
+binning path is unchanged):
+
+- **New methods** (`MetagenomicsAnalyzer.cs`):
+  `CalculateTetranucleotideZScores(string)` → 256-component TETRA z-score signature;
+  `TetranucleotideZScoreCorrelation(string, string)` → Pearson correlation of two z-score vectors.
+- **Method realised verbatim from Teeling et al. (2004) / Schbath (1997):** reverse-complement
+  strand extension; maximal-order (2nd-order) Markov expected count
+  `E(n1n2n3n4) = N(n1n2n3)·N(n2n3n4)/N(n2n3)`; Schbath variance
+  `var = E·[N(n2n3)−N(n1n2n3)][N(n2n3)−N(n2n3n4)]/N(n2n3)²`; `z = (N−E)/√var`; signatures compared
+  by Pearson correlation of the 256-component z-score vectors.
+- **Evidence retrieved this session:** TETRA BMC paper (PMC529438), the expected-count form from an
+  open-access reproduction (PLOS ONE pone.0008113), the full z/variance form from independent
+  search + a reference implementation, and the Schbath 1997 primary. URLs recorded in the Evidence
+  addendum.
+- **Hand-derived worked example asserted exactly:** for `ACGTACGTGGCC` (RC-extended to 24 nt),
+  N(ACGT)=4, N(ACG)=4, N(CGT)=4, N(CG)=5 ⇒ E=3.2, var=0.128, **z(ACGT)=√5=2.2360679774997896**
+  (asserted `Within(1e-10)`). Also asserted: self-correlation = 1.0; similar > dissimilar; z=0 when
+  N(n2n3)=0; symmetry; degenerate→0 (not NaN). 9 tests in
+  `MetagenomicsAnalyzer_TetranucleotideZScore_Tests.cs`.
+- **CheckM single-copy-marker-gene QC — HONEST RESIDUAL (not implemented):** the CheckM
+  lineage-specific Pfam/TIGRFAM HMM marker sets + reference genome tree are a large trained database
+  (`checkm_data`, ~GB) with no clean plaintext source; per the no-fabrication rule the length-ratio
+  completeness and GC-stddev contamination proxies are retained and the marker-gene QC is left as a
+  declared residual. Use CheckM for marker-gene-based MAG quality.
+- **Registry:** META-BIN-001 Status reset `☑`→`☐` in the root `ALGORITHMS_CHECKLIST_V2.md` for the
+  re-validation pass (Completed 221→220, Not Started 13→14).

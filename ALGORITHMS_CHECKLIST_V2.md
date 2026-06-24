@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 221 |
+| **Completed** | 220 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 13 |
+| **Not Started** | 14 |
 
 ---
 
@@ -78,7 +78,7 @@
 | ☑ | META-PROF-001 | Metagenomics | 1 | Wikipedia (Metagenomics, Relative Abundance), Shannon (1948), Simpson (1949), Segata et al. (2012) | [META-PROF-001.md](TestSpecs/META-PROF-001.md) | MetagenomicsAnalyzer_TaxonomicProfile_Tests.cs |
 | ☑ | META-ALPHA-001 | Metagenomics | 1 | Wikipedia (Diversity Index, Alpha Diversity), Shannon (1948), Simpson (1949), Hill (1973), Chao (1984) | [META-ALPHA-001.md](TestSpecs/META-ALPHA-001.md) | MetagenomicsAnalyzer_AlphaDiversity_Tests.cs |
 | ☑ | META-BETA-001 | Metagenomics | 1 | Wikipedia (Beta diversity, Bray-Curtis dissimilarity, Jaccard index), Whittaker (1960), Bray & Curtis (1957), Jaccard (1901) | [META-BETA-001.md](TestSpecs/META-BETA-001.md) | MetagenomicsAnalyzer_BetaDiversity_Tests.cs |
-| ☑ | META-BIN-001 | Metagenomics | 1 | Wikipedia (Binning metagenomics), Teeling (2004), Parks et al. (2014), Maguire et al. (2020) | [META-BIN-001.md](TestSpecs/META-BIN-001.md) | MetagenomicsAnalyzer_GenomeBinning_Tests.cs |
+| ☐ | META-BIN-001 | Metagenomics | 1 | Wikipedia (Binning metagenomics), Teeling (2004), Parks et al. (2014), Maguire et al. (2020) | [META-BIN-001.md](TestSpecs/META-BIN-001.md) | MetagenomicsAnalyzer_GenomeBinning_Tests.cs |
 | ☑ | CODON-OPT-001 | Codon | 1 | Wikipedia (Codon usage bias, CAI), Sharp & Li (1987), Plotkin & Kudla (2011) | [CODON-OPT-001.md](TestSpecs/CODON-OPT-001.md) | CodonOptimizer_OptimizeSequence_Tests.cs |
 | ☐ | CODON-CAI-001 | Codon | 1 | Wikipedia (Codon Adaptation Index), Sharp & Li (1987), Jansen et al. (2003) | [CODON-CAI-001.md](TestSpecs/CODON-CAI-001.md) | CodonOptimizer_CAI_Tests.cs |
 | ☐ | CODON-RARE-001 | Codon | 1 | Kazusa, Shu et al. (2006), Sharp & Li (1987), Clarke & Clark (2008), Chartier et al. (2012) | [CODON-RARE-001.md](TestSpecs/CODON-RARE-001.md) | CodonOptimizer_FindRareCodons_Tests.cs, CodonOptimizer_RareCodonClusters_Tests.cs |

@@ -634,6 +634,213 @@ public static class MetagenomicsAnalyzer
 
     #region Genome Binning
 
+    // Number of distinct tetranucleotides over the {A,C,G,T} alphabet (4^4),
+    // the full TETRA signature dimensionality (Teeling et al. 2004).
+    private const int TetranucleotideAlphabetSize = 256;
+
+    /// <summary>
+    /// Computes the TETRA z-score tetranucleotide signature of a DNA sequence
+    /// (Teeling et al. 2004, BMC Bioinformatics 5:163; Environ Microbiol 6(9):938–947).
+    /// <para>
+    /// This is the <b>opt-in, Markov-corrected</b> signature: for each of the 256 tetranucleotides
+    /// the observed count is compared to the value <b>predicted by a maximal-order (2nd-order)
+    /// Markov model</b> from the constituent di-/trinucleotide composition, and the divergence is
+    /// expressed as a z-score using the Schbath (1997) variance approximation:
+    /// </para>
+    /// <list type="bullet">
+    /// <item><description>Expected count E(n1n2n3n4) = N(n1n2n3)·N(n2n3n4) / N(n2n3).</description></item>
+    /// <item><description>Variance var(n1n2n3n4) = E·[N(n2n3)−N(n1n2n3)]·[N(n2n3)−N(n2n3n4)] / N(n2n3)².</description></item>
+    /// <item><description>z(n1n2n3n4) = (N(n1n2n3n4) − E) / √var.</description></item>
+    /// </list>
+    /// <para>
+    /// As in TETRA, the sequence is first extended by its reverse complement so the signature is
+    /// strand-symmetric; counts are taken over overlapping words on the extended strand. A
+    /// tetranucleotide whose denominator N(n2n3)=0 or whose variance ≤0 receives z=0 (no evidence
+    /// of over-/under-representation). The 256-component z-score vectors of two sequences are then
+    /// compared with <see cref="TetranucleotideZScoreCorrelation"/> (Pearson correlation).
+    /// </para>
+    /// <para>
+    /// This does <b>not</b> replace the default raw-frequency path used internally by
+    /// <see cref="BinContigs"/>; it is provided for callers who want the full TETRA z-score signature.
+    /// </para>
+    /// </summary>
+    /// <param name="sequence">DNA sequence (case-insensitive; non-ACGT characters are skipped).</param>
+    /// <returns>
+    /// A 256-entry map keyed by the ACGT tetranucleotide, with the Teeling z-score for each.
+    /// Because of the reverse-complement extension, an input of ≥2 usable ACGT bases already yields
+    /// a ≥4-nt extended strand and a non-trivial signature; null, empty, or single-base input
+    /// produces an all-zero 256-entry map.
+    /// </returns>
+    public static IReadOnlyDictionary<string, double> CalculateTetranucleotideZScores(string sequence)
+    {
+        var z = new Dictionary<string, double>(TetranucleotideAlphabetSize);
+
+        // TETRA extends the sequence by its reverse complement to make the signature
+        // strand-symmetric (compensates leading/lagging-strand tetranucleotide skew).
+        string extended = ExtendWithReverseComplement(sequence);
+
+        var n4 = new Dictionary<string, int>();
+        var n3 = new Dictionary<string, int>();
+        var n2 = new Dictionary<string, int>();
+        CountOligonucleotides(extended, n4, n3, n2);
+
+        foreach (string tetra in EnumerateTetranucleotides())
+        {
+            z[tetra] = TetranucleotideZScore(tetra, n4, n3, n2);
+        }
+
+        return z;
+    }
+
+    /// <summary>
+    /// Pearson correlation of the TETRA z-score signatures of two DNA sequences
+    /// (Teeling et al. 2004) — the tetranucleotide correlation coefficient.
+    /// Identical signatures correlate to 1.0; unrelated compositions correlate near 0.
+    /// </summary>
+    /// <param name="sequenceA">First DNA sequence.</param>
+    /// <param name="sequenceB">Second DNA sequence.</param>
+    /// <returns>
+    /// Pearson r ∈ [−1, 1] over the aligned 256-component z-score vectors; 0 when either vector
+    /// has zero variance (no usable signal).
+    /// </returns>
+    public static double TetranucleotideZScoreCorrelation(string sequenceA, string sequenceB)
+    {
+        var za = CalculateTetranucleotideZScores(sequenceA);
+        var zb = CalculateTetranucleotideZScores(sequenceB);
+
+        // Both maps share the same fixed 256-key ordering (EnumerateTetranucleotides),
+        // so iterating one key set aligns the vectors component-wise.
+        double[] va = za.Values.ToArray();
+        double[] vb = EnumerateTetranucleotides().Select(t => zb[t]).ToArray();
+
+        return PearsonCorrelation(va, vb);
+    }
+
+    /// <summary>
+    /// Teeling/Schbath z-score for one tetranucleotide from the maximal-order (2nd-order) Markov
+    /// expected count and its variance approximation. Returns 0 when the denominator N(n2n3)=0
+    /// or the variance is non-positive (no evidence of over-/under-representation).
+    /// </summary>
+    private static double TetranucleotideZScore(
+        string tetra,
+        Dictionary<string, int> n4,
+        Dictionary<string, int> n3,
+        Dictionary<string, int> n2)
+    {
+        int observed = n4.GetValueOrDefault(tetra, 0);
+        int prefix3 = n3.GetValueOrDefault(tetra.Substring(0, 3), 0);   // N(n1n2n3)
+        int suffix3 = n3.GetValueOrDefault(tetra.Substring(1, 3), 0);   // N(n2n3n4)
+        int middle2 = n2.GetValueOrDefault(tetra.Substring(1, 2), 0);   // N(n2n3)
+
+        if (middle2 == 0)
+            return 0.0;
+
+        // Expected count: E(n1n2n3n4) = N(n1n2n3)·N(n2n3n4) / N(n2n3)   (Teeling 2004)
+        double expected = (double)prefix3 * suffix3 / middle2;
+
+        // Variance (Schbath 1997 approximation):
+        // var = E·[N(n2n3)−N(n1n2n3)]·[N(n2n3)−N(n2n3n4)] / N(n2n3)²
+        double variance = expected
+            * (middle2 - prefix3) * (double)(middle2 - suffix3)
+            / ((double)middle2 * middle2);
+
+        if (variance <= 0)
+            return 0.0;
+
+        // z(n1n2n3n4) = (N(n1n2n3n4) − E) / √var
+        return (observed - expected) / Math.Sqrt(variance);
+    }
+
+    /// <summary>
+    /// Appends the reverse complement of the ACGT-filtered, upper-cased sequence (TETRA
+    /// strand-symmetric extension). Non-ACGT characters are dropped before extension.
+    /// </summary>
+    private static string ExtendWithReverseComplement(string sequence)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            return string.Empty;
+
+        var forward = new StringBuilder(sequence.Length);
+        foreach (char c in sequence)
+        {
+            char u = char.ToUpperInvariant(c);
+            if (u is 'A' or 'C' or 'G' or 'T')
+                forward.Append(u);
+        }
+
+        var rc = new StringBuilder(forward.Length);
+        for (int i = forward.Length - 1; i >= 0; i--)
+        {
+            rc.Append(forward[i] switch
+            {
+                'A' => 'T',
+                'T' => 'A',
+                'C' => 'G',
+                'G' => 'C',
+                _ => 'N'
+            });
+        }
+
+        return forward.Append(rc).ToString();
+    }
+
+    /// <summary>
+    /// Counts overlapping di-, tri-, and tetranucleotide words over an ACGT-only string in a
+    /// single pass. Words containing any non-ACGT character are skipped.
+    /// </summary>
+    private static void CountOligonucleotides(
+        string s,
+        Dictionary<string, int> n4,
+        Dictionary<string, int> n3,
+        Dictionary<string, int> n2)
+    {
+        for (int i = 0; i + 2 <= s.Length; i++)
+        {
+            if (i + 2 <= s.Length) Increment(n2, s.Substring(i, 2));
+            if (i + 3 <= s.Length) Increment(n3, s.Substring(i, 3));
+            if (i + 4 <= s.Length) Increment(n4, s.Substring(i, 4));
+        }
+    }
+
+    private static void Increment(Dictionary<string, int> map, string key)
+    {
+        if (!key.All(c => c is 'A' or 'C' or 'G' or 'T'))
+            return;
+        map[key] = map.GetValueOrDefault(key, 0) + 1;
+    }
+
+    private static readonly char[] DnaBases = { 'A', 'C', 'G', 'T' };
+
+    /// <summary>Enumerates all 256 ACGT tetranucleotides in a fixed lexicographic order.</summary>
+    private static IEnumerable<string> EnumerateTetranucleotides()
+    {
+        foreach (char a in DnaBases)
+            foreach (char b in DnaBases)
+                foreach (char c in DnaBases)
+                    foreach (char d in DnaBases)
+                        yield return new string(new[] { a, b, c, d });
+    }
+
+    /// <summary>Pearson product-moment correlation of two equal-length vectors; 0 if either is constant.</summary>
+    private static double PearsonCorrelation(double[] a, double[] b)
+    {
+        if (a.Length == 0 || a.Length != b.Length)
+            return 0.0;
+
+        double meanA = a.Average(), meanB = b.Average();
+        double sumAB = 0, sumA2 = 0, sumB2 = 0;
+        for (int i = 0; i < a.Length; i++)
+        {
+            double da = a[i] - meanA, db = b[i] - meanB;
+            sumAB += da * db;
+            sumA2 += da * da;
+            sumB2 += db * db;
+        }
+
+        double denom = Math.Sqrt(sumA2) * Math.Sqrt(sumB2);
+        return denom > 0 ? sumAB / denom : 0.0;
+    }
+
     /// <summary>
     /// Bins contigs using k-means clustering on compositional and coverage features.
     /// Features: GC content, tetranucleotide frequency (per TETRA/Teeling 2004), coverage.
