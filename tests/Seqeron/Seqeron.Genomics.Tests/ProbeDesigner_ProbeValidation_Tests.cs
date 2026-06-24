@@ -477,4 +477,197 @@ public class ProbeDesigner_ProbeValidation_Tests
     }
 
     #endregion
+
+    #region ScanOffTargetsGapped - Gapped (Smith-Waterman) off-target scan (Must)
+
+    // PROBE-VALID-001 — gapped off-target scan + on/off-target separation
+    // Evidence: docs/Evidence/PROBE-VALID-001-Evidence.md
+    // Sources:
+    //   Smith TF, Waterman MS (1981) J Mol Biol 147(1):195-197 (local-alignment recurrence)
+    //   Altschul SF et al. (1990) J Mol Biol 215(3):403-410 (gapped local alignment finds indels the ungapped scan misses)
+    //   Kane MD et al. (2000) Nucleic Acids Res 28(22):4552-4557 (>75% identity over the probe → off-target)
+
+    // Probe used across the gapped-scan tests.
+    private const string GappedProbe = "ACGTACGTACGT"; // 12 nt
+
+    // Reference containing the EXACT on-target at start 5 and an indel off-target
+    // ("ACGTACTGTACGT" = probe with a 'T' inserted after position 6) at start 27.
+    private static readonly string[] IndelOffTargetReference = new[]
+    {
+        "NNNNN" + GappedProbe + "NNNNNNNNNN" + "ACGTACTGTACGT" + "NNNNN"
+    };
+
+    [Test]
+    public void ScanOffTargetsGapped_IndelOffTarget_FoundByGappedScanMissedByHammingScan()
+    {
+        // MG1: An off-target reachable ONLY through a single insertion is found by the gapped
+        // scan but missed by the ungapped Hamming scan (Altschul 1990: gapped finds indels).
+        // The indel region "ACGTACTGTACGT" has >=6 mismatches in every fixed 12-window, so the
+        // default Hamming scan (maxMismatches=3) cannot reach it; only the exact on-target at 5.
+        var hamming = ProbeDesigner.ValidateProbe(GappedProbe, IndelOffTargetReference, maxMismatches: 3);
+        var gapped = ProbeDesigner.ScanOffTargetsGapped(GappedProbe, IndelOffTargetReference);
+
+        Assert.Multiple(() =>
+        {
+            // Ungapped Hamming scan: only the exact on-target match (pooled into OffTargetHits).
+            Assert.That(hamming.OffTargetHits, Is.EqualTo(1),
+                "Ungapped Hamming scan (maxMismatches=3) finds only the exact on-target; the indel site has >=6 mismatches per window");
+
+            // Gapped scan: 1 on-target (exact, no gap) + 1 genuine indel off-target.
+            Assert.That(gapped.OnTargetHits, Has.Count.EqualTo(1),
+                "Gapped scan must identify exactly one intended on-target (the perfect exact match)");
+            Assert.That(gapped.OffTargetCount, Is.EqualTo(1),
+                "Gapped scan must find the indel off-target that the Hamming scan misses");
+            Assert.That(gapped.OffTargetHits[0].HasGaps, Is.True,
+                "The off-target is reachable only via an insertion → its alignment contains a gap");
+        });
+    }
+
+    [Test]
+    public void ScanOffTargetsGapped_OnTargetExactMatch_NotCountedAsOffTarget()
+    {
+        // MG2: The intended on-target (perfect, ungapped, full-coverage exact match) is reported
+        // separately and excluded from the off-target count — fixing the OffTargetHits pooling.
+        var gapped = ProbeDesigner.ScanOffTargetsGapped(GappedProbe, IndelOffTargetReference);
+
+        var onTarget = gapped.OnTargetHits[0];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(onTarget.Start, Is.EqualTo(5),
+                "On-target exact match begins at reference position 5");
+            Assert.That(onTarget.End, Is.EqualTo(16),
+                "On-target exact 12-mer match ends (inclusive) at reference position 16");
+            Assert.That(onTarget.Identity, Is.EqualTo(1.0).Within(1e-10),
+                "On-target is a 12/12 exact match → identity 1.0");
+            Assert.That(onTarget.Coverage, Is.EqualTo(1.0).Within(1e-10),
+                "On-target covers the full probe → coverage 1.0");
+            Assert.That(onTarget.HasGaps, Is.False,
+                "On-target exact match has no gaps");
+            Assert.That(gapped.OffTargetHits, Has.None.Matches<ProbeDesigner.GappedProbeHit>(
+                h => h.Start == 5),
+                "The on-target site must NOT appear among off-target hits");
+        });
+    }
+
+    [Test]
+    public void ScanOffTargetsGapped_IndelOffTarget_HasExactHandDerivedIdentity()
+    {
+        // MG3: Exact identity/coverage on the hand-derived indel alignment.
+        // probe "ACGTAC-GTACGT" vs ref "ACGTACTGTACGT": 12/12 identical aligned columns,
+        // one insertion gap → identity 1.0, coverage 1.0, HasGaps true. Site starts at 27.
+        var gapped = ProbeDesigner.ScanOffTargetsGapped(GappedProbe, IndelOffTargetReference);
+
+        var off = gapped.OffTargetHits[0];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(off.Start, Is.EqualTo(27),
+                "Indel off-target begins at reference position 27");
+            Assert.That(off.Identity, Is.EqualTo(1.0).Within(1e-10),
+                "Indel off-target: 12 identical aligned columns / 12 probe length = 1.0");
+            Assert.That(off.Coverage, Is.EqualTo(1.0).Within(1e-10),
+                "Indel off-target: 12 ungapped columns / 12 probe length = 1.0");
+            Assert.That(off.HasGaps, Is.True,
+                "The off-target alignment contains the insertion gap");
+            Assert.That(off.AlignedProbe, Is.EqualTo("ACGTAC-GTACGT"),
+                "Probe side of the local alignment carries the gap at the insertion point");
+            Assert.That(off.AlignedReference, Is.EqualTo("ACGTACTGTACGT"),
+                "Reference side of the local alignment is the indel region");
+        });
+    }
+
+    [Test]
+    public void ScanOffTargetsGapped_IndelPlusMismatch_IdentityIsHandDerivedFraction()
+    {
+        // MG4: An off-target with one insertion AND a trailing mismatch.
+        // Region "ACGTACTGTACTT": SW (zero-floor) trims the mismatched "TT" tail →
+        // probe "ACGTAC-GTAC" vs ref "ACGTACTGTAC" = 10 identical columns / 12 = 0.8333.
+        var references = new[] { "NNNNNNNNNN" + "ACGTACTGTACTT" + "NNNNN" };
+
+        var gapped = ProbeDesigner.ScanOffTargetsGapped(GappedProbe, references, minIdentity: 0.75);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(gapped.OnTargetHits, Is.Empty,
+                "No perfect exact match in this reference → no on-target");
+            Assert.That(gapped.OffTargetCount, Is.EqualTo(1),
+                "The indel+mismatch site exceeds the 0.75 threshold → one off-target");
+            Assert.That(gapped.OffTargetHits[0].Identity, Is.EqualTo(10.0 / 12.0).Within(1e-10),
+                "10 identical aligned columns / 12 probe length = 0.8333... (SW trims the mismatched tail)");
+            Assert.That(gapped.OffTargetHits[0].HasGaps, Is.True,
+                "The hit required an insertion");
+        });
+    }
+
+    [Test]
+    public void ScanOffTargetsGapped_IdentityThreshold_GatesHits()
+    {
+        // SG1: The minIdentity threshold (Kane et al. 2000, default 0.75) gates hits.
+        // The 0.8333-identity indel+mismatch site is admitted at 0.75 but rejected at 0.90.
+        var references = new[] { "NNNNNNNNNN" + "ACGTACTGTACTT" + "NNNNN" };
+
+        var lenient = ProbeDesigner.ScanOffTargetsGapped(GappedProbe, references, minIdentity: 0.75);
+        var strict = ProbeDesigner.ScanOffTargetsGapped(GappedProbe, references, minIdentity: 0.90);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(lenient.OffTargetCount, Is.EqualTo(1),
+                "0.8333 identity >= 0.75 → admitted");
+            Assert.That(strict.OffTargetCount, Is.EqualTo(0),
+                "0.8333 identity < 0.90 → rejected");
+        });
+    }
+
+    [Test]
+    public void ScanOffTargetsGapped_SpecificProbe_IsSpecificTrue()
+    {
+        // SG2: A probe with exactly one on-target and no off-targets reports IsSpecific.
+        var references = new[] { "GGGGG" + GappedProbe + "GGGGG" };
+
+        var gapped = ProbeDesigner.ScanOffTargetsGapped(GappedProbe, references);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(gapped.OnTargetHits, Has.Count.EqualTo(1),
+                "Single exact on-target");
+            Assert.That(gapped.OffTargetCount, Is.EqualTo(0),
+                "No off-targets in flanking poly-G");
+            Assert.That(gapped.IsSpecific, Is.True,
+                "Exactly one on-target and zero off-targets → specific");
+        });
+    }
+
+    [Test]
+    public void ScanOffTargetsGapped_NullProbe_ThrowsArgumentNullException()
+    {
+        // Guard: null probe must throw.
+        Assert.Throws<ArgumentNullException>(() =>
+            ProbeDesigner.ScanOffTargetsGapped(null!, IndelOffTargetReference),
+            "Null probe should throw ArgumentNullException");
+    }
+
+    [Test]
+    public void ScanOffTargetsGapped_NullReferences_ThrowsArgumentNullException()
+    {
+        // Guard: null references must throw.
+        Assert.Throws<ArgumentNullException>(() =>
+            ProbeDesigner.ScanOffTargetsGapped(GappedProbe, null!),
+            "Null references should throw ArgumentNullException");
+    }
+
+    [Test]
+    public void ScanOffTargetsGapped_EmptyProbe_ReturnsNoHits()
+    {
+        // Guard: empty probe yields no on/off-target hits.
+        var gapped = ProbeDesigner.ScanOffTargetsGapped("", IndelOffTargetReference);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(gapped.OnTargetHits, Is.Empty, "Empty probe → no on-target hits");
+            Assert.That(gapped.OffTargetHits, Is.Empty, "Empty probe → no off-target hits");
+        });
+    }
+
+    #endregion
 }

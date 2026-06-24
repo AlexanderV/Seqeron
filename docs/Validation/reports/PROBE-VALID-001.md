@@ -142,14 +142,38 @@ None. The code faithfully realises its declared heuristic specificity + self-str
 ## Verdict & follow-ups
 
 - **Stage A: PASS-WITH-NOTES** — abstract similarity-based cross-hyb logic and self-structure QC
-  are correct, thresholds sourced/defensible; specificity is a documented **heuristic**
-  (Hamming-≤-k substring scan + 1/N uniqueness), NOT BLAST-grade / NOT Tm-aware, and
-  `OffTargetHits` pools on- and off-target matches. Honestly attributed to "Implementation."
+  are correct, thresholds sourced/defensible; the default `ValidateProbe` specificity is a
+  documented **heuristic** (Hamming-≤-k substring scan + 1/N uniqueness) whose `OffTargetHits`
+  pools on- and off-target matches.
 - **Stage B: PASS** — implementation matches the validated description exactly; all seven
   hand-recomputed cross-checks agree; all edge cases handled; tests are real and exact.
 - **End-state: CLEAN** — no defect; no code change. Build green, 19/19 ProbeValidation tests pass.
-- **Follow-up (non-blocking):** if BLAST-grade or Tm-aware off-target scoring is ever claimed in
-  user-facing docs, upgrade `FindApproximateMatches` to gapped seed-and-extend with duplex-Tm
-  filtering, and split `OffTargetHits` into intended-target vs. off-target counts. Until then,
-  keep the "heuristic" framing. Optionally fold `hasStructure` into the `IsValid` second clause
-  if structure should ever be disqualifying.
+
+---
+
+## 2026-06-24 — Limitation fix (re-validation pending)
+
+The follow-up below was implemented. An opt-in **gapped (Smith–Waterman) off-target scan** was added
+that REUSES the library's validated `SequenceAligner.LocalAlign` (`BlastDna` scoring) and **separates
+on-target from off-target hits**, addressing both PASS-WITH-NOTES findings:
+
+- **New method:** `ProbeDesigner.ScanOffTargetsGapped(string probe, IEnumerable<string> references,
+  double minIdentity = 0.75, ScoringMatrix? scoring = null)` → `GappedSpecificityResult`
+  (`OnTargetHits`, `OffTargetHits`, `OffTargetCount`, `IsSpecific`), with per-hit `GappedProbeHit`
+  (`ReferenceIndex`, `Start`, `End`, `Identity`, `Coverage`, `HasGaps`, `AlignedProbe`, `AlignedReference`).
+- **Indel-aware:** finds off-targets reachable only via an insertion/deletion that the ungapped
+  Hamming scan misses (Smith & Waterman 1981; Altschul et al. 1990). Identity threshold 0.75 over the
+  probe length from Kane et al. (2000), caller-configurable.
+- **On/off separation:** the first perfect ungapped full-coverage exact match is the intended
+  on-target and is excluded from `OffTargetHits`; imperfect/indel hits (and extra perfect repeats)
+  are off-targets. Fixes the pooling of the default `ValidateProbe.OffTargetHits` (which is unchanged).
+- **Default behaviour unchanged:** `ValidateProbe` (ungapped Hamming) and `CheckSpecificity` are untouched.
+- **Tests:** 9 new evidence-based tests (MG1–MG4, SG1–SG2 + 3 guards) in
+  `ProbeDesigner_ProbeValidation_Tests.cs`, all with exact hand-derived values (indel hit identity 1.0;
+  indel+mismatch hit identity 10/12 = 0.8333; on-target at start 5/end 16; off-target at start 27; the
+  Hamming scan misses the indel site). Full fixture 28/28 pass.
+- **Residual:** `ScanOffTargetsGapped` is an exhaustive sliding Smith–Waterman scan, NOT a seeded
+  BLAST k-mer index over a whole genome, and has no duplex-Tm / E-value model.
+- **Status reset to ☐** in the root registry for independent re-validation of the changed unit.
+
+(Optional `hasStructure`-in-`IsValid` change was NOT made; structure remains advisory by design.)

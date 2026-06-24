@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Seqeron.Genomics.Alignment;
 using Seqeron.Genomics.Infrastructure;
 
 namespace Seqeron.Genomics.MolTools;
@@ -104,6 +105,63 @@ public static class ProbeDesigner
         double SelfComplementarity,
         bool HasSecondaryStructure,
         IReadOnlyList<string> Issues);
+
+    /// <summary>
+    /// A single gapped (Smith-Waterman) hit of a probe against a reference sequence.
+    /// Unlike the ungapped Hamming scan used by <see cref="ValidateProbe"/>, a hit may span an
+    /// insertion or deletion (see <see cref="HasGaps"/>), so off-target sites reachable only through
+    /// an indel are detected (Altschul et al. 1990; Smith &amp; Waterman 1981).
+    /// </summary>
+    /// <param name="ReferenceIndex">Zero-based index of the reference sequence (in the supplied order) the hit was found in.</param>
+    /// <param name="Start">Zero-based start position of the aligned region within the reference.</param>
+    /// <param name="End">Zero-based end position (inclusive) of the aligned region within the reference.</param>
+    /// <param name="Identity">
+    /// Fraction of identical aligned columns over the probe length
+    /// (identical columns / probe length), in [0, 1]. Computed exactly as in the library's
+    /// reused ANI identity convention (Goris et al. 2007; pyani <c>ani_pid = ani_alnids / qlen</c>).
+    /// </param>
+    /// <param name="Coverage">Fraction of the probe covered by ungapped aligned columns (ungapped columns / probe length), in [0, 1].</param>
+    /// <param name="HasGaps">True when the alignment contains at least one gap (insertion or deletion) — i.e. the hit is reachable only with an indel.</param>
+    /// <param name="AlignedProbe">The probe side of the local alignment (may contain '-').</param>
+    /// <param name="AlignedReference">The reference side of the local alignment (may contain '-').</param>
+    public readonly record struct GappedProbeHit(
+        int ReferenceIndex,
+        int Start,
+        int End,
+        double Identity,
+        double Coverage,
+        bool HasGaps,
+        string AlignedProbe,
+        string AlignedReference);
+
+    /// <summary>
+    /// Result of the opt-in gapped (Smith-Waterman) off-target scan, separating the intended
+    /// on-target match from genuine off-target hits.
+    /// </summary>
+    /// <param name="OnTargetHits">
+    /// Perfect, ungapped, full-coverage exact matches (identity = 1.0, coverage = 1.0, no gaps).
+    /// The first such hit is the probe's intended on-target binding site; any additional perfect
+    /// exact matches are reported here too (a probe matching several identical sites is itself a
+    /// specificity concern) but the first one is excluded from <see cref="OffTargetHits"/>.
+    /// </param>
+    /// <param name="OffTargetHits">
+    /// Genuine off-target hits: every hit at or above the identity threshold that is NOT the single
+    /// intended on-target site. This includes imperfect (mismatched) hits, indel-containing hits, and
+    /// any extra perfect repeats. This is the corrected count that no longer pools the on-target match
+    /// with off-targets (cf. <see cref="ProbeValidation.OffTargetHits"/>).
+    /// </param>
+    /// <param name="MinIdentity">The identity threshold used to call a hit (see <see cref="ScanOffTargetsGapped"/>).</param>
+    public readonly record struct GappedSpecificityResult(
+        IReadOnlyList<GappedProbeHit> OnTargetHits,
+        IReadOnlyList<GappedProbeHit> OffTargetHits,
+        double MinIdentity)
+    {
+        /// <summary>Number of genuine off-target hits (excludes the intended on-target match).</summary>
+        public int OffTargetCount => OffTargetHits.Count;
+
+        /// <summary>True when exactly one on-target site and no off-target hits were found.</summary>
+        public bool IsSpecific => OnTargetHits.Count == 1 && OffTargetHits.Count == 0;
+    }
 
     /// <summary>
     /// Probe type.
@@ -787,6 +845,191 @@ public static class ProbeDesigner
 
         // Multiple hits reduce specificity
         return 1.0 / hitCount;
+    }
+
+    // --- Gapped off-target scan thresholds (sourced) ---
+
+    // Default minimum identity (identical aligned columns / probe length) to call an off-target.
+    // Kane et al. (2000, Nucleic Acids Res. 28(22):4552-4557): "for a given oligonucleotide probe
+    // any 'non-target' transcripts (cDNAs) >75% similar over the [...] target may show
+    // cross-hybridization." 0.75 is therefore the empirically-grounded similarity threshold above
+    // which cross-hybridization (an off-target) becomes a concern; callers may override it.
+    private const double DefaultOffTargetMinIdentity = 0.75;
+
+    // Extra reference length scanned per window beyond the probe length, to allow a few indels in
+    // the local alignment (a gap shifts the reference frame). Two extra bases lets the Smith-Waterman
+    // local alignment absorb short insertions/deletions while keeping each window O(probeLen) wide.
+    private const int GappedScanGapAllowance = 2;
+
+    // Gap character emitted by SequenceAligner in its aligned-output strings.
+    private const char AlignmentGapChar = '-';
+
+    /// <summary>
+    /// Opt-in <b>gapped</b> off-target scan using the library's validated Smith-Waterman local
+    /// aligner (<see cref="SequenceAligner.LocalAlign(string, string, ScoringMatrix?)"/>). Unlike the
+    /// ungapped Hamming-distance scan in <see cref="ValidateProbe"/> (which only tolerates
+    /// substitutions in a fixed-length window), this finds off-target sites reachable through
+    /// insertions or deletions — the "BLAST-grade" improvement (gapped local alignment handles
+    /// indels the ungapped scan misses; Altschul et al. 1990; Smith &amp; Waterman 1981).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The default ungapped <see cref="ValidateProbe"/> behaviour is unchanged; this is a separate,
+    /// additive entry point. It also corrects the on/off-target pooling of
+    /// <see cref="ProbeValidation.OffTargetHits"/>: the single intended on-target site (the perfect,
+    /// ungapped, full-coverage exact match) is reported separately and is NOT counted as an off-target.
+    /// </para>
+    /// <para>
+    /// This is an exhaustive sliding Smith-Waterman scan (O(g · n · m) over reference length g and
+    /// probe length n·m), not a seeded BLAST index over a whole genome; for genome-scale search a
+    /// k-mer/seed index would be required.
+    /// </para>
+    /// </remarks>
+    /// <param name="probeSequence">Probe sequence to scan (5'→3'). Null throws; empty yields no hits.</param>
+    /// <param name="referenceSequences">Reference sequences to scan for hits. Null throws.</param>
+    /// <param name="minIdentity">
+    /// Minimum alignment identity (identical aligned columns / probe length) to call a hit.
+    /// Default 0.75 per Kane et al. (2000): non-targets &gt;75% similar over the probe may cross-hybridize.
+    /// </param>
+    /// <param name="scoring">
+    /// Scoring matrix for the local alignment. Defaults to <see cref="SequenceAligner.BlastDna"/>
+    /// (+2/-3, gap -2) — the same BLAST-style DNA scoring reused for the library's gapped ANI alignment.
+    /// </param>
+    /// <returns>A <see cref="GappedSpecificityResult"/> separating on-target from off-target hits.</returns>
+    public static GappedSpecificityResult ScanOffTargetsGapped(
+        string probeSequence,
+        IEnumerable<string> referenceSequences,
+        double minIdentity = DefaultOffTargetMinIdentity,
+        ScoringMatrix? scoring = null)
+    {
+        ArgumentNullException.ThrowIfNull(probeSequence);
+        ArgumentNullException.ThrowIfNull(referenceSequences);
+
+        var onTarget = new List<GappedProbeHit>();
+        var offTarget = new List<GappedProbeHit>();
+
+        string probe = probeSequence.ToUpperInvariant();
+        if (probe.Length == 0)
+            return new GappedSpecificityResult(onTarget, offTarget, minIdentity);
+
+        var matrix = scoring ?? SequenceAligner.BlastDna;
+        bool onTargetClaimed = false;
+
+        int refIndex = 0;
+        foreach (var reference in referenceSequences)
+        {
+            string text = (reference ?? string.Empty).ToUpperInvariant();
+            foreach (var hit in ScanReferenceGapped(probe, text, refIndex, minIdentity, matrix))
+            {
+                // The intended on-target is the (first) perfect ungapped full-coverage exact match.
+                bool isPerfectExact = !hit.HasGaps
+                    && hit.Identity >= 1.0
+                    && hit.Coverage >= 1.0;
+
+                if (isPerfectExact && !onTargetClaimed)
+                {
+                    onTargetClaimed = true;
+                    onTarget.Add(hit);
+                }
+                else if (isPerfectExact)
+                {
+                    // An additional perfect repeat: report it as an on-target-class match for
+                    // visibility, but it is still a genuine extra binding site → counts as off-target.
+                    onTarget.Add(hit);
+                    offTarget.Add(hit);
+                }
+                else
+                {
+                    offTarget.Add(hit);
+                }
+            }
+
+            refIndex++;
+        }
+
+        return new GappedSpecificityResult(onTarget, offTarget, minIdentity);
+    }
+
+    /// <summary>
+    /// Slides a Smith-Waterman local alignment of <paramref name="probe"/> across
+    /// <paramref name="text"/> and returns one best non-overlapping hit per distinct site whose
+    /// identity is at least <paramref name="minIdentity"/>.
+    /// </summary>
+    private static List<GappedProbeHit> ScanReferenceGapped(
+        string probe, string text, int refIndex, double minIdentity, ScoringMatrix matrix)
+    {
+        int probeLen = probe.Length;
+        int windowLen = probeLen + GappedScanGapAllowance;
+        var raw = new List<GappedProbeHit>();
+
+        for (int start = 0; start < text.Length; start++)
+        {
+            int span = Math.Min(windowLen, text.Length - start);
+            if (span <= 0)
+                break;
+
+            string window = text.Substring(start, span);
+            AlignmentResult aln = SequenceAligner.LocalAlign(probe, window, matrix);
+
+            // SequenceAligner.LocalAlign aligns (sequence1 = probe, sequence2 = window):
+            // AlignedSequence1 is the probe side, AlignedSequence2 the reference side.
+            string ap = aln.AlignedSequence1;
+            string ar = aln.AlignedSequence2;
+            if (ap.Length == 0)
+                continue;
+
+            int identical = 0;
+            int ungapped = 0;
+            bool hasGap = false;
+            for (int k = 0; k < ap.Length; k++)
+            {
+                char c1 = ap[k];
+                char c2 = ar[k];
+                if (c1 == AlignmentGapChar || c2 == AlignmentGapChar)
+                {
+                    hasGap = true;
+                    continue;
+                }
+
+                ungapped++;
+                if (c1 == c2)
+                    identical++;
+            }
+
+            double identity = (double)identical / probeLen;
+            if (identity < minIdentity)
+                continue;
+
+            double coverage = (double)ungapped / probeLen;
+            int absStart = start + aln.StartPosition2;
+            int absEnd = start + aln.EndPosition2;
+
+            raw.Add(new GappedProbeHit(
+                refIndex, absStart, absEnd, identity, coverage, hasGap, ap, ar));
+        }
+
+        // Greedy best-per-site selection: take highest-identity (then highest-coverage, then
+        // leftmost) hits first, accepting a hit only if its reference span does not overlap an
+        // already-accepted one. Overlapping windows that re-detect the same site collapse to one hit.
+        raw.Sort((a, b) =>
+        {
+            int byIdentity = b.Identity.CompareTo(a.Identity);
+            if (byIdentity != 0) return byIdentity;
+            int byCoverage = b.Coverage.CompareTo(a.Coverage);
+            if (byCoverage != 0) return byCoverage;
+            return a.Start.CompareTo(b.Start);
+        });
+
+        var accepted = new List<GappedProbeHit>();
+        foreach (var hit in raw)
+        {
+            bool overlaps = accepted.Any(a => !(hit.End < a.Start || hit.Start > a.End));
+            if (!overlaps)
+                accepted.Add(hit);
+        }
+
+        accepted.Sort((a, b) => a.Start.CompareTo(b.Start));
+        return accepted;
     }
 
     #endregion
