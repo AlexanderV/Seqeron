@@ -2,10 +2,10 @@
 
 **Test Unit ID:** ONCO-MHC-001
 **Area:** Oncology
-**Algorithm:** MHC-Peptide Binding Classification (length filtering + affinity/%rank thresholds)
+**Algorithm:** MHC-Peptide Binding (length/affinity/%rank classification + matrix-based prediction)
 **Status:** ☐ In Progress
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-06-25
 
 ---
 
@@ -20,6 +20,10 @@
 | 3 | Roomp, Antes & Lengauer (2010), *BMC Bioinformatics* 11:90 | 1 | https://doi.org/10.1186/1471-2105-11-90 (PMC2836306) | 2026-06-14 |
 | 4 | IEDB threshold help article | 5 | https://help.iedb.org/hc/en-us/articles/114094152371 | 2026-06-14 |
 | 5 | IEDB MHC class II tool description | 5 | https://help.iedb.org/hc/en-us/articles/114094151731 | 2026-06-14 |
+| 6 | Parker, Bednarek & Coligan (1994), *J Immunol* 152(1):163–175 (BIMAS product rule) | 1 | https://pubmed.ncbi.nlm.nih.gov/8254189/ | 2026-06-25 |
+| 7 | BIMAS HLA peptide-motif-search scoring docs (archived) | 5 | https://web.archive.org/web/20041016022153/http://www-bimas.cit.nih.gov/molbio/hla_bind/hla_motif_search_info.html | 2026-06-25 |
+| 8 | Peters & Sette (2005), *BMC Bioinformatics* 6:132 (SMM) | 1 | https://doi.org/10.1186/1471-2105-6-132 | 2026-06-25 |
+| 9 | IEDB log50k transform `log50k = 1 − log(IC50)/log(50000)` | 3 | https://dmnfarrell.github.io/bioinformatics/mhclearning | 2026-06-25 |
 
 ### 1.2 Key Evidence Points
 
@@ -28,7 +32,9 @@
 3. IC50 tiers: high (strong) < 50 nM, intermediate (weak) < 500 nM, low < 5000 nM — IEDB (#4); the 50/500 nM cutoffs trace to Sette 1994 "≈500 nM (preferably 50 nM or less)".
 4. 500 nM is the binder/non-binder demarcation — Roomp 2010 (PMC2836306), corroborating IEDB.
 5. Class I peptide length: 8–14, default 8–11 — Reynisson 2020. Class II: 13–25 — IEDB (#5).
-6. The prediction of the IC50/%Rank value itself requires a trained model (NetMHCpan) and is **caller-supplied / out of scope** — only classification of a supplied value is in scope.
+6. The PAN-ALLELE prediction (NetMHCpan neural model) is out of scope. An opt-in MATRIX-BASED predictor is now provided: the BIMAS product rule and the SMM IC50 transform (below). The trained coefficient MATRIX is caller-supplied (no redistributable matrix was obtainable).
+7. BIMAS scoring (verbatim): running score starts at 1.0, is multiplied by each position's coefficient, then by a final constant → estimated half-time of dissociation (HLA-A2); unlisted residue coefficient = 1.0 — source #7; Parker 1994 (#6) "calculated by multiplying together the corresponding coefficients".
+8. SMM/IEDB transform (verbatim): `log50k = 1 − log(IC50)/log(50000)` ⇒ `IC50 = 50000^(1 − score)`; the score is the sum of position-specific additive contributions plus an intercept — sources #8, #9.
 
 ### 1.3 Documented Corner Cases
 
@@ -50,6 +56,10 @@
 | `ClassifyBindingRank(double percentRank, MhcClass mhcClass)` | OncologyAnalyzer | Canonical | %Rank → Strong/Weak/NonBinder (class I 0.5/2; class II 2/10) |
 | `IsValidPeptideLength(int length, MhcClass mhcClass)` | OncologyAnalyzer | Canonical | class I 8–11, class II 13–25 |
 | `ClassifyMhcBinding(int peptideLength, double ic50Nm, MhcClass mhcClass)` | OncologyAnalyzer | Delegate | length gate + `ClassifyBindingAffinity` |
+| `PredictIc50Smm(string peptide, PmhcScoringMatrix matrix)` | OncologyAnalyzer | Canonical | SMM sum → `IC50 = 50000^(1−score)` |
+| `PredictBindingHalfLifeBimas(string peptide, PmhcScoringMatrix matrix)` | OncologyAnalyzer | Canonical | BIMAS product → finalConstant·∏ coefficients |
+| `PredictAndClassifySmm(string peptide, PmhcScoringMatrix matrix)` | OncologyAnalyzer | Delegate | `PredictIc50Smm` + `ClassifyBindingAffinity` |
+| `LoadScoringMatrix(IEnumerable<string> lines)` | OncologyAnalyzer | Canonical | caller-supplied matrix loader |
 
 ---
 
@@ -61,6 +71,9 @@
 | INV-2 | %Rank input must be in [0, 100]; else exception | Yes | Reynisson 2020 (%Rank is a percentile) |
 | INV-3 | Strong ⇒ Weak ⇒ NonBinder are mutually exclusive, monotone in the score (smaller IC50/%Rank ⇒ stronger or equal class) | Yes | Reynisson 2020; IEDB tiers |
 | INV-4 | Classification cutoffs are strict `<` (boundary value excluded from the stronger class) | Yes | Verbatim "<" in Reynisson 2020 and IEDB tiers |
+| INV-5 | SMM: `IC50 = 50000^(1−score)` — strictly decreasing in score; score 0→50000, 1→1, 0.5→√50000; IC50 always finite & > 0 | Yes | IEDB log50k (#9); Peters & Sette 2005 (#8) |
+| INV-6 | BIMAS: `T½ = finalConstant · ∏ coefficients`; an unlisted residue contributes the neutral coefficient 1.0 | Yes | BIMAS scoring docs (#7); Parker 1994 (#6) |
+| INV-7 | `Predict*` require `peptide.Length == matrix.Rows.Count` and a non-empty matrix; else `ArgumentException` (null peptide → `ArgumentNullException`) | Yes | implementation contract (one row per peptide position) |
 
 ---
 
@@ -91,6 +104,25 @@
 | M19 | Length class II too long | len = 26, class II | false | IEDB #5 |
 | M20 | Combined gate fails on length | len = 7, ic50 = 10, class I | NonBinder (invalid length ⇒ not a candidate) | Reynisson 2020 length gate + IEDB affinity |
 | M21 | Combined gate passes length, strong affinity | len = 9, ic50 = 10, class I | Strong | combined of M1 + M14 |
+| M21b | Combined gate, invalid IC50 on valid length | len = 9, ic50 = 0, class I | ArgumentOutOfRangeException (INV-1 propagates) | INV-1 |
+| P1 | SMM score 0 | 1-mer, score 0 | IC50 = 50000 nM | INV-5; IEDB log50k |
+| P2 | SMM score 1 | 1-mer, contribution 1 | IC50 = 1 nM | INV-5 |
+| P3 | SMM score 0.5 | 1-mer, contribution 0.5 | IC50 = √50000 = 223.6067977499790 nM | INV-5 |
+| P4 | SMM intercept summed | intercept 0.3 + contribution 0.2 = 0.5 | IC50 = √50000 | INV-5 (intercept is part of the sum) |
+| P5 | SMM unlisted residue | residue absent from row | contributes 0 ⇒ IC50 = 50000 | INV-6 analogue (additive identity) |
+| P6 | SMM null peptide | null | ArgumentNullException | INV-7 |
+| P7 | SMM length mismatch | len 2 vs 1 row | ArgumentException | INV-7 |
+| P8 | SMM empty matrix | 0 rows | ArgumentException | INV-7 |
+| P9 | Predict→classify strong | GILGFVFTL, score 1.0 | IC50 = 1 nM, Strong | INV-5 + classification |
+| P10 | Strong-vs-non-binder ranking | GILGFVFTL vs poly-W | binder IC50 (1) ≪ non-binder IC50 (50000); Strong vs NonBinder | INV-5 + classification |
+| P11 | BIMAS product | const 10 · (2·3·1.5) | T½ = 90.0 | INV-6 |
+| P12 | BIMAS unlisted = 1.0 | AAA on same matrix | T½ = 10.0 | INV-6 |
+| P13 | BIMAS ranking | favorable vs unfavorable anchors | 20.0 > 0.02 | INV-6 |
+| P14 | Loader round-trip | CONST + RESIDUE=VALUE rows | parses 2 rows, const 10, T½(LM)=60 | source #7 (format) |
+| P15 | Loader malformed token | "L 2.0" (no '=') | FormatException | loader contract |
+| P16 | Loader non-numeric | "L=abc" | FormatException | loader contract |
+| P17 | Loader multi-char residue | "LM=2.0" | FormatException | loader contract |
+| P18 | Loader null input | null | ArgumentNullException | loader contract |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -114,15 +146,16 @@
 
 ### 5.1 Discovery Summary
 
-- New unit. No existing `ClassifyBindingAffinity` / `ClassifyBindingRank` / `IsValidPeptideLength` methods or tests in `OncologyAnalyzer` (grep over `src/.../Seqeron.Genomics.Oncology/OncologyAnalyzer.cs` and `tests/.../OncologyAnalyzer_*` showed only ONCO-NEO-001 windowing). All planned cases start ❌ Missing.
+- Classification half (M1–C1) implemented in the 2026-06-14 session (27 tests). The 2026-06-25 extension adds the matrix-based predictor (P1–P18); those cases start ❌ Missing.
 
 ### 5.2 Coverage Classification
 
 | Area / Test Case ID | Status | Notes |
 |---------------------|--------|-------|
-| M1–M21 | ❌ Missing | new unit |
-| S1–S5 | ❌ Missing | new unit |
-| C1 | ❌ Missing | new unit |
+| M1–M21, M21b | ✅ Covered | classification half (prior session) |
+| S1–S5 | ✅ Covered | classification half (prior session) |
+| C1 | ✅ Covered | classification half (prior session) |
+| P1–P18 (prediction) | ❌ Missing | matrix-based predictor (this session) |
 
 ### 5.3 Consolidation Plan
 
@@ -133,43 +166,47 @@
 
 | File | Role | Test Count |
 |------|------|------------|
-| OncologyAnalyzer_ClassifyMhcBinding_Tests.cs | canonical | 27 |
+| OncologyAnalyzer_ClassifyMhcBinding_Tests.cs | canonical | 43 (27 classification + 16 prediction) |
 
 ### 5.5 Phase 7 Work Queue
 
 | # | Test Case ID | §5.2 Status | Action Taken | Final Status |
 |---|-------------|-------------|--------------|--------------|
-| 1 | M1–M5 (IC50) | ❌ Missing | implemented | ✅ Done |
-| 2 | M6–M10 (%Rank I) | ❌ Missing | implemented | ✅ Done |
-| 3 | M11–M13 (%Rank II) | ❌ Missing | implemented | ✅ Done |
-| 4 | M14–M19 (length) | ❌ Missing | implemented | ✅ Done |
-| 5 | M20–M21 (combined) | ❌ Missing | implemented | ✅ Done |
-| 6 | S1–S5 (validation) | ❌ Missing | implemented | ✅ Done |
-| 7 | C1 (monotonicity) | ❌ Missing | implemented | ✅ Done |
+| 1 | P1–P5 (SMM transform) | ❌ Missing | implemented | ✅ Done |
+| 2 | P6–P8 (SMM validation) | ❌ Missing | implemented | ✅ Done |
+| 3 | P9–P10 (predict→classify, ranking) | ❌ Missing | implemented | ✅ Done |
+| 4 | P11–P13 (BIMAS product) | ❌ Missing | implemented | ✅ Done |
+| 5 | P14–P18 (loader) | ❌ Missing | implemented | ✅ Done |
 
-**Total items:** 7 groups (27 tests)
-**✅ Done:** 7 | **⛔ Blocked:** 0 | **Remaining:** 0
+**Total items (this session):** 5 groups (16 prediction tests; the 27 classification tests were done in the prior session)
+**✅ Done:** 5 | **⛔ Blocked:** 0 | **Remaining:** 0
 
 ### 5.6 Post-Implementation Coverage
 
 | Area / Test Case ID | Status | Resolution |
 |---------------------|--------|------------|
-| M1–M21 | ✅ Covered | exact expected values from Evidence |
+| M1–M21, M21b | ✅ Covered | exact expected values from Evidence |
 | S1–S5 | ✅ Covered | exception-type assertions |
 | C1 | ✅ Covered | monotonicity property |
+| P1–P5 (SMM transform) | ✅ Covered | exact IC50 = 50000^(1−score) anchors |
+| P6–P8 (SMM validation) | ✅ Covered | null / length-mismatch / empty-matrix exceptions |
+| P9–P10 (predict→classify) | ✅ Covered | strong→1 nM Strong; non-binder→50000 nM NonBinder; ranking |
+| P11–P13 (BIMAS) | ✅ Covered | exact product·constant; neutral 1.0; ranking |
+| P14–P18 (loader) | ✅ Covered | round-trip + malformed/non-numeric/multi-char/null |
 
 ---
 
 ## 6. Assumption Register
 
-**Total assumptions:** 1
+**Total assumptions:** 2
 
 | # | Assumption | Used In |
 |---|-----------|---------|
 | 1 | Class I accepted length range = 8–11 (Reynisson default; matches ONCO-NEO-001 constants) rather than the full 8–14 | M16, `IsValidPeptideLength` class I |
+| 2 | The coefficient MATRIX is caller-supplied — no redistributable trained matrix was obtainable (BIMAS CGI dead/unarchived; Parker 1994 paywalled; IEDB SMM non-commercial). Only the published scoring RULES are embedded. | P1–P18, `Predict*`, `LoadScoringMatrix` |
 
 ---
 
 ## 7. Open Questions / Decisions
 
-1. The peptide–MHC affinity / %Rank PREDICTION (trained NetMHCpan model, PSSM weights) is **out of scope** for this unit and is caller-supplied input. This unit classifies a supplied IC50 or %Rank; it does not predict it. No model weights are fabricated.
+1. The PAN-ALLELE NetMHCpan neural prediction remains **out of scope**. An opt-in matrix-based predictor (BIMAS product / SMM transform) is now provided; the trained coefficient matrix is caller-supplied because no redistributable, cross-verifiable matrix could be retrieved (the scoring rules ARE fully sourced and cross-verifiable; the weights are not embedded). No model weights are fabricated. The existing classification + defaults are unchanged.

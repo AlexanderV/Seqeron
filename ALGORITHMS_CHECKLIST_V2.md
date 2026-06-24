@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 216 |
+| **Completed** | 215 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 18 |
+| **Not Started** | 19 |
 
 ---
 
@@ -244,7 +244,7 @@
 | ☑ | ONCO-PLOIDY-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-PLOIDY-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-PLOIDY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_EstimatePloidy_Tests.cs) |
 | ☑ | ONCO-CLONAL-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-CLONAL-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CLONAL-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyClonality_Tests.cs) |
 | ☑ | ONCO-NEO-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-NEO-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-NEO-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_GenerateNeoantigenPeptides_Tests.cs) |
-| ☑ | ONCO-MHC-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-MHC-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-MHC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyMhcBinding_Tests.cs) |
+| ☐ | ONCO-MHC-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-MHC-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-MHC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyMhcBinding_Tests.cs) |
 | ☐ | ONCO-IMMUNE-001 | Oncology | 3 | 40 | [Evidence](docs/Evidence/ONCO-IMMUNE-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-IMMUNE-001.md) |
 | ☑ | ONCO-CTDNA-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-CTDNA-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CTDNA-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CtDnaAnalysis_Tests.cs) |
 | ☐ | ONCO-MRD-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-MRD-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-MRD-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectMRD_Tests.cs) |
@@ -4484,10 +4484,14 @@ ONCO-FUSION-001 codon-phase rule `(b − p) mod 3 == 0`. Partner CDS sequences a
 > categories using the standard IEDB / NetMHCpan-4.1 thresholds (Reynisson 2020; Sette 1994): IC50
 > strong < 50 nM / weak < 500 nM; class I %Rank strong < 0.5% / weak < 2%; class II %Rank strong < 2% /
 > weak < 10%; plus peptide-length validity (class I 8–11, class II 13–25). The peptide–MHC affinity / %Rank
-> **prediction** (the trained NetMHCpan/MHCflurry model, PSSM weights) is **caller-supplied / out of scope**
-> — no model is fabricated. The checklist placeholder class `NeoantigenPredictor` is superseded by
-> `OncologyAnalyzer` (project layout); `PredictMHCBinding`/`CalculateBindingAffinity` (IC50 prediction)
-> remain out of scope.
+> **prediction** is now also available as an **opt-in matrix-based predictor**: the BIMAS / Parker 1994
+> product rule (`PredictBindingHalfLifeBimas`) and the SMM / Peters & Sette 2005 transform
+> `IC50 = 50000^(1−score)` (`PredictIc50Smm` / `PredictAndClassifySmm`), which chain into the existing
+> classifier. The trained coefficient **matrix is caller-supplied** via `LoadScoringMatrix` — no
+> redistributable, cross-verifiable trained HLA matrix was obtainable (BIMAS CGI dead/unarchived; Parker
+> 1994 paywalled; IEDB SMM non-commercial) — so only the published scoring rules are bundled; no model is
+> fabricated. The **pan-allele NetMHCpan/MHCflurry neural** prediction remains out of scope. The checklist
+> placeholder class `NeoantigenPredictor` is superseded by `OncologyAnalyzer` (project layout).
 
 **Methods:**
 | Method | Class | Type |
@@ -4496,8 +4500,11 @@ ONCO-FUSION-001 codon-phase rule `(b − p) mod 3 == 0`. Partner CDS sequences a
 | `ClassifyBindingRank(percentRank, mhcClass)` | OncologyAnalyzer | Canonical — %Rank → strength (class I 0.5/2; class II 2/10) |
 | `IsValidPeptideLength(length, mhcClass)` | OncologyAnalyzer | Canonical — class I 8–11; class II 13–25 |
 | `ClassifyMhcBinding(peptideLength, ic50Nm, mhcClass)` | OncologyAnalyzer | Delegate — length gate + affinity |
-| `PredictMHCBinding(peptide, hlaAllele)` | (NeoantigenPredictor) | Out of scope — trained model, caller-supplied |
-| `CalculateBindingAffinity(peptide, hla)` | (NeoantigenPredictor) | Out of scope — IC50 prediction |
+| `PredictIc50Smm(peptide, matrix)` | OncologyAnalyzer | Canonical — SMM sum → IC50 = 50000^(1−score) (opt-in; matrix caller-supplied) |
+| `PredictBindingHalfLifeBimas(peptide, matrix)` | OncologyAnalyzer | Canonical — BIMAS product → half-life (opt-in; matrix caller-supplied) |
+| `PredictAndClassifySmm(peptide, matrix)` | OncologyAnalyzer | Delegate — `PredictIc50Smm` + `ClassifyBindingAffinity` |
+| `LoadScoringMatrix(lines)` | OncologyAnalyzer | Canonical — caller-supplied matrix loader |
+| `PredictMHCBinding(peptide, hlaAllele)` | (NeoantigenPredictor) | Out of scope — pan-allele neural model |
 
 **HLA Types:** HLA-A, HLA-B, HLA-C (Class I); HLA-DR/DQ/DP (Class II length range)
 

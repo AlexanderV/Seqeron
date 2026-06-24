@@ -97,3 +97,29 @@ None. All cutoffs and length ranges in the implementation match the externally-r
 - **Test-quality gate: PASS** — sourced exact assertions, no green-washing, full logic covered after adding two cases (25 → 27 tests for this unit; original count met).
 - **End-state: CLEAN** — no code defect; two test-coverage gaps fixed; `dotnet build` 0 errors; full unfiltered suite **6663 passed, 0 failed**.
 - No defect logged in FINDINGS_REGISTER beyond the test-coverage note.
+
+## 2026-06-25 — Opt-in matrix-based predictor added (data-block partially lifted)
+
+The earlier block ("no redistributable, cross-verifiable trained model") was revisited with web tools. An opt-in **matrix-based pMHC binding predictor** is now implemented, with the existing classification and all defaults unchanged.
+
+### What was added
+- `OncologyAnalyzer.PredictBindingHalfLifeBimas(peptide, matrix)` — BIMAS / Parker (1994) product rule: `T½ = FinalConstant · ∏ coefficients` (unlisted residue coefficient 1.0).
+- `OncologyAnalyzer.PredictIc50Smm(peptide, matrix)` — SMM / Peters & Sette (2005): score = intercept + Σ contributions; `IC50 = 50000^(1 − score)` (algebraic inverse of the IEDB log50k linearisation).
+- `OncologyAnalyzer.PredictAndClassifySmm(peptide, matrix)` — chains `PredictIc50Smm` → `ClassifyBindingAffinity` (predict→classify end-to-end).
+- `OncologyAnalyzer.LoadScoringMatrix(lines)` + `PmhcScoringMatrix` / `PmhcScoringMethod` — caller-supplied matrix loader and types.
+
+### Sources retrieved this session (verbatim scoring rules)
+- **BIMAS** scoring documentation (NIH/CIT; restating Parker 1994), retrieved via Internet Archive (the live `www-bimas.cit.nih.gov` no longer resolves): "The initial (running) score is set to 1.0 … multiplied by the coefficient … multiplied by a final constant to yield an estimate of the half time of disassociation"; unlisted residue coefficient 1.00. The HLA-A2 coefficient table "is published … (except for HLA-A2)" in Parker 1994.
+- **Parker, Bednarek & Coligan (1994)** PubMed abstract: "180 coefficients (20 amino acids x 9 positions)"; binding stability "calculated by multiplying together the corresponding coefficients" (≈ factor-of-5 accuracy).
+- **SMM / IEDB log50k:** `log50k = 1 − log(IC50)/log(50000)` ⇒ `IC50 = 50000^(1 − score)` (Peters & Sette 2005, BMC Bioinformatics 6:132).
+
+### Reproduced reference predictions (exact, independent of the code)
+- SMM transform anchors: score 0 → **50000 nM**; score 1 → **1 nM**; score 0.5 → **√50000 = 223.6067977499790 nM** — asserted with `.Within` tolerances ≤ 1e-6.
+- Strong-vs-non-binder ranking: an SMM matrix whose contributions for `GILGFVFTL` (influenza M1 58–66, the paradigm HLA-A*02:01 binder) sum to 1.0 → IC50 = 1 nM → **Strong**; a poly-W 9-mer → score 0 → IC50 = 50000 nM → **NonBinder**; the binder's IC50 (1 nM) is far below the non-binder's (50000 nM).
+- BIMAS product: const 10 · (2.0·3.0·1.5) = **90.0**; `AAA` (unlisted) → 10 · 1·1·1 = **10.0**.
+
+### Residual (honest)
+No redistributable, cross-verifiable trained HLA coefficient matrix was obtainable this session: the public BIMAS coefficient files are served only by a now-defunct dynamic CGI (the Internet Archive captured the input form, not the generated value table), the Parker 1994 180-value table is paywalled, and the IEDB SMM matrices are non-commercial / no-redistribution. The library therefore bundles the published **scoring rules** (fully sourced and cross-verifiable) and a **caller-supplied matrix loader**, mirroring ONCO-IMMUNE-001 (CIBERSORT LM22). The pan-allele NetMHCpan/MHCflurry **neural** model remains out of scope.
+
+### End-state
+`dotnet build` 0 warnings/0 errors in changed files; this unit's fixture 43 passed / 0 failed (27 classification + 16 prediction); full unfiltered suite green (see commit). No code defect; classification and defaults unchanged. Validation Status confirmed **☐** (unchanged); Quick-Reference counts unchanged.

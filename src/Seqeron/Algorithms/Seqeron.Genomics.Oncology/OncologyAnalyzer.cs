@@ -8288,6 +8288,265 @@ public static class OncologyAnalyzer
 
     #endregion
 
+    #region Matrix-based pMHC binding prediction (ONCO-MHC-001)
+
+    /// <summary>
+    /// Scoring convention for a position-specific peptide–MHC binding matrix. Selects how a per-residue
+    /// matrix is combined into a prediction and what the prediction means.
+    /// </summary>
+    public enum PmhcScoringMethod
+    {
+        /// <summary>
+        /// BIMAS / Parker et al. (1994) "stabilized matrix" convention: the prediction is the
+        /// <b>product</b> of the position-specific coefficients times a final constant, and (for HLA-A2) it
+        /// estimates the <b>half-time of dissociation</b> (T½, arbitrary BIMAS units) of the HLA–peptide
+        /// complex at 37 °C, pH 6.5. Higher T½ = stronger binder. Source: BIMAS HLA peptide-motif-search
+        /// scoring documentation; Parker, Bednarek &amp; Coligan (1994), <i>J. Immunol.</i> 152(1):163–175.
+        /// </summary>
+        BimasHalfLife,
+
+        /// <summary>
+        /// SMM (Peters &amp; Sette 2005) / IEDB convention: the prediction is the <b>sum</b> of the
+        /// position-specific values plus an intercept, giving a <c>log50k</c> score, which is converted to
+        /// an IC50 (nM) by <c>IC50 = 50000^(1 − score)</c>. Lower IC50 = stronger binder. Source:
+        /// Peters &amp; Sette (2005), <i>BMC Bioinformatics</i> 6:132; IEDB <c>log50k = 1 − log(IC50)/log(50000)</c>.
+        /// </summary>
+        SmmIc50
+    }
+
+    /// <summary>
+    /// A position-specific scoring matrix (PSSM) for peptide–MHC binding: one per-position row mapping each
+    /// amino-acid residue (single-letter code) to a numeric value, plus a single scalar
+    /// <see cref="FinalConstant"/>. The interpretation of the values and the constant depends on the
+    /// <see cref="PmhcScoringMethod"/> used to score with it:
+    /// <list type="bullet">
+    /// <item><description><see cref="PmhcScoringMethod.BimasHalfLife"/>: each value is a multiplicative
+    /// coefficient (default 1.0 ≡ neutral), and <see cref="FinalConstant"/> is the BIMAS per-allele final
+    /// multiplier; the score is their product (Parker 1994 / BIMAS).</description></item>
+    /// <item><description><see cref="PmhcScoringMethod.SmmIc50"/>: each value is an additive log50k
+    /// contribution (default 0.0 ≡ neutral), and <see cref="FinalConstant"/> is the SMM intercept; the score
+    /// is their sum (Peters &amp; Sette 2005).</description></item>
+    /// </list>
+    /// <para>
+    /// <b>This matrix is caller-supplied, not bundled.</b> No redistributable, cross-verifiable trained
+    /// HLA coefficient matrix was obtainable for embedding: the public BIMAS coefficient files are served
+    /// only by a now-defunct dynamic CGI (not archived) and the Parker (1994) table is behind a paywall;
+    /// the IEDB SMM matrices carry a non-commercial / no-redistribution licence (like CIBERSORT LM22).
+    /// The library therefore implements the published <i>scoring rules</i> and a <see cref="LoadScoringMatrix"/>
+    /// loader, and the caller provides the coefficient values under their own licence (ONCO-MHC-001).
+    /// </para>
+    /// </summary>
+    /// <param name="Rows">Per-position residue→value maps; <c>Rows[i]</c> is position <c>i</c> (0-based).</param>
+    /// <param name="FinalConstant">The BIMAS final multiplier (product convention) or SMM intercept (sum convention).</param>
+    public readonly record struct PmhcScoringMatrix(
+        IReadOnlyList<IReadOnlyDictionary<char, double>> Rows,
+        double FinalConstant);
+
+    /// <summary>
+    /// Largest possible IC50 (nM) produced by the SMM transform, reached at score 0:
+    /// <c>50000^(1 − 0) = 50000</c>. Source: IEDB <c>log50k = 1 − log(IC50)/log(50000)</c> (Peters &amp;
+    /// Sette 2005, <i>BMC Bioinformatics</i> 6:132), so IC50 = 50000^(1 − score).
+    /// </summary>
+    public const double SmmIc50Base = 50000.0;
+
+    /// <summary>
+    /// Default neutral BIMAS coefficient: an amino acid "not known to make either a favorable or unfavorable
+    /// contribution" has a coefficient of exactly 1.0 (multiplicative identity). Source: BIMAS scoring
+    /// documentation — ambiguous/unlisted residues "given a coefficient of 1.00 … leaves the score unchanged".
+    /// </summary>
+    private const double BimasNeutralCoefficient = 1.0;
+
+    /// <summary>
+    /// Default neutral SMM contribution: 0.0 (additive identity), so an unlisted residue does not move the
+    /// log50k score. Source: SMM is an additive position-specific model (Peters &amp; Sette 2005).
+    /// </summary>
+    private const double SmmNeutralContribution = 0.0;
+
+    /// <summary>
+    /// Loads a caller-supplied position-specific peptide–MHC scoring matrix from text rows. Each non-blank,
+    /// non-comment line is one matrix position and lists residue values as whitespace- or comma-separated
+    /// <c>RESIDUE=VALUE</c> tokens (e.g. <c>L=2.5 M=1.8 V=1.1</c>); the very first token of the form
+    /// <c>CONST=VALUE</c> (or a line <c>CONST VALUE</c>) sets <see cref="PmhcScoringMatrix.FinalConstant"/>.
+    /// Lines beginning with <c>#</c> are comments. Residues are upper-cased.
+    /// <para>
+    /// <b>Licence / provenance.</b> The matrix VALUES are NOT supplied by this library — see
+    /// <see cref="PmhcScoringMatrix"/>. Obtain coefficients from a source you are licensed to use (the
+    /// public-domain BIMAS/Parker 1994 HLA-A2 table, or an IEDB SMM matrix under its non-commercial licence)
+    /// and pass them here. The library bundles only the published scoring <i>rules</i>.
+    /// </para>
+    /// </summary>
+    /// <param name="lines">Matrix text lines: optional <c>CONST=…</c> plus one line per position.</param>
+    /// <returns>The parsed scoring matrix.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="lines"/> is null.</exception>
+    /// <exception cref="FormatException">A token is malformed or a value is non-numeric.</exception>
+    public static PmhcScoringMatrix LoadScoringMatrix(IEnumerable<string> lines)
+    {
+        ArgumentNullException.ThrowIfNull(lines);
+
+        var rows = new List<IReadOnlyDictionary<char, double>>();
+        double finalConstant = BimasNeutralCoefficient; // 1.0: neutral for product; harmless if overridden.
+        bool constantSet = false;
+
+        foreach (string raw in lines)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                continue;
+            }
+
+            string line = raw.Trim();
+            if (line.StartsWith('#'))
+            {
+                continue;
+            }
+
+            string[] tokens = line.Split(new[] { ' ', '\t', ',' }, StringSplitOptions.RemoveEmptyEntries);
+            var row = new Dictionary<char, double>(tokens.Length);
+            foreach (string token in tokens)
+            {
+                int eq = token.IndexOf('=');
+                string keyPart;
+                string valuePart;
+                if (eq >= 0)
+                {
+                    keyPart = token[..eq];
+                    valuePart = token[(eq + 1)..];
+                }
+                else
+                {
+                    // Allow a bare "CONST 1234" pair only when it is the line's sole content handled below.
+                    throw new FormatException($"Malformed matrix token '{token}': expected RESIDUE=VALUE or CONST=VALUE.");
+                }
+
+                if (!double.TryParse(valuePart, System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture, out double value))
+                {
+                    throw new FormatException($"Non-numeric value in token '{token}'.");
+                }
+
+                if (string.Equals(keyPart, "CONST", StringComparison.OrdinalIgnoreCase))
+                {
+                    finalConstant = value;
+                    constantSet = true;
+                    continue;
+                }
+
+                if (keyPart.Length != 1)
+                {
+                    throw new FormatException($"Residue key '{keyPart}' must be a single amino-acid letter.");
+                }
+
+                row[char.ToUpperInvariant(keyPart[0])] = value;
+            }
+
+            if (row.Count > 0)
+            {
+                rows.Add(row);
+            }
+        }
+
+        // If no CONST token was given, leave the additive/multiplicative identity (1.0); callers using SMM
+        // can pass CONST=<intercept>. constantSet is retained only to make the intent explicit.
+        _ = constantSet;
+        return new PmhcScoringMatrix(rows, finalConstant);
+    }
+
+    /// <summary>
+    /// Predicts the BIMAS half-time of dissociation (T½) of a peptide–MHC complex as the
+    /// <b>product</b> of the position-specific coefficients times the matrix's final constant:
+    /// <c>T½ = FinalConstant · ∏_i matrix.Rows[i][peptide[i]]</c>. A residue absent from a position's row
+    /// contributes the neutral coefficient 1.0 (no effect), exactly as BIMAS treats ambiguous residues.
+    /// Source: BIMAS scoring documentation — "The initial (running) score is set to 1.0 … the running score
+    /// is then multiplied by the coefficient for that amino acid type, at that position … The resulting
+    /// running score is multiplied by a final constant to yield an estimate of the half time of
+    /// disassociation"; Parker, Bednarek &amp; Coligan (1994), <i>J. Immunol.</i> 152(1):163–175 ("calculated
+    /// by multiplying together the corresponding coefficients").
+    /// </summary>
+    /// <param name="peptide">The peptide; its length must equal <c>matrix.Rows.Count</c>.</param>
+    /// <param name="matrix">A caller-supplied BIMAS-convention coefficient matrix (see <see cref="PmhcScoringMatrix"/>).</param>
+    /// <returns>The predicted half-time of dissociation (BIMAS units; higher = stronger binding).</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="peptide"/> is null.</exception>
+    /// <exception cref="ArgumentException">The matrix has no rows, or the peptide length ≠ row count.</exception>
+    public static double PredictBindingHalfLifeBimas(string peptide, PmhcScoringMatrix matrix)
+    {
+        ArgumentNullException.ThrowIfNull(peptide);
+        ValidateMatrixAgainstPeptide(peptide, matrix);
+
+        double score = 1.0; // BIMAS: "The initial (running) score is set to 1.0."
+        for (int i = 0; i < peptide.Length; i++)
+        {
+            char residue = char.ToUpperInvariant(peptide[i]);
+            double coefficient = matrix.Rows[i].TryGetValue(residue, out double c) ? c : BimasNeutralCoefficient;
+            score *= coefficient;
+        }
+
+        return score * matrix.FinalConstant;
+    }
+
+    /// <summary>
+    /// Predicts the IC50 (nM) of a peptide–MHC pair under the SMM / IEDB convention: the log50k score is the
+    /// <b>sum</b> of the position-specific values plus the matrix intercept, and the IC50 is recovered by
+    /// <c>IC50 = 50000^(1 − score)</c>. A residue absent from a position's row contributes 0 (no effect).
+    /// Source: IEDB linearisation <c>log50k = 1 − log(IC50)/log(50000)</c> (inverted gives
+    /// <c>IC50 = 50000^(1 − log50k)</c>); Peters &amp; Sette (2005), <i>BMC Bioinformatics</i> 6:132 (SMM is
+    /// an additive position-specific model fitted on log-transformed IC50).
+    /// </summary>
+    /// <param name="peptide">The peptide; its length must equal <c>matrix.Rows.Count</c>.</param>
+    /// <param name="matrix">A caller-supplied SMM-convention matrix (values = additive log50k contributions; <see cref="PmhcScoringMatrix.FinalConstant"/> = intercept).</param>
+    /// <returns>The predicted IC50 in nM (lower = stronger binding).</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="peptide"/> is null.</exception>
+    /// <exception cref="ArgumentException">The matrix has no rows, or the peptide length ≠ row count.</exception>
+    public static double PredictIc50Smm(string peptide, PmhcScoringMatrix matrix)
+    {
+        ArgumentNullException.ThrowIfNull(peptide);
+        ValidateMatrixAgainstPeptide(peptide, matrix);
+
+        double score = matrix.FinalConstant; // SMM intercept.
+        for (int i = 0; i < peptide.Length; i++)
+        {
+            char residue = char.ToUpperInvariant(peptide[i]);
+            score += matrix.Rows[i].TryGetValue(residue, out double v) ? v : SmmNeutralContribution;
+        }
+
+        // IC50 = 50000^(1 - score)  ⇔  log50k = 1 - log(IC50)/log(50000).
+        return Math.Pow(SmmIc50Base, 1.0 - score);
+    }
+
+    /// <summary>
+    /// End-to-end SMM prediction → classification: predicts the IC50 with <see cref="PredictIc50Smm"/> and
+    /// classifies it into <see cref="BindingStrength"/> via the existing <see cref="ClassifyBindingAffinity"/>
+    /// (strong &lt; 50 nM, weak &lt; 500 nM, else non-binder). This chains the matrix-based predictor into the
+    /// established threshold classifier so prediction and classification compose end-to-end (ONCO-MHC-001).
+    /// </summary>
+    /// <param name="peptide">The peptide; length must equal <c>matrix.Rows.Count</c>.</param>
+    /// <param name="matrix">A caller-supplied SMM-convention matrix.</param>
+    /// <returns>A tuple of the predicted IC50 (nM) and its binding-strength category.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="peptide"/> is null.</exception>
+    /// <exception cref="ArgumentException">The matrix has no rows, or the peptide length ≠ row count.</exception>
+    public static (double Ic50Nm, BindingStrength Strength) PredictAndClassifySmm(
+        string peptide, PmhcScoringMatrix matrix)
+    {
+        double ic50 = PredictIc50Smm(peptide, matrix);
+        return (ic50, ClassifyBindingAffinity(ic50));
+    }
+
+    private static void ValidateMatrixAgainstPeptide(string peptide, PmhcScoringMatrix matrix)
+    {
+        if (matrix.Rows is null || matrix.Rows.Count == 0)
+        {
+            throw new ArgumentException("Scoring matrix has no position rows.", nameof(matrix));
+        }
+
+        if (peptide.Length != matrix.Rows.Count)
+        {
+            throw new ArgumentException(
+                $"Peptide length {peptide.Length} does not match the matrix position count {matrix.Rows.Count}.",
+                nameof(peptide));
+        }
+    }
+
+    #endregion
+
     #region ctDNA analysis (ONCO-CTDNA-001)
 
     /// <summary>
