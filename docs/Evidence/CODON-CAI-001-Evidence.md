@@ -23,6 +23,19 @@
    - PMC: 340524, PMID: 3547335
    - DOI: 10.1093/nar/15.3.1281
 
+3. **Jansen, R., Bauer, P. & Stadler, P.F. (2003)** — "An Improved Implementation of the Codon Adaptation Index"
+   - Retrieved 2026-06-24 from PMC: https://pmc.ncbi.nlm.nih.gov/articles/PMC2684136/
+   - Quotes the original Sharp & Li (1987) rule **verbatim** and gives the reason:
+     > "The original paper proposing CAI (Sharp and Li, 1987) specifically stated that codon
+     > families containing a single codon (e.g. AUG and UGG in the standard genetic code)
+     > should be excluded in computing CAI."
+     > "Note that, for such codons (e.g. AUG and UGG in the standard genetic code), their
+     > corresponding w value will always be 1 regardless of codon usage bias of the gene. If a
+     > gene happens to use a high proportion of methionine and tryptophan, then it will have a
+     > high CAI value even if its codon usage is not at all biased."
+   - This is the authoritative basis for the **single-codon amino-acid exclusion** implemented as
+     the opt-in `excludeSingleCodonAminoAcids` mode of `CalculateCAI`.
+
 ### Mathematical Definition (from Wikipedia)
 
 **Relative Adaptiveness (w_i):**
@@ -58,6 +71,12 @@ Where L = number of codons (excluding stop codons per implementation)
 
 3. **Single-Codon Amino Acids:** Methionine (AUG) and Tryptophan (UGG) have w=1.0 always
    - Only one codon exists, so it's always the "most frequent"
+   - **Canonical rule (Sharp & Li 1987; Jansen et al. 2003):** such single-codon families
+     **should be EXCLUDED** from the CAI geometric mean, because w≡1 regardless of bias and
+     including them inflates CAI for Met/Trp-rich genes (see Source 3, retrieved verbatim).
+   - The library exposes both conventions: the default `CalculateCAI(seq, table)` *includes*
+     Met/Trp (w=1.0, historical behaviour); `CalculateCAI(seq, table, excludeSingleCodonAminoAcids: true)`
+     *excludes* them per the canonical definition.
 
 4. **Stop Codons:** Excluded from CAI calculation
    - Source: Sharp & Li (1987) — stop codons do not encode amino acids
@@ -139,6 +158,24 @@ The implementation follows Sharp & Li (1987) with one deviation:
 - CCA: w = 0.19/0.53 = 0.3585 (Pro suboptimal)
 - ACA: w = 0.13/0.44 = 0.2955 (Thr suboptimal)
 - CAI = (0.08 × 0.3585 × 0.2955)^(1/3) = 0.1980
+
+### Hand-Calculated Test Cases — Exclusion Mode (`excludeSingleCodonAminoAcids: true`)
+
+All values E. coli K12 (Kazusa species=316407); CUA(Leu) w = 0.04/0.50 = 0.08; AUG(Met) and UGG(Trp) excluded.
+
+**Test E1: `AUGUGG` (Met + Trp only)**
+- Both codons excluded → no scored codons (L=0) → CAI = 0 (contrast: inclusive default = 1.0).
+
+**Test E2: `AUGCUACUA` (Met + 2×CUA)**
+- Inclusive default: exp((ln1 + ln0.08 + ln0.08)/3) = 0.18566355334451112
+- Exclusive: Met dropped → exp((ln0.08 + ln0.08)/2) = **0.08** exactly.
+
+**Test E3: `AUGUGGCUA` (Met + Trp + CUA)**
+- Inclusive default: exp((ln1 + ln1 + ln0.08)/3) = 0.43088693800637673
+- Exclusive: Met+Trp dropped → exp(ln0.08 / 1) = **0.08** exactly.
+
+**Test E4: `CUGCUA` (no single-codon AA)**
+- Inclusive == Exclusive = (1.0 × 0.08)^(1/2) = 0.28284271247461906 (flag has no effect).
 
 ## Assumptions
 

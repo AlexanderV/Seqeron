@@ -1,10 +1,22 @@
 # Validation Report: CODON-CAI-001 — Codon Adaptation Index (CAI)
 
 - **Validated:** 2026-06-24   **Area:** Codon Optimization
-- **Canonical method(s):** `CodonOptimizer.CalculateCAI(string codingSequence, CodonUsageTable table)`
-  (+ helper `CalculateRelativeAdaptiveness`), `src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs:423`–`468`.
+- **Canonical method(s):** `CodonOptimizer.CalculateCAI(string codingSequence, CodonUsageTable table, bool excludeSingleCodonAminoAcids = false)`
+  (+ helper `CalculateRelativeAdaptiveness`, set `SingleCodonAminoAcids`), `src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs`.
 - **Stage A verdict:** PASS-WITH-NOTES
 - **Stage B verdict:** PASS
+
+> **2026-06-24 update (limitation removed):** the previously documented limitation D-A1 (single-codon
+> amino acids Met/AUG and Trp/UGG included with w=1.0 rather than excluded per Sharp & Li 1987 /
+> Jansen 2003) is **resolved**. `CalculateCAI` now accepts an opt-in
+> `excludeSingleCodonAminoAcids` parameter (default `false` = unchanged historical behaviour;
+> `true` = canonical Sharp & Li / Jansen exclusion of single-codon families). The exclusion rule was
+> re-confirmed verbatim from Jansen et al. (2003), PMC2684136, which quotes Sharp & Li (1987):
+> "codon families containing a single codon (e.g. AUG and UGG …) should be excluded in computing CAI"
+> because "their corresponding w value will always be 1 regardless of codon usage bias." Five new
+> evidence-based tests (M13–M17, exact values: AUGUGG→0, AUGCUACUA→0.08, AUGUGGCUA→0.08, default
+> unchanged) were added; CAI fixture now 30 tests, all passing. **The checklist Status was reset to
+> ☐ pending independent re-validation of the new mode.** The notes below describe the pre-fix state.
 
 This is an independent re-validation (fresh context). The code and tests are byte-identical to the
 prior campaign baseline (`git diff cb113ce -- CodonOptimizer.cs CodonOptimizer_CAI_Tests.cs` is empty;

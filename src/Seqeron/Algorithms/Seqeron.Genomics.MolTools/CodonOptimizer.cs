@@ -98,11 +98,28 @@ public static class CodonOptimizer
 
     private static readonly Dictionary<string, List<string>> AminoAcidToCodons;
 
+    /// <summary>
+    /// Amino acids encoded by a single codon in the standard genetic code
+    /// (Methionine/AUG and Tryptophan/UGG). Their relative adaptiveness w is always 1
+    /// regardless of codon usage bias, so Sharp &amp; Li (1987) / Jansen et al. (2003)
+    /// exclude them from CAI to avoid skewing the geometric mean.
+    /// Derived from <see cref="AminoAcidToCodons"/> (groups of size 1), not hard-coded.
+    /// </summary>
+    private static readonly HashSet<string> SingleCodonAminoAcids;
+
     static CodonOptimizer()
     {
         AminoAcidToCodons = StandardGeneticCode
             .GroupBy(kv => kv.Value)
             .ToDictionary(g => g.Key, g => g.Select(kv => kv.Key).ToList());
+
+        // Single-codon (non-degenerate) amino acids: those with exactly one synonymous
+        // codon. In the standard genetic code these are Met ("M", AUG) and Trp ("W", UGG).
+        // Stop ("*") has 3 codons and is handled separately. Source: Sharp & Li (1987).
+        SingleCodonAminoAcids = AminoAcidToCodons
+            .Where(kv => kv.Key != "*" && kv.Value.Count == 1)
+            .Select(kv => kv.Key)
+            .ToHashSet();
     }
 
     #endregion
@@ -418,9 +435,21 @@ public static class CodonOptimizer
     #region CAI Calculation
 
     /// <summary>
-    /// Calculates the Codon Adaptation Index (CAI) for a sequence.
+    /// Calculates the Codon Adaptation Index (CAI) for a sequence
+    /// (Sharp &amp; Li 1987, <c>CAI = (∏ w_i)^(1/L)</c>, the geometric mean of the relative
+    /// adaptiveness <c>w_i = f_i / max(f_j)</c> over the gene's codons; stop codons excluded).
     /// </summary>
-    public static double CalculateCAI(string codingSequence, CodonUsageTable table)
+    /// <param name="codingSequence">Coding sequence (DNA or RNA; case-insensitive).</param>
+    /// <param name="table">Reference codon usage table.</param>
+    /// <param name="excludeSingleCodonAminoAcids">
+    /// When <see langword="true"/>, codons of amino acids that have a single codon in the
+    /// standard genetic code (Met/AUG, Trp/UGG) are excluded from the geometric mean, as the
+    /// original Sharp &amp; Li (1987) definition prescribes and Jansen et al. (2003) reiterate:
+    /// "codon families containing a single codon (e.g. AUG and UGG …) should be excluded in
+    /// computing CAI" because their w is always 1 regardless of bias. Default <see langword="false"/>
+    /// preserves the historical inclusive behaviour (these codons counted with w = 1.0).
+    /// </param>
+    public static double CalculateCAI(string codingSequence, CodonUsageTable table, bool excludeSingleCodonAminoAcids = false)
     {
         if (string.IsNullOrEmpty(codingSequence))
             return 0;
@@ -438,6 +467,10 @@ public static class CodonOptimizer
         {
             string aminoAcid = TranslateCodon(codon);
             if (aminoAcid == "*") continue;
+
+            // Per Sharp & Li (1987): single-codon amino acids (Met/AUG, Trp/UGG) are excluded
+            // from CAI when requested, since their w is always 1 and would skew the geometric mean.
+            if (excludeSingleCodonAminoAcids && SingleCodonAminoAcids.Contains(aminoAcid)) continue;
 
             double w = CalculateRelativeAdaptiveness(codon, aminoAcid, table);
             if (double.IsNaN(w)) continue; // No frequency data for this AA in table
