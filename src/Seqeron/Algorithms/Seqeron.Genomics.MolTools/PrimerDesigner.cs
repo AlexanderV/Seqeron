@@ -474,6 +474,327 @@ public static class PrimerDesigner
         static bool IsGC(char c) => c is 'G' or 'C';
     }
 
+    // ---- Nearest-neighbour salt-corrected Tm (PRIMER-TM-001, opt-in) ----------
+    // SantaLucia (1998) unified Watson-Crick NN ΔH°/ΔS° (1 M NaCl) with the
+    // bimolecular Tm equation, plus published monovalent (Owczarzy 2004) and
+    // divalent (Owczarzy 2008) salt corrections. This is an OPT-IN design Tm: the
+    // default CalculateMeltingTemperature (Wallace / Marmur-Doty) is unchanged.
+    // Sources:
+    //   SantaLucia J (1998) PNAS 95(4):1460-65, Table 1 (unified NN parameters),
+    //     Eq. 3 Tm = ΔH°·1000 / (ΔS° + R·ln(C_T/x)) − 273.15;
+    //   SantaLucia J, Hicks D (2004) Annu Rev Biophys 33:415-440, Table 1 + Eq. 5
+    //     (cross-check of the unified parameters and the entropy salt correction);
+    //   Owczarzy R et al. (2004) Biochemistry 43:3537-54 (monovalent correction);
+    //   Owczarzy R et al. (2008) Biochemistry 47:5336-53 (divalent Mg²⁺ correction);
+    //   Biopython Bio.SeqUtils.MeltingTemp (DNA_NN4 table, salt_correction methods
+    //     6 and 7 — reference implementation, cross-checked verbatim).
+
+    /// <summary>
+    /// SantaLucia (1998) unified Watson-Crick nearest-neighbour parameters at 1 M NaCl,
+    /// as (ΔH° in kcal/mol, ΔS° in cal/(K·mol)). 5'→3' dinucleotide keys; the reverse
+    /// strand is implied by Watson-Crick pairing (e.g. AC pairs with the GT NN, hence
+    /// AC and GT share parameters). Source: SantaLucia &amp; Hicks (2004) Table 1
+    /// (identical to SantaLucia 1998); cross-checked against Biopython DNA_NN4.
+    /// </summary>
+    private static readonly Dictionary<string, (double DeltaH, double DeltaS)> NnUnifiedParams = new()
+    {
+        ["AA"] = (-7.6, -21.3), ["TT"] = (-7.6, -21.3),
+        ["AT"] = (-7.2, -20.4),
+        ["TA"] = (-7.2, -21.3),
+        ["CA"] = (-8.5, -22.7), ["TG"] = (-8.5, -22.7),
+        ["GT"] = (-8.4, -22.4), ["AC"] = (-8.4, -22.4),
+        ["CT"] = (-7.8, -21.0), ["AG"] = (-7.8, -21.0),
+        ["GA"] = (-8.2, -22.2), ["TC"] = (-8.2, -22.2),
+        ["CG"] = (-10.6, -27.2),
+        ["GC"] = (-9.8, -24.4),
+        ["GG"] = (-8.0, -19.9), ["CC"] = (-8.0, -19.9)
+    };
+
+    // Duplex-initiation term (per duplex). SantaLucia & Hicks (2004) Table 1: ΔH°=+0.2, ΔS°=−5.7.
+    private const double NnInitDeltaH = 0.2;    // kcal/mol
+    private const double NnInitDeltaS = -5.7;   // cal/(K·mol)
+
+    // Terminal A·T penalty, applied once per duplex end that closes with an A·T pair.
+    // SantaLucia & Hicks (2004) Table 1: ΔH°=+2.2, ΔS°=+6.9.
+    private const double NnTerminalAtDeltaH = 2.2;   // kcal/mol
+    private const double NnTerminalAtDeltaS = 6.9;   // cal/(K·mol)
+
+    // Symmetry correction, applied once for a self-complementary duplex.
+    // SantaLucia & Hicks (2004) Table 1: ΔH°=0.0, ΔS°=−1.4.
+    private const double NnSymmetryDeltaS = -1.4;    // cal/(K·mol)
+
+    // Gas constant R in cal/(K·mol) for the Tm equation. SantaLucia & Hicks (2004) Eq. 3: R = 1.9872.
+    private const double GasConstant = 1.9872;
+
+    // Strand-concentration divisor x in Tm = ΔH°/(ΔS° + R·ln(C_T/x)).
+    // SantaLucia & Hicks (2004) Eq. 3: x = 4 for non-self-complementary, x = 1 for self-complementary.
+    private const double NonSelfComplementaryFactor = 4.0;
+    private const double SelfComplementaryFactor = 1.0;
+
+    // Kelvin-to-Celsius offset.
+    private const double KelvinOffset = 273.15;
+
+    // Default total strand concentration C_T = 0.5 µM (a common PCR primer working
+    // concentration). Exposed as a parameter; the caller may override.
+    private const double DefaultStrandConcentrationMolar = 0.5e-6;
+
+    // Owczarzy (2004) monovalent (Na⁺) correction, 1/Tm form:
+    //   1/Tm[Na] = 1/Tm[1M] + (4.29·f(GC) − 3.95)·1e-5·ln[Na⁺] + 9.40e-6·(ln[Na⁺])²
+    // Source: Owczarzy et al. (2004) Biochemistry 43:3537-54; coefficients per the
+    // Biopython salt_correction method 6 (cross-checked).
+    private const double Owczarzy2004GcCoefficient = 4.29e-5;
+    private const double Owczarzy2004Constant = 3.95e-5;
+    private const double Owczarzy2004QuadraticCoefficient = 9.40e-6;
+
+    /// <summary>Salt-correction mode for <see cref="CalculateMeltingTemperatureNN"/>.</summary>
+    public enum SaltCorrectionMode
+    {
+        /// <summary>No correction — Tm at the SantaLucia 1 M NaCl reference state.</summary>
+        None,
+
+        /// <summary>
+        /// SantaLucia &amp; Hicks (2004) Eq. 5 entropy correction:
+        /// ΔS°[Na] = ΔS°[1 M] + 0.368·(N/2)·ln[Na⁺], N = total phosphates = 2·(length−1).
+        /// Fully primary-sourced; applied to ΔS° before the Tm equation.
+        /// </summary>
+        SantaLuciaEntropy,
+
+        /// <summary>
+        /// Owczarzy et al. (2004) monovalent quadratic 1/Tm correction (Biochemistry 43:3537).
+        /// </summary>
+        Owczarzy2004Monovalent,
+
+        /// <summary>
+        /// Owczarzy et al. (2008) divalent Mg²⁺ (and dNTP-adjusted) correction (Biochemistry 47:5336);
+        /// reduces to the 2004 monovalent form when the divalent ratio is negligible.
+        /// </summary>
+        Owczarzy2008Divalent
+    }
+
+    // SantaLucia & Hicks (2004) Eq. 5 entropy salt-correction coefficient (0.368).
+    private const double SantaLuciaEntropySaltCoefficient = 0.368;
+
+    // Owczarzy (2008) divalent correction coefficients (Biopython salt_correction method 7;
+    // Owczarzy et al. 2008 Biochemistry 47:5336). The base coefficients a..g and the
+    // regime-dependent reparameterisations of a, d, g below are taken verbatim.
+    private const double Owc2008A = 3.92e-5;
+    private const double Owc2008B = -0.911e-5;
+    private const double Owc2008C = 6.26e-5;
+    private const double Owc2008D = 1.42e-5;
+    private const double Owc2008E = -48.2e-5;
+    private const double Owc2008F = 52.5e-5;
+    private const double Owc2008G = 8.31e-5;
+    private const double Owc2008MonovalentRatioLow = 0.22;   // R = √[Mg²⁺]/[Mon] threshold below which monovalent dominates
+    private const double Owc2008MonovalentRatioHigh = 6.0;   // R threshold above which divalent dominates
+    private const double DntpMgAssociationConstant = 3.0e4;  // dNTP·Mg²⁺ association constant Ka
+
+    /// <summary>
+    /// Computes the duplex ΔH° (kcal/mol) and ΔS° (cal/(K·mol)) of a DNA oligonucleotide
+    /// using the SantaLucia (1998) unified nearest-neighbour parameters, including the
+    /// duplex-initiation term, a terminal A·T penalty per A·T-closed end, and (for a
+    /// self-complementary sequence) the symmetry correction. Only A/C/G/T are summed;
+    /// any other character makes the NN lookup fail and the result is reported as not
+    /// computable (returns <c>null</c>). Source: SantaLucia &amp; Hicks (2004) Eq. 1 + Table 1.
+    /// </summary>
+    /// <param name="sequence">DNA sequence (one strand, 5'→3').</param>
+    /// <returns>(ΔH°, ΔS°, IsSelfComplementary) or <c>null</c> if the sequence is empty,
+    /// shorter than 2 bases, or contains a non-ACGT character.</returns>
+    public static (double DeltaH, double DeltaS, bool IsSelfComplementary)? CalculateNearestNeighborThermodynamics(string sequence)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            return null;
+
+        string seq = sequence.ToUpperInvariant();
+        if (seq.Length < 2)
+            return null;
+
+        double dH = NnInitDeltaH;
+        double dS = NnInitDeltaS;
+
+        for (int i = 0; i < seq.Length - 1; i++)
+        {
+            string dinuc = seq.Substring(i, 2);
+            if (!NnUnifiedParams.TryGetValue(dinuc, out var p))
+                return null; // non-ACGT base present
+            dH += p.DeltaH;
+            dS += p.DeltaS;
+        }
+
+        // Terminal A·T penalty per end that closes with an A·T pair (A or T terminus).
+        if (seq[0] is 'A' or 'T') { dH += NnTerminalAtDeltaH; dS += NnTerminalAtDeltaS; }
+        if (seq[^1] is 'A' or 'T') { dH += NnTerminalAtDeltaH; dS += NnTerminalAtDeltaS; }
+
+        bool selfComp = IsSelfComplementary(seq);
+        if (selfComp)
+            dS += NnSymmetryDeltaS; // symmetry correction (ΔH° contribution is 0)
+
+        return (dH, dS, selfComp);
+    }
+
+    /// <summary>
+    /// Computes the design melting temperature (°C) of a primer/oligonucleotide using the
+    /// SantaLucia (1998) unified nearest-neighbour thermodynamics and the bimolecular Tm
+    /// equation, with an optional published salt correction. <b>Opt-in</b>: the default
+    /// <see cref="CalculateMeltingTemperature(string)"/> (Wallace / Marmur-Doty) is unchanged.
+    /// <para>
+    /// Tm = ΔH°·1000 / (ΔS° + R·ln(C_T / x)) − 273.15, with R = 1.9872 cal/(K·mol),
+    /// x = 4 for a non-self-complementary duplex and x = 1 for a self-complementary one
+    /// (SantaLucia &amp; Hicks 2004, Eq. 3). Salt corrections per
+    /// <paramref name="saltMode"/>.
+    /// </para>
+    /// </summary>
+    /// <param name="primer">DNA primer sequence (5'→3'). Must be ≥ 2 ACGT bases.</param>
+    /// <param name="strandConcentrationMolar">Total strand concentration C_T in mol/L
+    /// (default 0.5 µM).</param>
+    /// <param name="sodiumMolar">Monovalent cation ([Na⁺]+[K⁺]+[Tris]/2) concentration in
+    /// mol/L (default 0.05 M = 50 mM).</param>
+    /// <param name="magnesiumMolar">[Mg²⁺] in mol/L (default 0; only used by the
+    /// <see cref="SaltCorrectionMode.Owczarzy2008Divalent"/> mode).</param>
+    /// <param name="dntpMolar">Total dNTP concentration in mol/L (default 0; sequesters Mg²⁺
+    /// in the divalent mode).</param>
+    /// <param name="saltMode">Which salt correction to apply (default
+    /// <see cref="SaltCorrectionMode.Owczarzy2004Monovalent"/>).</param>
+    /// <returns>The nearest-neighbour Tm in °C, or <c>double.NaN</c> if the sequence is
+    /// empty, shorter than 2 bases, or contains a non-ACGT character.</returns>
+    public static double CalculateMeltingTemperatureNN(
+        string primer,
+        double strandConcentrationMolar = DefaultStrandConcentrationMolar,
+        double sodiumMolar = ThermoConstants.DefaultNaConcentration,
+        double magnesiumMolar = 0.0,
+        double dntpMolar = 0.0,
+        SaltCorrectionMode saltMode = SaltCorrectionMode.Owczarzy2004Monovalent)
+    {
+        var thermo = CalculateNearestNeighborThermodynamics(primer);
+        if (thermo is null)
+            return double.NaN;
+
+        var (dH, dS, selfComp) = thermo.Value;
+        int length = primer.Length;
+        double x = selfComp ? SelfComplementaryFactor : NonSelfComplementaryFactor;
+
+        // SantaLucia & Hicks (2004) Eq. 5: salt-correct ΔS° before the Tm equation.
+        double dSeff = dS;
+        if (saltMode == SaltCorrectionMode.SantaLuciaEntropy)
+        {
+            // N = total phosphates in the duplex = 2·(length − 1) (paper's 6-bp duplex → 10).
+            double phosphates = 2.0 * (length - 1);
+            dSeff += SantaLuciaEntropySaltCoefficient * (phosphates / 2.0) * Math.Log(sodiumMolar);
+        }
+
+        // Tm in Kelvin (ΔH° converted kcal → cal via ·1000).
+        double tmKelvin = (dH * 1000.0) / (dSeff + GasConstant * Math.Log(strandConcentrationMolar / x));
+
+        switch (saltMode)
+        {
+            case SaltCorrectionMode.Owczarzy2004Monovalent:
+                tmKelvin = ApplyOwczarzy2004(tmKelvin, primer, sodiumMolar);
+                break;
+            case SaltCorrectionMode.Owczarzy2008Divalent:
+                tmKelvin = ApplyOwczarzy2008(tmKelvin, primer, sodiumMolar, magnesiumMolar, dntpMolar);
+                break;
+            case SaltCorrectionMode.None:
+            case SaltCorrectionMode.SantaLuciaEntropy:
+            default:
+                break;
+        }
+
+        return tmKelvin - KelvinOffset;
+    }
+
+    /// <summary>GC fraction over A/C/G/T bases only (denominator excludes non-ACGT).</summary>
+    private static double GcFraction(string seq)
+    {
+        int gc = 0, valid = 0;
+        foreach (char c in seq)
+        {
+            if (c is 'G' or 'C') { gc++; valid++; }
+            else if (c is 'A' or 'T') valid++;
+        }
+        return valid == 0 ? 0.0 : (double)gc / valid;
+    }
+
+    // Owczarzy (2004) monovalent correction in 1/Tm form (Kelvin).
+    private static double ApplyOwczarzy2004(double tmKelvin, string seq, double sodiumMolar)
+    {
+        double lnNa = Math.Log(sodiumMolar);
+        double fgc = GcFraction(seq);
+        double corr = (Owczarzy2004GcCoefficient * fgc - Owczarzy2004Constant) * lnNa
+                      + Owczarzy2004QuadraticCoefficient * lnNa * lnNa;
+        return 1.0 / (1.0 / tmKelvin + corr);
+    }
+
+    // Owczarzy (2008) divalent (Mg²⁺/dNTP) correction in 1/Tm form (Kelvin),
+    // reproducing Biopython salt_correction method 7.
+    private static double ApplyOwczarzy2008(
+        double tmKelvin, string seq, double sodiumMolar, double magnesiumMolar, double dntpMolar)
+    {
+        double mon = sodiumMolar;
+        double mg = magnesiumMolar;
+
+        // Free Mg²⁺ after dNTP chelation (quadratic solution with Ka).
+        if (dntpMolar > 0)
+        {
+            double ka = DntpMgAssociationConstant;
+            mg = (-(ka * dntpMolar - ka * mg + 1.0)
+                  + Math.Sqrt((ka * dntpMolar - ka * mg + 1.0) * (ka * dntpMolar - ka * mg + 1.0)
+                              + 4.0 * ka * mg)) / (2.0 * ka);
+        }
+
+        double fgc = GcFraction(seq);
+        double corr;
+
+        // If essentially no divalent ion, fall back to the monovalent 2004 form.
+        if (mg <= 0 && mon > 0)
+        {
+            double ln = Math.Log(mon);
+            corr = (Owczarzy2004GcCoefficient * fgc - Owczarzy2004Constant) * ln
+                   + Owczarzy2004QuadraticCoefficient * ln * ln;
+            return 1.0 / (1.0 / tmKelvin + corr);
+        }
+
+        double a = Owc2008A, b = Owc2008B, c = Owc2008C, d = Owc2008D, e = Owc2008E, f = Owc2008F, g = Owc2008G;
+        double r = mon > 0 ? Math.Sqrt(mg) / mon : double.PositiveInfinity;
+
+        if (mon > 0 && r < Owc2008MonovalentRatioLow)
+        {
+            // Monovalent dominates → 2004 form.
+            double ln = Math.Log(mon);
+            corr = (Owczarzy2004GcCoefficient * fgc - Owczarzy2004Constant) * ln
+                   + Owczarzy2004QuadraticCoefficient * ln * ln;
+            return 1.0 / (1.0 / tmKelvin + corr);
+        }
+
+        if (mon > 0 && r < Owc2008MonovalentRatioHigh)
+        {
+            // Mixed regime: reparameterise a, d, g (Owczarzy 2008 / Biopython method 7).
+            double lnMon = Math.Log(mon);
+            a = 3.92e-5 * (0.843 - 0.352 * Math.Sqrt(mon) * lnMon);
+            d = 1.42e-5 * (1.279 - 4.03e-3 * lnMon - 8.03e-3 * lnMon * lnMon);
+            g = 8.31e-5 * (0.486 - 0.258 * lnMon + 5.25e-3 * lnMon * lnMon * lnMon);
+        }
+
+        double lnMg = Math.Log(mg);
+        corr = a + b * lnMg + fgc * (c + d * lnMg)
+               + (1.0 / (2.0 * (seq.Length - 1))) * (e + f * lnMg + g * lnMg * lnMg);
+        return 1.0 / (1.0 / tmKelvin + corr);
+    }
+
+    /// <summary>True if the sequence equals its own reverse complement (self-complementary).</summary>
+    private static bool IsSelfComplementary(string seq)
+    {
+        int n = seq.Length;
+        if (n % 2 != 0) return false; // odd-length cannot be self-complementary
+        for (int i = 0; i < n; i++)
+        {
+            char a = seq[i];
+            char b = seq[n - 1 - i];
+            bool pair = (a == 'A' && b == 'T') || (a == 'T' && b == 'A')
+                     || (a == 'G' && b == 'C') || (a == 'C' && b == 'G');
+            if (!pair) return false;
+        }
+        return true;
+    }
+
     /// <summary>
     /// Generates all possible primers for a region.
     /// </summary>

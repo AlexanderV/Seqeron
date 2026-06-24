@@ -101,10 +101,34 @@ C1–C2 and Tm M1–M19 all match my independent hand-computations above.
 ### Findings / defects
 - None. No code changed.
 
+## 2026-06-24 update — nearest-neighbour salt-corrected Tm added (opt-in)
+
+The earlier PASS-WITH-NOTES "full salt/Mg²⁺-corrected Tm not offered" limitation is now resolved by an
+**opt-in** method, leaving only the standard Watson-Crick-NN-model residual (no mismatch / dangling-end /
+secondary-structure terms). The default Wallace/Marmur-Doty Tm and the Primer3 penalty objective are unchanged.
+
+- **New API (`PrimerDesigner`):** `CalculateMeltingTemperatureNN(string, strandConcentrationMolar=0.5e-6,
+  sodiumMolar=0.05, magnesiumMolar=0, dntpMolar=0, SaltCorrectionMode=Owczarzy2004Monovalent)` and
+  `CalculateNearestNeighborThermodynamics(string) → (ΔH°, ΔS°, IsSelfComplementary)?`; `SaltCorrectionMode`
+  = None / SantaLuciaEntropy / Owczarzy2004Monovalent / Owczarzy2008Divalent.
+- **Sources retrieved this session:** SantaLucia 1998 PNAS 95:1460 + SantaLucia & Hicks 2004 Table 1/Eq.3/Eq.5
+  (Duke PDF, pages read directly); Owczarzy 2004 (Biochemistry 43:3537) monovalent + Owczarzy 2008 (47:5336)
+  divalent; Biopython `DNA_NN4` / `salt_correction` (cross-check). Unified NN table cross-checked verbatim
+  against Biopython `DNA_NN4`.
+- **Hand-derived test values (1e-8):** ΔH°/ΔS° sums for GCGCGC (−50.4 / −134.7, self-comp) and ATGCATGC
+  (−57.1 / −156.5); Tm(no salt) GCGCGC=35.0473059911, ATGCATGC=30.4338060665, CGCGAATTCGCG=61.1452300219;
+  Owczarzy-2004 @50 mM GCGCGC=28.1593085080, ATGCATGC=18.1899960529; SantaLucia-Eq.5 GCGCGC=24.9976652723.
+  The paper's published worked example (ΔH°=−43.5, ΔS°=−122.5, 0.2 mM → 35.8 °C) reproduces via the same Tm
+  equation. Tests: `PrimerDesigner_NearestNeighborTm_Tests.cs` (17 tests, all green).
+- **Evidence:** `docs/Evidence/PRIMER-TM-001-NN-Evidence.md`; **TestSpec:** `tests/TestSpecs/PRIMER-TM-001-NN.md`;
+  **Algorithm doc:** `docs/algorithms/MolTools/NearestNeighbor_Salt_Corrected_Tm.md`.
+- **Checklist:** root-registry Status reset `☑`→`☐` for re-validation; Quick-Reference counts adjusted.
+
 ## Verdict & follow-ups
 - **Stage A: PASS-WITH-NOTES** (Tm portion: documented Wallace −7 omission + Marmur-Doty simplification; prompt's
   "Tm uses SantaLucia NN" is a framing inaccuracy — NN is in 3'-stability only). **Stage B: PASS.**
 - **State: CLEAN.** The new Primer3 penalty objective (commit e55e658c) faithfully reproduces Primer3's `p_obj_fn`
   left/right-primer branch with exact sourced defaults; hand-computed penalties match the C# output to 1e-10. The
-  legacy Tm calculation is unchanged and correct per its documented (simplified) model.
-- No defects logged; no follow-ups required.
+  legacy Tm calculation is unchanged and correct per its documented (simplified) model. The new opt-in NN
+  salt-corrected Tm (2026-06-24) is added above; only the Watson-Crick-NN-model residual remains.
+- No defects logged.
