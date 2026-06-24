@@ -1008,4 +1008,379 @@ public class ImmuneAnalyzer_ImmuneInfiltration_Tests
     }
 
     #endregion
+
+    #region CIBERSORT nu-SVR Deconvolution (DeconvoluteImmuneCellsNuSvr, LoadSignatureMatrix)
+
+    // Tolerance for planted-truth fraction recovery. nu-SVR is a regularised, epsilon-insensitive
+    // (robust) estimator, so recovered fractions approximate — but do not exactly equal — the
+    // planted fractions; the tube width and z-standardisation introduce a small, bounded deviation.
+    private const double NuSvrRecoveryTolerance = 0.025;
+
+    // Tolerance for agreement with the scikit-learn / libsvm NuSVR reference (cross-implementation).
+    private const double NuSvrReferenceTolerance = 2e-3;
+
+    /// <summary>
+    /// Builds a synthetic bulk mixture m = B·f from a signature matrix B and planted fractions f.
+    /// This is the planted-truth construction used to verify deconvolution recovery.
+    /// </summary>
+    private static Dictionary<string, double> BuildPlantedMixture(
+        IReadOnlyDictionary<string, IReadOnlyDictionary<string, double>> signature,
+        IReadOnlyDictionary<string, double> plantedFractions)
+    {
+        var allGenes = signature.Values.SelectMany(d => d.Keys).Distinct();
+        var mixture = new Dictionary<string, double>();
+        foreach (var gene in allGenes)
+        {
+            double v = 0.0;
+            foreach (var ct in signature.Keys)
+            {
+                double frac = plantedFractions.TryGetValue(ct, out double fr) ? fr : 0.0;
+                if (frac != 0.0 && signature[ct].TryGetValue(gene, out double sval))
+                    v += frac * sval;
+            }
+            mixture[gene] = v;
+        }
+        return mixture;
+    }
+
+    // NSVR-M1 — Planted-truth recovery on the bundled 5-marker × 22-cell-type matrix.
+    // Bulk = B·f with f = {CD8:0.60, B_naive:0.30, Monocytes:0.10}; nu-SVR must recover f.
+    // Evidence: Newman et al. (2015) — nu-SVR deconvolution of m on the signature columns.
+    [Test]
+    public void DeconvoluteImmuneCellsNuSvr_PlantedTruth_RecoversFractions()
+    {
+        // Arrange
+        var planted = new Dictionary<string, double>
+        {
+            ["T_cells_CD8"] = 0.60,
+            ["B_cells_naive"] = 0.30,
+            ["Monocytes"] = 0.10,
+        };
+        var mixture = BuildPlantedMixture(ImmuneAnalyzer.DefaultSignatureMatrix, planted);
+
+        // Act
+        var result = ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(mixture);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            foreach (var kvp in planted)
+            {
+                Assert.That(result.CellFractions[kvp.Key], Is.EqualTo(kvp.Value).Within(NuSvrRecoveryTolerance),
+                    $"nu-SVR must recover the planted fraction for {kvp.Key} (planted {kvp.Value})");
+            }
+
+            // Cell types not present in the mixture should be ~0.
+            foreach (var ct in ImmuneAnalyzer.DefaultSignatureMatrix.Keys.Where(c => !planted.ContainsKey(c)))
+            {
+                Assert.That(result.CellFractions[ct], Is.LessThan(NuSvrRecoveryTolerance),
+                    $"absent cell type {ct} should recover a near-zero fraction");
+            }
+        });
+    }
+
+    // NSVR-M2 — Cross-implementation reference match against scikit-learn 1.6.1 NuSVR (libsvm).
+    // Identical standardized linear problem; selected nu = 0.75 (lowest RMSE); sklearn normalized
+    // fractions = [0.508497, 0.179491, 0.312012]. This is the decisive correctness check: it would
+    // FAIL for any solver that does not faithfully implement the Schölkopf (2000) nu-SVR dual.
+    // Evidence: scikit-learn NuSVR(kernel='linear', nu, C=1.0) — verbatim reference numbers
+    // recomputed this session; Schölkopf et al. (2000), Neural Computation 12:1207.
+    [Test]
+    public void DeconvoluteImmuneCellsNuSvr_MatchesLibsvmNuSvrReference()
+    {
+        // Arrange — 3 cell types, 3 disjoint markers each (same matrix used against sklearn).
+        var signature = new Dictionary<string, IReadOnlyDictionary<string, double>>
+        {
+            ["TypeA"] = new Dictionary<string, double> { ["a1"] = 10, ["a2"] = 8, ["a3"] = 6 },
+            ["TypeB"] = new Dictionary<string, double> { ["b1"] = 9, ["b2"] = 7, ["b3"] = 5 },
+            ["TypeC"] = new Dictionary<string, double> { ["c1"] = 11, ["c2"] = 4, ["c3"] = 8 },
+        };
+        var planted = new Dictionary<string, double> { ["TypeA"] = 0.5, ["TypeB"] = 0.2, ["TypeC"] = 0.3 };
+        var mixture = BuildPlantedMixture(signature, planted);
+
+        // scikit-learn 1.6.1 NuSVR reference (selected nu = 0.75), normalized after zero-clip.
+        const double refA = 0.508497;
+        const double refB = 0.179491;
+        const double refC = 0.312012;
+
+        // Act
+        var result = ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(mixture, signature);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.BestNu, Is.EqualTo(0.75).Within(ExactTolerance),
+                "the lowest-RMSE nu for this problem is 0.75 (matches sklearn selection)");
+            Assert.That(result.CellFractions["TypeA"], Is.EqualTo(refA).Within(NuSvrReferenceTolerance),
+                "TypeA fraction must match the libsvm/sklearn NuSVR reference");
+            Assert.That(result.CellFractions["TypeB"], Is.EqualTo(refB).Within(NuSvrReferenceTolerance),
+                "TypeB fraction must match the libsvm/sklearn NuSVR reference");
+            Assert.That(result.CellFractions["TypeC"], Is.EqualTo(refC).Within(NuSvrReferenceTolerance),
+                "TypeC fraction must match the libsvm/sklearn NuSVR reference");
+        });
+    }
+
+    // NSVR-M3 — Fractions are non-negative and sum to 1 (INV: zero-clip + sum-to-1).
+    // Evidence: Newman et al. (2015) — negatives set to 0, remaining normalized to sum 1.
+    [Test]
+    public void DeconvoluteImmuneCellsNuSvr_FractionsAreNonNegativeAndSumToOne()
+    {
+        // Arrange
+        var planted = new Dictionary<string, double>
+        {
+            ["NK_cells_activated"] = 0.4,
+            ["Macrophages_M1"] = 0.35,
+            ["Plasma_cells"] = 0.25,
+        };
+        var mixture = BuildPlantedMixture(ImmuneAnalyzer.DefaultSignatureMatrix, planted);
+
+        // Act
+        var result = ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(mixture);
+        double sum = result.CellFractions.Values.Sum();
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.CellFractions.Values.All(v => v >= 0.0), Is.True,
+                "all cell-type fractions must be non-negative (negatives clipped to 0)");
+            Assert.That(sum, Is.EqualTo(1.0).Within(1e-9),
+                "cell-type fractions must be normalized to sum to 1");
+        });
+    }
+
+    // NSVR-M4 — Selected nu is one of the CIBERSORT sweep values {0.25, 0.5, 0.75}.
+    // Evidence: CIBERSORT protocol — "CIBERSORT uses a set of nu values (0.25, 0.5, 0.75)".
+    [Test]
+    public void DeconvoluteImmuneCellsNuSvr_SelectsNuFromCibersortSet()
+    {
+        // Arrange
+        var planted = new Dictionary<string, double> { ["T_cells_CD8"] = 0.7, ["Neutrophils"] = 0.3 };
+        var mixture = BuildPlantedMixture(ImmuneAnalyzer.DefaultSignatureMatrix, planted);
+
+        // Act
+        var result = ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(mixture);
+
+        // Assert
+        Assert.That(ImmuneAnalyzer.CibersortNuValues, Does.Contain(result.BestNu),
+            "the selected nu must be one of the CIBERSORT sweep values {0.25, 0.5, 0.75}");
+    }
+
+    // NSVR-M5 — High-fidelity reconstruction: for an exact planted mixture the Pearson correlation
+    // between observed and reconstructed profile is near 1 (the model fits a true linear mixture).
+    // Evidence: Newman et al. (2015) — m = B·f is a linear mixture, recovered by the regression.
+    [Test]
+    public void DeconvoluteImmuneCellsNuSvr_PlantedTruth_ReconstructionCorrelationNearOne()
+    {
+        // Arrange
+        var planted = new Dictionary<string, double> { ["B_cells_naive"] = 0.5, ["T_cells_CD8"] = 0.5 };
+        var mixture = BuildPlantedMixture(ImmuneAnalyzer.DefaultSignatureMatrix, planted);
+
+        // Act
+        var result = ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(mixture);
+
+        // Assert
+        Assert.That(result.Correlation, Is.GreaterThan(0.95),
+            "reconstruction of an exact linear mixture must correlate near-perfectly with the observed profile");
+    }
+
+    // NSVR-S1 — Determinism: identical inputs yield identical fractions (no randomness).
+    [Test]
+    public void DeconvoluteImmuneCellsNuSvr_IsDeterministic()
+    {
+        // Arrange
+        var planted = new Dictionary<string, double> { ["Monocytes"] = 0.6, ["Eosinophils"] = 0.4 };
+        var mixture = BuildPlantedMixture(ImmuneAnalyzer.DefaultSignatureMatrix, planted);
+
+        // Act
+        var r1 = ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(mixture);
+        var r2 = ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(mixture);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(r1.BestNu, Is.EqualTo(r2.BestNu), "selected nu must be deterministic");
+            foreach (var ct in r1.CellFractions.Keys)
+            {
+                Assert.That(r1.CellFractions[ct], Is.EqualTo(r2.CellFractions[ct]).Within(ExactTolerance),
+                    $"fraction for {ct} must be deterministic across runs");
+            }
+        });
+    }
+
+    // NSVR-S2 — No overlapping genes → all fractions 0, OverlappingGenes = 0.
+    [Test]
+    public void DeconvoluteImmuneCellsNuSvr_NoOverlappingGenes_ReturnsZeroFractions()
+    {
+        // Arrange — expression profile with genes absent from the signature matrix.
+        var profile = new Dictionary<string, double> { ["ZZZ1"] = 5.0, ["ZZZ2"] = 7.0 };
+
+        // Act
+        var result = ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(profile);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.OverlappingGenes, Is.EqualTo(0), "no signature genes overlap the profile");
+            Assert.That(result.CellFractions.Values.All(v => v == 0.0), Is.True,
+                "with no overlap, every cell-type fraction is 0");
+            Assert.That(result.BestNu, Is.EqualTo(0.0), "no fit performed → BestNu is the sentinel 0");
+        });
+    }
+
+    // NSVR-S3 — Null expression profile → ArgumentNullException.
+    [Test]
+    public void DeconvoluteImmuneCellsNuSvr_NullProfile_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(
+            () => ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(null!),
+            "a null expression profile must raise ArgumentNullException");
+    }
+
+    // NSVR-S4 — LM22-format loader parses a tab-separated matrix into cellType → (gene → value).
+    // Evidence: Newman et al. (2015) — LM22 is a TSV: header (gene-symbol col + 22 cell types),
+    // then one row per gene. The full LM22 is 547 genes × 22 cell types (caller-supplied; not bundled).
+    [Test]
+    public void LoadSignatureMatrix_ParsesTabSeparatedMatrix()
+    {
+        // Arrange
+        var lines = new[]
+        {
+            "Gene symbol\tB cells naive\tT cells CD8",
+            "CD19\t8.5\t0.0",
+            "CD8A\t0.0\t9.5",
+        };
+
+        // Act
+        var matrix = ImmuneAnalyzer.LoadSignatureMatrix(lines);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(matrix.Keys, Is.EquivalentTo(new[] { "B cells naive", "T cells CD8" }),
+                "cell-type columns must be parsed from the header");
+            Assert.That(matrix["B cells naive"]["CD19"], Is.EqualTo(8.5).Within(ExactTolerance),
+                "value for (CD19, B cells naive) must be parsed");
+            Assert.That(matrix["T cells CD8"]["CD8A"], Is.EqualTo(9.5).Within(ExactTolerance),
+                "value for (CD8A, T cells CD8) must be parsed");
+            Assert.That(matrix["B cells naive"]["CD8A"], Is.EqualTo(0.0).Within(ExactTolerance),
+                "zero entries must be parsed");
+        });
+    }
+
+    // NSVR-S5 — A matrix loaded via the LM22 loader feeds the deconvolution end-to-end.
+    [Test]
+    public void LoadSignatureMatrix_LoadedMatrix_DrivesDeconvolution()
+    {
+        // Arrange — load a small disjoint matrix, then deconvolute a planted mixture with it.
+        var lines = new[]
+        {
+            "Gene symbol\tTypeA\tTypeB\tTypeC",
+            "a1\t10\t0\t0",
+            "a2\t8\t0\t0",
+            "b1\t0\t9\t0",
+            "b2\t0\t7\t0",
+            "c1\t0\t0\t11",
+            "c2\t0\t0\t8",
+        };
+        var signature = ImmuneAnalyzer.LoadSignatureMatrix(lines);
+        var planted = new Dictionary<string, double> { ["TypeA"] = 0.5, ["TypeB"] = 0.3, ["TypeC"] = 0.2 };
+        var mixture = BuildPlantedMixture(signature, planted);
+
+        // Act
+        var result = ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(mixture, signature);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.CellFractions["TypeA"], Is.GreaterThan(result.CellFractions["TypeB"]),
+                "the dominant planted type (TypeA, 0.5) must have the largest recovered fraction");
+            Assert.That(result.CellFractions["TypeB"], Is.GreaterThan(result.CellFractions["TypeC"]),
+                "recovered ordering must follow the planted ordering A > B > C");
+            Assert.That(result.CellFractions.Values.Sum(), Is.EqualTo(1.0).Within(1e-9),
+                "loaded-matrix fractions must still sum to 1");
+        });
+    }
+
+    // NSVR-S6 — Degenerate (constant) mixture: a flat expression vector has zero variance, so
+    // z-standardisation cannot scale it. The method must not throw and must still return a valid
+    // normalized fraction vector (Σ = 1 or all-zero). Exercises the zero-SD standardisation branch.
+    [Test]
+    public void DeconvoluteImmuneCellsNuSvr_ConstantMixture_DoesNotThrow()
+    {
+        // Arrange — every overlapping signature gene gets the same expression value.
+        var genes = ImmuneAnalyzer.DefaultSignatureMatrix.Values
+            .SelectMany(d => d.Keys).Distinct();
+        var profile = genes.ToDictionary(g => g, _ => 5.0);
+
+        // Act
+        var result = ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(profile);
+        double sum = result.CellFractions.Values.Sum();
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.CellFractions.Values.All(v => v >= 0.0), Is.True,
+                "fractions must remain non-negative for a degenerate constant mixture");
+            Assert.That(sum, Is.EqualTo(1.0).Within(1e-9).Or.EqualTo(0.0).Within(1e-9),
+                "a degenerate mixture yields either a normalized (Σ=1) or all-zero fraction vector");
+        });
+    }
+
+    // NSVR-C1 — Loader rejects an empty input (no header).
+    [Test]
+    public void LoadSignatureMatrix_EmptyInput_Throws()
+    {
+        Assert.Throws<FormatException>(
+            () => ImmuneAnalyzer.LoadSignatureMatrix(Array.Empty<string>()),
+            "an empty signature matrix (no header) must raise FormatException");
+    }
+
+    // NSVR-C2 — Loader rejects a header without any cell-type columns.
+    [Test]
+    public void LoadSignatureMatrix_HeaderWithoutCellTypes_Throws()
+    {
+        Assert.Throws<FormatException>(
+            () => ImmuneAnalyzer.LoadSignatureMatrix(new[] { "Gene symbol" }),
+            "a header with only the gene-symbol column (no cell types) must raise FormatException");
+    }
+
+    // NSVR-C3 — Loader rejects a ragged data row (wrong column count).
+    [Test]
+    public void LoadSignatureMatrix_RaggedRow_Throws()
+    {
+        var lines = new[]
+        {
+            "Gene symbol\tTypeA\tTypeB",
+            "g1\t1.0\t2.0",
+            "g2\t3.0", // missing TypeB value
+        };
+        Assert.Throws<FormatException>(
+            () => ImmuneAnalyzer.LoadSignatureMatrix(lines),
+            "a row with the wrong number of columns must raise FormatException");
+    }
+
+    // NSVR-C4 — Loader rejects a non-numeric signature value.
+    [Test]
+    public void LoadSignatureMatrix_NonNumericValue_Throws()
+    {
+        var lines = new[]
+        {
+            "Gene symbol\tTypeA\tTypeB",
+            "g1\t1.0\tNOT_A_NUMBER",
+        };
+        Assert.Throws<FormatException>(
+            () => ImmuneAnalyzer.LoadSignatureMatrix(lines),
+            "a non-numeric signature value must raise FormatException");
+    }
+
+    // NSVR-C5 — Null lines to the loader → ArgumentNullException.
+    [Test]
+    public void LoadSignatureMatrix_NullInput_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(
+            () => ImmuneAnalyzer.LoadSignatureMatrix(null!),
+            "null TSV lines must raise ArgumentNullException");
+    }
+
+    #endregion
 }

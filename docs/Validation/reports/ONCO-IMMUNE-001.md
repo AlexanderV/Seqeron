@@ -98,6 +98,28 @@ The "relative, not clinically-absolute purity" limitation (Finding 1 / Finding 3
 - **Tests added (E1–E7):** exact hand-computed cosine values — purity(0)=0.8225093766958238, purity(1000)=0.7304773970805112, purity(3000)=0.5015970942006772, purity(6000)=0.0849761233112934 — `Within(1e-10)`; NaN for out-of-domain score 7000/6600; strict monotone-decreasing across −2000…6000; closed-form identity at 2500. Fixture now 40/40 green; full suite green.
 - **Honest residual (per STOP RULE):** the CIBERSORT **LM22** 547-gene × 22-cell-type signature matrix and **ν-SVR** solver (Newman et al., 2015) were **not** implemented — LM22 is gated behind academic registration on the CIBERSORT website (not cleanly retrievable as plaintext this session) and a faithful ν-SVR depends on the trained matrix. Not fabricated; the default deconvolution remains the NNLS/LLSR baseline on a representative 5-marker matrix.
 
+## Update 2026-06-25 — limitation fix: CIBERSORT ν-SVR immune deconvolution (Newman 2015)
+
+The open data-blocked limitation (the CIBERSORT LM22 / ν-SVR deconvolution) is now addressed by an **opt-in** addition; the default 5-marker NNLS `DeconvoluteImmuneCells`, the ssGSEA `EstimateInfiltration`, and `EstimateTumorPurity` paths are all unchanged.
+
+- **New public API (opt-in):**
+  - `ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(expressionProfile, signatureMatrix? = null, nuValues? = null) → NuSvrDeconvolutionResult` — CIBERSORT-style linear-kernel ν-SVR deconvolution: sweeps ν ∈ {0.25, 0.5, 0.75}, selects the ν with the lowest RMSE between `m` and `B·f`, zero-clips negative weights, normalises to sum 1. Mixture and signature are z-score standardised before regression.
+  - `ImmuneAnalyzer.LoadSignatureMatrix(tsvLines) → cellType→(gene→value)` — LM22-format TSV loader (header + one row per gene), with `FormatException` on empty/ragged/non-numeric input.
+  - New constants `CibersortNuValues` = {0.25, 0.5, 0.75} and `NuSvrCost` = 1.
+
+- **ν-SVR formulation (Schölkopf et al., 2000; Smola/Schölkopf tutorial eqs 60–62, retrieved & read this session).** Primal `min ½‖w‖² + C(Σ(ξ+ξ*)/ℓ + νε)` under the ε-tube constraints; linear-kernel dual `max −½Σ(α_i−α_i*)(α_j−α_j*)⟨x_i,x_j⟩ + Σy_i(α_i−α_i*)` s.t. `Σ(α_i−α_i*)=0`, `Σ(α_i+α_i*) ≤ Cνℓ`, `α_i,α_i*∈[0,C]`; primal recovery `w = Σ(α_i−α_i*)x_i`. Solved by an SMO-style pairwise coordinate ascent on `β_i = α_i−α_i*` that maintains `Σβ=0` exactly and clips each step against the box `|β_i|≤C` and the ν budget `Σ|β_i|≤Cνℓ`.
+
+- **LICENCE DECISION — LM22 is caller-supplied, NOT embedded.** The CIBERSORT licence (verbatim, retrieved this session) states *"RECIPIENT shall not distribute the Program or transfer it to any other person or organization without prior written permission from STANFORD"* and restricts use to non-commercial/non-profit; LM22 (`LM22.txt`, 547 genes × 22 cell types) is gated behind registration at https://cibersort.stanford.edu. Per the mission-critical data-handling rule, LM22 is therefore **not** embedded in this library (unlike CC0 data such as Pfam). Instead the ν-SVR algorithm + an LM22-format loader are shipped; the caller supplies `LM22.txt` under their own CIBERSORT licence. Only the pre-existing small representative 5-marker matrix is bundled (default + tests).
+
+- **Verification (two independent checks):**
+  - **scikit-learn / libsvm reference match (decisive):** on a 3-cell-type × 3-disjoint-marker standardised problem, sklearn 1.6.1 `NuSVR(kernel='linear', nu, C=1)` selects ν=0.75 and gives normalised fractions [0.508497, 0.179491, 0.312012]; this implementation gives [0.50846, 0.17956, 0.31198] — agreement < 2×10⁻³ (test NSVR-M2).
+  - **Planted-truth recovery:** synthetic bulk `m = B·f` with f = {CD8 0.60, B_naive 0.30, Monocytes 0.10} on the 5-marker matrix → recovered {CD8 0.5971, B_naive 0.2989, Monocytes 0.1040} (errors < 0.005), correlation 0.99997 (test NSVR-M1).
+  - Plus dual-property invariants (fractions ≥0, Σ=1, ν∈{0.25,0.5,0.75}, determinism) and full loader validation.
+
+- **Tests added:** 16 (NSVR-M1–M5, NSVR-S1–S6, NSVR-C1–C5); fixture now 56/56 green. Branch coverage on the new methods 81–99%. Full unfiltered `dotnet test` suite green: Genomics 18515/18515, plus SuffixTree 357, SuffixTree.Persistent 510, and MCP test projects — **Failed: 0** across all projects.
+
+- **Honest residual (per STOP RULE):** bit-exact parity with the official CIBERSORT tool's published per-sample fractions is **not** claimed — that additionally requires LM22 itself plus the tool's full quantile-normalisation/permutation-p-value pipeline, which is out of scope. The ν-SVR engine is verified independently (planted-truth + libsvm cross-check), and LM22 remains caller-supplied for licence reasons. Status remains **☐** in the registry (no change to validation Status or Quick-Reference counts).
+
 ## Verdict & follow-ups
 - **Stage A: PASS-WITH-NOTES** — every formula/coefficient matches authoritative primary sources exactly. The decisive ssGSEA rank-order weighting (`rank^τ`, τ=0.25, integral form) was independently re-confirmed against the GSVA/Barbie description this session. Notes are honestly-declared simplifications (5-marker matrix vs LM22; NNLS vs ν-SVR; un-normalized single-sample integral on a non-cohort scale ⇒ absolute purity not clinically meaningful, never advertised as such).
 - **Stage B: PASS** — code faithfully realises the validated formulas; all cross-checks recomputed by hand and via tests, all match.

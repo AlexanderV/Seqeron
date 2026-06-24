@@ -109,6 +109,60 @@
 
 ---
 
+### 7. Schölkopf, Smola, Williamson & Bartlett (2000) — ν-SVR formulation
+
+**URL:** https://pubmed.ncbi.nlm.nih.gov/10905814/ (citation + abstract); ν-SVR equations from the Smola & Schölkopf (2004) tutorial PDF https://alex.smola.org/papers/2003/SmoSch03b.pdf (eqs (60)–(62), retrieved and read page-by-page this session)
+**Accessed:** 2026-06-25
+**Authority rank:** 1 (Peer-reviewed: Neural Computation 12(5):1207-1245, doi:10.1162/089976600300015565)
+
+**How retrieved:** WebSearch ("Schölkopf New Support Vector Algorithms 2000 nu-SVR dual quadratic program"); fetched the PubMed page for the citation; downloaded the Smola/Schölkopf tutorial PDF and read pages 1, 3–8, 12–14 directly for the verbatim equations.
+
+**Key Extracted Points:**
+
+1. **ν-SVR primal (eq 60–61):** minimise `R_ν[f] := R_emp[f] + (λ/2)‖w‖² + νε`, equivalently `min ½‖w‖² + C·(Σ_i(c̃(ξ_i)+c̃(ξ_i*)) + ℓ·ν·ε)` subject to `y_i − ⟨w,x_i⟩ − b ≤ ε + ξ_i`, `⟨w,x_i⟩ + b − y_i ≤ ε + ξ_i*`, `ξ_i, ξ_i* ≥ 0`. The accuracy parameter ε becomes a variable to be minimised, traded off by ν.
+2. **ν-SVR dual (eq 62):** maximise `−½ Σ_{i,j}(α_i−α_i*)(α_j−α_j*)·k(x_i,x_j) + Σ_i y_i(α_i−α_i*)` subject to `Σ_i(α_i−α_i*) = 0`, `Σ_i(α_i+α_i*) ≤ C·ν·ℓ`, and `α_i, α_i* ∈ [0, C]`. (Identical to the ε-SVR dual except ε drops out of the objective and the extra ν-budget constraint is added.)
+3. **Primal recovery:** `w = Σ_i(α_i−α_i*)·x_i` and `f(x) = Σ_i(α_i−α_i*)·k(x_i,x) + b` (tutorial, after eq 18). For the linear kernel `k(x_i,x_j)=⟨x_i,x_j⟩`.
+4. **Theorem 9 (Schölkopf et al. 2000), tutorial p.12:** (1) ν is an upper bound on the fraction of errors; (2) ν is a lower bound on the fraction of support vectors; (3) asymptotically, ν equals both the fraction of SVs and the fraction of errors.
+
+---
+
+### 8. Newman et al. (2015) + CIBERSORT protocol (Chen et al., 2018) — ν-SVR deconvolution method
+
+**URL:** https://pmc.ncbi.nlm.nih.gov/articles/PMC5895181/ (Chen B et al., "Profiling Tumor Infiltrating Immune Cells with CIBERSORT", Methods Mol Biol 2018; 1711:243-259)
+**Accessed:** 2026-06-25
+**Authority rank:** 1 (Peer-reviewed protocol of the Newman 2015 method)
+
+**How retrieved:** WebFetch of the PMC article with a prompt extracting the ν sweep, selection metric, post-processing, and LM22 dimensions.
+
+**Key Extracted Points:**
+
+1. **ν sweep:** "CIBERSORT uses a set of ν values (0.25, 0.5, 0.75) and chooses the value producing the best performance."
+2. **Selection metric:** the ν chosen is the one giving "the lowest root mean square between **m** and the deconvolution result **f** × **B**" (RMSE between observed mixture and reconstruction).
+3. **Output:** "by default, deconvolution results are expressed as relative fractions normalized to 1" — i.e. the regression coefficients are zero-clipped (negatives → 0) and the remaining coefficients normalised to sum 1.
+4. **LM22 dimensions:** "a signature matrix file consisting of 547 genes that accurately distinguish 22 mature human hematopoietic populations" → 547 genes × 22 cell types.
+5. **Standardisation:** the mixture and signature expression are z-score standardised before regression (Newman et al., 2015, Online Methods).
+
+---
+
+### 9. CIBERSORT / LM22 LICENCE (decisive for data handling)
+
+**URL:** https://cibersort.stanford.edu (registration gate); licence text verbatim from the archived CIBERSORT licence https://gist.github.com/dhimmel/58dcd9b512e669f20a65ddf73997b733 ; corroborated by immunedeconv `set_cibersort_mat` docs (LM22 must be downloaded by the user from the CIBERSORT website).
+**Accessed:** 2026-06-25
+**Authority rank:** 1 (the licence governing the artifact)
+
+**How retrieved:** WebSearch ("CIBERSORT LM22 license terms"); WebFetch of the licence gist extracting the restrictive clauses verbatim.
+
+**Key Extracted Points (verbatim licence clauses):**
+
+1. **No redistribution:** *"RECIPIENT shall not distribute the Program or transfer it to any other person or organization without prior written permission from STANFORD."*
+2. **Non-commercial only:** *"RECIPIENT shall not use the Program on behalf of any organization that is not a non-profit organization. RECIPIENT shall not use the Program for commercial advantage, or in the course of for-profit activities."*
+3. **No modification:** *"RECIPIENT shall NOT make modifications to the Program."*
+4. **Access gate:** LM22 (`LM22.txt`) is only obtainable after registration at https://cibersort.stanford.edu; it is not publicly downloadable as plaintext.
+
+**LICENCE DECISION:** LM22 is **NOT redistributable** (contrast Pfam/CC0). Per the mission-critical data-handling rule, LM22 is therefore **not embedded** in this library. Instead: the ν-SVR algorithm and an **LM22-format loader** (`LoadSignatureMatrix`) are implemented; the caller supplies `LM22.txt` under their own CIBERSORT licence. Only a small synthetic/representative signature matrix is bundled (the pre-existing 5-marker `DefaultSignatureMatrix`), used for tests and as a non-LM22 default.
+
+---
+
 ## Documented Corner Cases and Failure Modes
 
 ### From Newman et al. (2015) — CIBERSORT
@@ -167,11 +221,38 @@
 
 ---
 
+### Dataset 4: ν-SVR planted-truth recovery (synthetic mixture)
+
+**Source:** Constructed this session per the CIBERSORT linear-mixture model `m = B·f` (Newman et al., 2015).
+
+| Parameter | Value |
+|-----------|-------|
+| Signature B | bundled 5-marker × 22-cell-type `DefaultSignatureMatrix` |
+| Planted fractions f | T_cells_CD8 = 0.60, B_cells_naive = 0.30, Monocytes = 0.10 |
+| Bulk m | `m = B·f` (85 overlapping genes) |
+| Expected | `DeconvoluteImmuneCellsNuSvr(m)` recovers f within ≈0.005 per type; all others ≈0; Σ = 1 |
+| Observed (this session) | CD8 0.5971, B_naive 0.2989, Monocytes 0.1040; corr 0.99997 |
+
+### Dataset 5: scikit-learn `NuSVR` cross-implementation reference
+
+**Source:** scikit-learn 1.6.1 `NuSVR(kernel='linear', nu, C=1.0)` (libsvm backend), run this session on the standardised problem below.
+
+| Parameter | Value |
+|-----------|-------|
+| Signature (3 cell types × 3 disjoint markers each) | TypeA {a1:10,a2:8,a3:6}, TypeB {b1:9,b2:7,b3:5}, TypeC {c1:11,c2:4,c3:8} |
+| Planted f | TypeA 0.5, TypeB 0.2, TypeC 0.3 |
+| Standardisation | per-column z-score of B and z-score of m (population sd) |
+| Selected ν (lowest RMSE) | 0.75 |
+| sklearn normalised fractions | TypeA 0.508497, TypeB 0.179491, TypeC 0.312012 |
+| This implementation | TypeA 0.50846, TypeB 0.17956, TypeC 0.31198 (agreement < 2×10⁻³) |
+
+---
+
 ## Assumptions
 
 1. **ASSUMPTION: Simplified signature matrix** — The implementation uses a simplified subset of immune cell signature genes rather than the full LM22 matrix (547 genes × 22 cell types). Justification: A library implementation provides the algorithmic framework; users would supply their own signature matrices for production use.
 
-2. **ASSUMPTION: NNLS instead of ν-SVR** — DeconvoluteImmuneCells uses NNLS (non-negative least squares) rather than ν-SVR for the deconvolution. Justification: NNLS is a well-established mathematical method referenced in the CIBERSORT paper as a baseline; ν-SVR requires additional ML frameworks. Both are valid deconvolution approaches.
+2. **RESOLVED (2026-06-25): ν-SVR now implemented.** The CIBERSORT ν-support-vector-regression deconvolution (Newman et al., 2015; Schölkopf et al., 2000) is implemented as the opt-in `DeconvoluteImmuneCellsNuSvr` (sweeps ν ∈ {0.25, 0.5, 0.75}, selects lowest-RMSE, zero-clips and normalises to sum 1). `DeconvoluteImmuneCells` retains the NNLS/LLSR baseline (Abbas et al., 2009) unchanged. The ν-SVR solver was verified by (a) planted-truth recovery and (b) a cross-implementation match against scikit-learn 1.6.1 `NuSVR` (libsvm). **Residual:** the LM22 matrix itself is caller-supplied (Stanford licence forbids redistribution — see Online Source 9); exact reproduction of CIBERSORT's published per-sample fractions also requires LM22 + the tool's full quantile-normalisation pipeline, which is out of scope.
 
 3. **ASSUMPTION: Simplified ssGSEA** — EstimateInfiltration uses a simplified ssGSEA scoring approach (mean expression of signature genes with rank-based weighting). Justification: The core ssGSEA algorithm is well-defined but the full implementation requires the GSEA enrichment score computation. A simplified enrichment scoring retains the essential concept.
 
@@ -189,6 +270,11 @@
 8. **SHOULD Test:** Unequal mixture → proportional fractions — Rationale: Validates linearity of deconvolution
 9. **SHOULD Test:** Expression profile with genes not in signature → ignored — Rationale: Robustness to extra genes
 10. **COULD Test:** Large number of cell types → all fractions computed — Rationale: Scalability
+11. **MUST Test (ν-SVR):** Planted-truth `m = B·f` → `DeconvoluteImmuneCellsNuSvr` recovers f — Evidence: Newman et al. (2015) linear mixture (Dataset 4)
+12. **MUST Test (ν-SVR):** Match scikit-learn/libsvm `NuSVR` on a small standardised problem — Evidence: cross-implementation reference (Dataset 5); Schölkopf et al. (2000)
+13. **MUST Test (ν-SVR):** Selected ν ∈ {0.25, 0.5, 0.75} by lowest RMSE — Evidence: CIBERSORT protocol (Chen et al., 2018)
+14. **MUST Test (ν-SVR):** Fractions ≥ 0 and Σ = 1 (zero-clip + normalise) — Evidence: Newman et al. (2015)
+15. **MUST Test (loader):** LM22-format TSV parses to cellType→(gene→value); rejects empty/ragged/non-numeric — Evidence: LM22 file format (Newman et al., 2015)
 
 ---
 
@@ -199,9 +285,14 @@
 3. Becht E, Giraldo NA, Lacroix L, et al. (2016). Estimating the population abundance of tissue-infiltrating immune and stromal cell populations using gene expression. Genome Biology 17(1):218. https://doi.org/10.1186/s13059-016-1070-5
 4. Subramanian A, Tamayo P, Mootha VK, et al. (2005). Gene set enrichment analysis: a knowledge-based approach for interpreting genome-wide expression profiles. PNAS 102(43):15545-15550. https://doi.org/10.1073/pnas.0506580102
 5. Newman AM, Steen CB, Liu CL, et al. (2019). Determining cell type abundance and expression from bulk tissues with digital cytometry. Nature Biotechnology 37(7):773-782. https://doi.org/10.1038/s41587-019-0114-2
+6. Schölkopf B, Smola AJ, Williamson RC, Bartlett PL (2000). New support vector algorithms. Neural Computation 12(5):1207-1245. https://doi.org/10.1162/089976600300015565 (PMID 10905814). ν-SVR equations from Smola AJ, Schölkopf B (2004), A tutorial on support vector regression, Statistics and Computing 14:199-222, eqs (60)–(62): https://alex.smola.org/papers/2003/SmoSch03b.pdf
+7. Chen B, Khodadoust MS, Liu CL, Newman AM, Alizadeh AA (2018). Profiling Tumor Infiltrating Immune Cells with CIBERSORT. Methods Mol Biol 1711:243-259. https://pmc.ncbi.nlm.nih.gov/articles/PMC5895181/
+8. CIBERSORT licence (Stanford University). Verbatim clauses: https://gist.github.com/dhimmel/58dcd9b512e669f20a65ddf73997b733 ; registration/download gate: https://cibersort.stanford.edu
+9. Pedregosa F, et al. (2011). Scikit-learn: Machine Learning in Python (NuSVR, libsvm backend). JMLR 12:2825-2830. Used as the cross-implementation ν-SVR reference (v1.6.1).
 
 ---
 
 ## Change History
 
 - **2026-03-06**: Initial documentation.
+- **2026-06-25**: Added Online Sources 7–9 (ν-SVR formulation per Schölkopf 2000 / Smola tutorial eqs 60–62; CIBERSORT ν sweep + RMSE selection + zero-clip/sum-to-1; LM22 licence decision — caller-supplied, not redistributable). Resolved Assumption 2 (ν-SVR implemented as opt-in `DeconvoluteImmuneCellsNuSvr` + `LoadSignatureMatrix`). Added planted-truth + scikit-learn `NuSVR` cross-check datasets.

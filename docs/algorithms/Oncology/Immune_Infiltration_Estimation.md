@@ -6,15 +6,15 @@
 | Test Unit ID | ONCO-IMMUNE-001 |
 | Related Projects | N/A |
 | Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Last Reviewed | 2026-06-25 |
 
 ## 1. Overview
 
-Immune infiltration estimation uses bulk gene-expression measurements to quantify either aggregate immune and stromal content or the relative abundance of specific immune cell types within a tumor sample. This document covers two complementary methods implemented in the repository: ESTIMATE-style enrichment scoring and NNLS-based cell-type deconvolution. The first produces aggregate immune, stromal, and tumor-purity scores; the second estimates cell-fraction proportions from a signature matrix. The repository exposes both methods as configurable entry points with default signatures, but the deconvolution side remains a simplified implementation because production-grade behavior still depends on the supplied signature matrix.
+Immune infiltration estimation uses bulk gene-expression measurements to quantify either aggregate immune and stromal content or the relative abundance of specific immune cell types within a tumor sample. This document covers three complementary methods implemented in the repository: ESTIMATE-style enrichment scoring, NNLS-based cell-type deconvolution, and CIBERSORT-style ν-support-vector-regression (ν-SVR) deconvolution. The first produces aggregate immune, stromal, and tumor-purity scores; the second and third estimate cell-fraction proportions from a signature matrix (NNLS as the LLSR baseline, ν-SVR as the CIBERSORT regression engine). The repository exposes all methods as configurable entry points with default signatures, but the deconvolution side remains a simplified implementation because production-grade behavior still depends on the supplied signature matrix — in particular, the CIBERSORT LM22 matrix is caller-supplied for licence reasons (Section 6.2).
 
 ## 2. Scientific / Formal Basis
 
-> A = ESTIMATE-style infiltration scoring, B = NNLS-based immune cell deconvolution
+> A = ESTIMATE-style infiltration scoring, B = NNLS-based immune cell deconvolution, C = CIBERSORT ν-SVR deconvolution
 
 ### 2.A ESTIMATE-style infiltration scoring
 
@@ -102,6 +102,49 @@ and then normalizes the solution so that the fraction vector sums to `1` when th
 | Input dependency | Gene signatures | Signature matrix |
 | Optimization target | Rank-based enrichment | Least-squares fit under non-negativity |
 
+### 2.C CIBERSORT ν-SVR deconvolution
+
+#### Domain Context
+
+CIBERSORT (Newman et al., 2015) estimates immune cell-type fractions from bulk expression using the same linear-mixture model as NNLS, but fits it with **ν-support-vector regression** (ν-SVR; Schölkopf et al., 2000) rather than least squares. ν-SVR is an ε-insensitive, robust regression: it ignores residuals inside an automatically-sized ε-tube and bounds the influence of outlier genes, which Newman et al. report makes deconvolution robust to noise, unknown mixture content, and signature mis-specification. CIBERSORT is normally run with the LM22 signature matrix (547 genes × 22 cell types).
+
+#### Core Model
+
+For mixture vector $\mathbf{m}$ and signature matrix $\mathbf{B}$ (genes × cell types), a linear-kernel ν-SVR of $\mathbf{m}$ on the columns of $\mathbf{B}$ recovers a weight vector $\mathbf{f} = \mathbf{w}$. The ν-SVR primal (Schölkopf et al., 2000; Smola & Schölkopf tutorial eqs 60–61) is:
+
+$$
+\min_{\mathbf{w}, b, \varepsilon, \xi}\; \tfrac{1}{2}\lVert\mathbf{w}\rVert^2 + C\Big(\tfrac{1}{\ell}\sum_i(\xi_i+\xi_i^{*}) + \nu\,\varepsilon\Big)
+\quad\text{s.t.}\quad
+\begin{cases} y_i-\langle\mathbf{w},x_i\rangle-b \le \varepsilon+\xi_i\\ \langle\mathbf{w},x_i\rangle+b-y_i \le \varepsilon+\xi_i^{*}\\ \xi_i,\xi_i^{*},\varepsilon \ge 0\end{cases}
+$$
+
+whose linear-kernel dual (eq 62) is:
+
+$$
+\max_{\alpha,\alpha^{*}}\; -\tfrac{1}{2}\sum_{i,j}(\alpha_i-\alpha_i^{*})(\alpha_j-\alpha_j^{*})\langle x_i,x_j\rangle + \sum_i y_i(\alpha_i-\alpha_i^{*})
+\quad\text{s.t.}\quad
+\sum_i(\alpha_i-\alpha_i^{*})=0,\;\; \sum_i(\alpha_i+\alpha_i^{*})\le C\nu\ell,\;\; \alpha_i,\alpha_i^{*}\in[0,C]
+$$
+
+with primal recovery $\mathbf{w}=\sum_i(\alpha_i-\alpha_i^{*})x_i$. CIBERSORT sweeps $\nu \in \{0.25, 0.5, 0.75\}$, selects the $\nu$ that minimises the RMSE between $\mathbf{m}$ and $\mathbf{B}\cdot\mathbf{f}$, then clips negative weights to 0 and normalises the remainder to sum to 1 (Chen et al., 2018; Newman et al., 2015). Mixture and signature are z-score standardised before regression.
+
+#### Modeling Assumptions
+
+| ID | Assumption | Consequence if Violated |
+|----|------------|--------------------------|
+| ASM-NUSVR-01 | Bulk expression is approximately a linear combination of cell-type reference profiles | Estimated fractions can be biased or uninterpretable |
+| ASM-NUSVR-02 | The signature matrix (e.g. LM22) is representative of the cell types present | Missing or mis-specified cell types distort the fitted proportions |
+| ASM-NUSVR-03 | ν ∈ (0, 1]; one of {0.25, 0.5, 0.75} yields a usable ε-tube for the data | An empty support set or degenerate tube yields an all-zero weight vector |
+
+#### Properties and Invariants
+
+| ID | Invariant | Holds because |
+|----|-----------|---------------|
+| INV-NUSVR-01 | Reported cell fractions are non-negative | Negative ν-SVR weights are clipped to 0 |
+| INV-NUSVR-02 | Reported cell fractions sum to `1` when total post-clip mass is positive | The implementation normalizes by `sum(f)` |
+| INV-NUSVR-03 | The selected `BestNu` is one of {0.25, 0.5, 0.75} | The sweep only considers `CibersortNuValues` and keeps the lowest-RMSE fit |
+| INV-NUSVR-04 | The dual respects `Σ(α_i−α_i*) = 0`, `Σ(α_i+α_i*) ≤ Cνℓ`, `α_i,α_i* ∈ [0,C]` | The SMO step keeps Σβ=0 exactly and clips each step against the box and the ν budget |
+
 ## 3. Contract
 
 ### 3.1 Inputs and Parameters
@@ -115,6 +158,10 @@ and then normalizes the solution so that the fraction vector sums to `1` when th
 | `[DeconvoluteImmuneCells] expressionProfile` | `IReadOnlyDictionary<string, double>` | required | Bulk expression profile for deconvolution | `null` throws `ArgumentNullException` |
 | `[DeconvoluteImmuneCells] signatureMatrix` | `IReadOnlyDictionary<string, IReadOnlyDictionary<string, double>>?` | `null` | Optional cell-type signature matrix | Defaults to the built-in 22-cell-type matrix with representative marker genes |
 | `[DeconvoluteImmuneCells] maxIterations` | `int` | `1000` | Maximum Lawson-Hanson NNLS iterations | Used by the active-set solver |
+| `[DeconvoluteImmuneCellsNuSvr] expressionProfile` | `IReadOnlyDictionary<string, double>` | required | Bulk mixture vector for ν-SVR deconvolution | `null` throws `ArgumentNullException` |
+| `[DeconvoluteImmuneCellsNuSvr] signatureMatrix` | `IReadOnlyDictionary<string, IReadOnlyDictionary<string, double>>?` | `null` | Optional signature matrix | Defaults to the built-in representative matrix (NOT LM22); supply LM22 via `LoadSignatureMatrix` |
+| `[DeconvoluteImmuneCellsNuSvr] nuValues` | `IReadOnlyList<double>?` | `null` | ν values to sweep | Defaults to `CibersortNuValues` = {0.25, 0.5, 0.75} |
+| `[LoadSignatureMatrix] tsvLines` | `IEnumerable<string>` | required | Lines of an LM22-format TSV (header + one row per gene) | `null` throws `ArgumentNullException`; malformed → `FormatException` |
 
 ### 3.2 Output / Return Value
 
@@ -131,6 +178,10 @@ and then normalizes the solution so that the fraction vector sums to `1` when th
 | `[DeconvoluteImmuneCells] Correlation` | `double` | Pearson correlation between observed and reconstructed expression |
 | `[DeconvoluteImmuneCells] Rmse` | `double` | Root mean square reconstruction error |
 | `[DeconvoluteImmuneCells] OverlappingGenes` | `int` | Number of signature genes present in the expression profile |
+| `[DeconvoluteImmuneCellsNuSvr] CellFractions` | `IReadOnlyDictionary<string, double>` | ν-SVR cell-type fractions (zero-clipped, summing to 1) |
+| `[DeconvoluteImmuneCellsNuSvr] BestNu` | `double` | The ν (∈ {0.25, 0.5, 0.75}) selected as lowest-RMSE (0 when no fit was performed) |
+| `[DeconvoluteImmuneCellsNuSvr] Correlation` / `Rmse` / `OverlappingGenes` | `double` / `double` / `int` | Fit diagnostics on the original scale and overlap count |
+| `[LoadSignatureMatrix] return` | `IReadOnlyDictionary<string, IReadOnlyDictionary<string, double>>` | Signature matrix: cell type → (gene → value), ready for either deconvolution method |
 
 ### 3.3 Preconditions and Validation
 
@@ -180,6 +231,28 @@ The built-in signature matrix contains 22 immune cell phenotypes with representa
 |-----------|------|-------|-------|
 | `DeconvoluteImmuneCells` | `O(p^3 * k)` | `O(n * m)` | `p` = passive-set size, `k` = NNLS iterations, `n` = overlapping genes, `m` = cell types |
 
+### 4.C CIBERSORT ν-SVR deconvolution
+
+#### High-Level Steps
+
+1. Use the built-in representative signature matrix unless a custom matrix (e.g. caller-supplied LM22) is provided.
+2. Collect the genes shared between the mixture and the signature matrix; build mixture vector `m` and matrix `B`.
+3. Z-score standardise `m` and each column of `B`.
+4. For each ν ∈ {0.25, 0.5, 0.75}, solve the linear-kernel ν-SVR dual and recover the weight vector `f = w`.
+5. Reconstruct `B·f` and keep the ν with the lowest RMSE between `m` and `B·f`.
+6. Clip negative weights to 0 and normalise the remainder to sum to 1.
+7. Report fractions, the selected ν, and fit diagnostics (correlation, RMSE) on the original scale.
+
+#### Decision Rules / Reference Tables
+
+The ν-SVR dual is solved by an SMO-style pairwise coordinate ascent on the dual variables `β_i = α_i − α_i*`: each step moves a working pair `(β_p, β_q)` by `(+δ, −δ)`, which keeps the equality constraint `Σβ_i = 0` exactly; `δ` is the unconstrained optimum `(g_p − g_q)/(K_pp + K_qq − 2K_pq)` clipped against the box `|β_i| ≤ C` and the ν budget `Σ|β_i| ≤ Cνℓ`. The regularisation constant is `C = 1` (`NuSvrCost`, libsvm default). LM22 is the canonical 547-gene × 22-cell-type signature but is caller-supplied (Section 6.2).
+
+#### Complexity
+
+| Operation | Time | Space | Notes |
+|-----------|------|-------|-------|
+| `DeconvoluteImmuneCellsNuSvr` | `O(\|ν\| · (n² + n·t·m))` | `O(n² + n·m)` | `n` = overlapping genes, `m` = cell types, `t` = SMO iterations (≤ 200·n), `\|ν\|` = number of ν swept; dominated by the `n×n` kernel and the SMO loop |
+
 ## 5. Implementation Notes
 
 ### 5.1 Location and Entry Points
@@ -189,10 +262,12 @@ The built-in signature matrix contains 22 immune cell phenotypes with representa
 - `ImmuneAnalyzer.EstimateInfiltration(IReadOnlyDictionary<string, double>, IReadOnlyList<string>?, IReadOnlyList<string>?)`: Computes immune and stromal enrichment plus ESTIMATE score and a *relative* tumor purity.
 - `ImmuneAnalyzer.EstimateTumorPurity(double)`: Opt-in closed-form transform from a cohort-/Affymetrix-scaled ESTIMATE score to an *absolute* tumor purity via the Yoshihara et al. (2013) cosine model; returns `NaN` for out-of-domain (negative-cosine) scores.
 - `ImmuneAnalyzer.DeconvoluteImmuneCells(IReadOnlyDictionary<string, double>, IReadOnlyDictionary<string, IReadOnlyDictionary<string, double>>?, int)`: Fits cell-type fractions with NNLS and reports fit diagnostics.
+- `ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(IReadOnlyDictionary<string, double>, IReadOnlyDictionary<string, IReadOnlyDictionary<string, double>>?, IReadOnlyList<double>?)`: Opt-in CIBERSORT-style ν-SVR deconvolution — sweeps ν ∈ {0.25, 0.5, 0.75}, selects lowest-RMSE, zero-clips and normalises to sum 1.
+- `ImmuneAnalyzer.LoadSignatureMatrix(IEnumerable<string>)`: Parses an LM22-format TSV (header + gene rows) into the `cellType → (gene → value)` matrix used by both deconvolution methods.
 
 ### 5.2 Current Behavior
 
-The repository currently ships the full 141-gene ESTIMATE immune and stromal signatures as defaults. For deconvolution, it ships a 22-cell-type default signature matrix with representative marker genes rather than the full LM22 matrix. The NNLS solver normalizes fitted fractions to sum to `1` and reports both correlation and RMSE against the reconstructed expression profile. Both entry points are configurable, so callers can supply alternative signatures or a more complete reference matrix.
+The repository currently ships the full 141-gene ESTIMATE immune and stromal signatures as defaults. For deconvolution, it ships a 22-cell-type default signature matrix with representative marker genes rather than the full LM22 matrix. The NNLS solver normalizes fitted fractions to sum to `1` and reports both correlation and RMSE against the reconstructed expression profile. The ν-SVR path adds a faithful linear-kernel ν-SVR solver (Schölkopf et al., 2000) verified against scikit-learn `NuSVR` (libsvm) and by planted-truth recovery; it shares the same default matrix and accepts a caller-supplied LM22 via `LoadSignatureMatrix`. All entry points are configurable, so callers can supply alternative signatures or a more complete reference matrix. The defaults of `EstimateInfiltration` and `DeconvoluteImmuneCells` are unchanged by the ν-SVR addition.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -227,14 +302,31 @@ The repository currently ships the full 141-gene ESTIMATE immune and stromal sig
 
 **Not implemented:**
 
-- ν-SVR-based CIBERSORT fitting; **users should rely on:** external CIBERSORT-family tools or a custom workflow rather than this class.
+- (none) — ν-SVR-based CIBERSORT fitting is now provided by `DeconvoluteImmuneCellsNuSvr` (Section 5.3.C).
+
+#### 5.3.C CIBERSORT ν-SVR deconvolution
+
+**Implemented (verbatim from the cited theory/spec):**
+
+- The linear-kernel ν-SVR dual of Schölkopf et al. (2000) (eqs 60–62): objective `−½ Σ(α_i−α_i*)(α_j−α_j*)⟨x_i,x_j⟩ + Σ y_i(α_i−α_i*)` under `Σ(α_i−α_i*)=0`, `Σ(α_i+α_i*) ≤ Cνℓ`, `α_i,α_i* ∈ [0,C]`, with `w = Σ(α_i−α_i*)x_i`.
+- CIBERSORT's ν sweep {0.25, 0.5, 0.75}, lowest-RMSE selection, z-score standardisation, zero-clip of negative weights, and sum-to-1 normalisation (Newman et al., 2015; Chen et al., 2018).
+- An LM22-format TSV loader (`LoadSignatureMatrix`) for the caller-supplied 547-gene × 22-cell-type matrix.
+
+**Intentionally simplified:**
+
+- The bundled default matrix is the representative 5-marker × 22-cell-type matrix, not LM22; **consequence:** out-of-the-box ν-SVR fractions are illustrative until the caller supplies LM22.
+
+**Not implemented:**
+
+- Exact reproduction of the CIBERSORT tool's published per-sample fractions; **users should rely on:** the official CIBERSORT/CIBERSORTx tool when bit-exact parity with its full pipeline (LM22 + quantile normalisation + permutation p-value) is required.
 
 ### 5.4 Deviations and Assumptions (Optional)
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | Representative-marker default matrix instead of full LM22 | Assumption | Default fractions are less detailed than a full LM22-based workflow | accepted | Callers can supply a custom signature matrix |
-| 2 | NNLS instead of ν-SVR | Deviation | Deconvolution behavior differs from CIBERSORT's published regression engine | accepted | The source explicitly documents the distinction |
+| 1 | Representative-marker default matrix instead of full LM22 | Assumption | Default fractions are less detailed than a full LM22-based workflow | accepted | Callers supply a custom matrix; LM22 via `LoadSignatureMatrix` |
+| 2 | LM22 not bundled (Stanford licence) | Deviation | CIBERSORT's canonical signature is caller-supplied, not embedded | accepted | Stanford licence forbids redistribution (Section 6.2); loader provided instead |
+| 3 | No bit-exact CIBERSORT-tool parity | Deviation | Per-sample fractions may differ from the official tool's output | accepted | Verified instead by planted-truth recovery + scikit-learn `NuSVR` cross-check |
 
 ## 6. Edge Cases and Limitations
 
@@ -245,10 +337,14 @@ The repository currently ships the full 141-gene ESTIMATE immune and stromal sig
 | Empty expression profile for `EstimateInfiltration` | Zero immune/stromal/ESTIMATE scores and tumor purity `≈ 0.8225` | The method evaluates the published purity formula at score `0` |
 | No overlapping ESTIMATE signature genes | Corresponding enrichment score is `0` | The ssGSEA helper returns zero when the hit set is empty |
 | No overlapping genes for deconvolution | All returned cell fractions are `0`, `Correlation = 0`, `Rmse = 0` | The method exits through a no-overlap branch |
+| No overlapping genes for ν-SVR | All fractions `0`, `BestNu = 0`, `Correlation = 0`, `Rmse = 0` | Same no-overlap branch as NNLS |
+| LM22-format TSV malformed (empty / ragged / non-numeric) | `FormatException` | The loader validates the header and every row |
 
 ### 6.2 Limitations
 
-The deconvolution path is only as strong as its signature matrix. The built-in ESTIMATE signatures are complete, but the built-in deconvolution matrix is intentionally compact and not a substitute for a production reference such as LM22. The current implementation also uses NNLS rather than ν-SVR, so it should not be described as a direct reimplementation of CIBERSORT.
+The deconvolution path is only as strong as its signature matrix. The built-in ESTIMATE signatures are complete, but the built-in deconvolution matrix is intentionally compact and not a substitute for a production reference such as LM22.
+
+**LM22 licence (CIBERSORT).** The canonical CIBERSORT signature matrix LM22 (547 genes × 22 cell types) is distributed by Stanford under a non-commercial licence that explicitly forbids redistribution — *"RECIPIENT shall not distribute the Program or transfer it to any other person or organization without prior written permission from STANFORD"* — and is gated behind registration at https://cibersort.stanford.edu. It is therefore **not bundled** in this library. Callers obtain `LM22.txt` under their own CIBERSORT licence and load it with `LoadSignatureMatrix`. The ν-SVR algorithm itself is fully implemented and verified (planted-truth recovery and a scikit-learn/libsvm `NuSVR` cross-check). Bit-exact parity with the official CIBERSORT tool's published per-sample fractions is **not** claimed: that additionally requires LM22 and the tool's full quantile-normalisation/permutation pipeline.
 
 The opt-in `EstimateTumorPurity` transform is calibrated, per Yoshihara et al. (2013), against ABSOLUTE purity on TCGA **Affymetrix** data by nonlinear least squares; it is valid for Affymetrix-derived ESTIMATE scores and should not be applied to RNA-seq-derived scores. It is the caller's responsibility to pass a true ESTIMATE-scale score (e.g. from the ESTIMATE R package); applying it to this library's single-sample un-normalised ssGSEA integral would reproduce only the relative `EstimateInfiltration.TumorPurity` value.
 
@@ -262,4 +358,7 @@ The opt-in `EstimateTumorPurity` transform is calibrated, per Yoshihara et al. (
 6. Newman, A. M., et al. 2015. Robust enumeration of cell subsets from tissue expression profiles. Nature Methods 12(5):453-457. https://doi.org/10.1038/nmeth.3337.
 7. Newman, A. M., et al. 2019. Determining cell type abundance and expression from bulk tissues with digital cytometry. Nature Biotechnology 37(7):773-782. https://doi.org/10.1038/s41587-019-0114-2.
 8. Subramanian, A., et al. 2005. Gene set enrichment analysis. Proceedings of the National Academy of Sciences 102(43):15545-15550. https://doi.org/10.1073/pnas.0506580102.
+9. Schölkopf, B., A. J. Smola, R. C. Williamson, and P. L. Bartlett. 2000. New support vector algorithms. Neural Computation 12(5):1207-1245. https://doi.org/10.1162/089976600300015565. (ν-SVR dual: Smola & Schölkopf 2004 tutorial eqs 60–62, https://alex.smola.org/papers/2003/SmoSch03b.pdf.)
+10. Chen, B., et al. 2018. Profiling Tumor Infiltrating Immune Cells with CIBERSORT. Methods in Molecular Biology 1711:243-259. https://pmc.ncbi.nlm.nih.gov/articles/PMC5895181/.
+11. CIBERSORT licence (Stanford University). Non-commercial, no-redistribution terms; registration at https://cibersort.stanford.edu. Verbatim clauses: https://gist.github.com/dhimmel/58dcd9b512e669f20a65ddf73997b733.
 
