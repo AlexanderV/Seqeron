@@ -94,9 +94,39 @@ starts/coverage, palindrome self-comp 1.0, specificity 1/N), not just "no throw"
   generic position penalty. No code is wrong relative to what the spec claims.
 
 ## Verdict & follow-ups
-- **Stage A: PASS-WITH-NOTES**, **Stage B: PASS**, **State: CLEAN**. No code changes.
+- **Stage A: PASS-WITH-NOTES**, **Stage B: PASS**, **State: CLEAN** (as of the original review).
 - Build: succeeded, 0 warnings. Tests: `ProbeDesigner` filter **91/91 pass**.
 - Follow-up (optional, out of scope for CLEAN): if a true TaqMan/qPCR-probe preset is ever
   desired, add (a) explicit 5'-G rejection (not symmetric 5'/3' G/C penalty), (b) a "C > G"
   content check, and (c) a probe-Tm = primer-Tm + ~10 coupling. These are *enhancements*, not
   fixes — the current unit is correct for the generic probe-design scope it declares.
+
+## 2026-06-24 update — TaqMan opt-in rules added (Status reset to ☐ for re-validation)
+
+The Stage-A follow-up above has been implemented as an **opt-in TaqMan mode**; the generic
+designer remains the unchanged default.
+
+### Rules implemented (each citable, retrieved 2026-06-24)
+| Rule | Threshold | Source (retrieved this session) |
+|------|-----------|--------------------------------|
+| No G at the 5' end | first base ≠ `G` (a 5' G adjacent to the reporter dye quenches reporter fluorescence even after cleavage) | PREMIER Biosoft; ABI/Thermo Fisher; ScienceDirect "TaqMan — an overview" |
+| More Cs than Gs | `count(C) > count(G)` | PREMIER Biosoft ("there should be more Cs than Gs") |
+| No run of ≥4 Gs | max G-run `< 4` | PREMIER Biosoft ("especially four or more consecutive Gs") |
+| G+C content | 30–80% | PREMIER Biosoft ("G+C content should ideally be 30-80%") |
+| Probe length | 18–22 nt (default, configurable) | PREMIER Biosoft ("18-22 bp oligonucleotide probe") |
+| Probe Tm vs primer Tm | probe Tm ≥ primer Tm + 10 °C | PREMIER Biosoft / ABI ("TaqMan probe Tm should be 10 °C higher than the Primer Tm") |
+
+### API added (opt-in; default `DesignProbes` unchanged)
+- `ProbeDesigner.EvaluateTaqManProbe(string probeSequence, double? primerTm = null, int minLength = 18, int maxLength = 22)` → `TaqManProbeEvaluation` (one boolean per rule + `PassesAll` + violations).
+- `ProbeDesigner.SelectTaqManStrand(string senseStrand, double? primerTm = null)` → chooses sense or its reverse complement (antisense fallback when the sense strand has a 5' G), per the ABI guidance.
+
+### Tests
+12 evidence-based tests in `ProbeDesigner_TaqMan_Tests.cs` (TM1–TM10 + 2 null-arg edges), exact
+hand-derived outcomes (e.g. probe Tm 49.3473 °C for `CCATCACCCTACATCACC`; antisense
+`CCTAACCCTAACCCTAAC` selected for sense `GTTAGGGTTAGGGTTAGG`). Full unfiltered suite green.
+
+### Residual (honest)
+MGB (minor-groove binder), LNA, and dual-quencher probe chemistries remain out of scope; the
+implemented rules target standard single reporter/quencher hydrolysis probes.
+
+Status reset to **☐** in `ALGORITHMS_CHECKLIST_V2.md` pending independent re-validation of the new mode.

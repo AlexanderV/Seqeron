@@ -117,6 +117,209 @@ public static class ProbeDesigner
         MolecularBeacon
     }
 
+    /// <summary>
+    /// Result of evaluating a candidate hydrolysis (TaqMan) probe against the
+    /// Applied Biosystems / Thermo Fisher TaqMan probe-design guidelines.
+    /// Each boolean records whether one published rule is satisfied; <see cref="PassesAll"/>
+    /// is the conjunction of every rule.
+    /// </summary>
+    /// <remarks>
+    /// Sources (retrieved 2026-06-24):
+    /// PREMIER Biosoft, "TaqMan probe design tips" (http://www.premierbiosoft.com/tech_notes/TaqMan.html);
+    /// Thermo Fisher / Applied Biosystems "Designing a TaqMan Gene Expression Assay" and
+    /// "TaqMan MGB Probe and Primer Sets" application notes.
+    /// </remarks>
+    public readonly record struct TaqManProbeEvaluation(
+        string Sequence,
+        bool NoGuanineAt5Prime,
+        bool MoreCytosineThanGuanine,
+        bool NoRunOfFourOrMoreG,
+        bool GcContentInRange,
+        bool LengthInRange,
+        bool ProbeTmAbovePrimer,
+        double Tm,
+        double GcContent,
+        int CytosineCount,
+        int GuanineCount,
+        bool PassesAll,
+        IReadOnlyList<string> Violations);
+
+    #endregion
+
+    #region TaqMan (hydrolysis-probe) design — opt-in
+
+    // --- Published TaqMan probe-design thresholds (Applied Biosystems / Thermo Fisher; PREMIER Biosoft) ---
+
+    // Probe length range. PREMIER Biosoft: "TaqMan probes consist of a 18-22 bp oligonucleotide probe".
+    // (IDT / Thermo state 18-30; we use the tighter ABI/PREMIER 18-22 default, configurable.)
+    private const int TaqManMinLength = 18;
+    private const int TaqManMaxLength = 22;
+
+    // G+C content range. PREMIER Biosoft: "The G+C content should ideally be 30-80%".
+    private const double TaqManMinGc = 0.30;
+    private const double TaqManMaxGc = 0.80;
+
+    // No runs of identical nucleotides, "especially four or more consecutive Gs" (PREMIER Biosoft / ABI).
+    private const int TaqManMaxGuanineRun = 4;
+
+    // Probe Tm should be ~10 °C higher than the primer Tm so the probe binds before Taq extends.
+    // PREMIER Biosoft / Thermo Fisher: "TaqMan probe Tm should be 10 °C higher than the Primer Tm".
+    private const double TaqManProbeTmDeltaAbovePrimer = 10.0;
+
+    /// <summary>
+    /// Evaluates a single candidate probe sequence against the published TaqMan
+    /// (5'-nuclease hydrolysis probe) design guidelines. This is an opt-in chemistry-specific
+    /// check; the generic <see cref="DesignProbes(string, ProbeParameters?, int)"/> designer is unchanged.
+    /// </summary>
+    /// <param name="probeSequence">The candidate probe sequence (5'→3').</param>
+    /// <param name="primerTm">
+    /// Melting temperature (°C) of the amplification primers. The probe Tm must be at least
+    /// <c>primerTm + 10 °C</c> (Applied Biosystems / Thermo Fisher). Pass <see langword="null"/>
+    /// to skip the probe-Tm-vs-primer gate (it is then reported as satisfied).
+    /// </param>
+    /// <param name="minLength">Minimum probe length (default 18, per ABI/PREMIER Biosoft).</param>
+    /// <param name="maxLength">Maximum probe length (default 22, per ABI/PREMIER Biosoft).</param>
+    /// <returns>A <see cref="TaqManProbeEvaluation"/> recording each rule outcome.</returns>
+    public static TaqManProbeEvaluation EvaluateTaqManProbe(
+        string probeSequence,
+        double? primerTm = null,
+        int minLength = TaqManMinLength,
+        int maxLength = TaqManMaxLength)
+    {
+        ArgumentNullException.ThrowIfNull(probeSequence);
+
+        string seq = probeSequence.ToUpperInvariant();
+        var violations = new List<string>();
+
+        // Rule 1: no G at the 5' end (a 5' G adjacent to the reporter dye quenches
+        // reporter fluorescence even after cleavage).
+        bool noGuanineAt5Prime = seq.Length > 0 && seq[0] != 'G';
+        if (!noGuanineAt5Prime)
+            violations.Add("5' end is a guanine (quenches the reporter dye even after cleavage)");
+
+        // Rule 2: more Cs than Gs in the probe sequence.
+        int cCount = seq.Count(c => c == 'C');
+        int gCount = seq.Count(c => c == 'G');
+        bool moreCThanG = cCount > gCount;
+        if (!moreCThanG)
+            violations.Add($"not more C than G (C={cCount}, G={gCount})");
+
+        // Rule 3: no run of four or more consecutive Gs.
+        int maxGRun = GetMaxGuanineRunLength(seq);
+        bool noRunOf4G = maxGRun < TaqManMaxGuanineRun;
+        if (!noRunOf4G)
+            violations.Add($"run of {maxGRun} consecutive Gs (>= {TaqManMaxGuanineRun})");
+
+        // Rule 4: G+C content within 30-80%.
+        double gc = CalculateGcContent(seq);
+        bool gcInRange = gc >= TaqManMinGc && gc <= TaqManMaxGc;
+        if (!gcInRange)
+            violations.Add($"G+C content {gc:P0} outside {TaqManMinGc:P0}-{TaqManMaxGc:P0}");
+
+        // Rule 5: probe length within range.
+        bool lengthInRange = seq.Length >= minLength && seq.Length <= maxLength;
+        if (!lengthInRange)
+            violations.Add($"length {seq.Length} outside {minLength}-{maxLength} nt");
+
+        // Rule 6: probe Tm at least ~10 °C above the primer Tm (when a primer Tm is supplied).
+        double tm = CalculateTm(seq);
+        bool probeTmAbovePrimer = !primerTm.HasValue || tm >= primerTm.Value + TaqManProbeTmDeltaAbovePrimer;
+        if (!probeTmAbovePrimer)
+            violations.Add(
+                $"probe Tm {tm:F1} °C is not >= primer Tm {primerTm!.Value:F1} + {TaqManProbeTmDeltaAbovePrimer:F0} °C");
+
+        bool passesAll = noGuanineAt5Prime && moreCThanG && noRunOf4G
+            && gcInRange && lengthInRange && probeTmAbovePrimer;
+
+        return new TaqManProbeEvaluation(
+            seq,
+            noGuanineAt5Prime,
+            moreCThanG,
+            noRunOf4G,
+            gcInRange,
+            lengthInRange,
+            probeTmAbovePrimer,
+            tm,
+            gc,
+            cCount,
+            gCount,
+            passesAll,
+            violations);
+    }
+
+    /// <summary>
+    /// Chooses the better TaqMan probe strand. Per Applied Biosystems / Thermo Fisher,
+    /// the probe should be designed on the strand with <b>more Cs than Gs</b>; if a guanine
+    /// occurs at the 5' end of one strand, the complement (antisense) strand should be used.
+    /// Returns the sense (given) strand or its reverse complement, whichever better satisfies the rules.
+    /// </summary>
+    /// <param name="senseStrand">The candidate probe sequence on the sense strand (5'→3').</param>
+    /// <param name="primerTm">Optional primer Tm for the probe-Tm gate (see <see cref="EvaluateTaqManProbe"/>).</param>
+    /// <returns>
+    /// A tuple of the chosen probe sequence (5'→3'), whether it is the reverse-complement
+    /// (antisense) strand, and the evaluation of the chosen strand.
+    /// </returns>
+    public static (string Probe, bool IsReverseComplement, TaqManProbeEvaluation Evaluation) SelectTaqManStrand(
+        string senseStrand,
+        double? primerTm = null)
+    {
+        ArgumentNullException.ThrowIfNull(senseStrand);
+
+        string sense = senseStrand.ToUpperInvariant();
+        string antisense = DnaSequence.GetReverseComplementString(sense);
+
+        var senseEval = EvaluateTaqManProbe(sense, primerTm);
+        var antisenseEval = EvaluateTaqManProbe(antisense, primerTm);
+
+        // Prefer a strand that passes all rules; otherwise prefer the one satisfying the two
+        // hard reporter-dye rules (no 5'-G, then more C than G); finally fall back to the sense strand.
+        if (senseEval.PassesAll && !antisenseEval.PassesAll)
+            return (sense, false, senseEval);
+        if (antisenseEval.PassesAll && !senseEval.PassesAll)
+            return (antisense, true, antisenseEval);
+
+        int senseRank = RankTaqManStrand(senseEval);
+        int antisenseRank = RankTaqManStrand(antisenseEval);
+
+        return antisenseRank > senseRank
+            ? (antisense, true, antisenseEval)
+            : (sense, false, senseEval);
+    }
+
+    // Ranks a strand: the no-5'-G rule then the more-C-than-G rule are the chemistry-critical
+    // reporter-dye constraints, weighted above the remaining quality rules.
+    private static int RankTaqManStrand(TaqManProbeEvaluation e)
+    {
+        int rank = 0;
+        if (e.NoGuanineAt5Prime) rank += 4;
+        if (e.MoreCytosineThanGuanine) rank += 2;
+        if (e.NoRunOfFourOrMoreG) rank += 1;
+        if (e.GcContentInRange) rank += 1;
+        if (e.ProbeTmAbovePrimer) rank += 1;
+        return rank;
+    }
+
+    private static int GetMaxGuanineRunLength(string sequence)
+    {
+        int maxRun = 0;
+        int currentRun = 0;
+
+        foreach (char c in sequence)
+        {
+            if (c == 'G')
+            {
+                currentRun++;
+                maxRun = Math.Max(maxRun, currentRun);
+            }
+            else
+            {
+                currentRun = 0;
+            }
+        }
+
+        return maxRun;
+    }
+
     #endregion
 
     #region Probe Design
