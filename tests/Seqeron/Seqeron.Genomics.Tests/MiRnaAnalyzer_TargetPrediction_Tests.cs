@@ -1,3 +1,4 @@
+using System;
 using NUnit.Framework;
 using Seqeron.Genomics.Annotation;
 using static Seqeron.Genomics.Annotation.MiRnaAnalyzer;
@@ -693,9 +694,10 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
     [Test]
     public void ScoreTargetSiteContextPlusPlus_NoOptionalInputs_ReportsResidualFeatures()
     {
-        // With no caller-supplied inputs, the residual is exactly: SA, PCT (always blocked) +
-        // SPS, TA_3UTR, Len_ORF, ORF8m (data-blocked unless supplied). 3P_score, Min_dist,
-        // Len_3UTR and Off6m are now COMPUTED, so they must NOT appear as omitted.
+        // With no caller-supplied inputs on this SHORT layout, the residual is: SA (the 14-nt
+        // accessibility window does not fit — windowStart0 = Start+7-13 = -1 < 0), PCT (always
+        // blocked), and SPS, TA_3UTR, Len_ORF, ORF8m (data-blocked unless supplied). 3P_score,
+        // Min_dist, Len_3UTR and Off6m are now COMPUTED, so they must NOT appear as omitted.
         string mrna = "GGGGG" + Let7aSeedRC + "A" + "GGGGG";
         var site = FindTargetSites(mrna, Let7a, minScore: 0.0).Single();
 
@@ -703,7 +705,9 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(ctx.OmittedFeatures, Has.Some.Contains("SA"), "SA stays residual (RNAplfold PF, not MFE)");
+            Assert.That(ctx.OmittedFeatures, Has.Some.Contains("SA"),
+                "SA residual here because the 14-nt window does not fit this short UTR");
+            Assert.That(ctx.SaContribution, Is.EqualTo(0.0), "out-of-fit SA contributes 0");
             Assert.That(ctx.OmittedFeatures, Has.Some.Contains("PCT"), "PCT stays residual (needs alignment)");
             Assert.That(ctx.OmittedFeatures, Has.Some.Contains("SPS"), "SPS omitted unless supplied");
             Assert.That(ctx.OmittedFeatures, Has.Some.Contains("TA_3UTR"), "TA omitted unless supplied");
@@ -813,9 +817,71 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
             Assert.That(ctx.OmittedFeatures, Has.None.Contains("TA_3UTR"), "supplied TA leaves residual");
             Assert.That(ctx.OmittedFeatures, Has.None.Contains("Len_ORF"), "supplied Len_ORF leaves residual");
             Assert.That(ctx.OmittedFeatures, Has.None.Contains("ORF8m"), "supplied ORF8m leaves residual");
-            // Only SA and PCT remain residual once all data-blocked inputs are supplied.
-            Assert.That(ctx.OmittedFeatures, Has.Some.Contains("SA"), "SA still residual");
+            // SA is now computed from the Turner-2004 McCaskill partition function (the 14-nt
+            // window fits this UTR: windowStart0 = Start+7-13 = 8 ≥ 0), so it is NO LONGER residual.
+            // Only PCT (multi-species conservation) remains residual once all data inputs are supplied.
+            Assert.That(ctx.SaContribution, Is.Not.EqualTo(0.0),
+                "SA is computed (window fits) — no longer an honest residual");
+            Assert.That(ctx.OmittedFeatures, Has.None.Contains("SA"), "SA computed ⇒ not in residual");
             Assert.That(ctx.OmittedFeatures, Has.Some.Contains("PCT"), "PCT still residual");
+        });
+    }
+
+    #endregion
+
+    #region CTX-SA: structural accessibility wired from the Turner-2004 McCaskill partition function
+
+    // CTX-SA-001 — SA contribution equals the verbatim getSA_contribution / getAgarwalContribution
+    // arithmetic: coeff(SA,8mer) × (log10(plfold) - min)/(max - min), where plfold is the 14-nt
+    // window unpaired probability from the Turner-2004 McCaskill partition function. The expected
+    // value is recomputed INDEPENDENTLY from CalculateRegionUnpairedProbability + the verbatim
+    // Agarwal_2015_parameters.txt SA row (8mer: coeff -0.115, min -4.356, max -0.661), so it would
+    // fail a wrong coefficient, a wrong window, or an MFE-as-accessibility implementation.
+    [Test]
+    public void ScoreTargetSiteContextPlusPlus_SA_8mer_MatchesHandDerivedAccessibility()
+    {
+        // 48-nt UTR: 20-nt structured 5' flank + 8mer let-7a site (CUACCUCA) + 20-nt 3' flank.
+        string mrna = "GGGGCCCCGGGGCCCCGGGG" + "CUACCUCA" + "GGGGCCCCGGGGCCCCGGGG";
+        var site = FindTargetSites(mrna, Let7a, minScore: 0.0).First(s => s.Type == TargetSiteType.Seed8mer);
+
+        // Independently reproduce the SA local-context computation (getSA_contribution semantics):
+        // 8mer ⇒ no utrStart decrement; row read = utrStart+7 ⇒ windowEnd0 = Start+7; window L=14.
+        string seq = mrna.ToUpperInvariant().Replace('T', 'U');
+        const int W = 80, U = 14, RowOff = 7;
+        int windowEnd0 = (site.Start + 1) + RowOff - 1;     // 1-based utrStart+7, back to 0-based
+        int windowStart0 = windowEnd0 - U + 1;
+        int contextStart = Math.Max(0, windowEnd0 - (W - U) / 2 - U + 1);
+        contextStart = Math.Min(contextStart, windowStart0);
+        int contextEnd = Math.Min(seq.Length - 1, contextStart + W - 1);
+        contextStart = Math.Max(0, contextEnd - W + 1);
+        string context = seq.Substring(contextStart, contextEnd - contextStart + 1);
+        int localWindowEnd = windowEnd0 - contextStart;
+        double plfold = Seqeron.Genomics.Analysis.RnaSecondaryStructure
+            .CalculateRegionUnpairedProbability(context, localWindowEnd, U);
+        double log10 = Math.Log10(plfold);
+        // Verbatim SA row for 8mer (Agarwal_2015_parameters.txt): coeff -0.115, min -4.356, max -0.661.
+        double expectedSa = -0.115 * ((log10 - (-4.356)) / ((-0.661) - (-4.356)));
+
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, Let7a, site);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(plfold, Is.GreaterThan(0.0).And.LessThanOrEqualTo(1.0),
+                "the 14-nt window accessibility is a probability in (0,1]");
+            Assert.That(ctx.SaContribution, Is.EqualTo(expectedSa).Within(1e-12),
+                "SA = coeff × (log10(plfold) - min)/(max - min) with the verbatim 8mer SA parameters");
+            Assert.That(ctx.SaContribution, Is.Not.EqualTo(0.0),
+                "SA is computed (the window fits), not an honest residual");
+            Assert.That(ctx.OmittedFeatures, Has.None.Contains("SA"),
+                "computed SA is not reported as omitted");
+            // SA must be part of the partial sum.
+            Assert.That(ctx.ContextScorePartial, Is.EqualTo(
+                ctx.Intercept + ctx.LocalAuContribution + ctx.SRna1Contribution + ctx.SRna8Contribution
+                + ctx.Site8Contribution + ctx.SaContribution + ctx.ThreePrimePairingContribution
+                + ctx.MinDistContribution + ctx.Len3UtrContribution + ctx.Off6mContribution
+                + ctx.SpsContribution + ctx.TaContribution + ctx.LenOrfContribution
+                + ctx.Orf8mContribution).Within(1e-12),
+                "ContextScorePartial includes the SA contribution");
         });
     }
 

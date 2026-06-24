@@ -110,6 +110,36 @@ public static class RnaSecondaryStructure
         IReadOnlyDictionary<(int I, int J), double> BasePairProbabilities);
 
     /// <summary>
+    /// Result of the McCaskill (1990) partition function evaluated on the SAME Turner-2004
+    /// nearest-neighbour energy model used by <see cref="CalculateMinimumFreeEnergy"/>:
+    /// the Boltzmann-weighted sum over the full ensemble of pseudoknot-free secondary
+    /// structures, the equilibrium base-pair probabilities, the per-base unpaired
+    /// probabilities, and the ensemble free energy.
+    /// </summary>
+    /// <param name="PartitionFunction">
+    /// Z = Σ_S exp(−E(S)/RT) over every admissible structure S, E(S) scored with the Turner-2004
+    /// model (McCaskill JS 1990, Biopolymers 29:1105; Lorenz et al. 2011, ViennaRNA). Z ≥ 1
+    /// (the open chain, E = 0, is always one term).
+    /// </param>
+    /// <param name="BasePairProbabilities">
+    /// P[(i,j)] = (Σ_{S ∋ (i,j)} exp(−E(S)/RT)) / Z, the equilibrium probability that 0-based
+    /// positions i &lt; j pair, via the inside/outside recursion. Only pairs with P &gt; 0 are listed.
+    /// </param>
+    /// <param name="UnpairedProbabilities">
+    /// p_unpaired[i] = 1 − Σ_j P[(i,j)] (summed over both i&lt;j and j&lt;i), the equilibrium
+    /// probability that 0-based position i is unpaired (Lorenz et al. 2011). One entry per position.
+    /// </param>
+    /// <param name="EnsembleFreeEnergy">
+    /// ΔG_ensemble = −RT·ln Z (kcal/mol). By the laws of statistical mechanics this is a lower
+    /// bound on the MFE returned by <see cref="CalculateMinimumFreeEnergy"/> for the same input.
+    /// </param>
+    public readonly record struct UnpairedProbabilityResult(
+        double PartitionFunction,
+        IReadOnlyDictionary<(int I, int J), double> BasePairProbabilities,
+        IReadOnlyList<double> UnpairedProbabilities,
+        double EnsembleFreeEnergy);
+
+    /// <summary>
     /// The minimum-free-energy (MFE) secondary structure recovered by Zuker–Stiegler (1981)
     /// dynamic-programming traceback over the same V/W/WM matrices used to compute the scalar MFE.
     /// </summary>
@@ -2491,6 +2521,445 @@ public static class RnaSecondaryStructure
         double partition = Math.Exp(-ensembleEnergy / rt);
 
         return partition > 0 ? boltzmann / partition : 0;
+    }
+
+    /// <summary>
+    /// Computes the McCaskill (1990) equilibrium partition function on the SAME Turner-2004
+    /// nearest-neighbour energy model used by <see cref="CalculateMinimumFreeEnergy"/>, and
+    /// from it the equilibrium base-pair probabilities, the per-base unpaired probabilities
+    /// (1 − Σ_j P[i,j]), and the ensemble free energy −RT·ln Z.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the Boltzmann-weighted counterpart of the Zuker–Stiegler MFE recursion: every
+    /// place the MFE DP (<see cref="FillDp"/>) takes a <c>min</c> over options and ADDS a loop
+    /// energy ΔG, the partition function takes a <c>sum</c> over the same options and MULTIPLIES
+    /// by the Boltzmann weight exp(−ΔG/RT) of the SAME Turner-2004 loop energy
+    /// (<see cref="CalculateHairpinLoopEnergy"/>, the stacking table, <see cref="CalculateInternalLoopEnergy"/>,
+    /// <see cref="CalculateBulgeLoopEnergy"/>, the multibranch term, and the dangling-end /
+    /// terminal-AU table). Hence Z = Σ_S exp(−E(S)/RT) over exactly the structure space the MFE
+    /// folder explores, and ΔG_ensemble = −RT·ln Z ≤ MFE (McCaskill JS 1990 Biopolymers 29:1105;
+    /// Lorenz et al. 2011 Algorithms Mol Biol 6:26 — ViennaRNA; ViennaRNA pf_fold reference,
+    /// Z = Σ_s e^{−βE(s)}, p(s) = e^{−βE(s)}/Z).
+    /// </para>
+    /// <para>
+    /// Base-pair probabilities use the inside (Vexp/WMexp/Wexp) matrices plus the McCaskill
+    /// outside recursion P[i,j] = (Σ_{S∋(i,j)} e^{−E/RT})/Z; the per-base unpaired probability is
+    /// p_unpaired(i) = 1 − Σ_j P[i,j] (Lorenz et al. 2011). O(n³) time, O(n²) space.
+    /// </para>
+    /// </remarks>
+    /// <param name="rnaSequence">RNA (or DNA; T read as U) sequence; case-insensitive.</param>
+    /// <param name="minLoopSize">Minimum hairpin loop size (NNDB minimum 3; smaller is clamped to 3).</param>
+    /// <param name="temperature">Absolute temperature in Kelvin (default 310.15 K = 37 °C).</param>
+    /// <returns>The partition function, base-pair and unpaired probabilities, and ensemble free energy.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="temperature"/> is not positive.</exception>
+    public static UnpairedProbabilityResult CalculateUnpairedProbabilities(
+        string rnaSequence, int minLoopSize = 3, double temperature = DefaultTemperatureKelvin)
+    {
+        if (temperature <= 0)
+            throw new ArgumentOutOfRangeException(nameof(temperature), "Temperature must be positive (Kelvin).");
+        if (minLoopSize < 3) minLoopSize = 3;
+
+        string seq = string.IsNullOrEmpty(rnaSequence)
+            ? string.Empty
+            : rnaSequence.ToUpperInvariant().Replace('T', 'U');
+        int n = seq.Length;
+
+        var emptyPairs = new Dictionary<(int, int), double>();
+        if (n == 0)
+        {
+            // The empty sequence has exactly one structure (the empty one), E = 0 → Z = 1, ΔG = 0.
+            return new UnpairedProbabilityResult(1.0, emptyPairs, Array.Empty<double>(), 0.0);
+        }
+        if (n < minLoopSize + 2)
+        {
+            // Too short to form any pair: only the open chain (Z = 1), every base unpaired.
+            var allUnpaired = new double[n];
+            Array.Fill(allUnpaired, 1.0);
+            return new UnpairedProbabilityResult(1.0, emptyPairs, allUnpaired, 0.0);
+        }
+
+        double rt = GasConstant_CalPerMolK * temperature / 1000.0; // kcal/mol
+
+        var vExp = new double[n, n];   // Σ exp(−E/RT) over structures of [i..j] with (i,j) paired
+        var wmExp = new double[n, n];  // multiloop-region partition function of [i..j]
+        var wExp = new double[n];      // external partition function of prefix [0..j]
+
+        FillPartitionDp(seq, n, minLoopSize, rt, vExp, wmExp, wExp);
+
+        double z = wExp[n - 1];
+
+        var bpp = new Dictionary<(int I, int J), double>();
+        var unpaired = new double[n];
+        Array.Fill(unpaired, 1.0);
+
+        if (double.IsFinite(z) && z > 0)
+        {
+            // Per-base unpaired probability is computed EXACTLY (no outside recursion) as the
+            // ratio of constrained-to-full partition functions: p_unpaired(i) = Z_forbid(i)/Z,
+            // where Z_forbid(i) sums Boltzmann weights of every structure in which position i is
+            // unpaired (i forbidden from pairing). This is exactly McCaskill's per-base
+            // unpaired probability and is guaranteed Z-consistent and in [0,1].
+            for (int i = 0; i < n; i++)
+            {
+                var vF = new double[n, n];
+                var wmF = new double[n, n];
+                var wF = new double[n];
+                FillPartitionDp(seq, n, minLoopSize, rt, vF, wmF, wF, forbiddenStart: i, forbiddenEnd: i);
+                double zForbid = wF[n - 1];
+                double pu = zForbid / z;
+                if (pu < 0) pu = 0; if (pu > 1) pu = 1;
+                unpaired[i] = pu;
+            }
+
+            // Base-pair probabilities P(i,j) = Z_pair(i,j)/Z, where Z_pair(i,j) is the partition
+            // function over structures that CONTAIN the pair (i,j). It is computed by the SAME
+            // inside DP constrained so that (i,j) MUST pair: i and j may not be unpaired, may pair
+            // only with each other, and no pair may cross (i,j) (proper nesting). This constrained
+            // partition function is exact and Z-consistent (no bespoke outside recursion needed):
+            // Σ_j P(i,j) = 1 − p_unpaired(i) holds to floating-point precision.
+            for (int i = 0; i < n; i++)
+            {
+                for (int j = i + minLoopSize + 1; j < n; j++)
+                {
+                    if (vExp[i, j] <= 0) continue;
+                    var vR = new double[n, n];
+                    var wmR = new double[n, n];
+                    var wR = new double[n];
+                    FillPartitionDp(seq, n, minLoopSize, rt, vR, wmR, wR,
+                        forbiddenStart: -1, forbiddenEnd: -1, requireI: i, requireJ: j);
+                    double zPair = wR[n - 1];
+                    double p = zPair / z;
+                    if (p <= 1e-300) continue;
+                    if (p > 1) p = 1;
+                    bpp[(i, j)] = p;
+                }
+            }
+        }
+
+        double ensembleFreeEnergy = (double.IsFinite(z) && z > 0) ? -rt * Math.Log(z) : 0.0;
+
+        return new UnpairedProbabilityResult(z, bpp, unpaired, ensembleFreeEnergy);
+    }
+
+    /// <summary>
+    /// TargetScan/Agarwal-2015 structural accessibility (SA): the equilibrium probability that a
+    /// contiguous window of <paramref name="windowLength"/> nucleotides ending at
+    /// <paramref name="windowEnd"/> (0-based, inclusive) is entirely unpaired, computed EXACTLY
+    /// from the Turner-2004 McCaskill partition function as Z_open(window) / Z, where
+    /// Z_open(window) is the partition function over structures in which no base pair is incident
+    /// to any position of the window (every base in the window unpaired).
+    /// </summary>
+    /// <remarks>
+    /// RNAplfold (<c>RNAplfold -L 40 -W 80 -u 20</c> in <c>targetscan_70_context_scores.pl</c>,
+    /// <c>runRNAplfold_all_UTRs</c>) reports, in row <c>i</c> column <c>L</c> of the <c>_lunp</c>
+    /// file, the probability that the length-<c>L</c> stretch ENDING at position <c>i</c> is
+    /// unpaired (RNAplfold man page; Bernhart et al. 2006). TargetScan's <c>getSA_contribution</c>
+    /// reads column index 13 of that row (the 14th unpaired-probability column → <c>L = 14</c>)
+    /// at the row 7 nt downstream of the seed-match start, i.e. the unpaired probability of the
+    /// 14-nt region centred on the match to miRNA nucleotides 7–8 (Agarwal et al. 2015, eLife
+    /// 4:e05005, Fig 4A: "the log10 value of the unpaired probability for a 14-nt region centered
+    /// on the match to miRNA nucleotides 7 and 8"). The joint region-unpaired probability is the
+    /// exact McCaskill ensemble quantity Z_open/Z.
+    /// </remarks>
+    /// <param name="rnaSequence">RNA (or DNA; T read as U) sequence; case-insensitive.</param>
+    /// <param name="windowEnd">0-based inclusive index of the last nucleotide of the unpaired window.</param>
+    /// <param name="windowLength">Length of the unpaired window (TargetScan uses 14).</param>
+    /// <param name="minLoopSize">Minimum hairpin loop size (NNDB minimum 3).</param>
+    /// <param name="temperature">Absolute temperature in Kelvin (default 310.15 K = 37 °C).</param>
+    /// <returns>P(window entirely unpaired) ∈ [0,1]; 1.0 when no pair can form at all.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="temperature"/> ≤ 0, or the window does not fit in the sequence.</exception>
+    public static double CalculateRegionUnpairedProbability(
+        string rnaSequence, int windowEnd, int windowLength,
+        int minLoopSize = 3, double temperature = DefaultTemperatureKelvin)
+    {
+        if (temperature <= 0)
+            throw new ArgumentOutOfRangeException(nameof(temperature), "Temperature must be positive (Kelvin).");
+        if (windowLength <= 0)
+            throw new ArgumentOutOfRangeException(nameof(windowLength), "Window length must be positive.");
+        if (minLoopSize < 3) minLoopSize = 3;
+
+        string seq = string.IsNullOrEmpty(rnaSequence)
+            ? string.Empty
+            : rnaSequence.ToUpperInvariant().Replace('T', 'U');
+        int n = seq.Length;
+
+        int windowStart = windowEnd - windowLength + 1;
+        if (windowStart < 0 || windowEnd >= n)
+            throw new ArgumentOutOfRangeException(nameof(windowEnd),
+                "The unpaired window must lie entirely within the sequence.");
+
+        if (n < minLoopSize + 2)
+            return 1.0; // no pair can form anywhere → the region is unpaired with probability 1.
+
+        double rt = GasConstant_CalPerMolK * temperature / 1000.0;
+
+        // Z over the full ensemble.
+        var vExpAll = new double[n, n];
+        var wmExpAll = new double[n, n];
+        var wExpAll = new double[n];
+        FillPartitionDp(seq, n, minLoopSize, rt, vExpAll, wmExpAll, wExpAll, forbiddenStart: -1, forbiddenEnd: -1);
+        double z = wExpAll[n - 1];
+        if (!double.IsFinite(z) || z <= 0)
+            return 0.0;
+
+        // Z_open: the same partition function but with EVERY base in [windowStart..windowEnd]
+        // forbidden from pairing. This is exactly Σ over structures where the window is unpaired.
+        var vExpOpen = new double[n, n];
+        var wmExpOpen = new double[n, n];
+        var wExpOpen = new double[n];
+        FillPartitionDp(seq, n, minLoopSize, rt, vExpOpen, wmExpOpen, wExpOpen,
+            forbiddenStart: windowStart, forbiddenEnd: windowEnd);
+        double zOpen = wExpOpen[n - 1];
+
+        double pu = zOpen / z;
+        if (pu < 0) pu = 0;
+        if (pu > 1) pu = 1; // round-off guard; Z_open ≤ Z by construction.
+        return pu;
+    }
+
+    // Boltzmann weight of a Turner loop energy ΔG: exp(−ΔG/RT). Centralised so the partition
+    // function uses the SAME conversion everywhere (McCaskill / ViennaRNA β = 1/RT convention).
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static double BoltzmannWeight(double deltaG, double rt) => Math.Exp(-deltaG / rt);
+
+    /// <summary>
+    /// Fills the inside partition-function matrices Vexp/WMexp/Wexp (the Boltzmann-domain mirror
+    /// of <see cref="FillDp"/>). When <paramref name="forbiddenStart"/> ≤ <paramref name="forbiddenEnd"/>,
+    /// any base pair incident to a position in [forbiddenStart..forbiddenEnd] is excluded — this
+    /// yields the partition function over structures in which that window is entirely unpaired
+    /// (used by <see cref="CalculateRegionUnpairedProbability"/>). Pass −1/−1 for the full ensemble.
+    /// </summary>
+    private static void FillPartitionDp(
+        string seq, int n, int minLoopSize, double rt,
+        double[,] vExp, double[,] wmExp, double[] wExp,
+        int forbiddenStart = -1, int forbiddenEnd = -1,
+        int requireI = -1, int requireJ = -1)
+    {
+        const int MAXLOOP = Dp_MAXLOOP;
+        const double ML_offset = Dp_ML_offset;
+        const double ML_helix = Dp_ML_helix;
+
+        bool Forbidden(int p) => forbiddenStart <= forbiddenEnd && p >= forbiddenStart && p <= forbiddenEnd;
+
+        // Required-pair constraint (for base-pair probability P(i,j) = Z_require(i,j)/Z):
+        // the pair (requireI, requireJ) MUST be present. A pair (p,q) is admissible only when it
+        // does not cross (requireI,requireJ) and does not use requireI/requireJ with a different
+        // partner; requireI and requireJ may not be left unpaired (so "i is paired" ⇒ "i pairs j").
+        bool RequireActive = requireI >= 0 && requireJ >= 0;
+        bool PairOk(int p, int q)
+        {
+            if (!RequireActive) return true;
+            // Non-crossing with the required pair (nested or disjoint intervals).
+            bool nonCrossing = q < requireI || p > requireJ
+                || (p <= requireI && q >= requireJ) || (p >= requireI && q <= requireJ);
+            if (!nonCrossing) return false;
+            // requireI / requireJ may only pair with each other.
+            if (p == requireI || p == requireJ || q == requireI || q == requireJ)
+                return p == requireI && q == requireJ;
+            return true;
+        }
+        bool UnpairedOk(int p) => !(RequireActive && (p == requireI || p == requireJ));
+        // True if a required (must-pair) endpoint would be stranded UNPAIRED inside [lo..hi]
+        // (e.g. a hairpin/internal/bulge loop region). Such a decomposition is inadmissible.
+        bool RequiredUnpairedIn(int lo, int hi) => RequireActive &&
+            ((requireI >= lo && requireI <= hi) || (requireJ >= lo && requireJ <= hi));
+
+        // Boltzmann weights of the (per-helix / initiation / dangle) multiloop and external terms.
+        double mlOffsetW = BoltzmannWeight(ML_offset, rt);
+        double mlHelixW = BoltzmannWeight(ML_helix, rt);
+        double auW = BoltzmannWeight(TerminalAU_GU_Penalty, rt);
+
+        // Vexp[i,j]: i & j paired. Empty unless within range and pairable and neither is forbidden.
+        for (int span = minLoopSize + 2; span <= n; span++)
+        {
+            for (int i = 0; i <= n - span; i++)
+            {
+                int j = i + span - 1;
+
+                // ===== Vexp(i,j) =====
+                if (PairType(seq[i], seq[j]) != 0 && !Forbidden(i) && !Forbidden(j) && PairOk(i, j))
+                {
+                    double v = 0.0;
+
+                    // --- Hairpin loop --- (all loop bases [i+1..j-1] are unpaired)
+                    int loopLen = j - i - 1;
+                    if (loopLen >= minLoopSize && !RequiredUnpairedIn(i + 1, j - 1))
+                    {
+                        // The hairpin loop bases are [i+1 .. j-1]; all must be unpaired anyway, but
+                        // if any is forbidden that is automatically satisfied (loop bases ARE unpaired).
+                        string loopSeq = seq.Substring(i + 1, loopLen);
+                        bool specialGU = seq[i] == 'G' && seq[j] == 'U' &&
+                                         i >= 2 && seq[i - 1] == 'G' && seq[i - 2] == 'G';
+                        double hEnergy = CalculateHairpinLoopEnergy(loopSeq, seq[i], seq[j], specialGU);
+                        if (IsAUorGU(seq[i], seq[j]))
+                            hEnergy += TerminalAU_GU_Penalty;
+                        v += BoltzmannWeight(hEnergy, rt);
+                    }
+
+                    // --- Stacking + internal/bulge loops: (i,j) encloses (ip,jp) ---
+                    for (int ip = i + 1; ip < j - 1 && ip - i - 1 <= MAXLOOP; ip++)
+                    {
+                        int maxN2 = MAXLOOP - (ip - i - 1);
+                        int jpMin = Math.Max(ip + 1, j - maxN2 - 1);
+                        for (int jp = j - 1; jp >= jpMin; jp--)
+                        {
+                            if (PairType(seq[ip], seq[jp]) == 0) continue;
+                            double inner = vExp[ip, jp];
+                            if (inner <= 0) continue;
+                            // The internal/bulge loop gaps [i+1..ip-1] and [jp+1..j-1] are unpaired;
+                            // a required endpoint may not be stranded there.
+                            if (RequiredUnpairedIn(i + 1, ip - 1) || RequiredUnpairedIn(jp + 1, j - 1))
+                                continue;
+
+                            int n1 = ip - i - 1;
+                            int n2 = j - jp - 1;
+                            double loopE;
+                            if (n1 == 0 && n2 == 0)
+                            {
+                                // Stacking
+                                string stackKey = $"{seq[i]}{seq[i + 1]}/{seq[j]}{seq[j - 1]}";
+                                if (!StackingEnergies.TryGetValue(stackKey, out loopE))
+                                    continue; // unknown stack contributes nothing in this model
+                            }
+                            else if (n1 == 0 || n2 == 0)
+                            {
+                                int bulgeSize = n1 + n2;
+                                char bulgedBase = n1 > 0 ? seq[i + 1] : seq[j - 1];
+                                int numStates = 1;
+                                if (bulgeSize == 1)
+                                {
+                                    if (n1 == 1)
+                                    {
+                                        if (seq[i] == seq[i + 1]) numStates++;
+                                        if (seq[ip] == seq[i + 1]) numStates++;
+                                    }
+                                    else
+                                    {
+                                        if (seq[j] == seq[j - 1]) numStates++;
+                                        if (seq[jp] == seq[j - 1]) numStates++;
+                                    }
+                                }
+                                loopE = CalculateBulgeLoopEnergy(bulgeSize, bulgedBase,
+                                    seq[i], seq[j], seq[ip], seq[jp], numStates);
+                            }
+                            else
+                            {
+                                loopE = CalculateInternalLoopEnergy(n1, n2,
+                                    seq[i], seq[j], seq[ip], seq[jp],
+                                    seq[i + 1], seq[j - 1], seq[ip - 1], seq[jp + 1]);
+                            }
+                            v += BoltzmannWeight(loopE, rt) * inner;
+                        }
+                    }
+
+                    // --- Multiloop: (i,j) closes a multibranch region [i+1..j-1] ---
+                    double wmInner = wmExp[i + 1, j - 1];
+                    if (wmInner > 0)
+                    {
+                        double closeW = mlOffsetW * mlHelixW;
+                        if (IsAUorGU(seq[i], seq[j])) closeW *= auW;
+                        v += closeW * wmInner;
+                    }
+
+                    vExp[i, j] = v;
+                }
+
+                // ===== WMexp(i,j): multibranch region partition function =====
+                {
+                    double wm = 0.0;
+
+                    // A: a helix V(i,j) starts here (per-helix weight; AU penalty at the helix end).
+                    if (vExp[i, j] > 0)
+                    {
+                        double e = mlHelixW * vExp[i, j];
+                        if (IsAUorGU(seq[i], seq[j])) e *= auW;
+                        wm += e;
+                    }
+                    // A2: i is a 5' dangle, helix at (i+1,j).
+                    if (i + 1 <= j && vExp[i + 1, j] > 0 && UnpairedOk(i))
+                    {
+                        double dG = ML_helix + GetDanglingEndEnergy(seq[i + 1], seq[j], seq[i], false);
+                        double e = BoltzmannWeight(dG, rt) * vExp[i + 1, j];
+                        if (IsAUorGU(seq[i + 1], seq[j])) e *= auW;
+                        wm += e;
+                    }
+                    // A3: j is a 3' dangle, helix at (i,j-1).
+                    if (j - 1 >= i && vExp[i, j - 1] > 0 && UnpairedOk(j))
+                    {
+                        double dG = ML_helix + GetDanglingEndEnergy(seq[i], seq[j - 1], seq[j], true);
+                        double e = BoltzmannWeight(dG, rt) * vExp[i, j - 1];
+                        if (IsAUorGU(seq[i], seq[j - 1])) e *= auW;
+                        wm += e;
+                    }
+                    // A4: both i and j dangle, helix at (i+1,j-1).
+                    if (i + 1 < j - 1 && vExp[i + 1, j - 1] > 0 && UnpairedOk(i) && UnpairedOk(j))
+                    {
+                        double dG = ML_helix
+                            + GetDanglingEndEnergy(seq[i + 1], seq[j - 1], seq[i], false)
+                            + GetDanglingEndEnergy(seq[i + 1], seq[j - 1], seq[j], true);
+                        double e = BoltzmannWeight(dG, rt) * vExp[i + 1, j - 1];
+                        if (IsAUorGU(seq[i + 1], seq[j - 1])) e *= auW;
+                        wm += e;
+                    }
+                    // B: i unpaired in the multiloop (Dp_ML_unpaired = 0 → weight 1).
+                    if (i + 1 <= j && wmExp[i + 1, j] > 0 && UnpairedOk(i))
+                        wm += wmExp[i + 1, j];
+                    // C: j unpaired in the multiloop.
+                    if (j - 1 >= i && wmExp[i, j - 1] > 0 && UnpairedOk(j))
+                        wm += wmExp[i, j - 1];
+                    // D: split into two adjacent multibranch regions (≥2 helices).
+                    for (int k = i; k < j; k++)
+                    {
+                        double left = wmExp[i, k];
+                        double right = wmExp[k + 1, j];
+                        if (left > 0 && right > 0)
+                            wm += left * right;
+                    }
+
+                    wmExp[i, j] = wm;
+                }
+            }
+        }
+
+        // ===== Wexp(j): external partition function of the prefix [0..j] =====
+        // Mirrors W(j) = min{ W(j-1), min_i W(i-1)+V(i,j)+AU+dangle } as a Boltzmann sum.
+        // Forbidden positions can still be "unpaired in the external loop" (factor 1).
+        for (int j = 0; j < n; j++)
+        {
+            if (j < minLoopSize + 1)
+            {
+                // Too short to pair: only the open prefix. Under a required pair this prefix
+                // cannot satisfy the constraint (it contains no pair), so its weight is 0 if a
+                // required endpoint lies within it; otherwise 1.
+                bool prefixHoldsRequired = RequireActive && requireI <= j;
+                wExp[j] = prefixHoldsRequired ? 0.0 : 1.0;
+                continue;
+            }
+
+            // j unpaired externally — blocked if j is a required (must-pair) endpoint.
+            double wj = UnpairedOk(j) ? ((j >= 1) ? wExp[j - 1] : 1.0) : 0.0;
+
+            for (int i = 0; i <= j; i++)
+            {
+                double vij = vExp[i, j];
+                if (vij <= 0) continue;
+
+                double dG = 0.0;
+                if (IsAUorGU(seq[i], seq[j])) dG += TerminalAU_GU_Penalty;
+                // Dangling ends reference the (unpaired) neighbour bases of the helix; a forbidden /
+                // forced-unpaired neighbour is still a valid dangle (it is unpaired by definition).
+                if (i > 0)
+                    dG += GetDanglingEndEnergy(seq[i], seq[j], seq[i - 1], false);
+                if (j < n - 1)
+                    dG += GetDanglingEndEnergy(seq[i], seq[j], seq[j + 1], true);
+
+                double left = (i > 0) ? wExp[i - 1] : 1.0;
+                wj += left * BoltzmannWeight(dG, rt) * vij;
+            }
+
+            wExp[j] = wj;
+        }
     }
 
     /// <summary>

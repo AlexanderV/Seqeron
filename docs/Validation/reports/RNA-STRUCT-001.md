@@ -150,3 +150,30 @@ H-type / nested knots with ΔG strictly below the pseudoknot-free MFE.
     physics-of-the-model floor, not an algorithm gap, and is not recoverable in this unit.
 - No code changed (the re-evaluation confirmed no faithful, citable, deterministically-testable
   kissing-hairpin energy model is available to bundle). No new defects logged. Registry Status unchanged.
+
+---
+
+## Addendum (2026-06-25) — Turner-2004 McCaskill partition-function folder (new capability)
+
+A new opt-in **partition-function** folder was added alongside the existing Zuker–Stiegler MFE
+folder in `RnaSecondaryStructure.cs`, reusing the SAME Turner-2004 nearest-neighbour energy model:
+
+- `CalculateUnpairedProbabilities(seq, minLoopSize, temperature)` → the McCaskill (1990) equilibrium
+  partition function `Z = Σ_S exp(−E(S)/RT)`, base-pair probabilities `P(i,j)`, per-base unpaired
+  probabilities `p_unpaired(i) = 1 − Σ_j P(i,j)`, and ensemble free energy `−RT·ln Z`.
+- `CalculateRegionUnpairedProbability(seq, windowEnd, windowLength, …)` → the RNAplfold-style joint
+  region-unpaired probability `Z_open/Z` (accessibility).
+
+It is the Boltzmann-domain mirror of `FillDp` (min→Σ, +ΔG→×exp(−ΔG/RT)) over the existing Turner
+loop-energy functions, so `−RT·ln Z ≤ MFE` holds by construction. The per-base / per-pair
+probabilities are computed by exact constrained re-folds (`Σ_j P(i,j) + p_unpaired(i) = 1` to
+~1e-15). Verified EXACTLY on the analytic tiny case `GAAAC` (`Z = 1 + exp(−5.4/RT)`,
+`P(0,4) = exp(−5.4/RT)/Z`). All existing MFE methods, `PredictStructure`, the simplified
+`CalculatePartitionFunction`, defaults, and the registry Status are unchanged. This capability is
+consumed by `MiRnaAnalyzer.ScoreTargetSiteContextPlusPlus` to compute the TargetScan **SA**
+feature (see `MIRNA-TARGET-001.md`). Tests:
+`tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_UnpairedProbabilities_Tests.cs`.
+Algorithm doc: `docs/algorithms/RNA_Structure/Turner_McCaskill_Partition_Function.md`.
+
+> Note: this folder is a new RNA-STRUCT-area capability. No new registry row was invented (per the
+> orchestrator protocol); the orchestrator may elect to add a dedicated unit for it.

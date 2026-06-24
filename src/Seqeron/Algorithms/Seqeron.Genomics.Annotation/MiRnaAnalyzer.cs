@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Seqeron.Genomics.Analysis;
 
 namespace Seqeron.Genomics.Annotation;
 
@@ -499,6 +500,7 @@ public static class MiRnaAnalyzer
     /// <param name="SRna1Contribution">Sum of sRNA1A/C/G indicator contributions (0 if miRNA nt1 = U).</param>
     /// <param name="SRna8Contribution">Sum of sRNA8A/C/G indicator contributions (0 if miRNA nt8 = U).</param>
     /// <param name="Site8Contribution">Sum of Site8A/C/G contributions (only 7mer-A1 / 6mer; else 0).</param>
+    /// <param name="SaContribution">coeff(SA) × scaled(log10 of the unpaired probability of the 14-nt window centred on the seed match), from the Turner-2004 McCaskill partition function. 0 (and listed as omitted) when the window does not fit the local 3'UTR context.</param>
     /// <param name="ThreePrimePairingContribution">coeff(3P_score) × scaled(3' supplementary-pairing raw score). Computed from miRNA + 3'UTR.</param>
     /// <param name="MinDistContribution">coeff(Min_dist) × scaled(log10 distance to nearest 3'UTR end). Computed from the 3'UTR.</param>
     /// <param name="Len3UtrContribution">coeff(Len_3UTR) × scaled(log10 3'UTR length). Computed from the 3'UTR.</param>
@@ -516,6 +518,7 @@ public static class MiRnaAnalyzer
         double SRna1Contribution,
         double SRna8Contribution,
         double Site8Contribution,
+        double SaContribution,
         double ThreePrimePairingContribution,
         double MinDistContribution,
         double Len3UtrContribution,
@@ -630,6 +633,26 @@ public static class MiRnaAnalyzer
     // ORF8m row (ORF 8mer count; caller-supplied): coeff only — used raw (NOT min-max scaled).
     private const double CtxOrf8mCoeff8mer = -0.118, CtxOrf8mCoeff7merM8 = -0.044, CtxOrf8mCoeff7merA1 = -0.058, CtxOrf8mCoeff6mer = -0.060;
 
+    // SA row (structural accessibility): coeff, then min/max for min-max scaling of log10(plfold).
+    // Verbatim from Agarwal_2015_parameters.txt (SA row), column order 8mer / 7mer-m8 / 7mer-A1 / 6mer:
+    //   SA  -0.115  -0.134  -0.077  -0.028  -4.356  -5.218  -4.23  -5.082  -0.661  -0.725  -0.588  -0.666
+    private const double CtxSaCoeff8mer = -0.115, CtxSaMin8mer = -4.356, CtxSaMax8mer = -0.661;
+    private const double CtxSaCoeff7merM8 = -0.134, CtxSaMin7merM8 = -5.218, CtxSaMax7merM8 = -0.725;
+    private const double CtxSaCoeff7merA1 = -0.077, CtxSaMin7merA1 = -4.23, CtxSaMax7merA1 = -0.588;
+    private const double CtxSaCoeff6mer = -0.028, CtxSaMin6mer = -5.082, CtxSaMax6mer = -0.666;
+
+    // SA structural-accessibility window parameters (targetscan_70_context_scores.pl).
+    //   getSA_contribution reads column index 13 of the RNAplfold _lunp row 7 nt downstream of the
+    //   seed-match start → the 14th unpaired-probability column → the probability that the 14-nt
+    //   stretch ENDING at that row is unpaired (RNAplfold man page; Bernhart et al. 2006). The
+    //   eLife paper (Agarwal 2015, Fig 4A): "the log10 value of the unpaired probability for a
+    //   14-nt region centered on the match to miRNA nucleotides 7 and 8".
+    private const int SaUnpairedWindowLength = 14;   // RNAplfold -u column 14 used by getSA
+    private const int SaRowOffsetDownstream = 7;      // grep -A7 → the row 7 nt 3' of utrStart
+    // RNAplfold local-fold parameters used by runRNAplfold_all_UTRs: "RNAplfold -L 40 -W 80 -u 20".
+    private const int SaPlfoldWindowSize = 80;        // -W (sliding-window averaging size)
+    private const int SaPlfoldMaxSpan = 40;           // -L (maximum base-pair span)
+
     // Number of flanking nucleotides used for the local-AU feature (getLocalAU_contribution
     // extracts 30 nt up- and downstream of the site).
     private const int LocalAuFlankLength = 30;
@@ -653,9 +676,12 @@ public static class MiRnaAnalyzer
     /// derive from the miRNA and 3'UTR (SPS, TA, ORF length, ORF-8mer count) are computed faithfully
     /// only when the caller supplies them via <paramref name="inputs"/>; otherwise they contribute 0
     /// and are reported in <see cref="ContextPlusPlusScore.OmittedFeatures"/>. Structural
-    /// accessibility (SA, an RNAplfold partition-function quantity) and conservation (PCT) remain
-    /// honest residuals. The returned score is therefore a PARTIAL context++ score, not the published
-    /// headline CS.
+    /// accessibility (SA) is now computed from the Turner-2004 McCaskill partition function
+    /// (<see cref="RnaSecondaryStructure.CalculateRegionUnpairedProbability"/>) — the 14-nt-window
+    /// unpaired probability, log10-transformed and min-max scaled exactly as in
+    /// <c>getSA_contribution</c> — and is omitted only when that window does not fit the local
+    /// 3'UTR context. Conservation (PCT) remains an honest residual. The returned score is
+    /// therefore still a PARTIAL context++ score, not the published headline CS.
     /// </summary>
     /// <param name="mRnaSequence">The mRNA / 3'UTR sequence the site was found in (RNA or DNA; T→U; case-insensitive). Treated as the 3'UTR for the length / Min_dist / Off6m features.</param>
     /// <param name="miRna">The miRNA (its <c>Sequence</c> supplies nt1, nt8, the seed and the 3' supplementary region).</param>
@@ -698,6 +724,7 @@ public static class MiRnaAnalyzer
         double sRna1 = SRna1Contribution(mirna, type);
         double sRna8 = SRna8Contribution(mirna, type);
         double site8 = Site8Contribution(mrna, site.Start, type);
+        double sa = SaContribution(mrna, site.Start, type, out bool saIncluded);
         double threeP = ThreePrimePairingContribution(mrna, mirna, site.Start, site.End, type);
         double minDist = MinDistContribution(mrna, site.Start, site.End, type);
         double len3Utr = Len3UtrContribution(mrna, type);
@@ -708,7 +735,7 @@ public static class MiRnaAnalyzer
         double lenOrf = inputs.OrfLength is double orfLen ? LenOrfContribution(orfLen, type) : 0.0;
         double orf8m = inputs.Orf8mCount is int orf8mCount ? Orf8mContribution(orf8mCount, type) : 0.0;
 
-        double partial = intercept + localAu + sRna1 + sRna8 + site8
+        double partial = intercept + localAu + sRna1 + sRna8 + site8 + sa
             + threeP + minDist + len3Utr + off6m
             + sps + ta + lenOrf + orf8m;
 
@@ -719,6 +746,7 @@ public static class MiRnaAnalyzer
             SRna1Contribution: sRna1,
             SRna8Contribution: sRna8,
             Site8Contribution: site8,
+            SaContribution: sa,
             ThreePrimePairingContribution: threeP,
             MinDistContribution: minDist,
             Len3UtrContribution: len3Utr,
@@ -728,21 +756,22 @@ public static class MiRnaAnalyzer
             LenOrfContribution: lenOrf,
             Orf8mContribution: orf8m,
             ContextScorePartial: partial,
-            OmittedFeatures: BuildOmittedFeatures(inputs));
+            OmittedFeatures: BuildOmittedFeatures(inputs, saIncluded));
     }
 
     /// <summary>
-    /// context++ features that remain residual for a given call. SA (RNAplfold partition-function
-    /// accessibility) and PCT (conservation) are ALWAYS omitted (data-/method-blocked). SPS, TA,
-    /// ORF length and ORF-8mer count are omitted only when the caller did not supply them.
+    /// context++ features that remain residual for a given call. SA (structural accessibility) is
+    /// now computed from the Turner-2004 McCaskill partition function and is omitted only when the
+    /// 14-nt window does not fit the local 3'UTR context. PCT (conservation) is always omitted
+    /// (needs a multi-species alignment). SPS, TA, ORF length and ORF-8mer count are omitted only
+    /// when the caller did not supply them.
     /// </summary>
-    private static IReadOnlyList<string> BuildOmittedFeatures(ContextPlusPlusInputs inputs)
+    private static IReadOnlyList<string> BuildOmittedFeatures(ContextPlusPlusInputs inputs, bool saIncluded)
     {
-        var omitted = new List<string>
-        {
-            "SA (structural accessibility — RNAplfold partition-function unpaired probability)",
-            "PCT (probability of conserved targeting)"
-        };
+        var omitted = new List<string>();
+        if (!saIncluded)
+            omitted.Add("SA (structural accessibility — window does not fit the local 3'UTR context)");
+        omitted.Add("PCT (probability of conserved targeting)");
         if (inputs.Sps is null) omitted.Add("SPS (predicted seed-pairing stability — requires Garcia et al. 2011 seed-region table)");
         if (inputs.Ta is null) omitted.Add("TA_3UTR (target-site abundance — requires a transcriptome)");
         if (inputs.OrfLength is null) omitted.Add("Len_ORF (ORF length — requires the transcript ORF)");
@@ -867,6 +896,67 @@ public static class MiRnaAnalyzer
             : (CtxSite8A6mer, CtxSite8C6mer, CtxSite8G6mer);
 
         return sitePos8 switch { 'A' => a, 'C' => c, 'G' => g, _ => 0.0 };
+    }
+
+    // ── SA: structural accessibility (getSA_contribution) ─────────────────────────────────
+    // Faithful port of getSA_contribution. TargetScan runs RNAplfold (-L 40 -W 80 -u 20) on each
+    // UTR to produce a _lunp file, then for a site reads the probability that the 14-nt stretch
+    // ENDING 7 nt downstream of the seed-match start is unpaired (column index 13 of `cut -f 2-`,
+    // i.e. the 14th unpaired-probability column → L = 14), takes log10, and min-max scales it by
+    // the SA coefficient. Here the unpaired probability is computed EXACTLY from the Turner-2004
+    // McCaskill partition function (RnaSecondaryStructure.CalculateRegionUnpairedProbability),
+    // over a local fold window of up to W = 80 nt centred on the SA window (max base-pair span
+    // L = 40), mirroring RNAplfold's local-folding intent. When the 14-nt window cannot be placed
+    // within the 3'UTR (too close to an end), SA is reported as omitted and contributes 0 —
+    // matching the perl's "missing _lunp row → plfold = 0 → return 0".
+    // Sources: targetscan_70_context_scores.pl getSA_contribution / runRNAplfold_all_UTRs;
+    // RNAplfold man page + Bernhart et al. (2006) Bioinformatics 22:614; Agarwal et al. (2015)
+    // eLife 4:e05005 Fig 4A ("log10 value of the unpaired probability for a 14-nt region centered
+    // on the match to miRNA nucleotides 7 and 8").
+    private static double SaContribution(string mrna, int siteStart, TargetSiteType type, out bool included)
+    {
+        included = false;
+
+        // 1-based UTR start of the seed match; perl decrements it for 7mer-A1 (siteType 1) so the
+        // positioning matches 8mer / 7mer-m8 sites (the legacy "|| siteType == 5" is dead code).
+        int utrStart1 = siteStart + 1;
+        if (type == TargetSiteType.Seed7merA1)
+            utrStart1--;
+
+        // The _lunp row read is 7 nt downstream of utrStart; that row's L=14 column is the
+        // probability that the 14-nt stretch ENDING at that row is unpaired. Convert to a 0-based
+        // window-end index.
+        int windowEnd0 = (utrStart1 + SaRowOffsetDownstream) - 1;
+        int windowStart0 = windowEnd0 - SaUnpairedWindowLength + 1;
+        if (windowStart0 < 0 || windowEnd0 >= mrna.Length)
+            return 0.0; // window does not fit → SA omitted (perl: plfold missing → 0)
+
+        // Local fold context: up to W = 80 nt centred on the window, clamped to the UTR. RNAplfold
+        // averages over length-W windows; folding this local context captures the local
+        // accessibility of the 14-nt window (a base can only pair within ±L = 40 nt).
+        int contextStart = Math.Max(0, windowEnd0 - (SaPlfoldWindowSize - SaUnpairedWindowLength) / 2 - SaUnpairedWindowLength + 1);
+        contextStart = Math.Min(contextStart, windowStart0);
+        int contextEnd = Math.Min(mrna.Length - 1, contextStart + SaPlfoldWindowSize - 1);
+        contextStart = Math.Max(0, contextEnd - SaPlfoldWindowSize + 1);
+        string context = mrna.Substring(contextStart, contextEnd - contextStart + 1);
+        int localWindowEnd = windowEnd0 - contextStart;
+
+        double plfold = RnaSecondaryStructure.CalculateRegionUnpairedProbability(
+            context, localWindowEnd, SaUnpairedWindowLength);
+
+        // log10(plfold); perl returns 0 when plfold is not a nonzero number (isNonzeroNumber).
+        double log10Plfold = (plfold > 0) ? Math.Log10(plfold) : 0.0;
+
+        (double coeff, double min, double max) = type switch
+        {
+            TargetSiteType.Seed8mer => (CtxSaCoeff8mer, CtxSaMin8mer, CtxSaMax8mer),
+            TargetSiteType.Seed7merM8 => (CtxSaCoeff7merM8, CtxSaMin7merM8, CtxSaMax7merM8),
+            TargetSiteType.Seed7merA1 => (CtxSaCoeff7merA1, CtxSaMin7merA1, CtxSaMax7merA1),
+            _ => (CtxSaCoeff6mer, CtxSaMin6mer, CtxSaMax6mer)
+        };
+
+        included = true;
+        return ScaledContribution(log10Plfold, coeff, min, max);
     }
 
     // ── Generic min-max scaling (getAgarwalContribution) ──────────────────────────────────
