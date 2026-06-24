@@ -447,6 +447,21 @@ public static partial class GenBankParser
         string currentLocation = "";
         var qualifiers = new Dictionary<string, string>();
 
+        // Pending (possibly multi-line) qualifier. Continuation lines are buffered
+        // raw, separated by '\n', and finalized only when the qualifier ends so the
+        // outer quotes / embedded "" escapes are processed across the whole value.
+        string? pendingQualName = null;
+        var pendingQualValue = new StringBuilder();
+
+        void FlushQualifier()
+        {
+            if (pendingQualName is null)
+                return;
+            qualifiers[pendingQualName] = FinalizeQualifierValue(pendingQualName, pendingQualValue.ToString());
+            pendingQualName = null;
+            pendingQualValue.Clear();
+        }
+
         foreach (var line in lines)
         {
             // Skip header line
@@ -456,6 +471,8 @@ public static partial class GenBankParser
             // New feature (starts at column 5)
             if (line.Length > 5 && !char.IsWhiteSpace(line[5]) && char.IsWhiteSpace(line[0]))
             {
+                FlushQualifier();
+
                 // Save previous feature
                 if (!string.IsNullOrEmpty(currentKey))
                 {
@@ -479,29 +496,31 @@ public static partial class GenBankParser
             // Qualifier (starts at column 21, with /)
             else if (line.Length > 21 && line.TrimStart().StartsWith('/'))
             {
+                FlushQualifier();
+
                 var qualLine = line.Trim()[1..]; // Remove leading /
                 var eqIdx = qualLine.IndexOf('=');
                 if (eqIdx > 0)
                 {
-                    var qualName = qualLine[..eqIdx];
-                    var qualValue = UnquoteQualifierValue(qualLine[(eqIdx + 1)..].Trim());
-                    qualifiers[qualName] = qualValue;
+                    pendingQualName = qualLine[..eqIdx];
+                    pendingQualValue.Append(qualLine[(eqIdx + 1)..].Trim());
                 }
                 else
                 {
                     qualifiers[qualLine] = "true";
                 }
             }
-            // Continuation of qualifier value
-            else if (!string.IsNullOrEmpty(currentKey) && line.Length > 21)
+            // Continuation of the current qualifier value
+            else if (pendingQualName is not null && line.Length > 21)
             {
-                var lastQual = qualifiers.Keys.LastOrDefault();
-                if (lastQual != null)
-                {
-                    qualifiers[lastQual] += " " + line.Trim().Trim('"');
-                }
+                // INSDC: continuation lines begin at column 22. Join with '\n' to mark
+                // the wrap point; FinalizeQualifierValue converts it to a single space
+                // (mirrors Biopython feature_qualifier newline->space handling).
+                pendingQualValue.Append('\n').Append(line.Trim());
             }
         }
+
+        FlushQualifier();
 
         // Save last feature
         if (!string.IsNullOrEmpty(currentKey))
@@ -510,6 +529,34 @@ public static partial class GenBankParser
         }
 
         return features;
+    }
+
+    // Qualifiers whose value is a contiguous biological sequence with no internal
+    // whitespace: line wraps must be collapsed entirely (no inserted space), per
+    // Biopython's _BaseGenBankConsumer.remove_space_keys.
+    private static readonly HashSet<string> NoSpaceQualifierKeys =
+        new(StringComparer.Ordinal) { "translation" };
+
+    /// <summary>
+    /// Finalizes a (possibly multi-line) raw qualifier value. Continuation wraps
+    /// (encoded as '\n') become a single space; the outer quote pair is removed and
+    /// INSDC-escaped embedded quotes ("") collapse to one; for sequence qualifiers
+    /// such as /translation all whitespace is removed so the value reassembles exactly.
+    /// </summary>
+    private static string FinalizeQualifierValue(string qualName, string rawValue)
+    {
+        // Wrap points -> single space (Biopython feature_qualifier: newline -> space).
+        var joined = rawValue.Replace("\n", " ");
+        var unquoted = UnquoteQualifierValue(joined);
+
+        if (NoSpaceQualifierKeys.Contains(qualName))
+        {
+            // /translation etc.: strip every whitespace char so the amino-acid string
+            // is contiguous regardless of where the flat file wrapped it.
+            return new string(unquoted.Where(c => !char.IsWhiteSpace(c)).ToArray());
+        }
+
+        return unquoted;
     }
 
     /// <summary>
