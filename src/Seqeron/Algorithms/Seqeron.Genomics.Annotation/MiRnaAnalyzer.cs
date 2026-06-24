@@ -719,6 +719,258 @@ public static class MiRnaAnalyzer
 
     #endregion
 
+    #region Pre-miRNA Prediction — MFE-structure-based (opt-in)
+
+    /// <summary>
+    /// A pre-miRNA hairpin candidate assessed from the REAL minimum-free-energy (MFE) secondary
+    /// structure produced by the validated Zuker–Stiegler folder
+    /// (<see cref="Seqeron.Genomics.Analysis.RnaSecondaryStructure.CalculateMfeStructure"/>,
+    /// RNA-STRUCT-001), rather than the consecutive-pairing heuristic of
+    /// <see cref="FindPreMiRnaHairpins"/>.
+    /// </summary>
+    /// <param name="Start">0-based start of the candidate window in the input sequence.</param>
+    /// <param name="End">0-based inclusive end of the candidate window in the input sequence.</param>
+    /// <param name="Sequence">The folded candidate (upper-cased; T read as U).</param>
+    /// <param name="DotBracket">The folded MFE dot-bracket structure of the candidate.</param>
+    /// <param name="StemBasePairs">Number of base pairs in the single dominant hairpin stem.</param>
+    /// <param name="TerminalLoopStart">0-based start (within the candidate) of the terminal loop.</param>
+    /// <param name="TerminalLoopSize">Length of the single terminal (apical) loop, in nucleotides.</param>
+    /// <param name="FreeEnergy">
+    /// ΔG° (kcal/mol) of the folded structure — by construction equal to
+    /// <see cref="Seqeron.Genomics.Analysis.RnaSecondaryStructure.CalculateMinimumFreeEnergy"/>
+    /// for the same candidate (negative for a stable hairpin).
+    /// </param>
+    /// <param name="Amfe">
+    /// Adjusted minimal folding free energy: AMFE = 100·|MFE| / length (kcal/mol per 100 nt).
+    /// </param>
+    /// <param name="Mfei">
+    /// Minimal folding free energy index: MFEI = AMFE / (G+C)% (Zhang et al. 2006).
+    /// </param>
+    public readonly record struct PreMiRnaMfe(
+        int Start,
+        int End,
+        string Sequence,
+        string DotBracket,
+        int StemBasePairs,
+        int TerminalLoopStart,
+        int TerminalLoopSize,
+        double FreeEnergy,
+        double Amfe,
+        double Mfei);
+
+    // Pre-miRNA structural thresholds.
+    // Stem: a putative miRNA is embedded in one arm of a fold-back hairpin with >=16 complementary
+    // bases to the opposite arm — Ambros et al. (2003), RNA 9:277-279.
+    private const int MfeMinStemBasePairs = 16;
+    // Terminal (apical) loop: pre-miRNA loops are ~3-15 nt, up to ~25 — Bartel (2004), Cell 116:281.
+    private const int MfeMinTerminalLoop = 3;
+    private const int MfeMaxTerminalLoop = 25;
+    // Per-100-nt normalisation factor for AMFE — Zhang et al. (2006), Cell Mol Life Sci 63:246-254:
+    // "AMFE means the MFE of a RNA sequence with 100 nt in length" = MFE/length * 100.
+    private const double AmfePer100Nt = 100.0;
+    // MFEI discriminative threshold: "MFEI of miRNA precursors is >= 0.85, remarkably higher than
+    // other RNAs" — Zhang et al. (2006). Used as the default MFE-fold acceptance cutoff.
+    private const double DefaultMinMfei = 0.85;
+
+    /// <summary>
+    /// Computes the minimal folding free energy index (MFEI) of Zhang et al. (2006),
+    /// Cell Mol Life Sci 63:246-254: MFEI = AMFE / (G+C)% where AMFE = 100·|MFE| / length.
+    /// MFE is taken as a magnitude (|ΔG°|) so that the published "MFEI > 0.85" criterion applies
+    /// directly to the negative ΔG° returned by the Turner-2004 folder.
+    /// </summary>
+    /// <param name="freeEnergy">ΔG° (kcal/mol), as returned by the folder (typically negative).</param>
+    /// <param name="length">Sequence length in nucleotides (must be &gt; 0).</param>
+    /// <param name="gcPercent">G+C content as a percentage in (0,100].</param>
+    /// <returns>MFEI (dimensionless). Returns 0 when length or GC% is non-positive.</returns>
+    public static double CalculateMfeIndex(double freeEnergy, int length, double gcPercent)
+    {
+        if (length <= 0 || gcPercent <= 0) return 0.0;
+        double amfe = AmfePer100Nt * Math.Abs(freeEnergy) / length;
+        return amfe / gcPercent;
+    }
+
+    /// <summary>
+    /// Finds pre-miRNA hairpins by folding each candidate window with the validated Zuker–Stiegler
+    /// MFE engine (<see cref="Seqeron.Genomics.Analysis.RnaSecondaryStructure.CalculateMfeStructure"/>,
+    /// RNA-STRUCT-001) and deriving the hairpin features (single terminal loop, paired-stem count,
+    /// ΔG°, AMFE, MFEI) from the ACTUAL MFE dot-bracket structure — an opt-in alternative to the
+    /// consecutive-pairing heuristic <see cref="FindPreMiRnaHairpins"/> (which remains the default).
+    /// </summary>
+    /// <remarks>
+    /// Acceptance criteria (all from primary sources):
+    /// <list type="bullet">
+    /// <item>The MFE structure is a SINGLE dominant hairpin: exactly one contiguous terminal loop
+    /// (one maximal run of unpaired bases flanked by paired bases), with no branching.</item>
+    /// <item>Stem base pairs ≥ <see cref="MfeMinStemBasePairs"/> (16) — Ambros et al. (2003).</item>
+    /// <item>Terminal loop ∈ [<see cref="MfeMinTerminalLoop"/>, <see cref="MfeMaxTerminalLoop"/>]
+    /// (3–25 nt) — Bartel (2004).</item>
+    /// <item>MFEI ≥ <paramref name="minMfei"/> (default 0.85) — Zhang et al. (2006).</item>
+    /// </list>
+    /// </remarks>
+    /// <param name="sequence">Nucleotide sequence (RNA or DNA; T read as U); case-insensitive.</param>
+    /// <param name="minHairpinLength">Minimum candidate window length (default 55 nt).</param>
+    /// <param name="maxHairpinLength">Maximum candidate window length (default 120 nt).</param>
+    /// <param name="minMfei">Minimum MFEI to accept a candidate (default 0.85, Zhang 2006).</param>
+    /// <param name="minLoopSize">Minimum hairpin loop size passed to the folder (NNDB minimum 3).</param>
+    /// <returns>Accepted pre-miRNA hairpins, each with features from the real MFE structure.</returns>
+    public static IEnumerable<PreMiRnaMfe> FindPreMiRnaHairpinsByMfe(
+        string sequence,
+        int minHairpinLength = 55,
+        int maxHairpinLength = 120,
+        double minMfei = DefaultMinMfei,
+        int minLoopSize = 3)
+    {
+        if (string.IsNullOrEmpty(sequence) || sequence.Length < minHairpinLength)
+            yield break;
+
+        string upper = sequence.ToUpperInvariant().Replace('T', 'U');
+
+        for (int i = 0; i <= upper.Length - minHairpinLength; i++)
+        {
+            for (int len = minHairpinLength; len <= Math.Min(maxHairpinLength, upper.Length - i); len++)
+            {
+                string candidate = upper.Substring(i, len);
+                var assessed = AssessHairpinByMfe(candidate, minMfei, minLoopSize);
+                if (assessed != null)
+                {
+                    var a = assessed.Value;
+                    yield return new PreMiRnaMfe(
+                        Start: i,
+                        End: i + len - 1,
+                        Sequence: candidate,
+                        DotBracket: a.DotBracket,
+                        StemBasePairs: a.StemBasePairs,
+                        TerminalLoopStart: a.TerminalLoopStart,
+                        TerminalLoopSize: a.TerminalLoopSize,
+                        FreeEnergy: a.FreeEnergy,
+                        Amfe: a.Amfe,
+                        Mfei: a.Mfei);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Folds a single candidate with the MFE engine and, if its MFE structure is a single dominant
+    /// hairpin meeting the pre-miRNA structural thresholds, returns the derived features; otherwise
+    /// returns <c>null</c>. Public so callers can assess one known sequence without the window scan.
+    /// </summary>
+    /// <param name="candidate">Candidate sequence (RNA or DNA; T read as U); case-insensitive.</param>
+    /// <param name="minMfei">Minimum MFEI to accept (default 0.85, Zhang 2006).</param>
+    /// <param name="minLoopSize">Minimum hairpin loop size passed to the folder (NNDB minimum 3).</param>
+    public static PreMiRnaMfe? AssessHairpinByMfe(
+        string candidate,
+        double minMfei = DefaultMinMfei,
+        int minLoopSize = 3)
+    {
+        if (string.IsNullOrEmpty(candidate))
+            return null;
+
+        var mfe = Seqeron.Genomics.Analysis.RnaSecondaryStructure.CalculateMfeStructure(candidate, minLoopSize);
+        string structure = mfe.DotBracket;
+        int n = structure.Length;
+        if (n == 0)
+            return null;
+
+        // A single dominant hairpin: the MFE structure must have exactly one terminal loop
+        // (one maximal run of '.' bounded on the left by '(' and on the right by ')'), all pairs
+        // nested with no branching. Detect this directly from the dot-bracket.
+        if (!TryDescribeSingleHairpin(structure, out int stemBp, out int loopStart, out int loopSize))
+            return null;
+
+        if (stemBp < MfeMinStemBasePairs)
+            return null;
+        if (loopSize < MfeMinTerminalLoop || loopSize > MfeMaxTerminalLoop)
+            return null;
+
+        double gcPercent = GcPercent(mfe.Sequence);
+        double amfe = AmfePer100Nt * Math.Abs(mfe.FreeEnergy) / n;
+        double mfei = CalculateMfeIndex(mfe.FreeEnergy, n, gcPercent);
+        if (mfei < minMfei)
+            return null;
+
+        return new PreMiRnaMfe(
+            Start: 0,
+            End: n - 1,
+            Sequence: mfe.Sequence,
+            DotBracket: structure,
+            StemBasePairs: stemBp,
+            TerminalLoopStart: loopStart,
+            TerminalLoopSize: loopSize,
+            FreeEnergy: mfe.FreeEnergy,
+            Amfe: amfe,
+            Mfei: mfei);
+    }
+
+    /// <summary>
+    /// Returns true iff <paramref name="dotBracket"/> describes a SINGLE hairpin: a sequence of
+    /// '(' (the 5' stem, possibly interrupted by internal/bulge '.'), exactly one apical run of
+    /// '.' (the terminal loop), then a sequence of ')' (the 3' stem). No multiloop / branching:
+    /// once a ')' is seen no further '(' may appear. Counts stem base pairs and the terminal loop.
+    /// </summary>
+    private static bool TryDescribeSingleHairpin(
+        string dotBracket, out int stemBasePairs, out int terminalLoopStart, out int terminalLoopSize)
+    {
+        stemBasePairs = 0;
+        terminalLoopStart = -1;
+        terminalLoopSize = 0;
+
+        int opens = 0, closes = 0;
+        bool seenClose = false;
+        // The terminal loop is the run of dots immediately after the last '(' and before the
+        // first ')'. Track the index just after the last '(' and the index of the first ')'.
+        int lastOpenIndex = -1;
+        int firstCloseIndex = -1;
+
+        for (int k = 0; k < dotBracket.Length; k++)
+        {
+            char c = dotBracket[k];
+            if (c == '(')
+            {
+                if (seenClose) return false; // a '(' after a ')' ⇒ branched / not a single hairpin
+                opens++;
+                lastOpenIndex = k;
+            }
+            else if (c == ')')
+            {
+                if (!seenClose) { seenClose = true; firstCloseIndex = k; }
+                closes++;
+            }
+            else if (c != '.')
+            {
+                return false; // unexpected symbol
+            }
+        }
+
+        if (opens == 0 || opens != closes) return false; // need a balanced, non-empty stem
+        if (lastOpenIndex < 0 || firstCloseIndex < 0 || firstCloseIndex <= lastOpenIndex) return false;
+
+        // Terminal loop = the dots strictly between the last '(' and the first ')'.
+        terminalLoopStart = lastOpenIndex + 1;
+        terminalLoopSize = firstCloseIndex - lastOpenIndex - 1;
+        // Every position between them must be a dot (a single apical loop, no inner stem).
+        for (int k = terminalLoopStart; k < firstCloseIndex; k++)
+            if (dotBracket[k] != '.') return false;
+
+        stemBasePairs = opens; // each '(' pairs with one ')'
+        return true;
+    }
+
+    /// <summary>G+C content of a sequence as a percentage in [0,100].</summary>
+    private static double GcPercent(string sequence)
+    {
+        if (string.IsNullOrEmpty(sequence)) return 0.0;
+        int gc = 0;
+        foreach (char c in sequence)
+        {
+            char u = char.ToUpperInvariant(c);
+            if (u == 'G' || u == 'C') gc++;
+        }
+        return AmfePer100Nt * gc / sequence.Length;
+    }
+
+    #endregion
+
     #region Target Context Analysis
 
     /// <summary>

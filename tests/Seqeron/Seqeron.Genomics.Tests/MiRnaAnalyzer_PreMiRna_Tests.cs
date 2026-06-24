@@ -694,6 +694,244 @@ public class MiRnaAnalyzer_PreMiRna_Tests
 
     #endregion
 
+    #region MFE-structure-based detection (opt-in) — reuses RNA-STRUCT-001 Zuker DP folder
+
+    // Expected values below are the EXACT outputs of the validated RNA-STRUCT-001 engine
+    // (RnaSecondaryStructure.CalculateMfeStructure / CalculateMinimumFreeEnergy, Turner 2004),
+    // reused verbatim — NOT recomputed by an independent heuristic.
+    // MFEI = AMFE/(G+C)% ; AMFE = 100·|ΔG°|/length — Zhang et al. (2006), Cell Mol Life Sci 63:246-254.
+
+    // MF1 — A designed perfect-stem hairpin folds to a single dominant hairpin whose ΔG° equals
+    //       the engine's CalculateMinimumFreeEnergy, with the expected stem/loop and AMFE/MFEI.
+    [Test]
+    public void AssessHairpinByMfe_PerfectHairpin_DerivesFeaturesFromRealMfeStructure()
+    {
+        // ValidHairpin57 folds (Turner 2004 DP) to 27×'(' 3×'.' 27×')', ΔG° = −48.48 kcal/mol.
+        // GC% = 25/57 = 43.8596…; AMFE = 100·48.48/57 = 85.052632; MFEI = 85.052632/43.8596 = 1.939200.
+        const double expectedDg = -48.48;
+        const int expectedStemBp = 27;
+        const int expectedLoopSize = 3;
+        const double expectedAmfe = 85.052632;   // 100·48.48/57
+        const double expectedMfei = 1.939200;    // AMFE/(G+C)%
+
+        double engineDg = Seqeron.Genomics.Analysis.RnaSecondaryStructure
+            .CalculateMinimumFreeEnergy(ValidHairpin57);
+        var assessed = AssessHairpinByMfe(ValidHairpin57);
+
+        Assert.That(assessed, Is.Not.Null, "Designed perfect hairpin must be accepted by the MFE-fold method.");
+        var a = assessed!.Value;
+        Assert.Multiple(() =>
+        {
+            Assert.That(a.FreeEnergy, Is.EqualTo(expectedDg).Within(1e-9),
+                "ΔG° must be the exact Turner-2004 MFE of the folded candidate (−48.48 kcal/mol).");
+            Assert.That(a.FreeEnergy, Is.EqualTo(engineDg).Within(1e-9),
+                "MFE-fold ΔG° must agree with the engine's own CalculateMinimumFreeEnergy.");
+            Assert.That(a.StemBasePairs, Is.EqualTo(expectedStemBp),
+                "Stem base-pair count must be read from the real MFE dot-bracket (27 pairs).");
+            Assert.That(a.TerminalLoopSize, Is.EqualTo(expectedLoopSize),
+                "Single terminal loop size must be 3 nt (the apical run of dots).");
+            Assert.That(a.DotBracket, Is.EqualTo(new string('(', 27) + "..." + new string(')', 27)),
+                "Dot-bracket must be the engine's MFE structure (27 paired, 3-nt apical loop).");
+            Assert.That(a.Amfe, Is.EqualTo(expectedAmfe).Within(1e-6),
+                "AMFE = 100·|ΔG°|/length (Zhang 2006).");
+            Assert.That(a.Mfei, Is.EqualTo(expectedMfei).Within(1e-6),
+                "MFEI = AMFE/(G+C)% (Zhang 2006).");
+            Assert.That(a.Mfei, Is.GreaterThanOrEqualTo(0.85),
+                "Genuine pre-miRNA hairpins have MFEI ≥ 0.85 (Zhang 2006).");
+        });
+    }
+
+    // MF2 — The MFE-fold method DETECTS real miRBase pre-miRNAs that the consecutive-pairing
+    //        heuristic rejects (the limitation this fix removes). hsa-mir-21, MI0000077.
+    [Test]
+    public void AssessHairpinByMfe_RealMiRBase_HsaMir21_DetectedByMfeFold()
+    {
+        // Folded by the engine: single hairpin (internal loops/bulges), apical loop 3 nt,
+        // 32 stem base pairs, ΔG° = −35.13 kcal/mol. GC% = 35/72 = 48.6111…
+        // AMFE = 100·35.13/72 = 48.791667; MFEI = 48.791667/48.6111 = 1.003714.
+        const double expectedDg = -35.13;
+        const int expectedStemBp = 32;
+        const int expectedLoopSize = 3;
+        const double expectedMfei = 1.003714;
+
+        double engineDg = Seqeron.Genomics.Analysis.RnaSecondaryStructure
+            .CalculateMinimumFreeEnergy(HsaMir21_MI0000077);
+        var assessed = AssessHairpinByMfe(HsaMir21_MI0000077);
+
+        Assert.That(assessed, Is.Not.Null,
+            "hsa-mir-21 is a real pre-miRNA: the MFE-fold method MUST detect it (heuristic does not).");
+        var a = assessed!.Value;
+        Assert.Multiple(() =>
+        {
+            Assert.That(a.FreeEnergy, Is.EqualTo(expectedDg).Within(1e-9),
+                "ΔG° must equal the engine's Turner-2004 MFE for hsa-mir-21 (−35.13 kcal/mol).");
+            Assert.That(a.FreeEnergy, Is.EqualTo(engineDg).Within(1e-9),
+                "MFE-fold ΔG° must agree with CalculateMinimumFreeEnergy.");
+            Assert.That(a.StemBasePairs, Is.EqualTo(expectedStemBp),
+                "Stem base pairs counted from the real MFE structure = 32.");
+            Assert.That(a.TerminalLoopSize, Is.EqualTo(expectedLoopSize),
+                "Single terminal loop = 3 nt.");
+            Assert.That(a.Mfei, Is.EqualTo(expectedMfei).Within(1e-6),
+                "MFEI = 1.003714 (Zhang 2006), above the 0.85 cutoff.");
+        });
+    }
+
+    // MF3 — hsa-let-7a-1 (MI0000060, 80 nt) is likewise detected by the MFE fold.
+    [Test]
+    public void AssessHairpinByMfe_RealMiRBase_HsaLet7a1_DetectedByMfeFold()
+    {
+        // Folded by the engine: single hairpin, apical loop 4 nt, 32 stem base pairs,
+        // ΔG° = −34.31 kcal/mol. GC% = 34/80 = 42.5; AMFE = 100·34.31/80 = 42.887500;
+        // MFEI = 42.887500/42.5 = 1.009118.
+        const double expectedDg = -34.31;
+        const int expectedStemBp = 32;
+        const int expectedLoopSize = 4;
+        const double expectedMfei = 1.009118;
+
+        double engineDg = Seqeron.Genomics.Analysis.RnaSecondaryStructure
+            .CalculateMinimumFreeEnergy(HsaLet7a1_MI0000060);
+        var assessed = AssessHairpinByMfe(HsaLet7a1_MI0000060);
+
+        Assert.That(assessed, Is.Not.Null,
+            "hsa-let-7a-1 is a real pre-miRNA: the MFE-fold method MUST detect it (heuristic does not).");
+        var a = assessed!.Value;
+        Assert.Multiple(() =>
+        {
+            Assert.That(a.FreeEnergy, Is.EqualTo(expectedDg).Within(1e-9),
+                "ΔG° must equal the engine's Turner-2004 MFE for hsa-let-7a-1 (−34.31 kcal/mol).");
+            Assert.That(a.FreeEnergy, Is.EqualTo(engineDg).Within(1e-9),
+                "MFE-fold ΔG° must agree with CalculateMinimumFreeEnergy.");
+            Assert.That(a.StemBasePairs, Is.EqualTo(expectedStemBp),
+                "Stem base pairs counted from the real MFE structure = 32.");
+            Assert.That(a.TerminalLoopSize, Is.EqualTo(expectedLoopSize),
+                "Single terminal loop = 4 nt.");
+            Assert.That(a.Mfei, Is.EqualTo(expectedMfei).Within(1e-6),
+                "MFEI = 1.009118 (Zhang 2006), above the 0.85 cutoff.");
+        });
+    }
+
+    // MF4 — Heuristic vs MFE divergence is locked: the SAME real pre-miRNA that the
+    //        consecutive-pairing heuristic rejects is accepted by the MFE-fold method.
+    [Test]
+    public void HeuristicRejects_ButMfeFoldDetects_SameRealPreMiRna()
+    {
+        var heuristic = FindPreMiRnaHairpins(HsaMir21_MI0000077, minHairpinLength: 55).ToList();
+        var mfe = AssessHairpinByMfe(HsaMir21_MI0000077);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(heuristic, Is.Empty,
+                "Default consecutive-pairing heuristic rejects hsa-mir-21 (documented limitation).");
+            Assert.That(mfe, Is.Not.Null,
+                "Opt-in MFE-fold method detects hsa-mir-21 — the limitation this fix removes.");
+        });
+    }
+
+    // MF5 — A non-complementary sequence has ΔG° = 0 (no pairs) and is rejected.
+    [Test]
+    public void AssessHairpinByMfe_NoComplementarity_Rejected()
+    {
+        var assessed = AssessHairpinByMfe(NoComplementarity);
+
+        Assert.That(assessed, Is.Null,
+            "A sequence with no foldable stem (ΔG° = 0, all-dots structure) is not a hairpin.");
+        Assert.That(Seqeron.Genomics.Analysis.RnaSecondaryStructure
+                .CalculateMinimumFreeEnergy(NoComplementarity), Is.EqualTo(0.0).Within(1e-12),
+            "Prerequisite: the engine reports ΔG° = 0 for the non-complementary sequence.");
+    }
+
+    // MF6 — Structure-based rejection: a multibranch fold is rejected EVEN with a strongly
+    //        negative ΔG°, proving acceptance is on structure (single hairpin), not energy alone.
+    [Test]
+    public void AssessHairpinByMfe_MultibranchStructure_RejectedDespiteStrongEnergy()
+    {
+        // 120-nt 5S-rRNA-like sequence folds (engine) to a multibranch structure
+        // (a ')' followed later by '(') with ΔG° = −47.04 kcal/mol — MORE negative than the
+        // accepted ValidHairpin57 (−48.48 is comparable), yet it is NOT a single hairpin.
+        const string fiveSLike =
+            "UGCCUGGCGGCCGUAGCGCGGUGGUCCCACCUGACCCCAUGCCGAACUCAGAAGUGAAACG" +
+            "CCGUAGCGCCGAUGGUAGUGUGGGGUCUCCCCAUGCGAGAGUAGGGAACUGCCAGGCAU";
+
+        var mfe = Seqeron.Genomics.Analysis.RnaSecondaryStructure.CalculateMfeStructure(fiveSLike);
+        var assessed = AssessHairpinByMfe(fiveSLike);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(mfe.FreeEnergy, Is.EqualTo(-47.04).Within(1e-9),
+                "Engine ΔG° for the 5S-like sequence is −47.04 kcal/mol (a strong fold).");
+            Assert.That(assessed, Is.Null,
+                "Rejected because the MFE structure is multibranched, not a single dominant hairpin — " +
+                "acceptance is structural, not energy-only.");
+        });
+    }
+
+    // MF7 — FindPreMiRnaHairpinsByMfe window scan yields the accepted candidate for a designed hairpin.
+    [Test]
+    public void FindPreMiRnaHairpinsByMfe_DesignedHairpin_YieldsAcceptedCandidate()
+    {
+        var results = FindPreMiRnaHairpinsByMfe(ValidHairpin57, minHairpinLength: 55).ToList();
+
+        Assert.That(results, Is.Not.Empty, "Window scan must yield the designed hairpin.");
+        var full = results.First(r => r.Sequence.Length == 57);
+        Assert.Multiple(() =>
+        {
+            Assert.That(full.FreeEnergy, Is.EqualTo(-48.48).Within(1e-9),
+                "Yielded candidate carries the engine's exact ΔG° (−48.48 kcal/mol).");
+            Assert.That(full.StemBasePairs, Is.EqualTo(27), "27 stem base pairs from the MFE structure.");
+            Assert.That(full.Mfei, Is.GreaterThanOrEqualTo(0.85), "Accepted candidates satisfy MFEI ≥ 0.85.");
+        });
+    }
+
+    // MF8 — minMfei gate: raising the cutoff above the candidate's MFEI rejects it.
+    [Test]
+    public void AssessHairpinByMfe_MfeiBelowThreshold_Rejected()
+    {
+        // hsa-let-7a-1 MFEI = 1.009118. A cutoff of 1.5 must reject it; 0.85 accepts it.
+        var accepted = AssessHairpinByMfe(HsaLet7a1_MI0000060, minMfei: 0.85);
+        var rejected = AssessHairpinByMfe(HsaLet7a1_MI0000060, minMfei: 1.5);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(accepted, Is.Not.Null, "MFEI 1.009 ≥ 0.85 ⇒ accepted at default cutoff.");
+            Assert.That(rejected, Is.Null, "MFEI 1.009 < 1.5 ⇒ rejected when the cutoff is raised.");
+        });
+    }
+
+    // MF9 — CalculateMfeIndex formula: exact Zhang (2006) value and degenerate guards.
+    [Test]
+    public void CalculateMfeIndex_MatchesZhang2006Formula()
+    {
+        // ΔG° = −48.48, length 57, GC% = 43.8596491… ⇒ AMFE = 85.052631…, MFEI = 1.939200…
+        double mfei = CalculateMfeIndex(-48.48, 57, 100.0 * 25 / 57);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(mfei, Is.EqualTo(1.939200).Within(1e-6),
+                "MFEI = (100·|ΔG°|/length)/(G+C)% — Zhang (2006).");
+            Assert.That(CalculateMfeIndex(-48.48, 0, 43.0), Is.EqualTo(0.0),
+                "Zero length ⇒ MFEI 0 (guard).");
+            Assert.That(CalculateMfeIndex(-48.48, 57, 0.0), Is.EqualTo(0.0),
+                "Zero GC% ⇒ MFEI 0 (guard, no division by zero).");
+        });
+    }
+
+    // MF10 — null/empty input to the MFE-fold methods.
+    [Test]
+    public void MfeFoldMethods_NullOrEmpty_HandledGracefully()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(AssessHairpinByMfe(null!), Is.Null, "Null candidate ⇒ null.");
+            Assert.That(AssessHairpinByMfe(""), Is.Null, "Empty candidate ⇒ null.");
+            Assert.That(FindPreMiRnaHairpinsByMfe(null!).ToList(), Is.Empty, "Null sequence ⇒ no candidates.");
+            Assert.That(FindPreMiRnaHairpinsByMfe("").ToList(), Is.Empty, "Empty sequence ⇒ no candidates.");
+            Assert.That(FindPreMiRnaHairpinsByMfe("ACGU").ToList(), Is.Empty,
+                "Sequence shorter than minHairpinLength ⇒ no candidates.");
+        });
+    }
+
+    #endregion
+
     #region Helpers
 
     /// <summary>

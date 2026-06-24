@@ -21,6 +21,8 @@
     <ProjectReference Include="..\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
     <ProjectReference Include="..\Seqeron.Genomics.IO\Seqeron.Genomics.IO.csproj" />
     <ProjectReference Include="..\Seqeron.Genomics.Alignment\Seqeron.Genomics.Alignment.csproj" />
+    <!-- MIRNA-PRECURSOR-001: reuse the validated Zuker–Stiegler MFE folder (RNA-STRUCT-001). -->
+    <ProjectReference Include="..\Seqeron.Genomics.Analysis\Seqeron.Genomics.Analysis.csproj" />
   </ItemGroup>
 
   <ItemGroup>

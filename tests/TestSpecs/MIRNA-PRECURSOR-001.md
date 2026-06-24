@@ -3,9 +3,9 @@
 **Test Unit ID:** MIRNA-PRECURSOR-001
 **Area:** MiRNA
 **Algorithm:** Pre-miRNA Hairpin Detection
-**Status:** ☑ Complete
+**Status:** ☐ Pending re-validation (MFE-fold opt-in added 2026-06-24)
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-03-16
+**Last Updated:** 2026-06-24
 
 ---
 
@@ -21,6 +21,9 @@
 | 4 | Krol et al. (2004), J Biol Chem 279:42230-42239 | 1 | doi:10.1074/jbc.M404931200 | 2026-02-10 |
 | 5 | Wikipedia: MicroRNA | 4 | https://en.wikipedia.org/wiki/MicroRNA | 2026-02-10 |
 | 6 | miRBase (Griffiths-Jones, 2006) | 5 | https://mirbase.org/ | 2026-02-10 |
+| 7 | Bonnet et al. (2004), Bioinformatics 20(17):2911 | 1 | doi:10.1093/bioinformatics/bth374 | 2026-06-24 |
+| 8 | Zhang et al. (2006), Cell Mol Life Sci 63:246 (AMFE/MFEI) | 1 | Cell Mol Life Sci 63:246-254 | 2026-06-24 |
+| 9 | Meyers/Bartel et al. (2008), Plant Cell 20:3186 | 1 | doi:10.1105/tpc.108.064311 (PMC2630443) | 2026-06-24 |
 
 ### 1.2 Key Evidence Points
 
@@ -31,6 +34,13 @@
 5. Star (passenger) strand from opposite arm — Wikipedia/MicroRNA (citing Bartel 2004)
 6. G:U wobble pairs are valid base pairs in RNA stems — Krol (2004)
 7. Dot-bracket notation: '(' for 5' stem bases, ')' for 3' stem bases, '.' for loop — standard RNA notation
+
+**MFE-structure-based (opt-in) evidence:**
+
+8. Pre-miRNA precursors fold to a free energy considerably lower (more stable) than shuffled sequences, unlike tRNA/rRNA — Bonnet et al. (2004).
+9. AMFE = 100·MFE/length; MFEI = AMFE/(G+C)% — Zhang et al. (2006).
+10. Pre-miRNA MFEI is typically > 0.85, remarkably higher than other RNAs — Zhang et al. (2006). Default acceptance cutoff `minMfei = 0.85`.
+11. The mature miRNA sits in one arm of a fold-back hairpin with ≥16 complementary bases to the opposite arm — Ambros et al. (2003); single-arm duplex with ≤4 mismatches / minimal bulges — Meyers/Bartel (2008). ⇒ acceptance requires a single dominant hairpin with stem bp ≥ 16.
 
 ### 1.3 Documented Corner Cases
 
@@ -52,8 +62,11 @@
 
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
-| `FindPreMiRnaHairpins(sequence, minHairpinLength, maxHairpinLength, matureLength)` | MiRnaAnalyzer | Canonical | Public API for pre-miRNA detection |
+| `FindPreMiRnaHairpins(sequence, minHairpinLength, maxHairpinLength, matureLength)` | MiRnaAnalyzer | Canonical | Public API for pre-miRNA detection (default consecutive-pairing heuristic) |
 | `AnalyzeHairpin(sequence, matureLength)` | MiRnaAnalyzer | Internal | Private helper, tested indirectly |
+| `AssessHairpinByMfe(candidate, minMfei, minLoopSize)` | MiRnaAnalyzer | Canonical | Opt-in: assess one candidate from its real MFE structure (RNA-STRUCT-001) |
+| `FindPreMiRnaHairpinsByMfe(sequence, minHairpinLength, maxHairpinLength, minMfei, minLoopSize)` | MiRnaAnalyzer | Canonical | Opt-in: window scan that folds each candidate with the MFE engine |
+| `CalculateMfeIndex(freeEnergy, length, gcPercent)` | MiRnaAnalyzer | Canonical | MFEI = AMFE/(G+C)%, AMFE = 100·\|ΔG°\|/length (Zhang 2006) |
 
 ---
 
@@ -71,6 +84,9 @@
 | INV-8 | FreeEnergy < 0 for all valid hairpins (stabilizing) | Yes | Turner 2004 nearest-neighbor model (NNDB) |
 | INV-9 | A hairpin with a longer effective stem (23 bp / 11 nt loop) has more negative FreeEnergy than one with a shorter stem (20 bp / 7 nt loop); the added paired stem bases dominate the energy despite the differing loop size (see M11) | Yes | Turner (2004) principles |
 | INV-10 | Sequence is uppercase RNA (A, U, G, C only) | Yes | T→U conversion in implementation |
+| INV-11 | (MFE path) `AssessHairpinByMfe(s).FreeEnergy == RnaSecondaryStructure.CalculateMinimumFreeEnergy(s)` | Yes | MfeStructure.FreeEnergy equals scalar MFE by construction (RNA-STRUCT-001) |
+| INV-12 | (MFE path) An accepted `PreMiRnaMfe` has `StemBasePairs ≥ 16`, `TerminalLoopSize ∈ [3,25]`, `Mfei ≥ minMfei` | Yes | Ambros (2003), Bartel (2004), Zhang (2006) |
+| INV-13 | (MFE path) `Mfei == CalculateMfeIndex(FreeEnergy, length, GC%)` = (100·\|ΔG°\|/length)/(G+C)% | Yes | Zhang (2006) |
 
 ---
 
@@ -97,8 +113,18 @@
 | M15 | GU_WobblePairs_InStem | G-U pairs count as valid stem pairs | Hairpin accepted | Krol (2004) |
 | M16 | SequenceLength_InRange | All returned PreMiRnas have length within [min, max] | INV-1 verified | Scanning window definition |
 | M17 | Invariants_AllHold | All invariants verified on results | INV-1 through INV-10 | Multiple sources |
-| M18 | RealMiRBase_HsaMir21_NotDetected | hsa-mir-21 (MI0000077, 72 nt) — real pre-miRNA not detected | Empty (known limitation) | miRBase v22 |
-| M19 | RealMiRBase_HsaLet7a1_NotDetected | hsa-let-7a-1 (MI0000060, 80 nt) — real pre-miRNA not detected | Empty (known limitation) | miRBase v22 |
+| M18 | RealMiRBase_HsaMir21_NotDetected | hsa-mir-21 (MI0000077, 72 nt) — real pre-miRNA not detected by the **heuristic** | Empty (heuristic limitation) | miRBase v22 |
+| M19 | RealMiRBase_HsaLet7a1_NotDetected | hsa-let-7a-1 (MI0000060, 80 nt) — real pre-miRNA not detected by the **heuristic** | Empty (heuristic limitation) | miRBase v22 |
+| MF1 | AssessHairpinByMfe_PerfectHairpin | `ValidHairpin57` folded by the engine: single hairpin, ΔG°=−48.48, 27 bp, loop 3, AMFE=85.052632, MFEI=1.939200; ΔG° equals `CalculateMinimumFreeEnergy` | Accepted, exact values | RNA-STRUCT-001 engine; Zhang (2006) |
+| MF2 | AssessHairpinByMfe_HsaMir21_Detected | hsa-mir-21 folded: single hairpin, ΔG°=−35.13, 32 bp, loop 3, MFEI=1.003714 | **Accepted** (MFE fold detects it) | miRBase v22; RNA-STRUCT-001 |
+| MF3 | AssessHairpinByMfe_HsaLet7a1_Detected | hsa-let-7a-1 (80 nt) folded: single hairpin, ΔG°=−34.31, 32 bp, loop 4, MFEI=1.009118 | **Accepted** (MFE fold detects it) | miRBase v22; RNA-STRUCT-001 |
+| MF4 | HeuristicRejects_ButMfeDetects | Same hsa-mir-21: heuristic empty, MFE fold accepts | Heuristic ∅, MFE ✓ | Limitation removed |
+| MF5 | AssessHairpinByMfe_NoComplementarity_Rejected | `NoComplementarity` (ΔG°=0, all dots) | Rejected (null) | Bonnet (2004) |
+| MF6 | AssessHairpinByMfe_Multibranch_RejectedDespiteStrongEnergy | 5S-rRNA-like (120 nt): ΔG°=−47.04 but multibranch | Rejected on structure, not energy | Meyers/Bartel (2008) single-arm criterion |
+| MF7 | FindPreMiRnaHairpinsByMfe_DesignedHairpin | Window scan over `ValidHairpin57`: yields candidate with ΔG°=−48.48, 27 bp, MFEI ≥ 0.85 | ≥1 accepted candidate | RNA-STRUCT-001 |
+| MF8 | AssessHairpinByMfe_MfeiBelowThreshold_Rejected | hsa-let-7a-1 with `minMfei=1.5` (MFEI 1.009 < 1.5) | Rejected; accepted at 0.85 | Zhang (2006) cutoff |
+| MF9 | CalculateMfeIndex_MatchesZhang2006 | MFEI(−48.48, 57, 25/57·100) = 1.939200; zero length / zero GC% ⇒ 0 | Exact + guards | Zhang (2006) |
+| MF10 | MfeFoldMethods_NullOrEmpty | null/empty/too-short inputs to both MFE methods | null / empty | Defensive coding |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -146,8 +172,18 @@
 | M15 | ✅ Covered | G:U wobble pairs accepted |
 | M16 | ✅ Covered | Sequence length in [min, max] range |
 | M17 | ✅ Covered | All 10 invariants verified in composite check |
-| M18 | ✅ Covered | hsa-mir-21 not detected (known limitation) |
-| M19 | ✅ Covered | hsa-let-7a-1 not detected (known limitation) |
+| M18 | ✅ Covered | hsa-mir-21 not detected by heuristic |
+| M19 | ✅ Covered | hsa-let-7a-1 not detected by heuristic |
+| MF1 | ✅ Covered | Exact ΔG°=−48.48, 27 bp, loop 3, AMFE 85.052632, MFEI 1.939200; ΔG° == engine scalar MFE |
+| MF2 | ✅ Covered | hsa-mir-21 ACCEPTED: ΔG°=−35.13, 32 bp, loop 3, MFEI 1.003714 |
+| MF3 | ✅ Covered | hsa-let-7a-1 ACCEPTED: ΔG°=−34.31, 32 bp, loop 4, MFEI 1.009118 |
+| MF4 | ✅ Covered | Heuristic ∅ vs MFE ✓ on the same real pre-miRNA |
+| MF5 | ✅ Covered | No complementarity (ΔG°=0) rejected |
+| MF6 | ✅ Covered | Multibranch (ΔG°=−47.04) rejected on structure |
+| MF7 | ✅ Covered | Window scan yields accepted candidate |
+| MF8 | ✅ Covered | minMfei gate: rejected at 1.5, accepted at 0.85 |
+| MF9 | ✅ Covered | CalculateMfeIndex exact 1.939200 + zero-guards |
+| MF10 | ✅ Covered | null/empty/too-short handled |
 | S1 | ✅ Covered | Multiple hairpins in long sequence |
 | S2 | ✅ Covered | maxHairpinLength upper bound enforced |
 | S3 | ✅ Covered | Custom minHairpinLength applied |
@@ -155,7 +191,7 @@
 | C1 | ✅ Covered | Mixed-case input produces same results as uppercase |
 | C2 | ✅ Covered | Custom matureLength=18 yields exact 18-nt mature/star |
 
-**Summary:** 0 missing, 0 weak, 0 duplicate. All 25 tests covered.
+**Summary:** 0 missing, 0 weak, 0 duplicate. 25 heuristic + 10 MFE-fold = 35 cases covered.
 
 ### 5.3 Strengthening Log (2026-03-16)
 
@@ -189,10 +225,13 @@
 
 | # | Limitation | Impact | Tests |
 |---|-----------|--------|-------|
-| 1 | Consecutive stem pairing from ends; no tolerance for internal mismatches or bulges. Real pre-miRNAs (e.g., hsa-mir-21) have asymmetric internal loops that offset pairing alignment. A full RNA folding algorithm (Zuker/Nussinov) would be required to detect them. | Real miRBase pre-miRNAs are not detected by this model. | M18, M19 |
+| 1 | **Default heuristic** uses consecutive stem pairing from ends; no tolerance for internal mismatches or bulges. Real pre-miRNAs (e.g., hsa-mir-21) have asymmetric internal loops that offset pairing alignment. | Real miRBase pre-miRNAs are not detected by the **default** model. | M18, M19 |
+| 2 | **Resolved (opt-in):** `AssessHairpinByMfe` / `FindPreMiRnaHairpinsByMfe` fold the candidate with the validated Zuker–Stiegler MFE engine (RNA-STRUCT-001) and read the hairpin from the real MFE structure, detecting natural miRBase precursors. | hsa-mir-21 / hsa-let-7a-1 now detected via the MFE path. | MF2, MF3, MF4 |
+| 3 | **Residual:** exact Drosha/Dicer cleavage-site (mature/star excision-coordinate) prediction and a competitive trained natural-vs-background precursor classifier (e.g. miRDeep2) remain out of scope for both paths. | Decision-grade precursor discovery needs an external tool. | — |
 
 ---
 
 ## 7. Open Questions / Decisions
 
-None. All behavior is testable via the public API `FindPreMiRnaHairpins`.
+None. Behaviour is testable via the public APIs `FindPreMiRnaHairpins` (default heuristic) and
+`FindPreMiRnaHairpinsByMfe` / `AssessHairpinByMfe` / `CalculateMfeIndex` (opt-in MFE-fold path).

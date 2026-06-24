@@ -40,7 +40,7 @@ Every row traces to its per-unit report under `docs/Validation/reports/{UNIT}.md
 | PROBE-VALID-001 | Off-target specificity via an ungapped Hamming-distance scan (not BLAST-grade); `OffTargetHits` pools on- plus off-target matches. |
 | DISORDER-REGION-001 | `RegionType` / `Confidence` labelling heuristics (0.25 enrichment, priority order, confidence rescaling) affect the **labels only**, never the region boundaries (which follow the validated TOP-IDP threshold). |
 | MIRNA-TARGET-001 | Site efficacy / ΔG scoring is a Grimson-2007-proportional simplification, not the full TargetScan context++ model. Seed-match site typing (8mer/7mer-m8/7mer-A1/6mer) is exact. |
-| MIRNA-PRECURSOR-001 | Pre-miRNA hairpin = consecutive-complementary-pairing heuristic (stem ≥18 bp, loop 3–25 nt) with a Turner-2004 MFE score; not a full MFE-structure-folding caller. |
+| MIRNA-PRECURSOR-001 | A full **MFE-structure-folding** caller is now provided opt-in (`FindPreMiRnaHairpinsByMfe` / `AssessHairpinByMfe`): each candidate is folded by the validated Zuker–Stiegler engine (RNA-STRUCT-001, Turner 2004) and the hairpin is read from the real MFE dot-bracket — single dominant hairpin, stem bp ≥ 16 (Ambros 2003), loop 3–25 nt (Bartel 2004), MFEI ≥ 0.85 (Zhang 2006). It detects natural miRBase precursors (hsa-mir-21, hsa-let-7a-1) the default rejects. The default `FindPreMiRnaHairpins` consecutive-pairing heuristic (stem ≥18 bp, loop 3–25 nt, Turner-2004 MFE score) is unchanged. **Residual:** Drosha/Dicer cleavage-site (mature/star excision-coordinate) prediction and a trained natural-vs-background classifier (miRDeep2) are out of scope. |
 
 ## 4. Opt-in compatibility / convention modes (default behaviour unchanged; an alternative convention is available on request)
 

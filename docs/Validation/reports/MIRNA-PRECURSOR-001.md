@@ -1,11 +1,25 @@
 # Validation Report: MIRNA-PRECURSOR-001 — Pre-miRNA Hairpin Detection
 
 - **Validated:** 2026-06-24   **Area:** MiRNA
-- **Canonical method(s):** `MiRnaAnalyzer.FindPreMiRnaHairpins(sequence, minHairpinLength=55, maxHairpinLength=120, matureLength=22)`; internal helper `AnalyzeHairpin(sequence, matureLength)`; energy via `CalculateHairpinEnergy`.
+- **Updated:** 2026-06-24 — added opt-in MFE-structure-based detection (reuses the RNA-STRUCT-001 Zuker–Stiegler folder); Status reset to ☐ for re-validation.
+- **Canonical method(s):** `MiRnaAnalyzer.FindPreMiRnaHairpins(sequence, minHairpinLength=55, maxHairpinLength=120, matureLength=22)` (default heuristic); internal helper `AnalyzeHairpin`; energy via `CalculateHairpinEnergy`. **New opt-in:** `FindPreMiRnaHairpinsByMfe`, `AssessHairpinByMfe`, `CalculateMfeIndex` — fold the candidate with `RnaSecondaryStructure.CalculateMfeStructure` (RNA-STRUCT-001) and derive hairpin features (single terminal loop, paired-stem count, ΔG°, AMFE, MFEI) from the real MFE structure.
 - **Source file:** `src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs`
-- **Test file:** `tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_PreMiRna_Tests.cs` (+ mutation-killer tests) — 38 tests under the `~PreMiRna` filter
-- **Stage A verdict:** PASS-WITH-NOTES
-- **Stage B verdict:** PASS-WITH-NOTES
+- **Test file:** `tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_PreMiRna_Tests.cs` (+ mutation-killer tests) — 38 heuristic tests + 10 MFE-fold tests (MF1–MF10) under the `~PreMiRna` filter
+- **Stage A verdict:** PASS-WITH-NOTES (heuristic); MFE-fold opt-in pending re-validation
+- **Stage B verdict:** PASS-WITH-NOTES (heuristic); MFE-fold opt-in pending re-validation
+
+> **2026-06-24 limitation fix.** The previously documented limitation — "pre-miRNA hairpin detected by
+> a consecutive-complementary-pairing heuristic, not a full MFE-structure-folding caller" — is removed
+> by adding an opt-in MFE path. `AssessHairpinByMfe` folds the candidate with the already-validated
+> Zuker–Stiegler engine (RNA-STRUCT-001, Turner 2004) and reads the hairpin from the **actual** MFE
+> dot-bracket: a single dominant hairpin (one terminal loop, nested stem, no multibranch) with stem
+> base pairs ≥ 16 (Ambros 2003), terminal loop 3–25 nt (Bartel 2004), and MFEI ≥ 0.85 (Zhang 2006,
+> MFEI = AMFE/(G+C)%, AMFE = 100·|ΔG°|/length). ΔG° is the engine's `CalculateMinimumFreeEnergy`
+> verbatim. The MFE path **detects the real miRBase precursors the heuristic rejected** — hsa-mir-21
+> (ΔG°=−35.13, 32 bp, MFEI 1.0037) and hsa-let-7a-1 (ΔG°=−34.31, 32 bp, MFEI 1.0091) — while
+> rejecting non-complementary (ΔG°=0) and multibranch (5S-like ΔG°=−47.04) structures. The default
+> heuristic is unchanged. **Honest residual:** Drosha/Dicer cleavage-site (mature/star excision-
+> coordinate) prediction and a trained natural-vs-background classifier (miRDeep2) remain out of scope.
 
 > Note: the checklist block (`ALGORITHMS_CHECKLIST_V2.md` §MIRNA-PRECURSOR-001) lists the canonical
 > method as `FindPreMiRnas` / `ValidateHairpin`, neither of which exists. The actual public API is

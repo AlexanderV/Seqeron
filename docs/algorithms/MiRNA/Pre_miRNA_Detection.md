@@ -5,8 +5,8 @@
 | Algorithm Group | MiRNA |
 | Test Unit ID | MIRNA-PRECURSOR-001 |
 | Related Projects | Seqeron.Genomics.Annotation |
-| Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Implementation Status | Simplified (default heuristic) + Production (opt-in MFE fold) |
+| Last Reviewed | 2026-06-24 |
 
 ## 1. Overview
 
@@ -45,6 +45,31 @@ $$
 $$
 
 using the repository's Turner 2004 lookup tables [3].
+
+#### 2.2.1 Opt-in MFE-structure-based assessment (default unchanged)
+
+`AssessHairpinByMfe` / `FindPreMiRnaHairpinsByMfe` replace the consecutive-pairing scan with the
+**real** minimum-free-energy secondary structure produced by the validated Zuker–Stiegler folder
+(`RnaSecondaryStructure.CalculateMfeStructure`, RNA-STRUCT-001, Turner 2004 NN model) [3][6]. The
+candidate is folded once; its hairpin features are read from the ACTUAL MFE dot-bracket:
+
+- the structure must be a **single dominant hairpin** — exactly one terminal (apical) loop, a nested
+  stem that may contain small internal loops/bulges, and **no multibranch** (no `(` after a `)`) —
+  consistent with the fold-back single-arm duplex of the annotation criteria [2][8];
+- **stem base pairs $\ge 16$** (number of pairs in the MFE structure) — Ambros et al. (2003) [2];
+- **terminal loop $\in [3, 25]$ nt** — Bartel (2004) [1];
+- **MFEI $\ge 0.85$** — Zhang et al. (2006) [7], where
+
+$$
+\text{AMFE} = \frac{100 \cdot |\Delta G^\circ|}{n}, \qquad
+\text{MFEI} = \frac{\text{AMFE}}{(G\!+\!C)\%}.
+$$
+
+Because genuine pre-miRNAs fold to a markedly more stable structure than random sequences [6], this
+path detects natural miRBase precursors (e.g. hsa-mir-21, hsa-let-7a-1) that the consecutive-pairing
+heuristic rejects. $\Delta G^\circ$ is taken from the engine's `CalculateMinimumFreeEnergy`
+verbatim; MFEI uses $|\Delta G^\circ|$ so the published "MFEI > 0.85" threshold applies to the
+folder's negative $\Delta G^\circ$.
 
 ### 2.3 Modeling Assumptions
 
@@ -126,8 +151,11 @@ The pairing test accepts both Watson-Crick and G:U wobble pairs, but the uninter
 
 **Implementation location:** [MiRnaAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs)
 
-- `MiRnaAnalyzer.FindPreMiRnaHairpins(string, int, int, int)`: Public precursor scan over all candidate windows.
+- `MiRnaAnalyzer.FindPreMiRnaHairpins(string, int, int, int)`: Public precursor scan over all candidate windows (default consecutive-pairing heuristic).
 - `MiRnaAnalyzer.AnalyzeHairpin(string, int)`: Private validator that checks stem continuity, loop size, arm extraction, and structure generation.
+- `MiRnaAnalyzer.FindPreMiRnaHairpinsByMfe(string, int, int, double, int)`: Opt-in precursor scan that folds each candidate window with the RNA-STRUCT-001 MFE engine.
+- `MiRnaAnalyzer.AssessHairpinByMfe(string, double, int)`: Opt-in single-candidate assessment from the real MFE structure (single hairpin + stem≥16 + loop 3–25 + MFEI≥0.85).
+- `MiRnaAnalyzer.CalculateMfeIndex(double, int, double)`: MFEI = AMFE/(G+C)%, AMFE = 100·|ΔG°|/length (Zhang 2006).
 
 ### 5.2 Current Behavior
 
@@ -140,6 +168,10 @@ The implementation searches candidates exhaustively rather than folding the full
 - RNA hairpin validation using Watson-Crick and G:U wobble pairing [1][4].
 - Precursor-style constraints on hairpin length, stem length, and loop size [1][2][4].
 - Turner-style nearest-neighbor energy components from repository lookup tables [3].
+- **Opt-in:** real MFE-structure-based hairpin assessment that folds the candidate with the
+  validated Zuker–Stiegler engine (RNA-STRUCT-001) [3][6] and applies the Ambros (2003) ≥16-bp
+  stem [2], Bartel (2004) 3–25-nt loop [1], and Zhang (2006) MFEI ≥ 0.85 [7] criteria to the actual
+  MFE structure — tolerant of internal bulges/loops and detecting natural miRBase precursors.
 
 **Intentionally simplified:**
 
@@ -149,7 +181,11 @@ The implementation searches candidates exhaustively rather than folding the full
 
 **Not implemented:**
 
-- Bulge-tolerant precursor folding, pseudoknot handling, co-transcriptional processing cues, and competitive natural-pre-miRNA classification against background hairpins; **users should rely on:** no current in-repository alternative.
+- Drosha/Dicer cleavage-site prediction (exact mature/star excision coordinates), competitive
+  natural-pre-miRNA classification against genomic background hairpins (a trained classifier such as
+  miRDeep2), and pseudoknotted precursors; **users should rely on:** miRDeep2 / miRBase tooling for
+  decision-grade precursor discovery. (Bulge-tolerant folding itself is now covered by the opt-in
+  MFE-fold path above.)
 
 ### 5.4 Deviations and Assumptions
 
@@ -173,7 +209,14 @@ The implementation searches candidates exhaustively rather than folding the full
 
 ### 6.2 Limitations
 
-This implementation is deliberately stricter than natural pre-miRNA folding. It does not tolerate internal bulges, asymmetric loops, pseudoknots, or arm ambiguity, and therefore can miss bona fide miRBase precursors that do not exhibit uninterrupted end-to-end pairing. Its exhaustive window scan is also a heuristic screen rather than a competitive predictor trained against genomic background hairpins.
+The **default** `FindPreMiRnaHairpins` is deliberately stricter than natural pre-miRNA folding: it
+does not tolerate internal bulges, asymmetric loops, pseudoknots, or arm ambiguity, and therefore
+can miss bona fide miRBase precursors that do not exhibit uninterrupted end-to-end pairing. The
+**opt-in** `FindPreMiRnaHairpinsByMfe` / `AssessHairpinByMfe` remove that bulge-intolerance by
+folding each candidate with the validated Zuker–Stiegler MFE engine and reading the hairpin from the
+real MFE structure (detecting e.g. hsa-mir-21 and hsa-let-7a-1). **Residual scope** (both paths):
+exact Drosha/Dicer cleavage-site (mature/star excision-coordinate) prediction and a competitive,
+trained natural-vs-background precursor classifier (e.g. miRDeep2) remain out of scope.
 
 ## 7. Examples and Related Material
 
@@ -193,6 +236,16 @@ var candidates = MiRnaAnalyzer.FindPreMiRnaHairpins(sequence).ToList();
 
 // candidates[0].Structure contains a simple dot-bracket hairpin
 // candidates[0].MatureSequence.Length <= 22
+
+// Opt-in: assess a candidate from its REAL MFE structure (RNA-STRUCT-001 folder).
+var mfe = MiRnaAnalyzer.AssessHairpinByMfe(sequence);
+// mfe.FreeEnergy == RnaSecondaryStructure.CalculateMinimumFreeEnergy(sequence) == -48.48
+// mfe.StemBasePairs == 27, mfe.TerminalLoopSize == 3, mfe.Mfei ≈ 1.9392 (≥ 0.85)
+
+// hsa-mir-21 (MI0000077): heuristic returns no candidates, but the MFE fold detects it:
+var detected = MiRnaAnalyzer.AssessHairpinByMfe(
+    "UGUCGGGUAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGUCUGACA");
+// detected.FreeEnergy == -35.13, detected.StemBasePairs == 32, detected.Mfei ≈ 1.0037
 ```
 
 ### 7.3 Related Tests, Evidence, or Documents
@@ -210,3 +263,6 @@ var candidates = MiRnaAnalyzer.FindPreMiRnaHairpins(sequence).ToList();
 3. Turner DH, Mathews DH. 2010. NNDB: the nearest neighbor parameter database for predicting stability of nucleic acid secondary structure. Nucleic Acids Research. 38(Database issue):D280-D282.
 4. Bartel DP. 2009. MicroRNAs: target recognition and regulatory functions. Cell. 136(2):215-233.
 5. Kozomara A, Birgaoanu M, Griffiths-Jones S. 2019. miRBase: from microRNA sequences to function. Nucleic Acids Research. 47(D1):D155-D162.
+6. Bonnet E, Wuyts J, Rouzé P, Van de Peer Y. 2004. Evidence that microRNA precursors, unlike other non-coding RNAs, have lower folding free energies than random sequences. Bioinformatics. 20(17):2911-2917. doi:10.1093/bioinformatics/bth374.
+7. Zhang BH, Pan XP, Cox SB, Cobb GP, Anderson TA. 2006. Evidence that miRNAs are different from other RNAs. Cellular and Molecular Life Sciences. 63(2):246-254. (AMFE = 100·MFE/length; MFEI = AMFE/(G+C)%; pre-miRNA MFEI > 0.85.)
+8. Meyers BC, Axtell MJ, Bartel B, Bartel DP, Baulcombe D, Bowman JL, et al. 2008. Criteria for annotation of plant MicroRNAs. The Plant Cell. 20(12):3186-3190. doi:10.1105/tpc.108.064311.

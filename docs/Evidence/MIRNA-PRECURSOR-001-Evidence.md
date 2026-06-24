@@ -2,7 +2,7 @@
 
 **Test Unit ID:** MIRNA-PRECURSOR-001
 **Algorithm:** Pre-miRNA Hairpin Detection
-**Date Collected:** 2026-02-10
+**Date Collected:** 2026-02-10 (heuristic); 2026-06-24 (MFE-structure-based opt-in)
 
 ---
 
@@ -200,3 +200,86 @@
 6. miRBase. https://mirbase.org/ (Accessed 2026-02-10)
 7. Griffiths-Jones S et al. (2006). miRBase: microRNA sequences, targets and gene nomenclature. Nucleic Acids Res 34:D140-144.
 8. Turner DH, Mathews DH (2010). NNDB: the nearest neighbor parameter database for predicting stability of nucleic acid secondary structure. Nucleic Acids Res 38:D280-282.
+
+---
+
+## MFE-Structure-Based Detection (opt-in) — Sources retrieved 2026-06-24
+
+The opt-in `FindPreMiRnaHairpinsByMfe` / `AssessHairpinByMfe` methods fold each candidate with the
+already-validated Zuker–Stiegler MFE engine (RNA-STRUCT-001,
+`RnaSecondaryStructure.CalculateMfeStructure` / `CalculateMinimumFreeEnergy`, Turner 2004 NN model)
+and derive the hairpin features (single terminal loop, paired-stem count, ΔG°, AMFE, MFEI) from the
+ACTUAL MFE dot-bracket structure. No new thermodynamic parameters are introduced. The acceptance
+thresholds below were retrieved this session from primary sources.
+
+### Bonnet et al. (2004): microRNA precursors have lower folding free energies than random sequences
+
+**Retrieved via:** WebFetch of https://pubmed.ncbi.nlm.nih.gov/15217813/ (2026-06-24).
+**Authority rank:** 1 (Peer-reviewed, Bioinformatics 20(17):2911-2917, doi:10.1093/bioinformatics/bth374).
+
+**Verbatim (abstract):** *"In contrast with transfer RNAs and ribosomal RNAs, the majority of the
+microRNA sequences clearly exhibit a folding free energy that is considerably lower than that for
+shuffled sequences, indicating a high tendency in the sequence towards a stable secondary
+structure."* — justifies using a real MFE fold (a strongly negative ΔG° single hairpin) to recognise
+pre-miRNAs, where the heuristic consecutive-pairing scan misses them.
+
+### Zhang et al. (2006): Evidence that miRNAs are different from other RNAs (AMFE / MFEI)
+
+**Retrieved via:** WebSearch + WebFetch of the PLOS One AMFE/MFEI definitions
+(https://journals.plos.org/plosone/article?id=10.1371%2Fjournal.pone.0113380, 2026-06-24) and the
+cotton miRNA PLOS One paper quoting Zhang's criteria verbatim
+(https://journals.plos.org/plosone/article?id=10.1371%2Fjournal.pone.0033696, 2026-06-24), and the
+miRkwood ab initio help (https://bioinfo.cristal.univ-lille.fr/mirkwood/abinitio/help.php).
+**Authority rank:** 1 (Zhang BH, Pan XP, Cox SB, Cobb GP, Anderson TA (2006), Cell Mol Life Sci
+63:246-254), supported by curated tools.
+
+**Verbatim facts extracted:**
+
+1. **AMFE** (adjusted minimal folding free energy): *"AMFE means the MFE of a RNA sequence with 100 nt
+   in length, which is equal to MFE/(length of a potential pre-miRNA) * 100."* (PLOS One cotton paper;
+   PLOS normalization paper: *"AMFE = 100·MFE/length … relate the index to a 100-nucleotides segment"*).
+2. **MFEI** (minimal folding free energy index): *"MFEI is equal to MFE/(length of a potential
+   pre-miRNA)/(The percentage of nucleotides G and C)"* = AMFE / (G+C)%. miRkwood: *"MFEI = [MFE /
+   sequence length × 100] / (G+C%)."*
+3. **MFEI threshold:** *"The value of MFEI for most miRNA precursors is greater than 0.85, which is
+   remarkably higher than that of other non-coding small RNAs"* (Zhang et al. 2006, as quoted in the
+   reviewed literature). Used as the default acceptance cutoff `minMfei = 0.85`.
+
+**Sign convention used in the implementation:** Zhang computes MFEI from |MFE| (a positive
+magnitude), so genuine pre-miRNAs yield MFEI > 0.85. The library's `CalculateMinimumFreeEnergy`
+returns a **negative** ΔG°; `CalculateMfeIndex` therefore uses `Math.Abs(ΔG°)` so the published
+"MFEI > 0.85" criterion applies directly. Documented so callers are not surprised.
+
+### Ambros et al. (2003) — stem base-pairing criterion (re-applied to the MFE structure)
+
+**Re-confirmed via:** WebFetch of the rnajournal abstract (https://rnajournal.cshlp.org/content/9/3/277.abstract)
+and the Bartel-lab reprint search (2026-06-24). The fold-back hairpin must place the ~22 nt mature
+miRNA in one arm base-paired to the opposite arm; the uniform-system criterion requires **≥16
+complementary bases** to the opposite arm. Used as the minimum-stem cutoff
+`MfeMinStemBasePairs = 16` on the count of base pairs in the MFE structure's single hairpin.
+
+### Meyers/Bartel et al. (2008) — minimal bulges / single-arm duplex
+
+**Retrieved via:** WebFetch of https://pmc.ncbi.nlm.nih.gov/articles/PMC2630443/ (2026-06-24).
+**Verbatim:** *"base-pairing between the miRNA and the other arm of the hairpin, which includes the
+miRNA*, is extensive such that there are typically four or fewer mismatched miRNA bases"* and
+*"asymmetric bulges are minimal in size (one or two bases) and frequency"* — supports requiring a
+**single dominant hairpin** (one terminal loop, nested stem with only small internal loops/bulges,
+no multibranch) as the structural acceptance test.
+
+### Reference values from the RNA-STRUCT-001 engine (reused, not re-derived)
+
+Folded this session with `RnaSecondaryStructure.CalculateMfeStructure` (Turner 2004); ΔG° equals
+`CalculateMinimumFreeEnergy` exactly. These are the exact expected values encoded in the tests:
+
+| Candidate | Length | GC% | ΔG° (kcal/mol) | MFE dot-bracket (summary) | Stem bp | Loop | AMFE | MFEI | Verdict |
+|-----------|--------|-----|----------------|----------------------------|---------|------|------|------|---------|
+| `ValidHairpin57` (`GCAUAGCUAGCUAGCUAGCUAGCUA`+`GAAAUUU`+`UAGCUAGCUAGCUAGCUAGCUAUGC`) | 57 | 43.8596 | **−48.48** | 27×`(` 3×`.` 27×`)` | 27 | 3 | 85.052632 | **1.939200** | ACCEPT |
+| `hsa-mir-21` (MI0000077) | 72 | 48.6111 | **−35.13** | single hairpin w/ internal loops, apical loop 3 | 32 | 3 | 48.791667 | **1.003714** | **ACCEPT** (heuristic rejects) |
+| `hsa-let-7a-1` (MI0000060, 80 nt) | 80 | 42.5000 | **−34.31** | single hairpin w/ internal loops, apical loop 4 | 32 | 4 | 42.887500 | **1.009118** | **ACCEPT** (heuristic rejects) |
+| `5S-rRNA-like` (120 nt, multibranch) | 120 | 64.1667 | **−47.04** | multibranch (`)`…`(`) | — | — | — | — | **REJECT** (not a single hairpin, despite strong ΔG°) |
+| `NoComplementarity` (70 nt A/G) | 70 | 50.0 | **0.00** | all `.` | 0 | — | 0 | 0 | REJECT |
+
+The `5S-rRNA-like` case proves the assessment rejects on **structure** (multibranch), not merely on a
+weak ΔG°: its ΔG° (−47.04) is more negative than `ValidHairpin57`'s, yet it is correctly rejected
+because the MFE fold is not a single dominant hairpin.
