@@ -43,6 +43,34 @@
 
 ### Character Sets
 
+#### Opt-in alphabet code sets (retrieved 2026-06-24)
+
+The default parser is strict DNA-only (A/C/G/T). Opt-in `SequenceAlphabet` modes accept the
+following code sets, captured verbatim from the sources below:
+
+**IUPAC nucleotide** — A C G T U R Y S W K M B D H V N + gap `-`.
+- Source: NC-IUB (1985), "Nomenclature for Incompletely Specified Bases in Nucleic Acid Sequences",
+  *Nucleic Acids Research* 13(9):3021–3030. Retrieved via Wikipedia "Nucleic acid notation"
+  (https://en.wikipedia.org/wiki/Nucleic_acid_notation, fetched 2026-06-24), which reproduces the
+  NC-IUB table: W=A,T; S=C,G; M=A,C; K=G,T; R=A,G; Y=C,T; B=C,G,T; D=A,G,T; H=A,C,T; V=A,C,G;
+  N=A,C,G,T; `-`=gap.
+- Cross-confirmed: bioinformatics.org IUPAC table (https://www.bioinformatics.org/sms/iupac.html,
+  fetched 2026-06-24) — same code set plus `.`/`-` gap.
+
+**RNA** — A C G U.
+- Source: bioinformatics.org IUPAC nucleotide table (above) lists U=Uracil (RNA); RNA mode accepts
+  the four RNA bases A C G U.
+
+**Protein (IUPAC amino-acid one-letter codes)** — 20 standard A R N D C Q E G H I L K M F P S T W Y V
+plus ambiguity B (Asx), Z (Glx), J (Xle), X (Xaa), rare U (Sec), O (Pyl), and stop `*`.
+- Source: bioinformatics.org IUPAC amino-acid table
+  (https://www.bioinformatics.org/sms2/iupac.html, fetched 2026-06-24): A=Ala, B=Asx, C=Cys, D=Asp,
+  E=Glu, F=Phe, G=Gly, H=His, I=Ile, J=Xle, K=Lys, L=Leu, M=Met, N=Asn, O=Pyl, P=Pro, Q=Gln, R=Arg,
+  S=Ser, T=Thr, U=Sec, V=Val, W=Trp, X=Xaa, Y=Tyr, Z=Glx, `*`=Ter.
+- Cross-confirmed: NCBI BLAST topics (https://blast.ncbi.nlm.nih.gov/doc/blast-topics/, fetched
+  2026-06-24) — amino-acid codes for BLASTP/TBLASTN include U (selenocysteine), X (any), `*` (stop);
+  and FASTA accepts the IUPAC degenerate nucleotide codes (K S Y M W R B D H V).
+
 #### Nucleic Acid Codes (from NCBI/Wikipedia)
 | Code | Meaning |
 |------|---------|

@@ -82,3 +82,21 @@ None at the description level. TestSpec/Evidence accurately capture the sourced 
 - **Stage A: PASS.** Format model (id=first word, description=remainder, multi-line concat, multi-record, whitespace stripped, lowercase→upper, 80-col output) is correct and matches Wikipedia + the Biopython reference convention.
 - **Stage B: PASS-WITH-NOTES.** Code faithfully realises the validated FASTA model; all 34 tests pass with exact-value assertions. Notes: (1) DNA-only scope — non-ACGT FASTA throws via `DnaSequence` validation (scope boundary, not a parse bug); (2) cosmetic leading-whitespace retention in description on multi-space headers.
 - **End state: CLEAN.** No code change required; no half-fix. The two notes are scope/cosmetic, not defects in the parsing unit.
+
+## Update 2026-06-24 — opt-in multi-alphabet mode (limitation fix)
+
+Note (1) above (DNA-only scope) is now addressed by an **opt-in** API, while the default path is kept strict DNA-only and byte-for-byte unchanged.
+
+### Alphabets retrieved (this session, verbatim from citable sources)
+- **IUPAC nucleotide** — A C G T U R Y S W K M B D H V N + gap `-`. Source: NC-IUB (1985), "Nomenclature for Incompletely Specified Bases in Nucleic Acid Sequences", *Nucleic Acids Research* 13(9):3021–3030, retrieved via Wikipedia "Nucleic acid notation" (https://en.wikipedia.org/wiki/Nucleic_acid_notation, fetched 2026-06-24); cross-confirmed at https://www.bioinformatics.org/sms/iupac.html.
+- **RNA** — A C G U (bioinformatics.org IUPAC nucleotide table, fetched 2026-06-24).
+- **Protein (IUPAC amino-acid one-letter codes)** — 20 standard A R N D C Q E G H I L K M F P S T W Y V + ambiguity B (Asx) Z (Glx) J (Xle) X (Xaa) + rare U (Sec) O (Pyl) + stop `*`. Source: https://www.bioinformatics.org/sms2/iupac.html (fetched 2026-06-24); cross-confirmed at NCBI BLAST topics (https://blast.ncbi.nlm.nih.gov/doc/blast-topics/, fetched 2026-06-24).
+
+### API added
+`SequenceAlphabet` enum {`StrictDna` (default), `IupacNucleotide`, `Rna`, `Protein`} and overloads `FastaParser.Parse(string, SequenceAlphabet)`, `ParseFile(string, SequenceAlphabet)`, `ParseFileAsync(string, SequenceAlphabet)` returning a new `FastaRecord` (id, description, raw uppercased sequence string, alphabet). Out-of-alphabet characters throw `ArgumentException`. The default no-alphabet overloads (returning `FastaEntry`/`DnaSequence`) are unchanged.
+
+### Tests
+`FastaParser_Alphabet_Tests.cs` (14 tests): RNA-with-U preserved (`AUGCAUGCGGUU`), protein with W/Y/`*` and ambiguity (`MWYXBZJUO*` preserved), IUPAC-ambiguous DNA preserved (`ACGTNRYSWKMBDHV-U`), per-mode out-of-alphabet rejection, and the default strict-DNA still-rejects regression (U / protein residues / N,R,Y all throw on the default `Parse`). All 48 FastaParser tests (34 existing + 14 new) pass.
+
+- **Residual note:** multi-space-header `Description` keeps a single leading space (by-design header-split contract; unchanged).
+- **Checklist:** Status reset `☑`→`☐` in the root registry pending re-validation of the extended unit.

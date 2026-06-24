@@ -6,7 +6,7 @@
 | Test Unit ID | PARSE-FASTA-001 |
 | Related Projects | Seqeron.Genomics; Seqeron.Mcp.Parsers |
 | Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Last Reviewed | 2026-06-24 |
 
 ## 1. Overview
 
@@ -109,6 +109,7 @@ The implementation uses a `StringBuilder` as the sequence buffer for both synchr
 - `FastaParser.WriteFile(string, IEnumerable<FastaEntry>, int)`: Writes serialized FASTA text to disk.
 - `FastaEntry.Header`: Reconstructs the header line from `Id` and `Description`.
 - `DnaSequence.DnaSequence(string)`: Normalizes parsed sequence data to uppercase and rejects characters outside `A/C/G/T`.
+- `FastaParser.Parse(string, SequenceAlphabet)` / `ParseFile(string, SequenceAlphabet)` / `ParseFileAsync(string, SequenceAlphabet)`: **Opt-in** overloads that validate the uppercased sequence against a selectable alphabet and yield `FastaRecord` (raw sequence string preserved). Alphabets: `StrictDna` (A/C/G/T — same as default), `IupacNucleotide` (A C G T U R Y S W K M B D H V N + `-`, per NC-IUB 1985), `Rna` (A C G U), `Protein` (20 IUPAC residues + B Z J X U O + `*`).
 
 ### 5.2 Current Behavior
 
@@ -120,6 +121,7 @@ Repository-specific behavior confirmed by source and tests:
 - Lowercase nucleotide input is accepted because `DnaSequence` uppercases before validation.
 - `ToFasta` uses a default output width of 80 characters per line.
 - Parsed entries preserve the identifier and description split used by the defline parser, and round-trip tests verify `Parse -> ToFasta -> Parse` consistency for that split.
+- The default `Parse`/`ParseFile`/`ParseFileAsync` (no alphabet argument) remain strict DNA-only and byte-for-byte unchanged. The opt-in `SequenceAlphabet` overloads additionally accept RNA (`U`), protein residues (incl. `*` and ambiguity codes), and IUPAC nucleotide ambiguity/gap codes, validating against the selected alphabet and throwing `ArgumentException` on the first out-of-alphabet character.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -131,19 +133,19 @@ Repository-specific behavior confirmed by source and tests:
 
 **Intentionally simplified:**
 
-- Parsed sequence payload is materialized as `DnaSequence` rather than a generic biological sequence type; **consequence:** protein FASTA, RNA `U`, ambiguity codes such as `N`, and gap-containing sequence lines are rejected during entry creation.
+- The default (no-alphabet) `Parse` path materializes payload as `DnaSequence`; **consequence:** protein FASTA, RNA `U`, ambiguity codes such as `N`, and gap-containing sequence lines are rejected on the default path (preserved intentionally). The opt-in `SequenceAlphabet` overloads remove this restriction for the selected alphabet.
 - Header-only records are not yielded; **consequence:** malformed FASTA entries without sequence content disappear from parsed output instead of being preserved as empty records.
 - Whitespace is removed from sequence lines before materialization; **consequence:** formatting normalizes whitespace-bearing input to contiguous sequence strings on round trip.
 
 **Not implemented:**
 
-- Generic non-DNA FASTA parsing; **users should rely on:** no current alternative documented in this repository.
+- `ToFasta`/`WriteFile` serialization for the non-DNA `FastaRecord` type; **users should rely on:** the `FastaEntry`/`DnaSequence` formatter for serialization, or assemble output strings directly from `FastaRecord.Sequence`.
 
 ### 5.4 Deviations and Assumptions
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | DNA-only entry materialization | Deviation | The broader FASTA convention can carry protein or ambiguity-code sequences, but this implementation rejects non-`A/C/G/T` payloads | accepted | Caused by `FastaEntry.Sequence` using `DnaSequence` |
+| 1 | DNA-only on the default `Parse` path | Deviation | The default (no-alphabet) path rejects non-`A/C/G/T` payloads | accepted | Caused by `FastaEntry.Sequence` using `DnaSequence`; the opt-in `SequenceAlphabet` overloads (`Rna`, `Protein`, `IupacNucleotide`) lift this for the selected alphabet |
 
 ## 6. Edge Cases and Limitations
 
@@ -161,7 +163,7 @@ Repository-specific behavior confirmed by source and tests:
 
 ### 6.2 Limitations
 
-This implementation documents a DNA-specific subset of FASTA rather than the full generic format. It does not preserve empty records, does not retain whitespace formatting inside sequence lines, and does not accept non-DNA alphabets because parsed records are instantiated as `DnaSequence` objects.
+The default `Parse`/`ParseFile`/`ParseFileAsync` path documents a DNA-specific subset of FASTA (parsed records instantiated as `DnaSequence`). Opt-in `SequenceAlphabet` overloads accept RNA, protein, and IUPAC-ambiguous nucleotide alphabets (returning `FastaRecord`). In all modes the parser does not preserve empty (header-only) records and does not retain whitespace formatting inside sequence lines. On multi-space deflines the `FastaEntry`/`FastaRecord` `Description` keeps a single leading space (by-design header-split contract; not changed here).
 
 ## 7. Examples and Related Material
 
@@ -186,6 +188,7 @@ Parsed result:
 ### 7.3 Related Tests, Evidence, or Documents
 
 - Tests: [FastaParserTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/FastaParserTests.cs) — covers `INV-01`, `INV-02`, and `INV-03`
+- Tests: [FastaParser_Alphabet_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/FastaParser_Alphabet_Tests.cs) — covers the opt-in `SequenceAlphabet` (RNA / protein / IUPAC-nucleotide) overloads and the default strict-DNA regression
 - Tests: [FastaParseTests.cs](../../../tests/Seqeron/Seqeron.Mcp.Parsers.Tests/FastaParseTests.cs) — covers parser binding behavior
 - Tests: [FastaWriteTests.cs](../../../tests/Seqeron/Seqeron.Mcp.Parsers.Tests/FastaWriteTests.cs) — covers output file generation
 - Tests: [FastaFormatTests.cs](../../../tests/Seqeron/Seqeron.Mcp.Parsers.Tests/FastaFormatTests.cs) — covers line wrapping and formatter binding behavior
