@@ -559,6 +559,221 @@ public class GenomeAnnotator_GFF3_Tests
     }
 
     /// <summary>
+    /// M23: ToGff3 emits the feature's real source (column 2) when present.
+    /// Source: SO GFF3 Spec v1.26 — column 2 is "a free text qualifier intended to describe
+    /// the algorithm or operating procedure that generated this feature"; the "." placeholder
+    /// is only for undefined fields.
+    /// </summary>
+    [Test]
+    public void ToGff3_WithSource_EmitsRealSource()
+    {
+        var annotations = new List<GenomeAnnotator.GeneAnnotation>
+        {
+            new(
+                GeneId: "gene1",
+                Start: 99,
+                End: 500,
+                Strand: '+',
+                Type: "gene",
+                Product: "test",
+                Attributes: new Dictionary<string, string>(),
+                Source: "ENSEMBL")
+        };
+
+        var fields = GenomeAnnotator.ToGff3(annotations, "chr1").ToList()[1].Split('\t');
+
+        Assert.That(fields[1], Is.EqualTo("ENSEMBL"),
+            "Column 2 must carry the feature's real source when present (GFF3 Spec v1.26 column 2)");
+    }
+
+    /// <summary>
+    /// M24: ToGff3 falls back to "." for source when none was supplied.
+    /// Source: SO GFF3 Spec v1.26 — "Undefined fields are replaced with the '.' character."
+    /// </summary>
+    [Test]
+    public void ToGff3_NoSource_EmitsDotPlaceholder()
+    {
+        var annotations = new List<GenomeAnnotator.GeneAnnotation>
+        {
+            new(
+                GeneId: "gene1",
+                Start: 99,
+                End: 500,
+                Strand: '+',
+                Type: "gene",
+                Product: "test",
+                Attributes: new Dictionary<string, string>())
+        };
+
+        var fields = GenomeAnnotator.ToGff3(annotations, "chr1").ToList()[1].Split('\t');
+
+        Assert.That(fields[1], Is.EqualTo("."),
+            "Column 2 must be the '.' placeholder when source is absent (GFF3 Spec v1.26)");
+    }
+
+    /// <summary>
+    /// M25: ToGff3 emits the feature's real score (column 6) when present, culture-invariant.
+    /// Source: SO GFF3 Spec v1.26 — column 6 is "the score of the feature, a floating point number".
+    /// </summary>
+    [Test]
+    public void ToGff3_WithScore_EmitsRealScore()
+    {
+        var annotations = new List<GenomeAnnotator.GeneAnnotation>
+        {
+            new(
+                GeneId: "gene1",
+                Start: 99,
+                End: 500,
+                Strand: '+',
+                Type: "gene",
+                Product: "test",
+                Attributes: new Dictionary<string, string>(),
+                Source: ".",
+                Score: 95.5)
+        };
+
+        var fields = GenomeAnnotator.ToGff3(annotations, "chr1").ToList()[1].Split('\t');
+
+        Assert.That(fields[5], Is.EqualTo("95.5"),
+            "Column 6 must carry the feature's real floating-point score (GFF3 Spec v1.26 column 6)");
+    }
+
+    /// <summary>
+    /// M26: ToGff3 falls back to "." for score when none was supplied.
+    /// Source: SO GFF3 Spec v1.26 — "Undefined fields are replaced with the '.' character."
+    /// </summary>
+    [Test]
+    public void ToGff3_NoScore_EmitsDotPlaceholder()
+    {
+        var annotations = new List<GenomeAnnotator.GeneAnnotation>
+        {
+            new(
+                GeneId: "gene1",
+                Start: 99,
+                End: 500,
+                Strand: '+',
+                Type: "gene",
+                Product: "test",
+                Attributes: new Dictionary<string, string>())
+        };
+
+        var fields = GenomeAnnotator.ToGff3(annotations, "chr1").ToList()[1].Split('\t');
+
+        Assert.That(fields[5], Is.EqualTo("."),
+            "Column 6 must be the '.' placeholder when score is absent (GFF3 Spec v1.26)");
+    }
+
+    /// <summary>
+    /// M27: ToGff3 round-trips real source and score through ParseGff3.
+    /// Source: SO GFF3 Spec v1.26 — columns 2 and 6 carry real values.
+    /// </summary>
+    [Test]
+    public void ToGff3_SourceAndScore_SurviveRoundtrip()
+    {
+        var original = new GenomeAnnotator.GeneAnnotation(
+            GeneId: "gene1",
+            Start: 99,
+            End: 500,
+            Strand: '+',
+            Type: "gene",
+            Product: "test protein",
+            Attributes: new Dictionary<string, string>(),
+            Source: "ENSEMBL",
+            Score: 12.75);
+
+        var exported = GenomeAnnotator.ToGff3(new[] { original }, "chr1").ToList();
+        var parsed = GenomeAnnotator.ParseGff3(exported).ToList();
+
+        Assert.That(parsed, Has.Count.EqualTo(1));
+        Assert.Multiple(() =>
+        {
+            // Parser exposes source as parts[1] only via raw line; verify via the emitted line and Score.
+            Assert.That(exported[1].Split('\t')[1], Is.EqualTo("ENSEMBL"), "source survives export");
+            Assert.That(parsed[0].Score, Is.EqualTo(12.75).Within(1e-10), "score survives the round-trip");
+        });
+    }
+
+    /// <summary>
+    /// M28: ToGff3 computes cumulative CDS phase across a multi-segment transcript on the
+    /// PLUS strand. Hand-derived from the SO GFF3 Spec v1.26 canonical-gene example
+    /// (mRNA00003 / cds00003): three + strand CDS segments of lengths 602, 501, 602
+    /// (1-based 3301-3902, 5000-5500, 7000-7600) yield phases 0, 1, 1.
+    ///   seg1: (3 − (0   mod 3)) mod 3 = 0
+    ///   seg2: (3 − (602 mod 3)) mod 3 = (3 − 2) mod 3 = 1
+    ///   seg3: (3 − (1103 mod 3)) mod 3 = (3 − 2) mod 3 = 1
+    /// Source: SO GFF3 Spec v1.26 — column 8 phase definition + canonical-gene example.
+    /// </summary>
+    [Test]
+    public void ToGff3_PlusStrandMultiSegmentCds_ComputesCumulativePhase()
+    {
+        // Internal 0-based half-open: 1-based start S => internal Start = S-1; End = 1-based end.
+        var annotations = new List<GenomeAnnotator.GeneAnnotation>
+        {
+            new("mRNA3", 3300, 3902, '+', "CDS", "edenprotein", new Dictionary<string, string>()), // 1-based 3301-3902, len 602
+            new("mRNA3", 4999, 5500, '+', "CDS", "edenprotein", new Dictionary<string, string>()), // 1-based 5000-5500, len 501
+            new("mRNA3", 6999, 7600, '+', "CDS", "edenprotein", new Dictionary<string, string>()), // 1-based 7000-7600, len 602
+        };
+
+        var lines = GenomeAnnotator.ToGff3(annotations, "ctg123").ToList();
+        var phases = lines.Skip(1).Select(l => l.Split('\t')[7]).ToList();
+
+        Assert.That(phases, Is.EqualTo(new[] { "0", "1", "1" }),
+            "Plus-strand CDS phases must match the SO canonical-gene example (0, 1, 1)");
+    }
+
+    /// <summary>
+    /// M29: ToGff3 computes cumulative CDS phase across a multi-segment transcript on the
+    /// MINUS strand, where the 5' end is the feature's END, so segments are ordered by
+    /// DESCENDING genomic coordinate. Hand-derived from SO GFF3 Spec v1.26 column-8 rules:
+    /// three − strand CDS segments (1-based 7000-7600 len 601, 5000-5500 len 501, 3301-3902 len 602)
+    /// processed 5'→3' (highest coord first):
+    ///   seg @7000 (5'-most): (3 − (0   mod 3)) mod 3 = 0
+    ///   seg @5000:           (3 − (601 mod 3)) mod 3 = (3 − 1) mod 3 = 2   [601 mod 3 = 1]
+    ///   seg @3301:           (3 − (1102 mod 3)) mod 3 = (3 − 1) mod 3 = 2   [1102 mod 3 = 1]
+    /// Emitted in input (ascending genomic) order 3301, 5000, 7000 → phases 2, 2, 0.
+    /// Source: SO GFF3 Spec v1.26 — "the 5' end for CDS features on the minus strand is the
+    /// feature's end"; phase = bases forward to the next codon.
+    /// </summary>
+    [Test]
+    public void ToGff3_MinusStrandMultiSegmentCds_ComputesCumulativePhase()
+    {
+        var annotations = new List<GenomeAnnotator.GeneAnnotation>
+        {
+            new("mRNAneg", 3300, 3902, '-', "CDS", "p", new Dictionary<string, string>()), // 1-based 3301-3902, len 602
+            new("mRNAneg", 4999, 5500, '-', "CDS", "p", new Dictionary<string, string>()), // 1-based 5000-5500, len 501
+            new("mRNAneg", 6999, 7600, '-', "CDS", "p", new Dictionary<string, string>()), // 1-based 7000-7600, len 601
+        };
+
+        var lines = GenomeAnnotator.ToGff3(annotations, "ctg123").ToList();
+        var phases = lines.Skip(1).Select(l => l.Split('\t')[7]).ToList();
+
+        Assert.That(phases, Is.EqualTo(new[] { "2", "2", "0" }),
+            "Minus-strand CDS phases (input order 3301,5000,7000) must be 2, 2, 0 with the 5'-most (7000) segment at phase 0");
+    }
+
+    /// <summary>
+    /// M30: ToGff3 keeps separate transcripts independent — phase accumulation never bleeds
+    /// across different GeneIds. Two single-segment CDS transcripts each begin at phase 0.
+    /// Source: SO GFF3 Spec v1.26 — phase is relative to the start of the current CDS feature
+    /// within its own transcript.
+    /// </summary>
+    [Test]
+    public void ToGff3_DistinctTranscripts_PhaseDoesNotAccumulateAcross()
+    {
+        var annotations = new List<GenomeAnnotator.GeneAnnotation>
+        {
+            new("txA", 0, 100, '+', "CDS", "a", new Dictionary<string, string>()),   // len 100
+            new("txB", 200, 305, '+', "CDS", "b", new Dictionary<string, string>()), // separate transcript
+        };
+
+        var lines = GenomeAnnotator.ToGff3(annotations, "chr1").ToList();
+        var phases = lines.Skip(1).Select(l => l.Split('\t')[7]).ToList();
+
+        Assert.That(phases, Is.EqualTo(new[] { "0", "0" }),
+            "Each transcript's first CDS segment is phase 0; accumulation must not cross GeneId boundaries");
+    }
+
+    /// <summary>
     /// M20: ToGff3 outputs phase "." for non-CDS features.
     /// Source: GFF3 Spec v1.26 — Column 8 phase: 0/1/2 for CDS, "." for others.
     /// NOTE 4: "The phase is REQUIRED for all CDS features."

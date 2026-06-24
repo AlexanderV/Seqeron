@@ -6,7 +6,7 @@
 - **Test file:** `tests/Seqeron/Seqeron.Genomics.Tests/GenomeAnnotator_GFF3_Tests.cs` (38 tests)
 - **Stage A verdict:** PASS-WITH-NOTES (correct; documented, spec-permitted simplifications)
 - **Stage B verdict:** PASS
-- **State:** CLEAN
+- **State:** RESET — Status returned to ☐ pending re-validation after the 2026-06-24 export-fidelity fix (real source/score + cumulative CDS phase). See "Update — 2026-06-24" below.
 
 ---
 
@@ -77,4 +77,20 @@ None. Code faithfully realises the validated description.
 ---
 
 ## Verdict & follow-ups
-- **Stage A: PASS-WITH-NOTES; Stage B: PASS; State: CLEAN.** No code change. Build succeeded; filtered suite `GenomeAnnotator_GFF3_Tests` 38/0. No follow-ups.
+- **Stage A: PASS-WITH-NOTES; Stage B: PASS; State: CLEAN (at original validation).** No code change at that time; filtered suite `GenomeAnnotator_GFF3_Tests` 38/0.
+
+---
+
+## Update — 2026-06-24 (export-fidelity fix; Status reset to ☐)
+
+The three documented PASS-WITH-NOTES simplifications on **export** were upgraded to full GFF3 fidelity:
+
+- **Source (column 2):** `GeneAnnotation` gained an optional `Source` field (default `"."`). `ToGff3` now emits the real source when present, falling back to `.` only when genuinely absent. Source: SO GFF3 Spec v1.26 — column 2 is "a free text qualifier intended to describe the algorithm or operating procedure that generated this feature"; "Undefined fields are replaced with the '.' character."
+- **Score (column 6):** `GeneAnnotation` gained an optional nullable `Score` field (default `null`). `ToGff3` emits the real score culture-invariantly when present, else `.`. Source: SO GFF3 Spec v1.26 — column 6 is "the score of the feature, a floating point number."
+- **CDS phase (column 8):** no longer hard-coded `"0"`. `ToGff3` computes phase per transcript (grouped by `GeneId`), ordering CDS segments 5'→3' (ascending start on `+`, descending start on `−`, since "the 5' end for CDS features on the minus strand is the feature's end"). The 5'-most segment is phase `0`; each later segment is `(3 − (Σ preceding-segment lengths) mod 3) mod 3`. Verified against the spec's canonical-gene example (cds00003: + strand segments of lengths 602/501/602 → phases 0/1/1).
+
+Backward compatibility preserved: a `GeneAnnotation` constructed without source/score still serialises to spec-valid `.`/`.`, and a single-segment CDS still emits phase `0`, so all prior round-trip tests hold.
+
+New evidence-based tests M23–M30 added (real source/score emission + fallback, round-trip, plus/minus-strand cumulative phase, per-transcript independence); fixture now 46 tests. Full unfiltered `dotnet test Seqeron.sln` green (`Failed: 0`; 19416 passed across all projects); solution build 0 warnings / 0 errors.
+
+**State: RESET to ☐** in the root `ALGORITHMS_CHECKLIST_V2.md` pending independent re-validation. LIMITATIONS.md §5 ANNOT-GFF-001 row removed.

@@ -25,6 +25,17 @@ public static class GenomeAnnotator
     /// <summary>
     /// Represents a gene annotation.
     /// </summary>
+    /// <param name="Source">
+    /// GFF3 column 2 (source): "a free text qualifier intended to describe the algorithm or
+    /// operating procedure that generated this feature" (Sequence Ontology GFF3 Spec v1.26).
+    /// Defaults to "." (the undefined-field placeholder) so features constructed without a
+    /// source still serialise to spec-valid output.
+    /// </param>
+    /// <param name="Score">
+    /// GFF3 column 6 (score): "a floating point number" whose semantics are ill-defined
+    /// (Sequence Ontology GFF3 Spec v1.26). <see langword="null"/> means undefined and is
+    /// serialised as the "." placeholder.
+    /// </param>
     public readonly record struct GeneAnnotation(
         string GeneId,
         int Start,
@@ -32,7 +43,9 @@ public static class GenomeAnnotator
         char Strand,
         string Type,
         string Product,
-        IReadOnlyDictionary<string, string> Attributes);
+        IReadOnlyDictionary<string, string> Attributes,
+        string Source = UndefinedFieldPlaceholder,
+        double? Score = null);
 
     /// <summary>
     /// Represents a genomic feature.
@@ -502,9 +515,23 @@ public static class GenomeAnnotator
     }
 
     /// <summary>
+    /// The GFF3 undefined-field placeholder: "Undefined fields are replaced with the '.' character"
+    /// (Sequence Ontology GFF3 Spec v1.26, column-definition preamble).
+    /// </summary>
+    private const string UndefinedFieldPlaceholder = ".";
+
+    /// <summary>
     /// Exports annotations in GFF3 format.
-    /// Phase: "0" for CDS features, "." for all others.
-    /// Source: GFF3 Spec v1.26 — NOTE 4: "The phase is REQUIRED for all CDS features."
+    /// <para>
+    /// Column 2 (source) and column 6 (score) carry the feature's real values when present and
+    /// fall back to the "." undefined-field placeholder otherwise. Column 8 (phase) is computed
+    /// per the GFF3 spec for CDS features: the number of bases forward from the start of the
+    /// current CDS feature to the next codon boundary, accumulated across the ordered CDS
+    /// segments of a transcript (grouped by <see cref="GeneAnnotation.GeneId"/>); non-CDS
+    /// features emit ".".
+    /// </para>
+    /// Source: Sequence Ontology GFF3 Spec v1.26 — columns 2/6/8 definitions; "The phase is
+    /// REQUIRED for all CDS features."
     /// Encoding: GFF3-specific (only tab, newline, CR, %, control chars, ;, =, &amp;, , in column 9).
     /// Source: GFF3 Spec v1.26 — "no other characters may be encoded."
     /// </summary>
@@ -514,13 +541,87 @@ public static class GenomeAnnotator
     {
         yield return "##gff-version 3";
 
-        foreach (var ann in annotations)
-        {
-            string attributes = FormatGff3Attributes(ann.Attributes, ann.GeneId, ann.Product);
-            string phase = string.Equals(ann.Type, "CDS", StringComparison.OrdinalIgnoreCase) ? "0" : ".";
+        // Phase is a per-transcript cumulative quantity, so we must know the order of a
+        // transcript's CDS segments before we can emit any of its rows. Materialise once and
+        // precompute each CDS row's phase, keyed by the row's position in the input sequence so
+        // emission order (and thus output line order) is preserved exactly.
+        var annotationList = annotations as IReadOnlyList<GeneAnnotation> ?? annotations.ToList();
+        var cdsPhases = ComputeCdsPhases(annotationList);
 
-            yield return $"{seqId}\t.\t{ann.Type}\t{ann.Start + 1}\t{ann.End}\t.\t{ann.Strand}\t{phase}\t{attributes}";
+        for (int i = 0; i < annotationList.Count; i++)
+        {
+            var ann = annotationList[i];
+            string attributes = FormatGff3Attributes(ann.Attributes, ann.GeneId, ann.Product);
+
+            string source = string.IsNullOrEmpty(ann.Source) ? UndefinedFieldPlaceholder : ann.Source;
+            string score = ann.Score.HasValue
+                ? ann.Score.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                : UndefinedFieldPlaceholder;
+            string phase = cdsPhases.TryGetValue(i, out int p)
+                ? p.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                : UndefinedFieldPlaceholder;
+
+            yield return $"{seqId}\t{source}\t{ann.Type}\t{ann.Start + 1}\t{ann.End}\t{score}\t{ann.Strand}\t{phase}\t{attributes}";
         }
+    }
+
+    /// <summary>
+    /// Computes the GFF3 column-8 phase for every CDS feature in <paramref name="annotations"/>,
+    /// returning a map from the feature's input index to its phase (0, 1, or 2).
+    /// <para>
+    /// Per the Sequence Ontology GFF3 Spec v1.26, phase is "the number of bases forward from the
+    /// start of the current CDS feature the next codon begins", measured relative to the 5' end
+    /// (the feature's start on the + strand, its end on the − strand). For a transcript's first
+    /// (5'-most) CDS segment the coding frame begins at the segment start, so phase is 0; for each
+    /// subsequent segment the phase is the number of bases needed to complete the codon left open
+    /// by the preceding segments: <c>(3 − (Σ preceding segment lengths) mod 3) mod 3</c>.
+    /// CDS segments are grouped by <see cref="GeneAnnotation.GeneId"/> (the transcript) and ordered
+    /// 5'→3': ascending start on the + strand, descending start on the − strand.
+    /// </para>
+    /// </summary>
+    private static Dictionary<int, int> ComputeCdsPhases(IReadOnlyList<GeneAnnotation> annotations)
+    {
+        var phases = new Dictionary<int, int>();
+
+        // Group the CDS rows of each transcript, tracking their original input index.
+        var cdsByTranscript = new Dictionary<string, List<(int Index, GeneAnnotation Ann)>>(StringComparer.Ordinal);
+        for (int i = 0; i < annotations.Count; i++)
+        {
+            var ann = annotations[i];
+            if (!string.Equals(ann.Type, "CDS", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (!cdsByTranscript.TryGetValue(ann.GeneId, out var segments))
+            {
+                segments = new List<(int, GeneAnnotation)>();
+                cdsByTranscript[ann.GeneId] = segments;
+            }
+            segments.Add((i, ann));
+        }
+
+        foreach (var segments in cdsByTranscript.Values)
+        {
+            // Order segments 5'→3'. The 5' end is the start on the + strand and the end on the
+            // − strand (GFF3 Spec v1.26, column 8), so − strand segments run from the highest
+            // genomic coordinate downward.
+            bool minusStrand = segments.Count > 0 && segments[0].Ann.Strand == '-';
+            var ordered = minusStrand
+                ? segments.OrderByDescending(s => s.Ann.Start).ToList()
+                : segments.OrderBy(s => s.Ann.Start).ToList();
+
+            int precedingLength = 0;
+            foreach (var (index, ann) in ordered)
+            {
+                // (3 − (preceding mod 3)) mod 3 — bases to remove to reach the next codon.
+                phases[index] = (CodonLength - (precedingLength % CodonLength)) % CodonLength;
+
+                // Internal coordinates are 0-based half-open [Start, End); the 1-based inclusive
+                // segment length is End − Start.
+                precedingLength += ann.End - ann.Start;
+            }
+        }
+
+        return phases;
     }
 
     private static string FormatGff3Attributes(

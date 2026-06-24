@@ -89,8 +89,16 @@ Per GFF3 Spec v1.26, Section "Description of the Format":
 | M18 | ParseGff3 handles strand values (+, -, ., ?) | Strand field | GFF3 Spec |
 | M19 | ToGff3 encodes all required column 9 characters (;, =, &, ,) | Encoding rules | GFF3 Spec |
 | M20 | ToGff3 outputs phase "." for non-CDS features | Phase rules | GFF3 Spec NOTE 4 |
-| M21 | ToGff3 outputs phase "0" for CDS features | Phase rules | GFF3 Spec NOTE 4 |
+| M21 | ToGff3 outputs phase "0" for a single CDS feature | Phase rules | GFF3 Spec NOTE 4 |
 | M22 | ToGff3 encodes control characters (tab, newline, CR, %) | Encoding rules | GFF3 Spec |
+| M23 | ToGff3 emits the feature's real source (column 2) when present | Source column | GFF3 Spec column 2 |
+| M24 | ToGff3 falls back to "." for source when absent | Undefined-field placeholder | GFF3 Spec |
+| M25 | ToGff3 emits the feature's real score (column 6), culture-invariant | Score column | GFF3 Spec column 6 |
+| M26 | ToGff3 falls back to "." for score when absent | Undefined-field placeholder | GFF3 Spec |
+| M27 | ToGff3 round-trips real source + score through ParseGff3 | Round-trip fidelity | GFF3 Spec columns 2/6 |
+| M28 | ToGff3 computes cumulative CDS phase across a + strand multi-segment transcript (0,1,1) | Phase accumulation | GFF3 Spec col 8 + canonical-gene example (cds00003) |
+| M29 | ToGff3 computes cumulative CDS phase across a − strand multi-segment transcript (5'=end; 2,2,0 in genomic order) | Phase accumulation, minus strand | GFF3 Spec col 8 ("5' end … is the feature's end") |
+| M30 | ToGff3 keeps phase accumulation independent per transcript (no bleed across GeneId) | Per-transcript phase | GFF3 Spec col 8 |
 
 ### Should Tests
 
@@ -114,8 +122,9 @@ Per GFF3 Spec v1.26, Section "Description of the Format":
 1. **Coordinate conversion**: Export adds 1 to 0-based internal Start
 2. **Escaping symmetry**: Decoded on parse (`Uri.UnescapeDataString`), encoded on export (`EncodeGff3Value`)
 3. **Column count**: All output lines have exactly 9 tab-separated fields
-4. **Phase**: CDS → `0`; non-CDS → `.`
-5. **Culture-invariant parsing**: Score parsed with `CultureInfo.InvariantCulture` (GFF3 decimal = ".")
+4. **Phase**: non-CDS → `.`; CDS → cumulative `(3 − (Σ preceding-segment lengths) mod 3) mod 3` over the transcript's CDS segments ordered 5'→3' (ascending start on `+`, descending start on `−`); the 5'-most segment is phase `0`
+5. **Source/score fidelity**: column 2 = feature's real `Source` (else `.`); column 6 = feature's real `Score` (else `.`); a feature constructed without source/score stays spec-valid (`.`/`.`)
+6. **Culture-invariant I/O**: Score parsed AND written with `CultureInfo.InvariantCulture` (GFF3 decimal = ".")
 
 ---
 
@@ -123,9 +132,9 @@ Per GFF3 Spec v1.26, Section "Description of the Format":
 
 | Aspect | Literature | Implementation | Justification |
 |--------|------------|----------------|---------------|
-| Source column | Free text or "." | Always "." | Simplified I/O; source not stored in `GeneAnnotation` |
-| Score column | Floating point or "." | Always "." | Simplified I/O; score not stored in `GeneAnnotation` |
-| Phase granularity | 0, 1, or 2 for CDS | Always 0 for CDS | `GeneAnnotation` record has no Phase field; phase defaults to 0 |
+| Source column | Free text or "." | Real `GeneAnnotation.Source` if present, else "." | **Resolved** (fix): `Source` field added (default ".") |
+| Score column | Floating point or "." | Real `GeneAnnotation.Score` if present, else "." | **Resolved** (fix): nullable `Score` field added (default null → ".") |
+| Phase | 0, 1, or 2 for CDS, accumulated 5'→3' across segments | Cumulative `(3 − (Σ preceding lengths) mod 3) mod 3`, strand-aware | **Resolved** (fix): computed per transcript (grouped by `GeneId`); first CDS segment = 0. Phase still 0 for a single CDS segment, so prior round-trip tests hold |
 | Hierarchical relationships | Parent-child feature grouping | Not supported | Simplified GFF3 I/O; full hierarchy available in `GffParser` (PARSE-GFF-001) |
 | Multi-value attributes | Comma-separated values for Parent, Alias, Note, etc. | Single value only | Simplified implementation |
 | FASTA section | `##FASTA` directive | Not handled | Out of scope for annotation export |
@@ -136,7 +145,7 @@ Per GFF3 Spec v1.26, Section "Description of the Format":
 ## Test File Structure
 
 ```
-GenomeAnnotator_GFF3_Tests.cs (38 tests)
+GenomeAnnotator_GFF3_Tests.cs (46 tests)
 ├── ParseGff3 - Basic Parsing
 │   ├── M2: All 9 columns (exact values)
 │   └── M18: Strand values (+, -, ., ?)
@@ -168,9 +177,19 @@ GenomeAnnotator_GFF3_Tests.cs (38 tests)
 │   ├── M19: All column 9 reserved characters encoded
 │   ├── M22: Control characters encoded (tab, newline, CR, %)
 │   └── S3: Translation excluded
+├── ToGff3 - Source / Score fidelity
+│   ├── M23: Real source emitted (column 2)
+│   ├── M24: "." fallback for absent source
+│   ├── M25: Real score emitted (column 6, invariant)
+│   ├── M26: "." fallback for absent score
+│   └── M27: Source + score survive round-trip
+├── ToGff3 - CDS phase accumulation
+│   ├── M28: Plus-strand multi-segment phase 0,1,1 (SO canonical example)
+│   ├── M29: Minus-strand multi-segment phase (5'=end) 2,2,0 in genomic order
+│   └── M30: Phase does not bleed across transcripts
 ├── ToGff3 - Phase
 │   ├── M20: Phase "." for non-CDS
-│   └── M21: Phase "0" for CDS
+│   └── M21: Phase "0" for single CDS
 ├── ToGff3 - Edge Cases
 │   ├── C2: Empty annotations
 │   └── Default seqId

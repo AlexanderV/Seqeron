@@ -80,7 +80,8 @@ The lightweight `GenomeAnnotator` helpers expect non-null enumerables for `lines
 1. For parsing, iterate over input lines, skip blank or `#`-prefixed lines, and split candidate data lines on tab characters.
 2. If a line has all 9 fields, parse the numeric columns, decode the attributes, choose the `ID` attribute when present, and emit a `GenomicFeature` record.
 3. For export, emit `##gff-version 3` as the first line.
-4. Serialize each `GeneAnnotation` as a 9-column row using `seqId`, source `.`, the annotation type, 1-based start conversion, the annotation end coordinate, strand, phase, and encoded attributes.
+4. Serialize each `GeneAnnotation` as a 9-column row using `seqId`, the feature's real `Source` (or `.`), the annotation type, 1-based start conversion, the annotation end coordinate, the feature's real `Score` (or `.`), strand, the computed phase, and encoded attributes.
+5. For CDS export, precompute column-8 phase per transcript: group CDS rows by `GeneId`, order them 5'→3' (ascending start on `+`, descending start on `−`), set the 5'-most segment to phase `0`, and set each later segment to `(3 − (Σ preceding segment lengths) mod 3) mod 3` [1].
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
@@ -88,7 +89,8 @@ The lightweight `GenomeAnnotator` helpers expect non-null enumerables for `lines
 |---------|------|
 | Parse line eligibility | Fewer than 9 tab-separated fields means the line is skipped |
 | Score / phase null sentinel | `.` becomes `null` on parse |
-| Phase on export | `0` for `CDS`, `.` for every other exported type |
+| Source / score on export | the feature's real `Source` / `Score` when present; `.` when absent (`Source` defaults to `.`, `Score` to `null`) |
+| Phase on export | `.` for non-CDS; for CDS, the cumulative `(3 − (Σ preceding-segment lengths) mod 3) mod 3` over the transcript's CDS segments ordered 5'→3', with the 5'-most segment `0` |
 | Attribute order on export | `ID` and `product` are emitted first, then the remaining attributes except `translation` |
 | GFF3 encoding on export | Encodes tab, newline, carriage return, `%`, control characters, `;`, `=`, `&`, and `,`; leaves spaces literal |
 
@@ -117,7 +119,7 @@ Repository-specific behavior confirmed by source and tests:
 - `ParseGff3(...)` skips every `#`-prefixed line, so both comments and `##gff-version` / directive lines are ignored after detection.
 - The parsed `GenomicFeature` shape does not preserve `seqid` or `source`; it keeps only `FeatureId`, `Type`, `Start`, `End`, `Strand`, `Score`, `Phase`, and `Attributes`.
 - Missing `ID` attributes are replaced with sequential `feature_n` identifiers.
-- `ToGff3(...)` always writes source `.` and exports only from `GeneAnnotation`, not from the parsed `GenomicFeature` type.
+- `ToGff3(...)` writes the feature's real `Source` and `Score` (falling back to `.` when absent) and computes CDS phase cumulatively per transcript; it exports only from `GeneAnnotation`, not from the parsed `GenomicFeature` type.
 - The exporter omits the `translation` attribute and preserves spaces literally while encoding only the characters explicitly required by the GFF3 rules implemented in `EncodeGff3Value(...)`.
 
 ### 5.3 Conformance to Theory / Spec
@@ -127,12 +129,15 @@ Repository-specific behavior confirmed by source and tests:
 - Parsing of 9-column GFF3-like feature rows.
 - Recognition of `.` as the undefined sentinel for score and phase.
 - Percent decoding of encoded attribute values on parse.
-- Emission of the `##gff-version 3` header, 1-based start coordinates, and phase `0` for exported CDS features.
+- Emission of the `##gff-version 3` header and 1-based start coordinates.
+- Column 2 `source` and column 6 `score` carry the feature's real values when present and fall back to the `.` undefined-field placeholder otherwise [1].
+- Column 8 `phase` for CDS features computed as the number of bases forward to the next codon, accumulated across the transcript's CDS segments ordered 5'→3', strand-aware (the 5' end is the start on `+`, the end on `−`) [1]; phase `.` for non-CDS.
 
 **Intentionally simplified:**
 
 - The lightweight parser drops `seqid` and `source` from its returned record shape; **consequence:** `GenomeAnnotator` round trips are not lossless even when the input is valid GFF3.
-- The lightweight exporter accepts only `GeneAnnotation` records and always writes source `.`; **consequence:** callers cannot use it as a general-purpose GFF3 writer for arbitrary feature records.
+- The lightweight exporter accepts only `GeneAnnotation` records; **consequence:** callers cannot use it as a general-purpose GFF3 writer for arbitrary feature records.
+- CDS segments are grouped into transcripts by `GeneId` and assumed pre-trimmed to the coding frame (the 5'-most segment is treated as phase `0`); **consequence:** a non-zero codon offset on the first segment (a 5'-partial CDS) is not represented because `GeneAnnotation` has no explicit per-feature phase field.
 - The exporter omits the `translation` attribute; **consequence:** large translated payloads are not preserved in lightweight GFF3 output.
 
 **Not implemented:**
@@ -148,6 +153,7 @@ Repository-specific behavior confirmed by source and tests:
 |---|------|------|--------|--------|-------|
 | 1 | `seqid` and `source` are discarded during lightweight parse | Deviation | Parsed records cannot reproduce all original columns without external state | accepted | This is specific to the reduced `GenomicFeature` record shape |
 | 2 | `seqId` is written verbatim by the lightweight exporter | Assumption | Callers must supply a GFF3-compliant identifier themselves | accepted | No escaping is applied to column `1` in `ToGff3(...)` |
+| 3 | The 5'-most CDS segment of each transcript is treated as phase `0` | Assumption | A 5'-partial CDS starting mid-codon would need a non-zero starting phase, which `GeneAnnotation` cannot express | accepted | Matches the SO canonical-gene example (all `cdsNNNNN` segments start at phase `0`) [1] |
 
 ## 6. Edge Cases and Limitations
 
@@ -160,6 +166,9 @@ Repository-specific behavior confirmed by source and tests:
 | Malformed line with fewer than 9 fields | Skipped | The lightweight parser requires all 9 GFF3 columns |
 | `score = "."` | `Score = null` | `.` is the undefined sentinel |
 | `phase = "."` | `Phase = null` | `.` is the undefined sentinel |
+| Export feature with no `Source`/`Score` | Columns 2 and 6 emit `.` | Defaults (`Source = "."`, `Score = null`) keep output spec-valid |
+| Export single-segment CDS | Phase `0` | The lone segment is the 5'-most, so its phase is `0` |
+| Export multi-segment CDS transcript | Phase accumulates 5'→3' across segments | `(3 − (Σ preceding lengths) mod 3) mod 3` [1] |
 | Missing `ID` attribute | Auto-generates `feature_n` | The parser fills missing feature IDs from a running counter |
 | Spaces in attribute values on export | Preserved literally | The encoder follows the rule that no other printable characters should be encoded |
 

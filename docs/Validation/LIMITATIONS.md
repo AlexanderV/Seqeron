@@ -55,7 +55,6 @@ Every row traces to its per-unit report under `docs/Validation/reports/{UNIT}.md
 |------|------|
 | CRISPR-PAM-001 | On the reverse strand, `PamSite.TargetStart` is an index into the reverse-complement string; `Position` is the forward-strand coordinate and is correct. |
 | ANNOT-ORF-001 | An optional `requireStartCodon:false` mode seeds ORFs from a run's start (non-canonical); the canonical ATG / alt-start (GTG/TTG) 6-frame path is standard and exact. |
-| ANNOT-GFF-001 | GFF3 **export** emits `source`/`score` as "." and CDS `phase` as "0" (spec-permitted minimal output); parsing preserves all 9 columns. |
 | CODON-USAGE-001 | Returns per-codon **counts** + a total-variation-distance similarity only; frequency-per-1000 / RSCU / within-family fraction live in CODON-RSCU-001 / CODON-STATS-001 / SEQ-CODON-FREQ-001. |
 | TRANS-PROT-001 | Ambiguous codon → `'X'` is reachable only via the `string` overload; typed `DnaSequence`/`RnaSequence` reject IUPAC ambiguity at construction. |
 | PARSE-FASTA-001 | DNA-only parser (rejects IUPAC / RNA / protein FASTA); on multi-space headers the `Description` keeps a single leading space. |
