@@ -99,5 +99,19 @@ None. The grouping, threshold, minimum-length filter, 0-based inclusive coordina
 - **Stage A: PASS-WITH-NOTES** — grouping/threshold/coordinates/edge-cases correct & sourced;
   classification *labels* rest on disclosed internal heuristics (boundaries unaffected).
 - **Stage B: PASS** — code matches; no off-by-one; all worked examples reproduced.
-- **State: CLEAN** — no defect found; no code change required.
-- **Tests:** unit filter → 24 passed / 0 failed. (No code touched; full-suite run not required.)
+- **State: CLEAN** — no defect found in the boundary logic; the labelling heuristic was revisited (below).
+- **Tests:** boundary fixture → 24 passed / 0 failed; new flavor fixture → 16 passed / 0 failed.
+
+## Follow-up (2026-06-24) — sourced labelling search & opt-in implementation
+
+The classification-label note was re-investigated to determine whether a **citable, deterministic** scheme could replace the ad-hoc `RegionType` heuristic. Sources retrieved this session (web search/fetch + GitHub `gh api`):
+
+- **MobiDB-lite 3.0 — Necci et al. (2020/2021), Bioinformatics 36(22-23):5533-5534, DOI 10.1093/bioinformatics/btaa1045, PMID 33325498** (https://academic.oup.com/bioinformatics/article/36/22-23/5533/6039111, https://pubmed.ncbi.nlm.nih.gov/33325498/). Defines a deterministic **disorder-flavor** classification: a 9-residue sliding window assigns each residue to one of *polyampholyte, positive/negative polyelectrolyte, cysteine-/proline-/glycine-rich, low-complexity, polar*, in that priority order, with the composition classes assigned when the relevant residue fraction is **> 0.32**.
+- **Reference implementation** (rank 3, version-pinned): `BioComputingUP/MobiDB-lite` branch **v3**, `mdblib/states.py` (`get_disorder_class`, `is_enriched(threshold=0.32)`) and `mdblib/consensus.py` (`get_region_features` priority order, polar set `['S','T','N','Q']`), fetched verbatim via `gh api`.
+- **Das & Pappu (2013), PNAS 110(33):13392-13397, PMID 23901099** (https://www.pnas.org/doi/10.1073/pnas.1304749110) — the "diagram of states" that defines the charge classes (FCR/NCPR thresholds `> 0.35`) used by `get_disorder_class`.
+
+**Outcome — a citable scheme EXISTS for the region TYPE**, and it maps cleanly onto the per-residue composition output. It was implemented as the **opt-in** `ClassifyRegionFlavorMobiDbLite` (all constants verbatim from the v3 source), leaving the validated TOP-IDP **boundaries** and the **default** `RegionType`/`Confidence` exactly unchanged (non-breaking). New evidence-based fixture `DisorderPredictor_RegionFlavor_Tests.cs` (16 tests, expected values hand-traced from the cited source, including F16 which confirms boundaries are unaffected).
+
+**No citable standard for CONFIDENCE.** MobiDB-lite (and IUPred/PONDR-style predictors) report a per-residue disorder score/probability, not a per-*region* calibrated confidence; there is no published deterministic region-confidence formula. The existing rescaled `Confidence = (mean−0.542)/(1−0.542)` therefore remains a **declared first-principles heuristic** (boundaries unaffected). This is recorded honestly rather than fabricating a source.
+
+The validation **Status is unchanged** (the boundary algorithm was already CLEAN); the registry `☑` is intentionally **not reset** because no validated-boundary code was altered — the change is a sourced, additive opt-in label plus its tests.

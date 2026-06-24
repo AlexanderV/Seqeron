@@ -52,6 +52,7 @@
 | `IdentifyDisorderedRegions(predictions, threshold, minLen)` | DisorderPredictor | Canonical (private) | Tested indirectly via `PredictDisorder()` |
 | `ClassifyDisorderedRegion(region)` | DisorderPredictor | Canonical (private) | Tested indirectly via `PredictDisorder()` |
 | `PredictDisorder(sequence, windowSize, threshold, minRegionLength)` | DisorderPredictor | Public API | Entry point for testing both canonical methods |
+| `ClassifyRegionFlavorMobiDbLite(regionSequence)` | DisorderPredictor | Canonical (public, opt-in) | Sourced MobiDB-lite 3.0 disorder-flavor label (Necci et al. 2020); does not affect boundaries |
 
 ---
 
@@ -88,6 +89,21 @@
 | M12 | StandardIdrClassification | Short disorder-promoting sequence with no dominant AA → "Standard IDR" | RegionType = "Standard IDR" | Fallback |
 | M13 | ConfidenceInRange | All region confidences in [0, 1] | Confidence ∈ [0, 1] | Cutoff: Campen (2008); formula: internal D3 |
 | M14 | RegionsNonOverlapping | Multiple regions do not overlap | No start/end intersection | Algorithm definition |
+| F1 | FlavorPolyampholyte | `RKDERKDE`: FCR=1.0>0.35, NCPR=0≤0.35 | `Polyampholyte` | Necci (2020); Das & Pappu (2013); `states.py:get_disorder_class` |
+| F2 | FlavorPositivePolyelectrolyte | `RKRKRKRKRR`: f₊=1.0>0.35 | `PositivePolyelectrolyte` | Necci (2020); `get_disorder_class` |
+| F3 | FlavorNegativePolyelectrolyte | `DEDEDEDEDD`: f₋=1.0>0.35 | `NegativePolyelectrolyte` | Necci (2020); `get_disorder_class` |
+| F4 | FlavorChargeBeatsComposition | `RKRKPPPPPP`: FCR=0.4>0.35, f₊>0.35 (charge tested first) | `PositivePolyelectrolyte` | Necci (2020); `consensus.py` priority |
+| F5 | FlavorFcrExactlyThreshold | f₊=0.35 (FCR=0.35, not >0.35) → no comp. | `WeaklyCharged` | Necci (2020); strict `>` in `get_disorder_class` |
+| F6 | FlavorCysteineRich | `CCCCAAAAAA`: C=0.4≥0.32 | `CysteineRich` | Necci (2020); `is_enriched(threshold=0.32)` |
+| F7 | FlavorProlineRich | `PPPPAAAAAA`: P=0.4≥0.32 | `ProlineRich` | Necci (2020); `is_enriched` |
+| F8 | FlavorGlycineRich | `GGGGAAAAAA`: G=0.4≥0.32 | `GlycineRich` | Necci (2020); `is_enriched` |
+| F9 | FlavorPolar | `SSTTNNQQAA`: {S,T,N,Q}=0.8≥0.32 | `Polar` | Necci (2020); `is_enriched(['S','T','N','Q'])` |
+| F10 | FlavorCompositionPriority | `CCCCPPPPAA`: C and P both 0.4, C first | `CysteineRich` | Necci (2020); `consensus.py` C→P→G→polar |
+| F11 | FlavorThresholdInclusive | 8/25 C = 0.32 exactly (`≥`) | `CysteineRich` | Necci (2020); `s >= threshold` |
+| F12 | FlavorJustBelowThreshold | 7/25 C = 0.28 < 0.32 | `WeaklyCharged` | Necci (2020); `s >= threshold` |
+| F13 | FlavorNoEnrichmentFallback | hydrophobic stretch, FCR=0, none enriched | `WeaklyCharged` | Necci (2020) |
+| F15 | FlavorNullOrEmptyThrows | null / "" region sequence | `ArgumentException` | Input validation |
+| F16 | FlavorBoundariesUnchanged | 30×P region stays `[0,29]`; flavor `ProlineRich` | Start=0, End=29 | Boundaries from TOP-IDP (Campen 2008), unaffected |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -105,6 +121,7 @@
 | C1 | ClassificationPriority | Sequence with both P>0.25 and E/D>0.25 → "Proline-rich" wins | RegionType = "Proline-rich" | Implementation priority |
 | C2 | EmptySequence | PredictDisorder("") → no regions | 0 regions | Trivial |
 | C3 | AcidicOverBasicPriority | Sequence with both E/D>0.25 and K/R>0.25 → "Acidic" wins | RegionType = "Acidic" | Priority chain verification |
+| F14 | FlavorCaseInsensitive | lowercase region sequence classifies identically to uppercase | Same flavor as uppercase | Input is upper-cased before classification |
 
 ---
 
@@ -143,6 +160,7 @@
 | INV-3: All regions ≥ minLen | ✅ Covered | All regions in multi-region sequence ≥ minLen |
 | INV-5: MeanScore exact values | ✅ Covered | Exact: P=1.0, E≈0.866, K≈0.786, S≈0.655 |
 | Confidence exact values | ✅ Covered | Exact: P=1.0, S≈0.246; P > S ordering |
+| F1–F16: MobiDB-lite flavor labelling | ✅ Covered | 16 tests in `DisorderPredictor_RegionFlavor_Tests.cs`; exact flavor per hand-traced source values; F16 confirms boundaries unchanged |
 
 ### 5.3 Removed Tests (Duplicates)
 
@@ -156,7 +174,8 @@
 
 | File | Role | Test Count |
 |------|------|------------|
-| `DisorderPredictor_DisorderedRegion_Tests.cs` | DISORDER-REGION-001 canonical | 24 |
+| `DisorderPredictor_DisorderedRegion_Tests.cs` | DISORDER-REGION-001 canonical (boundaries + default labels) | 24 |
+| `DisorderPredictor_RegionFlavor_Tests.cs` | DISORDER-REGION-001 canonical (opt-in MobiDB-lite flavor labelling) | 16 |
 | `DisorderPredictorTests.cs` | Future Test Units (MoRF, LowComplexity) | 5 |
 | `DisorderPredictor_DisorderPrediction_Tests.cs` | DISORDER-PRED-001 canonical | ~50 (unchanged) |
 

@@ -100,8 +100,9 @@ The detector uses `MeanScore = scoreSum / length` for each emitted run and `Conf
 - `DisorderPredictor.IdentifyDisorderedRegions(List<ResiduePrediction>, double, int)`: private helper that scans contiguous disordered runs and emits region records.
 - `DisorderPredictor.ClassifyDisorderedRegion(List<ResiduePrediction>)`: private helper that assigns the region label from amino-acid composition.
 - `DisorderPredictor.CalculateConfidence(double)`: private helper that converts `MeanScore` into a clamped confidence value.
+- `DisorderPredictor.ClassifyRegionFlavorMobiDbLite(string)`: public **opt-in** helper that labels a region sequence with the deterministic MobiDB-lite 3.0 disorder flavor (sourced alternative to the default `RegionType`; does not affect boundaries).
 
-**Supporting tests:** [DisorderPredictor_DisorderedRegion_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_DisorderedRegion_Tests.cs)
+**Supporting tests:** [DisorderPredictor_DisorderedRegion_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_DisorderedRegion_Tests.cs), [DisorderPredictor_RegionFlavor_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_RegionFlavor_Tests.cs)
 
 ### 5.2 Current Behavior
 
@@ -114,14 +115,16 @@ The repository computes region boundaries from the `IsDisordered` flag already s
 - Contiguous-run detection over residue-level disorder calls, with emission only for runs whose length meets `minRegionLength`.
 - The `>30` cutoff used for the `Long IDR` label, which the source comments align with Ward et al. (2004) and van der Lee et al. (2014).
 - Deterministic output ordering and inclusive run boundaries verified by the tests.
+- The **opt-in** MobiDB-lite 3.0 disorder-flavor labelling (`ClassifyRegionFlavorMobiDbLite`) reproduces the reference scheme verbatim: the Das & Pappu (2013) charge classes (FCR/NCPR thresholds `> 0.35` from `states.py:get_disorder_class`) and the composition classes at the `≥ 0.32` enrichment threshold in the priority order C → P → G → polar `{S,T,N,Q}` (`states.py:is_enriched`, `consensus.py:get_region_features`) — Necci et al. (2020) ([DisorderPredictor.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/DisorderPredictor.cs); [DisorderPredictor_RegionFlavor_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_RegionFlavor_Tests.cs)).
 
 **Intentionally simplified:**
 
-- The `0.25` enrichment cutoff and the confidence formula are repository heuristics rather than verbatim published formulas; **consequence:** `RegionType` and `Confidence` are stable within this codebase but should not be treated as standardized cross-tool annotations ([DisorderPredictor.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/DisorderPredictor.cs)).
+- The **default** `RegionType` `0.25` enrichment cutoff and the `Confidence` formula are repository heuristics rather than verbatim published formulas; **consequence:** the default `RegionType` and `Confidence` are stable within this codebase but should not be treated as standardized cross-tool annotations. For a sourced label, use the opt-in `ClassifyRegionFlavorMobiDbLite`; note MobiDB-lite defines no per-residue confidence, so `Confidence` has no sourced equivalent ([DisorderPredictor.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/DisorderPredictor.cs)).
+- MobiDB-lite assigns flavors per nine-residue sliding window; the opt-in helper applies the same deterministic functions to the **whole region** to produce one region-level label (a documented scope choice, not a divergence from the cited thresholds).
 
 **Not implemented:**
 
-- Learned or probabilistic IDR subtype classifiers, or alternate region ontologies beyond the six hard-coded labels; **users should rely on:** no current alternative in this repository.
+- Learned or probabilistic IDR subtype classifiers; the per-window/per-residue MobiDB-lite flavor track and its SEG low-complexity tier embedded between the glycine-rich and polar classes (SEG is exposed separately via `PredictLowComplexityRegions`); **users should rely on:** `ClassifyRegionFlavorMobiDbLite` for a region-level sourced label, or the MobiDB-lite reference tool for the full per-residue flavor track.
 
 ### 5.4 Deviations and Assumptions
 
@@ -143,7 +146,7 @@ The repository computes region boundaries from the `IsDisordered` flag already s
 
 ### 6.2 Limitations
 
-Region detection depends entirely on the upstream TOP-IDP residue calls produced by `PredictDisorder(...)`, so any residue-level false positive or false negative changes the emitted boundaries. The region API is private and not available as a standalone entry point separate from the predictor. The six `RegionType` labels are coarse heuristic categories, not a full standardized ontology for intrinsically disordered segments.
+Region detection depends entirely on the upstream TOP-IDP residue calls produced by `PredictDisorder(...)`, so any residue-level false positive or false negative changes the emitted boundaries. The region API is private and not available as a standalone entry point separate from the predictor. The six default `RegionType` labels are coarse heuristic categories, not a full standardized ontology for intrinsically disordered segments; for a sourced label the opt-in `ClassifyRegionFlavorMobiDbLite` reproduces the MobiDB-lite 3.0 flavor scheme (Necci et al. 2020), which is deterministic but reports no confidence value.
 
 ## 7. Examples and Related Material
 
@@ -153,6 +156,7 @@ The region tests include two compact examples that illustrate both boundary dete
 
 - `new string('W', 10) + new string('P', 20)` yields one trailing region `[11, 29]` with the default `windowSize = 21` and `minRegionLength = 5`.
 - `string.Concat(Enumerable.Repeat("EKQSP", 8))` yields one `Long IDR` region because no tracked composition exceeds `0.25` while the run length is `40 > 30`.
+- Opt-in flavor (sourced): `ClassifyRegionFlavorMobiDbLite("RKDERKDE")` returns `Polyampholyte` (FCR `1.0 > 0.35`, NCPR `0.0 ≤ 0.35`); `ClassifyRegionFlavorMobiDbLite("PPPPAAAAAA")` returns `ProlineRich` (P fraction `0.4 ≥ 0.32`); both leave the validated region boundaries unchanged ([DisorderPredictor_RegionFlavor_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_RegionFlavor_Tests.cs)).
 
 ## 8. References
 
@@ -161,5 +165,7 @@ The region tests include two compact examples that illustrate both boundary dete
 3. Dunker A. K., et al. (2001). "Intrinsically disordered protein." Journal of Molecular Graphics and Modelling 19(1):26-59.
 4. van der Lee R., et al. (2014). "Classification of intrinsically disordered regions and proteins." Chemical Reviews 114(13):6589-6631.
 5. Ward J. J., et al. (2004). "Prediction and functional analysis of native disorder in proteins from the three kingdoms of life." Journal of Molecular Biology 337(3):635-645.
-6. [DisorderPredictor.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/DisorderPredictor.cs)
-7. [DisorderPredictor_DisorderedRegion_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_DisorderedRegion_Tests.cs)
+6. Necci M., Piovesan D., Clementel D., Dosztányi Z., Tosatto S. C. E. (2020). "MobiDB-lite 3.0: fast consensus annotation of intrinsic disorder flavors in proteins." Bioinformatics 36(22-23):5533-5534. DOI 10.1093/bioinformatics/btaa1045. PMID 33325498. Reference implementation: BioComputingUP/MobiDB-lite (branch `v3`), `mdblib/states.py`, `mdblib/consensus.py`.
+7. [DisorderPredictor.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/DisorderPredictor.cs)
+8. [DisorderPredictor_DisorderedRegion_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_DisorderedRegion_Tests.cs)
+9. [DisorderPredictor_RegionFlavor_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_RegionFlavor_Tests.cs)

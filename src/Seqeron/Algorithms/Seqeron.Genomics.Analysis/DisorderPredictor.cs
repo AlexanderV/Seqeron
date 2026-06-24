@@ -147,6 +147,27 @@ public static class DisorderPredictor
     private const double SegTriggerComplexity = 2.2; // K1 (kSegLocut), bits/residue
     private const double SegExtensionComplexity = 2.5; // K2 (kSegHicut), bits/residue
 
+    // ── MobiDB-lite 3.0 disorder-flavor classification ──────────────────────────
+    // Source: Necci, Piovesan, Clementel, Dosztányi, Tosatto (2020/2021),
+    //   "MobiDB-lite 3.0: fast consensus annotation of intrinsic disorder flavors
+    //   in proteins", Bioinformatics 36(22-23):5533-5534, DOI 10.1093/bioinformatics/btaa1045,
+    //   PMID 33325498. Charge classes follow Das & Pappu (2013), PNAS 110(33):13392-13397,
+    //   DOI 10.1073/pnas.1304749110, "diagram of states" for IDPs.
+    // Constants are taken verbatim from the reference implementation
+    //   BioComputingUP/MobiDB-lite (branch v3), mdblib/states.py (get_disorder_class,
+    //   is_enriched) and mdblib/consensus.py (get_region_features).
+
+    // is_enriched() default threshold: a composition class is assigned when its
+    // residue-subset fraction is >= 0.32 (states.py: def is_enriched(..., threshold=0.32)).
+    private const double FlavorEnrichmentThreshold = 0.32;
+
+    // get_disorder_class(): "strong charge" gate and the polyampholyte/polyelectrolyte
+    // split both use fcr/ncpr/f_plus/f_minus > 0.35 (states.py).
+    private const double FlavorChargeThreshold = 0.35;
+
+    // Polar residues used by the "Polar" class — consensus.py: token.is_enriched(['S','T','N','Q']).
+    private static readonly HashSet<char> FlavorPolarResidues = new() { 'S', 'T', 'N', 'Q' };
+
     #endregion
 
     #region Records
@@ -160,6 +181,33 @@ public static class DisorderPredictor
         double MeanScore,
         double Confidence,
         string RegionType);
+
+    /// <summary>
+    /// MobiDB-lite 3.0 disorder "flavor" of a region (Necci et al. 2020, Bioinformatics
+    /// 36:5533, PMID 33325498). Charge classes follow the Das &amp; Pappu (2013) diagram of
+    /// states. <c>WeaklyCharged</c> is the catch-all when no charge or composition class
+    /// is enriched (it does <b>not</b> map to a MobiDB-lite subregion label — MobiDB-lite
+    /// emits no subregion for such stretches).
+    /// </summary>
+    public enum DisorderFlavor
+    {
+        /// <summary>Strong polyampholyte (PA): FCR &gt; 0.35 with balanced + / − charge.</summary>
+        Polyampholyte,
+        /// <summary>Highly positive polyelectrolyte (PPE): FCR &gt; 0.35, f₊ &gt; 0.35.</summary>
+        PositivePolyelectrolyte,
+        /// <summary>Highly negative polyelectrolyte (NPE): FCR &gt; 0.35, f₋ &gt; 0.35.</summary>
+        NegativePolyelectrolyte,
+        /// <summary>Cysteine-rich: fraction of C &gt;= 0.32.</summary>
+        CysteineRich,
+        /// <summary>Proline-rich: fraction of P &gt;= 0.32.</summary>
+        ProlineRich,
+        /// <summary>Glycine-rich: fraction of G &gt;= 0.32.</summary>
+        GlycineRich,
+        /// <summary>Polar: fraction of {S,T,N,Q} &gt;= 0.32.</summary>
+        Polar,
+        /// <summary>Weakly charged and not compositionally enriched (no MobiDB-lite subregion).</summary>
+        WeaklyCharged
+    }
 
     /// <summary>
     /// Per-residue disorder prediction.
@@ -472,6 +520,96 @@ public static class DisorderPredictor
         // Normalized distance from the TOP-IDP cutoff (0.542).
         // Score 0.542 → confidence 0.0; score 1.0 → confidence 1.0.
         return Math.Max(0, Math.Min(1, (meanScore - TopIdpCutoff) / (1.0 - TopIdpCutoff)));
+    }
+
+    /// <summary>
+    /// Classifies the disorder "flavor" of a region's amino-acid sequence using the
+    /// deterministic MobiDB-lite 3.0 scheme — an <b>opt-in, sourced</b> alternative to the
+    /// default first-principles <see cref="DisorderedRegion.RegionType"/> label. Region
+    /// boundaries are not affected.
+    /// </summary>
+    /// <remarks>
+    /// <para>Hierarchical assignment, in this exact priority order (MobiDB-lite
+    /// <c>consensus.py:get_region_features</c>):</para>
+    /// <list type="number">
+    /// <item>Charge class via the Das &amp; Pappu (2013) diagram of states
+    ///   (<c>states.py:get_disorder_class</c>): with f₊ = (R+K)/L, f₋ = (D+E)/L,
+    ///   FCR = f₊+f₋, NCPR = |f₊−f₋| — if FCR &gt; 0.35 then PA when NCPR ≤ 0.35 (or both
+    ///   f₊ &gt; 0.35 and f₋ &gt; 0.35), else PPE when f₊ &gt; 0.35, NPE when f₋ &gt; 0.35.</item>
+    /// <item>Otherwise (weakly charged) the first enriched composition class, tested in
+    ///   order C → P → G → polar{S,T,N,Q}, each at fraction ≥ 0.32
+    ///   (<c>states.py:is_enriched</c>).</item>
+    /// <item>Otherwise <see cref="DisorderFlavor.WeaklyCharged"/> (no MobiDB-lite subregion).</item>
+    /// </list>
+    /// <para>Low-complexity (SEG) sits between glycine-rich and polar in the MobiDB-lite
+    /// pipeline; it is exposed separately by <see cref="PredictLowComplexityRegions"/> and is
+    /// therefore not part of this composition-only flavor call.</para>
+    /// <para>MobiDB-lite assigns flavors per 9-residue sliding window; this method applies the
+    /// identical deterministic functions to the <b>whole region</b> to yield one region-level
+    /// label. All thresholds are verbatim from BioComputingUP/MobiDB-lite (v3).</para>
+    /// Source: Necci et al. (2020) Bioinformatics 36:5533-5534, PMID 33325498;
+    ///   Das &amp; Pappu (2013) PNAS 110:13392-13397, PMID 23901099.
+    /// </remarks>
+    /// <param name="regionSequence">Amino-acid sequence of the region (case-insensitive).</param>
+    /// <returns>The MobiDB-lite disorder flavor.</returns>
+    /// <exception cref="ArgumentException"><paramref name="regionSequence"/> is null or empty.</exception>
+    public static DisorderFlavor ClassifyRegionFlavorMobiDbLite(string regionSequence)
+    {
+        if (string.IsNullOrEmpty(regionSequence))
+            throw new ArgumentException("Region sequence must be non-empty.", nameof(regionSequence));
+
+        string seq = regionSequence.ToUpperInvariant();
+        double length = seq.Length;
+
+        // get_disorder_class: f_plus = (R+K)/L, f_minus = (D+E)/L.
+        int plusCount = 0, minusCount = 0;
+        foreach (char c in seq)
+        {
+            if (c == 'R' || c == 'K') plusCount++;
+            else if (c == 'D' || c == 'E') minusCount++;
+        }
+
+        double fPlus = plusCount / length;
+        double fMinus = minusCount / length;
+        double fcr = fPlus + fMinus;
+        double ncpr = Math.Abs(fPlus - fMinus);
+
+        // Strong-charge gate (states.py).
+        if (fcr > FlavorChargeThreshold)
+        {
+            // Polyampholyte: NCPR <= 0.35, or both poles individually strong.
+            if (ncpr <= FlavorChargeThreshold ||
+                (fMinus > FlavorChargeThreshold && fPlus > FlavorChargeThreshold))
+            {
+                return DisorderFlavor.Polyampholyte;
+            }
+
+            // Polyelectrolytes.
+            if (fPlus > FlavorChargeThreshold)
+                return DisorderFlavor.PositivePolyelectrolyte;
+            if (fMinus > FlavorChargeThreshold)
+                return DisorderFlavor.NegativePolyelectrolyte;
+        }
+
+        // Weakly charged → composition classes in priority order C → P → G → polar.
+        if (FractionOf(seq, c => c == 'C') >= FlavorEnrichmentThreshold)
+            return DisorderFlavor.CysteineRich;
+        if (FractionOf(seq, c => c == 'P') >= FlavorEnrichmentThreshold)
+            return DisorderFlavor.ProlineRich;
+        if (FractionOf(seq, c => c == 'G') >= FlavorEnrichmentThreshold)
+            return DisorderFlavor.GlycineRich;
+        if (FractionOf(seq, FlavorPolarResidues.Contains) >= FlavorEnrichmentThreshold)
+            return DisorderFlavor.Polar;
+
+        return DisorderFlavor.WeaklyCharged;
+    }
+
+    private static double FractionOf(string seq, Func<char, bool> predicate)
+    {
+        int n = 0;
+        foreach (char c in seq)
+            if (predicate(c)) n++;
+        return n / (double)seq.Length;
     }
 
     #endregion
