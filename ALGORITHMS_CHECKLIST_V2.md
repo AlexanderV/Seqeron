@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 218 |
+| **Completed** | 217 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 16 |
+| **Not Started** | 17 |
 
 ---
 
@@ -105,7 +105,7 @@
 | ☑ | DISORDER-REGION-001 | ProteinPred | 2 | [Evidence](docs/Evidence/DISORDER-REGION-001-Evidence.md) | [TestSpec](tests/TestSpecs/DISORDER-REGION-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_DisorderedRegion_Tests.cs) |
 | ☑ | PROTMOTIF-FIND-001 | ProteinMotif | 3 | [Evidence](docs/Evidence/PROTMOTIF-FIND-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-FIND-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_MotifSearch_Tests.cs) |
 | ☑ | PROTMOTIF-PROSITE-001 | ProteinMotif | 2 | [Evidence](docs/Evidence/PROTMOTIF-PROSITE-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-PROSITE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_PrositePattern_Tests.cs) |
-| ☑ | PROTMOTIF-DOMAIN-001 | ProteinMotif | 2 | [Evidence](docs/Evidence/PROTMOTIF-DOMAIN-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-DOMAIN-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_DomainPrediction_Tests.cs) |
+| ☐ | PROTMOTIF-DOMAIN-001 | ProteinMotif | 2 | [Evidence](docs/Evidence/PROTMOTIF-DOMAIN-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-DOMAIN-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_DomainPrediction_Tests.cs) |
 | ☑ | EPIGEN-CPG-001 | Epigenetics | 3 | [Evidence](docs/Evidence/EPIGEN-CPG-001-Evidence.md) | [TestSpec](tests/TestSpecs/EPIGEN-CPG-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_CpGDetection_Tests.cs) |
 | ☑ | EPIGEN-METHYL-001 | Epigenetics | 3 | [Evidence](docs/Evidence/EPIGEN-METHYL-001-Evidence.md) | [TestSpec](tests/TestSpecs/EPIGEN-METHYL-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_Methylation_Tests.cs) |
 | ☑ | EPIGEN-DMR-001 | Epigenetics | 2 | [Evidence](docs/Evidence/EPIGEN-DMR-001-Evidence.md) | [TestSpec](tests/TestSpecs/EPIGEN-DMR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_DMR_Tests.cs) |

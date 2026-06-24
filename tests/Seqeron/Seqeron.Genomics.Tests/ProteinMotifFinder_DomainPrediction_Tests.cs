@@ -5,9 +5,11 @@ using static Seqeron.Genomics.Analysis.ProteinMotifFinder;
 namespace Seqeron.Genomics.Tests;
 
 /// <summary>
-/// Canonical tests for PROTMOTIF-DOMAIN-001: Domain Prediction &amp; Signal Peptide Prediction.
+/// Canonical tests for PROTMOTIF-DOMAIN-001: Protein Domain Identification (FindDomains).
 /// Evidence: docs/Evidence/PROTMOTIF-DOMAIN-001-Evidence.md
 /// Spec:     tests/TestSpecs/PROTMOTIF-DOMAIN-001.md
+/// Source:   PROSITE PS00028 (zinc finger C2H2), PS00678 (WD-repeats), PS00017 (Walker A);
+///           SH3 (PS50002) and PDZ (PS50106) are PROFILE-only — no deterministic pattern exists.
 /// </summary>
 [TestFixture]
 [Category("PROTMOTIF-DOMAIN-001")]
@@ -15,54 +17,60 @@ public class ProteinMotifFinder_DomainPrediction_Tests
 {
     #region Evidence-sourced constants
 
-    // --- Zinc Finger C2H2 (PROSITE PS00028, Pfam PF00096) ---
-    // Consensus: C-x(2,4)-C-x(3)-[LIVMFYWC]-x(8)-H-x(3,5)-H
-    // Source: Krishna SS et al. (2003) NAR 31:532–550; PROSITE PS00028
+    // --- Zinc Finger C2H2 (PROSITE PATTERN PS00028, Pfam PF00096) ---
+    // Pattern verbatim: C-x(2,4)-C-x(3)-[LIVMFYWC]-x(8)-H-x(3,5)-H
+    // Source: PROSITE PS00028; Krishna SS et al. (2003) NAR 31:532–550
     private const string ZincFingerSequence = "AAAACAACAAALEEEEEEEEHAAAHAAAA";
     private const int ZincFingerExpectedStart = 4;
     private const int ZincFingerExpectedEnd = 24;
     private const string ZincFingerExpectedName = "Zinc Finger C2H2";
     private const string ZincFingerExpectedAccession = "PF00096";
 
-    // --- Walker A / P-loop (PROSITE PS00017, Pfam PF00069) ---
-    // Consensus: [AG]-x(4)-G-K-[ST]
-    // Source: Walker JE et al. (1982) EMBO J 1:945–951
+    // --- Walker A / P-loop (PROSITE PATTERN PS00017, Pfam PF00069) ---
+    // Pattern verbatim: [AG]-x(4)-G-K-[ST]
+    // Source: PROSITE PS00017; Walker JE et al. (1982) EMBO J 1:945–951
     private const string KinaseSequence = "AAAAGAAEAGKSAAAA";
     private const int KinaseExpectedStart = 4;
     private const int KinaseExpectedEnd = 11;
     private const string KinaseExpectedName = "Protein Kinase ATP-binding";
     private const string KinaseExpectedAccession = "PF00069";
 
-    // --- WD40 Repeat (Pfam PF00400) ---
-    // Simplified pattern: [LIVMFYWC]-x(5,12)-[WF]-D
-    private const string Wd40Sequence = "AAAALAAAAAAAAWDAAAA";
+    // --- WD40 Repeat (EXACT PROSITE PATTERN PS00678 = WD_REPEATS_1, Pfam PF00400) ---
+    // Pattern verbatim:
+    //   [LIVMSTAC]-[LIVMFYWSTAGC]-[LIMSTAG]-[LIVMSTAGC]-x(2)-[DN]-x-{P}-[LIVMWSTAC]-{DP}-[LIVMFSTAG]-W-[DEN]-[LIVMFSTAGCN]
+    // Translated to regex (PROSITE syntax: x→'.', x(2)→'.{2}', {P}→'[^P]', {DP}→'[^DP]', '-' dropped):
+    //   [LIVMSTAC][LIVMFYWSTAGC][LIMSTAG][LIVMSTAGC].{2}[DN].[^P][LIVMWSTAC][^DP][LIVMFSTAG]W[DEN][LIVMFSTAGCN]
+    // Source: PROSITE PS00678 (https://prosite.expasy.org/PS00678)
+    //
+    // Real positive: a WD repeat of GBB1_HUMAN (P62873, β-transducin / Gβ1) embedded in Ala padding.
+    // PS00678 is a 14-element signature spanning 15 residues. Segment "LVSASQDGKLIIWDS" is a WD repeat
+    // of P62873 and matches PS00678 (verified by ScanProsite-style regex; hand-trace below). Padded so
+    // the 15-residue match starts at 0-based index 4 and ends at index 18.
+    private const string Wd40Sequence = "AAAALVSASQDGKLIIWDSAAAA";
     private const int Wd40ExpectedStart = 4;
-    private const int Wd40ExpectedEnd = 14;
+    private const int Wd40ExpectedEnd = 18;
     private const string Wd40ExpectedName = "WD40 Repeat";
     private const string Wd40ExpectedAccession = "PF00400";
+    private const string Wd40RealSegment = "LVSASQDGKLIIWDS"; // exact 15-mer matching PS00678
 
-    // --- SH3 Domain (Pfam PF00018) ---
-    // Simplified pattern: [LIVMF]-x(2)-[GA]-W-[FYW]-x(5,8)-[LIVMF]
-    // Sequence: L(4) AA(5-6) A(7) W(8) F(9) AAAAAA(10-15) L(16) → .{6} between FYW and LIVMF
-    private const string Sh3Sequence = "AAAALAAAWFAAAAAALAAAA";
-    private const int Sh3ExpectedStart = 4;
-    private const int Sh3ExpectedEnd = 16;
-    private const string Sh3ExpectedName = "SH3";
-    private const string Sh3ExpectedAccession = "PF00018";
+    // Near-miss: the conserved Trp (literal 'W', the 12th element of PS00678) is the most diagnostic
+    // residue of the WD signature; replacing W→A destroys the match (PS00678 mandates literal W).
+    private const string Wd40NearMissNoTrp = "AAAALVSASQDGKLIIADSAAAA";
 
-    // --- PDZ Domain (Pfam PF00595) ---
-    // Simplified pattern: [LIVMF]-[ST]-[LIVMF]-x(2)-G-[LIVMF]-x(3,4)-[LIVMF]-x(2)-[DEN]
-    private const string PdzSequence = "AAAALSLAAGLAAAALAADAAAA";
-    private const int PdzExpectedStart = 4;
-    private const int PdzExpectedEnd = 18;
-    private const string PdzExpectedName = "PDZ";
-    private const string PdzExpectedAccession = "PF00595";
+    // Full GBB1_HUMAN (UniProt P62873) sequence — a canonical WD40 β-propeller (7 blades).
+    // Source: https://rest.uniprot.org/uniprotkb/P62873.fasta
+    private const string Gbb1HumanSequence =
+        "MSELDQLRQEAEQLKNQIRDARKACADATLSQITNNIDPVGRIQMRTRRTLRGHLAKIYAMHWGTDSRLLVSASQDGKLIIWDSY" +
+        "TTNKVHAIPLRSSWVMTCAYAPSGNYVACGGLDNICSIYNLKTREGNVRVSRELAGHTGYLSCCRFLDDNQIVTSSGDTTCALWDI" +
+        "ETGQQTTTFTGHTGDVMSLSLAPDTRLFVSGACDASAKLWDVREGMCRQTFTGHESDINAICFFPNGNAFATGSDDATCRLFDLRA" +
+        "DQELMTYSHDNIICGITSVSFSKSGRLLLAGYDDFNCNVWDALKADRAQGVLAGHDNRVSCLGVTDDGMAVATGSWDSFLKIWN";
 
     // --- Multi-domain sequence (zinc finger + kinase) ---
     private const string MultiDomainSequence = "AAAACAACAAALEEEEEEEEHAAAHAAAGAAEAGKSAAAA";
 
-    // Signal-peptide prediction (PredictSignalPeptide) is covered by its own Test Unit
-    // PROTMOTIF-SP-001 — see ProteinMotifFinder_PredictSignalPeptide_Tests.cs.
+    // SH3 (PROSITE PS50002) and PDZ (PROSITE PS50106) are weight-matrix PROFILES, not patterns:
+    // they have NO deterministic signature and are intentionally NOT detected by FindDomains.
+    // Signal-peptide prediction is covered by its own Test Unit PROTMOTIF-SP-001.
 
     #endregion
 
@@ -137,15 +145,13 @@ public class ProteinMotifFinder_DomainPrediction_Tests
     }
 
     /// <summary>
-    /// M5: Every returned domain has non-empty Name, Accession, and Description.
-    /// Evidence: Pfam domain families require metadata — PF00096, PF00069, PF00400, PF00018, PF00595
-    /// Verifies all 5 domain pattern types, not just one.
+    /// M5: Every returned domain has non-empty Name, Accession, and Description across all
+    /// exact-PROSITE-pattern domain types (zinc finger PS00028, WD40 PS00678, Walker A PS00017).
     /// </summary>
     [Test]
     public void FindDomains_DomainMetadata_HasCorrectFields()
     {
-        // INV-2: Verify metadata across all 5 domain pattern types
-        var testSequences = new[] { ZincFingerSequence, KinaseSequence, Wd40Sequence, Sh3Sequence, PdzSequence };
+        var testSequences = new[] { ZincFingerSequence, KinaseSequence, Wd40Sequence };
 
         foreach (var sequence in testSequences)
         {
@@ -176,8 +182,7 @@ public class ProteinMotifFinder_DomainPrediction_Tests
     [Test]
     public void FindDomains_StartLessOrEqualEnd()
     {
-        // Test across multiple pattern types
-        var testSequences = new[] { ZincFingerSequence, KinaseSequence, Wd40Sequence, Sh3Sequence, PdzSequence };
+        var testSequences = new[] { ZincFingerSequence, KinaseSequence, Wd40Sequence, Gbb1HumanSequence };
 
         foreach (var sequence in testSequences)
         {
@@ -185,21 +190,22 @@ public class ProteinMotifFinder_DomainPrediction_Tests
             foreach (var domain in domains)
             {
                 Assert.That(domain.Start, Is.LessThanOrEqualTo(domain.End),
-                    $"Domain '{domain.Name}' in sequence: Start ({domain.Start}) must be ≤ End ({domain.End})");
+                    $"Domain '{domain.Name}': Start ({domain.Start}) must be ≤ End ({domain.End})");
             }
         }
     }
 
     #endregion
 
-    #region SHOULD: FindDomains Tests
+    #region MUST: WD40 exact PROSITE pattern PS00678
 
     /// <summary>
-    /// S1: WD40 repeat pattern detection.
-    /// Evidence: Pfam PF00400 — simplified pattern [LIVMFYWC]-x(5,12)-[WF]-D
+    /// M7: WD40 repeat detection by EXACT PROSITE PATTERN PS00678 on a real β-transducin segment.
+    /// Evidence: PROSITE PS00678; positive = GBB1_HUMAN (P62873) WD repeat "LVSASQDGKLIIWDSY",
+    /// padded so the 16-residue match spans 0-based 4..19.
     /// </summary>
     [Test]
-    public void FindDomains_WD40Repeat()
+    public void FindDomains_WD40Repeat_MatchesPrositePS00678()
     {
         var domains = FindDomains(Wd40Sequence).ToList();
 
@@ -211,57 +217,77 @@ public class ProteinMotifFinder_DomainPrediction_Tests
             Assert.That(domains[0].Accession, Is.EqualTo(Wd40ExpectedAccession),
                 "Accession must be Pfam PF00400");
             Assert.That(domains[0].Start, Is.EqualTo(Wd40ExpectedStart),
-                "Match start at [LIVMFYWC] position");
+                "Match start at first residue of the 15-mer PS00678 signature");
             Assert.That(domains[0].End, Is.EqualTo(Wd40ExpectedEnd),
-                "Match end at D position of WD motif");
+                "Match end at the last residue ([LIVMFSTAGCN]) of the PS00678 signature");
+            Assert.That(domains[0].End - domains[0].Start + 1, Is.EqualTo(Wd40RealSegment.Length),
+                "PS00678 is a fixed-length 15-residue signature");
         });
     }
 
     /// <summary>
-    /// S2: SH3 domain pattern detection.
-    /// Evidence: Pfam PF00018 — simplified pattern [LIVMF]-x(2)-[GA]-W-[FYW]-x(5,8)-[LIVMF]
+    /// M8: WD40 near-miss — replacing the conserved Trp (literal W in PS00678) with Ala
+    /// abolishes the match. Confirms the exact pattern is enforced, not a loose heuristic.
+    /// Evidence: PS00678 position 12 is the invariant 'W' (the W of "WD"/Trp-Asp).
     /// </summary>
     [Test]
-    public void FindDomains_SH3Domain()
+    public void FindDomains_WD40NearMiss_NoConservedTrp_ReturnsNoWD40()
     {
-        var domains = FindDomains(Sh3Sequence).ToList();
+        var domains = FindDomains(Wd40NearMissNoTrp).ToList();
 
-        Assert.That(domains, Has.Count.EqualTo(1), "Exactly one SH3 domain expected");
-        Assert.Multiple(() =>
-        {
-            Assert.That(domains[0].Name, Is.EqualTo(Sh3ExpectedName),
-                "Domain name must be SH3");
-            Assert.That(domains[0].Accession, Is.EqualTo(Sh3ExpectedAccession),
-                "Accession must be Pfam PF00018");
-            Assert.That(domains[0].Start, Is.EqualTo(Sh3ExpectedStart),
-                "Match start at [LIVMF] anchor");
-            Assert.That(domains[0].End, Is.EqualTo(Sh3ExpectedEnd),
-                "Match end at terminal [LIVMF]");
-        });
+        Assert.That(domains.Any(d => d.Accession == Wd40ExpectedAccession), Is.False,
+            "Removing the invariant Trp of WD must abolish the PS00678 match");
+        Assert.That(domains, Is.Empty,
+            "No other exact-pattern domain should match this near-miss sequence");
     }
 
     /// <summary>
-    /// S3: PDZ domain pattern detection.
-    /// Evidence: Pfam PF00595 — simplified pattern [LIVMF]-[ST]-[LIVMF]-x(2)-G-[LIVMF]-x(3,4)-[LIVMF]-x(2)-[DEN]
+    /// M9: Real WD40 β-propeller protein GBB1_HUMAN (P62873) yields multiple PS00678 hits.
+    /// Evidence: PS00678 is a per-repeat signature; the regex matches the β-transducin repeats
+    /// at 0-based starts 69, 156, 284 (verified with the ScanProsite-syntax regex).
     /// </summary>
     [Test]
-    public void FindDomains_PDZDomain()
+    public void FindDomains_GBB1Human_DetectsMultipleWD40Repeats()
     {
-        var domains = FindDomains(PdzSequence).ToList();
+        var wd40 = FindDomains(Gbb1HumanSequence)
+            .Where(d => d.Accession == Wd40ExpectedAccession)
+            .OrderBy(d => d.Start)
+            .ToList();
 
-        Assert.That(domains, Has.Count.EqualTo(1), "Exactly one PDZ domain expected");
+        Assert.That(wd40.Select(d => d.Start), Is.EqualTo(new[] { 69, 156, 284 }),
+            "GBB1_HUMAN WD repeats must be detected at the PS00678 match positions");
+        Assert.That(wd40, Has.All.Matches<ProteinDomain>(d => d.End - d.Start + 1 == 15),
+            "Each PS00678 hit is a fixed 15-residue window");
+    }
+
+    /// <summary>
+    /// M10: Translation verification — the PS00678→regex mapping is reproduced exactly on a
+    /// hand-traced 15-mer. Each element of "LVSASQDGKLIIWDS" satisfies its PROSITE element:
+    ///  L∈[LIVMSTAC], V∈[LIVMFYWSTAGC], S∈[LIMSTAG], A∈[LIVMSTAGC], (SQ)=x(2), D∈[DN], (G)=x,
+    ///  K∈{P}≡[^P], L∈[LIVMWSTAC], I∈{DP}≡[^DP], I∈[LIVMFSTAG], W=W, D∈[DEN], S∈[LIVMFSTAGCN].
+    /// </summary>
+    [Test]
+    public void FindMotifByProsite_PS00678_Translation_MatchesHandTracedSegment()
+    {
+        const string ps00678 =
+            "[LIVMSTAC]-[LIVMFYWSTAGC]-[LIMSTAG]-[LIVMSTAGC]-x(2)-[DN]-x-{P}-[LIVMWSTAC]-{DP}-[LIVMFSTAG]-W-[DEN]-[LIVMFSTAGCN]";
+
+        var matches = FindMotifByProsite(Wd40RealSegment, ps00678, "WD40 Repeat").ToList();
+
+        Assert.That(matches, Has.Count.EqualTo(1),
+            "PS00678 translated from PROSITE syntax must match the hand-traced WD repeat exactly once");
         Assert.Multiple(() =>
         {
-            Assert.That(domains[0].Name, Is.EqualTo(PdzExpectedName),
-                "Domain name must be PDZ");
-            Assert.That(domains[0].Accession, Is.EqualTo(PdzExpectedAccession),
-                "Accession must be Pfam PF00595");
-            Assert.That(domains[0].Start, Is.EqualTo(PdzExpectedStart),
-                "Match start at [LIVMF] anchor");
-            Assert.That(domains[0].End, Is.EqualTo(PdzExpectedEnd),
-                "Match end at [DEN] position");
+            Assert.That(matches[0].Start, Is.EqualTo(0), "Match starts at residue 0 of the 15-mer");
+            Assert.That(matches[0].End, Is.EqualTo(14), "Match ends at residue 14 (fixed 15-residue signature)");
+            Assert.That(matches[0].Sequence, Is.EqualTo(Wd40RealSegment),
+                "Captured substring must equal the full PS00678 signature window");
         });
     }
+
+    #endregion
+
+    #region SHOULD: FindDomains Tests
 
     /// <summary>
     /// S4: Random short sequence with no domain signatures returns empty.
@@ -269,10 +295,31 @@ public class ProteinMotifFinder_DomainPrediction_Tests
     [Test]
     public void FindDomains_NoMatchingDomains_ReturnsEmpty()
     {
-        // Short peptide with no domain pattern matches
         var domains = FindDomains("AAAEEE").ToList();
 
         Assert.That(domains, Is.Empty, "Short random peptide must yield no domain matches");
+    }
+
+    /// <summary>
+    /// S5: SH3 / PDZ are PROFILE-only (PS50002 / PS50106) — FindDomains must NOT report them.
+    /// Evidence: PROSITE has no deterministic PATTERN for SH3 or PDZ; only weight-matrix profiles.
+    /// A canonical SH3 core ("ALYDYEARTEDDLSFKKGERLQI", chicken Src SH3) must not yield an SH3 domain.
+    /// </summary>
+    [Test]
+    public void FindDomains_NoFabricatedSH3OrPDZ_ProfileOnlyDomains()
+    {
+        // Src SH3 core region; there is no PROSITE pattern for it, so it must not be reported as SH3/PDZ.
+        const string sh3Core = "ALYDYEARTEDDLSFKKGERLQIVNNTE";
+
+        var domains = FindDomains(sh3Core).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(domains.Any(d => d.Name == "SH3"), Is.False,
+                "SH3 (PROFILE-only PS50002) must not be reported as a fabricated pattern match");
+            Assert.That(domains.Any(d => d.Name == "PDZ"), Is.False,
+                "PDZ (PROFILE-only PS50106) must not be reported as a fabricated pattern match");
+        });
     }
 
     /// <summary>

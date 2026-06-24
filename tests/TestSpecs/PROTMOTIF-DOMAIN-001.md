@@ -2,10 +2,18 @@
 
 **Test Unit ID:** PROTMOTIF-DOMAIN-001
 **Area:** ProteinMotif
-**Algorithm:** Protein Domain Identification (signature/consensus-pattern based)
-**Status:** ☑ Complete
+**Algorithm:** Protein Domain Identification (exact PROSITE PATTERN based)
+**Status:** ☐ Not Started (reset for re-validation 2026-06-24 — exact-pattern fix)
 **Owner:** Algorithm QA Architect
 **Last Updated:** 2026-06-24
+
+> **Exact-pattern fix (2026-06-24):** `FindDomains` now detects ONLY domains that have an EXACT,
+> citable PROSITE **PATTERN**: zinc finger C2H2 (PS00028), WD-repeats (**PS00678**, newly made
+> exact — replaced the prior ad-hoc `[LIVMFYWC]-x(5,12)-[WF]-D` regex), and Walker A / P-loop
+> ATP-binding (PS00017). **SH3 (PS50002) and PDZ (PS50106) are weight-matrix PROFILES — no
+> deterministic PROSITE pattern exists — so their previously shipped, unsourced ad-hoc regexes
+> were removed (honest residual).** Pfam PF00018/PF00595 and the WD40 PF00400 full family are HMM
+> profiles (trained models) and are not bundled.
 
 > **Scope note (2026-06-24 validation):** This unit covers **`FindDomains`** only — domain
 > identification via PROSITE-style consensus regexes. **Signal-peptide prediction was split out
@@ -34,11 +42,23 @@
 | 6 | Krishna et al. (2003). Zinc finger classification. NAR | 1 | https://doi.org/10.1093/nar/gkg161 | 2026-02-13 |
 | 7 | Pfam PF00096, PF00400, PF00018, PF00595, PF00069 | 5 | https://www.ebi.ac.uk/interpro/ | 2026-02-13 |
 | 8 | Owji et al. (2018). Signal peptides review. Eur J Cell Biol | 1 | https://doi.org/10.1016/j.ejcb.2018.06.003 | 2026-02-13 |
+| 9 | PROSITE PS00678 — WD-repeats signature (WD_REPEATS_1) | 2 | https://prosite.expasy.org/PS00678 | 2026-06-24 |
+| 10 | PROSITE pattern syntax (ScanProsite doc) | 2 | https://prosite.expasy.org/scanprosite/scanprosite_doc.html | 2026-06-24 |
+| 11 | PROSITE PS50002 (SH3) / PS50106 (PDZ) — PROFILES, no pattern | 2 | https://prosite.expasy.org/PDOC50002 ; PDOC50106 | 2026-06-24 |
+| 12 | UniProt P62873 (GBB1_HUMAN) — real WD40 β-propeller | 5 | https://rest.uniprot.org/uniprotkb/P62873.fasta | 2026-06-24 |
 
 ### 1.2 Key Evidence Points
 
 1. C2H2 zinc finger consensus: `C-x(2,4)-C-x(3)-[LIVMFYWC]-x(8)-H-x(3,5)-H` — PROSITE PS00028
 2. Walker A motif: `[AG]-x(4)-G-K-[ST]` — PROSITE PS00017, Walker et al. (1982)
+2a. WD-repeats signature (PROSITE PS00678, verbatim):
+   `[LIVMSTAC]-[LIVMFYWSTAGC]-[LIMSTAG]-[LIVMSTAGC]-x(2)-[DN]-x-{P}-[LIVMWSTAC]-{DP}-[LIVMFSTAG]-W-[DEN]-[LIVMFSTAGCN]`
+   → regex `[LIVMSTAC][LIVMFYWSTAGC][LIMSTAG][LIVMSTAGC].{2}[DN].[^P][LIVMWSTAC][^DP][LIVMFSTAG]W[DEN][LIVMFSTAGCN]`
+   (14 elements, fixed **15** residues). Translation per ScanProsite rules: `-` dropped, `x`→`.`,
+   `x(2)`→`.{2}`, `{P}`→`[^P]`, `{DP}`→`[^DP]`, `[..]` kept.
+2b. SH3 (PS50002) and PDZ (PS50106) are PROSITE **PROFILES** (weight matrices) — no deterministic
+   pattern → not reproducible as an exact regex → NOT detected (honest residual).
+2c. Real WD40 positive: GBB1_HUMAN (P62873) matches PS00678 at 0-based starts 69, 156, 284.
 3. Signal peptide tripartite: n-region (charged), h-region (hydrophobic, 7–15 aa), c-region (cleavage) — von Heijne (1985, 1986)
 4. (-1,-3) rule: Small amino acids {A, G, S} at positions -1 and -3 from cleavage — von Heijne (1983)
 5. Signal peptide length: 16–30 aa — Owji et al. (2018)
@@ -54,7 +74,8 @@
 
 ### 1.4 Known Failure Modes / Pitfalls
 
-1. **False positives from simplified patterns:** Regex-based domain detection may match spurious sequences that do not fold into the expected domain structure. — Inherent limitation of pattern vs. HMM approach.
+1. **False positives from short patterns:** A deterministic PROSITE pattern is shorter and more permissive than the full Pfam HMM profile, so it may match sequences that do not fold into the expected domain. This is inherent to pattern-vs-HMM detection and is the honest residual: the exact PROSITE pattern is reproduced faithfully, but it is not equivalent to the trained HMM profile.
+1a. **Profile-only domains absent:** SH3 (PS50002) and PDZ (PS50106) have no deterministic pattern; `FindDomains` does not detect them. This is intentional — fabricating a pattern would be a defect.
 2. **Signal peptide scoring is evidence-based but simplified:** The 1:2:1 weighting (von Heijne 1985) and region scoring formulas are derived from literature statistics, not trained on specific datasets. Boundary cases may not match empirical Signal P or similar tools.
 
 ---
@@ -63,7 +84,8 @@
 
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
-| `FindDomains(sequence)` | ProteinMotifFinder | Canonical | Domain detection via PROSITE-style regex patterns. Mapped from checklist `PredictDomains`. |
+| `FindDomains(sequence)` | ProteinMotifFinder | Canonical | Domain detection via EXACT PROSITE PATTERN regexes (PS00028, PS00678, PS00017). Mapped from checklist `PredictDomains`. |
+| `FindMotifByProsite(sequence, prositePattern, name)` | ProteinMotifFinder | Canonical (translation) | Used by M10 to verify the PS00678 PROSITE→regex translation end-to-end. |
 | ~~`PredictSignalPeptide(...)`~~ | ProteinMotifFinder | — | **Moved to PROTMOTIF-SP-001** (von Heijne weight matrix). Not under test in this unit. |
 
 ---
@@ -99,7 +121,11 @@
 | M4 | FindDomains_NullSequence_ReturnsEmpty | Null input | Empty enumerable | Trivial |
 | M5 | FindDomains_DomainMetadata_HasCorrectFields | All returned domains have non-empty Name, Accession, Description | Assert.Multiple on fields | Pfam |
 | M6 | FindDomains_StartLessOrEqualEnd | Every domain has Start ≤ End | INV-3 | Trivial |
-| M7 | PredictSignalPeptide_TripartiteStructure | Signal peptide with classic n/h/c regions detected | Non-null result with NRegion, HRegion, CRegion | von Heijne (1986) |
+| M7 | FindDomains_WD40Repeat_MatchesPrositePS00678 | Real GBB1 WD repeat (`LVSASQDGKLIIWDS`) padded → exact PS00678 match | Name="WD40 Repeat", Accession="PF00400", Start=4, End=18 (15 residues) | PROSITE PS00678 |
+| M8 | FindDomains_WD40NearMiss_NoConservedTrp_ReturnsNoWD40 | Same segment with the invariant Trp (W) → A | No WD40 (empty) | PS00678 mandates literal W |
+| M9 | FindDomains_GBB1Human_DetectsMultipleWD40Repeats | Full GBB1_HUMAN (P62873) sequence | WD40 hits at starts {69,156,284}, each 15 aa | PS00678; UniProt P62873 |
+| M10 | FindMotifByProsite_PS00678_Translation_MatchesHandTracedSegment | Verbatim PS00678 string fed through PROSITE→regex translator vs hand-traced 15-mer | 1 match, Start=0, End=14, Sequence="LVSASQDGKLIIWDS" | PROSITE syntax rules + PS00678 |
+| ~~M7s–M15s~~ | PredictSignalPeptide_* | **Superseded — moved to PROTMOTIF-SP-001** | — | von Heijne (1986) |
 | M8 | PredictSignalPeptide_MinusOneMinusThreeRule | Cleavage at position where -1 and -3 are small amino acids | Detected; chars at -1,-3 ∈ {A,G,S} | von Heijne (1983) |
 | M9 | PredictSignalPeptide_NoSignal_AllCharged | Fully charged sequence (no hydrophobic region) | Returns null | von Heijne (1986) |
 | M10 | PredictSignalPeptide_ShortSequence | Sequence < 15 aa | Returns null | von Heijne (1986) |
@@ -113,10 +139,8 @@
 
 | ID | Test Case | Description | Expected Outcome | Notes |
 |----|-----------|-------------|------------------|-------|
-| S1 | FindDomains_WD40Repeat | WD40 pattern match | Domain detected | Pfam PF00400 |
-| S2 | FindDomains_SH3Domain | SH3 signature match | Domain detected | Pfam PF00018 |
-| S3 | FindDomains_PDZDomain | PDZ pattern match | Domain detected | Pfam PF00595 |
 | S4 | FindDomains_NoMatchingDomains | Random/short sequence | Empty result | Design |
+| S5 | FindDomains_NoFabricatedSH3OrPDZ_ProfileOnlyDomains | Canonical Src SH3 core sequence | No SH3/PDZ domain reported | PS50002/PS50106 are profiles |
 | S5 | PredictSignalPeptide_CleavagePositionRange | Cleavage ∈ [15, 35] on AlternateSignalPeptide | Exact cleavage=18, within bounds | Implementation |
 | S6 | PredictSignalPeptide_HRegionMinLength | H-region must be ≥ 7 aa on AlternateSignalPeptide | Exact length=8, ≥ 7 | von Heijne (1985) |
 | S7 | FindDomains_CaseInsensitive | Upper and lower case produce identical domains | domainsLower == domainsUpper | INV-10, Convention |
@@ -145,25 +169,16 @@
 | M2: FindDomains_WalkerA (P-loop) | ✅ Covered | Exact values, assertion messages, evidence citations |
 | M3: FindDomains_EmptySequence | ✅ Covered | Assertion message |
 | M4: FindDomains_NullSequence | ✅ Covered | Implemented |
-| M5: FindDomains_DomainMetadata | ✅ Covered | Verifies Name, Accession, Description, Score across all 5 domain types |
-| M6: FindDomains_StartLessOrEqualEnd | ✅ Covered | Invariant over all 5 domain pattern types |
-| M7: PredictSignalPeptide_TripartiteStructure | ✅ Covered | Exact score ±1e-10, explicit region values |
-| M8: PredictSignalPeptide_MinusOneMinusThreeRule | ✅ Covered | Verifies -1,-3 positions ∈ {A,G,S} |
-| M9: PredictSignalPeptide_NoSignal | ✅ Covered | All-charged sequence |
-| M10: PredictSignalPeptide_ShortSequence | ✅ Covered | Below 15 aa minimum |
-| M11: PredictSignalPeptide_NullInput | ✅ Covered | Implemented |
-| M12: PredictSignalPeptide_EmptyInput | ✅ Covered | Implemented |
-| M13: PredictSignalPeptide_CaseInsensitive | ✅ Covered | Tolerance ±1e-10 for identical computations |
-| M14: PredictSignalPeptide_ScoreRange | ✅ Covered | Range (0,1] + Probability == Score (INV-8) |
-| M15: PredictSignalPeptide_RejectsThreonine | ✅ Covered | T at -3 rejected; strict {A,G,S} per von Heijne (1983) |
-| S1: FindDomains_WD40 | ✅ Covered | Exact position and name |
-| S2: FindDomains_SH3 | ✅ Covered | Exact position and name |
-| S3: FindDomains_PDZ | ✅ Covered | Exact position and name |
+| M5: FindDomains_DomainMetadata | ✅ Covered | Verifies Name, Accession, Description, Score across the 3 exact-pattern domain types |
+| M6: FindDomains_StartLessOrEqualEnd | ✅ Covered | Invariant over all exact-pattern hits incl. GBB1 |
+| M7: FindDomains_WD40Repeat_MatchesPrositePS00678 | ✅ Covered | Exact Start=4/End=18, 15-residue PS00678 window |
+| M8: FindDomains_WD40NearMiss_NoConservedTrp | ✅ Covered | Removing invariant Trp abolishes match (empty) |
+| M9: FindDomains_GBB1Human_DetectsMultipleWD40Repeats | ✅ Covered | Real β-propeller, hits {69,156,284}, each 15 aa |
+| M10: FindMotifByProsite_PS00678_Translation | ✅ Covered | Verbatim PROSITE string → regex; hand-traced 15-mer |
 | S4: FindDomains_NoMatch | ✅ Covered | Short random peptide |
-| S5: PredictSignalPeptide_CleavageRange | ✅ Covered | AlternateSignalPeptide, exact cleavage=18, INV-6 [15,35] |
-| S6: PredictSignalPeptide_HRegionMinLength | ✅ Covered | AlternateSignalPeptide, exact length=8, INV-11 ≥ 7 |
+| S5: FindDomains_NoFabricatedSH3OrPDZ | ✅ Covered | Src SH3 core not reported (profile-only) |
 | S7: FindDomains_CaseInsensitive | ✅ Covered | Upper/lower identical (INV-10) |
 | C1: FindDomains_MultipleDomainTypes | ✅ Covered | Both zinc finger and kinase |
-| C2: PredictSignalPeptide_MaxLengthParameter | ✅ Covered | Restricts search range |
+| ~~PredictSignalPeptide_*~~ | — | **Moved to PROTMOTIF-SP-001** (not in this fixture) |
 
-**Total: 24 tests — all passing (0 failures, 0 warnings)**
+**Total: 14 tests in `ProteinMotifFinder_DomainPrediction_Tests.cs` — all passing (0 failures, 0 warnings).**

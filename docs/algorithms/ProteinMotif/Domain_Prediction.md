@@ -5,12 +5,12 @@
 | Algorithm Group | ProteinMotif |
 | Test Unit ID | PROTMOTIF-DOMAIN-001 |
 | Related Projects | Seqeron.Genomics |
-| Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Implementation Status | Production (domains: exact PROSITE patterns) |
+| Last Reviewed | 2026-06-24 |
 
 ## 1. Overview
 
-This document covers two related helpers in `ProteinMotifFinder`: domain prediction by signature matching and signal peptide prediction by rule-based cleavage scoring. The domain helper searches protein sequences for a fixed set of conserved signatures associated with Zinc Finger C2H2, WD40, SH3, PDZ, and Walker A / kinase ATP-binding motifs (PROSITE PS00028; PROSITE PS00017; Pfam PF00400, PF00018, PF00595). The signal peptide helper applies von Heijne's tripartite model to the N-terminus and returns the best cleavage candidate that satisfies the rule filters from the cited literature. Both helpers are deterministic, but both are simplified relative to broader profile- or training-based annotation systems.
+This document covers two related helpers in `ProteinMotifFinder`: domain prediction by signature matching and signal peptide prediction by rule-based cleavage scoring. The domain helper (`FindDomains`) searches protein sequences for the conserved domains that have an **exact, citable PROSITE PATTERN**: Zinc Finger C2H2 (PROSITE PS00028 [10]), WD-repeats (PROSITE PS00678 [12], newly made exact — it replaced a prior ad-hoc regex), and the Walker A / kinase ATP-binding P-loop (PROSITE PS00017 [11]). The SH3 (PROSITE PS50002) and PDZ (PROSITE PS50106) domains have **only weight-matrix PROFILES — no deterministic pattern — and are therefore intentionally not detected** (a profile/HMM cannot be reproduced as an exact regex without fabricating a signature). The signal peptide helper applies von Heijne's tripartite model to the N-terminus and returns the best cleavage candidate that satisfies the rule filters from the cited literature; it now lives under its own Test Unit PROTMOTIF-SP-001. The domain helper is deterministic and reproduces each PROSITE pattern exactly.
 
 ## 2. Scientific / Formal Basis
 
@@ -24,17 +24,17 @@ Protein domains are recurring structural and functional units whose conserved si
 
 #### Core Model
 
-The documented model is exact signature matching against a fixed library of domain-associated consensus patterns:
+The documented model is exact matching against the **verbatim PROSITE PATTERN** for each detected domain:
 
-| Domain Type | Signature Pattern | Evidence |
-|-------------|-------------------|----------|
-| Zinc Finger C2H2 | `C-x(2,4)-C-x(3)-[LIVMFYWC]-x(8)-H-x(3,5)-H` | PROSITE PS00028; Krishna et al. (2003) |
-| WD40 Repeat | `[LIVMFYWC]-x(5,12)-[WF]-D` | Current repository pattern for Pfam PF00400 |
-| SH3 | `[LIVMF]-x(2)-[GA]-W-[FYW]-x(5,8)-[LIVMF]` | Current repository pattern for Pfam PF00018 |
-| PDZ | `[LIVMF]-[ST]-[LIVMF]-x(2)-G-[LIVMF]-x(3,4)-[LIVMF]-x(2)-[DEN]` | Current repository pattern for Pfam PF00595 |
-| Protein Kinase ATP-binding | `[AG]-x(4)-G-K-[ST]` | PROSITE PS00017; Walker et al. (1982) |
+| Domain Type | PROSITE PATTERN (verbatim) | Accession | Evidence |
+|-------------|----------------------------|-----------|----------|
+| Zinc Finger C2H2 | `C-x(2,4)-C-x(3)-[LIVMFYWC]-x(8)-H-x(3,5)-H` | PS00028 (PF00096) | PROSITE PS00028 [10]; Krishna et al. (2003) [7] |
+| WD-repeats | `[LIVMSTAC]-[LIVMFYWSTAGC]-[LIMSTAG]-[LIVMSTAGC]-x(2)-[DN]-x-{P}-[LIVMWSTAC]-{DP}-[LIVMFSTAG]-W-[DEN]-[LIVMFSTAGCN]` | PS00678 (PF00400) | PROSITE PS00678 [12] |
+| Protein Kinase ATP-binding / P-loop | `[AG]-x(4)-G-K-[ST]` | PS00017 (PF00069) | PROSITE PS00017 [11]; Walker et al. (1982) [6] |
 
-This signature library is intentionally narrower than full family models and is best read as a heuristic domain screen rather than a complete domain annotation method.
+**Profile-only domains (not detected):** SH3 (PROSITE PS50002) and PDZ (PROSITE PS50106) are weight-matrix profiles with no deterministic pattern. They cannot be reproduced as an exact regex and are intentionally excluded; the Pfam HMM families PF00018 (SH3), PF00595 (PDZ), and the full WD40 family PF00400 are trained models and are not bundled.
+
+The PROSITE→regex translation follows the official ScanProsite syntax rules [13]: `-` separators dropped, `x`→`.`, `x(n)`→`.{n}`, `x(m,n)`→`.{m,n}`, `[..]` kept, `{X}`→`[^X]`, `<`/`>`→`^`/`$`. PS00678 is a 14-element signature spanning **15 residues** (the `x(2)` element covers two positions). Each detected pattern is reproduced exactly; this is a faithful pattern screen, narrower than the full Pfam profile HMM.
 
 #### Modeling Assumptions
 
@@ -100,7 +100,7 @@ The doubled H-region weight reflects the current repository interpretation of vo
 
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
-| `[DOMAIN] proteinSequence` | `string` | required | Protein sequence scanned for the five documented domain signatures | Null or empty input yields no results; matching is case-insensitive after uppercasing |
+| `[DOMAIN] proteinSequence` | `string` | required | Protein sequence scanned for the three exact-PROSITE-pattern domain signatures | Null or empty input yields no results; matching is case-insensitive after uppercasing |
 | `[SIGNAL] proteinSequence` | `string` | required | Protein sequence inspected for an N-terminal signal peptide | Null or empty input returns `null`; sequences shorter than `15` residues return `null` |
 | `[SIGNAL] maxLength` | `int` | `70` | Maximum prefix length considered during signal peptide search | The implementation searches `min(maxLength, sequence.Length)` residues |
 
@@ -138,19 +138,17 @@ The doubled H-region weight reflects the current repository interpretation of vo
 
 #### Decision Rules / Reference Tables
 
-| Domain | Accession | Matching Rule |
+| Domain | Accession | Matching Rule (translated regex) |
 |--------|-----------|---------------|
 | Zinc Finger C2H2 | `PF00096` | `C.{2,4}C.{3}[LIVMFYWC].{8}H.{3,5}H` |
-| WD40 Repeat | `PF00400` | `[LIVMFYWC].{5,12}[WF]D` |
-| SH3 | `PF00018` | `[LIVMF].{2}[GA]W[FYW].{5,8}[LIVMF]` |
-| PDZ | `PF00595` | `[LIVMF][ST][LIVMF].{2}G[LIVMF].{3,4}[LIVMF].{2}[DEN]` |
+| WD40 Repeat | `PF00400` | `[LIVMSTAC][LIVMFYWSTAGC][LIMSTAG][LIVMSTAGC].{2}[DN].[^P][LIVMWSTAC][^DP][LIVMFSTAG]W[DEN][LIVMFSTAGCN]` |
 | Protein Kinase ATP-binding | `PF00069` | `[AG].{4}GK[ST]` |
 
 #### Complexity
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
-| `FindDomains(...)` | `O(n x d)` | `O(1)` plus output | `n` = sequence length, `d = 5` hard-coded signatures |
+| `FindDomains(...)` | `O(n x d)` | `O(1)` plus output | `n` = sequence length, `d = 3` exact PROSITE patterns |
 
 ### 4.B Signal Peptide Prediction
 
@@ -184,7 +182,7 @@ The doubled H-region weight reflects the current repository interpretation of vo
 
 **Implementation location:** [ProteinMotifFinder.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/ProteinMotifFinder.cs)
 
-- `ProteinMotifFinder.FindDomains(string)`: scans the sequence against five hard-coded domain regexes and emits `ProteinDomain` values.
+- `ProteinMotifFinder.FindDomains(string)`: scans the sequence against the three exact-PROSITE-pattern domain regexes (PS00028, PS00678, PS00017) and emits `ProteinDomain` values.
 - `ProteinMotifFinder.PredictSignalPeptide(string, int)`: evaluates cleavage candidates in an N-terminal window and returns the best `SignalPeptide?` result.
 - `ProteinMotifFinder.ScoreNRegion(string)`, `ProteinMotifFinder.ScoreHydrophobicRegion(string)`, and `ProteinMotifFinder.ScoreCRegion(string)`: compute the three signal peptide component scores used by `PredictSignalPeptide(...)`.
 
@@ -193,7 +191,7 @@ The doubled H-region weight reflects the current repository interpretation of vo
 Repository-specific behavior confirmed by source and tests:
 
 - `FindDomains(...)` delegates each domain signature to `FindMotifByPattern(...)`, so `ProteinDomain.Score` is the same information-content score used by motif matches.
-- `FindDomains(...)` currently emits only `Zinc Finger C2H2`, `WD40 Repeat`, `SH3`, `PDZ`, and `Protein Kinase ATP-binding` hits, with accessions `PF00096`, `PF00400`, `PF00018`, `PF00595`, and `PF00069`.
+- `FindDomains(...)` emits only `Zinc Finger C2H2`, `WD40 Repeat`, and `Protein Kinase ATP-binding` hits, with accessions `PF00096`, `PF00400`, and `PF00069`. SH3/PDZ are not emitted (profile-only).
 - Returned domain coordinates are inclusive 0-based indexes inherited from `MotifMatch.Start` and `MotifMatch.End`.
 - `PredictSignalPeptide(...)` rejects null, empty, and shorter-than-`15` input and limits the search to `Math.Min(maxLength, sequence.Length)` residues.
 - Candidate cleavage sites are scanned from positions `15` through `35`; candidates must satisfy the `-1, -3` rule, have `HRegion.Length >= 7`, have positive N-region score, and have `hScore >= 0.5`.
@@ -205,18 +203,19 @@ Repository-specific behavior confirmed by source and tests:
 
 **Implemented (verbatim from the cited theory/spec):**
 
-- Signature matching for the documented Zinc Finger C2H2, WD40, SH3, PDZ, and Walker A / kinase ATP-binding patterns.
+- Exact matching of the verbatim PROSITE PATTERNS PS00028 (zinc finger C2H2), PS00678 (WD-repeats), and PS00017 (Walker A / kinase ATP-binding), translated to regex by the official ScanProsite syntax rules [13].
 - Deterministic reporting of the full matched signature span for each detected pattern.
 
 **Intentionally simplified:**
 
-- Regex signatures are used instead of Pfam profile HMMs; **consequence:** remote homologs and family context outside the short signature are not modeled.
-- Only five domain families are included in source; **consequence:** other domain classes are silently outside scope.
-- Reported scores come from the repository's generic motif-scoring helper rather than a domain-specific confidence model; **consequence:** scores are useful as internal match-strength indicators, not calibrated domain probabilities.
+- A deterministic PROSITE pattern is shorter and more permissive than the full Pfam profile HMM; **consequence:** remote homologs and family context outside the short signature are not modeled, and the pattern can match sequences that do not fold into the domain (honest residual).
+- Only domains with an exact PROSITE pattern are included; **consequence:** other domain classes are silently outside scope.
+- Reported scores come from the repository's generic motif-scoring helper rather than a domain-specific confidence model; **consequence:** scores are internal match-strength indicators, not calibrated domain probabilities.
 
 **Not implemented:**
 
-- Full Pfam or InterPro profile searches; **users should rely on:** external domain annotation tools.
+- SH3 (PROSITE PS50002) and PDZ (PROSITE PS50106) domain detection; these are weight-matrix **profiles** with no deterministic pattern and are intentionally not reproduced as a fabricated regex; **users should rely on:** external profile/HMM tools (ScanProsite profiles, Pfam PF00018/PF00595).
+- Full Pfam or InterPro profile-HMM searches (trained models, not bundled); **users should rely on:** external domain annotation tools.
 - Domain-boundary refinement beyond the matched signature span; **users should rely on:** no current alternative in this repository.
 
 #### 5.3.B Signal Peptide Prediction
@@ -242,7 +241,7 @@ Repository-specific behavior confirmed by source and tests:
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | Domain signatures are used as surrogates for richer family models | Assumption | Some true domains can be missed and some chance matches can be reported | accepted | This is the core simplification behind `FindDomains(...)` |
+| 1 | Exact PROSITE patterns are used in place of full Pfam profile HMMs | Limitation | Some true domains can be missed and some chance matches reported (a pattern is more permissive than the trained HMM) | accepted | The patterns themselves are reproduced verbatim from PROSITE; SH3/PDZ (profile-only) are excluded rather than fabricated |
 | 2 | Signal peptide search is limited to cleavage positions `15` through `35` within `maxLength` | Assumption | Informative cleavage sites outside that window are never returned | accepted | This bound is explicit in `PredictSignalPeptide(...)` |
 
 ## 6. Edge Cases and Limitations
@@ -275,3 +274,6 @@ The domain helper is a compact signature scanner, not a full family annotation e
 9. El-Gebali S, Mistry J, Bateman A, et al. The Pfam protein families database in 2019. Nucleic Acids Research. https://doi.org/10.1093/nar/gky995
 10. PROSITE PS00028. Zinc finger C2H2 type. https://prosite.expasy.org/PS00028
 11. PROSITE PS00017. ATP/GTP-binding site motif A. https://prosite.expasy.org/PS00017
+12. PROSITE PS00678. Trp-Asp (WD) repeats signature (WD_REPEATS_1). https://prosite.expasy.org/PS00678
+13. PROSITE / ScanProsite pattern syntax documentation. https://prosite.expasy.org/scanprosite/scanprosite_doc.html
+14. UniProt P62873 (GBB1_HUMAN), G protein subunit beta-1 (WD40 β-propeller). https://www.uniprot.org/uniprotkb/P62873

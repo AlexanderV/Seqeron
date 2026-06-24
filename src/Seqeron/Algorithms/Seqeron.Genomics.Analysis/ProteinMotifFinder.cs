@@ -1314,53 +1314,74 @@ public static class ProteinMotifFinder
 
     #region Domain Finding
 
+    // --- Exact PROSITE PATTERN signatures (deterministic, regex-like, citable) ---
+    //
+    // The following three signatures are reproduced VERBATIM from official PROSITE PATTERN
+    // entries and translated to .NET regex using the PROSITE pattern syntax rules
+    // (PROSITE/ScanProsite user manual: 'x' → any residue, [..] → allowed set,
+    // {..} → excluded set, '-' separators dropped, x(n) → repetition):
+    // https://prosite.expasy.org/scanprosite/scanprosite_doc.html
+    //
+    // These are deterministic patterns, NOT trained HMM profiles, so they are reproduced exactly.
+
     /// <summary>
-    /// Finds common protein domains using signature patterns.
+    /// Zinc finger C2H2 PROSITE PATTERN PS00028 (Pfam PF00096): C-x(2,4)-C-x(3)-[LIVMFYWC]-x(8)-H-x(3,5)-H.
+    /// Source: PROSITE PS00028 (https://prosite.expasy.org/PS00028); Krishna SS et al. (2003) NAR 31:532–550.
     /// </summary>
+    private const string ZincFingerC2H2Pattern = @"C.{2,4}C.{3}[LIVMFYWC].{8}H.{3,5}H";
+
+    /// <summary>
+    /// WD-repeats signature PROSITE PATTERN PS00678 (WD_REPEATS_1; Pfam PF00400), verbatim:
+    /// [LIVMSTAC]-[LIVMFYWSTAGC]-[LIMSTAG]-[LIVMSTAGC]-x(2)-[DN]-x-{P}-[LIVMWSTAC]-{DP}-[LIVMFSTAG]-W-[DEN]-[LIVMFSTAGCN].
+    /// Translated: x → '.', x(2) → '.{2}', {P} → '[^P]', {DP} → '[^DP]', '-' separators dropped.
+    /// Source: PROSITE PS00678 (https://prosite.expasy.org/PS00678); Neer EJ et al. (1994) Nature 371:297–300.
+    /// </summary>
+    private const string Wd40RepeatPattern =
+        @"[LIVMSTAC][LIVMFYWSTAGC][LIMSTAG][LIVMSTAGC].{2}[DN].[^P][LIVMWSTAC][^DP][LIVMFSTAG]W[DEN][LIVMFSTAGCN]";
+
+    /// <summary>
+    /// Walker A / P-loop (ATP/GTP-binding) PROSITE PATTERN PS00017 (Pfam PF00069 kinase ATP-binding site):
+    /// [AG]-x(4)-G-K-[ST]. Source: PROSITE PS00017 (https://prosite.expasy.org/PS00017);
+    /// Walker JE et al. (1982) EMBO J 1:945–951.
+    /// </summary>
+    private const string WalkerAPattern = @"[AG].{4}GK[ST]";
+
+    /// <summary>
+    /// Finds common protein domains using deterministic PROSITE PATTERN signatures.
+    /// </summary>
+    /// <remarks>
+    /// Only domains with an EXACT PROSITE pattern are detected here: zinc finger C2H2 (PS00028),
+    /// WD-repeats (PS00678), and the Walker A / P-loop ATP-binding site (PS00017). Domains whose
+    /// only PROSITE signature is a weight-matrix PROFILE — SH3 (PS50002) and PDZ (PS50106) — have
+    /// no deterministic pattern and are intentionally NOT detected here: a profile/HMM is a trained
+    /// model that cannot be reproduced as an exact regex without fabricating a signature.
+    /// </remarks>
     public static IEnumerable<ProteinDomain> FindDomains(string proteinSequence)
     {
         if (string.IsNullOrEmpty(proteinSequence))
             yield break;
 
-        // Check for zinc finger domains
+        // Zinc finger C2H2 — exact PROSITE pattern PS00028.
         var zincFingers = FindMotifByPattern(proteinSequence,
-            @"C.{2,4}C.{3}[LIVMFYWC].{8}H.{3,5}H", "Zinc Finger C2H2", "PF00096");
+            ZincFingerC2H2Pattern, "Zinc Finger C2H2", "PF00096");
         foreach (var zf in zincFingers)
         {
             yield return new ProteinDomain("Zinc Finger C2H2", "PF00096",
                 zf.Start, zf.End, zf.Score, "Zinc finger, C2H2 type");
         }
 
-        // Check for WD40 repeats
+        // WD40 repeats — exact PROSITE pattern PS00678 (WD_REPEATS_1).
         var wd40 = FindMotifByPattern(proteinSequence,
-            @"[LIVMFYWC].{5,12}[WF]D", "WD40 Repeat", "PF00400");
+            Wd40RepeatPattern, "WD40 Repeat", "PF00400");
         foreach (var wd in wd40)
         {
             yield return new ProteinDomain("WD40 Repeat", "PF00400",
                 wd.Start, wd.End, wd.Score, "WD40/YVTN repeat-like-containing domain");
         }
 
-        // Check for SH3 domain signature
-        var sh3 = FindMotifByPattern(proteinSequence,
-            @"[LIVMF].{2}[GA]W[FYW].{5,8}[LIVMF]", "SH3", "PF00018");
-        foreach (var s in sh3)
-        {
-            yield return new ProteinDomain("SH3", "PF00018",
-                s.Start, s.End, s.Score, "SH3 domain");
-        }
-
-        // Check for PDZ domain
-        var pdz = FindMotifByPattern(proteinSequence,
-            @"[LIVMF][ST][LIVMF].{2}G[LIVMF].{3,4}[LIVMF].{2}[DEN]", "PDZ", "PF00595");
-        foreach (var p in pdz)
-        {
-            yield return new ProteinDomain("PDZ", "PF00595",
-                p.Start, p.End, p.Score, "PDZ domain");
-        }
-
-        // Check for kinase domain ATP-binding
+        // Kinase ATP-binding / P-loop — exact PROSITE pattern PS00017 (Walker A).
         var kinase = FindMotifByPattern(proteinSequence,
-            @"[AG].{4}GK[ST]", "Protein Kinase", "PF00069");
+            WalkerAPattern, "Protein Kinase", "PF00069");
         foreach (var k in kinase)
         {
             yield return new ProteinDomain("Protein Kinase ATP-binding", "PF00069",

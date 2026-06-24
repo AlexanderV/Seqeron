@@ -70,6 +70,78 @@
 2. **Function:** ATP/GTP-binding site motif A (P-loop), also known as Walker A motif
 3. **Reference:** Walker et al. (1982). EMBO J 1:945-951. https://doi.org/10.1002/j.1460-2075.1982.tb01276.x
 
+### PROSITE Database — PS00678 (WD-repeats signature, WD_REPEATS_1) — RETRIEVED 2026-06-24
+
+**URL:** https://prosite.expasy.org/PS00678
+**Retrieval:** WebFetch of https://prosite.expasy.org/PS00678 and the documentation page
+https://prosite.expasy.org/PDOC00574 — both returned the same pattern string verbatim.
+**Accessed:** 2026-06-24
+**Authority rank:** 2 (Official specification)
+
+**Key Extracted Points:**
+
+1. **Entry name / accession:** WD_REPEATS_1 / **PS00678** — "Trp-Asp (WD) repeats signature".
+2. **Pattern (verbatim from PROSITE):**
+   `[LIVMSTAC]-[LIVMFYWSTAGC]-[LIMSTAG]-[LIVMSTAGC]-x(2)-[DN]-x-{P}-[LIVMWSTAC]-{DP}-[LIVMFSTAG]-W-[DEN]-[LIVMFSTAGCN]`
+3. This is a **deterministic PROSITE PATTERN** (regex-like), NOT a profile/HMM, so it can be
+   reproduced exactly. It is a 14-element signature spanning **15 residues** (the `x(2)` element
+   covers 2 positions; all others are single positions). The terminal `W-[DEN]` is the diagnostic
+   "WD" (Trp-Asp) of the repeat.
+4. **Cross-references:** Pfam PF00400 (WD40); the separate WD-repeats **PROFILE** is PS50082
+   (WD_REPEATS_2) — a weight matrix, not a pattern.
+
+### PROSITE → regex syntax rules — RETRIEVED 2026-06-24
+
+**URL:** https://prosite.expasy.org/scanprosite/scanprosite_doc.html
+**Retrieval:** WebFetch of the ScanProsite/PROSITE pattern-syntax documentation.
+**Accessed:** 2026-06-24
+**Authority rank:** 2 (Official specification)
+
+**Rules extracted (verbatim/closely paraphrased):**
+
+1. "The standard IUPAC one letter code for the amino acids is used." → literal residue.
+2. "The symbol 'x' is used for a position where any amino acid is accepted." → regex `.`.
+3. "Ambiguities are indicated by listing the acceptable amino acids … between square brackets '[ ]'." → kept as `[..]`.
+4. "Ambiguities are also indicated by listing between a pair of curly brackets '{ }' the amino acids that are NOT accepted at a given position." → `{X}` → `[^X]`.
+5. "Each element in a pattern is separated from its neighbor by a '-'." → separators dropped.
+6. Repetition `e(n)` / gap `x(n)` / range `x(m,n)` → `e{n}` / `.{n}` / `.{m,n}`.
+7. N-terminal `<` → `^`; C-terminal `>` → `$`.
+
+**Applied translation of PS00678:**
+`[LIVMSTAC][LIVMFYWSTAGC][LIMSTAG][LIVMSTAGC].{2}[DN].[^P][LIVMWSTAC][^DP][LIVMFSTAG]W[DEN][LIVMFSTAGCN]`
+
+### PROSITE SH3 (PS50002) and PDZ (PS50106) are PROFILE-only — RETRIEVED 2026-06-24
+
+**URLs:** https://prosite.expasy.org/PDOC50002 (SH3), https://prosite.expasy.org/PDOC50106 (PDZ),
+EBI InterPro profile entries https://www.ebi.ac.uk/interpro/entry/profile/PS50002 and `/PS50106`.
+**Retrieval:** WebSearch + the PROSITE/InterPro entries.
+**Accessed:** 2026-06-24
+**Authority rank:** 2 (Official specification)
+
+**Key Extracted Points:**
+
+1. **SH3 (Src homology 3): PS50002 is a PROFILE (weight matrix)**, NOT a pattern — "profiles use
+   weight matrices … characterize protein domains over their entire length." There is **no
+   deterministic PROSITE PATTERN** for the SH3 domain.
+2. **PDZ (DHR / GLGF): PS50106 is a PROFILE** covering the minimal PDZ domain — no deterministic
+   PROSITE PATTERN exists.
+3. **Consequence:** SH3 and PDZ **cannot** be reproduced as an exact regex without fabricating a
+   signature. They are therefore NOT detected by `FindDomains` (honest residual). The previously
+   shipped ad-hoc SH3/PDZ regexes were not sourced from any PROSITE pattern and have been removed.
+
+### Real WD40 positive — GBB1_HUMAN (UniProt P62873) — RETRIEVED 2026-06-24
+
+**URL:** https://rest.uniprot.org/uniprotkb/P62873.fasta
+**Retrieval:** WebFetch of the UniProt REST FASTA.
+**Accessed:** 2026-06-24
+**Authority rank:** 5 (UniProt curated database)
+
+**Key Extracted Points:**
+
+1. GBB1_HUMAN (β-transducin / Gβ1) is a canonical 7-bladed WD40 β-propeller.
+2. The PS00678-translated regex matches the sequence at **0-based starts 69, 156, 284** (each a
+   15-residue window). Example repeat (start 69): `LVSASQDGKLIIWDS`.
+
 ### von Heijne G (1986). Signal sequences — the limits of variation
 
 **URL:** https://doi.org/10.1016/0022-2836(85)90046-4

@@ -82,22 +82,24 @@ public class ProteinMotifCombinatorialTests
     // Spec: tests/TestSpecs/PROTMOTIF-DOMAIN-001.md (canonical FindDomains).
     // Dimensions: eValueThreshold(3) × minDomainLen(3) × nProfiles(3). Grid 3×3×3 = 27.
     //
-    // Model (Pfam profile scan): FindDomains scans a fixed library of domain signatures (zinc
-    // finger PF00096, kinase PF00069, SH3 PF00018, …) and reports each hit's span and score. The
-    // library is fixed, so nProfiles is realised as the number of distinct domain types planted;
-    // eValueThreshold/minDomainLen are caller-side score/length filters on the output.
+    // Model (exact PROSITE pattern scan): FindDomains scans a fixed library of EXACT PROSITE
+    // PATTERN signatures (zinc finger C2H2 PS00028/PF00096, WD-repeats PS00678/PF00400, kinase
+    // ATP-binding PS00017/PF00069) and reports each hit's span and score. SH3/PDZ are PROFILE-only
+    // (PS50002/PS50106) and are intentionally not detected. The library is fixed, so nProfiles is
+    // realised as the number of distinct domain types planted; eValueThreshold/minDomainLen are
+    // caller-side score/length filters on the output.
     //
     // The combinatorial point: planted domain count, score threshold and length threshold interact
     // — exactly the planted domain types are detected, and a (score ≥ eVal ∧ length ≥ minLen)
     // filter yields only domains satisfying both, monotonically.
     // ═══════════════════════════════════════════════════════════════════════
 
-    // Peptides matching the FindDomains regexes for the first three domain profiles.
+    // Peptides matching the FindDomains exact-PROSITE-pattern regexes for three domain profiles.
     private static readonly (string Acc, string Motif)[] DomainMotifs =
     {
-        ("PF00096", "CAACAAALAAAAAAAAHAAAH"), // zinc finger C2H2
-        ("PF00069", "AAAAAGKS"),             // kinase ATP-binding
-        ("PF00018", "LAAGWFAAAAAL"),         // SH3
+        ("PF00096", "CAACAAALAAAAAAAAHAAAH"), // zinc finger C2H2 (PS00028)
+        ("PF00069", "AAAAAGKS"),             // kinase ATP-binding / P-loop (PS00017)
+        ("PF00400", "LVSASQDGKLIIWDS"),      // WD-repeats (PS00678); real GBB1_HUMAN repeat
     };
 
     private static string PlantDomains(int nProfiles)

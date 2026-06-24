@@ -2,10 +2,38 @@
 
 - **Validated:** 2026-06-24   **Area:** ProteinMotif
 - **Canonical method(s):** `ProteinMotifFinder.FindDomains(string)`
-- **Source:** `src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/ProteinMotifFinder.cs:1320–1369`
-- **Tests:** `tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_DomainPrediction_Tests.cs` (12 tests)
-- **Stage A verdict:** PASS-WITH-NOTES
+- **Source:** `src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/ProteinMotifFinder.cs` (Domain Finding region)
+- **Tests:** `tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_DomainPrediction_Tests.cs` (14 tests)
+- **Stage A verdict:** PASS
 - **Stage B verdict:** PASS
+
+---
+
+## Update 2026-06-24 — exact PROSITE patterns (limitation fix); Status reset to ☐
+
+The prior PASS-WITH-NOTES rested on WD40/SH3/PDZ being honestly-declared *simplified* ad-hoc
+regexes. This limitation fix removes that residual where a deterministic PROSITE pattern exists:
+
+- **WD40 → EXACT PROSITE PATTERN PS00678** (WD_REPEATS_1), retrieved verbatim 2026-06-24 from
+  https://prosite.expasy.org/PS00678 and https://prosite.expasy.org/PDOC00574:
+  `[LIVMSTAC]-[LIVMFYWSTAGC]-[LIMSTAG]-[LIVMSTAGC]-x(2)-[DN]-x-{P}-[LIVMWSTAC]-{DP}-[LIVMFSTAG]-W-[DEN]-[LIVMFSTAGCN]`.
+  Translated by the official ScanProsite syntax rules
+  (https://prosite.expasy.org/scanprosite/scanprosite_doc.html) to
+  `[LIVMSTAC][LIVMFYWSTAGC][LIMSTAG][LIVMSTAGC].{2}[DN].[^P][LIVMWSTAC][^DP][LIVMFSTAG]W[DEN][LIVMFSTAGCN]`
+  (14 elements, fixed 15 residues). The prior ad-hoc `[LIVMFYWC]-x(5,12)-[WF]-D` regex was replaced.
+  Validated against the real WD40 β-propeller GBB1_HUMAN (UniProt P62873): matches at 0-based
+  starts 69, 156, 284.
+- **SH3 (PROSITE PS50002) and PDZ (PROSITE PS50106) are PROFILES (weight matrices), not patterns**
+  (confirmed via PDOC50002 / PDOC50106 + EBI InterPro). No deterministic pattern exists, so the
+  previously shipped *unsourced* ad-hoc SH3/PDZ regexes were **removed** rather than fabricating a
+  signature. `FindDomains` no longer reports SH3/PDZ — an **honest residual**. Pfam HMM profiles
+  (PF00018, PF00595, the full PF00400 family) are trained models and are not bundled.
+- **Unchanged exact patterns:** zinc finger C2H2 **PS00028** and Walker-A / P-loop **PS00017**.
+- **Tests:** now 14 (was 12) — added M7 (PS00678 real-segment match, Start=4/End=18/15 aa),
+  M8 (near-miss: invariant Trp removed → no match), M9 (GBB1_HUMAN hits {69,156,284}),
+  M10 (verbatim PS00678 string through the PROSITE→regex translator vs hand-traced 15-mer),
+  S5 (Src SH3 core is NOT reported as SH3/PDZ). Removed the old SH3/PDZ positive tests.
+- Full suite green; Status reset ☑→☐ in the root registry for independent re-validation.
 
 ---
 
