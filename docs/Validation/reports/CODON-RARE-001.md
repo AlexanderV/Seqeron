@@ -109,9 +109,33 @@ counts, strict-`<` boundary, organism-specific classification, and invariants
 ## Verdict & follow-ups
 - **Stage A: PASS-WITH-NOTES** — metric (per-family fraction), threshold (0.15, strict `<`),
   and rare E. coli codon set independently confirmed against Kazusa and the rare-codon
-  literature. Note: cluster/run detection mentioned in the spec narrative is NOT implemented;
-  the method is per-codon by contract (documented limitation, not a defect).
+  literature.
 - **Stage B: PASS** — code faithfully realises the per-family `freq < threshold` criterion;
-  positions and frequencies match; 21/21 unit tests green; full suite unaffected (no code
-  changed).
-- **State: CLEAN.** No code changes required.
+  positions and frequencies match; 21/21 per-codon unit tests green.
+- **State: CLEAN** (for the per-codon contract).
+
+## 2026-06-24 — Limitation closed: rare-codon cluster / run detection added
+
+The PASS-WITH-NOTES item "cluster/run detection mentioned in the spec narrative is NOT
+implemented" has been **resolved** by adding two opt-in, source-backed sliding-window methods
+to `CodonOptimizer` (per-codon `FindRareCodons` default behaviour unchanged):
+
+- `CalculateMinMaxProfile(string, CodonUsageTable, int windowSize = 18)` — the **%MinMax**
+  profile of **Clarke & Clark (2008), "Rare Codons Cluster", PLoS ONE 3(10):e3412**
+  (doi:10.1371/journal.pone.0003412). Per amino acid: `Xij`, `Xmax,i`, `Xmin,i`,
+  `Xavg,i = (1/n)ΣXij`; per window `%Max = Σ(Xij−Xavg)/Σ(Xmax−Xavg)×100` (positive) or
+  `%Min = Σ(Xavg−Xij)/Σ(Xavg−Xmin)×100` (returned negative). Default window 18 codons.
+- `FindRareCodonClusters(string, CodonUsageTable, double rareThreshold = 0.15, int windowSize = 7,
+  int minRareCodons = 4)` — the **Sherlocc** rare-codon-cluster rule of **Chartier, Gaudreault &
+  Najmanovich (2012), Bioinformatics 28(11):1438–1445** (doi:10.1093/bioinformatics/bts149):
+  "a seven position-wide window … containing at least four pause positions out of seven";
+  a "pause"/"slow" position is a codon below the rare threshold. Overlapping qualifying windows
+  merge into maximal clusters.
+
+Both windows/thresholds are copied verbatim from the retrieved sources (18 codons; 7-codon
+window, ≥4 rare) — no invented parameters. New tests:
+`tests/Seqeron/Seqeron.Genomics.Tests/CodonOptimizer_RareCodonClusters_Tests.cs` (24 cases,
+exact %MinMax values and exact cluster boundaries). Evidence/algorithm-doc/TestSpec extended.
+
+**State: re-validation pending.** The ROOT `ALGORITHMS_CHECKLIST_V2.md` Status for
+CODON-RARE-001 is reset ☑ → ☐ pending an independent re-validation of the new capability.

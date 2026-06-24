@@ -5,12 +5,12 @@
 | Algorithm Group | Codon Optimization |
 | Test Unit ID | CODON-RARE-001 |
 | Related Projects | N/A |
-| Implementation Status | N/A |
-| Last Reviewed | 2026-04-30 |
+| Implementation Status | Production |
+| Last Reviewed | 2026-06-24 |
 
 ## 1. Overview
 
-Rare codon detection identifies codons whose reference frequency in a target organism falls below a chosen threshold.[1][2][3] In this repository, `CodonOptimizer.FindRareCodons` streams the positions, codons, amino-acid translations, and table frequencies for codons whose frequency is strictly less than the threshold. The method is designed for sequence inspection and optimization workflows, especially when expressing genes in a heterologous host. It is deterministic, linear in the number of complete codons, and relies entirely on the supplied `CodonUsageTable`.[5]
+Rare codon detection identifies codons whose reference frequency in a target organism falls below a chosen threshold.[1][2][3] In this repository, `CodonOptimizer.FindRareCodons` streams the positions, codons, amino-acid translations, and table frequencies for codons whose frequency is strictly less than the threshold (per-codon detection, default behaviour). Two opt-in companions detect rare-codon **clusters / runs**: `CodonOptimizer.CalculateMinMaxProfile` computes the Clarke & Clark (2008) %MinMax sliding-window profile,[6] and `CodonOptimizer.FindRareCodonClusters` reports rare-codon clusters using the Sherlocc rule of Chartier et al. (2012) — a 7-codon window containing at least 4 rare ("pause") codons.[8] The methods are designed for sequence inspection and optimization workflows, especially when expressing genes in a heterologous host. They are deterministic, linear in the number of complete codons, and rely entirely on the supplied `CodonUsageTable`.[5]
 
 ## 2. Scientific / Formal Basis
 
@@ -35,6 +35,19 @@ frequency(codon) < threshold
 
 Each reported item is a tuple of the nucleotide position, codon, translated amino acid, and frequency.
 
+**Cluster / run detection (opt-in).** Two published sliding-window methods extend the per-codon view to consecutive rare-codon runs:
+
+- **%MinMax (Clarke & Clark 2008).**[6][7] For amino acid `i` with `n` synonymous codons, let `Xij` be the usage frequency of the codon actually used, `Xmax,i` / `Xmin,i` the most / least common synonymous codon frequencies, and `Xavg,i = (1/n) Σ Xij` the per-family mean. Over a window of `w` codons:
+
+  ```text
+  if Σ Xij > Σ Xavg,i :  %Max = Σ(Xij − Xavg,i) / Σ(Xmax,i − Xavg,i) × 100   (positive)
+  if Σ Xij < Σ Xavg,i :  %Min = Σ(Xavg,i − Xij) / Σ(Xavg,i − Xmin,i) × 100   (negative)
+  ```
+
+  A window of predominantly rare codons appears as a negative %Min value; −100 is encoded with only the rarest synonymous codons, +100 with only the most common.[6] The default window is 18 codons.[6]
+
+- **Sherlocc rare-codon cluster (RCC) rule (Chartier et al. 2012).**[8] A "seven position-wide window … containing at least four pause positions out of seven" is a rare-codon cluster, where a "pause"/"slow" position is a codon whose usage frequency is below the rare threshold.[8] Defaults: window 7 codons, ≥ 4 rare codons, threshold 0.15 (the same per-codon cutoff as `FindRareCodons`).
+
 ### 2.3 Modeling Assumptions
 
 | ID | Assumption | Consequence if Violated |
@@ -50,6 +63,10 @@ Each reported item is a tuple of the nucleotide position, codon, translated amin
 | INV-02 | Every reported frequency is strictly less than `threshold`. | The implementation uses `<`, not `<=`. |
 | INV-03 | Every reported codon has length `3`. | Only complete triplets are split into codons. |
 | INV-04 | Re-running the method with the same inputs yields the same output. | The method is a deterministic single pass over normalized codons. |
+| INV-05 | Every `CalculateMinMaxProfile` value lies in `[-100, 100]`. | The %MinMax numerator never exceeds the denominator (actual deviation ≤ max/min deviation).[6] |
+| INV-06 | `CalculateMinMaxProfile` produces `codonCount − w + 1` windows when `codonCount ≥ w`, else none. | The window slides one codon at a time.[6] |
+| INV-07 | A single-codon amino acid (Met/Trp) contributes `0` to a %MinMax window (no NaN). | `Xmax = Xmin = Xavg = Xij`, so its numerator and denominator terms are both `0`.[6] |
+| INV-08 | Every `FindRareCodonClusters` cluster contains `≥ minRareCodons` rare codons. | A cluster originates from a qualifying window; merged regions only add codons.[8] |
 
 ## 3. Contract
 
@@ -106,7 +123,9 @@ The original document recorded the following threshold-selection guidance:
 
 **Implementation location:** [CodonOptimizer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs)
 
-- `CodonOptimizer.FindRareCodons(string, CodonUsageTable, double)`
+- `CodonOptimizer.FindRareCodons(string, CodonUsageTable, double)`: per-codon detection (default).
+- `CodonOptimizer.CalculateMinMaxProfile(string, CodonUsageTable, int)`: %MinMax sliding-window profile (Clarke & Clark 2008).[6] Returns `IReadOnlyList<MinMaxWindow>` (`WindowStartCodon`, signed `PercentMinMax`).
+- `CodonOptimizer.FindRareCodonClusters(string, CodonUsageTable, double, int, int)`: Sherlocc rare-codon clusters (Chartier et al. 2012).[8] Returns `IReadOnlyList<RareCodonCluster>` (`StartCodon`, `EndCodon`, `RareCount`), maximal non-overlapping regions in codon-index order.
 
 ### 5.2 Current Behavior
 
@@ -118,16 +137,19 @@ The method converts `T` to `U`, ignores trailing incomplete codons, and reports 
 
 - Codons are flagged as rare when their reference frequency is below the chosen threshold.[2][5]
 - The result includes position, codon, amino acid, and frequency, matching the repository test specification.[5]
+- The %MinMax window formula (per-amino-acid `Xij`, `Xmax,i`, `Xmin,i`, `Xavg,i`; `%Max`/`%Min` selection by summed-window comparison; 18-codon default) is reproduced exactly.[6][7]
+- The Sherlocc rare-codon-cluster rule (7-codon window, ≥ 4 rare/pause positions) is reproduced exactly, with the tunable window/threshold parameters of the reference implementation.[8]
 
 **Intentionally simplified:**
 
-- Detection is table-threshold-based and does not model ribosome dynamics or local codon context; **consequence:** the output is a screening list rather than a direct translation-efficiency prediction.
+- Per-codon detection is table-threshold-based and does not model ribosome dynamics or local codon context; **consequence:** the per-codon output is a screening list rather than a direct translation-efficiency prediction. (Cluster context is now available via the opt-in methods.)
 - Unknown codons default to frequency `0`; **consequence:** malformed codons are surfaced as rare rather than rejected.
+- `FindRareCodonClusters` merges overlapping qualifying windows into maximal cluster regions and does not compute the simulation-based cluster P-values of the full Sherlocc pipeline; **consequence:** clusters are reported by the window/count rule only, without per-cluster statistical significance.
 
 **Not implemented:**
 
-- Rare-codon cluster scoring or context-aware pause modeling; **users should rely on:** no current alternative.
-- Automatic integration with codon optimization inside this method; **users should rely on:** [Sequence_Optimization.md](Sequence_Optimization.md).
+- Evolutionary-conservation filtering and per-cluster simulation P-values of the full Sherlocc pipeline;[8] **users should rely on:** the Sherlocc web service for conservation-aware significance.
+- Automatic integration with codon optimization inside these methods; **users should rely on:** [Sequence_Optimization.md](Sequence_Optimization.md).
 
 ## 6. Edge Cases and Limitations
 
@@ -143,7 +165,7 @@ The method converts `T` to `U`, ignores trailing incomplete codons, and reports 
 
 ### 6.2 Limitations
 
-Rare-codon detection here is a simple table lookup over codon triplets. It does not consider rare-codon clustering, local sequence context, initiation effects, or organism-specific regulation beyond the supplied frequency table.
+Per-codon `FindRareCodons` is a simple table lookup over codon triplets and does not consider local sequence context or initiation effects. Rare-codon **clustering / runs** are now covered by the opt-in `CalculateMinMaxProfile` (%MinMax) and `FindRareCodonClusters` (Sherlocc) methods, but these still operate purely on the supplied frequency table: they do not model ribosome dynamics, do not weight 5'-vs-internal position, and `FindRareCodonClusters` does not compute the evolutionary-conservation-aware P-values of the full Sherlocc pipeline.
 
 ## 7. Examples and Related Material
 
@@ -152,12 +174,21 @@ Rare-codon detection here is a simple table lookup over codon triplets. It does 
 ```csharp
 string sequence = "AUGAGAAGGCGA";
 var rareList = CodonOptimizer.FindRareCodons(sequence, CodonOptimizer.EColiK12, 0.10);
-// Returns: (3, "AGA", "R", 0.04), (6, "AGG", "R", 0.02), (9, "CGA", "R", 0.06)
+// Per-codon: (3, "AGA", "R", 0.04), (6, "AGG", "R", 0.02), (9, "CGA", "R", 0.06)
+
+// Cluster / run detection (opt-in):
+string run = string.Concat(Enumerable.Repeat("AGA", 7)); // 7 rare Arg codons
+var clusters = CodonOptimizer.FindRareCodonClusters(run, CodonOptimizer.EColiK12);
+// Sherlocc 7/4 rule -> one cluster: RareCodonCluster(StartCodon: 0, EndCodon: 6, RareCount: 7)
+
+var profile = CodonOptimizer.CalculateMinMaxProfile("AGAAGAAGA", CodonOptimizer.EColiK12, windowSize: 3);
+// %MinMax: one window, PercentMinMax ≈ −86.3636 (a rare-codon %Min trough)
 ```
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [CodonOptimizer_FindRareCodons_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/CodonOptimizer_FindRareCodons_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
+- Tests (per-codon): [CodonOptimizer_FindRareCodons_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/CodonOptimizer_FindRareCodons_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
+- Tests (clusters / runs): [CodonOptimizer_RareCodonClusters_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/CodonOptimizer_RareCodonClusters_Tests.cs) — covers `INV-05`, `INV-06`, `INV-07`, `INV-08`
 - Test specification: [CODON-RARE-001.md](../../../tests/TestSpecs/CODON-RARE-001.md)
 - Related algorithms: [Sequence_Optimization.md](Sequence_Optimization.md), [CAI_Calculation.md](CAI_Calculation.md)
 
@@ -168,3 +199,6 @@ var rareList = CodonOptimizer.FindRareCodons(sequence, CodonOptimizer.EColiK12, 
 3. Plotkin JB, Kudla G. 2011. Synonymous but not the same: causes and consequences of codon bias. Nature Reviews Genetics. N/A
 4. Kane JF. 1995. Effects of rare codon clusters on high-level expression of heterologous proteins in E. coli. Current Opinion in Biotechnology. N/A
 5. Test specification: [CODON-RARE-001.md](../../../tests/TestSpecs/CODON-RARE-001.md)
+6. Clarke TF, Clark PL. 2008. Rare Codons Cluster. PLoS ONE 3(10):e3412. https://doi.org/10.1371/journal.pone.0003412
+7. Rodriguez A, Wright G, Emrich S, Clark PL. 2018. %MinMax: A versatile tool for calculating and comparing synonymous codon usage and its impact on protein folding. Protein Science. https://pmc.ncbi.nlm.nih.gov/articles/PMC5734269/
+8. Chartier M, Gaudreault F, Najmanovich R. 2012. Large-scale analysis of conserved rare codon clusters suggests an involvement in co-translational molecular recognition events. Bioinformatics 28(11):1438–1445. https://doi.org/10.1093/bioinformatics/bts149

@@ -35,6 +35,27 @@ public static class CodonOptimizer
         IReadOnlyList<(int Position, string Original, string Optimized)> Changes);
 
     /// <summary>
+    /// One window of the %MinMax codon-usage profile of Clarke &amp; Clark (2008).
+    /// </summary>
+    /// <param name="WindowStartCodon">0-based codon index of the first codon in the window.</param>
+    /// <param name="PercentMinMax">
+    /// Signed %MinMax value for the window: positive values are %Max (a run of predominantly
+    /// common codons), negative values are %Min (a run of predominantly rare codons), and 0
+    /// means the window's codon usage equals the per-amino-acid average. A value of −100
+    /// is a window encoded entirely with the rarest synonymous codons; +100 is one encoded
+    /// entirely with the most common synonymous codons. (Clarke &amp; Clark 2008.)
+    /// </param>
+    public readonly record struct MinMaxWindow(int WindowStartCodon, double PercentMinMax);
+
+    /// <summary>
+    /// One rare-codon cluster (RCC) detected by the Sherlocc rule of Chartier et&#160;al. (2012).
+    /// </summary>
+    /// <param name="StartCodon">0-based codon index of the first codon in the cluster window.</param>
+    /// <param name="EndCodon">0-based codon index of the last codon in the cluster window (inclusive).</param>
+    /// <param name="RareCount">Number of rare ("pause") codons inside the window.</param>
+    public readonly record struct RareCodonCluster(int StartCodon, int EndCodon, int RareCount);
+
+    /// <summary>
     /// Optimization strategy options.
     /// </summary>
     public enum OptimizationStrategy
@@ -659,6 +680,224 @@ public static class CodonOptimizer
                 yield return (i * 3, codons[i], aa, freq);
             }
         }
+    }
+
+    // Default sliding-window width (in codons) for the %MinMax profile.
+    // "%MinMax results are typically averaged over an 18-codon sliding window."
+    // Clarke TF, Clark PL (2008) "Rare Codons Cluster", PLoS ONE 3(10):e3412.
+    private const int DefaultMinMaxWindowCodons = 18;
+
+    // Sherlocc rare-codon-cluster (RCC) detection parameters.
+    // "a seven position-wide window ... containing at least four pause positions out of seven."
+    // Chartier M, Gaudreault F, Najmanovich R (2012) Bioinformatics 28(11):1438-1445,
+    // doi:10.1093/bioinformatics/bts149.
+    private const int DefaultClusterWindowCodons = 7;
+    private const int DefaultClusterMinRareCodons = 4;
+
+    /// <summary>
+    /// Computes the %MinMax codon-usage profile of Clarke &amp; Clark (2008) over a sliding window.
+    /// </summary>
+    /// <remarks>
+    /// For each amino acid <c>i</c> with <c>n</c> synonymous codons, let <c>Xij</c> be the usage
+    /// frequency of the codon actually used, <c>Xmax,i</c> / <c>Xmin,i</c> the usage frequencies of
+    /// the most / least common synonymous codon, and <c>Xavg,i</c> the arithmetic mean of the
+    /// synonymous codon frequencies. Over a window of <paramref name="windowSize"/> codons:
+    /// if Σ Xij &gt; Σ Xavg,i the window yields %Max = Σ(Xij − Xavg,i) / Σ(Xmax,i − Xavg,i) × 100
+    /// (returned as a positive value); if Σ Xij &lt; Σ Xavg,i it yields %Min =
+    /// Σ(Xavg,i − Xij) / Σ(Xavg,i − Xmin,i) × 100 (returned as a negative value). Codons of
+    /// single-codon amino acids and unknown / stop codons (no synonymous spread) contribute 0 to
+    /// both numerator and denominator. Source: Clarke &amp; Clark (2008), PLoS ONE 3(10):e3412.
+    /// </remarks>
+    /// <param name="codingSequence">DNA or RNA coding sequence (T is normalised to U).</param>
+    /// <param name="table">Reference codon-usage table (per-amino-acid relative fractions).</param>
+    /// <param name="windowSize">Sliding-window width in codons (default 18, per Clarke &amp; Clark 2008).</param>
+    /// <returns>
+    /// One <see cref="MinMaxWindow"/> per window position (codon indices
+    /// 0 .. codonCount − windowSize). Empty if the sequence has fewer than
+    /// <paramref name="windowSize"/> complete codons.
+    /// </returns>
+    /// <exception cref="ArgumentOutOfRangeException">windowSize &lt; 1.</exception>
+    public static IReadOnlyList<MinMaxWindow> CalculateMinMaxProfile(
+        string codingSequence,
+        CodonUsageTable table,
+        int windowSize = DefaultMinMaxWindowCodons)
+    {
+        if (windowSize < 1)
+            throw new ArgumentOutOfRangeException(nameof(windowSize), windowSize, "Window size must be at least 1 codon.");
+
+        var profile = new List<MinMaxWindow>();
+        if (string.IsNullOrEmpty(codingSequence))
+            return profile;
+
+        string rna = codingSequence.ToUpperInvariant().Replace('T', 'U');
+        var codons = SplitIntoCodons(rna);
+        if (codons.Count < windowSize)
+            return profile;
+
+        // Per-codon (Xij), per-family average (Xavg), max (Xmax) and min (Xmin) frequencies.
+        var xij = new double[codons.Count];
+        var xavg = new double[codons.Count];
+        var xmax = new double[codons.Count];
+        var xmin = new double[codons.Count];
+        for (int i = 0; i < codons.Count; i++)
+        {
+            string codon = codons[i];
+            xij[i] = table.CodonFrequencies.GetValueOrDefault(codon, 0);
+            string aa = TranslateCodon(codon);
+
+            if (AminoAcidToCodons.TryGetValue(aa, out var synonyms) && synonyms.Count > 0)
+            {
+                double sum = 0, max = double.MinValue, min = double.MaxValue;
+                foreach (var syn in synonyms)
+                {
+                    double f = table.CodonFrequencies.GetValueOrDefault(syn, 0);
+                    sum += f;
+                    if (f > max) max = f;
+                    if (f < min) min = f;
+                }
+                xavg[i] = sum / synonyms.Count;
+                xmax[i] = max;
+                xmin[i] = min;
+            }
+            else
+            {
+                // Unknown codon: no synonymous family — contributes nothing to either side.
+                xavg[i] = xij[i];
+                xmax[i] = xij[i];
+                xmin[i] = xij[i];
+            }
+        }
+
+        for (int start = 0; start + windowSize <= codons.Count; start++)
+        {
+            double sumXij = 0, sumXavg = 0, sumMaxDelta = 0, sumMinDelta = 0;
+            for (int k = start; k < start + windowSize; k++)
+            {
+                sumXij += xij[k];
+                sumXavg += xavg[k];
+                sumMaxDelta += xmax[k] - xavg[k];
+                sumMinDelta += xavg[k] - xmin[k];
+            }
+
+            double percent;
+            if (sumXij > sumXavg)
+            {
+                // %Max — positive value.
+                percent = sumMaxDelta > 0 ? (sumXij - sumXavg) / sumMaxDelta * 100.0 : 0.0;
+            }
+            else if (sumXij < sumXavg)
+            {
+                // %Min — returned as a negative value (rare-codon side).
+                percent = sumMinDelta > 0 ? -((sumXavg - sumXij) / sumMinDelta * 100.0) : 0.0;
+            }
+            else
+            {
+                percent = 0.0;
+            }
+
+            profile.Add(new MinMaxWindow(start, percent));
+        }
+
+        return profile;
+    }
+
+    /// <summary>
+    /// Detects rare-codon clusters (RCCs) using the Sherlocc rule of Chartier et&#160;al. (2012):
+    /// a window of <paramref name="windowSize"/> codons is a cluster when it contains at least
+    /// <paramref name="minRareCodons"/> rare ("pause") codons.
+    /// </summary>
+    /// <remarks>
+    /// A codon is "rare"/"pause" when its usage frequency in <paramref name="table"/> is strictly
+    /// below <paramref name="rareThreshold"/> — the same per-codon criterion as
+    /// <see cref="FindRareCodons"/>. Overlapping windows are merged into maximal clusters so a long
+    /// rare run is reported once. This is opt-in; <see cref="FindRareCodons"/> (per-codon) is
+    /// unchanged. Defaults reproduce the published Sherlocc rule "a seven position-wide window …
+    /// containing at least four pause positions out of seven" (Chartier et&#160;al. 2012,
+    /// doi:10.1093/bioinformatics/bts149).
+    /// </remarks>
+    /// <param name="codingSequence">DNA or RNA coding sequence (T is normalised to U).</param>
+    /// <param name="table">Reference codon-usage table (per-amino-acid relative fractions).</param>
+    /// <param name="rareThreshold">Per-codon rare-frequency cutoff (default 0.15, strict &lt;).</param>
+    /// <param name="windowSize">Cluster window width in codons (default 7, per Sherlocc).</param>
+    /// <param name="minRareCodons">Minimum rare codons in a window to call a cluster (default 4, per Sherlocc).</param>
+    /// <returns>Maximal, non-overlapping <see cref="RareCodonCluster"/> regions in codon-index order.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">windowSize &lt; 1 or minRareCodons &lt; 1.</exception>
+    public static IReadOnlyList<RareCodonCluster> FindRareCodonClusters(
+        string codingSequence,
+        CodonUsageTable table,
+        double rareThreshold = 0.15,
+        int windowSize = DefaultClusterWindowCodons,
+        int minRareCodons = DefaultClusterMinRareCodons)
+    {
+        if (windowSize < 1)
+            throw new ArgumentOutOfRangeException(nameof(windowSize), windowSize, "Window size must be at least 1 codon.");
+        if (minRareCodons < 1)
+            throw new ArgumentOutOfRangeException(nameof(minRareCodons), minRareCodons, "Minimum rare codons must be at least 1.");
+
+        var clusters = new List<RareCodonCluster>();
+        if (string.IsNullOrEmpty(codingSequence))
+            return clusters;
+
+        string rna = codingSequence.ToUpperInvariant().Replace('T', 'U');
+        var codons = SplitIntoCodons(rna);
+        if (codons.Count < windowSize)
+            return clusters;
+
+        // Mark each codon as rare (pause) when its table frequency is strictly below the threshold.
+        var isRare = new bool[codons.Count];
+        for (int i = 0; i < codons.Count; i++)
+            isRare[i] = table.CodonFrequencies.GetValueOrDefault(codons[i], 0) < rareThreshold;
+
+        int? mergedStart = null;
+        int mergedEnd = -1;
+        int windowRare = 0;
+        for (int start = 0; start + windowSize <= codons.Count; start++)
+        {
+            if (start == 0)
+            {
+                for (int k = 0; k < windowSize; k++)
+                    if (isRare[k]) windowRare++;
+            }
+            else
+            {
+                if (isRare[start - 1]) windowRare--;
+                if (isRare[start + windowSize - 1]) windowRare++;
+            }
+
+            if (windowRare >= minRareCodons)
+            {
+                int end = start + windowSize - 1;
+                if (mergedStart is null)
+                {
+                    mergedStart = start;
+                    mergedEnd = end;
+                }
+                else if (start <= mergedEnd + 1)
+                {
+                    // Overlapping or adjacent qualifying window — extend the current cluster.
+                    mergedEnd = end;
+                }
+                else
+                {
+                    clusters.Add(BuildCluster(mergedStart.Value, mergedEnd, isRare));
+                    mergedStart = start;
+                    mergedEnd = end;
+                }
+            }
+        }
+
+        if (mergedStart is not null)
+            clusters.Add(BuildCluster(mergedStart.Value, mergedEnd, isRare));
+
+        return clusters;
+    }
+
+    private static RareCodonCluster BuildCluster(int start, int end, bool[] isRare)
+    {
+        int count = 0;
+        for (int k = start; k <= end; k++)
+            if (isRare[k]) count++;
+        return new RareCodonCluster(start, end, count);
     }
 
     /// <summary>
