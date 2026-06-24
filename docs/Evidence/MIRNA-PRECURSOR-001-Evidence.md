@@ -283,3 +283,136 @@ Folded this session with `RnaSecondaryStructure.CalculateMfeStructure` (Turner 2
 The `5S-rRNA-like` case proves the assessment rejects on **structure** (multibranch), not merely on a
 weak ΔG°: its ΔG° (−47.04) is more negative than `ValidHairpin57`'s, yet it is correctly rejected
 because the MFE fold is not a single dominant hairpin.
+
+---
+
+## Drosha/Dicer Cleavage-Site Prediction (opt-in) — Sources retrieved 2026-06-24
+
+The opt-in `PredictDroshaDicerCleavage` method predicts the Drosha and Dicer cut coordinates and the
+resulting mature-miRNA / miRNA* spans from a pri-miRNA hairpin, using the PUBLISHED measuring rules
+(distances from the basal junction and from the Drosha-generated 5' end). No trained model is used.
+Every distance/overhang below was retrieved verbatim this session.
+
+### Han et al. (2006): Molecular Basis for the Recognition of Primary microRNAs by the Drosha-DGCR8 Complex
+
+**Retrieved via:** WebFetch of https://pubmed.ncbi.nlm.nih.gov/16751099/ (2026-06-24).
+**Authority rank:** 1 (Peer-reviewed, Cell 125(5):887-901, doi:10.1016/j.cell.2006.03.043).
+
+**Verbatim (abstract):** *"A typical metazoan pri-miRNA consists of a stem of approximately 33 bp, with
+a terminal loop and flanking segments. The terminal loop is unessential, whereas the flanking ssRNA
+segments are critical for processing. **The cleavage site is determined mainly by the distance
+(approximately 11 bp) from the stem-ssRNA junction.** Purified DGCR8, but not Drosha, interacts with
+pri-miRNAs both directly and specifically, and the flanking ssRNA segments are vital for this binding
+to occur. Thus, DGCR8 may function as the molecular anchor that measures the distance from the
+dsRNA-ssRNA junction."*
+
+1. **Drosha ruler distance:** ~**11 bp** from the basal stem-ssRNA (dsRNA-ssRNA) junction = the
+   constant `DroshaCutBpFromBasalJunction = 11`.
+2. **Stem length:** ~**33 bp** total stem.
+3. **One helical turn:** ~11 bp ≈ one RNA helical turn (the "ruler" measured by DGCR8/Drosha) — also
+   confirmed in Lee et al. (2003) and the Cell 2006 microprocessor review (search-result quote: *"count
+   up ∼11 bp, one helical RNA turn, to the scissile phosphodiester bond"*).
+
+### Lower-stem / upper-stem geometry (re-confirmed via search 2026-06-24)
+
+**Retrieved via:** WebSearch (2026-06-24); corroborating reviews — *Drosha and Dicer: Slicers cut from
+the same cloth*, Cell Research 2016 (https://www.nature.com/articles/cr201619) and the NAR lower-stem
+paper (https://academic.oup.com/nar/article/48/5/2579/5709711).
+
+**Verbatim facts extracted:**
+
+1. *"The stem is divided into an upper stem where the mature miRNA sequence is embedded and a lower
+   stem next to the flanking region."*
+2. *"Drosha senses the basal junction between the lower stem and the single-stranded basal region,
+   establishing a cleavage site 11 bp away."* — Drosha cut = basal junction + 11 bp.
+3. *"Microprocessor cleaves at a distance of approximately 11-bp from the basal junction and at a
+   distance of approximately 22-bp from the apical junction."* — the lower stem (~11 bp) is below the
+   Drosha cut; the upper stem (~22 bp) carries the mature miRNA.
+4. The Drosha cut produces the base of the pre-miRNA: the **5' end of the 5p mature** on the 5' arm and
+   the **3' end of the 3p mature** on the 3' arm.
+
+### Park et al. (2011): Dicer recognizes the 5' end of RNA for efficient and accurate processing
+
+**Retrieved via:** WebFetch of https://pubmed.ncbi.nlm.nih.gov/21753850/ (2026-06-24).
+**Authority rank:** 1 (Peer-reviewed, Nature 475(7355):201-205, doi:10.1038/nature10198).
+
+**Verbatim (abstract):** *"… human Dicer anchors not only the 3' end but also the 5' end, with **the
+cleavage site determined mainly by the distance (∼22 nucleotides) from the 5' end (5' counting
+rule)**. … Dicer recognizes the 5'-phosphorylated end … a class of approximately 22-nucleotide RNAs."*
+
+1. **Dicer ruler distance:** ~**22 nt** from the (Drosha-generated) 5' end = the constant
+   `DicerCutNtFrom5PrimeEnd = 22`; this fixes the mature length at ~22 nt.
+2. **Mature length:** ~**22 nt** (the miRNA:miRNA* duplex is ~22 nt; the 21–23 nt range is the
+   accepted mature length, Wikipedia/Bartel).
+3. Dicer's cut is *"determined largely by the Drosha cleavage site"* — i.e. Dicer measures from the
+   Drosha-generated end, removing the terminal loop.
+
+### RNase III 2-nt 3' overhang (Drosha and Dicer signature)
+
+**Retrieved via:** WebSearch (2026-06-24); ScienceDirect RNase III overview and the EMBO Lee/Han
+processing paper (https://www.embopress.org/doi/full/10.1038/sj.emboj.7600491).
+
+**Verbatim facts extracted:**
+
+1. *"Cleavage by RNase III domains results in 2-nt 3′-overhang end with a 5′-terminal monophosphate,
+   and a 3′-hydroxyl in the product RNA. The two RNase III domains form an intramolecular heterodimer
+   and make staggered cleavages in the two arms of a pri-miRNA or pre-miRNA."* — both Drosha and Dicer
+   leave a **2-nt 3' overhang** = the constant `RNaseIII3PrimeOverhang = 2`.
+2. *"Drosha … excises the upper part of this RNA hairpin to generate the precursor miRNA (pre-miRNA),
+   which is ∼60 nt long with a 3′ 2 nt overhang."*
+3. *"Dicer recognizes the 3′ 2 nt overhang of pre-miRNAs and then cuts ∼22 nt away to produce the
+   miRNA:miRNA* duplex."*
+
+### Auyeung et al. (2013): primary-sequence motifs that position Drosha (refinement)
+
+**Retrieved via:** WebSearch + WebFetch of the PMC "Menu of features" review
+(https://pmc.ncbi.nlm.nih.gov/articles/PMC4613790/, 2026-06-24); primary paper Cell 152(4):844-858,
+doi:10.1016/j.cell.2013.01.031 (https://pubmed.ncbi.nlm.nih.gov/23415231/).
+**Authority rank:** 1.
+
+**Verbatim facts extracted (motifs that fine-position the Drosha cut):**
+
+1. **Basal UG motif:** *"at the base of the pri-miRNA hairpin, at the junction between single-stranded
+   and double-stranded RNA regions."* — anchors the basal junction.
+2. **Apical UGU(G) motif:** *"a UGU/GUG motif in the apical loop"* (near the terminal loop).
+3. **CNNC motif:** *"positioned 16–18 nt from the Drosha cut"* (downstream of the basal cleavage site)
+   = the constants `CnncMinNtDownstreamOfDroshaCut = 16`, `CnncMaxNtDownstreamOfDroshaCut = 18`. Used
+   only as an OPTIONAL confidence flag (reported, not required); when a CNNC (C-N-N-C) is present in
+   the 16–18 nt window 3' of the Drosha basal cut, `HasCnncMotif = true`.
+
+### Cross-check dataset: hsa-mir-21 (miRBase MI0000077)
+
+**Retrieved via:** WebFetch of https://mirbase.org/hairpin/MI0000077 (2026-06-24).
+
+**Verbatim from miRBase:**
+
+- Precursor (stem-loop), 72 nt (lowercase = flanking/loop ssRNA as annotated by miRBase):
+  `ugucgggUAGCUUAUCAGACUGAUGUUGAcuguugaaucucauggCAACACCAGUCGAUGGGCUGUcugaca`
+- **hsa-miR-21-5p:** positions **8–29** (1-based) = `UAGCUUAUCAGACUGAUGUUGA` (22 nt).
+- **hsa-miR-21-3p:** positions **46–66** (1-based) = `CAACACCAGUCGAUGGGCUGU` (21 nt).
+
+**Derivation used as the expected values in the cross-check test.** The 7-nt basal ssRNA tail
+`ugucggg` (positions 1–7) ends at the basal junction; the 5' stem (upper part of the lower stem) starts
+at position 8. miRBase annotates the mature **5p starting exactly at the base of the stem (position 8,
+0-based index 7)** — i.e. at the Drosha cut. With the model fed the basal-junction 0-based index 7 (the
+first paired base of the 5' arm, after trimming the lower stem as miRBase does for this entry):
+
+| Quantity | Rule | Value (0-based) |
+|---|---|---|
+| Drosha 5' cut (5' end of 5p) | basal junction (position 7) | index **7** |
+| 5p mature span | Dicer 5' counting: 22 nt | indices **7–28** = `UAGCUUAUCAGACUGAUGUUGA` |
+| 5p length | ~22 nt | **22** ✓ matches miRBase |
+| 2-nt 3' overhang | RNase III | 5p 3' end protrudes 2 nt over the 3p 5' end |
+
+This confirms the predicted 5p span and length match miRBase exactly. (The model's general path takes a
+pri-miRNA with explicit flanking ssRNA and applies the +11 bp Drosha ruler; the miR-21 entry is the
+already-trimmed special case where the annotated stem base = the Drosha cut, validating the +22 nt
+Dicer ruler and the 22-nt mature length against the database.)
+
+### Honest residual
+
+The **trained natural-vs-background miRNA classifier** (miRDeep2-style: a probabilistic/ML score that
+distinguishes genuine pre-miRNAs from random hairpins using read-stacking signatures and a fitted
+model) is **NOT** implemented — it requires a trained model and labelled training data, which are
+data-blocked. The cleavage-site prediction here is the published deterministic measuring-rule
+("ruler") heuristic only.

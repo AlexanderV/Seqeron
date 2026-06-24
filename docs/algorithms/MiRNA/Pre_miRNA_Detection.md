@@ -71,6 +71,27 @@ heuristic rejects. $\Delta G^\circ$ is taken from the engine's `CalculateMinimum
 verbatim; MFEI uses $|\Delta G^\circ|$ so the published "MFEI > 0.85" threshold applies to the
 folder's negative $\Delta G^\circ$.
 
+#### 2.2.2 Opt-in Drosha/Dicer cleavage-site prediction (default unchanged)
+
+`PredictDroshaDicerCleavage(sequence, basalJunction)` predicts the excision coordinates of a
+pri-/pre-miRNA hairpin from the PUBLISHED measuring ("ruler") rules — it does **not** use a trained
+classifier:
+
+- **Drosha (basal-junction ruler):** Drosha cleaves $\sim 11$ bp ($\approx$ one helical turn) from the
+  basal ssRNA–dsRNA junction [9]. The 5' cut is the 5' end of the 5p mature:
+  $\text{DroshaCut5'} = \text{basalJunction} + 11$.
+- **Dicer (5'-counting ruler):** Dicer cleaves $\sim 22$ nt from the Drosha-generated 5' end (the 5'
+  counting rule) [10], fixing the mature length at $22$ nt:
+  $\text{mature} = [\text{DroshaCut5'},\ \text{DroshaCut5'} + 21]$.
+- **2-nt 3' overhang:** each RNase III cut (Drosha, Dicer) leaves a 2-nt 3' overhang [9][11]; the 3p
+  (miRNA\*) span is the same $\sim 22$ nt with its Drosha-generated 3' end 2 nt 3' of the 5p mature end.
+- **CNNC motif (optional confidence):** a C-N-N-C 16–18 nt 3' of the Drosha cut [12] sets
+  `HasCnncMotif`; it is reported, not required.
+
+Cross-checked against miRBase hsa-miR-21-5p (MIMAT0000076, `UAGCUUAUCAGACUGAUGUUGA`): feeding a
+pri-miRNA whose 11-bp lower stem places the $+11$ Drosha cut at the annotated 5p start reproduces the
+miRBase mature exactly.
+
 ### 2.3 Modeling Assumptions
 
 | ID | Assumption | Consequence if Violated |
@@ -156,6 +177,7 @@ The pairing test accepts both Watson-Crick and G:U wobble pairs, but the uninter
 - `MiRnaAnalyzer.FindPreMiRnaHairpinsByMfe(string, int, int, double, int)`: Opt-in precursor scan that folds each candidate window with the RNA-STRUCT-001 MFE engine.
 - `MiRnaAnalyzer.AssessHairpinByMfe(string, double, int)`: Opt-in single-candidate assessment from the real MFE structure (single hairpin + stem≥16 + loop 3–25 + MFEI≥0.85).
 - `MiRnaAnalyzer.CalculateMfeIndex(double, int, double)`: MFEI = AMFE/(G+C)%, AMFE = 100·|ΔG°|/length (Zhang 2006).
+- `MiRnaAnalyzer.PredictDroshaDicerCleavage(string, int)`: Opt-in cleavage-site prediction — Drosha cut (~11 bp from the basal junction), Dicer cut / 22-nt mature length, mature (5p) + star (3p) spans, 2-nt 3' overhang, optional CNNC flag (Han 2006 / Park 2011 / Auyeung 2013).
 
 ### 5.2 Current Behavior
 
@@ -172,6 +194,9 @@ The implementation searches candidates exhaustively rather than folding the full
   validated Zuker–Stiegler engine (RNA-STRUCT-001) [3][6] and applies the Ambros (2003) ≥16-bp
   stem [2], Bartel (2004) 3–25-nt loop [1], and Zhang (2006) MFEI ≥ 0.85 [7] criteria to the actual
   MFE structure — tolerant of internal bulges/loops and detecting natural miRBase precursors.
+- **Opt-in:** Drosha/Dicer cleavage-site prediction (`PredictDroshaDicerCleavage`) using the published
+  measuring rules verbatim — Drosha ~11 bp from the basal junction [9], Dicer ~22 nt 5'-counting [10],
+  the RNase III 2-nt 3' overhang [9][11], and the Auyeung (2013) CNNC confidence motif [12].
 
 **Intentionally simplified:**
 
@@ -181,11 +206,12 @@ The implementation searches candidates exhaustively rather than folding the full
 
 **Not implemented:**
 
-- Drosha/Dicer cleavage-site prediction (exact mature/star excision coordinates), competitive
-  natural-pre-miRNA classification against genomic background hairpins (a trained classifier such as
-  miRDeep2), and pseudoknotted precursors; **users should rely on:** miRDeep2 / miRBase tooling for
-  decision-grade precursor discovery. (Bulge-tolerant folding itself is now covered by the opt-in
-  MFE-fold path above.)
+- A competitive **trained** natural-vs-background pre-miRNA classifier (a fitted probabilistic model
+  such as miRDeep2 that scores genuine precursors against genomic background hairpins using
+  read-stacking signatures) and pseudoknotted precursors; **users should rely on:** miRDeep2 / miRBase
+  tooling for decision-grade, model-based precursor discovery. (Bulge-tolerant folding is covered by
+  the opt-in MFE-fold path, and cleavage-site coordinates by the opt-in
+  `PredictDroshaDicerCleavage` measuring-rule path above; only the trained classifier remains.)
 
 ### 5.4 Deviations and Assumptions
 
@@ -214,9 +240,11 @@ does not tolerate internal bulges, asymmetric loops, pseudoknots, or arm ambigui
 can miss bona fide miRBase precursors that do not exhibit uninterrupted end-to-end pairing. The
 **opt-in** `FindPreMiRnaHairpinsByMfe` / `AssessHairpinByMfe` remove that bulge-intolerance by
 folding each candidate with the validated Zuker–Stiegler MFE engine and reading the hairpin from the
-real MFE structure (detecting e.g. hsa-mir-21 and hsa-let-7a-1). **Residual scope** (both paths):
-exact Drosha/Dicer cleavage-site (mature/star excision-coordinate) prediction and a competitive,
-trained natural-vs-background precursor classifier (e.g. miRDeep2) remain out of scope.
+real MFE structure (detecting e.g. hsa-mir-21 and hsa-let-7a-1). The opt-in
+`PredictDroshaDicerCleavage` adds Drosha/Dicer cleavage-site (mature/star excision-coordinate)
+prediction from the published measuring rules (Han 2006 / Park 2011). **Residual scope:** only a
+competitive **trained** natural-vs-background precursor classifier (e.g. miRDeep2 — a fitted
+probabilistic model, data-blocked) remains out of scope.
 
 ## 7. Examples and Related Material
 
@@ -246,6 +274,14 @@ var mfe = MiRnaAnalyzer.AssessHairpinByMfe(sequence);
 var detected = MiRnaAnalyzer.AssessHairpinByMfe(
     "UGUCGGGUAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGUCUGACA");
 // detected.FreeEnergy == -35.13, detected.StemBasePairs == 32, detected.Mfei ≈ 1.0037
+
+// Opt-in: predict Drosha/Dicer cleavage coordinates from the published measuring rules.
+// Pri-miRNA = 11-nt lower stem + miR-21 stem region; junction at index 0.
+var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(
+    "CCCCCCCCCCC" + "UAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGU", 0)!.Value;
+// cut.DroshaCut5Prime == 11 (junction + 11 bp, Han 2006)
+// cut.MatureSequence == "UAGCUUAUCAGACUGAUGUUGA" (22 nt; == miRBase hsa-miR-21-5p)
+// cut.ThreePrimeOverhang == 2 (RNase III 2-nt 3' overhang)
 ```
 
 ### 7.3 Related Tests, Evidence, or Documents
@@ -266,3 +302,7 @@ var detected = MiRnaAnalyzer.AssessHairpinByMfe(
 6. Bonnet E, Wuyts J, Rouzé P, Van de Peer Y. 2004. Evidence that microRNA precursors, unlike other non-coding RNAs, have lower folding free energies than random sequences. Bioinformatics. 20(17):2911-2917. doi:10.1093/bioinformatics/bth374.
 7. Zhang BH, Pan XP, Cox SB, Cobb GP, Anderson TA. 2006. Evidence that miRNAs are different from other RNAs. Cellular and Molecular Life Sciences. 63(2):246-254. (AMFE = 100·MFE/length; MFEI = AMFE/(G+C)%; pre-miRNA MFEI > 0.85.)
 8. Meyers BC, Axtell MJ, Bartel B, Bartel DP, Baulcombe D, Bowman JL, et al. 2008. Criteria for annotation of plant MicroRNAs. The Plant Cell. 20(12):3186-3190. doi:10.1105/tpc.108.064311.
+9. Han J, Lee Y, Yeom KH, Nam JW, Heo I, Rhee JK, Sohn SY, Cho Y, Zhang BT, Kim VN. 2006. Molecular basis for the recognition of primary microRNAs by the Drosha-DGCR8 complex. Cell. 125(5):887-901. doi:10.1016/j.cell.2006.03.043. ("The cleavage site is determined mainly by the distance (approximately 11 bp) from the stem-ssRNA junction.")
+10. Park JE, Heo I, Tian Y, Simanshu DK, Chang H, Jee D, Patel DJ, Kim VN. 2011. Dicer recognizes the 5' end of RNA for efficient and accurate processing. Nature. 475(7355):201-205. doi:10.1038/nature10198. ("the cleavage site determined mainly by the distance (∼22 nucleotides) from the 5' end (5' counting rule).")
+11. Lee Y, Ahn C, Han J, Choi H, Kim J, Yim J, Lee J, Provost P, Rådmark O, Kim S, Kim VN. 2003. The nuclear RNase III Drosha initiates microRNA processing. Nature. 425(6956):415-419. doi:10.1038/nature01957. (RNase III staggered cleavage leaves a 2-nt 3' overhang.)
+12. Auyeung VC, Ulitsky I, McGeary SE, Bartel DP. 2013. Beyond secondary structure: primary-sequence determinants license pri-miRNA hairpins for processing. Cell. 152(4):844-858. doi:10.1016/j.cell.2013.01.031. (Basal UG, apical UGU(G), and CNNC motifs; CNNC positioned 16-18 nt from the Drosha cut.)

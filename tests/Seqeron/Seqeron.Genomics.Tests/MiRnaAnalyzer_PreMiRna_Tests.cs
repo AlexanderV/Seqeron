@@ -932,6 +932,194 @@ public class MiRnaAnalyzer_PreMiRna_Tests
 
     #endregion
 
+    #region Drosha/Dicer cleavage-site prediction (Han 2006 / Park 2011)
+
+    // DD1 — Han et al. (2006), Cell 125:887: Drosha cleaves ~11 bp from the basal stem-ssRNA junction.
+    // With basalJunction = 0, the Drosha 5' cut (5' end of the 5p mature) must be at index 0 + 11 = 11.
+    [Test]
+    public void PredictDroshaDicerCleavage_DroshaCut_Is11BpFromBasalJunction()
+    {
+        // Arrange — synthetic pri-miRNA: 11-nt lower stem then the miR-21 stem region (≥ 11+22+2 nt).
+        const int basalJunction = 0;
+        string pri = "CCCCCCCCCCC" + "UAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGU";
+
+        // Act
+        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(pri, basalJunction);
+
+        // Assert
+        Assert.That(cut, Is.Not.Null, "A well-formed pri-miRNA hairpin must yield a cleavage prediction.");
+        Assert.That(cut!.Value.DroshaCut5Prime, Is.EqualTo(11),
+            "Han (2006): Drosha cuts ~11 bp from the basal junction; junction 0 + 11 = index 11. " +
+            "A wrong distance (e.g. 0 or 22) would land elsewhere.");
+    }
+
+    // DD2 — Park et al. (2011), Nature 475:201: Dicer 5' counting rule fixes the mature at ~22 nt.
+    [Test]
+    public void PredictDroshaDicerCleavage_MatureLength_Is22Nt()
+    {
+        // Arrange
+        string pri = "CCCCCCCCCCC" + "UAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGU";
+
+        // Act
+        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(pri, 0)!.Value;
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(cut.MatureSequence.Length, Is.EqualTo(22),
+                "Park (2011): the 5' counting rule (∼22 nt) fixes the mature length at 22 nt.");
+            Assert.That(cut.MatureEnd - cut.MatureStart + 1, Is.EqualTo(22),
+                "Mature span [Start,End] inclusive must be 22 nt.");
+            Assert.That(cut.MatureStart, Is.EqualTo(cut.DroshaCut5Prime),
+                "The 5p mature begins at the Drosha 5' cut.");
+        });
+    }
+
+    // DD3 — Lee (2003)/Han (2006): each RNase III cut leaves a 2-nt 3' overhang. The 3' (3p) Drosha-
+    // generated end sits 2 nt 3' of the position opposite the 5p mature end.
+    [Test]
+    public void PredictDroshaDicerCleavage_ThreePrimeOverhang_Is2Nt()
+    {
+        // Arrange
+        string pri = "CCCCCCCCCCC" + "UAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGU";
+
+        // Act
+        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(pri, 0)!.Value;
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(cut.ThreePrimeOverhang, Is.EqualTo(2),
+                "RNase III (Drosha/Dicer) leaves a 2-nt 3' overhang.");
+            Assert.That(cut.DroshaCut3Prime - cut.MatureEnd, Is.EqualTo(2),
+                "The 3p Drosha-generated end is 2 nt 3' of the 5p mature end (the 2-nt overhang).");
+            Assert.That(cut.StarEnd - cut.StarStart + 1, Is.EqualTo(22),
+                "The 3p (miRNA*) span is also ~22 nt.");
+        });
+    }
+
+    // DD4 — miRBase cross-check (hsa-mir-21, MI0000077). With an 11-nt lower stem prepended so the
+    // Drosha +11 ruler lands at the annotated miR-21-5p start, the predicted 5p mature must equal the
+    // miRBase mature hsa-miR-21-5p sequence (MIMAT0000076) exactly. Source: mirbase.org/hairpin/MI0000077.
+    [Test]
+    public void PredictDroshaDicerCleavage_HsaMir21_MatchesMirBaseMature5p()
+    {
+        // Arrange — 11-nt lower stem + miR-21 stem (5p starts immediately after the lower stem).
+        string pri = "CCCCCCCCCCC" + "UAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGU";
+        const string mirBase5p = "UAGCUUAUCAGACUGAUGUUGA"; // MIMAT0000076, 22 nt
+
+        // Act
+        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(pri, 0)!.Value;
+
+        // Assert
+        Assert.That(cut.MatureSequence, Is.EqualTo(mirBase5p),
+            "Predicted 5p mature must equal miRBase hsa-miR-21-5p (MIMAT0000076) exactly.");
+    }
+
+    // DD5 — Star (3p) span content is read from the correct 3' arm coordinates.
+    [Test]
+    public void PredictDroshaDicerCleavage_StarSpan_HasExpectedCoordinatesAndSequence()
+    {
+        // Arrange
+        string pri = "CCCCCCCCCCC" + "UAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGU";
+
+        // Act
+        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(pri, 0)!.Value;
+
+        // Hand-derived: matureStart=11, matureEnd=32, starEnd=34, starStart=13.
+        Assert.Multiple(() =>
+        {
+            Assert.That(cut.MatureStart, Is.EqualTo(11), "matureStart = junction(0)+11.");
+            Assert.That(cut.MatureEnd, Is.EqualTo(32), "matureEnd = 11+22-1.");
+            Assert.That(cut.StarEnd, Is.EqualTo(34), "starEnd = matureEnd+2 (2-nt overhang).");
+            Assert.That(cut.StarStart, Is.EqualTo(13), "starStart = starEnd-22+1.");
+            Assert.That(cut.StarSequence, Is.EqualTo(pri.Substring(13, 22)),
+                "StarSequence must be the 3p span pri[13..34].");
+        });
+    }
+
+    // DD6 — T→U normalisation: DNA input yields RNA-alphabet mature/star sequences.
+    [Test]
+    public void PredictDroshaDicerCleavage_DnaInput_NormalisesToRna()
+    {
+        // Arrange — DNA spelling of the DD1 pri-miRNA.
+        string priDna = "CCCCCCCCCCC" + "TAGCTTATCAGACTGATGTTGACTGTTGAATCTCATGGCAACACCAGTCGATGGGCTGT";
+
+        // Act
+        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(priDna, 0)!.Value;
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(cut.MatureSequence, Is.EqualTo("UAGCUUAUCAGACUGAUGUUGA"),
+                "T must be read as U; predicted mature is the RNA-alphabet hsa-miR-21-5p.");
+            Assert.That(cut.MatureSequence, Does.Not.Contain("T"), "No T in normalised output.");
+        });
+    }
+
+    // DD7 — null / empty input ⇒ null.
+    [Test]
+    public void PredictDroshaDicerCleavage_NullOrEmpty_ReturnsNull()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(null!, 0), Is.Null, "null ⇒ null.");
+            Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage("", 0), Is.Null, "empty ⇒ null.");
+        });
+    }
+
+    // DD8 — basal junction out of range ⇒ null.
+    [Test]
+    public void PredictDroshaDicerCleavage_JunctionOutOfRange_ReturnsNull()
+    {
+        string pri = "CCCCCCCCCCC" + "UAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGU";
+        Assert.Multiple(() =>
+        {
+            Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(pri, -1), Is.Null, "negative junction ⇒ null.");
+            Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(pri, pri.Length), Is.Null, "junction ≥ length ⇒ null.");
+        });
+    }
+
+    // DD9 — too short to place the predicted cuts (junction+11+22+2 exceeds length) ⇒ null.
+    [Test]
+    public void PredictDroshaDicerCleavage_TooShortForCuts_ReturnsNull()
+    {
+        // 11 + 22 + 2 = 35 nt minimum needed from the junction; give 30 nt.
+        string tooShort = new string('A', 30);
+        Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(tooShort, 0), Is.Null,
+            "When junction+11+22+2 exceeds the sequence, no full mature/star can be placed ⇒ null.");
+    }
+
+    // DD10 — CNNC confidence flag (Auyeung 2013): a C-N-N-C placed 16 nt 3' of the Drosha cut is detected.
+    [Test]
+    public void PredictDroshaDicerCleavage_CnncMotif_DetectedWhenPresentDownstream()
+    {
+        // Arrange — Drosha cut at index 11; place a CNNC starting at 11+16 = 27.
+        // Build: 11 (lower stem) + 22 (mature) so that index 27 falls within, then ensure C..C at 27.
+        var sb = new System.Text.StringBuilder(new string('A', 60));
+        // index 27 = 'C', index 30 = 'C' (C-N-N-C with the two N's at 28,29)
+        sb[27] = 'C'; sb[30] = 'C';
+        string withCnnc = sb.ToString();
+
+        var sbNo = new System.Text.StringBuilder(new string('A', 60)); // no C anywhere ⇒ no CNNC
+        string noCnnc = sbNo.ToString();
+
+        // Act
+        var withFlag = MiRnaAnalyzer.PredictDroshaDicerCleavage(withCnnc, 0)!.Value;
+        var withoutFlag = MiRnaAnalyzer.PredictDroshaDicerCleavage(noCnnc, 0)!.Value;
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(withFlag.HasCnncMotif, Is.True,
+                "Auyeung (2013): a CNNC 16 nt 3' of the Drosha cut must set the confidence flag.");
+            Assert.That(withoutFlag.HasCnncMotif, Is.False,
+                "No CNNC downstream ⇒ flag false (optional signal, not required for prediction).");
+        });
+    }
+
+    #endregion
+
     #region Helpers
 
     /// <summary>

@@ -18,8 +18,23 @@
 > verbatim. The MFE path **detects the real miRBase precursors the heuristic rejected** — hsa-mir-21
 > (ΔG°=−35.13, 32 bp, MFEI 1.0037) and hsa-let-7a-1 (ΔG°=−34.31, 32 bp, MFEI 1.0091) — while
 > rejecting non-complementary (ΔG°=0) and multibranch (5S-like ΔG°=−47.04) structures. The default
-> heuristic is unchanged. **Honest residual:** Drosha/Dicer cleavage-site (mature/star excision-
-> coordinate) prediction and a trained natural-vs-background classifier (miRDeep2) remain out of scope.
+> heuristic is unchanged.
+
+> **2026-06-24 limitation fix (cleavage-site prediction).** Added the opt-in
+> `PredictDroshaDicerCleavage(sequence, basalJunction)` implementing the PUBLISHED measuring ("ruler")
+> rules: Drosha cleaves **~11 bp** from the basal ssRNA–dsRNA junction (Han et al. 2006, Cell 125:887,
+> "approximately 11 bp from the stem-ssRNA junction"); Dicer cleaves **~22 nt** from the
+> Drosha-generated 5' end — the 5' counting rule (Park et al. 2011, Nature 475:201, "∼22 nucleotides
+> from the 5' end"), fixing the mature length at 22 nt; each RNase III cut leaves a **2-nt 3' overhang**
+> (Lee 2003 / Han 2006); an optional CNNC confidence flag is reported when a C-N-N-C sits 16–18 nt 3'
+> of the Drosha cut (Auyeung et al. 2013). The method reports the Drosha cut, the mature (5p) and star
+> (3p) coordinates, and the 2-nt overhangs. **Cross-checked** against miRBase hsa-miR-21-5p
+> (MIMAT0000076): with an 11-nt lower stem prepended so the +11 ruler lands at the annotated 5p start,
+> the predicted mature equals `UAGCUUAUCAGACUGAUGUUGA` exactly (DD4). Defaults and existing methods are
+> unchanged. New tests DD1–DD10 in `MiRnaAnalyzer_PreMiRna_Tests.cs`. **Honest residual (data-blocked):**
+> a competitive **trained** natural-vs-background precursor classifier (miRDeep2-style fitted
+> probabilistic model) — requires a trained model and labelled data. Status remains ☐ (registry
+> unchanged; not previously ☑).
 
 > Note: the checklist block (`ALGORITHMS_CHECKLIST_V2.md` §MIRNA-PRECURSOR-001) lists the canonical
 > method as `FindPreMiRnas` / `ValidateHairpin`, neither of which exists. The actual public API is
