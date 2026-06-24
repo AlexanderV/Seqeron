@@ -24,10 +24,36 @@ The detector scans the window for the best `yUnAy` match (conservation-weighted 
 perfect = 1.0), reporting branch-point position, distance to the AG, motif, score, and PPT fraction.
 **The default `FindAcceptorSites` PWM+PPT scoring is unchanged** (additive, opt-in).
 
-**Honest residual (left, not fabricated):** the Yeo & Burge (2004) MaxEntScan 23-nt maximum-entropy
-3' model needs the Burge-lab precomputed score tables (`me2x3acc1`…`me2x3acc9`, the `splicemodels`
-tarball) — large trained data files with no clean redistribution licence; verified unavailable for
-bundling this session. Left as the LIMITATIONS residual rather than fabricated.
+## 2026-06-24 update — MaxEntScan score3ss maximum-entropy 3' model bundled (limitation fix)
+
+The Yeo & Burge (2004) **MaxEntScan `score3ss`** maximum-entropy 3' acceptor model is now
+implemented as the opt-in `SpliceSitePredictor.ScoreAcceptorMaxEnt(string window)` (23-nt window:
+20 intron + 3 exon, conserved AG at 0-based 18–19; returns the score in bits).
+
+- **Data provenance + licence (flagged):** the precomputed probability tables
+  (`Data/maxent_score3.txt`, 82 560 records) and the `score3` factorisation were retrieved this
+  session VERBATIM from the **MIT-licensed maxentpy port** (`kepbod/maxentpy`):
+  `…/maxentpy/data/score3_matrix.txt`, `…/maxentpy/maxent.py`, `…/LICENSE` (MIT). MIT permits
+  redistribution, so the table is embedded here. maxentpy's README notes the *original* Burge-lab
+  Perl scripts carry academic terms (`genes.mit.edu/burgelab/maxent/download/READTHIS`); the
+  artifact bundled is the MIT port, not the original. Provenance + full MIT text are recorded
+  prominently in `src/.../Seqeron.Genomics.Annotation/Data/maxent_score3.LICENSE.md` and the
+  Evidence doc (source #6, design decision #5).
+- **Factorisation:** AG term `cons1·cons2/(bgd·bgd)` × product of 5 numerator sub-sequence
+  probabilities ÷ product of 4 denominator sub-sequence probabilities (inclusion–exclusion over
+  9 overlapping windows of the 21-nt "rest"), then `log2`.
+- **Reference cross-check (reproduced EXACTLY):** `ScoreAcceptorMaxEnt("ttccaaacgaacttttgtAGgga")`
+  = 2.886773 → **2.89** (the canonical documented value); `…ttgtggcAGtgg` = 8.190965 → 8.19;
+  `…cttatAGcaa` = -0.080278 → -0.08. A wrong table or factorisation fails the 2.89 check.
+- **Defaults unchanged:** `FindAcceptorSites` PWM+PPT scoring and `FindAcceptorBranchPoint` are
+  untouched; `ScoreAcceptorMaxEnt` is additive/opt-in.
+- **Tests:** 9 new MaxEnt cases (ME1–ME9) in `SpliceSitePredictor_AcceptorSite_Tests.cs`
+  (34 total) — exact 2.89/8.19/-0.08 (2 dp + full precision), strong>weak ranking, DNA≡RNA,
+  case-insensitivity, and null/length/alphabet guards. Full solution suite green.
+
+**Narrowed residual (honest, not fabricated):** only the 3' acceptor `score3ss` is bundled; the
+Yeo & Burge (2004) 5' **donor** `score5ss` maximum-entropy model is not yet included (it needs the
+analogous Burge-lab 5' score tables — a separate import). Recorded as the trimmed LIMITATIONS row.
 
 Tests: 8 new branch-point cases (BP1–BP8) added to `SpliceSitePredictor_AcceptorSite_Tests.cs`
 (25 total), with hand-derived exact positions, distances, motifs, scores (1.0, 0.753894, 0.712461),

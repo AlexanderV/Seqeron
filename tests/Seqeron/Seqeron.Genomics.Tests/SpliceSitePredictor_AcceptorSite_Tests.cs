@@ -604,4 +604,138 @@ public class SpliceSitePredictor_AcceptorSite_Tests
     }
 
     #endregion
+
+    #region ME1–ME9: MaxEntScan score3ss — Yeo & Burge (2004)
+
+    // Expected values are the documented MaxEntScan score3 worked examples, taken from the
+    // maxentpy score3 docstring (kepbod/maxentpy, MIT-licensed port retrieved 2026-06-24):
+    //   score3('ttccaaacgaacttttgtAGgga') -> 2.89
+    //   score3('tgtctttttctgtgtggcAGtgg') -> 8.19
+    //   score3('ttctctcttcagacttatAGcaa') -> -0.08
+    // These round-to-2dp targets were reproduced exactly this session (2.886773 / 8.190965 /
+    // -0.080278) with the embedded tables + the published factorisation. Asserted to 2 dp
+    // (the documented precision) plus the full-precision value, so a wrong table or
+    // factorisation fails the 2.89 cross-check rather than silently passing.
+
+    // ME1 — canonical documented reference: score3('...AGgga') == 2.89 (bits).
+    [Test]
+    public void ScoreAcceptorMaxEnt_CanonicalReferenceWindow_Returns2Point89()
+    {
+        // 23 nt: 20 intron + 3 exon; AG at 0-based positions 18-19.
+        string window = "ttccaaacgaacttttgtAGgga";
+
+        double score = ScoreAcceptorMaxEnt(window);
+
+        Assert.That(System.Math.Round(score, 2), Is.EqualTo(2.89),
+            "MaxEntScan score3 of the canonical documented example must be 2.89 bits "
+            + "(Yeo & Burge 2004 / maxentpy docstring)");
+    }
+
+    // ME2 — full-precision value behind the 2.89 reference (guards the factorisation/tables).
+    [Test]
+    public void ScoreAcceptorMaxEnt_CanonicalReferenceWindow_MatchesFullPrecision()
+    {
+        string window = "ttccaaacgaacttttgtAGgga";
+
+        double score = ScoreAcceptorMaxEnt(window);
+
+        Assert.That(score, Is.EqualTo(2.886773).Within(1e-6),
+            "Full-precision MaxEntScan score3 for the canonical window, reproduced from the "
+            + "embedded tables + published factorisation");
+    }
+
+    // ME3 — strong 3' site second documented reference: 8.19 bits.
+    [Test]
+    public void ScoreAcceptorMaxEnt_StrongSiteReferenceWindow_Returns8Point19()
+    {
+        string window = "tgtctttttctgtgtggcAGtgg";
+
+        double score = ScoreAcceptorMaxEnt(window);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(System.Math.Round(score, 2), Is.EqualTo(8.19),
+                "Second documented MaxEntScan score3 example must be 8.19 bits");
+            Assert.That(score, Is.EqualTo(8.190965).Within(1e-6),
+                "Full-precision value behind the 8.19 reference");
+        });
+    }
+
+    // ME4 — weak 3' site third documented reference: -0.08 bits (negative score).
+    [Test]
+    public void ScoreAcceptorMaxEnt_WeakSiteReferenceWindow_ReturnsMinus0Point08()
+    {
+        string window = "ttctctcttcagacttatAGcaa";
+
+        double score = ScoreAcceptorMaxEnt(window);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(System.Math.Round(score, 2), Is.EqualTo(-0.08),
+                "Third documented MaxEntScan score3 example must be -0.08 bits");
+            Assert.That(score, Is.EqualTo(-0.080278).Within(1e-6),
+                "Full-precision value behind the -0.08 reference");
+        });
+    }
+
+    // ME5 — a strong site ranks above a weak site (ordering of the documented examples).
+    [Test]
+    public void ScoreAcceptorMaxEnt_StrongSite_RanksAboveWeakSite()
+    {
+        double strong = ScoreAcceptorMaxEnt("tgtctttttctgtgtggcAGtgg"); // 8.19
+        double weak = ScoreAcceptorMaxEnt("ttctctcttcagacttatAGcaa");   // -0.08
+
+        Assert.That(strong, Is.GreaterThan(weak),
+            "A strong 3' splice site must score higher than a weak one (8.19 > -0.08)");
+    }
+
+    // ME6 — DNA (T) and RNA (U) windows are equivalent (T==U in the hash and AG model).
+    [Test]
+    public void ScoreAcceptorMaxEnt_DnaAndRnaWindows_ProduceIdenticalScores()
+    {
+        string dna = "ttccaaacgaacttttgtAGgga";
+        string rna = dna.Replace('t', 'u').Replace('T', 'U');
+
+        double dnaScore = ScoreAcceptorMaxEnt(dna);
+        double rnaScore = ScoreAcceptorMaxEnt(rna);
+
+        Assert.That(rnaScore, Is.EqualTo(dnaScore).Within(1e-12),
+            "U-form (RNA) window must score identically to the T-form (DNA) window");
+    }
+
+    // ME7 — case-insensitive: upper-case window scores identically.
+    [Test]
+    public void ScoreAcceptorMaxEnt_UpperCaseWindow_ScoresIdenticallyToLowerCase()
+    {
+        string lower = "ttccaaacgaacttttgtAGgga";
+        string upper = lower.ToUpperInvariant();
+
+        Assert.That(ScoreAcceptorMaxEnt(upper), Is.EqualTo(ScoreAcceptorMaxEnt(lower)).Within(1e-12),
+            "Scoring must be case-insensitive");
+    }
+
+    // ME8 — null window throws ArgumentNullException.
+    [Test]
+    public void ScoreAcceptorMaxEnt_NullWindow_Throws()
+    {
+        Assert.Throws<System.ArgumentNullException>(() => ScoreAcceptorMaxEnt(null!),
+            "A null window is invalid input");
+    }
+
+    // ME9 — wrong length and invalid alphabet throw ArgumentException.
+    [Test]
+    public void ScoreAcceptorMaxEnt_InvalidWindow_Throws()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<System.ArgumentException>(() => ScoreAcceptorMaxEnt("ACGT"),
+                "A window not exactly 23 nt is invalid");
+            Assert.Throws<System.ArgumentException>(() => ScoreAcceptorMaxEnt("ttccaaacgaacttttgtAGggaa"),
+                "A 24-nt window is invalid");
+            Assert.Throws<System.ArgumentException>(() => ScoreAcceptorMaxEnt("ttccaaacgaacttttgtAGggN"),
+                "A non-A/C/G/T(/U) character (N) is invalid");
+        });
+    }
+
+    #endregion
 }

@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 
 namespace Seqeron.Genomics.Annotation;
@@ -994,6 +997,232 @@ public static class SpliceSitePredictor
 
         return false;
     }
+
+    #endregion
+
+    #region MaxEntScan score3ss (maximum-entropy 3' acceptor model)
+
+    // --- MaxEntScan score3ss (Yeo & Burge 2004) ---
+    // Maximum-entropy 3' splice-site (acceptor) score for a 23-nt window:
+    // 20 intronic + 3 exonic nucleotides, with the invariant AG at window positions
+    // 18..19 (0-based). The score is log2( P_maxent(seq) / P_background(seq) ), and is
+    // computed by removing the conserved AG dinucleotide and factorising the remaining
+    // 21 ("rest") positions over nine overlapping sub-sequences whose precomputed
+    // maximum-entropy probabilities are stored in the embedded table.
+    //
+    // Sources:
+    //   Yeo G, Burge CB (2004). "Maximum entropy modeling of short sequence motifs with
+    //   applications to RNA splicing signals." J Comput Biol 11(2-3):377-394.
+    //   DOI 10.1089/1066527041410418.
+    //   Reference factorisation + tables (retrieved 2026-06-24): the MIT-licensed maxentpy
+    //   port (kepbod/maxentpy) score3 / score3_matrix.txt. Provenance + licence are recorded
+    //   in src/.../Seqeron.Genomics.Annotation/Data/maxent_score3.LICENSE.md.
+
+    // Length of the MaxEntScan 3' (acceptor) scoring window: 20 intron + 3 exon nt.
+    private const int MaxEntAcceptorWindowLength = 23;
+
+    // 0-based positions of the conserved AG dinucleotide within the 23-nt window
+    // (window[18]=A, window[19]=G). These two positions are scored by the consensus /
+    // background dinucleotide model and removed from the "rest" sub-sequence.
+    private const int MaxEntAcceptorAgStart = 18;
+
+    // Background single-nucleotide frequencies P_bgd used by MaxEntScan score3
+    // (Yeo & Burge 2004; maxentpy bgd_3). Keyed by A/C/G/T (T==U).
+    private static readonly IReadOnlyDictionary<char, double> MaxEntBackground = new Dictionary<char, double>
+    {
+        { 'A', 0.27 }, { 'C', 0.23 }, { 'G', 0.23 }, { 'T', 0.27 }
+    };
+
+    // Consensus probabilities for the first AG position (the 'A'); maxentpy cons1_3.
+    private static readonly IReadOnlyDictionary<char, double> MaxEntConsensusAg1 = new Dictionary<char, double>
+    {
+        { 'A', 0.9903 }, { 'C', 0.0032 }, { 'G', 0.0034 }, { 'T', 0.0030 }
+    };
+
+    // Consensus probabilities for the second AG position (the 'G'); maxentpy cons2_3.
+    private static readonly IReadOnlyDictionary<char, double> MaxEntConsensusAg2 = new Dictionary<char, double>
+    {
+        { 'A', 0.0027 }, { 'C', 0.0037 }, { 'G', 0.9905 }, { 'T', 0.0030 }
+    };
+
+    // The score3 factorisation over the 21-nt "rest" sequence (window with AG removed).
+    // Each tuple is (matrixIndex, restStart, length); the maxent probability of the rest
+    // sequence is the product of the lookups for the five "numerator" sub-sequences
+    // divided by the product of the four "denominator" sub-sequences (inclusion-exclusion
+    // over the overlapping windows). Source: maxentpy score3.
+    private static readonly (int MatrixIndex, int RestStart, int Length)[] MaxEntNumeratorFactors =
+    {
+        (0, 0, 7),
+        (1, 7, 7),
+        (2, 14, 7),
+        (3, 4, 7),
+        (4, 11, 7)
+    };
+
+    private static readonly (int MatrixIndex, int RestStart, int Length)[] MaxEntDenominatorFactors =
+    {
+        (5, 4, 3),
+        (6, 7, 4),
+        (7, 11, 3),
+        (8, 14, 4)
+    };
+
+    private const string MaxEntScore3ResourceName = "Seqeron.Genomics.Annotation.Data.maxent_score3.txt";
+
+    // Lazily-loaded probability tables: tables[matrixIndex][hash] = probability.
+    // Nine matrices (4^k entries each). Loaded once from the embedded resource.
+    private static IReadOnlyList<IReadOnlyDictionary<int, double>>? _maxEntScore3Tables;
+    private static readonly object MaxEntLoadLock = new();
+
+    private static IReadOnlyList<IReadOnlyDictionary<int, double>> MaxEntScore3Tables
+    {
+        get
+        {
+            if (_maxEntScore3Tables is not null)
+                return _maxEntScore3Tables;
+
+            lock (MaxEntLoadLock)
+            {
+                if (_maxEntScore3Tables is not null)
+                    return _maxEntScore3Tables;
+                _maxEntScore3Tables = LoadMaxEntScore3Tables();
+                return _maxEntScore3Tables;
+            }
+        }
+    }
+
+    private static IReadOnlyList<IReadOnlyDictionary<int, double>> LoadMaxEntScore3Tables()
+    {
+        var assembly = typeof(SpliceSitePredictor).Assembly;
+        using Stream? stream = assembly.GetManifestResourceStream(MaxEntScore3ResourceName)
+            ?? throw new InvalidOperationException(
+                $"Embedded MaxEntScan score3 table '{MaxEntScore3ResourceName}' was not found.");
+
+        var tables = new Dictionary<int, double>[9];
+        for (int i = 0; i < tables.Length; i++)
+            tables[i] = new Dictionary<int, double>();
+
+        using var reader = new StreamReader(stream);
+        string? line;
+        while ((line = reader.ReadLine()) is not null)
+        {
+            if (line.Length == 0)
+                continue;
+
+            // Each record: "<matrixIndex>\t<hash>\t<probability>" (whitespace-separated).
+            string[] parts = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length != 3)
+                throw new InvalidDataException($"Malformed MaxEntScan score3 record: '{line}'.");
+
+            int matrixIndex = int.Parse(parts[0], CultureInfo.InvariantCulture);
+            int hash = int.Parse(parts[1], CultureInfo.InvariantCulture);
+            double probability = double.Parse(parts[2], CultureInfo.InvariantCulture);
+            tables[matrixIndex][hash] = probability;
+        }
+
+        return tables;
+    }
+
+    // Quaternary (base-4) encoding of an A/C/G/T sub-sequence: A=0, C=1, G=2, T=3,
+    // most-significant nucleotide first. Matches maxentpy hashseq. T and U are equivalent.
+    private static int HashMaxEntSubsequence(ReadOnlySpan<char> seq)
+    {
+        int hash = 0;
+        for (int i = 0; i < seq.Length; i++)
+        {
+            int code = seq[i] switch
+            {
+                'A' => 0,
+                'C' => 1,
+                'G' => 2,
+                'T' or 'U' => 3,
+                _ => throw new ArgumentException(
+                    $"MaxEntScan score3 requires an A/C/G/T(/U) sequence; found '{seq[i]}'.")
+            };
+            hash = (hash << 2) | code; // hash * 4 + code
+        }
+
+        return hash;
+    }
+
+    /// <summary>
+    /// Computes the Yeo &amp; Burge (2004) MaxEntScan <c>score3ss</c> maximum-entropy score
+    /// (in bits) for a 23-nt 3' splice-site (acceptor) window: 20 intronic + 3 exonic
+    /// nucleotides, with the conserved <c>AG</c> at window positions 18-19 (0-based).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is an opt-in alternative to the default <see cref="FindAcceptorSites"/> PWM +
+    /// polypyrimidine-tract scorer; the existing PWM/branch-point scorers and their defaults
+    /// are unchanged. The returned value is the log<sub>2</sub> ratio of the maximum-entropy
+    /// probability of the window to its background probability — higher means a stronger 3'
+    /// splice site (the canonical documented example scores 2.89 bits).
+    /// </para>
+    /// <para>
+    /// The score removes the conserved <c>AG</c> dinucleotide (scored by a consensus /
+    /// background model) and factorises the remaining 21 positions over nine overlapping
+    /// sub-sequences, multiplying the five numerator and dividing by the four denominator
+    /// maximum-entropy probabilities (inclusion-exclusion), then takes log<sub>2</sub> of the
+    /// product with the AG term. Probability tables are embedded (see
+    /// <c>Data/maxent_score3.LICENSE.md</c> for provenance and licence).
+    /// </para>
+    /// </remarks>
+    /// <param name="window">The 23-nt acceptor window (DNA or RNA; case-insensitive). Must be
+    /// exactly 23 nucleotides over the A/C/G/T(/U) alphabet.</param>
+    /// <returns>The MaxEntScan score3ss in bits.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="window"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="window"/> is not exactly 23 nt, or
+    /// contains a non-A/C/G/T(/U) character.</exception>
+    public static double ScoreAcceptorMaxEnt(string window)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+        if (window.Length != MaxEntAcceptorWindowLength)
+            throw new ArgumentException(
+                $"MaxEntScan score3 requires a window of exactly {MaxEntAcceptorWindowLength} nt; " +
+                $"got {window.Length}.", nameof(window));
+
+        // Uppercase; keep T/U as-is (HashMaxEntSubsequence and the AG model treat them alike).
+        string upper = window.ToUpperInvariant();
+
+        // --- Consensus AG dinucleotide term: P_cons(A)*P_cons(G) / (P_bgd(A)*P_bgd(G)) ---
+        char ag1 = NormalizeNucleotide(upper[MaxEntAcceptorAgStart]);
+        char ag2 = NormalizeNucleotide(upper[MaxEntAcceptorAgStart + 1]);
+
+        double consScore =
+            MaxEntConsensusAg1[ag1] * MaxEntConsensusAg2[ag2] /
+            (MaxEntBackground[ag1] * MaxEntBackground[ag2]);
+
+        // --- "Rest" sequence: the 21 positions with the AG removed ---
+        // rest = window[0..18) + window[20..23)  -> 18 + 3 = 21 nt.
+        Span<char> rest = stackalloc char[MaxEntAcceptorWindowLength - 2];
+        upper.AsSpan(0, MaxEntAcceptorAgStart).CopyTo(rest);
+        upper.AsSpan(MaxEntAcceptorAgStart + 2).CopyTo(rest[MaxEntAcceptorAgStart..]);
+
+        var tables = MaxEntScore3Tables;
+
+        double restScore = 1.0;
+        foreach (var (matrixIndex, restStart, length) in MaxEntNumeratorFactors)
+        {
+            int hash = HashMaxEntSubsequence(rest.Slice(restStart, length));
+            restScore *= tables[matrixIndex][hash];
+        }
+
+        foreach (var (matrixIndex, restStart, length) in MaxEntDenominatorFactors)
+        {
+            int hash = HashMaxEntSubsequence(rest.Slice(restStart, length));
+            restScore /= tables[matrixIndex][hash];
+        }
+
+        return Math.Log2(consScore * restScore);
+    }
+
+    private static char NormalizeNucleotide(char c) => c switch
+    {
+        'A' or 'C' or 'G' or 'T' => c,
+        'U' => 'T',
+        _ => throw new ArgumentException(
+            $"MaxEntScan score3 requires an A/C/G/T(/U) sequence; found '{c}'.")
+    };
 
     #endregion
 }

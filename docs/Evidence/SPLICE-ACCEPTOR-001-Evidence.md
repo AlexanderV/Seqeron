@@ -84,14 +84,33 @@
 
 ### 6. Yeo & Burge (2004)
 
-**Citation:** Yeo G, Burge CB. "Maximum entropy modeling of short sequence motifs with applications to RNA splicing signals." Journal of Computational Biology 11(2–3):377–394, 2004.
-**Authority rank:** 1 (peer-reviewed paper)
-**Retrieved this session (2026-06-24):** WebSearch "Yeo Burge 2004 MaxEntScan ... me2x3acc data files"; confirmed the official model files via the Burge-lab download index http://hollywood.mit.edu/burgelab/maxent/download/fordownload/splicemodels/
+**Citation:** Yeo G, Burge CB. "Maximum entropy modeling of short sequence motifs with applications to RNA splicing signals." Journal of Computational Biology 11(2–3):377–394, 2004. DOI 10.1089/1066527041410418.
+**Authority rank:** 1 (peer-reviewed paper) for the model; rank 3 (reference implementation) for the factorisation + tables.
+**Retrieved this session (2026-06-24):** the reference `score3` factorisation and the precomputed probability tables were fetched VERBATIM from the MIT-licensed maxentpy port (kepbod/maxentpy):
+- factorisation: `https://raw.githubusercontent.com/kepbod/maxentpy/master/maxentpy/maxent.py` (WebFetch)
+- tables: `https://raw.githubusercontent.com/kepbod/maxentpy/master/maxentpy/data/score3_matrix.txt` (curl, 82 560 records)
+- licence: `https://raw.githubusercontent.com/kepbod/maxentpy/master/LICENSE` (MIT, fetched verbatim)
 
 **Key Extracted Points:**
 
-1. **MaxEntScan acceptor model:** Scores a 23-mer (20 intronic + 3 exonic positions) for the 3' splice site, a maximum-entropy model that captures position dependencies, outperforming simple PWM models.
-2. **Requires precomputed score tables:** the 3' model uses the maximum-entropy score-matrix files `me2x3acc1`…`me2x3acc9` (the `splicemodels` directory), distributed as the Burge-lab `fordownload.tar.gz` archive with `score3.pl`. **These large trained data files are not bundled in this repository and have no clean redistribution licence** — the maximum-entropy acceptor model is therefore left as an honest residual (see §Verified Design Decisions and the LIMITATIONS row).
+1. **MaxEntScan score3ss acceptor model:** Scores a 23-nt window (20 intronic + 3 exonic positions; conserved AG at 0-based positions 18-19) for the 3' splice site. The maximum-entropy model captures position dependencies, outperforming simple PWM models. The score is `log2( P_maxent(seq) / P_background(seq) )`.
+
+2. **Factorisation (verbatim from maxentpy `score3`):** the conserved AG dinucleotide is scored separately and removed; the remaining 21-nt "rest" sequence is factorised over 9 overlapping sub-sequences. With `rest = window[0:18] + window[20:23]`:
+   - AG term: `cons1_3[A] * cons2_3[G] / (bgd_3[A] * bgd_3[G])`
+   - numerator (multiply): matrix0·rest[0:7], matrix1·rest[7:14], matrix2·rest[14:21], matrix3·rest[4:11], matrix4·rest[11:18]
+   - denominator (divide): matrix5·rest[4:7], matrix6·rest[7:11], matrix7·rest[11:14], matrix8·rest[14:18]
+   - final score = `log2(AG_term * rest_score)`; `hashseq` = base-4 encoding A=0,C=1,G=2,T=3 (T==U).
+   - Probabilities: `bgd_3 = {A:0.27,C:0.23,G:0.23,T:0.27}`; `cons1_3 = {A:0.9903,C:0.0032,G:0.0034,T:0.0030}`; `cons2_3 = {A:0.0027,C:0.0037,G:0.9905,T:0.0030}`.
+
+3. **Tables (`score3_matrix.txt`, 82 560 records):** flat `index hash probability` rows. The nine matrices' sizes match the factorisation: indices 0–4 are 7-nt (4^7 = 16384 entries each), index 5 = 3-nt (64), index 6 = 4-nt (256), index 7 = 3-nt (64), index 8 = 4-nt (256). Total 82 560 — confirms the embedded file is complete and matches the published factorisation.
+
+4. **Worked examples (from the maxentpy `score3` docstring, the documented reference values):**
+   - `score3('ttccaaacgaacttttgtAGgga')` → **2.89** (reproduced 2.886773 this session)
+   - `score3('tgtctttttctgtgtggcAGtgg')` → **8.19** (reproduced 8.190965)
+   - `score3('ttctctcttcagacttatAGcaa')` → **-0.08** (reproduced -0.080278)
+   The canonical 2.89 value is the example given on the MaxEntScan website / maxentpy README.
+
+5. **PROVENANCE + LICENCE (flagged, not buried):** the embedded table (`Data/maxent_score3.txt`) and the factorisation come from **kepbod/maxentpy, which is MIT-licensed** (redistribution permitted — full MIT text recorded in `Data/maxent_score3.LICENSE.md`). maxentpy's README notes the *original* Burge-lab Perl scripts/models carry **academic terms** (`http://genes.mit.edu/burgelab/maxent/download/READTHIS`); the artifact bundled here is the MIT-licensed port table, not the original. A maintainer seeking belt-and-suspenders clearance for commercial redistribution should review the upstream Burge-lab terms directly. This licence flag is repeated prominently in `Data/maxent_score3.LICENSE.md` and the validation report.
 
 ---
 
@@ -194,6 +213,19 @@ informative positions contribute their conservation fractions:
 | Far edge 40 nt | `GG CUUAC G×37 AG GGG` | 45 | 5 / 40 nt | `CUUAC` | 1.0 ⇒ found | — |
 | Just outside 41 nt | `GG CUUAC G×38 AG GGG` | 46 | 5 / 41 nt | — | > 40 nt ⇒ not found | — |
 
+### Dataset 5: MaxEntScan score3ss worked examples — Yeo & Burge (2004) / maxentpy
+
+**Source:** the maxentpy `score3` docstring (documented reference values); reproduced this session.
+
+| 23-nt window | Expected (2 dp) | Reproduced (full precision) |
+|--------------|-----------------|------------------------------|
+| `ttccaaacgaacttttgtAGgga` | **2.89** | 2.886773 |
+| `tgtctttttctgtgtggcAGtgg` | **8.19** | 8.190965 |
+| `ttctctcttcagacttatAGcaa` | **-0.08** | -0.080278 |
+
+The 2.89 value is the canonical example from the MaxEntScan website / maxentpy README; it is the
+primary cross-check for the factorisation + embedded tables.
+
 ---
 
 ## Verified Design Decisions
@@ -208,7 +240,7 @@ All previously documented assumptions have been audited and resolved:
 
 4. **Branch-point detection (`FindAcceptorBranchPoint`) — sourced from Gao et al. (2008):** the opt-in branch-point detector scans the 18–40 nt window upstream of the acceptor AG for the human `yUnAy` consensus (positions −3..+1, branch A at 0). The per-position conservation weights (y@−3 = 0.790, U@−2 = 0.746, A@0 = 0.923, y@+1 = 0.751) are the Gao (2008) lariat-RT-PCR frequencies; the 18–40 nt envelope brackets the Gao −34..−21 core and is corroborated by Mercer et al. (2015) "19–35 nt". The PPT-fraction window (4–24 nt downstream of the branch point) is also from Gao (2008). **No assumption — all constants are source-traceable.** The default PWM+PPT acceptor scoring (`FindAcceptorSites`) is unchanged and still does not include a branch-point term in the acceptor score itself.
 
-5. **MaxEntScan maximum-entropy acceptor model — honest residual (NOT bundled):** the Yeo & Burge (2004) 23-nt maximum-entropy 3' model requires the precomputed Burge-lab score-matrix files (`me2x3acc1`…`me2x3acc9`, the `splicemodels` tarball). These large trained data files are not redistributable into this repository and were not bundled this session. Fabricating them is forbidden, so the maximum-entropy acceptor model remains a documented residual rather than an implemented feature. The existing `CalculateMaxEntScore` helper is an explicitly named PWM-based approximation, not the true MaxEntScan model.
+5. **MaxEntScan score3ss maximum-entropy acceptor model — IMPLEMENTED (opt-in `ScoreAcceptorMaxEnt`):** the Yeo & Burge (2004) 23-nt maximum-entropy 3' model is now bundled. The precomputed probability tables were retrieved this session from the **MIT-licensed maxentpy port** (`score3_matrix.txt`, 82 560 records) and embedded as `Data/maxent_score3.txt` (provenance + MIT licence in `Data/maxent_score3.LICENSE.md`). The factorisation is the maxentpy `score3` (see source #6 above). The implementation reproduces all three documented worked examples EXACTLY (`2.89`/`8.19`/`-0.08`, full precision `2.886773`/`8.190965`/`-0.080278`), so a wrong table or factorisation would fail the 2.89 cross-check. The original Burge-lab `me2x3acc*` Perl files (academic terms) are NOT used — the bundled artifact is the MIT-licensed equivalent. The existing `CalculateMaxEntScore` helper remains an explicitly named PWM-based approximation, and the default `FindAcceptorSites` PWM+PPT scoring is unchanged; `ScoreAcceptorMaxEnt` is a new, additive, opt-in method.
 
 ---
 
@@ -252,4 +284,5 @@ All previously documented assumptions have been audited and resolved:
 
 - **2026-02-12**: Initial documentation.
 - **2026-03-16**: Resolved all 3 assumptions. Replaced U12 fixed 0.6 with YCCAC consensus scoring (Hall & Padgett 1994). Verified PWM weights against Shapiro & Senapathy (1987). Documented normalization as design decision. Added references 6-8.
-- **2026-06-24**: Added explicit branch-point detection (`FindAcceptorBranchPoint`) sourced from Gao et al. (2008) `yUnAy` consensus + Mercer et al. (2015) distribution (refs 9–10, dataset 4). Recorded the MaxEntScan maximum-entropy model as an honest residual (Burge-lab trained score tables not redistributable). Default PWM+PPT acceptor scoring unchanged.
+- **2026-06-24**: Added explicit branch-point detection (`FindAcceptorBranchPoint`) sourced from Gao et al. (2008) `yUnAy` consensus + Mercer et al. (2015) distribution (refs 9–10, dataset 4). Default PWM+PPT acceptor scoring unchanged.
+- **2026-06-24 (MaxEntScan)**: IMPLEMENTED the Yeo & Burge (2004) MaxEntScan score3ss maximum-entropy 3' acceptor model as the opt-in `ScoreAcceptorMaxEnt`. Embedded the precomputed probability tables (`Data/maxent_score3.txt`, 82 560 records) retrieved verbatim this session from the MIT-licensed maxentpy port; recorded factorisation + provenance + MIT licence (source #6, design decision #5, dataset 5, `Data/maxent_score3.LICENSE.md`). Cross-checked the canonical `score3('...AGgga') == 2.89` plus two further reference values exactly. Default scorers unchanged.

@@ -127,6 +127,7 @@ The current scoring rules are:
 
 - `SpliceSitePredictor.FindAcceptorSites(string, double, bool)`
 - `SpliceSitePredictor.FindAcceptorBranchPoint(string, int, double)` (opt-in branch-point detection; returns `BranchPointResult`)
+- `SpliceSitePredictor.ScoreAcceptorMaxEnt(string)` (opt-in Yeo & Burge 2004 MaxEntScan `score3ss` maximum-entropy 3' acceptor score, in bits; embedded probability tables)
 - `SpliceSitePredictor.ScoreAcceptorSite(string, int)` (private helper)
 - `SpliceSitePredictor.ScoreU12AcceptorSite(string, int)` (private helper)
 - `SpliceSitePredictor.ScoreBranchPointConsensus(string, int)` (private helper)
@@ -142,6 +143,7 @@ Canonical acceptor scoring uses a separate PPT component and applies the `Accept
 - Canonical acceptor recognition is based on the `AG` terminus and upstream PPT-rich context of `(Y)nNCAG|G`.[1][2]
 - Optional U12-style acceptor handling is based on `AC` and `YCCAC`-style context.[4][5][6]
 - Explicit branch-point detection uses the human `yUnAy` consensus (positions `-3..+1`, branch A at `0`), the per-position conservation weights, the 18–40 nt upstream window, and the 4–24 nt PPT span — all taken from Gao et al. (2008), corroborated by Mercer et al. (2015).[9][10]
+- The opt-in `ScoreAcceptorMaxEnt` implements the Yeo & Burge (2004) **MaxEntScan `score3ss`** maximum-entropy 3' acceptor model on a 23-nt window (20 intron + 3 exon, conserved `AG` at 0-based positions 18–19): `log2(P_maxent/P_background)`, removing the `AG` (scored by a consensus/background model) and factorising the 21 remaining positions over nine overlapping sub-sequences (five multiplied, four divided) using embedded precomputed probability tables. The factorisation and tables are the MIT-licensed maxentpy port; the canonical documented example `ScoreAcceptorMaxEnt("ttccaaacgaacttttgtAGgga")` reproduces `2.89` bits exactly (provenance + licence: `Data/maxent_score3.LICENSE.md`).[3]
 
 **Intentionally simplified:**
 
@@ -150,8 +152,8 @@ Canonical acceptor scoring uses a separate PPT component and applies the `Accept
 
 **Not implemented:**
 
-- The Yeo & Burge (2004) **MaxEntScan** 23-nt maximum-entropy 3' acceptor model; **users should rely on:** the MaxEntScan reference tool. This is an honest residual — the maximum-entropy 3' model requires the Burge-lab precomputed score-matrix data files (`me2x3acc1`…`me2x3acc9`, the `splicemodels` tarball), which are large trained data files with no clean redistribution licence and are not bundled here. The `CalculateMaxEntScore` helper is an explicitly named PWM-based approximation, not the true MaxEntScan model.[3]
 - Automatic disambiguation between cryptic and functional `AG` sites beyond local scoring; **users should rely on:** caller-side thresholding and downstream intron pairing.
+- The Yeo & Burge (2004) **5' donor** `score5ss` maximum-entropy model (this unit bundles only the **3' acceptor** `score3ss` model via `ScoreAcceptorMaxEnt`); **users should rely on:** the MaxEntScan reference tool for the donor model. (Note: the legacy `CalculateMaxEntScore` helper is an explicitly named PWM-based approximation, distinct from the true maximum-entropy `ScoreAcceptorMaxEnt`.)[3]
 
 ### 5.4 Deviations and Assumptions
 
@@ -173,7 +175,7 @@ Canonical acceptor scoring uses a separate PPT component and applies the `Accept
 
 ### 6.2 Limitations
 
-Acceptor detection in this repository is a local motif-and-PPT scorer. It does not use a full statistical acceptor model and does not decide exon or intron structure by itself. Explicit branch-point detection (`FindAcceptorBranchPoint`) is available as an opt-in companion, but the Yeo & Burge (2004) MaxEntScan maximum-entropy 3' acceptor model is **not** bundled (it needs the Burge-lab trained score tables — see §5.3). The branch-point window and weights are human/mammalian (Gao 2008); other species may have different branch-point statistics.
+The default `FindAcceptorSites` scorer in this repository is a local motif-and-PPT scorer and does not decide exon or intron structure by itself. As opt-in companions it offers explicit branch-point detection (`FindAcceptorBranchPoint`) and the Yeo & Burge (2004) MaxEntScan `score3ss` maximum-entropy 3' acceptor score (`ScoreAcceptorMaxEnt`, on a 23-nt window, embedded MIT-licensed tables — see §5.3). The corresponding 5' **donor** MaxEntScan `score5ss` model is not bundled. The branch-point window and weights are human/mammalian (Gao 2008); other species may have different branch-point statistics.
 
 ## 7. Examples and Related Material
 
