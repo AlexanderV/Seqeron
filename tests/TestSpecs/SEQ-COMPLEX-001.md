@@ -29,7 +29,7 @@ This TestSpec covers all sequence complexity metrics in `SequenceComplexity`:
 | Orlov & Potapov (2004) NAR 32:W628–W633 | Peer-reviewed | V_max = min(4^i, N−i+1), complexity profiles |
 | Wikipedia "Entropy (information theory)" | Encyclopedia | Shannon formula H = −Σ p_i log₂ p_i |
 | Shannon (1948) Bell System Technical Journal | Original paper | Information entropy definition |
-| Morgulis et al. (2006) J Comput Biol 13(5):1028–40 | Peer-reviewed | Symmetric DUST: S = Σc_t(c_t−1)/2 / (w−1) |
+| Morgulis et al. (2006) J Comput Biol 13(5):1028–40 | Peer-reviewed | Symmetric DUST originator: S = Σc_t(c_t−1)/2 / (w−1). **Implemented variant** follows Li (2025) SDUST: divisor = ℓ = number of triplets (N−2), not (w−1) — see §Formulas and the DUST test rows. |
 
 ## 3. Formulas
 

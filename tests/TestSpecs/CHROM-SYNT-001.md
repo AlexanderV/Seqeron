@@ -29,8 +29,8 @@
 
 | ID | Test Name | Rationale | Source |
 |----|-----------|-----------|--------|
-| M1 | FindSyntenyBlocks_CollinearForward_ReturnsBlockWithPlusStrand | Core functionality: detect forward collinearity | Wikipedia (Synteny) |
-| M2 | FindSyntenyBlocks_CollinearReverse_ReturnsBlockWithMinusStrand | Core functionality: detect inverted blocks | Wikipedia (Synteny) |
+| M1 | FindSyntenyBlocks_CollinearForward_ReturnsBlockWithPlusStrand | Core functionality: detect forward collinearity | MCScanX (Wang 2012); Wikipedia (Synteny) |
+| M2 | FindSyntenyBlocks_CollinearReverse_ReturnsBlockWithMinusStrand | Core functionality: detect inverted blocks (− strand) | MCScanX (Wang 2012) / SyRI; Wikipedia (Synteny) |
 | M3 | FindSyntenyBlocks_TooFewGenes_ReturnsEmpty | minGenes threshold enforcement | Definition |
 | M4 | FindSyntenyBlocks_EmptyInput_ReturnsEmpty | Edge case: empty input | Implementation |
 | M5 | FindSyntenyBlocks_ExactlyMinGenes_ReturnsBlock | Boundary: exactly minGenes | Definition |

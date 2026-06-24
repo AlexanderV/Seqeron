@@ -2,7 +2,7 @@
 
 > ⚠️ **FULL RE-VALIDATION RESET — 2026-06-24.** Every unit below was reset to **⬜ pending** for a fresh end-to-end re-verification (extensive code changes during the limitations-elimination campaign). Prior Stage/State results are **SUPERSEDED**, retained only as historical evidence; the per-unit reports are kept. Registry expanded to **237** (added ONCO-ASCAT-001, RNA-PKPREDICT-001, RNA-PKRECURSIVE-001 — pending first validation).
 >
-> ✅ **PHASE 1 RE-VALIDATION COMPLETE — 2026-06-24.** All **86 / 86** units independently re-validated, one fresh-context session per unit (Stage A description → Stage B implementation, authoritative external sources, hand/reference cross-checks). **Result: 86 / 86 ✅ CLEAN.** Stage-A: 57 PASS / 29 PASS-WITH-NOTES / 0 FAIL. Stage-B: 78 PASS / 8 PASS-WITH-NOTES / 0 FAIL. One real implementation defect found & fully fixed in-session (PARSE-GENBANK-001 multi-line qualifier reconstruction → spurious-space corruption of wrapped `/translation`); minor test/spec corrections elsewhere (SEQ-COMPLEX-001, TRANS-PROT-001 +3 lock tests, PROTMOTIF-FIND/DOMAIN spec fixes). Full unfiltered suite green at the end (18213 passed / 0 failed). The PASS-WITH-NOTES are documented by-design scope boundaries (declared heuristics, single-codon-AA CAI inclusion, stale-spec wording), not defects. RNA-STRUCT-001's non-csr-PK / tertiary-stabilised-knot residual and ONCO-MHC-001's trained-model gap remain the only LIMITATIONS.md entries (by-design, validated).
+> ✅ **PHASE 1 RE-VALIDATION COMPLETE — 2026-06-24.** All **86 / 86** units independently re-validated, one fresh-context session per unit (Stage A description → Stage B implementation, authoritative external sources, hand/reference cross-checks). **Result: 86 / 86 ✅ CLEAN.** Stage-A: 63 PASS / 23 PASS-WITH-NOTES / 0 FAIL. Stage-B: 79 PASS / 7 PASS-WITH-NOTES / 0 FAIL. (Spec-alignment pass 2026-06-24 cleared 6 doc-only PASS-WITH-NOTES → PASS: SEQ-COMPLEX-001, REP-PALIN-001, PRIMER-DESIGN-001, CHROM-SYNT-001, MIRNA-SEED-001, PROTMOTIF-FIND-001 — stale/imprecise TestSpec wording corrected; code unchanged.) One real implementation defect found & fully fixed in-session (PARSE-GENBANK-001 multi-line qualifier reconstruction → spurious-space corruption of wrapped `/translation`); minor test/spec corrections elsewhere (SEQ-COMPLEX-001, TRANS-PROT-001 +3 lock tests, PROTMOTIF-FIND/DOMAIN spec fixes). Full unfiltered suite green at the end (18213 passed / 0 failed). The PASS-WITH-NOTES are documented by-design scope boundaries (declared heuristics, single-codon-AA CAI inclusion, stale-spec wording), not defects. RNA-STRUCT-001's non-csr-PK / tertiary-stabilised-knot residual and ONCO-MHC-001's trained-model gap remain the only LIMITATIONS.md entries (by-design, validated).
 
 Independent re-validation of the 86 implemented (☑) test units, one fresh session per unit.
 Protocol: [VALIDATION_PROTOCOL.md](VALIDATION_PROTOCOL.md).
@@ -32,7 +32,7 @@ State (end of session): ✅ CLEAN (fully functional) · 🔧 LIMITED (see report
 | 2 | SEQ-COMP-001 | Composition | ✅ | ✅ | ✅ CLEAN | reports/SEQ-COMP-001.md |
 | 3 | SEQ-REVCOMP-001 | Composition | ✅ | ✅ | ✅ CLEAN | reports/SEQ-REVCOMP-001.md |
 | 4 | SEQ-VALID-001 | Composition | ✅ | ✅ | ✅ CLEAN | reports/SEQ-VALID-001.md |
-| 5 | SEQ-COMPLEX-001 | Composition | 🟡 | ✅ | ✅ CLEAN | reports/SEQ-COMPLEX-001.md |
+| 5 | SEQ-COMPLEX-001 | Composition | ✅ | ✅ | ✅ CLEAN | reports/SEQ-COMPLEX-001.md |
 | 6 | SEQ-ENTROPY-001 | Composition | ✅ | ✅ | ✅ CLEAN | reports/SEQ-ENTROPY-001.md |
 | 7 | SEQ-GCSKEW-001 | Composition | 🟡 | ✅ | ✅ CLEAN | reports/SEQ-GCSKEW-001.md |
 | 8 | PAT-EXACT-001 | Matching | ✅ | ✅ | ✅ CLEAN | reports/PAT-EXACT-001.md |
@@ -44,12 +44,12 @@ State (end of session): ✅ CLEAN (fully functional) · 🔧 LIMITED (see report
 | 14 | REP-TANDEM-001 | Repeats | ✅ | ✅ | ✅ CLEAN | reports/REP-TANDEM-001.md |
 | 15 | REP-INV-001 | Repeats | ✅ | ✅ | ✅ CLEAN | reports/REP-INV-001.md |
 | 16 | REP-DIRECT-001 | Repeats | ✅ | ✅ | ✅ CLEAN | reports/REP-DIRECT-001.md |
-| 17 | REP-PALIN-001 | Repeats | 🟡 | ✅ | ✅ CLEAN | reports/REP-PALIN-001.md |
+| 17 | REP-PALIN-001 | Repeats | ✅ | ✅ | ✅ CLEAN | reports/REP-PALIN-001.md |
 | 18 | CRISPR-PAM-001 | MolTools | ✅ | 🟡 | ✅ CLEAN | reports/CRISPR-PAM-001.md |
 | 19 | CRISPR-GUIDE-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/CRISPR-GUIDE-001.md |
 | 20 | CRISPR-OFF-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/CRISPR-OFF-001.md |
 | 21 | PRIMER-TM-001 | MolTools | 🟡 | ✅ | ✅ CLEAN | reports/PRIMER-TM-001.md |
-| 22 | PRIMER-DESIGN-001 | MolTools | 🟡 | ✅ | ✅ CLEAN | reports/PRIMER-DESIGN-001.md |
+| 22 | PRIMER-DESIGN-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/PRIMER-DESIGN-001.md |
 | 23 | PRIMER-STRUCT-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/PRIMER-STRUCT-001.md |
 | 24 | PROBE-DESIGN-001 | MolTools | 🟡 | ✅ | ✅ CLEAN | reports/PROBE-DESIGN-001.md |
 | 25 | PROBE-VALID-001 | MolTools | 🟡 | ✅ | ✅ CLEAN | reports/PROBE-VALID-001.md |
@@ -79,7 +79,7 @@ State (end of session): ✅ CLEAN (fully functional) · 🔧 LIMITED (see report
 | 49 | CHROM-CENT-001 | Chromosome | 🟡 | 🟡 | ✅ CLEAN | reports/CHROM-CENT-001.md |
 | 50 | CHROM-KARYO-001 | Chromosome | ✅ | ✅ | ✅ CLEAN | reports/CHROM-KARYO-001.md |
 | 51 | CHROM-ANEU-001 | Chromosome | ✅ | ✅ | ✅ CLEAN | reports/CHROM-ANEU-001.md |
-| 52 | CHROM-SYNT-001 | Chromosome | 🟡 | ✅ | ✅ CLEAN | reports/CHROM-SYNT-001.md |
+| 52 | CHROM-SYNT-001 | Chromosome | ✅ | ✅ | ✅ CLEAN | reports/CHROM-SYNT-001.md |
 | 53 | META-CLASS-001 | Metagenomics | ✅ | ✅ | ✅ CLEAN | reports/META-CLASS-001.md |
 | 54 | META-PROF-001 | Metagenomics | ✅ | ✅ | ✅ CLEAN | reports/META-PROF-001.md |
 | 55 | META-ALPHA-001 | Metagenomics | ✅ | ✅ | ✅ CLEAN | reports/META-ALPHA-001.md |
@@ -101,7 +101,7 @@ State (end of session): ✅ CLEAN (fully functional) · 🔧 LIMITED (see report
 | 71 | RNA-STRUCT-001 | RnaStructure | ✅ | ✅ | ✅ CLEAN | reports/RNA-STRUCT-001.md |
 | 72 | RNA-STEMLOOP-001 | RnaStructure | ✅ | ✅ | ✅ CLEAN | reports/RNA-STEMLOOP-001.md |
 | 73 | RNA-ENERGY-001 | RnaStructure | ✅ | ✅ | ✅ CLEAN | reports/RNA-ENERGY-001.md |
-| 74 | MIRNA-SEED-001 | MiRNA | 🟡 | 🟡 | ✅ CLEAN | reports/MIRNA-SEED-001.md |
+| 74 | MIRNA-SEED-001 | MiRNA | ✅ | ✅ | ✅ CLEAN | reports/MIRNA-SEED-001.md |
 | 75 | MIRNA-TARGET-001 | MiRNA | ✅ | 🟡 | ✅ CLEAN | reports/MIRNA-TARGET-001.md |
 | 76 | MIRNA-PRECURSOR-001 | MiRNA | 🟡 | 🟡 | ✅ CLEAN | reports/MIRNA-PRECURSOR-001.md |
 | 77 | SPLICE-DONOR-001 | Splicing | ✅ | ✅ | ✅ CLEAN | reports/SPLICE-DONOR-001.md |
@@ -109,7 +109,7 @@ State (end of session): ✅ CLEAN (fully functional) · 🔧 LIMITED (see report
 | 79 | SPLICE-PREDICT-001 | Splicing | ✅ | ✅ | ✅ CLEAN | reports/SPLICE-PREDICT-001.md |
 | 80 | DISORDER-PRED-001 | ProteinPred | ✅ | ✅ | ✅ CLEAN | reports/DISORDER-PRED-001.md |
 | 81 | DISORDER-REGION-001 | ProteinPred | 🟡 | ✅ | ✅ CLEAN | reports/DISORDER-REGION-001.md |
-| 82 | PROTMOTIF-FIND-001 | ProteinMotif | 🟡 | ✅ | ✅ CLEAN | reports/PROTMOTIF-FIND-001.md |
+| 82 | PROTMOTIF-FIND-001 | ProteinMotif | ✅ | ✅ | ✅ CLEAN | reports/PROTMOTIF-FIND-001.md |
 | 83 | PROTMOTIF-PROSITE-001 | ProteinMotif | ✅ | ✅ | ✅ CLEAN | reports/PROTMOTIF-PROSITE-001.md |
 | 84 | PROTMOTIF-DOMAIN-001 | ProteinMotif | 🟡 | ✅ | ✅ CLEAN | reports/PROTMOTIF-DOMAIN-001.md |
 | 85 | EPIGEN-CPG-001 | Epigenetics | ✅ | ✅ | ✅ CLEAN | reports/EPIGEN-CPG-001.md |
