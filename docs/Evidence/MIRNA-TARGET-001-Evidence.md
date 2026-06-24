@@ -74,3 +74,68 @@ For a 6mer site: `...UACCUC...` (match to pos 2-7 only)
 - Score for 8mer ≥ Score for 7mer-m8 ≥ Score for 7mer-A1 ≥ Score for 6mer ≥ Score for offset 6mer
 - FreeEnergy for well-paired duplex should be negative
 - SeedMatchLength: 8 for 8mer, 7 for 7mer types, 6 for 6mer types
+
+---
+
+## TargetScan context++ Scoring (Agarwal et al. 2015) — opt-in
+
+### Online Sources (retrieved verbatim this session)
+
+| Source | How retrieved | Key fact extracted |
+|--------|---------------|--------------------|
+| `Agarwal_2015_parameters.txt` (TargetScan distribution) | `curl https://raw.githubusercontent.com/nsoranzo/targetscan/main/Agarwal_2015_parameters.txt` (2026-06-24) | Plaintext fitted coefficients (coeff/min/max) for 21 feature rows + Intercept, one column **per site type** (column order: 8mer / 7mer-m8 / 7mer-A1 / 6mer). |
+| `targetscan_70_context_scores.pl` (TargetScan distribution) | `curl https://raw.githubusercontent.com/nsoranzo/targetscan/main/targetscan_70_context_scores.pl` (2026-06-24) | `getAgarwalContribution`, `getLocalAU_contribution`, `get_sRNA1_8_contributions`, `getSite8_contribution`, `readAgarwalParameters`, CS sum (lines ~404–411). Defines feature computation + scaling. |
+| Agarwal V, Bell GW, Nam JW, Bartel DP (2015) eLife 4:e05005 | WebFetch https://pmc.ncbi.nlm.nih.gov/articles/PMC4532895/ (2026-06-24) | "Using the 14 robustly selected features, we trained multiple linear regression models on all of the data. The resulting models, **one for each of the four site types**, were collectively called the context++ model." Continuous features scaled to comparable ranges; nucleotide-identity features categorical. doi:10.7554/eLife.05005 |
+| hsa-miR-122-5p | WebFetch https://mirbase.org/mature/MIMAT0000421 (2026-06-24) | Mature sequence `UGGAGUGUGACAAUGGUGUUUG` (cross-check of nt1/nt8 handling). |
+
+### context++ model (Agarwal 2015)
+
+The context++ score (CS) of a site is the **sum of per-feature contributions** of a multiple-linear-regression model fit **separately per site type** (8mer, 7mer-m8, 7mer-A1, 6mer). Each feature contribution = `coeff × scaledScore` (`getAgarwalContribution`):
+
+- **Continuous features** (`TA_3UTR, SPS, Local_AU, 3P_score, SA, Len_ORF, Len_3UTR, Min_dist, PCT`) are **min-max scaled**: `scaled = (raw − min) / (max − min)`, using the per-site-type min/max from the parameter file.
+- **Binary indicator features** (`sRNA1A/C/G, sRNA8A/C/G, Site8A/C/G, Off6m, ORF8m`) are **used raw** (the indicator is 1 for the matching nucleotide, else 0).
+- **Intercept** (the site-type term) is the raw coefficient, added once.
+
+### Fitted coefficients (verbatim, parameter-file column order 8mer / 7mer-m8 / 7mer-A1 / 6mer)
+
+| Feature | 8mer | 7mer-m8 | 7mer-A1 | 6mer | min (per type) | max (per type) |
+|---------|------|---------|---------|------|----------------|----------------|
+| Intercept | -0.589 | -0.224 | -0.195 | -0.079 | — | — |
+| Local_AU | -0.254 | -0.177 | -0.075 | -0.040 | 0.308 / 0.277 / 0.342 / 0.295 | 0.814 / 0.782 / 0.801 / 0.772 |
+| sRNA1A | -0.018 | 0.010 | -0.025 | -0.002 | 0 | 1 |
+| sRNA1C | -0.021 | 0.014 | -0.021 | 0.004 | 0 | 1 |
+| sRNA1G | 0.060 | 0.062 | 0.030 | 0.018 | 0 | 1 |
+| sRNA8A | 0.022 | 0.004 | -0.049 | -0.015 | 0 | 1 |
+| sRNA8C | 0.012 | -0.031 | 0.033 | 0.016 | 0 | 1 |
+| sRNA8G | 0.015 | -0.008 | -0.017 | 0.006 | 0 | 1 |
+| Site8A | (n/a) | (n/a) | 0.000 | -0.002 | 0 | 1 |
+| Site8C | (n/a) | (n/a) | 0.036 | 0.015 | 0 | 1 |
+| Site8G | (n/a) | (n/a) | 0.015 | 0.012 | 0 | 1 |
+
+Site8 features are computed by the perl **only for 7mer-A1 (siteType 1) and 6mer (siteType 4)**; the parameter file leaves the 8mer/7mer-m8 cells blank.
+
+### Locally-computable subset realised (and the honest residual)
+
+Only features depending solely on the **miRNA** and the **local 3'UTR** are realised: **Intercept, Local_AU, sRNA1{A,C,G}, sRNA8{A,C,G}, Site8{A,C,G}**. The remaining full-transcript features are **NOT computed** and are reported as the residual: `3P_score` (3' supplementary pairing), `SPS`, `TA_3UTR`, `Min_dist`, `SA` (structural accessibility), `PCT`, `Len_3UTR`, `Len_ORF`, `ORF8m`, `Off6m`. Because most omitted coefficients are negative, the partial CS is an **upper bound** on the full context++ score.
+
+### Local_AU computation (verbatim from `getLocalAU_contribution`)
+
+- `utrUp` = up to 30 nt immediately 5' of the site; `utrDown` = up to 30 nt immediately 3' of the site.
+- Upstream position weight: `1/(i+1)` for 8mer & 7mer-m8, else `1/(i+2)` (i=0 at the base adjacent to the site).
+- Downstream position weight: `1/(i+2)` for 8mer & 7mer-A1, else `1/(i+1)`.
+- For each position, A or U contributes its weight to the score; every position contributes its weight to the denominator. `fraction = score/denominator`; then min-max scaled × Local_AU coeff.
+- (The perl rounds intermediate contributions to 3 decimals for output; the implementation keeps full precision — a more-accurate, documented choice.)
+
+### sRNA1 / sRNA8 / Site8 (verbatim)
+
+- `sRNA1_nt = miRNA[1]`, `sRNA8_nt = miRNA[8]` (1-based). sRNA1 contributions are scored **only when nt1 ≠ U**; sRNA8 only when nt8 ≠ U.
+- Site8 contributions are scored **only when the target site-position-8 base ≠ U**, and only for 7mer-A1 / 6mer; the relevant base is the nucleotide opposite miRNA position 8 (in this repo's geometry: the base immediately 5' of the 6mer core, `mRNA[site.Start − 1]`).
+
+### Worked examples (hand-derived; used as exact test expectations)
+
+| Case | miRNA / layout | Realised contributions | Partial CS |
+|------|----------------|------------------------|-----------|
+| 8mer | let-7a (nt1=U,nt8=G); `GGGGG+CUACCUCA+GGGGG`; all-G flanks ⇒ fraction 0 | Int=-0.589; Local_AU=-0.254×((0-0.308)/(0.814-0.308))=+0.154608695652174; sRNA8G=+0.015 | **-0.419391304347826** |
+| 7mer-m8 | let-7a; `GGGGG+CUACCUC+GGGG`; fraction 0 | Int=-0.224; Local_AU=-0.177×((0-0.277)/(0.782-0.277))=+0.097087128712871; sRNA8G=-0.008 | **-0.134912871287129** |
+| 7mer-A1 | let-7a; `GGGGG+UACCUC+A+GGGG`; Site8 base 'G'; fraction 0 | Int=-0.195; Local_AU=-0.075×((0-0.342)/(0.801-0.342))=+0.055882352941176; sRNA8G=-0.017; Site8G=+0.015 | **-0.141117647058824** |
+| 6mer | miR-21 (nt1=U,nt8=U); `GGGGC+UAAGCU+UGAGG`; Site8 base 'C'; fraction 0.357142857142857 | Int=-0.079; Local_AU=-0.040×((0.357142857142857-0.295)/(0.772-0.295))=-0.005211141060198; Site8C=+0.015 | **-0.069211141060198** |

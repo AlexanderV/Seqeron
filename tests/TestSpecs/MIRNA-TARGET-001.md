@@ -3,7 +3,7 @@
 ## Test Unit
 - **ID**: MIRNA-TARGET-001
 - **Area**: MiRNA
-- **Canonical methods**: `FindTargetSites(mRna, miRna, minScore)`, scoring via `CalculateTargetScore` (internal)
+- **Canonical methods**: `FindTargetSites(mRna, miRna, minScore)`, scoring via `CalculateTargetScore` (internal); `ScoreTargetSiteContextPlusPlus(mRna, miRna, site)` (opt-in TargetScan context++, Agarwal 2015 — locally-computable feature subset)
 - **Supporting**: `AlignMiRnaToTarget`, `CreateTargetSite` (internal)
 
 ## Canonical Test File
@@ -106,6 +106,20 @@
 
 ---
 
+### CTX-001..CTX-007: TargetScan context++ scoring (Agarwal et al. 2015) — opt-in `ScoreTargetSiteContextPlusPlus`
+
+**Source (retrieved verbatim this session):** `Agarwal_2015_parameters.txt` (fitted coefficients) and `targetscan_70_context_scores.pl` (feature computation/scaling), TargetScan distribution; peer-reviewed model Agarwal V et al. (2015) eLife 4:e05005, doi:10.7554/eLife.05005. Each expected value is hand-derived from the retrieved coefficients × feature values (see Evidence "Worked examples"); a wrong coefficient fails the test.
+
+- **CTX-001 (MUST):** 8mer, let-7a, all-G flanks → `ContextScorePartial == -0.419391304347826` (Intercept(8mer)=-0.589 + Local_AU=+0.154608695652174 + sRNA8G(8mer)=+0.015; sRNA1=0 nt1=U; Site8=0 for 8mer). Exact, `Within(1e-9)`.
+- **CTX-002 (MUST):** 7mer-m8, let-7a → `ContextScorePartial == -0.134912871287129` (Intercept=-0.224 + Local_AU=+0.097087128712871 + sRNA8G(7mer-m8)=-0.008).
+- **CTX-003 (MUST):** 7mer-A1, let-7a, Site8 base 'G' → `ContextScorePartial == -0.141117647058824` (Intercept=-0.195 + Local_AU=+0.055882352941176 + sRNA8G(7mer-A1)=-0.017 + Site8G(7mer-A1)=+0.015).
+- **CTX-004 (MUST):** 6mer, miR-21, mixed flanks (local-AU fraction 0.357142857142857), Site8 base 'C' → `ContextScorePartial == -0.069211141060198` (Intercept=-0.079 + Local_AU=-0.005211141060198 + Site8C(6mer)=+0.015).
+- **CTX-005 (MUST):** sRNA1 non-U branch — synthetic miRNA nt1=G, nt8=G, 8mer → `SRna1Contribution == 0.060` (sRNA1G(8mer)) and `SRna8Contribution == 0.015` (sRNA8G(8mer)).
+- **CTX-006 (MUST):** non-seed-match site type (Offset6mer) → throws `ArgumentException` (context++ models defined only for the four canonical types).
+- **CTX-007 (MUST):** `OmittedFeatures` reports the residual full-transcript features (contains `SPS`, `3P_score`, `TA_3UTR`).
+
+---
+
 ## Could Tests
 
 ### C-001: Context (AU-rich) may influence scoring indirectly via supplementary pairing bonuses
@@ -141,6 +155,13 @@
 | S-001 | FindTargetSites_Offset6merSite_Detected | ✅ Covered | Exact type + seedMatchLength |
 | S-002 | FindTargetSites_FoundSite_AllFieldsPopulated | ✅ Covered | All 8 fields verified |
 | S-003 | FindTargetSites_Let7a_RealTargetSequence + MiR21_8merTarget | ✅ Covered | Exact type + count for both |
+| CTX-001 | ScoreTargetSiteContextPlusPlus_8merLet7a_GcFlanks_MatchesHandDerivedScore | ✅ Covered | Exact partial CS -0.419391304347826, Within(1e-9); per-feature breakdown asserted |
+| CTX-002 | ScoreTargetSiteContextPlusPlus_7merM8Let7a_MatchesHandDerivedScore | ✅ Covered | Exact partial CS -0.134912871287129 |
+| CTX-003 | ScoreTargetSiteContextPlusPlus_7merA1Let7a_Site8G_MatchesHandDerivedScore | ✅ Covered | Exact partial CS -0.141117647058824; Site8 path |
+| CTX-004 | ScoreTargetSiteContextPlusPlus_6merMiR21_MixedFlanks_MatchesHandDerivedScore | ✅ Covered | Exact partial CS -0.069211141060198; non-zero local-AU fraction |
+| CTX-005 | ScoreTargetSiteContextPlusPlus_SRna1G_8mer_AddsSRna1GCoefficient | ✅ Covered | sRNA1 non-U branch: sRNA1G=0.060, sRNA8G=0.015 |
+| CTX-006 | ScoreTargetSiteContextPlusPlus_NonSeedSiteType_Throws | ✅ Covered | ArgumentException for Offset6mer |
+| CTX-007 | ScoreTargetSiteContextPlusPlus_ReportsOmittedFullTranscriptFeatures | ✅ Covered | Residual list contains SPS/3P_score/TA_3UTR |
 
 ### Resolved Issues (this cycle)
 
@@ -190,7 +211,7 @@ These are intentional engineering simplifications that do not deviate from the b
 |---|------|---------------|--------------------------|--------|
 | 1 | Energy calculation | Simplified stacking/wobble/mismatch model vs Turner nearest-neighbor thermodynamic parameters | Turner & Mathews (2010) | Approximate ΔG values; does not affect site type classification |
 | 2 | Alignment | Positional (parallel index) alignment vs true antiparallel structural alignment | Bartel (2009) | Duplex display is schematic; does not affect seed match detection |
-| 3 | Context scoring | Minimal context adjustment (supplementary pairing bonus, mismatch penalty) vs full TargetScan context++ model | Grimson (2007), Agarwal (2015) | Scores approximate; relative ordering preserved |
+| 3 | Default context scoring | Default `Score` = minimal context adjustment (supplementary pairing bonus, mismatch penalty) vs full TargetScan context++ model. An **opt-in** `ScoreTargetSiteContextPlusPlus` now provides the source-fitted context++ with the **locally-computable feature subset** (Intercept, Local_AU, sRNA1/8, Site8) using verbatim Agarwal_2015_parameters.txt coefficients. | Grimson (2007), Agarwal (2015) eLife 4:e05005 | Default `Score` unchanged; opt-in CS is a **partial** context++ (full-transcript features `3P_score, SPS, TA_3UTR, Min_dist, SA, PCT, Len_3UTR, Len_ORF, ORF8m, Off6m` omitted = honest residual, reported in `OmittedFeatures`; partial CS is an upper bound). |
 | 4 | Score normalization | Base scores normalized to [0,1] from Grimson (2007) absolute weights | Grimson (2007) | Proportional ratios preserved exactly |
 
 ### Previously Fixed Issues (audit trail)

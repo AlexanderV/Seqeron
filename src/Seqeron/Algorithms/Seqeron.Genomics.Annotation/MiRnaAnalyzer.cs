@@ -481,6 +481,281 @@ public static class MiRnaAnalyzer
 
     #endregion
 
+    #region TargetScan context++ scoring (Agarwal et al. 2015) — opt-in
+
+    /// <summary>
+    /// Breakdown of the locally-computable TargetScan context++ score (Agarwal et al. 2015)
+    /// for a single seed-matched target site. The context++ score is the SUM of per-feature
+    /// contributions of a multiple-linear-regression model fit SEPARATELY per site type
+    /// (8mer / 7mer-m8 / 7mer-A1 / 6mer). Only the features computable from the miRNA and the
+    /// local 3'UTR sequence are realised here; full-transcript features are reported as
+    /// <see cref="OmittedFeatures"/>. The <see cref="ContextScorePartial"/> is therefore a
+    /// PARTIAL context++ score (an upper bound, since most omitted feature coefficients are
+    /// negative), not the published headline CS. See algorithm doc §5.3.
+    /// </summary>
+    /// <param name="SiteType">The seed-match site type (must be one of the four canonical types).</param>
+    /// <param name="Intercept">Site-type intercept term (raw coefficient; Agarwal_2015_parameters.txt).</param>
+    /// <param name="LocalAuContribution">coeff(Local_AU) × scaled(local-AU fraction).</param>
+    /// <param name="SRna1Contribution">Sum of sRNA1A/C/G indicator contributions (0 if miRNA nt1 = U).</param>
+    /// <param name="SRna8Contribution">Sum of sRNA8A/C/G indicator contributions (0 if miRNA nt8 = U).</param>
+    /// <param name="Site8Contribution">Sum of Site8A/C/G contributions (only 7mer-A1 / 6mer; else 0).</param>
+    /// <param name="ContextScorePartial">Sum of all realised contributions above.</param>
+    /// <param name="OmittedFeatures">Full-transcript context++ features NOT included (honest residual).</param>
+    public readonly record struct ContextPlusPlusScore(
+        TargetSiteType SiteType,
+        double Intercept,
+        double LocalAuContribution,
+        double SRna1Contribution,
+        double SRna8Contribution,
+        double Site8Contribution,
+        double ContextScorePartial,
+        IReadOnlyList<string> OmittedFeatures);
+
+    // ── Agarwal et al. (2015) context++ fitted coefficients ──────────────────────────────
+    // Source (retrieved verbatim this session): TargetScan distribution parameter file
+    //   Agarwal_2015_parameters.txt
+    //   https://raw.githubusercontent.com/nsoranzo/targetscan/main/Agarwal_2015_parameters.txt
+    // Computation/scaling logic (retrieved verbatim this session): targetscan_70_context_scores.pl
+    //   getAgarwalContribution(), getLocalAU_contribution(), get_sRNA1_8_contributions(),
+    //   getSite8_contribution()
+    //   https://raw.githubusercontent.com/nsoranzo/targetscan/main/targetscan_70_context_scores.pl
+    // Peer-reviewed model: Agarwal V, Bell GW, Nam JW, Bartel DP (2015) eLife 4:e05005,
+    //   doi:10.7554/eLife.05005 — "one [regression] model for each of the four site types".
+    // Parameter-file column order is 8mer / 7mer-m8 / 7mer-A1 / 6mer.
+
+    // Intercept row (raw coeff, no scaling): siteType2siteTypeContribution in the perl.
+    private const double CtxIntercept8mer = -0.589;
+    private const double CtxIntercept7merM8 = -0.224;
+    private const double CtxIntercept7merA1 = -0.195;
+    private const double CtxIntercept6mer = -0.079;
+
+    // Local_AU row: coeff, then min/max for min-max scaling of the local-AU fraction.
+    private const double CtxLocalAuCoeff8mer = -0.254, CtxLocalAuMin8mer = 0.308, CtxLocalAuMax8mer = 0.814;
+    private const double CtxLocalAuCoeff7merM8 = -0.177, CtxLocalAuMin7merM8 = 0.277, CtxLocalAuMax7merM8 = 0.782;
+    private const double CtxLocalAuCoeff7merA1 = -0.075, CtxLocalAuMin7merA1 = 0.342, CtxLocalAuMax7merA1 = 0.801;
+    private const double CtxLocalAuCoeff6mer = -0.040, CtxLocalAuMin6mer = 0.295, CtxLocalAuMax6mer = 0.772;
+
+    // sRNA position-1 identity indicators (binary, used raw): coeff per site type.
+    private const double CtxSRna1A8mer = -0.018, CtxSRna1A7merM8 = 0.010, CtxSRna1A7merA1 = -0.025, CtxSRna1A6mer = -0.002;
+    private const double CtxSRna1C8mer = -0.021, CtxSRna1C7merM8 = 0.014, CtxSRna1C7merA1 = -0.021, CtxSRna1C6mer = 0.004;
+    private const double CtxSRna1G8mer = 0.060, CtxSRna1G7merM8 = 0.062, CtxSRna1G7merA1 = 0.030, CtxSRna1G6mer = 0.018;
+
+    // sRNA position-8 identity indicators (binary, used raw): coeff per site type.
+    private const double CtxSRna8A8mer = 0.022, CtxSRna8A7merM8 = 0.004, CtxSRna8A7merA1 = -0.049, CtxSRna8A6mer = -0.015;
+    private const double CtxSRna8C8mer = 0.012, CtxSRna8C7merM8 = -0.031, CtxSRna8C7merA1 = 0.033, CtxSRna8C6mer = 0.016;
+    private const double CtxSRna8G8mer = 0.015, CtxSRna8G7merM8 = -0.008, CtxSRna8G7merA1 = -0.017, CtxSRna8G6mer = 0.006;
+
+    // Site8 identity indicators (binary, used raw): defined ONLY for 7mer-A1 and 6mer
+    // (the perl computes them only for siteType 1 = 7mer-A1 and 4 = 6mer).
+    private const double CtxSite8A7merA1 = 0.000, CtxSite8A6mer = -0.002;
+    private const double CtxSite8C7merA1 = 0.036, CtxSite8C6mer = 0.015;
+    private const double CtxSite8G7merA1 = 0.015, CtxSite8G6mer = 0.012;
+
+    // Number of flanking nucleotides used for the local-AU feature (getLocalAU_contribution
+    // extracts 30 nt up- and downstream of the site).
+    private const int LocalAuFlankLength = 30;
+
+    /// <summary>
+    /// Computes the locally-computable TargetScan context++ score (Agarwal et al. 2015) for one
+    /// seed-matched target site, as an OPT-IN alternative to the default Grimson-proportional
+    /// <c>Score</c> on <see cref="TargetSite"/>. Realises only the four features that depend solely
+    /// on the miRNA and the local 3'UTR sequence — site-type intercept, local-AU, sRNA position-1/8
+    /// nucleotide identity, and (for 7mer-A1 / 6mer) target site-position-8 identity — each computed
+    /// and scaled exactly as in <c>targetscan_70_context_scores.pl</c>. Full-transcript features
+    /// (3' supplementary pairing, SPS, TA, minimum distance, structural accessibility, PCT, 3'UTR
+    /// and ORF length, ORF-8mer and offset-6mer counts) are NOT computed and are listed in
+    /// <see cref="ContextPlusPlusScore.OmittedFeatures"/>; the returned score is therefore a partial
+    /// context++ score, not the published headline CS.
+    /// </summary>
+    /// <param name="mRnaSequence">The mRNA / 3'UTR sequence the site was found in (RNA or DNA; T→U; case-insensitive).</param>
+    /// <param name="miRna">The miRNA (its <c>Sequence</c> supplies nt1 and nt8).</param>
+    /// <param name="site">A target site whose <c>Type</c> is one of the four canonical seed-match types.</param>
+    /// <returns>The per-feature context++ contribution breakdown and their partial sum.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="site"/> is not one of the four canonical seed-match site types (8mer / 7mer-m8 / 7mer-A1 / 6mer).</exception>
+    public static ContextPlusPlusScore ScoreTargetSiteContextPlusPlus(
+        string mRnaSequence,
+        MiRna miRna,
+        TargetSite site)
+    {
+        if (site.Type is not (TargetSiteType.Seed8mer or TargetSiteType.Seed7merM8
+            or TargetSiteType.Seed7merA1 or TargetSiteType.Seed6mer))
+        {
+            throw new ArgumentException(
+                "context++ scoring is defined only for the four canonical seed-match site types " +
+                "(8mer, 7mer-m8, 7mer-A1, 6mer) — Agarwal et al. (2015).", nameof(site));
+        }
+
+        string mrna = string.IsNullOrEmpty(mRnaSequence)
+            ? ""
+            : mRnaSequence.ToUpperInvariant().Replace('T', 'U');
+        string mirna = string.IsNullOrEmpty(miRna.Sequence)
+            ? ""
+            : miRna.Sequence.ToUpperInvariant().Replace('T', 'U');
+
+        TargetSiteType type = site.Type;
+
+        double intercept = type switch
+        {
+            TargetSiteType.Seed8mer => CtxIntercept8mer,
+            TargetSiteType.Seed7merM8 => CtxIntercept7merM8,
+            TargetSiteType.Seed7merA1 => CtxIntercept7merA1,
+            _ => CtxIntercept6mer
+        };
+
+        double localAu = LocalAuContribution(mrna, site.Start, site.End, type);
+        double sRna1 = SRna1Contribution(mirna, type);
+        double sRna8 = SRna8Contribution(mirna, type);
+        double site8 = Site8Contribution(mrna, site.Start, type);
+
+        double partial = intercept + localAu + sRna1 + sRna8 + site8;
+
+        return new ContextPlusPlusScore(
+            SiteType: type,
+            Intercept: intercept,
+            LocalAuContribution: localAu,
+            SRna1Contribution: sRna1,
+            SRna8Contribution: sRna8,
+            Site8Contribution: site8,
+            ContextScorePartial: partial,
+            OmittedFeatures: OmittedContextPlusPlusFeatures);
+    }
+
+    /// <summary>Full-transcript context++ features that this local implementation does NOT compute.</summary>
+    private static readonly IReadOnlyList<string> OmittedContextPlusPlusFeatures = new[]
+    {
+        "3P_score (3' supplementary pairing)",
+        "SPS (predicted seed-pairing stability)",
+        "TA_3UTR (target-site abundance)",
+        "Min_dist (minimum distance to nearest 3'UTR end)",
+        "SA (structural accessibility)",
+        "PCT (probability of conserved targeting)",
+        "Len_3UTR (3'UTR length)",
+        "Len_ORF (ORF length)",
+        "ORF8m (ORF 8mer count)",
+        "Off6m (offset-6mer count in 3'UTR)"
+    };
+
+    // Local_AU: faithful port of getLocalAU_contribution. The local-AU fraction is the
+    // position-weighted A/U content of the 30 nt up- and downstream of the site; it is then
+    // min-max scaled and multiplied by the site-type Local_AU coefficient. Upstream positions
+    // are weighted from the base immediately 5' of the site (i=0) outward; downstream from the
+    // base immediately 3' of the site. Weighting offsets are +1 vs +2 per site type, exactly as
+    // in the perl (8mer/7mer-m8 favour the upstream by one rank; 8mer/7mer-A1 the downstream).
+    private static double LocalAuContribution(string mrna, int siteStart, int siteEnd, TargetSiteType type)
+    {
+        // Perl uses 1-based utrStart/utrEnd; here Start/End are 0-based inclusive site coordinates.
+        // utrUp = up to 30 nt ending at the position immediately before the site (siteStart-1).
+        // utrDown = up to 30 nt beginning at the position immediately after the site (siteEnd+1).
+        double scoreSum = 0.0;
+        double maxRaw = 0.0;
+
+        // Upstream: walk from siteStart-1 backwards (i = 0 at the adjacent base).
+        for (int i = 0; i < LocalAuFlankLength; i++)
+        {
+            int idx = siteStart - 1 - i;
+            if (idx < 0) break;
+            // 8mer (Seed8mer) and 7mer-m8 use 1/(i+1); 7mer-A1 and 6mer use 1/(i+2).
+            double weight = (type is TargetSiteType.Seed8mer or TargetSiteType.Seed7merM8)
+                ? 1.0 / (i + 1)
+                : 1.0 / (i + 2);
+            char b = mrna[idx];
+            if (b == 'A' || b == 'U')
+                scoreSum += weight;
+            maxRaw += weight;
+        }
+
+        // Downstream: walk from siteEnd+1 forwards (i = 0 at the adjacent base).
+        for (int i = 0; i < LocalAuFlankLength; i++)
+        {
+            int idx = siteEnd + 1 + i;
+            if (idx >= mrna.Length) break;
+            // 8mer and 7mer-A1 use 1/(i+2); 7mer-m8 and 6mer use 1/(i+1).
+            double weight = (type is TargetSiteType.Seed8mer or TargetSiteType.Seed7merA1)
+                ? 1.0 / (i + 2)
+                : 1.0 / (i + 1);
+            char b = mrna[idx];
+            if (b == 'A' || b == 'U')
+                scoreSum += weight;
+            maxRaw += weight;
+        }
+
+        if (maxRaw == 0.0)
+            return 0.0;
+
+        double fraction = scoreSum / maxRaw;
+
+        (double coeff, double min, double max) = type switch
+        {
+            TargetSiteType.Seed8mer => (CtxLocalAuCoeff8mer, CtxLocalAuMin8mer, CtxLocalAuMax8mer),
+            TargetSiteType.Seed7merM8 => (CtxLocalAuCoeff7merM8, CtxLocalAuMin7merM8, CtxLocalAuMax7merM8),
+            TargetSiteType.Seed7merA1 => (CtxLocalAuCoeff7merA1, CtxLocalAuMin7merA1, CtxLocalAuMax7merA1),
+            _ => (CtxLocalAuCoeff6mer, CtxLocalAuMin6mer, CtxLocalAuMax6mer)
+        };
+
+        double scaled = (fraction - min) / (max - min);
+        return coeff * scaled;
+    }
+
+    // sRNA position-1 indicators: contributions are 0 when miRNA nt1 is U (perl: only computed
+    // when sRNA1_nt ne "U"). Otherwise the indicator for the actual nt (A/C/G) is 1, others 0.
+    private static double SRna1Contribution(string mirna, TargetSiteType type)
+    {
+        if (mirna.Length < 1) return 0.0;
+        char nt1 = mirna[0];
+        if (nt1 == 'U') return 0.0;
+
+        (double a, double c, double g) = type switch
+        {
+            TargetSiteType.Seed8mer => (CtxSRna1A8mer, CtxSRna1C8mer, CtxSRna1G8mer),
+            TargetSiteType.Seed7merM8 => (CtxSRna1A7merM8, CtxSRna1C7merM8, CtxSRna1G7merM8),
+            TargetSiteType.Seed7merA1 => (CtxSRna1A7merA1, CtxSRna1C7merA1, CtxSRna1G7merA1),
+            _ => (CtxSRna1A6mer, CtxSRna1C6mer, CtxSRna1G6mer)
+        };
+
+        return nt1 switch { 'A' => a, 'C' => c, 'G' => g, _ => 0.0 };
+    }
+
+    // sRNA position-8 indicators: 0 when miRNA nt8 is U; else indicator for the actual A/C/G.
+    private static double SRna8Contribution(string mirna, TargetSiteType type)
+    {
+        if (mirna.Length < 8) return 0.0;
+        char nt8 = mirna[7];
+        if (nt8 == 'U') return 0.0;
+
+        (double a, double c, double g) = type switch
+        {
+            TargetSiteType.Seed8mer => (CtxSRna8A8mer, CtxSRna8C8mer, CtxSRna8G8mer),
+            TargetSiteType.Seed7merM8 => (CtxSRna8A7merM8, CtxSRna8C7merM8, CtxSRna8G7merM8),
+            TargetSiteType.Seed7merA1 => (CtxSRna8A7merA1, CtxSRna8C7merA1, CtxSRna8G7merA1),
+            _ => (CtxSRna8A6mer, CtxSRna8C6mer, CtxSRna8G6mer)
+        };
+
+        return nt8 switch { 'A' => a, 'C' => c, 'G' => g, _ => 0.0 };
+    }
+
+    // Site8 indicators: only defined for 7mer-A1 and 6mer (the perl computes them only for those
+    // site types). The relevant target base is the nucleotide opposite miRNA position 8, i.e. the
+    // base immediately 5' of the 6mer core. For 7mer-A1 / 6mer the 6mer core starts at site.Start,
+    // so the position-8 base is mrna[site.Start - 1]. 0 when that base is U or out of range.
+    private static double Site8Contribution(string mrna, int siteStart, TargetSiteType type)
+    {
+        if (type is not (TargetSiteType.Seed7merA1 or TargetSiteType.Seed6mer))
+            return 0.0;
+
+        int idx = siteStart - 1;
+        if (idx < 0 || idx >= mrna.Length) return 0.0;
+        char sitePos8 = mrna[idx];
+        if (sitePos8 == 'U') return 0.0;
+
+        (double a, double c, double g) = type == TargetSiteType.Seed7merA1
+            ? (CtxSite8A7merA1, CtxSite8C7merA1, CtxSite8G7merA1)
+            : (CtxSite8A6mer, CtxSite8C6mer, CtxSite8G6mer);
+
+        return sitePos8 switch { 'A' => a, 'C' => c, 'G' => g, _ => 0.0 };
+    }
+
+    #endregion
+
     #region Pre-miRNA Energy Parameters
 
     // Turner 2004 nearest-neighbor stacking energies (kcal/mol at 37°C)

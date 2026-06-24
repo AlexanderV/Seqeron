@@ -456,4 +456,220 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
     }
 
     #endregion
+
+    // ─────────────────────────────────────────────────────────────────────────────────────
+    // TargetScan context++ scoring (Agarwal et al. 2015) — opt-in ScoreTargetSiteContextPlusPlus
+    //
+    // Source (coefficients, retrieved verbatim this session):
+    //   Agarwal_2015_parameters.txt — TargetScan distribution
+    //   https://raw.githubusercontent.com/nsoranzo/targetscan/main/Agarwal_2015_parameters.txt
+    // Source (feature computation/scaling, retrieved verbatim this session):
+    //   targetscan_70_context_scores.pl getAgarwalContribution/getLocalAU_contribution/
+    //   get_sRNA1_8_contributions/getSite8_contribution
+    //   https://raw.githubusercontent.com/nsoranzo/targetscan/main/targetscan_70_context_scores.pl
+    // Peer-reviewed model: Agarwal V et al. (2015) eLife 4:e05005, doi:10.7554/eLife.05005.
+    //
+    // Each expected value below is hand-derived from those retrieved coefficients × feature
+    // values (see per-test derivation comments), NOT copied from the implementation output.
+    // ─────────────────────────────────────────────────────────────────────────────────────
+
+    #region CTX-001: 8mer context++ — intercept + scaled local-AU + sRNA8 indicator
+
+    [Test]
+    public void ScoreTargetSiteContextPlusPlus_8merLet7a_GcFlanks_MatchesHandDerivedScore()
+    {
+        // let-7a-5p UGAGGUAGUAGGUUGUAUAGUU: nt1=U (⇒ sRNA1=0), nt8=G (⇒ sRNA8G).
+        // 8mer layout: GGGGG + CUACCUCA + GGGGG → site Start=5,End=12; flanks all G ⇒ local-AU fraction=0.
+        // CS_partial = Intercept(8mer) + Local_AU + sRNA8G(8mer)
+        //   Intercept(8mer)          = -0.589
+        //   Local_AU = -0.254 × ((0 - 0.308)/(0.814 - 0.308)) = +0.154608695652174
+        //   sRNA8G(8mer)             = +0.015  ;  sRNA1=0 (nt1=U), Site8=0 (8mer)
+        //   ⇒ CS_partial            = -0.419391304347826
+        string mrna = "GGGGG" + Let7aSeedRC + "A" + "GGGGG";
+        var site = FindTargetSites(mrna, Let7a, minScore: 0.0).Single();
+
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, Let7a, site);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(site.Type, Is.EqualTo(TargetSiteType.Seed8mer), "fixture must be an 8mer");
+            Assert.That(ctx.Intercept, Is.EqualTo(-0.589).Within(1e-9), "8mer intercept (Agarwal params)");
+            Assert.That(ctx.LocalAuContribution, Is.EqualTo(0.154608695652174).Within(1e-9),
+                "Local_AU = -0.254×((0-0.308)/(0.814-0.308)) with all-G flanks");
+            Assert.That(ctx.SRna1Contribution, Is.EqualTo(0.0).Within(1e-9), "nt1=U ⇒ sRNA1 not scored");
+            Assert.That(ctx.SRna8Contribution, Is.EqualTo(0.015).Within(1e-9), "nt8=G ⇒ sRNA8G(8mer)=0.015");
+            Assert.That(ctx.Site8Contribution, Is.EqualTo(0.0).Within(1e-9), "Site8 undefined for 8mer");
+            Assert.That(ctx.ContextScorePartial, Is.EqualTo(-0.419391304347826).Within(1e-9),
+                "8mer partial context++ = sum of realised contributions");
+        });
+    }
+
+    #endregion
+
+    #region CTX-002: 7mer-m8 context++ — scaled local-AU + sRNA8G(7mer-m8)
+
+    [Test]
+    public void ScoreTargetSiteContextPlusPlus_7merM8Let7a_MatchesHandDerivedScore()
+    {
+        // 7mer-m8 layout: GGGGG + CUACCUC + GGGG → site Start=5,End=11; all-G flanks ⇒ fraction=0.
+        // CS_partial = Intercept(7mer-m8) + Local_AU + sRNA8G(7mer-m8)
+        //   Intercept(7mer-m8)       = -0.224
+        //   Local_AU = -0.177 × ((0 - 0.277)/(0.782 - 0.277)) = +0.097087128712871
+        //   sRNA8G(7mer-m8)          = -0.008  ;  sRNA1=0, Site8=0 (7mer-m8)
+        //   ⇒ CS_partial            = -0.134912871287129
+        string mrna = "GGGGG" + Let7aSeedRC + "GGGG";
+        var site = FindTargetSites(mrna, Let7a, minScore: 0.0).Single();
+
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, Let7a, site);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(site.Type, Is.EqualTo(TargetSiteType.Seed7merM8), "fixture must be a 7mer-m8");
+            Assert.That(ctx.Intercept, Is.EqualTo(-0.224).Within(1e-9), "7mer-m8 intercept");
+            Assert.That(ctx.LocalAuContribution, Is.EqualTo(0.097087128712871).Within(1e-9),
+                "Local_AU = -0.177×((0-0.277)/(0.782-0.277))");
+            Assert.That(ctx.SRna8Contribution, Is.EqualTo(-0.008).Within(1e-9), "nt8=G ⇒ sRNA8G(7mer-m8)=-0.008");
+            Assert.That(ctx.Site8Contribution, Is.EqualTo(0.0).Within(1e-9), "Site8 undefined for 7mer-m8");
+            Assert.That(ctx.ContextScorePartial, Is.EqualTo(-0.134912871287129).Within(1e-9),
+                "7mer-m8 partial context++");
+        });
+    }
+
+    #endregion
+
+    #region CTX-003: 7mer-A1 context++ — Site8 indicator path
+
+    [Test]
+    public void ScoreTargetSiteContextPlusPlus_7merA1Let7a_Site8G_MatchesHandDerivedScore()
+    {
+        // 7mer-A1 layout: GGGGG + UACCUC + A + GGGG → site Start=5,End=11; Site8 base = mrna[4]='G'.
+        // CS_partial = Intercept(7mer-A1) + Local_AU + sRNA8G(7mer-A1) + Site8G(7mer-A1)
+        //   Intercept(7mer-A1)       = -0.195
+        //   Local_AU = -0.075 × ((0 - 0.342)/(0.801 - 0.342)) = +0.055882352941176
+        //   sRNA8G(7mer-A1)          = -0.017
+        //   Site8G(7mer-A1)          = +0.015  ;  sRNA1=0 (nt1=U)
+        //   ⇒ CS_partial            = -0.141117647058824
+        string mrna = "GGGGG" + "UACCUC" + "A" + "GGGG";
+        var site = FindTargetSites(mrna, Let7a, minScore: 0.0).Single();
+
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, Let7a, site);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(site.Type, Is.EqualTo(TargetSiteType.Seed7merA1), "fixture must be a 7mer-A1");
+            Assert.That(ctx.Intercept, Is.EqualTo(-0.195).Within(1e-9), "7mer-A1 intercept");
+            Assert.That(ctx.LocalAuContribution, Is.EqualTo(0.055882352941176).Within(1e-9),
+                "Local_AU = -0.075×((0-0.342)/(0.801-0.342))");
+            Assert.That(ctx.SRna8Contribution, Is.EqualTo(-0.017).Within(1e-9), "nt8=G ⇒ sRNA8G(7mer-A1)=-0.017");
+            Assert.That(ctx.Site8Contribution, Is.EqualTo(0.015).Within(1e-9),
+                "Site8 base 'G' ⇒ Site8G(7mer-A1)=0.015 (only defined for 7mer-A1/6mer)");
+            Assert.That(ctx.ContextScorePartial, Is.EqualTo(-0.141117647058824).Within(1e-9),
+                "7mer-A1 partial context++");
+        });
+    }
+
+    #endregion
+
+    #region CTX-004: 6mer context++ — non-zero local-AU fraction + Site8C
+
+    [Test]
+    public void ScoreTargetSiteContextPlusPlus_6merMiR21_MixedFlanks_MatchesHandDerivedScore()
+    {
+        // miR-21 seedRC AUAAGCU, 6mer core = UAAGCU. nt1=U (sRNA1=0), nt8=U (sRNA8=0).
+        // Layout: GGGGC + UAAGCU + UGAGG → site Start=5,End=10; Site8 base = mrna[4]='C'.
+        // Local-AU (6mer weights: up 1/(i+2), down 1/(i+1)): only downstream U(i0),A(i2) are A/U
+        //   fraction = (1 + 1/3) / (Σ up + Σ down) = 0.357142857142857
+        // CS_partial = Intercept(6mer) + Local_AU + Site8C(6mer)
+        //   Intercept(6mer)          = -0.079
+        //   Local_AU = -0.040 × ((0.357142857142857 - 0.295)/(0.772 - 0.295)) = -0.005211141060198
+        //   Site8C(6mer)             = +0.015  ;  sRNA1=0, sRNA8=0
+        //   ⇒ CS_partial            = -0.069211141060198
+        string mrna = "GGGGC" + "UAAGCU" + "UGAGG";
+        var site = FindTargetSites(mrna, MiR21, minScore: 0.0).Single();
+
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, MiR21, site);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(site.Type, Is.EqualTo(TargetSiteType.Seed6mer), "fixture must be a 6mer");
+            Assert.That(ctx.Intercept, Is.EqualTo(-0.079).Within(1e-9), "6mer intercept");
+            Assert.That(ctx.LocalAuContribution, Is.EqualTo(-0.005211141060198).Within(1e-9),
+                "Local_AU with downstream A/U fraction 0.357142857142857, scaled ×(-0.040)");
+            Assert.That(ctx.SRna1Contribution, Is.EqualTo(0.0).Within(1e-9), "nt1=U");
+            Assert.That(ctx.SRna8Contribution, Is.EqualTo(0.0).Within(1e-9), "nt8=U ⇒ sRNA8 not scored");
+            Assert.That(ctx.Site8Contribution, Is.EqualTo(0.015).Within(1e-9),
+                "Site8 base 'C' ⇒ Site8C(6mer)=0.015");
+            Assert.That(ctx.ContextScorePartial, Is.EqualTo(-0.069211141060198).Within(1e-9),
+                "6mer partial context++");
+        });
+    }
+
+    #endregion
+
+    #region CTX-005: sRNA1 non-U indicator branch — coefficient lookup
+
+    [Test]
+    public void ScoreTargetSiteContextPlusPlus_SRna1G_8mer_AddsSRna1GCoefficient()
+    {
+        // The sRNA1 indicator is only scored when miRNA nt1 ≠ U (perl: sRNA1_nt ne "U").
+        // Construct a miRNA with nt1=G, nt8=G so both indicator branches fire on an 8mer site.
+        // sRNA1G(8mer)=+0.060, sRNA8G(8mer)=+0.015.  miRNA: G GAGGUAG ... (seed pos2-8 = GAGGUAG = let-7a seed)
+        var miR = CreateMiRna("synthetic-G1", "GGAGGUAGUAGGUUGUAUAGUU");
+        string mrna = "GGGGG" + GetReverseComplement(miR.SeedSequence) + "A" + "GGGGG";
+        var site = FindTargetSites(mrna, miR, minScore: 0.0).Single();
+
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, miR, site);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(site.Type, Is.EqualTo(TargetSiteType.Seed8mer), "fixture must be an 8mer");
+            Assert.That(ctx.SRna1Contribution, Is.EqualTo(0.060).Within(1e-9),
+                "nt1=G ⇒ sRNA1G(8mer)=0.060 (Agarwal params)");
+            Assert.That(ctx.SRna8Contribution, Is.EqualTo(0.015).Within(1e-9),
+                "nt8=G ⇒ sRNA8G(8mer)=0.015");
+        });
+    }
+
+    #endregion
+
+    #region CTX-006: invalid site type rejected — contract
+
+    [Test]
+    public void ScoreTargetSiteContextPlusPlus_NonSeedSiteType_Throws()
+    {
+        // context++ models are defined only for the four canonical seed-match types (Agarwal 2015).
+        var offsetSite = new TargetSite(
+            Start: 0, End: 5, TargetSequence: "AAAAAA", MiRnaName: "x",
+            Type: TargetSiteType.Offset6mer, SeedMatchLength: 6, Score: 0, FreeEnergy: 0, Alignment: "");
+
+        Assert.Throws<ArgumentException>(
+            () => ScoreTargetSiteContextPlusPlus("AAAAAAAAAA", Let7a, offsetSite),
+            "Offset6mer / Supplementary / Centered have no fitted context++ model");
+    }
+
+    #endregion
+
+    #region CTX-007: omitted full-transcript features reported — honest residual
+
+    [Test]
+    public void ScoreTargetSiteContextPlusPlus_ReportsOmittedFullTranscriptFeatures()
+    {
+        // The locally-computable score is a PARTIAL context++; the omitted full-transcript
+        // features must be reported so callers know the residual (algorithm doc §5.3).
+        string mrna = "GGGGG" + Let7aSeedRC + "A" + "GGGGG";
+        var site = FindTargetSites(mrna, Let7a, minScore: 0.0).Single();
+
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, Let7a, site);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ctx.OmittedFeatures, Is.Not.Empty, "residual feature list must be reported");
+            Assert.That(ctx.OmittedFeatures, Has.Some.Contains("SPS"), "SPS is an omitted full-transcript feature");
+            Assert.That(ctx.OmittedFeatures, Has.Some.Contains("3P_score"),
+                "3' supplementary pairing is omitted");
+            Assert.That(ctx.OmittedFeatures, Has.Some.Contains("TA_3UTR"), "target-site abundance is omitted");
+        });
+    }
+
+    #endregion
 }

@@ -6,7 +6,7 @@
 | Test Unit ID | MIRNA-TARGET-001 |
 | Related Projects | Seqeron.Genomics.Annotation |
 | Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Last Reviewed | 2026-06-24 |
 
 ## 1. Overview
 
@@ -121,10 +121,13 @@ Alignment allows Watson-Crick pairs (`A-U`, `U-A`, `G-C`, `C-G`) and G:U wobble 
 - `MiRnaAnalyzer.AlignMiRnaToTarget(string, string)`: Generates the antiparallel duplex summary.
 - `MiRnaAnalyzer.AnalyzeTargetContext(string, int, int, int)`: Separate context annotation helper, not part of site discovery.
 - `MiRnaAnalyzer.CalculateSiteAccessibility(string, int, int)`: Separate accessibility heuristic, not part of site discovery.
+- `MiRnaAnalyzer.ScoreTargetSiteContextPlusPlus(string, MiRna, TargetSite)`: Opt-in TargetScan context++ scorer (Agarwal et al. 2015 [4]); realises the locally-computable feature subset (site-type intercept, local-AU, sRNA position-1/8 identity, target site-position-8 identity) and returns a `ContextPlusPlusScore` breakdown with the omitted full-transcript features listed. Does not replace the default `Score`.
 
 ### 5.2 Current Behavior
 
 The implementation performs target discovery in two passes, not through a single generic seed-matching helper. Pass 1 discovers canonical 6mer-core-derived sites and upgrades them to `Seed8mer`, `Seed7merM8`, `Seed7merA1`, or `Seed6mer`; pass 2 discovers `Offset6mer` sites only when they do not overlap already retained higher-priority sites. `CreateTargetSite` extends `TargetSequence` to the shorter of the miRNA length or the remaining mRNA tail, so the stored target segment can be longer than the canonical seed window. Duplex energy is heuristic rather than thermodynamic: stacked Watson-Crick matches contribute `-2.0`, isolated Watson-Crick matches `-1.0`, G:U wobble pairs `-0.5`, and mismatches `+0.5`, but the current loop bounds omit the final alignment position from that running total. Base site scores are currently `1.0` (8mer), `0.52` (7mer-m8), `0.32` (7mer-A1), `0.15` (6mer), `0.10` (offset 6mer), with a `+0.05` bonus when the duplex has more than 10 matches and a `-0.01` penalty per mismatch before clamping to `[0, 1]` [3][4]. Although the `TargetSiteType` enum also contains `Supplementary` and `Centered`, `FindTargetSites` does not emit those classes.
+
+Separately, `ScoreTargetSiteContextPlusPlus` provides an **opt-in** TargetScan context++ score (Agarwal et al. 2015 [4]) for a discovered seed-match site, leaving the default `Score` unchanged. context++ is a multiple-linear-regression model with a distinct coefficient set **per site type**, where the score is the sum of per-feature contributions (`contribution = coeff × scaledScore`); continuous features are min-max scaled to `[0,1]` while nucleotide-identity indicators are used raw [4]. This implementation realises only the features computable from the miRNA and the local 3'UTR — the site-type **Intercept**, **Local_AU** (position-weighted A/U fraction of the 30 nt up/downstream, scaled), the **sRNA1{A,C,G}** and **sRNA8{A,C,G}** miRNA position-1/8 identity indicators (skipped when that nucleotide is U), and the **Site8{A,C,G}** target site-position-8 indicators (defined only for 7mer-A1 and 6mer). All coefficients are the verbatim values from `Agarwal_2015_parameters.txt` and the scaling/feature logic is ported from `targetscan_70_context_scores.pl`. The full-transcript features (`3P_score`, `SPS`, `TA_3UTR`, `Min_dist`, `SA`, `PCT`, `Len_3UTR`, `Len_ORF`, `ORF8m`, `Off6m`) are not computed and are returned in `ContextPlusPlusScore.OmittedFeatures`; the returned `ContextScorePartial` is therefore a partial context++ score (an upper bound, since most omitted coefficients are negative), not the published headline CS.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -133,16 +136,19 @@ The implementation performs target discovery in two passes, not through a single
 - Canonical 8mer, 7mer-m8, 7mer-A1, 6mer, and offset-6mer seed classes [1][2][3][5].
 - Antiparallel seed reverse-complement matching between miRNA and target [1][2].
 - Priority ordering that prefers stronger canonical seed classes over weaker offset-6mer interpretations at overlapping positions [1][3].
+- (Opt-in `ScoreTargetSiteContextPlusPlus`) The locally-computable context++ features — site-type Intercept, Local_AU, sRNA position-1/8 and target site-position-8 nucleotide-identity indicators — with the **verbatim fitted coefficients** from `Agarwal_2015_parameters.txt` and the per-site-type min-max scaling / indicator logic ported exactly from `targetscan_70_context_scores.pl` [4].
 
 **Intentionally simplified:**
 
-- Site scoring is a heuristic normalization of site class, mismatch burden, and extra pairing rather than a fitted repression model; **consequence:** `Score` ranks hits within this implementation but is not a calibrated repression probability.
+- The default `Score` is a heuristic normalization of site class, mismatch burden, and extra pairing rather than a fitted repression model; **consequence:** `Score` ranks hits within this implementation but is not a calibrated repression probability. (The opt-in `ScoreTargetSiteContextPlusPlus` provides the source-fitted context++ alternative.)
+- (Opt-in context++) Only the miRNA- and local-3'UTR-computable feature subset is realised; the full-transcript features (`3P_score`, `SPS`, `TA_3UTR`, `Min_dist`, `SA`, `PCT`, `Len_3UTR`, `Len_ORF`, `ORF8m`, `Off6m`) are omitted; **consequence:** `ContextScorePartial` is a partial context++ score (upper bound, as most omitted coefficients are negative), reported alongside the explicit list of omitted features in `OmittedFeatures`.
 - Duplex free energy is derived from simple match, wobble, and mismatch rules over an approximate alignment scan; **consequence:** the reported `FreeEnergy` is useful comparatively inside the repository but is not a nearest-neighbor folding energy and should not be interpreted as a full per-position thermodynamic score.
 - Context and accessibility are exposed only as separate helper methods; **consequence:** the main finder does not integrate AU context, conservation, or accessibility into site discovery or ranking.
 
 **Not implemented:**
 
-- Discovery of centered sites, supplementary-only sites, bulged seed sites, and conservation-aware context++ ranking; **users should rely on:** `AnalyzeTargetContext` and `CalculateSiteAccessibility` only for separate annotations, or use an external miRNA target-prediction tool for broader site classes.
+- Discovery of centered sites, supplementary-only sites, and bulged seed sites; **users should rely on:** `AnalyzeTargetContext` and `CalculateSiteAccessibility` only for separate annotations, or use an external miRNA target-prediction tool for broader site classes.
+- The full context++ headline score: the omitted full-transcript features (`3P_score`, `SPS`, `TA_3UTR`, `Min_dist`, `SA`, `PCT`, `Len_3UTR`, `Len_ORF`, `ORF8m`, `Off6m`) require transcript annotation (full 3'UTR/ORF, conservation, target-site abundance, RNA structure) not available from a single local sequence; **users should rely on:** the official TargetScan distribution for the full CS, or treat `ContextScorePartial` as an upper bound.
 
 ### 5.4 Deviations and Assumptions
 
@@ -183,7 +189,15 @@ var sites = MiRnaAnalyzer.FindTargetSites(mrna, let7a, minScore: 0.1).ToList();
 
 // sites[0].Type == TargetSiteType.Seed8mer
 // sites[0].SeedMatchLength == 8
+
+// Opt-in TargetScan context++ score (Agarwal et al. 2015) for the discovered site:
+var ctx = MiRnaAnalyzer.ScoreTargetSiteContextPlusPlus(mrna, let7a, sites[0]);
+// ctx.ContextScorePartial    -> partial CS (Intercept + Local_AU + sRNA1/8 + Site8)
+// ctx.OmittedFeatures        -> full-transcript features NOT computed (the residual)
 ```
+
+**Numerical walk-through (8mer, let-7a, all-G flanks):** with `mRNA = GGGGG + CUACCUCA + GGGGG`, the 8mer occupies `Start=5,End=12`; both 30 nt flanks are all-G so the local-AU fraction is 0. The partial context++ score is
+`Intercept(8mer) + Local_AU + sRNA8G(8mer)` = `-0.589 + (-0.254 × ((0 − 0.308)/(0.814 − 0.308))) + 0.015` = `-0.589 + 0.154608695652174 + 0.015` = **-0.419391304347826** (let-7a nt1=U ⇒ sRNA1 unscored; nt8=G ⇒ sRNA8G=0.015; Site8 undefined for 8mer). All numbers are the verbatim Agarwal_2015_parameters.txt coefficients.
 
 ### 7.3 Related Tests, Evidence, or Documents
 
@@ -198,5 +212,7 @@ var sites = MiRnaAnalyzer.FindTargetSites(mrna, let7a, minScore: 0.1).ToList();
 1. Bartel DP. 2009. MicroRNAs: target recognition and regulatory functions. Cell. 136(2):215-233.
 2. Lewis BP, Burge CB, Bartel DP. 2005. Conserved seed pairing, often flanked by adenosines, indicates that thousands of human genes are microRNA targets. Cell. 120(1):15-20.
 3. Grimson A, Farh KKH, Johnston WK, Garrett-Engele P, Lim LP, Bartel DP. 2007. MicroRNA targeting specificity in mammals: determinants beyond seed pairing. Molecular Cell. 27(1):91-105.
-4. Agarwal V, Bell GW, Nam JW, Bartel DP. 2015. Predicting effective microRNA target sites in mammalian mRNAs. eLife. 4:e05005.
+4. Agarwal V, Bell GW, Nam JW, Bartel DP. 2015. Predicting effective microRNA target sites in mammalian mRNAs. eLife. 4:e05005. doi:10.7554/eLife.05005. https://pmc.ncbi.nlm.nih.gov/articles/PMC4532895/
 5. TargetScan Human 8.0. 2021. Canonical site classes and ranking for animal miRNA target prediction. https://www.targetscan.org/
+6. TargetScan distribution. `Agarwal_2015_parameters.txt` (context++ fitted coefficients per site type). https://raw.githubusercontent.com/nsoranzo/targetscan/main/Agarwal_2015_parameters.txt
+7. TargetScan distribution. `targetscan_70_context_scores.pl` (context++ feature computation and scaling: `getAgarwalContribution`, `getLocalAU_contribution`, `get_sRNA1_8_contributions`, `getSite8_contribution`). https://raw.githubusercontent.com/nsoranzo/targetscan/main/targetscan_70_context_scores.pl
