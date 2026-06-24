@@ -33,6 +33,7 @@ boundaries, never defects. They fall into three kinds:
 | PROTMOTIF-DOMAIN-001 | Detecting SH3 (PROSITE PS50002) and PDZ (PS50106) domains, and any full Pfam HMM profile. | These are weight-matrix profiles / trained HMMs with no deterministic pattern to reproduce. |
 | RNA-STRUCT-001 | Detecting pseudoknot classes outside the csr-PK grammar (kissing hairpins / loop–loop, triple-crossing / chained, non-canonical bulged helices). | The loop–loop interaction energy has never been experimentally measured (Sperschneider 2011 → heuristic estimate only); a faithful detector would require an unsourced energy constant. |
 | DISORDER-REGION-001 | A calibrated per-residue / per-region disorder **confidence** value. | No disorder predictor publishes a calibrated confidence standard; the boundaries themselves follow the validated TOP-IDP threshold. |
+| CHROM-CENT-001 | Suprachromosomal-family / specific α-satellite family (J1/J2/W/…) assignment for a detected HOR. (HOR *structure* — period, copy number, inter-/intra-HOR identity — is now detected by the opt-in `DetectHigherOrderRepeat`.) | Naming the family requires curated chromosome-specific reference HOR libraries (consensus HORs); these are external trained/curated data the library does not embed. |
 
 ## 3. Scope boundaries (deliberate — use the named reference tool)
 
@@ -40,7 +41,6 @@ boundaries, never defects. They fall into three kinds:
 |------|----------|-------------|
 | PRIMER-TM-001 | Hairpin / secondary-structure (folding-based) Tm. Internal single-mismatch and single dangling-end NN Tm are now implemented (opt-in `CalculateMeltingTemperatureNNMismatch`). | UNAFold, ViennaRNA, MELTING 5 for folding-based Tm. |
 | REP-STR-001 | TRF probabilistic k-tuple seeding + sum-of-Bernoulli significance + whole-genome-scale repeat discovery. | The reference Tandem Repeats Finder. |
-| CHROM-CENT-001 | Higher-order repeat (HOR) structure / suprachromosomal-family classification (detection is monomer-level). | Dedicated centromere/HOR tooling. |
 | PROBE-DESIGN-001 | MGB (minor-groove binder), LNA, and dual-quencher probe chemistries. | Chemistry-specific design tools. |
 | PROBE-VALID-001 | A seeded genome-scale BLAST k-mer index + E-value model for off-target search. | BLAST / a genome-scale aligner. |
 | MIRNA-TARGET-001 | The remaining context++ features: `SA` (RNAplfold partition-function accessibility — not approximated by MFE), `PCT` (multi-species conservation), and `SPS` / `TA_3UTR` / `Len_ORF` / `ORF8m` (data-blocked: require the Garcia 2011 SPS table, a transcriptome, and the transcript ORF — accepted as optional `ContextPlusPlusInputs`). `3P_score`, `Min_dist`, `Len_3UTR`, and `Off6m` are now computed faithfully from the miRNA + 3'UTR; the score is still a partial context++. | The TargetScan reference pipeline for the headline context++ score (RNAplfold for SA, a multi-species alignment for PCT, the Garcia 2011 table for SPS, a transcriptome for TA, the ORF for Len_ORF/ORF8m). |

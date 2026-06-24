@@ -155,7 +155,72 @@ the two defining molecular signatures of human alphoid DNA, sourced below. Defau
 self-similarity + AT-richness + CENP-B box (IUPAC) matching, so no alphoid monomer string is invented.
 The 62-bp `AlphaSatelliteConsensus` constant predates this work and remains unused by the new methods.
 
-### Residual (out of scope)
-Higher-order repeat (HOR) structure — the chromosome-specific organization of monomers into HOR units
-(2–34 monomers) and the suprachromosomal family classification — is not modelled. `DetectAlphaSatellite`
-detects the monomer-level tandem + AT + CENP-B signal, not the HOR hierarchy.
+### Residual (out of scope, before the 2026-06-24 HOR fix)
+Higher-order repeat (HOR) structure — the organization of monomers into HOR units and the
+suprachromosomal family classification — was not modelled. `DetectAlphaSatellite` detects the
+monomer-level tandem + AT + CENP-B signal, not the HOR hierarchy.
+
+## Higher-Order Repeat (HOR) Structure Detection (added 2026-06-24)
+
+`DetectHigherOrderRepeat` adds **opt-in, additive** detection of the HOR organisation of an
+alpha-satellite array. `AnalyzeCentromere`, `DetectAlphaSatellite`, `FindCenpBBoxes`, and the Levan
+classification are unchanged.
+
+### Sources actually retrieved this session (2026-06-24)
+
+1. **McNulty SM, Sullivan BA (2018). "Alpha satellite DNA biology: finding function in the recesses
+   of the genome." Chromosome Res 26:115-138.** — retrieved via PMC.
+   - URL fetched: https://pmc.ncbi.nlm.nih.gov/articles/PMC6121732/
+   - Verbatim: *"A defined number of individual monomers (black arrows) that are 50–70% identical in
+     sequence are arranged tandemly to form a HOR unit."*
+   - Verbatim: *"The individual monomers within a HOR unit have 50–70% identity and can be
+     distinguished such that HOR unit length is determined by where the next monomer shows nearly
+     total sequence identity to the first monomer in the HOR."*  (← the HOR-period definition)
+   - Verbatim: *"… the HORs are repeated hundreds to thousands of times to create homogenous arrays in
+     which HOR within a given array are 97–100% identical."*
+   - Verbatim: *"HORs within a chromosome-specific array differ in sequence by only a few percent,
+     however, HORs between non-homologous chromosomes are only 50–70% identical."*
+   - Verbatim: *"Alpha satellite monomers differ in sequence by 10–40% …"*
+
+2. **Rosandić M, Paar V, et al. (2024). "Novel Concept of Alpha Satellite Cascading Higher-Order
+   Repeats (HORs) … in … T2T-CHM13 … Chromosome 15." (Int J Mol Sci / MDPI).** — retrieved via PMC.
+   - URL fetched: https://pmc.ncbi.nlm.nih.gov/articles/PMC11050224/
+   - Verbatim: *"sequences of n monomers, collectively known as nmer HORs."*
+   - Verbatim: *"HOR copies are further organized in tandem, with minimal divergence between HOR
+     copies, typically less than 5%."*
+   - Verbatim: *"The degree of divergence between any two monomers within each HOR copy is significant,
+     ranging from approximately 20% to 40%. … Monomers exhibiting less than 5% divergence are
+     classified as the same monomer type."*
+
+3. **Alkan C, et al. (2007). "Genome-wide characterization of centromeric satellites …" / ColorHOR
+   (Paar et al. 2005, Bioinformatics 21(7):846).** — retrieved via Oxford Academic.
+   - URL fetched: https://academic.oup.com/bioinformatics/article/21/7/846/268781
+   - Verbatim: *"HORs exhibit mutual sequence divergence of <5%"*; *"Independent, ∼171 bp monomers of
+     alpha satellite DNA generally exhibit substantial intermonomeric sequence divergence (20–40%)."*
+   - Worked example (chr1 1866-bp 11-mer HOR): segmented into 11 monomers of lengths
+     168,171,171,171,171,171,170,167,169,167,170 bp with **1.8%** divergence between HOR copies.
+
+### Derived HOR-detection parameters (all source-backed)
+
+| Parameter | Value | Source |
+|-----------|-------|--------|
+| Monomer length used to split the array | 171 bp | PMC6121732 (Willard 1985); Alkan 2007 worked example (167–171 bp monomers) |
+| Inter-HOR (copy-to-copy) min identity to accept a HOR period | ≥ 95% (i.e. < 5% divergence) | PMC11050224 ("< 5%"); Alkan 2007 ("<5%"); PMC6121732 ("97–100% identical") |
+| Intra-HOR monomer identity (distinct monomers within a unit) | 50–70% (10–40% divergence) | PMC6121732; PMC11050224 (20–40% divergence) |
+| HOR period definition | smallest k with the next k-shifted monomer near-identical to the first | PMC6121732 ("HOR unit length is determined by where the next monomer shows nearly total sequence identity to the first monomer") |
+| HOR-period consistency fraction across the array | 0.90 | Arrays are "homogenous" / "repeated hundreds to thousands of times" (PMC6121732) — periodicity must hold across (essentially) the whole array, not at one pair |
+
+### Method (reuses the library aligner — no external trained data)
+Split the array into consecutive 171-bp monomers; compute monomer-vs-monomer percent identity with
+`SequenceAligner.GlobalAlign` + `SequenceAligner.CalculateStatistics` (Needleman-Wunsch + EMBOSS-style
+identity); the HOR period is the **smallest** block size k (≥1) for which monomers k apart are ≥95%
+identical across ≥90% of the array. Period 1 = homogeneous single-monomer (1-mer) array, **not** a
+multi-monomer HOR. Report period (monomers/unit), unit length (k×171 bp), copy number
+(⌊monomers/k⌋), and mean inter-HOR vs intra-HOR identity. No consensus monomer or family library is
+embedded.
+
+### Residual after this fix (honest, data-blocked)
+**Suprachromosomal-family / specific α-satellite family (J1/J2/W/…) assignment** is still out of scope:
+naming the family a HOR belongs to requires curated reference HOR libraries (chromosome-specific
+consensus HORs), which are external trained/curated data the library does not embed. The HOR
+*structure* (period, copy number, inter-/intra-HOR identity) is now detected; the *family label* is not.

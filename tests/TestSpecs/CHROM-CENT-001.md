@@ -121,6 +121,59 @@ period; AT > 0.50; CENP-B box `YTTCGTTGGAARCGGGA`, Y=C/T, R=A/G).
 | 16-bp input to FindCenpBBoxes | 16 bp | empty (shorter than 17-bp box) | ✅ |
 | Mixed-case input | lower vs upper | identical result | ✅ |
 
-### Residual / out of scope
-Higher-order repeat (HOR) structure and suprachromosomal family classification are not modelled;
-`DetectAlphaSatellite` detects the monomer-level (171-bp tandem + AT + CENP-B) signal only.
+### Residual / out of scope (before the 2026-06-24 HOR fix)
+Higher-order repeat (HOR) structure was not modelled; `DetectAlphaSatellite` detects the monomer-level
+(171-bp tandem + AT + CENP-B) signal only.
+
+## Higher-Order Repeat (HOR) Structure Detection (added 2026-06-24)
+
+Tests in `ChromosomeAnalyzer_HigherOrderRepeat_Tests.cs`, verifying
+`ChromosomeAnalyzer.DetectHigherOrderRepeat(sequence, monomerLength=171)` → `HorResult`. Synthetic
+arrays are built over a fixed high-complexity 171-bp background so monomer pairs align gaplessly and
+the percent identity equals `(171 − Hamming)/171 × 100`, making all expected values hand-derivable.
+HOR copies are exact (100% inter-HOR), distinct monomers within a unit are ≈57.9% identical (disjoint
+36+36 scattered substitutions ⇒ symmetric difference 72 ⇒ `(171−72)/171×100`), inside the sourced
+50–70% intra-HOR band. Inter-HOR acceptance threshold ≥95% (<5% divergence); period = smallest
+qualifying block size. (Sources: McNulty & Sullivan 2018 / PMC6121732; Rosandić 2024 / PMC11050224;
+Alkan 2007.)
+
+### Methods Under Test
+
+| Method | Class | Type | Deep Test |
+|--------|-------|------|-----------|
+| `DetectHigherOrderRepeat(seq, monomerLength=171)` | ChromosomeAnalyzer | Canonical (HOR structure) | Yes |
+
+### Must Tests
+
+| ID | Test Case | Expected (exact) | Source |
+|----|-----------|------------------|--------|
+| M-HOR-1 | 3-monomer HOR unit repeated 5× (exact copies) | HasHigherOrderStructure=true; MonomersPerUnit=3; HorCopyNumber=5; HorUnitLengthBp=513; MonomerCount=15; MeanInterHorIdentity=100.0; MeanIntraHorIdentity∈(50,70); inter>intra | HOR definition + 50–70%/97–100% identities (PMC6121732); <5% inter-HOR (PMC11050224) |
+| M-HOR-2 | 3-monomer HOR — exact mean intra-HOR identity | MeanIntraHorIdentity = mean of the three exact pairwise identities = `(2·99/171 + 99/171)/3×100` ≈ 57.89% | gapless identity = (171−|A△B|)/171 |
+| M-HOR-3 | Monomeric array (12 mutually divergent monomers, no pair ≥95%) | HasHigherOrderStructure=false; MonomersPerUnit=1; HorCopyNumber=12; MonomerCount=12; MeanInterHorIdentity=NaN | no period clears the inter-HOR bar |
+| M-HOR-4 | Homogeneous single-monomer array (8 identical) | MonomersPerUnit=1; HasHigherOrderStructure=false; HorCopyNumber=8; MeanInterHorIdentity=100.0 | 1-mer array is not a multi-monomer HOR |
+| M-HOR-5 | Dimeric HOR unit repeated 6× | HasHigherOrderStructure=true; MonomersPerUnit=2; HorCopyNumber=6; HorUnitLengthBp=342; MeanInterHorIdentity=100.0; inter>intra | period = smallest qualifying k |
+
+### Edge Cases (HOR method)
+
+| Case | Input | Expected | Status |
+|------|-------|----------|--------|
+| Empty sequence | `""` | (false, 1, 171, 0, 0, NaN, NaN) | ✅ |
+| Null sequence | `null` | no-structure; MonomerCount=0 | ✅ |
+| Fewer than two monomers | one 171-bp monomer | no-structure; MonomersPerUnit=1; MonomerCount=1 | ✅ |
+| Trailing partial monomer | unit×5 + 50 bp | tail ignored; MonomerCount=15; period 3; copy 5 | ✅ |
+| Invalid monomer length | `monomerLength=0` | `ArgumentOutOfRangeException` | ✅ |
+| Mixed-case input | lower vs upper | identical result | ✅ |
+
+### HOR Invariants
+
+1. **MonomersPerUnit ≥ 1; HasHigherOrderStructure ⇔ MonomersPerUnit ≥ 2** ✅
+2. **HorUnitLengthBp = MonomersPerUnit × monomerLength** ✅
+3. **HorCopyNumber = ⌊MonomerCount / MonomersPerUnit⌋** ✅
+4. **Detected HOR: MeanInterHorIdentity ≥ 95% and > MeanIntraHorIdentity** ✅ (M-HOR-1, M-HOR-5)
+5. **Deterministic / case-insensitive** ✅
+
+### Residual after this fix (honest, data-blocked)
+**Suprachromosomal-family / specific α-satellite family (J1/J2/W/…) assignment** remains out of scope:
+it requires curated reference HOR libraries (chromosome-specific consensus HORs) the library does not
+embed. The HOR *structure* (period, copy number, inter-/intra-HOR identity) is detected; the family
+*label* is not. Cascading/nested HOR decomposition is likewise out of scope.

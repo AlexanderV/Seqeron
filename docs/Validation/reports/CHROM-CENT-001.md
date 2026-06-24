@@ -105,3 +105,45 @@ CLEAN. The alpha-satellite-specific signal is now genuinely measured (the prior 
 opt-in addition). **Residual (honest, out of scope):** higher-order repeat (HOR) structure and
 suprachromosomal-family classification are not modelled — detection is monomer-level. Registry Status
 reset `☑`→`☐` for independent re-validation per the campaign protocol.
+
+---
+
+## Limitation fix (2026-06-24): higher-order repeat (HOR) structure detection added
+
+The "HOR structure not modelled" residual above is now addressed by an **opt-in, additive** method.
+Defaults preserved: `AnalyzeCentromere`, `DetectAlphaSatellite`, `FindCenpBBoxes`, and the Levan
+classification are unchanged.
+
+### New method (`ChromosomeAnalyzer.cs`)
+- `HorResult DetectHigherOrderRepeat(string sequence, int monomerLength = 171)` — splits the array into
+  ~171 bp monomers; computes monomer-vs-monomer percent identity via the library aligner
+  (`SequenceAligner.GlobalAlign` + `CalculateStatistics`); reports the HOR period = smallest block size
+  k whose k-periodic monomers are ≥95% identical across ≥90% of the array, plus HOR unit length (k×171),
+  copy number (⌊M/k⌋), and mean inter-HOR vs intra-HOR identity. Period 1 = homogeneous 1-mer array
+  (not a multi-monomer HOR). New record `HorResult`; new sourced constants
+  `InterHorMinIdentityPercent = 95.0`, `HorPeriodConsistencyFraction = 0.90`. The Chromosome project now
+  references the Alignment project (no dependency cycle).
+
+### Sources retrieved this session (verbatim figures)
+- HOR = block of n monomers tandemly repeated; monomers within a unit **50–70% identical**; HOR copies
+  **97–100% identical** ("HOR unit length is determined by where the next monomer shows nearly total
+  sequence identity to the first monomer in the HOR"): McNulty SM, Sullivan BA (2018), Chromosome Res
+  26:115-138 (PMC6121732).
+- Inter-HOR divergence **<5%**; intra-HOR monomer divergence **20–40%**: Rosandić et al. (2024,
+  PMC11050224). Inter-HOR **<5%**, intermonomeric **20–40%**, chr1 11-mer HOR copies 1.8% diverged:
+  Paar/Alkan (Bioinformatics 21(7):846).
+
+### Tests
+`ChromosomeAnalyzer_HigherOrderRepeat_Tests.cs` — 11 tests, all green. 3-monomer HOR ×5 ⇒ period 3,
+copy 5, unit length 513 bp, 15 monomers, inter-HOR 100% > intra-HOR ≈57.9% (in 50–70% band); dimeric
+HOR ⇒ period 2, copy 6, 342 bp; monomeric divergent array and homogeneous 1-mer array ⇒ period 1 / no
+HOR; edge cases (empty, null, <2 monomers, trailing partial, invalid length, mixed case). Expected
+values hand-derived from a fixed high-complexity background (gapless alignment ⇒ identity =
+(171−Hamming)/171), not read back from the implementation.
+
+### State
+CLEAN. HOR structure (period, copy number, inter-/intra-HOR identity) is now detected as an opt-in
+addition. **Residual (honest, data-blocked):** suprachromosomal-family / specific α-satellite family
+(J1/J2/W/…) assignment requires curated reference HOR libraries the library does not embed; cascading/
+nested HOR decomposition is likewise out of scope. Registry Status stays `☐` (CHROM-CENT-001 was already
+`☐` from the prior round and remains pending independent re-validation per the campaign protocol).
