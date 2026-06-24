@@ -1,11 +1,17 @@
 # Validation Report: REP-STR-001 — Microsatellite / Short Tandem Repeat (STR) Detection
 
 - **Validated:** 2026-06-24   **Area:** Repeats
-- **Canonical method(s):** `RepeatFinder.FindMicrosatellites(DnaSequence|string, int minUnitLength=1, int maxUnitLength=6, int minRepeats=3)` (+ `CancellationToken`/`IProgress<double>` overloads); `GetTandemRepeatSummary` integration.
+- **Canonical method(s):** `RepeatFinder.FindMicrosatellites(DnaSequence|string, int minUnitLength=1, int maxUnitLength=6, int minRepeats=3)` (+ `CancellationToken`/`IProgress<double>` overloads); `GetTandemRepeatSummary` integration; **`RepeatFinder.FindApproximateTandemRepeats(DnaSequence|string, int minPeriod=1, int maxPeriod=6, int minScore=50)`** (opt-in approximate / imperfect / interrupted detector, TRF model — added 2026-06-24).
 - **Source file:** `src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs`
-- **Test file(s):** `tests/Seqeron/Seqeron.Genomics.Tests/RepeatFinder_Microsatellite_Tests.cs` (34 tests), `RepeatFinderTests.cs` (summary), `Properties/RepeatFinderProperties.cs`.
+- **Test file(s):** `tests/Seqeron/Seqeron.Genomics.Tests/RepeatFinder_Microsatellite_Tests.cs` (34 tests), `RepeatFinder_ApproximateTandemRepeats_Tests.cs` (13 tests), `RepeatFinderTests.cs` (summary), `Properties/RepeatFinderProperties.cs`.
 - **Stage A verdict:** PASS
-- **Stage B verdict:** PASS-WITH-NOTES (perfect-repeat-only scope; documented)
+- **Stage B verdict:** PASS-WITH-NOTES (TRF probabilistic seeding / significance scoring residual; documented)
+
+> **2026-06-24 — limitation fix (REP-STR-001).** The "perfect-repeat-only" scope note has been
+> superseded: an **opt-in approximate (imperfect / interrupted) tandem-repeat detector** was added per
+> the Tandem Repeats Finder model (Benson 1999) — see §"Approximate detection" below. The default
+> perfect-repeat path is unchanged. Per the validation campaign protocol, the unit Status in the root
+> registry is **reset to `☐`** pending independent re-validation of the new method.
 
 ## Stage A — Description
 
@@ -66,10 +72,16 @@ String and DnaSequence overloads produce identical results (`StringOverload_Prod
 44 tests in scope (34 microsatellite + summary) all assert exact sourced values (unit, count, position, type, total length), not "no-throw" tautologies. Stage-A edge cases covered: empty, too-short, exactly/below threshold, entire-sequence-repeat, canonicalisation, rotations, lowercase, N-handling (DnaSequence rejects / string accepts), null/invalid params on both surfaces, cancellation smoke. Deterministic.
 
 ### Findings / notes
-- **Perfect-repeat-only (scope note, not a defect):** interrupted/imperfect or compound microsatellites (e.g. `(CA)₅TG(CA)₅`) are reported as separate perfect tracts, not one imperfect locus. Consistent with the TestSpec, which defines/tests only perfect repeats; imperfect detection would be a feature extension, not a correctness bug.
+- **Perfect-repeat-only (historical scope note — RESOLVED 2026-06-24):** interrupted/imperfect or compound microsatellites were previously reported only as separate perfect tracts. The opt-in `FindApproximateTandemRepeats` now reports them as one approximate locus (see below). The default perfect detector is unchanged.
+
+### Approximate detection (added 2026-06-24 — TRF model, Benson 1999)
+- **Source (retrieved this session):** Benson G (1999) "Tandem repeats finder", Nucleic Acids Res 27(2):573–580, https://doi.org/10.1093/nar/27.2.573; TRF README/definitions (Benson-Genomics-Lab/TRF, tandem.bu.edu). Captured verbatim: approximate-repeat definition; reported statistics (period size, copy number, consensus size, percent matches/indels between adjacent copies overall, alignment score); recommended scoring (match +2, mismatch −7, indel −7) and report threshold Minscore = 50.
+- **Method:** for each period, align the observed window against a whole number of tandem copies of the majority-rule consensus (reusing `SequenceAligner.GlobalAlign` with a flat-indel TRF scoring matrix); read the alignment columns for the statistics; report best-score-first when score ≥ minScore.
+- **Hand-verified worked examples (all pass):** `CACACACACA` → CA, 5 copies, 100% matches, 0% indels, score 20; `CAGCAGCAGTAGCAGCAG` (one substitution) → CAG, 6 copies, 94.4̄% matches, score 27 (perfect detector fragments to CAG×3); `CACACATACACA` → 91.6̄% matches, score 15; `(CAG)×10`-with-one-deletion → 9.6̄ copies, 96.6̄% matches, 3.3̄% indels, score 51.
+- **Residual (honest):** TRF's probabilistic k-tuple distance-list **seeding** and **sum-of-Bernoulli statistical-significance** scoring are not bundled; candidate discovery is a deterministic exhaustive (start, period) scan (not whole-genome scale). The per-repeat statistics follow Benson (1999) exactly. Recorded in `LIMITATIONS.md` and the algorithm doc §5.3.
 
 ## Verdict & follow-ups
 - **Stage A: PASS** — description matches Wikipedia (Microsatellite), MISA convention, and TRF/literature; all worked examples hand-verified.
-- **Stage B: PASS-WITH-NOTES** — code faithfully realises the validated perfect-STR definition; coordinates, thresholds, copy counts, canonicalisation/overlap all correct. Sole note: perfect-repeat-only scope (in-spec).
-- **State: CLEAN** — no defect found; no code change required. Build green (0 warnings), 44 microsatellite/summary tests pass.
+- **Stage B: PASS-WITH-NOTES** — code faithfully realises the validated perfect-STR definition plus the opt-in TRF approximate detector; coordinates, thresholds, copy counts, canonicalisation/overlap, and TRF statistics all correct. Sole note: TRF probabilistic seeding / significance-scoring residual (out of scope).
+- **State (2026-06-24):** limitation fix landed — opt-in `FindApproximateTandemRepeats` added (TRF model). Status **reset to `☐`** in the root registry pending independent re-validation of the new method. Build green (0 warnings); 13 new approximate-detector tests + 44 perfect-STR/summary tests pass; full suite green.
 - **No defects logged.**

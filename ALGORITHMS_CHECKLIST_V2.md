@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 224 |
+| **Completed** | 223 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 10 |
+| **Not Started** | 11 |
 
 ---
 
@@ -34,7 +34,7 @@
 | ☑ | PAT-APPROX-002 | Matching | 2 | Wikipedia (Levenshtein, Edit Distance), Rosetta Code, Navarro (2001) | [PAT-APPROX-002.md](TestSpecs/PAT-APPROX-002.md) | ApproximateMatcher_EditDistance_Tests.cs |
 | ☑ | PAT-IUPAC-001 | Matching | 2 | Wikipedia (Nucleic acid notation), IUPAC-IUB 1970, Bioinformatics.org | [PAT-IUPAC-001.md](TestSpecs/PAT-IUPAC-001.md) | IupacMotifMatchingTests.cs |
 | ☑ | PAT-PWM-001 | Matching | 2 | Wikipedia (PWM), Kel et al. (2003), Rosalind (CONS), Nishida (2008) | [PAT-PWM-001.md](TestSpecs/PAT-PWM-001.md) | MotifFinder_PWM_Tests.cs |
-| ☑ | REP-STR-001 | Repeats | 4 | Wikipedia (Microsatellite, Trinucleotide repeat disorder), Richard et al. (2008) | [REP-STR-001.md](TestSpecs/REP-STR-001.md) | RepeatFinder_Microsatellite_Tests.cs |
+| ☐ | REP-STR-001 | Repeats | 4 | Wikipedia (Microsatellite, Trinucleotide repeat disorder), Richard et al. (2008), Benson (1999) TRF | [REP-STR-001.md](TestSpecs/REP-STR-001.md) | RepeatFinder_Microsatellite_Tests.cs |
 | ☑ | REP-TANDEM-001 | Repeats | 2 | Wikipedia (Tandem repeat, Microsatellite), Richard et al. (2008) | [REP-TANDEM-001.md](TestSpecs/REP-TANDEM-001.md) | GenomicAnalyzer_TandemRepeat_Tests.cs, RepeatFinderTests.cs |
 | ☑ | REP-INV-001 | Repeats | 1 | Wikipedia (Inverted repeat, Stem-loop, Palindromic sequence), EMBOSS einverted, Pearson (1996), Bissler (1998) | [REP-INV-001.md](TestSpecs/REP-INV-001.md) | RepeatFinder_InvertedRepeat_Tests.cs |
 | ☑ | REP-DIRECT-001 | Repeats | 1 | Wikipedia (Direct repeat, Repeated sequence), Ussery (2009), Richard (2021) | [REP-DIRECT-001.md](TestSpecs/REP-DIRECT-001.md) | RepeatFinder_DirectRepeat_Tests.cs |
@@ -520,6 +520,7 @@
 | `FindMicrosatellites(string, ...)` | RepeatFinder | Overload |
 | `FindMicrosatellites(..., CancellationToken)` | RepeatFinder | Cancellable |
 | `FindMicrosatellites(..., IProgress)` | RepeatFinder | With progress |
+| `FindApproximateTandemRepeats(...)` | RepeatFinder | Approximate (TRF, opt-in) |
 
 **Edge Cases:**
 - [ ] No repeats found
@@ -527,6 +528,8 @@
 - [ ] minRepeats = 2 (minimum)
 - [ ] Unit length 1-6 (mono to hexa)
 - [ ] Cancellation mid-operation
+- [ ] Approximate: imperfect (one substitution) / interrupted tract reported as one repeat
+- [ ] Approximate: single indel → exact percent-indels; Minscore threshold
 
 ---
 
