@@ -70,6 +70,8 @@ public static partial class EmblParser
         IReadOnlyDictionary<string, string> Qualifiers
     );
     
+    public readonly record struct RemotePart(string Accession, string? Version, int Start, int End);
+
     public readonly record struct Location(
         int Start,
         int End,
@@ -79,7 +81,12 @@ public static partial class EmblParser
         bool Is5PrimePartial,
         bool Is3PrimePartial,
         IReadOnlyList<(int Start, int End)> Parts,
-        string RawLocation
+        string RawLocation,
+        bool IsBetween = false,
+        bool IsSingleBaseFromRange = false,
+        string? RemoteAccession = null,
+        string? RemoteVersion = null,
+        IReadOnlyList<RemotePart>? RemoteParts = null  // per-segment remote refs nested in operators
     );
 }
 ```
@@ -184,6 +191,12 @@ public static partial class EmblParser
 | SPEC-09 | Parse_Reference_CapturesGroup | RG line stored in Reference.Group | ✅ Covered |
 | SPEC-10 | Parse_EbiReferenceRecord_FullBlock | Full EBI sample reference block | ✅ Covered |
 | SPEC-11 | ParseLocation_SiteBetween_ParsesRange | 123^124 site notation | ✅ Covered |
+| SPEC-12 | ParseLocation_JoinWithNestedRemoteReference_CapturesRemotePartAndCleanSpan | `join(1..100,J00194.1:100..202)` — nested remote ref captured in RemoteParts (acc=J00194, ver=1, 100..202); version digit not leaked into Parts | ✅ Covered |
+| SPEC-13 | ParseLocation_JoinWithTwoNestedRemoteReferences_OneComplemented_CapturesBoth | `join(X00001.1:10..20,complement(X00002.1:30..40))` — two remote segments captured, complement flag set | ✅ Covered |
+| SPEC-14 | ParseLocation_ComplementWithNestedRemoteReference_CapturesRemoteAndComplement | `complement(J00194.1:100..202)` — remote ref captured, complement preserved | ✅ Covered |
+| SPEC-15 | ParseLocation_LocalOperator_NoNestedRemote_RemotePartsEmpty_Regression | `join(1..50,60..100)` — RemoteParts null, parts unchanged (regression) | ✅ Covered |
+| SPEC-16 | ParseLocation_NestedComplementJoin_Local_RemotePartsEmpty_Regression | `complement(join(1..50,80..100))` — unchanged (regression) | ✅ Covered |
+| SPEC-17 | ParseLocation_TopLevelRemoteReference_RemotePartsEmpty_Regression | `J00194.1:100..202` — top-level fields populated, RemoteParts null (regression) | ✅ Covered |
 
 ## Test Audit Summary
 
@@ -282,7 +295,7 @@ These are parser behaviors that differ from the full specification but are docum
 | ID | Limitation | Rationale |
 |----|-----------|-----------|
 | LIM-1 | Site-between location `123^124` parsed as Start=123, End=124. No distinct `IsSiteBetween` flag on the Location struct. | RawLocation preserves the `^` for downstream callers that need to distinguish site from range. Practical impact is minimal as site-between describes a zero-length insertion point. |
-| LIM-2 | Remote entry locations (`J00194.1:100..202`) may parse incorrectly — the version number `1` in the accession can be matched as a position by the `(\d+)` regex in `SequenceFormatHelper`. | Remote references are rare in practice and require cross-entry lookup. The `RawLocation` field preserves the original string for downstream handling. |
+| LIM-2 | RESOLVED. Remote entry locations are now parsed faithfully both at the top level (`J00194.1:100..202` → `RemoteAccession`/`RemoteVersion`, version digit not leaked) and **nested inside `complement`/`join`/`order` operators** (`join(1..100,J00194.1:100..202)` → per-segment `RemoteParts`, accession-version stripped before the numeric parse). Residual: the referenced remote entry's **sequence is not fetched** (`ExtractSequence` extracts only local parts); the captured accession/version/span lets callers fetch it from the source database. | INSDC FT 3.4.2.1(e) / 3.4.3 — example `join(1..100,J00194.1:100..202)` "Joins region 1..100 of the existing entry with the region 100..202 of remote entry J00194". |
 | LIM-3 | Deprecated single-base-from-range notation `102.110` (single period) not handled. The regex `(\d+)(?:\.\.(\d+))?` requires double-dot `..`. | Deprecated since October 2006 per INSDC spec. Illegal for new entries. |
 | LIM-4 | Escaped double quotes in qualifier values (`""`) not unescaped to `"`. The string `The ""label"" qualifier` is stored as-is with `""`. | FinishQualifier trims outer quotes but does not unescape inner pairs. Callers can unescape if needed. |
 | LIM-5 | `QualifierRegex` (`@"/(\w+)(?:=([^/]+))?"`) still exists as dead code. Used only by unused `ParseQualifierString`/`ParseFeatures` methods, not by the active `ParseFeaturesFromLines` code path. | Dead code retained for potential future use or removal in a cleanup pass. |

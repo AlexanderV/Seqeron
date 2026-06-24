@@ -52,14 +52,25 @@ public static partial class EmblParser
         Location Location,
         IReadOnlyDictionary<string, string> Qualifiers);
 
+    /// <summary>
+    /// A single remote-entry segment of a feature location: a span that points into
+    /// another INSDC entry's sequence (INSDC Feature Table 3.4.2.1(e),
+    /// <c>accession[.version]:descriptor</c>). Used when a remote reference appears
+    /// nested inside a <c>join</c>/<c>order</c>/<c>complement</c> operator, e.g. the span
+    /// <c>J00194.1:100..202</c> inside <c>join(1..100,J00194.1:100..202)</c>.
+    /// </summary>
+    public readonly record struct RemotePart(string Accession, string? Version, int Start, int End);
+
     /// <summary>Feature location</summary>
     /// <remarks>
     /// The trailing members (<see cref="IsBetween"/>, <see cref="IsSingleBaseFromRange"/>,
-    /// <see cref="RemoteAccession"/>, <see cref="RemoteVersion"/>) support three rarer
-    /// INSDC Feature Table location forms (section 3.4.2.1 / 3.4.3): the site-between
-    /// operator <c>n^m</c>, the deprecated single-base-from-range <c>n.m</c>, and remote
-    /// references <c>accession[.version]:descriptor</c>. They default to
-    /// <c>false</c>/<c>null</c> so ordinary local spans are reported exactly as before.
+    /// <see cref="RemoteAccession"/>, <see cref="RemoteVersion"/>, <see cref="RemoteParts"/>)
+    /// support the rarer INSDC Feature Table location forms (section 3.4.2.1 / 3.4.3): the
+    /// site-between operator <c>n^m</c>, the deprecated single-base-from-range <c>n.m</c>,
+    /// top-level remote references <c>accession[.version]:descriptor</c>, and remote
+    /// references nested inside a <c>join</c>/<c>order</c>/<c>complement</c> operator
+    /// (captured per-segment in <see cref="RemoteParts"/>). They default to
+    /// <c>false</c>/<c>null</c>/empty so ordinary local spans are reported exactly as before.
     /// </remarks>
     public readonly record struct Location(
         int Start,
@@ -74,13 +85,15 @@ public static partial class EmblParser
         bool IsBetween = false,
         bool IsSingleBaseFromRange = false,
         string? RemoteAccession = null,
-        string? RemoteVersion = null)
+        string? RemoteVersion = null,
+        IReadOnlyList<RemotePart>? RemoteParts = null)
     {
         /// <summary>
-        /// True when this location points into another INSDC entry
-        /// (i.e. a remote reference such as <c>J00194.1:100..202</c>).
+        /// True when this location points into another INSDC entry — either a top-level
+        /// remote reference (such as <c>J00194.1:100..202</c>) or a remote reference
+        /// nested inside an operator (captured in <see cref="RemoteParts"/>).
         /// </summary>
-        public bool IsRemote => RemoteAccession is not null;
+        public bool IsRemote => RemoteAccession is not null || (RemoteParts is { Count: > 0 });
     }
 
     #endregion
@@ -657,11 +670,81 @@ public static partial class EmblParser
                 IsSingleBaseFromRange: true, RemoteAccession: remoteAccession, RemoteVersion: remoteVersion);
         }
 
+        // INSDC FT 3.4.2.1(e) + 3.4.3: a remote reference may appear NESTED inside a
+        // join/order/complement operator, e.g. "join(1..100,J00194.1:100..202)" — "Joins
+        // region 1..100 of the existing entry with the region 100..202 of remote entry
+        // J00194". The top-level prefix strip above is anchored, so it does not catch these.
+        // Scan the descriptor for embedded "accession[.version]:" prefixes, capture each
+        // segment's remote entry per-part, and REMOVE the prefixes before delegating so the
+        // accession-version digits cannot leak into the local numeric span (the shared range
+        // regex would otherwise read the version, e.g. ".1", as a spurious single-base part).
+        var (cleanedDescriptor, remoteParts) = ExtractNestedRemoteReferences(descriptor);
+
         var (start, end, isComplement, isJoin, isOrder, is5PrimePartial, is3PrimePartial, parts) =
-            SequenceFormatHelper.ParseLocationParts(descriptor, useStartsWithForComplement: false);
+            SequenceFormatHelper.ParseLocationParts(cleanedDescriptor, useStartsWithForComplement: false);
         return new Location(start, end, isComplement, isJoin, isOrder,
             is5PrimePartial, is3PrimePartial, parts, locationStr,
-            RemoteAccession: remoteAccession, RemoteVersion: remoteVersion);
+            RemoteAccession: remoteAccession, RemoteVersion: remoteVersion,
+            RemoteParts: remoteParts);
+    }
+
+    /// <summary>
+    /// Finds remote-entry references nested inside an operator location descriptor
+    /// (INSDC FT 3.4.2.1(e) / 3.4.3, e.g. <c>J00194.1:100..202</c> inside
+    /// <c>join(1..100,J00194.1:100..202)</c>). For each embedded
+    /// <c>accession[.version]:span</c> it records a <see cref="RemotePart"/> with the
+    /// remote span's bounds, and returns the descriptor with the remote prefixes removed so
+    /// the accession-version digits do not leak into the local numeric parse.
+    /// </summary>
+    /// <returns>
+    /// The descriptor with embedded <c>accession[.version]:</c> prefixes stripped, and the
+    /// list of captured remote segments (<c>null</c> when none were found, so ordinary
+    /// local operator forms are reported exactly as before).
+    /// </returns>
+    private static (string Cleaned, IReadOnlyList<RemotePart>? RemoteParts)
+        ExtractNestedRemoteReferences(string descriptor)
+    {
+        var matches = NestedRemoteReferenceRegex().Matches(descriptor);
+        if (matches.Count == 0)
+            return (descriptor, null);
+
+        var remoteParts = new List<RemotePart>();
+        var cleaned = new StringBuilder(descriptor.Length);
+        int cursor = 0;
+
+        foreach (Match match in matches)
+        {
+            // Append the text before this prefix unchanged.
+            cleaned.Append(descriptor, cursor, match.Index - cursor);
+            cursor = match.Index + match.Length;
+
+            string accession = match.Groups["acc"].Value;
+            string? version = match.Groups["ver"].Success ? match.Groups["ver"].Value : null;
+
+            // The remote span is the bare range descriptor that immediately follows the
+            // stripped "accession[.version]:" prefix, up to the next separator (',' / ')').
+            int spanEnd = cursor;
+            while (spanEnd < descriptor.Length && descriptor[spanEnd] != ',' && descriptor[spanEnd] != ')')
+                spanEnd++;
+            string span = descriptor[cursor..spanEnd];
+
+            var spanMatch = SequenceFormatHelper.LocationRangeRegex().Match(span);
+            int rStart = 0, rEnd = 0;
+            if (spanMatch.Success)
+            {
+                rStart = int.Parse(spanMatch.Groups[1].Value, CultureInfo.InvariantCulture);
+                rEnd = spanMatch.Groups[2].Success
+                    ? int.Parse(spanMatch.Groups[2].Value, CultureInfo.InvariantCulture)
+                    : rStart;
+            }
+
+            remoteParts.Add(new RemotePart(accession, version, rStart, rEnd));
+        }
+
+        // Append the remaining tail after the last prefix.
+        cleaned.Append(descriptor, cursor, descriptor.Length - cursor);
+
+        return (cleaned.ToString(), remoteParts);
     }
 
     private static string ParseSequence(List<string> lines)
@@ -779,6 +862,17 @@ public static partial class EmblParser
     // INSDC FT 3.4.2.1(e): remote entry identifier "accession[.version]" then ':'.
     [GeneratedRegex(@"^(?<acc>[A-Za-z][A-Za-z0-9_]*)(?:\.(?<ver>\d+))?:")]
     private static partial Regex RemoteReferenceRegex();
+
+    // INSDC FT 3.4.2.1(e) / 3.4.3: a remote entry identifier "accession[.version]:" that
+    // appears NESTED inside a join/order/complement operator (e.g.
+    // "join(1..100,J00194.1:100..202)"). Anchored via a lookbehind to an operator boundary —
+    // the accession must be immediately preceded by '(' (operator open paren, including a
+    // 'complement(' that wraps the individual segment) or ',' (a join/order element
+    // separator) — so it only matches segment-leading remote prefixes and never a position
+    // number inside a span. The lookbehind is NOT consumed, so any wrapping 'complement(' is
+    // left intact in the descriptor for the shared complement detector.
+    [GeneratedRegex(@"(?<=[(,])(?<acc>[A-Za-z][A-Za-z0-9_]*)(?:\.(?<ver>\d+))?:")]
+    private static partial Regex NestedRemoteReferenceRegex();
 
     // INSDC FT 3.4.2.1(b): site between two adjoining bases, "n^m" (e.g. 123^124).
     [GeneratedRegex(@"^(\d+)\^(\d+)$")]

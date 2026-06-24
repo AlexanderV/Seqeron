@@ -60,7 +60,7 @@ Every row traces to its per-unit report under `docs/Validation/reports/{UNIT}.md
 | PARSE-FASTA-001 | DNA-only parser (rejects IUPAC / RNA / protein FASTA); on multi-space headers the `Description` keeps a single leading space. |
 | PARSE-FASTQ-001 | `DetectEncoding` is a range heuristic that can mis-flag very-high-quality Phred+33 bases as Phred+64; decode with an explicit offset to avoid the ambiguity. |
 | PARSE-GENBANK-001 | Feature-table parsing covers the common INSDC location grammar (range / complement / join / `<`,`>` partials). (The multi-line qualifier-wrap defect found during validation was fixed, commit 30d4f7b1.) |
-| PARSE-EMBL-001 | A remote-reference location nested **inside** `complement(...)` / `join(...)` is not captured (anchored regex); matches the shared GenBank path and is pre-existing. |
+| PARSE-EMBL-001 | Remote-reference locations are now parsed faithfully, including when **nested inside** `complement(...)` / `join(...)` / `order(...)` (e.g. `join(1..100,J00194.1:100..202)`): each nested remote segment's accession, version and span are captured in `Location.RemoteParts`, and the accession-version digits no longer leak into the numeric `Parts`. **Residual:** the referenced remote entry's *sequence* is not fetched — `ExtractSequence` extracts only the local parts; the captured accession/version/span lets callers retrieve the remote entry from the source database. (The shared GenBank path's `Location` is intentionally not extended; this capture is EMBL-scoped.) |
 | PROTMOTIF-DOMAIN-001 | WD40 / SH3 / PDZ use simplified consensus regexes (Pfam PF00400 / PF00018 / PF00595 are HMM profiles); the two PROSITE patterns — zinc-finger PS00028 and Walker-A PS00017 — are exact. |
 
 ---

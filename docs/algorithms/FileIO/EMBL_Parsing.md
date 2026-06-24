@@ -62,6 +62,8 @@ Location forms preserved from the current document are:[2]
 | `n..>m` | Partial 3' end | `100..>500` |
 | `complement(loc)` | Reverse-complement strand | `complement(100..200)` |
 | `join(loc1,loc2,...)` | Joined multi-part location | `join(1..50,60..100)` |
+| `acc[.ver]:loc` | Remote-entry reference (3.4.2.1(e)) | `J00194.1:100..202` |
+| `op(...,acc[.ver]:loc,...)` | Remote reference nested in `complement`/`join`/`order` | `join(1..100,J00194.1:100..202)` |
 
 ### 2.4 Properties and Invariants
 
@@ -70,6 +72,7 @@ Location forms preserved from the current document are:[2]
 | INV-01 | EMBL records are terminated by `//` | EMBL flat-file entries are record-delimited by the terminator line.[1] |
 | INV-02 | `complement(...)` denotes reverse-strand orientation | This is part of the INSDC location syntax shared by EMBL feature tables.[2] |
 | INV-03 | `join(...)` denotes a multi-part location whose parts define an overall span from minimum start to maximum end | Joined INSDC locations are composed from ordered parts.[2] |
+| INV-04 | A remote reference `acc[.ver]:loc` nested inside `complement`/`join`/`order` is captured per-segment (accession, version, span) in `Location.RemoteParts`, and its accession-version digits never leak into the numeric `Parts` | INSDC FT 3.4.2.1(e) permits a remote-entry descriptor as an element of an operator, e.g. `join(1..100,J00194.1:100..202)`.[2] |
 
 ## 3. Contract
 
@@ -154,6 +157,7 @@ The parser splits records specifically on `\n//` and only parses trimmed blocks 
 
 - Line-prefix-based EMBL flat-file parsing with `ID`, `AC`, `SV`, `DE`, `KW`, `OS`, `OC`, `RN`, `RA`, `RT`, `RL`, `FT`, and `SQ` sections.[1]
 - INSDC location parsing for ranges, `complement(...)`, `join(...)`, `order(...)`, and partial markers.[2]
+- Remote-entry references `accession[.version]:descriptor` (3.4.2.1(e)), both at the top level (captured in `RemoteAccession`/`RemoteVersion`) and **nested inside `complement`/`join`/`order` operators** (captured per-segment in `RemoteParts`, e.g. `join(1..100,J00194.1:100..202)`), with the accession-version digits stripped before the numeric span parse so they never leak into `Parts`.[2]
 - Feature-level subsequence extraction using parsed location parts.
 
 **Intentionally simplified:**
@@ -164,6 +168,7 @@ The parser splits records specifically on `\n//` and only parses trimmed blocks 
 **Not implemented:**
 
 - Full EMBL occurrence-count validation for every line type and full `SQ` composition cross-checking; **users should rely on:** no current alternative in this repository.
+- Cross-entry sequence retrieval for a remote reference: the remote location (accession, version, span) is parsed and exposed, but the referenced entry's sequence is **not** fetched, so `ExtractSequence` extracts only the local parts. **Users should rely on:** the captured `RemoteAccession`/`RemoteVersion`/`RemoteParts` to fetch the remote entry from the appropriate database when the joined sequence content is required.[2]
 
 ## 6. Edge Cases and Limitations
 
@@ -176,6 +181,7 @@ The parser splits records specifically on `\n//` and only parses trimmed blocks 
 | Missing `SV` in `ID` | Version falls back to the separate `SV` line | Repository fallback behavior |
 | Empty location string | Returns a zeroed `Location` | Explicit helper behavior |
 | Sequence lines containing spaces and counts | Letters are extracted and uppercased | EMBL sequence parsing strips non-letters |
+| Remote reference nested in an operator (`join(1..100,J00194.1:100..202)`) | Per-segment remote entry captured in `RemoteParts`; accession-version digit not leaked into `Parts` | INSDC FT 3.4.2.1(e) / 3.4.3 |
 
 ### 6.2 Limitations
 

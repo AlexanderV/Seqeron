@@ -203,7 +203,34 @@ SQ   Sequence 1859 BP; 609 A; 314 C; 355 G; 581 T; 0 other;
 - `order(100..200,300..400)` - Non-contiguous spans, order significant
 
 ### Remote References
-- `J00194.1:100..200` - Location on another entry
+
+**Retrieved this session** (2026-06-24) by WebFetch of the INSDC Feature Table Definition,
+EBI mirror `https://ftp.ebi.ac.uk/pub/databases/embl/doc/FT_current.txt`, §3.4.2.1 (location
+descriptors / operators) and §3.4.3 (example interpretations).
+
+- A remote-entry reference (§3.4.2.1(e), verbatim): *"A location in a remote entry (not the
+  entry to which the feature table belongs) can be specified by giving the accession-number
+  and sequence version of the remote entry, followed by a colon ':', followed by a location
+  descriptor which applies to that entry's sequence (i.e. J12345.1:1..15)"*.
+- §3.4.3 example (verbatim): `J00194.1:100..202` — *"Points to bases 100 to 202, inclusive,
+  in the entry (in this database) with primary accession number 'J00194'"*.
+
+**A remote reference may appear NESTED inside an operator** (§3.4.2.1 operators +
+§3.4.3 examples, both retrieved this session):
+- Operators (verbatim): `complement(location)` — read the complement of the span;
+  `join(location,location,...location)` — joined end-to-end into one contiguous sequence;
+  `order(location,location,...location)` — found in the given order.
+- Nesting rule (verbatim): *"complement can be used in combination with either 'join' or
+  'order' within the same location; combinations of 'join' and 'order' within the same
+  location (nested operators) are illegal."*
+- Canonical example (verbatim): `join(1..100,J00194.1:100..202)` — *"Joins region 1..100 of
+  the existing entry with the region 100..202 of remote entry J00194"*.
+
+**Parser consequence (this fix):** a nested `accession[.version]:` prefix must be captured
+per-segment and stripped before the local numeric span parse, otherwise the accession version
+digit (`.1`) is read by the shared range regex as a spurious single-base part. Captured into
+`Location.RemoteParts` (accession, version, span); top-level (non-nested) remote references
+remain in `RemoteAccession`/`RemoteVersion`.
 
 ## Data Classes (Section 3.1)
 
