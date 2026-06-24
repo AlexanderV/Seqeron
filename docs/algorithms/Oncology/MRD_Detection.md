@@ -107,6 +107,7 @@ The full INVAR refinements are also reproduced from INVAR2 [6]:
 | INV-12 | A locus whose mutant-read count gives a binomial tail ≤ `α/n` is flagged as an outlier | one-sided `binom.test(..., "greater")` vs Bonferroni threshold [6] |
 | INV-13 | Estimated `e = Σ(ALT_F+ALT_R)/Σ DP`; locus passes noise filter ⟺ `signalFrac < proportion` AND `e < maxBg` | control-pooled allele fraction and recurrence rule [6] |
 | INV-14 | Both-strands pass ⟺ (`ALT_F>0` AND `ALT_R>0`) OR no alt reads | strand-bias filter [6] |
+| INV-15 | KDE-smoothed size profile masses are non-negative, integrate to 1 over the support, and are unimodal around a single observed mode | Gaussian kernel ∫K=1 and a single bump is monotone on each side of its centre [8] |
 
 ## 3. Contract
 
@@ -190,6 +191,8 @@ INVAR signal estimation (`EstimateInvarSignal`):
 - `OncologyAnalyzer.EstimateInvarSignal(...)`: INVAR-style background-subtracted, AF-weighted ctDNA estimate (IMAFv2, ML `p̂`, GLRT, detection call).
 - `OncologyAnalyzer.IntegratedMutantAlleleFractionV2(...)`: background-subtracted, depth-weighted aggregate (IMAFv2).
 - `OncologyAnalyzer.EstimateInvarSignalWithSize(...)`: INVAR fragment-size-weighted GLRT (with-RL) over per-molecule `InvarMolecule` + `FragmentSizeProfile`.
+- `OncologyAnalyzer.FragmentSizeProfile(mutantCounts, normalCounts, …)` (constructor): **default** discrete empirical size profile (`PROPORTION = COUNT/TOTAL` per length bin).
+- `OncologyAnalyzer.FragmentSizeProfile.FromKernelDensity(…)`: **opt-in** KDE-smoothed size profile — a Gaussian kernel density estimate (Silverman's-rule bandwidth, optional explicit `bandwidth`/`adjust`) integrated over each integer-length bin, matching INVAR2's `estimate_real_length_probability`.
 - `OncologyAnalyzer.SuppressOutlierLoci(...)`: INVAR patient-specific outlier suppression (Bonferroni one-sided binomial test).
 - `OncologyAnalyzer.EstimateLocusBackground(...)`: control-derived per-locus background error rate + locus-noise verdict.
 - `OncologyAnalyzer.PassesBothStrandsFilter(...)`: INVAR both-strands filter.
@@ -222,16 +225,22 @@ sequence search).
 - INVAR control-derived background error `BACKGROUND_AF = Σ(ALT_F+ALT_R)/Σ DP`, locus-noise filter
   `(N_with_signal/N) < proportion AND BACKGROUND_AF < maxBg`, and both-strands filter [6]
   (`createLociErrorRateTable`).
+- INVAR2 **KDE-smoothed** fragment-size likelihood (opt-in `FragmentSizeProfile.FromKernelDensity`): a Gaussian
+  kernel density estimate `f̂(t) = Σ wᵢ·φ((t−xᵢ)/h)/h` with weights `wᵢ = countᵢ/Σcount` (Silverman 1986 eq. 2.2a,
+  Gaussian kernel ∫K=1 eq. 2.2 [8]), bandwidth by Silverman's rule of thumb `h = 0.9·min(σ̂, IQR/1.34)·n^(−1/5)`
+  (Silverman 1986 eq. 3.31; R `bw.nrd0` [9], scaled by `adjust`), integrated analytically over each integer bin
+  `[L−0.5, L+0.5]` via `Φ` and renormalised — exactly INVAR2's `estimate_real_length_probability` (R `density()`
+  + integrate, `adjust = 0.03`) [6].
 
 **Intentionally simplified:**
 
 - The per-variant *detected* flag of `DetectMRD` uses a supporting-read cutoff (`r_min`, default 1);
   **consequence:** the legacy ≥2-of-N panel call is a presence call. The calibrated per-locus signal is now
   available via `EstimateInvarSignal` (GLRT). The legacy panel call and read-pooled IMAF are unchanged.
-- The fragment-size likelihood uses the discrete empirical proportion `COUNT/TOTAL` per length bin rather than
-  INVAR2's weighted KDE (`estimate_real_length_probability`, bandwidth `adjust = 0.03`); **consequence:** on
-  sparsely-populated length bins the exact size weight differs slightly from the smoothed estimate, but the
-  with-RL GLRT and the short-fragment up-weighting are exact.
+- The **default** `FragmentSizeProfile` constructor uses the discrete empirical proportion `COUNT/TOTAL` per
+  length bin (the estimator the KDE converges to); the KDE-smoothed estimate is **opt-in** via
+  `FromKernelDensity`. **Consequence:** the default behaviour is unchanged and discrete; callers wanting the
+  smoothed size signal-vs-noise weight select the KDE factory.
 
 **Not implemented:**
 
@@ -243,7 +252,7 @@ sequence search).
 |---|------|------|--------|--------|-------|
 | 1 | Per-locus detection = alt reads ≥ r_min | Assumption | Affects per-variant flag, not the ≥2 panel rule | accepted | r_min is a tunable parameter (default 1); see Evidence §Assumptions |
 | 2 | INVAR background rate `e_i` may be caller-supplied OR estimated from controls | Assumption | GLRT quality depends on the background model | accepted | `EstimateLocusBackground` now derives `e_i` from control-plasma reads (`BACKGROUND_AF`); `InvarLocus.BackgroundErrorRate` still accepts a caller value |
-| 3 | Fragment-size likelihood uses empirical `COUNT/TOTAL` per length bin, not INVAR2's weighted KDE | Assumption | Slightly different weight on sparse length bins | accepted | with-RL GLRT/EM are exact; KDE bandwidth smoothing (`adjust = 0.03`) not reproduced (Evidence §Assumptions) |
+| 3 | Default `FragmentSizeProfile` is the discrete empirical `COUNT/TOTAL`; KDE smoothing is opt-in | Convention | None (default unchanged) | resolved | `FromKernelDensity` now provides the INVAR2 Gaussian-KDE size weight (Silverman bandwidth, `adjust` multiplier); the default discrete constructor is byte-for-byte unchanged |
 
 ## 6. Edge Cases and Limitations
 
@@ -307,3 +316,5 @@ OncologyAnalyzer.InvarSignalResult inv = OncologyAnalyzer.EstimateInvarSignal(lo
 5. Avanzini S, et al. 2020. A mathematical model of ctDNA shedding predicts tumor detection size. *Science Advances* 6(50):eabc4308. https://doi.org/10.1126/sciadv.abc4308
 6. Rosenfeld lab (nrlab-CRUK). INVAR2 — restructured INVAR pipeline (reference implementation of [3]). `R/shared/detectionFunctions.R`, `R/4_detection/generalisedLikelihoodRatioTest.R`, `R/3_outlier_suppression/outlierSuppression.R`, `R/3_outlier_suppression/sizeCharacterisation.R`, `R/1_parse/onTargetErrorRatesAndFilter.R`. https://github.com/nrlab-CRUK/INVAR2
 7. Lanczos C. 1964. A precision approximation of the gamma function. *J. SIAM Numer. Anal.* 1(1):86–96. https://doi.org/10.1137/0701008
+8. Silverman BW. 1986. *Density Estimation for Statistics and Data Analysis.* Monographs on Statistics and Applied Probability, Chapman & Hall, London. (Kernel estimator eq. 2.2a, kernel normalisation eq. 2.2; rule-of-thumb bandwidth eq. 3.31.) https://ned.ipac.caltech.edu/level5/March02/Silverman/paper.pdf
+9. R Core Team. `bw.nrd0` / `density` (stats package). Silverman's rule of thumb `0.9·min(sd, IQR/1.34)·n^(−1/5)`; `density()` default Gaussian kernel; `adjust` multiplies the bandwidth. https://stat.ethz.ch/R-manual/R-devel/library/stats/html/bandwidth.html , https://stat.ethz.ch/R-manual/R-devel/library/stats/html/density.html

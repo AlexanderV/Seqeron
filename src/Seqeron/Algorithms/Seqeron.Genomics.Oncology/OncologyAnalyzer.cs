@@ -9118,6 +9118,224 @@ public static class OncologyAnalyzer
             _uniformProbability = 1.0 / ((maxLength - minLength) + 1);
         }
 
+        /// <summary>
+        /// Private constructor for precomputed per-length probability masses (used by the KDE factory).
+        /// </summary>
+        private FragmentSizeProfile(
+            IReadOnlyDictionary<int, double> mutantProbability,
+            IReadOnlyDictionary<int, double> normalProbability,
+            double uniformProbability)
+        {
+            _mutantProbability = mutantProbability;
+            _normalProbability = normalProbability;
+            _uniformProbability = uniformProbability;
+        }
+
+        /// <summary>
+        /// Builds an <b>opt-in KDE-smoothed</b> size profile: the per-length signal-vs-noise weights are obtained
+        /// from a <b>Gaussian kernel density estimate</b> of the fragment-length distribution rather than the raw
+        /// discrete <c>COUNT/TOTAL</c> histogram. This matches INVAR2's <c>estimate_real_length_probability</c>,
+        /// which calls R's <c>density()</c> (Gaussian kernel) on the per-length counts and integrates the smoothed
+        /// density over each integer-length bin <c>[L−0.5, L+0.5]</c>; tumour-derived cfDNA is shorter, so the
+        /// smoothed mutant profile up-weights short fragments without the sparse-bin noise of the raw histogram.
+        /// <para>
+        /// Kernel estimator (Silverman 1986, eq. 2.2a): for observed lengths <c>xᵢ</c> with weights
+        /// <c>wᵢ = countᵢ / Σcount</c> and bandwidth <c>h</c>, the smoothed density is
+        /// <c>f̂(t) = Σᵢ wᵢ · φ((t − xᵢ)/h) / h</c> with <c>φ</c> the standard-normal pdf (the Gaussian kernel,
+        /// which integrates to 1 — Silverman eq. 2.2). The per-length probability mass is the analytic integral
+        /// over the bin, <c>P(L) = Σᵢ wᵢ · [Φ((L+0.5 − xᵢ)/h) − Φ((L−0.5 − xᵢ)/h)]</c>, renormalised over the
+        /// integer support <c>[minLength, maxLength]</c> so the masses sum to 1.
+        /// </para>
+        /// </summary>
+        /// <param name="mutantCounts">Per-fragment-length molecule counts for tumour-derived (mutant) reads.</param>
+        /// <param name="normalCounts">Per-fragment-length molecule counts for wild-type (normal) reads.</param>
+        /// <param name="bandwidth">
+        /// Explicit Gaussian-kernel bandwidth <c>h</c> (&gt; 0) in bp, or <c>null</c> (default) to choose it by
+        /// Silverman's rule of thumb (see <paramref name="bandwidthAdjust"/>).
+        /// </param>
+        /// <param name="bandwidthAdjust">
+        /// Multiplier applied to the auto-selected bandwidth (R <c>density(adjust=…)</c>); the bandwidth used is
+        /// <c>bandwidthAdjust · h_Silverman</c>. Ignored when <paramref name="bandwidth"/> is supplied. Must be &gt; 0;
+        /// default <c>1.0</c> (INVAR2 uses <c>0.03</c>).
+        /// </param>
+        /// <param name="minLength">Minimum fragment length in the size window (INVAR2 default 60).</param>
+        /// <param name="maxLength">Maximum fragment length in the size window (INVAR2 default 300).</param>
+        /// <returns>A KDE-smoothed <see cref="FragmentSizeProfile"/>.</returns>
+        /// <exception cref="ArgumentNullException">Either count map is null.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">Invalid window, bandwidth, or adjust.</exception>
+        public static FragmentSizeProfile FromKernelDensity(
+            IReadOnlyDictionary<int, int> mutantCounts,
+            IReadOnlyDictionary<int, int> normalCounts,
+            double? bandwidth = null,
+            double bandwidthAdjust = 1.0,
+            int minLength = InvarDefaultMinFragmentLength,
+            int maxLength = InvarDefaultMaxFragmentLength)
+        {
+            ArgumentNullException.ThrowIfNull(mutantCounts);
+            ArgumentNullException.ThrowIfNull(normalCounts);
+            if (minLength <= 0 || maxLength < minLength)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(maxLength), maxLength, "Require 0 < minLength <= maxLength for the size window.");
+            }
+
+            if (bandwidth is <= 0.0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(bandwidth), bandwidth, "Bandwidth must be positive.");
+            }
+
+            if (bandwidthAdjust <= 0.0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(bandwidthAdjust), bandwidthAdjust, "Bandwidth adjust must be positive.");
+            }
+
+            IReadOnlyDictionary<int, double> mutant =
+                SmoothToProbabilities(mutantCounts, bandwidth, bandwidthAdjust, minLength, maxLength);
+            IReadOnlyDictionary<int, double> normal =
+                SmoothToProbabilities(normalCounts, bandwidth, bandwidthAdjust, minLength, maxLength);
+
+            double uniform = 1.0 / ((maxLength - minLength) + 1);
+            return new FragmentSizeProfile(mutant, normal, uniform);
+        }
+
+        /// <summary>
+        /// Smooths per-length counts into a per-integer-length probability mass via a weighted Gaussian KDE,
+        /// integrated analytically over each integer bin and renormalised over the support. Empty / single-point
+        /// inputs return an empty map (so the caller's uniform fall-back applies, mirroring INVAR2's guard
+        /// <c>if (length(counts) &gt; 1)</c> in <c>estimate_real_length_probability</c>).
+        /// </summary>
+        private static IReadOnlyDictionary<int, double> SmoothToProbabilities(
+            IReadOnlyDictionary<int, int> counts,
+            double? bandwidth,
+            double bandwidthAdjust,
+            int minLength,
+            int maxLength)
+        {
+            // Collect observed lengths with positive counts.
+            var lengths = new List<int>(counts.Count);
+            var weights = new List<double>(counts.Count);
+            long total = 0;
+            foreach (KeyValuePair<int, int> kv in counts)
+            {
+                int c = Math.Max(0, kv.Value);
+                if (c > 0)
+                {
+                    lengths.Add(kv.Key);
+                    weights.Add(c);
+                    total += c;
+                }
+            }
+
+            var result = new Dictionary<int, double>();
+
+            // INVAR2 guard: need more than one distinct point to estimate a density; otherwise fall back to uniform.
+            if (lengths.Count <= 1 || total == 0)
+            {
+                return result;
+            }
+
+            // Weights normalise to a probability mass (INVAR2: weights <- counts / sum(counts)).
+            for (int i = 0; i < weights.Count; i++)
+            {
+                weights[i] /= total;
+            }
+
+            double h = bandwidth ?? (bandwidthAdjust * SilvermanBandwidth(lengths));
+
+            // Analytic integral of the weighted Gaussian KDE over each integer bin [L-0.5, L+0.5]:
+            //   P(L) = Σ wᵢ · [Φ((L+0.5 − xᵢ)/h) − Φ((L−0.5 − xᵢ)/h)]   (Φ = standard-normal CDF).
+            double sum = 0.0;
+            for (int len = minLength; len <= maxLength; len++)
+            {
+                double mass = 0.0;
+                for (int i = 0; i < lengths.Count; i++)
+                {
+                    double upper = StandardNormalCdf(((len + 0.5) - lengths[i]) / h);
+                    double lower = StandardNormalCdf(((len - 0.5) - lengths[i]) / h);
+                    mass += weights[i] * (upper - lower);
+                }
+
+                // Store every in-support length (even a ~0 tail mass) so the smoothed profile is self-contained and
+                // the uniform fall-back never applies inside the support — that fall-back is the DISCRETE profile's
+                // behaviour for unobserved lengths, not the KDE's (whose smoothed mass is defined everywhere).
+                result[len] = mass;
+                sum += mass;
+            }
+
+            // Renormalise over the integer support so the per-length masses sum to 1.
+            if (sum > 0.0)
+            {
+                var keys = new List<int>(result.Keys);
+                foreach (int len in keys)
+                {
+                    result[len] /= sum;
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Silverman's rule-of-thumb bandwidth for a Gaussian kernel (Silverman 1986, eq. 3.31; R
+        /// <c>bw.nrd0</c>): <c>h = 0.9 · min(σ̂, IQR/1.34) · n^(−1/5)</c> over the per-read sample obtained by
+        /// expanding each observed length by its weight. The robust scale <c>min(σ̂, IQR/1.34)</c> falls back to
+        /// <c>σ̂</c>, then <c>|x₁|</c>, then <c>1</c> when the quartiles coincide (R <c>bw.nrd0</c> guard).
+        /// </summary>
+        private static double SilvermanBandwidth(IReadOnlyList<int> distinctLengths)
+        {
+            // Use the distinct observed lengths as the sample (matching R's density(x): bw.nrd0 is computed on the
+            // supplied length vector and ignores the kernel weights). At least two points are guaranteed here.
+            int n = distinctLengths.Count;
+            double mean = 0.0;
+            foreach (int v in distinctLengths)
+            {
+                mean += v;
+            }
+
+            mean /= n;
+
+            double ss = 0.0;
+            foreach (int v in distinctLengths)
+            {
+                double d = v - mean;
+                ss += d * d;
+            }
+
+            // Sample standard deviation (R sd() uses the n−1 divisor).
+            double sd = Math.Sqrt(ss / (n - 1));
+
+            var sorted = new List<int>(distinctLengths);
+            sorted.Sort();
+            double iqr = Quantile(sorted, 0.75) - Quantile(sorted, 0.25);
+
+            // Robust scale with R bw.nrd0's fall-back chain (1.34 normalises the IQR of a Gaussian to its σ).
+            double lo = Math.Min(sd, iqr / 1.34);
+            if (lo <= 0.0)
+            {
+                lo = sd > 0.0 ? sd : (Math.Abs(sorted[0]) > 0.0 ? Math.Abs(sorted[0]) : 1.0);
+            }
+
+            return 0.9 * lo * Math.Pow(n, -0.2);
+        }
+
+        /// <summary>Type-7 (R default) linear-interpolation quantile of a sorted sample.</summary>
+        private static double Quantile(IReadOnlyList<int> sorted, double probability)
+        {
+            int n = sorted.Count;
+            if (n == 1)
+            {
+                return sorted[0];
+            }
+
+            // R type 7: h = (n − 1)·p; interpolate between order statistics h_floor and h_floor+1.
+            double h = (n - 1) * probability;
+            int lo = (int)Math.Floor(h);
+            int hi = Math.Min(lo + 1, n - 1);
+            return sorted[lo] + ((h - lo) * (sorted[hi] - sorted[lo]));
+        }
+
         /// <summary>Probability that a tumour-derived (mutant) molecule has the given fragment length.</summary>
         public double MutantProbability(int fragmentLength) =>
             _mutantProbability.TryGetValue(fragmentLength, out double p) ? p : _uniformProbability;
@@ -9146,6 +9364,80 @@ public static class OncologyAnalyzer
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Standard-normal cumulative distribution function <c>Φ(z) = ½·[1 + erf(z/√2)]</c>. Used to integrate the
+        /// Gaussian kernel analytically over each fragment-length bin (the Gaussian kernel's antiderivative is
+        /// <c>Φ</c>). Reference: <c>Φ(z) = ½[1 + erf(z/√2)]</c>.
+        /// </summary>
+        private static double StandardNormalCdf(double z) => 0.5 * (1.0 + Erf(z / Sqrt2));
+
+        /// <summary>1/√2, used in the Φ(z) = ½[1 + erf(z/√2)] identity.</summary>
+        private static readonly double Sqrt2 = Math.Sqrt(2.0);
+
+        /// <summary>2/√π, the leading constant of the error-function series erf(x) = (2/√π)·Σ …</summary>
+        private static readonly double TwoOverSqrtPi = 2.0 / Math.Sqrt(Math.PI);
+
+        /// <summary>1/√π, the leading constant of the complementary-error continued fraction.</summary>
+        private static readonly double InvSqrtPi = 1.0 / Math.Sqrt(Math.PI);
+
+        /// <summary>
+        /// |x| beyond which the Maclaurin series loses precision; above it the complementary continued fraction is
+        /// used instead. Both are exact (double-precision-limited); 2.0 keeps each well-conditioned.
+        /// </summary>
+        private const double ErfSeriesBound = 2.0;
+
+        /// <summary>
+        /// Gauss error function, exact to double precision over the whole real line via two first-principles
+        /// expansions (no tabulated approximation coefficients):
+        /// <list type="bullet">
+        /// <item>|x| ≤ 2 — the everywhere-convergent Maclaurin series
+        /// <c>erf(x) = (2/√π)·Σ_{k≥0} (−1)ᵏ·x^(2k+1) / (k!·(2k+1))</c>, with each term derived from the previous by
+        /// the ratio <c>t_k = t_{k−1}·(−x²)·(2k−1)/(k·(2k+1))</c>.</item>
+        /// <item>|x| &gt; 2 — <c>erf(x) = sign(x)·(1 − erfc(|x|))</c> with <c>erfc</c> from its classical
+        /// continued fraction <c>erfc(x) = (e^{−x²}/√π)·1/(x + ½/(x + 1/(x + 3⁄2/(x + 2/(x + …)))))</c>, which
+        /// converges rapidly for <c>x ≥ 2</c>.</item>
+        /// </list>
+        /// </summary>
+        private static double Erf(double x)
+        {
+            if (x == 0.0)
+            {
+                return 0.0;
+            }
+
+            double ax = Math.Abs(x);
+            if (ax <= ErfSeriesBound)
+            {
+                double x2 = x * x;
+                double term = x;          // k = 0 term: x / (0! · 1) = x.
+                double sum = x;
+                for (int k = 1; k < 200; k++)
+                {
+                    term *= -x2 * ((2 * k) - 1) / (k * ((2 * k) + 1));
+                    double previous = sum;
+                    sum += term;
+                    if (sum == previous)
+                    {
+                        break; // Converged to machine precision.
+                    }
+                }
+
+                return TwoOverSqrtPi * sum;
+            }
+
+            // Lentz evaluation of the continued fraction erfc(x) = (e^{-x²}/√π) / (x + a1/(x + a2/(x + …)))
+            // with partial numerators a_k = k/2. Exact (double-precision-limited) for x ≥ 2.
+            double cf = ax;
+            for (int k = 60; k >= 1; k--)
+            {
+                cf = ax + ((k / 2.0) / cf);
+            }
+
+            double erfc = Math.Exp(-ax * ax) * InvSqrtPi / cf;
+            double erf = 1.0 - erfc;
+            return x < 0.0 ? -erf : erf;
         }
     }
 

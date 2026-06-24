@@ -837,6 +837,266 @@ public class OncologyAnalyzer_DetectMRD_Tests
 
     #endregion
 
+    #region FragmentSizeProfile.FromKernelDensity (INVAR2 KDE-smoothed fragment-size weighting)
+
+    // KDE source: INVAR2 estimate_real_length_probability (R/shared/detectionFunctions.R) smooths the per-length
+    // counts with R density() (Gaussian kernel, Silverman bw.nrd0, adjust=0.03) and integrates the smoothed density
+    // over each integer bin [L-0.5, L+0.5]. Kernel estimator: Silverman (1986) eq. 2.2a, Gaussian kernel
+    // (integrates to 1, eq. 2.2). Bandwidth: Silverman's rule of thumb h = 0.9*min(sd, IQR/1.34)*n^(-1/5)
+    // (Silverman 1986 eq. 3.31; R bw.nrd0). Phi(z) = 1/2[1 + erf(z/sqrt2)].
+    //
+    // Hand-derived exact reference (single observation at length 100, explicit bandwidth h = 0.5,
+    // integer support {99,100,101}). For one observation x0 = 100 with weight 1, the raw bin mass is
+    //   m(L) = Phi((L+0.5-100)/0.5) - Phi((L-0.5-100)/0.5):
+    //     m(100) = Phi(1) - Phi(-1) = 2*Phi(1) - 1 = 0.6826894921370859    [Phi(1)=0.8413447460685429]
+    //     m(101) = m(99) = Phi(3) - Phi(1)         = 0.15730535589982697   [Phi(3)=0.9986501019683699]
+    //   total = 0.9973002039367398; renormalised:
+    //     P(100) = 0.684537604065696 ; P(101) = P(99) = 0.15773119796715201.
+    // Authoritative Phi values: standard-normal CDF references (Phi(1), Phi(3)).
+    private const int KdeObservedLength = 100;
+    private const double KdeBandwidth = 0.5;
+    private const double KdeExpectedCentre = 0.684537604065696;     // P(100)
+    private const double KdeExpectedFlank = 0.15773119796715201;    // P(99) = P(101)
+
+    // K1 — exact KDE mass at the observed length and its symmetric flanks (hand-derived from Phi(1), Phi(3)).
+    [Test]
+    public void FromKernelDensity_SingleObservationExplicitBandwidth_MatchesAnalyticGaussianIntegral()
+    {
+        // One mutant observation effectively at length 100 (the count at 150 is far outside the {99..101} window;
+        // its Gaussian tail at h = 0.5 is < 1e-280, so the masses on 99/100/101 are the single-observation values).
+        var mutantCounts = new Dictionary<int, int> { [KdeObservedLength] = 1, [200] = 1 };
+        var normalCounts = new Dictionary<int, int> { [KdeObservedLength] = 1, [200] = 1 };
+        OncologyAnalyzer.FragmentSizeProfile profile = OncologyAnalyzer.FragmentSizeProfile.FromKernelDensity(
+            mutantCounts, normalCounts, bandwidth: KdeBandwidth, minLength: 99, maxLength: 101);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(profile.MutantProbability(100), Is.EqualTo(KdeExpectedCentre).Within(1e-10),
+                "KDE mass at the observed length = (2*Phi(1)-1)/total, the analytic Gaussian bin integral.");
+            Assert.That(profile.MutantProbability(101), Is.EqualTo(KdeExpectedFlank).Within(1e-10),
+                "KDE mass one bin above = (Phi(3)-Phi(1))/total.");
+            Assert.That(profile.MutantProbability(99), Is.EqualTo(KdeExpectedFlank).Within(1e-10),
+                "KDE is symmetric: the mass one bin below equals the mass one bin above.");
+        });
+    }
+
+    // K2 — the per-length KDE masses integrate to ~1 over the support (Gaussian kernel integrates to 1; the
+    // profile is renormalised). Silverman (1986) eq. 2.2: ∫K = 1.
+    [Test]
+    public void FromKernelDensity_OverSupport_IntegratesToOne()
+    {
+        var mutantCounts = new Dictionary<int, int> { [120] = 80, [170] = 20 };
+        var normalCounts = new Dictionary<int, int> { [120] = 20, [170] = 80 };
+        const int min = 60;
+        const int max = 300;
+        OncologyAnalyzer.FragmentSizeProfile profile = OncologyAnalyzer.FragmentSizeProfile.FromKernelDensity(
+            mutantCounts, normalCounts, bandwidth: 10.0, minLength: min, maxLength: max);
+
+        double mutantSum = 0.0;
+        double normalSum = 0.0;
+        for (int len = min; len <= max; len++)
+        {
+            mutantSum += profile.MutantProbability(len);
+            normalSum += profile.NormalProbability(len);
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(mutantSum, Is.EqualTo(1.0).Within(1e-9),
+                "The renormalised KDE mutant masses sum to 1 over the integer support.");
+            Assert.That(normalSum, Is.EqualTo(1.0).Within(1e-9),
+                "The renormalised KDE normal masses sum to 1 over the integer support.");
+        });
+    }
+
+    // K3 — the smoothed density is unimodal around a single observed mode: strictly increasing up to the mode and
+    // strictly decreasing after it (the Gaussian kernel of a single bump is monotone on each side of its centre).
+    [Test]
+    public void FromKernelDensity_SingleMode_IsUnimodalAroundTheMode()
+    {
+        // One dominant length (130) carries all the mass; a single Gaussian bump => unimodal smoothed profile.
+        var counts = new Dictionary<int, int> { [129] = 1, [130] = 100, [131] = 1 };
+        OncologyAnalyzer.FragmentSizeProfile profile = OncologyAnalyzer.FragmentSizeProfile.FromKernelDensity(
+            counts, counts, bandwidth: 8.0, minLength: 100, maxLength: 160);
+
+        const int mode = 130;
+        Assert.Multiple(() =>
+        {
+            // Strictly increasing approaching the mode from below.
+            for (int len = 110; len < mode; len++)
+            {
+                Assert.That(profile.MutantProbability(len + 1), Is.GreaterThan(profile.MutantProbability(len)),
+                    $"KDE mass should increase toward the mode at {len + 1}.");
+            }
+
+            // Strictly decreasing after the mode.
+            for (int len = mode; len < 150; len++)
+            {
+                Assert.That(profile.MutantProbability(len + 1), Is.LessThan(profile.MutantProbability(len)),
+                    $"KDE mass should decrease past the mode at {len + 1}.");
+            }
+        });
+    }
+
+    // K4 — smoothing spreads mass onto lengths the raw discrete histogram leaves at zero: a length with no observed
+    // count gets a positive smoothed weight, whereas the default discrete profile would fall back to the flat
+    // uniform 1/((max-min)+1). This is the qualitative difference the KDE introduces (sparse-bin smoothing).
+    [Test]
+    public void FromKernelDensity_SparseHistogram_SmoothsMassOntoEmptyBins()
+    {
+        var counts = new Dictionary<int, int> { [120] = 50, [170] = 50 };
+        const int min = 60;
+        const int max = 300;
+
+        OncologyAnalyzer.FragmentSizeProfile kde = OncologyAnalyzer.FragmentSizeProfile.FromKernelDensity(
+            counts, counts, bandwidth: 6.0, minLength: min, maxLength: max);
+        var discrete = new OncologyAnalyzer.FragmentSizeProfile(counts, counts, min, max);
+
+        // A length adjacent to an observed bin but with zero count.
+        const int emptyAdjacent = 122;
+        double discreteUniform = 1.0 / ((max - min) + 1);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(kde.MutantProbability(emptyAdjacent), Is.GreaterThan(0.0),
+                "KDE gives an unobserved length near a populated bin a positive smoothed weight.");
+            // The discrete profile returns the flat uniform fall-back for the unobserved length...
+            Assert.That(discrete.MutantProbability(emptyAdjacent), Is.EqualTo(discreteUniform).Within(1e-12),
+                "The default discrete profile falls back to the flat uniform weight for an unobserved length.");
+            // ...while the KDE weight near a mode is well above that flat uniform value.
+            Assert.That(kde.MutantProbability(emptyAdjacent), Is.GreaterThan(discreteUniform),
+                "Near a populated mode, the KDE weight exceeds the flat uniform discrete fall-back.");
+        });
+    }
+
+    // K5 — the auto (Silverman's-rule) bandwidth path also produces a valid, smooth, normalised profile and the
+    // adjust multiplier scales the bandwidth: a larger adjust => smoother => more mass leaks to the flanks.
+    [Test]
+    public void FromKernelDensity_AutoBandwidth_AdjustControlsSmoothness()
+    {
+        var counts = new Dictionary<int, int> { [120] = 60, [121] = 40, [180] = 50 };
+        const int min = 60;
+        const int max = 300;
+
+        OncologyAnalyzer.FragmentSizeProfile narrow = OncologyAnalyzer.FragmentSizeProfile.FromKernelDensity(
+            counts, counts, bandwidthAdjust: 0.3, minLength: min, maxLength: max);
+        OncologyAnalyzer.FragmentSizeProfile wide = OncologyAnalyzer.FragmentSizeProfile.FromKernelDensity(
+            counts, counts, bandwidthAdjust: 1.5, minLength: min, maxLength: max);
+
+        double narrowSum = 0.0;
+        double wideSum = 0.0;
+        for (int len = min; len <= max; len++)
+        {
+            narrowSum += narrow.MutantProbability(len);
+            wideSum += wide.MutantProbability(len);
+        }
+
+        // Mass on a length midway between the two observed clusters (a "valley") — wider bandwidth fills it more.
+        const int valley = 150;
+        Assert.Multiple(() =>
+        {
+            Assert.That(narrowSum, Is.EqualTo(1.0).Within(1e-9), "Auto-bandwidth narrow profile is normalised.");
+            Assert.That(wideSum, Is.EqualTo(1.0).Within(1e-9), "Auto-bandwidth wide profile is normalised.");
+            Assert.That(wide.MutantProbability(valley), Is.GreaterThan(narrow.MutantProbability(valley)),
+                "A larger adjust => wider bandwidth => more smoothed mass in the valley between clusters.");
+        });
+    }
+
+    // K6 — a KDE profile drops into EstimateInvarSignalWithSize unchanged: short tumour fragments still raise the
+    // GLRT above a flat-profile baseline, confirming the smoothed weights keep the with-RL likelihood meaningful.
+    [Test]
+    public void FromKernelDensity_UsedInWithSizeGlrt_ShortTumourFragmentsRaiseLikelihood()
+    {
+        // Tumour short-enriched (mode ~120), normal long-enriched (mode ~170).
+        var mutantCounts = new Dictionary<int, int> { [118] = 30, [120] = 50, [122] = 20 };
+        var normalCounts = new Dictionary<int, int> { [168] = 30, [170] = 50, [172] = 20 };
+        OncologyAnalyzer.FragmentSizeProfile kde = OncologyAnalyzer.FragmentSizeProfile.FromKernelDensity(
+            mutantCounts, normalCounts, bandwidth: 8.0, minLength: 60, maxLength: 300);
+
+        var mols = new List<OncologyAnalyzer.InvarMolecule>();
+        void Add(bool mut, int len, int n)
+        {
+            for (int i = 0; i < n; i++)
+            {
+                mols.Add(new OncologyAnalyzer.InvarMolecule(mut, len, 0.4, 0.002));
+            }
+        }
+
+        Add(mut: true, 120, 10);
+        Add(mut: true, 170, 2);
+        Add(mut: false, 120, 38);
+        Add(mut: false, 170, 150);
+
+        OncologyAnalyzer.InvarSignalResult sized = OncologyAnalyzer.EstimateInvarSignalWithSize(mols, kde);
+
+        // No-size baseline on the same molecules (one locus per molecule, depth 1).
+        var noSizeLoci = new List<OncologyAnalyzer.InvarLocus>();
+        foreach (OncologyAnalyzer.InvarMolecule m in mols)
+        {
+            noSizeLoci.Add(IL(m.IsMutant ? 1 : 0, 1, m.TumorAlleleFraction, m.BackgroundErrorRate));
+        }
+
+        OncologyAnalyzer.InvarSignalResult noSize = OncologyAnalyzer.EstimateInvarSignal(noSizeLoci);
+
+        Assert.That(sized.LikelihoodRatio, Is.GreaterThan(noSize.LikelihoodRatio),
+            "A KDE-smoothed short-tumour profile raises the with-RL GLRT above the no-size baseline.");
+    }
+
+    // K7 — null count maps => ArgumentNullException.
+    [Test]
+    public void FromKernelDensity_NullCounts_Throws()
+    {
+        var counts = new Dictionary<int, int> { [120] = 1, [130] = 1 };
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(
+                () => OncologyAnalyzer.FragmentSizeProfile.FromKernelDensity(null!, counts),
+                "Null mutant counts are invalid.");
+            Assert.Throws<ArgumentNullException>(
+                () => OncologyAnalyzer.FragmentSizeProfile.FromKernelDensity(counts, null!),
+                "Null normal counts are invalid.");
+        });
+    }
+
+    // K8 — non-positive bandwidth / adjust and an invalid window raise ArgumentOutOfRangeException.
+    [Test]
+    public void FromKernelDensity_InvalidParameters_Throws()
+    {
+        var counts = new Dictionary<int, int> { [120] = 1, [130] = 1 };
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => OncologyAnalyzer.FragmentSizeProfile.FromKernelDensity(counts, counts, bandwidth: 0.0),
+                "Zero bandwidth is invalid.");
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => OncologyAnalyzer.FragmentSizeProfile.FromKernelDensity(counts, counts, bandwidthAdjust: 0.0),
+                "Zero bandwidth adjust is invalid.");
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => OncologyAnalyzer.FragmentSizeProfile.FromKernelDensity(
+                    counts, counts, minLength: 300, maxLength: 60),
+                "maxLength < minLength is an invalid window.");
+        });
+    }
+
+    // K9 — INVAR2 guard: with fewer than two distinct observed lengths a density cannot be estimated, so the
+    // smoothed profile falls back to the uniform weight (mirrors estimate_real_length_probability's
+    // `if (length(counts) > 1)` guard).
+    [Test]
+    public void FromKernelDensity_SinglePoint_FallsBackToUniform()
+    {
+        var counts = new Dictionary<int, int> { [120] = 100 };
+        const int min = 60;
+        const int max = 300;
+        OncologyAnalyzer.FragmentSizeProfile profile = OncologyAnalyzer.FragmentSizeProfile.FromKernelDensity(
+            counts, counts, bandwidth: 10.0, minLength: min, maxLength: max);
+
+        double uniform = 1.0 / ((max - min) + 1);
+        Assert.That(profile.MutantProbability(120), Is.EqualTo(uniform).Within(1e-12),
+            "A single observed length cannot define a density => uniform fall-back (INVAR2 length(counts)>1 guard).");
+    }
+
+    #endregion
+
     #region SuppressOutlierLoci (INVAR patient-specific outlier suppression)
 
     // OS1 — a planted high-signal locus among background-only loci is flagged as an outlier and removed,

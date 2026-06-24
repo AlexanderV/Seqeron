@@ -82,6 +82,49 @@
 1. **Fragment-size-weighted GLRT** (`calc_log_likelihood_with_RL`): for each molecule (one read; `DP = 1`) with tumour AF `AF`, background `e`, ctDNA fraction `p`, fragment-size probability under the normal size profile `RL_PROB_0` (P0) and the mutant/tumour size profile `RL_PROB_1` (P1), and `g = AF·(1−e)+(1−AF)·e`: the wild-type read likelihood is `L0 = (1−e)·P0·(1−p) + (1−g)·P1·p` and the mutant read likelihood is `L1 = e·P0·(1−p) + g·P1·p`; `logL = Σ[ M·log(L1) + (R−M)·log(L0) ] / length(R)` with `M ∈ {0,1}` the per-molecule mutant indicator. Tumour-derived cfDNA is shorter, so a short fragment has higher P1 and is up-weighted.
 2. **Size-weighted EM** (`estimate_p_EM_with_RL`): E-step `Z0 = (1−g)·P1·p / ((1−g)·P1·p + (1−e)·P0·(1−p))`, `Z1 = g·P1·p / (g·P1·p + e·P0·(1−p))`; M-step `p = Σ(M·Z1 + (R−M)·Z0)/ΣR`; `initial_p = 0.01`, `iterations = 200`. The detection statistic is `LR = logL(p̂)−logL(0)` (`calc_likelihood_ratio_with_RL`).
 3. **Size profile** (`sizeCharacterisation.R` / `estimate_real_length_probability`): per fragment-length bin, `PROPORTION = COUNT / TOTAL` separately for `MUTANT` (tumour) and non-mutant (normal) reads. The `onlyWeighMutants` fall-back sets non-discriminating reads to a uniform `1/((maxFragmentLength − minFragmentLength)+1)`; defaults `MINIMUM_FRAGMENT_LENGTH = 60`, `MAXIMUM_FRAGMENT_LENGTH = 300`, smoothing bandwidth `0.03`.
+
+### INVAR2 KDE smoothing of the size distribution + Gaussian KDE / Silverman bandwidth
+
+**URLs retrieved this session (2026-06-24):**
+- INVAR2 `estimate_real_length_probability` — `https://raw.githubusercontent.com/nrlab-CRUK/INVAR2/master/R/shared/detectionFunctions.R` (fetched; complete function body reproduced below).
+- R `density` / `bw.nrd0` docs — `https://stat.ethz.ch/R-manual/R-devel/library/stats/html/density.html` and `.../bandwidth.html` (fetched).
+- R source `bw.nrd0` — `https://raw.githubusercontent.com/wch/r-source/trunk/src/library/stats/R/bandwidths.R` (fetched).
+- Silverman 1986, *Density Estimation for Statistics and Data Analysis* — `https://ned.ipac.caltech.edu/level5/March02/Silverman/paper.pdf` (fetched; §2.4 kernel estimator eq. 2.2a and normalisation eq. 2.2 read directly from the PDF pages).
+- Standard-normal CDF references Φ(1)=0.8413447460685429, Φ(3)=0.9986501019683699, Φ(0.5)=0.6914624612740131 (cross-checked via WebSearch).
+
+**Authority rank:** 1 (Silverman 1986 textbook) / 3 (INVAR2 reference implementation; R stats reference implementation).
+
+**Key Extracted Points (verbatim):**
+
+1. **INVAR2 `estimate_real_length_probability`** (verbatim body, `R/shared/detectionFunctions.R`):
+   ```r
+   estimate_real_length_probability <- function(fragment_length, counts, bw_adjust = 0.03,
+                                                min_length, max_length, error_tolerence = 1e-10)
+   {
+       calc_probability <- function(frag_length) {
+           probability <- 0
+           if (length(counts) > 1) {
+               assert_that(sum(counts) > 0, ...)
+               weights <- counts / sum(counts)
+               den <- density(fragment_length, weights = weights, adjust = bw_adjust,
+                              from = min_length - 0.5, to = max_length + 0.5)
+               den_function <- approxfun(den)
+               result <- integrate(den_function, frag_length - 0.5, frag_length + 0.5, abs.tol = error_tolerence)
+               probability <- result$value
+           }
+           probability
+       }
+       lengths <- seq(min_length, max_length)
+       probs <- sapply(lengths, calc_probability)
+       data.frame(fragment_length = lengths, probability = probs)
+   }
+   ```
+   So INVAR2: weights `= counts/sum(counts)`; KDE via R `density()` with `adjust = 0.03`; per-length probability = the KDE integrated over the integer bin `[frag_length − 0.5, frag_length + 0.5]`; the `length(counts) > 1` guard returns probability 0 (→ caller's uniform fall-back) when fewer than two distinct lengths are observed.
+2. **R `density()` defaults** (R docs, verbatim): `kernel` "default `"gaussian"`"; `bw` default `"nrd0"`; `adjust` "the bandwidth used is actually `adjust*bw`." The Gaussian kernel "is scaled such that this [bw] is the standard deviation of the smoothing kernel."
+3. **R `bw.nrd0`** (verbatim R source `bandwidths.R`): `hi <- sd(x); if(!(lo <- min(hi, IQR(x)/1.34))) (lo <- hi) || (lo <- abs(x[1L])) || (lo <- 1.); 0.9 * lo * length(x)^(-0.2)` — i.e. Silverman's rule of thumb `h = 0.9·min(σ̂, IQR/1.34)·n^(−1/5)` with the fall-back chain `σ̂ → |x₁| → 1` when the quartiles coincide. R docs attribute this verbatim to "Silverman's 'rule of thumb'."
+4. **Silverman 1986 kernel estimator** (verbatim, §2.4 eq. 2.2a): `f̂(x) = (1/nh) Σ_{i=1}^n K((x − Xᵢ)/h)`, with the kernel-normalisation condition (eq. 2.2) `∫ K(x) dx = 1`. With the normal density as `K`, "f̂ will be a smooth curve having derivatives of all orders." The rule-of-thumb bandwidth (eq. 3.31) is the `0.9·A·n^(−1/5)`, `A = min(sd, IQR/1.34)` form reproduced by R `bw.nrd0`.
+5. **Standard-normal CDF identity** used to integrate the Gaussian kernel analytically: `Φ(z) = ½·[1 + erf(z/√2)]`; the integral of the weighted Gaussian KDE over `[a,b]` is therefore `Σᵢ wᵢ·[Φ((b−xᵢ)/h) − Φ((a−xᵢ)/h)]` exactly (the Gaussian kernel's antiderivative is `Φ`).
+6. **Fragment-size weighting ROLE** (confirmed against [3] Wan 2020 and the INVAR2 with-RL likelihood): tumour-derived cfDNA fragments are SHORTER, so a short fragment has higher probability under the tumour size profile `P1` than under the normal profile `P0`; the per-molecule likelihoods `L0 = (1−e)·P0·(1−p)+(1−g)·P1·p`, `L1 = e·P0·(1−p)+g·P1·p` use `P0`/`P1` as multiplicative SIGNAL-vs-NOISE weights, up-weighting short tumour-like fragments. The KDE is the smoothed estimate of `P0`/`P1`.
 4. **Patient-specific outlier suppression** (`repolish`, `outlierSuppression.R`): from loci passing locus-noise & both-strands with `AF ≤ alleleFrequencyThreshold (0.01)`, `MUTATED_READS_PER_LOCI ≤ maximumMutantReads (10)`, `TUMOUR_AF > 0`, estimate the null sample ctDNA fraction `P_ESTIMATE = max(estimate_p_EM(MUTANT, DP, TUMOUR_AF, BACKGROUND_AF), weighted.mean(AF, TUMOUR_AF))`; Bonferroni threshold `P_THRESHOLD = outlierSuppression (0.05) / n_distinct(loci)`; per locus `BINOMIAL_PROB = binom.test(x = MUTATED_READS_PER_LOCI, n = DP, p = P_ESTIMATE, alternative = "greater")$p.value` (`= 1` when `x ≤ 0`); `OUTLIER.PASS = BINOMIAL_PROB > P_THRESHOLD` — a locus is an OUTLIER (removed) when its mutant-read count is a one-sided binomial outlier above the sample estimate.
 5. **Locus-noise filtering & background-error estimation** (`createLociErrorRateTable`, `onTargetErrorRatesAndFilter.R`): over control (`!PATIENT_SPECIFIC & CASE_OR_CONTROL == 'case'`) samples per locus, `BACKGROUND_AF = sum(ALT_F + ALT_R) / sum(DP)`, `N_SAMPLES` distinct control samples, `N_SAMPLES_WITH_SIGNAL` controls with `ALT_F + ALT_R > 0`; `LOCUS_NOISE.PASS = (N_SAMPLES_WITH_SIGNAL / N_SAMPLES) < proportion_of_controls (0.1) AND BACKGROUND_AF < max_background_mean_AF (0.01)`. The per-locus background error model `e` is thus ESTIMATED from control plasma (not only caller-supplied).
 6. **Both-strands filter** (`onTargetErrorRatesAndFilter.R` main): `BOTH_STRANDS.PASS = ALT_F > 0 & ALT_R > 0 | AF == 0`.
@@ -201,10 +244,26 @@ AF-weighting yields a strictly larger detection statistic than flat pooling on t
 
 ---
 
+### Dataset: KDE-smoothed size profile — exact analytic Gaussian-bin integral
+
+**Source:** Silverman 1986 kernel estimator (eq. 2.2a, Gaussian kernel); `Φ(z) = ½[1 + erf(z/√2)]`; standard-normal CDF references Φ(1)=0.8413447460685429, Φ(3)=0.9986501019683699. A single fragment-length observation at `x₀ = 100` (weight 1), explicit bandwidth `h = 0.5`, integer support `{99, 100, 101}`. The per-bin raw mass is `m(L) = Φ((L+0.5−100)/0.5) − Φ((L−0.5−100)/0.5)`:
+
+| Bin L | Raw mass m(L) | Normalised P(L) |
+|-------|---------------|-----------------|
+| 100 | `Φ(1) − Φ(−1) = 2·Φ(1) − 1 = 0.6826894921370859` | **0.684537604065696** |
+| 101 | `Φ(3) − Φ(1) = 0.15730535589982697` | **0.15773119796715201** |
+| 99 | `Φ(−1) − Φ(−3) = Φ(3) − Φ(1) = 0.15730535589982697` (symmetry) | **0.15773119796715201** |
+
+Raw total `= 0.6826894921370859 + 2·0.15730535589982697 = 0.9973002039367398`; normalising divides each by the total, giving the boxed `P(L)` (they sum to exactly 1). These values depend only on the authoritative `Φ(1)`, `Φ(3)` references and are independent of the implementation.
+
+- **Integrates to 1:** the renormalised per-length masses sum to 1 over the support (Gaussian kernel `∫K = 1`, Silverman eq. 2.2).
+- **Unimodal:** a single observed bump yields a smoothed profile that is strictly increasing up to the mode and strictly decreasing after it.
+- **Smooths sparse bins:** a length with zero observed count near a populated bin receives a positive smoothed weight (vs the discrete profile's flat uniform fall-back).
+
 ## Assumptions
 
 1. **ASSUMPTION: per-variant "detected" criterion** — A tracked variant is counted as *detected* in plasma when it has at least one supporting alternate read (alt reads ≥ a minimum supporting-read count, default 1), i.e. signal above the trivial-zero background. The cited sources define positivity at the *panel* level (≥2 variants) and require per-locus signal above background, but do not publish an exact universal per-locus read-count cutoff (it is instrument/error-model specific, e.g. INVAR's trinucleotide GLRT). The default ≥1 alt read is the minimal, source-consistent presence rule and is a configurable parameter; it does not change the panel-level ≥2 calling rule. Correctness-affecting only for the per-variant flag, which is exposed as a tunable threshold.
-2. **ASSUMPTION: empirical size proportion in place of KDE.** The INVAR2 size likelihood `RL_PROB_0/RL_PROB_1` is computed by a weighted kernel density estimate (`estimate_real_length_probability`, bandwidth `adjust = 0.03`) over the per-length counts. The C# `FragmentSizeProfile` uses the discrete empirical proportion `COUNT/TOTAL` per length bin (the un-smoothed estimator the KDE converges to), with the same uniform `1/((max−min)+1)` fall-back as INVAR2's `onlyWeighMutants`. The mixture/EM/GLRT-with-RL equations are ported verbatim; only the kernel SMOOTHING of the size histogram is not reproduced. Correctness-affecting only for the exact size-weight on sparsely-populated length bins; the size-likelihood-ratio direction (short fragments up-weighted) and the with-RL GLRT are exact.
+2. **RESOLVED (opt-in KDE smoothing added): default discrete vs opt-in KDE size profile.** The INVAR2 size likelihood `RL_PROB_0/RL_PROB_1` is computed by a weighted Gaussian kernel density estimate (`estimate_real_length_probability`, R `density()` with `adjust = 0.03`) over the per-length counts. The C# `FragmentSizeProfile(...)` **constructor** keeps the discrete empirical proportion `COUNT/TOTAL` per length bin as the unchanged **default** (the estimator the KDE converges to), with the uniform `1/((max−min)+1)` fall-back. `FragmentSizeProfile.FromKernelDensity(...)` now provides the **opt-in** KDE-smoothed weight: a Gaussian kernel estimate `f̂(t) = Σ wᵢ·φ((t−xᵢ)/h)/h` (Silverman 1986 eq. 2.2a, `wᵢ = countᵢ/Σcount`), bandwidth by Silverman's rule of thumb `0.9·min(σ̂, IQR/1.34)·n^(−1/5)` (R `bw.nrd0`, scaled by the `adjust` multiplier) or an explicit `bandwidth`, integrated analytically over each integer bin `[L−0.5, L+0.5]` via `Φ` and renormalised over the support. The `length(counts) > 1` guard (→ uniform fall-back for a single observed length) mirrors INVAR2. All mixture/EM/GLRT-with-RL equations are unchanged; the KDE only changes how `P0`/`P1` are estimated.
 
 ---
 
@@ -236,6 +295,8 @@ AF-weighting yields a strictly larger detection statistic than flat pooling on t
 5. Avanzini S, et al. (2020). A mathematical model of ctDNA shedding predicts tumor detection size. *Science Advances* 6(50):eabc4308 (Poisson detection model p = 1 − e^(−λ)). DOI: 10.1126/sciadv.abc4308
 6. Rosenfeld lab (nrlab-CRUK). INVAR2 — restructured INVAR pipeline (reference implementation of Wan et al. 2020). `R/shared/detectionFunctions.R`, `R/4_detection/generalisedLikelihoodRatioTest.R`. https://github.com/nrlab-CRUK/INVAR2
 7. Lanczos C. (1964). A precision approximation of the gamma function. *J. SIAM Numer. Anal.* 1(1):86–96 (log-gamma used for the binomial coefficient in the GLRT). DOI: 10.1137/0701008
+8. Silverman B.W. (1986). *Density Estimation for Statistics and Data Analysis.* Monographs on Statistics and Applied Probability, Chapman & Hall, London. (Gaussian kernel estimator eq. 2.2a, normalisation eq. 2.2, rule-of-thumb bandwidth eq. 3.31.) https://ned.ipac.caltech.edu/level5/March02/Silverman/paper.pdf
+9. R Core Team. `bw.nrd0` and `density` (stats). Silverman's rule of thumb `0.9·min(sd, IQR/1.34)·n^(−1/5)`; Gaussian kernel default; `adjust` multiplies bw. https://stat.ethz.ch/R-manual/R-devel/library/stats/html/bandwidth.html , https://stat.ethz.ch/R-manual/R-devel/library/stats/html/density.html , source: https://raw.githubusercontent.com/wch/r-source/trunk/src/library/stats/R/bandwidths.R
 
 ---
 
@@ -244,3 +305,4 @@ AF-weighting yields a strictly larger detection statistic than flat pooling on t
 - **2026-06-15**: Initial documentation (ONCO-MRD-001).
 - **2026-06-23**: Added INVAR2 reference-implementation source and the exact GLRT/EM/IMAFv2 formulas; added synthetic GLRT-recovery and AF-weighting datasets and corner cases; extended coverage recommendations for the new background-subtracted, AF-weighted estimator (`EstimateInvarSignal`, `IntegratedMutantAlleleFractionV2`).
 - **2026-06-23**: Closed the residual — ported INVAR2 fragment-size weighting (`calc_likelihood_ratio_with_RL` → `EstimateInvarSignalWithSize`/`FragmentSizeProfile`/`InvarMolecule`), patient-specific outlier suppression (`repolish` → `SuppressOutlierLoci`), and locus-noise filtering + control-derived background-error estimation (`createLociErrorRateTable` → `EstimateLocusBackground`/`PassesBothStrandsFilter`). Added the size-weighting, outlier-suppression and background-estimation synthetic datasets with INVAR2-derived expected values.
+- **2026-06-24**: Added the **opt-in KDE-smoothed** fragment-size profile (`FragmentSizeProfile.FromKernelDensity`) — a Gaussian kernel density estimate (Silverman 1986 eq. 2.2a) with Silverman's-rule bandwidth (R `bw.nrd0`, `adjust` multiplier) integrated analytically over each integer bin via `Φ`, matching INVAR2's `estimate_real_length_probability` (`density()` + integrate, `adjust = 0.03`). Retrieved the verbatim `estimate_real_length_probability` body, R `density`/`bw.nrd0` defaults and source, and Silverman 1986 §2.4. Resolved Assumption #2 (default discrete unchanged; KDE opt-in). Added the exact analytic Gaussian-bin-integral dataset.

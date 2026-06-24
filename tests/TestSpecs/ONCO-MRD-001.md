@@ -22,6 +22,8 @@
 | 5 | Avanzini et al. (2020), Sci Adv 6(50):eabc4308 (Poisson p=1−e^(−λ)) | 1 | DOI:10.1126/sciadv.abc4308 | 2026-06-15 |
 | 6 | INVAR2 reference implementation (nrlab-CRUK), detectionFunctions.R / generalisedLikelihoodRatioTest.R | 3 | https://github.com/nrlab-CRUK/INVAR2 | 2026-06-23 |
 | 7 | Lanczos (1964), J. SIAM Numer. Anal. 1(1):86–96 (log-gamma) | 1 | https://doi.org/10.1137/0701008 | 2026-06-23 |
+| 8 | Silverman (1986), Density Estimation for Statistics and Data Analysis (Gaussian kernel eq. 2.2a, bandwidth eq. 3.31) | 1 | https://ned.ipac.caltech.edu/level5/March02/Silverman/paper.pdf | 2026-06-24 |
+| 9 | R `bw.nrd0` / `density` (Silverman's rule; Gaussian kernel; `adjust`) | 3 | https://stat.ethz.ch/R-manual/R-devel/library/stats/html/bandwidth.html ; .../density.html ; source https://raw.githubusercontent.com/wch/r-source/trunk/src/library/stats/R/bandwidths.R | 2026-06-24 |
 
 ### 1.2 Key Evidence Points
 
@@ -32,6 +34,7 @@
 5. **INVAR background subtraction + AF-weighted GLRT** (caller supplies per-locus background `e`): per-read mixture `q = AF·(1−e)·p + (1−AF)·e·p + e·(1−p)`; log-likelihood `Σ[lchoose(R,M)+M·log(q)+(R−M)·log(1−q)]/n`; EM for `p̂` (init 0.01, 200 iters); detection statistic `LR = logL(p̂)−logL(0)` — INVAR2 `calc_log_likelihood` / `estimate_p_EM` / `calc_likelihood_ratio`.
 6. **IMAFv2** = depth-weighted mean of `max(0, locusVAF − background)` (per-context background subtraction then aggregation) — INVAR2 `calculateIMAFv2`.
 7. Zero background floored to `1/depth`; only loci with tumour AF > 0 are informative — INVAR2 `doMain`.
+8. **KDE-smoothed fragment-size weight (opt-in)**: tumour cfDNA is shorter, so the size profiles `P0`/`P1` up-weight short tumour-like fragments in the with-RL likelihood. INVAR2's `estimate_real_length_probability` smooths the per-length counts with R `density()` (Gaussian kernel, Silverman `bw.nrd0`, `adjust = 0.03`) and integrates the smoothed density over each integer bin `[L−0.5, L+0.5]`. `FragmentSizeProfile.FromKernelDensity` implements this: Gaussian KDE `f̂(t)=Σ wᵢ·φ((t−xᵢ)/h)/h` (Silverman eq. 2.2a), bandwidth `h = adjust·0.9·min(σ̂,IQR/1.34)·n^(−1/5)` or explicit, integrated analytically via `Φ(z)=½[1+erf(z/√2)]` and renormalised. Default `FragmentSizeProfile` constructor (discrete `COUNT/TOTAL`) unchanged.
 
 ### 1.3 Documented Corner Cases
 
@@ -56,6 +59,8 @@
 | `EstimateInvarSignal(loci, detectionThreshold)` | OncologyAnalyzer | Canonical | INVAR background-subtracted, AF-weighted GLRT: IMAFv2, ML `p̂`, LR, detection call |
 | `IntegratedMutantAlleleFractionV2(loci)` | OncologyAnalyzer | Canonical | Background-subtracted, depth-weighted aggregate (IMAFv2) |
 | `EstimateInvarSignalWithSize(molecules, sizeProfile, detectionThreshold)` | OncologyAnalyzer | Canonical | INVAR fragment-size-weighted GLRT (with-RL): ML `p̂`, LR, detection call |
+| `FragmentSizeProfile(mutantCounts, normalCounts, …)` (ctor) | OncologyAnalyzer.FragmentSizeProfile | Canonical (default) | Discrete empirical size profile `PROPORTION = COUNT/TOTAL` (default; unchanged) |
+| `FragmentSizeProfile.FromKernelDensity(mutantCounts, normalCounts, bandwidth, bandwidthAdjust, …)` | OncologyAnalyzer.FragmentSizeProfile | Canonical (opt-in) | KDE-smoothed size profile: Gaussian KDE (Silverman bandwidth / `adjust`) integrated over each integer bin |
 | `SuppressOutlierLoci(loci, α, afThreshold, maxMutantReads)` | OncologyAnalyzer | Canonical | INVAR patient-specific outlier suppression (Bonferroni binomial test) |
 | `EstimateLocusBackground(controlObservations, controlProportion, maxBgAf)` | OncologyAnalyzer | Canonical | Control-derived per-locus background error + locus-noise verdict |
 | `PassesBothStrandsFilter(altF, altR)` | OncologyAnalyzer | Canonical | INVAR both-strands filter |
@@ -81,6 +86,7 @@
 | INV-12 | A locus whose mutant-read count exceeds the null binomial tail (≤ Bonferroni α/n) is flagged outlier | Yes | INVAR2 repolish |
 | INV-13 | Estimated background = Σ(ALT_F+ALT_R)/Σ DP over controls; locus-noise pass ⟺ signalFrac < proportion AND bg < maxBg | Yes | INVAR2 createLociErrorRateTable |
 | INV-14 | BothStrands pass ⟺ (ALT_F>0 AND ALT_R>0) OR no alt reads | Yes | INVAR2 BOTH_STRANDS.PASS |
+| INV-15 | KDE-smoothed size masses ≥ 0, integrate to 1 over the support, and are unimodal around a single observed mode | Yes | Silverman 1986 (Gaussian kernel ∫K=1, smooth single bump) |
 
 ---
 
@@ -115,6 +121,11 @@
 | M23 | Recurrent signal fails | signal in 5/20 | signalFrac 0.25 ≥ 0.1 ⇒ LOCUS_NOISE.PASS false | INVAR2 createLociErrorRateTable |
 | M24 | High background fails | 1 control, 250 alt/1000 | bg 0.0125 ≥ 0.01 ⇒ LOCUS_NOISE.PASS false | INVAR2 createLociErrorRateTable |
 | M25 | Both-strands filter | (3,2),(3,0),(0,4),(0,0) | true, false, false, true | INVAR2 BOTH_STRANDS.PASS |
+| K1 | KDE exact bin integral | 1 obs at len 100, h=0.5, support {99,100,101} | P(100)=0.684537604065696; P(101)=P(99)=0.15773119796715201 | Silverman eq.2.2a + Φ(1),Φ(3); analytic Gaussian-bin integral |
+| K2 | KDE integrates to 1 | counts {120:80,170:20} & {120:20,170:80}, h=10, support 60..300 | Σ masses = 1 (mutant and normal) | Silverman eq.2.2 (∫K=1) + renormalisation |
+| K3 | KDE unimodal | one dominant length 130, h=8 | strictly increasing to 130, strictly decreasing after | Silverman (smooth single Gaussian bump) |
+| K4 | KDE smooths sparse bins | counts {120,170}, h=6 | unobserved 122 gets positive KDE weight > discrete uniform fall-back | INVAR2 estimate_real_length_probability (smoothing) |
+| K6 | KDE drives with-RL GLRT | KDE short-tumour vs long-normal profiles | size-weighted LR > no-size LR | INVAR2 calc_likelihood_ratio_with_RL (with KDE P0/P1) |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -126,6 +137,7 @@
 | S4 | all-negative timeline | det=[0,0,0] | all neg; FirstPositiveIndex=−1 | INV-5 |
 | S5 | detectionThreshold gates | LR≈4.06 vs thresholds 0 and 5 | detected at 0, not detected at 5 | specificity knob |
 | S6 | zero background | e=0, clear signal | LR finite, p̂>0, detected | INVAR2 1/depth floor |
+| K5 | KDE auto bandwidth / adjust | two clusters, adjust 0.3 vs 1.5 | both normalised; larger adjust ⇒ more valley mass | R bw.nrd0 Silverman rule + adjust multiplier |
 
 ### 4.3 COULD Tests (Nice to have)
 
@@ -150,6 +162,9 @@
 | C19 | outlier: invalid α | α = 0 | ArgumentOutOfRangeException | validation |
 | C20 | background: null controls | EstimateLocusBackground(null) | ArgumentNullException | validation |
 | C21 | background: empty controls | EstimateLocusBackground(empty) | ArgumentException | validation |
+| C22 | KDE: null counts | FromKernelDensity(null, …) / (…, null) | ArgumentNullException | validation |
+| C23 | KDE: invalid params | bandwidth 0 / adjust 0 / maxLength<minLength | ArgumentOutOfRangeException | validation |
+| C24 | KDE: single observed length | one length, count 100 | uniform fall-back (INVAR2 length(counts)>1 guard) | validation |
 
 ---
 
@@ -160,6 +175,7 @@
 - Initial unit: 16 tests for `DetectMRD` / `TrackVariantsOverTime` in `OncologyAnalyzer_DetectMRD_Tests.cs`. ctDNA primitives tested in `OncologyAnalyzer_CtDnaAnalysis_Tests.cs` (ONCO-CTDNA-001), reused for the Poisson model.
 - 2026-06-23 INVAR extension: no prior tests for `EstimateInvarSignal` / `IntegratedMutantAlleleFractionV2` — all new (M9–M16, S5–S6, C7–C13).
 - 2026-06-23 residual closure: no prior tests for `EstimateInvarSignalWithSize` / `SuppressOutlierLoci` / `EstimateLocusBackground` / `PassesBothStrandsFilter` — all new (M17–M25, C14–C21).
+- 2026-06-24 KDE smoothing: no prior tests for `FragmentSizeProfile.FromKernelDensity` — all new (K1–K6, C22–C24).
 
 ### 5.2 Coverage Classification
 
@@ -186,6 +202,8 @@
 | C7–C13 | ❌ Missing | INVAR extension (validation) |
 | M17–M25 | ❌ Missing | residual closure (size / outlier / background / both-strands) |
 | C14–C21 | ❌ Missing | residual closure (validation) |
+| K1–K6 | ❌ Missing | KDE smoothing (FromKernelDensity) |
+| C22–C24 | ❌ Missing | KDE smoothing (validation) |
 
 ### 5.3 Consolidation Plan
 
@@ -196,7 +214,7 @@
 
 | File | Role | Test Count |
 |------|------|------------|
-| `OncologyAnalyzer_DetectMRD_Tests.cs` | canonical | 57 |
+| `OncologyAnalyzer_DetectMRD_Tests.cs` | canonical | 66 |
 
 ### 5.5 Phase 7 Work Queue
 
@@ -252,9 +270,18 @@
 | 48 | C19 | ❌ Missing | implemented | ✅ Done |
 | 49 | C20 | ❌ Missing | implemented | ✅ Done |
 | 50 | C21 | ❌ Missing | implemented | ✅ Done |
+| 51 | K1 | ❌ Missing | implemented (exact Φ-derived bin integral) | ✅ Done |
+| 52 | K2 | ❌ Missing | implemented | ✅ Done |
+| 53 | K3 | ❌ Missing | implemented | ✅ Done |
+| 54 | K4 | ❌ Missing | implemented | ✅ Done |
+| 55 | K5 | ❌ Missing | implemented | ✅ Done |
+| 56 | K6 | ❌ Missing | implemented | ✅ Done |
+| 57 | C22 | ❌ Missing | implemented | ✅ Done |
+| 58 | C23 | ❌ Missing | implemented | ✅ Done |
+| 59 | C24 | ❌ Missing | implemented | ✅ Done |
 
-**Total items:** 50
-**✅ Done:** 50 | **⛔ Blocked:** 0 | **Remaining:** 0
+**Total items:** 59
+**✅ Done:** 59 | **⛔ Blocked:** 0 | **Remaining:** 0
 
 ### 5.6 Post-Implementation Coverage
 
@@ -310,21 +337,31 @@
 | C19 | ✅ Covered | `SuppressOutlierLoci_InvalidAlpha_Throws` |
 | C20 | ✅ Covered | `EstimateLocusBackground_Null_Throws` |
 | C21 | ✅ Covered | `EstimateLocusBackground_Empty_Throws` |
+| K1 | ✅ Covered | `FromKernelDensity_SingleObservationExplicitBandwidth_MatchesAnalyticGaussianIntegral` |
+| K2 | ✅ Covered | `FromKernelDensity_OverSupport_IntegratesToOne` |
+| K3 | ✅ Covered | `FromKernelDensity_SingleMode_IsUnimodalAroundTheMode` |
+| K4 | ✅ Covered | `FromKernelDensity_SparseHistogram_SmoothsMassOntoEmptyBins` |
+| K5 | ✅ Covered | `FromKernelDensity_AutoBandwidth_AdjustControlsSmoothness` |
+| K6 | ✅ Covered | `FromKernelDensity_UsedInWithSizeGlrt_ShortTumourFragmentsRaiseLikelihood` |
+| C22 | ✅ Covered | `FromKernelDensity_NullCounts_Throws` |
+| C23 | ✅ Covered | `FromKernelDensity_InvalidParameters_Throws` |
+| C24 | ✅ Covered | `FromKernelDensity_SinglePoint_FallsBackToUniform` |
 
 ---
 
 ## 6. Assumption Register
 
-**Total assumptions:** 2
+**Total assumptions:** 1 active (1 resolved)
 
 | # | Assumption | Used In |
 |---|-----------|---------|
 | 1 | Per-variant "detected" = alt reads ≥ minSupportingReads (default 1); panel-level ≥2 rule is source-exact. Threshold is a tunable parameter. | DetectMRD per-locus detection |
-| 2 | Fragment-size likelihood uses the discrete empirical proportion `COUNT/TOTAL` per length bin (the un-smoothed estimator); INVAR2's KDE bandwidth smoothing (`adjust = 0.03`) is not reproduced. The with-RL mixture/EM/GLRT equations are exact from INVAR2; affects only the exact weight on sparse length bins. | EstimateInvarSignalWithSize / FragmentSizeProfile |
+| 2 | RESOLVED (2026-06-24): the **default** `FragmentSizeProfile` uses the discrete empirical proportion `COUNT/TOTAL` per length bin (unchanged); the INVAR2 KDE-smoothed estimate is now **opt-in** via `FragmentSizeProfile.FromKernelDensity` — a Gaussian KDE (Silverman 1986 eq. 2.2a) with Silverman's-rule bandwidth (R `bw.nrd0`, `adjust` multiplier) integrated analytically over each integer bin. No correctness-affecting assumption remains: callers select discrete (default) or KDE (opt-in). | FragmentSizeProfile.FromKernelDensity (opt-in) |
 
 ---
 
 ## 7. Open Questions / Decisions
 
 1. INVAR's exact per-locus GLRT/trinucleotide background model is not publicly specified verbatim in the paper; the EXACT formulas are taken from the INVAR2 reference implementation (nrlab-CRUK/INVAR2). `EstimateInvarSignal` implements the no-size GLRT (mixture model, EM `p̂`, `LR`) and IMAFv2 verbatim from that source; the per-variant presence cutoff of the legacy `DetectMRD` remains `minSupportingReads` (default 1). The panel-level ≥2 rule and Poisson/IMAF formulas are unchanged and source-exact.
-2. RESIDUAL CLOSED (2026-06-23): fragment-size weighting (`EstimateInvarSignalWithSize` from `calc_likelihood_ratio_with_RL`), patient-specific outlier suppression (`SuppressOutlierLoci` from `repolish`), locus-noise filtering and control-derived background-error estimation (`EstimateLocusBackground` / `PassesBothStrandsFilter` from `createLociErrorRateTable`) are now implemented, ported verbatim from INVAR2. The only un-reproduced sub-step is the KDE bandwidth smoothing of the size histogram (assumption #2) — the empirical size proportion is used instead.
+2. RESIDUAL CLOSED (2026-06-23): fragment-size weighting (`EstimateInvarSignalWithSize` from `calc_likelihood_ratio_with_RL`), patient-specific outlier suppression (`SuppressOutlierLoci` from `repolish`), locus-noise filtering and control-derived background-error estimation (`EstimateLocusBackground` / `PassesBothStrandsFilter` from `createLociErrorRateTable`) are now implemented, ported verbatim from INVAR2.
+3. KDE SMOOTHING ADDED (2026-06-24): the size-histogram KDE smoothing (formerly assumption #2) is now implemented opt-in as `FragmentSizeProfile.FromKernelDensity` — a Gaussian KDE (Silverman 1986 eq. 2.2a) with Silverman's-rule bandwidth (R `bw.nrd0`, `adjust` multiplier) integrated analytically over each integer bin via `Φ` and renormalised over the support, matching INVAR2's `estimate_real_length_probability` (`density()` + integrate, `adjust = 0.03`). The default discrete `COUNT/TOTAL` profile is unchanged. The remaining honest residual is that the in-pipeline per-locus background re-estimation stays an optional separate step (`EstimateLocusBackground`) rather than being wired into the GLRT automatically — matching INVAR2's own separation of the parse stage from the detection GLRT.
