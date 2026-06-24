@@ -115,6 +115,16 @@ State (end of session): ✅ CLEAN (fully functional) · 🔧 LIMITED (see report
 | 85 | EPIGEN-CPG-001 | Epigenetics | ✅ | ✅ | ✅ CLEAN | reports/EPIGEN-CPG-001.md |
 | 86 | ONCO-IMMUNE-001 | Oncology | 🟡 | ✅ | ✅ CLEAN | reports/ONCO-IMMUNE-001.md |
 
+## New units (created during the limitations-elimination campaign)
+
+First-time validation of the 3 units added while eliminating LIMITATIONS.md items. Same protocol.
+
+| Unit ID | Area | Stage A | Stage B | State | Report |
+|---------|------|:---:|:---:|:---:|--------|
+| ONCO-ASCAT-001 | Oncology | ✅ | ✅ | ✅ CLEAN | reports/ONCO-ASCAT-001.md |
+| RNA-PKPREDICT-001 | RnaStructure | ✅ | ✅ | ✅ CLEAN | covered in reports/RNA-STRUCT-001.md (H-type csr-PK predictor) |
+| RNA-PKRECURSIVE-001 | RnaStructure | ✅ | ✅ | ✅ CLEAN | covered in reports/RNA-STRUCT-001.md (recursive pknotsRG grammar) |
+
 ---
 
 # Validation Ledger — Phase 2 (Phase-2 Registry units)
