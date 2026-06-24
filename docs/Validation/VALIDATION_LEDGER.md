@@ -1,13 +1,15 @@
 # Validation Ledger — Phase 1 (Implemented Algorithms)
 
-> ⚠️ **FULL RE-VALIDATION RESET — 2026-06-24.** Every unit below is reset to **⬜ pending** for a fresh end-to-end re-verification (extensive code changes during the limitations-elimination campaign). Prior Stage/State results are **SUPERSEDED**, retained only as historical evidence; the per-unit reports are kept. Registry expanded to **237** (added ONCO-ASCAT-001, RNA-PKPREDICT-001, RNA-PKRECURSIVE-001 — pending first validation).
+> ⚠️ **FULL RE-VALIDATION RESET — 2026-06-24.** Every unit below was reset to **⬜ pending** for a fresh end-to-end re-verification (extensive code changes during the limitations-elimination campaign). Prior Stage/State results are **SUPERSEDED**, retained only as historical evidence; the per-unit reports are kept. Registry expanded to **237** (added ONCO-ASCAT-001, RNA-PKPREDICT-001, RNA-PKRECURSIVE-001 — pending first validation).
+>
+> ✅ **PHASE 1 RE-VALIDATION COMPLETE — 2026-06-24.** All **86 / 86** units independently re-validated, one fresh-context session per unit (Stage A description → Stage B implementation, authoritative external sources, hand/reference cross-checks). **Result: 86 / 86 ✅ CLEAN.** Stage-A: 57 PASS / 29 PASS-WITH-NOTES / 0 FAIL. Stage-B: 78 PASS / 8 PASS-WITH-NOTES / 0 FAIL. One real implementation defect found & fully fixed in-session (PARSE-GENBANK-001 multi-line qualifier reconstruction → spurious-space corruption of wrapped `/translation`); minor test/spec corrections elsewhere (SEQ-COMPLEX-001, TRANS-PROT-001 +3 lock tests, PROTMOTIF-FIND/DOMAIN spec fixes). Full unfiltered suite green at the end (18213 passed / 0 failed). The PASS-WITH-NOTES are documented by-design scope boundaries (declared heuristics, single-codon-AA CAI inclusion, stale-spec wording), not defects. RNA-STRUCT-001's non-csr-PK / tertiary-stabilised-knot residual and ONCO-MHC-001's trained-model gap remain the only LIMITATIONS.md entries (by-design, validated).
 
 Independent re-validation of the 86 implemented (☑) test units, one fresh session per unit.
 Protocol: [VALIDATION_PROTOCOL.md](VALIDATION_PROTOCOL.md).
 Per-stage: ✅ PASS · 🟡 PASS-WITH-NOTES · ❌ FAIL · ⬜ pending.
 State (end of session): ✅ CLEAN (fully functional) · 🔧 LIMITED (see report) · ⬜ pending.
 
-**Progress:** 0 / 86 — RESET 2026-06-24, all units ⬜ pending re-validation.
+**Progress:** 86 / 86 ✅ CLEAN — Phase 1 re-validation COMPLETE 2026-06-24 (0 FAIL, 0 LIMITED; 1 defect found & fixed: PARSE-GENBANK-001).
 
 > The 86 per-unit validation reports were committed once for provenance and then
 > consolidated into this ledger + [FINDINGS_REGISTER.md](FINDINGS_REGISTER.md).
@@ -26,92 +28,92 @@ State (end of session): ✅ CLEAN (fully functional) · 🔧 LIMITED (see report
 
 | # | Unit ID | Area | Stage A | Stage B | State | Report |
 |---|---------|------|:---:|:---:|:---:|--------|
-| 1 | SEQ-GC-001 | Composition | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 2 | SEQ-COMP-001 | Composition | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 3 | SEQ-REVCOMP-001 | Composition | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 4 | SEQ-VALID-001 | Composition | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 5 | SEQ-COMPLEX-001 | Composition | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 6 | SEQ-ENTROPY-001 | Composition | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 7 | SEQ-GCSKEW-001 | Composition | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 8 | PAT-EXACT-001 | Matching | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 9 | PAT-APPROX-001 | Matching | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 10 | PAT-APPROX-002 | Matching | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 11 | PAT-IUPAC-001 | Matching | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 12 | PAT-PWM-001 | Matching | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 13 | REP-STR-001 | Repeats | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 14 | REP-TANDEM-001 | Repeats | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 15 | REP-INV-001 | Repeats | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 16 | REP-DIRECT-001 | Repeats | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 17 | REP-PALIN-001 | Repeats | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 18 | CRISPR-PAM-001 | MolTools | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 19 | CRISPR-GUIDE-001 | MolTools | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 20 | CRISPR-OFF-001 | MolTools | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 21 | PRIMER-TM-001 | MolTools | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 22 | PRIMER-DESIGN-001 | MolTools | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 23 | PRIMER-STRUCT-001 | MolTools | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 24 | PROBE-DESIGN-001 | MolTools | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 25 | PROBE-VALID-001 | MolTools | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 26 | RESTR-FIND-001 | MolTools | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 27 | RESTR-DIGEST-001 | MolTools | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 28 | ANNOT-ORF-001 | Annotation | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 29 | ANNOT-GENE-001 | Annotation | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 30 | ANNOT-PROM-001 | Annotation | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 31 | ANNOT-GFF-001 | Annotation | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 32 | KMER-COUNT-001 | K-mer | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 33 | KMER-FREQ-001 | K-mer | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 34 | KMER-FIND-001 | K-mer | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 35 | ALIGN-GLOBAL-001 | Alignment | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 36 | ALIGN-LOCAL-001 | Alignment | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 37 | ALIGN-SEMI-001 | Alignment | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 38 | ALIGN-MULTI-001 | Alignment | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 39 | PHYLO-DIST-001 | Phylogenetic | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 40 | PHYLO-TREE-001 | Phylogenetic | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 41 | PHYLO-NEWICK-001 | Phylogenetic | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 42 | PHYLO-COMP-001 | Phylogenetic | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 43 | POP-FREQ-001 | PopGen | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 44 | POP-DIV-001 | PopGen | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 45 | POP-HW-001 | PopGen | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 46 | POP-FST-001 | PopGen | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 47 | POP-LD-001 | PopGen | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 48 | CHROM-TELO-001 | Chromosome | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 49 | CHROM-CENT-001 | Chromosome | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 50 | CHROM-KARYO-001 | Chromosome | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 51 | CHROM-ANEU-001 | Chromosome | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 52 | CHROM-SYNT-001 | Chromosome | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 53 | META-CLASS-001 | Metagenomics | ⬜ | ⬜ | ⬜ pending | C1 (Kraken tree+LCA+RTL) |
-| 54 | META-PROF-001 | Metagenomics | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 55 | META-ALPHA-001 | Metagenomics | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 56 | META-BETA-001 | Metagenomics | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 57 | META-BIN-001 | Metagenomics | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 58 | CODON-OPT-001 | Codon | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 59 | CODON-CAI-001 | Codon | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 60 | CODON-RARE-001 | Codon | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 61 | CODON-USAGE-001 | Codon | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 62 | TRANS-CODON-001 | Translation | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 63 | TRANS-PROT-001 | Translation | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 64 | PARSE-FASTA-001 | FileIO | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 65 | PARSE-FASTQ-001 | FileIO | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 66 | PARSE-BED-001 | FileIO | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 67 | PARSE-VCF-001 | FileIO | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 68 | PARSE-GFF-001 | FileIO | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 69 | PARSE-GENBANK-001 | FileIO | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 70 | PARSE-EMBL-001 | FileIO | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 71 | RNA-STRUCT-001 | RnaStructure | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 72 | RNA-STEMLOOP-001 | RnaStructure | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 73 | RNA-ENERGY-001 | RnaStructure | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 74 | MIRNA-SEED-001 | MiRNA | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 75 | MIRNA-TARGET-001 | MiRNA | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 76 | MIRNA-PRECURSOR-001 | MiRNA | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 77 | SPLICE-DONOR-001 | Splicing | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 78 | SPLICE-ACCEPTOR-001 | Splicing | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 79 | SPLICE-PREDICT-001 | Splicing | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 80 | DISORDER-PRED-001 | ProteinPred | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 81 | DISORDER-REGION-001 | ProteinPred | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 82 | PROTMOTIF-FIND-001 | ProteinMotif | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 83 | PROTMOTIF-PROSITE-001 | ProteinMotif | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 84 | PROTMOTIF-DOMAIN-001 | ProteinMotif | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 85 | EPIGEN-CPG-001 | Epigenetics | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
-| 86 | ONCO-IMMUNE-001 | Oncology | ⬜ | ⬜ | ⬜ pending | archived @cb113ce |
+| 1 | SEQ-GC-001 | Composition | 🟡 | ✅ | ✅ CLEAN | reports/SEQ-GC-001.md |
+| 2 | SEQ-COMP-001 | Composition | ✅ | ✅ | ✅ CLEAN | reports/SEQ-COMP-001.md |
+| 3 | SEQ-REVCOMP-001 | Composition | ✅ | ✅ | ✅ CLEAN | reports/SEQ-REVCOMP-001.md |
+| 4 | SEQ-VALID-001 | Composition | ✅ | ✅ | ✅ CLEAN | reports/SEQ-VALID-001.md |
+| 5 | SEQ-COMPLEX-001 | Composition | 🟡 | ✅ | ✅ CLEAN | reports/SEQ-COMPLEX-001.md |
+| 6 | SEQ-ENTROPY-001 | Composition | ✅ | ✅ | ✅ CLEAN | reports/SEQ-ENTROPY-001.md |
+| 7 | SEQ-GCSKEW-001 | Composition | 🟡 | ✅ | ✅ CLEAN | reports/SEQ-GCSKEW-001.md |
+| 8 | PAT-EXACT-001 | Matching | ✅ | ✅ | ✅ CLEAN | reports/PAT-EXACT-001.md |
+| 9 | PAT-APPROX-001 | Matching | ✅ | ✅ | ✅ CLEAN | reports/PAT-APPROX-001.md |
+| 10 | PAT-APPROX-002 | Matching | ✅ | ✅ | ✅ CLEAN | reports/PAT-APPROX-002.md |
+| 11 | PAT-IUPAC-001 | Matching | ✅ | ✅ | ✅ CLEAN | reports/PAT-IUPAC-001.md |
+| 12 | PAT-PWM-001 | Matching | ✅ | ✅ | ✅ CLEAN | reports/PAT-PWM-001.md |
+| 13 | REP-STR-001 | Repeats | ✅ | 🟡 | ✅ CLEAN | reports/REP-STR-001.md |
+| 14 | REP-TANDEM-001 | Repeats | ✅ | ✅ | ✅ CLEAN | reports/REP-TANDEM-001.md |
+| 15 | REP-INV-001 | Repeats | ✅ | ✅ | ✅ CLEAN | reports/REP-INV-001.md |
+| 16 | REP-DIRECT-001 | Repeats | ✅ | ✅ | ✅ CLEAN | reports/REP-DIRECT-001.md |
+| 17 | REP-PALIN-001 | Repeats | 🟡 | ✅ | ✅ CLEAN | reports/REP-PALIN-001.md |
+| 18 | CRISPR-PAM-001 | MolTools | ✅ | 🟡 | ✅ CLEAN | reports/CRISPR-PAM-001.md |
+| 19 | CRISPR-GUIDE-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/CRISPR-GUIDE-001.md |
+| 20 | CRISPR-OFF-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/CRISPR-OFF-001.md |
+| 21 | PRIMER-TM-001 | MolTools | 🟡 | ✅ | ✅ CLEAN | reports/PRIMER-TM-001.md |
+| 22 | PRIMER-DESIGN-001 | MolTools | 🟡 | ✅ | ✅ CLEAN | reports/PRIMER-DESIGN-001.md |
+| 23 | PRIMER-STRUCT-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/PRIMER-STRUCT-001.md |
+| 24 | PROBE-DESIGN-001 | MolTools | 🟡 | ✅ | ✅ CLEAN | reports/PROBE-DESIGN-001.md |
+| 25 | PROBE-VALID-001 | MolTools | 🟡 | ✅ | ✅ CLEAN | reports/PROBE-VALID-001.md |
+| 26 | RESTR-FIND-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/RESTR-FIND-001.md |
+| 27 | RESTR-DIGEST-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/RESTR-DIGEST-001.md |
+| 28 | ANNOT-ORF-001 | Annotation | ✅ | 🟡 | ✅ CLEAN | reports/ANNOT-ORF-001.md |
+| 29 | ANNOT-GENE-001 | Annotation | ✅ | ✅ | ✅ CLEAN | reports/ANNOT-GENE-001.md |
+| 30 | ANNOT-PROM-001 | Annotation | ✅ | ✅ | ✅ CLEAN | reports/ANNOT-PROM-001.md |
+| 31 | ANNOT-GFF-001 | Annotation | 🟡 | ✅ | ✅ CLEAN | reports/ANNOT-GFF-001.md |
+| 32 | KMER-COUNT-001 | K-mer | ✅ | ✅ | ✅ CLEAN | reports/KMER-COUNT-001.md |
+| 33 | KMER-FREQ-001 | K-mer | ✅ | ✅ | ✅ CLEAN | reports/KMER-FREQ-001.md |
+| 34 | KMER-FIND-001 | K-mer | ✅ | ✅ | ✅ CLEAN | reports/KMER-FIND-001.md |
+| 35 | ALIGN-GLOBAL-001 | Alignment | ✅ | ✅ | ✅ CLEAN | reports/ALIGN-GLOBAL-001.md |
+| 36 | ALIGN-LOCAL-001 | Alignment | ✅ | ✅ | ✅ CLEAN | reports/ALIGN-LOCAL-001.md |
+| 37 | ALIGN-SEMI-001 | Alignment | ✅ | ✅ | ✅ CLEAN | reports/ALIGN-SEMI-001.md |
+| 38 | ALIGN-MULTI-001 | Alignment | ✅ | ✅ | ✅ CLEAN | reports/ALIGN-MULTI-001.md |
+| 39 | PHYLO-DIST-001 | Phylogenetic | ✅ | ✅ | ✅ CLEAN | reports/PHYLO-DIST-001.md |
+| 40 | PHYLO-TREE-001 | Phylogenetic | ✅ | ✅ | ✅ CLEAN | reports/PHYLO-TREE-001.md |
+| 41 | PHYLO-NEWICK-001 | Phylogenetic | ✅ | ✅ | ✅ CLEAN | reports/PHYLO-NEWICK-001.md |
+| 42 | PHYLO-COMP-001 | Phylogenetic | ✅ | ✅ | ✅ CLEAN | reports/PHYLO-COMP-001.md |
+| 43 | POP-FREQ-001 | PopGen | ✅ | ✅ | ✅ CLEAN | reports/POP-FREQ-001.md |
+| 44 | POP-DIV-001 | PopGen | ✅ | ✅ | ✅ CLEAN | reports/POP-DIV-001.md |
+| 45 | POP-HW-001 | PopGen | ✅ | ✅ | ✅ CLEAN | reports/POP-HW-001.md |
+| 46 | POP-FST-001 | PopGen | ✅ | ✅ | ✅ CLEAN | reports/POP-FST-001.md |
+| 47 | POP-LD-001 | PopGen | ✅ | ✅ | ✅ CLEAN | reports/POP-LD-001.md |
+| 48 | CHROM-TELO-001 | Chromosome | ✅ | ✅ | ✅ CLEAN | reports/CHROM-TELO-001.md |
+| 49 | CHROM-CENT-001 | Chromosome | 🟡 | 🟡 | ✅ CLEAN | reports/CHROM-CENT-001.md |
+| 50 | CHROM-KARYO-001 | Chromosome | ✅ | ✅ | ✅ CLEAN | reports/CHROM-KARYO-001.md |
+| 51 | CHROM-ANEU-001 | Chromosome | ✅ | ✅ | ✅ CLEAN | reports/CHROM-ANEU-001.md |
+| 52 | CHROM-SYNT-001 | Chromosome | 🟡 | ✅ | ✅ CLEAN | reports/CHROM-SYNT-001.md |
+| 53 | META-CLASS-001 | Metagenomics | ✅ | ✅ | ✅ CLEAN | reports/META-CLASS-001.md |
+| 54 | META-PROF-001 | Metagenomics | ✅ | ✅ | ✅ CLEAN | reports/META-PROF-001.md |
+| 55 | META-ALPHA-001 | Metagenomics | ✅ | ✅ | ✅ CLEAN | reports/META-ALPHA-001.md |
+| 56 | META-BETA-001 | Metagenomics | ✅ | ✅ | ✅ CLEAN | reports/META-BETA-001.md |
+| 57 | META-BIN-001 | Metagenomics | 🟡 | 🟡 | ✅ CLEAN | reports/META-BIN-001.md |
+| 58 | CODON-OPT-001 | Codon | ✅ | ✅ | ✅ CLEAN | reports/CODON-OPT-001.md |
+| 59 | CODON-CAI-001 | Codon | 🟡 | ✅ | ✅ CLEAN | reports/CODON-CAI-001.md |
+| 60 | CODON-RARE-001 | Codon | 🟡 | ✅ | ✅ CLEAN | reports/CODON-RARE-001.md |
+| 61 | CODON-USAGE-001 | Codon | 🟡 | ✅ | ✅ CLEAN | reports/CODON-USAGE-001.md |
+| 62 | TRANS-CODON-001 | Translation | ✅ | ✅ | ✅ CLEAN | reports/TRANS-CODON-001.md |
+| 63 | TRANS-PROT-001 | Translation | ✅ | 🟡 | ✅ CLEAN | reports/TRANS-PROT-001.md |
+| 64 | PARSE-FASTA-001 | FileIO | ✅ | 🟡 | ✅ CLEAN | reports/PARSE-FASTA-001.md |
+| 65 | PARSE-FASTQ-001 | FileIO | ✅ | 🟡 | ✅ CLEAN | reports/PARSE-FASTQ-001.md |
+| 66 | PARSE-BED-001 | FileIO | ✅ | ✅ | ✅ CLEAN | reports/PARSE-BED-001.md |
+| 67 | PARSE-VCF-001 | FileIO | 🟡 | ✅ | ✅ CLEAN | reports/PARSE-VCF-001.md |
+| 68 | PARSE-GFF-001 | FileIO | ✅ | ✅ | ✅ CLEAN | reports/PARSE-GFF-001.md |
+| 69 | PARSE-GENBANK-001 | FileIO | ✅ | 🟡 | ✅ CLEAN (fixed multi-line qualifier wrap) | reports/PARSE-GENBANK-001.md |
+| 70 | PARSE-EMBL-001 | FileIO | ✅ | 🟡 | ✅ CLEAN | reports/PARSE-EMBL-001.md |
+| 71 | RNA-STRUCT-001 | RnaStructure | ✅ | ✅ | ✅ CLEAN | reports/RNA-STRUCT-001.md |
+| 72 | RNA-STEMLOOP-001 | RnaStructure | ✅ | ✅ | ✅ CLEAN | reports/RNA-STEMLOOP-001.md |
+| 73 | RNA-ENERGY-001 | RnaStructure | ✅ | ✅ | ✅ CLEAN | reports/RNA-ENERGY-001.md |
+| 74 | MIRNA-SEED-001 | MiRNA | 🟡 | 🟡 | ✅ CLEAN | reports/MIRNA-SEED-001.md |
+| 75 | MIRNA-TARGET-001 | MiRNA | ✅ | 🟡 | ✅ CLEAN | reports/MIRNA-TARGET-001.md |
+| 76 | MIRNA-PRECURSOR-001 | MiRNA | 🟡 | 🟡 | ✅ CLEAN | reports/MIRNA-PRECURSOR-001.md |
+| 77 | SPLICE-DONOR-001 | Splicing | ✅ | ✅ | ✅ CLEAN | reports/SPLICE-DONOR-001.md |
+| 78 | SPLICE-ACCEPTOR-001 | Splicing | 🟡 | ✅ | ✅ CLEAN | reports/SPLICE-ACCEPTOR-001.md |
+| 79 | SPLICE-PREDICT-001 | Splicing | ✅ | ✅ | ✅ CLEAN | reports/SPLICE-PREDICT-001.md |
+| 80 | DISORDER-PRED-001 | ProteinPred | ✅ | ✅ | ✅ CLEAN | reports/DISORDER-PRED-001.md |
+| 81 | DISORDER-REGION-001 | ProteinPred | 🟡 | ✅ | ✅ CLEAN | reports/DISORDER-REGION-001.md |
+| 82 | PROTMOTIF-FIND-001 | ProteinMotif | 🟡 | ✅ | ✅ CLEAN | reports/PROTMOTIF-FIND-001.md |
+| 83 | PROTMOTIF-PROSITE-001 | ProteinMotif | ✅ | ✅ | ✅ CLEAN | reports/PROTMOTIF-PROSITE-001.md |
+| 84 | PROTMOTIF-DOMAIN-001 | ProteinMotif | 🟡 | ✅ | ✅ CLEAN | reports/PROTMOTIF-DOMAIN-001.md |
+| 85 | EPIGEN-CPG-001 | Epigenetics | ✅ | ✅ | ✅ CLEAN | reports/EPIGEN-CPG-001.md |
+| 86 | ONCO-IMMUNE-001 | Oncology | 🟡 | ✅ | ✅ CLEAN | reports/ONCO-IMMUNE-001.md |
 
 ---
 

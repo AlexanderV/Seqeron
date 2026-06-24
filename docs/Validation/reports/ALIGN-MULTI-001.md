@@ -1,16 +1,21 @@
-# Validation Report: ALIGN-MULTI-001 — Multiple Sequence Alignment (Progressive guide-tree, re-validation)
+# Validation Report: ALIGN-MULTI-001 — Multiple Sequence Alignment (star + progressive + consistency, full re-validation)
 
-- **Validated:** 2026-06-17   **Area:** Alignment
-- **Canonical method(s):** `SequenceAligner.MultipleAlignProgressive(IEnumerable<DnaSequence>, ScoringMatrix?)` (NEW, this re-validation); `SequenceAligner.MultipleAlign(...)` (star, unchanged)
+- **Validated:** 2026-06-24   **Area:** Alignment
+- **Canonical method(s):**
+  - `SequenceAligner.MultipleAlign(IEnumerable<DnaSequence>, ScoringMatrix?)` — star / center-star, SP score
+  - `SequenceAligner.MultipleAlignProgressive(IEnumerable<DnaSequence>, ScoringMatrix?)` — UPGMA guide-tree progressive (Feng-Doolittle / Clustal-style)
+  - `SequenceAligner.MultipleAlignConsistency(IEnumerable<DnaSequence>, ScoringMatrix?)` — T-Coffee primary library + triplet extension + library-scored progressive DP
+  - (sibling `MultipleAlignIterative` also exercised for additivity; covered by its own addendum)
 - **Stage A verdict:** PASS
 - **Stage B verdict:** PASS
 - **End-state:** ✅ CLEAN
 
-This is a **Phase-3 independent re-validation** of the enhancement in commit `7d0b2cb`, which added a
-guide-tree progressive (Feng-Doolittle / Clustal-style) aligner beside the existing star MSA. The
-validator session is independent of the implementer session; the implementer's code AND tests were
-treated as untrusted and verified against externally-sourced theory and against hand derivations,
-**not** against the repo's existing assertions.
+This re-validation independently re-confirms **all three** MSA variants named in the unit (star,
+progressive, consistency), with emphasis on the newest variant `MultipleAlignConsistency`
+(commit `5b7a9f37`) not covered by the prior 2026-06-17 report. The implementer's code and tests were
+treated as untrusted: theory was checked against the actual papers (the T-Coffee PDF was opened and
+read page-by-page), and all cross-check numbers were recomputed against the live code via a temporary
+probe (since removed), not read out of the repo's own assertions.
 
 ---
 
@@ -20,115 +25,132 @@ treated as untrusted and verified against externally-sourced theory and against 
 
 | Source | URL | What it confirms |
 |--------|-----|------------------|
-| Wikipedia "Multiple sequence alignment" §Progressive alignment | https://en.wikipedia.org/wiki/Multiple_sequence_alignment | Guide tree built by "an efficient clustering method such as neighbor-joining or UPGMA"; "combining pairwise alignments beginning with the most similar pair and progressing to the most distantly related"; once-a-gap: "once a sequence has been aligned into the MSA, its alignment is not considered further" → early errors "propagated through to the final result". |
-| Wikipedia "UPGMA" | https://en.wikipedia.org/wiki/UPGMA | Smallest-distance merge; proportional size-weighted update `d((A∪B),X) = (|A|·d(A,X) + |B|·d(B,X)) / (|A|+|B|)`; "unweighted" = equal weight to original distances. |
-| Feng & Doolittle (1987), J Mol Evol 25:351-360, PubMed 3118049 | (citation; method) | Progressive alignment along a guide tree; the "once a gap, always a gap" preservation rule across subsequent fusions. |
+| Wikipedia "UPGMA" | https://en.wikipedia.org/wiki/UPGMA | Proportional size-weighted update **d((A∪B),X) = (|A|·d(A,X) + |B|·d(B,X)) / (|A|+|B|)**; "unweighted" = equal weight to the original distances. Matches the code's averaging verbatim. |
+| Notredame, Higgins & Heringa (2000) T-Coffee, J Mol Biol 302:205-217 (full PDF, pp.208-210 read) | https://web.stanford.edu/class/gene211/pdfs/Notredame-Tcoffee.pdf | GARFIELD worked example (Fig 2 + p.209 text): direct A(G)/B(G) primary weight **88** = percent identity of the A–B pair; through C, W1=W(A(G),C(G))=**77**, W2=W(C(G),B(G))=**100**, triplet = min(77,100)=**77**; "added to the previous one to give a total weight of **165** (i.e. 77+88)"; through D = 0 (uninformative); "the weight … will be the **sum of all the weights** gathered through … all the triplets." p.210: progressive DP is Gotoh (1982) with "gap-opening penalties and gap-extension penalties set to zero"; group-vs-group: "the **average** library scores in each column of existing alignment are taken." |
+| Wikipedia "Multiple sequence alignment" / "Clustal" (prior session, re-checked) | https://en.wikipedia.org/wiki/Multiple_sequence_alignment | MSA definition (length L ≥ max nᵢ, no all-gap column, reversibility); SP = "sum of all the pairs of characters at each position"; progressive = guide tree (NJ/UPGMA) + most-similar-first + once-a-gap. |
+| Feng & Doolittle (1987), J Mol Evol 25:351-360 (citation; method) | PubMed 3118049 | Progressive alignment along a guide tree; "once a gap, always a gap" preservation across fusions. |
 
 ### Formula / convention check
 
-- **Distance:** d = 1 − fractional identity, identity = identical (non-gap, equal) columns / pairwise-NW
-  alignment length. Standard Clustal-style identity-to-distance conversion. ✔
-- **Guide tree:** UPGMA, smallest distance merged first, proportional cluster averaging — matches the
-  Wikipedia UPGMA formula verbatim (size-weighted). ✔
-- **Sequence order:** most-similar-first via post-order traversal of the UPGMA tree. ✔
-- **Once a gap, always a gap:** existing columns copied verbatim; merges only insert whole new all-gap
-  columns; an inserted gap is never later filled with a residue. Matches Feng-Doolittle. ✔
-- **Profile-profile score:** sum-of-pairs over all cross-profile residue pairs (average); gap-gap
-  neutral, residue-gap = GapExtend. Standard SP profile scoring. ✔
-- **SimpleDna scoring:** Match +1, Mismatch −1, GapExtend −1 (confirmed at source lines 22-26). ✔
+- **Star:** center selection (max total similarity to others) → pairwise NW to center → gap reconciliation
+  into one MSA coordinate space → majority consensus → SP score. SP convention: match/mismatch from
+  matrix, residue-gap = GapExtend, **gap-gap = 0** (standard, documented). ✔
+- **Progressive distance:** d = 1 − fractional identity (identical non-gap columns / pairwise-NW length).
+  Standard Clustal-style conversion. ✔
+- **UPGMA:** smallest distance merged first, lowest-index tie-break, **proportional size-weighted**
+  averaging — matches the Wikipedia formula symbol-for-symbol. ✔
+- **Once a gap, always a gap:** existing columns copied verbatim; merges insert only whole all-gap
+  columns; inserted gaps never residue-filled (leaf and profile level). Matches Feng-Doolittle. ✔
+- **Consistency primary library:** each aligned residue pair weighted by pairwise **percent identity**
+  (integer, ×100), global (NW) + local (SW) combined by **signal addition** (sum of weights for
+  duplicate pairs). Matches T-Coffee p.207. ✔
+- **Consistency extension:** extended = direct primary + Σ over intermediates Sₖ of **min(W1,W2)**;
+  uninformative triplets contribute 0 ⇒ extension never lowers a weight. Matches T-Coffee p.209
+  (GARFIELD 88 → 165). ✔
+- **Consistency progressive DP:** column score = library weight of cross-profile residue pairs,
+  **zero gap penalty**; once-a-gap enforced. Matches T-Coffee p.210. ✔
 
 ### Edge-case semantics
 
-Empty → `Empty`; single → verbatim, SP 0; null → `ArgumentNullException`; two empty seqs → distance 0;
-one empty vs non-empty → distance 1. All defined and sourced/standard. ✔
+Empty → `Empty`; single → verbatim, SP 0; null → `ArgumentNullException`; two empty → distance 0;
+empty vs non-empty → distance 1; k=2 consistency → extended = primary (no triplets) = pairwise global;
+identical inputs → gap-free exact MSA. All defined and sourced/standard, consistent across all variants. ✔
 
-**Stage A verdict: PASS.** The abstract method (distance → UPGMA → progressive profile NW with
-once-a-gap) is biologically and mathematically correct and matches the sources opened this session.
+### Documented minor divergence (carried, not a defect)
+
+The T-Coffee paper says group-vs-group columns use the **average** library score; the code **sums** the
+cross-profile pair weights (`ColumnLibraryScore`). The evidence doc records this as an assumption: the
+sum is the same objective up to a per-merge constant scaling, so the DP's argmax (the chosen alignment)
+is unaffected for fixed group sizes within a single merge. The reported `TotalScore` is deliberately the
+SP score (for cross-aligner comparability), not the consistency objective — also documented. Sound; PASS.
+
+**Stage A verdict: PASS.** All three abstract methods (center-star SP; distance→UPGMA→profile NW with
+once-a-gap; T-Coffee primary-library + min-triplet extension + library-scored zero-gap progressive DP)
+match the sources opened this session.
 
 ---
 
 ## Stage B — Implementation
 
-### Code path reviewed
+### Code path reviewed (`src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs`)
 
-`src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs`:
-- `MultipleAlignProgressive` L1143-1197 — pipeline + reprojection to input order.
-- `PairwiseIdentityDistance` L1205-1227 — d = 1 − identical/length.
-- `BuildProgressiveGuideTree` L1248-1318 — UPGMA, lowest-index tie-break, proportional averaging.
-- `AlignProfileSubtree` L1335-1349 — post-order recursion.
-- `AlignProfiles` L1358-1425 — column-wise NW + traceback; gaps inserted as new columns only.
-- `AppendReprojectedRows` L1432-1441 — existing columns copied verbatim, −1 → fresh '-'.
-- `ProfileColumnScore` / `ProfileColumnVsGap` L1444-1483 — SP profile scoring.
-- Shared `GlobalAlignCore` L220, `BuildConsensus` L1019, `ComputeSumOfPairsScore` L1051.
+- **Star:** `MultipleAlign` L702; `SelectCenterSequence` L791; gap reconciliation L902-1044;
+  `BuildConsensus` L1046 (majority, gap participates, nucleotide-over-gap tie); `ComputeSumOfPairsScore`
+  L1078 (gap-gap=0, residue-gap=GapExtend). ✔
+- **Progressive:** `MultipleAlignProgressive` L1170; `PairwiseIdentityDistance` L1232 (1−id);
+  `BuildProgressiveGuideTree` L1275 (UPGMA, proportional averaging L1331 = `(dIK·sizes[i]+dJK·sizes[j])/newSize`,
+  lowest-index tie-break); `AlignProfileSubtree`/`AlignProfiles` L1362/1385 (column NW; gaps as new
+  columns only). ✔
+- **Consistency:** `MultipleAlignConsistency` L1918; `BuildExtendedLibrary` L1990 (primary global+local
+  signal-add L2004-2010; triplet extension `extended[key] += min(w1,w2)` over intersected neighbours
+  L2036-2046); `PercentIdentity` L2116 (`round(100·identical/len)`); `ColumnLibraryScore` L2299 (sum of
+  cross-profile extended weights, gap=0); `AlignConsistencyProfiles` L2203 (zero-gap NW over columns,
+  once-a-gap via column-map append). ✔
 
-### Independent hand-derivations (verified against the CODE, not the repo's tests)
+### Independent hand/probe derivations (verified against the CODE, then probe removed)
 
-**Case 1 — M07 `["ACGT","ACGT","AGT"]` (distances → merge order → exact columns):**
-- Pairwise NW: d(0,1)=0 (identical); NW("ACGT","AGT") = "ACGT"/"A-GT", 3 identical of 4 → d=0.25.
-- UPGMA: smallest distance 0 ⇒ merge (0,1) → profile [ACGT/ACGT]; then add leaf "AGT".
-- Profile-profile NW places the single gap opposite the 'C' column ⇒ third row "A-GT".
-- **Exact rows:** `ACGT / ACGT / A-GT`. SP = col0 AAA(+3) + col1 {C,C,−}(+1−1−1=−1) + col2 GGG(+3) +
-  col3 TTT(+3) = **8**. Independent probe output: rows `ACGT/ACGT/A-GT`, SP 8. ✔
+**Star vs progressive discriminator `["AAGAA","AACAA","GGTGG","GGTGG"]`** — probe output:
+- STAR: `AAG-AA / -AACAA / -GGTGG / -GGTGG`, len 6, SP **−13**.
+- PROG: `AAGAA / AACAA / GGTGG / GGTGG`, len 5, gap-free, SP **−12**.
+- Methods genuinely differ; progressive is the better (a gap can only cost here). ✔
 
-**Case 2 — discriminating progressive ≠ star `["AAGAA","AACAA","GGTGG","GGTGG"]`:**
-- Distances: d(2,3)=0, d(0,1)=0.2, all cross-cluster ≥0.8. UPGMA merges (0,1) then (2,3) then the two
-  clusters; each cluster is internally gap-free (equal length, no indel improves the diagonal), and the
-  profile-profile step keeps the ungapped diagonal optimal.
-- **Progressive (probe):** `AAGAA / AACAA / GGTGG / GGTGG`, length 5, gap-free, SP **−12**.
-- **Star (probe):** `AAG-AA / -AACAA / -GGTGG / -GGTGG`, length 6, SP **−13**.
-- The two methods genuinely differ, and the progressive answer is the better (a gap can only cost here),
-  so it is the correct/optimal alignment. The discriminating test's exact-row assertion **fails if run
-  against the star aligner** (proven by S01 which locks the star's length-6 gapped rows). ✔
+**Progressive `["ACGT","ACGT","AGT"]`** — probe: rows `ACGT / ACGT / A-GT`, SP **8**
+(col0 AAA +3, col1 {C,C,−} −1, col2 GGG +3, col3 TTT +3 = 8). Hand-derivation matches code. ✔
 
-**Case 3 — profile-level once-a-gap `["ACGT","ACGT","AGT","AGT"]` (validator-added M12):**
-- UPGMA: d(0,1)=0 and d(2,3)=0 minimal; lowest-index tie-break merges (0,1) first, then (2,3), then the
-  two profiles. P1=[ACGT/ACGT] vs P2=[AGT/AGT] inserts one new all-gap column in P2 opposite 'C'.
-- **Exact rows:** `ACGT / ACGT / A-GT / A-GT`, SP = col0 AAAA(+6) + col1 {C,C,−,−}(−3) + col2 GGGG(+6) +
-  col3 TTTT(+6) = **15**. Probe confirmed rows + SP 15. Gap-removal recovers all four inputs ⇒ no
-  inserted gap was ever residue-filled, at the profile level too. ✔
+**Consistency `["ACGT","ACGT","AGT"]`** — probe: degaps to inputs, rows `ACGT / ACGT / A-GT`, SP **8**;
+consistency reaches the same MSA as progressive on this easy case. ✔
 
-### MSA correctness traps checked (independent probes)
+**Consistency library, distinct sequences `["ACGT","ACGT","ACGA"]`** (probe via internal `GetLibraryWeights`):
+- Pair (S0.0='A', S1.0='A'): primary = **200** (global gapless 100%id=100 + local SW whole-seq 100%id=100,
+  signal-added), extended = **375** = 200 + min-triplet 175 through S2.0 (where S2's global pos0 'A' weight 75
+  + local "ACG" 100 = 175). Independently reproduces the GARFIELD relation `extended = primary + Σ min(W1,W2)`
+  and `extended > primary` for a consistency-supported pair. ✔
+- Pair (S0.3='T', S1.3='T') primary 200, extended 275 — strictly less third-party support (S2.3='A'
+  mismatches and the local segment "ACG" excludes pos3). Supported pair > less-supported pair. ✔
 
-- **Equal-length rows:** ✔ (all probes).
-- **Gap-removal recovers each input:** ✔ (M07, M12, INSERT `GATTACA×2 + GATTTACA`, GAPPY 5-seq).
-- **No all-gap column:** ✔ (GAPPY 5-seq, M10).
-- **Deterministic tie-breaks:** ✔ (same input twice → byte-identical rows).
-- **Once a gap, always a gap (leaf & profile level):** ✔ — gap columns carried verbatim; inserted gaps
-  never filled.
+These independently confirm the paper's worked numbers (88→165 ⇒ here 200→375) over the DNA alphabet —
+the integer relation `extended = primary + Σ min-triplet` is alphabet-independent.
 
-### Test-quality audit (HARD gate)
+### MSA correctness traps (probes + tests)
 
-- Implementer tests M01-M11 + S01: 12 strict tests. Exact aligned strings where derivable (M04-M08),
-  exact SP scores hand-stated, the discriminating M08 + the additivity S01 together lock progressive
-  *and* star byte-for-byte. The discriminator is real: asserting the gap-free length-5 progressive rows
-  fails against the star aligner.
-- **Validator addition — M12** `MultipleAlignProgressive_TwoGappedProfilesMerge_GapsCarriedVerbatim_ExactColumns`:
-  closes the one genuine gap (no prior test pinned exact columns when *two already-gapped profiles* merge
-  — the core profile-level once-a-gap guarantee). Exact rows + SP 15, independently hand-derived.
-- **Mutation check:** mutating `AppendReprojectedRows` to fill an inserted (−1) column with a residue
-  instead of '-' (a once-a-gap violation) → **4 tests fail** including M12. The suite is not green-washed.
+Equal-length rows ✔; degap recovers each input ✔; no all-gap column ✔; deterministic (byte-identical on
+repeat) ✔; once-a-gap at leaf and profile level ✔; k=2 consistency = pairwise global (length match) ✔.
+
+### Test-quality audit
+
+- **Star/progressive** tests (`SequenceAligner_MultipleAlign_Tests.cs`, `…Progressive_Tests.cs`): exact
+  rows + hand-computed SP (SP=8, SP=24, the discriminator), strict, mutation-checked per the prior report.
+- **Consistency** tests (`SequenceAligner_MultipleAlignConsistency_Tests.cs`, 12 tests): TM04 pins the
+  GARFIELD relation with exact integers (200→400 for identical seqs; my distinct-seq probe gives 200→375,
+  same relation); the consistency objective (TM08) is recomputed independently via `GetLibraryWeights`,
+  not echoed from the DP; TM05 supported>unsupported; TM06 identical→gapless; TM07/TS02 validity
+  invariants; TM09 k=2=global; TM10 determinism; TS01 sibling additivity. Assertions check exact
+  sourced values, not "no-throw". Not green-washed.
+- All 96 MultipleAlign-family tests pass (star + progressive + iterative + consistency + properties +
+  benchmark).
 
 ### Variant / additivity consistency
 
-Star `MultipleAlign` signature and output are byte-for-byte unchanged (S01 locks
-`AAG-AA/-AACAA/-GGTGG/-GGTGG`; full suite green). Both aligners reuse `GlobalAlignCore`,
-`BuildConsensus`, `ComputeSumOfPairsScore` consistently.
+All four aligners reuse `GlobalAlignCore`/`LocalAlignCore`, `BuildProgressiveGuideTree`, `BuildConsensus`,
+`ComputeSumOfPairsScore`. The consistency aligner adds no perturbation: star/progressive/iterative remain
+byte-for-byte unchanged (TS01 + full green suite).
 
-**Stage B verdict: PASS.** The code faithfully realises the validated description; all hand-derived
-cases match the actual code output; tests are strict, deterministic, mutation-checked, and not
-tautological. No defect found.
+**Stage B verdict: PASS.** The code faithfully realises the three validated descriptions; every
+hand/probe-derived value matches the live code; tests are strict, deterministic, and not tautological.
 
 ---
 
 ## Verdict & follow-ups
 
 - **Stage A: PASS · Stage B: PASS · End-state: ✅ CLEAN.**
-- No defect; nothing logged in FINDINGS_REGISTER (the only change is a strict added test, M12).
-- Full unfiltered suite: **6772 passed, 0 failed**. Build 0 errors.
-- The progressive aligner is correct (not garbage / non-optimal on the cases derived); it is NOT LIMITED.
+- **No code changed.** Only a temporary probe test was added and removed.
+- One documented minor divergence (group columns summed vs the paper's "average"; same argmax; SP reported
+  as TotalScore for comparability) — already recorded as an assumption in the evidence doc; not a defect.
+- **Full unfiltered suite: 18208 passed, 0 failed** (build 0 warnings / 0 errors).
+- All three MSA variants are correct and optimal on the derived discriminating cases; NOT LIMITED.
 
 ### Sources (this session)
-1. Wikipedia "Multiple sequence alignment" — https://en.wikipedia.org/wiki/Multiple_sequence_alignment
+1. Notredame C, Higgins DG, Heringa J (2000) "T-Coffee." J Mol Biol 302:205-217 — full PDF pp.208-210 read.
 2. Wikipedia "UPGMA" — https://en.wikipedia.org/wiki/UPGMA
-3. Feng DF, Doolittle RF (1987) "Progressive sequence alignment as a prerequisite to correct
-   phylogenetic trees." J Mol Evol 25(4):351-360. PubMed 3118049.
+3. Wikipedia "Multiple sequence alignment" / "Clustal".
+4. Feng DF, Doolittle RF (1987) J Mol Evol 25:351-360. PubMed 3118049.

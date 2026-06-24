@@ -2,10 +2,21 @@
 
 **Test Unit ID:** PROTMOTIF-DOMAIN-001
 **Area:** ProteinMotif
-**Algorithm:** Domain Prediction & Signal Peptide Prediction
+**Algorithm:** Protein Domain Identification (signature/consensus-pattern based)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-03-19
+**Last Updated:** 2026-06-24
+
+> **Scope note (2026-06-24 validation):** This unit covers **`FindDomains`** only — domain
+> identification via PROSITE-style consensus regexes. **Signal-peptide prediction was split out
+> into its own unit `PROTMOTIF-SP-001`** (`tests/TestSpecs/PROTMOTIF-SP-001.md`,
+> `ProteinMotifFinder_PredictSignalPeptide_Tests.cs`) and the implementation was rewritten to the
+> von Heijne (1986) position-specific weight-matrix / EMBOSS `sigcleave` method
+> (`PredictSignalPeptide(sequence, prokaryote, minWeight)`). The signal-peptide rows below
+> (sources 1,2,8; evidence points 3–7; methods/invariants/test-cases referring to a tripartite
+> n/h/c heuristic with `Score ∈ (0,1]`/`Probability`) describe the **superseded** combined model
+> and are retained here only as historical context — they are validated under PROTMOTIF-SP-001,
+> not by this unit's tests.
 
 ---
 
@@ -52,8 +63,8 @@
 
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
-| `FindDomains(sequence)` | ProteinMotifFinder | Canonical | Domain detection via regex patterns. Mapped from checklist `PredictDomains`. |
-| `PredictSignalPeptide(sequence, maxLength)` | ProteinMotifFinder | Canonical | Signal peptide prediction with tripartite scoring. |
+| `FindDomains(sequence)` | ProteinMotifFinder | Canonical | Domain detection via PROSITE-style regex patterns. Mapped from checklist `PredictDomains`. |
+| ~~`PredictSignalPeptide(...)`~~ | ProteinMotifFinder | — | **Moved to PROTMOTIF-SP-001** (von Heijne weight matrix). Not under test in this unit. |
 
 ---
 

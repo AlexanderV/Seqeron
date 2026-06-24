@@ -51,9 +51,14 @@ Shannon entropy applied to k-mer frequency distribution. Range: $0 \le H \le \lo
 
 ### 3.4 DUST Score (Morgulis 2006)
 
-$$DUST = \frac{\sum_t c_t(c_t - 1)/2}{w - 1}$$
+$$DUST = \frac{\sum_t c_t(c_t - 1)/2}{\ell(x)}$$
 
-Where $c_t$ = count of triplet $t$, $w$ = number of triplets ($N - 2$).
+Where $c_t$ = count of triplet $t$ and $\ell(x) = N - k + 1$ = the number of overlapping
+triplets ($N - 2$ for $k = 3$). The normalization is by the number of triplets $\ell(x)$, per
+the authoritative restatement $S_S(\vec c_x) = \frac{1}{\ell(x)}\sum_t \frac{c_t(c_t-1)}{2}$
+in Li (2025), *Finding low-complexity DNA sequences with longdust*, Bioinformatics
+42(3):btag112, §2.5, which cites Morgulis et al. (2006). (An earlier draft of this spec
+divided by $\ell(x) - 1 = N - 3$; that divisor is superseded — see SEQ-COMPLEX-DUST-001.)
 
 ## 4. Test Categories
 
@@ -124,10 +129,10 @@ Where $c_t$ = count of triplet $t$, $w$ = number of triplets ($N - 2$).
 
 | ID | Test Method | Assertion | Source |
 |----|-------------|-----------|--------|
-| DUST-1 | `CalculateDustScore_LowComplexity_ReturnsHigh` | Exact: 8.0 (N=18) | Morgulis (2006) |
-| DUST-2 | `CalculateDustScore_HighComplexity_ReturnsLow` | Exact: 6/13 (N=16) | Morgulis (2006) |
+| DUST-1 | `CalculateDustScore_LowComplexity_ReturnsHigh` | Exact: 7.5 (N=18, =120/16) | Morgulis (2006); Li (2025) §2.5 |
+| DUST-2 | `CalculateDustScore_HighComplexity_ReturnsLow` | Exact: 6/14 (N=16) | Morgulis (2006); Li (2025) §2.5 |
 | DUST-3 | `CalculateDustScore_EmptySequence_ReturnsZero` | Exact: 0 | Convention |
-| DUST-4 | `CalculateDustScore_StringOverload_ReturnsExact` | Exact: 2.5 (N=7) | Morgulis (2006) |
+| DUST-4 | `CalculateDustScore_StringOverload_ReturnsExact` | Exact: 2.0 (N=7, =10/5) | Morgulis (2006); Li (2025) §2.5 |
 | DUST-5 | `CalculateDustScore_SequenceShorterThanWordSize_ReturnsZero` | Exact: 0 | Boundary |
 | DUST-6 | `CalculateDustScore_NullSequence_ThrowsException` | Throws | Guard clause |
 
@@ -142,14 +147,19 @@ Where $c_t$ = count of triplet $t$, $w$ = number of triplets ($N - 2$).
 | MASK-5 | `MaskLowComplexity_ResultLengthEqualsInputLength` | Length invariant | Definition |
 | MASK-6 | `MaskLowComplexity_ShortSequence_PreservesOriginal` | Returns "ATGC" | seq < window |
 
-### 4.8 Compression Ratio Tests (5 tests)
+### 4.8 Compression Ratio Tests (SUPERSEDED — see SEQ-COMPLEX-COMPRESS-001)
+
+`EstimateCompressionRatio` was re-implemented as the **normalized Lempel–Ziv (1976)
+complexity** $c / (n / \log_b n)$ (reference: entropy/antropy `lziv_complexity`,
+Zhang et al. 2009). The earlier "unique-substring ratio" heuristic (asserting 14/27 and
+5/112) was removed; those assertions are obsolete. The Lempel–Ziv metric is fully
+specified and tested under `tests/TestSpecs/SEQ-COMPLEX-COMPRESS-001.md` /
+`SequenceComplexity_EstimateCompressionRatio_Tests.cs`. The only assertions surviving here
+are the empty→0 and null→throw guards.
 
 | ID | Test Method | Assertion | Source |
 |----|-------------|-----------|--------|
-| CR-1 | `EstimateCompressionRatio_HighComplexity_ReturnsExact` | Exact: 14/27 (N=30) | Unique/expected |
-| CR-2 | `EstimateCompressionRatio_LowComplexity_ReturnsExact` | Exact: 5/112 (N=31) | Unique/expected |
 | CR-3 | `EstimateCompressionRatio_EmptySequence_ReturnsZero` | Exact: 0 | Convention |
-| CR-4 | `EstimateCompressionRatio_RangeIsZeroToOne` | Range [0,1] | Mathematical |
 | CR-5 | `EstimateCompressionRatio_NullSequence_ThrowsException` | Throws | Guard clause |
 
 ### 4.9 Edge Cases (2 remaining)
@@ -192,18 +202,26 @@ Where $c_t$ = count of triplet $t$, $w$ = number of triplets ($N - 2$).
 
 ### 5.4 DUST Score
 
-| Input | N | Triplets | Score | DUST |
-|-------|---|----------|-------|------|
-| `"AAAAAAAAAAAAAAAAAA"` | 18 | AAA×16 | 16·15/2=120 | 120/15=8.0 |
-| `"ATGCTAGCATGCTAGC"` | 16 | diverse | 6 | 6/13 |
-| `"AAAAAAA"` | 7 | AAA×5 | 5·4/2=10 | 10/4=2.5 |
+| Input | N | Triplets ℓ | Score | DUST = Score/ℓ |
+|-------|---|-----------|-------|----------------|
+| `"AAAAAAAAAAAAAAAAAA"` | 18 | AAA×16 | 16·15/2=120 | 120/16=7.5 |
+| `"ATGCTAGCATGCTAGC"` | 16 | 14 (6 dups ×2) | 6 | 6/14=3/7 |
+| `"AAAAAAA"` | 7 | AAA×5 | 5·4/2=10 | 10/5=2.0 |
 
-### 5.5 Compression Ratio
+(Divisor = number of triplets ℓ = N−2, per Li 2025 §2.5. These match the current
+implementation and the SEQ-COMPLEX-DUST-001 unit tests.)
 
-| Input | N | Unique | Expected | Ratio |
-|-------|---|--------|----------|-------|
-| `"ATGCTAGCATGCAATGCTAGCATGCAATGC"` | 30 | 112 | 216 | 14/27 |
-| 31×A | 31 | 10 | 224 | 5/112 |
+### 5.5 Compression Ratio (SUPERSEDED — normalized Lempel–Ziv, see SEQ-COMPLEX-COMPRESS-001)
+
+`EstimateCompressionRatio` now returns the normalized Lempel–Ziv (1976) complexity
+$c/(n/\log_b n)$. The old unique-substring values (14/27, 5/112) no longer apply.
+Worked LZ values (verified against the Naereen reference doctests):
+
+| Input | n | b | c | Normalized LZ |
+|-------|---|---|---|---------------|
+| `"1001111011000010"` | 16 | 2 | 8 | 8/(16/log₂16) = 2.0 |
+| `"ACGTACGTACGTACGT"` | 16 | 4 | 9 | 9/(16/log₄16) = 1.125 |
+| `"0"×16` | 16 | (clamp 2) | 5 | 5/(16/log₂16) = 1.25 |
 
 ## 6. Validation Checklist
 
