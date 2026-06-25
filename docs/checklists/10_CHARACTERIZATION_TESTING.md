@@ -277,7 +277,7 @@ Characterization tests (golden master tests) фіксують поточну п�
 | 242 | ☑ | PRIMER-DIMER-001 | MolTools | best-dimer ΔG/Tm for primer pairs | ntthal alignment extension change |
 | 243 | ☑ | PROBE-LNATM-001 | MolTools | LNA Tm + MGB verdict for reference probes | LNA increment table change |
 | 244 | ☑ | PROBE-EVALUE-001 | MolTools | E-value/bit score for reference HSPs | scoring-system change |
-| 245 | ☐ | MHC-NN-001 | Oncology | IC50 predictions for benchmark peptide/allele pairs | weight-pack update |
+| 245 | ☑ | MHC-NN-001 | Oncology | IC50 predictions for benchmark peptide/allele pairs | weight-pack update |
 | 246 | ☐ | MHC-MATRIX-001 | Oncology | IC50/half-life for reference peptides | matrix reload |
 | 247 | ☐ | IMMUNE-NUSVR-001 | Oncology | cell-fraction estimates for reference mixtures | signature-matrix change |
 | 248 | ☐ | META-CHECKM-001 | Metagenomics | completeness/contamination for synthetic + real bins | marker-set update |
@@ -299,8 +299,8 @@ Characterization tests (golden master tests) фіксують поточну п�
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 5 |
-| ☐ Not started | 251 |
+| ☑ Complete | 6 |
+| ☐ Not started | 250 |
 | Applies on-demand (before refactoring) | All 234 |
 | High refactoring risk (complex algorithms) | ~20 (Alignment, Phylogenetic, RNA, Annotation) |
 | Medium refactoring risk | ~40 |

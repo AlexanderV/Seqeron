@@ -25,14 +25,20 @@ public class MhcflurryAffinityPredictor_PredictIc50_Tests
     private const string SingleNetResource =
         "Seqeron.Genomics.Tests.TestData.Mhcflurry.mhcflurry_single_net.bin";
 
+    // Tiny synthetic "with-skip-connections" pack (3 hidden + output, deterministic NumPy weights).
+    private const string SkipNetResource =
+        "Seqeron.Genomics.Tests.TestData.Mhcflurry.mhcflurry_skip_net.bin";
+
     // Relative tolerance for neural-network float parity (Python float64 vs .NET double).
     private const double RelTol = 1e-3; // 0.1% — comfortably above the observed <0.03% gap.
 
-    private static IReadOnlyList<MhcflurryAffinityPredictor.Network> LoadSingleNet()
+    private static IReadOnlyList<MhcflurryAffinityPredictor.Network> LoadSingleNet() => LoadPack(SingleNetResource);
+
+    private static IReadOnlyList<MhcflurryAffinityPredictor.Network> LoadPack(string resource)
     {
         var asm = typeof(MhcflurryAffinityPredictor_PredictIc50_Tests).Assembly;
-        using Stream stream = asm.GetManifestResourceStream(SingleNetResource)
-            ?? throw new InvalidOperationException($"Embedded resource '{SingleNetResource}' not found.");
+        using Stream stream = asm.GetManifestResourceStream(resource)
+            ?? throw new InvalidOperationException($"Embedded resource '{resource}' not found.");
         return MhcflurryAffinityPredictor.LoadWeightPack(stream);
     }
 
@@ -119,6 +125,72 @@ public class MhcflurryAffinityPredictor_PredictIc50_Tests
         });
     }
 
+    // M1b — EncodePseudosequence: position-major BLOSUM62 vectors, length = residues*21. The HLA-A*02:01
+    // pseudosequence begins with 'Y' (BLOSUM62 Y-row), and a residue-by-residue check confirms each
+    // position's self-channel is the row maximum (BLOSUM62 diagonal dominance).
+    [Test]
+    public void EncodePseudosequence_HlaA0201_BlosumRowsPositionMajor()
+    {
+        const string ps = "YFAMYGEKVAHTHVDTLYGVRYDHYYTWAVLAYTWYA"; // HLA-A*02:01 (37 residues)
+        double[] flat = MhcflurryAffinityPredictor.EncodePseudosequence(ps);
+
+        // ACDEFGHIKLMNPQRSTVWYX. BLOSUM62 row for Y (index 19).
+        int[] yRow = [-2, -2, -3, -2, 3, -3, 2, -1, -2, -1, -1, -2, -3, -1, -2, -2, -2, -1, 2, 7, 0];
+        const string order = "ACDEFGHIKLMNPQRSTVWYX";
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(flat.Length, Is.EqualTo(ps.Length * MhcflurryAffinityPredictor.EncodingWidth),
+                "Pseudosequence encoding is residues * 21, position-major.");
+            Assert.That(flat.Length, Is.EqualTo(MhcflurryAffinityPredictor.AlleleFlatLength),
+                "A 37-residue pseudosequence flattens to 37*21 = 777.");
+            for (int c = 0; c < 21; c++)
+            {
+                Assert.That(flat[c], Is.EqualTo((double)yRow[c]),
+                    $"Position 0 (Y) channel {c} must equal BLOSUM62 Y-row value {yRow[c]}.");
+            }
+            for (int p = 0; p < ps.Length; p++)
+            {
+                int best = 0;
+                double bestVal = double.NegativeInfinity;
+                for (int c = 0; c < 21; c++)
+                {
+                    double v = flat[p * 21 + c];
+                    if (v > bestVal) { bestVal = v; best = c; }
+                }
+                Assert.That(order[best], Is.EqualTo(ps[p]),
+                    $"Pseudosequence position {p} ('{ps[p]}') must encode to a max-scoring self-channel.");
+            }
+        });
+    }
+
+    // C1b — non-canonical residues (lowercase, B/J/Z/*) fall back to the X (unknown) vector, matching
+    // MHCflurry's allow_unsupported_amino_acids=True path (amino_acid.AMINO_ACID_INDEX.get(a, X)). The X row
+    // is all-zero except the X channel (=1).
+    [Test]
+    public void EncodePeptide_NonCanonicalResidues_FallBackToXVector()
+    {
+        int xIdx = MhcflurryAffinityPredictor.AminoAcidOrder.IndexOf(MhcflurryAffinityPredictor.UnknownAminoAcid);
+        // Peptide of all unsupported chars (B,J,O,U,Z) -> every left-block position must be the X vector.
+        double[] flat = MhcflurryAffinityPredictor.EncodePeptide("BJOUZ");
+        Assert.Multiple(() =>
+        {
+            for (int p = 0; p < 5; p++)
+            {
+                for (int c = 0; c < 21; c++)
+                {
+                    double expected = c == xIdx ? 1.0 : 0.0;
+                    Assert.That(flat[p * 21 + c], Is.EqualTo(expected),
+                        $"Unsupported residue at position {p} channel {c} must encode as the X vector.");
+                }
+            }
+            // Lowercase is folded to its canonical residue (case-insensitive), not X.
+            double[] lower = MhcflurryAffinityPredictor.EncodePeptide("siinfekl");
+            double[] upper = MhcflurryAffinityPredictor.EncodePeptide("SIINFEKL");
+            Assert.That(lower, Is.EqualTo(upper), "Lowercase residues encode identically to uppercase.");
+        });
+    }
+
     #endregion
 
     #region Pseudosequence table
@@ -186,6 +258,26 @@ public class MhcflurryAffinityPredictor_PredictIc50_Tests
         });
     }
 
+    // M3b — to_ic50 is strictly decreasing in x and is the exact inverse of MHCflurry's from_ic50
+    // (x = 1 - ln(ic50)/ln(50000)). Round-tripping representative IC50s recovers the same nM value.
+    [Test]
+    public void ToIc50_InverseOfFromIc50AndMonotonic()
+    {
+        static double FromIc50(double ic50) => 1.0 - Math.Log(ic50) / Math.Log(50000.0);
+        Assert.Multiple(() =>
+        {
+            foreach (double ic50 in new[] { 1.0, 5.0, 50.0, 500.0, 5000.0, 50000.0 })
+            {
+                double roundTrip = MhcflurryAffinityPredictor.ToIc50(FromIc50(ic50));
+                AssertRelClose(roundTrip, ic50, 1e-9, $"to_ic50(from_ic50({ic50})) must round-trip");
+            }
+            // Strictly decreasing: a larger raw output is a stronger binder (lower IC50).
+            Assert.That(MhcflurryAffinityPredictor.ToIc50(0.2),
+                Is.GreaterThan(MhcflurryAffinityPredictor.ToIc50(0.8)),
+                "to_ic50 must be strictly decreasing in the network output.");
+        });
+    }
+
     #endregion
 
     #region Single-network forward-pass parity (embedded weight pack)
@@ -229,6 +321,63 @@ public class MhcflurryAffinityPredictor_PredictIc50_Tests
             Assert.That(nonBinder / strong, Is.GreaterThan(100.0),
                 "The non-binder's IC50 must be orders of magnitude above the strong binder's.");
         });
+    }
+
+    // M4b — instance Network.PredictIc50(peptide, pseudosequence) agrees with the static ensemble entry point
+    // for a single network (same encode -> forward -> to_ic50 path, no allele-table lookup).
+    [Test]
+    public void Network_PredictIc50_AgreesWithStaticForSingleNetwork()
+    {
+        var nets = LoadSingleNet();
+        const string ps = "YFAMYGEKVAHTHVDTLYGVRYDHYYTWAVLAYTWYA"; // HLA-A*02:01
+        double instance = nets[0].PredictIc50("GILGFVFTL", ps);
+        double viaPseudo = MhcflurryAffinityPredictor.PredictIc50WithPseudosequence(nets, "GILGFVFTL", ps);
+        double viaAllele = MhcflurryAffinityPredictor.PredictIc50(nets, "GILGFVFTL", "HLA-A*02:01");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(instance, Is.EqualTo(viaPseudo).Within(1e-9),
+                "Instance PredictIc50 must equal the static WithPseudosequence single-net path.");
+            Assert.That(viaAllele, Is.EqualTo(viaPseudo).Within(1e-9),
+                "Looking up HLA-A*02:01 must give the same pseudosequence as supplying it directly.");
+            Assert.That(nets[0].LayerCount, Is.EqualTo(3),
+                "The bundled feedforward member has two hidden layers plus the output layer.");
+        });
+    }
+
+    // M4c — with-skip-connections forward-pass parity. The bundled single_net is feedforward, so the densenet
+    // skip wiring (layer i>=2 sees concat(out[i-2], out[i-1]); layer 1 sees concat(merged, out[0])) is exercised
+    // by a tiny synthetic pack. Golden raw output computed by an independent NumPy reference (0.501112284692050).
+    [Test]
+    public void ForwardRaw_WithSkipConnections_MatchesNumpyReference()
+    {
+        var nets = LoadPack(SkipNetResource);
+        Assert.That(nets, Has.Count.EqualTo(1));
+        Assert.That(nets[0].LayerCount, Is.EqualTo(4), "Synthetic skip net has 3 hidden + 1 output layer.");
+
+        double[] pep = MhcflurryAffinityPredictor.EncodePeptide("SIINFEKL");
+        double[] allele = MhcflurryAffinityPredictor.EncodePseudosequence(
+            "YFAMYGEKVAHTHVDTLYGVRYDHYYTWAVLAYTWYA");
+        var merged = new double[pep.Length + allele.Length];
+        Array.Copy(pep, 0, merged, 0, pep.Length);
+        Array.Copy(allele, 0, merged, pep.Length, allele.Length);
+
+        double raw = nets[0].ForwardRaw(merged);
+        // float32 weights promoted to double; NumPy float64 reference value.
+        Assert.That(raw, Is.EqualTo(0.501112284692050).Within(1e-6),
+            "with-skip-connections forward pass must match the NumPy reference raw output.");
+        double ic50 = MhcflurryAffinityPredictor.PredictIc50WithPseudosequence(
+            nets, "SIINFEKL", "YFAMYGEKVAHTHVDTLYGVRYDHYYTWAVLAYTWYA");
+        AssertRelClose(ic50, 220.9318909889, 1e-5, "Skip-net IC50 must match the NumPy reference");
+    }
+
+    // C4b — ForwardRaw rejects an input of the wrong width.
+    [Test]
+    public void ForwardRaw_WrongInputLength_Throws()
+    {
+        var nets = LoadSingleNet();
+        Assert.Throws<ArgumentException>(() => nets[0].ForwardRaw(new double[10]),
+            "An input not equal to NetworkInputLength must throw.");
     }
 
     #endregion

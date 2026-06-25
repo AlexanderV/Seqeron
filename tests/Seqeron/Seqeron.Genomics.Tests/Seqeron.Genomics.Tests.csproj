@@ -18,6 +18,10 @@
          [512,512]), exported from the Apache-2.0 weights_*.npz dense kernels/biases. Embedded so the
          forward-pass parity test runs without an external mhcflurry install. -->
     <EmbeddedResource Include="TestData\Mhcflurry\mhcflurry_single_net.bin" />
+    <!-- MHC-NN-001: a tiny synthetic "with-skip-connections" network pack (3 hidden + output, deterministic
+         weights) used to exercise the densenet skip-connection forward-pass wiring that the feedforward
+         single_net pack does not cover. Golden raw output computed by an independent NumPy reference. -->
+    <EmbeddedResource Include="TestData\Mhcflurry\mhcflurry_skip_net.bin" />
   </ItemGroup>
 
   <ItemGroup>

@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 255 |
-| **Completed** | 221 |
+| **Completed** | 222 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 34 |
+| **Not Started** | 33 |
 
 ---
 
@@ -263,7 +263,7 @@
 | ☑ | PRIMER-DIMER-001 | MolTools | 3 | SantaLucia & Hicks (2004), primer3 ntthal | [TestSpec](tests/TestSpecs/PRIMER-DIMER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PrimerDesigner_DimerTm_Tests.cs) |
 | ☑ | PROBE-LNATM-001 | MolTools | 2 | McTigue (2004) LNA NN, Kutyavin (2000) MGB | [TestSpec](tests/TestSpecs/PROBE-LNATM-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProbeDesigner_LnaTm_Tests.cs) |
 | ☑ | PROBE-EVALUE-001 | MolTools | 2 | Karlin & Altschul (1990), Altschul et al. (1990) BLAST | [TestSpec](tests/TestSpecs/PROBE-EVALUE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProbeDesigner_ProbeValidation_Tests.cs) |
-| ☐ | MHC-NN-001 | Oncology | 3 | O'Donnell et al. (2018, 2020) MHCflurry, Apache-2.0 | [TestSpec](tests/TestSpecs/MHC-NN-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MhcflurryAffinityPredictor_PredictIc50_Tests.cs) |
+| ☑ | MHC-NN-001 | Oncology | 3 | O'Donnell et al. (2018, 2020) MHCflurry, Apache-2.0 | [TestSpec](tests/TestSpecs/MHC-NN-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MhcflurryAffinityPredictor_PredictIc50_Tests.cs) |
 | ☐ | MHC-MATRIX-001 | Oncology | 3 | Peters et al. (2005) SMM, Parker et al. (1994) BIMAS | [TestSpec](tests/TestSpecs/MHC-MATRIX-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyMhcBinding_Tests.cs) |
 | ☐ | IMMUNE-NUSVR-001 | Oncology | 3 | Newman et al. (2015) CIBERSORT, Schölkopf et al. (2000) ν-SVR, Monaco et al. (2019) ABIS CC-BY | [TestSpec](tests/TestSpecs/IMMUNE-NUSVR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ImmuneAnalyzer_ImmuneInfiltration_Tests.cs) |
 | ☐ | META-CHECKM-001 | Metagenomics | 4 | Parks et al. (2015) CheckM, Parks et al. (2018) GTDB, Pfam CC0 | [TestSpec](tests/TestSpecs/META-CHECKM-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_MarkerGeneQuality_Tests.cs) |
@@ -5465,13 +5465,13 @@ DnaSequence.Complement   DnaSequence.ReverseComplement
 
 ---
 
-#### MHC-NN-001: MHCflurry Pan-Allele NN Binding Affinity ☐
+#### MHC-NN-001: MHCflurry Pan-Allele NN Binding Affinity ☑
 
 | Field | Value |
 |-------|-------|
 | **Canonical** | `MhcflurryAffinityPredictor.PredictIc50` |
 | **Area** | Oncology |
-| **Status** | ☐ Not Started (pending independent Stage A/B re-validation) |
+| **Status** | ☑ Complete (Stage A ✅ / Stage B ✅ / CLEAN — 2026-06-25) |
 | **Evidence** | O'Donnell et al. (2018, 2020) MHCflurry, Apache-2.0 |
 | **Source** | `MhcflurryAffinityPredictor.cs` |
 
