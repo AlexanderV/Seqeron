@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 255 |
-| **Completed** | 230 |
+| **Completed** | 231 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 25 |
+| **Not Started** | 24 |
 
 ---
 
@@ -272,7 +272,7 @@
 | ☑ | SPLICE-MAXENT5-001 | Splicing | 1 | Yeo & Burge (2004), maxentpy (MIT) | [TestSpec](tests/TestSpecs/SPLICE-MAXENT5-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_DonorSite_Tests.cs) |
 | ☑ | MIRNA-CONTEXT-001 | MiRNA | 2 | Agarwal et al. (2015) TargetScan context++ | [TestSpec](tests/TestSpecs/MIRNA-CONTEXT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_TargetPrediction_Tests.cs) |
 | ☑ | MIRNA-PCT-001 | MiRNA | 1 | Friedman et al. (2009) PCT, TargetScan | [TestSpec](tests/TestSpecs/MIRNA-PCT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_TargetPrediction_Tests.cs) |
-| ☐ | MIRNA-CLASSIFY-001 | MiRNA | 1 | Bonnet et al. (2004), miRBase (public domain), Zhang (2006) MFEI | [TestSpec](tests/TestSpecs/MIRNA-CLASSIFY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_PreMiRna_Tests.cs) |
+| ☑ | MIRNA-CLASSIFY-001 | MiRNA | 1 | Bonnet et al. (2004), miRBase (public domain), Zhang (2006) MFEI | [TestSpec](tests/TestSpecs/MIRNA-CLASSIFY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_PreMiRna_Tests.cs) |
 | ☐ | MIRNA-CLEAVAGE-001 | MiRNA | 1 | Han et al. (2006), Park et al. (2011), Auyeung et al. (2013) | [TestSpec](tests/TestSpecs/MIRNA-CLEAVAGE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_PreMiRna_Tests.cs) |
 | ☐ | REP-APPROX-001 | Repeats | 2 | Benson (1999) TRF | [TestSpec](tests/TestSpecs/REP-APPROX-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RepeatFinder_ApproximateTandemRepeats_Tests.cs) |
 | ☐ | CHROM-ALPHASAT-001 | Chromosome | 2 | Waye & Willard (1987), Henikoff et al. (2001), CENP-B box motif | [TestSpec](tests/TestSpecs/CHROM-ALPHASAT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ChromosomeAnalyzer_AlphaSatellite_Tests.cs) |
@@ -5609,13 +5609,13 @@ DnaSequence.Complement   DnaSequence.ReverseComplement
 
 ---
 
-#### MIRNA-CLASSIFY-001: Pre-miRNA Structure-Feature Classifier ☐
+#### MIRNA-CLASSIFY-001: Pre-miRNA Structure-Feature Classifier ☑
 
 | Field | Value |
 |-------|-------|
 | **Canonical** | `ClassifyPreMiRna` |
 | **Area** | MiRNA |
-| **Status** | ☐ Not Started (pending independent Stage A/B re-validation) |
+| **Status** | ☑ Complete (independently validated 2026-06-25 — Stage A/B PASS, CLEAN) |
 | **Evidence** | Bonnet et al. (2004), miRBase (public domain), Zhang (2006) MFEI |
 | **Source** | `MiRnaAnalyzer.cs` |
 

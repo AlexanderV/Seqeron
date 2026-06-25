@@ -3,13 +3,14 @@
 **Test Unit ID:** MIRNA-CLASSIFY-001
 **Area:** MiRNA
 **Algorithm:** Pre-miRNA Structure-Feature Classifier
-**Status:** ☐ Not Started — pending independent Stage A/B re-validation
+**Status:** ☑ Complete — independently validated 2026-06-25 (Stage A ✅ / Stage B ✅ / CLEAN)
 **Last Updated:** 2026-06-25
 
-> **Stub.** This unit was added during the limitation-elimination campaign. The algorithm is implemented and
-> covered by the test fixture below, but it has **not yet** been independently re-validated under the project's
-> two-stage (Stage A description / Stage B implementation) protocol. This spec captures the evidence and contract
-> needed to perform that validation; fill in the full TestSpec when the unit is re-validated to `☑`.
+> **Validated.** Independently re-validated under the two-stage protocol; see
+> `docs/Validation/reports/MIRNA-CLASSIFY-001.md`. miRBase positives verified against the live database, the
+> AMFE/MFEI/GC/%paired features and the logistic score reproduced by hand to full double precision, di-shuffle
+> negatives (two independent seeds) score below threshold, and the held-out AUC = 1.0. Hardening tests CL13/CL14
+> added.
 
 ---
 
@@ -37,7 +38,7 @@ R: probability ∈ [0,1]; D: deterministic; threshold split positive/negative
 
 ## 5. Validation Checklist (to restore ☑)
 
-- [ ] Stage A: retrieve every source above; confirm formula/constants against the publication's worked example.
-- [ ] Stage B: review the implementation against the source; cross-check vs the reference oracle.
-- [ ] Full unfiltered `dotnet test Seqeron.sln` — Failed: 0.
-- [ ] Flip `☐ → ☑` in `ALGORITHMS_CHECKLIST_V2.md` and the 10 `docs/checklists/*.md`.
+- [x] Stage A: retrieved Bonnet 2004 (di-shuffle null model), Zhang 2006 (AMFE/MFEI), miRBase (sequences verified live); formulas confirmed.
+- [x] Stage B: implementation matches the source; features and logistic score reproduced by hand to full precision; held-out AUC = 1.0.
+- [x] Full unfiltered `dotnet test Seqeron.sln` — Failed: 0 (Genomics 18771 passed, 0 warnings).
+- [x] Flipped `☐ → ☑` in ROOT `ALGORITHMS_CHECKLIST_V2.md` (registry + catalog + Quick-Reference). (docs/checklists/* intentionally untouched.)

@@ -1363,6 +1363,54 @@ public class MiRnaAnalyzer_PreMiRna_Tests
         });
     }
 
+    // CL13 — non-complementary sequence (no foldable stem, ΔG° = 0) is classified BACKGROUND.
+    // Unlike AssessHairpinByMfe (which returns null for non-hairpins), ClassifyPreMiRna SCORES any
+    // sequence: a structureless candidate must score ≈ 0 (well below threshold), never natural.
+    // Hand-derived expectation: with ΔG°=0 ⇒ AMFE=0, MFEI=0, %paired=0, z = bias + Σ w_j·(0−mean_j)/std_j
+    // ≈ −31.0 ⇒ P ≈ e^z ≈ 8e-16 (computed from the bundled weights), so P < 0.05 and IsNatural=False.
+    [Test]
+    public void ClassifyPreMiRna_NonComplementary_IsBackground()
+    {
+        // All-purine: A and G never Watson–Crick/​wobble pair with each other ⇒ no stem ⇒ ΔG° = 0.
+        const string allPurine = "AGAGAGAGAGAGAGAGAGAGAGAGAGAGAGAGAGAGAGAG";
+        var c = ClassifyPreMiRna(allPurine);
+
+        Assert.That(c, Is.Not.Null, "ClassifyPreMiRna scores any non-empty sequence (it is not a hairpin gate).");
+        Assert.Multiple(() =>
+        {
+            Assert.That(c!.Value.Features.FreeEnergy, Is.EqualTo(0.0).Within(1e-12),
+                "A non-complementary sequence folds to ΔG° = 0 (no base pairs).");
+            Assert.That(c.Value.Features.PairedFraction, Is.EqualTo(0.0).Within(1e-12),
+                "%paired = 0 for the all-dots MFE structure.");
+            Assert.That(c.Value.NaturalProbability, Is.LessThan(0.05),
+                "Structureless candidate scores ≈ 0 ⇒ background, never natural.");
+            Assert.That(c.Value.IsNatural, Is.False,
+                "A sequence with no hairpin structure is not a natural pre-miRNA.");
+        });
+    }
+
+    // CL14 — di-shuffle discrimination is NOT seed-specific: an INDEPENDENT fresh di-shuffle
+    // (different seed than CL5's 999) of hsa-mir-21 also scores BACKGROUND. Confirms the negative
+    // call rests on the (degraded) structure of any composition-matched shuffle, not a lucky draw.
+    [Test]
+    public void ClassifyPreMiRna_IndependentDiShuffle_IsBackground()
+    {
+        string shuffled = DinucleotideShuffle(HsaMir21, new Random(12345)); // different seed from CL5
+        var c = ClassifyPreMiRna(shuffled);
+
+        Assert.That(c, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            // Composition is preserved by the di-shuffle ⇒ the call must come from structure.
+            Assert.That(DinucleotideCounts(shuffled), Is.EqualTo(DinucleotideCounts(HsaMir21)),
+                "Independent shuffle still preserves exact dinucleotide composition (Altschul–Erickson).");
+            Assert.That(c!.Value.NaturalProbability, Is.LessThan(0.05),
+                "A composition-matched shuffle (different seed) also scores background.");
+            Assert.That(c.Value.IsNatural, Is.False,
+                "Discrimination is structural, not seed-specific.");
+        });
+    }
+
     private static Dictionary<string, int> DinucleotideCounts(string s)
     {
         var d = new Dictionary<string, int>();
