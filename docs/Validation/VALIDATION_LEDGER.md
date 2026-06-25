@@ -311,7 +311,7 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 137 | ONCO-NEO-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
 | 138 | ONCO-MHC-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
 | 139 | ONCO-CTDNA-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
-| 140 | ONCO-MRD-001 | Oncology | ⬜ | ⬜ | ⬜ pending | reports/ONCO-MRD-001.md |
+| 140 | ONCO-MRD-001 | Oncology | 🟡 | ✅ | ✅ CLEAN | reports/ONCO-MRD-001.md |
 | 141 | ONCO-CHIP-001 | Oncology | ✅ | ✅ | ✅ CLEAN | reports/ONCO-CHIP-001.md |
 | 142 | ONCO-PHYLO-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
 | 143 | ONCO-CCF-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
