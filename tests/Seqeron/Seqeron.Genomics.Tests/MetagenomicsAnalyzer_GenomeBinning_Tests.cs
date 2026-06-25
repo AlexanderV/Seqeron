@@ -578,5 +578,55 @@ public class MetagenomicsAnalyzer_GenomeBinning_Tests
         Assert.That(bins, Is.Not.Null, "Should handle zero coverage");
     }
 
+    /// <summary>
+    /// M13: Differential coverage separates genomes that share an identical compositional
+    /// signature (same GC, same TNF). This is the defining "differential coverage" signal of
+    /// modern de-novo binners — MetaBAT (Kang et al., PeerJ 2015) and CONCOCT (Alneberg et al.,
+    /// Nat Methods 2014) both bin on composition AND abundance precisely so that two genomes with
+    /// indistinguishable composition but distinct abundance profiles end up in separate bins.
+    /// Here both populations use the identical "GCTA" repeat (so |ΔGC| = 0 and TNF Pearson
+    /// distance = 0); only coverage differs (5× vs 500×). The composite distance therefore reduces
+    /// to the normalized-coverage term, which must split the two populations into separate, unmixed
+    /// bins. Cross-check: independently confirmed via the public API (this session) — 2 bins,
+    /// neither mixed, coverage means 5.0 and 500.0.
+    /// </summary>
+    [Test]
+    public void BinContigs_DifferentialCoverage_SeparatesSameCompositionGenomes()
+    {
+        var contigs = new List<(string ContigId, string Sequence, double Coverage)>();
+        // Two "genomes" with IDENTICAL composition (same GCTA repeat → same GC, same TNF),
+        // distinguished ONLY by coverage (low 5× vs high 500×).
+        for (int i = 0; i < 10; i++)
+            contigs.Add(($"lowcov_{i}", CreateMidGcSequence(25000), 5.0));
+        for (int i = 0; i < 10; i++)
+            contigs.Add(($"highcov_{i}", CreateMidGcSequence(25000), 500.0));
+
+        var bins = MetagenomicsAnalyzer.BinContigs(contigs, numBins: 10, minBinSize: 100000).ToList();
+
+        Assert.That(bins.Count, Is.GreaterThanOrEqualTo(2),
+            "Identical composition but 100× coverage difference must produce at least 2 bins " +
+            "(differential-coverage signal, MetaBAT/CONCOCT)");
+
+        Assert.Multiple(() =>
+        {
+            foreach (var bin in bins)
+            {
+                bool hasLow = bin.ContigIds.Any(id => id.StartsWith("lowcov_"));
+                bool hasHigh = bin.ContigIds.Any(id => id.StartsWith("highcov_"));
+                Assert.That(hasLow && hasHigh, Is.False,
+                    $"Bin {bin.BinId} mixes low- and high-coverage contigs — composite distance " +
+                    "must separate distinct coverage profiles when composition is identical");
+
+                // Each pure bin's reported coverage is exactly its members' shared coverage.
+                if (hasLow)
+                    Assert.That(bin.Coverage, Is.EqualTo(5.0).Within(1e-10),
+                        "Pure low-coverage bin must report mean coverage 5.0");
+                else if (hasHigh)
+                    Assert.That(bin.Coverage, Is.EqualTo(500.0).Within(1e-10),
+                        "Pure high-coverage bin must report mean coverage 500.0");
+            }
+        });
+    }
+
     #endregion
 }
