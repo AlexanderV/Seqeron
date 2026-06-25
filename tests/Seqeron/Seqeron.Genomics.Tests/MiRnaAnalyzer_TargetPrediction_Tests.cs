@@ -1,6 +1,9 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 using Seqeron.Genomics.Annotation;
+using Seqeron.Genomics.Phylogenetics;
 using static Seqeron.Genomics.Annotation.MiRnaAnalyzer;
 
 namespace Seqeron.Genomics.Tests;
@@ -880,8 +883,154 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
                 + ctx.Site8Contribution + ctx.SaContribution + ctx.ThreePrimePairingContribution
                 + ctx.MinDistContribution + ctx.Len3UtrContribution + ctx.Off6mContribution
                 + ctx.SpsContribution + ctx.TaContribution + ctx.LenOrfContribution
-                + ctx.Orf8mContribution).Within(1e-12),
+                + ctx.Orf8mContribution + ctx.PctContribution).Within(1e-12),
                 "ContextScorePartial includes the SA contribution");
+        });
+    }
+
+    #endregion
+
+    #region CTX-PCT: Friedman 2009 branch-length score (Bls) + PCT wired into context++
+
+    // Worked phylogenetic tree used across the Bls cases (Newick, explicit branch lengths):
+    //   ((A:1.0,B:2.0):0.5,(C:1.5,D:3.0):4.0);
+    // Internal node (A,B) connects to the root by an edge of length 0.5; (C,D) by 4.0.
+    private const string WorkedTreeNewick = "((A:1.0,B:2.0):0.5,(C:1.5,D:3.0):4.0);";
+
+    // CTX-PCT-001 — Bls = total branch length of the minimal subtree connecting the species in
+    // which the site is conserved (Friedman et al. 2009 Genome Res 19:92, Methods). Hand-derived
+    // for several conserved-species subsets on the worked tree:
+    //   {A,B}      : A(1.0)+B(2.0) — the (A,B)→root edge is NOT counted (both A and B are below it,
+    //                so no conserved species lies outside) ⇒ 3.0
+    //   {A,C}      : A(1.0)+ (A,B)→root(0.5) + (C,D)→root(4.0) + C(1.5)               ⇒ 7.0
+    //   {A,B,C,D}  : every leaf edge (1+2+1.5+3) + both internal edges (0.5+4.0)       ⇒ 12.0
+    //   {A}        : a single species — no connecting subtree                          ⇒ 0.0
+    [Test]
+    [TestCase(new[] { "A", "B" }, 3.0)]
+    [TestCase(new[] { "A", "C" }, 7.0)]
+    [TestCase(new[] { "A", "B", "C", "D" }, 12.0)]
+    [TestCase(new[] { "A" }, 0.0)]
+    public void ComputeBranchLengthScore_WorkedTree_MatchesHandDerivedBls(string[] species, double expectedBls)
+    {
+        PhylogeneticAnalyzer.PhyloNode tree = PhylogeneticAnalyzer.ParseNewick(WorkedTreeNewick);
+
+        double bls = ComputeBranchLengthScore(tree, species);
+
+        Assert.That(bls, Is.EqualTo(expectedBls).Within(1e-9),
+            $"Bls({string.Join(",", species)}) = total branch length of the minimal connecting subtree");
+    }
+
+    // CTX-PCT-002 — empty / null conserved-species set ⇒ Bls = 0 (single or no species ⇒ no subtree).
+    [Test]
+    public void ComputeBranchLengthScore_NoSpecies_IsZero()
+    {
+        PhylogeneticAnalyzer.PhyloNode tree = PhylogeneticAnalyzer.ParseNewick(WorkedTreeNewick);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ComputeBranchLengthScore(tree, Array.Empty<string>()), Is.EqualTo(0.0),
+                "no conserved species ⇒ Bls 0");
+            Assert.Throws<ArgumentNullException>(() => ComputeBranchLengthScore(tree, null!),
+                "null species set rejected");
+            Assert.Throws<ArgumentNullException>(() => ComputeBranchLengthScore(null!, new[] { "A" }),
+                "null tree rejected");
+        });
+    }
+
+    // CTX-PCT-003 — PCT(Bls) = B0 + B1/(1 + e^(−B2·Bls + B3)), truncated at 0
+    // (targetscan_70_BL_PCT.pl, calculatePCTthisBL). Hand-derived with the simple parameters
+    // (B0=0, B1=1, B2=1, B3=0):  PCT(3.0) = 1/(1+e^-3) = 0.952574126822433.
+    [Test]
+    public void PctFromBranchLength_SimpleSigmoid_MatchesHandDerivedValue()
+    {
+        var p = new PctSigmoidParameters(B0: 0.0, B1: 1.0, B2: 1.0, B3: 0.0);
+
+        double pct = PctFromBranchLength(3.0, p);
+
+        Assert.That(pct, Is.EqualTo(0.952574126822433).Within(1e-12),
+            "PCT(3.0) = 0 + 1/(1+e^(−1·3+0)) per the published logistic relationship");
+    }
+
+    // CTX-PCT-004 — negative PCT values are truncated to 0 (perl: if ($pct < 0) { $pct = "0.0"; }).
+    [Test]
+    public void PctFromBranchLength_NegativeRaw_TruncatedToZero()
+    {
+        // B0=-0.5, B1=0.3, B3=5 with Bls=0 ⇒ raw = -0.5 + 0.3/(1+e^5) ≈ -0.498 < 0 ⇒ 0.
+        var p = new PctSigmoidParameters(B0: -0.5, B1: 0.3, B2: 1.0, B3: 5.0);
+
+        double pct = PctFromBranchLength(0.0, p);
+
+        Assert.That(pct, Is.EqualTo(0.0),
+            "a negative logistic output is truncated to 0 as in the TargetScan reference");
+    }
+
+    // CTX-PCT-005 — the PCT contribution = coeff(PCT) × (PCT − min)/(max − min) enters context++
+    // and PCT leaves OmittedFeatures when a Conservation input is supplied. For an 8mer with the
+    // worked tree and {A,B} (Bls=3.0), sigmoid (0,1,1,0): PCT=0.952574126822433.
+    //   8mer PCT row (Agarwal_2015_parameters.txt): coeff -0.103, min 0, max 0.816.
+    //   contribution = -0.103 × (0.952574126822433 / 0.816) = -0.120239136106263.
+    [Test]
+    public void ScoreTargetSiteContextPlusPlus_ConservationSupplied_8mer_PctEntersScoreAndDropsResidual()
+    {
+        string mrna = "AAAAAACAACCUAACUACCUCAGGG";
+        var site = FindTargetSites(mrna, Let7a, minScore: 0.0).First(s => s.Type == TargetSiteType.Seed8mer);
+
+        PhylogeneticAnalyzer.PhyloNode tree = PhylogeneticAnalyzer.ParseNewick(WorkedTreeNewick);
+        var conservation = new PctConservation(
+            tree,
+            new[] { "A", "B" },
+            new PctSigmoidParameters(B0: 0.0, B1: 1.0, B2: 1.0, B3: 0.0));
+        var inputs = new ContextPlusPlusInputs(Conservation: conservation);
+
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, Let7a, site, inputs);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ctx.BranchLengthScore, Is.EqualTo(3.0).Within(1e-9),
+                "Bls({A,B}) on the worked tree = 3.0");
+            Assert.That(ctx.Pct, Is.EqualTo(0.952574126822433).Within(1e-12),
+                "PCT = 1/(1+e^-3) from the supplied sigmoid");
+            Assert.That(ctx.PctContribution, Is.EqualTo(-0.120239136106263).Within(1e-9),
+                "PCT contribution = -0.103 × (PCT/0.816) with the verbatim 8mer PCT parameters");
+            Assert.That(ctx.OmittedFeatures, Has.None.Contains("PCT"),
+                "supplied conservation ⇒ PCT no longer an honest residual");
+            Assert.That(ctx.ContextScorePartial, Is.EqualTo(
+                ctx.Intercept + ctx.LocalAuContribution + ctx.SRna1Contribution + ctx.SRna8Contribution
+                + ctx.Site8Contribution + ctx.SaContribution + ctx.ThreePrimePairingContribution
+                + ctx.MinDistContribution + ctx.Len3UtrContribution + ctx.Off6mContribution
+                + ctx.SpsContribution + ctx.TaContribution + ctx.LenOrfContribution
+                + ctx.Orf8mContribution + ctx.PctContribution).Within(1e-12),
+                "ContextScorePartial includes the PCT contribution");
+        });
+    }
+
+    // CTX-PCT-006 — per-site-type PCT parameters: a 7mer-m8 site with {A,C} (Bls=7.0) and the same
+    // sigmoid uses the 7mer-m8 PCT row (coeff -0.048, min 0, max 0.364):
+    //   PCT(7.0) = 1/(1+e^-7) = 0.999088948805599
+    //   contribution = -0.048 × (0.999088948805599 / 0.364) = -0.131747993249090.
+    [Test]
+    public void ScoreTargetSiteContextPlusPlus_Conservation_7merM8_UsesSiteTypePctParameters()
+    {
+        // 7mer-m8 = seed match to miRNA pos 2-8 WITHOUT a trailing A (no 'A' opposite pos 1).
+        // let-7a seedRC = CUACCUC ; place it with a non-A base 3' of the site to force 7mer-m8.
+        string mrna = "GGGGG" + Let7aSeedRC + "G" + "GGGGG";
+        var site = FindTargetSites(mrna, Let7a, minScore: 0.0).First(s => s.Type == TargetSiteType.Seed7merM8);
+
+        PhylogeneticAnalyzer.PhyloNode tree = PhylogeneticAnalyzer.ParseNewick(WorkedTreeNewick);
+        var conservation = new PctConservation(
+            tree,
+            new[] { "A", "C" },
+            new PctSigmoidParameters(B0: 0.0, B1: 1.0, B2: 1.0, B3: 0.0));
+
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, Let7a, site,
+            new ContextPlusPlusInputs(Conservation: conservation));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ctx.BranchLengthScore, Is.EqualTo(7.0).Within(1e-9), "Bls({A,C}) = 7.0");
+            Assert.That(ctx.Pct, Is.EqualTo(0.999088948805599).Within(1e-12), "PCT = 1/(1+e^-7)");
+            Assert.That(ctx.PctContribution, Is.EqualTo(-0.131747993249090).Within(1e-9),
+                "7mer-m8 PCT contribution uses coeff -0.048, max 0.364");
         });
     }
 

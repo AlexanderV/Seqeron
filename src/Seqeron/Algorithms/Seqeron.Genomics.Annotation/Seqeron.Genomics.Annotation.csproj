@@ -23,6 +23,9 @@
     <ProjectReference Include="..\Seqeron.Genomics.Alignment\Seqeron.Genomics.Alignment.csproj" />
     <!-- MIRNA-PRECURSOR-001: reuse the validated Zuker–Stiegler MFE folder (RNA-STRUCT-001). -->
     <ProjectReference Include="..\Seqeron.Genomics.Analysis\Seqeron.Genomics.Analysis.csproj" />
+    <!-- MIRNA-TARGET-001 (PCT): reuse the validated PhyloNode tree + Newick parser for the
+         Friedman 2009 branch-length-score (Bls) computation. -->
+    <ProjectReference Include="..\Seqeron.Genomics.Phylogenetics\Seqeron.Genomics.Phylogenetics.csproj" />
   </ItemGroup>
 
   <ItemGroup>

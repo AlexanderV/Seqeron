@@ -3,7 +3,7 @@
 ## Test Unit
 - **ID**: MIRNA-TARGET-001
 - **Area**: MiRNA
-- **Canonical methods**: `FindTargetSites(mRna, miRna, minScore)`, scoring via `CalculateTargetScore` (internal); `ScoreTargetSiteContextPlusPlus(mRna, miRna, site, ContextPlusPlusInputs)` (opt-in TargetScan context++, Agarwal 2015 — miRNA+3'UTR-derivable features incl. 3P_score/Min_dist/Len_3UTR/Off6m, plus caller-supplied SPS/TA/Len_ORF/ORF8m)
+- **Canonical methods**: `FindTargetSites(mRna, miRna, minScore)`, scoring via `CalculateTargetScore` (internal); `ScoreTargetSiteContextPlusPlus(mRna, miRna, site, ContextPlusPlusInputs)` (opt-in TargetScan context++, Agarwal 2015 — miRNA+3'UTR-derivable features incl. 3P_score/Min_dist/Len_3UTR/Off6m/SA, plus caller-supplied SPS/TA/Len_ORF/ORF8m and PCT via a caller-supplied alignment+tree); `ComputeBranchLengthScore(tree, speciesWithSite)` and `PctFromBranchLength(bls, sigmoidParams)` (Friedman 2009 PCT, opt-in)
 - **Supporting**: `AlignMiRnaToTarget`, `CreateTargetSite` (internal)
 
 ## Canonical Test File
@@ -134,6 +134,17 @@
 - **MCC-006 (MUST):** accessibility ∈ [0,1]; `1.0` when no pair can form; out-of-range / zero-length window throws `ArgumentOutOfRangeException`.
 - **CTX-SA-001 (MUST):** 8mer let-7a site in a 48-nt structured UTR → `SaContribution == coeff(SA,8mer) × (log10(plfold) - (-4.356))/((-0.661)-(-4.356))` with `plfold = CalculateRegionUnpairedProbability(localContext,…,14)` recomputed independently (`Within(1e-12)`); `SaContribution != 0`; SA not in `OmittedFeatures`; `ContextScorePartial` includes the SA term.
 
+### CTX-PCT-001..006: Friedman 2009 branch-length score (Bls) + PCT wired into context++ (new capability)
+
+**Source (retrieved verbatim this session):** Friedman et al. (2009) Genome Res 19:92 (doi:10.1101/gr.082701.108; PMC2612969) — Bls = total branch length connecting the species with the site perfectly aligned; `PCT = E[(S−B)/S]`; `targetscan.org/docs/pct.html` (PCT ≈ (S/B−1)/(S/B)); `targetscan_70_BL_PCT.pl` `calculatePCTthisBL` (`PCT = b0 + b1/(1+e^(−b2·BL+b3))`, truncated at 0); `targetscan_70_context_scores.pl` `getPCT_contribution` (min-max scaled like the other scaled features); `Agarwal_2015_parameters.txt` PCT row. Worked tree `((A:1.0,B:2.0):0.5,(C:1.5,D:3.0):4.0);`.
+
+- **CTX-PCT-001 (MUST):** `ComputeBranchLengthScore` on the worked tree: Bls({A,B})=3.0, Bls({A,C})=7.0, Bls({A,B,C,D})=12.0, Bls({A})=0.0 (`Within(1e-9)`; hand-derived from the minimal connecting-subtree definition).
+- **CTX-PCT-002 (MUST):** empty species set → Bls 0; null species / null tree → `ArgumentNullException`.
+- **CTX-PCT-003 (MUST):** `PctFromBranchLength(3.0, {0,1,1,0}) == 0.952574126822433` (`Within(1e-12)`) = `1/(1+e^-3)`.
+- **CTX-PCT-004 (MUST):** negative logistic output truncated to 0 (`{-0.5,0.3,1,5}`, Bls=0 → raw ≈ -0.498 → 0).
+- **CTX-PCT-005 (MUST):** 8mer + `Conservation` (worked tree, {A,B}, sigmoid {0,1,1,0}) → `BranchLengthScore==3.0`; `Pct==0.952574126822433`; `PctContribution == -0.103×(Pct/0.816) == -0.120239136106263` (`Within(1e-9)`); `PCT` drops from `OmittedFeatures`; `ContextScorePartial` includes the PCT term.
+- **CTX-PCT-006 (MUST):** 7mer-m8 + `Conservation` ({A,C}, Bls=7.0) → `Pct==0.999088948805599`; `PctContribution == -0.048×(Pct/0.364) == -0.131747993249090` — verifies the per-site-type PCT parameters.
+
 ---
 
 ## Could Tests
@@ -189,6 +200,12 @@
 | MCC-005 | CalculateRegionUnpairedProbability_GAAAC_WholeWindow_EqualsInverseZ | ✅ Covered | accessibility = 1/Z |
 | MCC-006 | CalculateRegionUnpairedProbability_Bounds / _WindowOutOfRange_Throws / edge tests | ✅ Covered | bounds, no-pair=1.0, OOR throws, null/empty/short, temp≤0 |
 | CTX-SA-001 | ScoreTargetSiteContextPlusPlus_SA_8mer_MatchesHandDerivedAccessibility | ✅ Covered | SA = coeff×scaled(log10 plfold); SA in partial sum; not residual |
+| CTX-PCT-001 | ComputeBranchLengthScore_WorkedTree_MatchesHandDerivedBls | ✅ Covered | Bls {A,B}=3.0, {A,C}=7.0, all=12.0, {A}=0.0 |
+| CTX-PCT-002 | ComputeBranchLengthScore_NoSpecies_IsZero | ✅ Covered | empty→0; null tree/species→ArgumentNullException |
+| CTX-PCT-003 | PctFromBranchLength_SimpleSigmoid_MatchesHandDerivedValue | ✅ Covered | PCT(3.0)=1/(1+e^-3) |
+| CTX-PCT-004 | PctFromBranchLength_NegativeRaw_TruncatedToZero | ✅ Covered | negative logistic output→0 |
+| CTX-PCT-005 | ScoreTargetSiteContextPlusPlus_ConservationSupplied_8mer_PctEntersScoreAndDropsResidual | ✅ Covered | Bls→PCT→ -0.120239136106263; PCT drops from residual; in partial sum |
+| CTX-PCT-006 | ScoreTargetSiteContextPlusPlus_Conservation_7merM8_UsesSiteTypePctParameters | ✅ Covered | 7mer-m8 PCT params: -0.131747993249090 |
 
 ### Resolved Issues (this cycle)
 

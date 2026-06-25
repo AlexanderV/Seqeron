@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Seqeron.Genomics.Analysis;
+using Seqeron.Genomics.Phylogenetics;
 
 namespace Seqeron.Genomics.Annotation;
 
@@ -509,6 +510,9 @@ public static class MiRnaAnalyzer
     /// <param name="TaContribution">coeff(TA_3UTR) × scaled(caller-supplied TA). 0 (and listed as omitted) unless a TA value is supplied.</param>
     /// <param name="LenOrfContribution">coeff(Len_ORF) × scaled(log10 caller-supplied ORF length). 0 (and listed as omitted) unless an ORF length is supplied.</param>
     /// <param name="Orf8mContribution">coeff(ORF8m) × caller-supplied ORF-8mer count (used raw). 0 (and listed as omitted) unless an ORF-8mer count is supplied.</param>
+    /// <param name="PctContribution">coeff(PCT) × scaled(PCT value). PCT is computed from the Friedman et al. (2009) branch-length score (Bls) via the published sigmoid; 0 (and listed as omitted) unless a <see cref="ContextPlusPlusInputs.Conservation"/> input is supplied.</param>
+    /// <param name="BranchLengthScore">The Friedman et al. (2009) branch-length score (Bls) computed from the supplied conservation tree, or 0 when no conservation input was supplied.</param>
+    /// <param name="Pct">The probability of conserved targeting (PCT) computed from <paramref name="BranchLengthScore"/> via the published sigmoid, or 0 when no conservation input was supplied.</param>
     /// <param name="ContextScorePartial">Sum of all realised contributions above.</param>
     /// <param name="OmittedFeatures">context++ features NOT included for this call (honest residual; depends on which optional inputs were supplied).</param>
     public readonly record struct ContextPlusPlusScore(
@@ -527,6 +531,9 @@ public static class MiRnaAnalyzer
         double TaContribution,
         double LenOrfContribution,
         double Orf8mContribution,
+        double PctContribution,
+        double BranchLengthScore,
+        double Pct,
         double ContextScorePartial,
         IReadOnlyList<string> OmittedFeatures);
 
@@ -541,11 +548,60 @@ public static class MiRnaAnalyzer
     /// <param name="Ta">Target-site abundance (transcriptome-wide log10 site count; min-max scaled). Data-blocked: requires a transcriptome.</param>
     /// <param name="OrfLength">ORF (CDS) length in nucleotides (log10-transformed, then min-max scaled). Requires the transcript's ORF.</param>
     /// <param name="Orf8mCount">Count of cognate 8mer sites in the ORF (used raw, no scaling). Requires the transcript's ORF.</param>
+    /// <param name="Conservation">Multi-species conservation input (a phylogenetic tree + the set of species in which the site is conserved + the published per-site-type PCT sigmoid parameters). When supplied, the library computes the Friedman et al. (2009) branch-length score (Bls) and the resulting PCT value, then applies the bundled Agarwal et al. (2015) PCT coefficient. <c>null</c> ⇒ PCT stays an honest residual.</param>
     public readonly record struct ContextPlusPlusInputs(
         double? Sps = null,
         double? Ta = null,
         double? OrfLength = null,
-        int? Orf8mCount = null);
+        int? Orf8mCount = null,
+        PctConservation? Conservation = null);
+
+    // ── PCT (probability of conserved targeting) — Friedman et al. (2009) Genome Res 19:92 ──
+    // Bls definition (Methods, retrieved verbatim this session): "The conservation of a given
+    // sequence (e.g., an 8mer miR-1 site in a particular 3'UTR) was then assessed by summing the
+    // total branch length in the phylogenetic tree connecting the subset of species having the
+    // sequence perfectly aligned." (doi:10.1101/gr.082701.108; PMC2612969)
+    // PCT definition (Methods): "the P_CT was defined as E[(S − B)/S]" — a signal-to-background
+    // correction (targetscan.org/docs/pct.html: PCT ≈ (S/B − 1)/(S/B), or near zero for S/B < 1).
+    // TargetScan parameterises the Bls→PCT relationship as a logistic (sigmoid) curve
+    // (targetscan_70_BL_PCT.pl, calculatePCTthisBL, retrieved verbatim this session):
+    //   $pct = $b0 + ( $b1 / (1 + $eConstant ** ( (0 - $b2) * $BL + $b3))); if ($pct < 0) { $pct = 0; }
+    // i.e. PCT(Bls) = b0 + b1 / (1 + e^(−b2·Bls + b3)), truncated at 0.
+    // The per-miRNA-family b0..b3 are in TargetScan's COMPILED, citation-required data tables and
+    // are NOT published as numbers in Friedman 2009 → they are CALLER-SUPPLIED here (not bundled,
+    // not invented). The library bundles only the published EQUATION + the Agarwal PCT coefficient.
+
+    /// <summary>
+    /// The four published logistic (sigmoid) parameters that map a branch-length score (Bls) to a
+    /// PCT value for one miRNA family + site type, per <c>targetscan_70_BL_PCT.pl</c>
+    /// (<c>calculatePCTthisBL</c>): <c>PCT(Bls) = B0 + B1 / (1 + e^(−B2·Bls + B3))</c>, truncated at 0.
+    /// </summary>
+    /// <remarks>
+    /// These coefficients are fitted per miRNA family in TargetScan's compiled, citation-required
+    /// data tables (8mer/7mer-m8/7mer-1a <c>PCT_parameters.txt</c>); Friedman et al. (2009) does not
+    /// publish them as numbers. They are therefore caller-supplied (not bundled with the library),
+    /// matching how SPS / TA / ORF inputs are caller-supplied.
+    /// </remarks>
+    /// <param name="B0">Offset term (b0).</param>
+    /// <param name="B1">Scale term (b1).</param>
+    /// <param name="B2">Bls slope inside the logistic (b2).</param>
+    /// <param name="B3">Logistic offset (b3).</param>
+    public readonly record struct PctSigmoidParameters(double B0, double B1, double B2, double B3);
+
+    /// <summary>
+    /// Multi-species conservation evidence for one target site: the phylogenetic tree relating the
+    /// aligned species, the set of species in which the seed match is conserved (perfectly aligned),
+    /// and the published per-site-type PCT sigmoid parameters. The library derives the Friedman
+    /// et al. (2009) branch-length score (Bls) from <see cref="Tree"/> + <see cref="SpeciesWithSite"/>
+    /// and the PCT value from <see cref="SigmoidParameters"/>.
+    /// </summary>
+    /// <param name="Tree">A phylogenetic tree (<see cref="PhylogeneticAnalyzer.PhyloNode"/>; e.g. parsed from Newick) whose LEAF names are species identifiers and whose <c>BranchLength</c> values are the edge lengths.</param>
+    /// <param name="SpeciesWithSite">The species (leaf names) in which the seed match is conserved (perfectly aligned). Bls = total branch length of the minimal subtree connecting these species (Friedman 2009).</param>
+    /// <param name="SigmoidParameters">The caller-supplied published per-site-type b0..b3 (see <see cref="PctSigmoidParameters"/>).</param>
+    public readonly record struct PctConservation(
+        PhylogeneticAnalyzer.PhyloNode Tree,
+        IReadOnlyCollection<string> SpeciesWithSite,
+        PctSigmoidParameters SigmoidParameters);
 
     // ── Agarwal et al. (2015) context++ fitted coefficients ──────────────────────────────
     // Source (retrieved verbatim this session): TargetScan distribution parameter file
@@ -633,6 +689,17 @@ public static class MiRnaAnalyzer
     // ORF8m row (ORF 8mer count; caller-supplied): coeff only — used raw (NOT min-max scaled).
     private const double CtxOrf8mCoeff8mer = -0.118, CtxOrf8mCoeff7merM8 = -0.044, CtxOrf8mCoeff7merA1 = -0.058, CtxOrf8mCoeff6mer = -0.060;
 
+    // PCT row (probability of conserved targeting; Friedman et al. 2009): coeff, then min/max for
+    // min-max scaling of the PCT value. PCT enters getAgarwalContribution exactly like the other
+    // scaled features (targetscan_70_context_scores.pl getPCT_contribution → getAgarwalContribution,
+    // PCT matches the min-max regex branch). Verbatim from Agarwal_2015_parameters.txt (PCT row),
+    // column order 8mer / 7mer-m8 / 7mer-A1 / 6mer (coeff×4, min×4, max×4):
+    //   PCT  -0.103  -0.048  -0.048  0.005  0  0  0  0  0.816  0.364  0.449  0.193
+    private const double CtxPctCoeff8mer = -0.103, CtxPctMin8mer = 0.0, CtxPctMax8mer = 0.816;
+    private const double CtxPctCoeff7merM8 = -0.048, CtxPctMin7merM8 = 0.0, CtxPctMax7merM8 = 0.364;
+    private const double CtxPctCoeff7merA1 = -0.048, CtxPctMin7merA1 = 0.0, CtxPctMax7merA1 = 0.449;
+    private const double CtxPctCoeff6mer = 0.005, CtxPctMin6mer = 0.0, CtxPctMax6mer = 0.193;
+
     // SA row (structural accessibility): coeff, then min/max for min-max scaling of log10(plfold).
     // Verbatim from Agarwal_2015_parameters.txt (SA row), column order 8mer / 7mer-m8 / 7mer-A1 / 6mer:
     //   SA  -0.115  -0.134  -0.077  -0.028  -4.356  -5.218  -4.23  -5.082  -0.661  -0.725  -0.588  -0.666
@@ -680,8 +747,13 @@ public static class MiRnaAnalyzer
     /// (<see cref="RnaSecondaryStructure.CalculateRegionUnpairedProbability"/>) — the 14-nt-window
     /// unpaired probability, log10-transformed and min-max scaled exactly as in
     /// <c>getSA_contribution</c> — and is omitted only when that window does not fit the local
-    /// 3'UTR context. Conservation (PCT) remains an honest residual. The returned score is
-    /// therefore still a PARTIAL context++ score, not the published headline CS.
+    /// 3'UTR context. Conservation (PCT) is computed when the caller supplies a
+    /// <see cref="ContextPlusPlusInputs.Conservation"/> input (a tree + the species in which the
+    /// site is conserved + the published per-site-type sigmoid parameters): the library derives the
+    /// Friedman et al. (2009) branch-length score (Bls), maps it to a PCT value via the published
+    /// sigmoid, and applies the bundled Agarwal PCT coefficient. Otherwise PCT stays an honest
+    /// residual. The returned score is therefore still a PARTIAL context++ score, not the published
+    /// headline CS.
     /// </summary>
     /// <param name="mRnaSequence">The mRNA / 3'UTR sequence the site was found in (RNA or DNA; T→U; case-insensitive). Treated as the 3'UTR for the length / Min_dist / Off6m features.</param>
     /// <param name="miRna">The miRNA (its <c>Sequence</c> supplies nt1, nt8, the seed and the 3' supplementary region).</param>
@@ -735,9 +807,17 @@ public static class MiRnaAnalyzer
         double lenOrf = inputs.OrfLength is double orfLen ? LenOrfContribution(orfLen, type) : 0.0;
         double orf8m = inputs.Orf8mCount is int orf8mCount ? Orf8mContribution(orf8mCount, type) : 0.0;
 
+        double bls = 0.0, pct = 0.0, pctContribution = 0.0;
+        if (inputs.Conservation is PctConservation conservation)
+        {
+            bls = ComputeBranchLengthScore(conservation.Tree, conservation.SpeciesWithSite);
+            pct = PctFromBranchLength(bls, conservation.SigmoidParameters);
+            pctContribution = PctContribution(pct, type);
+        }
+
         double partial = intercept + localAu + sRna1 + sRna8 + site8 + sa
             + threeP + minDist + len3Utr + off6m
-            + sps + ta + lenOrf + orf8m;
+            + sps + ta + lenOrf + orf8m + pctContribution;
 
         return new ContextPlusPlusScore(
             SiteType: type,
@@ -755,6 +835,9 @@ public static class MiRnaAnalyzer
             TaContribution: ta,
             LenOrfContribution: lenOrf,
             Orf8mContribution: orf8m,
+            PctContribution: pctContribution,
+            BranchLengthScore: bls,
+            Pct: pct,
             ContextScorePartial: partial,
             OmittedFeatures: BuildOmittedFeatures(inputs, saIncluded));
     }
@@ -771,7 +854,8 @@ public static class MiRnaAnalyzer
         var omitted = new List<string>();
         if (!saIncluded)
             omitted.Add("SA (structural accessibility — window does not fit the local 3'UTR context)");
-        omitted.Add("PCT (probability of conserved targeting)");
+        if (inputs.Conservation is null)
+            omitted.Add("PCT (probability of conserved targeting — requires a multi-species alignment + tree)");
         if (inputs.Sps is null) omitted.Add("SPS (predicted seed-pairing stability — requires Garcia et al. 2011 seed-region table)");
         if (inputs.Ta is null) omitted.Add("TA_3UTR (target-site abundance — requires a transcriptome)");
         if (inputs.OrfLength is null) omitted.Add("Len_ORF (ORF length — requires the transcript ORF)");
@@ -1322,6 +1406,124 @@ public static class MiRnaAnalyzer
             _ => CtxOrf8mCoeff6mer
         };
         return coeff * count; // used raw (no scaling)
+    }
+
+    // ── PCT (probability of conserved targeting) — Friedman et al. (2009) ───────────────────
+
+    /// <summary>
+    /// Computes the Friedman et al. (2009) <b>branch-length score (Bls)</b> for a seed match: the
+    /// total branch length of the minimal subtree of <paramref name="tree"/> that connects the
+    /// <paramref name="speciesWithSite"/> (the species in which the site is perfectly aligned).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Per Friedman et al. (2009) Genome Res 19:92 (Methods): conservation "was then assessed by
+    /// summing the total branch length in the phylogenetic tree connecting the subset of species
+    /// having the sequence perfectly aligned." An edge belongs to that connecting subtree iff at
+    /// least one species-with-site lies on each side of the edge (i.e. the edge is on a path
+    /// between two such species). A single species (or none) yields Bls = 0.
+    /// </para>
+    /// <para>
+    /// Leaf matching uses the leaf <see cref="PhylogeneticAnalyzer.PhyloNode.Name"/>; only species
+    /// present in <paramref name="speciesWithSite"/> that also appear as a leaf of the tree count.
+    /// </para>
+    /// </remarks>
+    /// <param name="tree">A phylogenetic tree whose leaf names are species identifiers and whose <c>BranchLength</c> values are edge lengths (e.g. parsed via <see cref="PhylogeneticAnalyzer.ParseNewick"/>).</param>
+    /// <param name="speciesWithSite">Species (leaf names) in which the site is conserved.</param>
+    /// <returns>The branch-length score (≥ 0).</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="tree"/> or <paramref name="speciesWithSite"/> is null.</exception>
+    public static double ComputeBranchLengthScore(
+        PhylogeneticAnalyzer.PhyloNode tree,
+        IReadOnlyCollection<string> speciesWithSite)
+    {
+        ArgumentNullException.ThrowIfNull(tree);
+        ArgumentNullException.ThrowIfNull(speciesWithSite);
+
+        var present = new HashSet<string>(speciesWithSite, StringComparer.Ordinal);
+        if (present.Count == 0)
+            return 0.0;
+
+        double total = 0.0;
+        AccumulateConnectingBranchLength(tree, present, out _, ref total);
+        return total;
+    }
+
+    // Post-order walk. Returns, via <paramref name="subtreeHasSite"/>, whether the subtree rooted at
+    // <paramref name="node"/> contains ≥1 species-with-site. A child edge is added to the connecting
+    // subtree iff the child's subtree contains a species-with-site AND there is at least one
+    // species-with-site outside that subtree (so the edge lies on a connecting path). Branch length
+    // of the root edge itself is never counted (the root has no parent edge within the tree).
+    private static void AccumulateConnectingBranchLength(
+        PhylogeneticAnalyzer.PhyloNode node,
+        HashSet<string> present,
+        out bool subtreeHasSite,
+        ref double total)
+    {
+        if (node.IsLeaf)
+        {
+            subtreeHasSite = present.Contains(node.Name);
+            return;
+        }
+
+        bool anyChildHasSite = false;
+        foreach (var child in node.Children)
+        {
+            AccumulateConnectingBranchLength(child, present, out bool childHasSite, ref total);
+            if (childHasSite)
+            {
+                anyChildHasSite = true;
+                // The edge from node→child is on a connecting path iff there is a species-with-site
+                // both inside (childHasSite) and outside the child's subtree. "Outside" means the
+                // total present count exceeds the count within the child's subtree. We detect this
+                // structurally below after the loop; for the common case we add the edge whenever
+                // the child subtree does not contain ALL present species.
+                if (CountPresentInSubtree(child, present) < present.Count)
+                    total += child.BranchLength;
+            }
+        }
+
+        subtreeHasSite = anyChildHasSite;
+    }
+
+    private static int CountPresentInSubtree(PhylogeneticAnalyzer.PhyloNode node, HashSet<string> present)
+    {
+        if (node.IsLeaf)
+            return present.Contains(node.Name) ? 1 : 0;
+        int sum = 0;
+        foreach (var child in node.Children)
+            sum += CountPresentInSubtree(child, present);
+        return sum;
+    }
+
+    /// <summary>
+    /// Maps a branch-length score (Bls) to a PCT value using the published TargetScan logistic
+    /// relationship (<c>targetscan_70_BL_PCT.pl</c>, <c>calculatePCTthisBL</c>):
+    /// <c>PCT(Bls) = B0 + B1 / (1 + e^(−B2·Bls + B3))</c>, truncated at 0.
+    /// </summary>
+    /// <param name="branchLengthScore">The Friedman et al. (2009) branch-length score.</param>
+    /// <param name="p">The caller-supplied published per-site-type sigmoid parameters.</param>
+    /// <returns>PCT ∈ [0, ∞) (in practice [0, 1]); negative values are truncated to 0 as in the reference.</returns>
+    public static double PctFromBranchLength(double branchLengthScore, PctSigmoidParameters p)
+    {
+        // targetscan_70_BL_PCT.pl: $pct = $b0 + ( $b1 / (1 + e ** ( (0 - $b2) * $BL + $b3)));
+        double pct = p.B0 + p.B1 / (1.0 + Math.Exp(-p.B2 * branchLengthScore + p.B3));
+        // targetscan_70_BL_PCT.pl: if ($pct < 0) { $pct = "0.0"; }
+        return pct < 0.0 ? 0.0 : pct;
+    }
+
+    // PCT enters getAgarwalContribution as a min-max-scaled feature × the site-type PCT coefficient
+    // (targetscan_70_context_scores.pl getPCT_contribution → getAgarwalContribution; PCT matches the
+    // min-max regex branch alongside TA_3UTR/SPS/Local_AU/3P_score/SA/Len_ORF/Len_3UTR/Min_dist).
+    private static double PctContribution(double pct, TargetSiteType type)
+    {
+        (double coeff, double min, double max) = type switch
+        {
+            TargetSiteType.Seed8mer => (CtxPctCoeff8mer, CtxPctMin8mer, CtxPctMax8mer),
+            TargetSiteType.Seed7merM8 => (CtxPctCoeff7merM8, CtxPctMin7merM8, CtxPctMax7merM8),
+            TargetSiteType.Seed7merA1 => (CtxPctCoeff7merA1, CtxPctMin7merA1, CtxPctMax7merA1),
+            _ => (CtxPctCoeff6mer, CtxPctMin6mer, CtxPctMax6mer)
+        };
+        return ScaledContribution(pct, coeff, min, max);
     }
 
     #endregion

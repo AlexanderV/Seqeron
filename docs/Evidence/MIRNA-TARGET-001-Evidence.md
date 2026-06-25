@@ -202,3 +202,40 @@ $SA_contribution = getAgarwalContribution($siteType, "SA", $log10_plfold);
 | 7mer-m8 | let-7a; `GGGGG+CUACCUC+GGGG`; fraction 0 | Int=-0.224; Local_AU=-0.177×((0-0.277)/(0.782-0.277))=+0.097087128712871; sRNA8G=-0.008 | **-0.134912871287129** |
 | 7mer-A1 | let-7a; `GGGGG+UACCUC+A+GGGG`; Site8 base 'G'; fraction 0 | Int=-0.195; Local_AU=-0.075×((0-0.342)/(0.801-0.342))=+0.055882352941176; sRNA8G=-0.017; Site8G=+0.015 | **-0.141117647058824** |
 | 6mer | miR-21 (nt1=U,nt8=U); `GGGGC+UAAGCU+UGAGG`; Site8 base 'C'; fraction 0.357142857142857 | Int=-0.079; Local_AU=-0.040×((0.357142857142857-0.295)/(0.772-0.295))=-0.005211141060198; Site8C=+0.015 | **-0.069211141060198** |
+
+## PCT — probability of conserved targeting (Friedman et al. 2009)
+
+### Online Sources (retrieved verbatim this session)
+
+- **Friedman RC, Farh KKH, Burge CB, Bartel DP. 2009. "Most mammalian mRNAs are conserved targets of microRNAs." Genome Research 19(1):92-105. doi:10.1101/gr.082701.108.** Retrieved via `WebFetch` of `https://pmc.ncbi.nlm.nih.gov/articles/PMC2612969/`. Methods (verbatim): *"The conservation of a given sequence (e.g., an 8mer miR-1 site in a particular 3′UTR) was then assessed by summing the total branch length in the phylogenetic tree connecting the subset of species having the sequence perfectly aligned…"* and *"the P_CT was defined as E[(S − B)/S] where B, the background estimate, is a constant, and S is a random variable."*
+- **TargetScan PCT documentation.** Retrieved via `WebFetch` of `https://www.targetscan.org/docs/pct.html`: PCT *"is approximately equal to (S/B − 1)/(S/B) (or near zero, for sites with S/B < 1)"*; aggregate PCT `= 1 − Π(1 − PCT_site_i)`.
+- **`targetscan_70_BL_PCT.pl`** (`calculatePCTthisBL`). Retrieved via `WebFetch` of `https://raw.githubusercontent.com/nsoranzo/targetscan/main/targetscan_70_BL_PCT.pl`. Verbatim: `my $pct = $b0 + ( $b1 / (1 + $eConstant ** ( (0 - $b2) * $BL + $b3)));` with `$eConstant = 2.71828182845904523536;` and `if ($pct < 0) { $pct = "0.0"; }`. Branch length ≤ 0 ⇒ PCT 0; the four coefficients are retrieved **per miRNA family and site type** from the compiled `8mer_PCT_parameters.txt` / `7mer_m8_PCT_parameters.txt` / `7mer_1a_PCT_parameters.txt` (column 1 = miRNA family, columns 2–5 = `b0,b1,b2,b3`).
+- **`targetscan_70_context_scores.pl`** (`getPCT_contribution` → `getAgarwalContribution`). Retrieved this session: PCT matches the min-max-scaling regex branch `/^TA_3UTR$|^SPS$|^Local_AU$|^3P_score$|^SA$|^Len_ORF$|^Len_3UTR$|^Min_dist$|^PCT$/`, so its context++ contribution is `coeff × (pct − min)/(max − min)` exactly like the other scaled features.
+
+### Bls definition used in the implementation
+
+**Bls = total branch length of the minimal subtree of the phylogenetic tree connecting the species in which the seed match is perfectly aligned** (Friedman 2009). An edge belongs to that connecting subtree iff at least one conserved species lies on each side of the edge. A single conserved species (or none) ⇒ Bls = 0 (consistent with the perl's `branchLength == 0 ⇒ PCT 0`).
+
+### PCT formula (parameterised; parameters caller-supplied)
+
+`PCT(Bls) = b0 + b1 / (1 + e^(−b2·Bls + b3))`, truncated at 0. **Licence/sourcing note:** Friedman 2009 publishes the Bls definition and `PCT = E[(S−B)/S]` but does **not** publish the fitted `b0..b3` as numbers; those live in TargetScan's compiled, citation-required `*_PCT_parameters.txt` tables (per miRNA family). Per the stop-rule, the `b0..b3` are therefore **caller-supplied** (`PctSigmoidParameters`) — not bundled, not invented. Only the published **equation** and the Agarwal **PCT coefficient** (a permissive scientific-fact constant, like the other context++ coefficients) are bundled.
+
+### Worked examples (hand-derived; used as exact test expectations)
+
+Worked tree (Newick): `((A:1.0,B:2.0):0.5,(C:1.5,D:3.0):4.0);`
+
+| Conserved species | Bls (hand-derived) | Reasoning |
+|-------------------|--------------------|-----------|
+| {A, B} | **3.0** | A(1.0)+B(2.0); the (A,B)→root edge (0.5) is not counted (no conserved species outside the {A,B} subtree) |
+| {A, C} | **7.0** | A(1.0)+(A,B)→root(0.5)+(C,D)→root(4.0)+C(1.5) |
+| {A, B, C, D} | **12.0** | all four leaf edges (1+2+1.5+3) + both internal edges (0.5+4.0) |
+| {A} | **0.0** | a single conserved species — no connecting subtree |
+
+PCT with the simple sigmoid `b0=0, b1=1, b2=1, b3=0` (so PCT = 1/(1+e^(−Bls))):
+- `PCT(3.0) = 1/(1+e^-3) = 0.952574126822433`.
+- `PCT(7.0) = 1/(1+e^-7) = 0.999088948805599`.
+- Negative-truncation case `b0=-0.5, b1=0.3, b2=1, b3=5`, `Bls=0`: raw `= -0.5 + 0.3/(1+e^5) ≈ -0.498 < 0 ⇒ 0`.
+
+context++ PCT contribution (verbatim PCT row of `Agarwal_2015_parameters.txt`, min 0):
+- 8mer (coeff -0.103, max 0.816), PCT(3.0): `-0.103 × (0.952574126822433/0.816) = -0.120239136106263`.
+- 7mer-m8 (coeff -0.048, max 0.364), PCT(7.0): `-0.048 × (0.999088948805599/0.364) = -0.131747993249090`.

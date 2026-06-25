@@ -135,7 +135,7 @@ Separately, `ScoreTargetSiteContextPlusPlus` provides an **opt-in** TargetScan c
 - **Len_3UTR** — `log10(3'UTR length)`, min-max scaled (`get_len3UTR_weighted_contribution`).
 - **Off6m** — count of the offset-6mer pattern (first 6 nt of `reverse_complement(seed 2-8)`) in the 3'UTR, used raw (`getOffset6merSites` + `getOffset6mer_weighted_contribution`).
 
-The features the library cannot derive from sequence alone — **SPS** (Garcia et al. 2011 seed-region table value), **TA_3UTR** (transcriptome-wide site abundance), **Len_ORF** and **ORF8m** (require the transcript ORF) — are computed faithfully **only when the caller supplies them** via `ContextPlusPlusInputs`; otherwise they contribute 0 and are listed in `OmittedFeatures`. **SA** (RNAplfold partition-function unpaired probability of a 14-nt window) and **PCT** (probability of conserved targeting) are always honest residuals (a partition-function accessibility / multi-species alignment is out of scope). All coefficients are the verbatim values from `Agarwal_2015_parameters.txt` [6] and every feature/scaling formula is ported from `targetscan_70_context_scores.pl` [7]. The returned `ContextScorePartial` is therefore a partial context++ score, not the published headline CS.
+The features the library cannot derive from sequence alone — **SPS** (Garcia et al. 2011 seed-region table value), **TA_3UTR** (transcriptome-wide site abundance), **Len_ORF** and **ORF8m** (require the transcript ORF) — are computed faithfully **only when the caller supplies them** via `ContextPlusPlusInputs`; otherwise they contribute 0 and are listed in `OmittedFeatures`. **PCT** (probability of conserved targeting) is computed when the caller supplies a `Conservation` input (a phylogenetic tree + the species in which the site is conserved + the published per-site-type sigmoid parameters): the library derives the **Friedman et al. (2009) branch-length score (Bls)** — the total branch length of the minimal subtree connecting the conserved species [8] — then maps it to a PCT value via the published logistic `PCT(Bls) = b0 + b1/(1 + e^(−b2·Bls + b3))`, truncated at 0 (`targetscan_70_BL_PCT.pl`, `calculatePCTthisBL` [9]), and applies the bundled Agarwal PCT coefficient with the verbatim min-max scaling. The per-miRNA-family `b0..b3` live in TargetScan's compiled, citation-required tables and are NOT published as numbers in Friedman 2009, so they are caller-supplied (not bundled). **SA** (a 14-nt-window unpaired probability) is computed from the Turner-2004 McCaskill partition function. All context++ coefficients are the verbatim values from `Agarwal_2015_parameters.txt` [6] and every feature/scaling formula is ported from `targetscan_70_context_scores.pl` [7]. The returned `ContextScorePartial` is therefore a partial context++ score, not the published headline CS.
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -145,18 +145,19 @@ The features the library cannot derive from sequence alone — **SPS** (Garcia e
 - Antiparallel seed reverse-complement matching between miRNA and target [1][2].
 - Priority ordering that prefers stronger canonical seed classes over weaker offset-6mer interpretations at overlapping positions [1][3].
 - (Opt-in `ScoreTargetSiteContextPlusPlus`) The context++ features computable from the miRNA and the supplied 3'UTR — site-type Intercept, Local_AU, sRNA position-1/8 and target site-position-8 nucleotide-identity indicators, **3' supplementary pairing (3P_score), minimum distance to the 3'UTR end (Min_dist), 3'UTR length (Len_3UTR), and offset-6mer count (Off6m)** — plus the data-blocked features **SPS, TA_3UTR, Len_ORF, ORF8m** when supplied by the caller; all with the **verbatim fitted coefficients** from `Agarwal_2015_parameters.txt` [6] and the per-site-type min-max scaling / DP / indicator logic ported exactly from `targetscan_70_context_scores.pl` [7] (3P_score raw values cross-checked against the reference perl).
+- (Opt-in `ScoreTargetSiteContextPlusPlus`, `ComputeBranchLengthScore`, `PctFromBranchLength`) The **PCT** (probability of conserved targeting) feature: the Friedman et al. (2009) **branch-length score** — the total branch length of the minimal subtree connecting the species in which the site is conserved [8] — and its mapping to a PCT value via the published logistic `PCT(Bls) = b0 + b1/(1 + e^(−b2·Bls + b3))`, truncated at 0 [9], then entering context++ with the verbatim Agarwal PCT coefficient + min-max scaling [6][7]. Computed when the caller supplies a `Conservation` input (tree + conserved-species set + the published per-site-type `b0..b3`).
 
 **Intentionally simplified:**
 
 - The default `Score` is a heuristic normalization of site class, mismatch burden, and extra pairing rather than a fitted repression model; **consequence:** `Score` ranks hits within this implementation but is not a calibrated repression probability. (The opt-in `ScoreTargetSiteContextPlusPlus` provides the source-fitted context++ alternative.)
-- (Opt-in context++) The score still omits the genuinely data-/method-blocked features: **SA** (RNAplfold partition-function unpaired probability — the library has only MFE folding, so SA is left as an honest residual rather than approximated by MFE), **PCT** (requires a multi-species alignment / branch length), and **SPS / TA_3UTR / Len_ORF / ORF8m** unless the caller supplies them via `ContextPlusPlusInputs`; **consequence:** `ContextScorePartial` is a partial context++ score, reported alongside the explicit `OmittedFeatures` list of whatever remains residual for that call.
+- (Opt-in context++) The PCT **sigmoid parameters** `b0..b3` are caller-supplied rather than bundled: TargetScan fits them per miRNA family and ships them only in compiled, citation-required data tables, and Friedman 2009 does not publish them as numbers; the library bundles only the published equation + the Agarwal PCT coefficient. **SPS / TA_3UTR / Len_ORF / ORF8m** are likewise contributed only when the caller supplies them via `ContextPlusPlusInputs`; **consequence:** `ContextScorePartial` is a partial context++ score, reported alongside the explicit `OmittedFeatures` list of whatever remains residual for that call.
 - Duplex free energy is derived from simple match, wobble, and mismatch rules over an approximate alignment scan; **consequence:** the reported `FreeEnergy` is useful comparatively inside the repository but is not a nearest-neighbor folding energy and should not be interpreted as a full per-position thermodynamic score.
 - Context and accessibility are exposed only as separate helper methods; **consequence:** the main finder does not integrate AU context, conservation, or accessibility into site discovery or ranking.
 
 **Not implemented:**
 
 - Discovery of centered sites, supplementary-only sites, and bulged seed sites; **users should rely on:** `AnalyzeTargetContext` and `CalculateSiteAccessibility` only for separate annotations, or use an external miRNA target-prediction tool for broader site classes.
-- The full context++ headline score: the still-residual features (`SA`, `PCT`, and — unless supplied — `SPS`, `TA_3UTR`, `Len_ORF`, `ORF8m`) require RNA partition-function structure, multi-species conservation, the Garcia et al. 2011 SPS table, a transcriptome, and the transcript ORF — none derivable from a single 3'UTR sequence; **users should rely on:** the official TargetScan distribution for the full CS, supply the data-blocked features via `ContextPlusPlusInputs`, or treat `ContextScorePartial` as a partial score.
+- The full context++ headline score: the data-/parameter-blocked features (unless supplied — `SPS`, `TA_3UTR`, `Len_ORF`, `ORF8m`, and the PCT sigmoid parameters) require the Garcia et al. 2011 SPS table, a transcriptome, the transcript ORF, and TargetScan's per-family conservation fits — none derivable from a single 3'UTR sequence; **users should rely on:** the official TargetScan distribution for the full CS, supply the blocked features via `ContextPlusPlusInputs`, or treat `ContextScorePartial` as a partial score.
 
 ### 5.4 Deviations and Assumptions
 
@@ -202,12 +203,22 @@ var sites = MiRnaAnalyzer.FindTargetSites(mrna, let7a, minScore: 0.1).ToList();
 var ctx = MiRnaAnalyzer.ScoreTargetSiteContextPlusPlus(mrna, let7a, sites[0]);
 // ctx.ContextScorePartial    -> partial CS (Intercept + Local_AU + sRNA1/8 + Site8
 //                               + 3P_score + Min_dist + Len_3UTR + Off6m)
-// ctx.OmittedFeatures        -> still-residual features (SA, PCT, + SPS/TA/Len_ORF/ORF8m if not supplied)
+// ctx.OmittedFeatures        -> still-residual features (PCT + SPS/TA/Len_ORF/ORF8m if not supplied)
 
 // Supply the data-blocked features to fold them in (else they stay residual):
 var withData = MiRnaAnalyzer.ScoreTargetSiteContextPlusPlus(
     mrna, let7a, sites[0],
     new MiRnaAnalyzer.ContextPlusPlusInputs(Sps: -8.0, Ta: 3.5, OrfLength: 1000, Orf8mCount: 2));
+
+// PCT from multi-species conservation (Friedman 2009 Bls → published sigmoid → context++):
+var tree = PhylogeneticAnalyzer.ParseNewick("((A:1.0,B:2.0):0.5,(C:1.5,D:3.0):4.0);");
+var conservation = new MiRnaAnalyzer.PctConservation(
+    tree,
+    new[] { "A", "B" },                                        // species in which the site is conserved
+    new MiRnaAnalyzer.PctSigmoidParameters(b0, b1, b2, b3));    // published per-family parameters (caller-supplied)
+var withPct = MiRnaAnalyzer.ScoreTargetSiteContextPlusPlus(
+    mrna, let7a, sites[0], new MiRnaAnalyzer.ContextPlusPlusInputs(Conservation: conservation));
+// withPct.BranchLengthScore == 3.0 ; withPct.Pct == sigmoid(3.0) ; withPct.PctContribution folded into the score
 ```
 
 **Numerical walk-through (8mer, let-7a, all-G flanks):** with `mRNA = GGGGG + CUACCUCA + GGGGG` (length 18), the 8mer occupies `Start=5,End=12`; both 30 nt flanks are all-G so the local-AU fraction is 0. The realised contributions are: `Intercept(8mer)=-0.589`; `Local_AU = -0.254 × ((0 − 0.308)/(0.814 − 0.308)) = +0.154608695652174`; `sRNA8G(8mer)=+0.015` (nt1=U ⇒ sRNA1 unscored; Site8 undefined for 8mer); `3P_score`: raw=0 ⇒ `-0.040 × ((0 − 1)/(3.5 − 1)) = +0.016`; `Min_dist`: nearest end = min(5, 18−13) = 5 ⇒ `0.118 × ((log10 5 − 1.415)/(3.113 − 1.415)) = -0.049759446106213065`; `Len_3UTR`: `0.310 × ((log10 18 − 2.392)/(3.637 − 2.392)) = -0.2830405810586145`; `Off6m`: pattern `CUACCU` occurs once ⇒ `-0.020 × 1 = -0.020`. Sum = **-0.7561913315126536**. All numbers are the verbatim Agarwal_2015_parameters.txt coefficients.
@@ -228,4 +239,6 @@ var withData = MiRnaAnalyzer.ScoreTargetSiteContextPlusPlus(
 4. Agarwal V, Bell GW, Nam JW, Bartel DP. 2015. Predicting effective microRNA target sites in mammalian mRNAs. eLife. 4:e05005. doi:10.7554/eLife.05005. https://pmc.ncbi.nlm.nih.gov/articles/PMC4532895/
 5. TargetScan Human 8.0. 2021. Canonical site classes and ranking for animal miRNA target prediction. https://www.targetscan.org/
 6. TargetScan distribution. `Agarwal_2015_parameters.txt` (context++ fitted coefficients per site type). https://raw.githubusercontent.com/nsoranzo/targetscan/main/Agarwal_2015_parameters.txt
-7. TargetScan distribution. `targetscan_70_context_scores.pl` (context++ feature computation and scaling: `getAgarwalContribution`, `getLocalAU_contribution`, `get_sRNA1_8_contributions`, `getSite8_contribution`). https://raw.githubusercontent.com/nsoranzo/targetscan/main/targetscan_70_context_scores.pl
+7. TargetScan distribution. `targetscan_70_context_scores.pl` (context++ feature computation and scaling: `getAgarwalContribution`, `getLocalAU_contribution`, `get_sRNA1_8_contributions`, `getSite8_contribution`, `getPCT_contribution`). https://raw.githubusercontent.com/nsoranzo/targetscan/main/targetscan_70_context_scores.pl
+8. Friedman RC, Farh KKH, Burge CB, Bartel DP. 2009. Most mammalian mRNAs are conserved targets of microRNAs. Genome Research. 19(1):92-105. doi:10.1101/gr.082701.108. https://pmc.ncbi.nlm.nih.gov/articles/PMC2612969/ (branch-length score; PCT = E[(S−B)/S]). PCT documentation: https://www.targetscan.org/docs/pct.html
+9. TargetScan distribution. `targetscan_70_BL_PCT.pl` (`calculatePCTthisBL`: `PCT = b0 + b1/(1 + e^(−b2·BL + b3))`, truncated at 0; per-miRNA-family `b0..b3` from the compiled `*_PCT_parameters.txt` tables). https://raw.githubusercontent.com/nsoranzo/targetscan/main/targetscan_70_BL_PCT.pl
