@@ -2032,13 +2032,22 @@ public static class MiRnaAnalyzer
     /// <item>Dicer cleaves ~22 nt from the Drosha-generated 5' end — the 5' counting rule (Park et al. 2011).</item>
     /// <item>Each RNase III (Drosha, Dicer) cut leaves a 2-nt 3' overhang (Lee et al. 2003; Han et al. 2006).</item>
     /// </list>
+    /// <para>
+    /// <b>Scope / limitation.</b> The mature (5p) coordinates and length are the validated product of the
+    /// Han (2006) +11-bp Drosha ruler and the Park (2011) 22-nt 5'-counting Dicer rule. The 3p (miRNA*)
+    /// span is a <i>linear-geometry approximation</i>: it is placed 2 nt 3' of the 5p mature end in linear
+    /// sequence coordinates, NOT on the folded opposite (3') arm. Because this method does not fold the
+    /// hairpin, the star coordinates do not in general reproduce the biological 3p miRNA (e.g. miRBase
+    /// hsa-miR-21-3p), which lies across the terminal loop on the 3' arm. Recovering the true 3p arm
+    /// requires hairpin folding / arm pairing (out of scope here, as is the trained miRDeep2 classifier).
+    /// </para>
     /// </remarks>
     /// <param name="BasalJunction">0-based index of the first paired base of the 5' arm (the basal ssRNA-dsRNA junction).</param>
     /// <param name="DroshaCut5Prime">0-based index of the 5' end of the 5p mature = Drosha cut on the 5' arm (basal junction + 11 bp).</param>
-    /// <param name="DroshaCut3Prime">0-based index of the base on the 3' arm cut by Drosha (3' end of the 3p mature); 2 nt 3' of the 5p-paired position (the 2-nt 3' overhang).</param>
+    /// <param name="DroshaCut3Prime">0-based index of the Drosha-generated 3' end of the 3p (miRNA*) span, placed 2 nt 3' of the 5p mature 3' end in LINEAR sequence coordinates (the RNase III 2-nt 3' overhang). NOTE: this is a linear-geometry approximation — the method does NOT fold the hairpin, so this is not the true opposite-(3')-arm coordinate of the biological 3p miRNA (see remarks).</param>
     /// <param name="MatureStart">0-based start of the 5p mature (= <see cref="DroshaCut5Prime"/>).</param>
     /// <param name="MatureEnd">0-based inclusive end of the 5p mature (= MatureStart + 22 − 1; Dicer 5' counting rule).</param>
-    /// <param name="StarStart">0-based start of the 3p (miRNA*) span on the 3' arm.</param>
+    /// <param name="StarStart">0-based start of the 3p (miRNA*) span (= <see cref="StarEnd"/> − 22 + 1) in linear coordinates; see <see cref="DroshaCut3Prime"/> for the linear-geometry caveat.</param>
     /// <param name="StarEnd">0-based inclusive end of the 3p (miRNA*) span (= <see cref="DroshaCut3Prime"/>).</param>
     /// <param name="MatureSequence">The predicted 5p mature subsequence of <see cref="Sequence"/>.</param>
     /// <param name="StarSequence">The predicted 3p (miRNA*) subsequence of <see cref="Sequence"/>.</param>
@@ -2121,12 +2130,12 @@ public static class MiRnaAnalyzer
         if (matureEnd >= upper.Length)
             return null;
 
-        // The 3' arm is cut staggered by 2 nt (RNase III 2-nt 3' overhang). The 3p mature is the
-        // ~22-nt span on the 3' arm whose 3' end (the Drosha-generated end on the 3' arm) sits 2 nt
-        // 3' of the position paired with the 5p mature's 5' base. Modelled by the conventional duplex
-        // geometry: the 3p mature 5' end pairs ~2 nt inside the 5p mature 3' end (the 2-nt 3' overhang
-        // at the apical Dicer cut), and the 3p span has the same ~22-nt length.
-        int starEnd = matureEnd + RNaseIII3PrimeOverhang; // 3p 3' end (Drosha-generated end on 3' arm)
+        // 3p (miRNA*) span — LINEAR-GEOMETRY APPROXIMATION (the method does not fold the hairpin).
+        // The RNase III staggered cut leaves a 2-nt 3' overhang, so the Drosha-generated 3' end of the
+        // 3p span is modelled 2 nt 3' of the 5p mature 3' end in LINEAR sequence coordinates, and the
+        // 3p span has the same ~22-nt length. This is NOT the true opposite-(3')-arm coordinate of the
+        // biological 3p miRNA (which would require folding the hairpin); see the record's <remarks>.
+        int starEnd = matureEnd + RNaseIII3PrimeOverhang; // 3p 3' end (linear-coordinate approximation)
         int starStart = starEnd - DicerCutNtFrom5PrimeEnd + 1;
         if (starEnd >= upper.Length || starStart < 0)
             return null;

@@ -1016,9 +1016,15 @@ public class MiRnaAnalyzer_PreMiRna_Tests
             "Predicted 5p mature must equal miRBase hsa-miR-21-5p (MIMAT0000076) exactly.");
     }
 
-    // DD5 — Star (3p) span content is read from the correct 3' arm coordinates.
+    // DD5 — 3p (miRNA*) span: LINEAR-GEOMETRY model. The published rules locate only the 5p mature
+    // (Han +11, Park +22) and the 2-nt 3' overhang; the method does NOT fold the hairpin, so the 3p
+    // span is placed 2 nt 3' of the 5p mature END in LINEAR sequence coordinates. Coordinates are
+    // hand-derived from the rules (matureEnd=32 ⇒ starEnd=32+2=34, starStart=34-22+1=13) and the 22-nt
+    // overhang relation is asserted independently of the StarSequence substring (no code echo). The
+    // resulting span overlapping the 5p arm — not the real 3' arm — is the documented limitation
+    // verified by DD11.
     [Test]
-    public void PredictDroshaDicerCleavage_StarSpan_HasExpectedCoordinatesAndSequence()
+    public void PredictDroshaDicerCleavage_StarSpan_IsTwoNtThreePrimeOfMatureInLinearCoords()
     {
         // Arrange
         string pri = "CCCCCCCCCCC" + "UAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGU";
@@ -1026,15 +1032,16 @@ public class MiRnaAnalyzer_PreMiRna_Tests
         // Act
         var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(pri, 0)!.Value;
 
-        // Hand-derived: matureStart=11, matureEnd=32, starEnd=34, starStart=13.
         Assert.Multiple(() =>
         {
-            Assert.That(cut.MatureStart, Is.EqualTo(11), "matureStart = junction(0)+11.");
-            Assert.That(cut.MatureEnd, Is.EqualTo(32), "matureEnd = 11+22-1.");
-            Assert.That(cut.StarEnd, Is.EqualTo(34), "starEnd = matureEnd+2 (2-nt overhang).");
-            Assert.That(cut.StarStart, Is.EqualTo(13), "starStart = starEnd-22+1.");
-            Assert.That(cut.StarSequence, Is.EqualTo(pri.Substring(13, 22)),
-                "StarSequence must be the 3p span pri[13..34].");
+            Assert.That(cut.MatureStart, Is.EqualTo(11), "matureStart = junction(0)+11 (Han 2006).");
+            Assert.That(cut.MatureEnd, Is.EqualTo(32), "matureEnd = 11+22-1 (Park 2011, 22-nt).");
+            Assert.That(cut.StarEnd, Is.EqualTo(34), "starEnd = matureEnd(32)+2 (RNase III 2-nt 3' overhang).");
+            Assert.That(cut.StarStart, Is.EqualTo(13), "starStart = starEnd(34)-22+1 (22-nt span).");
+            // Independent invariant (not a code echo): the 3p span is the SAME 22 nt, shifted +2 from the 5p.
+            Assert.That(cut.StarEnd - cut.StarStart + 1, Is.EqualTo(22), "3p span length = 22 nt.");
+            Assert.That(cut.StarStart - cut.MatureStart, Is.EqualTo(2),
+                "Linear model: the 3p span is the 5p span shifted 3' by exactly the 2-nt overhang.");
         });
     }
 
@@ -1115,6 +1122,90 @@ public class MiRnaAnalyzer_PreMiRna_Tests
                 "Auyeung (2013): a CNNC 16 nt 3' of the Drosha cut must set the confidence flag.");
             Assert.That(withoutFlag.HasCnncMotif, Is.False,
                 "No CNNC downstream ⇒ flag false (optional signal, not required for prediction).");
+        });
+    }
+
+    // DD11 — REAL miRBase precursor cross-check + documented 3p-arm limitation (hsa-mir-21, MI0000077).
+    // The real 72-nt pre-miRNA is the already-Drosha-trimmed Dicer substrate; miRBase places the 5'
+    // ssRNA flank "ugucggg" (7 nt) before the 5p mature, so the basal ssRNA-dsRNA junction sits 11 bp
+    // basal of the annotated 5p 5' end. Modelling the intact pri-miRNA lower stem by prepending an
+    // 11-nt lower stem and passing junction=0 makes the +11 ruler land EXACTLY on miR-21-5p — proving
+    // the Han+Park rules reproduce the real mature 5p. The SAME run also demonstrates the limitation:
+    // the linear "star" does NOT equal the real miR-21-3p (which lives on the 3' arm, across the loop).
+    // Source: mirbase.org/hairpin/MI0000077 — 5p UAGCUUAUCAGACUGAUGUUGA (MIMAT0000076),
+    // 3p CAACACCAGUCGAUGGGCUGU (MIMAT0004494).
+    [Test]
+    public void PredictDroshaDicerCleavage_RealHsaMir21_Reproduces5pButNot3pArm()
+    {
+        // The real precursor, with its 11-bp pri-miRNA lower stem reconstructed (junction=0 ⇒ +11 = 5p start).
+        const string lowerStem = "CCCCCCCCCCC"; // 11-nt modelled lower stem (removed in the trimmed pre-miRNA)
+        string pri = lowerStem + "UAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGUCUGACA";
+        const string real5p = "UAGCUUAUCAGACUGAUGUUGA"; // MIMAT0000076 (22 nt)
+        const string real3p = "CAACACCAGUCGAUGGGCUGU"; // MIMAT0004494 (21 nt, on the 3' arm)
+
+        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(pri, 0)!.Value;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(cut.MatureSequence, Is.EqualTo(real5p),
+                "Han+Park rules reproduce the real miRBase hsa-miR-21-5p (MIMAT0000076) exactly.");
+            // Documented limitation: no hairpin folding ⇒ the linear star is not the real 3' arm 3p.
+            Assert.That(cut.StarSequence, Is.Not.EqualTo(real3p),
+                "Linear-geometry limitation: the predicted star is NOT the real 3' arm hsa-miR-21-3p " +
+                "(MIMAT0004494) — recovering the true 3p arm needs hairpin folding (out of scope).");
+        });
+    }
+
+    // DD12 — No-stem / non-hairpin input: the method does NO folding, so any in-range sequence long
+    // enough for the +11/+22/+2 ruler yields coordinates (it is a measuring rule, not a structure
+    // detector). Pins this semantic so a future "require a hairpin" regression would be caught.
+    [Test]
+    public void PredictDroshaDicerCleavage_NonHairpinSequence_StillReturnsRulerCoordinates()
+    {
+        // A poly-A run has no stem at all, but is long enough (>= 11+22+2 = 35 nt from the junction).
+        string flat = new string('A', 40);
+
+        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(flat, 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(cut, Is.Not.Null,
+                "The ruler rules do not fold/validate a hairpin; an in-range flat sequence yields coordinates.");
+            Assert.That(cut!.Value.DroshaCut5Prime, Is.EqualTo(11), "Drosha cut = junction(0)+11 regardless of structure.");
+            Assert.That(cut.Value.MatureSequence, Is.EqualTo(new string('A', 22)), "22-nt mature read verbatim.");
+        });
+    }
+
+    // DD13 — Non-ACGU / mixed-case / whitespace-free arbitrary symbols are passed through after
+    // upper-casing and T→U (the method does not validate the alphabet). An 'N' (or any non-ACGU symbol)
+    // appears verbatim in the upper-cased output. Pins the no-alphabet-validation contract.
+    [Test]
+    public void PredictDroshaDicerCleavage_NonAcguSymbols_AreUpperCasedAndPassedThrough()
+    {
+        // Lower-case + an ambiguity code 'n' inside the would-be mature window (index 11..32).
+        string seq = "ccccccccccc" + "uagcunaucagacugauguugacuguugaaucucauggcaacaccagucgaugggcugu";
+
+        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(seq, 0)!.Value;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(cut.MatureSequence, Is.EqualTo("UAGCUNAUCAGACUGAUGUUGA"),
+                "Lower-case is upper-cased and non-ACGU 'N' is passed through verbatim (no alphabet validation).");
+            Assert.That(cut.MatureSequence.Length, Is.EqualTo(22), "Length unchanged by non-ACGU content.");
+        });
+    }
+
+    // DD14 — Exact boundary: the minimum length to place the cuts from a junction is junction+11+22+2 = 35.
+    // 35 nt from junction 0 ⇒ last index used is 34 ⇒ valid; 34 nt ⇒ starEnd(34) out of range ⇒ null.
+    [Test]
+    public void PredictDroshaDicerCleavage_LengthBoundary_35Valid_34Null()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(new string('A', 35), 0), Is.Not.Null,
+                "35 nt from junction 0 is exactly enough (indices 0..34 used).");
+            Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(new string('A', 34), 0), Is.Null,
+                "34 nt ⇒ starEnd index 34 is out of range ⇒ null.");
         });
     }
 

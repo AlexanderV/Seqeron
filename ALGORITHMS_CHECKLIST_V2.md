@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 255 |
-| **Completed** | 231 |
+| **Completed** | 232 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 24 |
+| **Not Started** | 23 |
 
 ---
 
@@ -273,7 +273,7 @@
 | ☑ | MIRNA-CONTEXT-001 | MiRNA | 2 | Agarwal et al. (2015) TargetScan context++ | [TestSpec](tests/TestSpecs/MIRNA-CONTEXT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_TargetPrediction_Tests.cs) |
 | ☑ | MIRNA-PCT-001 | MiRNA | 1 | Friedman et al. (2009) PCT, TargetScan | [TestSpec](tests/TestSpecs/MIRNA-PCT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_TargetPrediction_Tests.cs) |
 | ☑ | MIRNA-CLASSIFY-001 | MiRNA | 1 | Bonnet et al. (2004), miRBase (public domain), Zhang (2006) MFEI | [TestSpec](tests/TestSpecs/MIRNA-CLASSIFY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_PreMiRna_Tests.cs) |
-| ☐ | MIRNA-CLEAVAGE-001 | MiRNA | 1 | Han et al. (2006), Park et al. (2011), Auyeung et al. (2013) | [TestSpec](tests/TestSpecs/MIRNA-CLEAVAGE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_PreMiRna_Tests.cs) |
+| ☑ | MIRNA-CLEAVAGE-001 | MiRNA | 1 | Han et al. (2006), Park et al. (2011), Auyeung et al. (2013) | [TestSpec](tests/TestSpecs/MIRNA-CLEAVAGE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_PreMiRna_Tests.cs) |
 | ☐ | REP-APPROX-001 | Repeats | 2 | Benson (1999) TRF | [TestSpec](tests/TestSpecs/REP-APPROX-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RepeatFinder_ApproximateTandemRepeats_Tests.cs) |
 | ☐ | CHROM-ALPHASAT-001 | Chromosome | 2 | Waye & Willard (1987), Henikoff et al. (2001), CENP-B box motif | [TestSpec](tests/TestSpecs/CHROM-ALPHASAT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ChromosomeAnalyzer_AlphaSatellite_Tests.cs) |
 | ☐ | CHROM-HOR-001 | Chromosome | 1 | McNulty & Sullivan (2018), Alkan et al. (2007) | [TestSpec](tests/TestSpecs/CHROM-HOR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ChromosomeAnalyzer_HigherOrderRepeat_Tests.cs) |
@@ -5625,13 +5625,13 @@ DnaSequence.Complement   DnaSequence.ReverseComplement
 
 ---
 
-#### MIRNA-CLEAVAGE-001: Drosha/Dicer Cleavage-Site Prediction ☐
+#### MIRNA-CLEAVAGE-001: Drosha/Dicer Cleavage-Site Prediction ☑
 
 | Field | Value |
 |-------|-------|
 | **Canonical** | `PredictDroshaDicerCleavage` |
 | **Area** | MiRNA |
-| **Status** | ☐ Not Started (pending independent Stage A/B re-validation) |
+| **Status** | ☑ Complete (Stage A ✅ PASS / Stage B 🟡 PASS-WITH-NOTES — CLEAN; 3p linear-geometry approximation documented) |
 | **Evidence** | Han et al. (2006), Park et al. (2011), Auyeung et al. (2013) |
 | **Source** | `MiRnaAnalyzer.cs` |
 
