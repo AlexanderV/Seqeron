@@ -580,4 +580,78 @@ public class CodonOptimizer_CAI_Tests
     }
 
     #endregion
+
+    #region Zero-Frequency / No-Data Reference Codon Tests (Must)
+
+    // These cover the implementation's handling of partial reference tables (gaps), which
+    // Sharp & Li (1987) did not encounter (they used complete reference sets). They lock the
+    // two documented fallbacks so they cannot regress:
+    //   (a) codon present-in-sequence but ABSENT from the table while another synonymous codon
+    //       IS present (maxFreq > 0, f = 0): w is clamped to 1e-6 (avoids ln(0) = -inf).
+    //   (b) amino acid with NO frequency data at all (maxFreq <= 0): w = NaN -> codon skipped.
+
+    [Test]
+    public void CalculateCAI_AbsentCodonWithPresentSynonym_ClampsWeightToEpsilon()
+    {
+        // Arrange - custom table built from a reference of only "CUG" (Leu): CUG freq = 1.0,
+        // all other Leu codons absent. Score "CUACUG": CUA is absent (f=0) but Leu's maxFreq
+        // is 1.0 (CUG present) -> w_CUA = max(0/1.0, 1e-6) = 1e-6; w_CUG = 1.0.
+        // CAI = exp((ln(1e-6) + ln(1.0)) / 2) = 0.001 exactly.
+        var partial = CodonOptimizer.CreateCodonTableFromSequence("CUG", "partial-Leu");
+
+        // Act
+        double cai = CodonOptimizer.CalculateCAI("CUACUG", partial);
+
+        // Assert - clamp keeps the value finite and bounded, not 0 and not NaN.
+        Assert.That(cai, Is.EqualTo(0.001).Within(1e-9),
+            "Absent codon with a present synonym must clamp w to 1e-6, not collapse to 0 or NaN");
+    }
+
+    [Test]
+    public void CalculateCAI_AllCodonsAbsentFromFamily_ClampsToEpsilon()
+    {
+        // Arrange - only CUA in the sequence, table has CUG=1.0 (CUA absent).
+        // Single codon, w clamped to 1e-6 -> CAI = exp(ln(1e-6)/1) = 1e-6.
+        var partial = CodonOptimizer.CreateCodonTableFromSequence("CUG", "partial-Leu");
+
+        // Act
+        double cai = CodonOptimizer.CalculateCAI("CUA", partial);
+
+        // Assert
+        Assert.That(cai, Is.EqualTo(1e-6).Within(1e-12),
+            "A lone absent codon (synonym present) must yield the 1e-6 clamp, never ln(0)");
+    }
+
+    [Test]
+    public void CalculateCAI_AminoAcidWithNoFrequencyData_IsSkipped()
+    {
+        // Arrange - table built from only "CUG" (Leu) has NO Phe data. Score "UUUCUG":
+        // UUU (Phe) has maxFreq = 0 in this table -> w = NaN -> skipped (not counted in L).
+        // Only CUG (w = 1.0) remains -> CAI = 1.0.
+        var partial = CodonOptimizer.CreateCodonTableFromSequence("CUG", "partial-Leu");
+
+        // Act
+        double cai = CodonOptimizer.CalculateCAI("UUUCUG", partial);
+
+        // Assert - the no-data amino acid is dropped, not treated as w=0.
+        Assert.That(cai, Is.EqualTo(1.0).Within(1e-12),
+            "An amino acid with no table frequency data must be skipped, leaving only CUG (w=1.0)");
+    }
+
+    [Test]
+    public void CalculateCAI_AllCodonsHaveNoFrequencyData_ReturnsZero()
+    {
+        // Arrange - table built from only "CUG" (Leu); sequence is all Phe (UUU), which has
+        // no data in this table -> every codon NaN-skipped -> count=0 -> returns 0.
+        var partial = CodonOptimizer.CreateCodonTableFromSequence("CUG", "partial-Leu");
+
+        // Act
+        double cai = CodonOptimizer.CalculateCAI("UUUUUU", partial);
+
+        // Assert
+        Assert.That(cai, Is.EqualTo(0),
+            "When no codon has table data, count=0 and CAI is 0 by the no-codons convention");
+    }
+
+    #endregion
 }
