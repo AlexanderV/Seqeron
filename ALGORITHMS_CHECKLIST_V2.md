@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 255 |
-| **Completed** | 243 |
+| **Completed** | 244 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 12 |
+| **Not Started** | 11 |
 
 ---
 
@@ -99,7 +99,7 @@
 | ☐ | MIRNA-TARGET-001 | MiRNA | 2 | Bartel (2009) Cell 136:215-233, Lewis et al. (2005), Grimson et al. (2007), Agarwal et al. (2015) eLife 4:e05005, TargetScan 8.0 | [MIRNA-TARGET-001.md](TestSpecs/MIRNA-TARGET-001.md) | MiRnaAnalyzer_TargetPrediction_Tests.cs |
 | ☐ | MIRNA-PRECURSOR-001 | MiRNA | 2 | [Evidence](docs/Evidence/MIRNA-PRECURSOR-001-Evidence.md) | [TestSpec](tests/TestSpecs/MIRNA-PRECURSOR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_PreMiRna_Tests.cs) |
 | ☑ | SPLICE-DONOR-001 | Splicing | 2 | [Evidence](docs/Evidence/SPLICE-DONOR-001-Evidence.md) | [TestSpec](tests/TestSpecs/SPLICE-DONOR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_DonorSite_Tests.cs) |
-| ☐ | SPLICE-ACCEPTOR-001 | Splicing | 3 | [Evidence](docs/Evidence/SPLICE-ACCEPTOR-001-Evidence.md) | [TestSpec](tests/TestSpecs/SPLICE-ACCEPTOR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_AcceptorSite_Tests.cs) |
+| ☑ | SPLICE-ACCEPTOR-001 | Splicing | 3 | [Evidence](docs/Evidence/SPLICE-ACCEPTOR-001-Evidence.md) | [TestSpec](tests/TestSpecs/SPLICE-ACCEPTOR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_AcceptorSite_Tests.cs) |
 | ☑ | SPLICE-PREDICT-001 | Splicing | 3 | [Evidence](docs/Evidence/SPLICE-PREDICT-001-Evidence.md) | [TestSpec](tests/TestSpecs/SPLICE-PREDICT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_GeneStructure_Tests.cs) |
 | ☑ | DISORDER-PRED-001 | ProteinPred | 3 | [Evidence](docs/Evidence/DISORDER-PRED-001-Evidence.md) | [TestSpec](tests/TestSpecs/DISORDER-PRED-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_DisorderPrediction_Tests.cs) |
 | ☐ | DISORDER-REGION-001 | ProteinPred | 2 | [Evidence](docs/Evidence/DISORDER-REGION-001-Evidence.md) | [TestSpec](tests/TestSpecs/DISORDER-REGION-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_DisorderedRegion_Tests.cs) |

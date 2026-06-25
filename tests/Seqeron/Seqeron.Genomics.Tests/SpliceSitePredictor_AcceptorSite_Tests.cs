@@ -419,6 +419,32 @@ public class SpliceSitePredictor_AcceptorSite_Tests
 
     #endregion
 
+    #region C3: Non-ACGT Characters Tolerated — Robustness
+
+    [Test]
+    public void FindAcceptorSites_NonACGTCharacters_ToleratedAndAGStillFound()
+    {
+        // N's occupy the PPT/context window but the canonical AG remains. Non-ACGT bases
+        // simply match no PWM entry / no pyrimidine (they contribute nothing), so the call
+        // must not throw and must still locate the AG.
+        // N×16 + C(16) + A(17) + G(18) + G(19) + G(20) = 21 nt; AG at index 17–18.
+        string sequence = "NNNNNNNNNNNNNNNNCAGGG";
+
+        var sites = FindAcceptorSites(sequence, minScore: 0.0).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites, Has.Count.EqualTo(1),
+                "Non-ACGT context must not suppress the canonical AG (no throw, AG still found)");
+            Assert.That(sites[0].Position, Is.EqualTo(18),
+                "AG at index 17 → Position 18, unaffected by surrounding non-ACGT bases");
+            Assert.That(sites[0].Score, Is.InRange(0.0, 1.0),
+                "Score with non-ACGT context stays within the normalized [0, 1] range");
+        });
+    }
+
+    #endregion
+
     #region BP: Branch-Point Detection — Gao et al. (2008) yUnAy consensus
 
     // BP1 — Canonical branch point at a known position and distance.
@@ -581,6 +607,33 @@ public class SpliceSitePredictor_AcceptorSite_Tests
             Assert.That(emptyResult.Found, Is.False, "Empty sequence → not found");
             Assert.That(oob.Found, Is.False, "AG position past sequence end → not found");
             Assert.That(zeroPos.Found, Is.False, "AG position 0 leaves no upstream window → not found");
+        });
+    }
+
+    // BP9 — Multiple qualifying candidates in the window: the HIGHEST-scoring one wins,
+    // not the nearest. A weaker degenerate branch point (AUUAC, A@-3 → 0.753894) sits
+    // 20 nt upstream (scanned first, nearest); a perfect yUnAy (CUUAC → 1.0) sits 30 nt
+    // upstream (scanned later, farther). The detector must report the perfect far one.
+    //   Layout: G-pad, CUUAC at index 7..11 (branchA 10, dist 30),
+    //           AUUAC at index 17..21 (branchA 20, dist 20), G-fill, AG at 39..40.
+    [Test]
+    public void FindAcceptorBranchPoint_MultipleCandidates_SelectsHighestScoringNotNearest()
+    {
+        string sequence =
+            "GGGGGGG" + "CUUAC" + "GGGGG" + "AUUAC" + new string('G', 17) + "AG" + "GGG";
+
+        var bp = FindAcceptorBranchPoint(sequence, acceptorAgPosition: 40);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(bp.Found, Is.True, "Both candidates qualify above the default 0.5 threshold");
+            Assert.That(bp.BranchPointPosition, Is.EqualTo(10),
+                "The perfect yUnAy at index 10 (30 nt upstream) wins over the weaker one at index 20 (20 nt)");
+            Assert.That(bp.DistanceFromAg, Is.EqualTo(30),
+                "Reported distance is that of the highest-scoring candidate (30 nt), not the nearest");
+            Assert.That(bp.Motif, Is.EqualTo("CUUAC"), "Best candidate motif is the perfect yUnAy");
+            Assert.That(bp.Score, Is.EqualTo(1.0).Within(1e-10),
+                "Best candidate is the perfect-consensus branch point → score 1.0");
         });
     }
 

@@ -107,7 +107,7 @@ State (end of session): ✅ CLEAN (fully functional) · 🔧 LIMITED (see report
 | 75 | MIRNA-TARGET-001 | MiRNA | ⬜ | ⬜ | ⬜ pending | reports/MIRNA-TARGET-001.md |
 | 76 | MIRNA-PRECURSOR-001 | MiRNA | ⬜ | ⬜ | ⬜ pending | reports/MIRNA-PRECURSOR-001.md |
 | 77 | SPLICE-DONOR-001 | Splicing | ✅ | ✅ | ✅ CLEAN | reports/SPLICE-DONOR-001.md |
-| 78 | SPLICE-ACCEPTOR-001 | Splicing | ⬜ | ⬜ | ⬜ pending | reports/SPLICE-ACCEPTOR-001.md |
+| 78 | SPLICE-ACCEPTOR-001 | Splicing | ✅ | ✅ | ✅ CLEAN | reports/SPLICE-ACCEPTOR-001.md |
 | 79 | SPLICE-PREDICT-001 | Splicing | ✅ | ✅ | ✅ CLEAN | reports/SPLICE-PREDICT-001.md |
 | 80 | DISORDER-PRED-001 | ProteinPred | ✅ | ✅ | ✅ CLEAN | reports/DISORDER-PRED-001.md |
 | 81 | DISORDER-REGION-001 | ProteinPred | ⬜ | ⬜ | ⬜ pending | reports/DISORDER-REGION-001.md |
