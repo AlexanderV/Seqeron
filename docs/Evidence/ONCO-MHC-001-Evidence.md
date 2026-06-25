@@ -130,7 +130,36 @@
 
 ---
 
+### MHCflurry 2.0 — Class I pan-allele binding-affinity neural network (O'Donnell et al. 2020; Apache-2.0 source + weights)
+
+**URL:** https://github.com/openvax/mhcflurry (source, Apache-2.0) ; primary paper https://doi.org/10.1016/j.cels.2020.06.010 ; licence https://github.com/openvax/mhcflurry/blob/master/LICENSE
+**Accessed:** 2026-06-25
+**Authority rank:** 1 (primary paper) / 3 (reference implementation: the MHCflurry source actually installed — `mhcflurry` 2.1.5 — and the `models_class1_pan` release 20200610 read in this session)
+
+**How retrieved:** `pip3 install --user mhcflurry` (version 2.1.5) and `mhcflurry-downloads fetch models_class1_pan` to obtain the Apache-2.0 source + trained weights; the installed module files were read directly (`amino_acid.py`, `encodable_sequences.py`, `allele_encoding.py`, `class1_neural_network.py`, `regression_target.py`, `ensemble_centrality.py`, `class1_affinity_predictor.py`); the model `manifest.csv` (`network_json` Keras graphs), the `weights_*.npz` arrays, and `allele_sequences.csv` were inspected with numpy/pandas; oracle IC50 values were produced by re-running the `Class1AffinityPredictor` Python API in-session; the `LICENSE` (`mhcflurry-2.1.5.dist-info/licenses/LICENSE`) was opened and confirmed to be the full **Apache License 2.0**.
+
+**Key Extracted Points:**
+
+1. **Amino-acid alphabet + BLOSUM62 (verbatim, `amino_acid.py`):** `COMMON_AMINO_ACIDS` sorted, then `"X"` appended → order **`ACDEFGHIKLMNPQRSTVWYX`** (21 symbols). `BLOSUM62_MATRIX` is the standard BLOSUM62 with an added all-zero `X` row/column except `X,X = 1`. Both peptide and allele use the `"BLOSUM62"` vector encoding (width 21).
+2. **Peptide encoding (verbatim, `encodable_sequences.py`):** the pan-allele models use `alignment_method="left_pad_centered_right_pad"`, `max_length=15`. The peptide is placed three times in a `3·max_length = 45`-position layout — left-aligned (`result[:length]`), centred (`offset = max_length + floor((max_length−length)/2)`), and right-aligned (`result[-length:]`) — with the `X` index filling the rest; then BLOSUM62-encoded → 45×21 = **945** values. Minimum length 5, maximum 15.
+3. **Allele pseudosequence (verbatim, `allele_encoding.py` + `allele_sequences.csv`):** each allele maps to a fixed **37-residue** MHC-pocket pseudosequence (e.g. `HLA-A*02:01 → YFAMYGEKVAHTHVDTLYGVRYDHYYTWAVLAYTWYA`), BLOSUM62-encoded and flattened → 37×21 = **777** values. (14 993 alleles; 11 609 are `HLA-`.)
+4. **Network (verbatim, `class1_neural_network.make_network`):** inputs `peptide` (45×21) and `allele` (index → `Embedding` holding the pseudosequence representation). Both are `Flatten`ed and `concatenate`d (peptide-flat then allele-flat → **1722**). Then `layer_sizes` `Dense` layers with `activation="tanh"`, optional `Dropout` (inactive at inference), and a final `Dense(1, activation="sigmoid")`. Two topologies appear in the ensemble: `feedforward` (plain stack) and `with-skip-connections` (each hidden layer i≥1 receives `concatenate(densenet_layers[-2:])`, i.e. `concat(prev_prev_input, prev_activation)`); the output layer has no skip.
+5. **Output → IC50 (verbatim, `regression_target.to_ic50`):** `to_ic50(x) = max_ic50 ** (1 − x)` with `max_ic50 = 50000.0`.
+6. **Ensemble combiner (verbatim, `class1_affinity_predictor.predict_to_dataframe` + `ensemble_centrality.py`):** default `centrality_measure="mean"`; `logs = log(per-model ic50)`, `prediction = exp(mean(logs))` — i.e. the **geometric mean** of the per-network IC50s.
+7. **`models_class1_pan` 20200610 ensemble:** 10 networks; topologies/`layer_sizes`: `[1024,512]`, `[256,512,512]`*, `[1024,1024]`, `[256,512]`*, `[1024,512]`, `[1024,1024]`, `[256,256,512]`*, `[256,512,512]`*, `[512,512]`, `[1024,512]` (`*` = with-skip-connections). Total ≈ 20.0 M parameters ≈ 80 MB of float32 weights.
+8. **Apache-2.0 licence (verbatim header):** "`Apache License / Version 2.0, January 2004`". MHCflurry source and the bundled `models_class1_pan` weights/pseudosequences are redistributable with attribution; the `NOTICE`/attribution is preserved in `Resources/MHCFLURRY_NOTICE.txt`.
+
+---
+
 ## Documented Corner Cases and Failure Modes
+
+### From MHCflurry source
+
+1. **Peptide length out of [5, 15]:** `EncodableSequences` raises `EncodingError`; the C# port throws `ArgumentOutOfRangeException`.
+2. **Non-canonical residue:** mapped to the `X` index (`allow_unsupported_amino_acids` / the `X` fallback), encoded as the all-but-`X`-zero vector.
+3. **Allele not in the table:** the pan-allele predictor needs a known pseudosequence; the port throws `KeyNotFoundException` for an unknown allele.
+4. **Two topologies in one ensemble:** a forward pass that ignores the `with-skip-connections` wiring produces wrong inputs to the 2nd/3rd dense layer (dimension mismatch) — the port reads `topology` per network and wires the skips accordingly.
+5. **Embedding weights are external:** the `weights_*.npz` `array_0` embedding entry is shape `(0, 777)` (empty) — the allele representation is supplied at predict time from `allele_sequences.csv`, not from the npz; the port drops the empty embedding array and supplies the pseudosequence via `EncodePseudosequence`.
 
 ### From BIMAS scoring documentation / SMM
 
@@ -218,9 +247,28 @@
 
 **Source:** SMM additive model + IC50 = 50000^(1−score). Matrix gives `GILGFVFTL` (influenza M1 58–66, the paradigm HLA-A*02:01 binder) per-position contributions summing (with intercept) to score 1.0 → IC50 = 1 nM (Strong); a poly-`W` 9-mer gets contributions summing to score 0.0 → IC50 = 50000 nM (NonBinder). Strong binder IC50 ≪ non-binder IC50.
 
+### Dataset: MHCflurry pan-allele affinity oracle (mhcflurry 2.1.5, models_class1_pan 20200610)
+
+**Source:** Oracle IC50 (nM) produced in-session by re-running the MHCflurry Python API. **Single-network** column = the smallest ensemble member (feedforward `[512,512]`, `PAN-CLASS1-1-3ed9fb2d2dcc9803`), which is the network embedded for the C# parity test. **Full-ensemble** column = geometric mean over all 10 members (`Class1AffinityPredictor.predict`). SIINFEKL/HLA-A\*02:01 = a self peptide (non-binder, µM range); GILGFVFTL (influenza M1 58–66), NLVPMVATV (CMV pp65), ELAGIGILTV (MART-1 26–35 A27L), AAAWYLWEV, SLYNTVATL (HIV Gag), CINGVCWTV = known HLA-A\*02:01 binders.
+
+| Peptide | Allele | Single-net IC50 (nM) | Full-ensemble IC50 (nM) |
+|---------|--------|----------------------|--------------------------|
+| SIINFEKL | HLA-A\*02:01 | 11483.195201 | 11927.160413 |
+| GILGFVFTL | HLA-A\*02:01 | 19.123150 | 19.955122 |
+| NLVPMVATV | HLA-A\*02:01 | 17.542640 | 16.570969 |
+| ELAGIGILTV | HLA-A\*02:01 | 119.054961 | 83.553826 |
+| AAAWYLWEV | HLA-A\*02:01 | 16.559303 | 18.886903 |
+| SIINFEKL | HLA-B\*07:02 | 28830.796646 | 29061.956599 |
+| SLYNTVATL | HLA-A\*02:01 | 28.972028 | 35.353629 |
+| CINGVCWTV | HLA-A\*02:01 | 92.105940 | 99.784630 |
+
+The C# port reproduces both the single-network IC50s (tested in CI against the embedded member) and the full-ensemble IC50s (verified in-session against the live model) to within **< 0.03%** relative error.
+
 ---
 
 ## Assumptions
+
+1. **ASSUMPTION: Full 10-network ensemble weights not embedded (size).** The MHCflurry `models_class1_pan` weights total ≈ 80 MB of float32, which are near-incompressible (the `.npz` files are already zip-format; gzip → 75 MB). Embedding 80 MB in the source repo would be the single largest data artifact and is declined for repo health. The peptide/allele encoders, the pseudosequence table (Apache-2.0, bundled, ~0.7 MB), the forward-pass engine, the `to_ic50` transform, and the geometric-mean combiner are all ported and source-verified; **one** ensemble member (~4.6 MB) is embedded as a test fixture for CI-portable forward-pass parity; the full ensemble is loaded from a caller-supplied MHCflurry weight pack via `LoadWeightPack`. This is not a correctness assumption — the algorithm is exact; it is a packaging boundary (analogous to the caller-supplied LM22 matrix in ONCO-IMMUNE-001).
 
 1. **ASSUMPTION: Caller-supplied coefficient matrix (matrix-based prediction).** No redistributable, cross-verifiable trained HLA coefficient matrix could be retrieved this session: the public BIMAS coefficient files are served by a now-defunct dynamic CGI (not archived), the Parker (1994) 180-value table is paywalled, and the IEDB SMM matrices carry a non-commercial / no-redistribution licence. The library therefore embeds only the published *scoring rules* (BIMAS product; SMM `IC50 = 50000^(1−score)`) and a `LoadScoringMatrix` loader, and the caller supplies the matrix values under their own licence. This mirrors ONCO-IMMUNE-001 (CIBERSORT LM22 caller-supplied). The scoring rules are fully sourced and cross-verifiable; the trained weights are not embedded.
 
@@ -254,6 +302,8 @@
 7. BIMAS — Information & background on the HLA peptide motif searches (NIH/CIT/CBEL; R. Taylor & K. Parker). http://www-bimas.cit.nih.gov/molbio/hla_bind/hla_motif_search_info.html (archived: https://web.archive.org/web/20041016022153/http://www-bimas.cit.nih.gov/molbio/hla_bind/hla_motif_search_info.html)
 8. Peters B, Sette A (2005). Generating quantitative models describing the sequence specificity of biological processes with the stabilized matrix method. *BMC Bioinformatics* 6:132. https://doi.org/10.1186/1471-2105-6-132
 9. IEDB MHC class I log50k linearisation `log50k = 1 − log(IC50)/log(50000)` (restated in dmnfarrell, "Create an MHC-Class I binding predictor in Python"). https://dmnfarrell.github.io/bioinformatics/mhclearning
+10. O'Donnell TJ, Rubinsteyn A, Laserson U (2020). MHCflurry 2.0: Improved Pan-Allele Prediction of MHC Class I-Presented Peptides by Incorporating Antigen Processing. *Cell Systems* 11(1):42–48.e7. https://doi.org/10.1016/j.cels.2020.06.010
+11. MHCflurry source code and trained models (Apache License 2.0), OpenVax. Source modules `amino_acid.py`, `encodable_sequences.py`, `allele_encoding.py`, `class1_neural_network.py`, `regression_target.py`, `ensemble_centrality.py`, `class1_affinity_predictor.py`; `models_class1_pan` release 20200610. https://github.com/openvax/mhcflurry ; licence https://github.com/openvax/mhcflurry/blob/master/LICENSE
 
 ---
 
@@ -261,3 +311,4 @@
 
 - **2026-06-14**: Initial documentation.
 - **2026-06-25**: Added matrix-based prediction — BIMAS product rule (Parker 1994 / BIMAS docs) and SMM `IC50 = 50000^(1−score)` (Peters & Sette 2005 / IEDB log50k). Documented that no redistributable trained matrix was obtainable → matrix is caller-supplied (Framework).
+- **2026-06-25**: Added the ported MHCflurry 2.0 Class I pan-allele binding-AFFINITY neural network (O'Donnell et al. 2020; Apache-2.0 source + weights) — BLOSUM62 `left_pad_centered_right_pad` peptide encoding, 37-residue allele pseudosequence (bundled), feed-forward forward pass (feedforward + with-skip-connections), `IC50 = 50000^(1−x)`, geometric-mean ensemble. Oracle = `mhcflurry` 2.1.5 / `models_class1_pan` 20200610; C# port verified to <0.03%. Full 80 MB ensemble weights not embedded (size); one member embedded for CI parity, full ensemble loaded via `LoadWeightPack`.

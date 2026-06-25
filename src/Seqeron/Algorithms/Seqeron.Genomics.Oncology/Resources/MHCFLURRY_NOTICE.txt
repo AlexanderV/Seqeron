@@ -1,0 +1,20 @@
+MHCflurry
+Copyright (c) 2016-2020 Timothy J. O'Donnell, Alex Rubinsteyn, and the MHCflurry contributors.
+
+This product bundles model artifacts and the allele pseudosequence table from the MHCflurry
+project (https://github.com/openvax/mhcflurry), which is licensed under the Apache License,
+Version 2.0 (the "License"); you may not use these files except in compliance with the License.
+You may obtain a copy of the License at:
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Bundled / referenced artifacts:
+  - models_class1_pan (Class I pan-allele binding-AFFINITY neural-network ensemble), release 20200610.
+  - allele_sequences.csv (allele -> 37-residue pseudosequence table).
+
+Citation:
+  O'Donnell TJ, Rubinsteyn A, Laserson U. "MHCflurry 2.0: Improved Pan-Allele Prediction of
+  MHC Class I-Presented Peptides by Incorporating Antigen Processing." Cell Systems 11(1):42-48.e7 (2020).
+  doi:10.1016/j.cels.2020.06.010
+
+The full Apache License 2.0 text is available at the URL above and in the MHCflurry source repository.

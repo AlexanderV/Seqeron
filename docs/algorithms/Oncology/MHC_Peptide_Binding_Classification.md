@@ -129,6 +129,16 @@ Matrix-based prediction (opt-in):
 - `OncologyAnalyzer.LoadScoringMatrix(IEnumerable<string>)`: parse a caller-supplied matrix (`CONST=…` + `RESIDUE=VALUE` rows).
 - `OncologyAnalyzer.PmhcScoringMatrix` / `PmhcScoringMethod`: the matrix record and scoring-convention enum.
 
+**MHCflurry pan-allele affinity predictor** — [MhcflurryAffinityPredictor.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/MhcflurryAffinityPredictor.cs) (a faithful port of MHCflurry's Class I pan-allele binding-affinity network [10][11]):
+
+- `MhcflurryAffinityPredictor.EncodePeptide(string)`: BLOSUM62 `left_pad_centered_right_pad` peptide encoding (945 values).
+- `MhcflurryAffinityPredictor.EncodePseudosequence(string)` / `GetPseudosequence(string)` / `GetAllelePseudosequences()`: the bundled 37-residue allele pseudosequence table (Apache-2.0).
+- `MhcflurryAffinityPredictor.ToIc50(double)`: the `IC50 = 50000^(1−x)` regression-target transform.
+- `MhcflurryAffinityPredictor.LoadWeightPack(Stream)`: load an ensemble of pan-allele networks from an MHCflurry weight pack.
+- `MhcflurryAffinityPredictor.Network.ForwardRaw / PredictIc50`: the per-network feed-forward pass (feedforward + with-skip-connections topologies).
+- `MhcflurryAffinityPredictor.PredictIc50(networks, peptide, allele)`: geometric-mean ensemble IC50.
+- `MhcflurryAffinityPredictor.PredictAndClassify(networks, peptide, allele)`: predict → `OncologyAnalyzer.ClassifyBindingAffinity` chain.
+
 ### 5.2 Current Behavior
 
 The threshold half is a pure O(1) comparison; no search/matching, so the repository suffix tree is not applicable. The matrix predictor is a single linear pass over the peptide (product for BIMAS, sum for SMM). No trained model weights are embedded: the coefficient matrix is caller-supplied via `LoadScoringMatrix` (or constructed directly), exactly as ONCO-IMMUNE-001 handles the CIBERSORT LM22 signature matrix. All cutoffs and the SMM base (`SmmIc50Base = 50000`) are named source-cited constants. Default behaviour is unchanged: the predictors are opt-in additions; existing callers of the classifiers see no change.
@@ -142,15 +152,17 @@ The threshold half is a pure O(1) comparison; no search/matching, so the reposit
 - Length ranges class I 8–11, class II 13–25 [1][5].
 - BIMAS product rule `T½ = FinalConstant · ∏ coeff`, neutral coefficient 1.0 [6][7].
 - SMM transform `IC50 = 50000^(1 − score)`, score = intercept + Σ contributions [8][9].
+- MHCflurry Class I pan-allele binding-affinity network [10][11]: BLOSUM62 `left_pad_centered_right_pad` peptide encoding (945), the 37-residue allele pseudosequence (777, bundled), the feed-forward forward pass (`tanh` hidden / `sigmoid` output; both `feedforward` and `with-skip-connections` topologies), `to_ic50 = 50000^(1−x)`, and the geometric-mean ensemble combiner. Verified against `mhcflurry` 2.1.5 (`models_class1_pan` 20200610) to <0.03%.
 
 **Intentionally simplified:**
 
 - Class I length range uses the 8–11 default rather than the full 8–14 [1]; **consequence:** lengths 12–14 are reported invalid for class I, matching the ONCO-NEO-001 canonical neoantigen search.
 - The coefficient **matrix is caller-supplied**, not embedded; **consequence:** the user must obtain a matrix (the public-domain BIMAS/Parker 1994 HLA-A2 table, or an IEDB SMM matrix under its non-commercial licence) under their own licence — no redistributable, cross-verifiable trained matrix was obtainable this session.
+- The MHCflurry **ensemble weights** (~80 MB float32 across 10 networks) are **not embedded** for repo health; **consequence:** the pseudosequence table + forward-pass engine ship bundled (one network is embedded only as a test fixture), and the full ensemble is loaded from a caller-supplied MHCflurry weight pack via `LoadWeightPack`. The algorithm itself is exact (oracle-verified); only the weight payload is caller-supplied.
 
 **Not implemented:**
 
-- The pan-allele NetMHCpan / MHCflurry **neural** prediction; **users should rely on:** an external predictor (NetMHCpan / MHCflurry / IEDB) for affinities outside the matrix model, or supply a coefficient matrix for the BIMAS/SMM predictors here.
+- The *latest* NetMHCpan-4.1 ANN and the MHCflurry **presentation / antigen-processing** models (BA prediction is ported; the cleavage/presentation heads are out of scope); **users should rely on:** the bundled MHCflurry BA predictor for affinity, or an external tool (NetMHCpan / MHCflurry presentation / IEDB) for presentation-level scoring.
 
 ### 5.4 Deviations and Assumptions
 
@@ -202,6 +214,7 @@ var (ic50, strength) = OncologyAnalyzer.PredictAndClassifySmm("GILGFVFTL", matri
 ### 7.3 Related Tests, Evidence, or Documents
 
 - Tests: [OncologyAnalyzer_ClassifyMhcBinding_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyMhcBinding_Tests.cs) — covers `INV-01`–`INV-07`
+- Tests (MHCflurry predictor): [MhcflurryAffinityPredictor_PredictIc50_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/MhcflurryAffinityPredictor_PredictIc50_Tests.cs) — encoders, pseudosequence table, `to_ic50`, single-network oracle parity, geometric-mean ensemble, predict→classify chain
 - Evidence: [ONCO-MHC-001-Evidence.md](../../../docs/Evidence/ONCO-MHC-001-Evidence.md)
 - Related algorithms: [Neoantigen peptide windowing (ONCO-NEO-001)](../../Evidence/ONCO-NEO-001-Evidence.md)
 
@@ -216,3 +229,5 @@ var (ic50, strength) = OncologyAnalyzer.PredictAndClassifySmm("GILGFVFTL", matri
 7. BIMAS — Information & background on the HLA peptide motif searches (NIH/CIT/CBEL; R. Taylor & K. Parker). Accessed 2026-06-25 (server retired; via Internet Archive). https://web.archive.org/web/20041016022153/http://www-bimas.cit.nih.gov/molbio/hla_bind/hla_motif_search_info.html
 8. Peters B, Sette A. 2005. Generating quantitative models describing the sequence specificity of biological processes with the stabilized matrix method. *BMC Bioinformatics* 6:132. https://doi.org/10.1186/1471-2105-6-132
 9. IEDB MHC class I log50k linearisation `log50k = 1 − log(IC50)/log(50000)` (restated in: D. Farrell, "Create an MHC-Class I binding predictor in Python"). Accessed 2026-06-25. https://dmnfarrell.github.io/bioinformatics/mhclearning
+10. O'Donnell TJ, Rubinsteyn A, Laserson U. 2020. MHCflurry 2.0: Improved Pan-Allele Prediction of MHC Class I-Presented Peptides by Incorporating Antigen Processing. *Cell Systems* 11(1):42–48.e7. https://doi.org/10.1016/j.cels.2020.06.010
+11. MHCflurry source code and trained models (Apache License 2.0), OpenVax; `mhcflurry` 2.1.5, `models_class1_pan` release 20200610. Accessed 2026-06-25. https://github.com/openvax/mhcflurry ; licence https://github.com/openvax/mhcflurry/blob/master/LICENSE

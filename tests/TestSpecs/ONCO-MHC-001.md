@@ -60,6 +60,12 @@
 | `PredictBindingHalfLifeBimas(string peptide, PmhcScoringMatrix matrix)` | OncologyAnalyzer | Canonical | BIMAS product → finalConstant·∏ coefficients |
 | `PredictAndClassifySmm(string peptide, PmhcScoringMatrix matrix)` | OncologyAnalyzer | Delegate | `PredictIc50Smm` + `ClassifyBindingAffinity` |
 | `LoadScoringMatrix(IEnumerable<string> lines)` | OncologyAnalyzer | Canonical | caller-supplied matrix loader |
+| `EncodePeptide(string)` | MhcflurryAffinityPredictor | Canonical | BLOSUM62 `left_pad_centered_right_pad` (945) |
+| `EncodePseudosequence(string)` / `GetPseudosequence(string)` | MhcflurryAffinityPredictor | Canonical | bundled 37-residue allele pseudosequence table |
+| `ToIc50(double)` | MhcflurryAffinityPredictor | Canonical | `IC50 = 50000^(1−x)` |
+| `Network.ForwardRaw / PredictIc50` + `LoadWeightPack(Stream)` | MhcflurryAffinityPredictor | Canonical | per-network feed-forward pass (both topologies) |
+| `PredictIc50(networks, peptide, allele)` | MhcflurryAffinityPredictor | Canonical | geometric-mean ensemble IC50 |
+| `PredictAndClassify(networks, peptide, allele)` | MhcflurryAffinityPredictor | Delegate | predict → `ClassifyBindingAffinity` chain |
 
 ---
 
@@ -74,6 +80,9 @@
 | INV-5 | SMM: `IC50 = 50000^(1−score)` — strictly decreasing in score; score 0→50000, 1→1, 0.5→√50000; IC50 always finite & > 0 | Yes | IEDB log50k (#9); Peters & Sette 2005 (#8) |
 | INV-6 | BIMAS: `T½ = finalConstant · ∏ coefficients`; an unlisted residue contributes the neutral coefficient 1.0 | Yes | BIMAS scoring docs (#7); Parker 1994 (#6) |
 | INV-7 | `Predict*` require `peptide.Length == matrix.Rows.Count` and a non-empty matrix; else `ArgumentException` (null peptide → `ArgumentNullException`) | Yes | implementation contract (one row per peptide position) |
+| INV-8 | MHCflurry peptide encoding: length ∈ [5, 15]; out-of-range → `ArgumentOutOfRangeException`; output length 3·15·21 = 945 | Yes | `encodable_sequences.py` (#11) |
+| INV-9 | MHCflurry `to_ic50(x) = 50000^(1−x)`: x=0→50000, x=1→1, x=0.5→√50000 | Yes | `regression_target.to_ic50` (#11) |
+| INV-10 | MHCflurry ensemble = geometric mean of per-network IC50s (`exp(mean(log(ic50)))`); duplicating one network reproduces its IC50 | Yes | `ensemble_centrality.py` + `predict_to_dataframe` (#11) |
 
 ---
 
@@ -123,6 +132,18 @@
 | P16 | Loader non-numeric | "L=abc" | FormatException | loader contract |
 | P17 | Loader multi-char residue | "LM=2.0" | FormatException | loader contract |
 | P18 | Loader null input | null | ArgumentNullException | loader contract |
+| MF1 | MHCflurry peptide encoding layout | EncodePeptide("SIINFEKL") | 945 values; positions match `left_pad_centered_right_pad` index layout; pos 0 = BLOSUM62 S-row, pad = X-row | INV-8; `encodable_sequences.py` (#11) |
+| MF2 | MHCflurry peptide length bounds | len 5 & 15 ok; 4 & 16 throw; null throws | encode / `ArgumentOutOfRangeException` / `ArgumentNullException` | INV-8 |
+| MF3 | Bundled pseudosequence lookup | GetPseudosequence("HLA-A\*02:01") / ("HLA-B\*07:02") | `YFAMYGEKVAHTHVDTLYGVRYDHYYTWAVLAYTWYA` / `YYSEYRNIYAQTDESNLYGLSYDDYYTWAERAYEWYA` (37 res) | `allele_sequences.csv` (#11) |
+| MF4 | Unknown/null allele | "HLA-Z\*99:99" / null | KeyNotFoundException / ArgumentNullException | predictor contract |
+| MF5 | Table scale | GetAllelePseudosequences() | > 5000 HLA- alleles | `allele_sequences.csv` (#11) |
+| MF6 | `to_ic50` anchors | ToIc50(0/1/0.5) | 50000 / 1 / √50000 | INV-9; `regression_target.to_ic50` (#11) |
+| MF7 | Single-network oracle parity | 8 peptide/allele pairs (incl. SIINFEKL/A\*02:01) | single-net IC50 within 0.1% of mhcflurry oracle | mhcflurry 2.1.5 oracle (#11) |
+| MF8 | Strong vs non-binder ranking | GILGFVFTL vs SIINFEKL on HLA-A\*02:01 | strong < 50 nM; non-binder > 5000 nM; ratio > 100× | mhcflurry oracle (#11) |
+| MF9 | Ensemble = geometric mean | duplicate one network ×3 | equals the single-network IC50 | INV-10; `ensemble_centrality.py` (#11) |
+| MF10 | Empty ensemble | 0 networks | ArgumentException | predictor contract |
+| MF11 | Predict→classify chain | GILGFVFTL (Strong) / SIINFEKL (NonBinder) on HLA-A\*02:01 | Strong / NonBinder via `ClassifyBindingAffinity` | predict→classify (#11 + classification cutoffs) |
+| MF12 | Weight-pack loader validation | bad magic / null stream | InvalidDataException / ArgumentNullException | pack-format contract |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -146,7 +167,7 @@
 
 ### 5.1 Discovery Summary
 
-- Classification half (M1–C1) implemented in the 2026-06-14 session (27 tests). The 2026-06-25 extension adds the matrix-based predictor (P1–P18); those cases start ❌ Missing.
+- Classification half (M1–C1) implemented in the 2026-06-14 session (27 tests); the matrix-based predictor (P1–P18) in the 2026-06-25 session. The 2026-06-25 MHCflurry extension adds the ported pan-allele neural binding-affinity predictor (MF1–MF12) in a new canonical file; those cases start ❌ Missing.
 
 ### 5.2 Coverage Classification
 
@@ -155,31 +176,35 @@
 | M1–M21, M21b | ✅ Covered | classification half (prior session) |
 | S1–S5 | ✅ Covered | classification half (prior session) |
 | C1 | ✅ Covered | classification half (prior session) |
-| P1–P18 (prediction) | ❌ Missing | matrix-based predictor (this session) |
+| P1–P18 (matrix predictor) | ✅ Covered | matrix-based predictor (prior 2026-06-25 step) |
+| MF1–MF12 (MHCflurry neural) | ❌ Missing | ported pan-allele affinity predictor (this step) |
 
 ### 5.3 Consolidation Plan
 
-- **Canonical file:** `tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyMhcBinding_Tests.cs` — all cases for this unit.
-- **Remove:** none (new unit).
+- **Canonical files:** `OncologyAnalyzer_ClassifyMhcBinding_Tests.cs` (classification + matrix predictor) and `MhcflurryAffinityPredictor_PredictIc50_Tests.cs` (MHCflurry neural predictor). Two files because the MHCflurry predictor lives in a separate class (`MhcflurryAffinityPredictor`).
+- **Remove:** none.
 
 ### 5.4 Final State After Consolidation
 
 | File | Role | Test Count |
 |------|------|------------|
-| OncologyAnalyzer_ClassifyMhcBinding_Tests.cs | canonical | 43 (27 classification + 16 prediction) |
+| OncologyAnalyzer_ClassifyMhcBinding_Tests.cs | canonical (classification + matrix) | 43 (27 classification + 16 matrix prediction) |
+| MhcflurryAffinityPredictor_PredictIc50_Tests.cs | canonical (MHCflurry neural) | 19 (encoders, table, transform, 8 oracle-parity cases, ensemble, chain, loader) |
 
 ### 5.5 Phase 7 Work Queue
 
 | # | Test Case ID | §5.2 Status | Action Taken | Final Status |
 |---|-------------|-------------|--------------|--------------|
-| 1 | P1–P5 (SMM transform) | ❌ Missing | implemented | ✅ Done |
-| 2 | P6–P8 (SMM validation) | ❌ Missing | implemented | ✅ Done |
-| 3 | P9–P10 (predict→classify, ranking) | ❌ Missing | implemented | ✅ Done |
-| 4 | P11–P13 (BIMAS product) | ❌ Missing | implemented | ✅ Done |
-| 5 | P14–P18 (loader) | ❌ Missing | implemented | ✅ Done |
+| 1 | MF1–MF2 (peptide encoding + bounds) | ❌ Missing | implemented | ✅ Done |
+| 2 | MF3–MF5 (pseudosequence table) | ❌ Missing | implemented | ✅ Done |
+| 3 | MF6 (`to_ic50`) | ❌ Missing | implemented | ✅ Done |
+| 4 | MF7–MF8 (single-net oracle parity + ranking) | ❌ Missing | implemented | ✅ Done |
+| 5 | MF9–MF10 (ensemble geometric mean) | ❌ Missing | implemented | ✅ Done |
+| 6 | MF11 (predict→classify chain) | ❌ Missing | implemented | ✅ Done |
+| 7 | MF12 (weight-pack loader validation) | ❌ Missing | implemented | ✅ Done |
 
-**Total items (this session):** 5 groups (16 prediction tests; the 27 classification tests were done in the prior session)
-**✅ Done:** 5 | **⛔ Blocked:** 0 | **Remaining:** 0
+**Total items (this step):** 7 groups (19 MHCflurry tests)
+**✅ Done:** 7 | **⛔ Blocked:** 0 | **Remaining:** 0
 
 ### 5.6 Post-Implementation Coverage
 
@@ -193,6 +218,13 @@
 | P9–P10 (predict→classify) | ✅ Covered | strong→1 nM Strong; non-binder→50000 nM NonBinder; ranking |
 | P11–P13 (BIMAS) | ✅ Covered | exact product·constant; neutral 1.0; ranking |
 | P14–P18 (loader) | ✅ Covered | round-trip + malformed/non-numeric/multi-char/null |
+| MF1–MF2 (peptide encoding) | ✅ Covered | exact 945-value layout vs `left_pad_centered_right_pad`; [5,15] bounds |
+| MF3–MF5 (pseudosequence table) | ✅ Covered | exact 37-residue strings; unknown/null exceptions; table scale |
+| MF6 (`to_ic50`) | ✅ Covered | exact 50000^(1−x) anchors |
+| MF7–MF8 (oracle parity + ranking) | ✅ Covered | 8 pairs within 0.1% of mhcflurry; strong≪non-binder |
+| MF9–MF10 (ensemble geometric mean) | ✅ Covered | duplicate-network identity; empty-ensemble exception |
+| MF11 (predict→classify) | ✅ Covered | Strong / NonBinder through `ClassifyBindingAffinity` |
+| MF12 (loader validation) | ✅ Covered | bad-magic / null-stream exceptions |
 
 ---
 
