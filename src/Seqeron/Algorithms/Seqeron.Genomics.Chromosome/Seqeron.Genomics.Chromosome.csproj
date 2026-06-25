@@ -29,4 +29,11 @@
     <Using Include="Seqeron.Genomics.Alignment" />
   </ItemGroup>
 
+  <!-- CC0 (public-domain) Dfam alpha-satellite consensus monomers used by
+       ChromosomeAnalyzer.AssignSuprachromosomalFamily (CHROM-CENT-001).
+       See Resources/README.md for provenance + CC0 licence. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\AlphaSatelliteReference.fasta" />
+  </ItemGroup>
+
 </Project>

@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 255 |
-| **Completed** | 255 |
+| **Completed** | 254 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 0 |
+| **Not Started** | 1 |
 
 ---
 
@@ -70,7 +70,7 @@
 | ☑ | POP-FST-001 | PopGen | 2 | Wikipedia (Fixation index, F-statistics), Wright (1965), Weir & Cockerham (1984) | [POP-FST-001.md](TestSpecs/POP-FST-001.md) | PopulationGeneticsAnalyzer_FStatistics_Tests.cs |
 | ☑ | POP-LD-001 | PopGen | 2 | Wikipedia (Linkage disequilibrium, Haplotype block), Lewontin (1964), Hill & Robertson (1968), Gabriel (2002) | [POP-LD-001.md](TestSpecs/POP-LD-001.md) | PopulationGeneticsAnalyzer_LinkageDisequilibrium_Tests.cs |
 | ☑ | CHROM-TELO-001 | Chromosome | 2 | Wikipedia (Telomere), Meyne (1989), Cawthon (2002) | [CHROM-TELO-001.md](TestSpecs/CHROM-TELO-001.md) | ChromosomeAnalyzer_Telomere_Tests.cs |
-| ☑ | CHROM-CENT-001 | Chromosome | 3 | Willard (1985), Waye & Willard (1987), Masumoto et al. (1989), Levan (1964), McNulty & Sullivan (2018) | [CHROM-CENT-001.md](TestSpecs/CHROM-CENT-001.md) | ChromosomeAnalyzer_Centromere_Tests.cs, ChromosomeAnalyzer_AlphaSatellite_Tests.cs, ChromosomeAnalyzer_HigherOrderRepeat_Tests.cs |
+| ☐ | CHROM-CENT-001 | Chromosome | 3 | Willard (1985), Waye & Willard (1987), Masumoto et al. (1989), Levan (1964), McNulty & Sullivan (2018), Shepelev et al. (2009) | [CHROM-CENT-001.md](TestSpecs/CHROM-CENT-001.md) | ChromosomeAnalyzer_Centromere_Tests.cs, ChromosomeAnalyzer_AlphaSatellite_Tests.cs, ChromosomeAnalyzer_HigherOrderRepeat_Tests.cs, ChromosomeAnalyzer_SuprachromosomalFamily_Tests.cs |
 | ☑ | CHROM-KARYO-001 | Chromosome | 2 | Wikipedia (Karyotype, Ploidy, Aneuploidy) | [CHROM-KARYO-001.md](TestSpecs/CHROM-KARYO-001.md) | ChromosomeAnalyzer_Karyotype_Tests.cs |
 | ☑ | CHROM-ANEU-001 | Chromosome | 2 | Wikipedia (Aneuploidy, Copy Number Variation), Griffiths et al. (2000) | [CHROM-ANEU-001.md](TestSpecs/CHROM-ANEU-001.md) | ChromosomeAnalyzer_Aneuploidy_Tests.cs |
 | ☑ | CHROM-SYNT-001 | Chromosome | 2 | Wikipedia (Synteny, Comparative genomics, Chromosomal rearrangement), Wang et al. (2012), Goel et al. (2019) | [CHROM-SYNT-001.md](TestSpecs/CHROM-SYNT-001.md) | ChromosomeAnalyzer_Synteny_Tests.cs |
@@ -1143,6 +1143,8 @@
 | `DetectAlphaSatellite(seq)` | ChromosomeAnalyzer | Canonical (alpha-satellite-specific: 171-bp tandem + AT + CENP-B) |
 | `FindCenpBBoxes(seq)` | ChromosomeAnalyzer | Canonical (CENP-B box `YTTCGTTGGAARCGGGA` scan) |
 | `DetectHigherOrderRepeat(seq, monomerLength=171)` | ChromosomeAnalyzer | Canonical (alpha-satellite HOR structure: period, copy number, inter-/intra-HOR identity) |
+| `AssignSuprachromosomalFamily(seq, reference=null)` | ChromosomeAnalyzer | Canonical (SF assignment vs bundled CC0 Dfam reference: SF3/SF4/SF5 + {SF1,SF2} via periodicity + A/B-box) |
+| `LoadBundledAlphaSatelliteReference()` | ChromosomeAnalyzer | Bundled CC0 reference loader (Dfam ALR/ALRa/ALRb) |
 
 ---
 

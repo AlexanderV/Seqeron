@@ -177,3 +177,73 @@ Alkan 2007.)
 it requires curated reference HOR libraries (chromosome-specific consensus HORs) the library does not
 embed. The HOR *structure* (period, copy number, inter-/intra-HOR identity) is detected; the family
 *label* is not. Cascading/nested HOR decomposition is likewise out of scope.
+
+## Suprachromosomal-Family (SF) Assignment (added 2026-06-25 — bundled CC0 reference)
+
+Tests in `ChromosomeAnalyzer_SuprachromosomalFamily_Tests.cs`, verifying
+`ChromosomeAnalyzer.AssignSuprachromosomalFamily(sequence, reference=null)` → `SuprachromosomalFamilyResult`
+and `LoadBundledAlphaSatelliteReference()`. The bundled reference is the three CC0 Dfam consensus
+monomers (ALR, ALRa = A-type; ALRb = B-type with CENP-B box at position 126). SF assignment uses the
+HOR period (from `DetectHigherOrderRepeat`) + the A/B-box composition of one HOR unit, per the
+Shepelev/Alexandrov SF taxonomy (Shepelev 2009; McNulty & Sullivan 2018, PMC6121732).
+
+Period-dependent arrays are built from genuine alpha-satellite monomers (the real Dfam reference
+strings, plus, for the period-5 case, mild point variants of the real strings so the HOR detector
+resolves five distinct monomers). All A/B and identity assertions trace to the retrieved Dfam
+sequences and the sourced A/B rule.
+
+### Methods Under Test
+
+| Method | Class | Type | Deep Test |
+|--------|-------|------|-----------|
+| `AssignSuprachromosomalFamily(seq, reference=null)` | ChromosomeAnalyzer | Canonical (SF assignment) | Yes |
+| `LoadBundledAlphaSatelliteReference()` | ChromosomeAnalyzer | Bundled CC0 loader | Yes |
+
+### Must Tests
+
+| ID | Test Case | Expected (exact) | Source |
+|----|-----------|------------------|--------|
+| M-SF-1 | Bundled reference loads | 3 monomers: ALR (DF000000029, A), ALRa (DF000000014, A), ALRb (DF000000015, B); lengths 171/172/169 | Dfam CC0 |
+| M-SF-2 | ALRb carries the CENP-B box; ALR/ALRa do not | `FindCenpBBoxes(ALRb)` = [126]; `FindCenpBBoxes(ALR)`/`(ALRa)` = empty | Masumoto 1989 + Dfam seqs |
+| M-SF-3 | Monomeric A-type array (ALRa ×8) → SF4 | IsAlphaSatellite=true; Family=Sf4; MonomersPerUnit=1; BoxTypePattern=[A] | M1 monomeric A-type (PMC6121732) |
+| M-SF-4 | Dimeric A·B array ((ALRa+ALRb) ×6) → {SF1,SF2} | IsAlphaSatellite=true; Family=Sf1OrSf2Dimeric; MonomersPerUnit=2; BoxTypePattern=[A,B] | dimeric J1·J2 / D1·D2 (PMC6121732) |
+| M-SF-5 | Pentameric 3B+2A array (W1–W3=B, W4–W5=A; 5 distinct) → SF3 | IsAlphaSatellite=true; Family=Sf3; MonomersPerUnit=5; BoxTypePattern=[B,B,B,A,A] | pentameric W1–W5 (PMC6121732; Waye & Willard 1986) |
+| M-SF-6 | Irregular A/B mix, no regular period (R1·R2-like) → SF5 | IsAlphaSatellite=true; Family=Sf5 | R1·R2 irregular (PMC6121732; Shepelev 2009) |
+| M-SF-7 | Random non-alpha sequence | IsAlphaSatellite=false; Family=Unknown; BestReferenceName=null | identity gate < 60% |
+| M-SF-8 | Existing detectors byte-unchanged | `DetectAlphaSatellite`/`DetectHigherOrderRepeat` results identical before/after on a fixed array | additive-only contract |
+
+### Should Tests
+
+| ID | Test Case | Expected | Status |
+|----|-----------|----------|--------|
+| S-SF-1 | Caller-supplied reference overrides the bundled set | a single-A-type custom reference types every monomer A; Family follows period | ✅ |
+| S-SF-2 | Case insensitivity (lower vs upper) | identical result | ✅ |
+
+### Could Tests
+
+| ID | Test Case | Rationale | Status |
+|----|-----------|-----------|--------|
+| C-SF-1 | Mean reference identity is in [0,100] and higher for real alpha than random | sanity of the identity score | ✅ |
+
+### Edge Cases (SF method)
+
+| Case | Input | Expected | Status |
+|------|-------|----------|--------|
+| Empty / null sequence | `""` / `null` | (false, Unknown, 0, empty pattern, null, NaN) | ✅ |
+| Shorter than one monomer | 100 bp | not alpha-satellite, Unknown | ✅ |
+| Empty caller reference | `reference=[]` | `ArgumentException` | ✅ |
+
+### SF Invariants
+
+1. **IsAlphaSatellite ⇔ at least one monomer ≥ 60% identity to the reference** ✅
+2. **Family ≠ Unknown ⇒ IsAlphaSatellite = true** ✅
+3. **MonomersPerUnit ≥ 1; BoxTypePattern length = min(period, monomerCount)** ✅
+4. **Deterministic / case-insensitive / additive (existing detectors unchanged)** ✅
+
+### Residual after this fix (sharpened — honest, data-blocked)
+SF3 (pentameric, period multiple of 5), SF4 (monomeric A-type) and SF5 (irregular A/B) are assigned,
+and dimeric arrays are narrowed to {SF1, SF2}. **SF1 vs SF2** (both dimeric, identical A→B box
+pattern) and SF3 arrays whose period is not a multiple of 5 (e.g. dodecameric DXZ1) are **not**
+resolved from the CC0 reference — they need the SF-resolved consensus monomer library
+(J1/J2/D1/D2/W1–W5/M1/R1/R2), which is not CC0/redistributable (only in unlicensed third-party HMM
+repos). Callers may pass their own `reference`.

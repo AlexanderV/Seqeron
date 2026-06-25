@@ -224,3 +224,73 @@ embedded.
 naming the family a HOR belongs to requires curated reference HOR libraries (chromosome-specific
 consensus HORs), which are external trained/curated data the library does not embed. The HOR
 *structure* (period, copy number, inter-/intra-HOR identity) is now detected; the *family label* is not.
+
+## Suprachromosomal-Family (SF) Assignment (added 2026-06-25 — bundled CC0 reference)
+
+`AssignSuprachromosomalFamily` adds **opt-in, additive** suprachromosomal-family assignment for a
+detected alpha-satellite monomer/HOR, backed by a **bundled CC0 reference**. `AnalyzeCentromere`,
+`DetectAlphaSatellite`, `FindCenpBBoxes`, `DetectHigherOrderRepeat`, and the Levan classification
+are byte-unchanged.
+
+### Sources actually retrieved this session (2026-06-25)
+
+1. **McNulty SM, Sullivan BA (2018). "Alpha satellite DNA biology …" Chromosome Res; PMC6121732.** —
+   page fetched 2026-06-25 (search query "alpha satellite suprachromosomal family SF1 SF2 monomer
+   classes J1 J2"; page read).
+   - SF taxonomy / periodicity: **SF1** dimeric (J1·J2), **SF2** dimeric (D1·D2), **SF3** pentameric
+     (W1–W5), **SF4** monomeric (M1), **SF5** irregular (R1·R2).
+   - Verbatim A/B-type assignment: *"A-type monomers include J1, D2, W4, W5, M1, and R2 monomers,
+     while B-type consist of J2, D1, W1–W3, and R1 monomers. B-type monomers contain CENP-B boxes;
+     A-type contain pJα binding sites."*
+   - Chromosome distribution: SF1 → HSA1,3,5,6,7,10,12,16,19; SF2 → HSA2,4,8,9,13,14,15,18,20,21,22;
+     SF3 → HSA1,11,17,X; SF4 → HSA13,14,15,21,22,Y; SF5 → HSA5,7,15,19.
+   - *"W1–W5 were initially described as A–E monomers."*
+
+2. **Shepelev VA, Uralsky LI, Alexandrov AA, Yurov YB, Rogaev EI, Alexandrov IA (2009). PLOS
+   Genetics 5(9):e1000641.** — page fetched 2026-06-25.
+   - Foundational SF classification; SF4 = single M1 class with no higher-order periodicity; SF5 =
+     R1·R2 alternating irregularly. *"R1 represents the first appearance of novel class B monomers,
+     which bind CENP-B protein."*  Licence: **CC BY 4.0**.
+
+3. **Dfam alpha-satellite consensus monomers (bundled, CC0).** — REST API JSON fetched 2026-06-25:
+   `https://www.dfam.org/api/families/DF000000029` (ALR), `…/DF000000014` (ALRa), `…/DF000000015`
+   (ALRb). Consensus strings copied verbatim into `Resources/AlphaSatelliteReference.fasta`.
+   - **ALR** (DF000000029, 171 bp), **ALRa** (DF000000014, 172 bp): no CENP-B box → **A-type**.
+   - **ALRb** (DF000000015, 169 bp): contains the 17-bp CENP-B box `YTTCGTTGGAARCGGGA` (substring
+     `CTTCGTTGGAAACGGGA`) at consensus position 126 → **B-type** (verified this session by matching
+     the IUPAC CENP-B consensus against each Dfam string: ALRb hit at 126; ALR/ALRa no hit).
+   - All three classified `root; Tandem_Repeat; Satellite; Centromeric`. Licence: **CC0** (Storer et
+     al. 2021, *Mobile DNA* 12:2; dfam.org).
+
+4. **T2T Consortium / marbl CHM13** — page fetched 2026-06-25; verbatim: *"All data is released to
+   the public domain (CC0) and we encourage its reuse."* (corroborates the SF facts; CC0).
+
+### Bundled reference (CC0) and derived parameters
+
+| Item | Value | Source |
+|------|-------|--------|
+| Bundled reference monomers | Dfam ALR (A), ALRa (A), ALRb (B) | Dfam DF000000029/14/15 (CC0) |
+| Min identity to call alpha-satellite | ≥ 60% to closest reference | **ASSUMPTION** — conservative gate vs the ~16% (consensus) / 50–70% (inter-monomer) divergence (Waye & Willard 1987; PMC6121732) |
+| A/B-box typing | best-match reference box type; ALRb=B (CENP-B box), ALR/ALRa=A | PMC6121732 A/B rule + Masumoto 1989 box; Dfam sequences |
+| SF3 ⇔ HOR period a positive multiple of 5 | period % 5 == 0 (≥5) | **ASSUMPTION** — pentameric-ancestry proxy (Waye & Willard 1986; Shepelev 2009) |
+| SF4 ⇔ monomeric (period 1), A-type only | M1 is A-type, monomeric | PMC6121732 |
+| {SF1,SF2} ⇔ dimeric (period 2), A+B per unit | both are A→B dimers | PMC6121732 |
+| SF5 ⇔ irregular A/B mix, no regular period | R1·R2 irregular | PMC6121732; Shepelev 2009 |
+
+### Method (reuses the library aligner + the validated HOR detector — no external trained model)
+Split the array into 171-bp monomers; best-match each monomer to the bundled reference with
+`SequenceAligner.GlobalAlign` + `CalculateStatistics().Identity` to (a) confirm alpha-satellite
+identity (≥ 60%) and (b) type it A vs B; take the HOR period from `DetectHigherOrderRepeat`; assign
+the SF from the period + the A/B composition of one HOR unit per the rules above.
+
+### Residual after this fix (sharpened — honest, data-blocked)
+The bundled CC0 reference resolves **SF3** (pentameric), **SF4** (monomeric A-type) and **SF5**
+(irregular A/B), and narrows dimeric arrays to **{SF1, SF2}**. It does **NOT** separate **SF1 from
+SF2** (both dimeric with the identical A→B box pattern), nor does it tag SF3 arrays whose detected
+HOR period is not a multiple of 5 (e.g. the diverged-pentamer dodecameric DXZ1, period 12). Doing
+either needs the **SF-resolved consensus monomer library** (J1/J2/D1/D2/W1–W5/M1/R1/R2). Those
+SF-resolved consensus sequences are published only in supplementary matrices that are not
+machine-retrievable as FASTA and in third-party HMM repositories (enigene/HumAS-HMMER,
+logsdon-lab) that ship **no LICENSE file** — therefore not redistributable here (cf. the
+TIGRFAM/LM22 non-redistribution rule). Callers who hold an SF-resolved consensus set can pass it to
+`AssignSuprachromosomalFamily(sequence, reference)`.
