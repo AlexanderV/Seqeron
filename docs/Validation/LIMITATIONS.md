@@ -2,16 +2,16 @@
 
 **Library:** Seqeron.Genomics (mission-critical)   **Last reviewed:** 2026-06-25
 
-This file lists **only what the library currently does NOT do** — genuine open limitations. Anything that has
-been implemented (including opt-in alternatives, convention-parity modes, and resolved defects) is deliberately
+This file lists **only what the library currently does NOT do** — genuine open limitations. Anything already
+implemented (including opt-in alternatives, convention-parity modes, and resolved defects) is deliberately
 **excluded**; those are recorded in the per-unit reports under `docs/Validation/reports/{UNIT}.md`, not here.
 
 Every limitation below is `BY-DESIGN` and the unit is `✅ CLEAN` for its stated contract — these are honest scope
 boundaries, never defects. They fall into three kinds:
 
 - **Irreducible** — no algorithm or model can close it (physics / information theory).
-- **Data-blocked** — needs a trained model / parameter set / database that is gated, non-redistributable, or has never been experimentally measured / published. (Where the *algorithm* is implemented, the gated data is **caller-supplied** via a loader — the limitation is that nothing usable ships out-of-the-box.)
-- **Scope** — a deliberate out-of-scope boundary; use the named reference tool instead.
+- **Data-blocked** — needs a trained model / matrix / database that is gated, non-redistributable, or has never been measured / published. (Where the algorithm ships, the gated data is **caller-supplied** via a loader — the limitation is that nothing usable ships out-of-the-box.)
+- **Scope** — a deliberate out-of-scope boundary; use the named reference tool, or supply the input yourself.
 
 ---
 
@@ -21,28 +21,28 @@ boundaries, never defects. They fall into three kinds:
 |------|----------|-----------------|
 | PARSE-FASTQ-001 | Auto-disambiguation of Phred+33 vs Phred+64 when a read carries only overlap-range (ASCII 64–73) qualities. | The encodings overlap; the input is genuinely ambiguous (information-theoretic). Callers must decode with an explicit offset. |
 | RNA-STRUCT-001 | Recovering tertiary-stabilised knots (e.g. BWYV / PDB 437D) as the MFE structure. | Not representable by *any* nearest-neighbour thermodynamic model — an energy-model floor, not an algorithm gap. |
-| RNA-STRUCT-001 | Detecting pseudoknot classes outside the csr-PK grammar (kissing hairpins / loop–loop, triple-crossing / chained, non-canonical bulged helices). | The loop–loop interaction energy has never been experimentally measured (Sperschneider 2011 → heuristic estimate only); a faithful detector would require an unsourced energy constant. |
+| RNA-STRUCT-001 | Detecting pseudoknot classes outside the csr-PK grammar (kissing hairpins / loop–loop, triple-crossing / chained, non-canonical bulged helices). | The loop–loop interaction energy has never been experimentally measured (Sperschneider 2011 → heuristic estimate only); a faithful detector would need an unsourced energy constant. |
 
 ## 2. Data-blocked (needs a trained model / matrix / database that is gated, non-redistributable, or never measured)
 
 | Unit | Not done | Blocking data |
 |------|----------|---------------|
-| ONCO-MHC-001 | A **bundled** trained HLA coefficient matrix (the predictor matrix is caller-supplied), and the pan-allele NetMHCpan/MHCflurry neural model. | No redistributable, cross-verifiable trained HLA matrix is obtainable: the BIMAS coefficient files are served only by a now-defunct CGI (unarchived), the Parker 1994 table is paywalled, and the IEDB SMM matrices are non-commercial / no-redistribution. The pan-allele neural model is a separate trained network. |
+| ONCO-MHC-001 | A **bundled** trained HLA coefficient matrix (the predictor matrix is caller-supplied), and the pan-allele NetMHCpan/MHCflurry neural model. | No redistributable, cross-verifiable trained HLA matrix exists in the open: BIMAS files are served only by a now-defunct CGI, the Parker 1994 table is paywalled, IEDB SMM matrices are non-commercial / no-redistribution. The pan-allele neural model is a separate trained network. |
 | ONCO-IMMUNE-001 | A **bundled** CIBERSORT LM22 signature matrix (LM22 is caller-supplied). | LM22 is distributed by Stanford under a non-commercial **no-redistribution** licence and gated behind registration. |
-| META-BIN-001 | The **full CheckM lineage-specific marker database** (per-lineage Pfam/TIGRFAM collocated sets) + the reference genome tree for lineage placement. | `checkm_data` is a large gated trained DB; only a small CC0 universal ribosomal marker set ships, the rest is caller-supplied. |
-| PROTMOTIF-DOMAIN-001 | HMMER's automatic **multi-domain envelope decomposition** (region detection + stochastic-traceback clustering), and Pfam coverage beyond the three bundled (CC0) / caller-supplied `.hmm` domains. | The `hmmsearch` **bit-score pipeline is now implemented and verified** (opt-in): the local-multihit Forward `pre_score` and the **null2 biased-composition correction** reproduce HMMER (pyhmmer 0.12.1) to single-precision rounding — SH3/PDZ/WD40 pre-scores 68.71/84.86/213.41 bits, SH3 null2 bias 0.0256. What remains is that HMMER's null2 is applied per posterior-defined **domain envelope**: a single well-resolved domain matches `hmmsearch`'s corrected score exactly, but a multi-domain target must be scored per-envelope by the caller (the region/envelope-clustering heuristic is not reimplemented). The MSV/bias prefilters only gate which sequences reach Forward and don't change a reported hit's score. Full Pfam library beyond the bundled profiles is caller-supplied `.hmm`. |
+| META-BIN-001 | The **full CheckM lineage-specific marker database** + reference genome tree for lineage placement. | `checkm_data` is a large gated trained DB; only a small CC0 universal ribosomal marker set ships, the rest is caller-supplied. |
 | CHROM-CENT-001 | Suprachromosomal-family / specific α-satellite family (J1/J2/W/…) assignment for a detected HOR. | Naming the family needs curated chromosome-specific reference HOR (consensus) libraries — external curated data not embedded. |
 | DISORDER-REGION-001 | A calibrated per-residue / per-region disorder **confidence** value. | No disorder predictor publishes a calibrated confidence standard (the region boundaries themselves follow the validated TOP-IDP threshold). |
 
-## 3. Scope boundaries (deliberate — use the named reference tool)
+## 3. Scope boundaries (deliberate — use the named reference tool, or supply the input)
 
 | Unit | Not done | Use instead |
 |------|----------|-------------|
-| PRIMER-TM-001 | Self-dimer / cross-dimer (intermolecular) Tm, and the not-bundled triloop/tetraloop & terminal-mismatch special-loop bonus tables. (Intramolecular **hairpin** folding + unimolecular hairpin Tm are now implemented — opt-in `FindMostStableHairpin` / `CalculateHairpinMeltingTemperature`, SantaLucia 1998 stem stacks + SantaLucia & Hicks 2004 Table 4 loop initiation; the supplementary bonus is caller-supplied via `loopBonusDeltaG37`.) | UNAFold, ViennaRNA, MELTING 5 (dimers & special-loop bonuses). |
+| PRIMER-TM-001 | Self-dimer / cross-dimer (intermolecular) Tm, and triloop/tetraloop & terminal-mismatch special-loop bonus tables (the bonus is caller-supplied). | UNAFold, ViennaRNA, MELTING 5. |
 | PROBE-DESIGN-001 | The quantitative **MGB (minor-groove binder) ΔTm**, and dual-quencher labelling. | The MGB ΔTm model (Kutyavin 2000 / MGB-Eclipse) is empirical/proprietary with no published closed form — use a chemistry-specific tool; dual-quencher has no Tm impact. |
-| MIRNA-TARGET-001 | The context++ feature `PCT` (multi-species conservation); `TA_3UTR` / `SPS` / `Len_ORF` / `ORF8m` are caller-supplied. The computed score is a partial context++. (`SA` is now computed — see note.) | The TargetScan reference pipeline for the headline context++ score (a multi-species alignment for PCT, a transcriptome for TA). `SA` now uses the library's own Turner-2004 McCaskill partition-function accessibility (`RnaSecondaryStructure.CalculateRegionUnpairedProbability`), computed for every site whose 14-nt window fits the 3'UTR. |
+| PROTMOTIF-DOMAIN-001 | HMMER's automatic **multi-domain envelope decomposition** (region detection + stochastic-traceback clustering); and Pfam coverage beyond the three bundled domains. | A multi-domain target is scored per-envelope by the caller; any additional Pfam profile is loaded as a caller-supplied `.hmm` (the per-domain `hmmsearch` score + null2 correction themselves match HMMER). |
+| MIRNA-TARGET-001 | The context++ feature `PCT` (multi-species conservation); `TA_3UTR` / `SPS` / `Len_ORF` / `ORF8m` are caller-supplied. The score is a partial context++. | The TargetScan reference pipeline (a multi-species alignment for PCT, a transcriptome for TA). |
 | MIRNA-PRECURSOR-001 | A **trained** natural-vs-background precursor classifier (read-stacking probabilistic model). | miRDeep2 / a trained miRNA caller. |
-| PARSE-EMBL-001 | Fetching the **sequence** of a remote entry referenced in a location (the reference itself is parsed; only local parts are extracted). | Retrieve the remote accession from the source database. |
+| PARSE-EMBL-001 | Fetching the **sequence** of a remote entry referenced in a location (the reference is parsed; only local parts are extracted). | Retrieve the remote accession from the source database. |
 
 ---
 
@@ -51,5 +51,5 @@ boundaries, never defects. They fall into three kinds:
 - This file lists capability/scope limitations only; pure **performance** optimisations (e.g. a genome-scale seeded index where an exhaustive scan already returns the same result) are not limitations and are not listed.
 - For **research / pipeline** use, every row is a normal scope boundary of a from-first-principles library — the algorithm is validated correct for its stated contract.
 - For **clinical / decision-grade** use, the §2 oncology rows mark layers that require an external validated predictor and clinical sign-off — the library computes the rule, not the trained model behind it.
-- **Irreducible** rows can never be closed; **data-blocked** rows reopen only when the gated / unmeasured data becomes available (several already accept it via a caller-supplied loader); **scope** rows point to the reference tool to use instead.
+- **Irreducible** rows can never be closed; **data-blocked** rows reopen only when the gated / unmeasured data becomes available (several already accept it via a caller-supplied loader); **scope** rows point to the reference tool, or accept the input from the caller.
 - Each row traces to its per-unit validation report under `docs/Validation/reports/` (all `✅ CLEAN`).
