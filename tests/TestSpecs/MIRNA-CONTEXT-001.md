@@ -3,13 +3,18 @@
 **Test Unit ID:** MIRNA-CONTEXT-001
 **Area:** MiRNA
 **Algorithm:** TargetScan context++ Scoring
-**Status:** ☐ Not Started — pending independent Stage A/B re-validation
+**Status:** ☑ Validated — Stage A ✅ PASS / Stage B ✅ PASS / ✅ CLEAN (2026-06-25)
 **Last Updated:** 2026-06-25
 
-> **Stub.** This unit was added during the limitation-elimination campaign. The algorithm is implemented and
-> covered by the test fixture below, but it has **not yet** been independently re-validated under the project's
-> two-stage (Stage A description / Stage B implementation) protocol. This spec captures the evidence and contract
-> needed to perform that validation; fill in the full TestSpec when the unit is re-validated to `☑`.
+> Independently re-validated 2026-06-25 under the two-stage protocol; see
+> `docs/Validation/reports/MIRNA-CONTEXT-001.md`. All Agarwal_2015_parameters.txt coefficients verified
+> byte-exact; every feature computation/scaling confirmed against `targetscan_70_context_scores.pl`
+> (`getAgarwalContribution`, `getLocalAU_contribution`, `get_sRNA1_8_contributions`,
+> `getSite8_contribution`, `getSA_contribution`, `get3primePairingContribution`, `getMinDist`,
+> `get_len3UTR`, `getOffset6mer`); PCT sigmoid against `targetscan_70_BL_PCT.pl` `calculatePCTthisBL`.
+> SA derives from the Turner-2004 McCaskill partition function (Z_open/Z), not MFE. Full-transcript
+> features (TA/SPS/Len_ORF/ORF8m) and PCT are a documented caller-supplied boundary (computed verbatim
+> when supplied), not a limitation.
 
 ---
 
@@ -37,7 +42,7 @@ R: context++ score ≤ 0 (more negative = stronger); D: deterministic
 
 ## 5. Validation Checklist (to restore ☑)
 
-- [ ] Stage A: retrieve every source above; confirm formula/constants against the publication's worked example.
-- [ ] Stage B: review the implementation against the source; cross-check vs the reference oracle.
-- [ ] Full unfiltered `dotnet test Seqeron.sln` — Failed: 0.
-- [ ] Flip `☐ → ☑` in `ALGORITHMS_CHECKLIST_V2.md` and the 10 `docs/checklists/*.md`.
+- [x] Stage A: retrieved Agarwal 2015 eLife + `Agarwal_2015_parameters.txt` + `targetscan_70_context_scores.pl` + `targetscan_70_BL_PCT.pl`; confirmed coefficients/formula/scaling byte-exact and hand-computed the locally-computable subset (intercept + Local_AU + sRNA1/8 + Site8 + SA + 3P + Min_dist + Len_3UTR + Off6m + PCT).
+- [x] Stage B: reviewed the implementation against the perl reference; cross-checked the computable subset byte-exact (CTX-001/004/011 + all PCT cases recomputed independently).
+- [x] Full unfiltered `dotnet test Seqeron.sln` — Failed: 0 (Seqeron.Genomics.Tests 18762 passed).
+- [x] Flipped `☐ → ☑` in ROOT `ALGORITHMS_CHECKLIST_V2.md`.
