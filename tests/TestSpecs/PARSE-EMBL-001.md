@@ -32,6 +32,11 @@ public static partial class EmblParser
     public static IEnumerable<Feature> GetCDS(EmblRecord record);
     public static IEnumerable<Feature> GetGenes(EmblRecord record);
     public static string ExtractSequence(EmblRecord record, Location location);
+
+    // Opt-in remote-aware FULL location assembly (caller-supplied resolver; no network I/O)
+    public static string ResolveLocationSequence(
+        EmblRecord record, Location location,
+        FeatureLocationHelper.RemoteSequenceResolver? remoteResolver);
     
     // Record Types
     public readonly record struct EmblRecord(
@@ -89,10 +94,22 @@ public static partial class EmblParser
         IReadOnlyList<RemotePart>? RemoteParts = null  // per-segment remote refs nested in operators
     );
 }
+
+public static partial class FeatureLocationHelper
+{
+    // Caller supplies the fetch (any network/DB access); the library does the assembly.
+    public delegate string? RemoteSequenceResolver(string accession, int? version);
+
+    public static string ResolveLocationSequence(
+        string rawLocation, string localSequence, RemoteSequenceResolver? remoteResolver);
+    public static string ResolveLocationSequence(
+        EmblParser.Location location, string localSequence, RemoteSequenceResolver? remoteResolver);
+}
 ```
 
 ## Canonical Test File
-`tests/Seqeron/Seqeron.Genomics.Tests/EmblParserTests.cs`
+`tests/Seqeron/Seqeron.Genomics.Tests/EmblParserTests.cs` (core parsing);
+`tests/Seqeron/Seqeron.Genomics.Tests/FeatureLocationHelper_ResolveLocationSequence_Tests.cs` (remote-aware assembly enhancement)
 
 ## Test Categories
 
@@ -198,6 +215,33 @@ public static partial class EmblParser
 | SPEC-16 | ParseLocation_NestedComplementJoin_Local_RemotePartsEmpty_Regression | `complement(join(1..50,80..100))` — unchanged (regression) | ✅ Covered |
 | SPEC-17 | ParseLocation_TopLevelRemoteReference_RemotePartsEmpty_Regression | `J00194.1:100..202` — top-level fields populated, RemoteParts null (regression) | ✅ Covered |
 
+### RESV Tests (Remote-aware location assembly — INSDC FT §3.4/§3.5; `ResolveLocationSequence`)
+
+Enhancement 2026-06-26. The library performs no network I/O; the caller supplies a
+`RemoteSequenceResolver`. Expected values are hand-derived from the INSDC §3.4/§3.5 rules
+(see Evidence enhancement section). Test file:
+`FeatureLocationHelper_ResolveLocationSequence_Tests.cs`.
+
+| Test ID | Test Name | Location → Expected | Status |
+|---------|-----------|---------------------|--------|
+| RESV-01 | ResolveLocationSequence_LocalOnlyJoin_ResolverNotInvoked | `join(1..3,7..9)` on `ACGTACGTAC` → `ACGGTA`; resolver never called | ✅ Covered |
+| RESV-02 | ResolveLocationSequence_RemoteOnly_SlicesOneBasedInclusive | `J00194.1:5..14`, remote `GGGGGCCCCCAAAAA` → `GCCCCCAAAA` | ✅ Covered |
+| RESV-03 | ResolveLocationSequence_MixedLocalAndRemote_PreservesOrder | `join(1..10,J00194.1:5..14)` → `ACGTACGTACGCCCCCAAAA` | ✅ Covered |
+| RESV-04 | ResolveLocationSequence_ComplementOfRemote_ReverseComplements | `complement(Y.1:1..4)`, remote `AAAC` → `GTTT` | ✅ Covered |
+| RESV-05 | ResolveLocationSequence_ComplementOfJoin_ReversesOrderAndComplements | `complement(join(1..5,X.1:1..4))` on `ACGTA`, remote `X`=`TTGG` → `CCAATACGT` | ✅ Covered |
+| RESV-06 | ResolveLocationSequence_ComplementOfJoin_EqualsJoinOfComplements | `complement(join(1..5,X.1:1..4))` == `join(complement(X.1:1..4),complement(1..5))` (spec equivalence) | ✅ Covered |
+| RESV-07 | ResolveLocationSequence_SpecEquivalenceExample_LargeJoin | `complement(join(2691..4571,4918..5163))` == `join(complement(4918..5163),complement(2691..4571))` on a constructed local seq | ✅ Covered |
+| RESV-08 | ResolveLocationSequence_NullResolver_RemoteSegmentEmpty | `join(1..3,J00194.1:5..14)` with `null` resolver → `ACG` | ✅ Covered |
+| RESV-09 | ResolveLocationSequence_ResolverReturnsNull_RemoteSegmentEmpty | resolver returns null for the accession → remote empty, local intact | ✅ Covered |
+| RESV-10 | ResolveLocationSequence_PartialStartMarker_SlicesStatedNumber | `<1..5` on `ACGTACGTAC` → `ACGTA` | ✅ Covered |
+| RESV-11 | ResolveLocationSequence_PartialEndMarker_SlicesStatedNumber | `join(1..3,>7..10)` → `ACGGTAC` | ✅ Covered |
+| RESV-12 | ResolveLocationSequence_SingleBase_SelectsOneBase | `2` on `ACGTACGTAC` → `C` | ✅ Covered |
+| RESV-13 | ResolveLocationSequence_OrderOperator_AssemblesLikeJoin | `order(1..3,7..9)` → `ACGGTA` | ✅ Covered |
+| RESV-14 | ResolveLocationSequence_EmptyOrNullLocation_ReturnsEmpty | `""` / `null` → `""` | ✅ Covered |
+| RESV-15 | ResolveLocationSequence_EmblLocationOverload_UsesRawLocation | overload on parsed `Location` reproduces RESV-03 | ✅ Covered |
+| RESV-16 | ResolveLocationSequence_RemoteVersionPassedToResolver | resolver receives accession + version `1` for `J00194.1:5..14` | ✅ Covered |
+| RESV-17 | ResolveLocationSequence_RemoteNoVersion_PassesNullVersion | `J00194:5..14` (no version) → resolver receives `version == null` | ✅ Covered |
+
 ## Test Audit Summary
 
 ### Existing Test Coverage (EmblParserTests.cs)
@@ -295,7 +339,7 @@ These are parser behaviors that differ from the full specification but are docum
 | ID | Limitation | Rationale |
 |----|-----------|-----------|
 | LIM-1 | Site-between location `123^124` parsed as Start=123, End=124. No distinct `IsSiteBetween` flag on the Location struct. | RawLocation preserves the `^` for downstream callers that need to distinguish site from range. Practical impact is minimal as site-between describes a zero-length insertion point. |
-| LIM-2 | RESOLVED. Remote entry locations are now parsed faithfully both at the top level (`J00194.1:100..202` → `RemoteAccession`/`RemoteVersion`, version digit not leaked) and **nested inside `complement`/`join`/`order` operators** (`join(1..100,J00194.1:100..202)` → per-segment `RemoteParts`, accession-version stripped before the numeric parse). Residual: the referenced remote entry's **sequence is not fetched** (`ExtractSequence` extracts only local parts); the captured accession/version/span lets callers fetch it from the source database. | INSDC FT 3.4.2.1(e) / 3.4.3 — example `join(1..100,J00194.1:100..202)` "Joins region 1..100 of the existing entry with the region 100..202 of remote entry J00194". |
+| LIM-2 | RESOLVED (2026-06-26). Remote entry locations are parsed faithfully at the top level and nested in operators, and the FULL feature sequence is now **assembled** via `ResolveLocationSequence(...)` from local spans plus remote spans supplied by a **caller-supplied `RemoteSequenceResolver`** (segment order under `join`/`order`, reverse-complement under `complement(...)`, 1-based inclusive slicing, `<`/`>` partials). Residual is **by-design, not a gap**: the library performs no network I/O itself — the caller's resolver does any database/network access, the library does the assembly. | INSDC FT 3.4.2.1(e) / 3.4.3 / §3.5 — `complement(join(...))` = `join(complement,complement)` (order reversed); `J00194.1:100..202` = remote bases 100–202. |
 | LIM-3 | Deprecated single-base-from-range notation `102.110` (single period) not handled. The regex `(\d+)(?:\.\.(\d+))?` requires double-dot `..`. | Deprecated since October 2006 per INSDC spec. Illegal for new entries. |
 | LIM-4 | Escaped double quotes in qualifier values (`""`) not unescaped to `"`. The string `The ""label"" qualifier` is stored as-is with `""`. | FinishQualifier trims outer quotes but does not unescape inner pairs. Callers can unescape if needed. |
 | LIM-5 | `QualifierRegex` (`@"/(\w+)(?:=([^/]+))?"`) still exists as dead code. Used only by unused `ParseQualifierString`/`ParseFeatures` methods, not by the active `ParseFeaturesFromLines` code path. | Dead code retained for potential future use or removal in a cleanup pass. |
@@ -311,6 +355,7 @@ None. All implementation decisions are derived from the EBI EMBL User Manual (Re
 - All SHOULD tests pass (34 tests)
 - All COULD tests pass (11 tests)
 - All SPEC tests pass (44 tests via parameterized cases)
+- All RESV tests pass (17 cases — remote-aware assembly)
 - No regressions in existing tests
 
 ### Quality Metrics
@@ -325,3 +370,4 @@ None. All implementation decisions are derived from the EBI EMBL User Manual (Re
 - **Last Updated**: 2026-03-12
 - **Coverage Audit**: 17 weak tests strengthened (exact values, flag assertions). 12 missing tests implemented. 5 spec-level duplicates removed. Implementation fix: OG/DR/CC/DT content now stored in AdditionalFields (DEV-9). Total: 90 → 102 tests.
 - **Spec Compliance Audit**: Verified against EBI EMBL User Manual Release 143 and INSDC Feature Table v11.3. 9 deviations fixed, 5 known limitations documented, 0 assumptions remaining.
+- **2026-06-26 — Remote-aware assembly enhancement (LIM-2 fully resolved)**: Added opt-in `FeatureLocationHelper.ResolveLocationSequence` / `EmblParser.ResolveLocationSequence` with a caller-supplied `RemoteSequenceResolver`. INSDC §3.4/§3.5 re-retrieved this session (insdc.org + ddbj.nig.ac.jp). 17 RESV tests, all hand-derived. The library still performs no network I/O (by-design); the caller supplies the fetch, the library does the assembly.

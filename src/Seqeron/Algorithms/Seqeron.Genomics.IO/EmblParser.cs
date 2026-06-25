@@ -849,6 +849,26 @@ public static partial class EmblParser
     public static string ExtractSequence(EmblRecord record, Location location)
         => FeatureLocationHelper.ExtractSequence(record.Sequence, location);
 
+    /// <summary>
+    /// Assembles the FULL feature sequence for a location that may reference remote entries,
+    /// splicing the local spans of <paramref name="record"/> together with remote spans fetched
+    /// through the caller-supplied <paramref name="remoteResolver"/> (INSDC FT 3.4 / 3.5).
+    /// </summary>
+    /// <remarks>
+    /// Opt-in companion to <see cref="ExtractSequence(EmblRecord, Location)"/>. The library does
+    /// no network I/O itself: the caller's <paramref name="remoteResolver"/> supplies the remote
+    /// entry's sequence (from a database/network); this method performs the assembly — segment
+    /// order under <c>join</c>/<c>order</c>, reverse-complement under <c>complement(...)</c>,
+    /// 1-based inclusive slicing, and the <c>&lt;</c>/<c>&gt;</c> partials. When the location is
+    /// local-only the resolver is never invoked. See
+    /// <see cref="FeatureLocationHelper.ResolveLocationSequence(string, string, FeatureLocationHelper.RemoteSequenceResolver?)"/>.
+    /// </remarks>
+    public static string ResolveLocationSequence(
+        EmblRecord record,
+        Location location,
+        FeatureLocationHelper.RemoteSequenceResolver? remoteResolver)
+        => FeatureLocationHelper.ResolveLocationSequence(location, record.Sequence, remoteResolver);
+
     #endregion
 
     #region Regex Patterns

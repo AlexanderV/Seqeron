@@ -6,7 +6,7 @@
 | Test Unit ID | PARSE-EMBL-001 |
 | Related Projects | N/A |
 | Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Last Reviewed | 2026-06-26 |
 
 ## 1. Overview
 
@@ -73,6 +73,7 @@ Location forms preserved from the current document are:[2]
 | INV-02 | `complement(...)` denotes reverse-strand orientation | This is part of the INSDC location syntax shared by EMBL feature tables.[2] |
 | INV-03 | `join(...)` denotes a multi-part location whose parts define an overall span from minimum start to maximum end | Joined INSDC locations are composed from ordered parts.[2] |
 | INV-04 | A remote reference `acc[.ver]:loc` nested inside `complement`/`join`/`order` is captured per-segment (accession, version, span) in `Location.RemoteParts`, and its accession-version digits never leak into the numeric `Parts` | INSDC FT 3.4.2.1(e) permits a remote-entry descriptor as an element of an operator, e.g. `join(1..100,J00194.1:100..202)`.[2] |
+| INV-05 | `ResolveLocationSequence(...)` assembles segments in listed order; `complement(...)` of a span (or a whole `join`) reverse-complements the assembled string, so `complement(join(a,b))` equals `join(complement(b),complement(a))`; remote spans are sliced 1-based inclusive from the caller-supplied resolver's output | INSDC FT §3.5: complement reads the complement 5'→3'; join places elements end-to-end; the spec states `complement(join(2691..4571,4918..5163))` and `join(complement(4918..5163),complement(2691..4571))` are equivalent.[2] |
 
 ## 3. Contract
 
@@ -142,7 +143,8 @@ The implementation recognizes the controlled vocabularies embedded in source for
 - `EmblParser.ParseFile(string)` and `EmblParser.Parse(string)`: Parse EMBL records from files or text.
 - `EmblParser.ParseLocation(string)`: Parses EMBL/INSDC location syntax.
 - `EmblParser.GetFeatures(...)`, `GetCDS(...)`, `GetGenes(...)`: Feature selection helpers.
-- `EmblParser.ExtractSequence(...)`: Extracts subsequences for parsed feature locations.
+- `EmblParser.ExtractSequence(...)`: Extracts subsequences for parsed feature locations (local parts only).
+- `EmblParser.ResolveLocationSequence(record, location, resolver)` / `FeatureLocationHelper.ResolveLocationSequence(rawLocation, localSequence, resolver)`: Opt-in remote-aware assembly — splices local spans with remote spans fetched through a caller-supplied `RemoteSequenceResolver` delegate (the library does no network I/O itself), honouring `join`/`order` order, `complement` reverse-complement, 1-based inclusive slicing, and `<`/`>` partials.
 - `EmblParser.ToGenBank(...)`: Converts an `EmblRecord` into the repository's GenBank record shape.
 - `SequenceFormatHelper.ParseLocationParts(...)`: Shared GenBank/EMBL location parser.
 - `FeatureLocationHelper.ExtractSequence(...)`: Shared joined/complement feature extraction helper.
@@ -159,6 +161,7 @@ The parser splits records specifically on `\n//` and only parses trimmed blocks 
 - INSDC location parsing for ranges, `complement(...)`, `join(...)`, `order(...)`, and partial markers.[2]
 - Remote-entry references `accession[.version]:descriptor` (3.4.2.1(e)), both at the top level (captured in `RemoteAccession`/`RemoteVersion`) and **nested inside `complement`/`join`/`order` operators** (captured per-segment in `RemoteParts`, e.g. `join(1..100,J00194.1:100..202)`), with the accession-version digits stripped before the numeric span parse so they never leak into `Parts`.[2]
 - Feature-level subsequence extraction using parsed location parts.
+- Remote-aware FULL location assembly via a **caller-supplied resolver** (`ResolveLocationSequence`): segment order under `join`/`order`, reverse-complement of the assembled span under `complement(...)` (so `complement(join(a,b))` = `join(complement(b),complement(a))`), 1-based inclusive slicing of remote spans, and `<`/`>` partials.[2]
 
 **Intentionally simplified:**
 
@@ -168,7 +171,7 @@ The parser splits records specifically on `\n//` and only parses trimmed blocks 
 **Not implemented:**
 
 - Full EMBL occurrence-count validation for every line type and full `SQ` composition cross-checking; **users should rely on:** no current alternative in this repository.
-- Cross-entry sequence retrieval for a remote reference: the remote location (accession, version, span) is parsed and exposed, but the referenced entry's sequence is **not** fetched, so `ExtractSequence` extracts only the local parts. **Users should rely on:** the captured `RemoteAccession`/`RemoteVersion`/`RemoteParts` to fetch the remote entry from the appropriate database when the joined sequence content is required.[2]
+- Network I/O to fetch a remote entry's sequence: the library is offline-first and performs **no** network access itself. The remote location (accession, version, span) is parsed and exposed, and `ResolveLocationSequence(...)` performs the FULL assembly given a **caller-supplied** `RemoteSequenceResolver` that returns the remote entry's sequence. **Users should rely on:** supplying that resolver (which does any network/database access) — the library then splices local and remote spans per INSDC §3.5. When no resolver is supplied for a local-only location, `ExtractSequence(...)` extracts the local parts directly.[2]
 
 ## 6. Edge Cases and Limitations
 
@@ -182,6 +185,9 @@ The parser splits records specifically on `\n//` and only parses trimmed blocks 
 | Empty location string | Returns a zeroed `Location` | Explicit helper behavior |
 | Sequence lines containing spaces and counts | Letters are extracted and uppercased | EMBL sequence parsing strips non-letters |
 | Remote reference nested in an operator (`join(1..100,J00194.1:100..202)`) | Per-segment remote entry captured in `RemoteParts`; accession-version digit not leaked into `Parts` | INSDC FT 3.4.2.1(e) / 3.4.3 |
+| `ResolveLocationSequence` with a local-only location | Resolver never invoked; result equals local `ExtractSequence` | No remote element present |
+| `ResolveLocationSequence` with `complement(join(local,remote))` | Inner join assembled then reverse-complemented as one unit (= `join(complement(remote),complement(local))`) | INSDC FT §3.5 complement/join equivalence |
+| `ResolveLocationSequence` with a remote element but `null` resolver or resolver returning `null` | Remote element contributes empty string; local segments assembled in place (no throw) | Offline-first parity with clamping local extraction |
 
 ### 6.2 Limitations
 
@@ -192,6 +198,7 @@ The parser focuses on the main EMBL flat-file fields and does not preserve the f
 ### 7.3 Related Tests, Evidence, or Documents
 
 - Tests: [EmblParserTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/EmblParserTests.cs)
+- Tests (remote assembly): [FeatureLocationHelper_ResolveLocationSequence_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/FeatureLocationHelper_ResolveLocationSequence_Tests.cs) — covers `INV-05`
 - Related tests: [EmblParseTests.cs](../../../tests/Seqeron/Seqeron.Mcp.Parsers.Tests/EmblParseTests.cs)
 - Test specification: [PARSE-EMBL-001.md](../../../tests/TestSpecs/PARSE-EMBL-001.md)
 - Related algorithms: [GenBank_Parsing.md](GenBank_Parsing.md)
@@ -199,5 +206,5 @@ The parser focuses on the main EMBL flat-file fields and does not preserve the f
 ## 8. References
 
 1. EMBL-EBI. EMBL User Manual. https://ftp.ebi.ac.uk/pub/databases/embl/doc/usrman.txt
-2. INSDC. Feature Table Definition. https://www.insdc.org/files/feature_table.html
+2. INSDC. The DDBJ/ENA/GenBank Feature Table Definition (v11.x), §3.4 Location / §3.5 Operators. https://www.insdc.org/submitting-standards/feature-table/ (DDBJ mirror: https://www.ddbj.nig.ac.jp/ddbj/feature-table-e.html; accessed 2026-06-26)
 3. European Nucleotide Archive. https://www.ebi.ac.uk/ena/

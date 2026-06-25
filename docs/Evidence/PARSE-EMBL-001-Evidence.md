@@ -409,7 +409,81 @@ SQ   Sequence 1859 BP; 609 A; 314 C; 355 G; 581 T; 0 other;
 //
 ```
 
+## Enhancement (2026-06-26): Remote-aware location-sequence assembly (caller-supplied resolver)
+
+This enhancement closes the open scope item "fetching the sequence of a remote entry
+referenced in a location": the library remains offline-first and does NO network I/O; the
+caller supplies a resolver delegate that returns a remote entry's sequence, and the library
+performs the FULL feature-sequence assembly (`FeatureLocationHelper.ResolveLocationSequence`,
+`EmblParser.ResolveLocationSequence`).
+
+### Online sources retrieved THIS session (2026-06-26)
+
+**INSDC Feature Table Definition (v11.x) — §3.4 Location / §3.5 Operators**
+- Retrieved via WebSearch ("INSDC Feature Table Definition location operators complement join
+  order remote accession.version base span") then WebFetch of
+  `https://www.insdc.org/submitting-standards/feature-table/` (accessed 2026-06-26).
+- Cross-verified at the DDBJ mirror `https://www.ddbj.nig.ac.jp/ddbj/feature-table-e.html`
+  (accessed 2026-06-26).
+
+Verbatim/closely-paraphrased facts extracted (used to fix the assembly semantics):
+1. **complement(location):** "Find the complement of the presented sequence in the span
+   specified by 'location' (i.e., read the complement of the presented strand in its
+   5'-to-3' direction)" — reverse-complement of the enclosed span.
+2. **join(...):** "The indicated elements should be joined (placed end-to-end) to form one
+   contiguous sequence" — concatenation in listed order.
+3. **order(...):** "The elements can be found in the specified order (5' to 3' direction)" —
+   same ordered concatenation for extraction.
+4. **complement of a join reverses element order:** `complement(join(2691..4571,4918..5163))`
+   is equivalent to `join(complement(4918..5163),complement(2691..4571))` (stated by both
+   mirrors as producing identical results) — the outer complement reverse-complements the
+   joined string as one unit.
+5. **Remote entry:** `J00194.1:100..202` "Points to bases 100 to 202 in entry with accession
+   J00194" — 1-based inclusive on the remote sequence.
+6. **Base 1:** "This numbering designates the first base (5' end) of the presented sequence as
+   base 1" — 1-based coordinates.
+7. **`<` / `>`:** "may be used with the starting and ending base numbers to indicate that an
+   end point is beyond the specified base number."
+
+### Assembly rules implemented
+
+| Rule | Source | Behaviour |
+|------|--------|-----------|
+| Segment order | §3.5 join/order | concatenate elements in listed order |
+| complement(...) of whole span | §3.5 complement | reverse-complement the assembled string |
+| complement(join(a,b)) = join(complement(b),complement(a)) | §3.5 equivalence example | reverse-complementing the concatenation reverses order + complements each |
+| Remote span 1-based inclusive | §3.4(e) | slice `n..m` from resolver output as bases n..m |
+| `<`/`>` partial | §3.4 markers | slice the stated number verbatim (only available coordinate) |
+| Missing/null resolver | ASSUMPTION (offline-first parity) | remote element contributes empty string; local segments assembled in place |
+
+### Hand-derived assembly cases (this enhancement)
+
+Local/remote sequences chosen so every output base is traceable.
+
+| Location | Local | Remote resolver | Expected |
+|----------|-------|-----------------|----------|
+| `join(1..3,7..9)` | `ACGTACGTAC` | (unused) | `ACGGTA` |
+| `J00194.1:5..14` | (none) | `J00194`→`GGGGGCCCCCAAAAA` | `GCCCCCAAAA` |
+| `join(1..10,J00194.1:5..14)` | `ACGTACGTAC` | `J00194`→`GGGGGCCCCCAAAAA` | `ACGTACGTACGCCCCCAAAA` |
+| `complement(Y.1:1..4)` | (none) | `Y`→`AAAC` | `GTTT` |
+| `complement(join(1..5,X.1:1..4))` | `ACGTA` | `X`→`TTGG` | `CCAATACGT` |
+| `join(complement(X.1:1..4),complement(1..5))` | `ACGTA` | `X`→`TTGG` | `CCAATACGT` (= prev) |
+| `join(1..3,J00194.1:5..14)` | `ACGTACGTAC` | resolver = `null` | `ACG` |
+| `<1..5` | `ACGTACGTAC` | (unused) | `ACGTA` |
+
+### Enhancement assumptions
+
+1. **ASSUMPTION: `<`/`>` partials slice the stated number verbatim** — the spec gives no other
+   coordinate; matches the existing local `ExtractSequence` (the partial flag does not move the
+   slice bounds).
+2. **ASSUMPTION: missing-resolver / resolver-returns-null contributes an empty segment** — the
+   grammar does not define an unavailable remote entry; the library never throws on out-of-range
+   local spans (it clamps), so the remote element contributes the empty string while local
+   segments are still assembled in their correct positions.
+
 ## Document History
 - **Created**: 2025-01-28
 - **Author**: Algorithm Testing Protocol
 - **Sources Verified**: EBI User Manual (Release 143), INSDC Feature Table v11.3
+- **2026-06-26**: Added the remote-aware assembly enhancement section (caller-supplied
+  resolver); INSDC §3.4/§3.5 re-retrieved this session from insdc.org + ddbj.nig.ac.jp.
