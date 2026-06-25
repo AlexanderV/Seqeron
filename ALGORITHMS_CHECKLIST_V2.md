@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 255 |
-| **Completed** | 251 |
+| **Completed** | 252 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 4 |
+| **Not Started** | 3 |
 
 ---
 
@@ -91,7 +91,7 @@
 | ☑ | PARSE-VCF-001 | FileIO | 4 | Wikipedia (Variant Call Format), Danecek et al. (2011), SAMtools HTS-specs VCFv4.3 | [PARSE-VCF-001.md](TestSpecs/PARSE-VCF-001.md) | VcfParserTests.cs |
 | ☑ | PARSE-GFF-001 | FileIO | 3 | Wikipedia (GFF), UCSC Genome Browser FAQ, Sequence Ontology GFF3 Spec v1.26 | [PARSE-GFF-001.md](TestSpecs/PARSE-GFF-001.md) | GffParserTests.cs |
 | ☑ | PARSE-GENBANK-001 | FileIO | 3 | NCBI Sample Record, Wikipedia (GenBank), INSDC Feature Table Definition | [PARSE-GENBANK-001.md](TestSpecs/PARSE-GENBANK-001.md) | GenBankParserTests.cs |
-| ☐ | PARSE-EMBL-001 | FileIO | 2 | EBI EMBL User Manual, INSDC Feature Table Definition v11.3 | [PARSE-EMBL-001.md](TestSpecs/PARSE-EMBL-001.md) | EmblParserTests.cs |
+| ☑ | PARSE-EMBL-001 | FileIO | 2 | EBI EMBL User Manual, INSDC Feature Table Definition v11.3 | [PARSE-EMBL-001.md](TestSpecs/PARSE-EMBL-001.md) | EmblParserTests.cs |
 | ☑ | RNA-STRUCT-001 | RnaStructure | 4 | Wikipedia (Nucleic acid structure prediction, Nussinov algorithm), Nussinov (1980), Zuker (1981), Turner (2004) | [RNA-STRUCT-001.md](TestSpecs/RNA-STRUCT-001.md) | RnaSecondaryStructureTests.cs |
 | ☑ | RNA-STEMLOOP-001 | RnaStructure | 3 | Wikipedia (Stem-loop, Tetraloop, Pseudoknot), Woese (1990), Heus & Pardi (1991) | [RNA-STEMLOOP-001.md](TestSpecs/RNA-STEMLOOP-001.md) | RnaSecondaryStructureTests.cs |
 | ☑ | RNA-ENERGY-001 | RnaStructure | 2 | Wikipedia (RNA folding, Nearest neighbor parameters), Turner (2004), NNDB | [RNA-ENERGY-001.md](TestSpecs/RNA-ENERGY-001.md) | RnaSecondaryStructureTests.cs |
