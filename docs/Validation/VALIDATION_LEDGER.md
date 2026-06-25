@@ -42,7 +42,7 @@ State (end of session): ✅ CLEAN (fully functional) · 🔧 LIMITED (see report
 | 10 | PAT-APPROX-002 | Matching | ✅ | ✅ | ✅ CLEAN | reports/PAT-APPROX-002.md |
 | 11 | PAT-IUPAC-001 | Matching | ✅ | ✅ | ✅ CLEAN | reports/PAT-IUPAC-001.md |
 | 12 | PAT-PWM-001 | Matching | ✅ | ✅ | ✅ CLEAN | reports/PAT-PWM-001.md |
-| 13 | REP-STR-001 | Repeats | ⬜ | ⬜ | ⬜ pending | reports/REP-STR-001.md |
+| 13 | REP-STR-001 | Repeats | ✅ | 🟡 | ✅ CLEAN | reports/REP-STR-001.md |
 | 14 | REP-TANDEM-001 | Repeats | ✅ | ✅ | ✅ CLEAN | reports/REP-TANDEM-001.md |
 | 15 | REP-INV-001 | Repeats | ✅ | ✅ | ✅ CLEAN | reports/REP-INV-001.md |
 | 16 | REP-DIRECT-001 | Repeats | ✅ | ✅ | ✅ CLEAN | reports/REP-DIRECT-001.md |
