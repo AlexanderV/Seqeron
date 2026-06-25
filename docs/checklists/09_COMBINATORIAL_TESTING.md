@@ -268,18 +268,18 @@ Combinatorial (pairwise) тестування генерує мінімальн�
 | 235 | ☐ | ONCO-ASCAT-001 | Oncology | purity(3) × ploidy(3) | 9 | 9 | Med |
 | 236 | ☐ | RNA-PKPREDICT-001 | Analysis | seqLen(3) × minLoop(2) | 6 | 6 | Low |
 | 237 | ☐ | RNA-PKRECURSIVE-001 | Analysis | seqLen(3) × minLoop(2) | 6 | 6 | Low |
-| 238 | ☑ | RNA-ACCESS-001 | RnaStructure | seqLen(3) × regionLen(3) × temperature(2) | 18 | 9 | Med |
-| 239 | ☑ | PROTMOTIF-HMM-001 | ProteinMotif | profile(3) × mode(local/glocal) × seqLen(3) | 18 | 9 | High |
-| 240 | ☑ | PRIMER-NNTM-001 | MolTools | len(3) × [Na+](2) × [Mg2+](2) × mismatch(2) | 24 | 8 | High |
-| 241 | ☑ | PRIMER-HAIRPIN-001 | MolTools | stemLen(3) × loopLen(3) × specialLoop(2) | 18 | 9 | Med |
-| 242 | ☑ | PRIMER-DIMER-001 | MolTools | lenA(3) × lenB(3) × self/hetero(2) | 18 | 9 | Med |
-| 243 | ☑ | PROBE-LNATM-001 | MolTools | len(3) × lnaCount(3) × mgbFlag(2) | 18 | 9 | Low |
-| 244 | ☑ | PROBE-EVALUE-001 | MolTools | rawScore(3) × dbSize(3) × K(2) | 18 | 9 | Low |
-| 245 | ☑ | MHC-NN-001 | Oncology | peptideLen(4) × allele(3) × ensemble(2) | 24 | 12 | High |
-| 246 | ☑ | MHC-MATRIX-001 | Oncology | matrixLen(3) × method(SMM/BIMAS) × threshold(2) | 12 | 6 | Med |
-| 247 | ☑ | IMMUNE-NUSVR-001 | Oncology | genes(3) × cellTypes(3) × ν(2) | 18 | 9 | High |
-| 248 | ☑ | META-CHECKM-001 | Metagenomics | domain(bac/ar) × markerCount(3) × copies(2) | 12 | 6 | Med |
-| 249 | ☑ | META-TETRA-001 | Metagenomics | seqLen(3) × GCcontent(3) × strand(2) | 18 | 9 | Low |
+| 238 | ☐ | RNA-ACCESS-001 | RnaStructure | seqLen(3) × regionLen(3) × temperature(2) | 18 | 9 | Med |
+| 239 | ☐ | PROTMOTIF-HMM-001 | ProteinMotif | profile(3) × mode(local/glocal) × seqLen(3) | 18 | 9 | High |
+| 240 | ☐ | PRIMER-NNTM-001 | MolTools | len(3) × [Na+](2) × [Mg2+](2) × mismatch(2) | 24 | 8 | High |
+| 241 | ☐ | PRIMER-HAIRPIN-001 | MolTools | stemLen(3) × loopLen(3) × specialLoop(2) | 18 | 9 | Med |
+| 242 | ☐ | PRIMER-DIMER-001 | MolTools | lenA(3) × lenB(3) × self/hetero(2) | 18 | 9 | Med |
+| 243 | ☐ | PROBE-LNATM-001 | MolTools | len(3) × lnaCount(3) × mgbFlag(2) | 18 | 9 | Low |
+| 244 | ☐ | PROBE-EVALUE-001 | MolTools | rawScore(3) × dbSize(3) × K(2) | 18 | 9 | Low |
+| 245 | ☐ | MHC-NN-001 | Oncology | peptideLen(4) × allele(3) × ensemble(2) | 24 | 12 | High |
+| 246 | ☐ | MHC-MATRIX-001 | Oncology | matrixLen(3) × method(SMM/BIMAS) × threshold(2) | 12 | 6 | Med |
+| 247 | ☐ | IMMUNE-NUSVR-001 | Oncology | genes(3) × cellTypes(3) × ν(2) | 18 | 9 | High |
+| 248 | ☐ | META-CHECKM-001 | Metagenomics | domain(bac/ar) × markerCount(3) × copies(2) | 12 | 6 | Med |
+| 249 | ☐ | META-TETRA-001 | Metagenomics | seqLen(3) × GCcontent(3) × strand(2) | 18 | 9 | Low |
 | 250 | ☐ | SPLICE-MAXENT3-001 | Splicing | windowOffset(3) × dinucleotide(2) | 6 | 6 | Med |
 | 251 | ☐ | SPLICE-MAXENT5-001 | Splicing | windowOffset(3) × dinucleotide(2) | 6 | 6 | Med |
 | 252 | ☐ | MIRNA-CONTEXT-001 | MiRNA | seedType(3) × siteContext(3) × SA(2) | 18 | 9 | High |
@@ -297,8 +297,8 @@ Combinatorial (pairwise) тестування генерує мінімальн�
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 10 |
-| ☐ Not started | 181 |
+| ☑ Complete | 0 |
+| ☐ Not started | 193 |
 | ✗ Not applicable | 65 |
 | High priority (≥4 params, >50 full combos) | 15 |
 | Medium priority (3 params) | 52 |

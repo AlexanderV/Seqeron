@@ -263,18 +263,18 @@ Snapshot (approval) тести серіалізують повний вихід 
 | 235 | ☐ | ONCO-ASCAT-001 | Oncology | ASPCF segments + purity/ploidy fit for a reference profile | OncologySnapshotTests.cs (new) |
 | 236 | ☐ | RNA-PKPREDICT-001 | Analysis | Dot-bracket [] for known H-type pseudoknots | RnaStructureSnapshotTests.cs (new) |
 | 237 | ☐ | RNA-PKRECURSIVE-001 | Analysis | Nested/multiple-knot dot-bracket for designed RNAs | RnaStructureSnapshotTests.cs (new) |
-| 238 | ☑ | RNA-ACCESS-001 | RnaStructure | per-base unpaired probability profile | RnaStructureSnapshotTests.cs (new) |
-| 239 | ☑ | PROTMOTIF-HMM-001 | ProteinMotif | domain envelope list with bit scores | ProteinMotifSnapshotTests.cs (new) |
-| 240 | ☑ | PRIMER-NNTM-001 | MolTools | Tm + ΔH/ΔS breakdown | PrimerSnapshotTests.cs (new) |
-| 241 | ☑ | PRIMER-HAIRPIN-001 | MolTools | most-stable hairpin structure + Tm | PrimerSnapshotTests.cs (new) |
-| 242 | ☑ | PRIMER-DIMER-001 | MolTools | most-stable dimer alignment + Tm | PrimerSnapshotTests.cs (new) |
-| 243 | ☑ | PROBE-LNATM-001 | MolTools | LNA-adjusted Tm + MGB design report | ProbeSnapshotTests.cs (new) |
-| 244 | ☑ | PROBE-EVALUE-001 | MolTools | λ, K, bit score, E-value | ProbeSnapshotTests.cs (new) |
-| 245 | ☑ | MHC-NN-001 | Oncology | per-peptide IC50 + percentile | OncologySnapshotTests.cs (new) |
-| 246 | ☑ | MHC-MATRIX-001 | Oncology | score + binding classification | OncologySnapshotTests.cs (new) |
-| 247 | ☑ | IMMUNE-NUSVR-001 | Oncology | per-cell-type fraction vector | ImmuneSnapshotTests.cs (new) |
-| 248 | ☑ | META-CHECKM-001 | Metagenomics | completeness/contamination + per-marker counts | MetagenomicsSnapshotTests.cs (new) |
-| 249 | ☑ | META-TETRA-001 | Metagenomics | 256-dim tetranucleotide z-score vector | MetagenomicsSnapshotTests.cs (new) |
+| 238 | ☐ | RNA-ACCESS-001 | RnaStructure | per-base unpaired probability profile | RnaStructureSnapshotTests.cs (new) |
+| 239 | ☐ | PROTMOTIF-HMM-001 | ProteinMotif | domain envelope list with bit scores | ProteinMotifSnapshotTests.cs (new) |
+| 240 | ☐ | PRIMER-NNTM-001 | MolTools | Tm + ΔH/ΔS breakdown | PrimerSnapshotTests.cs (new) |
+| 241 | ☐ | PRIMER-HAIRPIN-001 | MolTools | most-stable hairpin structure + Tm | PrimerSnapshotTests.cs (new) |
+| 242 | ☐ | PRIMER-DIMER-001 | MolTools | most-stable dimer alignment + Tm | PrimerSnapshotTests.cs (new) |
+| 243 | ☐ | PROBE-LNATM-001 | MolTools | LNA-adjusted Tm + MGB design report | ProbeSnapshotTests.cs (new) |
+| 244 | ☐ | PROBE-EVALUE-001 | MolTools | λ, K, bit score, E-value | ProbeSnapshotTests.cs (new) |
+| 245 | ☐ | MHC-NN-001 | Oncology | per-peptide IC50 + percentile | OncologySnapshotTests.cs (new) |
+| 246 | ☐ | MHC-MATRIX-001 | Oncology | score + binding classification | OncologySnapshotTests.cs (new) |
+| 247 | ☐ | IMMUNE-NUSVR-001 | Oncology | per-cell-type fraction vector | ImmuneSnapshotTests.cs (new) |
+| 248 | ☐ | META-CHECKM-001 | Metagenomics | completeness/contamination + per-marker counts | MetagenomicsSnapshotTests.cs (new) |
+| 249 | ☐ | META-TETRA-001 | Metagenomics | 256-dim tetranucleotide z-score vector | MetagenomicsSnapshotTests.cs (new) |
 | 250 | ☐ | SPLICE-MAXENT3-001 | Splicing | score3 value per acceptor window | SpliceSnapshotTests.cs (new) |
 | 251 | ☐ | SPLICE-MAXENT5-001 | Splicing | score5 value per donor window | SpliceSnapshotTests.cs (new) |
 | 252 | ☐ | MIRNA-CONTEXT-001 | MiRNA | context++ feature vector + score | MiRnaSnapshotTests.cs (new) |
@@ -292,7 +292,7 @@ Snapshot (approval) тести серіалізують повний вихід 
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 10 |
-| ☐ Not started | 246 |
+| ☑ Complete | 0 |
+| ☐ Not started | 258 |
 | New snapshot test files needed | 5 (Composition, Kmer, Translation, Oncology) |
 | Existing snapshot files to extend | ~10 |

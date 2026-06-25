@@ -267,18 +267,18 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 235 | ☐ | ONCO-ASCAT-001 | Oncology | ID: no loci → no segments; IDEMP: deterministic grid optimum |
 | 236 | ☐ | RNA-PKPREDICT-001 | Analysis | ID: no pairable bases → empty structure; IDEMP: deterministic |
 | 237 | ☐ | RNA-PKRECURSIVE-001 | Analysis | ID: single H-type → equals non-recursive; IDEMP: deterministic |
-| 238 | ☑ | RNA-ACCESS-001 | RnaStructure | ID: full-length region P_unpaired = product over bases under independence floor; IDEMP: deterministic |
-| 239 | ☑ | PROTMOTIF-HMM-001 | ProteinMotif | ID: null-model sequence → bit score ≈ 0; IDEMP: rescoring same hit is stable |
-| 240 | ☑ | PRIMER-NNTM-001 | MolTools | ID: perfect-match path = published NN sum; IDEMP: deterministic |
-| 241 | ☑ | PRIMER-HAIRPIN-001 | MolTools | ID: hand-derived NN ΔG for fixed hairpin; IDEMP: deterministic |
-| 242 | ☑ | PRIMER-DIMER-001 | MolTools | ID: contiguous-WC optimum = NN sum; IDEMP: deterministic |
-| 243 | ☑ | PROBE-LNATM-001 | MolTools | ID: zero LNA → equals PRIMER-NNTM result; IDEMP: deterministic |
-| 244 | ☑ | PROBE-EVALUE-001 | MolTools | ID: bit = (λS-lnK)/ln2; IDEMP: deterministic |
-| 245 | ☑ | MHC-NN-001 | Oncology | ID: IC50 = 50000^(1-x) inverse of x; IDEMP: deterministic |
-| 246 | ☑ | MHC-MATRIX-001 | Oncology | ID: BIMAS = product of position coefficients; IDEMP: deterministic |
-| 247 | ☑ | IMMUNE-NUSVR-001 | Oncology | ID: ν-SVR on noise-free planted mixture → truth (<0.005); IDEMP: deterministic |
-| 248 | ☑ | META-CHECKM-001 | Metagenomics | ID: complete single-copy set → 100%/0%; IDEMP: deterministic |
-| 249 | ☑ | META-TETRA-001 | Metagenomics | ID: analytic z(ACGT)=√5; IDEMP: deterministic |
+| 238 | ☐ | RNA-ACCESS-001 | RnaStructure | ID: full-length region P_unpaired = product over bases under independence floor; IDEMP: deterministic |
+| 239 | ☐ | PROTMOTIF-HMM-001 | ProteinMotif | ID: null-model sequence → bit score ≈ 0; IDEMP: rescoring same hit is stable |
+| 240 | ☐ | PRIMER-NNTM-001 | MolTools | ID: perfect-match path = published NN sum; IDEMP: deterministic |
+| 241 | ☐ | PRIMER-HAIRPIN-001 | MolTools | ID: hand-derived NN ΔG for fixed hairpin; IDEMP: deterministic |
+| 242 | ☐ | PRIMER-DIMER-001 | MolTools | ID: contiguous-WC optimum = NN sum; IDEMP: deterministic |
+| 243 | ☐ | PROBE-LNATM-001 | MolTools | ID: zero LNA → equals PRIMER-NNTM result; IDEMP: deterministic |
+| 244 | ☐ | PROBE-EVALUE-001 | MolTools | ID: bit = (λS-lnK)/ln2; IDEMP: deterministic |
+| 245 | ☐ | MHC-NN-001 | Oncology | ID: IC50 = 50000^(1-x) inverse of x; IDEMP: deterministic |
+| 246 | ☐ | MHC-MATRIX-001 | Oncology | ID: BIMAS = product of position coefficients; IDEMP: deterministic |
+| 247 | ☐ | IMMUNE-NUSVR-001 | Oncology | ID: ν-SVR on noise-free planted mixture → truth (<0.005); IDEMP: deterministic |
+| 248 | ☐ | META-CHECKM-001 | Metagenomics | ID: complete single-copy set → 100%/0%; IDEMP: deterministic |
+| 249 | ☐ | META-TETRA-001 | Metagenomics | ID: analytic z(ACGT)=√5; IDEMP: deterministic |
 | 250 | ☐ | SPLICE-MAXENT3-001 | Splicing | ID: reference window reproduces 2.89; IDEMP: deterministic |
 | 251 | ☐ | SPLICE-MAXENT5-001 | Splicing | ID: cagGTAAGT reproduces 10.86; IDEMP: deterministic |
 | 252 | ☐ | MIRNA-CONTEXT-001 | MiRNA | ID: feature-coefficient dot product reproduces reference perl; IDEMP: deterministic |
@@ -296,7 +296,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 10 |
-| ☐ Not started | 77 |
+| ☑ Complete | 0 |
+| ☐ Not started | 89 |
 | ✗ Not applicable | 169 |
 | Laws verified | ~172 (≈2 per algorithm) |
