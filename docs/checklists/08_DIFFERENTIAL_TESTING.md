@@ -271,7 +271,7 @@ Differential testing порівнює виходи двох незалежних
 | 243 | ☑ | PROBE-LNATM-001 | MolTools | C# LNA NN | MELTING 5 | Tm ±0.2°C |
 | 244 | ☑ | PROBE-EVALUE-001 | MolTools | C# Karlin-Altschul | NCBI BLAST stats / published λ | λ≈1.374, E within tolerance |
 | 245 | ☑ | MHC-NN-001 | Oncology | C# MHCflurry port | mhcflurry 2.1.5 (models_class1_pan) | IC50 < 0.03% |
-| 246 | ☐ | MHC-MATRIX-001 | Oncology | C# SMM/BIMAS | published worked examples / IEDB (caller matrix) | exact on anchor cases |
+| 246 | ☑ | MHC-MATRIX-001 | Oncology | C# SMM/BIMAS | published worked examples / IEDB (caller matrix) | exact on anchor cases |
 | 247 | ☐ | IMMUNE-NUSVR-001 | Oncology | C# ν-SVR (SMO) | scikit-learn NuSVR | coefficients < 2e-3 |
 | 248 | ☐ | META-CHECKM-001 | Metagenomics | C# CheckM formula | CheckM markerSets.py | completeness/contamination exact on synthetic bin |
 | 249 | ☐ | META-TETRA-001 | Metagenomics | C# TETRA z-score | TETRA reference (Teeling) | z-vector ±1e-6 |
@@ -292,8 +292,8 @@ Differential testing порівнює виходи двох незалежних
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 6 |
-| ☐ Not started | 250 |
+| ☑ Complete | 7 |
+| ☐ Not started | 249 |
 | High-value pairs (ALT/BRUTE feasible) | ~25 |
 | Medium-value pairs (REF comparison) | ~35 |
 | Lower priority (DUAL re-impl needed) | ~26 |

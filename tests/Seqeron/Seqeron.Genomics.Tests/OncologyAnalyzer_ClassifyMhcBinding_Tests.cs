@@ -351,6 +351,38 @@ public class OncologyAnalyzer_ClassifyMhcBinding_Tests
             "Residue 'C' is absent from the row ⇒ contributes 0 (SMM additive identity) ⇒ score 0 ⇒ IC50 = 50000 nM.");
     }
 
+    // P5b — multi-position additive sum + intercept + a missing residue, hand-computed end-to-end.
+    // 3-position matrix: intercept 0.05; pos0 K=0.30; pos1 lists only V (peptide's 'A' is unlisted ⇒ 0);
+    // pos2 Y=0.25. Peptide "KAY" ⇒ score = 0.05 + 0.30 + 0 + 0.25 = 0.60 ⇒ IC50 = 50000^(1-0.60) =
+    // 75.78582832551992 nM. Exercises the SMM additive position-specific sum (not just a single position),
+    // the intercept being summed in, AND the missing-residue additive identity together.
+    [Test]
+    public void PredictIc50Smm_MultiPositionAdditiveSumWithMissingResidue_HandComputed()
+    {
+        var matrix = new PmhcScoringMatrix(
+            new IReadOnlyDictionary<char, double>[]
+            {
+                new Dictionary<char, double> { ['K'] = 0.30 },
+                new Dictionary<char, double> { ['V'] = 0.20 }, // peptide has 'A' here ⇒ contributes 0
+                new Dictionary<char, double> { ['Y'] = 0.25 },
+            },
+            0.05);
+        double ic50 = OncologyAnalyzer.PredictIc50Smm("KAY", matrix);
+        Assert.That(ic50, Is.EqualTo(75.78582832551992).Within(1e-9),
+            "score = intercept 0.05 + K 0.30 + (A unlisted ⇒ 0) + Y 0.25 = 0.60 ⇒ IC50 = 50000^(1-0.60) = 75.78582832551992 nM.");
+    }
+
+    // P5c — a non-amino-acid character in the peptide is simply unlisted at its position ⇒ contributes 0
+    // (the SMM additive identity), exactly like any residue absent from the row. Single position lists only
+    // 'A'; peptide "1" (a digit) ⇒ score 0 ⇒ IC50 = 50000 nM. No throw — non-AA is treated as neutral.
+    [Test]
+    public void PredictIc50Smm_NonAminoAcidCharacter_ContributesZero()
+    {
+        double ic50 = OncologyAnalyzer.PredictIc50Smm("1", SingleSmmPosition(1.0, 0.0));
+        Assert.That(ic50, Is.EqualTo(50000.0).Within(1e-6),
+            "Non-AA char '1' is absent from the row ⇒ contributes 0 (additive identity) ⇒ score 0 ⇒ IC50 = 50000 nM.");
+    }
+
     // P6 — null peptide ⇒ ArgumentNullException.
     [Test]
     public void PredictIc50Smm_NullPeptide_Throws()
@@ -432,6 +464,29 @@ public class OncologyAnalyzer_ClassifyMhcBinding_Tests
                 "The strong binder's predicted IC50 (1 nM) must be far below the non-binder's (50000 nM).");
             Assert.That(strongStrength, Is.EqualTo(BindingStrength.Strong),
                 "Sanity: the binder is Strong while the non-binder is NonBinder (ranking holds).");
+        });
+    }
+
+    // P10b — Weak band of the predict→classify chain: a 2-position matrix with intercept 0.1, pos0 L=0.3,
+    // pos1 V=0.2 ⇒ score 0.6 ⇒ IC50 = 50000^(1-0.6) = 75.78582832551992 nM, which is in [50,500) ⇒ Weak.
+    // Covers the middle classification band that P9 (Strong) and P10 (NonBinder) leave untested.
+    [Test]
+    public void PredictAndClassifySmm_WeakBand_ReturnsWeak()
+    {
+        var matrix = new PmhcScoringMatrix(
+            new IReadOnlyDictionary<char, double>[]
+            {
+                new Dictionary<char, double> { ['L'] = 0.3 },
+                new Dictionary<char, double> { ['V'] = 0.2 },
+            },
+            0.1);
+        var (ic50, strength) = OncologyAnalyzer.PredictAndClassifySmm("LV", matrix);
+        Assert.Multiple(() =>
+        {
+            Assert.That(ic50, Is.EqualTo(75.78582832551992).Within(1e-9),
+                "score = 0.1 + 0.3 + 0.2 = 0.6 ⇒ IC50 = 50000^(1-0.6) = 75.78582832551992 nM (hand-computed).");
+            Assert.That(strength, Is.EqualTo(BindingStrength.Weak),
+                "IC50 75.79 nM ∈ [50,500) ⇒ Weak (chains into ClassifyBindingAffinity's middle band).");
         });
     }
 
@@ -520,6 +575,23 @@ public class OncologyAnalyzer_ClassifyMhcBinding_Tests
             double t12 = OncologyAnalyzer.PredictBindingHalfLifeBimas("LM", matrix);
             Assert.That(t12, Is.EqualTo(60.0).Within(1e-9),
                 "'L' at pos0 = 2.0 (lower-cased input), 'M' at pos1 = 3.0 ⇒ 10*2*3 = 60.0.");
+        });
+    }
+
+    // P14b — when no CONST line is given, FinalConstant defaults to the multiplicative/additive identity 1.0,
+    // so a BIMAS product round-trips unchanged: "LM" on rows L=2.0 / M=3.0 ⇒ 1.0 * 2.0 * 3.0 = 6.0.
+    [Test]
+    public void LoadScoringMatrix_NoConst_DefaultsToIdentityOne()
+    {
+        PmhcScoringMatrix matrix = OncologyAnalyzer.LoadScoringMatrix(new[] { "L=2.0", "M=3.0" });
+        Assert.Multiple(() =>
+        {
+            Assert.That(matrix.FinalConstant, Is.EqualTo(1.0).Within(1e-12),
+                "No CONST line ⇒ FinalConstant defaults to the identity 1.0.");
+            Assert.That(matrix.Rows, Has.Count.EqualTo(2), "Two position rows.");
+            double t12 = OncologyAnalyzer.PredictBindingHalfLifeBimas("LM", matrix);
+            Assert.That(t12, Is.EqualTo(6.0).Within(1e-9),
+                "Identity constant ⇒ T1/2 = 1.0 * 2.0 * 3.0 = 6.0 (constant does not perturb the product).");
         });
     }
 

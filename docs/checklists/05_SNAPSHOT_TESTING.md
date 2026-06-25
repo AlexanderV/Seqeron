@@ -271,7 +271,7 @@ Snapshot (approval) тести серіалізують повний вихід 
 | 243 | ☑ | PROBE-LNATM-001 | MolTools | LNA-adjusted Tm + MGB design report | ProbeSnapshotTests.cs (new) |
 | 244 | ☑ | PROBE-EVALUE-001 | MolTools | λ, K, bit score, E-value | ProbeSnapshotTests.cs (new) |
 | 245 | ☑ | MHC-NN-001 | Oncology | per-peptide IC50 + percentile | OncologySnapshotTests.cs (new) |
-| 246 | ☐ | MHC-MATRIX-001 | Oncology | score + binding classification | OncologySnapshotTests.cs (new) |
+| 246 | ☑ | MHC-MATRIX-001 | Oncology | score + binding classification | OncologySnapshotTests.cs (new) |
 | 247 | ☐ | IMMUNE-NUSVR-001 | Oncology | per-cell-type fraction vector | ImmuneSnapshotTests.cs (new) |
 | 248 | ☐ | META-CHECKM-001 | Metagenomics | completeness/contamination + per-marker counts | MetagenomicsSnapshotTests.cs (new) |
 | 249 | ☐ | META-TETRA-001 | Metagenomics | 256-dim tetranucleotide z-score vector | MetagenomicsSnapshotTests.cs (new) |
@@ -292,7 +292,7 @@ Snapshot (approval) тести серіалізують повний вихід 
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 6 |
-| ☐ Not started | 250 |
+| ☑ Complete | 7 |
+| ☐ Not started | 249 |
 | New snapshot test files needed | 5 (Composition, Kmer, Translation, Oncology) |
 | Existing snapshot files to extend | ~10 |
