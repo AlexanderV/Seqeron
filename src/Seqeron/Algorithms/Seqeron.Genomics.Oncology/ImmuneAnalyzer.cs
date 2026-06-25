@@ -61,6 +61,23 @@ public static class ImmuneAnalyzer
     public const double NuSvrCost = 1.0;
 
     /// <summary>
+    /// Number of immune cell types in the bundled ABIS-Seq signature matrix (Monaco et al., 2019).
+    /// Source: Monaco G et al. (2019), Cell Reports 26(6):1627-1640.e7, Table S5 (ABIS-Seq sheet).
+    /// </summary>
+    public const int AbisSignatureCellTypeCount = 17;
+
+    /// <summary>
+    /// Number of genes (rows) in the bundled ABIS-Seq signature matrix (Monaco et al., 2019).
+    /// Source: Monaco G et al. (2019), Cell Reports 26(6):1627-1640.e7, Table S5 (ABIS-Seq sheet).
+    /// </summary>
+    public const int AbisSignatureGeneCount = 1296;
+
+    /// <summary>
+    /// Embedded-resource name of the bundled ABIS-Seq signature matrix TSV.
+    /// </summary>
+    private const string AbisResourceName = "Seqeron.Genomics.Oncology.Resources.ABIS_sigmatrixRNAseq.tsv";
+
+    /// <summary>
     /// Default immune signature genes: the complete 141-gene ESTIMATE immune signature.
     /// Source: Yoshihara et al. (2013), Nature Communications 4:2612, Supplementary Data 1.
     /// Extracted from: ESTIMATE R package v1.0.11, inst/extdata/SI_geneset.gmt (ImmuneSignature).
@@ -826,6 +843,54 @@ public static class ImmuneAnalyzer
         return matrix.ToDictionary(
             kvp => kvp.Key,
             kvp => (IReadOnlyDictionary<string, double>)kvp.Value);
+    }
+
+    /// <summary>
+    /// Loads the <b>bundled ABIS-Seq immune-cell signature matrix</b> (Monaco et al., 2019) so that
+    /// <see cref="DeconvoluteImmuneCellsNuSvr"/> works out-of-the-box without a caller-supplied matrix.
+    /// <para>
+    /// The matrix is the RNA-seq (ABIS-Seq) "well-conditioned signature matrix" of Monaco et al. (2019):
+    /// <see cref="AbisSignatureGeneCount"/> genes × <see cref="AbisSignatureCellTypeCount"/> immune cell
+    /// types (Monocytes C, NK, T CD8 Memory, T CD4 Naive, T CD8 Naive, B Naive, T CD4 Memory, MAIT,
+    /// T gd Vd2, Neutrophils LD, T gd non-Vd2, Basophils LD, Monocytes NC+I, B Memory, mDCs, pDCs,
+    /// Plasmablasts). Values are mRNA-abundance-normalised expression on the original ABIS scale.
+    /// Pass the result as the <c>signatureMatrix</c> argument of <see cref="DeconvoluteImmuneCellsNuSvr"/>
+    /// or <see cref="DeconvoluteImmuneCells"/>.
+    /// </para>
+    /// <para>
+    /// <b>Provenance and licence.</b> The matrix is Table S5 (sheet "ABIS-Seq") of the open-access paper,
+    /// retrieved from PMC6367568 supplementary file <c>mmc6.xlsx</c>. The article is published under the
+    /// Creative Commons Attribution 4.0 (CC BY 4.0) licence ("© 2019 The Authors. This is an open access
+    /// article under the CC BY license"), which permits redistribution with attribution; the bundled
+    /// resource carries this provenance/licence in its header. Unlike CIBERSORT LM22 (Stanford,
+    /// no-redistribution — caller-supplied via <see cref="LoadSignatureMatrix"/>), ABIS may be bundled.
+    /// Source: Monaco G, Lee B, Xu W, et al. "RNA-Seq Signatures Normalized by mRNA Abundance Allow
+    /// Absolute Deconvolution of Human Immune Cell Types." Cell Reports 26(6):1627-1640.e7, 2019,
+    /// doi:10.1016/j.celrep.2019.01.041; PMID:30726743.
+    /// </para>
+    /// </summary>
+    /// <returns>The bundled ABIS-Seq signature matrix: cell-type name → (gene symbol → reference expression value).</returns>
+    public static IReadOnlyDictionary<string, IReadOnlyDictionary<string, double>> LoadBundledAbisSignatureMatrix()
+    {
+        var asm = typeof(ImmuneAnalyzer).Assembly;
+        using Stream stream = asm.GetManifestResourceStream(AbisResourceName)
+            ?? throw new InvalidOperationException($"Bundled ABIS signature matrix resource '{AbisResourceName}' was not found.");
+        using var reader = new StreamReader(stream);
+
+        // The bundled TSV carries a provenance/licence header in '#'-prefixed comment lines; strip
+        // them so LoadSignatureMatrix sees the gene/cell-type header as the first non-blank line.
+        return LoadSignatureMatrix(ReadNonCommentLines(reader));
+
+        static IEnumerable<string> ReadNonCommentLines(StreamReader r)
+        {
+            string? line;
+            while ((line = r.ReadLine()) is not null)
+            {
+                if (line.StartsWith('#'))
+                    continue;
+                yield return line;
+            }
+        }
     }
 
     #endregion

@@ -16,6 +16,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- ABIS-Seq immune signature matrix (Monaco et al. 2019, Cell Reports, CC BY 4.0). Provenance/licence in the file header. -->
+    <EmbeddedResource Include="Resources\ABIS_sigmatrixRNAseq.tsv" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />
     <ProjectReference Include="..\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
     <ProjectReference Include="..\Seqeron.Genomics.Analysis\Seqeron.Genomics.Analysis.csproj" />

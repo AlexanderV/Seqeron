@@ -120,6 +120,25 @@ The open data-blocked limitation (the CIBERSORT LM22 / ν-SVR deconvolution) is 
 
 - **Honest residual (per STOP RULE):** bit-exact parity with the official CIBERSORT tool's published per-sample fractions is **not** claimed — that additionally requires LM22 itself plus the tool's full quantile-normalisation/permutation-p-value pipeline, which is out of scope. The ν-SVR engine is verified independently (planted-truth + libsvm cross-check), and LM22 remains caller-supplied for licence reasons. Status remains **☐** in the registry (no change to validation Status or Quick-Reference counts).
 
+## Update 2026-06-25 — limitation fix: bundle the ABIS immune signature matrix (Monaco 2019, CC BY 4.0)
+
+The data-blocked limitation ("no bundled signature matrix → deconvolution doesn't work out-of-the-box") is now addressed by an **opt-in, additive** bundling; all defaults (`EstimateInfiltration`, `EstimateTumorPurity`, `DeconvoluteImmuneCells`, and the `null`-default of `DeconvoluteImmuneCellsNuSvr`) are unchanged.
+
+- **New public accessor:** `ImmuneAnalyzer.LoadBundledAbisSignatureMatrix()` → `cellType → (gene → value)`. Loads a bundled embedded resource and feeds the existing ν-SVR; pass it as the `signatureMatrix` argument of `DeconvoluteImmuneCellsNuSvr`/`DeconvoluteImmuneCells`. New constants `AbisSignatureCellTypeCount` = 17, `AbisSignatureGeneCount` = 1296.
+
+- **Bundled data:** `src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/Resources/ABIS_sigmatrixRNAseq.tsv` (embedded resource `Seqeron.Genomics.Oncology.Resources.ABIS_sigmatrixRNAseq.tsv`), with a provenance/licence header. The matrix is the **ABIS-Seq** signature matrix of Monaco et al. (2019): **1296 genes × 17 immune cell types** (Monocytes C, NK, T CD8 Memory, T CD4 Naive, T CD8 Naive, B Naive, T CD4 Memory, MAIT, T gd Vd2, Neutrophils LD, T gd non-Vd2, Basophils LD, Monocytes NC+I, B Memory, mDCs, pDCs, Plasmablasts).
+
+- **LICENCE DECISION — ABIS is CC BY 4.0 (permissive), so it IS bundled.** Verbatim from PMC6367568: *"© 2019 The Authors. This is an open access article under the CC BY license (http://creativecommons.org/licenses/by/4.0/)."* The matrix is Table S5 (sheet "ABIS-Seq") of that open-access article, retrieved from the paper's supplementary `mmc6.xlsx` via the Europe PMC `supplementaryFiles` endpoint. CC BY 4.0 is permissive-with-attribution → bundled with attribution (Monaco 2019). The GitHub repo `giannimonaco/ABIS` (`data/sigmatrixRNAseq.txt`) carries the same values rounded to 2 d.p. but the GitHub API reports **no declared LICENSE** on it; the matrix was therefore taken from the CC BY paper supplementary, NOT the repo. Contrast LM22 (Stanford, no-redistribution — still caller-supplied).
+
+- **Verification (planted-truth, this session):** synthetic bulk `m = ABIS·f`.
+  - Two well-separated lineages f = {NK 0.60, Monocytes C 0.40} → recovered {NK ≈ 0.650, Monocytes C ≈ 0.350} (within tolerance 0.06), all 15 absent types exactly 0, correlation ≈ 0.996 (test ABIS-B3).
+  - Pure single population f = {Monocytes C 1.0} → recovered Monocytes C = 1.0 exactly, all others 0, correlation = 1.0 (test ABIS-B4).
+  - Exact-value checks: S1PR3/Monocytes C = 45.720735005602499, CD8A/T CD8 Memory = 1060.1507652944399, MS4A1/B Naive = 3220.5650656491198 (test ABIS-B2); dimensions 1296 × 17 (ABIS-B1); determinism (ABIS-B5).
+
+- **Tests added:** 5 (ABIS-B1–B5); fixture now 61/61 green. Full unfiltered `dotnet test` suite green — **Failed: 0** across all projects.
+
+- **Honest residual (per STOP RULE):** the **CIBERSORT-LM22-identical** matrix specifically (547 genes × 22 cell types) remains caller-supplied (Stanford no-redistribution) and **exact-CIBERSORT parity is not claimed**; the bundled ABIS matrix makes deconvolution work out-of-the-box. Status remains **☐** in the registry (no change to validation Status or Quick-Reference counts).
+
 ## Verdict & follow-ups
 - **Stage A: PASS-WITH-NOTES** — every formula/coefficient matches authoritative primary sources exactly. The decisive ssGSEA rank-order weighting (`rank^τ`, τ=0.25, integral form) was independently re-confirmed against the GSVA/Barbie description this session. Notes are honestly-declared simplifications (5-marker matrix vs LM22; NNLS vs ν-SVR; un-normalized single-sample integral on a non-cohort scale ⇒ absolute purity not clinically meaningful, never advertised as such).
 - **Stage B: PASS** — code faithfully realises the validated formulas; all cross-checks recomputed by hand and via tests, all match.

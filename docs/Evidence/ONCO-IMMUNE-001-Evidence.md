@@ -161,6 +161,25 @@
 
 **LICENCE DECISION:** LM22 is **NOT redistributable** (contrast Pfam/CC0). Per the mission-critical data-handling rule, LM22 is therefore **not embedded** in this library. Instead: the ν-SVR algorithm and an **LM22-format loader** (`LoadSignatureMatrix`) are implemented; the caller supplies `LM22.txt` under their own CIBERSORT licence. Only a small synthetic/representative signature matrix is bundled (the pre-existing 5-marker `DefaultSignatureMatrix`), used for tests and as a non-LM22 default.
 
+### 10. Monaco et al. (2019) — ABIS-Seq immune signature matrix (bundled, CC BY 4.0)
+
+**URL (paper):** https://pmc.ncbi.nlm.nih.gov/articles/PMC6367568/ (PubMed Central, open access)
+**URL (data):** PMC6367568 supplementary `mmc6.xlsx` = Table S5, retrieved via the Europe PMC supplementaryFiles endpoint https://www.ebi.ac.uk/europepmc/webservices/rest/PMC6367568/supplementaryFiles
+**DOI:** 10.1016/j.celrep.2019.01.041   **PMID:** 30726743
+**Accessed:** 2026-06-25
+**Authority rank:** 1 (peer-reviewed paper) + 5 (published dataset; the signature matrix itself)
+
+**How retrieved:** WebSearch ("Monaco 2019 ABIS sigmatrixRNAseq signature matrix Cell Reports supplementary"); WebFetch of PMC6367568 (licence + dimensions + supplementary file map: Table S5 = `mmc6.xlsx`); `curl` of the Europe PMC `supplementaryFiles` ZIP → extracted `mmc6.xlsx` → parsed sheet "ABIS-Seq" (the RNA-seq signature matrix) into a TSV with a Python `zipfile`/`ElementTree` reader. The GitHub repo `giannimonaco/ABIS` (`data/sigmatrixRNAseq.txt`) carries the same values rounded to 2 d.p.; the GitHub API reports **no declared LICENSE** on that repo, so the matrix was taken from the **CC BY 4.0 paper supplementary**, not the repo.
+
+**Key Extracted Points (verbatim where quoted):**
+
+1. **Licence (verbatim, from PMC6367568):** *"© 2019 The Authors. This is an open access article under the CC BY license (http://creativecommons.org/licenses/by/4.0/)."* → **CC BY 4.0 = permissive-with-attribution = OK to bundle** with attribution.
+2. **Citation:** Monaco G, Lee B, Xu W, et al. "RNA-Seq Signatures Normalized by mRNA Abundance Allow Absolute Deconvolution of Human Immune Cell Types." *Cell Reports* 26(6):1627–1640.e7, 2019.
+3. **Matrix dimensions (from `mmc6.xlsx`, sheet "ABIS-Seq"):** header = `Gene symbol` + **17 immune cell types** (Monocytes C, NK, T CD8 Memory, T CD4 Naive, T CD8 Naive, B Naive, T CD4 Memory, MAIT, T gd Vd2, Neutrophils LD, T gd non-Vd2, Basophils LD, Monocytes NC+I, B Memory, mDCs, pDCs, Plasmablasts); **1296 gene rows**; values are mRNA-abundance-normalised expression. (The study profiled 29 cell types; the well-conditioned RNA-seq deconvolution matrix merges them into 17.)
+4. **Exact values (verbatim from the sheet):** `S1PR3` / Monocytes C = `45.720735005602499`; `CD8A` / T CD8 Memory = `1060.1507652944399`; `MS4A1` / B Naive = `3220.5650656491198`; `S1PR3` / mDCs = `3.9962058331855701`.
+
+**BUNDLE DECISION:** ABIS-Seq is bundled as `Resources/ABIS_sigmatrixRNAseq.tsv` (embedded resource) with a provenance/licence header citing Monaco 2019 + CC BY 4.0, exposed via `ImmuneAnalyzer.LoadBundledAbisSignatureMatrix()`. This makes `DeconvoluteImmuneCellsNuSvr` work out-of-the-box. It does **not** replace LM22 (different cell-type set / scale); exact CIBERSORT-LM22 parity is not claimed and LM22 remains caller-supplied.
+
 ---
 
 ## Documented Corner Cases and Failure Modes
@@ -246,11 +265,26 @@
 | sklearn normalised fractions | TypeA 0.508497, TypeB 0.179491, TypeC 0.312012 |
 | This implementation | TypeA 0.50846, TypeB 0.17956, TypeC 0.31198 (agreement < 2×10⁻³) |
 
+### Dataset 6: Bundled ABIS-Seq planted-truth recovery (Monaco 2019, CC BY 4.0)
+
+**Source:** the bundled `Resources/ABIS_sigmatrixRNAseq.tsv` (Online Source 10), 1296 genes × 17 cell types. Synthetic bulk `m = ABIS·f`.
+
+| Parameter | Value |
+|-----------|-------|
+| Dimensions | 1296 genes × 17 cell types |
+| Reference values (exact, from Table S5) | S1PR3/Monocytes C = 45.720735005602499; CD8A/T CD8 Memory = 1060.1507652944399; MS4A1/B Naive = 3220.5650656491198 |
+| Planted f (two well-separated lineages) | NK 0.60, Monocytes C 0.40 |
+| Recovered (this implementation) | NK ≈ 0.650, Monocytes C ≈ 0.350; all 15 absent types exactly 0; correlation ≈ 0.996 (within AbisRecoveryTolerance 0.06) |
+| Planted f (single population) | Monocytes C 1.0 |
+| Recovered (this implementation) | Monocytes C = 1.0 exactly, all others 0, correlation = 1.0 |
+
+Note on recovery quality: ABIS has 1296 shared genes spanning ~4 orders of magnitude; after z-standardisation the ε-insensitive ν-SVR recovers well-separated lineages to within a small bounded deviation and pure single-population mixtures exactly. Highly collinear T-cell-heavy mixtures recover the correct support but looser proportions (a documented property of the unmodified engine, consistent with Newman 2015 corner case 3 — collinear cell types are harder to distinguish), so the planted-truth test uses well-separated lineages + a one-hot case.
+
 ---
 
 ## Assumptions
 
-1. **ASSUMPTION: Simplified signature matrix** — The implementation uses a simplified subset of immune cell signature genes rather than the full LM22 matrix (547 genes × 22 cell types). Justification: A library implementation provides the algorithmic framework; users would supply their own signature matrices for production use.
+1. **PARTIALLY RESOLVED (2026-06-25): a permissive signature matrix is now bundled.** The default `DefaultSignatureMatrix` remains a simplified 5-marker × 22-cell-type matrix, but a real, published signature matrix now ships out-of-the-box: the **ABIS-Seq** matrix (Monaco et al., 2019, CC BY 4.0; 1296 genes × 17 immune cell types) is bundled as an embedded resource and exposed via `LoadBundledAbisSignatureMatrix()`, feeding the existing ν-SVR. **Residual:** the **CIBERSORT LM22** matrix specifically (547 genes × 22 cell types) is still caller-supplied — Stanford forbids its redistribution (Online Source 9) — and exact LM22/CIBERSORT parity is not claimed.
 
 2. **RESOLVED (2026-06-25): ν-SVR now implemented.** The CIBERSORT ν-support-vector-regression deconvolution (Newman et al., 2015; Schölkopf et al., 2000) is implemented as the opt-in `DeconvoluteImmuneCellsNuSvr` (sweeps ν ∈ {0.25, 0.5, 0.75}, selects lowest-RMSE, zero-clips and normalises to sum 1). `DeconvoluteImmuneCells` retains the NNLS/LLSR baseline (Abbas et al., 2009) unchanged. The ν-SVR solver was verified by (a) planted-truth recovery and (b) a cross-implementation match against scikit-learn 1.6.1 `NuSVR` (libsvm). **Residual:** the LM22 matrix itself is caller-supplied (Stanford licence forbids redistribution — see Online Source 9); exact reproduction of CIBERSORT's published per-sample fractions also requires LM22 + the tool's full quantile-normalisation pipeline, which is out of scope.
 
@@ -275,6 +309,8 @@
 13. **MUST Test (ν-SVR):** Selected ν ∈ {0.25, 0.5, 0.75} by lowest RMSE — Evidence: CIBERSORT protocol (Chen et al., 2018)
 14. **MUST Test (ν-SVR):** Fractions ≥ 0 and Σ = 1 (zero-clip + normalise) — Evidence: Newman et al. (2015)
 15. **MUST Test (loader):** LM22-format TSV parses to cellType→(gene→value); rejects empty/ragged/non-numeric — Evidence: LM22 file format (Newman et al., 2015)
+16. **MUST Test (ABIS):** `LoadBundledAbisSignatureMatrix()` loads the published dimensions (1296 genes × 17 cell types) and exact reference values — Evidence: Monaco et al. (2019), Table S5 (Dataset 6, Online Source 10)
+17. **MUST Test (ABIS):** Planted-truth `m = ABIS·f` → `DeconvoluteImmuneCellsNuSvr` recovers f (well-separated lineages within tolerance; pure single population exactly) — Evidence: Dataset 6; Newman et al. (2015)
 
 ---
 
@@ -289,6 +325,7 @@
 7. Chen B, Khodadoust MS, Liu CL, Newman AM, Alizadeh AA (2018). Profiling Tumor Infiltrating Immune Cells with CIBERSORT. Methods Mol Biol 1711:243-259. https://pmc.ncbi.nlm.nih.gov/articles/PMC5895181/
 8. CIBERSORT licence (Stanford University). Verbatim clauses: https://gist.github.com/dhimmel/58dcd9b512e669f20a65ddf73997b733 ; registration/download gate: https://cibersort.stanford.edu
 9. Pedregosa F, et al. (2011). Scikit-learn: Machine Learning in Python (NuSVR, libsvm backend). JMLR 12:2825-2830. Used as the cross-implementation ν-SVR reference (v1.6.1).
+10. Monaco G, Lee B, Xu W, Mustafah S, Hwang YY, Carré C, Burdin N, et al. (2019). RNA-Seq Signatures Normalized by mRNA Abundance Allow Absolute Deconvolution of Human Immune Cell Types. Cell Reports 26(6):1627-1640.e7. https://doi.org/10.1016/j.celrep.2019.01.041 (PMID 30726743; open access, CC BY 4.0; PMC6367568). Bundled ABIS-Seq signature matrix = Table S5, sheet "ABIS-Seq" (`mmc6.xlsx`).
 
 ---
 
@@ -296,3 +333,4 @@
 
 - **2026-03-06**: Initial documentation.
 - **2026-06-25**: Added Online Sources 7–9 (ν-SVR formulation per Schölkopf 2000 / Smola tutorial eqs 60–62; CIBERSORT ν sweep + RMSE selection + zero-clip/sum-to-1; LM22 licence decision — caller-supplied, not redistributable). Resolved Assumption 2 (ν-SVR implemented as opt-in `DeconvoluteImmuneCellsNuSvr` + `LoadSignatureMatrix`). Added planted-truth + scikit-learn `NuSVR` cross-check datasets.
+- **2026-06-25**: Bundled the ABIS-Seq immune signature matrix (Monaco et al., 2019, CC BY 4.0; 1296 genes × 17 cell types) as an embedded resource, exposed via `LoadBundledAbisSignatureMatrix()` feeding the existing ν-SVR — deconvolution now works out-of-the-box. Added Online Source 10, Dataset 6 (ABIS planted-truth), and test recommendations 16–17. Partially resolved Assumption 1: the residual is now the **CIBERSORT-LM22-specific** matrix only (still caller-supplied; no exact-CIBERSORT parity claim). Defaults unchanged.

@@ -27,6 +27,7 @@
 | 10 | Schölkopf et al. (2000). New support vector algorithms. Neural Computation 12(5):1207-1245 (ν-SVR dual). | 1 (Peer-reviewed) | https://doi.org/10.1162/089976600300015565 ; eqs 60–62: https://alex.smola.org/papers/2003/SmoSch03b.pdf | 2026-06-25 |
 | 11 | Chen et al. (2018). Profiling Tumor Infiltrating Immune Cells with CIBERSORT. Methods Mol Biol 1711:243-259. | 1 (Peer-reviewed protocol) | https://pmc.ncbi.nlm.nih.gov/articles/PMC5895181/ | 2026-06-25 |
 | 12 | CIBERSORT licence (Stanford). No-redistribution, non-commercial terms; LM22 registration gate. | 1 (governing licence) | https://gist.github.com/dhimmel/58dcd9b512e669f20a65ddf73997b733 ; https://cibersort.stanford.edu | 2026-06-25 |
+| 13 | Monaco et al. (2019). RNA-Seq Signatures Normalized by mRNA Abundance Allow Absolute Deconvolution of Human Immune Cell Types. Cell Reports 26(6):1627-1640.e7 (CC BY 4.0; bundled ABIS-Seq matrix = Table S5). | 1 (Peer-reviewed) + 5 (dataset) | https://doi.org/10.1016/j.celrep.2019.01.041 ; PMC6367568 (mmc6.xlsx, sheet "ABIS-Seq") | 2026-06-25 |
 | 13 | scikit-learn 1.6.1 `NuSVR` (libsvm) — cross-implementation ν-SVR reference. | 3 (reference implementation) | https://scikit-learn.org/stable/modules/generated/sklearn.svm.NuSVR.html | 2026-06-25 |
 
 ### 1.2 Key Evidence Points
@@ -65,6 +66,7 @@
 | `DeconvoluteImmuneCells` | `ImmuneAnalyzer` | **Canonical** | NNLS-based immune cell type deconvolution per Lawson & Hanson (1995), Abbas et al. (2009) |
 | `DeconvoluteImmuneCellsNuSvr` | `ImmuneAnalyzer` | **Canonical** | CIBERSORT-style linear-kernel ν-SVR deconvolution (ν sweep, lowest-RMSE, zero-clip, sum-to-1) per Schölkopf et al. (2000), Newman et al. (2015), Chen et al. (2018) |
 | `LoadSignatureMatrix` | `ImmuneAnalyzer` | **Canonical** | LM22-format TSV loader (caller-supplied LM22 — not bundled, Stanford licence) per Newman et al. (2015) |
+| `LoadBundledAbisSignatureMatrix` | `ImmuneAnalyzer` | **Canonical** | Loads the bundled ABIS-Seq signature matrix (Monaco et al., 2019, CC BY 4.0; 1296 genes × 17 cell types) feeding the existing ν-SVR; out-of-the-box deconvolution |
 
 ---
 
@@ -125,6 +127,11 @@
 | NSVR-C3 | Loader rejects ragged row | row with wrong column count | FormatException | Format validation |
 | NSVR-C4 | Loader rejects non-numeric value | value = "NOT_A_NUMBER" | FormatException | Format validation |
 | NSVR-C5 | Loader rejects null lines | `LoadSignatureMatrix(null)` | ArgumentNullException | Robustness |
+| ABIS-B1 | Bundled ABIS matrix has published dimensions | `LoadBundledAbisSignatureMatrix()` | 17 cell types, 1296 genes; cell-type names match Table S5 (Monocytes C, NK, T CD8 Memory, …, Plasmablasts) | Monaco et al. (2019), Table S5 (Src 13) |
+| ABIS-B2 | Bundled ABIS matrix has exact reference values | `LoadBundledAbisSignatureMatrix()` | S1PR3/Monocytes C = 45.720735005602499; CD8A/T CD8 Memory = 1060.1507652944399; MS4A1/B Naive = 3220.5650656491198; S1PR3/mDCs = 3.9962058331855701 (within 1e-10) | Monaco et al. (2019), Table S5 (Src 13) |
+| ABIS-B3 | Planted-truth recovery on bundled ABIS matrix | bulk = ABIS·f, f={NK:0.60, Monocytes C:0.40} | recovers NK and Monocytes C within 0.06; all 15 absent types exactly 0; NK>Monocytes C; Σ=1; correlation>0.99 | m=B·f planted truth (Dataset 6); Newman et al. (2015) |
+| ABIS-B4 | Single-population planted truth recovers exactly | bulk = ABIS·(Monocytes C=1.0) | Monocytes C=1.0, all others 0 (within 1e-6); correlation=1.0 | m=B·e_k planted truth (Dataset 6); Newman et al. (2015) |
+| ABIS-B5 | Bundled ABIS matrix is deterministic | two `LoadBundledAbisSignatureMatrix()` calls | identical cell-type count and sampled values | Embedded resource is immutable |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -173,6 +180,7 @@
 | NSVR-S1–S5 (SHOULD) | ❌ Missing | NEW: determinism, no-overlap, null, loader parse, loader→deconvolution |
 | NSVR-C1–C5 (loader validation) | ❌ Missing | NEW: empty / no-cell-types / ragged / non-numeric / null |
 | INV-7, INV-8, INV-9, INV-10 | ❌ Missing | NEW: covered by NSVR-M3 (≥0, Σ=1), NSVR-M4 (ν set), NSVR-S1 (determinism) |
+| ABIS-B1–B5 (MUST) | ❌ Missing | NEW this session: bundled ABIS dimensions, exact values, planted-truth (multi + single population), determinism |
 
 ### 5.3 Consolidation Plan
 
@@ -236,6 +244,11 @@
 | 45 | NSVR-C3 | ❌ Missing | NEW: ragged row → FormatException | ✅ Done |
 | 46 | NSVR-C4 | ❌ Missing | NEW: non-numeric value → FormatException | ✅ Done |
 | 47 | NSVR-C5 | ❌ Missing | NEW: null lines → ArgumentNullException | ✅ Done |
+| 48 | ABIS-B1 | ❌ Missing | NEW: bundled ABIS dimensions (1296×17) + cell-type names | ✅ Done |
+| 49 | ABIS-B2 | ❌ Missing | NEW: bundled ABIS exact reference values (within 1e-10) | ✅ Done |
+| 50 | ABIS-B3 | ❌ Missing | NEW: ABIS planted-truth (NK/Monocytes within 0.06; absent=0; corr>0.99) | ✅ Done |
+| 51 | ABIS-B4 | ❌ Missing | NEW: ABIS single-population planted truth recovers exactly (corr=1) | ✅ Done |
+| 52 | ABIS-B5 | ❌ Missing | NEW: bundled ABIS matrix is deterministic across loads | ✅ Done |
 
 **Implementation fix (prior session):** ssGSEA `ComputeSsGseaScore` changed from expression-value weighting (`|expr|^τ`) to rank-based weighting (`rank^τ`, rank = N−i) per Barbie et al. (2009) / GSVA package (Hänzelmann et al. 2013). Previous weighting produced scores on wrong scale for ESTIMATE purity coefficients.
 
@@ -243,8 +256,10 @@
 
 **Implementation addition (2026-06-25):** added opt-in public `DeconvoluteImmuneCellsNuSvr(...)` — CIBERSORT-style linear-kernel ν-SVR deconvolution (ν ∈ {0.25,0.5,0.75} sweep, lowest-RMSE selection, z-score standardisation, zero-clip + sum-to-1) per Schölkopf et al. (2000) / Newman et al. (2015), plus `LoadSignatureMatrix(...)` (LM22-format TSV loader). The ν-SVR dual is solved by SMO-style coordinate ascent; verified by planted-truth recovery and a scikit-learn/libsvm `NuSVR` cross-check (agreement < 2e-3). The LM22 matrix itself is **not** bundled (Stanford no-redistribution licence) — caller-supplied via the loader. Default `EstimateInfiltration`, `EstimateTumorPurity`, and `DeconvoluteImmuneCells` (NNLS) paths unchanged.
 
-**Total items:** 47
-**✅ Done:** 44 | **🗑 Removed:** 3 | **Remaining:** 0
+**Implementation addition (2026-06-25):** bundled the ABIS-Seq immune signature matrix (Monaco et al., 2019, *Cell Reports*, CC BY 4.0; 1296 genes × 17 immune cell types) as an embedded resource `Resources/ABIS_sigmatrixRNAseq.tsv` with a provenance/licence header, exposed via `LoadBundledAbisSignatureMatrix()` feeding the existing ν-SVR. Matrix taken from the CC BY 4.0 paper supplementary (Table S5, sheet "ABIS-Seq", PMC6367568 `mmc6.xlsx`), NOT from the licence-less GitHub repo. Verified by exact-value checks and planted-truth recovery (`m = ABIS·f`). Default `EstimateInfiltration`, `EstimateTumorPurity`, `DeconvoluteImmuneCells`, and `DeconvoluteImmuneCellsNuSvr` (null-default) paths unchanged — additive only. Residual: the CIBERSORT-**LM22**-specific matrix remains caller-supplied (Stanford no-redistribution); no exact-CIBERSORT parity claim.
+
+**Total items:** 52
+**✅ Done:** 49 | **🗑 Removed:** 3 | **Remaining:** 0
 
 ### 5.6 Post-Implementation Coverage
 
@@ -265,8 +280,9 @@
 | NSVR-S1–S5 (SHOULD) | ✅ Covered | 5 tests; determinism, no-overlap, null, loader parse, loader→deconvolution |
 | NSVR-C1–C5 (loader validation) | ✅ Covered | 5 tests; empty / no-cell-types / ragged / non-numeric / null |
 | INV-7, INV-8, INV-9, INV-10 | ✅ Covered | via NSVR-M3 (≥0, Σ=1), NSVR-M4 (ν set), NSVR-S1 (determinism) |
+| ABIS-B1–B5 (MUST) | ✅ Covered | 5 tests; B1 dimensions, B2 exact values, B3 multi-population planted truth, B4 single-population exact, B5 determinism |
 
-**Total test methods:** 55 (prior 40 + 15 for ν-SVR `DeconvoluteImmuneCellsNuSvr` + `LoadSignatureMatrix`)
+**Total test methods:** 60 (prior 55 + 5 for the bundled ABIS matrix `LoadBundledAbisSignatureMatrix`)
 
 ---
 
@@ -286,3 +302,4 @@ _Signature matrices and gene sets are configurable via API parameters._
 
 1. **LM22 not bundled (DECISION, resolved).** The CIBERSORT LM22 signature matrix is distributed by Stanford under a non-commercial licence that forbids redistribution ("RECIPIENT shall not distribute the Program …") and is gated behind registration. Decision: do NOT embed LM22; implement the ν-SVR algorithm + an LM22-format loader (`LoadSignatureMatrix`), bundle only the pre-existing representative 5-marker matrix for tests/default, and require the caller to supply `LM22.txt` under their own CIBERSORT licence.
 2. **No bit-exact CIBERSORT-tool parity (honest residual).** The ν-SVR is verified by planted-truth recovery and a scikit-learn/libsvm `NuSVR` cross-check, not by reproducing the official CIBERSORT tool's exact published per-sample fractions — those additionally require LM22 + the tool's full quantile-normalisation/permutation pipeline, which is out of scope.
+3. **Permissive signature matrix now bundled (DECISION, 2026-06-25).** The ABIS-Seq matrix (Monaco et al., 2019, *Cell Reports*) is published under CC BY 4.0 (permissive-with-attribution), confirmed verbatim from PMC6367568 ("© 2019 The Authors. This is an open access article under the CC BY license"). It is therefore bundled (Table S5 supplementary, NOT the licence-less GitHub repo), making deconvolution work out-of-the-box. The residual is now LM22-specific only.
