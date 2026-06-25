@@ -977,6 +977,167 @@ public class ProteinMotifFinder_FindDomainsByHmm_Tests
 
     #endregion
 
+    #region H20 — stochastic-traceback clustering of overlapping domains (region_trace_ensemble)
+
+    // H20 — GROUND TRUTH captured from pyhmmer 0.12.1 hmmsearch (Z=1, domZ=1, seed=42) on a
+    // CLOSELY-OVERLAPPING tandem-SH3 construct that HMMER resolves only via stochastic-traceback
+    // clustering (region_trace_ensemble + p7_spensemble_Cluster). The construct is two copies of the
+    // 48-residue PF00018 SH3 core where the FIRST copy is TRUNCATED by `trim` residues so the two
+    // folds abut/overlap into a single posterior region (is_multidomain_region == TRUE). The legacy
+    // single-domain region path emits ONE fused envelope; the ensemble path splits it into TWO, with
+    // OVERLAPPING consensus envelopes — the hallmark of the trace clustering. Verbatim reference:
+    //   coretrim12 (L=84): dom0 env 1-37 sc=48.047169 iE=3.660439e-17 ; dom1 env 37-84 sc=66.678467 iE=5.545048e-23
+    //   coretrim4  (L=92): dom0 env 1-46 sc=57.023777                 ; dom1 env 45-92 sc=66.338997
+    //   coretrim16 (L=80): dom0 env 1-33 sc=40.831696                 ; dom1 env 33-80 sc=66.867706
+    // HMMER samples in single precision with a fixed-seed LCG; this double-precision engine reproduces
+    // the domain COUNT and the envelope COORDINATES exactly, and the per-domain scores within ~0.1 bit.
+    // The 48-aa SH3 core = residues 3..50 of Sh3TruePositive (env 3-50 of the single-domain match).
+    private static string Sh3Core => Sh3TruePositive.Substring(2, 48);
+
+    // Build the closely-overlapping construct: SH3 core truncated by <trim> residues, then a full core.
+    private static string OverlappingTandem(int trim) =>
+        Sh3Core.Substring(0, Sh3Core.Length - trim) + Sh3Core;
+
+    private const double EnsembleScoreToleranceBits = 0.1;
+
+    [Test]
+    public void FindDomains_CloselyOverlappingTandemSh3_SplitsIntoTwoEnvelopesViaEnsemble()
+    {
+        // H20a — the PRIMARY case: a region the rt3 test flags multi-domain is resolved by the
+        // stochastic-traceback ensemble into TWO envelopes whose coords match hmmsearch EXACTLY
+        // (env 1-37 and 37-84) — coords that overlap at residue 37, which only the clusterer produces.
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00018_SH3_1.hmm"));
+
+        var domains = hmm.FindDomains(OverlappingTandem(12)); // ensemble path (default)
+
+        Assert.That(domains, Has.Count.EqualTo(2),
+            "region_trace_ensemble must split the closely-overlapping tandem SH3 into 2 domains (hmmsearch: 2).");
+        Assert.Multiple(() =>
+        {
+            Assert.That(domains[0].EnvelopeStart, Is.EqualTo(1), "Domain 0 env_from (hmmsearch 1).");
+            Assert.That(domains[0].EnvelopeEnd, Is.EqualTo(37), "Domain 0 env_to (hmmsearch 37).");
+            Assert.That(domains[1].EnvelopeStart, Is.EqualTo(37), "Domain 1 env_from (hmmsearch 37 — overlaps dom0).");
+            Assert.That(domains[1].EnvelopeEnd, Is.EqualTo(84), "Domain 1 env_to (hmmsearch 84).");
+            Assert.That(domains[0].BitScore, Is.EqualTo(48.047169).Within(EnsembleScoreToleranceBits),
+                "Domain 0 per-domain bit score must reproduce hmmsearch (48.0472 bits).");
+            Assert.That(domains[1].BitScore, Is.EqualTo(66.678467).Within(EnsembleScoreToleranceBits),
+                "Domain 1 per-domain bit score must reproduce hmmsearch (66.6785 bits).");
+        });
+    }
+
+    [Test]
+    public void FindDomains_CloselyOverlappingTandemSh3_OptOutEmitsSingleFusedEnvelope()
+    {
+        // H20b — with clusterOverlapping:false the flagged region is emitted as ONE fused envelope
+        // (the prior, well-separated-only behavior) — proving the ensemble is opt-in and the default
+        // (true) is what produces the split. A deliberately-wrong "always 2" impl would fail this.
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00018_SH3_1.hmm"));
+
+        var legacy = hmm.FindDomains(OverlappingTandem(12), clusterOverlapping: false);
+        var ensemble = hmm.FindDomains(OverlappingTandem(12), clusterOverlapping: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(legacy, Has.Count.EqualTo(1),
+                "Opting out of clustering must fuse the overlapping region into a single envelope.");
+            Assert.That(ensemble, Has.Count.EqualTo(2),
+                "The default ensemble path must split the same region into two envelopes.");
+        });
+    }
+
+    [Test]
+    public void FindDomains_OverlappingTandemSh3_EnvelopeCoordinatesMatchHmmsearchAcrossTrims()
+    {
+        // H20c — the consensus envelope coordinates match hmmsearch across several truncations, each
+        // of which produces a DIFFERENT pair of overlapping envelopes (so the clusterer is genuinely
+        // computing consensus endpoints, not echoing a fixed split).
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00018_SH3_1.hmm"));
+
+        // (trim, expected dom0 from-to, expected dom1 from-to) — verbatim from pyhmmer.
+        (int Trim, int F0, int T0, int F1, int T1)[] cases =
+        {
+            (4, 1, 46, 45, 92),
+            (12, 1, 37, 37, 84),
+            (16, 1, 33, 33, 80),
+        };
+
+        Assert.Multiple(() =>
+        {
+            foreach (var c in cases)
+            {
+                var d = hmm.FindDomains(OverlappingTandem(c.Trim));
+                Assert.That(d, Has.Count.EqualTo(2), $"trim {c.Trim}: hmmsearch reports 2 domains.");
+                Assert.That(d[0].EnvelopeStart, Is.EqualTo(c.F0), $"trim {c.Trim} dom0 env_from.");
+                Assert.That(d[0].EnvelopeEnd, Is.EqualTo(c.T0), $"trim {c.Trim} dom0 env_to.");
+                Assert.That(d[1].EnvelopeStart, Is.EqualTo(c.F1), $"trim {c.Trim} dom1 env_from.");
+                Assert.That(d[1].EnvelopeEnd, Is.EqualTo(c.T1), $"trim {c.Trim} dom1 env_to.");
+            }
+        });
+    }
+
+    [Test]
+    public void FindDomains_Ensemble_IsDeterministicAcrossRuns()
+    {
+        // H20d — the ensemble is reproducible: HMMER reseeds its LCG to the fixed pipeline seed (42)
+        // per region, so two calls give identical envelopes (no flaky randomness).
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00018_SH3_1.hmm"));
+        string seq = OverlappingTandem(12);
+
+        var run1 = hmm.FindDomains(seq);
+        var run2 = hmm.FindDomains(seq);
+
+        Assert.That(run1.Count, Is.EqualTo(run2.Count), "Determinism: same domain count across runs.");
+        Assert.Multiple(() =>
+        {
+            for (int d = 0; d < run1.Count; d++)
+            {
+                Assert.That(run2[d].EnvelopeStart, Is.EqualTo(run1[d].EnvelopeStart), $"Determinism: dom{d} env_from.");
+                Assert.That(run2[d].EnvelopeEnd, Is.EqualTo(run1[d].EnvelopeEnd), $"Determinism: dom{d} env_to.");
+            }
+        });
+    }
+
+    [Test]
+    public void FindDomains_WellSeparatedTandemSh3_StillSplitsByFlankBound()
+    {
+        // H20e — REGRESSION: a WELL-separated tandem SH3 (two full cores, no truncation) is split by
+        // the rt2 flank bound into single-domain regions, NOT routed through the ensemble; the result
+        // is unchanged from the prior behaviour (2 envelopes, no overlap). Confirms the ensemble does
+        // not perturb the well-separated case.
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00018_SH3_1.hmm"));
+        string wellSeparated = Sh3Core + Sh3Core; // L=96, two complete cores end-to-end
+
+        var domains = hmm.FindDomains(wellSeparated);
+
+        Assert.That(domains, Has.Count.EqualTo(2), "Two complete SH3 cores must give two envelopes.");
+        Assert.Multiple(() =>
+        {
+            Assert.That(domains[0].EnvelopeStart, Is.EqualTo(1), "dom0 env_from (hmmsearch 1).");
+            Assert.That(domains[0].EnvelopeEnd, Is.EqualTo(48), "dom0 env_to (hmmsearch 48).");
+            Assert.That(domains[1].EnvelopeStart, Is.EqualTo(49), "dom1 env_from (hmmsearch 49 — no overlap).");
+            Assert.That(domains[1].EnvelopeEnd, Is.EqualTo(96), "dom1 env_to (hmmsearch 96).");
+        });
+    }
+
+    [Test]
+    public void FindDomains_SingleDomain_StillYieldsOneEnvelope_UnderEnsembleDefault()
+    {
+        // H20f — REGRESSION: a single SH3 domain still yields exactly ONE envelope under the ensemble
+        // default (its region is not flagged multi-domain), with the unchanged env 3-50 coords.
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00018_SH3_1.hmm"));
+
+        var domains = hmm.FindDomains(Sh3TruePositive);
+
+        Assert.That(domains, Has.Count.EqualTo(1), "A single SH3 fold must give exactly one envelope.");
+        Assert.Multiple(() =>
+        {
+            Assert.That(domains[0].EnvelopeStart, Is.EqualTo(3), "Single SH3 env_from (3).");
+            Assert.That(domains[0].EnvelopeEnd, Is.EqualTo(50), "Single SH3 env_to (50).");
+        });
+    }
+
+    #endregion
+
     private static string ReadEmbedded(string fileName)
     {
         var asm = typeof(Plan7ProfileHmm).Assembly;

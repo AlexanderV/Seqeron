@@ -168,9 +168,11 @@ log-odds.
 - `ProteinMotifFinder.FindDomainHitsByHmm(seq, Z, minBitScore)`: detect with bit score **and** E-value.
 - `ProteinMotifFinder.ScoreDomainHmm(seq, accession)`: Viterbi bit score for one bundled profile.
 - `ProteinMotifFinder.ScoreDomainHmmEValue(seq, accession, Z)`: bit score + Viterbi E-value.
-- `Plan7ProfileHmm.FindDomains(seq)`: **opt-in** HMMER `p7_domaindef` multi-domain envelope
-  decomposition — returns one `DomainEnvelope` (env coords + null2-corrected bit score + i-Evalue)
-  per domain.
+- `Plan7ProfileHmm.FindDomains(seq[, clusterOverlapping])`: **opt-in** HMMER `p7_domaindef`
+  multi-domain envelope decomposition — returns one `DomainEnvelope` (env coords + null2-corrected
+  bit score + i-Evalue) per domain. `clusterOverlapping` (default `true`) resolves a region flagged
+  multi-domain by the `rt3` test via stochastic-traceback clustering (`region_trace_ensemble`); set
+  `false` to keep the prior behaviour (such a region emitted as a single envelope).
 - `ProteinMotifFinder.FindDomainEnvelopes(seq[, minBitScore])` / `FindDomainEnvelopes(seq, accession)`:
   decompose a protein into per-domain envelope hits against the bundled / one named profile.
 
@@ -216,6 +218,20 @@ exact-substring search, so the repository suffix tree does not apply.
   174-212, 216-254, 259-298, 303-340) with per-domain scores matching to ≈1e-3 bits and i-Evalues to
   ≥3 sig figs; a single SH3 domain gives one envelope (3-50, 68.54 bits) — HMMER uses float32, this
   engine float64.
+- **Opt-in stochastic-traceback clustering of closely-overlapping multi-domain regions**
+  (`region_trace_ensemble` → `p7_spensemble_Cluster`; default `clusterOverlapping=true`): for a region
+  the `rt3` test flags multi-domain, sample `nsamples=200` stochastic tracebacks of the region's
+  multihit Forward matrix (`p7_GStochasticTrace`: backward walk normalising predecessor log-scores with
+  `esl_vec_FLogNorm` and sampling via `esl_rnd_FChoose` over a verbatim port of Easel's fixed-seed LCG
+  RNG, `--seed 42`), index each into `B..E` segment pairs (`p7_trace_Index`), single-linkage-cluster the
+  ensemble (`link_spsamples`: ≥0.8 overlap of the smaller segment in seq+hmm, start/end within 4
+  diagonals), keep clusters with posterior ≥0.25, take consensus endpoints (widest with frequency ≥
+  `ceil(ninc·0.02)`), drop dominated clusters (≥0.8 mutual overlap), and rescore each consensus envelope
+  by the same null2-corrected per-domain path [31][34][35][36][37][38][39]. **Verified to hmmsearch
+  (pyhmmer 0.12.1):** a closely-overlapping tandem-SH3 construct (two SH3 cores with the first truncated)
+  splits into the **same overlapping envelopes** — trim=4 → 1-46 / 45-92; trim=12 → 1-37 / 37-84;
+  trim=16 → 1-33 / 33-80 — envelope coordinates **exact**, per-domain scores within ~0.06 bits; the
+  ensemble is deterministic (fixed-seed LCG, reproducible across runs).
 
 **Intentionally simplified:**
 
@@ -226,13 +242,13 @@ exact-substring search, so the repository suffix tree does not apply.
 
 **Not implemented:**
 
-- **Stochastic-traceback clustering of multi-domain regions** (`region_trace_ensemble` →
-  `p7_spensemble_Cluster`): only needed when the `is_multidomain_region` `rt3` test flags a region
-  as containing closely-overlapping (not well-separated) domains. `FindDomains` performs region
-  identification, the `rt3` test, and the single-domain-per-region rescore — verified for
-  well-separated domains (tandem repeats / multi-domain propellers, the common case). A region
-  flagged multi-domain is emitted as a single envelope. **Users should rely on:** HMMER `hmmsearch`
-  for closely-overlapping-domain stochastic-clustering parity.
+- **Exact RNG-bit parity** of the stochastic-traceback ensemble: the clustering reproduces the
+  domain **count** and envelope **coordinates** of `hmmsearch` exactly with a verbatim port of Easel's
+  fixed-seed LCG, but bit-for-bit identity of every sampled trace would additionally require HMMER's
+  single-precision (`float`) Forward matrix and `esl_vec_FLogNorm`/`esl_rnd_FChoose` float arithmetic
+  (this engine computes the Forward matrix in `double`). The consensus endpoints (a tally over 200
+  samples) are robust to that difference, so coordinates match; per-sample trace-by-trace bit parity
+  is the residual.
 - **MSV / bias prefilters** are not reimplemented: they only gate which sequences reach the Forward
   stage; they do not change a reported hit's bit score, so they are not needed for score parity.
 - The full Pfam library beyond the three bundled (caller-supplied `.hmm`) profiles is out of scope.
@@ -242,7 +258,7 @@ exact-substring search, so the repository suffix tree does not apply.
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
 | 1 | Default mode is glocal; local-multihit is opt-in | Design | `FindDomainsByHmm` spans whole query; `LocalForward*` give hmmsearch-mode scores | accepted | §5.3 |
-| 2 | Multi-domain envelope decomposition is opt-in (`FindDomains`); stochastic clustering of overlapping-domain regions not implemented | Design | Well-separated domains decompose with hmmsearch parity; closely-overlapping regions emitted as one envelope | accepted | §5.3 "Implemented"/"Not implemented"; §6.2 |
+| 2 | Multi-domain envelope decomposition is opt-in (`FindDomains`); stochastic clustering of overlapping-domain regions is implemented (default `clusterOverlapping=true`) but not RNG-bit-exact | Design | Well-separated AND closely-overlapping domains decompose with hmmsearch envelope-coordinate parity; only per-sample trace-by-trace bit parity (float32 RNG/DP) is unreached | accepted | §5.3 "Implemented"/"Not implemented"; §6.2 |
 
 ## 6. Edge Cases and Limitations
 
@@ -266,10 +282,14 @@ single-domain value to 3e-5 bits. HMMER's automatic **multi-domain envelope deco
 (`p7_domaindef`) is now reproduced (opt-in `FindDomains`/`FindDomainEnvelopes`) and **verified against
 pyhmmer 0.12.1**: the GBB1 7-blade WD40 β-propeller decomposes into the same 7 envelopes with
 per-domain scores to ≈1e-3 bits and i-Evalues to ≥3 sig figs; a single SH3 gives one matching
-envelope. The remaining residual is the **stochastic-traceback clustering** of *closely-overlapping*
-domains (a region the `rt3` test flags as multi-domain): that sampling clusterer is not implemented,
-so such a region is emitted as a single envelope — well-separated domains (the common case) are
-fully verified. The MSV/bias prefilters are not reimplemented (they gate which sequences reach
+envelope. The **stochastic-traceback clustering** of *closely-overlapping* domains
+(`region_trace_ensemble` → `p7_spensemble_Cluster`, the path a region the `rt3` test flags as
+multi-domain takes) is now also reproduced (opt-in, default on) and **verified against pyhmmer
+0.12.1**: a closely-overlapping tandem-SH3 construct splits into the same overlapping envelopes
+(coordinates exact, scores within ~0.06 bits, deterministic). The only remaining residual is exact
+RNG-bit parity of the per-sample trace ensemble (HMMER samples in float32 with a fixed-seed LCG; this
+engine ports the LCG verbatim but computes the Forward matrix in float64 — the consensus endpoints are
+robust to this, so envelope coordinates match). The MSV/bias prefilters are not reimplemented (they gate which sequences reach
 Forward; they do not change a reported hit's score). The default `FindDomainsByHmm`/glocal path
 reports whole-sequence spans, not per-domain envelopes.
 
@@ -322,7 +342,7 @@ foreach (var d in ProteinMotifFinder.FindDomainEnvelopes(gbb1Sequence))
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [ProteinMotifFinder_FindDomainsByHmm_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindDomainsByHmm_Tests.cs) — covers `INV-HMM-01`..`INV-HMM-04`, the H18 local-mode + null2 hmmsearch-parity cases, and the H19 multi-domain decomposition (GBB1 7-domain / SH3 1-domain pyhmmer parity)
+- Tests: [ProteinMotifFinder_FindDomainsByHmm_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindDomainsByHmm_Tests.cs) — covers `INV-HMM-01`..`INV-HMM-04`, the H18 local-mode + null2 hmmsearch-parity cases, the H19 multi-domain decomposition (GBB1 7-domain / SH3 1-domain pyhmmer parity), and the H20 stochastic-traceback clustering of closely-overlapping domains (tandem-SH3 pyhmmer parity)
 - Evidence: [PROTMOTIF-DOMAIN-001-Evidence.md](../../../docs/Evidence/PROTMOTIF-DOMAIN-001-Evidence.md)
 - Related algorithms: [Domain_Prediction](./Domain_Prediction.md) (exact PROSITE patterns)
 
@@ -345,3 +365,10 @@ foreach (var d in ProteinMotifFinder.FindDomainEnvelopes(gbb1Sequence))
 22. HMMER `modelconfig.c` — `p7_ReconfigUnihit` / `p7_ReconfigMultihit` / `p7_ReconfigLength` (envelope rescore length config). https://github.com/EddyRivasLab/hmmer/blob/master/src/modelconfig.c
 31. HMMER `p7_domaindef.c` — `p7_domaindef_ByPosteriorHeuristics` (region identification `rt1=0.25`/`rt2=0.10`, `is_multidomain_region` `rt3=0.20`, `region_trace_ensemble`, `rescore_isolated_domain`). https://github.com/EddyRivasLab/hmmer/blob/master/src/p7_domaindef.c
 32. HMMER `generic_decoding.c` — `p7_GDomainDecoding` (`btot`/`etot`/`mocc`). https://github.com/EddyRivasLab/hmmer/blob/master/src/generic_decoding.c
+33. pyhmmer 0.12.1 — HMMER3 Cython binding; multi-domain + overlapping-domain `hmmsearch` ground truth. https://pyhmmer.readthedocs.io/
+34. HMMER `generic_stotrace.c` — `p7_GStochasticTrace` (stochastic traceback of the Forward matrix). https://github.com/EddyRivasLab/hmmer/blob/master/src/generic_stotrace.c
+35. HMMER `p7_spensemble.c` — `p7_spensemble_Add` / `p7_spensemble_Cluster` / `link_spsamples` (consensus envelope clustering). https://github.com/EddyRivasLab/hmmer/blob/master/src/p7_spensemble.c
+36. HMMER `p7_trace.c` — `p7_trace_Index` (split a trace into `B..E` domains). https://github.com/EddyRivasLab/hmmer/blob/master/src/p7_trace.c
+37. HMMER `p7_pipeline.c` — pipeline RNG (`esl_randomness_CreateFast(42)`, `do_reseeding`). https://github.com/EddyRivasLab/hmmer/blob/master/src/p7_pipeline.c
+38. Easel `esl_cluster.c` — `esl_cluster_SingleLinkage` (generalized single-linkage clustering). https://github.com/EddyRivasLab/easel/blob/master/esl_cluster.c
+39. Easel `esl_random.c` (LCG/knuth, `esl_rnd_FChoose`) + `easel.c` (`esl_mix3`). https://github.com/EddyRivasLab/easel/blob/master/esl_random.c

@@ -439,3 +439,68 @@ Stochastic-traceback clustering (`region_trace_ensemble`) for regions the `rt3` 
 closely-overlapping multi-domain is NOT implemented; such a region is emitted as a single envelope.
 Verified path = well-separated domains (tandem repeats, multi-domain propellers). Full unfiltered
 suite green. Work Queue Remaining = 0.
+
+---
+
+## Addendum 2026-06-25 — HMMER stochastic-traceback clustering of overlapping domains (`region_trace_ensemble`, opt-in)
+
+This addendum closes the prior D.6 residual: the stochastic-traceback clustering that splits a
+*closely-overlapping* multi-domain region is now implemented as the default path of
+`Plan7ProfileHmm.FindDomains(seq, clusterOverlapping=true)`. Defaults of all other methods unchanged.
+
+### E.1 Evidence summary
+
+HMMER `region_trace_ensemble` (`p7_domaindef.c`) + `p7_spensemble_Cluster` (`p7_spensemble.c`) +
+`p7_GStochasticTrace` (`generic_stotrace.c`) + `p7_trace_Index` (`p7_trace.c`) +
+`esl_cluster_SingleLinkage` (`esl_cluster.c`) + the Easel LCG RNG (`esl_random.c` /`esl_mix3` in
+`easel.c`) — all retrieved verbatim 2026-06-25 (see Evidence Addendum, refs 31/34–39). Defaults
+(verbatim): `nsamples=200`, `min_overlap=0.8`, `of_smaller=TRUE`, `max_diagdiff=4`,
+`min_posterior=0.25`, `min_endpointp=0.02`; pipeline RNG `esl_randomness_CreateFast(42)`,
+`do_reseeding=TRUE`. Ground truth: pyhmmer 0.12.1 `hmmsearch` (Z=1, domZ=1, seed=42) on closely-
+overlapping tandem-SH3 constructs (a truncated SH3 core + a full SH3 core).
+
+### E.2 Canonical method
+
+`Plan7ProfileHmm.FindDomains(string sequence, bool clusterOverlapping = true)` — when a region is
+flagged multi-domain by `is_multidomain_region` (`rt3=0.20`), it is resolved into one or more
+envelopes by the stochastic-traceback ensemble; `clusterOverlapping:false` keeps the prior single-
+envelope behaviour.
+
+### E.3 Invariant
+
+`INV-HMM-12` — a region the `rt3` test flags multi-domain is split into the consensus envelopes of
+the trace ensemble; well-separated regions and single domains are unaffected; the ensemble is
+deterministic (fixed-seed LCG, reproducible across runs).
+
+### E.4 MUST tests
+
+| ID | Scenario | Input | Expected (Evidence) | Source |
+|----|----------|-------|---------------------|--------|
+| H20a | Overlapping split (primary) | SH3 core trim=12 + full core (L=84) | 2 envelopes, env 1-37 & 37-84 (overlap at 37); scores 48.047169 & 66.678467 (Within 0.1) | pyhmmer 0.12.1 hmmsearch |
+| H20b | Opt-in / opt-out | same (L=84) | clusterOverlapping=false → 1 envelope; =true → 2 | region_trace_ensemble branch |
+| H20c | Coords across trims | trims 4/12/16 | {1-46,45-92},{1-37,37-84},{1-33,33-80} exactly | pyhmmer 0.12.1 |
+| H20d | Determinism | L=84, two calls | identical envelopes | fixed-seed LCG reseed |
+| H20e | Well-separated regression | two full cores (L=96) | 2 envelopes 1-48 & 49-96 (no overlap, flank-bound split) | pyhmmer 0.12.1 |
+| H20f | Single-domain regression | SH3 core (L=55) | 1 envelope, env 3-50 | pyhmmer 0.12.1 |
+
+### E.5 Post-implementation coverage
+
+Canonical file: `tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindDomainsByHmm_Tests.cs`
+(now 59 tests). All H20 implemented and ✅ green:
+
+| Case | Test method | Status |
+|------|-------------|--------|
+| H20a | FindDomains_CloselyOverlappingTandemSh3_SplitsIntoTwoEnvelopesViaEnsemble | ✅ |
+| H20b | FindDomains_CloselyOverlappingTandemSh3_OptOutEmitsSingleFusedEnvelope | ✅ |
+| H20c | FindDomains_OverlappingTandemSh3_EnvelopeCoordinatesMatchHmmsearchAcrossTrims | ✅ |
+| H20d | FindDomains_Ensemble_IsDeterministicAcrossRuns | ✅ |
+| H20e | FindDomains_WellSeparatedTandemSh3_StillSplitsByFlankBound | ✅ |
+| H20f | FindDomains_SingleDomain_StillYieldsOneEnvelope_UnderEnsembleDefault | ✅ |
+
+### E.6 Residual
+
+Envelope **count** and **coordinates** reproduce `hmmsearch` exactly (scores within ~0.06 bits). The
+only residual is **exact RNG-bit parity** of the per-sample trace ensemble: HMMER samples in float32
+with the Easel LCG (ported verbatim here), but this engine computes the Forward matrix in float64; the
+200-sample consensus is robust to that, so coordinates match but per-sample trace-by-trace bit parity
+is not asserted. Full unfiltered suite green. Work Queue Remaining = 0.

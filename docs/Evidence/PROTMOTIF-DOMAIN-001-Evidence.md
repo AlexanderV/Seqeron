@@ -698,3 +698,120 @@ decomposition covers the common well-separated-domain case (tandem repeats, mult
     https://github.com/EddyRivasLab/hmmer/blob/master/src/generic_decoding.c
 33. pyhmmer 0.12.1 multi-domain `hmmsearch` ground truth (GBB1/PF00400 7 domains; SH3/PF00018 1):
     https://pyhmmer.readthedocs.io/
+
+---
+
+## Addendum 2026-06-25 — HMMER stochastic-traceback clustering of overlapping domains (`region_trace_ensemble`)
+
+This addendum closes the prior residual: the **stochastic-traceback clustering** that HMMER uses to
+split a *closely-overlapping* (not-well-separated) multi-domain region — `region_trace_ensemble()`
+followed by `p7_spensemble_Cluster()` — is now implemented as an **opt-in** path of
+`Plan7ProfileHmm.FindDomains(seq, clusterOverlapping = true)`. The well-separated decomposition,
+the per-sequence `HmmSearchBitScore`, and all defaults are unchanged.
+
+### Online Source: HMMER `p7_domaindef.c` — `region_trace_ensemble` + defaults — RETRIEVED 2026-06-25
+
+Fetched verbatim via `curl https://raw.githubusercontent.com/EddyRivasLab/hmmer/master/src/p7_domaindef.c`.
+
+- **`p7_domaindef_Create()` defaults (verbatim):** `ddef->nsamples = 200; min_overlap = 0.8;
+  of_smaller = TRUE; max_diagdiff = 4; min_posterior = 0.25; min_endpointp = 0.02;` (and
+  `rt1=0.25, rt2=0.10, rt3=0.20`).
+- **`p7_domaindef_ByPosteriorHeuristics()` branch (verbatim):** when `is_multidomain_region(ddef,i,j)`
+  is TRUE, the region is rescored multihit (`p7_oprofile_ReconfigMultihit(om,saveL); p7_Forward(sq->dsq+i-1, j-i+1, ...)`),
+  `region_trace_ensemble(ddef, om, sq->dsq, i, j, fwd, bck, &nc)` defines `nc` clusters, then each
+  cluster's `p7_spensemble_GetClusterCoords(...,&i2,&j2,...)` is rescored by `rescore_isolated_domain`.
+- **`region_trace_ensemble()` (verbatim):** "By default, we make results reproducible by forcing a
+  reset of the RNG to its originally seeded state" — `esl_randomness_Init(ddef->r, esl_randomness_GetSeed(ddef->r))`.
+  Then `for (t=0; t<ddef->nsamples; t++) { p7_StochasticTrace(ddef->r, dsq+ireg-1, Lr, om, fwd, ddef->tr);
+  p7_trace_Index(ddef->tr); for d in domains: p7_spensemble_Add(ddef->sp, t, sqfrom[d]+ireg-1,
+  sqto[d]+ireg-1, hmmfrom[d], hmmto[d]); ... }` then `p7_spensemble_Cluster(ddef->sp, 0.8, TRUE, 4,
+  0.25, 0.02, &nc)`, then a dominated-domain removal pass (≥0.8 mutual seq overlap → lower-`prob`
+  cluster dropped).
+
+### Online Source: HMMER `generic_stotrace.c` — `p7_GStochasticTrace` — RETRIEVED 2026-06-25
+
+Fetched verbatim (`.../src/generic_stotrace.c`). The traceback walks the Forward matrix backward from
+`C(L)`; each step builds the predecessor log-score vector `sc[]`, normalises it with
+`esl_vec_FLogNorm`, and samples a predecessor with `esl_rnd_FChoose(r, sc, N)`. Transitions used
+verbatim (local mode): C←{C·LOOP, E·MOVE}; E←{any M_k, D_k} (local); M←{B·BM, M·MM, I·IM, D·DM};
+D←{M·MD, D·DD}; I←{M·MI, I·II}; B←{N·MOVE, J·MOVE}; J←{J·LOOP, E·LOOP}; N←{S | N}. `p7_trace_Index`
+(`p7_trace.c`, retrieved) splits each `B..E` into a domain with `sqfrom/sqto` (first/last match-state
+residue) and `hmmfrom/hmmto` (first/last match-state node).
+
+### Online Source: HMMER `p7_spensemble.c` — clustering + consensus endpoints — RETRIEVED 2026-06-25
+
+Fetched verbatim (`.../src/p7_spensemble.c`). `link_spsamples` linkage rule (verbatim): two segment
+pairs link iff fractional seq overlap ≥ `min_overlap` of the smaller segment AND fractional hmm
+overlap ≥ `min_overlap` (the hmm overlap omits the `+1`, verbatim) AND `|d1−d2| ≤ max_diagdiff` for
+the start OR end diagonal. `p7_spensemble_Cluster` runs `esl_cluster_SingleLinkage`, keeps clusters
+with `ninc/nsamples ≥ min_posterior` (distinct-sample count, de-duplicated by `idx_of_last`), and
+picks consensus endpoints: leftmost `i`/`k` and rightmost `j`/`m` whose frequency ≥
+`ceil(ninc·min_endpointp)` (else `argmax`); rejects `best_i>best_j || best_k>best_m`; orders by start.
+
+### Online Source: Easel `esl_cluster.c` — `esl_cluster_SingleLinkage` — RETRIEVED 2026-06-25
+
+Fetched verbatim (`.../easel/master/esl_cluster.c`). Breadth-first single-linkage in O(N) memory:
+push all vertices on stack `a`; pop to `b`; assign `c[v]=nc`; for each available `w`, if `linkfunc(v,w)`
+move `w` from `a` to `b`; increment `nc` when `b` empties.
+
+### Online Source: Easel RNG — `esl_random.c` + `esl_mix3` (`easel.c`) — RETRIEVED 2026-06-25
+
+Fetched verbatim. The HMMER **pipeline** (`p7_pipeline.c`, retrieved) sets `seed = 42` (default
+`--seed 42`) and creates the RNG with `esl_randomness_CreateFast(seed)` — the Easel **LCG**, with
+`do_reseeding = (seed==0)?FALSE:TRUE`. LCG init (verbatim): `r->x = esl_mix3(seed, 87654321,
+12345678); if (r->x==0) r->x=42;`. Per draw (`knuth`): `r->x = 69069*r->x + 1; esl_random = x/2^32`
+in [0,1). `esl_mix3` is Bob Jenkins' 3-word mix (verbatim from `easel.c`). `esl_rnd_FChoose`
+(verbatim): roll = `esl_random(r)`; return first `i` with `cumsum/norm > roll`. (The default
+distribution generator is the Mersenne Twister with non-standard `mt[z]=69069·mt[z-1]` seeding, but
+the *pipeline* uses the faster LCG — captured to match the actual `hmmsearch` ensemble.)
+
+### Reference tool — pyhmmer 0.12.1 ground truth (closely-overlapping multi-domain) — CAPTURED 2026-06-25
+
+`pyhmmer 0.12.1` (macOS arm64). `hmmsearch` (Z=1, domZ=1, seed=42) of bundled `PF00018_SH3_1.hmm`
+against a **closely-overlapping tandem-SH3** construct = the 48-aa SH3 core (= residues 3..50 of the
+SRC_HUMAN SH3, `VALYDYESRTETDLSFKKGERLQIVNNTEGDWWLAHSLSTGQTGYIPS`) TRUNCATED by `trim` residues, then
+a full core. hmmsearch resolves these via the ensemble (overlapping consensus envelopes):
+
+| construct | L | dom0 env / score | dom1 env / score |
+|-----------|---|------------------|------------------|
+| trim=4  | 92 | 1..46 / 57.023777 | 45..92 / 66.338997 |
+| trim=12 | 84 | 1..37 / 48.047169 | 37..84 / 66.678467 (iE 5.545e-23, dom0 iE 3.660e-17) |
+| trim=16 | 80 | 1..33 / 40.831696 | 33..80 / 66.867706 |
+
+A **well-separated** tandem (two complete cores, L=96) → 2 non-overlapping envelopes 1..48 / 49..96
+(handled by the rt2 flank bound, NOT the ensemble). Single SH3 → 1 envelope (env 3..50). All results
+are reproducible across runs (fixed-seed LCG).
+
+### Independent C# parity (this engine, double precision)
+
+`FindDomains` (ensemble default) reproduces: trim=4 → 2 envelopes **1..46 / 45..92**; trim=12 →
+**1..37 / 37..84**; trim=16 → **1..33 / 33..80** — **envelope coordinates EXACT** vs hmmsearch (incl.
+the overlap at the shared residue), per-domain scores within ~0.06 bits (48.105 vs 48.047; 66.684 vs
+66.678). With `clusterOverlapping:false` the same region fuses to ONE envelope (the prior behaviour).
+Well-separated tandem still → 1..48 / 49..96; single SH3 still → 3..50; GBB1/PF00400 still → the same
+7 envelopes. Determinism verified (identical across repeated calls).
+
+### Honest residual (exact-RNG-bit parity)
+
+The clustering is implemented faithfully and reproduces the domain **count** and the envelope
+**coordinates** of `hmmsearch` exactly for the captured cases, with a deterministic fixed-seed LCG
+ported verbatim from Easel. **Bit-for-bit** identity of the sampled trace ensemble would additionally
+require HMMER's single-precision (`float`) Forward matrix and `esl_vec_FLogNorm`/`esl_rnd_FChoose`
+float arithmetic; this engine computes the Forward matrix in `double`. The consensus endpoints are
+robust to that difference (a tally over 200 samples), so coordinates match; exact per-sample
+trace-by-trace bit parity is the residual.
+
+### Reference list additions
+
+34. HMMER `generic_stotrace.c` — `p7_GStochasticTrace`:
+    https://github.com/EddyRivasLab/hmmer/blob/master/src/generic_stotrace.c
+35. HMMER `p7_spensemble.c` — `p7_spensemble_Add` / `p7_spensemble_Cluster` / `link_spsamples`:
+    https://github.com/EddyRivasLab/hmmer/blob/master/src/p7_spensemble.c
+36. HMMER `p7_trace.c` — `p7_trace_Index`:
+    https://github.com/EddyRivasLab/hmmer/blob/master/src/p7_trace.c
+37. HMMER `p7_pipeline.c` — pipeline RNG (`esl_randomness_CreateFast(42)`, `do_reseeding`):
+    https://github.com/EddyRivasLab/hmmer/blob/master/src/p7_pipeline.c
+38. Easel `esl_cluster.c` — `esl_cluster_SingleLinkage`:
+    https://github.com/EddyRivasLab/easel/blob/master/esl_cluster.c
+39. Easel `esl_random.c` (LCG/knuth, `esl_rnd_FChoose`) + `easel.c` (`esl_mix3`):
+    https://github.com/EddyRivasLab/easel/blob/master/esl_random.c

@@ -1,5 +1,49 @@
 # Validation Report: PROTMOTIF-DOMAIN-001 — Protein Domain Identification
 
+## Update 2026-06-25 — HMMER stochastic-traceback clustering of overlapping domains (region_trace_ensemble, limitation fix); Status stays ☐
+
+The Plan7 engine now resolves **closely-overlapping (not-well-separated) multi-domain regions** by
+HMMER's stochastic-traceback clustering — the last open residual of the prior update — as an
+**opt-in** path of `FindDomains` (default on). The well-separated decomposition, the per-sequence
+`HmmSearchBitScore`, and all defaults are unchanged. A real overlapping-domain HMMER reference was
+obtained and used as ground truth.
+
+- **Algorithms retrieved verbatim (EddyRivasLab, 2026-06-25):** `p7_domaindef.c`
+  `region_trace_ensemble` (reseed RNG → `nsamples=200` stochastic tracebacks → `p7_spensemble_Add`
+  → `p7_spensemble_Cluster(0.8,TRUE,4,0.25,0.02)` → dominated-domain removal); `generic_stotrace.c`
+  `p7_GStochasticTrace` (backward walk, `esl_vec_FLogNorm` + `esl_rnd_FChoose` predecessor sampling);
+  `p7_trace.c` `p7_trace_Index` (B..E domain split); `p7_spensemble.c` `link_spsamples` (≥0.8 overlap
+  of smaller segment in seq+hmm + ≤4 diagonals) + consensus endpoints (leftmost i/k, rightmost j/m
+  with freq ≥ `ceil(ninc·0.02)`); `esl_cluster.c` `esl_cluster_SingleLinkage`; the Easel **LCG** RNG
+  `esl_random.c` (`esl_randomness_CreateFast`, `knuth`, `esl_rnd_FChoose`) + `esl_mix3` (`easel.c`);
+  `p7_pipeline.c` default `--seed 42` / `do_reseeding`.
+- **Reference tool / ground truth:** `pyhmmer 0.12.1`. `hmmsearch` (Z=1, domZ=1, seed=42) of bundled
+  `PF00018_SH3_1.hmm` vs a closely-overlapping tandem-SH3 construct (48-aa SH3 core truncated by
+  `trim`, then a full core). hmmsearch splits these via the ensemble into OVERLAPPING envelopes:
+  trim=4 (L=92) → `1-46`/57.023777 & `45-92`/66.338997; trim=12 (L=84) → `1-37`/48.047169 &
+  `37-84`/66.678467 (dom0 iE 3.660e-17, dom1 iE 5.545e-23); trim=16 (L=80) → `1-33`/40.831696 &
+  `33-80`/66.867706. A well-separated tandem (two full cores, L=96) → `1-48`/`49-96` (flank-bound,
+  NOT the ensemble); single SH3 → `3-50`.
+- **Method changed:** `Plan7ProfileHmm.FindDomains(seq, bool clusterOverlapping = true)` — a region
+  flagged multi-domain by the `rt3` test is now resolved by `RegionTraceEnsemble` (the ported
+  ensemble + clusterer + LCG RNG); `clusterOverlapping:false` keeps the prior single-envelope
+  behaviour. Reuses the existing multihit Forward and the null2 per-domain rescore. All other methods
+  and defaults untouched.
+- **Verified parity (pyhmmer 0.12.1):** `FindDomains` reproduces the domain COUNT (2) and the
+  envelope COORDINATES of all three overlapping constructs **EXACTLY** (incl. the shared/overlap
+  residue) — trim=4 `1-46`/`45-92`, trim=12 `1-37`/`37-84`, trim=16 `1-33`/`33-80`; per-domain scores
+  within ~0.06 bits. Regressions: well-separated tandem still `1-48`/`49-96`; single SH3 still `3-50`;
+  GBB1/PF00400 still the same 7 envelopes. Determinism confirmed (identical across runs). 6 new tests
+  (H20a–f); full suite green.
+- **Honest residual (RNG-bit parity):** the clustering reproduces count + coordinates exactly with a
+  verbatim LCG port, but **bit-for-bit** identity of every sampled trace would additionally require
+  HMMER's float32 Forward matrix / `FLogNorm` / `FChoose` arithmetic (this engine uses float64). The
+  200-sample consensus is robust to that, so coordinates match; per-sample trace-by-trace bit parity
+  is the residual. Pfam coverage beyond the 3 bundled CC0 profiles remains caller-supplied `.hmm`.
+- Status stays **☐** in the root registry (independent re-validation; not a ☑ self-claim).
+
+---
+
 ## Update 2026-06-25 — HMMER multi-domain envelope decomposition (p7_domaindef, limitation fix); Status stays ☐
 
 The Plan7 engine now performs HMMER's automatic per-target **domain/envelope decomposition** — the

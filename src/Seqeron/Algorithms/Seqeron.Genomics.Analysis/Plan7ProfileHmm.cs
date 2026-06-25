@@ -802,6 +802,21 @@ public sealed class Plan7ProfileHmm
     // ln(n/(n+3)) per unaligned residue (p7_pipeline.c: "(sq->n-Ld) * log(n/(n+3))").
     private const double UnalignedDenomOffset = 3.0;
 
+    // p7_domaindef_Create() ensemble/clustering defaults (verbatim, p7_domaindef.c):
+    //   ddef->nsamples = 200; min_overlap = 0.8; of_smaller = TRUE; max_diagdiff = 4;
+    //   ddef->min_posterior = 0.25; ddef->min_endpointp = 0.02;
+    private const int EnsembleSamples = 200;        // ddef->nsamples
+    private const double MinOverlap = 0.8;          // ddef->min_overlap (of smaller segment)
+    private const int MaxDiagDiff = 4;              // ddef->max_diagdiff
+    private const double MinPosterior = 0.25;       // ddef->min_posterior
+    private const double MinEndpointP = 0.02;       // ddef->min_endpointp
+
+    // HMMER pipeline default RNG seed (p7_pipeline.c: "--seed ... default 42"); the pipeline uses
+    // esl_randomness_CreateFast(42) — the Easel LCG — and region_trace_ensemble re-seeds the RNG to
+    // this fixed seed before every region (do_reseeding = TRUE for any nonzero seed), so the sampled
+    // ensemble is deterministic and reproducible across runs.
+    private const uint EnsembleSeed = 42;
+
     /// <summary>
     /// One automatically-decomposed domain of a target sequence: its posterior-defined envelope,
     /// its null2-corrected per-domain bit score, and its independent ("conditional") E-value.
@@ -851,14 +866,21 @@ public sealed class Plan7ProfileHmm
     ///   <c>dombias = logsumexp(0, ln(omega) + Σ ln null2[x])</c> (<c>p7_pipeline.c</c>).</item>
     /// </list>
     /// <para>
-    /// <b>Residual:</b> for regions flagged multi-domain by the <c>rt3</c> test, HMMER resolves the
-    /// envelopes by stochastic-traceback clustering (<c>region_trace_ensemble</c>). That sampling
-    /// clusterer is not implemented here; such a region is emitted as a single envelope and flagged.
-    /// Verified to reproduce hmmsearch envelopes/scores for well-separated domains (the common case).
+    /// For regions flagged multi-domain by the <c>rt3</c> test, HMMER resolves the envelopes by
+    /// stochastic-traceback clustering (<c>region_trace_ensemble</c> → <c>p7_spensemble_Cluster</c>,
+    /// 200 sampled tracebacks). When <paramref name="clusterOverlapping"/> is <c>true</c> (the
+    /// default), that sampling clusterer is run for such regions (see
+    /// <see cref="FindDomainsByEnsemble"/>); when <c>false</c>, the legacy behavior is kept and a
+    /// flagged region is emitted as a single envelope.
     /// </para>
     /// </remarks>
+    /// <param name="sequence">The target protein sequence.</param>
+    /// <param name="clusterOverlapping">
+    /// When <c>true</c> (default) a region flagged multi-domain by the <c>rt3</c> test is resolved
+    /// into one or more envelopes by stochastic-traceback clustering; when <c>false</c> the region is
+    /// emitted as a single envelope (the prior behavior).</param>
     /// <returns>The per-domain envelopes in ascending sequence order; empty for an empty sequence.</returns>
-    public IReadOnlyList<DomainEnvelope> FindDomains(string sequence)
+    public IReadOnlyList<DomainEnvelope> FindDomains(string sequence, bool clusterOverlapping = true)
     {
         ArgumentNullException.ThrowIfNull(sequence);
         var result = new List<DomainEnvelope>();
@@ -887,7 +909,7 @@ public sealed class Plan7ProfileHmm
             }
             else if (mocc[j] - (etot[j] - etot[j - 1]) < Rt2)
             {
-                AddEnvelope(result, dsq, n, regionStart, j, nullsc, etot, btot);
+                AddEnvelope(result, dsq, n, regionStart, j, nullsc, etot, btot, clusterOverlapping);
                 regionStart = -1;
                 triggered = false;
             }
@@ -910,16 +932,26 @@ public sealed class Plan7ProfileHmm
 
     private void AddEnvelope(
         List<DomainEnvelope> result, int[] dsq, int n, int i, int j, double nullsc,
-        double[] etot, double[] btot)
+        double[] etot, double[] btot, bool clusterOverlapping)
     {
-        // A multi-domain region would need stochastic-traceback clustering (region_trace_ensemble);
-        // not implemented. Well-separated domains fall into single-domain regions (the common case)
-        // and are converted to an envelope directly, matching hmmsearch. The flag is recorded so a
-        // multi-domain region is not silently treated as a verified single envelope.
-        _ = IsMultidomainRegion(etot, btot, i, j); // computed for parity with HMMER's branch
+        // p7_domaindef_ByPosteriorHeuristics: if the region is flagged multi-domain by the rt3 test,
+        // resolve it into one or more envelopes by stochastic-traceback clustering
+        // (region_trace_ensemble); otherwise convert the single-domain region to an envelope directly.
+        if (clusterOverlapping && IsMultidomainRegion(etot, btot, i, j))
+        {
+            var clusters = RegionTraceEnsemble(dsq, n, i, j);
+            if (clusters.Count > 0)
+            {
+                // Each cluster's consensus seq coords (i2..j2) become an envelope, rescored by the
+                // same null2-corrected per-domain path as a single-domain region (rescore_isolated_domain).
+                foreach (var (i2, j2) in clusters)
+                    result.Add(RescoreEnvelope(dsq, n, i2, j2, nullsc));
+                return;
+            }
+            // Degenerate ensemble (no significant cluster): fall back to the whole region as one envelope.
+        }
 
-        var dom = RescoreEnvelope(dsq, n, i, j, nullsc);
-        result.Add(dom);
+        result.Add(RescoreEnvelope(dsq, n, i, j, nullsc));
     }
 
     // rescore_isolated_domain (single-domain region path) + the per-domain bit score of
@@ -1166,6 +1198,429 @@ public sealed class Plan7ProfileHmm
         public double[] BE { get; }
         public double[] BC { get; }
         public double[] BJ { get; }
+    }
+
+    #endregion
+
+    #region Stochastic-traceback clustering of overlapping domains (region_trace_ensemble; opt-in)
+
+    /// <summary>
+    /// Resolves a single closely-overlapping multi-domain region into envelopes by HMMER's
+    /// stochastic-traceback clustering, exactly as <c>region_trace_ensemble()</c>
+    /// (<c>p7_domaindef.c</c>) followed by <c>p7_spensemble_Cluster()</c> (<c>p7_spensemble.c</c>):
+    /// sample <c>nsamples=200</c> stochastic tracebacks of the region's multihit Forward matrix
+    /// (<c>p7_GStochasticTrace</c>, <c>generic_stotrace.c</c>), index each into per-domain segment
+    /// pairs (<c>p7_trace_Index</c>), then single-linkage-cluster the segment-pair ensemble and pick
+    /// consensus envelope endpoints. Returns the consensus seq coords <c>(i2..j2)</c> (1-based,
+    /// region-relative offset already applied) of each significant, non-dominated cluster, ordered by
+    /// start. This is the path <see cref="FindDomains(string, bool)"/> takes for an <c>rt3</c>-flagged
+    /// region.
+    /// </summary>
+    /// <remarks>
+    /// HMMER seeds its RNG with the pipeline default (<c>--seed 42</c>, an Easel LCG) and re-seeds it
+    /// to that fixed seed before every region (<c>do_reseeding</c>), so the ensemble is reproducible.
+    /// This implementation ports the Easel LCG (<see cref="EslLcgRandom"/>) and the <c>esl_rnd_FChoose</c>
+    /// selection verbatim. Bit-identical envelope coordinates would additionally require HMMER's
+    /// single-precision (<c>float</c>) Forward matrix and <c>esl_vec_FLogNorm</c> arithmetic; this
+    /// engine computes the Forward matrix in <c>double</c>, so the consensus envelope coordinates match
+    /// hmmsearch within a few residues (the documented residual), not necessarily bit-for-bit.
+    /// </remarks>
+    /// <param name="dsq">Digitized full sequence (index 1..n; element −1 = out-of-alphabet).</param>
+    /// <param name="n">Full sequence length (the length model is configured to n).</param>
+    /// <param name="ireg">1-based inclusive region start on the full sequence.</param>
+    /// <param name="jreg">1-based inclusive region end on the full sequence.</param>
+    private List<(int Start, int End)> RegionTraceEnsemble(int[] dsq, int n, int ireg, int jreg)
+    {
+        int lr = jreg - ireg + 1;
+
+        // Caller provides a filled multihit Forward matrix for the region sub-sequence dsq[ireg..jreg],
+        // with the length distribution set to the FULL length n (region_trace_ensemble preamble:
+        // p7_oprofile_ReconfigMultihit(om, saveL); p7_Forward(sq->dsq+i-1, j-i+1, ...)).
+        var sub = new int[lr + 1];
+        for (int p = 1; p <= lr; p++) sub[p] = dsq[ireg + p - 1];
+        var f = RunForwardBackward(sub, lr, configLength: n, multihit: true);
+
+        double[] bm = LocalEntryLn();
+        var rng = new EslLcgRandom(EnsembleSeed); // reseeded to the fixed seed for reproducibility
+
+        var ensemble = new List<SegPair>();
+        // Collect an ensemble of sampled traces (region_trace_ensemble main loop).
+        for (int t = 0; t < EnsembleSamples; t++)
+        {
+            var trace = StochasticTrace(f, sub, lr, bm, rng);
+            // p7_trace_Index: split B..E domains; record per-domain (sqfrom,sqto,hmmfrom,hmmto).
+            // Offset seq coords by +ireg-1 (p7_spensemble_Add) to refer to full-sequence positions.
+            foreach (var d in IndexTrace(trace))
+                ensemble.Add(new SegPair(t, d.SqFrom + ireg - 1, d.SqTo + ireg - 1, d.HmmFrom, d.HmmTo));
+        }
+
+        return ClusterEnsemble(ensemble, EnsembleSamples);
+    }
+
+    // One sampled segment pair (a B..E domain of one stochastic trace). i/j are seq coords,
+    // k/m are model coords; idx is the sample index (p7_spensemble's struct p7_spcoord_s).
+    private readonly record struct SegPair(int Idx, int I, int J, int K, int M);
+
+    // p7_GStochasticTrace (generic_stotrace.c): sample one full traceback of the Forward matrix <f>
+    // for the region sub-sequence sub[1..len], using the LCG <rng> and esl_rnd_FChoose. Returns the
+    // trace as an ordered list of (state, k, i) from S..T (already reversed to forward order). State
+    // codes: 0=M 1=I 2=D 3=N 4=B 5=E 6=J 7=C 8=S 9=T (internal; only M/B/E are used by IndexTrace).
+    private List<(byte St, int K, int I)> StochasticTrace(
+        ForwardBackward f, int[] sub, int len, double[] bm, EslLcgRandom rng)
+    {
+        int m = Length;
+        const byte M = 0, I = 1, D = 2, N = 3, B = 4, E = 5, J = 6, C = 7, S = 8, T = 9;
+        double xLoop = f.XLoop, xMove = f.XMove;
+        double eMove = -Ln2; // multihit E->C
+        double eLoop = -Ln2; // multihit E->J
+
+        var rev = new List<(byte, int, int)>();
+        int i = len;
+        int k = 0;
+        rev.Add((T, 0, i));
+        rev.Add((C, 0, i));
+        byte sprv = C;
+
+        var sc = new double[2 * m + 1];
+        while (sprv != S)
+        {
+            byte scur;
+            switch (rev[^1].Item1)
+            {
+                case C: // C(i) from C(i-1) or E(i)
+                    sc[0] = Add(f.FC[i - 1], xLoop);
+                    sc[1] = Add(f.FE[i], eMove);
+                    scur = FChoose2(sc, rng) == 0 ? C : E;
+                    break;
+
+                case E: // local: E from any M_k(i) or D_k(i)
+                    {
+                        // We index M states as 1..M and D states as M+2..2M; M0 and D1 are impossible
+                        // (generic_stotrace.c: "sc[0] = sc[M+1] = -eslINFINITY").
+                        sc[0] = double.NegativeInfinity;
+                        sc[m + 1] = double.NegativeInfinity;
+                        for (int kk = 1; kk <= m; kk++) sc[kk] = f.FM[i][kk];
+                        for (int kk = 2; kk <= m; kk++) sc[kk + m] = f.FD[i][kk];
+                        int choice = FChooseN(sc, 2 * m + 1, rng);
+                        if (choice <= m) { k = choice; scur = M; }
+                        else { k = choice - m; scur = D; }
+                        break;
+                    }
+
+                case M: // M(i,k) from B(i-1), M/I/D(i-1,k-1)
+                    sc[0] = Add(f.FB[i - 1], bm[k]);
+                    sc[1] = Add(f.FM[i - 1][k - 1], _transitionLn[k - 1][TMM]);
+                    sc[2] = Add(f.FI[i - 1][k - 1], _transitionLn[k - 1][TIM]);
+                    sc[3] = Add(f.FD[i - 1][k - 1], _transitionLn[k - 1][TDM]);
+                    scur = FChooseN(sc, 4, rng) switch { 0 => B, 1 => M, 2 => I, _ => D };
+                    k--; i--;
+                    break;
+
+                case D: // D(i,k) from M(i,k-1) or D(i,k-1)
+                    sc[0] = Add(f.FM[i][k - 1], _transitionLn[k - 1][TMD]);
+                    sc[1] = Add(f.FD[i][k - 1], _transitionLn[k - 1][TDD]);
+                    scur = FChoose2(sc, rng) == 0 ? M : D;
+                    k--;
+                    break;
+
+                case I: // I(i,k) from M(i-1,k) or I(i-1,k)
+                    sc[0] = Add(f.FM[i - 1][k], _transitionLn[k][TMI]);
+                    sc[1] = Add(f.FI[i - 1][k], _transitionLn[k][TII]);
+                    scur = FChoose2(sc, rng) == 0 ? M : I;
+                    i--;
+                    break;
+
+                case N: // N from S (i==0) or N
+                    scur = i == 0 ? S : N;
+                    break;
+
+                case B: // B from N(i) or J(i)
+                    sc[0] = Add(f.FN[i], xMove);
+                    sc[1] = Add(f.FJ[i], xMove);
+                    scur = FChoose2(sc, rng) == 0 ? N : J;
+                    break;
+
+                case J: // J(i) from J(i-1) or E(i)
+                    sc[0] = Add(f.FJ[i - 1], xLoop);
+                    sc[1] = Add(f.FE[i], eLoop);
+                    scur = FChoose2(sc, rng) == 0 ? J : E;
+                    break;
+
+                default:
+                    throw new InvalidOperationException("bogus state in stochastic traceback");
+            }
+
+            rev.Add((scur, k, i));
+            // For NCJ the i decrement is deferred (matches generic_stotrace.c).
+            if ((scur == N || scur == J || scur == C) && scur == sprv) i--;
+            sprv = scur;
+        }
+
+        rev.Reverse();
+        return rev;
+    }
+
+    // p7_trace_Index (p7_trace.c): split a trace into its B..E domains; for each domain record
+    // sqfrom/sqto (first/last match-state residue) and hmmfrom/hmmto (first/last match-state node).
+    private static List<(int SqFrom, int SqTo, int HmmFrom, int HmmTo)> IndexTrace(
+        List<(byte St, int K, int I)> trace)
+    {
+        const byte M = 0, B = 4, E = 5;
+        var doms = new List<(int, int, int, int)>();
+        int sqFrom = 0, sqTo = 0, hmmFrom = 0, hmmTo = 0;
+        foreach (var (st, kk, ii) in trace)
+        {
+            if (st == B) { sqFrom = 0; hmmFrom = 0; }
+            else if (st == M)
+            {
+                if (sqFrom == 0) sqFrom = ii;
+                if (hmmFrom == 0) hmmFrom = kk;
+                sqTo = ii; hmmTo = kk;
+            }
+            else if (st == E)
+            {
+                doms.Add((sqFrom, sqTo, hmmFrom, hmmTo));
+            }
+        }
+        return doms;
+    }
+
+    // esl_rnd_FChoose over the first N entries of <sc> (log-space), normalised in place via
+    // esl_vec_FLogNorm (LogSumExp + exp + renormalise), then a uniform roll selects an index.
+    private static int FChooseN(double[] sc, int count, EslLcgRandom rng)
+    {
+        // esl_vec_FLogNorm: subtract logsumexp, exponentiate, normalise to a probability vector.
+        double logden = double.NegativeInfinity;
+        for (int z = 0; z < count; z++) logden = LogSumExp(logden, sc[z]);
+        double norm = 0.0;
+        var p = new double[count];
+        for (int z = 0; z < count; z++)
+        {
+            p[z] = Math.Exp(sc[z] - logden);
+            norm += p[z];
+        }
+        // esl_rnd_FChoose: roll in [0,1); return first i with cumulative sum/norm > roll.
+        double roll = rng.NextDouble();
+        double sum = 0.0;
+        for (int z = 0; z < count; z++)
+        {
+            sum += p[z];
+            if (roll < sum / norm) return z;
+        }
+        return count - 1; // numerical guard (HMMER would esl_fatal; here clamp to last)
+    }
+
+    private static int FChoose2(double[] sc, EslLcgRandom rng) => FChooseN(sc, 2, rng);
+
+    // p7_spensemble_Cluster (p7_spensemble.c): single-linkage cluster the ensemble of segment pairs,
+    // keep clusters with posterior >= min_posterior, define consensus endpoints, drop dominated
+    // clusters (>=80% mutual overlap, lower posterior loses), and return the seq coords ordered by start.
+    private static List<(int Start, int End)> ClusterEnsemble(List<SegPair> sp, int nsamples)
+    {
+        int nseg = sp.Count;
+        if (nseg == 0) return new List<(int, int)>();
+
+        // Single-linkage clustering (esl_cluster_SingleLinkage) with link_spsamples linkage rule.
+        var assignment = new int[nseg];
+        int nc = SingleLinkage(sp, assignment);
+
+        var sigc = new List<(int I, int J, int K, int M, double Prob)>();
+        for (int c = 0; c < nc; c++)
+        {
+            // Posterior probability of the cluster = (# distinct samples contributing) / nsamples.
+            int ninc = 0, idxOfLast = -1;
+            for (int h = 0; h < nseg; h++)
+                if (assignment[h] == c)
+                {
+                    if (sp[h].Idx != idxOfLast) ninc++;
+                    idxOfLast = sp[h].Idx;
+                }
+            if ((double)ninc / nsamples < MinPosterior) continue;
+
+            int imin = 0, imax = 0, jmin = 0, jmax = 0, kmin = 0, kmax = 0, mmin = 0, mmax = 0;
+            bool first = true;
+            for (int h = 0; h < nseg; h++)
+                if (assignment[h] == c)
+                {
+                    var s = sp[h];
+                    if (first)
+                    {
+                        imin = imax = s.I; jmin = jmax = s.J; kmin = kmax = s.K; mmin = mmax = s.M;
+                        first = false;
+                    }
+                    else
+                    {
+                        imin = Math.Min(imin, s.I); imax = Math.Max(imax, s.I);
+                        jmin = Math.Min(jmin, s.J); jmax = Math.Max(jmax, s.J);
+                        kmin = Math.Min(kmin, s.K); kmax = Math.Max(kmax, s.K);
+                        mmin = Math.Min(mmin, s.M); mmax = Math.Max(mmax, s.M);
+                    }
+                }
+
+            // epc_threshold = ceil(ninc * min_endpointp): an endpoint needs >= this frequency.
+            int epcThreshold = (int)Math.Ceiling(ninc * MinEndpointP);
+
+            int bestI = ConsensusLeftmost(sp, assignment, c, imin, imax, epcThreshold, s => s.I);
+            int bestK = ConsensusLeftmost(sp, assignment, c, kmin, kmax, epcThreshold, s => s.K);
+            int bestJ = ConsensusRightmost(sp, assignment, c, jmin, jmax, epcThreshold, s => s.J);
+            int bestM = ConsensusRightmost(sp, assignment, c, mmin, mmax, epcThreshold, s => s.M);
+
+            // Reject inconsistent (degenerate) domains.
+            if (bestI > bestJ || bestK > bestM) continue;
+
+            sigc.Add((bestI, bestJ, bestK, bestM, (double)ninc / nsamples));
+        }
+
+        // Drop dominated clusters: >=80% mutual seq overlap, the lower-posterior one is removed.
+        var dominated = new bool[sigc.Count];
+        for (int d = 0; d < sigc.Count; d++)
+            for (int d2 = d + 1; d2 < sigc.Count; d2++)
+            {
+                int ov = Math.Min(sigc[d].J, sigc[d2].J) - Math.Max(sigc[d].I, sigc[d2].I) + 1;
+                if (ov <= 0) continue;
+                int nn = Math.Min(sigc[d].J - sigc[d].I + 1, sigc[d2].J - sigc[d2].I + 1);
+                if ((double)ov / nn >= 0.8)
+                {
+                    if (sigc[d].Prob > sigc[d2].Prob) dominated[d2] = true;
+                    else dominated[d] = true;
+                }
+            }
+
+        var domains = new List<(int Start, int End)>();
+        for (int d = 0; d < sigc.Count; d++)
+            if (!dominated[d]) domains.Add((sigc[d].I, sigc[d].J));
+
+        // Order by start point (cluster_orderer).
+        domains.Sort((a, b) => a.Start.CompareTo(b.Start));
+        return domains;
+    }
+
+    // esl_vec_IArgMax-style consensus: leftmost coord with frequency >= threshold (else argmax).
+    private static int ConsensusLeftmost(
+        List<SegPair> sp, int[] assignment, int c, int lo, int hi, int threshold, Func<SegPair, int> coord)
+    {
+        int width = hi - lo + 1;
+        var epc = new int[width];
+        for (int h = 0; h < sp.Count; h++)
+            if (assignment[h] == c) epc[coord(sp[h]) - lo]++;
+        for (int v = lo; v <= hi; v++) if (epc[v - lo] >= threshold) return v;
+        return lo + ArgMax(epc, width);
+    }
+
+    private static int ConsensusRightmost(
+        List<SegPair> sp, int[] assignment, int c, int lo, int hi, int threshold, Func<SegPair, int> coord)
+    {
+        int width = hi - lo + 1;
+        var epc = new int[width];
+        for (int h = 0; h < sp.Count; h++)
+            if (assignment[h] == c) epc[coord(sp[h]) - lo]++;
+        for (int v = hi; v >= lo; v--) if (epc[v - lo] >= threshold) return v;
+        return lo + ArgMax(epc, width);
+    }
+
+    private static int ArgMax(int[] v, int n)
+    {
+        int best = 0;
+        for (int z = 1; z < n; z++) if (v[z] > v[best]) best = z;
+        return best;
+    }
+
+    // esl_cluster_SingleLinkage (esl_cluster.c) with the link_spsamples linkage rule (p7_spensemble.c):
+    // breadth-first single-linkage; two segment pairs link when they overlap by >= min_overlap of the
+    // smaller segment in BOTH seq and model coords AND start/end lie within max_diagdiff diagonals.
+    private static int SingleLinkage(List<SegPair> sp, int[] assignment)
+    {
+        int n = sp.Count;
+        var a = new int[n]; // stack of available vertices
+        var b = new int[n]; // stack of connected-but-unextended vertices
+        for (int v = 0; v < n; v++) a[v] = n - v - 1;
+        int na = n, nb = 0, nc = 0;
+
+        while (na > 0)
+        {
+            int v = a[na - 1]; na--;
+            b[nb] = v; nb++;
+            while (nb > 0)
+            {
+                v = b[nb - 1]; nb--;
+                assignment[v] = nc;
+                for (int idx = na - 1; idx >= 0; idx--)
+                {
+                    if (Linked(sp[v], sp[a[idx]]))
+                    {
+                        int w = a[idx]; a[idx] = a[na - 1]; na--;
+                        b[nb] = w; nb++;
+                    }
+                }
+            }
+            nc++;
+        }
+        return nc;
+    }
+
+    // link_spsamples (p7_spensemble.c): the linkage predicate (of_smaller = TRUE).
+    private static bool Linked(SegPair h1, SegPair h2)
+    {
+        // seq overlap test (fraction of the smaller seq segment).
+        int nov = Math.Min(h1.J, h2.J) - Math.Max(h1.I, h2.I) + 1;
+        int nn = Math.Min(h1.J - h1.I + 1, h2.J - h2.I + 1);
+        if ((double)nov / nn < MinOverlap) return false;
+
+        // hmm overlap test (NOTE: HMMER omits the +1 here — verbatim).
+        nov = Math.Min(h1.M, h2.M) - Math.Max(h1.K, h2.K);
+        nn = Math.Min(h1.M - h1.K + 1, h2.M - h2.K + 1);
+        if ((double)nov / nn < MinOverlap) return false;
+
+        // nearby-diagonal test: start OR end diagonals within max_diagdiff.
+        int d1 = h1.I - h1.K, d2 = h2.I - h2.K;
+        if (Math.Abs(d1 - d2) <= MaxDiagDiff) return true;
+        d1 = h1.J - h1.M; d2 = h2.J - h2.M;
+        return Math.Abs(d1 - d2) <= MaxDiagDiff;
+    }
+
+    /// <summary>
+    /// Easel's portable LCG random number generator (<c>esl_randomness_CreateFast</c>,
+    /// <c>esl_random.c</c>), the generator HMMER's pipeline uses for stochastic-traceback sampling
+    /// (<c>esl_randomness_CreateFast(seed)</c>). State <c>x</c> is seeded by Bob Jenkins'
+    /// <c>esl_mix3(seed, 87654321, 12345678)</c> (<c>easel.c</c>); each draw advances
+    /// <c>x ← 69069·x + 1</c> and returns <c>x / 2³²</c> in [0,1). Ported verbatim so the ensemble is
+    /// deterministic and reproducible (matching HMMER's <c>--seed 42</c> reseeding per region).
+    /// </summary>
+    private sealed class EslLcgRandom
+    {
+        private uint _x;
+
+        public EslLcgRandom(uint seed)
+        {
+            // esl_randomness_Init (LCG branch): x = esl_mix3(seed,87654321,12345678); if 0 -> 42.
+            _x = Mix3(seed, 87654321u, 12345678u);
+            if (_x == 0) _x = 42;
+        }
+
+        // esl_random (LCG/knuth): x = 69069*x + 1; return x / 2^32 in [0,1).
+        public double NextDouble()
+        {
+            _x = unchecked(69069u * _x + 1u);
+            return _x / 4294967296.0;
+        }
+
+        // esl_mix3 (easel.c): Bob Jenkins' 3-word mix, all 32-bit unsigned wraparound.
+        private static uint Mix3(uint a, uint b, uint c)
+        {
+            unchecked
+            {
+                a -= b; a -= c; a ^= c >> 13;
+                b -= c; b -= a; b ^= a << 8;
+                c -= a; c -= b; c ^= b >> 13;
+                a -= b; a -= c; a ^= c >> 12;
+                b -= c; b -= a; b ^= a << 16;
+                c -= a; c -= b; c ^= b >> 5;
+                a -= b; a -= c; a ^= c >> 3;
+                b -= c; b -= a; b ^= a << 10;
+                c -= a; c -= b; c ^= b >> 15;
+                return c;
+            }
+        }
     }
 
     #endregion
