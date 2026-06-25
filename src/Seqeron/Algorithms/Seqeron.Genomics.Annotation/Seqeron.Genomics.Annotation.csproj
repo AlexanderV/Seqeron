@@ -32,6 +32,12 @@
     <EmbeddedResource Include="Data\maxent_score3.txt">
       <LogicalName>Seqeron.Genomics.Annotation.Data.maxent_score3.txt</LogicalName>
     </EmbeddedResource>
+    <!-- SPLICE-DONOR-001: MaxEntScan score5ss precomputed maximum-entropy table
+         (Yeo & Burge 2004). Data file from the MIT-licensed maxentpy port; full provenance
+         and licence in Data/maxent_score5.LICENSE.md. -->
+    <EmbeddedResource Include="Data\maxent_score5.txt">
+      <LogicalName>Seqeron.Genomics.Annotation.Data.maxent_score5.txt</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>

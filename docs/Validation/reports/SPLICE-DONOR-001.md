@@ -86,3 +86,29 @@ None. Donor dinucleotide, consensus positions, GU invariance, junction coordinat
 - Note (non-blocking): PWM uses −3..+5 (drops weakly-conserved intron +6); biologically immaterial, documented in the Assumption Register.
 
 **Tests:** `~SpliceSitePredictor_DonorSite_Tests` = 18 passed / 0 failed. Build succeeded, 0 warnings. No code touched, so no full-suite run required.
+
+---
+
+## Addendum — 2026-06-25: MaxEntScan score5ss opt-in added (`ScoreDonorMaxEnt`)
+
+To complete the MaxEntScan pairing with the sibling `SPLICE-ACCEPTOR-001` (`ScoreAcceptorMaxEnt`,
+score3ss), an **opt-in** Yeo & Burge (2004) MaxEntScan **score5ss** maximum-entropy 5' donor
+scorer was added: `SpliceSitePredictor.ScoreDonorMaxEnt(string window)` (9-nt window = 3 exon + 6
+intron, conserved `GT` at 0-based positions 3–4; returns `log2(P_maxent/P_background)` in bits).
+
+- **Provenance / licence:** the `score5` factorisation and the precomputed probability table
+  (`Data/maxent_score5.txt`, 16 384 records = 4^7) were retrieved verbatim this session from the
+  **MIT-licensed maxentpy port** (`kepbod/maxentpy`); provenance + full MIT text in
+  `Data/maxent_score5.LICENSE.md`. score5 is **single-matrix** (the 7-mer "rest" sequence is keyed
+  directly), unlike the nine-sub-matrix score3.
+- **Cross-check:** reproduces the documented maxentpy `score5` worked examples EXACTLY —
+  `score5('cagGTAAGT') = 10.858313 → 10.86` (canonical), `score5('gagGTAAGT') = 11.078494 → 11.08`,
+  `score5('taaATAAGT') = -0.116791 → -0.12`. A wrong table/factorisation fails the 10.86 check.
+- **Existing donor scorer unchanged:** `FindDonorSites` / `ScoreDonorSite` / `ScoreU12DonorSite`
+  and all defaults are untouched; `ScoreDonorMaxEnt` is purely additive.
+- **Status reset:** because production code changed, `SPLICE-DONOR-001` was reset `☑ → ☐` in
+  `ALGORITHMS_CHECKLIST_V2.md` (its prior validation no longer covers the new method); Quick
+  Reference counts adjusted (Completed 215→214, Not Started 19→20). This unit needs re-validation
+  of the added method under the validation campaign.
+- **Tests:** 9 new tests (`ScoreDonorMaxEnt_*`, ME1–ME9) added to
+  `SpliceSitePredictor_DonorSite_Tests.cs`; full unfiltered `dotnet test` green (Failed: 0).

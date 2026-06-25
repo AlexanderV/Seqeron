@@ -1225,4 +1225,156 @@ public static class SpliceSitePredictor
     };
 
     #endregion
+
+    #region MaxEntScan score5ss (maximum-entropy 5' donor model)
+
+    // --- MaxEntScan score5ss (Yeo & Burge 2004) ---
+    // Maximum-entropy 5' splice-site (donor) score for a 9-nt window:
+    // 3 exonic + 6 intronic nucleotides, with the invariant GT at window positions
+    // 3..4 (0-based). The score is log2( P_maxent(seq) / P_background(seq) ), and is
+    // computed by removing the conserved GT dinucleotide (scored by a consensus /
+    // background model) and looking up the maximum-entropy probability of the remaining
+    // 7 ("rest") positions in a single embedded table keyed by the 7-nt string.
+    //
+    // Unlike score3 (nine overlapping sub-matrices), score5 is single-matrix: the 7-mer
+    // rest sequence has its full maximum-entropy probability stored directly.
+    //
+    // Sources:
+    //   Yeo G, Burge CB (2004). "Maximum entropy modeling of short sequence motifs with
+    //   applications to RNA splicing signals." J Comput Biol 11(2-3):377-394.
+    //   DOI 10.1089/1066527041410418.
+    //   Reference factorisation + table (retrieved 2026-06-25): the MIT-licensed maxentpy
+    //   port (kepbod/maxentpy) score5 / score5_matrix.txt. Provenance + licence are recorded
+    //   in src/.../Seqeron.Genomics.Annotation/Data/maxent_score5.LICENSE.md.
+
+    // Length of the MaxEntScan 5' (donor) scoring window: 3 exon + 6 intron nt.
+    private const int MaxEntDonorWindowLength = 9;
+
+    // 0-based positions of the conserved GT dinucleotide within the 9-nt window
+    // (window[3]=G, window[4]=T). These two positions are scored by the consensus /
+    // background dinucleotide model and removed from the "rest" sub-sequence.
+    private const int MaxEntDonorGtStart = 3;
+
+    // Consensus probabilities for the first GT position (the 'G'); maxentpy cons1_5.
+    private static readonly IReadOnlyDictionary<char, double> MaxEntDonorConsensusGt1 = new Dictionary<char, double>
+    {
+        { 'A', 0.004 }, { 'C', 0.0032 }, { 'G', 0.9896 }, { 'T', 0.0032 }
+    };
+
+    // Consensus probabilities for the second GT position (the 'T'); maxentpy cons2_5.
+    private static readonly IReadOnlyDictionary<char, double> MaxEntDonorConsensusGt2 = new Dictionary<char, double>
+    {
+        { 'A', 0.0034 }, { 'C', 0.0039 }, { 'G', 0.0042 }, { 'T', 0.9884 }
+    };
+
+    private const string MaxEntScore5ResourceName = "Seqeron.Genomics.Annotation.Data.maxent_score5.txt";
+
+    // Lazily-loaded probability table: tables5[rest7mer] = probability. 4^7 = 16384 entries.
+    private static IReadOnlyDictionary<string, double>? _maxEntScore5Table;
+    private static readonly object MaxEntScore5LoadLock = new();
+
+    private static IReadOnlyDictionary<string, double> MaxEntScore5Table
+    {
+        get
+        {
+            if (_maxEntScore5Table is not null)
+                return _maxEntScore5Table;
+
+            lock (MaxEntScore5LoadLock)
+            {
+                if (_maxEntScore5Table is not null)
+                    return _maxEntScore5Table;
+                _maxEntScore5Table = LoadMaxEntScore5Table();
+                return _maxEntScore5Table;
+            }
+        }
+    }
+
+    private static IReadOnlyDictionary<string, double> LoadMaxEntScore5Table()
+    {
+        var assembly = typeof(SpliceSitePredictor).Assembly;
+        using Stream? stream = assembly.GetManifestResourceStream(MaxEntScore5ResourceName)
+            ?? throw new InvalidOperationException(
+                $"Embedded MaxEntScan score5 table '{MaxEntScore5ResourceName}' was not found.");
+
+        var table = new Dictionary<string, double>(StringComparer.Ordinal);
+
+        using var reader = new StreamReader(stream);
+        string? line;
+        while ((line = reader.ReadLine()) is not null)
+        {
+            if (line.Length == 0)
+                continue;
+
+            // Each record: "<7-nt rest sequence>\t<probability>" (whitespace-separated).
+            string[] parts = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length != 2)
+                throw new InvalidDataException($"Malformed MaxEntScan score5 record: '{line}'.");
+
+            table[parts[0]] = double.Parse(parts[1], CultureInfo.InvariantCulture);
+        }
+
+        return table;
+    }
+
+    /// <summary>
+    /// Computes the Yeo &amp; Burge (2004) MaxEntScan <c>score5ss</c> maximum-entropy score
+    /// (in bits) for a 9-nt 5' splice-site (donor) window: 3 exonic + 6 intronic
+    /// nucleotides, with the conserved <c>GT</c> at window positions 3-4 (0-based).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is an opt-in alternative to the default <see cref="FindDonorSites"/> PWM /
+    /// consensus scorer; the existing PWM scorers and their defaults are unchanged. The
+    /// returned value is the log<sub>2</sub> ratio of the maximum-entropy probability of the
+    /// window to its background probability — higher means a stronger 5' splice site (the
+    /// canonical documented example <c>cagGTAAGT</c> scores 10.86 bits).
+    /// </para>
+    /// <para>
+    /// The score removes the conserved <c>GT</c> dinucleotide (scored by a consensus /
+    /// background model) and looks up the maximum-entropy probability of the remaining 7
+    /// positions (<c>window[0:3] + window[5:9]</c>) directly in a single embedded table,
+    /// then takes log<sub>2</sub> of the product with the GT term. The probability table is
+    /// embedded (see <c>Data/maxent_score5.LICENSE.md</c> for provenance and licence).
+    /// </para>
+    /// </remarks>
+    /// <param name="window">The 9-nt donor window (DNA or RNA; case-insensitive). Must be
+    /// exactly 9 nucleotides over the A/C/G/T(/U) alphabet.</param>
+    /// <returns>The MaxEntScan score5ss in bits.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="window"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="window"/> is not exactly 9 nt, or
+    /// contains a non-A/C/G/T(/U) character.</exception>
+    public static double ScoreDonorMaxEnt(string window)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+        if (window.Length != MaxEntDonorWindowLength)
+            throw new ArgumentException(
+                $"MaxEntScan score5 requires a window of exactly {MaxEntDonorWindowLength} nt; " +
+                $"got {window.Length}.", nameof(window));
+
+        // Uppercase, then normalise U->T so the rest 7-mer key matches the table's A/C/G/T keys.
+        string upper = window.ToUpperInvariant();
+
+        // --- Consensus GT dinucleotide term: P_cons(G)*P_cons(T) / (P_bgd(G)*P_bgd(T)) ---
+        char gt1 = NormalizeNucleotide(upper[MaxEntDonorGtStart]);
+        char gt2 = NormalizeNucleotide(upper[MaxEntDonorGtStart + 1]);
+
+        double consScore =
+            MaxEntDonorConsensusGt1[gt1] * MaxEntDonorConsensusGt2[gt2] /
+            (MaxEntBackground[gt1] * MaxEntBackground[gt2]);
+
+        // --- "Rest" sequence: the 7 positions with the GT removed ---
+        // rest = window[0..3) + window[5..9)  -> 3 + 4 = 7 nt; normalise U->T for the key.
+        Span<char> rest = stackalloc char[MaxEntDonorWindowLength - 2];
+        for (int i = 0; i < MaxEntDonorGtStart; i++)
+            rest[i] = NormalizeNucleotide(upper[i]);
+        for (int i = MaxEntDonorGtStart + 2; i < MaxEntDonorWindowLength; i++)
+            rest[i - 2] = NormalizeNucleotide(upper[i]);
+
+        double restScore = MaxEntScore5Table[new string(rest)];
+
+        return Math.Log2(consScore * restScore);
+    }
+
+    #endregion
 }

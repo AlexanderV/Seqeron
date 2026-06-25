@@ -110,6 +110,7 @@ The donor scoring tables are implemented directly in `SpliceSitePredictor`.
 - `SpliceSitePredictor.FindDonorSites(string, double, bool)`
 - `SpliceSitePredictor.ScoreDonorSite(string, int)` (private helper)
 - `SpliceSitePredictor.ScoreU12DonorSite(string, int)` (private helper)
+- `SpliceSitePredictor.ScoreDonorMaxEnt(string)` (opt-in Yeo & Burge 2004 MaxEntScan `score5ss` maximum-entropy 5' donor score, in bits; embedded probability table)
 
 ### 5.2 Current Behavior
 
@@ -121,15 +122,16 @@ Canonical `GU` and optional `GC` donors are both emitted with `Type = Donor`; th
 
 - Canonical donor detection is anchored on `GU` and the extended donor consensus around the exon-intron junction.[1][2]
 - Optional support exists for `GC` donors and U12-style donor recognition.[2]
+- The opt-in `ScoreDonorMaxEnt` implements the Yeo & Burge (2004) **MaxEntScan `score5ss`** maximum-entropy 5' donor model on a 9-nt window (3 exon + 6 intron, conserved `GT` at 0-based positions 3–4): `log2(P_maxent/P_background)`, removing the `GT` (scored by a consensus/background model) and looking up the maximum-entropy probability of the 7 remaining positions (`window[0:3] + window[5:9]`) directly in a single embedded table. Unlike score3, score5 is single-matrix (no overlapping sub-windows). The factorisation and table are the MIT-licensed maxentpy port; the canonical documented example `ScoreDonorMaxEnt("cagGTAAGT")` reproduces `10.86` bits exactly (provenance + licence: `Data/maxent_score5.LICENSE.md`).[4]
 
 **Intentionally simplified:**
 
-- The donor scorer uses binary consensus weights instead of a trained log-odds or maximum-entropy model; **consequence:** scores rank motif matches directly but do not capture richer statistical dependencies.
+- The default donor scorer (`FindDonorSites` / `ScoreDonorSite`) uses binary consensus weights instead of a trained log-odds or maximum-entropy model; **consequence:** scores rank motif matches directly but do not capture richer statistical dependencies. (The opt-in `ScoreDonorMaxEnt` provides the true maximum-entropy model for callers who need it; the default scorer is unchanged.)
 - Each donor site is scored independently from local motif context only; **consequence:** exon structure and longer-range splicing signals are not considered at this stage.
 
 **Not implemented:**
 
-- MaxEntScan-style donor modeling or species-trained donor predictors; **users should rely on:** no current alternative.
+- Species-trained donor predictors beyond the human/mammalian MaxEntScan score5 model; **users should rely on:** `ScoreDonorMaxEnt` (human-trained) or the MaxEntScan reference tool for other species.
 - A distinct `SpliceSiteType` for `GC` donors; **users should rely on:** later intron classification in `DetermineIntronType(...)`.
 
 ## 6. Edge Cases and Limitations
@@ -146,7 +148,7 @@ Canonical `GU` and optional `GC` donors are both emitted with `Type = Donor`; th
 
 ### 6.2 Limitations
 
-Donor-site detection in this repository is a lightweight motif scorer. It does not use statistical training, does not model longer dependencies, and does not decide intron structure on its own.
+The default donor-site detection in this repository is a lightweight motif scorer. It does not use statistical training, does not model longer dependencies, and does not decide intron structure on its own. As an opt-in companion it offers the Yeo & Burge (2004) MaxEntScan `score5ss` maximum-entropy 5' donor score (`ScoreDonorMaxEnt`, on a 9-nt window, embedded MIT-licensed table — see §5.3). The score5 model is human/mammalian-trained; other species may have different donor statistics.
 
 ## 7. Examples and Related Material
 

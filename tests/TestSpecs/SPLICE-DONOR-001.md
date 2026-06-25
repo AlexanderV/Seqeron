@@ -52,6 +52,7 @@
 |--------|-------|------|-------|
 | `FindDonorSites(sequence, minScore, includeNonCanonical)` | SpliceSitePredictor | **Canonical** | Deep evidence-based testing |
 | `ScoreDonorSite(context)` | SpliceSitePredictor | **Internal** | Private; tested indirectly via FindDonorSites |
+| `ScoreDonorMaxEnt(window)` | SpliceSitePredictor | **Canonical** | Opt-in MaxEntScan score5ss; deep evidence-based testing (Yeo & Burge 2004) |
 
 ---
 
@@ -87,6 +88,15 @@
 | M8 | DNA_T_Equivalence | CAGGTAAGT (T) produces same site count as CAGGUAAGU (U) | Same number of sites | Implementation T→U conversion |
 | M9 | LowercaseHandling | cagguaagu lowercase → finds donor site | ≥1 site | Implementation ToUpperInvariant |
 | M10 | MultipleSites_AllDetected | Sequence with 2 separate GT contexts → finds ≥2 | ≥2 sites | Algorithm scans full sequence |
+| ME1 | ScoreDonorMaxEnt_Canonical_10.86 | `ScoreDonorMaxEnt("cagGTAAGT")` == 10.86 bits (2 dp) | 10.86 | S3: maxentpy `score5` docstring (canonical reference) |
+| ME2 | ScoreDonorMaxEnt_Canonical_FullPrecision | Full-precision value behind 10.86 | 10.858313 ± 1e-6 | S3: reproduced this session |
+| ME3 | ScoreDonorMaxEnt_Stronger_11.08 | `ScoreDonorMaxEnt("gagGTAAGT")` == 11.08 bits | 11.08 / 11.078494 | S3: maxentpy `score5` docstring |
+| ME4 | ScoreDonorMaxEnt_Weak_Minus0.12 | `ScoreDonorMaxEnt("taaATAAGT")` == -0.12 bits | -0.12 / -0.116791 | S3: maxentpy `score5` docstring (non-GT) |
+| ME5 | ScoreDonorMaxEnt_StrongRanksAboveWeak | strong (10.86) > weak (-0.12) | strong > weak | S3: ordering of documented examples |
+| ME6 | ScoreDonorMaxEnt_DnaRnaEquivalence | T-form and U-form windows score identically | equal ± 1e-12 | T==U in rest key / GT model |
+| ME7 | ScoreDonorMaxEnt_CaseInsensitive | upper-case == lower-case score | equal ± 1e-12 | Implementation ToUpperInvariant |
+| ME8 | ScoreDonorMaxEnt_Null_Throws | null window → ArgumentNullException | throws | Implementation guard |
+| ME9 | ScoreDonorMaxEnt_InvalidWindow_Throws | wrong length / non-A/C/G/T(/U) → ArgumentException | throws | Implementation guard (9-nt, alphabet) |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -128,6 +138,15 @@
 | M8 — DNA T equivalence | ✅ Covered | Count, score=1.0, position equality verified |
 | M9 — Lowercase handling | ✅ Covered | Exact count=1, score=1.0, type=Donor |
 | M10 — Multiple sites | ✅ Covered | Exact 3 sites at positions {3,7,26} with scores {1.0, 4/9, 1.0} |
+| ME1 — MaxEnt canonical 10.86 | ✅ Covered | `ScoreDonorMaxEnt_CanonicalReferenceWindow_Returns10Point86` (round 2 dp == 10.86) |
+| ME2 — MaxEnt full precision | ✅ Covered | `ScoreDonorMaxEnt_CanonicalReferenceWindow_MatchesFullPrecision` (10.858313 ± 1e-6) |
+| ME3 — MaxEnt 11.08 | ✅ Covered | `ScoreDonorMaxEnt_StrongerSiteReferenceWindow_Returns11Point08` |
+| ME4 — MaxEnt -0.12 | ✅ Covered | `ScoreDonorMaxEnt_WeakSiteReferenceWindow_ReturnsMinus0Point12` |
+| ME5 — MaxEnt ordering | ✅ Covered | `ScoreDonorMaxEnt_StrongSite_RanksAboveWeakSite` |
+| ME6 — DNA/RNA equivalence | ✅ Covered | `ScoreDonorMaxEnt_DnaAndRnaWindows_ProduceIdenticalScores` |
+| ME7 — Case insensitive | ✅ Covered | `ScoreDonorMaxEnt_UpperCaseWindow_ScoresIdenticallyToLowerCase` |
+| ME8 — Null throws | ✅ Covered | `ScoreDonorMaxEnt_NullWindow_Throws` |
+| ME9 — Invalid window throws | ✅ Covered | `ScoreDonorMaxEnt_InvalidWindow_Throws` (8-nt, 10-nt, non-ACGT) |
 | S1 — Score range | ✅ Covered | All scores in [0, 1] for multi-site sequence |
 | S2 — Confidence range | ✅ Covered | All confidences in [0, 1] |
 | S3 — Motif non-empty | ✅ Covered | All motifs non-null and non-empty |
