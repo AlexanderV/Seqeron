@@ -37,7 +37,6 @@ boundaries, never defects. They fall into three kinds:
 
 | Unit | Not done | Use instead |
 |------|----------|-------------|
-| PRIMER-TM-001 | The sequence-specific tri/tetraloop special-loop **hairpin** bonus tables (SantaLucia & Hicks 2004 special hairpins) are not bundled; the bonus is caller-supplied via `loopBonusDeltaG37`. | UNAFold, ViennaRNA, MELTING 5 — or supply the bonus. |
 | PROBE-DESIGN-001 | The quantitative **MGB (minor-groove binder) ΔTm**, and dual-quencher labelling. | The MGB ΔTm model (Kutyavin 2000 / MGB-Eclipse) is empirical/proprietary with no published closed form — use a chemistry-specific tool; dual-quencher has no Tm impact. |
 | MIRNA-TARGET-001 | The context++ feature `PCT` (multi-species conservation); `TA_3UTR` / `SPS` / `Len_ORF` / `ORF8m` are caller-supplied. The score is a partial context++. | The TargetScan reference pipeline (a multi-species alignment for PCT, a transcriptome for TA). |
 | MIRNA-PRECURSOR-001 | A **trained** natural-vs-background precursor classifier (read-stacking probabilistic model). | miRDeep2 / a trained miRNA caller. |

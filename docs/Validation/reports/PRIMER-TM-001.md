@@ -263,6 +263,44 @@ the **complete** Primer3 `ntthal` oligo–oligo DP (mode ANY, `type==1`).
 - **LIMITATIONS.md:** PRIMER-TM-001 row trimmed — the `ntthal` dimer internal-loop/overhang extension removed from
   "not done"; only the hairpin special-loop bonus tables remain.
 
+## Update 2026-06-25 — special tri/tetraloop hairpin bonus tables BUNDLED + applied (full ntthal hairpin DP)
+
+The last open residual — the not-bundled sequence-specific tri/tetraloop special-loop hairpin bonus
+tables (previously caller-supplied via `loopBonusDeltaG37`) — is now **bundled and applied
+automatically** by a full Primer3 `ntthal` hairpin DP. The legacy SantaLucia & Hicks (2004) Table 4
+`FindMostStableHairpin` / `CalculateHairpinMeltingTemperature` (incl. the caller-supplied
+`loopBonusDeltaG37` path), the NN / mismatch / dimer Tm methods and all defaults are UNCHANGED.
+
+- **New engine `NtthalHairpin.cs`** — a verbatim port of `thal.c` for the monomer (`type==4`) path
+  (`initMatrix2`, `fillMatrix2`, `maxTM2`, `CBI`/`calc_bulge_internal2`, `calc_hairpin`,
+  `calc_terminal_bp`, `END5_1..4`, `tracebacku`, `calcHairpin`). Reuses the stem / `tstack2` / `dangle`
+  / interior / bulge tables + physical constants from `NtthalDimer` (now `internal`), and embeds the
+  hairpin loop-length ΔS column + the special-loop bonus tables.
+- **Bundled tables (verbatim, provenance header):** primer3 `primer3_config/triloop.dh,.ds`
+  (16 triloops) and `tetraloop.dh,.ds` (76 tetraloops), fetched verbatim this session from
+  `raw.githubusercontent.com/libnano/primer3-py/master/primer3/src/libprimer3/primer3_config/...`
+  (libprimer3, **GPL-2.0**). Keyed on the **full loop string including the closing base pair**
+  (5-char triloop, 6-char tetraloop); ΔH cal/mol, ΔS cal/(K·mol); added to the loop ΔH°/ΔS° per
+  `thal.c calc_hairpin` (lines 2106-2127). Values trace to SantaLucia & Hicks (2004) special hairpin loops.
+- **New public method:** `PrimerDesigner.CalculateHairpinThermodynamicsNtthal(string, sodiumMolar=0.05)
+  → HairpinThermodynamics?` (ΔH° kcal/mol, ΔS° cal/K/mol incl. salt term, ΔG°37 kcal/mol, Tm °C, BasePairs).
+- **Ground-truth cross-check (primer3-py 2.3.0, `calc_hairpin`, mv=50, dv=0, dntp=0, dna_conc=50 nM)
+  — machine precision:** tetraloop CGAAAG `GGGGCGAAAGCCCC` dH=−40900, dS=−114.1872884299936,
+  Tm=85.03347700825856; tetraloop GGGGAC dH=−34000, Tm=87.8328944728006; triloop CGAAG `GGGCGAAGCCC`
+  dH=−27800, dS=−77.68485895331574, Tm=84.7060915802943; triloop GGAAC dH=−26000, Tm=82.11474153055735.
+  **Non-special-loop regression held:** non-special 4-nt `GGGCTTTTGCCC` (dH=−32400, Tm=69.39954078842845)
+  and 5-nt `GGGCAAAAAGCCC` (dH=−30100, Tm=69.89004085311882) match primer3 with NO special bonus —
+  bundling the tables does not change them. Homopolymer / GCGC → null (primer3 structure_found=False).
+  A deliberately-absent bonus table would fail the special-loop cases (ΔH off by the table value).
+- **Tests:** `PrimerDesigner_HairpinSpecialLoop_Tests.cs` (11, all green). **Evidence:**
+  `docs/Evidence/PRIMER-TM-001-SPECIAL-LOOP-Evidence.md`; **TestSpec:**
+  `tests/TestSpecs/PRIMER-TM-001-SPECIAL-LOOP.md`; **Algorithm doc:**
+  `docs/algorithms/MolTools/DNA_Hairpin_Special_Loop_Bonus.md`.
+- **Full suite:** `dotnet test Seqeron.sln` — Failed: 0 (Seqeron.Genomics.Tests 18676 + SuffixTree 357
+  + SuffixTree.Persistent 510 + 3 MCP test projects 66/70/163; total 19842 passed).
+- **Checklist:** root-registry Status remains `☐` (re-validation); Quick-Reference counts unchanged.
+- **LIMITATIONS.md:** the PRIMER-TM-001 row is **removed** — no residual remains for PRIMER-TM-001.
+
 ## Verdict & follow-ups
 - **Stage A: PASS-WITH-NOTES** (Tm portion: documented Wallace −7 omission + Marmur-Doty simplification; prompt's
   "Tm uses SantaLucia NN" is a framing inaccuracy — NN is in 3'-stability only). **Stage B: PASS.**

@@ -1656,6 +1656,61 @@ public static class PrimerDesigner
     public readonly record struct DimerThermodynamics(
         double DeltaH, double DeltaS, double DeltaG37, double TmCelsius, int BasePairs);
 
+    /// <summary>
+    /// Computes the full <b>ntthal</b> intramolecular-hairpin thermodynamics (ΔH°, ΔS°, ΔG°37, Tm)
+    /// of a DNA oligo, reproducing primer3-py's <c>calc_hairpin</c>. This runs the complete
+    /// Primer3 <c>ntthal</c> monomer dynamic program (a single stem with internal
+    /// mismatches/loops, bulges, terminal mismatch / dangling-end terminal contributions and the
+    /// size-keyed hairpin-loop initiation) and — unlike <see cref="FindMostStableHairpin"/>'s
+    /// SantaLucia &amp; Hicks (2004) Table 4 model — <b>automatically applies the bundled
+    /// sequence-specific special triloop / tetraloop stability bonuses</b> (the primer3
+    /// <c>triloop.dh/.ds</c> + <c>tetraloop.dh/.ds</c> tables, keyed on the full loop string
+    /// including the closing base pair). No caller-supplied loop bonus is required.
+    /// <b>Opt-in</b>: <see cref="FindMostStableHairpin"/>, the duplex/dimer Tm methods and all
+    /// defaults are unchanged.
+    /// </summary>
+    /// <param name="sequence">The DNA oligo (5′→3'); ≥ 1 ACGT base.</param>
+    /// <param name="sodiumMolar">Monovalent cation concentration in mol/L (default 50 mM, the
+    /// primer3 <c>calc_hairpin</c> default of <c>mv=50</c>).</param>
+    /// <returns>The most stable hairpin's thermodynamics, or <c>null</c> if the sequence is
+    /// null/empty/contains a non-ACGT character, or no hairpin can form (ntthal
+    /// <c>no_structure</c>, e.g. a homopolymer).</returns>
+    public static HairpinThermodynamics? CalculateHairpinThermodynamicsNtthal(
+        string sequence,
+        double sodiumMolar = ThermoConstants.DefaultNaConcentration)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            return null;
+        string seq = sequence.ToUpperInvariant();
+        foreach (char c in seq)
+            if (c is not ('A' or 'C' or 'G' or 'T')) return null;
+
+        var r = NtthalHairpin.Run(seq, sodiumMolar);
+        if (r is null)
+            return null;
+
+        var v = r.Value;
+        // Convert ntthal native cal/mol → the library's kcal/mol convention for ΔH/ΔG.
+        return new HairpinThermodynamics(
+            DeltaH: v.DeltaH / 1000.0,
+            DeltaS: v.DeltaS,
+            DeltaG37: v.DeltaG37 / 1000.0,
+            TmCelsius: v.TmCelsius,
+            BasePairs: v.BasePairs);
+    }
+
+    /// <summary>
+    /// Full <c>ntthal</c> intramolecular-hairpin thermodynamics of the most stable hairpin
+    /// (reproduces primer3-py <c>calc_hairpin</c>; special tri/tetraloop bonuses applied).
+    /// </summary>
+    /// <param name="DeltaH">Hairpin ΔH° in kcal/mol (salt-independent).</param>
+    /// <param name="DeltaS">Hairpin ΔS° in cal/(K·mol), including the (N/2−1)·saltCorrection term.</param>
+    /// <param name="DeltaG37">Hairpin ΔG°37 = ΔH° − 310.15·ΔS°/1000 in kcal/mol (negative = stable).</param>
+    /// <param name="TmCelsius">Unimolecular melting temperature in °C (no strand-concentration term).</param>
+    /// <param name="BasePairs">Number of base pairs in the optimal stem.</param>
+    public readonly record struct HairpinThermodynamics(
+        double DeltaH, double DeltaS, double DeltaG37, double TmCelsius, int BasePairs);
+
     /// <summary>Watson-Crick complement of an ACGT string (same 5'→3'/left-to-right order).</summary>
     private static string Complement(string seq)
     {

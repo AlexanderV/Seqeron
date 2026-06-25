@@ -42,24 +42,26 @@ namespace Seqeron.Genomics.MolTools;
 internal static class NtthalDimer
 {
     // ---- physical constants (thal.c lines 125-135, 588-589) -----------------------------
-    private const double Inf = double.PositiveInfinity;
-    private const double R = 1.9872;                 // gas constant, cal/(K·mol)
-    private const double IlAs = -300.0 / 310.15;     // internal-loop entropy asymmetry, cal/(K·mol) per |Δn|
-    private const double IlAh = 0.0;                 // internal-loop enthalpy asymmetry
-    private const double AtH = 2200.0;               // terminal-A·T penalty ΔH, cal/mol
-    private const double AtS = 6.9;                  // terminal-A·T penalty ΔS, cal/(K·mol)
-    private const double MinEntropyCutoff = -2500.0; // filters out non-existing entropies
-    private const double MinEntropy = -3224.0;       // initiation sentinel
-    private const double TempKelvin = 310.15;        // 37 °C reference for the internal ΔG ranking
-    private const double AbsoluteZero = 273.15;
-    private const int MaxLoop = 30;                  // maximum loop length the loop tables cover
+    // Several of these constants/tables are shared verbatim with the ntthal HAIRPIN engine
+    // (NtthalHairpin.cs); those are marked internal so both engines use a single source of truth.
+    internal const double Inf = double.PositiveInfinity;
+    internal const double R = 1.9872;                 // gas constant, cal/(K·mol)
+    internal const double IlAs = -300.0 / 310.15;     // internal-loop entropy asymmetry, cal/(K·mol) per |Δn|
+    internal const double IlAh = 0.0;                 // internal-loop enthalpy asymmetry
+    internal const double AtH = 2200.0;               // terminal-A·T penalty ΔH, cal/mol
+    internal const double AtS = 6.9;                  // terminal-A·T penalty ΔS, cal/(K·mol)
+    internal const double MinEntropyCutoff = -2500.0; // filters out non-existing entropies
+    internal const double MinEntropy = -3224.0;       // initiation sentinel
+    internal const double TempKelvin = 310.15;        // 37 °C reference for the internal ΔG ranking
+    internal const double AbsoluteZero = 273.15;
+    internal const int MaxLoop = 30;                  // maximum loop length the loop tables cover
     private const double DplxInitH = 200.0;          // duplex initiation ΔH, cal/mol
     private const double DplxInitS = -5.7;           // duplex initiation ΔS, cal/(K·mol)
-    private const double AtPenaltySEntry = 1e-11;    // tableStartATS default (non-A·T) entropy
+    internal const double AtPenaltySEntry = 1e-11;    // tableStartATS default (non-A·T) entropy
     private const double Equal = 1e-6;               // traceback equality tolerance (thal.c equal())
 
     // bp index matrix BPI[5][5] (A,C,G,T,N): 1 = Watson-Crick pair, 0 = none (thal.c lines 140-145).
-    private static readonly int[,] Bpi =
+    internal static readonly int[,] Bpi =
     {
         { 0, 0, 0, 1, 0 },
         { 0, 0, 1, 0, 0 },
@@ -68,7 +70,7 @@ internal static class NtthalDimer
         { 0, 0, 0, 0, 0 },
     };
 
-    private static int Str2Int(char c) => c switch
+    internal static int Str2Int(char c) => c switch
     {
         'A' or 'a' => 0,
         'C' or 'c' => 1,
@@ -77,7 +79,7 @@ internal static class NtthalDimer
         _ => 4,
     };
 
-    private static bool IsFinite(double x) => !double.IsInfinity(x);
+    internal static bool IsFinite(double x) => !double.IsInfinity(x);
 
     /// <summary>The most stable dimer's ntthal thermodynamics (native ntthal units).</summary>
     /// <param name="DeltaH">Dimer ΔH° in cal/mol (salt-independent).</param>
@@ -491,7 +493,7 @@ internal static class NtthalDimer
     // exactly as getStack/getStackint2/getTstack2/getTstack read them. 4-D tables are flattened
     // row-major (index = ((i*5+ii)*5+j)*5+jj); 3-D dangle tables as i*25 + col*5 + col2 per getDangle.
     // INF entries are non-existent pairings/stacks (thal.c marks them _INFINITY/-1).
-    private static readonly double[] StackH = {
+    internal static readonly double[] StackH = {
         Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,-7900.0d,Inf,Inf,Inf,Inf,Inf,Inf,
         Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,-8400.0d,Inf,Inf,Inf,Inf,Inf,Inf,Inf,
         Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,-7800.0d,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,
@@ -518,7 +520,7 @@ internal static class NtthalDimer
         Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,
         Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf
     };
-    private static readonly double[] StackS = {
+    internal static readonly double[] StackS = {
         -1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-22.2d,-1d,-1d,-1d,-1d,-1d,-1d,
         -1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-22.4d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,
         -1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-21.0d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,
@@ -545,7 +547,7 @@ internal static class NtthalDimer
         -1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,
         -1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d
     };
-    private static readonly double[] Int2H = {
+    internal static readonly double[] Int2H = {
         Inf,Inf,Inf,4700.0d,Inf,Inf,Inf,Inf,7600.0d,Inf,Inf,Inf,Inf,3000.0d,Inf,1200.0d,2300.0d,-600.0d,Inf,Inf,Inf,Inf,Inf,Inf,Inf,
         Inf,Inf,-2900.0d,Inf,Inf,Inf,Inf,-700.0d,Inf,Inf,Inf,Inf,500.0d,Inf,Inf,5300.0d,-10.0d,Inf,700.0d,Inf,Inf,Inf,Inf,Inf,Inf,
         Inf,-900.0d,Inf,Inf,Inf,Inf,600.0d,Inf,Inf,Inf,Inf,-4000.0d,Inf,Inf,Inf,-700.0d,Inf,-3100.0d,1000.0d,Inf,Inf,Inf,Inf,Inf,Inf,
@@ -572,7 +574,7 @@ internal static class NtthalDimer
         Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,
         Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf
     };
-    private static readonly double[] Int2S = {
+    internal static readonly double[] Int2S = {
         -1d,-1d,-1d,12.9d,-1d,-1d,-1d,-1d,20.2d,-1d,-1d,-1d,-1d,7.4d,-1d,1.7d,4.6d,-2.3d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,
         -1d,-1d,-9.8d,-1d,-1d,-1d,-1d,-3.8d,-1d,-1d,-1d,-1d,3.2d,-1d,-1d,14.6d,-4.4d,-1d,0.2d,-1d,-1d,-1d,-1d,-1d,-1d,
         -1d,-4.2d,-1d,-1d,-1d,-1d,-0.6d,-1d,-1d,-1d,-1d,-13.2d,-1d,-1d,-1d,-2.3d,-1d,-9.5d,0.9d,-1d,-1d,-1d,-1d,-1d,-1d,
@@ -599,7 +601,7 @@ internal static class NtthalDimer
         -1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,
         -1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d
     };
-    private static readonly double[] Tstack2H = {
+    internal static readonly double[] Tstack2H = {
         Inf,Inf,Inf,-2500.0d,Inf,Inf,Inf,Inf,-2700.0d,Inf,Inf,Inf,Inf,-2400.0d,Inf,-3100.0d,-1600.0d,-1900.0d,-5000.0d,Inf,Inf,Inf,Inf,Inf,Inf,
         Inf,Inf,-8000.0d,Inf,Inf,Inf,Inf,-3200.0d,Inf,Inf,Inf,Inf,-4600.0d,Inf,Inf,-1800.0d,-100.0d,-6000.0d,-900.0d,Inf,Inf,Inf,Inf,Inf,Inf,
         Inf,-4300.0d,Inf,Inf,Inf,Inf,-2700.0d,Inf,Inf,Inf,Inf,-6000.0d,Inf,Inf,Inf,-2500.0d,-6000.0d,-1100.0d,-3200.0d,Inf,Inf,Inf,Inf,Inf,Inf,
@@ -626,7 +628,7 @@ internal static class NtthalDimer
         Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,
         Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf
     };
-    private static readonly double[] Tstack2S = {
+    internal static readonly double[] Tstack2S = {
         -1d,-1d,-1d,-6.3d,-1d,-1d,-1d,-1d,-7.0d,-1d,-1d,-1d,-1d,-5.8d,-1d,-7.8d,-4.0d,-4.4d,-13.5d,-1d,-1d,-1d,-1d,-1d,-1d,
         -1d,-1d,-22.5d,-1d,-1d,-1d,-1d,-7.1d,-1d,-1d,-1d,-1d,-11.4d,-1d,-1d,-3.8d,-0.5d,-16.1d,-1.7d,-1d,-1d,-1d,-1d,-1d,-1d,
         -1d,-10.7d,-1d,-1d,-1d,-1d,-6.0d,-1d,-1d,-1d,-1d,-15.5d,-1d,-1d,-1d,-5.9d,-16.1d,-2.1d,-8.7d,-1d,-1d,-1d,-1d,-1d,-1d,
@@ -653,7 +655,7 @@ internal static class NtthalDimer
         -1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,
         -1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d
     };
-    private static readonly double[] TstackH = {
+    internal static readonly double[] TstackH = {
         Inf,Inf,Inf,-2500.0d,Inf,Inf,Inf,Inf,-2700.0d,Inf,Inf,Inf,Inf,-2400.0d,Inf,-3100.0d,-1600.0d,-1900.0d,Inf,Inf,Inf,Inf,Inf,Inf,Inf,
         Inf,Inf,-8000.0d,Inf,Inf,Inf,Inf,-3200.0d,Inf,Inf,Inf,Inf,-4600.0d,Inf,Inf,-1800.0d,-100.0d,Inf,-900.0d,Inf,Inf,Inf,Inf,Inf,Inf,
         Inf,-4300.0d,Inf,Inf,Inf,Inf,-2700.0d,Inf,Inf,Inf,Inf,-6000.0d,Inf,Inf,Inf,-2500.0d,Inf,-1100.0d,-3200.0d,Inf,Inf,Inf,Inf,Inf,Inf,
@@ -680,7 +682,7 @@ internal static class NtthalDimer
         Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,
         Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf
     };
-    private static readonly double[] TstackS = {
+    internal static readonly double[] TstackS = {
         -1d,-1d,-1d,-6.3d,-1d,-1d,-1d,-1d,-7.0d,-1d,-1d,-1d,-1d,-5.8d,-1d,-7.8d,-4.0d,-4.4d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,
         -1d,-1d,-22.5d,-1d,-1d,-1d,-1d,-7.1d,-1d,-1d,-1d,-1d,-11.4d,-1d,-1d,-3.8d,-0.5d,-1d,-1.7d,-1d,-1d,-1d,-1d,-1d,-1d,
         -1d,-10.7d,-1d,-1d,-1d,-1d,-6.0d,-1d,-1d,-1d,-1d,-15.5d,-1d,-1d,-1d,-5.9d,-1d,-2.1d,-8.7d,-1d,-1d,-1d,-1d,-1d,-1d,
@@ -707,36 +709,36 @@ internal static class NtthalDimer
         -1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,
         -1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d
     };
-    private static readonly double[] Dangle3H = {
+    internal static readonly double[] Dangle3H = {
         Inf,Inf,Inf,-500.0d,Inf,Inf,Inf,Inf,4700.0d,Inf,Inf,Inf,Inf,-4100.0d,Inf,Inf,Inf,Inf,-3800.0d,Inf,Inf,Inf,Inf,Inf,Inf,
         Inf,Inf,-5900.0d,Inf,Inf,Inf,Inf,-2600.0d,Inf,Inf,Inf,Inf,-3200.0d,Inf,Inf,Inf,Inf,-5200.0d,Inf,Inf,Inf,Inf,Inf,Inf,Inf,
         Inf,-2100.0d,Inf,Inf,Inf,Inf,-200.0d,Inf,Inf,Inf,Inf,-3900.0d,Inf,Inf,Inf,Inf,-4400.0d,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,
         -700.0d,Inf,Inf,Inf,Inf,4400.0d,Inf,Inf,Inf,Inf,-1600.0d,Inf,Inf,Inf,Inf,2900.0d,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,
         Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf
     };
-    private static readonly double[] Dangle3S = {
+    internal static readonly double[] Dangle3S = {
         -1d,-1d,-1d,-1.1d,-1d,-1d,-1d,-1d,14.2d,-1d,-1d,-1d,-1d,-13.1d,-1d,-1d,-1d,-1d,-12.6d,-1d,-1d,-1d,-1d,-1d,-1d,
         -1d,-1d,-16.5d,-1d,-1d,-1d,-1d,-7.4d,-1d,-1d,-1d,-1d,-10.4d,-1d,-1d,-1d,-1d,-15.0d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,
         -1d,-3.9d,-1d,-1d,-1d,-1d,-0.1d,-1d,-1d,-1d,-1d,-11.2d,-1d,-1d,-1d,-1d,-13.1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,
         -0.8d,-1d,-1d,-1d,-1d,14.9d,-1d,-1d,-1d,-1d,-3.6d,-1d,-1d,-1d,-1d,10.4d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,
         -1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d
     };
-    private static readonly double[] Dangle5H = {
+    internal static readonly double[] Dangle5H = {
         Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,-2900.0d,-4100.0d,-4200.0d,-200.0d,Inf,Inf,Inf,Inf,Inf,Inf,
         Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,-3700.0d,-4000.0d,-3900.0d,-4900.0d,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,
         Inf,Inf,Inf,Inf,Inf,-6300.0d,-4400.0d,-5100.0d,-4000.0d,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,
         200.0d,600.0d,-1100.0d,-6900.0d,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,
         Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf,Inf
     };
-    private static readonly double[] Dangle5S = {
+    internal static readonly double[] Dangle5S = {
         -1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-7.6d,-13.0d,-15.0d,-0.5d,-1d,-1d,-1d,-1d,-1d,-1d,
         -1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-10.0d,-11.9d,-10.9d,-13.8d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,
         -1d,-1d,-1d,-1d,-1d,-17.1d,-12.6d,-14.0d,-10.9d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,
         2.3d,3.3d,-1.6d,-20.0d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,
         -1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d,-1d
     };
-    private static readonly double[] InteriorH = { Inf,Inf,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d };
-    private static readonly double[] InteriorS = { -1d,-1d,-10.31d,-11.6d,-12.89d,-14.18d,-14.83d,-15.47d,-15.79d,-15.79d,-16.26d,-16.76d,-17.15d,-17.41d,-17.74d,-18.05d,-18.34d,-18.7d,-18.96d,-19.02d,-19.25d,-19.48d,-19.7d,-19.9d,-20.31d,-20.5d,-20.68d,-20.86d,-21.03d,-21.28d };
-    private static readonly double[] BulgeH = { 0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d };
-    private static readonly double[] BulgeS = { -12.89d,-9.35d,-9.99d,-10.31d,-10.64d,-11.28d,-11.92d,-12.57d,-13.21d,-13.86d,-14.32d,-14.5d,-14.89d,-15.47d,-15.81d,-16.12d,-16.41d,-16.76d,-17.02d,-17.08d,-17.32d,-17.55d,-17.76d,-17.97d,-18.05d,-18.24d,-18.42d,-18.6d,-18.77d,-19.02d };
+    internal static readonly double[] InteriorH = { Inf,Inf,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d };
+    internal static readonly double[] InteriorS = { -1d,-1d,-10.31d,-11.6d,-12.89d,-14.18d,-14.83d,-15.47d,-15.79d,-15.79d,-16.26d,-16.76d,-17.15d,-17.41d,-17.74d,-18.05d,-18.34d,-18.7d,-18.96d,-19.02d,-19.25d,-19.48d,-19.7d,-19.9d,-20.31d,-20.5d,-20.68d,-20.86d,-21.03d,-21.28d };
+    internal static readonly double[] BulgeH = { 0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d,0.0d };
+    internal static readonly double[] BulgeS = { -12.89d,-9.35d,-9.99d,-10.31d,-10.64d,-11.28d,-11.92d,-12.57d,-13.21d,-13.86d,-14.32d,-14.5d,-14.89d,-15.47d,-15.81d,-16.12d,-16.41d,-16.76d,-17.02d,-17.08d,-17.32d,-17.55d,-17.76d,-17.97d,-18.05d,-18.24d,-18.42d,-18.6d,-18.77d,-19.02d };
 }
