@@ -930,6 +930,129 @@ public class MiRnaAnalyzer_PreMiRna_Tests
         });
     }
 
+    // ── MFE-fold structural-gate rejection branches (each Stage-A threshold in isolation) ──
+    // These exercise the stem-bp and loop-size acceptance gates DIRECTLY: each rejected
+    // candidate folds to a clean single hairpin with MFEI ≫ 0.85, so rejection is provably
+    // due to the structural threshold under test, NOT the energy/MFEI gate. dG° values are the
+    // engine's Turner-2004 output; AMFE/MFEI are hand-derived from the Zhang (2006) formula.
+
+    // A perfect Watson–Crick hairpin of the given stem length and loop, mixed GCAU composition.
+    private static string PerfectHairpin(int stem, int loop) => BuildPerfectHairpin(stem, loop);
+
+    // MF11 — Stem-base-pair gate (Ambros et al. 2003, ≥16 complementary bases). A 14-bp clean
+    //        hairpin (MFEI 1.59 ≫ 0.85) is REJECTED solely on stem < 16; a 16-bp one is accepted.
+    [Test]
+    public void AssessHairpinByMfe_StemBelow16_RejectedOnStemGateNotEnergy()
+    {
+        string stem14 = PerfectHairpin(14, 5); // folds to 14 bp + 5-nt loop, ΔG°=−25.44, MFEI=1.59
+        string stem16 = PerfectHairpin(16, 5); // folds to 16 bp + 5-nt loop, accepted
+
+        var rejected = AssessHairpinByMfe(stem14);
+        var accepted = AssessHairpinByMfe(stem16);
+
+        Assert.Multiple(() =>
+        {
+            // Prove the MFEI gate is NOT the reason: a 14-bp hairpin has MFEI = 1.59 ≥ 0.85.
+            double mfei14 = CalculateMfeIndex(-25.44, stem14.Length, 100.0 * 16 / stem14.Length);
+            Assert.That(mfei14, Is.EqualTo(1.59).Within(1e-6),
+                "14-bp hairpin MFEI = 1.59 (Zhang 2006), comfortably above the 0.85 cutoff.");
+            Assert.That(rejected, Is.Null,
+                "Stem of 14 bp < 16 ⇒ rejected on the stem-base-pair gate (Ambros 2003), not on energy.");
+            Assert.That(accepted, Is.Not.Null, "Stem of 16 bp meets the ≥16 gate ⇒ accepted.");
+            Assert.That(accepted!.Value.StemBasePairs, Is.EqualTo(16),
+                "Accepted candidate has exactly 16 stem base pairs (the Ambros 2003 boundary).");
+        });
+    }
+
+    // MF12 — Terminal-loop gate (Bartel 2004, loop ≤ ~25 nt). A 20-bp hairpin with a 26-nt apical
+    //        loop (MFEI 1.732 ≫ 0.85) is REJECTED solely on loop > 25.
+    [Test]
+    public void AssessHairpinByMfe_LoopAbove25_RejectedOnLoopGateNotEnergy()
+    {
+        string bigLoop = PerfectHairpin(20, 26); // 20 bp stem + 26-nt loop, ΔG°=−34.64, MFEI=1.732
+
+        var rejected = AssessHairpinByMfe(bigLoop);
+
+        Assert.Multiple(() =>
+        {
+            double mfei = CalculateMfeIndex(-34.64, bigLoop.Length, 100.0 * 20 / bigLoop.Length);
+            Assert.That(mfei, Is.EqualTo(1.732).Within(1e-6),
+                "Big-loop hairpin MFEI = 1.732 (Zhang 2006), well above the 0.85 cutoff.");
+            Assert.That(rejected, Is.Null,
+                "Apical loop of 26 nt > 25 ⇒ rejected on the loop-size gate (Bartel 2004), not on energy.");
+        });
+    }
+
+    // MF13 — MFEI acceptance gate is a TIGHT boundary at the candidate's own MFEI. hsa-let-7a-1
+    //        folds to MFEI = 1.0091176…; a cutoff just below accepts, just above rejects.
+    [Test]
+    public void AssessHairpinByMfe_MfeiGate_IsTightBoundaryAtCandidateMfei()
+    {
+        // Independently re-derived: ΔG°=−34.31, len 80, GC=34 ⇒ MFEI = 100·34.31/80 / 42.5 = 1.00911764…
+        const double let7Mfei = 1.0091176470588237;
+
+        var atOrBelow = AssessHairpinByMfe(HsaLet7a1_MI0000060, minMfei: let7Mfei);          // == ⇒ accept
+        var justBelow = AssessHairpinByMfe(HsaLet7a1_MI0000060, minMfei: let7Mfei - 1e-6);   // <  ⇒ accept
+        var justAbove = AssessHairpinByMfe(HsaLet7a1_MI0000060, minMfei: let7Mfei + 1e-6);   // >  ⇒ reject
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(atOrBelow, Is.Not.Null, "MFEI == cutoff ⇒ accepted (gate is ≥, inclusive).");
+            Assert.That(justBelow, Is.Not.Null, "Cutoff just below the candidate's MFEI ⇒ accepted.");
+            Assert.That(justAbove, Is.Null, "Cutoff just above the candidate's MFEI ⇒ rejected.");
+            Assert.That(atOrBelow!.Value.Mfei, Is.EqualTo(let7Mfei).Within(1e-9),
+                "The candidate's own MFEI equals the hand-derived Zhang (2006) value.");
+        });
+    }
+
+    // MF14 — Non-ACGU symbols: the MFE-fold methods upper-case and read T as U; other letters
+    //        (e.g. N) are non-pairing, so they do not create spurious hairpins. A DNA-spelled
+    //        copy of the designed hairpin must give the SAME assessment as its RNA spelling.
+    [Test]
+    public void AssessHairpinByMfe_DnaAndNonAcgu_NormalisedConsistently()
+    {
+        var rna = AssessHairpinByMfe(ValidHairpin57);
+        var dna = AssessHairpinByMfe(DnaHairpin57); // same hairpin spelled with T
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rna, Is.Not.Null, "RNA spelling accepted.");
+            Assert.That(dna, Is.Not.Null, "DNA spelling (T→U) must fold identically and be accepted.");
+            Assert.That(dna!.Value.FreeEnergy, Is.EqualTo(rna!.Value.FreeEnergy).Within(1e-9),
+                "T is read as U ⇒ identical ΔG° for DNA and RNA spellings.");
+            Assert.That(dna.Value.Mfei, Is.EqualTo(rna.Value.Mfei).Within(1e-9),
+                "Identical MFEI for DNA and RNA spellings.");
+            Assert.That(dna.Value.Sequence, Does.Not.Contain("T"),
+                "Folded candidate is normalised to RNA (no residual T).");
+            // A run of non-pairing N's cannot form a stem ⇒ no hairpin, no throw.
+            Assert.That(AssessHairpinByMfe(new string('N', 60)), Is.Null,
+                "All-N sequence has no foldable stem ⇒ not a hairpin (handled, no throw).");
+        });
+    }
+
+    // MF15 — FindPreMiRnaHairpinsByMfe length-window bounds: a candidate shorter than
+    //        minHairpinLength is never assessed; a maxHairpinLength below the only hairpin's
+    //        length yields nothing (the window upper bound is enforced).
+    [Test]
+    public void FindPreMiRnaHairpinsByMfe_LengthWindowBounds_Enforced()
+    {
+        // ValidHairpin57 is 57 nt. With min=58 the only candidate window is too short ⇒ empty.
+        var tooHighMin = FindPreMiRnaHairpinsByMfe(ValidHairpin57, minHairpinLength: 58).ToList();
+        // With max=56 (< 57) no 57-nt window is ever formed ⇒ the full hairpin is never assessed.
+        var cappedMax = FindPreMiRnaHairpinsByMfe(ValidHairpin57, minHairpinLength: 55, maxHairpinLength: 56).ToList();
+        // Default window admits the 57-nt hairpin.
+        var ok = FindPreMiRnaHairpinsByMfe(ValidHairpin57, minHairpinLength: 55).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(tooHighMin, Is.Empty, "min length 58 > sequence length 57 ⇒ no candidates.");
+            Assert.That(cappedMax.Any(r => r.Sequence.Length == 57), Is.False,
+                "maxHairpinLength 56 caps the window below 57 ⇒ the full hairpin is never yielded.");
+            Assert.That(ok.Any(r => r.Sequence.Length == 57), Is.True,
+                "Default window admits the 57-nt designed hairpin.");
+        });
+    }
+
     #endregion
 
     #region Drosha/Dicer cleavage-site prediction (Han 2006 / Park 2011)
