@@ -34,25 +34,65 @@ public class ChromosomeAnalyzer_MutationKillers_Tests
         ChromosomeAnalyzer.CalculateArmRatio(centromere, length).Should().Be(0);
     }
 
-    // ── Levan arm-ratio classification (p/q form): boundary table ─────────────────────
+    // ── End-to-end: CalculateArmRatio → ClassifyChromosomeByArmRatio per Levan (1964) ──
+    // Hand-computed: p = centromerePosition, q = length − p, r = long/short = max(p,q)/min(p,q).
+    //   centromere 50/100 → p=q=50 → r=1.00 → metacentric
+    //   centromere 40/100 → p=40,q=60 → r=1.50 → metacentric (1.5 < 1.7)
+    //   centromere 33/100 → p=33,q=67 → r=2.03 → submetacentric (1.7 < 2.03 ≤ 3.0)
+    //   centromere 20/100 → p=20,q=80 → r=4.00 → subtelocentric (3.0 < 4.0 < 7.0)
+    //   centromere 10/100 → p=10,q=90 → r=9.00 → acrocentric (≥ 7.0)
+    [Test]
+    [TestCase(50, 100, "Metacentric")]
+    [TestCase(40, 100, "Metacentric")]
+    [TestCase(33, 100, "Submetacentric")]
+    [TestCase(20, 100, "Subtelocentric")]
+    [TestCase(10, 100, "Acrocentric")]
+    public void ArmRatioPipeline_ClassifiesPerLevan(int centromere, int length, string expected)
+    {
+        double ratio = ChromosomeAnalyzer.CalculateArmRatio(centromere, length);
+        ChromosomeAnalyzer.ClassifyChromosomeByArmRatio(ratio).Should().Be(expected);
+    }
+
+    // ── Levan arm-ratio classification: boundary table ────────────────────────────────
+    // Levan, Fredga & Sandberg (1964) Hereditas 52(2):201-220. r = long/short (≥1):
+    //   metacentric 1.0..1.7, submetacentric 1.7..3.0, subtelocentric 3.0..7.0,
+    //   acrocentric ≥7.0; telocentric = single-arm (one arm absent).
+    // ClassifyChromosomeByArmRatio normalises any p/q or q/p input to r ≥ 1, so each row
+    // below is given as both forms where the p/q form is the reciprocal. Expected values
+    // are hand-derived from the thresholds above (NOT read back from the code).
 
     [Test]
-    [TestCase(1.0, "Metacentric")]
-    [TestCase(0.9, "Metacentric")]
-    [TestCase(1.1, "Metacentric")]
-    [TestCase(0.89, "Submetacentric")]
-    [TestCase(0.5, "Submetacentric")]
-    [TestCase(0.49, "Acrocentric")]
-    [TestCase(0.2, "Acrocentric")]
-    [TestCase(0.19, "Telocentric")]
-    [TestCase(1.5, "Submetacentric")]
+    // r = q/p form (≥ 1)
+    [TestCase(1.0, "Metacentric")]      // perfectly symmetric
+    [TestCase(1.43, "Metacentric")]     // r<1.7
+    [TestCase(1.7, "Metacentric")]      // boundary 1.7 → metacentric (lower category)
+    [TestCase(1.71, "Submetacentric")]  // just above 1.7
     [TestCase(2.0, "Submetacentric")]
-    [TestCase(2.5, "Acrocentric")]
-    [TestCase(5.0, "Acrocentric")]
-    [TestCase(6.0, "Telocentric")]
+    [TestCase(3.0, "Submetacentric")]   // boundary 3.0 → submetacentric
+    [TestCase(3.01, "Subtelocentric")]  // just above 3.0
+    [TestCase(5.0, "Subtelocentric")]
+    [TestCase(6.99, "Subtelocentric")]
+    [TestCase(7.0, "Acrocentric")]      // boundary 7.0 → acrocentric
+    [TestCase(7.01, "Acrocentric")]
+    [TestCase(21.0, "Acrocentric")]
+    // p/q form (≤ 1) — same chromosomes, reciprocal ratio; must classify identically
+    [TestCase(0.7, "Metacentric")]      // q/p = 1.43
+    [TestCase(0.5, "Submetacentric")]   // q/p = 2.0
+    [TestCase(0.3, "Subtelocentric")]   // q/p = 3.33  (was mis-called Acrocentric before fix)
+    [TestCase(0.2, "Subtelocentric")]   // q/p = 5.0   (was mis-called Acrocentric before fix)
+    [TestCase(0.1, "Acrocentric")]      // q/p = 10.0  (was mis-called Telocentric before fix)
     public void ClassifyChromosomeByArmRatio_BoundaryTable(double armRatio, string expected)
     {
         ChromosomeAnalyzer.ClassifyChromosomeByArmRatio(armRatio).Should().Be(expected);
+    }
+
+    [Test]
+    [TestCase(0.0)]    // degenerate: no short arm measured
+    [TestCase(-1.0)]   // invalid
+    public void ClassifyChromosomeByArmRatio_DegenerateSingleArm_IsTelocentric(double armRatio)
+    {
+        // Telocentric is the single-arm case (centromere at one end), not a finite ratio.
+        ChromosomeAnalyzer.ClassifyChromosomeByArmRatio(armRatio).Should().Be("Telocentric");
     }
 
     // ── G-band stain thresholds, gene-density, coordinates, naming, arm switch ────────

@@ -78,7 +78,7 @@ State (end of session): ✅ CLEAN (fully functional) · 🔧 LIMITED (see report
 | 46 | POP-FST-001 | PopGen | ✅ | ✅ | ✅ CLEAN | reports/POP-FST-001.md |
 | 47 | POP-LD-001 | PopGen | ✅ | ✅ | ✅ CLEAN | reports/POP-LD-001.md |
 | 48 | CHROM-TELO-001 | Chromosome | ✅ | ✅ | ✅ CLEAN | reports/CHROM-TELO-001.md |
-| 49 | CHROM-CENT-001 | Chromosome | ⬜ | ⬜ | ⬜ pending | reports/CHROM-CENT-001.md |
+| 49 | CHROM-CENT-001 | Chromosome | ✅ | ❌→✅ | ✅ CLEAN | reports/CHROM-CENT-001.md |
 | 50 | CHROM-KARYO-001 | Chromosome | ✅ | ✅ | ✅ CLEAN | reports/CHROM-KARYO-001.md |
 | 51 | CHROM-ANEU-001 | Chromosome | ✅ | ✅ | ✅ CLEAN | reports/CHROM-ANEU-001.md |
 | 52 | CHROM-SYNT-001 | Chromosome | ✅ | ✅ | ✅ CLEAN | reports/CHROM-SYNT-001.md |

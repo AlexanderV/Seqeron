@@ -104,14 +104,18 @@ public class ChromosomeAnalyzerTests
         Assert.That(ChromosomeAnalyzer.CalculateArmRatio(50, 0), Is.EqualTo(0));
     }
 
+    // Levan, Fredga & Sandberg (1964): r = long/short ≥ 1 → metacentric ≤1.7,
+    // submetacentric ≤3.0, subtelocentric <7.0, acrocentric ≥7.0. The method normalises
+    // either p/q or q/p input to r ≥ 1. Expected values hand-derived from those thresholds.
     [Test]
-    [TestCase(1.0, "Metacentric")]
-    [TestCase(0.7, "Submetacentric")]
-    [TestCase(0.3, "Acrocentric")]
-    [TestCase(0.1, "Telocentric")]
-    [TestCase(1.5, "Submetacentric")]
-    [TestCase(3.0, "Acrocentric")]
-    [TestCase(10.0, "Telocentric")]
+    [TestCase(1.0, "Metacentric")]      // r = 1.0
+    [TestCase(0.7, "Metacentric")]      // q/p = 1.43 < 1.7
+    [TestCase(0.5, "Submetacentric")]   // q/p = 2.0
+    [TestCase(0.3, "Subtelocentric")]   // q/p = 3.33
+    [TestCase(0.1, "Acrocentric")]      // q/p = 10.0
+    [TestCase(1.5, "Metacentric")]      // r = 1.5 < 1.7
+    [TestCase(3.0, "Submetacentric")]   // r = 3.0 boundary
+    [TestCase(10.0, "Acrocentric")]     // r = 10.0
     public void ClassifyChromosomeByArmRatio_ClassifiesCorrectly(
         double armRatio, string expectedType)
     {

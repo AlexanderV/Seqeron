@@ -1308,20 +1308,32 @@ public static class ChromosomeAnalyzer
     }
 
     /// <summary>
-    /// Classifies chromosome by arm ratio.
+    /// Classifies a chromosome by its arm ratio per Levan, Fredga &amp; Sandberg (1964),
+    /// "Nomenclature for centromeric position on chromosomes", Hereditas 52(2):201-220.
     /// </summary>
+    /// <param name="armRatio">Arm-length ratio of the two arms (either p/q or q/p — the value is
+    /// normalised internally to r = long/short ≥ 1). A value ≤ 0 denotes a degenerate single-arm
+    /// chromosome (one arm absent).</param>
+    /// <returns>The Levan category. With r = long-arm / short-arm:
+    /// metacentric (1.0 ≤ r ≤ 1.7), submetacentric (1.7 &lt; r ≤ 3.0),
+    /// subtelocentric (3.0 &lt; r &lt; 7.0), acrocentric (r ≥ 7.0); telocentric when one arm is absent.
+    /// Boundaries 1.7 / 3.0 / 7.0 and the long/short normalisation match
+    /// <see cref="DetermineCentromereType"/>.</returns>
     public static string ClassifyChromosomeByArmRatio(double armRatio)
     {
-        return armRatio switch
+        // Degenerate / single-arm chromosome → telocentric (centromere at one end).
+        if (armRatio <= 0)
+            return "Telocentric";
+
+        // Normalise to r = long arm / short arm (≥ 1); the input may be p/q or q/p.
+        double r = armRatio >= 1.0 ? armRatio : 1.0 / armRatio;
+
+        return r switch
         {
-            >= 0.9 and <= 1.1 => "Metacentric",
-            >= 0.5 and < 0.9 => "Submetacentric",
-            >= 0.2 and < 0.5 => "Acrocentric",
-            < 0.2 => "Telocentric",
-            > 1.1 and <= 2.0 => "Submetacentric",
-            > 2.0 and <= 5.0 => "Acrocentric",
-            > 5.0 => "Telocentric",
-            _ => "Unknown"
+            <= 1.7 => "Metacentric",
+            <= 3.0 => "Submetacentric",
+            < 7.0 => "Subtelocentric",
+            _ => "Acrocentric"
         };
     }
 
