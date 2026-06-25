@@ -4,7 +4,10 @@
 // Source:   Durbin et al. (1998) Biological Sequence Analysis §5.4 (Viterbi recurrence);
 //           HMMER User's Guide v3.4 (Eddy 2023) — HMMER3/f file format + STATS lines;
 //           Eddy (2008) PLoS Comput Biol 4:e1000069 (Gumbel for Viterbi/MSV, exponential tail for Forward);
-//           Easel esl_gumbel.c / esl_exponential.c survival functions; Pfam PF00018/PF00595/PF00400 (CC0).
+//           Easel esl_gumbel.c / esl_exponential.c survival functions; Pfam PF00018/PF00595/PF00400 (CC0);
+//           HMMER modelconfig.c (local entry/exit, p7_ReconfigLength), generic_fwdback.c, generic_decoding.c,
+//           generic_null2.c (p7_GNull2_ByExpectation), p7_domaindef.c / p7_pipeline.c (null2 correction),
+//           hmmer.c p7_AminoFrequencies; GROUND-TRUTH hmmsearch scores via pyhmmer 0.12.1 (addendum 2026-06-25).
 using System;
 using System.Collections.Generic;
 using NUnit.Framework;
@@ -573,6 +576,204 @@ public class ProteinMotifFinder_FindDomainsByHmm_Tests
             Assert.That(ProteinMotifFinder.FindDomainHitsByHmm(null!), Is.Empty, "Null → empty.");
             Assert.That(ProteinMotifFinder.FindDomainHitsByHmm(string.Empty), Is.Empty, "Empty → empty.");
         });
+    }
+
+    #endregion
+
+    #region H18 — HMMER local-multihit mode + null2 (hmmsearch parity)
+
+    // H18 — exact hand-derived local-mode pin (independent of any tool). A 1-node HMM that emits
+    // residue A with probability 1, with B->M1 = 1 (occupancy occ[1]=1 → local-entry log(occ/Z)=0).
+    // For sequence "A": local Forward path N->B->M1(A)->E->C->T.
+    //   msc = ln(1 / bg[A]) with HMMER's bg[A] = 0.0787945; nj=1 (multihit), L=1 →
+    //   pmove = (2+1)/(1+2+1) = 3/4, xN_move = ln(3/4); xE_move = -ln 2.
+    //   fwd = xN_move + msc + xE_move + xN_move = 1.272400756045032 nats.
+    //   nullsc = 1·ln(1/2)+ln(1/2); pre = (fwd-nullsc)/ln2 = 3.835686260769536 bits.
+    private const double LocalToyForwardNats = 1.272400756045032;
+    private const double LocalToyPreBits = 3.835686260769536;
+
+    // H18 — hmmsearch GROUND-TRUTH local-multihit Forward bit score (pre_score, BEFORE null2),
+    // captured from pyhmmer 0.12.1 (hmmsearch([hmm], targets, Z=1.0)) on the bundled CC0 profiles
+    // vs the test true-positives. See Evidence addendum 2026-06-25 table.
+    private const double Sh3HmmsearchPreScore = 68.709740;
+    private const double PdzHmmsearchPreScore = 84.862930;
+    private const double Wd40HmmsearchPreScore = 213.411926;
+    // hmmsearch reported null2 "bias" (bits) for the single SH3 domain (envelope 3-50).
+    private const double Sh3HmmsearchDomainBias = 0.025574;
+    // The 1e-4-bit tolerance reflects HMMER's single-precision (float) arithmetic vs this double DP.
+    private const double HmmsearchBitTolerance = 1e-4;
+
+    private static Plan7ProfileHmm BuildLocalToyHmm()
+    {
+        const double NEG = double.NegativeInfinity;
+        double[] EmitA()
+        {
+            var r = new double[20];
+            for (int i = 0; i < 20; i++) r[i] = Math.Log(1e-12);
+            r[0] = Math.Log(1.0); // residue A
+            return r;
+        }
+        double Lg(double p) => p <= 0 ? NEG : Math.Log(p);
+        var bg = new double[20];
+        for (int i = 0; i < 20; i++) bg[i] = Math.Log(1.0 / 20);
+        var match = new double[2][]; var insert = new double[2][]; var trans = new double[2][];
+        insert[0] = EmitA();
+        // BEGIN: MM=1 (B->M1), MI=0, MD=0, IM=1, II=0, DM=1, DD=*
+        trans[0] = new[] { Lg(1.0), NEG, NEG, Lg(1.0), NEG, Lg(1.0), NEG };
+        match[1] = EmitA(); insert[1] = EmitA();
+        trans[1] = new[] { Lg(1.0), NEG, NEG, Lg(1.0), NEG, Lg(1.0), NEG };
+        return Plan7ProfileHmm.FromLogParameters("toy", 1, match, insert, trans, bg);
+    }
+
+    [Test]
+    public void LocalForwardScore_HandBuiltOneNode_MatchesExactDerivation()
+    {
+        // H18 — pins the local entry/exit + length-config arithmetic to the hand derivation.
+        var hmm = BuildLocalToyHmm();
+
+        double nats = hmm.LocalForwardScore("A");
+        double pre = hmm.LocalForwardBitScore("A");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(nats, Is.EqualTo(LocalToyForwardNats).Within(1e-12),
+                "Local-multihit Forward of 'A' through N->B->M1->E->C->T must equal the hand-derived 1.272400756045032 nats.");
+            Assert.That(pre, Is.EqualTo(LocalToyPreBits).Within(1e-12),
+                "Local Forward bit score (fwd-nullsc)/ln2 must equal the hand-derived 3.835686260769536 bits.");
+        });
+    }
+
+    [Test]
+    public void LocalForwardBitScore_Sh3TruePositive_MatchesHmmsearchReference()
+    {
+        // H18 — GROUND-TRUTH parity: the local-multihit Forward bit score reproduces hmmsearch's
+        // pre_score (68.709740) for SRC_HUMAN SH3 vs PF00018 (pyhmmer 0.12.1).
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00018_SH3_1.hmm"));
+
+        double pre = hmm.LocalForwardBitScore(Sh3TruePositive);
+
+        Assert.That(pre, Is.EqualTo(Sh3HmmsearchPreScore).Within(HmmsearchBitTolerance),
+            "Local-multihit Forward bit score must match the hmmsearch pre_score 68.709740 bits to float precision.");
+    }
+
+    [Test]
+    public void LocalForwardBitScore_PdzTruePositive_MatchesHmmsearchReference()
+    {
+        // H18 — GROUND-TRUTH parity for PSD-95 PDZ1 vs PF00595 (hmmsearch pre_score 84.862930).
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00595_PDZ.hmm"));
+
+        double pre = hmm.LocalForwardBitScore(PdzTruePositive);
+
+        Assert.That(pre, Is.EqualTo(PdzHmmsearchPreScore).Within(HmmsearchBitTolerance),
+            "Local-multihit Forward bit score must match the hmmsearch pre_score 84.862930 bits.");
+    }
+
+    [Test]
+    public void LocalForwardBitScore_Wd40TruePositive_MatchesHmmsearchReference()
+    {
+        // H18 — GROUND-TRUTH parity for GBB1_HUMAN β-propeller vs PF00400 (hmmsearch pre_score 213.411926).
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00400_WD40.hmm"));
+
+        double pre = hmm.LocalForwardBitScore(Wd40TruePositive);
+
+        Assert.That(pre, Is.EqualTo(Wd40HmmsearchPreScore).Within(HmmsearchBitTolerance),
+            "Local-multihit Forward bit score must match the hmmsearch pre_score 213.411926 bits.");
+    }
+
+    [Test]
+    public void Null2BiasBits_Sh3DomainEnvelope_MatchesHmmsearchReportedBias()
+    {
+        // H18 — the null2 biased-composition correction reproduces hmmsearch's reported "bias"
+        // (0.025574 bits) for the single SH3 domain. HMMER computes null2 per envelope (positions
+        // 3-50 of the test sequence, the model reconfigured to the envelope length); we pass that
+        // envelope substring. Matches to single-precision rounding.
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00018_SH3_1.hmm"));
+        string envelope = Sh3TruePositive.Substring(2, 48); // 1-based positions 3..50
+
+        double bias = hmm.Null2BiasBits(envelope);
+
+        Assert.That(bias, Is.EqualTo(Sh3HmmsearchDomainBias).Within(1e-4),
+            "null2 bias over the SH3 domain envelope must match hmmsearch's reported 0.025574 bits.");
+    }
+
+    [Test]
+    public void HmmSearchBitScore_EqualsPreScoreMinusNull2Bias()
+    {
+        // H18 — INV: the corrected per-seq score = pre_score - null2 bias (both in bits), exactly
+        // as p7_pipeline.c computes seq_score = pre_score - bias.
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00018_SH3_1.hmm"));
+
+        double pre = hmm.LocalForwardBitScore(Sh3TruePositive);
+        double bias = hmm.Null2BiasBits(Sh3TruePositive);
+        double score = hmm.HmmSearchBitScore(Sh3TruePositive);
+
+        Assert.That(score, Is.EqualTo(pre - bias).Within(1e-9),
+            "HmmSearchBitScore must equal LocalForwardBitScore - Null2BiasBits (pipeline identity).");
+    }
+
+    [Test]
+    public void Null2BiasBits_IsNonNegative_AndPositiveForBiasedComposition()
+    {
+        // H18 — INV: the null2 mixture seqbias = logsumexp(0, ...) >= 0, so the correction never
+        // increases the score; a biased-composition (low-complexity) sequence gets a positive bias.
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00018_SH3_1.hmm"));
+
+        double biasReal = hmm.Null2BiasBits(Sh3TruePositive);
+        double biasLowComplexity = hmm.Null2BiasBits(TrueNegative);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(biasReal, Is.GreaterThanOrEqualTo(0.0),
+                "null2 bias = logsumexp(0, ...) is non-negative; it never raises the score.");
+            Assert.That(biasLowComplexity, Is.GreaterThanOrEqualTo(biasReal),
+                "A low-complexity (biased-composition) sequence incurs at least as large a null2 correction.");
+        });
+    }
+
+    [Test]
+    public void LocalForwardScore_DoesNotChangeGlocalForwardScore()
+    {
+        // H18 — REGRESSION: the opt-in local path leaves the existing glocal ForwardScore unchanged.
+        // The two are different alignment modes and must give different (here, well-separated) scores.
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00018_SH3_1.hmm"));
+
+        double glocalNats = hmm.ForwardScore(Sh3TruePositive);
+        double localNats = hmm.LocalForwardScore(Sh3TruePositive);
+
+        Assert.That(glocalNats, Is.EqualTo(41.78685952002655).Within(1e-6),
+            "Glocal ForwardScore must be unchanged by the new local-mode methods.");
+        Assert.That(localNats, Is.EqualTo(42.609594871580114).Within(1e-6),
+            "Local-multihit Forward is a distinct alignment mode (different score) from the glocal Forward.");
+        Assert.That(localNats, Is.Not.EqualTo(glocalNats).Within(1e-6),
+            "The two modes produce different scores; the glocal value is untouched.");
+    }
+
+    [Test]
+    public void LocalForwardScore_NullOrEmpty_GuardsCorrectly()
+    {
+        // H18 — null/empty guards on the parity path.
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00018_SH3_1.hmm"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() => hmm.LocalForwardScore(null!), "Null sequence is a programming error.");
+            Assert.That(double.IsNegativeInfinity(hmm.HmmSearchBitScore(string.Empty)), Is.True,
+                "Empty sequence has no Forward path → -inf bit score.");
+            Assert.That(hmm.Null2BiasBits(string.Empty), Is.EqualTo(0.0).Within(1e-12),
+                "Empty sequence has no residues → zero null2 bias.");
+        });
+    }
+
+    [Test]
+    public void HmmSearchBitScore_Sh3TruePositive_IsHighlyPositive()
+    {
+        // H18 — sanity: a genuine SH3 domain's null2-corrected hmmsearch bit score is large (≈68.7).
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00018_SH3_1.hmm"));
+
+        double score = hmm.HmmSearchBitScore(Sh3TruePositive);
+
+        Assert.That(score, Is.GreaterThan(50.0),
+            "A real SH3 domain's null2-corrected local bit score must be strongly positive.");
     }
 
     #endregion

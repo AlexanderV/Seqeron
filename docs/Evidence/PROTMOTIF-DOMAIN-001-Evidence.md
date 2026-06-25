@@ -441,6 +441,112 @@ reported E-values) differ from `hmmsearch`. Pfam coverage beyond the three bundl
 
 ---
 
+## Addendum 2026-06-25 — HMMER local-multihit Forward + null2 (hmmsearch parity)
+
+This addendum records the evidence for the **opt-in** hmmsearch-parity layer: HMMER's
+**local-multihit** Forward score, the **null2 biased-composition correction**, and the final
+null2-corrected per-sequence bit score. The glocal Viterbi/Forward path and all existing defaults are
+unchanged. A real `hmmsearch` reference was obtained (pyhmmer) and used as ground truth.
+
+### Reference tool — pyhmmer (HMMER3 binding) INSTALLED
+
+**Retrieved (how):** `pip3 install --user pyhmmer` → **pyhmmer 0.12.1** (Cython binding bundling
+HMMER3), installed 2026-06-25 on macOS arm64. Verified `import pyhmmer.hmmer; hmmsearch(...)` runs.
+Ground-truth `hmmsearch` scores for the bundled CC0 profiles against the test true-positives
+(`pyhmmer.hmmer.hmmsearch([hmm], targets, Z=1.0)`):
+
+| Profile | Target (UniProt) | `pre_score` (bits, no null2) | `bias` (bits) | `score` (bits) | E-value (Z=1) |
+|---------|------------------|------------------------------|---------------|----------------|----------------|
+| PF00018 SH3 | SRC_HUMAN P12931 core | **68.709740** | 0.025574 | 68.684166 | 1.31e-23 |
+| PF00595 PDZ | DLG4_HUMAN P78352 PDZ1 | **84.862930** | 0.078865 | 84.784065 | 2.23e-28 |
+| PF00400 WD40 | GBB1_HUMAN P62873 | **213.411926** | 24.969421 | 188.442505 | 1.91e-61 |
+
+SH3 single domain envelope = positions 3–50 (`dom.bias = 0.025569`).
+
+### Online Source: modelconfig.c — local entry/exit + length config (`p7_ReconfigLength`)
+
+**Retrieved (how):** `curl https://raw.githubusercontent.com/EddyRivasLab/hmmer/master/src/modelconfig.c`, 2026-06-25.
+**Verbatim:** local entry `p7P_TSC(gm,k-1,p7P_BM) = log(occ[k]/Z)` with `Z = Σ_k occ[k]·(M−k+1)`
+("Reduces to uniform 2/(M(M+1)) for occupancies of 1.0"). Multihit E split:
+`gm->xsc[p7P_E][p7P_MOVE] = gm->xsc[p7P_E][p7P_LOOP] = -eslCONST_LOG2; gm->nj = 1.0f`.
+Length config `p7_ReconfigLength`: `pmove = (2.0f+gm->nj)/((float)L+2.0f+gm->nj)`, `ploop = 1−pmove`,
+`xsc[N|C|J][LOOP]=log(ploop)`, `xsc[N|C|J][MOVE]=log(pmove)`.
+
+### Online Source: p7_hmm.c — `p7_hmm_CalculateOccupancy`
+
+**Retrieved (how):** `curl …/src/p7_hmm.c`, 2026-06-25. **Verbatim:**
+`mocc[1] = t[0][p7H_MI]+t[0][p7H_MM]; mocc[k] = mocc[k-1]·(t[k-1][MM]+t[k-1][MI]) + (1−mocc[k-1])·t[k-1][DM]`.
+Transition enum (src/hmmer.h, retrieved 2026-06-25): `p7H_MM=0, MI=1, MD=2, IM=3, II=4, DM=5, DD=6`
+— matches the `.hmm` file column order and this code's `TMM..TDD`.
+
+### Online Source: generic_fwdback.c — local Forward/Backward (`esc=0`)
+
+**Retrieved (how):** `curl …/src/generic_fwdback.c`, 2026-06-25. **Verbatim:**
+`esc = p7_profile_IsLocal(gm) ? 0 : -eslINFINITY` (local exit M_k/D_k→E prob 1 for all k); B→M_k uses
+`TSC(p7P_BM,k-1)`; specials `J = logsum(J_loop·ploop, E + E_loop)`, `C = logsum(C_loop, E + E_move)`,
+`N = N_loop`, `B = logsum(N+N_move, J+J_move)`; final `sc = XMX(L,C) + xsc[C][MOVE]`. Insert emissions
+are hardwired to background (insert log-odds = 0): "we currently hardwire insert scores to 0".
+
+### Online Source: generic_decoding.c — `p7_GDecoding` (posterior probabilities)
+
+**Retrieved (how):** `curl …/src/generic_decoding.c`, 2026-06-25. **Verbatim:** per row `i`,
+`MMX = exp(fwd_M + bck_M − overall_sc)`, `IMX = exp(fwd_I + bck_I − overall_sc)`,
+`XMX[N|J|C] = exp(fwd_x(i−1) + bck_x(i) + xsc[x][LOOP] − overall_sc)`; renormalise by the row sum.
+
+### Online Source: generic_null2.c — `p7_GNull2_ByExpectation`
+
+**Retrieved (how):** `curl …/src/generic_null2.c`, 2026-06-25. **Verbatim:** sum the posterior
+emission counts over the `Ld` envelope rows, take `log(count) − log(Ld)` as log posterior weights;
+then for each residue `x`, `null2[x] = logsum_k( w_M(k)+MSC(k,x), w_I(k)+ISC(k,x) ) ⊕ xfactor`,
+where `xfactor = logsum(w_N, w_C, w_J)`; finally `null2[x] = exp(null2[x])` = odds ratio
+`f'_d(x)/f_0(x)`. Header: "Calculate the null2 model for the envelope … rows numbered 1..Ld".
+
+### Online Source: p7_domaindef.c + p7_pipeline.c + p7_bg.c — applying null2
+
+**Retrieved (how):** `curl …/src/p7_domaindef.c`, `…/src/p7_pipeline.c`, `…/src/p7_bg.c`, 2026-06-25.
+**Verbatim:** per-position `n2sc[pos] = logf(null2[dsq[pos]])` (nats), `domcorrection += n2sc[pos]`
+over the envelope; per-seq `seqbias = p7_FLogsum(0.0, log(bg->omega) + Σ n2sc)`,
+`seq_score = (fwdsc − (nullsc + seqbias)) / eslCONST_LOG2`, `pre_score = (fwdsc − nullsc)/log2`,
+`hit->bias = pre_score − score`. Constants: `bg->omega = 1./256.` (p7_bg.c);
+`nullsc = L·log(p1)+log(1−p1)` with `p1 = L/(L+1)` (p7_bg_NullOne + p7_bg_SetLength).
+
+### Online Source: hmmer.c — `p7_AminoFrequencies` (the scoring background)
+
+**Retrieved (how):** `curl …/src/hmmer.c`, 2026-06-25. **Verbatim** 20 amino background frequencies
+(A..Y) `0.0787945, 0.0151600, 0.0535222, 0.0668298, 0.0397062, 0.0695071, 0.0229198, 0.0590092,
+0.0594422, 0.0963728, 0.0237718, 0.0414386, 0.0482904, 0.0395639, 0.0540978, 0.0683364, 0.0540687,
+0.0673417, 0.0114135, 0.0304133` ("average Swiss-Prot residue composition"). **Key fact:** hmmsearch
+scores match emissions against THIS `bg->f`, **not** the profile's COMPO line (which the glocal path
+uses) — this is what makes the parity path's `pre_score` match hmmsearch exactly.
+
+### Verification — independent reproduction + C# parity
+
+1. **From-scratch Python** re-derivation (parsing the `.hmm`, the recurrences above, `bg->f` from
+   pyhmmer) gives SH3 `pre_score = 68.709743` bits (hmmsearch 68.709740) and, decoding the
+   envelope 3–50, null2 `bias = 0.025544` bits (hmmsearch 0.025574). Both match to single-float
+   rounding, confirming the formulas independently of the C# code.
+2. **C# implementation** (`LocalForwardBitScore`, `Null2BiasBits`, `HmmSearchBitScore`) reproduces:
+   SH3 `pre = 68.709743` (ref 68.709740), PDZ `pre = 84.862933` (ref 84.862930), WD40
+   `pre = 213.411951` (ref 213.411926) — all within `5e-5` bits of hmmsearch. The null2 bias matches
+   hmmsearch for the single-domain envelope (SH3 envelope bias 0.025544 vs 0.025574).
+
+### Honest residual (further narrowed)
+
+- **`pre_score` (local-multihit Forward bit score): verified to ~1e-5-bit hmmsearch parity** for the
+  three bundled profiles via pyhmmer 0.12.1.
+- **null2 correction: formula verified exact** (single-domain SH3 envelope reproduces hmmsearch's
+  bias to 3e-5 bits). The remaining gap is **domain decomposition**: HMMER computes null2 per the
+  posterior-defined domain *envelope* (model reconfigured to the envelope length), then sums across
+  domains. This implementation computes null2 over whatever sequence/envelope the caller passes; it
+  does NOT run HMMER's region/envelope-definition heuristic (stochastic-traceback clustering of
+  multi-domain regions). So for a **single well-resolved domain** the corrected score matches
+  hmmsearch; for a **multi-domain** target (e.g. the 7-blade WD40) the caller must score each
+  envelope separately to reproduce hmmsearch's per-domain decomposition. The MSV/bias *prefilters*
+  are not reimplemented (they only gate which sequences reach the Forward stage; they do not change a
+  reported hit's bit score). Full Pfam coverage remains caller-supplied `.hmm`.
+
+---
+
 ## References
 
 1. von Heijne G (1986). Signal sequences. The limits of variation. J Mol Biol 184(1):99-105. https://doi.org/10.1016/0022-2836(85)90046-4
@@ -464,3 +570,12 @@ reported E-values) differ from `hmmsearch`. Pfam coverage beyond the three bundl
 19. Easel esl_gumbel.c (esl_gumbel_surv): https://github.com/EddyRivasLab/easel/blob/master/esl_gumbel.c
 20. Easel esl_exponential.c (esl_exp_surv): https://github.com/EddyRivasLab/easel/blob/master/esl_exponential.c
 21. HMMER p7_pipeline.c (score→P-value→E-value via esl_gumbel_surv / esl_exp_surv, E=P·Z): https://github.com/Janelia-Farm-Xfam/Bio-HMM-Logo/blob/master/src/src/p7_pipeline.c
+22. HMMER modelconfig.c (p7_ProfileConfig local entry/exit; p7_ReconfigLength): https://github.com/EddyRivasLab/hmmer/blob/master/src/modelconfig.c
+23. HMMER generic_fwdback.c (p7_GForward / p7_GBackward, local esc=0): https://github.com/EddyRivasLab/hmmer/blob/master/src/generic_fwdback.c
+24. HMMER generic_decoding.c (p7_GDecoding posterior probabilities): https://github.com/EddyRivasLab/hmmer/blob/master/src/generic_decoding.c
+25. HMMER generic_null2.c (p7_GNull2_ByExpectation): https://github.com/EddyRivasLab/hmmer/blob/master/src/generic_null2.c
+26. HMMER p7_domaindef.c (per-domain null2 correction, domcorrection): https://github.com/EddyRivasLab/hmmer/blob/master/src/p7_domaindef.c
+27. HMMER p7_pipeline.c (master) (seqbias / pre_score / bias): https://github.com/EddyRivasLab/hmmer/blob/master/src/p7_pipeline.c
+28. HMMER p7_bg.c (omega=1/256, p7_bg_NullOne, p7_bg_SetLength p1=L/(L+1)): https://github.com/EddyRivasLab/hmmer/blob/master/src/p7_bg.c
+29. HMMER hmmer.c (p7_AminoFrequencies background): https://github.com/EddyRivasLab/hmmer/blob/master/src/hmmer.c
+30. pyhmmer 0.12.1 (HMMER3 Cython binding, ground-truth hmmsearch scores): https://pyhmmer.readthedocs.io/

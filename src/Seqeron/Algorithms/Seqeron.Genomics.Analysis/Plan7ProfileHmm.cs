@@ -405,6 +405,391 @@ public sealed class Plan7ProfileHmm
 
     #endregion
 
+    #region HMMER local-multihit Forward + null2 (opt-in; hmmsearch parity)
+
+    // HMMER multihit unannotated-flank count nj = 1 (one J state allowed between hits); the
+    // single-hit modes use nj = 0. modelconfig.c p7_ProfileConfig: "gm->nj = 1.0f" for multihit.
+    private const double MultihitNj = 1.0;
+
+    // HMMER null1 background self-transition omega for the null2 mixture weight: bg->omega = 1/256
+    // (p7_bg.c: "bg->omega = 1./256."). Used in seqbias = logsum(0, log(omega) + sum n2sc).
+    private const double Null2Omega = 1.0 / 256.0;
+
+    // ln 2 — HMMER reports bit scores as nats / ln 2 (eslCONST_LOG2).
+    private const double Ln2 = 0.69314718055994530941723212145818;
+
+    // HMMER's standard amino-acid background frequencies, in alphabet order ACDEFGHIKLMNPQRSTVWY.
+    // Verbatim from p7_AminoFrequencies() (EddyRivasLab/hmmer src/hmmer.c): "average Swiss-Prot
+    // residue composition". hmmsearch scores match emissions against THIS background (bg->f), not the
+    // profile's COMPO line (which the glocal path uses); so the parity path uses these values.
+    private static readonly double[] HmmerAminoBackground =
+    {
+        0.0787945, 0.0151600, 0.0535222, 0.0668298, 0.0397062, 0.0695071, 0.0229198, 0.0590092,
+        0.0594422, 0.0963728, 0.0237718, 0.0414386, 0.0482904, 0.0395639, 0.0540978, 0.0683364,
+        0.0540687, 0.0673417, 0.0114135, 0.0304133,
+    };
+    private static readonly double[] HmmerAminoBackgroundLn = BuildBackgroundLn();
+
+    private static double[] BuildBackgroundLn()
+    {
+        var ln = new double[20];
+        for (int i = 0; i < 20; i++) ln[i] = Math.Log(HmmerAminoBackground[i]);
+        return ln;
+    }
+
+    // Emission log-odds (nats) against HMMER's standard amino background bg->f (NOT the COMPO line):
+    // ln P(a | M_k) - ln bg->f[a]. Used only by the hmmsearch-parity local/null2 path.
+    private double EmissionLogOddsHmmer(double[] emissionLn, int residueIndex)
+    {
+        if (residueIndex < 0) return 0.0;
+        double e = emissionLn[residueIndex];
+        if (double.IsNegativeInfinity(e)) return double.NegativeInfinity;
+        return e - HmmerAminoBackgroundLn[residueIndex];
+    }
+
+    /// <summary>
+    /// HMMER <c>hmmsearch</c>-style <b>local multihit</b> Forward log-odds score (in nats) of the
+    /// whole sequence, summed over all local-alignment paths through the Plan7 special states
+    /// N → B → (local entry M<sub>k</sub>) → … → E → {J loop | C} (Eddy 2011, <i>PLoS Comput Biol</i>
+    /// 7:e1002195; HMMER <c>generic_fwdback.c</c> <c>p7_GForward</c> with <c>p7_LOCAL</c> config).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the opt-in <b>local</b> counterpart of the glocal <see cref="ForwardScore"/>; the glocal
+    /// path and all defaults are unchanged. Local entry probabilities are the occupancy-weighted
+    /// B→M<sub>k</sub> of <c>modelconfig.c</c> <c>p7_ProfileConfig</c>:
+    /// <c>t(B→M_k) = occ[k] / Σ_i occ[i]·(M−i+1)</c>; local exit M<sub>k</sub>→E and D<sub>k</sub>→E
+    /// are probability 1 (<c>esc = 0</c>) for every node. The N/J/C self-loop and move transitions are
+    /// the length-dependent <see cref="ReconfigLength"/> values
+    /// <c>pmove = (2+nj)/(L+2+nj)</c>, <c>ploop = 1−pmove</c>, with the multihit E→{J,C} split of
+    /// <c>−ln 2</c> each. Returns the Forward nat score <c>x_C(L) + t(C→T)</c>.
+    /// </para>
+    /// </remarks>
+    public double LocalForwardScore(string sequence)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        var result = RunLocalForward(sequence, decode: false);
+        return result.ForwardNats;
+    }
+
+    /// <summary>
+    /// HMMER <c>hmmsearch</c>-parity per-sequence <b>bit score</b>: the local-multihit Forward nat
+    /// score converted to bits against the null1 model and corrected by the <b>null2</b>
+    /// biased-composition score, exactly as the HMMER pipeline computes a reported sequence score
+    /// (<c>p7_pipeline.c</c> <c>p7_Pipeline</c>; Eddy 2011 §"Biased composition correction").
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// score (bits) = <c>(fwd − (nullsc + seqbias)) / ln 2</c>, where:
+    /// <list type="bullet">
+    /// <item><c>fwd</c> = <see cref="LocalForwardScore"/> (nats);</item>
+    /// <item><c>nullsc = L·ln(p1) + ln(1−p1)</c>, <c>p1 = L/(L+1)</c> — the null1 score
+    ///   (<c>p7_bg.c</c> <c>p7_bg_NullOne</c>);</item>
+    /// <item><c>seqbias = logsumexp(0, ln(omega) + Σ_i ln null2[x_i])</c> over the whole sequence,
+    ///   with <c>omega = 1/256</c> and the per-residue null2 odds ratios computed by posterior
+    ///   expectation (<c>generic_null2.c</c> <c>p7_GNull2_ByExpectation</c>).</item>
+    /// </list>
+    /// </para>
+    /// <para>
+    /// HMMER bounds the null2 correction to the per-domain envelope after domain definition; this
+    /// implementation applies the posterior-expectation null2 over the full sequence, which matches
+    /// hmmsearch to within single-precision rounding for a well-resolved single-domain target (the
+    /// dominant case). See the algorithm doc for the residual.
+    /// </para>
+    /// </remarks>
+    /// <returns>The null2-corrected per-sequence bit score (may be negative).</returns>
+    public double HmmSearchBitScore(string sequence)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        if (sequence.Length == 0) return double.NegativeInfinity;
+
+        var r = RunLocalForward(sequence, decode: true);
+        double nullsc = NullOneScore(sequence.Length);
+        double seqbias = SeqBias(r.Null2OddsLn, sequence);
+        return (r.ForwardNats - (nullsc + seqbias)) / Ln2;
+    }
+
+    /// <summary>
+    /// The uncorrected (pre-null2) local-multihit Forward bit score
+    /// <c>(fwd − nullsc) / ln 2</c> — HMMER's <c>pre_score</c> (<c>p7_pipeline.c</c>), the score
+    /// before the biased-composition correction. Equals <see cref="HmmSearchBitScore"/> plus the
+    /// bias correction in bits.
+    /// </summary>
+    public double LocalForwardBitScore(string sequence)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        if (sequence.Length == 0) return double.NegativeInfinity;
+        double fwd = LocalForwardScore(sequence);
+        return (fwd - NullOneScore(sequence.Length)) / Ln2;
+    }
+
+    /// <summary>
+    /// The null2 biased-composition correction in <b>bits</b> for the whole sequence:
+    /// <c>seqbias / ln 2</c>, where <c>seqbias = logsumexp(0, ln(omega) + Σ_i ln null2[x_i])</c>.
+    /// This is HMMER's reported "bias" column. Equals
+    /// <see cref="LocalForwardBitScore"/> − <see cref="HmmSearchBitScore"/>.
+    /// </summary>
+    public double Null2BiasBits(string sequence)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        if (sequence.Length == 0) return 0.0;
+        var r = RunLocalForward(sequence, decode: true);
+        return SeqBias(r.Null2OddsLn, sequence) / Ln2;
+    }
+
+    /// <summary>HMMER null1 model log score: <c>L·ln(p1) + ln(1−p1)</c> with <c>p1 = L/(L+1)</c>.</summary>
+    private static double NullOneScore(int length)
+    {
+        double p1 = (double)length / (length + 1);
+        return length * Math.Log(p1) + Math.Log(1.0 - p1);
+    }
+
+    // seqbias (nats) = logsumexp(0, ln(omega) + Σ_i ln null2[x_i]) over the whole sequence.
+    // null2OddsLn[a] is the natural-log null2 odds ratio ln(f'_d(a)/f(a)) per residue type a.
+    // Ambiguous/unknown residues contribute 0 (null2 odds ratio 1) — HMMER sets degenerate
+    // residues' null2 to averaged odds; an out-of-alphabet residue uses ratio 1 here.
+    private double SeqBias(double[] null2OddsLn, string sequence)
+    {
+        double sum = 0.0;
+        foreach (char c in sequence)
+        {
+            int a = ResidueOf(c);
+            if (a >= 0) sum += null2OddsLn[a];
+        }
+        return LogSumExp(0.0, Math.Log(Null2Omega) + sum);
+    }
+
+    private readonly struct LocalForwardResult
+    {
+        public LocalForwardResult(double forwardNats, double[] null2OddsLn)
+        {
+            ForwardNats = forwardNats;
+            Null2OddsLn = null2OddsLn;
+        }
+
+        public double ForwardNats { get; }
+
+        // Natural-log null2 odds ratios per residue type (length 20). Only populated when decode=true.
+        public double[] Null2OddsLn { get; }
+    }
+
+    // Local-mode B->M_k entry scores (nats), 1-based on node k. Computed once per call from the
+    // model occupancy (modelconfig.c p7_ProfileConfig local-entry block + p7_hmm.c
+    // p7_hmm_CalculateOccupancy). Returns log(occ[k] / Z).
+    private double[] LocalEntryLn()
+    {
+        int m = Length;
+        // Match-state occupancy occ[k] (probability M_k is used), p7_hmm_CalculateOccupancy:
+        //   occ[1] = t0(M->I) + t0(M->M); occ[k] = occ[k-1]*(t_{k-1}(MM)+t_{k-1}(MI)) + (1-occ[k-1])*t_{k-1}(DM).
+        var occ = new double[m + 1];
+        occ[1] = Math.Exp(_transitionLn[0][TMI]) + Math.Exp(_transitionLn[0][TMM]);
+        for (int k = 2; k <= m; k++)
+        {
+            double tmmMi = Math.Exp(_transitionLn[k - 1][TMM]) + Math.Exp(_transitionLn[k - 1][TMI]);
+            double tdm = Math.Exp(_transitionLn[k - 1][TDM]);
+            occ[k] = occ[k - 1] * tmmMi + (1.0 - occ[k - 1]) * tdm;
+        }
+        double z = 0.0;
+        for (int k = 1; k <= m; k++) z += occ[k] * (m - k + 1);
+
+        var bm = new double[m + 1];
+        bm[0] = double.NegativeInfinity;
+        for (int k = 1; k <= m; k++) bm[k] = Math.Log(occ[k] / z);
+        return bm;
+    }
+
+    // Local-mode Forward (and optionally posterior-decoding + null2). Mirrors generic_fwdback.c
+    // p7_GForward / p7_GBackward (esc = 0 for local exit), generic_decoding.c p7_GDecoding, and
+    // generic_null2.c p7_GNull2_ByExpectation, all retrieved verbatim from EddyRivasLab/hmmer.
+    private LocalForwardResult RunLocalForward(string sequence, bool decode)
+    {
+        int n = sequence.Length;
+        int m = Length;
+        if (n == 0) return new LocalForwardResult(double.NegativeInfinity, decode ? new double[20] : Array.Empty<double>());
+
+        double[] bm = LocalEntryLn();
+
+        // Length config (p7_ReconfigLength): N/J/C loop & move; multihit E split = -ln 2.
+        double pmove = (2.0 + MultihitNj) / (n + 2.0 + MultihitNj);
+        double ploop = 1.0 - pmove;
+        double xLoop = Math.Log(ploop);  // N/J/C LOOP
+        double xMove = Math.Log(pmove);  // N/J/C MOVE
+        double eMove = -Ln2, eLoop = -Ln2; // multihit E->C / E->J
+        const double esc = 0.0;            // local exit M_k/D_k -> E
+
+        var dsq = new int[n + 1];
+        for (int i = 1; i <= n; i++) dsq[i] = ResidueOf(sequence[i - 1]);
+
+        // Full Forward matrices (needed for decoding). [i][k] for M/I/D; specials per i.
+        double[][] fM = NewMatrix(n, m), fI = NewMatrix(n, m), fD = NewMatrix(n, m);
+        var fN = NegRow(n); var fB = NegRow(n); var fE = NegRow(n); var fC = NegRow(n); var fJ = NegRow(n);
+        fN[0] = 0.0; fB[0] = xMove;
+
+        for (int i = 1; i <= n; i++)
+        {
+            int x = dsq[i];
+            double e = double.NegativeInfinity;
+            for (int k = 1; k < m; k++)
+            {
+                double mPred = LogSumExp(
+                    LogSumExp(Add(fM[i - 1][k - 1], _transitionLn[k - 1][TMM]), Add(fI[i - 1][k - 1], _transitionLn[k - 1][TIM])),
+                    LogSumExp(Add(fB[i - 1], bm[k]), Add(fD[i - 1][k - 1], _transitionLn[k - 1][TDM])));
+                fM[i][k] = Add(mPred, EmissionLogOddsHmmer(_matchEmissionLn[k], x));
+                // Insert log-odds is 0 (HMMER hardwires insert emissions to background; modelconfig.c).
+                fI[i][k] = LogSumExp(Add(fM[i - 1][k], _transitionLn[k][TMI]), Add(fI[i - 1][k], _transitionLn[k][TII]));
+                fD[i][k] = LogSumExp(Add(fM[i][k - 1], _transitionLn[k - 1][TMD]), Add(fD[i][k - 1], _transitionLn[k - 1][TDD]));
+                e = LogSumExp(LogSumExp(Add(fM[i][k], esc), Add(fD[i][k], esc)), e);
+            }
+            double mPredM = LogSumExp(
+                LogSumExp(Add(fM[i - 1][m - 1], _transitionLn[m - 1][TMM]), Add(fI[i - 1][m - 1], _transitionLn[m - 1][TIM])),
+                LogSumExp(Add(fB[i - 1], bm[m]), Add(fD[i - 1][m - 1], _transitionLn[m - 1][TDM])));
+            fM[i][m] = Add(mPredM, EmissionLogOddsHmmer(_matchEmissionLn[m], x));
+            fD[i][m] = LogSumExp(Add(fM[i][m - 1], _transitionLn[m - 1][TMD]), Add(fD[i][m - 1], _transitionLn[m - 1][TDD]));
+            e = LogSumExp(LogSumExp(fM[i][m], fD[i][m]), e);
+            fE[i] = e;
+            fJ[i] = LogSumExp(Add(fJ[i - 1], xLoop), Add(e, eLoop));
+            fC[i] = LogSumExp(Add(fC[i - 1], xLoop), Add(e, eMove));
+            fN[i] = Add(fN[i - 1], xLoop);
+            fB[i] = LogSumExp(Add(fN[i], xMove), Add(fJ[i], xMove));
+        }
+
+        double forwardNats = Add(fC[n], xMove);
+
+        if (!decode)
+            return new LocalForwardResult(forwardNats, Array.Empty<double>());
+
+        var null2OddsLn = ComputeNull2(sequence, dsq, bm, xLoop, xMove, eMove, eLoop, esc,
+            fM, fI, fD, fN, fB, fC, fJ, forwardNats);
+        return new LocalForwardResult(forwardNats, null2OddsLn);
+    }
+
+    // Backward + Decoding + null2 ByExpectation over the whole sequence. Returns the per-residue-type
+    // natural-log null2 odds ratios ln(f'_d(a)/f(a)) for a in 0..19.
+    private double[] ComputeNull2(
+        string sequence, int[] dsq, double[] bm,
+        double xLoop, double xMove, double eMove, double eLoop, double esc,
+        double[][] fM, double[][] fI, double[][] fD,
+        double[] fN, double[] fB, double[] fC, double[] fJ, double overall)
+    {
+        int n = sequence.Length;
+        int m = Length;
+
+        // Backward (generic_fwdback.c p7_GBackward, local esc=0).
+        double[][] bM = NewMatrix(n, m), bI = NewMatrix(n, m), bD = NewMatrix(n, m);
+        var bN = NegRow(n); var bB = NegRow(n); var bE = NegRow(n); var bC = NegRow(n); var bJ = NegRow(n);
+
+        bC[n] = xMove;                    // C<-T
+        bE[n] = Add(bC[n], eMove);        // E<-C
+        bM[n][m] = bE[n]; bD[n][m] = bE[n];
+        for (int k = m - 1; k >= 1; k--)
+        {
+            bM[n][k] = LogSumExp(Add(bE[n], esc), Add(bD[n][k + 1], _transitionLn[k][TMD]));
+            bD[n][k] = LogSumExp(Add(bE[n], esc), Add(bD[n][k + 1], _transitionLn[k][TDD]));
+        }
+        for (int i = n - 1; i >= 1; i--)
+        {
+            int xp = dsq[i + 1];
+            double b = double.NegativeInfinity;
+            for (int k = 1; k <= m; k++)
+                b = LogSumExp(b, Add(Add(bM[i + 1][k], bm[k]), EmissionLogOddsHmmer(_matchEmissionLn[k], xp)));
+            bB[i] = b;
+            bJ[i] = LogSumExp(Add(bJ[i + 1], xLoop), Add(bB[i], xMove));
+            bC[i] = Add(bC[i + 1], xLoop);
+            bE[i] = LogSumExp(Add(bJ[i], eLoop), Add(bC[i], eMove));
+            bN[i] = LogSumExp(Add(bN[i + 1], xLoop), Add(bB[i], xMove));
+            bM[i][m] = bE[i]; bD[i][m] = bE[i];
+            for (int k = m - 1; k >= 1; k--)
+            {
+                double msc1 = EmissionLogOddsHmmer(_matchEmissionLn[k + 1], xp);
+                bM[i][k] = LogSumExp(
+                    LogSumExp(Add(Add(bM[i + 1][k + 1], _transitionLn[k][TMM]), msc1), Add(bI[i + 1][k], _transitionLn[k][TMI])),
+                    LogSumExp(Add(bE[i], esc), Add(bD[i][k + 1], _transitionLn[k][TMD])));
+                bI[i][k] = LogSumExp(Add(Add(bM[i + 1][k + 1], _transitionLn[k][TIM]), msc1), Add(bI[i + 1][k], _transitionLn[k][TII]));
+                bD[i][k] = LogSumExp(
+                    Add(Add(bM[i + 1][k + 1], _transitionLn[k][TDM]), msc1),
+                    LogSumExp(Add(bD[i][k + 1], _transitionLn[k][TDD]), Add(bE[i], esc)));
+            }
+        }
+
+        // Decoding (generic_decoding.c p7_GDecoding) → posterior expected emission counts.
+        // Accumulate Σ_i posterior for each M_k, I_k, and N/C/J specials (the null2 "expected use").
+        var ecM = new double[m + 1];
+        var ecI = new double[m + 1];
+        double ecN = 0.0, ecC = 0.0, ecJ = 0.0;
+        for (int i = 1; i <= n; i++)
+        {
+            double denom = 0.0;
+            var ppM = new double[m + 1];
+            var ppI = new double[m + 1];
+            for (int k = 1; k < m; k++)
+            {
+                ppM[k] = ExpProb(fM[i][k], bM[i][k], overall); denom += ppM[k];
+                ppI[k] = ExpProb(fI[i][k], bI[i][k], overall); denom += ppI[k];
+            }
+            ppM[m] = ExpProb(fM[i][m], bM[i][m], overall); denom += ppM[m];
+            double ppN = ExpProb(Add(fN[i - 1], xLoop), bN[i], overall);
+            double ppJ = ExpProb(Add(fJ[i - 1], xLoop), bJ[i], overall);
+            double ppC = ExpProb(Add(fC[i - 1], xLoop), bC[i], overall);
+            denom += ppN + ppJ + ppC;
+            double inv = 1.0 / denom;
+            for (int k = 1; k <= m; k++) { ecM[k] += ppM[k] * inv; ecI[k] += ppI[k] * inv; }
+            ecN += ppN * inv; ecC += ppC * inv; ecJ += ppJ * inv;
+        }
+
+        // null2 ByExpectation: log posterior weights = ln(expected counts) − ln(Ld); then
+        // null2[x] = logsumexp over states of (weight + emission log-odds), exp'd to an odds ratio.
+        double lnLd = Math.Log(n);
+        var lM = new double[m + 1];
+        var lI = new double[m + 1];
+        for (int k = 1; k <= m; k++)
+        {
+            lM[k] = SafeLog(ecM[k]) - lnLd;
+            lI[k] = SafeLog(ecI[k]) - lnLd;
+        }
+        double xfactor = LogSumExp(LogSumExp(SafeLog(ecN) - lnLd, SafeLog(ecC) - lnLd), SafeLog(ecJ) - lnLd);
+
+        var null2 = new double[20];
+        for (int x = 0; x < 20; x++)
+        {
+            double s = double.NegativeInfinity;
+            for (int k = 1; k < m; k++)
+            {
+                s = LogSumExp(s, Add(lM[k], EmissionLogOddsHmmer(_matchEmissionLn[k], x)));
+                // Insert emission log-odds is 0 (inserts hardwired to background).
+                s = LogSumExp(s, lI[k]);
+            }
+            s = LogSumExp(s, Add(lM[m], EmissionLogOddsHmmer(_matchEmissionLn[m], x)));
+            s = LogSumExp(s, xfactor);
+            null2[x] = s; // ln(f'_d(x)/f(x)) odds ratio in log space
+        }
+        return null2;
+    }
+
+    private static double[][] NewMatrix(int n, int m)
+    {
+        var mat = new double[n + 1][];
+        for (int i = 0; i <= n; i++) mat[i] = NewRow(m);
+        return mat;
+    }
+
+    private static double[] NegRow(int n)
+    {
+        var r = new double[n + 1];
+        for (int i = 0; i <= n; i++) r[i] = double.NegativeInfinity;
+        return r;
+    }
+
+    private static double ExpProb(double fwd, double bck, double overall)
+    {
+        double v = Add(fwd, bck);
+        if (double.IsNegativeInfinity(v)) return 0.0;
+        return Math.Exp(v - overall);
+    }
+
+    private static double SafeLog(double v) => v <= 0.0 ? double.NegativeInfinity : Math.Log(v);
+
+    #endregion
+
     #region E-value / P-value statistics (opt-in; requires STATS calibration)
 
     // Numerical guard mirroring Easel esl_gumbel.c (eslSMALLX1): below this magnitude the

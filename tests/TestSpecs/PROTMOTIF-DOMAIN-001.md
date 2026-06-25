@@ -305,3 +305,65 @@ Canonical file: `tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindDom
 | H16 | ScoreDomainHmmEValue_Sh3TruePositive_HasTinyEValue; ScoreDomainHmmEValue_TrueNegative_HasLargeEValue; FindDomainHitsByHmm_Sh3TruePositive_ReportsHitWithEValue; FindDomainHitsByHmm_TrueNegative_ReportsNoHit; FindDomainHitsByHmm_NullOrEmpty_ReturnsEmpty | ✅ |
 
 Full unfiltered suite green (all projects Failed: 0). Work Queue Remaining = 0.
+
+---
+
+## Addendum 2026-06-25 — HMMER local-multihit Forward + null2 (hmmsearch parity, opt-in)
+
+This addendum records the test spec for the opt-in `hmmsearch`-parity layer. The glocal path and all
+existing defaults/tests are unchanged. A real HMMER reference was obtained via **pyhmmer 0.12.1**.
+
+### C.1 Canonical Methods Under Test
+
+- `Plan7ProfileHmm.LocalForwardScore(seq)` — local-multihit Forward score (nats).
+- `Plan7ProfileHmm.LocalForwardBitScore(seq)` — `(fwd − nullsc)/ln2` = HMMER `pre_score`.
+- `Plan7ProfileHmm.Null2BiasBits(seq)` — null2 biased-composition correction (bits) = HMMER `bias`.
+- `Plan7ProfileHmm.HmmSearchBitScore(seq)` — `pre_score − bias` = HMMER reported per-seq score.
+
+### C.2 Invariants
+
+- INV-HMM-06: `HmmSearchBitScore == LocalForwardBitScore − Null2BiasBits` (pipeline identity).
+- INV-HMM-07: `Null2BiasBits ≥ 0` (seqbias = logsumexp(0, …) never raises the score); low-complexity
+  sequences incur at least as large a correction as a real domain.
+- INV-HMM-08: the opt-in local path does not change the glocal `ForwardScore` (regression).
+
+### C.3 MUST Tests
+
+| ID | Test Case | Description | Expected Outcome | Evidence |
+|----|-----------|-------------|------------------|----------|
+| H18a | Hand-built local-mode pin | 1-node HMM emitting A, B→M1=1, seq "A" | LocalForwardScore = 1.272400756045032 nats; pre = 3.835686260769536 bits (Within 1e-12) | hand derivation from modelconfig.c/generic_fwdback.c |
+| H18b | SH3 pre_score parity | SRC_HUMAN core vs PF00018 | LocalForwardBitScore = 68.709740 (Within 1e-4) | pyhmmer 0.12.1 hmmsearch `pre_score` |
+| H18c | PDZ pre_score parity | PSD-95 PDZ1 vs PF00595 | = 84.862930 (Within 1e-4) | pyhmmer 0.12.1 |
+| H18d | WD40 pre_score parity | GBB1 β-propeller vs PF00400 | = 213.411926 (Within 1e-4) | pyhmmer 0.12.1 |
+| H18e | null2 bias parity | SH3 domain envelope (pos 3–50) vs PF00018 | Null2BiasBits = 0.025574 (Within 1e-4) | pyhmmer 0.12.1 reported `bias` |
+| H18f | Pipeline identity | SH3 | HmmSearchBitScore = pre − bias (Within 1e-9) | p7_pipeline.c |
+| H18g | Bias non-negative | SH3 vs low-complexity | both ≥ 0; low-complexity ≥ real-domain bias | seqbias = logsumexp(0,·) |
+| H18h | Glocal unchanged | SH3 | ForwardScore = 41.78685952002655; LocalForwardScore = 42.609594871580114 (≠ glocal) | regression |
+| H18i | Guards | null/empty | LocalForwardScore(null) throws; HmmSearchBitScore("") = −∞; Null2BiasBits("") = 0 | contract |
+
+### C.4 Honest residual
+
+`pre_score` (local-multihit Forward) and the null2 correction now reproduce HMMER (pyhmmer 0.12.1) to
+single-precision rounding. The remaining residual is HMMER's automatic **multi-domain envelope
+decomposition** (region detection + stochastic-traceback clustering): null2 is applied over the
+caller-supplied sequence/envelope, so a single well-resolved domain matches `hmmsearch`'s corrected
+score, but a multi-domain target must be scored per-envelope. The MSV/bias prefilters (which only
+gate which sequences reach Forward, not a hit's score) and the full Pfam library remain out of scope.
+Status remains ☐ in the root registry (independent re-validation).
+
+### C.5 Post-implementation coverage
+
+Canonical file: `tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindDomainsByHmm_Tests.cs`
+(now 43 tests). All H18 implemented and ✅ green:
+
+| Case | Test method(s) | Status |
+|------|----------------|--------|
+| H18a | LocalForwardScore_HandBuiltOneNode_MatchesExactDerivation | ✅ |
+| H18b–d | LocalForwardBitScore_Sh3/Pdz/Wd40TruePositive_MatchesHmmsearchReference | ✅ |
+| H18e | Null2BiasBits_Sh3DomainEnvelope_MatchesHmmsearchReportedBias | ✅ |
+| H18f | HmmSearchBitScore_EqualsPreScoreMinusNull2Bias | ✅ |
+| H18g | Null2BiasBits_IsNonNegative_AndPositiveForBiasedComposition | ✅ |
+| H18h | LocalForwardScore_DoesNotChangeGlocalForwardScore | ✅ |
+| H18i | LocalForwardScore_NullOrEmpty_GuardsCorrectly; HmmSearchBitScore_Sh3TruePositive_IsHighlyPositive | ✅ |
+
+Full unfiltered suite green (all projects Failed: 0). Work Queue Remaining = 0.

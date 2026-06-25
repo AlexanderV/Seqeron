@@ -16,7 +16,9 @@ and WD40 (PF00400) — by scoring a query against bundled, CC0-licensed Pfam pro
 an **opt-in** path: the existing exact PROSITE-pattern `FindDomains` and its defaults are
 unchanged. Scoring is the log-odds Viterbi (optimal-path) and Forward (full-likelihood)
 recurrences in log space against a null (background) model; it is exact for the modelled
-glocal path but does not reproduce HMMER's full `hmmsearch` bit-score pipeline (see §6.2).
+glocal path. An additional **opt-in** layer reproduces HMMER's `hmmsearch` bit-score pipeline —
+the local-multihit Forward score and the null2 biased-composition correction — verified against
+pyhmmer/HMMER3 ground truth to single-precision rounding (see §5.3, §6.2).
 An **opt-in** P-value / E-value layer reads the profile's `STATS LOCAL` calibration lines and
 applies the HMMER significance statistics — a Gumbel survival function for MSV/Viterbi bit scores
 and an exponential-tail survival function for Forward bit scores, with `E = P·Z` — exactly as the
@@ -155,7 +157,11 @@ log-odds.
 [ProteinMotifFinder.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/ProteinMotifFinder.cs)
 
 - `Plan7ProfileHmm.Parse(...)`: parses a HMMER3/f ASCII profile.
-- `Plan7ProfileHmm.ViterbiScore(seq)` / `ForwardScore(seq)`: glocal log-odds score in nats.
+- `Plan7ProfileHmm.ViterbiScore(seq)` / `ForwardScore(seq)`: glocal log-odds score in nats (default mode).
+- `Plan7ProfileHmm.LocalForwardScore(seq)`: **opt-in** HMMER local-multihit Forward score (nats).
+- `Plan7ProfileHmm.LocalForwardBitScore(seq)`: local-multihit Forward bit score = HMMER `pre_score`.
+- `Plan7ProfileHmm.Null2BiasBits(seq)`: the null2 biased-composition correction in bits (HMMER `bias`).
+- `Plan7ProfileHmm.HmmSearchBitScore(seq)`: null2-corrected per-sequence bit score = `pre_score − bias`.
 - `Plan7ProfileHmm.ViterbiPValue/MsvPValue/ForwardPValue(bits)`, `ViterbiEValue/ForwardEValue(bits, Z)`,
   and static `GumbelSurvival/ExponentialSurvival/EValue`: STATS-based significance (opt-in).
 - `ProteinMotifFinder.FindDomainsByHmm(seq, minBitScore)`: detect SH3/PDZ/WD40 (opt-in, bit-score only).
@@ -183,30 +189,43 @@ exact-substring search, so the repository suffix tree does not apply.
 - `STATS LOCAL MSV/VITERBI/FORWARD` parsing into µ/λ/τ; Gumbel survival for MSV/Viterbi and
   exponential-tail survival for Forward, verbatim from Easel's `esl_gumbel_surv` / `esl_exp_surv`
   (including the `|ey|<5e-9` Gumbel tail branch), and `E = P·Z` [2][5][6][7].
+- **Opt-in HMMER `hmmsearch`-parity layer** (defaults unchanged): the **local-multihit** Forward
+  score (occupancy-weighted local entry `t(B→M_k)=occ[k]/Σ occ[i]·(M−i+1)`, local exit `esc=0` for
+  all k, multihit E→{C,J} split `−ln 2`, length config `pmove=(2+nj)/(L+2+nj)`), scored against
+  HMMER's standard amino background (`p7_AminoFrequencies`, not COMPO), and the **null2
+  biased-composition correction** by posterior expectation (Forward/Backward/decoding +
+  `p7_GNull2_ByExpectation`), giving `score = (fwd − (nullsc + seqbias))/ln 2` with
+  `seqbias = logsumexp(0, ln(1/256) + Σ ln null2[x_i])` [8][9][10][11][12][13][14]. **Verified to
+  hmmsearch (pyhmmer 0.12.1):** local-multihit `pre_score` reproduces hmmsearch to ~1e-5 bits for
+  PF00018/PF00595/PF00400 (68.709740 / 84.862930 / 213.411926); the null2 `bias` reproduces
+  hmmsearch's reported single-domain bias to 3e-5 bits (SH3 envelope 0.025574).
 
 **Intentionally simplified:**
 
-- Alignment mode: **glocal full-profile** path (B→1..M→E spanning the whole query); **consequence:**
-  the score is a whole-sequence quantity, not HMMER's local multihit (N/C/J flanks, per-domain
-  envelopes). A domain embedded in a long protein is still detected by its strong log-odds, but
-  Start/End are reported as the whole sequence rather than a sub-envelope.
+- **Default** alignment mode remains **glocal full-profile** (`ViterbiScore`/`ForwardScore`,
+  B→1..M→E spanning the whole query); the local-multihit parity path is opt-in via the
+  `LocalForward*`/`HmmSearchBitScore` methods. The glocal `FindDomainsByHmm`/`ScoreDomainHmm` path is
+  unchanged: it reports whole-sequence spans, not sub-envelopes.
 
 **Not implemented:**
 
-- Exact `hmmsearch`-reported E-value **pipeline parity**: the P-value/E-value formulas are exact
-  given a bit score, but HMMER applies them to its *local-multihit* sequence bit score after the
-  MSV/bias prefilters and the **null2 biased-composition correction**, which this glocal scorer does
-  not compute. **Consequence:** for the same query the absolute bit score (and therefore the
-  absolute E-value) differs from `hmmsearch`; ranking and detection are faithful. **Users should
-  rely on:** HMMER `hmmsearch` for exact reported-E-value parity. The full Pfam library beyond the
-  three bundled (caller-supplied `.hmm`) profiles is likewise out of scope.
+- **HMMER's domain/envelope-definition heuristic** (region detection + stochastic-traceback
+  clustering of multi-domain regions). The null2 correction is computed over whatever
+  sequence/envelope the caller passes, so a **single well-resolved domain** matches hmmsearch's
+  corrected score exactly, but for a **multi-domain** target (e.g. the 7-blade WD40) the caller must
+  score each envelope separately to reproduce hmmsearch's per-domain decomposition. **Consequence:**
+  full-sequence `HmmSearchBitScore` over-corrects multi-domain proteins. **Users should rely on:**
+  HMMER `hmmsearch` when automatic multi-domain envelope decomposition is required.
+- **MSV / bias prefilters** are not reimplemented: they only gate which sequences reach the Forward
+  stage; they do not change a reported hit's bit score, so they are not needed for score parity.
+- The full Pfam library beyond the three bundled (caller-supplied `.hmm`) profiles is out of scope.
 
 ### 5.4 Deviations and Assumptions
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | Glocal vs local-multihit alignment | Deviation | Start/End span whole query; no sub-envelopes | accepted | §5.3 "Intentionally simplified" |
-| 2 | Absolute bit score ≠ `hmmsearch` (no null2 / MSV-bias pipeline) | Deviation | Ranking correct; reported E-value not pipeline-calibrated | accepted | honest residual; §6.2 |
+| 1 | Default mode is glocal; local-multihit is opt-in | Design | `FindDomainsByHmm` spans whole query; `LocalForward*` give hmmsearch-mode scores | accepted | §5.3 |
+| 2 | No automatic multi-domain envelope decomposition | Deviation | Single-domain corrected score matches hmmsearch; multi-domain needs per-envelope scoring | accepted | §5.3 "Not implemented"; §6.2 |
 
 ## 6. Edge Cases and Limitations
 
@@ -223,13 +242,16 @@ exact-substring search, so the repository suffix tree does not apply.
 ### 6.2 Limitations
 
 Only three Pfam domains are bundled (SH3, PDZ, WD40); the full Pfam library is not embedded (it is
-caller-supplied via the `.hmm` parser). The Gumbel/exponential P-value and `E = P·Z` formulas are
-implemented exactly (and read the profile's own `STATS LOCAL` calibration). What is **not**
-reproduced is exact `hmmsearch`-reported E-value *pipeline* parity: HMMER applies those formulas to
-its local-multihit sequence bit score after the MSV/bias prefilters and the null2 biased-composition
-correction, none of which this glocal scorer computes — so the absolute bit score (and hence the
-absolute reported E-value) differs from `hmmsearch` even though ranking and detection are faithful.
-Glocal scoring reports whole-sequence spans, not per-domain envelopes.
+caller-supplied via the `.hmm` parser). The HMMER `hmmsearch` **bit-score pipeline is now reproduced
+(opt-in) and verified against pyhmmer 0.12.1**: the local-multihit Forward `pre_score` matches
+hmmsearch to ~1e-5 bits, and the null2 biased-composition `bias` matches hmmsearch's reported
+single-domain value to 3e-5 bits. The remaining residual is HMMER's automatic **multi-domain
+envelope decomposition** (region detection + stochastic-traceback clustering): this implementation
+applies null2 over the caller-supplied sequence/envelope, so a single well-resolved domain matches
+hmmsearch's corrected score, but a multi-domain target must be scored per-envelope to reproduce
+hmmsearch's decomposition. The MSV/bias prefilters are not reimplemented (they gate which sequences
+reach Forward; they do not change a reported hit's score). The default `FindDomainsByHmm`/glocal path
+reports whole-sequence spans, not per-domain envelopes.
 
 ## 7. Examples and Related Material
 
@@ -257,9 +279,16 @@ Gumbel `P = 1 − exp(−exp(−λ(S−µ))) = 8.227179545686635e-16` (Easel tai
 8.227179545686635e-13`; exponential `P = exp(−λ(S−τ)) = 1.1943390031599535e-14` → `E(Z=1000) =
 1.1943390031599535e-11`. The engine reproduces both to 1e-9 relative.
 
+**hmmsearch local-multihit + null2 parity pin (pyhmmer 0.12.1 ground truth):** for SRC_HUMAN SH3 vs
+`PF00018`, `LocalForwardBitScore = 68.7097` bits (hmmsearch `pre_score` 68.709740); the null2 bias
+over the domain envelope (positions 3–50) `= 0.02554` bits (hmmsearch `bias` 0.025574); PDZ vs
+`PF00595` pre = 84.8629 (hmmsearch 84.862930); WD40 vs `PF00400` pre = 213.4120 (hmmsearch
+213.411926). All within single-precision rounding. A 1-node hand HMM emitting A (B→M1=1) gives
+`LocalForwardScore("A") = 1.272400756045032` nats exactly.
+
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [ProteinMotifFinder_FindDomainsByHmm_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindDomainsByHmm_Tests.cs) — covers `INV-HMM-01`..`INV-HMM-04`
+- Tests: [ProteinMotifFinder_FindDomainsByHmm_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindDomainsByHmm_Tests.cs) — covers `INV-HMM-01`..`INV-HMM-04` and the H18 local-mode + null2 hmmsearch-parity cases
 - Evidence: [PROTMOTIF-DOMAIN-001-Evidence.md](../../../docs/Evidence/PROTMOTIF-DOMAIN-001-Evidence.md)
 - Related algorithms: [Domain_Prediction](./Domain_Prediction.md) (exact PROSITE patterns)
 
@@ -272,3 +301,10 @@ Gumbel `P = 1 − exp(−exp(−λ(S−µ))) = 8.227179545686635e-16` (Easel tai
 5. Eddy SR. 2008. A Probabilistic Model of Local Sequence Alignment That Simplifies Statistical Significance Estimation. *PLoS Comput Biol* 4:e1000069. https://doi.org/10.1371/journal.pcbi.1000069 (PMC2396288) — Viterbi/MSV Gumbel (λ = log 2), Forward exponential tail.
 6. Eddy SR & contributors. Easel `esl_gumbel.c` — `esl_gumbel_surv(x, µ, λ) = 1 − exp(−exp(−λ(x−µ)))` (survivor function). https://github.com/EddyRivasLab/easel/blob/master/esl_gumbel.c
 7. Eddy SR & contributors. Easel `esl_exponential.c` — `esl_exp_surv(x, µ, λ) = exp(−λ(x−µ))`, `=1` for `x<µ`. https://github.com/EddyRivasLab/easel/blob/master/esl_exponential.c
+8. HMMER `modelconfig.c` — `p7_ProfileConfig` local entry/exit (`occ[k]/Z`, `esc=0`), `p7_ReconfigLength` (`pmove=(2+nj)/(L+2+nj)`). https://github.com/EddyRivasLab/hmmer/blob/master/src/modelconfig.c
+9. HMMER `p7_hmm.c` — `p7_hmm_CalculateOccupancy`. https://github.com/EddyRivasLab/hmmer/blob/master/src/p7_hmm.c
+10. HMMER `generic_fwdback.c` — `p7_GForward` / `p7_GBackward` (local `esc=0`). https://github.com/EddyRivasLab/hmmer/blob/master/src/generic_fwdback.c
+11. HMMER `generic_decoding.c` — `p7_GDecoding` (posterior probabilities). https://github.com/EddyRivasLab/hmmer/blob/master/src/generic_decoding.c
+12. HMMER `generic_null2.c` — `p7_GNull2_ByExpectation` (posterior-expectation null2). https://github.com/EddyRivasLab/hmmer/blob/master/src/generic_null2.c
+13. HMMER `p7_domaindef.c` / `p7_pipeline.c` — per-domain `domcorrection`, `seqbias = logsum(0, ln ω + Σn2sc)`, `pre_score`, `bias`. https://github.com/EddyRivasLab/hmmer/blob/master/src/p7_pipeline.c
+14. HMMER `p7_bg.c` (`omega=1/256`, `p7_bg_NullOne`, `p1=L/(L+1)`) and `hmmer.c` (`p7_AminoFrequencies`); ground-truth scores via pyhmmer 0.12.1. https://github.com/EddyRivasLab/hmmer/blob/master/src/p7_bg.c

@@ -1,5 +1,42 @@
 # Validation Report: PROTMOTIF-DOMAIN-001 — Protein Domain Identification
 
+## Update 2026-06-25 — HMMER local-multihit Forward + null2 biased-composition correction (hmmsearch parity, limitation fix); Status stays ☐
+
+The Plan7 engine now reproduces HMMER's `hmmsearch` **bit-score pipeline** as an **opt-in** addition
+(the glocal Viterbi/Forward path and all existing detection/defaults are unchanged). A real HMMER
+reference was obtained and used as ground truth.
+
+- **Reference tool obtained:** `pip3 install --user pyhmmer` → **pyhmmer 0.12.1** (Cython binding
+  bundling HMMER3), installed and run on macOS arm64. Ground-truth `hmmsearch` (Z=1) for the bundled
+  CC0 profiles vs the test true-positives: PF00018 SH3 `pre_score=68.709740`, `bias=0.025574`,
+  `score=68.684166`; PF00595 PDZ `pre=84.862930`; PF00400 WD40 `pre=213.411926`.
+- **Algorithms retrieved verbatim (EddyRivasLab/hmmer master, 2026-06-25):** local entry/exit +
+  `p7_ReconfigLength` (`modelconfig.c`), occupancy (`p7_hmm.c` `p7_hmm_CalculateOccupancy`), local
+  Forward/Backward `esc=0` (`generic_fwdback.c`), posterior decoding (`generic_decoding.c`), null2
+  by expectation (`generic_null2.c` `p7_GNull2_ByExpectation`), the per-domain/per-seq correction
+  `seqbias = logsumexp(0, ln(1/256) + Σ ln null2[x_i])`, `score=(fwd−(nullsc+seqbias))/ln2`
+  (`p7_domaindef.c`, `p7_pipeline.c`), `nullsc=L·ln(p1)+ln(1−p1)`, `p1=L/(L+1)`, `omega=1/256`
+  (`p7_bg.c`), and the standard amino background `p7_AminoFrequencies` (`hmmer.c`) — which hmmsearch
+  scores against, **not** the COMPO line (the key to matching `pre_score`).
+- **Methods added:** `Plan7ProfileHmm.LocalForwardScore`, `LocalForwardBitScore`, `Null2BiasBits`,
+  `HmmSearchBitScore`. Defaults and the glocal API are untouched.
+- **Verified parity (pyhmmer 0.12.1 ground truth):** C# `LocalForwardBitScore` reproduces hmmsearch
+  `pre_score` to ~1e-5 bits (SH3 68.709743 vs 68.709740; PDZ 84.862933 vs 84.862930; WD40 213.411951
+  vs 213.411926). The null2 `Null2BiasBits` over the SH3 domain envelope (pos 3–50) = 0.025544 vs
+  hmmsearch 0.025574 (3e-5). Independently re-derived from scratch in Python (parsing the `.hmm`, the
+  retrieved recurrences) → identical, confirming the formulas independent of the C# code. A 1-node
+  hand HMM gives `LocalForwardScore("A")=1.272400756045032` nats exactly. 10 new tests (H18a–i).
+- **Honest residual (further narrowed):** the bit-score pipeline (`pre_score` + null2) is now
+  verified to single-precision parity. What remains is HMMER's automatic **multi-domain envelope
+  decomposition** (region detection + stochastic-traceback clustering): null2 is applied over the
+  caller-supplied sequence/envelope, so a single well-resolved domain matches hmmsearch's corrected
+  score exactly, but a multi-domain target must be scored per-envelope by the caller. The MSV/bias
+  prefilters (which gate which sequences reach Forward but don't change a hit's score) and the full
+  Pfam library remain out of scope.
+- Status stays **☐** in the root registry (independent re-validation; not a ☑ self-claim).
+
+---
+
 ## Update 2026-06-25 — HMMER Gumbel/exponential E-value from profile STATS (limitation fix); Status stays ☐
 
 The Plan7 engine now computes the HMMER **P-value / E-value statistics** from the profile's
