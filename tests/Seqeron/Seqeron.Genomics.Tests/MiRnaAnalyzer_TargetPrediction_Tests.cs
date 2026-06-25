@@ -461,6 +461,144 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
 
     #endregion
 
+    #region E-001: Exact 0-based inclusive coordinates per site type — hand-construction
+
+    [Test]
+    public void FindTargetSites_SiteCoordinates_Are0BasedInclusivePerSiteType()
+    {
+        // Hand-derived from the construct layout (5-nt G flank, then the site).
+        // 8mer  = [seedRC][A] at index 5: spans the upstream nt8 (index 5) through A1 (index 12).
+        // 7m8   = [seedRC]    at index 5..11.
+        // 7A1   = [6merCore=UACCUC][A]: 6mer core starts at index 5, A1 at index 11 → 5..11.
+        // 6mer  = [6merCore]  at index 5..10.
+        // off6  = [CUACCU]    at index 5..10.
+        // Verified independently against the FindTargetSites geometry (Lewis 2005 antiparallel RC).
+        string core = Let7aSeedRC[1..]; // UACCUC
+
+        var s8mer = FindTargetSites("GGGGG" + Let7aSeedRC + "A" + "GGGGG", Let7a, 0.01).Single();
+        var s7m8 = FindTargetSites("GGGGG" + Let7aSeedRC + "G" + "GGGGG", Let7a, 0.01).Single();
+        var s7a1 = FindTargetSites("GGGGG" + core + "A" + "GGGGG", Let7a, 0.01).Single();
+        var s6mer = FindTargetSites("GGGGG" + core + "G" + "GGGGG", Let7a, 0.01).Single();
+        var sOff6 = FindTargetSites("GGGGG" + Let7aSeedRC[..6] + "G" + "GGGGG", Let7a, 0.01).Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((s8mer.Start, s8mer.End), Is.EqualTo((5, 12)), "8mer spans nt8..A1 = 5..12");
+            Assert.That((s7m8.Start, s7m8.End), Is.EqualTo((5, 11)), "7mer-m8 = 5..11");
+            Assert.That((s7a1.Start, s7a1.End), Is.EqualTo((5, 11)), "7mer-A1 = core start 5 .. A1 11");
+            Assert.That((s6mer.Start, s6mer.End), Is.EqualTo((5, 10)), "6mer = 5..10");
+            Assert.That((sOff6.Start, sOff6.End), Is.EqualTo((5, 10)), "offset-6mer = 5..10");
+            // End - Start + 1 must equal the seed-match length for every site.
+            Assert.That(s8mer.End - s8mer.Start + 1, Is.EqualTo(s8mer.SeedMatchLength));
+            Assert.That(s6mer.End - s6mer.Start + 1, Is.EqualTo(s6mer.SeedMatchLength));
+        });
+    }
+
+    #endregion
+
+    #region E-002: Targeting is by reverse complement, NOT verbatim seed identity — Lewis (2005)
+
+    [Test]
+    public void FindTargetSites_VerbatimSeedIdentity_NotMatched()
+    {
+        // Lewis (2005): a target site is the REVERSE COMPLEMENT of the seed, sought antiparallel.
+        // The verbatim seed (GAGGUAG) is NOT its own reverse complement (CUACCUC), so embedding the
+        // seed itself must yield ZERO sites. This is the catastrophic-error checkpoint: a code that
+        // matched seed identity instead of RC would (wrongly) return a site here.
+        string mrna = "GGGGG" + Let7a.SeedSequence + "GGGGG"; // GAGGUAG, not its RC
+
+        Assert.That(FindTargetSites(mrna, Let7a, 0.0).ToList(), Is.Empty,
+            "Verbatim seed identity must NOT be detected — targets are the seed reverse complement");
+    }
+
+    #endregion
+
+    #region E-003: Seed scan requires an EXACT Watson-Crick match — one seed mismatch → no site
+
+    [Test]
+    public void FindTargetSites_SingleSeedMismatch_NotMatched()
+    {
+        // FindTargetSites scans for an exact 6mer-core substring (RC of miRNA pos 2-7). A single
+        // substitution inside the core breaks the seed match: per Bartel (2009) the canonical site
+        // types require perfect seed complementarity (G:U wobble in the seed is NOT a canonical site).
+        // 6mer core (RC of pos 2-7) = UACCUC; mutate the central C→A → UAACUC (no longer the core).
+        string brokenCore = "UAACUC";
+        string mrna = "GGGGG" + brokenCore + "A" + "GGGGG";
+
+        Assert.That(FindTargetSites(mrna, Let7a, 0.0).ToList(), Is.Empty,
+            "A single mismatch in the seed core must abolish the canonical seed match");
+    }
+
+    [Test]
+    public void FindTargetSites_SeedWobbleNotCountedAsMatch()
+    {
+        // A G:U wobble inside the seed (replace a target C with U, where the miRNA would WC-pair G)
+        // is NOT a canonical exact seed match. UACCUC → UAUCUC (pos-3 C→U) must not be detected.
+        string wobbleCore = "UAUCUC";
+        string mrna = "GGGGG" + wobbleCore + "G" + "GGGGG";
+
+        Assert.That(FindTargetSites(mrna, Let7a, 0.0).ToList(), Is.Empty,
+            "Seed-region G:U wobble is not a canonical exact seed match (Bartel 2009)");
+    }
+
+    #endregion
+
+    #region E-004: 8mer dominance — A1 + m8 both present classifies as 8mer (not 7mer-m8/7mer-A1)
+
+    [Test]
+    public void FindTargetSites_A1AndM8BothPresent_ClassifiesAs8mer()
+    {
+        // When BOTH the position-8 Watson-Crick match (upstream seedRC[0]) AND the A1 anchor
+        // (downstream A) are present, the site is an 8mer — the most efficacious type
+        // (Bartel 2009: 8mer = seed match flanked by both the m8 pair and the A1). It must NOT
+        // be reported as 7mer-m8 or 7mer-A1, and exactly one site is returned.
+        string mrna = "GGGGG" + Let7aSeedRC + "A" + "GGGGG"; // CUACCUC + A
+
+        var sites = FindTargetSites(mrna, Let7a, 0.0).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites, Has.Count.EqualTo(1), "8mer is reported once, not split into m8 + A1");
+            Assert.That(sites[0].Type, Is.EqualTo(TargetSiteType.Seed8mer));
+            Assert.That(sites.Any(s => s.Type == TargetSiteType.Seed7merM8), Is.False);
+            Assert.That(sites.Any(s => s.Type == TargetSiteType.Seed7merA1), Is.False);
+        });
+    }
+
+    #endregion
+
+    #region E-005: Short / non-ACGU mRNA — defensive, no spurious matches
+
+    [Test]
+    public void FindTargetSites_MrnaShorterThanSeedCore_ReturnsEmpty()
+    {
+        // mRNA shorter than the 6-nt seed core cannot contain a site.
+        Assert.Multiple(() =>
+        {
+            Assert.That(FindTargetSites("CUAC", Let7a, 0.0).ToList(), Is.Empty, "4 nt < 6mer core");
+            Assert.That(FindTargetSites("CUACC", Let7a, 0.0).ToList(), Is.Empty, "5 nt < 6mer core");
+        });
+    }
+
+    [Test]
+    public void FindTargetSites_NonAcguCharacters_DoNotMatchOrThrow()
+    {
+        // Ambiguity / non-ACGU symbols (N) are not complementary to any seed base, so a run of N
+        // must neither throw nor produce a spurious site; a valid site embedded among N is still found.
+        string allN = new string('N', 30);
+        string nFlanked = "NNNNN" + Let7aSeedRC + "A" + "NNNNN"; // valid 8mer flanked by N
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(FindTargetSites(allN, Let7a, 0.0).ToList(), Is.Empty, "all-N has no seed RC");
+            var flanked = FindTargetSites(nFlanked, Let7a, 0.0).ToList();
+            Assert.That(flanked, Has.Count.EqualTo(1), "the embedded 8mer is still found among N flanks");
+            Assert.That(flanked[0].Type, Is.EqualTo(TargetSiteType.Seed8mer));
+        });
+    }
+
+    #endregion
+
     // ─────────────────────────────────────────────────────────────────────────────────────
     // TargetScan context++ scoring (Agarwal et al. 2015) — opt-in ScoreTargetSiteContextPlusPlus
     //

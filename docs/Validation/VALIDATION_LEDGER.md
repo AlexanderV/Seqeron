@@ -104,7 +104,7 @@ State (end of session): ✅ CLEAN (fully functional) · 🔧 LIMITED (see report
 | 72 | RNA-STEMLOOP-001 | RnaStructure | ✅ | ✅ | ✅ CLEAN | reports/RNA-STEMLOOP-001.md |
 | 73 | RNA-ENERGY-001 | RnaStructure | ✅ | ✅ | ✅ CLEAN | reports/RNA-ENERGY-001.md |
 | 74 | MIRNA-SEED-001 | MiRNA | ✅ | ✅ | ✅ CLEAN | reports/MIRNA-SEED-001.md |
-| 75 | MIRNA-TARGET-001 | MiRNA | ⬜ | ⬜ | ⬜ pending | reports/MIRNA-TARGET-001.md |
+| 75 | MIRNA-TARGET-001 | MiRNA | ✅ | 🟡 | ✅ CLEAN (re-validated 2026-06-25: seed RC targeting + 4 site types confirmed vs Bartel 2009/Lewis 2005/TargetScan; base scorer honestly-scoped; +7 edge tests) | reports/MIRNA-TARGET-001.md |
 | 76 | MIRNA-PRECURSOR-001 | MiRNA | ⬜ | ⬜ | ⬜ pending | reports/MIRNA-PRECURSOR-001.md |
 | 77 | SPLICE-DONOR-001 | Splicing | ✅ | ✅ | ✅ CLEAN | reports/SPLICE-DONOR-001.md |
 | 78 | SPLICE-ACCEPTOR-001 | Splicing | ✅ | ✅ | ✅ CLEAN | reports/SPLICE-ACCEPTOR-001.md |
