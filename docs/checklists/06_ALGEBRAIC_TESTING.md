@@ -277,7 +277,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 245 | ☑ | MHC-NN-001 | Oncology | ID: IC50 = 50000^(1-x) inverse of x; IDEMP: deterministic |
 | 246 | ☑ | MHC-MATRIX-001 | Oncology | ID: BIMAS = product of position coefficients; IDEMP: deterministic |
 | 247 | ☑ | IMMUNE-NUSVR-001 | Oncology | ID: ν-SVR on noise-free planted mixture → truth (<0.005); IDEMP: deterministic |
-| 248 | ☐ | META-CHECKM-001 | Metagenomics | ID: complete single-copy set → 100%/0%; IDEMP: deterministic |
+| 248 | ☑ | META-CHECKM-001 | Metagenomics | ID: complete single-copy set → 100%/0%; IDEMP: deterministic |
 | 249 | ☐ | META-TETRA-001 | Metagenomics | ID: analytic z(ACGT)=√5; IDEMP: deterministic |
 | 250 | ☐ | SPLICE-MAXENT3-001 | Splicing | ID: reference window reproduces 2.89; IDEMP: deterministic |
 | 251 | ☐ | SPLICE-MAXENT5-001 | Splicing | ID: cagGTAAGT reproduces 10.86; IDEMP: deterministic |
@@ -296,7 +296,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 8 |
-| ☐ Not started | 79 |
+| ☑ Complete | 9 |
+| ☐ Not started | 78 |
 | ✗ Not applicable | 169 |
 | Laws verified | ~172 (≈2 per algorithm) |

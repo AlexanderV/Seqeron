@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 255 |
-| **Completed** | 224 |
+| **Completed** | 225 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 31 |
+| **Not Started** | 30 |
 
 ---
 
@@ -266,7 +266,7 @@
 | ☑ | MHC-NN-001 | Oncology | 3 | O'Donnell et al. (2018, 2020) MHCflurry, Apache-2.0 | [TestSpec](tests/TestSpecs/MHC-NN-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MhcflurryAffinityPredictor_PredictIc50_Tests.cs) |
 | ☑ | MHC-MATRIX-001 | Oncology | 3 | Peters et al. (2005) SMM, Parker et al. (1994) BIMAS | [TestSpec](tests/TestSpecs/MHC-MATRIX-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyMhcBinding_Tests.cs) |
 | ☑ | IMMUNE-NUSVR-001 | Oncology | 3 | Newman et al. (2015) CIBERSORT, Schölkopf et al. (2000) ν-SVR, Monaco et al. (2019) ABIS CC-BY | [TestSpec](tests/TestSpecs/IMMUNE-NUSVR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ImmuneAnalyzer_ImmuneInfiltration_Tests.cs) |
-| ☐ | META-CHECKM-001 | Metagenomics | 4 | Parks et al. (2015) CheckM, Parks et al. (2018) GTDB, Pfam CC0 | [TestSpec](tests/TestSpecs/META-CHECKM-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_MarkerGeneQuality_Tests.cs) |
+| ☑ | META-CHECKM-001 | Metagenomics | 4 | Parks et al. (2015) CheckM, Parks et al. (2018) GTDB, Pfam CC0 | [TestSpec](tests/TestSpecs/META-CHECKM-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_MarkerGeneQuality_Tests.cs) |
 | ☐ | META-TETRA-001 | Metagenomics | 2 | Teeling et al. (2004) TETRA, Schbath (1995) | [TestSpec](tests/TestSpecs/META-TETRA-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_TetranucleotideZScore_Tests.cs) |
 | ☐ | SPLICE-MAXENT3-001 | Splicing | 1 | Yeo & Burge (2004), maxentpy (MIT) | [TestSpec](tests/TestSpecs/SPLICE-MAXENT3-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_AcceptorSite_Tests.cs) |
 | ☐ | SPLICE-MAXENT5-001 | Splicing | 1 | Yeo & Burge (2004), maxentpy (MIT) | [TestSpec](tests/TestSpecs/SPLICE-MAXENT5-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_DonorSite_Tests.cs) |
@@ -5513,13 +5513,13 @@ DnaSequence.Complement   DnaSequence.ReverseComplement
 
 ---
 
-#### META-CHECKM-001: CheckM Marker-Gene Completeness/Contamination ☐
+#### META-CHECKM-001: CheckM Marker-Gene Completeness/Contamination ☑
 
 | Field | Value |
 |-------|-------|
 | **Canonical** | `EstimateBinQualityFromMarkers` |
 | **Area** | Metagenomics |
-| **Status** | ☐ Not Started (pending independent Stage A/B re-validation) |
+| **Status** | ☑ Complete (Stage A/B re-validated 2026-06-25; CLEAN) |
 | **Evidence** | Parks et al. (2015) CheckM, Parks et al. (2018) GTDB, Pfam CC0 |
 | **Source** | `MetagenomicsAnalyzer.cs` |
 

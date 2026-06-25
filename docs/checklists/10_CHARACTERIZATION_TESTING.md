@@ -280,7 +280,7 @@ Characterization tests (golden master tests) фіксують поточну п�
 | 245 | ☑ | MHC-NN-001 | Oncology | IC50 predictions for benchmark peptide/allele pairs | weight-pack update |
 | 246 | ☑ | MHC-MATRIX-001 | Oncology | IC50/half-life for reference peptides | matrix reload |
 | 247 | ☑ | IMMUNE-NUSVR-001 | Oncology | cell-fraction estimates for reference mixtures | signature-matrix change |
-| 248 | ☐ | META-CHECKM-001 | Metagenomics | completeness/contamination for synthetic + real bins | marker-set update |
+| 248 | ☑ | META-CHECKM-001 | Metagenomics | completeness/contamination for synthetic + real bins | marker-set update |
 | 249 | ☐ | META-TETRA-001 | Metagenomics | z-vector + pairwise correlations for reference contigs | expected-frequency model change |
 | 250 | ☐ | SPLICE-MAXENT3-001 | Splicing | acceptor MaxEnt scores for reference 3' sites | maxent table change |
 | 251 | ☐ | SPLICE-MAXENT5-001 | Splicing | donor MaxEnt scores for reference 5' sites | maxent table change |
@@ -299,8 +299,8 @@ Characterization tests (golden master tests) фіксують поточну п�
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 8 |
-| ☐ Not started | 248 |
+| ☑ Complete | 9 |
+| ☐ Not started | 247 |
 | Applies on-demand (before refactoring) | All 234 |
 | High refactoring risk (complex algorithms) | ~20 (Alignment, Phylogenetic, RNA, Annotation) |
 | Medium refactoring risk | ~40 |
