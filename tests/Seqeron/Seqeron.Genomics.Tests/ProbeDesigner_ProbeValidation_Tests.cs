@@ -807,5 +807,88 @@ public class ProbeDesigner_ProbeValidation_Tests
         });
     }
 
+    // KA8 — score S = 0 boundary: E collapses to the raw search space scaled by K (E = K·m·n·e^0 = K·m·n),
+    // and the bit score is the pure normalization offset S' = −ln K / ln 2 (Karlin & Altschul 1990).
+    // m=20, n=1000, K=0.711 → E = 0.711·20·1000 = 14220; S' = −ln(0.711)/ln 2 = 0.4920785350426718.
+    [Test]
+    public void ComputeKarlinAltschul_ScoreZero_EValueEqualsKTimesSearchSpace()
+    {
+        var stats = ProbeDesigner.ComputeKarlinAltschul(
+            rawScore: 0, queryLength: 20, databaseLength: 1000, scoring: MatchMismatch1_3, k: 0.711);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(stats.EValue, Is.EqualTo(14220.0).Within(1e-6),
+                "At S=0, E = K·m·n·e^0 = K·m·n (Karlin & Altschul 1990)");
+            Assert.That(stats.BitScore, Is.EqualTo(0.4920785350426718).Within(1e-9),
+                "At S=0, S' = (0 − ln K)/ln 2 = −ln K/ln 2 (Altschul et al. 1990)");
+        });
+    }
+
+    // KA9 — the K parameter: E is linear in K (E = K·m·n·e^{−λS}), and the bit score shifts by −log2(K),
+    // so doubling K doubles E and lowers the bit score by exactly 1 bit (Karlin & Altschul 1990; Altschul et al. 1990).
+    [Test]
+    public void ComputeKarlinAltschul_DoublingK_DoublesEValueAndLowersBitByOneBit()
+    {
+        var baseStats = ProbeDesigner.ComputeKarlinAltschul(
+            rawScore: 22, queryLength: 20, databaseLength: 1000, scoring: MatchMismatch1_3, k: 0.711);
+        var doubledK = ProbeDesigner.ComputeKarlinAltschul(
+            rawScore: 22, queryLength: 20, databaseLength: 1000, scoring: MatchMismatch1_3, k: 1.422);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(doubledK.EValue, Is.EqualTo(2.0 * baseStats.EValue).Within(baseStats.EValue * 1e-9),
+                "E is linear in K: doubling K doubles E (E = K·m·n·e^{−λS})");
+            Assert.That(doubledK.BitScore, Is.EqualTo(baseStats.BitScore - 1.0).Within(1e-9),
+                "S' = (λS − ln K)/ln 2: doubling K lowers the bit score by exactly log2(2)=1 bit");
+        });
+    }
+
+    // KA10 — E increases with the query length m as well (E linear in the search space m·n; KA6 covered n).
+    // Doubling m must double E, the symmetric counterpart of doubling n (Karlin & Altschul 1990).
+    [Test]
+    public void ComputeKarlinAltschul_DoublingQueryLength_DoublesEValue()
+    {
+        var baseStats = ProbeDesigner.ComputeKarlinAltschul(
+            rawScore: 22, queryLength: 20, databaseLength: 1000, scoring: MatchMismatch1_3, k: 0.711);
+        var doubledM = ProbeDesigner.ComputeKarlinAltschul(
+            rawScore: 22, queryLength: 40, databaseLength: 1000, scoring: MatchMismatch1_3, k: 0.711);
+
+        Assert.That(doubledM.EValue, Is.EqualTo(2.0 * baseStats.EValue).Within(baseStats.EValue * 1e-9),
+            "Doubling m doubles E (E is linear in the search space m·n; Karlin & Altschul 1990)");
+    }
+
+    // KA11 — λ root-finder convergence is precise: f(λ) = Σ p_i p_j e^{λ s_ij} − 1 must vanish to
+    // near machine precision (the bisection runs 200 iterations on [0,100], far past double resolution).
+    // Independently re-solved oracle: λ(1,−3, uniform 0.25) = 1.3740631224599755.
+    [Test]
+    public void ComputeLambdaNucleotide_RootFinder_ConvergesToMachinePrecision()
+    {
+        double lambda = ProbeDesigner.ComputeLambdaNucleotide(match: 1, mismatch: -3);
+        double residual = 0.25 * Math.Exp(lambda * 1) + 0.75 * Math.Exp(lambda * -3) - 1.0;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(lambda, Is.EqualTo(1.3740631224599755).Within(1e-15),
+                "Bisection must converge to the exact double-precision root λ = 1.3740631224599755");
+            Assert.That(residual, Is.EqualTo(0.0).Within(1e-12),
+                "Residual of the defining equation must vanish to near machine precision");
+        });
+    }
+
+    // KA12 — the DEFAULT scheme path (no scoring arg → BlastDna +2/−3) computes λ from that matrix
+    // under uniform 0.25 frequencies: independently re-solved oracle λ(2,−3) = 0.6337314430979077.
+    // NOTE: this is the UNIFORM-0.25 two-term root, not NCBI's published ungapped 2/−3 value (λ≈0.55,
+    // K≈0.21), which derives from the full score lattice; the documented contract is the uniform-0.25 model.
+    [Test]
+    public void ComputeKarlinAltschul_DefaultScheme_UsesBlastDna2_3UniformLambda()
+    {
+        var stats = ProbeDesigner.ComputeKarlinAltschul(
+            rawScore: 30, queryLength: 20, databaseLength: 1000);
+
+        Assert.That(stats.Lambda, Is.EqualTo(0.6337314430979077).Within(1e-9),
+            "Default scoring is BlastDna (+2/−3); λ is its uniform-0.25 root 0.6337314430979077");
+    }
+
     #endregion
 }
