@@ -1,9 +1,49 @@
 # Validation Report: ONCO-MHC-001 — MHC-Peptide Binding Classification
 
-- **Validated:** 2026-06-16   **Area:** Oncology
-- **Canonical method(s):** `OncologyAnalyzer.ClassifyBindingAffinity(double)`, `ClassifyBindingRank(double, MhcClass)`, `IsValidPeptideLength(int, MhcClass)`, `ClassifyMhcBinding(int, double, MhcClass)` (`src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs:5306-5396`)
+- **Validated:** 2026-06-25 (fresh re-validation; supersedes 2026-06-16)   **Area:** Oncology
+- **Canonical method(s):** `OncologyAnalyzer.ClassifyBindingAffinity(double)`, `ClassifyBindingRank(double, MhcClass)`, `IsValidPeptideLength(int, MhcClass)`, `ClassifyMhcBinding(int, double, MhcClass)`, plus the predict→classify chain `PredictAndClassifySmm(string, PmhcScoringMatrix)` that feeds the predicted IC50 into `ClassifyBindingAffinity` (`src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs:8197–8287`, chain at `:8526–8531`). The matrix predictors `PredictIc50Smm`/`PredictBindingHalfLifeBimas`/`LoadScoringMatrix` are the **separate MHC-MATRIX-001** unit and the MHCflurry pan-allele NN is the **separate MHC-NN-001** unit — referenced as the predictors feeding the chain, not re-litigated here.
 - **Stage A verdict:** PASS-WITH-NOTES
 - **Stage B verdict:** PASS
+
+---
+
+## 2026-06-25 — Fresh re-validation (post-reset; predictors split out to MHC-MATRIX-001 / MHC-NN-001)
+
+ONCO-MHC-001 was reset to ⬜ pending after the SMM/BIMAS matrix predictor and the MHCflurry NN were carved out into their own already-CLEAN units (MHC-MATRIX-001, MHC-NN-001). This unit's OWN canonical surface — the IC50/%Rank binding-affinity **classification** thresholds and the predict→classify **chain** — was re-validated fresh against externally retrieved sources THIS session. No prior repo TestSpec/Evidence/test was trusted.
+
+### Stage A — sources re-retrieved this session
+- **NetMHCpan-4.1 / NetMHCIIpan-4.0 (Reynisson et al. 2020, *Nucleic Acids Res* 48(W1):W449–W454)** — WebSearch confirmed verbatim: class I "strong binder if the %Rank is below … (by default, 0.5%), and a weak binder if … below … (by default, 2%)"; class II SB < 2% / WB < 10%; %Rank defined as the position of the score in a distribution from random natural peptides. Confirms the four %Rank cutoffs (0.5 / 2 / 2 / 10) and the strict-`<` "below" semantics.
+- **IEDB threshold guidance** (help.iedb.org) — WebSearch confirmed verbatim: "peptides with IC50 values <50 nM are considered high affinity, <500 nM intermediate affinity and <5000 nM low affinity"; "the threshold of IC50 = 500 nM or 50 nM selects peptide binders or strong binders, respectively." Confirms the IC50 cutoffs 50 / 500 nM and that 500 nM is the binder/non-binder demarcation, all strict `<`.
+- **Sette et al. (1994)** and class II length 13–25 (IEDB tool description) were confirmed in the prior session and are unchanged; the two primary conventions above were independently re-grounded this session.
+
+The classification model — `Strong iff v < 50`, `Weak iff 50 ≤ v < 500`, `NonBinder iff v ≥ 500` (IC50); analogous per-class strict-`<` nesting for %Rank — matches the verbatim "<"/"below" inequalities in every source. **Stage A: PASS-WITH-NOTES** (the only divergence is the *documented* class I 8–11 default vs the full 8–14 NetMHCpan admits; see original §Note 1).
+
+### Independent boundary hand-evaluation (recorded labels — derived from sources, NOT code output)
+
+`ClassifyBindingAffinity(ic50)` — validate finite & > 0, then `< 50 → Strong`, else `< 500 → Weak : NonBinder`:
+
+| IC50 (nM) | Hand-derived label (IEDB/Sette strict `<`) | Code trace |
+|---|---|---|
+| 10 | Strong | Strong ✅ |
+| 49.9 | Strong (49.9 < 50) | Strong ✅ |
+| 50 (boundary) | Weak (not `< 50`; 50 < 500) | Weak ✅ |
+| 500 (boundary) | NonBinder (not `< 500`) | NonBinder ✅ |
+| 5000 | NonBinder | NonBinder ✅ |
+
+`ClassifyBindingRank` boundaries (class I 0.5/2, class II 2/10), all strict `<`: 0.4/I→Strong, 0.5/I→Weak, 2.0/I→NonBinder; 1.5/II→Strong, 2.0/II→Weak, 10.0/II→NonBinder. All match the code.
+
+**Predict→classify chain end-to-end** (`PredictAndClassifySmm` → `ClassifyBindingAffinity`, SMM transform `IC50 = 50000^(1−score)` from MHC-MATRIX-001):
+- GILGFVFTL (influenza M1 58–66, paradigm HLA-A*02:01 binder), contributions summing to score 1.0 → IC50 = 50000⁰ = **1 nM → Strong**.
+- score 0.6 → IC50 = 50000⁰·⁴ = 75.786 nM ∈ [50,500) → **Weak**.
+- poly-W 9-mer, score 0 → IC50 = 50000¹ = **50000 nM → NonBinder**.
+Chain composes correctly: predictor yields IC50, classifier applies the sourced thresholds. Binder IC50 (1 nM) ≪ non-binder IC50 (50000 nM), correct ranking.
+
+### Stage B — implementation & test-quality gate
+- Code path re-read (`OncologyAnalyzer.cs:8197–8287`, chain `:8526–8531`): all four classifiers realise the strict-`<` nested-threshold model exactly; the chain delegates the predicted IC50 into `ClassifyBindingAffinity`. **Stage B: PASS.**
+- Test fixture `OncologyAnalyzer_ClassifyMhcBinding_Tests.cs` (47 tests) re-audited against the HARD gate: every classification assertion is an exact `Is.EqualTo`/`Throws<>` carrying the published cutoff value in its citation comment — sourced, not code-echoed. A `<`→`<=` flip fails M2/M4/M7/M9/M11b/M12; swapping class I/II cutoffs fails M11/M11b/M13. Coverage is complete on the unit's own surface: every IC50 boundary (50/500) and %Rank boundary (0.5/2 class I, 2/10 class II), all three bands (Strong/Weak/NonBinder), the length gate (class I 8/11/12, class II 13/25/26, non-positive), all invalid-input paths (IC50 ≤0/NaN/±∞, %Rank out-of-range/NaN, null peptide, empty matrix), and the predict→classify chain in all three bands (P9 Strong, P10b Weak, P10 NonBinder). No green-washing, no skips; the only inequality assertions are ranking sanity in the predictor (MHC-MATRIX-001) tests, paired with exact value checks.
+
+### End-state
+**✅ CLEAN.** No code or description defect on ONCO-MHC-001's own surface; thresholds, categories and strict-`<` boundary handling all trace to IEDB/NetMHCpan/Sette retrieved this session; the predict→classify chain is correct and tested end-to-end. **No code/test change made this session** (the surface was already complete and correctly sourced). Unit fixture **47 passed / 0 failed**; the prior full-suite baseline (18213 green) is unchanged since no files were touched. The trained predictor matrices being caller-supplied (MHC-MATRIX-001) and the MHCflurry weight pack being the separate MHC-NN-001 are the documented, accepted scope boundaries.
 
 ## Scope
 
