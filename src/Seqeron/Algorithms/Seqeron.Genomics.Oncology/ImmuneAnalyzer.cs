@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
 using System.Linq;
 
 namespace Seqeron.Genomics.Oncology;
@@ -39,6 +41,41 @@ public static class ImmuneAnalyzer
     /// Source: Yoshihara et al. (2013), Nature Communications 4:2612.
     /// </summary>
     public const double EstimatePurityCoefficientB = 0.0001467884;
+
+    /// <summary>
+    /// The set of ν (nu) values CIBERSORT sweeps for ν-support-vector-regression deconvolution.
+    /// For each ν the linear-kernel ν-SVR is solved; the ν giving the lowest RMSE between the
+    /// observed mixture <c>m</c> and the reconstruction <c>B·f</c> is selected.
+    /// Source: Newman et al. (2015), Nature Methods 12(5):453-457; CIBERSORT protocol
+    /// (Chen et al., 2018, Methods Mol Biol 1711:243-259) — "CIBERSORT uses a set of ν values
+    /// (0.25, 0.5, 0.75) and chooses the value producing the best [lowest-RMSE] result."
+    /// </summary>
+    public static readonly IReadOnlyList<double> CibersortNuValues = new[] { 0.25, 0.5, 0.75 };
+
+    /// <summary>
+    /// Regularization constant C of the ν-SVR primal/dual (box bound on the dual variables,
+    /// α_i, α_i* ∈ [0, C]). CIBERSORT/libsvm use the default C = 1. Source: Schölkopf et al. (2000),
+    /// "New Support Vector Algorithms", Neural Computation 12(5):1207-1245 (ν-SVR formulation);
+    /// libsvm default cost = 1 (Chang &amp; Lin, 2011).
+    /// </summary>
+    public const double NuSvrCost = 1.0;
+
+    /// <summary>
+    /// Number of immune cell types in the bundled ABIS-Seq signature matrix (Monaco et al., 2019).
+    /// Source: Monaco G et al. (2019), Cell Reports 26(6):1627-1640.e7, Table S5 (ABIS-Seq sheet).
+    /// </summary>
+    public const int AbisSignatureCellTypeCount = 17;
+
+    /// <summary>
+    /// Number of genes (rows) in the bundled ABIS-Seq signature matrix (Monaco et al., 2019).
+    /// Source: Monaco G et al. (2019), Cell Reports 26(6):1627-1640.e7, Table S5 (ABIS-Seq sheet).
+    /// </summary>
+    public const int AbisSignatureGeneCount = 1296;
+
+    /// <summary>
+    /// Embedded-resource name of the bundled ABIS-Seq signature matrix TSV.
+    /// </summary>
+    private const string AbisResourceName = "Seqeron.Genomics.Oncology.Resources.ABIS_sigmatrixRNAseq.tsv";
 
     /// <summary>
     /// Default immune signature genes: the complete 141-gene ESTIMATE immune signature.
@@ -321,6 +358,23 @@ public static class ImmuneAnalyzer
         double Rmse,
         int OverlappingGenes);
 
+    /// <summary>
+    /// Result of CIBERSORT-style ν-support-vector-regression (ν-SVR) immune cell deconvolution.
+    /// Source: Newman et al. (2015), Nature Methods 12(5):453-457 (CIBERSORT);
+    /// Schölkopf et al. (2000), Neural Computation 12(5):1207-1245 (ν-SVR).
+    /// </summary>
+    /// <param name="CellFractions">Cell-type name → estimated fraction in [0, 1], summing to 1 (after zero-clip and renormalisation).</param>
+    /// <param name="BestNu">The ν value (from <see cref="CibersortNuValues"/>) selected as giving the lowest RMSE.</param>
+    /// <param name="Correlation">Pearson correlation between observed mixture and reconstructed profile at the selected ν.</param>
+    /// <param name="Rmse">Root mean square error of the fit at the selected ν.</param>
+    /// <param name="OverlappingGenes">Number of signature genes found in the expression profile.</param>
+    public readonly record struct NuSvrDeconvolutionResult(
+        IReadOnlyDictionary<string, double> CellFractions,
+        double BestNu,
+        double Correlation,
+        double Rmse,
+        int OverlappingGenes);
+
     #endregion
 
     #region Immune Infiltration Estimation (ESTIMATE)
@@ -375,6 +429,55 @@ public static class ImmuneAnalyzer
             tumorPurity,
             immuneOverlap.Count,
             stromalOverlap.Count);
+    }
+
+    /// <summary>
+    /// Converts a cohort-scaled ESTIMATE score into an <b>absolute</b> tumour-purity estimate
+    /// using the closed-form transform published in the ESTIMATE paper.
+    /// <para>
+    /// <c>purity = cos(0.6049872018 + 0.0001467884 × ESTIMATEScore)</c>
+    /// </para>
+    /// <para>
+    /// This is an <b>opt-in</b> alternative to the relative <see cref="InfiltrationResult.TumorPurity"/>
+    /// returned by <see cref="EstimateInfiltration"/>: that field applies the same cosine to the
+    /// library's <i>single-sample, un-normalised</i> ssGSEA integral and is therefore a relative
+    /// value, whereas this method applies the transform to a caller-supplied ESTIMATE score that is
+    /// on the original ESTIMATE numeric scale (the sum of the cohort-/rank-normalised immune and
+    /// stromal ssGSEA scores produced by the ESTIMATE R package).
+    /// </para>
+    /// <para>
+    /// <b>Domain.</b> The regression curve was fit by nonlinear least squares against ABSOLUTE
+    /// purity on TCGA <b>Affymetrix</b> data; it is calibrated for, and should only be applied to,
+    /// Affymetrix-derived ESTIMATE scores (it is not valid for RNA-seq-derived scores). Following the
+    /// reference implementation, when the cosine evaluates to a <b>negative</b> value the purity is
+    /// undefined and this method returns <see cref="double.NaN"/> (the R <c>estimate</c>/
+    /// <c>tidyestimate</c> packages set such values to <c>NA</c>); otherwise the returned purity lies
+    /// in (0, 1].
+    /// </para>
+    /// <para>
+    /// Source: Yoshihara et al. (2013), Nature Communications 4:2612, doi:10.1038/ncomms3612
+    /// ("Tumor purity was estimated …  Tumor_purity = cos(0.6049872018 + 0.0001467884 × ESTIMATEScore)";
+    /// "regression curve … based on ABSOLUTE … by applying the nonlinear least squares method").
+    /// Reference implementation: ESTIMATE R package; tidyestimate <c>estimate_score()</c>
+    /// (<c>purity = cos(0.6049872018 + 0.0001467884 * estimate); purity = ifelse(purity &lt; 0, NA, purity)</c>).
+    /// </para>
+    /// </summary>
+    /// <param name="estimateScore">
+    /// The ESTIMATE score (immune + stromal enrichment) on the original ESTIMATE numeric scale,
+    /// derived from Affymetrix expression data.
+    /// </param>
+    /// <returns>
+    /// The absolute tumour purity in (0, 1], or <see cref="double.NaN"/> when the score lies outside
+    /// the domain where the cosine model yields a non-negative purity.
+    /// </returns>
+    public static double EstimateTumorPurity(double estimateScore)
+    {
+        double purity = Math.Cos(EstimatePurityCoefficientA + EstimatePurityCoefficientB * estimateScore);
+
+        // Reference implementation (ESTIMATE / tidyestimate): negative cosine values are out of the
+        // calibrated domain and are reported as NA. We mirror that as NaN rather than clamping,
+        // because a clamped 0 would falsely imply a valid (fully non-tumour) estimate.
+        return purity < 0.0 ? double.NaN : purity;
     }
 
     #endregion
@@ -497,6 +600,301 @@ public static class ImmuneAnalyzer
 
     #endregion
 
+    #region Immune Cell Deconvolution (CIBERSORT ν-SVR)
+
+    /// <summary>
+    /// Deconvolutes immune cell-type proportions from a bulk expression profile using
+    /// <b>ν-support-vector regression</b> (ν-SVR) with a linear kernel — the regression engine of
+    /// CIBERSORT (Newman et al., 2015).
+    /// <para>
+    /// For the mixture vector <c>m</c> (genes) and a signature matrix <c>B</c> (genes × cell types),
+    /// a linear ν-SVR of <c>m</c> on the columns of <c>B</c> is solved at each ν in
+    /// <see cref="CibersortNuValues"/> (0.25, 0.5, 0.75). For each ν the regression weight vector
+    /// <c>f</c> = <c>w</c> is recovered; the ν giving the lowest RMSE between <c>m</c> and
+    /// <c>B·f</c> is selected. Negative weights are set to 0 and the remaining weights are
+    /// normalised to sum to 1, giving cell-type fractions.
+    /// </para>
+    /// <para>
+    /// The ν-SVR optimisation follows Schölkopf et al. (2000): minimise
+    /// <c>½‖w‖² + C(Σ(ξ_i+ξ_i*)/ℓ + νε)</c> subject to the ε-insensitive tube constraints, whose
+    /// linear-kernel dual is maximise
+    /// <c>−½ Σ(α_i−α_i*)(α_j−α_j*)⟨x_i,x_j⟩ + Σ y_i(α_i−α_i*)</c> subject to
+    /// <c>Σ(α_i−α_i*)=0</c>, <c>Σ(α_i+α_i*) ≤ C·ν·ℓ</c>, <c>α_i, α_i* ∈ [0, C]</c>; here
+    /// <c>w = Σ(α_i−α_i*)x_i</c>. Per Theorem 9 of Schölkopf et al. (2000), ν is an upper bound on
+    /// the fraction of points outside the tube and a lower bound on the fraction of support vectors.
+    /// </para>
+    /// <para>
+    /// <b>LM22.</b> CIBERSORT is normally run with the LM22 signature matrix (547 genes × 22 cell
+    /// types). LM22 is distributed by Stanford under a non-commercial licence that forbids
+    /// redistribution ("RECIPIENT shall not distribute the Program or transfer it to any other
+    /// person or organization without prior written permission from STANFORD"), so it is <b>not</b>
+    /// bundled with this library. Obtain <c>LM22.txt</c> from https://cibersort.stanford.edu under
+    /// your own licence and supply it via <see cref="LoadSignatureMatrix"/>. If
+    /// <paramref name="signatureMatrix"/> is null, the bundled representative 5-marker
+    /// <see cref="DefaultSignatureMatrix"/> is used (a small synthetic matrix, not LM22).
+    /// </para>
+    /// <para>
+    /// Source: Newman et al. (2015), Nature Methods 12(5):453-457, doi:10.1038/nmeth.3337.
+    /// Source: Schölkopf, Smola, Williamson &amp; Bartlett (2000), Neural Computation 12(5):1207-1245,
+    /// doi:10.1162/089976600300015565; Smola &amp; Schölkopf (2004) tutorial, eqs (60)-(62).
+    /// </para>
+    /// </summary>
+    /// <param name="expressionProfile">Dictionary mapping gene names to expression values (mixture vector m).</param>
+    /// <param name="signatureMatrix">
+    /// Signature matrix B: outer key = cell type, inner dictionary = gene → reference expression.
+    /// If null, uses <see cref="DefaultSignatureMatrix"/> (NOT LM22 — see remarks). Supply LM22 via
+    /// <see cref="LoadSignatureMatrix"/>.
+    /// </param>
+    /// <param name="nuValues">ν values to sweep. If null, uses <see cref="CibersortNuValues"/> (0.25, 0.5, 0.75).</param>
+    /// <returns>A <see cref="NuSvrDeconvolutionResult"/> with cell-type fractions, the selected ν, correlation, RMSE, and overlap count.</returns>
+    public static NuSvrDeconvolutionResult DeconvoluteImmuneCellsNuSvr(
+        IReadOnlyDictionary<string, double> expressionProfile,
+        IReadOnlyDictionary<string, IReadOnlyDictionary<string, double>>? signatureMatrix = null,
+        IReadOnlyList<double>? nuValues = null)
+    {
+        ArgumentNullException.ThrowIfNull(expressionProfile);
+
+        signatureMatrix ??= DefaultSignatureMatrix;
+        nuValues ??= CibersortNuValues;
+
+        var allSignatureGenes = signatureMatrix.Values
+            .SelectMany(cellGenes => cellGenes.Keys)
+            .Distinct()
+            .ToList();
+
+        var overlappingGenes = allSignatureGenes
+            .Where(g => expressionProfile.ContainsKey(g))
+            .ToList();
+
+        var cellTypes = signatureMatrix.Keys.ToList();
+
+        if (overlappingGenes.Count == 0 || cellTypes.Count == 0)
+        {
+            var emptyFractions = cellTypes.ToDictionary(ct => ct, _ => 0.0);
+            return new NuSvrDeconvolutionResult(emptyFractions, BestNu: 0.0, Correlation: 0.0, Rmse: 0.0, OverlappingGenes: 0);
+        }
+
+        int nGenes = overlappingGenes.Count;
+        int nCellTypes = cellTypes.Count;
+
+        // Build mixture vector m and signature matrix B (genes × cell types).
+        double[] m = new double[nGenes];
+        double[,] b = new double[nGenes, nCellTypes];
+        for (int i = 0; i < nGenes; i++)
+        {
+            m[i] = expressionProfile[overlappingGenes[i]];
+            for (int j = 0; j < nCellTypes; j++)
+            {
+                if (signatureMatrix[cellTypes[j]].TryGetValue(overlappingGenes[i], out double val))
+                    b[i, j] = val;
+            }
+        }
+
+        // CIBERSORT normalises both the mixture and the signature to zero mean / unit variance
+        // before regression so the SVR scale is comparable across features and samples.
+        // Source: Newman et al. (2015) — "the mixture and signature gene expression values are
+        // standardized (z-score)". The recovered weights w of the standardized regression are the
+        // cell-type coefficients; only their sign and relative magnitude (post-normalisation) matter.
+        double[] mz = Standardize(m);
+        double[,] bz = StandardizeColumns(b, nGenes, nCellTypes);
+
+        // Solve the linear ν-SVR for each ν; keep the weight vector with the lowest reconstruction RMSE.
+        double[]? bestWeights = null;
+        double bestNu = 0.0;
+        double bestRmse = double.PositiveInfinity;
+
+        foreach (double nu in nuValues)
+        {
+            double[] w = SolveNuSvrLinear(bz, mz, nGenes, nCellTypes, nu, NuSvrCost);
+
+            // Reconstruct on the standardized scale and measure RMSE (CIBERSORT's selection metric).
+            double[] reconstructed = new double[nGenes];
+            for (int i = 0; i < nGenes; i++)
+            {
+                double acc = 0.0;
+                for (int j = 0; j < nCellTypes; j++)
+                    acc += bz[i, j] * w[j];
+                reconstructed[i] = acc;
+            }
+
+            double rmse = ComputeRmse(mz, reconstructed);
+            if (rmse < bestRmse)
+            {
+                bestRmse = rmse;
+                bestNu = nu;
+                bestWeights = w;
+            }
+        }
+
+        double[] fractions = bestWeights ?? new double[nCellTypes];
+
+        // Zero-clip negative coefficients and normalise to sum 1.
+        // Source: Newman et al. (2015) — negative weights are set to zero and the remaining
+        // coefficients are normalised to sum to 1 to yield cell-type fractions.
+        for (int j = 0; j < nCellTypes; j++)
+        {
+            if (fractions[j] < 0.0)
+                fractions[j] = 0.0;
+        }
+
+        double sum = fractions.Sum();
+        if (sum > 0.0)
+        {
+            for (int j = 0; j < nCellTypes; j++)
+                fractions[j] /= sum;
+        }
+
+        // Quality metrics on the ORIGINAL (non-standardized) scale, against the final fractions.
+        double[] recon = new double[nGenes];
+        for (int i = 0; i < nGenes; i++)
+        {
+            double acc = 0.0;
+            for (int j = 0; j < nCellTypes; j++)
+                acc += b[i, j] * fractions[j];
+            recon[i] = acc;
+        }
+
+        double correlation = ComputePearsonCorrelation(m, recon);
+        double finalRmse = ComputeRmse(m, recon);
+
+        var cellFractions = new Dictionary<string, double>();
+        for (int j = 0; j < nCellTypes; j++)
+            cellFractions[cellTypes[j]] = fractions[j];
+
+        return new NuSvrDeconvolutionResult(cellFractions, bestNu, correlation, finalRmse, overlappingGenes.Count);
+    }
+
+    /// <summary>
+    /// Parses a CIBERSORT LM22-format signature matrix from tab-separated text into the
+    /// <c>cellType → (gene → value)</c> shape consumed by <see cref="DeconvoluteImmuneCellsNuSvr"/>
+    /// and <see cref="DeconvoluteImmuneCells"/>.
+    /// <para>
+    /// Format (per the LM22 distribution): a tab-separated table whose first row is a header —
+    /// the first column label (e.g. "Gene symbol") followed by the cell-type column names — and
+    /// whose subsequent rows each give a gene symbol followed by one numeric value per cell type.
+    /// The full LM22 is 547 genes × 22 cell types.
+    /// </para>
+    /// <para>
+    /// <b>Licence.</b> The LM22 matrix itself is NOT bundled: Stanford distributes it under a
+    /// non-commercial licence forbidding redistribution. Obtain <c>LM22.txt</c> from
+    /// https://cibersort.stanford.edu under your own licence and pass its contents here.
+    /// Source (format): Newman et al. (2015), Nature Methods 12(5):453-457, Supplementary Table.
+    /// </para>
+    /// </summary>
+    /// <param name="tsvLines">The lines of an LM22-format TSV (first line = header).</param>
+    /// <returns>A signature matrix: cell-type name → (gene symbol → reference expression value).</returns>
+    /// <exception cref="ArgumentNullException">If <paramref name="tsvLines"/> is null.</exception>
+    /// <exception cref="FormatException">If the header or any data row is malformed (no columns, ragged rows, or non-numeric value).</exception>
+    public static IReadOnlyDictionary<string, IReadOnlyDictionary<string, double>> LoadSignatureMatrix(
+        IEnumerable<string> tsvLines)
+    {
+        ArgumentNullException.ThrowIfNull(tsvLines);
+
+        using var e = tsvLines.GetEnumerator();
+
+        // Skip leading blank lines, then read the header.
+        string? header = null;
+        while (e.MoveNext())
+        {
+            if (!string.IsNullOrWhiteSpace(e.Current))
+            {
+                header = e.Current;
+                break;
+            }
+        }
+
+        if (header is null)
+            throw new FormatException("Signature matrix is empty: no header row found.");
+
+        string[] headerCols = header.Split('\t');
+        if (headerCols.Length < 2)
+            throw new FormatException("Signature matrix header must have a gene-symbol column followed by at least one cell-type column.");
+
+        int nCellTypes = headerCols.Length - 1;
+        var cellTypeNames = new string[nCellTypes];
+        var matrix = new Dictionary<string, Dictionary<string, double>>(nCellTypes);
+        for (int j = 0; j < nCellTypes; j++)
+        {
+            string name = headerCols[j + 1].Trim();
+            cellTypeNames[j] = name;
+            matrix[name] = new Dictionary<string, double>();
+        }
+
+        while (e.MoveNext())
+        {
+            string line = e.Current;
+            if (string.IsNullOrWhiteSpace(line))
+                continue;
+
+            string[] cols = line.Split('\t');
+            if (cols.Length != headerCols.Length)
+                throw new FormatException(
+                    $"Ragged signature-matrix row: expected {headerCols.Length} columns, got {cols.Length}.");
+
+            string gene = cols[0].Trim();
+            for (int j = 0; j < nCellTypes; j++)
+            {
+                if (!double.TryParse(cols[j + 1].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double val))
+                    throw new FormatException($"Non-numeric signature value '{cols[j + 1]}' for gene '{gene}', cell type '{cellTypeNames[j]}'.");
+                matrix[cellTypeNames[j]][gene] = val;
+            }
+        }
+
+        return matrix.ToDictionary(
+            kvp => kvp.Key,
+            kvp => (IReadOnlyDictionary<string, double>)kvp.Value);
+    }
+
+    /// <summary>
+    /// Loads the <b>bundled ABIS-Seq immune-cell signature matrix</b> (Monaco et al., 2019) so that
+    /// <see cref="DeconvoluteImmuneCellsNuSvr"/> works out-of-the-box without a caller-supplied matrix.
+    /// <para>
+    /// The matrix is the RNA-seq (ABIS-Seq) "well-conditioned signature matrix" of Monaco et al. (2019):
+    /// <see cref="AbisSignatureGeneCount"/> genes × <see cref="AbisSignatureCellTypeCount"/> immune cell
+    /// types (Monocytes C, NK, T CD8 Memory, T CD4 Naive, T CD8 Naive, B Naive, T CD4 Memory, MAIT,
+    /// T gd Vd2, Neutrophils LD, T gd non-Vd2, Basophils LD, Monocytes NC+I, B Memory, mDCs, pDCs,
+    /// Plasmablasts). Values are mRNA-abundance-normalised expression on the original ABIS scale.
+    /// Pass the result as the <c>signatureMatrix</c> argument of <see cref="DeconvoluteImmuneCellsNuSvr"/>
+    /// or <see cref="DeconvoluteImmuneCells"/>.
+    /// </para>
+    /// <para>
+    /// <b>Provenance and licence.</b> The matrix is Table S5 (sheet "ABIS-Seq") of the open-access paper,
+    /// retrieved from PMC6367568 supplementary file <c>mmc6.xlsx</c>. The article is published under the
+    /// Creative Commons Attribution 4.0 (CC BY 4.0) licence ("© 2019 The Authors. This is an open access
+    /// article under the CC BY license"), which permits redistribution with attribution; the bundled
+    /// resource carries this provenance/licence in its header. Unlike CIBERSORT LM22 (Stanford,
+    /// no-redistribution — caller-supplied via <see cref="LoadSignatureMatrix"/>), ABIS may be bundled.
+    /// Source: Monaco G, Lee B, Xu W, et al. "RNA-Seq Signatures Normalized by mRNA Abundance Allow
+    /// Absolute Deconvolution of Human Immune Cell Types." Cell Reports 26(6):1627-1640.e7, 2019,
+    /// doi:10.1016/j.celrep.2019.01.041; PMID:30726743.
+    /// </para>
+    /// </summary>
+    /// <returns>The bundled ABIS-Seq signature matrix: cell-type name → (gene symbol → reference expression value).</returns>
+    public static IReadOnlyDictionary<string, IReadOnlyDictionary<string, double>> LoadBundledAbisSignatureMatrix()
+    {
+        var asm = typeof(ImmuneAnalyzer).Assembly;
+        using Stream stream = asm.GetManifestResourceStream(AbisResourceName)
+            ?? throw new InvalidOperationException($"Bundled ABIS signature matrix resource '{AbisResourceName}' was not found.");
+        using var reader = new StreamReader(stream);
+
+        // The bundled TSV carries a provenance/licence header in '#'-prefixed comment lines; strip
+        // them so LoadSignatureMatrix sees the gene/cell-type header as the first non-blank line.
+        return LoadSignatureMatrix(ReadNonCommentLines(reader));
+
+        static IEnumerable<string> ReadNonCommentLines(StreamReader r)
+        {
+            string? line;
+            while ((line = r.ReadLine()) is not null)
+            {
+                if (line.StartsWith('#'))
+                    continue;
+                yield return line;
+            }
+        }
+    }
+
+    #endregion
+
     #region Private Helpers
 
     /// <summary>
@@ -571,6 +969,284 @@ public static class ImmuneAnalyzer
         }
 
         return integral;
+    }
+
+    /// <summary>
+    /// Standardizes a vector to zero mean and unit (population) standard deviation (z-score).
+    /// If the standard deviation is ~0, returns the mean-centred vector (all zeros) to avoid div-by-0.
+    /// Source: Newman et al. (2015) — mixture/signature z-score standardisation prior to ν-SVR.
+    /// </summary>
+    private static double[] Standardize(double[] v)
+    {
+        int n = v.Length;
+        if (n == 0)
+            return Array.Empty<double>();
+
+        double mean = v.Average();
+        double sumSq = 0.0;
+        for (int i = 0; i < n; i++)
+        {
+            double d = v[i] - mean;
+            sumSq += d * d;
+        }
+
+        double sd = Math.Sqrt(sumSq / n);
+        double[] result = new double[n];
+        if (sd < 1e-15)
+        {
+            for (int i = 0; i < n; i++)
+                result[i] = 0.0;
+            return result;
+        }
+
+        for (int i = 0; i < n; i++)
+            result[i] = (v[i] - mean) / sd;
+
+        return result;
+    }
+
+    /// <summary>
+    /// Standardizes each column of an n×k matrix to zero mean and unit (population) standard deviation.
+    /// </summary>
+    private static double[,] StandardizeColumns(double[,] matrix, int nRows, int nCols)
+    {
+        double[,] result = new double[nRows, nCols];
+        for (int j = 0; j < nCols; j++)
+        {
+            double mean = 0.0;
+            for (int i = 0; i < nRows; i++)
+                mean += matrix[i, j];
+            mean /= nRows;
+
+            double sumSq = 0.0;
+            for (int i = 0; i < nRows; i++)
+            {
+                double d = matrix[i, j] - mean;
+                sumSq += d * d;
+            }
+
+            double sd = Math.Sqrt(sumSq / nRows);
+            if (sd < 1e-15)
+            {
+                for (int i = 0; i < nRows; i++)
+                    result[i, j] = 0.0;
+            }
+            else
+            {
+                for (int i = 0; i < nRows; i++)
+                    result[i, j] = (matrix[i, j] - mean) / sd;
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Solves a linear-kernel ν-support-vector regression of the target vector <paramref name="y"/>
+    /// on the columns of the design matrix <paramref name="x"/> (rows = samples/genes,
+    /// columns = features/cell types) and returns the primal weight vector <c>w</c> (length nCols).
+    /// <para>
+    /// Implements the ν-SVR dual of Schölkopf et al. (2000) (Smola &amp; Schölkopf tutorial eqs (60)-(62)):
+    /// maximise <c>−½ Σ(α_i−α_i*)(α_j−α_j*)⟨x_i,x_j⟩ + Σ y_i(α_i−α_i*)</c> subject to
+    /// <c>Σ(α_i−α_i*)=0</c>, <c>Σ(α_i+α_i*) ≤ C·ν·ℓ</c> and <c>α_i, α_i* ∈ [0, C]</c>, where here a
+    /// "sample" is a gene (row of the signature matrix) whose feature vector is that gene's row.
+    /// The primal weights are recovered as <c>w = Σ(α_i−α_i*)·rowFeature_i</c> — these are the
+    /// cell-type regression coefficients <c>f</c>.
+    /// </para>
+    /// <para>
+    /// The dual QP is convex; it is solved by an SMO-style pairwise coordinate ascent over the dual
+    /// variables β_i = α_i − α_i* that exactly maintains the equality constraint Σβ_i = 0 (each step
+    /// moves a pair (β_p, β_q) by (+δ, −δ)) and enforces the ν budget Σ|β_i| ≤ C·ν·ℓ and the box
+    /// |β_i| ≤ C. At optimum the KKT conditions of the dual hold; see the accompanying tests.
+    /// </para>
+    /// <para>Source: Schölkopf et al. (2000), Neural Computation 12(5):1207-1245; Newman et al. (2015), Nature Methods 12:453.</para>
+    /// </summary>
+    /// <param name="x">Design matrix, nRows × nCols (gene rows × cell-type features).</param>
+    /// <param name="y">Target vector (mixture), length nRows.</param>
+    /// <param name="nRows">Number of samples (genes).</param>
+    /// <param name="nCols">Number of features (cell types) = length of the returned weight vector.</param>
+    /// <param name="nu">ν parameter in (0, 1].</param>
+    /// <param name="cost">Regularisation constant C (box bound on dual variables).</param>
+    private static double[] SolveNuSvrLinear(double[,] x, double[] y, int nRows, int nCols, double nu, double cost)
+    {
+        // Work in the "sample = gene row" space: each sample i has feature vector x[i, :].
+        // Dual variable per sample: beta_i = alpha_i - alpha_i* in [-C, C].
+        // Linear kernel K_ij = <x_i, x_j>.
+        int l = nRows;
+        double[,] k = new double[l, l];
+        for (int i = 0; i < l; i++)
+        {
+            for (int j = i; j < l; j++)
+            {
+                double dot = 0.0;
+                for (int c = 0; c < nCols; c++)
+                    dot += x[i, c] * x[j, c];
+                k[i, j] = dot;
+                k[j, i] = dot;
+            }
+        }
+
+        // ν budget on Σ(α_i + α_i*) = Σ|β_i|.
+        double nuBudget = cost * nu * l;
+
+        double[] beta = new double[l];           // β_i = α_i − α_i*
+        // Gradient of the dual objective W(β) = −½ βᵀKβ + Σ y_i β_i (subject to constraints)
+        // with respect to β_i: g_i = y_i − Σ_j K_ij β_j. (β starts at 0 ⇒ g_i = y_i.)
+        double[] grad = new double[l];
+        Array.Copy(y, grad, l);
+
+        const double Tol = 1e-10;
+        const double Eps = 1e-12;
+        int maxIterations = 200 * Math.Max(l, 1);
+
+        for (int iter = 0; iter < maxIterations; iter++)
+        {
+            // Select a working pair (p, q) by maximum-violating-pair on the equality constraint.
+            // Moving (β_p, β_q) by (+δ, −δ) keeps Σβ_i = 0. The directional gradient is g_p − g_q;
+            // pick p maximising g (subject to being allowed to increase) and q minimising g.
+            double sumAbs = 0.0;
+            for (int i = 0; i < l; i++)
+                sumAbs += Math.Abs(beta[i]);
+
+            int p = -1, q = -1;
+            double gMaxUp = double.NegativeInfinity;   // best candidate to increase β
+            double gMaxDown = double.PositiveInfinity;  // best candidate to decrease β
+
+            for (int i = 0; i < l; i++)
+            {
+                bool canIncrease = beta[i] < cost - Eps && (sumAbs < nuBudget - Eps || beta[i] < -Eps);
+                bool canDecrease = beta[i] > -cost + Eps && (sumAbs < nuBudget - Eps || beta[i] > Eps);
+
+                if (canIncrease && grad[i] > gMaxUp)
+                {
+                    gMaxUp = grad[i];
+                    p = i;
+                }
+                if (canDecrease && grad[i] < gMaxDown)
+                {
+                    gMaxDown = grad[i];
+                    q = i;
+                }
+            }
+
+            if (p == -1 || q == -1 || p == q)
+                break;
+
+            double violation = gMaxUp - gMaxDown;
+            if (violation < Tol)
+                break;
+
+            // Unconstrained optimal step for moving (β_p += δ, β_q -= δ):
+            // δ* = (g_p − g_q) / (K_pp + K_qq − 2 K_pq).
+            double curvature = k[p, p] + k[q, q] - 2.0 * k[p, q];
+            if (curvature < Eps)
+                curvature = Eps;
+
+            double delta = (grad[p] - grad[q]) / curvature;
+            if (delta <= 0.0)
+                break;
+
+            // Clip δ against the box on β_p and β_q.
+            double maxUpP = cost - beta[p];      // β_p may rise to +C
+            double maxDownQ = beta[q] + cost;    // β_q may fall to −C
+            delta = Math.Min(delta, Math.Min(maxUpP, maxDownQ));
+
+            // Clip δ against the ν budget Σ|β_i| ≤ nuBudget.
+            // The change in Σ|β| from this (+δ, −δ) move depends on the signs of β_p, β_q.
+            delta = ClipDeltaForNuBudget(beta[p], beta[q], delta, sumAbs, nuBudget, Eps);
+
+            if (delta <= Eps)
+                break;
+
+            beta[p] += delta;
+            beta[q] -= delta;
+
+            // Update gradient: g_i -= δ (K_ip − K_iq).
+            for (int i = 0; i < l; i++)
+                grad[i] -= delta * (k[i, p] - k[i, q]);
+        }
+
+        // Recover primal weights w = Σ_i β_i x_i (length nCols).
+        double[] w = new double[nCols];
+        for (int i = 0; i < l; i++)
+        {
+            double bi = beta[i];
+            if (bi == 0.0)
+                continue;
+            for (int c = 0; c < nCols; c++)
+                w[c] += bi * x[i, c];
+        }
+
+        return w;
+    }
+
+    /// <summary>
+    /// Clips the SMO step δ for a (+δ, −δ) move on (β_p, β_q) so that Σ|β_i| does not exceed the
+    /// ν budget <paramref name="nuBudget"/>. Computes the largest feasible δ ∈ (0, <paramref name="delta"/>]
+    /// such that |β_p+δ| + |β_q−δ| − |β_p| − |β_q| keeps the total ≤ budget.
+    /// </summary>
+    private static double ClipDeltaForNuBudget(double betaP, double betaQ, double delta, double sumAbs, double nuBudget, double eps)
+    {
+        // ΔsumAbs(δ) = (|β_p+δ| − |β_p|) + (|β_q−δ| − |β_q|). Piecewise-linear, non-decreasing slope
+        // in regions; the worst case is when both moves add magnitude (β_p ≥ 0, β_q ≤ 0), giving
+        // ΔsumAbs = 2δ. Solve sumAbs + ΔsumAbs(δ) ≤ nuBudget for δ.
+        double headroom = nuBudget - sumAbs;
+        if (headroom <= eps)
+        {
+            // No budget headroom: only moves that do not increase Σ|β| are allowed, i.e. δ limited so
+            // that β_p moves toward 0 (β_p < 0) and/or β_q moves toward 0 (β_q > 0).
+            // Slope of ΔsumAbs at δ→0+ is sign-based: +1 if β_p ≥ 0 else −1, plus +1 if β_q ≤ 0 else −1.
+            double slope = (betaP >= 0 ? 1.0 : -1.0) + (betaQ <= 0 ? 1.0 : -1.0);
+            if (slope > 0)
+                return 0.0;
+            // slope ≤ 0: the move (weakly) frees budget up to the kink where a sign flips.
+            double kink = double.PositiveInfinity;
+            if (betaP < 0) kink = Math.Min(kink, -betaP);       // β_p reaches 0
+            if (betaQ > 0) kink = Math.Min(kink, betaQ);        // β_q reaches 0
+            return Math.Min(delta, kink);
+        }
+
+        // Compute ΔsumAbs as a function of δ and cap δ so it does not exceed headroom.
+        // Use the conservative worst-case slope of +2 only where both add magnitude; otherwise the
+        // exact piecewise value. Walk to the first sign kink, accumulate.
+        double remaining = delta;
+        double budgetLeft = headroom;
+        double bp = betaP, bq = betaQ;
+        double allowed = 0.0;
+
+        while (remaining > eps)
+        {
+            double slope = (bp >= 0 ? 1.0 : -1.0) + (bq <= 0 ? 1.0 : -1.0);
+
+            // Distance to the next kink (where bp hits 0 going up, or bq hits 0 going down).
+            double kink = remaining;
+            if (bp < 0) kink = Math.Min(kink, -bp);
+            if (bq > 0) kink = Math.Min(kink, bq);
+
+            if (slope <= 0)
+            {
+                // This segment does not consume budget; take it fully.
+                allowed += kink;
+                bp += kink;
+                bq -= kink;
+                remaining -= kink;
+                continue;
+            }
+
+            // slope > 0: this segment consumes budget at the given slope.
+            double maxBySegment = budgetLeft / slope;
+            double step = Math.Min(kink, maxBySegment);
+            allowed += step;
+            budgetLeft -= step * slope;
+            bp += step;
+            bq -= step;
+            remaining -= step;
+
+            if (budgetLeft <= eps)
+                break;
+        }
+
+        return allowed;
     }
 
     /// <summary>

@@ -22,6 +22,24 @@ public static class ChromosomeAnalyzer
     /// </summary>
     public const string AlphaSatelliteConsensus = "AATGAATATTTCTTTTATGTTCCTTAAAGTAGAAATGTCAAGAATATGTTAAGCCTTAAATG";
 
+    /// <summary>
+    /// Length in base pairs of the human alpha-satellite (alphoid) monomer — the fundamental
+    /// tandemly-repeated unit of human centromeric DNA.
+    /// Source: Willard HF (1985); Waye JS, Willard HF (1987); review Hartley G, O'Neill RJ (2019),
+    /// Alpha satellite DNA biology (PMC6121732): "Alpha satellite DNA is composed of fundamental
+    /// 171bp monomeric repeat units."
+    /// </summary>
+    public const int AlphaSatelliteMonomerLength = 171;
+
+    /// <summary>
+    /// Canonical 17-bp CENP-B box consensus motif, written with IUPAC ambiguity codes:
+    /// 5'-YTTCGTTGGAARCGGGA-3' (Y = C/T, R = A/G).
+    /// Source: Masumoto H, Masukata H, Muro Y, Nozaki N, Okazaki T (1989), J Cell Biol 109(4):1963-1973;
+    /// consensus as reported in PMC6121732 ("5'-T/CTCGTTGGAAA/GCGGGA-3'") and PMC4843215
+    /// ("YTTCGTTGGAARCGGGA"). CENP-B binds this 17-bp sequence within a subset of alpha-satellite monomers.
+    /// </summary>
+    public const string CenpBBoxConsensus = "YTTCGTTGGAARCGGGA";
+
     #endregion
 
     #region Records
@@ -88,6 +106,61 @@ public static class ChromosomeAnalyzer
         string CentromereType,
         double AlphaSatelliteContent,
         bool IsAcrocentric);
+
+    /// <summary>
+    /// Alpha-satellite (alphoid) specific detection result.
+    /// Unlike <see cref="CentromereResult.AlphaSatelliteContent"/> (a generic tandem-repeat-density
+    /// score), this captures alpha-satellite-specific molecular signatures: a ~171 bp tandem
+    /// periodicity and CENP-B box occurrences.
+    /// </summary>
+    /// <param name="IsAlphaSatellite">True when both molecular signatures are met:
+    /// strong ~171 bp tandem periodicity AND the sequence is AT-rich (alpha satellite is AT-rich).</param>
+    /// <param name="PeriodicityScore">Self-similarity (fraction of bases identical to the base
+    /// <see cref="AlphaSatelliteMonomerLength"/> positions upstream), in [0,1]. ~1 for a clean
+    /// tandem array, ~0.25 for random DNA.</param>
+    /// <param name="BestPeriod">The repeat period (bp) with the highest self-similarity within the
+    /// searched tolerance window around 171 bp, or 0 if none searched.</param>
+    /// <param name="AtContent">Fraction of A/T bases in [0,1].</param>
+    /// <param name="CenpBBoxCount">Number of CENP-B box (17-bp) matches found.</param>
+    public readonly record struct AlphaSatelliteResult(
+        bool IsAlphaSatellite,
+        double PeriodicityScore,
+        int BestPeriod,
+        double AtContent,
+        int CenpBBoxCount);
+
+    /// <summary>
+    /// Higher-order repeat (HOR) structure of an alpha-satellite array.
+    /// An alpha-satellite HOR is a block of <see cref="MonomersPerUnit"/> distinct ~171 bp monomers
+    /// that is itself tandemly repeated with high identity between copies (inter-HOR), while the
+    /// monomers WITHIN one unit are much more divergent (intra-HOR). Source: McNulty SM, Sullivan BA
+    /// (2018), "Alpha satellite DNA biology" (PMC6121732): "A defined number of individual monomers …
+    /// that are 50–70% identical in sequence are arranged tandemly to form a HOR unit"; "HOR within a
+    /// given array are 97–100% identical".
+    /// </summary>
+    /// <param name="HasHigherOrderStructure">True when a HOR period ≥ 2 monomers was detected (the
+    /// array is organised into multi-monomer HOR units), false for a purely monomeric / single-monomer
+    /// homogeneous array.</param>
+    /// <param name="MonomersPerUnit">The HOR period: number of monomers per HOR unit (the smallest
+    /// block size k such that monomers k apart are inter-HOR identical across the array). 1 when there
+    /// is no multi-monomer HOR organisation.</param>
+    /// <param name="HorUnitLengthBp">Length of one HOR unit in base pairs
+    /// (<see cref="MonomersPerUnit"/> × 171 bp).</param>
+    /// <param name="HorCopyNumber">Number of complete HOR units tiling the analysed monomers
+    /// (⌊monomer count / <see cref="MonomersPerUnit"/>⌋).</param>
+    /// <param name="MonomerCount">Number of ~171 bp monomers the array was split into.</param>
+    /// <param name="MeanInterHorIdentity">Mean percent identity between monomers at the same position
+    /// in different HOR copies (i and i+period). NaN when there are no inter-HOR pairs.</param>
+    /// <param name="MeanIntraHorIdentity">Mean percent identity between distinct monomers within one
+    /// HOR unit. NaN when the unit has a single monomer.</param>
+    public readonly record struct HorResult(
+        bool HasHigherOrderStructure,
+        int MonomersPerUnit,
+        int HorUnitLengthBp,
+        int HorCopyNumber,
+        int MonomerCount,
+        double MeanInterHorIdentity,
+        double MeanIntraHorIdentity);
 
     /// <summary>
     /// Synteny block between species.
@@ -513,6 +586,306 @@ public static class ChromosomeAnalyzer
             < 7.0 => "Subtelocentric",
             _ => "Acrocentric"
         };
+    }
+
+    #endregion
+
+    #region Alpha-Satellite-Specific Detection
+
+    // Sourced parameters for alpha-satellite-specific detection.
+    //
+    // Monomer period: alpha satellite is a tandem repeat of a ~171 bp monomer
+    //   (Willard 1985; Waye & Willard 1987; review PMC6121732). See AlphaSatelliteMonomerLength.
+    // Period tolerance: monomers diverge and indels occur, so the observed tandem period varies
+    //   slightly around 171 bp; we scan a small window around the canonical length and take the best.
+    // AT-richness: alpha satellite is described as an "AT-rich 171-bp alphoid monomer" (PMC6121732).
+    //   A balanced AT content is 0.5; alpha satellite sits above it, so we require AT > 0.5.
+    // Periodicity threshold: monomers within an array share 50-70% identity (PMC6121732), so
+    //   base-level self-similarity at the monomer period for a genuine tandem array is well above
+    //   the ~0.25 expected for random DNA. We require periodicity >= 0.50 (the lower bound of the
+    //   reported 50-70% monomer identity).
+
+    /// <summary>Half-width (bp) of the period search window scanned around the 171 bp monomer length.</summary>
+    private const int MonomerPeriodTolerance = 5;
+
+    /// <summary>Minimum base-level self-similarity at the monomer period to call a tandem array
+    /// (lower bound of the 50-70% intra-array monomer identity, PMC6121732).</summary>
+    private const double MinPeriodicityScore = 0.50;
+
+    /// <summary>Minimum AT fraction for the AT-rich alpha-satellite signature (above the 0.5 balance point).</summary>
+    private const double MinAlphaSatelliteAtContent = 0.50;
+
+    /// <summary>Length (bp) of the CENP-B box motif (Masumoto et al. 1989).</summary>
+    private const int CenpBBoxLength = 17;
+
+    /// <summary>
+    /// Detects alpha-satellite (alphoid)-specific signal in a sequence: a ~171 bp tandem periodicity
+    /// combined with AT-richness, plus a count of CENP-B box occurrences. This is alpha-satellite
+    /// SPECIFIC, in contrast to <see cref="AnalyzeCentromere"/> whose
+    /// <see cref="CentromereResult.AlphaSatelliteContent"/> is a generic tandem-repeat-density score.
+    /// </summary>
+    /// <param name="sequence">DNA sequence to test (case-insensitive).</param>
+    /// <returns>An <see cref="AlphaSatelliteResult"/>. For an empty/too-short sequence, returns a
+    /// no-signal result (not alpha-satellite, zero scores).</returns>
+    public static AlphaSatelliteResult DetectAlphaSatellite(string sequence)
+    {
+        // Need at least two monomers plus the tolerance to measure periodicity at the monomer period.
+        int minLength = AlphaSatelliteMonomerLength + MonomerPeriodTolerance + 1;
+        if (string.IsNullOrEmpty(sequence) || sequence.Length < minLength)
+            return new AlphaSatelliteResult(false, 0, 0, 0, 0);
+
+        sequence = sequence.ToUpperInvariant();
+
+        // 1) AT content (alpha satellite is AT-rich).
+        int atCount = 0;
+        int acgtCount = 0;
+        foreach (char c in sequence)
+        {
+            if (c is 'A' or 'T') { atCount++; acgtCount++; }
+            else if (c is 'C' or 'G') { acgtCount++; }
+        }
+        double atContent = acgtCount > 0 ? atCount / (double)acgtCount : 0;
+
+        // 2) Tandem periodicity: scan periods around the 171 bp monomer length and keep the best
+        //    base-level self-similarity (fraction of positions identical to the base `period` upstream).
+        double bestScore = 0;
+        int bestPeriod = 0;
+        int lowPeriod = AlphaSatelliteMonomerLength - MonomerPeriodTolerance;
+        int highPeriod = AlphaSatelliteMonomerLength + MonomerPeriodTolerance;
+
+        for (int period = lowPeriod; period <= highPeriod; period++)
+        {
+            if (period >= sequence.Length)
+                break;
+
+            int matches = 0;
+            int comparisons = sequence.Length - period;
+            for (int i = period; i < sequence.Length; i++)
+            {
+                if (sequence[i] == sequence[i - period])
+                    matches++;
+            }
+
+            double score = comparisons > 0 ? matches / (double)comparisons : 0;
+            if (score > bestScore)
+            {
+                bestScore = score;
+                bestPeriod = period;
+            }
+        }
+
+        // 3) CENP-B box occurrences.
+        int cenpBCount = CountCenpBBoxes(sequence);
+
+        bool isAlphaSatellite = bestScore >= MinPeriodicityScore && atContent > MinAlphaSatelliteAtContent;
+
+        return new AlphaSatelliteResult(isAlphaSatellite, bestScore, bestPeriod, atContent, cenpBCount);
+    }
+
+    /// <summary>
+    /// Finds the start positions (0-based) of all forward-strand CENP-B box matches in a sequence.
+    /// The CENP-B box is the 17-bp consensus 5'-YTTCGTTGGAARCGGGA-3' (Masumoto et al. 1989), where
+    /// Y = C/T and R = A/G; all other consensus positions must match exactly.
+    /// </summary>
+    /// <param name="sequence">DNA sequence to scan (case-insensitive).</param>
+    /// <returns>0-based start indices of each match, in ascending order.</returns>
+    public static IReadOnlyList<int> FindCenpBBoxes(string sequence)
+    {
+        var positions = new List<int>();
+        if (string.IsNullOrEmpty(sequence) || sequence.Length < CenpBBoxLength)
+            return positions;
+
+        string upper = sequence.ToUpperInvariant();
+        for (int i = 0; i <= upper.Length - CenpBBoxLength; i++)
+        {
+            if (MatchesIupac(upper, i, CenpBBoxConsensus))
+                positions.Add(i);
+        }
+
+        return positions;
+    }
+
+    // --- Higher-order repeat (HOR) structure detection (opt-in; additive to monomer detection) ---
+    //
+    // Sourced thresholds. An alpha-satellite HOR is a block of N ~171 bp monomers tandemly repeated;
+    // copies of the same HOR position are near-identical (inter-HOR) while distinct monomers within a
+    // unit are divergent (intra-HOR):
+    //   - Inter-HOR identity: "HOR within a given array are 97–100% identical"; HOR copies "differ in
+    //     sequence by only a few percent"; "mutual sequence divergence of <5%". (McNulty & Sullivan 2018,
+    //     PMC6121732; Rosandić et al. 2024, PMC11050224; Alkan et al. 2007.) We require >= 95% identity
+    //     between monomers k apart to accept k as a HOR period (the conservative <5%-divergence bound).
+    //   - Intra-HOR monomer identity: monomers within a unit "are 50–70% identical" / "differ in
+    //     sequence by 10–40%" (PMC6121732). These are NOT inter-HOR identical, so a true HOR period is
+    //     the SMALLEST k for which the k-periodic identity clears the inter-HOR bar — at k=1 (adjacent
+    //     monomers) a multi-monomer HOR fails the bar because adjacent monomers are only 50–70% identical.
+    //   - HOR period definition: "HOR unit length is determined by where the next monomer shows nearly
+    //     total sequence identity to the first monomer in the HOR" (PMC6121732) — i.e. monomer-level
+    //     identity periodicity, exactly the k we search for.
+
+    /// <summary>Minimum percent identity between two monomers k apart for k to be accepted as a HOR
+    /// period — the conservative inter-HOR bound (HOR copies differ by &lt;5%, i.e. are 97–100%
+    /// identical; PMC6121732 / Rosandić 2024 / Alkan 2007).</summary>
+    private const double InterHorMinIdentityPercent = 95.0;
+
+    /// <summary>Fraction of k-periodic monomer pairs that must clear
+    /// <see cref="InterHorMinIdentityPercent"/> for k to count as a consistent HOR period. A HOR array
+    /// is highly homogeneous, so the periodicity must hold across (essentially all of) the array, not
+    /// at a single pair.</summary>
+    private const double HorPeriodConsistencyFraction = 0.90;
+
+    /// <summary>
+    /// Detects higher-order repeat (HOR) structure in an alpha-satellite array. The array is split
+    /// into consecutive ~171 bp monomers; the monomer-vs-monomer identity is computed with the
+    /// library aligner (<see cref="SequenceAligner.GlobalAlign(string,string,ScoringMatrix?)"/> +
+    /// <see cref="SequenceAligner.CalculateStatistics"/>); the HOR period is the SMALLEST block size
+    /// k (≥ 1) such that monomers k apart are inter-HOR identical (≥ 95%) consistently across the
+    /// array. This is opt-in and additive: it does not change <see cref="DetectAlphaSatellite"/>,
+    /// <see cref="AnalyzeCentromere"/>, or the Levan classification.
+    /// </summary>
+    /// <param name="sequence">Alpha-satellite array (case-insensitive). Should already be alpha-satellite;
+    /// this method does not re-test the alphoid signature.</param>
+    /// <param name="monomerLength">Monomer length used to split the array (default 171 bp, the alphoid
+    /// monomer; Willard 1985 / PMC6121732).</param>
+    /// <returns>An <see cref="HorResult"/>. For fewer than two monomers, returns a no-structure result
+    /// (period 1, copy number = monomer count, NaN identities).</returns>
+    public static HorResult DetectHigherOrderRepeat(string sequence, int monomerLength = AlphaSatelliteMonomerLength)
+    {
+        if (monomerLength < 1)
+            throw new ArgumentOutOfRangeException(nameof(monomerLength), "Monomer length must be positive.");
+
+        if (string.IsNullOrEmpty(sequence))
+            return new HorResult(false, 1, monomerLength, 0, 0, double.NaN, double.NaN);
+
+        string upper = sequence.ToUpperInvariant();
+
+        // 1) Split the array into consecutive full monomers (trailing partial monomer is ignored).
+        int monomerCount = upper.Length / monomerLength;
+        if (monomerCount < 2)
+            return new HorResult(false, 1, monomerLength, monomerCount, monomerCount, double.NaN, double.NaN);
+
+        var monomers = new string[monomerCount];
+        for (int i = 0; i < monomerCount; i++)
+            monomers[i] = upper.Substring(i * monomerLength, monomerLength);
+
+        // 2) Pairwise monomer identity (percent), via the library global aligner. Cached on demand so
+        //    each (i,j) pair is aligned at most once.
+        var identityCache = new Dictionary<(int, int), double>();
+        double Identity(int a, int b)
+        {
+            if (a == b) return 100.0;
+            var key = a < b ? (a, b) : (b, a);
+            if (identityCache.TryGetValue(key, out double cached))
+                return cached;
+            var alignment = SequenceAligner.GlobalAlign(monomers[key.Item1], monomers[key.Item2]);
+            double id = SequenceAligner.CalculateStatistics(alignment).Identity;
+            identityCache[key] = id;
+            return id;
+        }
+
+        // 3) Find the smallest period k (1 <= k <= monomerCount/2) whose k-periodic monomer pairs are
+        //    inter-HOR identical consistently across the array. k = 1 means a homogeneous single-monomer
+        //    repeat (no multi-monomer HOR); k >= 2 is a genuine HOR period.
+        int detectedPeriod = 0;
+        int maxPeriod = monomerCount / 2;
+        for (int k = 1; k <= maxPeriod; k++)
+        {
+            int pairs = 0, consistent = 0;
+            for (int i = 0; i + k < monomerCount; i++)
+            {
+                pairs++;
+                if (Identity(i, i + k) >= InterHorMinIdentityPercent)
+                    consistent++;
+            }
+
+            if (pairs > 0 && consistent >= HorPeriodConsistencyFraction * pairs)
+            {
+                detectedPeriod = k;
+                break;
+            }
+        }
+
+        // 4) No periodic high-identity structure at any k: the monomers are mutually divergent and not
+        //    HOR-organised. Report no structure (period 1 = treat each monomer as its own unit).
+        if (detectedPeriod == 0)
+        {
+            double intraNoHor = MeanPairwiseIdentity(monomers.Length, 0, monomers.Length, Identity);
+            return new HorResult(false, 1, monomerLength, monomerCount, monomerCount, double.NaN, intraNoHor);
+        }
+
+        int copyNumber = monomerCount / detectedPeriod;
+        int unitLengthBp = detectedPeriod * monomerLength;
+
+        // 5) Inter-HOR identity: mean identity between monomers at the same unit position in different
+        //    copies (i and i+period across the array).
+        double interSum = 0; int interN = 0;
+        for (int i = 0; i + detectedPeriod < monomerCount; i++)
+        {
+            interSum += Identity(i, i + detectedPeriod);
+            interN++;
+        }
+        double meanInter = interN > 0 ? interSum / interN : double.NaN;
+
+        // 6) Intra-HOR identity: mean identity between the distinct monomers WITHIN the first unit.
+        double meanIntra = detectedPeriod >= 2
+            ? MeanPairwiseIdentity(detectedPeriod, 0, detectedPeriod, Identity)
+            : double.NaN;
+
+        bool hasHor = detectedPeriod >= 2;
+        return new HorResult(hasHor, detectedPeriod, unitLengthBp, copyNumber, monomerCount, meanInter, meanIntra);
+    }
+
+    /// <summary>
+    /// Mean of all distinct unordered pairwise identities among monomer indices [start, end).
+    /// Returns NaN when fewer than two indices are in range.
+    /// </summary>
+    private static double MeanPairwiseIdentity(int count, int start, int end, Func<int, int, double> identity)
+    {
+        double sum = 0; int n = 0;
+        for (int i = start; i < end && i < count; i++)
+            for (int j = i + 1; j < end && j < count; j++)
+            {
+                sum += identity(i, j);
+                n++;
+            }
+
+        return n > 0 ? sum / n : double.NaN;
+    }
+
+    /// <summary>Counts CENP-B box matches (see <see cref="FindCenpBBoxes"/>).</summary>
+    private static int CountCenpBBoxes(string upperSequence)
+    {
+        int count = 0;
+        for (int i = 0; i <= upperSequence.Length - CenpBBoxLength; i++)
+        {
+            if (MatchesIupac(upperSequence, i, CenpBBoxConsensus))
+                count++;
+        }
+
+        return count;
+    }
+
+    /// <summary>
+    /// Returns true if the window of <paramref name="upperSequence"/> starting at
+    /// <paramref name="start"/> matches the IUPAC <paramref name="pattern"/>. Only the ambiguity
+    /// codes occurring in the CENP-B box consensus (Y = C/T, R = A/G) are supported.
+    /// </summary>
+    private static bool MatchesIupac(string upperSequence, int start, string pattern)
+    {
+        for (int j = 0; j < pattern.Length; j++)
+        {
+            char c = upperSequence[start + j];
+            char p = pattern[j];
+            bool ok = p switch
+            {
+                'Y' => c is 'C' or 'T',
+                'R' => c is 'A' or 'G',
+                _ => c == p
+            };
+            if (!ok)
+                return false;
+        }
+
+        return true;
     }
 
     #endregion

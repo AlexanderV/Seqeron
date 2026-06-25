@@ -54,6 +54,81 @@
 1. **Integration principle:** INVAR ("INtegration of VAriant Reads") improves ctDNA sensitivity by analyzing hundreds–thousands of tumor-informed mutations and integrating signal across all loci, reaching ~1 mutant molecule per 100,000 (and parts-per-million in favorable cases).
 2. **Integrated mutant allele fraction (IMAF):** ctDNA level is summarized as a depth-weighted average of the per-locus mutant fractions across the tracked loci, corrected for per-locus background error. This motivates the depth-weighted (read-pooled) panel VAF reported alongside the MRD call.
 
+### INVAR2 reference implementation — exact GLRT / IMAFv2 formulas (nrlab-CRUK/INVAR2)
+
+**URL:** https://github.com/nrlab-CRUK/INVAR2 — files `R/shared/detectionFunctions.R` and `R/4_detection/generalisedLikelihoodRatioTest.R`
+**Accessed:** 2026-06-23 (repository cloned with `git clone --depth 1 https://github.com/nrlab-CRUK/INVAR2.git`; source files read directly)
+**Authority rank:** 3 (reference implementation of the Wan et al. 2020 INVAR method, by the originating Rosenfeld lab)
+
+**Key Extracted Points (verbatim formulas):**
+
+1. **Per-locus mixture model:** for a locus with tumour allele fraction `AF`, caller-supplied background error rate `e`, and per-sample ctDNA fraction `p`, the probability that a read is mutant is `q = AF·(1−e)·p + (1−AF)·e·p + e·(1−p)` (`calc_log_likelihood`). Equivalently `q = p·g + e·(1−p)` with `g = AF·(1−e) + (1−AF)·e`. Background `e` is the read-error rate under the null (`p = 0`).
+2. **Per-locus-mean log-likelihood:** `logL = Σ[ lchoose(R,M) + M·log(q) + (R−M)·log(1−q) ] / length(R)` where `M` = mutant reads, `R` = depth (`calc_log_likelihood`).
+3. **EM estimator of ctDNA fraction `p`:** E-step `Z0 = (1−g)·p / ((1−g)·p + (1−e)·(1−p))`, `Z1 = g·p / (g·p + e·(1−p))`; M-step `p = Σ(M·Z1 + (R−M)·Z0)/ΣR`; `initial_p = 0.01`, `iterations = 200` (`estimate_p_EM`).
+4. **Generalised likelihood ratio (detection statistic):** `LR = logL(p̂_MLE) − logL(p = 0)` where `p̂_MLE` is the EM estimate (`calc_likelihood_ratio`). Larger `LR` ⇒ stronger ctDNA evidence; for a pure-background sample `p̂ ≈ 0` and `LR ≈ 0`.
+5. **AF / signal-to-noise weighting:** the model weights each locus by its tumour AF and background via `q`; high-`AF`, low-`e` loci contribute more to the likelihood gradient, so detection is signal-to-noise weighted (not a flat read pool).
+6. **IMAFv2 (background-subtracted, depth-weighted aggregate):** per context, `MEAN_AF.BS = pmax(0, MEAN_AF − BACKGROUND_AF)` then `IMAFV2 = weighted.mean(MEAN_AF.BS, TOTAL_DP)` (`calculateIMAFv2`). This is per-locus/per-context background subtraction followed by depth-weighted aggregation.
+7. **Zero-background guard:** `BACKGROUND_AF = ifelse(BACKGROUND_AF > 0, BACKGROUND_AF, 1 / BACKGROUND_DP)` — a zero background is floored to one expected error in the locus depth so `log(e)` stays finite (`doMain`).
+8. **Informative-locus filter:** `filter(TUMOUR_AF > 0)` — only loci with positive tumour AF contribute to the likelihood (`doMain`).
+
+### INVAR2 reference implementation — fragment-size weighting, outlier suppression, locus-noise & background estimation (nrlab-CRUK/INVAR2)
+
+**URL:** https://github.com/nrlab-CRUK/INVAR2 — files `R/shared/detectionFunctions.R`, `R/3_outlier_suppression/outlierSuppression.R`, `R/3_outlier_suppression/sizeCharacterisation.R`, `R/4_detection/generalisedLikelihoodRatioTest.R`, `R/1_parse/onTargetErrorRatesAndFilter.R`
+**Accessed:** 2026-06-23 (repository cloned with `git clone --depth 1 https://github.com/nrlab-CRUK/INVAR2.git`; the R source files were read directly)
+**Authority rank:** 3 (reference implementation of Wan et al. 2020 INVAR, originating Rosenfeld lab)
+
+**Key Extracted Points (verbatim formulas):**
+
+1. **Fragment-size-weighted GLRT** (`calc_log_likelihood_with_RL`): for each molecule (one read; `DP = 1`) with tumour AF `AF`, background `e`, ctDNA fraction `p`, fragment-size probability under the normal size profile `RL_PROB_0` (P0) and the mutant/tumour size profile `RL_PROB_1` (P1), and `g = AF·(1−e)+(1−AF)·e`: the wild-type read likelihood is `L0 = (1−e)·P0·(1−p) + (1−g)·P1·p` and the mutant read likelihood is `L1 = e·P0·(1−p) + g·P1·p`; `logL = Σ[ M·log(L1) + (R−M)·log(L0) ] / length(R)` with `M ∈ {0,1}` the per-molecule mutant indicator. Tumour-derived cfDNA is shorter, so a short fragment has higher P1 and is up-weighted.
+2. **Size-weighted EM** (`estimate_p_EM_with_RL`): E-step `Z0 = (1−g)·P1·p / ((1−g)·P1·p + (1−e)·P0·(1−p))`, `Z1 = g·P1·p / (g·P1·p + e·P0·(1−p))`; M-step `p = Σ(M·Z1 + (R−M)·Z0)/ΣR`; `initial_p = 0.01`, `iterations = 200`. The detection statistic is `LR = logL(p̂)−logL(0)` (`calc_likelihood_ratio_with_RL`).
+3. **Size profile** (`sizeCharacterisation.R` / `estimate_real_length_probability`): per fragment-length bin, `PROPORTION = COUNT / TOTAL` separately for `MUTANT` (tumour) and non-mutant (normal) reads. The `onlyWeighMutants` fall-back sets non-discriminating reads to a uniform `1/((maxFragmentLength − minFragmentLength)+1)`; defaults `MINIMUM_FRAGMENT_LENGTH = 60`, `MAXIMUM_FRAGMENT_LENGTH = 300`, smoothing bandwidth `0.03`.
+
+### INVAR2 KDE smoothing of the size distribution + Gaussian KDE / Silverman bandwidth
+
+**URLs retrieved this session (2026-06-24):**
+- INVAR2 `estimate_real_length_probability` — `https://raw.githubusercontent.com/nrlab-CRUK/INVAR2/master/R/shared/detectionFunctions.R` (fetched; complete function body reproduced below).
+- R `density` / `bw.nrd0` docs — `https://stat.ethz.ch/R-manual/R-devel/library/stats/html/density.html` and `.../bandwidth.html` (fetched).
+- R source `bw.nrd0` — `https://raw.githubusercontent.com/wch/r-source/trunk/src/library/stats/R/bandwidths.R` (fetched).
+- Silverman 1986, *Density Estimation for Statistics and Data Analysis* — `https://ned.ipac.caltech.edu/level5/March02/Silverman/paper.pdf` (fetched; §2.4 kernel estimator eq. 2.2a and normalisation eq. 2.2 read directly from the PDF pages).
+- Standard-normal CDF references Φ(1)=0.8413447460685429, Φ(3)=0.9986501019683699, Φ(0.5)=0.6914624612740131 (cross-checked via WebSearch).
+
+**Authority rank:** 1 (Silverman 1986 textbook) / 3 (INVAR2 reference implementation; R stats reference implementation).
+
+**Key Extracted Points (verbatim):**
+
+1. **INVAR2 `estimate_real_length_probability`** (verbatim body, `R/shared/detectionFunctions.R`):
+   ```r
+   estimate_real_length_probability <- function(fragment_length, counts, bw_adjust = 0.03,
+                                                min_length, max_length, error_tolerence = 1e-10)
+   {
+       calc_probability <- function(frag_length) {
+           probability <- 0
+           if (length(counts) > 1) {
+               assert_that(sum(counts) > 0, ...)
+               weights <- counts / sum(counts)
+               den <- density(fragment_length, weights = weights, adjust = bw_adjust,
+                              from = min_length - 0.5, to = max_length + 0.5)
+               den_function <- approxfun(den)
+               result <- integrate(den_function, frag_length - 0.5, frag_length + 0.5, abs.tol = error_tolerence)
+               probability <- result$value
+           }
+           probability
+       }
+       lengths <- seq(min_length, max_length)
+       probs <- sapply(lengths, calc_probability)
+       data.frame(fragment_length = lengths, probability = probs)
+   }
+   ```
+   So INVAR2: weights `= counts/sum(counts)`; KDE via R `density()` with `adjust = 0.03`; per-length probability = the KDE integrated over the integer bin `[frag_length − 0.5, frag_length + 0.5]`; the `length(counts) > 1` guard returns probability 0 (→ caller's uniform fall-back) when fewer than two distinct lengths are observed.
+2. **R `density()` defaults** (R docs, verbatim): `kernel` "default `"gaussian"`"; `bw` default `"nrd0"`; `adjust` "the bandwidth used is actually `adjust*bw`." The Gaussian kernel "is scaled such that this [bw] is the standard deviation of the smoothing kernel."
+3. **R `bw.nrd0`** (verbatim R source `bandwidths.R`): `hi <- sd(x); if(!(lo <- min(hi, IQR(x)/1.34))) (lo <- hi) || (lo <- abs(x[1L])) || (lo <- 1.); 0.9 * lo * length(x)^(-0.2)` — i.e. Silverman's rule of thumb `h = 0.9·min(σ̂, IQR/1.34)·n^(−1/5)` with the fall-back chain `σ̂ → |x₁| → 1` when the quartiles coincide. R docs attribute this verbatim to "Silverman's 'rule of thumb'."
+4. **Silverman 1986 kernel estimator** (verbatim, §2.4 eq. 2.2a): `f̂(x) = (1/nh) Σ_{i=1}^n K((x − Xᵢ)/h)`, with the kernel-normalisation condition (eq. 2.2) `∫ K(x) dx = 1`. With the normal density as `K`, "f̂ will be a smooth curve having derivatives of all orders." The rule-of-thumb bandwidth (eq. 3.31) is the `0.9·A·n^(−1/5)`, `A = min(sd, IQR/1.34)` form reproduced by R `bw.nrd0`.
+5. **Standard-normal CDF identity** used to integrate the Gaussian kernel analytically: `Φ(z) = ½·[1 + erf(z/√2)]`; the integral of the weighted Gaussian KDE over `[a,b]` is therefore `Σᵢ wᵢ·[Φ((b−xᵢ)/h) − Φ((a−xᵢ)/h)]` exactly (the Gaussian kernel's antiderivative is `Φ`).
+6. **Fragment-size weighting ROLE** (confirmed against [3] Wan 2020 and the INVAR2 with-RL likelihood): tumour-derived cfDNA fragments are SHORTER, so a short fragment has higher probability under the tumour size profile `P1` than under the normal profile `P0`; the per-molecule likelihoods `L0 = (1−e)·P0·(1−p)+(1−g)·P1·p`, `L1 = e·P0·(1−p)+g·P1·p` use `P0`/`P1` as multiplicative SIGNAL-vs-NOISE weights, up-weighting short tumour-like fragments. The KDE is the smoothed estimate of `P0`/`P1`.
+4. **Patient-specific outlier suppression** (`repolish`, `outlierSuppression.R`): from loci passing locus-noise & both-strands with `AF ≤ alleleFrequencyThreshold (0.01)`, `MUTATED_READS_PER_LOCI ≤ maximumMutantReads (10)`, `TUMOUR_AF > 0`, estimate the null sample ctDNA fraction `P_ESTIMATE = max(estimate_p_EM(MUTANT, DP, TUMOUR_AF, BACKGROUND_AF), weighted.mean(AF, TUMOUR_AF))`; Bonferroni threshold `P_THRESHOLD = outlierSuppression (0.05) / n_distinct(loci)`; per locus `BINOMIAL_PROB = binom.test(x = MUTATED_READS_PER_LOCI, n = DP, p = P_ESTIMATE, alternative = "greater")$p.value` (`= 1` when `x ≤ 0`); `OUTLIER.PASS = BINOMIAL_PROB > P_THRESHOLD` — a locus is an OUTLIER (removed) when its mutant-read count is a one-sided binomial outlier above the sample estimate.
+5. **Locus-noise filtering & background-error estimation** (`createLociErrorRateTable`, `onTargetErrorRatesAndFilter.R`): over control (`!PATIENT_SPECIFIC & CASE_OR_CONTROL == 'case'`) samples per locus, `BACKGROUND_AF = sum(ALT_F + ALT_R) / sum(DP)`, `N_SAMPLES` distinct control samples, `N_SAMPLES_WITH_SIGNAL` controls with `ALT_F + ALT_R > 0`; `LOCUS_NOISE.PASS = (N_SAMPLES_WITH_SIGNAL / N_SAMPLES) < proportion_of_controls (0.1) AND BACKGROUND_AF < max_background_mean_AF (0.01)`. The per-locus background error model `e` is thus ESTIMATED from control plasma (not only caller-supplied).
+6. **Both-strands filter** (`onTargetErrorRatesAndFilter.R` main): `BOTH_STRANDS.PASS = ALT_F > 0 & ALT_R > 0 | AF == 0`.
+
 ---
 
 ## Documented Corner Cases and Failure Modes
@@ -67,6 +142,16 @@
 ### From Wan 2020 (INVAR)
 
 1. **Per-locus background error:** real ctDNA signal must exceed background; loci with no supporting alt reads contribute 0 to detected count.
+
+### From INVAR2 (GLRT / IMAFv2)
+
+1. **Pure-background sample:** mutant reads occurring only at the background rate ⇒ EM `p̂ ≈ 0` and `LR ≈ 0` ⇒ not detected. Background subtraction removes pure noise.
+2. **Zero background, zero signal:** `q → 0` at `p = 0`; the implementation clamps `q` to `(0,1)` (and INVAR floors `e` to `1/depth`) so logs are finite.
+3. **No informative locus (all tumour AF = 0):** nothing to estimate ⇒ undefined input (INVAR `filter(TUMOUR_AF > 0)` empties the table).
+4. **Flat size profile:** when the mutant and normal fragment-size profiles are identical (P1 == P0) the size factor cancels and the with-RL GLRT reduces to the no-size GLRT — size weighting adds discrimination only when the distributions differ.
+5. **Outlier `x ≤ 0`:** a locus with no mutant reads has binomial tail probability 1 (`ifelse(x <= 0, 1, ...)`) and is never an outlier.
+6. **Empty control panel:** background cannot be estimated with no control observation ⇒ undefined input.
+7. **Both-strands:** `AF == 0` (no alt reads) passes vacuously; alt on a single strand only is strand-biased ⇒ fails.
 
 ---
 
@@ -94,11 +179,91 @@
 | n=1000, f=0.001, m=1 | λ = 1 | 0.6321205588285577 |
 | n=1000, f=0.001, m=16 | λ = 16 | 0.9999998874648253 |
 
+### Dataset: INVAR GLRT synthetic recovery (controlled injection)
+
+**Source:** Derived from the INVAR2 formulas above (`calc_log_likelihood`, `estimate_p_EM`, `calc_likelihood_ratio`), evaluated on synthetic loci. n = 50 loci, depth R = 1000/locus, tumour AF = 0.4, background e = 0.001; mutant reads `M = round(q·R)` with `q = inj·g + e·(1−inj)`, `g = AF·(1−e)+(1−AF)·e`. Values are computed independently of the C# implementation (Python reference of the same equations).
+
+| Injected ctDNA fraction (inj) | Mutant reads/locus M | Estimated p̂ (EM) | Likelihood ratio LR |
+|-------------------------------|----------------------|-------------------|---------------------|
+| 0.000 (pure background)       | 1                    | ≈ 3.3e-5 (≈ 0)    | ≈ −0.0001 (≈ 0)     |
+| 0.005                         | 5                    | ≈ 0.00501         | ≈ 1.30              |
+| 0.010                         | 5                    | ≈ 0.01002         | ≈ 4.06              |
+| 0.020                         | 9                    | ≈ 0.02004         | ≈ 11.81             |
+| 0.050                         | 21                   | ≈ 0.0501          | ≈ 44.14             |
+
+- **Background subtraction:** pure-background (inj=0) ⇒ p̂ ≈ 0, LR ≈ 0 ⇒ not detected.
+- **Recovery:** p̂ tracks the injected fraction to ~3 significant figures.
+- **Monotonicity:** LR strictly increases with injected signal.
+
+### Dataset: AF weighting boosts sensitivity (low-signal mixture)
+
+**Source:** Same INVAR2 GLRT formulas. N = 40 loci (20 with tumour AF = 0.5, 20 with AF = 0.05), depth 2000, e = 0.002, injected ctDNA fraction 0.008; mutant reads per locus from each locus's true AF. "Weighted" uses each locus's true AF; "unweighted" replaces every AF by the panel mean AF (flat pooling, no SNR weighting).
+
+| Model | Likelihood ratio LR |
+|-------|---------------------|
+| AF-weighted (true per-locus AF) | ≈ 2.66 |
+| Unweighted (flat mean AF)       | ≈ 1.91 |
+
+AF-weighting yields a strictly larger detection statistic than flat pooling on the same data ⇒ higher sensitivity at low signal.
+
+### Dataset: fragment-size weighting boosts sensitivity (short tumour fragments)
+
+**Source:** INVAR2 `calc_likelihood_ratio_with_RL` / `estimate_p_EM_with_RL` / `calc_log_likelihood_with_RL` (R/shared/detectionFunctions.R), evaluated on synthetic per-molecule data. 200 molecules at one synthetic panel, tumour AF = 0.4, background e = 0.002. Two fragment-size bins: SHORT (len 120) and LONG (len 170). Mutant (tumour) molecules: 10 short + 2 long; wild-type molecules: 38 short + 150 long. Tumour size profile P1 = {short 0.8, long 0.2}; normal size profile P0 = {short 0.2, long 0.8} (tumour-derived cfDNA short-enriched). Values computed independently of the C# implementation (Python port of the exact INVAR2 with-RL equations).
+
+| Model | Likelihood ratio LR | EM p̂ |
+|-------|---------------------|-------|
+| Size-weighted (with-RL) | 0.19691792427890276 | 0.12042621132507245 |
+| No-size (flat fragment weight) | 0.14779084591516753 | 0.1455823293172657 |
+
+- **Size weighting:** when tumour fragments are shorter than background, the with-RL GLRT statistic exceeds the no-size statistic on the same molecules ⇒ higher sensitivity.
+- **Flat profile sanity:** when P1 == P0 (no size discrimination) the with-RL GLRT reduces exactly to the no-size GLRT.
+
+### Dataset: patient-specific outlier suppression (repolish)
+
+**Source:** INVAR2 `repolish` (R/3_outlier_suppression/outlierSuppression.R), evaluated on synthetic loci. 10 loci, depth 1000, tumour AF = 0.4, background e = 0.001. Nine background-only loci with 1 mutant read each; one PLANTED outlier locus with 50 mutant reads. `P_ESTIMATE = max(EM, weighted.mean(AF, TUMOUR_AF)) = 0.001`; `P_THRESHOLD = 0.05 / 10 = 0.005`. One-sided binomial tail `P(X ≥ x | n = 1000, p = 0.001)`:
+
+| Locus | Mutant reads | Binomial tail P(X ≥ x) | OUTLIER (removed)? |
+|-------|--------------|------------------------|--------------------|
+| clean (×9) | 1 | 0.6323045752290356 | no (tail > 0.005) |
+| planted | 50 | 3.7264670792676273e-66 | yes (tail ≤ 0.005) |
+
+- **Outlier removal recovers the true signal:** after dropping the planted locus the residual is pure background (every clean locus VAF 0.001 == background) ⇒ IMAFv2 = 0; with the outlier present IMAFv2 is inflated.
+
+### Dataset: control-derived background-error estimation & locus-noise filter (createLociErrorRateTable)
+
+**Source:** INVAR2 `createLociErrorRateTable` (R/1_parse/onTargetErrorRatesAndFilter.R). 20 control samples each depth 1000; `controlProportion = 0.1`, `maxBackgroundAlleleFrequency = 0.01`.
+
+| Locus | Controls with signal | Pooled BACKGROUND_AF | LOCUS_NOISE.PASS |
+|-------|----------------------|----------------------|------------------|
+| clean (signal in 1, 1 alt) | 1 / 20 = 0.05 | 1/20000 = 5e-5 | pass (0.05 < 0.1 and 5e-5 < 0.01) |
+| recurrent (signal in 5) | 5 / 20 = 0.25 | 5/20000 = 2.5e-4 | fail (0.25 ≥ 0.1) |
+| high background (1 sample, 250 alt) | 1 / 20 = 0.05 | 250/20000 = 0.0125 | fail (0.0125 ≥ 0.01) |
+| clean, injected error 0.002 (all 20 controls, 2 alt) | 20 / 20 | 40/20000 = 0.002 | (estimate recovers injected 0.002) |
+
+- **Background recovery:** the pooled control allele fraction equals the injected per-locus error rate (0.002).
+
 ---
+
+### Dataset: KDE-smoothed size profile — exact analytic Gaussian-bin integral
+
+**Source:** Silverman 1986 kernel estimator (eq. 2.2a, Gaussian kernel); `Φ(z) = ½[1 + erf(z/√2)]`; standard-normal CDF references Φ(1)=0.8413447460685429, Φ(3)=0.9986501019683699. A single fragment-length observation at `x₀ = 100` (weight 1), explicit bandwidth `h = 0.5`, integer support `{99, 100, 101}`. The per-bin raw mass is `m(L) = Φ((L+0.5−100)/0.5) − Φ((L−0.5−100)/0.5)`:
+
+| Bin L | Raw mass m(L) | Normalised P(L) |
+|-------|---------------|-----------------|
+| 100 | `Φ(1) − Φ(−1) = 2·Φ(1) − 1 = 0.6826894921370859` | **0.684537604065696** |
+| 101 | `Φ(3) − Φ(1) = 0.15730535589982697` | **0.15773119796715201** |
+| 99 | `Φ(−1) − Φ(−3) = Φ(3) − Φ(1) = 0.15730535589982697` (symmetry) | **0.15773119796715201** |
+
+Raw total `= 0.6826894921370859 + 2·0.15730535589982697 = 0.9973002039367398`; normalising divides each by the total, giving the boxed `P(L)` (they sum to exactly 1). These values depend only on the authoritative `Φ(1)`, `Φ(3)` references and are independent of the implementation.
+
+- **Integrates to 1:** the renormalised per-length masses sum to 1 over the support (Gaussian kernel `∫K = 1`, Silverman eq. 2.2).
+- **Unimodal:** a single observed bump yields a smoothed profile that is strictly increasing up to the mode and strictly decreasing after it.
+- **Smooths sparse bins:** a length with zero observed count near a populated bin receives a positive smoothed weight (vs the discrete profile's flat uniform fall-back).
 
 ## Assumptions
 
 1. **ASSUMPTION: per-variant "detected" criterion** — A tracked variant is counted as *detected* in plasma when it has at least one supporting alternate read (alt reads ≥ a minimum supporting-read count, default 1), i.e. signal above the trivial-zero background. The cited sources define positivity at the *panel* level (≥2 variants) and require per-locus signal above background, but do not publish an exact universal per-locus read-count cutoff (it is instrument/error-model specific, e.g. INVAR's trinucleotide GLRT). The default ≥1 alt read is the minimal, source-consistent presence rule and is a configurable parameter; it does not change the panel-level ≥2 calling rule. Correctness-affecting only for the per-variant flag, which is exposed as a tunable threshold.
+2. **RESOLVED (opt-in KDE smoothing added): default discrete vs opt-in KDE size profile.** The INVAR2 size likelihood `RL_PROB_0/RL_PROB_1` is computed by a weighted Gaussian kernel density estimate (`estimate_real_length_probability`, R `density()` with `adjust = 0.03`) over the per-length counts. The C# `FragmentSizeProfile(...)` **constructor** keeps the discrete empirical proportion `COUNT/TOTAL` per length bin as the unchanged **default** (the estimator the KDE converges to), with the uniform `1/((max−min)+1)` fall-back. `FragmentSizeProfile.FromKernelDensity(...)` now provides the **opt-in** KDE-smoothed weight: a Gaussian kernel estimate `f̂(t) = Σ wᵢ·φ((t−xᵢ)/h)/h` (Silverman 1986 eq. 2.2a, `wᵢ = countᵢ/Σcount`), bandwidth by Silverman's rule of thumb `0.9·min(σ̂, IQR/1.34)·n^(−1/5)` (R `bw.nrd0`, scaled by the `adjust` multiplier) or an explicit `bandwidth`, integrated analytically over each integer bin `[L−0.5, L+0.5]` via `Φ` and renormalised over the support. The `length(counts) > 1` guard (→ uniform fall-back for a single observed length) mirrors INVAR2. All mixture/EM/GLRT-with-RL equations are unchanged; the KDE only changes how `P0`/`P1` are estimated.
 
 ---
 
@@ -111,6 +276,13 @@
 5. **SHOULD Test:** custom positivity threshold (e.g. ≥1, ≥3) shifts the call. — Rationale: threshold is parameterized.
 6. **SHOULD Test:** TrackVariantsOverTime yields per-timepoint MRD status and flags first positive timepoint. — Rationale: longitudinal method in scope.
 7. **COULD Test:** null/empty panel and invalid threshold raise the documented exceptions. — Rationale: input validation.
+8. **MUST Test:** `IntegratedMutantAlleleFractionV2` = depth-weighted mean of `max(0, locusVAF − background)`; a locus whose VAF ≤ background contributes 0. — Evidence: INVAR2 `calculateIMAFv2`.
+9. **MUST Test:** `EstimateInvarSignal` on pure-background loci ⇒ p̂ ≈ 0, LR ≈ 0, not detected. — Evidence: INVAR GLRT synthetic-recovery dataset (inj=0).
+10. **MUST Test:** `EstimateInvarSignal` recovers an injected ctDNA fraction within tolerance and reports detected. — Evidence: synthetic-recovery dataset (inj=0.01, 0.02, 0.05).
+11. **MUST Test:** AF-weighted LR ≥ unweighted (flat-AF) LR on the low-signal mixture. — Evidence: AF-weighting dataset.
+12. **MUST Test:** LR is monotone non-decreasing in injected signal. — Evidence: synthetic-recovery dataset.
+13. **SHOULD Test:** detectionThreshold gates the detection call (high threshold ⇒ not detected even with weak signal). — Rationale: parameterised specificity knob.
+14. **SHOULD Test:** out-of-range tumour AF / background and empty informative panel raise documented exceptions. — Rationale: input validation.
 
 ---
 
@@ -121,9 +293,16 @@
 3. Wan JCM, Heider K, Gale D, et al. (2020). ctDNA monitoring using patient-specific sequencing and integration of variant reads. *Science Translational Medicine* 12(548):eaaz8084. https://www.science.org/doi/10.1126/scitranslmed.aaz8084 (DOI: 10.1126/scitranslmed.aaz8084)
 4. Tie J, et al. / review: Tumor-informed ctDNA MRD assessment in colorectal cancer (quotes the Reinert/Signatera 16-SNV, ≥2-positive rule, Table 1). PMC9265001. https://pmc.ncbi.nlm.nih.gov/articles/PMC9265001/
 5. Avanzini S, et al. (2020). A mathematical model of ctDNA shedding predicts tumor detection size. *Science Advances* 6(50):eabc4308 (Poisson detection model p = 1 − e^(−λ)). DOI: 10.1126/sciadv.abc4308
+6. Rosenfeld lab (nrlab-CRUK). INVAR2 — restructured INVAR pipeline (reference implementation of Wan et al. 2020). `R/shared/detectionFunctions.R`, `R/4_detection/generalisedLikelihoodRatioTest.R`. https://github.com/nrlab-CRUK/INVAR2
+7. Lanczos C. (1964). A precision approximation of the gamma function. *J. SIAM Numer. Anal.* 1(1):86–96 (log-gamma used for the binomial coefficient in the GLRT). DOI: 10.1137/0701008
+8. Silverman B.W. (1986). *Density Estimation for Statistics and Data Analysis.* Monographs on Statistics and Applied Probability, Chapman & Hall, London. (Gaussian kernel estimator eq. 2.2a, normalisation eq. 2.2, rule-of-thumb bandwidth eq. 3.31.) https://ned.ipac.caltech.edu/level5/March02/Silverman/paper.pdf
+9. R Core Team. `bw.nrd0` and `density` (stats). Silverman's rule of thumb `0.9·min(sd, IQR/1.34)·n^(−1/5)`; Gaussian kernel default; `adjust` multiplies bw. https://stat.ethz.ch/R-manual/R-devel/library/stats/html/bandwidth.html , https://stat.ethz.ch/R-manual/R-devel/library/stats/html/density.html , source: https://raw.githubusercontent.com/wch/r-source/trunk/src/library/stats/R/bandwidths.R
 
 ---
 
 ## Change History
 
 - **2026-06-15**: Initial documentation (ONCO-MRD-001).
+- **2026-06-23**: Added INVAR2 reference-implementation source and the exact GLRT/EM/IMAFv2 formulas; added synthetic GLRT-recovery and AF-weighting datasets and corner cases; extended coverage recommendations for the new background-subtracted, AF-weighted estimator (`EstimateInvarSignal`, `IntegratedMutantAlleleFractionV2`).
+- **2026-06-23**: Closed the residual — ported INVAR2 fragment-size weighting (`calc_likelihood_ratio_with_RL` → `EstimateInvarSignalWithSize`/`FragmentSizeProfile`/`InvarMolecule`), patient-specific outlier suppression (`repolish` → `SuppressOutlierLoci`), and locus-noise filtering + control-derived background-error estimation (`createLociErrorRateTable` → `EstimateLocusBackground`/`PassesBothStrandsFilter`). Added the size-weighting, outlier-suppression and background-estimation synthetic datasets with INVAR2-derived expected values.
+- **2026-06-24**: Added the **opt-in KDE-smoothed** fragment-size profile (`FragmentSizeProfile.FromKernelDensity`) — a Gaussian kernel density estimate (Silverman 1986 eq. 2.2a) with Silverman's-rule bandwidth (R `bw.nrd0`, `adjust` multiplier) integrated analytically over each integer bin via `Φ`, matching INVAR2's `estimate_real_length_probability` (`density()` + integrate, `adjust = 0.03`). Retrieved the verbatim `estimate_real_length_probability` body, R `density`/`bw.nrd0` defaults and source, and Silverman 1986 §2.4. Resolved Assumption #2 (default discrete unchanged; KDE opt-in). Added the exact analytic Gaussian-bin-integral dataset.

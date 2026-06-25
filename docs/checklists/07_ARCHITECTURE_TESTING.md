@@ -1,9 +1,9 @@
-# Checklist 06: Architecture Testing (ArchUnitNET)
+# Checklist 07: Architecture Testing (ArchUnitNET)
 
 **Priority:** P2  
 **Framework:** ArchUnitNET  
 **Date:** 2026-03-19  
-**Total algorithms:** 94
+**Total algorithms:** 97
 
 ---
 
@@ -11,7 +11,7 @@
 
 Architecture тести запобігають архітектурному дрейфу, перевіряючи залежності між модулями, naming conventions та структурні правила на рівні IL. Правила застосовуються до модулів (проєктів), а не до окремих алгоритмів.
 
-**Поточне покриття:** `Architecture/ArchitectureTests.cs` — 5 правил: Core !→ Analysis, Core !→ IO, Core !→ Alignment, IO !→ Analysis, статичні аналізатори.
+**Поточне покриття:** `Architecture/ArchitectureTests.cs` — 19 правил (всі ☑): межі шарів Core/IO до всіх 13 модулів, відсутність циклічних залежностей між модулями, заборона System.IO у Core, незмінність Result/DTO-типів.
 
 **Модульна структура:**
 - `Seqeron.Genomics.Core` — базові типи, послідовності, розширення
@@ -41,20 +41,20 @@ Architecture тести запобігають архітектурному др
 | 3 | ☑ | Core !→ Alignment | Core не залежить від Alignment |
 | 4 | ☑ | IO !→ Analysis | IO не залежить від Analysis |
 | 5 | ☑ | Analyzers static | Predictor/Finder класи статичні |
-| 6 | ☐ | Core !→ Annotation | Core не залежить від Annotation |
-| 7 | ☐ | Core !→ MolTools | Core не залежить від MolTools |
-| 8 | ☐ | Core !→ Phylogenetics | Core не залежить від Phylogenetics |
-| 9 | ☐ | Core !→ Population | Core не залежить від Population |
-| 10 | ☐ | Core !→ Chromosome | Core не залежить від Chromosome |
-| 11 | ☐ | Core !→ Metagenomics | Core не залежить від Metagenomics |
-| 12 | ☐ | Core !→ Oncology | Core не залежить від Oncology |
-| 13 | ☐ | Core !→ Reports | Core не залежить від Reports |
-| 14 | ☐ | IO !→ Alignment | IO не залежить від Alignment |
-| 15 | ☐ | IO !→ Phylogenetics | IO не залежить від Phylogenetics |
-| 16 | ☐ | IO !→ Oncology | IO не залежить від Oncology |
-| 17 | ☐ | No circular deps | Немає циклічних залежностей між модулями |
-| 18 | ☐ | No System.IO in Core | Core не використовує System.IO напряму |
-| 19 | ☐ | DTOs immutable | Result/DTO типи — records або лише getters |
+| 6 | ☑ | Core !→ Annotation | Core не залежить від Annotation |
+| 7 | ☑ | Core !→ MolTools | Core не залежить від MolTools |
+| 8 | ☑ | Core !→ Phylogenetics | Core не залежить від Phylogenetics |
+| 9 | ☑ | Core !→ Population | Core не залежить від Population |
+| 10 | ☑ | Core !→ Chromosome | Core не залежить від Chromosome |
+| 11 | ☑ | Core !→ Metagenomics | Core не залежить від Metagenomics |
+| 12 | ☑ | Core !→ Oncology | Core не залежить від Oncology |
+| 13 | ☑ | Core !→ Reports | Core не залежить від Reports |
+| 14 | ☑ | IO !→ Alignment | IO не залежить від Alignment |
+| 15 | ☑ | IO !→ Phylogenetics | IO не залежить від Phylogenetics |
+| 16 | ☑ | IO !→ Oncology | IO не залежить від Oncology |
+| 17 | ☑ | No circular deps | Немає циклічних залежностей між модулями |
+| 18 | ☑ | No System.IO in Core | Core не використовує System.IO напряму |
+| 19 | ☑ | DTOs immutable | Result/DTO типи — records або лише getters |
 
 ---
 
@@ -158,6 +158,9 @@ Architecture тести запобігають архітектурному др
 | 92 | SEQ-ENTROPY-PROFILE-001 | Statistics | Analysis | Core !→ Analysis |
 | 93 | SEQ-GC-ANALYSIS-001 | Composition | Analysis | Core !→ Analysis |
 | 94 | SEQ-GC-PROFILE-001 | Statistics | Analysis | Core !→ Analysis |
+| 95 | ONCO-ASCAT-001 | Oncology | Oncology | Core !→ Oncology, IO !→ Oncology |
+| 96 | RNA-PKPREDICT-001 | RnaStructure | Analysis | Core !→ Analysis |
+| 97 | RNA-PKRECURSIVE-001 | RnaStructure | Analysis | Core !→ Analysis |
 
 ---
 
@@ -165,8 +168,8 @@ Architecture тести запобігають архітектурному др
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 94 |
-| Module-level rules | 5 existing + 14 new = 19 |
+| Total algorithms | 97 |
+| Module-level rules | 19 (all ☑) |
 | Modules covered | 13 |
-| Existing rules ☑ | 5 |
-| New rules ☐ | 14 |
+| Rules complete ☑ | 19 |
+| Rules remaining ☐ | 0 |

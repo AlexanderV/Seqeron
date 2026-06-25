@@ -477,6 +477,17 @@ public static class PhylogeneticAnalyzer
                 }
             }
 
+            // Guard: if no pair was selected (e.g. every Q value is NaN because the distance
+            // matrix carries the saturation sentinel +Infinity → Inf − Inf = NaN, and NaN
+            // comparisons are always false), fall back to the first two active OTUs so the
+            // join still proceeds — mirroring the UPGMA min-search fallback. Without this the
+            // sentinel-laden matrix would index dist[-1, …] and throw IndexOutOfRangeException.
+            if (minI == -1 || minJ == -1)
+            {
+                minI = active[0];
+                minJ = active[1];
+            }
+
             // Calculate branch lengths
             double distIJ = dist[minI, minJ];
             double branchI = (distIJ / 2) + (r[minI] - r[minJ]) / (2 * (m - 2));
@@ -627,6 +638,20 @@ public static class PhylogeneticAnalyzer
     }
 
     /// <summary>
+    /// Maximum parenthesis-nesting depth accepted by <see cref="ParseNewick"/>.
+    /// The parser is recursive descent, so each level of nested parentheses consumes one
+    /// stack frame; an unbounded depth (e.g. a malicious 50&#160;000&#215;<c>(</c> input) would
+    /// otherwise overflow the call stack and crash the process — an uncatchable
+    /// <see cref="StackOverflowException"/> and a denial-of-service hazard. The recursion is
+    /// therefore capped at this depth and a pathologically nested input is rejected with a
+    /// <see cref="FormatException"/> rather than being allowed to overflow. The limit is far
+    /// larger than any biologically meaningful tree depth (a binary tree of depth 1000 has up
+    /// to 2^1000 leaves) yet stays comfortably within a default 1&#160;MB thread stack, on which
+    /// the unguarded recursion was measured to overflow at roughly 3000 frames.
+    /// </summary>
+    public const int MaxParseDepth = 1000;
+
+    /// <summary>
     /// Parses a Newick format tree string.
     /// </summary>
     public static PhyloNode ParseNewick(string newick)
@@ -639,7 +664,7 @@ public static class PhylogeneticAnalyzer
             newick = newick[..^1];
 
         int pos = 0;
-        var root = ParseNewickRecursive(newick, ref pos);
+        var root = ParseNewickRecursive(newick, ref pos, depth: 0);
 
         // Grammar alternative: Tree → Branch ";" (Olsen: tree ==> descendant_list [root_label] [:branch_length] ;)
         // Handle optional root branch length after the main subtree.
@@ -659,8 +684,17 @@ public static class PhylogeneticAnalyzer
         return root;
     }
 
-    private static PhyloNode ParseNewickRecursive(string newick, ref int pos)
+    private static PhyloNode ParseNewickRecursive(string newick, ref int pos, int depth)
     {
+        // Depth guard: a recursive-descent parser consumes one stack frame per level of
+        // parenthesis nesting, so an unbounded nesting depth would overflow the call stack
+        // (an uncatchable StackOverflowException that terminates the process — a DoS hazard).
+        // Reject pathologically nested input with a catchable FormatException instead.
+        if (depth > MaxParseDepth)
+            throw new FormatException(
+                $"Malformed Newick string: parenthesis nesting exceeds the maximum supported " +
+                $"depth of {MaxParseDepth} (possible malformed or malicious input).");
+
         var node = new PhyloNode();
 
         if (pos < newick.Length && newick[pos] == '(')
@@ -672,7 +706,7 @@ public static class PhylogeneticAnalyzer
             // more children is a genuine multifurcation (polytomy) and is parsed faithfully.
             while (true)
             {
-                var child = ParseNewickRecursive(newick, ref pos);
+                var child = ParseNewickRecursive(newick, ref pos, depth + 1);
 
                 // Parse branch length for this child
                 if (pos < newick.Length && newick[pos] == ':')

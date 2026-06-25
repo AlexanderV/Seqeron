@@ -144,8 +144,8 @@ Expected palindromes (position length):
 - Position 5, Length 4: TGCA
 - Position 6, Length 6: GCATGC
 - Position 7, Length 4: CATG
-- Position 17, Length 4: ATAT
-- Position 18, Length 4: TATA
+- Position 17, Length 4: TATA
+- Position 18, Length 4: ATAT
 - Position 20, Length 6: ATGCAT
 - Position 21, Length 4: TGCA
 

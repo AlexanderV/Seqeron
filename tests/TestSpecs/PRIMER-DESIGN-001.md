@@ -19,7 +19,7 @@
 | [Wikipedia: Primer (molecular biology)](https://en.wikipedia.org/wiki/Primer_(molecular_biology)) | Encyclopedia | 18-24 bp length, 40-60% GC, Tm 50-60°C, primer pairs within 5°C |
 | [Addgene: How to Design a Primer](https://www.addgene.org/protocols/primer-design/) | Protocol Guide | Length 18-24, GC 40-60%, Tm 50-60°C, pairs within 5°C, avoid complementary regions |
 | [Primer3 Manual (v2.6.1)](https://primer3.org/manual.html) | Software Documentation | PRIMER_MIN_SIZE=18, PRIMER_MAX_SIZE=27, PRIMER_OPT_SIZE=20, PRIMER_MIN_TM=57, PRIMER_OPT_TM=60, PRIMER_MAX_TM=63, PRIMER_MIN_GC=20, PRIMER_MAX_GC=80, PRIMER_MAX_POLY_X=5, PRIMER_PAIR_MAX_DIFF_TM=100.0 |
-| SantaLucia (1998) PNAS 95:1460-65 | Research Paper | Nearest-neighbor thermodynamics for Tm calculation |
+| SantaLucia (1998) PNAS 95:1460-65 | Research Paper | Nearest-neighbor ΔG thermodynamics — used for 3'-end stability (see PRIMER-TM-001 / PRIMER-STRUCT-001); primer-design Tm here uses the Wallace / Marmur-Doty formulas |
 
 ### Implementation Parameters vs Sources
 

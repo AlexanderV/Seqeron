@@ -688,6 +688,53 @@ ORIGIN
         });
     }
 
+    // Multi-line qualifier values. Per INSDC Feature Table Definition, a qualifier
+    // value that occupies more than one line is wrapped with continuation lines
+    // beginning at column 22; the value is reconstructed by direct concatenation of
+    // the wrapped fragments (no space inserted at the wrap point). For /translation
+    // (Biopython remove_space_keys), ALL whitespace is removed so the amino-acid
+    // string reassembles exactly.
+    private const string RecordWithWrappedQualifiers = @"LOCUS       WRAP001                  100 bp    DNA     linear   UNK 01-JAN-2024
+DEFINITION  Record with wrapped qualifier values.
+ACCESSION   WRAP001
+FEATURES             Location/Qualifiers
+     CDS             1..99
+                     /note=""This is a long descriptive note that does not fit on a
+                     single physical line of the flat file.""
+                     /translation=""MKLLVVPQRSTVWYACDEFGHIKLMNPQRSTVWYACDEFGHIKLMNPQRS
+                     TVWYACDEFGHIKLMNPQR""
+ORIGIN
+        1 atgaaactac tagtagttcc tcaaagaagt atgaaactac tagtagttcc tcaaagaagt
+       61 atgaaactac tagtagttcc tcaaagaagt atgaaactac
+//";
+
+    [Test]
+    public void Parse_MultiLineTranslation_ReassemblesWithoutSpuriousSpace()
+    {
+        var record = GenBankParser.Parse(RecordWithWrappedQualifiers).First();
+        var cds = record.Features.First(f => f.Key == "CDS");
+
+        // The amino-acid string must contain no spaces and must join exactly at the
+        // wrap point: "...GHIKLMNPQRS" + "TVWYACDEFG..." -> "...GHIKLMNPQRSTVWYACDEFG..."
+        var translation = GenBankParser.GetQualifier(cds, "translation");
+        Assert.That(translation, Is.EqualTo(
+            "MKLLVVPQRSTVWYACDEFGHIKLMNPQRSTVWYACDEFGHIKLMNPQRSTVWYACDEFGHIKLMNPQR"));
+    }
+
+    [Test]
+    public void Parse_MultiLineFreeText_ConcatenatesWithoutInsertedSpace()
+    {
+        var record = GenBankParser.Parse(RecordWithWrappedQualifiers).First();
+        var cds = record.Features.First(f => f.Key == "CDS");
+
+        // GenBank wraps free text at word boundaries; the first fragment ends with a
+        // space, so direct concatenation yields a single space at the wrap point
+        // (INSDC: no EXTRA space is inserted by the parser).
+        var note = GenBankParser.GetQualifier(cds, "note");
+        Assert.That(note, Is.EqualTo(
+            "This is a long descriptive note that does not fit on a single physical line of the flat file."));
+    }
+
     #endregion
 
     #region Reference Parsing Tests

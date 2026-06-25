@@ -1,10 +1,14 @@
 # Test Specification: REP-STR-001
 
-**Test Unit:** Microsatellite Detection (STR)
+**Test Unit:** Microsatellite Detection (STR) — perfect (default) + approximate / imperfect / interrupted (opt-in, TRF model)
 **Canonical Class:** `RepeatFinder`
-**Primary Method:** `FindMicrosatellites`
+**Primary Method:** `FindMicrosatellites` (perfect) + `FindApproximateTandemRepeats` (approximate, Benson 1999)
 **Status:** Complete
-**Last Updated:** 2026-03-01
+**Last Updated:** 2026-06-24
+
+> §1–§8 below cover the perfect-STR detector. **§9 adds the opt-in approximate (TRF) detector**
+> (`FindApproximateTandemRepeats`), added for the REP-STR-001 limitation fix; its evidence is in
+> `docs/Evidence/REP-STR-001-Evidence.md`.
 
 ---
 
@@ -224,3 +228,77 @@ None — all behavior verified against external sources.
 - [x] Weak tests strengthened (6 tests hardened with exact values)
 - [x] Tests passing (45/45)
 - [ ] Zero warnings (4 pre-existing in ApproximateMatcher_EditDistance_Tests.cs)
+
+---
+
+## 9. Approximate / Imperfect Tandem-Repeat Detection (TRF model — opt-in)
+
+**Method under test:** `RepeatFinder.FindApproximateTandemRepeats(DnaSequence | string, int minPeriod, int maxPeriod, int minScore)`.
+
+### 9.1 Evidence
+
+| Source | Key Information |
+|--------|-----------------|
+| Benson G (1999), Nucleic Acids Res 27(2):573–580, https://doi.org/10.1093/nar/27.2.573 | Approximate tandem repeat = "two or more contiguous, *approximate* copies of a pattern". Reported statistics: period size, copy number (copies aligned with consensus), consensus size, percent matches between adjacent copies overall, percent indels between adjacent copies overall, alignment score. Scoring (match, mismatch, gap) = (+2, −7, −7); "Only those repeats scoring at least 50 … are reported". Consensus "by majority rule from the alignment". |
+| TRF README / definitions (Benson-Genomics-Lab/TRF; tandem.bu.edu) | Recommended Match/Mismatch/Delta = 2/7/7; Minscore example 50; statistic definitions verbatim. |
+
+### 9.2 Scoring constants (source-traceable)
+
+| Constant | Value | Source |
+|----------|-------|--------|
+| Match weight | +2 | Benson (1999) |
+| Mismatch penalty | −7 | Benson (1999) recommended |
+| Indel penalty | −7 / gap column | Benson (1999) recommended (flat) |
+| `DefaultApproximateMinScore` | 50 | Benson (1999) |
+
+### 9.3 MUST cases (exact hand-derived values)
+
+| ID | Sequence (period) | Expected (verbatim-derived) | Evidence |
+|----|-------------------|-----------------------------|----------|
+| A1 | `CACACACACA`, period 2 | consensus `CA`, copies 5.0, %matches **100**, %indels **0**, score **20** | perfect-alignment control |
+| A2 | `CAGCAGCAGTAGCAGCAG`, period 3 (one substitution at idx 9) | consensus `CAG`, copies 6.0, %matches **94.4̄ (= 17/18·100)**, %indels **0**, score **27 (= 17·2 − 7)** | Benson approximate def. |
+| A2b | (same A2 sequence) perfect detector `FindMicrosatellites(...,minRepeats=3)` | reports only `CAG`×3 at pos 0 (fragmented) | contrast: perfect detector breaks the interrupted tract |
+| A3 | `CACACATACACA`, period 2 (one substitution at idx 6) | consensus `CA`, copies 6.0, %matches **91.6̄ (= 11/12·100)**, %indels **0**, score **15 (= 11·2 − 7)** | Benson approximate def. |
+| A4 | `CAGCAGCAGCAGCAGAGCAGCAGCAGCAG`, period 3 (one deletion) | consensus `CAG`, copies **29/3 = 9.6̄**, %matches **96.6̄ (= 29/30·100)**, %indels **3.3̄ (= 1/30·100)**, score **51 (= 29·2 − 7)** | Benson percent-indels statistic |
+| A5 | `CACACACACA` at `minScore = 50` default | empty (score 20 < 50) | Benson "≥ 50 … reported" |
+| A6 | A4 sequence at default `minScore` | reported (score 51 ≥ 50) | Benson "≥ 50 … reported" |
+| A7 | `""` | empty | edge |
+| A8 | `ACGTGCAT` (no repeat) | empty | edge |
+| A9 | `minPeriod = 0` / `maxPeriod < minPeriod` | `ArgumentOutOfRangeException` | parameter validation |
+| A10 | `null` DnaSequence | `ArgumentNullException` | parameter validation |
+| A11 | determinism — same input twice → identical results | equal | determinism |
+
+### 9.4 Coverage status
+
+All A1–A11 implemented in `tests/Seqeron/Seqeron.Genomics.Tests/RepeatFinder_ApproximateTandemRepeats_Tests.cs`, exact assertions with `.Within(1e-9)` on the percentages/copy number. ✅ Done = 11 / 11; Remaining = 0.
+
+### 9.5 Residual (honest)
+
+The per-repeat **Bernoulli statistical-significance** measures are now reproduced (see §10). What remains unreproduced is TRF's probabilistic k-tuple distance-list **seeding** (the `R(d,k,pM)` 95% sum-of-heads percentile cut-off and the `W(d,pI)` random-walk band, whose values come from TRF's non-redistributable simulation tables) — a whole-genome-scale **performance** index, not a per-repeat-correctness gap; the deterministic exhaustive (start, period) scan already finds every candidate a seed would. See Evidence ASSUMPTION 1, 2 and 3.
+
+## 10. TRF Bernoulli statistical-significance measures (Benson 1999 — opt-in)
+
+**Method under test:** `RepeatFinder.ComputeBernoulliStatistics(string repeatTract, int period, double expectedMatchProbability = 0.80)` → `TandemRepeatBernoulliStatistics`.
+
+### 10.1 Evidence
+
+Benson (1999) NAR 27(2):573–580; TRF desc/definitions pages (verbatim): "We model alignment of two tandem copies of a pattern of length n by a sequence of n independent Bernoulli trials"; PM = P(Heads) = "the average percent identity between the copies"; PI = "the average percentage of insertions and deletions between the copies"; statistics "between adjacent copies … not between the sequence and the consensus pattern"; defaults "PM = .80 and PI = .10".
+
+### 10.2 MUST cases (exact hand-derived values; each trial = one alignment column between adjacent copies)
+
+| ID | Input | Expected | Evidence |
+|----|-------|----------|----------|
+| B1 | `CACACACACA`, period 2 | 4 pairs, 8 trials, 8/0/0, PM **1.0**, PI **0**, E[matches] **8**, meets-0.80 **true** | PM = average % identity; perfect tract |
+| B2 | `CAGCAGCAGTAGCAGCAG`, period 3 | 5 pairs, 15 trials, 13/2/0, PM **13/15**, PI **0**, E[matches] **13** | adjacent-copy PM (≠ 17/18 consensus) |
+| B3 | `CACACATACACA`, period 2 | 10 trials, 8/2/0, PM **0.80**, E[matches] **8**, meets-0.80 **true** (inclusive) | PM on the default threshold |
+| B4 | `ACACTGTG`, period 4 | 1 pair, PM **0**, meets-0.80 **false** | low-identity tract below PM = 0.80 |
+| B5 | `CAGCAGCAGTAGCAGCAG`, period 3, PM-threshold 0.80 / 0.90 | meets 0.80 **true**, meets 0.90 **false** | custom PM threshold |
+| B6 | `CAGCAGCAGCAGCAGAGCAGCAGCAGCAG` (deletion), period 3 | PI **> 0**; match+mismatch+indel = trials; PM+PI ≤ 1 | PI = average % indels |
+| B7 | `CAGCAGCAGTAGCAGCAG`, period 3 | PM + mismatch-fraction + PI = **1.0** | Bernoulli outcomes partition the trials |
+| B8 | `CAG`, period 3 | `ArgumentException` | model of two copies undefined for one copy |
+| B9 | `null` / period 0 / PM 1.5 | `ArgumentNullException` / `ArgumentOutOfRangeException` ×2 | parameter validation |
+| B10 | exposed defaults | `TrfDefaultMatchProbability` **0.80**, `TrfDefaultIndelProbability` **0.10** | Benson (1999) defaults |
+
+### 10.3 Coverage status
+
+All B1–B10 implemented in `tests/Seqeron/Seqeron.Genomics.Tests/RepeatFinder_ApproximateTandemRepeats_Tests.cs` (region "ComputeBernoulliStatistics"), exact assertions with `.Within(1e-9)` on the probabilities/expected matches. ✅ Done = 10 / 10; Remaining = 0. Invariants INV-09, INV-10.

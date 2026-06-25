@@ -21,6 +21,21 @@
 3. **Confidence interval:** "95% confidence intervals are then derived for each signature attribution by taking [2.5%, 97.5%] percentiles of the resulting bootstrap activities." — the percentile method.
 4. **Replicate count:** "Simulated sample with 1000 bootstrap variations" (Figure 2 caption) — 1000 replicates is the standard count used.
 
+#### Poisson resampling variant (Senkin 2021 — retrieved 2026-06-23)
+
+**URL:** https://pmc.ncbi.nlm.nih.gov/articles/PMC8567580/
+**Retrieved:** 2026-06-23 (WebFetch of the PMC article, prompted for the verbatim bootstrap/Poisson sentences)
+**Authority rank:** 1
+
+Verbatim quotes extracted from the retrieved text:
+
+1. *"Here, we make an assumption that mutations are accumulated following Poisson distributions for each mutation class, such as a specific trinucleotide context"* — the per-channel resampling distribution is Poisson.
+2. *"We slightly modify the method by drawing counts from independent binomial distributions, so that the total mutational burden is no longer fixed. Nevertheless, for any given mutation category (e.g. C[T>A]G trinucleotide context …) the distribution of bootstrapped mutation counts follows a Poisson distribution."* — in the Poisson variant each category count is an independent Poisson draw and N is NOT fixed (contrast the fixed-N multinomial scheme).
+3. *"This distribution is chosen since the conditional distribution of a vector of independent Poisson variables is equivalent to multinomial distribution."* — establishes the Poisson↔multinomial equivalence; the two schemes differ only by whether N is conditioned (fixed).
+4. *"We use the Gaussian noise model by default, with the standard deviation equal to 10% of mutational burden for each sample."* — MSA also offers a Gaussian noise model; the Poisson model is the alternative where, by the Poisson property, the variance of each channel equals its mean (the observed count).
+
+**Derived construction for this unit:** the Poisson bootstrap resamples channel k as Poisson(observedₖ) independently per channel; NNLS is refit per replicate; CIs are the [2.5%, 97.5%] percentiles (identical CI step to the multinomial scheme).
+
 ### sigminer `sig_fit_bootstrap` (reference implementation; Wang S. et al.)
 
 **URL (doc):** https://shixiangwang.github.io/sigminer-doc/sigfit.html
@@ -31,7 +46,7 @@
 **Key Extracted Points:**
 
 1. **Multinomial resample (source code):** the catalog is resampled by
-   `sampled <- sample(seq(K), total_count, replace = TRUE, prob = catalog / sum(catalog))` then tabulated into a resampled catalog vector. Drawing `total_count = Σ catalog` indices with replacement weighted by `catalog/Σcatalog` is exactly a multinomial(N, p) draw with N = Σ catalog and pₖ = catalogₖ / N. (Retrieved by fetching the raw `sig_fit_bootstrap.R`; the quoted two lines were returned.)
+   `sampled <- sample(seq(K), total_count, replace = TRUE, prob = catalog / sum(catalog))` then tabulated into a resampled catalog vector. Drawing `total_count = Σ catalog` indices with replacement weighted by `catalog/Σcatalog` is exactly a multinomial(N, p) draw with N = Σ catalog and pₖ = catalogₖ / N. (Retrieved by fetching the raw `sig_fit_bootstrap.R`; the quoted two lines were returned. Re-verified 2026-06-23 by re-fetching the source — the resampling lines `sample(seq(K), total_count, replace = TRUE, prob = catalog/sum(catalog))` → `table(factor(sampled, levels = seq(K)))` are still the only resampling step, i.e. sigminer is fixed-N multinomial only, confirming the Poisson variant must come from Senkin 2021.)
 2. **Refit per replicate:** the function "uses the resampling data of original input and runs `sig_fit()` multiple times to estimate the exposure."
 3. **Replicate count:** the documentation states "Bootstrap replicates >= 100 is recommended." (Retrieved from the sigminer-doc Chapter 4 page.)
 4. **Primary reference:** sigminer cites Huang X, Wojtowicz D, Przytycka TM — "Detecting presence of mutational signatures in cancer with confidence" (Bioinformatics 2018) as the underlying method.
@@ -74,6 +89,8 @@
 
 1. **Zero-mutation catalog (N = 0):** with no mutations there is nothing to resample; every resampled catalog is all-zero, so every replicate exposure is 0 and the interval collapses to [0, 0].
 2. **Degenerate single-channel catalog:** a multinomial draw over a single non-zero channel is deterministic (all N mutations fall in that channel), so the resample equals the observed catalog exactly and every replicate exposure equals the point estimate.
+3. **Poisson variant — zero-count channel:** a channel with observed count 0 has Poisson mean 0, so Poisson(0) = 0 every replicate; that channel (and any signature isolated to it) resamples to exactly 0 always.
+4. **Poisson variant — single non-zero channel is NOT degenerate:** unlike the fixed-N multinomial collapse, Poisson(λ) for λ > 0 fluctuates (variance = mean = λ), so the single-channel interval has positive width. This distinguishes the Poisson scheme from the multinomial scheme.
 
 ### From bootstrap theory (Efron 1979)
 
@@ -108,6 +125,18 @@
 | NNLS exposure per replicate | 10 (fit of [10] onto [[1.0]]) |
 | Point estimate / mean / lower / upper | 10 / 10 / 10 / 10 |
 
+### Dataset: Poisson single-channel bootstrap (Senkin 2021 variant)
+
+**Source:** Senkin (2021) Poisson variant — each channel resampled as Poisson(observedₖ).
+
+| Parameter | Value |
+|-----------|-------|
+| catalog | [12] (one channel, λ = 12) |
+| signatures | [[1.0]] (NNLS exposure == resampled count) |
+| Each replicate exposure | an independent Poisson(12) draw (variance = mean = 12) |
+| Expected mean / bounds | the mean / [2.5%, 97.5%] type-7 percentiles of the independent Poisson(12) draws produced by the same seeded RNG order (verified in test P1 against an independent Knuth Poisson generator) |
+| Zero-count channel ([0, …]) | resamples to 0 every replicate (Poisson(0) = 0) |
+
 ### Dataset: Zero-mutation catalog
 
 **Source:** documented corner case (N = 0).
@@ -136,7 +165,10 @@
 4. **MUST Test:** Lower ≤ point estimate region ≤ Upper and Lower ≤ Mean ≤ Upper, all exposures ≥ 0 (invariant), on a non-degenerate two-signature catalog with a fixed seed (reproducible). — Evidence: Efron (1979) percentile interval ordering; NNLS x ≥ 0 (Lawson & Hanson 1974).
 5. **MUST Test:** Determinism — two calls with the same seed return identical intervals; the 97.5 bound ≥ the 2.5 bound. — Evidence: fixed-seed reproducibility.
 6. **SHOULD Test:** One interval per signature, in signature order; point estimate equals `FitSignatures(observed).Exposures`. — Rationale: contract consistency with ONCO-SIG-002.
-7. **MUST Test (failure modes):** null catalog/signatures → ArgumentNullException; ragged/empty signatures, catalog-length mismatch, negative count → ArgumentException; replicates < 1 or confidence ∉ (0,1) → ArgumentOutOfRangeException. — Evidence: input-validation contract mirrored from `FitSignatures`.
+7. **MUST Test (failure modes):** null catalog/signatures → ArgumentNullException; ragged/empty signatures, catalog-length mismatch, negative count → ArgumentException; replicates < 1, confidence ∉ (0,1), or an undefined `resampling` enum value → ArgumentOutOfRangeException. — Evidence: input-validation contract mirrored from `FitSignatures`.
+8. **MUST Test (Poisson variant):** single-channel catalog [12] over [[1.0]] under the Poisson scheme yields a bootstrap mean and [2.5%, 97.5%] bounds equal to those of independent Poisson(12) draws reproduced by the same seeded RNG order (independent Knuth generator). — Evidence: Senkin (2021) per-category Poisson construction.
+9. **MUST Test (Poisson variant):** a zero-count channel resamples to exactly 0 (point/mean/lower/upper = 0) every replicate; a single non-zero channel has strictly positive interval width (variance = mean). — Evidence: Senkin (2021) Poisson(0) = 0; variance = mean.
+10. **MUST Test (default unchanged):** calling without `resampling` is byte-for-byte equal to explicit `Multinomial`, and the `Poisson` path produces a different bootstrap distribution. — Evidence: backward-compatibility requirement (sigminer fixed-N multinomial remains the default).
 
 ---
 
@@ -148,9 +180,11 @@
 4. Efron B. (1979). Bootstrap Methods: Another Look at the Jackknife. *Annals of Statistics* 7(1):1–26. https://doi.org/10.1214/aos/1176344552 (percentile method summarized at https://math.mit.edu/~dav/05.dir/class24-prep-a.pdf)
 5. Hyndman R.J., Fan Y. (1996). Sample Quantiles in Statistical Packages. *The American Statistician* 50(4):361–365. https://doi.org/10.1080/00031305.1996.10473566 (type-7 default; https://en.wikipedia.org/wiki/Quantile)
 6. Lawson C.L., Hanson R.J. (1974). Solving Least Squares Problems, Ch. 23 (NNLS). https://en.wikipedia.org/wiki/Non-negative_least_squares
+7. Knuth D.E. (1997). *The Art of Computer Programming*, Vol. 2: Seminumerical Algorithms, §3.4.1 (generating Poisson deviates by the multiplication-of-uniforms method). https://en.wikipedia.org/wiki/Poisson_distribution#Random_variate_generation
 
 ---
 
 ## Change History
 
 - **2026-06-14**: Initial documentation.
+- **2026-06-23**: Added the Senkin (2021) Poisson resampling variant (limitation fix ONCO-SIG-003). Re-retrieved the PMC article for the verbatim Poisson/independent-binomial sentences and re-fetched the sigminer source to confirm it is multinomial-only. Added Poisson corner cases, the Poisson single-channel dataset, the Knuth Poisson-generator reference, and Poisson/default-unchanged test recommendations.

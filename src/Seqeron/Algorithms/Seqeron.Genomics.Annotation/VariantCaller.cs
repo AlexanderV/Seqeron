@@ -407,14 +407,28 @@ public enum VariantEffect
 }
 
 /// <summary>
-/// A detected genetic variant.
+/// A detected genetic variant. <see cref="Position"/> is 0-based (internal/array convention).
 /// </summary>
+/// <remarks>
+/// The VCF specification uses 1-based POS coordinates (VCFv4.2/4.3 §1.4.1, "the reference
+/// position, with the 1st base having position 1"). Use <see cref="VcfPosition"/> for the
+/// VCF coordinate, or <see cref="VariantCaller.ToVcfLines"/> which already emits Position+1.
+/// Source: VCF v4.3 specification, https://samtools.github.io/hts-specs/VCFv4.3.pdf .
+/// </remarks>
 public readonly record struct Variant(
     int Position,
     string ReferenceAllele,
     string AlternateAllele,
     VariantType Type,
-    int QueryPosition);
+    int QueryPosition)
+{
+    /// <summary>
+    /// The variant position in VCF 1-based POS coordinates (= <see cref="Position"/> + 1).
+    /// Opt-in accessor for callers that consume the record directly and want the VCF
+    /// convention without re-deriving the +1 offset. VCF v4.3 §1.4.1.
+    /// </summary>
+    public int VcfPosition => Position + 1;
+}
 
 /// <summary>
 /// A variant with functional annotation.

@@ -60,6 +60,30 @@
    ```
    The **intercept** is `CoefficientTraining[1]`; the **per-CpG coefficients** are `CoefficientTraining[-1]`; the linear predictor `intercept + Σ coef_i · β_i` is passed to `anti.trafo` to yield DNAm age in years.
 
+### Horvath 2013 Additional file 3 — the 353-CpG coefficient table (PRIMARY supplement)
+
+**URL:** https://static-content.springer.com/esm/art%3A10.1186%2Fgb-2013-14-10-r115/MediaObjects/13059_2013_3156_MOESM3_ESM.csv
+**Accessed:** 2026-06-22 (fetched via WebFetch and downloaded via `curl -sL`)
+**Authority rank:** 1 (official supplement of the peer-reviewed paper, Genome Biology 14:R115)
+
+**Key Extracted Points:**
+
+1. **Columns:** `CpGmarker, CoefficientTraining, CoefficientTrainingShrunk, varByCpG, ...` (23 columns). The age-relating weights are in `CoefficientTraining`; the file header states "These coefficient values relate CpGs to a transformed version of age".
+2. **Intercept:** the `(Intercept)` row has `CoefficientTraining = 0.695507258`.
+3. **353 CpG rows:** rows 5..357 of the CSV are the 353 probe coefficients (e.g. cg00075967 = 0.12933661, cg00374717 = 0.005017857, cg00864867 = 1.59976405, cg09809672 (EDARADD) = -0.391318905, last row cg27544190 = -0.869124446).
+4. **Note (memory-trap probe):** cg22454769 is **not** in the multi-tissue 353-CpG table — confirmed absent in the retrieved CSV. (Recorded because the task warned not to trust that probe from memory.)
+
+### Cross-verification source — aldringsvitenskap/epigeneticclock AdditionalFile3.csv (GitHub mirror)
+
+**URL:** https://raw.githubusercontent.com/aldringsvitenskap/epigeneticclock/master/AdditionalFile3.csv
+**Accessed:** 2026-06-22 (fetched via WebFetch and `curl -sL`)
+**Authority rank:** 3 (faithful mirror of the supplement bundled with a reference R implementation)
+
+**Key Extracted Points:**
+
+1. Same header columns and same `(Intercept) = 0.695507258`.
+2. A complete field-by-field diff of all 353 `(CpGmarker, CoefficientTraining)` pairs against the Springer supplement showed **zero differences** — the two independent sources are byte-identical. This is the cross-check that authorised embedding the table.
+
 ### Second independent reference implementation (meffonym, perishky/meffonym)
 
 **URL:** https://github.com/perishky/meffonym (searched + fetched R/horvath.r)
@@ -110,7 +134,8 @@
 
 ## Assumptions
 
-1. **ASSUMPTION: Coefficient set is caller-supplied.** The actual 353-CpG Horvath coefficient table is a large published table (Additional file 3 of the paper) and was not retrieved/reproduced in this session. Per the task policy, fabricating coefficients is forbidden; the implementation is therefore a **generic linear-predictor framework** that takes caller-supplied coefficients + intercept. The math (linear predictor + inverse transform) is fully source-backed; only the specific clock weights are externalised to the caller. This is an externalisation, not an unresolved correctness gap, since changing the coefficients is the caller's responsibility and every value the implementation itself uses (adult.age = 20, the two-branch transform) is source-backed.
+1. **RESOLVED (2026-06-22): the 353-CpG coefficient table is now embedded.** Previously the table was externalised to the caller because it had not been retrieved. It has since been retrieved verbatim from Horvath (2013) Additional file 3 (Springer supplement, source #5) and cross-verified byte-identical against an independent GitHub mirror (source #6) for all 353 `(CpGmarker, CoefficientTraining)` pairs plus the intercept (0.695507258). The built-in clock is exposed via `HorvathMultiTissueCoefficients` / `HorvathMultiTissueIntercept` and a parameterless `CalculateEpigeneticAge(methylation)` overload; the caller-supplied overload is retained unchanged. No correctness-affecting assumption remains for the multi-tissue clock.
+2. **Scope note (not an assumption):** only the **multi-tissue** clock (353 CpGs) is embedded. The skin-&-blood clock (Horvath 2018) and PhenoAge (Levine 2018) are different models with different coefficient tables and are out of scope for this unit; callers needing them use the caller-supplied overload.
 
 ---
 
@@ -132,9 +157,12 @@
 2. aldringsvitenskap/epigeneticclock. Horvath 2013 reference R implementation, `horvath2013.R` (trafo / anti.trafo, adult.age = 20). https://raw.githubusercontent.com/aldringsvitenskap/epigeneticclock/master/horvath2013.R (accessed 2026-06-13)
 3. aldringsvitenskap/epigeneticclock. Horvath 2013 reference R implementation, `StepwiseAnalysis.R` (predictedAge = anti.trafo(intercept + meth %*% coef)). https://raw.githubusercontent.com/aldringsvitenskap/epigeneticclock/master/StepwiseAnalysis.R (accessed 2026-06-13)
 4. perishky/meffonym. R package implementing DNA methylation clocks incl. Horvath anti.trafo. https://github.com/perishky/meffonym (accessed 2026-06-13)
+5. Horvath S. (2013). Additional file 3 (353-CpG `CoefficientTraining` table), Genome Biology 14:R115. https://static-content.springer.com/esm/art%3A10.1186%2Fgb-2013-14-10-r115/MediaObjects/13059_2013_3156_MOESM3_ESM.csv (accessed 2026-06-22)
+6. aldringsvitenskap/epigeneticclock. AdditionalFile3.csv (GitHub mirror of the supplement; cross-verification source). https://raw.githubusercontent.com/aldringsvitenskap/epigeneticclock/master/AdditionalFile3.csv (accessed 2026-06-22)
 
 ---
 
 ## Change History
 
 - **2026-06-13**: Initial documentation.
+- **2026-06-22**: Embedded the published Horvath (2013) 353-CpG multi-tissue clock coefficients (intercept 0.695507258 + 353 weights from Additional file 3), cross-verified byte-identical against an independent GitHub mirror; resolved the "coefficients are caller-supplied" assumption (sources #5, #6).

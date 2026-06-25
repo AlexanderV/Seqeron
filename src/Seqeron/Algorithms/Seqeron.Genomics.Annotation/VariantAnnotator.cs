@@ -647,8 +647,8 @@ public static class VariantAnnotator
             altCodonChars[positionInCodon + i] = char.ToUpperInvariant(variant.Alternate[i]);
         string altCodon = new(altCodonChars);
 
-        char refAa = StandardCode.Translate(refCodon);
-        char altAa = StandardCode.Translate(altCodon);
+        char refAa = TranslateOrUnknown(refCodon);
+        char altAa = TranslateOrUnknown(altCodon);
 
         string codonChange = $"c.{cdsPos.Value}{variant.Reference}>{variant.Alternate}";
 
@@ -675,6 +675,28 @@ public static class VariantAnnotator
 
         // missense: peptides differ, same length, not start/stop change. (Src: VariationEffect.pm)
         return (ConsequenceType.MissenseVariant, codonChange, $"p.{refAa}{codonNumber}{altAa}");
+    }
+
+    /// <summary>
+    /// Translates a codon with the Standard code, mapping a codon that is neither a
+    /// standard nor a valid IUPAC codon (e.g. one assembled from a malformed
+    /// alternate allele containing an out-of-alphabet character) to the unknown
+    /// amino acid <c>'X'</c> rather than throwing. This keeps the VEP predicate
+    /// logic disciplined on malformed content: an untranslatable codon is excluded
+    /// from <c>synonymous</c> and reported as <see cref="ConsequenceType.CodingSequenceVariant"/>
+    /// (Variant_Annotation.md §3.3, §6.1), exactly as an IUPAC-ambiguous codon is.
+    /// </summary>
+    private static char TranslateOrUnknown(string codon)
+    {
+        try
+        {
+            return StandardCode.Translate(codon);
+        }
+        catch (ArgumentException)
+        {
+            // Unknown/untranslatable codon → unknown amino acid (per IUPAC 'X' contract).
+            return 'X';
+        }
     }
 
     /// <summary>

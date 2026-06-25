@@ -71,7 +71,7 @@ $$
 
 ### 3.3 Preconditions and Validation
 
-`FindDirectRepeats(DnaSequence, ...)` throws `ArgumentNullException` when `sequence` is `null`, throws `ArgumentOutOfRangeException` when `minLength < 2`, and throws `ArgumentOutOfRangeException` when `maxLength < minLength`. The raw-string overload uppercases non-empty input and yields no results for `null` or empty strings, but it does not duplicate the numeric range checks from the `DnaSequence` overload. Positions are 0-based in all returned results.
+`FindDirectRepeats(DnaSequence, ...)` throws `ArgumentNullException` when `sequence` is `null`, throws `ArgumentOutOfRangeException` when `minLength < 2`, and throws `ArgumentOutOfRangeException` when `maxLength < minLength`. The raw-string overload uppercases non-empty input and yields no results for `null` or empty strings; it now ALSO mirrors the numeric range checks of the `DnaSequence` overload (`minLength < 2` and `maxLength < minLength` both throw `ArgumentOutOfRangeException`), validating eagerly at the call rather than only on enumeration. Positions are 0-based in all returned results.
 
 ## 4. Algorithm
 
@@ -124,7 +124,7 @@ The core implementation builds a suffix tree with `global::SuffixTree.SuffixTree
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | The raw-string overload does not mirror the range validation performed by the `DnaSequence` overload. | Deviation | Invalid numeric ranges can behave differently depending on which overload is called. | accepted | The legacy doc described unified validation, but the current implementation only validates numeric ranges on the `DnaSequence` overload. |
+| 1 | The raw-string overload did not mirror the range validation performed by the `DnaSequence` overload. | Deviation | A degenerate `minLength = 0` on the raw-string surface produced a zero-length candidate whose suffix-tree lookup matched every position, blowing the result set up with `O(n²)` spurious empty-/single-base "repeats". | resolved (REP-DIRECT-001 fuzzing) | Fixed by mirroring the `DnaSequence` overload's `minLength < 2` and `maxLength < minLength` guards onto the raw-string overload (hoisted into an eager wrapper so the exception surfaces at the call). Both overloads now validate identically; the MCP `find_direct_repeats` tool that forwards raw user input is no longer exposed to the blow-up. |
 
 ## 6. Edge Cases and Limitations
 
@@ -141,7 +141,7 @@ The core implementation builds a suffix tree with `global::SuffixTree.SuffixTree
 
 ### 6.2 Limitations
 
-The algorithm reports only exact direct repeats and does not score partial similarity, mismatches, or indels. It also does not perform biological annotation of why a repeat is present, so users must interpret whether a reported direct repeat corresponds to an LTR, a tandem expansion, a recombination substrate, or another structure. Numeric validation is asymmetric across overloads, so callers should prefer the `DnaSequence` overload when they want strict parameter checking.
+The algorithm reports only exact direct repeats and does not score partial similarity, mismatches, or indels. It also does not perform biological annotation of why a repeat is present, so users must interpret whether a reported direct repeat corresponds to an LTR, a tandem expansion, a recombination substrate, or another structure. Numeric validation is now symmetric across both overloads (`minLength < 2` and `maxLength < minLength` throw `ArgumentOutOfRangeException` on the raw-string surface as well as the `DnaSequence` surface).
 
 ## 7. Examples and Related Material
 

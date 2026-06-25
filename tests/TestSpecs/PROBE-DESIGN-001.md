@@ -8,10 +8,10 @@
 | **Area** | MolTools |
 | **Title** | Hybridization Probe Design |
 | **Canonical Class** | `ProbeDesigner` |
-| **Canonical Methods** | `DesignProbes`, `DesignTilingProbes`, `ScoreProbe` (via EvaluateProbe) |
+| **Canonical Methods** | `DesignProbes`, `DesignTilingProbes`, `ScoreProbe` (via EvaluateProbe), `EvaluateTaqManProbe`, `SelectTaqManStrand` |
 | **Complexity** | O(n²) |
-| **Status** | ☑ Complete |
-| **Last Updated** | 2026-01-23 |
+| **Status** | ☐ Pending re-validation (TaqMan opt-in rules added) |
+| **Last Updated** | 2026-06-24 |
 
 ---
 
@@ -26,6 +26,9 @@
 | Wikipedia: Molecular beacon | Academic | Loop 18-30 bp, stem 5-7 nt each side, typical total 25 nt |
 | SantaLucia (1998) | Research | Unified nearest-neighbor thermodynamics for Tm |
 | Breslauer et al. (1986) | Research | Predicting DNA duplex stability |
+| PREMIER Biosoft "TaqMan probe design tips" | Vendor doc | TaqMan: length 18-22 nt, GC 30-80%, more Cs than Gs and no G at 5' end, no ≥4-G runs, probe Tm 10 °C above primer Tm |
+| Applied Biosystems / Thermo Fisher "Designing a TaqMan Gene Expression Assay" | Manufacturer | No 5' G (interferes with reporter fluorescence); probe Tm ~10 °C above primer; antisense fallback when 5' G unavoidable |
+| ScienceDirect "TaqMan — an overview" | Reference work | 5' G adjacent to reporter quenches fluorescence even after cleavage (hard rule) |
 
 ---
 
@@ -60,6 +63,16 @@
 | M13 | High GC content (100%) results in GcContent ≈ 1.0 | Edge case | Mathematical |
 | M14 | Low GC content (all A/T) results in low GcContent | Edge case | Mathematical |
 | M15 | maxProbes parameter limits returned count | API contract | Implementation |
+| TM1 | TaqMan probe with 5' G is flagged (`NoGuanineAt5Prime == false`) and `PassesAll == false` | 5' G quenches reporter even after cleavage | ABI / ScienceDirect |
+| TM2 | Run of ≥4 consecutive Gs flagged (`NoRunOfFourOrMoreG == false`) | No ≥4-G runs | PREMIER Biosoft |
+| TM3 | More G than C flagged (`MoreCytosineThanGuanine == false`; C=1, G=9) | More Cs than Gs | PREMIER Biosoft |
+| TM4 | Length outside 18-22 flagged (`LengthInRange == false`; 16 nt) | Length 18-22 nt | PREMIER Biosoft |
+| TM5 | GC outside 30-80% flagged (`GcContentInRange == false`; GC = 1.0) | GC 30-80% | PREMIER Biosoft |
+| TM6 | Probe Tm < primerTm + 10 flagged (Tm 49.35, primer 45) | Probe Tm ≥ primer + 10 °C | PREMIER Biosoft / ABI |
+| TM7 | Fully compliant probe accepted (`PassesAll == true`, no violations) | All rules satisfied | PREMIER Biosoft |
+| TM8 | Null primerTm skips the Tm gate (reported satisfied) | Optional primer Tm | Implementation contract |
+| TM9 | `SelectTaqManStrand` picks antisense when sense has 5' G / more G | Antisense fallback | ABI |
+| TM10 | `SelectTaqManStrand` keeps the sense strand when already compliant | No needless RC | ABI |
 
 ### Should (Important)
 
@@ -84,7 +97,8 @@
 
 ## Coverage Classification
 
-Canonical file: `ProbeDesigner_ProbeDesign_Tests.cs` (29 tests).
+Canonical file (generic designer): `ProbeDesigner_ProbeDesign_Tests.cs` (29 tests).
+Canonical file (TaqMan opt-in rules): `ProbeDesigner_TaqMan_Tests.cs` (12 tests).
 Supplementary file: `ProbeDesignerTests.cs` (6 tests — smoke/utility, no PROBE-DESIGN-001 scope).
 
 | ID | Test | Status |
@@ -118,6 +132,18 @@ Supplementary file: `ProbeDesignerTests.cs` (6 tests — smoke/utility, no PROBE
 | — | DesignMolecularBeacon_GcRichTarget_ScorePenalizedForGcAndTm | ✅ Mutation |
 | — | DesignProbes_WithSuffixTree_FiltersNonUniqueProbes | ✅ Specificity |
 | — | DesignProbes_WithSuffixTree_PerformanceImprovement | ✅ Integration |
+| TM1 | EvaluateTaqManProbe_FivePrimeGuanine_FlaggedAndRejected | ✅ Covered |
+| TM2 | EvaluateTaqManProbe_RunOfFourGuanines_Rejected | ✅ Covered |
+| TM3 | EvaluateTaqManProbe_MoreGuanineThanCytosine_FlagsCgRule | ✅ Covered |
+| TM4 | EvaluateTaqManProbe_LengthOutsideRange_FlagsLengthRule | ✅ Covered |
+| TM5 | EvaluateTaqManProbe_GcContentOutsideRange_FlagsGcRule | ✅ Covered |
+| TM6 | EvaluateTaqManProbe_ProbeTmNotTenAbovePrimer_FlagsTmGate | ✅ Covered |
+| TM7 | EvaluateTaqManProbe_AllRulesSatisfied_Accepted | ✅ Covered |
+| TM8 | EvaluateTaqManProbe_NoPrimerTm_TmGateReportedSatisfied | ✅ Covered |
+| TM9 | SelectTaqManStrand_SenseHas5PrimeGAndMoreG_PicksAntisense | ✅ Covered |
+| TM10 | SelectTaqManStrand_SenseAlreadyCompliant_KeepsSense | ✅ Covered |
+| — | EvaluateTaqManProbe_NullSequence_Throws | ✅ Edge |
+| — | SelectTaqManStrand_NullSequence_Throws | ✅ Edge |
 
 ---
 

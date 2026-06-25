@@ -52,6 +52,25 @@
 3. **Length-based classification:** Short IDRs (<30 residues) vs long IDRs (≥30 residues) differ in functional properties. Long IDRs are more likely to be functionally autonomous.
 4. **Region boundaries:** The boundaries of IDRs are defined by the transition from residues predicted as disordered to residues predicted as ordered.
 
+### Necci et al. (2020) — MobiDB-lite 3.0 disorder flavors (sourced opt-in labelling)
+
+**URL (paper):** https://academic.oup.com/bioinformatics/article/36/22-23/5533/6039111
+**URL (PubMed):** https://pubmed.ncbi.nlm.nih.gov/33325498/
+**URL (reference implementation):** https://github.com/BioComputingUP/MobiDB-lite (branch `v3`), `mdblib/states.py` and `mdblib/consensus.py`, fetched via `gh api repos/BioComputingUP/MobiDB-lite/contents/mdblib/states.py?ref=v3`.
+**Citation:** Necci M, Piovesan D, Clementel D, Dosztányi Z, Tosatto SCE (2020/2021). "MobiDB-lite 3.0: fast consensus annotation of intrinsic disorder flavors in proteins." Bioinformatics 36(22-23):5533-5534. DOI 10.1093/bioinformatics/btaa1045. PMID 33325498.
+**Accessed:** 2026-06-24
+**Authority rank:** 1 (peer-reviewed paper) + 3 (reference implementation, version-pinned).
+
+**Key Extracted Points (verbatim from the paper and the v3 source):**
+
+1. **Deterministic flavor classification exists.** The paper states: *"MobiDB-lite 3.0 uses a sliding window of nine residues to assign each amino acid in disordered regions to one of … classes … Classes in order of priority are: polyampholyte, positive polyelectrolyte, negative polyelectrolyte, cysteine-rich, proline-rich, glycine-rich, low-complexity, polar, with the latter four assigned when the fraction of cysteines, prolines, glycines and polar residues in the sliding window is greater than [0.32]."*
+2. **Window/length:** sliding window of nine residues; *"sub-regions reported if they are at least nine residues long"* (`get_region_features(window_size=9, feature_len_thr=10)`). By default each residue is assigned a single class by priority.
+3. **Charge classes (`states.py:get_disorder_class`, Das & Pappu 2013 diagram of states), verbatim:** translation `RK→+`, `DE→−`, all others ignored; `f_plus=count(+)/L`, `f_minus=count(−)/L`, `fcr=f_plus+f_minus`, `ncpr=|f_plus−f_minus|`. `if fcr > 0.35:` then **PA** if `ncpr <= 0.35 or (f_minus > 0.35 and f_plus > 0.35)`, else **PPE** if `f_plus > 0.35`, **NPE** if `f_minus > 0.35`; else **WC** (weakly charged).
+4. **Composition classes (`states.py:is_enriched`, verbatim):** `def is_enriched(self, subset, threshold=0.32): … s = sum(...)/len(self.states); if s >= threshold:` — fraction **≥ 0.32** (inclusive). Polar set is `['S','T','N','Q']` (`consensus.py`).
+5. **Priority (`consensus.py:get_region_features`, verbatim order):** charge class first (`if pappu_class != 'WC'`), then `is_enriched(['C'])` → `['P']` → `['G']` → SEG low-complexity → `is_enriched(['S','T','N','Q'])`.
+
+This is a **citable, deterministic scheme** that maps cleanly onto the per-residue propensity output (it is composition-only over the region's residues). It is implemented as the **opt-in** `ClassifyRegionFlavorMobiDbLite` (boundaries unchanged; the default `RegionType`/`Confidence` heuristic is unchanged). MobiDB-lite reports **no per-residue confidence value**, so the existing rescaled `Confidence` remains a declared first-principles heuristic.
+
 ### Wikipedia — Intrinsically Disordered Proteins
 
 **URL:** https://en.wikipedia.org/wiki/Intrinsically_disordered_proteins
@@ -150,6 +169,25 @@
 | Expected regions | At least 1 disordered region in the central P-rich segment |
 | Expected disordered start | Near position 10 (boundary may shift by window/2) |
 
+### Dataset: MobiDB-lite flavor classification (opt-in, hand-traced from the v3 source)
+
+All values computed directly from `get_disorder_class` / `is_enriched` (no implementation run):
+
+| Region sequence | f₊ | f₋ | FCR | NCPR | Branch | Expected flavor |
+|-----------------|----|----|-----|------|--------|-----------------|
+| `RKDERKDE` | 0.5 | 0.5 | 1.0 | 0.0 | FCR>0.35, NCPR≤0.35 | Polyampholyte |
+| `RKRKRKRKRR` | 1.0 | 0.0 | 1.0 | 1.0 | FCR>0.35, f₊>0.35 | PositivePolyelectrolyte |
+| `DEDEDEDEDD` | 0.0 | 1.0 | 1.0 | 1.0 | FCR>0.35, f₋>0.35 | NegativePolyelectrolyte |
+| `RKRKPPPPPP` | 0.4 | 0.0 | 0.4 | 0.4 | FCR>0.35, f₊>0.35 (charge beats P) | PositivePolyelectrolyte |
+| `RKRKRKR`+13×`A` | 0.35 | 0.0 | 0.35 | 0.35 | FCR=0.35 NOT >0.35 → WC; no comp. | WeaklyCharged |
+| `CCCCAAAAAA` | 0 | 0 | 0 | — | WC; C=0.4 ≥0.32 | CysteineRich |
+| `PPPPAAAAAA` | 0 | 0 | 0 | — | WC; P=0.4 ≥0.32 | ProlineRich |
+| `GGGGAAAAAA` | 0 | 0 | 0 | — | WC; G=0.4 ≥0.32 | GlycineRich |
+| `SSTTNNQQAA` | 0 | 0 | 0 | — | WC; {S,T,N,Q}=0.8 ≥0.32 | Polar |
+| `CCCCPPPPAA` | 0 | 0 | 0 | — | WC; C=0.4 first in priority | CysteineRich |
+| 8×`C`+17×`A` | 0 | 0 | 0 | — | C=8/25=0.32 (≥, inclusive) | CysteineRich |
+| 7×`C`+18×`A` | 0 | 0 | 0 | — | C=7/25=0.28 <0.32 | WeaklyCharged |
+
 ---
 
 ## Recommendations for Test Coverage
@@ -189,3 +227,4 @@
 ## Change History
 
 - **2026-02-12**: Initial documentation.
+- **2026-06-24**: Added the MobiDB-lite 3.0 (Necci et al. 2020) deterministic disorder-flavor scheme as a sourced, opt-in alternative to the default first-principles `RegionType` label (charge classes from the Das & Pappu 2013 diagram of states; composition classes at the verbatim 0.32 enrichment threshold). Implemented as `ClassifyRegionFlavorMobiDbLite`. Region boundaries (validated TOP-IDP) and the default `RegionType`/`Confidence` are unchanged; MobiDB-lite defines no per-residue confidence, so the rescaled `Confidence` remains a declared heuristic.

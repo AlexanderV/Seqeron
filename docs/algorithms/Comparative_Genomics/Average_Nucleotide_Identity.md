@@ -5,8 +5,8 @@
 | Algorithm Group | Comparative Genomics |
 | Test Unit ID | COMPGEN-ANI-001 |
 | Related Projects | Seqeron.Genomics.Analysis |
-| Implementation Status | Simplified |
-| Last Reviewed | 2026-06-14 |
+| Implementation Status | Production |
+| Last Reviewed | 2026-06-23 |
 
 ## 1. Overview
 
@@ -62,9 +62,19 @@ of their length" [1].
 
 | Aspect | ANIb (this) | OrthoANI [3] |
 |--------|-------------|--------------|
-| Fragment matching | best one-way BLASTN hit | reciprocal orthologous fragment pairs |
-| Both genomes fragmented | no (query only) | yes |
-| Symmetry | direction-dependent | symmetric |
+| Fragment matching | best one-way gapped BLASTN-style hit (or fast ungapped) | reciprocal orthologous fragment pairs |
+| Both genomes fragmented | single direction, or reciprocal mean of both directions | yes |
+| Symmetry | direction-dependent (one way); symmetric (reciprocal mean) | symmetric |
+
+### 2.6 Reciprocal (bidirectional) ANI
+
+Goris et al. perform the BLASTN search in both directions: "reverse searching, i.e. in which the
+reference genome is used as the query, was also performed to provide reciprocal values" [1]. The
+reciprocal (symmetric) ANI is the arithmetic mean of the two directional values:
+
+```
+ANI_reciprocal(A, B) = (ANI(A → B) + ANI(B → A)) / 2
+```
 
 ## 3. Contract
 
@@ -77,6 +87,10 @@ of their length" [1].
 | `fragmentLength` | `int` | 1020 | Fragment length in nt [1] | > 0 |
 | `minIdentity` | `double` | 0.30 | Min per-fragment identity (over fragment length) [1] | [0,1] |
 | `minAlignableFraction` | `double` | 0.70 | Min fraction of fragment that must align [1] | [0,1] |
+| `gapped` | `bool` | false | If true, each fragment is placed by gapped Smith-Waterman local alignment (as Goris use gapped BLASTN); if false, fast ungapped best-offset placement [1][4] | — |
+
+`CalculateReciprocalAni(genomeA, genomeB, fragmentLength, minIdentity, minAlignableFraction, gapped)`
+takes the same parameters and returns the mean of the two directional ANIs.
 
 ### 3.2 Output / Return Value
 
@@ -96,10 +110,15 @@ DNA alphabet is assumed (no IUPAC degeneracy handling). Coordinates are 0-based 
 
 1. Validate inputs; uppercase both sequences.
 2. Cut the query into consecutive non-overlapping fragments of `fragmentLength` (drop trailing partial).
-3. For each fragment, find the best ungapped full-length placement in the reference; compute
-   identity = matching bases / fragmentLength, and alignable fraction.
+3. For each fragment, find the best placement in the reference — gapped Smith-Waterman local
+   alignment when `gapped = true`, else fast ungapped full-length scan; compute identity =
+   identical (aligned) bases / fragmentLength, and alignable fraction = ungapped aligned columns /
+   fragmentLength (both recalculated over the whole fragment, per Goris/pyani) [1][4].
 4. Keep fragments with `identity > minIdentity` and `alignableFraction ≥ minAlignableFraction`.
 5. Return the mean identity of the kept fragments (0 if none).
+
+**Reciprocal ANI** (`CalculateReciprocalAni`): run step 1-5 in both directions (A→B and B→A) and
+return the mean of the two directional ANIs [1].
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
@@ -114,7 +133,9 @@ DNA alphabet is assumed (no IUPAC degeneracy handling). Coordinates are 0-based 
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
-| CalculateANI | O((n/L) × m × L) = O(n × m) | O(1) | n = query length, m = reference length, L = fragmentLength; ungapped sliding placement per fragment |
+| CalculateANI (ungapped) | O((n/L) × m × L) = O(n × m) | O(1) | n = query length, m = reference length, L = fragmentLength; ungapped sliding placement per fragment |
+| CalculateANI (gapped) | O((n/L) × L × m) = O(n × m) | O(L × m) | Smith-Waterman DP per fragment (L × m matrix); reuses `SequenceAligner.LocalAlign` |
+| CalculateReciprocalAni | 2 × CalculateANI | as above | both directions then mean |
 
 ## 5. Implementation Notes
 
@@ -122,50 +143,70 @@ DNA alphabet is assumed (no IUPAC degeneracy handling). Coordinates are 0-based 
 
 **Implementation location:** [ComparativeGenomics.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/ComparativeGenomics.cs)
 
-- `ComparativeGenomics.CalculateANI(query, reference, fragmentLength, minIdentity, minAlignableFraction)`: public ANI entry point.
+- `ComparativeGenomics.CalculateANI(query, reference, fragmentLength, minIdentity, minAlignableFraction, gapped)`: public single-direction ANI entry point.
+- `ComparativeGenomics.CalculateReciprocalAni(genomeA, genomeB, fragmentLength, minIdentity, minAlignableFraction, gapped)`: public reciprocal (symmetric) ANI = mean of both directions.
 - `ComparativeGenomics.BestUngappedFragmentMatch(...)` (private): best ungapped full-length placement and identity for one fragment.
+- `ComparativeGenomics.BestGappedFragmentMatch(...)` (private): best gapped Smith-Waterman placement (via `SequenceAligner.LocalAlign`); identity and coverage recalculated over the fragment length.
 
 ### 5.2 Current Behavior
 
 Fragmentation is consecutive and non-overlapping (a trailing fragment shorter than
-`fragmentLength` is ignored). Per fragment, the implementation slides the fragment across every
-full-length offset of the reference and counts matching bases at the best offset; identity is that
-count divided by the fragment length. Because the placement is full-length, the alignable fraction
-is 1.0 whenever the reference is at least as long as the fragment, and 0 otherwise (reference too
-short → fragment excluded by the 70 % cut-off).
+`fragmentLength` is ignored). Per fragment there are two placement modes:
+
+- **Ungapped (default):** the implementation slides the fragment across every full-length offset of
+  the reference and counts matching bases at the best offset; identity is that count divided by the
+  fragment length. The alignable fraction is 1.0 whenever the reference is at least as long as the
+  fragment, and 0 otherwise (reference too short → fragment excluded by the 70 % cut-off). Exact for
+  substitution-only divergence.
+- **Gapped (`gapped = true`):** the fragment is placed by Smith-Waterman local alignment against the
+  reference via `SequenceAligner.LocalAlign` (BLAST DNA scoring), as Goris et al. use gapped BLASTN
+  [1]. Identity = identical aligned columns / fragment length; alignable fraction = ungapped aligned
+  columns (alignment length minus gap columns) / fragment length — both recalculated over the whole
+  fragment, matching pyani's `ani_pid = ani_alnids / qlen` and `ani_coverage = ani_alnlen / qlen`
+  with `ani_alnlen = blast_alnlen - blast_gaps` [4]. This recovers indels that the ungapped scan
+  cannot (e.g. an 8-nt fragment with one inserted base in the reference scores 1.0 gapped vs 0.875
+  ungapped).
+
+**Reciprocal ANI** reuses `CalculateANI` for both directions and averages them [1].
 
 **Search-reuse decision:** the repository suffix tree (`SuffixTree`) supports *exact* occurrence
-enumeration only; ANI requires *identity over mismatches* (approximate, scoring-based) which the
-suffix tree does not provide. The previous implementation misused `LongestCommonSubstring` as an
-identity proxy, which is not nucleotide identity and was a defect. A direct best-placement scan is
-the correct primitive for per-fragment identity, so the suffix tree is not used here.
+enumeration only; ANI requires *identity over mismatches and indels* (approximate, scoring-based)
+which the suffix tree does not provide. The gapped path reuses the library's own
+`SequenceAligner` (Smith-Waterman) rather than a bespoke aligner. The previous implementation
+misused `LongestCommonSubstring` as an identity proxy, which is not nucleotide identity and was a
+defect. So the suffix tree is not used here.
 
 ### 5.3 Conformance to Theory / Spec
 
 **Implemented (verbatim from the cited theory/spec):**
 
 - Consecutive non-overlapping query fragmentation at a fixed length (default 1020 nt) [1].
-- Per-fragment identity recalculated over the whole fragment length [1].
+- Per-fragment identity recalculated over the whole fragment length [1][4].
 - ANI = mean of fragment identities passing `> 30 %` identity and `≥ 70 %` alignable cut-offs [1].
 - Default fragment length and cut-offs taken directly from Goris et al. 2007 [1].
+- **Gapped** per-fragment placement via Smith-Waterman (Goris use gapped BLASTN) [1][4], with
+  identity and coverage recalculated over the fragment length (pyani convention) [4].
+- **Reciprocal (bidirectional) ANI** = mean of both search directions [1].
 
 **Intentionally simplified:**
 
-- Per-fragment alignment uses an **ungapped** best full-length placement instead of gapped BLASTN
-  (X=150, q=-1) [1]; **consequence:** indel-containing homologous regions score lower identity
-  than a gapped aligner would report. For substitution-only divergence the recalculated-over-fragment
-  identity matches the definition.
+- The gapped path uses the library's Smith-Waterman (`SequenceAligner`, BLAST DNA scoring) rather
+  than NCBI BLASTN's exact heuristic seeding/X-drop parameters (X=150, q=-1) [1]; the alignment is
+  full dynamic programming (more sensitive than BLAST's heuristic, not less), and identity/coverage
+  are computed by the same recalculated-over-fragment definition. Numeric ANI on real genomes may
+  differ slightly from NCBI-BLASTN-based pipelines because the aligner engine differs.
 
 **Not implemented:**
 
-- Reciprocal/averaged two-direction ANI and the OrthoANI orthologous-pair refinement [3];
-  **users should rely on:** dedicated tools (pyani, OrthoANI, FastANI) for taxonomy-grade values.
+- The OrthoANI orthologous-pair refinement (reciprocal best fragment *pairs*, both genomes
+  fragmented and intersected) [3]; **users should rely on:** dedicated tools (OrthoANI, FastANI)
+  for that specific variant. The Goris reciprocal *mean* is implemented (`CalculateReciprocalAni`).
 
 ### 5.4 Deviations and Assumptions
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | Ungapped placement vs gapped BLASTN | Assumption | Lower identity for indel regions; exact for substitutions | accepted | §5.3 simplified; Evidence ASSUMPTION 1 |
+| 1 | Gapped path uses library Smith-Waterman, not NCBI BLASTN engine | Decision | ANI numerics may differ slightly from BLASTN-based pipelines; gapped indel handling is correct | accepted | §5.3 simplified; reuses `SequenceAligner` |
 
 ## 6. Edge Cases and Limitations
 
@@ -181,9 +222,11 @@ the correct primitive for per-fragment identity, so the suffix tree is not used 
 
 ### 6.2 Limitations
 
-Does not model gaps/indels (ungapped placement), IUPAC degenerate bases, reverse-complement
-matching, or reciprocal averaging. Not suitable for taxonomy-grade ANI on real genomes; intended
-as an exact realization of the ANI averaging formula over conserved fragments.
+In the default ungapped mode, gaps/indels are not modelled (use `gapped = true`). Neither mode
+handles IUPAC degenerate bases or reverse-complement matching. For taxonomy-grade ANI on real
+genomes prefer a BLASTN-engine pipeline (pyani, FastANI); this implementation is an exact
+realization of the Goris ANI averaging formula over conserved fragments, with gapped placement and
+reciprocal averaging supported.
 
 ## 7. Examples and Related Material
 
@@ -198,6 +241,12 @@ double ani = ComparativeGenomics.CalculateANI(
 // One substitution in the last fragment ("TTTA"): (1+1+1+0.75)/4 = 0.9375
 double ani2 = ComparativeGenomics.CalculateANI(
     "AAAACCCCGGGGTTTA", "AAAACCCCGGGGTTTT", fragmentLength: 4);
+// Gapped placement recovers an indel: 8-nt fragment vs reference with one inserted base → 1.0
+double aniGapped = ComparativeGenomics.CalculateANI(
+    "AAAACCCC", "AAAATCCCC", fragmentLength: 8, gapped: true);   // 1.0 (ungapped would give 0.875)
+// Reciprocal (symmetric) ANI = mean of both directions
+double aniRecip = ComparativeGenomics.CalculateReciprocalAni(
+    "AAAACCCCGGGGTTTT", "AAAACCCCGGGGTTTA", fragmentLength: 4);
 ```
 
 ### 7.3 Related Tests, Evidence, or Documents

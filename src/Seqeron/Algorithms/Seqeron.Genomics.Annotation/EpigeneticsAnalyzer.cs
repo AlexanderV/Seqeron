@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Annotation;
 /// <summary>
 /// Provides algorithms for epigenetic analysis including methylation and chromatin state.
 /// </summary>
-public static class EpigeneticsAnalyzer
+public static partial class EpigeneticsAnalyzer
 {
     #region Records and Types
 
@@ -284,7 +284,10 @@ public static class EpigeneticsAnalyzer
                 cpg++;
         }
 
-        double expected = (c * g) / (double)sequence.Length;
+        // Compute C×G in double to avoid int overflow on long sequences:
+        // for c, g near 10^5 the product exceeds Int32.MaxValue and would wrap,
+        // corrupting the Gardiner-Garden & Frommer O/E ratio.
+        double expected = ((double)c * g) / sequence.Length;
         return expected > 0 ? cpg / expected : 0;
     }
 
@@ -1123,6 +1126,32 @@ public static class EpigeneticsAnalyzer
     private const double HorvathAdultAge = 20.0;
 
     /// <summary>
+    /// Estimates DNA methylation (epigenetic) age from methylation β-values using the
+    /// <b>published Horvath (2013) 353-CpG multi-tissue clock</b> embedded in this library.
+    /// </summary>
+    /// <remarks>
+    /// Computes DNAmAge = anti.trafo(<see cref="HorvathMultiTissueIntercept"/> + Σ coef_i · β_i)
+    /// over the clock CpGs present in <paramref name="methylationAtClockCpGs"/>, using the
+    /// built-in <see cref="HorvathMultiTissueCoefficients"/> table (intercept 0.695507258 and the
+    /// 353 <c>CoefficientTraining</c> weights from Additional file 3 of the paper). CpGs absent
+    /// from the supplied map contribute nothing to the sum, exactly as in the reference R code
+    /// where the clock vector is multiplied only by the methylation matrix columns provided
+    /// (Horvath 2013, StepwiseAnalysis.R). The inverse calibration F⁻¹ is
+    /// <see cref="HorvathAntiTransform"/> with adult.age = 20.
+    /// </remarks>
+    /// <param name="methylationAtClockCpGs">Methylation β-values keyed by CpG identifier (0..1).</param>
+    /// <returns>Estimated DNAm age in years from the built-in Horvath multi-tissue clock.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="methylationAtClockCpGs"/> is null.</exception>
+    public static double CalculateEpigeneticAge(
+        IReadOnlyDictionary<string, double> methylationAtClockCpGs)
+    {
+        return CalculateEpigeneticAge(
+            methylationAtClockCpGs,
+            HorvathMultiTissueCoefficientsTable,
+            HorvathMultiTissueIntercept);
+    }
+
+    /// <summary>
     /// Estimates DNA methylation (epigenetic) age from methylation values at clock CpGs using a
     /// caller-supplied linear predictor (generalised Horvath-style epigenetic clock).
     /// </summary>
@@ -1179,6 +1208,98 @@ public static class EpigeneticsAnalyzer
         return transformedAge < 0
             ? (1 + HorvathAdultAge) * Math.Exp(transformedAge) - 1
             : (1 + HorvathAdultAge) * transformedAge + HorvathAdultAge;
+    }
+
+    /// <summary>
+    /// Estimates DNA methylation (epigenetic) age from methylation β-values using the
+    /// <b>published Horvath (2018) 391-CpG skin &amp; blood clock</b> embedded in this library.
+    /// </summary>
+    /// <remarks>
+    /// Computes DNAmAge = anti.trafo(<see cref="HorvathSkinBloodIntercept"/> + Σ coef_i · β_i)
+    /// over the clock CpGs present in <paramref name="methylationAtClockCpGs"/>, using the built-in
+    /// <see cref="HorvathSkinBloodCoefficients"/> table (intercept -0.447119319 and the 391 weights
+    /// from Supplementary Dataset 2 of the paper). The skin &amp; blood clock uses the SAME inverse
+    /// calibration F⁻¹ as the 2013 multi-tissue clock (<see cref="HorvathAntiTransform"/>, adult.age = 20).
+    /// CpGs absent from the supplied map contribute nothing to the sum.
+    /// </remarks>
+    /// <param name="methylationAtClockCpGs">Methylation β-values keyed by CpG identifier (0..1).</param>
+    /// <returns>Estimated DNAm age in years from the built-in Horvath skin &amp; blood clock.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="methylationAtClockCpGs"/> is null.</exception>
+    public static double CalculateSkinBloodAge(
+        IReadOnlyDictionary<string, double> methylationAtClockCpGs)
+    {
+        return CalculateEpigeneticAge(
+            methylationAtClockCpGs,
+            HorvathSkinBloodCoefficientsTable,
+            HorvathSkinBloodIntercept);
+    }
+
+    /// <summary>
+    /// Estimates DNAm PhenoAge from methylation β-values using the <b>published Levine (2018)
+    /// 513-CpG PhenoAge clock</b> embedded in this library.
+    /// </summary>
+    /// <remarks>
+    /// Computes DNAm PhenoAge = <see cref="PhenoAgeIntercept"/> + Σ weight_i · β_i over the clock CpGs
+    /// present in <paramref name="methylationAtClockCpGs"/>, using the built-in
+    /// <see cref="PhenoAgeCoefficients"/> table (intercept 60.664 and the 513 weights from
+    /// Supplementary Dataset 2). Unlike the Horvath clocks, PhenoAge applies <b>no</b> log/anti-log
+    /// transform — the linear predictor is already in years (Levine et al. 2018, Methods). CpGs absent
+    /// from the supplied map contribute nothing to the sum.
+    /// </remarks>
+    /// <param name="methylationAtClockCpGs">Methylation β-values keyed by CpG identifier (0..1).</param>
+    /// <returns>Estimated DNAm PhenoAge in years from the built-in Levine PhenoAge clock.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="methylationAtClockCpGs"/> is null.</exception>
+    public static double CalculatePhenoAge(
+        IReadOnlyDictionary<string, double> methylationAtClockCpGs)
+    {
+        return CalculatePhenoAge(
+            methylationAtClockCpGs,
+            PhenoAgeCoefficientsTable,
+            PhenoAgeIntercept);
+    }
+
+    /// <summary>
+    /// Estimates DNAm PhenoAge from methylation values at clock CpGs using a caller-supplied linear
+    /// predictor with <b>no</b> inverse transform (PhenoAge-style clock).
+    /// </summary>
+    /// <remarks>
+    /// Computes age = <paramref name="intercept"/> + Σ(coefficient_i · β_i) over the CpGs present in
+    /// both <paramref name="methylationAtClockCpGs"/> and <paramref name="coefficients"/>, and returns it
+    /// directly (no anti.trafo). This matches the Levine et al. (2018) PhenoAge formula, where the
+    /// linear predictor is already in years. For Horvath-style clocks that require the inverse log
+    /// transform, use <see cref="CalculateEpigeneticAge(IReadOnlyDictionary{string,double},IReadOnlyDictionary{string,double},double)"/> instead.
+    /// </remarks>
+    /// <param name="methylationAtClockCpGs">Methylation β-values keyed by CpG identifier (0..1).</param>
+    /// <param name="coefficients">Clock weights keyed by CpG identifier. Required.</param>
+    /// <param name="intercept">Model intercept added to the weighted sum; the result is returned untransformed.</param>
+    /// <returns>Estimated DNAm PhenoAge in years.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="methylationAtClockCpGs"/> or <paramref name="coefficients"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="coefficients"/> is empty.</exception>
+    public static double CalculatePhenoAge(
+        IReadOnlyDictionary<string, double> methylationAtClockCpGs,
+        IReadOnlyDictionary<string, double> coefficients,
+        double intercept = 0.0)
+    {
+        if (methylationAtClockCpGs == null)
+            throw new ArgumentNullException(nameof(methylationAtClockCpGs));
+        if (coefficients == null)
+            throw new ArgumentNullException(nameof(coefficients));
+        if (coefficients.Count == 0)
+            throw new ArgumentException("Clock coefficient table cannot be empty.", nameof(coefficients));
+
+        // Linear predictor in years (no transform): age = intercept + Σ weight_i · β_i.
+        // Source: Levine et al. (2018) — "DNAm PhenoAge = intercept + CpG1×β1 + … CpG513×β513".
+        double age = intercept;
+
+        foreach (var (cpg, methylation) in methylationAtClockCpGs)
+        {
+            if (coefficients.TryGetValue(cpg, out double coef))
+            {
+                age += coef * methylation;
+            }
+        }
+
+        return age;
     }
 
     #endregion

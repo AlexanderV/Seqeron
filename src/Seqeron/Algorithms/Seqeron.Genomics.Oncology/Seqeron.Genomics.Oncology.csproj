@@ -16,6 +16,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- ABIS-Seq immune signature matrix (Monaco et al. 2019, Cell Reports, CC BY 4.0). Provenance/licence in the file header. -->
+    <EmbeddedResource Include="Resources\ABIS_sigmatrixRNAseq.tsv" />
+    <!-- MHCflurry allele -> 37-residue pseudosequence table (models_class1_pan 20200610, Apache-2.0). -->
+    <EmbeddedResource Include="Resources\mhcflurry.allele_sequences.csv" />
+    <!-- Apache NOTICE for the bundled MHCflurry artifacts (kept in the package, not embedded as a stream). -->
+    <None Include="Resources\MHCFLURRY_NOTICE.txt" Pack="true" PackagePath="MHCFLURRY_NOTICE.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />
     <ProjectReference Include="..\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
     <ProjectReference Include="..\Seqeron.Genomics.Analysis\Seqeron.Genomics.Analysis.csproj" />

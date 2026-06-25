@@ -3,7 +3,7 @@
 ## Test Unit
 - **ID**: MIRNA-TARGET-001
 - **Area**: MiRNA
-- **Canonical methods**: `FindTargetSites(mRna, miRna, minScore)`, scoring via `CalculateTargetScore` (internal)
+- **Canonical methods**: `FindTargetSites(mRna, miRna, minScore)`, scoring via `CalculateTargetScore` (internal); `ScoreTargetSiteContextPlusPlus(mRna, miRna, site, ContextPlusPlusInputs)` (opt-in TargetScan context++, Agarwal 2015 — miRNA+3'UTR-derivable features incl. 3P_score/Min_dist/Len_3UTR/Off6m/SA, plus caller-supplied SPS/TA/Len_ORF/ORF8m and PCT via a caller-supplied alignment+tree); `ComputeBranchLengthScore(tree, speciesWithSite)` and `PctFromBranchLength(bls, sigmoidParams)` (Friedman 2009 PCT, opt-in)
 - **Supporting**: `AlignMiRnaToTarget`, `CreateTargetSite` (internal)
 
 ## Canonical Test File
@@ -106,6 +106,47 @@
 
 ---
 
+### CTX-001..CTX-011: TargetScan context++ scoring (Agarwal et al. 2015) — opt-in `ScoreTargetSiteContextPlusPlus`
+
+**Source (retrieved verbatim this session):** `Agarwal_2015_parameters.txt` (fitted coefficients) and `targetscan_70_context_scores.pl` (feature computation/scaling: `getAgarwalContribution`, `getLocalAU_contribution`, `get_sRNA1_8_contributions`, `getSite8_contribution`, `get3primePairingContribution` + `extractSubseqForAlignment`/`modifySubseqForAlignment`, `getMinDist_weighted_contribution`, `get_len3UTR_weighted_contribution`, `getOffset6merSites`/`getOffset6mer_weighted_contribution`), TargetScan distribution; peer-reviewed model Agarwal V et al. (2015) eLife 4:e05005, doi:10.7554/eLife.05005. Each expected value is hand-derived from the retrieved coefficients × feature values (3P_score raw values cross-checked against the reference perl); a wrong coefficient/formula fails the test.
+
+- **CTX-001 (MUST):** 8mer, let-7a, all-G flanks (len 18) → `ContextScorePartial == -0.7561913315126536` with per-feature: Intercept=-0.589, Local_AU=+0.154608695652174, sRNA8G(8mer)=+0.015, 3P_score=+0.016 (raw 0), Min_dist=-0.049759446106213065, Len_3UTR=-0.2830405810586145, Off6m=-0.020 (one 'CUACCU'). Exact, `Within(1e-9)`.
+- **CTX-002 (MUST):** 7mer-m8, let-7a (len 16) → `ContextScorePartial == -0.3087858306402126`; 3P_score=+0.022, Min_dist=-0.031015975380457392, Len_3UTR=-0.15385698397262643, Off6m=-0.011.
+- **CTX-003 (MUST):** 7mer-A1, let-7a, Site8 'G' (len 16) → `ContextScorePartial == -0.2673816755691017`; 3P_score=+0.024, Min_dist=-0.022124733327545488, Len_3UTR=-0.12813929518273268, Off6m=0.
+- **CTX-004 (MUST):** 6mer, miR-21, mixed flanks (len 16), Site8 'C' → `ContextScorePartial == -0.12128221179295548`; 3P_score=+0.0096, Min_dist=-0.017194033053347654, Len_3UTR=-0.04447703767941017, Off6m=0.
+- **CTX-005 (MUST):** sRNA1 non-U branch — synthetic miRNA nt1=G, nt8=G, 8mer → `SRna1Contribution == 0.060` and `SRna8Contribution == 0.015`.
+- **CTX-006 (MUST):** non-seed-match site type (Offset6mer) → throws `ArgumentException`.
+- **CTX-007 (MUST):** no optional inputs on a SHORT layout (the 14-nt SA window does not fit: `windowStart0 = Start+7-13 < 0`) → `OmittedFeatures` contains `SA` (off-end), `PCT`, `SPS, TA_3UTR, Len_ORF, ORF8m`, and does NOT contain `3P_score, Min_dist, Len_3UTR, Off6m`; `SaContribution == 0`.
+- **CTX-008 (MUST):** 8mer with real 3' supplementary pairing (raw 3P=6, perl-verified) → `ThreePrimePairingContribution == -0.080` (= -0.040×((6-1)/2.5)).
+- **CTX-009 (MUST):** 3P raw scores across site types reproduce the perl reference: 7mer-m8 raw 4.5 → contribution -0.040×((4.5-1)/2.5); 7mer-A1 raw 6 → -0.060×((6-1)/2.5).
+- **CTX-010 (MUST):** UTR with two 'CUACCU' offset-6mers → `Off6mContribution == -0.040` (raw count 2 × -0.020).
+- **CTX-011 (MUST):** caller-supplied `ContextPlusPlusInputs(Sps=-8.0, Ta=3.5, OrfLength=1000, Orf8mCount=2)` on 8mer (UTR `AAAAAACAACCUAACUACCUCAGGG`, where the 14-nt SA window FITS: `windowStart0 = 8`) → SPS=+0.11716577540106952, TA=+0.11424734042553189, Len_ORF=+0.04503626943005184, ORF8m=-0.236; those four drop from `OmittedFeatures`; SA is now **computed** (`SaContribution != 0`, not in `OmittedFeatures`); only `PCT` remains residual.
+
+### MCC-001..MCC-006 + CTX-SA-001: Turner-2004 McCaskill partition function + SA accessibility (new capability)
+
+**Source (retrieved verbatim this session):** McCaskill JS (1990) Biopolymers 29:1105 (PMID 1695107); Lorenz et al. (2011) Algorithms Mol Biol 6:26 + ViennaRNA pf_fold refman; RNAplfold man page + Bernhart et al. (2006) Bioinformatics 22:614; `targetscan_70_context_scores.pl` `getSA_contribution`/`runRNAplfold_all_UTRs` (`RNAplfold -L 40 -W 80 -u 20`; row `utrStart+7`, column `L=14`, `log10`, min-max scaled by the SA row); Agarwal et al. (2015) eLife 4:e05005 Fig 4A ("log10 value of the unpaired probability for a 14-nt region centered on the match to miRNA nucleotides 7 and 8").
+
+- **MCC-001 (MUST):** `CalculateUnpairedProbabilities("GAAAC")` → `Z = 1 + exp(-5.4/RT)`, `P(0,4) = exp(-5.4/RT)/Z`, `p_unpaired(0)=p_unpaired(4)=1-P(0,4)`, `p_unpaired(2)=1`, `ΔG_ensemble = -RT·ln Z`, all `Within(1e-12)` (ΔG_hairpin = `CalculateHairpinLoopEnergy("AAA",'G','C',false) = 5.4`, G-C ⇒ no AU penalty).
+- **MCC-002 (MUST):** the same as exact verbatim numerics `Z=1.0001565052764922`, `P(0,4)=0.00015648078642340854`, `p_unpaired(0)=0.9998435192135765` (`Within(1e-15)`) — would fail an MFE-as-PF implementation.
+- **MCC-003 (MUST):** invariants on {hairpin, multiloop, GC-rich, mixed} sequences — `Z>0`; `P(i,j)∈[0,1]`; `Σ_j P(i,j)≤1`; `p_unpaired(i)=1-Σ_j P(i,j)∈[0,1]` (`Within(1e-6)`).
+- **MCC-004 (MUST):** `ΔG_ensemble = -RT·ln Z ≤ MFE` on the same sequences (same Turner-2004 model).
+- **MCC-005 (MUST):** `CalculateRegionUnpairedProbability("GAAAC",4,5) == 1/Z` (`Within(1e-12)`) — only the open chain leaves the whole window unpaired (`Z_open=1`).
+- **MCC-006 (MUST):** accessibility ∈ [0,1]; `1.0` when no pair can form; out-of-range / zero-length window throws `ArgumentOutOfRangeException`.
+- **CTX-SA-001 (MUST):** 8mer let-7a site in a 48-nt structured UTR → `SaContribution == coeff(SA,8mer) × (log10(plfold) - (-4.356))/((-0.661)-(-4.356))` with `plfold = CalculateRegionUnpairedProbability(localContext,…,14)` recomputed independently (`Within(1e-12)`); `SaContribution != 0`; SA not in `OmittedFeatures`; `ContextScorePartial` includes the SA term.
+
+### CTX-PCT-001..006: Friedman 2009 branch-length score (Bls) + PCT wired into context++ (new capability)
+
+**Source (retrieved verbatim this session):** Friedman et al. (2009) Genome Res 19:92 (doi:10.1101/gr.082701.108; PMC2612969) — Bls = total branch length connecting the species with the site perfectly aligned; `PCT = E[(S−B)/S]`; `targetscan.org/docs/pct.html` (PCT ≈ (S/B−1)/(S/B)); `targetscan_70_BL_PCT.pl` `calculatePCTthisBL` (`PCT = b0 + b1/(1+e^(−b2·BL+b3))`, truncated at 0); `targetscan_70_context_scores.pl` `getPCT_contribution` (min-max scaled like the other scaled features); `Agarwal_2015_parameters.txt` PCT row. Worked tree `((A:1.0,B:2.0):0.5,(C:1.5,D:3.0):4.0);`.
+
+- **CTX-PCT-001 (MUST):** `ComputeBranchLengthScore` on the worked tree: Bls({A,B})=3.0, Bls({A,C})=7.0, Bls({A,B,C,D})=12.0, Bls({A})=0.0 (`Within(1e-9)`; hand-derived from the minimal connecting-subtree definition).
+- **CTX-PCT-002 (MUST):** empty species set → Bls 0; null species / null tree → `ArgumentNullException`.
+- **CTX-PCT-003 (MUST):** `PctFromBranchLength(3.0, {0,1,1,0}) == 0.952574126822433` (`Within(1e-12)`) = `1/(1+e^-3)`.
+- **CTX-PCT-004 (MUST):** negative logistic output truncated to 0 (`{-0.5,0.3,1,5}`, Bls=0 → raw ≈ -0.498 → 0).
+- **CTX-PCT-005 (MUST):** 8mer + `Conservation` (worked tree, {A,B}, sigmoid {0,1,1,0}) → `BranchLengthScore==3.0`; `Pct==0.952574126822433`; `PctContribution == -0.103×(Pct/0.816) == -0.120239136106263` (`Within(1e-9)`); `PCT` drops from `OmittedFeatures`; `ContextScorePartial` includes the PCT term.
+- **CTX-PCT-006 (MUST):** 7mer-m8 + `Conservation` ({A,C}, Bls=7.0) → `Pct==0.999088948805599`; `PctContribution == -0.048×(Pct/0.364) == -0.131747993249090` — verifies the per-site-type PCT parameters.
+
+---
+
 ## Could Tests
 
 ### C-001: Context (AU-rich) may influence scoring indirectly via supplementary pairing bonuses
@@ -141,6 +182,30 @@
 | S-001 | FindTargetSites_Offset6merSite_Detected | ✅ Covered | Exact type + seedMatchLength |
 | S-002 | FindTargetSites_FoundSite_AllFieldsPopulated | ✅ Covered | All 8 fields verified |
 | S-003 | FindTargetSites_Let7a_RealTargetSequence + MiR21_8merTarget | ✅ Covered | Exact type + count for both |
+| CTX-001 | ScoreTargetSiteContextPlusPlus_8merLet7a_GcFlanks_MatchesHandDerivedScore | ✅ Covered | Exact partial CS -0.7561913315126536, Within(1e-9); full per-feature breakdown (incl. 3P/Min_dist/Len_3UTR/Off6m) asserted |
+| CTX-002 | ScoreTargetSiteContextPlusPlus_7merM8Let7a_MatchesHandDerivedScore | ✅ Covered | Exact partial CS -0.3087858306402126 + new features |
+| CTX-003 | ScoreTargetSiteContextPlusPlus_7merA1Let7a_Site8G_MatchesHandDerivedScore | ✅ Covered | Exact partial CS -0.2673816755691017; Site8 path + new features |
+| CTX-004 | ScoreTargetSiteContextPlusPlus_6merMiR21_MixedFlanks_MatchesHandDerivedScore | ✅ Covered | Exact partial CS -0.12128221179295548; non-zero local-AU + new features |
+| CTX-005 | ScoreTargetSiteContextPlusPlus_SRna1G_8mer_AddsSRna1GCoefficient | ✅ Covered | sRNA1 non-U branch: sRNA1G=0.060, sRNA8G=0.015 |
+| CTX-006 | ScoreTargetSiteContextPlusPlus_NonSeedSiteType_Throws | ✅ Covered | ArgumentException for Offset6mer |
+| CTX-007 | ScoreTargetSiteContextPlusPlus_NoOptionalInputs_ReportsResidualFeatures | ✅ Covered | Short layout: SA off-end (SA=0) + PCT/SPS/TA/Len_ORF/ORF8m residual; 3P/Min_dist/Len_3UTR/Off6m NOT residual |
+| CTX-008 | ScoreTargetSiteContextPlusPlus_3PrimeSupplementaryPairing_8mer_MatchesScaledRawScore | ✅ Covered | 3P raw 6 (perl-verified) → -0.080 |
+| CTX-009 | ScoreTargetSiteContextPlusPlus_3PrimeRawScore_PerlReference | ✅ Covered | 3P raw 4.5 (7m8) and 6 (7A1) → scaled contributions |
+| CTX-010 | ScoreTargetSiteContextPlusPlus_TwoOffset6mers_CountedRaw | ✅ Covered | Off6m raw count 2 → -0.040 |
+| CTX-011 | ScoreTargetSiteContextPlusPlus_SuppliedInputs_8mer_MatchHandDerivedAndDropFromResidual | ✅ Covered | SPS/TA/Len_ORF/ORF8m supplied → exact contributions + drop from residual; SA computed (window fits); only PCT residual |
+| MCC-001 | CalculateUnpairedProbabilities_GAAAC_MatchesAnalyticPartitionFunction | ✅ Covered | Z, P(0,4), p_unpaired, ΔG_ens exact on the analytic tiny case |
+| MCC-002 | CalculateUnpairedProbabilities_GAAAC_ExactNumericValues | ✅ Covered | verbatim numerics within 1e-15 |
+| MCC-003 | CalculateUnpairedProbabilities_Invariants_Hold | ✅ Covered | bp/unpaired invariants + consistency on 5 sequences |
+| MCC-004 | CalculateUnpairedProbabilities_EnsembleFreeEnergy_AtMostMfe | ✅ Covered | -RT·ln Z ≤ MFE |
+| MCC-005 | CalculateRegionUnpairedProbability_GAAAC_WholeWindow_EqualsInverseZ | ✅ Covered | accessibility = 1/Z |
+| MCC-006 | CalculateRegionUnpairedProbability_Bounds / _WindowOutOfRange_Throws / edge tests | ✅ Covered | bounds, no-pair=1.0, OOR throws, null/empty/short, temp≤0 |
+| CTX-SA-001 | ScoreTargetSiteContextPlusPlus_SA_8mer_MatchesHandDerivedAccessibility | ✅ Covered | SA = coeff×scaled(log10 plfold); SA in partial sum; not residual |
+| CTX-PCT-001 | ComputeBranchLengthScore_WorkedTree_MatchesHandDerivedBls | ✅ Covered | Bls {A,B}=3.0, {A,C}=7.0, all=12.0, {A}=0.0 |
+| CTX-PCT-002 | ComputeBranchLengthScore_NoSpecies_IsZero | ✅ Covered | empty→0; null tree/species→ArgumentNullException |
+| CTX-PCT-003 | PctFromBranchLength_SimpleSigmoid_MatchesHandDerivedValue | ✅ Covered | PCT(3.0)=1/(1+e^-3) |
+| CTX-PCT-004 | PctFromBranchLength_NegativeRaw_TruncatedToZero | ✅ Covered | negative logistic output→0 |
+| CTX-PCT-005 | ScoreTargetSiteContextPlusPlus_ConservationSupplied_8mer_PctEntersScoreAndDropsResidual | ✅ Covered | Bls→PCT→ -0.120239136106263; PCT drops from residual; in partial sum |
+| CTX-PCT-006 | ScoreTargetSiteContextPlusPlus_Conservation_7merM8_UsesSiteTypePctParameters | ✅ Covered | 7mer-m8 PCT params: -0.131747993249090 |
 
 ### Resolved Issues (this cycle)
 
@@ -190,7 +255,7 @@ These are intentional engineering simplifications that do not deviate from the b
 |---|------|---------------|--------------------------|--------|
 | 1 | Energy calculation | Simplified stacking/wobble/mismatch model vs Turner nearest-neighbor thermodynamic parameters | Turner & Mathews (2010) | Approximate ΔG values; does not affect site type classification |
 | 2 | Alignment | Positional (parallel index) alignment vs true antiparallel structural alignment | Bartel (2009) | Duplex display is schematic; does not affect seed match detection |
-| 3 | Context scoring | Minimal context adjustment (supplementary pairing bonus, mismatch penalty) vs full TargetScan context++ model | Grimson (2007), Agarwal (2015) | Scores approximate; relative ordering preserved |
+| 3 | Default context scoring | Default `Score` = minimal context adjustment vs full TargetScan context++ model. An **opt-in** `ScoreTargetSiteContextPlusPlus` provides the source-fitted context++ with every miRNA+3'UTR-derivable feature (Intercept, Local_AU, sRNA1/8, Site8, **3P_score, Min_dist, Len_3UTR, Off6m**) plus the data-blocked features (`SPS, TA_3UTR, Len_ORF, ORF8m`) when supplied via `ContextPlusPlusInputs`, all with verbatim Agarwal_2015_parameters.txt coefficients and `targetscan_70_context_scores.pl` formulas. | Grimson (2007), Agarwal (2015) eLife 4:e05005 | Default `Score` unchanged; opt-in CS is a **partial** context++ — `SA` is now **computed** from the Turner-2004 McCaskill partition function (`RnaSecondaryStructure.CalculateRegionUnpairedProbability`; omitted only when the 14-nt window does not fit), so the residual is `PCT` (multi-species conservation) plus `SPS/TA_3UTR/Len_ORF/ORF8m` unless supplied; all reported in `OmittedFeatures`. |
 | 4 | Score normalization | Base scores normalized to [0,1] from Grimson (2007) absolute weights | Grimson (2007) | Proportional ratios preserved exactly |
 
 ### Previously Fixed Issues (audit trail)

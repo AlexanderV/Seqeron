@@ -1,8 +1,8 @@
-# Checklist 08: Fuzzing
+# Checklist 03: Fuzzing
 
 **Priority:** P2  
 **Date:** 2026-03-19  
-**Total algorithms:** 234
+**Total algorithms:** 237
 
 ---
 
@@ -262,6 +262,9 @@ Fuzzing подає випадкові, невалідні або граничн�
 | 232 | ☐ | SEQ-ENTROPY-PROFILE-001 | Statistics | BE | window > len, window=0, empty, single char |
 | 233 | ☐ | SEQ-GC-ANALYSIS-001 | Composition | BE | empty, all-GC, all-AT, non-ACGT, very long |
 | 234 | ☐ | SEQ-GC-PROFILE-001 | Statistics | BE | window > len, window=0, empty, single char |
+| 235 | ☐ | ONCO-ASCAT-001 | Oncology | BE | empty loci, single locus, all-het, all-hom, extreme logR/BAF |
+| 236 | ☐ | RNA-PKPREDICT-001 | Analysis | BE | empty, too-short, all-A (no pairing), non-ACGU |
+| 237 | ☐ | RNA-PKRECURSIVE-001 | Analysis | BE | empty, single base, long low-complexity, deeply nested |
 
 ---
 
@@ -271,7 +274,7 @@ Fuzzing подає випадкові, невалідні або граничн�
 |--------|-------|
 | Total algorithms | 234 |
 | ☑ Complete | 0 |
-| ☐ Not started | 234 |
+| ☐ Not started | 237 |
 | High-priority (parsers + validation) | 12 |
 | Medium-priority (boundary inputs) | 45 |
 | Lower-priority (algorithm-specific edge cases) | 29 |

@@ -477,10 +477,14 @@ public static class SequenceAligner
         var chars1 = new List<char>();
         var chars2 = new List<char>();
 
-        // Add trailing gaps for semi-global (appended first, will be at end after reverse)
+        // Add trailing gaps for semi-global (appended first, will be at end after reverse).
+        // chars2 is reversed in its entirety below, so the unmatched trailing reference
+        // suffix seq2[j .. n-1] must be appended in REVERSE order here; otherwise the
+        // suffix would itself be reversed in the final output and AlignedSequence2 would
+        // no longer reproduce the reference.
         if (alignType == AlignmentType.SemiGlobal)
         {
-            for (int k = j + 1; k <= seq2.Length; k++)
+            for (int k = seq2.Length; k > j; k--)
             {
                 chars1.Add('-');
                 chars2.Add(seq2[k - 1]);
@@ -792,7 +796,26 @@ public static class SequenceAligner
     private static int SelectCenterSequence(List<DnaSequence> sequences)
     {
         int k = sequences.Count;
-        if (k <= 2) return 0;
+
+        // The center is the star-alignment hub: every other sequence is aligned to it and
+        // the final MSA is projected onto the center's coordinate space. An EMPTY center
+        // has no positions to carry that projection, so non-empty sequences would lose all
+        // their content during reconciliation. Always prefer a non-empty center when one
+        // exists; only fall through to the heuristic among the non-empty candidates.
+        int firstNonEmpty = -1;
+        for (int i = 0; i < k; i++)
+        {
+            if (sequences[i].Sequence.Length > 0)
+            {
+                firstNonEmpty = i;
+                break;
+            }
+        }
+
+        // All sequences empty (or none at all): the trivial empty-coordinate MSA is correct.
+        if (firstNonEmpty < 0) return 0;
+
+        if (k <= 2) return firstNonEmpty;
 
         // Build 4-mer frequency vectors for each sequence.
         // 4-mer over ACGT → 256 possible k-mers, stored as int[256].
@@ -838,9 +861,13 @@ public static class SequenceAligner
             }
         }
 
-        int bestIdx = 0;
-        for (int i = 1; i < k; i++)
+        // Restrict the center choice to NON-EMPTY candidates (an empty center cannot carry
+        // the reconciliation projection — see above). firstNonEmpty is guaranteed valid.
+        int bestIdx = firstNonEmpty;
+        for (int i = firstNonEmpty + 1; i < k; i++)
         {
+            if (sequences[i].Sequence.Length == 0)
+                continue;
             if (totalSimilarity[i] > totalSimilarity[bestIdx])
                 bestIdx = i;
         }
@@ -1485,6 +1512,845 @@ public static class SequenceAligner
     private const double ProfileScoreEpsilon = 1e-9;
 
     private static bool AreClose(double x, double y) => Math.Abs(x - y) <= ProfileScoreEpsilon;
+
+    #endregion
+
+    #region Multiple Sequence Alignment (Iterative Refinement — MUSCLE tree-dependent restricted partitioning)
+
+    // Iterative refinement of a progressive MSA, added as a THIRD aligner alongside the star
+    // (MultipleAlign) and progressive (MultipleAlignProgressive) methods. Both of those remain
+    // byte-for-byte unchanged. This removes the single-pass "once a gap, always a gap" limitation
+    // of the progressive seed: an early gap-placement error CAN now be corrected, because the
+    // alignment is repeatedly re-split and re-aligned and a strictly better arrangement replaces it.
+    //
+    // Algorithm — MUSCLE Stage 3, "tree-dependent restricted partitioning" (Edgar 2004):
+    //   Quoting Edgar (2004), Nucleic Acids Res 32(5):1792-1797, §"Stage 3, Refinement":
+    //   3.1 "An edge is chosen from TREE2 (edges are visited in order of decreasing distance from
+    //        the root). TREE2 is divided into two subtrees by deleting the edge."
+    //   3.2/3.3 "The profile of the multiple alignment in each subtree is computed. A new multiple
+    //        alignment is produced by re-aligning the two profiles."
+    //   3.4 "If the SP score is improved, the new alignment is kept, otherwise it is discarded."
+    //   "Steps 3.1-3.4 are repeated until convergence or until a user-defined limit is reached."
+    //
+    //   The same scheme also realises the Barton-Sternberg (1987) idea of returning to an existing
+    //   alignment and re-aligning a part of it against the rest; here the partition is the
+    //   guide-tree edge rather than a single removed sequence, which is exactly Edgar's restricted
+    //   partitioning. Re-aligning the two sub-profiles uses the EXISTING profile-profile NW
+    //   (AlignProfiles) and is accepted only on a non-decreasing sum-of-pairs (SP) score, so the
+    //   refined alignment is provably never worse than the progressive seed.
+    //
+    //   SP score: "the MSA program optimizes the sum of all of the pairs of characters at each
+    //   position in the alignment (the so-called sum of pair score)" (Wikipedia "Multiple sequence
+    //   alignment"). Computed by the existing ComputeSumOfPairsScore (column-based: match/mismatch
+    //   from the matrix, residue-gap = GapExtend, gap-gap neutral).
+    //
+    // Determinism: edges are enumerated in a fixed order (decreasing distance from the root, i.e.
+    // internal nodes nearest the leaves first, with a deterministic tie-break); profile splitting,
+    // re-projection and the accept-on-improvement rule are deterministic. No RNG is used.
+    //
+    // Sources retrieved this session (2026-06-23):
+    //   - Edgar RC (2004) "MUSCLE: multiple sequence alignment with high accuracy and high
+    //     throughput", Nucleic Acids Res 32(5):1792-1797.
+    //     https://academic.oup.com/nar/article/32/5/1792/2380623 — Stage 3 steps 3.1-3.4 quoted above.
+    //   - Barton GJ, Sternberg MJ (1987) "A strategy for the rapid multiple alignment of protein
+    //     sequences...", J Mol Biol 198(2):327-337. https://pubmed.ncbi.nlm.nih.gov/3430611/ —
+    //     iterative refinement: re-align a part of the alignment to the rest, iterate to a final
+    //     alignment.
+    //   - Wikipedia "Multiple sequence alignment", §Iterative methods / sum-of-pairs score
+    //     https://en.wikipedia.org/wiki/Multiple_sequence_alignment — SP-score definition; iterative
+    //     methods "can return to previously calculated ... sub-MSAs ... optimizing a general
+    //     objective function".
+
+    // Default cap on full refinement passes over all edges (Edgar's "user-defined limit"). A pass
+    // that makes no accepted change means convergence, so this is only an upper bound.
+    private const int DefaultMaxRefinementIterations = 16;
+
+    /// <summary>
+    /// Performs <b>iterative refinement</b> of a progressive multiple sequence alignment using
+    /// MUSCLE-style tree-dependent restricted partitioning (Edgar 2004, Stage 3), removing the
+    /// single-pass "once a gap, always a gap" limitation of
+    /// <see cref="MultipleAlignProgressive(IEnumerable{DnaSequence}, ScoringMatrix?)"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Pipeline (Edgar 2004, Nucleic Acids Res 32(5):1792-1797; Barton &amp; Sternberg 1987):
+    /// </para>
+    /// <list type="number">
+    /// <item>Build the progressive (Feng-Doolittle / UPGMA) seed alignment and keep its guide tree.</item>
+    /// <item>Visit each internal guide-tree edge (leaves-first, deterministic order). Deleting the
+    /// edge partitions the sequences into two groups.</item>
+    /// <item>Project the current alignment onto each group, drop columns that became all-gap, and
+    /// realign the two sub-profiles with the existing profile-profile Needleman-Wunsch.</item>
+    /// <item>Accept the re-alignment only if the sum-of-pairs (SP) score does not decrease.</item>
+    /// <item>Repeat full passes until no edge yields an improvement (convergence) or the iteration
+    /// cap is reached.</item>
+    /// </list>
+    /// <para>
+    /// The result is therefore guaranteed to have an SP score <b>≥</b> that of the progressive seed,
+    /// and is deterministic (no RNG; fixed edge order). The star
+    /// <see cref="MultipleAlign(IEnumerable{DnaSequence}, ScoringMatrix?)"/> and progressive
+    /// aligners are unchanged.
+    /// </para>
+    /// </remarks>
+    /// <param name="sequences">Collection of sequences to align.</param>
+    /// <param name="scoring">Scoring matrix (default: <see cref="SimpleDna"/>).</param>
+    /// <param name="maxIterations">
+    /// Upper bound on full refinement passes (Edgar's "user-defined limit"); must be positive.
+    /// Defaults to <see cref="DefaultMaxRefinementIterations"/>. Convergence usually stops earlier.
+    /// </param>
+    /// <returns>Multiple alignment result (aligned rows, majority consensus, sum-of-pairs score).</returns>
+    /// <exception cref="ArgumentNullException">When <paramref name="sequences"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">When <paramref name="maxIterations"/> &lt; 1.</exception>
+    public static MultipleAlignmentResult MultipleAlignIterative(
+        IEnumerable<DnaSequence> sequences,
+        ScoringMatrix? scoring = null,
+        int maxIterations = DefaultMaxRefinementIterations)
+    {
+        ArgumentNullException.ThrowIfNull(sequences);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxIterations, 1);
+
+        var seqList = sequences.ToList();
+        if (seqList.Count == 0)
+            return MultipleAlignmentResult.Empty;
+
+        if (seqList.Count == 1)
+        {
+            return new MultipleAlignmentResult(
+                AlignedSequences: new[] { seqList[0].Sequence },
+                Consensus: seqList[0].Sequence,
+                TotalScore: 0);
+        }
+
+        var effectiveScoring = scoring ?? SimpleDna;
+        int k = seqList.Count;
+        var rawSeqs = seqList.Select(s => s.Sequence).ToArray();
+
+        // Step 1: progressive seed (same pipeline as MultipleAlignProgressive) + retain guide tree.
+        var distance = new double[k, k];
+        for (int i = 0; i < k; i++)
+            for (int j = i + 1; j < k; j++)
+            {
+                double d = PairwiseIdentityDistance(rawSeqs[i], rawSeqs[j], effectiveScoring);
+                distance[i, j] = d;
+                distance[j, i] = d;
+            }
+
+        ProgressiveGuideNode root = BuildProgressiveGuideTree(k, distance);
+        Profile current = AlignProfileSubtree(root, rawSeqs, effectiveScoring);
+
+        // Step 2-5: iterative refinement over the guide-tree edges.
+        current = RefineByTreePartitioning(current, root, effectiveScoring, maxIterations);
+
+        // Reproject rows back into input order.
+        var orderedRows = new string[k];
+        for (int r = 0; r < current.Rows.Count; r++)
+            orderedRows[current.SequenceIndices[r]] = current.Rows[r];
+
+        var alignedList = orderedRows.ToList();
+        int maxLen = alignedList.Count == 0 ? 0 : alignedList.Max(s => s.Length);
+        string consensus = BuildConsensus(alignedList, maxLen);
+        int spScore = ComputeSumOfPairsScore(alignedList, effectiveScoring);
+
+        return new MultipleAlignmentResult(
+            AlignedSequences: orderedRows,
+            Consensus: consensus,
+            TotalScore: spScore);
+    }
+
+    /// <summary>
+    /// Repeatedly splits the current alignment at each internal guide-tree edge into two
+    /// sub-profiles, realigns them with profile-profile NW, and keeps the result only when the SP
+    /// score does not decrease (Edgar 2004 Stage 3, steps 3.1-3.4). Iterates full passes until a
+    /// pass accepts no change (convergence) or <paramref name="maxIterations"/> is reached.
+    /// </summary>
+    private static Profile RefineByTreePartitioning(
+        Profile current, ProgressiveGuideNode root, ScoringMatrix scoring, int maxIterations)
+    {
+        // 3.1 enumerate the partitions induced by deleting each internal edge of the guide tree.
+        // An internal edge is the edge above each non-root internal node; deleting it isolates that
+        // node's leaf set as one group and the remaining leaves as the other. Edges are ordered by
+        // decreasing distance from the root (deepest internal nodes — nearest the leaves — first),
+        // with a deterministic tie-break on the sorted leaf-set, matching Edgar's visiting order.
+        var partitions = EnumerateEdgePartitions(root);
+        if (partitions.Count == 0)
+            return current; // 2 leaves: the single edge is the root split, no internal edge to refine.
+
+        // The SP score the existing pipeline reports for this alignment (input-order independent).
+        int CurrentSpScore(Profile p) => ComputeSumOfPairsScore(p.Rows, scoring);
+
+        int bestScore = CurrentSpScore(current);
+
+        for (int iter = 0; iter < maxIterations; iter++)
+        {
+            bool improvedThisPass = false;
+
+            foreach (var group in partitions)
+            {
+                // 3.1 split the current alignment into the two leaf groups.
+                var groupSet = group;
+                var sideA = SplitProfile(current, idx => groupSet.Contains(idx));
+                var sideB = SplitProfile(current, idx => !groupSet.Contains(idx));
+                if (sideA.Rows.Count == 0 || sideB.Rows.Count == 0)
+                    continue;
+
+                // 3.2/3.3 realign the two profiles with the existing profile-profile NW.
+                Profile candidate = AlignProfiles(sideA, sideB, scoring);
+                int candidateScore = CurrentSpScore(candidate);
+
+                // 3.4 keep only if the SP score does not decrease. Strict ">" would also be valid;
+                // ">=" lets an equal-score rearrangement settle, but acceptance still never lowers
+                // the score, so the monotonic-non-decreasing guarantee holds. To keep convergence
+                // well-defined we only treat a STRICT improvement as "made progress".
+                if (candidateScore > bestScore)
+                {
+                    current = candidate;
+                    bestScore = candidateScore;
+                    improvedThisPass = true;
+                }
+            }
+
+            if (!improvedThisPass)
+                break; // convergence: a full pass changed nothing.
+        }
+
+        return current;
+    }
+
+    /// <summary>
+    /// Returns, for each internal (non-root) node of the guide tree, the set of input-sequence
+    /// indices in its subtree — i.e. one side of the partition obtained by deleting that node's
+    /// parent edge. Ordered by decreasing distance from the root (deepest first) with a
+    /// deterministic tie-break, per Edgar (2004) "edges are visited in order of decreasing distance
+    /// from the root".
+    /// </summary>
+    private static List<HashSet<int>> EnumerateEdgePartitions(ProgressiveGuideNode root)
+    {
+        var result = new List<(int Depth, List<int> Sorted, HashSet<int> Set)>();
+
+        void Visit(ProgressiveGuideNode node, int depth, bool isRoot)
+        {
+            if (node.IsLeaf)
+                return;
+
+            // The root edge is not an internal edge (deleting it gives the trivial whole-vs-empty
+            // split handled by the seed); only record proper internal nodes.
+            if (!isRoot)
+            {
+                var leaves = new List<int>();
+                CollectLeaves(node, leaves);
+                leaves.Sort();
+                result.Add((depth, leaves, new HashSet<int>(leaves)));
+            }
+
+            Visit(node.Left!, depth + 1, false);
+            Visit(node.Right!, depth + 1, false);
+        }
+
+        Visit(root, 0, true);
+
+        // Decreasing distance from the root = larger depth first; tie-break deterministically on the
+        // sorted leaf list so the iteration order is fully reproducible.
+        result.Sort((a, b) =>
+        {
+            int byDepth = b.Depth.CompareTo(a.Depth);
+            if (byDepth != 0) return byDepth;
+            return CompareIntLists(a.Sorted, b.Sorted);
+        });
+
+        return result.Select(r => r.Set).ToList();
+    }
+
+    private static int CompareIntLists(List<int> a, List<int> b)
+    {
+        int n = Math.Min(a.Count, b.Count);
+        for (int i = 0; i < n; i++)
+        {
+            int c = a[i].CompareTo(b[i]);
+            if (c != 0) return c;
+        }
+        return a.Count.CompareTo(b.Count);
+    }
+
+    private static void CollectLeaves(ProgressiveGuideNode node, List<int> leaves)
+    {
+        if (node.IsLeaf)
+        {
+            leaves.Add(node.LeafIndex);
+            return;
+        }
+        CollectLeaves(node.Left!, leaves);
+        CollectLeaves(node.Right!, leaves);
+    }
+
+    /// <summary>
+    /// Projects the current alignment onto the rows whose input-sequence index satisfies
+    /// <paramref name="keep"/>, then drops every column that is all-gap within the selected rows.
+    /// The result is a valid profile of the selected subset; gaps inside retained columns are
+    /// preserved (no existing column is edited — "once a gap, always a gap" within the sub-profile).
+    /// </summary>
+    private static Profile SplitProfile(Profile current, Func<int, bool> keep)
+    {
+        var rowIdx = new List<int>();
+        for (int r = 0; r < current.Rows.Count; r++)
+            if (keep(current.SequenceIndices[r]))
+                rowIdx.Add(r);
+
+        var sub = new Profile();
+        if (rowIdx.Count == 0)
+            return sub;
+
+        int width = current.Width;
+        // Identify columns that are NOT all-gap within the selected rows.
+        var keptCols = new List<int>(width);
+        for (int c = 0; c < width; c++)
+        {
+            bool allGap = true;
+            foreach (int r in rowIdx)
+            {
+                if (current.Rows[r][c] != '-')
+                {
+                    allGap = false;
+                    break;
+                }
+            }
+            if (!allGap)
+                keptCols.Add(c);
+        }
+
+        foreach (int r in rowIdx)
+        {
+            var sb = new StringBuilder(keptCols.Count);
+            foreach (int c in keptCols)
+                sb.Append(current.Rows[r][c]);
+            sub.Rows.Add(sb.ToString());
+            sub.SequenceIndices.Add(current.SequenceIndices[r]);
+        }
+
+        return sub;
+    }
+
+    #endregion
+
+    #region Multiple Sequence Alignment (Consistency-based — T-Coffee)
+
+    // Consistency-based multiple sequence alignment, the T-Coffee method (Notredame, Higgins &
+    // Heringa 2000), added as a FOURTH aligner alongside the star (MultipleAlign), progressive
+    // (MultipleAlignProgressive) and iterative (MultipleAlignIterative) methods. All three of those
+    // remain byte-for-byte unchanged. This optimises the T-Coffee CONSISTENCY objective — a distinct
+    // objective class from the fixed-matrix sum-of-pairs (SP) score the other methods optimise.
+    //
+    // Algorithm — Notredame, Higgins & Heringa (2000) "T-Coffee: A novel method for fast and accurate
+    // multiple sequence alignment", J Mol Biol 302:205-217 (DOI 10.1006/jmbi.2000.4042). Figure 1
+    // pipeline: primary library -> extension -> extended library -> progressive alignment.
+    //
+    //   1. PRIMARY LIBRARY (p.207). For every pair of sequences (i,j) compute pairwise alignments —
+    //      a GLOBAL (Needleman-Wunsch, the ClustalW library in the paper) and a LOCAL (Smith-Waterman,
+    //      the Lalign library). Each aligned residue pair (residue at position p in Si aligned to the
+    //      residue at position q in Sj) "receives a weight equal to percent identity within the
+    //      pair-wise alignment it comes from". The global and local libraries are combined by
+    //      "signal addition": "If any pair is duplicated between the two libraries, it is merged into
+    //      a single entry that has a weight equal to the sum of the two weights." Pairs that never
+    //      occur have weight 0.
+    //
+    //   2. LIBRARY EXTENSION — the triplet consistency transformation (pp.208-209). For each library
+    //      pair (Si.p, Sj.q), and for every intermediate sequence Sk, if Si.p aligns to Sk.r (weight
+    //      W1) and Sk.r aligns to Sj.q (weight W2), the triplet through Sk contributes min(W1, W2):
+    //      "we associate that alignment with a weight equal to the minimum of W1 and W2". The extended
+    //      weight is "the sum of all the weights gathered through the examination of all the triplets
+    //      involving that pair" PLUS the direct primary weight — the paper's worked example: direct
+    //      88, through-C min(77,100)=77, extended = 88 + 77 = 165. Uninformative triplets contribute 0,
+    //      so extension never lowers a weight.
+    //
+    //   3. PROGRESSIVE ALIGNMENT (pp.209-210). A UPGMA guide tree (the existing
+    //      BuildProgressiveGuideTree; the paper uses NJ — merge order only, same library and objective)
+    //      directs a progressive alignment. Profiles are aligned by dynamic programming whose
+    //      position-specific column score is the SUM of the EXTENDED-LIBRARY weights over all
+    //      cross-profile residue pairs in the two columns (group-vs-group: "the average library scores
+    //      in each column of existing alignment are taken" — here summed over the cross pairs, which
+    //      is the same objective up to a per-merge constant). No fixed substitution matrix is used and
+    //      "gap-opening penalties and gap-extension penalties [are] set to zero" (p.210): a gap column
+    //      scores 0. "Once a gap is introduced ... it cannot be shifted later" is enforced as in the
+    //      progressive aligner (whole all-gap columns inserted, existing columns never edited).
+    //
+    // Determinism: no RNG. Primary alignments, the guide tree, the extension sum and the DP tie-breaks
+    // are all deterministic.
+    //
+    // Sources retrieved this session (2026-06-23):
+    //   - Notredame C, Higgins DG, Heringa J (2000) J Mol Biol 302:205-217. Full text fetched/read:
+    //     https://web.stanford.edu/class/gene211/pdfs/Notredame-Tcoffee.pdf (Figures 1-2, pp.207-211).
+    //   - T-Coffee Technical Documentation (min() rule for triplet legs):
+    //     https://tcoffee.readthedocs.io/en/latest/tcoffee_technical_documentation.html
+    //   - Gotoh O (1982) J Mol Biol 162:705-708 (the DP used in the progressive phase).
+
+    /// <summary>
+    /// Performs <b>consistency-based</b> multiple sequence alignment — the T-Coffee method of
+    /// Notredame, Higgins &amp; Heringa (2000) — optimising the T-Coffee consistency objective rather
+    /// than the fixed-matrix sum-of-pairs score used by
+    /// <see cref="MultipleAlign(IEnumerable{DnaSequence}, ScoringMatrix?)"/>,
+    /// <see cref="MultipleAlignProgressive(IEnumerable{DnaSequence}, ScoringMatrix?)"/> and
+    /// <see cref="MultipleAlignIterative(IEnumerable{DnaSequence}, ScoringMatrix?, int)"/>
+    /// (all of which are unchanged).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Pipeline (Notredame et al. 2000, J Mol Biol 302:205-217):
+    /// </para>
+    /// <list type="number">
+    /// <item>Build a <b>primary library</b> from all pairwise global (Needleman-Wunsch) and local
+    /// (Smith-Waterman) alignments; each aligned residue pair is weighted by the pairwise percent
+    /// identity, and global+local weights are summed (signal addition).</item>
+    /// <item><b>Extend</b> the library by the triplet consistency transformation: each residue pair
+    /// accumulates, over every intermediate sequence, the minimum of the two connecting weights,
+    /// added to the direct weight.</item>
+    /// <item><b>Progressively align</b> along a UPGMA guide tree with dynamic programming whose
+    /// column score is the summed extended-library weight (no substitution matrix, zero gap
+    /// penalty).</item>
+    /// </list>
+    /// </remarks>
+    /// <param name="sequences">Collection of sequences to align.</param>
+    /// <param name="scoring">
+    /// Scoring matrix used only to compute the pairwise alignments that seed the library
+    /// (default: <see cref="SimpleDna"/>). The progressive phase uses the library weights, not this
+    /// matrix, as the substitution score.
+    /// </param>
+    /// <returns>Multiple alignment result (aligned rows, majority consensus, sum-of-pairs score).</returns>
+    /// <exception cref="ArgumentNullException">When <paramref name="sequences"/> is null.</exception>
+    public static MultipleAlignmentResult MultipleAlignConsistency(
+        IEnumerable<DnaSequence> sequences,
+        ScoringMatrix? scoring = null)
+    {
+        ArgumentNullException.ThrowIfNull(sequences);
+
+        var seqList = sequences.ToList();
+        if (seqList.Count == 0)
+            return MultipleAlignmentResult.Empty;
+
+        if (seqList.Count == 1)
+        {
+            return new MultipleAlignmentResult(
+                AlignedSequences: new[] { seqList[0].Sequence },
+                Consensus: seqList[0].Sequence,
+                TotalScore: 0);
+        }
+
+        var effectiveScoring = scoring ?? SimpleDna;
+        int k = seqList.Count;
+        var rawSeqs = seqList.Select(s => s.Sequence).ToArray();
+
+        // Steps 1-2: primary library (global + local, signal-added) then triplet extension.
+        var library = BuildExtendedLibrary(rawSeqs, effectiveScoring);
+
+        // Step 3a: UPGMA guide tree over (1 - fractional identity), reusing the progressive pipeline.
+        var distance = new double[k, k];
+        for (int i = 0; i < k; i++)
+            for (int j = i + 1; j < k; j++)
+            {
+                double d = PairwiseIdentityDistance(rawSeqs[i], rawSeqs[j], effectiveScoring);
+                distance[i, j] = d;
+                distance[j, i] = d;
+            }
+        ProgressiveGuideNode root = BuildProgressiveGuideTree(k, distance);
+
+        // Step 3b: progressive alignment driven by the EXTENDED-LIBRARY weights.
+        ConsistencyProfile aligned = AlignConsistencySubtree(root, rawSeqs, library);
+
+        // Reproject rows back to input order.
+        var orderedRows = new string[k];
+        for (int r = 0; r < aligned.Rows.Count; r++)
+            orderedRows[aligned.SequenceIndices[r]] = aligned.Rows[r];
+
+        var alignedList = orderedRows.ToList();
+        int maxLen = alignedList.Count == 0 ? 0 : alignedList.Max(s => s.Length);
+        string consensus = BuildConsensus(alignedList, maxLen);
+        // TotalScore is reported in the same SP currency as the sibling aligners for comparability.
+        int spScore = ComputeSumOfPairsScore(alignedList, effectiveScoring);
+
+        return new MultipleAlignmentResult(
+            AlignedSequences: orderedRows,
+            Consensus: consensus,
+            TotalScore: spScore);
+    }
+
+    // ----- Library representation -------------------------------------------------------------
+
+    // A residue-pair key (Si.posI, Sj.posJ) with i &lt; j, used to store library weights. Stored
+    // canonically with the smaller sequence index first so lookups are symmetric.
+    private readonly record struct ResiduePairKey(int SeqA, int PosA, int SeqB, int PosB);
+
+    private static ResiduePairKey MakeKey(int s1, int p1, int s2, int p2) =>
+        s1 < s2 || (s1 == s2 && p1 <= p2)
+            ? new ResiduePairKey(s1, p1, s2, p2)
+            : new ResiduePairKey(s2, p2, s1, p1);
+
+    /// <summary>
+    /// Builds the T-Coffee <b>extended</b> library: the primary library (global + local pairwise
+    /// alignments, weighted by percent identity and combined by signal addition) transformed by the
+    /// triplet consistency extension (Notredame et al. 2000, pp.207-209).
+    /// </summary>
+    private static Dictionary<ResiduePairKey, double> BuildExtendedLibrary(
+        string[] seqs, ScoringMatrix scoring)
+    {
+        int k = seqs.Length;
+
+        // ---- Step 1: primary library (global + local), keyed per (sequence,position) pair. ----
+        var primary = new Dictionary<ResiduePairKey, double>();
+
+        // Per-(i,j) adjacency used by the extension: position p in Si -> list of (Sj, q, weight).
+        // Built from the primary library after combination so weights are the signal-added totals.
+        for (int i = 0; i < k; i++)
+        {
+            for (int j = i + 1; j < k; j++)
+            {
+                AddAlignmentToPrimary(primary, i, j, seqs[i], seqs[j],
+                    GlobalAlignCore(seqs[i], seqs[j], scoring));
+
+                if (seqs[i].Length > 0 && seqs[j].Length > 0)
+                {
+                    var local = LocalAlignCore(seqs[i], seqs[j], scoring);
+                    AddLocalAlignmentToPrimary(primary, i, j, seqs[i], seqs[j], local);
+                }
+            }
+        }
+
+        // ---- Step 2: triplet consistency extension. ----
+        // Build, per sequence position, the list of partners (other sequence, position, weight) from
+        // the primary library, so triplets can be enumerated in O(neighbours) per residue.
+        var neighbours = BuildNeighbourIndex(primary);
+
+        // Extended weight = direct primary weight + sum over intermediates Sk of min(W1, W2).
+        var extended = new Dictionary<ResiduePairKey, double>(primary);
+
+        foreach (var entry in primary)
+        {
+            var key = entry.Key; // (SeqA.PosA, SeqB.PosB), SeqA < SeqB
+            int sA = key.SeqA, pA = key.PosA, sB = key.SeqB, pB = key.PosB;
+
+            // Every intermediate residue r in some Sk that aligns to BOTH endpoints contributes
+            // min(W(A,k), W(k,B)). We iterate the neighbours of A and intersect on (Sk, r).
+            if (!neighbours.TryGetValue((sA, pA), out var partnersOfA))
+                continue;
+            if (!neighbours.TryGetValue((sB, pB), out var partnersOfB))
+                continue;
+
+            // Index B's partners by (seq,pos) for O(1) intersection.
+            foreach (var partner in partnersOfA)
+            {
+                int kSeq = partner.Key.Item1;
+                int kPos = partner.Key.Item2;
+                double w1 = partner.Value;
+                if (kSeq == sA || kSeq == sB) continue; // intermediate must be a third sequence
+                if (!partnersOfB.TryGetValue((kSeq, kPos), out double w2)) continue;
+                double contribution = Math.Min(w1, w2);
+                if (contribution <= 0) continue;
+                extended[key] = extended.GetValueOrDefault(key) + contribution;
+            }
+        }
+
+        return extended;
+    }
+
+    /// <summary>
+    /// Adds a global pairwise alignment to the primary library. Every aligned residue pair (both
+    /// non-gap) gets the alignment's percent identity weight; duplicate pairs are signal-added.
+    /// </summary>
+    private static void AddAlignmentToPrimary(
+        Dictionary<ResiduePairKey, double> primary,
+        int i, int j, string si, string sj, AlignmentResult pa)
+    {
+        double weight = PercentIdentity(pa.AlignedSequence1, pa.AlignedSequence2);
+        if (weight <= 0) return;
+
+        int posI = 0, posJ = 0;
+        string a = pa.AlignedSequence1, b = pa.AlignedSequence2;
+        for (int c = 0; c < a.Length; c++)
+        {
+            char ca = a[c], cb = b[c];
+            if (ca != '-' && cb != '-')
+            {
+                AddPairWeight(primary, i, posI, j, posJ, weight);
+                posI++; posJ++;
+            }
+            else if (ca != '-') posI++;
+            else if (cb != '-') posJ++;
+        }
+    }
+
+    /// <summary>
+    /// Adds a local pairwise alignment to the primary library. The local alignment covers a segment
+    /// of each sequence starting at <c>StartPosition1</c>/<c>StartPosition2</c>; matched residue pairs
+    /// in that segment are weighted by the local segment's percent identity and signal-added.
+    /// </summary>
+    private static void AddLocalAlignmentToPrimary(
+        Dictionary<ResiduePairKey, double> primary,
+        int i, int j, string si, string sj, AlignmentResult la)
+    {
+        double weight = PercentIdentity(la.AlignedSequence1, la.AlignedSequence2);
+        if (weight <= 0) return;
+
+        int posI = la.StartPosition1, posJ = la.StartPosition2;
+        string a = la.AlignedSequence1, b = la.AlignedSequence2;
+        for (int c = 0; c < a.Length; c++)
+        {
+            char ca = a[c], cb = b[c];
+            if (ca != '-' && cb != '-')
+            {
+                AddPairWeight(primary, i, posI, j, posJ, weight);
+                posI++; posJ++;
+            }
+            else if (ca != '-') posI++;
+            else if (cb != '-') posJ++;
+        }
+    }
+
+    private static void AddPairWeight(
+        Dictionary<ResiduePairKey, double> lib, int s1, int p1, int s2, int p2, double weight)
+    {
+        var key = MakeKey(s1, p1, s2, p2);
+        lib[key] = lib.GetValueOrDefault(key) + weight;
+    }
+
+    /// <summary>
+    /// Percent identity of a pairwise alignment = 100 × (columns where both residues are equal and
+    /// non-gap) / (alignment length). The percent-identity weight per Notredame et al. (2000) p.207.
+    /// </summary>
+    private static double PercentIdentity(string a, string b)
+    {
+        int len = a.Length;
+        if (len == 0) return 0;
+        int identical = 0;
+        for (int c = 0; c < len; c++)
+            if (a[c] != '-' && a[c] == b[c])
+                identical++;
+        // PercentIdentityScale: the weight is a percentage (Notredame et al. 2000, p.207).
+        return Math.Round(PercentIdentityScale * identical / len);
+    }
+
+    // Weight is expressed as a percentage (0-100), matching the paper's integer "Prim Weight" values.
+    private const double PercentIdentityScale = 100.0;
+
+    /// <summary>
+    /// Inverts the primary library into a per-residue adjacency: (seq,pos) -&gt; {(otherSeq,otherPos):
+    /// weight}. Both directions of each stored pair are emitted so the triplet extension can walk from
+    /// either endpoint.
+    /// </summary>
+    private static Dictionary<(int Seq, int Pos), Dictionary<(int Seq, int Pos), double>>
+        BuildNeighbourIndex(Dictionary<ResiduePairKey, double> primary)
+    {
+        var index = new Dictionary<(int, int), Dictionary<(int, int), double>>();
+
+        void Add(int s1, int p1, int s2, int p2, double w)
+        {
+            if (!index.TryGetValue((s1, p1), out var inner))
+            {
+                inner = new Dictionary<(int, int), double>();
+                index[(s1, p1)] = inner;
+            }
+            inner[(s2, p2)] = w;
+        }
+
+        foreach (var (key, w) in primary)
+        {
+            Add(key.SeqA, key.PosA, key.SeqB, key.PosB, w);
+            Add(key.SeqB, key.PosB, key.SeqA, key.PosA, w);
+        }
+
+        return index;
+    }
+
+    // ----- Consistency profile + progressive DP ----------------------------------------------
+
+    /// <summary>
+    /// A profile for consistency alignment: like <see cref="Profile"/> but every cell also records the
+    /// original residue position in its source sequence (or -1 for a gap), so the library weight for a
+    /// residue pair can be looked up during the position-specific DP.
+    /// </summary>
+    private sealed class ConsistencyProfile
+    {
+        public List<string> Rows { get; } = new();
+        public List<int> SequenceIndices { get; } = new();
+        // PositionMaps[r][col] = original residue index in sequence SequenceIndices[r], or -1 for gap.
+        public List<int[]> PositionMaps { get; } = new();
+        public int Width => Rows.Count == 0 ? 0 : Rows[0].Length;
+    }
+
+    private static ConsistencyProfile AlignConsistencySubtree(
+        ProgressiveGuideNode node, string[] rawSeqs, Dictionary<ResiduePairKey, double> library)
+    {
+        if (node.IsLeaf)
+        {
+            int idx = node.LeafIndex;
+            string seq = rawSeqs[idx];
+            var leaf = new ConsistencyProfile();
+            leaf.Rows.Add(seq);
+            leaf.SequenceIndices.Add(idx);
+            var map = new int[seq.Length];
+            for (int p = 0; p < seq.Length; p++) map[p] = p;
+            leaf.PositionMaps.Add(map);
+            return leaf;
+        }
+
+        var left = AlignConsistencySubtree(node.Left!, rawSeqs, library);
+        var right = AlignConsistencySubtree(node.Right!, rawSeqs, library);
+        return AlignConsistencyProfiles(left, right, library);
+    }
+
+    /// <summary>
+    /// Aligns two consistency profiles with the Needleman-Wunsch recurrence over columns, scoring a
+    /// column pair by the SUM of extended-library weights over all cross-profile residue pairs (gap
+    /// columns score 0 — zero gap penalty, Notredame et al. 2000 p.210). Existing columns are never
+    /// edited; gaps are inserted as whole all-gap columns ("once a gap, always a gap").
+    /// </summary>
+    private static ConsistencyProfile AlignConsistencyProfiles(
+        ConsistencyProfile p1, ConsistencyProfile p2, Dictionary<ResiduePairKey, double> library)
+    {
+        int m = p1.Width;
+        int n = p2.Width;
+
+        var f = new double[m + 1, n + 1];
+        // First row/column: aligning a column against a gap scores 0 (zero gap penalty).
+        // (f[i,0] = f[0,j] = 0 for all i,j.)
+
+        for (int i = 1; i <= m; i++)
+        {
+            for (int j = 1; j <= n; j++)
+            {
+                double diag = f[i - 1, j - 1] + ColumnLibraryScore(p1, i - 1, p2, j - 1, library);
+                double up = f[i - 1, j];     // gap in p2: 0
+                double left = f[i, j - 1];   // gap in p1: 0
+                f[i, j] = Math.Max(diag, Math.Max(up, left));
+            }
+        }
+
+        var cols1 = new List<int>();
+        var cols2 = new List<int>();
+        int ii = m, jj = n;
+        while (ii > 0 || jj > 0)
+        {
+            if (ii > 0 && jj > 0)
+            {
+                double diag = f[ii - 1, jj - 1] + ColumnLibraryScore(p1, ii - 1, p2, jj - 1, library);
+                if (AreClose(f[ii, jj], diag))
+                {
+                    cols1.Add(ii - 1);
+                    cols2.Add(jj - 1);
+                    ii--; jj--;
+                    continue;
+                }
+            }
+
+            if (ii > 0 && (jj == 0 || AreClose(f[ii, jj], f[ii - 1, jj])))
+            {
+                cols1.Add(ii - 1);
+                cols2.Add(-1);
+                ii--;
+                continue;
+            }
+
+            cols1.Add(-1);
+            cols2.Add(jj - 1);
+            jj--;
+        }
+
+        cols1.Reverse();
+        cols2.Reverse();
+
+        var merged = new ConsistencyProfile();
+        merged.SequenceIndices.AddRange(p1.SequenceIndices);
+        merged.SequenceIndices.AddRange(p2.SequenceIndices);
+        AppendConsistencyRows(merged, p1, cols1);
+        AppendConsistencyRows(merged, p2, cols2);
+        return merged;
+    }
+
+    private static void AppendConsistencyRows(
+        ConsistencyProfile dest, ConsistencyProfile source, List<int> columnMap)
+    {
+        for (int r = 0; r < source.Rows.Count; r++)
+        {
+            string row = source.Rows[r];
+            int[] srcMap = source.PositionMaps[r];
+            var sb = new StringBuilder(columnMap.Count);
+            var newMap = new int[columnMap.Count];
+            for (int c = 0; c < columnMap.Count; c++)
+            {
+                int col = columnMap[c];
+                if (col < 0)
+                {
+                    sb.Append('-');
+                    newMap[c] = -1;
+                }
+                else
+                {
+                    sb.Append(row[col]);
+                    newMap[c] = srcMap[col];
+                }
+            }
+            dest.Rows.Add(sb.ToString());
+            dest.PositionMaps.Add(newMap);
+        }
+    }
+
+    /// <summary>
+    /// Column-vs-column score = sum over all cross-profile residue pairs of their extended-library
+    /// weight (0 when a residue is a gap or the pair is absent from the library). This realises the
+    /// position-specific library scoring of Notredame et al. (2000): the DP maximises the summed
+    /// consistency weight rather than a fixed substitution matrix.
+    /// </summary>
+    private static double ColumnLibraryScore(
+        ConsistencyProfile p1, int col1, ConsistencyProfile p2, int col2,
+        Dictionary<ResiduePairKey, double> library)
+    {
+        double total = 0;
+        for (int r1 = 0; r1 < p1.Rows.Count; r1++)
+        {
+            int posA = p1.PositionMaps[r1][col1];
+            if (posA < 0) continue; // gap contributes 0
+            int seqA = p1.SequenceIndices[r1];
+            for (int r2 = 0; r2 < p2.Rows.Count; r2++)
+            {
+                int posB = p2.PositionMaps[r2][col2];
+                if (posB < 0) continue;
+                int seqB = p2.SequenceIndices[r2];
+                var key = MakeKey(seqA, posA, seqB, posB);
+                if (library.TryGetValue(key, out double w))
+                    total += w;
+            }
+        }
+        return total;
+    }
+
+    /// <summary>
+    /// Test/diagnostic accessor: builds the T-Coffee extended library for the given sequences and
+    /// returns the extended weight of the residue pair (Si.posI, Sj.posJ), and that pair's primary
+    /// (pre-extension) weight, so the consistency transformation can be verified directly
+    /// (Notredame et al. 2000, p.209).
+    /// </summary>
+    internal static (double Primary, double Extended) GetLibraryWeights(
+        string[] seqs, int seqI, int posI, int seqJ, int posJ, ScoringMatrix? scoring = null)
+    {
+        var effectiveScoring = scoring ?? SimpleDna;
+        var primaryOnly = BuildPrimaryLibraryForDiagnostics(seqs, effectiveScoring);
+        var extended = BuildExtendedLibrary(seqs, effectiveScoring);
+        var key = MakeKey(seqI, posI, seqJ, posJ);
+        return (primaryOnly.GetValueOrDefault(key), extended.GetValueOrDefault(key));
+    }
+
+    private static Dictionary<ResiduePairKey, double> BuildPrimaryLibraryForDiagnostics(
+        string[] seqs, ScoringMatrix scoring)
+    {
+        var primary = new Dictionary<ResiduePairKey, double>();
+        int k = seqs.Length;
+        for (int i = 0; i < k; i++)
+            for (int j = i + 1; j < k; j++)
+            {
+                AddAlignmentToPrimary(primary, i, j, seqs[i], seqs[j],
+                    GlobalAlignCore(seqs[i], seqs[j], scoring));
+                if (seqs[i].Length > 0 && seqs[j].Length > 0)
+                    AddLocalAlignmentToPrimary(primary, i, j, seqs[i], seqs[j],
+                        LocalAlignCore(seqs[i], seqs[j], scoring));
+            }
+        return primary;
+    }
 
     #endregion
 }

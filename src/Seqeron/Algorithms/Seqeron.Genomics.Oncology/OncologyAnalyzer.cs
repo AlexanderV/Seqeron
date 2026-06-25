@@ -1820,8 +1820,20 @@ public static class OncologyAnalyzer
             throw new ArgumentOutOfRangeException(nameof(lst), lst, "HRD component counts must be ≥ 0.");
         }
 
-        // Telli et al. (2016): HRD score = unweighted sum of LOH + TAI + LST.
-        return loh + tai + lst;
+        // Telli et al. (2016): HRD score = unweighted sum of LOH + TAI + LST. Sum in a wider type so
+        // that extreme (near-Int32.MaxValue) component counts can NEVER wrap to a negative score
+        // (INV-04: score ≥ 0). A sum that genuinely exceeds the int range is out of the documented
+        // contract and is rejected rather than silently overflowing.
+        long sum = (long)loh + tai + lst;
+        if (sum > int.MaxValue)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(loh),
+                sum,
+                "Combined HRD score (loh + tai + lst) exceeds Int32.MaxValue.");
+        }
+
+        return (int)sum;
     }
 
     /// <summary>
@@ -1857,6 +1869,36 @@ public static class OncologyAnalyzer
     {
         int score = CalculateHRDScore(components.Loh, components.Tai, components.Lst);
         return new HrdResult(components, score, ClassifyHRDStatus(score));
+    }
+
+    /// <summary>
+    /// End-to-end HRD determination that <b>derives the HRD-LOH component directly from allele-specific
+    /// copy-number segments</b> (via <see cref="DetectLOH(IEnumerable{AlleleSpecificSegment})"/>, the
+    /// Abkevich et al. 2012 / scarHRD <c>calc.hrd</c> rule: LOH regions &gt; 15 Mb that do not span a whole
+    /// chromosome), then sums it with the caller-supplied telomeric-allelic-imbalance (<paramref name="tai"/>)
+    /// and large-scale-state-transition (<paramref name="lst"/>) counts into the combined HRD score and
+    /// classifies it against the myChoice/Telli 2016 cutoff (≥ <see cref="HrdHighScoreThreshold"/>).
+    /// <para>
+    /// This overload derives only the LOH component and accepts caller-supplied TAI and LST (e.g. when those
+    /// were computed by an external pipeline). To derive all three components — LOH, TAI and LST — directly
+    /// from the segments, use <see cref="DetectHRD(IEnumerable{AlleleSpecificSegment}, ReferenceGenome)"/>.
+    /// </para>
+    /// Source: Telli ML et al. (2016), Clin Cancer Res 22(15):3764–3773 ("unweighted sum of LOH, TAI, and
+    /// LST scores"; "HRD score ≥42"); Abkevich et al. (2012) for the derived LOH component.
+    /// </summary>
+    /// <param name="segments">Allele-specific copy-number segments the HRD-LOH count is derived from. Must not be null.</param>
+    /// <param name="tai">Caller-supplied telomeric-allelic-imbalance (NtAI) count (Birkbak et al. 2012); must be ≥ 0.</param>
+    /// <param name="lst">Caller-supplied large-scale-state-transition count (Popova et al. 2012); must be ≥ 0.</param>
+    /// <returns>The components (LOH derived, TAI/LST as supplied), the combined HRD score, and the HRD status.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="segments"/> is null.</exception>
+    /// <exception cref="ArgumentException">A segment has non-positive length or a negative copy number.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="tai"/> or <paramref name="lst"/> is negative.</exception>
+    public static HrdResult DetectHRD(IEnumerable<AlleleSpecificSegment> segments, int tai, int lst)
+    {
+        ArgumentNullException.ThrowIfNull(segments);
+
+        int loh = DetectLOH(segments).Score;
+        return DetectHRD(new HrdComponents(loh, tai, lst));
     }
 
     #endregion
@@ -2106,6 +2148,466 @@ public static class OncologyAnalyzer
                 $"(got Major={segment.MajorCopyNumber}, Minor={segment.MinorCopyNumber}).",
                 nameof(segment));
         }
+    }
+
+    #endregion
+
+    #region HRD-TAI and HRD-LST derivation from segments (ONCO-HRD-001)
+
+    /// <summary>
+    /// Minimum segment length (bp) for a segment to be retained before HRD-TAI assignment. Source: scarHRD
+    /// <c>calc.ai_new</c> — <c>seg &lt;- seg[seg[,4]-seg[,3] &gt;= min.size,]</c> with default
+    /// <c>min.size=1e6</c> (https://github.com/sztup/scarHRD/blob/master/R/calc.ai_new.R). 1 Mb.
+    /// </summary>
+    private const long HrdTaiMinSegmentLengthBp = 1_000_000L;
+
+    /// <summary>
+    /// Minimum segment length (bp) below which an arm segment is smoothed away before HRD-LST counting, and
+    /// also the maximum gap between two large segments that still counts as one transition. Source: Popova
+    /// et al. (2012), Cancer Res 72(21):5454 — LSTs are counted "after smoothing and filtering &lt;3 Mb"
+    /// small-scale variation; scarHRD <c>calc.lst</c> uses <c>3e6</c> for both the smoothing filter
+    /// (<c>(arm[,4]-arm[,3]) &lt; 3e6</c>) and the adjacency gap (<c>(seg[k,3]-seg[k-1,4]) &lt; 3e6</c>). 3 Mb.
+    /// </summary>
+    private const long HrdLstSmoothingLengthBp = 3_000_000L;
+
+    /// <summary>
+    /// Minimum length (bp) for a chromosome-arm segment to qualify as one side of an LST break. Source:
+    /// Popova et al. (2012) — a break "between adjacent regions each of at least 10 megabases"; scarHRD
+    /// <c>calc.lst</c> flags <c>(arm[,4]-arm[,3]) &gt;= 10e6</c>. 10 Mb.
+    /// </summary>
+    private const long HrdLstLargeSegmentLengthBp = 10_000_000L;
+
+    /// <summary>
+    /// Per-chromosome centromere boundaries: <c>Start</c> = centromere start (p-arm boundary, scarHRD
+    /// <c>chrominfo[i,2]</c>); <c>End</c> = centromere end (q-arm boundary, scarHRD <c>chrominfo[i,3]</c>).
+    /// </summary>
+    private readonly record struct Centromere(long Start, long End);
+
+    /// <summary>
+    /// Centromere boundaries (chromosomes 1–22), GRCh38 / hg38. Embedded published reference data:
+    /// the two UCSC cytoBand <c>acen</c> bands per chromosome — centromere start = p11 <c>acen</c>
+    /// <c>chromStart</c>, centromere end = q11 <c>acen</c> <c>chromEnd</c>. Source: UCSC Genome Browser
+    /// cytoBand track for hg38 (https://api.genome.ucsc.edu/getData/track?genome=hg38;track=cytoBand,
+    /// retrieved 2026-06-23), cross-verified against the NCBI GRC modeled-centromere table
+    /// (https://www.ncbi.nlm.nih.gov/grc/human — CEN1 122,026,460–125,184,587 ≈ chr1 121.7–125.1 Mb;
+    /// CEN21 10,864,561–12,915,808 ≈ chr21 10.9–13.0 Mb, agreeing to cytoband resolution). scarHRD's
+    /// <c>chrominfo_grch38</c> derives from the same cytoBand <c>acen</c> regions. Indexed 0 = chr1 … 21 = chr22.
+    /// </summary>
+    private static readonly Centromere[] GRCh38Centromeres =
+    {
+        new(121_700_000L, 125_100_000L), // chr1
+        new(91_800_000L, 96_000_000L),   // chr2
+        new(87_800_000L, 94_000_000L),   // chr3
+        new(48_200_000L, 51_800_000L),   // chr4
+        new(46_100_000L, 51_400_000L),   // chr5
+        new(58_500_000L, 62_600_000L),   // chr6
+        new(58_100_000L, 62_100_000L),   // chr7
+        new(43_200_000L, 47_200_000L),   // chr8
+        new(42_200_000L, 45_500_000L),   // chr9
+        new(38_000_000L, 41_600_000L),   // chr10
+        new(51_000_000L, 55_800_000L),   // chr11
+        new(33_200_000L, 37_800_000L),   // chr12
+        new(16_500_000L, 18_900_000L),   // chr13
+        new(16_100_000L, 18_200_000L),   // chr14
+        new(17_500_000L, 20_500_000L),   // chr15
+        new(35_300_000L, 38_400_000L),   // chr16
+        new(22_700_000L, 27_400_000L),   // chr17
+        new(15_400_000L, 21_500_000L),   // chr18
+        new(24_200_000L, 28_100_000L),   // chr19
+        new(25_700_000L, 30_400_000L),   // chr20
+        new(10_900_000L, 13_000_000L),   // chr21
+        new(13_700_000L, 17_400_000L),   // chr22
+    };
+
+    /// <summary>
+    /// Centromere boundaries (chromosomes 1–22), GRCh37 / hg19. Embedded published reference data: the two
+    /// UCSC cytoBand <c>acen</c> bands per chromosome (centromere start = p11 <c>acen</c> <c>chromStart</c>,
+    /// end = q11 <c>acen</c> <c>chromEnd</c>). Source: UCSC Genome Browser cytoBand track for hg19
+    /// (https://api.genome.ucsc.edu/getData/track?genome=hg19;track=cytoBand, retrieved 2026-06-23).
+    /// Indexed 0 = chr1 … 21 = chr22.
+    /// </summary>
+    private static readonly Centromere[] GRCh37Centromeres =
+    {
+        new(121_500_000L, 128_900_000L), // chr1
+        new(90_500_000L, 96_800_000L),   // chr2
+        new(87_900_000L, 93_900_000L),   // chr3
+        new(48_200_000L, 52_700_000L),   // chr4
+        new(46_100_000L, 50_700_000L),   // chr5
+        new(58_700_000L, 63_300_000L),   // chr6
+        new(58_000_000L, 61_700_000L),   // chr7
+        new(43_100_000L, 48_100_000L),   // chr8
+        new(47_300_000L, 50_700_000L),   // chr9
+        new(38_000_000L, 42_300_000L),   // chr10
+        new(51_600_000L, 55_700_000L),   // chr11
+        new(33_300_000L, 38_200_000L),   // chr12
+        new(16_300_000L, 19_500_000L),   // chr13
+        new(16_100_000L, 19_100_000L),   // chr14
+        new(15_800_000L, 20_700_000L),   // chr15
+        new(34_600_000L, 38_600_000L),   // chr16
+        new(22_200_000L, 25_800_000L),   // chr17
+        new(15_400_000L, 19_000_000L),   // chr18
+        new(24_400_000L, 28_600_000L),   // chr19
+        new(25_600_000L, 29_400_000L),   // chr20
+        new(10_900_000L, 14_300_000L),   // chr21
+        new(12_200_000L, 17_900_000L),   // chr22
+    };
+
+    /// <summary>
+    /// Returns the embedded per-chromosome centromere boundary table (chromosomes 1–22) for a reference
+    /// assembly, indexed 0 = chr1 … 21 = chr22. Source: UCSC cytoBand <c>acen</c> bands (see
+    /// <see cref="GRCh38Centromeres"/> / <see cref="GRCh37Centromeres"/>).
+    /// </summary>
+    /// <param name="genome">The reference assembly.</param>
+    /// <returns>The 22-element centromere table for the assembly.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="genome"/> is not a defined value.</exception>
+    private static Centromere[] GetCentromeres(ReferenceGenome genome) => genome switch
+    {
+        ReferenceGenome.GRCh38 => GRCh38Centromeres,
+        ReferenceGenome.GRCh37 => GRCh37Centromeres,
+        _ => throw new ArgumentOutOfRangeException(nameof(genome), genome, "Unknown reference genome."),
+    };
+
+    /// <summary>
+    /// Returns the centromere (p-arm end / q-arm start) for an autosome of <paramref name="genome"/>, or
+    /// <c>false</c> for sex chromosomes / contigs / non-autosomes — which are excluded from TAI and LST,
+    /// per scarHRD (LST skips chr23/24/X/Y; the centromere table is autosome-only).
+    /// </summary>
+    private static bool TryGetCentromere(string chromosome, ReferenceGenome genome, out Centromere centromere)
+    {
+        centromere = default;
+        if (!TryGetAutosomeNumber(chromosome, out int number))
+        {
+            return false;
+        }
+
+        centromere = GetCentromeres(genome)[number - 1];
+        return true;
+    }
+
+    /// <summary>
+    /// A segment is in allelic imbalance when its two allele copy numbers differ (major ≠ minor). Source:
+    /// Birkbak et al. (2012) — "Allelic imbalance was defined as any time the copy number of the two alleles
+    /// were not equal, and at least one allele was present"; scarHRD <c>calc.ai_new</c> even-ploidy path
+    /// <c>AI &lt;- c(0,2)[match(seg[,7]==seg[,8], ...)]</c> (col 7 = major, col 8 = minor). A balanced
+    /// homozygous deletion (0,0) is not imbalance (both alleles absent), consistent with major == minor.
+    /// </summary>
+    private static bool IsAllelicImbalance(in AlleleSpecificSegment segment)
+        => segment.MajorCopyNumber != segment.MinorCopyNumber;
+
+    /// <summary>
+    /// Computes the HRD-TAI (telomeric allelic-imbalance / NtAI) score from allele-specific copy-number
+    /// segments: the number of allelic-imbalance regions that extend to a sub-telomere but do not cross the
+    /// centromere. Source: Birkbak et al. (2012), Cancer Discov 2(4):366; scarHRD <c>calc.ai_new</c>
+    /// (even-ploidy path). Algorithm, per chromosome (autosomes only; the centromere table is autosome-only):
+    /// <list type="number">
+    /// <item><description>Drop segments shorter than 1 Mb (<see cref="HrdTaiMinSegmentLengthBp"/>), then merge
+    /// adjacent same-allele-state segments (scarHRD <c>shrink.seg.ai</c>).</description></item>
+    /// <item><description>A chromosome with a single remaining segment that is imbalanced is whole-chromosome
+    /// AI — NOT telomeric (scarHRD AI = 3).</description></item>
+    /// <item><description>The FIRST segment counts as telomeric when it is imbalanced and its <b>end</b> is
+    /// strictly before the centromere start (it touches the p-telomere and stays on the p-arm).</description></item>
+    /// <item><description>The LAST segment counts as telomeric when it is imbalanced and its <b>start</b> is
+    /// strictly after the centromere end (it touches the q-telomere and stays on the q-arm).</description></item>
+    /// </list>
+    /// The score is the number of telomeric-AI regions summed over autosomes.
+    /// </summary>
+    /// <param name="segments">Allele-specific copy-number segments. Must not be null.</param>
+    /// <param name="genome">Reference assembly supplying the centromere table (default GRCh38).</param>
+    /// <returns>The HRD-TAI score (≥ 0).</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="segments"/> is null.</exception>
+    /// <exception cref="ArgumentException">A segment has non-positive length or a negative copy number.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="genome"/> is not a defined value.</exception>
+    public static int CalculateHrdTaiScore(
+        IEnumerable<AlleleSpecificSegment> segments,
+        ReferenceGenome genome = ReferenceGenome.GRCh38)
+    {
+        ArgumentNullException.ThrowIfNull(segments);
+
+        int taiCount = 0;
+        foreach (var group in GroupValidatedByChromosome(segments))
+        {
+            if (!TryGetCentromere(group[0].Chromosome, genome, out Centromere centromere))
+            {
+                continue; // non-autosome: excluded from TAI (scarHRD centromere table is autosome-only).
+            }
+
+            // scarHRD calc.ai_new: drop < 1 Mb, then merge adjacent equal-allele-state segments.
+            var sized = new List<AlleleSpecificSegment>();
+            foreach (var segment in group)
+            {
+                if (segment.Length >= HrdTaiMinSegmentLengthBp)
+                {
+                    sized.Add(segment);
+                }
+            }
+
+            if (sized.Count == 0)
+            {
+                continue;
+            }
+
+            IReadOnlyList<AlleleSpecificSegment> merged = MergeAdjacentSameAlleleState(sized);
+
+            // Single remaining segment with imbalance → whole-chromosome AI (scarHRD AI=3), not telomeric.
+            if (merged.Count == 1)
+            {
+                continue;
+            }
+
+            // First segment: imbalanced AND end strictly before the centromere start → p-telomeric.
+            var first = merged[0];
+            if (IsAllelicImbalance(first) && first.End < centromere.Start)
+            {
+                taiCount++;
+            }
+
+            // Last segment: imbalanced AND start strictly after the centromere end → q-telomeric.
+            var last = merged[^1];
+            if (IsAllelicImbalance(last) && last.Start > centromere.End)
+            {
+                taiCount++;
+            }
+        }
+
+        return taiCount;
+    }
+
+    /// <summary>
+    /// Computes the HRD-LST (large-scale state-transition) score from allele-specific copy-number segments:
+    /// the number of chromosomal breaks between two adjacent regions each ≥ 10 Mb, after smoothing away
+    /// regions &lt; 3 Mb, counted per chromosome arm. Source: Popova et al. (2012), Cancer Res 72(21):5454;
+    /// scarHRD <c>calc.lst</c> (<c>chr.arm='no'</c> path). Algorithm, per autosome (sex chromosomes excluded):
+    /// <list type="number">
+    /// <item><description>Split into the p-arm (segments with start ≤ centromere start, clamped to it) and the
+    /// q-arm (segments with end ≥ centromere end, clamped to it); merge adjacent same-allele-state
+    /// segments on each arm.</description></item>
+    /// <item><description>Iteratively remove arm segments &lt; 3 Mb (<see cref="HrdLstSmoothingLengthBp"/>),
+    /// re-merging after each removal, until none remain (scarHRD <c>while</c> smoothing loop).</description></item>
+    /// <item><description>Flag each surviving arm segment as large when its length ≥ 10 Mb
+    /// (<see cref="HrdLstLargeSegmentLengthBp"/>). Count one LST for each adjacent pair where BOTH are large
+    /// AND the gap between them is &lt; 3 Mb.</description></item>
+    /// </list>
+    /// </summary>
+    /// <param name="segments">Allele-specific copy-number segments. Must not be null.</param>
+    /// <param name="genome">Reference assembly supplying the centromere table (default GRCh38).</param>
+    /// <returns>The HRD-LST score (≥ 0).</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="segments"/> is null.</exception>
+    /// <exception cref="ArgumentException">A segment has non-positive length or a negative copy number.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="genome"/> is not a defined value.</exception>
+    public static int CalculateHrdLstScore(
+        IEnumerable<AlleleSpecificSegment> segments,
+        ReferenceGenome genome = ReferenceGenome.GRCh38)
+    {
+        ArgumentNullException.ThrowIfNull(segments);
+
+        int lstCount = 0;
+        foreach (var group in GroupValidatedByChromosome(segments))
+        {
+            if (!TryGetCentromere(group[0].Chromosome, genome, out Centromere centromere))
+            {
+                continue; // sex chromosomes / non-autosomes excluded from LST (scarHRD).
+            }
+
+            // scarHRD calc.lst: chromosomes with < 2 segments cannot yield a transition.
+            if (group.Count < 2)
+            {
+                continue;
+            }
+
+            // p-arm: segments whose start is at/left of the centromere start; clamp the last to the boundary.
+            var pArm = new List<AlleleSpecificSegment>();
+            foreach (var segment in group)
+            {
+                if (segment.Start <= centromere.Start)
+                {
+                    pArm.Add(segment);
+                }
+            }
+
+            // q-arm: segments whose end is at/right of the centromere end; clamp the first to the boundary.
+            var qArm = new List<AlleleSpecificSegment>();
+            foreach (var segment in group)
+            {
+                if (segment.End >= centromere.End)
+                {
+                    qArm.Add(segment);
+                }
+            }
+
+            lstCount += CountArmTransitions(pArm, clampLastEnd: centromere.Start, clampFirstStart: null);
+            lstCount += CountArmTransitions(qArm, clampLastEnd: null, clampFirstStart: centromere.End);
+        }
+
+        return lstCount;
+    }
+
+    /// <summary>
+    /// Counts LST breaks on a single chromosome arm: merge same-state, clamp to the centromere boundary,
+    /// iteratively drop &lt; 3 Mb segments (re-merging), then count adjacent pairs that are both ≥ 10 Mb with a
+    /// &lt; 3 Mb gap. Mirrors the per-arm block of scarHRD <c>calc.lst</c>.
+    /// </summary>
+    private static int CountArmTransitions(
+        List<AlleleSpecificSegment> armSegments,
+        long? clampLastEnd,
+        long? clampFirstStart)
+    {
+        if (armSegments.Count == 0)
+        {
+            return 0;
+        }
+
+        var arm = new List<AlleleSpecificSegment>(MergeAdjacentSameAlleleState(armSegments));
+
+        // scarHRD clamps the arm's inner edge to the centromere boundary (q.arm[1,3] / p.arm[last,4]).
+        if (clampLastEnd is long pEnd)
+        {
+            arm[^1] = arm[^1] with { End = pEnd };
+        }
+
+        if (clampFirstStart is long qStart)
+        {
+            arm[0] = arm[0] with { Start = qStart };
+        }
+
+        // Iteratively remove < 3 Mb segments and re-merge until none remain (scarHRD while-loop).
+        SmoothShortSegments(arm, clampLastEnd, clampFirstStart);
+
+        if (arm.Count < 2)
+        {
+            return 0;
+        }
+
+        int breaks = 0;
+        for (int k = 1; k < arm.Count; k++)
+        {
+            bool previousLarge = arm[k - 1].Length >= HrdLstLargeSegmentLengthBp;
+            bool currentLarge = arm[k].Length >= HrdLstLargeSegmentLengthBp;
+            long gap = arm[k].Start - arm[k - 1].End;
+            if (previousLarge && currentLarge && gap < HrdLstSmoothingLengthBp)
+            {
+                breaks++;
+            }
+        }
+
+        return breaks;
+    }
+
+    /// <summary>
+    /// Iteratively removes arm segments shorter than 3 Mb and re-merges adjacent same-state segments after
+    /// each removal, re-clamping the arm boundary, until no segment is shorter than 3 Mb. Mirrors the
+    /// scarHRD <c>while(length(n.3mb) &gt; 0){ arm &lt;- arm[-n.3mb[1],]; arm &lt;- shrink.seg.ai(arm) }</c> loop.
+    /// </summary>
+    private static void SmoothShortSegments(
+        List<AlleleSpecificSegment> arm,
+        long? clampLastEnd,
+        long? clampFirstStart)
+    {
+        while (true)
+        {
+            int shortIndex = -1;
+            for (int i = 0; i < arm.Count; i++)
+            {
+                if (arm[i].Length < HrdLstSmoothingLengthBp)
+                {
+                    shortIndex = i;
+                    break;
+                }
+            }
+
+            if (shortIndex < 0)
+            {
+                return;
+            }
+
+            arm.RemoveAt(shortIndex);
+            if (arm.Count == 0)
+            {
+                return;
+            }
+
+            var remerged = new List<AlleleSpecificSegment>(MergeAdjacentSameAlleleState(arm));
+            if (clampLastEnd is long pEnd)
+            {
+                remerged[^1] = remerged[^1] with { End = pEnd };
+            }
+
+            if (clampFirstStart is long qStart)
+            {
+                remerged[0] = remerged[0] with { Start = qStart };
+            }
+
+            arm.Clear();
+            arm.AddRange(remerged);
+        }
+    }
+
+    /// <summary>
+    /// Merges adjacent segments (after sorting by start) that share the same allele state — equal major AND
+    /// minor copy numbers — into single regions. Source: scarHRD <c>shrink.seg.ai</c> —
+    /// <c>new.chr[(j-1),7]==new.chr[j,7] &amp; new.chr[(j-1),8]==new.chr[j,8]</c> (cols 7,8 = A/B allele CN).
+    /// Used by HRD-TAI and HRD-LST so a region split into equal-state pieces counts once.
+    /// </summary>
+    private static IReadOnlyList<AlleleSpecificSegment> MergeAdjacentSameAlleleState(
+        IReadOnlyList<AlleleSpecificSegment> chromosomeSegments)
+    {
+        var sorted = chromosomeSegments.OrderBy(static s => s.Start).ThenBy(static s => s.End).ToList();
+        var merged = new List<AlleleSpecificSegment>();
+
+        foreach (var segment in sorted)
+        {
+            if (merged.Count == 0)
+            {
+                merged.Add(segment);
+                continue;
+            }
+
+            var last = merged[^1];
+            bool sameState = last.MajorCopyNumber == segment.MajorCopyNumber
+                && last.MinorCopyNumber == segment.MinorCopyNumber;
+            if (sameState)
+            {
+                merged[^1] = last with { End = Math.Max(last.End, segment.End) };
+            }
+            else
+            {
+                merged.Add(segment);
+            }
+        }
+
+        return merged;
+    }
+
+    /// <summary>
+    /// End-to-end HRD determination that derives <b>all three</b> genomic-scar components — HRD-LOH
+    /// (<see cref="DetectLOH(IEnumerable{AlleleSpecificSegment})"/>, Abkevich et al. 2012), HRD-TAI
+    /// (<see cref="CalculateHrdTaiScore"/>, Birkbak et al. 2012) and HRD-LST
+    /// (<see cref="CalculateHrdLstScore"/>, Popova et al. 2012) — directly from allele-specific copy-number
+    /// segments, then sums them into the combined HRD score and classifies it against the myChoice/Telli 2016
+    /// cutoff (≥ <see cref="HrdHighScoreThreshold"/>). TAI and LST use the embedded per-build centromere
+    /// table (UCSC cytoBand <c>acen</c>); both are computed on autosomes only.
+    /// Source: scarHRD <c>scar_score</c> (<c>sum_HRD0 &lt;- res_lst + res_hrd + res_ai[1]</c>); Telli ML et al.
+    /// (2016), Clin Cancer Res 22(15):3764–3773 ("unweighted sum of LOH, TAI, and LST scores"; "HRD score ≥42").
+    /// </summary>
+    /// <param name="segments">Allele-specific copy-number segments all three components are derived from. Must not be null.</param>
+    /// <param name="genome">Reference assembly supplying the centromere table for TAI/LST (default GRCh38).</param>
+    /// <returns>The derived components (LOH, TAI, LST), the combined HRD score, and the HRD status.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="segments"/> is null.</exception>
+    /// <exception cref="ArgumentException">A segment has non-positive length or a negative copy number.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="genome"/> is not a defined value.</exception>
+    public static HrdResult DetectHRD(
+        IEnumerable<AlleleSpecificSegment> segments,
+        ReferenceGenome genome = ReferenceGenome.GRCh38)
+    {
+        ArgumentNullException.ThrowIfNull(segments);
+
+        // Materialize once so the three single-pass derivations all see the same segments.
+        var materialized = segments as IReadOnlyList<AlleleSpecificSegment> ?? segments.ToList();
+
+        int loh = DetectLOH(materialized).Score;
+        int tai = CalculateHrdTaiScore(materialized, genome);
+        int lst = CalculateHrdLstScore(materialized, genome);
+
+        return DetectHRD(new HrdComponents(loh, tai, lst));
     }
 
     #endregion
@@ -2828,6 +3330,1320 @@ public static class OncologyAnalyzer
 
     #endregion
 
+    #region De-novo Signature Extraction via NMF (ONCO-SIG-002)
+
+    /// <summary>
+    /// Maximum number of multiplicative-update iterations for the de-novo NMF signature extraction. Source:
+    /// Lee &amp; Seung (2001), <i>Algorithms for Non-negative Matrix Factorization</i>, NIPS 13 — the
+    /// multiplicative updates are "applied iteratively until W and H converge"
+    /// (https://en.wikipedia.org/wiki/Non-negative_matrix_factorization). NMF is non-convex, so a finite cap is
+    /// a safety bound; this default mirrors the iteration budgets used by SigProfiler-style extractors.
+    /// </summary>
+    public const int DefaultNmfMaxIterations = 10_000;
+
+    /// <summary>
+    /// Default relative-improvement convergence tolerance for the NMF objective: iteration stops when the
+    /// per-iteration decrease of the Frobenius residual ‖V − WH‖²_F, relative to the previous value, drops below
+    /// this threshold. Source: Lee &amp; Seung (2001), Theorem 1 — the objective is monotonically non-increasing,
+    /// so a small relative-change stop is a valid convergence test. Value = 1e-10.
+    /// </summary>
+    public const double DefaultNmfTolerance = 1e-10;
+
+    /// <summary>
+    /// Default RNG seed for the non-negative random initialisation of the NMF factors. Fixed so that, for a
+    /// given count matrix V, rank k, iteration budget and tolerance, the extracted signatures and exposures are
+    /// reproducible (NMF is non-convex and initialisation-dependent). Mirrors the fixed-seed convention used by
+    /// <see cref="DefaultBootstrapSeed"/>. Value = 42.
+    /// </summary>
+    public const int DefaultNmfSeed = 42;
+
+    /// <summary>
+    /// A small additive floor on the multiplicative-update denominators (and on the random initialisation) to
+    /// avoid 0/0 when a row or column of a factor collapses to zero. Source: standard regularisation of the
+    /// Lee &amp; Seung multiplicative updates whose denominators (WᵀWH, WHHᵀ) can vanish
+    /// (https://en.wikipedia.org/wiki/Non-negative_matrix_factorization). Value = 1e-12, far below any
+    /// meaningful mutation count.
+    /// </summary>
+    private const double NmfEpsilon = 1e-12;
+
+    /// <summary>
+    /// The result of de-novo NMF signature extraction from a mutation-count matrix V ≈ W·H at a caller-specified
+    /// rank k (Lee &amp; Seung 2001; Alexandrov et al. 2013).
+    /// </summary>
+    /// <param name="Signatures">
+    /// The extracted signatures W as a list of k channel vectors (one vector of length <c>ChannelCount</c> per
+    /// signature). Each signature is L1-normalised so its channel weights sum to 1 — a probability distribution
+    /// across the mutation channels, per the COSMIC / SigProfiler convention (Alexandrov et al. 2020).
+    /// </param>
+    /// <param name="Exposures">
+    /// The exposures H as a k × samples matrix (<c>Exposures[j][s]</c> = activity of signature j in sample s).
+    /// Non-negative; absorbs the per-signature scale removed by L1-normalising <paramref name="Signatures"/>.
+    /// </param>
+    /// <param name="FinalResidual">
+    /// The final Frobenius reconstruction residual ‖V − W·H‖²_F (squared) after the last iteration.
+    /// </param>
+    /// <param name="Iterations">The number of multiplicative-update iterations actually performed.</param>
+    /// <param name="ObjectiveHistory">
+    /// The Frobenius residual ‖V − W·H‖²_F recorded after each iteration (length = <see cref="Iterations"/>),
+    /// which is monotonically non-increasing (Lee &amp; Seung 2001, Theorem 1).
+    /// </param>
+    public readonly record struct SignatureExtractionResult(
+        IReadOnlyList<IReadOnlyList<double>> Signatures,
+        IReadOnlyList<IReadOnlyList<double>> Exposures,
+        double FinalResidual,
+        int Iterations,
+        IReadOnlyList<double> ObjectiveHistory);
+
+    /// <summary>
+    /// De-novo mutational-signature extraction by Non-negative Matrix Factorization (NMF). Given a non-negative
+    /// mutation-count matrix V (channels × samples) and a caller-specified rank k, factorises
+    /// <code>V ≈ W·H,  W ≥ 0  (channels × k),  H ≥ 0  (k × samples)</code>
+    /// where the columns of W are the de-novo signatures and H holds their per-sample exposures. Unlike
+    /// <see cref="FitSignatures"/> (which refits exposures against caller-supplied reference signatures), the
+    /// signatures here are <b>discovered from the data</b> — no reference profiles are required. The factors are
+    /// found with the Lee &amp; Seung (2001) multiplicative update rules for the squared Euclidean (Frobenius)
+    /// objective ‖V − W·H‖²_F:
+    /// <code>
+    /// H ← H ⊙ (Wᵀ V) ⊘ (Wᵀ W H)
+    /// W ← W ⊙ (V Hᵀ) ⊘ (W H Hᵀ)
+    /// </code>
+    /// iterated until the relative decrease of the objective falls below <paramref name="tolerance"/> or
+    /// <paramref name="maxIterations"/> is reached. Each extracted signature column of W is then L1-normalised to
+    /// sum to 1 (a probability distribution over the channels), with the removed scale absorbed into H, per the
+    /// COSMIC / SigProfiler convention (Alexandrov et al. 2013, 2020). NMF is non-convex, so the factorisation is
+    /// a local optimum dependent on the (seeded, deterministic) non-negative random initialisation.
+    /// </summary>
+    /// <param name="countMatrix">
+    /// The mutation-count matrix V as a list of rows, one per channel (e.g. 96 SBS channels); each row is a
+    /// vector over the samples (<c>countMatrix[channel][sample]</c>). All entries must be finite and ≥ 0. Every
+    /// row must have the same length (the sample count), and there must be at least one sample.
+    /// </param>
+    /// <param name="rank">The number of signatures k to extract; 1 ≤ k ≤ channel count.</param>
+    /// <param name="maxIterations">Maximum multiplicative-update iterations (&gt; 0).</param>
+    /// <param name="tolerance">Relative-improvement convergence tolerance (≥ 0).</param>
+    /// <param name="seed">RNG seed for the non-negative random initialisation (reproducibility).</param>
+    /// <returns>The extracted signatures W (L1-normalised), exposures H, residual, iteration count and history.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="countMatrix"/> or any row is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// Empty matrix, zero samples, ragged rows, a negative or non-finite entry, rank &lt; 1, rank &gt; channel
+    /// count, maxIterations ≤ 0, or tolerance &lt; 0.
+    /// </exception>
+    public static SignatureExtractionResult ExtractSignatures(
+        IReadOnlyList<IReadOnlyList<double>> countMatrix,
+        int rank,
+        int maxIterations = DefaultNmfMaxIterations,
+        double tolerance = DefaultNmfTolerance,
+        int seed = DefaultNmfSeed)
+        => ExtractSignatures(countMatrix, rank, NmfObjective.Frobenius, maxIterations, tolerance, seed);
+
+    /// <summary>
+    /// Selects the NMF objective (and hence the multiplicative-update variant) used by
+    /// <see cref="ExtractSignatures(IReadOnlyList{IReadOnlyList{double}}, int, NmfObjective, int, double, int)"/>.
+    /// Both variants are from Lee &amp; Seung (2001) and both are monotonically non-increasing in their respective
+    /// objective (Theorems 1 and 2).
+    /// </summary>
+    public enum NmfObjective
+    {
+        /// <summary>
+        /// Squared-Euclidean (Frobenius) objective ‖V − WH‖²_F with the Theorem-1 multiplicative updates
+        /// <c>H ← H ⊙ (Wᵀ V) ⊘ (Wᵀ W H)</c>, <c>W ← W ⊙ (V Hᵀ) ⊘ (W H Hᵀ)</c>. Lee &amp; Seung (2001), Theorem 1.
+        /// </summary>
+        Frobenius = 0,
+
+        /// <summary>
+        /// Generalized Kullback-Leibler (Poisson) divergence
+        /// <c>D(V‖WH) = Σ ( V·log(V/WH) − V + WH )</c> with the Theorem-2 multiplicative updates
+        /// <c>H_aμ ← H_aμ · (Σ_i W_ia V_iμ/(WH)_iμ) / (Σ_i W_ia)</c> and
+        /// <c>W_ia ← W_ia · (Σ_μ H_aμ V_iμ/(WH)_iμ) / (Σ_μ H_aμ)</c>. This is the objective the SigProfiler
+        /// mutational-signature extractor actually optimises (Alexandrov et al. 2013; Islam et al. 2022).
+        /// Lee &amp; Seung (2001), Theorem 2.
+        /// </summary>
+        KullbackLeibler = 1,
+    }
+
+    /// <summary>
+    /// De-novo mutational-signature extraction by NMF (V ≈ W·H) at a caller-specified rank k, allowing the caller
+    /// to pick the objective: the squared-Euclidean (Frobenius) variant (Lee &amp; Seung 2001, Theorem 1) or the
+    /// generalized Kullback-Leibler / Poisson variant (Theorem 2) — the latter being the objective SigProfiler
+    /// uses for mutational signatures (Alexandrov et al. 2013; Islam et al. 2022). The chosen objective is
+    /// monotonically non-increasing across iterations; iteration stops on relative-improvement
+    /// <paramref name="tolerance"/> or <paramref name="maxIterations"/>. Signatures (columns of W) are then
+    /// L1-normalised to sum to 1 with the scale absorbed into H (COSMIC convention).
+    /// <see cref="SignatureExtractionResult.FinalResidual"/> and
+    /// <see cref="SignatureExtractionResult.ObjectiveHistory"/> hold the value of the <em>selected</em>
+    /// objective (Frobenius residual ‖V − WH‖²_F, or KL divergence D(V‖WH)).
+    /// </summary>
+    /// <param name="countMatrix">Mutation-count matrix V (channels × samples); rows are channels.</param>
+    /// <param name="rank">Number of signatures k to extract; 1 ≤ k ≤ channel count.</param>
+    /// <param name="objective">Which Lee &amp; Seung objective / update variant to optimise.</param>
+    /// <param name="maxIterations">Maximum multiplicative-update iterations (&gt; 0).</param>
+    /// <param name="tolerance">Relative-improvement convergence tolerance (≥ 0).</param>
+    /// <param name="seed">RNG seed for the non-negative random initialisation (reproducibility).</param>
+    /// <returns>The extracted signatures W (L1-normalised), exposures H, objective value, iteration count, history.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="countMatrix"/> or any row is null.</exception>
+    /// <exception cref="ArgumentException">Invalid matrix, rank, maxIterations or tolerance (see other overload).</exception>
+    public static SignatureExtractionResult ExtractSignatures(
+        IReadOnlyList<IReadOnlyList<double>> countMatrix,
+        int rank,
+        NmfObjective objective,
+        int maxIterations = DefaultNmfMaxIterations,
+        double tolerance = DefaultNmfTolerance,
+        int seed = DefaultNmfSeed)
+    {
+        double[][] v = ValidateCountMatrix(countMatrix, out int channelCount, out int sampleCount);
+        ValidateRankAndStop(rank, channelCount, maxIterations, tolerance);
+
+        (double[][] w, double[][] h, double finalObjective, int iterations, List<double> history) =
+            RunNmf(v, rank, objective, maxIterations, tolerance, seed, channelCount, sampleCount);
+
+        IReadOnlyList<IReadOnlyList<double>> signatures = TransposeColumnsToSignatures(w, channelCount, rank);
+        IReadOnlyList<IReadOnlyList<double>> exposures = RowsToReadOnly(h);
+
+        return new SignatureExtractionResult(signatures, exposures, finalObjective, iterations, history);
+    }
+
+    /// <summary>
+    /// Validates rank and stop-criterion parameters shared by the extraction entry points.
+    /// </summary>
+    private static void ValidateRankAndStop(int rank, int channelCount, int maxIterations, double tolerance)
+    {
+        if (rank < 1)
+        {
+            throw new ArgumentException($"Rank k must be ≥ 1 (got {rank}).", nameof(rank));
+        }
+
+        if (rank > channelCount)
+        {
+            throw new ArgumentException(
+                $"Rank k ({rank}) cannot exceed the channel count ({channelCount}).", nameof(rank));
+        }
+
+        if (maxIterations <= 0)
+        {
+            throw new ArgumentException($"maxIterations must be > 0 (got {maxIterations}).", nameof(maxIterations));
+        }
+
+        if (tolerance < 0)
+        {
+            throw new ArgumentException($"tolerance must be ≥ 0 (got {tolerance}).", nameof(tolerance));
+        }
+    }
+
+    /// <summary>
+    /// Core multiplicative-update NMF loop shared by both objectives. Returns the (L1-column-normalised) factors,
+    /// the final value of the selected objective, the iteration count, and the per-iteration objective history.
+    /// The objective is monotonically non-increasing (Lee &amp; Seung 2001, Theorems 1 &amp; 2).
+    /// </summary>
+    private static (double[][] W, double[][] H, double FinalObjective, int Iterations, List<double> History) RunNmf(
+        double[][] v, int rank, NmfObjective objective, int maxIterations, double tolerance, int seed,
+        int channelCount, int sampleCount)
+    {
+        // Non-negative random initialisation (Lee & Seung do not prescribe one; uniform (0,1] is standard).
+        var rng = new Random(seed);
+        double[][] w = InitializeNonNegativeFactor(rng, channelCount, rank);   // channels × k
+        double[][] h = InitializeNonNegativeFactor(rng, rank, sampleCount);    // k × samples
+
+        var history = new List<double>(maxIterations);
+        double previousObjective = double.PositiveInfinity;
+        int iterations = 0;
+
+        for (int iter = 0; iter < maxIterations; iter++)
+        {
+            if (objective == NmfObjective.KullbackLeibler)
+            {
+                // H_aμ ← H_aμ · (Σ_i W_ia V_iμ/(WH)_iμ) / (Σ_i W_ia)   — Lee & Seung (2001), Theorem 2.
+                UpdateHKl(w, h, v, channelCount, rank, sampleCount);
+                // W_ia ← W_ia · (Σ_μ H_aμ V_iμ/(WH)_iμ) / (Σ_μ H_aμ)   — Lee & Seung (2001), Theorem 2.
+                UpdateWKl(w, h, v, channelCount, rank, sampleCount);
+            }
+            else
+            {
+                // H ← H ⊙ (Wᵀ V) ⊘ (Wᵀ W H)   — Lee & Seung (2001), Theorem 1.
+                UpdateH(w, h, v, channelCount, rank, sampleCount);
+                // W ← W ⊙ (V Hᵀ) ⊘ (W H Hᵀ)   — Lee & Seung (2001), Theorem 1.
+                UpdateW(w, h, v, channelCount, rank, sampleCount);
+            }
+
+            iterations = iter + 1;
+            double currentObjective = objective == NmfObjective.KullbackLeibler
+                ? KullbackLeiblerDivergence(w, h, v, channelCount, rank, sampleCount)
+                : FrobeniusResidualSquared(w, h, v, channelCount, rank, sampleCount);
+            history.Add(currentObjective);
+
+            // Relative-improvement stop. The objective is monotonically non-increasing (Theorems 1 & 2), so
+            // previousObjective ≥ currentObjective; the decrease is non-negative.
+            double decrease = previousObjective - currentObjective;
+            double denominator = previousObjective > NmfEpsilon ? previousObjective : 1.0;
+            if (!double.IsInfinity(previousObjective) && decrease / denominator < tolerance)
+            {
+                previousObjective = currentObjective;
+                break;
+            }
+
+            previousObjective = currentObjective;
+        }
+
+        // L1-normalise each signature column of W so its channel weights sum to 1, absorbing the scale into the
+        // corresponding row of H (Alexandrov et al. 2013/2020; COSMIC SBS — signatures are probability
+        // distributions over the channels). This fixes the NMF scaling ambiguity without changing W·H.
+        NormalizeSignatureColumns(w, h, channelCount, rank, sampleCount);
+
+        double finalObjective = objective == NmfObjective.KullbackLeibler
+            ? KullbackLeiblerDivergence(w, h, v, channelCount, rank, sampleCount)
+            : FrobeniusResidualSquared(w, h, v, channelCount, rank, sampleCount);
+
+        return (w, h, finalObjective, iterations, history);
+    }
+
+    /// <summary>
+    /// Validates the count matrix V (non-null, non-empty, rectangular, finite, non-negative) and returns it as a
+    /// dense jagged array of rows, with the channel and sample counts.
+    /// </summary>
+    private static double[][] ValidateCountMatrix(
+        IReadOnlyList<IReadOnlyList<double>> countMatrix, out int channelCount, out int sampleCount)
+    {
+        ArgumentNullException.ThrowIfNull(countMatrix);
+
+        channelCount = countMatrix.Count;
+        if (channelCount == 0)
+        {
+            throw new ArgumentException("The count matrix must have at least one channel (row).", nameof(countMatrix));
+        }
+
+        IReadOnlyList<double> firstRow = countMatrix[0]
+            ?? throw new ArgumentException("Count-matrix rows cannot be null.", nameof(countMatrix));
+        sampleCount = firstRow.Count;
+        if (sampleCount == 0)
+        {
+            throw new ArgumentException("The count matrix must have at least one sample (column).", nameof(countMatrix));
+        }
+
+        var v = new double[channelCount][];
+        for (int c = 0; c < channelCount; c++)
+        {
+            IReadOnlyList<double> row = countMatrix[c]
+                ?? throw new ArgumentException("Count-matrix rows cannot be null.", nameof(countMatrix));
+            if (row.Count != sampleCount)
+            {
+                throw new ArgumentException(
+                    $"All channel rows must have the same sample count (row 0 has {sampleCount}, " +
+                    $"row {c} has {row.Count}).",
+                    nameof(countMatrix));
+            }
+
+            var dense = new double[sampleCount];
+            for (int s = 0; s < sampleCount; s++)
+            {
+                double value = row[s];
+                if (double.IsNaN(value) || double.IsInfinity(value) || value < 0)
+                {
+                    throw new ArgumentException(
+                        $"Count-matrix entries must be finite and ≥ 0 (row {c}, sample {s} = {value}).",
+                        nameof(countMatrix));
+                }
+
+                dense[s] = value;
+            }
+
+            v[c] = dense;
+        }
+
+        return v;
+    }
+
+    /// <summary>
+    /// Builds a non-negative factor of the given shape with entries drawn uniformly from (0, 1], floored by
+    /// <see cref="NmfEpsilon"/> so no entry is exactly zero (a zero row/column cannot recover under the
+    /// multiplicative updates). Source: standard non-negative random initialisation for Lee &amp; Seung NMF.
+    /// </summary>
+    private static double[][] InitializeNonNegativeFactor(Random rng, int rows, int cols)
+    {
+        var factor = new double[rows][];
+        for (int i = 0; i < rows; i++)
+        {
+            var rowValues = new double[cols];
+            for (int j = 0; j < cols; j++)
+            {
+                rowValues[j] = rng.NextDouble() + NmfEpsilon;
+            }
+
+            factor[i] = rowValues;
+        }
+
+        return factor;
+    }
+
+    /// <summary>
+    /// Multiplicative update of H: <c>H ← H ⊙ (Wᵀ V) ⊘ (Wᵀ W H)</c>. Source: Lee &amp; Seung (2001), Theorem 1
+    /// (Euclidean objective). The denominator is floored by <see cref="NmfEpsilon"/> to avoid 0/0.
+    /// </summary>
+    private static void UpdateH(double[][] w, double[][] h, double[][] v, int channels, int k, int samples)
+    {
+        // numerator = Wᵀ V  (k × samples); denominator = Wᵀ (W H)  (k × samples).
+        double[][] wh = MultiplyWh(w, h, channels, k, samples);
+
+        for (int a = 0; a < k; a++)
+        {
+            for (int s = 0; s < samples; s++)
+            {
+                double numerator = 0.0;
+                double denominator = 0.0;
+                for (int c = 0; c < channels; c++)
+                {
+                    numerator += w[c][a] * v[c][s];
+                    denominator += w[c][a] * wh[c][s];
+                }
+
+                if (denominator < NmfEpsilon)
+                {
+                    denominator = NmfEpsilon;
+                }
+
+                h[a][s] *= numerator / denominator;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Multiplicative update of W: <c>W ← W ⊙ (V Hᵀ) ⊘ (W H Hᵀ)</c>. Source: Lee &amp; Seung (2001), Theorem 1
+    /// (Euclidean objective). The denominator is floored by <see cref="NmfEpsilon"/> to avoid 0/0.
+    /// </summary>
+    private static void UpdateW(double[][] w, double[][] h, double[][] v, int channels, int k, int samples)
+    {
+        // numerator = V Hᵀ  (channels × k); denominator = (W H) Hᵀ  (channels × k).
+        double[][] wh = MultiplyWh(w, h, channels, k, samples);
+
+        for (int c = 0; c < channels; c++)
+        {
+            for (int a = 0; a < k; a++)
+            {
+                double numerator = 0.0;
+                double denominator = 0.0;
+                for (int s = 0; s < samples; s++)
+                {
+                    numerator += v[c][s] * h[a][s];
+                    denominator += wh[c][s] * h[a][s];
+                }
+
+                if (denominator < NmfEpsilon)
+                {
+                    denominator = NmfEpsilon;
+                }
+
+                w[c][a] *= numerator / denominator;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Multiplicative KL/Poisson update of H:
+    /// <c>H_aμ ← H_aμ · (Σ_i W_ia V_iμ/(WH)_iμ) / (Σ_i W_ia)</c>. Source: Lee &amp; Seung (2001), Theorem 2
+    /// (divergence objective). The reconstruction (WH)_iμ is floored by <see cref="NmfEpsilon"/> to avoid V/0,
+    /// and the column-sum denominator Σ_i W_ia is floored to avoid 0/0.
+    /// </summary>
+    private static void UpdateHKl(double[][] w, double[][] h, double[][] v, int channels, int k, int samples)
+    {
+        double[][] wh = MultiplyWh(w, h, channels, k, samples);
+
+        for (int a = 0; a < k; a++)
+        {
+            // Denominator Σ_i W_ia is independent of the sample μ.
+            double columnSum = 0.0;
+            for (int c = 0; c < channels; c++)
+            {
+                columnSum += w[c][a];
+            }
+
+            if (columnSum < NmfEpsilon)
+            {
+                columnSum = NmfEpsilon;
+            }
+
+            for (int s = 0; s < samples; s++)
+            {
+                double numerator = 0.0;
+                for (int c = 0; c < channels; c++)
+                {
+                    double reconstructed = wh[c][s] < NmfEpsilon ? NmfEpsilon : wh[c][s];
+                    numerator += w[c][a] * v[c][s] / reconstructed;
+                }
+
+                h[a][s] *= numerator / columnSum;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Multiplicative KL/Poisson update of W:
+    /// <c>W_ia ← W_ia · (Σ_μ H_aμ V_iμ/(WH)_iμ) / (Σ_μ H_aμ)</c>. Source: Lee &amp; Seung (2001), Theorem 2
+    /// (divergence objective). The reconstruction (WH)_iμ is floored by <see cref="NmfEpsilon"/> to avoid V/0,
+    /// and the row-sum denominator Σ_μ H_aμ is floored to avoid 0/0.
+    /// </summary>
+    private static void UpdateWKl(double[][] w, double[][] h, double[][] v, int channels, int k, int samples)
+    {
+        double[][] wh = MultiplyWh(w, h, channels, k, samples);
+
+        // Denominator Σ_μ H_aμ is independent of the channel i.
+        var rowSum = new double[k];
+        for (int a = 0; a < k; a++)
+        {
+            double sum = 0.0;
+            for (int s = 0; s < samples; s++)
+            {
+                sum += h[a][s];
+            }
+
+            rowSum[a] = sum < NmfEpsilon ? NmfEpsilon : sum;
+        }
+
+        for (int c = 0; c < channels; c++)
+        {
+            for (int a = 0; a < k; a++)
+            {
+                double numerator = 0.0;
+                for (int s = 0; s < samples; s++)
+                {
+                    double reconstructed = wh[c][s] < NmfEpsilon ? NmfEpsilon : wh[c][s];
+                    numerator += h[a][s] * v[c][s] / reconstructed;
+                }
+
+                w[c][a] *= numerator / rowSum[a];
+            }
+        }
+    }
+
+    /// <summary>
+    /// The generalized Kullback-Leibler divergence <c>D(V‖WH) = Σ_iμ ( V_iμ log(V_iμ/(WH)_iμ) − V_iμ + (WH)_iμ )</c>.
+    /// Source: Lee &amp; Seung (2001), the divergence objective. The term V·log(V/WH) is taken as 0 when V = 0
+    /// (limit x log x → 0); (WH)_iμ is floored by <see cref="NmfEpsilon"/> to avoid log(·/0).
+    /// </summary>
+    private static double KullbackLeiblerDivergence(double[][] w, double[][] h, double[][] v, int channels, int k, int samples)
+    {
+        double sum = 0.0;
+        for (int c = 0; c < channels; c++)
+        {
+            for (int s = 0; s < samples; s++)
+            {
+                double reconstructed = 0.0;
+                for (int a = 0; a < k; a++)
+                {
+                    reconstructed += w[c][a] * h[a][s];
+                }
+
+                if (reconstructed < NmfEpsilon)
+                {
+                    reconstructed = NmfEpsilon;
+                }
+
+                double observed = v[c][s];
+                if (observed > 0.0)
+                {
+                    sum += observed * Math.Log(observed / reconstructed) - observed + reconstructed;
+                }
+                else
+                {
+                    // V = 0: the log term vanishes (limit x log x → 0); only +(WH) remains.
+                    sum += reconstructed;
+                }
+            }
+        }
+
+        return sum;
+    }
+
+    /// <summary>
+    /// Computes the dense product W·H (channels × samples) of the current factors.
+    /// </summary>
+    private static double[][] MultiplyWh(double[][] w, double[][] h, int channels, int k, int samples)
+    {
+        var wh = new double[channels][];
+        for (int c = 0; c < channels; c++)
+        {
+            var row = new double[samples];
+            for (int s = 0; s < samples; s++)
+            {
+                double sum = 0.0;
+                for (int a = 0; a < k; a++)
+                {
+                    sum += w[c][a] * h[a][s];
+                }
+
+                row[s] = sum;
+            }
+
+            wh[c] = row;
+        }
+
+        return wh;
+    }
+
+    /// <summary>
+    /// The squared Frobenius reconstruction residual ‖V − W·H‖²_F = Σ (V − W·H)². Source: Lee &amp; Seung (2001),
+    /// the Euclidean objective F(W,H) = ‖V − WH‖²_F.
+    /// </summary>
+    private static double FrobeniusResidualSquared(double[][] w, double[][] h, double[][] v, int channels, int k, int samples)
+    {
+        double sum = 0.0;
+        for (int c = 0; c < channels; c++)
+        {
+            for (int s = 0; s < samples; s++)
+            {
+                double reconstructed = 0.0;
+                for (int a = 0; a < k; a++)
+                {
+                    reconstructed += w[c][a] * h[a][s];
+                }
+
+                double diff = v[c][s] - reconstructed;
+                sum += diff * diff;
+            }
+        }
+
+        return sum;
+    }
+
+    /// <summary>
+    /// L1-normalises each signature column of W so its channel weights sum to 1, absorbing the removed scale into
+    /// the matching row of H so that W·H is unchanged. Source: Alexandrov et al. (2013/2020); COSMIC SBS — each
+    /// signature is a probability distribution over the channels. A column that sums to zero is left as zeros.
+    /// </summary>
+    private static void NormalizeSignatureColumns(double[][] w, double[][] h, int channels, int k, int samples)
+    {
+        for (int a = 0; a < k; a++)
+        {
+            double columnSum = 0.0;
+            for (int c = 0; c < channels; c++)
+            {
+                columnSum += w[c][a];
+            }
+
+            if (columnSum <= NmfEpsilon)
+            {
+                continue;
+            }
+
+            for (int c = 0; c < channels; c++)
+            {
+                w[c][a] /= columnSum;
+            }
+
+            // Absorb the scale into H so W·H is invariant: H[a][·] *= columnSum.
+            for (int s = 0; s < samples; s++)
+            {
+                h[a][s] *= columnSum;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Converts the channels × k factor W into k signature vectors (column a of W → signature a of length
+    /// <paramref name="channels"/>), the per-signature channel-vector layout used elsewhere in this class.
+    /// </summary>
+    private static IReadOnlyList<IReadOnlyList<double>> TransposeColumnsToSignatures(double[][] w, int channels, int k)
+    {
+        var signatures = new List<IReadOnlyList<double>>(k);
+        for (int a = 0; a < k; a++)
+        {
+            var signature = new double[channels];
+            for (int c = 0; c < channels; c++)
+            {
+                signature[c] = w[c][a];
+            }
+
+            signatures.Add(signature);
+        }
+
+        return signatures;
+    }
+
+    /// <summary>
+    /// Wraps the rows of H as a read-only list of read-only rows.
+    /// </summary>
+    private static IReadOnlyList<IReadOnlyList<double>> RowsToReadOnly(double[][] h)
+    {
+        var rows = new List<IReadOnlyList<double>>(h.Length);
+        foreach (double[] row in h)
+        {
+            rows.Add(row);
+        }
+
+        return rows;
+    }
+
+    // ---- Automatic rank / model-stability selection (Brunet 2004; Alexandrov 2013 / SigProfiler) ----
+
+    /// <summary>
+    /// Default number of independent NMF runs (random restarts) per candidate rank used by
+    /// <see cref="SelectRank"/>. Source: Brunet et al. (2004) build the consensus matrix as the average of the
+    /// connectivity matrices over "multiple runs"; SigProfilerExtractor uses partition clustering of replicate
+    /// factorizations (Islam et al. 2022). A modest default keeps deterministic tests fast; callers raise it for
+    /// production. Value = 20.
+    /// </summary>
+    public const int DefaultRankSelectionRuns = 20;
+
+    /// <summary>
+    /// Default average-stability acceptance threshold for <see cref="SelectRank"/>. Source: SigProfilerExtractor
+    /// considers a solution stable when "signatures have an average stability above 0.80" (Islam et al. 2022;
+    /// default <c>stability=0.8</c>). Value = 0.80.
+    /// </summary>
+    public const double DefaultRankStabilityThreshold = 0.80;
+
+    /// <summary>
+    /// Per-candidate-rank diagnostics produced by <see cref="SelectRank"/>, making the rank choice auditable
+    /// (Brunet et al. 2004; Alexandrov et al. 2013).
+    /// </summary>
+    /// <param name="Rank">The candidate rank k.</param>
+    /// <param name="CopheneticCorrelation">
+    /// The cophenetic correlation coefficient of the consensus matrix over the runs — the Pearson correlation
+    /// between the consensus-induced sample distances and their cophenetic distances from average-linkage
+    /// hierarchical clustering (Brunet et al. 2004). 1.0 = perfectly stable clustering; the first rank where it
+    /// "begins to fall" is the Brunet rank estimate.
+    /// </param>
+    /// <param name="AverageStability">
+    /// The mean over signatures of the per-signature average silhouette width across the runs (cosine distance
+    /// in signature space). Source: Alexandrov et al. (2013) / SigProfilerExtractor "silhouette value of the
+    /// cluster corresponding to that signature" (Islam et al. 2022); silhouette per Rousseeuw (1987).
+    /// </param>
+    /// <param name="MinimumStability">The minimum per-signature silhouette stability over the k clusters.</param>
+    /// <param name="MeanReconstructionError">
+    /// The mean over runs of the final reconstruction error (selected objective; Frobenius residual ‖V−WH‖²_F or
+    /// KL divergence) — lower is a better data fit.
+    /// </param>
+    public readonly record struct RankStability(
+        int Rank,
+        double CopheneticCorrelation,
+        double AverageStability,
+        double MinimumStability,
+        double MeanReconstructionError);
+
+    /// <summary>
+    /// The result of automatic NMF rank selection over a candidate range (Brunet et al. 2004; Alexandrov et al.
+    /// 2013 / SigProfilerExtractor, Islam et al. 2022).
+    /// </summary>
+    /// <param name="SelectedRank">
+    /// The chosen number of signatures: the largest candidate rank whose average signature stability is at least
+    /// <c>stabilityThreshold</c> and whose minimum per-signature stability is at least <c>minStability</c>
+    /// (SigProfiler: "average stability above 0.80 with no individual signature having stability below 0.20").
+    /// If no rank meets the threshold, the rank with the highest average stability is returned.
+    /// </param>
+    /// <param name="PerRank">Per-candidate-rank diagnostics (cophenetic, stability, error), in ascending rank order.</param>
+    public readonly record struct RankSelectionResult(
+        int SelectedRank,
+        IReadOnlyList<RankStability> PerRank);
+
+    /// <summary>
+    /// Automatically selects the number of de-novo signatures (NMF rank) for a mutation-count matrix by the
+    /// SigProfiler/Brunet model-stability approach. For each candidate rank k in <paramref name="minRank"/>..
+    /// <paramref name="maxRank"/>, NMF is run <paramref name="runs"/> times from a <b>fixed, deterministic seed
+    /// sequence</b>; the runs are summarised by (a) the cophenetic correlation coefficient of the consensus
+    /// matrix (Brunet et al. 2004), (b) the average signature <em>stability</em> measured as the per-signature
+    /// average silhouette width across runs (Alexandrov et al. 2013; Islam et al. 2022), and (c) the mean
+    /// reconstruction error. The selected rank is the largest k whose average stability is ≥
+    /// <paramref name="stabilityThreshold"/> and whose minimum per-signature stability is ≥
+    /// <paramref name="minStability"/> (SigProfiler default 0.80 / 0.20); if none qualifies, the highest-average-
+    /// stability rank is returned. All per-rank diagnostics are returned so the choice is auditable.
+    /// </summary>
+    /// <param name="countMatrix">Mutation-count matrix V (channels × samples); rows are channels.</param>
+    /// <param name="minRank">Smallest candidate rank (≥ 1).</param>
+    /// <param name="maxRank">Largest candidate rank (≥ <paramref name="minRank"/>, ≤ channel count).</param>
+    /// <param name="objective">NMF objective for the per-run extractions.</param>
+    /// <param name="runs">Independent NMF runs per candidate rank (≥ 1).</param>
+    /// <param name="stabilityThreshold">Minimum acceptable average signature stability (default 0.80).</param>
+    /// <param name="minStability">Minimum acceptable per-signature stability (default 0.20).</param>
+    /// <param name="maxIterations">Maximum multiplicative-update iterations per run (&gt; 0).</param>
+    /// <param name="tolerance">Relative-improvement convergence tolerance (≥ 0).</param>
+    /// <param name="seed">Base RNG seed; run r at rank k uses a deterministic derived seed for reproducibility.</param>
+    /// <returns>The selected rank plus per-rank stability/error diagnostics.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="countMatrix"/> or a row is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// Invalid matrix; minRank &lt; 1; maxRank &lt; minRank; maxRank &gt; channel count; runs &lt; 1; bad iteration
+    /// / tolerance; or a stability threshold outside [0, 1].
+    /// </exception>
+    public static RankSelectionResult SelectRank(
+        IReadOnlyList<IReadOnlyList<double>> countMatrix,
+        int minRank,
+        int maxRank,
+        NmfObjective objective = NmfObjective.KullbackLeibler,
+        int runs = DefaultRankSelectionRuns,
+        double stabilityThreshold = DefaultRankStabilityThreshold,
+        double minStability = DefaultMinSignatureStability,
+        int maxIterations = DefaultNmfMaxIterations,
+        double tolerance = DefaultNmfTolerance,
+        int seed = DefaultNmfSeed)
+    {
+        double[][] v = ValidateCountMatrix(countMatrix, out int channelCount, out int sampleCount);
+
+        if (minRank < 1)
+        {
+            throw new ArgumentException($"minRank must be ≥ 1 (got {minRank}).", nameof(minRank));
+        }
+
+        if (maxRank < minRank)
+        {
+            throw new ArgumentException(
+                $"maxRank ({maxRank}) must be ≥ minRank ({minRank}).", nameof(maxRank));
+        }
+
+        if (maxRank > channelCount)
+        {
+            throw new ArgumentException(
+                $"maxRank ({maxRank}) cannot exceed the channel count ({channelCount}).", nameof(maxRank));
+        }
+
+        if (runs < 1)
+        {
+            throw new ArgumentException($"runs must be ≥ 1 (got {runs}).", nameof(runs));
+        }
+
+        if (stabilityThreshold < 0.0 || stabilityThreshold > 1.0)
+        {
+            throw new ArgumentException(
+                $"stabilityThreshold must be in [0, 1] (got {stabilityThreshold}).", nameof(stabilityThreshold));
+        }
+
+        if (minStability < 0.0 || minStability > 1.0)
+        {
+            throw new ArgumentException(
+                $"minStability must be in [0, 1] (got {minStability}).", nameof(minStability));
+        }
+
+        ValidateRankAndStop(minRank, channelCount, maxIterations, tolerance);
+
+        var perRank = new List<RankStability>(maxRank - minRank + 1);
+        for (int k = minRank; k <= maxRank; k++)
+        {
+            // Collect the signature sets and per-sample cluster assignments of all runs at this rank.
+            var runSignatures = new List<double[][]>(runs); // each: k signatures × channels
+            var connectivity = new double[sampleCount][];   // accumulated consensus (sum of connectivity)
+            for (int s = 0; s < sampleCount; s++)
+            {
+                connectivity[s] = new double[sampleCount];
+            }
+
+            double errorSum = 0.0;
+            for (int r = 0; r < runs; r++)
+            {
+                // Deterministic per-(rank, run) seed so the whole procedure is reproducible.
+                int runSeed = DerivedSeed(seed, k, r);
+                (double[][] w, double[][] h, double finalObjective, _, _) =
+                    RunNmf(v, k, objective, maxIterations, tolerance, runSeed, channelCount, sampleCount);
+
+                errorSum += finalObjective;
+
+                // Signatures of this run as k channel-vectors (column a of W).
+                var sigs = new double[k][];
+                for (int a = 0; a < k; a++)
+                {
+                    sigs[a] = new double[channelCount];
+                    for (int c = 0; c < channelCount; c++)
+                    {
+                        sigs[a][c] = w[c][a];
+                    }
+                }
+
+                runSignatures.Add(sigs);
+
+                // Connectivity: samples assigned to the same metagene (argmax over H column) are connected.
+                int[] assignment = AssignSamplesToClusters(h, k, sampleCount);
+                for (int i = 0; i < sampleCount; i++)
+                {
+                    for (int j = 0; j < sampleCount; j++)
+                    {
+                        if (assignment[i] == assignment[j])
+                        {
+                            connectivity[i][j] += 1.0;
+                        }
+                    }
+                }
+            }
+
+            // Consensus matrix = average connectivity over runs (Brunet 2004).
+            for (int i = 0; i < sampleCount; i++)
+            {
+                for (int j = 0; j < sampleCount; j++)
+                {
+                    connectivity[i][j] /= runs;
+                }
+            }
+
+            double cophenetic = CopheneticCorrelation(connectivity, sampleCount);
+            (double avgStability, double minStab) = SignatureStability(runSignatures, k, channelCount);
+            double meanError = errorSum / runs;
+
+            perRank.Add(new RankStability(k, cophenetic, avgStability, minStab, meanError));
+        }
+
+        int selected = ChooseRank(perRank, stabilityThreshold, minStability);
+        return new RankSelectionResult(selected, perRank);
+    }
+
+    /// <summary>
+    /// Default minimum acceptable per-signature stability for <see cref="SelectRank"/>. Source:
+    /// SigProfilerExtractor requires "no individual signature having stability below 0.20" (Islam et al. 2022;
+    /// default <c>min_stability=0.2</c>). Value = 0.20.
+    /// </summary>
+    public const double DefaultMinSignatureStability = 0.20;
+
+    /// <summary>
+    /// Deterministic per-(rank, run) seed derivation so the whole rank-selection procedure is reproducible while
+    /// each run still gets a distinct initialisation. Combines the base seed, rank and run index.
+    /// </summary>
+    private static int DerivedSeed(int baseSeed, int rank, int run)
+    {
+        unchecked
+        {
+            int hash = baseSeed;
+            hash = (hash * 397) ^ rank;
+            hash = (hash * 397) ^ run;
+            return hash;
+        }
+    }
+
+    /// <summary>
+    /// Assigns each sample (column of H) to the cluster of its largest exposure (metagene), per Brunet et al.
+    /// (2004): "Sample assignment is determined by its largest metagene expression value."
+    /// </summary>
+    private static int[] AssignSamplesToClusters(double[][] h, int k, int samples)
+    {
+        var assignment = new int[samples];
+        for (int s = 0; s < samples; s++)
+        {
+            int best = 0;
+            double bestValue = h[0][s];
+            for (int a = 1; a < k; a++)
+            {
+                if (h[a][s] > bestValue)
+                {
+                    bestValue = h[a][s];
+                    best = a;
+                }
+            }
+
+            assignment[s] = best;
+        }
+
+        return assignment;
+    }
+
+    /// <summary>
+    /// The cophenetic correlation coefficient of the consensus matrix (Brunet et al. 2004): the Pearson
+    /// correlation between the sample distances induced by the consensus matrix (distance = 1 − consensus) and
+    /// the cophenetic distances from average-linkage hierarchical clustering on those distances. Returns 1.0 when
+    /// every consensus entry equals 1 (perfectly stable clustering — e.g. rank 1), the value defined by Brunet.
+    /// </summary>
+    private static double CopheneticCorrelation(double[][] consensus, int samples)
+    {
+        if (samples < 2)
+        {
+            return 1.0;
+        }
+
+        // Distance induced by the consensus matrix: d = 1 − consensus (consensus is a similarity in [0, 1]).
+        var distance = new double[samples][];
+        for (int i = 0; i < samples; i++)
+        {
+            distance[i] = new double[samples];
+            for (int j = 0; j < samples; j++)
+            {
+                distance[i][j] = 1.0 - consensus[i][j];
+            }
+        }
+
+        double[][] cophenetic = AverageLinkageCopheneticDistances(distance, samples);
+
+        // Pearson correlation over the strictly-upper-triangular pairs (i < j).
+        double sumX = 0.0, sumY = 0.0, sumXY = 0.0, sumXX = 0.0, sumYY = 0.0;
+        int n = 0;
+        for (int i = 0; i < samples; i++)
+        {
+            for (int j = i + 1; j < samples; j++)
+            {
+                double x = distance[i][j];
+                double y = cophenetic[i][j];
+                sumX += x;
+                sumY += y;
+                sumXY += x * y;
+                sumXX += x * x;
+                sumYY += y * y;
+                n++;
+            }
+        }
+
+        double meanX = sumX / n;
+        double meanY = sumY / n;
+        double covXY = sumXY / n - meanX * meanY;
+        double varX = sumXX / n - meanX * meanX;
+        double varY = sumYY / n - meanY * meanY;
+
+        // Degenerate: a constant distance vector (e.g. all-ones consensus ⇒ all-zero distance) has zero
+        // variance; Brunet's "perfect consensus" case maps to cophenetic = 1.
+        if (varX <= NmfEpsilon || varY <= NmfEpsilon)
+        {
+            return 1.0;
+        }
+
+        return covXY / Math.Sqrt(varX * varY);
+    }
+
+    /// <summary>
+    /// Computes the cophenetic distance matrix from average-linkage (UPGMA) agglomerative clustering of the given
+    /// distance matrix. The cophenetic distance between two samples is the linkage distance at which their
+    /// clusters first merge (Brunet et al. 2004 use average linkage by default).
+    /// </summary>
+    private static double[][] AverageLinkageCopheneticDistances(double[][] distance, int samples)
+    {
+        // Active clusters: each starts as a singleton {i}. clusterMembers holds the sample indices per cluster.
+        var members = new List<List<int>>(samples);
+        var active = new List<int>(samples);
+        for (int i = 0; i < samples; i++)
+        {
+            members.Add(new List<int> { i });
+            active.Add(i);
+        }
+
+        // Pairwise average-linkage distances between active clusters, indexed by cluster id.
+        var clusterDistance = new Dictionary<(int, int), double>();
+        for (int a = 0; a < active.Count; a++)
+        {
+            for (int b = a + 1; b < active.Count; b++)
+            {
+                clusterDistance[(active[a], active[b])] = distance[active[a]][active[b]];
+            }
+        }
+
+        var cophenetic = new double[samples][];
+        for (int i = 0; i < samples; i++)
+        {
+            cophenetic[i] = new double[samples];
+        }
+
+        int nextId = samples;
+        while (active.Count > 1)
+        {
+            // Find the closest pair of active clusters.
+            double best = double.PositiveInfinity;
+            int bi = 0, bj = 1;
+            for (int a = 0; a < active.Count; a++)
+            {
+                for (int b = a + 1; b < active.Count; b++)
+                {
+                    double d = clusterDistance[Key(active[a], active[b])];
+                    if (d < best)
+                    {
+                        best = d;
+                        bi = a;
+                        bj = b;
+                    }
+                }
+            }
+
+            int ci = active[bi];
+            int cj = active[bj];
+
+            // The merge height 'best' is the cophenetic distance between every member of ci and every member of cj.
+            foreach (int p in members[ci])
+            {
+                foreach (int q in members[cj])
+                {
+                    cophenetic[p][q] = best;
+                    cophenetic[q][p] = best;
+                }
+            }
+
+            // Merge cj into a new cluster id; average-linkage distance to every other active cluster.
+            var merged = new List<int>(members[ci]);
+            merged.AddRange(members[cj]);
+            members.Add(merged);
+            int newId = nextId++;
+
+            foreach (int other in active)
+            {
+                if (other == ci || other == cj)
+                {
+                    continue;
+                }
+
+                // Average linkage: mean over all member-pairs (size-weighted average of the two sub-distances).
+                double dCi = clusterDistance[Key(ci, other)];
+                double dCj = clusterDistance[Key(cj, other)];
+                double weighted = (members[ci].Count * dCi + members[cj].Count * dCj)
+                                  / (members[ci].Count + members[cj].Count);
+                clusterDistance[Key(newId, other)] = weighted;
+            }
+
+            active.RemoveAt(bj);
+            active.RemoveAt(bi);
+            active.Add(newId);
+        }
+
+        return cophenetic;
+
+        static (int, int) Key(int a, int b) => a < b ? (a, b) : (b, a);
+    }
+
+    /// <summary>
+    /// Computes signature stability across the NMF runs as the per-signature average silhouette width
+    /// (Alexandrov et al. 2013; Islam et al. 2022 "silhouette value of the cluster corresponding to that
+    /// signature"; silhouette per Rousseeuw 1987), clustering the <c>runs × k</c> extracted signatures into k
+    /// clusters by greedy cosine matching against the first run's signatures as the reference partition. Distance
+    /// is cosine distance (1 − cosine similarity). Returns (mean over signatures of average silhouette,
+    /// minimum over signatures). Each signature is L1-normalised, so cosine distance is well defined.
+    /// </summary>
+    private static (double Average, double Minimum) SignatureStability(
+        IReadOnlyList<double[][]> runSignatures, int k, int channels)
+    {
+        int runs = runSignatures.Count;
+        if (runs < 2 || k < 1)
+        {
+            // With a single run there is no cross-run dispersion to measure; treat as perfectly stable.
+            return (1.0, 1.0);
+        }
+
+        // Flatten all signatures and assign each to the cluster (reference signature of run 0) it is closest to
+        // by cosine, requiring a one-to-one match within each run (Hungarian reduced to greedy per run).
+        int total = runs * k;
+        var points = new double[total][];
+        var cluster = new int[total];
+        var reference = runSignatures[0];
+
+        int idx = 0;
+        for (int r = 0; r < runs; r++)
+        {
+            double[][] sigs = runSignatures[r];
+            bool[] taken = new bool[k];
+            // Greedily assign each signature of this run to its best unused reference cluster.
+            for (int a = 0; a < k; a++)
+            {
+                points[idx] = sigs[a];
+                int bestCluster = -1;
+                double bestSim = double.NegativeInfinity;
+                for (int c = 0; c < k; c++)
+                {
+                    if (taken[c])
+                    {
+                        continue;
+                    }
+
+                    double sim = CosineSimilarity(sigs[a], reference[c]);
+                    if (sim > bestSim)
+                    {
+                        bestSim = sim;
+                        bestCluster = c;
+                    }
+                }
+
+                taken[bestCluster] = true;
+                cluster[idx] = bestCluster;
+                idx++;
+            }
+        }
+
+        // Per-point silhouette with cosine distance.
+        var clusterSilhouetteSum = new double[k];
+        var clusterSize = new int[k];
+        for (int i = 0; i < total; i++)
+        {
+            clusterSize[cluster[i]]++;
+        }
+
+        for (int i = 0; i < total; i++)
+        {
+            int ci = cluster[i];
+
+            // a(i): mean intra-cluster distance.
+            double aSum = 0.0;
+            int aCount = 0;
+            // b(i): min over other clusters of mean distance to that cluster.
+            var otherSum = new double[k];
+            var otherCount = new int[k];
+            for (int j = 0; j < total; j++)
+            {
+                if (j == i)
+                {
+                    continue;
+                }
+
+                double d = 1.0 - CosineSimilarity(points[i], points[j]);
+                if (cluster[j] == ci)
+                {
+                    aSum += d;
+                    aCount++;
+                }
+                else
+                {
+                    otherSum[cluster[j]] += d;
+                    otherCount[cluster[j]]++;
+                }
+            }
+
+            double a = aCount > 0 ? aSum / aCount : 0.0;
+            double b = double.PositiveInfinity;
+            for (int c = 0; c < k; c++)
+            {
+                if (c == ci || otherCount[c] == 0)
+                {
+                    continue;
+                }
+
+                double mean = otherSum[c] / otherCount[c];
+                if (mean < b)
+                {
+                    b = mean;
+                }
+            }
+
+            double silhouette;
+            if (double.IsPositiveInfinity(b))
+            {
+                // Only one cluster present: silhouette is conventionally 0 (Rousseeuw 1987).
+                silhouette = 0.0;
+            }
+            else
+            {
+                double denom = Math.Max(a, b);
+                silhouette = denom <= NmfEpsilon ? 0.0 : (b - a) / denom;
+            }
+
+            clusterSilhouetteSum[ci] += silhouette;
+        }
+
+        double avg = 0.0;
+        double min = double.PositiveInfinity;
+        int nonEmpty = 0;
+        for (int c = 0; c < k; c++)
+        {
+            if (clusterSize[c] == 0)
+            {
+                continue;
+            }
+
+            double clusterStability = clusterSilhouetteSum[c] / clusterSize[c];
+            avg += clusterStability;
+            min = Math.Min(min, clusterStability);
+            nonEmpty++;
+        }
+
+        avg = nonEmpty > 0 ? avg / nonEmpty : 0.0;
+        if (double.IsPositiveInfinity(min))
+        {
+            min = 0.0;
+        }
+
+        return (avg, min);
+    }
+
+    /// <summary>
+    /// Chooses the rank: the largest candidate whose average stability ≥ <paramref name="stabilityThreshold"/>
+    /// and minimum per-signature stability ≥ <paramref name="minStability"/> (SigProfiler 0.80 / 0.20); if none
+    /// qualifies, the rank with the highest average stability (Alexandrov 2013 stability/error trade-off).
+    /// </summary>
+    private static int ChooseRank(
+        IReadOnlyList<RankStability> perRank, double stabilityThreshold, double minStability)
+    {
+        int selected = -1;
+        for (int i = 0; i < perRank.Count; i++)
+        {
+            RankStability rs = perRank[i];
+            if (rs.AverageStability >= stabilityThreshold && rs.MinimumStability >= minStability)
+            {
+                selected = rs.Rank; // keep the largest qualifying rank
+            }
+        }
+
+        if (selected >= 0)
+        {
+            return selected;
+        }
+
+        // Fallback: highest average stability (ties → smallest rank, the most parsimonious model).
+        RankStability best = perRank[0];
+        for (int i = 1; i < perRank.Count; i++)
+        {
+            if (perRank[i].AverageStability > best.AverageStability)
+            {
+                best = perRank[i];
+            }
+        }
+
+        return best.Rank;
+    }
+
+    // ---- COSMIC / reference matching by cosine similarity (Alexandrov 2013/2020; Islam et al. 2022) ----
+
+    /// <summary>
+    /// The best-matching reference signature for one extracted signature, by cosine similarity
+    /// (Alexandrov et al. 2013/2020; Islam et al. 2022 — de-novo signatures are matched to references by
+    /// maximising cosine similarity).
+    /// </summary>
+    /// <param name="ExtractedIndex">Index of the extracted signature this match describes.</param>
+    /// <param name="ReferenceIndex">Index of the closest reference signature.</param>
+    /// <param name="CosineSimilarity">
+    /// The cosine similarity in [0, 1] between the extracted signature and the closest reference (1 = identical
+    /// direction). Cosine is scale-invariant, so a positively-scaled copy of a reference matches it with 1.0.
+    /// </param>
+    public readonly record struct SignatureMatch(
+        int ExtractedIndex,
+        int ReferenceIndex,
+        double CosineSimilarity);
+
+    /// <summary>
+    /// Matches each extracted (de-novo) signature to its closest reference signature by cosine similarity,
+    /// labelling each extracted signature with the index of the best-matching reference and the cosine value
+    /// (Alexandrov et al. 2013/2020; Islam et al. 2022). The reference set is <b>caller-supplied</b> (e.g. COSMIC
+    /// SBS profiles) — no profiles are hardcoded. This is the per-signature reduction of SigProfiler's Hungarian
+    /// "maximise total cosine" pairing: each extracted signature is labelled with its single nearest reference.
+    /// </summary>
+    /// <param name="extractedSignatures">
+    /// The de-novo signatures to label (e.g. <see cref="SignatureExtractionResult.Signatures"/>); one channel
+    /// vector per signature.
+    /// </param>
+    /// <param name="referenceSignatures">
+    /// The reference signatures to match against (e.g. COSMIC SBS); one channel vector per reference, each of the
+    /// same channel count as the extracted signatures.
+    /// </param>
+    /// <returns>One <see cref="SignatureMatch"/> per extracted signature, in extracted order.</returns>
+    /// <exception cref="ArgumentNullException">Any argument or signature vector is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// Either set is empty, signatures are ragged, or the extracted and reference channel counts differ.
+    /// </exception>
+    public static IReadOnlyList<SignatureMatch> MatchToReferenceSignatures(
+        IReadOnlyList<IReadOnlyList<double>> extractedSignatures,
+        IReadOnlyList<IReadOnlyList<double>> referenceSignatures)
+    {
+        int extractedChannels = ValidateSignatures(extractedSignatures);
+        int referenceChannels = ValidateSignatures(referenceSignatures);
+
+        if (extractedChannels != referenceChannels)
+        {
+            throw new ArgumentException(
+                $"Extracted signatures have {extractedChannels} channels but reference signatures have "
+                + $"{referenceChannels}; they must match.", nameof(referenceSignatures));
+        }
+
+        var matches = new List<SignatureMatch>(extractedSignatures.Count);
+        for (int e = 0; e < extractedSignatures.Count; e++)
+        {
+            IReadOnlyList<double> extracted = extractedSignatures[e];
+            int bestRef = 0;
+            double bestCosine = CosineSimilarity(extracted, referenceSignatures[0]);
+            for (int r = 1; r < referenceSignatures.Count; r++)
+            {
+                double cosine = CosineSimilarity(extracted, referenceSignatures[r]);
+                if (cosine > bestCosine)
+                {
+                    bestCosine = cosine;
+                    bestRef = r;
+                }
+            }
+
+            matches.Add(new SignatureMatch(e, bestRef, bestCosine));
+        }
+
+        return matches;
+    }
+
+    #endregion
+
     #region Signature Exposure Bootstrap Confidence Intervals (ONCO-SIG-003)
 
     /// <summary>
@@ -2856,6 +4672,35 @@ public static class OncologyAnalyzer
     public const double DefaultBootstrapConfidence = 0.95;
 
     /// <summary>
+    /// Selects how each bootstrap replicate of the mutational catalog is resampled in
+    /// <see cref="BootstrapExposures"/>. Both schemes are described by Senkin (2021), MSA
+    /// (<i>BMC Bioinformatics</i> 22:540, https://pmc.ncbi.nlm.nih.gov/articles/PMC8567580/), which notes that
+    /// "the conditional distribution of a vector of independent Poisson variables is equivalent to multinomial
+    /// distribution" — the two differ only in whether the total mutational burden N is held fixed.
+    /// </summary>
+    public enum BootstrapResampling
+    {
+        /// <summary>
+        /// Fixed-N multinomial resample: the observed total N = Σ catalog mutations is redistributed across
+        /// channels with probabilities pₖ = catalogₖ / N, so every replicate has exactly N mutations.
+        /// This is the sigminer <c>sig_fit_bootstrap</c> scheme,
+        /// <c>sample(K, total, replace=TRUE, prob=catalog/sum(catalog))</c>
+        /// (https://github.com/ShixiangWang/sigminer/blob/master/R/sig_fit_bootstrap.R). Default — preserves the
+        /// historical behaviour of <see cref="BootstrapExposures"/> byte-for-byte.
+        /// </summary>
+        Multinomial = 0,
+
+        /// <summary>
+        /// Poisson resample (Senkin 2021, MSA): each channel count is drawn independently as
+        /// Poisson(observedₖ), so "for any given mutation category … the distribution of bootstrapped mutation
+        /// counts follows a Poisson distribution" and "the total mutational burden is no longer fixed". This is
+        /// the Poisson noise variant of the MSA parametric bootstrap, where the variance of each channel equals
+        /// its mean (the observed count).
+        /// </summary>
+        Poisson = 1,
+    }
+
+    /// <summary>
     /// A bootstrap confidence interval for one signature's exposure (activity), produced by
     /// <see cref="BootstrapExposures"/>.
     /// </summary>
@@ -2880,43 +4725,59 @@ public static class OncologyAnalyzer
         double Confidence);
 
     /// <summary>
-    /// Estimates per-signature exposure confidence intervals by the parametric (multinomial) bootstrap:
-    /// the observed integer mutational catalog is repeatedly resampled as a draw of N = Σ catalog
-    /// mutations from the multinomial distribution with per-channel probabilities pₖ = catalogₖ / N, each
-    /// resampled catalog is refit to the reference signatures by NNLS
-    /// (<see cref="FitSignatures(IReadOnlyList{double}, IReadOnlyList{IReadOnlyList{double}})"/>), and a
-    /// two-sided percentile confidence interval is taken per signature from the resulting bootstrap
-    /// exposure distribution. The point estimate is the NNLS exposure of the un-resampled observed catalog.
+    /// Estimates per-signature exposure confidence intervals by the parametric bootstrap: the observed integer
+    /// mutational catalog is repeatedly resampled, each resampled catalog is refit to the reference signatures
+    /// by NNLS (<see cref="FitSignatures(IReadOnlyList{double}, IReadOnlyList{IReadOnlyList{double}})"/>), and a
+    /// two-sided percentile confidence interval is taken per signature from the resulting bootstrap exposure
+    /// distribution. The point estimate is the NNLS exposure of the un-resampled observed catalog. The
+    /// <paramref name="resampling"/> parameter selects the resampling scheme:
+    /// <list type="bullet">
+    /// <item><see cref="BootstrapResampling.Multinomial"/> (default) — each replicate is a draw of
+    /// N = Σ catalog mutations from the multinomial distribution with per-channel probabilities
+    /// pₖ = catalogₖ / N (fixed total N).</item>
+    /// <item><see cref="BootstrapResampling.Poisson"/> — each channel count is drawn independently as
+    /// Poisson(observedₖ); the total burden is no longer fixed (Senkin 2021, MSA Poisson variant).</item>
+    /// </list>
     /// <para>
     /// Sources: Huang X., Wojtowicz D., Przytycka T.M. (2018), <i>Bioinformatics</i> 34(2):330–337 — bootstrap
     /// resampling of the mutation-count vector to assess decomposition confidence; Senkin S. (2021), MSA,
     /// <i>BMC Bioinformatics</i> 22:540 — "mutations are accumulated following Poisson distributions for each
-    /// mutation class", "For each bootstrap sample, NNLS attribution is applied", "95% confidence intervals …
-    /// taking [2.5%, 97.5%] percentiles"; Wang S. et al., sigminer <c>sig_fit_bootstrap</c> — resample via
+    /// mutation class", "drawing counts from independent binomial distributions, so that the total mutational
+    /// burden is no longer fixed … for any given mutation category … the distribution of bootstrapped mutation
+    /// counts follows a Poisson distribution", "the conditional distribution of a vector of independent Poisson
+    /// variables is equivalent to multinomial distribution", "95% confidence intervals … taking [2.5%, 97.5%]
+    /// percentiles"; Wang S. et al., sigminer <c>sig_fit_bootstrap</c> — resample via
     /// <c>sample(K, total, replace=TRUE, prob=catalog/sum(catalog))</c> (a multinomial draw) then refit;
     /// Efron B. (1979) percentile interval. Reference signature profiles are caller-supplied (not fabricated).
     /// </para>
     /// </summary>
     /// <param name="catalog">
     /// The observed mutational catalog as non-negative integer per-channel mutation counts (e.g. a 96-channel
-    /// SBS spectrum). Counts (not proportions) are required because the multinomial draw needs the total N.
+    /// SBS spectrum). Counts (not proportions) are required because each resample needs the per-channel totals.
     /// </param>
     /// <param name="signatures">Reference signatures as equal-length channel vectors (one per signature).</param>
     /// <param name="replicates">Number of bootstrap replicates (≥ 1; default <see cref="DefaultBootstrapReplicates"/>).</param>
     /// <param name="confidence">Two-sided confidence level in (0, 1); default <see cref="DefaultBootstrapConfidence"/>.</param>
-    /// <param name="seed">RNG seed for the multinomial resampling; fixed value makes results reproducible.</param>
+    /// <param name="seed">RNG seed for the resampling; fixed value makes results reproducible.</param>
+    /// <param name="resampling">
+    /// The bootstrap resampling scheme; <see cref="BootstrapResampling.Multinomial"/> (the historical default,
+    /// fixed N) or <see cref="BootstrapResampling.Poisson"/> (Senkin 2021 Poisson variant).
+    /// </param>
     /// <returns>One <see cref="ExposureConfidenceInterval"/> per signature, in signature order.</returns>
     /// <exception cref="ArgumentNullException">Any argument (or a signature vector) is null.</exception>
     /// <exception cref="ArgumentException">
     /// No signatures, ragged signatures, catalog length ≠ channel count, or a negative catalog count.
     /// </exception>
-    /// <exception cref="ArgumentOutOfRangeException">replicates &lt; 1, or confidence outside (0, 1).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// replicates &lt; 1, confidence outside (0, 1), or an unrecognised <paramref name="resampling"/> value.
+    /// </exception>
     public static IReadOnlyList<ExposureConfidenceInterval> BootstrapExposures(
         IReadOnlyList<int> catalog,
         IReadOnlyList<IReadOnlyList<double>> signatures,
         int replicates = DefaultBootstrapReplicates,
         double confidence = DefaultBootstrapConfidence,
-        int seed = DefaultBootstrapSeed)
+        int seed = DefaultBootstrapSeed,
+        BootstrapResampling resampling = BootstrapResampling.Multinomial)
     {
         ArgumentNullException.ThrowIfNull(catalog);
         int channelCount = ValidateSignatures(signatures);
@@ -2938,6 +4799,12 @@ public static class OncologyAnalyzer
         {
             throw new ArgumentOutOfRangeException(
                 nameof(confidence), confidence, "Confidence must be in the open interval (0, 1).");
+        }
+
+        if (resampling != BootstrapResampling.Multinomial && resampling != BootstrapResampling.Poisson)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(resampling), resampling, "Unrecognised bootstrap resampling scheme.");
         }
 
         // Observed counts and total N = Σ catalog (the multinomial sample size).
@@ -2971,7 +4838,15 @@ public static class OncologyAnalyzer
         var resampled = new double[channelCount];
         for (int rep = 0; rep < replicates; rep++)
         {
-            MultinomialResample(observed, total, random, resampled);
+            if (resampling == BootstrapResampling.Poisson)
+            {
+                PoissonResample(observed, random, resampled);
+            }
+            else
+            {
+                MultinomialResample(observed, total, random, resampled);
+            }
+
             IReadOnlyList<double> exposures = FitSignatures(resampled, signatures).Exposures;
             for (int j = 0; j < signatureCount; j++)
             {
@@ -3040,6 +4915,49 @@ public static class OncologyAnalyzer
 
             remainingProbabilityMass -= weight;
         }
+    }
+
+    /// <summary>
+    /// Draws one Poisson resample of the catalog: each channel k is independently assigned
+    /// Poisson(observedₖ) mutations, written into <paramref name="destination"/>. Implements the Senkin (2021)
+    /// MSA Poisson-noise variant — "for any given mutation category … the distribution of bootstrapped mutation
+    /// counts follows a Poisson distribution" with mean equal to the observed count (variance = mean) — so the
+    /// total mutational burden is not fixed across replicates. Source: Senkin S. (2021), MSA,
+    /// <i>BMC Bioinformatics</i> 22:540 (https://pmc.ncbi.nlm.nih.gov/articles/PMC8567580/). A channel whose
+    /// observed count is 0 has mean 0 and therefore always resamples to 0.
+    /// </summary>
+    private static void PoissonResample(double[] observed, Random random, double[] destination)
+    {
+        int channelCount = observed.Length;
+        for (int k = 0; k < channelCount; k++)
+        {
+            destination[k] = SamplePoisson(observed[k], random);
+        }
+    }
+
+    /// <summary>
+    /// Samples a Poisson(lambda) variate by Knuth's multiplication-of-uniforms algorithm: draw uniforms until
+    /// their running product falls below e^(−lambda); the number of draws minus one is the variate. Source:
+    /// Knuth D.E., <i>The Art of Computer Programming</i>, Vol. 2 (Seminumerical Algorithms), §3.4.1 — the
+    /// standard exact algorithm for generating Poisson deviates. lambda ≤ 0 returns 0 (degenerate mean-0 case).
+    /// </summary>
+    private static long SamplePoisson(double lambda, Random random)
+    {
+        if (lambda <= 0.0)
+        {
+            return 0;
+        }
+
+        double limit = Math.Exp(-lambda);
+        long count = 0;
+        double product = random.NextDouble();
+        while (product > limit)
+        {
+            count++;
+            product *= random.NextDouble();
+        }
+
+        return count;
     }
 
     /// <summary>
@@ -4466,6 +6384,155 @@ public static class OncologyAnalyzer
     private const double WholeGenomeDoublingFractionThreshold = 0.5;
 
     /// <summary>
+    /// Reference human genome assembly whose chromosome-size table is used as the denominator of the
+    /// whole-genome-doubling genome fraction. Source: facets-suite <c>is_genome_doubled(segs, chrom_info, ...)</c>
+    /// is parameterised by a <c>genome</c> build (<c>'hg19' | 'hg18' | 'hg38'</c>), each supplying its own
+    /// chromosome-size object; the denominator <c>autosomal_genome = sum(chrom_info$size[chr %in% 1:22])</c> is the
+    /// reference assembly's autosomal length, NOT the interrogated-segment length.
+    /// </summary>
+    public enum ReferenceGenome
+    {
+        /// <summary>GRCh38 / hg38 (the current human reference assembly).</summary>
+        GRCh38,
+
+        /// <summary>GRCh37 / hg19 (the legacy human reference assembly).</summary>
+        GRCh37,
+    }
+
+    /// <summary>
+    /// Autosomal chromosome lengths (chromosomes 1–22, base pairs) of GRCh38 / hg38, indexed by chromosome
+    /// number (entry 0 = chr1 … entry 21 = chr22). Embedded published reference data. Source: UCSC
+    /// <c>hg38.chrom.sizes</c> (https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/latest/hg38.chrom.sizes,
+    /// retrieved 2026-06-22), cross-verified against the Ensembl REST assembly endpoint for GRCh38.p14
+    /// (https://rest.ensembl.org/info/assembly/homo_sapiens — chr1 248,956,422; chr21 46,709,983; chr22
+    /// 50,818,468; chrX 156,040,895). Only autosomes are used for the WGD denominator (facets-suite restricts to
+    /// <c>chrom %in% 1:22</c>).
+    /// </summary>
+    private static readonly long[] GRCh38AutosomeLengths =
+    {
+        248_956_422L, // chr1
+        242_193_529L, // chr2
+        198_295_559L, // chr3
+        190_214_555L, // chr4
+        181_538_259L, // chr5
+        170_805_979L, // chr6
+        159_345_973L, // chr7
+        145_138_636L, // chr8
+        138_394_717L, // chr9
+        133_797_422L, // chr10
+        135_086_622L, // chr11
+        133_275_309L, // chr12
+        114_364_328L, // chr13
+        107_043_718L, // chr14
+        101_991_189L, // chr15
+        90_338_345L,  // chr16
+        83_257_441L,  // chr17
+        80_373_285L,  // chr18
+        58_617_616L,  // chr19
+        64_444_167L,  // chr20
+        46_709_983L,  // chr21
+        50_818_468L,  // chr22
+    };
+
+    /// <summary>
+    /// Autosomal chromosome lengths (chromosomes 1–22, base pairs) of GRCh37 / hg19, indexed by chromosome
+    /// number (entry 0 = chr1 … entry 21 = chr22). Embedded published reference data. Source: UCSC
+    /// <c>hg19.chrom.sizes</c> (https://hgdownload.soe.ucsc.edu/goldenPath/hg19/bigZips/hg19.chrom.sizes,
+    /// retrieved 2026-06-22). Only autosomes are used for the WGD denominator (facets-suite restricts to
+    /// <c>chrom %in% 1:22</c>).
+    /// </summary>
+    private static readonly long[] GRCh37AutosomeLengths =
+    {
+        249_250_621L, // chr1
+        243_199_373L, // chr2
+        198_022_430L, // chr3
+        191_154_276L, // chr4
+        180_915_260L, // chr5
+        171_115_067L, // chr6
+        159_138_663L, // chr7
+        146_364_022L, // chr8
+        141_213_431L, // chr9
+        135_534_747L, // chr10
+        135_006_516L, // chr11
+        133_851_895L, // chr12
+        115_169_878L, // chr13
+        107_349_540L, // chr14
+        102_531_392L, // chr15
+        90_354_753L,  // chr16
+        81_195_210L,  // chr17
+        78_077_248L,  // chr18
+        59_128_983L,  // chr19
+        63_025_520L,  // chr20
+        48_129_895L,  // chr21
+        51_304_566L,  // chr22
+    };
+
+    /// <summary>Number of autosomes in the human genome (chromosomes 1–22). Trivial structural constant.</summary>
+    private const int AutosomeCount = 22;
+
+    /// <summary>
+    /// Returns the embedded autosomal chromosome-length table (chromosomes 1–22, base pairs) for a reference
+    /// assembly, indexed 0 = chr1 … 21 = chr22. Source: UCSC <c>*.chrom.sizes</c> (see
+    /// <see cref="GRCh38AutosomeLengths"/> / <see cref="GRCh37AutosomeLengths"/>).
+    /// </summary>
+    /// <param name="genome">The reference assembly.</param>
+    /// <returns>The 22-element autosome length table for the assembly.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="genome"/> is not a defined value.</exception>
+    public static IReadOnlyList<long> GetAutosomeLengths(ReferenceGenome genome) => genome switch
+    {
+        ReferenceGenome.GRCh38 => GRCh38AutosomeLengths,
+        ReferenceGenome.GRCh37 => GRCh37AutosomeLengths,
+        _ => throw new ArgumentOutOfRangeException(nameof(genome), genome, "Unknown reference genome."),
+    };
+
+    /// <summary>
+    /// Total autosomal genome length (Σ of chromosome-1–22 lengths, base pairs) of a reference assembly — the
+    /// denominator of the whole-genome-doubling genome fraction. Source: facets-suite
+    /// <c>autosomal_genome = sum(chrom_info$size[chr %in% 1:22])</c>; sizes from UCSC <c>*.chrom.sizes</c>.
+    /// GRCh38 = 2,875,001,522 bp; GRCh37 = 2,881,033,286 bp.
+    /// </summary>
+    /// <param name="genome">The reference assembly.</param>
+    /// <returns>The summed autosomal length in base pairs.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="genome"/> is not a defined value.</exception>
+    public static long GetAutosomalGenomeLength(ReferenceGenome genome)
+    {
+        IReadOnlyList<long> lengths = GetAutosomeLengths(genome);
+        long sum = 0L;
+        for (int i = 0; i < lengths.Count; i++)
+        {
+            sum += lengths[i];
+        }
+
+        return sum;
+    }
+
+    /// <summary>
+    /// Parses a chromosome identifier to its autosome number (1–22), accepting both bare ("7") and "chr"-prefixed
+    /// ("chr7") forms. Returns <c>false</c> for sex chromosomes, mitochondria, contigs, or anything outside 1–22,
+    /// which the WGD fraction excludes (facets-suite <c>chrom %in% 1:22</c>).
+    /// </summary>
+    /// <param name="chromosome">The chromosome identifier from a segment.</param>
+    /// <param name="number">The parsed autosome number (1–22) when the method returns <c>true</c>.</param>
+    /// <returns><c>true</c> when the identifier denotes an autosome (1–22).</returns>
+    private static bool TryGetAutosomeNumber(string? chromosome, out int number)
+    {
+        number = 0;
+        if (string.IsNullOrEmpty(chromosome))
+        {
+            return false;
+        }
+
+        ReadOnlySpan<char> name = chromosome.AsSpan();
+        if (name.Length > 3 &&
+            (name[0] is 'c' or 'C') && (name[1] is 'h' or 'H') && (name[2] is 'r' or 'R'))
+        {
+            name = name[3..];
+        }
+
+        return int.TryParse(name, out number) && number is >= 1 and <= AutosomeCount;
+    }
+
+    /// <summary>
     /// Estimates the average tumour ploidy ψ as the segment-length-weighted mean of per-segment total copy
     /// number: ψ = Σ(CN_i · L_i) / Σ(L_i), where CN_i = MajorCopyNumber + MinorCopyNumber and L_i = End − Start.
     /// Source: Patchwork (Genome Biology) — "The average ploidy, PloidyTum, is the average total copy number of
@@ -4511,26 +6578,85 @@ public static class OncologyAnalyzer
     }
 
     /// <summary>
-    /// Determines whether a tumour genome has undergone whole-genome doubling (WGD). WGD is called when the
-    /// fraction of the genome (by segment length) with major-allele copy number ≥ 2 is strictly greater than
-    /// 0.5. Source: facets-suite <c>is_genome_doubled</c> (PMID 30013179, Bielski et al. 2018, Nat Genet
-    /// 50:1189–1195): <c>frac_elevated_mcn = Σ(length where mcn ≥ 2) / genome; wgd = frac_elevated_mcn &gt; 0.5</c>,
-    /// with <c>mcn = tcn − lcn</c> (the major-allele copy number). The test uses the major (not total) copy
-    /// number, so a balanced diploid genome (all 1:1, total CN 2, major CN 1) is NOT doubled, whereas a 2:0 LOH
-    /// or 2:2 genome IS.
+    /// Determines whether a tumour genome has undergone whole-genome doubling (WGD), computing the genome
+    /// fraction against a <b>reference chromosome-size table</b> (the authoritative autosomal genome length),
+    /// exactly as facets-suite does. WGD is called when the fraction of the <i>reference autosomal genome</i>
+    /// (chromosomes 1–22) covered by segments with major-allele copy number ≥ 2 is strictly greater than 0.5.
+    /// Source: facets-suite <c>is_genome_doubled(segs, chrom_info, treshold = 0.5)</c> (PMID 30013179, Bielski
+    /// et al. 2018, Nat Genet 50:1189–1195):
+    /// <c>autosomal_genome = sum(chrom_info$size[chr %in% 1:22])</c>;
+    /// <c>frac_elevated_mcn = sum(length where mcn ≥ 2 &amp; chrom %in% 1:22) / autosomal_genome</c>;
+    /// <c>wgd = frac_elevated_mcn &gt; treshold</c>, with <c>mcn = tcn − lcn</c> (major-allele copy number).
+    /// Because the denominator is the true genome length (not the sum of supplied segments), segments that do not
+    /// tile the genome no longer bias the fraction; only autosomal (chr1–22) segments contribute to the numerator
+    /// (sex chromosomes / contigs are ignored). The test uses the major (not total) copy number, so a balanced
+    /// diploid genome (all 1:1, total CN 2, major CN 1) is NOT doubled, whereas a 2:0 LOH or 2:2 genome IS.
     /// </summary>
     /// <param name="segments">
-    /// Allele-specific copy-number segments (<see cref="AlleleSpecificSegment"/>). The fraction denominator is
-    /// the total length of the supplied segments (the interrogated genome). Must not be null, must be non-empty,
-    /// and every segment must have End &gt; Start and non-negative copy numbers.
+    /// Allele-specific copy-number segments (<see cref="AlleleSpecificSegment"/>). Only segments on autosomes
+    /// (chromosomes 1–22, "chr"-prefixed or bare) contribute to the elevated-major-CN numerator. Must not be
+    /// null, and every segment must have End &gt; Start and non-negative copy numbers.
     /// </param>
-    /// <returns><c>true</c> when more than half the genome (by length) has major copy number ≥ 2.</returns>
+    /// <param name="genome">
+    /// Reference assembly whose autosomal chromosome-size table is the fraction denominator
+    /// (default <see cref="ReferenceGenome.GRCh38"/>).
+    /// </param>
+    /// <returns><c>true</c> when more than half the reference autosomal genome has major copy number ≥ 2.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="segments"/> is null.</exception>
+    /// <exception cref="ArgumentException">A segment has End ≤ Start or a negative copy number.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="genome"/> is not a defined value.</exception>
+    public static bool DetectWholeGenomeDoubling(
+        IEnumerable<AlleleSpecificSegment> segments,
+        ReferenceGenome genome = ReferenceGenome.GRCh38)
+    {
+        ArgumentNullException.ThrowIfNull(segments);
+
+        long autosomalGenomeLength = GetAutosomalGenomeLength(genome);
+
+        long elevatedLength = 0L;
+        foreach (AlleleSpecificSegment segment in segments)
+        {
+            ValidateSegment(segment);
+            // facets-suite: numerator restricted to autosomes (chrom %in% 1:22). Non-autosomal segments are
+            // ignored (sex chromosomes / contigs do not contribute to the autosomal WGD fraction).
+            if (!TryGetAutosomeNumber(segment.Chromosome, out _))
+            {
+                continue;
+            }
+
+            // mcn = major-allele copy number; elevated when major CN ≥ 2 (facets-suite segs$mcn >= 2).
+            if (segment.MajorCopyNumber >= WholeGenomeDoublingMajorCopyNumber)
+            {
+                elevatedLength += segment.Length;
+            }
+        }
+
+        // wgd = frac_elevated_mcn > 0.5 (strict), denominator = reference autosomal genome length.
+        double fractionElevatedMajorCn = (double)elevatedLength / autosomalGenomeLength;
+        return fractionElevatedMajorCn > WholeGenomeDoublingFractionThreshold;
+    }
+
+    /// <summary>
+    /// Determines whole-genome doubling using the <b>supplied segments' total length</b> as the genome-fraction
+    /// denominator (the legacy behaviour), rather than a reference chromosome-size table. This is correct only
+    /// when the supplied segments tile the interrogated (autosomal) genome; otherwise prefer the reference-table
+    /// overload <see cref="DetectWholeGenomeDoubling(IEnumerable{AlleleSpecificSegment}, ReferenceGenome)"/>.
+    /// WGD is called when Σ(length where major CN ≥ 2) ÷ Σ(all supplied segment length) is strictly greater than
+    /// 0.5. Source: facets-suite <c>is_genome_doubled</c> rule (PMID 30013179) applied with the interrogated
+    /// segments as the denominator; <c>mcn = tcn − lcn</c>.
+    /// </summary>
+    /// <param name="segments">
+    /// Allele-specific copy-number segments. The fraction denominator is the total length of <b>all</b> supplied
+    /// segments (the interrogated genome), regardless of chromosome. Must not be null, must be non-empty, and
+    /// every segment must have End &gt; Start and non-negative copy numbers.
+    /// </param>
+    /// <returns><c>true</c> when more than half the supplied genome (by length) has major copy number ≥ 2.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="segments"/> is null.</exception>
     /// <exception cref="ArgumentException">
     /// <paramref name="segments"/> is empty (the fraction is undefined), or a segment has End ≤ Start or a
     /// negative copy number.
     /// </exception>
-    public static bool DetectWholeGenomeDoubling(IEnumerable<AlleleSpecificSegment> segments)
+    public static bool DetectWholeGenomeDoublingFromSuppliedLength(IEnumerable<AlleleSpecificSegment> segments)
     {
         ArgumentNullException.ThrowIfNull(segments);
 
@@ -4555,7 +6681,7 @@ public static class OncologyAnalyzer
                 nameof(segments));
         }
 
-        // wgd = frac_elevated_mcn > 0.5 (strict) — facets-suite is_genome_doubled.
+        // wgd = frac_elevated_mcn > 0.5 (strict) — facets-suite is_genome_doubled, supplied-length denominator.
         double fractionElevatedMajorCn = (double)elevatedLength / totalLength;
         return fractionElevatedMajorCn > WholeGenomeDoublingFractionThreshold;
     }
@@ -4768,7 +6894,15 @@ public static class OncologyAnalyzer
         ClonalityStatus status = probabilityClonal > ClonalProbabilityThreshold
             ? ClonalityStatus.Clonal
             : ClonalityStatus.Subclonal;
-        return new ClonalityCall(variant, ccfMean, probabilityClonal, status);
+
+        // The reported posterior summaries are bounded by their documented invariants: the CCF point estimate is a
+        // grid expectation in [0.01, 1] (INV-03) and the clonal probability is normalised posterior mass in [0, 1]
+        // (INV-04). Summing the normalised grid weights can overshoot the bound by one ulp (e.g. 1.0000000000000002),
+        // so clamp the reported values to their invariant range. The unclamped probabilityClonal already determined
+        // status above, and clamping a near-1 value cannot change the > 0.5 decision.
+        double reportedCcf = Math.Clamp(ccfMean, CcfGridLowerBound, CcfGridUpperBound);
+        double reportedProbabilityClonal = Math.Clamp(probabilityClonal, 0.0, 1.0);
+        return new ClonalityCall(variant, reportedCcf, reportedProbabilityClonal, status);
     }
 
     /// <summary>
@@ -5046,6 +7180,763 @@ public static class OncologyAnalyzer
                 centroids[j] = sums[j] / counts[j];
             }
         }
+    }
+
+    #endregion
+
+    #region Upstream allele-specific derivation: segmentation, purity/ploidy fit, multiplicity (ONCO-ASCAT-001)
+
+    /// <summary>
+    /// Platform/technology parameter γ in the ASCAT logR model. For massively parallel sequencing data
+    /// (WGS/WES/TS) γ = 1; the SNP-array default 0.55 does not apply. Source: ASCAT README / Van Loo lab
+    /// (VanLoo-lab/ascat): "For massively parallel sequencing data, gamma should always be set to 1."
+    /// </summary>
+    public const double AscatSequencingGamma = 1.0;
+
+    /// <summary>
+    /// Worst-case squared distance of a value to the nearest integer, (1/2)² = 0.25; the per-segment term in
+    /// the ASCAT theoretical-maximum-distance used to normalise goodness of fit to a percentage. Source:
+    /// ascat.runAscat.R — <c>TheoretMaxdist = sum(rep(0.25, n) * length * ...)</c>.
+    /// </summary>
+    private const double AscatWorstCaseIntegerDistance = 0.25;
+
+    /// <summary>
+    /// Down-weight applied to balanced (BAF = 0.5) segments in the ASCAT goodness-of-fit, because such
+    /// segments carry little allele-specific information. Source: ascat.runAscat.R —
+    /// <c>ifelse(b == 0.5, 0.05, 1)</c>.
+    /// </summary>
+    private const double AscatBalancedSegmentWeight = 0.05;
+
+    /// <summary>BAF value of a perfectly balanced (1:1) heterozygous segment; the down-weight pivot in the GoF.</summary>
+    private const double BalancedBaf = 0.5;
+
+    /// <summary>
+    /// A single per-locus allele-specific measurement at a germline-heterozygous SNP: the log-R ratio (total
+    /// signal, "r") and the B-allele frequency (allelic contrast, "b"). These are the two ASCAT input tracks
+    /// (Van Loo et al. 2010, PNAS) and are <b>observed measurements</b> supplied by the caller — they are the
+    /// raw data, not a derived quantity.
+    /// </summary>
+    /// <param name="Chromosome">Contig label (used to group loci into per-chromosome segments).</param>
+    /// <param name="Position">0-based genomic coordinate of the SNP.</param>
+    /// <param name="LogR">Log-R ratio r (log2 total-signal ratio vs the reference baseline).</param>
+    /// <param name="BAF">B-allele frequency b ∈ [0, 1] at the germline-heterozygous SNP.</param>
+    public readonly record struct AlleleSpecificLocus(string Chromosome, long Position, double LogR, double BAF);
+
+    /// <summary>
+    /// A genomic segment summarised by its mean logR and mean BAF, produced by allele-specific segmentation
+    /// of per-locus <see cref="AlleleSpecificLocus"/> data. A single fitted logR value and a BAF value are
+    /// obtained per segment (Van Loo et al. 2010, ASCAT).
+    /// </summary>
+    /// <param name="Chromosome">Contig label.</param>
+    /// <param name="Start">0-based start coordinate (first locus position in the segment).</param>
+    /// <param name="End">End coordinate (last locus position in the segment; End ≥ Start).</param>
+    /// <param name="MeanLogR">Length-unweighted mean logR over the segment's loci.</param>
+    /// <param name="MeanBAF">Mean "folded" BAF (distance from 0.5, re-centred) over the segment's loci.</param>
+    /// <param name="LocusCount">Number of loci summarised by the segment.</param>
+    public readonly record struct AlleleSpecificSegmentSummary(
+        string Chromosome,
+        long Start,
+        long End,
+        double MeanLogR,
+        double MeanBAF,
+        int LocusCount)
+    {
+        /// <summary>Segment length in base pairs (End − Start).</summary>
+        public long Length => End - Start;
+    }
+
+    /// <summary>
+    /// Result of the joint ASCAT purity/ploidy fit: the recovered purity ρ and ploidy ψ, the goodness of fit,
+    /// and the allele-specific integer copy-number segments those parameters imply.
+    /// </summary>
+    /// <param name="Purity">Recovered tumour purity ρ (aberrant cell fraction) ∈ (0, 1].</param>
+    /// <param name="Ploidy">Recovered tumour ploidy ψ (length-weighted mean total copy number).</param>
+    /// <param name="GoodnessOfFit">Percentage goodness of fit (1 − distance/TheoretMaxdist)·100, in (−∞, 100].</param>
+    /// <param name="Segments">The allele-specific integer copy-number segments (major/minor CN) implied by (ρ, ψ).</param>
+    public readonly record struct PurityPloidyFit(
+        double Purity,
+        double Ploidy,
+        double GoodnessOfFit,
+        IReadOnlyList<AlleleSpecificSegment> Segments);
+
+    /// <summary>
+    /// Segments per-locus allele-specific signal (logR, BAF) into contiguous regions, producing one
+    /// (mean logR, mean BAF) summary per segment. Implements a deterministic <b>joint</b> mean-shift changepoint
+    /// scan on both the logR and the (mirrored) BAF tracks — the allele-specific segmentation step that precedes
+    /// the ASCAT model (ASPCF; Nilsen et al. 2012, <i>BMC Genomics</i> 13:591; CBS, Olshen et al. 2004): a new
+    /// segment starts when the next locus's logR deviates from the running segment mean by more than
+    /// <paramref name="logRChangeThreshold"/>, OR its mirrored BAF deviates by more than
+    /// <paramref name="bafChangeThreshold"/>, or when the chromosome changes. Segmenting on BAF as well as logR is
+    /// essential: a copy-neutral LOH region (e.g. 2:0) has the same logR as a balanced 1:1 region but a very
+    /// different BAF, so a logR-only scan would wrongly merge them. The BAF is "folded" to its distance from 0.5
+    /// and re-centred (b' = 0.5 + |b − 0.5|) before averaging so that the two symmetric heterozygous BAF clusters
+    /// (b and 1 − b) do not cancel — the standard mirrored-BAF summary used by allele-specific callers.
+    /// </summary>
+    /// <param name="loci">Per-locus measurements; processed in input order within each chromosome.</param>
+    /// <param name="logRChangeThreshold">logR mean-shift threshold that starts a new segment. Must be &gt; 0.</param>
+    /// <param name="bafChangeThreshold">Mirrored-BAF mean-shift threshold that starts a new segment. Must be &gt; 0.</param>
+    /// <param name="minLociPerSegment">Minimum loci a running segment must have before a change can split it. Must be ≥ 1.</param>
+    /// <returns>The segment summaries in input order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="loci"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">a threshold ≤ 0 or minLociPerSegment &lt; 1.</exception>
+    public static IReadOnlyList<AlleleSpecificSegmentSummary> SegmentAlleleSpecific(
+        IEnumerable<AlleleSpecificLocus> loci,
+        double logRChangeThreshold,
+        double bafChangeThreshold = 0.1,
+        int minLociPerSegment = 1)
+    {
+        ArgumentNullException.ThrowIfNull(loci);
+
+        if (double.IsNaN(logRChangeThreshold) || logRChangeThreshold <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(logRChangeThreshold), logRChangeThreshold, "The logR change threshold must be positive.");
+        }
+
+        if (double.IsNaN(bafChangeThreshold) || bafChangeThreshold <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(bafChangeThreshold), bafChangeThreshold, "The BAF change threshold must be positive.");
+        }
+
+        if (minLociPerSegment < 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(minLociPerSegment), minLociPerSegment, "At least one locus per segment is required.");
+        }
+
+        var result = new List<AlleleSpecificSegmentSummary>();
+        var current = new List<AlleleSpecificLocus>();
+        double runningLogRSum = 0.0;
+        double runningFoldedBafSum = 0.0;
+
+        foreach (AlleleSpecificLocus locus in loci)
+        {
+            if (locus.Chromosome is null)
+            {
+                throw new ArgumentException("A locus has a null chromosome label.", nameof(loci));
+            }
+
+            double foldedBaf = BalancedBaf + Math.Abs(locus.BAF - BalancedBaf);
+            bool chromosomeChanged = current.Count > 0 && current[^1].Chromosome != locus.Chromosome;
+            bool meanShift = false;
+            if (!chromosomeChanged && current.Count >= minLociPerSegment)
+            {
+                double currentLogRMean = runningLogRSum / current.Count;
+                double currentBafMean = runningFoldedBafSum / current.Count;
+                // ASPCF/CBS joint mean-shift: split on a logR change OR a (mirrored) BAF change.
+                meanShift = Math.Abs(locus.LogR - currentLogRMean) > logRChangeThreshold
+                            || Math.Abs(foldedBaf - currentBafMean) > bafChangeThreshold;
+            }
+
+            if ((chromosomeChanged || meanShift) && current.Count > 0)
+            {
+                result.Add(BuildSegmentSummary(current));
+                current = new List<AlleleSpecificLocus>();
+                runningLogRSum = 0.0;
+                runningFoldedBafSum = 0.0;
+            }
+
+            current.Add(locus);
+            runningLogRSum += locus.LogR;
+            runningFoldedBafSum += foldedBaf;
+        }
+
+        if (current.Count > 0)
+        {
+            result.Add(BuildSegmentSummary(current));
+        }
+
+        return result;
+    }
+
+    /// <summary>Builds a (mean logR, mirrored-mean BAF) summary from a non-empty run of same-chromosome loci.</summary>
+    private static AlleleSpecificSegmentSummary BuildSegmentSummary(List<AlleleSpecificLocus> loci)
+    {
+        double logRSum = 0.0;
+        double foldedBafSum = 0.0;
+        foreach (AlleleSpecificLocus locus in loci)
+        {
+            logRSum += locus.LogR;
+            // Mirror BAF about 0.5 so the two symmetric het clusters (b, 1−b) reinforce instead of cancel.
+            foldedBafSum += BalancedBaf + Math.Abs(locus.BAF - BalancedBaf);
+        }
+
+        return new AlleleSpecificSegmentSummary(
+            Chromosome: loci[0].Chromosome,
+            Start: loci[0].Position,
+            End: loci[^1].Position,
+            MeanLogR: logRSum / loci.Count,
+            MeanBAF: foldedBafSum / loci.Count,
+            LocusCount: loci.Count);
+    }
+
+    /// <summary>
+    /// Raw (real-valued) ASCAT allele-specific copy numbers (nA, nB) for one segment given (r, b, ρ, ψ, γ).
+    /// Source: ascat.runAscat.R (VanLoo-lab/ascat), verbatim:
+    /// <code>
+    /// nA = (rho-1 - (b-1)*2^(r/gamma) * ((1-rho)*2+rho*psi))/rho
+    /// nB = (rho-1 +  b   *2^(r/gamma) * ((1-rho)*2+rho*psi))/rho
+    /// </code>
+    /// </summary>
+    private static (double NA, double NB) AscatRawCopyNumbers(double r, double b, double rho, double psi, double gamma)
+    {
+        double scaledTotal = Math.Pow(2.0, r / gamma) * ((1.0 - rho) * NormalDiploidCopyNumber + rho * psi);
+        double nA = (rho - 1.0 - (b - 1.0) * scaledTotal) / rho;
+        double nB = (rho - 1.0 + b * scaledTotal) / rho;
+        return (nA, nB);
+    }
+
+    /// <summary>
+    /// Jointly estimates tumour purity ρ and ploidy ψ from segment-level (logR, BAF) summaries by grid search,
+    /// mapping each segment to allele-specific copy numbers (nA, nB) with the ASCAT equations and minimising the
+    /// segment-length-weighted squared distance of the minor allele to the nearest non-negative integer (the
+    /// ASCAT "sunrise" goodness of fit). Source: Van Loo et al. (2010), <i>PNAS</i> 107:16910 (grid over ploidy ×
+    /// aberrant-cell-fraction, "copy number calls as close as possible to nonnegative whole numbers"); equations
+    /// and objective ported verbatim from ascat.runAscat.R. The returned segments carry the rounded, clamped
+    /// integer major/minor copy numbers at the optimal (ρ, ψ), ready for the downstream ploidy / LOH / CCF code.
+    /// </summary>
+    /// <param name="segments">Segment summaries (from <see cref="SegmentAlleleSpecific"/> or a caller's segmenter). Non-empty.</param>
+    /// <param name="purityMin">Lower bound of the purity grid, in (0, 1].</param>
+    /// <param name="purityMax">Upper bound of the purity grid, in (0, 1] and ≥ purityMin.</param>
+    /// <param name="purityStep">Purity grid step (&gt; 0).</param>
+    /// <param name="ploidyMin">Lower bound of the ploidy grid (&gt; 0).</param>
+    /// <param name="ploidyMax">Upper bound of the ploidy grid (≥ ploidyMin).</param>
+    /// <param name="ploidyStep">Ploidy grid step (&gt; 0).</param>
+    /// <param name="gamma">Platform parameter γ (sequencing = <see cref="AscatSequencingGamma"/> = 1).</param>
+    /// <returns>The recovered (ρ, ψ), the percentage goodness of fit, and the implied integer copy-number segments.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="segments"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="segments"/> is empty.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">a grid bound or step is out of range.</exception>
+    public static PurityPloidyFit FitPurityPloidy(
+        IReadOnlyList<AlleleSpecificSegmentSummary> segments,
+        double purityMin = 0.05,
+        double purityMax = 1.0,
+        double purityStep = 0.01,
+        double ploidyMin = 1.5,
+        double ploidyMax = 5.0,
+        double ploidyStep = 0.05,
+        double gamma = AscatSequencingGamma)
+    {
+        ArgumentNullException.ThrowIfNull(segments);
+        if (segments.Count == 0)
+        {
+            throw new ArgumentException("At least one segment is required to fit purity and ploidy.", nameof(segments));
+        }
+
+        ValidateGrid(purityMin, purityMax, purityStep, ploidyMin, ploidyMax, ploidyStep, gamma);
+
+        // Per-segment GoF weight = segment length (≥ 1) × balanced down-weight, exactly as ascat.runAscat.R.
+        double[] weights = new double[segments.Count];
+        double theoreticalMaxDistance = 0.0;
+        for (int i = 0; i < segments.Count; i++)
+        {
+            AlleleSpecificSegmentSummary s = segments[i];
+            long length = s.Length;
+            // A single-locus or zero-span segment still contributes; use LocusCount as a positive weight floor.
+            double baseWeight = length > 0 ? length : Math.Max(1, s.LocusCount);
+            double balancedWeight = Math.Abs(s.MeanBAF - BalancedBaf) < 1e-9 ? AscatBalancedSegmentWeight : 1.0;
+            weights[i] = baseWeight * balancedWeight;
+            theoreticalMaxDistance += AscatWorstCaseIntegerDistance * weights[i];
+        }
+
+        double bestSelectionDistance = double.PositiveInfinity;
+        double bestMinorDistance = double.PositiveInfinity;
+        double bestPurity = purityMin;
+        double bestPloidy = ploidyMin;
+
+        for (double rho = purityMin; rho <= purityMax + 1e-12; rho += purityStep)
+        {
+            for (double psi = ploidyMin; psi <= ploidyMax + 1e-12; psi += ploidyStep)
+            {
+                double minorDistance = 0.0;     // ASCAT GoF objective (minor allele only).
+                double selectionDistance = 0.0; // selection objective (both alleles → integers) to break 2n/4n ties.
+                bool feasible = true;
+                for (int i = 0; i < segments.Count; i++)
+                {
+                    AlleleSpecificSegmentSummary s = segments[i];
+                    (double nA, double nB) = AscatRawCopyNumbers(s.MeanLogR, s.MeanBAF, rho, psi, gamma);
+                    double minor = Math.Min(nA, nB);
+                    double major = Math.Max(nA, nB);
+                    // Physical feasibility: copy numbers cannot be meaningfully negative beyond rounding noise.
+                    if (minor < -0.5 || major < -0.5)
+                    {
+                        feasible = false;
+                        break;
+                    }
+
+                    double minorInt = Math.Max(0.0, Math.Round(minor, MidpointRounding.AwayFromZero));
+                    double majorInt = Math.Max(0.0, Math.Round(major, MidpointRounding.AwayFromZero));
+                    double minorDev = minor - minorInt;
+                    double majorDev = major - majorInt;
+                    // ascat.runAscat.R: d = sum( |nMinor - round(nMinor)|^2 * length * balancedWeight ).
+                    minorDistance += minorDev * minorDev * weights[i];
+                    // ASCAT rounds BOTH alleles to integers; including the major-allele deviation in the
+                    // selection objective disambiguates the 2n vs 4n (doubled) solutions that share a minor fit.
+                    selectionDistance += (minorDev * minorDev + majorDev * majorDev) * weights[i];
+                }
+
+                if (!feasible)
+                {
+                    continue;
+                }
+
+                // Prefer the lower selection distance; on a (near-)exact tie prefer the lower ploidy ψ, the ASCAT
+                // parsimony convention (Van Loo 2010 selects the non-doubled solution when both fit equally well).
+                bool strictlyBetter = selectionDistance < bestSelectionDistance - 1e-12;
+                bool tieLowerPloidy = Math.Abs(selectionDistance - bestSelectionDistance) <= 1e-12 && psi < bestPloidy - 1e-12;
+                if (strictlyBetter || tieLowerPloidy)
+                {
+                    bestSelectionDistance = selectionDistance;
+                    bestMinorDistance = minorDistance;
+                    bestPurity = rho;
+                    bestPloidy = psi;
+                }
+            }
+        }
+
+        var bestSegments = new List<AlleleSpecificSegment>(segments.Count);
+        for (int i = 0; i < segments.Count; i++)
+        {
+            AlleleSpecificSegmentSummary s = segments[i];
+            (double nA, double nB) = AscatRawCopyNumbers(s.MeanLogR, s.MeanBAF, bestPurity, bestPloidy, gamma);
+            int rMajor = (int)Math.Max(0.0, Math.Round(Math.Max(nA, nB), MidpointRounding.AwayFromZero));
+            int rMinor = (int)Math.Max(0.0, Math.Round(Math.Min(nA, nB), MidpointRounding.AwayFromZero));
+            // Segments with End == Start (single-position) get a 1 bp span so AlleleSpecificSegment.Length > 0.
+            long end = s.End > s.Start ? s.End : s.Start + 1;
+            bestSegments.Add(new AlleleSpecificSegment(s.Chromosome, s.Start, end, rMajor, rMinor));
+        }
+
+        // goodnessOfFit = (1 - distance/TheoretMaxdist) * 100, per ascat.runAscat.R (minor-allele distance).
+        double goodnessOfFit = theoreticalMaxDistance > 0.0
+            ? (1.0 - bestMinorDistance / theoreticalMaxDistance) * 100.0
+            : 100.0;
+
+        return new PurityPloidyFit(bestPurity, bestPloidy, goodnessOfFit, bestSegments);
+    }
+
+    private static void ValidateGrid(
+        double purityMin, double purityMax, double purityStep,
+        double ploidyMin, double ploidyMax, double ploidyStep, double gamma)
+    {
+        if (double.IsNaN(purityMin) || purityMin <= 0.0 || purityMin > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(purityMin), purityMin, "purityMin must be in (0, 1].");
+        }
+
+        if (double.IsNaN(purityMax) || purityMax <= 0.0 || purityMax > 1.0 || purityMax < purityMin)
+        {
+            throw new ArgumentOutOfRangeException(nameof(purityMax), purityMax, "purityMax must be in (0, 1] and ≥ purityMin.");
+        }
+
+        if (double.IsNaN(purityStep) || purityStep <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(purityStep), purityStep, "purityStep must be positive.");
+        }
+
+        if (double.IsNaN(ploidyMin) || ploidyMin <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(ploidyMin), ploidyMin, "ploidyMin must be positive.");
+        }
+
+        if (double.IsNaN(ploidyMax) || ploidyMax < ploidyMin)
+        {
+            throw new ArgumentOutOfRangeException(nameof(ploidyMax), ploidyMax, "ploidyMax must be ≥ ploidyMin.");
+        }
+
+        if (double.IsNaN(ploidyStep) || ploidyStep <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(ploidyStep), ploidyStep, "ploidyStep must be positive.");
+        }
+
+        if (double.IsNaN(gamma) || gamma <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(gamma), gamma, "gamma must be positive.");
+        }
+    }
+
+    /// <summary>
+    /// Derives the integer mutation multiplicity m (number of mutated copies per cancer cell) of a somatic
+    /// variant from its VAF, the tumour purity ρ, and the local total / major copy number, so that
+    /// <see cref="EstimateCcf"/> can be driven without a caller-supplied multiplicity. The expected number of
+    /// mutated copies for a clonal mutation is n_mut = VAF·(1/ρ)·[ρ·N_T + 2(1−ρ)] (McGranahan et al. 2016,
+    /// <i>Science</i> 351:1463; equivalently the inversion of the PICTograph model VAF = m·CCF·ρ /
+    /// (N_T·ρ + 2(1−ρ)) at CCF = 1, Zheng et al. 2022, <i>Bioinformatics</i> 38:3677). The result is rounded to
+    /// the nearest integer and clamped to [1, majorCopyNumber] (a variant present on at least one copy cannot
+    /// exceed the major-allele copy number).
+    /// </summary>
+    /// <param name="vaf">Observed variant allele fraction ∈ [0, 1].</param>
+    /// <param name="purity">Tumour purity ρ ∈ (0, 1].</param>
+    /// <param name="totalCopyNumber">Local tumour total copy number N_T (≥ 1).</param>
+    /// <param name="majorCopyNumber">Local major-allele copy number, the upper bound on multiplicity (in [1, N_T]).</param>
+    /// <returns>The integer mutation multiplicity m ∈ [1, majorCopyNumber].</returns>
+    /// <exception cref="ArgumentOutOfRangeException">vaf ∉ [0,1], purity ∉ (0,1], totalCopyNumber &lt; 1, or majorCopyNumber ∉ [1, totalCopyNumber].</exception>
+    public static int DeriveMultiplicity(double vaf, double purity, int totalCopyNumber, int majorCopyNumber)
+    {
+        if (double.IsNaN(vaf) || vaf < 0.0 || vaf > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(vaf), vaf, "VAF must be in [0, 1].");
+        }
+
+        if (double.IsNaN(purity) || purity <= 0.0 || purity > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(purity), purity, "Purity must be in (0, 1].");
+        }
+
+        if (totalCopyNumber < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(totalCopyNumber), totalCopyNumber, "Total copy number must be ≥ 1.");
+        }
+
+        if (majorCopyNumber < 1 || majorCopyNumber > totalCopyNumber)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(majorCopyNumber), majorCopyNumber, $"Major copy number must be in [1, {totalCopyNumber}].");
+        }
+
+        // n_mut = VAF·(1/ρ)·[ρ·N_T + 2(1−ρ)] — McGranahan 2016 observed mutation copy number (CCF=1 ⇒ m = n_mut).
+        double totalDnaPerCell = purity * totalCopyNumber + NormalDiploidCopyNumber * (1.0 - purity);
+        double rawMultiplicity = vaf * totalDnaPerCell / purity;
+        int rounded = (int)Math.Round(rawMultiplicity, MidpointRounding.AwayFromZero);
+        // Clamp to [1, major CN]: an observed variant sits on ≥ 1 copy and ≤ the major-allele copy number.
+        return Math.Clamp(rounded, 1, majorCopyNumber);
+    }
+
+    /// <summary>
+    /// Default ASPCF penalty γ used when a caller does not supply one. The copynumber package default is γ = 40
+    /// (Nilsen et al. 2012, <i>BMC Genomics</i> 13:591 — "A fairly conservative penalty of γ = 40 is the default
+    /// in the copynumber package"); ASCAT later raised its internal default to 70 (Ross et al. 2021,
+    /// <i>Bioinformatics</i> 37:1909). Because the repository ASPCF API segments caller-supplied logR/BAF tracks on
+    /// the caller's own scale, γ is exposed as a parameter; this constant only documents the published default.
+    /// </summary>
+    public const double AspcfDefaultPenalty = 40.0;
+
+    /// <summary>
+    /// Allele-Specific Piecewise Constant Fitting (ASPCF): the penalised-least-squares changepoint segmentation
+    /// that ASCAT uses, jointly segmenting the logR and (mirrored) BAF tracks on a single common breakpoint set.
+    /// Source: Nilsen et al. (2012), <i>BMC Genomics</i> 13:591 — minimise
+    /// <c>L(S | y, γ) = Σ_{I∈S} Σ_{j∈I} (y_j − ȳ_I)² + γ·|S|</c> with the dynamic-program recurrence
+    /// <c>e_k = min_{j≤k} ( d_{jk} + e_{j−1} + γ )</c>, <c>e_0 = 0</c>, where <c>d_{jk}</c> is the within-segment
+    /// SSE of loci j..k; extended to the allele-specific joint cost
+    /// <c>L(S | y₁,y₂, γ) = L(S | y₁,γ) + L(S | y₂,γ)</c> (Nilsen 2012; Ross et al. 2021, <i>Bioinformatics</i>
+    /// 37:1909): a single segmentation with common breakpoints but a separate per-track segment mean, so the
+    /// per-segment data cost is <c>(logR-SSE + mirroredBAF-SSE)</c> and γ is charged once per segment. This returns
+    /// the GLOBAL optimum of the penalised cost (unlike the greedy <see cref="SegmentAlleleSpecific"/> mean-shift).
+    /// BAF is mirrored to its distance from 0.5 and re-centred (<c>b' = 0.5 + |b − 0.5|</c>) so the two symmetric
+    /// het clusters collapse to one track (Ross 2021 — "mirroring BAFs to obtain a single track in regions of
+    /// allelic imbalance"); without this a copy-neutral LOH (2:0) and a balanced 1:1 region — equal logR — would be
+    /// merged. The DP runs per chromosome (breakpoints never cross a contig boundary). Time O(n²) per chromosome.
+    /// </summary>
+    /// <param name="loci">Per-locus measurements; processed in input order within each chromosome.</param>
+    /// <param name="penalty">Penalty γ &gt; 0 charged per segment (see <see cref="AspcfDefaultPenalty"/>).</param>
+    /// <returns>The segment summaries (mean logR, mirrored-mean BAF) in input order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="loci"/> is null.</exception>
+    /// <exception cref="ArgumentException">a locus has a null chromosome label.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="penalty"/> ≤ 0 or NaN.</exception>
+    public static IReadOnlyList<AlleleSpecificSegmentSummary> SegmentAlleleSpecificAspcf(
+        IEnumerable<AlleleSpecificLocus> loci,
+        double penalty = AspcfDefaultPenalty)
+    {
+        ArgumentNullException.ThrowIfNull(loci);
+        if (double.IsNaN(penalty) || penalty <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(penalty), penalty, "The ASPCF penalty γ must be positive.");
+        }
+
+        // Materialise and group into contiguous same-chromosome runs (input order preserved within each).
+        var ordered = new List<AlleleSpecificLocus>();
+        foreach (AlleleSpecificLocus locus in loci)
+        {
+            if (locus.Chromosome is null)
+            {
+                throw new ArgumentException("A locus has a null chromosome label.", nameof(loci));
+            }
+
+            ordered.Add(locus);
+        }
+
+        var result = new List<AlleleSpecificSegmentSummary>();
+        int start = 0;
+        while (start < ordered.Count)
+        {
+            int end = start;
+            while (end + 1 < ordered.Count && ordered[end + 1].Chromosome == ordered[start].Chromosome)
+            {
+                end++;
+            }
+
+            SegmentChromosomeAspcf(ordered, start, end, penalty, result);
+            start = end + 1;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Runs the PCF dynamic program on one chromosome's run of loci (inclusive indices [lo, hi]) and appends the
+    /// optimal segments to <paramref name="output"/>. Implements Nilsen et al. (2012) eq. for the joint cost.
+    /// </summary>
+    private static void SegmentChromosomeAspcf(
+        List<AlleleSpecificLocus> loci, int lo, int hi, double penalty,
+        List<AlleleSpecificSegmentSummary> output)
+    {
+        int n = hi - lo + 1;
+
+        // Prefix sums for O(1) within-segment SSE: SSE(a..b) = Σx² − (Σx)²/m, for both tracks (Nilsen 2012 L′).
+        double[] logRPrefix = new double[n + 1];
+        double[] logRSqPrefix = new double[n + 1];
+        double[] bafPrefix = new double[n + 1];
+        double[] bafSqPrefix = new double[n + 1];
+        for (int i = 0; i < n; i++)
+        {
+            double r = loci[lo + i].LogR;
+            // Mirror BAF about 0.5 → single allelic-imbalance track (Ross 2021).
+            double b = BalancedBaf + Math.Abs(loci[lo + i].BAF - BalancedBaf);
+            logRPrefix[i + 1] = logRPrefix[i] + r;
+            logRSqPrefix[i + 1] = logRSqPrefix[i] + r * r;
+            bafPrefix[i + 1] = bafPrefix[i] + b;
+            bafSqPrefix[i + 1] = bafSqPrefix[i] + b * b;
+        }
+
+        // e[k] = min penalised cost of segmenting the first k loci; back[k] = start index of the last segment.
+        double[] e = new double[n + 1];
+        int[] back = new int[n + 1];
+        e[0] = 0.0;
+        for (int k = 1; k <= n; k++)
+        {
+            double best = double.PositiveInfinity;
+            int bestStart = 0;
+            for (int j = 1; j <= k; j++)
+            {
+                // d_{jk} = within-segment SSE of loci (j..k) on both tracks (joint cost = sum of the two SSEs).
+                double cost = e[j - 1] + AspcfSegmentSse(logRPrefix, logRSqPrefix, j - 1, k)
+                              + AspcfSegmentSse(bafPrefix, bafSqPrefix, j - 1, k)
+                              + penalty;
+                if (cost < best - 1e-12)
+                {
+                    best = cost;
+                    bestStart = j - 1;
+                }
+            }
+
+            e[k] = best;
+            back[k] = bestStart;
+        }
+
+        // Backtrack the optimal segmentation, then emit in genomic (left-to-right) order.
+        var bounds = new List<(int Start, int End)>();
+        int cursor = n;
+        while (cursor > 0)
+        {
+            int segStart = back[cursor];
+            bounds.Add((segStart, cursor)); // half-open [segStart, cursor) over the local 0-based run.
+            cursor = segStart;
+        }
+
+        bounds.Reverse();
+        foreach ((int segStart, int segEnd) in bounds)
+        {
+            var run = new List<AlleleSpecificLocus>(segEnd - segStart);
+            for (int i = segStart; i < segEnd; i++)
+            {
+                run.Add(loci[lo + i]);
+            }
+
+            output.Add(BuildSegmentSummary(run));
+        }
+    }
+
+    /// <summary>Within-segment SSE for the half-open prefix range (a, b]: Σx² − (Σx)²/m (m = b − a). 0 if m ≤ 1.</summary>
+    private static double AspcfSegmentSse(double[] prefix, double[] sqPrefix, int a, int b)
+    {
+        int m = b - a;
+        if (m <= 1)
+        {
+            return 0.0; // a single point has zero within-segment variance.
+        }
+
+        double sum = prefix[b] - prefix[a];
+        double sumSq = sqPrefix[b] - sqPrefix[a];
+        double sse = sumSq - (sum * sum) / m;
+        return sse > 0.0 ? sse : 0.0; // guard tiny negative round-off.
+    }
+
+    /// <summary>
+    /// One integer allele-specific copy-number state of a (possibly sub-clonal) segment, present in a given
+    /// fraction of tumour cells. Mirrors the Battenberg output (Nik-Zainal et al. 2012, <i>Cell</i> 149:994:
+    /// <c>nMaj1_A, nMin1_A, frac1_A</c>): a state is a (major, minor) integer pair plus the cellular fraction.
+    /// </summary>
+    /// <param name="MajorCopyNumber">Major-allele integer copy number of this state (≥ 0).</param>
+    /// <param name="MinorCopyNumber">Minor-allele integer copy number of this state (≥ 0).</param>
+    /// <param name="CellFraction">Fraction of tumour cells carrying this state, ∈ [0, 1].</param>
+    public readonly record struct SubclonalCopyNumberState(
+        int MajorCopyNumber,
+        int MinorCopyNumber,
+        double CellFraction)
+    {
+        /// <summary>Total integer copy number of this state (major + minor).</summary>
+        public int TotalCopyNumber => MajorCopyNumber + MinorCopyNumber;
+    }
+
+    /// <summary>
+    /// Sub-clonal copy-number fit of one segment under the Battenberg two-population model (Nik-Zainal et al. 2012,
+    /// <i>Cell</i> 149:994): a segment is either <b>clonal</b> (one integer state in all tumour cells) or
+    /// <b>sub-clonal</b> (a mixture of two adjacent integer states, fractions summing to 1).
+    /// </summary>
+    /// <param name="Segment">The segment these states describe.</param>
+    /// <param name="PrimaryState">State 1 (Battenberg <c>frac1</c>) — the higher-fraction state.</param>
+    /// <param name="SecondaryState">State 2 (Battenberg <c>frac2</c>), or <c>null</c> for a clonal segment.</param>
+    /// <param name="IsSubclonal">True when two states were needed (the observed CN was not (near-)integer).</param>
+    public readonly record struct SubclonalSegmentFit(
+        AlleleSpecificSegmentSummary Segment,
+        SubclonalCopyNumberState PrimaryState,
+        SubclonalCopyNumberState? SecondaryState,
+        bool IsSubclonal);
+
+    /// <summary>
+    /// Maximum distance of an allele-specific copy number from the nearest integer below which the segment is
+    /// called <b>clonal</b> (a single integer state). Beyond it the segment is modelled as a sub-clonal mixture of
+    /// the two bracketing integers. 0.05 mirrors ASCAT's "as close as possible to nonnegative whole numbers"
+    /// integer-snapping tolerance (Van Loo et al. 2010) used by Battenberg to decide clonal vs sub-clonal.
+    /// </summary>
+    public const double SubclonalIntegerTolerance = 0.05;
+
+    /// <summary>
+    /// Fits each segment's allele-specific copy number to one integer state (clonal) or a mixture of two adjacent
+    /// integer states with a sub-clonal cellular fraction (sub-clonal), implementing the Battenberg two-population
+    /// model (Nik-Zainal et al. 2012, <i>Cell</i> 149:994; Wedge-lab/battenberg): "if there are two states it
+    /// represents subclonal copy number … two populations of cells, each with a different state … which together
+    /// give the total copy number for that segment and a fraction of tumour cells that carry each allele." The
+    /// real-valued ASCAT allele-specific copy numbers (nA, nB) are computed for the segment at the fitted (ρ, ψ)
+    /// via the ASCAT equations (Van Loo et al. 2010); a value that is within <see cref="SubclonalIntegerTolerance"/>
+    /// of an integer collapses to a single (clonal) state, otherwise it is decomposed as
+    /// <c>n_obs = f·⌈n_obs⌉ + (1 − f)·⌊n_obs⌋</c> with <c>f = n_obs − ⌊n_obs⌋ ∈ [0,1]</c> (the unique two-state
+    /// mixture reproducing n_obs). The two alleles are decomposed jointly with a single shared fraction f estimated
+    /// as the mean of the per-allele fractions, so the two states are (⌈nA⌉, ⌈nB⌉) at fraction f and
+    /// (⌊nA⌋, ⌊nB⌋) at fraction 1 − f, matching the Battenberg (nMaj1/nMin1/frac1, nMaj2/nMin2/frac2) layout.
+    /// </summary>
+    /// <param name="segments">Segment summaries (e.g. from <see cref="SegmentAlleleSpecificAspcf"/>). Non-null.</param>
+    /// <param name="purity">Fitted tumour purity ρ ∈ (0, 1].</param>
+    /// <param name="ploidy">Fitted tumour ploidy ψ (&gt; 0).</param>
+    /// <param name="gamma">Platform parameter γ (sequencing = <see cref="AscatSequencingGamma"/> = 1).</param>
+    /// <returns>Per-segment clonal/sub-clonal copy-number fits in input order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="segments"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">ρ ∉ (0,1], ψ ≤ 0, or γ ≤ 0.</exception>
+    public static IReadOnlyList<SubclonalSegmentFit> FitSubclonalCopyNumber(
+        IReadOnlyList<AlleleSpecificSegmentSummary> segments,
+        double purity,
+        double ploidy,
+        double gamma = AscatSequencingGamma)
+    {
+        ArgumentNullException.ThrowIfNull(segments);
+        if (double.IsNaN(purity) || purity <= 0.0 || purity > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(purity), purity, "Purity ρ must be in (0, 1].");
+        }
+
+        if (double.IsNaN(ploidy) || ploidy <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(ploidy), ploidy, "Ploidy ψ must be positive.");
+        }
+
+        if (double.IsNaN(gamma) || gamma <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(gamma), gamma, "gamma must be positive.");
+        }
+
+        var fits = new List<SubclonalSegmentFit>(segments.Count);
+        foreach (AlleleSpecificSegmentSummary s in segments)
+        {
+            (double nA, double nB) = AscatRawCopyNumbers(s.MeanLogR, s.MeanBAF, purity, ploidy, gamma);
+            double major = Math.Max(0.0, Math.Max(nA, nB));
+            double minor = Math.Max(0.0, Math.Min(nA, nB));
+
+            double majorFrac = major - Math.Floor(major); // distance above the lower bracketing integer.
+            double minorFrac = minor - Math.Floor(minor);
+
+            // Clonal when BOTH alleles snap to integers within tolerance; else a two-state mixture is required.
+            bool majorClonal = majorFrac <= SubclonalIntegerTolerance || majorFrac >= 1.0 - SubclonalIntegerTolerance;
+            bool minorClonal = minorFrac <= SubclonalIntegerTolerance || minorFrac >= 1.0 - SubclonalIntegerTolerance;
+
+            if (majorClonal && minorClonal)
+            {
+                int majInt = (int)Math.Max(0.0, Math.Round(major, MidpointRounding.AwayFromZero));
+                int minInt = (int)Math.Max(0.0, Math.Round(minor, MidpointRounding.AwayFromZero));
+                fits.Add(new SubclonalSegmentFit(
+                    s,
+                    new SubclonalCopyNumberState(majInt, minInt, 1.0),
+                    SecondaryState: null,
+                    IsSubclonal: false));
+                continue;
+            }
+
+            // Two-state mixture (Battenberg single shared fraction): each allele is a convex combination of its two
+            // bracketing integers, both alleles sharing ONE fraction f. The pairing of the alleles' ceil/floor
+            // integers into the two cell populations is ambiguous, so both pairings are tried and the one with the
+            // smaller least-squares residual is kept — the unique two-state decomposition reproducing (major, minor).
+            int majCeil = (int)Math.Ceiling(major);
+            int majFloor = (int)Math.Floor(major);
+            int minCeil = (int)Math.Ceiling(minor);
+            int minFloor = (int)Math.Floor(minor);
+
+            // Pairing P1 (co-monotone): state_hi = (majCeil, minCeil), state_lo = (majFloor, minFloor).
+            (double fP1, double resP1) = SolveSharedFraction(major, minor, majCeil, minCeil, majFloor, minFloor);
+            // Pairing P2 (anti-monotone): state_hi = (majCeil, minFloor), state_lo = (majFloor, minCeil).
+            (double fP2, double resP2) = SolveSharedFraction(major, minor, majCeil, minFloor, majFloor, minCeil);
+
+            SubclonalCopyNumberState hiState, loState; // hi = the "ceiling-on-major" state (fraction f).
+            double f;
+            if (resP1 <= resP2)
+            {
+                f = fP1;
+                hiState = new SubclonalCopyNumberState(majCeil, minCeil, f);
+                loState = new SubclonalCopyNumberState(majFloor, minFloor, 1.0 - f);
+            }
+            else
+            {
+                f = fP2;
+                hiState = new SubclonalCopyNumberState(majCeil, minFloor, f);
+                loState = new SubclonalCopyNumberState(majFloor, minCeil, 1.0 - f);
+            }
+
+            // Battenberg frac1 ≥ frac2: the higher-fraction state is the primary (state 1).
+            (SubclonalCopyNumberState primary, SubclonalCopyNumberState secondary) =
+                f >= 0.5 ? (hiState, loState) : (loState, hiState);
+
+            fits.Add(new SubclonalSegmentFit(s, primary, secondary, IsSubclonal: true));
+        }
+
+        return fits;
+    }
+
+    /// <summary>
+    /// Solves for the single shared cellular fraction f that best reproduces both observed alleles as
+    /// <c>major = f·aHi + (1−f)·aLo</c> and <c>minor = f·bHi + (1−f)·bLo</c> by least squares, returning f
+    /// (clamped to [0,1]) and the residual sum of squares of the fit. Two integer states share one f per the
+    /// Battenberg single-fraction segment model (Nik-Zainal et al. 2012).
+    /// </summary>
+    private static (double F, double Residual) SolveSharedFraction(
+        double major, double minor, int aHi, int bHi, int aLo, int bLo)
+    {
+        // For each allele: observed = aLo + f·(aHi − aLo)  ⇒ stack the two equations and solve LS for f.
+        double da = aHi - aLo;
+        double db = bHi - bLo;
+        double denom = da * da + db * db;
+        double f;
+        if (denom < 1e-12)
+        {
+            f = 0.0; // both states identical for both alleles → degenerate; fraction is irrelevant.
+        }
+        else
+        {
+            f = (da * (major - aLo) + db * (minor - bLo)) / denom;
+            f = Math.Clamp(f, 0.0, 1.0);
+        }
+
+        double majFit = aLo + f * da;
+        double minFit = bLo + f * db;
+        double residual = (major - majFit) * (major - majFit) + (minor - minFit) * (minor - minFit);
+        return (f, residual);
     }
 
     #endregion
@@ -5393,6 +8284,265 @@ public static class OncologyAnalyzer
         }
 
         return ClassifyBindingAffinity(ic50Nm);
+    }
+
+    #endregion
+
+    #region Matrix-based pMHC binding prediction (ONCO-MHC-001)
+
+    /// <summary>
+    /// Scoring convention for a position-specific peptide–MHC binding matrix. Selects how a per-residue
+    /// matrix is combined into a prediction and what the prediction means.
+    /// </summary>
+    public enum PmhcScoringMethod
+    {
+        /// <summary>
+        /// BIMAS / Parker et al. (1994) "stabilized matrix" convention: the prediction is the
+        /// <b>product</b> of the position-specific coefficients times a final constant, and (for HLA-A2) it
+        /// estimates the <b>half-time of dissociation</b> (T½, arbitrary BIMAS units) of the HLA–peptide
+        /// complex at 37 °C, pH 6.5. Higher T½ = stronger binder. Source: BIMAS HLA peptide-motif-search
+        /// scoring documentation; Parker, Bednarek &amp; Coligan (1994), <i>J. Immunol.</i> 152(1):163–175.
+        /// </summary>
+        BimasHalfLife,
+
+        /// <summary>
+        /// SMM (Peters &amp; Sette 2005) / IEDB convention: the prediction is the <b>sum</b> of the
+        /// position-specific values plus an intercept, giving a <c>log50k</c> score, which is converted to
+        /// an IC50 (nM) by <c>IC50 = 50000^(1 − score)</c>. Lower IC50 = stronger binder. Source:
+        /// Peters &amp; Sette (2005), <i>BMC Bioinformatics</i> 6:132; IEDB <c>log50k = 1 − log(IC50)/log(50000)</c>.
+        /// </summary>
+        SmmIc50
+    }
+
+    /// <summary>
+    /// A position-specific scoring matrix (PSSM) for peptide–MHC binding: one per-position row mapping each
+    /// amino-acid residue (single-letter code) to a numeric value, plus a single scalar
+    /// <see cref="FinalConstant"/>. The interpretation of the values and the constant depends on the
+    /// <see cref="PmhcScoringMethod"/> used to score with it:
+    /// <list type="bullet">
+    /// <item><description><see cref="PmhcScoringMethod.BimasHalfLife"/>: each value is a multiplicative
+    /// coefficient (default 1.0 ≡ neutral), and <see cref="FinalConstant"/> is the BIMAS per-allele final
+    /// multiplier; the score is their product (Parker 1994 / BIMAS).</description></item>
+    /// <item><description><see cref="PmhcScoringMethod.SmmIc50"/>: each value is an additive log50k
+    /// contribution (default 0.0 ≡ neutral), and <see cref="FinalConstant"/> is the SMM intercept; the score
+    /// is their sum (Peters &amp; Sette 2005).</description></item>
+    /// </list>
+    /// <para>
+    /// <b>This matrix is caller-supplied, not bundled.</b> No redistributable, cross-verifiable trained
+    /// HLA coefficient matrix was obtainable for embedding: the public BIMAS coefficient files are served
+    /// only by a now-defunct dynamic CGI (not archived) and the Parker (1994) table is behind a paywall;
+    /// the IEDB SMM matrices carry a non-commercial / no-redistribution licence (like CIBERSORT LM22).
+    /// The library therefore implements the published <i>scoring rules</i> and a <see cref="LoadScoringMatrix"/>
+    /// loader, and the caller provides the coefficient values under their own licence (ONCO-MHC-001).
+    /// </para>
+    /// </summary>
+    /// <param name="Rows">Per-position residue→value maps; <c>Rows[i]</c> is position <c>i</c> (0-based).</param>
+    /// <param name="FinalConstant">The BIMAS final multiplier (product convention) or SMM intercept (sum convention).</param>
+    public readonly record struct PmhcScoringMatrix(
+        IReadOnlyList<IReadOnlyDictionary<char, double>> Rows,
+        double FinalConstant);
+
+    /// <summary>
+    /// Largest possible IC50 (nM) produced by the SMM transform, reached at score 0:
+    /// <c>50000^(1 − 0) = 50000</c>. Source: IEDB <c>log50k = 1 − log(IC50)/log(50000)</c> (Peters &amp;
+    /// Sette 2005, <i>BMC Bioinformatics</i> 6:132), so IC50 = 50000^(1 − score).
+    /// </summary>
+    public const double SmmIc50Base = 50000.0;
+
+    /// <summary>
+    /// Default neutral BIMAS coefficient: an amino acid "not known to make either a favorable or unfavorable
+    /// contribution" has a coefficient of exactly 1.0 (multiplicative identity). Source: BIMAS scoring
+    /// documentation — ambiguous/unlisted residues "given a coefficient of 1.00 … leaves the score unchanged".
+    /// </summary>
+    private const double BimasNeutralCoefficient = 1.0;
+
+    /// <summary>
+    /// Default neutral SMM contribution: 0.0 (additive identity), so an unlisted residue does not move the
+    /// log50k score. Source: SMM is an additive position-specific model (Peters &amp; Sette 2005).
+    /// </summary>
+    private const double SmmNeutralContribution = 0.0;
+
+    /// <summary>
+    /// Loads a caller-supplied position-specific peptide–MHC scoring matrix from text rows. Each non-blank,
+    /// non-comment line is one matrix position and lists residue values as whitespace- or comma-separated
+    /// <c>RESIDUE=VALUE</c> tokens (e.g. <c>L=2.5 M=1.8 V=1.1</c>); the very first token of the form
+    /// <c>CONST=VALUE</c> (or a line <c>CONST VALUE</c>) sets <see cref="PmhcScoringMatrix.FinalConstant"/>.
+    /// Lines beginning with <c>#</c> are comments. Residues are upper-cased.
+    /// <para>
+    /// <b>Licence / provenance.</b> The matrix VALUES are NOT supplied by this library — see
+    /// <see cref="PmhcScoringMatrix"/>. Obtain coefficients from a source you are licensed to use (the
+    /// public-domain BIMAS/Parker 1994 HLA-A2 table, or an IEDB SMM matrix under its non-commercial licence)
+    /// and pass them here. The library bundles only the published scoring <i>rules</i>.
+    /// </para>
+    /// </summary>
+    /// <param name="lines">Matrix text lines: optional <c>CONST=…</c> plus one line per position.</param>
+    /// <returns>The parsed scoring matrix.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="lines"/> is null.</exception>
+    /// <exception cref="FormatException">A token is malformed or a value is non-numeric.</exception>
+    public static PmhcScoringMatrix LoadScoringMatrix(IEnumerable<string> lines)
+    {
+        ArgumentNullException.ThrowIfNull(lines);
+
+        var rows = new List<IReadOnlyDictionary<char, double>>();
+        double finalConstant = BimasNeutralCoefficient; // 1.0: neutral for product; harmless if overridden.
+        bool constantSet = false;
+
+        foreach (string raw in lines)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                continue;
+            }
+
+            string line = raw.Trim();
+            if (line.StartsWith('#'))
+            {
+                continue;
+            }
+
+            string[] tokens = line.Split(new[] { ' ', '\t', ',' }, StringSplitOptions.RemoveEmptyEntries);
+            var row = new Dictionary<char, double>(tokens.Length);
+            foreach (string token in tokens)
+            {
+                int eq = token.IndexOf('=');
+                string keyPart;
+                string valuePart;
+                if (eq >= 0)
+                {
+                    keyPart = token[..eq];
+                    valuePart = token[(eq + 1)..];
+                }
+                else
+                {
+                    // Allow a bare "CONST 1234" pair only when it is the line's sole content handled below.
+                    throw new FormatException($"Malformed matrix token '{token}': expected RESIDUE=VALUE or CONST=VALUE.");
+                }
+
+                if (!double.TryParse(valuePart, System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture, out double value))
+                {
+                    throw new FormatException($"Non-numeric value in token '{token}'.");
+                }
+
+                if (string.Equals(keyPart, "CONST", StringComparison.OrdinalIgnoreCase))
+                {
+                    finalConstant = value;
+                    constantSet = true;
+                    continue;
+                }
+
+                if (keyPart.Length != 1)
+                {
+                    throw new FormatException($"Residue key '{keyPart}' must be a single amino-acid letter.");
+                }
+
+                row[char.ToUpperInvariant(keyPart[0])] = value;
+            }
+
+            if (row.Count > 0)
+            {
+                rows.Add(row);
+            }
+        }
+
+        // If no CONST token was given, leave the additive/multiplicative identity (1.0); callers using SMM
+        // can pass CONST=<intercept>. constantSet is retained only to make the intent explicit.
+        _ = constantSet;
+        return new PmhcScoringMatrix(rows, finalConstant);
+    }
+
+    /// <summary>
+    /// Predicts the BIMAS half-time of dissociation (T½) of a peptide–MHC complex as the
+    /// <b>product</b> of the position-specific coefficients times the matrix's final constant:
+    /// <c>T½ = FinalConstant · ∏_i matrix.Rows[i][peptide[i]]</c>. A residue absent from a position's row
+    /// contributes the neutral coefficient 1.0 (no effect), exactly as BIMAS treats ambiguous residues.
+    /// Source: BIMAS scoring documentation — "The initial (running) score is set to 1.0 … the running score
+    /// is then multiplied by the coefficient for that amino acid type, at that position … The resulting
+    /// running score is multiplied by a final constant to yield an estimate of the half time of
+    /// disassociation"; Parker, Bednarek &amp; Coligan (1994), <i>J. Immunol.</i> 152(1):163–175 ("calculated
+    /// by multiplying together the corresponding coefficients").
+    /// </summary>
+    /// <param name="peptide">The peptide; its length must equal <c>matrix.Rows.Count</c>.</param>
+    /// <param name="matrix">A caller-supplied BIMAS-convention coefficient matrix (see <see cref="PmhcScoringMatrix"/>).</param>
+    /// <returns>The predicted half-time of dissociation (BIMAS units; higher = stronger binding).</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="peptide"/> is null.</exception>
+    /// <exception cref="ArgumentException">The matrix has no rows, or the peptide length ≠ row count.</exception>
+    public static double PredictBindingHalfLifeBimas(string peptide, PmhcScoringMatrix matrix)
+    {
+        ArgumentNullException.ThrowIfNull(peptide);
+        ValidateMatrixAgainstPeptide(peptide, matrix);
+
+        double score = 1.0; // BIMAS: "The initial (running) score is set to 1.0."
+        for (int i = 0; i < peptide.Length; i++)
+        {
+            char residue = char.ToUpperInvariant(peptide[i]);
+            double coefficient = matrix.Rows[i].TryGetValue(residue, out double c) ? c : BimasNeutralCoefficient;
+            score *= coefficient;
+        }
+
+        return score * matrix.FinalConstant;
+    }
+
+    /// <summary>
+    /// Predicts the IC50 (nM) of a peptide–MHC pair under the SMM / IEDB convention: the log50k score is the
+    /// <b>sum</b> of the position-specific values plus the matrix intercept, and the IC50 is recovered by
+    /// <c>IC50 = 50000^(1 − score)</c>. A residue absent from a position's row contributes 0 (no effect).
+    /// Source: IEDB linearisation <c>log50k = 1 − log(IC50)/log(50000)</c> (inverted gives
+    /// <c>IC50 = 50000^(1 − log50k)</c>); Peters &amp; Sette (2005), <i>BMC Bioinformatics</i> 6:132 (SMM is
+    /// an additive position-specific model fitted on log-transformed IC50).
+    /// </summary>
+    /// <param name="peptide">The peptide; its length must equal <c>matrix.Rows.Count</c>.</param>
+    /// <param name="matrix">A caller-supplied SMM-convention matrix (values = additive log50k contributions; <see cref="PmhcScoringMatrix.FinalConstant"/> = intercept).</param>
+    /// <returns>The predicted IC50 in nM (lower = stronger binding).</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="peptide"/> is null.</exception>
+    /// <exception cref="ArgumentException">The matrix has no rows, or the peptide length ≠ row count.</exception>
+    public static double PredictIc50Smm(string peptide, PmhcScoringMatrix matrix)
+    {
+        ArgumentNullException.ThrowIfNull(peptide);
+        ValidateMatrixAgainstPeptide(peptide, matrix);
+
+        double score = matrix.FinalConstant; // SMM intercept.
+        for (int i = 0; i < peptide.Length; i++)
+        {
+            char residue = char.ToUpperInvariant(peptide[i]);
+            score += matrix.Rows[i].TryGetValue(residue, out double v) ? v : SmmNeutralContribution;
+        }
+
+        // IC50 = 50000^(1 - score)  ⇔  log50k = 1 - log(IC50)/log(50000).
+        return Math.Pow(SmmIc50Base, 1.0 - score);
+    }
+
+    /// <summary>
+    /// End-to-end SMM prediction → classification: predicts the IC50 with <see cref="PredictIc50Smm"/> and
+    /// classifies it into <see cref="BindingStrength"/> via the existing <see cref="ClassifyBindingAffinity"/>
+    /// (strong &lt; 50 nM, weak &lt; 500 nM, else non-binder). This chains the matrix-based predictor into the
+    /// established threshold classifier so prediction and classification compose end-to-end (ONCO-MHC-001).
+    /// </summary>
+    /// <param name="peptide">The peptide; length must equal <c>matrix.Rows.Count</c>.</param>
+    /// <param name="matrix">A caller-supplied SMM-convention matrix.</param>
+    /// <returns>A tuple of the predicted IC50 (nM) and its binding-strength category.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="peptide"/> is null.</exception>
+    /// <exception cref="ArgumentException">The matrix has no rows, or the peptide length ≠ row count.</exception>
+    public static (double Ic50Nm, BindingStrength Strength) PredictAndClassifySmm(
+        string peptide, PmhcScoringMatrix matrix)
+    {
+        double ic50 = PredictIc50Smm(peptide, matrix);
+        return (ic50, ClassifyBindingAffinity(ic50));
+    }
+
+    private static void ValidateMatrixAgainstPeptide(string peptide, PmhcScoringMatrix matrix)
+    {
+        if (matrix.Rows is null || matrix.Rows.Count == 0)
+        {
+            throw new ArgumentException("Scoring matrix has no position rows.", nameof(matrix));
+        }
+
+        if (peptide.Length != matrix.Rows.Count)
+        {
+            throw new ArgumentException(
+                $"Peptide length {peptide.Length} does not match the matrix position count {matrix.Rows.Count}.",
+                nameof(peptide));
+        }
     }
 
     #endregion
@@ -5829,6 +8979,1164 @@ public static class OncologyAnalyzer
         return new MrdLongitudinalResult(results, firstPositiveIndex);
     }
 
+    // ---------------------------------------------------------------------------------------------
+    // INVAR-style background-subtracted, tumour-AF-weighted ctDNA signal estimation (ONCO-MRD-001).
+    //
+    // Faithfully reproduces the core, caller-reproducible part of the INVAR pipeline (Wan et al. 2020,
+    // Sci. Transl. Med. 12(548):eaaz8084; reference implementation INVAR2, nrlab-CRUK/INVAR2,
+    // R/4_detection/generalisedLikelihoodRatioTest.R and R/shared/detectionFunctions.R):
+    //  (a) per-locus / per-context BACKGROUND error subtraction (caller-supplied background AF per locus);
+    //  (b) tumour-allele-fraction-weighted aggregation (IMAFv2) and a generalised-likelihood-ratio (GLRT)
+    //      detection statistic whose mixture model weights each locus by its tumour AF vs background.
+    // This no-size variant takes an already-cleaned background model per locus. The full INVAR pipeline's
+    // fragment-length (size) weighting, patient-specific outlier suppression, locus-noise filtering and
+    // control-derived background-error estimation are implemented separately below (see
+    // EstimateInvarSignalWithSize, SuppressOutlierLoci, EstimateLocusBackground / PassesBothStrandsFilter).
+    // ---------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Initial value of the per-sample ctDNA fraction <c>p</c> for the INVAR EM maximum-likelihood
+    /// estimator. Source: INVAR2 <c>estimate_p_EM</c> (R/shared/detectionFunctions.R) — <c>initial_p = 0.01</c>.
+    /// </summary>
+    private const double InvarEmInitialP = 0.01;
+
+    /// <summary>
+    /// Number of expectation-maximisation iterations used to estimate the ctDNA fraction <c>p</c>.
+    /// Source: INVAR2 <c>estimate_p_EM</c> (R/shared/detectionFunctions.R) — <c>iterations = 200</c>.
+    /// </summary>
+    private const int InvarEmIterations = 200;
+
+    /// <summary>
+    /// A tracked patient-specific locus for INVAR-style ctDNA signal estimation: its plasma read evidence,
+    /// the tumour allele fraction of the variant, and a caller-supplied background (non-reference) error rate.
+    /// </summary>
+    /// <param name="PlasmaAltReads">Mutant (alternate) supporting reads observed in plasma at this locus (≥ 0).</param>
+    /// <param name="PlasmaTotalReads">Total covering reads in plasma at this locus (≥ 0).</param>
+    /// <param name="TumorAlleleFraction">
+    /// Tumour allele fraction of the tracked variant, <c>AF</c> in INVAR (0 &lt; AF ≤ 1). Loci with higher
+    /// tumour AF carry more ctDNA signal and are weighted more strongly in the likelihood (Wan et al. 2020).
+    /// </param>
+    /// <param name="BackgroundErrorRate">
+    /// Caller-supplied per-locus / per-trinucleotide-context background (non-reference) error rate <c>e</c>
+    /// in INVAR (0 ≤ e &lt; 1), estimated from control plasma samples at the same loci. Subtracted from the
+    /// observed plasma signal and used as the null read-error rate in the likelihood model.
+    /// </param>
+    public readonly record struct InvarLocus(
+        int PlasmaAltReads,
+        int PlasmaTotalReads,
+        double TumorAlleleFraction,
+        double BackgroundErrorRate);
+
+    /// <summary>
+    /// Result of an INVAR-style background-subtracted, tumour-AF-weighted ctDNA signal estimate for one sample.
+    /// </summary>
+    /// <param name="IntegratedMutantAlleleFractionV2">
+    /// Background-subtracted, depth-weighted aggregate tumour fraction (INVAR2 IMAFv2): the depth-weighted mean
+    /// over loci of <c>max(0, locusVAF − backgroundRate)</c>. ≥ 0; equals 0 when no locus exceeds background.
+    /// </param>
+    /// <param name="EstimatedTumorFraction">
+    /// Maximum-likelihood ctDNA fraction <c>p̂</c> from the INVAR EM estimator under the AF-weighted mixture model.
+    /// </param>
+    /// <param name="LikelihoodRatio">
+    /// Generalised-likelihood-ratio detection statistic: <c>logL(p̂) − logL(p = 0)</c> (per-locus mean scaled,
+    /// as in INVAR2). Larger ⇒ stronger ctDNA evidence; ≈ 0 for a pure-background sample.
+    /// </param>
+    /// <param name="Detected">
+    /// <c>true</c> when <see cref="LikelihoodRatio"/> reaches <paramref name="detectionThreshold"/> AND at least
+    /// one mutant read is present; otherwise <c>false</c>.
+    /// </param>
+    /// <param name="LocusCount">Number of informative loci used (tumour AF &gt; 0).</param>
+    public readonly record struct InvarSignalResult(
+        double IntegratedMutantAlleleFractionV2,
+        double EstimatedTumorFraction,
+        double LikelihoodRatio,
+        bool Detected,
+        int LocusCount);
+
+    /// <summary>
+    /// Computes the INVAR2 background-subtracted, depth-weighted integrated mutant allele fraction (IMAFv2):
+    /// the depth-weighted mean over loci of <c>max(0, plasmaVAF − backgroundRate)</c>. Source: INVAR2
+    /// <c>calculateIMAFv2</c> (R/4_detection/generalisedLikelihoodRatioTest.R) — per-context
+    /// <c>MEAN_AF.BS = pmax(0, MEAN_AF − BACKGROUND_AF)</c> then
+    /// <c>weighted.mean(MEAN_AF.BS, TOTAL_DP)</c>.
+    /// </summary>
+    /// <param name="loci">The tracked informative loci (non-null). Loci with 0 total reads contribute 0 weight.</param>
+    /// <returns>The background-subtracted depth-weighted tumour fraction (≥ 0); 0 when no covering reads.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="loci"/> is null.</exception>
+    public static double IntegratedMutantAlleleFractionV2(IEnumerable<InvarLocus> loci)
+    {
+        ArgumentNullException.ThrowIfNull(loci);
+
+        double weightedSum = 0.0;
+        long totalDepth = 0;
+        foreach (InvarLocus locus in loci)
+        {
+            int total = Math.Max(0, locus.PlasmaTotalReads);
+            if (total == 0)
+            {
+                continue;
+            }
+
+            double vaf = (double)Math.Max(0, locus.PlasmaAltReads) / total;
+
+            // Per-locus/per-context background subtraction: signal above background only (INVAR2 pmax(0, .)).
+            double backgroundSubtracted = Math.Max(0.0, vaf - locus.BackgroundErrorRate);
+
+            // Depth-weighted aggregation (INVAR2 weighted.mean(., TOTAL_DP)).
+            weightedSum += backgroundSubtracted * total;
+            totalDepth += total;
+        }
+
+        return totalDepth == 0 ? 0.0 : weightedSum / totalDepth;
+    }
+
+    /// <summary>
+    /// INVAR-style estimate of residual ctDNA signal from a panel of tracked loci, each carrying plasma read
+    /// evidence, a tumour allele fraction, and a caller-supplied per-locus background error rate. Performs
+    /// (a) per-locus background subtraction, (b) tumour-AF-weighted aggregation (IMAFv2), (c) maximum-likelihood
+    /// estimation of the ctDNA fraction <c>p̂</c> and (d) a generalised-likelihood-ratio detection statistic,
+    /// faithfully following INVAR2 (Wan et al. 2020; nrlab-CRUK/INVAR2 detectionFunctions.R, no-size variant).
+    ///
+    /// <para>Mixture model (per read at a locus with tumour AF <c>AF</c>, background <c>e</c>, ctDNA fraction
+    /// <c>p</c>): the probability a read is mutant is <c>q = AF·(1−e)·p + (1−AF)·e·p + e·(1−p)</c>; loci with
+    /// higher <c>AF</c> and lower <c>e</c> contribute more signal, so the estimate is signal-to-noise weighted.</para>
+    /// </summary>
+    /// <param name="loci">Tracked informative loci with plasma evidence, tumour AF and background rate (non-empty).</param>
+    /// <param name="detectionThreshold">
+    /// Minimum generalised-likelihood-ratio statistic to call the sample ctDNA-positive (≥ 0; default 0 ⇒
+    /// any positive evidence with a mutant read is detected). Larger values trade sensitivity for specificity.
+    /// </param>
+    /// <returns>The INVAR signal estimate: IMAFv2, ML ctDNA fraction, likelihood-ratio statistic and detection call.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="loci"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="loci"/> has no informative locus (tumour AF &gt; 0).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="detectionThreshold"/> is negative, or a locus has an out-of-range tumour AF
+    /// (must be 0 &lt; AF ≤ 1 to be informative) or background rate (must be 0 ≤ e &lt; 1).
+    /// </exception>
+    public static InvarSignalResult EstimateInvarSignal(
+        IEnumerable<InvarLocus> loci,
+        double detectionThreshold = 0.0)
+    {
+        ArgumentNullException.ThrowIfNull(loci);
+
+        if (detectionThreshold < 0.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(detectionThreshold), detectionThreshold, "Detection threshold cannot be negative.");
+        }
+
+        var materialised = loci as IReadOnlyCollection<InvarLocus> ?? loci.ToList();
+
+        // IMAFv2 is computed over all covered loci (background-subtracted, depth-weighted).
+        double imafV2 = IntegratedMutantAlleleFractionV2(materialised);
+
+        // Build per-informative-locus vectors for the likelihood model (INVAR uses one row per molecule,
+        // i.e. depth = total covering reads, M = mutant reads). Only loci with tumour AF > 0 are informative.
+        var altReads = new List<double>();
+        var totalReads = new List<double>();
+        var tumorAf = new List<double>();
+        var background = new List<double>();
+        bool anyMutantRead = false;
+        foreach (InvarLocus locus in materialised)
+        {
+            if (locus.TumorAlleleFraction < 0.0 || locus.TumorAlleleFraction > 1.0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(loci), locus.TumorAlleleFraction, "Tumour allele fraction must be in [0, 1].");
+            }
+
+            if (locus.BackgroundErrorRate < 0.0 || locus.BackgroundErrorRate >= 1.0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(loci), locus.BackgroundErrorRate, "Background error rate must be in [0, 1).");
+            }
+
+            // INVAR keeps only loci with tumour AF > 0 (filter(TUMOUR_AF > 0)).
+            if (locus.TumorAlleleFraction <= 0.0)
+            {
+                continue;
+            }
+
+            int total = Math.Max(0, locus.PlasmaTotalReads);
+            if (total == 0)
+            {
+                continue;
+            }
+
+            int alt = Math.Clamp(locus.PlasmaAltReads, 0, total);
+
+            // INVAR guards a zero background by flooring it to one expected error in the locus depth
+            // (BACKGROUND_AF = ifelse(BACKGROUND_AF > 0, BACKGROUND_AF, 1 / BACKGROUND_DP)), so log(e) is finite.
+            double e = locus.BackgroundErrorRate > 0.0 ? locus.BackgroundErrorRate : 1.0 / total;
+
+            altReads.Add(alt);
+            totalReads.Add(total);
+            tumorAf.Add(locus.TumorAlleleFraction);
+            background.Add(e);
+            if (alt > 0)
+            {
+                anyMutantRead = true;
+            }
+        }
+
+        if (altReads.Count == 0)
+        {
+            throw new ArgumentException(
+                "No informative locus (tumour AF > 0 with covering reads) to estimate INVAR signal.", nameof(loci));
+        }
+
+        double pMle = EstimateCtDnaFractionEm(altReads, totalReads, tumorAf, background);
+        double nullLogLik = InvarLogLikelihood(altReads, totalReads, tumorAf, background, 0.0);
+        double altLogLik = InvarLogLikelihood(altReads, totalReads, tumorAf, background, pMle);
+        double likelihoodRatio = altLogLik - nullLogLik;
+
+        bool detected = anyMutantRead && likelihoodRatio >= detectionThreshold;
+
+        return new InvarSignalResult(imafV2, pMle, likelihoodRatio, detected, altReads.Count);
+    }
+
+    /// <summary>
+    /// EM maximum-likelihood estimate of the ctDNA fraction <c>p</c> under the INVAR mixture model.
+    /// Source: INVAR2 <c>estimate_p_EM</c> (R/shared/detectionFunctions.R):
+    /// <c>g = AF·(1−e) + (1−AF)·e</c>;
+    /// E-step <c>Z0 = (1−g)·p / ((1−g)·p + (1−e)·(1−p))</c>, <c>Z1 = g·p / (g·p + e·(1−p))</c>;
+    /// M-step <c>p = Σ(M·Z1 + (R−M)·Z0) / ΣR</c>.
+    /// </summary>
+    private static double EstimateCtDnaFractionEm(
+        IReadOnlyList<double> m,
+        IReadOnlyList<double> r,
+        IReadOnlyList<double> af,
+        IReadOnlyList<double> e)
+    {
+        double p = InvarEmInitialP;
+        for (int iter = 0; iter < InvarEmIterations; iter++)
+        {
+            double numerator = 0.0;
+            double denominator = 0.0;
+            for (int i = 0; i < m.Count; i++)
+            {
+                double g = (af[i] * (1.0 - e[i])) + ((1.0 - af[i]) * e[i]);
+                double z0 = ((1.0 - g) * p) / (((1.0 - g) * p) + ((1.0 - e[i]) * (1.0 - p)));
+                double z1 = (g * p) / ((g * p) + (e[i] * (1.0 - p)));
+                numerator += (m[i] * z1) + ((r[i] - m[i]) * z0);
+                denominator += r[i];
+            }
+
+            p = denominator == 0.0 ? 0.0 : numerator / denominator;
+        }
+
+        return p;
+    }
+
+    /// <summary>
+    /// Per-locus-mean log-likelihood of the sample given a ctDNA fraction <c>p</c> under the INVAR mixture model.
+    /// Source: INVAR2 <c>calc_log_likelihood</c> (R/shared/detectionFunctions.R):
+    /// <c>q = AF·(1−e)·p + (1−AF)·e·p + e·(1−p)</c>;
+    /// <c>logL = Σ[ lchoose(R, M) + M·log(q) + (R−M)·log(1−q) ] / length(R)</c>.
+    /// </summary>
+    private static double InvarLogLikelihood(
+        IReadOnlyList<double> m,
+        IReadOnlyList<double> r,
+        IReadOnlyList<double> af,
+        IReadOnlyList<double> e,
+        double p)
+    {
+        double sum = 0.0;
+        for (int i = 0; i < m.Count; i++)
+        {
+            double q = (af[i] * (1.0 - e[i]) * p) + ((1.0 - af[i]) * e[i] * p) + (e[i] * (1.0 - p));
+
+            // Clamp q strictly inside (0, 1) so the logs stay finite at the boundaries (p = 0, e = 0 ⇒ q = 0).
+            q = Math.Clamp(q, double.Epsilon, 1.0 - double.Epsilon);
+
+            double lchoose = LogChoose(r[i], m[i]);
+            sum += lchoose + (m[i] * Math.Log(q)) + ((r[i] - m[i]) * Math.Log(1.0 - q));
+        }
+
+        return sum / m.Count;
+    }
+
+    /// <summary>
+    /// Natural log of the binomial coefficient C(n, k) via log-gamma, matching R's <c>lchoose(n, k)</c>:
+    /// <c>lgamma(n+1) − lgamma(k+1) − lgamma(n−k+1)</c>.
+    /// </summary>
+    private static double LogChoose(double n, double k)
+    {
+        if (k < 0.0 || k > n)
+        {
+            return double.NegativeInfinity;
+        }
+
+        return LogGamma(n + 1.0) - LogGamma(k + 1.0) - LogGamma(n - k + 1.0);
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // INVAR fragment-size weighting, patient-specific outlier suppression, locus-noise filtering
+    // and control-derived background-error estimation (ONCO-MRD-001 — closing the residual).
+    //
+    // Ports of the open-source INVAR2 pipeline (nrlab-CRUK/INVAR2; Wan et al. 2020, Sci. Transl. Med.
+    // 12(548):eaaz8084):
+    //  (1) size-weighted GLRT — calc_likelihood_ratio_with_RL / calc_log_likelihood_with_RL /
+    //      estimate_p_EM_with_RL (R/shared/detectionFunctions.R);
+    //  (2) outlier suppression — repolish (R/3_outlier_suppression/outlierSuppression.R);
+    //  (3) locus-noise filtering and (4) background-error estimation from control samples —
+    //      createLociErrorRateTable (R/1_parse/onTargetErrorRatesAndFilter.R).
+    // ---------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Default outlier-suppression threshold <c>α</c>: a tracked locus is flagged as a patient-specific
+    /// outlier when its one-sided binomial tail probability under the sample ctDNA estimate falls at or below
+    /// <c>α / (number of loci)</c> (Bonferroni). Source: INVAR2 <c>outlierSuppression.R</c> option
+    /// <c>--outlier-suppression</c> default <c>0.05</c>.
+    /// </summary>
+    public const double InvarDefaultOutlierSuppression = 0.05;
+
+    /// <summary>
+    /// Default maximum per-locus allele fraction for a control/plasma locus to be used when estimating the
+    /// sample ctDNA fraction during outlier suppression (loci above this are assumed to carry real signal and
+    /// are excluded from the null estimate). Source: INVAR2 <c>--allele-frequency-threshold</c> default <c>0.01</c>.
+    /// </summary>
+    public const double InvarDefaultAlleleFrequencyThreshold = 0.01;
+
+    /// <summary>
+    /// Default maximum mutant-read count for a locus to contribute to the null ctDNA estimate during outlier
+    /// suppression. Source: INVAR2 <c>--maximum-mutant-reads</c> default <c>10</c>.
+    /// </summary>
+    public const int InvarDefaultMaximumMutantReads = 10;
+
+    /// <summary>
+    /// Default maximum fraction of control samples that may carry any alt read at a locus before the locus is
+    /// blacklisted as recurrently noisy. Source: INVAR2 <c>--control-proportion</c> default <c>0.1</c>
+    /// (<c>createLociErrorRateTable</c>: <c>N_SAMPLES_WITH_SIGNAL / N_SAMPLES &lt; proportion_of_controls</c>).
+    /// </summary>
+    public const double InvarDefaultControlProportion = 0.1;
+
+    /// <summary>
+    /// Default maximum mean control background allele fraction for a locus to pass the locus-noise filter.
+    /// Source: INVAR2 <c>--max-background-allele-frequency</c> default <c>0.01</c>
+    /// (<c>createLociErrorRateTable</c>: <c>BACKGROUND_AF &lt; max_background_mean_AF</c>).
+    /// </summary>
+    public const double InvarDefaultMaxBackgroundAlleleFrequency = 0.01;
+
+    /// <summary>
+    /// One molecule (read/fragment) covering a tracked locus, used by the INVAR fragment-size-weighted GLRT.
+    /// Each molecule is mutant or wild-type and carries its cfDNA fragment length, the tumour allele fraction of
+    /// the tracked variant, and the per-locus background error rate. Source: INVAR2
+    /// <c>calculateLikelihoodRatioForSampleWithSize</c> (one row per molecule, <c>DP = 1</c>).
+    /// </summary>
+    /// <param name="IsMutant"><c>true</c> when this molecule supports the tumour (alternate) allele.</param>
+    /// <param name="FragmentLength">cfDNA fragment length in bp (&gt; 0).</param>
+    /// <param name="TumorAlleleFraction">Tumour allele fraction <c>AF</c> of the tracked variant (0 &lt; AF ≤ 1).</param>
+    /// <param name="BackgroundErrorRate">Per-locus background (non-reference) error rate <c>e</c> (0 ≤ e &lt; 1).</param>
+    public readonly record struct InvarMolecule(
+        bool IsMutant,
+        int FragmentLength,
+        double TumorAlleleFraction,
+        double BackgroundErrorRate);
+
+    /// <summary>
+    /// An empirical cfDNA fragment-size profile: for each fragment length, the probability that a molecule of
+    /// that length is drawn from the distribution (mutant/tumour or wild-type/normal). Tumour-derived cfDNA is
+    /// shorter, so the mutant profile is enriched at short lengths. Source: INVAR2
+    /// <c>estimate_real_length_probability</c> / <c>sizeCharacterisation.R</c> (per-size <c>PROPORTION = COUNT/TOTAL</c>).
+    /// </summary>
+    public sealed class FragmentSizeProfile
+    {
+        private readonly IReadOnlyDictionary<int, double> _mutantProbability;
+        private readonly IReadOnlyDictionary<int, double> _normalProbability;
+        private readonly double _uniformProbability;
+
+        /// <summary>
+        /// Builds a size profile from per-length molecule counts for mutant (tumour) and wild-type (normal)
+        /// fragments. Each profile is normalised to a probability mass (INVAR2 <c>PROPORTION = COUNT/TOTAL</c>).
+        /// Lengths absent from a profile fall back to the uniform probability <c>1/(maxLength−minLength+1)</c>
+        /// over the supplied length range (INVAR2 <c>onlyWeighMutants</c> fallback).
+        /// </summary>
+        /// <param name="mutantCounts">Per-fragment-length molecule counts for tumour-derived (mutant) reads.</param>
+        /// <param name="normalCounts">Per-fragment-length molecule counts for wild-type (normal) reads.</param>
+        /// <param name="minLength">Minimum fragment length in the size window (INVAR2 default 60).</param>
+        /// <param name="maxLength">Maximum fragment length in the size window (INVAR2 default 300).</param>
+        public FragmentSizeProfile(
+            IReadOnlyDictionary<int, int> mutantCounts,
+            IReadOnlyDictionary<int, int> normalCounts,
+            int minLength = InvarDefaultMinFragmentLength,
+            int maxLength = InvarDefaultMaxFragmentLength)
+        {
+            ArgumentNullException.ThrowIfNull(mutantCounts);
+            ArgumentNullException.ThrowIfNull(normalCounts);
+            if (minLength <= 0 || maxLength < minLength)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(maxLength), maxLength, "Require 0 < minLength <= maxLength for the size window.");
+            }
+
+            _mutantProbability = Normalise(mutantCounts);
+            _normalProbability = Normalise(normalCounts);
+
+            // Uniform fall-back over the size window (INVAR2: 1/((max-min)+1)).
+            _uniformProbability = 1.0 / ((maxLength - minLength) + 1);
+        }
+
+        /// <summary>
+        /// Private constructor for precomputed per-length probability masses (used by the KDE factory).
+        /// </summary>
+        private FragmentSizeProfile(
+            IReadOnlyDictionary<int, double> mutantProbability,
+            IReadOnlyDictionary<int, double> normalProbability,
+            double uniformProbability)
+        {
+            _mutantProbability = mutantProbability;
+            _normalProbability = normalProbability;
+            _uniformProbability = uniformProbability;
+        }
+
+        /// <summary>
+        /// Builds an <b>opt-in KDE-smoothed</b> size profile: the per-length signal-vs-noise weights are obtained
+        /// from a <b>Gaussian kernel density estimate</b> of the fragment-length distribution rather than the raw
+        /// discrete <c>COUNT/TOTAL</c> histogram. This matches INVAR2's <c>estimate_real_length_probability</c>,
+        /// which calls R's <c>density()</c> (Gaussian kernel) on the per-length counts and integrates the smoothed
+        /// density over each integer-length bin <c>[L−0.5, L+0.5]</c>; tumour-derived cfDNA is shorter, so the
+        /// smoothed mutant profile up-weights short fragments without the sparse-bin noise of the raw histogram.
+        /// <para>
+        /// Kernel estimator (Silverman 1986, eq. 2.2a): for observed lengths <c>xᵢ</c> with weights
+        /// <c>wᵢ = countᵢ / Σcount</c> and bandwidth <c>h</c>, the smoothed density is
+        /// <c>f̂(t) = Σᵢ wᵢ · φ((t − xᵢ)/h) / h</c> with <c>φ</c> the standard-normal pdf (the Gaussian kernel,
+        /// which integrates to 1 — Silverman eq. 2.2). The per-length probability mass is the analytic integral
+        /// over the bin, <c>P(L) = Σᵢ wᵢ · [Φ((L+0.5 − xᵢ)/h) − Φ((L−0.5 − xᵢ)/h)]</c>, renormalised over the
+        /// integer support <c>[minLength, maxLength]</c> so the masses sum to 1.
+        /// </para>
+        /// </summary>
+        /// <param name="mutantCounts">Per-fragment-length molecule counts for tumour-derived (mutant) reads.</param>
+        /// <param name="normalCounts">Per-fragment-length molecule counts for wild-type (normal) reads.</param>
+        /// <param name="bandwidth">
+        /// Explicit Gaussian-kernel bandwidth <c>h</c> (&gt; 0) in bp, or <c>null</c> (default) to choose it by
+        /// Silverman's rule of thumb (see <paramref name="bandwidthAdjust"/>).
+        /// </param>
+        /// <param name="bandwidthAdjust">
+        /// Multiplier applied to the auto-selected bandwidth (R <c>density(adjust=…)</c>); the bandwidth used is
+        /// <c>bandwidthAdjust · h_Silverman</c>. Ignored when <paramref name="bandwidth"/> is supplied. Must be &gt; 0;
+        /// default <c>1.0</c> (INVAR2 uses <c>0.03</c>).
+        /// </param>
+        /// <param name="minLength">Minimum fragment length in the size window (INVAR2 default 60).</param>
+        /// <param name="maxLength">Maximum fragment length in the size window (INVAR2 default 300).</param>
+        /// <returns>A KDE-smoothed <see cref="FragmentSizeProfile"/>.</returns>
+        /// <exception cref="ArgumentNullException">Either count map is null.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">Invalid window, bandwidth, or adjust.</exception>
+        public static FragmentSizeProfile FromKernelDensity(
+            IReadOnlyDictionary<int, int> mutantCounts,
+            IReadOnlyDictionary<int, int> normalCounts,
+            double? bandwidth = null,
+            double bandwidthAdjust = 1.0,
+            int minLength = InvarDefaultMinFragmentLength,
+            int maxLength = InvarDefaultMaxFragmentLength)
+        {
+            ArgumentNullException.ThrowIfNull(mutantCounts);
+            ArgumentNullException.ThrowIfNull(normalCounts);
+            if (minLength <= 0 || maxLength < minLength)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(maxLength), maxLength, "Require 0 < minLength <= maxLength for the size window.");
+            }
+
+            if (bandwidth is <= 0.0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(bandwidth), bandwidth, "Bandwidth must be positive.");
+            }
+
+            if (bandwidthAdjust <= 0.0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(bandwidthAdjust), bandwidthAdjust, "Bandwidth adjust must be positive.");
+            }
+
+            IReadOnlyDictionary<int, double> mutant =
+                SmoothToProbabilities(mutantCounts, bandwidth, bandwidthAdjust, minLength, maxLength);
+            IReadOnlyDictionary<int, double> normal =
+                SmoothToProbabilities(normalCounts, bandwidth, bandwidthAdjust, minLength, maxLength);
+
+            double uniform = 1.0 / ((maxLength - minLength) + 1);
+            return new FragmentSizeProfile(mutant, normal, uniform);
+        }
+
+        /// <summary>
+        /// Smooths per-length counts into a per-integer-length probability mass via a weighted Gaussian KDE,
+        /// integrated analytically over each integer bin and renormalised over the support. Empty / single-point
+        /// inputs return an empty map (so the caller's uniform fall-back applies, mirroring INVAR2's guard
+        /// <c>if (length(counts) &gt; 1)</c> in <c>estimate_real_length_probability</c>).
+        /// </summary>
+        private static IReadOnlyDictionary<int, double> SmoothToProbabilities(
+            IReadOnlyDictionary<int, int> counts,
+            double? bandwidth,
+            double bandwidthAdjust,
+            int minLength,
+            int maxLength)
+        {
+            // Collect observed lengths with positive counts.
+            var lengths = new List<int>(counts.Count);
+            var weights = new List<double>(counts.Count);
+            long total = 0;
+            foreach (KeyValuePair<int, int> kv in counts)
+            {
+                int c = Math.Max(0, kv.Value);
+                if (c > 0)
+                {
+                    lengths.Add(kv.Key);
+                    weights.Add(c);
+                    total += c;
+                }
+            }
+
+            var result = new Dictionary<int, double>();
+
+            // INVAR2 guard: need more than one distinct point to estimate a density; otherwise fall back to uniform.
+            if (lengths.Count <= 1 || total == 0)
+            {
+                return result;
+            }
+
+            // Weights normalise to a probability mass (INVAR2: weights <- counts / sum(counts)).
+            for (int i = 0; i < weights.Count; i++)
+            {
+                weights[i] /= total;
+            }
+
+            double h = bandwidth ?? (bandwidthAdjust * SilvermanBandwidth(lengths));
+
+            // Analytic integral of the weighted Gaussian KDE over each integer bin [L-0.5, L+0.5]:
+            //   P(L) = Σ wᵢ · [Φ((L+0.5 − xᵢ)/h) − Φ((L−0.5 − xᵢ)/h)]   (Φ = standard-normal CDF).
+            double sum = 0.0;
+            for (int len = minLength; len <= maxLength; len++)
+            {
+                double mass = 0.0;
+                for (int i = 0; i < lengths.Count; i++)
+                {
+                    double upper = StandardNormalCdf(((len + 0.5) - lengths[i]) / h);
+                    double lower = StandardNormalCdf(((len - 0.5) - lengths[i]) / h);
+                    mass += weights[i] * (upper - lower);
+                }
+
+                // Store every in-support length (even a ~0 tail mass) so the smoothed profile is self-contained and
+                // the uniform fall-back never applies inside the support — that fall-back is the DISCRETE profile's
+                // behaviour for unobserved lengths, not the KDE's (whose smoothed mass is defined everywhere).
+                result[len] = mass;
+                sum += mass;
+            }
+
+            // Renormalise over the integer support so the per-length masses sum to 1.
+            if (sum > 0.0)
+            {
+                var keys = new List<int>(result.Keys);
+                foreach (int len in keys)
+                {
+                    result[len] /= sum;
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Silverman's rule-of-thumb bandwidth for a Gaussian kernel (Silverman 1986, eq. 3.31; R
+        /// <c>bw.nrd0</c>): <c>h = 0.9 · min(σ̂, IQR/1.34) · n^(−1/5)</c> over the per-read sample obtained by
+        /// expanding each observed length by its weight. The robust scale <c>min(σ̂, IQR/1.34)</c> falls back to
+        /// <c>σ̂</c>, then <c>|x₁|</c>, then <c>1</c> when the quartiles coincide (R <c>bw.nrd0</c> guard).
+        /// </summary>
+        private static double SilvermanBandwidth(IReadOnlyList<int> distinctLengths)
+        {
+            // Use the distinct observed lengths as the sample (matching R's density(x): bw.nrd0 is computed on the
+            // supplied length vector and ignores the kernel weights). At least two points are guaranteed here.
+            int n = distinctLengths.Count;
+            double mean = 0.0;
+            foreach (int v in distinctLengths)
+            {
+                mean += v;
+            }
+
+            mean /= n;
+
+            double ss = 0.0;
+            foreach (int v in distinctLengths)
+            {
+                double d = v - mean;
+                ss += d * d;
+            }
+
+            // Sample standard deviation (R sd() uses the n−1 divisor).
+            double sd = Math.Sqrt(ss / (n - 1));
+
+            var sorted = new List<int>(distinctLengths);
+            sorted.Sort();
+            double iqr = Quantile(sorted, 0.75) - Quantile(sorted, 0.25);
+
+            // Robust scale with R bw.nrd0's fall-back chain (1.34 normalises the IQR of a Gaussian to its σ).
+            double lo = Math.Min(sd, iqr / 1.34);
+            if (lo <= 0.0)
+            {
+                lo = sd > 0.0 ? sd : (Math.Abs(sorted[0]) > 0.0 ? Math.Abs(sorted[0]) : 1.0);
+            }
+
+            return 0.9 * lo * Math.Pow(n, -0.2);
+        }
+
+        /// <summary>Type-7 (R default) linear-interpolation quantile of a sorted sample.</summary>
+        private static double Quantile(IReadOnlyList<int> sorted, double probability)
+        {
+            int n = sorted.Count;
+            if (n == 1)
+            {
+                return sorted[0];
+            }
+
+            // R type 7: h = (n − 1)·p; interpolate between order statistics h_floor and h_floor+1.
+            double h = (n - 1) * probability;
+            int lo = (int)Math.Floor(h);
+            int hi = Math.Min(lo + 1, n - 1);
+            return sorted[lo] + ((h - lo) * (sorted[hi] - sorted[lo]));
+        }
+
+        /// <summary>Probability that a tumour-derived (mutant) molecule has the given fragment length.</summary>
+        public double MutantProbability(int fragmentLength) =>
+            _mutantProbability.TryGetValue(fragmentLength, out double p) ? p : _uniformProbability;
+
+        /// <summary>Probability that a wild-type (normal) molecule has the given fragment length.</summary>
+        public double NormalProbability(int fragmentLength) =>
+            _normalProbability.TryGetValue(fragmentLength, out double p) ? p : _uniformProbability;
+
+        private static IReadOnlyDictionary<int, double> Normalise(IReadOnlyDictionary<int, int> counts)
+        {
+            long total = 0;
+            foreach (KeyValuePair<int, int> kv in counts)
+            {
+                total += Math.Max(0, kv.Value);
+            }
+
+            var result = new Dictionary<int, double>(counts.Count);
+            if (total == 0)
+            {
+                return result;
+            }
+
+            foreach (KeyValuePair<int, int> kv in counts)
+            {
+                result[kv.Key] = Math.Max(0, kv.Value) / (double)total;
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Standard-normal cumulative distribution function <c>Φ(z) = ½·[1 + erf(z/√2)]</c>. Used to integrate the
+        /// Gaussian kernel analytically over each fragment-length bin (the Gaussian kernel's antiderivative is
+        /// <c>Φ</c>). Reference: <c>Φ(z) = ½[1 + erf(z/√2)]</c>.
+        /// </summary>
+        private static double StandardNormalCdf(double z) => 0.5 * (1.0 + Erf(z / Sqrt2));
+
+        /// <summary>1/√2, used in the Φ(z) = ½[1 + erf(z/√2)] identity.</summary>
+        private static readonly double Sqrt2 = Math.Sqrt(2.0);
+
+        /// <summary>2/√π, the leading constant of the error-function series erf(x) = (2/√π)·Σ …</summary>
+        private static readonly double TwoOverSqrtPi = 2.0 / Math.Sqrt(Math.PI);
+
+        /// <summary>1/√π, the leading constant of the complementary-error continued fraction.</summary>
+        private static readonly double InvSqrtPi = 1.0 / Math.Sqrt(Math.PI);
+
+        /// <summary>
+        /// |x| beyond which the Maclaurin series loses precision; above it the complementary continued fraction is
+        /// used instead. Both are exact (double-precision-limited); 2.0 keeps each well-conditioned.
+        /// </summary>
+        private const double ErfSeriesBound = 2.0;
+
+        /// <summary>
+        /// Gauss error function, exact to double precision over the whole real line via two first-principles
+        /// expansions (no tabulated approximation coefficients):
+        /// <list type="bullet">
+        /// <item>|x| ≤ 2 — the everywhere-convergent Maclaurin series
+        /// <c>erf(x) = (2/√π)·Σ_{k≥0} (−1)ᵏ·x^(2k+1) / (k!·(2k+1))</c>, with each term derived from the previous by
+        /// the ratio <c>t_k = t_{k−1}·(−x²)·(2k−1)/(k·(2k+1))</c>.</item>
+        /// <item>|x| &gt; 2 — <c>erf(x) = sign(x)·(1 − erfc(|x|))</c> with <c>erfc</c> from its classical
+        /// continued fraction <c>erfc(x) = (e^{−x²}/√π)·1/(x + ½/(x + 1/(x + 3⁄2/(x + 2/(x + …)))))</c>, which
+        /// converges rapidly for <c>x ≥ 2</c>.</item>
+        /// </list>
+        /// </summary>
+        private static double Erf(double x)
+        {
+            if (x == 0.0)
+            {
+                return 0.0;
+            }
+
+            double ax = Math.Abs(x);
+            if (ax <= ErfSeriesBound)
+            {
+                double x2 = x * x;
+                double term = x;          // k = 0 term: x / (0! · 1) = x.
+                double sum = x;
+                for (int k = 1; k < 200; k++)
+                {
+                    term *= -x2 * ((2 * k) - 1) / (k * ((2 * k) + 1));
+                    double previous = sum;
+                    sum += term;
+                    if (sum == previous)
+                    {
+                        break; // Converged to machine precision.
+                    }
+                }
+
+                return TwoOverSqrtPi * sum;
+            }
+
+            // Lentz evaluation of the continued fraction erfc(x) = (e^{-x²}/√π) / (x + a1/(x + a2/(x + …)))
+            // with partial numerators a_k = k/2. Exact (double-precision-limited) for x ≥ 2.
+            double cf = ax;
+            for (int k = 60; k >= 1; k--)
+            {
+                cf = ax + ((k / 2.0) / cf);
+            }
+
+            double erfc = Math.Exp(-ax * ax) * InvSqrtPi / cf;
+            double erf = 1.0 - erfc;
+            return x < 0.0 ? -erf : erf;
+        }
+    }
+
+    /// <summary>Default minimum cfDNA fragment length for the INVAR size window. Source: INVAR2
+    /// <c>--minimum-fragment-length</c> default <c>60</c>.</summary>
+    public const int InvarDefaultMinFragmentLength = 60;
+
+    /// <summary>Default maximum cfDNA fragment length for the INVAR size window. Source: INVAR2
+    /// <c>--maximum-fragment-length</c> default <c>300</c>.</summary>
+    public const int InvarDefaultMaxFragmentLength = 300;
+
+    /// <summary>
+    /// INVAR fragment-size-weighted generalised-likelihood-ratio statistic. Each molecule contributes a size
+    /// likelihood: a read of length L is weighted by the ratio of its probability under the tumour size profile
+    /// (P1) to the normal size profile (P0), so that short, tumour-like fragments carry more ctDNA evidence.
+    /// Source: INVAR2 <c>calc_likelihood_ratio_with_RL</c> / <c>calc_log_likelihood_with_RL</c> /
+    /// <c>estimate_p_EM_with_RL</c> (R/shared/detectionFunctions.R):
+    /// per molecule <c>L0 = (1−e)·P0·(1−p) + (1−g)·P1·p</c>, <c>L1 = e·P0·(1−p) + g·P1·p</c> with
+    /// <c>g = AF·(1−e) + (1−AF)·e</c>; <c>logL = Σ[ M·log(L1) + (1−M)·log(L0) ] / n</c>; the EM and the
+    /// detection statistic <c>LR = logL(p̂) − logL(0)</c> mirror the no-size variant.
+    /// </summary>
+    /// <param name="molecules">Per-molecule observations covering the tracked loci (non-empty, AF &gt; 0).</param>
+    /// <param name="sizeProfile">Mutant/normal cfDNA fragment-size profiles (non-null).</param>
+    /// <param name="detectionThreshold">Minimum LR to call ctDNA-positive (≥ 0; default 0).</param>
+    /// <returns>The size-weighted INVAR signal estimate (ML <c>p̂</c>, LR, detection call).</returns>
+    /// <exception cref="ArgumentNullException">Any argument is null.</exception>
+    /// <exception cref="ArgumentException">No informative molecule (tumour AF &gt; 0).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Negative threshold or out-of-range AF / background.</exception>
+    public static InvarSignalResult EstimateInvarSignalWithSize(
+        IEnumerable<InvarMolecule> molecules,
+        FragmentSizeProfile sizeProfile,
+        double detectionThreshold = 0.0)
+    {
+        ArgumentNullException.ThrowIfNull(molecules);
+        ArgumentNullException.ThrowIfNull(sizeProfile);
+        if (detectionThreshold < 0.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(detectionThreshold), detectionThreshold, "Detection threshold cannot be negative.");
+        }
+
+        var af = new List<double>();
+        var background = new List<double>();
+        var mutant = new List<double>();
+        var p0 = new List<double>();
+        var p1 = new List<double>();
+        bool anyMutant = false;
+        foreach (InvarMolecule mol in molecules)
+        {
+            if (mol.TumorAlleleFraction < 0.0 || mol.TumorAlleleFraction > 1.0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(molecules), mol.TumorAlleleFraction, "Tumour allele fraction must be in [0, 1].");
+            }
+
+            if (mol.BackgroundErrorRate < 0.0 || mol.BackgroundErrorRate >= 1.0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(molecules), mol.BackgroundErrorRate, "Background error rate must be in [0, 1).");
+            }
+
+            // Only informative molecules (tumour AF > 0) contribute (INVAR filter(TUMOUR_AF > 0)).
+            if (mol.TumorAlleleFraction <= 0.0)
+            {
+                continue;
+            }
+
+            af.Add(mol.TumorAlleleFraction);
+            // Background floored to a tiny positive value so log(L) stays finite (INVAR 1/BACKGROUND_DP guard).
+            background.Add(mol.BackgroundErrorRate > 0.0 ? mol.BackgroundErrorRate : 1.0 / Math.Max(1, af.Count));
+            mutant.Add(mol.IsMutant ? 1.0 : 0.0);
+            p0.Add(sizeProfile.NormalProbability(mol.FragmentLength));
+            p1.Add(sizeProfile.MutantProbability(mol.FragmentLength));
+            if (mol.IsMutant)
+            {
+                anyMutant = true;
+            }
+        }
+
+        if (af.Count == 0)
+        {
+            throw new ArgumentException(
+                "No informative molecule (tumour AF > 0) to estimate INVAR signal.", nameof(molecules));
+        }
+
+        double pMle = EstimateCtDnaFractionEmWithRl(mutant, af, background, p0, p1);
+        double nullLogLik = InvarLogLikelihoodWithRl(mutant, af, background, p0, p1, 0.0);
+        double altLogLik = InvarLogLikelihoodWithRl(mutant, af, background, p0, p1, pMle);
+        double likelihoodRatio = altLogLik - nullLogLik;
+
+        bool detected = anyMutant && likelihoodRatio >= detectionThreshold;
+        return new InvarSignalResult(double.NaN, pMle, likelihoodRatio, detected, af.Count);
+    }
+
+    /// <summary>
+    /// EM estimate of the ctDNA fraction <c>p</c> under the INVAR fragment-size-weighted mixture (per molecule).
+    /// Source: INVAR2 <c>estimate_p_EM_with_RL</c> (R/shared/detectionFunctions.R):
+    /// E-step <c>Z0 = (1−g)·P1·p / ((1−g)·P1·p + (1−e)·P0·(1−p))</c>,
+    /// <c>Z1 = g·P1·p / (g·P1·p + e·P0·(1−p))</c>; M-step <c>p = Σ(M·Z1 + (1−M)·Z0) / n</c>.
+    /// </summary>
+    private static double EstimateCtDnaFractionEmWithRl(
+        IReadOnlyList<double> m,
+        IReadOnlyList<double> af,
+        IReadOnlyList<double> e,
+        IReadOnlyList<double> p0,
+        IReadOnlyList<double> p1)
+    {
+        double p = InvarEmInitialP;
+        for (int iter = 0; iter < InvarEmIterations; iter++)
+        {
+            double numerator = 0.0;
+            for (int i = 0; i < m.Count; i++)
+            {
+                double g = (af[i] * (1.0 - e[i])) + ((1.0 - af[i]) * e[i]);
+                double intNorm = (1.0 - g) * p1[i] * p;
+                double z0 = intNorm / (intNorm + ((1.0 - e[i]) * p0[i] * (1.0 - p)));
+                double intMut = g * p1[i] * p;
+                double z1 = intMut / (intMut + (e[i] * p0[i] * (1.0 - p)));
+                numerator += (m[i] * z1) + ((1.0 - m[i]) * z0);
+            }
+
+            p = numerator / m.Count;
+        }
+
+        return p;
+    }
+
+    /// <summary>
+    /// Per-molecule-mean log-likelihood of the sample under the INVAR fragment-size-weighted mixture.
+    /// Source: INVAR2 <c>calc_log_likelihood_with_RL</c> (R/shared/detectionFunctions.R):
+    /// <c>L0 = (1−e)·P0·(1−p) + (1−g)·P1·p</c>, <c>L1 = e·P0·(1−p) + g·P1·p</c>;
+    /// <c>logL = Σ[ M·log(L1) + (1−M)·log(L0) ] / n</c>.
+    /// </summary>
+    private static double InvarLogLikelihoodWithRl(
+        IReadOnlyList<double> m,
+        IReadOnlyList<double> af,
+        IReadOnlyList<double> e,
+        IReadOnlyList<double> p0,
+        IReadOnlyList<double> p1,
+        double p)
+    {
+        double sum = 0.0;
+        for (int i = 0; i < m.Count; i++)
+        {
+            double g = (af[i] * (1.0 - e[i])) + ((1.0 - af[i]) * e[i]);
+            double l0 = ((1.0 - e[i]) * p0[i] * (1.0 - p)) + ((1.0 - g) * p1[i] * p);
+            double l1 = (e[i] * p0[i] * (1.0 - p)) + (g * p1[i] * p);
+
+            // Keep the logs finite at the boundaries (p = 0, profile zero).
+            l0 = Math.Max(l0, double.Epsilon);
+            l1 = Math.Max(l1, double.Epsilon);
+            sum += (m[i] * Math.Log(l1)) + ((1.0 - m[i]) * Math.Log(l0));
+        }
+
+        return sum / m.Count;
+    }
+
+    /// <summary>
+    /// Result of INVAR patient-specific outlier suppression for one tracked locus.
+    /// </summary>
+    /// <param name="Locus">The tracked locus.</param>
+    /// <param name="IsOutlier">
+    /// <c>true</c> when the locus carries more mutant signal than the sample-wide ctDNA estimate explains —
+    /// its one-sided binomial tail probability is ≤ the Bonferroni outlier threshold (INVAR <c>OUTLIER.PASS = FALSE</c>).
+    /// </param>
+    /// <param name="BinomialTailProbability">
+    /// One-sided binomial probability <c>P(X ≥ observed mutant reads)</c> under the sample ctDNA estimate
+    /// (INVAR2 <c>binom.test(..., alternative = "greater")</c>).
+    /// </param>
+    public readonly record struct InvarOutlierResult(
+        InvarLocus Locus,
+        bool IsOutlier,
+        double BinomialTailProbability);
+
+    /// <summary>
+    /// INVAR patient-specific outlier suppression. Estimates the sample ctDNA fraction from the loci that are
+    /// consistent with the null (low AF, few mutant reads), then flags any locus whose mutant-read count is a
+    /// one-sided binomial outlier under that estimate, using a Bonferroni-corrected threshold over the loci.
+    /// Source: INVAR2 <c>repolish</c> (R/3_outlier_suppression/outlierSuppression.R):
+    /// <c>P_THRESHOLD = outlierSuppression / n_distinct(loci)</c>;
+    /// <c>P_ESTIMATE = max(estimate_p_EM(...), weighted.mean(AF, TUMOUR_AF))</c>;
+    /// <c>OUTLIER.PASS = binom.test(mutReads, DP, P_ESTIMATE, "greater")$p.value &gt; P_THRESHOLD</c>.
+    /// </summary>
+    /// <param name="loci">Tracked informative loci (non-empty).</param>
+    /// <param name="outlierSuppression">Family-wise outlier threshold α (default 0.05).</param>
+    /// <param name="alleleFrequencyThreshold">Max per-locus AF used in the null estimate (default 0.01).</param>
+    /// <param name="maximumMutantReads">Max mutant reads for a locus in the null estimate (default 10).</param>
+    /// <returns>Per-locus outlier verdicts in input order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="loci"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="loci"/> is empty.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A threshold is out of range.</exception>
+    public static IReadOnlyList<InvarOutlierResult> SuppressOutlierLoci(
+        IEnumerable<InvarLocus> loci,
+        double outlierSuppression = InvarDefaultOutlierSuppression,
+        double alleleFrequencyThreshold = InvarDefaultAlleleFrequencyThreshold,
+        int maximumMutantReads = InvarDefaultMaximumMutantReads)
+    {
+        ArgumentNullException.ThrowIfNull(loci);
+        if (outlierSuppression <= 0.0 || outlierSuppression > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(outlierSuppression), outlierSuppression, "Outlier suppression α must be in (0, 1].");
+        }
+
+        if (alleleFrequencyThreshold <= 0.0 || alleleFrequencyThreshold > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(alleleFrequencyThreshold), alleleFrequencyThreshold, "AF threshold must be in (0, 1].");
+        }
+
+        if (maximumMutantReads < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maximumMutantReads), maximumMutantReads, "Maximum mutant reads cannot be negative.");
+        }
+
+        var materialised = loci as IReadOnlyList<InvarLocus> ?? loci.ToList();
+        if (materialised.Count == 0)
+        {
+            throw new ArgumentException("Cannot suppress outliers in an empty locus set.", nameof(loci));
+        }
+
+        // Null ctDNA estimate from loci consistent with background (INVAR repolish forPEstimate filter).
+        var nullM = new List<double>();
+        var nullR = new List<double>();
+        var nullAf = new List<double>();
+        var nullBg = new List<double>();
+        double afWeightSum = 0.0;
+        double afWeight = 0.0;
+        foreach (InvarLocus locus in materialised)
+        {
+            int total = Math.Max(0, locus.PlasmaTotalReads);
+            if (total == 0 || locus.TumorAlleleFraction <= 0.0)
+            {
+                continue;
+            }
+
+            int alt = Math.Clamp(locus.PlasmaAltReads, 0, total);
+            double vaf = (double)alt / total;
+            if (vaf > alleleFrequencyThreshold || alt > maximumMutantReads)
+            {
+                continue;
+            }
+
+            double e = locus.BackgroundErrorRate > 0.0 ? locus.BackgroundErrorRate : 1.0 / total;
+            nullM.Add(alt);
+            nullR.Add(total);
+            nullAf.Add(locus.TumorAlleleFraction);
+            nullBg.Add(e);
+
+            // weighted.mean(AF, TUMOUR_AF): weight the observed VAF by tumour AF.
+            afWeightSum += vaf * locus.TumorAlleleFraction;
+            afWeight += locus.TumorAlleleFraction;
+        }
+
+        double pEstimate = 0.0;
+        if (nullM.Count > 0)
+        {
+            double emP = EstimateCtDnaFractionEm(nullM, nullR, nullAf, nullBg);
+            double weightedMean = afWeight > 0.0 ? afWeightSum / afWeight : 0.0;
+            pEstimate = Math.Max(emP, weightedMean);
+        }
+
+        // Bonferroni threshold over the distinct loci (INVAR P_THRESHOLD).
+        double pThreshold = outlierSuppression / materialised.Count;
+
+        var results = new List<InvarOutlierResult>(materialised.Count);
+        foreach (InvarLocus locus in materialised)
+        {
+            int total = Math.Max(0, locus.PlasmaTotalReads);
+            int alt = total == 0 ? 0 : Math.Clamp(locus.PlasmaAltReads, 0, total);
+            double tail = BinomialUpperTail(alt, total, pEstimate);
+            bool isOutlier = tail <= pThreshold;
+            results.Add(new InvarOutlierResult(locus, isOutlier, tail));
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    /// One-sided upper-tail binomial probability <c>P(X ≥ x)</c> for <c>x</c> successes in <c>n</c> trials with
+    /// success probability <c>p</c>, matching R's <c>binom.test(x, n, p, alternative = "greater")$p.value</c>.
+    /// Returns 1 for <c>x ≤ 0</c> (INVAR <c>ifelse(x &lt;= 0, 1, ...)</c>).
+    /// </summary>
+    private static double BinomialUpperTail(int x, int n, double p)
+    {
+        if (x <= 0 || n <= 0)
+        {
+            return 1.0;
+        }
+
+        if (x > n)
+        {
+            return 0.0;
+        }
+
+        // Numerically stable: sum exp(lchoose + i·log p + (n−i)·log(1−p)) over i = x..n.
+        if (p <= 0.0)
+        {
+            return 0.0; // No mutant reads expected under p = 0, yet x ≥ 1 ⇒ tail mass 0.
+        }
+
+        if (p >= 1.0)
+        {
+            return 1.0;
+        }
+
+        double logP = Math.Log(p);
+        double log1MinusP = Math.Log(1.0 - p);
+        double tail = 0.0;
+        for (int i = x; i <= n; i++)
+        {
+            tail += Math.Exp(LogChoose(n, i) + (i * logP) + ((n - i) * log1MinusP));
+        }
+
+        return Math.Min(1.0, tail);
+    }
+
+    /// <summary>
+    /// Per-control-sample observation of a tracked locus, used to estimate the per-locus background error rate
+    /// and the locus-noise (blacklist) flag from a panel of control (non-cancer) plasma samples.
+    /// Source: INVAR2 <c>createLociErrorRateTable</c> (R/1_parse/onTargetErrorRatesAndFilter.R).
+    /// </summary>
+    /// <param name="ControlSampleId">Identifier of the control sample this observation comes from.</param>
+    /// <param name="AltForwardReads">Alt reads on the forward strand (<c>ALT_F</c>, ≥ 0).</param>
+    /// <param name="AltReverseReads">Alt reads on the reverse strand (<c>ALT_R</c>, ≥ 0).</param>
+    /// <param name="TotalReads">Total covering reads at the locus in this sample (<c>DP</c>, ≥ 0).</param>
+    public readonly record struct ControlLocusObservation(
+        string ControlSampleId,
+        int AltForwardReads,
+        int AltReverseReads,
+        int TotalReads);
+
+    /// <summary>
+    /// Estimated background error model and locus-noise verdict for one tracked locus, derived from control samples.
+    /// </summary>
+    /// <param name="BackgroundErrorRate">
+    /// Pooled control background allele fraction <c>BACKGROUND_AF = Σ(ALT_F+ALT_R) / Σ DP</c> across control samples.
+    /// </param>
+    /// <param name="ControlSampleCount">Number of control samples observed at this locus (<c>N_SAMPLES</c>).</param>
+    /// <param name="ControlSamplesWithSignal">Number of control samples with ≥ 1 alt read (<c>N_SAMPLES_WITH_SIGNAL</c>).</param>
+    /// <param name="LocusNoisePass">
+    /// <c>true</c> when the locus is NOT recurrently noisy: signal appears in fewer than
+    /// <c>controlProportion</c> of control samples AND the pooled background AF is below
+    /// <c>maxBackgroundAlleleFrequency</c> (INVAR <c>LOCUS_NOISE.PASS</c>).
+    /// </param>
+    public readonly record struct LocusErrorRate(
+        double BackgroundErrorRate,
+        int ControlSampleCount,
+        int ControlSamplesWithSignal,
+        bool LocusNoisePass);
+
+    /// <summary>
+    /// Estimates a tracked locus's per-locus background error rate from a panel of control (non-cancer) plasma
+    /// samples and computes the INVAR locus-noise (blacklist) verdict. The background error is the pooled control
+    /// allele fraction; a locus fails the noise filter when alt reads recur in too many control samples or the
+    /// pooled background AF is too high. Source: INVAR2 <c>createLociErrorRateTable</c>
+    /// (R/1_parse/onTargetErrorRatesAndFilter.R): <c>BACKGROUND_AF = Σ(ALT_F+ALT_R)/Σ DP</c>;
+    /// <c>LOCUS_NOISE.PASS = (N_SAMPLES_WITH_SIGNAL / N_SAMPLES) &lt; proportion_of_controls AND
+    /// BACKGROUND_AF &lt; max_background_mean_AF</c>.
+    /// </summary>
+    /// <param name="controlObservations">Per-control-sample observations of the locus (non-empty).</param>
+    /// <param name="controlProportion">Max fraction of control samples with signal before blacklisting (default 0.1).</param>
+    /// <param name="maxBackgroundAlleleFrequency">Max pooled control background AF (default 0.01).</param>
+    /// <returns>The estimated background rate and locus-noise verdict.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="controlObservations"/> is null.</exception>
+    /// <exception cref="ArgumentException">No control observation supplied.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A threshold is out of range.</exception>
+    public static LocusErrorRate EstimateLocusBackground(
+        IEnumerable<ControlLocusObservation> controlObservations,
+        double controlProportion = InvarDefaultControlProportion,
+        double maxBackgroundAlleleFrequency = InvarDefaultMaxBackgroundAlleleFrequency)
+    {
+        ArgumentNullException.ThrowIfNull(controlObservations);
+        if (controlProportion <= 0.0 || controlProportion > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(controlProportion), controlProportion, "Control proportion must be in (0, 1].");
+        }
+
+        if (maxBackgroundAlleleFrequency <= 0.0 || maxBackgroundAlleleFrequency > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maxBackgroundAlleleFrequency),
+                maxBackgroundAlleleFrequency,
+                "Maximum background allele frequency must be in (0, 1].");
+        }
+
+        long altSum = 0;
+        long depthSum = 0;
+        int sampleCount = 0;
+        int samplesWithSignal = 0;
+        foreach (ControlLocusObservation obs in controlObservations)
+        {
+            int alt = Math.Max(0, obs.AltForwardReads) + Math.Max(0, obs.AltReverseReads);
+            int depth = Math.Max(0, obs.TotalReads);
+            altSum += alt;
+            depthSum += depth;
+            sampleCount++;
+            if (alt > 0)
+            {
+                samplesWithSignal++;
+            }
+        }
+
+        if (sampleCount == 0)
+        {
+            throw new ArgumentException(
+                "At least one control observation is required to estimate background.", nameof(controlObservations));
+        }
+
+        double backgroundAf = depthSum == 0 ? 0.0 : (double)altSum / depthSum;
+        double signalFraction = (double)samplesWithSignal / sampleCount;
+        bool locusNoisePass = signalFraction < controlProportion && backgroundAf < maxBackgroundAlleleFrequency;
+
+        return new LocusErrorRate(backgroundAf, sampleCount, samplesWithSignal, locusNoisePass);
+    }
+
+    /// <summary>
+    /// INVAR both-strands filter for a tracked locus: a locus passes when the alt allele is observed on BOTH the
+    /// forward and reverse strands, or when there is no alt signal at all. Source: INVAR2
+    /// <c>onTargetErrorRatesAndFilter.R</c> — <c>BOTH_STRANDS.PASS = ALT_F &gt; 0 &amp; ALT_R &gt; 0 | AF == 0</c>.
+    /// </summary>
+    /// <param name="altForwardReads">Alt reads on the forward strand (≥ 0).</param>
+    /// <param name="altReverseReads">Alt reads on the reverse strand (≥ 0).</param>
+    /// <returns><c>true</c> when the locus passes the both-strands filter.</returns>
+    public static bool PassesBothStrandsFilter(int altForwardReads, int altReverseReads)
+    {
+        int f = Math.Max(0, altForwardReads);
+        int r = Math.Max(0, altReverseReads);
+
+        // AF == 0 ⟺ no alt reads on either strand.
+        if (f == 0 && r == 0)
+        {
+            return true;
+        }
+
+        return f > 0 && r > 0;
+    }
+
     #endregion
 
     #region Clonal Hematopoiesis Filtering (ONCO-CHIP-001)
@@ -5924,7 +10232,7 @@ public static class OncologyAnalyzer
     {
         ArgumentNullException.ThrowIfNull(variants);
 
-        if (minVaf <= 0.0 || minVaf > 1.0)
+        if (!(minVaf > 0.0) || minVaf > 1.0)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(minVaf), minVaf, "Minimum CHIP VAF must be in the interval (0, 1].");
@@ -5973,7 +10281,7 @@ public static class OncologyAnalyzer
         ArgumentNullException.ThrowIfNull(variants);
         ArgumentNullException.ThrowIfNull(whiteBloodCellVariants);
 
-        if (minVaf <= 0.0 || minVaf > 1.0)
+        if (!(minVaf > 0.0) || minVaf > 1.0)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(minVaf), minVaf, "Minimum CHIP VAF must be in the interval (0, 1].");
@@ -6012,6 +10320,179 @@ public static class OncologyAnalyzer
     /// <summary>Locus identity key (chromosome, 1-based position, ref allele, alt allele) for matched-WBC subtraction.</summary>
     private static (string, int, string, string) LocusKey(ChipVariant v) =>
         (v.Chromosome, v.Position, v.ReferenceAllele, v.AlternateAllele);
+
+    /// <summary>Locus identity key (chromosome, 1-based position, ref allele, alt allele) for a matched-WBC observation.</summary>
+    private static (string, int, string, string) LocusKey(WbcObservation o) =>
+        (o.Chromosome, o.Position, o.ReferenceAllele, o.AlternateAllele);
+
+    /// <summary>
+    /// Minimum supporting alternate reads in the matched white-blood-cell (WBC) sample for a variant to count
+    /// as a confident clonal-hematopoiesis (CH) call. Source: Bolton et al. (2020), <i>Nat Genet</i>
+    /// 52(11):1219–1226 — CH mutations were defined as having "a variant allele fraction of at least 2% and
+    /// at least 10 supporting reads."
+    /// </summary>
+    public const int ChipMinWbcSupportingReads = 10;
+
+    /// <summary>
+    /// Default WBC-to-tumour VAF fold ratio at or above which a variant is called WBC / clonal-hematopoiesis
+    /// origin rather than tumour-derived. Source: Bolton et al. (2020), <i>Nat Genet</i> 52(11):1219–1226 —
+    /// a variant detected in blood with "a VAF of at least twice that in the tumor … were considered" CH
+    /// (the ratio "was chosen … through simulations of leukocyte contamination in the tumor").
+    /// </summary>
+    public const double DefaultWbcVafFold = 2.0;
+
+    /// <summary>
+    /// WBC-to-tumour VAF fold ratio for lymph-node tumour biopsy sites, where leukocyte admixture is higher.
+    /// Source: Bolton et al. (2020), <i>Nat Genet</i> 52(11):1219–1226 — "1.5 times the VAF if the tumor
+    /// biopsy site was a lymph node."
+    /// </summary>
+    public const double LymphNodeWbcVafFold = 1.5;
+
+    /// <summary>
+    /// The called origin of a tumour/plasma variant under strict matched-WBC origin calling.
+    /// Source: Bolton et al. (2020), <i>Nat Genet</i> 52(11):1219–1226; Razavi et al. (2019), <i>Nat Med</i>
+    /// 25:1928–1937.
+    /// </summary>
+    public enum VariantOrigin
+    {
+        /// <summary>The variant is tumour-derived (somatic): not confidently present in the matched WBC.</summary>
+        Tumor = 0,
+
+        /// <summary>
+        /// The variant is white-blood-cell / clonal-hematopoiesis derived: present in the matched WBC at a
+        /// VAF ≥ <see cref="ChipVafThreshold"/> with ≥ <see cref="ChipMinWbcSupportingReads"/> supporting
+        /// reads, and a WBC-to-tumour VAF ratio ≥ the configured fold (Bolton et al. 2020).
+        /// </summary>
+        Chip = 1
+    }
+
+    /// <summary>
+    /// A variant observation in the matched white-blood-cell (WBC) sample: the locus plus the WBC variant
+    /// allele fraction and supporting alt-read count used to call origin in
+    /// <see cref="CallVariantOrigin(IEnumerable{ChipVariant}, IEnumerable{WbcObservation}, double, double, int)"/>.
+    /// Source: Bolton et al. (2020), <i>Nat Genet</i> 52(11):1219–1226.
+    /// </summary>
+    /// <param name="Chromosome">Contig / chromosome identifier of the locus.</param>
+    /// <param name="Position">1-based reference position.</param>
+    /// <param name="ReferenceAllele">Reference allele.</param>
+    /// <param name="AlternateAllele">Alternate (mutant) allele.</param>
+    /// <param name="Vaf">WBC variant allele fraction in [0, 1].</param>
+    /// <param name="AltReads">Alternate (mutant) supporting reads in the WBC sample (≥ 0).</param>
+    public readonly record struct WbcObservation(
+        string Chromosome,
+        int Position,
+        string ReferenceAllele,
+        string AlternateAllele,
+        double Vaf,
+        int AltReads = 0);
+
+    /// <summary>
+    /// The called origin of a single tumour/plasma <see cref="ChipVariant"/> together with the matched-WBC
+    /// evidence the call was based on.
+    /// </summary>
+    /// <param name="Variant">The tumour/plasma variant whose origin was called.</param>
+    /// <param name="Origin">The called origin (<see cref="VariantOrigin.Chip"/> or <see cref="VariantOrigin.Tumor"/>).</param>
+    /// <param name="WbcVaf">The matched-WBC VAF at this locus, or <c>0</c> when the locus is absent from the WBC sample.</param>
+    /// <param name="WbcAltReads">The matched-WBC supporting alt reads at this locus, or <c>0</c> when absent.</param>
+    public readonly record struct VariantOriginCall(
+        ChipVariant Variant,
+        VariantOrigin Origin,
+        double WbcVaf,
+        int WbcAltReads);
+
+    /// <summary>
+    /// Performs <b>strict matched-WBC origin calling</b>: given per-variant matched white-blood-cell (WBC)
+    /// observations, assigns each tumour/plasma variant an origin instead of using the gene + VAF heuristic.
+    /// A variant is called <see cref="VariantOrigin.Chip"/> (white-blood-cell / clonal-hematopoiesis derived)
+    /// when a matched-WBC observation exists at the same locus that ALL hold: its WBC VAF is at or above
+    /// <paramref name="chipMinWbcVaf"/> (Bolton et al. 2020: ≥ 2%), it carries at least
+    /// <paramref name="minWbcAltReads"/> supporting reads (Bolton et al. 2020: ≥ 10), and its WBC VAF is at
+    /// least <paramref name="wbcVafFold"/> times the variant's tumour/plasma VAF (Bolton et al. 2020: ≥ 2×,
+    /// or use <see cref="LymphNodeWbcVafFold"/> = 1.5× for a lymph-node biopsy). Otherwise the variant is
+    /// called <see cref="VariantOrigin.Tumor"/> (tumour-derived / somatic). This is the definitive
+    /// origin test (Razavi et al. 2019: matched cfDNA–WBC sequencing assigns variant origin tumour-vs-CH);
+    /// it does NOT apply the <see cref="IdentifyCHIPVariants"/> gene + VAF fallback, so it does not
+    /// over-remove driver-gene variants that are genuinely absent from the matched WBC.
+    /// </summary>
+    /// <param name="variants">Tumour/plasma variants whose origin is to be called (non-null).</param>
+    /// <param name="whiteBloodCellObservations">Matched-WBC observations carrying per-locus WBC VAF and alt reads (non-null).</param>
+    /// <param name="wbcVafFold">
+    /// Minimum WBC-to-tumour VAF ratio for a WBC call (default <see cref="DefaultWbcVafFold"/> = 2.0; pass
+    /// <see cref="LymphNodeWbcVafFold"/> = 1.5 for a lymph-node biopsy site); must be ≥ 1.
+    /// </param>
+    /// <param name="chipMinWbcVaf">Minimum WBC VAF for a WBC call (default <see cref="ChipVafThreshold"/> = 0.02); in (0, 1].</param>
+    /// <param name="minWbcAltReads">Minimum WBC supporting alt reads for a WBC call (default <see cref="ChipMinWbcSupportingReads"/> = 10); ≥ 1.</param>
+    /// <returns>One <see cref="VariantOriginCall"/> per input variant, in input order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="variants"/> or <paramref name="whiteBloodCellObservations"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="wbcVafFold"/> &lt; 1, <paramref name="chipMinWbcVaf"/> ∉ (0, 1], or <paramref name="minWbcAltReads"/> &lt; 1.</exception>
+    public static IReadOnlyList<VariantOriginCall> CallVariantOrigin(
+        IEnumerable<ChipVariant> variants,
+        IEnumerable<WbcObservation> whiteBloodCellObservations,
+        double wbcVafFold = DefaultWbcVafFold,
+        double chipMinWbcVaf = ChipVafThreshold,
+        int minWbcAltReads = ChipMinWbcSupportingReads)
+    {
+        ArgumentNullException.ThrowIfNull(variants);
+        ArgumentNullException.ThrowIfNull(whiteBloodCellObservations);
+
+        if (!(wbcVafFold >= 1.0))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(wbcVafFold), wbcVafFold, "WBC-to-tumour VAF fold ratio must be at least 1.");
+        }
+
+        if (!(chipMinWbcVaf > 0.0) || chipMinWbcVaf > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(chipMinWbcVaf), chipMinWbcVaf, "Minimum WBC VAF must be in the interval (0, 1].");
+        }
+
+        if (minWbcAltReads < 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(minWbcAltReads), minWbcAltReads, "Minimum WBC alt reads must be at least 1.");
+        }
+
+        // Index the matched-WBC observations by locus. If several observations map to the same locus, keep
+        // the one with the strongest evidence (highest VAF) so a confident WBC call is not missed.
+        var wbcByLocus = new Dictionary<(string, int, string, string), WbcObservation>();
+        foreach (WbcObservation obs in whiteBloodCellObservations)
+        {
+            (string, int, string, string) key = LocusKey(obs);
+            if (!wbcByLocus.TryGetValue(key, out WbcObservation existing) || obs.Vaf > existing.Vaf)
+            {
+                wbcByLocus[key] = obs;
+            }
+        }
+
+        var calls = new List<VariantOriginCall>();
+        foreach (ChipVariant variant in variants)
+        {
+            double wbcVaf = 0.0;
+            int wbcAltReads = 0;
+            VariantOrigin origin = VariantOrigin.Tumor;
+
+            if (wbcByLocus.TryGetValue(LocusKey(variant), out WbcObservation wbc))
+            {
+                wbcVaf = wbc.Vaf;
+                wbcAltReads = wbc.AltReads;
+
+                // Bolton et al. (2020): WBC/CH origin requires WBC VAF >= 2%, >= 10 supporting reads, and a
+                // WBC VAF at least (fold) x the tumour VAF.
+                bool meetsVaf = wbc.Vaf >= chipMinWbcVaf;
+                bool meetsReads = wbc.AltReads >= minWbcAltReads;
+                bool meetsFold = wbc.Vaf >= wbcVafFold * variant.Vaf;
+                if (meetsVaf && meetsReads && meetsFold)
+                {
+                    origin = VariantOrigin.Chip;
+                }
+            }
+
+            calls.Add(new VariantOriginCall(variant, origin, wbcVaf, wbcAltReads));
+        }
+
+        return calls;
+    }
 
     #endregion
 
@@ -6825,7 +11306,10 @@ public static class OncologyAnalyzer
 
         foreach (string field in fields)
         {
-            if (field.Length == 0 || !field.All(char.IsDigit))
+            // WHO HLA Nomenclature fields are ASCII decimal-digit groups ('0'–'9'); char.IsDigit also accepts
+            // non-ASCII Unicode decimal digits (e.g. fullwidth '０', Arabic-Indic '٢'), which are not valid
+            // nomenclature and must be rejected as malformed.
+            if (field.Length == 0 || !field.All(static c => c is >= '0' and <= '9'))
             {
                 throw new FormatException($"HLA allele field '{field}' must be a non-empty digit group: '{alleleName}'.");
             }
@@ -6878,12 +11362,19 @@ public static class OncologyAnalyzer
     /// <exception cref="ArgumentException">A copy number is negative, or the p value is outside [0, 1].</exception>
     public static HlaLohResult DetectHlaLoh(HlaAlleleCopyNumber alleleCopyNumber)
     {
-        if (alleleCopyNumber.Allele1CopyNumber < 0 || alleleCopyNumber.Allele2CopyNumber < 0)
+        // Copy numbers must be finite and non-negative. NaN must be rejected explicitly: `NaN < 0` is false, so
+        // a NaN copy number would otherwise slip past the bound and leak into the loss-threshold comparison.
+        if (!double.IsFinite(alleleCopyNumber.Allele1CopyNumber) || !double.IsFinite(alleleCopyNumber.Allele2CopyNumber)
+            || alleleCopyNumber.Allele1CopyNumber < 0 || alleleCopyNumber.Allele2CopyNumber < 0)
         {
-            throw new ArgumentException("HLA allele copy numbers must be non-negative.", nameof(alleleCopyNumber));
+            throw new ArgumentException("HLA allele copy numbers must be finite and non-negative.", nameof(alleleCopyNumber));
         }
 
-        if (alleleCopyNumber.AllelicImbalancePValue is < 0.0 or > 1.0)
+        // The p value must be finite and in [0, 1]. NaN must be rejected explicitly: both `NaN < 0.0` and
+        // `NaN > 1.0` are false, so a NaN p value would otherwise pass this check and silently be treated as
+        // not-significant in the `< 0.01` test rather than reported as malformed input.
+        if (!double.IsFinite(alleleCopyNumber.AllelicImbalancePValue)
+            || alleleCopyNumber.AllelicImbalancePValue is < 0.0 or > 1.0)
         {
             throw new ArgumentException("Allelic-imbalance p value must be in [0, 1].", nameof(alleleCopyNumber));
         }
@@ -7486,6 +11977,31 @@ public static class OncologyAnalyzer
         {
             throw new ArgumentException(
                 "Reference cohort must contain at least two values to compute a sample standard deviation.",
+                nameof(referenceCohort));
+        }
+
+        // Zero-spread (all values identical) is the documented σ = 0 error case
+        // (NormalizeExpressionLevels.java fatal error). Detect it robustly by the
+        // cohort's RANGE rather than from the computed SD: with a constant cohort,
+        // accumulating the mean incurs a ≤1-ULP rounding error, which leaves a tiny
+        // non-zero Σ(rᵢ − μ)² and an SD on the order of 1e-17 — the `sd == 0` test
+        // alone would then be bypassed and emit a spurious ~1e20 z-score. The
+        // max == min check is exact for a no-spread cohort and immune to that drift.
+        double first = referenceCohort[0];
+        bool anyDifferent = false;
+        for (int i = 1; i < n; i++)
+        {
+            if (referenceCohort[i] != first)
+            {
+                anyDifferent = true;
+                break;
+            }
+        }
+
+        if (!anyDifferent)
+        {
+            throw new ArgumentException(
+                "Cannot compute a z-score relative to a reference cohort with a standard deviation of 0.",
                 nameof(referenceCohort));
         }
 

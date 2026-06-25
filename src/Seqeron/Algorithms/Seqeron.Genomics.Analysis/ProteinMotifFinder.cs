@@ -37,6 +37,26 @@ public static class ProteinMotifFinder
         string Description);
 
     /// <summary>
+    /// A profile-HMM domain hit carrying the Viterbi bit <see cref="Score"/> and the HMMER
+    /// E-value derived from the profile's <c>STATS LOCAL VITERBI</c> Gumbel calibration.
+    /// </summary>
+    /// <param name="Name">Domain family name (e.g. "SH3").</param>
+    /// <param name="Accession">Pfam accession (e.g. "PF00018").</param>
+    /// <param name="Start">0-based start of the scored span (sequence start for the glocal score).</param>
+    /// <param name="End">0-based inclusive end of the scored span.</param>
+    /// <param name="Score">Viterbi log-odds score in bits.</param>
+    /// <param name="EValue">Viterbi E-value E = P·Z (P from the profile's Gumbel STATS, Z = database size).</param>
+    /// <param name="Description">Domain description.</param>
+    public readonly record struct ProteinDomainHit(
+        string Name,
+        string Accession,
+        int Start,
+        int End,
+        double Score,
+        double EValue,
+        string Description);
+
+    /// <summary>
     /// Represents a PROSITE-style pattern.
     /// </summary>
     public readonly record struct PrositePattern(
@@ -164,6 +184,13 @@ public static class ProteinMotifFinder
     }
 
     /// <summary>
+    /// Upper bound on time spent matching a single user-supplied regex pattern. A pathological
+    /// (catastrophic-backtracking) pattern that exceeds this budget is treated as a non-matching
+    /// failure (no matches) rather than being allowed to hang the scan.
+    /// </summary>
+    private static readonly TimeSpan RegexMatchTimeout = TimeSpan.FromSeconds(2);
+
+    /// <summary>
     /// Finds all occurrences of a specific pattern in a protein sequence.
     /// Uses lookahead-based matching to discover overlapping occurrences,
     /// consistent with PROSITE ScanProsite behavior (De Castro et al. 2006).
@@ -182,18 +209,43 @@ public static class ProteinMotifFinder
         Regex regex;
         try
         {
-            // Lookahead wrapper enables overlapping match discovery
-            regex = new Regex("(?=(" + regexPattern + "))", RegexOptions.IgnoreCase);
+            // Lookahead wrapper enables overlapping match discovery.
+            // A bounded match timeout protects against catastrophic-backtracking patterns
+            // (e.g. "(A+)+B" over a long homopolymer): a valid-but-pathological regex compiles
+            // fine but could otherwise blow up exponentially at match time and hang the scan.
+            // RegexMatchTimeoutException is swallowed below — consistent with the documented
+            // "invalid/pathological pattern → no matches, never a hang" contract.
+            regex = new Regex("(?=(" + regexPattern + "))", RegexOptions.IgnoreCase, RegexMatchTimeout);
         }
         catch
         {
             yield break;
         }
 
-        var matches = regex.Matches(upper);
+        // Materialize the matches under a guard so a backtracking timeout (thrown during the
+        // lazy regex walk) is swallowed rather than leaking out of this enumerator.
+        List<Match> matches;
+        try
+        {
+            matches = regex.Matches(upper).Cast<Match>().ToList();
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            yield break;
+        }
+
         foreach (Match match in matches)
         {
             var captured = match.Groups[1];
+
+            // A motif occurrence must span at least one residue. A zero-width capture
+            // (e.g. a pattern like ".{0}", "$", "(?=...)", or "A?" matching the empty
+            // string) would otherwise yield a degenerate MotifMatch with an out-of-bounds
+            // Start (== sequence length) and End < Start at the end-of-string position,
+            // violating the 0 ≤ Start ≤ End ≤ n−1 coordinate invariant. Skip such captures.
+            if (captured.Length == 0)
+                continue;
+
             double score = CalculateMotifScore(captured.Value, regexPattern);
 
             yield return new MotifMatch(
@@ -1282,58 +1334,295 @@ public static class ProteinMotifFinder
 
     #region Domain Finding
 
+    // --- Exact PROSITE PATTERN signatures (deterministic, regex-like, citable) ---
+    //
+    // The following three signatures are reproduced VERBATIM from official PROSITE PATTERN
+    // entries and translated to .NET regex using the PROSITE pattern syntax rules
+    // (PROSITE/ScanProsite user manual: 'x' → any residue, [..] → allowed set,
+    // {..} → excluded set, '-' separators dropped, x(n) → repetition):
+    // https://prosite.expasy.org/scanprosite/scanprosite_doc.html
+    //
+    // These are deterministic patterns, NOT trained HMM profiles, so they are reproduced exactly.
+
     /// <summary>
-    /// Finds common protein domains using signature patterns.
+    /// Zinc finger C2H2 PROSITE PATTERN PS00028 (Pfam PF00096): C-x(2,4)-C-x(3)-[LIVMFYWC]-x(8)-H-x(3,5)-H.
+    /// Source: PROSITE PS00028 (https://prosite.expasy.org/PS00028); Krishna SS et al. (2003) NAR 31:532–550.
     /// </summary>
+    private const string ZincFingerC2H2Pattern = @"C.{2,4}C.{3}[LIVMFYWC].{8}H.{3,5}H";
+
+    /// <summary>
+    /// WD-repeats signature PROSITE PATTERN PS00678 (WD_REPEATS_1; Pfam PF00400), verbatim:
+    /// [LIVMSTAC]-[LIVMFYWSTAGC]-[LIMSTAG]-[LIVMSTAGC]-x(2)-[DN]-x-{P}-[LIVMWSTAC]-{DP}-[LIVMFSTAG]-W-[DEN]-[LIVMFSTAGCN].
+    /// Translated: x → '.', x(2) → '.{2}', {P} → '[^P]', {DP} → '[^DP]', '-' separators dropped.
+    /// Source: PROSITE PS00678 (https://prosite.expasy.org/PS00678); Neer EJ et al. (1994) Nature 371:297–300.
+    /// </summary>
+    private const string Wd40RepeatPattern =
+        @"[LIVMSTAC][LIVMFYWSTAGC][LIMSTAG][LIVMSTAGC].{2}[DN].[^P][LIVMWSTAC][^DP][LIVMFSTAG]W[DEN][LIVMFSTAGCN]";
+
+    /// <summary>
+    /// Walker A / P-loop (ATP/GTP-binding) PROSITE PATTERN PS00017 (Pfam PF00069 kinase ATP-binding site):
+    /// [AG]-x(4)-G-K-[ST]. Source: PROSITE PS00017 (https://prosite.expasy.org/PS00017);
+    /// Walker JE et al. (1982) EMBO J 1:945–951.
+    /// </summary>
+    private const string WalkerAPattern = @"[AG].{4}GK[ST]";
+
+    /// <summary>
+    /// Finds common protein domains using deterministic PROSITE PATTERN signatures.
+    /// </summary>
+    /// <remarks>
+    /// Only domains with an EXACT PROSITE pattern are detected here: zinc finger C2H2 (PS00028),
+    /// WD-repeats (PS00678), and the Walker A / P-loop ATP-binding site (PS00017). Domains whose
+    /// only PROSITE signature is a weight-matrix PROFILE — SH3 (PS50002) and PDZ (PS50106) — have
+    /// no deterministic pattern and are intentionally NOT detected here: a profile/HMM is a trained
+    /// model that cannot be reproduced as an exact regex without fabricating a signature.
+    /// </remarks>
     public static IEnumerable<ProteinDomain> FindDomains(string proteinSequence)
     {
         if (string.IsNullOrEmpty(proteinSequence))
             yield break;
 
-        // Check for zinc finger domains
+        // Zinc finger C2H2 — exact PROSITE pattern PS00028.
         var zincFingers = FindMotifByPattern(proteinSequence,
-            @"C.{2,4}C.{3}[LIVMFYWC].{8}H.{3,5}H", "Zinc Finger C2H2", "PF00096");
+            ZincFingerC2H2Pattern, "Zinc Finger C2H2", "PF00096");
         foreach (var zf in zincFingers)
         {
             yield return new ProteinDomain("Zinc Finger C2H2", "PF00096",
                 zf.Start, zf.End, zf.Score, "Zinc finger, C2H2 type");
         }
 
-        // Check for WD40 repeats
+        // WD40 repeats — exact PROSITE pattern PS00678 (WD_REPEATS_1).
         var wd40 = FindMotifByPattern(proteinSequence,
-            @"[LIVMFYWC].{5,12}[WF]D", "WD40 Repeat", "PF00400");
+            Wd40RepeatPattern, "WD40 Repeat", "PF00400");
         foreach (var wd in wd40)
         {
             yield return new ProteinDomain("WD40 Repeat", "PF00400",
                 wd.Start, wd.End, wd.Score, "WD40/YVTN repeat-like-containing domain");
         }
 
-        // Check for SH3 domain signature
-        var sh3 = FindMotifByPattern(proteinSequence,
-            @"[LIVMF].{2}[GA]W[FYW].{5,8}[LIVMF]", "SH3", "PF00018");
-        foreach (var s in sh3)
-        {
-            yield return new ProteinDomain("SH3", "PF00018",
-                s.Start, s.End, s.Score, "SH3 domain");
-        }
-
-        // Check for PDZ domain
-        var pdz = FindMotifByPattern(proteinSequence,
-            @"[LIVMF][ST][LIVMF].{2}G[LIVMF].{3,4}[LIVMF].{2}[DEN]", "PDZ", "PF00595");
-        foreach (var p in pdz)
-        {
-            yield return new ProteinDomain("PDZ", "PF00595",
-                p.Start, p.End, p.Score, "PDZ domain");
-        }
-
-        // Check for kinase domain ATP-binding
+        // Kinase ATP-binding / P-loop — exact PROSITE pattern PS00017 (Walker A).
         var kinase = FindMotifByPattern(proteinSequence,
-            @"[AG].{4}GK[ST]", "Protein Kinase", "PF00069");
+            WalkerAPattern, "Protein Kinase", "PF00069");
         foreach (var k in kinase)
         {
             yield return new ProteinDomain("Protein Kinase ATP-binding", "PF00069",
                 k.Start, k.End, k.Score, "Protein kinase domain, ATP-binding site");
         }
+    }
+
+    #endregion
+
+    #region Profile-HMM Domain Detection (Plan7; opt-in)
+
+    // Bundled CC0 Pfam profile HMMs (see Resources/README.md). These domains have NO deterministic
+    // PROSITE pattern — they are trained profile HMMs — so they are detected with the Plan7 engine,
+    // not the regex FindDomains path. Provenance + CC0 licence documented in the Evidence artifact.
+    private static readonly (string Resource, string Name, string Accession, string Description)[] BundledProfiles =
+    {
+        ("PF00018_SH3_1.hmm", "SH3", "PF00018", "SH3 domain"),
+        ("PF00595_PDZ.hmm",   "PDZ", "PF00595", "PDZ domain"),
+        ("PF00400_WD40.hmm",  "WD40", "PF00400", "WD domain, G-beta repeat"),
+    };
+
+    private static readonly Lazy<Plan7ProfileHmm[]> LazyBundledHmms = new(() =>
+        BundledProfiles.Select(p => Plan7ProfileHmm.LoadEmbedded(p.Resource)).ToArray());
+
+    /// <summary>
+    /// Detects SH3, PDZ and WD40 domains by scoring the protein against bundled Pfam profile HMMs
+    /// (PF00018, PF00595, PF00400) with the Plan7 Viterbi log-odds algorithm.
+    /// </summary>
+    /// <remarks>
+    /// This is an <b>opt-in</b> path, independent of <see cref="FindDomains"/> (which uses exact
+    /// PROSITE patterns and is unchanged). A domain is reported when its Viterbi log-odds score in
+    /// bits is at least <paramref name="minBitScore"/>. The reported <c>Score</c> is the Viterbi
+    /// bit score; <c>Start</c>/<c>End</c> span the whole input (the glocal full-profile score is a
+    /// whole-sequence quantity, not a sub-alignment envelope — see the algorithm doc residual).
+    /// </remarks>
+    /// <param name="proteinSequence">Amino-acid sequence.</param>
+    /// <param name="minBitScore">Minimum Viterbi bit score to report a domain. Default 10 bits.</param>
+    public static IEnumerable<ProteinDomain> FindDomainsByHmm(string proteinSequence, double minBitScore = DefaultHmmMinBitScore)
+    {
+        if (string.IsNullOrEmpty(proteinSequence))
+            yield break;
+
+        var hmms = LazyBundledHmms.Value;
+        for (int p = 0; p < BundledProfiles.Length; p++)
+        {
+            double bits = ScoreBits(hmms[p], proteinSequence);
+            if (bits >= minBitScore)
+            {
+                var meta = BundledProfiles[p];
+                yield return new ProteinDomain(meta.Name, meta.Accession,
+                    0, proteinSequence.Length - 1, bits, meta.Description);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Scores a protein against a single bundled Pfam profile HMM, returning the Plan7 Viterbi
+    /// log-odds score in <b>bits</b> (natural-log score / ln 2). Opt-in; PROSITE path unchanged.
+    /// </summary>
+    /// <param name="accession">Pfam accession: "PF00018" (SH3), "PF00595" (PDZ) or "PF00400" (WD40).</param>
+    public static double ScoreDomainHmm(string proteinSequence, string accession)
+    {
+        ArgumentNullException.ThrowIfNull(proteinSequence);
+        ArgumentNullException.ThrowIfNull(accession);
+        int idx = Array.FindIndex(BundledProfiles, p => p.Accession == accession);
+        if (idx < 0)
+            throw new ArgumentException($"Unknown bundled Pfam profile: '{accession}'.", nameof(accession));
+        return ScoreBits(LazyBundledHmms.Value[idx], proteinSequence);
+    }
+
+    // ln 2, for converting natural-log (nat) log-odds scores to bits.
+    private const double LogOddsBitsPerNat = 0.69314718055994530941723212145818; // ln 2
+    // Default reporting threshold (bits) for FindDomainsByHmm.
+    private const double DefaultHmmMinBitScore = 10.0;
+    // Default database size Z for E-value reporting (single-target search).
+    private const double DefaultDatabaseSize = 1.0;
+
+    private static double ScoreBits(Plan7ProfileHmm hmm, string sequence)
+    {
+        double nats = hmm.ViterbiScore(sequence);
+        if (double.IsNegativeInfinity(nats)) return double.NegativeInfinity;
+        return nats / LogOddsBitsPerNat;
+    }
+
+    /// <summary>
+    /// Detects SH3/PDZ/WD40 domains and reports each hit's Viterbi bit score together with its
+    /// HMMER E-value, derived from the bundled profile's <c>STATS LOCAL VITERBI</c> Gumbel
+    /// calibration (E = P·Z, P = <c>1 − exp(−exp(−λ(S − μ)))</c>).
+    /// </summary>
+    /// <remarks>
+    /// Opt-in; the exact-PROSITE <see cref="FindDomains"/> path and the bit-score-only
+    /// <see cref="FindDomainsByHmm(string, double)"/> overload are unchanged. The reported E-value is
+    /// computed from the profile's stored STATS parameters applied to the engine's Viterbi bit score.
+    /// Exact <c>hmmsearch</c>-reported-E-value parity additionally requires HMMER's full pipeline
+    /// (MSV/bias prefilters and the null2 biased-composition correction); see the algorithm doc.
+    /// </remarks>
+    /// <param name="proteinSequence">Amino-acid sequence.</param>
+    /// <param name="databaseSize">Z — number of target sequences searched. Default 1.</param>
+    /// <param name="minBitScore">Minimum Viterbi bit score to report a domain. Default 10 bits.</param>
+    public static IEnumerable<ProteinDomainHit> FindDomainHitsByHmm(
+        string proteinSequence, double databaseSize = DefaultDatabaseSize, double minBitScore = DefaultHmmMinBitScore)
+    {
+        if (string.IsNullOrEmpty(proteinSequence))
+            yield break;
+
+        var hmms = LazyBundledHmms.Value;
+        for (int p = 0; p < BundledProfiles.Length; p++)
+        {
+            double bits = ScoreBits(hmms[p], proteinSequence);
+            if (bits >= minBitScore)
+            {
+                var meta = BundledProfiles[p];
+                double eValue = hmms[p].ViterbiEValue(bits, databaseSize);
+                yield return new ProteinDomainHit(meta.Name, meta.Accession,
+                    0, proteinSequence.Length - 1, bits, eValue, meta.Description);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Scores a protein against a single bundled Pfam profile HMM and returns its Viterbi bit score
+    /// and HMMER E-value (E = P·Z) from the profile's Gumbel <c>STATS LOCAL VITERBI</c> calibration.
+    /// </summary>
+    /// <param name="proteinSequence">Amino-acid sequence.</param>
+    /// <param name="accession">Pfam accession: "PF00018" (SH3), "PF00595" (PDZ) or "PF00400" (WD40).</param>
+    /// <param name="databaseSize">Z — number of target sequences searched. Default 1.</param>
+    public static (double BitScore, double EValue) ScoreDomainHmmEValue(
+        string proteinSequence, string accession, double databaseSize = DefaultDatabaseSize)
+    {
+        ArgumentNullException.ThrowIfNull(proteinSequence);
+        ArgumentNullException.ThrowIfNull(accession);
+        int idx = Array.FindIndex(BundledProfiles, p => p.Accession == accession);
+        if (idx < 0)
+            throw new ArgumentException($"Unknown bundled Pfam profile: '{accession}'.", nameof(accession));
+        var hmm = LazyBundledHmms.Value[idx];
+        double bits = ScoreBits(hmm, proteinSequence);
+        double eValue = hmm.ViterbiEValue(bits, databaseSize);
+        return (bits, eValue);
+    }
+
+    /// <summary>
+    /// One automatically-decomposed Pfam domain hit of a multi-domain protein: the family, its
+    /// posterior-defined envelope, and its null2-corrected per-domain bit score / independent E-value.
+    /// </summary>
+    /// <param name="Name">Domain family name (e.g. "WD40").</param>
+    /// <param name="Accession">Pfam accession (e.g. "PF00400").</param>
+    /// <param name="EnvelopeStart">1-based inclusive envelope start (HMMER <c>env from</c>).</param>
+    /// <param name="EnvelopeEnd">1-based inclusive envelope end (HMMER <c>env to</c>).</param>
+    /// <param name="BitScore">Null2-corrected per-domain bit score (HMMER per-domain <c>score</c>).</param>
+    /// <param name="BiasBits">Per-domain null2 biased-composition correction in bits (HMMER <c>bias</c>).</param>
+    /// <param name="IndependentEValue">Independent E-value <c>i-Evalue = Z·exp(lnP)</c> (HMMER <c>i-Evalue</c>).</param>
+    /// <param name="Description">Domain description.</param>
+    public readonly record struct DomainEnvelopeHit(
+        string Name,
+        string Accession,
+        int EnvelopeStart,
+        int EnvelopeEnd,
+        double BitScore,
+        double BiasBits,
+        double IndependentEValue,
+        string Description);
+
+    /// <summary>
+    /// Decomposes a protein into individual SH3/PDZ/WD40 domains by HMMER's automatic
+    /// <c>hmmsearch</c> domain/envelope decomposition (<c>p7_domaindef</c>): posterior region
+    /// identification + per-envelope null2-corrected scoring. A multi-domain target (e.g. a multi-WD40
+    /// β-propeller) is automatically split into one hit per domain, each with its own envelope and score.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is an <b>opt-in</b> path, independent of <see cref="FindDomains"/>,
+    /// <see cref="FindDomainsByHmm(string, double)"/> and <see cref="FindDomainHitsByHmm"/>, all of
+    /// which are unchanged. Each bundled profile is scored against the whole sequence; every envelope
+    /// whose per-domain bit score is at least <paramref name="minBitScore"/> is reported as a separate
+    /// <see cref="DomainEnvelopeHit"/>. See <see cref="Plan7ProfileHmm.FindDomains"/> for the algorithm
+    /// and the stochastic-clustering residual for closely-overlapping domains.
+    /// </para>
+    /// </remarks>
+    /// <param name="proteinSequence">Amino-acid sequence.</param>
+    /// <param name="minBitScore">Minimum per-domain bit score to report an envelope. Default 10 bits.</param>
+    /// <returns>The per-domain envelope hits across all bundled families, in ascending start order.</returns>
+    public static IReadOnlyList<DomainEnvelopeHit> FindDomainEnvelopes(
+        string proteinSequence, double minBitScore = DefaultHmmMinBitScore)
+    {
+        var hits = new List<DomainEnvelopeHit>();
+        if (string.IsNullOrEmpty(proteinSequence))
+            return hits;
+
+        var hmms = LazyBundledHmms.Value;
+        for (int p = 0; p < BundledProfiles.Length; p++)
+        {
+            var meta = BundledProfiles[p];
+            foreach (var env in hmms[p].FindDomains(proteinSequence))
+            {
+                if (env.BitScore < minBitScore) continue;
+                hits.Add(new DomainEnvelopeHit(meta.Name, meta.Accession,
+                    env.EnvelopeStart, env.EnvelopeEnd, env.BitScore, env.BiasBits,
+                    env.IndependentEValue, meta.Description));
+            }
+        }
+
+        hits.Sort((a, b) => a.EnvelopeStart.CompareTo(b.EnvelopeStart));
+        return hits;
+    }
+
+    /// <summary>
+    /// Decomposes a protein into individual domains against one named bundled Pfam profile HMM
+    /// (HMMER <c>hmmsearch</c> domain/envelope decomposition; <see cref="FindDomainEnvelopes"/>).
+    /// </summary>
+    /// <param name="proteinSequence">Amino-acid sequence.</param>
+    /// <param name="accession">Pfam accession: "PF00018" (SH3), "PF00595" (PDZ) or "PF00400" (WD40).</param>
+    /// <returns>The per-domain envelopes for that family, in ascending sequence order.</returns>
+    public static IReadOnlyList<Plan7ProfileHmm.DomainEnvelope> FindDomainEnvelopes(
+        string proteinSequence, string accession)
+    {
+        ArgumentNullException.ThrowIfNull(proteinSequence);
+        ArgumentNullException.ThrowIfNull(accession);
+        int idx = Array.FindIndex(BundledProfiles, p => p.Accession == accession);
+        if (idx < 0)
+            throw new ArgumentException($"Unknown bundled Pfam profile: '{accession}'.", nameof(accession));
+        return LazyBundledHmms.Value[idx].FindDomains(proteinSequence);
     }
 
     #endregion

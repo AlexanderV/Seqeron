@@ -74,9 +74,9 @@ The implementation searches all possible left-arm starts and arm lengths, comput
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
 | `sequence` | `DnaSequence` or `string` | required | DNA sequence to search. | The `DnaSequence` overload throws on `null`; the raw-string overload yields no results for `null` or empty input. |
-| `minArmLength` | `int` | `4` | Minimum length of each repeat arm. | The `DnaSequence` overload rejects values below `2`. |
+| `minArmLength` | `int` | `4` | Minimum length of each repeat arm. | Both overloads reject values below `2` with `ArgumentOutOfRangeException`. |
 | `maxLoopLength` | `int` | `50` | Maximum loop length between arms. | Used as an upper bound when scanning downstream candidate starts. |
-| `minLoopLength` | `int` | `3` | Minimum loop length between arms. | The `DnaSequence` overload rejects negative values. |
+| `minLoopLength` | `int` | `3` | Minimum loop length between arms. | Both overloads reject negative values with `ArgumentOutOfRangeException`. |
 
 ### 3.2 Output / Return Value
 
@@ -93,7 +93,7 @@ The implementation searches all possible left-arm starts and arm lengths, comput
 
 ### 3.3 Preconditions and Validation
 
-`FindInvertedRepeats(DnaSequence, ...)` throws `ArgumentNullException` when `sequence` is `null`, throws `ArgumentOutOfRangeException` when `minArmLength < 2`, and throws `ArgumentOutOfRangeException` when `minLoopLength < 0`. The raw-string overload uppercases non-empty input and yields no results for `null` or empty strings, but it does not replicate the numeric validation of the `DnaSequence` overload. Coordinates are 0-based throughout the returned results.
+`FindInvertedRepeats(DnaSequence, ...)` throws `ArgumentNullException` when `sequence` is `null`, throws `ArgumentOutOfRangeException` when `minArmLength < 2`, and throws `ArgumentOutOfRangeException` when `minLoopLength < 0`. The raw-string overload uppercases non-empty input and yields no results for `null` or empty strings; it now enforces the SAME numeric validation as the `DnaSequence` overload (`minArmLength < 2` and `minLoopLength < 0` both throw `ArgumentOutOfRangeException`), so a degenerate `minArmLength = 0` can no longer emit nonsense zero-length-arm results on either surface. Coordinates are 0-based throughout the returned results.
 
 ## 4. Algorithm
 
@@ -144,7 +144,7 @@ The implementation uses `DnaSequence.GetReverseComplementString()` to derive the
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | The raw-string overload does not enforce the numeric validation implemented by the `DnaSequence` overload. | Deviation | Invalid `minArmLength` or `minLoopLength` values can behave differently depending on the chosen overload. | accepted | The validation asymmetry is present in the current source. |
+| 1 | The raw-string overload enforces the same numeric validation as the `DnaSequence` overload. | Resolved | Invalid `minArmLength` or `minLoopLength` values now throw `ArgumentOutOfRangeException` on both surfaces; no nonsense zero-length-arm output on `minArmLength = 0`. | resolved | Validation asymmetry removed during the REP-INV-001 fuzzing pass (a `minArmLength = 0` previously emitted spurious empty-arm results via the raw-string overload). |
 
 ## 6. Edge Cases and Limitations
 

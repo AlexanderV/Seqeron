@@ -47,6 +47,14 @@ CAI = (product(w_i))^(1 / L)
 CAI = exp((1 / L) * sum(ln(w_i)))
 ```
 
+**Single-codon amino acids.** Sharp & Li (1987) — quoted verbatim by Jansen et al. (2003)[8] —
+state that "codon families containing a single codon (e.g. AUG and UGG in the standard genetic
+code) should be excluded in computing CAI", because their `w` is always `1` regardless of bias and
+including them inflates CAI for Met/Trp-rich genes. The method exposes both conventions through the
+optional `excludeSingleCodonAminoAcids` flag: the default (`false`) *includes* Met/Trp with
+`w = 1.0` (historical behaviour); `true` *excludes* them so `L` and the product run only over the
+multi-codon amino-acid positions, matching the canonical Sharp & Li / Jansen definition.
+
 ### 2.3 Modeling Assumptions
 
 | ID | Assumption | Consequence if Violated |
@@ -59,7 +67,7 @@ CAI = exp((1 / L) * sum(ln(w_i)))
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
 | INV-01 | `0 <= CAI <= 1`. | `w_i` values are normalized by the maximum synonymous frequency and the result is a geometric mean over evaluated codons. |
-| INV-02 | Single-codon amino acids such as Met (`AUG`) and Trp (`UGG`) contribute `w_i = 1`. | Their synonymous set contains only the codon being evaluated. |
+| INV-02 | In the default mode, single-codon amino acids such as Met (`AUG`) and Trp (`UGG`) contribute `w_i = 1`; when `excludeSingleCodonAminoAcids` is `true` they are dropped from `L` and the product entirely. | Their synonymous set contains only the codon being evaluated, so `w ≡ 1`; Sharp & Li (1987)/Jansen (2003) prescribe excluding them.[1][8] |
 | INV-03 | Stop codons do not affect the result. | The implementation skips codons whose translated amino acid is `*`. |
 | INV-04 | The same sequence can yield different CAI values for different organisms. | Frequencies are taken from the caller-supplied codon usage table. |
 
@@ -71,6 +79,7 @@ CAI = exp((1 / L) * sum(ln(w_i)))
 |------|------|---------|-------------|-------------|
 | `codingSequence` | `string` | required | Coding sequence in DNA or RNA notation. | `null` or empty input returns `0`. |
 | `table` | `CodonUsageTable` | required | Reference codon usage table used to compute relative adaptiveness. | Must provide codon-frequency data for the desired organism or reference set. |
+| `excludeSingleCodonAminoAcids` | `bool` | `false` | When `true`, codons of single-codon amino acids (Met/`AUG`, Trp/`UGG`) are excluded from the geometric mean per Sharp & Li (1987)/Jansen (2003).[1][8] | Optional; default `false` preserves the historical inclusive behaviour. |
 
 ### 3.2 Output / Return Value
 
@@ -89,7 +98,7 @@ The implementation uppercases the sequence and converts `T` to `U` before splitt
 1. Return `0` for `null` or empty input.
 2. Normalize the sequence to uppercase RNA notation.
 3. Split the sequence into complete codons.
-4. For each codon, translate it to an amino acid and skip stop codons.
+4. For each codon, translate it to an amino acid and skip stop codons. When `excludeSingleCodonAminoAcids` is `true`, also skip codons of single-codon amino acids (Met/`AUG`, Trp/`UGG`).
 5. Compute relative adaptiveness `w_i` against the maximum synonymous frequency in the supplied table.
 6. Accumulate `ln(w_i)` and count the evaluated codons.
 7. Return `exp(logSum / count)` when at least one codon was evaluated; otherwise return `0`.
@@ -110,8 +119,9 @@ Relative adaptiveness is calculated against the maximum synonymous frequency for
 
 **Implementation location:** [CodonOptimizer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs)
 
-- `CodonOptimizer.CalculateCAI(string, CodonUsageTable)`
+- `CodonOptimizer.CalculateCAI(string, CodonUsageTable, bool excludeSingleCodonAminoAcids = false)`
 - `CodonOptimizer.CalculateRelativeAdaptiveness(...)` (private helper)
+- `CodonOptimizer.SingleCodonAminoAcids` (private set derived from the standard genetic code: amino acids with exactly one codon, i.e. Met/`M` and Trp/`W`)
 
 ### 5.2 Current Behavior
 
@@ -123,11 +133,13 @@ The method returns `0` for `null`, empty, or no-evaluable-codon input. It conver
 
 - Relative adaptiveness uses `w_i = f_i / max(f_j)` across synonymous codons.[1]
 - CAI is computed as a geometric mean using the equivalent logarithmic form `exp((1/L) * sum(ln(w_i)))`.[1]
+- The single-codon-amino-acid exclusion of Sharp & Li (1987)/Jansen (2003) is available verbatim via `excludeSingleCodonAminoAcids: true` (Met/`AUG`, Trp/`UGG` dropped from `L` and the product).[1][8]
 
 **Intentionally simplified:**
 
 - The implementation relies entirely on the provided codon-usage table and does not infer organism context; **consequence:** interpretation is only as good as the caller-supplied reference table.
 - Codons without recognizable synonymous-frequency data are skipped instead of causing an error; **consequence:** malformed or non-standard input can reduce the effective codon count without an exception.
+- The Met/Trp exclusion is **opt-in**, not the default; **consequence:** by default CAI includes Met/Trp with `w = 1.0`, which can bias CAI upward for Met/Trp-rich genes relative to strict Sharp & Li. Pass `excludeSingleCodonAminoAcids: true` for the canonical convention.
 
 **Not implemented:**
 
@@ -139,6 +151,7 @@ The method returns `0` for `null`, empty, or no-evaluable-codon input. It conver
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
 | 1 | Zero-frequency codons are clamped to `1e-6` when other synonymous codons exist in the table. | Deviation | CAI remains positive instead of becoming exactly `0` for those codons. | accepted | Documented in [CODON-CAI-001.md](../../../tests/TestSpecs/CODON-CAI-001.md). |
+| 2 | Single-codon amino acids (Met/Trp) are **included** by default; the canonical Sharp & Li exclusion is opt-in via `excludeSingleCodonAminoAcids: true`. | Convention (opt-in) | Default biases CAI slightly upward for Met/Trp-rich genes vs strict Sharp & Li; the opt-in mode is exact. | accepted | Sharp & Li (1987)/Jansen (2003).[1][8] |
 
 ## 6. Edge Cases and Limitations
 
@@ -151,10 +164,12 @@ The method returns `0` for `null`, empty, or no-evaluable-codon input. It conver
 | DNA input | Treated as RNA after `T -> U` normalization. | The method normalizes notation before splitting. |
 | Lowercase input | Handled identically to uppercase input. | The sequence is uppercased first. |
 | Incomplete trailing codon | Ignored. | Only complete triplets are split into codons. |
+| Sequence of only Met/Trp, `excludeSingleCodonAminoAcids: true` | Returns `0`. | All codons are excluded, leaving no evaluated codons (`L = 0`). |
+| Sequence with no Met/Trp, either mode | Identical result in both modes. | The exclusion flag only affects single-codon amino-acid positions. |
 
 ### 6.2 Limitations
 
-CAI in this repository is a table-driven codon-bias score. It does not model tRNA abundance explicitly, does not validate full biological correctness of the coding sequence, and does not account for context effects such as codon pairs or mRNA structure. Interpretation remains specific to the chosen codon-usage table.
+CAI in this repository is a table-driven codon-bias score. It does not model tRNA abundance explicitly, does not validate full biological correctness of the coding sequence, and does not account for context effects such as codon pairs or mRNA structure. Interpretation remains specific to the chosen codon-usage table. The single-codon amino-acid exclusion of Sharp & Li (1987) is supported but opt-in (`excludeSingleCodonAminoAcids: true`); the default keeps Met/Trp for backward compatibility.
 
 ## 7. Examples and Related Material
 
@@ -174,7 +189,7 @@ CAI ≈ 0.31
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [CodonOptimizer_CAI_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/CodonOptimizer_CAI_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
+- Tests: [CodonOptimizer_CAI_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/CodonOptimizer_CAI_Tests.cs) — covers `INV-01`, `INV-02` (both default and exclusion modes), `INV-03`, `INV-04`
 - Test specification: [CODON-CAI-001.md](../../../tests/TestSpecs/CODON-CAI-001.md)
 - Related algorithms: [Codon_Usage_Analysis.md](Codon_Usage_Analysis.md), [Sequence_Optimization.md](Sequence_Optimization.md)
 
@@ -187,3 +202,4 @@ CAI ≈ 0.31
 5. Kazusa Codon Usage Database. Saccharomyces cerevisiae, species 4932. https://www.kazusa.or.jp/codon/cgi-bin/showcodon.cgi?species=4932
 6. Kazusa Codon Usage Database. Homo sapiens, species 9606. https://www.kazusa.or.jp/codon/cgi-bin/showcodon.cgi?species=9606
 7. Test specification: [CODON-CAI-001.md](../../../tests/TestSpecs/CODON-CAI-001.md)
+8. Jansen R, Bauer P, Stadler PF. 2003. An Improved Implementation of the Codon Adaptation Index. Nucleic Acids Research. Retrieved 2026-06-24 from https://pmc.ncbi.nlm.nih.gov/articles/PMC2684136/

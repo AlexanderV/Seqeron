@@ -14,6 +14,10 @@
          (this project's verified Python reference). Embedded so the suite is self-contained. -->
     <EmbeddedResource Include="TestData\Azimuth\nopos_oracle.csv" />
     <EmbeddedResource Include="TestData\Azimuth\full_oracle.csv" />
+    <!-- ONCO-MHC-001: one MHCflurry models_class1_pan affinity network (smallest member, feedforward
+         [512,512]), exported from the Apache-2.0 weights_*.npz dense kernels/biases. Embedded so the
+         forward-pass parity test runs without an external mhcflurry install. -->
+    <EmbeddedResource Include="TestData\Mhcflurry\mhcflurry_single_net.bin" />
   </ItemGroup>
 
   <ItemGroup>

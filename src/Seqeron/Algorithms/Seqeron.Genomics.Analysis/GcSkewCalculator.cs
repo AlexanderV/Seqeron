@@ -310,10 +310,11 @@ public static class GcSkewCalculator
     public static GcAnalysisResult AnalyzeGcContent(
         DnaSequence sequence,
         int windowSize = 1000,
-        int stepSize = 100)
+        int stepSize = 100,
+        bool fraction = false)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        return AnalyzeGcContentCore(sequence.Sequence, windowSize, stepSize);
+        return AnalyzeGcContentCore(sequence.Sequence, windowSize, stepSize, fraction);
     }
 
     /// <summary>
@@ -325,20 +326,23 @@ public static class GcSkewCalculator
     public static GcAnalysisResult AnalyzeGcContent(
         string sequence,
         int windowSize = 1000,
-        int stepSize = 100)
+        int stepSize = 100,
+        bool fraction = false)
     {
         if (string.IsNullOrEmpty(sequence))
             return new GcAnalysisResult(0, 0, 0, 0, 0, Array.Empty<GcSkewPoint>(), Array.Empty<GcContentPoint>(), 0);
 
-        return AnalyzeGcContentCore(sequence.ToUpperInvariant(), windowSize, stepSize);
+        return AnalyzeGcContentCore(sequence.ToUpperInvariant(), windowSize, stepSize, fraction);
     }
 
-    private static GcAnalysisResult AnalyzeGcContentCore(string seq, int windowSize, int stepSize)
+    private static GcAnalysisResult AnalyzeGcContentCore(string seq, int windowSize, int stepSize, bool fraction)
     {
         var windowedSkew = CalculateWindowedGcSkewCore(seq, windowSize, stepSize).ToList();
-        var windowedContent = CalculateWindowedGcContentCore(seq, windowSize, stepSize).ToList();
+        var windowedContent = CalculateWindowedGcContentCore(seq, windowSize, stepSize, fraction).ToList();
 
-        double overallGcContent = CalculateGcContent(seq);
+        // Opt-in Biopython convention: fraction == true reports GC content in [0,1]
+        // (Bio.SeqUtils.gc_fraction); the default (false) keeps the existing percentage [0,100].
+        double overallGcContent = CalculateGcContent(seq, fraction);
         double overallGcSkew = CalculateGcSkewCore(seq);
         double overallAtSkew = CalculateAtSkewCore(seq);
 
@@ -364,12 +368,13 @@ public static class GcSkewCalculator
     private static IEnumerable<GcContentPoint> CalculateWindowedGcContentCore(
         string seq,
         int windowSize,
-        int stepSize)
+        int stepSize,
+        bool fraction = false)
     {
         for (int i = 0; i + windowSize <= seq.Length; i += stepSize)
         {
             string window = seq.Substring(i, windowSize);
-            double gcContent = CalculateGcContent(window);
+            double gcContent = CalculateGcContent(window, fraction);
 
             yield return new GcContentPoint(
                 Position: i + windowSize / 2,
@@ -383,11 +388,32 @@ public static class GcSkewCalculator
     // per Madigan & Martinko, Brock Biology of Microorganisms (via Wikipedia "GC-content").
     private const double PercentScale = 100.0;
 
-    private static double CalculateGcContent(string seq)
+    private static double CalculateGcContent(string seq, bool fraction = false)
     {
         if (string.IsNullOrEmpty(seq)) return 0;
-        int gcCount = seq.Count(c => c is 'G' or 'C');
-        return (double)gcCount / seq.Length * PercentScale;
+        // Only A/C/G/T are counted; ambiguous/other symbols are ignored in BOTH the
+        // numerator and the denominator (Biopython gc_fraction "remove" / Comprehensive
+        // GC Analysis §2.2/§3.3). The denominator is A+T+G+C, NOT the raw seq length.
+        int gcCount = 0;
+        int atgcCount = 0;
+        foreach (char c in seq)
+        {
+            switch (c)
+            {
+                case 'G' or 'C':
+                    gcCount++;
+                    atgcCount++;
+                    break;
+                case 'A' or 'T':
+                    atgcCount++;
+                    break;
+            }
+        }
+
+        // Opt-in Biopython convention: fraction == true reports [0,1] (Bio.SeqUtils.gc_fraction);
+        // default (false) keeps the percentage GC% = (G+C)/(A+T+G+C)·100.
+        double scale = fraction ? 1.0 : PercentScale;
+        return atgcCount > 0 ? (double)gcCount / atgcCount * scale : 0;
     }
 
     // Population variance σ² = Σ(xᵢ−μ)²/N (division by N, not Bessel-corrected N−1):

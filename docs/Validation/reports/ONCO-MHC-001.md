@@ -97,3 +97,57 @@ None. All cutoffs and length ranges in the implementation match the externally-r
 - **Test-quality gate: PASS** — sourced exact assertions, no green-washing, full logic covered after adding two cases (25 → 27 tests for this unit; original count met).
 - **End-state: CLEAN** — no code defect; two test-coverage gaps fixed; `dotnet build` 0 errors; full unfiltered suite **6663 passed, 0 failed**.
 - No defect logged in FINDINGS_REGISTER beyond the test-coverage note.
+
+## 2026-06-25 — Opt-in matrix-based predictor added (data-block partially lifted)
+
+The earlier block ("no redistributable, cross-verifiable trained model") was revisited with web tools. An opt-in **matrix-based pMHC binding predictor** is now implemented, with the existing classification and all defaults unchanged.
+
+### What was added
+- `OncologyAnalyzer.PredictBindingHalfLifeBimas(peptide, matrix)` — BIMAS / Parker (1994) product rule: `T½ = FinalConstant · ∏ coefficients` (unlisted residue coefficient 1.0).
+- `OncologyAnalyzer.PredictIc50Smm(peptide, matrix)` — SMM / Peters & Sette (2005): score = intercept + Σ contributions; `IC50 = 50000^(1 − score)` (algebraic inverse of the IEDB log50k linearisation).
+- `OncologyAnalyzer.PredictAndClassifySmm(peptide, matrix)` — chains `PredictIc50Smm` → `ClassifyBindingAffinity` (predict→classify end-to-end).
+- `OncologyAnalyzer.LoadScoringMatrix(lines)` + `PmhcScoringMatrix` / `PmhcScoringMethod` — caller-supplied matrix loader and types.
+
+### Sources retrieved this session (verbatim scoring rules)
+- **BIMAS** scoring documentation (NIH/CIT; restating Parker 1994), retrieved via Internet Archive (the live `www-bimas.cit.nih.gov` no longer resolves): "The initial (running) score is set to 1.0 … multiplied by the coefficient … multiplied by a final constant to yield an estimate of the half time of disassociation"; unlisted residue coefficient 1.00. The HLA-A2 coefficient table "is published … (except for HLA-A2)" in Parker 1994.
+- **Parker, Bednarek & Coligan (1994)** PubMed abstract: "180 coefficients (20 amino acids x 9 positions)"; binding stability "calculated by multiplying together the corresponding coefficients" (≈ factor-of-5 accuracy).
+- **SMM / IEDB log50k:** `log50k = 1 − log(IC50)/log(50000)` ⇒ `IC50 = 50000^(1 − score)` (Peters & Sette 2005, BMC Bioinformatics 6:132).
+
+### Reproduced reference predictions (exact, independent of the code)
+- SMM transform anchors: score 0 → **50000 nM**; score 1 → **1 nM**; score 0.5 → **√50000 = 223.6067977499790 nM** — asserted with `.Within` tolerances ≤ 1e-6.
+- Strong-vs-non-binder ranking: an SMM matrix whose contributions for `GILGFVFTL` (influenza M1 58–66, the paradigm HLA-A*02:01 binder) sum to 1.0 → IC50 = 1 nM → **Strong**; a poly-W 9-mer → score 0 → IC50 = 50000 nM → **NonBinder**; the binder's IC50 (1 nM) is far below the non-binder's (50000 nM).
+- BIMAS product: const 10 · (2.0·3.0·1.5) = **90.0**; `AAA` (unlisted) → 10 · 1·1·1 = **10.0**.
+
+### Residual (honest)
+No redistributable, cross-verifiable trained HLA coefficient matrix was obtainable this session: the public BIMAS coefficient files are served only by a now-defunct dynamic CGI (the Internet Archive captured the input form, not the generated value table), the Parker 1994 180-value table is paywalled, and the IEDB SMM matrices are non-commercial / no-redistribution. The library therefore bundles the published **scoring rules** (fully sourced and cross-verifiable) and a **caller-supplied matrix loader**, mirroring ONCO-IMMUNE-001 (CIBERSORT LM22). The pan-allele NetMHCpan/MHCflurry **neural** model remains out of scope.
+
+### End-state
+`dotnet build` 0 warnings/0 errors in changed files; this unit's fixture 43 passed / 0 failed (27 classification + 16 prediction); full unfiltered suite green (see commit). No code defect; classification and defaults unchanged. Validation Status confirmed **☐** (unchanged); Quick-Reference counts unchanged.
+
+## 2026-06-25 — MHCflurry Class I pan-allele binding-AFFINITY neural predictor ported (Apache-2.0)
+
+### What was added
+A faithful C# port of MHCflurry's Class I pan-allele binding-affinity network in a new class `MhcflurryAffinityPredictor` (Oncology project):
+- `EncodePeptide` — BLOSUM62 `left_pad_centered_right_pad` (3×15×21 = 945), per `encodable_sequences.py`.
+- `EncodePseudosequence` / `GetPseudosequence` / `GetAllelePseudosequences` — the bundled 37-residue allele pseudosequence table (`Resources/mhcflurry.allele_sequences.csv`, Apache-2.0, 14 993 alleles).
+- `ToIc50` — `IC50 = 50000^(1−x)` (`regression_target.to_ic50`).
+- `LoadWeightPack` + `Network.ForwardRaw / PredictIc50` — the feed-forward pass (`tanh` hidden, `sigmoid` output) supporting both MHCflurry topologies (`feedforward` and `with-skip-connections`).
+- `PredictIc50(networks, …)` — geometric-mean ensemble (`exp(mean(log(ic50)))`, `ensemble_centrality.py`).
+- `PredictAndClassify(networks, …)` — chains the predicted IC50 into the existing `OncologyAnalyzer.ClassifyBindingAffinity`.
+
+### Evidence retrieved this session (no citation from memory)
+Installed `mhcflurry` 2.1.5 (`pip3 install --user mhcflurry`) and fetched `models_class1_pan` (release 20200610) via `mhcflurry-downloads`. Read the actual source modules (`amino_acid.py`, `encodable_sequences.py`, `allele_encoding.py`, `class1_neural_network.py`, `regression_target.py`, `ensemble_centrality.py`, `class1_affinity_predictor.py`) and the model `manifest.csv` (`network_json` Keras graphs) + `weights_*.npz` + `allele_sequences.csv`. The `LICENSE` file (`mhcflurry-2.1.5.dist-info/licenses/LICENSE`) was opened and confirmed to be the full **Apache License 2.0**; the NOTICE/attribution is preserved in `Resources/MHCFLURRY_NOTICE.txt`.
+
+### Oracle cross-check (independent of the C# code)
+Re-ran the MHCflurry Python API in-session. A from-scratch numpy reimplementation of the forward pass reproduced the model exactly; the C# port matches:
+- **Single-network** (smallest member, embedded as the CI test fixture): 8 peptide/allele pairs (SIINFEKL 11483.20, GILGFVFTL 19.12, NLVPMVATV 17.54, ELAGIGILTV 119.05, AAAWYLWEV 16.56, SIINFEKL/B\*07:02 28830.80, SLYNTVATL 28.97, CINGVCWTV 92.11 nM) — C# within < 0.1% (observed < 0.03%).
+- **Full 10-network ensemble** (geometric mean): SIINFEKL/HLA-A\*02:01 = 11927.16 nM, GILGFVFTL = 19.96 nM, etc. — numpy/C# engine reproduces to < 0.03% (verified in-session).
+- Predict→classify chain: GILGFVFTL/HLA-A\*02:01 → Strong; SIINFEKL/HLA-A\*02:01 → NonBinder.
+
+Note: the README's SIINFEKL ≈ 6029 nM refers to a different/older model snapshot (the default *presentation* model); the authoritative oracle here is the exact installed `models_class1_pan` (20200610), which gives 11927 nM, and the C# port matches it.
+
+### Residual (honest)
+The MHCflurry trained ensemble weights total ≈ 80 MB of near-incompressible float32 across the 10 networks. Embedding 80 MB would be the single largest data artifact in the repo, so it is **not embedded** for repo health: the pseudosequence table + forward-pass engine ship bundled, **one** ensemble member (~4.6 MB) is embedded only as the CI parity test fixture, and the full ensemble is loaded from a caller-supplied MHCflurry weight pack via `LoadWeightPack` (the user fetches the Apache-2.0 weights they already have via `mhcflurry-downloads`). The algorithm itself is exact and oracle-verified — only the weight payload is caller-supplied (analogous to ONCO-IMMUNE-001's LM22). The *latest* NetMHCpan-4.1 ANN and the MHCflurry **presentation/processing** heads remain out of scope.
+
+### End-state
+`dotnet build` 0 warnings/0 errors in changed files; the new fixture `MhcflurryAffinityPredictor_PredictIc50_Tests.cs` 19 passed / 0 failed; full unfiltered suite green (see commit). Classification and defaults unchanged; the neural predictor is opt-in. Validation Status confirmed **☐** (unchanged); Quick-Reference counts unchanged.

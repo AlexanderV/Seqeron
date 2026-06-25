@@ -6,7 +6,7 @@
 | Test Unit ID | META-BIN-001 |
 | Related Projects | N/A |
 | Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Last Reviewed | 2026-06-24 |
 
 ## 1. Overview
 
@@ -34,6 +34,24 @@ $$
 
 where $r_{TNF}(a, b)$ is the Pearson correlation between the two TNF vectors. The repository then applies hard clustering by k-means over that feature space.
 
+#### TETRA z-score tetranucleotide signature (opt-in)
+
+The default binning path above correlates **raw 4-mer relative frequencies**. The full TETRA method (Teeling et al., 2004) instead compares each observed tetranucleotide count to the value predicted by a **maximal-order (2nd-order) Markov model** of the sequence's di-/trinucleotide composition, and converts the divergence to a z-score using the Schbath (1997) variance approximation. With $N(\cdot)$ the observed overlapping-word count on the sequence extended by its reverse complement:
+
+$$
+E(n_1 n_2 n_3 n_4) = \frac{N(n_1 n_2 n_3)\, N(n_2 n_3 n_4)}{N(n_2 n_3)}
+$$
+
+$$
+\mathrm{var}(n_1 n_2 n_3 n_4) = E(n_1 n_2 n_3 n_4)\,\frac{[N(n_2 n_3) - N(n_1 n_2 n_3)]\,[N(n_2 n_3) - N(n_2 n_3 n_4)]}{N(n_2 n_3)^2}
+$$
+
+$$
+z(n_1 n_2 n_3 n_4) = \frac{N(n_1 n_2 n_3 n_4) - E(n_1 n_2 n_3 n_4)}{\sqrt{\mathrm{var}(n_1 n_2 n_3 n_4)}}
+$$
+
+Two sequences are then compared by the **Pearson correlation of their 256-component z-score vectors** (Teeling et al., 2004). When $N(n_2 n_3)=0$ or the variance is non-positive the z-score is defined as 0. This signature is exposed opt-in via `CalculateTetranucleotideZScores` / `TetranucleotideZScoreCorrelation`; the default `BinContigs` raw-frequency Pearson path is unchanged.
+
 The document also cites MIMAG quality categories for interpreting MAG quality:
 
 - High-quality: `> 90%` complete and `< 5%` contamination.
@@ -54,6 +72,7 @@ The document also cites MIMAG quality categories for interpreting MAG quality:
 | INV-01 | Each reported bin is a hard cluster of contigs rather than an overlapping assignment | The implementation uses k-means assignments, so each contig index belongs to one cluster |
 | INV-02 | Reported completeness and contamination proxy values are clamped to `[0, 100]` | Both formulas use `Math.Min(..., 100)` in the implementation |
 | INV-03 | Bins smaller than the configured minimum size are not emitted | The code skips clusters whose `totalLength` is below `minBinSize` |
+| INV-04 | The TETRA z-score signature has exactly 256 components; the z-score correlation of a signature with itself is `1.0` | `CalculateTetranucleotideZScores` enumerates all `4^4` tetranucleotides; Pearson correlation of any non-constant vector with itself is `1.0` |
 
 ## 3. Contract
 
@@ -112,7 +131,9 @@ The source code defines the composite distance as the sum of GC difference, norm
 
 **Implementation location:** [MetagenomicsAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Metagenomics/MetagenomicsAnalyzer.cs)
 
-- `MetagenomicsAnalyzer.BinContigs(IEnumerable<(string ContigId, string Sequence, double Coverage)>, int, double, double)`: Performs the repository's contig binning workflow and emits `GenomeBin` results.
+- `MetagenomicsAnalyzer.BinContigs(IEnumerable<(string ContigId, string Sequence, double Coverage)>, int, double, double)`: Performs the repository's contig binning workflow and emits `GenomeBin` results (default raw-frequency TNF path).
+- `MetagenomicsAnalyzer.CalculateTetranucleotideZScores(string)`: opt-in TETRA z-score tetranucleotide signature — a 256-component map of Teeling/Schbath z-scores.
+- `MetagenomicsAnalyzer.TetranucleotideZScoreCorrelation(string, string)`: Pearson correlation of two sequences' z-score signatures (the TETRA tetranucleotide correlation coefficient).
 
 ### 5.2 Current Behavior
 
@@ -123,18 +144,20 @@ The repository implementation fixes the clustering method to k-means and uses de
 **Implemented (verbatim from the cited theory/spec):**
 
 - Use of GC content, tetranucleotide frequency, and coverage as binning features.
-- Pearson-correlation-based TNF comparison in the spirit of TETRA-style composition analysis.
+- The full TETRA z-score signature (opt-in): reverse-complement strand extension, the maximal-order (2nd-order) Markov expected count `E = N(n1n2n3)·N(n2n3n4)/N(n2n3)`, the Schbath variance approximation `var = E·[N(n2n3)−N(n1n2n3)][N(n2n3)−N(n2n3n4)]/N(n2n3)²`, the z-score `(N−E)/√var` over all 256 tetranucleotides, and Pearson correlation of the z-score vectors (Teeling et al., 2004; Schbath, 1997).
+- Pearson-correlation-based TNF comparison (the default `BinContigs` path uses raw 4-mer frequencies).
 - Hard clustering of contigs into bins.
+- **CheckM-style marker-gene completeness/contamination (opt-in):** the exact CheckM formula over collocated single-copy marker SETS — Completeness `= 100·(1/|M|)·Σ_{s∈M} |s∩G_M|/|s|` and Contamination `= 100·(1/|M|)·Σ_{s∈M} Σ_{g∈s}(N_g−1)/|s|` (Parks et al., 2015, Eqs. 1–2; reference impl `MarkerSet.genomeCheck`). Markers are detected by scoring a bin's predicted proteins against marker HMMs with the Plan7 Viterbi log-odds engine (a hit is a per-sequence bit score ≥ the Pfam GA1 gathering threshold). Bundled **CC0** universal single-copy marker sets are provided: (a) nine ribosomal-protein Pfam HMMs (S2, S7, S8, S9, S10, S11, S19, L1, L3); and (b) the **Pfam-defined subsets of the GTDB domain-level universal sets bac120 (Bacteria, 6 Pfam markers) and ar122 (Archaea, 35 Pfam markers)** (Parks et al. 2018, *Nat Biotechnol* 36:996; GTDB-Tk marker lists) so routine domain-level completeness/contamination works out of the box. A caller-supplied loader accepts arbitrary marker HMMs. Methods: `EstimateBinQualityFromMarkerCounts`, `DetectMarkers`, `EstimateBinQualityFromMarkers`, `LoadBundledRibosomalMarkerHmms`, `BundledRibosomalMarkerSets`, `LoadBundledBacterialMarkerHmms`, `BundledBacterialMarkerSets`, `LoadBundledArchaealMarkerHmms`, `BundledArchaealMarkerSets`, `LoadMarkerHmms`.
 
 **Intentionally simplified:**
 
-- Bin quality uses `totalLength / expectedGenomeSize` as a completeness proxy instead of single-copy marker genes; **consequence:** completeness tracks assembled length rather than marker-gene recovery.
-- Contamination uses within-bin GC standard deviation instead of duplicated marker genes; **consequence:** contamination is a composition-based proxy and not a CheckM-equivalent estimate.
+- The default `BinContigs` TNF distance correlates **raw 4-mer relative frequencies**, not z-scores; **consequence:** the default binning path omits the Markov normalisation. Callers wanting the full TETRA signature use `CalculateTetranucleotideZScores` / `TetranucleotideZScoreCorrelation` (this is now provided, opt-in).
+- The **default** `BinContigs` bin quality still uses `totalLength / expectedGenomeSize` as a completeness proxy and within-bin GC standard deviation as a contamination proxy (unchanged for backward compatibility); **consequence:** the `GenomeBin.Completeness`/`Contamination` fields are proxies. For marker-gene-based estimates use the opt-in `EstimateBinQualityFromMarkers` path (above), which is the CheckM-equivalent calculation.
 - The implementation fixes the clustering method to k-means; **consequence:** density-based or hierarchical alternatives discussed in the document are not available in this API.
 
 **Not implemented:**
 
-- Marker-gene-based completeness and contamination estimation; **users should rely on:** external MAG quality tools such as CheckM rather than this class.
+- The **full CheckM lineage-specific marker database** (the `checkm_data` package: per-lineage Pfam/TIGRFAM collocated marker sets) and the **reference-genome tree** used for tree-based lineage placement, plus operon-based marker-set collocation; **users should rely on:** running CheckM itself, or supplying their lineage-specific marker HMMs via `LoadMarkerHmms`. This large gated trained DB is not bundled. The bundled domain-level sets are the **Pfam (CC0)** subsets of GTDB bac120/ar122 only — the **TIGRFAM-defined** members (CC BY-SA 4.0, not public domain) are deliberately not bundled and are caller-supplied. Each bundled Pfam family is treated as its own singleton marker set (CheckM's operon-based collocation grouping needs the lineage DB).
 - Predicted taxonomy assignment for output bins; **users should rely on:** no current alternative in this method.
 
 ### 5.4 Deviations and Assumptions (Optional)
@@ -161,12 +184,24 @@ This implementation does not include marker-gene databases, lineage-specific mod
 
 ## 7. Examples and Related Material
 
-- [META-BIN-001](../../../tests/TestSpecs/META-BIN-001.md) documents the repository's genome-binning test specification.
+### 7.3 Related Tests, Evidence, or Documents
+
+- Tests (default binning): [MetagenomicsAnalyzer_GenomeBinning_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_GenomeBinning_Tests.cs)
+- Tests (TETRA z-score signature): [MetagenomicsAnalyzer_TetranucleotideZScore_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_TetranucleotideZScore_Tests.cs) — covers `INV-04`
+- Tests (CheckM marker-gene QC): [MetagenomicsAnalyzer_MarkerGeneQuality_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_MarkerGeneQuality_Tests.cs)
+- TestSpec: [META-BIN-001](../../../tests/TestSpecs/META-BIN-001.md)
+- Evidence: [META-BIN-001-Evidence.md](../../../docs/Evidence/META-BIN-001-Evidence.md), [META-BIN-001-MarkerQC-Evidence.md](../../../docs/Evidence/META-BIN-001-MarkerQC-Evidence.md)
 
 ## 8. References
 
 1. Teeling, H., et al. 2004. TETRA: a web-service and a stand-alone program for the analysis and comparison of tetranucleotide usage patterns in DNA sequences. BMC Bioinformatics 5:163. doi:10.1186/1471-2105-5-163.
-2. Parks, D. H., et al. 2014. Assessing the quality of microbial genomes recovered from isolates, single cells, and metagenomes. Genome Research 25:1043-1055.
-3. Maguire, F., et al. 2020. Metagenome-assembled genome binning methods with short reads disproportionately fail for plasmids and genomic Islands. Microbial Genomics 6(10). doi:10.1099/mgen.0.000436.
-4. Wikipedia contributors. Binning (metagenomics). Wikipedia. https://en.wikipedia.org/wiki/Binning_(metagenomics)
+2. Teeling, H., Meyerdierks, A., Bauer, M., Amann, R., Glöckner, F. O. 2004. Application of tetranucleotide frequencies for the assignment of genomic fragments. Environmental Microbiology 6(9):938-947. doi:10.1111/j.1462-2920.2004.00624.x.
+3. Schbath, S. 1997. An efficient statistic to detect over- and under-represented words in DNA sequences. Journal of Computational Biology 4(2):189-192. https://pubmed.ncbi.nlm.nih.gov/9228617/
+4. Parks, D. H., et al. 2015. CheckM: assessing the quality of microbial genomes recovered from isolates, single cells, and metagenomes. Genome Research 25(7):1043-1055. https://pmc.ncbi.nlm.nih.gov/articles/PMC4484387/ (reference implementation: `MarkerSet.genomeCheck`, https://raw.githubusercontent.com/Ecogenomics/CheckM/master/checkm/markerSets.py)
+7. Xu, L., et al. 2022. A revisit to universal single-copy genes in bacterial genomes. https://pmc.ncbi.nlm.nih.gov/articles/PMC9411617/
+8. EMBL-EBI InterPro / Pfam profile HMMs (CC0). https://www.ebi.ac.uk/interpro/wwwapi/entry/pfam/PF00410/?annotation=hmm ; licence: https://interpro-documentation.readthedocs.io/en/latest/pfam.html
+9. Parks, D. H., et al. 2018. A standardized bacterial taxonomy based on genome phylogeny substantially revises the tree of life. Nat Biotechnol 36:996-1004. GTDB methods: https://gtdb.ecogenomic.org/methods ; bac120/ar122 marker lists (GTDB-Tk `gtdbtk.{bac120,ar122}.marker_info.tsv`): https://github.com/Ecogenomics/GTDBTk
+10. TIGRFAMs licence — CC BY-SA 4.0 (NOT bundled). https://reusabledata.org/tigrfams ; https://www.ncbi.nlm.nih.gov/refseq/annotation_prok/tigrfams/
+5. Maguire, F., et al. 2020. Metagenome-assembled genome binning methods with short reads disproportionately fail for plasmids and genomic Islands. Microbial Genomics 6(10). doi:10.1099/mgen.0.000436.
+6. Wikipedia contributors. Binning (metagenomics). Wikipedia. https://en.wikipedia.org/wiki/Binning_(metagenomics)
 

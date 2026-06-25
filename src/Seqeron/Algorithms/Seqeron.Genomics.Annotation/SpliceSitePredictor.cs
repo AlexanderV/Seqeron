@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 
 namespace Seqeron.Genomics.Annotation;
@@ -21,6 +24,31 @@ public static class SpliceSitePredictor
         string Motif,
         double Score,
         double Confidence);
+
+    /// <summary>
+    /// Result of explicit branch-point detection for a 3' acceptor site,
+    /// per the human <c>yUnAy</c> consensus (Gao et al. 2008).
+    /// </summary>
+    /// <param name="Found">True when a candidate branch point scoring at or above the
+    /// requested minimum was located in the upstream search window.</param>
+    /// <param name="BranchPointPosition">0-based index of the branch-point adenosine
+    /// (motif position 0) in the input sequence, or -1 when none was found.</param>
+    /// <param name="DistanceFromAg">Distance in nucleotides from the branch-point
+    /// adenosine to the AG (number of bases between the branch point and the splice
+    /// site); 0 when none was found.</param>
+    /// <param name="Motif">The 5-nt <c>yUnAy</c> motif (positions -3..+1) at the
+    /// detected branch point, or the empty string when none was found.</param>
+    /// <param name="Score">Conservation-weighted match score in [0, 1] of the best
+    /// candidate (1.0 = perfect yUnAy consensus); 0 when none was found.</param>
+    /// <param name="PolypyrimidineTractFraction">Pyrimidine (C/U) fraction of the
+    /// tract between the branch point and the AG (the 4-24 nt downstream window).</param>
+    public readonly record struct BranchPointResult(
+        bool Found,
+        int BranchPointPosition,
+        int DistanceFromAg,
+        string Motif,
+        double Score,
+        double PolypyrimidineTractFraction);
 
     /// <summary>
     /// Types of splice sites.
@@ -125,6 +153,33 @@ public static class SpliceSitePredictor
         { -1,  new Dictionary<char, double> { {'A', 0.00}, {'C', 0.00}, {'G', 1.00}, {'U', 0.00} } }, // G
         { 0,   new Dictionary<char, double> { {'A', 0.20}, {'C', 0.15}, {'G', 0.50}, {'U', 0.15} } }
     };
+
+    // --- Human branch-point consensus (Gao et al. 2008) ---
+    // Consensus BPS = yUnAy at motif positions -3..+1, with the branch-point
+    // adenosine at position 0. Per-position conservation (lariat RT-PCR, n=181
+    // confirmed branch sites): pos -3 pyrimidine C+U = 47.0%+32.0% = 79.0%;
+    // pos -2 U = 74.6%; pos 0 A = 92.3%; pos +1 pyrimidine C+U = 33.1%+42.0% = 75.1%;
+    // pos -1 = n (any, uninformative). Source: Gao K, Masuda A, Matsuura T, Ohno K
+    // (2008) "Human branch point consensus sequence is yUnAy", Nucleic Acids Res
+    // 36(7):2257-2267, Table 1 / Figure 2 (DOI 10.1093/nar/gkn073).
+    private const double BpPos3PyrimidineConservation = 0.790;  // pos -3 y (C+U)
+    private const double BpPos2UracilConservation = 0.746;      // pos -2 U
+    private const double BpBranchAdenosineConservation = 0.923; // pos  0 A (branch point)
+    private const double BpPos1PyrimidineConservation = 0.751;  // pos +1 y (C+U)
+
+    // Branch-point search window upstream of the 3' acceptor AG. Gao et al. (2008)
+    // report 83% of branch sites at positions -34..-21 relative to the 3' end of the
+    // intron (median -26, mean -27.7 +/- 7.6); Mercer et al. (2015, Genome Res
+    // 25:290-303) report most branch sites 19-35 nt from the 3'ss; the spliceosome
+    // literature gives an outer envelope of ~18-50 nt. The default window uses the
+    // conservative 18-40 nt envelope that brackets the Gao -34..-21 core.
+    private const int BranchPointMinDistanceFromAg = 18; // nt upstream of AG (inclusive)
+    private const int BranchPointMaxDistanceFromAg = 40; // nt upstream of AG (inclusive)
+
+    // Polypyrimidine tract between the branch point and the AG spans 4-24 nt
+    // downstream of the branch point (Gao et al. 2008).
+    private const int BranchPointPptMinSpan = 4;  // nt downstream of branch point
+    private const int BranchPointPptMaxSpan = 24; // nt downstream of branch point
 
     // Branch point consensus: YNYURAC (Y=C/U, R=A/G, N=any)
     // Typically 18-40 nt upstream of 3' splice site
@@ -250,6 +305,79 @@ public static class SpliceSitePredictor
     }
 
     /// <summary>
+    /// Detects the explicit branch point upstream of a 3' acceptor AG using the human
+    /// <c>yUnAy</c> branch-point consensus (Gao et al. 2008). This is an opt-in,
+    /// additive analysis; the default <see cref="FindAcceptorSites"/> scoring
+    /// (PWM consensus + polypyrimidine-tract fraction) is unchanged.
+    /// </summary>
+    /// <remarks>
+    /// The branch-point adenosine sits at motif position 0 of the consensus
+    /// <c>yUnAy</c> (positions -3..+1). It is searched in the
+    /// <see cref="BranchPointMinDistanceFromAg"/>..<see cref="BranchPointMaxDistanceFromAg"/>
+    /// (default 18-40) nt window upstream of the AG, bracketing the -34..-21 core
+    /// reported by Gao et al. (2008). Each candidate is scored by a conservation-weighted
+    /// fraction over the four informative positions (-3 pyrimidine, -2 U, 0 A, +1
+    /// pyrimidine); position -1 is uninformative ('n'). The polypyrimidine-tract fraction
+    /// between the branch point and the AG is reported alongside the best candidate.
+    /// </remarks>
+    /// <param name="sequence">The pre-mRNA / intron sequence (DNA or RNA; case-insensitive).</param>
+    /// <param name="acceptorAgPosition">0-based index of the terminal <c>G</c> of the 3'
+    /// acceptor AG (i.e. the <see cref="SpliceSite.Position"/> reported by
+    /// <see cref="FindAcceptorSites"/>).</param>
+    /// <param name="minScore">Minimum conservation-weighted score in [0, 1] for a
+    /// candidate to count as found. Defaults to 0.5.</param>
+    /// <returns>The best branch-point candidate in the upstream window, or a
+    /// <see cref="BranchPointResult"/> with <c>Found = false</c> when none qualifies.</returns>
+    public static BranchPointResult FindAcceptorBranchPoint(
+        string sequence,
+        int acceptorAgPosition,
+        double minScore = 0.5)
+    {
+        var notFound = new BranchPointResult(false, -1, 0, string.Empty, 0, 0);
+
+        if (string.IsNullOrEmpty(sequence) || acceptorAgPosition <= 0 ||
+            acceptorAgPosition >= sequence.Length)
+            return notFound;
+
+        string upper = sequence.ToUpperInvariant().Replace('T', 'U');
+
+        // The reported acceptor Position is the terminal G of the AG; the splice
+        // junction (3' end of the intron) lies just after it. Distance is measured
+        // from the branch-point adenosine to that 3' end.
+        int agEnd = acceptorAgPosition; // index of the G of AG (last intronic nt)
+
+        BranchPointResult best = notFound;
+
+        // Scan the upstream window. distance = (agEnd - branchA), so branchA = agEnd - distance.
+        for (int distance = BranchPointMinDistanceFromAg;
+             distance <= BranchPointMaxDistanceFromAg;
+             distance++)
+        {
+            int branchA = agEnd - distance;
+            // Need motif positions -3..+1 → indices [branchA-3, branchA+1] in bounds.
+            if (branchA - 3 < 0 || branchA + 1 >= upper.Length)
+                continue;
+
+            double score = ScoreBranchPointConsensus(upper, branchA);
+            if (score < minScore || score <= best.Score)
+                continue;
+
+            string motif = upper.Substring(branchA - 3, 5); // yUnAy (positions -3..+1)
+            double pptFraction = ComputeBranchPointPptFraction(upper, branchA, agEnd);
+
+            best = new BranchPointResult(
+                Found: true,
+                BranchPointPosition: branchA,
+                DistanceFromAg: distance,
+                Motif: motif,
+                Score: score,
+                PolypyrimidineTractFraction: pptFraction);
+        }
+
+        return best;
+    }
+
+    /// <summary>
     /// Finds branch point sites in a sequence.
     /// </summary>
     public static IEnumerable<SpliceSite> FindBranchPoints(
@@ -340,6 +468,64 @@ public static class SpliceSitePredictor
 
         double normalized = (score / (count + 1) + 2) / 4;
         return Math.Max(0, Math.Min(1, normalized));
+    }
+
+    /// <summary>
+    /// Scores a candidate branch point against the human <c>yUnAy</c> consensus
+    /// (Gao et al. 2008) as a conservation-weighted match fraction in [0, 1].
+    /// <paramref name="branchA"/> is the 0-based index of the candidate branch-point
+    /// adenosine (motif position 0). Position -1 ('n') is uninformative and ignored.
+    /// A perfect canonical branch point (y at -3, U at -2, A at 0, y at +1) scores 1.0.
+    /// </summary>
+    private static double ScoreBranchPointConsensus(string sequence, int branchA)
+    {
+        // Caller guarantees [branchA-3, branchA+1] are in bounds.
+        char pos3 = sequence[branchA - 3]; // y (C/U)
+        char pos2 = sequence[branchA - 2]; // U
+        char pos0 = sequence[branchA];     // A (branch point)
+        char pos1 = sequence[branchA + 1]; // y (C/U)
+
+        double matched = 0;
+        if (pos3 == 'C' || pos3 == 'U') matched += BpPos3PyrimidineConservation;
+        if (pos2 == 'U') matched += BpPos2UracilConservation;
+        if (pos0 == 'A') matched += BpBranchAdenosineConservation;
+        if (pos1 == 'C' || pos1 == 'U') matched += BpPos1PyrimidineConservation;
+
+        const double maxScore = BpPos3PyrimidineConservation + BpPos2UracilConservation +
+                                BpBranchAdenosineConservation + BpPos1PyrimidineConservation;
+        return matched / maxScore;
+    }
+
+    /// <summary>
+    /// Pyrimidine (C/U) fraction of the polypyrimidine tract between a branch point and
+    /// the AG. The tract spans 4-24 nt downstream of the branch point (Gao et al. 2008);
+    /// this measures the bases strictly between the branch-point adenosine and the AG,
+    /// clamped to that 4-24 nt span.
+    /// </summary>
+    private static double ComputeBranchPointPptFraction(string sequence, int branchA, int agEnd)
+    {
+        // The AG occupies [agEnd-1, agEnd]; the tract lies between the branch point
+        // and the A of the AG. Start one base after the branch point.
+        int tractStart = branchA + BranchPointPptMinSpan;
+        int tractEnd = Math.Min(branchA + BranchPointPptMaxSpan, agEnd - 2); // up to base before A of AG
+        if (tractEnd < tractStart)
+        {
+            tractStart = branchA + 1;
+            tractEnd = agEnd - 2;
+        }
+
+        int count = 0;
+        int total = 0;
+        for (int i = tractStart; i <= tractEnd; i++)
+        {
+            if (i < 0 || i >= sequence.Length)
+                continue;
+            total++;
+            if (sequence[i] == 'C' || sequence[i] == 'U')
+                count++;
+        }
+
+        return total > 0 ? (double)count / total : 0;
     }
 
     private static double ScoreBranchPoint(string sequence, int position)
@@ -810,6 +996,384 @@ public static class SpliceSitePredictor
         }
 
         return false;
+    }
+
+    #endregion
+
+    #region MaxEntScan score3ss (maximum-entropy 3' acceptor model)
+
+    // --- MaxEntScan score3ss (Yeo & Burge 2004) ---
+    // Maximum-entropy 3' splice-site (acceptor) score for a 23-nt window:
+    // 20 intronic + 3 exonic nucleotides, with the invariant AG at window positions
+    // 18..19 (0-based). The score is log2( P_maxent(seq) / P_background(seq) ), and is
+    // computed by removing the conserved AG dinucleotide and factorising the remaining
+    // 21 ("rest") positions over nine overlapping sub-sequences whose precomputed
+    // maximum-entropy probabilities are stored in the embedded table.
+    //
+    // Sources:
+    //   Yeo G, Burge CB (2004). "Maximum entropy modeling of short sequence motifs with
+    //   applications to RNA splicing signals." J Comput Biol 11(2-3):377-394.
+    //   DOI 10.1089/1066527041410418.
+    //   Reference factorisation + tables (retrieved 2026-06-24): the MIT-licensed maxentpy
+    //   port (kepbod/maxentpy) score3 / score3_matrix.txt. Provenance + licence are recorded
+    //   in src/.../Seqeron.Genomics.Annotation/Data/maxent_score3.LICENSE.md.
+
+    // Length of the MaxEntScan 3' (acceptor) scoring window: 20 intron + 3 exon nt.
+    private const int MaxEntAcceptorWindowLength = 23;
+
+    // 0-based positions of the conserved AG dinucleotide within the 23-nt window
+    // (window[18]=A, window[19]=G). These two positions are scored by the consensus /
+    // background dinucleotide model and removed from the "rest" sub-sequence.
+    private const int MaxEntAcceptorAgStart = 18;
+
+    // Background single-nucleotide frequencies P_bgd used by MaxEntScan score3
+    // (Yeo & Burge 2004; maxentpy bgd_3). Keyed by A/C/G/T (T==U).
+    private static readonly IReadOnlyDictionary<char, double> MaxEntBackground = new Dictionary<char, double>
+    {
+        { 'A', 0.27 }, { 'C', 0.23 }, { 'G', 0.23 }, { 'T', 0.27 }
+    };
+
+    // Consensus probabilities for the first AG position (the 'A'); maxentpy cons1_3.
+    private static readonly IReadOnlyDictionary<char, double> MaxEntConsensusAg1 = new Dictionary<char, double>
+    {
+        { 'A', 0.9903 }, { 'C', 0.0032 }, { 'G', 0.0034 }, { 'T', 0.0030 }
+    };
+
+    // Consensus probabilities for the second AG position (the 'G'); maxentpy cons2_3.
+    private static readonly IReadOnlyDictionary<char, double> MaxEntConsensusAg2 = new Dictionary<char, double>
+    {
+        { 'A', 0.0027 }, { 'C', 0.0037 }, { 'G', 0.9905 }, { 'T', 0.0030 }
+    };
+
+    // The score3 factorisation over the 21-nt "rest" sequence (window with AG removed).
+    // Each tuple is (matrixIndex, restStart, length); the maxent probability of the rest
+    // sequence is the product of the lookups for the five "numerator" sub-sequences
+    // divided by the product of the four "denominator" sub-sequences (inclusion-exclusion
+    // over the overlapping windows). Source: maxentpy score3.
+    private static readonly (int MatrixIndex, int RestStart, int Length)[] MaxEntNumeratorFactors =
+    {
+        (0, 0, 7),
+        (1, 7, 7),
+        (2, 14, 7),
+        (3, 4, 7),
+        (4, 11, 7)
+    };
+
+    private static readonly (int MatrixIndex, int RestStart, int Length)[] MaxEntDenominatorFactors =
+    {
+        (5, 4, 3),
+        (6, 7, 4),
+        (7, 11, 3),
+        (8, 14, 4)
+    };
+
+    private const string MaxEntScore3ResourceName = "Seqeron.Genomics.Annotation.Data.maxent_score3.txt";
+
+    // Lazily-loaded probability tables: tables[matrixIndex][hash] = probability.
+    // Nine matrices (4^k entries each). Loaded once from the embedded resource.
+    private static IReadOnlyList<IReadOnlyDictionary<int, double>>? _maxEntScore3Tables;
+    private static readonly object MaxEntLoadLock = new();
+
+    private static IReadOnlyList<IReadOnlyDictionary<int, double>> MaxEntScore3Tables
+    {
+        get
+        {
+            if (_maxEntScore3Tables is not null)
+                return _maxEntScore3Tables;
+
+            lock (MaxEntLoadLock)
+            {
+                if (_maxEntScore3Tables is not null)
+                    return _maxEntScore3Tables;
+                _maxEntScore3Tables = LoadMaxEntScore3Tables();
+                return _maxEntScore3Tables;
+            }
+        }
+    }
+
+    private static IReadOnlyList<IReadOnlyDictionary<int, double>> LoadMaxEntScore3Tables()
+    {
+        var assembly = typeof(SpliceSitePredictor).Assembly;
+        using Stream? stream = assembly.GetManifestResourceStream(MaxEntScore3ResourceName)
+            ?? throw new InvalidOperationException(
+                $"Embedded MaxEntScan score3 table '{MaxEntScore3ResourceName}' was not found.");
+
+        var tables = new Dictionary<int, double>[9];
+        for (int i = 0; i < tables.Length; i++)
+            tables[i] = new Dictionary<int, double>();
+
+        using var reader = new StreamReader(stream);
+        string? line;
+        while ((line = reader.ReadLine()) is not null)
+        {
+            if (line.Length == 0)
+                continue;
+
+            // Each record: "<matrixIndex>\t<hash>\t<probability>" (whitespace-separated).
+            string[] parts = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length != 3)
+                throw new InvalidDataException($"Malformed MaxEntScan score3 record: '{line}'.");
+
+            int matrixIndex = int.Parse(parts[0], CultureInfo.InvariantCulture);
+            int hash = int.Parse(parts[1], CultureInfo.InvariantCulture);
+            double probability = double.Parse(parts[2], CultureInfo.InvariantCulture);
+            tables[matrixIndex][hash] = probability;
+        }
+
+        return tables;
+    }
+
+    // Quaternary (base-4) encoding of an A/C/G/T sub-sequence: A=0, C=1, G=2, T=3,
+    // most-significant nucleotide first. Matches maxentpy hashseq. T and U are equivalent.
+    private static int HashMaxEntSubsequence(ReadOnlySpan<char> seq)
+    {
+        int hash = 0;
+        for (int i = 0; i < seq.Length; i++)
+        {
+            int code = seq[i] switch
+            {
+                'A' => 0,
+                'C' => 1,
+                'G' => 2,
+                'T' or 'U' => 3,
+                _ => throw new ArgumentException(
+                    $"MaxEntScan score3 requires an A/C/G/T(/U) sequence; found '{seq[i]}'.")
+            };
+            hash = (hash << 2) | code; // hash * 4 + code
+        }
+
+        return hash;
+    }
+
+    /// <summary>
+    /// Computes the Yeo &amp; Burge (2004) MaxEntScan <c>score3ss</c> maximum-entropy score
+    /// (in bits) for a 23-nt 3' splice-site (acceptor) window: 20 intronic + 3 exonic
+    /// nucleotides, with the conserved <c>AG</c> at window positions 18-19 (0-based).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is an opt-in alternative to the default <see cref="FindAcceptorSites"/> PWM +
+    /// polypyrimidine-tract scorer; the existing PWM/branch-point scorers and their defaults
+    /// are unchanged. The returned value is the log<sub>2</sub> ratio of the maximum-entropy
+    /// probability of the window to its background probability — higher means a stronger 3'
+    /// splice site (the canonical documented example scores 2.89 bits).
+    /// </para>
+    /// <para>
+    /// The score removes the conserved <c>AG</c> dinucleotide (scored by a consensus /
+    /// background model) and factorises the remaining 21 positions over nine overlapping
+    /// sub-sequences, multiplying the five numerator and dividing by the four denominator
+    /// maximum-entropy probabilities (inclusion-exclusion), then takes log<sub>2</sub> of the
+    /// product with the AG term. Probability tables are embedded (see
+    /// <c>Data/maxent_score3.LICENSE.md</c> for provenance and licence).
+    /// </para>
+    /// </remarks>
+    /// <param name="window">The 23-nt acceptor window (DNA or RNA; case-insensitive). Must be
+    /// exactly 23 nucleotides over the A/C/G/T(/U) alphabet.</param>
+    /// <returns>The MaxEntScan score3ss in bits.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="window"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="window"/> is not exactly 23 nt, or
+    /// contains a non-A/C/G/T(/U) character.</exception>
+    public static double ScoreAcceptorMaxEnt(string window)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+        if (window.Length != MaxEntAcceptorWindowLength)
+            throw new ArgumentException(
+                $"MaxEntScan score3 requires a window of exactly {MaxEntAcceptorWindowLength} nt; " +
+                $"got {window.Length}.", nameof(window));
+
+        // Uppercase; keep T/U as-is (HashMaxEntSubsequence and the AG model treat them alike).
+        string upper = window.ToUpperInvariant();
+
+        // --- Consensus AG dinucleotide term: P_cons(A)*P_cons(G) / (P_bgd(A)*P_bgd(G)) ---
+        char ag1 = NormalizeNucleotide(upper[MaxEntAcceptorAgStart]);
+        char ag2 = NormalizeNucleotide(upper[MaxEntAcceptorAgStart + 1]);
+
+        double consScore =
+            MaxEntConsensusAg1[ag1] * MaxEntConsensusAg2[ag2] /
+            (MaxEntBackground[ag1] * MaxEntBackground[ag2]);
+
+        // --- "Rest" sequence: the 21 positions with the AG removed ---
+        // rest = window[0..18) + window[20..23)  -> 18 + 3 = 21 nt.
+        Span<char> rest = stackalloc char[MaxEntAcceptorWindowLength - 2];
+        upper.AsSpan(0, MaxEntAcceptorAgStart).CopyTo(rest);
+        upper.AsSpan(MaxEntAcceptorAgStart + 2).CopyTo(rest[MaxEntAcceptorAgStart..]);
+
+        var tables = MaxEntScore3Tables;
+
+        double restScore = 1.0;
+        foreach (var (matrixIndex, restStart, length) in MaxEntNumeratorFactors)
+        {
+            int hash = HashMaxEntSubsequence(rest.Slice(restStart, length));
+            restScore *= tables[matrixIndex][hash];
+        }
+
+        foreach (var (matrixIndex, restStart, length) in MaxEntDenominatorFactors)
+        {
+            int hash = HashMaxEntSubsequence(rest.Slice(restStart, length));
+            restScore /= tables[matrixIndex][hash];
+        }
+
+        return Math.Log2(consScore * restScore);
+    }
+
+    private static char NormalizeNucleotide(char c) => c switch
+    {
+        'A' or 'C' or 'G' or 'T' => c,
+        'U' => 'T',
+        _ => throw new ArgumentException(
+            $"MaxEntScan score3 requires an A/C/G/T(/U) sequence; found '{c}'.")
+    };
+
+    #endregion
+
+    #region MaxEntScan score5ss (maximum-entropy 5' donor model)
+
+    // --- MaxEntScan score5ss (Yeo & Burge 2004) ---
+    // Maximum-entropy 5' splice-site (donor) score for a 9-nt window:
+    // 3 exonic + 6 intronic nucleotides, with the invariant GT at window positions
+    // 3..4 (0-based). The score is log2( P_maxent(seq) / P_background(seq) ), and is
+    // computed by removing the conserved GT dinucleotide (scored by a consensus /
+    // background model) and looking up the maximum-entropy probability of the remaining
+    // 7 ("rest") positions in a single embedded table keyed by the 7-nt string.
+    //
+    // Unlike score3 (nine overlapping sub-matrices), score5 is single-matrix: the 7-mer
+    // rest sequence has its full maximum-entropy probability stored directly.
+    //
+    // Sources:
+    //   Yeo G, Burge CB (2004). "Maximum entropy modeling of short sequence motifs with
+    //   applications to RNA splicing signals." J Comput Biol 11(2-3):377-394.
+    //   DOI 10.1089/1066527041410418.
+    //   Reference factorisation + table (retrieved 2026-06-25): the MIT-licensed maxentpy
+    //   port (kepbod/maxentpy) score5 / score5_matrix.txt. Provenance + licence are recorded
+    //   in src/.../Seqeron.Genomics.Annotation/Data/maxent_score5.LICENSE.md.
+
+    // Length of the MaxEntScan 5' (donor) scoring window: 3 exon + 6 intron nt.
+    private const int MaxEntDonorWindowLength = 9;
+
+    // 0-based positions of the conserved GT dinucleotide within the 9-nt window
+    // (window[3]=G, window[4]=T). These two positions are scored by the consensus /
+    // background dinucleotide model and removed from the "rest" sub-sequence.
+    private const int MaxEntDonorGtStart = 3;
+
+    // Consensus probabilities for the first GT position (the 'G'); maxentpy cons1_5.
+    private static readonly IReadOnlyDictionary<char, double> MaxEntDonorConsensusGt1 = new Dictionary<char, double>
+    {
+        { 'A', 0.004 }, { 'C', 0.0032 }, { 'G', 0.9896 }, { 'T', 0.0032 }
+    };
+
+    // Consensus probabilities for the second GT position (the 'T'); maxentpy cons2_5.
+    private static readonly IReadOnlyDictionary<char, double> MaxEntDonorConsensusGt2 = new Dictionary<char, double>
+    {
+        { 'A', 0.0034 }, { 'C', 0.0039 }, { 'G', 0.0042 }, { 'T', 0.9884 }
+    };
+
+    private const string MaxEntScore5ResourceName = "Seqeron.Genomics.Annotation.Data.maxent_score5.txt";
+
+    // Lazily-loaded probability table: tables5[rest7mer] = probability. 4^7 = 16384 entries.
+    private static IReadOnlyDictionary<string, double>? _maxEntScore5Table;
+    private static readonly object MaxEntScore5LoadLock = new();
+
+    private static IReadOnlyDictionary<string, double> MaxEntScore5Table
+    {
+        get
+        {
+            if (_maxEntScore5Table is not null)
+                return _maxEntScore5Table;
+
+            lock (MaxEntScore5LoadLock)
+            {
+                if (_maxEntScore5Table is not null)
+                    return _maxEntScore5Table;
+                _maxEntScore5Table = LoadMaxEntScore5Table();
+                return _maxEntScore5Table;
+            }
+        }
+    }
+
+    private static IReadOnlyDictionary<string, double> LoadMaxEntScore5Table()
+    {
+        var assembly = typeof(SpliceSitePredictor).Assembly;
+        using Stream? stream = assembly.GetManifestResourceStream(MaxEntScore5ResourceName)
+            ?? throw new InvalidOperationException(
+                $"Embedded MaxEntScan score5 table '{MaxEntScore5ResourceName}' was not found.");
+
+        var table = new Dictionary<string, double>(StringComparer.Ordinal);
+
+        using var reader = new StreamReader(stream);
+        string? line;
+        while ((line = reader.ReadLine()) is not null)
+        {
+            if (line.Length == 0)
+                continue;
+
+            // Each record: "<7-nt rest sequence>\t<probability>" (whitespace-separated).
+            string[] parts = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length != 2)
+                throw new InvalidDataException($"Malformed MaxEntScan score5 record: '{line}'.");
+
+            table[parts[0]] = double.Parse(parts[1], CultureInfo.InvariantCulture);
+        }
+
+        return table;
+    }
+
+    /// <summary>
+    /// Computes the Yeo &amp; Burge (2004) MaxEntScan <c>score5ss</c> maximum-entropy score
+    /// (in bits) for a 9-nt 5' splice-site (donor) window: 3 exonic + 6 intronic
+    /// nucleotides, with the conserved <c>GT</c> at window positions 3-4 (0-based).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is an opt-in alternative to the default <see cref="FindDonorSites"/> PWM /
+    /// consensus scorer; the existing PWM scorers and their defaults are unchanged. The
+    /// returned value is the log<sub>2</sub> ratio of the maximum-entropy probability of the
+    /// window to its background probability — higher means a stronger 5' splice site (the
+    /// canonical documented example <c>cagGTAAGT</c> scores 10.86 bits).
+    /// </para>
+    /// <para>
+    /// The score removes the conserved <c>GT</c> dinucleotide (scored by a consensus /
+    /// background model) and looks up the maximum-entropy probability of the remaining 7
+    /// positions (<c>window[0:3] + window[5:9]</c>) directly in a single embedded table,
+    /// then takes log<sub>2</sub> of the product with the GT term. The probability table is
+    /// embedded (see <c>Data/maxent_score5.LICENSE.md</c> for provenance and licence).
+    /// </para>
+    /// </remarks>
+    /// <param name="window">The 9-nt donor window (DNA or RNA; case-insensitive). Must be
+    /// exactly 9 nucleotides over the A/C/G/T(/U) alphabet.</param>
+    /// <returns>The MaxEntScan score5ss in bits.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="window"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="window"/> is not exactly 9 nt, or
+    /// contains a non-A/C/G/T(/U) character.</exception>
+    public static double ScoreDonorMaxEnt(string window)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+        if (window.Length != MaxEntDonorWindowLength)
+            throw new ArgumentException(
+                $"MaxEntScan score5 requires a window of exactly {MaxEntDonorWindowLength} nt; " +
+                $"got {window.Length}.", nameof(window));
+
+        // Uppercase, then normalise U->T so the rest 7-mer key matches the table's A/C/G/T keys.
+        string upper = window.ToUpperInvariant();
+
+        // --- Consensus GT dinucleotide term: P_cons(G)*P_cons(T) / (P_bgd(G)*P_bgd(T)) ---
+        char gt1 = NormalizeNucleotide(upper[MaxEntDonorGtStart]);
+        char gt2 = NormalizeNucleotide(upper[MaxEntDonorGtStart + 1]);
+
+        double consScore =
+            MaxEntDonorConsensusGt1[gt1] * MaxEntDonorConsensusGt2[gt2] /
+            (MaxEntBackground[gt1] * MaxEntBackground[gt2]);
+
+        // --- "Rest" sequence: the 7 positions with the GT removed ---
+        // rest = window[0..3) + window[5..9)  -> 3 + 4 = 7 nt; normalise U->T for the key.
+        Span<char> rest = stackalloc char[MaxEntDonorWindowLength - 2];
+        for (int i = 0; i < MaxEntDonorGtStart; i++)
+            rest[i] = NormalizeNucleotide(upper[i]);
+        for (int i = MaxEntDonorGtStart + 2; i < MaxEntDonorWindowLength; i++)
+            rest[i - 2] = NormalizeNucleotide(upper[i]);
+
+        double restScore = MaxEntScore5Table[new string(rest)];
+
+        return Math.Log2(consScore * restScore);
     }
 
     #endregion

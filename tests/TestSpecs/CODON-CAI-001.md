@@ -3,15 +3,15 @@
 ## Test Unit Information
 - **ID:** CODON-CAI-001
 - **Title:** Codon Adaptation Index (CAI) Calculation
-- **Canonical Method:** `CodonOptimizer.CalculateCAI(string, CodonUsageTable)`
+- **Canonical Method:** `CodonOptimizer.CalculateCAI(string, CodonUsageTable, bool)`
 - **Area:** Codon Optimization
 - **Complexity:** O(n)
-- **Status:** ☑ Complete
+- **Status:** ☐ Not Started (re-validation pending after the single-codon-AA exclusion was added)
 
 ## Method Under Test
 
 ```csharp
-public static double CalculateCAI(string codingSequence, CodonUsageTable table)
+public static double CalculateCAI(string codingSequence, CodonUsageTable table, bool excludeSingleCodonAminoAcids = false)
 ```
 
 ## Algorithm Summary
@@ -38,6 +38,11 @@ CAI = geometric mean of relative adaptiveness values:
 | M10 | CalculateCAI_ExcludesStopCodons | Stop codons not counted in calculation | Standard practice |
 | M11 | CalculateCAI_GeometricMeanProperty | Single rare codon significantly lowers CAI | Mathematical property |
 | M12 | CalculateCAI_HandCalculatedValue_Matches | Verify against hand-calculated example | Validation |
+| M13 | CalculateCAI_DefaultMode_IncludesSingleCodonAminoAcids | Default & explicit-false keep Met/Trp (w=1.0); AUGUGG→1.0 | Backward compatibility |
+| M14 | CalculateCAI_ExcludeMode_AllSingleCodonAA_ReturnsZero | excludeSingleCodonAminoAcids:true; AUGUGG→0 (no scored codons) | Sharp & Li (1987) / Jansen (2003) |
+| M15 | CalculateCAI_ExcludeMode_DropsMetFromGeometricMean | AUGCUACUA: incl=0.18566355334451112, excl=0.08 exact | Sharp & Li (1987) / Jansen (2003) |
+| M16 | CalculateCAI_ExcludeMode_DropsBothMetAndTrp_ScoresOnlyRemainder | AUGUGGCUA: incl=0.43088693800637673, excl=0.08 exact | Sharp & Li (1987) / Jansen (2003) |
+| M17 | CalculateCAI_ExcludeMode_NoSingleCodonAA_UnchangedFromDefault | CUGCUA: incl==excl=0.28284271247461906 | Exclusion only affects Met/Trp |
 
 ### SHOULD Tests (Recommended)
 
@@ -56,7 +61,7 @@ CAI = geometric mean of relative adaptiveness values:
 ## Invariants to Verify
 
 1. **Range Invariant:** `0 ≤ CAI ≤ 1`
-2. **Single-Codon AA:** Met/Trp codons contribute w=1.0 always
+2. **Single-Codon AA:** in default mode Met/Trp codons contribute w=1.0 always; with `excludeSingleCodonAminoAcids:true` they are excluded from the geometric mean entirely (Sharp & Li 1987; Jansen 2003)
 3. **Monotonicity:** Replacing rare codons with optimal ones increases CAI
 4. **Idempotence:** Calculating twice gives same result
 
@@ -101,6 +106,17 @@ ACU: 0.16/0.44 = 0.36364
 CAI = (0.08 × 0.36364)^(1/2) = 0.17056
 ```
 
+### Exclusion-Mode Reference Values (`excludeSingleCodonAminoAcids: true`, E. coli K12)
+
+CUA(Leu) w = 0.04/0.50 = 0.08; AUG(Met)/UGG(Trp) excluded.
+
+```
+AUGUGG    : incl=1.0                  ; excl=0 (L=0, all excluded)
+AUGCUACUA : incl=0.18566355334451112  ; excl=exp((ln0.08+ln0.08)/2)=0.08
+AUGUGGCUA : incl=0.43088693800637673  ; excl=exp(ln0.08/1)=0.08
+CUGCUA    : incl=0.28284271247461906  ; excl=same (no Met/Trp)
+```
+
 ### Codon Frequencies (E. coli K12, Kazusa MG1655)
 
 | AA | Codon | Freq | Max | w |
@@ -114,7 +130,7 @@ CAI = (0.08 × 0.36364)^(1/2) = 0.17056
 
 ## Audit Notes
 
-### Current Test Coverage (25 tests in CodonOptimizer_CAI_Tests.cs)
+### Current Test Coverage (30 tests in CodonOptimizer_CAI_Tests.cs)
 
 | Category | Count | Tests |
 |----------|-------|-------|
@@ -134,6 +150,7 @@ CAI = (0.08 × 0.36364)^(1/2) = 0.17056
 | S3 (Only stops) | 1 | OnlyStopCodons_ReturnsZero (shared with M10) |
 | C1 (All organisms) | 1 | AllThreeOrganismTables_MatchHandCalculated |
 | Edge cases | 2 | IncompleteFinalCodon, TwoIncompleteBases |
+| M13–M17 (Single-codon AA exclusion) | 5 | DefaultMode_IncludesSingleCodonAminoAcids, ExcludeMode_AllSingleCodonAA_ReturnsZero, ExcludeMode_DropsMetFromGeometricMean, ExcludeMode_DropsBothMetAndTrp_ScoresOnlyRemainder, ExcludeMode_NoSingleCodonAA_UnchangedFromDefault |
 
 ### Consolidation Status
 
@@ -152,6 +169,14 @@ When a codon has frequency 0 but its amino acid has other codons with frequency 
 - **Rationale:** Protects against incomplete codon usage tables where zero frequency may represent missing data rather than a truly absent codon. Sharp & Li (1987) used highly expressed E. coli genes where all synonymous codons appeared; real-world tables from Kazusa or custom datasets may have sampling gaps.
 - **Impact:** For sequences containing affected codons, CAI > 0 (approximately 1e-6^(1/L)) instead of exactly 0. For all practical sequences with L > 1, the difference is negligible.
 - **Alternative:** Strict IEEE 754 arithmetic would give CAI = 0 for any zero-frequency codon usage.
+
+**Single-codon amino-acid exclusion (now supported, opt-in):** Sharp & Li (1987) — quoted verbatim
+by Jansen et al. (2003), https://pmc.ncbi.nlm.nih.gov/articles/PMC2684136/ (retrieved 2026-06-24) —
+state that "codon families containing a single codon (e.g. AUG and UGG …) should be excluded in
+computing CAI" because their w is always 1. The library now offers this via the optional
+`excludeSingleCodonAminoAcids` parameter (default `false` = historical inclusive behaviour;
+`true` = canonical exclusion). The previously-documented Met/Trp limitation is therefore resolved as
+a selectable convention rather than a fixed behaviour.
 
 **No other assumptions.** All codon frequency tables verified against Kazusa Codon Usage Database (March 2026).
 

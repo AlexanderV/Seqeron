@@ -665,7 +665,7 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "find_protein_domains", Title = "Protein — Common Domains", ReadOnly = true)]
-    [Description("Detect common protein domains (zinc finger C2H2, WD40, SH3, PDZ, kinase ATP-binding) via signature regex.")]
+    [Description("Detect common protein domains with EXACT PROSITE patterns: zinc finger C2H2 (PS00028), WD-repeats (PS00678), kinase ATP-binding / Walker A P-loop (PS00017). Profile-only domains (SH3 PS50002, PDZ PS50106) are not detected (no deterministic pattern).")]
     public static FindProteinDomainsResult FindProteinDomains(
         [Description("Protein sequence.")] string proteinSequence)
     {

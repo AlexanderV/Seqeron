@@ -1,19 +1,28 @@
-// ONCO-MHC-001 — MHC-Peptide Binding Classification (length filtering + affinity/%rank thresholds)
+// ONCO-MHC-001 — MHC-Peptide Binding (classification + matrix-based prediction)
 // Evidence: docs/Evidence/ONCO-MHC-001-Evidence.md
 // TestSpec: tests/TestSpecs/ONCO-MHC-001.md
 // Source: Reynisson B et al. (2020). NetMHCpan-4.1. Nucleic Acids Res 48(W1):W449-W454.
 //         https://doi.org/10.1093/nar/gkaa379  (class I %Rank SB<0.5/WB<2; class II SB<2/WB<10; len 8-14, default 8-11)
 //         Sette A et al. (1994). J Immunol 153(12):5586-92. PMID 7527444  (IC50 ~500 nM, preferably 50 nM)
 //         IEDB threshold help: <50 nM high, <500 nM intermediate. IEDB class II tool desc: length 13-25.
+//         Parker KC, Bednarek MA, Coligan JE (1994). J Immunol 152(1):163-175. PMID 8254189 + BIMAS scoring docs
+//           (BIMAS: T1/2 = finalConstant * product-of-coefficients; unlisted residue coefficient = 1.0).
+//         Peters B, Sette A (2005). BMC Bioinformatics 6:132. https://doi.org/10.1186/1471-2105-6-132 +
+//           IEDB log50k = 1 - log(IC50)/log(50000)  =>  IC50 = 50000^(1 - score)  (SMM additive sum).
 //
 // Expected categories below are derived from the cited cutoffs (strict "<"), NOT from running the code:
 //   IC50 (nM): Strong < 50, Weak < 500, else NonBinder.
 //   %Rank class I: Strong < 0.5, Weak < 2.  class II: Strong < 2, Weak < 10.
 //   Length: class I 8-11 inclusive; class II 13-25 inclusive.
+// Prediction expected values are computed independently from the published rules:
+//   SMM: IC50 = 50000^(1 - score)  =>  score 0 -> 50000, 0.5 -> sqrt(50000) = 223.6067977499790, 1 -> 1.
+//   BIMAS: T1/2 = finalConstant * product of per-position coefficients (missing residue = 1.0).
 
 using System;
+using System.Collections.Generic;
 using MhcClass = Seqeron.Genomics.Oncology.OncologyAnalyzer.MhcClass;
 using BindingStrength = Seqeron.Genomics.Oncology.OncologyAnalyzer.BindingStrength;
+using PmhcScoringMatrix = Seqeron.Genomics.Oncology.OncologyAnalyzer.PmhcScoringMatrix;
 
 namespace Seqeron.Genomics.Tests;
 
@@ -279,6 +288,275 @@ public class OncologyAnalyzer_ClassifyMhcBinding_Tests
         Assert.Throws<ArgumentOutOfRangeException>(
             () => OncologyAnalyzer.ClassifyMhcBinding(9, 0.0, MhcClass.ClassI),
             "Valid length passes the length gate, so the IC50 = 0 invariant (IC50 > 0) is enforced ⇒ throws.");
+    }
+
+    #endregion
+
+    #region PredictIc50Smm (SMM transform: IC50 = 50000^(1 - score))
+
+    // Builds a single-position SMM matrix whose only residue 'A' contributes `contribution`, with
+    // the given intercept (FinalConstant). A 1-mer 'A' then has score = intercept + contribution.
+    private static PmhcScoringMatrix SingleSmmPosition(double contribution, double intercept)
+        => new(
+            new IReadOnlyDictionary<char, double>[]
+            {
+                new Dictionary<char, double> { ['A'] = contribution },
+            },
+            intercept);
+
+    // P1 — score 0 (intercept 0, contribution 0) ⇒ IC50 = 50000^1 = 50000 nM (IEDB log50k inverted).
+    [Test]
+    public void PredictIc50Smm_ScoreZero_ReturnsBase50000()
+    {
+        double ic50 = OncologyAnalyzer.PredictIc50Smm("A", SingleSmmPosition(0.0, 0.0));
+        Assert.That(ic50, Is.EqualTo(50000.0).Within(1e-6),
+            "IC50 = 50000^(1 - 0) = 50000 nM — the SMM transform's maximum (IEDB log50k = 1 - log(IC50)/log(50000)).");
+    }
+
+    // P2 — score 1 (contribution 1, intercept 0) ⇒ IC50 = 50000^0 = 1 nM.
+    [Test]
+    public void PredictIc50Smm_ScoreOne_ReturnsOneNm()
+    {
+        double ic50 = OncologyAnalyzer.PredictIc50Smm("A", SingleSmmPosition(1.0, 0.0));
+        Assert.That(ic50, Is.EqualTo(1.0).Within(1e-9),
+            "IC50 = 50000^(1 - 1) = 50000^0 = 1 nM (a strong binder by the SMM transform).");
+    }
+
+    // P3 — score 0.5 ⇒ IC50 = 50000^0.5 = sqrt(50000) = 223.6067977499790 nM (exact, independent of code).
+    [Test]
+    public void PredictIc50Smm_ScoreHalf_ReturnsSqrt50000()
+    {
+        double ic50 = OncologyAnalyzer.PredictIc50Smm("A", SingleSmmPosition(0.5, 0.0));
+        Assert.That(ic50, Is.EqualTo(223.6067977499790).Within(1e-9),
+            "IC50 = 50000^(1 - 0.5) = sqrt(50000) = 223.6067977499790 nM (IEDB transform).");
+    }
+
+    // P4 — the intercept (FinalConstant) is part of the score: intercept 0.3 + contribution 0.2 = 0.5
+    // ⇒ same sqrt(50000), proving the intercept is added (not ignored).
+    [Test]
+    public void PredictIc50Smm_InterceptAddedToScore_ReturnsSqrt50000()
+    {
+        double ic50 = OncologyAnalyzer.PredictIc50Smm("A", SingleSmmPosition(0.2, 0.3));
+        Assert.That(ic50, Is.EqualTo(223.6067977499790).Within(1e-9),
+            "score = intercept 0.3 + contribution 0.2 = 0.5 ⇒ IC50 = sqrt(50000); the intercept must be summed in.");
+    }
+
+    // P5 — an unlisted residue contributes 0 (additive identity): peptide 'C' (not in the row) ⇒ score 0
+    // ⇒ IC50 = 50000 nM. A wrong default (e.g. treating missing as the listed value) would fail.
+    [Test]
+    public void PredictIc50Smm_UnlistedResidue_ContributesZero()
+    {
+        double ic50 = OncologyAnalyzer.PredictIc50Smm("C", SingleSmmPosition(1.0, 0.0));
+        Assert.That(ic50, Is.EqualTo(50000.0).Within(1e-6),
+            "Residue 'C' is absent from the row ⇒ contributes 0 (SMM additive identity) ⇒ score 0 ⇒ IC50 = 50000 nM.");
+    }
+
+    // P6 — null peptide ⇒ ArgumentNullException.
+    [Test]
+    public void PredictIc50Smm_NullPeptide_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(
+            () => OncologyAnalyzer.PredictIc50Smm(null!, SingleSmmPosition(1.0, 0.0)),
+            "A null peptide is invalid input.");
+    }
+
+    // P7 — peptide length ≠ matrix row count ⇒ ArgumentException (one row, 2-residue peptide).
+    [Test]
+    public void PredictIc50Smm_LengthMismatch_Throws()
+    {
+        Assert.Throws<ArgumentException>(
+            () => OncologyAnalyzer.PredictIc50Smm("AA", SingleSmmPosition(1.0, 0.0)),
+            "Peptide length 2 ≠ matrix position count 1 ⇒ ArgumentException.");
+    }
+
+    // P8 — empty matrix (no rows) ⇒ ArgumentException.
+    [Test]
+    public void PredictIc50Smm_EmptyMatrix_Throws()
+    {
+        var empty = new PmhcScoringMatrix(Array.Empty<IReadOnlyDictionary<char, double>>(), 0.0);
+        Assert.Throws<ArgumentException>(
+            () => OncologyAnalyzer.PredictIc50Smm("", empty),
+            "A matrix with no position rows cannot score any peptide ⇒ ArgumentException.");
+    }
+
+    #endregion
+
+    #region PredictAndClassifySmm (predict → classify chain)
+
+    // The 9-mer SMM matrix for GILGFVFTL (influenza M1 58-66, the paradigm HLA-A*02:01 binder):
+    // per-position contributions 0.20,0.10,0.15,0.05,0.10,0.10,0.10,0.05,0.15 sum to exactly 1.0
+    // (intercept 0) ⇒ score 1 ⇒ IC50 = 1 nM. Every other residue at each position contributes 0,
+    // so a poly-residue peptide that hits none of the listed residues scores 0 ⇒ IC50 = 50000 nM.
+    private static PmhcScoringMatrix StrongBinderSmmMatrix()
+    {
+        const string peptide = "GILGFVFTL";
+        double[] contrib = { 0.20, 0.10, 0.15, 0.05, 0.10, 0.10, 0.10, 0.05, 0.15 };
+        var rows = new IReadOnlyDictionary<char, double>[peptide.Length];
+        for (int i = 0; i < peptide.Length; i++)
+        {
+            rows[i] = new Dictionary<char, double> { [peptide[i]] = contrib[i] };
+        }
+
+        return new PmhcScoringMatrix(rows, 0.0);
+    }
+
+    // P9 — known strong binder GILGFVFTL: score 1.0 ⇒ IC50 = 1 nM ⇒ Strong (end-to-end predict→classify).
+    [Test]
+    public void PredictAndClassifySmm_KnownStrongBinder_ReturnsStrong()
+    {
+        var (ic50, strength) = OncologyAnalyzer.PredictAndClassifySmm("GILGFVFTL", StrongBinderSmmMatrix());
+        Assert.Multiple(() =>
+        {
+            Assert.That(ic50, Is.EqualTo(1.0).Within(1e-9),
+                "GILGFVFTL contributions sum to 1.0 ⇒ IC50 = 50000^0 = 1 nM.");
+            Assert.That(strength, Is.EqualTo(BindingStrength.Strong),
+                "IC50 = 1 nM < 50 nM ⇒ Strong (chains into ClassifyBindingAffinity).");
+        });
+    }
+
+    // P10 — non-binder (no listed residues matched): poly-'W' 9-mer ⇒ score 0 ⇒ IC50 = 50000 nM ⇒ NonBinder,
+    // and the strong binder's IC50 (1 nM) is far below the non-binder's (50000 nM) — the required ranking.
+    [Test]
+    public void PredictAndClassifySmm_NonBinderRankedAboveStrong()
+    {
+        var matrix = StrongBinderSmmMatrix();
+        var (strongIc50, strongStrength) = OncologyAnalyzer.PredictAndClassifySmm("GILGFVFTL", matrix);
+        var (nonIc50, nonStrength) = OncologyAnalyzer.PredictAndClassifySmm("WWWWWWWWW", matrix);
+        Assert.Multiple(() =>
+        {
+            Assert.That(nonIc50, Is.EqualTo(50000.0).Within(1e-6),
+                "Poly-W matches no listed residue ⇒ score 0 ⇒ IC50 = 50000 nM.");
+            Assert.That(nonStrength, Is.EqualTo(BindingStrength.NonBinder),
+                "IC50 = 50000 nM ≥ 500 nM ⇒ NonBinder.");
+            Assert.That(strongIc50, Is.LessThan(nonIc50),
+                "The strong binder's predicted IC50 (1 nM) must be far below the non-binder's (50000 nM).");
+            Assert.That(strongStrength, Is.EqualTo(BindingStrength.Strong),
+                "Sanity: the binder is Strong while the non-binder is NonBinder (ranking holds).");
+        });
+    }
+
+    #endregion
+
+    #region PredictBindingHalfLifeBimas (BIMAS product rule)
+
+    // P11 — BIMAS product: T1/2 = finalConstant * (2.0 * 3.0 * 1.5) = 10 * 9 = 90.0 (exact, hand-computed).
+    [Test]
+    public void PredictBindingHalfLifeBimas_ProductTimesConstant_Returns90()
+    {
+        var matrix = new PmhcScoringMatrix(
+            new IReadOnlyDictionary<char, double>[]
+            {
+                new Dictionary<char, double> { ['L'] = 2.0 },
+                new Dictionary<char, double> { ['M'] = 3.0 },
+                new Dictionary<char, double> { ['V'] = 1.5 },
+            },
+            10.0);
+        double t12 = OncologyAnalyzer.PredictBindingHalfLifeBimas("LMV", matrix);
+        Assert.That(t12, Is.EqualTo(90.0).Within(1e-9),
+            "BIMAS: T1/2 = finalConstant 10 * (2.0*3.0*1.5) = 10*9 = 90.0 (running score starts at 1.0).");
+    }
+
+    // P12 — unlisted residues contribute the neutral coefficient 1.0: 'AAA' on the same matrix ⇒
+    // T1/2 = 10 * (1*1*1) = 10.0. A wrong default (e.g. 0) would give 0 and fail.
+    [Test]
+    public void PredictBindingHalfLifeBimas_UnlistedResidues_NeutralOne()
+    {
+        var matrix = new PmhcScoringMatrix(
+            new IReadOnlyDictionary<char, double>[]
+            {
+                new Dictionary<char, double> { ['L'] = 2.0 },
+                new Dictionary<char, double> { ['M'] = 3.0 },
+                new Dictionary<char, double> { ['V'] = 1.5 },
+            },
+            10.0);
+        double t12 = OncologyAnalyzer.PredictBindingHalfLifeBimas("AAA", matrix);
+        Assert.That(t12, Is.EqualTo(10.0).Within(1e-9),
+            "Unlisted residues use coefficient 1.0 (BIMAS) ⇒ T1/2 = 10 * 1 * 1 * 1 = 10.0.");
+    }
+
+    // P13 — a strong-anchor peptide outscores a weak one (product rule preserves ranking).
+    [Test]
+    public void PredictBindingHalfLifeBimas_StrongAnchorOutscoresWeak()
+    {
+        var matrix = new PmhcScoringMatrix(
+            new IReadOnlyDictionary<char, double>[]
+            {
+                new Dictionary<char, double> { ['L'] = 5.0, ['A'] = 0.1 },
+                new Dictionary<char, double> { ['V'] = 4.0, ['A'] = 0.2 },
+            },
+            1.0);
+        double strong = OncologyAnalyzer.PredictBindingHalfLifeBimas("LV", matrix); // 1*5*4 = 20
+        double weak = OncologyAnalyzer.PredictBindingHalfLifeBimas("AA", matrix);   // 1*0.1*0.2 = 0.02
+        Assert.Multiple(() =>
+        {
+            Assert.That(strong, Is.EqualTo(20.0).Within(1e-9), "Favorable anchors: 1*5*4 = 20.0.");
+            Assert.That(weak, Is.EqualTo(0.02).Within(1e-9), "Unfavorable anchors: 1*0.1*0.2 = 0.02.");
+            Assert.That(strong, Is.GreaterThan(weak), "Higher BIMAS T1/2 ⇒ stronger predicted binder.");
+        });
+    }
+
+    #endregion
+
+    #region LoadScoringMatrix (caller-supplied matrix loader)
+
+    // P14 — loader parses CONST + per-position RESIDUE=VALUE rows, handles comments/blanks, upper-cases
+    // residues, and round-trips into a correct BIMAS prediction (10 * 2.0 * 3.0 = 60.0).
+    [Test]
+    public void LoadScoringMatrix_ParsesConstAndRows_RoundTripsBimas()
+    {
+        string[] lines =
+        {
+            "# example BIMAS-style matrix (caller-supplied values)",
+            "CONST=10.0",
+            "l=2.0 M=1.0",     // lowercase 'l' must upper-case to 'L'
+            "",                 // blank line skipped
+            "M=3.0, A=0.5",     // comma-separated tokens
+        };
+        PmhcScoringMatrix matrix = OncologyAnalyzer.LoadScoringMatrix(lines);
+        Assert.Multiple(() =>
+        {
+            Assert.That(matrix.Rows, Has.Count.EqualTo(2), "Two position rows (CONST line is not a position).");
+            Assert.That(matrix.FinalConstant, Is.EqualTo(10.0).Within(1e-12), "CONST=10.0 sets the final constant.");
+            double t12 = OncologyAnalyzer.PredictBindingHalfLifeBimas("LM", matrix);
+            Assert.That(t12, Is.EqualTo(60.0).Within(1e-9),
+                "'L' at pos0 = 2.0 (lower-cased input), 'M' at pos1 = 3.0 ⇒ 10*2*3 = 60.0.");
+        });
+    }
+
+    // P15 — malformed token (no '=') ⇒ FormatException.
+    [Test]
+    public void LoadScoringMatrix_MalformedToken_Throws()
+    {
+        Assert.Throws<FormatException>(
+            () => OncologyAnalyzer.LoadScoringMatrix(new[] { "L 2.0" }),
+            "A token without '=' is malformed ⇒ FormatException.");
+    }
+
+    // P16 — non-numeric value ⇒ FormatException.
+    [Test]
+    public void LoadScoringMatrix_NonNumericValue_Throws()
+    {
+        Assert.Throws<FormatException>(
+            () => OncologyAnalyzer.LoadScoringMatrix(new[] { "L=abc" }),
+            "A non-numeric value ⇒ FormatException.");
+    }
+
+    // P17 — multi-character residue key ⇒ FormatException.
+    [Test]
+    public void LoadScoringMatrix_MultiCharResidue_Throws()
+    {
+        Assert.Throws<FormatException>(
+            () => OncologyAnalyzer.LoadScoringMatrix(new[] { "LM=2.0" }),
+            "A residue key must be a single amino-acid letter ⇒ FormatException.");
+    }
+
+    // P18 — null input ⇒ ArgumentNullException.
+    [Test]
+    public void LoadScoringMatrix_NullInput_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(
+            () => OncologyAnalyzer.LoadScoringMatrix(null!),
+            "Null line enumerable is invalid input.");
     }
 
     #endregion

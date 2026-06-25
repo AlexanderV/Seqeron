@@ -20,7 +20,7 @@
 ## Must Tests
 
 ### M-001: GetSeedSequence — Known miRNA returns correct seed (miRBase reference)
-**Evidence**: miRBase, Bartel (2009): seed = positions 2-8 of mature miRNA
+**Evidence**: miRBase, Bartel (2009): 7-nt seed / family-defining region = positions 2-8 of the mature miRNA (the 6-mer "seed proper" is 2-7; this unit reports the 7-nt 2-8 region)
 **Input**: hsa-let-7a-5p (UGAGGUAGUAGGUUGUAUAGUU)
 **Expected**: GAGGUAG (7 nt, positions 2-8)
 

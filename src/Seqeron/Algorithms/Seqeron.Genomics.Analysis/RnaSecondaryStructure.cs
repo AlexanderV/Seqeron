@@ -109,6 +109,58 @@ public static class RnaSecondaryStructure
         double PartitionFunction,
         IReadOnlyDictionary<(int I, int J), double> BasePairProbabilities);
 
+    /// <summary>
+    /// Result of the McCaskill (1990) partition function evaluated on the SAME Turner-2004
+    /// nearest-neighbour energy model used by <see cref="CalculateMinimumFreeEnergy"/>:
+    /// the Boltzmann-weighted sum over the full ensemble of pseudoknot-free secondary
+    /// structures, the equilibrium base-pair probabilities, the per-base unpaired
+    /// probabilities, and the ensemble free energy.
+    /// </summary>
+    /// <param name="PartitionFunction">
+    /// Z = Σ_S exp(−E(S)/RT) over every admissible structure S, E(S) scored with the Turner-2004
+    /// model (McCaskill JS 1990, Biopolymers 29:1105; Lorenz et al. 2011, ViennaRNA). Z ≥ 1
+    /// (the open chain, E = 0, is always one term).
+    /// </param>
+    /// <param name="BasePairProbabilities">
+    /// P[(i,j)] = (Σ_{S ∋ (i,j)} exp(−E(S)/RT)) / Z, the equilibrium probability that 0-based
+    /// positions i &lt; j pair, via the inside/outside recursion. Only pairs with P &gt; 0 are listed.
+    /// </param>
+    /// <param name="UnpairedProbabilities">
+    /// p_unpaired[i] = 1 − Σ_j P[(i,j)] (summed over both i&lt;j and j&lt;i), the equilibrium
+    /// probability that 0-based position i is unpaired (Lorenz et al. 2011). One entry per position.
+    /// </param>
+    /// <param name="EnsembleFreeEnergy">
+    /// ΔG_ensemble = −RT·ln Z (kcal/mol). By the laws of statistical mechanics this is a lower
+    /// bound on the MFE returned by <see cref="CalculateMinimumFreeEnergy"/> for the same input.
+    /// </param>
+    public readonly record struct UnpairedProbabilityResult(
+        double PartitionFunction,
+        IReadOnlyDictionary<(int I, int J), double> BasePairProbabilities,
+        IReadOnlyList<double> UnpairedProbabilities,
+        double EnsembleFreeEnergy);
+
+    /// <summary>
+    /// The minimum-free-energy (MFE) secondary structure recovered by Zuker–Stiegler (1981)
+    /// dynamic-programming traceback over the same V/W/WM matrices used to compute the scalar MFE.
+    /// </summary>
+    /// <param name="Sequence">The folded sequence (upper-cased; T read as U), as scored by the DP.</param>
+    /// <param name="DotBracket">
+    /// Dot-bracket notation of the optimal structure: <c>(</c>/<c>)</c> for the two ends of every
+    /// base pair, <c>.</c> for unpaired positions. Always balanced and pseudoknot-free.
+    /// </param>
+    /// <param name="BasePairs">
+    /// The optimal base pairs as 0-based (5' &lt; 3') index tuples, sorted by 5' position.
+    /// </param>
+    /// <param name="FreeEnergy">
+    /// ΔG° (kcal/mol) of <see cref="DotBracket"/>. By construction this equals the scalar value
+    /// returned by <see cref="CalculateMinimumFreeEnergy"/> for the same input and parameters.
+    /// </param>
+    public readonly record struct MfeStructure(
+        string Sequence,
+        string DotBracket,
+        IReadOnlyList<(int Position1, int Position2)> BasePairs,
+        double FreeEnergy);
+
     #endregion
 
     #region Free Energy Parameters
@@ -711,8 +763,12 @@ public static class RnaSecondaryStructure
         else
         {
             // Loops < 3 nt are sterically impossible (NNDB Turner 2004, Wikipedia Stem-loop).
-            // Return prohibitive energy to prevent selection in any optimization.
-            energy = 100.0;
+            // Return the prohibitive sentinel IMMEDIATELY: the sequence-dependent terms below
+            // (terminal mismatch, first-mismatch bonuses, all-C penalty) are defined only for
+            // valid loops and must not be layered onto the sentinel. Returning here keeps the
+            // sentinel EXACTLY 100.0 (INV-02) and avoids the all-C check's vacuous-truth on an
+            // empty loop string (All(c => c == 'C') is true for "" → would add the +1.6 penalty).
+            return 100.0;
         }
 
         // For loops ≥4nt: terminal mismatch stacking + sequence-dependent bonuses + penalties
@@ -1047,13 +1103,6 @@ public static class RnaSecondaryStructure
         // A/C/G/U-indexed tables below treat the two interchangeably.
         string seq = rnaSequence.ToUpperInvariant().Replace('T', 'U');
         int n = seq.Length;
-        const double INF = 1e18;
-        const int MAXLOOP = 30;
-
-        // Multibranch loop parameters (NNDB Turner 2004)
-        const double ML_offset = 9.25;   // a — initiation
-        const double ML_helix = -0.63;   // c — per helix
-        const double ML_unpaired = 0.0;  // free base cost (simplified to 0)
 
         var pool = ArrayPool<double>.Shared;
         double[] vBuf = pool.Rent(n * n);  // V(i,j)
@@ -1061,6 +1110,44 @@ public static class RnaSecondaryStructure
         double[] w = pool.Rent(n);          // W(j)
 
         try
+        {
+            FillDp(seq, n, minLoopSize, vBuf, wmBuf, w);
+            double result = w[n - 1];
+            return Math.Round(result, 2);
+        }
+        finally
+        {
+            pool.Return(vBuf);
+            pool.Return(wmBuf);
+            pool.Return(w);
+        }
+    }
+
+    // DP constants shared by the matrix fill, the scalar MFE, and the traceback.
+    private const double Dp_INF = 1e18;
+    private const int Dp_MAXLOOP = 30;
+    // Multibranch loop parameters (NNDB Turner 2004 — mb-parameters.html).
+    private const double Dp_ML_offset = 9.25;   // a — initiation
+    private const double Dp_ML_helix = -0.63;   // c — per helix
+    private const double Dp_ML_unpaired = 0.0;  // free base cost (simplified to 0)
+
+    /// <summary>
+    /// Fills the Zuker–Stiegler (1981) MFE dynamic-programming matrices in place:
+    /// V(i,j) (minimum energy with i·j paired), WM(i,j) (multiloop region), and W(j)
+    /// (overall MFE of the prefix 0..j). Caller supplies n×n buffers for <paramref name="vBuf"/>
+    /// and <paramref name="wmBuf"/> (row-major, index i*n+j) and an n-length buffer for
+    /// <paramref name="w"/>. The traceback (<see cref="TracebackMfe"/>) and the scalar MFE
+    /// (<see cref="CalculateMinimumFreeEnergy"/>) reuse the SAME fill so the reconstructed
+    /// structure's energy equals the scalar W(0,n-1).
+    /// </summary>
+    private static void FillDp(string seq, int n, int minLoopSize, double[] vBuf, double[] wmBuf, double[] w)
+    {
+        const double INF = Dp_INF;
+        const int MAXLOOP = Dp_MAXLOOP;
+        const double ML_offset = Dp_ML_offset;
+        const double ML_helix = Dp_ML_helix;
+        const double ML_unpaired = Dp_ML_unpaired;
+
         {
             // Initialize to +INF (no valid structure)
             Array.Fill(vBuf, INF, 0, n * n);
@@ -1383,16 +1470,367 @@ public static class RnaSecondaryStructure
 
                 w[j] = wBest;
             }
+        }
+    }
 
-            double result = w[n - 1];
-            return Math.Round(result, 2);
-        }
-        finally
+    /// <summary>
+    /// Computes the MFE-OPTIMAL secondary structure of an RNA sequence by Zuker–Stiegler (1981)
+    /// dynamic-programming traceback over the same V/W/WM matrices used by
+    /// <see cref="CalculateMinimumFreeEnergy"/>. Unlike <see cref="PredictStructure"/> (a greedy
+    /// stem-loop heuristic), this returns the globally optimal pseudoknot-free structure for the
+    /// Turner 2004 energy model, and its <see cref="MfeStructure.FreeEnergy"/> equals the scalar
+    /// MFE for the same input and parameters.
+    /// </summary>
+    /// <remarks>
+    /// Recurrences and traceback per Zuker M, Stiegler P (1981) Nucleic Acids Res. 9(1):133-148
+    /// (W/V matrices; F/C/M/M¹ decomposition as taught in MIT 6.047 Lecture 08, Fig. 13). The
+    /// traceback re-derives, at each cell, which recurrence option attained the stored minimum and
+    /// recurses into the corresponding sub-problem(s), recording a base pair whenever a V(i,j) cell
+    /// is entered — exactly mirroring <see cref="FillDp"/>, so the two are mutually consistent.
+    /// </remarks>
+    /// <param name="rnaSequence">RNA (or DNA; T read as U) sequence; case-insensitive.</param>
+    /// <param name="minLoopSize">Minimum hairpin loop size (NNDB minimum 3; smaller is clamped to 3).</param>
+    /// <returns>The optimal structure; empty (no pairs, all dots, ΔG = 0) for null/empty/too-short input.</returns>
+    public static MfeStructure CalculateMfeStructure(string rnaSequence, int minLoopSize = 3)
+    {
+        // NNDB Turner 2004: hairpin loops < 3 nt are prohibited.
+        if (minLoopSize < 3) minLoopSize = 3;
+
+        if (string.IsNullOrEmpty(rnaSequence) || rnaSequence.Length < minLoopSize + 2)
         {
-            pool.Return(vBuf);
-            pool.Return(wmBuf);
-            pool.Return(w);
+            string s0 = rnaSequence is null ? "" : rnaSequence.ToUpperInvariant().Replace('T', 'U');
+            return new MfeStructure(s0, new string('.', s0.Length),
+                new List<(int, int)>(), 0.0);
         }
+
+        // Accept DNA input by reading thymine as uracil (see CalculateMinimumFreeEnergy).
+        string seq = rnaSequence.ToUpperInvariant().Replace('T', 'U');
+        int n = seq.Length;
+
+        // Non-pooled arrays: they must survive past the fill so the traceback can read them.
+        double[] vBuf = new double[n * n];
+        double[] wmBuf = new double[n * n];
+        double[] w = new double[n];
+
+        FillDp(seq, n, minLoopSize, vBuf, wmBuf, w);
+
+        var pairs = TracebackMfe(seq, n, minLoopSize, vBuf, wmBuf, w);
+        pairs.Sort((a, b) => a.Position1.CompareTo(b.Position1));
+
+        string dotBracket = GenerateFullDotBracket(n, pairs);
+        double energy = Math.Round(w[n - 1], 2);
+
+        return new MfeStructure(seq, dotBracket, pairs, energy);
+    }
+
+    /// <summary>
+    /// Predicts the MFE-optimal secondary structure via DP traceback and returns it in the same
+    /// <see cref="SecondaryStructure"/> shape as <see cref="PredictStructure"/>. This is the
+    /// optimal counterpart of the greedy <see cref="PredictStructure"/>: the dot-bracket and base
+    /// pairs are the DP optimum (Zuker–Stiegler 1981) and <see cref="SecondaryStructure.MinimumFreeEnergy"/>
+    /// equals <see cref="CalculateMinimumFreeEnergy"/>.
+    /// </summary>
+    /// <param name="rnaSequence">RNA (or DNA; T read as U) sequence; case-insensitive.</param>
+    /// <param name="minLoopSize">Minimum hairpin loop size (NNDB minimum 3; smaller is clamped to 3).</param>
+    public static SecondaryStructure PredictStructureMfe(string rnaSequence, int minLoopSize = 3)
+    {
+        var mfe = CalculateMfeStructure(rnaSequence, minLoopSize);
+
+        var basePairs = new List<BasePair>(mfe.BasePairs.Count);
+        foreach (var (p1, p2) in mfe.BasePairs)
+        {
+            var type = GetBasePairType(mfe.Sequence[p1], mfe.Sequence[p2]) ?? BasePairType.NonCanonical;
+            basePairs.Add(new BasePair(p1, p2, mfe.Sequence[p1], mfe.Sequence[p2], type));
+        }
+
+        var pseudoknots = DetectPseudoknots(basePairs).ToList(); // optimal DP is pseudoknot-free → empty
+
+        return new SecondaryStructure(
+            Sequence: mfe.Sequence,
+            DotBracket: mfe.DotBracket,
+            BasePairs: basePairs,
+            StemLoops: new List<StemLoop>(),
+            Pseudoknots: pseudoknots,
+            MinimumFreeEnergy: mfe.FreeEnergy);
+    }
+
+    // Comparison tolerance for "this option achieved the stored DP optimum". The DP sums a bounded
+    // number of table values (each ≤ 2 decimals), so the optimum is reproduced to well within this.
+    private const double Dp_TraceEps = 1e-6;
+
+    /// <summary>
+    /// Reconstructs the optimal base-pair set from the filled V/W/WM matrices by Zuker–Stiegler
+    /// traceback. At each sub-problem it recomputes the candidate values of the SAME recurrence
+    /// options as <see cref="FillDp"/> and follows the one that attains the stored optimum.
+    /// </summary>
+    private static List<(int Position1, int Position2)> TracebackMfe(
+        string seq, int n, int minLoopSize, double[] vBuf, double[] wmBuf, double[] w)
+    {
+        const double INF = Dp_INF;
+        const int MAXLOOP = Dp_MAXLOOP;
+        const double ML_offset = Dp_ML_offset;
+        const double ML_helix = Dp_ML_helix;
+        const double ML_unpaired = Dp_ML_unpaired;
+        const double EPS = Dp_TraceEps;
+
+        var pairs = new List<(int, int)>();
+
+        // Work items. Kind W → reconstruct prefix [0..j]; V → pair (i,j) already recorded,
+        // reconstruct what (i,j) encloses; WM → reconstruct the multiloop region [i..j].
+        var stack = new Stack<(char Kind, int I, int J)>();
+        stack.Push(('W', 0, n - 1));
+
+        while (stack.Count > 0)
+        {
+            var (kind, i, j) = stack.Pop();
+
+            if (kind == 'W')
+            {
+                int jj = j;
+                if (jj < minLoopSize + 1) continue; // too short — all unpaired
+                double target = w[jj];
+
+                // Option: j unpaired → W(j-1).
+                if (Math.Abs(target - w[jj - 1]) <= EPS)
+                {
+                    stack.Push(('W', 0, jj - 1));
+                    continue;
+                }
+
+                // Option: helix (k,j) closes the last branch, with W(k-1) before it.
+                bool matched = false;
+                for (int k = 0; k <= jj && !matched; k++)
+                {
+                    double vij = vBuf[k * n + jj];
+                    if (vij >= INF) continue;
+                    double auPenalty = IsAUorGU(seq[k], seq[jj]) ? TerminalAU_GU_Penalty : 0;
+                    double dangle = 0;
+                    if (k > 0) dangle += GetDanglingEndEnergy(seq[k], seq[jj], seq[k - 1], false);
+                    if (jj < n - 1) dangle += GetDanglingEndEnergy(seq[k], seq[jj], seq[jj + 1], true);
+                    double left = k > 0 ? w[k - 1] : 0;
+                    if (Math.Abs(target - (left + vij + auPenalty + dangle)) <= EPS)
+                    {
+                        if (k > 0) stack.Push(('W', 0, k - 1));
+                        stack.Push(('V', k, jj));
+                        matched = true;
+                    }
+                }
+                // If nothing matched (numerical corner), leave the region unpaired.
+                continue;
+            }
+
+            if (kind == 'V')
+            {
+                pairs.Add((i, j)); // i·j is paired in the optimal structure
+                double target = vBuf[i * n + j];
+
+                // --- Option 1: Hairpin loop ---
+                int loopLen = j - i - 1;
+                if (loopLen >= minLoopSize)
+                {
+                    string loopSeq = seq.Substring(i + 1, loopLen);
+                    bool specialGU = seq[i] == 'G' && seq[j] == 'U' &&
+                                     i >= 2 && seq[i - 1] == 'G' && seq[i - 2] == 'G';
+                    double hEnergy = CalculateHairpinLoopEnergy(loopSeq, seq[i], seq[j], specialGU);
+                    if (IsAUorGU(seq[i], seq[j])) hEnergy += TerminalAU_GU_Penalty;
+                    if (Math.Abs(target - hEnergy) <= EPS) continue; // hairpin closes here
+                }
+
+                // --- Option 2b: Special GGUC/CUGG 3-stack ---
+                bool consumed = false;
+                if (j - i >= 7 &&
+                    seq[i] == 'G' && seq[j] == 'C' &&
+                    seq[i + 1] == 'G' && seq[j - 1] == 'U' && PairType(seq[i + 1], seq[j - 1]) != 0 &&
+                    seq[i + 2] == 'U' && seq[j - 2] == 'G' && PairType(seq[i + 2], seq[j - 2]) != 0 &&
+                    seq[i + 3] == 'C' && seq[j - 3] == 'G' && PairType(seq[i + 3], seq[j - 3]) != 0)
+                {
+                    double vInner3 = vBuf[(i + 3) * n + (j - 3)];
+                    if (vInner3 < INF && Math.Abs(target - (SpecialGGUC_CUGG_3Stack + vInner3)) <= EPS)
+                    {
+                        // The 3-stack records the two intermediate pairs too (i+1,j-1),(i+2,j-2).
+                        pairs.Add((i + 1, j - 1));
+                        pairs.Add((i + 2, j - 2));
+                        stack.Push(('V', i + 3, j - 3));
+                        consumed = true;
+                    }
+                }
+                if (consumed) continue;
+
+                // --- Option 2: Stacking (i,j) over (i+1,j-1) ---
+                if (j - i > 2 && PairType(seq[i + 1], seq[j - 1]) != 0)
+                {
+                    double vInner = vBuf[(i + 1) * n + (j - 1)];
+                    if (vInner < INF)
+                    {
+                        string stackKey = $"{seq[i]}{seq[i + 1]}/{seq[j]}{seq[j - 1]}";
+                        if (StackingEnergies.TryGetValue(stackKey, out double stackE) &&
+                            Math.Abs(target - (stackE + vInner)) <= EPS)
+                        {
+                            stack.Push(('V', i + 1, j - 1));
+                            continue;
+                        }
+                    }
+                }
+
+                // --- Option 3: Internal loop or bulge ---
+                bool matchedIL = false;
+                for (int ip = i + 1; ip < j - 1 && ip - i - 1 <= MAXLOOP && !matchedIL; ip++)
+                {
+                    int maxN2 = MAXLOOP - (ip - i - 1);
+                    int jpMin = Math.Max(ip + 1, j - maxN2 - 1);
+                    for (int jp = j - 1; jp >= jpMin && !matchedIL; jp--)
+                    {
+                        if (ip == i + 1 && jp == j - 1) continue; // handled by stacking
+                        byte pairIpJp = PairType(seq[ip], seq[jp]);
+                        if (pairIpJp == 0) continue;
+                        double vInner = vBuf[ip * n + jp];
+                        if (vInner >= INF) continue;
+
+                        int n1 = ip - i - 1;
+                        int n2 = j - jp - 1;
+                        double loopE;
+                        if (n1 == 0 || n2 == 0)
+                        {
+                            int bulgeSize = n1 + n2;
+                            char bulgedBase = n1 > 0 ? seq[i + 1] : seq[j - 1];
+                            int numStates = 1;
+                            if (bulgeSize == 1)
+                            {
+                                if (n1 == 1)
+                                {
+                                    if (seq[i] == seq[i + 1]) numStates++;
+                                    if (seq[ip] == seq[i + 1]) numStates++;
+                                }
+                                else
+                                {
+                                    if (seq[j] == seq[j - 1]) numStates++;
+                                    if (seq[jp] == seq[j - 1]) numStates++;
+                                }
+                            }
+                            loopE = CalculateBulgeLoopEnergy(
+                                bulgeSize, bulgedBase, seq[i], seq[j], seq[ip], seq[jp], numStates);
+                        }
+                        else
+                        {
+                            loopE = CalculateInternalLoopEnergy(
+                                n1, n2, seq[i], seq[j], seq[ip], seq[jp],
+                                seq[i + 1], seq[j - 1], seq[ip - 1], seq[jp + 1]);
+                        }
+
+                        if (Math.Abs(target - (loopE + vInner)) <= EPS)
+                        {
+                            stack.Push(('V', ip, jp));
+                            matchedIL = true;
+                        }
+                    }
+                }
+                if (matchedIL) continue;
+
+                // --- Option 4: Multiloop — V(i,j) = ML_offset + ML_helix + AU + WM(i+1,j-1) ---
+                {
+                    double wmInner = wmBuf[(i + 1) * n + (j - 1)];
+                    if (wmInner < INF)
+                    {
+                        double mEnergy = ML_offset + ML_helix + wmInner;
+                        if (IsAUorGU(seq[i], seq[j])) mEnergy += TerminalAU_GU_Penalty;
+                        if (Math.Abs(target - mEnergy) <= EPS)
+                        {
+                            stack.Push(('M', i + 1, j - 1));
+                            continue;
+                        }
+                    }
+                }
+                continue;
+            }
+
+            // kind == 'M' : reconstruct the multiloop region [i..j].
+            {
+                if (i > j) continue;
+                double target = wmBuf[i * n + j];
+                if (target >= INF) continue;
+
+                // Option A: V(i,j) is a single helix.
+                if (vBuf[i * n + j] < INF)
+                {
+                    double e = vBuf[i * n + j] + ML_helix;
+                    if (IsAUorGU(seq[i], seq[j])) e += TerminalAU_GU_Penalty;
+                    if (Math.Abs(target - e) <= EPS) { stack.Push(('V', i, j)); continue; }
+                }
+
+                // Option A2: i is a 5' dangle, helix at (i+1, j).
+                if (i + 1 <= j)
+                {
+                    double vij2 = vBuf[(i + 1) * n + j];
+                    if (vij2 < INF)
+                    {
+                        double e = vij2 + ML_helix;
+                        if (IsAUorGU(seq[i + 1], seq[j])) e += TerminalAU_GU_Penalty;
+                        e += GetDanglingEndEnergy(seq[i + 1], seq[j], seq[i], false);
+                        if (Math.Abs(target - e) <= EPS) { stack.Push(('V', i + 1, j)); continue; }
+                    }
+                }
+
+                // Option A3: j is a 3' dangle, helix at (i, j-1).
+                if (j - 1 >= i)
+                {
+                    double vij3 = vBuf[i * n + (j - 1)];
+                    if (vij3 < INF)
+                    {
+                        double e = vij3 + ML_helix;
+                        if (IsAUorGU(seq[i], seq[j - 1])) e += TerminalAU_GU_Penalty;
+                        e += GetDanglingEndEnergy(seq[i], seq[j - 1], seq[j], true);
+                        if (Math.Abs(target - e) <= EPS) { stack.Push(('V', i, j - 1)); continue; }
+                    }
+                }
+
+                // Option A4: both i and j are dangles, helix at (i+1, j-1).
+                if (i + 1 < j - 1)
+                {
+                    double vij4 = vBuf[(i + 1) * n + (j - 1)];
+                    if (vij4 < INF)
+                    {
+                        double e = vij4 + ML_helix;
+                        if (IsAUorGU(seq[i + 1], seq[j - 1])) e += TerminalAU_GU_Penalty;
+                        e += GetDanglingEndEnergy(seq[i + 1], seq[j - 1], seq[i], false);
+                        e += GetDanglingEndEnergy(seq[i + 1], seq[j - 1], seq[j], true);
+                        if (Math.Abs(target - e) <= EPS) { stack.Push(('V', i + 1, j - 1)); continue; }
+                    }
+                }
+
+                // Option B: i unpaired in the multiloop.
+                if (i + 1 <= j)
+                {
+                    double e = wmBuf[(i + 1) * n + j];
+                    if (e < INF && Math.Abs(target - (e + ML_unpaired)) <= EPS)
+                    { stack.Push(('M', i + 1, j)); continue; }
+                }
+
+                // Option C: j unpaired in the multiloop.
+                if (j - 1 >= i)
+                {
+                    double e = wmBuf[i * n + (j - 1)];
+                    if (e < INF && Math.Abs(target - (e + ML_unpaired)) <= EPS)
+                    { stack.Push(('M', i, j - 1)); continue; }
+                }
+
+                // Option D: split WM(i,k) + WM(k+1,j).
+                bool split = false;
+                for (int k = i; k < j && !split; k++)
+                {
+                    double left = wmBuf[i * n + k];
+                    double right = wmBuf[(k + 1) * n + j];
+                    if (left < INF && right < INF && Math.Abs(target - (left + right)) <= EPS)
+                    {
+                        stack.Push(('M', i, k));
+                        stack.Push(('M', k + 1, j));
+                        split = true;
+                    }
+                }
+                // else: numerical corner — leave region unpaired.
+            }
+        }
+
+        return pairs;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1630,6 +2068,24 @@ public static class RnaSecondaryStructure
     }
 
     private static string GenerateFullDotBracket(int length, IReadOnlyList<BasePair> basePairs)
+    {
+        var notation = new char[length];
+        for (int i = 0; i < length; i++)
+            notation[i] = '.';
+
+        foreach (var bp in basePairs)
+        {
+            int left = Math.Min(bp.Position1, bp.Position2);
+            int right = Math.Max(bp.Position1, bp.Position2);
+            notation[left] = '(';
+            notation[right] = ')';
+        }
+
+        return new string(notation);
+    }
+
+    // Tuple overload used by the MFE traceback (pseudoknot-free → single bracket family).
+    private static string GenerateFullDotBracket(int length, IReadOnlyList<(int Position1, int Position2)> basePairs)
     {
         var notation = new char[length];
         for (int i = 0; i < length; i++)
@@ -1998,7 +2454,12 @@ public static class RnaSecondaryStructure
         // 18.417 McCaskill base-pair-probability slides (mccaskill2.pdf); ViennaRNA pf_fold.
         var probabilities = new Dictionary<(int I, int J), double>();
         var outside = new double[n, n];
-        if (z > 0)
+        // Probabilities P[i,j] = Qᵇ·O/Z are well-defined only when Z is a FINITE positive
+        // number. At sub-Kelvin temperatures RT → 0 and the per-pair Boltzmann weight
+        // exp(−βE_bp) overflows IEEE double to +∞, making Z = +∞; computing Qᵇ·O/Z would then
+        // yield ∞/∞ = NaN and leak it into the probability map. Require finiteness so an
+        // overflowed ensemble returns an empty (non-NaN) probability map rather than NaN mass.
+        if (double.IsFinite(z) && z > 0)
         {
             // Collect admissible pairs and process them outermost-first (decreasing span)
             // so that every enclosing pair's outside value O(k,l) is already known.
@@ -2043,14 +2504,462 @@ public static class RnaSecondaryStructure
     /// Source: McCaskill JS (1990) Biopolymers 29:1105-1119, p(P|S) = Z⁻¹·exp(−βE(P));
     /// ViennaRNA pf_fold reference (β = 1/kT, k ≈ 1.987e-3 kcal/(mol·K)).
     /// </remarks>
+    /// <param name="temperature">Absolute temperature in Kelvin (default 310.15 K = 37 °C).</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="temperature"/> is not positive.</exception>
     public static double CalculateStructureProbability(double structureEnergy, double ensembleEnergy, double temperature = DefaultTemperatureKelvin)
     {
+        // RT appears in the denominator (β = 1/RT); a non-positive Kelvin temperature is
+        // physically meaningless and would make RT = 0 (→ exp(±∞) → NaN) or RT < 0 (an
+        // inverted Boltzmann weight). Reject it rather than leak a NaN/Inf probability —
+        // mirrors CalculatePartitionFunction's temperature guard for caller safety.
+        if (temperature <= 0)
+            throw new ArgumentOutOfRangeException(nameof(temperature), "Temperature must be positive (Kelvin).");
+
         double rt = GasConstant_CalPerMolK * temperature / 1000.0; // kcal/mol
 
         double boltzmann = Math.Exp(-structureEnergy / rt);
         double partition = Math.Exp(-ensembleEnergy / rt);
 
         return partition > 0 ? boltzmann / partition : 0;
+    }
+
+    /// <summary>
+    /// Computes the McCaskill (1990) equilibrium partition function on the SAME Turner-2004
+    /// nearest-neighbour energy model used by <see cref="CalculateMinimumFreeEnergy"/>, and
+    /// from it the equilibrium base-pair probabilities, the per-base unpaired probabilities
+    /// (1 − Σ_j P[i,j]), and the ensemble free energy −RT·ln Z.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the Boltzmann-weighted counterpart of the Zuker–Stiegler MFE recursion: every
+    /// place the MFE DP (<see cref="FillDp"/>) takes a <c>min</c> over options and ADDS a loop
+    /// energy ΔG, the partition function takes a <c>sum</c> over the same options and MULTIPLIES
+    /// by the Boltzmann weight exp(−ΔG/RT) of the SAME Turner-2004 loop energy
+    /// (<see cref="CalculateHairpinLoopEnergy"/>, the stacking table, <see cref="CalculateInternalLoopEnergy"/>,
+    /// <see cref="CalculateBulgeLoopEnergy"/>, the multibranch term, and the dangling-end /
+    /// terminal-AU table). Hence Z = Σ_S exp(−E(S)/RT) over exactly the structure space the MFE
+    /// folder explores, and ΔG_ensemble = −RT·ln Z ≤ MFE (McCaskill JS 1990 Biopolymers 29:1105;
+    /// Lorenz et al. 2011 Algorithms Mol Biol 6:26 — ViennaRNA; ViennaRNA pf_fold reference,
+    /// Z = Σ_s e^{−βE(s)}, p(s) = e^{−βE(s)}/Z).
+    /// </para>
+    /// <para>
+    /// Base-pair probabilities use the inside (Vexp/WMexp/Wexp) matrices plus the McCaskill
+    /// outside recursion P[i,j] = (Σ_{S∋(i,j)} e^{−E/RT})/Z; the per-base unpaired probability is
+    /// p_unpaired(i) = 1 − Σ_j P[i,j] (Lorenz et al. 2011). O(n³) time, O(n²) space.
+    /// </para>
+    /// </remarks>
+    /// <param name="rnaSequence">RNA (or DNA; T read as U) sequence; case-insensitive.</param>
+    /// <param name="minLoopSize">Minimum hairpin loop size (NNDB minimum 3; smaller is clamped to 3).</param>
+    /// <param name="temperature">Absolute temperature in Kelvin (default 310.15 K = 37 °C).</param>
+    /// <returns>The partition function, base-pair and unpaired probabilities, and ensemble free energy.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="temperature"/> is not positive.</exception>
+    public static UnpairedProbabilityResult CalculateUnpairedProbabilities(
+        string rnaSequence, int minLoopSize = 3, double temperature = DefaultTemperatureKelvin)
+    {
+        if (temperature <= 0)
+            throw new ArgumentOutOfRangeException(nameof(temperature), "Temperature must be positive (Kelvin).");
+        if (minLoopSize < 3) minLoopSize = 3;
+
+        string seq = string.IsNullOrEmpty(rnaSequence)
+            ? string.Empty
+            : rnaSequence.ToUpperInvariant().Replace('T', 'U');
+        int n = seq.Length;
+
+        var emptyPairs = new Dictionary<(int, int), double>();
+        if (n == 0)
+        {
+            // The empty sequence has exactly one structure (the empty one), E = 0 → Z = 1, ΔG = 0.
+            return new UnpairedProbabilityResult(1.0, emptyPairs, Array.Empty<double>(), 0.0);
+        }
+        if (n < minLoopSize + 2)
+        {
+            // Too short to form any pair: only the open chain (Z = 1), every base unpaired.
+            var allUnpaired = new double[n];
+            Array.Fill(allUnpaired, 1.0);
+            return new UnpairedProbabilityResult(1.0, emptyPairs, allUnpaired, 0.0);
+        }
+
+        double rt = GasConstant_CalPerMolK * temperature / 1000.0; // kcal/mol
+
+        var vExp = new double[n, n];   // Σ exp(−E/RT) over structures of [i..j] with (i,j) paired
+        var wmExp = new double[n, n];  // multiloop-region partition function of [i..j]
+        var wExp = new double[n];      // external partition function of prefix [0..j]
+
+        FillPartitionDp(seq, n, minLoopSize, rt, vExp, wmExp, wExp);
+
+        double z = wExp[n - 1];
+
+        var bpp = new Dictionary<(int I, int J), double>();
+        var unpaired = new double[n];
+        Array.Fill(unpaired, 1.0);
+
+        if (double.IsFinite(z) && z > 0)
+        {
+            // Per-base unpaired probability is computed EXACTLY (no outside recursion) as the
+            // ratio of constrained-to-full partition functions: p_unpaired(i) = Z_forbid(i)/Z,
+            // where Z_forbid(i) sums Boltzmann weights of every structure in which position i is
+            // unpaired (i forbidden from pairing). This is exactly McCaskill's per-base
+            // unpaired probability and is guaranteed Z-consistent and in [0,1].
+            for (int i = 0; i < n; i++)
+            {
+                var vF = new double[n, n];
+                var wmF = new double[n, n];
+                var wF = new double[n];
+                FillPartitionDp(seq, n, minLoopSize, rt, vF, wmF, wF, forbiddenStart: i, forbiddenEnd: i);
+                double zForbid = wF[n - 1];
+                double pu = zForbid / z;
+                if (pu < 0) pu = 0; if (pu > 1) pu = 1;
+                unpaired[i] = pu;
+            }
+
+            // Base-pair probabilities P(i,j) = Z_pair(i,j)/Z, where Z_pair(i,j) is the partition
+            // function over structures that CONTAIN the pair (i,j). It is computed by the SAME
+            // inside DP constrained so that (i,j) MUST pair: i and j may not be unpaired, may pair
+            // only with each other, and no pair may cross (i,j) (proper nesting). This constrained
+            // partition function is exact and Z-consistent (no bespoke outside recursion needed):
+            // Σ_j P(i,j) = 1 − p_unpaired(i) holds to floating-point precision.
+            for (int i = 0; i < n; i++)
+            {
+                for (int j = i + minLoopSize + 1; j < n; j++)
+                {
+                    if (vExp[i, j] <= 0) continue;
+                    var vR = new double[n, n];
+                    var wmR = new double[n, n];
+                    var wR = new double[n];
+                    FillPartitionDp(seq, n, minLoopSize, rt, vR, wmR, wR,
+                        forbiddenStart: -1, forbiddenEnd: -1, requireI: i, requireJ: j);
+                    double zPair = wR[n - 1];
+                    double p = zPair / z;
+                    if (p <= 1e-300) continue;
+                    if (p > 1) p = 1;
+                    bpp[(i, j)] = p;
+                }
+            }
+        }
+
+        double ensembleFreeEnergy = (double.IsFinite(z) && z > 0) ? -rt * Math.Log(z) : 0.0;
+
+        return new UnpairedProbabilityResult(z, bpp, unpaired, ensembleFreeEnergy);
+    }
+
+    /// <summary>
+    /// TargetScan/Agarwal-2015 structural accessibility (SA): the equilibrium probability that a
+    /// contiguous window of <paramref name="windowLength"/> nucleotides ending at
+    /// <paramref name="windowEnd"/> (0-based, inclusive) is entirely unpaired, computed EXACTLY
+    /// from the Turner-2004 McCaskill partition function as Z_open(window) / Z, where
+    /// Z_open(window) is the partition function over structures in which no base pair is incident
+    /// to any position of the window (every base in the window unpaired).
+    /// </summary>
+    /// <remarks>
+    /// RNAplfold (<c>RNAplfold -L 40 -W 80 -u 20</c> in <c>targetscan_70_context_scores.pl</c>,
+    /// <c>runRNAplfold_all_UTRs</c>) reports, in row <c>i</c> column <c>L</c> of the <c>_lunp</c>
+    /// file, the probability that the length-<c>L</c> stretch ENDING at position <c>i</c> is
+    /// unpaired (RNAplfold man page; Bernhart et al. 2006). TargetScan's <c>getSA_contribution</c>
+    /// reads column index 13 of that row (the 14th unpaired-probability column → <c>L = 14</c>)
+    /// at the row 7 nt downstream of the seed-match start, i.e. the unpaired probability of the
+    /// 14-nt region centred on the match to miRNA nucleotides 7–8 (Agarwal et al. 2015, eLife
+    /// 4:e05005, Fig 4A: "the log10 value of the unpaired probability for a 14-nt region centered
+    /// on the match to miRNA nucleotides 7 and 8"). The joint region-unpaired probability is the
+    /// exact McCaskill ensemble quantity Z_open/Z.
+    /// </remarks>
+    /// <param name="rnaSequence">RNA (or DNA; T read as U) sequence; case-insensitive.</param>
+    /// <param name="windowEnd">0-based inclusive index of the last nucleotide of the unpaired window.</param>
+    /// <param name="windowLength">Length of the unpaired window (TargetScan uses 14).</param>
+    /// <param name="minLoopSize">Minimum hairpin loop size (NNDB minimum 3).</param>
+    /// <param name="temperature">Absolute temperature in Kelvin (default 310.15 K = 37 °C).</param>
+    /// <returns>P(window entirely unpaired) ∈ [0,1]; 1.0 when no pair can form at all.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="temperature"/> ≤ 0, or the window does not fit in the sequence.</exception>
+    public static double CalculateRegionUnpairedProbability(
+        string rnaSequence, int windowEnd, int windowLength,
+        int minLoopSize = 3, double temperature = DefaultTemperatureKelvin)
+    {
+        if (temperature <= 0)
+            throw new ArgumentOutOfRangeException(nameof(temperature), "Temperature must be positive (Kelvin).");
+        if (windowLength <= 0)
+            throw new ArgumentOutOfRangeException(nameof(windowLength), "Window length must be positive.");
+        if (minLoopSize < 3) minLoopSize = 3;
+
+        string seq = string.IsNullOrEmpty(rnaSequence)
+            ? string.Empty
+            : rnaSequence.ToUpperInvariant().Replace('T', 'U');
+        int n = seq.Length;
+
+        int windowStart = windowEnd - windowLength + 1;
+        if (windowStart < 0 || windowEnd >= n)
+            throw new ArgumentOutOfRangeException(nameof(windowEnd),
+                "The unpaired window must lie entirely within the sequence.");
+
+        if (n < minLoopSize + 2)
+            return 1.0; // no pair can form anywhere → the region is unpaired with probability 1.
+
+        double rt = GasConstant_CalPerMolK * temperature / 1000.0;
+
+        // Z over the full ensemble.
+        var vExpAll = new double[n, n];
+        var wmExpAll = new double[n, n];
+        var wExpAll = new double[n];
+        FillPartitionDp(seq, n, minLoopSize, rt, vExpAll, wmExpAll, wExpAll, forbiddenStart: -1, forbiddenEnd: -1);
+        double z = wExpAll[n - 1];
+        if (!double.IsFinite(z) || z <= 0)
+            return 0.0;
+
+        // Z_open: the same partition function but with EVERY base in [windowStart..windowEnd]
+        // forbidden from pairing. This is exactly Σ over structures where the window is unpaired.
+        var vExpOpen = new double[n, n];
+        var wmExpOpen = new double[n, n];
+        var wExpOpen = new double[n];
+        FillPartitionDp(seq, n, minLoopSize, rt, vExpOpen, wmExpOpen, wExpOpen,
+            forbiddenStart: windowStart, forbiddenEnd: windowEnd);
+        double zOpen = wExpOpen[n - 1];
+
+        double pu = zOpen / z;
+        if (pu < 0) pu = 0;
+        if (pu > 1) pu = 1; // round-off guard; Z_open ≤ Z by construction.
+        return pu;
+    }
+
+    // Boltzmann weight of a Turner loop energy ΔG: exp(−ΔG/RT). Centralised so the partition
+    // function uses the SAME conversion everywhere (McCaskill / ViennaRNA β = 1/RT convention).
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static double BoltzmannWeight(double deltaG, double rt) => Math.Exp(-deltaG / rt);
+
+    /// <summary>
+    /// Fills the inside partition-function matrices Vexp/WMexp/Wexp (the Boltzmann-domain mirror
+    /// of <see cref="FillDp"/>). When <paramref name="forbiddenStart"/> ≤ <paramref name="forbiddenEnd"/>,
+    /// any base pair incident to a position in [forbiddenStart..forbiddenEnd] is excluded — this
+    /// yields the partition function over structures in which that window is entirely unpaired
+    /// (used by <see cref="CalculateRegionUnpairedProbability"/>). Pass −1/−1 for the full ensemble.
+    /// </summary>
+    private static void FillPartitionDp(
+        string seq, int n, int minLoopSize, double rt,
+        double[,] vExp, double[,] wmExp, double[] wExp,
+        int forbiddenStart = -1, int forbiddenEnd = -1,
+        int requireI = -1, int requireJ = -1)
+    {
+        const int MAXLOOP = Dp_MAXLOOP;
+        const double ML_offset = Dp_ML_offset;
+        const double ML_helix = Dp_ML_helix;
+
+        bool Forbidden(int p) => forbiddenStart <= forbiddenEnd && p >= forbiddenStart && p <= forbiddenEnd;
+
+        // Required-pair constraint (for base-pair probability P(i,j) = Z_require(i,j)/Z):
+        // the pair (requireI, requireJ) MUST be present. A pair (p,q) is admissible only when it
+        // does not cross (requireI,requireJ) and does not use requireI/requireJ with a different
+        // partner; requireI and requireJ may not be left unpaired (so "i is paired" ⇒ "i pairs j").
+        bool RequireActive = requireI >= 0 && requireJ >= 0;
+        bool PairOk(int p, int q)
+        {
+            if (!RequireActive) return true;
+            // Non-crossing with the required pair (nested or disjoint intervals).
+            bool nonCrossing = q < requireI || p > requireJ
+                || (p <= requireI && q >= requireJ) || (p >= requireI && q <= requireJ);
+            if (!nonCrossing) return false;
+            // requireI / requireJ may only pair with each other.
+            if (p == requireI || p == requireJ || q == requireI || q == requireJ)
+                return p == requireI && q == requireJ;
+            return true;
+        }
+        bool UnpairedOk(int p) => !(RequireActive && (p == requireI || p == requireJ));
+        // True if a required (must-pair) endpoint would be stranded UNPAIRED inside [lo..hi]
+        // (e.g. a hairpin/internal/bulge loop region). Such a decomposition is inadmissible.
+        bool RequiredUnpairedIn(int lo, int hi) => RequireActive &&
+            ((requireI >= lo && requireI <= hi) || (requireJ >= lo && requireJ <= hi));
+
+        // Boltzmann weights of the (per-helix / initiation / dangle) multiloop and external terms.
+        double mlOffsetW = BoltzmannWeight(ML_offset, rt);
+        double mlHelixW = BoltzmannWeight(ML_helix, rt);
+        double auW = BoltzmannWeight(TerminalAU_GU_Penalty, rt);
+
+        // Vexp[i,j]: i & j paired. Empty unless within range and pairable and neither is forbidden.
+        for (int span = minLoopSize + 2; span <= n; span++)
+        {
+            for (int i = 0; i <= n - span; i++)
+            {
+                int j = i + span - 1;
+
+                // ===== Vexp(i,j) =====
+                if (PairType(seq[i], seq[j]) != 0 && !Forbidden(i) && !Forbidden(j) && PairOk(i, j))
+                {
+                    double v = 0.0;
+
+                    // --- Hairpin loop --- (all loop bases [i+1..j-1] are unpaired)
+                    int loopLen = j - i - 1;
+                    if (loopLen >= minLoopSize && !RequiredUnpairedIn(i + 1, j - 1))
+                    {
+                        // The hairpin loop bases are [i+1 .. j-1]; all must be unpaired anyway, but
+                        // if any is forbidden that is automatically satisfied (loop bases ARE unpaired).
+                        string loopSeq = seq.Substring(i + 1, loopLen);
+                        bool specialGU = seq[i] == 'G' && seq[j] == 'U' &&
+                                         i >= 2 && seq[i - 1] == 'G' && seq[i - 2] == 'G';
+                        double hEnergy = CalculateHairpinLoopEnergy(loopSeq, seq[i], seq[j], specialGU);
+                        if (IsAUorGU(seq[i], seq[j]))
+                            hEnergy += TerminalAU_GU_Penalty;
+                        v += BoltzmannWeight(hEnergy, rt);
+                    }
+
+                    // --- Stacking + internal/bulge loops: (i,j) encloses (ip,jp) ---
+                    for (int ip = i + 1; ip < j - 1 && ip - i - 1 <= MAXLOOP; ip++)
+                    {
+                        int maxN2 = MAXLOOP - (ip - i - 1);
+                        int jpMin = Math.Max(ip + 1, j - maxN2 - 1);
+                        for (int jp = j - 1; jp >= jpMin; jp--)
+                        {
+                            if (PairType(seq[ip], seq[jp]) == 0) continue;
+                            double inner = vExp[ip, jp];
+                            if (inner <= 0) continue;
+                            // The internal/bulge loop gaps [i+1..ip-1] and [jp+1..j-1] are unpaired;
+                            // a required endpoint may not be stranded there.
+                            if (RequiredUnpairedIn(i + 1, ip - 1) || RequiredUnpairedIn(jp + 1, j - 1))
+                                continue;
+
+                            int n1 = ip - i - 1;
+                            int n2 = j - jp - 1;
+                            double loopE;
+                            if (n1 == 0 && n2 == 0)
+                            {
+                                // Stacking
+                                string stackKey = $"{seq[i]}{seq[i + 1]}/{seq[j]}{seq[j - 1]}";
+                                if (!StackingEnergies.TryGetValue(stackKey, out loopE))
+                                    continue; // unknown stack contributes nothing in this model
+                            }
+                            else if (n1 == 0 || n2 == 0)
+                            {
+                                int bulgeSize = n1 + n2;
+                                char bulgedBase = n1 > 0 ? seq[i + 1] : seq[j - 1];
+                                int numStates = 1;
+                                if (bulgeSize == 1)
+                                {
+                                    if (n1 == 1)
+                                    {
+                                        if (seq[i] == seq[i + 1]) numStates++;
+                                        if (seq[ip] == seq[i + 1]) numStates++;
+                                    }
+                                    else
+                                    {
+                                        if (seq[j] == seq[j - 1]) numStates++;
+                                        if (seq[jp] == seq[j - 1]) numStates++;
+                                    }
+                                }
+                                loopE = CalculateBulgeLoopEnergy(bulgeSize, bulgedBase,
+                                    seq[i], seq[j], seq[ip], seq[jp], numStates);
+                            }
+                            else
+                            {
+                                loopE = CalculateInternalLoopEnergy(n1, n2,
+                                    seq[i], seq[j], seq[ip], seq[jp],
+                                    seq[i + 1], seq[j - 1], seq[ip - 1], seq[jp + 1]);
+                            }
+                            v += BoltzmannWeight(loopE, rt) * inner;
+                        }
+                    }
+
+                    // --- Multiloop: (i,j) closes a multibranch region [i+1..j-1] ---
+                    double wmInner = wmExp[i + 1, j - 1];
+                    if (wmInner > 0)
+                    {
+                        double closeW = mlOffsetW * mlHelixW;
+                        if (IsAUorGU(seq[i], seq[j])) closeW *= auW;
+                        v += closeW * wmInner;
+                    }
+
+                    vExp[i, j] = v;
+                }
+
+                // ===== WMexp(i,j): multibranch region partition function =====
+                {
+                    double wm = 0.0;
+
+                    // A: a helix V(i,j) starts here (per-helix weight; AU penalty at the helix end).
+                    if (vExp[i, j] > 0)
+                    {
+                        double e = mlHelixW * vExp[i, j];
+                        if (IsAUorGU(seq[i], seq[j])) e *= auW;
+                        wm += e;
+                    }
+                    // A2: i is a 5' dangle, helix at (i+1,j).
+                    if (i + 1 <= j && vExp[i + 1, j] > 0 && UnpairedOk(i))
+                    {
+                        double dG = ML_helix + GetDanglingEndEnergy(seq[i + 1], seq[j], seq[i], false);
+                        double e = BoltzmannWeight(dG, rt) * vExp[i + 1, j];
+                        if (IsAUorGU(seq[i + 1], seq[j])) e *= auW;
+                        wm += e;
+                    }
+                    // A3: j is a 3' dangle, helix at (i,j-1).
+                    if (j - 1 >= i && vExp[i, j - 1] > 0 && UnpairedOk(j))
+                    {
+                        double dG = ML_helix + GetDanglingEndEnergy(seq[i], seq[j - 1], seq[j], true);
+                        double e = BoltzmannWeight(dG, rt) * vExp[i, j - 1];
+                        if (IsAUorGU(seq[i], seq[j - 1])) e *= auW;
+                        wm += e;
+                    }
+                    // A4: both i and j dangle, helix at (i+1,j-1).
+                    if (i + 1 < j - 1 && vExp[i + 1, j - 1] > 0 && UnpairedOk(i) && UnpairedOk(j))
+                    {
+                        double dG = ML_helix
+                            + GetDanglingEndEnergy(seq[i + 1], seq[j - 1], seq[i], false)
+                            + GetDanglingEndEnergy(seq[i + 1], seq[j - 1], seq[j], true);
+                        double e = BoltzmannWeight(dG, rt) * vExp[i + 1, j - 1];
+                        if (IsAUorGU(seq[i + 1], seq[j - 1])) e *= auW;
+                        wm += e;
+                    }
+                    // B: i unpaired in the multiloop (Dp_ML_unpaired = 0 → weight 1).
+                    if (i + 1 <= j && wmExp[i + 1, j] > 0 && UnpairedOk(i))
+                        wm += wmExp[i + 1, j];
+                    // C: j unpaired in the multiloop.
+                    if (j - 1 >= i && wmExp[i, j - 1] > 0 && UnpairedOk(j))
+                        wm += wmExp[i, j - 1];
+                    // D: split into two adjacent multibranch regions (≥2 helices).
+                    for (int k = i; k < j; k++)
+                    {
+                        double left = wmExp[i, k];
+                        double right = wmExp[k + 1, j];
+                        if (left > 0 && right > 0)
+                            wm += left * right;
+                    }
+
+                    wmExp[i, j] = wm;
+                }
+            }
+        }
+
+        // ===== Wexp(j): external partition function of the prefix [0..j] =====
+        // Mirrors W(j) = min{ W(j-1), min_i W(i-1)+V(i,j)+AU+dangle } as a Boltzmann sum.
+        // Forbidden positions can still be "unpaired in the external loop" (factor 1).
+        for (int j = 0; j < n; j++)
+        {
+            if (j < minLoopSize + 1)
+            {
+                // Too short to pair: only the open prefix. Under a required pair this prefix
+                // cannot satisfy the constraint (it contains no pair), so its weight is 0 if a
+                // required endpoint lies within it; otherwise 1.
+                bool prefixHoldsRequired = RequireActive && requireI <= j;
+                wExp[j] = prefixHoldsRequired ? 0.0 : 1.0;
+                continue;
+            }
+
+            // j unpaired externally — blocked if j is a required (must-pair) endpoint.
+            double wj = UnpairedOk(j) ? ((j >= 1) ? wExp[j - 1] : 1.0) : 0.0;
+
+            for (int i = 0; i <= j; i++)
+            {
+                double vij = vExp[i, j];
+                if (vij <= 0) continue;
+
+                double dG = 0.0;
+                if (IsAUorGU(seq[i], seq[j])) dG += TerminalAU_GU_Penalty;
+                // Dangling ends reference the (unpaired) neighbour bases of the helix; a forbidden /
+                // forced-unpaired neighbour is still a valid dangle (it is unpaired by definition).
+                if (i > 0)
+                    dG += GetDanglingEndEnergy(seq[i], seq[j], seq[i - 1], false);
+                if (j < n - 1)
+                    dG += GetDanglingEndEnergy(seq[i], seq[j], seq[j + 1], true);
+
+                double left = (i > 0) ? wExp[i - 1] : 1.0;
+                wj += left * BoltzmannWeight(dG, rt) * vij;
+            }
+
+            wExp[j] = wj;
+        }
     }
 
     /// <summary>
@@ -2085,6 +2994,580 @@ public static class RnaSecondaryStructure
         }
 
         return sb.ToString();
+    }
+
+    #endregion
+
+    #region Pseudoknot Prediction (pknotsRG canonical H-type)
+
+    // Pseudoknot-specific energy parameters (kcal/mol) from pknotsRG.
+    // Source: Reeder J, Giegerich R (2004) "Design, implementation and evaluation of a
+    //   practical pseudoknot folding algorithm based on thermodynamics." BMC Bioinformatics
+    //   5:104 (PMC514697), and the pknotsRG reference source (github.com/jensreeder/pknotsRG,
+    //   Energy.lhs): "creating a new pseudoknot: 9.0", "not paired base in pk: 0.3",
+    //   "basepair inside pseudoknot: 0.0". The paper states the pseudoknot initiation
+    //   parameter was set to 9 kcal/mol and each unpaired nucleotide inside a pseudoknot
+    //   loop is penalized 0.3 kcal/mol; base pairs inside the pseudoknot carry no extra term.
+    private const double Pseudoknot_InitiationPenalty = 9.0;       // Pi — new-pseudoknot cost
+    private const double Pseudoknot_UnpairedLoopPenalty = 0.3;     // per unpaired nt in a pk loop
+    // Minimum nucleotides between two co-axial strands of a stem so a connecting loop can span.
+    // The pknotsRG canonical motif requires the three loops (u, v, w) to be non-empty enough to
+    // physically connect the crossing helices; a single nt is the practical minimum used here.
+    private const int Pseudoknot_MinLoop = 1;
+    private const int Pseudoknot_MinStemPairs = 2; // a helix needs ≥2 base pairs to stack
+
+    /// <summary>
+    /// An H-type (canonical simple recursive) pseudoknot prediction: the folded sequence, a
+    /// two-layer dot-bracket annotation (<c>()</c> for stem 1, <c>[]</c> for the crossing
+    /// stem 2), the full base-pair set (which genuinely cross), and the total free energy.
+    /// </summary>
+    /// <param name="Sequence">The folded sequence (upper-cased; T read as U).</param>
+    /// <param name="DotBracket">
+    /// Two-layer dot-bracket: stem 1 uses <c>(</c>/<c>)</c>, the crossing stem 2 uses
+    /// <c>[</c>/<c>]</c>, <c>.</c> for unpaired positions. When no pseudoknot improves on the
+    /// plain MFE structure, this is the pseudoknot-free MFE dot-bracket (single bracket family).
+    /// </param>
+    /// <param name="BasePairs">All base pairs as 0-based (5' &lt; 3') tuples, sorted by 5' position.</param>
+    /// <param name="FreeEnergy">ΔG° (kcal/mol) of the returned structure.</param>
+    /// <param name="HasPseudoknot">True iff the returned structure contains a crossing (pseudoknotted) helix.</param>
+    public readonly record struct PseudoknotStructure(
+        string Sequence,
+        string DotBracket,
+        IReadOnlyList<(int Position1, int Position2)> BasePairs,
+        double FreeEnergy,
+        bool HasPseudoknot);
+
+    /// <summary>
+    /// Predicts an RNA secondary structure that MAY contain a single canonical H-type
+    /// pseudoknot, using the pknotsRG <em>canonical simple recursive pseudoknot</em> class of
+    /// Reeder &amp; Giegerich (2004). The two crossing helices (stem 1 = <c>a·a'</c>, stem 2 =
+    /// <c>b·b'</c>) are scored with the SAME Turner 2004 nearest-neighbour stacking model used by
+    /// <see cref="CalculateStemEnergy"/>; the three connecting loops fold independently with the
+    /// pseudoknot-free MFE (<see cref="CalculateMinimumFreeEnergy"/>); and the pknotsRG
+    /// pseudoknot-specific penalties are added (initiation 9.0 kcal/mol; 0.3 kcal/mol per
+    /// unpaired loop nucleotide). The candidate H-type fold is accepted ONLY if its total free
+    /// energy is strictly lower than the plain MFE structure (no spurious pseudoknots); otherwise
+    /// the pseudoknot-free MFE structure is returned unchanged.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// H-type geometry (5'→3'): stem1-5' · loop1 · stem2-5' · loop2 · stem1-3' · loop3 · stem2-3',
+    /// i.e. helix <c>a</c> at [i..) pairs with <c>a'</c> downstream and helix <c>b</c> is
+    /// intercalated between the two strands of <c>a</c>, so the two helices cross. Per pknotsRG
+    /// canonization rules, both strands of a helix have equal length and no bulges (rule 1) and
+    /// each helix is extended to maximal Watson–Crick/GU length (rule 2). The class is the
+    /// single-pseudoknot canonical subclass; recursively nested pseudoknots and the full pknotsRG
+    /// grammar (multiple/over-arching knots) are out of scope — see the algorithm doc §6.2.
+    /// </para>
+    /// <para>Time O(n³) for the two stem-start scan with maximal extension and loop folding,
+    /// O(n²) extra space for the loop MFE; well within the pknotsRG O(n⁴)/O(n²) envelope for
+    /// the canonical class.</para>
+    /// </remarks>
+    /// <param name="rnaSequence">RNA (or DNA; T read as U) sequence; case-insensitive.</param>
+    /// <param name="minLoopSize">Minimum hairpin loop size for the loop MFE folding (NNDB minimum 3).</param>
+    /// <returns>
+    /// The best structure; for null/empty/too-short input, an empty pseudoknot-free structure
+    /// (no pairs, all dots, ΔG = 0).
+    /// </returns>
+    public static PseudoknotStructure PredictStructurePseudoknot(string rnaSequence, int minLoopSize = 3)
+    {
+        if (minLoopSize < 3) minLoopSize = 3;
+
+        // Plain MFE structure is always the baseline and the fallback.
+        var mfe = CalculateMfeStructure(rnaSequence, minLoopSize);
+        string seq = mfe.Sequence;
+        int n = seq.Length;
+
+        // The shortest possible H-type pseudoknot needs two 2-bp helices plus three ≥1-nt loops:
+        // 2+2 (a,a') + 2+2 (b,b') + 3 loops = 11 nt. Below that no canonical knot can form.
+        const int MinPseudoknotLength = 2 * (2 * Pseudoknot_MinStemPairs) + 3 * Pseudoknot_MinLoop;
+        if (n < MinPseudoknotLength)
+        {
+            return new PseudoknotStructure(seq, mfe.DotBracket, mfe.BasePairs, mfe.FreeEnergy, HasPseudoknot: false);
+        }
+
+        double bestEnergy = mfe.FreeEnergy;
+        List<(int, int)>? bestPairs = null;
+        HashSet<(int, int)>? bestStem2 = null; // the crossing-helix pairs (the []-layer)
+
+        // Enumerate the two crossing helices of the canonical H-type motif.
+        // Stem 1 (a): 5' strand starts at i, 3' strand (a') ends at p; a pairs i..i+L1-1 with
+        //   p-L1+1..p (antiparallel). Stem 2 (b): 5' strand starts at q (inside a's span), 3'
+        //   strand (b') ends at r (outside a's span), so b crosses a.
+        // Layout: i < q < (i+L1) ≤ (loop2) ≤ (a' start) < r-strand of b after a'.
+        for (int i = 0; i < n; i++)
+        {
+            // a' 3' end: try every downstream position; maximal-extend the a/a' helix (rule 2).
+            for (int aPrimeEnd = i + 2 * Pseudoknot_MinStemPairs + 2; aPrimeEnd < n; aPrimeEnd++)
+            {
+                int l1 = MaxHelixLength(seq, i, aPrimeEnd, n);
+                if (l1 < Pseudoknot_MinStemPairs) continue;
+
+                int aLastStrand5 = i + l1 - 1;       // last nt of a (5' strand)
+                int aPrimeStart = aPrimeEnd - l1 + 1; // first nt of a' (3' strand)
+                if (aPrimeStart <= aLastStrand5 + 1) continue; // need room for stem 2 + loops
+
+                // Stem 2 (b): 5' strand starts at q in (aLastStrand5, aPrimeStart); 3' strand (b')
+                // ends at r in (aPrimeEnd, n). b crosses a because q < aPrimeStart ≤ aPrimeEnd < r.
+                for (int q = aLastStrand5 + 1 + Pseudoknot_MinLoop; q < aPrimeStart; q++)
+                {
+                    for (int r = aPrimeEnd + 1 + Pseudoknot_MinLoop; r < n; r++)
+                    {
+                        int l2 = MaxHelixLength(seq, q, r, n);
+                        if (l2 < Pseudoknot_MinStemPairs) continue;
+
+                        int bLastStrand5 = q + l2 - 1;       // last nt of b (5' strand)
+                        int bPrimeStart = r - l2 + 1;        // first nt of b' (3' strand)
+
+                        // b's 5' strand must stay left of a' start (it is loop-2 region);
+                        // b's 3' strand must stay right of a' end (loop-3 region).
+                        if (bLastStrand5 >= aPrimeStart) continue;     // overlap with a' (rule 3)
+                        if (bPrimeStart <= aPrimeEnd) continue;        // overlap with a' (rule 3)
+
+                        var candidate = EvaluateHType(
+                            seq, n, minLoopSize,
+                            i, aLastStrand5, aPrimeStart, aPrimeEnd, l1,
+                            q, bLastStrand5, bPrimeStart, r, l2);
+
+                        if (candidate is { } cand && cand.Energy < bestEnergy - Dp_TraceEps)
+                        {
+                            bestEnergy = cand.Energy;
+                            bestPairs = cand.Pairs;
+                            bestStem2 = cand.Stem2Pairs;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (bestPairs is null || bestStem2 is null)
+        {
+            return new PseudoknotStructure(seq, mfe.DotBracket, mfe.BasePairs, mfe.FreeEnergy, HasPseudoknot: false);
+        }
+
+        bestPairs.Sort((a, b) => a.Item1.CompareTo(b.Item1));
+        string dotBracket = GeneratePseudoknotDotBracket(n, bestPairs, bestStem2);
+
+        return new PseudoknotStructure(seq, dotBracket, bestPairs, Math.Round(bestEnergy, 2), HasPseudoknot: true);
+    }
+
+    // Maximal antiparallel helix length starting from outer 5' index <paramref name="o5"/> and
+    // outer 3' index <paramref name="o3"/> (o5 &lt; o3): extend while seq[o5+t] pairs seq[o3-t]
+    // (canonization rule 2: maximal extent; rule 1: equal-length, no bulges). Stops when the two
+    // strands would meet (o5+t ≥ o3-t).
+    private static int MaxHelixLength(string seq, int o5, int o3, int n)
+    {
+        int t = 0;
+        while (o5 + t < o3 - t && PairType(seq[o5 + t], seq[o3 - t]) != 0)
+            t++;
+        return t;
+    }
+
+    // Result of scoring one canonical H-type configuration. Stem2Pairs identifies the crossing
+    // helix so the renderer can place it on the []-layer.
+    private readonly record struct HTypeCandidate(double Energy, List<(int, int)> Pairs, HashSet<(int, int)> Stem2Pairs);
+
+    // Scores one canonical H-type pseudoknot: stem a (i..aLast5 / aPrimeStart..aPrimeEnd, length
+    // l1) crossing stem b (q..bLast5 / bPrimeStart..r, length l2). Energy = stacking(a) +
+    // stacking(b) + Pi + 0.3·(unpaired loop nts) + MFE(loop spans). Returns null if any loop
+    // span is malformed.
+    private static HTypeCandidate? EvaluateHType(
+        string seq, int n, int minLoopSize,
+        int i, int aLast5, int aPrimeStart, int aPrimeEnd, int l1,
+        int q, int bLast5, int bPrimeStart, int r, int l2)
+    {
+        // Build stem base-pair lists (5' index ascending) for Turner stacking via CalculateStemEnergy.
+        var stemA = new List<BasePair>(l1);
+        for (int t = 0; t < l1; t++)
+        {
+            int p5 = i + t, p3 = aPrimeEnd - t;
+            stemA.Add(new BasePair(p5, p3, seq[p5], seq[p3], GetBasePairType(seq[p5], seq[p3]) ?? BasePairType.NonCanonical));
+        }
+        var stemB = new List<BasePair>(l2);
+        for (int t = 0; t < l2; t++)
+        {
+            int p5 = q + t, p3 = r - t;
+            stemB.Add(new BasePair(p5, p3, seq[p5], seq[p3], GetBasePairType(seq[p5], seq[p3]) ?? BasePairType.NonCanonical));
+        }
+
+        double energy = Pseudoknot_InitiationPenalty;
+        energy += CalculateStemEnergy(seq, stemA);
+        energy += CalculateStemEnergy(seq, stemB);
+
+        var pairs = new List<(int, int)>(l1 + l2);
+        var stem2Pairs = new HashSet<(int, int)>();
+        foreach (var bp in stemA) pairs.Add((bp.Position1, bp.Position2));
+        foreach (var bp in stemB) { pairs.Add((bp.Position1, bp.Position2)); stem2Pairs.Add((bp.Position1, bp.Position2)); }
+
+        // The three connecting loop spans (between the helix strands), each foldable by the
+        // pseudoknot-free MFE. Unpaired loop nucleotides are penalized 0.3 kcal/mol (pknotsRG).
+        //   loop1 (u): between a 5' strand and b 5' strand   = (aLast5+1 .. q-1)
+        //   loop2 (v): between b 5' strand and a' 3' strand  = (bLast5+1 .. aPrimeStart-1)
+        //   loop3 (w): between a' 3' strand and b' 3' strand = (aPrimeEnd+1 .. bPrimeStart-1)
+        energy += ScoreLoop(seq, aLast5 + 1, q - 1, minLoopSize, pairs);
+        energy += ScoreLoop(seq, bLast5 + 1, aPrimeStart - 1, minLoopSize, pairs);
+        energy += ScoreLoop(seq, aPrimeEnd + 1, bPrimeStart - 1, minLoopSize, pairs);
+
+        return new HTypeCandidate(Math.Round(energy, 2), pairs, stem2Pairs);
+    }
+
+    // Scores one connecting loop span [start..end] (inclusive). The span folds independently with
+    // the pseudoknot-free MFE; nucleotides left unpaired by that fold are charged the pknotsRG
+    // per-unpaired-base pseudoknot penalty (0.3 kcal/mol). Base pairs found inside the loop are
+    // added to <paramref name="pairs"/> at absolute coordinates. Empty/negative spans score 0.
+    private static double ScoreLoop(string seq, int start, int end, int minLoopSize, List<(int, int)> pairs)
+    {
+        if (end < start) return 0;
+        int len = end - start + 1;
+
+        // Too short to fold: every nucleotide is an unpaired pseudoknot-loop base.
+        if (len < minLoopSize + 2)
+            return Pseudoknot_UnpairedLoopPenalty * len;
+
+        string sub = seq.Substring(start, len);
+        var subMfe = CalculateMfeStructure(sub, minLoopSize);
+        int pairedNts = 0;
+        foreach (var (a, b) in subMfe.BasePairs)
+        {
+            pairs.Add((start + a, start + b));
+            pairedNts += 2;
+        }
+        int unpaired = len - pairedNts;
+        return subMfe.FreeEnergy + Pseudoknot_UnpairedLoopPenalty * unpaired;
+    }
+
+    // Renders a two-layer dot-bracket for the pseudoknotted structure. Every base pair in
+    // <paramref name="stem2Pairs"/> (the crossing helix b·b') is annotated with the [] family;
+    // all other pairs (stem 1 a·a' and any loop-internal helices, which are mutually nested and
+    // do not cross stem 1) use the () family. Per ViennaRNA / WUSS two-layer notation, the two
+    // independent bracket families annotate the crossing helices of a pseudoknot.
+    private static string GeneratePseudoknotDotBracket(
+        int length, IReadOnlyList<(int Position1, int Position2)> basePairs,
+        HashSet<(int, int)> stem2Pairs)
+    {
+        var notation = new char[length];
+        for (int k = 0; k < length; k++) notation[k] = '.';
+
+        foreach (var bp in basePairs)
+        {
+            int left = Math.Min(bp.Position1, bp.Position2);
+            int right = Math.Max(bp.Position1, bp.Position2);
+            bool isStem2 = stem2Pairs.Contains((bp.Position1, bp.Position2)) || stem2Pairs.Contains((left, right));
+            notation[left] = isStem2 ? '[' : '(';
+            notation[right] = isStem2 ? ']' : ')';
+        }
+
+        return new string(notation);
+    }
+
+    #endregion
+
+    #region Pseudoknot Prediction (recursive pknotsRG grammar — nested / multiple knots)
+
+    // Per Reeder & Giegerich (2004) BMC Bioinformatics 5:104 (PMC514697), a *simple recursive*
+    // pseudoknot is "two crossing helices with three intervening loops u, v, w" where "we allow the
+    // unpaired strands u, v, w in a simple pseudoknot to fold internally in an arbitrary way,
+    // INCLUDING simple recursive pseudoknots." The pknotsRG O(n⁴)/O(n²) DP folds the WHOLE sequence
+    // so the pseudoknot value "competes with values of unknotted foldings for the interval (i, j)"
+    // (Reeder & Giegerich 2007, NAR 35:W320, PMC1933184) — hence the optimal structure may contain
+    // SEVERAL pseudoknots in different regions and pseudoknots nested inside the loops of an outer
+    // structure. This method realises that recursion; PredictStructurePseudoknot (single top-level
+    // H-type) is left unchanged. Energy parameters are the SAME already-sourced ones: Turner-2004
+    // stacking (CalculateStemEnergy), pseudoknot initiation 9.0 kcal/mol, 0.3 kcal/mol per unpaired
+    // pseudoknot-loop nucleotide, 0.0 for base pairs inside the knot (no new parameter introduced).
+
+    /// <summary>
+    /// Predicts an RNA secondary structure that may contain MULTIPLE and RECURSIVELY-NESTED
+    /// canonical H-type pseudoknots, applying the recursive pknotsRG grammar of Reeder &amp;
+    /// Giegerich (2004) throughout the sequence rather than only to a single top-level knot.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The whole sequence is folded by a memoised interval recurrence
+    /// <c>F(i,j)</c> = best ΔG over the closed interval <c>[i,j]</c>, where each interval may
+    /// decompose into a chain of side-by-side components and each component is EITHER a
+    /// pseudoknot-free block (the existing Zuker–Stiegler MFE, <see cref="CalculateMfeStructure"/>)
+    /// OR a canonical H-type pseudoknot whose three loops <c>u,v,w</c> fold by the SAME recurrence
+    /// <c>F</c> — so a loop may itself contain further pseudoknots. The pseudoknot value competes
+    /// with the unknotted value at every interval (Reeder &amp; Giegerich 2004/2007), so the optimum
+    /// can contain several knots and nested knots; a knot is taken only when it lowers ΔG (the
+    /// 9 kcal/mol initiation penalty suppresses spurious knots).
+    /// </para>
+    /// <para>
+    /// Energy model is unchanged from <see cref="PredictStructurePseudoknot"/>: Turner-2004
+    /// nearest-neighbour stacking for both helices (<see cref="CalculateStemEnergy"/>), pknotsRG
+    /// initiation 9.0 kcal/mol, 0.3 kcal/mol per unpaired pseudoknot-loop nucleotide, 0.0 per
+    /// in-knot base pair. No new energy parameter is introduced.
+    /// </para>
+    /// <para>
+    /// Scope (PARTIAL, documented): the canonical csr-PK class of pknotsRG. NOT in this class and
+    /// therefore not predicted — kissing hairpins, triple-crossing / chained ("complex") helix
+    /// interactions, and bulged/unequal-length pseudoknot helices (canonization rule 1), per Reeder
+    /// &amp; Giegerich (2004). Tertiary-stabilised knots (e.g. BWYV / PDB 437D) are not recoverable by
+    /// any nearest-neighbour thermodynamic model — an energy-model floor, not an algorithm gap.
+    /// To bound the cost the H-type helix start/end scan is enumerated explicitly (see remarks on
+    /// <see cref="PredictStructurePseudoknot"/>); intervals shorter than the minimum knot length
+    /// fold pseudoknot-free.
+    /// </para>
+    /// </remarks>
+    /// <param name="rnaSequence">RNA (or DNA; T read as U) sequence; case-insensitive.</param>
+    /// <param name="minLoopSize">Minimum hairpin loop size for the nested folds (NNDB minimum 3).</param>
+    /// <returns>
+    /// The best structure; for null/empty/too-short input, an empty pseudoknot-free structure
+    /// (no pairs, all dots, ΔG = 0). <see cref="PseudoknotStructure.HasPseudoknot"/> is true iff at
+    /// least one crossing (pseudoknotted) helix is present.
+    /// </returns>
+    public static PseudoknotStructure PredictStructurePseudoknotRecursive(string rnaSequence, int minLoopSize = 3)
+    {
+        if (minLoopSize < 3) minLoopSize = 3;
+
+        // Plain MFE is the baseline / fallback and parity with the single-knot method's empty cases.
+        var mfe = CalculateMfeStructure(rnaSequence, minLoopSize);
+        string seq = mfe.Sequence;
+        int n = seq.Length;
+
+        const int MinPseudoknotLength = 2 * (2 * Pseudoknot_MinStemPairs) + 3 * Pseudoknot_MinLoop;
+        if (n < MinPseudoknotLength)
+            return new PseudoknotStructure(seq, mfe.DotBracket, mfe.BasePairs, mfe.FreeEnergy, HasPseudoknot: false);
+
+        var folder = new RecursivePkFolder(seq, n, minLoopSize);
+        var (energy, pairs, knotPairs) = folder.Fold(0, n - 1);
+
+        // Never return a structure worse than the plain pseudoknot-free MFE (always-available fallback).
+        if (energy > mfe.FreeEnergy - Dp_TraceEps)
+            return new PseudoknotStructure(seq, mfe.DotBracket, mfe.BasePairs, mfe.FreeEnergy, HasPseudoknot: false);
+
+        pairs.Sort((a, b) => a.Item1.CompareTo(b.Item1));
+        bool hasPk = knotPairs.Count > 0;
+        string dotBracket = hasPk
+            ? GeneratePseudoknotDotBracket(n, pairs, knotPairs)
+            : GenerateFullDotBracket(n, pairs);
+
+        return new PseudoknotStructure(seq, dotBracket, pairs, Math.Round(energy, 2), HasPseudoknot: hasPk);
+    }
+
+    // Memoised interval folder implementing the recursive pknotsRG decomposition. F(i,j) is the best
+    // ΔG over the closed interval [i,j]; each interval chains components left-to-right, each component
+    // being a pseudoknot-free block (Zuker MFE on the sub-span) OR a canonical H-type knot whose three
+    // loops fold by F again (so loops may contain further knots). Memoisation on (i,j) keeps the whole
+    // recursion within the pknotsRG O(n⁴)-time / O(n²)-space envelope for the canonical class.
+    private sealed class RecursivePkFolder
+    {
+        private readonly string _seq;
+        private readonly int _n;
+        private readonly int _minLoopSize;
+        // Memo over (i,j): cached best energy and the chosen pairs / crossing-pairs for that interval.
+        private readonly Dictionary<(int, int), (double Energy, List<(int, int)> Pairs, HashSet<(int, int)> Knot)> _memo
+            = new();
+
+        internal RecursivePkFolder(string seq, int n, int minLoopSize)
+        {
+            _seq = seq;
+            _n = n;
+            _minLoopSize = minLoopSize;
+        }
+
+        // Best fold of the closed interval [i, j]. Returns ΔG, the absolute-coordinate pairs, and the
+        // subset of those pairs that belong to a crossing (pseudoknot) helix (the []-layer).
+        internal (double Energy, List<(int, int)> Pairs, HashSet<(int, int)> Knot) Fold(int i, int j)
+        {
+            if (j < i) return (0.0, new List<(int, int)>(), new HashSet<(int, int)>());
+            if (_memo.TryGetValue((i, j), out var cached)) return cached;
+
+            int len = j - i + 1;
+            string sub = _seq.Substring(i, len);
+
+            // Component 1: the whole interval folds pseudoknot-free (Zuker–Stiegler MFE). This is the
+            // baseline the pseudoknot must beat, and the only option for intervals too short to knot.
+            var nested = CalculateMfeStructure(sub, _minLoopSize);
+            double bestEnergy = nested.FreeEnergy;
+            var bestPairs = new List<(int, int)>(nested.BasePairs.Count);
+            foreach (var (a, b) in nested.BasePairs) bestPairs.Add((i + a, i + b));
+            var bestKnot = new HashSet<(int, int)>();
+
+            // Component 2: an H-type knot occupies [i, kEnd] and the remainder [kEnd+1, j] folds by F.
+            // The knot's first helix necessarily starts at i (left-anchored component); we scan the
+            // knot's end kEnd and its inner boundaries, scoring loops recursively via F.
+            const int MinPseudoknotLength = 2 * (2 * Pseudoknot_MinStemPairs) + 3 * Pseudoknot_MinLoop;
+            if (len >= MinPseudoknotLength)
+            {
+                TryKnotAnchoredAt(i, j, ref bestEnergy, ref bestPairs, ref bestKnot);
+            }
+
+            // Component 3: an enclosing helix a·a' (i pairs k, maximally extended) whose ENCLOSED region
+            // folds RECURSIVELY by F — this is the production that lets an outer helix overarch a
+            // pseudoknot (a knot inside the loop of an outer structure). Without it the enclosed region
+            // would only fold pseudoknot-free (Component 1). The helix is scored with Turner stacking
+            // (CalculateStemEnergy); its interior [i+L .. k-L] and the tail [k+1 .. j] fold by F.
+            for (int k = j; k >= i + 2 * Pseudoknot_MinStemPairs + _minLoopSize; k--)
+            {
+                int hl = MaxHelixLength(_seq, i, k, _n);
+                if (hl < Pseudoknot_MinStemPairs) continue;
+                int innerStart = i + hl;
+                int innerEnd = k - hl;
+                if (innerEnd - innerStart + 1 < _minLoopSize) continue; // need a foldable loop inside
+
+                var helix = new List<BasePair>(hl);
+                for (int t = 0; t < hl; t++)
+                {
+                    int p5 = i + t, p3 = k - t;
+                    helix.Add(new BasePair(p5, p3, _seq[p5], _seq[p3], GetBasePairType(_seq[p5], _seq[p3]) ?? BasePairType.NonCanonical));
+                }
+                double helixE = CalculateStemEnergy(_seq, helix);
+
+                var inner = Fold(innerStart, innerEnd);
+                var tail = Fold(k + 1, j);
+                // Only worth pursuing when the enclosed region is itself knotted (otherwise Component 1
+                // already covers the pseudoknot-free enclosing structure at least as well).
+                if (inner.Knot.Count == 0) continue;
+
+                double total = helixE + inner.Energy + tail.Energy;
+                if (total < bestEnergy - Dp_TraceEps)
+                {
+                    bestEnergy = total;
+                    var pairs = new List<(int, int)>(helix.Count + inner.Pairs.Count + tail.Pairs.Count);
+                    foreach (var bp in helix) pairs.Add((bp.Position1, bp.Position2));
+                    pairs.AddRange(inner.Pairs);
+                    pairs.AddRange(tail.Pairs);
+                    var knotSet = new HashSet<(int, int)>(inner.Knot);
+                    foreach (var kp in tail.Knot) knotSet.Add(kp);
+                    bestPairs = pairs;
+                    bestKnot = knotSet;
+                }
+            }
+
+            // Also allow i to be unpaired and the rest to fold (covers single-stranded prefixes that the
+            // nested MFE already handles, but keeps the chain decomposition complete and minimal-cost).
+            if (len >= 1)
+            {
+                var rest = Fold(i + 1, j);
+                if (rest.Energy < bestEnergy - Dp_TraceEps)
+                {
+                    bestEnergy = rest.Energy;
+                    bestPairs = new List<(int, int)>(rest.Pairs);
+                    bestKnot = new HashSet<(int, int)>(rest.Knot);
+                }
+            }
+
+            var result = (bestEnergy, bestPairs, bestKnot);
+            _memo[(i, j)] = result;
+            return result;
+        }
+
+        // Scans canonical H-type knots whose stem-1 5' strand starts at i and whose 3' extent ends at
+        // some kEnd ≤ j, with the remainder (kEnd+1..j) folded by F. The three loops u,v,w fold by F
+        // (recursive: they may contain further knots). Updates the best fold in place.
+        private void TryKnotAnchoredAt(
+            int i, int j,
+            ref double bestEnergy, ref List<(int, int)> bestPairs, ref HashSet<(int, int)> bestKnot)
+        {
+            // a' 3' end (kEnd) ranges within the interval; the helix a/a' is maximally extended (rule 2).
+            for (int aPrimeEnd = i + 2 * Pseudoknot_MinStemPairs + 2; aPrimeEnd <= j; aPrimeEnd++)
+            {
+                int l1 = MaxHelixLength(_seq, i, aPrimeEnd, _n);
+                if (l1 < Pseudoknot_MinStemPairs) continue;
+
+                int aLast5 = i + l1 - 1;
+                int aPrimeStart = aPrimeEnd - l1 + 1;
+                if (aPrimeStart <= aLast5 + 1) continue;
+
+                // Stem 2 (b): 5' strand starts at q inside a's span; 3' strand (b') ends at r in
+                // (aPrimeEnd, j], so b crosses a. b' must stay within the knot's right boundary r ≤ j.
+                for (int q = aLast5 + 1 + Pseudoknot_MinLoop; q < aPrimeStart; q++)
+                {
+                    for (int r = aPrimeEnd + 1 + Pseudoknot_MinLoop; r <= j; r++)
+                    {
+                        int l2 = MaxHelixLength(_seq, q, r, _n);
+                        if (l2 < Pseudoknot_MinStemPairs) continue;
+
+                        int bLast5 = q + l2 - 1;
+                        int bPrimeStart = r - l2 + 1;
+                        if (bLast5 >= aPrimeStart) continue;   // overlap with a' (rule 3)
+                        if (bPrimeStart <= aPrimeEnd) continue; // overlap with a' (rule 3)
+
+                        var knot = EvaluateHTypeRecursive(
+                            i, aLast5, aPrimeStart, aPrimeEnd, l1,
+                            q, bLast5, bPrimeStart, r, l2);
+                        if (knot is not { } k) continue;
+
+                        // Remainder of the interval after the knot's right boundary r folds by F.
+                        var tail = Fold(r + 1, j);
+                        double total = k.Energy + tail.Energy;
+                        if (total < bestEnergy - Dp_TraceEps)
+                        {
+                            bestEnergy = total;
+                            var pairs = new List<(int, int)>(k.Pairs);
+                            pairs.AddRange(tail.Pairs);
+                            var knotSet = new HashSet<(int, int)>(k.Stem2Pairs);
+                            foreach (var kp in tail.Knot) knotSet.Add(kp);
+                            bestPairs = pairs;
+                            bestKnot = knotSet;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Scores one canonical H-type knot whose three loops u,v,w fold RECURSIVELY via F (so a loop
+        // may contain a further pseudoknot). Energy = Turner stacking(a) + stacking(b) + 9.0 init +
+        // Σ over loops [ F(loop) + 0.3·(unpaired nts in that loop) ]. Returns null if a loop span is
+        // malformed. Mirrors EvaluateHType but recurses into the loops instead of pseudoknot-free MFE.
+        private (double Energy, List<(int, int)> Pairs, HashSet<(int, int)> Stem2Pairs)? EvaluateHTypeRecursive(
+            int i, int aLast5, int aPrimeStart, int aPrimeEnd, int l1,
+            int q, int bLast5, int bPrimeStart, int r, int l2)
+        {
+            var stemA = new List<BasePair>(l1);
+            for (int t = 0; t < l1; t++)
+            {
+                int p5 = i + t, p3 = aPrimeEnd - t;
+                stemA.Add(new BasePair(p5, p3, _seq[p5], _seq[p3], GetBasePairType(_seq[p5], _seq[p3]) ?? BasePairType.NonCanonical));
+            }
+            var stemB = new List<BasePair>(l2);
+            for (int t = 0; t < l2; t++)
+            {
+                int p5 = q + t, p3 = r - t;
+                stemB.Add(new BasePair(p5, p3, _seq[p5], _seq[p3], GetBasePairType(_seq[p5], _seq[p3]) ?? BasePairType.NonCanonical));
+            }
+
+            double energy = Pseudoknot_InitiationPenalty;
+            energy += CalculateStemEnergy(_seq, stemA);
+            energy += CalculateStemEnergy(_seq, stemB);
+
+            var pairs = new List<(int, int)>(l1 + l2);
+            var stem2Pairs = new HashSet<(int, int)>();
+            foreach (var bp in stemA) pairs.Add((bp.Position1, bp.Position2));
+            foreach (var bp in stemB) { pairs.Add((bp.Position1, bp.Position2)); stem2Pairs.Add((bp.Position1, bp.Position2)); }
+
+            // The three connecting loops fold RECURSIVELY (this is the recursive-grammar extension):
+            //   loop1 (u): (aLast5+1 .. q-1); loop2 (v): (bLast5+1 .. aPrimeStart-1);
+            //   loop3 (w): (aPrimeEnd+1 .. bPrimeStart-1). Each unpaired nt costs 0.3 (pknotsRG).
+            energy += ScoreLoopRecursive(aLast5 + 1, q - 1, pairs, stem2Pairs);
+            energy += ScoreLoopRecursive(bLast5 + 1, aPrimeStart - 1, pairs, stem2Pairs);
+            energy += ScoreLoopRecursive(aPrimeEnd + 1, bPrimeStart - 1, pairs, stem2Pairs);
+
+            return (Math.Round(energy, 2), pairs, stem2Pairs);
+        }
+
+        // Scores one connecting loop span [start..end] by the SAME recursive folder F, so a loop may
+        // itself contain a pseudoknot (the recursive-pknotsRG case). Pairs found are added at absolute
+        // coordinates; nucleotides left unpaired by F are charged 0.3 kcal/mol each (pknotsRG). Any
+        // crossing pairs discovered inside the loop are merged into the knot ([]) layer. Empty span → 0.
+        private double ScoreLoopRecursive(int start, int end, List<(int, int)> pairs, HashSet<(int, int)> knotLayer)
+        {
+            if (end < start) return 0.0;
+            int len = end - start + 1;
+
+            var fold = Fold(start, end);
+            int pairedNts = 0;
+            foreach (var (a, b) in fold.Pairs)
+            {
+                pairs.Add((a, b));
+                pairedNts += 2;
+            }
+            foreach (var kp in fold.Knot) knotLayer.Add(kp);
+            int unpaired = len - pairedNts;
+            return fold.Energy + Pseudoknot_UnpairedLoopPenalty * unpaired;
+        }
     }
 
     #endregion

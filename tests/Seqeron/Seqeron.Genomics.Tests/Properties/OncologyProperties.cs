@@ -7336,7 +7336,7 @@ public class OncologyProperties
     {
         return Prop.ForAll(NonEmptySegmentsArbitrary(), segs =>
         {
-            bool actual = OncologyAnalyzer.DetectWholeGenomeDoubling(segs);
+            bool actual = OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(segs);
 
             double elevated = segs.Where(s => s.MajorCopyNumber >= 2).Sum(s => (double)s.Length);
             double total = segs.Sum(s => (double)s.Length);
@@ -7359,13 +7359,13 @@ public class OncologyProperties
 
         return Prop.ForAll(arb, t =>
         {
-            if (!OncologyAnalyzer.DetectWholeGenomeDoubling(t.segs))
+            if (!OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(t.segs))
             {
                 return true.ToProperty(); // implication is conditional on the base genome being doubled
             }
 
             var raised = t.segs.Select(s => s with { MajorCopyNumber = s.MajorCopyNumber + t.bump }).ToArray();
-            return OncologyAnalyzer.DetectWholeGenomeDoubling(raised).ToProperty()
+            return OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(raised).ToProperty()
                 .Label("raising major CN un-doubled a WGD genome");
         });
     }
@@ -7377,7 +7377,7 @@ public class OncologyProperties
         return Prop.ForAll(NonEmptySegmentsArbitrary(), segs =>
         {
             bool ploidyOk = OncologyAnalyzer.EstimatePloidy(segs) == OncologyAnalyzer.EstimatePloidy(segs);
-            bool wgdOk = OncologyAnalyzer.DetectWholeGenomeDoubling(segs) == OncologyAnalyzer.DetectWholeGenomeDoubling(segs);
+            bool wgdOk = OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(segs) == OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(segs);
             return (ploidyOk && wgdOk).Label("tumor ploidy estimation is not deterministic");
         });
     }
@@ -7397,11 +7397,11 @@ public class OncologyProperties
         Assert.Multiple(() =>
         {
             Assert.That(OncologyAnalyzer.EstimatePloidy(diploid), Is.EqualTo(2.0).Within(PloidyTolerance), "1:1 ⇒ ψ = 2.");
-            Assert.That(OncologyAnalyzer.DetectWholeGenomeDoubling(diploid), Is.False, "Balanced diploid is not doubled (major CN 1).");
+            Assert.That(OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(diploid), Is.False, "Balanced diploid is not doubled (major CN 1).");
             Assert.That(OncologyAnalyzer.EstimatePloidy(doubled), Is.EqualTo(4.0).Within(PloidyTolerance), "2:2 ⇒ ψ = 4.");
-            Assert.That(OncologyAnalyzer.DetectWholeGenomeDoubling(doubled), Is.True, "2:2 genome is doubled.");
+            Assert.That(OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(doubled), Is.True, "2:2 genome is doubled.");
             Assert.That(OncologyAnalyzer.EstimatePloidy(lohDoubled), Is.EqualTo(2.0).Within(PloidyTolerance), "2:0 ⇒ ψ = 2.");
-            Assert.That(OncologyAnalyzer.DetectWholeGenomeDoubling(lohDoubled), Is.True, "2:0 LOH has major CN 2 ⇒ doubled.");
+            Assert.That(OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(lohDoubled), Is.True, "2:0 LOH has major CN 2 ⇒ doubled.");
         });
     }
 

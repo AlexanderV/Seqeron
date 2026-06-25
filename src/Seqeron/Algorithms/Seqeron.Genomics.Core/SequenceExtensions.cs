@@ -121,6 +121,119 @@ public static class SequenceExtensions
 
     #endregion
 
+    #region Biopython-compatible GC fraction (IUPAC ambiguity modes)
+
+    /// <summary>
+    /// Strategy for handling IUPAC ambiguity codes when computing GC content, mirroring the
+    /// <c>ambiguous</c> parameter of Biopython <c>Bio.SeqUtils.gc_fraction</c>.
+    /// </summary>
+    /// <remarks>
+    /// Source: Biopython <c>Bio/SeqUtils/__init__.py</c> (master) <c>gc_fraction(seq, ambiguous="remove")</c>,
+    /// retrieved 2026-06-23 from
+    /// https://raw.githubusercontent.com/biopython/biopython/master/Bio/SeqUtils/__init__.py .
+    /// "Ambiguous nucleotides in this context are those different from ATCGSWU (S is G or C, and W is A or T)."
+    /// </remarks>
+    public enum GcAmbiguityMode
+    {
+        /// <summary>
+        /// Biopython default. Numerator counts C, G and S; denominator counts only A, T, G, C, S, W, U.
+        /// All other ambiguity codes (B,D,H,K,M,N,R,V,X,Y) are excluded from both numerator and denominator.
+        /// </summary>
+        Remove,
+
+        /// <summary>
+        /// Numerator counts only C, G and S; denominator is the FULL sequence length (every character),
+        /// matching Biopython <c>ambiguous="ignore"</c>.
+        /// </summary>
+        Ignore,
+
+        /// <summary>
+        /// Ambiguity codes contribute their mean GC value (e.g. N/X = 0.5, V/B = 2/3, H/D = 1/3) to the
+        /// numerator; denominator is the full sequence length. Matches Biopython <c>ambiguous="weighted"</c>.
+        /// </summary>
+        Weighted
+    }
+
+    // Weighted GC contribution of each IUPAC code, verbatim from Biopython _gc_values
+    // (Bio/SeqUtils/__init__.py, master; retrieved 2026-06-23). Used only by GcAmbiguityMode.Weighted.
+    // S=1 (G|C), W=0 (A|T); M/R/Y/K/X/N=0.5; V/B=2/3; H/D=1/3.
+    private const double WeightedV = 2.0 / 3.0;
+    private const double WeightedB = 2.0 / 3.0;
+    private const double WeightedH = 1.0 / 3.0;
+    private const double WeightedD = 1.0 / 3.0;
+    private const double WeightedHalf = 0.5; // M, R, Y, K, X, N
+
+    /// <summary>
+    /// Calculates GC content as a fraction (0-1) using the IUPAC-ambiguity handling convention of
+    /// Biopython <c>Bio.SeqUtils.gc_fraction(seq, ambiguous=...)</c>. This is an opt-in compatibility
+    /// overload; the parameterless <see cref="CalculateGcFraction(ReadOnlySpan{char})"/> keeps the
+    /// existing default behaviour (A/T/G/C/U only).
+    /// </summary>
+    /// <param name="sequence">Nucleotide sequence (case-insensitive).</param>
+    /// <param name="mode">Ambiguity-handling mode; see <see cref="GcAmbiguityMode"/>.</param>
+    /// <returns>GC fraction in [0,1]; 0 for an empty sequence or zero-length denominator.</returns>
+    /// <remarks>
+    /// Source: Biopython <c>gc_fraction</c> (master), retrieved 2026-06-23. For <c>Remove</c>:
+    /// <c>gc = count(C,G,S)</c>, <c>length = gc + count(A,T,W,U)</c>. For <c>Ignore</c>:
+    /// <c>gc = count(C,G,S)</c>, <c>length = len(seq)</c>. For <c>Weighted</c>: <c>gc</c> additionally
+    /// adds <c>count(x)·_gc_values[x]</c> for x in BDHKMNRVXY, <c>length = len(seq)</c>.
+    /// </remarks>
+    public static double CalculateGcFraction(this ReadOnlySpan<char> sequence, GcAmbiguityMode mode)
+    {
+        if (sequence.IsEmpty) return 0;
+
+        double gc = 0;        // numerator (may be fractional in Weighted mode)
+        int strongWeakCount = 0; // A,T,G,C,S,W,U — the denominator for Remove mode
+        int totalLength = sequence.Length; // denominator for Ignore/Weighted modes
+
+        for (int i = 0; i < sequence.Length; i++)
+        {
+            switch (char.ToUpperInvariant(sequence[i]))
+            {
+                case 'G':
+                case 'C':
+                case 'S': // S = strong (G|C) -> full GC per Biopython "CGScgs"
+                    gc += 1.0;
+                    strongWeakCount++;
+                    break;
+                case 'A':
+                case 'T':
+                case 'U':
+                case 'W': // W = weak (A|T) -> denominator only
+                    strongWeakCount++;
+                    break;
+                default:
+                    if (mode == GcAmbiguityMode.Weighted)
+                        gc += WeightedGcValue(char.ToUpperInvariant(sequence[i]));
+                    break;
+            }
+        }
+
+        double length = mode == GcAmbiguityMode.Remove ? strongWeakCount : totalLength;
+        return length > 0 ? gc / length : 0;
+    }
+
+    /// <summary>
+    /// String overload of <see cref="CalculateGcFraction(ReadOnlySpan{char},GcAmbiguityMode)"/>.
+    /// Opt-in Biopython <c>gc_fraction</c> compatibility; null/empty returns 0.
+    /// </summary>
+    public static double CalculateGcFraction(this string sequence, GcAmbiguityMode mode)
+    {
+        return string.IsNullOrEmpty(sequence) ? 0 : sequence.AsSpan().CalculateGcFraction(mode);
+    }
+
+    private static double WeightedGcValue(char upper) => upper switch
+    {
+        'V' => WeightedV,
+        'B' => WeightedB,
+        'H' => WeightedH,
+        'D' => WeightedD,
+        'M' or 'R' or 'Y' or 'K' or 'X' or 'N' => WeightedHalf,
+        _ => 0.0 // any character not in the IUPAC weighted set contributes nothing
+    };
+
+    #endregion
+
     #region DNA Complement Core
 
     /// <summary>

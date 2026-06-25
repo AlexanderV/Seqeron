@@ -634,6 +634,213 @@ public static class MetagenomicsAnalyzer
 
     #region Genome Binning
 
+    // Number of distinct tetranucleotides over the {A,C,G,T} alphabet (4^4),
+    // the full TETRA signature dimensionality (Teeling et al. 2004).
+    private const int TetranucleotideAlphabetSize = 256;
+
+    /// <summary>
+    /// Computes the TETRA z-score tetranucleotide signature of a DNA sequence
+    /// (Teeling et al. 2004, BMC Bioinformatics 5:163; Environ Microbiol 6(9):938–947).
+    /// <para>
+    /// This is the <b>opt-in, Markov-corrected</b> signature: for each of the 256 tetranucleotides
+    /// the observed count is compared to the value <b>predicted by a maximal-order (2nd-order)
+    /// Markov model</b> from the constituent di-/trinucleotide composition, and the divergence is
+    /// expressed as a z-score using the Schbath (1997) variance approximation:
+    /// </para>
+    /// <list type="bullet">
+    /// <item><description>Expected count E(n1n2n3n4) = N(n1n2n3)·N(n2n3n4) / N(n2n3).</description></item>
+    /// <item><description>Variance var(n1n2n3n4) = E·[N(n2n3)−N(n1n2n3)]·[N(n2n3)−N(n2n3n4)] / N(n2n3)².</description></item>
+    /// <item><description>z(n1n2n3n4) = (N(n1n2n3n4) − E) / √var.</description></item>
+    /// </list>
+    /// <para>
+    /// As in TETRA, the sequence is first extended by its reverse complement so the signature is
+    /// strand-symmetric; counts are taken over overlapping words on the extended strand. A
+    /// tetranucleotide whose denominator N(n2n3)=0 or whose variance ≤0 receives z=0 (no evidence
+    /// of over-/under-representation). The 256-component z-score vectors of two sequences are then
+    /// compared with <see cref="TetranucleotideZScoreCorrelation"/> (Pearson correlation).
+    /// </para>
+    /// <para>
+    /// This does <b>not</b> replace the default raw-frequency path used internally by
+    /// <see cref="BinContigs"/>; it is provided for callers who want the full TETRA z-score signature.
+    /// </para>
+    /// </summary>
+    /// <param name="sequence">DNA sequence (case-insensitive; non-ACGT characters are skipped).</param>
+    /// <returns>
+    /// A 256-entry map keyed by the ACGT tetranucleotide, with the Teeling z-score for each.
+    /// Because of the reverse-complement extension, an input of ≥2 usable ACGT bases already yields
+    /// a ≥4-nt extended strand and a non-trivial signature; null, empty, or single-base input
+    /// produces an all-zero 256-entry map.
+    /// </returns>
+    public static IReadOnlyDictionary<string, double> CalculateTetranucleotideZScores(string sequence)
+    {
+        var z = new Dictionary<string, double>(TetranucleotideAlphabetSize);
+
+        // TETRA extends the sequence by its reverse complement to make the signature
+        // strand-symmetric (compensates leading/lagging-strand tetranucleotide skew).
+        string extended = ExtendWithReverseComplement(sequence);
+
+        var n4 = new Dictionary<string, int>();
+        var n3 = new Dictionary<string, int>();
+        var n2 = new Dictionary<string, int>();
+        CountOligonucleotides(extended, n4, n3, n2);
+
+        foreach (string tetra in EnumerateTetranucleotides())
+        {
+            z[tetra] = TetranucleotideZScore(tetra, n4, n3, n2);
+        }
+
+        return z;
+    }
+
+    /// <summary>
+    /// Pearson correlation of the TETRA z-score signatures of two DNA sequences
+    /// (Teeling et al. 2004) — the tetranucleotide correlation coefficient.
+    /// Identical signatures correlate to 1.0; unrelated compositions correlate near 0.
+    /// </summary>
+    /// <param name="sequenceA">First DNA sequence.</param>
+    /// <param name="sequenceB">Second DNA sequence.</param>
+    /// <returns>
+    /// Pearson r ∈ [−1, 1] over the aligned 256-component z-score vectors; 0 when either vector
+    /// has zero variance (no usable signal).
+    /// </returns>
+    public static double TetranucleotideZScoreCorrelation(string sequenceA, string sequenceB)
+    {
+        var za = CalculateTetranucleotideZScores(sequenceA);
+        var zb = CalculateTetranucleotideZScores(sequenceB);
+
+        // Both maps share the same fixed 256-key ordering (EnumerateTetranucleotides),
+        // so iterating one key set aligns the vectors component-wise.
+        double[] va = za.Values.ToArray();
+        double[] vb = EnumerateTetranucleotides().Select(t => zb[t]).ToArray();
+
+        return PearsonCorrelation(va, vb);
+    }
+
+    /// <summary>
+    /// Teeling/Schbath z-score for one tetranucleotide from the maximal-order (2nd-order) Markov
+    /// expected count and its variance approximation. Returns 0 when the denominator N(n2n3)=0
+    /// or the variance is non-positive (no evidence of over-/under-representation).
+    /// </summary>
+    private static double TetranucleotideZScore(
+        string tetra,
+        Dictionary<string, int> n4,
+        Dictionary<string, int> n3,
+        Dictionary<string, int> n2)
+    {
+        int observed = n4.GetValueOrDefault(tetra, 0);
+        int prefix3 = n3.GetValueOrDefault(tetra.Substring(0, 3), 0);   // N(n1n2n3)
+        int suffix3 = n3.GetValueOrDefault(tetra.Substring(1, 3), 0);   // N(n2n3n4)
+        int middle2 = n2.GetValueOrDefault(tetra.Substring(1, 2), 0);   // N(n2n3)
+
+        if (middle2 == 0)
+            return 0.0;
+
+        // Expected count: E(n1n2n3n4) = N(n1n2n3)·N(n2n3n4) / N(n2n3)   (Teeling 2004)
+        double expected = (double)prefix3 * suffix3 / middle2;
+
+        // Variance (Schbath 1997 approximation):
+        // var = E·[N(n2n3)−N(n1n2n3)]·[N(n2n3)−N(n2n3n4)] / N(n2n3)²
+        double variance = expected
+            * (middle2 - prefix3) * (double)(middle2 - suffix3)
+            / ((double)middle2 * middle2);
+
+        if (variance <= 0)
+            return 0.0;
+
+        // z(n1n2n3n4) = (N(n1n2n3n4) − E) / √var
+        return (observed - expected) / Math.Sqrt(variance);
+    }
+
+    /// <summary>
+    /// Appends the reverse complement of the ACGT-filtered, upper-cased sequence (TETRA
+    /// strand-symmetric extension). Non-ACGT characters are dropped before extension.
+    /// </summary>
+    private static string ExtendWithReverseComplement(string sequence)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            return string.Empty;
+
+        var forward = new StringBuilder(sequence.Length);
+        foreach (char c in sequence)
+        {
+            char u = char.ToUpperInvariant(c);
+            if (u is 'A' or 'C' or 'G' or 'T')
+                forward.Append(u);
+        }
+
+        var rc = new StringBuilder(forward.Length);
+        for (int i = forward.Length - 1; i >= 0; i--)
+        {
+            rc.Append(forward[i] switch
+            {
+                'A' => 'T',
+                'T' => 'A',
+                'C' => 'G',
+                'G' => 'C',
+                _ => 'N'
+            });
+        }
+
+        return forward.Append(rc).ToString();
+    }
+
+    /// <summary>
+    /// Counts overlapping di-, tri-, and tetranucleotide words over an ACGT-only string in a
+    /// single pass. Words containing any non-ACGT character are skipped.
+    /// </summary>
+    private static void CountOligonucleotides(
+        string s,
+        Dictionary<string, int> n4,
+        Dictionary<string, int> n3,
+        Dictionary<string, int> n2)
+    {
+        for (int i = 0; i + 2 <= s.Length; i++)
+        {
+            if (i + 2 <= s.Length) Increment(n2, s.Substring(i, 2));
+            if (i + 3 <= s.Length) Increment(n3, s.Substring(i, 3));
+            if (i + 4 <= s.Length) Increment(n4, s.Substring(i, 4));
+        }
+    }
+
+    private static void Increment(Dictionary<string, int> map, string key)
+    {
+        if (!key.All(c => c is 'A' or 'C' or 'G' or 'T'))
+            return;
+        map[key] = map.GetValueOrDefault(key, 0) + 1;
+    }
+
+    private static readonly char[] DnaBases = { 'A', 'C', 'G', 'T' };
+
+    /// <summary>Enumerates all 256 ACGT tetranucleotides in a fixed lexicographic order.</summary>
+    private static IEnumerable<string> EnumerateTetranucleotides()
+    {
+        foreach (char a in DnaBases)
+            foreach (char b in DnaBases)
+                foreach (char c in DnaBases)
+                    foreach (char d in DnaBases)
+                        yield return new string(new[] { a, b, c, d });
+    }
+
+    /// <summary>Pearson product-moment correlation of two equal-length vectors; 0 if either is constant.</summary>
+    private static double PearsonCorrelation(double[] a, double[] b)
+    {
+        if (a.Length == 0 || a.Length != b.Length)
+            return 0.0;
+
+        double meanA = a.Average(), meanB = b.Average();
+        double sumAB = 0, sumA2 = 0, sumB2 = 0;
+        for (int i = 0; i < a.Length; i++)
+        {
+            double da = a[i] - meanA, db = b[i] - meanB;
+            sumAB += da * db;
+            sumA2 += da * da;
+            sumB2 += db * db;
+        }
+
+        double denom = Math.Sqrt(sumA2) * Math.Sqrt(sumB2);
+        return denom > 0 ? sumAB / denom : 0.0;
+    }
+
     /// <summary>
     /// Bins contigs using k-means clustering on compositional and coverage features.
     /// Features: GC content, tetranucleotide frequency (per TETRA/Teeling 2004), coverage.
@@ -1626,6 +1833,399 @@ public static class MetagenomicsAnalyzer
             return cmp != 0 ? cmp : string.CompareOrdinal(a.Taxon, b.Taxon);
         });
         return results;
+    }
+
+    #endregion
+
+    #region CheckM-style marker-gene completeness / contamination (opt-in; META-BIN-001)
+
+    /// <summary>
+    /// A collocated single-copy marker set <c>s</c> — one of the marker sets <c>M</c> over which
+    /// CheckM averages completeness and contamination (Parks et al. 2015). The marker IDs are
+    /// opaque identifiers (e.g. Pfam accessions) keyed against a per-bin marker-count map.
+    /// </summary>
+    /// <param name="MarkerIds">The marker identifiers in this collocated set (set <c>s</c>).</param>
+    public readonly record struct MarkerSet(IReadOnlyList<string> MarkerIds);
+
+    /// <summary>
+    /// CheckM-style marker-gene quality of a bin: completeness and contamination (percentages),
+    /// computed from collocated single-copy marker sets per Parks et al. (2015).
+    /// </summary>
+    /// <param name="Completeness">Completeness in % (0–100).</param>
+    /// <param name="Contamination">Contamination in % (≥ 0; can exceed 100 with heavy duplication).</param>
+    /// <param name="MarkerSetCount">Number of collocated marker sets |M| used.</param>
+    /// <param name="MarkerCount">Total number of markers across all sets.</param>
+    /// <param name="MarkersPresent">Distinct markers found at least once.</param>
+    public readonly record struct BinMarkerQuality(
+        double Completeness,
+        double Contamination,
+        int MarkerSetCount,
+        int MarkerCount,
+        int MarkersPresent);
+
+    /// <summary>
+    /// A loaded single-copy marker HMM: a Plan7 profile plus its marker identifier and the
+    /// per-sequence bit-score threshold used to call the marker present.
+    /// </summary>
+    /// <param name="MarkerId">Marker identifier (e.g. Pfam accession "PF00318").</param>
+    /// <param name="Hmm">The parsed Plan7 profile HMM.</param>
+    /// <param name="BitScoreThreshold">Bit-score gate for a hit (the Pfam GA1 gathering threshold).</param>
+    public readonly record struct MarkerHmm(string MarkerId, Plan7ProfileHmm Hmm, double BitScoreThreshold);
+
+    // ln 2, for converting Plan7 natural-log (nat) log-odds scores to bits.
+    // Source: Eddy (2011) PLoS Comput Biol 7:e1002195 — HMMER reports log-odds in bits = nats / ln 2.
+    private const double LogOddsBitsPerNat = 0.69314718055994530941723212145818;
+
+    // Fallback per-sequence bit-score gate when a profile has no GA1 gathering threshold.
+    // Conservative default mirroring ProteinMotifFinder.FindDomainsByHmm.
+    private const double DefaultMarkerBitScoreThreshold = 10.0;
+
+    // The bundled CC0 universal single-copy ribosomal-protein marker HMMs (see Resources/README.md).
+    // Each is treated as its own singleton collocated marker set in the default set (ribosomal
+    // proteins of distinct families are not collocated as one operon-set here — see algorithm doc).
+    // Provenance: EMBL-EBI InterPro Pfam HMM API, 2026-06-25; licence CC0 (public domain).
+    private static readonly (string Resource, string MarkerId)[] BundledRibosomalMarkers =
+    {
+        ("PF00318_Ribosomal_S2.hmm",  "PF00318"),
+        ("PF00177_Ribosomal_S7.hmm",  "PF00177"),
+        ("PF00410_Ribosomal_S8.hmm",  "PF00410"),
+        ("PF00380_Ribosomal_S9.hmm",  "PF00380"),
+        ("PF00338_Ribosomal_S10.hmm", "PF00338"),
+        ("PF00411_Ribosomal_S11.hmm", "PF00411"),
+        ("PF00203_Ribosomal_S19.hmm", "PF00203"),
+        ("PF00687_Ribosomal_L1.hmm",  "PF00687"),
+        ("PF00297_Ribosomal_L3.hmm",  "PF00297"),
+    };
+
+    // The Pfam-defined members of the GTDB bac120 (Bacteria) domain-level universal single-copy
+    // marker set (Parks et al. 2018 Nat Biotechnol 36:996; GTDB-Tk bac120.marker_info). bac120 is
+    // 120 markers (6 Pfam + 114 TIGRFAM); only the 6 Pfam markers are CC0 and bundled. The 114
+    // TIGRFAM-defined markers (CC BY-SA 4.0) are NOT bundled — supply them via LoadMarkerHmms.
+    // Provenance + licence: see Resources/README.md.
+    private static readonly (string Resource, string MarkerId)[] BundledBacterialPfamMarkers =
+    {
+        ("PF00380_Ribosomal_S9.hmm", "PF00380"),
+        ("PF00410_Ribosomal_S8.hmm", "PF00410"),
+        ("PF00466_Ribosomal_L10.hmm", "PF00466"),
+        ("PF01025_GrpE.hmm",          "PF01025"),
+        ("PF02576_DUF150.hmm",        "PF02576"),
+        ("PF03726_PNPase.hmm",        "PF03726"),
+    };
+
+    // The Pfam-defined members of the GTDB ar122 (Archaea) domain-level universal single-copy
+    // marker set (Parks et al. 2018; GTDB-Tk ar122.marker_info). ar122 is 122 markers (35 Pfam +
+    // 87 TIGRFAM); only the 35 Pfam markers are CC0 and bundled. The 87 TIGRFAM-defined markers
+    // (CC BY-SA 4.0) are NOT bundled — supply them via LoadMarkerHmms. See Resources/README.md.
+    private static readonly (string Resource, string MarkerId)[] BundledArchaealPfamMarkers =
+    {
+        ("PF00368_HMGCoA_red.hmm",      "PF00368"),
+        ("PF00410_Ribosomal_S8.hmm",    "PF00410"),
+        ("PF00466_Ribosomal_L10.hmm",   "PF00466"),
+        ("PF00687_Ribosomal_L1.hmm",    "PF00687"),
+        ("PF00827_Ribosomal_L15e.hmm",  "PF00827"),
+        ("PF00900_Ribosomal_S4e.hmm",   "PF00900"),
+        ("PF01000_RNA_pol_A_bac.hmm",   "PF01000"),
+        ("PF01015_Ribosomal_S3Ae.hmm",  "PF01015"),
+        ("PF01090_Ribosomal_S19e.hmm",  "PF01090"),
+        ("PF01092_Ribosomal_S6e.hmm",   "PF01092"),
+        ("PF01157_Ribosomal_L21e.hmm",  "PF01157"),
+        ("PF01191_RNA_pol_Rpb5_C.hmm",  "PF01191"),
+        ("PF01194_RNA_pol_N.hmm",       "PF01194"),
+        ("PF01198_Ribosomal_L31e.hmm",  "PF01198"),
+        ("PF01200_Ribosomal_S28e.hmm",  "PF01200"),
+        ("PF01269_Fibrillarin.hmm",     "PF01269"),
+        ("PF01280_Ribosomal_L19e.hmm",  "PF01280"),
+        ("PF01282_Ribosomal_S24e.hmm",  "PF01282"),
+        ("PF01496_V_ATPase_I.hmm",      "PF01496"),
+        ("PF01655_Ribosomal_L32e.hmm",  "PF01655"),
+        ("PF01798_Nop.hmm",             "PF01798"),
+        ("PF01864_DUF46.hmm",           "PF01864"),
+        ("PF01866_Diphthamide_syn.hmm", "PF01866"),
+        ("PF01868_UPF0086.hmm",         "PF01868"),
+        ("PF01984_dsDNA_bind.hmm",      "PF01984"),
+        ("PF01990_ATPsynt_F.hmm",       "PF01990"),
+        ("PF02006_DUF137.hmm",          "PF02006"),
+        ("PF02978_SRP_SPB.hmm",         "PF02978"),
+        ("PF03874_RNA_pol_Rpb4.hmm",    "PF03874"),
+        ("PF04019_DUF359.hmm",          "PF04019"),
+        ("PF04104_DNA_primase_lrg.hmm", "PF04104"),
+        ("PF04919_DUF655.hmm",          "PF04919"),
+        ("PF07541_EIF_2_alpha.hmm",     "PF07541"),
+        ("PF13656_RNA_pol_L_2.hmm",     "PF13656"),
+        ("PF13685_FeADH_2.hmm",         "PF13685"),
+    };
+
+    /// <summary>
+    /// Computes CheckM-style genome completeness and contamination from collocated single-copy
+    /// marker SETS and a per-marker copy-count map, using the exact CheckM formula
+    /// (Parks et al. 2015, <i>Genome Res</i> 25:1043; reference implementation
+    /// <c>MarkerSet.genomeCheck</c>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Let <c>M</c> be the set of collocated marker sets and <c>G_M</c> the markers identified in
+    /// the genome. For each set <c>s ∈ M</c>:
+    /// </para>
+    /// <list type="bullet">
+    /// <item><description><c>present_s = |s ∩ G_M|</c> — markers in <c>s</c> found ≥ 1 time.</description></item>
+    /// <item><description><c>multiCopy_s = Σ_{g ∈ s} C_g</c>, where <c>C_g = N − 1</c> for a marker
+    /// found <c>N ≥ 1</c> times and <c>0</c> for a missing marker.</description></item>
+    /// </list>
+    /// <para>
+    /// Completeness = <c>100 · (1/|M|) · Σ_{s∈M} present_s/|s|</c>;
+    /// Contamination = <c>100 · (1/|M|) · Σ_{s∈M} multiCopy_s/|s|</c>.
+    /// </para>
+    /// </remarks>
+    /// <param name="markerSets">The collocated marker sets <c>M</c>. Empty sets are ignored.</param>
+    /// <param name="markerCounts">
+    /// Map from marker id to the number of copies found in the bin. Missing keys (or values ≤ 0)
+    /// are treated as absent.
+    /// </param>
+    /// <returns>The completeness/contamination percentages and marker tallies.</returns>
+    /// <exception cref="ArgumentNullException">If an argument is null.</exception>
+    public static BinMarkerQuality EstimateBinQualityFromMarkerCounts(
+        IEnumerable<MarkerSet> markerSets,
+        IReadOnlyDictionary<string, int> markerCounts)
+    {
+        ArgumentNullException.ThrowIfNull(markerSets);
+        ArgumentNullException.ThrowIfNull(markerCounts);
+
+        double comp = 0.0;
+        double cont = 0.0;
+        int usedSets = 0;
+        int totalMarkers = 0;
+        var distinctPresent = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var set in markerSets)
+        {
+            var ids = set.MarkerIds;
+            if (ids is null || ids.Count == 0)
+                continue; // empty marker set contributes nothing and would divide by zero
+
+            int present = 0;
+            int multiCopy = 0;
+            foreach (var marker in ids)
+            {
+                int count = markerCounts.TryGetValue(marker, out var c) && c > 0 ? c : 0;
+                if (count >= 1)
+                {
+                    present++;                       // C_g counted once toward |s ∩ G_M|
+                    distinctPresent.Add(marker);
+                }
+                if (count > 1)
+                    multiCopy += count - 1;           // C_g = N - 1 for a duplicated marker
+            }
+
+            comp += (double)present / ids.Count;
+            cont += (double)multiCopy / ids.Count;
+            usedSets++;
+            totalMarkers += ids.Count;
+        }
+
+        // |M| = 0 ⇒ no information; completeness and contamination are both 0 (avoid div-by-zero).
+        double completeness = usedSets > 0 ? 100.0 * comp / usedSets : 0.0;
+        double contamination = usedSets > 0 ? 100.0 * cont / usedSets : 0.0;
+
+        return new BinMarkerQuality(
+            Completeness: completeness,
+            Contamination: contamination,
+            MarkerSetCount: usedSets,
+            MarkerCount: totalMarkers,
+            MarkersPresent: distinctPresent.Count);
+    }
+
+    /// <summary>
+    /// Counts, for each marker HMM, how many of a bin's predicted proteins it detects — i.e. the
+    /// copy number of that marker in the bin. A protein is a hit for a marker when its Plan7
+    /// Viterbi log-odds bit score against the marker's profile meets the marker's bit-score
+    /// threshold (the Pfam GA1 gathering threshold). Reuses the <see cref="Plan7ProfileHmm"/> engine.
+    /// </summary>
+    /// <param name="proteins">The bin's predicted protein sequences (single-letter amino acids).</param>
+    /// <param name="markerHmms">The single-copy marker HMMs to score.</param>
+    /// <returns>Map from marker id to the number of proteins detected as that marker.</returns>
+    /// <exception cref="ArgumentNullException">If an argument is null.</exception>
+    public static IReadOnlyDictionary<string, int> DetectMarkers(
+        IEnumerable<string> proteins,
+        IEnumerable<MarkerHmm> markerHmms)
+    {
+        ArgumentNullException.ThrowIfNull(proteins);
+        ArgumentNullException.ThrowIfNull(markerHmms);
+
+        var hmms = markerHmms.ToList();
+        var proteinList = proteins.Where(p => !string.IsNullOrEmpty(p)).ToList();
+
+        var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var marker in hmms)
+        {
+            int copies = 0;
+            foreach (var protein in proteinList)
+            {
+                double nats = marker.Hmm.ViterbiScore(protein);
+                double bits = double.IsNegativeInfinity(nats) ? double.NegativeInfinity : nats / LogOddsBitsPerNat;
+                if (bits >= marker.BitScoreThreshold)
+                    copies++;
+            }
+            // A marker id may appear once; if duplicated in the input, accumulate.
+            counts[marker.MarkerId] = counts.TryGetValue(marker.MarkerId, out var prev) ? prev + copies : copies;
+        }
+        return counts;
+    }
+
+    /// <summary>
+    /// Detects single-copy markers in a bin's proteins with the Plan7 HMM engine and computes
+    /// CheckM-style completeness and contamination (Parks et al. 2015) over the supplied collocated
+    /// marker sets. Opt-in; the TNF/proxy <see cref="BinContigs"/> path and its defaults are unchanged.
+    /// </summary>
+    /// <param name="proteins">The bin's predicted protein sequences.</param>
+    /// <param name="markerSets">The collocated marker sets <c>M</c> (ids must match the HMM marker ids).</param>
+    /// <param name="markerHmms">The marker HMMs used to detect the markers.</param>
+    /// <returns>The bin's completeness/contamination quality.</returns>
+    /// <exception cref="ArgumentNullException">If an argument is null.</exception>
+    public static BinMarkerQuality EstimateBinQualityFromMarkers(
+        IEnumerable<string> proteins,
+        IEnumerable<MarkerSet> markerSets,
+        IEnumerable<MarkerHmm> markerHmms)
+    {
+        ArgumentNullException.ThrowIfNull(proteins);
+        ArgumentNullException.ThrowIfNull(markerSets);
+        ArgumentNullException.ThrowIfNull(markerHmms);
+
+        var counts = DetectMarkers(proteins, markerHmms);
+        return EstimateBinQualityFromMarkerCounts(markerSets, counts);
+    }
+
+    /// <summary>
+    /// Loads the bundled CC0 universal single-copy ribosomal-protein marker HMMs (9 Pfam families:
+    /// S2, S7, S8, S9, S10, S11, S19, L1, L3). Each marker's bit-score gate is its Pfam GA1
+    /// gathering threshold (falling back to a conservative default if the profile has none).
+    /// </summary>
+    /// <remarks>
+    /// This is a SMALL universal set, not CheckM's full lineage-specific marker DB. For lineage-
+    /// specific marker sets + tree-based placement, supply your own marker HMMs via
+    /// <see cref="LoadMarkerHmms(IEnumerable{System.IO.TextReader}, System.Collections.Generic.IReadOnlyDictionary{string, double})"/>.
+    /// Provenance + CC0 licence: see <c>Resources/README.md</c>.
+    /// </remarks>
+    /// <returns>The bundled marker HMMs.</returns>
+    public static IReadOnlyList<MarkerHmm> LoadBundledRibosomalMarkerHmms()
+        => LoadEmbeddedMarkerHmms(BundledRibosomalMarkers);
+
+    /// <summary>
+    /// Loads the bundled Pfam-defined markers of the GTDB <c>bac120</c> Bacteria domain-level
+    /// universal single-copy marker set (Parks et al. 2018, <i>Nat Biotechnol</i> 36:996; GTDB-Tk).
+    /// bac120 has 120 markers (6 Pfam + 114 TIGRFAM); these are the 6 CC0 Pfam markers
+    /// (PF00380, PF00410, PF00466, PF01025, PF02576, PF03726).
+    /// </summary>
+    /// <remarks>
+    /// The 114 TIGRFAM-defined bac120 markers are licensed CC BY-SA 4.0 (not public domain) and are
+    /// NOT bundled; supply them via
+    /// <see cref="LoadMarkerHmms(IEnumerable{System.IO.TextReader}, System.Collections.Generic.IReadOnlyDictionary{string, double})"/>.
+    /// Each marker's bit-score gate is its Pfam GA1 gathering threshold. Provenance + CC0 licence:
+    /// see <c>Resources/README.md</c>.
+    /// </remarks>
+    /// <returns>The 6 bundled bac120 Pfam marker HMMs.</returns>
+    public static IReadOnlyList<MarkerHmm> LoadBundledBacterialMarkerHmms()
+        => LoadEmbeddedMarkerHmms(BundledBacterialPfamMarkers);
+
+    /// <summary>
+    /// Loads the bundled Pfam-defined markers of the GTDB <c>ar122</c> Archaea domain-level
+    /// universal single-copy marker set (Parks et al. 2018, <i>Nat Biotechnol</i> 36:996; GTDB-Tk).
+    /// ar122 has 122 markers (35 Pfam + 87 TIGRFAM); these are the 35 CC0 Pfam markers.
+    /// </summary>
+    /// <remarks>
+    /// The 87 TIGRFAM-defined ar122 markers are licensed CC BY-SA 4.0 (not public domain) and are
+    /// NOT bundled; supply them via
+    /// <see cref="LoadMarkerHmms(IEnumerable{System.IO.TextReader}, System.Collections.Generic.IReadOnlyDictionary{string, double})"/>.
+    /// Each marker's bit-score gate is its Pfam GA1 gathering threshold. Provenance + CC0 licence:
+    /// see <c>Resources/README.md</c>.
+    /// </remarks>
+    /// <returns>The 35 bundled ar122 Pfam marker HMMs.</returns>
+    public static IReadOnlyList<MarkerHmm> LoadBundledArchaealMarkerHmms()
+        => LoadEmbeddedMarkerHmms(BundledArchaealPfamMarkers);
+
+    // Shared loader for an embedded-resource marker table: parses each profile with the Plan7
+    // engine and gates on its Pfam GA1 gathering threshold (conservative default if absent).
+    private static IReadOnlyList<MarkerHmm> LoadEmbeddedMarkerHmms(
+        (string Resource, string MarkerId)[] markers)
+    {
+        var result = new List<MarkerHmm>(markers.Length);
+        var asm = typeof(MetagenomicsAnalyzer).Assembly;
+        foreach (var (resource, markerId) in markers)
+        {
+            string resourceName = $"Seqeron.Genomics.Metagenomics.Resources.{resource}";
+            using var stream = asm.GetManifestResourceStream(resourceName)
+                ?? throw new InvalidOperationException($"Embedded marker HMM not found: {resourceName}");
+            using var reader = new System.IO.StreamReader(stream);
+            var hmm = Plan7ProfileHmm.Parse(reader);
+            double threshold = hmm.GatheringThreshold ?? DefaultMarkerBitScoreThreshold;
+            result.Add(new MarkerHmm(markerId, hmm, threshold));
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Builds the default marker SETS for the bundled universal ribosomal markers: one singleton
+    /// collocated set per Pfam family (these distinct ribosomal families are scored independently;
+    /// CheckM's operon-based collocation grouping requires the full lineage DB — see algorithm doc).
+    /// </summary>
+    /// <returns>One singleton <see cref="MarkerSet"/> per bundled marker id.</returns>
+    public static IReadOnlyList<MarkerSet> BundledRibosomalMarkerSets()
+        => BundledRibosomalMarkers
+            .Select(m => new MarkerSet(new[] { m.MarkerId }))
+            .ToList();
+
+    /// <summary>
+    /// Builds the default marker SETS for the bundled bac120 Bacteria Pfam markers: one singleton
+    /// collocated set per Pfam family. CheckM's operon-based collocation grouping requires the full
+    /// lineage DB — see the algorithm doc — so each universal family is scored independently here.
+    /// </summary>
+    /// <returns>One singleton <see cref="MarkerSet"/> per bundled bac120 Pfam marker id (6 sets).</returns>
+    public static IReadOnlyList<MarkerSet> BundledBacterialMarkerSets()
+        => BundledBacterialPfamMarkers
+            .Select(m => new MarkerSet(new[] { m.MarkerId }))
+            .ToList();
+
+    /// <summary>
+    /// Builds the default marker SETS for the bundled ar122 Archaea Pfam markers: one singleton
+    /// collocated set per Pfam family. CheckM's operon-based collocation grouping requires the full
+    /// lineage DB — see the algorithm doc — so each universal family is scored independently here.
+    /// </summary>
+    /// <returns>One singleton <see cref="MarkerSet"/> per bundled ar122 Pfam marker id (35 sets).</returns>
+    public static IReadOnlyList<MarkerSet> BundledArchaealMarkerSets()
+        => BundledArchaealPfamMarkers
+            .Select(m => new MarkerSet(new[] { m.MarkerId }))
+            .ToList();
+
+    /// <summary>
+    /// Caller-supplied marker-HMM loader: parses HMMER3/f ASCII profiles from the given readers
+    /// (e.g. lineage-specific Pfam/TIGRFAM marker HMMs from the full CheckM data) into
+    /// <see cref="MarkerHmm"/> entries keyed by each profile's accession (falling back to its name).
+    /// Lets users with the full CheckM marker database supply their own markers.
+    /// </summary>
+    /// <param name="hmmReaders">Readers over HMMER3/f ASCII <c>.hmm</c> profiles.</param>
+    /// <param name="bitScoreThresholds">
+    /// Optional per-marker-id bit-score gates. When absent for a marker, the profile's GA1
+    /// gathering threshold is used, falling back to a conservative default.
+    /// </param>
+    /// <returns>The loaded marker HMMs, in reader order.</returns>
+    /// <exception cref="ArgumentNullException">If <paramref name="hmmReaders"/> is null.</exception>
+    public static IReadOnlyList<MarkerHmm> LoadMarkerHmms(
+        IEnumerable<System.IO.TextReader> hmmReaders,
+        IReadOnlyDictionary<string, double>? bitScoreThresholds = null)
+    {
+        ArgumentNullException.ThrowIfNull(hmmReaders);
+
+        var result = new List<MarkerHmm>();
+        foreach (var reader in hmmReaders)
+        {
+            var hmm = Plan7ProfileHmm.Parse(reader);
+            string markerId = !string.IsNullOrEmpty(hmm.Accession) ? hmm.Accession : hmm.Name;
+            double threshold =
+                bitScoreThresholds is not null && bitScoreThresholds.TryGetValue(markerId, out var t)
+                    ? t
+                    : hmm.GatheringThreshold ?? DefaultMarkerBitScoreThreshold;
+            result.Add(new MarkerHmm(markerId, hmm, threshold));
+        }
+        return result;
     }
 
     #endregion

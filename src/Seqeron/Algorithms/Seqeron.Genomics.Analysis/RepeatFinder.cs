@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using Seqeron.Genomics.Alignment;
+using Seqeron.Genomics.Infrastructure;
 
 namespace Seqeron.Genomics.Analysis;
 
@@ -261,6 +263,415 @@ public static class RepeatFinder
 
     #endregion
 
+    #region Approximate (Imperfect/Interrupted) Tandem Repeat Detection — TRF model
+
+    // --- Tandem Repeats Finder (Benson 1999) reported alignment-scoring parameters -------------------
+    // Benson G (1999) "Tandem repeats finder: a program to analyze DNA sequences", Nucleic Acids Res
+    // 27(2):573-580, https://doi.org/10.1093/nar/27.2.573. The TRF README/usage (Benson-Genomics-Lab/TRF)
+    // states the recommended parameter set "2 7 7 80 10 50 500" = Match Mismatch Delta PM PI Minscore
+    // MaxPeriod, and: "The recomended values for Match Mismatch and Delta are 2, 7, and 7 respectively."
+    // The TRF definitions page gives Match weight "+2 in all options here. Mismatch and indel weights
+    // (interpreted as negative numbers) are either 3, 5, or 7." Score is a Smith-Waterman style alignment
+    // score (sum of column weights) computed by wraparound dynamic programming; a tandem repeat is
+    // reported when its score is at least Minscore (Benson 1999: "Only those repeats scoring at least 50
+    // with these parameters are reported").
+
+    /// <summary>Match weight per aligned identical column. Benson (1999) recommended Match = +2.</summary>
+    private const int TrfMatchWeight = 2;
+
+    /// <summary>Mismatch penalty per substituted column. Benson (1999) recommended Mismatch = 7 (applied negatively).</summary>
+    private const int TrfMismatchPenalty = -7;
+
+    /// <summary>Indel (gap) penalty per gap column. Benson (1999) recommended Delta = 7 (applied negatively); TRF uses a flat per-column indel weight.</summary>
+    private const int TrfIndelPenalty = -7;
+
+    /// <summary>
+    /// Default minimum alignment score to report a tandem repeat. Benson (1999): "Only those repeats
+    /// scoring at least 50 ... are reported"; the recommended TRF parameter set uses Minscore = 50.
+    /// </summary>
+    public const int DefaultApproximateMinScore = 50;
+
+    /// <summary>
+    /// TRF flat-indel scoring matrix: Match +2, Mismatch -7, indel -7 per gap column (Benson 1999,
+    /// recommended set "2 7 7"). The library aligner charges <see cref="ScoringMatrix.GapExtend"/> per
+    /// gap column with no separate open cost, which matches TRF's flat indel weight.
+    /// </summary>
+    private static readonly ScoringMatrix TrfScoring = new(
+        Match: TrfMatchWeight,
+        Mismatch: TrfMismatchPenalty,
+        GapOpen: TrfIndelPenalty,
+        GapExtend: TrfIndelPenalty);
+
+    /// <summary>
+    /// Finds approximate (imperfect / interrupted) tandem repeats using the Tandem Repeats Finder
+    /// alignment model (Benson 1999). Unlike <see cref="FindMicrosatellites(DnaSequence,int,int,int)"/>
+    /// — which detects only PERFECT (exact) tandem tracts — this opt-in detector tolerates substitutions
+    /// and indels within the repeat: a candidate pattern of each period is aligned against tandem copies
+    /// of itself across the sequence, the consensus pattern is determined by majority rule, and the
+    /// resulting alignment yields the reported statistics (period size, copy number, percent matches,
+    /// percent indels, consensus, alignment score). A repeat is reported when its alignment score is at
+    /// least <paramref name="minScore"/>.
+    /// </summary>
+    /// <param name="sequence">DNA sequence to search.</param>
+    /// <param name="minPeriod">Minimum period (motif) size to consider (default: 1).</param>
+    /// <param name="maxPeriod">Maximum period (motif) size to consider (default: 6).</param>
+    /// <param name="minScore">Minimum TRF alignment score to report (default: <see cref="DefaultApproximateMinScore"/> = 50, per Benson 1999).</param>
+    /// <returns>Non-overlapping approximate tandem repeats, best alignment score first.</returns>
+    public static IEnumerable<ApproximateTandemRepeatResult> FindApproximateTandemRepeats(
+        DnaSequence sequence,
+        int minPeriod = 1,
+        int maxPeriod = 6,
+        int minScore = DefaultApproximateMinScore)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        return FindApproximateTandemRepeatsCore(sequence.Sequence, minPeriod, maxPeriod, minScore);
+    }
+
+    /// <summary>
+    /// Finds approximate (imperfect / interrupted) tandem repeats in a raw sequence string using the
+    /// Tandem Repeats Finder alignment model (Benson 1999). See
+    /// <see cref="FindApproximateTandemRepeats(DnaSequence,int,int,int)"/>.
+    /// </summary>
+    public static IEnumerable<ApproximateTandemRepeatResult> FindApproximateTandemRepeats(
+        string sequence,
+        int minPeriod = 1,
+        int maxPeriod = 6,
+        int minScore = DefaultApproximateMinScore)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            return Enumerable.Empty<ApproximateTandemRepeatResult>();
+
+        return FindApproximateTandemRepeatsCore(sequence.ToUpperInvariant(), minPeriod, maxPeriod, minScore);
+    }
+
+    private static IReadOnlyList<ApproximateTandemRepeatResult> FindApproximateTandemRepeatsCore(
+        string seq,
+        int minPeriod,
+        int maxPeriod,
+        int minScore)
+    {
+        if (minPeriod < 1) throw new ArgumentOutOfRangeException(nameof(minPeriod));
+        if (maxPeriod < minPeriod) throw new ArgumentOutOfRangeException(nameof(maxPeriod));
+
+        var candidates = new List<ApproximateTandemRepeatResult>();
+        if (string.IsNullOrEmpty(seq))
+            return candidates;
+
+        // For every starting position and every period, grow a window of tandem copies and score it
+        // against the majority-rule consensus by alignment. This is a deterministic, exhaustive
+        // substitute for TRF's probabilistic k-tuple seeding (the honest residual).
+        for (int period = minPeriod; period <= maxPeriod; period++)
+        {
+            // A repeat needs at least two contiguous copies (Benson 1999: "two or more contiguous,
+            // approximate copies of a pattern").
+            const int MinCopiesForRepeat = 2;
+            for (int start = 0; start + period * MinCopiesForRepeat <= seq.Length; start++)
+            {
+                var best = EvaluateApproximateRepeat(seq, start, period, minScore);
+                if (best is not null)
+                    candidates.Add(best.Value);
+            }
+        }
+
+        // Report best (highest-scoring) repeats first, suppressing any whose span is contained in an
+        // already-accepted higher-scoring repeat.
+        var accepted = new List<ApproximateTandemRepeatResult>();
+        foreach (var c in candidates.OrderByDescending(r => r.AlignmentScore).ThenBy(r => r.Start).ThenBy(r => r.Period))
+        {
+            int cEnd = c.Start + c.SpanLength;
+            bool contained = accepted.Any(a => a.Start <= c.Start && a.Start + a.SpanLength >= cEnd);
+            if (!contained)
+                accepted.Add(c);
+        }
+
+        return accepted
+            .OrderByDescending(r => r.AlignmentScore)
+            .ThenBy(r => r.Start)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Grows the tandem window from <paramref name="start"/> with the given <paramref name="period"/>,
+    /// determines the consensus by majority rule, aligns the window against tandem copies of the
+    /// consensus with TRF scoring, and returns the repeat statistics if the alignment score reaches
+    /// <paramref name="minScore"/>. Returns the longest scoring window for this (start, period).
+    /// </summary>
+    private static ApproximateTandemRepeatResult? EvaluateApproximateRepeat(
+        string seq,
+        int start,
+        int period,
+        int minScore)
+    {
+        // Candidate pattern is the first copy at the window start (Benson 1999: "An initial candidate
+        // pattern P is drawn from the sequence").
+        ApproximateTandemRepeatResult? best = null;
+
+        // Extend the window one copy at a time; the window length need not be an exact multiple of the
+        // period (the trailing copy may be partial / contain indels), so we extend in single-base steps
+        // but only evaluate when at least two copies are spanned.
+        for (int spanLen = period * 2; start + spanLen <= seq.Length; spanLen++)
+        {
+            string window = seq.Substring(start, spanLen);
+
+            // Consensus by majority rule over the period-aligned columns of the window.
+            string consensus = MajorityConsensus(window, period);
+
+            // Reference = a WHOLE number of tandem copies of the consensus pattern covering the window
+            // (TRF aligns the sequence against tandem copies of the pattern). The copy count is rounded
+            // up so the reference is at least as long as the window; tiling to a partial trailing copy
+            // would inject a spurious end-gap and understate the match percentage.
+            int copies = (spanLen + period - 1) / period;
+            string reference = TileTo(consensus, copies * period);
+
+            AlignmentResult alignment = SequenceAligner.GlobalAlign(window, reference, TrfScoring);
+            var stats = ComputeTrfStatistics(alignment, period, consensus);
+
+            if (stats.AlignmentScore >= minScore &&
+                (best is null || stats.AlignmentScore > best.Value.AlignmentScore))
+            {
+                best = stats with { Start = start, SpanLength = spanLen };
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>
+    /// Determines the consensus pattern of length <paramref name="period"/> by majority rule over the
+    /// period-aligned columns of <paramref name="window"/> (Benson 1999: "we determine a consensus
+    /// pattern by majority rule from the alignment"). Ties are broken by first-seen base for determinism.
+    /// </summary>
+    private static string MajorityConsensus(string window, int period)
+    {
+        var consensus = new char[period];
+        for (int col = 0; col < period; col++)
+        {
+            var counts = new Dictionary<char, int>();
+            var order = new List<char>();
+            for (int i = col; i < window.Length; i += period)
+            {
+                char b = window[i];
+                if (!counts.TryGetValue(b, out int n))
+                {
+                    counts[b] = 1;
+                    order.Add(b);
+                }
+                else
+                {
+                    counts[b] = n + 1;
+                }
+            }
+
+            char bestBase = order[0];
+            int bestCount = counts[bestBase];
+            foreach (char b in order)
+            {
+                if (counts[b] > bestCount)
+                {
+                    bestBase = b;
+                    bestCount = counts[b];
+                }
+            }
+            consensus[col] = bestBase;
+        }
+        return new string(consensus);
+    }
+
+    /// <summary>Tiles <paramref name="pattern"/> head-to-tail until it reaches <paramref name="length"/> characters.</summary>
+    private static string TileTo(string pattern, int length)
+    {
+        var chars = new char[length];
+        for (int i = 0; i < length; i++)
+            chars[i] = pattern[i % pattern.Length];
+        return new string(chars);
+    }
+
+    /// <summary>
+    /// Reads the TRF reported statistics from a column-by-column alignment of the observed window
+    /// (sequence 1) against tandem copies of the consensus (sequence 2). Percent matches and percent
+    /// indels are each expressed over the total alignment columns ("between adjacent copies overall",
+    /// Benson 1999). The alignment score is the library aligner's column-weight sum.
+    /// </summary>
+    private static ApproximateTandemRepeatResult ComputeTrfStatistics(
+        AlignmentResult alignment,
+        int period,
+        string consensus)
+    {
+        string a = alignment.AlignedSequence1;
+        string b = alignment.AlignedSequence2;
+        int columns = a.Length;
+
+        int matches = 0;
+        int mismatches = 0;
+        int indels = 0;
+        for (int i = 0; i < columns; i++)
+        {
+            if (a[i] == '-' || b[i] == '-')
+                indels++;
+            else if (a[i] == b[i])
+                matches++;
+            else
+                mismatches++;
+        }
+
+        double percentMatches = columns > 0 ? (double)matches / columns * 100.0 : 0.0;
+        double percentIndels = columns > 0 ? (double)indels / columns * 100.0 : 0.0;
+
+        // Copy number = aligned repeat length / period (Benson 1999: "Number of copies aligned with the
+        // consensus pattern"). The aligned repeat length is the number of observed (non-gap) bases.
+        int observedBases = a.Count(c => c != '-');
+        double copyNumber = period > 0 ? (double)observedBases / period : 0.0;
+
+        return new ApproximateTandemRepeatResult(
+            Start: 0,
+            SpanLength: observedBases,
+            Period: period,
+            ConsensusSize: consensus.Length,
+            Consensus: consensus,
+            CopyNumber: copyNumber,
+            PercentMatches: percentMatches,
+            PercentIndels: percentIndels,
+            AlignmentScore: alignment.Score);
+    }
+
+    #endregion
+
+    #region TRF Bernoulli statistical-significance scoring (Benson 1999)
+
+    // --- Tandem Repeats Finder probabilistic / Bernoulli model (Benson 1999) -------------------------
+    // Benson G (1999) "Tandem repeats finder: a program to analyze DNA sequences", Nucleic Acids Res
+    // 27(2):573-580, https://doi.org/10.1093/nar/27.2.573. TRF detailed description / definitions pages
+    // (tandem.bu.edu/trf/trf.desc.html, trf.definitions.html; Benson-Genomics-Lab/TRF README), captured
+    // VERBATIM 2026-06-24:
+    //   * "We model alignment of two tandem copies of a pattern of length n by a sequence of n
+    //      independent Bernoulli trials (coin-tosses)."
+    //   * "The probability of success, P(Heads), which we also call PM or matching probability,
+    //      represents the average percent identity between the copies."
+    //   * "A second probability, PI or indel probability, specifies the average percentage of
+    //      insertions and deletions between the copies."
+    //   * The reported statistics (definitions page items 5-6) are "Percent of matches between adjacent
+    //      copies overall" and "Percent of indels between adjacent copies overall", and the alignment
+    //      explanation states the statistics refer to "the matches, mismatches and indels overall between
+    //      adjacent copies in the sequence, NOT between the sequence and the consensus pattern."
+    //   * Default probabilistic data: "PM=80 and PI=10" ("PM = .80 and PI = .10 by default").
+    // Faithfully reproducible here: the Bernoulli match/indel PROBABILITY ESTIMATES (PM, PI) computed
+    // between ADJACENT COPIES, and the Bernoulli-mean expected matches PM*d over d aligned positions.
+    // NOT reproducible without TRF's non-redistributable simulation tables: the percentile cut-offs of
+    // R(d,k,PM) (sum-of-heads, "the largest x such that 95% of the time R(d,k,PM) >= x") and the random
+    // walk W(d,PI) distance band used for k-tuple SEEDING — that residual is genome-scale performance.
+
+    /// <summary>Benson (1999) default Bernoulli matching probability PM = 0.80 ("PM = .80 by default").</summary>
+    public const double TrfDefaultMatchProbability = 0.80;
+
+    /// <summary>Benson (1999) default Bernoulli indel probability PI = 0.10 ("PI = .10 by default").</summary>
+    public const double TrfDefaultIndelProbability = 0.10;
+
+    /// <summary>
+    /// Computes the Tandem Repeats Finder Bernoulli-model statistical measures (Benson 1999) for a
+    /// detected tandem-repeat tract. Benson models the alignment of two adjacent copies of the pattern
+    /// as a sequence of independent Bernoulli trials whose success probability P(Heads) = <c>PM</c>
+    /// (matching probability) is "the average percent identity between the copies", with a second
+    /// probability <c>PI</c> (indel probability) = "the average percentage of insertions and deletions
+    /// between the copies". This method estimates <c>PM</c> and <c>PI</c> from the observed tract by
+    /// aligning each pair of ADJACENT copies (TRF: statistics are "between adjacent copies in the
+    /// sequence, not between the sequence and the consensus pattern") and counting match / mismatch /
+    /// indel columns. The Bernoulli-mean expected number of matches over the aligned positions
+    /// (<c>PM × columns</c>) is reported as a significance reference, and the estimate is compared to
+    /// Benson's default PM (0.80) so callers can judge whether the tract is at least as conserved as a
+    /// "significant" random tandem repeat under the model.
+    /// </summary>
+    /// <remarks>
+    /// This is the opt-in probabilistic measure; <see cref="FindMicrosatellites(DnaSequence,int,int,int)"/>
+    /// and <see cref="FindApproximateTandemRepeats(DnaSequence,int,int,int)"/> are unchanged. Candidate
+    /// k-tuple SEEDING (the R(d,k,PM) sum-of-heads percentile cut-off and the W(d,PI) random-walk band)
+    /// is NOT reproduced — it depends on TRF's non-redistributable simulation tables and is a
+    /// genome-scale performance heuristic, not a per-repeat statistic.
+    /// </remarks>
+    /// <param name="repeatTract">The observed tandem-repeat tract (≥ 2 copies of the period).</param>
+    /// <param name="period">The repeat period (copy length), ≥ 1.</param>
+    /// <param name="expectedMatchProbability">
+    /// The Bernoulli PM the tract is assessed against (default <see cref="TrfDefaultMatchProbability"/> = 0.80,
+    /// Benson 1999). The tract is flagged <see cref="TandemRepeatBernoulliStatistics.MeetsExpectedMatchProbability"/>
+    /// when its estimated PM ≥ this value.
+    /// </param>
+    /// <returns>The Bernoulli-model statistics for the tract.</returns>
+    public static TandemRepeatBernoulliStatistics ComputeBernoulliStatistics(
+        string repeatTract,
+        int period,
+        double expectedMatchProbability = TrfDefaultMatchProbability)
+    {
+        ArgumentNullException.ThrowIfNull(repeatTract);
+        if (period < 1) throw new ArgumentOutOfRangeException(nameof(period));
+        if (expectedMatchProbability < 0.0 || expectedMatchProbability > 1.0)
+            throw new ArgumentOutOfRangeException(nameof(expectedMatchProbability));
+
+        string tract = repeatTract.ToUpperInvariant();
+        if (tract.Length < period * 2)
+            throw new ArgumentException(
+                "A tandem repeat needs at least two contiguous copies of the period.", nameof(repeatTract));
+
+        // Segment the tract into copies of the period (the last copy may be partial) and align each pair
+        // of ADJACENT copies. Each Bernoulli trial is one alignment column between the two adjacent
+        // copies: heads = match, tails = mismatch or indel (Benson 1999).
+        int matches = 0;
+        int mismatches = 0;
+        int indels = 0;
+
+        int copyCount = (tract.Length + period - 1) / period;
+        for (int c = 0; c + 1 < copyCount; c++)
+        {
+            int leftStart = c * period;
+            int rightStart = (c + 1) * period;
+            string left = tract.Substring(leftStart, Math.Min(period, tract.Length - leftStart));
+            string right = tract.Substring(rightStart, Math.Min(period, tract.Length - rightStart));
+
+            AlignmentResult pair = SequenceAligner.GlobalAlign(left, right, TrfScoring);
+            string a = pair.AlignedSequence1;
+            string b = pair.AlignedSequence2;
+
+            // GlobalAlign returns AlignmentResult.Empty (no aligned strings) only when an input copy is
+            // empty; with ≥ 2 whole copies both adjacent copies are non-empty, so columns are present.
+            int columns = a.Length;
+            for (int i = 0; i < columns; i++)
+            {
+                if (a[i] == '-' || b[i] == '-') indels++;
+                else if (a[i] == b[i]) matches++;
+                else mismatches++;
+            }
+        }
+
+        int totalColumns = matches + mismatches + indels;
+
+        // PM = matching probability = average percent identity between adjacent copies (Benson 1999).
+        // Heads in the Bernoulli model are matches; PM is the fraction of trials that are heads.
+        double matchProbability = totalColumns > 0 ? (double)matches / totalColumns : 0.0;
+
+        // PI = indel probability = average percentage of insertions and deletions between the copies.
+        double indelProbability = totalColumns > 0 ? (double)indels / totalColumns : 0.0;
+
+        // Bernoulli-mean expected matches over the aligned positions: E[heads] = PM * d for d trials with
+        // success probability PM (the mean of a length-d Bernoulli(PM) sequence). Reported as the
+        // significance reference (the expected number of matching positions a random tandem repeat with
+        // this match probability would show over the same number of trials).
+        double expectedMatches = matchProbability * totalColumns;
+
+        return new TandemRepeatBernoulliStatistics(
+            Period: period,
+            AdjacentCopyPairs: Math.Max(0, copyCount - 1),
+            BernoulliTrials: totalColumns,
+            Matches: matches,
+            Mismatches: mismatches,
+            Indels: indels,
+            MatchProbability: matchProbability,
+            IndelProbability: indelProbability,
+            PercentMatches: matchProbability * 100.0,
+            PercentIndels: indelProbability * 100.0,
+            ExpectedMatches: expectedMatches,
+            MeetsExpectedMatchProbability: matchProbability >= expectedMatchProbability);
+    }
+
+    #endregion
+
     #region Inverted Repeat Detection
 
     /// <summary>
@@ -294,6 +705,9 @@ public static class RepeatFinder
         int maxLoopLength = 50,
         int minLoopLength = 3)
     {
+        if (minArmLength < 2) throw new ArgumentOutOfRangeException(nameof(minArmLength));
+        if (minLoopLength < 0) throw new ArgumentOutOfRangeException(nameof(minLoopLength));
+
         if (string.IsNullOrEmpty(sequence))
             yield break;
 
@@ -384,6 +798,24 @@ public static class RepeatFinder
         int minLength = 5,
         int maxLength = 50,
         int minSpacing = 1)
+    {
+        // Mirror the DnaSequence overload's numeric validation onto the raw-string surface.
+        // A degenerate minLength < 2 (e.g. 0) yields a zero-length candidate whose suffix-tree
+        // lookup matches EVERY position, blowing the result set up with O(n^2) spurious
+        // empty-/single-base "repeats"; that is undisciplined fuzzing failure, so it is rejected
+        // here exactly as the typed overload rejects it. Validation is hoisted into an eager
+        // wrapper so the exception surfaces at the call, not only on enumeration.
+        if (minLength < 2) throw new ArgumentOutOfRangeException(nameof(minLength));
+        if (maxLength < minLength) throw new ArgumentOutOfRangeException(nameof(maxLength));
+
+        return FindDirectRepeatsRaw(sequence, minLength, maxLength, minSpacing);
+    }
+
+    private static IEnumerable<DirectRepeatResult> FindDirectRepeatsRaw(
+        string sequence,
+        int minLength,
+        int maxLength,
+        int minSpacing)
     {
         if (string.IsNullOrEmpty(sequence))
             yield break;
@@ -618,6 +1050,44 @@ public readonly record struct MicrosatelliteResult(
     /// </summary>
     public string FullSequence => string.Concat(Enumerable.Repeat(RepeatUnit, RepeatCount));
 }
+
+/// <summary>
+/// Result of approximate (imperfect / interrupted) tandem-repeat detection, following the statistics
+/// reported by Tandem Repeats Finder (Benson 1999): period size, copy number, percent matches, percent
+/// indels, consensus pattern/size, and alignment score.
+/// </summary>
+public readonly record struct ApproximateTandemRepeatResult(
+    int Start,
+    int SpanLength,
+    int Period,
+    int ConsensusSize,
+    string Consensus,
+    double CopyNumber,
+    double PercentMatches,
+    double PercentIndels,
+    int AlignmentScore);
+
+/// <summary>
+/// Tandem Repeats Finder Bernoulli-model statistical measures (Benson 1999) for a detected repeat tract.
+/// Benson models the alignment of two adjacent copies as a sequence of independent Bernoulli trials;
+/// <see cref="MatchProbability"/> = P(Heads) = PM (matching probability) is the average percent identity
+/// between adjacent copies, and <see cref="IndelProbability"/> = PI (indel probability) is the average
+/// percentage of insertions and deletions between them. The statistics are computed between ADJACENT
+/// copies, not between the tract and the consensus pattern.
+/// </summary>
+public readonly record struct TandemRepeatBernoulliStatistics(
+    int Period,
+    int AdjacentCopyPairs,
+    int BernoulliTrials,
+    int Matches,
+    int Mismatches,
+    int Indels,
+    double MatchProbability,
+    double IndelProbability,
+    double PercentMatches,
+    double PercentIndels,
+    double ExpectedMatches,
+    bool MeetsExpectedMatchProbability);
 
 /// <summary>
 /// Result of inverted repeat detection.

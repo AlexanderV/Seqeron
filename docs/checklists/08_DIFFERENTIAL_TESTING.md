@@ -1,8 +1,8 @@
-# Checklist 07: Differential Testing
+# Checklist 08: Differential Testing
 
 **Priority:** P2
 **Date:** 2026-03-19
-**Total algorithms:** 234
+**Total algorithms:** 237
 
 ---
 
@@ -260,6 +260,9 @@ Differential testing порівнює виходи двох незалежних
 | 232 | ☐ | SEQ-ENTROPY-PROFILE-001 | Statistics | Sliding window | naive per-window recompute | Identical profile |
 | 233 | ☐ | SEQ-GC-ANALYSIS-001 | Composition | Windowed scan | LINQ Count-based | Exact GC% |
 | 234 | ☐ | SEQ-GC-PROFILE-001 | Statistics | Sliding window | naive per-window recompute | Identical profile |
+| 235 | ☐ | ONCO-ASCAT-001 | Oncology | ASPCF PCF DP | naive changepoint scan | same breakpoints |
+| 236 | ☐ | RNA-PKPREDICT-001 | Analysis | pknotsRG canonical scan | brute-force H-type search | same structure |
+| 237 | ☐ | RNA-PKRECURSIVE-001 | Analysis | recursive grammar | exhaustive nested search (small n) | same ΔG |
 
 ---
 
@@ -269,7 +272,7 @@ Differential testing порівнює виходи двох незалежних
 |--------|-------|
 | Total algorithms | 234 |
 | ☑ Complete | 0 |
-| ☐ Not started | 234 |
+| ☐ Not started | 237 |
 | High-value pairs (ALT/BRUTE feasible) | ~25 |
 | Medium-value pairs (REF comparison) | ~35 |
 | Lower priority (DUAL re-impl needed) | ~26 |

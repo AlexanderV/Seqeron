@@ -97,7 +97,35 @@ public static class GenomicAnalyzer
     /// <summary>
     /// Finds tandem repeats (consecutive repeating units like "ATGATGATG").
     /// </summary>
+    /// <param name="sequence">DNA sequence to analyze. Must not be <c>null</c>.</param>
+    /// <param name="minUnitLength">
+    /// Minimum candidate repeat-unit length. Must be &gt;= 1: a zero-length unit is degenerate (the empty
+    /// string "tiles" every position infinitely and never advances the scan), so it is rejected to avoid a
+    /// non-terminating loop rather than silently hanging.
+    /// </param>
+    /// <param name="minRepetitions">
+    /// Minimum number of consecutive unit copies. Must be &gt;= 2: a tandem repeat requires at least two
+    /// copies (<c>k &gt;= 2</c>), and a value of <c>0</c> would divide by zero in the unit-length bound while
+    /// a value of <c>1</c> would report every substring as a trivial single-copy "repeat".
+    /// </param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="minUnitLength"/> is &lt; 1, or <paramref name="minRepetitions"/> is &lt; 2.
+    /// </exception>
     public static IEnumerable<TandemRepeat> FindTandemRepeats(DnaSequence sequence, int minUnitLength = 2, int minRepetitions = 2)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        if (minUnitLength < 1)
+            throw new ArgumentOutOfRangeException(nameof(minUnitLength), minUnitLength,
+                "Minimum repeat-unit length must be at least 1; a zero-length unit never terminates the scan.");
+        if (minRepetitions < 2)
+            throw new ArgumentOutOfRangeException(nameof(minRepetitions), minRepetitions,
+                "A tandem repeat requires at least two consecutive copies; minRepetitions must be >= 2.");
+
+        return FindTandemRepeatsCore(sequence, minUnitLength, minRepetitions);
+    }
+
+    private static IEnumerable<TandemRepeat> FindTandemRepeatsCore(DnaSequence sequence, int minUnitLength, int minRepetitions)
     {
         string seq = sequence.Sequence;
 

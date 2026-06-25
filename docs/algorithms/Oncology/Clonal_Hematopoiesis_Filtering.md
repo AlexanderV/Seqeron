@@ -6,7 +6,7 @@
 | Test Unit ID | ONCO-CHIP-001 |
 | Related Projects | Seqeron.Genomics.Oncology |
 | Implementation Status | Framework |
-| Last Reviewed | 2026-06-15 |
+| Last Reviewed | 2026-06-23 |
 
 ## 1. Overview
 
@@ -30,6 +30,12 @@ where `G` is the CHIP driver-gene panel and `τ = 0.02` (≥ 2%) [1]. The thresh
 
 **Matched-WBC subtraction (definitive origin test) [3]:** a cfDNA variant whose locus is also present in the matched WBC sample (≥ 1 alt read [5]) is WBC/CH-derived and removed, *regardless of gene*. `FilterCHIP` removes `v` when it is matched in WBC OR when `isCHIP(v)` holds with no WBC evidence; the complement is retained as candidate tumour.
 
+**Strict matched-WBC origin calling (`CallVariantOrigin`) [6]:** when the caller supplies per-variant matched-WBC observations carrying the WBC VAF and supporting alt reads, origin is called directly from the matched WBC rather than by the gene+VAF heuristic. A variant `v` with tumour/plasma VAF `f_t` is called **CHIP / WBC origin** when a matched-WBC observation at the same locus has WBC VAF `f_w` and `r_w` supporting reads satisfying ALL of:
+
+`f_w ≥ τ_w  ∧  r_w ≥ ρ  ∧  f_w ≥ φ · f_t`
+
+where `τ_w = 0.02` (WBC VAF ≥ 2%), `ρ = 10` supporting reads, and `φ = 2.0` (WBC VAF at least twice the tumour VAF; `φ = 1.5` for a lymph-node biopsy site) [6]. Otherwise `v` is called **tumour / somatic**. Unlike `FilterCHIP`, this mode does NOT apply the gene+VAF fallback, so a CH-driver-gene variant genuinely absent from the matched WBC is called tumour (not over-removed).
+
 Canonical driver genes `G` = {DNMT3A, TET2, ASXL1, TP53, JAK2, SF3B1, SRSF2, PPM1D}: "Four genes (DNMT3A, TET2, ASXL1, and PPM1D) had disproportionately high numbers of somatic mutations" with recurrent JAK2 V617F and SF3B1 K700E [2]; the three most prevalent are DNMT3A, TET2, ASXL1 [4].
 
 ### 2.4 Properties and Invariants
@@ -41,6 +47,9 @@ Canonical driver genes `G` = {DNMT3A, TET2, ASXL1, TP53, JAK2, SF3B1, SRSF2, PPM
 | INV-03 | `FilterCHIP` output ⊆ input, input order preserved | filter iterates once, keeps subset |
 | INV-04 | A cfDNA variant present in matched WBC is removed regardless of gene | matched-WBC origin test [3] |
 | INV-05 | A cfDNA variant absent from matched WBC and not meeting the heuristic is retained | only confounders are removed [3] |
+| INV-06 | `CallVariantOrigin` calls CHIP ⟺ f_w ≥ τ_w ∧ r_w ≥ ρ ∧ f_w ≥ φ·f_t at the matched locus | strict matched-WBC rule [6] |
+| INV-07 | `CallVariantOrigin` calls tumour when the locus is absent from the matched WBC | no WBC evidence ⇒ tumour [6] |
+| INV-08 | `CallVariantOrigin` emits one call per input variant, input order preserved | single pass over variants |
 
 ### 2.5 Comparison with Related Methods (Optional)
 
@@ -55,11 +64,14 @@ Canonical driver genes `G` = {DNMT3A, TET2, ASXL1, TP53, JAK2, SF3B1, SRSF2, PPM
 
 | Name | Type | Default | Description | Constraints |
 |------|------|---------|-------------|-------------|
-| variants | `IEnumerable<ChipVariant>` | required | cfDNA variants to screen / filter | non-null |
+| variants | `IEnumerable<ChipVariant>` | required | cfDNA variants to screen / filter / call origin | non-null |
 | whiteBloodCellVariants | `IEnumerable<ChipVariant>` | required (FilterCHIP) | matched WBC variants | non-null |
+| whiteBloodCellObservations | `IEnumerable<WbcObservation>` | required (CallVariantOrigin) | matched-WBC per-locus VAF + alt reads | non-null |
 | chipGenes | `IReadOnlyCollection<string>?` | `DefaultChipGenes` | CHIP driver panel (HGNC symbols) | case-insensitive |
-| minVaf | `double` | `0.02` | CHIP VAF threshold | (0, 1] |
-| minWbcAltReads | `int` | `1` | WBC alt-read cutoff for locus presence | ≥ 1 |
+| minVaf | `double` | `0.02` | CHIP VAF threshold (gene+VAF heuristic) | (0, 1] |
+| minWbcAltReads | `int` | `1` (FilterCHIP) / `10` (CallVariantOrigin) | WBC alt-read cutoff | ≥ 1 |
+| wbcVafFold | `double` | `2.0` (`1.5` lymph node) | min WBC-to-tumour VAF ratio for a WBC call | ≥ 1 |
+| chipMinWbcVaf | `double` | `0.02` | min WBC VAF for a WBC call | (0, 1] |
 
 ### 3.2 Output / Return Value
 
@@ -67,11 +79,12 @@ Canonical driver genes `G` = {DNMT3A, TET2, ASXL1, TP53, JAK2, SF3B1, SRSF2, PPM
 |-------|------|-------------|
 | IdentifyCHIPVariants | `IReadOnlyList<ChipVariant>` | candidate CHIP variants, input order |
 | FilterCHIP | `IReadOnlyList<ChipVariant>` | retained candidate tumour variants, input order |
+| CallVariantOrigin | `IReadOnlyList<VariantOriginCall>` | per-variant origin (Chip/Tumor) + WBC VAF/reads, input order |
 | IsCanonicalChipGene | `bool` | gene ∈ panel (case-insensitive) |
 
 ### 3.3 Preconditions and Validation
 
-Null `variants` / `whiteBloodCellVariants` → `ArgumentNullException`. `minVaf ∉ (0, 1]` → `ArgumentOutOfRangeException`. `minWbcAltReads < 1` → `ArgumentOutOfRangeException`. Gene comparison is case-insensitive (HGNC symbols are upper-case); a null/empty gene is not a CHIP gene. Locus identity is exact on (chromosome, 1-based position, ref, alt). Empty inputs are valid (empty result / heuristic-only filtering).
+Null `variants` / `whiteBloodCellVariants` / `whiteBloodCellObservations` → `ArgumentNullException`. `minVaf ∉ (0, 1]` or `chipMinWbcVaf ∉ (0, 1]` → `ArgumentOutOfRangeException`. `minWbcAltReads < 1` or `wbcVafFold < 1` → `ArgumentOutOfRangeException`. Gene comparison is case-insensitive (HGNC symbols are upper-case); a null/empty gene is not a CHIP gene. Locus identity is exact on (chromosome, 1-based position, ref, alt). Empty inputs are valid (empty result / heuristic-only filtering).
 
 ## 4. Algorithm
 
@@ -79,13 +92,15 @@ Null `variants` / `whiteBloodCellVariants` → `ArgumentNullException`. `minVaf 
 
 1. `IdentifyCHIPVariants`: for each variant, flag when gene ∈ panel and VAF ≥ minVaf.
 2. `FilterCHIP`: build a set of WBC loci with ≥ minWbcAltReads alt reads; for each cfDNA variant, drop it if its locus is in that set OR it meets the gene+VAF heuristic; keep the rest.
+3. `CallVariantOrigin`: index matched-WBC observations by locus (keep the highest-VAF observation per locus); for each variant, look up its locus and call CHIP when `f_w ≥ chipMinWbcVaf ∧ r_w ≥ minWbcAltReads ∧ f_w ≥ wbcVafFold·f_t`, else tumour.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures (Optional)
 
 - CHIP VAF threshold `τ = 0.02` (≥) [1].
 - Default panel {DNMT3A, TET2, ASXL1, TP53, JAK2, SF3B1, SRSF2, PPM1D} [1][2].
-- WBC presence cutoff = 1 alt read (configurable) [5].
-- `HashSet<(string,int,string,string)>` of WBC loci for O(1) membership.
+- WBC presence cutoff = 1 alt read (configurable, `FilterCHIP`) [5].
+- Strict origin (`CallVariantOrigin`) thresholds: WBC VAF `τ_w = 0.02`, supporting reads `ρ = 10`, VAF fold `φ = 2.0` (`1.5` lymph node) [6].
+- `HashSet<(string,int,string,string)>` of WBC loci for O(1) membership (`FilterCHIP`); `Dictionary` of locus→best WBC observation (`CallVariantOrigin`).
 
 ### 4.3 Complexity
 
@@ -93,6 +108,7 @@ Null `variants` / `whiteBloodCellVariants` → `ArgumentNullException`. `minVaf 
 |-----------|------|-------|-------|
 | IdentifyCHIPVariants | O(n·g) | O(n) | n variants, g panel size (small constant) |
 | FilterCHIP | O(n + w) | O(w) | w WBC loci hashed once; n cfDNA lookups O(1) |
+| CallVariantOrigin | O(n + w) | O(n + w) | w WBC observations indexed once; n variant lookups O(1); n calls |
 
 ## 5. Implementation Notes
 
@@ -102,6 +118,7 @@ Null `variants` / `whiteBloodCellVariants` → `ArgumentNullException`. `minVaf 
 
 - `OncologyAnalyzer.IdentifyCHIPVariants(...)`: gene+VAF candidate-CHIP flag.
 - `OncologyAnalyzer.FilterCHIP(...)`: matched-WBC subtraction + gene+VAF fallback.
+- `OncologyAnalyzer.CallVariantOrigin(...)`: strict matched-WBC origin call (Chip/Tumor) from per-variant WBC observations.
 - `OncologyAnalyzer.IsCanonicalChipGene(...)`: case-insensitive panel membership.
 
 ### 5.2 Current Behavior
@@ -115,10 +132,11 @@ The CHIP panel is a labelled canonical default that callers may override (Framew
 - CHIP = driver-gene somatic mutation at VAF ≥ 0.02, inclusive [1].
 - Canonical driver-gene panel from Steensma 2015 / Genovese 2014 [1][2].
 - Matched-WBC subtraction to remove CH confounders regardless of gene [3].
+- Strict matched-WBC origin call (`CallVariantOrigin`): WBC VAF ≥ 2% AND ≥ 10 supporting reads AND WBC VAF ≥ 2× (1.5× lymph node) tumour VAF ⇒ CHIP, else tumour [6].
 
 **Intentionally simplified:**
 
-- WBC presence uses a configurable alt-read cutoff (default ≥ 1); **consequence:** assay-specific error-model cutoffs are the caller's responsibility, the VAF–origin relationship being unclear in general [4].
+- `FilterCHIP` WBC presence uses a configurable alt-read cutoff (default ≥ 1); **consequence:** assay-specific error-model cutoffs are the caller's responsibility, the VAF–origin relationship being unclear in general [4]. The strict per-variant origin rule [6] is available via `CallVariantOrigin` when the caller supplies matched-WBC VAF/read observations.
 
 **Not implemented:**
 
@@ -142,10 +160,13 @@ The CHIP panel is a labelled canonical default that callers may override (Framew
 | Variant in matched WBC, non-CHIP gene | removed | matched-WBC origin [3] |
 | Empty WBC set | only gene+VAF heuristic applies | nothing to subtract [3] |
 | null/empty gene | not a CHIP gene | undefined symbol |
+| `CallVariantOrigin`: WBC VAF ≥ 2%, ≥ 10 reads, ≥ 2× tumour VAF | CHIP | strict matched-WBC rule [6] |
+| `CallVariantOrigin`: locus absent from WBC (CH driver gene, high VAF) | tumour | no WBC evidence ⇒ not over-removed [6] |
+| `CallVariantOrigin`: WBC reads 9 (< 10) | tumour | read floor inclusive at 10 [6] |
 
 ### 6.2 Limitations
 
-Does not assess hematologic-malignancy diagnostic criteria, copy-number/structural CH, or assay-specific error models; the gene+VAF heuristic is a candidate flag, not a definitive origin call (matched WBC is definitive) [3][4].
+Does not assess hematologic-malignancy diagnostic criteria, copy-number/structural CH, or assay-specific error models; the gene+VAF heuristic (`FilterCHIP` fallback) is a candidate flag, not a definitive origin call. The definitive origin call (`CallVariantOrigin`) requires the caller to supply matched-WBC observations (VAF + supporting reads) — absent that input, the library cannot perform strict origin calling because it has no WBC evidence to compare against [3][4][6].
 
 ## 7. Examples and Related Material (Optional)
 
@@ -163,9 +184,25 @@ var wbc = Array.Empty<OncologyAnalyzer.ChipVariant>();
 var tumourCandidates = OncologyAnalyzer.FilterCHIP(cfDna, wbc); // -> only the EGFR variant
 ```
 
+**Strict matched-WBC origin calling [6]:**
+
+```csharp
+var variants = new[]
+{
+    new OncologyAnalyzer.ChipVariant("2", 25234374, "C", "T", "DNMT3A", 0.10), // tumour VAF 0.10
+    new OncologyAnalyzer.ChipVariant("7", 55259515, "T", "G", "EGFR", 0.20),
+};
+var wbcObs = new[]
+{
+    new OncologyAnalyzer.WbcObservation("2", 25234374, "C", "T", 0.30, 40),    // WBC VAF 0.30, 40 reads
+};
+var origins = OncologyAnalyzer.CallVariantOrigin(variants, wbcObs);
+// DNMT3A -> Chip (0.30 >= 2% and 40 >= 10 and 0.30 >= 2x0.10); EGFR -> Tumor (absent from WBC)
+```
+
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_FilterCHIP_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_FilterCHIP_Tests.cs) — covers `INV-01`..`INV-05`
+- Tests: [OncologyAnalyzer_FilterCHIP_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_FilterCHIP_Tests.cs) — covers `INV-01`..`INV-08`
 - Evidence: [ONCO-CHIP-001-Evidence.md](../../../docs/Evidence/ONCO-CHIP-001-Evidence.md)
 
 ## 8. References
@@ -175,3 +212,4 @@ var tumourCandidates = OncologyAnalyzer.FilterCHIP(cfDna, wbc); // -> only the E
 3. Razavi P, Li BT, Brown DN, et al. 2019. High-intensity sequencing reveals the sources of plasma circulating cell-free DNA variants. *Nat Med* 25:1928–1937. https://doi.org/10.1038/s41591-019-0652-7
 4. Arango-Argoty G, et al. 2025. An artificial intelligence-based model for prediction of clonal hematopoiesis variants in cell-free DNA samples. *NPJ Precis Oncol* 9:147. https://doi.org/10.1038/s41698-025-00921-w
 5. Wan JCM, Heider K, Gale D, et al. 2020. ctDNA monitoring using patient-specific sequencing and integration of variant reads. *Sci Transl Med* 12(548):eaaz8084. https://doi.org/10.1126/scitranslmed.aaz8084
+6. Bolton KL, Ptashkin RN, Gao T, et al. 2020. Cancer therapy shapes the fitness landscape of clonal hematopoiesis. *Nat Genet* 52(11):1219–1226. https://doi.org/10.1038/s41588-020-00710-0 (PMC7891089)

@@ -75,8 +75,8 @@
 
 | ID | Test Case | Description | Expected Outcome | Evidence |
 |----|-----------|-------------|------------------|----------|
-| M1 | RGD_SimplePattern_ThreeMatches | FindMotifByPattern finds 3 RGD in `MRGDKLARGDPMRGD` | 3 matches at positions 1, 6, 12 with sequence "RGD" | PROSITE PS00016 |
-| M2 | RGD_PositionAndSequence | Verify Start, End, and Sequence fields are correct | Start=1,End=3; Start=6,End=8; Start=12,End=14 | Regex match semantics |
+| M1 | RGD_SimplePattern_ThreeMatches | FindMotifByPattern finds 3 RGD in `MRGDKLARGDPMRGD` | 3 matches at positions 1, 7, 12 with sequence "RGD" | PROSITE PS00016 |
+| M2 | RGD_PositionAndSequence | Verify Start, End, and Sequence fields are correct | Start=1,End=3; Start=7,End=9; Start=12,End=14 | Regex match semantics |
 | M3 | NGlycos_FindsValidSite | FindCommonMotifs finds N-glycosylation in sequence containing `NFTA` | Exactly 1 match at position (4,7), sequence "NFTA" | PROSITE PS00001 |
 | M4 | NGlycos_ExcludesProline | No N-glycosylation match when P follows N or precedes end | No ASN_GLYCOSYLATION matches in `ANPSANPT` | PROSITE PS00001 exclusion |
 | M5 | PKC_FindsPhosphorylation | FindCommonMotifs finds PKC site in `[ST]-x-[RK]` | Exactly 1 match: SAR at (5,7) | PROSITE PS00005 |

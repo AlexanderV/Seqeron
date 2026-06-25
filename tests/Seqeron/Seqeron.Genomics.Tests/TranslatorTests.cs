@@ -375,6 +375,49 @@ namespace Seqeron.Genomics.Tests
         }
 
         [Test]
+        public void Translate_AmbiguousIupacCodon_ProducesX()
+        {
+            // Biopython Seq.translate: a codon containing IUPAC ambiguity codes
+            // (e.g. "NNN", "GCN") that could resolve to more than one amino acid /
+            // stop is translated to 'X' (the unknown amino acid), not an error.
+            // Source: Bio.Seq docs — "Ambiguous codons like 'TAN' or 'NNN' ... are
+            // translated as 'X'."
+            // AUG (M) · NNN (X) · GCN (X, all GCx = Ala but N keeps it ambiguous) · UAA (*)
+            // NOTE: the typed DnaSequence/RnaSequence overloads reject IUPAC ambiguity
+            // codes at construction (only A/C/G/U[/T] are valid bases), so the 'X'
+            // (unknown amino acid) path is reachable only via the string overload,
+            // which does not pre-validate the alphabet.
+            var protein = Translator.Translate("AUGNNNGCNUAA");
+            Assert.That(protein.Sequence, Is.EqualTo("MXX*"));
+        }
+
+        [Test]
+        public void Translate_InternalStop_DefaultConventionEmitsStarAndContinues()
+        {
+            // Default (toFirstStop:false) follows Biopython's default: an in-frame
+            // stop is emitted as '*' and translation of the whole frame continues.
+            // AUG (M) · UAA (*) · GCU (A) · UAG (*) · GGG (G)
+            var rna = new RnaSequence("AUGUAAGCUUAGGGG");
+            var withStops = Translator.Translate(rna);
+            Assert.That(withStops.Sequence, Is.EqualTo("M*A*G"));
+
+            // toFirstStop:true terminates at the first stop and excludes it.
+            var toStop = Translator.Translate(rna, toFirstStop: true);
+            Assert.That(toStop.Sequence, Is.EqualTo("M"));
+        }
+
+        [Test]
+        public void Translate_TrailingPartialCodon_IsDropped()
+        {
+            // A trailing 1–2 nt remainder that cannot form a full codon is ignored
+            // (Biopython six_frame_translations / EMBOSS transeq triplet truncation).
+            // AUG (M) · GCU (A) · "CC" (2 nt remainder, dropped)
+            var rna = new RnaSequence("AUGGCUCC");
+            var protein = Translator.Translate(rna);
+            Assert.That(protein.Sequence, Is.EqualTo("MA"));
+        }
+
+        [Test]
         public void Translate_InsulinBChain_ProducesCorrectProtein()
         {
             // Human insulin B chain coding sequence

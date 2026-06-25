@@ -1274,5 +1274,190 @@ SQ   Sequence 20 BP;
         Assert.That(location.Parts[0], Is.EqualTo((5, 9)));
     }
 
+    // --- Nested remote references inside operators (INSDC FT 3.4.2.1(e) / 3.4.3) ---
+    //
+    // INSDC Feature Table Definition, retrieved this session from the EBI mirror
+    // https://ftp.ebi.ac.uk/pub/databases/embl/doc/FT_current.txt (§3.4.2.1 descriptors,
+    // §3.4.3 examples). Verbatim example and interpretation:
+    //   "join(1..100,J00194.1:100..202)  Joins region 1..100 of the existing entry with the
+    //                                     region 100..202 of remote entry J00194"
+    // A remote entry reference (3.4.2.1(e), "accession[.version]:descriptor") may appear
+    // NESTED inside the join/order/complement operators (3.4.2.1 operator section). Before
+    // this fix the top-level prefix strip was anchored (^), so a nested remote prefix such
+    // as "J00194.1:" was left in the descriptor and its version digit ('.1') leaked into the
+    // numeric span via the shared range regex. Expected values below are hand-derived from
+    // the §3.4.3 interpretation, NOT from the implementation output.
+
+    [Test]
+    public void ParseLocation_JoinWithNestedRemoteReference_CapturesRemotePartAndCleanSpan()
+    {
+        // §3.4.3 verbatim: "join(1..100,J00194.1:100..202) Joins region 1..100 of the
+        // existing entry with the region 100..202 of remote entry J00194". The local part
+        // is 1..100; the remote part is J00194 (version 1) bases 100..202. The accession
+        // version '.1' must NOT appear as a spurious single-base part in the numeric Parts.
+        var location = EmblParser.ParseLocation("join(1..100,J00194.1:100..202)");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(location.IsJoin, Is.True, "join operator must be detected");
+            Assert.That(location.IsComplement, Is.False, "no complement present");
+            Assert.That(location.IsRemote, Is.True,
+                "a nested remote reference makes the location remote");
+            // Two numeric segments only: local 1..100 and remote 100..202. The version '1'
+            // of 'J00194.1' must not be captured as a third (single-base) part.
+            Assert.That(location.Parts.Count, Is.EqualTo(2),
+                "exactly two spans: local 1..100 and remote 100..202 (no leaked version digit)");
+            Assert.That(location.Parts[0], Is.EqualTo((1, 100)), "local span 1..100");
+            Assert.That(location.Parts[1], Is.EqualTo((100, 202)), "remote span 100..202");
+            Assert.That(location.Start, Is.EqualTo(1), "overall start = min part start");
+            Assert.That(location.End, Is.EqualTo(202), "overall end = max part end");
+
+            Assert.That(location.RemoteParts, Is.Not.Null);
+            Assert.That(location.RemoteParts!.Count, Is.EqualTo(1),
+                "one nested remote segment captured");
+            var remote = location.RemoteParts[0];
+            Assert.That(remote.Accession, Is.EqualTo("J00194"), "remote accession per §3.4.3");
+            Assert.That(remote.Version, Is.EqualTo("1"), "remote sequence version per §3.4.3");
+            Assert.That(remote.Start, Is.EqualTo(100), "remote span lower bound 100");
+            Assert.That(remote.End, Is.EqualTo(202), "remote span upper bound 202");
+
+            // The top-level remote fields stay null: the remote reference is nested, not the
+            // whole location.
+            Assert.That(location.RemoteAccession, Is.Null,
+                "top-level remote accession is null for a nested remote reference");
+            Assert.That(location.RemoteVersion, Is.Null);
+            Assert.That(location.RawLocation, Is.EqualTo("join(1..100,J00194.1:100..202)"));
+        });
+    }
+
+    [Test]
+    public void ParseLocation_JoinWithTwoNestedRemoteReferences_OneComplemented_CapturesBoth()
+    {
+        // Two remote references nested in a join, the second wrapped in complement
+        // (3.4.2.1: "complement can be used in combination with either join or order").
+        // Both remote segments must be captured with their own accession/version/span; the
+        // complement flag must be set; and neither accession version may leak into Parts.
+        var location = EmblParser.ParseLocation(
+            "join(X00001.1:10..20,complement(X00002.1:30..40))");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(location.IsJoin, Is.True, "join operator detected");
+            Assert.That(location.IsComplement, Is.True,
+                "the second segment is complemented; complement( is preserved in the descriptor");
+            Assert.That(location.IsRemote, Is.True);
+
+            Assert.That(location.Parts.Count, Is.EqualTo(2),
+                "exactly two remote spans; no leaked version digits ('.1')");
+            Assert.That(location.Parts[0], Is.EqualTo((10, 20)), "first remote span 10..20");
+            Assert.That(location.Parts[1], Is.EqualTo((30, 40)), "second remote span 30..40");
+
+            Assert.That(location.RemoteParts, Is.Not.Null);
+            Assert.That(location.RemoteParts!.Count, Is.EqualTo(2),
+                "two nested remote segments captured");
+
+            var first = location.RemoteParts[0];
+            Assert.That(first.Accession, Is.EqualTo("X00001"));
+            Assert.That(first.Version, Is.EqualTo("1"));
+            Assert.That(first.Start, Is.EqualTo(10));
+            Assert.That(first.End, Is.EqualTo(20));
+
+            var second = location.RemoteParts[1];
+            Assert.That(second.Accession, Is.EqualTo("X00002"));
+            Assert.That(second.Version, Is.EqualTo("1"));
+            Assert.That(second.Start, Is.EqualTo(30));
+            Assert.That(second.End, Is.EqualTo(40));
+        });
+    }
+
+    [Test]
+    public void ParseLocation_ComplementWithNestedRemoteReference_CapturesRemoteAndComplement()
+    {
+        // A remote reference nested inside complement (the operator wraps the remote span).
+        // Span 100..202 of remote J00194 read as the complement strand. Both the complement
+        // flag and the captured remote segment must be correct, span clean of the version.
+        var location = EmblParser.ParseLocation("complement(J00194.1:100..202)");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(location.IsComplement, Is.True, "complement operator detected");
+            Assert.That(location.IsJoin, Is.False);
+            Assert.That(location.IsRemote, Is.True);
+            Assert.That(location.Parts.Count, Is.EqualTo(1), "single remote span, version not leaked");
+            Assert.That(location.Parts[0], Is.EqualTo((100, 202)));
+            Assert.That(location.Start, Is.EqualTo(100));
+            Assert.That(location.End, Is.EqualTo(202));
+
+            Assert.That(location.RemoteParts, Is.Not.Null);
+            Assert.That(location.RemoteParts!.Count, Is.EqualTo(1));
+            var remote = location.RemoteParts[0];
+            Assert.That(remote.Accession, Is.EqualTo("J00194"));
+            Assert.That(remote.Version, Is.EqualTo("1"));
+            Assert.That(remote.Start, Is.EqualTo(100));
+            Assert.That(remote.End, Is.EqualTo(202));
+        });
+    }
+
+    [Test]
+    public void ParseLocation_LocalOperator_NoNestedRemote_RemotePartsEmpty_Regression()
+    {
+        // Regression: an ordinary local join must be parsed exactly as before — no remote
+        // parts, RemoteParts null, IsRemote false, numeric parts byte-for-byte identical.
+        var location = EmblParser.ParseLocation("join(1..50,60..100)");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(location.IsJoin, Is.True);
+            Assert.That(location.IsRemote, Is.False, "no remote reference present");
+            Assert.That(location.RemoteParts, Is.Null, "no nested remote segments");
+            Assert.That(location.RemoteAccession, Is.Null);
+            Assert.That(location.RemoteVersion, Is.Null);
+            Assert.That(location.Parts.Count, Is.EqualTo(2));
+            Assert.That(location.Parts[0], Is.EqualTo((1, 50)));
+            Assert.That(location.Parts[1], Is.EqualTo((60, 100)));
+            Assert.That(location.Start, Is.EqualTo(1));
+            Assert.That(location.End, Is.EqualTo(100));
+        });
+    }
+
+    [Test]
+    public void ParseLocation_NestedComplementJoin_Local_RemotePartsEmpty_Regression()
+    {
+        // Regression: the previously validated complement(join(...)) local form is unchanged
+        // — same parts, same flags, no remote capture.
+        var location = EmblParser.ParseLocation("complement(join(1..50,80..100))");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(location.IsComplement, Is.True);
+            Assert.That(location.IsJoin, Is.True);
+            Assert.That(location.IsRemote, Is.False);
+            Assert.That(location.RemoteParts, Is.Null);
+            Assert.That(location.Parts.Count, Is.EqualTo(2));
+            Assert.That(location.Parts[0], Is.EqualTo((1, 50)));
+            Assert.That(location.Parts[1], Is.EqualTo((80, 100)));
+        });
+    }
+
+    [Test]
+    public void ParseLocation_TopLevelRemoteReference_RemotePartsEmpty_Regression()
+    {
+        // Regression: a top-level (non-nested) remote reference still populates the
+        // top-level RemoteAccession/RemoteVersion and must NOT additionally populate
+        // RemoteParts (the nested-capture path must not trigger for a bare prefix).
+        var location = EmblParser.ParseLocation("J00194.1:100..202");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(location.RemoteAccession, Is.EqualTo("J00194"));
+            Assert.That(location.RemoteVersion, Is.EqualTo("1"));
+            Assert.That(location.IsRemote, Is.True);
+            Assert.That(location.RemoteParts, Is.Null,
+                "a top-level remote prefix is captured in the top-level fields, not RemoteParts");
+            Assert.That(location.Parts.Count, Is.EqualTo(1));
+            Assert.That(location.Parts[0], Is.EqualTo((100, 202)));
+        });
+    }
+
     #endregion
 }

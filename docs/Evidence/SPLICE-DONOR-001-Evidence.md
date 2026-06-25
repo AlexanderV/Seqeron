@@ -69,7 +69,36 @@
 1. **MaxEntScan method:** Uses maximum entropy distributions to model short sequence motifs for splice site scoring.
 2. **9-mer donor model:** Scores a 9-nucleotide window (positions -3 to +6) around the donor site.
 3. **Score interpretation:** Higher scores indicate stronger splice sites; scores can be compared between candidate sites.
-4. **Log-odds scoring:** PWM-based scoring uses log2(observed_frequency / background_frequency) at each position.
+4. **Log-odds scoring:** the maximum-entropy score is `log2( P_maxent(seq) / P_background(seq) )`.
+
+**Retrieved this session (2026-06-25):** the reference `score5` factorisation and the precomputed
+probability table were fetched VERBATIM from the MIT-licensed maxentpy port (kepbod/maxentpy):
+- factorisation: `https://raw.githubusercontent.com/kepbod/maxentpy/master/maxentpy/maxent.py` (WebFetch, `score5`)
+- table: `https://raw.githubusercontent.com/kepbod/maxentpy/master/maxentpy/data/score5_matrix.txt` (curl, 16 384 records)
+- licence: `https://github.com/kepbod/maxentpy/blob/master/LICENSE` (MIT; full text recorded in `Data/maxent_score3.LICENSE.md` and `Data/maxent_score5.LICENSE.md`)
+
+5. **Factorisation (verbatim from maxentpy `score5`):** the 9-nt donor window (3 exon + 6 intron)
+   has its conserved `GT` dinucleotide at 0-based positions 3..4 scored separately and removed; the
+   remaining 7-nt "rest" sequence is `window[0:3] + window[5:9]`. The maximum-entropy probability of
+   that rest sequence is looked up DIRECTLY in a single table keyed by the 7-mer string (4^7 = 16384
+   entries) — unlike score3, score5 is single-matrix with no overlapping sub-windows. The score is:
+   - GT term: `cons1_5[G] * cons2_5[T] / (bgd_5[G] * bgd_5[T])`
+   - rest term: `matrix[rest]`
+   - final score = `log2(GT_term * rest_term)`.
+   - Probabilities: `bgd_5 = {A:0.27,C:0.23,G:0.23,T:0.27}`; `cons1_5 = {A:0.004,C:0.0032,G:0.9896,T:0.0032}`;
+     `cons2_5 = {A:0.0034,C:0.0039,G:0.0042,T:0.9884}`.
+
+6. **Worked examples (from the maxentpy `score5` docstring, the documented reference values):**
+   - `score5('cagGTAAGT')` → **10.86** (reproduced 10.858313 this session — the canonical example)
+   - `score5('gagGTAAGT')` → **11.08** (reproduced 11.078494)
+   - `score5('taaATAAGT')` → **-0.12** (reproduced -0.116791; a non-GT donor)
+   The canonical `cagGTAAGT → 10.86` value is the primary cross-check for the factorisation + table.
+
+7. **PROVENANCE + LICENCE (flagged):** the embedded table (`Data/maxent_score5.txt`) and the
+   factorisation come from **kepbod/maxentpy, which is MIT-licensed** (redistribution permitted — full
+   MIT text recorded in `Data/maxent_score5.LICENSE.md`). The *original* Burge-lab Perl scripts/models
+   carry academic terms (`http://genes.mit.edu/burgelab/maxent/download/READTHIS`); the artifact bundled
+   here is the MIT-licensed port table, not the original.
 
 ---
 
@@ -128,6 +157,19 @@
 | "" (empty string) | Empty |
 | GTAA (< 6 nt with context) | Empty (too short) |
 
+### Dataset 4: MaxEntScan score5ss worked examples — Yeo & Burge (2004) / maxentpy
+
+**Source:** the maxentpy `score5` docstring (documented reference values); reproduced this session.
+
+| 9-nt window | Expected (2 dp) | Reproduced (full precision) |
+|-------------|-----------------|------------------------------|
+| `cagGTAAGT` | **10.86** | 10.858313 |
+| `gagGTAAGT` | **11.08** | 11.078494 |
+| `taaATAAGT` | **-0.12** | -0.116791 |
+
+The 10.86 value is the canonical example from the MaxEntScan website / maxentpy README; it is the
+primary cross-check for the score5 factorisation + embedded table (`ScoreDonorMaxEnt`).
+
 ---
 
 ## Assumptions
@@ -153,6 +195,10 @@ All previous assumptions have been eliminated:
 10. **SHOULD Test:** Score and confidence are in [0, 1] range — Rationale: normalization invariant
 11. **SHOULD Test:** Motif context string returned is non-empty — Rationale: caller needs context for display
 12. **COULD Test:** U12-type AT donor detected with includeNonCanonical — Rationale: minor spliceosome support
+13. **MUST Test:** `ScoreDonorMaxEnt("cagGTAAGT")` == 10.86 bits — Evidence: maxentpy `score5` docstring (Dataset 4)
+14. **MUST Test:** `ScoreDonorMaxEnt` second/third reference values (11.08 / -0.12) — Evidence: Dataset 4
+15. **MUST Test:** `ScoreDonorMaxEnt` strong site ranks above weak site — Evidence: Dataset 4 ordering
+16. **MUST Test:** `ScoreDonorMaxEnt` rejects wrong length / non-A/C/G/T(/U) / null — Evidence: implementation guard
 
 ---
 
@@ -170,3 +216,11 @@ All previous assumptions have been eliminated:
 ## Change History
 
 - **2026-02-12**: Initial documentation.
+- **2026-06-25 (MaxEntScan score5)**: IMPLEMENTED the Yeo & Burge (2004) MaxEntScan score5ss
+  maximum-entropy 5' donor model as the opt-in `ScoreDonorMaxEnt`. Embedded the precomputed
+  probability table (`Data/maxent_score5.txt`, 16 384 records) retrieved verbatim this session from
+  the MIT-licensed maxentpy port; recorded the `score5` factorisation + provenance + MIT licence
+  (Yeo & Burge source #6, dataset 4, `Data/maxent_score5.LICENSE.md`). Cross-checked the canonical
+  `score5('cagGTAAGT') == 10.86` plus two further reference values exactly (11.08 / -0.12). The
+  existing PWM/consensus donor scorers (`FindDonorSites`, `ScoreDonorSite`) and their defaults are
+  unchanged; `ScoreDonorMaxEnt` is a new, additive, opt-in method.

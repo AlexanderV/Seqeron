@@ -21,6 +21,26 @@
     <ProjectReference Include="..\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
     <ProjectReference Include="..\Seqeron.Genomics.IO\Seqeron.Genomics.IO.csproj" />
     <ProjectReference Include="..\Seqeron.Genomics.Alignment\Seqeron.Genomics.Alignment.csproj" />
+    <!-- MIRNA-PRECURSOR-001: reuse the validated Zuker–Stiegler MFE folder (RNA-STRUCT-001). -->
+    <ProjectReference Include="..\Seqeron.Genomics.Analysis\Seqeron.Genomics.Analysis.csproj" />
+    <!-- MIRNA-TARGET-001 (PCT): reuse the validated PhyloNode tree + Newick parser for the
+         Friedman 2009 branch-length-score (Bls) computation. -->
+    <ProjectReference Include="..\Seqeron.Genomics.Phylogenetics\Seqeron.Genomics.Phylogenetics.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- SPLICE-ACCEPTOR-001: MaxEntScan score3ss precomputed maximum-entropy tables
+         (Yeo & Burge 2004). Data file from the MIT-licensed maxentpy port; full provenance
+         and licence in Data/maxent_score3.LICENSE.md. -->
+    <EmbeddedResource Include="Data\maxent_score3.txt">
+      <LogicalName>Seqeron.Genomics.Annotation.Data.maxent_score3.txt</LogicalName>
+    </EmbeddedResource>
+    <!-- SPLICE-DONOR-001: MaxEntScan score5ss precomputed maximum-entropy table
+         (Yeo & Burge 2004). Data file from the MIT-licensed maxentpy port; full provenance
+         and licence in Data/maxent_score5.LICENSE.md. -->
+    <EmbeddedResource Include="Data\maxent_score5.txt">
+      <LogicalName>Seqeron.Genomics.Annotation.Data.maxent_score5.txt</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>

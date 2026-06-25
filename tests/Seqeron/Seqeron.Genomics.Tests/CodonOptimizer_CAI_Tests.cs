@@ -465,4 +465,119 @@ public class CodonOptimizer_CAI_Tests
     }
 
     #endregion
+
+    #region Single-Codon Amino Acid Exclusion (Sharp & Li 1987 / Jansen 2003)
+
+    // Source: Jansen, Bauer & Stadler (2003), Nucleic Acids Research — "An Improved
+    // Implementation of the Codon Adaptation Index" (PMC2684136), quoting Sharp & Li (1987):
+    // "The original paper proposing CAI (Sharp and Li, 1987) specifically stated that codon
+    // families containing a single codon (e.g. AUG and UGG in the standard genetic code)
+    // should be excluded in computing CAI" because "their corresponding w value will always
+    // be 1 regardless of codon usage bias of the gene."
+    // The exclusion is opt-in (excludeSingleCodonAminoAcids: true); default is unchanged.
+
+    [Test]
+    public void CalculateCAI_DefaultMode_IncludesSingleCodonAminoAcids()
+    {
+        // Arrange - default behaviour (excludeSingleCodonAminoAcids omitted) must be UNCHANGED:
+        // AUG (Met, w=1.0) + UGG (Trp, w=1.0) → CAI = (1×1)^(1/2) = 1.0
+        const string sequence = "AUGUGG";
+
+        // Act
+        double defaultCai = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12);
+        double explicitInclude = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12, excludeSingleCodonAminoAcids: false);
+
+        // Assert - default == explicit-false == 1.0 (historical inclusive behaviour preserved)
+        Assert.Multiple(() =>
+        {
+            Assert.That(defaultCai, Is.EqualTo(1.0).Within(1e-10),
+                "Default mode must still include Met/Trp with w=1.0 (CAI=1.0)");
+            Assert.That(explicitInclude, Is.EqualTo(defaultCai).Within(1e-10),
+                "excludeSingleCodonAminoAcids:false must equal the default");
+        });
+    }
+
+    [Test]
+    public void CalculateCAI_ExcludeMode_AllSingleCodonAA_ReturnsZero()
+    {
+        // Arrange - AUG (Met) + UGG (Trp): both are single-codon AAs. When excluded, NO codons
+        // remain in the geometric mean (L=0) → returns 0 (no codons to evaluate convention).
+        // Per Sharp & Li 1987: a gene of only Met/Trp must not yield an inflated CAI of 1.0.
+        const string sequence = "AUGUGG";
+
+        // Act
+        double cai = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12, excludeSingleCodonAminoAcids: true);
+
+        // Assert - all codons excluded → 0 (contrast with default 1.0 proving the exclusion fired)
+        Assert.That(cai, Is.EqualTo(0).Within(1e-10),
+            "With Met/Trp excluded, an all-Met/Trp sequence has no scored codons → CAI=0");
+    }
+
+    [Test]
+    public void CalculateCAI_ExcludeMode_DropsMetFromGeometricMean()
+    {
+        // Arrange - AUG (Met, single-codon) + CUA + CUA (Leu rare, w=0.04/0.50=0.08 each).
+        // Inclusive (default): CAI = exp((ln1 + ln0.08 + ln0.08)/3) = 0.18566355334451112
+        // Exclusive: Met dropped → geometric mean over the two CUA only:
+        //   CAI = exp((ln0.08 + ln0.08)/2) = 0.08 exactly
+        // Source: Kazusa E. coli K12 (species=316407); Sharp & Li (1987) exclusion rule.
+        const string sequence = "AUGCUACUA";
+
+        // Act
+        double inclusive = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12);
+        double exclusive = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12, excludeSingleCodonAminoAcids: true);
+
+        // Assert - exact independently-derived values
+        Assert.Multiple(() =>
+        {
+            Assert.That(inclusive, Is.EqualTo(0.18566355334451112).Within(1e-10),
+                "Default mode keeps Met (w=1.0) in the L=3 geometric mean");
+            Assert.That(exclusive, Is.EqualTo(0.08).Within(1e-10),
+                "Excluding Met leaves only the two CUA codons → geometric mean = 0.08");
+        });
+    }
+
+    [Test]
+    public void CalculateCAI_ExcludeMode_DropsBothMetAndTrp_ScoresOnlyRemainder()
+    {
+        // Arrange - AUG (Met) + UGG (Trp) + CUA (Leu rare, w=0.08). Both single-codon AAs excluded,
+        // leaving exactly one scored codon CUA → CAI = exp(ln0.08 / 1) = 0.08 exactly.
+        // Inclusive (default): exp((ln1 + ln1 + ln0.08)/3) = 0.43088693800637673.
+        const string sequence = "AUGUGGCUA";
+
+        // Act
+        double inclusive = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12);
+        double exclusive = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12, excludeSingleCodonAminoAcids: true);
+
+        // Assert - exact independently-derived values
+        Assert.Multiple(() =>
+        {
+            Assert.That(inclusive, Is.EqualTo(0.43088693800637673).Within(1e-10),
+                "Default mode keeps Met and Trp (w=1.0 each) in the L=3 geometric mean");
+            Assert.That(exclusive, Is.EqualTo(0.08).Within(1e-10),
+                "Excluding Met and Trp leaves only CUA → CAI=0.08");
+        });
+    }
+
+    [Test]
+    public void CalculateCAI_ExcludeMode_NoSingleCodonAA_UnchangedFromDefault()
+    {
+        // Arrange - CUGCUA contains no Met/Trp, so exclusion must not alter the result.
+        // CUG (w=1.0) + CUA (w=0.08) → CAI = (1×0.08)^(1/2) = 0.28284271247461906
+        const string sequence = "CUGCUA";
+
+        // Act
+        double inclusive = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12, excludeSingleCodonAminoAcids: false);
+        double exclusive = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12, excludeSingleCodonAminoAcids: true);
+
+        // Assert - identical when the sequence has no single-codon amino acids
+        Assert.Multiple(() =>
+        {
+            Assert.That(inclusive, Is.EqualTo(0.28284271247461906).Within(1e-10));
+            Assert.That(exclusive, Is.EqualTo(inclusive).Within(1e-10),
+                "With no Met/Trp present, the exclusion flag must not change CAI");
+        });
+    }
+
+    #endregion
 }

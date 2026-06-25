@@ -388,7 +388,11 @@ public static class SequenceComplexity
         double sum = 0;
         foreach (int count in wordCounts.Values)
         {
-            sum += count * (count - 1) / 2.0;
+            // Promote to double before multiplying: for a highly repetitive sequence a
+            // single word's count can approach L, and count·(count−1) would overflow a
+            // 32-bit int (e.g. L ≈ 2·10⁵ ⇒ count·(count−1) ≈ 4·10¹⁰ > int.MaxValue),
+            // silently corrupting the Σ c(c−1)/2 numerator (Morgulis 2006; Li 2025).
+            sum += (double)count * (count - 1) / 2.0;
         }
 
         // Normalize by the number of words (L − wordSize + 1 = L − 2 for triplets), per

@@ -1,6 +1,17 @@
 # Validation Report: CRISPR-OFF-001 — CRISPR Off-Target Analysis (MIT/Hsu 2013 model)
 
-- **Validated:** 2026-06-17   **Area:** MolTools
+> **Independent re-confirmation 2026-06-24 (fresh validator context).** Re-downloaded `crispor.py`
+> from `maximilianh/crisporWebsite` (master, 8956 lines) and read `hitScoreM`/`calcHitScore`/
+> `calcMitGuideScore` directly. W vector confirmed 20/20 identical to the C# `MitHitScoreWeights`
+> (`CrisprDesigner.cs:654-658`). C# `CalculateMitHitScore` (lines 672-717) realises `calcHitScore`
+> verbatim (maxDist=19; mmCount<2→score2=1; mmCount==0→score3=1; ×100). Re-derived all cross-check
+> values in Python from the freshly-downloaded reference (not the C# array): perfect→100, mm@0(W=0)→100,
+> mm@5→60.5, mm@13(W=0.851)→14.9, mm@19→41.7, mm@{5,15}→0.8987, agg[60.5]→62.30529595,
+> agg[60.5,41.7]→49.45598417 — all match the test assertions exactly. Orientation confirmed
+> index 0 = PAM-distal 5', index 19 = PAM-proximal seed. Off-target + CFD suite: 71/71 passed,
+> build 0 warnings/0 errors. **No code change — re-confirmed ✅ CLEAN.**
+
+- **Validated:** 2026-06-17 (re-confirmed 2026-06-24)   **Area:** MolTools
 - **Canonical method(s):** `CrisprDesigner.CalculateMitHitScore(string guide20, string offTarget20)` (single-hit),
   `CrisprDesigner.CalculateMitSpecificityScore(IEnumerable<double>)` and the genome-scanning overload
   `CalculateMitSpecificityScore(string, DnaSequence, int, CrisprSystemType)` (aggregate).

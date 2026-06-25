@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Seqeron.Genomics.Alignment;
 
 namespace Seqeron.Genomics.Analysis;
 
@@ -1062,6 +1063,12 @@ public static class ComparativeGenomics
     /// <param name="fragmentLength">Fragment length in nucleotides; Goris et al. use 1020.</param>
     /// <param name="minIdentity">Minimum per-fragment identity (over the fragment length) to keep a match; Goris et al. use 0.30.</param>
     /// <param name="minAlignableFraction">Minimum fraction of the fragment that must align; Goris et al. use 0.70.</param>
+    /// <param name="gapped">
+    /// When <see langword="true"/> each fragment is placed by a <b>gapped</b> Smith-Waterman local
+    /// alignment against the reference (as Goris et al. use gapped BLASTN), so insertions/deletions
+    /// between query and reference are recovered. When <see langword="false"/> (default) the faster
+    /// ungapped best-offset placement is used, which is exact for substitution-only divergence.
+    /// </param>
     /// <returns>
     /// ANI as a fraction in [0, 1] (mean identity of qualifying fragments), or 0 when either
     /// sequence is null/empty, no fragment of the requested length fits, or no fragment qualifies.
@@ -1071,7 +1078,8 @@ public static class ComparativeGenomics
         string referenceSequence,
         int fragmentLength = DefaultAniFragmentLength,
         double minIdentity = DefaultAniMinIdentity,
-        double minAlignableFraction = DefaultAniMinAlignableFraction)
+        double minAlignableFraction = DefaultAniMinAlignableFraction,
+        bool gapped = false)
     {
         if (string.IsNullOrEmpty(querySequence) || string.IsNullOrEmpty(referenceSequence))
             return 0;
@@ -1085,8 +1093,9 @@ public static class ComparativeGenomics
         var qualifyingIdentities = new List<double>();
         for (int start = 0; start + fragmentLength <= query.Length; start += fragmentLength)
         {
-            (double identity, double alignableFraction) =
-                BestUngappedFragmentMatch(query.AsSpan(start, fragmentLength), reference);
+            (double identity, double alignableFraction) = gapped
+                ? BestGappedFragmentMatch(query.Substring(start, fragmentLength), reference)
+                : BestUngappedFragmentMatch(query.AsSpan(start, fragmentLength), reference);
 
             // Keep only matches passing BOTH the identity and the alignable-region cut-offs.
             if (identity > minIdentity && alignableFraction >= minAlignableFraction)
@@ -1094,6 +1103,44 @@ public static class ComparativeGenomics
         }
 
         return qualifyingIdentities.Count > 0 ? qualifyingIdentities.Average() : 0;
+    }
+
+    /// <summary>
+    /// Calculates the <b>reciprocal (bidirectional)</b> Average Nucleotide Identity between two
+    /// genomes as the mean of the two single-direction ANIb values, ANI(A&#8594;B) and ANI(B&#8594;A).
+    /// Goris et al. (2007) perform the BLASTN search in both directions ("reverse searching, i.e.
+    /// in which the reference genome is used as the query, was also performed to provide reciprocal
+    /// values"); averaging the two directions yields a symmetric ANI. The parameters are passed
+    /// through to <see cref="CalculateANI"/> for each direction.
+    /// </summary>
+    /// <param name="genomeA">First genome nucleotide sequence.</param>
+    /// <param name="genomeB">Second genome nucleotide sequence.</param>
+    /// <param name="fragmentLength">Fragment length in nucleotides; Goris et al. use 1020.</param>
+    /// <param name="minIdentity">Minimum per-fragment identity to keep a match; Goris et al. use 0.30.</param>
+    /// <param name="minAlignableFraction">Minimum fraction of the fragment that must align; Goris et al. use 0.70.</param>
+    /// <param name="gapped">Whether to use gapped fragment placement (see <see cref="CalculateANI"/>).</param>
+    /// <returns>
+    /// The symmetric reciprocal ANI as a fraction in [0, 1] — the arithmetic mean of the two
+    /// directional ANI values — or 0 when either sequence is null/empty.
+    /// </returns>
+    public static double CalculateReciprocalAni(
+        string genomeA,
+        string genomeB,
+        int fragmentLength = DefaultAniFragmentLength,
+        double minIdentity = DefaultAniMinIdentity,
+        double minAlignableFraction = DefaultAniMinAlignableFraction,
+        bool gapped = false)
+    {
+        if (string.IsNullOrEmpty(genomeA) || string.IsNullOrEmpty(genomeB))
+            return 0;
+        if (fragmentLength <= 0)
+            throw new ArgumentOutOfRangeException(nameof(fragmentLength), "Fragment length must be positive.");
+
+        double forward = CalculateANI(genomeA, genomeB, fragmentLength, minIdentity, minAlignableFraction, gapped);
+        double reverse = CalculateANI(genomeB, genomeA, fragmentLength, minIdentity, minAlignableFraction, gapped);
+
+        // Goris et al. 2007 reciprocal value: mean of the two directional ANIs (the only operands).
+        return (forward + reverse) / 2.0;
     }
 
     /// <summary>
@@ -1133,6 +1180,52 @@ public static class ComparativeGenomics
         double identity = Math.Min((double)bestMatches / fragLen, MaxIdentity);
         return (identity, MaxIdentity);
     }
+
+    /// <summary>
+    /// Finds the best <b>gapped</b> local (Smith-Waterman) placement of <paramref name="fragment"/>
+    /// within <paramref name="reference"/> and returns (identity recalculated over the fragment
+    /// length, alignable fraction over the fragment length). This mirrors Goris et al. (2007), whose
+    /// best BLASTN match is gapped: per-fragment identity = identical aligned columns / fragment
+    /// length (pyani: <c>ani_pid = ani_alnids / qlen</c>); alignable fraction = ungapped aligned
+    /// columns / fragment length (pyani: <c>ani_alnlen = blast_alnlen - blast_gaps</c>,
+    /// <c>ani_coverage = ani_alnlen / qlen</c>). Reuses <see cref="SequenceAligner"/> for the
+    /// alignment so the gapped dynamic-programming logic is shared with the rest of the library.
+    /// </summary>
+    private static (double identity, double alignableFraction) BestGappedFragmentMatch(
+        string fragment, string reference)
+    {
+        int fragLen = fragment.Length;
+        if (fragLen == 0 || reference.Length == 0)
+            return (0.0, 0.0);
+
+        AlignmentResult result = SequenceAligner.LocalAlign(fragment, reference, SequenceAligner.BlastDna);
+
+        string a1 = result.AlignedSequence1; // fragment side, may contain '-'
+        string a2 = result.AlignedSequence2; // reference side, may contain '-'
+        if (a1.Length == 0)
+            return (0.0, 0.0);
+
+        int identicalColumns = 0;   // aligned columns where both bases are equal (and not gaps)
+        int ungappedColumns = 0;    // aligned columns with no gap on either side (alnlen - gaps)
+        for (int i = 0; i < a1.Length; i++)
+        {
+            char c1 = a1[i];
+            char c2 = a2[i];
+            if (c1 == AlignmentGap || c2 == AlignmentGap)
+                continue;
+            ungappedColumns++;
+            if (c1 == c2)
+                identicalColumns++;
+        }
+
+        // Goris/pyani: identity and coverage are BOTH recalculated over the full fragment length.
+        double identity = Math.Min((double)identicalColumns / fragLen, MaxIdentity);
+        double alignableFraction = Math.Min((double)ungappedColumns / fragLen, MaxIdentity);
+        return (identity, alignableFraction);
+    }
+
+    // Gap character used by SequenceAligner in its aligned output strings.
+    private const char AlignmentGap = '-';
 
     // Default word (tuple) size for the word-match dot plot. EMBOSS dottup uses a default
     // wordsize of 10 (Rice, Longden & Bleasby 2000; EMBOSS dottup manual). A dot is drawn

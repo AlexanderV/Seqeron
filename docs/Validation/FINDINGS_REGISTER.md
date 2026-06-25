@@ -1,5 +1,7 @@
 # Findings Register — full disposition of every note across the validation campaign
 
+> ⚠️ **FULL RE-VALIDATION RESET — 2026-06-24.** All units have been reset to **⬜ pending** in [VALIDATION_LEDGER.md](VALIDATION_LEDGER.md) and `docs/checklists/` for a fresh end-to-end re-verification (extensive code changes during the limitations-elimination campaign). The dispositions below are **retained as historical evidence** but are **SUPERSEDED** until each unit is re-validated.
+
 **Date:** 2026-06-12   **Library:** Seqeron.Genomics (mission-critical)
 **Source:** every note/limitation/follow-up across all 86 reports in `docs/Validation/reports/`.
 

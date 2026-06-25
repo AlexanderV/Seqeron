@@ -133,3 +133,69 @@ Key findings:
 
 2. **Q**: What happens with non-standard codons?  
    **A**: `GetValueOrDefault` returns 0, so they're always flagged as rare. Documented.
+
+---
+
+# Addendum (2026-06-24): Rare-Codon Cluster / Run Detection
+
+Closes the documented limitation that per-codon detection does not find consecutive
+rare-codon **clusters / runs / ramps**. Two opt-in methods added; per-codon `FindRareCodons`
+unchanged. Sources retrieved this session (see `docs/Evidence/CODON-RARE-001-Evidence.md`
+Addendum): Clarke & Clark (2008) %MinMax; Chartier et al. (2012) Sherlocc RCC.
+
+## Methods Under Test (clusters)
+
+```csharp
+public static IReadOnlyList<MinMaxWindow> CalculateMinMaxProfile(
+    string codingSequence, CodonUsageTable table, int windowSize = 18);
+
+public static IReadOnlyList<RareCodonCluster> FindRareCodonClusters(
+    string codingSequence, CodonUsageTable table,
+    double rareThreshold = 0.15, int windowSize = 7, int minRareCodons = 4);
+```
+
+| Method | Type | Source / parameters |
+|--------|------|---------------------|
+| `CalculateMinMaxProfile` | Canonical | Clarke & Clark (2008), PLoS ONE 3:e3412; window 18 codons |
+| `FindRareCodonClusters` | Canonical | Chartier et al. (2012), Bioinformatics 28(11):1438; 7-codon window, ≥4 rare |
+
+## Evidence-derived expected values (E. coli K12 Arg family; Xavg=0.16667, Xmax=0.40, Xmin=0.02)
+
+| Case | Input | Method / params | Expected |
+|------|-------|-----------------|----------|
+| MM1 | AGA×3 | %MinMax, w=3 | −86.363636…% |
+| MM2 | CGC×3 | %MinMax, w=3 | +100% |
+| MM3 | CUG·AGA | %MinMax, w=2 | +36.470588…% |
+| C1 | AGA×7 | RCC default | 1 cluster, codons 0–6, 7 rare |
+| C2 | AGA×3+CGC×4 | RCC default | no cluster (3 < 4) |
+| C3 | AGA×4+CGC×3 | RCC default | 1 cluster, 4 rare (boundary ≥4) |
+| C8 | AGA×7 (yeast) | RCC default | no cluster (AGA 0.48 common) |
+
+## Cluster Test Cases (file `CodonOptimizer_RareCodonClusters_Tests.cs`)
+
+%MinMax: MM1 all-rare %Min (exact), MM2 all-common +100, MM3 mixed %Max (exact), MM4 sliding
+windows count+order, MM5 short-sequence empty, MM6 empty/null, MM7 single-codon-AA 0 (no NaN),
+MM8 bound `[-100,100]`, MM9 DNA→RNA, MM10 windowSize<1 throws.
+
+RCC: C1 7-rare cluster, C2 below-threshold (3<4) no cluster, C3 exactly-4 boundary, C4 isolated
+rare codons → per-codon flags 3 but zero clusters (the closed gap), C5 long run merges to one
+cluster, C6 two separated runs → two clusters, C7 default-threshold = 0.15, C8 organism-specific,
+C9 short-sequence empty, C10 empty/null, C11 DNA→RNA, C12 tunable window/threshold short run,
+C13 invalid params throw, C14 determinism.
+
+## Invariants (clusters)
+
+- INV-05: every %MinMax value ∈ `[-100, 100]`.
+- INV-06: `CalculateMinMaxProfile` yields `codonCount − w + 1` windows (or none).
+- INV-07: single-codon AA contributes 0 to %MinMax (no NaN).
+- INV-08: every cluster contains ≥ `minRareCodons` rare codons.
+
+## Phase 7 Work Queue (clusters) — all ✅ Done
+
+24 cluster cases (MM1–MM10, C1–C14) implemented and executed: **Failed: 0, Passed: 24**.
+Remaining: 0.
+
+## Status note
+
+Per the validation protocol, the ROOT `ALGORITHMS_CHECKLIST_V2.md` Status for CODON-RARE-001
+is reset to ☐ pending independent re-validation of this new capability.

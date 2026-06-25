@@ -694,6 +694,700 @@ public class MiRnaAnalyzer_PreMiRna_Tests
 
     #endregion
 
+    #region MFE-structure-based detection (opt-in) — reuses RNA-STRUCT-001 Zuker DP folder
+
+    // Expected values below are the EXACT outputs of the validated RNA-STRUCT-001 engine
+    // (RnaSecondaryStructure.CalculateMfeStructure / CalculateMinimumFreeEnergy, Turner 2004),
+    // reused verbatim — NOT recomputed by an independent heuristic.
+    // MFEI = AMFE/(G+C)% ; AMFE = 100·|ΔG°|/length — Zhang et al. (2006), Cell Mol Life Sci 63:246-254.
+
+    // MF1 — A designed perfect-stem hairpin folds to a single dominant hairpin whose ΔG° equals
+    //       the engine's CalculateMinimumFreeEnergy, with the expected stem/loop and AMFE/MFEI.
+    [Test]
+    public void AssessHairpinByMfe_PerfectHairpin_DerivesFeaturesFromRealMfeStructure()
+    {
+        // ValidHairpin57 folds (Turner 2004 DP) to 27×'(' 3×'.' 27×')', ΔG° = −48.48 kcal/mol.
+        // GC% = 25/57 = 43.8596…; AMFE = 100·48.48/57 = 85.052632; MFEI = 85.052632/43.8596 = 1.939200.
+        const double expectedDg = -48.48;
+        const int expectedStemBp = 27;
+        const int expectedLoopSize = 3;
+        const double expectedAmfe = 85.052632;   // 100·48.48/57
+        const double expectedMfei = 1.939200;    // AMFE/(G+C)%
+
+        double engineDg = Seqeron.Genomics.Analysis.RnaSecondaryStructure
+            .CalculateMinimumFreeEnergy(ValidHairpin57);
+        var assessed = AssessHairpinByMfe(ValidHairpin57);
+
+        Assert.That(assessed, Is.Not.Null, "Designed perfect hairpin must be accepted by the MFE-fold method.");
+        var a = assessed!.Value;
+        Assert.Multiple(() =>
+        {
+            Assert.That(a.FreeEnergy, Is.EqualTo(expectedDg).Within(1e-9),
+                "ΔG° must be the exact Turner-2004 MFE of the folded candidate (−48.48 kcal/mol).");
+            Assert.That(a.FreeEnergy, Is.EqualTo(engineDg).Within(1e-9),
+                "MFE-fold ΔG° must agree with the engine's own CalculateMinimumFreeEnergy.");
+            Assert.That(a.StemBasePairs, Is.EqualTo(expectedStemBp),
+                "Stem base-pair count must be read from the real MFE dot-bracket (27 pairs).");
+            Assert.That(a.TerminalLoopSize, Is.EqualTo(expectedLoopSize),
+                "Single terminal loop size must be 3 nt (the apical run of dots).");
+            Assert.That(a.DotBracket, Is.EqualTo(new string('(', 27) + "..." + new string(')', 27)),
+                "Dot-bracket must be the engine's MFE structure (27 paired, 3-nt apical loop).");
+            Assert.That(a.Amfe, Is.EqualTo(expectedAmfe).Within(1e-6),
+                "AMFE = 100·|ΔG°|/length (Zhang 2006).");
+            Assert.That(a.Mfei, Is.EqualTo(expectedMfei).Within(1e-6),
+                "MFEI = AMFE/(G+C)% (Zhang 2006).");
+            Assert.That(a.Mfei, Is.GreaterThanOrEqualTo(0.85),
+                "Genuine pre-miRNA hairpins have MFEI ≥ 0.85 (Zhang 2006).");
+        });
+    }
+
+    // MF2 — The MFE-fold method DETECTS real miRBase pre-miRNAs that the consecutive-pairing
+    //        heuristic rejects (the limitation this fix removes). hsa-mir-21, MI0000077.
+    [Test]
+    public void AssessHairpinByMfe_RealMiRBase_HsaMir21_DetectedByMfeFold()
+    {
+        // Folded by the engine: single hairpin (internal loops/bulges), apical loop 3 nt,
+        // 32 stem base pairs, ΔG° = −35.13 kcal/mol. GC% = 35/72 = 48.6111…
+        // AMFE = 100·35.13/72 = 48.791667; MFEI = 48.791667/48.6111 = 1.003714.
+        const double expectedDg = -35.13;
+        const int expectedStemBp = 32;
+        const int expectedLoopSize = 3;
+        const double expectedMfei = 1.003714;
+
+        double engineDg = Seqeron.Genomics.Analysis.RnaSecondaryStructure
+            .CalculateMinimumFreeEnergy(HsaMir21_MI0000077);
+        var assessed = AssessHairpinByMfe(HsaMir21_MI0000077);
+
+        Assert.That(assessed, Is.Not.Null,
+            "hsa-mir-21 is a real pre-miRNA: the MFE-fold method MUST detect it (heuristic does not).");
+        var a = assessed!.Value;
+        Assert.Multiple(() =>
+        {
+            Assert.That(a.FreeEnergy, Is.EqualTo(expectedDg).Within(1e-9),
+                "ΔG° must equal the engine's Turner-2004 MFE for hsa-mir-21 (−35.13 kcal/mol).");
+            Assert.That(a.FreeEnergy, Is.EqualTo(engineDg).Within(1e-9),
+                "MFE-fold ΔG° must agree with CalculateMinimumFreeEnergy.");
+            Assert.That(a.StemBasePairs, Is.EqualTo(expectedStemBp),
+                "Stem base pairs counted from the real MFE structure = 32.");
+            Assert.That(a.TerminalLoopSize, Is.EqualTo(expectedLoopSize),
+                "Single terminal loop = 3 nt.");
+            Assert.That(a.Mfei, Is.EqualTo(expectedMfei).Within(1e-6),
+                "MFEI = 1.003714 (Zhang 2006), above the 0.85 cutoff.");
+        });
+    }
+
+    // MF3 — hsa-let-7a-1 (MI0000060, 80 nt) is likewise detected by the MFE fold.
+    [Test]
+    public void AssessHairpinByMfe_RealMiRBase_HsaLet7a1_DetectedByMfeFold()
+    {
+        // Folded by the engine: single hairpin, apical loop 4 nt, 32 stem base pairs,
+        // ΔG° = −34.31 kcal/mol. GC% = 34/80 = 42.5; AMFE = 100·34.31/80 = 42.887500;
+        // MFEI = 42.887500/42.5 = 1.009118.
+        const double expectedDg = -34.31;
+        const int expectedStemBp = 32;
+        const int expectedLoopSize = 4;
+        const double expectedMfei = 1.009118;
+
+        double engineDg = Seqeron.Genomics.Analysis.RnaSecondaryStructure
+            .CalculateMinimumFreeEnergy(HsaLet7a1_MI0000060);
+        var assessed = AssessHairpinByMfe(HsaLet7a1_MI0000060);
+
+        Assert.That(assessed, Is.Not.Null,
+            "hsa-let-7a-1 is a real pre-miRNA: the MFE-fold method MUST detect it (heuristic does not).");
+        var a = assessed!.Value;
+        Assert.Multiple(() =>
+        {
+            Assert.That(a.FreeEnergy, Is.EqualTo(expectedDg).Within(1e-9),
+                "ΔG° must equal the engine's Turner-2004 MFE for hsa-let-7a-1 (−34.31 kcal/mol).");
+            Assert.That(a.FreeEnergy, Is.EqualTo(engineDg).Within(1e-9),
+                "MFE-fold ΔG° must agree with CalculateMinimumFreeEnergy.");
+            Assert.That(a.StemBasePairs, Is.EqualTo(expectedStemBp),
+                "Stem base pairs counted from the real MFE structure = 32.");
+            Assert.That(a.TerminalLoopSize, Is.EqualTo(expectedLoopSize),
+                "Single terminal loop = 4 nt.");
+            Assert.That(a.Mfei, Is.EqualTo(expectedMfei).Within(1e-6),
+                "MFEI = 1.009118 (Zhang 2006), above the 0.85 cutoff.");
+        });
+    }
+
+    // MF4 — Heuristic vs MFE divergence is locked: the SAME real pre-miRNA that the
+    //        consecutive-pairing heuristic rejects is accepted by the MFE-fold method.
+    [Test]
+    public void HeuristicRejects_ButMfeFoldDetects_SameRealPreMiRna()
+    {
+        var heuristic = FindPreMiRnaHairpins(HsaMir21_MI0000077, minHairpinLength: 55).ToList();
+        var mfe = AssessHairpinByMfe(HsaMir21_MI0000077);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(heuristic, Is.Empty,
+                "Default consecutive-pairing heuristic rejects hsa-mir-21 (documented limitation).");
+            Assert.That(mfe, Is.Not.Null,
+                "Opt-in MFE-fold method detects hsa-mir-21 — the limitation this fix removes.");
+        });
+    }
+
+    // MF5 — A non-complementary sequence has ΔG° = 0 (no pairs) and is rejected.
+    [Test]
+    public void AssessHairpinByMfe_NoComplementarity_Rejected()
+    {
+        var assessed = AssessHairpinByMfe(NoComplementarity);
+
+        Assert.That(assessed, Is.Null,
+            "A sequence with no foldable stem (ΔG° = 0, all-dots structure) is not a hairpin.");
+        Assert.That(Seqeron.Genomics.Analysis.RnaSecondaryStructure
+                .CalculateMinimumFreeEnergy(NoComplementarity), Is.EqualTo(0.0).Within(1e-12),
+            "Prerequisite: the engine reports ΔG° = 0 for the non-complementary sequence.");
+    }
+
+    // MF6 — Structure-based rejection: a multibranch fold is rejected EVEN with a strongly
+    //        negative ΔG°, proving acceptance is on structure (single hairpin), not energy alone.
+    [Test]
+    public void AssessHairpinByMfe_MultibranchStructure_RejectedDespiteStrongEnergy()
+    {
+        // 120-nt 5S-rRNA-like sequence folds (engine) to a multibranch structure
+        // (a ')' followed later by '(') with ΔG° = −47.04 kcal/mol — MORE negative than the
+        // accepted ValidHairpin57 (−48.48 is comparable), yet it is NOT a single hairpin.
+        const string fiveSLike =
+            "UGCCUGGCGGCCGUAGCGCGGUGGUCCCACCUGACCCCAUGCCGAACUCAGAAGUGAAACG" +
+            "CCGUAGCGCCGAUGGUAGUGUGGGGUCUCCCCAUGCGAGAGUAGGGAACUGCCAGGCAU";
+
+        var mfe = Seqeron.Genomics.Analysis.RnaSecondaryStructure.CalculateMfeStructure(fiveSLike);
+        var assessed = AssessHairpinByMfe(fiveSLike);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(mfe.FreeEnergy, Is.EqualTo(-47.04).Within(1e-9),
+                "Engine ΔG° for the 5S-like sequence is −47.04 kcal/mol (a strong fold).");
+            Assert.That(assessed, Is.Null,
+                "Rejected because the MFE structure is multibranched, not a single dominant hairpin — " +
+                "acceptance is structural, not energy-only.");
+        });
+    }
+
+    // MF7 — FindPreMiRnaHairpinsByMfe window scan yields the accepted candidate for a designed hairpin.
+    [Test]
+    public void FindPreMiRnaHairpinsByMfe_DesignedHairpin_YieldsAcceptedCandidate()
+    {
+        var results = FindPreMiRnaHairpinsByMfe(ValidHairpin57, minHairpinLength: 55).ToList();
+
+        Assert.That(results, Is.Not.Empty, "Window scan must yield the designed hairpin.");
+        var full = results.First(r => r.Sequence.Length == 57);
+        Assert.Multiple(() =>
+        {
+            Assert.That(full.FreeEnergy, Is.EqualTo(-48.48).Within(1e-9),
+                "Yielded candidate carries the engine's exact ΔG° (−48.48 kcal/mol).");
+            Assert.That(full.StemBasePairs, Is.EqualTo(27), "27 stem base pairs from the MFE structure.");
+            Assert.That(full.Mfei, Is.GreaterThanOrEqualTo(0.85), "Accepted candidates satisfy MFEI ≥ 0.85.");
+        });
+    }
+
+    // MF8 — minMfei gate: raising the cutoff above the candidate's MFEI rejects it.
+    [Test]
+    public void AssessHairpinByMfe_MfeiBelowThreshold_Rejected()
+    {
+        // hsa-let-7a-1 MFEI = 1.009118. A cutoff of 1.5 must reject it; 0.85 accepts it.
+        var accepted = AssessHairpinByMfe(HsaLet7a1_MI0000060, minMfei: 0.85);
+        var rejected = AssessHairpinByMfe(HsaLet7a1_MI0000060, minMfei: 1.5);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(accepted, Is.Not.Null, "MFEI 1.009 ≥ 0.85 ⇒ accepted at default cutoff.");
+            Assert.That(rejected, Is.Null, "MFEI 1.009 < 1.5 ⇒ rejected when the cutoff is raised.");
+        });
+    }
+
+    // MF9 — CalculateMfeIndex formula: exact Zhang (2006) value and degenerate guards.
+    [Test]
+    public void CalculateMfeIndex_MatchesZhang2006Formula()
+    {
+        // ΔG° = −48.48, length 57, GC% = 43.8596491… ⇒ AMFE = 85.052631…, MFEI = 1.939200…
+        double mfei = CalculateMfeIndex(-48.48, 57, 100.0 * 25 / 57);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(mfei, Is.EqualTo(1.939200).Within(1e-6),
+                "MFEI = (100·|ΔG°|/length)/(G+C)% — Zhang (2006).");
+            Assert.That(CalculateMfeIndex(-48.48, 0, 43.0), Is.EqualTo(0.0),
+                "Zero length ⇒ MFEI 0 (guard).");
+            Assert.That(CalculateMfeIndex(-48.48, 57, 0.0), Is.EqualTo(0.0),
+                "Zero GC% ⇒ MFEI 0 (guard, no division by zero).");
+        });
+    }
+
+    // MF10 — null/empty input to the MFE-fold methods.
+    [Test]
+    public void MfeFoldMethods_NullOrEmpty_HandledGracefully()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(AssessHairpinByMfe(null!), Is.Null, "Null candidate ⇒ null.");
+            Assert.That(AssessHairpinByMfe(""), Is.Null, "Empty candidate ⇒ null.");
+            Assert.That(FindPreMiRnaHairpinsByMfe(null!).ToList(), Is.Empty, "Null sequence ⇒ no candidates.");
+            Assert.That(FindPreMiRnaHairpinsByMfe("").ToList(), Is.Empty, "Empty sequence ⇒ no candidates.");
+            Assert.That(FindPreMiRnaHairpinsByMfe("ACGU").ToList(), Is.Empty,
+                "Sequence shorter than minHairpinLength ⇒ no candidates.");
+        });
+    }
+
+    #endregion
+
+    #region Drosha/Dicer cleavage-site prediction (Han 2006 / Park 2011)
+
+    // DD1 — Han et al. (2006), Cell 125:887: Drosha cleaves ~11 bp from the basal stem-ssRNA junction.
+    // With basalJunction = 0, the Drosha 5' cut (5' end of the 5p mature) must be at index 0 + 11 = 11.
+    [Test]
+    public void PredictDroshaDicerCleavage_DroshaCut_Is11BpFromBasalJunction()
+    {
+        // Arrange — synthetic pri-miRNA: 11-nt lower stem then the miR-21 stem region (≥ 11+22+2 nt).
+        const int basalJunction = 0;
+        string pri = "CCCCCCCCCCC" + "UAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGU";
+
+        // Act
+        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(pri, basalJunction);
+
+        // Assert
+        Assert.That(cut, Is.Not.Null, "A well-formed pri-miRNA hairpin must yield a cleavage prediction.");
+        Assert.That(cut!.Value.DroshaCut5Prime, Is.EqualTo(11),
+            "Han (2006): Drosha cuts ~11 bp from the basal junction; junction 0 + 11 = index 11. " +
+            "A wrong distance (e.g. 0 or 22) would land elsewhere.");
+    }
+
+    // DD2 — Park et al. (2011), Nature 475:201: Dicer 5' counting rule fixes the mature at ~22 nt.
+    [Test]
+    public void PredictDroshaDicerCleavage_MatureLength_Is22Nt()
+    {
+        // Arrange
+        string pri = "CCCCCCCCCCC" + "UAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGU";
+
+        // Act
+        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(pri, 0)!.Value;
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(cut.MatureSequence.Length, Is.EqualTo(22),
+                "Park (2011): the 5' counting rule (∼22 nt) fixes the mature length at 22 nt.");
+            Assert.That(cut.MatureEnd - cut.MatureStart + 1, Is.EqualTo(22),
+                "Mature span [Start,End] inclusive must be 22 nt.");
+            Assert.That(cut.MatureStart, Is.EqualTo(cut.DroshaCut5Prime),
+                "The 5p mature begins at the Drosha 5' cut.");
+        });
+    }
+
+    // DD3 — Lee (2003)/Han (2006): each RNase III cut leaves a 2-nt 3' overhang. The 3' (3p) Drosha-
+    // generated end sits 2 nt 3' of the position opposite the 5p mature end.
+    [Test]
+    public void PredictDroshaDicerCleavage_ThreePrimeOverhang_Is2Nt()
+    {
+        // Arrange
+        string pri = "CCCCCCCCCCC" + "UAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGU";
+
+        // Act
+        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(pri, 0)!.Value;
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(cut.ThreePrimeOverhang, Is.EqualTo(2),
+                "RNase III (Drosha/Dicer) leaves a 2-nt 3' overhang.");
+            Assert.That(cut.DroshaCut3Prime - cut.MatureEnd, Is.EqualTo(2),
+                "The 3p Drosha-generated end is 2 nt 3' of the 5p mature end (the 2-nt overhang).");
+            Assert.That(cut.StarEnd - cut.StarStart + 1, Is.EqualTo(22),
+                "The 3p (miRNA*) span is also ~22 nt.");
+        });
+    }
+
+    // DD4 — miRBase cross-check (hsa-mir-21, MI0000077). With an 11-nt lower stem prepended so the
+    // Drosha +11 ruler lands at the annotated miR-21-5p start, the predicted 5p mature must equal the
+    // miRBase mature hsa-miR-21-5p sequence (MIMAT0000076) exactly. Source: mirbase.org/hairpin/MI0000077.
+    [Test]
+    public void PredictDroshaDicerCleavage_HsaMir21_MatchesMirBaseMature5p()
+    {
+        // Arrange — 11-nt lower stem + miR-21 stem (5p starts immediately after the lower stem).
+        string pri = "CCCCCCCCCCC" + "UAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGU";
+        const string mirBase5p = "UAGCUUAUCAGACUGAUGUUGA"; // MIMAT0000076, 22 nt
+
+        // Act
+        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(pri, 0)!.Value;
+
+        // Assert
+        Assert.That(cut.MatureSequence, Is.EqualTo(mirBase5p),
+            "Predicted 5p mature must equal miRBase hsa-miR-21-5p (MIMAT0000076) exactly.");
+    }
+
+    // DD5 — Star (3p) span content is read from the correct 3' arm coordinates.
+    [Test]
+    public void PredictDroshaDicerCleavage_StarSpan_HasExpectedCoordinatesAndSequence()
+    {
+        // Arrange
+        string pri = "CCCCCCCCCCC" + "UAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGU";
+
+        // Act
+        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(pri, 0)!.Value;
+
+        // Hand-derived: matureStart=11, matureEnd=32, starEnd=34, starStart=13.
+        Assert.Multiple(() =>
+        {
+            Assert.That(cut.MatureStart, Is.EqualTo(11), "matureStart = junction(0)+11.");
+            Assert.That(cut.MatureEnd, Is.EqualTo(32), "matureEnd = 11+22-1.");
+            Assert.That(cut.StarEnd, Is.EqualTo(34), "starEnd = matureEnd+2 (2-nt overhang).");
+            Assert.That(cut.StarStart, Is.EqualTo(13), "starStart = starEnd-22+1.");
+            Assert.That(cut.StarSequence, Is.EqualTo(pri.Substring(13, 22)),
+                "StarSequence must be the 3p span pri[13..34].");
+        });
+    }
+
+    // DD6 — T→U normalisation: DNA input yields RNA-alphabet mature/star sequences.
+    [Test]
+    public void PredictDroshaDicerCleavage_DnaInput_NormalisesToRna()
+    {
+        // Arrange — DNA spelling of the DD1 pri-miRNA.
+        string priDna = "CCCCCCCCCCC" + "TAGCTTATCAGACTGATGTTGACTGTTGAATCTCATGGCAACACCAGTCGATGGGCTGT";
+
+        // Act
+        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(priDna, 0)!.Value;
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(cut.MatureSequence, Is.EqualTo("UAGCUUAUCAGACUGAUGUUGA"),
+                "T must be read as U; predicted mature is the RNA-alphabet hsa-miR-21-5p.");
+            Assert.That(cut.MatureSequence, Does.Not.Contain("T"), "No T in normalised output.");
+        });
+    }
+
+    // DD7 — null / empty input ⇒ null.
+    [Test]
+    public void PredictDroshaDicerCleavage_NullOrEmpty_ReturnsNull()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(null!, 0), Is.Null, "null ⇒ null.");
+            Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage("", 0), Is.Null, "empty ⇒ null.");
+        });
+    }
+
+    // DD8 — basal junction out of range ⇒ null.
+    [Test]
+    public void PredictDroshaDicerCleavage_JunctionOutOfRange_ReturnsNull()
+    {
+        string pri = "CCCCCCCCCCC" + "UAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGU";
+        Assert.Multiple(() =>
+        {
+            Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(pri, -1), Is.Null, "negative junction ⇒ null.");
+            Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(pri, pri.Length), Is.Null, "junction ≥ length ⇒ null.");
+        });
+    }
+
+    // DD9 — too short to place the predicted cuts (junction+11+22+2 exceeds length) ⇒ null.
+    [Test]
+    public void PredictDroshaDicerCleavage_TooShortForCuts_ReturnsNull()
+    {
+        // 11 + 22 + 2 = 35 nt minimum needed from the junction; give 30 nt.
+        string tooShort = new string('A', 30);
+        Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(tooShort, 0), Is.Null,
+            "When junction+11+22+2 exceeds the sequence, no full mature/star can be placed ⇒ null.");
+    }
+
+    // DD10 — CNNC confidence flag (Auyeung 2013): a C-N-N-C placed 16 nt 3' of the Drosha cut is detected.
+    [Test]
+    public void PredictDroshaDicerCleavage_CnncMotif_DetectedWhenPresentDownstream()
+    {
+        // Arrange — Drosha cut at index 11; place a CNNC starting at 11+16 = 27.
+        // Build: 11 (lower stem) + 22 (mature) so that index 27 falls within, then ensure C..C at 27.
+        var sb = new System.Text.StringBuilder(new string('A', 60));
+        // index 27 = 'C', index 30 = 'C' (C-N-N-C with the two N's at 28,29)
+        sb[27] = 'C'; sb[30] = 'C';
+        string withCnnc = sb.ToString();
+
+        var sbNo = new System.Text.StringBuilder(new string('A', 60)); // no C anywhere ⇒ no CNNC
+        string noCnnc = sbNo.ToString();
+
+        // Act
+        var withFlag = MiRnaAnalyzer.PredictDroshaDicerCleavage(withCnnc, 0)!.Value;
+        var withoutFlag = MiRnaAnalyzer.PredictDroshaDicerCleavage(noCnnc, 0)!.Value;
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(withFlag.HasCnncMotif, Is.True,
+                "Auyeung (2013): a CNNC 16 nt 3' of the Drosha cut must set the confidence flag.");
+            Assert.That(withoutFlag.HasCnncMotif, Is.False,
+                "No CNNC downstream ⇒ flag false (optional signal, not required for prediction).");
+        });
+    }
+
+    #endregion
+
+    #region Trained natural-vs-background classifier (CL1–CL12)
+
+    // ── Real human pre-miRNA precursors from miRBase (public domain) ───────────────────────
+    // Retrieved verbatim from mirbase.org/hairpin/<MI>. Same 13 positives + fixed seed used by
+    // the bundled training run (Evidence §Training); re-running the pipeline here reproduces the
+    // held-out metric deterministically.
+    private static readonly string[] MiRBasePositives =
+    {
+        "UGUCGGGUAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGUCUGACA",                       // hsa-mir-21
+        "UGGGAUGAGGUAGUAGGUUGUAUAGUUUUAGGGUCACACCCACCACUGGGAGAUAACUAUACAAUCUACUGUCUUUCCUA",               // hsa-let-7a-1
+        "CGGGGUGAGGUAGUAGGUUGUGUGGUUUCAGGGCAGUGAUGUUGCCCCUCGGAAGAUAACUAUACAACCUACUGCCUUCCCUG",            // hsa-let-7b
+        "CCUUGGCCAUGUAAAAGUGCUUACAGUGCAGGUAGCUUUUUGAGAUCUACUGCAAUGUAAGCACUUCUUACAUUACCAUGG",              // hsa-mir-106a
+        "GGAGAGGAGGCAAGAUGCUGGCAUAGCUGUUGAACUGGGAACCUGCUAUGCCAACAUAUUGCCAUCUUUCC",                        // hsa-mir-31
+        "UGUGGGAUGAGGUAGUAGAUUGUAUAGUUUUAGGGUCAUACCCCAUCUUGGAGAUAACUAUACAGUCUACUGUCUUUCCCACG",            // hsa-let-7f-2
+        "GUCAGCAGUGCCUUAGCAGCACGUAAAUAUUGGCGUUAAGAUUCUAAAAUUAUCUCCAGUAUUAACUGUGCUGCUGAAGUAAGGUUGAC",      // hsa-mir-16-1
+        "CUCCGGUGCCUACUGAGCUGAUAUCAGUUCUCAUUUUACACACUGGCUCAGUUCAGCAGGAACAGGAG",                           // hsa-mir-24-1
+        "CUGGGGGCUCCAAAGUGCUGUUCGUGCAGGUAGUGUGAUUACCCAACCUACUGCUGAGCUAGCACUUCCCGAGCCCCCGG",              // hsa-mir-93
+        "UGGCCGAUUUUGGCACUAGCACAUUUUUGCUUGUGUCUCUCCGCUCUGAGCAAUCAUGUGCAGUGCCAAUAUGGGAAA",                 // hsa-mir-96
+        "AGGAUUCUGCUCAUGCCAGGGUGAGGUAGUAAGUUGUAUUGUUGUGGGGUAGGGAUAUUAGGCCCCAAUUAGAAGAUAACUAUACAACUUACUACUUUCCCUGGUGUGUGGCAUAUUCA", // hsa-mir-98
+        "AAUCUAAAGACAACAUUUCUGCACACACACCAGACUAUGGAAGCCAGUGUGUGGAAAUGCUUCUGCUAGAUU",                       // hsa-mir-147a
+        "AGGAAGCUUCUGGAGAUCCUGCUCCGUCGCCCCAGUGUUCAGACUACCUGUUCAGGACAAUGCCGUUGUACAGUAGUCUGCACAUUGGUUAGACUGGGCAAGGGAGAGCA", // hsa-mir-199a-2
+    };
+
+    private const string HsaMir21 = "UGUCGGGUAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGUCUGACA";
+    private const string HsaLet7a1 = "UGGGAUGAGGUAGUAGGUUGUAUAGUUUUAGGGUCACACCCACCACUGGGAGAUAACUAUACAAUCUACUGUCUUUCCUA";
+
+    private const int TrainSeed = 20060101;
+    private const int ShufflesPerPositive = 4;
+
+    // CL1 — Feature extractor pins exactly for hsa-mir-21 (Evidence §Exact feature values).
+    // Values are the RNA-STRUCT-001 Turner-2004 MFE structure + composition, computed
+    // independently of the trained weights. A wrong fold/AMFE/MFEI/%paired would fail here.
+    [Test]
+    public void ExtractPreMiRnaFeatures_HsaMir21_PinsExactStructureFeatures()
+    {
+        var f = ExtractPreMiRnaFeatures(HsaMir21);
+
+        Assert.That(f, Is.Not.Null, "hsa-mir-21 is a valid non-empty sequence.");
+        Assert.Multiple(() =>
+        {
+            Assert.That(f!.Value.FreeEnergy, Is.EqualTo(-35.13).Within(1e-9),
+                "ΔG° of the MFE structure (RNA-STRUCT-001 Turner 2004) for hsa-mir-21.");
+            Assert.That(f.Value.Amfe, Is.EqualTo(48.79166666666667).Within(1e-9),
+                "AMFE = 100·|ΔG°|/length (Zhang 2006): 100·35.13/72.");
+            Assert.That(f.Value.Mfei, Is.EqualTo(1.0037142857142858).Within(1e-9),
+                "MFEI = AMFE/(G+C)% (Zhang 2006); GC%=48.61 ⇒ 48.7917/48.611.");
+            Assert.That(f.Value.GcContent, Is.EqualTo(0.48611111111111116).Within(1e-9),
+                "G+C fraction: 35 of 72 nt.");
+            Assert.That(f.Value.PairedFraction, Is.EqualTo(0.8888888888888888).Within(1e-9),
+                "%paired = 2·bp/length = 2·32/72 from the MFE structure.");
+            Assert.That(f.Value.StemBasePairs, Is.EqualTo(32),
+                "Base-pair count of the MFE structure.");
+            Assert.That(f.Value.Length, Is.EqualTo(72),
+                "hsa-mir-21 precursor length (miRBase MI0000077).");
+        });
+    }
+
+    // CL2 — null/empty input returns null (documented failure mode).
+    [Test]
+    public void ExtractPreMiRnaFeatures_NullOrEmpty_ReturnsNull()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(ExtractPreMiRnaFeatures(null!), Is.Null, "null ⇒ null.");
+            Assert.That(ExtractPreMiRnaFeatures(""), Is.Null, "empty ⇒ null.");
+        });
+    }
+
+    // CL3 — hsa-mir-21 (real precursor) is classified NATURAL with high probability.
+    [Test]
+    public void ClassifyPreMiRna_HsaMir21_IsNatural()
+    {
+        var c = ClassifyPreMiRna(HsaMir21);
+        Assert.That(c, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(c!.Value.IsNatural, Is.True, "hsa-mir-21 is a genuine pre-miRNA.");
+            Assert.That(c.Value.NaturalProbability, Is.GreaterThan(0.95),
+                "Real precursor scores near 1 under the trained model.");
+        });
+    }
+
+    // CL4 — hsa-let-7a-1 (real precursor) is classified NATURAL with high probability.
+    [Test]
+    public void ClassifyPreMiRna_HsaLet7a1_IsNatural()
+    {
+        var c = ClassifyPreMiRna(HsaLet7a1);
+        Assert.That(c, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(c!.Value.IsNatural, Is.True, "hsa-let-7a-1 is a genuine pre-miRNA.");
+            Assert.That(c.Value.NaturalProbability, Is.GreaterThan(0.95),
+                "Real precursor scores near 1 under the trained model.");
+        });
+    }
+
+    // CL5 — a dinucleotide-shuffled hsa-mir-21 (background) is classified BACKGROUND.
+    // The shuffle has IDENTICAL base/dinucleotide composition, so the call must rest on STRUCTURE.
+    [Test]
+    public void ClassifyPreMiRna_DiShuffledHsaMir21_IsBackground()
+    {
+        var rng = new Random(999); // fixed seed ⇒ deterministic shuffle
+        string shuffled = DinucleotideShuffle(HsaMir21, rng);
+
+        var c = ClassifyPreMiRna(shuffled);
+        Assert.That(c, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(c!.Value.IsNatural, Is.False,
+                "A di-shuffled hsa-mir-21 (composition-matched background) is NOT a natural pre-miRNA.");
+            Assert.That(c.Value.NaturalProbability, Is.LessThan(0.05),
+                "Background scores near 0 under the trained model.");
+        });
+    }
+
+    // CL6 — DinucleotideShuffle preserves the EXACT dinucleotide counts, first base, last base, and
+    // length (Altschul & Erickson 1985). This is the property that makes the negative set valid.
+    [Test]
+    public void DinucleotideShuffle_PreservesDinucleotideCountsFirstLastLength()
+    {
+        string orig = HsaMir21; // already RNA, upper
+        var rng = new Random(7);
+        string shuffled = DinucleotideShuffle(orig, rng);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(shuffled.Length, Is.EqualTo(orig.Length), "Length preserved.");
+            Assert.That(shuffled[0], Is.EqualTo(orig[0]), "First base preserved (Eulerian start).");
+            Assert.That(shuffled[^1], Is.EqualTo(orig[^1]), "Last base preserved (Eulerian end).");
+            Assert.That(DinucleotideCounts(shuffled), Is.EqualTo(DinucleotideCounts(orig)),
+                "Exact dinucleotide (doublet) counts preserved — Altschul-Erickson 1985.");
+        });
+    }
+
+    // CL7 — DinucleotideShuffle is deterministic for a fixed seed (reproducibility of the run).
+    [Test]
+    public void DinucleotideShuffle_FixedSeed_IsDeterministic()
+    {
+        string a = DinucleotideShuffle(HsaMir21, new Random(999));
+        string b = DinucleotideShuffle(HsaMir21, new Random(999));
+        Assert.That(a, Is.EqualTo(b), "Same seed ⇒ identical shuffle (reproducible training).");
+    }
+
+    // CL8 — DinucleotideShuffle null RNG throws; short input is returned unchanged.
+    [Test]
+    public void DinucleotideShuffle_Guards()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() => DinucleotideShuffle("ACGU", null!),
+                "null RNG ⇒ ArgumentNullException.");
+            Assert.That(DinucleotideShuffle("A", new Random(1)), Is.EqualTo("A"),
+                "length<2 returned unchanged (no dinucleotides to permute).");
+            Assert.That(DinucleotideShuffle("", new Random(1)), Is.EqualTo(""),
+                "empty ⇒ empty.");
+        });
+    }
+
+    // CL9 — HELD-OUT discrimination metric, reproduced deterministically from the public API.
+    // Rebuilds the EXACT training dataset (13 miRBase positives + 4 di-shuffles each, fixed seed,
+    // fixed 70/30 split), scores the held-out test split with the bundled trained model, and asserts
+    // accuracy and AUC exceed the Bonnet-2004 expectation (≳0.90). The metric is reproducible because
+    // the seed and split are fixed.
+    [Test]
+    public void ClassifyPreMiRna_HeldOutSplit_DiscriminatesNaturalFromBackground()
+    {
+        var rng = new Random(TrainSeed);
+        var examples = new List<(double prob, int label)>();
+
+        // Fixed order: each positive, then its K shuffles (identical to the training run).
+        foreach (string pos in MiRBasePositives)
+        {
+            examples.Add((ClassifyPreMiRna(pos)!.Value.NaturalProbability, 1));
+            for (int s = 0; s < ShufflesPerPositive; s++)
+            {
+                string shuf = DinucleotideShuffle(pos, rng);
+                examples.Add((ClassifyPreMiRna(shuf)!.Value.NaturalProbability, 0));
+            }
+        }
+
+        int n = examples.Count;                    // 65
+        int nTrain = (int)Math.Floor(n * 0.70);    // 45
+        var test = examples.Skip(nTrain).ToList();  // last 30% = held-out
+
+        int correct = test.Count(t => (t.prob >= 0.5 ? 1 : 0) == t.label);
+        double accuracy = (double)correct / test.Count;
+        double auc = MannWhitneyAuc(test);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(test.Count, Is.EqualTo(n - nTrain), "Held-out split is the last 30%.");
+            Assert.That(test.Any(t => t.label == 1) && test.Any(t => t.label == 0), Is.True,
+                "Held-out split contains both classes (interleaved order guarantees it).");
+            Assert.That(accuracy, Is.GreaterThanOrEqualTo(0.90),
+                "Held-out accuracy exceeds the Bonnet-2004 separability expectation.");
+            Assert.That(auc, Is.GreaterThanOrEqualTo(0.90),
+                "Held-out AUC exceeds 0.90 (real pre-miRNAs well-separated from di-shuffled controls).");
+        });
+    }
+
+    // CL10 — ScorePreMiRnaFeatures monotonic sanity: a feature vector matching a real precursor scores
+    // higher than one matching its shuffle. Pins that the bundled weights point the right way.
+    [Test]
+    public void ScorePreMiRnaFeatures_RealScoresHigherThanShuffle()
+    {
+        var real = ExtractPreMiRnaFeatures(HsaMir21)!.Value;
+        var shuf = ExtractPreMiRnaFeatures(DinucleotideShuffle(HsaMir21, new Random(999)))!.Value;
+
+        double pReal = ScorePreMiRnaFeatures(real);
+        double pShuf = ScorePreMiRnaFeatures(shuf);
+
+        Assert.That(pReal, Is.GreaterThan(pShuf),
+            "Real precursor scores strictly higher than its composition-matched shuffle.");
+    }
+
+    // CL11 — threshold parameter is honoured (a threshold above the real score flips the call).
+    [Test]
+    public void ClassifyPreMiRna_Threshold_IsHonoured()
+    {
+        var def = ClassifyPreMiRna(HsaMir21, threshold: 0.5)!.Value;
+        var strict = ClassifyPreMiRna(HsaMir21, threshold: 1.0)!.Value;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(def.IsNatural, Is.True, "At 0.5 a real precursor (P≈1) is natural.");
+            Assert.That(strict.IsNatural, Is.False,
+                "At threshold 1.0 even P≈0.99999 is below cutoff ⇒ call flips (threshold honoured).");
+            Assert.That(strict.NaturalProbability, Is.EqualTo(def.NaturalProbability).Within(1e-12),
+                "Probability is threshold-independent; only the boolean call changes.");
+        });
+    }
+
+    // CL12 — null/empty classification returns null (documented failure mode).
+    [Test]
+    public void ClassifyPreMiRna_NullOrEmpty_ReturnsNull()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(ClassifyPreMiRna(null!), Is.Null, "null ⇒ null.");
+            Assert.That(ClassifyPreMiRna(""), Is.Null, "empty ⇒ null.");
+        });
+    }
+
+    private static Dictionary<string, int> DinucleotideCounts(string s)
+    {
+        var d = new Dictionary<string, int>();
+        for (int i = 0; i < s.Length - 1; i++)
+        {
+            string k = s.Substring(i, 2);
+            d[k] = d.GetValueOrDefault(k) + 1;
+        }
+        return d;
+    }
+
+    private static double MannWhitneyAuc(List<(double prob, int label)> data)
+    {
+        var pos = data.Where(t => t.label == 1).Select(t => t.prob).ToList();
+        var neg = data.Where(t => t.label == 0).Select(t => t.prob).ToList();
+        if (pos.Count == 0 || neg.Count == 0) return double.NaN;
+        double sum = 0;
+        foreach (double p in pos)
+            foreach (double q in neg)
+                sum += p > q ? 1.0 : (p == q ? 0.5 : 0.0);
+        return sum / (pos.Count * neg.Count);
+    }
+
+    #endregion
+
     #region Helpers
 
     /// <summary>

@@ -905,12 +905,18 @@ public static class SequenceStatistics
     public static IEnumerable<double> CalculateGcContentProfile(
         string sequence,
         int windowSize = DefaultGcProfileWindow,
-        int stepSize = 1)
+        int stepSize = 1,
+        bool fraction = false)
     {
         if (string.IsNullOrEmpty(sequence) || windowSize > sequence.Length)
             yield break;
 
         string upper = sequence.ToUpperInvariant();
+
+        // Opt-in Biopython convention: when fraction == true, emit GC in [0,1] (matching
+        // Bio.SeqUtils.gc_fraction) instead of the default percentage [0,100]. The default
+        // (false) is unchanged.
+        double scale = fraction ? 1.0 : PercentScale;
 
         for (int i = 0; i <= upper.Length - windowSize; i += stepSize)
         {
@@ -931,7 +937,7 @@ public static class SequenceStatistics
                 }
             }
 
-            yield return total > 0 ? (double)gc / total * PercentScale : 0;
+            yield return total > 0 ? (double)gc / total * scale : 0;
         }
     }
 

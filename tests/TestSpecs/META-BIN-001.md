@@ -125,7 +125,141 @@ Snapshot test in `MetagenomicsSnapshotTests.cs` remains independent.
 
 ---
 
-**Specification Version:** 2.0
+# Addendum (2026-06-24): TETRA z-score tetranucleotide signature (opt-in)
+
+Covers the new opt-in methods `CalculateTetranucleotideZScores` and
+`TetranucleotideZScoreCorrelation`. The default `BinContigs` raw-frequency path is unchanged.
+
+## 1. Evidence Summary
+
+### 1.1 Authoritative Sources
+
+| # | Source | Authority Rank | DOI or URL | Accessed |
+|---|--------|---------------|------------|----------|
+| 1 | Teeling et al. 2004, TETRA (BMC Bioinformatics 5:163) | 1 | https://pmc.ncbi.nlm.nih.gov/articles/PMC529438/ | 2026-06-24 |
+| 2 | Teeling et al. 2004, Environ Microbiol 6(9):938–947 | 1 | https://doi.org/10.1111/j.1462-2920.2004.00624.x | 2026-06-24 |
+| 3 | Schbath 1997, J Comput Biol 4(2):189–192 (variance) | 1 | https://pubmed.ncbi.nlm.nih.gov/9228617/ | 2026-06-24 |
+| 4 | Bohlin & Skjerve 2009 (PLOS ONE, expected-count form) | 1 | https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0008113 | 2026-06-24 |
+
+### 1.2 Key Evidence Points
+
+1. Expected count `E(n1n2n3n4) = N(n1n2n3)·N(n2n3n4)/N(n2n3)` (maximal-order Markov) — source 1, 4.
+2. Variance `var = E·[N(n2n3)−N(n1n2n3)][N(n2n3)−N(n2n3n4)]/N(n2n3)²`; z `=(N−E)/√var` — source 1, 3.
+3. Sequence is extended by its reverse complement; signatures compared by Pearson correlation — source 1.
+
+## 2. Canonical Methods Under Test
+
+| Method | Class | Type | Notes |
+|--------|-------|------|-------|
+| `CalculateTetranucleotideZScores(string)` | MetagenomicsAnalyzer | Canonical | 256-component TETRA z-score signature |
+| `TetranucleotideZScoreCorrelation(string,string)` | MetagenomicsAnalyzer | Canonical | Pearson r of two z-score vectors |
+
+## 3. Invariants
+
+| ID | Invariant | Verifiable | Evidence |
+|----|-----------|------------|----------|
+| INV-Z1 | Signature has exactly 256 components | Yes | source 1 (4^4 tetramers) |
+| INV-Z2 | Self-correlation = 1.0 | Yes | Pearson identity |
+| INV-Z3 | z=0 when N(n2n3)=0 or var≤0 | Yes | formula domain (source 1, 3) |
+
+## 4. Test Cases
+
+### 4.1 MUST Tests
+
+| ID | Test Case | Description | Expected Outcome | Evidence |
+|----|-----------|-------------|------------------|----------|
+| M-Z1 | Hand-derived z(ACGT) | `ACGTACGTGGCC`: E=3.2, var=0.128 | z = √5 = 2.2360679774997896 (±1e-10) | §1.2 pt 1–2 + Evidence dataset |
+| M-Z2 | 256 components | any sequence | `Count==256`, contains AAAA/ACGT/TTTT | source 1 |
+| M-Z3 | Absent middle dinucleotide | `AAAAAAAA`, tetramer ACGT (N(CG)=0) | z(ACGT)=0 | INV-Z3 |
+| M-Z4 | Null/empty/single-base | null, "", "A" | all-zero 256-vector | corner cases |
+| M-Z5 | Non-ACGT / case filtering | `acgtACGTGGCC` vs `ACGTACGTGGCC` | identical z(ACGT) | source 1 (ACGT words) |
+| M-Z6 | Self-correlation | corr(s,s) | 1.0 (±1e-10) | INV-Z2 |
+| M-Z7 | Similar > dissimilar | s1~s2 vs s1 vs AT-homopolymer | r_similar > r_dissimilar | source 1 (binning basis) |
+
+### 4.2 SHOULD Tests
+
+| ID | Test Case | Description | Expected Outcome | Notes |
+|----|-----------|-------------|------------------|-------|
+| M-Z8 | Symmetry | corr(a,b)=corr(b,a) | equal (±1e-12) | Pearson symmetry |
+| S-Z1 | Degenerate vs empty | corr(s,"") | 0, not NaN | zero-variance guard |
+
+## 5. Audit / Coverage
+
+- **Canonical file:** `tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_TetranucleotideZScore_Tests.cs`
+- All MUST/SHOULD cases (M-Z1..M-Z8, S-Z1) implemented and ✅ Covered (9 tests). Remaining ❌/⚠ = 0.
+
+## 6. Assumption Register
+
+| # | Assumption | Used In |
+|---|-----------|---------|
+| 1 | Counting on the concatenated RC-extended strand reproduces the published E/var | M-Z1 |
+
+## 7. Open Questions / Decisions
+
+1. CheckM marker-gene completeness/contamination is now **implemented** as an opt-in addendum
+   (see §8). Bundled CC0 markers now include the **Pfam-defined subsets of the GTDB domain-level
+   universal sets bac120 (Bacteria, 6) and ar122 (Archaea, 35)** (Parks et al. 2018; GTDB-Tk), so
+   routine domain-level completeness/contamination works out of the box. The residual is narrowed to
+   the **per-lineage-specific** CheckM marker refinement + the **reference genome tree** for lineage
+   placement (the gated `checkm_data`). The TIGRFAM-defined members of bac120/ar122 are CC BY-SA 4.0
+   (not public domain) and are caller-supplied via `LoadMarkerHmms`, not bundled.
+
+---
+
+## 8. Addendum — CheckM-style marker-gene completeness/contamination (opt-in)
+
+**Evidence:** [META-BIN-001-MarkerQC-Evidence.md](../../docs/Evidence/META-BIN-001-MarkerQC-Evidence.md)
+**Canonical file:** `tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_MarkerGeneQuality_Tests.cs`
+
+### 8.1 Methods Under Test
+
+| Method | Type | Notes |
+|--------|------|-------|
+| `EstimateBinQualityFromMarkerCounts(markerSets, markerCounts)` | Canonical | exact CheckM Eqs.1–2 |
+| `DetectMarkers(proteins, markerHmms)` | Canonical | Plan7 Viterbi-bits ≥ GA1 ⇒ copy count |
+| `EstimateBinQualityFromMarkers(proteins, markerSets, markerHmms)` | Canonical | detect + formula |
+| `LoadBundledRibosomalMarkerHmms()` / `BundledRibosomalMarkerSets()` | Canonical | 9 CC0 markers |
+| `LoadBundledBacterialMarkerHmms()` / `BundledBacterialMarkerSets()` | Canonical | GTDB bac120 Pfam subset (6 CC0) |
+| `LoadBundledArchaealMarkerHmms()` / `BundledArchaealMarkerSets()` | Canonical | GTDB ar122 Pfam subset (35 CC0) |
+| `LoadMarkerHmms(readers, thresholds?)` | Canonical | caller-supplied loader (incl. CC BY-SA TIGRFAM) |
+
+### 8.2 Invariants
+
+| ID | Invariant | Evidence |
+|----|-----------|----------|
+| INV-M1 | Completeness = 100·(1/|M|)·Σ |s∩G_M|/|s| | Parks 2015 Eq.1 / `genomeCheck` |
+| INV-M2 | Contamination = 100·(1/|M|)·Σ Σ(N_g−1)/|s| | Parks 2015 Eq.2 / `genomeCheck` |
+| INV-M3 | A multi-copy marker counts once toward completeness | `genomeCheck` |
+| INV-M4 | Empty marker sets / |M|=0 ⇒ no div-by-zero (0/0) | corner cases |
+
+### 8.3 Test Cases (all MUST, all ✅ Covered)
+
+| ID | Test Case | Expected | Evidence |
+|----|-----------|----------|----------|
+| M-FORMULA | synthetic bin {A,B},{C,D,E},{F}; A1,B0,C2,D1,E1,F1 | Comp 250/3 %, Cont 100/9 % | Eqs.1–2 hand-derived |
+| M-ALLPRESENT | all single-copy present | 100% / 0% | Eq.1–2 |
+| M-ALLABSENT | none found | 0% / 0% | Eq.1–2 |
+| M-TRIPLICATE | {A}, A=3 | 100% / 200% | Eq.2 C_g=N−1 |
+| M-EMPTYSET | one empty set | excluded from |M| | corner case 3 |
+| M-NOMARKERSETS | |M|=0 | 0% / 0% | corner case 4 |
+| H-TRUEPOSITIVE | bundled PF00410 vs E. coli uS8 | hit; 0 for all 8 others | UniProt P0A7W7 |
+| H-COMPLETENESS | bin = {uS8}, 9 singleton sets | Comp 100/9 %, Cont 0 | integration |
+| H-DUPLICATE | bin = {uS8,uS8} | Comp 100/9 %, Cont 100/9 % | Eq.2 |
+| L-CALLERSUPPLIED | reader-loaded S8 keyed by ACC, detects uS8 | PF00410.25 = 1 | loader |
+| B-SETSIZE | bundled bac120 Pfam subset | 6 markers {PF00380,PF00410,PF00466,PF01025,PF02576,PF03726}; PF01025 GA1=25.8, LENG=165 | GTDB bac120 marker_info |
+| A-SETSIZE | bundled ar122 Pfam subset | 35 markers (listed); PF00410 GA1=24 | GTDB ar122 marker_info |
+| B-TRUEPOSITIVE | bundled PF01025 vs E. coli GrpE | hit; 0 for all 5 others | UniProt P09372 |
+| B-COMPLETENESS | bin = {GrpE}, 6 singleton sets | Comp 100/6 %, Cont 0 | integration |
+| A-TRUEPOSITIVE | bin = {uS8}, 35 ar122 singleton sets | Comp 100/35 %, Cont 0 (universal PF00410) | integration |
+| B-DEFAULTS-UNCHANGED | ribosomal accessor still 9 markers / 9 sets | additive expansion | regression guard |
+| (guards) | null args throw; loader counts | ArgumentNullException; 9 markers, GA1=24 | — |
+
+**Coverage:** 20 tests, all ✅; Remaining ❌/⚠ = 0.
+
+---
+
+**Specification Version:** 4.0
 **Created:** 2026-02-04
-**Updated:** 2026-03-09
-**Status:** Complete — all tests implemented, strengthened, and verified
+**Updated:** 2026-06-25 (bundled GTDB bac120/ar122 Pfam (CC0) domain-level universal marker sets;
+residual narrowed to the per-lineage-specific marker refinement + reference genome tree)
+**Status:** Complete — TNF z-score + CheckM marker QC implemented, evidence-based, and verified
