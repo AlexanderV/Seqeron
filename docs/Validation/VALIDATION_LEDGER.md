@@ -146,7 +146,7 @@ First-time validation of the **24** units added while eliminating LIMITATIONS.md
 | MIRNA-CLEAVAGE-001 | MiRNA | ✅ | 🟡 | ✅ CLEAN | reports/MIRNA-CLEAVAGE-001.md |
 | REP-APPROX-001 | Repeats | ✅ | ✅ | ✅ CLEAN | reports/REP-APPROX-001.md |
 | CHROM-ALPHASAT-001 | Chromosome | ✅ | ✅ | ✅ CLEAN | reports/CHROM-ALPHASAT-001.md |
-| CHROM-HOR-001 | Chromosome | ⬜ | ⬜ | ⬜ pending | reports/CHROM-HOR-001.md |
+| CHROM-HOR-001 | Chromosome | ✅ | ✅ | ✅ CLEAN | reports/CHROM-HOR-001.md |
 
 ---
 

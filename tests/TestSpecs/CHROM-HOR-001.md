@@ -3,13 +3,15 @@
 **Test Unit ID:** CHROM-HOR-001
 **Area:** Chromosome
 **Algorithm:** Higher-Order Repeat (HOR) Detection
-**Status:** ☐ Not Started — pending independent Stage A/B re-validation
+**Status:** ☑ Complete — independently validated (Stage A ✅ PASS / Stage B ✅ PASS) 2026-06-25
 **Last Updated:** 2026-06-25
 
-> **Stub.** This unit was added during the limitation-elimination campaign. The algorithm is implemented and
-> covered by the test fixture below, but it has **not yet** been independently re-validated under the project's
-> two-stage (Stage A description / Stage B implementation) protocol. This spec captures the evidence and contract
-> needed to perform that validation; fill in the full TestSpec when the unit is re-validated to `☑`.
+> **Validated 2026-06-25** under the two-stage protocol (report `docs/Validation/reports/CHROM-HOR-001.md`).
+> Stage A re-grounded against McNulty & Sullivan 2018 (PMC6121732) and Rosandić 2024 (PMC11050224) retrieved this
+> session; Stage B cross-checked with an independent k=4×m=7 HOR harness + the in-tree fixture (period = k×171,
+> copy number = ⌊monomers/k⌋, inter-HOR ≥ intra-HOR identity, non-HOR array → no HOR). One test-only gap closed
+> (non-ACGT trailing-partial monomer). State **CLEAN**; suprachromosomal-family assignment is a documented
+> data-blocked boundary.
 
 ---
 
@@ -35,9 +37,9 @@ R: inter-HOR identity ≥ intra-monomer identity; R: HOR period = k×monomer; D:
 - **Reference:** known HOR arrays (D-region)
 - **Comparison:** period + copy number agree
 
-## 5. Validation Checklist (to restore ☑)
+## 5. Validation Checklist (completed)
 
-- [ ] Stage A: retrieve every source above; confirm formula/constants against the publication's worked example.
-- [ ] Stage B: review the implementation against the source; cross-check vs the reference oracle.
-- [ ] Full unfiltered `dotnet test Seqeron.sln` — Failed: 0.
-- [ ] Flip `☐ → ☑` in `ALGORITHMS_CHECKLIST_V2.md` and the 10 `docs/checklists/*.md`.
+- [x] Stage A: sources retrieved this session (PMC6121732, PMC11050224) and confirmed verbatim — monomer 171 bp; intra-HOR 50–70%; inter-HOR <5% divergence (~95–100%); HOR period n ⇒ n×171 bp; inter ≥ intra ordering.
+- [x] Stage B: implementation reviewed (`ChromosomeAnalyzer.cs:751`); cross-checked vs an independent k=4×m=7 HOR harness and a non-HOR control — period, copy number, unit length, monomer count, inter-identity, and the inter≥intra invariant all match the literature definition / hand-computation.
+- [x] Full unfiltered `dotnet test Seqeron.sln -c Debug` — Failed: 0 (Genomics 18780 passed).
+- [x] Flip `☐ → ☑` in ROOT `ALGORITHMS_CHECKLIST_V2.md` (registry row + catalog header + Quick-Reference). (The 10 `docs/checklists/*.md` are intentionally NOT touched in this campaign.)

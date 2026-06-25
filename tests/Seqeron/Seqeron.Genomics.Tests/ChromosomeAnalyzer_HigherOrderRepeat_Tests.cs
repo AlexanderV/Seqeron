@@ -317,6 +317,33 @@ public class ChromosomeAnalyzer_HigherOrderRepeat_Tests
     }
 
     [Test]
+    public void DetectHigherOrderRepeat_NonAcgtTrailingPartialMonomer_IsIgnored()
+    {
+        // M-HOR-NONACGT: A 3-monomer unit ×5 followed by an 80-bp run of non-ACGT 'N' bases. The N run
+        // is shorter than one 171-bp monomer, so it forms a trailing partial monomer that is dropped by
+        // the floor split (Length/monomerLength). Period, copy number and the identities are therefore
+        // identical to the clean M-HOR-1 array — the non-ACGT tail cannot affect a HOR built only from
+        // the 15 full monomers preceding it. (Sequences are not required to be pure ACGT; the aligner
+        // simply treats N as a non-matching residue, and here it never reaches a full monomer.)
+        string a = Monomer(SubsA), b = Monomer(SubsB), c = Monomer(SubsC);
+        string unit = Concat(a, b, c);
+        string array = string.Concat(Enumerable.Repeat(unit, 5)) + new string('N', 80);
+
+        var result = ChromosomeAnalyzer.DetectHigherOrderRepeat(array);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.MonomerCount, Is.EqualTo(15),
+                "2645 bp / 171 bp = 15 full monomers; the 80-bp non-ACGT tail is a dropped partial monomer");
+            Assert.That(result.MonomersPerUnit, Is.EqualTo(3), "Period unchanged by the ignored N tail");
+            Assert.That(result.HorCopyNumber, Is.EqualTo(5));
+            Assert.That(result.HasHigherOrderStructure, Is.True);
+            Assert.That(result.MeanInterHorIdentity, Is.EqualTo(100.0).Within(1e-9),
+                "The 15 full monomers are exact HOR copies ⇒ 100% inter-HOR identity");
+        });
+    }
+
+    [Test]
     public void DetectHigherOrderRepeat_InvalidMonomerLength_Throws()
     {
         Assert.Throws<ArgumentOutOfRangeException>(
