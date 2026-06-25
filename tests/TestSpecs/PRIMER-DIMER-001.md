@@ -2,42 +2,48 @@
 
 **Test Unit ID:** PRIMER-DIMER-001
 **Area:** MolTools
-**Algorithm:** ntthal Self/Hetero-Dimer Tm
-**Status:** ☐ Not Started — pending independent Stage A/B re-validation
+**Algorithm:** ntthal Self/Hetero-Dimer Tm (thermodynamic alignment)
+**Status:** ☑ Complete — independently validated 2026-06-25 (Stage A PASS / Stage B PASS / CLEAN)
 **Last Updated:** 2026-06-25
-
-> **Stub.** This unit was added during the limitation-elimination campaign. The algorithm is implemented and
-> covered by the test fixture below, but it has **not yet** been independently re-validated under the project's
-> two-stage (Stage A description / Stage B implementation) protocol. This spec captures the evidence and contract
-> needed to perform that validation; fill in the full TestSpec when the unit is re-validated to `☑`.
 
 ---
 
 ## 1. Evidence Summary
 
-| # | Source |
-|---|--------|
-| 1 | SantaLucia & Hicks (2004), primer3 ntthal |
+| # | Source | What it provides |
+|---|--------|------------------|
+| 1 | SantaLucia J, Hicks D (2004) *Annu Rev Biophys* 33:415–440 | Unified NN ΔH°/ΔS° (Table 1); bimolecular Tm Eq. 3 (x=1 self-comp / x=4 non); 0.368 salt correction (Eq. 5) |
+| 2 | Untergasser A et al. (2012) *Nucleic Acids Res* 40:e115 | Primer3/ntthal thermodynamic alignment for bimolecular duplexes |
+| 3 | primer3 `thal.c` + `primer3_config/*.dh,*.ds` | DP (`fillMatrix`/`LSH`/`RSH`/`maxTM`/`calc_bulge_internal`/`traceback`/`calcDimer`) + parameter tables |
+| 4 | primer3-py 2.3.0 `calc_homodimer`/`calc_heterodimer` | Reference ΔH/ΔS/ΔG/Tm oracle (mv=50, dv=0, dntp=0, dna=50 nM) |
 
 ## 2. Canonical Method(s)
 
-`FindMostStableDimer`, `CalculateDimerMeltingTemperature`, `CalculateSelfDimerMeltingTemperature`
+`FindMostStableDimer`, `CalculateDimerMeltingTemperature`, `CalculateSelfDimerMeltingTemperature`,
+`CalculateDimerThermodynamicsNtthal` (full DP), internal `NtthalDimer.Run`.
 
-- **Source file:** `PrimerDesigner.cs / NtthalDimer.cs`
+- **Source file:** `src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/PrimerDesigner.cs`, `NtthalDimer.cs`
 - **Test fixture:** `tests/Seqeron/Seqeron.Genomics.Tests/PrimerDesigner_DimerTm_Tests.cs`
 
 ## 3. Contract / Invariants
 
-R: dimer ΔG ≤ 0 or none; M: longer complementary run → lower ΔG; D: deterministic
+- **R (range):** a dimer's optimal structure has ΔG ≤ 0, else no structure (`null` / NaN).
+- **M (monotonicity):** a longer/stronger complementary core has the lower (more stable) ΔG / higher Tm.
+- **D (determinism):** identical inputs ⇒ identical outputs.
+- **INV:** self-dimer(S) ≡ hetero-dimer(S, S). x=1 only when both strands are RC palindromes.
+- **Salt/conc:** lower [Na⁺] lowers Tm (0.368·N·ln[Na⁺]); higher C_T raises bimolecular Tm.
 
 ## 4. Cross-check / Differential Oracle
 
-- **Reference:** primer3-py calc_homodimer/heterodimer
-- **Comparison:** ΔG/Tm to machine precision on contiguous optima
+- **Reference:** primer3-py 2.3.0 `calc_homodimer`/`calc_heterodimer`.
+- **Result:** C# reproduces primer3-py to machine precision on contiguous-WC optima **and** on
+  internal-loop (2×2, 3×3, mixed), single-base-bulge, and terminal-overhang optima; hand-derived
+  SantaLucia & Hicks values match to 1e-9. See `docs/Validation/reports/PRIMER-DIMER-001.md` for the
+  full per-case table.
 
-## 5. Validation Checklist (to restore ☑)
+## 5. Validation Checklist (restored ☑)
 
-- [ ] Stage A: retrieve every source above; confirm formula/constants against the publication's worked example.
-- [ ] Stage B: review the implementation against the source; cross-check vs the reference oracle.
-- [ ] Full unfiltered `dotnet test Seqeron.sln` — Failed: 0.
-- [ ] Flip `☐ → ☑` in `ALGORITHMS_CHECKLIST_V2.md` and the 10 `docs/checklists/*.md`.
+- [x] Stage A: every source retrieved; formula/constants confirmed against SantaLucia & Hicks Table 1 + thal.c.
+- [x] Stage B: implementation reviewed against thal.c; cross-checked vs primer3-py 2.3.0 oracle.
+- [x] Full unfiltered `dotnet test Seqeron.sln` — Failed: 0 (Genomics.Tests 18741 passed).
+- [x] Flipped `☐ → ☑` in `ALGORITHMS_CHECKLIST_V2.md` and the 10 `docs/checklists/*.md`.

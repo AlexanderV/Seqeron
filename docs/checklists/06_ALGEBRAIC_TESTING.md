@@ -271,7 +271,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 239 | ☑ | PROTMOTIF-HMM-001 | ProteinMotif | ID: null-model sequence → bit score ≈ 0; IDEMP: rescoring same hit is stable |
 | 240 | ☑ | PRIMER-NNTM-001 | MolTools | ID: perfect-match path = published NN sum; IDEMP: deterministic |
 | 241 | ☑ | PRIMER-HAIRPIN-001 | MolTools | ID: hand-derived NN ΔG for fixed hairpin; IDEMP: deterministic |
-| 242 | ☐ | PRIMER-DIMER-001 | MolTools | ID: contiguous-WC optimum = NN sum; IDEMP: deterministic |
+| 242 | ☑ | PRIMER-DIMER-001 | MolTools | ID: contiguous-WC optimum = NN sum; IDEMP: deterministic |
 | 243 | ☐ | PROBE-LNATM-001 | MolTools | ID: zero LNA → equals PRIMER-NNTM result; IDEMP: deterministic |
 | 244 | ☐ | PROBE-EVALUE-001 | MolTools | ID: bit = (λS-lnK)/ln2; IDEMP: deterministic |
 | 245 | ☐ | MHC-NN-001 | Oncology | ID: IC50 = 50000^(1-x) inverse of x; IDEMP: deterministic |
@@ -296,7 +296,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 2 |
-| ☐ Not started | 85 |
+| ☑ Complete | 3 |
+| ☐ Not started | 84 |
 | ✗ Not applicable | 169 |
 | Laws verified | ~172 (≈2 per algorithm) |

@@ -271,7 +271,7 @@ Property-based testing генерує сотні випадкових вході
 | 239 | ☑ | PROTMOTIF-HMM-001 | ProteinMotif | R: Forward ≥ Viterbi (log-odds); R: E-value ≥ 0; D: deterministic given profile | ProteinMotifProperties.cs (new) |
 | 240 | ☑ | PRIMER-NNTM-001 | MolTools | R: Tm finite for len ≥ 2; M: higher [Na+] → higher Tm; M: more mismatches → lower Tm | PrimerProperties.cs (new) |
 | 241 | ☑ | PRIMER-HAIRPIN-001 | MolTools | R: ΔG of best hairpin ≤ 0 (or none found); M: longer stem → more negative ΔG; D: deterministic | PrimerProperties.cs (new) |
-| 242 | ☐ | PRIMER-DIMER-001 | MolTools | R: dimer ΔG ≤ 0 or none; M: longer complementary run → lower ΔG; D: deterministic | PrimerProperties.cs (new) |
+| 242 | ☑ | PRIMER-DIMER-001 | MolTools | R: dimer ΔG ≤ 0 or none; M: longer complementary run → lower ΔG; D: deterministic | PrimerProperties.cs (new) |
 | 243 | ☐ | PROBE-LNATM-001 | MolTools | R: each LNA substitution does not lower Tm; D: deterministic; MGB rules return boolean+reasons | ProbeProperties.cs (new) |
 | 244 | ☐ | PROBE-EVALUE-001 | MolTools | R: E-value ≥ 0; M: higher bit score → lower E-value; M: larger search space → higher E-value | ProbeProperties.cs (new) |
 | 245 | ☐ | MHC-NN-001 | Oncology | R: IC50 > 0; R: ensemble within member range; D: deterministic given weights | OncologyProperties.cs (new) |
@@ -296,7 +296,7 @@ Property-based testing генерує сотні випадкових вході
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 2 |
-| ☐ Not started | 254 |
+| ☑ Complete | 3 |
+| ☐ Not started | 253 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |

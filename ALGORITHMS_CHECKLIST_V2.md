@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 255 |
-| **Completed** | 218 |
+| **Completed** | 219 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 37 |
+| **Not Started** | 36 |
 
 ---
 
@@ -260,7 +260,7 @@
 | ☑ | PROTMOTIF-HMM-001 | ProteinMotif | 4 | Eddy (1998, 2011) HMMER/Plan7, Pfam | [TestSpec](tests/TestSpecs/PROTMOTIF-HMM-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindDomainsByHmm_Tests.cs) |
 | ☑ | PRIMER-NNTM-001 | MolTools | 2 | SantaLucia (1998), Allawi & SantaLucia (1997), Owczarzy (2004/2008), Bommarito (2000) | [TestSpec](tests/TestSpecs/PRIMER-NNTM-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PrimerDesigner_NearestNeighborTm_Tests.cs) |
 | ☑ | PRIMER-HAIRPIN-001 | MolTools | 2 | SantaLucia (1998), SantaLucia & Hicks (2004), UNAFold DNA params | [TestSpec](tests/TestSpecs/PRIMER-HAIRPIN-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PrimerDesigner_HairpinTm_Tests.cs) |
-| ☐ | PRIMER-DIMER-001 | MolTools | 3 | SantaLucia & Hicks (2004), primer3 ntthal | [TestSpec](tests/TestSpecs/PRIMER-DIMER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PrimerDesigner_DimerTm_Tests.cs) |
+| ☑ | PRIMER-DIMER-001 | MolTools | 3 | SantaLucia & Hicks (2004), primer3 ntthal | [TestSpec](tests/TestSpecs/PRIMER-DIMER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PrimerDesigner_DimerTm_Tests.cs) |
 | ☐ | PROBE-LNATM-001 | MolTools | 2 | McTigue (2004) LNA NN, Kutyavin (2000) MGB | [TestSpec](tests/TestSpecs/PROBE-LNATM-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProbeDesigner_LnaTm_Tests.cs) |
 | ☐ | PROBE-EVALUE-001 | MolTools | 2 | Karlin & Altschul (1990), Altschul et al. (1990) BLAST | [TestSpec](tests/TestSpecs/PROBE-EVALUE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProbeDesigner_ProbeValidation_Tests.cs) |
 | ☐ | MHC-NN-001 | Oncology | 3 | O'Donnell et al. (2018, 2020) MHCflurry, Apache-2.0 | [TestSpec](tests/TestSpecs/MHC-NN-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MhcflurryAffinityPredictor_PredictIc50_Tests.cs) |
@@ -5417,13 +5417,13 @@ DnaSequence.Complement   DnaSequence.ReverseComplement
 
 ---
 
-#### PRIMER-DIMER-001: ntthal Self/Hetero-Dimer Tm ☐
+#### PRIMER-DIMER-001: ntthal Self/Hetero-Dimer Tm ☑
 
 | Field | Value |
 |-------|-------|
 | **Canonical** | `FindMostStableDimer` |
 | **Area** | MolTools |
-| **Status** | ☐ Not Started (pending independent Stage A/B re-validation) |
+| **Status** | ☑ Complete (validated 2026-06-25; primer3-py 2.3.0 parity to machine precision) |
 | **Evidence** | SantaLucia & Hicks (2004), primer3 ntthal |
 | **Source** | `PrimerDesigner.cs / NtthalDimer.cs` |
 
