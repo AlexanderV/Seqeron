@@ -737,5 +737,33 @@ public class SpliceSitePredictor_AcceptorSite_Tests
         });
     }
 
+    // ME10 — the model SCORES (does not reject) a window whose 18-19 dinucleotide is not AG;
+    // the consensus AG term heavily penalises it, yielding a strongly negative score. This
+    // matches maxentpy score3, which performs no AG validation. Expected values reproduced
+    // from the independent oracle (maxentpy score3 over the embedded tables, 2026-06-25):
+    //   score3('ttccaaacgaacttttgtCCgga') -> -13.220039
+    //   score3('ttccaaacgaacttttgtTTgga') -> -14.078362
+    // The canonical AG window (same flanks) scores +2.886773, so AG vastly outscores non-AG.
+    [Test]
+    public void ScoreAcceptorMaxEnt_NonAgDinucleotide_ScoredNotRejected_StronglyNegative()
+    {
+        const double canonicalAg = 2.886773; // ME2 reference (…AG…)
+
+        double cc = ScoreAcceptorMaxEnt("ttccaaacgaacttttgtCCgga");
+        double tt = ScoreAcceptorMaxEnt("ttccaaacgaacttttgtTTgga");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(cc, Is.EqualTo(-13.220039).Within(1e-6),
+                "Non-AG (CC) window is scored, not rejected — maxentpy score3 has no AG check");
+            Assert.That(tt, Is.EqualTo(-14.078362).Within(1e-6),
+                "Non-AG (TT) window is scored, not rejected — maxentpy score3 has no AG check");
+            Assert.That(cc, Is.LessThan(canonicalAg),
+                "A non-AG acceptor dinucleotide scores far below the canonical AG site");
+            Assert.That(tt, Is.LessThan(canonicalAg),
+                "A non-AG acceptor dinucleotide scores far below the canonical AG site");
+        });
+    }
+
     #endregion
 }
