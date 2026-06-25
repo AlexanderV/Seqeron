@@ -197,9 +197,12 @@ Covers the new opt-in methods `CalculateTetranucleotideZScores` and
 ## 7. Open Questions / Decisions
 
 1. CheckM marker-gene completeness/contamination is now **implemented** as an opt-in addendum
-   (see §8). The residual is narrowed to the full CheckM lineage-specific marker DB + reference
-   tree (large gated data); a small CC0 universal ribosomal marker set + caller-supplied loader
-   ship instead.
+   (see §8). Bundled CC0 markers now include the **Pfam-defined subsets of the GTDB domain-level
+   universal sets bac120 (Bacteria, 6) and ar122 (Archaea, 35)** (Parks et al. 2018; GTDB-Tk), so
+   routine domain-level completeness/contamination works out of the box. The residual is narrowed to
+   the **per-lineage-specific** CheckM marker refinement + the **reference genome tree** for lineage
+   placement (the gated `checkm_data`). The TIGRFAM-defined members of bac120/ar122 are CC BY-SA 4.0
+   (not public domain) and are caller-supplied via `LoadMarkerHmms`, not bundled.
 
 ---
 
@@ -216,7 +219,9 @@ Covers the new opt-in methods `CalculateTetranucleotideZScores` and
 | `DetectMarkers(proteins, markerHmms)` | Canonical | Plan7 Viterbi-bits ≥ GA1 ⇒ copy count |
 | `EstimateBinQualityFromMarkers(proteins, markerSets, markerHmms)` | Canonical | detect + formula |
 | `LoadBundledRibosomalMarkerHmms()` / `BundledRibosomalMarkerSets()` | Canonical | 9 CC0 markers |
-| `LoadMarkerHmms(readers, thresholds?)` | Canonical | caller-supplied loader |
+| `LoadBundledBacterialMarkerHmms()` / `BundledBacterialMarkerSets()` | Canonical | GTDB bac120 Pfam subset (6 CC0) |
+| `LoadBundledArchaealMarkerHmms()` / `BundledArchaealMarkerSets()` | Canonical | GTDB ar122 Pfam subset (35 CC0) |
+| `LoadMarkerHmms(readers, thresholds?)` | Canonical | caller-supplied loader (incl. CC BY-SA TIGRFAM) |
 
 ### 8.2 Invariants
 
@@ -241,14 +246,20 @@ Covers the new opt-in methods `CalculateTetranucleotideZScores` and
 | H-COMPLETENESS | bin = {uS8}, 9 singleton sets | Comp 100/9 %, Cont 0 | integration |
 | H-DUPLICATE | bin = {uS8,uS8} | Comp 100/9 %, Cont 100/9 % | Eq.2 |
 | L-CALLERSUPPLIED | reader-loaded S8 keyed by ACC, detects uS8 | PF00410.25 = 1 | loader |
+| B-SETSIZE | bundled bac120 Pfam subset | 6 markers {PF00380,PF00410,PF00466,PF01025,PF02576,PF03726}; PF01025 GA1=25.8, LENG=165 | GTDB bac120 marker_info |
+| A-SETSIZE | bundled ar122 Pfam subset | 35 markers (listed); PF00410 GA1=24 | GTDB ar122 marker_info |
+| B-TRUEPOSITIVE | bundled PF01025 vs E. coli GrpE | hit; 0 for all 5 others | UniProt P09372 |
+| B-COMPLETENESS | bin = {GrpE}, 6 singleton sets | Comp 100/6 %, Cont 0 | integration |
+| A-TRUEPOSITIVE | bin = {uS8}, 35 ar122 singleton sets | Comp 100/35 %, Cont 0 (universal PF00410) | integration |
+| B-DEFAULTS-UNCHANGED | ribosomal accessor still 9 markers / 9 sets | additive expansion | regression guard |
 | (guards) | null args throw; loader counts | ArgumentNullException; 9 markers, GA1=24 | — |
 
-**Coverage:** 14 tests, all ✅; Remaining ❌/⚠ = 0.
+**Coverage:** 20 tests, all ✅; Remaining ❌/⚠ = 0.
 
 ---
 
 **Specification Version:** 4.0
 **Created:** 2026-02-04
-**Updated:** 2026-06-25 (CheckM marker-gene completeness/contamination implemented, opt-in;
-residual narrowed to the full lineage DB + tree)
+**Updated:** 2026-06-25 (bundled GTDB bac120/ar122 Pfam (CC0) domain-level universal marker sets;
+residual narrowed to the per-lineage-specific marker refinement + reference genome tree)
 **Status:** Complete — TNF z-score + CheckM marker QC implemented, evidence-based, and verified

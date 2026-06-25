@@ -115,6 +115,50 @@ header confirms `HMMER3/f [3.3 | Nov 2019]`, `ALPH amino`, and a `GA` gathering 
 **Key Extracted Point (verbatim):** "Pfam is freely available under the Creative Commons Zero
 ('CC0') licence." → public domain, freely redistributable; profiles are embedded as-is.
 
+### GTDB domain-level universal marker lists — bac120 / ar122 (Parks et al. 2018; GTDB-Tk)
+
+**URL (marker lists):**
+`https://github.com/Ecogenomics/GTDBTk` → `tests/data/align_dir_reference/align/intermediate_results/gtdbtk.bac120.marker_info.tsv`
+and `gtdbtk.ar122.marker_info.tsv`
+**Accessed:** 2026-06-25
+**Authority rank:** 1/3 (peer-reviewed method + reference implementation reference data)
+
+**Retrieval:** GitHub contents API (`gh api repos/Ecogenomics/GTDBTk/contents/<path>`), base64-decoded
+verbatim. GTDB methods page (https://gtdb.ecogenomic.org/methods) confirms: the bacterial MSAs are
+"the concatenation of 120 (bac120) … markers, comprised of proteins or protein domains specified in
+the Pfam v33.1 or TIGRFAMs v15.0 databases." Counting the retrieved `marker_info.tsv`:
+
+| Set | Total markers | Pfam (CC0, bundled) | TIGRFAM (CC BY-SA, NOT bundled) |
+|-----|---------------|---------------------|----------------------------------|
+| bac120 | 120 | 6 (PF00380, PF00410, PF00466, PF01025, PF02576, PF03726) | 114 |
+| ar122  | 122 | 35 (see Resources/README.md for full list) | 87 |
+
+Distinct Pfam union (bac120 ∪ ar122) = 39 accessions, each fetched from the same EMBL-EBI InterPro
+Pfam HMM API as the ribosomal set. Marker-set citation: Parks DH et al. (2018), *A standardized
+bacterial taxonomy based on genome phylogeny substantially revises the tree of life*,
+*Nat Biotechnol* 36:996–1004.
+
+### TIGRFAM licence — reusabledata.org / NCBI (NOT bundled)
+
+**URL:** https://reusabledata.org/tigrfams ; https://www.ncbi.nlm.nih.gov/refseq/annotation_prok/tigrfams/
+**Accessed:** 2026-06-25
+**Authority rank:** 2 (official/curated documentation)
+
+**Key Extracted Point (verbatim):** "TIGRFAMs data are made available under a Creative Commons
+Attribution-ShareAlike 4.0 license." → CC BY-SA 4.0 is a copyleft/share-alike licence, **not**
+public domain. Per the no-non-redistributable-data rule the TIGRFAM-defined bac120/ar122 markers are
+**NOT bundled**; callers supply them via `LoadMarkerHmms`. Only the Pfam (CC0) subsets are bundled.
+
+### True-positive protein — E. coli GrpE, UniProt P09372 (bac120 PF01025)
+
+**URL:** https://rest.uniprot.org/uniprotkb/P09372.fasta
+**Accessed:** 2026-06-25
+**Authority rank:** 5 (curated database)
+
+**Retrieval:** `curl -L` of the UniProt FASTA. Sequence (197 aa), *E. coli* K-12 chaperone GrpE —
+the true positive for the bac120 Pfam marker PF01025 (GrpE):
+`MSSKEQKTPEGQAPEEIIMDQHEEIEAVEPEASAEQVDPRDEKVANLEAQLAEAQTRERDGILRVKAEMENLRRRTELDIEKAHKFALEKFINELLPVIDSLDRALEVADKANPDMSAMVEGIELTLKSMLDVVRKFGVEVIAETNVPLDPNVHQAIAMVESDDVAPGNVLGIMQKGYTLNGRTIRAAMVTVAKAKA`
+
 ### True-positive protein — E. coli uS8 (RpsH), UniProt P0A7W7
 
 **URL:** https://rest.uniprot.org/uniprotkb/P0A7W7.fasta
@@ -176,6 +220,20 @@ Marker sets `M` (3 sets) and per-marker copy counts:
 its own singleton set (|M|=9), exactly one of nine sets is fully present ⇒ Completeness = 100/9 ≈
 11.111%, Contamination = 0.
 
+### Dataset: bac120 / ar122 Pfam-subset detection (domain-level marker sets)
+
+**Source:** UniProt P09372 (E. coli GrpE) + bundled bac120 PF01025 CC0 HMM (GA1 = 25.8 bits);
+UniProt P0A7W7 (E. coli uS8) + bundled ar122 PF00410 CC0 HMM (GA1 = 24 bits).
+
+| Marker set | Protein | Detected marker | Other families | Completeness | Contamination |
+|------------|---------|-----------------|----------------|--------------|---------------|
+| bac120 Pfam (6 singleton sets) | E. coli GrpE | PF01025 = 1 | all 0 | 100·1/6 = 100/6 ≈ 16.667% | 0 |
+| ar122 Pfam (35 singleton sets) | E. coli uS8 | PF00410 = 1 (universal S8) | all 0 | 100·1/35 ≈ 2.857% | 0 |
+
+⇒ confirms the bundled domain-level sets feed the unchanged CheckM formula: a single true-positive
+universal marker yields the expected `1/|M|` completeness, 0 contamination, with family-level
+specificity (GrpE matches only PF01025; uS8 matches only PF00410).
+
 ---
 
 ## Assumptions
@@ -221,9 +279,23 @@ its own singleton set (|M|=9), exactly one of nine sets is fully present ⇒ Com
    licence: https://interpro-documentation.readthedocs.io/en/latest/pfam.html
 5. UniProt P0A7W7 — Small ribosomal subunit protein uS8, *E. coli*.
    https://rest.uniprot.org/uniprotkb/P0A7W7.fasta
+6. Parks DH, Chuvochina M, Waite DW, Rinke C, Skarshewski A, Chaumeil P-A, Hugenholtz P (2018).
+   A standardized bacterial taxonomy based on genome phylogeny substantially revises the tree of
+   life. *Nat Biotechnol* 36:996–1004. GTDB methods: https://gtdb.ecogenomic.org/methods ;
+   bac120/ar122 marker lists: Ecogenomics/GTDBTk `gtdbtk.{bac120,ar122}.marker_info.tsv`.
+7. TIGRFAMs licence — CC BY-SA 4.0 (NOT bundled). https://reusabledata.org/tigrfams ;
+   https://www.ncbi.nlm.nih.gov/refseq/annotation_prok/tigrfams/
+8. UniProt P09372 — Protein GrpE, *E. coli* K-12 (bac120 PF01025 true positive).
+   https://rest.uniprot.org/uniprotkb/P09372.fasta
 
 ---
 
 ## Change History
 
 - **2026-06-25**: Initial documentation of the marker-gene completeness/contamination addendum.
+- **2026-06-25**: Bundled the Pfam (CC0) subsets of the GTDB **bac120** (6 markers) and **ar122**
+  (35 markers) domain-level universal single-copy marker sets (Parks et al. 2018; GTDB-Tk), feeding
+  the unchanged CheckM formula via `LoadBundledBacterialMarkerHmms` / `LoadBundledArchaealMarkerHmms`
+  + `BundledBacterialMarkerSets` / `BundledArchaealMarkerSets`. TIGRFAM-defined members
+  (CC BY-SA 4.0) deliberately NOT bundled — caller-supplied. 9-marker ribosomal set + defaults
+  unchanged.

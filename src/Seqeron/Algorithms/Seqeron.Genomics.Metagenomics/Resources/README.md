@@ -38,9 +38,37 @@ Pfam is freely available under the Creative Commons Zero ("CC0") licence
 "Pfam is freely available under the Creative Commons Zero ('CC0') licence"). CC0 places the data
 in the public domain, so it is freely redistributable; these files are embedded as-is.
 
+## Domain-level GTDB universal marker sets (bac120 / ar122 Pfam subsets)
+
+In addition to the 9-marker ribosomal set above, the package bundles the **Pfam-defined members
+of the GTDB domain-level universal single-copy marker sets** — `bac120` (Bacteria) and `ar122`
+(Archaea) — from Parks et al. (2018) *Nat Biotechnol* 36:996 and the GTDB-Tk reference data.
+These feed `EstimateBinQualityFromMarkers` for routine domain-level completeness/contamination
+out of the box (`LoadBundledBacterialMarkerHmms` / `LoadBundledArchaealMarkerHmms`).
+
+- **Marker list source (verbatim):** the GTDB-Tk `bac120` / `ar122` `marker_info.tsv` files,
+  Ecogenomics/GTDBTk repo (`tests/data/align_dir_reference/align/intermediate_results/gtdbtk.{bac120,ar122}.marker_info.tsv`),
+  retrieved 2026-06-25 via the GitHub contents API. bac120 = 120 markers (6 Pfam + 114 TIGRFAM);
+  ar122 = 122 markers (35 Pfam + 87 TIGRFAM).
+- **What is bundled (CC0 only):** the **6 Pfam** members of bac120 (PF00380, PF00410, PF00466,
+  PF01025, PF02576, PF03726) and the **35 Pfam** members of ar122 (PF00368, PF00410, PF00466,
+  PF00687, PF00827, PF00900, PF01000, PF01015, PF01090, PF01092, PF01157, PF01191, PF01194,
+  PF01198, PF01200, PF01269, PF01280, PF01282, PF01496, PF01655, PF01798, PF01864, PF01866,
+  PF01868, PF01984, PF01990, PF02006, PF02978, PF03874, PF04019, PF04104, PF04919, PF07541,
+  PF13656, PF13685). Distinct union across both = 39 Pfam HMMs (3 of them already in the 9-marker
+  ribosomal set). Each HMM retrieved 2026-06-25 from the EMBL-EBI InterPro Pfam HMM API
+  (`https://www.ebi.ac.uk/interpro/wwwapi/entry/pfam/<ACC>/?annotation=hmm`), HMMER3/f ASCII,
+  licence **CC0**.
+- **What is NOT bundled (licence):** the **TIGRFAM-defined** members of bac120 (114) and ar122 (87)
+  are licensed **CC BY-SA 4.0** (TIGRFAMs at NCBI; reusabledata.org/tigrfams), *not* public domain.
+  Per the redistribution policy they are NOT bundled; callers who have the TIGRFAM HMMs supply them
+  via `LoadMarkerHmms`. This is why the bundled domain sets are the **Pfam subsets** of bac120/ar122.
+
 ## Scope / residual
 
-This is a SMALL universal single-copy set, not CheckM's full lineage-specific marker database.
-The full `checkm_data` (lineage-specific Pfam/TIGRFAM collocated marker sets + reference genome
-tree for lineage placement) is a large gated trained DB and is NOT bundled; callers who have it
-supply their own marker set via the caller-supplied loader. See the algorithm doc residual.
+These are domain-level (Bacteria / Archaea) universal single-copy sets, not CheckM's full
+**lineage-specific** marker database. The full `checkm_data` (lineage-specific Pfam/TIGRFAM
+collocated marker sets + reference genome tree for tree-based lineage placement, plus operon-based
+marker-set collocation) is a large gated trained DB and is NOT bundled; callers who have it (or the
+CC BY-SA TIGRFAM HMMs) supply their own marker set via the caller-supplied loader
+(`LoadMarkerHmms`). See the algorithm doc residual.

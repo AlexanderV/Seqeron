@@ -184,3 +184,39 @@ and its defaults are unchanged):
   `LoadMarkerHmms`.
 - **Status:** META-BIN-001 remains `☐` (re-validation pass ongoing); Quick-Reference counts unchanged.
 - **Tests:** marker-QC fixture 14/14 pass.
+
+## Update 2026-06-25 — full domain-level universal marker set bundled (GTDB bac120/ar122 Pfam, CC0)
+
+The prior "small 9-ribosomal set" is expanded to a **published domain-level universal single-copy
+marker set**, additive and opt-in (the 9-ribosomal set, TNF/proxy `BinContigs`, and all defaults are
+unchanged):
+
+- **Marker set + source (verbatim):** the **Pfam-defined members of the GTDB `bac120` (Bacteria) and
+  `ar122` (Archaea)** universal single-copy marker sets — Parks et al. (2018) *Nat Biotechnol*
+  36:996, GTDB-Tk. Marker lists retrieved 2026-06-25 verbatim from the Ecogenomics/GTDBTk repo
+  (`tests/.../gtdbtk.{bac120,ar122}.marker_info.tsv`) via the GitHub contents API. bac120 = 120
+  markers (6 Pfam + 114 TIGRFAM); ar122 = 122 markers (35 Pfam + 87 TIGRFAM).
+- **HMM provenance + LICENCE:** the **6 bac120 + 35 ar122 Pfam HMMs** (39 distinct, 3 already in the
+  ribosomal set ⇒ 36 newly fetched) were retrieved 2026-06-25 from the EMBL-EBI InterPro Pfam HMM
+  API (HMMER3/f ASCII, decompressed verbatim), licence **CC0 (public domain)** — embedded as
+  resources. The **TIGRFAM-defined members (114 + 87)** are licensed **CC BY-SA 4.0** (TIGRFAMs at
+  NCBI; reusabledata.org/tigrfams), confirmed **NOT public domain**, so per the no-non-redistributable
+  rule they are **NOT bundled** — caller-supplied via `LoadMarkerHmms`. Hence the bundled domain sets
+  are the **Pfam (CC0) subsets** of bac120/ar122. Provenance/licence in `Resources/README.md`.
+- **New methods** (`MetagenomicsAnalyzer.cs`): `LoadBundledBacterialMarkerHmms()` (6),
+  `BundledBacterialMarkerSets()` (6), `LoadBundledArchaealMarkerHmms()` (35),
+  `BundledArchaealMarkerSets()` (35). The CheckM formula + Plan7 engine
+  (`EstimateBinQualityFromMarkers`, `DetectMarkers`, `EstimateBinQualityFromMarkerCounts`) are reused
+  unchanged.
+- **Verified exactly (new tests):** bundled bac120 subset = the 6 expected Pfam ids, PF01025 GA1=25.8
+  bits / LENG=165; ar122 subset = the 35 expected Pfam ids, PF00410 GA1=24. Real-marker detection:
+  E. coli GrpE (UniProt P09372) hits **only** bac120 PF01025 (1 copy, 0 for the other 5) ⇒ bin
+  completeness 100/6 % (≈16.667), 0 contamination; E. coli uS8 (P0A7W7) hits the universal PF00410 in
+  the archaeal set ⇒ completeness 100/35 %, 0 contamination. Regression guard confirms the 9-ribosomal
+  accessor is unchanged. 6 new tests (20 total in `MetagenomicsAnalyzer_MarkerGeneQuality_Tests.cs`).
+- **HONEST RESIDUAL (narrowed):** the **per-lineage-specific** CheckM marker refinement + the
+  **reference genome tree** for lineage placement (gated `checkm_data`; tree-based placement,
+  operon-based collocation) are not bundled, plus the CC BY-SA TIGRFAM markers — all caller-supplied.
+  Domain-level completeness/contamination now works out of the box.
+- **Status:** META-BIN-001 remains `☐` (re-validation pass ongoing); Quick-Reference counts unchanged.
+- **Tests:** marker-QC fixture 20/20 pass.

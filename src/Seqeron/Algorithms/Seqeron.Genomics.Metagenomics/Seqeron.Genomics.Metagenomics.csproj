@@ -45,4 +45,47 @@
     <EmbeddedResource Include="Resources\PF00297_Ribosomal_L3.hmm" />
   </ItemGroup>
 
+  <!-- Pfam-defined markers of the GTDB bac120 (Bacteria) and ar122/ar53 (Archaea) universal
+       single-copy marker sets (Parks et al. 2018 Nat Biotechnol 36:996; GTDB-Tk). Pfam = CC0
+       (public domain). The TIGRFAM-defined members of bac120/ar122 are CC BY-SA 4.0 and are NOT
+       bundled (caller-supplied via LoadMarkerHmms). See Resources/README.md. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\PF00368_HMGCoA_red.hmm" />
+    <EmbeddedResource Include="Resources\PF00466_Ribosomal_L10.hmm" />
+    <EmbeddedResource Include="Resources\PF00827_Ribosomal_L15e.hmm" />
+    <EmbeddedResource Include="Resources\PF00900_Ribosomal_S4e.hmm" />
+    <EmbeddedResource Include="Resources\PF01000_RNA_pol_A_bac.hmm" />
+    <EmbeddedResource Include="Resources\PF01015_Ribosomal_S3Ae.hmm" />
+    <EmbeddedResource Include="Resources\PF01025_GrpE.hmm" />
+    <EmbeddedResource Include="Resources\PF01090_Ribosomal_S19e.hmm" />
+    <EmbeddedResource Include="Resources\PF01092_Ribosomal_S6e.hmm" />
+    <EmbeddedResource Include="Resources\PF01157_Ribosomal_L21e.hmm" />
+    <EmbeddedResource Include="Resources\PF01191_RNA_pol_Rpb5_C.hmm" />
+    <EmbeddedResource Include="Resources\PF01194_RNA_pol_N.hmm" />
+    <EmbeddedResource Include="Resources\PF01198_Ribosomal_L31e.hmm" />
+    <EmbeddedResource Include="Resources\PF01200_Ribosomal_S28e.hmm" />
+    <EmbeddedResource Include="Resources\PF01269_Fibrillarin.hmm" />
+    <EmbeddedResource Include="Resources\PF01280_Ribosomal_L19e.hmm" />
+    <EmbeddedResource Include="Resources\PF01282_Ribosomal_S24e.hmm" />
+    <EmbeddedResource Include="Resources\PF01496_V_ATPase_I.hmm" />
+    <EmbeddedResource Include="Resources\PF01655_Ribosomal_L32e.hmm" />
+    <EmbeddedResource Include="Resources\PF01798_Nop.hmm" />
+    <EmbeddedResource Include="Resources\PF01864_DUF46.hmm" />
+    <EmbeddedResource Include="Resources\PF01866_Diphthamide_syn.hmm" />
+    <EmbeddedResource Include="Resources\PF01868_UPF0086.hmm" />
+    <EmbeddedResource Include="Resources\PF01984_dsDNA_bind.hmm" />
+    <EmbeddedResource Include="Resources\PF01990_ATPsynt_F.hmm" />
+    <EmbeddedResource Include="Resources\PF02006_DUF137.hmm" />
+    <EmbeddedResource Include="Resources\PF02576_DUF150.hmm" />
+    <EmbeddedResource Include="Resources\PF02978_SRP_SPB.hmm" />
+    <EmbeddedResource Include="Resources\PF03726_PNPase.hmm" />
+    <EmbeddedResource Include="Resources\PF03874_RNA_pol_Rpb4.hmm" />
+    <EmbeddedResource Include="Resources\PF04019_DUF359.hmm" />
+    <EmbeddedResource Include="Resources\PF04104_DNA_primase_lrg.hmm" />
+    <EmbeddedResource Include="Resources\PF04919_DUF655.hmm" />
+    <EmbeddedResource Include="Resources\PF07541_EIF_2_alpha.hmm" />
+    <EmbeddedResource Include="Resources\PF13656_RNA_pol_L_2.hmm" />
+    <EmbeddedResource Include="Resources\PF13685_FeADH_2.hmm" />
+  </ItemGroup>
+
 </Project>

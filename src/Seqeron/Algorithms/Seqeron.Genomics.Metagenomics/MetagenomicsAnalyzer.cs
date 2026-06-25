@@ -1897,6 +1897,64 @@ public static class MetagenomicsAnalyzer
         ("PF00297_Ribosomal_L3.hmm",  "PF00297"),
     };
 
+    // The Pfam-defined members of the GTDB bac120 (Bacteria) domain-level universal single-copy
+    // marker set (Parks et al. 2018 Nat Biotechnol 36:996; GTDB-Tk bac120.marker_info). bac120 is
+    // 120 markers (6 Pfam + 114 TIGRFAM); only the 6 Pfam markers are CC0 and bundled. The 114
+    // TIGRFAM-defined markers (CC BY-SA 4.0) are NOT bundled — supply them via LoadMarkerHmms.
+    // Provenance + licence: see Resources/README.md.
+    private static readonly (string Resource, string MarkerId)[] BundledBacterialPfamMarkers =
+    {
+        ("PF00380_Ribosomal_S9.hmm", "PF00380"),
+        ("PF00410_Ribosomal_S8.hmm", "PF00410"),
+        ("PF00466_Ribosomal_L10.hmm", "PF00466"),
+        ("PF01025_GrpE.hmm",          "PF01025"),
+        ("PF02576_DUF150.hmm",        "PF02576"),
+        ("PF03726_PNPase.hmm",        "PF03726"),
+    };
+
+    // The Pfam-defined members of the GTDB ar122 (Archaea) domain-level universal single-copy
+    // marker set (Parks et al. 2018; GTDB-Tk ar122.marker_info). ar122 is 122 markers (35 Pfam +
+    // 87 TIGRFAM); only the 35 Pfam markers are CC0 and bundled. The 87 TIGRFAM-defined markers
+    // (CC BY-SA 4.0) are NOT bundled — supply them via LoadMarkerHmms. See Resources/README.md.
+    private static readonly (string Resource, string MarkerId)[] BundledArchaealPfamMarkers =
+    {
+        ("PF00368_HMGCoA_red.hmm",      "PF00368"),
+        ("PF00410_Ribosomal_S8.hmm",    "PF00410"),
+        ("PF00466_Ribosomal_L10.hmm",   "PF00466"),
+        ("PF00687_Ribosomal_L1.hmm",    "PF00687"),
+        ("PF00827_Ribosomal_L15e.hmm",  "PF00827"),
+        ("PF00900_Ribosomal_S4e.hmm",   "PF00900"),
+        ("PF01000_RNA_pol_A_bac.hmm",   "PF01000"),
+        ("PF01015_Ribosomal_S3Ae.hmm",  "PF01015"),
+        ("PF01090_Ribosomal_S19e.hmm",  "PF01090"),
+        ("PF01092_Ribosomal_S6e.hmm",   "PF01092"),
+        ("PF01157_Ribosomal_L21e.hmm",  "PF01157"),
+        ("PF01191_RNA_pol_Rpb5_C.hmm",  "PF01191"),
+        ("PF01194_RNA_pol_N.hmm",       "PF01194"),
+        ("PF01198_Ribosomal_L31e.hmm",  "PF01198"),
+        ("PF01200_Ribosomal_S28e.hmm",  "PF01200"),
+        ("PF01269_Fibrillarin.hmm",     "PF01269"),
+        ("PF01280_Ribosomal_L19e.hmm",  "PF01280"),
+        ("PF01282_Ribosomal_S24e.hmm",  "PF01282"),
+        ("PF01496_V_ATPase_I.hmm",      "PF01496"),
+        ("PF01655_Ribosomal_L32e.hmm",  "PF01655"),
+        ("PF01798_Nop.hmm",             "PF01798"),
+        ("PF01864_DUF46.hmm",           "PF01864"),
+        ("PF01866_Diphthamide_syn.hmm", "PF01866"),
+        ("PF01868_UPF0086.hmm",         "PF01868"),
+        ("PF01984_dsDNA_bind.hmm",      "PF01984"),
+        ("PF01990_ATPsynt_F.hmm",       "PF01990"),
+        ("PF02006_DUF137.hmm",          "PF02006"),
+        ("PF02978_SRP_SPB.hmm",         "PF02978"),
+        ("PF03874_RNA_pol_Rpb4.hmm",    "PF03874"),
+        ("PF04019_DUF359.hmm",          "PF04019"),
+        ("PF04104_DNA_primase_lrg.hmm", "PF04104"),
+        ("PF04919_DUF655.hmm",          "PF04919"),
+        ("PF07541_EIF_2_alpha.hmm",     "PF07541"),
+        ("PF13656_RNA_pol_L_2.hmm",     "PF13656"),
+        ("PF13685_FeADH_2.hmm",         "PF13685"),
+    };
+
     /// <summary>
     /// Computes CheckM-style genome completeness and contamination from collocated single-copy
     /// marker SETS and a per-marker copy-count map, using the exact CheckM formula
@@ -2049,10 +2107,49 @@ public static class MetagenomicsAnalyzer
     /// </remarks>
     /// <returns>The bundled marker HMMs.</returns>
     public static IReadOnlyList<MarkerHmm> LoadBundledRibosomalMarkerHmms()
+        => LoadEmbeddedMarkerHmms(BundledRibosomalMarkers);
+
+    /// <summary>
+    /// Loads the bundled Pfam-defined markers of the GTDB <c>bac120</c> Bacteria domain-level
+    /// universal single-copy marker set (Parks et al. 2018, <i>Nat Biotechnol</i> 36:996; GTDB-Tk).
+    /// bac120 has 120 markers (6 Pfam + 114 TIGRFAM); these are the 6 CC0 Pfam markers
+    /// (PF00380, PF00410, PF00466, PF01025, PF02576, PF03726).
+    /// </summary>
+    /// <remarks>
+    /// The 114 TIGRFAM-defined bac120 markers are licensed CC BY-SA 4.0 (not public domain) and are
+    /// NOT bundled; supply them via
+    /// <see cref="LoadMarkerHmms(IEnumerable{System.IO.TextReader}, System.Collections.Generic.IReadOnlyDictionary{string, double})"/>.
+    /// Each marker's bit-score gate is its Pfam GA1 gathering threshold. Provenance + CC0 licence:
+    /// see <c>Resources/README.md</c>.
+    /// </remarks>
+    /// <returns>The 6 bundled bac120 Pfam marker HMMs.</returns>
+    public static IReadOnlyList<MarkerHmm> LoadBundledBacterialMarkerHmms()
+        => LoadEmbeddedMarkerHmms(BundledBacterialPfamMarkers);
+
+    /// <summary>
+    /// Loads the bundled Pfam-defined markers of the GTDB <c>ar122</c> Archaea domain-level
+    /// universal single-copy marker set (Parks et al. 2018, <i>Nat Biotechnol</i> 36:996; GTDB-Tk).
+    /// ar122 has 122 markers (35 Pfam + 87 TIGRFAM); these are the 35 CC0 Pfam markers.
+    /// </summary>
+    /// <remarks>
+    /// The 87 TIGRFAM-defined ar122 markers are licensed CC BY-SA 4.0 (not public domain) and are
+    /// NOT bundled; supply them via
+    /// <see cref="LoadMarkerHmms(IEnumerable{System.IO.TextReader}, System.Collections.Generic.IReadOnlyDictionary{string, double})"/>.
+    /// Each marker's bit-score gate is its Pfam GA1 gathering threshold. Provenance + CC0 licence:
+    /// see <c>Resources/README.md</c>.
+    /// </remarks>
+    /// <returns>The 35 bundled ar122 Pfam marker HMMs.</returns>
+    public static IReadOnlyList<MarkerHmm> LoadBundledArchaealMarkerHmms()
+        => LoadEmbeddedMarkerHmms(BundledArchaealPfamMarkers);
+
+    // Shared loader for an embedded-resource marker table: parses each profile with the Plan7
+    // engine and gates on its Pfam GA1 gathering threshold (conservative default if absent).
+    private static IReadOnlyList<MarkerHmm> LoadEmbeddedMarkerHmms(
+        (string Resource, string MarkerId)[] markers)
     {
-        var result = new List<MarkerHmm>(BundledRibosomalMarkers.Length);
+        var result = new List<MarkerHmm>(markers.Length);
         var asm = typeof(MetagenomicsAnalyzer).Assembly;
-        foreach (var (resource, markerId) in BundledRibosomalMarkers)
+        foreach (var (resource, markerId) in markers)
         {
             string resourceName = $"Seqeron.Genomics.Metagenomics.Resources.{resource}";
             using var stream = asm.GetManifestResourceStream(resourceName)
@@ -2073,6 +2170,28 @@ public static class MetagenomicsAnalyzer
     /// <returns>One singleton <see cref="MarkerSet"/> per bundled marker id.</returns>
     public static IReadOnlyList<MarkerSet> BundledRibosomalMarkerSets()
         => BundledRibosomalMarkers
+            .Select(m => new MarkerSet(new[] { m.MarkerId }))
+            .ToList();
+
+    /// <summary>
+    /// Builds the default marker SETS for the bundled bac120 Bacteria Pfam markers: one singleton
+    /// collocated set per Pfam family. CheckM's operon-based collocation grouping requires the full
+    /// lineage DB — see the algorithm doc — so each universal family is scored independently here.
+    /// </summary>
+    /// <returns>One singleton <see cref="MarkerSet"/> per bundled bac120 Pfam marker id (6 sets).</returns>
+    public static IReadOnlyList<MarkerSet> BundledBacterialMarkerSets()
+        => BundledBacterialPfamMarkers
+            .Select(m => new MarkerSet(new[] { m.MarkerId }))
+            .ToList();
+
+    /// <summary>
+    /// Builds the default marker SETS for the bundled ar122 Archaea Pfam markers: one singleton
+    /// collocated set per Pfam family. CheckM's operon-based collocation grouping requires the full
+    /// lineage DB — see the algorithm doc — so each universal family is scored independently here.
+    /// </summary>
+    /// <returns>One singleton <see cref="MarkerSet"/> per bundled ar122 Pfam marker id (35 sets).</returns>
+    public static IReadOnlyList<MarkerSet> BundledArchaealMarkerSets()
+        => BundledArchaealPfamMarkers
             .Select(m => new MarkerSet(new[] { m.MarkerId }))
             .ToList();
 

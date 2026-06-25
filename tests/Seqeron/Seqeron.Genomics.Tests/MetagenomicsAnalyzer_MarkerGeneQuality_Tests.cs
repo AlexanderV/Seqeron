@@ -29,6 +29,14 @@ public class MetagenomicsAnalyzer_MarkerGeneQuality_Tests
         "LTLKYFQGKAVVESIQRVSRPGLRIYKRKDELPKVMAGLGIAVVSTSKGVMTDRAARQAG" +
         "LGGEIICYVA";
 
+    // E. coli K-12 chaperone GrpE, UniProt P09372 — the true positive for the bac120 Pfam marker
+    // PF01025 (GrpE). Retrieved 2026-06-25 from rest.uniprot.org/uniprotkb/P09372.fasta.
+    private const string EcoliGrpE =
+        "MSSKEQKTPEGQAPEEIIMDQHEEIEAVEPEASAEQVDPRDEKVANLEAQLAEAQTRERD" +
+        "GILRVKAEMENLRRRTELDIEKAHKFALEKFINELLPVIDSLDRALEVADKANPDMSAMV" +
+        "EGIELTLKSMLDVVRKFGVEVIAETNVPLDPNVHQAIAMVESDDVAPGNVLGIMQKGYTL" +
+        "NGRTIRAAMVTVAKAKA";
+
     private static MetagenomicsAnalyzer.MarkerSet Set(params string[] ids)
         => new(ids);
 
@@ -302,6 +310,134 @@ public class MetagenomicsAnalyzer_MarkerGeneQuality_Tests
             $"Seqeron.Genomics.Metagenomics.Resources.{resourceFile}")!;
         using var sr = new System.IO.StreamReader(stream);
         return sr.ReadToEnd();
+    }
+
+    #endregion
+
+    #region Bundled GTDB domain-level universal marker sets (bac120 / ar122 Pfam subsets)
+
+    // B-SETSIZE — the bundled bac120 Pfam subset is exactly the 6 CC0 Pfam markers of GTDB bac120
+    // (PF00380, PF00410, PF00466, PF01025, PF02576, PF03726); GA1-gated; one singleton set each.
+    [Test]
+    public void LoadBundledBacterialMarkerHmms_LoadsSixBac120PfamMarkers()
+    {
+        var hmms = MetagenomicsAnalyzer.LoadBundledBacterialMarkerHmms();
+        var sets = MetagenomicsAnalyzer.BundledBacterialMarkerSets();
+
+        var expected = new[] { "PF00380", "PF00410", "PF00466", "PF01025", "PF02576", "PF03726" };
+        Assert.Multiple(() =>
+        {
+            Assert.That(hmms.Select(m => m.MarkerId), Is.EquivalentTo(expected),
+                "Bundled bac120 Pfam subset = the 6 CC0 Pfam markers of GTDB bac120.");
+            Assert.That(sets, Has.Count.EqualTo(6), "One singleton collocated set per bac120 Pfam marker.");
+            // PF01025 (GrpE) GA1 = 25.8 bits, LENG = 165 (from the embedded HMM).
+            var grpe = hmms.Single(m => m.MarkerId == "PF01025");
+            Assert.That(grpe.BitScoreThreshold, Is.EqualTo(25.8).Within(1e-9),
+                "PF01025 uses its Pfam GA1 gathering threshold (25.8 bits).");
+            Assert.That(grpe.Hmm.Length, Is.EqualTo(165), "PF01025 LENG = 165 match states.");
+        });
+    }
+
+    // A-SETSIZE — the bundled ar122 Pfam subset is exactly the 35 CC0 Pfam markers of GTDB ar122.
+    [Test]
+    public void LoadBundledArchaealMarkerHmms_LoadsThirtyFiveAr122PfamMarkers()
+    {
+        var hmms = MetagenomicsAnalyzer.LoadBundledArchaealMarkerHmms();
+        var sets = MetagenomicsAnalyzer.BundledArchaealMarkerSets();
+
+        var expected = new[]
+        {
+            "PF00368", "PF00410", "PF00466", "PF00687", "PF00827", "PF00900", "PF01000", "PF01015",
+            "PF01090", "PF01092", "PF01157", "PF01191", "PF01194", "PF01198", "PF01200", "PF01269",
+            "PF01280", "PF01282", "PF01496", "PF01655", "PF01798", "PF01864", "PF01866", "PF01868",
+            "PF01984", "PF01990", "PF02006", "PF02978", "PF03874", "PF04019", "PF04104", "PF04919",
+            "PF07541", "PF13656", "PF13685",
+        };
+        Assert.Multiple(() =>
+        {
+            Assert.That(hmms.Select(m => m.MarkerId), Is.EquivalentTo(expected),
+                "Bundled ar122 Pfam subset = the 35 CC0 Pfam markers of GTDB ar122.");
+            Assert.That(sets, Has.Count.EqualTo(35), "One singleton collocated set per ar122 Pfam marker.");
+            // PF00410 (Ribosomal_S8) GA1 = 24 bits, LENG = 125 (shared universal family).
+            var s8 = hmms.Single(m => m.MarkerId == "PF00410");
+            Assert.That(s8.BitScoreThreshold, Is.EqualTo(24.0).Within(1e-9),
+                "PF00410 uses its Pfam GA1 gathering threshold (24 bits).");
+        });
+    }
+
+    // B-TRUEPOSITIVE — the bundled bac120 PF01025 (GrpE) HMM detects E. coli GrpE, and NO other
+    // bundled bac120 Pfam family does (specificity). Real-marker detection via the Plan7 engine.
+    [Test]
+    public void DetectMarkers_EcoliGrpE_HitsOnlyPF01025InBac120()
+    {
+        var hmms = MetagenomicsAnalyzer.LoadBundledBacterialMarkerHmms();
+
+        var counts = MetagenomicsAnalyzer.DetectMarkers(new[] { EcoliGrpE }, hmms);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(counts["PF01025"], Is.EqualTo(1),
+                "E. coli GrpE is the true positive for the GrpE family (PF01025) ⇒ exactly 1 hit.");
+            foreach (var marker in hmms.Where(m => m.MarkerId != "PF01025"))
+                Assert.That(counts[marker.MarkerId], Is.EqualTo(0),
+                    $"GrpE must NOT match a different bac120 Pfam family ({marker.MarkerId}).");
+        });
+    }
+
+    // B-COMPLETENESS — end-to-end over the 6 bac120 Pfam singleton sets, only PF01025 present
+    // ⇒ exactly 1 of 6 sets recovered ⇒ Completeness = 100/6 %, Contamination = 0.
+    [Test]
+    public void EstimateBinQualityFromMarkers_BacterialBinWithOnlyGrpE_CompletenessIsOneOfSix()
+    {
+        var hmms = MetagenomicsAnalyzer.LoadBundledBacterialMarkerHmms();
+        var sets = MetagenomicsAnalyzer.BundledBacterialMarkerSets();
+
+        var q = MetagenomicsAnalyzer.EstimateBinQualityFromMarkers(new[] { EcoliGrpE }, sets, hmms);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(q.MarkerSetCount, Is.EqualTo(6), "Six bundled bac120 Pfam singleton sets.");
+            Assert.That(q.Completeness, Is.EqualTo(100.0 / 6.0).Within(1e-10),
+                "Only PF01025 present (1 of 6 singleton sets) ⇒ Completeness = 100/6 % per CheckM Eq.1.");
+            Assert.That(q.Contamination, Is.EqualTo(0.0).Within(1e-10),
+                "Single copy of the one detected marker ⇒ 0% contamination.");
+            Assert.That(q.MarkersPresent, Is.EqualTo(1), "Exactly one bundled bac120 marker detected.");
+        });
+    }
+
+    // A-TRUEPOSITIVE — E. coli uS8 hits the universal PF00410 in the archaeal set too (PF00410 is a
+    // universal S8 family shared by bac120 and ar122). End-to-end completeness = 1 of 35 sets.
+    [Test]
+    public void EstimateBinQualityFromMarkers_ArchaealBinWithUniversaluS8_CompletenessIsOneOf35()
+    {
+        var hmms = MetagenomicsAnalyzer.LoadBundledArchaealMarkerHmms();
+        var sets = MetagenomicsAnalyzer.BundledArchaealMarkerSets();
+
+        var q = MetagenomicsAnalyzer.EstimateBinQualityFromMarkers(new[] { EcoliRpsH_uS8 }, sets, hmms);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(q.MarkerSetCount, Is.EqualTo(35), "Thirty-five bundled ar122 Pfam singleton sets.");
+            Assert.That(q.Completeness, Is.EqualTo(100.0 / 35.0).Within(1e-10),
+                "Only the universal PF00410 present (1 of 35 singleton sets) ⇒ Completeness = 100/35 %.");
+            Assert.That(q.Contamination, Is.EqualTo(0.0).Within(1e-10),
+                "Single copy of the one detected marker ⇒ 0% contamination.");
+            Assert.That(q.MarkersPresent, Is.EqualTo(1), "Exactly one bundled ar122 marker detected.");
+        });
+    }
+
+    // B-DEFAULTS-UNCHANGED — the original 9-ribosomal accessor is untouched and disjoint in count
+    // from the new domain sets (regression guard: existing API + defaults preserved).
+    [Test]
+    public void BundledMarkerSets_DomainSetsAreAdditive_RibosomalSetUnchanged()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(MetagenomicsAnalyzer.LoadBundledRibosomalMarkerHmms(), Has.Count.EqualTo(9),
+                "The original 9-marker ribosomal set is unchanged (additive opt-in expansion).");
+            Assert.That(MetagenomicsAnalyzer.BundledRibosomalMarkerSets(), Has.Count.EqualTo(9),
+                "The original 9 ribosomal singleton sets are unchanged.");
+        });
     }
 
     #endregion
