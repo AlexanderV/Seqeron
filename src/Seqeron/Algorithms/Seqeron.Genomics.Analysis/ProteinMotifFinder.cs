@@ -1542,5 +1542,88 @@ public static class ProteinMotifFinder
         return (bits, eValue);
     }
 
+    /// <summary>
+    /// One automatically-decomposed Pfam domain hit of a multi-domain protein: the family, its
+    /// posterior-defined envelope, and its null2-corrected per-domain bit score / independent E-value.
+    /// </summary>
+    /// <param name="Name">Domain family name (e.g. "WD40").</param>
+    /// <param name="Accession">Pfam accession (e.g. "PF00400").</param>
+    /// <param name="EnvelopeStart">1-based inclusive envelope start (HMMER <c>env from</c>).</param>
+    /// <param name="EnvelopeEnd">1-based inclusive envelope end (HMMER <c>env to</c>).</param>
+    /// <param name="BitScore">Null2-corrected per-domain bit score (HMMER per-domain <c>score</c>).</param>
+    /// <param name="BiasBits">Per-domain null2 biased-composition correction in bits (HMMER <c>bias</c>).</param>
+    /// <param name="IndependentEValue">Independent E-value <c>i-Evalue = Z·exp(lnP)</c> (HMMER <c>i-Evalue</c>).</param>
+    /// <param name="Description">Domain description.</param>
+    public readonly record struct DomainEnvelopeHit(
+        string Name,
+        string Accession,
+        int EnvelopeStart,
+        int EnvelopeEnd,
+        double BitScore,
+        double BiasBits,
+        double IndependentEValue,
+        string Description);
+
+    /// <summary>
+    /// Decomposes a protein into individual SH3/PDZ/WD40 domains by HMMER's automatic
+    /// <c>hmmsearch</c> domain/envelope decomposition (<c>p7_domaindef</c>): posterior region
+    /// identification + per-envelope null2-corrected scoring. A multi-domain target (e.g. a multi-WD40
+    /// β-propeller) is automatically split into one hit per domain, each with its own envelope and score.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is an <b>opt-in</b> path, independent of <see cref="FindDomains"/>,
+    /// <see cref="FindDomainsByHmm(string, double)"/> and <see cref="FindDomainHitsByHmm"/>, all of
+    /// which are unchanged. Each bundled profile is scored against the whole sequence; every envelope
+    /// whose per-domain bit score is at least <paramref name="minBitScore"/> is reported as a separate
+    /// <see cref="DomainEnvelopeHit"/>. See <see cref="Plan7ProfileHmm.FindDomains"/> for the algorithm
+    /// and the stochastic-clustering residual for closely-overlapping domains.
+    /// </para>
+    /// </remarks>
+    /// <param name="proteinSequence">Amino-acid sequence.</param>
+    /// <param name="minBitScore">Minimum per-domain bit score to report an envelope. Default 10 bits.</param>
+    /// <returns>The per-domain envelope hits across all bundled families, in ascending start order.</returns>
+    public static IReadOnlyList<DomainEnvelopeHit> FindDomainEnvelopes(
+        string proteinSequence, double minBitScore = DefaultHmmMinBitScore)
+    {
+        var hits = new List<DomainEnvelopeHit>();
+        if (string.IsNullOrEmpty(proteinSequence))
+            return hits;
+
+        var hmms = LazyBundledHmms.Value;
+        for (int p = 0; p < BundledProfiles.Length; p++)
+        {
+            var meta = BundledProfiles[p];
+            foreach (var env in hmms[p].FindDomains(proteinSequence))
+            {
+                if (env.BitScore < minBitScore) continue;
+                hits.Add(new DomainEnvelopeHit(meta.Name, meta.Accession,
+                    env.EnvelopeStart, env.EnvelopeEnd, env.BitScore, env.BiasBits,
+                    env.IndependentEValue, meta.Description));
+            }
+        }
+
+        hits.Sort((a, b) => a.EnvelopeStart.CompareTo(b.EnvelopeStart));
+        return hits;
+    }
+
+    /// <summary>
+    /// Decomposes a protein into individual domains against one named bundled Pfam profile HMM
+    /// (HMMER <c>hmmsearch</c> domain/envelope decomposition; <see cref="FindDomainEnvelopes"/>).
+    /// </summary>
+    /// <param name="proteinSequence">Amino-acid sequence.</param>
+    /// <param name="accession">Pfam accession: "PF00018" (SH3), "PF00595" (PDZ) or "PF00400" (WD40).</param>
+    /// <returns>The per-domain envelopes for that family, in ascending sequence order.</returns>
+    public static IReadOnlyList<Plan7ProfileHmm.DomainEnvelope> FindDomainEnvelopes(
+        string proteinSequence, string accession)
+    {
+        ArgumentNullException.ThrowIfNull(proteinSequence);
+        ArgumentNullException.ThrowIfNull(accession);
+        int idx = Array.FindIndex(BundledProfiles, p => p.Accession == accession);
+        if (idx < 0)
+            throw new ArgumentException($"Unknown bundled Pfam profile: '{accession}'.", nameof(accession));
+        return LazyBundledHmms.Value[idx].FindDomains(proteinSequence);
+    }
+
     #endregion
 }

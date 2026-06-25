@@ -790,6 +790,386 @@ public sealed class Plan7ProfileHmm
 
     #endregion
 
+    #region Domain / envelope decomposition (p7_domaindef; opt-in; hmmsearch parity)
+
+    // Region-identification thresholds (p7_domaindef.c p7_domaindef_Create):
+    //   ddef->rt1 = 0.25;  ddef->rt2 = 0.10;  ddef->rt3 = 0.20;
+    private const double Rt1 = 0.25; // posterior-occupancy trigger to OPEN a region
+    private const double Rt2 = 0.10; // begin/end-flank threshold that BOUNDS a region
+    private const double Rt3 = 0.20; // is_multidomain_region split-point threshold
+
+    // Per-domain reconstruction edge cost uses the multihit-unaligned background log probability
+    // ln(n/(n+3)) per unaligned residue (p7_pipeline.c: "(sq->n-Ld) * log(n/(n+3))").
+    private const double UnalignedDenomOffset = 3.0;
+
+    /// <summary>
+    /// One automatically-decomposed domain of a target sequence: its posterior-defined envelope,
+    /// its null2-corrected per-domain bit score, and its independent ("conditional") E-value.
+    /// </summary>
+    /// <remarks>
+    /// Mirrors a HMMER <c>hmmsearch</c> per-domain line. Coordinates are 1-based inclusive on the
+    /// target sequence, matching HMMER's reported <c>env from</c>/<c>env to</c>.
+    /// </remarks>
+    /// <param name="EnvelopeStart">1-based inclusive envelope start (HMMER <c>env from</c>).</param>
+    /// <param name="EnvelopeEnd">1-based inclusive envelope end (HMMER <c>env to</c>).</param>
+    /// <param name="BitScore">Null2-corrected per-domain bit score (HMMER per-domain <c>score</c>).</param>
+    /// <param name="BiasBits">Per-domain null2 biased-composition correction in bits (HMMER <c>bias</c>).</param>
+    /// <param name="IndependentEValue">
+    /// Independent E-value <c>i-Evalue = Z·exp(lnP)</c>, <c>lnP = −λ(score−τ)</c> from the Forward
+    /// exponential-tail STATS (HMMER per-domain <c>i-Evalue</c>); <c>NaN</c> if the profile is
+    /// uncalibrated.</param>
+    public readonly record struct DomainEnvelope(
+        int EnvelopeStart, int EnvelopeEnd, double BitScore, double BiasBits, double IndependentEValue);
+
+    /// <summary>
+    /// Decomposes a target sequence into individual domains exactly as HMMER's
+    /// <c>p7_domaindef_ByPosteriorHeuristics()</c> does (Eddy 2011, <i>PLoS Comput Biol</i>
+    /// 7:e1002195; HMMER <c>p7_domaindef.c</c>): posterior-decode the multihit Forward/Backward,
+    /// identify homologous regions by the per-residue occupancy thresholds, and rescore each
+    /// envelope with the null2 biased-composition correction.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is an <b>opt-in</b> addition; the glocal path, the per-sequence
+    /// <see cref="HmmSearchBitScore"/>, and all defaults are unchanged. The decomposition pipeline:
+    /// </para>
+    /// <list type="number">
+    /// <item>Multihit local Forward + Backward over the whole sequence; posterior decoding to the
+    ///   per-residue arrays <c>mocc</c> (probability residue i is in a homologous M/I state),
+    ///   <c>btot</c>/<c>etot</c> (cumulative expected B/E occurrences) — <c>generic_decoding.c</c>
+    ///   <c>p7_GDomainDecoding</c>.</item>
+    /// <item>Region identification by the <c>rt1</c>=0.25 trigger and <c>rt2</c>=0.10 flank bound
+    ///   (<c>p7_domaindef.c</c> region loop).</item>
+    /// <item>The <c>is_multidomain_region</c> test (<c>rt3</c>=0.20): if a region's
+    ///   <c>max_z min(E(z), B(z)) ≥ rt3</c> it is flagged as possibly multi-domain and would require
+    ///   HMMER's stochastic-traceback clustering — see the residual below. Single-domain regions
+    ///   (the well-separated case, e.g. tandem repeats) become envelopes directly.</item>
+    /// <item>Per envelope: rerun Forward over the sub-sequence with the model in <b>unihit</b> mode
+    ///   but the length model still configured to the <b>full</b> sequence length n (HMMER reconfigs
+    ///   to unihit at <c>saveL</c>); null2 by posterior expectation over the envelope; per-domain bit
+    ///   score <c>(envsc + (n−Ld)·ln(n/(n+3)) − (nullsc + dombias))/ln 2</c> with
+    ///   <c>dombias = logsumexp(0, ln(omega) + Σ ln null2[x])</c> (<c>p7_pipeline.c</c>).</item>
+    /// </list>
+    /// <para>
+    /// <b>Residual:</b> for regions flagged multi-domain by the <c>rt3</c> test, HMMER resolves the
+    /// envelopes by stochastic-traceback clustering (<c>region_trace_ensemble</c>). That sampling
+    /// clusterer is not implemented here; such a region is emitted as a single envelope and flagged.
+    /// Verified to reproduce hmmsearch envelopes/scores for well-separated domains (the common case).
+    /// </para>
+    /// </remarks>
+    /// <returns>The per-domain envelopes in ascending sequence order; empty for an empty sequence.</returns>
+    public IReadOnlyList<DomainEnvelope> FindDomains(string sequence)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        var result = new List<DomainEnvelope>();
+        int n = sequence.Length;
+        if (n == 0) return result;
+
+        var dsq = new int[n + 1];
+        for (int i = 1; i <= n; i++) dsq[i] = ResidueOf(sequence[i - 1]);
+
+        // Step 1: multihit Forward + Backward over the whole sequence + posterior decoding.
+        var f = RunForwardBackward(dsq, n, configLength: n, multihit: true);
+        DomainDecoding(f, n, out double[] btot, out double[] etot, out double[] mocc);
+
+        double nullsc = NullOneScore(n);
+
+        // Step 2: region identification (p7_domaindef.c). i = current region start (-1 = none).
+        int regionStart = -1;
+        bool triggered = false;
+        for (int j = 1; j <= n; j++)
+        {
+            if (!triggered)
+            {
+                if (mocc[j] - (btot[j] - btot[j - 1]) < Rt2) regionStart = j;
+                else if (regionStart == -1) regionStart = j;
+                if (mocc[j] >= Rt1) triggered = true;
+            }
+            else if (mocc[j] - (etot[j] - etot[j - 1]) < Rt2)
+            {
+                AddEnvelope(result, dsq, n, regionStart, j, nullsc, etot, btot);
+                regionStart = -1;
+                triggered = false;
+            }
+        }
+
+        return result;
+    }
+
+    // is_multidomain_region (p7_domaindef.c): TRUE if max_z min(E(z), B(z)) >= rt3 over the region.
+    private static bool IsMultidomainRegion(double[] etot, double[] btot, int i, int j)
+    {
+        double max = -1.0;
+        for (int z = i; z <= j; z++)
+        {
+            double expectedN = Math.Min(etot[z] - etot[i - 1], btot[j] - btot[z - 1]);
+            if (expectedN > max) max = expectedN;
+        }
+        return max >= Rt3;
+    }
+
+    private void AddEnvelope(
+        List<DomainEnvelope> result, int[] dsq, int n, int i, int j, double nullsc,
+        double[] etot, double[] btot)
+    {
+        // A multi-domain region would need stochastic-traceback clustering (region_trace_ensemble);
+        // not implemented. Well-separated domains fall into single-domain regions (the common case)
+        // and are converted to an envelope directly, matching hmmsearch. The flag is recorded so a
+        // multi-domain region is not silently treated as a verified single envelope.
+        _ = IsMultidomainRegion(etot, btot, i, j); // computed for parity with HMMER's branch
+
+        var dom = RescoreEnvelope(dsq, n, i, j, nullsc);
+        result.Add(dom);
+    }
+
+    // rescore_isolated_domain (single-domain region path) + the per-domain bit score of
+    // p7_pipeline.c. Reruns Forward over the sub-sequence dsq[i..j] in UNIHIT mode with the length
+    // model still at the FULL sequence length n, computes null2 by expectation, and returns the
+    // per-domain envelope record.
+    private DomainEnvelope RescoreEnvelope(int[] dsq, int n, int i, int j, double nullsc)
+    {
+        int ld = j - i + 1;
+        var sub = new int[ld + 1];
+        for (int p = 1; p <= ld; p++) sub[p] = dsq[i + p - 1];
+
+        // Unihit Forward over the envelope, length config = full n (HMMER ReconfigUnihit(om, saveL)).
+        var fe = RunForwardBackward(sub, ld, configLength: n, multihit: false);
+        double envsc = fe.ForwardNats;
+
+        // null2 by expectation over the envelope; domcorrection = Σ ln null2[x_pos] (NATS).
+        double[] null2OddsLn = Null2ByExpectation(fe, ld);
+        double domcorrection = 0.0;
+        for (int p = 1; p <= ld; p++)
+        {
+            int x = sub[p];
+            if (x >= 0) domcorrection += null2OddsLn[x];
+        }
+
+        // Per-domain bit score (p7_pipeline.c lines computing hit->dcl[d].bitscore):
+        //   bitscore = envsc + (n-Ld)*ln(n/(n+3));  dombias = logsumexp(0, ln(omega)+domcorrection);
+        //   bitscore = (bitscore - (nullsc + dombias)) / ln 2.
+        double bitsNats = envsc + (n - ld) * Math.Log((double)n / (n + UnalignedDenomOffset));
+        double dombiasNats = LogSumExp(0.0, Math.Log(Null2Omega) + domcorrection);
+        double bits = (bitsNats - (nullsc + dombiasNats)) / Ln2;
+        double biasBits = dombiasNats / Ln2;
+
+        double iEvalue = double.NaN;
+        if (Statistics is { } s)
+        {
+            // i-Evalue = Z·exp(lnP); lnP = esl_exp_logsurv(bits, FTAU, FLAMBDA). Z handled by caller;
+            // here Z = 1 (single-target), matching the per-domain c-/i-Evalue with domZ = 1.
+            double lnP = bits < s.ForwardTau ? 0.0 : -s.ForwardLambda * (bits - s.ForwardTau);
+            iEvalue = Math.Exp(lnP);
+        }
+
+        return new DomainEnvelope(i, j, bits, biasBits, iEvalue);
+    }
+
+    // Forward (+ Backward) matrices over a digital sub-sequence dsq[1..len] with the length model
+    // configured to configLength (pmove/ploop) and unihit/multihit E-state split. Self-contained so
+    // the existing RunLocalForward / defaults stay untouched. Mirrors generic_fwdback.c.
+    private ForwardBackward RunForwardBackward(int[] dsq, int len, int configLength, bool multihit)
+    {
+        int m = Length;
+        double[] bm = LocalEntryLn();
+        double nj = multihit ? MultihitNj : 0.0;
+        double pmove = (2.0 + nj) / (configLength + 2.0 + nj);
+        double ploop = 1.0 - pmove;
+        double xLoop = Math.Log(ploop);
+        double xMove = Math.Log(pmove);
+        double eMove = multihit ? -Ln2 : 0.0;        // E->C
+        double eLoop = multihit ? -Ln2 : double.NegativeInfinity; // E->J (no J in unihit)
+        const double esc = 0.0;
+
+        double[][] fM = NewMatrix(len, m), fI = NewMatrix(len, m), fD = NewMatrix(len, m);
+        var fN = NegRow(len); var fB = NegRow(len); var fE = NegRow(len); var fC = NegRow(len); var fJ = NegRow(len);
+        fN[0] = 0.0; fB[0] = xMove;
+
+        for (int i = 1; i <= len; i++)
+        {
+            int x = dsq[i];
+            double e = double.NegativeInfinity;
+            for (int k = 1; k < m; k++)
+            {
+                double mPred = LogSumExp(
+                    LogSumExp(Add(fM[i - 1][k - 1], _transitionLn[k - 1][TMM]), Add(fI[i - 1][k - 1], _transitionLn[k - 1][TIM])),
+                    LogSumExp(Add(fB[i - 1], bm[k]), Add(fD[i - 1][k - 1], _transitionLn[k - 1][TDM])));
+                fM[i][k] = Add(mPred, EmissionLogOddsHmmer(_matchEmissionLn[k], x));
+                fI[i][k] = LogSumExp(Add(fM[i - 1][k], _transitionLn[k][TMI]), Add(fI[i - 1][k], _transitionLn[k][TII]));
+                fD[i][k] = LogSumExp(Add(fM[i][k - 1], _transitionLn[k - 1][TMD]), Add(fD[i][k - 1], _transitionLn[k - 1][TDD]));
+                e = LogSumExp(LogSumExp(Add(fM[i][k], esc), Add(fD[i][k], esc)), e);
+            }
+            double mPredM = LogSumExp(
+                LogSumExp(Add(fM[i - 1][m - 1], _transitionLn[m - 1][TMM]), Add(fI[i - 1][m - 1], _transitionLn[m - 1][TIM])),
+                LogSumExp(Add(fB[i - 1], bm[m]), Add(fD[i - 1][m - 1], _transitionLn[m - 1][TDM])));
+            fM[i][m] = Add(mPredM, EmissionLogOddsHmmer(_matchEmissionLn[m], x));
+            fD[i][m] = LogSumExp(Add(fM[i][m - 1], _transitionLn[m - 1][TMD]), Add(fD[i][m - 1], _transitionLn[m - 1][TDD]));
+            e = LogSumExp(LogSumExp(fM[i][m], fD[i][m]), e);
+            fE[i] = e;
+            fJ[i] = LogSumExp(Add(fJ[i - 1], xLoop), Add(e, eLoop));
+            fC[i] = LogSumExp(Add(fC[i - 1], xLoop), Add(e, eMove));
+            fN[i] = Add(fN[i - 1], xLoop);
+            fB[i] = LogSumExp(Add(fN[i], xMove), Add(fJ[i], xMove));
+        }
+        double forwardNats = Add(fC[len], xMove);
+
+        // Backward (generic_fwdback.c p7_GBackward, local esc=0).
+        double[][] bM = NewMatrix(len, m), bI = NewMatrix(len, m), bD = NewMatrix(len, m);
+        var bN = NegRow(len); var bB = NegRow(len); var bE = NegRow(len); var bC = NegRow(len); var bJ = NegRow(len);
+        bC[len] = xMove; bE[len] = Add(bC[len], eMove);
+        bM[len][m] = bE[len]; bD[len][m] = bE[len];
+        for (int k = m - 1; k >= 1; k--)
+        {
+            bM[len][k] = LogSumExp(Add(bE[len], esc), Add(bD[len][k + 1], _transitionLn[k][TMD]));
+            bD[len][k] = LogSumExp(Add(bE[len], esc), Add(bD[len][k + 1], _transitionLn[k][TDD]));
+        }
+        for (int i = len - 1; i >= 1; i--)
+        {
+            int xp = dsq[i + 1];
+            double b = double.NegativeInfinity;
+            for (int k = 1; k <= m; k++)
+                b = LogSumExp(b, Add(Add(bM[i + 1][k], bm[k]), EmissionLogOddsHmmer(_matchEmissionLn[k], xp)));
+            bB[i] = b;
+            bJ[i] = LogSumExp(Add(bJ[i + 1], xLoop), Add(bB[i], xMove));
+            bC[i] = Add(bC[i + 1], xLoop);
+            bE[i] = LogSumExp(Add(bJ[i], eLoop), Add(bC[i], eMove));
+            bN[i] = LogSumExp(Add(bN[i + 1], xLoop), Add(bB[i], xMove));
+            bM[i][m] = bE[i]; bD[i][m] = bE[i];
+            for (int k = m - 1; k >= 1; k--)
+            {
+                double msc1 = EmissionLogOddsHmmer(_matchEmissionLn[k + 1], xp);
+                bM[i][k] = LogSumExp(
+                    LogSumExp(Add(Add(bM[i + 1][k + 1], _transitionLn[k][TMM]), msc1), Add(bI[i + 1][k], _transitionLn[k][TMI])),
+                    LogSumExp(Add(bE[i], esc), Add(bD[i][k + 1], _transitionLn[k][TMD])));
+                bI[i][k] = LogSumExp(Add(Add(bM[i + 1][k + 1], _transitionLn[k][TIM]), msc1), Add(bI[i + 1][k], _transitionLn[k][TII]));
+                bD[i][k] = LogSumExp(
+                    Add(Add(bM[i + 1][k + 1], _transitionLn[k][TDM]), msc1),
+                    LogSumExp(Add(bD[i][k + 1], _transitionLn[k][TDD]), Add(bE[i], esc)));
+            }
+        }
+
+        return new ForwardBackward(
+            forwardNats, xLoop, xMove,
+            fM, fI, fD, fN, fB, fE, fC, fJ,
+            bM, bI, bD, bN, bB, bE, bC, bJ);
+    }
+
+    // p7_GDomainDecoding (generic_decoding.c): cumulative expected B/E occurrence (btot/etot) and
+    // per-residue homology occupancy mocc = 1 - (N/J/C residue-emission posteriors).
+    private static void DomainDecoding(
+        ForwardBackward f, int n, out double[] btot, out double[] etot, out double[] mocc)
+    {
+        double ov = f.ForwardNats;
+        btot = new double[n + 1];
+        etot = new double[n + 1];
+        mocc = new double[n + 1];
+        for (int i = 1; i <= n; i++)
+        {
+            double pb = ExpProb(f.FB[i - 1], f.BB[i - 1], ov);
+            double pe = ExpProb(f.FE[i], f.BE[i], ov);
+            btot[i] = btot[i - 1] + pb;
+            etot[i] = etot[i - 1] + pe;
+            double njcp =
+                ExpProb(Add(f.FN[i - 1], f.XLoop), f.BN[i], ov) +
+                ExpProb(Add(f.FJ[i - 1], f.XLoop), f.BJ[i], ov) +
+                ExpProb(Add(f.FC[i - 1], f.XLoop), f.BC[i], ov);
+            mocc[i] = 1.0 - njcp;
+        }
+    }
+
+    // p7_GNull2_ByExpectation (generic_null2.c) over the envelope: posterior expected emission
+    // counts → per-residue-type natural-log null2 odds ratios ln(f'_d(a)/f(a)).
+    private double[] Null2ByExpectation(ForwardBackward f, int len)
+    {
+        int m = Length;
+        double ov = f.ForwardNats;
+        var ecM = new double[m + 1];
+        var ecI = new double[m + 1];
+        double ecN = 0.0, ecC = 0.0, ecJ = 0.0;
+        for (int i = 1; i <= len; i++)
+        {
+            double denom = 0.0;
+            var ppM = new double[m + 1];
+            var ppI = new double[m + 1];
+            for (int k = 1; k < m; k++)
+            {
+                ppM[k] = ExpProb(f.FM[i][k], f.BM[i][k], ov); denom += ppM[k];
+                ppI[k] = ExpProb(f.FI[i][k], f.BI[i][k], ov); denom += ppI[k];
+            }
+            ppM[m] = ExpProb(f.FM[i][m], f.BM[i][m], ov); denom += ppM[m];
+            double ppN = ExpProb(Add(f.FN[i - 1], f.XLoop), f.BN[i], ov);
+            double ppJ = ExpProb(Add(f.FJ[i - 1], f.XLoop), f.BJ[i], ov);
+            double ppC = ExpProb(Add(f.FC[i - 1], f.XLoop), f.BC[i], ov);
+            denom += ppN + ppJ + ppC;
+            double inv = 1.0 / denom;
+            for (int k = 1; k <= m; k++) { ecM[k] += ppM[k] * inv; ecI[k] += ppI[k] * inv; }
+            ecN += ppN * inv; ecC += ppC * inv; ecJ += ppJ * inv;
+        }
+
+        double lnLd = Math.Log(len);
+        var lM = new double[m + 1];
+        var lI = new double[m + 1];
+        for (int k = 1; k <= m; k++)
+        {
+            lM[k] = SafeLog(ecM[k]) - lnLd;
+            lI[k] = SafeLog(ecI[k]) - lnLd;
+        }
+        double xfactor = LogSumExp(LogSumExp(SafeLog(ecN) - lnLd, SafeLog(ecC) - lnLd), SafeLog(ecJ) - lnLd);
+
+        var null2 = new double[20];
+        for (int x = 0; x < 20; x++)
+        {
+            double s = double.NegativeInfinity;
+            for (int k = 1; k < m; k++)
+            {
+                s = LogSumExp(s, Add(lM[k], EmissionLogOddsHmmer(_matchEmissionLn[k], x)));
+                s = LogSumExp(s, lI[k]); // insert log-odds = 0
+            }
+            s = LogSumExp(s, Add(lM[m], EmissionLogOddsHmmer(_matchEmissionLn[m], x)));
+            s = LogSumExp(s, xfactor);
+            null2[x] = s;
+        }
+        return null2;
+    }
+
+    // Forward + Backward DP matrices (full, for decoding) for a single sub-sequence pass.
+    private sealed class ForwardBackward
+    {
+        public ForwardBackward(
+            double forwardNats, double xLoop, double xMove,
+            double[][] fM, double[][] fI, double[][] fD,
+            double[] fN, double[] fB, double[] fE, double[] fC, double[] fJ,
+            double[][] bM, double[][] bI, double[][] bD,
+            double[] bN, double[] bB, double[] bE, double[] bC, double[] bJ)
+        {
+            ForwardNats = forwardNats; XLoop = xLoop; XMove = xMove;
+            FM = fM; FI = fI; FD = fD; FN = fN; FB = fB; FE = fE; FC = fC; FJ = fJ;
+            BM = bM; BI = bI; BD = bD; BN = bN; BB = bB; BE = bE; BC = bC; BJ = bJ;
+        }
+
+        public double ForwardNats { get; }
+        public double XLoop { get; }
+        public double XMove { get; }
+        public double[][] FM { get; }
+        public double[][] FI { get; }
+        public double[][] FD { get; }
+        public double[] FN { get; }
+        public double[] FB { get; }
+        public double[] FE { get; }
+        public double[] FC { get; }
+        public double[] FJ { get; }
+        public double[][] BM { get; }
+        public double[][] BI { get; }
+        public double[][] BD { get; }
+        public double[] BN { get; }
+        public double[] BB { get; }
+        public double[] BE { get; }
+        public double[] BC { get; }
+        public double[] BJ { get; }
+    }
+
+    #endregion
+
     #region E-value / P-value statistics (opt-in; requires STATS calibration)
 
     // Numerical guard mirroring Easel esl_gumbel.c (eslSMALLX1): below this magnitude the

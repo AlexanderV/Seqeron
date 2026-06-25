@@ -367,3 +367,75 @@ Canonical file: `tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindDom
 | H18i | LocalForwardScore_NullOrEmpty_GuardsCorrectly; HmmSearchBitScore_Sh3TruePositive_IsHighlyPositive | ✅ |
 
 Full unfiltered suite green (all projects Failed: 0). Work Queue Remaining = 0.
+
+---
+
+## Addendum 2026-06-25 — HMMER multi-domain envelope decomposition (p7_domaindef, opt-in)
+
+This addendum adds HMMER's automatic per-target **domain/envelope decomposition** as an opt-in
+extension. Existing methods + defaults unchanged. Evidence: the same Evidence file's
+"Addendum 2026-06-25 — HMMER multi-domain envelope decomposition (p7_domaindef)".
+
+### D.1 Evidence summary
+
+`p7_domaindef.c` region identification (`rt1=0.25`, `rt2=0.10`), `is_multidomain_region` (`rt3=0.20`),
+`rescore_isolated_domain` (unihit Forward over the envelope at full length n + null2 by expectation);
+`generic_decoding.c` `p7_GDomainDecoding` (`btot`/`etot`/`mocc`); `p7_pipeline.c` per-domain bit
+score `(envsc + (n−Ld)·ln(n/(n+3)) − (nullsc + dombias))/ln 2`,
+`dombias = logsumexp(0, ln(1/256)+domcorrection)`, i-Evalue `= Z·exp(−λ(score−τ))`. GROUND TRUTH:
+pyhmmer 0.12.1 `hmmsearch` — GBB1_HUMAN (P62873, L=340) vs PF00400 → **7** domains; SRC_HUMAN SH3
+(P12931, L=55) vs PF00018 → **1** domain.
+
+### D.2 Canonical methods under test
+
+- `Plan7ProfileHmm.FindDomains(string)` → `IReadOnlyList<DomainEnvelope>` (envelope coords + score + bias + i-Evalue).
+- `ProteinMotifFinder.FindDomainEnvelopes(string[, minBitScore])` / `FindDomainEnvelopes(string, accession)`.
+
+### D.3 Invariants
+
+- INV-HMM-09: domain count and per-envelope `EnvelopeStart`/`EnvelopeEnd` reproduce hmmsearch
+  (well-separated domains).
+- INV-HMM-10: per-domain `BitScore` reproduces hmmsearch's per-domain score to single precision
+  (~1e-2 bits, float32 vs float64); `IndependentEValue` to a 5% band.
+- INV-HMM-11: a single well-resolved domain → exactly one envelope; its score ≈ the per-sequence
+  `HmmSearchBitScore`.
+
+### D.4 MUST cases
+
+| ID | Scenario | Input | Expected (Evidence) | Source |
+|----|----------|-------|---------------------|--------|
+| H19a | Domain count (multi) | GBB1 vs PF00400 | `FindDomains` count = 7 | pyhmmer 0.12.1 hmmsearch |
+| H19b | Envelope coords | GBB1 vs PF00400 | env = {45-83,87-125,133-170,174-212,216-254,259-298,303-340} exactly | pyhmmer 0.12.1 |
+| H19c | Per-domain scores | GBB1 vs PF00400 | {31.139467,19.004278,25.053679,35.552242,40.454269,23.443121,27.824228} (Within 1e-2) | pyhmmer 0.12.1 |
+| H19d | Per-domain i-Evalues | GBB1 vs PF00400 | {1.21e-11,8.41e-08,1.02e-09,4.85e-13,1.36e-14,3.31e-09,1.36e-10} (Within 5%) | pyhmmer 0.12.1 |
+| H19e | Single domain | SH3 core vs PF00018 | 1 envelope, env 3-50, score 68.540695 (Within 1e-2), i-Evalue 1.4529e-23 (Within 5%) | pyhmmer 0.12.1 |
+| H19f | Wrapper ordering | GBB1 via FindDomainEnvelopes | 7 WD40 hits, ascending start, family "WD40" | derived |
+| H19g | Empty | "" | no envelopes (both APIs) | contract |
+| H19h | Null | null | ArgumentNullException | contract |
+| H19i | Unknown accession | (seq, "PF99999") | ArgumentException | only 3 bundled |
+| H19j | Envelope vs per-seq | SH3 core | single-envelope score ≈ HmmSearchBitScore (Within 0.5) | INV-HMM-11 |
+
+### D.5 Post-implementation coverage
+
+Canonical file: `tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindDomainsByHmm_Tests.cs`
+(now 53 tests). All H19 implemented and ✅ green:
+
+| Case | Test method | Status |
+|------|-------------|--------|
+| H19a | FindDomains_Gbb1Wd40Propeller_RecoversSevenEnvelopes | ✅ |
+| H19b | FindDomains_Gbb1Wd40Propeller_EnvelopeCoordinatesMatchHmmsearch | ✅ |
+| H19c | FindDomains_Gbb1Wd40Propeller_PerDomainBitScoresMatchHmmsearch | ✅ |
+| H19d | FindDomains_Gbb1Wd40Propeller_PerDomainIEvaluesMatchHmmsearch | ✅ |
+| H19e | FindDomains_SingleSh3Domain_YieldsOneEnvelopeMatchingHmmsearch | ✅ |
+| H19f | FindDomainEnvelopes_Gbb1_ReportsSevenWd40HitsInOrder | ✅ |
+| H19g | FindDomains_EmptySequence_ReturnsNoEnvelopes | ✅ |
+| H19h | FindDomains_NullSequence_Throws | ✅ |
+| H19i | FindDomainEnvelopes_UnknownAccession_Throws | ✅ |
+| H19j | FindDomains_SingleDomainEnvelope_ScoreConsistentWithPerSequence | ✅ |
+
+### D.6 Residual
+
+Stochastic-traceback clustering (`region_trace_ensemble`) for regions the `rt3` test flags as
+closely-overlapping multi-domain is NOT implemented; such a region is emitted as a single envelope.
+Verified path = well-separated domains (tandem repeats, multi-domain propellers). Full unfiltered
+suite green. Work Queue Remaining = 0.

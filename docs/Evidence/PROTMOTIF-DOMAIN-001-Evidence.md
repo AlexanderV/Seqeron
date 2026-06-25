@@ -579,3 +579,122 @@ uses) — this is what makes the parity path's `pre_score` match hmmsearch exact
 28. HMMER p7_bg.c (omega=1/256, p7_bg_NullOne, p7_bg_SetLength p1=L/(L+1)): https://github.com/EddyRivasLab/hmmer/blob/master/src/p7_bg.c
 29. HMMER hmmer.c (p7_AminoFrequencies background): https://github.com/EddyRivasLab/hmmer/blob/master/src/hmmer.c
 30. pyhmmer 0.12.1 (HMMER3 Cython binding, ground-truth hmmsearch scores): https://pyhmmer.readthedocs.io/
+
+---
+
+## Addendum 2026-06-25 — HMMER multi-domain envelope decomposition (p7_domaindef)
+
+The Plan7 engine now performs HMMER's automatic per-target **domain/envelope decomposition** — the
+`hmmsearch`/`hmmscan` step that splits a multi-domain protein into one scored domain per envelope.
+Opt-in; all existing methods + defaults unchanged. Sources retrieved verbatim this session.
+
+### Online Source: HMMER `p7_domaindef.c` — region identification + per-domain rescore
+
+**URL fetched:** https://raw.githubusercontent.com/EddyRivasLab/hmmer/master/src/p7_domaindef.c
+**Authority rank:** 3 (reference implementation; EddyRivasLab/hmmer master, retrieved 2026-06-25)
+
+Verbatim facts extracted:
+
+1. **Thresholds (`p7_domaindef_Create`):** `ddef->rt1 = 0.25; ddef->rt2 = 0.10; ddef->rt3 = 0.20;`
+   `ddef->nsamples = 200;` `ddef->do_reseeding = TRUE;`. The example/test drivers seed the RNG with
+   `esl_randomness_CreateFast(42)` (default seed 42).
+2. **Region identification loop (`p7_domaindef_ByPosteriorHeuristics`):** for `j = 1..n`, while not
+   triggered: `if (mocc[j] - (btot[j]-btot[j-1]) < rt2) i = j; else if (i==-1) i=j;` then
+   `if (mocc[j] >= rt1) triggered = TRUE;`. Once triggered, the region closes at the first `j` with
+   `mocc[j] - (etot[j]-etot[j-1]) < rt2`, yielding region `i..j`.
+3. **`is_multidomain_region(ddef,i,j)`:** `return ( \max_z [ \min(E(z), B(z)) ] >= rt3 )` where
+   `E(z) = etot[z]-etot[i-1]` and `B(z) = btot[j]-btot[z-1]` for `z = i..j`. TRUE → resolve by
+   stochastic-traceback clustering (`region_trace_ensemble` + `p7_spensemble_Cluster`); FALSE →
+   "the region looks simple, single domain; convert the region to an envelope."
+4. **`rescore_isolated_domain` (non-longtarget):** `p7_Forward(dsq+i-1, Ld, om, …, &envsc)` then
+   `p7_Backward` + `p7_Decoding`; if null2 not already done, `p7_Null2_ByExpectation(om,ox2,null2)`
+   and `ddef->n2sc[pos] = logf(null2[dsq[pos]])` for `pos=i..j`; `domcorrection += ddef->n2sc[pos]`
+   (NATS); `dom->ienv=i; dom->jenv=j; dom->envsc=envsc; dom->domcorrection`. The model is in
+   **unihit** mode (`p7_oprofile_ReconfigUnihit(om, saveL)`) with length still `saveL` = the full
+   sequence length n.
+
+### Online Source: HMMER `generic_decoding.c` — `p7_GDomainDecoding` (btot/etot/mocc)
+
+**URL fetched:** https://raw.githubusercontent.com/EddyRivasLab/hmmer/master/src/generic_decoding.c
+**Authority rank:** 3.
+
+`overall_logp = fwd->xmx[C at L] + gm->xsc[C][MOVE]`; for `i = 1..L`:
+`btot[i] = btot[i-1] + exp(fB[i-1] + bB[i-1] - overall)`;
+`etot[i] = etot[i-1] + exp(fE[i] + bE[i] - overall)`;
+`njcp = exp(fN[i-1]+bN[i]+xsc[N][LOOP]-overall) + exp(fJ[i-1]+bJ[i]+xsc[J][LOOP]-overall) +
+exp(fC[i-1]+bC[i]+xsc[C][LOOP]-overall)`; `mocc[i] = 1 - njcp`.
+
+### Online Source: HMMER `p7_pipeline.c` — per-domain bit score + i-Evalue
+
+**URL fetched:** https://raw.githubusercontent.com/EddyRivasLab/hmmer/master/src/p7_pipeline.c
+**Authority rank:** 3.
+
+Verbatim per-domain finalisation (after domain definition):
+`Ld = jenv - ienv + 1;`
+`bitscore = envsc + (sq->n - Ld) * log((float)sq->n / (sq->n+3));` (NATS)
+`dombias  = do_null2 ? p7_FLogsum(0.0, log(bg->omega) + domcorrection) : 0.0;` (NATS)
+`bitscore = (bitscore - (nullsc + dombias)) / eslCONST_LOG2;` (BITS)
+`lnP = esl_exp_logsurv(bitscore, evparam[FTAU], evparam[FLAMBDA]);` → per-domain i-Evalue `= domZ·exp(lnP)`.
+`nullsc = p7_bg_NullOne(sq->dsq, sq->n)` over the **full** sequence (`L·ln p1 + ln(1−p1)`, `p1=L/(L+1)`).
+
+### Online Source: HMMER `modelconfig.c` — unihit/multihit + `p7_ReconfigLength`
+
+**URL fetched:** https://raw.githubusercontent.com/EddyRivasLab/hmmer/master/src/modelconfig.c
+**Authority rank:** 3.
+
+`p7_ReconfigLength`: `pmove = (2+nj)/(L+2+nj)`, `ploop = 1−pmove`, set on N/C/J LOOP/MOVE.
+`p7_ReconfigMultihit`: `xsc[E][MOVE]=xsc[E][LOOP]=−log 2; nj=1`. `p7_ReconfigUnihit`:
+`xsc[E][MOVE]=0; xsc[E][LOOP]=−inf; nj=0`. The envelope rescore uses **unihit** (`nj=0`, no J,
+E→C with log-prob 0) at full length n.
+
+### Reference tool — pyhmmer 0.12.1 multi-domain GROUND TRUTH (captured 2026-06-25)
+
+`pyhmmer.plan7.Pipeline(amino, Z=1, domZ=1, bias_filter=True).search_hmm(hmm, [seq])`. macOS arm64,
+Python 3. Two real targets vs the bundled CC0 profiles:
+
+**GBB1_HUMAN / Gβ1 (UniProt P62873, 7-bladed WD40 β-propeller, L=340) vs PF00400** —
+seq score 188.442505, ndom = **7**. Per-domain (`env_from..env_to`, score, bias, i-Evalue):
+
+| dom | env (1-based) | score (bits) | bias | i-Evalue |
+|-----|---------------|--------------|------|----------|
+| 0 | 45..83  | 31.139467 | 0.034545 | 1.2101e-11 |
+| 1 | 87..125 | 19.004278 | 0.088024 | 8.4096e-08 |
+| 2 | 133..170 | 25.053679 | 0.403497 | 1.0223e-09 |
+| 3 | 174..212 | 35.552242 | 0.136274 | 4.8501e-13 |
+| 4 | 216..254 | 40.454269 | 0.039276 | 1.3608e-14 |
+| 5 | 259..298 | 23.443121 | 0.197371 | 3.3071e-09 |
+| 6 | 303..340 | 27.824228 | 0.672585 | 1.3565e-10 |
+
+**SRC_HUMAN SH3 core (UniProt P12931, L=55) vs PF00018** — ndom = **1**: env 3..50, score
+68.540695, bias 0.025569, i-Evalue 1.4529e-23.
+
+### Independent C# parity (this engine, double precision)
+
+`Plan7ProfileHmm.FindDomains` reproduces: GBB1 → **7** envelopes with **exactly** the env bounds
+above; per-domain scores 31.139483 / 19.004292 / 25.053932 / 35.552249 / 46→40.454279 / 23.443205 /
+27.824492 — matching hmmsearch to ≈1e-3 bits (HMMER computes in float32; this engine in float64);
+i-Evalues identical to ≥3 sig figs. SH3 → **1** envelope, env 3..50, score 68.540701, i-Evalue
+1.453e-23. Re-derived from scratch in a standalone Python port of the retrieved recurrences
+(parsing the `.hmm`) → identical, confirming the formulas independent of the C# code. All regions
+here are single-domain (`is_multidomain_region` FALSE), so the verified path needs no stochastic
+clustering.
+
+### Honest residual
+
+For a region flagged multi-domain by the `rt3` test (closely-overlapping / not-well-separated
+domains), HMMER resolves the envelopes by **stochastic-traceback clustering**
+(`region_trace_ensemble` → `p7_spensemble_Cluster`, sampling 200 tracebacks). That sampling
+clusterer is **not** implemented; such a region is emitted as a single envelope. The verified
+decomposition covers the common well-separated-domain case (tandem repeats, multi-domain
+β-propellers). The bundled-profile coverage (3 CC0 Pfam HMMs; any other family is a caller-supplied
+`.hmm`) is unchanged.
+
+### Reference list additions
+
+31. HMMER `p7_domaindef.c` — `p7_domaindef_ByPosteriorHeuristics` (region identification rt1/rt2,
+    `is_multidomain_region` rt3, `region_trace_ensemble`, `rescore_isolated_domain`):
+    https://github.com/EddyRivasLab/hmmer/blob/master/src/p7_domaindef.c
+32. HMMER `generic_decoding.c` — `p7_GDomainDecoding` (btot/etot/mocc):
+    https://github.com/EddyRivasLab/hmmer/blob/master/src/generic_decoding.c
+33. pyhmmer 0.12.1 multi-domain `hmmsearch` ground truth (GBB1/PF00400 7 domains; SH3/PF00018 1):
+    https://pyhmmer.readthedocs.io/

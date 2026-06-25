@@ -1,5 +1,47 @@
 # Validation Report: PROTMOTIF-DOMAIN-001 — Protein Domain Identification
 
+## Update 2026-06-25 — HMMER multi-domain envelope decomposition (p7_domaindef, limitation fix); Status stays ☐
+
+The Plan7 engine now performs HMMER's automatic per-target **domain/envelope decomposition** — the
+`hmmsearch`/`hmmscan` step that splits a multi-domain protein into one scored domain per envelope —
+as an **opt-in** addition. The glocal path, the per-sequence `HmmSearchBitScore`, and all defaults
+are unchanged. A real multi-domain HMMER reference was obtained and used as ground truth.
+
+- **Reference tool obtained:** `pyhmmer 0.12.1` (HMMER3 Cython binding), run on macOS arm64.
+  Ground-truth `hmmsearch` (Z=1, domZ=1, bias_filter on) on a REAL multi-domain protein:
+  **GBB1_HUMAN / Gβ1 (UniProt P62873, 7-bladed WD40 β-propeller, L=340) vs PF00400 → 7 domains**,
+  per-domain `env_from..env_to` / score / i-Evalue: `45-83`/31.139467/1.21e-11; `87-125`/19.004278/8.41e-08;
+  `133-170`/25.053679/1.02e-09; `174-212`/35.552242/4.85e-13; `216-254`/40.454269/1.36e-14;
+  `259-298`/23.443121/3.31e-09; `303-340`/27.824228/1.36e-10. SRC_HUMAN SH3 (P12931, L=55) vs
+  PF00018 → **1** domain (env 3-50, score 68.540695, i-Evalue 1.45e-23).
+- **Algorithms retrieved verbatim (EddyRivasLab/hmmer master, 2026-06-25):** `p7_domaindef.c`
+  region identification (`rt1=0.25` trigger, `rt2=0.10` flank bound), `is_multidomain_region`
+  (`rt3=0.20`: `max_z min(E(z),B(z)) ≥ rt3`), `rescore_isolated_domain` (unihit Forward over the
+  envelope at the FULL length n + null2 by expectation); `generic_decoding.c` `p7_GDomainDecoding`
+  (`btot[i]=btot[i-1]+P(B@i-1)`, `etot[i]=etot[i-1]+P(E@i)`, `mocc[i]=1−(N/J/C residue posteriors)`);
+  `p7_pipeline.c` per-domain bit score `(envsc+(n−Ld)·ln(n/(n+3)) − (nullsc+dombias))/ln 2`,
+  `dombias=logsumexp(0, ln(1/256)+domcorrection)`, i-Evalue `=Z·exp(−λ(score−τ))`; `modelconfig.c`
+  unihit/multihit + `p7_ReconfigLength`.
+- **Methods added:** `Plan7ProfileHmm.FindDomains(seq)` → `IReadOnlyList<DomainEnvelope>`;
+  `ProteinMotifFinder.FindDomainEnvelopes(seq[, minBitScore])` and `FindDomainEnvelopes(seq, accession)`
+  (new `DomainEnvelopeHit`). Reuses the existing Forward/Backward + null2-by-expectation. Defaults and
+  all prior APIs untouched.
+- **Verified parity (pyhmmer 0.12.1 ground truth):** `FindDomains` reproduces the GBB1 decomposition
+  into **the same 7 envelopes with EXACT env bounds**; per-domain scores match to ≈1e-3 bits (HMMER
+  computes in float32, this engine in float64) and i-Evalues to ≥3 sig figs; SH3 → 1 envelope (3-50,
+  68.540701 vs 68.540695). Independently re-derived from scratch in a standalone Python port of the
+  retrieved recurrences → identical, confirming the formulas independent of the C# code. All regions
+  here are single-domain (`is_multidomain_region` FALSE). 11 new tests (H19a–j); full suite green.
+- **Honest residual (further narrowed):** the **stochastic-traceback clustering**
+  (`region_trace_ensemble` → `p7_spensemble_Cluster`, 200 sampled tracebacks) used to split a region
+  the `rt3` test flags as *closely-overlapping* multi-domain is NOT implemented; such a region is
+  emitted as a single envelope. The verified decomposition covers the **well-separated-domain** case
+  (tandem repeats, multi-domain β-propellers — the common case). Pfam coverage beyond the 3 bundled
+  CC0 profiles is caller-supplied `.hmm` (not a limitation).
+- Status stays **☐** in the root registry (independent re-validation; not a ☑ self-claim).
+
+---
+
 ## Update 2026-06-25 — HMMER local-multihit Forward + null2 biased-composition correction (hmmsearch parity, limitation fix); Status stays ☐
 
 The Plan7 engine now reproduces HMMER's `hmmsearch` **bit-score pipeline** as an **opt-in** addition

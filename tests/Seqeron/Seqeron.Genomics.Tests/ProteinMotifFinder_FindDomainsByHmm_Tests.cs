@@ -8,6 +8,9 @@
 //           HMMER modelconfig.c (local entry/exit, p7_ReconfigLength), generic_fwdback.c, generic_decoding.c,
 //           generic_null2.c (p7_GNull2_ByExpectation), p7_domaindef.c / p7_pipeline.c (null2 correction),
 //           hmmer.c p7_AminoFrequencies; GROUND-TRUTH hmmsearch scores via pyhmmer 0.12.1 (addendum 2026-06-25).
+//           p7_domaindef.c (region identification rt1/rt2/rt3, is_multidomain_region, rescore_isolated_domain),
+//           generic_decoding.c p7_GDomainDecoding (btot/etot/mocc), p7_pipeline.c (per-domain bit score) —
+//           multi-domain envelope decomposition; pyhmmer 0.12.1 GBB1/PF00400 7-domain ground truth (addendum 2026-06-25).
 using System;
 using System.Collections.Generic;
 using NUnit.Framework;
@@ -774,6 +777,202 @@ public class ProteinMotifFinder_FindDomainsByHmm_Tests
 
         Assert.That(score, Is.GreaterThan(50.0),
             "A real SH3 domain's null2-corrected local bit score must be strongly positive.");
+    }
+
+    #endregion
+
+    #region Multi-domain envelope decomposition (p7_domaindef; pyhmmer 0.12.1 ground truth)
+
+    // H19 — GROUND TRUTH captured from pyhmmer 0.12.1 hmmsearch (Z=1, domZ=1, bias_filter on),
+    // PF00400 WD40 profile vs the GBB1_HUMAN 7-bladed β-propeller (Wd40TruePositive, L=340).
+    // hmmsearch reports SEVEN per-domain envelopes (1-based env from/to), each with a null2-corrected
+    // per-domain bit score and i-Evalue. Verbatim reference (full single-precision values):
+    //   dom env  score        bias      i-Evalue
+    //   0   45-83  31.139467  0.034545  1.2101e-11
+    //   1   87-125 19.004278  0.088024  8.4096e-08
+    //   2  133-170 25.053679  0.403497  1.0223e-09
+    //   3  174-212 35.552242  0.136274  4.8501e-13
+    //   4  216-254 40.454269  0.039276  1.3608e-14
+    //   5  259-298 23.443121  0.197371  3.3071e-09
+    //   6  303-340 27.824228  0.672585  1.3565e-10
+    // HMMER computes these in single precision (float32); this double-precision engine matches the
+    // scores to ~1e-3 bits, the envelope bounds exactly, and the i-Evalues to ~3 sig figs.
+    private static readonly (int From, int To, double Score, double Ie)[] Gbb1Wd40Domains =
+    {
+        (45, 83, 31.139467, 1.2100929e-11),
+        (87, 125, 19.004278, 8.4095973e-08),
+        (133, 170, 25.053679, 1.0222501e-09),
+        (174, 212, 35.552242, 4.8500955e-13),
+        (216, 254, 40.454269, 1.3607754e-14),
+        (259, 298, 23.443121, 3.3071494e-09),
+        (303, 340, 27.824228, 1.3564733e-10),
+    };
+
+    // Tolerances: scores to 1e-2 bits (HMMER float32 vs our float64); i-Evalues to a 5% relative
+    // band (a ~1e-3 bit score difference is amplified by the exp in the survival function).
+    private const double DomainScoreToleranceBits = 1e-2;
+    private const double IEvalueRelativeTolerance = 0.05;
+
+    [Test]
+    public void FindDomains_Gbb1Wd40Propeller_RecoversSevenEnvelopes()
+    {
+        // H19a — domain COUNT: hmmsearch decomposes GBB1 into seven WD40 domains.
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00400_WD40.hmm"));
+
+        var domains = hmm.FindDomains(Wd40TruePositive);
+
+        Assert.That(domains, Has.Count.EqualTo(Gbb1Wd40Domains.Length),
+            "p7_domaindef must split the GBB1 β-propeller into 7 WD40 domains, matching hmmsearch.");
+    }
+
+    [Test]
+    public void FindDomains_Gbb1Wd40Propeller_EnvelopeCoordinatesMatchHmmsearch()
+    {
+        // H19b — per-domain ENVELOPE COORDINATES (env_from/env_to) match pyhmmer exactly.
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00400_WD40.hmm"));
+
+        var domains = hmm.FindDomains(Wd40TruePositive);
+
+        Assert.Multiple(() =>
+        {
+            for (int d = 0; d < Gbb1Wd40Domains.Length; d++)
+            {
+                Assert.That(domains[d].EnvelopeStart, Is.EqualTo(Gbb1Wd40Domains[d].From),
+                    $"Domain {d} envelope start must match hmmsearch env_from {Gbb1Wd40Domains[d].From}.");
+                Assert.That(domains[d].EnvelopeEnd, Is.EqualTo(Gbb1Wd40Domains[d].To),
+                    $"Domain {d} envelope end must match hmmsearch env_to {Gbb1Wd40Domains[d].To}.");
+            }
+        });
+    }
+
+    [Test]
+    public void FindDomains_Gbb1Wd40Propeller_PerDomainBitScoresMatchHmmsearch()
+    {
+        // H19c — per-domain null2-corrected BIT SCORES match hmmsearch to single precision.
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00400_WD40.hmm"));
+
+        var domains = hmm.FindDomains(Wd40TruePositive);
+
+        Assert.Multiple(() =>
+        {
+            for (int d = 0; d < Gbb1Wd40Domains.Length; d++)
+            {
+                Assert.That(domains[d].BitScore, Is.EqualTo(Gbb1Wd40Domains[d].Score).Within(DomainScoreToleranceBits),
+                    $"Domain {d} bit score must reproduce hmmsearch ({Gbb1Wd40Domains[d].Score:F6} bits).");
+            }
+        });
+    }
+
+    [Test]
+    public void FindDomains_Gbb1Wd40Propeller_PerDomainIEvaluesMatchHmmsearch()
+    {
+        // H19d — per-domain INDEPENDENT E-VALUES (i-Evalue) match hmmsearch within a 5% band.
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00400_WD40.hmm"));
+
+        var domains = hmm.FindDomains(Wd40TruePositive);
+
+        Assert.Multiple(() =>
+        {
+            for (int d = 0; d < Gbb1Wd40Domains.Length; d++)
+            {
+                double expected = Gbb1Wd40Domains[d].Ie;
+                Assert.That(domains[d].IndependentEValue,
+                    Is.EqualTo(expected).Within(expected * IEvalueRelativeTolerance),
+                    $"Domain {d} i-Evalue must reproduce hmmsearch ({expected:E3}).");
+            }
+        });
+    }
+
+    [Test]
+    public void FindDomains_SingleSh3Domain_YieldsOneEnvelopeMatchingHmmsearch()
+    {
+        // H19e — a single well-resolved SH3 domain decomposes into exactly ONE envelope; coords,
+        // score and i-Evalue match hmmsearch (env 3-50, score 68.540695, i-Evalue 1.4529e-23).
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00018_SH3_1.hmm"));
+
+        var domains = hmm.FindDomains(Sh3TruePositive);
+
+        Assert.That(domains, Has.Count.EqualTo(1), "A single SH3 fold must give exactly one envelope.");
+        Assert.Multiple(() =>
+        {
+            Assert.That(domains[0].EnvelopeStart, Is.EqualTo(3), "SH3 envelope start (hmmsearch env_from 3).");
+            Assert.That(domains[0].EnvelopeEnd, Is.EqualTo(50), "SH3 envelope end (hmmsearch env_to 50).");
+            Assert.That(domains[0].BitScore, Is.EqualTo(68.540695).Within(DomainScoreToleranceBits),
+                "SH3 per-domain bit score must reproduce hmmsearch (68.540695 bits).");
+            Assert.That(domains[0].IndependentEValue, Is.EqualTo(1.4528610e-23).Within(1.4528610e-23 * IEvalueRelativeTolerance),
+                "SH3 i-Evalue must reproduce hmmsearch (1.4529e-23).");
+        });
+    }
+
+    [Test]
+    public void FindDomainEnvelopes_Gbb1_ReportsSevenWd40HitsInOrder()
+    {
+        // H19f — the ProteinMotifFinder opt-in wrapper reports the 7 WD40 envelope hits in ascending
+        // start order, each tagged with the PF00400 family.
+        var hits = ProteinMotifFinder.FindDomainEnvelopes(Wd40TruePositive);
+
+        var wd40 = new List<ProteinMotifFinder.DomainEnvelopeHit>();
+        foreach (var h in hits)
+            if (h.Accession == Wd40Accession) wd40.Add(h);
+
+        Assert.That(wd40, Has.Count.EqualTo(7), "Seven WD40 envelopes must be reported for GBB1.");
+        Assert.Multiple(() =>
+        {
+            for (int d = 0; d < Gbb1Wd40Domains.Length; d++)
+            {
+                Assert.That(wd40[d].EnvelopeStart, Is.EqualTo(Gbb1Wd40Domains[d].From),
+                    $"WD40 hit {d} envelope start.");
+                Assert.That(wd40[d].Name, Is.EqualTo("WD40"), $"WD40 hit {d} family name.");
+            }
+            for (int d = 1; d < wd40.Count; d++)
+                Assert.That(wd40[d].EnvelopeStart, Is.GreaterThan(wd40[d - 1].EnvelopeStart),
+                    "Envelope hits must be in strictly ascending start order.");
+        });
+    }
+
+    [Test]
+    public void FindDomains_EmptySequence_ReturnsNoEnvelopes()
+    {
+        // H19g — edge: empty sequence yields no envelopes.
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00018_SH3_1.hmm"));
+
+        Assert.That(hmm.FindDomains(string.Empty), Is.Empty, "Empty sequence must produce no domains.");
+        Assert.That(ProteinMotifFinder.FindDomainEnvelopes(string.Empty), Is.Empty,
+            "Empty sequence must produce no envelope hits.");
+    }
+
+    [Test]
+    public void FindDomains_NullSequence_Throws()
+    {
+        // H19h — edge: null sequence throws ArgumentNullException.
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00018_SH3_1.hmm"));
+
+        Assert.Throws<ArgumentNullException>(() => hmm.FindDomains(null!),
+            "A null sequence must throw ArgumentNullException.");
+    }
+
+    [Test]
+    public void FindDomainEnvelopes_UnknownAccession_Throws()
+    {
+        // H19i — edge: unknown Pfam accession on the by-accession overload throws.
+        Assert.Throws<ArgumentException>(
+            () => ProteinMotifFinder.FindDomainEnvelopes(Sh3TruePositive, "PF99999"),
+            "An unknown bundled accession must throw ArgumentException.");
+    }
+
+    [Test]
+    public void FindDomains_SingleDomainEnvelope_ScoreConsistentWithPerSequence()
+    {
+        // H19j — for a single well-resolved domain, the per-domain envelope score and the
+        // per-sequence null2-corrected hmmsearch score agree closely (both ≈68.5–68.7 bits).
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00018_SH3_1.hmm"));
+
+        var domains = hmm.FindDomains(Sh3TruePositive);
+        double perSeq = hmm.HmmSearchBitScore(Sh3TruePositive);
+
+        Assert.That(domains, Has.Count.EqualTo(1), "Single SH3 domain.");
+        Assert.That(domains[0].BitScore, Is.EqualTo(perSeq).Within(0.5),
+            "A single-domain envelope score must be close to the per-sequence hmmsearch score.");
     }
 
     #endregion

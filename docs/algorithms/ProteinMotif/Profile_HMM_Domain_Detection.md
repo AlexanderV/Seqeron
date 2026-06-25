@@ -168,6 +168,11 @@ log-odds.
 - `ProteinMotifFinder.FindDomainHitsByHmm(seq, Z, minBitScore)`: detect with bit score **and** E-value.
 - `ProteinMotifFinder.ScoreDomainHmm(seq, accession)`: Viterbi bit score for one bundled profile.
 - `ProteinMotifFinder.ScoreDomainHmmEValue(seq, accession, Z)`: bit score + Viterbi E-value.
+- `Plan7ProfileHmm.FindDomains(seq)`: **opt-in** HMMER `p7_domaindef` multi-domain envelope
+  decomposition — returns one `DomainEnvelope` (env coords + null2-corrected bit score + i-Evalue)
+  per domain.
+- `ProteinMotifFinder.FindDomainEnvelopes(seq[, minBitScore])` / `FindDomainEnvelopes(seq, accession)`:
+  decompose a protein into per-domain envelope hits against the bundled / one named profile.
 
 Bundled CC0 profiles: [Resources/](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/Resources/) (PF00018/PF00595/PF00400).
 
@@ -199,6 +204,18 @@ exact-substring search, so the repository suffix tree does not apply.
   hmmsearch (pyhmmer 0.12.1):** local-multihit `pre_score` reproduces hmmsearch to ~1e-5 bits for
   PF00018/PF00595/PF00400 (68.709740 / 84.862930 / 213.411926); the null2 `bias` reproduces
   hmmsearch's reported single-domain bias to 3e-5 bits (SH3 envelope 0.025574).
+- **Opt-in HMMER multi-domain envelope decomposition** (`p7_domaindef`; defaults unchanged):
+  multihit Forward+Backward + posterior decoding to `mocc`/`btot`/`etot` (`p7_GDomainDecoding`:
+  `btot[i]=btot[i-1]+P(B@i-1)`, `etot[i]=etot[i-1]+P(E@i)`, `mocc[i]=1−(N/J/C residue posteriors)`);
+  region identification by the `rt1=0.25` trigger / `rt2=0.10` flank bound; the `is_multidomain_region`
+  `rt3=0.20` test; per-envelope rescore in **unihit** mode at the full length n with per-domain bit
+  score `(envsc + (n−Ld)·ln(n/(n+3)) − (nullsc + dombias))/ln 2`,
+  `dombias = logsumexp(0, ln(1/256) + Σ ln null2[x])`, and i-Evalue `= Z·exp(−λ(score−τ))`
+  [31][32][13][22]. **Verified to hmmsearch (pyhmmer 0.12.1):** the GBB1_HUMAN 7-blade WD40
+  β-propeller (PF00400, L=340) decomposes into the **same 7 envelopes** (env 45-83, 87-125, 133-170,
+  174-212, 216-254, 259-298, 303-340) with per-domain scores matching to ≈1e-3 bits and i-Evalues to
+  ≥3 sig figs; a single SH3 domain gives one envelope (3-50, 68.54 bits) — HMMER uses float32, this
+  engine float64.
 
 **Intentionally simplified:**
 
@@ -209,13 +226,13 @@ exact-substring search, so the repository suffix tree does not apply.
 
 **Not implemented:**
 
-- **HMMER's domain/envelope-definition heuristic** (region detection + stochastic-traceback
-  clustering of multi-domain regions). The null2 correction is computed over whatever
-  sequence/envelope the caller passes, so a **single well-resolved domain** matches hmmsearch's
-  corrected score exactly, but for a **multi-domain** target (e.g. the 7-blade WD40) the caller must
-  score each envelope separately to reproduce hmmsearch's per-domain decomposition. **Consequence:**
-  full-sequence `HmmSearchBitScore` over-corrects multi-domain proteins. **Users should rely on:**
-  HMMER `hmmsearch` when automatic multi-domain envelope decomposition is required.
+- **Stochastic-traceback clustering of multi-domain regions** (`region_trace_ensemble` →
+  `p7_spensemble_Cluster`): only needed when the `is_multidomain_region` `rt3` test flags a region
+  as containing closely-overlapping (not well-separated) domains. `FindDomains` performs region
+  identification, the `rt3` test, and the single-domain-per-region rescore — verified for
+  well-separated domains (tandem repeats / multi-domain propellers, the common case). A region
+  flagged multi-domain is emitted as a single envelope. **Users should rely on:** HMMER `hmmsearch`
+  for closely-overlapping-domain stochastic-clustering parity.
 - **MSV / bias prefilters** are not reimplemented: they only gate which sequences reach the Forward
   stage; they do not change a reported hit's bit score, so they are not needed for score parity.
 - The full Pfam library beyond the three bundled (caller-supplied `.hmm`) profiles is out of scope.
@@ -225,7 +242,7 @@ exact-substring search, so the repository suffix tree does not apply.
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
 | 1 | Default mode is glocal; local-multihit is opt-in | Design | `FindDomainsByHmm` spans whole query; `LocalForward*` give hmmsearch-mode scores | accepted | §5.3 |
-| 2 | No automatic multi-domain envelope decomposition | Deviation | Single-domain corrected score matches hmmsearch; multi-domain needs per-envelope scoring | accepted | §5.3 "Not implemented"; §6.2 |
+| 2 | Multi-domain envelope decomposition is opt-in (`FindDomains`); stochastic clustering of overlapping-domain regions not implemented | Design | Well-separated domains decompose with hmmsearch parity; closely-overlapping regions emitted as one envelope | accepted | §5.3 "Implemented"/"Not implemented"; §6.2 |
 
 ## 6. Edge Cases and Limitations
 
@@ -245,12 +262,15 @@ Only three Pfam domains are bundled (SH3, PDZ, WD40); the full Pfam library is n
 caller-supplied via the `.hmm` parser). The HMMER `hmmsearch` **bit-score pipeline is now reproduced
 (opt-in) and verified against pyhmmer 0.12.1**: the local-multihit Forward `pre_score` matches
 hmmsearch to ~1e-5 bits, and the null2 biased-composition `bias` matches hmmsearch's reported
-single-domain value to 3e-5 bits. The remaining residual is HMMER's automatic **multi-domain
-envelope decomposition** (region detection + stochastic-traceback clustering): this implementation
-applies null2 over the caller-supplied sequence/envelope, so a single well-resolved domain matches
-hmmsearch's corrected score, but a multi-domain target must be scored per-envelope to reproduce
-hmmsearch's decomposition. The MSV/bias prefilters are not reimplemented (they gate which sequences
-reach Forward; they do not change a reported hit's score). The default `FindDomainsByHmm`/glocal path
+single-domain value to 3e-5 bits. HMMER's automatic **multi-domain envelope decomposition**
+(`p7_domaindef`) is now reproduced (opt-in `FindDomains`/`FindDomainEnvelopes`) and **verified against
+pyhmmer 0.12.1**: the GBB1 7-blade WD40 β-propeller decomposes into the same 7 envelopes with
+per-domain scores to ≈1e-3 bits and i-Evalues to ≥3 sig figs; a single SH3 gives one matching
+envelope. The remaining residual is the **stochastic-traceback clustering** of *closely-overlapping*
+domains (a region the `rt3` test flags as multi-domain): that sampling clusterer is not implemented,
+so such a region is emitted as a single envelope — well-separated domains (the common case) are
+fully verified. The MSV/bias prefilters are not reimplemented (they gate which sequences reach
+Forward; they do not change a reported hit's score). The default `FindDomainsByHmm`/glocal path
 reports whole-sequence spans, not per-domain envelopes.
 
 ## 7. Examples and Related Material
@@ -286,9 +306,23 @@ over the domain envelope (positions 3–50) `= 0.02554` bits (hmmsearch `bias` 0
 213.411926). All within single-precision rounding. A 1-node hand HMM emitting A (B→M1=1) gives
 `LocalForwardScore("A") = 1.272400756045032` nats exactly.
 
+**Multi-domain decomposition pin (pyhmmer 0.12.1 ground truth):** the GBB1_HUMAN 7-blade WD40
+β-propeller (P62873, L=340) vs `PF00400` decomposes into **7** envelopes — `env_from..env_to`
+(1-based) `45-83 / 87-125 / 133-170 / 174-212 / 216-254 / 259-298 / 303-340` with per-domain bit
+scores `31.139467 / 19.004278 / 25.053679 / 35.552242 / 40.454269 / 23.443121 / 27.824228` and
+i-Evalues `1.21e-11 / 8.41e-08 / 1.02e-09 / 4.85e-13 / 1.36e-14 / 3.31e-09 / 1.36e-10`.
+`Plan7ProfileHmm.FindDomains` reproduces the envelope bounds **exactly** and the scores/i-Evalues to
+single precision (HMMER float32 vs this engine's float64). A single SH3 (P12931, L=55) vs `PF00018`
+gives **1** envelope `3-50`, score `68.540695`, i-Evalue `1.45e-23`.
+
+```csharp
+foreach (var d in ProteinMotifFinder.FindDomainEnvelopes(gbb1Sequence))
+    Console.WriteLine($"{d.Name} env {d.EnvelopeStart}-{d.EnvelopeEnd}: {d.BitScore:F1} bits, E={d.IndependentEValue:E2}");
+```
+
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [ProteinMotifFinder_FindDomainsByHmm_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindDomainsByHmm_Tests.cs) — covers `INV-HMM-01`..`INV-HMM-04` and the H18 local-mode + null2 hmmsearch-parity cases
+- Tests: [ProteinMotifFinder_FindDomainsByHmm_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindDomainsByHmm_Tests.cs) — covers `INV-HMM-01`..`INV-HMM-04`, the H18 local-mode + null2 hmmsearch-parity cases, and the H19 multi-domain decomposition (GBB1 7-domain / SH3 1-domain pyhmmer parity)
 - Evidence: [PROTMOTIF-DOMAIN-001-Evidence.md](../../../docs/Evidence/PROTMOTIF-DOMAIN-001-Evidence.md)
 - Related algorithms: [Domain_Prediction](./Domain_Prediction.md) (exact PROSITE patterns)
 
@@ -308,3 +342,6 @@ over the domain envelope (positions 3–50) `= 0.02554` bits (hmmsearch `bias` 0
 12. HMMER `generic_null2.c` — `p7_GNull2_ByExpectation` (posterior-expectation null2). https://github.com/EddyRivasLab/hmmer/blob/master/src/generic_null2.c
 13. HMMER `p7_domaindef.c` / `p7_pipeline.c` — per-domain `domcorrection`, `seqbias = logsum(0, ln ω + Σn2sc)`, `pre_score`, `bias`. https://github.com/EddyRivasLab/hmmer/blob/master/src/p7_pipeline.c
 14. HMMER `p7_bg.c` (`omega=1/256`, `p7_bg_NullOne`, `p1=L/(L+1)`) and `hmmer.c` (`p7_AminoFrequencies`); ground-truth scores via pyhmmer 0.12.1. https://github.com/EddyRivasLab/hmmer/blob/master/src/p7_bg.c
+22. HMMER `modelconfig.c` — `p7_ReconfigUnihit` / `p7_ReconfigMultihit` / `p7_ReconfigLength` (envelope rescore length config). https://github.com/EddyRivasLab/hmmer/blob/master/src/modelconfig.c
+31. HMMER `p7_domaindef.c` — `p7_domaindef_ByPosteriorHeuristics` (region identification `rt1=0.25`/`rt2=0.10`, `is_multidomain_region` `rt3=0.20`, `region_trace_ensemble`, `rescore_isolated_domain`). https://github.com/EddyRivasLab/hmmer/blob/master/src/p7_domaindef.c
+32. HMMER `generic_decoding.c` — `p7_GDomainDecoding` (`btot`/`etot`/`mocc`). https://github.com/EddyRivasLab/hmmer/blob/master/src/generic_decoding.c
