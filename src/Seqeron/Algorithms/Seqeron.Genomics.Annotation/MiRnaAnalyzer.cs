@@ -842,6 +842,114 @@ public static class MiRnaAnalyzer
             OmittedFeatures: BuildOmittedFeatures(inputs, saIncluded));
     }
 
+    // ── TA_3UTR: target-site abundance computed from a 3'UTR set ───────────────────────────
+    // Garcia et al. (2011) Nat Struct Mol Biol 18:1139 (Online Methods, retrieved verbatim this
+    // session): "TA in the human transcriptome was calculated as the number of non-overlapping
+    // 3′UTR 8mer, 7mer-m8, and 7mer-A1 sites in the reference mRNAs."  Agarwal et al. (2015) eLife
+    // 4:e05005 (Table 1) names the context++ feature TA_3UTR = "Number of sites in all annotated
+    // 3′ UTRs (Arvey et al., 2010; Garcia et al., 2011)".  TargetScan stores ONE TA value per 7-nt
+    // seed region in TA_SPS_by_seed_region.txt (column 4; values ≈ 1.6–4.4, retrieved verbatim this
+    // session) and feeds it AS-IS to getAgarwalContribution (targetscan_70_context_scores.pl) — the
+    // value is therefore log10(count) (the regression min/max are ≈ 3.1–3.9; Garcia 2011 notes "each
+    // additional CG dinucleotide imparted an additional log10 reduction in TA").  So:
+    //     TA = log10( N ),  N = total non-overlapping 8mer+7mer-m8+7mer-A1 sites of the seed
+    //                           summed over every 3'UTR in the supplied set.
+    // The site definitions are the canonical TargetScan ones (Bartel 2009; Lewis 2005), identical to
+    // FindTargetSites: an 8mer/7mer-m8/7mer-A1 is anchored on a 6mer-core match (reverse complement
+    // of miRNA positions 2-7) that additionally has a position-8 match (m8) and/or an A opposite
+    // position 1 (A1).  Each qualifying 6mer-core anchor contributes exactly one site (the three
+    // types are mutually exclusive per anchor), so distinct anchor positions are non-overlapping.
+
+    /// <summary>
+    /// Computes the TargetScan context++ feature <c>TA_3UTR</c> (transcriptome-wide target-site
+    /// abundance) for a miRNA seed from a supplied set of 3'UTR sequences, per Garcia et al. (2011)
+    /// / Agarwal et al. (2015): <c>TA = log10(N)</c>, where <c>N</c> is the total number of
+    /// non-overlapping canonical <b>8mer</b>, <b>7mer-m8</b>, and <b>7mer-A1</b> sites of the seed
+    /// across all the 3'UTRs. This converts TA from an opaque caller-supplied number into a value
+    /// computed from a 3'UTR set per the published definition; the result can be fed straight into
+    /// <see cref="ScoreTargetSiteContextPlusPlus"/> via <see cref="ContextPlusPlusInputs.Ta"/>
+    /// (which applies the bundled Agarwal TA coefficient and min-max scaling).
+    /// </summary>
+    /// <remarks>
+    /// Site definitions match <see cref="FindTargetSites"/> and the TargetScan precompute: each
+    /// occurrence of the 6mer core (reverse complement of miRNA positions 2-7) that also has a
+    /// position-8 match (7mer-m8 / 8mer) and/or an A opposite miRNA position 1 (7mer-A1 / 8mer)
+    /// counts as one site. A bare 6mer (neither m8 nor A1) and offset-6mer matches are NOT counted
+    /// (Garcia 2011 counts only the three high-confidence site types). Overlapping counting is
+    /// avoided because each qualifying anchor yields exactly one mutually-exclusive site type.
+    /// </remarks>
+    /// <param name="miRna">The miRNA whose seed (positions 2-8) defines the site set. Its
+    /// <c>SeedSequence</c> (or, if absent, positions 2-8 of its <c>Sequence</c>) is used.</param>
+    /// <param name="threePrimeUtrs">The set of 3'UTR sequences (RNA or DNA; T→U; case-insensitive)
+    /// that constitute the transcriptome over which abundance is counted.</param>
+    /// <returns>The log10 of the total site count (TA_3UTR), or <c>0</c> when the total count is 0
+    /// (log10(1) = 0 in TargetScan's convention; an empty/short seed also yields 0).</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="threePrimeUtrs"/> is null.</exception>
+    public static double ComputeTa3Utr(MiRna miRna, IEnumerable<string> threePrimeUtrs)
+    {
+        ArgumentNullException.ThrowIfNull(threePrimeUtrs);
+        long total = CountSeedSites3Utr(miRna, threePrimeUtrs);
+        // TargetScan stores log10(count). A zero count maps to 0 (= log10(1)); log10(0) is undefined,
+        // and TargetScan never emits a seed with no sites, so the floor of 0 is the safe convention.
+        return total > 0 ? Math.Log10(total) : 0.0;
+    }
+
+    /// <summary>
+    /// Counts the total number of non-overlapping canonical <b>8mer</b>, <b>7mer-m8</b>, and
+    /// <b>7mer-A1</b> sites of a miRNA seed across a set of 3'UTRs — the raw <c>N</c> underlying
+    /// <see cref="ComputeTa3Utr"/> (before the log10), per Garcia et al. (2011).
+    /// </summary>
+    /// <param name="miRna">The miRNA whose seed defines the site set.</param>
+    /// <param name="threePrimeUtrs">The 3'UTR sequences to count over.</param>
+    /// <returns>The total site count (≥ 0).</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="threePrimeUtrs"/> is null.</exception>
+    public static long CountSeedSites3Utr(MiRna miRna, IEnumerable<string> threePrimeUtrs)
+    {
+        ArgumentNullException.ThrowIfNull(threePrimeUtrs);
+
+        string seed = string.IsNullOrEmpty(miRna.SeedSequence)
+            ? GetSeedSequence(miRna.Sequence ?? "")
+            : miRna.SeedSequence;
+        if (seed.Length < 7)
+            return 0;
+
+        // seedRC layout (7 chars): [RC of pos8][RC of pos7]…[RC of pos2]; 6mer core = seedRC[1..7].
+        string seedRC = GetReverseComplement(seed);
+        if (seedRC.Length < 7)
+            return 0;
+        char pos8Rc = seedRC[0];                  // base required opposite miRNA position 8 (upstream)
+        string sixmerCore = seedRC.Substring(1, 6); // reverse complement of miRNA positions 2-7
+
+        long total = 0;
+        foreach (string? utr in threePrimeUtrs)
+        {
+            if (string.IsNullOrEmpty(utr))
+                continue;
+            total += CountSeedSitesInUtr(
+                utr.ToUpperInvariant().Replace('T', 'U'), sixmerCore, pos8Rc);
+        }
+        return total;
+    }
+
+    // Counts 8mer + 7mer-m8 + 7mer-A1 sites in ONE 3'UTR. Mirrors FindTargetSites pass 1: scan for
+    // 6mer-core occurrences; a site counts iff it additionally has the position-8 match (m8) or the
+    // A opposite position 1 (A1) — i.e. it is an 8mer (both), a 7mer-m8 (m8 only) or a 7mer-A1 (A1
+    // only). A bare 6mer (neither) is NOT a counted site type (Garcia 2011 counts only the three).
+    private static int CountSeedSitesInUtr(string utr, string sixmerCore, char pos8Rc)
+    {
+        int count = 0;
+        for (int i = 0; i + 6 <= utr.Length; i++)
+        {
+            if (string.CompareOrdinal(utr, i, sixmerCore, 0, 6) != 0)
+                continue;
+            bool hasPos8 = i > 0 && utr[i - 1] == pos8Rc;     // 7mer-m8 / 8mer
+            bool hasA1 = i + 6 < utr.Length && utr[i + 6] == 'A'; // 7mer-A1 / 8mer
+            if (hasPos8 || hasA1)
+                count++;
+        }
+        return count;
+    }
+
     /// <summary>
     /// context++ features that remain residual for a given call. SA (structural accessibility) is
     /// now computed from the Turner-2004 McCaskill partition function and is omitted only when the

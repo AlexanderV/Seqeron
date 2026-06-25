@@ -1284,4 +1284,170 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
     }
 
     #endregion
+
+    #region CTX-TA: TA_3UTR computed from a 3'UTR set — Garcia (2011) / Agarwal (2015)
+
+    // Garcia et al. (2011) NSMB 18:1139 (Online Methods, retrieved verbatim this session): "TA in the
+    // human transcriptome was calculated as the number of non-overlapping 3′UTR 8mer, 7mer-m8, and
+    // 7mer-A1 sites in the reference mRNAs." Agarwal et al. (2015) eLife Table 1: TA_3UTR = "Number of
+    // sites in all annotated 3′ UTRs". TargetScan stores log10(count) (TA_SPS_by_seed_region.txt
+    // column 4, values ≈ 1.6–4.4, retrieved verbatim) and feeds it as-is to getAgarwalContribution.
+    // ⇒ TA = log10(N), N = total non-overlapping 8mer+7mer-m8+7mer-A1 sites of the seed across UTRs.
+
+    // CTX-TA-001 — hand-controlled synthetic example, fully derived independently of the code.
+    // Synthetic miRNA, seed (pos 2-8) = ACGUACG; seedRC = CGUACGU ⇒ pos8Rc = 'C', 6mer core = GUACGU.
+    //   UTR1 "CGUACGUA"  : core at idx1; upstream 'C'=pos8Rc (m8) + downstream 'A' (A1) ⇒ 8mer       → 1
+    //   UTR2 "GGUACGUG"  : core at idx1; upstream 'G' (no m8) + downstream 'G' (no A1) ⇒ bare 6mer    → 0
+    //   UTR3 "CGUACGUGAAAGUACGUC": core idx1 = 7mer-m8 (m8, no A1) → 1; core idx11 bare 6mer → 0       → 1
+    // N = 1 + 0 + 1 = 2 ; TA = log10(2) = 0.301029995663981.
+    [Test]
+    public void ComputeTa3Utr_HandControlledSet_EqualsLog10OfSiteCount()
+    {
+        var mirna = CreateMiRna("synthetic", "UACGUACGUACGUACGUACGUA"); // pos 2-8 = ACGUACG
+        var utrs = new[] { "CGUACGUA", "GGUACGUG", "CGUACGUGAAAGUACGUC" };
+
+        long n = CountSeedSites3Utr(mirna, utrs);
+        double ta = ComputeTa3Utr(mirna, utrs);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(mirna.SeedSequence, Is.EqualTo("ACGUACG"),
+                "seed (positions 2-8) drives the counted site set");
+            Assert.That(n, Is.EqualTo(2L),
+                "two counted sites: UTR1 8mer + UTR3 7mer-m8 (bare 6mers excluded per Garcia 2011)");
+            Assert.That(ta, Is.EqualTo(0.301029995663981).Within(1e-12),
+                "TA = log10(2) per Garcia (2011) / TargetScan TA_SPS_by_seed_region (log10 of site count)");
+        });
+    }
+
+    // CTX-TA-002 — real miRNA (hsa-let-7a-5p), seed GAGGUAG, seedRC CUACCUC ⇒ pos8Rc 'C', core UACCUC.
+    //   "GGCUACCUCAGG" 8mer (m8+A1)                                  → 1
+    //   "GGCUACCUCGGG" 7mer-m8 (m8, no A1)                           → 1
+    //   "GGGUACCUCAGG" 7mer-A1 (no m8, A1)                           → 1
+    //   "GGGUACCUCGGG" bare 6mer (no m8, no A1) — NOT counted        → 0
+    //   "CUACCUCACUACCUCG" 8mer (idx1) + 7mer-m8 (idx9)              → 2
+    // N = 1 + 1 + 1 + 0 + 2 = 5 ; TA = log10(5) = 0.698970004336019.
+    [Test]
+    public void ComputeTa3Utr_RealMiRna_CountsAllThreeSiteTypesNotBare6mers()
+    {
+        var utrs = new[]
+        {
+            "GGCUACCUCAGG",      // 8mer
+            "GGCUACCUCGGG",      // 7mer-m8
+            "GGGUACCUCAGG",      // 7mer-A1
+            "GGGUACCUCGGG",      // bare 6mer → excluded
+            "CUACCUCACUACCUCG",  // 8mer + 7mer-m8
+        };
+
+        long n = CountSeedSites3Utr(Let7a, utrs);
+        double ta = ComputeTa3Utr(Let7a, utrs);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(n, Is.EqualTo(5L),
+                "8mer + 7mer-m8 + 7mer-A1 + (bare 6mer excluded) + (8mer+7mer-m8) = 5");
+            Assert.That(ta, Is.EqualTo(0.698970004336019).Within(1e-12),
+                "TA = log10(5)");
+        });
+    }
+
+    // CTX-TA-003 — the computed TA feeds ScoreTargetSiteContextPlusPlus with the bundled Agarwal TA
+    // coefficient: supplying Ta = ComputeTa3Utr(...) reproduces the 8mer TA contribution
+    //   coeff(TA)×(TA-min)/(max-min) = 0.222×((log10(5)-3.113)/(3.865-3.113)) for the 8mer row,
+    // and removes TA_3UTR from the honest residual.
+    [Test]
+    public void ComputeTa3Utr_FeedsContextPlusPlus_WithBundledAgarwalTaCoefficient()
+    {
+        string mrna = "AAAAAACAACCUAACUACCUCAGGG";
+        var site = FindTargetSites(mrna, Let7a, minScore: 0.0)
+            .First(s => s.Type == TargetSiteType.Seed8mer);
+        var abundanceUtrs = new[]
+        {
+            "GGCUACCUCAGG", "GGCUACCUCGGG", "GGGUACCUCAGG", "GGGUACCUCGGG", "CUACCUCACUACCUCG",
+        };
+        double ta = ComputeTa3Utr(Let7a, abundanceUtrs); // = log10(5)
+
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, Let7a, site,
+            new ContextPlusPlusInputs(Ta: ta));
+
+        // 8mer TA row (Agarwal_2015_parameters.txt): coeff 0.222, min 3.113, max 3.865.
+        double expectedTaContribution = 0.222 * ((Math.Log10(5) - 3.113) / (3.865 - 3.113));
+        Assert.Multiple(() =>
+        {
+            Assert.That(ta, Is.EqualTo(0.698970004336019).Within(1e-12), "TA = log10(5)");
+            Assert.That(ctx.TaContribution, Is.EqualTo(expectedTaContribution).Within(1e-12),
+                "computed TA enters context++ with the bundled 8mer Agarwal TA coefficient + scaling");
+            Assert.That(ctx.OmittedFeatures, Has.None.Contains("TA_3UTR"),
+                "computed TA leaves the honest residual");
+        });
+    }
+
+    // CTX-TA-004 — per-site-type TA scaling: the same TA value scales by the 7mer-m8 TA row
+    //   (coeff 0.139, min 3.067, max 3.887) when scored against a 7mer-m8 site.
+    [Test]
+    public void ComputeTa3Utr_FeedsContextPlusPlus_UsesSiteTypeTaParameters_7merM8()
+    {
+        string mrna = "GGGGGGGGGGGGGCUACCUCGGGGGGGG"; // 7mer-m8 site (m8, no A1)
+        var site = FindTargetSites(mrna, Let7a, minScore: 0.0)
+            .First(s => s.Type == TargetSiteType.Seed7merM8);
+        double ta = ComputeTa3Utr(Let7a, new[] { "CUACCUCACUACCUCG" }); // N=2 ⇒ log10(2)
+
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, Let7a, site,
+            new ContextPlusPlusInputs(Ta: ta));
+
+        double expected = 0.139 * ((Math.Log10(2) - 3.067) / (3.887 - 3.067));
+        Assert.That(ctx.TaContribution, Is.EqualTo(expected).Within(1e-12),
+            "7mer-m8 TA row coeff 0.139, min 3.067, max 3.887");
+    }
+
+    // CTX-TA-005 — empty UTR set (and a set of only empty/whitespace UTRs) ⇒ N = 0 ⇒ TA = 0
+    // (log10(1) floor; TargetScan never emits a seed with no sites, log10(0) undefined).
+    [Test]
+    public void ComputeTa3Utr_NoSites_ReturnsZero()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(CountSeedSites3Utr(Let7a, Array.Empty<string>()), Is.EqualTo(0L),
+                "empty transcriptome ⇒ zero sites");
+            Assert.That(ComputeTa3Utr(Let7a, Array.Empty<string>()), Is.EqualTo(0.0),
+                "TA floor = 0 when no sites (log10(0) undefined)");
+            Assert.That(ComputeTa3Utr(Let7a, new[] { "", (string?)null!, "GGGGGGGGGG" }),
+                Is.EqualTo(0.0), "no seed site anywhere ⇒ TA = 0; null/empty UTRs are skipped");
+        });
+    }
+
+    // CTX-TA-006 — DNA UTRs (T) are handled as RNA (U); counting is unchanged.
+    [Test]
+    public void ComputeTa3Utr_DnaUtrs_TreatedAsRna()
+    {
+        // DNA spelling of the let-7a 8mer site "GGCTACCTCAGG" (T→U) ⇒ one 8mer.
+        long n = CountSeedSites3Utr(Let7a, new[] { "GGCTACCTCAGG" });
+        Assert.That(n, Is.EqualTo(1L), "DNA T is normalised to U before counting");
+    }
+
+    // CTX-TA-007 — short / degenerate seed ⇒ no counting basis ⇒ 0 (defensive).
+    [Test]
+    public void ComputeTa3Utr_ShortSeed_ReturnsZero()
+    {
+        var shortMiRna = new MiRna("short", "ACGUA", "ACGU", 1, 4); // seed < 7 nt
+        Assert.Multiple(() =>
+        {
+            Assert.That(CountSeedSites3Utr(shortMiRna, new[] { "ACGUACGUACGU" }), Is.EqualTo(0L),
+                "a seed shorter than 7 nt has no defined site set");
+            Assert.That(ComputeTa3Utr(shortMiRna, new[] { "ACGUACGUACGU" }), Is.EqualTo(0.0));
+        });
+    }
+
+    // CTX-TA-008 — null UTR enumerable ⇒ ArgumentNullException (contract).
+    [Test]
+    public void ComputeTa3Utr_NullEnumerable_Throws()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() => ComputeTa3Utr(Let7a, null!));
+            Assert.Throws<ArgumentNullException>(() => CountSeedSites3Utr(Let7a, null!));
+        });
+    }
+
+    #endregion
 }
