@@ -268,7 +268,7 @@ Snapshot (approval) тести серіалізують повний вихід 
 | 240 | ☑ | PRIMER-NNTM-001 | MolTools | Tm + ΔH/ΔS breakdown | PrimerSnapshotTests.cs (new) |
 | 241 | ☑ | PRIMER-HAIRPIN-001 | MolTools | most-stable hairpin structure + Tm | PrimerSnapshotTests.cs (new) |
 | 242 | ☑ | PRIMER-DIMER-001 | MolTools | most-stable dimer alignment + Tm | PrimerSnapshotTests.cs (new) |
-| 243 | ☐ | PROBE-LNATM-001 | MolTools | LNA-adjusted Tm + MGB design report | ProbeSnapshotTests.cs (new) |
+| 243 | ☑ | PROBE-LNATM-001 | MolTools | LNA-adjusted Tm + MGB design report | ProbeSnapshotTests.cs (new) |
 | 244 | ☐ | PROBE-EVALUE-001 | MolTools | λ, K, bit score, E-value | ProbeSnapshotTests.cs (new) |
 | 245 | ☐ | MHC-NN-001 | Oncology | per-peptide IC50 + percentile | OncologySnapshotTests.cs (new) |
 | 246 | ☐ | MHC-MATRIX-001 | Oncology | score + binding classification | OncologySnapshotTests.cs (new) |
@@ -292,7 +292,7 @@ Snapshot (approval) тести серіалізують повний вихід 
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 3 |
-| ☐ Not started | 253 |
+| ☑ Complete | 4 |
+| ☐ Not started | 252 |
 | New snapshot test files needed | 5 (Composition, Kmer, Translation, Oncology) |
 | Existing snapshot files to extend | ~10 |

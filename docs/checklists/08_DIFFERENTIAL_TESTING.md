@@ -268,7 +268,7 @@ Differential testing порівнює виходи двох незалежних
 | 240 | ☑ | PRIMER-NNTM-001 | MolTools | C# NN (unified SantaLucia) | primer3-py / Biopython MeltingTemp | Tm ±0.5°C |
 | 241 | ☑ | PRIMER-HAIRPIN-001 | MolTools | C# ntthal hairpin (CalculateHairpinThermodynamicsNtthal) | primer3-py 2.3.0 calc_hairpin | ΔH exact, ΔS/Tm ≤1e-6 (machine precision) |
 | 242 | ☑ | PRIMER-DIMER-001 | MolTools | C# ntthal DP | primer3-py calc_homodimer/heterodimer | ΔG/Tm to machine precision on contiguous optima |
-| 243 | ☐ | PROBE-LNATM-001 | MolTools | C# LNA NN | MELTING 5 | Tm ±0.2°C |
+| 243 | ☑ | PROBE-LNATM-001 | MolTools | C# LNA NN | MELTING 5 | Tm ±0.2°C |
 | 244 | ☐ | PROBE-EVALUE-001 | MolTools | C# Karlin-Altschul | NCBI BLAST stats / published λ | λ≈1.374, E within tolerance |
 | 245 | ☐ | MHC-NN-001 | Oncology | C# MHCflurry port | mhcflurry 2.1.5 (models_class1_pan) | IC50 < 0.03% |
 | 246 | ☐ | MHC-MATRIX-001 | Oncology | C# SMM/BIMAS | published worked examples / IEDB (caller matrix) | exact on anchor cases |
@@ -292,8 +292,8 @@ Differential testing порівнює виходи двох незалежних
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 3 |
-| ☐ Not started | 253 |
+| ☑ Complete | 4 |
+| ☐ Not started | 252 |
 | High-value pairs (ALT/BRUTE feasible) | ~25 |
 | Medium-value pairs (REF comparison) | ~35 |
 | Lower priority (DUAL re-impl needed) | ~26 |
