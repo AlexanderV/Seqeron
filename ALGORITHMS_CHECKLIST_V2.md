@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 255 |
-| **Completed** | 227 |
+| **Completed** | 228 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 28 |
+| **Not Started** | 27 |
 
 ---
 
@@ -269,7 +269,7 @@
 | ☑ | META-CHECKM-001 | Metagenomics | 4 | Parks et al. (2015) CheckM, Parks et al. (2018) GTDB, Pfam CC0 | [TestSpec](tests/TestSpecs/META-CHECKM-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_MarkerGeneQuality_Tests.cs) |
 | ☑ | META-TETRA-001 | Metagenomics | 2 | Teeling et al. (2004) TETRA, Schbath (1995) | [TestSpec](tests/TestSpecs/META-TETRA-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_TetranucleotideZScore_Tests.cs) |
 | ☑ | SPLICE-MAXENT3-001 | Splicing | 1 | Yeo & Burge (2004), maxentpy (MIT) | [TestSpec](tests/TestSpecs/SPLICE-MAXENT3-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_AcceptorSite_Tests.cs) |
-| ☐ | SPLICE-MAXENT5-001 | Splicing | 1 | Yeo & Burge (2004), maxentpy (MIT) | [TestSpec](tests/TestSpecs/SPLICE-MAXENT5-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_DonorSite_Tests.cs) |
+| ☑ | SPLICE-MAXENT5-001 | Splicing | 1 | Yeo & Burge (2004), maxentpy (MIT) | [TestSpec](tests/TestSpecs/SPLICE-MAXENT5-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_DonorSite_Tests.cs) |
 | ☐ | MIRNA-CONTEXT-001 | MiRNA | 2 | Agarwal et al. (2015) TargetScan context++ | [TestSpec](tests/TestSpecs/MIRNA-CONTEXT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_TargetPrediction_Tests.cs) |
 | ☐ | MIRNA-PCT-001 | MiRNA | 1 | Friedman et al. (2009) PCT, TargetScan | [TestSpec](tests/TestSpecs/MIRNA-PCT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_TargetPrediction_Tests.cs) |
 | ☐ | MIRNA-CLASSIFY-001 | MiRNA | 1 | Bonnet et al. (2004), miRBase (public domain), Zhang (2006) MFEI | [TestSpec](tests/TestSpecs/MIRNA-CLASSIFY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_PreMiRna_Tests.cs) |
@@ -5561,13 +5561,13 @@ DnaSequence.Complement   DnaSequence.ReverseComplement
 
 ---
 
-#### SPLICE-MAXENT5-001: MaxEntScan score5 (5' Donor) ☐
+#### SPLICE-MAXENT5-001: MaxEntScan score5 (5' Donor) ☑
 
 | Field | Value |
 |-------|-------|
 | **Canonical** | `ScoreDonorMaxEnt` |
 | **Area** | Splicing |
-| **Status** | ☐ Not Started (pending independent Stage A/B re-validation) |
+| **Status** | ☑ Complete (validated 2026-06-25, CLEAN) |
 | **Evidence** | Yeo & Burge (2004), maxentpy (MIT) |
 | **Source** | `SpliceSitePredictor.cs` |
 

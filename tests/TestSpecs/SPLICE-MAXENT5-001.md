@@ -3,13 +3,14 @@
 **Test Unit ID:** SPLICE-MAXENT5-001
 **Area:** Splicing
 **Algorithm:** MaxEntScan score5 (5' Donor)
-**Status:** ☐ Not Started — pending independent Stage A/B re-validation
+**Status:** ☑ Complete — independently validated 2026-06-25 (Stage A ✅ / Stage B ✅ / CLEAN)
 **Last Updated:** 2026-06-25
 
-> **Stub.** This unit was added during the limitation-elimination campaign. The algorithm is implemented and
-> covered by the test fixture below, but it has **not yet** been independently re-validated under the project's
-> two-stage (Stage A description / Stage B implementation) protocol. This spec captures the evidence and contract
-> needed to perform that validation; fill in the full TestSpec when the unit is re-validated to `☑`.
+> **Validated.** Independently re-validated against Yeo & Burge (2004) and the MIT-licensed maxentpy `score5`
+> reference port (see `docs/Validation/reports/SPLICE-MAXENT5-001.md`). `score5` was reimplemented in Python over
+> the embedded `maxent_score5.txt` table and reproduced the published worked examples exactly
+> (`cagGTAAGT`→10.858313/10.86, `gagGTAAGT`→11.078494/11.08, `taaATAAGT`→-0.116791/-0.12); the C# `ScoreDonorMaxEnt`
+> matches these bit-for-bit. Full unfiltered `dotnet test Seqeron.sln` Failed: 0.
 
 ---
 
@@ -35,9 +36,13 @@ R: score finite; D: deterministic; requires 9-nt donor window
 - **Reference:** MaxEntScan score5.pl
 - **Comparison:** exact score
 
-## 5. Validation Checklist (to restore ☑)
+## 5. Validation Checklist (restored ☑ — 2026-06-25)
 
-- [ ] Stage A: retrieve every source above; confirm formula/constants against the publication's worked example.
-- [ ] Stage B: review the implementation against the source; cross-check vs the reference oracle.
-- [ ] Full unfiltered `dotnet test Seqeron.sln` — Failed: 0.
-- [ ] Flip `☐ → ☑` in `ALGORITHMS_CHECKLIST_V2.md` and the 10 `docs/checklists/*.md`.
+- [x] Stage A: sources retrieved (Yeo & Burge 2004; maxentpy `maxent.py::score5` + `score5_matrix.txt`).
+      Formula/constants (`bgd_5`, `cons1_5`, `cons2_5`, log2 factorisation, rest=fa[:3]+fa[5:]) confirmed
+      against maxentpy and the published worked examples. ✅ PASS
+- [x] Stage B: `ScoreDonorMaxEnt` is line-for-line equivalent to maxentpy `score5`; cross-checked vs the
+      Python oracle over the embedded table — exact match. ✅ PASS
+- [x] Full unfiltered `dotnet test Seqeron.sln -c Debug` — Failed: 0 (Genomics 18762 passed).
+- [x] Flipped `☐ → ☑` in ROOT `ALGORITHMS_CHECKLIST_V2.md` (registry row + catalog header + Status +
+      Quick-Reference Completed 227→228 / Not Started 28→27). `docs/checklists/*.md` intentionally untouched.
