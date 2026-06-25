@@ -35,7 +35,7 @@
 
 ### 1.4 Known Failure Modes / Pitfalls
 
-1. ntthal extends some duplexes into terminal mismatches/overhangs (`tstack2`); the plain contiguous-WC NN model deviates by a small terminal term for those (e.g. poly-A overhangs, ATCGTTAC/GTAACGAT) — documented model boundary. Parity is asserted only on cases whose optimal structure is a contiguous WC duplex.
+1. The full ntthal DP (`CalculateDimerThermodynamicsNtthal`, to which the Tm methods delegate) models internal mismatches/loops, bulges and terminal overhangs (`tstack2`/`dangle`), so parity holds for non-contiguous optima too (N1–N5). The legacy `FindMostStableDimer` `DimerResult` scorer remains contiguous-WC only (its `BasePairs`/spans/ΔH°/ΔS° fields); M12 asserts the contiguous case there.
 2. Confusing the dimer C_T convention (50 nM) with the primer-Tm convention (0.5 µM) shifts Tm by ~6 °C.
 
 ---
@@ -44,8 +44,9 @@
 
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
-| `FindMostStableDimer(string, string, double, double)` | PrimerDesigner | **Canonical** | Thermodynamic alignment; returns `DimerResult?` (ΔH°/ΔS°/ΔG°37 + spans/bp). |
-| `CalculateDimerMeltingTemperature(string, string, double, double)` | PrimerDesigner | **Canonical** | Bimolecular Tm of the most stable dimer. |
+| `FindMostStableDimer(string, string, double, double)` | PrimerDesigner | **Canonical** | Contiguous-WC thermodynamic alignment; returns `DimerResult?` (ΔH°/ΔS°/ΔG°37 + spans/bp). |
+| `CalculateDimerThermodynamicsNtthal(string, string, double, double)` | PrimerDesigner | **Canonical** | Full ntthal DP (internal mismatches/loops, bulges, terminal overhangs); returns `DimerThermodynamics?`. |
+| `CalculateDimerMeltingTemperature(string, string, double, double)` | PrimerDesigner | **Canonical** | Bimolecular Tm of the most stable dimer (delegates to the full ntthal DP). |
 | `CalculateSelfDimerMeltingTemperature(string, double, double)` | PrimerDesigner | **Delegate** | Calls the two-argument method with the sequence twice. |
 
 ---
@@ -81,6 +82,14 @@
 | M10 | Non-complementary pair (GGGGGGGG/AAAAAAAA) | no duplex | null / NaN | INV-4 |
 | M11 | Invalid input | null, < 2 bases, non-ACGT | null / NaN | input contract |
 | M12 | Base-pair count / spans | GCGCGCGC self-dimer reports 8 bp at start 0 | BasePairs=8, Strand1Start=0, Strand2Start=0 | alignment definition |
+| N1 | Full DP — 2×2 internal loop | GCGCATGCGC self-dimer (`CalculateDimerThermodynamicsNtthal`) | Tm=43.1572 °C; ΔH=−84.400 kcal/mol; ΔS=−233.42187; ΔG°37=−12.00421 kcal/mol (±1e-3) | primer3-py 2.3.0 `calc_homodimer` |
+| N2 | Full DP — 3×3 internal loop | GCGCAAAGCGC/GCGCTTTGCGC | Tm=41.8816 °C; ΔH=−92.300; ΔS=−256.82429; ΔG°37=−12.64594 (±1e-3) | primer3-py 2.3.0 `calc_heterodimer` |
+| N3 | Full DP — single-base bulge | GCGCGCGC/GCGCAGCGC | Tm=19.8125 °C; ΔH=−70.800; ΔS=−205.50701; ΔG°37=−7.06200 (±1e-3) | primer3-py 2.3.0 |
+| N4 | Full DP — mixed 2×2 internal loop | GCGCACGCGC/GCGCTAGCGC | Tm=18.5604 °C; ΔH=−68.400; ΔG°37=−6.89198 (±1e-3) | primer3-py 2.3.0 |
+| N5 | Full DP — terminal overhang | GCGCGCAAAA/AAAAGCGCGC | Tm=24.6547 °C; ΔH=−60.000; ΔG°37=−8.72844 (±1e-3) | primer3-py 2.3.0 (dangling-end/`tstack2`) |
+| N6 | Full DP — contiguous regression | GCGCGCGC self-dimer through the full DP | Tm=40.0906 °C; ΔH=−70.8 kcal/mol; BasePairs=8 (±1e-3) | primer3-py; regression of contiguous case |
+| N7 | Tm method delegates to full DP | `CalculateDimerMeltingTemperature` on GCGCAAAGCGC/GCGCTTTGCGC | equals full-DP Tm = 41.8816 °C | delegation |
+| N8 | Full DP — no structure / invalid | poly-A/poly-A, non-ACGT, null | `CalculateDimerThermodynamicsNtthal` null | ntthal `no_structure`; input contract |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -108,7 +117,8 @@
 
 | Area / Test Case ID | Status | Notes |
 |---------------------|--------|-------|
-| M1–M12, S1–S3, C1 | ❌ Missing | New unit; no prior tests |
+| M1–M12, S1–S3, C1 | ✅ Covered | Initial dimer round |
+| N1–N8 (full ntthal DP) | ❌ Missing | Added with the full ntthal DP (2026-06-25) |
 
 ### 5.3 Consolidation Plan
 
@@ -119,7 +129,7 @@
 
 | File | Role | Test Count |
 |------|------|------------|
-| `PrimerDesigner_DimerTm_Tests.cs` | Canonical dimer-Tm fixture | 19 |
+| `PrimerDesigner_DimerTm_Tests.cs` | Canonical dimer-Tm fixture | 27 |
 
 ### 5.5 Phase 7 Work Queue
 
@@ -135,9 +145,13 @@
 | 8 | M12 | ❌ Missing | Implemented (bp count / spans) | ✅ Done |
 | 9 | S1–S3 | ❌ Missing | Implemented | ✅ Done |
 | 10 | C1 | ❌ Missing | Implemented | ✅ Done |
+| 11 | N1–N5 | ❌ Missing | Implemented (full ntthal DP non-contiguous parity: internal loops, bulge, overhang) | ✅ Done |
+| 12 | N6 | ❌ Missing | Implemented (contiguous regression through the full DP) | ✅ Done |
+| 13 | N7 | ❌ Missing | Implemented (Tm method delegates to full DP) | ✅ Done |
+| 14 | N8 | ❌ Missing | Implemented (no-structure / invalid → null) | ✅ Done |
 
-**Total items:** 10 groups (19 tests)
-**✅ Done:** 10 | **⛔ Blocked:** 0 | **Remaining:** 0
+**Total items:** 14 groups (27 tests)
+**✅ Done:** 14 | **⛔ Blocked:** 0 | **Remaining:** 0
 
 ### 5.6 Post-Implementation Coverage
 
@@ -146,19 +160,21 @@
 | M1–M12 | ✅ Covered | Exact values, `.Within(1e-9)` (hand-derived) / `.Within(1e-3)` (primer3 parity) |
 | S1–S3 | ✅ Covered | Delegation + monotonicity |
 | C1 | ✅ Covered | Most-stable selection |
+| N1–N5 | ✅ Covered | Full ntthal DP parity (internal loops, bulge, overhang) vs primer3-py 2.3.0, `.Within(1e-3)` |
+| N6–N8 | ✅ Covered | Contiguous regression; Tm delegation; no-structure/invalid → null |
 
 ---
 
 ## 6. Assumption Register
 
-**Total assumptions:** 1
+**Total assumptions:** 0
 
 | # | Assumption | Used In |
 |---|-----------|---------|
-| 1 | Gapless alignment only (no internal loops / terminal-overhang extension); parity asserted only on contiguous-WC-optimum cases | §1.4, §4.1 (M4–M8 tolerance) |
+| — | None. The full ntthal dimer DP (internal mismatches/loops, bulges, terminal overhangs via `tstack2`/`dangle`/`stackmm`/`tstack`/loop tables, all verbatim from primer3 config) is implemented and matches primer3-py 2.3.0 to machine precision; every constant/table is source-backed. | — |
 
 ---
 
 ## 7. Open Questions / Decisions
 
-1. None. Internal loops / terminal-overhang extension (the ntthal `tstack2` terms) are intentionally out of scope and documented as a model boundary in the algorithm doc §5.3.
+1. None. The full ntthal dimer DP (internal loops, bulges, terminal-overhang `tstack2` extension) is now implemented and verified against primer3-py 2.3.0 for non-contiguous optima. The only ntthal capability not ported is the optional caller-supplied tri/tetraloop & terminal-mismatch hairpin bonus tables — a hairpin/monomer feature, not part of the dimer model.

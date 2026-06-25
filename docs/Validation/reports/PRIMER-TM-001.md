@@ -231,6 +231,38 @@ folder, and the default Wallace/Marmur-Doty Tm are all UNCHANGED.
 - **LIMITATIONS.md:** the PRIMER-TM-001 row is trimmed to the true residual (the caller-supplied loop-bonus
   tables + the `ntthal` overhang/internal-loop extension); self-/cross-dimer Tm is removed from "not done".
 
+## Update 2026-06-25 — full `ntthal` dimer DP (internal loops + `tstack2` terminal overhang)
+
+The previously-documented dimer limit (gapless contiguous-WC only) is now resolved. The dimer alignment ships
+the **complete** Primer3 `ntthal` oligo–oligo DP (mode ANY, `type==1`).
+
+- **What changed (opt-in; defaults & other methods unchanged):**
+  - New engine `NtthalDimer.cs` — a verbatim port of `thal.c` (`fillMatrix`, `LSH`, `RSH`, `maxTM`,
+    `calc_bulge_internal`, `traceback`, `calcDimer`). Models matched stacks, single internal mismatches
+    (`stackmm`), internal loops (`interior` loop-length + `tstack` terminal + ILAS asymmetry), single/multi-base
+    bulges (`bulge` loop-length; size-1 adds the intervening `stack`), and terminal overhangs/dangling ends
+    (the previously-missing **`tstack2`** terminal table + 5′/3′ `dangle` tables).
+  - New public method `PrimerDesigner.CalculateDimerThermodynamicsNtthal(...) → DimerThermodynamics?`
+    (ΔH° kcal/mol, ΔS° cal/K/mol, ΔG°37 kcal/mol, Tm °C, BasePairs).
+  - `CalculateDimerMeltingTemperature` / `CalculateSelfDimerMeltingTemperature` now **delegate** to the full DP.
+    The legacy `FindMostStableDimer` contiguous scorer (`DimerResult`) is retained unchanged.
+- **Tables:** `stack`, `stackmm`, `tstack2`, `tstack`, `dangle`, interior/bulge loop lengths embedded in
+  `NtthalDimer.cs` **verbatim** from primer3 `primer3_config/*.dh,*.ds` (the authoritative set `ntthal` loads),
+  parsed with the same index order `getStack`/`getStackint2`/`getTstack2`/`getTstack`/`getDangle`/`getLoop` use.
+- **Cross-check (primer3-py 2.3.0, mv=50, dv=0, dntp=0, dna_conc=50 nM) — machine precision on NON-contiguous optima:**
+  GCGCATGCGC self (2×2 internal loop) ΔH=−84.4 kcal/mol, ΔG°37=−12.00421, Tm=43.1572 °C;
+  GCGCAAAGCGC/GCGCTTTGCGC (3×3 loop) Tm=41.8816 °C; GCGCGCGC/GCGCAGCGC (1-base bulge) Tm=19.8125 °C, ΔG°37=−7.06200;
+  GCGCACGCGC/GCGCTAGCGC (mixed 2×2 loop) Tm=18.5604 °C; GCGCGCAAAA/AAAAGCGCGC (terminal overhang) Tm=24.6547 °C.
+  A Python reference port mirroring the C# DP reproduced all of these with ΔTm=0 / ΔΔG≈1e-12.
+- **Contiguous regression held:** all 7 prior contiguous-WC parity cases + the hand-derived GCGCGCGC/TGCATGCATG
+  values still match (within 1e-9). Non-complementary / invalid → null.
+- **Tests:** `PrimerDesigner_DimerTm_Tests.cs` (27, all green — +8 new: N1–N8).
+- **Residual (genuinely open):** only the optional caller-supplied tri/tetraloop & terminal-mismatch **hairpin**
+  bonus tables (a hairpin/monomer feature, not a dimer one). No correctness-affecting assumptions remain for the dimer Tm.
+- **Checklist:** root-registry Status remains `☐` (re-validation); Quick-Reference counts unchanged.
+- **LIMITATIONS.md:** PRIMER-TM-001 row trimmed — the `ntthal` dimer internal-loop/overhang extension removed from
+  "not done"; only the hairpin special-loop bonus tables remain.
+
 ## Verdict & follow-ups
 - **Stage A: PASS-WITH-NOTES** (Tm portion: documented Wallace −7 omission + Marmur-Doty simplification; prompt's
   "Tm uses SantaLucia NN" is a framing inaccuracy — NN is in 3'-stability only). **Stage B: PASS.**

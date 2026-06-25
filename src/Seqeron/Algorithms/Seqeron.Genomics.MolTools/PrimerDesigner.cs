@@ -1593,17 +1593,68 @@ public static class PrimerDesigner
         double sodiumMolar = ThermoConstants.DefaultNaConcentration,
         double strandConcentrationMolar = DefaultDimerStrandConcentrationMolar)
     {
-        var dimer = FindMostStableDimer(strand1, strand2, sodiumMolar, strandConcentrationMolar);
-        if (dimer is null)
-            return double.NaN;
-
-        var d = dimer.Value;
-        bool symmetric = IsSelfComplementary(strand1.ToUpperInvariant())
-                         && IsSelfComplementary(strand2.ToUpperInvariant());
-        double x = symmetric ? SelfComplementaryFactor : NonSelfComplementaryFactor;
-        double tmKelvin = (d.DeltaH * 1000.0) / (d.DeltaS + GasConstant * Math.Log(strandConcentrationMolar / x));
-        return tmKelvin - KelvinOffset;
+        var dimer = CalculateDimerThermodynamicsNtthal(strand1, strand2, sodiumMolar, strandConcentrationMolar);
+        return dimer is null ? double.NaN : dimer.Value.TmCelsius;
     }
+
+    /// <summary>
+    /// Full <c>ntthal</c> dimer thermodynamics (ΔH°, ΔS°, ΔG°37 and bimolecular Tm) for the most
+    /// stable intermolecular DNA duplex between two oligos, computed by the complete Primer3
+    /// <c>ntthal</c> dynamic program (mode ANY): matched nearest-neighbour stacks, single internal
+    /// mismatches, internal loops, single- and multi-base bulges, and terminal overhangs /
+    /// dangling ends (the <c>tstack2</c> terminal table + 5′/3′ dangling-end tables + interior /
+    /// bulge loop-length parameters). Unlike <see cref="FindMostStableDimer"/> (which scores only
+    /// the best contiguous Watson–Crick run), this reproduces primer3-py's
+    /// <c>calc_homodimer</c>/<c>calc_heterodimer</c> for dimers whose optimum is <b>non-contiguous</b>.
+    /// <b>Opt-in</b>: all other Tm methods and defaults are unchanged.
+    /// </summary>
+    /// <param name="strand1">First DNA oligo (5′→3′); ≥ 1 ACGT base.</param>
+    /// <param name="strand2">Second DNA oligo (5′→3′); the same string for a self-dimer.</param>
+    /// <param name="sodiumMolar">Monovalent cation concentration in mol/L (default 50 mM).</param>
+    /// <param name="strandConcentrationMolar">Total strand concentration C_T in mol/L
+    /// (default 50 nM, the Primer3/ntthal convention).</param>
+    /// <returns>The most stable dimer's thermodynamics, or <c>null</c> if either strand is
+    /// null/empty/contains a non-ACGT character, or no duplex can be formed (ntthal
+    /// <c>no_structure</c>).</returns>
+    public static DimerThermodynamics? CalculateDimerThermodynamicsNtthal(
+        string strand1,
+        string strand2,
+        double sodiumMolar = ThermoConstants.DefaultNaConcentration,
+        double strandConcentrationMolar = DefaultDimerStrandConcentrationMolar)
+    {
+        if (string.IsNullOrEmpty(strand1) || string.IsNullOrEmpty(strand2))
+            return null;
+        string s1 = strand1.ToUpperInvariant();
+        string s2 = strand2.ToUpperInvariant();
+        foreach (char c in s1)
+            if (c is not ('A' or 'C' or 'G' or 'T')) return null;
+        foreach (char c in s2)
+            if (c is not ('A' or 'C' or 'G' or 'T')) return null;
+
+        var r = NtthalDimer.Run(s1, s2, sodiumMolar, strandConcentrationMolar);
+        if (r is null)
+            return null;
+
+        var v = r.Value;
+        // Convert ntthal native cal/mol → the library's kcal/mol convention for ΔH/ΔG.
+        return new DimerThermodynamics(
+            DeltaH: v.DeltaH / 1000.0,
+            DeltaS: v.DeltaS,
+            DeltaG37: v.DeltaG37 / 1000.0,
+            TmCelsius: v.TmCelsius,
+            BasePairs: v.BasePairs);
+    }
+
+    /// <summary>
+    /// Full <c>ntthal</c> dimer thermodynamics of the most stable intermolecular duplex.
+    /// </summary>
+    /// <param name="DeltaH">Dimer ΔH° in kcal/mol (salt-independent).</param>
+    /// <param name="DeltaS">Dimer ΔS° in cal/(K·mol), including the N·saltCorrection term.</param>
+    /// <param name="DeltaG37">Dimer ΔG°37 = ΔH° − 310.15·ΔS°/1000 in kcal/mol (negative = stable).</param>
+    /// <param name="TmCelsius">Bimolecular melting temperature in °C.</param>
+    /// <param name="BasePairs">Number of paired bases in the optimal structure.</param>
+    public readonly record struct DimerThermodynamics(
+        double DeltaH, double DeltaS, double DeltaG37, double TmCelsius, int BasePairs);
 
     /// <summary>Watson-Crick complement of an ACGT string (same 5'→3'/left-to-right order).</summary>
     private static string Complement(string seq)

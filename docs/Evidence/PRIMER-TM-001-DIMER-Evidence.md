@@ -119,12 +119,63 @@
 
 ---
 
+## Full ntthal dimer DP (non-contiguous optima) — implemented 2026-06-25
+
+The dimer alignment now ships the **complete** Primer3 `ntthal` oligo–oligo DP (mode ANY, `type==1`),
+a verbatim port of `thal.c` (`fillMatrix`, `LSH`, `RSH`, `maxTM`, `calc_bulge_internal`, `traceback`,
+`calcDimer`), so the most stable dimer can be **non-contiguous** — internal single mismatch, internal
+loop, single/multi-base bulge, or terminal overhang/dangling end. Method:
+`PrimerDesigner.CalculateDimerThermodynamicsNtthal`; `CalculateDimerMeltingTemperature` /
+`CalculateSelfDimerMeltingTemperature` delegate to it. (The contiguous `FindMostStableDimer` scorer is
+retained unchanged for its existing contiguous-WC results.)
+
+### Recurrence (thal.c, retrieved this session — URL in References [3])
+
+`EnthalpyDPT(i,j)` / `EntropyDPT(i,j)` = best ΔH°/ΔS° of a duplex closing at the WC pair `(i,j)`
+(strand1 5′→3′ index `i`, reversed-strand2 index `j`). Built by `fillMatrix` (thal.c L1581-1629):
+- **init** (`initMatrix` L1547): WC pair → (0, MinEntropy=−3224); non-pair → (∞, −1).
+- **terminal/dangling open** `LSH(i,j)` (L1741): A·T-penalty + `tstack2[s2j][s2j-1][s1i][s1i-1]`, vs
+  dangling-end alternatives (`dangle3`/`dangle5`), pick the higher-Tm.
+- **stack extension** `maxTM(i,j)` (L1662): compare current vs `(i-1,j-1)` + `stack[..]`.
+- **loops/bulges** `calc_bulge_internal(ii,jj,i,j)` (L2149), inner pair `(ii,jj)`:
+  - bulge (one side 0 unpaired): size-1 → `bulge[ls] + stack[s1i][s1ii][s2j][s2jj]`; larger → `bulge[ls] + 2·A·T-pen`.
+  - 1×1 internal mismatch → `stackmm[..] + stackmm[..]` (both terminal mismatches).
+  - general internal loop → `interior[ls] + tstack[..] + tstack[..] + ILAS·|Δn|` (ILAS=−300/310.15 cal/K/mol; ILAH=0).
+- **best terminal pair** over all `(i,j)` minimising ΔG (L710-723), then `RSH` closes the 3′ end.
+- **N from traceback** (L2957) → `Tm = ΔH/(ΔS + N·saltCorrection + RC) − 273.15`,
+  `saltCorrection = 0.368·ln(mv/1000)` (L1042), `RC = R·ln(dna_conc/x)`, x∈{1e9,4e9}.
+
+### Parameter tables (verbatim from primer3 `primer3_config/*.dh,*.ds`)
+
+`stack`, `stackmm` (internal-mismatch), **`tstack2`** (terminal-stacking, the previously-missing table),
+`tstack` (`tstack_tm_inf.ds`/`tstack.dh`, internal-loop terminal), `dangle` (5′/3′), and the
+interior/bulge loop-length parameters (`loops.dh`/`loops.ds`, lengths 1..30) are embedded in
+`NtthalDimer.cs` exactly as `getStack`/`getStackint2`/`getTstack2`/`getTstack`/`getDangle`/`getLoop` read them.
+
+### primer3-py 2.3.0 non-contiguous reference numbers (mv=50, dv=0, dntp=0, dna_conc=50 nM)
+
+| Case | structure | ΔH (kcal/mol) | ΔS (cal/K/mol) | ΔG°37 (kcal/mol) | Tm (°C) |
+|------|-----------|---------------|----------------|------------------|---------|
+| GCGCATGCGC self | 2×2 internal loop | −84.40000 | −233.42187 | −12.00421 | 43.1572 |
+| GCGCAAAGCGC / GCGCTTTGCGC | 3×3 internal loop | −92.30000 | −256.82429 | −12.64594 | 41.8816 |
+| GCGCGCGC / GCGCAGCGC | 1-base bulge | −70.80000 | −205.50701 | −7.06200 | 19.8125 |
+| GCGCACGCGC / GCGCTAGCGC | 2×2 internal loop | −68.40000 | −198.31701 | −6.89198 | 18.5604 |
+| GCGCGCAAAA / AAAAGCGCGC | terminal overhang | −60.00000 | −165.31215 | −8.72844 | 24.6547 |
+
+The C# port reproduces every value above to machine precision (ΔTm = 0, ΔΔG ≈ 1e-12 cal/mol in the
+Python reference port that mirrors the C# DP), and still reproduces all contiguous-WC cases
+(regression). Verified against `primer3.thermoanalysis.ThermoAnalysis.calc_homodimer` /
+`calc_heterodimer`, primer3-py 2.3.0.
+
+---
+
 ## Assumptions
 
-1. **ASSUMPTION: gapless alignment only.** The implemented thermodynamic alignment is gapless (no internal
-   loops/bulges between WC runs) and scores only maximal contiguous Watson-Crick runs. ntthal additionally
-   models internal loops and terminal overhang extension; those extra terms are not reproduced here. This is a
-   documented model boundary, not a parameter assumption — every NN/init/penalty/salt constant is source-backed.
+1. **(RESOLVED 2026-06-25) gapless alignment only** — the dimer alignment now implements the full
+   `ntthal` DP (internal mismatches, internal loops, bulges, `tstack2` terminal overhangs); see the
+   section above. No correctness-affecting assumptions remain for the dimer Tm. The only capability
+   not modelled is the optional caller-supplied tri/tetraloop & terminal-mismatch hairpin **bonus
+   tables** (a hairpin/monomer feature, not a dimer one).
 
 ---
 

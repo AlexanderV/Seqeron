@@ -51,7 +51,7 @@ The most stable duplex is the contiguous WC run (over all antiparallel offsets) 
 | ID | Assumption | Consequence if Violated |
 |----|------------|--------------------------|
 | ASM-01 | Two-state, fixed-buffer NN thermodynamics at the SantaLucia 1 M reference, salt-corrected via Eq. 5 | Off in extreme salt / non-two-state transitions |
-| ASM-02 | The dimer is a single gapless contiguous WC helix (no internal loops/bulges, no terminal-overhang extension) | Underestimates stability of dimers stabilized by overhang stacks or internal loops |
+| ASM-02 | `FindMostStableDimer` scores a single gapless contiguous WC helix; the full `CalculateDimerThermodynamicsNtthal` DP additionally models internal mismatches/loops, bulges and terminal overhangs (`tstack2`) | The contiguous scorer underestimates stability of overhang/loop-stabilized dimers; the full DP does not |
 
 ### 2.4 Properties and Invariants
 
@@ -142,20 +142,22 @@ made: the repository suffix tree was **not** used — dimer scoring is an O(n·m
 
 - SantaLucia & Hicks (2004) unified NN ΔH°/ΔS°, duplex initiation, terminal-A·T penalty, the 0.368 entropy salt correction, and the bimolecular Tm Eq. 3 with x = 1 (both palindromic) / x = 4 [1].
 - The Primer3/`ntthal` most-stable (highest-Tm) selection over antiparallel offsets [2][3]; reproduces primer3-py 2.3.0 ΔH°/ΔS°/Tm to machine precision for every pair whose optimum is a contiguous WC duplex (GCGCGCGC, ACGTACGTACGT, ATCGATCGATCG/CGATCGATCGAT, CGATCGATCG, GCATGC, GGGGCCCC, TGCATGCATG/CATGCATGCA).
+- **The full `ntthal` dimer DP (mode ANY)** — `CalculateDimerThermodynamicsNtthal` (a verbatim port of `thal.c`: `fillMatrix`/`LSH`/`RSH`/`maxTM`/`calc_bulge_internal`/`traceback`/`calcDimer`) [2][3], with the `tstack2` terminal-stacking table, the `stackmm` internal-mismatch table, the `tstack` internal-loop terminal table, the 5′/3′ `dangle` tables and the interior/bulge loop-length parameters (all verbatim from `primer3_config/*.dh,*.ds`). It scores matched stacks, single internal mismatches, internal loops, single/multi-base bulges and terminal overhangs/dangling ends, and reproduces primer3-py 2.3.0 ΔH°/ΔS°/ΔG°/Tm to machine precision for **non-contiguous** optima (GCGCATGCGC internal loop; GCGCAAAGCGC/GCGCTTTGCGC 3×3 loop; GCGCGCGC/GCGCAGCGC bulge; GCGCGCAAAA/AAAAGCGCGC overhang) as well as all contiguous cases. `CalculateDimerMeltingTemperature`/`CalculateSelfDimerMeltingTemperature` delegate to it.
 
 **Intentionally simplified:**
 
 - Salt: only the Eq. 5 monovalent entropy correction (0.368) is applied in the dimer ΔS°; divalent (Mg²⁺) is not modelled here (use `CalculateMeltingTemperatureNN(..., Owczarzy2008Divalent)` for monomer divalent Tm). **Consequence:** dimer Tm is reported at the monovalent reference only.
+- `FindMostStableDimer` (the public `DimerResult` record) keeps its original gapless contiguous-WC scorer for its `BasePairs`/spans/ΔH°/ΔS° fields; the loop/bulge/overhang model is exposed through `CalculateDimerThermodynamicsNtthal` and the Tm methods.
 
 **Not implemented:**
 
-- Internal loops / bulges and terminal-overhang (`tstack2`) extension that `ntthal` adds for some sequences (e.g. poly-A overhangs, ATCGTTAC/GTAACGAT). **Users should rely on:** Primer3/`ntthal`, UNAFold, or ViennaRNA for those cases. The deviation is a small terminal term; the contiguous-WC optimum is exact.
+- The optional caller-supplied tri/tetraloop & terminal-mismatch hairpin **special-loop bonus tables** (`triloop`/`tetraloop`) — a hairpin/monomer feature of `ntthal`, not part of the dimer model. **Users should rely on:** Primer3/`ntthal` directly if those hairpin bonuses are needed.
 
 ### 5.4 Deviations and Assumptions
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | Terminal-overhang / internal-loop extension omitted | Deviation | Slightly underestimates Tm for overhang-stabilized dimers | accepted | ASM-02; parity asserted only on contiguous-WC-optimum cases |
+| 1 | `FindMostStableDimer` reports the contiguous-WC optimum only | Simplification | Its `DimerResult` underestimates overhang/loop-stabilized dimers | accepted | The full DP (`CalculateDimerThermodynamicsNtthal`) and the Tm methods model loops/bulges/overhangs at full ntthal parity |
 
 ## 6. Edge Cases and Limitations
 
@@ -170,9 +172,11 @@ made: the repository suffix tree was **not** used — dimer scoring is an O(n·m
 
 ### 6.2 Limitations
 
-Gapless contiguous-WC model only (no loops/bulges/overhang extension); monovalent salt only;
-two-state assumption. For dimers stabilized by terminal overhangs or internal loops, or for
-divalent buffers, use the external thermodynamic tools noted in §5.3.
+The full `CalculateDimerThermodynamicsNtthal` DP models internal mismatches/loops, bulges and
+terminal overhangs at full ntthal parity; the legacy `FindMostStableDimer` record reports the
+contiguous-WC optimum only. Both are monovalent-salt, two-state. For divalent buffers use the
+monomer divalent Tm path; the only ntthal capability not ported is the optional tri/tetraloop &
+terminal-mismatch hairpin bonus tables (a hairpin/monomer feature).
 
 ## 7. Examples and Related Material
 
