@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 255 |
-| **Completed** | 229 |
+| **Completed** | 230 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 26 |
+| **Not Started** | 25 |
 
 ---
 
@@ -271,7 +271,7 @@
 | ☑ | SPLICE-MAXENT3-001 | Splicing | 1 | Yeo & Burge (2004), maxentpy (MIT) | [TestSpec](tests/TestSpecs/SPLICE-MAXENT3-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_AcceptorSite_Tests.cs) |
 | ☑ | SPLICE-MAXENT5-001 | Splicing | 1 | Yeo & Burge (2004), maxentpy (MIT) | [TestSpec](tests/TestSpecs/SPLICE-MAXENT5-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_DonorSite_Tests.cs) |
 | ☑ | MIRNA-CONTEXT-001 | MiRNA | 2 | Agarwal et al. (2015) TargetScan context++ | [TestSpec](tests/TestSpecs/MIRNA-CONTEXT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_TargetPrediction_Tests.cs) |
-| ☐ | MIRNA-PCT-001 | MiRNA | 1 | Friedman et al. (2009) PCT, TargetScan | [TestSpec](tests/TestSpecs/MIRNA-PCT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_TargetPrediction_Tests.cs) |
+| ☑ | MIRNA-PCT-001 | MiRNA | 1 | Friedman et al. (2009) PCT, TargetScan | [TestSpec](tests/TestSpecs/MIRNA-PCT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_TargetPrediction_Tests.cs) |
 | ☐ | MIRNA-CLASSIFY-001 | MiRNA | 1 | Bonnet et al. (2004), miRBase (public domain), Zhang (2006) MFEI | [TestSpec](tests/TestSpecs/MIRNA-CLASSIFY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_PreMiRna_Tests.cs) |
 | ☐ | MIRNA-CLEAVAGE-001 | MiRNA | 1 | Han et al. (2006), Park et al. (2011), Auyeung et al. (2013) | [TestSpec](tests/TestSpecs/MIRNA-CLEAVAGE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_PreMiRna_Tests.cs) |
 | ☐ | REP-APPROX-001 | Repeats | 2 | Benson (1999) TRF | [TestSpec](tests/TestSpecs/REP-APPROX-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RepeatFinder_ApproximateTandemRepeats_Tests.cs) |
@@ -5593,13 +5593,13 @@ DnaSequence.Complement   DnaSequence.ReverseComplement
 
 ---
 
-#### MIRNA-PCT-001: TargetScan PCT (Branch-Length Conservation) ☐
+#### MIRNA-PCT-001: TargetScan PCT (Branch-Length Conservation) ☑
 
 | Field | Value |
 |-------|-------|
 | **Canonical** | `PCT (branch-length-score → logistic) from caller alignment+tree` |
 | **Area** | MiRNA |
-| **Status** | ☐ Not Started (pending independent Stage A/B re-validation) |
+| **Status** | ☑ Complete (independently validated — see `docs/Validation/reports/MIRNA-PCT-001.md`) |
 | **Evidence** | Friedman et al. (2009) PCT, TargetScan |
 | **Source** | `MiRnaAnalyzer.cs` |
 

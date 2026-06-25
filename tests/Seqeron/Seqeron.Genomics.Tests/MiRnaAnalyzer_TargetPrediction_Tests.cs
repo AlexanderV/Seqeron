@@ -1034,5 +1034,116 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
         });
     }
 
+    // CTX-PCT-007 — per-site-type PCT parameters for the remaining two site types (7mer-A1, 6mer).
+    // Same worked tree + {A,B} (Bls=3.0) + sigmoid (0,1,1,0) ⇒ PCT = 1/(1+e^-3) = 0.952574126822433.
+    //   7mer-A1 PCT row (Agarwal_2015_parameters.txt): coeff -0.048, min 0, max 0.449
+    //     contribution = -0.048 × (0.952574126822433 / 0.449) = -0.10183420509460311
+    //   6mer PCT row:                                  coeff  0.005, min 0, max 0.193
+    //     contribution =  0.005 × (0.952574126822433 / 0.193) =  0.024678086187109673
+    // These lock the 7mer-A1 and 6mer branches of PctContribution's site-type switch, which the
+    // 8mer/7mer-m8 cases above do not exercise.
+    [Test]
+    public void ScoreTargetSiteContextPlusPlus_Conservation_7merA1_UsesSiteTypePctParameters()
+    {
+        // 7mer-A1 = 6mer core (RC of pos 2-7 = UACCUC) + trailing A, no upstream seedRC[0]='C'.
+        string mrna = "GGGGG" + "UACCUC" + "A" + "GGGG";
+        var site = FindTargetSites(mrna, Let7a, minScore: 0.0).First(s => s.Type == TargetSiteType.Seed7merA1);
+
+        PhylogeneticAnalyzer.PhyloNode tree = PhylogeneticAnalyzer.ParseNewick(WorkedTreeNewick);
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, Let7a, site,
+            new ContextPlusPlusInputs(Conservation: new PctConservation(
+                tree, new[] { "A", "B" }, new PctSigmoidParameters(B0: 0.0, B1: 1.0, B2: 1.0, B3: 0.0))));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ctx.BranchLengthScore, Is.EqualTo(3.0).Within(1e-9), "Bls({A,B}) = 3.0");
+            Assert.That(ctx.Pct, Is.EqualTo(0.952574126822433).Within(1e-12), "PCT = 1/(1+e^-3)");
+            Assert.That(ctx.PctContribution, Is.EqualTo(-0.10183420509460311).Within(1e-9),
+                "7mer-A1 PCT contribution uses coeff -0.048, max 0.449");
+        });
+    }
+
+    [Test]
+    public void ScoreTargetSiteContextPlusPlus_Conservation_6mer_UsesSiteTypePctParameters()
+    {
+        // miR-21 6mer core = UAAGCU (seedRC AUAAGCU[1..]); non-A flank, no upstream seedRC[0].
+        string mrna = "GGGGC" + "UAAGCU" + "UGAGG";
+        var site = FindTargetSites(mrna, MiR21, minScore: 0.0).First(s => s.Type == TargetSiteType.Seed6mer);
+
+        PhylogeneticAnalyzer.PhyloNode tree = PhylogeneticAnalyzer.ParseNewick(WorkedTreeNewick);
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, MiR21, site,
+            new ContextPlusPlusInputs(Conservation: new PctConservation(
+                tree, new[] { "A", "B" }, new PctSigmoidParameters(B0: 0.0, B1: 1.0, B2: 1.0, B3: 0.0))));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ctx.BranchLengthScore, Is.EqualTo(3.0).Within(1e-9), "Bls({A,B}) = 3.0");
+            Assert.That(ctx.Pct, Is.EqualTo(0.952574126822433).Within(1e-12), "PCT = 1/(1+e^-3)");
+            Assert.That(ctx.PctContribution, Is.EqualTo(0.024678086187109673).Within(1e-9),
+                "6mer PCT contribution uses coeff 0.005, max 0.193");
+        });
+    }
+
+    // CTX-PCT-008 — Monotonicity invariant (the unit's contract M): for a sigmoid with B1>0, B2>0,
+    // higher branch-length score ⇒ strictly higher (or equal once saturated) PCT. Friedman et al.
+    // (2009): more conservation (greater Bls) ⇒ higher probability of conserved targeting.
+    [Test]
+    public void PctFromBranchLength_IncreasingBls_GivesNonDecreasingPct()
+    {
+        var p = new PctSigmoidParameters(B0: 0.0, B1: 1.0, B2: 1.0, B3: 0.0);
+
+        double[] bls = { 0.0, 0.5, 1.0, 2.0, 3.0, 5.0, 8.0 };
+        double[] pcts = bls.Select(b => PctFromBranchLength(b, p)).ToArray();
+
+        Assert.Multiple(() =>
+        {
+            for (int i = 1; i < pcts.Length; i++)
+                Assert.That(pcts[i], Is.GreaterThan(pcts[i - 1]),
+                    $"PCT(Bls={bls[i]}) must exceed PCT(Bls={bls[i - 1]}) for a B2>0 logistic");
+            // PCT(0) for (0,1,1,0) = 1/(1+e^0) = 0.5 exactly (the logistic floor at Bls=0, not truncated).
+            Assert.That(pcts[0], Is.EqualTo(0.5).Within(1e-12), "logistic floor PCT(Bls=0) = 0.5");
+        });
+    }
+
+    // CTX-PCT-009 — Bls=0 logistic floor with a non-trivial (untruncated) sigmoid: at Bls=0 the
+    // logistic reduces to B0 + B1/(1 + e^B3). With (B0=0.1, B1=0.8, B3=4.0) this is a small POSITIVE
+    // value (≈0.1144), i.e. it is the floor of the curve and is NOT truncated to 0.
+    [Test]
+    public void PctFromBranchLength_ZeroBls_ReturnsUntruncatedLogisticFloor()
+    {
+        var p = new PctSigmoidParameters(B0: 0.1, B1: 0.8, B2: 2.0, B3: 4.0);
+
+        double pct = PctFromBranchLength(0.0, p);
+
+        // 0.1 + 0.8/(1+e^4) = 0.11438896796967325 (> 0, so the truncation branch does not fire).
+        Assert.That(pct, Is.EqualTo(0.11438896796967325).Within(1e-12),
+            "PCT(Bls=0) = B0 + B1/(1+e^B3), the untruncated logistic floor");
+    }
+
+    // CTX-PCT-010 — Cross-check against a REAL published parameter row (not a synthetic sigmoid):
+    // the 8mer PCT_parameters.txt row for miRNA family "UCCCUUU" (miR-30 family), retrieved verbatim
+    // from targetscan_70 PCT_parameters/8mer_PCT_parameters.txt this session:
+    //   b0=-1.15890235160174  b1=1.61944269599563  b2=11.8180287443514  b3=36.260388031391
+    // Hand-computed PCT(Bls) = b0 + b1/(1+e^(−b2·Bls+b3)), truncated at 0:
+    //   Bls=3.0 ⇒ raw < 0 ⇒ 0.0 (steep curve: this family needs high conservation before PCT rises)
+    //   Bls=4.0 ⇒ 0.460513612719198
+    //   Bls=5.0 ⇒ 0.46054034419686185
+    // (independent Python reference: -1.15890235160174 + 1.61944269599563/(1+e^(-11.8180287443514·Bls+36.260388031391))).
+    [Test]
+    [TestCase(3.0, 0.0)]
+    [TestCase(4.0, 0.460513612719198)]
+    [TestCase(5.0, 0.46054034419686185)]
+    public void PctFromBranchLength_PublishedMir30Family8mer_MatchesReferenceImplementation(
+        double bls, double expectedPct)
+    {
+        var published = new PctSigmoidParameters(
+            B0: -1.15890235160174, B1: 1.61944269599563, B2: 11.8180287443514, B3: 36.260388031391);
+
+        double pct = PctFromBranchLength(bls, published);
+
+        Assert.That(pct, Is.EqualTo(expectedPct).Within(1e-9),
+            "PCT from the verbatim TargetScan 8mer PCT_parameters row for family UCCCUUU");
+    }
+
     #endregion
 }
