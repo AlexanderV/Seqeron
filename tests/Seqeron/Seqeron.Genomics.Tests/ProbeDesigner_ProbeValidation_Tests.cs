@@ -639,6 +639,57 @@ public class ProbeDesigner_ProbeValidation_Tests
     }
 
     [Test]
+    public void ScanOffTargetsGapped_OnTargetPlusHighIdentityAndIndelOffTargets_SeparatedAndLowIdentityExcluded()
+    {
+        // SG3: full Kane (2000) separation cross-check on a hand-constructed target set:
+        //   ref0 = exact on-target           → 1 on-target (identity 1.0, no gap)
+        //   ref1 = 17/20 = 0.85 ungapped     → off-target ABOVE the 0.75 Kane threshold (mismatched, no gap)
+        //   ref2 = ~scrambled (<0.75)        → must NOT be called (best local block far below 0.75)
+        //   ref3 = one inserted base         → off-target reachable ONLY via a gap (identity 1.0, HasGaps)
+        // Hand-derived with an independent Smith-Waterman (BlastDna +2/-3, gap -2):
+        //   ref1 alignment ACGTGGCATTACGGCATTCA / ACATGGCATAACGGCAATCA → 17 identical / 20 = 0.85
+        //   ref3 alignment ACGTGGCATT-ACGGCATTCA / ACGTGGCATTAACGGCATTCA → 20 identical / 20 = 1.0, one gap
+        //   ref2 best local block only 4 identical columns / 20 = 0.20 (< 0.75) → rejected
+        const string probe = "ACGTGGCATTACGGCATTCA"; // 20 nt
+        var references = new[]
+        {
+            "TTTTT" + probe + "TTTTT",                          // exact on-target
+            "GGGGG" + "ACATGGCATAACGGCAATCA" + "GGGGG",         // 0.85 mismatched off-target
+            "CCCCC" + "TTAATTAATTAATTAATTAA" + "CCCCC",         // low-identity, must be excluded
+            "AAAAA" + "ACGTGGCATTAACGGCATTCA" + "AAAAA",        // indel-only off-target (1 insertion)
+        };
+
+        var gapped = ProbeDesigner.ScanOffTargetsGapped(probe, references, minIdentity: 0.75);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(gapped.OnTargetHits, Has.Count.EqualTo(1),
+                "Exactly one intended on-target (the perfect exact match in ref0)");
+            Assert.That(gapped.OnTargetHits[0].ReferenceIndex, Is.EqualTo(0),
+                "The on-target lives in reference 0");
+
+            Assert.That(gapped.OffTargetCount, Is.EqualTo(2),
+                "Two genuine off-targets: the 0.85 mismatched site and the indel site");
+
+            var hi = gapped.OffTargetHits.Single(h => h.ReferenceIndex == 1);
+            Assert.That(hi.Identity, Is.EqualTo(17.0 / 20.0).Within(1e-10),
+                "Mismatched off-target identity = 17/20 = 0.85 (Kane 2000: >0.75 cross-hybridizes)");
+            Assert.That(hi.HasGaps, Is.False, "The 0.85 off-target is ungapped (pure substitutions)");
+
+            var indel = gapped.OffTargetHits.Single(h => h.ReferenceIndex == 3);
+            Assert.That(indel.Identity, Is.EqualTo(1.0).Within(1e-10),
+                "Indel off-target: 20 identical aligned columns / 20 = 1.0");
+            Assert.That(indel.HasGaps, Is.True,
+                "Indel off-target reachable only via a gap (insertion) — missed by the ungapped Hamming scan");
+
+            Assert.That(gapped.OffTargetHits.Any(h => h.ReferenceIndex == 2), Is.False,
+                "Low-identity reference (best block 0.20 < 0.75) must NOT be called an off-target");
+            Assert.That(gapped.IsSpecific, Is.False,
+                "Two off-targets present → the probe is not specific");
+        });
+    }
+
+    [Test]
     public void ScanOffTargetsGapped_NullProbe_ThrowsArgumentNullException()
     {
         // Guard: null probe must throw.
