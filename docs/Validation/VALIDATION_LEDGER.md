@@ -50,7 +50,7 @@ State (end of session): ✅ CLEAN (fully functional) · 🔧 LIMITED (see report
 | 18 | CRISPR-PAM-001 | MolTools | ✅ | 🟡 | ✅ CLEAN | reports/CRISPR-PAM-001.md |
 | 19 | CRISPR-GUIDE-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/CRISPR-GUIDE-001.md |
 | 20 | CRISPR-OFF-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/CRISPR-OFF-001.md |
-| 21 | PRIMER-TM-001 | MolTools | ⬜ | ⬜ | ⬜ pending | reports/PRIMER-TM-001.md |
+| 21 | PRIMER-TM-001 | MolTools | 🟡 | ✅ | ✅ CLEAN | reports/PRIMER-TM-001.md |
 | 22 | PRIMER-DESIGN-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/PRIMER-DESIGN-001.md |
 | 23 | PRIMER-STRUCT-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/PRIMER-STRUCT-001.md |
 | 24 | PROBE-DESIGN-001 | MolTools | ⬜ | ⬜ | ⬜ pending | reports/PROBE-DESIGN-001.md |
