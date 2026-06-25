@@ -263,7 +263,7 @@ Differential testing порівнює виходи двох незалежних
 | 235 | ☐ | ONCO-ASCAT-001 | Oncology | ASPCF PCF DP | naive changepoint scan | same breakpoints |
 | 236 | ☐ | RNA-PKPREDICT-001 | Analysis | pknotsRG canonical scan | brute-force H-type search | same structure |
 | 237 | ☐ | RNA-PKRECURSIVE-001 | Analysis | recursive grammar | exhaustive nested search (small n) | same ΔG |
-| 238 | ☐ | RNA-ACCESS-001 | RnaStructure | Boltzmann (McCaskill) DP | brute-force ensemble enumeration (small n) | equal P_unpaired ±1e-9 |
+| 238 | ☑ | RNA-ACCESS-001 | RnaStructure | Boltzmann (McCaskill) DP | brute-force ensemble enumeration (small n) | equal P_unpaired ±1e-9 |
 | 239 | ☐ | PROTMOTIF-HMM-001 | ProteinMotif | C# Plan7 (Viterbi/Forward/null2) | pyhmmer / hmmsearch | bit score ±1e-3, same envelopes |
 | 240 | ☐ | PRIMER-NNTM-001 | MolTools | C# NN (unified SantaLucia) | primer3-py / Biopython MeltingTemp | Tm ±0.5°C |
 | 241 | ☐ | PRIMER-HAIRPIN-001 | MolTools | C# hairpin folder | mfold / UNAFold (if obtainable) | ΔG ±0.2 kcal/mol, Tm ±1°C |
@@ -292,8 +292,8 @@ Differential testing порівнює виходи двох незалежних
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 0 |
-| ☐ Not started | 258 |
+| ☑ Complete | 1 |
+| ☐ Not started | 257 |
 | High-value pairs (ALT/BRUTE feasible) | ~25 |
 | Medium-value pairs (REF comparison) | ~35 |
 | Lower priority (DUAL re-impl needed) | ~26 |

@@ -270,7 +270,7 @@ Characterization tests (golden master tests) фіксують поточну п�
 | 235 | ☐ | ONCO-ASCAT-001 | Oncology | purity/ploidy for planted-truth profiles | grid optimization |
 | 236 | ☐ | RNA-PKPREDICT-001 | Analysis | PK structures for known H-type RNAs | O(n³) scan |
 | 237 | ☐ | RNA-PKRECURSIVE-001 | Analysis | nested-knot structures for designed RNAs | recursive DP |
-| 238 | ☐ | RNA-ACCESS-001 | RnaStructure | unpaired-probability vectors for reference RNAs | partition-function model change |
+| 238 | ☑ | RNA-ACCESS-001 | RnaStructure | unpaired-probability vectors for reference RNAs | partition-function model change |
 | 239 | ☐ | PROTMOTIF-HMM-001 | ProteinMotif | domain hits (coords, bit score, E-value) for SH3/PDZ/WD40 | HMMER pipeline parity change |
 | 240 | ☐ | PRIMER-NNTM-001 | MolTools | Tm for reference oligos at fixed salt | NN parameter set change |
 | 241 | ☐ | PRIMER-HAIRPIN-001 | MolTools | best-hairpin ΔG/Tm for reference primers | loop-init table change |
@@ -299,8 +299,8 @@ Characterization tests (golden master tests) фіксують поточну п�
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 0 |
-| ☐ Not started | 258 |
+| ☑ Complete | 1 |
+| ☐ Not started | 257 |
 | Applies on-demand (before refactoring) | All 234 |
 | High refactoring risk (complex algorithms) | ~20 (Alignment, Phylogenetic, RNA, Annotation) |
 | Medium refactoring risk | ~40 |

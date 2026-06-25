@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 255 |
-| **Completed** | 214 |
+| **Completed** | 215 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 41 |
+| **Not Started** | 40 |
 
 ---
 
@@ -256,7 +256,7 @@
 | ☑ | ONCO-ACTION-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-ACTION-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-ACTION-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_AssessActionability_Tests.cs) |
 | ☑ | ONCO-SV-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-SV-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-SV-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyComplexRearrangement_Tests.cs) |
 | ☑ | ONCO-EXPR-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-EXPR-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-EXPR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_IdentifyOutlierGenes_Tests.cs) |
-| ☐ | RNA-ACCESS-001 | RnaStructure | 2 | McCaskill (1990), RNAplfold/Bernhart (2006) | [TestSpec](tests/TestSpecs/RNA-ACCESS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_UnpairedProbabilities_Tests.cs) |
+| ☑ | RNA-ACCESS-001 | RnaStructure | 2 | McCaskill (1990), RNAplfold/Bernhart (2006) | [TestSpec](tests/TestSpecs/RNA-ACCESS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_UnpairedProbabilities_Tests.cs) |
 | ☐ | PROTMOTIF-HMM-001 | ProteinMotif | 4 | Eddy (1998, 2011) HMMER/Plan7, Pfam | [TestSpec](tests/TestSpecs/PROTMOTIF-HMM-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindDomainsByHmm_Tests.cs) |
 | ☐ | PRIMER-NNTM-001 | MolTools | 2 | SantaLucia (1998), Allawi & SantaLucia (1997), Owczarzy (2004/2008), Bommarito (2000) | [TestSpec](tests/TestSpecs/PRIMER-NNTM-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PrimerDesigner_NearestNeighborTm_Tests.cs) |
 | ☐ | PRIMER-HAIRPIN-001 | MolTools | 2 | SantaLucia (1998), SantaLucia & Hicks (2004), UNAFold DNA params | [TestSpec](tests/TestSpecs/PRIMER-HAIRPIN-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PrimerDesigner_HairpinTm_Tests.cs) |
@@ -5353,13 +5353,13 @@ DnaSequence.Complement   DnaSequence.ReverseComplement
 > Each is `☐ Not Started` here pending **independent Stage A/B re-validation** to restore `☑` — the code ships and is
 > covered by the listed test fixture, but the unit has not yet been re-validated under the project's two-stage protocol.
 
-#### RNA-ACCESS-001: McCaskill Unpaired (Accessibility) Probabilities ☐
+#### RNA-ACCESS-001: McCaskill Unpaired (Accessibility) Probabilities ☑
 
 | Field | Value |
 |-------|-------|
 | **Canonical** | `CalculateUnpairedProbabilities` |
 | **Area** | RnaStructure |
-| **Status** | ☐ Not Started (pending independent Stage A/B re-validation) |
+| **Status** | ☑ Complete (validated 2026-06-25 — Stage A/B PASS, CLEAN) |
 | **Evidence** | McCaskill (1990), RNAplfold/Bernhart (2006) |
 | **Source** | `RnaSecondaryStructure.cs` |
 

@@ -72,6 +72,47 @@ public class RnaSecondaryStructure_UnpairedProbabilities_Tests
         });
     }
 
+    // MCC-002b — SECOND independent analytic pin (4-nt loop, exercises the terminal-mismatch path
+    // that GAAAC's 3-nt loop does NOT). CAAAAG can adopt only the open chain OR the single hairpin
+    // closed by C(0)-G(5) over the 4-nt loop "AAAA". The Turner hairpin energy for a size-4 loop is
+    //   ΔG = initiation(4) + terminalMismatch[c5=C, mm5=A, mm3=A, c3=G]
+    //      = 5.6 + (-1.5)  = 4.1 kcal/mol      (NNDB tm key "CAAG" = -1.5; C-G closing ⇒ no AU end).
+    // The closing helix spans the whole 6-nt sequence ⇒ no dangling ends, no terminal-AU penalty, so
+    //   w = exp(-4.1/RT),  Z = 1 + w,  P(0,5) = w/Z,  p_unpaired = 1 - P(0,5).
+    // Hand-derived from the published Turner-2004 tables (NOT read back from the code):
+    //   Z = 1.0012902114608,  P(0,5) = 0.0012885489601637966,  p_unpaired(0) = 0.9987114510398362.
+    [Test]
+    public void CalculateUnpairedProbabilities_CAAAAG_MatchesAnalyticPartitionFunction()
+    {
+        const double dG = 5.6 - 1.5;               // initiation(4) + terminal mismatch CAAG
+        double w = Math.Exp(-dG / Rt);
+        double expectedZ = 1.0 + w;
+        double expectedP = w / expectedZ;
+        double expectedPu = 1.0 - expectedP;
+
+        var r = CalculateUnpairedProbabilities("CAAAAG");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.PartitionFunction, Is.EqualTo(expectedZ).Within(1e-12),
+                "Z = 1 + exp(-(5.6-1.5)/RT) over {open chain, single C-G hairpin with 4-nt loop}");
+            Assert.That(r.PartitionFunction, Is.EqualTo(1.0012902114608).Within(1e-12),
+                "Z exactly 1.0012902114608 (analytic)");
+            Assert.That(r.BasePairProbabilities[(0, 5)], Is.EqualTo(expectedP).Within(1e-12),
+                "P(0,5) = exp(-ΔG/RT)/Z");
+            Assert.That(r.BasePairProbabilities[(0, 5)], Is.EqualTo(0.0012885489601637966).Within(1e-12),
+                "P(0,5) exactly 0.0012885489601637966 (analytic)");
+            Assert.That(r.UnpairedProbabilities[0], Is.EqualTo(expectedPu).Within(1e-12),
+                "p_unpaired(0) = 1 - P(0,5)");
+            Assert.That(r.UnpairedProbabilities[0], Is.EqualTo(0.9987114510398362).Within(1e-12),
+                "p_unpaired(0) exactly 0.9987114510398362 (analytic)");
+            Assert.That(r.UnpairedProbabilities[2], Is.EqualTo(1.0).Within(1e-12),
+                "interior loop base 2 can never pair ⇒ p_unpaired = 1");
+            Assert.That(r.EnsembleFreeEnergy, Is.EqualTo(-Rt * Math.Log(expectedZ)).Within(1e-12),
+                "ensemble free energy = -RT·ln Z");
+        });
+    }
+
     #endregion
 
     #region Invariants
@@ -169,6 +210,51 @@ public class RnaSecondaryStructure_UnpairedProbabilities_Tests
             "temperature must be positive (Kelvin)");
     }
 
+    // MCC-007 — single base: no pair can possibly form (span 0 < minLoopSize+2) ⇒ Z = 1, the lone
+    // base is unpaired with probability 1, no base pairs, ΔG_ensemble = -RT·ln 1 = 0.
+    [TestCase("G")]
+    [TestCase("A")]
+    public void CalculateUnpairedProbabilities_SingleBase_AllUnpaired(string seq)
+    {
+        var r = CalculateUnpairedProbabilities(seq);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.PartitionFunction, Is.EqualTo(1.0), "single base ⇒ Z = 1");
+            Assert.That(r.UnpairedProbabilities, Has.Count.EqualTo(1), "one entry per position");
+            Assert.That(r.UnpairedProbabilities[0], Is.EqualTo(1.0), "the only base is unpaired");
+            Assert.That(r.BasePairProbabilities, Is.Empty, "no base pairs");
+            Assert.That(r.EnsembleFreeEnergy, Is.EqualTo(0.0), "−RT·ln 1 = 0");
+        });
+    }
+
+    // MCC-008 — non-ACGU characters cannot pair (PairType returns 0 for them), so they behave like
+    // permanently-unpaired positions. Here only the flanking G…C can pair; the result must stay a
+    // finite, deterministic probability distribution (no NaN/throw on the ambiguity codes), and the
+    // three central N's must be unpaired with probability 1.
+    [Test]
+    public void CalculateUnpairedProbabilities_NonAcgu_TreatedAsUnpairable()
+    {
+        var r1 = CalculateUnpairedProbabilities("GGGNNNCCC");
+        var r2 = CalculateUnpairedProbabilities("GGGNNNCCC");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(r1.PartitionFunction, Is.EqualTo(r2.PartitionFunction),
+                "deterministic across calls");
+            Assert.That(double.IsFinite(r1.PartitionFunction) && r1.PartitionFunction >= 1.0, Is.True,
+                "Z finite and ≥ 1 even with non-ACGU bases");
+            for (int i = 3; i <= 5; i++)
+                Assert.That(r1.UnpairedProbabilities[i], Is.EqualTo(1.0).Within(1e-12),
+                    $"non-pairable base N at {i} ⇒ p_unpaired = 1");
+            foreach (var kv in r1.BasePairProbabilities)
+            {
+                Assert.That(kv.Key.I, Is.Not.InRange(3, 5), "no pair may involve an N position");
+                Assert.That(kv.Key.J, Is.Not.InRange(3, 5), "no pair may involve an N position");
+            }
+        });
+    }
+
     #endregion
 
     #region Region accessibility (SA)
@@ -199,6 +285,41 @@ public class RnaSecondaryStructure_UnpairedProbabilities_Tests
             Assert.That(full, Is.InRange(0.0, 1.0), "accessibility ∈ [0,1]");
             Assert.That(tooShort, Is.EqualTo(1.0), "no pair can form ⇒ region unpaired with probability 1");
         });
+    }
+
+    // MCC-009 — RNAplfold/Bernhart (2006) accessibility is MONOTONE NON-INCREASING in window
+    // length: extending the queried region (forbidding more positions from pairing) can only shrink
+    // Z_open, hence Z_open/Z cannot rise. Checked over every length 1..14 ending at a fixed anchor.
+    [Test]
+    public void CalculateRegionUnpairedProbability_LongerWindow_NeverMoreAccessible()
+    {
+        const string seq = "GGGGAAAACCCCUUUUGGGG";
+        const int anchor = 13;
+        double previous = double.PositiveInfinity;
+        for (int len = 1; len <= 14; len++)
+        {
+            double p = CalculateRegionUnpairedProbability(seq, anchor, len);
+            Assert.That(p, Is.LessThanOrEqualTo(previous + 1e-12),
+                $"P(window len {len} unpaired) must not exceed P(window len {len - 1} unpaired)");
+            Assert.That(p, Is.InRange(0.0, 1.0), "accessibility ∈ [0,1]");
+            previous = p;
+        }
+    }
+
+    // MCC-010 — cross-consistency of the two public methods: a length-1 region ending at i is
+    // exactly "position i is unpaired", so CalculateRegionUnpairedProbability(s,i,1) must equal the
+    // per-base p_unpaired(i) from CalculateUnpairedProbabilities. Both are Z_forbid(i)/Z.
+    [TestCase("GGGGAAAACCCCUUUUGGGG")]
+    [TestCase("GCGCGCAAAAGCGCGC")]
+    public void CalculateRegionUnpairedProbability_Length1_EqualsPerBaseUnpaired(string seq)
+    {
+        var full = CalculateUnpairedProbabilities(seq);
+        for (int i = 0; i < seq.Length; i++)
+        {
+            double region1 = CalculateRegionUnpairedProbability(seq, i, 1);
+            Assert.That(region1, Is.EqualTo(full.UnpairedProbabilities[i]).Within(1e-9),
+                $"length-1 region @ {i} = per-base p_unpaired({i})");
+        }
     }
 
     [Test]

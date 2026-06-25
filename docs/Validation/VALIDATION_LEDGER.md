@@ -126,7 +126,7 @@ First-time validation of the **24** units added while eliminating LIMITATIONS.md
 | ONCO-ASCAT-001 | Oncology | ✅ | ✅ | ✅ CLEAN | reports/ONCO-ASCAT-001.md |
 | RNA-PKPREDICT-001 | RnaStructure | ✅ | ✅ | ✅ CLEAN | covered in reports/RNA-STRUCT-001.md (H-type csr-PK predictor) |
 | RNA-PKRECURSIVE-001 | RnaStructure | ✅ | ✅ | ✅ CLEAN | covered in reports/RNA-STRUCT-001.md (recursive pknotsRG grammar) |
-| RNA-ACCESS-001 | RnaStructure | ⬜ | ⬜ | ⬜ pending | reports/RNA-ACCESS-001.md |
+| RNA-ACCESS-001 | RnaStructure | ✅ | ✅ | ✅ CLEAN | reports/RNA-ACCESS-001.md |
 | PROTMOTIF-HMM-001 | ProteinMotif | ⬜ | ⬜ | ⬜ pending | reports/PROTMOTIF-HMM-001.md |
 | PRIMER-NNTM-001 | MolTools | ⬜ | ⬜ | ⬜ pending | reports/PRIMER-NNTM-001.md |
 | PRIMER-HAIRPIN-001 | MolTools | ⬜ | ⬜ | ⬜ pending | reports/PRIMER-HAIRPIN-001.md |
