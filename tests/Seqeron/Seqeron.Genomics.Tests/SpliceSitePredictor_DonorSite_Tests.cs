@@ -360,6 +360,69 @@ public class SpliceSitePredictor_DonorSite_Tests
 
     #endregion
 
+    #region C3: Donor At Sequence Start — Partial-Window Boundary
+
+    [Test]
+    public void FindDonorSites_DonorAtSequenceStart_ScoresOverInBoundsPositionsOnly()
+    {
+        // GU at index 0: upstream offsets -3, -2, -1 fall before the sequence and are
+        // out of bounds, so ScoreDonorSite normalizes over only the 6 in-bounds positions
+        // (offsets 0..+5). GUAAGU... has G,U,A,A,G,U at offsets 0..+5 →
+        // 0:G✓ +1:U✓ +2:A∈R✓ +3:A✓ +4:G✓ +5:U✓ → 6/6 = 1.0.
+        // The score is a fraction over POSITIONS SCORED, so a partial window of perfect
+        // matches still reaches 1.0 (hand-computed, not a code echo).
+        const string sequence = "GUAAGUAAA";
+        var sites = FindDonorSites(sequence, minScore: 0.0).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites, Has.Count.EqualTo(1),
+                "Single GU at the sequence start must be detected");
+            Assert.That(sites[0].Position, Is.EqualTo(0),
+                "Donor at the very start reports Position 0 (G of GU)");
+            Assert.That(sites[0].Score, Is.EqualTo(1.0).Within(1e-10),
+                "Partial window (6 in-bounds positions, offsets 0..+5) all match → 6/6 = 1.0");
+        });
+    }
+
+    #endregion
+
+    #region C4: Non-ACGT Characters — Skipped, No Throw
+
+    [Test]
+    public void FindDonorSites_NonAcgtCharacterAtScoredPosition_IsSkippedNotCounted()
+    {
+        // A non-A/C/G/U base (N) at a scored offset is not a PWM key, so ScoreDonorSite
+        // skips it WITHOUT incrementing the divisor (graceful degradation, no throw).
+        // NAGGUAAGU: GU at index 3; offset -3 → index 0 = 'N' is skipped, leaving 8
+        // scored positions, all matching → 8/8 = 1.0. Hand-computed from the consensus.
+        const string sequence = "NAGGUAAGU";
+        var sites = FindDonorSites(sequence, minScore: 0.0).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites, Has.Count.EqualTo(1),
+                "GU is still located despite an upstream non-ACGT base");
+            Assert.That(sites[0].Position, Is.EqualTo(3),
+                "GU dinucleotide is at index 3");
+            Assert.That(sites[0].Score, Is.EqualTo(1.0).Within(1e-10),
+                "N at offset -3 is skipped (not counted); remaining 8 positions match → 8/8 = 1.0");
+        });
+    }
+
+    [Test]
+    public void FindDonorSites_AllNonAcgt_ReturnsEmpty()
+    {
+        // A sequence with no G/U at all (and non-ACGT noise) must yield no donor sites
+        // and must not throw.
+        const string sequence = "NNNNNNNNN";
+        Assert.DoesNotThrow(() => FindDonorSites(sequence, minScore: 0.0).ToList());
+        Assert.That(FindDonorSites(sequence, minScore: 0.0).ToList(), Is.Empty,
+            "No GU dinucleotide present → no donor sites");
+    }
+
+    #endregion
+
     #region Helper: Independent PWM Score Verification
 
     /// <summary>
