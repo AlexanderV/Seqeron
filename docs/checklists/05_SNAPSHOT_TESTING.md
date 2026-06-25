@@ -274,7 +274,7 @@ Snapshot (approval) тести серіалізують повний вихід 
 | 246 | ☑ | MHC-MATRIX-001 | Oncology | score + binding classification | OncologySnapshotTests.cs (new) |
 | 247 | ☑ | IMMUNE-NUSVR-001 | Oncology | per-cell-type fraction vector | ImmuneSnapshotTests.cs (new) |
 | 248 | ☑ | META-CHECKM-001 | Metagenomics | completeness/contamination + per-marker counts | MetagenomicsSnapshotTests.cs (new) |
-| 249 | ☐ | META-TETRA-001 | Metagenomics | 256-dim tetranucleotide z-score vector | MetagenomicsSnapshotTests.cs (new) |
+| 249 | ☑ | META-TETRA-001 | Metagenomics | 256-dim tetranucleotide z-score vector | MetagenomicsSnapshotTests.cs (new) |
 | 250 | ☐ | SPLICE-MAXENT3-001 | Splicing | score3 value per acceptor window | SpliceSnapshotTests.cs (new) |
 | 251 | ☐ | SPLICE-MAXENT5-001 | Splicing | score5 value per donor window | SpliceSnapshotTests.cs (new) |
 | 252 | ☐ | MIRNA-CONTEXT-001 | MiRNA | context++ feature vector + score | MiRnaSnapshotTests.cs (new) |
@@ -292,7 +292,7 @@ Snapshot (approval) тести серіалізують повний вихід 
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 9 |
-| ☐ Not started | 247 |
+| ☑ Complete | 10 |
+| ☐ Not started | 246 |
 | New snapshot test files needed | 5 (Composition, Kmer, Translation, Oncology) |
 | Existing snapshot files to extend | ~10 |

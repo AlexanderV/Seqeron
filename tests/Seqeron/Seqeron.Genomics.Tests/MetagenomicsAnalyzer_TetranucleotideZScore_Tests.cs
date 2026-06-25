@@ -129,6 +129,37 @@ public class MetagenomicsAnalyzer_TetranucleotideZScore_Tests
             "Case is normalised to uppercase ACGT; the signature must be identical.");
     }
 
+    // M-Z9 — Strand-symmetric invariant of TETRA (Teeling 2004): because the sequence is extended
+    // by its reverse complement, a tetranucleotide w and its reverse complement rc(w) are pooled
+    // into the SAME over-/under-representation signal, so z(w) == z(rc(w)) for ALL 256 words.
+    // This is the defining "reverse-complement-merged counts identical" property and is derived
+    // from the method definition, not from the code's output. Hand-derivation: on the extended
+    // strand s+rc(s), every occurrence of w on one strand appears as rc(w) on the other, so the
+    // observed/expected/variance inputs for w and rc(w) are equal counts → equal z.
+    [Test]
+    public void CalculateTetranucleotideZScores_IsReverseComplementSymmetric()
+    {
+        // Arrange — an asymmetric, compositionally varied sequence.
+        const string seq = "ACGTACGTGGCCATGCATGCTTAA";
+        var z = MetagenomicsAnalyzer.CalculateTetranucleotideZScores(seq);
+
+        static string Rc(string w)
+        {
+            var c = new char[4];
+            for (int i = 0; i < 4; i++)
+                c[3 - i] = w[i] switch { 'A' => 'T', 'T' => 'A', 'C' => 'G', 'G' => 'C', _ => 'N' };
+            return new string(c);
+        }
+
+        // Assert — every word equals its reverse complement's z-score (e.g. GGCC↔GGCC, ATGC↔GCAT).
+        Assert.Multiple(() =>
+        {
+            foreach (var kvp in z)
+                Assert.That(kvp.Value, Is.EqualTo(z[Rc(kvp.Key)]).Within(1e-12),
+                    $"TETRA is strand-symmetric: z({kvp.Key}) must equal z({Rc(kvp.Key)}).");
+        });
+    }
+
     #endregion
 
     #region TetranucleotideZScoreCorrelation

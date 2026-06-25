@@ -276,7 +276,7 @@ Mutation testing вимірює ефективність тестового на
 | 246 | ☑ | MHC-MATRIX-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_ClassifyMhcBinding_Tests.cs | ≥ 80% |
 | 247 | ☑ | IMMUNE-NUSVR-001 | Oncology | ImmuneAnalyzer.cs | ImmuneAnalyzer_ImmuneInfiltration_Tests.cs | ≥ 80% |
 | 248 | ☑ | META-CHECKM-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_MarkerGeneQuality_Tests.cs | ≥ 80% |
-| 249 | ☐ | META-TETRA-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_TetranucleotideZScore_Tests.cs | ≥ 80% |
+| 249 | ☑ | META-TETRA-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_TetranucleotideZScore_Tests.cs | ≥ 80% |
 | 250 | ☐ | SPLICE-MAXENT3-001 | Splicing | SpliceSitePredictor.cs | SpliceSitePredictor_AcceptorSite_Tests.cs | ≥ 80% |
 | 251 | ☐ | SPLICE-MAXENT5-001 | Splicing | SpliceSitePredictor.cs | SpliceSitePredictor_DonorSite_Tests.cs | ≥ 80% |
 | 252 | ☐ | MIRNA-CONTEXT-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_TargetPrediction_Tests.cs | ≥ 80% |
@@ -294,7 +294,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete (run + killers written) | 2 |
-| ☐ Not started | 247 |
+| ☑ Complete (run + killers written) | 3 |
+| ☐ Not started | 246 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |

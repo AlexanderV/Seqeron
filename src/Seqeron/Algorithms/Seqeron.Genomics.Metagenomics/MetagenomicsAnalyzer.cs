@@ -668,8 +668,9 @@ public static class MetagenomicsAnalyzer
     /// <returns>
     /// A 256-entry map keyed by the ACGT tetranucleotide, with the Teeling z-score for each.
     /// Because of the reverse-complement extension, an input of ≥2 usable ACGT bases already yields
-    /// a ≥4-nt extended strand and a non-trivial signature; null, empty, or single-base input
-    /// produces an all-zero 256-entry map.
+    /// a ≥4-nt extended strand on which tetranucleotides can be counted; null, empty, or single-base
+    /// input produces an all-zero 256-entry map. (Very short inputs may still be all-zero where every
+    /// count is 1, since the Schbath variance then vanishes — see the z=0 fallback below.)
     /// </returns>
     public static IReadOnlyDictionary<string, double> CalculateTetranucleotideZScores(string sequence)
     {
