@@ -5,8 +5,8 @@
 | Algorithm Group | MiRNA |
 | Test Unit ID | MIRNA-PRECURSOR-001 |
 | Related Projects | Seqeron.Genomics.Annotation |
-| Implementation Status | Simplified (default heuristic) + Production (opt-in MFE fold) |
-| Last Reviewed | 2026-06-24 |
+| Implementation Status | Simplified (default heuristic) + Production (opt-in MFE fold + opt-in trained classifier) |
+| Last Reviewed | 2026-06-25 |
 
 ## 1. Overview
 
@@ -178,6 +178,10 @@ The pairing test accepts both Watson-Crick and G:U wobble pairs, but the uninter
 - `MiRnaAnalyzer.AssessHairpinByMfe(string, double, int)`: Opt-in single-candidate assessment from the real MFE structure (single hairpin + stem≥16 + loop 3–25 + MFEI≥0.85).
 - `MiRnaAnalyzer.CalculateMfeIndex(double, int, double)`: MFEI = AMFE/(G+C)%, AMFE = 100·|ΔG°|/length (Zhang 2006).
 - `MiRnaAnalyzer.PredictDroshaDicerCleavage(string, int)`: Opt-in cleavage-site prediction — Drosha cut (~11 bp from the basal junction), Dicer cut / 22-nt mature length, mature (5p) + star (3p) spans, 2-nt 3' overhang, optional CNNC flag (Han 2006 / Park 2011 / Auyeung 2013).
+- `MiRnaAnalyzer.ExtractPreMiRnaFeatures(string, int)`: Opt-in extraction of the published structure/sequence features (MFE, AMFE, MFEI, GC, %paired, stem bp, loop, length) from the real MFE structure (RNA-STRUCT-001).
+- `MiRnaAnalyzer.ClassifyPreMiRna(string, double, int)`: Opt-in **trained** logistic-regression natural-vs-background classifier; returns the features, P(natural), and the boolean call.
+- `MiRnaAnalyzer.ScorePreMiRnaFeatures(PreMiRnaFeatures)`: Opt-in evaluation of the bundled trained model on a feature vector.
+- `MiRnaAnalyzer.DinucleotideShuffle(string, Random)`: Altschul-Erickson (1985) dinucleotide-preserving shuffle — the background-set generator (Bonnet 2004 convention).
 
 ### 5.2 Current Behavior
 
@@ -197,6 +201,13 @@ The implementation searches candidates exhaustively rather than folding the full
 - **Opt-in:** Drosha/Dicer cleavage-site prediction (`PredictDroshaDicerCleavage`) using the published
   measuring rules verbatim — Drosha ~11 bp from the basal junction [9], Dicer ~22 nt 5'-counting [10],
   the RNase III 2-nt 3' overhang [9][11], and the Auyeung (2013) CNNC confidence motif [12].
+- **Opt-in:** a **trained** structure/sequence-feature natural-vs-background classifier
+  (`ClassifyPreMiRna`). Logistic regression [13] over published features — MFE [6], AMFE/MFEI [7],
+  GC%, and %paired (base-pairing propensity) [8] — fit by batch gradient ascent on the log-likelihood,
+  with bundled coefficients. Positives: public-domain miRBase precursors [5]; negatives:
+  Altschul-Erickson (1985) dinucleotide-preserving shuffles [14] of the positives — the standard
+  pre-miRNA-classifier background convention [6][8]. Held-out accuracy = AUC = 1.0 on a fixed-seed
+  70/30 split. **No GPL miRDeep2 code or weights are used** (its published method was consulted only).
 
 **Intentionally simplified:**
 
@@ -206,12 +217,14 @@ The implementation searches candidates exhaustively rather than folding the full
 
 **Not implemented:**
 
-- A competitive **trained** natural-vs-background pre-miRNA classifier (a fitted probabilistic model
-  such as miRDeep2 that scores genuine precursors against genomic background hairpins using
-  read-stacking signatures) and pseudoknotted precursors; **users should rely on:** miRDeep2 / miRBase
-  tooling for decision-grade, model-based precursor discovery. (Bulge-tolerant folding is covered by
-  the opt-in MFE-fold path, and cleavage-site coordinates by the opt-in
-  `PredictDroshaDicerCleavage` measuring-rule path above; only the trained classifier remains.)
+- The **read-stacking** (small-RNA-seq pileup) signal of miRDeep2 — the probabilistic score component
+  that requires an alignment of the caller's sequencing reads to the candidate locus (read-end
+  consistency with Drosha/Dicer processing). This needs the caller's reads and cannot be derived from
+  sequence/structure alone; **users should rely on:** miRDeep2 with their own small-RNA-seq reads for
+  that read-supported signal. (The structure/sequence-feature classifier is now bundled via
+  `ClassifyPreMiRna`; bulge-tolerant folding via the opt-in MFE-fold path; cleavage coordinates via
+  `PredictDroshaDicerCleavage`.) Pseudoknotted precursors remain out of scope (energy-model floor,
+  RNA-STRUCT-001).
 
 ### 5.4 Deviations and Assumptions
 
@@ -242,9 +255,12 @@ can miss bona fide miRBase precursors that do not exhibit uninterrupted end-to-e
 folding each candidate with the validated Zuker–Stiegler MFE engine and reading the hairpin from the
 real MFE structure (detecting e.g. hsa-mir-21 and hsa-let-7a-1). The opt-in
 `PredictDroshaDicerCleavage` adds Drosha/Dicer cleavage-site (mature/star excision-coordinate)
-prediction from the published measuring rules (Han 2006 / Park 2011). **Residual scope:** only a
-competitive **trained** natural-vs-background precursor classifier (e.g. miRDeep2 — a fitted
-probabilistic model, data-blocked) remains out of scope.
+prediction from the published measuring rules (Han 2006 / Park 2011). The opt-in `ClassifyPreMiRna`
+adds a **trained** structure/sequence-feature natural-vs-background classifier (logistic regression
+over MFE/AMFE/MFEI/GC/%paired, trained from public-domain miRBase positives vs di-shuffled negatives;
+held-out AUC = 1.0). **Residual scope:** only the **read-stacking** (small-RNA-seq pileup) signal of
+miRDeep2 — which requires the caller's sequencing reads — remains out of scope; no GPL miRDeep2 code
+is used.
 
 ## 7. Examples and Related Material
 
@@ -282,6 +298,18 @@ var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(
 // cut.DroshaCut5Prime == 11 (junction + 11 bp, Han 2006)
 // cut.MatureSequence == "UAGCUUAUCAGACUGAUGUUGA" (22 nt; == miRBase hsa-miR-21-5p)
 // cut.ThreePrimeOverhang == 2 (RNase III 2-nt 3' overhang)
+
+// Opt-in: trained structure/sequence-feature natural-vs-background classifier.
+var call = MiRnaAnalyzer.ClassifyPreMiRna(
+    "UGUCGGGUAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGUCUGACA")!.Value;
+// call.IsNatural == true, call.NaturalProbability ≈ 0.99999 (real hsa-mir-21 precursor)
+
+// A dinucleotide-shuffled (composition-matched) version scores as background:
+var bg = MiRnaAnalyzer.ClassifyPreMiRna(
+    MiRnaAnalyzer.DinucleotideShuffle(
+        "UGUCGGGUAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGUCUGACA",
+        new Random(999)))!.Value;
+// bg.IsNatural == false, bg.NaturalProbability ≈ 0.0005
 ```
 
 ### 7.3 Related Tests, Evidence, or Documents
@@ -306,3 +334,5 @@ var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(
 10. Park JE, Heo I, Tian Y, Simanshu DK, Chang H, Jee D, Patel DJ, Kim VN. 2011. Dicer recognizes the 5' end of RNA for efficient and accurate processing. Nature. 475(7355):201-205. doi:10.1038/nature10198. ("the cleavage site determined mainly by the distance (∼22 nucleotides) from the 5' end (5' counting rule).")
 11. Lee Y, Ahn C, Han J, Choi H, Kim J, Yim J, Lee J, Provost P, Rådmark O, Kim S, Kim VN. 2003. The nuclear RNase III Drosha initiates microRNA processing. Nature. 425(6956):415-419. doi:10.1038/nature01957. (RNase III staggered cleavage leaves a 2-nt 3' overhang.)
 12. Auyeung VC, Ulitsky I, McGeary SE, Bartel DP. 2013. Beyond secondary structure: primary-sequence determinants license pri-miRNA hairpins for processing. Cell. 152(4):844-858. doi:10.1016/j.cell.2013.01.031. (Basal UG, apical UGU(G), and CNNC motifs; CNNC positioned 16-18 nt from the Drosha cut.)
+13. Hastie T, Tibshirani R, Friedman J. 2009. The Elements of Statistical Learning, 2nd ed., §4.4.1 (logistic regression; sigmoid link; log-likelihood maximised by gradient ascent). doi:10.1007/978-0-387-84858-7. Also: Batuwita R, Palade V. 2009. microPred: effective classification of pre-miRNAs for human miRNA gene prediction. Bioinformatics. 25(8):989-995. doi:10.1093/bioinformatics/btp107 (MFE/MFEI + base-pair-composition / %paired structural feature family) and Xue C, Li F, He T, Liu GP, Li Y, Zhang X. 2005. Classification of real and pseudo microRNA precursors using local structure-sequence features and support vector machine. BMC Bioinformatics. 6:310. doi:10.1186/1471-2105-6-310.
+14. Altschul SF, Erickson BW. 1985. Significance of nucleotide sequence alignments: a method for random sequence permutation that preserves dinucleotide and codon usage. Molecular Biology and Evolution. 2(6):526-538. (Eulerian-walk dinucleotide-preserving shuffle; implemented as the background-set generator. See also Jiang M, et al. 2008. uShuffle. BMC Bioinformatics. 9:192. doi:10.1186/1471-2105-9-192.)

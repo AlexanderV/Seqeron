@@ -1120,6 +1120,274 @@ public class MiRnaAnalyzer_PreMiRna_Tests
 
     #endregion
 
+    #region Trained natural-vs-background classifier (CL1–CL12)
+
+    // ── Real human pre-miRNA precursors from miRBase (public domain) ───────────────────────
+    // Retrieved verbatim from mirbase.org/hairpin/<MI>. Same 13 positives + fixed seed used by
+    // the bundled training run (Evidence §Training); re-running the pipeline here reproduces the
+    // held-out metric deterministically.
+    private static readonly string[] MiRBasePositives =
+    {
+        "UGUCGGGUAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGUCUGACA",                       // hsa-mir-21
+        "UGGGAUGAGGUAGUAGGUUGUAUAGUUUUAGGGUCACACCCACCACUGGGAGAUAACUAUACAAUCUACUGUCUUUCCUA",               // hsa-let-7a-1
+        "CGGGGUGAGGUAGUAGGUUGUGUGGUUUCAGGGCAGUGAUGUUGCCCCUCGGAAGAUAACUAUACAACCUACUGCCUUCCCUG",            // hsa-let-7b
+        "CCUUGGCCAUGUAAAAGUGCUUACAGUGCAGGUAGCUUUUUGAGAUCUACUGCAAUGUAAGCACUUCUUACAUUACCAUGG",              // hsa-mir-106a
+        "GGAGAGGAGGCAAGAUGCUGGCAUAGCUGUUGAACUGGGAACCUGCUAUGCCAACAUAUUGCCAUCUUUCC",                        // hsa-mir-31
+        "UGUGGGAUGAGGUAGUAGAUUGUAUAGUUUUAGGGUCAUACCCCAUCUUGGAGAUAACUAUACAGUCUACUGUCUUUCCCACG",            // hsa-let-7f-2
+        "GUCAGCAGUGCCUUAGCAGCACGUAAAUAUUGGCGUUAAGAUUCUAAAAUUAUCUCCAGUAUUAACUGUGCUGCUGAAGUAAGGUUGAC",      // hsa-mir-16-1
+        "CUCCGGUGCCUACUGAGCUGAUAUCAGUUCUCAUUUUACACACUGGCUCAGUUCAGCAGGAACAGGAG",                           // hsa-mir-24-1
+        "CUGGGGGCUCCAAAGUGCUGUUCGUGCAGGUAGUGUGAUUACCCAACCUACUGCUGAGCUAGCACUUCCCGAGCCCCCGG",              // hsa-mir-93
+        "UGGCCGAUUUUGGCACUAGCACAUUUUUGCUUGUGUCUCUCCGCUCUGAGCAAUCAUGUGCAGUGCCAAUAUGGGAAA",                 // hsa-mir-96
+        "AGGAUUCUGCUCAUGCCAGGGUGAGGUAGUAAGUUGUAUUGUUGUGGGGUAGGGAUAUUAGGCCCCAAUUAGAAGAUAACUAUACAACUUACUACUUUCCCUGGUGUGUGGCAUAUUCA", // hsa-mir-98
+        "AAUCUAAAGACAACAUUUCUGCACACACACCAGACUAUGGAAGCCAGUGUGUGGAAAUGCUUCUGCUAGAUU",                       // hsa-mir-147a
+        "AGGAAGCUUCUGGAGAUCCUGCUCCGUCGCCCCAGUGUUCAGACUACCUGUUCAGGACAAUGCCGUUGUACAGUAGUCUGCACAUUGGUUAGACUGGGCAAGGGAGAGCA", // hsa-mir-199a-2
+    };
+
+    private const string HsaMir21 = "UGUCGGGUAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGUCUGACA";
+    private const string HsaLet7a1 = "UGGGAUGAGGUAGUAGGUUGUAUAGUUUUAGGGUCACACCCACCACUGGGAGAUAACUAUACAAUCUACUGUCUUUCCUA";
+
+    private const int TrainSeed = 20060101;
+    private const int ShufflesPerPositive = 4;
+
+    // CL1 — Feature extractor pins exactly for hsa-mir-21 (Evidence §Exact feature values).
+    // Values are the RNA-STRUCT-001 Turner-2004 MFE structure + composition, computed
+    // independently of the trained weights. A wrong fold/AMFE/MFEI/%paired would fail here.
+    [Test]
+    public void ExtractPreMiRnaFeatures_HsaMir21_PinsExactStructureFeatures()
+    {
+        var f = ExtractPreMiRnaFeatures(HsaMir21);
+
+        Assert.That(f, Is.Not.Null, "hsa-mir-21 is a valid non-empty sequence.");
+        Assert.Multiple(() =>
+        {
+            Assert.That(f!.Value.FreeEnergy, Is.EqualTo(-35.13).Within(1e-9),
+                "ΔG° of the MFE structure (RNA-STRUCT-001 Turner 2004) for hsa-mir-21.");
+            Assert.That(f.Value.Amfe, Is.EqualTo(48.79166666666667).Within(1e-9),
+                "AMFE = 100·|ΔG°|/length (Zhang 2006): 100·35.13/72.");
+            Assert.That(f.Value.Mfei, Is.EqualTo(1.0037142857142858).Within(1e-9),
+                "MFEI = AMFE/(G+C)% (Zhang 2006); GC%=48.61 ⇒ 48.7917/48.611.");
+            Assert.That(f.Value.GcContent, Is.EqualTo(0.48611111111111116).Within(1e-9),
+                "G+C fraction: 35 of 72 nt.");
+            Assert.That(f.Value.PairedFraction, Is.EqualTo(0.8888888888888888).Within(1e-9),
+                "%paired = 2·bp/length = 2·32/72 from the MFE structure.");
+            Assert.That(f.Value.StemBasePairs, Is.EqualTo(32),
+                "Base-pair count of the MFE structure.");
+            Assert.That(f.Value.Length, Is.EqualTo(72),
+                "hsa-mir-21 precursor length (miRBase MI0000077).");
+        });
+    }
+
+    // CL2 — null/empty input returns null (documented failure mode).
+    [Test]
+    public void ExtractPreMiRnaFeatures_NullOrEmpty_ReturnsNull()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(ExtractPreMiRnaFeatures(null!), Is.Null, "null ⇒ null.");
+            Assert.That(ExtractPreMiRnaFeatures(""), Is.Null, "empty ⇒ null.");
+        });
+    }
+
+    // CL3 — hsa-mir-21 (real precursor) is classified NATURAL with high probability.
+    [Test]
+    public void ClassifyPreMiRna_HsaMir21_IsNatural()
+    {
+        var c = ClassifyPreMiRna(HsaMir21);
+        Assert.That(c, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(c!.Value.IsNatural, Is.True, "hsa-mir-21 is a genuine pre-miRNA.");
+            Assert.That(c.Value.NaturalProbability, Is.GreaterThan(0.95),
+                "Real precursor scores near 1 under the trained model.");
+        });
+    }
+
+    // CL4 — hsa-let-7a-1 (real precursor) is classified NATURAL with high probability.
+    [Test]
+    public void ClassifyPreMiRna_HsaLet7a1_IsNatural()
+    {
+        var c = ClassifyPreMiRna(HsaLet7a1);
+        Assert.That(c, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(c!.Value.IsNatural, Is.True, "hsa-let-7a-1 is a genuine pre-miRNA.");
+            Assert.That(c.Value.NaturalProbability, Is.GreaterThan(0.95),
+                "Real precursor scores near 1 under the trained model.");
+        });
+    }
+
+    // CL5 — a dinucleotide-shuffled hsa-mir-21 (background) is classified BACKGROUND.
+    // The shuffle has IDENTICAL base/dinucleotide composition, so the call must rest on STRUCTURE.
+    [Test]
+    public void ClassifyPreMiRna_DiShuffledHsaMir21_IsBackground()
+    {
+        var rng = new Random(999); // fixed seed ⇒ deterministic shuffle
+        string shuffled = DinucleotideShuffle(HsaMir21, rng);
+
+        var c = ClassifyPreMiRna(shuffled);
+        Assert.That(c, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(c!.Value.IsNatural, Is.False,
+                "A di-shuffled hsa-mir-21 (composition-matched background) is NOT a natural pre-miRNA.");
+            Assert.That(c.Value.NaturalProbability, Is.LessThan(0.05),
+                "Background scores near 0 under the trained model.");
+        });
+    }
+
+    // CL6 — DinucleotideShuffle preserves the EXACT dinucleotide counts, first base, last base, and
+    // length (Altschul & Erickson 1985). This is the property that makes the negative set valid.
+    [Test]
+    public void DinucleotideShuffle_PreservesDinucleotideCountsFirstLastLength()
+    {
+        string orig = HsaMir21; // already RNA, upper
+        var rng = new Random(7);
+        string shuffled = DinucleotideShuffle(orig, rng);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(shuffled.Length, Is.EqualTo(orig.Length), "Length preserved.");
+            Assert.That(shuffled[0], Is.EqualTo(orig[0]), "First base preserved (Eulerian start).");
+            Assert.That(shuffled[^1], Is.EqualTo(orig[^1]), "Last base preserved (Eulerian end).");
+            Assert.That(DinucleotideCounts(shuffled), Is.EqualTo(DinucleotideCounts(orig)),
+                "Exact dinucleotide (doublet) counts preserved — Altschul-Erickson 1985.");
+        });
+    }
+
+    // CL7 — DinucleotideShuffle is deterministic for a fixed seed (reproducibility of the run).
+    [Test]
+    public void DinucleotideShuffle_FixedSeed_IsDeterministic()
+    {
+        string a = DinucleotideShuffle(HsaMir21, new Random(999));
+        string b = DinucleotideShuffle(HsaMir21, new Random(999));
+        Assert.That(a, Is.EqualTo(b), "Same seed ⇒ identical shuffle (reproducible training).");
+    }
+
+    // CL8 — DinucleotideShuffle null RNG throws; short input is returned unchanged.
+    [Test]
+    public void DinucleotideShuffle_Guards()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() => DinucleotideShuffle("ACGU", null!),
+                "null RNG ⇒ ArgumentNullException.");
+            Assert.That(DinucleotideShuffle("A", new Random(1)), Is.EqualTo("A"),
+                "length<2 returned unchanged (no dinucleotides to permute).");
+            Assert.That(DinucleotideShuffle("", new Random(1)), Is.EqualTo(""),
+                "empty ⇒ empty.");
+        });
+    }
+
+    // CL9 — HELD-OUT discrimination metric, reproduced deterministically from the public API.
+    // Rebuilds the EXACT training dataset (13 miRBase positives + 4 di-shuffles each, fixed seed,
+    // fixed 70/30 split), scores the held-out test split with the bundled trained model, and asserts
+    // accuracy and AUC exceed the Bonnet-2004 expectation (≳0.90). The metric is reproducible because
+    // the seed and split are fixed.
+    [Test]
+    public void ClassifyPreMiRna_HeldOutSplit_DiscriminatesNaturalFromBackground()
+    {
+        var rng = new Random(TrainSeed);
+        var examples = new List<(double prob, int label)>();
+
+        // Fixed order: each positive, then its K shuffles (identical to the training run).
+        foreach (string pos in MiRBasePositives)
+        {
+            examples.Add((ClassifyPreMiRna(pos)!.Value.NaturalProbability, 1));
+            for (int s = 0; s < ShufflesPerPositive; s++)
+            {
+                string shuf = DinucleotideShuffle(pos, rng);
+                examples.Add((ClassifyPreMiRna(shuf)!.Value.NaturalProbability, 0));
+            }
+        }
+
+        int n = examples.Count;                    // 65
+        int nTrain = (int)Math.Floor(n * 0.70);    // 45
+        var test = examples.Skip(nTrain).ToList();  // last 30% = held-out
+
+        int correct = test.Count(t => (t.prob >= 0.5 ? 1 : 0) == t.label);
+        double accuracy = (double)correct / test.Count;
+        double auc = MannWhitneyAuc(test);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(test.Count, Is.EqualTo(n - nTrain), "Held-out split is the last 30%.");
+            Assert.That(test.Any(t => t.label == 1) && test.Any(t => t.label == 0), Is.True,
+                "Held-out split contains both classes (interleaved order guarantees it).");
+            Assert.That(accuracy, Is.GreaterThanOrEqualTo(0.90),
+                "Held-out accuracy exceeds the Bonnet-2004 separability expectation.");
+            Assert.That(auc, Is.GreaterThanOrEqualTo(0.90),
+                "Held-out AUC exceeds 0.90 (real pre-miRNAs well-separated from di-shuffled controls).");
+        });
+    }
+
+    // CL10 — ScorePreMiRnaFeatures monotonic sanity: a feature vector matching a real precursor scores
+    // higher than one matching its shuffle. Pins that the bundled weights point the right way.
+    [Test]
+    public void ScorePreMiRnaFeatures_RealScoresHigherThanShuffle()
+    {
+        var real = ExtractPreMiRnaFeatures(HsaMir21)!.Value;
+        var shuf = ExtractPreMiRnaFeatures(DinucleotideShuffle(HsaMir21, new Random(999)))!.Value;
+
+        double pReal = ScorePreMiRnaFeatures(real);
+        double pShuf = ScorePreMiRnaFeatures(shuf);
+
+        Assert.That(pReal, Is.GreaterThan(pShuf),
+            "Real precursor scores strictly higher than its composition-matched shuffle.");
+    }
+
+    // CL11 — threshold parameter is honoured (a threshold above the real score flips the call).
+    [Test]
+    public void ClassifyPreMiRna_Threshold_IsHonoured()
+    {
+        var def = ClassifyPreMiRna(HsaMir21, threshold: 0.5)!.Value;
+        var strict = ClassifyPreMiRna(HsaMir21, threshold: 1.0)!.Value;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(def.IsNatural, Is.True, "At 0.5 a real precursor (P≈1) is natural.");
+            Assert.That(strict.IsNatural, Is.False,
+                "At threshold 1.0 even P≈0.99999 is below cutoff ⇒ call flips (threshold honoured).");
+            Assert.That(strict.NaturalProbability, Is.EqualTo(def.NaturalProbability).Within(1e-12),
+                "Probability is threshold-independent; only the boolean call changes.");
+        });
+    }
+
+    // CL12 — null/empty classification returns null (documented failure mode).
+    [Test]
+    public void ClassifyPreMiRna_NullOrEmpty_ReturnsNull()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(ClassifyPreMiRna(null!), Is.Null, "null ⇒ null.");
+            Assert.That(ClassifyPreMiRna(""), Is.Null, "empty ⇒ null.");
+        });
+    }
+
+    private static Dictionary<string, int> DinucleotideCounts(string s)
+    {
+        var d = new Dictionary<string, int>();
+        for (int i = 0; i < s.Length - 1; i++)
+        {
+            string k = s.Substring(i, 2);
+            d[k] = d.GetValueOrDefault(k) + 1;
+        }
+        return d;
+    }
+
+    private static double MannWhitneyAuc(List<(double prob, int label)> data)
+    {
+        var pos = data.Where(t => t.label == 1).Select(t => t.prob).ToList();
+        var neg = data.Where(t => t.label == 0).Select(t => t.prob).ToList();
+        if (pos.Count == 0 || neg.Count == 0) return double.NaN;
+        double sum = 0;
+        foreach (double p in pos)
+            foreach (double q in neg)
+                sum += p > q ? 1.0 : (p == q ? 0.5 : 0.0);
+        return sum / (pos.Count * neg.Count);
+    }
+
+    #endregion
+
     #region Helpers
 
     /// <summary>

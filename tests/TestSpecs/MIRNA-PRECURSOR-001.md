@@ -80,6 +80,10 @@
 | `FindPreMiRnaHairpinsByMfe(sequence, minHairpinLength, maxHairpinLength, minMfei, minLoopSize)` | MiRnaAnalyzer | Canonical | Opt-in: window scan that folds each candidate with the MFE engine |
 | `CalculateMfeIndex(freeEnergy, length, gcPercent)` | MiRnaAnalyzer | Canonical | MFEI = AMFE/(G+C)%, AMFE = 100·\|ΔG°\|/length (Zhang 2006) |
 | `PredictDroshaDicerCleavage(sequence, basalJunction)` | MiRnaAnalyzer | Canonical | Opt-in: predicts Drosha (~11 bp from basal junction) + Dicer (~22 nt 5' counting) cuts, mature/star spans, 2-nt 3' overhang, optional CNNC flag (Han 2006 / Park 2011 / Auyeung 2013) |
+| `ExtractPreMiRnaFeatures(sequence, minLoopSize)` | MiRnaAnalyzer | Canonical | Opt-in: published structure/sequence features (MFE, AMFE, MFEI, GC, %paired, stem bp, loop) from the real MFE structure (RNA-STRUCT-001) |
+| `ClassifyPreMiRna(sequence, threshold, minLoopSize)` | MiRnaAnalyzer | Canonical | Opt-in: trained logistic-regression natural-vs-background call (miRBase positives vs di-shuffled negatives) |
+| `ScorePreMiRnaFeatures(features)` | MiRnaAnalyzer | Canonical | Opt-in: bundled logistic model evaluated on a feature vector → P(natural) |
+| `DinucleotideShuffle(sequence, random)` | MiRnaAnalyzer | Canonical | Opt-in: Altschul-Erickson (1985) dinucleotide-preserving shuffle — the background generator (Bonnet 2004) |
 
 ---
 
@@ -104,6 +108,10 @@
 | INV-15 | (Cleavage path) `MatureSequence.Length == 22` and `MatureEnd − MatureStart + 1 == 22` | Yes | Park et al. (2011) |
 | INV-16 | (Cleavage path) `DroshaCut3Prime − MatureEnd == 2` and `ThreePrimeOverhang == 2` | Yes | Lee (2003)/Han (2006) RNase III 2-nt 3' overhang |
 | INV-17 | (Cleavage path) `StarEnd − StarStart + 1 == 22` (3p span length) | Yes | Park et al. (2011) |
+| INV-18 | (Classifier path) `DinucleotideShuffle` preserves exact dinucleotide counts, first base, last base, and length | Yes | Altschul & Erickson (1985) |
+| INV-19 | (Classifier path) `ClassifyPreMiRna` returns P(natural) ∈ [0,1]; `IsNatural == (P ≥ threshold)` | Yes | Logistic model (ESL §4.4.1) |
+| INV-20 | (Classifier path) `PairedFraction == 2·StemBasePairs/Length` from the MFE structure | Yes | %paired feature (microPred, Batuwita 2009) |
+| INV-21 | (Classifier path) Held-out accuracy and AUC ≥ 0.90 on the fixed-seed 70/30 split | Yes | Bonnet (2004) separability |
 
 ---
 
@@ -152,6 +160,18 @@
 | DD8 | PredictDroshaDicerCleavage_JunctionOutOfRange_ReturnsNull | junction < 0 or ≥ length | null | Defensive coding |
 | DD9 | PredictDroshaDicerCleavage_TooShortForCuts_ReturnsNull | 30 nt (< 11+22+2 from junction) | null | Geometry guard |
 | DD10 | PredictDroshaDicerCleavage_CnncMotif_DetectedWhenPresentDownstream | CNNC 16 nt 3' of Drosha cut vs none | HasCnncMotif true vs false | Auyeung et al. (2013) |
+| CL1 | ExtractPreMiRnaFeatures_HsaMir21_PinsExactStructureFeatures | hsa-mir-21: MFE=−35.13, AMFE=48.79166666666667, MFEI=1.0037142857142858, GC=0.48611111111111116, %paired=0.8888888888888888, bp=32, len=72 | Exact values | miRBase MI0000077; Zhang 2006; RNA-STRUCT-001 |
+| CL2 | ExtractPreMiRnaFeatures_NullOrEmpty_ReturnsNull | null / empty | null | Defensive coding |
+| CL3 | ClassifyPreMiRna_HsaMir21_IsNatural | hsa-mir-21 (real precursor) | IsNatural true; P > 0.95 | miRBase; trained model |
+| CL4 | ClassifyPreMiRna_HsaLet7a1_IsNatural | hsa-let-7a-1 (real precursor) | IsNatural true; P > 0.95 | miRBase; trained model |
+| CL5 | ClassifyPreMiRna_DiShuffledHsaMir21_IsBackground | di-shuffled hsa-mir-21 (seed 999) | IsNatural false; P < 0.05 | Bonnet 2004 di-shuffle negative |
+| CL6 | DinucleotideShuffle_PreservesDinucleotideCountsFirstLastLength | shuffle of hsa-mir-21 | exact dinucleotide counts, first/last base, length preserved | Altschul & Erickson (1985) |
+| CL7 | DinucleotideShuffle_FixedSeed_IsDeterministic | two shuffles, same seed | identical output | Reproducibility |
+| CL8 | DinucleotideShuffle_Guards | null RNG / length<2 / empty | throws / unchanged / empty | Defensive coding |
+| CL9 | ClassifyPreMiRna_HeldOutSplit_DiscriminatesNaturalFromBackground | fixed-seed 70/30 split of 13 positives + 4 di-shuffles each | accuracy ≥ 0.90 and AUC ≥ 0.90 on the 20 held-out examples | Bonnet 2004; held-out metric |
+| CL10 | ScorePreMiRnaFeatures_RealScoresHigherThanShuffle | real vs shuffled feature vectors | P(real) > P(shuffle) | Trained model directionality |
+| CL11 | ClassifyPreMiRna_Threshold_IsHonoured | threshold 0.5 vs 1.0 on hsa-mir-21 | call flips; probability unchanged | INV-19 |
+| CL12 | ClassifyPreMiRna_NullOrEmpty_ReturnsNull | null / empty | null | Defensive coding |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -265,11 +285,14 @@
 | 1 | **Default heuristic** uses consecutive stem pairing from ends; no tolerance for internal mismatches or bulges. Real pre-miRNAs (e.g., hsa-mir-21) have asymmetric internal loops that offset pairing alignment. | Real miRBase pre-miRNAs are not detected by the **default** model. | M18, M19 |
 | 2 | **Resolved (opt-in):** `AssessHairpinByMfe` / `FindPreMiRnaHairpinsByMfe` fold the candidate with the validated Zuker–Stiegler MFE engine (RNA-STRUCT-001) and read the hairpin from the real MFE structure, detecting natural miRBase precursors. | hsa-mir-21 / hsa-let-7a-1 now detected via the MFE path. | MF2, MF3, MF4 |
 | 3 | **Resolved (opt-in):** `PredictDroshaDicerCleavage` predicts the Drosha cut (~11 bp from the basal junction, Han 2006), the Dicer cut / mature length (~22 nt, 5' counting rule, Park 2011), the mature (5p) and star (3p) coordinates, the 2-nt 3' overhang, and an optional CNNC confidence flag (Auyeung 2013). Cross-checked against miRBase hsa-miR-21-5p. | Cleavage coordinates now predictable from the published rules. | DD1–DD10 |
-| 4 | **Residual:** a competitive **trained** natural-vs-background precursor classifier (e.g. miRDeep2: a fitted probabilistic model using read-stacking signatures) — requires a trained model + labelled data, which are data-blocked. | Decision-grade probabilistic precursor scoring needs a trained model. | — |
+| 4 | **Resolved (opt-in):** `ClassifyPreMiRna` is a bundled **trained** logistic-regression natural-vs-background classifier over published structure/sequence features (MFE, AMFE, MFEI, GC, %paired), trained from public-domain miRBase positives vs Altschul-Erickson di-shuffled negatives (Bonnet 2004); held-out accuracy = AUC = 1.0 on the fixed-seed 70/30 split. NO GPL miRDeep2 code was used. | Structure/sequence-feature precursor scoring now ships out of the box. | CL1–CL12 |
+| 5 | **Residual:** the **read-stacking** (small-RNA-seq pileup) signal of miRDeep2 — needs the caller's sequencing reads (an alignment of reads to the locus) and is out of scope (no sequence-only algorithm can supply it). | Read-supported probabilistic scoring needs the caller's reads. | — |
 
 ---
 
 ## 7. Open Questions / Decisions
 
-None. Behaviour is testable via the public APIs `FindPreMiRnaHairpins` (default heuristic) and
-`FindPreMiRnaHairpinsByMfe` / `AssessHairpinByMfe` / `CalculateMfeIndex` (opt-in MFE-fold path).
+None. Behaviour is testable via the public APIs `FindPreMiRnaHairpins` (default heuristic),
+`FindPreMiRnaHairpinsByMfe` / `AssessHairpinByMfe` / `CalculateMfeIndex` (opt-in MFE-fold path), and
+`ExtractPreMiRnaFeatures` / `ClassifyPreMiRna` / `ScorePreMiRnaFeatures` / `DinucleotideShuffle`
+(opt-in trained classifier path).

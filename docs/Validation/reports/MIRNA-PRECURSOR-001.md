@@ -2,6 +2,7 @@
 
 - **Validated:** 2026-06-24   **Area:** MiRNA
 - **Updated:** 2026-06-24 — added opt-in MFE-structure-based detection (reuses the RNA-STRUCT-001 Zuker–Stiegler folder); Status reset to ☐ for re-validation.
+- **Updated:** 2026-06-25 — added opt-in **trained** structure/sequence-feature natural-vs-background classifier (`ClassifyPreMiRna`); miRBase positives vs di-shuffled negatives; held-out AUC = 1.0; no GPL miRDeep2 code. Status stays ☐.
 - **Canonical method(s):** `MiRnaAnalyzer.FindPreMiRnaHairpins(sequence, minHairpinLength=55, maxHairpinLength=120, matureLength=22)` (default heuristic); internal helper `AnalyzeHairpin`; energy via `CalculateHairpinEnergy`. **New opt-in:** `FindPreMiRnaHairpinsByMfe`, `AssessHairpinByMfe`, `CalculateMfeIndex` — fold the candidate with `RnaSecondaryStructure.CalculateMfeStructure` (RNA-STRUCT-001) and derive hairpin features (single terminal loop, paired-stem count, ΔG°, AMFE, MFEI) from the real MFE structure.
 - **Source file:** `src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs`
 - **Test file:** `tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_PreMiRna_Tests.cs` (+ mutation-killer tests) — 38 heuristic tests + 10 MFE-fold tests (MF1–MF10) under the `~PreMiRna` filter
@@ -36,6 +37,33 @@
 > probabilistic model) — requires a trained model and labelled data. Status remains ☐ (registry
 > unchanged; not previously ☑).
 
+> **2026-06-25 limitation fix (trained natural-vs-background classifier).** Added the opt-in
+> `ClassifyPreMiRna(sequence, threshold=0.5, minLoopSize=3)` — a **trained** logistic-regression
+> classifier that distinguishes genuine pre-miRNA hairpins from background. Built ONLY from
+> public-domain data + the published method; **NO GPL miRDeep2 code/weights were ported, copied, or
+> linked** (miRDeep2's published method was consulted as an offline reference only).
+> **Provenance:** miRBase is **public domain** (re3data r3d100010566; LICENSE verbatim: *"miRBase is in
+> the public domain. It is not copyrighted. You may freely modify, redistribute, or use it for any
+> purpose."*). **Positives:** 13 real human pre-miRNA precursors retrieved verbatim from
+> `mirbase.org/hairpin/<MI>` (hsa-mir-21, hsa-let-7a-1, let-7b, mir-106a, mir-31, let-7f-2, mir-16-1,
+> mir-24-1, mir-93, mir-96, mir-98, mir-147a, mir-199a-2). **Negatives:** 4 dinucleotide-preserving
+> shuffles per positive (Altschul & Erickson 1985 Eulerian walk — the standard pre-miRNA-classifier
+> background convention of Bonnet et al. 2004; verified to preserve exact dinucleotide counts +
+> first/last base + length) → 52 negatives, 65 examples. **Features (model inputs):** MFE (Bonnet
+> 2004), AMFE/MFEI (Zhang 2006), GC%, %paired (base-pairing propensity; microPred Batuwita & Palade
+> 2009), all computed from the real RNA-STRUCT-001 MFE structure. **Model:** logistic regression fit
+> by batch gradient ascent on the log-likelihood (Hastie/Tibshirani/Friedman §4.4.1), features
+> standardised by train-set mean/std, L2 λ=1e-3; **fixed RNG seed 20060101** and a **fixed
+> deterministic 70/30 split** (45 train / 20 held-out) make the fit + metric reproducible. Coefficients
+> are bundled constants in `MiRnaAnalyzer.cs`. **Held-out metric:** accuracy = **1.0000**, AUC =
+> **1.0000** on the 20 held-out examples (≳0.90 expected per Bonnet 2004 — exceeded). **Feature pin:**
+> hsa-mir-21 MFE=−35.13, AMFE=48.79166666666667, MFEI=1.0037142857142858, GC=0.486, %paired=0.889
+> (CL1). **Discrimination:** hsa-mir-21 P(nat)=0.99999 / hsa-let-7a-1 P(nat)=0.99989 (natural) vs
+> di-shuffled hsa-mir-21 P(nat)=0.00052 (background) (CL3/CL4/CL5). New tests **CL1–CL12** in
+> `MiRnaAnalyzer_PreMiRna_Tests.cs`. **Existing methods + defaults unchanged.** **Honest residual:**
+> only the **read-stacking** (small-RNA-seq pileup) signal of miRDeep2 — needs the caller's sequencing
+> reads — remains out of scope. Status remains ☐ (registry unchanged; not previously ☑).
+>
 > Note: the checklist block (`ALGORITHMS_CHECKLIST_V2.md` §MIRNA-PRECURSOR-001) lists the canonical
 > method as `FindPreMiRnas` / `ValidateHairpin`, neither of which exists. The actual public API is
 > `FindPreMiRnaHairpins`, which is what the TestSpec, Evidence doc, and tests use. Checklist naming is

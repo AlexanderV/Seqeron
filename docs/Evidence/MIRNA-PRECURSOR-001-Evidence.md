@@ -416,3 +416,148 @@ distinguishes genuine pre-miRNAs from random hairpins using read-stacking signat
 model) is **NOT** implemented — it requires a trained model and labelled training data, which are
 data-blocked. The cleavage-site prediction here is the published deterministic measuring-rule
 ("ruler") heuristic only.
+
+> **Superseded 2026-06-25.** A trained **structure/sequence-feature** natural-vs-background classifier
+> is now bundled (see the next section). The remaining honest residual is only the **read-stacking**
+> (small-RNA-seq pileup) signal of miRDeep2, which needs the caller's sequencing reads and is out of
+> scope.
+
+---
+
+## Trained natural-vs-background classifier (opt-in) — Sources retrieved 2026-06-25
+
+A trained logistic-regression classifier that distinguishes genuine pre-miRNA hairpins from
+length/composition-matched background was added. It is built ONLY from public-domain data and the
+published method; **no GPL miRDeep2 code or weights were ported, copied, or linked** (miRDeep2's
+published method was consulted as an offline reference only). Canonical methods:
+`MiRnaAnalyzer.ExtractPreMiRnaFeatures`, `ClassifyPreMiRna`, `ScorePreMiRnaFeatures`,
+`DinucleotideShuffle`.
+
+### miRBase — licence (public domain) and training positives
+
+**URL:** https://www.re3data.org/repository/r3d100010566 and https://mirbase.org/download/CURRENT/LICENSE/
+**Accessed:** 2026-06-25
+**Authority rank:** 5 (curated database) + its own licence file
+
+**Key Extracted Points:**
+
+1. **Licence (verbatim, from `mirbase.org/download/CURRENT/LICENSE/`):** *"miRBase is in the public
+   domain. It is not copyrighted. You may freely modify, redistribute, or use it for any purpose."*
+   re3data record r3d100010566 lists the data licence as **Public Domain** with **open** access.
+   → miRBase sequence data is usable and redistributable. Confirmed.
+2. **Positives (13 real human pre-miRNA hairpin precursors, retrieved verbatim this session from
+   `mirbase.org/hairpin/<MI>`):** hsa-mir-21 (MI0000077, 72 nt), hsa-let-7a-1 (MI0000060, 82 nt),
+   hsa-let-7b (MI0000063, 81 nt), hsa-mir-106a (MI0000113, 80 nt), hsa-mir-31 (MI0000089, 72 nt),
+   hsa-let-7f-2 (MI0000068, 82 nt), hsa-mir-16-1 (MI0000070, 89 nt), hsa-mir-24-1 (MI0000080, 67 nt),
+   hsa-mir-93 (MI0000095, 80 nt), hsa-mir-96 (MI0000098, 77 nt), hsa-mir-98 (MI0000100, 117 nt),
+   hsa-mir-147a (MI0000262, 72 nt), hsa-mir-199a-2 (MI0000281, 109 nt). The two named test precursors
+   (hsa-mir-21, hsa-let-7a-1) and their sequences are quoted in Datasets 3–4 above.
+
+### Bonnet et al. (2004) — di-shuffle negative-set convention
+
+**URL:** https://doi.org/10.1093/bioinformatics/bth374 (Bioinformatics 20(17):2911-2917)
+**Accessed:** 2026-06-25
+**Authority rank:** 1 (peer-reviewed)
+
+**Key Extracted Points:**
+
+1. **Method (verbatim from the abstract retrieved this session):** *"the predicted minimum free energy
+   of folding is compared with values obtained for structures inferred from randomly shuffling the
+   original sequences."*
+2. **Conclusion (verbatim):** *"the majority of the microRNA sequences clearly exhibit a folding free
+   energy that is considerably lower than that for shuffled sequences, indicating a high tendency in
+   the sequence towards a stable secondary structure."* → the canonical pre-miRNA-vs-shuffled MFE
+   discrimination; shuffled, composition-matched sequences are the standard negative set.
+
+### Xue et al. (2005) triplet-SVM / Batuwita & Palade (2009) microPred — features & negative convention
+
+**URL:** https://academic.oup.com/bioinformatics/article/25/8/989/324698 (Bioinformatics 25(8):989-995);
+Xue et al. BMC Bioinformatics 6:310 (doi:10.1186/1471-2105-6-310)
+**Accessed:** 2026-06-25
+**Authority rank:** 1 (peer-reviewed)
+
+**Key Extracted Points:**
+
+1. **microPred features (retrieved this session):** sequential features (%C+G content, dinucleotide
+   frequencies), **thermodynamic** measures (**MFE, MFEI** variants, normalised ensemble free energy),
+   and **structural** descriptors (**base-pair composition / %paired**, stem characteristics, structural
+   diversity). → MFE, MFEI, GC%, %paired, stem/loop geometry are the published feature family.
+2. **Negative set:** microPred itself used genomic pseudo-hairpins; the **di-nucleotide-shuffle**
+   background is the convention established by Bonnet (2004) and used throughout the pre-miRNA-classifier
+   literature (Xue 2005 negatives are composition-controlled pseudo-hairpins). We adopt the di-shuffle
+   negative (Bonnet 2004) because it is reproducible from the positives alone.
+
+### Zhang et al. (2006) — MFEI / AMFE (already cited above)
+
+MFEI = AMFE / (G+C)% with AMFE = 100·|MFE|/length — Zhang BH et al. (2006), Cell Mol Life Sci
+63:246-254 (see "Zhang et al. (2006)" section above for the verbatim extract).
+
+### Altschul & Erickson (1985) — dinucleotide-preserving shuffle algorithm
+
+**URL:** uShuffle (Jiang et al. 2008, BMC Bioinformatics 9:192, doi:10.1186/1471-2105-9-192) describing
+the Altschul-Erickson method; primary: Altschul SF, Erickson BW (1985) Mol Biol Evol 2(6):526-538.
+**Accessed:** 2026-06-25
+**Authority rank:** 1 (peer-reviewed)
+
+**Key Extracted Points (retrieved this session):**
+
+1. The Altschul-Erickson (1985) method is *"a method for random sequence permutation that preserves
+   dinucleotide and codon usage"*; it performs an **Eulerian walk on a directed multigraph** built from
+   the original sequence; *"the character labels on a random Euler tour of this graph (crossing each
+   edge once) exactly preserves the dinucleotide frequencies."* The first and last characters are fixed.
+   → `DinucleotideShuffle` implements exactly this (verified: identical dinucleotide counts, same
+   first/last/length).
+
+### Logistic regression — model & fit
+
+**URL:** Hastie T, Tibshirani R, Friedman J, *The Elements of Statistical Learning* 2nd ed. §4.4.1,
+doi:10.1007/978-0-387-84858-7; gradient-ascent on the log-likelihood (Stanford CS109 lecture notes,
+web.stanford.edu/class/archive/cs/cs109).
+**Accessed:** 2026-06-25
+**Authority rank:** 1 (textbook)
+
+**Key Extracted Points:** logistic model P(y=1|x) = σ(b + wᵀx), σ(z)=1/(1+e⁻ᶻ); fit by maximising the
+log-likelihood Σ[ yᵢ log pᵢ + (1−yᵢ) log(1−pᵢ) ]; gradient ∂ℓ/∂wⱼ = Σᵢ (yᵢ − pᵢ) xᵢⱼ; iterate
+w ← w + η·∇ℓ (batch gradient ascent). Features standardised by training-set mean/std. We add a small
+L2 (ridge) penalty (λ=1e-3) — standard regularised logistic regression (ESL §4.4.4).
+
+---
+
+## Training procedure (reproducible) — `Training`
+
+- **Positives:** the 13 miRBase precursors above (public domain).
+- **Negatives:** `DinucleotideShuffle` (Altschul-Erickson) of each positive, **4 shuffles per
+  positive** → 52 negatives. **52 + 13 = 65** examples; balanced enough (Bonnet-style) and strongly
+  separable.
+- **RNG seed:** fixed **20060101** (one shared `Random`, consumed in fixed positive→shuffle order).
+- **Features (model inputs, in order):** `[FreeEnergy, AMFE, MFEI, GcContent, PairedFraction]`,
+  standardised by the TRAIN-set mean/std. (`StemBasePairs`, `LoopSize`, `Length` are extracted and
+  reported but excluded from the model — collinear / length-confounded.)
+- **Split:** deterministic — first **70 %** by example index = **train (45)**, last **30 %** =
+  **held-out test (20)**; the interleaved positive/shuffle order guarantees both classes appear in the
+  held-out split (4 positives + 16 shuffles).
+- **Fit:** batch gradient ascent, learning rate 0.1, 20 000 epochs, L2 λ=1e-3.
+- **Bundled constants** (`MiRnaAnalyzer.cs`, regenerated by the offline trainer):
+  - bias = `-4.340788257901692`
+  - weights = `[-0.6299061497891402, 2.4689410267337104, 2.5770103435217253, -0.3315361036977469, 2.42751798356881]`
+  - mean = `[-22.988666666666667, 29.297338207740115, 0.6157639504286563, 0.477134229110014, 0.6153156920227864]`
+  - std = `[8.373410721510746, 10.37385177977526, 0.2084972456212268, 0.061249038538481466, 0.10661272255434924]`
+- **Held-out metric (deterministic):** **accuracy = 1.0000, AUC = 1.0000** on the 20 held-out
+  examples (real pre-miRNAs are well-separated from di-shuffled controls — Bonnet 2004; AUC ≳ 0.90
+  expected and exceeded).
+
+### Exact feature values (pins the extractor independent of the weights)
+
+| Precursor | MFE (ΔG°) | AMFE | MFEI | GC | %paired | bp | loop | len |
+|---|---|---|---|---|---|---|---|---|
+| hsa-mir-21 (MI0000077) | −35.13 | 48.79166666666667 | 1.0037142857142858 | 0.48611111111111116 | 0.8888888888888888 | 32 | 3 | 72 |
+
+(`ΔG°` is `RnaSecondaryStructure.CalculateMinimumFreeEnergy` verbatim, RNA-STRUCT-001 Turner 2004.)
+
+### Discrimination spot-check
+
+| Sequence | P(natural) | call |
+|---|---|---|
+| hsa-mir-21 (natural) | 0.9999949074161931 | natural ✓ |
+| hsa-let-7a-1 (natural) | 0.9998877289367469 | natural ✓ |
+| hsa-mir-21 di-shuffled (seed 999) | 0.0005220422779554753 | background ✓ |
