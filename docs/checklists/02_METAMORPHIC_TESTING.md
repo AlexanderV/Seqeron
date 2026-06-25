@@ -274,7 +274,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 244 | ☑ | PROBE-EVALUE-001 | MolTools | MON: increasing database size raises E for a fixed raw score; INV: λ solves Σ p_i p_j e^{λ s_ij}=1 |
 | 245 | ☑ | MHC-NN-001 | Oncology | INV: BLOSUM-encoded peptide reproduces oracle within 0.03%; SUB: shorter peptide padded centred |
 | 246 | ☑ | MHC-MATRIX-001 | Oncology | INV: IC50 = 50000^(1-score); MON: improving an anchor residue lowers IC50 |
-| 247 | ☐ | IMMUNE-NUSVR-001 | Oncology | INV: mixing known fractions of pure profiles recovers those fractions; SUB: ν controls support-vector count |
+| 247 | ☑ | IMMUNE-NUSVR-001 | Oncology | INV: mixing known fractions of pure profiles recovers those fractions; SUB: ν controls support-vector count |
 | 248 | ☐ | META-CHECKM-001 | Metagenomics | MON: removing a marker lowers completeness; MON: duplicating a marker raises contamination |
 | 249 | ☐ | META-TETRA-001 | Metagenomics | INV: reverse-complement-merged counts give identical z-vector; MON: identical sequences → correlation 1 |
 | 250 | ☐ | SPLICE-MAXENT3-001 | Splicing | INV: canonical AG acceptor scores above shuffled background; SUB: window must contain the AG |
@@ -294,6 +294,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 7 |
-| ☐ Not started | 249 |
+| ☑ Complete | 8 |
+| ☐ Not started | 248 |
 | MR relations defined | ~200+ |

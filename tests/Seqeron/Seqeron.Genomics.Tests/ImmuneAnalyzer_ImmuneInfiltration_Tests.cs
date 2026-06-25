@@ -1326,6 +1326,128 @@ public class ImmuneAnalyzer_ImmuneInfiltration_Tests
         });
     }
 
+    // NSVR-S7 — All-zero (overlapping) mixture: every overlapping signature gene is present but
+    // valued 0. z-standardisation of a zero vector yields zeros, so the regression weights are 0;
+    // the result must be a valid all-zero fraction vector (sum 0), not a crash or NaN. This is a
+    // distinct edge case from the constant-nonzero mixture (NSVR-S6): here even the un-standardized
+    // mixture is identically zero. Verified vs the engine: overlap = 85, all fractions exactly 0.
+    [Test]
+    public void DeconvoluteImmuneCellsNuSvr_AllZeroMixture_ReturnsZeroFractions()
+    {
+        // Arrange — every overlapping signature gene present with value 0.
+        var genes = ImmuneAnalyzer.DefaultSignatureMatrix.Values
+            .SelectMany(d => d.Keys).Distinct();
+        var profile = genes.ToDictionary(g => g, _ => 0.0);
+
+        // Act
+        var result = ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(profile);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.OverlappingGenes, Is.GreaterThan(0),
+                "the all-zero profile still overlaps the signature genes");
+            Assert.That(result.CellFractions.Values.All(v => v == 0.0), Is.True,
+                "an identically-zero mixture has no signal → every fraction is exactly 0");
+            Assert.That(result.CellFractions.Values.Any(double.IsNaN), Is.False,
+                "the zero-SD standardisation branch must not produce NaN");
+        });
+    }
+
+    // NSVR-S8 — Empty signature matrix: no cell types, no genes. The method must return an empty
+    // fraction map with the sentinel BestNu = 0 and OverlappingGenes = 0 (no fit attempted), not throw.
+    // Exercises the `cellTypes.Count == 0` guard.
+    [Test]
+    public void DeconvoluteImmuneCellsNuSvr_EmptySignatureMatrix_ReturnsEmptyResult()
+    {
+        // Arrange
+        var emptySig = new Dictionary<string, IReadOnlyDictionary<string, double>>();
+        var profile = new Dictionary<string, double> { ["CD8A"] = 5.0 };
+
+        // Act
+        var result = ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(profile, emptySig);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.CellFractions, Is.Empty, "no cell types → empty fraction map");
+            Assert.That(result.OverlappingGenes, Is.EqualTo(0), "no signature genes → zero overlap");
+            Assert.That(result.BestNu, Is.EqualTo(0.0), "no fit performed → BestNu is the sentinel 0");
+        });
+    }
+
+    // NSVR-S9 — Gene-count mismatch (partial overlap): the mixture exposes only a SUBSET of the
+    // signature genes (a1, a2 from TypeA and b1 from TypeB; no TypeC gene at all). The engine must
+    // restrict the regression to the overlapping genes, report that count, and still return a valid
+    // (non-negative, sum-to-1) fraction vector. Verified vs the engine: overlap = 3, Σ = 1.
+    [Test]
+    public void DeconvoluteImmuneCellsNuSvr_PartialGeneOverlap_RestrictsToOverlapAndNormalizes()
+    {
+        // Arrange — disjoint 3-type matrix; profile contains only 3 of its 9 genes.
+        var signature = new Dictionary<string, IReadOnlyDictionary<string, double>>
+        {
+            ["TypeA"] = new Dictionary<string, double> { ["a1"] = 10, ["a2"] = 8, ["a3"] = 6 },
+            ["TypeB"] = new Dictionary<string, double> { ["b1"] = 9, ["b2"] = 7, ["b3"] = 5 },
+            ["TypeC"] = new Dictionary<string, double> { ["c1"] = 11, ["c2"] = 4, ["c3"] = 8 },
+        };
+        var profile = new Dictionary<string, double> { ["a1"] = 10, ["a2"] = 8, ["b1"] = 9 };
+
+        // Act
+        var result = ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(profile, signature);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.OverlappingGenes, Is.EqualTo(3),
+                "only the 3 overlapping genes (a1, a2, b1) drive the regression");
+            Assert.That(result.CellFractions.Values.All(v => v >= 0.0), Is.True,
+                "fractions remain non-negative under partial overlap");
+            Assert.That(result.CellFractions.Values.Sum(), Is.EqualTo(1.0).Within(1e-9),
+                "fractions are still normalized to sum to 1 under partial overlap");
+        });
+    }
+
+    // NSVR-S10 — ν-parameter effect: holding the problem fixed, the recovered weight vector depends
+    // on ν (the ε-insensitive tube width / SV-fraction budget). A single-ν sweep at ν = 0.25 yields a
+    // materially different fraction than at ν = 0.75 for the disjoint 3×3 problem, and each run reports
+    // the ν it was given. This proves ν is wired through the solver, not ignored.
+    // Reference numbers (this session, matching the C# engine):
+    //   ν = 0.25 → TypeA ≈ 0.7374 ; ν = 0.75 → TypeA ≈ 0.5085 (= sklearn-matched 0.508464).
+    // Evidence: Schölkopf et al. (2000) — ν bounds the SV fraction / tube width, so it changes the fit.
+    [Test]
+    public void DeconvoluteImmuneCellsNuSvr_NuParameterChangesSolution()
+    {
+        // Arrange
+        var signature = new Dictionary<string, IReadOnlyDictionary<string, double>>
+        {
+            ["TypeA"] = new Dictionary<string, double> { ["a1"] = 10, ["a2"] = 8, ["a3"] = 6 },
+            ["TypeB"] = new Dictionary<string, double> { ["b1"] = 9, ["b2"] = 7, ["b3"] = 5 },
+            ["TypeC"] = new Dictionary<string, double> { ["c1"] = 11, ["c2"] = 4, ["c3"] = 8 },
+        };
+        var planted = new Dictionary<string, double> { ["TypeA"] = 0.5, ["TypeB"] = 0.2, ["TypeC"] = 0.3 };
+        var mixture = BuildPlantedMixture(signature, planted);
+
+        // Act — force each ν singly so the reported BestNu is that ν and no RMSE selection occurs.
+        var lowNu = ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(mixture, signature, new[] { 0.25 });
+        var highNu = ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(mixture, signature, new[] { 0.75 });
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(lowNu.BestNu, Is.EqualTo(0.25).Within(ExactTolerance),
+                "a single-ν sweep must report the ν it was given (0.25)");
+            Assert.That(highNu.BestNu, Is.EqualTo(0.75).Within(ExactTolerance),
+                "a single-ν sweep must report the ν it was given (0.75)");
+            Assert.That(lowNu.CellFractions["TypeA"], Is.EqualTo(0.7374).Within(5e-4),
+                "at ν = 0.25 the recovered TypeA fraction matches the engine reference ≈ 0.7374");
+            Assert.That(highNu.CellFractions["TypeA"], Is.EqualTo(0.508464).Within(NuSvrReferenceTolerance),
+                "at ν = 0.75 the recovered TypeA fraction matches the sklearn reference ≈ 0.508464");
+            Assert.That(Math.Abs(lowNu.CellFractions["TypeA"] - highNu.CellFractions["TypeA"]),
+                Is.GreaterThan(1e-3),
+                "ν must materially change the recovered solution (ν is genuinely wired through the solver)");
+        });
+    }
+
     // NSVR-C1 — Loader rejects an empty input (no header).
     [Test]
     public void LoadSignatureMatrix_EmptyInput_Throws()
