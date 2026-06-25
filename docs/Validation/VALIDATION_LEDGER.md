@@ -113,7 +113,7 @@ State (end of session): ✅ CLEAN (fully functional) · 🔧 LIMITED (see report
 | 81 | DISORDER-REGION-001 | ProteinPred | ⬜ | ⬜ | ⬜ pending | reports/DISORDER-REGION-001.md |
 | 82 | PROTMOTIF-FIND-001 | ProteinMotif | ✅ | ✅ | ✅ CLEAN | reports/PROTMOTIF-FIND-001.md |
 | 83 | PROTMOTIF-PROSITE-001 | ProteinMotif | ✅ | ✅ | ✅ CLEAN | reports/PROTMOTIF-PROSITE-001.md |
-| 84 | PROTMOTIF-DOMAIN-001 | ProteinMotif | ⬜ | ⬜ | ⬜ pending | reports/PROTMOTIF-DOMAIN-001.md |
+| 84 | PROTMOTIF-DOMAIN-001 | ProteinMotif | ✅ | ✅ | ✅ CLEAN | reports/PROTMOTIF-DOMAIN-001.md |
 | 85 | EPIGEN-CPG-001 | Epigenetics | ✅ | ✅ | ✅ CLEAN | reports/EPIGEN-CPG-001.md |
 | 86 | ONCO-IMMUNE-001 | Oncology | ⬜ | ⬜ | ⬜ pending | reports/ONCO-IMMUNE-001.md |
 

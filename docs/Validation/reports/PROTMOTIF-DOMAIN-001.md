@@ -1,5 +1,80 @@
 # Validation Report: PROTMOTIF-DOMAIN-001 — Protein Domain Identification
 
+## Update 2026-06-25 — FRESH INDEPENDENT RE-VALIDATION of the canonical exact-PROSITE-pattern surface → CLEAN (☐ → ☑)
+
+This is a fresh, from-sources re-validation of the unit's **OWN canonical surface** —
+`ProteinMotifFinder.FindDomains(string)`, the exact deterministic **PROSITE-PATTERN** domain
+detector (the Plan7 profile-HMM additions documented in the updates below are the separate
+already-tracked unit **PROTMOTIF-HMM-001** and were only referenced, not re-litigated; profile-only
+domains SH3/PDZ are a documented boundary). Sources were retrieved THIS session; the repo's own
+TestSpec/Evidence/tests were NOT trusted as authority.
+
+- **Stage A verdict:** ✅ PASS  **Stage B verdict:** ✅ PASS  **End state:** ✅ CLEAN
+
+### Canonical surface (confirmed from the source, not the docs)
+`FindDomains` (`ProteinMotifFinder.cs` lines ~1369–1410) runs exactly **three** embedded PROSITE
+PATTERNS through `FindMotifByPattern` (overlapping lookahead, `IgnoreCase`, 2 s backtracking guard,
+0-based inclusive Start/End, zero-width captures dropped):
+- **PS00028** ZINC_FINGER_C2H2_1 → const `C.{2,4}C.{3}[LIVMFYWC].{8}H.{3,5}H` → `ProteinDomain("Zinc Finger C2H2","PF00096", …)`
+- **PS00678** WD_REPEATS_1 → const `[LIVMSTAC][LIVMFYWSTAGC][LIMSTAG][LIVMSTAGC].{2}[DN].[^P][LIVMWSTAC][^DP][LIVMFSTAG]W[DEN][LIVMFSTAGCN]` → `("WD40 Repeat","PF00400", …)`
+- **PS00017** ATP_GTP_A (Walker A / P-loop) → const `[AG].{4}GK[ST]` → `("Protein Kinase ATP-binding","PF00069", …)`
+
+### Stage A — external sources retrieved THIS session
+- **PROSITE PS00678** (prosite.expasy.org/PS00678) — pattern verbatim
+  `[LIVMSTAC]-[LIVMFYWSTAGC]-[LIMSTAG]-[LIVMSTAGC]-x(2)-[DN]-x-{P}-[LIVMWSTAC]-{DP}-[LIVMFSTAG]-W-[DEN]-[LIVMFSTAGCN]`
+  (ID WD_REPEATS_1, "Trp-Asp (WD) repeats signature"). 14 elements, fixed 15 residues. ✔ matches the embedded const.
+- **PROSITE PS00028** (prosite.expasy.org/PS00028) — verbatim `C-x(2,4)-C-x(3)-[LIVMFYWC]-x(8)-H-x(3,5)-H`
+  (ZINC_FINGER_C2H2_1). ✔ matches the embedded const.
+- **PROSITE PS00017** (prosite.expasy.org/PS00017) — verbatim `[AG]-x(4)-G-K-[ST]` (ATP_GTP_A, P-loop). ✔ matches.
+- **PROSITE pattern syntax** (ScanProsite user manual, prosite.expasy.org/scanprosite/scanprosite_doc.html)
+  — quoted: `x` = any residue; `[ ]` = allowed set; `{ }` = "amino acids that are NOT accepted";
+  `-` separates elements; `(n)`/`(n,m)` = repetition/range; `<`/`>` = N-/C-terminal anchors. The
+  `ConvertPrositeToRegex` mapping (`x→.`, `x(n)→.{n}`, `[..]` kept, `{..}→[^..]`, `(n)/(n,m)→{n}/{n,m}`,
+  `-` dropped, `<→^`, `>→$`) implements these semantics correctly, and the three embedded consts are the
+  exact hand-translations of the three patterns. ✔
+- **Boundary confirmed (referenced, not re-litigated):** SH3 (PS50002) and PDZ (PS50106) are weight-matrix
+  PROFILES, not patterns — no deterministic regex exists, so `FindDomains` deliberately omits them; the
+  profile-HMM path for SH3/PDZ/WD40 is the separate unit PROTMOTIF-HMM-001.
+
+### Independent cross-check (true-positive + near-miss + hand-trace; recomputed THIS session vs the actual code regex)
+- **WD40 true positive (real protein).** UniProt **P62873 (GBB1_HUMAN, Gβ1)** sequence fetched verbatim
+  (`rest.uniprot.org/uniprotkb/P62873.fasta`, L=340). Applying the embedded WD40 regex (overlapping
+  lookahead, as in code) → **3 hits, 0-based starts {69, 156, 284}**, each exactly 15 residues:
+  `LVSASQDGKLIIWDS` (69-83), `IVTSSGDTTCALWDI` (156-170), `LLAGYDDFNCNVWDA` (284-298). Matches the unit tests.
+- **WD40 hand-trace** of `LVSASQDGKLIIWDS` against PS00678 incl. the two exclusion classes and the `x(2)`
+  repetition: L∈[LIVMSTAC]; V∈[LIVMFYWSTAGC]; S∈[LIMSTAG]; A∈[LIVMSTAGC]; **S,Q = x(2)**; D∈[DN]; G = x;
+  **K ∈ {P}≡[^P]** (K≠P ✔); L∈[LIVMWSTAC]; **I ∈ {DP}≡[^DP]** (I∉{D,P} ✔); I∈[LIVMFSTAG]; **W = literal W**;
+  D∈[DEN]; S∈[LIVMFSTAGCN]. → match at 0..14. ✔
+- **WD40 near-miss.** Mutating the invariant Trp (`W`→`A`) in the padded segment (`…KLIIADS…`) → **no match**
+  (the literal `W` element is mandatory). ✔ Confirms exact-pattern enforcement, not a loose heuristic.
+- **Zinc finger true positive.** `AAAACAACAAALEEEEEEEEHAAAHAAAA` → one hit start 4 end 24 (`CAACAAALEEEEEEEEHAAAH`):
+  C@4, x(2,4)=AA, C@7, x(3)=AAA, L@11∈[LIVMFYWC], x(8)=EEEEEEEE, H@20, x(3,5)=AAA, H@24. ✔ (exercises the `(2,4)`/`(3,5)` ranges).
+- **P-loop true positive.** `AAAAGAAEAGKSAAAA` → one hit start 4 end 11 (`GAAEAGKS`): [AG]@4=G, x(4)=AAEA, G@9, K@10, [ST]@11=S. ✔
+- **Negatives.** Src SH3 core `ALYDYEARTEDDLSFKKGERLQIVNNTE` → none of ZF/WD40/P-loop (no fabricated SH3/PDZ); `AAAEEE` → empty.
+
+### Stage B — implementation & tests
+- `FindDomains` faithfully realises the three validated patterns; null/empty → empty; positions 0-based inclusive,
+  Start ≤ End; case-insensitive (`ToUpperInvariant` + `RegexOptions.IgnoreCase`). All cross-check positions above
+  reproduce the code/tests exactly.
+- **Test-data DEFECT found and FIXED (F-PROTMOTIF-DOMAIN-001-01):** the test constant `Gbb1HumanSequence`,
+  labelled "Full GBB1_HUMAN (UniProt P62873)" and citing the FASTA source, did **not** match UniProt P62873 —
+  it read `…CNVWDALKADR**AQG**VLAGH…` (341 aa) where the real entry reads `…CNVWDALKADR**S**GVLAGH…` (340 aa);
+  i.e. a spurious extra residue at ~pos 304. The divergence is downstream of all three WD40 hits (≤298), so no
+  assertion changed, but it violated the "expected values trace to UniProt" gate. Corrected to the verbatim
+  P62873 sequence. Also fixed a stale M7 docstring ("16-residue match … 4..19" → the correct fixed 15-residue
+  signature spanning 4..18; the constants/assertions were already correct). Code under test: **unchanged**.
+- **Test suite (12 FindDomains tests):** true-positive for each of the 3 patterns (M1/M2/M7), real-protein
+  multi-hit (M9, {69,156,284}), invariant-Trp near-miss (M8), PROSITE→regex translation hand-trace (M10),
+  no-match/empty/null (S4/M3/M4), case-insensitivity incl. Score within 1e-10 (S7), Start≤End invariant (M6),
+  metadata non-emptiness + positive Score (M5), profile-only SH3/PDZ NOT fabricated (S5), multi-domain (C1).
+  Assertions are exact sourced values (PROSITE positions / UniProt coordinates / hand-trace), not code echoes;
+  no green-washing. Minor coverage note (not a defect): the variable ranges `x(2,4)`/`x(3,5)` are exercised only
+  at their minimum (M1); a max-spacer ZF case would broaden but is not required.
+- **Build:** 0 warnings / 0 errors. **Full suite** `dotnet test Seqeron.sln -c Debug` (net10.0 SDK 10.0.301):
+  Seqeron.Genomics.Tests **18817 passed, 0 failed**.
+
+---
+
 ## Update 2026-06-25 — HMMER stochastic-traceback clustering of overlapping domains (region_trace_ensemble, limitation fix); Status stays ☐
 
 The Plan7 engine now resolves **closely-overlapping (not-well-separated) multi-domain regions** by
@@ -183,12 +258,13 @@ PROSITE-pattern `FindDomains` path and its defaults are **unchanged**.
 
 ---
 
-- **Validated:** 2026-06-24   **Area:** ProteinMotif
-- **Canonical method(s):** `ProteinMotifFinder.FindDomains(string)`
-- **Source:** `src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/ProteinMotifFinder.cs` (Domain Finding region)
-- **Tests:** `tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_DomainPrediction_Tests.cs` (14 tests)
-- **Stage A verdict:** PASS
-- **Stage B verdict:** PASS
+- **Validated:** 2026-06-25 (fresh independent re-validation; see top section)   **Area:** ProteinMotif
+- **Canonical method(s):** `ProteinMotifFinder.FindDomains(string)` — exact deterministic PROSITE PATTERNS PS00028 / PS00678 / PS00017
+- **Source:** `src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/ProteinMotifFinder.cs` (Domain Finding region, ~1335–1410)
+- **Tests:** `tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_DomainPrediction_Tests.cs` (12 FindDomains tests)
+- **Stage A verdict:** PASS (✅)
+- **Stage B verdict:** PASS (✅) — one test-data defect found and fixed; no code change
+- **End state:** CLEAN ✅
 
 ---
 

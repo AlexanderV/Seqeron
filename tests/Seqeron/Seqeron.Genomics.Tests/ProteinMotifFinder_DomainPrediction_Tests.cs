@@ -63,7 +63,7 @@ public class ProteinMotifFinder_DomainPrediction_Tests
         "MSELDQLRQEAEQLKNQIRDARKACADATLSQITNNIDPVGRIQMRTRRTLRGHLAKIYAMHWGTDSRLLVSASQDGKLIIWDSY" +
         "TTNKVHAIPLRSSWVMTCAYAPSGNYVACGGLDNICSIYNLKTREGNVRVSRELAGHTGYLSCCRFLDDNQIVTSSGDTTCALWDI" +
         "ETGQQTTTFTGHTGDVMSLSLAPDTRLFVSGACDASAKLWDVREGMCRQTFTGHESDINAICFFPNGNAFATGSDDATCRLFDLRA" +
-        "DQELMTYSHDNIICGITSVSFSKSGRLLLAGYDDFNCNVWDALKADRAQGVLAGHDNRVSCLGVTDDGMAVATGSWDSFLKIWN";
+        "DQELMTYSHDNIICGITSVSFSKSGRLLLAGYDDFNCNVWDALKADRSGVLAGHDNRVSCLGVTDDGMAVATGSWDSFLKIWN";
 
     // --- Multi-domain sequence (zinc finger + kinase) ---
     private const string MultiDomainSequence = "AAAACAACAAALEEEEEEEEHAAAHAAAGAAEAGKSAAAA";
@@ -201,8 +201,8 @@ public class ProteinMotifFinder_DomainPrediction_Tests
 
     /// <summary>
     /// M7: WD40 repeat detection by EXACT PROSITE PATTERN PS00678 on a real β-transducin segment.
-    /// Evidence: PROSITE PS00678; positive = GBB1_HUMAN (P62873) WD repeat "LVSASQDGKLIIWDSY",
-    /// padded so the 16-residue match spans 0-based 4..19.
+    /// Evidence: PROSITE PS00678; positive = GBB1_HUMAN (P62873) WD repeat "LVSASQDGKLIIWDS",
+    /// padded so the fixed 15-residue PS00678 match spans 0-based 4..18.
     /// </summary>
     [Test]
     public void FindDomains_WD40Repeat_MatchesPrositePS00678()
