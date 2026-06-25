@@ -115,7 +115,7 @@ State (end of session): ✅ CLEAN (fully functional) · 🔧 LIMITED (see report
 | 83 | PROTMOTIF-PROSITE-001 | ProteinMotif | ✅ | ✅ | ✅ CLEAN | reports/PROTMOTIF-PROSITE-001.md |
 | 84 | PROTMOTIF-DOMAIN-001 | ProteinMotif | ✅ | ✅ | ✅ CLEAN | reports/PROTMOTIF-DOMAIN-001.md |
 | 85 | EPIGEN-CPG-001 | Epigenetics | ✅ | ✅ | ✅ CLEAN | reports/EPIGEN-CPG-001.md |
-| 86 | ONCO-IMMUNE-001 | Oncology | ⬜ | ⬜ | ⬜ pending | reports/ONCO-IMMUNE-001.md |
+| 86 | ONCO-IMMUNE-001 | Oncology | 🟡 | ✅ | ✅ CLEAN | reports/ONCO-IMMUNE-001.md |
 
 ## New units (created during the limitations-elimination campaign)
 
