@@ -1148,6 +1148,220 @@ public static class PrimerDesigner
         return tmKelvin - KelvinOffset;
     }
 
+    // ---- DNA hairpin folding + secondary-structure (hairpin) Tm (PRIMER-TM-001, opt-in) ----
+    // Finds the most stable intramolecular hairpin (a single stem closing one hairpin loop)
+    // of a DNA oligo and computes its ΔH°/ΔS°/ΔG°37 and unimolecular melting temperature.
+    // The perfect-match CalculateMeltingTemperatureNN and the default Wallace/Marmur-Doty Tm
+    // are UNCHANGED; this is a new opt-in capability.
+    //
+    // Model (SantaLucia & Hicks 2004, Annu Rev Biophys 33:415, "Hairpin Loops", Eqs 8–11):
+    //   ΔG°37(hairpin) = Σ stem NN stacks (Table 1)  +  ΔG°37(hairpin loop of N) (Table 4)
+    //   "To compute the stability of a complete hairpin + stem, one simply adds the
+    //    salt-corrected base pair NN contributions (Table 1; Equation 3) to the loop energy
+    //    from Equations 8–10." (paper, p.428).
+    //   The stem contributes only its nearest-neighbour STACKS (Table 1 propagation terms) —
+    //   the bimolecular duplex-initiation term (+0.2/−5.7) is a TWO-strand nucleation cost and
+    //   does NOT apply to a unimolecular hairpin (the loop-initiation term is the nucleation
+    //   cost instead). Loop ΔH° = 0 for every loop size, and the loop ΔS° increment is
+    //   ΔS° = −ΔG°37 × 1000 / 310.15 (Table 4 note: "ΔS° = ΔG°37 × 1000/310.15"; the loop is
+    //   destabilising so ΔG°37 > 0 → ΔS° < 0).
+    //   Two-state hairpin Tm (Eq 11) is UNIMOLECULAR/concentration-independent:
+    //       Tm = ΔH° × 1000 / ΔS° − 273.15        (NO R·ln(C_T/x) strand-concentration term).
+    //
+    // NOT bundled (honest residual): the supplementary triloop/tetraloop bonus tables (length-3
+    // and length-4 special loops) and the terminal-mismatch increment (the first mismatch stack
+    // closing loops of length ≥4) are separate Annual-Reviews supplementary tables not embedded
+    // here. They are exposed as an OPT-IN caller-supplied additive ΔG°37/ΔH° adjustment
+    // (default 0) so a caller who has those tables can supply the increment; without it the
+    // result is the stem-stack + loop-initiation core, which is exact and fully sourced.
+
+    /// <summary>Hairpin loop ΔG°37 increment (kcal/mol, 1 M NaCl) by loop size (number of
+    /// unpaired loop nucleotides). SantaLucia &amp; Hicks (2004) Table 4 "Hairpin loops" column;
+    /// sizes 3–30 are tabulated. ΔH° = 0 for all sizes; ΔS° = −ΔG°37·1000/310.15.</summary>
+    private static readonly Dictionary<int, double> HairpinLoopInitiationDeltaG = new()
+    {
+        [3] = 3.5, [4] = 3.5, [5] = 3.3, [6] = 4.0, [7] = 4.2, [8] = 4.3, [9] = 4.5,
+        [10] = 4.6, [12] = 5.0, [14] = 5.1, [16] = 5.3, [18] = 5.5, [20] = 5.7,
+        [25] = 6.1, [30] = 6.3
+    };
+
+    // SantaLucia & Hicks (2004): minimum sterically allowed hairpin loop size is 3 nt
+    // ("Hairpin loops with lengths shorter than 3 are sterically prohibited.").
+    private const int MinHairpinLoopSize = 3;
+
+    // Reference temperature for the ΔG°37 ↔ ΔS° conversion (310.15 K = 37 °C).
+    // SantaLucia & Hicks (2004) Table 4 note: ΔS° = ΔG°37 × 1000/310.15.
+    private const double ReferenceTemperatureKelvin = 310.15;
+
+    // Jacobson-Stockmayer entropic extrapolation coefficient for loop sizes beyond the
+    // tabulated lengths. SantaLucia & Hicks (2004) Eq. 7: ΔG°37(loop-n) =
+    // ΔG°37(loop-x) + 2.44·R·310.15·ln(n/x); the 2.44 coefficient is from recent DNA
+    // kinetics measurements (ref 22), preferred over the older 1.75.
+    private const double JacobsonStockmayerCoefficient = 2.44;
+
+    /// <summary>
+    /// Hairpin loop ΔG°37 (kcal/mol) for a loop of <paramref name="loopSize"/> unpaired
+    /// nucleotides. Tabulated sizes return Table 4 directly; non-tabulated sizes are filled by
+    /// the Jacobson-Stockmayer extrapolation from the largest tabulated size ≤ n
+    /// (SantaLucia &amp; Hicks 2004 Eq. 7). Loop sizes &lt; 3 are sterically prohibited.
+    /// </summary>
+    private static double HairpinLoopDeltaG(int loopSize)
+    {
+        if (HairpinLoopInitiationDeltaG.TryGetValue(loopSize, out double dg))
+            return dg;
+
+        // Jacobson-Stockmayer from the largest tabulated x ≤ loopSize.
+        int x = 0;
+        foreach (int size in HairpinLoopInitiationDeltaG.Keys)
+            if (size <= loopSize && size > x) x = size;
+
+        return HairpinLoopInitiationDeltaG[x]
+               + JacobsonStockmayerCoefficient * GasConstant * ReferenceTemperatureKelvin
+                 * 1e-3 * Math.Log((double)loopSize / x);
+    }
+
+    private static bool IsWatsonCrickPair(char a, char b) =>
+        (a == 'A' && b == 'T') || (a == 'T' && b == 'A') ||
+        (a == 'G' && b == 'C') || (a == 'C' && b == 'G');
+
+    /// <summary>
+    /// The most stable intramolecular DNA hairpin found in an oligo: the closing stem span,
+    /// stem length (base pairs), loop size, and the hairpin ΔH° (kcal/mol), ΔS° (cal/(K·mol)),
+    /// and ΔG°37 (kcal/mol).
+    /// </summary>
+    /// <param name="StemStart">5'-most index (0-based) of the stem on the input strand.</param>
+    /// <param name="StemEnd">3'-most index (0-based) of the stem on the input strand.</param>
+    /// <param name="StemLength">Number of base pairs in the stem.</param>
+    /// <param name="LoopSize">Number of unpaired loop nucleotides closed by the stem.</param>
+    /// <param name="DeltaH">Hairpin ΔH° in kcal/mol.</param>
+    /// <param name="DeltaS">Hairpin ΔS° in cal/(K·mol).</param>
+    /// <param name="DeltaG37">Hairpin ΔG°37 in kcal/mol (negative = stable).</param>
+    public readonly record struct HairpinResult(
+        int StemStart, int StemEnd, int StemLength, int LoopSize,
+        double DeltaH, double DeltaS, double DeltaG37);
+
+    /// <summary>
+    /// Finds the most stable (minimum ΔG°37) intramolecular DNA <b>hairpin</b> — a single
+    /// Watson-Crick stem closing one hairpin loop — in <paramref name="sequence"/>, using the
+    /// SantaLucia (1998) unified nearest-neighbour stem stacks and the SantaLucia &amp; Hicks
+    /// (2004) Table 4 hairpin-loop initiation increments. <b>Opt-in</b>: the duplex Tm methods
+    /// are unchanged. Returns <c>null</c> when the sequence is empty, contains a non-ACGT
+    /// character, or admits no hairpin at all (no stem of ≥ 2 bp can close a loop of ≥ 3 nt,
+    /// e.g. a homopolymer such as poly-A).
+    /// <para>
+    /// Model: ΔG°37 = Σ stem NN stacks (Table 1) + ΔG°37(loop of N) (Table 4); the bimolecular
+    /// duplex-initiation term is intentionally excluded for this unimolecular structure. Loop
+    /// ΔH° = 0; loop ΔS° = −ΔG°37·1000/310.15. The supplementary triloop/tetraloop and
+    /// terminal-mismatch increments are not bundled (see <paramref name="loopBonusDeltaG37"/>).
+    /// </para>
+    /// </summary>
+    /// <param name="sequence">DNA oligo (5'→3').</param>
+    /// <param name="minStemLength">Minimum stem length in base pairs (default 2 → at least one
+    /// NN stack). Must be ≥ 2.</param>
+    /// <param name="loopBonusDeltaG37">Optional caller-supplied additive ΔG°37 increment
+    /// (kcal/mol) for the terminal-mismatch / special triloop-tetraloop bonus that is NOT
+    /// bundled (default 0). Added to the loop free energy; its ΔS° contribution follows the
+    /// same −ΔG·1000/310.15 rule (ΔH° contribution 0), consistent with the Table 4 loop model.</param>
+    /// <returns>The most stable hairpin, or <c>null</c> if none exists / invalid input.</returns>
+    public static HairpinResult? FindMostStableHairpin(
+        string sequence,
+        int minStemLength = 2,
+        double loopBonusDeltaG37 = 0.0)
+    {
+        if (string.IsNullOrEmpty(sequence) || minStemLength < 2)
+            return null;
+
+        string seq = sequence.ToUpperInvariant();
+        int n = seq.Length;
+        foreach (char c in seq)
+            if (c is not ('A' or 'C' or 'G' or 'T'))
+                return null; // non-ACGT base present
+
+        HairpinResult? best = null;
+
+        // For every candidate outermost closing pair (i, j), extend the stem inward as far as
+        // Watson-Crick pairing allows, then close the remaining inner bases as a hairpin loop.
+        for (int i = 0; i < n; i++)
+        {
+            for (int j = i + 1; j < n; j++)
+            {
+                if (!IsWatsonCrickPair(seq[i], seq[j]))
+                    continue;
+
+                double dH = 0.0, dS = 0.0;
+                // Extend the stem from the outermost pair (i, j) inward.
+                int a = i, b = j;
+                int stemPairs = 0;
+                while (a < b && IsWatsonCrickPair(seq[a], seq[b]))
+                {
+                    if (stemPairs > 0)
+                    {
+                        // NN stack between pair (a-1, b+1) and (a, b): key = 5'-strand dinucleotide seq[a-1..a].
+                        string step = seq.Substring(a - 1, 2);
+                        if (!NnUnifiedParams.TryGetValue(step, out var p))
+                            break;
+                        dH += p.DeltaH;
+                        dS += p.DeltaS;
+                    }
+                    stemPairs++;
+                    a++;
+                    b--;
+                }
+
+                if (stemPairs < minStemLength)
+                    continue;
+
+                // Innermost pair is (a-1, b+1); loop is the bases strictly between them.
+                int innerLeft = a - 1;
+                int innerRight = b + 1;
+                int loopSize = innerRight - innerLeft - 1;
+                if (loopSize < MinHairpinLoopSize)
+                    continue;
+
+                double loopDg = HairpinLoopDeltaG(loopSize) + loopBonusDeltaG37;
+                // Loop ΔH° = 0; loop ΔS° = −ΔG°37·1000/310.15 (destabilising loop).
+                double loopDs = -loopDg * 1000.0 / ReferenceTemperatureKelvin;
+
+                double totalDh = dH;                       // loop ΔH° contribution is 0
+                double totalDs = dS + loopDs;
+                double dG37 = totalDh - ReferenceTemperatureKelvin * totalDs / 1000.0;
+
+                if (best is null || dG37 < best.Value.DeltaG37)
+                    best = new HairpinResult(i, j, stemPairs, loopSize, totalDh, totalDs, dG37);
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>
+    /// Computes the secondary-structure (hairpin) melting temperature (°C) of a DNA oligo:
+    /// finds its most stable intramolecular hairpin (<see cref="FindMostStableHairpin"/>) and
+    /// returns the <b>unimolecular</b> two-state Tm = ΔH°·1000/ΔS° − 273.15
+    /// (SantaLucia &amp; Hicks 2004, Eq. 11). A hairpin is intramolecular, so the Tm is
+    /// concentration-independent: there is <b>no</b> R·ln(C_T/x) strand-concentration term.
+    /// <b>Opt-in</b>: the duplex Tm methods (<see cref="CalculateMeltingTemperatureNN"/>) and the
+    /// default <see cref="CalculateMeltingTemperature(string)"/> are unchanged.
+    /// </summary>
+    /// <param name="sequence">DNA oligo (5'→3').</param>
+    /// <param name="minStemLength">Minimum stem length in base pairs (default 2).</param>
+    /// <param name="loopBonusDeltaG37">Optional caller-supplied terminal-mismatch / special-loop
+    /// ΔG°37 increment (default 0; not bundled — see <see cref="FindMostStableHairpin"/>).</param>
+    /// <returns>The hairpin Tm in °C, or <c>double.NaN</c> if no hairpin exists / invalid input.</returns>
+    public static double CalculateHairpinMeltingTemperature(
+        string sequence,
+        int minStemLength = 2,
+        double loopBonusDeltaG37 = 0.0)
+    {
+        var hairpin = FindMostStableHairpin(sequence, minStemLength, loopBonusDeltaG37);
+        if (hairpin is null)
+            return double.NaN;
+
+        var h = hairpin.Value;
+        // Unimolecular: NO concentration term (Eq. 11).
+        return (h.DeltaH * 1000.0) / h.DeltaS - KelvinOffset;
+    }
+
     /// <summary>Watson-Crick complement of an ACGT string (same 5'→3'/left-to-right order).</summary>
     private static string Complement(string seq)
     {

@@ -38,7 +38,7 @@ boundaries, never defects. They fall into three kinds:
 
 | Unit | Not done | Use instead |
 |------|----------|-------------|
-| PRIMER-TM-001 | Hairpin / secondary-structure (folding-based) Tm. | UNAFold, ViennaRNA, MELTING 5. |
+| PRIMER-TM-001 | Self-dimer / cross-dimer (intermolecular) Tm, and the not-bundled triloop/tetraloop & terminal-mismatch special-loop bonus tables. (Intramolecular **hairpin** folding + unimolecular hairpin Tm are now implemented — opt-in `FindMostStableHairpin` / `CalculateHairpinMeltingTemperature`, SantaLucia 1998 stem stacks + SantaLucia & Hicks 2004 Table 4 loop initiation; the supplementary bonus is caller-supplied via `loopBonusDeltaG37`.) | UNAFold, ViennaRNA, MELTING 5 (dimers & special-loop bonuses). |
 | PROBE-DESIGN-001 | The quantitative **MGB (minor-groove binder) ΔTm**, and dual-quencher labelling. | The MGB ΔTm model (Kutyavin 2000 / MGB-Eclipse) is empirical/proprietary with no published closed form — use a chemistry-specific tool; dual-quencher has no Tm impact. |
 | MIRNA-TARGET-001 | The context++ feature `PCT` (multi-species conservation); `TA_3UTR` / `SPS` / `Len_ORF` / `ORF8m` are caller-supplied. The computed score is a partial context++. (`SA` is now computed — see note.) | The TargetScan reference pipeline for the headline context++ score (a multi-species alignment for PCT, a transcriptome for TA). `SA` now uses the library's own Turner-2004 McCaskill partition-function accessibility (`RnaSecondaryStructure.CalculateRegionUnpairedProbability`), computed for every site whose 14-nt window fits the 3'UTR. |
 | MIRNA-PRECURSOR-001 | A **trained** natural-vs-background precursor classifier (read-stacking probabilistic model). | miRDeep2 / a trained miRNA caller. |

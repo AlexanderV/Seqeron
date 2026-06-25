@@ -153,6 +153,39 @@ only the hairpin / secondary-structure (folding-based) Tm residual remains. The 
 - **Checklist:** root-registry Status remains `☐` (re-validation); Quick-Reference counts unchanged
   (already counted as Not-Started).
 
+## 2026-06-25 update — DNA hairpin folding + secondary-structure (hairpin) Tm added (opt-in)
+
+The last open residual — hairpin / secondary-structure (folding-based) Tm — is now resolved by an
+**opt-in** DNA self-folder + unimolecular hairpin Tm. The perfect-match `CalculateMeltingTemperatureNN`,
+the NN mismatch/dangling-end extension, and the default Wallace/Marmur-Doty Tm are all UNCHANGED.
+
+- **New API (`PrimerDesigner`):**
+  `FindMostStableHairpin(string sequence, int minStemLength = 2, double loopBonusDeltaG37 = 0)
+  → HairpinResult?` (record struct: `StemStart, StemEnd, StemLength, LoopSize, DeltaH, DeltaS, DeltaG37`)
+  and `CalculateHairpinMeltingTemperature(string sequence, int minStemLength = 2,
+  double loopBonusDeltaG37 = 0) → double`. The folder scans every Watson-Crick closing pair, extends each
+  stem maximally, closes a hairpin loop (≥ 3 nt), and keeps the minimum-ΔG°37 (MFE) hairpin.
+- **Model (sources retrieved & extracted this session):** SantaLucia & Hicks (2004) Annu Rev Biophys 33:415,
+  "Hairpin Loops" — the article PDF (Duke mirror) was fetched and `pdftotext`-extracted verbatim:
+  ΔG°37(hairpin) = Σ stem NN stacks (Table 1, the repo's existing `NnUnifiedParams`) + ΔG°37(hairpin loop of N)
+  (Table 4 verbatim: 3→3.5, 4→3.5, 5→3.3, 6→4.0, 7→4.2, 8→4.3, 9→4.5, 10→4.6, 12→5.0, 14→5.1, 16→5.3,
+  18→5.5, 20→5.7, 25→6.1, 30→6.3); loop ΔH° = 0; loop ΔS° = −ΔG°37·1000/310.15 (Table 4 footnote a);
+  Jacobson-Stockmayer (Eq. 7, coeff 2.44) for non-tabulated sizes. The bimolecular duplex-initiation term is
+  intentionally excluded (unimolecular structure — loop init is the nucleation cost). **Unimolecular Tm
+  (Eq. 11, verbatim):** `Tm = ΔH°·1000/ΔS° − 273.15` — NO R·ln(C_T/x) strand-concentration term (the
+  intramolecular transition is concentration-independent; cross-confirmed by Vallone & Benight 1999).
+- **Hand-derived test values (1e-9):** canonical hairpin `GGGCTTTTGCCC` (4-bp stem GGGC/GCCC + 4-nt loop) →
+  ΔH° = −25.8, ΔS° = −75.48486216346927, ΔG°37 = −2.3883700000000054, Tm = 68.6403836682880 °C;
+  5-nt-loop `GGGCAAAAAGCCC` → ΔG°37 = −2.5883700000000054 (loop-of-5 ΔG°37 = 3.3); poly-A → no hairpin
+  (null / NaN); `GCGC` → null (loop < 3 prohibited). Tests: `PrimerDesigner_HairpinTm_Tests.cs` (16, all green).
+- **Evidence:** `docs/Evidence/PRIMER-TM-001-HAIRPIN-Evidence.md`; **TestSpec:** `tests/TestSpecs/PRIMER-TM-001-HAIRPIN.md`;
+  **Algorithm doc:** `docs/algorithms/MolTools/DNA_Hairpin_Folding_Tm.md`.
+- **Residual (genuinely open):** self-dimer / cross-dimer (intermolecular) Tm, and the not-bundled
+  triloop/tetraloop + terminal-mismatch special-loop bonus tables (the length-3/4 supplementary tables) —
+  exposed as a caller-supplied `loopBonusDeltaG37` increment; use UNAFold / ViennaRNA / MELTING 5 for those.
+- **Checklist:** root-registry Status remains `☐` (re-validation); Quick-Reference counts unchanged
+  (already counted as Not-Started).
+
 ## Verdict & follow-ups
 - **Stage A: PASS-WITH-NOTES** (Tm portion: documented Wallace −7 omission + Marmur-Doty simplification; prompt's
   "Tm uses SantaLucia NN" is a framing inaccuracy — NN is in 3'-stability only). **Stage B: PASS.**
