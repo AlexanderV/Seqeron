@@ -3,13 +3,15 @@
 **Test Unit ID:** REP-APPROX-001
 **Area:** Repeats
 **Algorithm:** Approximate (TRF) Tandem-Repeat Detection
-**Status:** ☐ Not Started — pending independent Stage A/B re-validation
+**Status:** ☑ Complete — independently validated 2026-06-25 (Stage A ✅ / Stage B ✅ / CLEAN)
 **Last Updated:** 2026-06-25
 
-> **Stub.** This unit was added during the limitation-elimination campaign. The algorithm is implemented and
-> covered by the test fixture below, but it has **not yet** been independently re-validated under the project's
-> two-stage (Stage A description / Stage B implementation) protocol. This spec captures the evidence and contract
-> needed to perform that validation; fill in the full TestSpec when the unit is re-validated to `☑`.
+> **Validated.** Independently re-validated under the two-stage protocol on 2026-06-25 against Benson (1999) and
+> the official TRF docs (definitions + parameters), retrieved that session. Scoring (+2/−7/−7), majority-rule
+> consensus, %matches/%indels "between adjacent copies", the Bernoulli (PM/PI) model, and Minscore=50 all match
+> the source. Cross-checked by hand-computation on controlled perfect / substitution / indel tracts (TRF binary
+> not installable). No defect; coverage strengthened with 3 edge-case tests. See
+> `docs/Validation/reports/REP-APPROX-001.md`.
 
 ---
 
@@ -35,9 +37,9 @@ R: percent-matches ∈ [0,100]; R: score ≥ Minscore (50); D: deterministic
 - **Reference:** TRF (Benson) on benchmark repeats
 - **Comparison:** consensus + match/indel% agree
 
-## 5. Validation Checklist (to restore ☑)
+## 5. Validation Checklist (restored ☑)
 
-- [ ] Stage A: retrieve every source above; confirm formula/constants against the publication's worked example.
-- [ ] Stage B: review the implementation against the source; cross-check vs the reference oracle.
-- [ ] Full unfiltered `dotnet test Seqeron.sln` — Failed: 0.
-- [ ] Flip `☐ → ☑` in `ALGORITHMS_CHECKLIST_V2.md` and the 10 `docs/checklists/*.md`.
+- [x] Stage A: sources retrieved (Benson 1999 PMC148217; TRF definitions/parameters pages); weights +2/−7/−7, majority-rule consensus, %matches/%indels "between adjacent copies", PM=.80/PI=.10, Minscore confirmed.
+- [x] Stage B: implementation reviewed vs source; hand-computed cross-check (perfect/substitution/indel + Bernoulli) reproduced exactly by the code. TRF binary not installable → hand-computation is the oracle (protocol-permitted).
+- [x] Full unfiltered `dotnet test Seqeron.sln -c Debug` — Failed: 0 (Seqeron.Genomics.Tests 18778 passed).
+- [x] Flipped `☐ → ☑` in root `ALGORITHMS_CHECKLIST_V2.md` (registry + catalog header + Quick-Reference counts). (`docs/checklists/*.md` intentionally NOT modified per session scope.)

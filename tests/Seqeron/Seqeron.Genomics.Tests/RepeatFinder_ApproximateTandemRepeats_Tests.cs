@@ -224,6 +224,45 @@ public class RepeatFinder_ApproximateTandemRepeats_Tests
         Assert.That(viaDna, Is.EqualTo(viaString), "DnaSequence and string overloads agree");
     }
 
+    // A12 — single-character sequence cannot hold two contiguous copies of any period (Benson 1999:
+    // "two or more contiguous copies"), so no tandem repeat is reportable.
+    [Test]
+    public void FindApproximateTandemRepeats_SingleCharacter_ReturnsEmpty()
+    {
+        Assert.That(RepeatFinder.FindApproximateTandemRepeats("A", 1, 6, LowMinScore), Is.Empty,
+            "one base cannot span two copies of any period");
+    }
+
+    // A13 — a period longer than the sequence can never fit two copies (needs period*2 <= length), so
+    // nothing is reported even at the permissive threshold.
+    [Test]
+    public void FindApproximateTandemRepeats_PeriodLongerThanSequence_ReturnsEmpty()
+    {
+        Assert.That(RepeatFinder.FindApproximateTandemRepeats("ACG", 6, 6, LowMinScore), Is.Empty,
+            "period 6 cannot tile twice into a 3-bp sequence");
+    }
+
+    // A14 — all-N homopolymer. The detector treats 'N' as a literal base (no IUPAC ambiguity
+    // special-casing): "NNNNNNNN" is a perfect period-1 tandem run of consensus "N", aligned against
+    // "NNNNNNNN" -> 8 match columns, 0 mismatch, 0 indel. score = 8*2 = 16; %matches = 100; %indels = 0;
+    // copies = 8/1 = 8.
+    [Test]
+    public void FindApproximateTandemRepeats_AllN_TreatedAsLiteralPerfectHomopolymer()
+    {
+        var results = RepeatFinder.FindApproximateTandemRepeats("NNNNNNNN", 1, 6, LowMinScore).ToList();
+
+        var top = results.OrderByDescending(r => r.AlignmentScore).First();
+        Assert.Multiple(() =>
+        {
+            Assert.That(top.Period, Is.EqualTo(1), "N homopolymer is a period-1 motif");
+            Assert.That(top.Consensus, Is.EqualTo("N"), "majority-rule consensus of all-N is N (literal)");
+            Assert.That(top.PercentMatches, Is.EqualTo(100.0).Within(Tol), "literal N matches N in every column");
+            Assert.That(top.PercentIndels, Is.EqualTo(0.0).Within(Tol));
+            Assert.That(top.AlignmentScore, Is.EqualTo(16), "8 match columns * +2 = 16");
+            Assert.That(top.CopyNumber, Is.EqualTo(8.0).Within(Tol), "8 bases / period 1 = 8 copies");
+        });
+    }
+
     #endregion
 
     #region ComputeBernoulliStatistics — TRF Bernoulli model (B1-B10)
