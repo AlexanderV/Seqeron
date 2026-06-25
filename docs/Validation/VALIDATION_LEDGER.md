@@ -60,7 +60,7 @@ State (end of session): ✅ CLEAN (fully functional) · 🔧 LIMITED (see report
 | 28 | ANNOT-ORF-001 | Annotation | ✅ | 🟡 | ✅ CLEAN | reports/ANNOT-ORF-001.md |
 | 29 | ANNOT-GENE-001 | Annotation | ✅ | ✅ | ✅ CLEAN | reports/ANNOT-GENE-001.md |
 | 30 | ANNOT-PROM-001 | Annotation | ✅ | ✅ | ✅ CLEAN | reports/ANNOT-PROM-001.md |
-| 31 | ANNOT-GFF-001 | Annotation | ⬜ | ⬜ | ⬜ pending | reports/ANNOT-GFF-001.md |
+| 31 | ANNOT-GFF-001 | Annotation | ✅ | ✅ | ✅ CLEAN | reports/ANNOT-GFF-001.md |
 | 32 | KMER-COUNT-001 | K-mer | ✅ | ✅ | ✅ CLEAN | reports/KMER-COUNT-001.md |
 | 33 | KMER-FREQ-001 | K-mer | ✅ | ✅ | ✅ CLEAN | reports/KMER-FREQ-001.md |
 | 34 | KMER-FIND-001 | K-mer | ✅ | ✅ | ✅ CLEAN | reports/KMER-FIND-001.md |
