@@ -266,7 +266,7 @@ Differential testing порівнює виходи двох незалежних
 | 238 | ☑ | RNA-ACCESS-001 | RnaStructure | Boltzmann (McCaskill) DP | brute-force ensemble enumeration (small n) | equal P_unpaired ±1e-9 |
 | 239 | ☑ | PROTMOTIF-HMM-001 | ProteinMotif | C# Plan7 (Viterbi/Forward/null2) | pyhmmer / hmmsearch | bit score ±1e-3, same envelopes |
 | 240 | ☑ | PRIMER-NNTM-001 | MolTools | C# NN (unified SantaLucia) | primer3-py / Biopython MeltingTemp | Tm ±0.5°C |
-| 241 | ☐ | PRIMER-HAIRPIN-001 | MolTools | C# hairpin folder | mfold / UNAFold (if obtainable) | ΔG ±0.2 kcal/mol, Tm ±1°C |
+| 241 | ☑ | PRIMER-HAIRPIN-001 | MolTools | C# ntthal hairpin (CalculateHairpinThermodynamicsNtthal) | primer3-py 2.3.0 calc_hairpin | ΔH exact, ΔS/Tm ≤1e-6 (machine precision) |
 | 242 | ☐ | PRIMER-DIMER-001 | MolTools | C# ntthal DP | primer3-py calc_homodimer/heterodimer | ΔG/Tm to machine precision on contiguous optima |
 | 243 | ☐ | PROBE-LNATM-001 | MolTools | C# LNA NN | MELTING 5 | Tm ±0.2°C |
 | 244 | ☐ | PROBE-EVALUE-001 | MolTools | C# Karlin-Altschul | NCBI BLAST stats / published λ | λ≈1.374, E within tolerance |
@@ -293,7 +293,7 @@ Differential testing порівнює виходи двох незалежних
 |--------|-------|
 | Total algorithms | 255 |
 | ☑ Complete | 2 |
-| ☐ Not started | 255 |
+| ☐ Not started | 254 |
 | High-value pairs (ALT/BRUTE feasible) | ~25 |
 | Medium-value pairs (REF comparison) | ~35 |
 | Lower priority (DUAL re-impl needed) | ~26 |

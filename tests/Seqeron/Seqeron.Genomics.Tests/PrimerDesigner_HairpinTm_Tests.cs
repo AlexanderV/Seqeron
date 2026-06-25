@@ -268,4 +268,80 @@ public class PrimerDesigner_HairpinTm_Tests
     }
 
     #endregion
+
+    #region Varying stem length, minStemLength selectivity, palindrome, very long (E1–E4)
+
+    // E1 — a DIFFERENT stem length (3 bp, not 4). GCCAAAGGC = stem GCC/GGC (3 bp) closing AAA (3 nt).
+    // 5'-arm GCC NN steps: GC(-9.8,-24.4) + CC(-8.0,-19.9) → stem ΔH°=-17.8, ΔS°=-44.3.
+    // Loop of 3 ΔG°37 = 3.5 (Table 4) → loop ΔS° = -3.5*1000/310.15 = -11.28486216346929.
+    //   Total ΔS° = -55.58486216346929; ΔG°37 = -17.8 - 310.15*(-55.58486216346929)/1000 = -0.5603550000000013;
+    //   Tm = -17.8*1000/-55.58486216346929 - 273.15 = 47.08107204353689 °C.
+    // Hand-derived from SantaLucia&Hicks 2004 Table 1 (GC, CC stacks) + Table 4 (loop-3 = 3.5).
+    [Test]
+    public void FindMostStableHairpin_ThreeBasePairStem_MatchesHandDerived()
+    {
+        var hp = PrimerDesigner.FindMostStableHairpin("GCCAAAGGC");
+
+        Assert.That(hp, Is.Not.Null, "GCCAAAGGC forms a 3-bp stem closing a 3-nt loop.");
+        var h = hp!.Value;
+        Assert.Multiple(() =>
+        {
+            Assert.That(h.StemLength, Is.EqualTo(3), "Full 3-bp GCC/GGC stem.");
+            Assert.That(h.LoopSize, Is.EqualTo(3), "3-nt AAA loop.");
+            Assert.That(h.DeltaH, Is.EqualTo(-17.8).Within(Tol), "Stem ΔH° = GC(-9.8) + CC(-8.0).");
+            Assert.That(h.DeltaS, Is.EqualTo(-55.58486216346929).Within(Tol),
+                "Stem ΔS° (-44.3) + loop ΔS° (-3.5*1000/310.15).");
+            Assert.That(h.DeltaG37, Is.EqualTo(-0.5603550000000013).Within(Tol), "ΔG°37 hand-derived.");
+            Assert.That(PrimerDesigner.CalculateHairpinMeltingTemperature("GCCAAAGGC"),
+                Is.EqualTo(47.08107204353689).Within(1e-7), "Unimolecular Tm = ΔH°*1000/ΔS° - 273.15.");
+        });
+    }
+
+    // E2 — minStemLength is selective: GCCAAAGGC has only a 3-bp stem, so minStemLength=4 → null,
+    // while the default (2) returns the 3-bp hairpin. Locks the stem-length gate beyond the <2 guard.
+    [Test]
+    public void FindMostStableHairpin_MinStemLength_FiltersStemsBelowThreshold()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(PrimerDesigner.FindMostStableHairpin("GCCAAAGGC", minStemLength: 4), Is.Null,
+                "No 4-bp stem exists; minStemLength=4 → null.");
+            Assert.That(PrimerDesigner.FindMostStableHairpin("GCCAAAGGC", minStemLength: 3)!.Value.StemLength,
+                Is.EqualTo(3), "minStemLength=3 admits the 3-bp stem.");
+        });
+    }
+
+    // E3 — a self-complementary palindrome with NO interior loop forms no hairpin. GGGGCCCC pairs
+    // fully (4-bp stem) but closes a 0-nt loop, which is sterically prohibited (< 3) → null.
+    [Test]
+    public void FindMostStableHairpin_PalindromeNoLoop_ReturnsNull()
+    {
+        var hp = PrimerDesigner.FindMostStableHairpin("GGGGCCCC");
+
+        Assert.That(hp, Is.Null,
+            "A perfect palindrome leaves no ≥3-nt loop (0-nt loop is sterically prohibited) → null.");
+    }
+
+    // E4 — a long oligo with a 6-bp stem closing a 10-nt loop. 5'-arm GGGGGG = 5 GG stacks
+    // (ΔH°=5*-8.0=-40, ΔS°=5*-19.9=-99.5); loop-10 ΔG°37 = 4.6 (Table 4) → loop ΔS°=-4.6*1000/310.15.
+    //   Total ΔS° = -114.33153312913106; ΔG°37 = -40 - 310.15*(-114.33153312913106)/1000 = -4.540075000000002.
+    [Test]
+    public void FindMostStableHairpin_LongStemAndLoop_MatchesHandDerived()
+    {
+        var hp = PrimerDesigner.FindMostStableHairpin("GGGGGG" + new string('A', 10) + "CCCCCC");
+
+        Assert.That(hp, Is.Not.Null);
+        var h = hp!.Value;
+        Assert.Multiple(() =>
+        {
+            Assert.That(h.StemLength, Is.EqualTo(6), "Full 6-bp GGGGGG/CCCCCC stem.");
+            Assert.That(h.LoopSize, Is.EqualTo(10), "10-nt loop.");
+            Assert.That(h.DeltaH, Is.EqualTo(-40.0).Within(Tol), "Five GG stacks, ΔH° = 5*-8.0.");
+            Assert.That(h.DeltaS, Is.EqualTo(-114.33153312913106).Within(Tol),
+                "Stem ΔS° (-99.5) + loop-10 ΔS° (-4.6*1000/310.15).");
+            Assert.That(h.DeltaG37, Is.EqualTo(-4.540075000000002).Within(Tol), "ΔG°37 hand-derived (Table 4 loop-10 = 4.6).");
+        });
+    }
+
+    #endregion
 }

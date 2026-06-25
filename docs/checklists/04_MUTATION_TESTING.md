@@ -268,7 +268,7 @@ Mutation testing вимірює ефективність тестового на
 | 238 | ☑ | RNA-ACCESS-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructure_UnpairedProbabilities_Tests.cs | ≥ 80% |
 | 239 | ☑ | PROTMOTIF-HMM-001 | ProteinMotif | Plan7ProfileHmm.cs / ProteinMotifFinder.cs | ProteinMotifFinder_FindDomainsByHmm_Tests.cs | ≥ 80% |
 | 240 | ☑ | PRIMER-NNTM-001 | MolTools | PrimerDesigner.cs | PrimerDesigner_NearestNeighborTm_Tests.cs | ≥ 80% |
-| 241 | ☐ | PRIMER-HAIRPIN-001 | MolTools | PrimerDesigner.cs | PrimerDesigner_HairpinTm_Tests.cs / PrimerDesigner_HairpinSpecialLoop_Tests.cs | ≥ 80% |
+| 241 | ☑ | PRIMER-HAIRPIN-001 | MolTools | PrimerDesigner.cs | PrimerDesigner_HairpinTm_Tests.cs / PrimerDesigner_HairpinSpecialLoop_Tests.cs | ≥ 80% |
 | 242 | ☐ | PRIMER-DIMER-001 | MolTools | PrimerDesigner.cs / NtthalDimer.cs | PrimerDesigner_DimerTm_Tests.cs | ≥ 80% |
 | 243 | ☐ | PROBE-LNATM-001 | MolTools | ProbeDesigner.cs | ProbeDesigner_LnaTm_Tests.cs | ≥ 80% |
 | 244 | ☐ | PROBE-EVALUE-001 | MolTools | ProbeDesigner.cs | ProbeDesigner_ProbeValidation_Tests.cs | ≥ 80% |
@@ -295,6 +295,6 @@ Mutation testing вимірює ефективність тестового на
 |--------|-------|
 | Total algorithms | 255 |
 | ☑ Complete (run + killers written) | 0 |
-| ☐ Not started | 255 |
+| ☐ Not started | 254 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |

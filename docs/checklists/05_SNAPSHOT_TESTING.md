@@ -266,7 +266,7 @@ Snapshot (approval) тести серіалізують повний вихід 
 | 238 | ☑ | RNA-ACCESS-001 | RnaStructure | per-base unpaired probability profile | RnaStructureSnapshotTests.cs (new) |
 | 239 | ☑ | PROTMOTIF-HMM-001 | ProteinMotif | domain envelope list with bit scores | ProteinMotifSnapshotTests.cs (new) |
 | 240 | ☑ | PRIMER-NNTM-001 | MolTools | Tm + ΔH/ΔS breakdown | PrimerSnapshotTests.cs (new) |
-| 241 | ☐ | PRIMER-HAIRPIN-001 | MolTools | most-stable hairpin structure + Tm | PrimerSnapshotTests.cs (new) |
+| 241 | ☑ | PRIMER-HAIRPIN-001 | MolTools | most-stable hairpin structure + Tm | PrimerSnapshotTests.cs (new) |
 | 242 | ☐ | PRIMER-DIMER-001 | MolTools | most-stable dimer alignment + Tm | PrimerSnapshotTests.cs (new) |
 | 243 | ☐ | PROBE-LNATM-001 | MolTools | LNA-adjusted Tm + MGB design report | ProbeSnapshotTests.cs (new) |
 | 244 | ☐ | PROBE-EVALUE-001 | MolTools | λ, K, bit score, E-value | ProbeSnapshotTests.cs (new) |
@@ -293,6 +293,6 @@ Snapshot (approval) тести серіалізують повний вихід 
 |--------|-------|
 | Total algorithms | 255 |
 | ☑ Complete | 2 |
-| ☐ Not started | 255 |
+| ☐ Not started | 254 |
 | New snapshot test files needed | 5 (Composition, Kmer, Translation, Oncology) |
 | Existing snapshot files to extend | ~10 |
