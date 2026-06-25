@@ -183,8 +183,53 @@ the NN mismatch/dangling-end extension, and the default Wallace/Marmur-Doty Tm a
 - **Residual (genuinely open):** self-dimer / cross-dimer (intermolecular) Tm, and the not-bundled
   triloop/tetraloop + terminal-mismatch special-loop bonus tables (the length-3/4 supplementary tables) —
   exposed as a caller-supplied `loopBonusDeltaG37` increment; use UNAFold / ViennaRNA / MELTING 5 for those.
+  **(self-/cross-dimer Tm RESOLVED 2026-06-25 — see next section.)**
 - **Checklist:** root-registry Status remains `☐` (re-validation); Quick-Reference counts unchanged
   (already counted as Not-Started).
+
+## Update 2026-06-25 — self-dimer / hetero-dimer (intermolecular) Tm implemented
+
+The remaining open residual — intermolecular self-/cross-dimer Tm — is now resolved by an **opt-in**
+Primer3 / `ntthal`-style thermodynamic alignment over the SantaLucia & Hicks (2004) unified NN model.
+The perfect-match `CalculateMeltingTemperatureNN`, the NN mismatch/dangling-end extension, the hairpin
+folder, and the default Wallace/Marmur-Doty Tm are all UNCHANGED.
+
+- **New API (`PrimerDesigner`):**
+  `FindMostStableDimer(string strand1, string strand2, double sodiumMolar = 0.05,
+  double strandConcentrationMolar = 50e-9) → DimerResult?`
+  (record struct: `Strand1Start, Strand2Start, BasePairs, DeltaH, DeltaS, DeltaG37`);
+  `CalculateDimerMeltingTemperature(strand1, strand2, sodiumMolar, strandConcentrationMolar) → double`;
+  and `CalculateSelfDimerMeltingTemperature(sequence, sodiumMolar, strandConcentrationMolar) → double`.
+  The aligner slides strand 2 (read 3'→5') against strand 1 over every gapless antiparallel offset, scores
+  each maximal contiguous Watson-Crick run as init + Σ NN stacks + terminal-A·T penalty + 0.368·N·ln[Na⁺]
+  salt correction, and returns the highest-Tm duplex (the `ntthal` selection rule). Reuses the existing
+  `NnUnifiedParams`, the init/AT-penalty/salt constants and `R`; **no new parameters introduced.**
+- **Method (sources retrieved & extracted this session, 2026-06-25):** SantaLucia & Hicks (2004) Annu Rev
+  Biophys 33:415 (Table 1 NN + Eq. 3 bimolecular Tm + Eq. 5 0.368 salt correction); Untergasser et al.
+  (2012) NAR 40:e115 (the `ntthal` thermodynamic-alignment engine). The `ntthal` reference source
+  `thal.c` (primer3-py vendored libprimer3) was fetched and read: `dplx_init_H=200`/`dplx_init_S=−5.7`
+  (lines 588-589); `AT_H=2200`/`AT_S=6.9` (lines 128-129); `saltCorrection = 0.368·ln((mv+120·√max(0,dv−dntp))/1000)`
+  per stack (lines 623-624, 1042); `RC = R·ln(dna_conc/1e9)` when both strands symmetric, else
+  `R·ln(dna_conc/4e9)` → bimolecular x = 1 / x = 4 (lines 590-593); `symmetry_thermo` = reverse-complement
+  palindrome (line 2771); default `dna_conc = 50` nM (lines 829/844).
+- **Ground-truth cross-check:** `primer3-py 2.3.0` was installed (`pip3 install --user primer3-py`) and used
+  to capture exact `calc_homodimer` / `calc_heterodimer` reference numbers (mv=50, dv=0, dntp=0, dna_conc=50 nM).
+  The implementation reproduces ntthal's ΔH°, ΔS° and Tm **to machine precision** for every pair whose optimum
+  is a contiguous Watson-Crick duplex:
+  GCGCGCGC (Tm 40.0906), ACGTACGTACGT (37.6251), ATCGATCGATCG/CGATCGATCGAT (32.6107), CGATCGATCG (29.6600),
+  GCATGC (0.6859), GGGGCCCC (29.0150), TGCATGCATG/CATGCATGCA (non-palindromic, x=4, 25.6596).
+  Poly-A self-dimer → no structure (null / NaN), matching primer3 `structure_found=False`.
+- **Hand-derived (independent of primer3, 1e-9):** GCGCGCGC self-dimer ΔH°=−70.8 kcal/mol,
+  ΔS°=−192.61700633667505, Tm=40.09064476882935 °C, ΔG°37=−11.059835484680235; TGCATGCATG/CATGCATGCA
+  (x=4) ΔH°=−74.1, ΔS°=−211.8218652900108, Tm=25.659587124835923 °C. Both match the C# output exactly.
+- **Documented limit (honest):** the alignment is gapless and models only the contiguous-WC optimum;
+  `ntthal`'s internal-loop / terminal-overhang (`tstack2`) extension (which stiffens e.g. poly-A overhangs,
+  ATCGTTAC/GTAACGAT) is NOT reproduced — parity is asserted only on contiguous-WC-optimum cases.
+- **Tests:** `PrimerDesigner_DimerTm_Tests.cs` (19, all green); **Evidence:** `docs/Evidence/PRIMER-TM-001-DIMER-Evidence.md`;
+  **TestSpec:** `tests/TestSpecs/PRIMER-TM-001-DIMER.md`; **Algorithm doc:** `docs/algorithms/MolTools/DNA_Dimer_Tm.md`.
+- **Checklist:** root-registry Status remains `☐` (re-validation); Quick-Reference counts unchanged.
+- **LIMITATIONS.md:** the PRIMER-TM-001 row is trimmed to the true residual (the caller-supplied loop-bonus
+  tables + the `ntthal` overhang/internal-loop extension); self-/cross-dimer Tm is removed from "not done".
 
 ## Verdict & follow-ups
 - **Stage A: PASS-WITH-NOTES** (Tm portion: documented Wallace −7 omission + Marmur-Doty simplification; prompt's

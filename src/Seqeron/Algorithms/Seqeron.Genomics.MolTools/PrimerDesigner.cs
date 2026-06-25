@@ -538,6 +538,11 @@ public static class PrimerDesigner
     // concentration). Exposed as a parameter; the caller may override.
     private const double DefaultStrandConcentrationMolar = 0.5e-6;
 
+    // Default total strand concentration for the intermolecular dimer Tm. Primer3 / ntthal
+    // uses dna_conc = 50 nM (thal.c default a->dna_conc = 50, lines 829/844); the opt-in dimer
+    // methods adopt the same convention so they reproduce the ntthal reference out of the box.
+    private const double DefaultDimerStrandConcentrationMolar = 50e-9;
+
     // Owczarzy (2004) monovalent (Na⁺) correction, 1/Tm form:
     //   1/Tm[Na] = 1/Tm[1M] + (4.29·f(GC) − 3.95)·1e-5·ln[Na⁺] + 9.40e-6·(ln[Na⁺])²
     // Source: Owczarzy et al. (2004) Biochemistry 43:3537-54; coefficients per the
@@ -1360,6 +1365,244 @@ public static class PrimerDesigner
         var h = hairpin.Value;
         // Unimolecular: NO concentration term (Eq. 11).
         return (h.DeltaH * 1000.0) / h.DeltaS - KelvinOffset;
+    }
+
+    // ---- Self-dimer / hetero-dimer (intermolecular) Tm via thermodynamic alignment ----
+    // PRIMER-TM-001, opt-in. Finds the most stable INTERMOLECULAR antiparallel duplex
+    // between two oligonucleotides (self-dimer = an oligo against a second copy of itself;
+    // hetero/cross-dimer = two different oligos) and returns its NN ΔH°/ΔS° and the
+    // bimolecular Tm. Reuses the existing SantaLucia (1998) unified NN stacking table
+    // (NnUnifiedParams), the terminal-A·T penalty, the duplex-initiation term and the
+    // 0.368 entropy salt coefficient already used by CalculateMeltingTemperatureNN.
+    // The duplex Tm / hairpin Tm / default Tm methods and their defaults are UNCHANGED.
+    //
+    // Model (Primer3 / ntthal — SantaLucia & Hicks 2004 unified NN):
+    //   For each gapless antiparallel offset of strand2 (read 3'→5') under strand1 (5'→3'),
+    //   each maximal contiguous run of Watson-Crick pairs (≥ 1 NN stack) is a candidate
+    //   duplex with
+    //     ΔH° = ΔH°_init + Σ stacks ΔH° + ΔH°_AT-penalty(per A·T-closed end),
+    //     ΔS° = ΔS°_init + Σ stacks ΔS° + ΔS°_AT-penalty(per A·T-closed end)
+    //           + 0.368·N_stacks·ln[Na⁺]   (salt correction baked into ΔS°, ntthal saltCorrectS),
+    //   and bimolecular
+    //     Tm = ΔH°·1000 / (ΔS° + R·ln(C_T / x)) − 273.15,
+    //   with x = 1 when BOTH oligos are reverse-complement palindromes (ntthal symmetry_thermo),
+    //   else x = 4. ntthal keeps the candidate with the highest Tm — so does this method.
+    //
+    // Sources (retrieved & extracted this session, 2026-06-25):
+    //   SantaLucia J, Hicks D (2004) Annu Rev Biophys 33:415-440 — unified NN parameters
+    //     (Table 1, the repo's NnUnifiedParams) + the bimolecular Tm Eq. 3 + Eq. 5 entropy
+    //     salt correction (0.368 coefficient).
+    //   Untergasser A et al. (2012) Nucleic Acids Res 40:e115 (Primer3 2.0) — the ntthal
+    //     thermodynamic-alignment engine for oligo dimers.
+    //   Primer3 `thal.c` (primer3-py vendored libprimer3, retrieved
+    //     https://raw.githubusercontent.com/libnano/primer3-py/master/primer3/src/libprimer3/thal.c):
+    //     dplx_init_H=200 cal, dplx_init_S=−5.7 (lines 588-589); AT_H=2200, AT_S=6.9
+    //     (lines 128-129); saltCorrectS = 0.368·ln((mv+120·√max(0,dv−dntp))/1000) per stack
+    //     (lines 623-624, 1042); RC = R·ln(dna_conc/1e9) when both strands symmetric else
+    //     R·ln(dna_conc/4e9) (lines 590-593); symmetry_thermo = reverse-complement palindrome
+    //     (line 2771). dna_conc is in nM, so /1e9 → mol/L with x=1 and /4e9 → x=4.
+    //   Cross-checked against primer3-py 2.3.0 calc_homodimer / calc_heterodimer
+    //     (mv=50, dv=0, dntp=0, dna_conc=50 nM): this method reproduces ntthal's ΔH°, ΔS°
+    //     and Tm to machine precision for every case whose optimal structure is a contiguous
+    //     Watson-Crick duplex (e.g. GCGCGCGC, ACGTACGTACGT, ATCGATCGATCG/CGATCGATCGAT,
+    //     CGATCGATCG self-dimer, GCATGC, GGGGCCCC). ntthal's extra terminal-stack /
+    //     overhang-extension terms for some sequences are NOT modelled here (documented limit).
+
+    /// <summary>
+    /// The most stable intermolecular DNA duplex (self- or hetero-dimer) found between two
+    /// oligonucleotides: the aligned spans on each strand, the number of base pairs, and the
+    /// dimer ΔH° (kcal/mol), ΔS° (cal/(K·mol)) and ΔG°37 (kcal/mol).
+    /// </summary>
+    /// <param name="Strand1Start">5'-most aligned index (0-based) on strand 1.</param>
+    /// <param name="Strand2Start">5'-most aligned index (0-based) on strand 2.</param>
+    /// <param name="BasePairs">Number of contiguous Watson-Crick base pairs in the duplex.</param>
+    /// <param name="DeltaH">Dimer ΔH° in kcal/mol (salt-independent).</param>
+    /// <param name="DeltaS">Dimer ΔS° in cal/(K·mol), including the 0.368 salt correction.</param>
+    /// <param name="DeltaG37">Dimer ΔG°37 = ΔH° − 310.15·ΔS°/1000 in kcal/mol (negative = stable).</param>
+    public readonly record struct DimerResult(
+        int Strand1Start, int Strand2Start, int BasePairs,
+        double DeltaH, double DeltaS, double DeltaG37);
+
+    /// <summary>
+    /// Finds the most stable (highest-Tm) intermolecular DNA duplex between two oligonucleotides
+    /// using the Primer3 / <c>ntthal</c> thermodynamic alignment over the SantaLucia &amp; Hicks
+    /// (2004) unified nearest-neighbour model. A <b>self-dimer</b> is obtained by passing the same
+    /// sequence as both strands; a <b>hetero/cross-dimer</b> by passing two different sequences.
+    /// <b>Opt-in</b>: the duplex (<see cref="CalculateMeltingTemperatureNN"/>) and hairpin Tm
+    /// methods, and the default <see cref="CalculateMeltingTemperature(string)"/>, are unchanged.
+    /// <para>
+    /// The two strands are aligned antiparallel (strand 2 read 3'→5' under strand 1 5'→3') over
+    /// every gapless offset; each maximal contiguous Watson-Crick run of ≥ 2 bp is scored as a
+    /// duplex with ΔH° = init + Σ stacks + terminal-A·T penalty per A·T-closed end, and ΔS° the
+    /// same plus the 0.368·N<sub>stacks</sub>·ln[Na⁺] salt correction. The candidate with the
+    /// highest bimolecular Tm is returned (the ΔS° in the result already includes the salt term
+    /// for the supplied <paramref name="sodiumMolar"/>).
+    /// </para>
+    /// </summary>
+    /// <param name="strand1">First DNA oligo (5'→3'). Must contain ≥ 2 ACGT bases.</param>
+    /// <param name="strand2">Second DNA oligo (5'→3'); the same string as
+    /// <paramref name="strand1"/> for a self-dimer. Must contain ≥ 2 ACGT bases.</param>
+    /// <param name="sodiumMolar">Monovalent cation concentration in mol/L (default 50 mM); only
+    /// the entropy salt correction depends on it.</param>
+    /// <param name="strandConcentrationMolar">Total strand concentration C_T in mol/L for the
+    /// bimolecular Tm used to rank candidates (default 50 nM, the Primer3/ntthal convention).</param>
+    /// <returns>The most stable dimer, or <c>null</c> if either strand is null/&lt; 2 bases/contains
+    /// a non-ACGT character, or no duplex of ≥ 2 contiguous base pairs exists between them.</returns>
+    public static DimerResult? FindMostStableDimer(
+        string strand1,
+        string strand2,
+        double sodiumMolar = ThermoConstants.DefaultNaConcentration,
+        double strandConcentrationMolar = DefaultDimerStrandConcentrationMolar)
+    {
+        if (string.IsNullOrEmpty(strand1) || string.IsNullOrEmpty(strand2))
+            return null;
+
+        string s1 = strand1.ToUpperInvariant();
+        string s2 = strand2.ToUpperInvariant();
+        if (s1.Length < 2 || s2.Length < 2)
+            return null;
+        foreach (char c in s1)
+            if (c is not ('A' or 'C' or 'G' or 'T')) return null;
+        foreach (char c in s2)
+            if (c is not ('A' or 'C' or 'G' or 'T')) return null;
+
+        // x = 1 only when both strands are reverse-complement palindromes (ntthal symmetry_thermo).
+        bool symmetric = IsSelfComplementary(s1) && IsSelfComplementary(s2);
+        double x = symmetric ? SelfComplementaryFactor : NonSelfComplementaryFactor;
+        // Strand-concentration term R·ln(C_T / x) for the bimolecular Tm (constant over candidates).
+        double rcTerm = GasConstant * Math.Log(strandConcentrationMolar / x);
+        double saltPerStack = SantaLuciaEntropySaltCoefficient * Math.Log(sodiumMolar);
+
+        // Strand 2 read 3'→5' so its index i pairs base-for-base under strand 1 read 5'→3'.
+        string s2Rev = Reverse(s2);
+        int n = s1.Length, m = s2.Length;
+
+        DimerResult? best = null;
+        double bestTm = double.NegativeInfinity;
+
+        // Slide strand 2 across strand 1 over every gapless antiparallel offset.
+        for (int offset = -(m - 1); offset < n; offset++)
+        {
+            // Within this offset, walk the overlap and split it into maximal contiguous
+            // Watson-Crick runs; each run of ≥ 2 bp is a candidate duplex.
+            int runStart = -1; // strand-1 index where the current WC run started
+            for (int i = 0; i <= n; i++)
+            {
+                int j = i - offset; // index into s2Rev paired with s1[i]
+                bool paired = i < n && j >= 0 && j < m && IsWatsonCrickPair(s1[i], s2Rev[j]);
+
+                if (paired && runStart < 0)
+                    runStart = i;
+
+                if (!paired && runStart >= 0)
+                {
+                    int runEnd = i - 1; // inclusive strand-1 index of the run end
+                    EvaluateRun(s1, s2Rev, offset, runStart, runEnd, saltPerStack, rcTerm,
+                                ref best, ref bestTm);
+                    runStart = -1;
+                }
+            }
+        }
+
+        return best;
+
+        // Scores one contiguous Watson-Crick run [runStart..runEnd] on strand 1 and keeps it
+        // if its bimolecular Tm exceeds the best found so far.
+        static void EvaluateRun(
+            string s1, string s2Rev, int offset, int runStart, int runEnd,
+            double saltPerStack, double rcTerm, ref DimerResult? best, ref double bestTm)
+        {
+            int basePairs = runEnd - runStart + 1;
+            if (basePairs < MinDimerBasePairs)
+                return;
+
+            double dH = NnInitDeltaH;
+            double dS = NnInitDeltaS;
+            for (int k = runStart; k < runEnd; k++)
+            {
+                string step = s1.Substring(k, 2);
+                // A contiguous WC run pairs every column; the stack is the perfect-match NN
+                // keyed by the strand-1 dinucleotide (its complement is the strand-2 stack).
+                if (!NnUnifiedParams.TryGetValue(step, out var p))
+                    return;
+                dH += p.DeltaH;
+                dS += p.DeltaS;
+            }
+
+            // Terminal A·T penalty per duplex end closing with an A·T pair.
+            if (s1[runStart] is 'A' or 'T') { dH += NnTerminalAtDeltaH; dS += NnTerminalAtDeltaS; }
+            if (s1[runEnd] is 'A' or 'T') { dH += NnTerminalAtDeltaH; dS += NnTerminalAtDeltaS; }
+
+            int stacks = basePairs - 1;
+            dS += stacks * saltPerStack; // 0.368·N_stacks·ln[Na⁺] (ntthal saltCorrectS)
+
+            double tmKelvin = (dH * 1000.0) / (dS + rcTerm);
+            double tmCelsius = tmKelvin - KelvinOffset;
+
+            if (tmCelsius > bestTm)
+            {
+                bestTm = tmCelsius;
+                int s2Start = (runStart - offset);                 // index into s2Rev (3'→5')
+                int strand2Start5 = s2Rev.Length - 1 - (runEnd - offset); // → 5'→3' index on strand 2
+                double dG37 = dH - ReferenceTemperatureKelvin * dS / 1000.0;
+                best = new DimerResult(runStart, strand2Start5, basePairs, dH, dS, dG37);
+            }
+        }
+    }
+
+    // Minimum base pairs for a dimer duplex (at least one NN stack). ntthal requires a paired
+    // region; a single base pair has no stacking energy and is not a duplex.
+    private const int MinDimerBasePairs = 2;
+
+    /// <summary>
+    /// Computes the intermolecular <b>self-dimer</b> melting temperature (°C) of a DNA oligo: the
+    /// bimolecular Tm of the most stable duplex it forms with a second copy of itself, via the
+    /// Primer3 / <c>ntthal</c> thermodynamic alignment (SantaLucia &amp; Hicks 2004 unified NN).
+    /// <b>Opt-in</b>: the perfect-match duplex / hairpin / default Tm methods are unchanged.
+    /// </summary>
+    /// <param name="sequence">DNA oligo (5'→3'); must be ≥ 2 ACGT bases.</param>
+    /// <param name="sodiumMolar">Monovalent cation concentration in mol/L (default 50 mM).</param>
+    /// <param name="strandConcentrationMolar">Total strand concentration C_T in mol/L
+    /// (default 50 nM, the Primer3/ntthal convention).</param>
+    /// <returns>The self-dimer Tm in °C, or <c>double.NaN</c> if no self-dimer of ≥ 2 contiguous
+    /// base pairs exists / the sequence is invalid.</returns>
+    public static double CalculateSelfDimerMeltingTemperature(
+        string sequence,
+        double sodiumMolar = ThermoConstants.DefaultNaConcentration,
+        double strandConcentrationMolar = DefaultDimerStrandConcentrationMolar) =>
+        CalculateDimerMeltingTemperature(sequence, sequence, sodiumMolar, strandConcentrationMolar);
+
+    /// <summary>
+    /// Computes the intermolecular <b>dimer</b> melting temperature (°C) between two DNA oligos
+    /// (a self-dimer when both arguments are the same sequence; a hetero/cross-dimer otherwise),
+    /// as the bimolecular Tm of the most stable duplex found by the Primer3 / <c>ntthal</c>
+    /// thermodynamic alignment (SantaLucia &amp; Hicks 2004 unified NN):
+    /// Tm = ΔH°·1000/(ΔS° + R·ln(C_T/x)) − 273.15, x = 1 if both oligos are reverse-complement
+    /// palindromes else x = 4 (C_T = 0.5 µM). <b>Opt-in</b>: existing Tm methods are unchanged.
+    /// </summary>
+    /// <param name="strand1">First DNA oligo (5'→3'); ≥ 2 ACGT bases.</param>
+    /// <param name="strand2">Second DNA oligo (5'→3'); ≥ 2 ACGT bases.</param>
+    /// <param name="sodiumMolar">Monovalent cation concentration in mol/L (default 50 mM).</param>
+    /// <param name="strandConcentrationMolar">Total strand concentration C_T in mol/L
+    /// (default 50 nM, the Primer3/ntthal convention).</param>
+    /// <returns>The dimer Tm in °C, or <c>double.NaN</c> if no duplex of ≥ 2 contiguous base pairs
+    /// exists between the strands / either sequence is invalid.</returns>
+    public static double CalculateDimerMeltingTemperature(
+        string strand1,
+        string strand2,
+        double sodiumMolar = ThermoConstants.DefaultNaConcentration,
+        double strandConcentrationMolar = DefaultDimerStrandConcentrationMolar)
+    {
+        var dimer = FindMostStableDimer(strand1, strand2, sodiumMolar, strandConcentrationMolar);
+        if (dimer is null)
+            return double.NaN;
+
+        var d = dimer.Value;
+        bool symmetric = IsSelfComplementary(strand1.ToUpperInvariant())
+                         && IsSelfComplementary(strand2.ToUpperInvariant());
+        double x = symmetric ? SelfComplementaryFactor : NonSelfComplementaryFactor;
+        double tmKelvin = (d.DeltaH * 1000.0) / (d.DeltaS + GasConstant * Math.Log(strandConcentrationMolar / x));
+        return tmKelvin - KelvinOffset;
     }
 
     /// <summary>Watson-Crick complement of an ACGT string (same 5'→3'/left-to-right order).</summary>
