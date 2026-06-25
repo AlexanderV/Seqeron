@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 255 |
-| **Completed** | 241 |
+| **Completed** | 242 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 14 |
+| **Not Started** | 13 |
 
 ---
 
@@ -81,7 +81,7 @@
 | ☐ | META-BIN-001 | Metagenomics | 1 | Wikipedia (Binning metagenomics), Teeling (2004), Parks et al. (2014), Maguire et al. (2020) | [META-BIN-001.md](TestSpecs/META-BIN-001.md) | MetagenomicsAnalyzer_GenomeBinning_Tests.cs |
 | ☑ | CODON-OPT-001 | Codon | 1 | Wikipedia (Codon usage bias, CAI), Sharp & Li (1987), Plotkin & Kudla (2011) | [CODON-OPT-001.md](TestSpecs/CODON-OPT-001.md) | CodonOptimizer_OptimizeSequence_Tests.cs |
 | ☑ | CODON-CAI-001 | Codon | 1 | Wikipedia (Codon Adaptation Index), Sharp & Li (1987), Jansen et al. (2003) | [CODON-CAI-001.md](TestSpecs/CODON-CAI-001.md) | CodonOptimizer_CAI_Tests.cs |
-| ☐ | CODON-RARE-001 | Codon | 1 | Kazusa, Shu et al. (2006), Sharp & Li (1987), Clarke & Clark (2008), Chartier et al. (2012) | [CODON-RARE-001.md](TestSpecs/CODON-RARE-001.md) | CodonOptimizer_FindRareCodons_Tests.cs, CodonOptimizer_RareCodonClusters_Tests.cs |
+| ☑ | CODON-RARE-001 | Codon | 1 | Kazusa, Shu et al. (2006), Sharp & Li (1987), Clarke & Clark (2008), Chartier et al. (2012) | [CODON-RARE-001.md](TestSpecs/CODON-RARE-001.md) | CodonOptimizer_FindRareCodons_Tests.cs, CodonOptimizer_RareCodonClusters_Tests.cs |
 | ☑ | CODON-USAGE-001 | Codon | 2 | Wikipedia (Codon usage bias), Kazusa, Sharp & Li (1987) | [CODON-USAGE-001.md](TestSpecs/CODON-USAGE-001.md) | CodonOptimizer_CodonUsage_Tests.cs |
 | ☑ | TRANS-CODON-001 | Translation | 3 | TRANS-CODON-001-Evidence.md | [TRANS-CODON-001.md](TestSpecs/TRANS-CODON-001.md) | GeneticCodeTests.cs |
 | ☑ | TRANS-PROT-001 | Translation | 1 | Wikipedia (Translation, Reading frame, ORF), NCBI Genetic Codes | [TRANS-PROT-001.md](TestSpecs/TRANS-PROT-001.md) | TranslatorTests.cs |
