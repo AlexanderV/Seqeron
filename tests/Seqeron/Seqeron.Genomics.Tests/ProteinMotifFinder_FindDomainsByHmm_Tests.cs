@@ -1138,6 +1138,146 @@ public class ProteinMotifFinder_FindDomainsByHmm_Tests
 
     #endregion
 
+    #region H21 — MSV Gumbel P-value, static survival helpers, EValue, all-X residues (coverage gate)
+
+    // H21 — hand-derived (Python, full double precision) MSV Gumbel survival at S=40 bits with the
+    // bundled PF00018 STATS LOCAL MSV params (μ=−8.1284, λ=0.71923):
+    //   y = λ(S−μ) = 0.71923·48.1284 ; ey = −exp(−y) ; |ey|≥5e-9 → P = 1 − exp(ey).
+    private const double Sh3MsvPValueAt40 = 9.262484858441732e-16;
+    private const double Sh3MsvEValueAt40Z1000 = 9.262484858441732e-13;
+
+    [Test]
+    public void MsvPValue_Sh3At40Bits_MatchesHandDerivedGumbel()
+    {
+        // H21 — MsvPValue uses the STATS LOCAL MSV Gumbel (μ=−8.1284, λ=0.71923); independently
+        // hand-derived value, NOT a code echo. Distinct from the VITERBI Gumbel (μ=−8.2932).
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00018_SH3_1.hmm"));
+
+        double p = hmm.MsvPValue(HandBitScore);
+
+        Assert.That(p, Is.EqualTo(Sh3MsvPValueAt40).Within(1e-9 * Sh3MsvPValueAt40),
+            "MSV Gumbel P-value at 40 bits must equal the hand-derived 9.262484858441732e-16.");
+    }
+
+    [Test]
+    public void MsvPValue_DiffersFromViterbiPValue_DueToDistinctMu()
+    {
+        // H21 — the MSV and Viterbi Gumbel distributions have different μ in the bundled profile, so
+        // their P-values at the same bit score differ (guards against the two paths being swapped).
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00018_SH3_1.hmm"));
+
+        double msv = hmm.MsvPValue(HandBitScore);
+        double vit = hmm.ViterbiPValue(HandBitScore);
+
+        Assert.That(msv, Is.Not.EqualTo(vit).Within(1e-30),
+            "MSV (μ=−8.1284) and Viterbi (μ=−8.2932) Gumbel P-values must differ at the same score.");
+    }
+
+    [Test]
+    public void MsvPValue_UncalibratedProfile_Throws()
+    {
+        // H21 — MsvPValue on an uncalibrated (no STATS) profile is an error, like the other P-values.
+        var hmm = BuildHandHmm();
+
+        Assert.Throws<InvalidOperationException>(() => hmm.MsvPValue(0.0),
+            "Requesting an MSV P-value from an uncalibrated profile must throw.");
+    }
+
+    [Test]
+    public void ExponentialSurvival_PureFormula_MatchesHandDerived()
+    {
+        // H21 — the static exponential-tail survival evaluated directly with the SH3 Forward params
+        // equals the hand-derived value (and the instance ForwardPValue, which delegates to it).
+        double p = Plan7ProfileHmm.ExponentialSurvival(HandBitScore, Sh3ForwardTau, Sh3Lambda);
+
+        Assert.That(p, Is.EqualTo(Sh3ForwardPValueAt40).Within(1e-9 * Sh3ForwardPValueAt40),
+            "ExponentialSurvival(40, −4.5735, 0.71923) must equal the hand-derived 1.1943390031599535e-14.");
+    }
+
+    [Test]
+    public void ExponentialSurvival_BelowTau_IsExactlyOne()
+    {
+        // H21 — Easel esl_exp_surv returns 1.0 for x < μ (τ); pin the clamp on the static helper.
+        double p = Plan7ProfileHmm.ExponentialSurvival(-10.0, Sh3ForwardTau, Sh3Lambda);
+
+        Assert.That(p, Is.EqualTo(1.0).Within(1e-12),
+            "ExponentialSurvival clamps to exactly 1.0 for a score below the tail location τ.");
+    }
+
+    [Test]
+    public void EValue_PositivePath_EqualsPTimesZ()
+    {
+        // H21 — the static EValue helper's positive path: E = P·Z (HMMER User's Guide). 0.5·10 = 5.
+        Assert.That(Plan7ProfileHmm.EValue(0.5, 10.0), Is.EqualTo(5.0).Within(1e-12),
+            "EValue(P,Z) = P·Z; EValue(0.5, 10) must be exactly 5.0.");
+    }
+
+    [Test]
+    public void ViterbiScore_AllUnknownResidues_TreatedAsBackground_IsFiniteAndNonPositive()
+    {
+        // H21 — Stage-A edge case: an all-'X' (out-of-alphabet) sequence. HMMER treats unknown/
+        // degenerate residues as background (emission log-odds 0), so the score reduces to the
+        // transition-only path through the model: finite, deterministic, and ≤ 0 nats (no positive
+        // emission evidence). Guards the EmissionLogOdds residueIndex<0 branch.
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00018_SH3_1.hmm"));
+        string allX = new string('X', 48);
+
+        double nats = hmm.ViterbiScore(allX);
+        double natsAgain = hmm.ViterbiScore(allX);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(double.IsFinite(nats), Is.True,
+                "An all-X sequence has a finite transition-only Viterbi score (emissions are odds 1).");
+            Assert.That(nats, Is.LessThanOrEqualTo(0.0),
+                "With zero emission evidence the log-odds path score cannot be positive.");
+            Assert.That(natsAgain, Is.EqualTo(nats).Within(1e-12), "Deterministic across calls.");
+        });
+    }
+
+    [Test]
+    public void ScoreDomainHmm_AllUnknownResidues_ScoresBelowDetectionThreshold()
+    {
+        // H21 — an all-X sequence is not a domain: its bit score is well below the 10-bit threshold
+        // and it is reported by no bundled profile.
+        string allX = new string('X', 60);
+
+        double bits = ProteinMotifFinder.ScoreDomainHmm(allX, Sh3Accession);
+        var domains = new List<ProteinMotifFinder.ProteinDomain>(ProteinMotifFinder.FindDomainsByHmm(allX));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(bits, Is.LessThan(DetectionThresholdBits),
+                "An all-X (background) sequence must not score as a domain.");
+            Assert.That(domains, Is.Empty, "No bundled family may be reported for an all-X sequence.");
+        });
+    }
+
+    [Test]
+    public void HmmSearchBitScore_AllUnknownResidues_IsNearZeroAndBelowThreshold()
+    {
+        // H21 — the hmmsearch-parity per-sequence bit score of an all-X sequence carries no homology
+        // signal (every match/insert emission log-odds is 0); the only contribution is the model's
+        // residual local-multihit structural Forward mass, so the score is small (here ≈0.48 bits) and
+        // far below the 10-bit detection threshold — hmmsearch itself reports NO hit for all-X. This
+        // exercises the local/null2 path's out-of-alphabet residue branch and is deterministic.
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00018_SH3_1.hmm"));
+        string allX = new string('X', 50);
+
+        double bits = hmm.HmmSearchBitScore(allX);
+        double again = hmm.HmmSearchBitScore(allX);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(double.IsFinite(bits), Is.True, "All-X bit score is finite.");
+            Assert.That(bits, Is.LessThan(DetectionThresholdBits),
+                "An all-X sequence carries no homology signal → score far below the detection threshold.");
+            Assert.That(again, Is.EqualTo(bits).Within(1e-12), "Deterministic across calls.");
+        });
+    }
+
+    #endregion
+
     private static string ReadEmbedded(string fileName)
     {
         var asm = typeof(Plan7ProfileHmm).Assembly;

@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 255 |
-| **Completed** | 215 |
+| **Completed** | 216 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 40 |
+| **Not Started** | 39 |
 
 ---
 
@@ -257,7 +257,7 @@
 | ☑ | ONCO-SV-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-SV-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-SV-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyComplexRearrangement_Tests.cs) |
 | ☑ | ONCO-EXPR-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-EXPR-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-EXPR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_IdentifyOutlierGenes_Tests.cs) |
 | ☑ | RNA-ACCESS-001 | RnaStructure | 2 | McCaskill (1990), RNAplfold/Bernhart (2006) | [TestSpec](tests/TestSpecs/RNA-ACCESS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_UnpairedProbabilities_Tests.cs) |
-| ☐ | PROTMOTIF-HMM-001 | ProteinMotif | 4 | Eddy (1998, 2011) HMMER/Plan7, Pfam | [TestSpec](tests/TestSpecs/PROTMOTIF-HMM-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindDomainsByHmm_Tests.cs) |
+| ☑ | PROTMOTIF-HMM-001 | ProteinMotif | 4 | Eddy (1998, 2011) HMMER/Plan7, Pfam | [TestSpec](tests/TestSpecs/PROTMOTIF-HMM-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindDomainsByHmm_Tests.cs) |
 | ☐ | PRIMER-NNTM-001 | MolTools | 2 | SantaLucia (1998), Allawi & SantaLucia (1997), Owczarzy (2004/2008), Bommarito (2000) | [TestSpec](tests/TestSpecs/PRIMER-NNTM-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PrimerDesigner_NearestNeighborTm_Tests.cs) |
 | ☐ | PRIMER-HAIRPIN-001 | MolTools | 2 | SantaLucia (1998), SantaLucia & Hicks (2004), UNAFold DNA params | [TestSpec](tests/TestSpecs/PRIMER-HAIRPIN-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PrimerDesigner_HairpinTm_Tests.cs) |
 | ☐ | PRIMER-DIMER-001 | MolTools | 3 | SantaLucia & Hicks (2004), primer3 ntthal | [TestSpec](tests/TestSpecs/PRIMER-DIMER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PrimerDesigner_DimerTm_Tests.cs) |
@@ -5369,13 +5369,13 @@ DnaSequence.Complement   DnaSequence.ReverseComplement
 
 ---
 
-#### PROTMOTIF-HMM-001: Plan7 Profile-HMM Domain Search ☐
+#### PROTMOTIF-HMM-001: Plan7 Profile-HMM Domain Search ☑
 
 | Field | Value |
 |-------|-------|
 | **Canonical** | `Plan7ProfileHmm.Viterbi/Forward` |
 | **Area** | ProteinMotif |
-| **Status** | ☐ Not Started (pending independent Stage A/B re-validation) |
+| **Status** | ☑ Complete (validated 2026-06-25, CLEAN — see reports/PROTMOTIF-HMM-001.md) |
 | **Evidence** | Eddy (1998, 2011) HMMER/Plan7, Pfam |
 | **Source** | `Plan7ProfileHmm.cs / ProteinMotifFinder.cs` |
 

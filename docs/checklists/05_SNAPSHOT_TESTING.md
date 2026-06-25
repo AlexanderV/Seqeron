@@ -264,7 +264,7 @@ Snapshot (approval) тести серіалізують повний вихід 
 | 236 | ☐ | RNA-PKPREDICT-001 | Analysis | Dot-bracket [] for known H-type pseudoknots | RnaStructureSnapshotTests.cs (new) |
 | 237 | ☐ | RNA-PKRECURSIVE-001 | Analysis | Nested/multiple-knot dot-bracket for designed RNAs | RnaStructureSnapshotTests.cs (new) |
 | 238 | ☑ | RNA-ACCESS-001 | RnaStructure | per-base unpaired probability profile | RnaStructureSnapshotTests.cs (new) |
-| 239 | ☐ | PROTMOTIF-HMM-001 | ProteinMotif | domain envelope list with bit scores | ProteinMotifSnapshotTests.cs (new) |
+| 239 | ☑ | PROTMOTIF-HMM-001 | ProteinMotif | domain envelope list with bit scores | ProteinMotifSnapshotTests.cs (new) |
 | 240 | ☐ | PRIMER-NNTM-001 | MolTools | Tm + ΔH/ΔS breakdown | PrimerSnapshotTests.cs (new) |
 | 241 | ☐ | PRIMER-HAIRPIN-001 | MolTools | most-stable hairpin structure + Tm | PrimerSnapshotTests.cs (new) |
 | 242 | ☐ | PRIMER-DIMER-001 | MolTools | most-stable dimer alignment + Tm | PrimerSnapshotTests.cs (new) |
@@ -292,7 +292,7 @@ Snapshot (approval) тести серіалізують повний вихід 
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 1 |
-| ☐ Not started | 257 |
+| ☑ Complete | 2 |
+| ☐ Not started | 256 |
 | New snapshot test files needed | 5 (Composition, Kmer, Translation, Oncology) |
 | Existing snapshot files to extend | ~10 |
