@@ -73,6 +73,30 @@ public class DisorderPredictor_RegionFlavor_Tests
             "FCR=0.35 is NOT > 0.35, so the strong-charge gate fails and no composition class is enriched.");
     }
 
+    // F5b — histidine counts as a positive charge (MobiDB-lite v3 states.py translation table
+    //       intab='RKDEACFGHILMNPQSTVWY' / outab='PPNN____P___________' maps R,K,H → "P").
+    //       8 H of 10 → f+ = 0.8 > 0.35, FCR = 0.8 > 0.35, NCPR = 0.8 > 0.35 → PPE.
+    [Test]
+    public void ClassifyRegionFlavorMobiDbLite_HistidineRich_ReturnsPositivePolyelectrolyte()
+    {
+        var flavor = DisorderPredictor.ClassifyRegionFlavorMobiDbLite("HHHHHHHHAA");
+
+        Assert.That(flavor, Is.EqualTo(DisorderPredictor.DisorderFlavor.PositivePolyelectrolyte),
+            "MobiDB-lite v3 maps H to the positive charge token; f+=0.8>0.35 → positive polyelectrolyte.");
+    }
+
+    // F5c — histidine contributes to the polyampholyte balance: 4 H (positive) + 4 D (negative)
+    //       of 10 → f+ = 0.4, f- = 0.4, FCR = 0.8 > 0.35, NCPR = 0 <= 0.35 → Polyampholyte.
+    //       (If H were ignored this would be NPE; the v3 source counts H as positive.)
+    [Test]
+    public void ClassifyRegionFlavorMobiDbLite_HistidineBalancesNegative_ReturnsPolyampholyte()
+    {
+        var flavor = DisorderPredictor.ClassifyRegionFlavorMobiDbLite("HHHHDDDDAA");
+
+        Assert.That(flavor, Is.EqualTo(DisorderPredictor.DisorderFlavor.Polyampholyte),
+            "H (positive) + D (negative) balance to NCPR=0 with FCR=0.8 → polyampholyte per v3 states.py.");
+    }
+
     #endregion
 
     #region ClassifyRegionFlavorMobiDbLite — composition classes (is_enriched threshold = 0.32)

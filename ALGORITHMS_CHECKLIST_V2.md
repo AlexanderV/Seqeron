@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 255 |
-| **Completed** | 249 |
+| **Completed** | 250 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 6 |
+| **Not Started** | 5 |
 
 ---
 
@@ -102,7 +102,7 @@
 | ☑ | SPLICE-ACCEPTOR-001 | Splicing | 3 | [Evidence](docs/Evidence/SPLICE-ACCEPTOR-001-Evidence.md) | [TestSpec](tests/TestSpecs/SPLICE-ACCEPTOR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_AcceptorSite_Tests.cs) |
 | ☑ | SPLICE-PREDICT-001 | Splicing | 3 | [Evidence](docs/Evidence/SPLICE-PREDICT-001-Evidence.md) | [TestSpec](tests/TestSpecs/SPLICE-PREDICT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_GeneStructure_Tests.cs) |
 | ☑ | DISORDER-PRED-001 | ProteinPred | 3 | [Evidence](docs/Evidence/DISORDER-PRED-001-Evidence.md) | [TestSpec](tests/TestSpecs/DISORDER-PRED-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_DisorderPrediction_Tests.cs) |
-| ☐ | DISORDER-REGION-001 | ProteinPred | 2 | [Evidence](docs/Evidence/DISORDER-REGION-001-Evidence.md) | [TestSpec](tests/TestSpecs/DISORDER-REGION-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_DisorderedRegion_Tests.cs) |
+| ☑ | DISORDER-REGION-001 | ProteinPred | 2 | [Evidence](docs/Evidence/DISORDER-REGION-001-Evidence.md) | [TestSpec](tests/TestSpecs/DISORDER-REGION-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_DisorderedRegion_Tests.cs) |
 | ☑ | PROTMOTIF-FIND-001 | ProteinMotif | 3 | [Evidence](docs/Evidence/PROTMOTIF-FIND-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-FIND-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_MotifSearch_Tests.cs) |
 | ☑ | PROTMOTIF-PROSITE-001 | ProteinMotif | 2 | [Evidence](docs/Evidence/PROTMOTIF-PROSITE-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-PROSITE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_PrositePattern_Tests.cs) |
 | ☑ | PROTMOTIF-DOMAIN-001 | ProteinMotif | 2 | [Evidence](docs/Evidence/PROTMOTIF-DOMAIN-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-DOMAIN-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_DomainPrediction_Tests.cs) |
@@ -1749,10 +1749,11 @@
 
 ---
 
-#### DISORDER-REGION-001: Disordered Region Detection
+#### DISORDER-REGION-001: Disordered Region Detection ☑
 
 | Field | Value |
 |------|----------|
+| **Status** | ☑ Complete |
 | **Canonical** | `DisorderPredictor.IdentifyDisorderedRegions(...)` |
 | **Complexity** | O(n) |
 

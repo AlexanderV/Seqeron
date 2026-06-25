@@ -533,7 +533,7 @@ public static class DisorderPredictor
     /// <c>consensus.py:get_region_features</c>):</para>
     /// <list type="number">
     /// <item>Charge class via the Das &amp; Pappu (2013) diagram of states
-    ///   (<c>states.py:get_disorder_class</c>): with f₊ = (R+K)/L, f₋ = (D+E)/L,
+    ///   (<c>states.py:get_disorder_class</c>): with f₊ = (R+K+H)/L, f₋ = (D+E)/L,
     ///   FCR = f₊+f₋, NCPR = |f₊−f₋| — if FCR &gt; 0.35 then PA when NCPR ≤ 0.35 (or both
     ///   f₊ &gt; 0.35 and f₋ &gt; 0.35), else PPE when f₊ &gt; 0.35, NPE when f₋ &gt; 0.35.</item>
     /// <item>Otherwise (weakly charged) the first enriched composition class, tested in
@@ -561,11 +561,15 @@ public static class DisorderPredictor
         string seq = regionSequence.ToUpperInvariant();
         double length = seq.Length;
 
-        // get_disorder_class: f_plus = (R+K)/L, f_minus = (D+E)/L.
+        // get_disorder_class: positive = {R,K,H}, negative = {D,E}.
+        // MobiDB-lite v3 states.py translates the sequence with
+        //   intab='RKDEACFGHILMNPQSTVWY', outab='PPNN____P___________'
+        // i.e. R,K,H → "P" (positive) and D,E → "N" (negative); f_plus = (R+K+H)/L,
+        // f_minus = (D+E)/L. Histidine is counted as positive (verbatim from the source).
         int plusCount = 0, minusCount = 0;
         foreach (char c in seq)
         {
-            if (c == 'R' || c == 'K') plusCount++;
+            if (c == 'R' || c == 'K' || c == 'H') plusCount++;
             else if (c == 'D' || c == 'E') minusCount++;
         }
 

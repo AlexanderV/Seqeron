@@ -110,7 +110,7 @@ State (end of session): ✅ CLEAN (fully functional) · 🔧 LIMITED (see report
 | 78 | SPLICE-ACCEPTOR-001 | Splicing | ✅ | ✅ | ✅ CLEAN | reports/SPLICE-ACCEPTOR-001.md |
 | 79 | SPLICE-PREDICT-001 | Splicing | ✅ | ✅ | ✅ CLEAN | reports/SPLICE-PREDICT-001.md |
 | 80 | DISORDER-PRED-001 | ProteinPred | ✅ | ✅ | ✅ CLEAN | reports/DISORDER-PRED-001.md |
-| 81 | DISORDER-REGION-001 | ProteinPred | ⬜ | ⬜ | ⬜ pending | reports/DISORDER-REGION-001.md |
+| 81 | DISORDER-REGION-001 | ProteinPred | 🟡 | ✅ | ✅ CLEAN | reports/DISORDER-REGION-001.md |
 | 82 | PROTMOTIF-FIND-001 | ProteinMotif | ✅ | ✅ | ✅ CLEAN | reports/PROTMOTIF-FIND-001.md |
 | 83 | PROTMOTIF-PROSITE-001 | ProteinMotif | ✅ | ✅ | ✅ CLEAN | reports/PROTMOTIF-PROSITE-001.md |
 | 84 | PROTMOTIF-DOMAIN-001 | ProteinMotif | ✅ | ✅ | ✅ CLEAN | reports/PROTMOTIF-DOMAIN-001.md |
