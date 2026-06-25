@@ -2,7 +2,7 @@
 
 **Priority:** P0  
 **Date:** 2026-03-19  
-**Total algorithms:** 237
+**Total algorithms:** 258
 
 ---
 
@@ -265,6 +265,27 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 235 | ☐ | ONCO-ASCAT-001 | Oncology | INV: constant logR shift preserves breakpoints; INV: A/B allele swap preserves total CN |
 | 236 | ☐ | RNA-PKPREDICT-001 | Analysis | INV: known H-type knot recovered; INV: no spurious knot on a plain hairpin |
 | 237 | ☐ | RNA-PKRECURSIVE-001 | Analysis | MON: recursive ΔG ≤ single-knot ΔG; INV: separable knots all recovered |
+| 238 | ☐ | RNA-ACCESS-001 | RnaStructure | MON: extending the queried region cannot raise its unpaired probability; INV: sequence-independent constants reproduce analytic GAAAC value |
+| 239 | ☐ | PROTMOTIF-HMM-001 | ProteinMotif | MON: appending random flank does not raise a true domain's bit score; SUB: stricter E-value → ⊆ hit set |
+| 240 | ☐ | PRIMER-NNTM-001 | MolTools | MON: raising monovalent salt raises Tm; INV: reverse-complement has equal duplex Tm |
+| 241 | ☐ | PRIMER-HAIRPIN-001 | MolTools | MON: lengthening a complementary stem lowers ΔG; INV: no stem possible → no hairpin |
+| 242 | ☐ | PRIMER-DIMER-001 | MolTools | INV: self-dimer of S equals hetero-dimer(S,S); MON: extending WC alignment lowers ΔG |
+| 243 | ☐ | PROBE-LNATM-001 | MolTools | MON: adding an LNA base → Tm ≥ unmodified Tm; INV: all-DNA input reduces to standard NN Tm |
+| 244 | ☐ | PROBE-EVALUE-001 | MolTools | MON: increasing database size raises E for a fixed raw score; INV: λ solves Σ p_i p_j e^{λ s_ij}=1 |
+| 245 | ☐ | MHC-NN-001 | Oncology | INV: BLOSUM-encoded peptide reproduces oracle within 0.03%; SUB: shorter peptide padded centred |
+| 246 | ☐ | MHC-MATRIX-001 | Oncology | INV: IC50 = 50000^(1-score); MON: improving an anchor residue lowers IC50 |
+| 247 | ☐ | IMMUNE-NUSVR-001 | Oncology | INV: mixing known fractions of pure profiles recovers those fractions; SUB: ν controls support-vector count |
+| 248 | ☐ | META-CHECKM-001 | Metagenomics | MON: removing a marker lowers completeness; MON: duplicating a marker raises contamination |
+| 249 | ☐ | META-TETRA-001 | Metagenomics | INV: reverse-complement-merged counts give identical z-vector; MON: identical sequences → correlation 1 |
+| 250 | ☐ | SPLICE-MAXENT3-001 | Splicing | INV: canonical AG acceptor scores above shuffled background; SUB: window must contain the AG |
+| 251 | ☐ | SPLICE-MAXENT5-001 | Splicing | INV: canonical GT donor scores above shuffled background; SUB: window must contain the GT |
+| 252 | ☐ | MIRNA-CONTEXT-001 | MiRNA | MON: stronger local AU context → more negative score; INV: same site → same score |
+| 253 | ☐ | MIRNA-PCT-001 | MiRNA | MON: deeper conservation (longer branch length) → higher PCT; INV: no conservation → PCT 0 |
+| 254 | ☐ | MIRNA-CLASSIFY-001 | MiRNA | MON: more native-like MFEI → higher positive probability; INV: di-shuffled sequence → lower probability |
+| 255 | ☐ | MIRNA-CLEAVAGE-001 | MiRNA | INV: hsa-miR-21-5p mature reproduced exactly; MON: shifting basal stem shifts Drosha site consistently |
+| 256 | ☐ | REP-APPROX-001 | Repeats | MON: introducing a substitution lowers percent-matches; INV: perfect repeat → 100% matches, 0% indels |
+| 257 | ☐ | CHROM-ALPHASAT-001 | Chromosome | INV: tandem 171-bp array detected as alpha-satellite; MON: more CENP-B boxes → stronger call |
+| 258 | ☐ | CHROM-HOR-001 | Chromosome | MON: more HOR copies → stronger periodicity; INV: pure monomeric array → no HOR |
 
 ---
 
@@ -272,7 +293,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 234 |
+| Total algorithms | 255 |
 | ☑ Complete | 0 |
-| ☐ Not started | 237 |
+| ☐ Not started | 258 |
 | MR relations defined | ~200+ |

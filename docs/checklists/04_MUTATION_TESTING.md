@@ -3,7 +3,7 @@
 **Priority:** P1  
 **Framework:** Stryker.NET  
 **Date:** 2026-03-19  
-**Total algorithms:** 237
+**Total algorithms:** 258
 
 ---
 
@@ -265,6 +265,27 @@ Mutation testing вимірює ефективність тестового на
 | 235 | ☐ | ONCO-ASCAT-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_AscatDerivation_Tests.cs | ≥ 80% |
 | 236 | ☐ | RNA-PKPREDICT-001 | Analysis | RnaSecondaryStructure.cs | RnaSecondaryStructure_PredictStructurePseudoknot_Tests.cs | ≥ 80% |
 | 237 | ☐ | RNA-PKRECURSIVE-001 | Analysis | RnaSecondaryStructure.cs | RnaSecondaryStructure_PredictStructurePseudoknotRecursive_Tests.cs | ≥ 80% |
+| 238 | ☐ | RNA-ACCESS-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructure_UnpairedProbabilities_Tests.cs | ≥ 80% |
+| 239 | ☐ | PROTMOTIF-HMM-001 | ProteinMotif | Plan7ProfileHmm.cs / ProteinMotifFinder.cs | ProteinMotifFinder_FindDomainsByHmm_Tests.cs | ≥ 80% |
+| 240 | ☐ | PRIMER-NNTM-001 | MolTools | PrimerDesigner.cs | PrimerDesigner_NearestNeighborTm_Tests.cs | ≥ 80% |
+| 241 | ☐ | PRIMER-HAIRPIN-001 | MolTools | PrimerDesigner.cs | PrimerDesigner_HairpinTm_Tests.cs / PrimerDesigner_HairpinSpecialLoop_Tests.cs | ≥ 80% |
+| 242 | ☐ | PRIMER-DIMER-001 | MolTools | PrimerDesigner.cs / NtthalDimer.cs | PrimerDesigner_DimerTm_Tests.cs | ≥ 80% |
+| 243 | ☐ | PROBE-LNATM-001 | MolTools | ProbeDesigner.cs | ProbeDesigner_LnaTm_Tests.cs | ≥ 80% |
+| 244 | ☐ | PROBE-EVALUE-001 | MolTools | ProbeDesigner.cs | ProbeDesigner_ProbeValidation_Tests.cs | ≥ 80% |
+| 245 | ☐ | MHC-NN-001 | Oncology | MhcflurryAffinityPredictor.cs | MhcflurryAffinityPredictor_PredictIc50_Tests.cs | ≥ 80% |
+| 246 | ☐ | MHC-MATRIX-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_ClassifyMhcBinding_Tests.cs | ≥ 80% |
+| 247 | ☐ | IMMUNE-NUSVR-001 | Oncology | ImmuneAnalyzer.cs | ImmuneAnalyzer_ImmuneInfiltration_Tests.cs | ≥ 80% |
+| 248 | ☐ | META-CHECKM-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_MarkerGeneQuality_Tests.cs | ≥ 80% |
+| 249 | ☐ | META-TETRA-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_TetranucleotideZScore_Tests.cs | ≥ 80% |
+| 250 | ☐ | SPLICE-MAXENT3-001 | Splicing | SpliceSitePredictor.cs | SpliceSitePredictor_AcceptorSite_Tests.cs | ≥ 80% |
+| 251 | ☐ | SPLICE-MAXENT5-001 | Splicing | SpliceSitePredictor.cs | SpliceSitePredictor_DonorSite_Tests.cs | ≥ 80% |
+| 252 | ☐ | MIRNA-CONTEXT-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_TargetPrediction_Tests.cs | ≥ 80% |
+| 253 | ☐ | MIRNA-PCT-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_TargetPrediction_Tests.cs | ≥ 80% |
+| 254 | ☐ | MIRNA-CLASSIFY-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_PreMiRna_Tests.cs | ≥ 80% |
+| 255 | ☐ | MIRNA-CLEAVAGE-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_PreMiRna_Tests.cs | ≥ 80% |
+| 256 | ☐ | REP-APPROX-001 | Repeats | RepeatFinder.cs | RepeatFinder_ApproximateTandemRepeats_Tests.cs | ≥ 80% |
+| 257 | ☐ | CHROM-ALPHASAT-001 | Chromosome | ChromosomeAnalyzer.cs | ChromosomeAnalyzer_AlphaSatellite_Tests.cs | ≥ 80% |
+| 258 | ☐ | CHROM-HOR-001 | Chromosome | ChromosomeAnalyzer.cs | ChromosomeAnalyzer_HigherOrderRepeat_Tests.cs | ≥ 80% |
 
 ---
 
@@ -272,8 +293,8 @@ Mutation testing вимірює ефективність тестового на
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 234 |
+| Total algorithms | 255 |
 | ☑ Complete (run + killers written) | 0 |
-| ☐ Not started | 237 |
+| ☐ Not started | 258 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |

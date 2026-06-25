@@ -3,13 +3,15 @@
 > ⚠️ **FULL RE-VALIDATION RESET — 2026-06-24.** Every unit below was reset to **⬜ pending** for a fresh end-to-end re-verification (extensive code changes during the limitations-elimination campaign). Prior Stage/State results are **SUPERSEDED**, retained only as historical evidence; the per-unit reports are kept. Registry expanded to **237** (added ONCO-ASCAT-001, RNA-PKPREDICT-001, RNA-PKRECURSIVE-001 — pending first validation).
 >
 > ✅ **PHASE 1 RE-VALIDATION COMPLETE — 2026-06-24.** All **86 / 86** units independently re-validated, one fresh-context session per unit (Stage A description → Stage B implementation, authoritative external sources, hand/reference cross-checks). **Result: 86 / 86 ✅ CLEAN.** Stage-A: 63 PASS / 23 PASS-WITH-NOTES / 0 FAIL. Stage-B: 79 PASS / 7 PASS-WITH-NOTES / 0 FAIL. (Spec-alignment pass 2026-06-24 cleared 6 doc-only PASS-WITH-NOTES → PASS: SEQ-COMPLEX-001, REP-PALIN-001, PRIMER-DESIGN-001, CHROM-SYNT-001, MIRNA-SEED-001, PROTMOTIF-FIND-001 — stale/imprecise TestSpec wording corrected; code unchanged.) One real implementation defect found & fully fixed in-session (PARSE-GENBANK-001 multi-line qualifier reconstruction → spurious-space corruption of wrapped `/translation`); minor test/spec corrections elsewhere (SEQ-COMPLEX-001, TRANS-PROT-001 +3 lock tests, PROTMOTIF-FIND/DOMAIN spec fixes). Full unfiltered suite green at the end (18213 passed / 0 failed). The PASS-WITH-NOTES are documented by-design scope boundaries (declared heuristics, single-codon-AA CAI inclusion, stale-spec wording), not defects. RNA-STRUCT-001's non-csr-PK / tertiary-stabilised-knot residual and ONCO-MHC-001's trained-model gap remain the only LIMITATIONS.md entries (by-design, validated).
+>
+> 🔁 **POST-COMPLETION RE-RESET — 2026-06-25.** The limitation-elimination campaign continued after the 2026-06-24 sweep (Tiers G–N: McCaskill, HMMER E-value/null2/envelope, ntthal dimer/hairpin, MaxEntScan score3/score5, context++/PCT, ABIS, MHCflurry, CheckM markers, miRBase classifier, …). The following **19** previously-CLEAN units were touched again and are reset to **⬜ pending** re-validation: ANNOT-GFF-001, CHROM-CENT-001, CODON-CAI-001, CODON-RARE-001, DISORDER-REGION-001, META-BIN-001, MIRNA-PRECURSOR-001, MIRNA-TARGET-001, ONCO-IMMUNE-001, ONCO-MRD-001, PARSE-EMBL-001, PARSE-FASTA-001, PRIMER-TM-001, PROBE-DESIGN-001, PROBE-VALID-001, PROTMOTIF-DOMAIN-001, REP-STR-001, SPLICE-ACCEPTOR-001, SPLICE-DONOR-001 (ONCO-MHC-001 was already pending). Their per-unit reports are kept as historical evidence.
 
 Independent re-validation of the 86 implemented (☑) test units, one fresh session per unit.
 Protocol: [VALIDATION_PROTOCOL.md](VALIDATION_PROTOCOL.md).
 Per-stage: ✅ PASS · 🟡 PASS-WITH-NOTES · ❌ FAIL · ⬜ pending.
 State (end of session): ✅ CLEAN (fully functional) · 🔧 LIMITED (see report) · ⬜ pending.
 
-**Progress:** 86 / 86 ✅ CLEAN — Phase 1 re-validation COMPLETE 2026-06-24 (0 FAIL, 0 LIMITED; 1 defect found & fixed: PARSE-GENBANK-001).
+**Progress:** 86 / 86 ✅ CLEAN — Phase 1 re-validation COMPLETE 2026-06-24 (0 FAIL, 0 LIMITED; 1 defect found & fixed: PARSE-GENBANK-001). — **NOTE 2026-06-25:** 19 of these units were changed again by later campaign tiers (G–N) and are re-reset to ⬜ pending below; first-time validation is also pending for the 21 new units in *New units (campaign)*. Re-validation count is therefore **no longer 86/86**.
 
 > The 86 per-unit validation reports were committed once for provenance and then
 > consolidated into this ledger + [FINDINGS_REGISTER.md](FINDINGS_REGISTER.md).
@@ -40,7 +42,7 @@ State (end of session): ✅ CLEAN (fully functional) · 🔧 LIMITED (see report
 | 10 | PAT-APPROX-002 | Matching | ✅ | ✅ | ✅ CLEAN | reports/PAT-APPROX-002.md |
 | 11 | PAT-IUPAC-001 | Matching | ✅ | ✅ | ✅ CLEAN | reports/PAT-IUPAC-001.md |
 | 12 | PAT-PWM-001 | Matching | ✅ | ✅ | ✅ CLEAN | reports/PAT-PWM-001.md |
-| 13 | REP-STR-001 | Repeats | ✅ | 🟡 | ✅ CLEAN | reports/REP-STR-001.md |
+| 13 | REP-STR-001 | Repeats | ⬜ | ⬜ | ⬜ pending | reports/REP-STR-001.md |
 | 14 | REP-TANDEM-001 | Repeats | ✅ | ✅ | ✅ CLEAN | reports/REP-TANDEM-001.md |
 | 15 | REP-INV-001 | Repeats | ✅ | ✅ | ✅ CLEAN | reports/REP-INV-001.md |
 | 16 | REP-DIRECT-001 | Repeats | ✅ | ✅ | ✅ CLEAN | reports/REP-DIRECT-001.md |
@@ -48,17 +50,17 @@ State (end of session): ✅ CLEAN (fully functional) · 🔧 LIMITED (see report
 | 18 | CRISPR-PAM-001 | MolTools | ✅ | 🟡 | ✅ CLEAN | reports/CRISPR-PAM-001.md |
 | 19 | CRISPR-GUIDE-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/CRISPR-GUIDE-001.md |
 | 20 | CRISPR-OFF-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/CRISPR-OFF-001.md |
-| 21 | PRIMER-TM-001 | MolTools | 🟡 | ✅ | ✅ CLEAN | reports/PRIMER-TM-001.md |
+| 21 | PRIMER-TM-001 | MolTools | ⬜ | ⬜ | ⬜ pending | reports/PRIMER-TM-001.md |
 | 22 | PRIMER-DESIGN-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/PRIMER-DESIGN-001.md |
 | 23 | PRIMER-STRUCT-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/PRIMER-STRUCT-001.md |
-| 24 | PROBE-DESIGN-001 | MolTools | 🟡 | ✅ | ✅ CLEAN | reports/PROBE-DESIGN-001.md |
-| 25 | PROBE-VALID-001 | MolTools | 🟡 | ✅ | ✅ CLEAN | reports/PROBE-VALID-001.md |
+| 24 | PROBE-DESIGN-001 | MolTools | ⬜ | ⬜ | ⬜ pending | reports/PROBE-DESIGN-001.md |
+| 25 | PROBE-VALID-001 | MolTools | ⬜ | ⬜ | ⬜ pending | reports/PROBE-VALID-001.md |
 | 26 | RESTR-FIND-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/RESTR-FIND-001.md |
 | 27 | RESTR-DIGEST-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/RESTR-DIGEST-001.md |
 | 28 | ANNOT-ORF-001 | Annotation | ✅ | 🟡 | ✅ CLEAN | reports/ANNOT-ORF-001.md |
 | 29 | ANNOT-GENE-001 | Annotation | ✅ | ✅ | ✅ CLEAN | reports/ANNOT-GENE-001.md |
 | 30 | ANNOT-PROM-001 | Annotation | ✅ | ✅ | ✅ CLEAN | reports/ANNOT-PROM-001.md |
-| 31 | ANNOT-GFF-001 | Annotation | 🟡 | ✅ | ✅ CLEAN | reports/ANNOT-GFF-001.md |
+| 31 | ANNOT-GFF-001 | Annotation | ⬜ | ⬜ | ⬜ pending | reports/ANNOT-GFF-001.md |
 | 32 | KMER-COUNT-001 | K-mer | ✅ | ✅ | ✅ CLEAN | reports/KMER-COUNT-001.md |
 | 33 | KMER-FREQ-001 | K-mer | ✅ | ✅ | ✅ CLEAN | reports/KMER-FREQ-001.md |
 | 34 | KMER-FIND-001 | K-mer | ✅ | ✅ | ✅ CLEAN | reports/KMER-FIND-001.md |
@@ -76,7 +78,7 @@ State (end of session): ✅ CLEAN (fully functional) · 🔧 LIMITED (see report
 | 46 | POP-FST-001 | PopGen | ✅ | ✅ | ✅ CLEAN | reports/POP-FST-001.md |
 | 47 | POP-LD-001 | PopGen | ✅ | ✅ | ✅ CLEAN | reports/POP-LD-001.md |
 | 48 | CHROM-TELO-001 | Chromosome | ✅ | ✅ | ✅ CLEAN | reports/CHROM-TELO-001.md |
-| 49 | CHROM-CENT-001 | Chromosome | 🟡 | 🟡 | ✅ CLEAN | reports/CHROM-CENT-001.md |
+| 49 | CHROM-CENT-001 | Chromosome | ⬜ | ⬜ | ⬜ pending | reports/CHROM-CENT-001.md |
 | 50 | CHROM-KARYO-001 | Chromosome | ✅ | ✅ | ✅ CLEAN | reports/CHROM-KARYO-001.md |
 | 51 | CHROM-ANEU-001 | Chromosome | ✅ | ✅ | ✅ CLEAN | reports/CHROM-ANEU-001.md |
 | 52 | CHROM-SYNT-001 | Chromosome | ✅ | ✅ | ✅ CLEAN | reports/CHROM-SYNT-001.md |
@@ -84,46 +86,67 @@ State (end of session): ✅ CLEAN (fully functional) · 🔧 LIMITED (see report
 | 54 | META-PROF-001 | Metagenomics | ✅ | ✅ | ✅ CLEAN | reports/META-PROF-001.md |
 | 55 | META-ALPHA-001 | Metagenomics | ✅ | ✅ | ✅ CLEAN | reports/META-ALPHA-001.md |
 | 56 | META-BETA-001 | Metagenomics | ✅ | ✅ | ✅ CLEAN | reports/META-BETA-001.md |
-| 57 | META-BIN-001 | Metagenomics | 🟡 | 🟡 | ✅ CLEAN | reports/META-BIN-001.md |
+| 57 | META-BIN-001 | Metagenomics | ⬜ | ⬜ | ⬜ pending | reports/META-BIN-001.md |
 | 58 | CODON-OPT-001 | Codon | ✅ | ✅ | ✅ CLEAN | reports/CODON-OPT-001.md |
-| 59 | CODON-CAI-001 | Codon | 🟡 | ✅ | ✅ CLEAN | reports/CODON-CAI-001.md |
-| 60 | CODON-RARE-001 | Codon | 🟡 | ✅ | ✅ CLEAN | reports/CODON-RARE-001.md |
+| 59 | CODON-CAI-001 | Codon | ⬜ | ⬜ | ⬜ pending | reports/CODON-CAI-001.md |
+| 60 | CODON-RARE-001 | Codon | ⬜ | ⬜ | ⬜ pending | reports/CODON-RARE-001.md |
 | 61 | CODON-USAGE-001 | Codon | 🟡 | ✅ | ✅ CLEAN | reports/CODON-USAGE-001.md |
 | 62 | TRANS-CODON-001 | Translation | ✅ | ✅ | ✅ CLEAN | reports/TRANS-CODON-001.md |
 | 63 | TRANS-PROT-001 | Translation | ✅ | 🟡 | ✅ CLEAN | reports/TRANS-PROT-001.md |
-| 64 | PARSE-FASTA-001 | FileIO | ✅ | 🟡 | ✅ CLEAN | reports/PARSE-FASTA-001.md |
+| 64 | PARSE-FASTA-001 | FileIO | ⬜ | ⬜ | ⬜ pending | reports/PARSE-FASTA-001.md |
 | 65 | PARSE-FASTQ-001 | FileIO | ✅ | 🟡 | ✅ CLEAN | reports/PARSE-FASTQ-001.md |
 | 66 | PARSE-BED-001 | FileIO | ✅ | ✅ | ✅ CLEAN | reports/PARSE-BED-001.md |
 | 67 | PARSE-VCF-001 | FileIO | 🟡 | ✅ | ✅ CLEAN | reports/PARSE-VCF-001.md |
 | 68 | PARSE-GFF-001 | FileIO | ✅ | ✅ | ✅ CLEAN | reports/PARSE-GFF-001.md |
 | 69 | PARSE-GENBANK-001 | FileIO | ✅ | 🟡 | ✅ CLEAN (fixed multi-line qualifier wrap) | reports/PARSE-GENBANK-001.md |
-| 70 | PARSE-EMBL-001 | FileIO | ✅ | 🟡 | ✅ CLEAN | reports/PARSE-EMBL-001.md |
+| 70 | PARSE-EMBL-001 | FileIO | ⬜ | ⬜ | ⬜ pending | reports/PARSE-EMBL-001.md |
 | 71 | RNA-STRUCT-001 | RnaStructure | ✅ | ✅ | ✅ CLEAN | reports/RNA-STRUCT-001.md |
 | 72 | RNA-STEMLOOP-001 | RnaStructure | ✅ | ✅ | ✅ CLEAN | reports/RNA-STEMLOOP-001.md |
 | 73 | RNA-ENERGY-001 | RnaStructure | ✅ | ✅ | ✅ CLEAN | reports/RNA-ENERGY-001.md |
 | 74 | MIRNA-SEED-001 | MiRNA | ✅ | ✅ | ✅ CLEAN | reports/MIRNA-SEED-001.md |
-| 75 | MIRNA-TARGET-001 | MiRNA | ✅ | 🟡 | ✅ CLEAN | reports/MIRNA-TARGET-001.md |
-| 76 | MIRNA-PRECURSOR-001 | MiRNA | 🟡 | 🟡 | ✅ CLEAN | reports/MIRNA-PRECURSOR-001.md |
-| 77 | SPLICE-DONOR-001 | Splicing | ✅ | ✅ | ✅ CLEAN | reports/SPLICE-DONOR-001.md |
-| 78 | SPLICE-ACCEPTOR-001 | Splicing | 🟡 | ✅ | ✅ CLEAN | reports/SPLICE-ACCEPTOR-001.md |
+| 75 | MIRNA-TARGET-001 | MiRNA | ⬜ | ⬜ | ⬜ pending | reports/MIRNA-TARGET-001.md |
+| 76 | MIRNA-PRECURSOR-001 | MiRNA | ⬜ | ⬜ | ⬜ pending | reports/MIRNA-PRECURSOR-001.md |
+| 77 | SPLICE-DONOR-001 | Splicing | ⬜ | ⬜ | ⬜ pending | reports/SPLICE-DONOR-001.md |
+| 78 | SPLICE-ACCEPTOR-001 | Splicing | ⬜ | ⬜ | ⬜ pending | reports/SPLICE-ACCEPTOR-001.md |
 | 79 | SPLICE-PREDICT-001 | Splicing | ✅ | ✅ | ✅ CLEAN | reports/SPLICE-PREDICT-001.md |
 | 80 | DISORDER-PRED-001 | ProteinPred | ✅ | ✅ | ✅ CLEAN | reports/DISORDER-PRED-001.md |
-| 81 | DISORDER-REGION-001 | ProteinPred | 🟡 | ✅ | ✅ CLEAN | reports/DISORDER-REGION-001.md |
+| 81 | DISORDER-REGION-001 | ProteinPred | ⬜ | ⬜ | ⬜ pending | reports/DISORDER-REGION-001.md |
 | 82 | PROTMOTIF-FIND-001 | ProteinMotif | ✅ | ✅ | ✅ CLEAN | reports/PROTMOTIF-FIND-001.md |
 | 83 | PROTMOTIF-PROSITE-001 | ProteinMotif | ✅ | ✅ | ✅ CLEAN | reports/PROTMOTIF-PROSITE-001.md |
-| 84 | PROTMOTIF-DOMAIN-001 | ProteinMotif | 🟡 | ✅ | ✅ CLEAN | reports/PROTMOTIF-DOMAIN-001.md |
+| 84 | PROTMOTIF-DOMAIN-001 | ProteinMotif | ⬜ | ⬜ | ⬜ pending | reports/PROTMOTIF-DOMAIN-001.md |
 | 85 | EPIGEN-CPG-001 | Epigenetics | ✅ | ✅ | ✅ CLEAN | reports/EPIGEN-CPG-001.md |
-| 86 | ONCO-IMMUNE-001 | Oncology | 🟡 | ✅ | ✅ CLEAN | reports/ONCO-IMMUNE-001.md |
+| 86 | ONCO-IMMUNE-001 | Oncology | ⬜ | ⬜ | ⬜ pending | reports/ONCO-IMMUNE-001.md |
 
 ## New units (created during the limitations-elimination campaign)
 
-First-time validation of the 3 units added while eliminating LIMITATIONS.md items. Same protocol.
+First-time validation of the **24** units added while eliminating LIMITATIONS.md items (the original 3 below + **21** net-new algorithms from the later campaign tiers — McCaskill accessibility, Plan7 HMMER, ntthal dimer/hairpin Tm, MHCflurry NN, SMM/BIMAS, ν-SVR, CheckM, TETRA, MaxEntScan score3/score5, context++/PCT, pre-miRNA classifier, Drosha/Dicer, approximate TRF, α-satellite, HOR). Same protocol; all ⬜ pending first validation.
 
 | Unit ID | Area | Stage A | Stage B | State | Report |
 |---------|------|:---:|:---:|:---:|--------|
 | ONCO-ASCAT-001 | Oncology | ✅ | ✅ | ✅ CLEAN | reports/ONCO-ASCAT-001.md |
 | RNA-PKPREDICT-001 | RnaStructure | ✅ | ✅ | ✅ CLEAN | covered in reports/RNA-STRUCT-001.md (H-type csr-PK predictor) |
 | RNA-PKRECURSIVE-001 | RnaStructure | ✅ | ✅ | ✅ CLEAN | covered in reports/RNA-STRUCT-001.md (recursive pknotsRG grammar) |
+| RNA-ACCESS-001 | RnaStructure | ⬜ | ⬜ | ⬜ pending | reports/RNA-ACCESS-001.md |
+| PROTMOTIF-HMM-001 | ProteinMotif | ⬜ | ⬜ | ⬜ pending | reports/PROTMOTIF-HMM-001.md |
+| PRIMER-NNTM-001 | MolTools | ⬜ | ⬜ | ⬜ pending | reports/PRIMER-NNTM-001.md |
+| PRIMER-HAIRPIN-001 | MolTools | ⬜ | ⬜ | ⬜ pending | reports/PRIMER-HAIRPIN-001.md |
+| PRIMER-DIMER-001 | MolTools | ⬜ | ⬜ | ⬜ pending | reports/PRIMER-DIMER-001.md |
+| PROBE-LNATM-001 | MolTools | ⬜ | ⬜ | ⬜ pending | reports/PROBE-LNATM-001.md |
+| PROBE-EVALUE-001 | MolTools | ⬜ | ⬜ | ⬜ pending | reports/PROBE-EVALUE-001.md |
+| MHC-NN-001 | Oncology | ⬜ | ⬜ | ⬜ pending | reports/MHC-NN-001.md |
+| MHC-MATRIX-001 | Oncology | ⬜ | ⬜ | ⬜ pending | reports/MHC-MATRIX-001.md |
+| IMMUNE-NUSVR-001 | Oncology | ⬜ | ⬜ | ⬜ pending | reports/IMMUNE-NUSVR-001.md |
+| META-CHECKM-001 | Metagenomics | ⬜ | ⬜ | ⬜ pending | reports/META-CHECKM-001.md |
+| META-TETRA-001 | Metagenomics | ⬜ | ⬜ | ⬜ pending | reports/META-TETRA-001.md |
+| SPLICE-MAXENT3-001 | Splicing | ⬜ | ⬜ | ⬜ pending | reports/SPLICE-MAXENT3-001.md |
+| SPLICE-MAXENT5-001 | Splicing | ⬜ | ⬜ | ⬜ pending | reports/SPLICE-MAXENT5-001.md |
+| MIRNA-CONTEXT-001 | MiRNA | ⬜ | ⬜ | ⬜ pending | reports/MIRNA-CONTEXT-001.md |
+| MIRNA-PCT-001 | MiRNA | ⬜ | ⬜ | ⬜ pending | reports/MIRNA-PCT-001.md |
+| MIRNA-CLASSIFY-001 | MiRNA | ⬜ | ⬜ | ⬜ pending | reports/MIRNA-CLASSIFY-001.md |
+| MIRNA-CLEAVAGE-001 | MiRNA | ⬜ | ⬜ | ⬜ pending | reports/MIRNA-CLEAVAGE-001.md |
+| REP-APPROX-001 | Repeats | ⬜ | ⬜ | ⬜ pending | reports/REP-APPROX-001.md |
+| CHROM-ALPHASAT-001 | Chromosome | ⬜ | ⬜ | ⬜ pending | reports/CHROM-ALPHASAT-001.md |
+| CHROM-HOR-001 | Chromosome | ⬜ | ⬜ | ⬜ pending | reports/CHROM-HOR-001.md |
 
 ---
 
@@ -288,7 +311,7 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 137 | ONCO-NEO-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
 | 138 | ONCO-MHC-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
 | 139 | ONCO-CTDNA-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
-| 140 | ONCO-MRD-001 | Oncology | 🟡 | ✅ | ✅ CLEAN | reports/ONCO-MRD-001.md |
+| 140 | ONCO-MRD-001 | Oncology | ⬜ | ⬜ | ⬜ pending | reports/ONCO-MRD-001.md |
 | 141 | ONCO-CHIP-001 | Oncology | ✅ | ✅ | ✅ CLEAN | reports/ONCO-CHIP-001.md |
 | 142 | ONCO-PHYLO-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
 | 143 | ONCO-CCF-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |

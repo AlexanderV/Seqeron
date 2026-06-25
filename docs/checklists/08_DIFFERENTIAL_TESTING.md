@@ -2,7 +2,7 @@
 
 **Priority:** P2
 **Date:** 2026-03-19
-**Total algorithms:** 237
+**Total algorithms:** 258
 
 ---
 
@@ -263,6 +263,27 @@ Differential testing порівнює виходи двох незалежних
 | 235 | ☐ | ONCO-ASCAT-001 | Oncology | ASPCF PCF DP | naive changepoint scan | same breakpoints |
 | 236 | ☐ | RNA-PKPREDICT-001 | Analysis | pknotsRG canonical scan | brute-force H-type search | same structure |
 | 237 | ☐ | RNA-PKRECURSIVE-001 | Analysis | recursive grammar | exhaustive nested search (small n) | same ΔG |
+| 238 | ☐ | RNA-ACCESS-001 | RnaStructure | Boltzmann (McCaskill) DP | brute-force ensemble enumeration (small n) | equal P_unpaired ±1e-9 |
+| 239 | ☐ | PROTMOTIF-HMM-001 | ProteinMotif | C# Plan7 (Viterbi/Forward/null2) | pyhmmer / hmmsearch | bit score ±1e-3, same envelopes |
+| 240 | ☐ | PRIMER-NNTM-001 | MolTools | C# NN (unified SantaLucia) | primer3-py / Biopython MeltingTemp | Tm ±0.5°C |
+| 241 | ☐ | PRIMER-HAIRPIN-001 | MolTools | C# hairpin folder | mfold / UNAFold (if obtainable) | ΔG ±0.2 kcal/mol, Tm ±1°C |
+| 242 | ☐ | PRIMER-DIMER-001 | MolTools | C# ntthal DP | primer3-py calc_homodimer/heterodimer | ΔG/Tm to machine precision on contiguous optima |
+| 243 | ☐ | PROBE-LNATM-001 | MolTools | C# LNA NN | MELTING 5 | Tm ±0.2°C |
+| 244 | ☐ | PROBE-EVALUE-001 | MolTools | C# Karlin-Altschul | NCBI BLAST stats / published λ | λ≈1.374, E within tolerance |
+| 245 | ☐ | MHC-NN-001 | Oncology | C# MHCflurry port | mhcflurry 2.1.5 (models_class1_pan) | IC50 < 0.03% |
+| 246 | ☐ | MHC-MATRIX-001 | Oncology | C# SMM/BIMAS | published worked examples / IEDB (caller matrix) | exact on anchor cases |
+| 247 | ☐ | IMMUNE-NUSVR-001 | Oncology | C# ν-SVR (SMO) | scikit-learn NuSVR | coefficients < 2e-3 |
+| 248 | ☐ | META-CHECKM-001 | Metagenomics | C# CheckM formula | CheckM markerSets.py | completeness/contamination exact on synthetic bin |
+| 249 | ☐ | META-TETRA-001 | Metagenomics | C# TETRA z-score | TETRA reference (Teeling) | z-vector ±1e-6 |
+| 250 | ☐ | SPLICE-MAXENT3-001 | Splicing | C# score3 | MaxEntScan score3.pl | exact score |
+| 251 | ☐ | SPLICE-MAXENT5-001 | Splicing | C# score5 | MaxEntScan score5.pl | exact score |
+| 252 | ☐ | MIRNA-CONTEXT-001 | MiRNA | C# context++ | targetscan_70_context_scores.pl | computable subset byte-exact |
+| 253 | ☐ | MIRNA-PCT-001 | MiRNA | C# PCT | Friedman 2009 logistic worked example | PCT within tolerance |
+| 254 | ☐ | MIRNA-CLASSIFY-001 | MiRNA | C# classifier | held-out miRBase vs shuffled (AUC) | AUC ≈ 1.0 on held-out set |
+| 255 | ☐ | MIRNA-CLEAVAGE-001 | MiRNA | C# cleavage rules | miRBase mature coordinates | mature 5'/3' exact |
+| 256 | ☐ | REP-APPROX-001 | Repeats | C# approximate TRF | TRF (Benson) on benchmark repeats | consensus + match/indel% agree |
+| 257 | ☐ | CHROM-ALPHASAT-001 | Chromosome | C# alpha-satellite detector | known centromeric reference arrays | period + CENP-B positions agree |
+| 258 | ☐ | CHROM-HOR-001 | Chromosome | C# HOR detector | known HOR arrays (D-region) | period + copy number agree |
 
 ---
 
@@ -270,9 +291,9 @@ Differential testing порівнює виходи двох незалежних
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 234 |
+| Total algorithms | 255 |
 | ☑ Complete | 0 |
-| ☐ Not started | 237 |
+| ☐ Not started | 258 |
 | High-value pairs (ALT/BRUTE feasible) | ~25 |
 | Medium-value pairs (REF comparison) | ~35 |
 | Lower priority (DUAL re-impl needed) | ~26 |

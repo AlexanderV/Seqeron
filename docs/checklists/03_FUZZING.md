@@ -2,7 +2,7 @@
 
 **Priority:** P2  
 **Date:** 2026-03-19  
-**Total algorithms:** 237
+**Total algorithms:** 258
 
 ---
 
@@ -265,6 +265,27 @@ Fuzzing подає випадкові, невалідні або граничн�
 | 235 | ☐ | ONCO-ASCAT-001 | Oncology | BE | empty loci, single locus, all-het, all-hom, extreme logR/BAF |
 | 236 | ☐ | RNA-PKPREDICT-001 | Analysis | BE | empty, too-short, all-A (no pairing), non-ACGU |
 | 237 | ☐ | RNA-PKRECURSIVE-001 | Analysis | BE | empty, single base, long low-complexity, deeply nested |
+| 238 | ☐ | RNA-ACCESS-001 | RnaStructure | BE, MC | empty seq, region out of bounds, region len 0, single base, non-ACGU chars |
+| 239 | ☐ | PROTMOTIF-HMM-001 | ProteinMotif | MC, BE | empty profile, zero-length sequence, all-X residues, malformed .hmm, profile longer than seq |
+| 240 | ☐ | PRIMER-NNTM-001 | MolTools | BE, INJ | 1-bp, all-N, non-DNA chars, zero salt, negative concentration, very long |
+| 241 | ☐ | PRIMER-HAIRPIN-001 | MolTools | BE, MC | empty seq, no complementary stem, palindrome, min loop violations, very long |
+| 242 | ☐ | PRIMER-DIMER-001 | MolTools | BE, MC | empty seq, no complementarity, identical seqs, 1-bp, very long |
+| 243 | ☐ | PROBE-LNATM-001 | MolTools | MC, BE | invalid LNA mask, mask longer than probe, empty probe, non-DNA |
+| 244 | ☐ | PROBE-EVALUE-001 | MolTools | BE, MC | zero-length DB, score 0, negative score, K=0, huge search space |
+| 245 | ☐ | MHC-NN-001 | Oncology | MC, BE | peptide len <8 or >15, unknown allele, non-AA chars, empty pseudosequence |
+| 246 | ☐ | MHC-MATRIX-001 | Oncology | MC, BE | peptide length ≠ matrix length, missing residue, empty matrix, non-AA |
+| 247 | ☐ | IMMUNE-NUSVR-001 | Oncology | MC, BE | gene count mismatch, all-zero mixture, empty matrix, negative expression, NaN |
+| 248 | ☐ | META-CHECKM-001 | Metagenomics | MC, BE | empty marker set, no genes, all markers duplicated, malformed HMM |
+| 249 | ☐ | META-TETRA-001 | Metagenomics | BE, MC | seq <4 bp, all same base, non-ACGT, empty seq |
+| 250 | ☐ | SPLICE-MAXENT3-001 | Splicing | MC, BE | window ≠ 23 nt, no AG, non-ACGT, empty seq, lowercase |
+| 251 | ☐ | SPLICE-MAXENT5-001 | Splicing | MC, BE | window ≠ 9 nt, no GT, non-ACGT, empty seq, lowercase |
+| 252 | ☐ | MIRNA-CONTEXT-001 | MiRNA | BE, MC | no seed match, empty 3'UTR, miRNA longer than target, missing optional features |
+| 253 | ☐ | MIRNA-PCT-001 | MiRNA | MC, BE | empty tree, single-species alignment, negative branch length, missing sigmoid params |
+| 254 | ☐ | MIRNA-CLASSIFY-001 | MiRNA | MC, BE | non-hairpin seq, empty seq, non-ACGU, extreme GC, very short |
+| 255 | ☐ | MIRNA-CLEAVAGE-001 | MiRNA | BE, MC | precursor too short, no stem, non-ACGU, empty seq |
+| 256 | ☐ | REP-APPROX-001 | Repeats | BE, MC | minReps 0, unit longer than seq, empty seq, single char, all-N |
+| 257 | ☐ | CHROM-ALPHASAT-001 | Chromosome | BE, MC | non-satellite seq, empty seq, period mismatch, non-ACGT |
+| 258 | ☐ | CHROM-HOR-001 | Chromosome | BE, MC | monomeric-only seq, empty seq, period not multiple of monomer, non-ACGT |
 
 ---
 
@@ -272,9 +293,9 @@ Fuzzing подає випадкові, невалідні або граничн�
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 234 |
+| Total algorithms | 255 |
 | ☑ Complete | 0 |
-| ☐ Not started | 237 |
+| ☐ Not started | 258 |
 | High-priority (parsers + validation) | 12 |
 | Medium-priority (boundary inputs) | 45 |
 | Lower-priority (algorithm-specific edge cases) | 29 |

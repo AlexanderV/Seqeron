@@ -3,7 +3,7 @@
 **Priority:** P0
 **Framework:** FsCheck + FsCheck.NUnit
 **Date:** 2026-03-19
-**Total algorithms:** 237
+**Total algorithms:** 258
 
 ---
 
@@ -267,6 +267,27 @@ Property-based testing генерує сотні випадкових вході
 | 235 | ☐ | ONCO-ASCAT-001 | Oncology | R: purity ∈ (0,1]; R: ploidy > 0; P: nA,nB ≥ 0 integers; D: deterministic | OncologyProperties.cs (new) |
 | 236 | ☐ | RNA-PKPREDICT-001 | Analysis | R: ΔG ≤ pseudoknot-free MFE; P: each base paired ≤ once; P: crossings genuine; D: deterministic | RnaStructureProperties.cs (new) |
 | 237 | ☐ | RNA-PKRECURSIVE-001 | Analysis | R: ΔG ≤ single-knot result; P: valid nested structure; D: deterministic | RnaStructureProperties.cs (new) |
+| 238 | ☐ | RNA-ACCESS-001 | RnaStructure | R: 0 ≤ P_unpaired ≤ 1; M: longer region → lower P_unpaired; D: deterministic | RnaStructureProperties.cs (new) |
+| 239 | ☐ | PROTMOTIF-HMM-001 | ProteinMotif | R: Forward ≥ Viterbi (log-odds); R: E-value ≥ 0; D: deterministic given profile | ProteinMotifProperties.cs (new) |
+| 240 | ☐ | PRIMER-NNTM-001 | MolTools | R: Tm finite for len ≥ 2; M: higher [Na+] → higher Tm; M: more mismatches → lower Tm | PrimerProperties.cs (new) |
+| 241 | ☐ | PRIMER-HAIRPIN-001 | MolTools | R: ΔG of best hairpin ≤ 0 (or none found); M: longer stem → more negative ΔG; D: deterministic | PrimerProperties.cs (new) |
+| 242 | ☐ | PRIMER-DIMER-001 | MolTools | R: dimer ΔG ≤ 0 or none; M: longer complementary run → lower ΔG; D: deterministic | PrimerProperties.cs (new) |
+| 243 | ☐ | PROBE-LNATM-001 | MolTools | R: each LNA substitution does not lower Tm; D: deterministic; MGB rules return boolean+reasons | ProbeProperties.cs (new) |
+| 244 | ☐ | PROBE-EVALUE-001 | MolTools | R: E-value ≥ 0; M: higher bit score → lower E-value; M: larger search space → higher E-value | ProbeProperties.cs (new) |
+| 245 | ☐ | MHC-NN-001 | Oncology | R: IC50 > 0; R: ensemble within member range; D: deterministic given weights | OncologyProperties.cs (new) |
+| 246 | ☐ | MHC-MATRIX-001 | Oncology | R: IC50 > 0; R: BIMAS half-life ≥ 0; M: anchor match → stronger binding | OncologyProperties.cs (new) |
+| 247 | ☐ | IMMUNE-NUSVR-001 | Oncology | R: fractions ≥ 0; D: deterministic; planted truth recovered | ImmuneProperties.cs (new) |
+| 248 | ☐ | META-CHECKM-001 | Metagenomics | R: 0 ≤ completeness ≤ 100; R: contamination ≥ 0; D: deterministic | MetagenomicsProperties.cs (new) |
+| 249 | ☐ | META-TETRA-001 | Metagenomics | R: correlation ∈ [-1,1]; INV: z(ACGT)=√5 on reference; D: deterministic | MetagenomicsProperties.cs (new) |
+| 250 | ☐ | SPLICE-MAXENT3-001 | Splicing | R: score finite; D: deterministic; requires 23-nt acceptor window | SpliceProperties.cs (new) |
+| 251 | ☐ | SPLICE-MAXENT5-001 | Splicing | R: score finite; D: deterministic; requires 9-nt donor window | SpliceProperties.cs (new) |
+| 252 | ☐ | MIRNA-CONTEXT-001 | MiRNA | R: context++ score ≤ 0 (more negative = stronger); D: deterministic | MiRnaProperties.cs (new) |
+| 253 | ☐ | MIRNA-PCT-001 | MiRNA | R: PCT ∈ [0,1]; M: higher branch length → higher PCT; D: deterministic | MiRnaProperties.cs (new) |
+| 254 | ☐ | MIRNA-CLASSIFY-001 | MiRNA | R: probability ∈ [0,1]; D: deterministic; threshold split positive/negative | MiRnaProperties.cs (new) |
+| 255 | ☐ | MIRNA-CLEAVAGE-001 | MiRNA | R: cleavage positions within precursor; R: 2-nt 3' overhang; D: deterministic | MiRnaProperties.cs (new) |
+| 256 | ☐ | REP-APPROX-001 | Repeats | R: percent-matches ∈ [0,100]; R: score ≥ Minscore (50); D: deterministic | RepeatProperties.cs (new) |
+| 257 | ☐ | CHROM-ALPHASAT-001 | Chromosome | R: monomer period ≈ 171 bp; R: CENP-B boxes within monomers; D: deterministic | ChromosomeProperties.cs (new) |
+| 258 | ☐ | CHROM-HOR-001 | Chromosome | R: inter-HOR identity ≥ intra-monomer identity; R: HOR period = k×monomer; D: deterministic | ChromosomeProperties.cs (new) |
 
 ---
 
@@ -274,8 +295,8 @@ Property-based testing генерує сотні випадкових вході
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 234 |
+| Total algorithms | 255 |
 | ☑ Complete | 0 |
-| ☐ Not started | 237 |
+| ☐ Not started | 258 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |

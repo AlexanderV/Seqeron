@@ -3,7 +3,7 @@
 **Priority:** P2  
 **Framework:** ArchUnitNET  
 **Date:** 2026-03-19  
-**Total algorithms:** 97
+**Total algorithms:** 118
 
 ---
 
@@ -161,6 +161,27 @@ Architecture тести запобігають архітектурному др
 | 95 | ONCO-ASCAT-001 | Oncology | Oncology | Core !→ Oncology, IO !→ Oncology |
 | 96 | RNA-PKPREDICT-001 | RnaStructure | Analysis | Core !→ Analysis |
 | 97 | RNA-PKRECURSIVE-001 | RnaStructure | Analysis | Core !→ Analysis |
+| 98 | RNA-ACCESS-001 | RnaStructure | Analysis | Core !→ Analysis |
+| 99 | PROTMOTIF-HMM-001 | ProteinMotif | Analysis | Core !→ Analysis |
+| 100 | PRIMER-NNTM-001 | MolTools | MolTools | Core !→ MolTools |
+| 101 | PRIMER-HAIRPIN-001 | MolTools | MolTools | Core !→ MolTools |
+| 102 | PRIMER-DIMER-001 | MolTools | MolTools | Core !→ MolTools |
+| 103 | PROBE-LNATM-001 | MolTools | MolTools | Core !→ MolTools |
+| 104 | PROBE-EVALUE-001 | MolTools | MolTools | Core !→ MolTools |
+| 105 | MHC-NN-001 | Oncology | Oncology | Core !→ Oncology, IO !→ Oncology |
+| 106 | MHC-MATRIX-001 | Oncology | Oncology | Core !→ Oncology, IO !→ Oncology |
+| 107 | IMMUNE-NUSVR-001 | Oncology | Oncology | Core !→ Oncology, IO !→ Oncology |
+| 108 | META-CHECKM-001 | Metagenomics | Metagenomics | Core !→ Metagenomics |
+| 109 | META-TETRA-001 | Metagenomics | Metagenomics | Core !→ Metagenomics |
+| 110 | SPLICE-MAXENT3-001 | Splicing | Analysis | Core !→ Analysis |
+| 111 | SPLICE-MAXENT5-001 | Splicing | Analysis | Core !→ Analysis |
+| 112 | MIRNA-CONTEXT-001 | MiRNA | Analysis | Core !→ Analysis |
+| 113 | MIRNA-PCT-001 | MiRNA | Analysis | Core !→ Analysis |
+| 114 | MIRNA-CLASSIFY-001 | MiRNA | Analysis | Core !→ Analysis |
+| 115 | MIRNA-CLEAVAGE-001 | MiRNA | Analysis | Core !→ Analysis |
+| 116 | REP-APPROX-001 | Repeats | Core | Core !→ Analysis, Core !→ IO, No System.IO |
+| 117 | CHROM-ALPHASAT-001 | Chromosome | Chromosome | Core !→ Chromosome |
+| 118 | CHROM-HOR-001 | Chromosome | Chromosome | Core !→ Chromosome |
 
 ---
 
@@ -168,7 +189,7 @@ Architecture тести запобігають архітектурному др
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 97 |
+| Total algorithms | 118 |
 | Module-level rules | 19 (all ☑) |
 | Modules covered | 13 |
 | Rules complete ☑ | 19 |
