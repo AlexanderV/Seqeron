@@ -128,7 +128,7 @@ First-time validation of the **24** units added while eliminating LIMITATIONS.md
 | RNA-PKRECURSIVE-001 | RnaStructure | ✅ | ✅ | ✅ CLEAN | covered in reports/RNA-STRUCT-001.md (recursive pknotsRG grammar) |
 | RNA-ACCESS-001 | RnaStructure | ✅ | ✅ | ✅ CLEAN | reports/RNA-ACCESS-001.md |
 | PROTMOTIF-HMM-001 | ProteinMotif | ✅ | ✅ | ✅ CLEAN | reports/PROTMOTIF-HMM-001.md |
-| PRIMER-NNTM-001 | MolTools | ⬜ | ⬜ | ⬜ pending | reports/PRIMER-NNTM-001.md |
+| PRIMER-NNTM-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/PRIMER-NNTM-001.md |
 | PRIMER-HAIRPIN-001 | MolTools | ⬜ | ⬜ | ⬜ pending | reports/PRIMER-HAIRPIN-001.md |
 | PRIMER-DIMER-001 | MolTools | ⬜ | ⬜ | ⬜ pending | reports/PRIMER-DIMER-001.md |
 | PROBE-LNATM-001 | MolTools | ⬜ | ⬜ | ⬜ pending | reports/PROBE-LNATM-001.md |
