@@ -1792,14 +1792,14 @@ public class OncologyCombinatorialTests
     // Spec: tests/TestSpecs/ONCO-NEO-001.md (OncologyAnalyzer.GenerateNeoantigenPeptides).
     // ADVANCED_TESTING_CHECKLIST.md §10.
     //
-    // Sources: Hundal et al. (2020) pVACtools (class I 8-11-mers); Li et al. (2020) ProGeo-neo (21-mer
-    // ±10-flank windowing); Wells et al. (2020) TESLA (mutant/WT agretope pairing).
+    // Sources: Reynisson et al. (2020) NetMHCpan-4.1 (class I 8-14-mer window); Hundal et al. (2020) pVACtools;
+    // Li et al. (2020) ProGeo-neo (21-mer ±10-flank windowing); Wells et al. (2020) TESLA (agretope pairing).
     //
     // For length k, every k-window of the mutant protein that SPANS the mutation is emitted, paired with
     // the WT window at the same coordinates: count = (min(mutIdx, L−k) − max(0, mutIdx−k+1) + 1).
     //
     // Checklist axes peptideLen(3) × mutationPos(3) × mutationType(2) map onto the real knobs:
-    //   • peptideLen   → the single peptide length k ∈ {8, 9, 11} (minLength = maxLength = k).
+    //   • peptideLen   → the single peptide length k ∈ {8, 11, 14} (minLength = maxLength = k).
     //   • mutationPos  → 1-based mutation position ∈ {1 (N-term), 10 (interior), 21 (C-term)}.
     //   • mutationType → the substituted mutant residue ∈ {'C', 'D'}: the windowing is INVARIANT to which
     //     residue is substituted (any missense), while the mutant peptide carries it at the offset.
@@ -1820,7 +1820,7 @@ public class OncologyCombinatorialTests
     /// </summary>
     [Test, Combinatorial]
     public void GenerateNeoantigenPeptides_LengthPositionResidueGrid_MatchesWindowingRule(
-        [Values(8, 9, 11)] int peptideLength,
+        [Values(8, 11, 14)] int peptideLength,
         [Values(1, 10, 21)] int mutationPosition,
         [Values('C', 'D')] char mutantResidue)
     {
@@ -1910,7 +1910,7 @@ public class OncologyCombinatorialTests
     // Spec: tests/TestSpecs/ONCO-MHC-001.md (OncologyAnalyzer.ClassifyMhcBinding / ClassifyBindingRank / IsValidPeptideLength).
     // ADVANCED_TESTING_CHECKLIST.md §10.
     //
-    // Sources: Reynisson et al. (2020) NetMHCpan-4.1 (class I 8-11, %Rank strong<0.5/weak<2; class II
+    // Sources: Reynisson et al. (2020) NetMHCpan-4.1 (class I 8-14, %Rank strong<0.5/weak<2; class II
     // 13-25, %Rank strong<2/weak<10); Sette (1994) / IEDB (IC50 strong<50, weak<500 nM, strict <).
     //
     // ClassifyMhcBinding gates on the class-specific length range, then tiers the IC50 (strong<50,
@@ -1944,7 +1944,7 @@ public class OncologyCombinatorialTests
     {
         // Independent ground truth.
         bool validLength = mhcClass == OncologyAnalyzer.MhcClass.ClassI
-            ? peptideLength is >= 8 and <= 11
+            ? peptideLength is >= 8 and <= 14
             : peptideLength is >= 13 and <= 25;
         var affinityTier = ic50Nm < 50.0 ? OncologyAnalyzer.BindingStrength.Strong
             : ic50Nm < 500.0 ? OncologyAnalyzer.BindingStrength.Weak
@@ -1952,7 +1952,7 @@ public class OncologyCombinatorialTests
         var expected = validLength ? affinityTier : OncologyAnalyzer.BindingStrength.NonBinder;
 
         OncologyAnalyzer.IsValidPeptideLength(peptideLength, mhcClass).Should().Be(validLength,
-            "class I accepts 8-11, class II accepts 13-25");
+            "class I accepts 8-14, class II accepts 13-25");
         OncologyAnalyzer.ClassifyMhcBinding(peptideLength, ic50Nm, mhcClass).Should().Be(expected,
             "valid length → IC50 tier; invalid length → NonBinder");
     }

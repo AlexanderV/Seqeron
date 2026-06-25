@@ -7954,11 +7954,17 @@ public static class OncologyAnalyzer
     public const int MhcClassIMinPeptideLength = 8;
 
     /// <summary>
-    /// Longest MHC class I peptide length (11-mer) over which candidate neoantigen windows are enumerated.
-    /// Source: Hundal et al. (2020), <i>Cancer Immunol. Res.</i> 8(3):409–420 — pVACtools predicts the
-    /// strongest MHC-binding peptides "(8–11-mer for Class I MHC …)".
+    /// Longest MHC class I peptide length (14-mer) over which candidate neoantigen windows are enumerated by
+    /// default. Source: the NetMHCpan-4.1 class I service offers 8/9/10/11/12/13/14-mer peptide options
+    /// (Reynisson et al. 2020, <i>Nucleic Acids Res.</i> 48(W1):W449–W454, doi:10.1093/nar/gkaa379;
+    /// https://services.healthtech.dtu.dk/services/NetMHCpan-4.1/), and the MHCflurry pan-allele peptide
+    /// encoding admits up to 15-mers (<see cref="MhcflurryAffinityPredictor.PeptideMaxLength"/> = 15; O'Donnell
+    /// et al. 2020, <i>Cell Systems</i> 11(1):42–48). The default upper bound follows NetMHCpan-4.1's
+    /// class I window (8–14); callers may pass <c>maxLength</c> up to 15 to reach the MHCflurry encoding ceiling.
+    /// (The earlier 8–11 default mirrored pVACtools' canonical search — Hundal et al. 2020, <i>Cancer Immunol.
+    /// Res.</i> 8(3):409–420 — and remains reachable by passing <c>maxLength: 11</c>.)
     /// </summary>
-    public const int MhcClassIMaxPeptideLength = 11;
+    public const int MhcClassIMaxPeptideLength = 14;
 
     /// <summary>
     /// A candidate neoantigen peptide: a fixed-length window of the mutant protein that spans the mutated
@@ -7989,8 +7995,9 @@ public static class OncologyAnalyzer
     /// al. 2020, <i>BMC Med. Genomics</i> 13:52): a 21-mer with 10 residues flanking the substitution on each
     /// side contains exactly the 8–11-mer windows that overlap the mutation.
     /// <para>
-    /// Binding affinity / IC50 is NOT computed here — that requires a trained MHC-binding model (e.g.
-    /// NetMHCpan) and is caller-supplied or out of scope (ONCO-MHC-001).
+    /// Binding affinity / IC50 is NOT computed here — that requires a trained MHC-binding model. The bundled
+    /// <see cref="MhcflurryAffinityPredictor"/> port scores any window of length 8–15 (with caller-supplied
+    /// weights); the default upper bound here is 14, matching the NetMHCpan-4.1 class I peptide window.
     /// </para>
     /// </summary>
     /// <param name="wildTypeProtein">The wild-type (reference) protein sequence (one-letter amino-acid codes).</param>
@@ -8097,7 +8104,7 @@ public static class OncologyAnalyzer
     /// </summary>
     public enum MhcClass
     {
-        /// <summary>MHC class I (HLA-A/B/C). Canonical neoantigen peptide length 8–11.</summary>
+        /// <summary>MHC class I (HLA-A/B/C). Presented peptide length 8–14 (NetMHCpan-4.1 class I window).</summary>
         ClassI,
 
         /// <summary>MHC class II (HLA-DR/DQ/DP). Peptide length 13–25.</summary>
@@ -8250,9 +8257,10 @@ public static class OncologyAnalyzer
 
     /// <summary>
     /// Determines whether <paramref name="length"/> is a valid presented-peptide length for the given MHC
-    /// class: class I 8–11 (canonical neoantigen range; Reynisson et al. 2020 gives 8–14 with default 8–11,
-    /// matching <see cref="MhcClassIMinPeptideLength"/>/<see cref="MhcClassIMaxPeptideLength"/>), class II
-    /// 13–25 (IEDB MHC class II tool description). Both bounds are inclusive.
+    /// class: class I 8–14 (the NetMHCpan-4.1 class I peptide window — Reynisson et al. 2020, <i>Nucleic Acids
+    /// Res.</i> 48(W1):W449–W454; matching <see cref="MhcClassIMinPeptideLength"/>/<see
+    /// cref="MhcClassIMaxPeptideLength"/>), class II 13–25 (IEDB MHC class II tool description). Both bounds
+    /// are inclusive.
     /// </summary>
     /// <param name="length">Peptide length (residue count).</param>
     /// <param name="mhcClass">MHC class selecting the accepted length range.</param>

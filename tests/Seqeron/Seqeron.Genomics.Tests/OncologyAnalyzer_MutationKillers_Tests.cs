@@ -225,8 +225,8 @@ public class OncologyAnalyzer_MutationKillers_Tests
     public void IsValidPeptideLength_AndMhcBindingLengthGate()
     {
         Assert.That(IsValidPeptideLength(8, MhcClass.ClassI), Is.True);
-        Assert.That(IsValidPeptideLength(11, MhcClass.ClassI), Is.True);
-        Assert.That(IsValidPeptideLength(12, MhcClass.ClassI), Is.False);
+        Assert.That(IsValidPeptideLength(14, MhcClass.ClassI), Is.True);
+        Assert.That(IsValidPeptideLength(15, MhcClass.ClassI), Is.False);
         Assert.That(IsValidPeptideLength(13, MhcClass.ClassII), Is.True);
 
         Assert.That(ClassifyMhcBinding(9, 40.0, MhcClass.ClassI), Is.EqualTo(BindingStrength.Strong));

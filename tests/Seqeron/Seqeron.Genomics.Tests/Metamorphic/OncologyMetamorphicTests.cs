@@ -1525,10 +1525,11 @@ public class OncologyMetamorphicTests
     [Description("INV: prepending an N-terminal flank shifts the peptide start positions but preserves the set of mutant/wild-type peptide strings tiling the mutation.")]
     public void GenerateNeoantigenPeptides_FlankShift_PreservesPeptideSet()
     {
-        // 25-mer with the mutation at position 13 → ≥ 10 residues of context on each side (max k = 11).
-        const string wildType = "ACDEFGHIKLMNPQRSTVWYACDEF";
-        const char mutant = 'G';      // substitute the wild-type 'P' at position 13
-        const int position = 13;
+        // 31-mer with the mutation at position 16 → ≥ 15 residues of context on each side (max k = 14),
+        // so every default-range window tiling the mutation is fully interior and flank-invariant.
+        const string wildType = "ACDEFGHIKLMNPQRSTVWYACDEFGHIKLM";
+        const char mutant = 'G';      // substitute the wild-type 'S' at position 16
+        const int position = 16;
 
         var basePeptides = OncologyAnalyzer.GenerateNeoantigenPeptides(wildType, mutant, position);
         basePeptides.Should().NotBeEmpty();

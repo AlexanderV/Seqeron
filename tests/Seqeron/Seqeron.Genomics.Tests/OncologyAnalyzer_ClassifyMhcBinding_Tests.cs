@@ -2,7 +2,7 @@
 // Evidence: docs/Evidence/ONCO-MHC-001-Evidence.md
 // TestSpec: tests/TestSpecs/ONCO-MHC-001.md
 // Source: Reynisson B et al. (2020). NetMHCpan-4.1. Nucleic Acids Res 48(W1):W449-W454.
-//         https://doi.org/10.1093/nar/gkaa379  (class I %Rank SB<0.5/WB<2; class II SB<2/WB<10; len 8-14, default 8-11)
+//         https://doi.org/10.1093/nar/gkaa379  (class I %Rank SB<0.5/WB<2; class II SB<2/WB<10; class I len 8-14)
 //         Sette A et al. (1994). J Immunol 153(12):5586-92. PMID 7527444  (IC50 ~500 nM, preferably 50 nM)
 //         IEDB threshold help: <50 nM high, <500 nM intermediate. IEDB class II tool desc: length 13-25.
 //         Parker KC, Bednarek MA, Coligan JE (1994). J Immunol 152(1):163-175. PMID 8254189 + BIMAS scoring docs
@@ -13,7 +13,7 @@
 // Expected categories below are derived from the cited cutoffs (strict "<"), NOT from running the code:
 //   IC50 (nM): Strong < 50, Weak < 500, else NonBinder.
 //   %Rank class I: Strong < 0.5, Weak < 2.  class II: Strong < 2, Weak < 10.
-//   Length: class I 8-11 inclusive; class II 13-25 inclusive.
+//   Length: class I 8-14 inclusive (NetMHCpan-4.1 window); class II 13-25 inclusive.
 // Prediction expected values are computed independently from the published rules:
 //   SMM: IC50 = 50000^(1 - score)  =>  score 0 -> 50000, 0.5 -> sqrt(50000) = 223.6067977499790, 1 -> 1.
 //   BIMAS: T1/2 = finalConstant * product of per-position coefficients (missing residue = 1.0).
@@ -221,18 +221,19 @@ public class OncologyAnalyzer_ClassifyMhcBinding_Tests
 
     #region IsValidPeptideLength
 
-    // M14/M15/M16 — class I length: 9 valid; 7 too short; 12 above the 8-11 default.
+    // M14/M15/M16 — class I length: 8/9/14 valid; 7 too short; 15 above the NetMHCpan-4.1 class I window 8-14.
     [Test]
-    public void IsValidPeptideLength_ClassI_RespectsEightToEleven()
+    public void IsValidPeptideLength_ClassI_RespectsEightToFourteen()
     {
         Assert.Multiple(() =>
         {
             Assert.That(OncologyAnalyzer.IsValidPeptideLength(8, MhcClass.ClassI), Is.True, "8 is the class I min.");
             Assert.That(OncologyAnalyzer.IsValidPeptideLength(9, MhcClass.ClassI), Is.True, "9 is a valid class I length.");
-            Assert.That(OncologyAnalyzer.IsValidPeptideLength(11, MhcClass.ClassI), Is.True, "11 is the class I max (default).");
+            Assert.That(OncologyAnalyzer.IsValidPeptideLength(11, MhcClass.ClassI), Is.True, "11 is a valid class I length.");
+            Assert.That(OncologyAnalyzer.IsValidPeptideLength(14, MhcClass.ClassI), Is.True, "14 is the class I max (NetMHCpan-4.1 window).");
             Assert.That(OncologyAnalyzer.IsValidPeptideLength(7, MhcClass.ClassI), Is.False, "7 < 8 ⇒ too short.");
-            Assert.That(OncologyAnalyzer.IsValidPeptideLength(12, MhcClass.ClassI), Is.False,
-                "12 > 11 ⇒ above the canonical class I default range 8-11.");
+            Assert.That(OncologyAnalyzer.IsValidPeptideLength(15, MhcClass.ClassI), Is.False,
+                "15 > 14 ⇒ above the NetMHCpan-4.1 class I peptide window 8-14.");
         });
     }
 

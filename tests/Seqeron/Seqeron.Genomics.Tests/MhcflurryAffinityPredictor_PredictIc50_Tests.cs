@@ -292,6 +292,14 @@ public class MhcflurryAffinityPredictor_PredictIc50_Tests
     [TestCase("SIINFEKL", "HLA-B*07:02", 28830.796646)]
     [TestCase("SLYNTVATL", "HLA-A*02:01", 28.972028)]
     [TestCase("CINGVCWTV", "HLA-A*02:01", 92.105940)]
+    // Length 12/13/14 windows (ONCO-MHC-001 widened length coverage): the left_pad_centered_right_pad
+    // encoding (max_length=15) and the forward pass score these unchanged. Oracle IC50s captured from the same
+    // embedded models_class1_pan member (PAN-CLASS1-1-3ed9fb2d2dcc9803) via an independent NumPy forward pass
+    // over its weights_*.npz dense kernels — the very reference that reproduces the 8/9-mer goldens above
+    // exactly (SIINFEKL 11483.195201, GILGFVFTL 19.123150).
+    [TestCase("GILGFVFTLAAA", "HLA-A*02:01", 25274.910033)]    // 12-mer
+    [TestCase("GILGFVFTLAAAA", "HLA-A*02:01", 32389.125801)]   // 13-mer
+    [TestCase("GILGFVFTLAAAAA", "HLA-A*02:01", 32972.178346)]  // 14-mer
     public void PredictIc50_SingleNet_MatchesMhcflurryOracle(string peptide, string allele, double oracleIc50)
     {
         var nets = LoadSingleNet();

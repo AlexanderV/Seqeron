@@ -7574,7 +7574,7 @@ public class OncologyProperties
 
     // -------------------------------------------------------------------------
     // Theory (Hundal 2020 pVACtools; Li 2020 ProGeo-neo; Wells 2020 TESLA):
-    //   • Class I candidate peptides are 8–11-mers (default range).                       (INV-1)
+    //   • Class I candidate peptides are 8–14-mers (default range; NetMHCpan-4.1 window).  (INV-1)
     //   • Every window spans the substituted residue: it is a length-k window [s, s+k−1]   (INV-2/5)
     //     with s ∈ [max(0, mutIdx−k+1), min(mutIdx, L−k)] — exactly k windows when the
     //     mutation is ≥ k−1 residues from both ends.
@@ -7653,22 +7653,22 @@ public class OncologyProperties
     }
 
     /// <summary>
-    /// R (checklist "length ∈ [8,11]") + INV-2 (P "mutated residue inside every window"): with default
-    /// lengths every peptide is an 8–11-mer that spans the mutation — offset ∈ [0, Length) and
-    /// StartPosition + offset == mutationPosition, within the protein bounds. (Hundal 2020; Li 2020)
+    /// R (checklist "length ∈ [8,14]") + INV-2 (P "mutated residue inside every window"): with default
+    /// lengths every peptide is an 8–14-mer that spans the mutation — offset ∈ [0, Length) and
+    /// StartPosition + offset == mutationPosition, within the protein bounds. (Reynisson 2020; Li 2020)
     /// </summary>
     [FsCheck.NUnit.Property]
-    public Property GenerateNeoantigenPeptides_DefaultLengths_SpanMutation_In8To11()
+    public Property GenerateNeoantigenPeptides_DefaultLengths_SpanMutation_In8To14()
     {
         return Prop.ForAll(MissenseGen().ToArbitrary(), g =>
         {
             var peptides = OncologyAnalyzer.GenerateNeoantigenPeptides(g.protein, g.mutant, g.pos);
             return peptides.All(p =>
-                p.Length is >= 8 and <= 11
+                p.Length is >= 8 and <= 14
                 && p.MutationOffset >= 0 && p.MutationOffset < p.Length
                 && p.StartPosition + p.MutationOffset == g.pos
                 && p.StartPosition >= 1 && p.StartPosition + p.Length - 1 <= g.protein.Length)
-                .Label("a peptide is outside 8–11 or does not span the mutation");
+                .Label("a peptide is outside 8–14 or does not span the mutation");
         });
     }
 
@@ -7719,8 +7719,8 @@ public class OncologyProperties
     }
 
     /// <summary>
-    /// Anchors: the canonical Y5C example (protein MKTAYIAKQRSTVWLNDEFGH) yields default 8–11-mer windows all
-    /// spanning position 5; a non-substitution and an out-of-range position are rejected. (Hundal 2020; Li 2020)
+    /// Anchors: the canonical Y5C example (protein MKTAYIAKQRSTVWLNDEFGH) yields default 8–14-mer windows all
+    /// spanning position 5; a non-substitution and an out-of-range position are rejected. (Reynisson 2020; Li 2020)
     /// </summary>
     [Test]
     [Category("Property")]
@@ -7731,8 +7731,8 @@ public class OncologyProperties
 
         Assert.Multiple(() =>
         {
-            Assert.That(peptides, Is.Not.Empty, "Position 5 of a 21-mer admits 8–11-mer windows.");
-            Assert.That(peptides.All(p => p.Length is >= 8 and <= 11), Is.True, "Default class I lengths 8–11.");
+            Assert.That(peptides, Is.Not.Empty, "Position 5 of a 21-mer admits 8–14-mer windows.");
+            Assert.That(peptides.All(p => p.Length is >= 8 and <= 14), Is.True, "Default class I lengths 8–14.");
             Assert.That(peptides.All(p => p.StartPosition + p.MutationOffset == 5), Is.True, "Every window spans position 5.");
             Assert.That(peptides.All(p => p.MutantPeptide[p.MutationOffset] == 'C' && p.WildTypePeptide[p.MutationOffset] == 'Y'),
                 Is.True, "Mutant carries C, wild type carries Y at the offset.");
@@ -7751,7 +7751,7 @@ public class OncologyProperties
     // Theory (Sette 1994 / IEDB IC50; Reynisson 2020 NetMHCpan-4.1 %Rank; IEDB lengths):
     //   • IC50: Strong < 50 nM, Weak < 500 nM, else NonBinder (strict <).
     //   • %Rank: class I Strong < 0.5%, Weak < 2%; class II Strong < 2%, Weak < 10% (strict).
-    //   • Valid length: class I 8–11, class II 13–25 (inclusive).
+    //   • Valid length: class I 8–14 (NetMHCpan-4.1 window), class II 13–25 (inclusive).
     //   • Lower IC50 / lower %Rank ⇒ stronger (or equal) binding.   (M)
     //   • ClassifyMhcBinding: invalid length ⇒ NonBinder, else affinity classification.
     //
@@ -7830,8 +7830,8 @@ public class OncologyProperties
     }
 
     /// <summary>
-    /// <c>IsValidPeptideLength</c> matches the class length ranges exactly: class I ⟺ 8 ≤ len ≤ 11, class II
-    /// ⟺ 13 ≤ len ≤ 25 (both inclusive). (IEDB / Reynisson 2020 default class I 8–11)
+    /// <c>IsValidPeptideLength</c> matches the class length ranges exactly: class I ⟺ 8 ≤ len ≤ 14, class II
+    /// ⟺ 13 ≤ len ≤ 25 (both inclusive). (IEDB / Reynisson 2020 NetMHCpan-4.1 class I 8–14)
     /// </summary>
     [FsCheck.NUnit.Property]
     public Property IsValidPeptideLength_MatchesClassRanges()
@@ -7844,7 +7844,7 @@ public class OncologyProperties
         {
             bool actual = OncologyAnalyzer.IsValidPeptideLength(t.len, t.mhc);
             bool expected = t.mhc == OncologyAnalyzer.MhcClass.ClassI
-                ? t.len is >= 8 and <= 11
+                ? t.len is >= 8 and <= 14
                 : t.len is >= 13 and <= 25;
             return (actual == expected).Label($"{t.mhc} len {t.len}: {actual} ≠ {expected}");
         });
@@ -7907,8 +7907,8 @@ public class OncologyProperties
             Assert.That(OncologyAnalyzer.ClassifyBindingAffinity(500.0), Is.EqualTo(OncologyAnalyzer.BindingStrength.NonBinder), "500 ⇒ NonBinder.");
             Assert.That(OncologyAnalyzer.ClassifyBindingRank(0.5, OncologyAnalyzer.MhcClass.ClassI), Is.EqualTo(OncologyAnalyzer.BindingStrength.Weak),
                 "Class I rank 0.5 is not < 0.5 ⇒ Weak.");
-            Assert.That(OncologyAnalyzer.ClassifyMhcBinding(12, 1.0, OncologyAnalyzer.MhcClass.ClassI), Is.EqualTo(OncologyAnalyzer.BindingStrength.NonBinder),
-                "Length 12 is invalid for class I ⇒ NonBinder regardless of IC50.");
+            Assert.That(OncologyAnalyzer.ClassifyMhcBinding(15, 1.0, OncologyAnalyzer.MhcClass.ClassI), Is.EqualTo(OncologyAnalyzer.BindingStrength.NonBinder),
+                "Length 15 is invalid for class I (> 14) ⇒ NonBinder regardless of IC50.");
             Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.ClassifyBindingAffinity(0.0), "IC50 must be > 0.");
             Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.ClassifyBindingRank(101.0, OncologyAnalyzer.MhcClass.ClassI), "%Rank must be ≤ 100.");
         });

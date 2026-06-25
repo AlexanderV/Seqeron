@@ -309,7 +309,7 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 135 | ONCO-PLOIDY-001 | Oncology | ✅ | ✅ | ✅ CLEAN | reports/ONCO-PLOIDY-001.md |
 | 136 | ONCO-CLONAL-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
 | 137 | ONCO-NEO-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
-| 138 | ONCO-MHC-001 | Oncology | 🟡 | ✅ | ✅ CLEAN | reports/ONCO-MHC-001.md (re-validated 2026-06-25 after predictors split to MHC-MATRIX-001/MHC-NN-001; own surface = IC50/%Rank classification + predict→classify chain; cutoffs 50/500 nM + %Rank 0.5/2/2/10 re-grounded; strict-`<` boundaries hand-verified; fixture 47 green; no code/test change) |
+| 138 | ONCO-MHC-001 | Oncology | ⬜ | ⬜ | ⬜ pending | reports/ONCO-MHC-001.md (re-reset 2026-06-26: class I peptide-length window widened 8–11 → 8–14 — the full NetMHCpan-4.1 class I window — `MhcClassIMaxPeptideLength` 11 → 14, propagating to `IsValidPeptideLength` + `GenerateNeoantigenPeptides` default; lengths 12/13/14 oracle-verified vs `mhcflurry` 2.1.5; 8–11 byte-identical. Pending independent re-validation) |
 | 139 | ONCO-CTDNA-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
 | 140 | ONCO-MRD-001 | Oncology | 🟡 | ✅ | ✅ CLEAN | reports/ONCO-MRD-001.md |
 | 141 | ONCO-CHIP-001 | Oncology | ✅ | ✅ | ✅ CLEAN | reports/ONCO-CHIP-001.md |

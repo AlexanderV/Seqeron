@@ -31,7 +31,7 @@
 2. Class II %Rank: strong binder < 2%, weak binder < 10% (default) — Reynisson 2020.
 3. IC50 tiers: high (strong) < 50 nM, intermediate (weak) < 500 nM, low < 5000 nM — IEDB (#4); the 50/500 nM cutoffs trace to Sette 1994 "≈500 nM (preferably 50 nM or less)".
 4. 500 nM is the binder/non-binder demarcation — Roomp 2010 (PMC2836306), corroborating IEDB.
-5. Class I peptide length: 8–14, default 8–11 — Reynisson 2020. Class II: 13–25 — IEDB (#5).
+5. Class I peptide length: **8–14** (the full NetMHCpan-4.1 class I window; the service offers 8/9/10/11/12/13/14-mer options) — Reynisson 2020. Class II: 13–25 — IEDB (#5). (Within the MHCflurry encoding's 5–15 support, `max_length = 15`.)
 6. The PAN-ALLELE prediction (NetMHCpan neural model) is out of scope. An opt-in MATRIX-BASED predictor is now provided: the BIMAS product rule and the SMM IC50 transform (below). The trained coefficient MATRIX is caller-supplied (no redistributable matrix was obtainable).
 7. BIMAS scoring (verbatim): running score starts at 1.0, is multiplied by each position's coefficient, then by a final constant → estimated half-time of dissociation (HLA-A2); unlisted residue coefficient = 1.0 — source #7; Parker 1994 (#6) "calculated by multiplying together the corresponding coefficients".
 8. SMM/IEDB transform (verbatim): `log50k = 1 − log(IC50)/log(50000)` ⇒ `IC50 = 50000^(1 − score)`; the score is the sum of position-specific additive contributions plus an intercept — sources #8, #9.
@@ -54,7 +54,7 @@
 |--------|-------|------|-------|
 | `ClassifyBindingAffinity(double ic50Nm)` | OncologyAnalyzer | Canonical | IC50 → Strong/Weak/NonBinder (50/500 nM) |
 | `ClassifyBindingRank(double percentRank, MhcClass mhcClass)` | OncologyAnalyzer | Canonical | %Rank → Strong/Weak/NonBinder (class I 0.5/2; class II 2/10) |
-| `IsValidPeptideLength(int length, MhcClass mhcClass)` | OncologyAnalyzer | Canonical | class I 8–11, class II 13–25 |
+| `IsValidPeptideLength(int length, MhcClass mhcClass)` | OncologyAnalyzer | Canonical | class I 8–14, class II 13–25 |
 | `ClassifyMhcBinding(int peptideLength, double ic50Nm, MhcClass mhcClass)` | OncologyAnalyzer | Delegate | length gate + `ClassifyBindingAffinity` |
 | `PredictIc50Smm(string peptide, PmhcScoringMatrix matrix)` | OncologyAnalyzer | Canonical | SMM sum → `IC50 = 50000^(1−score)` |
 | `PredictBindingHalfLifeBimas(string peptide, PmhcScoringMatrix matrix)` | OncologyAnalyzer | Canonical | BIMAS product → finalConstant·∏ coefficients |
@@ -105,9 +105,9 @@
 | M11 | %Rank class II strong | rank = 1.5, class II | Strong | Reynisson 2020 (<2) |
 | M12 | %Rank class II weak boundary | rank = 10.0, class II | NonBinder | Reynisson 2020 ("<10"); INV-4 |
 | M13 | %Rank class II weak | rank = 5.0, class II | Weak | Reynisson 2020 (<10) |
-| M14 | Length class I valid | len = 9, class I | true | Reynisson 2020 (8–11) |
+| M14 | Length class I valid | len = 8/9/11/14, class I | true | Reynisson 2020 (class I 8–14) |
 | M15 | Length class I too short | len = 7, class I | false | Reynisson 2020 |
-| M16 | Length class I above range | len = 12, class I | false | Reynisson 2020 (default 8–11) |
+| M16 | Length class I above range | len = 15, class I | false | Reynisson 2020 (class I window tops at 14) |
 | M17 | Length class II valid | len = 15, class II | true | IEDB #5 (13–25) |
 | M18 | Length class II too short | len = 12, class II | false | IEDB #5 |
 | M19 | Length class II too long | len = 26, class II | false | IEDB #5 |
@@ -138,7 +138,7 @@
 | MF4 | Unknown/null allele | "HLA-Z\*99:99" / null | KeyNotFoundException / ArgumentNullException | predictor contract |
 | MF5 | Table scale | GetAllelePseudosequences() | > 5000 HLA- alleles | `allele_sequences.csv` (#11) |
 | MF6 | `to_ic50` anchors | ToIc50(0/1/0.5) | 50000 / 1 / √50000 | INV-9; `regression_target.to_ic50` (#11) |
-| MF7 | Single-network oracle parity | 8 peptide/allele pairs (incl. SIINFEKL/A\*02:01) | single-net IC50 within 0.1% of mhcflurry oracle | mhcflurry 2.1.5 oracle (#11) |
+| MF7 | Single-network oracle parity | 11 peptide/allele pairs (8 of len 8–10 incl. SIINFEKL/A\*02:01, plus len-12/13/14 windows GILGFVFTLAAA / GILGFVFTLAAAA / GILGFVFTLAAAAA) | single-net IC50 within 0.1% of mhcflurry oracle (len 12/13/14 = 25274.910033 / 32389.125801 / 32972.178346 nM) | mhcflurry 2.1.5 oracle (#11) |
 | MF8 | Strong vs non-binder ranking | GILGFVFTL vs SIINFEKL on HLA-A\*02:01 | strong < 50 nM; non-binder > 5000 nM; ratio > 100× | mhcflurry oracle (#11) |
 | MF9 | Ensemble = geometric mean | duplicate one network ×3 | equals the single-network IC50 | INV-10; `ensemble_centrality.py` (#11) |
 | MF10 | Empty ensemble | 0 networks | ArgumentException | predictor contract |
@@ -230,12 +230,13 @@
 
 ## 6. Assumption Register
 
-**Total assumptions:** 2
+**Total assumptions:** 1
 
 | # | Assumption | Used In |
 |---|-----------|---------|
-| 1 | Class I accepted length range = 8–11 (Reynisson default; matches ONCO-NEO-001 constants) rather than the full 8–14 | M16, `IsValidPeptideLength` class I |
-| 2 | The coefficient MATRIX is caller-supplied — no redistributable trained matrix was obtainable (BIMAS CGI dead/unarchived; Parker 1994 paywalled; IEDB SMM non-commercial). Only the published scoring RULES are embedded. | P1–P18, `Predict*`, `LoadScoringMatrix` |
+| 1 | The coefficient MATRIX is caller-supplied — no redistributable trained matrix was obtainable (BIMAS CGI dead/unarchived; Parker 1994 paywalled; IEDB SMM non-commercial). Only the published scoring RULES are embedded. | P1–P18, `Predict*`, `LoadScoringMatrix` |
+
+> **Resolved 2026-06-26:** the earlier assumption "class I accepted length range = 8–11" is removed. The accepted class I range is now the full NetMHCpan-4.1 window **8–14** (`MhcClassIMaxPeptideLength` 11 → 14), within the MHCflurry encoding's 5–15 support; lengths 12/13/14 are oracle-verified (see MF7).
 
 ---
 

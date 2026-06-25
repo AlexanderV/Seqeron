@@ -151,6 +151,19 @@
 
 ---
 
+### Class I peptide-length window — re-confirmed for the 8→14 widening (2026-06-26)
+
+**Accessed:** 2026-06-26
+**Authority rank:** 1 (Reynisson 2020 / NetMHCpan-4.1 service) + 3 (MHCflurry reference source).
+**How retrieved (this session):**
+- WebFetch of the NetMHCpan-4.1 service page `https://services.healthtech.dtu.dk/services/NetMHCpan-4.1/` — the class I peptide-length selector offers checkboxes "8mer / 9mer / 10mer / 11mer / 12mer / 13mer / 14mer peptides" (the full 8–14 class I window).
+- WebFetch of the MHCflurry source `https://raw.githubusercontent.com/openvax/mhcflurry/master/mhcflurry/encodable_sequences.py` — `left_pad_centered_right_pad` states "We arbitrarily set a minimum length of 5"; the encoding raises `EncodingError` when `length < min_length or length > max_length`; the result shape is `(n, max_length * 3)`.
+- WebFetch of `https://raw.githubusercontent.com/openvax/mhcflurry/master/mhcflurry/class1_neural_network.py` — the pan-allele `network_hyperparameter_defaults.peptide_encoding` sets `"max_length": 15`.
+
+**Conclusion:** the faithful class I window is **8–14** (NetMHCpan-4.1 service), within the encoding's 5–15 support (`max_length = 15`). `MhcClassIMaxPeptideLength` is widened 11 → 14 (not 15) to match the NetMHCpan-4.1 class I window; callers may pass `maxLength` up to 15 to reach the encoding ceiling.
+
+---
+
 ## Documented Corner Cases and Failure Modes
 
 ### From MHCflurry source
@@ -170,7 +183,7 @@
 
 ### From Reynisson et al. (2020)
 
-1. **Class I length out of range:** lengths below 8 or above 14 are not valid class I peptides; the canonical neoantigen search default is 8–11. A peptide whose length is outside the class's accepted range is not a valid binder candidate.
+1. **Class I length out of range:** lengths below 8 or above 14 are not valid class I peptides; the NetMHCpan-4.1 class I service offers 8/9/10/11/12/13/14-mer options. The accepted class I range is the full 8–14 window. A peptide whose length is outside the class's accepted range is not a valid binder candidate.
 
 ### From Sette et al. (1994) / IEDB
 
@@ -210,15 +223,16 @@
 
 ### Dataset: peptide length validity by MHC class
 
-**Source:** Reynisson et al. (2020) (class I 8–14, default 8–11); IEDB class II tool description (13–25).
+**Source:** Reynisson et al. (2020) (class I 8–14); IEDB class II tool description (13–25).
 
 | Parameter | Value |
 |-----------|-------|
-| Class I accepted length range | 8–11 (canonical neoantigen search default) |
+| Class I accepted length range | 8–14 (NetMHCpan-4.1 class I peptide window) |
 | Class II accepted length range | 13–25 |
 | Class I length 7 | invalid (too short) |
 | Class I length 9 | valid |
-| Class I length 12 | invalid (above canonical default range) |
+| Class I length 14 | valid (NetMHCpan-4.1 class I max) |
+| Class I length 15 | invalid (above 8–14) |
 | Class II length 15 | valid |
 | Class II length 12 | invalid |
 
@@ -261,8 +275,11 @@
 | SIINFEKL | HLA-B\*07:02 | 28830.796646 | 29061.956599 |
 | SLYNTVATL | HLA-A\*02:01 | 28.972028 | 35.353629 |
 | CINGVCWTV | HLA-A\*02:01 | 92.105940 | 99.784630 |
+| GILGFVFTLAAA (len 12) | HLA-A\*02:01 | 25274.910033 | 26924.587653 |
+| GILGFVFTLAAAA (len 13) | HLA-A\*02:01 | 32389.125801 | 31120.606836 |
+| GILGFVFTLAAAAA (len 14) | HLA-A\*02:01 | 32972.178346 | 32737.844408 |
 
-The C# port reproduces both the single-network IC50s (tested in CI against the embedded member) and the full-ensemble IC50s (verified in-session against the live model) to within **< 0.03%** relative error.
+The C# port reproduces both the single-network IC50s (tested in CI against the embedded member) and the full-ensemble IC50s (verified in-session against the live model) to within **< 0.03%** relative error. The length-12/13/14 rows confirm the widened class I window (8 → 14): the `left_pad_centered_right_pad` encoding (`max_length = 15`) and the forward pass score 12/13/14-mers unchanged. The 8–11 results are byte-identical to the previous session (the encoding constants are untouched). Single-net 12/13/14 values are from an independent NumPy forward pass over the embedded member's `weights_*.npz` (the same reference reproducing the 8/9-mer goldens exactly); full-ensemble values are from `Class1AffinityPredictor.predict` over all 10 `models_class1_pan` members, re-run in-session.
 
 ---
 
@@ -272,7 +289,7 @@ The C# port reproduces both the single-network IC50s (tested in CI against the e
 
 1. **ASSUMPTION: Caller-supplied coefficient matrix (matrix-based prediction).** No redistributable, cross-verifiable trained HLA coefficient matrix could be retrieved this session: the public BIMAS coefficient files are served by a now-defunct dynamic CGI (not archived), the Parker (1994) 180-value table is paywalled, and the IEDB SMM matrices carry a non-commercial / no-redistribution licence. The library therefore embeds only the published *scoring rules* (BIMAS product; SMM `IC50 = 50000^(1−score)`) and a `LoadScoringMatrix` loader, and the caller supplies the matrix values under their own licence. This mirrors ONCO-IMMUNE-001 (CIBERSORT LM22 caller-supplied). The scoring rules are fully sourced and cross-verifiable; the trained weights are not embedded.
 
-1. **ASSUMPTION: Class I canonical length range = 8–11.** The source gives 8–14 as the full class I range with 8–11 as the default. This unit adopts 8–11 as the accepted class I range to match the existing `OncologyAnalyzer.MhcClassIMin/MaxPeptideLength` constants (ONCO-NEO-001) and the pVACtools canonical neoantigen search. This is a documented default, not an invented value; callers can pass an explicit range. It affects `IsValidPeptideLength` output for lengths 12–14.
+1. **RESOLVED: Class I length range = 8–14 (the full NetMHCpan-4.1 class I peptide window).** The accepted class I range is now the full 8–14 window stated by Reynisson et al. (2020) and offered by the NetMHCpan-4.1 class I service (8/9/10/11/12/13/14-mer options) — `OncologyAnalyzer.MhcClassIMaxPeptideLength` was widened 11 → 14, which propagates to both `IsValidPeptideLength` and the `GenerateNeoantigenPeptides` default window (ONCO-NEO-001). The MHCflurry `left_pad_centered_right_pad` peptide encoding admits lengths 5–15 (`max_length = 15`), so lengths 12–14 are scored unchanged: the embedded single-network member reproduces the live `mhcflurry` 2.1.5 single-net IC50 for `GILGFVFTLAAA` (len 12) = 25274.910033 nM, `GILGFVFTLAAAA` (len 13) = 32389.125801 nM, `GILGFVFTLAAAAA` (len 14) = 32972.178346 nM — the same NumPy forward-pass reference that reproduces the 8/9-mer goldens (SIINFEKL 11483.195201, GILGFVFTL 19.123150) exactly. The 8–11 behaviour is byte-identical (the encoding constants are unchanged). Earlier this unit adopted the narrower pVACtools 8–11 default; this is no longer an assumption.
 
 ---
 
@@ -312,3 +329,4 @@ The C# port reproduces both the single-network IC50s (tested in CI against the e
 - **2026-06-14**: Initial documentation.
 - **2026-06-25**: Added matrix-based prediction — BIMAS product rule (Parker 1994 / BIMAS docs) and SMM `IC50 = 50000^(1−score)` (Peters & Sette 2005 / IEDB log50k). Documented that no redistributable trained matrix was obtainable → matrix is caller-supplied (Framework).
 - **2026-06-25**: Added the ported MHCflurry 2.0 Class I pan-allele binding-AFFINITY neural network (O'Donnell et al. 2020; Apache-2.0 source + weights) — BLOSUM62 `left_pad_centered_right_pad` peptide encoding, 37-residue allele pseudosequence (bundled), feed-forward forward pass (feedforward + with-skip-connections), `IC50 = 50000^(1−x)`, geometric-mean ensemble. Oracle = `mhcflurry` 2.1.5 / `models_class1_pan` 20200610; C# port verified to <0.03%. Full 80 MB ensemble weights not embedded (size); one member embedded for CI parity, full ensemble loaded via `LoadWeightPack`.
+- **2026-06-26**: Widened the class I peptide-length window 8–11 → **8–14** (`MhcClassIMaxPeptideLength` 11 → 14), the full NetMHCpan-4.1 class I window (re-fetched the service page + MHCflurry `encodable_sequences.py`/`class1_neural_network.py` source this session). This propagates to `IsValidPeptideLength` and the `GenerateNeoantigenPeptides` default. Verified lengths 12/13/14 reproduce the live `mhcflurry` 2.1.5 single-net oracle (25274.910033 / 32389.125801 / 32972.178346 nM) within RelTol 1e-3; 8–11 results are byte-identical. The "8–11 default" clause of the ONCO-MHC-001 limitation is resolved.

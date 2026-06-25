@@ -9,7 +9,8 @@
 //         https://doi.org/10.1016/j.cell.2020.09.015
 //
 // Expected windows below are derived BY HAND from the windowing definition (every length-k window
-// of the mutant protein that spans the mutated residue; k in 8..11 for class I; wild-type agretope at
+// of the mutant protein that spans the mutated residue; k in 8..14 for class I (NetMHCpan-4.1 window);
+// wild-type agretope at
 // the same coordinates) — NOT copied from the implementation output.
 // Reference protein (1-based): M1 K2 T3 A4 Y5 I6 A7 K8 Q9 R10 S11 T12 V13 W14 L15 N16 D17 E18 F19 G20 H21.
 
@@ -44,24 +45,26 @@ public class OncologyAnalyzer_GenerateNeoantigenPeptides_Tests
         });
     }
 
-    // M2 — Y5C, default range k=8..11. Each length yields 5 windows (p=5 near N-terminus) → 20 total. Hundal (2020).
+    // M2 — Y5C, default range k=8..14 (NetMHCpan-4.1 class I window). Each of the 7 lengths yields 5 windows
+    // (p=5 near N-terminus; for every k≤14 the right clamp min(5,21-k+1) is still 5) → 35 total. Reynisson (2020).
     [Test]
-    public void GenerateNeoantigenPeptides_DefaultClassIRange_TwentyPeptides()
+    public void GenerateNeoantigenPeptides_DefaultClassIRange_ThirtyFivePeptides()
     {
         IReadOnlyList<OncologyAnalyzer.NeoantigenPeptide> peptides =
             OncologyAnalyzer.GenerateNeoantigenPeptides(WildType, 'C', 5);
 
         Assert.Multiple(() =>
         {
-            Assert.That(peptides.Count, Is.EqualTo(20),
-                "k=8..11, 5 windows each (p=5) → 20 candidate peptides (Hundal 2020 8-11mer; Li 2020 windowing)");
-            Assert.That(peptides.Count(p => p.Length == 8), Is.EqualTo(5), "5 8-mers");
-            Assert.That(peptides.Count(p => p.Length == 9), Is.EqualTo(5), "5 9-mers");
-            Assert.That(peptides.Count(p => p.Length == 10), Is.EqualTo(5), "5 10-mers");
-            Assert.That(peptides.Count(p => p.Length == 11), Is.EqualTo(5), "5 11-mers");
+            Assert.That(peptides.Count, Is.EqualTo(35),
+                "k=8..14, 5 windows each (p=5) → 35 candidate peptides (Reynisson 2020 NetMHCpan-4.1 8-14mer; Li 2020 windowing)");
+            for (int k = 8; k <= 14; k++)
+            {
+                int len = k;
+                Assert.That(peptides.Count(p => p.Length == len), Is.EqualTo(5), $"5 {len}-mers");
+            }
             // Ordered by length ascending then start ascending (INV-06).
             Assert.That(peptides.First().Length, Is.EqualTo(8), "ordered length-ascending: first is an 8-mer");
-            Assert.That(peptides.Last().Length, Is.EqualTo(11), "ordered length-ascending: last is an 11-mer");
+            Assert.That(peptides.Last().Length, Is.EqualTo(14), "ordered length-ascending: last is a 14-mer");
         });
     }
 
@@ -254,11 +257,11 @@ public class OncologyAnalyzer_GenerateNeoantigenPeptides_Tests
     [Test]
     public void GenerateNeoantigenPeptides_ProteinShorterThanAllLengths_Empty()
     {
-        // Protein length 5; default request k=8..11 — none fit.
+        // Protein length 5; default request k=8..14 — none fit.
         IReadOnlyList<OncologyAnalyzer.NeoantigenPeptide> peptides =
             OncologyAnalyzer.GenerateNeoantigenPeptides("MKTAY", 'C', 5);
 
-        Assert.That(peptides, Is.Empty, "no class I window (8-11mer) fits a 5-residue protein");
+        Assert.That(peptides, Is.Empty, "no class I window (8-14mer) fits a 5-residue protein");
     }
 
     // C2 — single length subset (min==max==10) returns only 10-mers.
