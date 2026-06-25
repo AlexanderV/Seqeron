@@ -53,7 +53,7 @@ State (end of session): ✅ CLEAN (fully functional) · 🔧 LIMITED (see report
 | 21 | PRIMER-TM-001 | MolTools | 🟡 | ✅ | ✅ CLEAN | reports/PRIMER-TM-001.md |
 | 22 | PRIMER-DESIGN-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/PRIMER-DESIGN-001.md |
 | 23 | PRIMER-STRUCT-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/PRIMER-STRUCT-001.md |
-| 24 | PROBE-DESIGN-001 | MolTools | ⬜ | ⬜ | ⬜ pending | reports/PROBE-DESIGN-001.md |
+| 24 | PROBE-DESIGN-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/PROBE-DESIGN-001.md |
 | 25 | PROBE-VALID-001 | MolTools | ⬜ | ⬜ | ⬜ pending | reports/PROBE-VALID-001.md |
 | 26 | RESTR-FIND-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/RESTR-FIND-001.md |
 | 27 | RESTR-DIGEST-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/RESTR-DIGEST-001.md |

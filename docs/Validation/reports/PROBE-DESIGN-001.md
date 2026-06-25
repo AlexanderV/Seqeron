@@ -1,9 +1,18 @@
 # Validation Report: PROBE-DESIGN-001 — Hybridization Probe Design
 
 - **Validated:** 2026-06-24   **Area:** MolTools
-- **Canonical method(s):** `ProbeDesigner.DesignProbes` (+ suffix-tree overload), `DesignProbesOptimized`, `EvaluateProbeWithGc`/`EvaluateProbe`, `DesignTilingProbes`, `DesignAntisenseProbes`, `DesignMolecularBeacon`, `ValidateProbe`, `CheckSpecificity`, `CalculateTm` (via `ThermoConstants`)
+- **Canonical method(s):** `ProbeDesigner.DesignProbes` (+ suffix-tree overload), `DesignProbesOptimized`, `EvaluateProbeWithGc`/`EvaluateProbe`, `DesignTilingProbes`, `DesignAntisenseProbes`, `DesignMolecularBeacon`, `ValidateProbe`, `CheckSpecificity`, `CalculateTm` (via `ThermoConstants`); **TaqMan opt-in:** `EvaluateTaqManProbe`, `SelectTaqManStrand`
 - **Stage A verdict:** PASS-WITH-NOTES
 - **Stage B verdict:** PASS
+
+> **Fresh re-validation 2026-06-25 (this session) — see the dedicated section at the foot
+> of this report.** The unit was reset to ⬜ pending after campaign code changes. The
+> TaqMan opt-in rules (`EvaluateTaqManProbe`/`SelectTaqManStrand`) were independently
+> re-validated against ABI/Thermo Fisher + PREMIER Biosoft + SantaLucia(1998); the generic
+> probe-design surface was re-confirmed. **End-state: CLEAN.** Note: the LNA-adjusted Tm +
+> MGB design split into the separate unit **PROBE-LNATM-001** (validated CLEAN); quantitative
+> MGB ΔTm is proprietary/data-blocked and out of scope for this unit. `EvaluateMgbProbeDesign`
+> remains physically in `ProbeDesigner.cs` but belongs to PROBE-LNATM-001.
 
 ## Scope clarification (important)
 
@@ -170,3 +179,88 @@ length window). Full unfiltered suite green.
 
 Status remains **☐** in `ALGORITHMS_CHECKLIST_V2.md` (it was already ☐ from the TaqMan round; not
 reset, no Quick-Reference change), pending independent re-validation of the new mode.
+
+---
+
+## 2026-06-25 — FRESH INDEPENDENT RE-VALIDATION (post-reset)
+
+Re-validated from scratch in a fresh session after the limitation-elimination campaign reset this
+unit to ⬜. Scope here = the canonical generic probe-design surface **plus** the campaign-added
+**TaqMan chemistry rules** (`EvaluateTaqManProbe`, `SelectTaqManStrand`). The LNA-adjusted NN Tm
+and MGB design rules are now the separate unit **PROBE-LNATM-001** (already CLEAN); quantitative
+MGB ΔTm is proprietary/data-blocked and explicitly out of scope. Sources retrieved/confirmed this
+session: Applied Biosystems / Thermo Fisher "Custom TaqMan Assay Design Guidelines" and PREMIER
+Biosoft "TaqMan probe design tips", plus SantaLucia (1998) / salt-adjusted Tm for the underlying
+melting temperature.
+
+### Stage A — Description (verdict: PASS)
+
+TaqMan hydrolysis-probe rules as implemented, each traced to the external guidance:
+
+| Rule | Implemented threshold | Source statement |
+|------|----------------------|------------------|
+| No 5'-G | `seq[0] != 'G'` | ABI/Thermo + PREMIER: a 5' G adjacent to the reporter dye quenches reporter fluorescence even after cleavage — never put a G at the 5' end. |
+| More C than G | `count(C) > count(G)` | PREMIER Biosoft: "there should be more Cs than Gs"; pick the strand with more C than G. |
+| No ≥4-G run | max G-run `< 4` | PREMIER/ABI: avoid runs of identical nucleotides, "especially four or more consecutive Gs". |
+| GC 30–80% | `0.30 ≤ gc ≤ 0.80` | PREMIER: "G+C content should ideally be 30–80%". |
+| Length 18–22 | `18 ≤ len ≤ 22` (configurable) | PREMIER/ABI: an 18–22-mer probe (IDT/Thermo cite 18–30; tighter ABI/PREMIER default used). |
+| Probe Tm ≥ primer Tm + 10 | `tm ≥ primerTm + 10` (skipped when `primerTm == null`) | ABI/PREMIER: TaqMan probe Tm should be ~8–10 °C higher than the primer Tm. |
+
+The underlying Tm uses the validated dispatch (Wallace `2(A+T)+4(G+C)` for len < 14; salt-adjusted
+`81.5 + 16.6·log₁₀[Na⁺] + 41·%GC − 600/N` for len ≥ 14, [Na⁺] = 0.05 M) — same formulas validated
+under PRIMER-TM-001. Generic-designer description (length/Tm/GC windows, homopolymer cap,
+self-complementarity, hairpin, repeats, specificity 1/N) re-confirmed unchanged from the original
+review above. No description defect. The strand-selection rule ("design on the strand with more C
+than G; if a strand has a 5' G use its complement") is faithfully ABI/PREMIER.
+
+### Stage B — Implementation (verdict: PASS)
+
+Code path: `src/.../Seqeron.Genomics.MolTools/ProbeDesigner.cs` — `EvaluateTaqManProbe` (269–334),
+`SelectTaqManStrand` (348–373), `RankTaqManStrand` (377–386), `GetMaxGuanineRunLength` (388–407),
+`CalculateTm` (1380–1397) → `ThermoConstants`. Each rule realised exactly as Stage A; violations
+list populated per failing rule; `PassesAll` = conjunction of the six booleans.
+
+**Independent hand cross-check (recomputed this session, all match the code):**
+
+| Candidate | Rule under test | Hand result | Code result |
+|-----------|-----------------|-------------|-------------|
+| `CCATCACCCTACATCACC` (len 18, C=10/G=0, GC=10/18=0.5556) | all pass; Tm salt-adj = 81.5 + 16.6·log₁₀(0.05) + 41·0.5556 − 600/18 = **49.3473 °C** | PassesAll (primerTm 38: 49.35 ≥ 48) | ✅ PassesAll, Tm 49.3473 |
+| `GCATCACCCTACATCACC` (5'=G) | no-5'-G fail only | NoGuanineAt5Prime=false, PassesAll=false | ✅ |
+| `ACCCCGGGGACCCTACAT` (GGGG, C=8/G=4) | ≥4-G-run fail; 5'=A ok; C>G ok | NoRunOfFourOrMoreG=false | ✅ |
+| `ACGGGAGGTAGGTAGGTA` (C=1/G=9) | more-C-than-G fail | MoreCytosineThanGuanine=false | ✅ |
+| `CCATCACCCTACATCA` (16 nt) | length fail | LengthInRange=false | ✅ |
+| `CCCGCCCCGCCCCGCCCC` (GC=100%) | GC fail | GcContentInRange=false | ✅ |
+| `CCATCACCCTACATCACC`, primerTm=45 | Tm gate fail (49.35 < 55) | ProbeTmAbovePrimer=false | ✅ |
+| `ACCGGGACCCTACATCAC` (GGG run, C=8/G=3, GC=0.611) | ≥4-G-run **PASS** boundary (run=3 < 4) | NoRunOfFourOrMoreG=true, PassesAll=true | ✅ |
+| `""` (empty) | structural rules fail, no throw | no-5'-G=false, length=false, GC=false, PassesAll=false | ✅ |
+| `SelectTaqManStrand("GTTAGGGTTAGGGTTAGG")` | sense 5'=G & G=9 fails both hard rules → antisense `CCTAACCCTAACCCTAAC` (5'=C, C=9) | picks antisense (IsRC=true) | ✅ |
+| `SelectTaqManStrand("CCATCACCCTACATCACC")` | sense compliant → keep sense | IsRC=false | ✅ |
+| `SelectTaqManStrand("GATCACCCTACATCAC")` (16 nt) | neither passes (length); sense rank 5 (more C than G) > antisense rank 3 → keep sense | IsRC=false, sense returned | ✅ (exercises the `RankTaqManStrand` fallback) |
+
+### Test-quality audit (HARD gate)
+
+`ProbeDesigner_TaqMan_Tests.cs` now **14 tests** (was 12; +2 added this session to close real gaps):
+- Pre-existing TM1–TM10 + 2 null-arg edges: each TaqMan rule's *fail* side, a full *pass*, the
+  null-primer skip, and both strand-selection directions — all asserting exact hand-derived values
+  (Tm 49.3473 °C, C/G counts, exact RC strings), not code echoes.
+- **Added** `…_NeitherStrandPasses_PicksHigherRankedByHardRules` (TM11) — exercises the previously
+  uncovered `RankTaqManStrand` tie-break path (both strands imperfect → more-C-than-G strand wins).
+- **Added** `…_ThreeGuanineRun_PassesNoFourGRule` (TM12, GGG boundary PASS) and
+  `…_EmptySequence_FailsAllStructuralRules` (TM13, defined empty-input behaviour).
+- Generic surface (`DesignProbes` + suffix-tree overload, tiling, antisense, molecular beacon,
+  `ValidateProbe`, specificity, empty/null/short) covered by `ProbeDesigner_ProbeDesign_Tests.cs`
+  with exact sourced values (re-confirmed from the original review). No green-washing found.
+
+### Build & test
+
+`export PATH="/usr/local/share/dotnet:…"` → dotnet 10.0.301. Full unfiltered
+`dotnet test Seqeron.sln -c Debug`: **Seqeron.Genomics.Tests 18782 passed / 0 failed**; all other
+projects pass (Chromosome.Tests is a pre-existing empty assembly, not a failure). 0 warnings /
+0 errors on the changed test file.
+
+### Verdict
+
+- **Stage A: PASS**, **Stage B: PASS**, **State: ✅ CLEAN.** No defect found in code or description.
+  Two evidence-based tests added to close coverage gaps (rank-fallback path; G-run-PASS and
+  empty-string edges). Quantitative MGB ΔTm remains proprietary/data-blocked and is out of scope
+  for this unit (handled, qualitatively, under PROBE-LNATM-001).

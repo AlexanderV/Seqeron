@@ -220,9 +220,62 @@ public class ProbeDesigner_TaqMan_Tests
     }
 
     [Test]
-    public void SelectTaqManStrand_NullSequence_Throws()
+    public void SelectTaqManStrand_NeitherStrandPasses_PicksHigherRankedByHardRules()
     {
-        Assert.Throws<ArgumentNullException>(() => ProbeDesigner.SelectTaqManStrand(null!));
+        // TM11: ranking-fallback path (private RankTaqManStrand). Both strands fail (16 nt is
+        // outside 18-22, so PassesAll is false on both), forcing the rank-based tie-break.
+        // sense = GATCACCCTACATCAC : 5'=G (fails no-5'-G), C=7 > G=1 (more-C-than-G holds),
+        //   no >=4-G run, GC=0.5 in range -> rank = 0 + 2 + 1 + 1 + 1(Tm gate skipped) = 5.
+        // antisense = GTGATGTAGGGTGATC : 5'=G (fails), C=1 < G=7 (fails more-C), no >=4-G run,
+        //   GC=0.5 in range -> rank = 0 + 0 + 1 + 1 + 1 = 3.
+        // The more-C-than-G strand (sense, rank 5) must win even though neither passes outright.
+        const string sense = "GATCACCCTACATCAC";
+
+        var (probe, isRc, eval) = ProbeDesigner.SelectTaqManStrand(sense);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(eval.PassesAll, Is.False, "Neither 16-nt strand passes the length rule.");
+            Assert.That(isRc, Is.False, "Sense ranks higher (more C than G) and must be chosen.");
+            Assert.That(probe, Is.EqualTo(sense), "Higher-ranked sense strand returned unchanged.");
+            Assert.That(eval.MoreCytosineThanGuanine, Is.True, "Chosen strand has more C than G (C=7 > G=1).");
+        });
+    }
+
+    #endregion
+
+    #region EvaluateTaqManProbe — boundary pass sides (Should)
+
+    [Test]
+    public void EvaluateTaqManProbe_ThreeGuanineRun_PassesNoFourGRule()
+    {
+        // TM12: the no->=4-G-run rule is "< 4"; a run of exactly three Gs must PASS it.
+        // GCC GGG ... -> wait, keep 5'!=G. ACCGGGACCCTACATCACC trimmed to 18: ACCGGGACCCTACATCAC.
+        // 5'=A, run of 3 Gs (GGG), C=8 > G=3, len=18, GC=11/18=0.611 in range.
+        const string threeGRun = "ACCGGGACCCTACATCAC";
+        var e = ProbeDesigner.EvaluateTaqManProbe(threeGRun);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(e.NoRunOfFourOrMoreG, Is.True, "A run of exactly three Gs is allowed (rule is < 4).");
+            Assert.That(e.PassesAll, Is.True, "All other rules also hold for this probe.");
+        });
+    }
+
+    [Test]
+    public void EvaluateTaqManProbe_EmptySequence_FailsAllStructuralRules()
+    {
+        // TM13: defined behaviour for the empty-string edge (no throw; structural rules fail).
+        var e = ProbeDesigner.EvaluateTaqManProbe("");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(e.NoGuanineAt5Prime, Is.False, "Empty sequence has no valid 5' base -> rule not satisfied.");
+            Assert.That(e.MoreCytosineThanGuanine, Is.False, "C=0 is not > G=0.");
+            Assert.That(e.LengthInRange, Is.False, "Length 0 is outside 18-22.");
+            Assert.That(e.GcContentInRange, Is.False, "GC=0 is below 30%.");
+            Assert.That(e.PassesAll, Is.False, "An empty probe cannot pass.");
+        });
     }
 
     #endregion
