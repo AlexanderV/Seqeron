@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 255 |
-| **Completed** | 233 |
+| **Completed** | 234 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 22 |
+| **Not Started** | 21 |
 
 ---
 
@@ -275,7 +275,7 @@
 | ☑ | MIRNA-CLASSIFY-001 | MiRNA | 1 | Bonnet et al. (2004), miRBase (public domain), Zhang (2006) MFEI | [TestSpec](tests/TestSpecs/MIRNA-CLASSIFY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_PreMiRna_Tests.cs) |
 | ☑ | MIRNA-CLEAVAGE-001 | MiRNA | 1 | Han et al. (2006), Park et al. (2011), Auyeung et al. (2013) | [TestSpec](tests/TestSpecs/MIRNA-CLEAVAGE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_PreMiRna_Tests.cs) |
 | ☑ | REP-APPROX-001 | Repeats | 2 | Benson (1999) TRF | [TestSpec](tests/TestSpecs/REP-APPROX-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RepeatFinder_ApproximateTandemRepeats_Tests.cs) |
-| ☐ | CHROM-ALPHASAT-001 | Chromosome | 2 | Waye & Willard (1987), Henikoff et al. (2001), CENP-B box motif | [TestSpec](tests/TestSpecs/CHROM-ALPHASAT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ChromosomeAnalyzer_AlphaSatellite_Tests.cs) |
+| ☑ | CHROM-ALPHASAT-001 | Chromosome | 2 | Waye & Willard (1987), Henikoff et al. (2001), CENP-B box motif | [TestSpec](tests/TestSpecs/CHROM-ALPHASAT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ChromosomeAnalyzer_AlphaSatellite_Tests.cs) |
 | ☐ | CHROM-HOR-001 | Chromosome | 1 | McNulty & Sullivan (2018), Alkan et al. (2007) | [TestSpec](tests/TestSpecs/CHROM-HOR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ChromosomeAnalyzer_HigherOrderRepeat_Tests.cs) |
 
 **Statuses:** ☐ Not Started | ⏳ In Progress | ☑ Complete | ⛔ Blocked
@@ -5657,13 +5657,13 @@ DnaSequence.Complement   DnaSequence.ReverseComplement
 
 ---
 
-#### CHROM-ALPHASAT-001: Alpha-Satellite Monomer Detection ☐
+#### CHROM-ALPHASAT-001: Alpha-Satellite Monomer Detection ☑
 
 | Field | Value |
 |-------|-------|
 | **Canonical** | `DetectAlphaSatellite` |
 | **Area** | Chromosome |
-| **Status** | ☐ Not Started (pending independent Stage A/B re-validation) |
+| **Status** | ☑ Complete (independently validated 2026-06-25; see docs/Validation/reports/CHROM-ALPHASAT-001.md) |
 | **Evidence** | Waye & Willard (1987), Henikoff et al. (2001), CENP-B box motif |
 | **Source** | `ChromosomeAnalyzer.cs` |
 

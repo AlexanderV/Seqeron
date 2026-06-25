@@ -211,6 +211,35 @@ public class ChromosomeAnalyzer_AlphaSatellite_Tests
     }
 
     [Test]
+    public void DetectAlphaSatellite_NonAcgtBases_ExcludedFromAtContentDenominator()
+    {
+        // M-ALPHA-6: Non-ACGT symbols (e.g. 'N') must not pollute the AT fraction. AT content is
+        // defined over ACGT bases only, so N is excluded from BOTH numerator and denominator.
+        // Hand-derived: monomer = 60 A + 40 T + 36 C + 30 G + 5 N = 171 bp.
+        //   ACGT bases = 166 per monomer; AT = 100 per monomer.
+        //   AtContent = 100/166 ≈ 0.6024 (NOT 100/171).
+        //   Periodicity stays 1.0 because position i and i-171 are the identical monomer base
+        //   (including the N positions, which compare N == N).
+        string monomer = new string('A', 60) + new string('T', 40)
+                       + new string('C', 36) + new string('G', 30) + new string('N', 5);
+        Assert.That(monomer.Length, Is.EqualTo(171), "fixture sanity: monomer is 171 bp");
+        string array = TandemArray(monomer, 20);
+
+        var result = ChromosomeAnalyzer.DetectAlphaSatellite(array);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.AtContent, Is.EqualTo(100.0 / 166.0).Within(1e-10),
+                "N bases are excluded from the ACGT denominator: 100 AT / 166 ACGT");
+            Assert.That(result.PeriodicityScore, Is.EqualTo(1.0).Within(1e-10),
+                "Perfect tandem: every base (including N) equals the base 171 positions upstream");
+            Assert.That(result.BestPeriod, Is.EqualTo(171));
+            Assert.That(result.IsAlphaSatellite, Is.True,
+                "periodicity 1.0 >= 0.50 AND AT 100/166 > 0.50");
+        });
+    }
+
+    [Test]
     public void DetectAlphaSatellite_MixedCaseInput_MatchesUppercase()
     {
         string monomer = BuildAtRichMonomer();
