@@ -155,6 +155,32 @@ public class AnnotationProperties
             "Sequence with synthetic ORF must produce at least one result");
     }
 
+    /// <summary>
+    /// INV-7 (M): extending the sequence never destroys an ORF — a longer sequence yields ≥ ORFs.
+    /// With requireStartCodon=true every reported ORF is a complete ATG…STOP region. Appending a
+    /// block whose length is a multiple of three to the 3′ end preserves all of them: forward-strand
+    /// frames are anchored to the 5′ end (unaffected by trailing bases), and on the reverse-complement
+    /// strand the appended block becomes a 3k-length prefix that keeps every codon boundary and frame
+    /// phase intact. Extra ORFs can only be added (junction-spanning or newly stop-completed), so the
+    /// count is monotonically non-decreasing. Source: ORF_Detection.md; Wikipedia "Open reading frame".
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FindOrfs_ExtendingSequence_NeverDecreasesCount()
+    {
+        var gen = (from chars in Gen.Elements('A', 'C', 'G', 'T').ArrayOf().Where(a => a.Length >= 100)
+                   from k in Gen.Choose(1, 30)
+                   from tail in Gen.Elements('A', 'C', 'G', 'T').ArrayOf(3 * k)
+                   select (seq: new string(chars), tail: new string(tail))).ToArbitrary();
+
+        return Prop.ForAll(gen, t =>
+        {
+            int baseCount = GenomeAnnotator.FindOrfs(t.seq, minLength: 10).Count();
+            int longerCount = GenomeAnnotator.FindOrfs(t.seq + t.tail, minLength: 10).Count();
+            return (longerCount >= baseCount)
+                .Label($"ORFs(len {t.seq.Length})={baseCount} → ORFs(len {t.seq.Length + t.tail.Length})={longerCount} must not decrease");
+        });
+    }
+
     #endregion
 
     #region ANNOT-GENE-001: R: gene start < end; P: contains RBS motif upstream; D: deterministic

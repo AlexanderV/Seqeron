@@ -57,7 +57,7 @@ Property-based testing генерує сотні випадкових вході
 | 25 | ☑ | PROBE-VALID-001 | MolTools | R: validation pass/fail; D: deterministic; P: Tm in expected range | PrimerProbeProperties.cs |
 | 26 | ☑ | RESTR-FIND-001 | MolTools | R: positions valid; P: site sequence matches enzyme recognition; D: deterministic | RestrictionProperties.cs |
 | 27 | ☑ | RESTR-DIGEST-001 | MolTools | P: sum(fragment lengths) = seq length; R: fragments ≥ 1; D: deterministic | RestrictionProperties.cs |
-| 28 | ☐ | ANNOT-ORF-001 | Annotation | R: ORF start < end ≤ seqLen; P: starts with ATG; M: longer seq → ≥ ORFs; R: len divisible by 3 | AnnotationProperties.cs |
+| 28 | ☑ | ANNOT-ORF-001 | Annotation | R: ORF start < end ≤ seqLen; P: starts with ATG; M: longer seq → ≥ ORFs; R: len divisible by 3 | AnnotationProperties.cs |
 | 29 | ☑ | ANNOT-GENE-001 | Annotation | R: gene start < end; P: contains RBS motif upstream; D: deterministic | AnnotationProperties.cs |
 | 30 | ☑ | ANNOT-PROM-001 | Annotation | R: position ≥ 0; P: contains -10/-35 box; M: lower score threshold → ≥ promoters | AnnotationProperties.cs |
 | 31 | ☐ | ANNOT-GFF-001 | Annotation | RT: parse(serialize(features))=features; R: well-formed GFF3; P: coordinates 1-based | AnnotationProperties.cs |
@@ -296,7 +296,7 @@ Property-based testing генерує сотні випадкових вході
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 197 |
-| ☐ Not started | 61 |
+| ☑ Complete | 198 |
+| ☐ Not started | 60 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
