@@ -2915,5 +2915,104 @@ public class MolToolsMetamorphicTests
 
     #endregion
 
+    // ═══════════════════════════════════════════════════════════════════
+    //  PRIMER-DIMER-001 — most-stable primer dimer ΔG (MolTools)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (SantaLucia & Hicks 2004 unified NN; Primer3/ntthal;
+    //   docs/algorithms/MolTools/DNA_Dimer_Tm.md):
+    //   FindMostStableDimer aligns two oligos antiparallel over every gapless offset and scores the
+    //   most stable contiguous Watson-Crick run; a SELF-dimer is the same method with both strands
+    //   equal. Two metamorphic relations (checklist row 242):
+    //
+    //   • INV (self-dimer of S equals hetero-dimer(S,S)): the self-dimer is, by definition, the
+    //     hetero-dimer of S with a second copy of S — and the dimer of two strands is symmetric in
+    //     strand order (the same physical duplex), so dimer(A,B) and dimer(B,A) agree.
+    //   • MON (extending the WC alignment lowers ΔG): each additional Watson-Crick base pair in the
+    //     aligned run adds one more stabilising nearest-neighbour stack, so a longer complementary
+    //     alignment gives a strictly more negative dimer ΔG°37.
+    //
+    // API under test: PrimerDesigner.FindMostStableDimer / .CalculateSelfDimerMeltingTemperature /
+    //   .CalculateDimerMeltingTemperature (DimerResult).
+
+    #region PRIMER-DIMER-001 — most-stable dimer ΔG
+
+    // Deterministic, partially self-complementary oligos that form a real self-dimer.
+    private static readonly string[] SelfDimerOligos =
+    {
+        "CGATCGATCG",
+        "GCGCGCGC",
+        "ACGTACGTACGT",
+        "GGGGCCCC",
+    };
+
+    [Test]
+    [Description("INV: a self-dimer is the hetero-dimer of S with a copy of itself, and the dimer is symmetric in strand order — dimer(A,B) equals dimer(B,A).")]
+    public void Dimer_SelfDimer_EqualsHeteroDimerOfSWithItself()
+    {
+        foreach (string s in SelfDimerOligos)
+        {
+            string copy = new string(s.ToCharArray()); // distinct reference, same content
+
+            double selfTm = PrimerDesigner.CalculateSelfDimerMeltingTemperature(s);
+            double heteroTm = PrimerDesigner.CalculateDimerMeltingTemperature(s, copy);
+
+            // Non-vacuity: S genuinely forms a self-dimer (a real duplex, not NaN).
+            selfTm.Should().NotBe(double.NaN, because: $"'{s}' is partially self-complementary and forms a self-dimer");
+            heteroTm.Should().BeApproximately(selfTm, 1e-9,
+                because: $"the self-dimer of '{s}' is exactly the hetero-dimer of '{s}' with a copy of itself");
+
+            var self = PrimerDesigner.FindMostStableDimer(s, s);
+            var hetero = PrimerDesigner.FindMostStableDimer(s, copy);
+            self.Should().NotBeNull();
+            hetero.Should().Be(self, because: $"FindMostStableDimer('{s}','{s}') equals the hetero-dimer with a copy");
+        }
+    }
+
+    [Test]
+    [Description("INV/SYM: the dimer of two strands is the same physical duplex regardless of which strand is named first, so its base-pair count and ΔG°37 are symmetric in strand order.")]
+    public void Dimer_StrandOrder_IsSymmetric()
+    {
+        const string fullCore = "GCAGTCAGGTC";
+        foreach (int k in new[] { 4, 6, 8 })
+        {
+            string a = fullCore.Substring(0, k);
+            string b = DnaSequence.GetReverseComplementString(a);
+
+            var ab = PrimerDesigner.FindMostStableDimer(a, b);
+            var ba = PrimerDesigner.FindMostStableDimer(b, a);
+
+            ab.Should().NotBeNull(because: $"'{a}' and its reverse complement form a {k}-bp dimer");
+            ba!.Value.BasePairs.Should().Be(ab!.Value.BasePairs,
+                because: "the dimer base-pair count does not depend on which strand is named first");
+            ba.Value.DeltaG37.Should().BeApproximately(ab.Value.DeltaG37, 1e-9,
+                because: "the dimer ΔG°37 is symmetric in strand order (the same duplex)");
+        }
+    }
+
+    [Test]
+    [Description("MON: each extra Watson-Crick base pair in the aligned run adds a stabilising NN stack, so extending the complementary alignment strictly lowers (makes more negative) the dimer ΔG°37.")]
+    public void Dimer_ExtendingWatsonCrickAlignment_LowersDeltaG()
+    {
+        const string fullCore = "GCAGTCAGGTC";
+
+        double previous = double.PositiveInfinity;
+        for (int k = 4; k <= 10; k++)
+        {
+            string strand1 = fullCore.Substring(0, k);
+            string strand2 = DnaSequence.GetReverseComplementString(strand1); // perfect k-bp complement
+
+            var dimer = PrimerDesigner.FindMostStableDimer(strand1, strand2);
+            dimer.Should().NotBeNull(because: $"a perfect {k}-bp complementary pair forms a dimer");
+            dimer!.Value.BasePairs.Should().Be(k, because: $"the whole {k}-nt complementary alignment pairs contiguously");
+
+            dimer.Value.DeltaG37.Should().BeLessThan(previous - 1e-9,
+                because: $"extending the complementary alignment to {k} bp adds another NN stack, so ΔG°37 strictly decreases");
+            previous = dimer.Value.DeltaG37;
+        }
+    }
+
+    #endregion
+
     #endregion
 }
