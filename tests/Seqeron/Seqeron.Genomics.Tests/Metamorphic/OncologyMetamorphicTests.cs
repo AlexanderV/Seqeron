@@ -2415,4 +2415,119 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  MHC-NN-001 — MHCflurry pan-allele NN binding affinity (Oncology)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (O'Donnell et al. 2018/2020 MHCflurry; openvax/mhcflurry amino_acid.py /
+    //   encodable_sequences.py; tests/TestSpecs/MHC-NN-001.md):
+    //   The predictor BLOSUM62-encodes a peptide with the left_pad_centered_right_pad scheme (three
+    //   15-residue blocks, X-padded), encodes the allele's 37-residue pseudosequence, and runs a
+    //   feedforward network whose output maps to IC50 = 50000^(1−x). Two metamorphic relations
+    //   (checklist row 245):
+    //
+    //   • INV (BLOSUM-encoded peptide reproduces the oracle within 0.03%): the bundled single
+    //     network reproduces the MHCflurry NumPy reference IC50 within 0.03% relative; the
+    //     prediction is invariant to peptide case (lowercase is folded to canonical AA) and is
+    //     deterministic.
+    //   • SUB (shorter peptide padded centred): a peptide shorter than 15 is embedded CENTRED in the
+    //     middle block with X padding split floor/ceil — the centred block reproduces the same
+    //     per-residue BLOSUM vectors as the left-aligned block, shifted by the centred pad.
+    //
+    // API under test: MhcflurryAffinityPredictor.EncodePeptide / .PredictIc50 / .LoadWeightPack.
+
+    #region MHC-NN-001 — MHCflurry NN binding affinity
+
+    private const string MhcSingleNetResource = "Seqeron.Genomics.Tests.TestData.Mhcflurry.mhcflurry_single_net.bin";
+
+    private static IReadOnlyList<MhcflurryAffinityPredictor.Network> LoadMhcSingleNet()
+    {
+        var asm = typeof(OncologyMetamorphicTests).Assembly;
+        using System.IO.Stream stream = asm.GetManifestResourceStream(MhcSingleNetResource)
+            ?? throw new System.InvalidOperationException($"Embedded resource '{MhcSingleNetResource}' not found.");
+        return MhcflurryAffinityPredictor.LoadWeightPack(stream);
+    }
+
+    [Test]
+    [Description("INV: the BLOSUM-encoded single network reproduces the MHCflurry NumPy oracle IC50 within 0.03% relative, is invariant to peptide case (lowercase folded to canonical AA), and is deterministic.")]
+    public void MhcNn_BlosumEncodedPeptide_ReproducesOracleWithin003Percent()
+    {
+        var net = LoadMhcSingleNet();
+
+        // mhcflurry 2.1.5 single-net (PAN-CLASS1-1) NumPy oracle IC50 (nM), TestSpec §4.
+        var oracle = new (string Peptide, string Allele, double Ic50)[]
+        {
+            ("SIINFEKL", "HLA-A*02:01", 11483.195201),
+            ("GILGFVFTL", "HLA-A*02:01", 19.123150),
+            ("NLVPMVATV", "HLA-A*02:01", 17.542640),
+            ("SIINFEKL", "HLA-B*07:02", 28830.796646),
+        };
+
+        foreach (var (peptide, allele, expected) in oracle)
+        {
+            double ic50 = MhcflurryAffinityPredictor.PredictIc50(net, peptide, allele);
+
+            double rel = System.Math.Abs(ic50 - expected) / System.Math.Abs(expected);
+            rel.Should().BeLessThanOrEqualTo(3e-4,
+                because: $"the BLOSUM-encoded single network must reproduce the MHCflurry oracle IC50 for {peptide}/{allele} within 0.03%");
+
+            // INV: case folding does not change the prediction (lowercase folded to canonical AA).
+            double lower = MhcflurryAffinityPredictor.PredictIc50(net, peptide.ToLowerInvariant(), allele);
+            lower.Should().BeApproximately(ic50, ic50 * 1e-12,
+                because: $"the encoder folds case, so '{peptide.ToLowerInvariant()}' predicts the same IC50 as '{peptide}'");
+
+            // INV: deterministic.
+            MhcflurryAffinityPredictor.PredictIc50(net, peptide, allele).Should().Be(ic50,
+                because: "the forward pass is deterministic given fixed weights");
+        }
+    }
+
+    [Test]
+    [Description("SUB: a peptide shorter than 15 is embedded centred in the middle block with X padding split floor/ceil — the centred block reproduces the left-aligned block's per-residue BLOSUM vectors, shifted by the centred pad.")]
+    public void MhcNn_ShorterPeptide_IsPaddedCentred()
+    {
+        const int width = MhcflurryAffinityPredictor.EncodingWidth;     // 21
+        const int maxLen = MhcflurryAffinityPredictor.PeptideMaxLength; // 15
+
+        bool TwentyOneVectorsEqual(double[] flat, int posA, int posB)
+        {
+            for (int c = 0; c < width; c++)
+                if (flat[posA * width + c] != flat[posB * width + c])
+                    return false;
+            return true;
+        }
+
+        foreach (string peptide in new[] { "SIINFEKL", "GILGFVFTL", "NLVPMVATV" })
+        {
+            int k = peptide.Length;
+            k.Should().BeLessThan(maxLen, because: "the centred-padding SUB is only non-trivial for peptides shorter than 15");
+
+            double[] flat = MhcflurryAffinityPredictor.EncodePeptide(peptide);
+            flat.Length.Should().Be(MhcflurryAffinityPredictor.PeptideFlatLength, because: "3×15×21 layout");
+
+            int pad = (maxLen - k) / 2;          // floor((15−k)/2): centred-left pad
+            const int leftBlock = 0;             // block 0 starts at position 0 (left-aligned)
+            const int centredBlock = maxLen;     // block 1 starts at position 15 (centred)
+
+            // Each peptide residue sits at centred position pad+i, matching left position i.
+            for (int i = 0; i < k; i++)
+                TwentyOneVectorsEqual(flat, centredBlock + pad + i, leftBlock + i).Should().BeTrue(
+                    because: $"residue {i} of '{peptide}' is centred at offset {pad}+{i}, the same BLOSUM vector as the left-aligned block");
+
+            // The padding positions of the centred block are X — identical to a left-block pad position.
+            int leftPadPos = leftBlock + k; // first X in the left-aligned block
+            for (int j = 0; j < pad; j++)
+                TwentyOneVectorsEqual(flat, centredBlock + j, leftPadPos).Should().BeTrue(
+                    because: $"centred position {j} (before the peptide) is X padding");
+            for (int j = pad + k; j < maxLen; j++)
+                TwentyOneVectorsEqual(flat, centredBlock + j, leftPadPos).Should().BeTrue(
+                    because: $"centred position {j} (after the peptide) is X padding");
+
+            // Non-vacuity: there really is centred padding (pad > 0).
+            pad.Should().BeGreaterThan(0, because: $"a length-{k} peptide leaves {maxLen - k} pad residues, split centred");
+        }
+    }
+
+    #endregion
 }
