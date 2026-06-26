@@ -843,4 +843,110 @@ public class RnaStructureMetamorphicTests
     }
 
     #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  RNA-PKRECURSIVE-001 — recursive pknotsRG pseudoknot prediction (RnaStructure / Analysis)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (Reeder & Giegerich 2004 / Reeder et al. 2007, pknotsRG;
+    //   docs/algorithms/RnaStructure/Pseudoknot_Prediction_Recursive.md §2, §4):
+    //   PredictStructurePseudoknotRecursive folds the WHOLE sequence with a memoised interval
+    //   recurrence in which a pseudoknot "competes with values of unknotted foldings for the
+    //   interval (i,j)", and a knot's three loops may themselves contain further knots. Its
+    //   decomposition set includes the plain MFE and the single top-level H-type knot, so the
+    //   recursive optimum can never be worse than either; it accepts a knot component only when
+    //   it lowers ΔG (9 kcal/mol penalty, INV-PKR-01/04).
+    //
+    // Two metamorphic relations (checklist row 237):
+    //   • MON (recursive ΔG ≤ single-knot ΔG): for every sequence the recursive folder's free
+    //     energy dominates (≤) the single-knot folder's, which in turn dominates the plain MFE —
+    //     because the recursive search strictly contains both alternatives as candidates. The
+    //     dominance is strict on inputs the single-knot method cannot fold (over-arching nested
+    //     and multiple knots), confirming the recursion genuinely helps.
+    //   • INV (separable knots all recovered): a knot recovered in isolation is recovered
+    //     UNCHANGED when a second, separable knot is present elsewhere, and the second knot is
+    //     additionally recovered — so the multi-knot fold is the union of the local recoveries,
+    //     with the crossing count additive. Recovery is local: a distant separable knot does not
+    //     perturb it.
+    //
+    // API under test: RnaSecondaryStructure.PredictStructurePseudoknotRecursive vs
+    //   .PredictStructurePseudoknot vs .CalculateMfeStructure (shared PseudoknotStructure).
+
+    #region RNA-PKRECURSIVE-001 — recursive pseudoknot prediction
+
+    // A single canonical H-type knot in an A·U clamp (knot nested inside an over-arching helix).
+    private const string RecursiveNestedKnot = "AAAAAAAAGGGGAACCCCAACCCCAAGGGGUUUUUUUU";
+
+    // Two A·U-clamped knots side by side (separable): both recovered by the recursive folder.
+    private const string RecursiveTwoKnots =
+        "AAAAAAAAGGGGAACCCCAACCCCAAGGGGUUUUUUUUAAAAAAAAAAAAGGGGAACCCCAACCCCAAGGGGUUUUUUUU";
+
+    [Test]
+    [Description("MON: the recursive folder's decomposition set contains the single-knot fold and the plain MFE, so its ΔG dominates both (recursive ≤ single ≤ MFE); the dominance is strict where only recursion can fold the structure.")]
+    public void PkRecursive_FreeEnergy_DominatesSingleKnotAndMfe()
+    {
+        string[] family =
+        {
+            DesignedHTypeKnot,          // single H-type
+            RecursiveNestedKnot,        // over-arching nested knot (only recursion folds it)
+            RecursiveTwoKnots,          // two separable knots (only recursion folds them)
+            "GGGGAAAACCCC",             // plain hairpin
+            GcHairpin(5),
+            GcHairpin(6),
+        };
+
+        foreach (string seq in family)
+        {
+            double recursive = RnaSecondaryStructure.PredictStructurePseudoknotRecursive(seq).FreeEnergy;
+            double single = RnaSecondaryStructure.PredictStructurePseudoknot(seq).FreeEnergy;
+            double mfe = RnaSecondaryStructure.CalculateMfeStructure(seq).FreeEnergy;
+
+            recursive.Should().BeLessThanOrEqualTo(single + 1e-9,
+                because: $"the recursive search includes the single-knot fold as a candidate, so it is never worse for '{seq}'");
+            single.Should().BeLessThanOrEqualTo(mfe + 1e-9,
+                because: $"the single-knot method falls back to the plain MFE, so it is never worse for '{seq}'");
+        }
+
+        // Strict dominance where the single-knot method cannot fold the structure (non-vacuity).
+        foreach (string seq in new[] { RecursiveNestedKnot, RecursiveTwoKnots })
+        {
+            double recursive = RnaSecondaryStructure.PredictStructurePseudoknotRecursive(seq).FreeEnergy;
+            double single = RnaSecondaryStructure.PredictStructurePseudoknot(seq).FreeEnergy;
+            RnaSecondaryStructure.PredictStructurePseudoknot(seq).HasPseudoknot.Should().BeFalse(
+                because: $"the single-knot method cannot place a nested/second knot in '{seq}'");
+            recursive.Should().BeLessThan(single - 1e-9,
+                because: $"recursion recovers a knot the single-knot method cannot, so its ΔG is strictly lower for '{seq}'");
+        }
+    }
+
+    [Test]
+    [Description("INV: a knot recovered in isolation is recovered unchanged when a second separable knot is present, and the second knot is additionally recovered — the multi-knot fold is the union of the local recoveries (additive crossings).")]
+    public void PkRecursive_SeparableKnots_AllRecovered_Compositionally()
+    {
+        var single = RnaSecondaryStructure.PredictStructurePseudoknotRecursive(RecursiveNestedKnot);
+        var both = RnaSecondaryStructure.PredictStructurePseudoknotRecursive(RecursiveTwoKnots);
+
+        int singleCross = PkCrossingCount(single.Sequence, single.BasePairs);
+
+        // Non-vacuity: the isolated knot really is a recovered, genuinely-crossing pseudoknot.
+        single.HasPseudoknot.Should().BeTrue(because: "the A·U-clamped knot is recovered in isolation");
+        singleCross.Should().BeGreaterThanOrEqualTo(1);
+
+        both.HasPseudoknot.Should().BeTrue(because: "two separable knots must both be recovered");
+
+        // (a) The first knot's pairs are recovered UNCHANGED inside the two-knot fold (local recovery).
+        PkPairSet(both.BasePairs).IsSupersetOf(PkPairSet(single.BasePairs)).Should().BeTrue(
+            because: "a distant separable knot does not perturb the first knot — its exact pairs persist");
+
+        // (b) A second, independent crossing knot is recovered downstream of the first (indices > 37).
+        var downstreamPairs = both.BasePairs.Where(p => p.Position1 > 37 && p.Position2 > 37).ToList();
+        PkCrossingCount(both.Sequence, downstreamPairs).Should().BeGreaterThanOrEqualTo(1,
+            because: "the second separable knot is recovered as its own crossing helix in the downstream region");
+
+        // (c) Crossings are additive: two separable knots cross at least as much as two isolated ones.
+        PkCrossingCount(both.Sequence, both.BasePairs).Should().BeGreaterThanOrEqualTo(2 * singleCross,
+            because: "recovering two separable knots yields at least the sum of the two isolated knots' crossings");
+    }
+
+    #endregion
 }

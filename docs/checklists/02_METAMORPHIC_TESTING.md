@@ -264,7 +264,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 234 | ☑ | SEQ-GC-PROFILE-001 | Statistics | INV: complement preserves GC profile; SHIFT: prepend flank shifts profile |
 | 235 | ☑ | ONCO-ASCAT-001 | Oncology | INV: constant logR shift preserves breakpoints; INV: A/B allele swap preserves total CN |
 | 236 | ☑ | RNA-PKPREDICT-001 | Analysis | INV: known H-type knot recovered; INV: no spurious knot on a plain hairpin |
-| 237 | ☐ | RNA-PKRECURSIVE-001 | Analysis | MON: recursive ΔG ≤ single-knot ΔG; INV: separable knots all recovered |
+| 237 | ☑ | RNA-PKRECURSIVE-001 | Analysis | MON: recursive ΔG ≤ single-knot ΔG; INV: separable knots all recovered |
 | 238 | ☐ | RNA-ACCESS-001 | RnaStructure | MON: extending the queried region cannot raise its unpaired probability; INV: sequence-independent constants reproduce analytic GAAAC value |
 | 239 | ☐ | PROTMOTIF-HMM-001 | ProteinMotif | MON: appending random flank does not raise a true domain's bit score; SUB: stricter E-value → ⊆ hit set |
 | 240 | ☐ | PRIMER-NNTM-001 | MolTools | MON: raising monovalent salt raises Tm; INV: reverse-complement has equal duplex Tm |
@@ -294,6 +294,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 258 |
-| ☑ Complete | 236 |
-| ☐ Not started | 22 |
+| ☑ Complete | 237 |
+| ☐ Not started | 21 |
 | MR relations defined | ~200+ |
