@@ -103,7 +103,7 @@ Property-based testing генерує сотні випадкових вході
 | 71 | ☑ | RNA-STRUCT-001 | RnaStructure | R: pairs count ≤ len/2; P: no crossing pairs (Nussinov); P: paired bases complementary; D: deterministic | RnaStructureProperties.cs |
 | 72 | ☑ | RNA-STEMLOOP-001 | RnaStructure | R: stem len > 0; P: loop len ≥ minLoop; P: stem arms complementary; D: deterministic | RnaStructureProperties.cs |
 | 73 | ☑ | RNA-ENERGY-001 | RnaStructure | R: ΔG ≤ 0 for stable structures; M: more GC pairs → lower energy; D: deterministic | RnaStructureProperties.cs |
-| 74 | ☐ | MIRNA-SEED-001 | MiRNA | R: seed len = 6–8; P: seed at 5' end (pos 2–8); D: deterministic | MiRnaProperties.cs |
+| 74 | ☑ | MIRNA-SEED-001 | MiRNA | R: seed len = 6–8; P: seed at 5' end (pos 2–8); D: deterministic | MiRnaProperties.cs |
 | 75 | ☐ | MIRNA-TARGET-001 | MiRNA | R: score ∈ [0,1]; M: perfect seed match → higher score; D: deterministic | MiRnaProperties.cs |
 | 76 | ☐ | MIRNA-PRECURSOR-001 | MiRNA | R: precursor len > mature len; P: hairpin structure present; D: deterministic | MiRnaProperties.cs |
 | 77 | ☐ | SPLICE-DONOR-001 | Splicing | R: score ∈ [0,1]; P: canonical GT at donor site; D: deterministic | SplicingProperties.cs |
@@ -296,7 +296,7 @@ Property-based testing генерує сотні випадкових вході
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 210 |
-| ☐ Not started | 48 |
+| ☑ Complete | 211 |
+| ☐ Not started | 47 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
