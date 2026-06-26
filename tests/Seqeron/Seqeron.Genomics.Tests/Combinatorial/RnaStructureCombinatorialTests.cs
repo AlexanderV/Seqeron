@@ -986,4 +986,101 @@ public class RnaStructureCombinatorialTests
         hairpin.HasPseudoknot.Should().BeFalse("no spurious knot on a plain hairpin");
         CrossingsOf(hairpin.Sequence, hairpin.BasePairs).Should().Be(0);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: RNA-ACCESS-001 — McCaskill unpaired / accessibility probabilities
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 238.
+    // Spec: tests/TestSpecs/RNA-ACCESS-001.md (CalculateUnpairedProbabilities / CalculateRegionUnpairedProbability). ADVANCED §10.
+    //
+    // Sources: McCaskill (1990), Biopolymers 29:1105 (partition function Z); Bernhart et al. (2006),
+    //   Algorithms Mol. Biol. 1:3 (RNAplfold accessibility); Lorenz et al. (2011), ViennaRNA.
+    //
+    // Model: Z sums Boltzmann weights over all pseudoknot-free structures; p_unpaired(i)=Z_forbid(i)/Z
+    //   so pu(i) = 1 − Σ_j P(i,j); a window's accessibility P(window unpaired) ∈ [0,1] is monotone
+    //   non-increasing in window length; ΔG_ensemble = −RT·ln Z is a lower bound on the MFE at the
+    //   same temperature. A length-1 region ending at i equals the per-base pu(i) (cross-method).
+    //
+    // Dimensions: seqLen(3) × regionLen(3) × temperature(2). Grid 3×3×2 = 18 (exhaustive).
+    //
+    // The combinatorial point: sequence length, window length and temperature interact in the
+    // ensemble. In EVERY cell the per-base probabilities satisfy pu = 1 − Σ P (probabilities,
+    // ≤ 1), the region accessibility stays in [0,1] and equals the per-base pu at length 1, and
+    // (at the model's 37 °C reference) the ensemble free energy never exceeds the MFE.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // Strong G·C hairpin (G^k · A^k · C^k) of the requested length, so the 3' window overlaps a paired stem.
+    private static string AccessSeq(int seqLen) => seqLen switch
+    {
+        12 => "GGGGAAAACCCC",
+        18 => "GGGGGGAAAAAACCCCCC",
+        _ => "GGGGGGGGAAAAAAAACCCCCCCC",
+    };
+
+    [Test, Combinatorial]
+    public void Accessibility_McCaskillInvariants_AcrossLengthRegionAndTemperature(
+        [Values(12, 18, 24)] int seqLen,
+        [Values(1, 2, 4)] int regionLen,
+        [Values(283.15, 310.15)] double temperature)
+    {
+        string seq = AccessSeq(seqLen);
+        int n = seq.Length;
+
+        var r = RnaSecondaryStructure.CalculateUnpairedProbabilities(seq, temperature: temperature);
+
+        r.UnpairedProbabilities.Should().HaveCount(n);
+        for (int i = 0; i < n; i++)
+        {
+            double paired = r.BasePairProbabilities.Where(kv => kv.Key.I == i || kv.Key.J == i).Sum(kv => kv.Value);
+            paired.Should().BeLessThanOrEqualTo(1.0 + 1e-9, $"position {i} pairs with total probability ≤ 1");
+            r.UnpairedProbabilities[i].Should().BeInRange(-1e-9, 1.0 + 1e-9, "p_unpaired is a probability");
+            r.UnpairedProbabilities[i].Should().BeApproximately(1.0 - paired, 1e-9, "pu(i) = 1 − Σ_j P(i,j)");
+        }
+
+        int windowEnd = n - 1; // 3' end (inside the C-stem)
+        double region = RnaSecondaryStructure.CalculateRegionUnpairedProbability(seq, windowEnd, regionLen, temperature: temperature);
+        region.Should().BeInRange(-1e-9, 1.0 + 1e-9, "region accessibility is a probability");
+
+        if (regionLen == 1)
+            region.Should().BeApproximately(r.UnpairedProbabilities[windowEnd], 1e-9,
+                "a length-1 region ending at i equals the per-base p_unpaired(i)");
+
+        if (Math.Abs(temperature - 310.15) < 1e-9)
+        {
+            double mfe = RnaSecondaryStructure.CalculateMinimumFreeEnergy(seq);
+            r.EnsembleFreeEnergy.Should().BeLessThanOrEqualTo(mfe + 1e-9,
+                "ΔG_ensemble = −RT·ln Z is a lower bound on the MFE at the same (37 °C) temperature");
+        }
+    }
+
+    /// <summary>
+    /// Interaction witness (regionLen axis): accessibility is monotone non-increasing in window
+    /// length — a longer window is never more likely to be entirely unpaired (Bernhart 2006).
+    /// </summary>
+    [Test]
+    public void Accessibility_LongerWindow_NeverMoreAccessible()
+    {
+        string seq = AccessSeq(24);
+        const int anchor = 20;
+        double prev = 1.0 + 1e-9;
+        for (int len = 1; len <= anchor + 1; len++)
+        {
+            double p = RnaSecondaryStructure.CalculateRegionUnpairedProbability(seq, anchor, len);
+            p.Should().BeLessThanOrEqualTo(prev + 1e-9, $"window of length {len} is no more accessible than length {len - 1}");
+            prev = p;
+        }
+    }
+
+    /// <summary>
+    /// Interaction witness (temperature axis): warming melts the stem, so a window inside the paired
+    /// stem becomes strictly more accessible at higher temperature.
+    /// </summary>
+    [Test]
+    public void Accessibility_HigherTemperature_MeltsStemAndRaisesAccessibility()
+    {
+        string seq = AccessSeq(18);
+        int anchor = seq.Length - 1;
+        double cold = RnaSecondaryStructure.CalculateRegionUnpairedProbability(seq, anchor, 4, temperature: 283.15);
+        double warm = RnaSecondaryStructure.CalculateRegionUnpairedProbability(seq, anchor, 4, temperature: 330.15);
+        warm.Should().BeGreaterThan(cold, "a warmer ensemble melts the stem ⇒ the stem window is more accessible");
+    }
 }
