@@ -534,4 +534,136 @@ public class ChromosomeMetamorphicTests
     }
 
     #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  CHROM-ALPHASAT-001 / CHROM-HOR-001 — alpha-satellite & HOR detection (Chromosome)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (Willard 1985; Waye & Willard 1987; Masumoto et al. 1989 CENP-B box;
+    //   McNulty & Sullivan 2018; Miga et al. 2014/T2T; tests/TestSpecs/CHROM-ALPHASAT/HOR-001.md):
+    //   Alpha-satellite DNA is a tandem array of ~171-bp AT-rich monomers, many carrying a 17-bp
+    //   CENP-B box (consensus YTTCGTTGGAARCGGGA). A higher-order repeat (HOR) is a block of k DISTINCT
+    //   monomers tandemly repeated, so copies of the unit (inter-HOR) are far more identical than the
+    //   monomers within a unit (intra-HOR). Four metamorphic relations (checklist rows 257–258):
+    //
+    //   • INV (a tandem 171-bp array is detected as alpha-satellite): an AT-rich 171-bp monomer tandem
+    //     is called alpha-satellite with a detected period ≈ 171 bp.
+    //   • MON (more CENP-B boxes → stronger call): adding CENP-B boxes to more monomers raises the
+    //     reported CENP-B box count while the array stays alpha-satellite.
+    //   • MON (more HOR copies → stronger periodicity): repeating a k-monomer HOR unit more times
+    //     raises the detected HOR copy number (and keeps the higher-order structure).
+    //   • INV (a pure monomeric array has no HOR): an array of one identical monomer has no
+    //     higher-order structure (period 1).
+    //
+    // API under test: ChromosomeAnalyzer.DetectAlphaSatellite / .DetectHigherOrderRepeat.
+
+    #region CHROM-ALPHASAT-001 / CHROM-HOR-001 — alpha-satellite & HOR
+
+    private const int AlphaMonomerLen = ChromosomeAnalyzer.AlphaSatelliteMonomerLength; // 171
+    private const string CenpBBox = "CTTCGTTGGAAACGGGA"; // a valid CENP-B box (Y=C, R=A), 17 bp
+
+    private static string AtRichFiller(int length, int seed)
+    {
+        var rng = new Random(seed);
+        char[] atRich = { 'A', 'A', 'T', 'T', 'A', 'T', 'G', 'C', 'A', 'T' }; // 70% AT
+        var chars = new char[length];
+        for (int i = 0; i < length; i++) chars[i] = atRich[rng.Next(atRich.Length)];
+        return new string(chars);
+    }
+
+    [Test]
+    [Description("INV: an AT-rich 171-bp monomer tandem is detected as alpha-satellite with a monomer period ≈ 171 bp.")]
+    public void AlphaSat_Tandem171bpArray_DetectedAsAlphaSatellite()
+    {
+        string monomer = CenpBBox + AtRichFiller(AlphaMonomerLen - CenpBBox.Length, seed: 7);
+        string array = string.Concat(Enumerable.Repeat(monomer, 5));
+
+        var result = ChromosomeAnalyzer.DetectAlphaSatellite(array);
+
+        result.IsAlphaSatellite.Should().BeTrue(because: "a tandem AT-rich 171-bp monomer array is alpha-satellite");
+        result.BestPeriod.Should().BeInRange(AlphaMonomerLen - 5, AlphaMonomerLen + 5,
+            because: "the detected monomer period is ≈ 171 bp");
+    }
+
+    [Test]
+    [Description("MON: adding a CENP-B box to more monomers raises the reported CENP-B box count while the AT-rich array stays alpha-satellite.")]
+    public void AlphaSat_MoreCenpBBoxes_StrengthensCall()
+    {
+        string tail = AtRichFiller(AlphaMonomerLen - CenpBBox.Length, seed: 11); // shared 154-bp tail
+        string plainHead = AtRichFiller(CenpBBox.Length, seed: 23);              // AT-rich, non-box head
+        string boxMonomer = CenpBBox + tail;
+        string plainMonomer = plainHead + tail;
+        const int total = 6;
+
+        int previous = -1;
+        bool sawStrictIncrease = false;
+        for (int boxes = 0; boxes <= total; boxes++)
+        {
+            string array = string.Concat(Enumerable.Repeat(boxMonomer, boxes))
+                           + string.Concat(Enumerable.Repeat(plainMonomer, total - boxes));
+            var result = ChromosomeAnalyzer.DetectAlphaSatellite(array);
+
+            result.IsAlphaSatellite.Should().BeTrue(because: $"the AT-rich 171-bp array stays alpha-satellite with {boxes} CENP-B boxes");
+            result.CenpBBoxCount.Should().BeGreaterThanOrEqualTo(previous,
+                because: $"adding a CENP-B box to one more monomer cannot lower the box count ({boxes} boxes)");
+            if (result.CenpBBoxCount > previous) sawStrictIncrease = true;
+            previous = result.CenpBBoxCount;
+        }
+
+        sawStrictIncrease.Should().BeTrue(because: "more CENP-B boxes genuinely raise the count — the relation is non-vacuous");
+    }
+
+    /// <summary>Builds a HOR of k distinct random 171-bp monomers, the unit repeated c times.</summary>
+    private static string BuildHor(int seed, int k, int copies)
+    {
+        var rng = new Random(seed);
+        char[] bases = { 'A', 'C', 'G', 'T' };
+        var monomers = new string[k];
+        for (int j = 0; j < k; j++)
+        {
+            var m = new char[AlphaMonomerLen];
+            for (int i = 0; i < AlphaMonomerLen; i++) m[i] = bases[rng.Next(4)];
+            monomers[j] = new string(m);
+        }
+
+        return string.Concat(Enumerable.Repeat(string.Concat(monomers), copies));
+    }
+
+    [Test]
+    [Description("MON: repeating a 2-monomer HOR unit more times raises the detected HOR copy number and keeps the higher-order structure.")]
+    public void Hor_MoreCopies_StrengthensPeriodicity()
+    {
+        int previous = -1;
+        foreach (int copies in new[] { 2, 3, 4, 5 })
+        {
+            string array = BuildHor(seed: 2026, k: 2, copies: copies);
+            var result = ChromosomeAnalyzer.DetectHigherOrderRepeat(array, AlphaMonomerLen);
+
+            result.HasHigherOrderStructure.Should().BeTrue(because: $"a 2-monomer unit repeated {copies}× is a HOR");
+            result.MonomersPerUnit.Should().Be(2, because: "the HOR period is the 2-monomer unit");
+            result.HorCopyNumber.Should().BeGreaterThan(previous,
+                because: $"more unit copies ({copies}) raise the detected HOR copy number");
+            result.HorUnitLengthBp.Should().Be(2 * AlphaMonomerLen, because: "the HOR unit is 2 × 171 bp");
+            previous = result.HorCopyNumber;
+        }
+    }
+
+    [Test]
+    [Description("INV: an array of one identical 171-bp monomer has no higher-order structure (period 1).")]
+    public void Hor_PureMonomericArray_HasNoHor()
+    {
+        foreach (int copies in new[] { 4, 6, 10 })
+        {
+            string monomer = BuildHor(seed: 99, k: 1, copies: 1); // one 171-bp monomer
+            string array = string.Concat(Enumerable.Repeat(monomer, copies));
+
+            var result = ChromosomeAnalyzer.DetectHigherOrderRepeat(array, AlphaMonomerLen);
+
+            result.HasHigherOrderStructure.Should().BeFalse(
+                because: $"{copies} identical monomers form a monomeric (period-1) array, not a HOR");
+            result.MonomersPerUnit.Should().Be(1, because: "a purely monomeric array has a single-monomer period");
+        }
+    }
+
+    #endregion
 }
