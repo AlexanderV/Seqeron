@@ -2005,4 +2005,241 @@ public class PrimerProbeProperties
     }
 
     #endregion
+
+    #region PRIMER-NNTM-001: R: Tm finite for len≥2; M: higher [Na+]→higher Tm; M: more mismatches→lower Tm; D
+
+    // CalculateMeltingTemperatureNN — SantaLucia & Hicks (2004) unified nearest-neighbour duplex Tm with
+    // an Owczarzy (2004) monovalent salt correction. CalculateMeltingTemperatureNNMismatch scores an
+    // imperfect duplex with the internal-mismatch NN parameters.
+
+    /// <summary>
+    /// INV-1 (R): the nearest-neighbour Tm is a finite number for every valid ACGT primer of length ≥ 2
+    /// (a duplex needs at least one NN stack).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property NnTm_IsFinite_ForValidPrimer()
+    {
+        return Prop.ForAll(ValidPrimerArbitrary(2, 40), primer =>
+        {
+            double tm = PrimerDesigner.CalculateMeltingTemperatureNN(primer);
+            return double.IsFinite(tm).Label($"NN Tm={tm} must be finite for '{primer}'");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (M): raising the monovalent salt concentration never lowers the duplex Tm — Na⁺ shields the
+    /// backbone charge and stabilises the duplex (Owczarzy 2004). Compared over the calibrated [50 mM,1 M] range.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property NnTm_HigherSodium_NotLowerTm()
+    {
+        var gen = (from primer in ValidPrimerGen(6, 40)
+                   from naLoMm in Gen.Choose(50, 1000)
+                   from naHiMm in Gen.Choose(50, 1000)
+                   select (primer, lo: Math.Min(naLoMm, naHiMm) / 1000.0, hi: Math.Max(naLoMm, naHiMm) / 1000.0)).ToArbitrary();
+
+        return Prop.ForAll(gen, t =>
+        {
+            double tmLo = PrimerDesigner.CalculateMeltingTemperatureNN(t.primer, sodiumMolar: t.lo);
+            double tmHi = PrimerDesigner.CalculateMeltingTemperatureNN(t.primer, sodiumMolar: t.hi);
+            return (tmHi >= tmLo - 1e-9).Label($"[Na+] {t.lo}→{tmLo:F2}, {t.hi}→{tmHi:F2} must not lower Tm");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (M): a perfectly complementary duplex melts no lower than the same duplex carrying an internal
+    /// mismatch — breaking a Watson-Crick pair replaces two favourable stacks with a destabilising mismatch.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property NnTmMismatch_PerfectMatch_NotBelowSingleMismatch()
+    {
+        var gen = (from chars in Gen.Elements('A', 'C', 'G', 'T').ArrayOf().Where(a => a.Length >= 8 && a.Length <= 24)
+                   let top = new string(chars)
+                   from pos in Gen.Choose(2, top.Length - 3) // internal position, away from both ends
+                   select (top, pos)).ToArbitrary();
+
+        return Prop.ForAll(gen, t =>
+        {
+            // The mismatch model aligns the two strands index-to-index (top[i] pairs with bottom[i]),
+            // so a perfect duplex's bottom strand is the PER-POSITION complement of top (no reversal).
+            string perfect = OracleComplement(t.top);
+            var mm = perfect.ToCharArray();
+            mm[t.pos] = mm[t.pos] switch { 'A' => 'C', 'C' => 'A', 'G' => 'T', _ => 'G' }; // break the WC pair at top[pos]
+            double tmPerfect = PrimerDesigner.CalculateMeltingTemperatureNNMismatch(t.top, perfect);
+            double tmMismatch = PrimerDesigner.CalculateMeltingTemperatureNNMismatch(t.top, new string(mm));
+            if (!double.IsFinite(tmPerfect) || !double.IsFinite(tmMismatch)) return true.ToProperty();
+            return (tmPerfect >= tmMismatch - 1e-9)
+                .Label($"perfect Tm={tmPerfect:F2} < mismatch Tm={tmMismatch:F2}");
+        });
+    }
+
+    /// <summary>INV-4 (D): the nearest-neighbour Tm is deterministic.</summary>
+    [FsCheck.NUnit.Property]
+    public Property NnTm_IsDeterministic()
+    {
+        return Prop.ForAll(ValidPrimerArbitrary(2, 40), primer =>
+            (PrimerDesigner.CalculateMeltingTemperatureNN(primer) == PrimerDesigner.CalculateMeltingTemperatureNN(primer))
+                .Label("CalculateMeltingTemperatureNN must be deterministic"));
+    }
+
+    #endregion
+
+    #region PRIMER-HAIRPIN-001: R: best hairpin ΔG ≤ 0 (real stem) or none; M: longer stem → more negative ΔG; D
+
+    // FindMostStableHairpin returns the minimum-ΔG°37 intramolecular hairpin (SantaLucia & Hicks 2004) or
+    // null when no stem ≥2 bp can close a loop ≥3 nt. NOTE: it returns the *most stable* hairpin even when
+    // that minimum ΔG is slightly positive (weak stem + large loop), so ΔG ≤ 0 is asserted on the
+    // meaningful domain of a genuine GC stem rather than universally.
+
+    /// <summary>Per-position DNA complement (no reversal) — the bottom strand of an index-aligned duplex.</summary>
+    private static string OracleComplement(string seq)
+    {
+        var chars = new char[seq.Length];
+        for (int i = 0; i < seq.Length; i++)
+            chars[i] = char.ToUpperInvariant(seq[i]) switch { 'A' => 'T', 'T' => 'A', 'C' => 'G', 'G' => 'C', _ => 'N' };
+        return new string(chars);
+    }
+
+    /// <summary>A GC-stem hairpin: a G/C stem of length L, an A-loop (3..6 nt), then the stem's reverse complement.</summary>
+    private static Gen<(string seq, int stemLen)> GcStemHairpinGen(int minStem) =>
+        from stemLen in Gen.Choose(minStem, 9)
+        from stemChars in Gen.Elements('G', 'C').ArrayOf(stemLen)
+        from loopLen in Gen.Choose(3, 6)
+        let stem = new string(stemChars)
+        select (stem + new string('A', loopLen) + OracleReverseComplement(stem), stemLen);
+
+    /// <summary>
+    /// INV-1 (R, well-formed): a sequence built as GC-stem + loop + reverse-complement has a hairpin whose
+    /// stem ≥ minStemLength, loop ≥ 3 nt, and positions are in bounds.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Hairpin_PlantedGcStem_IsWellFormed()
+    {
+        return Prop.ForAll(GcStemHairpinGen(2).ToArbitrary(), t =>
+        {
+            var hp = PrimerDesigner.FindMostStableHairpin(t.seq, minStemLength: 2);
+            if (hp is null) return false.Label($"no hairpin found in planted construct '{t.seq}'");
+            var h = hp.Value;
+            bool ok = h.StemLength >= 2 && h.LoopSize >= 3
+                      && h.StemStart >= 0 && h.StemEnd < t.seq.Length && h.StemStart < h.StemEnd;
+            return ok.Label($"stem={h.StemLength}, loop={h.LoopSize}");
+        });
+    }
+
+    /// <summary>
+    /// INV-1b (R, ΔG ≤ 0): a genuinely stable hairpin (GC stem ≥ 5 bp, enough nearest-neighbour stacks to
+    /// overcome the loop-initiation penalty) has ΔG°37 ≤ 0. A weaker 2-bp stem need not — the method returns
+    /// the most stable hairpin even when its minimum ΔG is slightly positive, so this is the "real stem" domain.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Hairpin_StableGcStem_HasNegativeDeltaG()
+    {
+        return Prop.ForAll(GcStemHairpinGen(5).ToArbitrary(), t =>
+        {
+            var hp = PrimerDesigner.FindMostStableHairpin(t.seq, minStemLength: 2);
+            if (hp is null) return false.Label($"no hairpin found in planted construct '{t.seq}'");
+            return (hp.Value.DeltaG37 <= 1e-9).Label($"stem≥5 ΔG37={hp.Value.DeltaG37:F3} must be ≤ 0");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (M): extending the stem by one GC pair makes the best hairpin more stable — ΔG°37 decreases
+    /// (one extra stabilising nearest-neighbour stack), at a fixed loop.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Hairpin_LongerStem_LowerDeltaG()
+    {
+        var gen = (from stemLen in Gen.Choose(2, 7)
+                   from stemChars in Gen.Elements('G', 'C').ArrayOf(stemLen)
+                   from extra in Gen.Elements('G', 'C')
+                   let stem = new string(stemChars)
+                   let loop = new string('A', 4)
+                   select (shortStem: stem, longStem: stem + extra, loop)).ToArbitrary();
+
+        return Prop.ForAll(gen, t =>
+        {
+            string seqShort = t.shortStem + t.loop + OracleReverseComplement(t.shortStem);
+            string seqLong = t.longStem + t.loop + OracleReverseComplement(t.longStem);
+            var hpShort = PrimerDesigner.FindMostStableHairpin(seqShort, minStemLength: 2);
+            var hpLong = PrimerDesigner.FindMostStableHairpin(seqLong, minStemLength: 2);
+            if (hpShort is null || hpLong is null) return false.Label("planted hairpin missing");
+            return (hpLong.Value.DeltaG37 <= hpShort.Value.DeltaG37 + 1e-9)
+                .Label($"longer stem not more stable: ΔG(L+1)={hpLong.Value.DeltaG37:F3} > ΔG(L)={hpShort.Value.DeltaG37:F3}");
+        });
+    }
+
+    /// <summary>INV-3 (D): the most-stable-hairpin search is deterministic.</summary>
+    [FsCheck.NUnit.Property]
+    public Property Hairpin_IsDeterministic()
+    {
+        return Prop.ForAll(ValidPrimerArbitrary(4, 40), seq =>
+            (PrimerDesigner.FindMostStableHairpin(seq) == PrimerDesigner.FindMostStableHairpin(seq))
+                .Label("FindMostStableHairpin must be deterministic"));
+    }
+
+    #endregion
+
+    #region PRIMER-DIMER-001: R: dimer ΔG ≤ 0 (real run) or none; M: longer complementary run → lower ΔG; D
+
+    // FindMostStableDimer returns the most stable intermolecular duplex (Primer3/ntthal NN model) or null
+    // when no contiguous run of ≥2 bp exists. As with hairpins, the most stable dimer can have a slightly
+    // positive ΔG for a weak 2-bp run, so ΔG ≤ 0 is asserted on a genuine GC complementary run (length ≥ 3).
+
+    /// <summary>
+    /// INV-1 (R): two strands that are reverse complements over a GC run (length 3..8) form a stable dimer —
+    /// non-null, ≥ 2 base pairs, in-bounds offsets, and ΔG°37 ≤ 0.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Dimer_PlantedGcRun_IsStableAndWellFormed()
+    {
+        var gen = (from runLen in Gen.Choose(3, 8)
+                   from runChars in Gen.Elements('G', 'C').ArrayOf(runLen)
+                   let s1 = new string(runChars)
+                   select (s1, s2: OracleReverseComplement(s1))).ToArbitrary();
+
+        return Prop.ForAll(gen, t =>
+        {
+            var d = PrimerDesigner.FindMostStableDimer(t.s1, t.s2);
+            if (d is null) return false.Label($"no dimer found for complementary GC run '{t.s1}'/'{t.s2}'");
+            var dim = d.Value;
+            bool ok = dim.BasePairs >= 2 && dim.Strand1Start >= 0 && dim.Strand2Start >= 0
+                      && dim.DeltaG37 <= 1e-9;
+            return ok.Label($"bp={dim.BasePairs}, ΔG37={dim.DeltaG37:F3}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (M): a longer complementary run yields a more stable dimer — extending the GC run by one base
+    /// (and its complement) lowers ΔG°37 (one extra stabilising stack).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Dimer_LongerRun_LowerDeltaG()
+    {
+        var gen = (from runLen in Gen.Choose(3, 7)
+                   from runChars in Gen.Elements('G', 'C').ArrayOf(runLen)
+                   from extra in Gen.Elements('G', 'C')
+                   let shortRun = new string(runChars)
+                   select (shortRun, longRun: shortRun + extra)).ToArbitrary();
+
+        return Prop.ForAll(gen, t =>
+        {
+            var dShort = PrimerDesigner.FindMostStableDimer(t.shortRun, OracleReverseComplement(t.shortRun));
+            var dLong = PrimerDesigner.FindMostStableDimer(t.longRun, OracleReverseComplement(t.longRun));
+            if (dShort is null || dLong is null) return false.Label("planted dimer missing");
+            return (dLong.Value.DeltaG37 <= dShort.Value.DeltaG37 + 1e-9)
+                .Label($"longer run not more stable: ΔG(L+1)={dLong.Value.DeltaG37:F3} > ΔG(L)={dShort.Value.DeltaG37:F3}");
+        });
+    }
+
+    /// <summary>INV-3 (D): the most-stable-dimer search is deterministic.</summary>
+    [FsCheck.NUnit.Property]
+    public Property Dimer_IsDeterministic()
+    {
+        var gen = (from a in ValidPrimerGen(4, 30) from b in ValidPrimerGen(4, 30) select (a, b)).ToArbitrary();
+        return Prop.ForAll(gen, t =>
+            (PrimerDesigner.FindMostStableDimer(t.a, t.b) == PrimerDesigner.FindMostStableDimer(t.a, t.b))
+                .Label("FindMostStableDimer must be deterministic"));
+    }
+
+    #endregion
 }
