@@ -7512,7 +7512,12 @@ public static class OncologyAnalyzer
             ? (1.0 - bestMinorDistance / theoreticalMaxDistance) * 100.0
             : 100.0;
 
-        return new PurityPloidyFit(bestPurity, bestPloidy, goodnessOfFit, bestSegments);
+        // Snap the reported (ρ, ψ) back to their grid bounds: floating-point accumulation in the
+        // `rho += purityStep` / `psi += ploidyStep` walk can drift the top grid point a few ULPs past
+        // its maximum, which would otherwise report a purity > 1 (no cell population can exceed 100 %).
+        double reportedPurity = Math.Clamp(bestPurity, purityMin, purityMax);
+        double reportedPloidy = Math.Clamp(bestPloidy, ploidyMin, ploidyMax);
+        return new PurityPloidyFit(reportedPurity, reportedPloidy, goodnessOfFit, bestSegments);
     }
 
     private static void ValidateGrid(

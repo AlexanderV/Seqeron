@@ -9645,4 +9645,75 @@ public class OncologyProperties
     }
 
     #endregion
+
+    #region ONCO-ASCAT-001 — Joint Purity/Ploidy Fit (ASCAT grid search)
+
+    // -------------------------------------------------------------------------
+    // Theory (Van Loo et al. 2010, PNAS 107:16910 — ASCAT; ascat.runAscat.R):
+    //   • FitPurityPloidy grid-searches (ρ, ψ) minimising the allele-specific "sunrise" GoF, then maps
+    //     each segment to ROUNDED, CLAMPED integer allele-specific copy numbers (nA, nB) ≥ 0.
+    //   • The recovered purity ρ lies on the purity grid ⊆ (0, 1]; the ploidy ψ lies on the ploidy grid > 0.
+    // The grid search is a deterministic pure function of its inputs.
+    // -------------------------------------------------------------------------
+
+    /// <summary>A non-empty set of allele-specific segment summaries with folded BAF ∈ [0.5,1] and finite logR.</summary>
+    private static Arbitrary<IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary>> AscatSegmentsArbitrary() =>
+        (from n in Gen.Choose(1, 5)
+         from segs in (from logRcenti in Gen.Choose(-200, 200)
+                       from bafCenti in Gen.Choose(0, 50)
+                       from len in Gen.Choose(1, 100)
+                       select new OncologyAnalyzer.AlleleSpecificSegmentSummary(
+                           "1", 0, len, logRcenti / 100.0, 0.5 + bafCenti / 100.0, len)).ArrayOf(n)
+         select (IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary>)segs).ToArbitrary();
+
+    /// <summary>
+    /// R + P: the ASCAT fit always returns a purity ρ ∈ (0,1], a ploidy ψ &gt; 0, and integer allele-specific
+    /// copy-number segments with nA ≥ 0 and nB ≥ 0 (rounded and clamped, ascat.runAscat.R). The recovered
+    /// (ρ, ψ) lie on the searched grid.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FitPurityPloidy_PurityPloidyAndCopyNumbers_AreInValidRanges()
+    {
+        return Prop.ForAll(AscatSegmentsArbitrary(), segs =>
+        {
+            var fit = OncologyAnalyzer.FitPurityPloidy(segs);
+            bool purityOk = fit.Purity > 0.0 && fit.Purity <= 1.0;
+            bool ploidyOk = fit.Ploidy > 0.0;
+            bool cnOk = fit.Segments.All(s => s.MajorCopyNumber >= 0 && s.MinorCopyNumber >= 0);
+            return (purityOk && ploidyOk && cnOk)
+                .Label($"ρ={fit.Purity}, ψ={fit.Ploidy}, segments={fit.Segments.Count}");
+        });
+    }
+
+    /// <summary>
+    /// D (determinism): the grid search is a pure function — identical segments yield an identical fit
+    /// (purity, ploidy, goodness of fit, and every implied copy-number segment).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FitPurityPloidy_IsDeterministic()
+    {
+        return Prop.ForAll(AscatSegmentsArbitrary(), segs =>
+        {
+            var a = OncologyAnalyzer.FitPurityPloidy(segs);
+            var b = OncologyAnalyzer.FitPurityPloidy(segs);
+            bool same = a.Purity == b.Purity && a.Ploidy == b.Ploidy
+                        && a.GoodnessOfFit == b.GoodnessOfFit
+                        && a.Segments.SequenceEqual(b.Segments);
+            return same.Label("FitPurityPloidy must be deterministic for identical input");
+        });
+    }
+
+    /// <summary>
+    /// Guards: a null or empty segment list is rejected (purity/ploidy is undefined with no data).
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void FitPurityPloidy_NullOrEmpty_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.FitPurityPloidy(null!));
+        Assert.Throws<ArgumentException>(() =>
+            OncologyAnalyzer.FitPurityPloidy(Array.Empty<OncologyAnalyzer.AlleleSpecificSegmentSummary>()));
+    }
+
+    #endregion
 }

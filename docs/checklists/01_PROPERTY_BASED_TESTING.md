@@ -264,7 +264,7 @@ Property-based testing генерує сотні випадкових вході
 | 232 | ☑ | SEQ-ENTROPY-PROFILE-001 | Statistics | R: each entropy ≥ 0; P: profile length = len−w+1; D: deterministic | SequenceStatisticsProperties.cs (new) |
 | 233 | ☑ | SEQ-GC-ANALYSIS-001 | Composition | R: GC% ∈ [0,100]; P: windows tile sequence; D: deterministic | GcSkewProperties.cs |
 | 234 | ☑ | SEQ-GC-PROFILE-001 | Statistics | R: each GC% ∈ [0,100]; P: profile length = len−w+1; D: deterministic | SequenceStatisticsProperties.cs (new) |
-| 235 | ☐ | ONCO-ASCAT-001 | Oncology | R: purity ∈ (0,1]; R: ploidy > 0; P: nA,nB ≥ 0 integers; D: deterministic | OncologyProperties.cs (new) |
+| 235 | ☑ | ONCO-ASCAT-001 | Oncology | R: purity ∈ (0,1]; R: ploidy > 0; P: nA,nB ≥ 0 integers; D: deterministic | OncologyProperties.cs (new) |
 | 236 | ☐ | RNA-PKPREDICT-001 | Analysis | R: ΔG ≤ pseudoknot-free MFE; P: each base paired ≤ once; P: crossings genuine; D: deterministic | RnaStructureProperties.cs (new) |
 | 237 | ☐ | RNA-PKRECURSIVE-001 | Analysis | R: ΔG ≤ single-knot result; P: valid nested structure; D: deterministic | RnaStructureProperties.cs (new) |
 | 238 | ☐ | RNA-ACCESS-001 | RnaStructure | R: 0 ≤ P_unpaired ≤ 1; M: longer region → lower P_unpaired; D: deterministic | RnaStructureProperties.cs (new) |
@@ -296,7 +296,7 @@ Property-based testing генерує сотні випадкових вході
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 234 |
-| ☐ Not started | 24 |
+| ☑ Complete | 235 |
+| ☐ Not started | 23 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
