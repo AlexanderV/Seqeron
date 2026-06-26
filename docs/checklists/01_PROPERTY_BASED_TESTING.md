@@ -46,7 +46,7 @@ Property-based testing генерує сотні випадкових вході
 | 14 | ☑ | REP-TANDEM-001 | Repeats | R: repeat count ≥ minReps; M: wider unit range → ≥ results; R: positions valid; D: deterministic | RepeatFinderProperties.cs |
 | 15 | ☑ | REP-INV-001 | Repeats | P: right arm = revcomp(left arm); R: positions valid; R: arm len ≥ minLen; D: deterministic | RepeatFinderProperties.cs |
 | 16 | ☑ | REP-DIRECT-001 | Repeats | R: positions valid; M: lower minLen → ≥ results; P: two copies identical; D: deterministic | RepeatFinderProperties.cs |
-| 17 | ☐ | REP-PALIN-001 | Repeats | P: palindrome = revcomp of self; R: len ∈ [minLen, maxLen]; R: positions valid | RepeatFinderProperties.cs |
+| 17 | ☑ | REP-PALIN-001 | Repeats | P: palindrome = revcomp of self; R: len ∈ [minLen, maxLen]; R: positions valid | RepeatFinderProperties.cs |
 | 18 | ☑ | CRISPR-PAM-001 | MolTools | R: positions valid; P: PAM motif at each site; M: longer seq → ≥ sites; D: deterministic | CrisprProperties.cs |
 | 19 | ☑ | CRISPR-GUIDE-001 | MolTools | R: guide length = specified; P: target strand correct; R: score ∈ valid range | CrisprProperties.cs |
 | 20 | ☑ | CRISPR-OFF-001 | MolTools | R: off-target score ∈ [0,1]; M: more mismatches → lower score; D: deterministic | CrisprProperties.cs |
@@ -296,7 +296,7 @@ Property-based testing генерує сотні випадкових вході
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 192 |
-| ☐ Not started | 66 |
+| ☑ Complete | 193 |
+| ☐ Not started | 65 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |

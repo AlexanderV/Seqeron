@@ -15,8 +15,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 [Category("Analysis")]
 public class RepeatFinderProperties
 {
-    // Sequences containing known repeats for reliable testing
-    private const string PalindromeSequence = "ACGTGAATTCACGTACGTGATATCACGT";
+    // Sequence containing known tandem repeats for reliable testing
     private const string MicrosatelliteSequence = "ACACACACACACGTGTGTGTGTAAAAAAAAAA";
 
     private static Arbitrary<string> DnaArbitrary(int minLen = 20) =>
@@ -198,17 +197,18 @@ public class RepeatFinderProperties
 
     /// <summary>
     /// INV-4: Palindrome lengths are even (DNA palindromes pair symmetrically).
-    /// Evidence: Each base on one half pairs with a complement on the other half.
+    /// Evidence: each base in the left half pairs with its complement in the mirrored right half,
+    /// so a reverse-complement palindrome has no unpaired centre — its length is always even.
     /// </summary>
-    [Test]
-    [Category("Property")]
-    public void Palindrome_LengthsAreEven()
+    [FsCheck.NUnit.Property]
+    public Property Palindrome_LengthsAreEven()
     {
-        var palindromes = RepeatFinder.FindPalindromes(PalindromeSequence, minLength: 4, maxLength: 12).ToList();
-
-        foreach (var p in palindromes)
-            Assert.That(p.Length % 2, Is.EqualTo(0),
-                $"Palindrome length {p.Length} must be even");
+        return Prop.ForAll(DnaArbitrary(20), seq =>
+        {
+            var palindromes = RepeatFinder.FindPalindromes(seq, minLength: 4, maxLength: 12).ToList();
+            return palindromes.All(p => p.Length % 2 == 0)
+                .Label("Every DNA reverse-complement palindrome must have even length");
+        });
     }
 
     /// <summary>
