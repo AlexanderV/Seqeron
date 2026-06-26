@@ -1,98 +1,86 @@
-# Validation Report: MIRNA-TARGET-001 — microRNA Target Site Prediction
+# Validation Report: MIRNA-TARGET-001 — microRNA Target Site Prediction (incl. TA_3UTR)
 
-- **Validated:** 2026-06-25 (fresh re-validation; supersedes the 2026-06-24 entry)   **Area:** MiRNA
-- **Scope:** the OWN canonical surface of MIRNA-TARGET-001 — seed-match detection + base/default scoring + site-type classification (8mer / 7mer-m8 / 7mer-A1 / 6mer / offset-6mer). The opt-in TargetScan context++ scorer (`ScoreTargetSiteContextPlusPlus`) belongs to MIRNA-CONTEXT-001 / MIRNA-PCT-001 and is referenced but NOT re-litigated here.
-- **Canonical method(s):** `MiRnaAnalyzer.FindTargetSites(mRna, miRna, minScore)` (canonical); supporting internal `CreateTargetSite`, `CalculateTargetScore` (the "base scorer"), `CalculateDuplexEnergy`; public helpers `GetReverseComplement`, `AlignMiRnaToTarget`.
+- **Validated:** 2026-06-26 (fresh re-validation after limitation-fix 5f2fbd40; supersedes the 2026-06-25 entry)   **Area:** MiRNA
+- **Scope:** the OWN canonical surface of MIRNA-TARGET-001 — seed-match site detection (8mer / 7mer-m8 / 7mer-A1 / 6mer / offset-6mer), the base/default scorer, the context++ wiring — PLUS the newly-added TA_3UTR capability `ComputeTa3Utr` / `CountSeedSites3Utr` (commit 5f2fbd40). This session FOCUSES on the new TA surface and confirms the pre-existing surface still holds.
+- **Canonical method(s):** `MiRnaAnalyzer.FindTargetSites` (site detection); `ComputeTa3Utr(MiRna, IEnumerable<string>)` and `CountSeedSites3Utr(...)` (new — TA_3UTR feature); supporting `GetSeedSequence`, `GetReverseComplement`, private `CountSeedSitesInUtr`, and the context++ wiring `ScoreTargetSiteContextPlusPlus` / `TaContribution`.
 - **Source file:** `src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs`
-- **Test files:** `tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_TargetPrediction_Tests.cs` (M-/S-/E-/CTX- regions); alignment helpers in `MiRnaAnalyzer_AlignMiRnaToTarget_Tests.cs`.
+- **Test files:** `tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_TargetPrediction_Tests.cs` (M-/S-/E-/CTX-/CTX-TA- regions).
 - **Stage A verdict:** PASS (✅)
-- **Stage B verdict:** PASS-WITH-NOTES (🟡)
+- **Stage B verdict:** PASS (✅) — one divergence from the literal source ("non-overlapping") found and fully fixed this session.
 - **End-state:** ✅ CLEAN
 
 ---
 
 ## Stage A — Description
 
-### Sources opened THIS session
-- **Bartel DP (2009) Cell 136:215–233, "MicroRNAs: Target Recognition and Regulatory Functions"** — open-access mirror PMC3794896. Confirms verbatim:
-  - **Seed = miRNA nucleotides 2–7** (nt8 is supplementary).
-  - **6mer** = perfect WC match to miRNA nt 2–7.
-  - **7mer-m8** = seed match (2–7) augmented by a WC match to miRNA nt8.
-  - **7mer-A1** = seed match (2–7) augmented by an **A at target position 1**.
-  - **8mer** = seed match flanked by **both** the nt8 match **and** the A at target position 1.
-  - **Efficacy hierarchy (quoted): "8mer >> 7mer-m8 > 7mer-A1 >> 6mer > no site"** — 6mer barely above background.
-- **Friedman/Agarwal context (PMC4062300)** — re-confirms the seed is nt 2–7, the A1 is "an adenosine opposite miRNA nucleotide 1", and m8 is "a Watson–Crick pair with miRNA nucleotide 8".
-- **Lewis BP et al. (2005) Cell 120:15–20** — target sites are the **reverse complement** of the seed, sought antiparallel along the 3′UTR 5′→3′. This is the catastrophic-error checkpoint.
-- **Grimson et al. (2007)** site-type efficacy weights 8mer = 0.31, 7mer-m8 = 0.161, 7mer-A1 = 0.099 — the basis of the base scorer's normalized constants.
+### Sources opened THIS session (external, first-source)
+- **Garcia D, Baek D, Shin C, Bell GW, Grimson A, Bartel DP (2011) *Nat Struct Mol Biol* 18:1139–1146**, "Weak seed-pairing stability and high target-site abundance decrease the proficiency of lsy-6 and other microRNAs." Open-access mirror **PMC3190056** (Online Methods) quoted **verbatim** this session:
+  - **TA definition:** *"TA in the human transcriptome was calculated as the number of **non-overlapping** 3′UTR **8mer, 7mer-m8, and 7mer-A1** sites in the reference mRNAs."* → site set = exactly the three high-confidence canonical types (bare 6mer / offset-6mer EXCLUDED); counting is **non-overlapping**.
+  - **log10 scale:** *"each additional CG dinucleotide imparted an additional **log10** reduction in TA."* → TA is carried on a log10 scale.
+- **Agarwal V, Bell GW, Nam JW, Bartel DP (2015) *eLife* 4:e05005**, "Predicting effective microRNA target sites in mammalian mRNAs." PMC4532895 + Bartel-lab reprint. **Table 1**: the context++ feature **`TA_3UTR` = "Number of sites in all annotated 3′ UTRs"**, attributed to *Arvey et al., 2010; Garcia et al., 2011*. Feature selected in 100% of site-type models; its contribution is `coeff × min-max-scaled(value)`.
+- **TargetScan 7.0 reference implementation** (`targetscan_70_context_scores.pl`, nsoranzo mirror) — the decisive artifact for the log10 convention and the scaling form:
+  - `read_TA_SPS`: `($seedRegion, $SPS_1, $SPS_2, $TA) = split(/\t/, $_); $garcia{$seedRegion}{"TA"} = $TA;` — TA is **column 4** of `TA_SPS_by_seed_region.txt`, stored and used **as-is**.
+  - `getAgarwalContribution`: `scaled = (raw - min)/(max - min); contribution = coeff × scaled` — exactly the min-max form.
+  - `$TA_contribution = getAgarwalContribution($siteType, "TA_3UTR", $garcia{$seedRegion}{"TA"});` — the file value is fed **without any log transform in the script**, so the stored value IS `log10(count)` (Garcia computes the log10; the script consumes it). Min/max ≈ 3.07–3.89 ⇒ raw counts ≈ 10^3.1…10^3.9 ≈ 1.3k…7.9k sites genome-wide — biologically sensible.
+- **Grimson et al. (2007)** (PMC3800283, opened) — confirms the canonical site-type definitions used to define which sites TA counts: **8mer** = seed match flanked by the m8 match AND the A1; **7mer-m8** = seed match + m8; **7mer-A1** = seed match + A at target pos 1; **6mer** = perfect match to miRNA nt 2–7. (Bartel 2009 / Lewis 2005 reconfirm seed = nt 2–7 and reverse-complement targeting; re-litigated in the prior report, unchanged.)
 
-### A1 anchor rule (critical biological check)
-The A1 is an **adenosine at target position 1** (opposite miRNA nt1), recognized as an anchor by Argonaute; in the TargetScan convention it is a **pure identity test on the target base = 'A'**, independent of miRNA nt1 and NOT a Watson–Crick pair. The code tests `hasA1 = mrna[i+6] == 'A'` (identity, no complementarity) — matches the convention exactly.
+### Formula validated
+`TA_3UTR = log10(N)`, where **N = total number of non-overlapping 8mer + 7mer-m8 + 7mer-A1 sites of the miRNA seed across the supplied 3′UTR set**. This matches the Garcia (2011) Online-Methods definition exactly (site-type membership, non-overlapping, log10 scale) and feeds the Agarwal (2015) TA coefficient via the published min-max scaling.
 
-### Seed reverse-complement rule
-Hand computation for **hsa-let-7a-5p** `UGAGGUAGUAGGUUGUAUAGUU`:
-- Seed (nt 2–8 stored as `SeedSequence`) = `GAGGUAG` (`Substring(1,7)`).
-- Reverse complement `GetReverseComplement("GAGGUAG")` = `CUACCUC` (verified char-by-char: comp `CUCCAUC`, reversed `CUACCUC`).
-- 6mer core (RC of nt 2–7) = `seedRC[1..7]` = `UACCUC`.
-- offset-6mer pattern (RC of nt 3–8) = `seedRC[0..6]` = `CUACCU`.
+### Edge-case semantics (defined & sourced)
+- **Empty UTR set / only empty-or-null UTRs / no sites** ⇒ N = 0 ⇒ TA = 0 (log10(1) floor; log10(0) is undefined and TargetScan never emits a seed with zero sites — the 0 floor is the safe convention).
+- **DNA UTRs** (T) normalised to RNA (U) before counting.
+- **Seed < 7 nt / degenerate** ⇒ no defined site set ⇒ 0.
+- **Non-ACGU** never matches the core (the RC of any ambiguous base is `N`, which still participates only as a literal char; spurious matches impossible for the canonical ACGU core).
+- **Overlapping sites** — counted **non-overlapping** per Garcia (see Stage-B finding/fix).
+- **null enumerable** ⇒ `ArgumentNullException` (contract).
 
-### Edge-case semantics (all defined & sourced)
-Empty/null mRNA or miRNA → empty; mRNA shorter than the 6-nt core → empty; verbatim seed identity (not RC) → empty; single seed mismatch / seed-region G:U wobble → no canonical site (exact-match scan); DNA T normalized to RNA U; non-ACGU (N) neither throws nor matches; minScore filter; both m8+A1 → 8mer (dominance); scores clamped to [0,1].
+### Independent cross-check (hand-derived, reproduced by an independent Python reimplementation written from the Garcia definition, NOT from the C# code)
+- **CTX-TA-001** — synthetic seed `ACGUACG` (pos 2-8), seedRC `CGUACGU`, pos8Rc `C`, core `GUACGU`. UTRs `{CGUACGUA, GGUACGUG, CGUACGUGAAAGUACGUC}`:
+  - `CGUACGUA`: core@1, upstream `C`=m8, downstream `A`=A1 → **8mer** (1).
+  - `GGUACGUG`: core@1, upstream `G` (no m8), downstream `G` (no A1) → bare 6mer → **0**.
+  - `CGUACGUGAAAGUACGUC`: core@1 m8-only → 7mer-m8 (1); the second core@11 is bare → 0 → **1**.
+  - **N = 2 ⇒ TA = log10(2) = 0.301029995663981.**
+- **CTX-TA-002** — let-7a seed `GAGGUAG`, seedRC `CUACCUC`, pos8Rc `C`, core `UACCUC`. 8mer + 7mer-m8 + 7mer-A1 + (bare 6mer excluded) + (8mer + 7mer-m8) = **N = 5 ⇒ TA = log10(5) = 0.698970004336019.**
+- **TA→context++:** for an 8mer site, TA enters as `0.222 × ((log10(5) − 3.113)/(3.865 − 3.113))` (Agarwal 8mer TA row); for a 7mer-m8 site, `0.139 × ((log10(2) − 3.067)/(3.887 − 3.067))` — both reproduced exactly by `ScoreTargetSiteContextPlusPlus`/`TaContribution`.
 
-### Independent cross-check (exact numbers, run against the live code this session via a temporary probe)
-seed `GAGGUAG`, seedRC `CUACCUC`, 6mer core `UACCUC`, offset `CUACCU`. Constructs `GGGGG <site> GGGGG`:
-
-| Construct (let-7a) | Type | Start | End | Len | Score |
-|---|---|---|---|---|---|
-| `…CUACCUC A…` | Seed8mer | 5 | 12 | 8 | **0.910** |
-| `…CUACCUC G…` | Seed7merM8 | 5 | 11 | 7 | **0.430** |
-| `…UACCUC A…` | Seed7merA1 | 5 | 11 | 7 | **0.240** |
-| `…UACCUC G…` | Seed6mer | 5 | 10 | 6 | **0.070** |
-| `…CUACCU G…` | Offset6mer | 5 | 10 | 6 | **0.040** |
-| `…GAGGUAG…` (verbatim seed identity) | **none** | — | — | — | — |
-| short `CUAC` (4 nt) | none | — | — | — | — |
-
-Score chain **strictly monotone** `0.910 > 0.430 > 0.240 > 0.070 > 0.040`, matching the Bartel/Grimson hierarchy 8mer >> 7mer-m8 > 7mer-A1 >> 6mer (> offset-6mer). **Verbatim seed produced ZERO sites**, confirming targeting is by reverse complement, not identity. Start/End are 0-based inclusive; `End − Start + 1 == SeedMatchLength`.
-
-> **Note (coordinate correction):** the prior (2026-06-24) report listed the 7mer-A1 start as 6 and the 6mer at 6..11/etc.; the fresh probe shows **7mer-A1 = 5..11** and **6mer = 5..10** (the 6mer core begins at index 5 in `GGGGG`+core). The current code is correct; the earlier report's coordinates were stale. Locked by new test E-001.
-
-**Stage A finding:** No biological or definitional error. **PASS.**
+**Stage A finding:** No biological or mathematical error. The formula, the site-type membership, the log10 scale and the scaling-into-context++ are all confirmed against Garcia (2011), Agarwal (2015) and the TargetScan reference implementation. **PASS.** (The original code comment's claim that "non-overlapping" is automatically satisfied was the one inaccuracy — see Stage B.)
 
 ---
 
 ## Stage B — Implementation
 
 ### Code path reviewed
-`FindTargetSites` (MiRnaAnalyzer.cs:156–266), `CreateTargetSite` (268–287), `GetReverseComplement` (296–319), `AlignMiRnaToTarget` (363–419), `CalculateDuplexEnergy` (428–453), `CalculateTargetScore` (455–482).
+`ComputeTa3Utr` (MiRnaAnalyzer.cs:~888), `CountSeedSites3Utr` (~906), private `CountSeedSitesInUtr` (~938), `GetSeedSequence` (95), `GetReverseComplement` (296), `TaContribution` (1482) + the `ScoreTargetSiteContextPlusPlus` wiring (806/835); pre-existing `FindTargetSites` (156) reconfirmed unchanged by the limitation-fix.
 
 ### Realises the validated description? (evidence)
-- **Reverse complement, not identity** — `seedRC = GetReverseComplement(miRna.SeedSequence)`; pass-1 scans for the exact substring `sixmerCore = seedRC[1..7]`; pass-2 for `offset6Pat = seedRC[0..6]`. Verbatim-seed probe + test E-002 return empty. ✓ (no catastrophic error)
-- **Site classification** — nt8 tested upstream `mrna[i-1] == seedRC[0]`; A1 tested downstream `mrna[i+6] == 'A'` (pure identity). 8mer requires **both**; 6mer neither. Antiparallel geometry correct (miRNA nt1 maps to the 3′ end of the target site). SeedMatchLengths 8/7/7/6/6 and Start/End verified by probe + E-001. ✓
-- **Exact seed match** — the scan uses `Substring(i,6) != sixmerCore` (exact equality), so a single seed mismatch or a seed-region G:U wobble does NOT yield a canonical site (tests E-003). Matches Bartel 2009's "perfect seed complementarity" requirement. ✓
-- **Offset-6mer (pass 2)** suppressed when overlapping a higher-priority pass-1 site (`coveredPositions`) or when it is part of a full seedRC. ✓
-- **Base scorer** (`CalculateTargetScore`) — base scores 1.0 / 0.52 / 0.32 / 0.15 / 0.10 for 8mer/7m8/7A1/6mer/offset. The 0.52 and 0.32 are the Grimson (2007) weights normalized to 8mer = 1.0 (0.161/0.310 ≈ 0.519; 0.099/0.310 ≈ 0.319). A −0.01/mismatch penalty over the full-length antiparallel alignment and a >10-match 3′-supplementary +0.05 bonus are minor adjustments; output clamped [0,1]. The monotone ordering is preserved (cross-check above). ✓
+- **TA = log10(N), N over the three site types** — `CountSeedSites3Utr` derives the seed (SeedSequence, else `GetSeedSequence` = positions 2-8), takes `seedRC`, `pos8Rc = seedRC[0]`, `sixmerCore = seedRC[1..7]`, sums `CountSeedSitesInUtr` over each UTR (T→U, upper); `ComputeTa3Utr` returns `Math.Log10(total)` (0 when total = 0). A site counts iff the 6mer core matches AND (m8 upstream OR A1 downstream) — i.e. 8mer/7mer-m8/7mer-A1, bare 6mer excluded. Matches Garcia's membership exactly. ✓
+- **log10 / floor** — `total > 0 ? Math.Log10(total) : 0.0` matches the TargetScan convention. ✓
+- **Feeds context++ with the bundled Agarwal TA coefficient + min-max scaling** — `TaContribution` selects per-site-type `(coeff,min,max)` (8mer 0.222 / 3.113–3.865; 7mer-m8 0.139 / 3.067–3.887; 7mer-A1 0.117 / 3.145–3.887; 6mer 0.058 / 3.113–3.887) and applies `coeff × (ta−min)/(max−min)` — exactly the perl `getAgarwalContribution`. ✓
+- **Edge cases** — null ⇒ `ArgumentNullException.ThrowIfNull`; empty/short seed ⇒ 0; empty/null UTRs skipped; DNA normalised; all reproduced by tests CTX-TA-005…008. ✓
 
-### Variant/delegate consistency
-`AlignMiRnaToTarget` reads the target antiparallel (`target[Length-1-i]`); WC → `|`, G:U → `:`, mismatch → space; empty → empty duplex. `CalculateDuplexEnergy` sums Turner-2004 NN stacking terms over consecutive paired positions. These are exercised by `MiRnaAnalyzer_AlignMiRnaToTarget_Tests.cs` (well-sourced, exact).
+### Finding & fix (the one divergence)
+- **DEFECT (fixed this session):** Garcia's definition requires **non-overlapping** sites. The original `CountSeedSitesInUtr` incremented once per qualifying 6mer-core anchor with a plain `for (i++)` scan, and the code comment asserted overlap "is avoided because each qualifying anchor yields exactly one mutually-exclusive site type." That reasoning is **false**: site-TYPE mutual exclusivity *per anchor* does not make *distinct anchor positions* non-overlapping in sequence space. For a self-similar / periodic 6mer core the same physical region matches at several offsets and was over-counted:
+  - core `AAAAAA` (seed pos 2-7 = `UUUUUU`) vs `AAAAAAAAAA` → counted **5** (should be 1).
+  - core `ACACAC` (period-2) vs `ACACACACACA` → counted **3** (should be 1).
+  - **Fix:** `CountSeedSitesInUtr` now scans **left-to-right greedily** — on counting a site at `i`, advance to `i+6` so the next candidate core cannot overlap the just-counted site's 6mer-core footprint; non-qualifying positions still advance by 1. On non-self-overlapping cores (real miRNA seeds vs typical 3′UTRs) this is **identical** to the prior per-anchor count (all existing CTX-TA fixtures unchanged: 2, 5, 2, 1); on periodic cores it now yields the non-overlapping count (5→1, 3→1). The misleading comment + XML `<remarks>` were corrected to describe the greedy non-overlapping scan and cite Garcia explicitly.
+  - **Lock test added — CTX-TA-009:** periodic seed `GUGUGUU` (core `ACACAC`): `ACACACACACA` ⇒ 1 (overlapping anchors collapse); `ACACACAGGACACACA` (two cores ≥6 apart) ⇒ 2.
+
+### Pre-existing surface re-confirmed (still holds after the fix)
+`FindTargetSites` reverse-complement targeting, exact-match seed scan, nt8/A1 classification, antiparallel geometry, 0-based-inclusive coordinates, monotone Grimson-proportional base scorer, and the context++ wiring all remain green and unchanged (M-/S-/E-/CTX- tests pass; the limitation-fix touched only the new TA methods + comments).
 
 ### Test quality audit
-The MIRNA-TARGET-001 suite asserts **exact** site types, exact SeedMatchLengths, exact counts (`Count==1`/`==3`), strict score inequalities (M-005), score-range bounds (M-009), and now **exact 0-based-inclusive coordinates** (E-001). Expected values trace to Bartel 2009 / Lewis 2005 / hand-construction, NOT code echoes. This session ADDED 7 tests to close gate gaps:
-- **E-001** exact coordinates per site type (locks the corrected 7mer-A1/6mer starts).
-- **E-002** verbatim seed identity → no site (RC-not-identity checkpoint).
-- **E-003** single seed mismatch / seed-region G:U wobble → no canonical site (exact-match requirement).
-- **E-004** A1 + m8 both present → classified 8mer, not split (dominance).
-- **E-005** mRNA shorter than the 6mer core → empty; non-ACGU (N) neither throws nor spuriously matches, and a valid 8mer among N flanks is still found.
+The 9 CTX-TA tests assert exact hand-derived values (`log10(2)`, `log10(5)`, exact per-site-type scaled contributions, the non-overlapping counts 1 and 2), not code echoes; they cover both public methods, both overloads' contract (null throws), and the edge cases (empty set, no sites, DNA, short seed, overlapping cores). Expected numbers trace to Garcia (2011) / Agarwal (2015) / the TargetScan parameter rows.
+- Target-prediction class: **72 tests pass**.
+- Full unfiltered `dotnet test Seqeron.sln -c Debug`: **Seqeron.Genomics.Tests = 18861 passed, 0 failed**; whole solution green; **0 warnings** on the changed project.
 
-Full class: 63 tests pass. Full unfiltered `dotnet test Seqeron.sln -c Debug`: **Seqeron.Genomics.Tests = 18799 passed, 0 failed**; whole solution green; 0 warnings on the changed file.
-
-### Findings / notes (honestly-scoped, NOT defects)
-1. **Default `Score` is a seed-type-proportional base score** (Grimson-normalized + small mismatch/3′ adjustments), not the full TargetScan context++ model. The opt-in `ScoreTargetSiteContextPlusPlus` (MIRNA-CONTEXT-001 / MIRNA-PCT-001) supplies the source-fitted context++ score and is validated under those units. Documented simplification, not a defect of THIS unit.
-2. **ΔG (`FreeEnergy`) uses a stacking-only model** (no loop/bulge/coaxial terms), so short G-flanked constructs may show ΔG = 0; classification depends on `Score`, not ΔG. Documented simplification (MIRNA-PAIR-001 energy model).
-3. **Registry naming inaccuracy (documentation, not code):** the catalog row (`ALGORITHMS_CHECKLIST_V2.md` §MIRNA-TARGET-001 and the method index) lists a public method `ScoreTargetSite(site)` that **does not exist** in the source — the scoring is the internal `CalculateTargetScore`, exercised through `FindTargetSites`. The algorithm is fully implemented and tested; only the registry label is imprecise. Logged in FINDINGS_REGISTER as a minor doc note. Not blocking CLEAN.
+### Honest residual (open boundary — NOT a defect of this unit)
+TA_3UTR is now computable from a caller-supplied 3′UTR set. The remaining context++ residual is honest and unchanged: **PCT per-family parameters, SPS, Len_ORF and ORF-8mer count are caller-supplied** (listed in `OmittedFeatures` when absent), and **no default human transcriptome / 3′UTR set is bundled** — the caller must supply the 3′UTR set over which abundance is counted. This is a declared scope boundary (LIMITATIONS.md §3, trimmed by the fix), not an error.
 
 ---
 
 ## Verdict & follow-ups
-- **Stage A: PASS** — seed = nt 2–7, the four site-type definitions, the A1 anchor (target-base identity) rule, the m8 WC rule, the seed reverse-complement targeting rule, and the efficacy hierarchy all independently confirmed against Bartel (2009), Lewis (2005), Friedman/Agarwal, Grimson (2007).
-- **Stage B: PASS-WITH-NOTES** — `FindTargetSites` targets by seed **reverse complementarity** (not identity), with correct exact-match seed scan, correct nt8/A1 classification, correct antiparallel geometry, correct 0-based inclusive coordinates, and a monotone Grimson-proportional base scorer. The three notes are intentional/documented (two model simplifications, one registry-label inaccuracy), not biological errors.
-- **End-state: ✅ CLEAN** — no code defect; the test gate gaps were closed with 7 source/hand-derived edge tests; full suite green.
-- Follow-up: the context++ / PCT extensions are validated under MIRNA-CONTEXT-001 / MIRNA-PCT-001.
+- **Stage A: PASS** — `TA_3UTR = log10(N)`, N = non-overlapping 8mer+7mer-m8+7mer-A1 sites, log10 scale, Agarwal min-max scaling — all confirmed verbatim against Garcia (2011) Online Methods (PMC3190056), Agarwal (2015) Table 1, and the TargetScan 7.0 reference perl.
+- **Stage B: PASS** — the code realises the formula; the one divergence from the literal "non-overlapping" requirement (over-counting on periodic cores) was found and **completely fixed** (greedy non-overlapping scan + corrected comments + lock test CTX-TA-009); all existing fixtures unchanged; full suite green.
+- **End-state: ✅ CLEAN** — defect found and fully fixed in-session; the residual (PCT params / SPS / Len_ORF / ORF8m caller-supplied; no bundled transcriptome) is an honest, declared boundary.
+- Defect logged in FINDINGS_REGISTER.md.

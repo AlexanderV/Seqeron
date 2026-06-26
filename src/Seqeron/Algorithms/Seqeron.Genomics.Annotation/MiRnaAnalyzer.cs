@@ -857,8 +857,10 @@ public static class MiRnaAnalyzer
     // The site definitions are the canonical TargetScan ones (Bartel 2009; Lewis 2005), identical to
     // FindTargetSites: an 8mer/7mer-m8/7mer-A1 is anchored on a 6mer-core match (reverse complement
     // of miRNA positions 2-7) that additionally has a position-8 match (m8) and/or an A opposite
-    // position 1 (A1).  Each qualifying 6mer-core anchor contributes exactly one site (the three
-    // types are mutually exclusive per anchor), so distinct anchor positions are non-overlapping.
+    // position 1 (A1).  The three types are mutually exclusive per anchor (each qualifying anchor is
+    // one site), and counting is left-to-right greedy so that physically overlapping core anchors
+    // (possible only for self-similar / periodic cores) are counted once — honouring Garcia's
+    // explicit "non-overlapping" requirement (see CountSeedSitesInUtr).
 
     /// <summary>
     /// Computes the TargetScan context++ feature <c>TA_3UTR</c> (transcriptome-wide target-site
@@ -875,8 +877,10 @@ public static class MiRnaAnalyzer
     /// occurrence of the 6mer core (reverse complement of miRNA positions 2-7) that also has a
     /// position-8 match (7mer-m8 / 8mer) and/or an A opposite miRNA position 1 (7mer-A1 / 8mer)
     /// counts as one site. A bare 6mer (neither m8 nor A1) and offset-6mer matches are NOT counted
-    /// (Garcia 2011 counts only the three high-confidence site types). Overlapping counting is
-    /// avoided because each qualifying anchor yields exactly one mutually-exclusive site type.
+    /// (Garcia 2011 counts only the three high-confidence site types). Sites are counted
+    /// <b>non-overlapping</b> (Garcia 2011): the scan is left-to-right greedy, so two qualifying
+    /// core anchors whose 6mer-core footprints overlap (possible only for self-similar / periodic
+    /// cores) are counted once.
     /// </remarks>
     /// <param name="miRna">The miRNA whose seed (positions 2-8) defines the site set. Its
     /// <c>SeedSequence</c> (or, if absent, positions 2-8 of its <c>Sequence</c>) is used.</param>
@@ -931,21 +935,41 @@ public static class MiRnaAnalyzer
         return total;
     }
 
-    // Counts 8mer + 7mer-m8 + 7mer-A1 sites in ONE 3'UTR. Mirrors FindTargetSites pass 1: scan for
-    // 6mer-core occurrences; a site counts iff it additionally has the position-8 match (m8) or the
-    // A opposite position 1 (A1) — i.e. it is an 8mer (both), a 7mer-m8 (m8 only) or a 7mer-A1 (A1
-    // only). A bare 6mer (neither) is NOT a counted site type (Garcia 2011 counts only the three).
+    // Counts 8mer + 7mer-m8 + 7mer-A1 sites in ONE 3'UTR. Scan for 6mer-core occurrences; a site
+    // counts iff it additionally has the position-8 match (m8) or the A opposite position 1 (A1) —
+    // i.e. it is an 8mer (both), a 7mer-m8 (m8 only) or a 7mer-A1 (A1 only). A bare 6mer (neither) is
+    // NOT a counted site type (Garcia 2011 counts only the three).
+    //
+    // Garcia (2011) Online Methods: TA = number of *non-overlapping* sites. Distinct qualifying
+    // core anchors can still physically overlap when the 6mer core is self-similar (e.g. a
+    // low-complexity / periodic core against a homopolymeric UTR), so counting every anchor would
+    // over-count relative to the published definition. We therefore scan left-to-right greedily:
+    // when a site is counted at i, the next candidate core must start at i+6 or later (its 6mer-core
+    // footprint must not overlap an already-counted site). On non-self-overlapping cores (real miRNA
+    // seeds against typical 3'UTRs) this is identical to per-anchor counting; on periodic cores it
+    // enforces the non-overlapping requirement.
     private static int CountSeedSitesInUtr(string utr, string sixmerCore, char pos8Rc)
     {
         int count = 0;
-        for (int i = 0; i + 6 <= utr.Length; i++)
+        int i = 0;
+        while (i + 6 <= utr.Length)
         {
             if (string.CompareOrdinal(utr, i, sixmerCore, 0, 6) != 0)
+            {
+                i++;
                 continue;
+            }
             bool hasPos8 = i > 0 && utr[i - 1] == pos8Rc;     // 7mer-m8 / 8mer
             bool hasA1 = i + 6 < utr.Length && utr[i + 6] == 'A'; // 7mer-A1 / 8mer
             if (hasPos8 || hasA1)
+            {
                 count++;
+                i += 6; // skip past this site's 6mer-core footprint — sites are non-overlapping
+            }
+            else
+            {
+                i++;
+            }
         }
         return count;
     }

@@ -1449,5 +1449,27 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
         });
     }
 
+    // CTX-TA-009 — Garcia (2011) counts NON-OVERLAPPING sites. With a self-similar (period-2) seed
+    // core, the same physical region matches the core at several offsets; counting every anchor would
+    // over-count. A miRNA with seed (pos 2-8) = GUGUGUU has seedRC = AACACAC ⇒ pos8Rc 'A',
+    // 6mer core = ACACAC. Hand-derived:
+    //   "ACACACACACA" : core ACACAC matches at idx 0,2,4, all qualifying (A1='A' / m8='A'), but the
+    //                   footprints overlap ⇒ exactly ONE non-overlapping site (Garcia 2011).
+    //   "ACACACAGGACACACA" : two cores ≥6 apart (idx0, idx9), each with a downstream A1 ⇒ TWO sites.
+    [Test]
+    public void ComputeTa3Utr_OverlappingCoreAnchors_CountedNonOverlapping_Garcia2011()
+    {
+        var periodicSeed = CreateMiRna("periodic", "AGUGUGUUACACACACACAC"); // seed GUGUGUU, core ACACAC
+        Assert.Multiple(() =>
+        {
+            Assert.That(periodicSeed.SeedSequence, Is.EqualTo("GUGUGUU"),
+                "seed positions 2-8 give the period-2 core ACACAC");
+            Assert.That(CountSeedSites3Utr(periodicSeed, new[] { "ACACACACACA" }), Is.EqualTo(1L),
+                "overlapping core anchors collapse to one non-overlapping site (Garcia 2011)");
+            Assert.That(CountSeedSites3Utr(periodicSeed, new[] { "ACACACAGGACACACA" }), Is.EqualTo(2L),
+                "two cores ≥6 nt apart are genuinely non-overlapping ⇒ two sites");
+        });
+    }
+
     #endregion
 }
