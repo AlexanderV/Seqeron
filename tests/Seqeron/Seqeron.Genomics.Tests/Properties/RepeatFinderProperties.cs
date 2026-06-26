@@ -491,6 +491,52 @@ public class RepeatFinderProperties
 
     #endregion
 
+    #region REP-APPROX-001: R: percent-matches ∈ [0,100]; R: score ≥ MinScore (50); D: deterministic
+
+    // FindApproximateTandemRepeats — TRF-style imperfect tandem-repeat detection (Benson 1999). Every
+    // reported repeat passes the minimum alignment-score gate (default 50) and has a match percentage in [0,100].
+
+    // Length-bounded planted tandem repeat (the TRF scan is super-linear, so cap the generated size).
+    private static Arbitrary<string> BoundedSeededRepeatArbitrary() =>
+        (from prefixLen in Gen.Choose(0, 10)
+         from suffixLen in Gen.Choose(0, 10)
+         from unit in Gen.Elements("A", "C", "AC", "GT", "AT", "CAG", "GTA", "TGC")
+         from k in Gen.Choose(5, 12)
+         from prefix in Gen.Elements('A', 'C', 'G', 'T').ArrayOf(prefixLen)
+         from suffix in Gen.Elements('A', 'C', 'G', 'T').ArrayOf(suffixLen)
+         select new string(prefix) + string.Concat(Enumerable.Repeat(unit, k)) + new string(suffix))
+        .ToArbitrary();
+
+    /// <summary>
+    /// INV (R + R): for any sequence carrying a genuine tandem repeat, every reported approximate repeat has
+    /// PercentMatches ∈ [0,100] and an AlignmentScore at least the requested minimum (Benson 1999 MinScore=50).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ApproximateRepeats_PercentMatchesInRange_AndScoreAboveMin()
+    {
+        const int minScore = 50;
+        return Prop.ForAll(BoundedSeededRepeatArbitrary(), seq =>
+        {
+            var results = RepeatFinder.FindApproximateTandemRepeats(seq, 1, 6, minScore).ToList();
+            return results.All(r => r.PercentMatches is >= 0.0 and <= 100.0 + 1e-9 && r.AlignmentScore >= minScore)
+                .Label($"a repeat had PercentMatches/score out of contract (results={results.Count})");
+        });
+    }
+
+    /// <summary>INV (D): approximate tandem-repeat detection is deterministic.</summary>
+    [FsCheck.NUnit.Property]
+    public Property ApproximateRepeats_IsDeterministic()
+    {
+        return Prop.ForAll(BoundedSeededRepeatArbitrary(), seq =>
+        {
+            var a = RepeatFinder.FindApproximateTandemRepeats(seq, 1, 6).ToList();
+            var b = RepeatFinder.FindApproximateTandemRepeats(seq, 1, 6).ToList();
+            return a.SequenceEqual(b).Label("FindApproximateTandemRepeats must be deterministic");
+        });
+    }
+
+    #endregion
+
     private static string ReverseComplement(string dna)
     {
         var comp = dna.Select(c => c switch
