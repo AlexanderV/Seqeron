@@ -3090,5 +3090,86 @@ public class MolToolsMetamorphicTests
 
     #endregion
 
+    // ═══════════════════════════════════════════════════════════════════
+    //  PROBE-EVALUE-001 — Karlin–Altschul off-target E-value statistics (MolTools)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (Karlin & Altschul 1990 PNAS 87:2264; Altschul et al. 1990;
+    //   docs/algorithms/MolTools / tests/TestSpecs/PROBE-EVALUE-001.md):
+    //   For a probe off-target alignment of raw score S in a search space m·n, the expected number
+    //   of chance hits is E = K·m·n·e^{−λS}, where λ is the unique positive root of the
+    //   Karlin–Altschul equation Σ_{i,j} p_i p_j e^{λ s_ij} = 1. Two metamorphic relations
+    //   (checklist row 244):
+    //
+    //   • MON (increasing database size raises E for a fixed raw score): E is exactly linear in the
+    //     database length n (E = K·m·n·e^{−λS}), so a larger reference raises the chance-hit
+    //     expectation proportionally.
+    //   • INV (λ solves the defining equation): the λ returned by ComputeLambdaNucleotide makes
+    //     Σ_{i,j} p_i p_j e^{λ s_ij} = 0.25·e^{λ·match} + 0.75·e^{λ·mismatch} equal exactly 1.
+    //
+    // API under test: ProbeDesigner.ComputeLambdaNucleotide / .ComputeKarlinAltschul.
+
+    #region PROBE-EVALUE-001 — Karlin–Altschul E-value statistics
+
+    [Test]
+    [Description("MON: E = K·m·n·e^{−λS} is exactly linear in the database length n, so for a fixed raw score a larger reference strictly (and proportionally) raises the E-value.")]
+    public void EValue_IncreasingDatabaseSize_RaisesEValueLinearly()
+    {
+        const double rawScore = 20.0;
+        const int queryLength = 25;
+        long[] databaseLengths = { 1_000L, 10_000L, 100_000L, 1_000_000L };
+
+        var reference = ProbeDesigner.ComputeKarlinAltschul(rawScore, queryLength, databaseLengths[0]);
+        double ePerBase = reference.EValue / databaseLengths[0];
+
+        double previousE = double.NegativeInfinity;
+        foreach (long n in databaseLengths)
+        {
+            var stats = ProbeDesigner.ComputeKarlinAltschul(rawScore, queryLength, n);
+
+            stats.EValue.Should().BeGreaterThan(previousE,
+                because: $"a larger database (n={n}) raises the chance-hit expectation for the fixed raw score");
+            // Exact linearity in n: E(n) = (E/n)·n with a constant E/n.
+            stats.EValue.Should().BeApproximately(ePerBase * n, ePerBase * n * 1e-9,
+                because: $"E = K·m·n·e^(−λS) is exactly linear in n, so E(n={n}) scales from the reference");
+            // Internal consistency: E reproduced from the returned λ and K.
+            double expected = stats.K * queryLength * n * System.Math.Exp(-stats.Lambda * rawScore);
+            stats.EValue.Should().BeApproximately(expected, System.Math.Abs(expected) * 1e-9,
+                because: "the reported E-value equals K·m·n·e^(−λS) from the reported λ and K");
+            previousE = stats.EValue;
+        }
+    }
+
+    [Test]
+    [Description("INV: the λ returned by ComputeLambdaNucleotide is the root of the Karlin–Altschul equation — 0.25·e^{λ·match} + 0.75·e^{λ·mismatch} = 1 — for every valid match/mismatch scheme.")]
+    public void Lambda_SolvesKarlinAltschulEquation()
+    {
+        var schemes = new[] { (1, -3), (2, -3), (5, -4), (1, -1), (3, -4) };
+        double previousLambda = double.NaN;
+
+        foreach (var (match, mismatch) in schemes)
+        {
+            double lambda = ProbeDesigner.ComputeLambdaNucleotide(match, mismatch);
+
+            lambda.Should().BeGreaterThan(0.0, because: "the Karlin–Altschul λ is the unique POSITIVE root");
+
+            // Defining equation with uniform base frequencies: p(match)=4·0.25²=0.25, p(mismatch)=0.75.
+            double lhs = 0.25 * System.Math.Exp(lambda * match) + 0.75 * System.Math.Exp(lambda * mismatch);
+            lhs.Should().BeApproximately(1.0, 1e-6,
+                because: $"λ={lambda} must solve Σ p_i p_j e^(λ s_ij) = 1 for the ({match},{mismatch}) scheme");
+
+            // Non-vacuity: different schemes give different λ.
+            if (!double.IsNaN(previousLambda))
+                lambda.Should().NotBe(previousLambda, because: "distinct scoring schemes yield distinct λ");
+            previousLambda = lambda;
+        }
+
+        // Published pin: the BLAST +1/−3 nucleotide scheme yields λ ≈ 1.374 (NCBI blastn).
+        ProbeDesigner.ComputeLambdaNucleotide(1, -3).Should().BeApproximately(1.374, 0.01,
+            because: "the BLAST +1/−3 scheme has the published λ ≈ 1.374");
+    }
+
+    #endregion
+
     #endregion
 }
