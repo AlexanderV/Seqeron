@@ -293,4 +293,83 @@ public class SplicingProperties
     }
 
     #endregion
+
+    #region SPLICE-MAXENT3-001: R: score finite; D: deterministic; requires 23-nt acceptor window
+
+    // ScoreAcceptorMaxEnt — MaxEntScan score3ss (Yeo & Burge 2004): a maximum-entropy log-odds score over a
+    // fixed 23-nt 3' acceptor window (20 intron + 3 exon nt). The window length is a hard contract.
+
+    private static Arbitrary<string> FixedDnaArbitrary(int length) =>
+        (from cs in Gen.Elements('A', 'C', 'G', 'T').ArrayOf(length) select new string(cs)).ToArbitrary();
+
+    /// <summary>INV-1 (R): the MaxEnt 3' acceptor score is finite for any valid 23-nt window.</summary>
+    [FsCheck.NUnit.Property]
+    public Property AcceptorMaxEnt_Score_IsFinite()
+    {
+        return Prop.ForAll(FixedDnaArbitrary(23), window =>
+            double.IsFinite(SpliceSitePredictor.ScoreAcceptorMaxEnt(window)).Label("acceptor MaxEnt score must be finite"));
+    }
+
+    /// <summary>INV-2 (D): the MaxEnt 3' acceptor score is deterministic.</summary>
+    [FsCheck.NUnit.Property]
+    public Property AcceptorMaxEnt_IsDeterministic()
+    {
+        return Prop.ForAll(FixedDnaArbitrary(23), window =>
+            (SpliceSitePredictor.ScoreAcceptorMaxEnt(window) == SpliceSitePredictor.ScoreAcceptorMaxEnt(window))
+                .Label("ScoreAcceptorMaxEnt must be deterministic"));
+    }
+
+    /// <summary>INV-3 (contract): a window whose length is not 23 nt is rejected.</summary>
+    [FsCheck.NUnit.Property]
+    public Property AcceptorMaxEnt_WrongLength_Throws()
+    {
+        var gen = (from len in Gen.Choose(0, 40).Where(l => l != 23)
+                   from cs in Gen.Elements('A', 'C', 'G', 'T').ArrayOf(len)
+                   select new string(cs)).ToArbitrary();
+        return Prop.ForAll(gen, window =>
+        {
+            try { SpliceSitePredictor.ScoreAcceptorMaxEnt(window); return false.Label($"len {window.Length} accepted"); }
+            catch (ArgumentException) { return true.ToProperty(); }
+        });
+    }
+
+    #endregion
+
+    #region SPLICE-MAXENT5-001: R: score finite; D: deterministic; requires 9-nt donor window
+
+    // ScoreDonorMaxEnt — MaxEntScan score5ss (Yeo & Burge 2004): a maximum-entropy log-odds score over a
+    // fixed 9-nt 5' donor window (3 exon + 6 intron nt).
+
+    /// <summary>INV-1 (R): the MaxEnt 5' donor score is finite for any valid 9-nt window.</summary>
+    [FsCheck.NUnit.Property]
+    public Property DonorMaxEnt_Score_IsFinite()
+    {
+        return Prop.ForAll(FixedDnaArbitrary(9), window =>
+            double.IsFinite(SpliceSitePredictor.ScoreDonorMaxEnt(window)).Label("donor MaxEnt score must be finite"));
+    }
+
+    /// <summary>INV-2 (D): the MaxEnt 5' donor score is deterministic.</summary>
+    [FsCheck.NUnit.Property]
+    public Property DonorMaxEnt_IsDeterministic()
+    {
+        return Prop.ForAll(FixedDnaArbitrary(9), window =>
+            (SpliceSitePredictor.ScoreDonorMaxEnt(window) == SpliceSitePredictor.ScoreDonorMaxEnt(window))
+                .Label("ScoreDonorMaxEnt must be deterministic"));
+    }
+
+    /// <summary>INV-3 (contract): a window whose length is not 9 nt is rejected.</summary>
+    [FsCheck.NUnit.Property]
+    public Property DonorMaxEnt_WrongLength_Throws()
+    {
+        var gen = (from len in Gen.Choose(0, 20).Where(l => l != 9)
+                   from cs in Gen.Elements('A', 'C', 'G', 'T').ArrayOf(len)
+                   select new string(cs)).ToArbitrary();
+        return Prop.ForAll(gen, window =>
+        {
+            try { SpliceSitePredictor.ScoreDonorMaxEnt(window); return false.Label($"len {window.Length} accepted"); }
+            catch (ArgumentException) { return true.ToProperty(); }
+        });
+    }
+
+    #endregion
 }
