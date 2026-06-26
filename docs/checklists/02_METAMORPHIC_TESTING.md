@@ -276,7 +276,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 246 | ☑ | MHC-MATRIX-001 | Oncology | INV: IC50 = 50000^(1-score); MON: improving an anchor residue lowers IC50 |
 | 247 | ☑ | IMMUNE-NUSVR-001 | Oncology | INV: mixing known fractions of pure profiles recovers those fractions; SUB: ν controls support-vector count |
 | 248 | ☑ | META-CHECKM-001 | Metagenomics | MON: removing a marker lowers completeness; MON: duplicating a marker raises contamination |
-| 249 | ☐ | META-TETRA-001 | Metagenomics | INV: reverse-complement-merged counts give identical z-vector; MON: identical sequences → correlation 1 |
+| 249 | ☑ | META-TETRA-001 | Metagenomics | INV: reverse-complement-merged counts give identical z-vector; MON: identical sequences → correlation 1 |
 | 250 | ☐ | SPLICE-MAXENT3-001 | Splicing | INV: canonical AG acceptor scores above shuffled background; SUB: window must contain the AG |
 | 251 | ☐ | SPLICE-MAXENT5-001 | Splicing | INV: canonical GT donor scores above shuffled background; SUB: window must contain the GT |
 | 252 | ☐ | MIRNA-CONTEXT-001 | MiRNA | MON: stronger local AU context → more negative score; INV: same site → same score |
@@ -294,6 +294,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 258 |
-| ☑ Complete | 248 |
-| ☐ Not started | 10 |
+| ☑ Complete | 249 |
+| ☐ Not started | 9 |
 | MR relations defined | ~200+ |

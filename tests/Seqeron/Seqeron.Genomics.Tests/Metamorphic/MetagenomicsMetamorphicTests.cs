@@ -837,4 +837,89 @@ public class MetagenomicsMetamorphicTests
     }
 
     #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  META-TETRA-001 — TETRA tetranucleotide z-score signature (Metagenomics)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (Teeling et al. 2004 BMC Bioinformatics 5:163; Schbath variance model):
+    //   The TETRA signature first extends a sequence by its reverse complement (making the signature
+    //   strand-symmetric), then assigns each of the 256 tetranucleotides a Markov-corrected z-score;
+    //   two sequences are compared by the Pearson correlation of their z-vectors. Two metamorphic
+    //   relations (checklist row 249):
+    //
+    //   • INV (reverse-complement-merged counts give an identical z-vector): the signature is computed
+    //     on the sequence concatenated with its reverse complement, which is itself a
+    //     reverse-complement palindrome — so within the 256-entry z-vector the score of every
+    //     tetranucleotide w equals the score of its reverse complement: z[w] == z[revcomp(w)].
+    //   • MON (identical sequences → correlation 1): the Pearson correlation of a z-vector with
+    //     itself is exactly 1, while compositionally different sequences correlate below 1.
+    //
+    // API under test: MetagenomicsAnalyzer.CalculateTetranucleotideZScores / .TetranucleotideZScoreCorrelation.
+
+    #region META-TETRA-001 — tetranucleotide z-score signature
+
+    private static string TetraRevComp(string s)
+    {
+        var arr = new char[s.Length];
+        for (int i = 0; i < s.Length; i++)
+        {
+            char c = char.ToUpperInvariant(s[s.Length - 1 - i]);
+            arr[i] = c switch { 'A' => 'T', 'T' => 'A', 'C' => 'G', 'G' => 'C', _ => c };
+        }
+
+        return new string(arr);
+    }
+
+    private static string TetraDeterministicDna(int length, int seed, double gc = 0.5)
+    {
+        var rng = new Random(seed);
+        var chars = new char[length];
+        for (int i = 0; i < length; i++)
+        {
+            bool isGc = rng.NextDouble() < gc;
+            chars[i] = isGc ? (rng.Next(2) == 0 ? 'G' : 'C') : (rng.Next(2) == 0 ? 'A' : 'T');
+        }
+
+        return new string(chars);
+    }
+
+    [Test]
+    [Description("INV: TETRA counts on the sequence concatenated with its reverse complement (an RC palindrome), so within the z-vector every tetranucleotide w scores identically to its reverse complement: z[w] == z[revcomp(w)].")]
+    public void Tetra_ReverseComplementMergedCounts_GiveStrandSymmetricZVector()
+    {
+        foreach (int seed in new[] { 11, 22, 33 })
+        {
+            string seq = TetraDeterministicDna(600, seed, gc: 0.45 + 0.05 * (seed % 3));
+            var z = MetagenomicsAnalyzer.CalculateTetranucleotideZScores(seq);
+
+            // Non-vacuity: the z-vector is not the degenerate all-zero vector.
+            z.Values.Any(v => System.Math.Abs(v) > 1e-6).Should().BeTrue(
+                because: "a 600-nt sequence has a non-degenerate TETRA signature");
+
+            foreach (var (tetra, value) in z)
+            {
+                string rc = TetraRevComp(tetra);
+                z[rc].Should().BeApproximately(value, 1e-9,
+                    because: $"the reverse-complement-merged extended strand makes z[{tetra}] equal z[{rc}] (strand symmetry)");
+            }
+        }
+    }
+
+    [Test]
+    [Description("MON: the Pearson correlation of a TETRA z-vector with itself is exactly 1, while a compositionally different sequence correlates below 1.")]
+    public void Tetra_IdenticalSequences_CorrelateToOne()
+    {
+        string seq = TetraDeterministicDna(800, 101, gc: 0.5);
+
+        MetagenomicsAnalyzer.TetranucleotideZScoreCorrelation(seq, seq).Should().BeApproximately(1.0, 1e-9,
+            because: "a z-vector's Pearson correlation with itself is exactly 1");
+
+        // Non-vacuity: a compositionally very different sequence correlates below 1.
+        string different = TetraDeterministicDna(800, 202, gc: 0.8);
+        MetagenomicsAnalyzer.TetranucleotideZScoreCorrelation(seq, different).Should().BeLessThan(1.0 - 1e-6,
+            because: "a sequence with a markedly different tetranucleotide composition does not correlate perfectly");
+    }
+
+    #endregion
 }
