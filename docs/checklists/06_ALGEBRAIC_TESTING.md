@@ -285,9 +285,9 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 253 | ☑ | MIRNA-PCT-001 | MiRNA | ID: branch-length-score → published logistic; IDEMP: deterministic |
 | 254 | ☑ | MIRNA-CLASSIFY-001 | MiRNA | ID: logistic of feature vector; IDEMP: deterministic |
 | 255 | ☑ | MIRNA-CLEAVAGE-001 | MiRNA | ID: 11-bp + 22-nt measuring rules → known mature; IDEMP: deterministic |
-| 256 | ☐ | REP-APPROX-001 | Repeats | ID: perfect tandem repeat scores as exact; IDEMP: deterministic |
-| 257 | ☐ | CHROM-ALPHASAT-001 | Chromosome | ID: 171-bp periodicity + AT + CENP-B motif → detection; IDEMP: deterministic |
-| 258 | ☐ | CHROM-HOR-001 | Chromosome | ID: k-monomer HOR → period k×171; IDEMP: deterministic |
+| 256 | ☑ | REP-APPROX-001 | Repeats | ID: perfect tandem repeat scores as exact; IDEMP: deterministic |
+| 257 | ☑ | CHROM-ALPHASAT-001 | Chromosome | ID: 171-bp periodicity + AT + CENP-B motif → detection; IDEMP: deterministic |
+| 258 | ☑ | CHROM-HOR-001 | Chromosome | ID: k-monomer HOR → period k×171; IDEMP: deterministic |
 
 ---
 
@@ -296,7 +296,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 258 |
-| ☑ Complete | 86 |
-| ☐ Not started | 3 |
+| ☑ Complete | 89 |
+| ☐ Not started | 0 |
 | ✗ Not applicable | 169 |
 | Laws verified | ~172 (≈2 per algorithm) |
