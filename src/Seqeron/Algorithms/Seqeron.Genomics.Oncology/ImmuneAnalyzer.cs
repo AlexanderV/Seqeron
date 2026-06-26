@@ -662,6 +662,19 @@ public static class ImmuneAnalyzer
     {
         ArgumentNullException.ThrowIfNull(expressionProfile);
 
+        // A non-finite (NaN / ±Infinity) expression value would propagate through z-score
+        // standardisation, the SMO solver, and the fit diagnostics, leaking a NaN/Infinity into the
+        // contracted-finite output fields (CellFractions / Correlation / Rmse). The linear-mixture model
+        // (§2.C) is defined only for finite expression, so reject non-finite input up front with a
+        // documented validation exception rather than emitting a corrupted result.
+        foreach (var value in expressionProfile.Values)
+        {
+            if (!double.IsFinite(value))
+                throw new ArgumentException(
+                    "Expression profile contains a non-finite value (NaN or Infinity); ν-SVR deconvolution requires finite expression.",
+                    nameof(expressionProfile));
+        }
+
         // Deconvolution against the bundled ABIS (or caller) matrix — NOT CIBERSORT-LM22-identical.
         // Strict mode throws; Moderate/Permissive allow it.
         Seqeron.Genomics.Core.LimitationPolicy.Enforce("ONCO-IMMUNE-001");
@@ -1544,12 +1557,24 @@ public static class ImmuneAnalyzer
         }
 
         double numerator = n * sumXY - sumX * sumY;
-        double denominator = Math.Sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
 
-        if (denominator < 1e-15)
+        // Each bracket is an (unscaled) variance: non-negative in exact arithmetic, but catastrophic
+        // cancellation on a near-constant, large-magnitude vector can drive it slightly NEGATIVE in
+        // floating point. A negative product would make Math.Sqrt return NaN, leaking a NaN into the
+        // contracted-finite Pearson correlation (∈ [-1, 1]). Clamp each variance to its valid floor of 0
+        // and treat a ~zero variance (no spread) as an undefined correlation → 0, matching the
+        // zero-variance intent of the original guard.
+        double varX = n * sumX2 - sumX * sumX;
+        double varY = n * sumY2 - sumY * sumY;
+        if (!(varX > 1e-15) || !(varY > 1e-15))
+            return 0.0;  // zero/negative spread, or a non-finite (NaN/Inf) variance → correlation undefined.
+
+        double denominator = Math.Sqrt(varX * varY);
+        if (!(denominator > 1e-15))
             return 0.0;
 
-        return numerator / denominator;
+        double r = numerator / denominator;
+        return double.IsFinite(r) ? r : 0.0;
     }
 
     /// <summary>
