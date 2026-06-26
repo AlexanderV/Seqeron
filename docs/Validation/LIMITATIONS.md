@@ -19,7 +19,7 @@ boundaries, never defects. They fall into three kinds:
 
 | Unit | Not done | Why irreducible |
 |------|----------|-----------------|
-| PARSE-FASTQ-001 | Auto-disambiguation of Phred+33 vs Phred+64 when a read carries only overlap-range (ASCII 64–73) qualities. | The encodings overlap; the input is genuinely ambiguous (information-theoretic). Callers must decode with an explicit offset. |
+| PARSE-FASTQ-001 | Auto-disambiguation of Phred+33 vs Phred+64 for a FASTQ in which **every** read is confined to the overlap range (ASCII 64–74). | Such input is genuinely ambiguous (information-theoretic): both encodings decode it without error. `DetectEncoding(IEnumerable<string>)` resolves the normal case from the rest of the file (a single character &lt; 64 proves Phred+33; a character &gt; 74 with none below 64 infers Phred+64) and flags only the wholly overlap-confined file `Ambiguous`, defaulting to Phred+33 — that residual case cannot be resolved by any method. |
 | RNA-STRUCT-001 | Recovering tertiary-stabilised knots (e.g. BWYV / PDB 437D) as the MFE structure. | Not representable by *any* nearest-neighbour thermodynamic model — an energy-model floor, not an algorithm gap. |
 | RNA-STRUCT-001 | Detecting pseudoknot classes outside the csr-PK grammar (kissing hairpins / loop–loop, triple-crossing / chained, non-canonical bulged helices). | The loop–loop interaction energy has never been experimentally measured (Sperschneider 2011 → heuristic estimate only); a faithful detector would need an unsourced energy constant. |
 
