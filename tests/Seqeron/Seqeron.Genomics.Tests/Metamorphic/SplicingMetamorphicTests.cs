@@ -272,4 +272,120 @@ public class SplicingMetamorphicTests
     }
 
     #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  SPLICE-MAXENT3-001 / SPLICE-MAXENT5-001 — MaxEntScan splice scoring (Splicing)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (Yeo & Burge 2004 J Comput Biol 11:377, MaxEntScan; kepbod/maxentpy score3/score5;
+    //   tests/TestSpecs/SPLICE-MAXENT3-001.md, SPLICE-MAXENT5-001.md):
+    //   ScoreAcceptorMaxEnt scores a 23-nt 3' window (20 intron + 3 exon; AG at 0-based 18–19) and
+    //   ScoreDonorMaxEnt a 9-nt 5' window (3 exon + 6 intron; GT at 0-based 3–4) as
+    //   log2(P_maxent/P_background). The consensus AG/GT dinucleotide dominates the score (its
+    //   consensus probability ≈ 0.99 vs ≈ 0.01 for the alternatives). Two metamorphic relations per
+    //   unit (checklist rows 250–251):
+    //
+    //   • INV (a canonical site scores above shuffled background): a real consensus site scores far
+    //     above the distribution of scores from sequences with the same composition but the flanking
+    //     positions shuffled (the AG/GT kept in place), confirming the score reflects the motif, not
+    //     just base composition.
+    //   • SUB (the window must contain the AG / GT): the consensus dinucleotide is necessary for a
+    //     strong score — replacing the AG/GT with any non-consensus dinucleotide collapses the score
+    //     (from strongly positive to near-zero/negative). High-scoring windows ⊆ AG/GT-containing.
+    //
+    // API under test: SpliceSitePredictor.ScoreAcceptorMaxEnt / .ScoreDonorMaxEnt.
+
+    #region SPLICE-MAXENT3-001 / SPLICE-MAXENT5-001 — MaxEntScan scoring
+
+    /// <summary>Fisher–Yates shuffle of every position EXCEPT the fixed [fixedStart, fixedStart+fixedLen) span.</summary>
+    private static string ShuffleKeepingFixed(string window, int fixedStart, int fixedLen, System.Random rng)
+    {
+        var chars = window.ToCharArray();
+        var movable = new System.Collections.Generic.List<int>();
+        for (int i = 0; i < chars.Length; i++)
+            if (i < fixedStart || i >= fixedStart + fixedLen)
+                movable.Add(i);
+
+        for (int i = movable.Count - 1; i > 0; i--)
+        {
+            int j = rng.Next(i + 1);
+            (chars[movable[i]], chars[movable[j]]) = (chars[movable[j]], chars[movable[i]]);
+        }
+
+        return new string(chars);
+    }
+
+    [Test]
+    [Description("INV: a canonical AG acceptor scores far above the distribution of scores from windows with the same composition but the flanking positions shuffled (the AG kept in place).")]
+    public void MaxEnt3_CanonicalAcceptor_ScoresAboveShuffledBackground()
+    {
+        const string canonical = "tgtctttttctgtgtggcAGtgg"; // documented score3 ≈ 8.19
+        double canonScore = SpliceSitePredictor.ScoreAcceptorMaxEnt(canonical);
+        canonScore.Should().BeGreaterThan(5.0, because: "this is a strong consensus acceptor (≈ 8.19 bits)");
+
+        var rng = new System.Random(20260626);
+        var shuffled = Enumerable.Range(0, 200)
+            .Select(_ => SpliceSitePredictor.ScoreAcceptorMaxEnt(ShuffleKeepingFixed(canonical, 18, 2, rng)))
+            .ToList();
+
+        canonScore.Should().BeGreaterThan(shuffled.Average(),
+            because: "the canonical acceptor scores above the mean shuffled-background score");
+        shuffled.Count(s => canonScore > s).Should().BeGreaterThanOrEqualTo(150,
+            because: "the canonical acceptor scores above the bulk (≥ 75%) of the shuffled-background distribution (its pyrimidine tract keeps some shuffles competitive)");
+    }
+
+    [Test]
+    [Description("SUB: the AG dinucleotide is necessary for a strong acceptor score — replacing it with any non-AG dinucleotide collapses the score from strongly positive to near-zero/negative.")]
+    public void MaxEnt3_WindowMustContainAg_ForAStrongScore()
+    {
+        const string canonical = "tgtctttttctgtgtggcAGtgg"; // AG at 18–19
+        double agScore = SpliceSitePredictor.ScoreAcceptorMaxEnt(canonical);
+        agScore.Should().BeGreaterThan(0.0, because: "the AG-containing canonical acceptor scores strongly positive");
+
+        foreach (string dinuc in new[] { "CC", "TT", "GG", "CA", "GA", "AC" }) // every non-AG case
+        {
+            string mutated = canonical[..18] + dinuc + canonical[20..];
+            double mutScore = SpliceSitePredictor.ScoreAcceptorMaxEnt(mutated);
+            mutScore.Should().BeLessThan(agScore - 3.0,
+                because: $"removing the AG (→{dinuc}) collapses the acceptor score — the AG is necessary for a strong site");
+        }
+    }
+
+    [Test]
+    [Description("INV: a canonical GT donor scores far above the distribution of scores from windows with the same composition but the flanking positions shuffled (the GT kept in place).")]
+    public void MaxEnt5_CanonicalDonor_ScoresAboveShuffledBackground()
+    {
+        const string canonical = "cagGTAAGT"; // documented score5 ≈ 10.86
+        double canonScore = SpliceSitePredictor.ScoreDonorMaxEnt(canonical);
+        canonScore.Should().BeGreaterThan(5.0, because: "this is a strong consensus donor (≈ 10.86 bits)");
+
+        var rng = new System.Random(20260627);
+        var shuffled = Enumerable.Range(0, 200)
+            .Select(_ => SpliceSitePredictor.ScoreDonorMaxEnt(ShuffleKeepingFixed(canonical, 3, 2, rng)))
+            .ToList();
+
+        canonScore.Should().BeGreaterThan(shuffled.Average(),
+            because: "the canonical donor scores above the mean shuffled-background score");
+        shuffled.Count(s => canonScore > s).Should().BeGreaterThanOrEqualTo(190,
+            because: "the canonical donor sits in the top tail of the shuffled-background distribution");
+    }
+
+    [Test]
+    [Description("SUB: the GT dinucleotide is necessary for a strong donor score — replacing it with any non-GT dinucleotide collapses the score from strongly positive to near-zero/negative.")]
+    public void MaxEnt5_WindowMustContainGt_ForAStrongScore()
+    {
+        const string canonical = "cagGTAAGT"; // GT at 3–4
+        double gtScore = SpliceSitePredictor.ScoreDonorMaxEnt(canonical);
+        gtScore.Should().BeGreaterThan(0.0, because: "the GT-containing canonical donor scores strongly positive");
+
+        foreach (string dinuc in new[] { "AT", "CC", "GG", "TA", "AC", "TT" }) // every non-GT case
+        {
+            string mutated = canonical[..3] + dinuc + canonical[5..];
+            double mutScore = SpliceSitePredictor.ScoreDonorMaxEnt(mutated);
+            mutScore.Should().BeLessThan(gtScore - 3.0,
+                because: $"removing the GT (→{dinuc}) collapses the donor score — the GT is necessary for a strong site");
+        }
+    }
+
+    #endregion
 }

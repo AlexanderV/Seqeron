@@ -277,8 +277,8 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 247 | ☑ | IMMUNE-NUSVR-001 | Oncology | INV: mixing known fractions of pure profiles recovers those fractions; SUB: ν controls support-vector count |
 | 248 | ☑ | META-CHECKM-001 | Metagenomics | MON: removing a marker lowers completeness; MON: duplicating a marker raises contamination |
 | 249 | ☑ | META-TETRA-001 | Metagenomics | INV: reverse-complement-merged counts give identical z-vector; MON: identical sequences → correlation 1 |
-| 250 | ☐ | SPLICE-MAXENT3-001 | Splicing | INV: canonical AG acceptor scores above shuffled background; SUB: window must contain the AG |
-| 251 | ☐ | SPLICE-MAXENT5-001 | Splicing | INV: canonical GT donor scores above shuffled background; SUB: window must contain the GT |
+| 250 | ☑ | SPLICE-MAXENT3-001 | Splicing | INV: canonical AG acceptor scores above shuffled background; SUB: window must contain the AG |
+| 251 | ☑ | SPLICE-MAXENT5-001 | Splicing | INV: canonical GT donor scores above shuffled background; SUB: window must contain the GT |
 | 252 | ☐ | MIRNA-CONTEXT-001 | MiRNA | MON: stronger local AU context → more negative score; INV: same site → same score |
 | 253 | ☐ | MIRNA-PCT-001 | MiRNA | MON: deeper conservation (longer branch length) → higher PCT; INV: no conservation → PCT 0 |
 | 254 | ☐ | MIRNA-CLASSIFY-001 | MiRNA | MON: more native-like MFEI → higher positive probability; INV: di-shuffled sequence → lower probability |
@@ -294,6 +294,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 258 |
-| ☑ Complete | 249 |
-| ☐ Not started | 9 |
+| ☑ Complete | 251 |
+| ☐ Not started | 7 |
 | MR relations defined | ~200+ |
