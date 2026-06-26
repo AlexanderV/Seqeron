@@ -126,4 +126,75 @@ public class MetagenomicsAlgebraicTests
                 .Label($"bray {ab.BrayCurtis}/{ba.BrayCurtis}, jaccard {ab.JaccardDistance}/{ba.JaccardDistance}");
         });
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: META-CHECKM-001 — CheckM marker-gene bin quality (Metagenomics), row 248.
+    //
+    // Model: completeness = 100·(1/|M|)·Σ_s |s∩G_M|/|s|; contamination =
+    //        100·(1/|M|)·Σ_s Σ_{g∈s}(N_g−1)/|s| (Parks et al. 2015, CheckM Eqs. 1–2).
+    //   — MetagenomicsAnalyzer.EstimateBinQualityFromMarkerCounts; TestSpec META-CHECKM-001.
+    //
+    // Laws (row 248): ID — a complete single-copy set (every marker present exactly once)
+    //                 → 100% completeness / 0% contamination.  IDEMP — deterministic.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private static MetagenomicsAnalyzer.MarkerSet MarkerSet(params string[] ids) => new(ids);
+
+    [Test]
+    public void CheckM_Identity_CompleteSingleCopySetIs100And0()
+    {
+        // Every marker of every set present exactly once: present_s/|s| = 1 ⇒ comp = 100%;
+        // C_g = N−1 = 0 for all ⇒ cont = 0%.
+        var sets = new[] { MarkerSet("A", "B"), MarkerSet("C", "D", "E"), MarkerSet("F") };
+        var counts = new Dictionary<string, int>
+        {
+            ["A"] = 1, ["B"] = 1, ["C"] = 1, ["D"] = 1, ["E"] = 1, ["F"] = 1,
+        };
+
+        var q = MetagenomicsAnalyzer.EstimateBinQualityFromMarkerCounts(sets, counts);
+        q.Completeness.Should().BeApproximately(100.0, 1e-10);
+        q.Contamination.Should().BeApproximately(0.0, 1e-10);
+    }
+
+    [Test]
+    public void CheckM_Idempotent_Deterministic()
+    {
+        var sets = new[] { MarkerSet("A", "B"), MarkerSet("C") };
+        var counts = new Dictionary<string, int> { ["A"] = 1, ["B"] = 2, ["C"] = 1 };
+
+        var q1 = MetagenomicsAnalyzer.EstimateBinQualityFromMarkerCounts(sets, counts);
+        var q2 = MetagenomicsAnalyzer.EstimateBinQualityFromMarkerCounts(sets, counts);
+        q2.Completeness.Should().Be(q1.Completeness);
+        q2.Contamination.Should().Be(q1.Contamination);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: META-TETRA-001 — Tetranucleotide z-scores (Metagenomics), row 249.
+    //
+    // Model: the z-score of a tetramer is its observed-minus-expected count over the
+    //        Markov (n−1/n−2/n−3-mer) standard deviation, the TETRA composition vector
+    //        of Teeling et al. (2004) used for binning.
+    //   — MetagenomicsAnalyzer.CalculateTetranucleotideZScores; TestSpec META-TETRA-001.
+    //
+    // Laws (row 249): ID — the analytic strand-symmetric construction gives z(ACGT) = √5
+    //                 exactly (a formula pin, not a self-comparison).  IDEMP — deterministic.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    [Test]
+    public void Tetra_Identity_AnalyticZScoreIsSqrt5()
+    {
+        // "ACGTACGTGGCC" (folded with its reverse complement inside the estimator) yields, for the
+        // tetramer ACGT: observed 4, expected 3.2, variance 0.128 ⇒ z = 0.8/√0.128 = √5 exactly.
+        var z = MetagenomicsAnalyzer.CalculateTetranucleotideZScores("ACGTACGTGGCC");
+        z["ACGT"].Should().BeApproximately(System.Math.Sqrt(5.0), 1e-10);
+    }
+
+    [Test]
+    public void Tetra_Idempotent_Deterministic()
+    {
+        const string seq = "ACGTACGTGGCCATGCATGCTTAA";
+        var a = MetagenomicsAnalyzer.CalculateTetranucleotideZScores(seq);
+        var b = MetagenomicsAnalyzer.CalculateTetranucleotideZScores(seq);
+        a.Should().Equal(b);
+    }
 }
