@@ -259,85 +259,100 @@ public class AlignmentProperties
 
     #region ALIGN-MULTI-001: P: all aligned sequences same length; R: score ≥ 0; D: deterministic
 
-    /// <summary>
-    /// INV-1: All aligned sequences have equal length.
-    /// Evidence: Multiple alignment inserts gaps so all sequences reach equal length.
-    /// </summary>
-    [Test]
-    [Category("Property")]
-    public void MultipleAlign_AllSequences_HaveEqualLength()
-    {
-        var seqs = new[]
-        {
-            new DnaSequence("ACGTACGT"),
-            new DnaSequence("ACGACGT"),
-            new DnaSequence("ACGTAGT")
-        };
-        var result = SequenceAligner.MultipleAlign(seqs);
-        int len = result.AlignedSequences[0].Length;
+    /// <summary>An arbitrary set of 2–6 unrelated DNA sequences (≥ 6 bp each).</summary>
+    private static Arbitrary<DnaSequence[]> DnaSetArbitrary(int minLen = 6) =>
+        (from n in Gen.Choose(2, 6)
+         from arr in (from chars in Gen.Elements('A', 'C', 'G', 'T').ArrayOf().Where(a => a.Length >= minLen)
+                      select new DnaSequence(new string(chars))).ArrayOf(n)
+         select arr).ToArbitrary();
 
-        for (int i = 1; i < result.AlignedSequences.Length; i++)
-            Assert.That(result.AlignedSequences[i].Length, Is.EqualTo(len),
-                $"Aligned sequence {i} length differs");
+    /// <summary>
+    /// A set of homologous sequences: a common ancestor (≥ 40 bp) plus ≤ 3 substitutions each and no
+    /// indels, so identity stays high and the sum-of-pairs score (SimpleDna: match +1, mismatch −1)
+    /// remains non-negative. This is the biologically meaningful domain for the "score ≥ 0" claim —
+    /// SP can legitimately go negative for unrelated sequences.
+    /// </summary>
+    private static Arbitrary<DnaSequence[]> HomologousDnaSetArbitrary() =>
+        (from baseChars in Gen.Elements('A', 'C', 'G', 'T').ArrayOf().Where(a => a.Length >= 40)
+         from k in Gen.Choose(2, 5)
+         let baseStr = new string(baseChars)
+         from edits in MutationPositionsGen(baseStr.Length).ArrayOf(k)
+         select edits.Select(positions => new DnaSequence(ApplySubstitutions(baseStr, positions))).ToArray())
+        .ToArbitrary();
+
+    private static Gen<int[]> MutationPositionsGen(int len) =>
+        from m in Gen.Choose(0, 3)
+        from positions in Gen.Choose(0, len - 1).ArrayOf(m)
+        select positions;
+
+    private static string ApplySubstitutions(string s, int[] positions)
+    {
+        var arr = s.ToCharArray();
+        foreach (int p in positions)
+            arr[p] = arr[p] switch { 'A' => 'C', 'C' => 'G', 'G' => 'T', _ => 'A' };
+        return new string(arr);
     }
 
     /// <summary>
-    /// INV-2: Multiple alignment total score is non-negative.
-    /// Evidence: Progressive alignment accumulates pairwise scores, each ≥ 0 for identity regions.
+    /// INV-1 (P): a multiple alignment is a rectangular block — every aligned row has the same length
+    /// (gaps are inserted to equalize lengths). Holds for any input set.
     /// </summary>
-    [Test]
-    [Category("Property")]
-    public void MultipleAlign_TotalScore_NonNegative()
+    [FsCheck.NUnit.Property]
+    public Property MultipleAlign_AllSequences_HaveEqualLength()
     {
-        var seqs = new[]
+        return Prop.ForAll(DnaSetArbitrary(), seqs =>
         {
-            new DnaSequence("ACGTACGT"),
-            new DnaSequence("ACGACGT"),
-            new DnaSequence("ACGTAGT")
-        };
-        var result = SequenceAligner.MultipleAlign(seqs);
-        Assert.That(result.TotalScore, Is.GreaterThanOrEqualTo(0));
+            var aligned = SequenceAligner.MultipleAlign(seqs).AlignedSequences;
+            int len = aligned[0].Length;
+            return aligned.All(s => s.Length == len)
+                .Label($"aligned rows differ in length: [{string.Join(",", aligned.Select(s => s.Length))}]");
+        });
     }
 
     /// <summary>
-    /// INV-3: Consensus length equals aligned sequence length.
-    /// Evidence: Consensus is derived column-by-column from aligned sequences.
+    /// INV-2 (R): the sum-of-pairs score is non-negative for homologous sequences (common ancestor
+    /// with few substitutions). Identity-dominated columns keep SP ≥ 0 (SimpleDna match +1).
     /// </summary>
-    [Test]
-    [Category("Property")]
-    public void MultipleAlign_ConsensusLength_EqualsAlignedLength()
+    [FsCheck.NUnit.Property]
+    public Property MultipleAlign_TotalScore_NonNegative_ForHomologs()
     {
-        var seqs = new[]
+        return Prop.ForAll(HomologousDnaSetArbitrary(), seqs =>
         {
-            new DnaSequence("ACGTACGT"),
-            new DnaSequence("ACGACGT"),
-            new DnaSequence("ACGTACG")
-        };
-        var result = SequenceAligner.MultipleAlign(seqs);
-        Assert.That(result.Consensus.Length, Is.EqualTo(result.AlignedSequences[0].Length));
+            int score = SequenceAligner.MultipleAlign(seqs).TotalScore;
+            return (score >= 0).Label($"SP score {score} must be ≥ 0 for homologous sequences");
+        });
     }
 
     /// <summary>
-    /// INV-4: Multiple alignment is deterministic.
-    /// Evidence: MultipleAlign is a pure function.
+    /// INV-3 (P): the consensus is derived column-by-column, so its length equals the aligned width.
     /// </summary>
-    [Test]
-    [Category("Property")]
-    public void MultipleAlign_IsDeterministic()
+    [FsCheck.NUnit.Property]
+    public Property MultipleAlign_ConsensusLength_EqualsAlignedLength()
     {
-        var seqs = new[]
+        return Prop.ForAll(DnaSetArbitrary(), seqs =>
         {
-            new DnaSequence("ACGTACGT"),
-            new DnaSequence("ACGACGT"),
-            new DnaSequence("ACGTAGT")
-        };
-        var r1 = SequenceAligner.MultipleAlign(seqs);
-        var r2 = SequenceAligner.MultipleAlign(seqs);
+            var result = SequenceAligner.MultipleAlign(seqs);
+            return (result.Consensus.Length == result.AlignedSequences[0].Length)
+                .Label($"consensus {result.Consensus.Length} != aligned width {result.AlignedSequences[0].Length}");
+        });
+    }
 
-        Assert.That(r1.TotalScore, Is.EqualTo(r2.TotalScore));
-        for (int i = 0; i < r1.AlignedSequences.Length; i++)
-            Assert.That(r1.AlignedSequences[i], Is.EqualTo(r2.AlignedSequences[i]),
-                $"Aligned sequence {i} differs between runs");
+    /// <summary>
+    /// INV-4 (D): MultipleAlign is a pure function — identical inputs yield identical aligned rows,
+    /// consensus and total score.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property MultipleAlign_IsDeterministic()
+    {
+        return Prop.ForAll(DnaSetArbitrary(), seqs =>
+        {
+            var r1 = SequenceAligner.MultipleAlign(seqs);
+            var r2 = SequenceAligner.MultipleAlign(seqs);
+            bool same = r1.TotalScore == r2.TotalScore
+                        && r1.Consensus == r2.Consensus
+                        && r1.AlignedSequences.SequenceEqual(r2.AlignedSequences);
+            return same.Label("MultipleAlign must be deterministic");
+        });
     }
 
     #endregion
