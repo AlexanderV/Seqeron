@@ -739,4 +739,102 @@ public class MetagenomicsMetamorphicTests
     }
 
     #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  META-CHECKM-001 — CheckM marker-gene bin quality (Metagenomics)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (Parks et al. 2015 Genome Res 25:1043, CheckM; docs algorithm doc):
+    //   Over collocated single-copy marker sets M,
+    //     Completeness   = 100·(1/|M|)·Σ_{s∈M} present_s/|s|
+    //     Contamination  = 100·(1/|M|)·Σ_{s∈M} multiCopy_s/|s|,  multiCopy_s = Σ_{count>1}(count−1).
+    //   Two metamorphic relations (checklist row 248):
+    //
+    //   • MON (removing a marker lowers completeness): a marker that drops from present to absent
+    //     removes its 1/|s| contribution, so completeness strictly decreases; removing more markers
+    //     is monotone.
+    //   • MON (duplicating a marker raises contamination): a marker copy beyond the first adds
+    //     (count−1)/|s| to its set's contamination term, so duplicating raises contamination, and
+    //     each further copy raises it more. (Duplication does not change completeness — present is
+    //     counted once.)
+    //
+    // API under test: MetagenomicsAnalyzer.EstimateBinQualityFromMarkerCounts (BinMarkerQuality).
+
+    #region META-CHECKM-001 — CheckM bin quality
+
+    // Three collocated marker sets of three markers each (|M| = 3, 9 markers total).
+    private static readonly MetagenomicsAnalyzer.MarkerSet[] CheckMMarkerSets =
+    {
+        new(new[] { "m1", "m2", "m3" }),
+        new(new[] { "m4", "m5", "m6" }),
+        new(new[] { "m7", "m8", "m9" }),
+    };
+
+    private static Dictionary<string, int> AllPresentOnce() =>
+        Enumerable.Range(1, 9).ToDictionary(i => $"m{i}", _ => 1);
+
+    [Test]
+    [Description("MON: removing a present marker drops its 1/|s| contribution, so completeness strictly decreases; removing more markers is monotone (contamination is unaffected).")]
+    public void CheckM_RemovingMarker_LowersCompleteness()
+    {
+        var counts = AllPresentOnce();
+        double baseline = MetagenomicsAnalyzer.EstimateBinQualityFromMarkerCounts(CheckMMarkerSets, counts).Completeness;
+        baseline.Should().BeApproximately(100.0, 1e-9, because: "all nine markers present once ⇒ 100% complete");
+
+        // Removing any single present marker strictly lowers completeness.
+        for (int i = 1; i <= 9; i++)
+        {
+            var reduced = AllPresentOnce();
+            reduced.Remove($"m{i}");
+            double comp = MetagenomicsAnalyzer.EstimateBinQualityFromMarkerCounts(CheckMMarkerSets, reduced).Completeness;
+            comp.Should().BeLessThan(baseline - 1e-9,
+                because: $"removing present marker m{i} drops its 1/|s| completeness contribution");
+        }
+
+        // Monotone: removing progressively more markers never raises completeness.
+        var running = AllPresentOnce();
+        double previous = baseline;
+        for (int i = 1; i <= 6; i++)
+        {
+            running.Remove($"m{i}");
+            var q = MetagenomicsAnalyzer.EstimateBinQualityFromMarkerCounts(CheckMMarkerSets, running);
+            q.Completeness.Should().BeLessThanOrEqualTo(previous + 1e-9,
+                because: $"removing marker m{i} cannot raise completeness");
+            q.Contamination.Should().BeApproximately(0.0, 1e-9,
+                because: "removing (vs duplicating) markers leaves contamination at 0");
+            previous = q.Completeness;
+        }
+    }
+
+    [Test]
+    [Description("MON: a marker copy beyond the first adds (count−1)/|s| to its set's contamination, so duplicating a marker raises contamination and each further copy raises it more; completeness is unchanged.")]
+    public void CheckM_DuplicatingMarker_RaisesContamination()
+    {
+        var baseCounts = AllPresentOnce();
+        var baseQuality = MetagenomicsAnalyzer.EstimateBinQualityFromMarkerCounts(CheckMMarkerSets, baseCounts);
+        baseQuality.Contamination.Should().BeApproximately(0.0, 1e-9, because: "single-copy markers ⇒ 0% contamination");
+
+        // Duplicating one marker raises contamination above zero; completeness unchanged.
+        var dup = AllPresentOnce();
+        dup["m1"] = 2;
+        var dupQuality = MetagenomicsAnalyzer.EstimateBinQualityFromMarkerCounts(CheckMMarkerSets, dup);
+        dupQuality.Contamination.Should().BeGreaterThan(baseQuality.Contamination + 1e-9,
+            because: "a second copy of m1 adds (2−1)/|s| to its set's contamination term");
+        dupQuality.Completeness.Should().BeApproximately(baseQuality.Completeness, 1e-9,
+            because: "duplication does not change completeness — a present marker is counted once");
+
+        // Monotone: each further copy of the same marker raises contamination more.
+        double previous = baseQuality.Contamination;
+        foreach (int copies in new[] { 2, 3, 4, 5 })
+        {
+            var counts = AllPresentOnce();
+            counts["m1"] = copies;
+            double cont = MetagenomicsAnalyzer.EstimateBinQualityFromMarkerCounts(CheckMMarkerSets, counts).Contamination;
+            cont.Should().BeGreaterThan(previous + 1e-9,
+                because: $"{copies} copies of m1 contribute (count−1)/|s| more contamination than {copies - 1}");
+            previous = cont;
+        }
+    }
+
+    #endregion
 }
