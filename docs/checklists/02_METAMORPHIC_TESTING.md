@@ -281,7 +281,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 251 | ☑ | SPLICE-MAXENT5-001 | Splicing | INV: canonical GT donor scores above shuffled background; SUB: window must contain the GT |
 | 252 | ☑ | MIRNA-CONTEXT-001 | MiRNA | MON: stronger local AU context → more negative score; INV: same site → same score |
 | 253 | ☑ | MIRNA-PCT-001 | MiRNA | MON: deeper conservation (longer branch length) → higher PCT; INV: no conservation → PCT 0 |
-| 254 | ☐ | MIRNA-CLASSIFY-001 | MiRNA | MON: more native-like MFEI → higher positive probability; INV: di-shuffled sequence → lower probability |
+| 254 | ☑ | MIRNA-CLASSIFY-001 | MiRNA | MON: more native-like MFEI → higher positive probability; INV: di-shuffled sequence → lower probability |
 | 255 | ☐ | MIRNA-CLEAVAGE-001 | MiRNA | INV: hsa-miR-21-5p mature reproduced exactly; MON: shifting basal stem shifts Drosha site consistently |
 | 256 | ☐ | REP-APPROX-001 | Repeats | MON: introducing a substitution lowers percent-matches; INV: perfect repeat → 100% matches, 0% indels |
 | 257 | ☐ | CHROM-ALPHASAT-001 | Chromosome | INV: tandem 171-bp array detected as alpha-satellite; MON: more CENP-B boxes → stronger call |
@@ -294,6 +294,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 258 |
-| ☑ Complete | 253 |
-| ☐ Not started | 5 |
+| ☑ Complete | 254 |
+| ☐ Not started | 4 |
 | MR relations defined | ~200+ |

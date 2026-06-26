@@ -518,4 +518,155 @@ public class MiRnaMetamorphicTests
     }
 
     #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  MIRNA-CLASSIFY-001 — pre-miRNA real/pseudo classification (MiRNA)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (Zhang et al. 2006 CMLS 63:246, MFEI; Bonnet et al. 2004 / randfold dinucleotide-shuffle
+    //   negative control; tests/TestSpecs/MIRNA-CLASSIFY-001.md):
+    //   ClassifyPreMiRna scores a hairpin's P(natural) with a logistic-regression model over folding
+    //   features, of which the minimal folding free-energy index (MFEI = AMFE/GC%) is the key
+    //   discriminator — real pre-miRNAs have a remarkably high MFEI (> 0.85). Two metamorphic
+    //   relations (checklist row 254):
+    //
+    //   • MON (more native-like MFEI → higher positive probability): with the other features fixed,
+    //     raising the MFEI toward the native regime raises P(natural).
+    //   • INV (di-shuffled sequence → lower probability): a dinucleotide-preserving shuffle
+    //     (Altschul–Erikson) keeps the composition but destroys the hairpin, so the native precursor
+    //     scores higher than its di-shuffled background.
+    //
+    // API under test: MiRnaAnalyzer.ScorePreMiRnaFeatures / .ClassifyPreMiRna.
+
+    #region MIRNA-CLASSIFY-001 — pre-miRNA classification
+
+    [Test]
+    [Description("MON: with the other folding features fixed, raising the MFEI toward the native regime (> 0.85) raises the logistic P(natural).")]
+    public void Classify_MoreNativeLikeMfei_RaisesPositiveProbability()
+    {
+        // A realistic feature vector; only the MFEI varies. (Last three fields are unused by the model.)
+        MiRnaAnalyzer.PreMiRnaFeatures WithMfei(double mfei) =>
+            new(FreeEnergy: -30.0, Amfe: 45.0, Mfei: mfei, GcContent: 50.0, PairedFraction: 0.70,
+                StemBasePairs: 22, LoopSize: 10, Length: 72);
+
+        double previous = double.NegativeInfinity;
+        bool sawStrictIncrease = false;
+        foreach (double mfei in new[] { 0.20, 0.50, 0.85, 1.00, 1.30 })
+        {
+            double p = MiRnaAnalyzer.ScorePreMiRnaFeatures(WithMfei(mfei));
+            p.Should().BeInRange(0.0, 1.0, because: "P(natural) is a probability");
+            p.Should().BeGreaterThanOrEqualTo(previous - 1e-12,
+                because: $"a more native-like MFEI ({mfei}) cannot lower P(natural)");
+            if (p > previous + 1e-6) sawStrictIncrease = true;
+            previous = p;
+        }
+
+        sawStrictIncrease.Should().BeTrue(because: "a higher MFEI genuinely raises P(natural) — the relation is non-vacuous");
+    }
+
+    [Test]
+    [Description("INV: a dinucleotide-preserving (Altschul–Erikson) shuffle keeps the composition but destroys the hairpin, so the native pre-miR-21 precursor scores a higher P(natural) than its di-shuffled background.")]
+    public void Classify_DiShuffledSequence_LowersProbability()
+    {
+        // hsa-mir-21 stem-loop (miRBase MI0000077) — a real pre-miRNA hairpin.
+        const string preMir21 =
+            "UGUCGGGUAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGUCUGACA";
+
+        var native = MiRnaAnalyzer.ClassifyPreMiRna(preMir21);
+        native.Should().NotBeNull(because: "the real pre-miR-21 precursor folds into a hairpin");
+        double pNative = native!.Value.NaturalProbability;
+
+        var rng = new System.Random(20260626);
+        var shuffledProbs = new System.Collections.Generic.List<double>();
+        for (int t = 0; t < 40; t++)
+        {
+            string shuffled = DinucleotideShuffle(preMir21, rng);
+
+            // Self-check: the shuffle preserves length and dinucleotide composition exactly.
+            shuffled.Length.Should().Be(preMir21.Length);
+            DinucleotideCounts(shuffled).Should().Equal(DinucleotideCounts(preMir21),
+                because: "an Altschul–Erikson shuffle preserves the dinucleotide composition exactly");
+
+            shuffledProbs.Add(MiRnaAnalyzer.ClassifyPreMiRna(shuffled)?.NaturalProbability ?? 0.0);
+        }
+
+        pNative.Should().BeGreaterThan(shuffledProbs.Average(),
+            because: "the native precursor's real hairpin scores above the di-shuffled background mean");
+        shuffledProbs.Count(p => pNative > p).Should().BeGreaterThanOrEqualTo(32,
+            because: "the native precursor scores above the large majority (≥ 80%) of its di-shuffled background");
+    }
+
+    /// <summary>Ordered dinucleotide-count vector of a sequence (for the shuffle self-check).</summary>
+    private static System.Collections.Generic.List<int> DinucleotideCounts(string s)
+    {
+        var counts = new System.Collections.Generic.SortedDictionary<string, int>();
+        for (int i = 0; i < s.Length - 1; i++)
+        {
+            string d = s.Substring(i, 2);
+            counts[d] = counts.GetValueOrDefault(d) + 1;
+        }
+
+        return counts.Select(kv => kv.Value).ToList();
+    }
+
+    /// <summary>
+    /// Altschul–Erikson (1985) dinucleotide-preserving shuffle: shuffles the per-vertex out-edges of
+    /// the dinucleotide multigraph, keeping the chosen last-edges an arborescence into the final
+    /// vertex, then walks an Eulerian path. Preserves the first/last base and every dinucleotide count.
+    /// </summary>
+    private static string DinucleotideShuffle(string s, System.Random rng)
+    {
+        if (s.Length < 3) return s;
+        char last = s[^1];
+        var alphabet = s.Distinct().ToArray();
+        var edges = alphabet.ToDictionary(c => c, _ => new System.Collections.Generic.List<char>());
+        for (int i = 0; i < s.Length - 1; i++) edges[s[i]].Add(s[i + 1]);
+
+        bool ReachesLast()
+        {
+            foreach (char v in alphabet)
+            {
+                if (v == last || edges[v].Count == 0) continue;
+                char cur = v;
+                for (int hops = 0; hops <= alphabet.Length; hops++)
+                {
+                    char parent = edges[cur][^1]; // tree edge = the last out-edge after shuffling
+                    if (parent == last) break;
+                    cur = parent;
+                    if (hops == alphabet.Length) return false; // cycle ⇒ not an arborescence
+                }
+            }
+
+            return true;
+        }
+
+        do
+        {
+            foreach (char v in alphabet)
+            {
+                var e = edges[v];
+                for (int i = e.Count - 1; i > 0; i--)
+                {
+                    int j = rng.Next(i + 1);
+                    (e[i], e[j]) = (e[j], e[i]);
+                }
+            }
+        }
+        while (!ReachesLast());
+
+        var idx = alphabet.ToDictionary(c => c, _ => 0);
+        var result = new char[s.Length];
+        char curBase = s[0];
+        result[0] = curBase;
+        for (int i = 1; i < s.Length; i++)
+        {
+            char next = edges[curBase][idx[curBase]++];
+            result[i] = next;
+            curBase = next;
+        }
+
+        return new string(result);
+    }
+
+    #endregion
 }
