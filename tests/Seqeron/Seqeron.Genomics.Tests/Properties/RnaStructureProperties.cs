@@ -935,4 +935,219 @@ public class RnaStructureProperties
     }
 
     #endregion
+
+    #region RNA-PKPREDICT-001: R: ΔG ≤ pseudoknot-free MFE; P: each base paired ≤ once; P: crossings genuine; D: deterministic
+
+    // PredictStructurePseudoknot (H-type pseudoknot search; Rivas & Eddy 1999) takes the plain MFE
+    // structure as its baseline/fallback and only accepts a crossing motif when it lowers the energy.
+
+    // The pseudoknot search is O(n^4); cap the generated length so the property suite stays fast while
+    // still spanning lengths that can form an H-type knot (≥ 11 nt).
+    private static Arbitrary<string> BoundedRnaArbitrary(int minLen = 11, int maxLen = 30) =>
+        (from len in Gen.Choose(minLen, maxLen)
+         from chars in Gen.Elements('A', 'C', 'G', 'U').ArrayOf(len)
+         select new string(chars)).ToArbitrary();
+
+    private static bool EachBasePairedAtMostOnce(IReadOnlyList<(int Position1, int Position2)> pairs)
+    {
+        var seen = new HashSet<int>();
+        foreach (var (p1, p2) in pairs)
+        {
+            if (!seen.Add(p1) || !seen.Add(p2)) return false;
+        }
+        return true;
+    }
+
+    private static bool HasCrossingPair(IReadOnlyList<(int Position1, int Position2)> pairs)
+    {
+        for (int a = 0; a < pairs.Count; a++)
+        {
+            int i = Math.Min(pairs[a].Position1, pairs[a].Position2);
+            int j = Math.Max(pairs[a].Position1, pairs[a].Position2);
+            for (int b = a + 1; b < pairs.Count; b++)
+            {
+                int k = Math.Min(pairs[b].Position1, pairs[b].Position2);
+                int l = Math.Max(pairs[b].Position1, pairs[b].Position2);
+                if (i < k && k < j && j < l) return true; // genuine crossing i<k<j<l
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// INV-1 (R): the pseudoknot prediction never scores worse than the pseudoknot-free MFE — the plain
+    /// MFE structure is its baseline and a crossing motif is accepted only when it lowers ΔG.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property PredictPseudoknot_Energy_AtMostPseudoknotFreeMfe()
+    {
+        return Prop.ForAll(BoundedRnaArbitrary(), seq =>
+        {
+            double pk = RnaSecondaryStructure.PredictStructurePseudoknot(seq).FreeEnergy;
+            double mfe = RnaSecondaryStructure.CalculateMfeStructure(seq).FreeEnergy;
+            return (pk <= mfe + 1e-9).Label($"pk ΔG={pk} must be ≤ pseudoknot-free MFE={mfe}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P): the predicted structure is a matching — every nucleotide participates in at most one
+    /// base pair (no position appears twice across all pairs).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property PredictPseudoknot_EachBase_PairedAtMostOnce()
+    {
+        return Prop.ForAll(BoundedRnaArbitrary(), seq =>
+        {
+            var s = RnaSecondaryStructure.PredictStructurePseudoknot(seq);
+            return EachBasePairedAtMostOnce(s.BasePairs)
+                .Label("a nucleotide participates in more than one base pair");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (P): the pseudoknot flag is genuine — HasPseudoknot is true if and only if the predicted
+    /// base pairs actually contain a crossing pair (i &lt; k &lt; j &lt; l).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property PredictPseudoknot_Flag_IffGenuineCrossing()
+    {
+        return Prop.ForAll(BoundedRnaArbitrary(), seq =>
+        {
+            var s = RnaSecondaryStructure.PredictStructurePseudoknot(seq);
+            return (s.HasPseudoknot == HasCrossingPair(s.BasePairs))
+                .Label($"HasPseudoknot={s.HasPseudoknot} but crossing={HasCrossingPair(s.BasePairs)}");
+        });
+    }
+
+    /// <summary>INV-4 (D): pseudoknot prediction is deterministic.</summary>
+    [FsCheck.NUnit.Property]
+    public Property PredictPseudoknot_IsDeterministic()
+    {
+        return Prop.ForAll(BoundedRnaArbitrary(), seq =>
+        {
+            var a = RnaSecondaryStructure.PredictStructurePseudoknot(seq);
+            var b = RnaSecondaryStructure.PredictStructurePseudoknot(seq);
+            return (a.DotBracket == b.DotBracket && Math.Abs(a.FreeEnergy - b.FreeEnergy) < 1e-12
+                    && a.HasPseudoknot == b.HasPseudoknot && a.BasePairs.SequenceEqual(b.BasePairs))
+                .Label("PredictStructurePseudoknot must be deterministic");
+        });
+    }
+
+    #endregion
+
+    #region RNA-PKRECURSIVE-001: R: ΔG ≤ single-knot result; P: valid nested structure; D: deterministic
+
+    // PredictStructurePseudoknotRecursive recursively folds the gap regions inside a knot, so it can
+    // only add stabilising pairs — its energy is no higher than the single-knot PredictStructurePseudoknot.
+
+    /// <summary>
+    /// INV-1 (R): the recursive pseudoknot fold never scores worse than the single-knot prediction —
+    /// recursively folding the loop regions can only lower (or hold) ΔG.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property PredictPseudoknotRecursive_Energy_AtMostSingleKnot()
+    {
+        return Prop.ForAll(BoundedRnaArbitrary(), seq =>
+        {
+            double recursive = RnaSecondaryStructure.PredictStructurePseudoknotRecursive(seq).FreeEnergy;
+            double single = RnaSecondaryStructure.PredictStructurePseudoknot(seq).FreeEnergy;
+            return (recursive <= single + 1e-9).Label($"recursive ΔG={recursive} must be ≤ single-knot ΔG={single}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P): the recursive structure is well formed — every nucleotide is paired at most once.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property PredictPseudoknotRecursive_EachBase_PairedAtMostOnce()
+    {
+        return Prop.ForAll(BoundedRnaArbitrary(), seq =>
+        {
+            var s = RnaSecondaryStructure.PredictStructurePseudoknotRecursive(seq);
+            return EachBasePairedAtMostOnce(s.BasePairs)
+                .Label("a nucleotide participates in more than one base pair");
+        });
+    }
+
+    /// <summary>INV-3 (D): recursive pseudoknot prediction is deterministic.</summary>
+    [FsCheck.NUnit.Property]
+    public Property PredictPseudoknotRecursive_IsDeterministic()
+    {
+        return Prop.ForAll(BoundedRnaArbitrary(), seq =>
+        {
+            var a = RnaSecondaryStructure.PredictStructurePseudoknotRecursive(seq);
+            var b = RnaSecondaryStructure.PredictStructurePseudoknotRecursive(seq);
+            return (a.DotBracket == b.DotBracket && Math.Abs(a.FreeEnergy - b.FreeEnergy) < 1e-12
+                    && a.HasPseudoknot == b.HasPseudoknot && a.BasePairs.SequenceEqual(b.BasePairs))
+                .Label("PredictStructurePseudoknotRecursive must be deterministic");
+        });
+    }
+
+    #endregion
+
+    #region RNA-ACCESS-001: R: 0 ≤ P_unpaired ≤ 1; M: longer region → lower P_unpaired; D: deterministic
+
+    // CalculateRegionUnpairedProbability returns the McCaskill equilibrium probability that an entire
+    // window [windowEnd−windowLength+1, windowEnd] is unpaired (RNAplfold; Bernhart et al. 2006).
+
+    private const int AccessWindow = 4;
+
+    /// <summary>
+    /// INV-1 (R): the region-unpaired probability is a probability in [0,1] for any in-bounds window.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property RegionUnpairedProbability_InUnitInterval()
+    {
+        var gen = (from chars in Gen.Elements('A', 'C', 'G', 'U').ArrayOf().Where(a => a.Length >= 12)
+                   let seq = new string(chars)
+                   from windowEnd in Gen.Choose(AccessWindow - 1, seq.Length - 1)
+                   select (seq, windowEnd)).ToArbitrary();
+
+        return Prop.ForAll(gen, t =>
+        {
+            double p = RnaSecondaryStructure.CalculateRegionUnpairedProbability(t.seq, t.windowEnd, AccessWindow);
+            return (p >= -1e-9 && p <= 1.0 + 1e-9).Label($"P_unpaired={p} outside [0,1]");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (M): a longer (superset) region is unpaired with no higher probability — extending the
+    /// window at a fixed right edge from length L to L+1 cannot raise the all-unpaired probability.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property RegionUnpairedProbability_LongerRegion_NotMoreProbable()
+    {
+        var gen = (from chars in Gen.Elements('A', 'C', 'G', 'U').ArrayOf().Where(a => a.Length >= 14)
+                   let seq = new string(chars)
+                   from len in Gen.Choose(2, 6)
+                   from windowEnd in Gen.Choose(len, seq.Length - 1) // ensures windowStart ≥ 0 for len+1
+                   select (seq, windowEnd, len)).ToArbitrary();
+
+        return Prop.ForAll(gen, t =>
+        {
+            double pShort = RnaSecondaryStructure.CalculateRegionUnpairedProbability(t.seq, t.windowEnd, t.len);
+            double pLong = RnaSecondaryStructure.CalculateRegionUnpairedProbability(t.seq, t.windowEnd, t.len + 1);
+            return (pLong <= pShort + 1e-9)
+                .Label($"longer region more probable: P(len {t.len + 1})={pLong} > P(len {t.len})={pShort}");
+        });
+    }
+
+    /// <summary>INV-3 (D): the region-unpaired probability is deterministic.</summary>
+    [FsCheck.NUnit.Property]
+    public Property RegionUnpairedProbability_IsDeterministic()
+    {
+        var gen = (from chars in Gen.Elements('A', 'C', 'G', 'U').ArrayOf().Where(a => a.Length >= 12)
+                   let seq = new string(chars)
+                   from windowEnd in Gen.Choose(AccessWindow - 1, seq.Length - 1)
+                   select (seq, windowEnd)).ToArbitrary();
+
+        return Prop.ForAll(gen, t =>
+        {
+            double a = RnaSecondaryStructure.CalculateRegionUnpairedProbability(t.seq, t.windowEnd, AccessWindow);
+            double b = RnaSecondaryStructure.CalculateRegionUnpairedProbability(t.seq, t.windowEnd, AccessWindow);
+            return (a == b).Label("CalculateRegionUnpairedProbability must be deterministic");
+        });
+    }
+
+    #endregion
 }
