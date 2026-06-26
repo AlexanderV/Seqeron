@@ -265,8 +265,8 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 233 | ☑ | SEQ-GC-ANALYSIS-001 | Composition | ID: GC("")=0; IDEMP: deterministic; DIST: GC(seq)=GC(complement(seq)) |
 | 234 | ☑ | SEQ-GC-PROFILE-001 | Statistics | IDEMP: deterministic; INVAR: complement-invariant; DIST: length = len−w+1 |
 | 235 | ☑ | ONCO-ASCAT-001 | Oncology | ID: no loci → no segments; IDEMP: deterministic grid optimum |
-| 236 | ☐ | RNA-PKPREDICT-001 | Analysis | ID: no pairable bases → empty structure; IDEMP: deterministic |
-| 237 | ☐ | RNA-PKRECURSIVE-001 | Analysis | ID: single H-type → equals non-recursive; IDEMP: deterministic |
+| 236 | ☑ | RNA-PKPREDICT-001 | Analysis | ID: no pairable bases → empty structure; IDEMP: deterministic |
+| 237 | ☑ | RNA-PKRECURSIVE-001 | Analysis | ID: single H-type → equals non-recursive; IDEMP: deterministic |
 | 238 | ☐ | RNA-ACCESS-001 | RnaStructure | ID: full-length region P_unpaired = product over bases under independence floor; IDEMP: deterministic |
 | 239 | ☐ | PROTMOTIF-HMM-001 | ProteinMotif | ID: null-model sequence → bit score ≈ 0; IDEMP: rescoring same hit is stable |
 | 240 | ☐ | PRIMER-NNTM-001 | MolTools | ID: perfect-match path = published NN sum; IDEMP: deterministic |
@@ -296,7 +296,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 258 |
-| ☑ Complete | 66 |
-| ☐ Not started | 23 |
+| ☑ Complete | 68 |
+| ☐ Not started | 21 |
 | ✗ Not applicable | 169 |
 | Laws verified | ~172 (≈2 per algorithm) |
