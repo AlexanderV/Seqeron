@@ -36,7 +36,7 @@ Property-based testing генерує сотні випадкових вході
 | 4 | ☑ | SEQ-VALID-001 | Composition | R: result ∈ {true,false}; P: case-insensitive; D: deterministic; P: valid DNA ⊂ valid IUPAC | SequenceCompositionProperties.cs |
 | 5 | ☑ | SEQ-COMPLEX-001 | Composition | R: complexity ∈ [0,1]; M: homopolymer → min; M: random long → high; P: permutation invariance | SequenceCompositionProperties.cs |
 | 6 | ☑ | SEQ-ENTROPY-001 | Composition | R: entropy ≥ 0; P: permutation invariance; M: uniform dist → max entropy; D: deterministic | SequenceCompositionProperties.cs |
-| 7 | ☐ | SEQ-GCSKEW-001 | Composition | R: skew ∈ [-1,1]; S: complement reverses sign; P: cumulative array length = seq length | GcSkewProperties.cs |
+| 7 | ☑ | SEQ-GCSKEW-001 | Composition | R: skew ∈ [-1,1]; S: complement reverses sign; P: cumulative array length = seq length | GcSkewProperties.cs |
 | 8 | ☑ | PAT-EXACT-001 | Matching | R: positions ∈ [0, len-patLen]; M: substring → count≥1; D: deterministic; P: total matches ≤ len-patLen+1 | PatternMatchingProperties.cs |
 | 9 | ☑ | PAT-APPROX-001 | Matching | R: distance ≥ 0; S: hamming(a,b)=hamming(b,a); I: hamming(x,x)=0; R: distance ≤ len | HammingDistanceProperties.cs |
 | 10 | ☑ | PAT-APPROX-002 | Matching | R: edit dist ≥ 0; S: editDist(a,b)=editDist(b,a); I: editDist(x,x)=0; triangle inequality | EditDistanceProperties.cs |
@@ -296,7 +296,7 @@ Property-based testing генерує сотні випадкових вході
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 190 |
-| ☐ Not started | 68 |
+| ☑ Complete | 191 |
+| ☐ Not started | 67 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
