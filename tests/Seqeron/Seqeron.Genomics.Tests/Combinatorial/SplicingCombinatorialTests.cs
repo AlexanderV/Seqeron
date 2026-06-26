@@ -211,4 +211,101 @@ public class SplicingCombinatorialTests
         introns.Should().OnlyContain(i => i.DonorSite.Type == SpliceSitePredictor.SpliceSiteType.Donor
                                           || i.DonorSite.Type == SpliceSitePredictor.SpliceSiteType.U12Donor);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: SPLICE-MAXENT3-001 — MaxEntScan 3' acceptor score (Splicing)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 250.
+    // Spec: tests/TestSpecs/SPLICE-MAXENT3-001.md (SpliceSitePredictor.ScoreAcceptorMaxEnt). ADVANCED §10.
+    //
+    // Sources: Yeo & Burge (2004) J Comput Biol 11:377 (maximum-entropy splice-site model, score3).
+    //
+    // Model: score3 scores a 23-nt acceptor window (20 intron + 3 exon) whose intron/exon boundary is the
+    //   invariant AG dinucleotide; the published reference window scores 2.89 bits.
+    //
+    // Dimensions: windowOffset(3) × dinucleotide(2). Grid 3×2 = 6 (exhaustive).
+    //
+    // The combinatorial point: the upstream polypyrimidine context (windowOffset) and the boundary
+    // dinucleotide interact. In every context the canonical AG acceptor scores strictly higher than the
+    // same window with a disrupted (non-AG) boundary — the model's defining splice signal.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private static readonly string[] AcceptorUpstreams =
+    {
+        "ttccaaacgaacttttgt", // reference (score3 = 2.89 at canonical AG)
+        "tctctctctctctctcct", // strong polypyrimidine tract
+        "ttttccttttccttttgt", // alternative pyrimidine context
+    };
+
+    private static string AcceptorWindow(int offset, string dinucleotide) =>
+        AcceptorUpstreams[offset] + dinucleotide + "gga"; // 18 + 2 + 3 = 23 nt
+
+    [Test, Combinatorial]
+    public void AcceptorMaxEnt_CanonicalAgBeatsDisrupted_AcrossOffsetAndDinucleotide(
+        [Values(0, 1, 2)] int windowOffset,
+        [Values("AG", "cc")] string dinucleotide)
+    {
+        string window = AcceptorWindow(windowOffset, dinucleotide);
+        double score = SpliceSitePredictor.ScoreAcceptorMaxEnt(window);
+
+        double.IsNaN(score).Should().BeFalse("score3 is finite for a 23-nt window");
+        SpliceSitePredictor.ScoreAcceptorMaxEnt(window).Should().Be(score, "score3 is deterministic");
+
+        double canonical = SpliceSitePredictor.ScoreAcceptorMaxEnt(AcceptorWindow(windowOffset, "AG"));
+        double disrupted = SpliceSitePredictor.ScoreAcceptorMaxEnt(AcceptorWindow(windowOffset, "cc"));
+        canonical.Should().BeGreaterThan(disrupted, "the invariant AG dinucleotide is required for a strong 3' acceptor");
+    }
+
+    /// <summary>Worked-example anchor: the published reference window scores 2.89 bits (Yeo &amp; Burge 2004).</summary>
+    [Test]
+    public void AcceptorMaxEnt_ReferenceWindow_Reproduces289()
+    {
+        Math.Round(SpliceSitePredictor.ScoreAcceptorMaxEnt("ttccaaacgaacttttgtAGgga"), 2)
+            .Should().Be(2.89, "MaxEntScan score3 of the canonical documented window is 2.89 bits");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: SPLICE-MAXENT5-001 — MaxEntScan 5' donor score (Splicing)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 251.
+    // Spec: tests/TestSpecs/SPLICE-MAXENT5-001.md (SpliceSitePredictor.ScoreDonorMaxEnt). ADVANCED §10.
+    //
+    // Sources: Yeo & Burge (2004) J Comput Biol 11:377 (maximum-entropy splice-site model, score5).
+    //
+    // Model: score5 scores a 9-nt donor window (3 exon + 6 intron) whose exon/intron boundary is the
+    //   invariant GT dinucleotide; the published reference window cagGTAAGT scores 10.86 bits.
+    //
+    // Dimensions: windowOffset(3) × dinucleotide(2). Grid 3×2 = 6 (exhaustive).
+    //
+    // The combinatorial point: the exonic context (windowOffset) and the boundary dinucleotide interact.
+    // In every context the canonical GT donor scores strictly higher than the same window with a
+    // disrupted (non-GT) boundary.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private static readonly string[] DonorExons = { "cag", "caa", "gag" };
+
+    private static string DonorWindow(int offset, string dinucleotide) =>
+        DonorExons[offset] + dinucleotide + "AAGT"; // 3 + 2 + 4 = 9 nt
+
+    [Test, Combinatorial]
+    public void DonorMaxEnt_CanonicalGtBeatsDisrupted_AcrossOffsetAndDinucleotide(
+        [Values(0, 1, 2)] int windowOffset,
+        [Values("GT", "cc")] string dinucleotide)
+    {
+        string window = DonorWindow(windowOffset, dinucleotide);
+        double score = SpliceSitePredictor.ScoreDonorMaxEnt(window);
+
+        double.IsNaN(score).Should().BeFalse("score5 is finite for a 9-nt window");
+        SpliceSitePredictor.ScoreDonorMaxEnt(window).Should().Be(score, "score5 is deterministic");
+
+        double canonical = SpliceSitePredictor.ScoreDonorMaxEnt(DonorWindow(windowOffset, "GT"));
+        double disrupted = SpliceSitePredictor.ScoreDonorMaxEnt(DonorWindow(windowOffset, "cc"));
+        canonical.Should().BeGreaterThan(disrupted, "the invariant GT dinucleotide is required for a strong 5' donor");
+    }
+
+    /// <summary>Worked-example anchor: the published reference window scores 10.86 bits (Yeo &amp; Burge 2004).</summary>
+    [Test]
+    public void DonorMaxEnt_ReferenceWindow_Reproduces1086()
+    {
+        Math.Round(SpliceSitePredictor.ScoreDonorMaxEnt("cagGTAAGT"), 2)
+            .Should().Be(10.86, "MaxEntScan score5 of the canonical documented window is 10.86 bits");
+    }
 }
