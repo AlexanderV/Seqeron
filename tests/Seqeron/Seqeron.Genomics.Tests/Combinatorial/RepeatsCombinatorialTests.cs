@@ -292,4 +292,77 @@ public class RepeatsCombinatorialTests
             results.Should().Contain(r => r.Sequence == PalindromeSite,
                 "the EcoRI palindrome GAATTC is in range");
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: REP-APPROX-001 — Approximate (imperfect) tandem-repeat detection (Repeats)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 256.
+    // Spec: tests/TestSpecs/REP-APPROX-001.md (RepeatFinder.FindApproximateTandemRepeats). ADVANCED §10.
+    //
+    // Sources: Benson (1999) Tandem Repeats Finder, NAR 27:573 (alignment-based period detection,
+    //   percent-matches / percent-indels / copy-number statistics).
+    //
+    // Model: TRF aligns adjacent copies of a period-p tract. A PERFECT tandem repeat aligns with no
+    //   mismatch or indel (100% matches, 0% indels, copy number = span/period); injected mismatches
+    //   lower percent-matches below 100 while the repeat is still recovered.
+    //
+    // Dimensions: unitLen(3) × copies(3) × mismatchRate(2). Grid 3×3×2 = 18 (exhaustive).
+    //
+    // The combinatorial point: period, copy count and mismatch rate interact. In every cell the detector
+    // recovers a repeat of the planted period whose copy number tracks the array length; a perfect array
+    // scores as exact (100%/0%) while a 10%-mismatch array scores strictly below 100% matches.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private static string RepUnit(int period) => period switch { 2 => "CA", 3 => "CAG", _ => "CAGT" };
+    private static char RepFlip(char c) => c switch { 'A' => 'G', 'C' => 'T', 'G' => 'A', _ => 'C' };
+
+    private static string TandemArray(int period, int copies, bool imperfect)
+    {
+        var chars = string.Concat(Enumerable.Repeat(RepUnit(period), copies)).ToCharArray();
+        if (imperfect)
+            for (int i = 5; i < chars.Length; i += 10) // ~10% of bases mutated, off the unit boundary
+                chars[i] = RepFlip(chars[i]);
+        return new string(chars);
+    }
+
+    [Test, Combinatorial]
+    public void ApproxTandem_RecoversPlantedPeriodAndCopyNumber_AcrossUnitCopiesAndMismatch(
+        [Values(2, 3, 4)] int period,
+        [Values(5, 8, 12)] int copies,
+        [Values(false, true)] bool imperfect)
+    {
+        string array = TandemArray(period, copies, imperfect);
+
+        var found = RepeatFinder.FindApproximateTandemRepeats(array, minPeriod: 1, maxPeriod: 6, minScore: 8)
+            .Where(r => r.ConsensusSize == period)
+            .OrderByDescending(r => r.AlignmentScore)
+            .ToList();
+
+        found.Should().NotBeEmpty($"a period-{period} tandem array is detected at its own period");
+        var top = found[0];
+        top.CopyNumber.Should().BeApproximately(copies, 1.0, "copy number = span / period (within one copy)");
+
+        if (!imperfect)
+        {
+            top.PercentMatches.Should().BeApproximately(100.0, 1e-9, "a perfect tandem repeat is 100% matches");
+            top.PercentIndels.Should().BeApproximately(0.0, 1e-9, "a perfect tandem repeat has 0% indels");
+        }
+        else
+        {
+            top.PercentMatches.Should().BeLessThan(100.0, "injected mismatches lower the percent-matches below exact");
+        }
+    }
+
+    /// <summary>
+    /// Interaction witness: at a fixed period and copy count, the perfect array scores strictly more
+    /// matches than the mismatch-injected one — the percent-matches statistic tracks divergence.
+    /// </summary>
+    [Test]
+    public void ApproxTandem_PerfectScoresMoreMatchesThanImperfect()
+    {
+        double Matches(bool imperfect) =>
+            RepeatFinder.FindApproximateTandemRepeats(TandemArray(3, 10, imperfect), 1, 6, 8)
+                .Where(r => r.ConsensusSize == 3).OrderByDescending(r => r.AlignmentScore).First().PercentMatches;
+
+        Matches(false).Should().BeGreaterThan(Matches(true), "fewer mismatches ⇒ higher percent-matches");
+    }
 }

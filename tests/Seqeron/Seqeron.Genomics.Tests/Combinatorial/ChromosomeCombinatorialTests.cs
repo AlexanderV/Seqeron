@@ -336,4 +336,158 @@ public class ChromosomeCombinatorialTests
         b.Species1Start.Should().Be(0);
         b.Species1End.Should().Be(3 * 1000 + 500);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: CHROM-ALPHASAT-001 — Centromeric alpha-satellite detection (Chromosome)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 257.
+    // Spec: tests/TestSpecs/CHROM-ALPHASAT-001.md (ChromosomeAnalyzer.DetectAlphaSatellite). ADVANCED §10.
+    //
+    // Sources: Willard (1985); Masumoto et al. (1989) (171-bp AT-rich monomer carrying the CENP-B box).
+    //
+    // Model: a centromeric alpha-satellite array is a tandem array of ~171-bp AT-rich monomers, many
+    //   carrying the 17-bp CENP-B box. DetectAlphaSatellite CALLS an array alpha-satellite from two
+    //   necessary signals — 171-bp periodicity AND AT-richness — and additionally REPORTS the CENP-B box
+    //   count (CenpBBoxCount), which is informative but not required for the IsAlphaSatellite call.
+    //
+    // Dimensions: period(3) × copies(3) × cenpB(2). Grid 3×3×2 = 18 (exhaustive).
+    //
+    // Axis mapping (documented): the monomer is rigidly 171 bp, so the "period" axis is realised as three
+    // monomer variants (CENP-B box placed at the start / middle / end of the AT tract — all 171 bp,
+    // AT-rich). copies is the array length; cenpB toggles the box. Every cell is called alpha-satellite
+    // with BestPeriod 171 (periodicity + AT hold), while the cenpB axis flips the reported box count
+    // (one per monomer vs zero) — the box is detected exactly when present.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private const string CenpBBox = "TTTCGTTGGAAGCGGGA"; // 17 bp; Y→T,R→G instance of YTTCGTTGGAARCGGGA
+
+    // 171-bp AT-rich monomer with the box at a variant position (or replaced by poly-A when no box).
+    private static string AlphaMonomer(int variant, bool withBox)
+    {
+        string box = withBox ? CenpBBox : new string('A', CenpBBox.Length);
+        int left = variant switch { 0 => 77, 1 => 50, _ => 104 };
+        int right = 171 - CenpBBox.Length - left;
+        return new string('A', left) + box + new string('T', right);
+    }
+
+    [Test, Combinatorial]
+    public void AlphaSatellite_DetectionRequiresAllThreeSignals_AcrossPeriodCopiesAndCenpB(
+        [Values(0, 1, 2)] int periodVariant,
+        [Values(5, 10, 20)] int copies,
+        [Values(true, false)] bool cenpB)
+    {
+        string monomer = AlphaMonomer(periodVariant, cenpB);
+        monomer.Length.Should().Be(171, "every monomer variant is one 171-bp alpha-satellite unit");
+        string array = string.Concat(Enumerable.Repeat(monomer, copies));
+
+        var result = ChromosomeAnalyzer.DetectAlphaSatellite(array);
+
+        result.AtContent.Should().BeGreaterThan(0.5, "an alpha-satellite monomer is AT-rich");
+        result.IsAlphaSatellite.Should().BeTrue("171-bp periodicity + AT-richness call the array alpha-satellite");
+        result.BestPeriod.Should().Be(ChromosomeAnalyzer.AlphaSatelliteMonomerLength, "the recovered period is the 171-bp monomer");
+        result.CenpBBoxCount.Should().Be(cenpB ? copies : 0,
+            cenpB ? "exactly one CENP-B box per monomer when present" : "no CENP-B box is found when removed");
+    }
+
+    /// <summary>
+    /// Interaction witness: the two necessary signals genuinely gate the call — a non-periodic random
+    /// sequence and a GC-rich (non-AT) periodic array are both NOT called alpha-satellite.
+    /// </summary>
+    [Test]
+    public void AlphaSatellite_RequiresPeriodicityAndAtRichness()
+    {
+        // GC-rich but perfectly 171-periodic: AT-richness fails ⇒ not alpha-satellite.
+        string gcMonomer = string.Concat(Enumerable.Range(0, 171).Select(i => "GC"[i % 2]));
+        ChromosomeAnalyzer.DetectAlphaSatellite(string.Concat(Enumerable.Repeat(gcMonomer, 10)))
+            .IsAlphaSatellite.Should().BeFalse("a GC-rich array fails the AT-richness signal");
+
+        // AT-rich but non-periodic (alternating AT): periodicity at 171 fails ⇒ not alpha-satellite.
+        string atNonPeriodic = string.Concat(Enumerable.Range(0, 1710).Select(i => "AT"[i % 2]));
+        ChromosomeAnalyzer.DetectAlphaSatellite(atNonPeriodic)
+            .BestPeriod.Should().NotBe(ChromosomeAnalyzer.AlphaSatelliteMonomerLength,
+                "a 2-bp-periodic AT tract has no 171-bp monomer periodicity");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: CHROM-HOR-001 — Alpha-satellite higher-order repeat detection (Chromosome)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 258.
+    // Spec: tests/TestSpecs/CHROM-HOR-001.md (ChromosomeAnalyzer.DetectHigherOrderRepeat). ADVANCED §10.
+    //
+    // Sources: McNulty & Sullivan (2018) PMC6121732 (HOR = k 50–70%-identical monomers per unit, the
+    //   unit tandemly repeated at 97–100% inter-copy identity).
+    //
+    // Model: a HOR is a block of k distinct ~171-bp monomers repeated n× with high inter-copy identity;
+    //   the HOR period is k monomers and the unit length is k×171 bp.
+    //
+    // Dimensions: horPeriod(3) × copies(3) × interIdentity(2). Grid 3×3×2 = 18 (exhaustive).
+    //
+    // The combinatorial point: the number of monomers per unit (k), the copy count (n) and the inter-copy
+    // identity interact. In every cell the detector recovers period k, unit length k×171, copy number n,
+    // k·n monomers, and the HOR hallmark mean-inter-identity ≫ mean-intra-identity — exactly for exact
+    // copies and still above intra-identity when copies are slightly diverged.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private const int HorMonomerLength = 171;
+    private static readonly char[] HorBackground = BuildHorBackground();
+
+    private static char[] BuildHorBackground()
+    {
+        var bases = new[] { 'A', 'C', 'G', 'T' };
+        var chars = new char[HorMonomerLength];
+        long state = 123456789L;
+        char prev = '\0';
+        for (int i = 0; i < HorMonomerLength; i++)
+        {
+            state = (1103515245L * state + 12345L) & 0x7fffffff;
+            char b = bases[(int)(state % 4)];
+            if (b == prev) b = bases[(int)((state + 1) % 4)];
+            chars[i] = b;
+            prev = b;
+        }
+        return chars;
+    }
+
+    private static char HorNextBase(char b) => b switch { 'A' => 'C', 'C' => 'G', 'G' => 'T', _ => 'A' };
+
+    private static string HorMonomer(int start, int count)
+    {
+        var chars = (char[])HorBackground.Clone();
+        for (int k = 0; k < count; k++) { int p = start + 2 * k; chars[p] = HorNextBase(HorBackground[p]); }
+        return new string(chars);
+    }
+
+    // k distinct monomers from disjoint scattered-substitution position sets (starts 0,1,72,73 → disjoint).
+    private static readonly int[] HorStarts = { 0, 1, 72, 73 };
+
+    [Test, Combinatorial]
+    public void Hor_RecoversPeriodUnitLengthAndCopyNumber_AcrossPeriodCopiesAndIdentity(
+        [Values(2, 3, 4)] int k,
+        [Values(3, 5, 8)] int n,
+        [Values(true, false)] bool exact)
+    {
+        string unit = string.Concat(Enumerable.Range(0, k).Select(i => HorMonomer(HorStarts[i], 36)));
+        var sb = new System.Text.StringBuilder(unit.Length * n);
+        for (int copy = 0; copy < n; copy++)
+        {
+            string block = unit;
+            if (!exact && copy > 0)
+            {
+                // Diverge a couple of bases in this HOR copy (still ≥ 99% inter-copy identity).
+                var c = block.ToCharArray();
+                c[copy % c.Length] = HorNextBase(c[copy % c.Length]);
+                c[(copy * 37 + 5) % c.Length] = HorNextBase(c[(copy * 37 + 5) % c.Length]);
+                block = new string(c);
+            }
+            sb.Append(block);
+        }
+
+        var result = ChromosomeAnalyzer.DetectHigherOrderRepeat(sb.ToString());
+
+        result.HasHigherOrderStructure.Should().BeTrue($"a {k}-monomer unit repeated {n}× is a HOR");
+        result.MonomersPerUnit.Should().Be(k, "the HOR period is the k monomers per unit");
+        result.HorUnitLengthBp.Should().Be(k * HorMonomerLength, "unit length = k × 171 bp");
+        result.HorCopyNumber.Should().Be(n, "monomer count / period = HOR copies");
+        result.MonomerCount.Should().Be(k * n);
+        result.MeanInterHorIdentity.Should().BeGreaterThan(result.MeanIntraHorIdentity,
+            "HOR hallmark: inter-copy identity ≫ intra-unit identity");
+    }
 }
