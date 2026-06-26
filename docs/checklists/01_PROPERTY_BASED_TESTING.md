@@ -106,7 +106,7 @@ Property-based testing генерує сотні випадкових вході
 | 74 | ☑ | MIRNA-SEED-001 | MiRNA | R: seed len = 6–8; P: seed at 5' end (pos 2–8); D: deterministic | MiRnaProperties.cs |
 | 75 | ☑ | MIRNA-TARGET-001 | MiRNA | R: score ∈ [0,1]; M: perfect seed match → higher score; D: deterministic | MiRnaProperties.cs |
 | 76 | ☑ | MIRNA-PRECURSOR-001 | MiRNA | R: precursor len > mature len; P: hairpin structure present; D: deterministic | MiRnaProperties.cs |
-| 77 | ☐ | SPLICE-DONOR-001 | Splicing | R: score ∈ [0,1]; P: canonical GT at donor site; D: deterministic | SplicingProperties.cs |
+| 77 | ☑ | SPLICE-DONOR-001 | Splicing | R: score ∈ [0,1]; P: canonical GT at donor site; D: deterministic | SplicingProperties.cs |
 | 78 | ☐ | SPLICE-ACCEPTOR-001 | Splicing | R: score ∈ [0,1]; P: canonical AG at acceptor site; D: deterministic | SplicingProperties.cs |
 | 79 | ☑ | SPLICE-PREDICT-001 | Splicing | R: exon start < end; P: introns flanked by GT…AG; D: deterministic | SplicingProperties.cs |
 | 80 | ☑ | DISORDER-PRED-001 | ProteinPred | R: score ∈ [0,1]; P: len(scores) = len(sequence); D: deterministic | DisorderProperties.cs |
@@ -296,7 +296,7 @@ Property-based testing генерує сотні випадкових вході
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 213 |
-| ☐ Not started | 45 |
+| ☑ Complete | 214 |
+| ☐ Not started | 44 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
