@@ -115,7 +115,7 @@ Property-based testing генерує сотні випадкових вході
 | 83 | ☑ | PROTMOTIF-PROSITE-001 | ProteinMotif | R: match positions valid; P: match conforms to PROSITE pattern regex; D: deterministic | ProteinMotifProperties.cs |
 | 84 | ☑ | PROTMOTIF-DOMAIN-001 | ProteinMotif | R: domain start < end; D: deterministic; P: domain score above threshold | ProteinMotifProperties.cs |
 | 85 | ☑ | EPIGEN-CPG-001 | Epigenetics | R: CpG ratio ≥ 0; R: GC% ∈ [0,1]; M: more CG → higher ratio; D: deterministic | EpigeneticsProperties.cs (new) |
-| 86 | ☐ | ONCO-IMMUNE-001 | Oncology | R: infiltration score ∈ [0,1]; P: sum(cell fractions) ≤ 1.0; D: deterministic | OncologyProperties.cs (new) |
+| 86 | ☑ | ONCO-IMMUNE-001 | Oncology | R: infiltration score ∈ [0,1]; P: sum(cell fractions) ≤ 1.0; D: deterministic | OncologyProperties.cs (new) |
 | 87 | ☑ | ONCO-SOMATIC-001 | Oncology | R: VAF ∈ [0,1]; P: somatic calls absent in matched normal; M: higher tumor depth → ≥ confident calls; D: deterministic | OncologyProperties.cs (new) |
 | 88 | ☑ | ONCO-VAF-001 | Oncology | R: VAF = alt/(alt+ref) ∈ [0,1]; M: more alt reads → higher VAF; R: VAF=0 when no alt reads; D: deterministic | OncologyProperties.cs (new) |
 | 89 | ☑ | ONCO-DRIVER-001 | Oncology | R: driver score ≥ 0; M: more recurrent/hotspot → higher driver likelihood; P: known oncogenes flagged; D: deterministic | OncologyProperties.cs |
@@ -296,7 +296,7 @@ Property-based testing генерує сотні випадкових вході
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 218 |
-| ☐ Not started | 40 |
+| ☑ Complete | 219 |
+| ☐ Not started | 39 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
