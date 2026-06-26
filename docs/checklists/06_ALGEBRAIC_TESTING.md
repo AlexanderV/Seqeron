@@ -281,10 +281,10 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 249 | ☑ | META-TETRA-001 | Metagenomics | ID: analytic z(ACGT)=√5; IDEMP: deterministic |
 | 250 | ☑ | SPLICE-MAXENT3-001 | Splicing | ID: reference window reproduces 2.89; IDEMP: deterministic |
 | 251 | ☑ | SPLICE-MAXENT5-001 | Splicing | ID: cagGTAAGT reproduces 10.86; IDEMP: deterministic |
-| 252 | ☐ | MIRNA-CONTEXT-001 | MiRNA | ID: feature-coefficient dot product reproduces reference perl; IDEMP: deterministic |
-| 253 | ☐ | MIRNA-PCT-001 | MiRNA | ID: branch-length-score → published logistic; IDEMP: deterministic |
-| 254 | ☐ | MIRNA-CLASSIFY-001 | MiRNA | ID: logistic of feature vector; IDEMP: deterministic |
-| 255 | ☐ | MIRNA-CLEAVAGE-001 | MiRNA | ID: 11-bp + 22-nt measuring rules → known mature; IDEMP: deterministic |
+| 252 | ☑ | MIRNA-CONTEXT-001 | MiRNA | ID: feature-coefficient dot product reproduces reference perl; IDEMP: deterministic |
+| 253 | ☑ | MIRNA-PCT-001 | MiRNA | ID: branch-length-score → published logistic; IDEMP: deterministic |
+| 254 | ☑ | MIRNA-CLASSIFY-001 | MiRNA | ID: logistic of feature vector; IDEMP: deterministic |
+| 255 | ☑ | MIRNA-CLEAVAGE-001 | MiRNA | ID: 11-bp + 22-nt measuring rules → known mature; IDEMP: deterministic |
 | 256 | ☐ | REP-APPROX-001 | Repeats | ID: perfect tandem repeat scores as exact; IDEMP: deterministic |
 | 257 | ☐ | CHROM-ALPHASAT-001 | Chromosome | ID: 171-bp periodicity + AT + CENP-B motif → detection; IDEMP: deterministic |
 | 258 | ☐ | CHROM-HOR-001 | Chromosome | ID: k-monomer HOR → period k×171; IDEMP: deterministic |
@@ -296,7 +296,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 258 |
-| ☑ Complete | 82 |
-| ☐ Not started | 7 |
+| ☑ Complete | 86 |
+| ☐ Not started | 3 |
 | ✗ Not applicable | 169 |
 | Laws verified | ~172 (≈2 per algorithm) |

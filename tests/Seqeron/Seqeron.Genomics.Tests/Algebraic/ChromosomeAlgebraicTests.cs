@@ -106,4 +106,133 @@ public class ChromosomeAlgebraicTests
         y.Species2End.Should().Be(x.Species1End);
         y.GeneCount.Should().Be(x.GeneCount);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: CHROM-ALPHASAT-001 — Alpha-satellite detection (Chromosome), row 257.
+    //
+    // Model: a centromeric alpha-satellite array is a tandem array of ~171-bp AT-rich monomers,
+    //        many carrying the 17-bp CENP-B box (Willard 1985; Masumoto et al. 1989). Detection
+    //        requires all three signals: 171-bp periodicity, AT-richness, and the CENP-B motif.
+    //   — ChromosomeAnalyzer.DetectAlphaSatellite; TestSpec CHROM-ALPHASAT-001.
+    //
+    // Laws (row 257): ID — a 171-bp-periodic + AT-rich + CENP-B-box tandem array is detected
+    //                 (BestPeriod = 171, one CENP-B box per monomer).  IDEMP — deterministic.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // 171-bp AT-rich monomer carrying one CENP-B box: 77 'A' + box(17) + 77 'T'.
+    // box = TTTCGTTGGAAGCGGGA is a Y→T, R→G instance of the consensus YTTCGTTGGAARCGGGA.
+    private const string AlphaSatMonomer =
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        + "TTTCGTTGGAAGCGGGA"
+        + "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT";
+
+    private static string AlphaSatArray(int copies) => string.Concat(Enumerable.Repeat(AlphaSatMonomer, copies));
+
+    [Test]
+    public void AlphaSatellite_Identity_PeriodicAtRichCenpBArrayIsDetected()
+    {
+        AlphaSatMonomer.Length.Should().Be(171, "fixture sanity: monomer is one 171-bp alpha-satellite unit");
+        const int copies = 10;
+
+        var result = ChromosomeAnalyzer.DetectAlphaSatellite(AlphaSatArray(copies));
+
+        result.IsAlphaSatellite.Should().BeTrue("171-bp-periodic + AT-rich + CENP-B array is alpha-satellite");
+        result.BestPeriod.Should().Be(ChromosomeAnalyzer.AlphaSatelliteMonomerLength); // 171
+        result.AtContent.Should().BeGreaterThan(0.50);
+        result.CenpBBoxCount.Should().Be(copies, "exactly one CENP-B box per monomer");
+    }
+
+    [Test]
+    public void AlphaSatellite_Idempotent_Deterministic()
+    {
+        var a = ChromosomeAnalyzer.DetectAlphaSatellite(AlphaSatArray(10));
+        var b = ChromosomeAnalyzer.DetectAlphaSatellite(AlphaSatArray(10));
+        a.IsAlphaSatellite.Should().Be(b.IsAlphaSatellite);
+        a.BestPeriod.Should().Be(b.BestPeriod);
+        a.PeriodicityScore.Should().Be(b.PeriodicityScore);
+        a.CenpBBoxCount.Should().Be(b.CenpBBoxCount);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: CHROM-HOR-001 — Higher-order repeat detection (Chromosome), row 258.
+    //
+    // Model: an alpha-satellite higher-order repeat (HOR) is a block of k distinct ~171-bp
+    //        monomers (50–70% mutually identical) that is itself tandemly repeated with high
+    //        (≥95%) inter-copy identity. The HOR period is k monomers; the unit length is k×171 bp.
+    //   — ChromosomeAnalyzer.DetectHigherOrderRepeat; McNulty & Sullivan (2018); TestSpec CHROM-HOR-001.
+    //
+    // Laws (row 258): ID — a k-monomer HOR unit repeated n× → period k, unit length k×171.
+    //                 IDEMP — deterministic.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private const int HorMonomerLength = 171; // ChromosomeAnalyzer.AlphaSatelliteMonomerLength
+
+    // A fixed high-complexity 171-bp background (deterministic LCG, no homopolymer runs).
+    private static readonly char[] HorBackground = BuildHorBackground();
+
+    private static char[] BuildHorBackground()
+    {
+        var bases = new[] { 'A', 'C', 'G', 'T' };
+        var chars = new char[HorMonomerLength];
+        long state = 123456789L;
+        char prev = '\0';
+        for (int i = 0; i < HorMonomerLength; i++)
+        {
+            state = (1103515245L * state + 12345L) & 0x7fffffff;
+            char b = bases[(int)(state % 4)];
+            if (b == prev) b = bases[(int)((state + 1) % 4)];
+            chars[i] = b;
+            prev = b;
+        }
+        return chars;
+    }
+
+    private static char HorNextBase(char b) => b switch { 'A' => 'C', 'C' => 'G', 'G' => 'T', _ => 'A' };
+
+    // A monomer = background with the given scattered positions overwritten by a different base.
+    private static string HorMonomer(int[] substituted)
+    {
+        var chars = (char[])HorBackground.Clone();
+        foreach (int p in substituted) chars[p] = HorNextBase(HorBackground[p]);
+        return new string(chars);
+    }
+
+    // Positions spaced 2 apart: three disjoint sets ⇒ pairwise ≈57.9% identity (50–70% intra-HOR band).
+    private static int[] HorScattered(int start, int count) =>
+        Enumerable.Range(0, count).Select(k => start + 2 * k).ToArray();
+
+    [Test]
+    public void HigherOrderRepeat_Identity_KMonomerUnitHasPeriodKTimes171()
+    {
+        // 3 distinct monomers (A,B,C) tandemly repeated 5× with EXACT inter-HOR copies.
+        string a = HorMonomer(HorScattered(0, 36));
+        string b = HorMonomer(HorScattered(1, 36));   // odd positions, disjoint from A
+        string c = HorMonomer(HorScattered(72, 36));  // disjoint from A and B
+        string unit = a + b + c;                       // k = 3 monomers
+        string array = string.Concat(Enumerable.Repeat(unit, 5)); // 15 monomers, 2565 bp
+
+        var result = ChromosomeAnalyzer.DetectHigherOrderRepeat(array);
+
+        result.HasHigherOrderStructure.Should().BeTrue("a 3-monomer unit repeated 5× is a HOR");
+        result.MonomersPerUnit.Should().Be(3, "the HOR period is the k = 3 monomers per unit");
+        result.HorUnitLengthBp.Should().Be(3 * HorMonomerLength, "unit length = k × 171 = 513 bp");
+        result.HorCopyNumber.Should().Be(5, "15 monomers / period 3 = 5 HOR copies");
+        result.MonomerCount.Should().Be(15);
+        result.MeanInterHorIdentity.Should().BeGreaterThan(result.MeanIntraHorIdentity,
+            "HOR hallmark: inter-copy identity ≫ intra-unit identity");
+    }
+
+    [Test]
+    public void HigherOrderRepeat_Idempotent_Deterministic()
+    {
+        string unit = HorMonomer(HorScattered(0, 36)) + HorMonomer(HorScattered(1, 36)) + HorMonomer(HorScattered(72, 36));
+        string array = string.Concat(Enumerable.Repeat(unit, 5));
+
+        var a = ChromosomeAnalyzer.DetectHigherOrderRepeat(array);
+        var b = ChromosomeAnalyzer.DetectHigherOrderRepeat(array);
+        a.MonomersPerUnit.Should().Be(b.MonomersPerUnit);
+        a.HorUnitLengthBp.Should().Be(b.HorUnitLengthBp);
+        a.HorCopyNumber.Should().Be(b.HorCopyNumber);
+        a.MeanInterHorIdentity.Should().Be(b.MeanInterHorIdentity);
+    }
 }
