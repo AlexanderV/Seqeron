@@ -2760,5 +2760,87 @@ public class MolToolsMetamorphicTests
 
     #endregion
 
+    // ═══════════════════════════════════════════════════════════════════
+    //  PRIMER-NNTM-001 — SantaLucia nearest-neighbour, salt-corrected Tm (MolTools)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (SantaLucia 1998 PNAS 95:1460; SantaLucia & Hicks 2004; Owczarzy 2004 Biochemistry
+    //   43:3537; docs/algorithms/MolTools/NearestNeighbor_Salt_Corrected_Tm.md):
+    //   CalculateMeltingTemperatureNN sums per-dinucleotide ΔH°/ΔS° nearest-neighbour parameters
+    //   plus terminal-A·T and (self-complementary) symmetry corrections, computes the bimolecular
+    //   Tm = ΔH°·1000 / (ΔS° + R·ln(C_T/x)) and applies the Owczarzy (2004) monovalent-salt
+    //   correction. Two metamorphic relations (checklist row 240):
+    //
+    //   • MON (raising monovalent salt raises Tm): higher [Na⁺] stabilises the duplex; the
+    //     Owczarzy 2004 correction is monotone increasing in Tm over the physiological salt range,
+    //     so Tm is strictly increasing in [Na⁺] for a fixed primer.
+    //   • INV (reverse-complement has equal duplex Tm): the SantaLucia parameters are
+    //     strand-symmetric — the multiset of nearest-neighbour stacks of revcomp(S) equals that of
+    //     S, and revcomp preserves each terminus's A·T status — so ΔH°, ΔS° and hence Tm are
+    //     identical for a sequence and its reverse complement (the same duplex read from the other
+    //     strand).
+    //
+    // API under test: PrimerDesigner.CalculateMeltingTemperatureNN.
+
+    #region PRIMER-NNTM-001 — nearest-neighbour salt-corrected Tm
+
+    // Deterministic, non-self-complementary primers spanning a range of GC content and length.
+    // (Literal fixtures — NOT drawn from the shared Rng, which would perturb every other fixture.)
+    private static readonly string[] NnTmPrimers =
+    {
+        "CAGGTGGCACCTTAACG",
+        "GCTAGCATCGGATCCAA",
+        "TTGACCAGTCCATGGCA",
+        "ATGCGGTCAATTGCAACGT",
+        "GGGCGCGGCACCGTCCA",
+    };
+
+    [Test]
+    [Description("MON: higher monovalent [Na⁺] stabilises the duplex; the Owczarzy 2004 salt correction is monotone, so the nearest-neighbour Tm strictly increases with [Na⁺] for a fixed primer.")]
+    public void NnTm_RaisingMonovalentSalt_RaisesTm()
+    {
+        double[] sodium = { 0.02, 0.05, 0.10, 0.25, 0.50 }; // 20 mM → 500 mM, ascending
+
+        foreach (string primer in NnTmPrimers)
+        {
+            double previous = double.NegativeInfinity;
+            foreach (double na in sodium)
+            {
+                double tm = PrimerDesigner.CalculateMeltingTemperatureNN(primer, sodiumMolar: na);
+                tm.Should().NotBe(double.NaN, because: $"'{primer}' is a valid ACGT primer");
+                tm.Should().BeGreaterThan(previous,
+                    because: $"raising [Na⁺] to {na} M stabilises the duplex, so the NN Tm of '{primer}' strictly increases");
+                previous = tm;
+            }
+        }
+    }
+
+    [Test]
+    [Description("INV: the SantaLucia NN parameters are strand-symmetric and revcomp preserves each terminus's A·T status, so a primer and its reverse complement have identical ΔH°/ΔS° and hence identical NN Tm.")]
+    public void NnTm_ReverseComplement_HasEqualDuplexTm()
+    {
+        double[] sodium = { 0.05, 0.50 };
+
+        foreach (string primer in NnTmPrimers)
+        {
+            string rc = DnaSequence.GetReverseComplementString(primer);
+
+            // Non-vacuity: the primer is not its own reverse complement, so this is a real transform.
+            rc.Should().NotBe(primer, because: $"'{primer}' must be non-self-complementary for the INV to be non-trivial");
+
+            foreach (double na in sodium)
+            {
+                double tm = PrimerDesigner.CalculateMeltingTemperatureNN(primer, sodiumMolar: na);
+                double tmRc = PrimerDesigner.CalculateMeltingTemperatureNN(rc, sodiumMolar: na);
+
+                tm.Should().BeGreaterThan(0.0, because: $"'{primer}' has a well-defined positive Tm");
+                tmRc.Should().BeApproximately(tm, 1e-9,
+                    because: $"the reverse complement is the same duplex read from the other strand, so its NN Tm equals that of '{primer}' at [Na⁺]={na} M");
+            }
+        }
+    }
+
+    #endregion
+
     #endregion
 }
