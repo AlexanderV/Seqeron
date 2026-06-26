@@ -167,4 +167,83 @@ public class RnaStructureAlgebraicTests
         RnaSecondaryStructure.CanPair('G', 'U').Should().BeTrue(); // wobble
         RnaSecondaryStructure.CanPair('A', 'G').Should().BeFalse();
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: RNA-ACCESS-001 — McCaskill unpaired (accessibility) probabilities (RnaStructure)
+    // Checklist: docs/checklists/06_ALGEBRAIC_TESTING.md, row 238.
+    //
+    // Model: the equilibrium probability that a window is wholly unpaired is the exact
+    //        McCaskill ensemble ratio Z_open/Z (Bernhart et al. 2006; McCaskill 1990).
+    //        The atomic (length-1) region accessibility equals the per-base unpaired
+    //        probability, and a region's joint unpaired probability factorises into the
+    //        per-base product ONLY in the independence floor (no pair can form) — there
+    //        the whole region, like every base, is unpaired with probability 1.
+    //   — docs/Validation/reports/RNA-ACCESS-001.md; RnaSecondaryStructure.
+    //     CalculateUnpairedProbabilities / CalculateRegionUnpairedProbability.
+    //
+    // Laws under test (checklist row 238):
+    //   • ID    — under the independence floor (no pairable bases) the full-length region
+    //             unpaired probability equals the product over bases (= 1).
+    //   • DIST  — region(L=1 @ i) = per-base p_unpaired(i): the atomic accessibility
+    //             consistency identity (both = Z_forbid(i)/Z).
+    //   • IDEMP — deterministic: repeated evaluation gives the identical probabilities.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// ID: a poly-A sequence has no Watson–Crick/GU pair, so Z = 1 and every base is
+    /// unpaired with probability 1 (the independence floor). There the full-length
+    /// region's joint unpaired probability equals the product of the per-base ones (= 1).
+    /// </summary>
+    [Test]
+    public void Accessibility_Identity_FloorRegionEqualsProductOverBases()
+    {
+        const string polyA = "AAAAAAAAAAAAAAAAAAAA"; // 20 nt, no pairable bases
+        int n = polyA.Length;
+
+        var perBase = RnaSecondaryStructure.CalculateUnpairedProbabilities(polyA).UnpairedProbabilities;
+        double product = perBase.Aggregate(1.0, (acc, p) => acc * p);
+
+        double fullRegion = RnaSecondaryStructure.CalculateRegionUnpairedProbability(
+            polyA, windowEnd: n - 1, windowLength: n);
+
+        product.Should().BeApproximately(1.0, 1e-12, "every base is unpaired with probability 1 under the floor");
+        fullRegion.Should().BeApproximately(product, 1e-12,
+            "the full region's joint unpaired probability factorises into the per-base product under independence");
+    }
+
+    /// <summary>
+    /// DIST: the length-1 region accessibility ending at i is, by definition, the per-base
+    /// unpaired probability of i — both are the exact ratio Z_forbid(i)/Z. Verified on a
+    /// genuinely structured sequence (a G-C hairpin) where the probabilities are non-trivial.
+    /// </summary>
+    [Test]
+    public void Accessibility_Distributive_UnitWindowEqualsPerBase()
+    {
+        const string hairpin = "GGGGGAAAACCCCC";
+        var perBase = RnaSecondaryStructure.CalculateUnpairedProbabilities(hairpin).UnpairedProbabilities;
+
+        // A genuinely folded sequence: at least one base must be substantially paired.
+        perBase.Min().Should().BeLessThan(0.99, "the hairpin must actually fold");
+
+        for (int i = 0; i < hairpin.Length; i++)
+        {
+            double unit = RnaSecondaryStructure.CalculateRegionUnpairedProbability(
+                hairpin, windowEnd: i, windowLength: 1);
+            unit.Should().BeApproximately(perBase[i], 1e-9, $"region(L=1 @ {i}) must equal p_unpaired({i})");
+        }
+    }
+
+    [Test]
+    public void Accessibility_Idempotent_Deterministic()
+    {
+        const string seq = "GGGACAUGUCCCAAGG";
+
+        var a = RnaSecondaryStructure.CalculateUnpairedProbabilities(seq).UnpairedProbabilities;
+        var b = RnaSecondaryStructure.CalculateUnpairedProbabilities(seq).UnpairedProbabilities;
+        a.Should().Equal(b);
+
+        double r1 = RnaSecondaryStructure.CalculateRegionUnpairedProbability(seq, windowEnd: 10, windowLength: 8);
+        double r2 = RnaSecondaryStructure.CalculateRegionUnpairedProbability(seq, windowEnd: 10, windowLength: 8);
+        r2.Should().Be(r1);
+    }
 }
