@@ -30,13 +30,13 @@ Algebraic testing перевіряє виконання алгебраїчних
 
 | # | Status | Test Unit | Area | Algebraic Laws |
 |---|--------|-----------|------|---------------|
-| 1 | ☐ | SEQ-GC-001 | Composition | ID: GC("")=0; IDEMP: GC(seq) same on recompute; DIST: GC(seq)=GC(complement(seq)) |
+| 1 | ☑ | SEQ-GC-001 | Composition | ID: GC("")=0; IDEMP: GC(seq) same on recompute; DIST: GC(seq)=GC(complement(seq)) |
 | 2 | ☑ | SEQ-COMP-001 | Composition | INV: complement(complement(x)) = x; ID: complement preserves length |
 | 3 | ☑ | SEQ-REVCOMP-001 | Composition | INV: revcomp(revcomp(x)) = x; ID: revcomp preserves length |
 | 4 | ✗ | SEQ-VALID-001 | Composition | IDEMP: validate(validate_result) is consistent; ID: empty string → defined result |
 | 5 | ✗ | SEQ-COMPLEX-001 | Composition | ID: single nucleotide → complexity 0; IDEMP: same result on recompute |
 | 6 | ✗ | SEQ-ENTROPY-001 | Composition | ID: single symbol → entropy 0; ID: uniform → max entropy = log2(|Σ|) |
-| 7 | ☐ | SEQ-GCSKEW-001 | Composition | ID: empty → skew undefined or 0; DIST: skew(G-only)=1, skew(C-only)=-1 |
+| 7 | ☑ | SEQ-GCSKEW-001 | Composition | ID: empty → skew undefined or 0; DIST: skew(G-only)=1, skew(C-only)=-1 |
 | 8 | ✗ | PAT-EXACT-001 | Matching | ID: pattern not in seq → count=0; ID: empty pattern → defined result |
 | 9 | ☑ | PAT-APPROX-001 | Matching | ID: hamming(x,x)=0; COMM: hamming(a,b)=hamming(b,a); TRI: hamming(a,c) ≤ hamming(a,b)+hamming(b,c) |
 | 10 | ☑ | PAT-APPROX-002 | Matching | ID: editDist(x,x)=0; COMM: editDist(a,b)=editDist(b,a); TRI: triangle inequality |
@@ -46,7 +46,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 14 | ✗ | REP-TANDEM-001 | Repeats | ID: no tandem pattern → empty result; IDEMP: deterministic output |
 | 15 | ☑ | REP-INV-001 | Repeats | ID: no complement in seq → no inverted repeats; DIST: revcomp(left)=right |
 | 16 | ✗ | REP-DIRECT-001 | Repeats | ID: all unique chars → no direct repeats; IDEMP: deterministic |
-| 17 | ☐ | REP-PALIN-001 | Repeats | ID: palindrome = revcomp(self); DIST: palindrome len is even (for DNA) |
+| 17 | ☑ | REP-PALIN-001 | Repeats | ID: palindrome = revcomp(self); DIST: palindrome len is even (for DNA) |
 | 18 | ✗ | CRISPR-PAM-001 | MolTools | ID: no PAM pattern in seq → 0 sites; IDEMP: same input → same sites |
 | 19 | ✗ | CRISPR-GUIDE-001 | MolTools | ID: no valid PAM → no guides; IDEMP: deterministic guide generation |
 | 20 | ☑ | CRISPR-OFF-001 | MolTools | ID: 0 mismatches → max score; DIST: score decreases monotonically with mismatches |
@@ -57,10 +57,10 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 25 | ✗ | PROBE-VALID-001 | MolTools | IDEMP: validate(seq) deterministic; ID: invalid probe fails consistently |
 | 26 | ✗ | RESTR-FIND-001 | MolTools | ID: no recognition site → 0 sites; IDEMP: same seq + enzyme → same sites |
 | 27 | ☑ | RESTR-DIGEST-001 | MolTools | DIST: sum(fragment.Length) = sequence.Length; ID: 0 cut sites → 1 fragment = full seq |
-| 28 | ☐ | ANNOT-ORF-001 | Annotation | ID: no ATG → no ORFs; DIST: ORF length divisible by 3 |
+| 28 | ☑ | ANNOT-ORF-001 | Annotation | ID: no ATG → no ORFs; DIST: ORF length divisible by 3 |
 | 29 | ✗ | ANNOT-GENE-001 | Annotation | ID: no RBS + start codon → no genes; IDEMP: deterministic |
 | 30 | ✗ | ANNOT-PROM-001 | Annotation | ID: no -10/-35 box → no promoters; IDEMP: deterministic |
-| 31 | ☐ | ANNOT-GFF-001 | Annotation | RT: parse(serialize(annotations)) = annotations; ID: empty → empty GFF |
+| 31 | ☑ | ANNOT-GFF-001 | Annotation | RT: parse(serialize(annotations)) = annotations; ID: empty → empty GFF |
 | 32 | ☑ | KMER-COUNT-001 | K-mer | ID: sum(counts) = seqLen - k + 1; DIST: counting identity |
 | 33 | ☑ | KMER-FREQ-001 | K-mer | ID: sum(frequencies) = 1.0; DIST: freq = count / total_kmers |
 | 34 | ✗ | KMER-FIND-001 | K-mer | ID: k > seqLen → no results; IDEMP: deterministic |
@@ -81,7 +81,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 49 | ✗ | CHROM-CENT-001 | Chromosome | ID: no AT-rich region → no centromere signal; IDEMP: deterministic |
 | 50 | ✗ | CHROM-KARYO-001 | Chromosome | ID: empty input → empty karyotype; IDEMP: deterministic |
 | 51 | ✗ | CHROM-ANEU-001 | Chromosome | ID: normal diploid depth → CN=2; IDEMP: deterministic |
-| 52 | ☐ | CHROM-SYNT-001 | Chromosome | COMM: synteny blocks(A,B) = reversed synteny blocks(B,A); ID: self-comparison → full synteny |
+| 52 | ☑ | CHROM-SYNT-001 | Chromosome | COMM: synteny blocks(A,B) = reversed synteny blocks(B,A); ID: self-comparison → full synteny |
 | 53 | ✗ | META-CLASS-001 | Metagenomics | ID: read from known reference → correct classification; IDEMP: deterministic |
 | 54 | ☑ | META-PROF-001 | Metagenomics | DIST: sum(abundances)=1.0; ID: single species → abundance=1 |
 | 55 | ✗ | META-ALPHA-001 | Metagenomics | ID: single species → Shannon=0; ID: single species → Simpson=0 |
@@ -90,16 +90,16 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 58 | ☑ | CODON-OPT-001 | Codon | RT: translate(optimize(dna)) = translate(dna); IDEMP: optimize(optimize(x)) = optimize(x) |
 | 59 | ✗ | CODON-CAI-001 | Codon | ID: all optimal codons → CAI ≈ 1; IDEMP: CAI deterministic |
 | 60 | ✗ | CODON-RARE-001 | Codon | ID: all common codons → empty result; IDEMP: deterministic |
-| 61 | ☐ | CODON-USAGE-001 | Codon | DIST: sum per amino acid = 1.0; ID: single codon seq → usage=1 for that codon |
+| 61 | ☑ | CODON-USAGE-001 | Codon | DIST: sum per amino acid = 1.0; ID: single codon seq → usage=1 for that codon |
 | 62 | ☑ | TRANS-CODON-001 | Translation | ID: genetic code is complete (64 entries); DIST: each AA mapped from ≥1 codon |
 | 63 | ☑ | TRANS-PROT-001 | Translation | DIST: protein.len ≤ dna.len/3; ID: ATG → M; ID: stop codon → terminates |
-| 64 | ☐ | PARSE-FASTA-001 | FileIO | RT: parse(write(records)) = records; ID: empty file → 0 records |
+| 64 | ☑ | PARSE-FASTA-001 | FileIO | RT: parse(write(records)) = records; ID: empty file → 0 records |
 | 65 | ☑ | PARSE-FASTQ-001 | FileIO | RT: parse(write(records)) = records; ID: empty → 0 records |
 | 66 | ☑ | PARSE-BED-001 | FileIO | RT: parse(write(regions)) = regions; ID: empty → 0 regions |
 | 67 | ☑ | PARSE-VCF-001 | FileIO | RT: parse(write(variants)) = variants; ID: header only → 0 variants |
 | 68 | ☑ | PARSE-GFF-001 | FileIO | RT: parse(write(features)) = features; ID: empty → 0 features |
-| 69 | ☐ | PARSE-GENBANK-001 | FileIO | RT: parse(write(record)) = record; ID: minimal record → valid |
-| 70 | ☐ | PARSE-EMBL-001 | FileIO | RT: parse(write(record)) = record; ID: minimal record → valid |
+| 69 | ☑ | PARSE-GENBANK-001 | FileIO | RT: parse(write(record)) = record; ID: minimal record → valid |
+| 70 | ☑ | PARSE-EMBL-001 | FileIO | RT: parse(write(record)) = record; ID: minimal record → valid |
 | 71 | ✗ | RNA-STRUCT-001 | RnaStructure | ID: empty sequence → no pairs; ID: single base → no pairs |
 | 72 | ✗ | RNA-STEMLOOP-001 | RnaStructure | ID: no complementary region → no stem-loops; IDEMP: deterministic |
 | 73 | ☑ | RNA-ENERGY-001 | RnaStructure | ID: no structure → ΔG=0; DIST: energy is additive for independent stacks |
@@ -126,7 +126,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 94 | ✗ | ONCO-HRD-001 | Oncology | ID: no scars → HRD=0; ADD: HRD = LOH + TAI + LST (additive decomposition) |
 | 95 | ✗ | ONCO-LOH-001 | Oncology | ID: balanced BAF → no LOH; INVOL: A/B label swap applied twice = identity |
 | 96 | ✗ | ONCO-SIG-001 | Oncology | ID: no SNVs → zero 96-vector; ADD: catalogue(A∪B)=catalogue(A)+catalogue(B) |
-| 97 | ☐ | ONCO-SIG-002 | Oncology | ID: zero catalogue → zero exposures; HOMO: exposure(k·catalogue)=k·exposure |
+| 97 | ☑ | ONCO-SIG-002 | Oncology | ID: zero catalogue → zero exposures; HOMO: exposure(k·catalogue)=k·exposure |
 | 98 | ✗ | ONCO-SIG-003 | Oncology | IDEMP: same seed → identical CI; ID: zero reps → degenerate CI |
 | 99 | ✗ | ONCO-SIG-004 | Oncology | IDEMP: deterministic; ID: single signature → that process dominant |
 | 100 | ✗ | ONCO-FUSION-001 | Oncology | ID: no chimeric reads → no fusions; IDEMP: deterministic |
@@ -160,7 +160,7 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 128 | ✗ | SEQ-SUMMARY-001 | Statistics | ID: empty → zero length; IDEMP: deterministic |
 | 129 | ✗ | SEQ-THERMO-001 | Statistics | ID: empty → 0; IDEMP: deterministic |
 | 130 | ☑ | SEQ-TM-001 | Statistics | ID: empty → 0; HOMO: homopolymer Tm scales linearly with length (Wallace) |
-| 131 | ☐ | COMPGEN-ANI-001 | Comparative | ID: ANI(A,A)=100; COMM: ANI symmetric |
+| 131 | ☑ | COMPGEN-ANI-001 | Comparative | ID: ANI(A,A)=100; COMM: ANI symmetric |
 | 132 | ✗ | COMPGEN-CLUSTER-001 | Comparative | IDEMP: deterministic; ID: single genome → trivial clusters |
 | 133 | ☑ | COMPGEN-COMPARE-001 | Comparative | COMM: symmetric; IDEMP: deterministic |
 | 134 | ✗ | COMPGEN-DOTPLOT-001 | Comparative | IDEMP: deterministic; ID: A vs A → main diagonal |
@@ -262,8 +262,8 @@ Algebraic testing перевіряє виконання алгебраїчних
 | 230 | ✗ | SEQ-COMPLEX-KMER-001 | Complexity | ID: entropy(homopolymer)=0; IDEMP: deterministic; INVAR: reverse-invariant |
 | 231 | ☑ | SEQ-COMPLEX-WINDOW-001 | Complexity | IDEMP: deterministic; DIST: window count = len−w+1 |
 | 232 | ☑ | SEQ-ENTROPY-PROFILE-001 | Statistics | IDEMP: deterministic; INVAR: complement-invariant; DIST: length = len−w+1 |
-| 233 | ☐ | SEQ-GC-ANALYSIS-001 | Composition | ID: GC("")=0; IDEMP: deterministic; DIST: GC(seq)=GC(complement(seq)) |
-| 234 | ☐ | SEQ-GC-PROFILE-001 | Statistics | IDEMP: deterministic; INVAR: complement-invariant; DIST: length = len−w+1 |
+| 233 | ☑ | SEQ-GC-ANALYSIS-001 | Composition | ID: GC("")=0; IDEMP: deterministic; DIST: GC(seq)=GC(complement(seq)) |
+| 234 | ☑ | SEQ-GC-PROFILE-001 | Statistics | IDEMP: deterministic; INVAR: complement-invariant; DIST: length = len−w+1 |
 | 235 | ☐ | ONCO-ASCAT-001 | Oncology | ID: no loci → no segments; IDEMP: deterministic grid optimum |
 | 236 | ☐ | RNA-PKPREDICT-001 | Analysis | ID: no pairable bases → empty structure; IDEMP: deterministic |
 | 237 | ☐ | RNA-PKRECURSIVE-001 | Analysis | ID: single H-type → equals non-recursive; IDEMP: deterministic |
@@ -295,8 +295,8 @@ Algebraic testing перевіряє виконання алгебраїчних
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 255 |
-| ☑ Complete | 51 |
-| ☐ Not started | 38 |
+| Total algorithms | 258 |
+| ☑ Complete | 65 |
+| ☐ Not started | 24 |
 | ✗ Not applicable | 169 |
 | Laws verified | ~172 (≈2 per algorithm) |
