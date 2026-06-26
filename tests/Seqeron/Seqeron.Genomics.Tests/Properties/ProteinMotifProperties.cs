@@ -819,4 +819,78 @@ public class ProteinMotifProperties
     }
 
     #endregion
+
+    #region PROTMOTIF-HMM-001: R: Forward ≥ Viterbi (log-odds); R: E-value ≥ 0; D: deterministic given profile
+
+    // Plan7 profile-HMM (HMMER3 Plan7; Eddy 2011). Forward sums the likelihood over ALL full-profile
+    // paths, so it can never be below the single best-path Viterbi score (Durbin et al. 1998, §3.2).
+    // The bundled SH3 profile (PF00018) is parsed once and scored against random protein sequences.
+
+    private static readonly Lazy<Plan7ProfileHmm> Sh3Profile = new(() =>
+        Plan7ProfileHmm.Parse(ReadEmbeddedHmm("PF00018_SH3_1.hmm")));
+
+    private static string ReadEmbeddedHmm(string fileName)
+    {
+        var asm = typeof(Plan7ProfileHmm).Assembly;
+        string resourceName = $"Seqeron.Genomics.Analysis.Resources.{fileName}";
+        using var stream = asm.GetManifestResourceStream(resourceName)
+            ?? throw new InvalidOperationException($"Missing embedded resource: {resourceName}");
+        using var reader = new System.IO.StreamReader(stream);
+        return reader.ReadToEnd();
+    }
+
+    /// <summary>
+    /// INV-1 (R): for every sequence, the Forward log-odds score (sum over all paths) is ≥ the Viterbi
+    /// log-odds score (single best path) — the Forward ensemble includes the optimal path as one term.
+    /// Source: Durbin et al. (1998) §3.2; HMMER3 (Eddy 2011).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Hmm_ForwardScore_AtLeastViterbiScore()
+    {
+        return Prop.ForAll(ProteinArbitrary(5), seq =>
+        {
+            var hmm = Sh3Profile.Value;
+            double viterbi = hmm.ViterbiScore(seq);
+            double forward = hmm.ForwardScore(seq);
+            return (forward >= viterbi - 1e-9).Label($"Forward {forward} < Viterbi {viterbi}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (R): both the Viterbi and Forward E-values are non-negative for any finite bit score and
+    /// positive database size — E = P·Z with the survival probability P ∈ [0,1] and Z &gt; 0.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Hmm_EValues_AreNonNegative()
+    {
+        var gen = (from bitsCenti in Gen.Choose(-5000, 5000)
+                   from z in Gen.Choose(1, 1_000_000)
+                   select (bits: bitsCenti / 100.0, z: (double)z)).ToArbitrary();
+
+        return Prop.ForAll(gen, t =>
+        {
+            var hmm = Sh3Profile.Value;
+            double vE = hmm.ViterbiEValue(t.bits, t.z);
+            double fE = hmm.ForwardEValue(t.bits, t.z);
+            return (vE >= 0.0 && fE >= 0.0).Label($"E-values negative: Viterbi {vE}, Forward {fE}");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): given a fixed profile, Viterbi and Forward scoring are deterministic functions of the
+    /// sequence — identical inputs yield bit-identical scores.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Hmm_Scoring_IsDeterministic()
+    {
+        return Prop.ForAll(ProteinArbitrary(5), seq =>
+        {
+            var hmm = Sh3Profile.Value;
+            return (hmm.ViterbiScore(seq) == hmm.ViterbiScore(seq)
+                    && hmm.ForwardScore(seq) == hmm.ForwardScore(seq))
+                .Label("profile-HMM scoring must be deterministic for identical input");
+        });
+    }
+
+    #endregion
 }
