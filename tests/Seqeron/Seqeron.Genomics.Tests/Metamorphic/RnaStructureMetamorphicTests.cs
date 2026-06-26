@@ -949,4 +949,123 @@ public class RnaStructureMetamorphicTests
     }
 
     #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  RNA-ACCESS-001 — McCaskill unpaired (accessibility) probabilities (RnaStructure)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (McCaskill 1990 Biopolymers 29:1105; Bernhart, Hofacker, Stadler 2006, RNAplfold;
+    //   tests/TestSpecs/RNA-ACCESS-001.md; docs/Validation/reports/RNA-ACCESS-001.md):
+    //   CalculateRegionUnpairedProbability returns the equilibrium probability that a contiguous
+    //   window of L nucleotides ending at position e is ENTIRELY unpaired, computed exactly as
+    //   Z_open(window) / Z from the Turner-2004 McCaskill partition function. Z is the full
+    //   ensemble sum and is fixed for a sequence; Z_open(window) forbids every base in the window
+    //   from pairing. CalculateUnpairedProbabilities returns the same Z, the per-base unpaired
+    //   probabilities p_unpaired[i] and ΔG_ensemble = −RT·ln Z, from fixed (sequence-independent)
+    //   thermodynamic constants (RT at 37 °C; Turner-2004 NN energies).
+    //
+    // Two metamorphic relations (checklist row 238):
+    //   • MON (extending the queried region cannot raise its unpaired probability): enlarging the
+    //     window (more bases required unpaired) is a stronger event, so its probability is
+    //     non-increasing — Z_open shrinks as more positions are forbidden from pairing while Z is
+    //     fixed, hence P(L+1) ≤ P(L) for a window ending at the same position.
+    //   • INV (sequence-independent constants reproduce the analytic GAAAC value): because the
+    //     constants are fixed and spelling-/case-agnostic, GAAAC (and CAAAAG) reproduce their
+    //     hand-derived analytic ensemble (Z, p_unpaired, P, ΔG) exactly — invariantly under case
+    //     folding and the T↔U spelling, and deterministically across runs.
+    //
+    // API under test: RnaSecondaryStructure.CalculateRegionUnpairedProbability /
+    //   .CalculateUnpairedProbabilities (UnpairedProbabilityResult).
+
+    #region RNA-ACCESS-001 — McCaskill accessibility probabilities
+
+    [Test]
+    [Description("MON: a longer unpaired window is a stronger (subset) event, so accessibility is non-increasing in window length for a window ending at the same position (Z_open shrinks, Z fixed).")]
+    public void Access_RegionUnpairedProbability_NonIncreasingInWindowLength()
+    {
+        // Includes a strongly-pairing hairpin (genuine decrease) and a non-pairing homopolymer (flat at 1).
+        string[] sequences = { "GCGCGCAAAAGCGCGC", "GGGGAAAACCCC", "GGGAAACCCAAAGGGAAACCC", "AAAAAAAAAA" };
+        bool sawStrictDecrease = false;
+
+        foreach (string seq in sequences)
+        {
+            foreach (int end in new[] { seq.Length - 1, seq.Length / 2 + 1 })
+            {
+                double previous = double.PositiveInfinity;
+                for (int len = 1; len <= end + 1; len++)
+                {
+                    double p = RnaSecondaryStructure.CalculateRegionUnpairedProbability(seq, end, len);
+
+                    p.Should().BeInRange(-1e-12, 1 + 1e-12, because: "an accessibility is a probability in [0,1]");
+                    p.Should().BeLessThanOrEqualTo(previous + 1e-9,
+                        because: $"extending the window ending at {end} of '{seq}' to length {len} cannot raise its unpaired probability");
+                    if (p < previous - 1e-6) sawStrictDecrease = true;
+                    previous = p;
+                }
+            }
+        }
+
+        sawStrictDecrease.Should().BeTrue(
+            because: "on a strongly-pairing sequence a longer window is strictly less likely to be fully unpaired — the relation is non-vacuous");
+    }
+
+    [Test]
+    [Description("CONS: a length-1 region accessibility at i equals the per-base unpaired probability p_unpaired[i] — both are Z_forbid(i)/Z computed from the same partition function.")]
+    public void Access_RegionLengthOne_EqualsPerBaseUnpairedProbability()
+    {
+        foreach (string seq in new[] { "GCGCGCAAAAGCGCGC", "GGGGAAAACCCC", "GGGAAACCCAAAGGGAAACCC" })
+        {
+            var perBase = RnaSecondaryStructure.CalculateUnpairedProbabilities(seq).UnpairedProbabilities;
+
+            for (int i = 0; i < seq.Length; i++)
+            {
+                double region1 = RnaSecondaryStructure.CalculateRegionUnpairedProbability(seq, i, 1);
+                region1.Should().BeApproximately(perBase[i], 1e-9,
+                    because: $"the length-1 accessibility at {i} of '{seq}' is exactly the per-base unpaired probability");
+            }
+        }
+    }
+
+    [Test]
+    [Description("INV: from fixed sequence-independent constants, GAAAC and CAAAAG reproduce their analytic McCaskill ensemble exactly — invariantly under case folding and T↔U spelling, and deterministically.")]
+    public void Access_AnalyticPins_ReproducedInvariantlyUnderSpelling()
+    {
+        // GAAAC: only the open chain or the single G(0)·C(4) hairpin (3-nt loop). Analytic pins.
+        var gaaac = RnaSecondaryStructure.CalculateUnpairedProbabilities("GAAAC");
+        gaaac.PartitionFunction.Should().BeApproximately(1.0001565052764922, 1e-12, because: "GAAAC analytic Z");
+        gaaac.BasePairProbabilities[(0, 4)].Should().BeApproximately(0.00015648078642340854, 1e-12, because: "GAAAC analytic P(0,4)");
+        gaaac.UnpairedProbabilities[0].Should().BeApproximately(0.9998435192135765, 1e-12, because: "GAAAC analytic p_unpaired(0)");
+        gaaac.EnsembleFreeEnergy.Should().BeApproximately(-9.64416549414892e-05, 1e-12, because: "GAAAC analytic ΔG = −RT·ln Z");
+
+        // The all-unpaired 5-window of GAAAC is the open-chain-only term = 1/Z.
+        RnaSecondaryStructure.CalculateRegionUnpairedProbability("GAAAC", windowEnd: 4, windowLength: 5)
+            .Should().BeApproximately(1.0 / gaaac.PartitionFunction, 1e-12,
+                because: "forbidding all five bases from pairing leaves only the empty structure, weight 1 → 1/Z");
+
+        // CAAAAG: 4-nt loop with a terminal mismatch. Second analytic pin.
+        var caaaag = RnaSecondaryStructure.CalculateUnpairedProbabilities("CAAAAG");
+        caaaag.PartitionFunction.Should().BeApproximately(1.0012902114608, 1e-12, because: "CAAAAG analytic Z");
+        caaaag.BasePairProbabilities[(0, 5)].Should().BeApproximately(0.0012885489601637966, 1e-12, because: "CAAAAG analytic P(0,5)");
+        caaaag.UnpairedProbabilities[0].Should().BeApproximately(0.9987114510398362, 1e-12, because: "CAAAAG analytic p_unpaired(0)");
+
+        // INV under case folding: the constants are case-agnostic.
+        var lower = RnaSecondaryStructure.CalculateUnpairedProbabilities("gaaac");
+        lower.PartitionFunction.Should().BeApproximately(gaaac.PartitionFunction, 1e-15, because: "Z is case-invariant");
+        lower.UnpairedProbabilities[0].Should().BeApproximately(gaaac.UnpairedProbabilities[0], 1e-15, because: "p_unpaired is case-invariant");
+
+        // INV under T↔U spelling: a U-containing RNA and its DNA (T) spelling fold identically.
+        const string rna = "GGGAAACCCUUU";
+        var rnaRes = RnaSecondaryStructure.CalculateUnpairedProbabilities(rna);
+        var dnaRes = RnaSecondaryStructure.CalculateUnpairedProbabilities(rna.Replace('U', 'T'));
+        dnaRes.PartitionFunction.Should().BeApproximately(rnaRes.PartitionFunction, 1e-12, because: "T read as U → identical Z");
+        for (int i = 0; i < rna.Length; i++)
+            dnaRes.UnpairedProbabilities[i].Should().BeApproximately(rnaRes.UnpairedProbabilities[i], 1e-12,
+                because: $"T read as U → identical p_unpaired at {i}");
+
+        // INV determinism: repeated computation is bit-stable.
+        var repeat = RnaSecondaryStructure.CalculateUnpairedProbabilities("GAAAC");
+        repeat.PartitionFunction.Should().Be(gaaac.PartitionFunction, because: "the McCaskill computation is deterministic");
+    }
+
+    #endregion
 }
