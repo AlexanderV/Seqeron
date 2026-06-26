@@ -178,4 +178,99 @@ public class OncologyAlgebraicTests
             return (System.Math.Abs(scaledRaw - t.k * baseRaw) < 1e-9).Label($"{scaledRaw} vs {t.k}*{baseRaw}");
         });
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ONCO-ASCAT-001 — Upstream allele-specific derivation (Oncology), row 235.
+    // ID — no loci → no segments (the empty input maps to the empty segmentation).
+    // IDEMP — the segmentation and the ASCAT grid optimum are pure, deterministic
+    //         functions: f(x) = f(x) for the same input and grid.
+    //   — OncologyAnalyzer.SegmentAlleleSpecific / FitPurityPloidy.
+    //   — Van Loo et al. (2010), PNAS 107:16910 (grid over ploidy × aberrant fraction);
+    //     ascat.runAscat.R nA/nB equations + sunrise goodness of fit.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private const double AscatGamma = 1.0; // sequencing data (ASCAT README).
+
+    // Exact algebraic inverse of the two cited ASCAT nA/nB equations (gamma = 1):
+    //   denom = rho·n + 2(1−rho); D = rho·psi + 2(1−rho); r = log2(denom/D); b = (rho·nB + (1−rho))/denom.
+    private static (double LogR, double Baf) AscatForward(int nA, int nB, double rho, double psi)
+    {
+        int n = nA + nB;
+        double denom = rho * n + 2.0 * (1.0 - rho);
+        double d = rho * psi + 2.0 * (1.0 - rho);
+        return (System.Math.Log2(denom / d), (rho * nB + (1.0 - rho)) / denom);
+    }
+
+    private static List<OncologyAnalyzer.AlleleSpecificLocus> SynthesiseAscatLoci(
+        IReadOnlyList<(string Chrom, int NA, int NB)> segments, double rho, double psi, int lociPerSegment = 5)
+    {
+        var loci = new List<OncologyAnalyzer.AlleleSpecificLocus>();
+        long pos = 1000;
+        foreach (var (chrom, nA, nB) in segments)
+        {
+            (double r, double b) = AscatForward(nA, nB, rho, psi);
+            for (int i = 0; i < lociPerSegment; i++)
+            {
+                loci.Add(new OncologyAnalyzer.AlleleSpecificLocus(chrom, pos, r, b));
+                pos += 1000;
+            }
+        }
+
+        return loci;
+    }
+
+    private static readonly (string Chrom, int NA, int NB)[] AscatPlantedSegments =
+    {
+        ("1", 1, 1), // balanced diploid, b = 0.5
+        ("1", 2, 0), // copy-neutral LOH, b ≈ 0.1
+        ("1", 1, 1),
+        ("1", 2, 1), // gain
+        ("1", 1, 1),
+    };
+
+    [Test]
+    public void Ascat_Identity_NoLociIsNoSegments()
+    {
+        // ID: the empty locus set is the neutral input; its segmentation is the empty list.
+        var segments = OncologyAnalyzer.SegmentAlleleSpecific(
+            System.Array.Empty<OncologyAnalyzer.AlleleSpecificLocus>(), logRChangeThreshold: 0.2);
+        segments.Should().BeEmpty();
+    }
+
+    [FsCheck.NUnit.Property]
+    public Property Ascat_Idempotent_SegmentationIsDeterministic()
+    {
+        // IDEMP: SegmentAlleleSpecific is a pure function — the same loci always yield the same segments.
+        var gen = (from n in Gen.Choose(1, 30)
+                   from logR in Gen.Choose(-300, 300).Select(x => x / 100.0).ArrayOf(n)
+                   from baf in Gen.Choose(0, 100).Select(x => x / 100.0).ArrayOf(n)
+                   select (logR, baf)).ToArbitrary();
+        return Prop.ForAll(gen, t =>
+        {
+            int n = System.Math.Min(t.logR.Length, t.baf.Length);
+            var loci = Enumerable.Range(0, n)
+                .Select(i => new OncologyAnalyzer.AlleleSpecificLocus("1", 1000 + i * 1000, t.logR[i], t.baf[i]))
+                .ToList();
+            var a = OncologyAnalyzer.SegmentAlleleSpecific(loci, logRChangeThreshold: 0.3, bafChangeThreshold: 0.1);
+            var b = OncologyAnalyzer.SegmentAlleleSpecific(loci, logRChangeThreshold: 0.3, bafChangeThreshold: 0.1);
+            return a.SequenceEqual(b).Label($"segmentation non-deterministic for {n} loci");
+        });
+    }
+
+    [Test]
+    public void Ascat_Idempotent_GridOptimumIsDeterministic()
+    {
+        // IDEMP: the ASCAT grid search is a pure function — re-running it over the same segments and
+        // the same (ρ × ψ) grid recovers the identical optimum (purity, ploidy, GoF, integer segments).
+        var loci = SynthesiseAscatLoci(AscatPlantedSegments, rho: 0.80, psi: 2.2);
+        var summaries = OncologyAnalyzer.SegmentAlleleSpecific(loci, logRChangeThreshold: 0.2, minLociPerSegment: 1);
+
+        OncologyAnalyzer.PurityPloidyFit fit1 = OncologyAnalyzer.FitPurityPloidy(summaries, gamma: AscatGamma);
+        OncologyAnalyzer.PurityPloidyFit fit2 = OncologyAnalyzer.FitPurityPloidy(summaries, gamma: AscatGamma);
+
+        fit2.Purity.Should().Be(fit1.Purity);
+        fit2.Ploidy.Should().Be(fit1.Ploidy);
+        fit2.GoodnessOfFit.Should().Be(fit1.GoodnessOfFit);
+        fit2.Segments.Should().Equal(fit1.Segments);
+    }
 }
