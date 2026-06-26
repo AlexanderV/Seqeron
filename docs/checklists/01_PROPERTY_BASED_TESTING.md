@@ -93,7 +93,7 @@ Property-based testing генерує сотні випадкових вході
 | 61 | ☑ | CODON-USAGE-001 | Codon | R: usage freqs ≥ 0; P: sum per amino acid = 1.0; D: deterministic | CodonProperties.cs |
 | 62 | ☑ | TRANS-CODON-001 | Translation | R: 64 codons mapped; P: start codons → M; P: stop codons → *; D: deterministic | CodonProperties.cs |
 | 63 | ☑ | TRANS-PROT-001 | Translation | R: protein len ≤ seqLen/3; P: starts with M if starts with ATG; D: deterministic | CodonProperties.cs |
-| 64 | ☐ | PARSE-FASTA-001 | FileIO | RT: write(parse(fasta))=fasta; P: header preserved; P: sequence preserved; D: deterministic | FastaRoundTripProperties.cs |
+| 64 | ☑ | PARSE-FASTA-001 | FileIO | RT: write(parse(fasta))=fasta; P: header preserved; P: sequence preserved; D: deterministic | FastaRoundTripProperties.cs |
 | 65 | ☑ | PARSE-FASTQ-001 | FileIO | RT: round-trip; P: quality len = seq len; R: quality scores in valid range | FileIOProperties.cs |
 | 66 | ☑ | PARSE-BED-001 | FileIO | R: start < end; R: chrom non-empty; R: start ≥ 0; D: deterministic | FileIOProperties.cs |
 | 67 | ☑ | PARSE-VCF-001 | FileIO | R: pos > 0; P: ref allele non-empty; R: qual ≥ 0 or missing; D: deterministic | FileIOProperties.cs |
@@ -296,7 +296,7 @@ Property-based testing генерує сотні випадкових вході
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 206 |
-| ☐ Not started | 52 |
+| ☑ Complete | 207 |
+| ☐ Not started | 51 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
