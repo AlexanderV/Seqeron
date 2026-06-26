@@ -156,7 +156,7 @@ Property-based testing генерує сотні випадкових вході
 | 124 | ☑ | SEQ-MW-001 | Statistics | R: MW > 0 for non-empty; M: longer sequence → higher MW; P: MW additive over residues; D: deterministic | SequenceStatisticsProperties.cs (new) |
 | 125 | ☑ | SEQ-PI-001 | Statistics | R: pI ∈ [0,14]; P: net charge at pI ≈ 0; D: deterministic | SequenceStatisticsProperties.cs (new) |
 | 126 | ☑ | SEQ-SECSTRUCT-001 | Statistics | R: each propensity ≥ 0; P: every residue assigned H/E/C; D: deterministic | SequenceStatisticsProperties.cs (new) |
-| 127 | ☐ | SEQ-STATS-001 | Statistics | R: counts ≥ 0; P: Σ counts = length; R: GC% ∈ [0,100]; D: deterministic | SequenceStatisticsProperties.cs (new) |
+| 127 | ☑ | SEQ-STATS-001 | Statistics | R: counts ≥ 0; P: Σ counts = length; R: GC% ∈ [0,100]; D: deterministic | SequenceStatisticsProperties.cs (new) |
 | 128 | ☑ | SEQ-SUMMARY-001 | Statistics | P: reported length = sequence length; R: GC% ∈ [0,100]; D: deterministic | SequenceStatisticsProperties.cs (new) |
 | 129 | ☑ | SEQ-THERMO-001 | Statistics | R: ΔG, ΔH, ΔS finite; M: more GC → more stable (lower ΔG); D: deterministic | SequenceStatisticsProperties.cs (new) |
 | 130 | ☑ | SEQ-TM-001 | Statistics | R: Tm ≥ 0; M: more GC → higher Tm; D: deterministic | SequenceStatisticsProperties.cs (new) |
@@ -262,8 +262,8 @@ Property-based testing генерує сотні випадкових вході
 | 230 | ☑ | SEQ-COMPLEX-KMER-001 | Complexity | R: entropy ≥ 0; M: more distinct k-mers → higher entropy; P: homopolymer → 0; D: deterministic | SequenceComplexityProperties.cs (new) |
 | 231 | ☑ | SEQ-COMPLEX-WINDOW-001 | Complexity | R: each window score ∈ [0,1]; P: window count = len−w+1; D: deterministic | SequenceComplexityProperties.cs (new) |
 | 232 | ☑ | SEQ-ENTROPY-PROFILE-001 | Statistics | R: each entropy ≥ 0; P: profile length = len−w+1; D: deterministic | SequenceStatisticsProperties.cs (new) |
-| 233 | ☐ | SEQ-GC-ANALYSIS-001 | Composition | R: GC% ∈ [0,100]; P: windows tile sequence; D: deterministic | GcSkewProperties.cs |
-| 234 | ☐ | SEQ-GC-PROFILE-001 | Statistics | R: each GC% ∈ [0,100]; P: profile length = len−w+1; D: deterministic | SequenceStatisticsProperties.cs (new) |
+| 233 | ☑ | SEQ-GC-ANALYSIS-001 | Composition | R: GC% ∈ [0,100]; P: windows tile sequence; D: deterministic | GcSkewProperties.cs |
+| 234 | ☑ | SEQ-GC-PROFILE-001 | Statistics | R: each GC% ∈ [0,100]; P: profile length = len−w+1; D: deterministic | SequenceStatisticsProperties.cs (new) |
 | 235 | ☐ | ONCO-ASCAT-001 | Oncology | R: purity ∈ (0,1]; R: ploidy > 0; P: nA,nB ≥ 0 integers; D: deterministic | OncologyProperties.cs (new) |
 | 236 | ☐ | RNA-PKPREDICT-001 | Analysis | R: ΔG ≤ pseudoknot-free MFE; P: each base paired ≤ once; P: crossings genuine; D: deterministic | RnaStructureProperties.cs (new) |
 | 237 | ☐ | RNA-PKRECURSIVE-001 | Analysis | R: ΔG ≤ single-knot result; P: valid nested structure; D: deterministic | RnaStructureProperties.cs (new) |
@@ -296,7 +296,7 @@ Property-based testing генерує сотні випадкових вході
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 228 |
-| ☐ Not started | 30 |
+| ☑ Complete | 231 |
+| ☐ Not started | 27 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
