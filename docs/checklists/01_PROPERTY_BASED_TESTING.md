@@ -78,7 +78,7 @@ Property-based testing генерує сотні випадкових вході
 | 46 | ☑ | POP-FST-001 | PopGen | R: Fst ∈ [0,1]; S: Fst(A,B)=Fst(B,A); I: Fst(A,A)=0; D: deterministic | PopulationGeneticsProperties.cs |
 | 47 | ☑ | POP-LD-001 | PopGen | R: D' ∈ [-1,1]; R: r² ∈ [0,1]; S: LD(a,b)=LD(b,a); D: deterministic | PopulationGeneticsProperties.cs |
 | 48 | ☑ | CHROM-TELO-001 | Chromosome | R: positions valid; P: telomere seq contains TTAGGG; M: more repeats → longer region; D: deterministic | ChromosomeProperties.cs (new) |
-| 49 | ☐ | CHROM-CENT-001 | Chromosome | R: centromere index ∈ [0, seqLen]; D: deterministic; P: AT-rich region | ChromosomeProperties.cs (new) |
+| 49 | ☑ | CHROM-CENT-001 | Chromosome | R: centromere index ∈ [0, seqLen]; D: deterministic; P: AT-rich region | ChromosomeProperties.cs (new) |
 | 50 | ☑ | CHROM-KARYO-001 | Chromosome | R: chromosome count > 0; D: deterministic; P: each chrom has classification | ChromosomeProperties.cs (new) |
 | 51 | ☑ | CHROM-ANEU-001 | Chromosome | R: copy number ≥ 0; M: higher depth → higher CN; D: deterministic | ChromosomeProperties.cs (new) |
 | 52 | ☐ | CHROM-SYNT-001 | Chromosome | R: block positions valid; S: synteny(A,B) symmetric with B,A; D: deterministic | ChromosomeProperties.cs (new) |
@@ -296,7 +296,7 @@ Property-based testing генерує сотні випадкових вході
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 200 |
-| ☐ Not started | 58 |
+| ☑ Complete | 201 |
+| ☐ Not started | 57 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
