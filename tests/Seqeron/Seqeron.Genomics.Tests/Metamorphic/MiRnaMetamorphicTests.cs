@@ -669,4 +669,79 @@ public class MiRnaMetamorphicTests
     }
 
     #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  MIRNA-CLEAVAGE-001 — Drosha/Dicer cleavage-site prediction (MiRNA)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (Han et al. 2006 Cell 125:887; Park et al. 2011 Nature 475:201;
+    //   tests/TestSpecs/MIRNA-CLEAVAGE-001.md):
+    //   PredictDroshaDicerCleavage applies the published "ruler" rules: Drosha cuts ~11 bp from the
+    //   basal ssRNA–dsRNA junction (so the 5p mature starts at basalJunction + 11), and Dicer's
+    //   5'-counting rule fixes the 22-nt mature length. Two metamorphic relations (checklist row 255):
+    //
+    //   • INV (hsa-miR-21-5p mature reproduced exactly): on the pri-miR-21 hairpin with the correct
+    //     basal junction the predicted 5p mature equals the annotated hsa-miR-21-5p sequence.
+    //   • MON (shifting the basal stem shifts the Drosha site consistently): the Drosha cut is a
+    //     constant 11 bp from the basal junction, so moving the junction by Δ (and prepending a Δ-nt
+    //     basal flank) shifts the cut and the whole mature span by exactly Δ while reproducing the
+    //     same mature sequence.
+    //
+    // API under test: MiRnaAnalyzer.PredictDroshaDicerCleavage (DroshaDicerCleavage).
+
+    #region MIRNA-CLEAVAGE-001 — Drosha/Dicer cleavage prediction
+
+    // pri-miR-21: an 11-nt basal ssRNA flank + the miR-21 stem; basal junction at index 0.
+    private const string PriMir21 =
+        "CCCCCCCCCCC" + "UAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGU";
+
+    // Annotated hsa-miR-21-5p mature (miRBase MIMAT0000076), 22 nt.
+    private const string HsaMiR21_5p = "UAGCUUAUCAGACUGAUGUUGA";
+
+    [Test]
+    [Description("INV: on pri-miR-21 with the correct basal junction, the +11 Drosha ruler and 22-nt Dicer rule reproduce the annotated hsa-miR-21-5p mature exactly.")]
+    public void Cleavage_PriMir21_ReproducesMiR21MatureExactly()
+    {
+        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(PriMir21, basalJunction: 0);
+
+        cut.Should().NotBeNull(because: "the pri-miR-21 hairpin admits the predicted cuts");
+        cut!.Value.MatureSequence.Should().Be(HsaMiR21_5p,
+            because: "the +11 Drosha ruler + 22-nt Dicer rule reproduce hsa-miR-21-5p exactly");
+        cut.Value.DroshaCut5Prime.Should().Be(11, because: "Drosha cuts 11 bp from the basal junction at index 0");
+        cut.Value.MatureStart.Should().Be(11);
+        cut.Value.MatureEnd.Should().Be(11 + 22 - 1, because: "the Dicer 5'-counting rule fixes a 22-nt mature");
+    }
+
+    [Test]
+    [Description("MON: the Drosha cut is a constant 11 bp from the basal junction, so moving the junction by Δ (with a Δ-nt basal flank prepended) shifts the cut and mature span by exactly Δ and reproduces the same mature sequence.")]
+    public void Cleavage_ShiftingBasalStem_ShiftsDroshaSiteConsistently()
+    {
+        var baseCut = MiRnaAnalyzer.PredictDroshaDicerCleavage(PriMir21, 0)!.Value;
+
+        // (a) Ruler consistency: the cut is always 11 bp from the basal junction.
+        foreach (int j in new[] { 0, 5, 11, 20 })
+        {
+            var c = MiRnaAnalyzer.PredictDroshaDicerCleavage(PriMir21, j);
+            if (c is null) continue;
+            (c.Value.DroshaCut5Prime - j).Should().Be(11,
+                because: $"Drosha cuts a constant 11 bp from the basal junction (j={j})");
+            c.Value.MatureStart.Should().Be(j + 11, because: "the 5p mature starts at the Drosha cut");
+        }
+
+        // (b) Consistent shift: prepend a Δ-nt basal flank and move the junction by Δ → same mature, coords +Δ.
+        foreach (int delta in new[] { 3, 7, 15 })
+        {
+            string shifted = new string('A', delta) + PriMir21;
+            var c = MiRnaAnalyzer.PredictDroshaDicerCleavage(shifted, delta)!.Value;
+
+            c.MatureSequence.Should().Be(baseCut.MatureSequence,
+                because: $"shifting the basal stem by {delta} and the junction by {delta} reproduces the same mature");
+            c.DroshaCut5Prime.Should().Be(baseCut.DroshaCut5Prime + delta,
+                because: $"the Drosha cut shifts by exactly {delta}");
+            c.MatureStart.Should().Be(baseCut.MatureStart + delta);
+            c.MatureEnd.Should().Be(baseCut.MatureEnd + delta);
+        }
+    }
+
+    #endregion
 }
