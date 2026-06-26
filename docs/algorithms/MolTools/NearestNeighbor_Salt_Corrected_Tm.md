@@ -100,6 +100,17 @@ makes the NN lookup fail: `CalculateNearestNeighborThermodynamics` returns `null
 `CalculateMeltingTemperatureNN` returns `double.NaN`. No exceptions are thrown for these
 guarded inputs.
 
+The numeric concentration parameters of `CalculateMeltingTemperatureNN`, however, are
+domain-validated up front (the Tm equation evaluates `R·ln(C_T/x)` and the salt corrections
+evaluate `ln[Na⁺]`/`ln[Mg²⁺]`, all of which are undefined at a non-positive argument). A
+non-positive `strandConcentrationMolar` (≤ 0 or NaN), a non-positive `sodiumMolar` (≤ 0 or
+NaN — including **zero salt**, whose `ln(0) = −∞` would otherwise leak a non-physical
+≈ −273.15 °C or a silent NaN), a **negative** `magnesiumMolar`, or a **negative** `dntpMolar`
+each throw `ArgumentOutOfRangeException`. Thus every input yields either a finite,
+theory-correct Tm (valid sequence + in-domain parameters), a `double.NaN` sentinel (guarded
+non-computable sequence), or a documented `ArgumentOutOfRangeException` (out-of-domain
+parameter) — never an undisciplined NaN/Inf leak.
+
 ## 4. Algorithm
 
 ### 4.1 High-Level Steps
