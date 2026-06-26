@@ -1531,4 +1531,183 @@ public class MiRnaProperties
     }
 
     #endregion
+
+    #region MIRNA-CONTEXT-001: R: context++ score ≤ 0 (more negative = stronger); D: deterministic
+
+    // ScoreTargetSiteContextPlusPlus — TargetScan context++ (Agarwal et al. 2015): an additive log-fold-change
+    // repression model whose (partial) context score is ≤ 0 for canonical seed sites (more negative = stronger).
+
+    /// <summary>
+    /// INV-1 (R): the partial context++ score of a perfect canonical 8mer site is ≤ 0 (repression is a
+    /// non-positive log fold-change; a stronger site is more negative).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ContextPlusPlus_8merScore_IsNonPositive()
+    {
+        return Prop.ForAll(UStartMiRnaArbitrary(), miRna =>
+        {
+            var (mrna8, start8) = BuildClean8mer(miRna.Sequence, "GG");
+            var site = MiRnaAnalyzer.FindTargetSites(mrna8, miRna, minScore: 0.0)
+                .FirstOrDefault(s => s.Start == start8 && s.Type == MiRnaAnalyzer.TargetSiteType.Seed8mer);
+            if (site.Type != MiRnaAnalyzer.TargetSiteType.Seed8mer) return true.ToProperty();
+            var ctx = MiRnaAnalyzer.ScoreTargetSiteContextPlusPlus(mrna8, miRna, site);
+            return (ctx.ContextScorePartial <= 1e-9).Label($"context++ partial {ctx.ContextScorePartial} must be ≤ 0");
+        });
+    }
+
+    /// <summary>INV-2 (D): context++ scoring is deterministic.</summary>
+    [FsCheck.NUnit.Property]
+    public Property ContextPlusPlus_IsDeterministic()
+    {
+        return Prop.ForAll(UStartMiRnaArbitrary(), miRna =>
+        {
+            var (mrna8, start8) = BuildClean8mer(miRna.Sequence, "GG");
+            var site = MiRnaAnalyzer.FindTargetSites(mrna8, miRna, minScore: 0.0)
+                .FirstOrDefault(s => s.Start == start8 && s.Type == MiRnaAnalyzer.TargetSiteType.Seed8mer);
+            if (site.Type != MiRnaAnalyzer.TargetSiteType.Seed8mer) return true.ToProperty();
+            return (MiRnaAnalyzer.ScoreTargetSiteContextPlusPlus(mrna8, miRna, site).ContextScorePartial
+                    == MiRnaAnalyzer.ScoreTargetSiteContextPlusPlus(mrna8, miRna, site).ContextScorePartial)
+                .Label("ScoreTargetSiteContextPlusPlus must be deterministic");
+        });
+    }
+
+    #endregion
+
+    #region MIRNA-PCT-001: R: PCT ∈ [0,1]; M: higher branch length → higher PCT; D: deterministic
+
+    // PctFromBranchLength — TargetScan PCT sigmoid (Friedman et al. 2009): PCT = B0 + B1/(1+e^(−B2·BL+B3)),
+    // clamped to ≥ 0. Generated over the published parameter regime (B0+B1 ≤ 1, B2 > 0) where PCT ∈ [0,1].
+
+    private static Arbitrary<(double bl, MiRnaAnalyzer.PctSigmoidParameters p)> PctArbitrary() =>
+        (from blCenti in Gen.Choose(0, 500)
+         from b0c in Gen.Choose(0, 10)
+         from b1c in Gen.Choose(5, 90)
+         from b2c in Gen.Choose(1, 200)
+         from b3c in Gen.Choose(-300, 300)
+         select (blCenti / 100.0,
+                 new MiRnaAnalyzer.PctSigmoidParameters(b0c / 100.0, b1c / 100.0, b2c / 100.0, b3c / 100.0)))
+        .ToArbitrary();
+
+    /// <summary>INV-1 (R): PCT lies in [0,1] over the published parameter regime (B0+B1 ≤ 1).</summary>
+    [FsCheck.NUnit.Property]
+    public Property Pct_InUnitInterval()
+    {
+        return Prop.ForAll(PctArbitrary(), t =>
+        {
+            double pct = MiRnaAnalyzer.PctFromBranchLength(t.bl, t.p);
+            return (pct >= -1e-9 && pct <= 1.0 + 1e-9).Label($"PCT {pct} outside [0,1]");
+        });
+    }
+
+    /// <summary>INV-2 (M): with B2 &gt; 0 and B1 &gt; 0, a longer branch length gives a higher PCT (the sigmoid is increasing).</summary>
+    [FsCheck.NUnit.Property]
+    public Property Pct_MonotoneInBranchLength()
+    {
+        var gen = (from t in PctArbitrary().Generator
+                   from extraCenti in Gen.Choose(1, 300)
+                   select (t.p, lo: t.bl, hi: t.bl + extraCenti / 100.0)).ToArbitrary();
+        return Prop.ForAll(gen, t =>
+        {
+            double pctLo = MiRnaAnalyzer.PctFromBranchLength(t.lo, t.p);
+            double pctHi = MiRnaAnalyzer.PctFromBranchLength(t.hi, t.p);
+            return (pctHi >= pctLo - 1e-9).Label($"PCT not monotone: BL {t.lo}→{pctLo}, {t.hi}→{pctHi}");
+        });
+    }
+
+    /// <summary>INV-3 (D): PCT is deterministic.</summary>
+    [FsCheck.NUnit.Property]
+    public Property Pct_IsDeterministic()
+    {
+        return Prop.ForAll(PctArbitrary(), t =>
+            (MiRnaAnalyzer.PctFromBranchLength(t.bl, t.p) == MiRnaAnalyzer.PctFromBranchLength(t.bl, t.p))
+                .Label("PctFromBranchLength must be deterministic"));
+    }
+
+    #endregion
+
+    #region MIRNA-CLASSIFY-001: R: probability ∈ [0,1]; D: deterministic; threshold split positive/negative
+
+    // ClassifyPreMiRna — bundled logistic-regression P(natural) ∈ [0,1]; IsNatural = P ≥ threshold.
+
+    /// <summary>
+    /// INV-1 (R + threshold): for any predicted pre-miRNA hairpin the natural probability is in [0,1] and the
+    /// positive/negative call equals (probability ≥ threshold).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyPreMiRna_Probability_InUnitInterval_AndThresholdSplit()
+    {
+        return Prop.ForAll(PerfectHairpinArbitrary(), built =>
+        {
+            const double threshold = 0.5;
+            var c = MiRnaAnalyzer.ClassifyPreMiRna(built.sequence, threshold);
+            if (c is null) return true.ToProperty();
+            var v = c.Value;
+            bool ok = v.NaturalProbability is >= 0.0 and <= 1.0
+                      && v.IsNatural == (v.NaturalProbability >= threshold);
+            return ok.Label($"P={v.NaturalProbability}, IsNatural={v.IsNatural}");
+        });
+    }
+
+    /// <summary>INV-2 (D): pre-miRNA classification is deterministic.</summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyPreMiRna_IsDeterministic()
+    {
+        return Prop.ForAll(PerfectHairpinArbitrary(), built =>
+        {
+            var a = MiRnaAnalyzer.ClassifyPreMiRna(built.sequence);
+            var b = MiRnaAnalyzer.ClassifyPreMiRna(built.sequence);
+            return ((a is null && b is null)
+                    || (a is not null && b is not null
+                        && a.Value.NaturalProbability == b.Value.NaturalProbability
+                        && a.Value.IsNatural == b.Value.IsNatural))
+                .Label("ClassifyPreMiRna must be deterministic");
+        });
+    }
+
+    #endregion
+
+    #region MIRNA-CLEAVAGE-001: R: cleavage positions within precursor; R: 2-nt 3' overhang; D: deterministic
+
+    // PredictDroshaDicerCleavage — Drosha basal-junction ruler (~11 bp, Han 2006) + Dicer 5'-counting (~22 nt,
+    // Park 2011); the RNase III staggered cut leaves a 2-nt 3' overhang. Returns null when the geometry runs
+    // off the sequence.
+
+    private static Arbitrary<(string seq, int basal)> CleavageArbitrary() =>
+        (from len in Gen.Choose(40, 130)
+         from chars in Gen.Elements('A', 'C', 'G', 'U').ArrayOf(len)
+         from basal in Gen.Choose(0, len / 3)
+         select (new string(chars), basal)).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (R): whenever a cleavage is predicted, every reported cut/span coordinate lies within the
+    /// precursor and the 3' overhang is exactly 2 nt (the RNase III staggered-cut signature).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DroshaDicerCleavage_PositionsValid_And2ntOverhang()
+    {
+        return Prop.ForAll(CleavageArbitrary(), t =>
+        {
+            var c = MiRnaAnalyzer.PredictDroshaDicerCleavage(t.seq, t.basal);
+            if (c is null) return true.ToProperty();
+            var v = c.Value;
+            int n = t.seq.Length;
+            bool inBounds = new[] { v.BasalJunction, v.DroshaCut5Prime, v.DroshaCut3Prime,
+                                    v.MatureStart, v.MatureEnd, v.StarStart, v.StarEnd }
+                .All(p => p >= 0 && p <= n);
+            return (inBounds && v.ThreePrimeOverhang == 2)
+                .Label($"positions in-bounds={inBounds}, overhang={v.ThreePrimeOverhang}");
+        });
+    }
+
+    /// <summary>INV-2 (D): Drosha/Dicer cleavage prediction is deterministic.</summary>
+    [FsCheck.NUnit.Property]
+    public Property DroshaDicerCleavage_IsDeterministic()
+    {
+        return Prop.ForAll(CleavageArbitrary(), t =>
+            (MiRnaAnalyzer.PredictDroshaDicerCleavage(t.seq, t.basal)
+                == MiRnaAnalyzer.PredictDroshaDicerCleavage(t.seq, t.basal))
+                .Label("PredictDroshaDicerCleavage must be deterministic"));
+    }
+
+    #endregion
 }

@@ -281,10 +281,10 @@ Property-based testing генерує сотні випадкових вході
 | 249 | ☑ | META-TETRA-001 | Metagenomics | R: correlation ∈ [-1,1]; INV: z(ACGT)=√5 on reference; D: deterministic | MetagenomicsProperties.cs (new) |
 | 250 | ☑ | SPLICE-MAXENT3-001 | Splicing | R: score finite; D: deterministic; requires 23-nt acceptor window | SpliceProperties.cs (new) |
 | 251 | ☑ | SPLICE-MAXENT5-001 | Splicing | R: score finite; D: deterministic; requires 9-nt donor window | SpliceProperties.cs (new) |
-| 252 | ☐ | MIRNA-CONTEXT-001 | MiRNA | R: context++ score ≤ 0 (more negative = stronger); D: deterministic | MiRnaProperties.cs (new) |
-| 253 | ☐ | MIRNA-PCT-001 | MiRNA | R: PCT ∈ [0,1]; M: higher branch length → higher PCT; D: deterministic | MiRnaProperties.cs (new) |
-| 254 | ☐ | MIRNA-CLASSIFY-001 | MiRNA | R: probability ∈ [0,1]; D: deterministic; threshold split positive/negative | MiRnaProperties.cs (new) |
-| 255 | ☐ | MIRNA-CLEAVAGE-001 | MiRNA | R: cleavage positions within precursor; R: 2-nt 3' overhang; D: deterministic | MiRnaProperties.cs (new) |
+| 252 | ☑ | MIRNA-CONTEXT-001 | MiRNA | R: context++ score ≤ 0 (more negative = stronger); D: deterministic | MiRnaProperties.cs (new) |
+| 253 | ☑ | MIRNA-PCT-001 | MiRNA | R: PCT ∈ [0,1]; M: higher branch length → higher PCT; D: deterministic | MiRnaProperties.cs (new) |
+| 254 | ☑ | MIRNA-CLASSIFY-001 | MiRNA | R: probability ∈ [0,1]; D: deterministic; threshold split positive/negative | MiRnaProperties.cs (new) |
+| 255 | ☑ | MIRNA-CLEAVAGE-001 | MiRNA | R: cleavage positions within precursor; R: 2-nt 3' overhang; D: deterministic | MiRnaProperties.cs (new) |
 | 256 | ☐ | REP-APPROX-001 | Repeats | R: percent-matches ∈ [0,100]; R: score ≥ Minscore (50); D: deterministic | RepeatProperties.cs (new) |
 | 257 | ☐ | CHROM-ALPHASAT-001 | Chromosome | R: monomer period ≈ 171 bp; R: CENP-B boxes within monomers; D: deterministic | ChromosomeProperties.cs (new) |
 | 258 | ☐ | CHROM-HOR-001 | Chromosome | R: inter-HOR identity ≥ intra-monomer identity; R: HOR period = k×monomer; D: deterministic | ChromosomeProperties.cs (new) |
@@ -296,7 +296,7 @@ Property-based testing генерує сотні випадкових вході
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 251 |
-| ☐ Not started | 7 |
+| ☑ Complete | 255 |
+| ☐ Not started | 3 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
