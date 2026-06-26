@@ -2842,5 +2842,78 @@ public class MolToolsMetamorphicTests
 
     #endregion
 
+    // ═══════════════════════════════════════════════════════════════════
+    //  PRIMER-HAIRPIN-001 — most-stable DNA hairpin ΔG (MolTools)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (SantaLucia 1998; SantaLucia & Hicks 2004 Table 1 + Table 4;
+    //   docs/algorithms/MolTools/DNA_Hairpin_Folding_Tm.md):
+    //   FindMostStableHairpin finds the minimum-ΔG°37 intramolecular hairpin (one Watson-Crick
+    //   stem closing one loop): ΔG°37 = Σ stem NN stacks (each ≤ 0) + loop initiation (≥ 0). It
+    //   returns null when no stem of ≥ 2 bp can close a loop of ≥ 3 nt. Two metamorphic relations
+    //   (checklist row 241):
+    //
+    //   • MON (lengthening a complementary stem lowers ΔG): each extra base pair adds one more
+    //     stabilising (negative) nearest-neighbour stack while the loop term is unchanged, so the
+    //     most-stable hairpin's ΔG°37 is strictly DECREASING (more negative) as the stem grows.
+    //   • INV (no stem possible → no hairpin): a sequence that admits no ≥2-bp Watson-Crick stem
+    //     closing a ≥3-nt loop (a homopolymer, or a lone WC pair) has no hairpin — the method
+    //     returns null — and that holds however long the non-pairing sequence is.
+    //
+    // API under test: PrimerDesigner.FindMostStableHairpin (HairpinResult?).
+
+    #region PRIMER-HAIRPIN-001 — most-stable hairpin ΔG
+
+    [Test]
+    [Description("MON: each added stem base pair contributes one more stabilising NN stack while the loop term is fixed, so lengthening a complementary stem strictly lowers (makes more negative) the hairpin ΔG°37.")]
+    public void Hairpin_LengtheningStem_LowersDeltaG()
+    {
+        // A fixed GC-rich arm; prefixes give perfect stems of increasing length around a fixed loop.
+        const string fullArm = "GCAGTCAGGTC";
+        const string loop = "TTTT";
+
+        double previous = double.PositiveInfinity;
+        for (int stem = 3; stem <= 8; stem++)
+        {
+            string leftArm = fullArm.Substring(0, stem);
+            string sequence = leftArm + loop + DnaSequence.GetReverseComplementString(leftArm);
+
+            var hairpin = PrimerDesigner.FindMostStableHairpin(sequence);
+            hairpin.Should().NotBeNull(because: $"a perfect {stem}-bp stem closing a 4-nt loop must form a hairpin ('{sequence}')");
+            hairpin!.Value.StemLength.Should().BeGreaterThanOrEqualTo(stem,
+                because: $"the most stable hairpin uses the full perfect {stem}-bp stem");
+
+            hairpin.Value.DeltaG37.Should().BeLessThan(previous - 1e-9,
+                because: $"extending the stem to {stem} bp adds another stabilising NN stack, so ΔG°37 strictly decreases");
+            previous = hairpin.Value.DeltaG37;
+        }
+    }
+
+    [Test]
+    [Description("INV: a sequence that admits no ≥2-bp Watson-Crick stem closing a ≥3-nt loop has no hairpin — FindMostStableHairpin returns null — regardless of how long the non-pairing sequence is.")]
+    public void Hairpin_NoStemPossible_YieldsNoHairpin()
+    {
+        // Homopolymers can form no Watson-Crick pair at all → no hairpin, at any length.
+        foreach (char b in "ACGT")
+        {
+            foreach (int len in new[] { 6, 12, 30 })
+            {
+                string homo = new string(b, len);
+                PrimerDesigner.FindMostStableHairpin(homo).Should().BeNull(
+                    because: $"a poly-{b} homopolymer has no complementary bases, so no stem and no hairpin ('{homo}')");
+            }
+        }
+
+        // A single Watson-Crick pair (A…T) cannot make a ≥2-bp stem → still no hairpin.
+        PrimerDesigner.FindMostStableHairpin("AAAATAAAA").Should().BeNull(
+            because: "one A·T pair closing an all-A loop is only a 1-bp stem (< 2 bp), so no hairpin forms");
+
+        // Non-vacuity contrast: a genuine stem-loop DOES yield a hairpin.
+        PrimerDesigner.FindMostStableHairpin("GCGCTTTTGCGC").Should().NotBeNull(
+            because: "a 4-bp GC stem closing a 4-nt loop is a real hairpin — the relation is non-vacuous");
+    }
+
+    #endregion
+
     #endregion
 }

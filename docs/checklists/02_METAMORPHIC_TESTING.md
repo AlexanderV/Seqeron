@@ -268,7 +268,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 238 | ☑ | RNA-ACCESS-001 | RnaStructure | MON: extending the queried region cannot raise its unpaired probability; INV: sequence-independent constants reproduce analytic GAAAC value |
 | 239 | ☑ | PROTMOTIF-HMM-001 | ProteinMotif | MON: appending random flank does not raise a true domain's bit score; SUB: stricter E-value → ⊆ hit set |
 | 240 | ☑ | PRIMER-NNTM-001 | MolTools | MON: raising monovalent salt raises Tm; INV: reverse-complement has equal duplex Tm |
-| 241 | ☐ | PRIMER-HAIRPIN-001 | MolTools | MON: lengthening a complementary stem lowers ΔG; INV: no stem possible → no hairpin |
+| 241 | ☑ | PRIMER-HAIRPIN-001 | MolTools | MON: lengthening a complementary stem lowers ΔG; INV: no stem possible → no hairpin |
 | 242 | ☐ | PRIMER-DIMER-001 | MolTools | INV: self-dimer of S equals hetero-dimer(S,S); MON: extending WC alignment lowers ΔG |
 | 243 | ☐ | PROBE-LNATM-001 | MolTools | MON: adding an LNA base → Tm ≥ unmodified Tm; INV: all-DNA input reduces to standard NN Tm |
 | 244 | ☐ | PROBE-EVALUE-001 | MolTools | MON: increasing database size raises E for a fixed raw score; INV: λ solves Σ p_i p_j e^{λ s_ij}=1 |
@@ -294,6 +294,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 258 |
-| ☑ Complete | 240 |
-| ☐ Not started | 18 |
+| ☑ Complete | 241 |
+| ☐ Not started | 17 |
 | MR relations defined | ~200+ |
