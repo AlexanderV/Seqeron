@@ -50,7 +50,7 @@ Property-based testing генерує сотні випадкових вході
 | 18 | ☑ | CRISPR-PAM-001 | MolTools | R: positions valid; P: PAM motif at each site; M: longer seq → ≥ sites; D: deterministic | CrisprProperties.cs |
 | 19 | ☑ | CRISPR-GUIDE-001 | MolTools | R: guide length = specified; P: target strand correct; R: score ∈ valid range | CrisprProperties.cs |
 | 20 | ☑ | CRISPR-OFF-001 | MolTools | R: off-target score ∈ [0,1]; M: more mismatches → lower score; D: deterministic | CrisprProperties.cs |
-| 21 | ☐ | PRIMER-TM-001 | MolTools | R: Tm > 0; M: longer GC-rich → higher Tm; D: deterministic; P: Tm in biologically valid range | PrimerProbeProperties.cs |
+| 21 | ☑ | PRIMER-TM-001 | MolTools | R: Tm > 0; M: longer GC-rich → higher Tm; D: deterministic; P: Tm in biologically valid range | PrimerProbeProperties.cs |
 | 22 | ☐ | PRIMER-DESIGN-001 | MolTools | R: primer len ∈ [min,max]; P: GC% in range; R: Tm in range; D: deterministic | PrimerProbeProperties.cs |
 | 23 | ☑ | PRIMER-STRUCT-001 | MolTools | R: hairpin ΔG ≤ 0; R: dimer score ≥ 0; D: deterministic | PrimerProbeProperties.cs |
 | 24 | ☐ | PROBE-DESIGN-001 | MolTools | R: probe len ∈ [min,max]; M: stricter Tm → fewer probes; P: GC% in range | PrimerProbeProperties.cs |
@@ -296,7 +296,7 @@ Property-based testing генерує сотні випадкових вході
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 193 |
-| ☐ Not started | 65 |
+| ☑ Complete | 194 |
+| ☐ Not started | 64 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |

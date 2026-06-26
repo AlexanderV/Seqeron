@@ -263,6 +263,31 @@ public class PrimerProbeProperties
         });
     }
 
+    /// <summary>
+    /// INV-4 (M, length): a GC-rich elongation — appending a G or C base — strictly raises Tm.
+    /// This is the "longer GC-rich → higher Tm" claim. In the Wallace regime each G/C adds +4 °C;
+    /// in the Marmur-Doty regime Tm = 64.9 + 41·(gc−16.4)/N the increment from a G/C base is
+    /// (at + 16.4)/(N·(N+1)) > 0 for all primers. (Restricted to the long-primer regime, length
+    /// ≥ 14 before and after, so the comparison is not confounded by the Wallace↔Marmur-Doty switch
+    /// at length 14. Note: appending an A/T base is NOT monotone — it lowers Marmur-Doty Tm for
+    /// GC-rich primers — so only the GC-rich elongation is asserted.)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property MeltingTemperature_GcRichElongation_StrictlyHigherTm()
+    {
+        var gen = (from primer in ValidPrimerGen(14, 39)
+                   from added in Gen.Elements('G', 'C')
+                   select (primer, added)).ToArbitrary();
+
+        return Prop.ForAll(gen, t =>
+        {
+            double before = PrimerDesigner.CalculateMeltingTemperature(t.primer);
+            double after = PrimerDesigner.CalculateMeltingTemperature(t.primer + t.added);
+            return (after > before)
+                .Label($"Tm(len {t.primer.Length})={before:F3} → append '{t.added}' → {after:F3} must strictly increase");
+        });
+    }
+
     #endregion
 
     #region PRIMER-TM-001 — Robustness Invariants (defined behaviors)
