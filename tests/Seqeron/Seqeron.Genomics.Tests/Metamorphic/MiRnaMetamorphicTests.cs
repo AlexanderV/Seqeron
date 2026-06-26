@@ -363,4 +363,95 @@ public class MiRnaMetamorphicTests
     }
 
     #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  MIRNA-CONTEXT-001 — TargetScan context++ local-AU scoring (MiRNA)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (Agarwal et al. 2015 eLife 4:e05005; targetscan_70_context_scores.pl;
+    //   tests/TestSpecs/MIRNA-CONTEXT-001.md):
+    //   ScoreTargetSiteContextPlusPlus sums per-feature contributions of the TargetScan context++
+    //   model; one feature is the LOCAL AU content of the 30-nt flanks around the seed match. Its
+    //   coefficient is negative, so AU-rich context makes the contribution (and the overall
+    //   score) MORE NEGATIVE — a stronger predicted repression. Two metamorphic relations
+    //   (checklist row 252):
+    //
+    //   • MON (stronger local AU context → more negative score): raising the AU content of the
+    //     flanks around a fixed seed match makes the local-AU contribution (and the partial context
+    //     score) monotonically more negative.
+    //   • INV (same site → same score): scoring is deterministic — the same (mRNA, miRNA, site)
+    //     yields the identical contribution breakdown every time.
+    //
+    // API under test: MiRnaAnalyzer.ScoreTargetSiteContextPlusPlus (ContextPlusPlusScore).
+
+    #region MIRNA-CONTEXT-001 — context++ local-AU scoring
+
+    // The canonical 8mer match for let-7a: the reverse complement of miRNA positions 1–8.
+    private static string Let7a8merMatch => MiRnaAnalyzer.GetReverseComplement(Let7a.Substring(0, 8));
+
+    private static MiRnaAnalyzer.TargetSite Find8merAt(string mrna, MiRnaAnalyzer.MiRna mirna, int start) =>
+        MiRnaAnalyzer.FindTargetSites(mrna, mirna, minScore: 0.0)
+            .First(s => s.Start == start && s.Type == MiRnaAnalyzer.TargetSiteType.Seed8mer);
+
+    [Test]
+    [Description("MON: the local-AU coefficient is negative, so raising the AU content of the flanks around a fixed seed match makes the local-AU contribution (and the partial context score) monotonically more negative.")]
+    public void Context_StrongerLocalAu_GivesMoreNegativeScore()
+    {
+        var mirna = MiRnaAnalyzer.CreateMiRna("let-7a", Let7a);
+        string site8 = Let7a8merMatch;
+
+        // Flanks of increasing AU content: 0% (GC) → 50% → 100% (AU). 30 nt each side.
+        string[] flanks =
+        {
+            string.Concat(Enumerable.Repeat("GC", 15)), // 0% AU
+            string.Concat(Enumerable.Repeat("GCAU", 8))[..30], // ~50% AU
+            string.Concat(Enumerable.Repeat("AU", 15)), // 100% AU
+        };
+
+        double previousAu = double.PositiveInfinity;
+        double previousTotal = double.PositiveInfinity;
+        foreach (string flank in flanks)
+        {
+            string mrna = flank + site8 + flank;
+            var site = Find8merAt(mrna, mirna, flank.Length);
+            var ctx = MiRnaAnalyzer.ScoreTargetSiteContextPlusPlus(mrna, mirna, site);
+
+            ctx.LocalAuContribution.Should().BeLessThan(previousAu + 1e-9,
+                because: "raising the flank AU content lowers (makes more negative) the local-AU contribution");
+            ctx.ContextScorePartial.Should().BeLessThan(previousTotal + 1e-9,
+                because: "a more AU-rich (more accessible) context cannot raise the repression score");
+            previousAu = ctx.LocalAuContribution;
+            previousTotal = ctx.ContextScorePartial;
+        }
+
+        // Non-vacuity: the AU-rich endpoint is strictly more negative than the GC endpoint.
+        string gcMrna = flanks[0] + site8 + flanks[0];
+        string auMrna = flanks[2] + site8 + flanks[2];
+        var gc = MiRnaAnalyzer.ScoreTargetSiteContextPlusPlus(gcMrna, mirna, Find8merAt(gcMrna, mirna, flanks[0].Length));
+        var au = MiRnaAnalyzer.ScoreTargetSiteContextPlusPlus(auMrna, mirna, Find8merAt(auMrna, mirna, flanks[2].Length));
+        au.LocalAuContribution.Should().BeLessThan(gc.LocalAuContribution - 1e-6,
+            because: "an AU-rich context yields a strictly more negative local-AU contribution than a GC-rich one");
+    }
+
+    [Test]
+    [Description("INV: context++ scoring is deterministic — the same (mRNA, miRNA, site) yields the identical contribution breakdown on every call.")]
+    public void Context_SameSite_GivesSameScore()
+    {
+        var mirna = MiRnaAnalyzer.CreateMiRna("let-7a", Let7a);
+        string flank = string.Concat(Enumerable.Repeat("GCAU", 8))[..30];
+        string mrna = flank + Let7a8merMatch + flank;
+        var site = Find8merAt(mrna, mirna, flank.Length);
+
+        var a = MiRnaAnalyzer.ScoreTargetSiteContextPlusPlus(mrna, mirna, site);
+        var b = MiRnaAnalyzer.ScoreTargetSiteContextPlusPlus(mrna, mirna, site);
+
+        a.ContextScorePartial.Should().Be(b.ContextScorePartial, because: "context++ scoring is deterministic");
+        a.LocalAuContribution.Should().Be(b.LocalAuContribution);
+        a.SaContribution.Should().Be(b.SaContribution);
+        a.SiteType.Should().Be(b.SiteType);
+        a.OmittedFeatures.Should().Equal(b.OmittedFeatures,
+            because: "the entire contribution breakdown is reproduced exactly for the same site");
+    }
+
+    #endregion
 }

@@ -279,7 +279,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 249 | ☑ | META-TETRA-001 | Metagenomics | INV: reverse-complement-merged counts give identical z-vector; MON: identical sequences → correlation 1 |
 | 250 | ☑ | SPLICE-MAXENT3-001 | Splicing | INV: canonical AG acceptor scores above shuffled background; SUB: window must contain the AG |
 | 251 | ☑ | SPLICE-MAXENT5-001 | Splicing | INV: canonical GT donor scores above shuffled background; SUB: window must contain the GT |
-| 252 | ☐ | MIRNA-CONTEXT-001 | MiRNA | MON: stronger local AU context → more negative score; INV: same site → same score |
+| 252 | ☑ | MIRNA-CONTEXT-001 | MiRNA | MON: stronger local AU context → more negative score; INV: same site → same score |
 | 253 | ☐ | MIRNA-PCT-001 | MiRNA | MON: deeper conservation (longer branch length) → higher PCT; INV: no conservation → PCT 0 |
 | 254 | ☐ | MIRNA-CLASSIFY-001 | MiRNA | MON: more native-like MFEI → higher positive probability; INV: di-shuffled sequence → lower probability |
 | 255 | ☐ | MIRNA-CLEAVAGE-001 | MiRNA | INV: hsa-miR-21-5p mature reproduced exactly; MON: shifting basal stem shifts Drosha site consistently |
@@ -294,6 +294,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 258 |
-| ☑ Complete | 251 |
-| ☐ Not started | 7 |
+| ☑ Complete | 252 |
+| ☐ Not started | 6 |
 | MR relations defined | ~200+ |
