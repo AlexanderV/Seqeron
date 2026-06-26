@@ -2530,4 +2530,131 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  MHC-MATRIX-001 — SMM / BIMAS matrix pMHC prediction (Oncology)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (Peters & Sette 2005 BMC Bioinformatics 6:132; Parker 1994; IEDB SMM linearisation;
+    //   tests/TestSpecs/MHC-MATRIX-001.md):
+    //   SMM score = intercept + Σ position-specific contributions; IC50 = 50000^(1 − score). BIMAS
+    //   half-life = FinalConstant · ∏ per-position coefficients. Two metamorphic relations
+    //   (checklist row 246):
+    //
+    //   • INV (IC50 = 50000^(1 − score)): PredictIc50Smm equals 50000^(1 − score) for the score
+    //     summed independently from the matrix, invariant to peptide case; a zero score gives the
+    //     maximum IC50 = 50000.
+    //   • MON (improving an anchor residue lowers IC50): swapping an anchor position to a more
+    //     favourable residue (a larger SMM contribution) raises the score and so STRICTLY LOWERS the
+    //     SMM IC50 — and, on the multiplicative BIMAS model, raises the predicted half-life.
+    //
+    // API under test: OncologyAnalyzer.PredictIc50Smm / .PredictBindingHalfLifeBimas
+    //   (PmhcScoringMatrix); SmmIc50Base.
+
+    #region MHC-MATRIX-001 — SMM / BIMAS matrix prediction
+
+    // A deterministic 9-position SMM matrix (values = additive log50k contributions); position 1
+    // (P2) is an anchor with graded favourability A < L < M. FinalConstant is the SMM intercept.
+    private static OncologyAnalyzer.PmhcScoringMatrix BuildSmmMatrix(double intercept = 0.10)
+    {
+        var rows = new List<IReadOnlyDictionary<char, double>>
+        {
+            new Dictionary<char, double> { ['M'] = 0.20, ['A'] = 0.05, ['G'] = 0.02 },
+            new Dictionary<char, double> { ['A'] = 0.10, ['L'] = 0.30, ['M'] = 0.60 }, // P2 anchor
+            new Dictionary<char, double> { ['I'] = 0.12, ['V'] = 0.08 },
+            new Dictionary<char, double> { ['F'] = 0.15, ['Y'] = 0.10 },
+            new Dictionary<char, double> { ['K'] = 0.05, ['R'] = 0.07 },
+            new Dictionary<char, double> { ['W'] = 0.20, ['G'] = 0.01 },
+            new Dictionary<char, double> { ['G'] = 0.03, ['S'] = 0.04 },
+            new Dictionary<char, double> { ['T'] = 0.06, ['N'] = 0.05 },
+            new Dictionary<char, double> { ['V'] = 0.25, ['L'] = 0.18, ['A'] = 0.05 }, // P9 anchor
+        };
+        return new OncologyAnalyzer.PmhcScoringMatrix(rows, intercept);
+    }
+
+    private static double SmmScore(string peptide, OncologyAnalyzer.PmhcScoringMatrix matrix)
+    {
+        double s = matrix.FinalConstant;
+        for (int i = 0; i < peptide.Length; i++)
+            s += matrix.Rows[i].TryGetValue(char.ToUpperInvariant(peptide[i]), out double v) ? v : 0.0;
+        return s;
+    }
+
+    [Test]
+    [Description("INV: PredictIc50Smm equals 50000^(1 − score), where score is the intercept plus the position-specific contributions summed independently from the matrix; case-invariant; a zero score gives the maximum IC50 = 50000.")]
+    public void MhcMatrix_Ic50_EqualsFiftyThousandToOneMinusScore()
+    {
+        var matrix = BuildSmmMatrix();
+
+        foreach (string peptide in new[] { "MLIFKWGTV", "ALIFKWGTL", "AAIFRGGNA", "GGGGGGGGG" })
+        {
+            double expected = System.Math.Pow(OncologyAnalyzer.SmmIc50Base, 1.0 - SmmScore(peptide, matrix));
+            double ic50 = OncologyAnalyzer.PredictIc50Smm(peptide, matrix);
+
+            ic50.Should().BeApproximately(expected, System.Math.Abs(expected) * 1e-12,
+                because: $"IC50 = 50000^(1 − score) for '{peptide}'");
+            ic50.Should().BeGreaterThan(0.0, because: "an IC50 is a positive concentration");
+
+            // INV: case folding does not change the prediction.
+            OncologyAnalyzer.PredictIc50Smm(peptide.ToLowerInvariant(), matrix)
+                .Should().BeApproximately(ic50, System.Math.Abs(ic50) * 1e-12,
+                    because: $"the matrix lookup upper-cases the residue, so '{peptide.ToLowerInvariant()}' predicts the same IC50");
+        }
+
+        // Boundary: a zero-score peptide (zero intercept, all residues unlisted) gives the maximum IC50 = 50000.
+        var zeroIntercept = BuildSmmMatrix(intercept: 0.0);
+        OncologyAnalyzer.PredictIc50Smm("CCCCCCCCC", zeroIntercept) // C is unlisted at every position → score 0
+            .Should().BeApproximately(OncologyAnalyzer.SmmIc50Base, 1e-6,
+                because: "score 0 ⇒ IC50 = 50000^(1−0) = 50000, the maximum (affinity ≥ 50000 nM)");
+    }
+
+    [Test]
+    [Description("MON: swapping an anchor position to a more favourable residue raises the SMM score, so it STRICTLY lowers the SMM IC50 (and raises the multiplicative BIMAS half-life) — better anchor ⇒ stronger binding.")]
+    public void MhcMatrix_ImprovingAnchorResidue_LowersIc50()
+    {
+        var matrix = BuildSmmMatrix();
+
+        // P2 anchor (index 1) graded worst → best: unlisted 'W' (0.0) < A (0.10) < L (0.30) < M (0.60).
+        char[] anchorByQuality = { 'W', 'A', 'L', 'M' };
+        const string template = "A?IFKWGTV"; // '?' is the anchor position
+
+        double previousIc50 = double.PositiveInfinity;
+        double previousHalfLife = double.NegativeInfinity;
+        var bimas = BuildBimasMatrix();
+        foreach (char anchor in anchorByQuality)
+        {
+            string peptide = template.Replace('?', anchor);
+
+            double ic50 = OncologyAnalyzer.PredictIc50Smm(peptide, matrix);
+            ic50.Should().BeLessThan(previousIc50 - 1e-9,
+                because: $"a more favourable P2 anchor '{anchor}' raises the score, strictly lowering the SMM IC50");
+            previousIc50 = ic50;
+
+            double halfLife = OncologyAnalyzer.PredictBindingHalfLifeBimas(peptide, bimas);
+            halfLife.Should().BeGreaterThan(previousHalfLife + 1e-9,
+                because: $"a more favourable P2 anchor '{anchor}' raises the multiplicative BIMAS half-life (stronger binding)");
+            previousHalfLife = halfLife;
+        }
+    }
+
+    // A BIMAS-style matrix (coefficients ≥ 0, multiplicative); P2 anchor graded A < L < M; the
+    // unlisted residue gets the neutral coefficient 1.0. FinalConstant is the BIMAS final constant.
+    private static OncologyAnalyzer.PmhcScoringMatrix BuildBimasMatrix()
+    {
+        var rows = new List<IReadOnlyDictionary<char, double>>
+        {
+            new Dictionary<char, double> { ['A'] = 1.5 },
+            new Dictionary<char, double> { ['A'] = 2.0, ['L'] = 6.0, ['M'] = 20.0 }, // P2 anchor (W unlisted → 1.0)
+            new Dictionary<char, double> { ['I'] = 1.4 },
+            new Dictionary<char, double> { ['F'] = 1.6 },
+            new Dictionary<char, double> { ['K'] = 1.2 },
+            new Dictionary<char, double> { ['W'] = 1.8 },
+            new Dictionary<char, double> { ['G'] = 1.1 },
+            new Dictionary<char, double> { ['T'] = 1.3 },
+            new Dictionary<char, double> { ['V'] = 2.5 },
+        };
+        return new OncologyAnalyzer.PmhcScoringMatrix(rows, FinalConstant: 10.0);
+    }
+
+    #endregion
 }
