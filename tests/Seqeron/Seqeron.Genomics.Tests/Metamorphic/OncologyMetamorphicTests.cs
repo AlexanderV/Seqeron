@@ -2657,4 +2657,113 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  IMMUNE-NUSVR-001 — CIBERSORT ν-SVR immune deconvolution (Oncology)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (Newman et al. 2015 Nat Methods 12:453, CIBERSORT; Schölkopf et al. 2000 ν-SVR;
+    //   tests/TestSpecs/IMMUNE-NUSVR-001.md):
+    //   DeconvoluteImmuneCellsNuSvr solves a mixture m = B·f for the cell-type fractions f from a
+    //   signature matrix B by linear ν-support-vector regression, sweeping ν ∈ {0.25,0.5,0.75} and
+    //   keeping the lowest-RMSE fit; fractions are zero-clipped and renormalised to sum 1. Two
+    //   metamorphic relations (checklist row 247):
+    //
+    //   • INV (mixing known fractions of pure profiles recovers those fractions): a synthetic mixture
+    //     m = Σ_c f_c·B[:,c] of disjoint pure profiles deconvolutes back to the planted fractions f
+    //     (within tolerance), with fractions ≥ 0 summing to 1.
+    //   • SUB (ν controls the model selection): the selected ν is always drawn from the supplied
+    //     candidate set, and the full sweep picks the ν with the LOWEST RMSE over that set — so
+    //     restricting the candidate set is a subset constraint on the achievable ν. (ν is the
+    //     Schölkopf lower bound on the support-vector fraction; the public API exposes the selected
+    //     ν and RMSE, not the raw SV count, so the ν-selection is the observable facet.)
+    //
+    // API under test: ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr (NuSvrDeconvolutionResult).
+
+    #region IMMUNE-NUSVR-001 — ν-SVR immune deconvolution
+
+    // A disjoint 3-cell-type signature matrix with three unique marker genes each (the proven
+    // well-conditioned matrix cross-validated against scikit-learn NuSVR in the unit fixture).
+    private static Dictionary<string, IReadOnlyDictionary<string, double>> BuildDisjointSignature() =>
+        new()
+        {
+            ["CellA"] = new Dictionary<string, double> { ["a1"] = 10, ["a2"] = 8, ["a3"] = 6 },
+            ["CellB"] = new Dictionary<string, double> { ["b1"] = 9, ["b2"] = 7, ["b3"] = 5 },
+            ["CellC"] = new Dictionary<string, double> { ["c1"] = 11, ["c2"] = 4, ["c3"] = 8 },
+        };
+
+    private static Dictionary<string, double> MixProfile(
+        IReadOnlyDictionary<string, IReadOnlyDictionary<string, double>> signature,
+        IReadOnlyDictionary<string, double> fractions)
+    {
+        var mixture = new Dictionary<string, double>();
+        foreach (var (cellType, row) in signature)
+        {
+            double f = fractions[cellType];
+            foreach (var (gene, value) in row)
+                mixture[gene] = mixture.GetValueOrDefault(gene) + f * value;
+        }
+
+        return mixture;
+    }
+
+    [Test]
+    [Description("INV: a synthetic mixture m = Σ f_c·B[:,c] of disjoint pure profiles deconvolutes back to the planted fractions (within tolerance), with non-negative fractions summing to 1.")]
+    public void NuSvr_MixingKnownFractions_RecoversThoseFractions()
+    {
+        var signature = BuildDisjointSignature();
+        var planted = new Dictionary<string, double> { ["CellA"] = 0.5, ["CellB"] = 0.2, ["CellC"] = 0.3 };
+
+        var mixture = MixProfile(signature, planted);
+        var result = ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(mixture, signature);
+
+        // Range: non-negative, sum to 1.
+        result.CellFractions.Values.Should().OnlyContain(v => v >= -1e-9, because: "fractions are zero-clipped to be non-negative");
+        result.CellFractions.Values.Sum().Should().BeApproximately(1.0, 1e-6, because: "fractions are renormalised to sum to 1");
+
+        // Recovery: each planted fraction is recovered within tolerance.
+        foreach (var (cellType, f) in planted)
+            result.CellFractions[cellType].Should().BeApproximately(f, 0.06,
+                because: $"the ν-SVR deconvolution recovers the planted fraction of {cellType} ({f}) within the documented tolerance");
+
+        // Determinism.
+        var again = ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(mixture, signature);
+        again.CellFractions["CellA"].Should().Be(result.CellFractions["CellA"], because: "deconvolution is deterministic");
+    }
+
+    [Test]
+    [Description("SUB: the selected ν is always one of the supplied candidates, and the full sweep picks the ν with the lowest RMSE over the candidate set — restricting the candidates is a subset constraint on the achievable ν.")]
+    public void NuSvr_NuSelection_PicksLowestRmseFromCandidateSet()
+    {
+        var signature = BuildDisjointSignature();
+        var planted = new Dictionary<string, double> { ["CellA"] = 0.5, ["CellB"] = 0.2, ["CellC"] = 0.3 };
+        var mixture = MixProfile(signature, planted);
+
+        double[] candidates = { 0.25, 0.5, 0.75 };
+
+        var full = ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(mixture, signature, candidates);
+
+        // SUB: the selected ν lies in the supplied candidate set.
+        candidates.Should().Contain(full.BestNu, because: "the selected ν must be one of the swept candidates");
+
+        // The full sweep's RMSE equals the minimum single-ν RMSE, and BestNu is its argmin.
+        double bestSingleRmse = double.PositiveInfinity;
+        double argminNu = double.NaN;
+        foreach (double nu in candidates)
+        {
+            var single = ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(mixture, signature, new[] { nu });
+            single.BestNu.Should().Be(nu, because: $"a singleton candidate set {{{nu}}} must select ν={nu}");
+            if (single.Rmse < bestSingleRmse)
+            {
+                bestSingleRmse = single.Rmse;
+                argminNu = nu;
+            }
+        }
+
+        full.Rmse.Should().BeApproximately(bestSingleRmse, 1e-9,
+            because: "the sweep keeps the lowest-RMSE fit over the candidate set");
+        full.BestNu.Should().Be(argminNu, because: "the selected ν is the RMSE argmin over the candidate set");
+    }
+
+    #endregion
 }
