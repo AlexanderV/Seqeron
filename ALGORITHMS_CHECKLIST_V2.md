@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 255 |
-| **Completed** | 254 |
+| **Completed** | 255 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 1 |
+| **Not Started** | 0 |
 
 ---
 
@@ -86,7 +86,7 @@
 | ☑ | TRANS-CODON-001 | Translation | 3 | TRANS-CODON-001-Evidence.md | [TRANS-CODON-001.md](TestSpecs/TRANS-CODON-001.md) | GeneticCodeTests.cs |
 | ☑ | TRANS-PROT-001 | Translation | 1 | Wikipedia (Translation, Reading frame, ORF), NCBI Genetic Codes | [TRANS-PROT-001.md](TestSpecs/TRANS-PROT-001.md) | TranslatorTests.cs |
 | ☑ | PARSE-FASTA-001 | FileIO | 4 | Wikipedia (FASTA format), NCBI BLAST Help, Lipman & Pearson (1985) | [PARSE-FASTA-001.md](TestSpecs/PARSE-FASTA-001.md) | FastaParserTests.cs |
-| ☐ | PARSE-FASTQ-001 | FileIO | 4 | Wikipedia (FASTQ format), Cock et al. (2009), NCBI SRA File Format Guide | [PARSE-FASTQ-001.md](TestSpecs/PARSE-FASTQ-001.md) | FastqParserTests.cs |
+| ☑ | PARSE-FASTQ-001 | FileIO | 4 | Wikipedia (FASTQ format), Cock et al. (2009), NCBI SRA File Format Guide | [PARSE-FASTQ-001.md](TestSpecs/PARSE-FASTQ-001.md) | FastqParserTests.cs |
 | ☑ | PARSE-BED-001 | FileIO | 6 | Wikipedia (BED format), UCSC Genome Browser FAQ, Quinlan & Hall (2010) | [PARSE-BED-001.md](TestSpecs/PARSE-BED-001.md) | BedParserTests.cs |
 | ☑ | PARSE-VCF-001 | FileIO | 4 | Wikipedia (Variant Call Format), Danecek et al. (2011), SAMtools HTS-specs VCFv4.3 | [PARSE-VCF-001.md](TestSpecs/PARSE-VCF-001.md) | VcfParserTests.cs |
 | ☑ | PARSE-GFF-001 | FileIO | 3 | Wikipedia (GFF), UCSC Genome Browser FAQ, Sequence Ontology GFF3 Spec v1.26 | [PARSE-GFF-001.md](TestSpecs/PARSE-GFF-001.md) | GffParserTests.cs |
