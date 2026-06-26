@@ -1772,6 +1772,10 @@ public sealed class Plan7ProfileHmm
     private static double[] ParseNumbers(string line, int skipFirst, int count)
     {
         var toks = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        if (toks.Length < skipFirst + count)
+            throw new FormatException(
+                $"Malformed profile row: expected {count} numeric field(s) after {skipFirst} leading " +
+                $"token(s) but found only {Math.Max(0, toks.Length - skipFirst)} ('{line.Trim()}').");
         var values = new double[count];
         for (int i = 0; i < count; i++)
         {
