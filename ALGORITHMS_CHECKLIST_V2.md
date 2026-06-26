@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 255 |
-| **Completed** | 253 |
+| **Completed** | 254 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 2 |
+| **Not Started** | 1 |
 
 ---
 
@@ -244,7 +244,7 @@
 | ☑ | ONCO-PLOIDY-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-PLOIDY-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-PLOIDY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_EstimatePloidy_Tests.cs) |
 | ☑ | ONCO-CLONAL-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-CLONAL-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CLONAL-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyClonality_Tests.cs) |
 | ☑ | ONCO-NEO-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-NEO-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-NEO-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_GenerateNeoantigenPeptides_Tests.cs) |
-| ☐ | ONCO-MHC-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-MHC-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-MHC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyMhcBinding_Tests.cs) |
+| ☑ | ONCO-MHC-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-MHC-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-MHC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyMhcBinding_Tests.cs) |
 | ☑ | ONCO-IMMUNE-001 | Oncology | 3 | 40 | [Evidence](docs/Evidence/ONCO-IMMUNE-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-IMMUNE-001.md) |
 | ☑ | ONCO-CTDNA-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-CTDNA-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CTDNA-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CtDnaAnalysis_Tests.cs) |
 | ☑ | ONCO-MRD-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-MRD-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-MRD-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectMRD_Tests.cs) |
@@ -4507,7 +4507,7 @@ ONCO-FUSION-001 codon-phase rule `(b − p) mod 3 == 0`. Partner CDS sequences a
 > Scope (implemented): the **classification** of a caller-supplied predicted affinity into binder
 > categories using the standard IEDB / NetMHCpan-4.1 thresholds (Reynisson 2020; Sette 1994): IC50
 > strong < 50 nM / weak < 500 nM; class I %Rank strong < 0.5% / weak < 2%; class II %Rank strong < 2% /
-> weak < 10%; plus peptide-length validity (class I 8–11, class II 13–25). The peptide–MHC affinity / %Rank
+> weak < 10%; plus peptide-length validity (class I 8–14 — full NetMHCpan-4.1 window, class II 13–25). The peptide–MHC affinity / %Rank
 > **prediction** is now also available as an **opt-in matrix-based predictor**: the BIMAS / Parker 1994
 > product rule (`PredictBindingHalfLifeBimas`) and the SMM / Peters & Sette 2005 transform
 > `IC50 = 50000^(1−score)` (`PredictIc50Smm` / `PredictAndClassifySmm`), which chain into the existing

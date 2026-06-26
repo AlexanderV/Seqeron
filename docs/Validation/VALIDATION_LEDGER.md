@@ -309,7 +309,7 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 135 | ONCO-PLOIDY-001 | Oncology | ✅ | ✅ | ✅ CLEAN | reports/ONCO-PLOIDY-001.md |
 | 136 | ONCO-CLONAL-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
 | 137 | ONCO-NEO-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
-| 138 | ONCO-MHC-001 | Oncology | ⬜ | ⬜ | ⬜ pending | reports/ONCO-MHC-001.md (re-reset 2026-06-26: class I peptide-length window widened 8–11 → 8–14 — the full NetMHCpan-4.1 class I window — `MhcClassIMaxPeptideLength` 11 → 14, propagating to `IsValidPeptideLength` + `GenerateNeoantigenPeptides` default; lengths 12/13/14 oracle-verified vs `mhcflurry` 2.1.5; 8–11 byte-identical. Pending independent re-validation) |
+| 138 | ONCO-MHC-001 | Oncology | ✅ | ✅ | ✅ CLEAN | reports/ONCO-MHC-001.md (re-validated 2026-06-26 after the 8–11 → 8–14 widening, commit 66c24491. Stage A PASS: 8–14 = full NetMHCpan-4.1 class I window — Reynisson 2020 PMC7319546 "length range goes from 8 to 14 amino acids" — retrieved this session; MHCflurry `left_pad_centered_right_pad` 5–15 read from `mhcflurry` 2.1.5 source; prior 8–11 PASS-WITH-NOTES divergence resolved. Stage B PASS: lengths 12/13/14 IC50 reproduced vs the exact embedded net `PAN-CLASS1-1-3ed9fb2d2dcc9803` oracle to ≤ 9e-7 rel (25274.91 / 32389.13 / 32972.18 nM); 8/9/10-mer goldens byte-identical — `MhcflurryAffinityPredictor.cs` untouched by the fix; classification thresholds/chain unchanged. Full suite 18861/0. No defect; no change this session) |
 | 139 | ONCO-CTDNA-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
 | 140 | ONCO-MRD-001 | Oncology | 🟡 | ✅ | ✅ CLEAN | reports/ONCO-MRD-001.md |
 | 141 | ONCO-CHIP-001 | Oncology | ✅ | ✅ | ✅ CLEAN | reports/ONCO-CHIP-001.md |
