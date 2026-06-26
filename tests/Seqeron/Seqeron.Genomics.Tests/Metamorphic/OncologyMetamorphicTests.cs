@@ -2218,4 +2218,201 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  ONCO-ASCAT-001 — allele-specific copy-number derivation (ASCAT)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (Van Loo et al. 2010 PNAS 107:16910; VanLoo-lab/ascat ascat.runAscat.R;
+    //   docs/algorithms/Oncology/Allele_Specific_Copy_Number_Derivation.md):
+    //   ASCAT maps a segment's total-coverage log-ratio (logR r) and B-allele frequency
+    //   (BAF b) to allele-specific copy numbers (nA, nB). With platform parameter γ = 1:
+    //       S      = 2^r · ((1−ρ)·2 + ρ·ψ)              (total-signal scale)
+    //       nA     = (ρ−1 − (b−1)·S) / ρ
+    //       nB     = (ρ−1 +  b   ·S) / ρ
+    //       nA+nB  = (2(ρ−1) + S) / ρ                    ← does NOT depend on the BAF b
+    //   Two metamorphic relations (checklist row 235) follow from these equations and from
+    //   the way the upstream segmenter places breakpoints:
+    //
+    //   • INV (constant logR shift preserves breakpoints): both segmenters place a boundary
+    //     on a logR *change*. The greedy SegmentAlleleSpecific splits when
+    //     |rᵢ − runningMean| exceeds the threshold; the ASPCF DP minimises the within-segment
+    //     logR SSE plus a fixed per-segment penalty. Adding a constant c to every locus's logR
+    //     shifts each running mean by c too, so every consecutive difference (greedy) and every
+    //     within-segment SSE (ASPCF) is unchanged: the breakpoint set is invariant and each
+    //     segment's mean logR simply shifts by c. The BAF channel is untouched.
+    //
+    //   • INV (A/B allele swap preserves total CN): "allele A" vs "allele B" is an arbitrary
+    //     label. Swapping it maps the raw BAF b → 1−b, which the equations above send to
+    //     nA ↔ nB exactly (so the total nA+nB is invariant), and which the segmenter's
+    //     BAF-mirroring (foldedBAF = 0.5 + |b−0.5|) folds to the *same* value. The whole integer
+    //     copy-number fit — and in particular every segment's total copy number — is therefore
+    //     invariant to the allele labelling.
+    //
+    // API under test: OncologyAnalyzer.SegmentAlleleSpecific, .SegmentAlleleSpecificAspcf,
+    //   .FitPurityPloidy (AlleleSpecificLocus / AlleleSpecificSegmentSummary / PurityPloidyFit).
+
+    #region ONCO-ASCAT-001 — ASCAT allele-specific derivation
+
+    /// <summary>ASCAT forward model (γ = 1): integer (nA, nB) at (ρ, ψ) → the (logR, BAF) a locus would show.</summary>
+    private static (double LogR, double Baf) AscatForward(int nA, int nB, double rho, double psi)
+    {
+        int n = nA + nB;
+        double denom = rho * n + 2.0 * (1.0 - rho);
+        double d = rho * psi + 2.0 * (1.0 - rho);
+        return (System.Math.Log2(denom / d), (rho * nB + (1.0 - rho)) / denom);
+    }
+
+    /// <summary>Replicates each (chrom, nA, nB) segment into <paramref name="lociPerSegment"/> adjacent loci 1 kb apart.</summary>
+    private static List<OncologyAnalyzer.AlleleSpecificLocus> AscatSynthesiseLoci(
+        IReadOnlyList<(string Chrom, int NA, int NB)> segments, double rho, double psi, int lociPerSegment = 5)
+    {
+        var loci = new List<OncologyAnalyzer.AlleleSpecificLocus>();
+        long pos = 1000;
+        foreach (var (chrom, nA, nB) in segments)
+        {
+            (double r, double b) = AscatForward(nA, nB, rho, psi);
+            for (int i = 0; i < lociPerSegment; i++)
+            {
+                loci.Add(new OncologyAnalyzer.AlleleSpecificLocus(chrom, pos, r, b));
+                pos += 1000;
+            }
+        }
+
+        return loci;
+    }
+
+    [Test]
+    [Description("INV: the greedy segmenter splits on |logRᵢ − runningMean| > threshold, so adding a constant c to every locus's logR leaves the breakpoint set unchanged and shifts each segment mean by exactly c.")]
+    public void Ascat_ConstantLogRShift_PreservesGreedyBreakpoints()
+    {
+        var loci = new List<OncologyAnalyzer.AlleleSpecificLocus>();
+        void AddLevel(string chrom, long start, double logR, int n)
+        {
+            for (int i = 0; i < n; i++)
+                loci.Add(new OncologyAnalyzer.AlleleSpecificLocus(chrom, start + i * 1000, logR, 0.5));
+        }
+
+        AddLevel("1", 1000, 0.0, 6);
+        AddLevel("1", 7000, 0.8, 6);
+        AddLevel("1", 13000, -0.5, 6);
+        AddLevel("2", 1000, 0.0, 6);
+
+        IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary> baseline =
+            OncologyAnalyzer.SegmentAlleleSpecific(loci, logRChangeThreshold: 0.3);
+        baseline.Count.Should().Be(4,
+            because: "three logR levels on chr1 plus a chromosome change yield four segments — the non-vacuity guard");
+
+        foreach (double c in new[] { 0.3, -0.7, 1.5 })
+        {
+            var shifted = loci
+                .Select(l => new OncologyAnalyzer.AlleleSpecificLocus(l.Chromosome, l.Position, l.LogR + c, l.BAF))
+                .ToList();
+
+            IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary> segs =
+                OncologyAnalyzer.SegmentAlleleSpecific(shifted, logRChangeThreshold: 0.3);
+
+            segs.Count.Should().Be(baseline.Count,
+                because: $"a constant logR shift of {c} leaves every consecutive |Δ logR| unchanged, so the breakpoint count is invariant");
+            for (int i = 0; i < baseline.Count; i++)
+            {
+                segs[i].LocusCount.Should().Be(baseline[i].LocusCount,
+                    because: $"breakpoint {i} sits at the same locus after a constant logR shift of {c}");
+                segs[i].Start.Should().Be(baseline[i].Start);
+                segs[i].End.Should().Be(baseline[i].End);
+                segs[i].MeanLogR.Should().BeApproximately(baseline[i].MeanLogR + c, 1e-9,
+                    because: $"each segment's mean logR shifts by exactly the applied constant {c}");
+                segs[i].MeanBAF.Should().BeApproximately(baseline[i].MeanBAF, 1e-12,
+                    because: "a logR shift does not touch the BAF channel");
+            }
+        }
+    }
+
+    [Test]
+    [Description("INV: the ASPCF DP minimises within-segment logR SSE + penalty, both translation-invariant, so a constant logR shift preserves the optimal breakpoints and shifts each segment mean by c.")]
+    public void Ascat_ConstantLogRShift_PreservesAspcfBreakpoints()
+    {
+        var loci = new List<OncologyAnalyzer.AlleleSpecificLocus>();
+        for (int i = 0; i < 10; i++) loci.Add(new OncologyAnalyzer.AlleleSpecificLocus("1", 1000 + i * 1000, 0.0, 0.5));
+        for (int i = 0; i < 10; i++) loci.Add(new OncologyAnalyzer.AlleleSpecificLocus("1", 11000 + i * 1000, 1.0, 0.5));
+
+        IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary> baseline =
+            OncologyAnalyzer.SegmentAlleleSpecificAspcf(loci, penalty: 0.5);
+        baseline.Count.Should().Be(2,
+            because: "the two clean logR levels give exactly one breakpoint — the non-vacuity guard");
+
+        foreach (double c in new[] { 0.4, -0.9, 2.0 })
+        {
+            var shifted = loci
+                .Select(l => new OncologyAnalyzer.AlleleSpecificLocus(l.Chromosome, l.Position, l.LogR + c, l.BAF))
+                .ToList();
+
+            IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary> segs =
+                OncologyAnalyzer.SegmentAlleleSpecificAspcf(shifted, penalty: 0.5);
+
+            segs.Count.Should().Be(baseline.Count,
+                because: $"within-segment logR SSE is translation-invariant, so the DP optimum is unchanged by a logR shift of {c}");
+            for (int i = 0; i < baseline.Count; i++)
+            {
+                segs[i].LocusCount.Should().Be(baseline[i].LocusCount,
+                    because: $"the optimal breakpoint stays put under a constant logR shift of {c}");
+                segs[i].MeanLogR.Should().BeApproximately(baseline[i].MeanLogR + c, 1e-9,
+                    because: $"each segment's mean logR shifts by exactly the applied constant {c}");
+                segs[i].MeanBAF.Should().BeApproximately(baseline[i].MeanBAF, 1e-12,
+                    because: "the BAF channel is untouched by a logR shift");
+            }
+        }
+    }
+
+    /// <summary>A planted diploid genome with balanced, copy-neutral-LOH and gain segments (some allele-imbalanced).</summary>
+    private static readonly (string Chrom, int NA, int NB)[] AscatPlantedGenome =
+    {
+        ("1", 1, 1), // balanced, b = 0.5
+        ("1", 2, 0), // copy-neutral LOH, b ≠ 0.5
+        ("1", 1, 1),
+        ("1", 2, 1), // gain, b ≠ 0.5
+        ("1", 1, 1),
+    };
+
+    [Test]
+    [Description("INV: swapping the arbitrary A/B allele label maps BAF b→1−b, which sends nA↔nB (total CN invariant) and the segmenter's BAF-mirroring folds identically, so every segment's integer copy-number fit is unchanged.")]
+    public void Ascat_AlleleSwap_PreservesTotalCopyNumber()
+    {
+        const double rho = 0.80, psi = 2.2;
+        List<OncologyAnalyzer.AlleleSpecificLocus> loci = AscatSynthesiseLoci(AscatPlantedGenome, rho, psi);
+        var swapped = loci
+            .Select(l => new OncologyAnalyzer.AlleleSpecificLocus(l.Chromosome, l.Position, l.LogR, 1.0 - l.BAF))
+            .ToList();
+
+        IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary> baseSegs =
+            OncologyAnalyzer.SegmentAlleleSpecific(loci, logRChangeThreshold: 0.2);
+        IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary> swapSegs =
+            OncologyAnalyzer.SegmentAlleleSpecific(swapped, logRChangeThreshold: 0.2);
+
+        // Non-vacuity: the planted LOH/gain segments are allele-imbalanced (mirrored BAF > 0.5),
+        // so the swap b → 1−b is a genuine change of the raw input, not the identity.
+        baseSegs.Any(s => s.MeanBAF > 0.5 + 1e-6).Should().BeTrue(
+            because: "the planted LOH/gain segments are allele-imbalanced, so swapping A/B is non-trivial");
+
+        OncologyAnalyzer.PurityPloidyFit baseFit = OncologyAnalyzer.FitPurityPloidy(baseSegs, gamma: 1.0);
+        OncologyAnalyzer.PurityPloidyFit swapFit = OncologyAnalyzer.FitPurityPloidy(swapSegs, gamma: 1.0);
+
+        swapFit.Segments.Count.Should().Be(baseFit.Segments.Count,
+            because: "the allele swap does not change segmentation, so the fit emits the same number of segments");
+        for (int i = 0; i < baseFit.Segments.Count; i++)
+        {
+            int baseTotal = baseFit.Segments[i].MajorCopyNumber + baseFit.Segments[i].MinorCopyNumber;
+            int swapTotal = swapFit.Segments[i].MajorCopyNumber + swapFit.Segments[i].MinorCopyNumber;
+
+            swapTotal.Should().Be(baseTotal,
+                because: $"total copy number nA+nB is independent of the BAF, so swapping A/B preserves segment {i}'s total CN");
+            // Stronger: BAF-mirroring folds b and 1−b identically, so even the major/minor split is preserved.
+            swapFit.Segments[i].MajorCopyNumber.Should().Be(baseFit.Segments[i].MajorCopyNumber,
+                because: $"the mirrored BAF is invariant under b→1−b, so segment {i}'s major CN is unchanged");
+            swapFit.Segments[i].MinorCopyNumber.Should().Be(baseFit.Segments[i].MinorCopyNumber,
+                because: $"the mirrored BAF is invariant under b→1−b, so segment {i}'s minor CN is unchanged");
+        }
+    }
+
+    #endregion
 }
