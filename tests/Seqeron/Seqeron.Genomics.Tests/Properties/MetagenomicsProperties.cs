@@ -1849,4 +1849,109 @@ public class MetagenomicsProperties
     }
 
     #endregion
+
+    #region META-CHECKM-001: R: 0 ≤ completeness ≤ 100; R: contamination ≥ 0; D: deterministic
+
+    // EstimateBinQualityFromMarkerCounts — domain-level CheckM (Parks et al. 2015): completeness is the
+    // mean fraction of each collocated marker set present (0–100%); contamination is the mean excess of
+    // duplicated markers (≥ 0%).
+
+    private static Arbitrary<(IReadOnlyList<MetagenomicsAnalyzer.MarkerSet> sets, IReadOnlyDictionary<string, int> counts)> CheckmArbitrary() =>
+        (from numSets in Gen.Choose(1, 4)
+         from sets in (from k in Gen.Choose(1, 5)
+                       from ids in Gen.Choose(0, 9).ArrayOf(k)
+                       select new MetagenomicsAnalyzer.MarkerSet(ids.Distinct().Select(i => $"M{i}").ToList())).ArrayOf(numSets)
+         from countVals in Gen.Choose(0, 3).ArrayOf(10)
+         let counts = (IReadOnlyDictionary<string, int>)Enumerable.Range(0, 10)
+             .Where(i => countVals[i] > 0).ToDictionary(i => $"M{i}", i => countVals[i])
+         select ((IReadOnlyList<MetagenomicsAnalyzer.MarkerSet>)sets, counts)).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (R): completeness lies in [0,100]% and contamination is ≥ 0% for any marker sets / counts.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Checkm_CompletenessInRange_ContaminationNonNegative()
+    {
+        return Prop.ForAll(CheckmArbitrary(), t =>
+        {
+            var q = MetagenomicsAnalyzer.EstimateBinQualityFromMarkerCounts(t.sets, t.counts);
+            bool ok = q.Completeness >= -1e-9 && q.Completeness <= 100.0 + 1e-9 && q.Contamination >= -1e-9;
+            return ok.Label($"completeness={q.Completeness}, contamination={q.Contamination}");
+        });
+    }
+
+    /// <summary>INV-2 (D): CheckM quality estimation is deterministic.</summary>
+    [FsCheck.NUnit.Property]
+    public Property Checkm_IsDeterministic()
+    {
+        return Prop.ForAll(CheckmArbitrary(), t =>
+        {
+            var a = MetagenomicsAnalyzer.EstimateBinQualityFromMarkerCounts(t.sets, t.counts);
+            var b = MetagenomicsAnalyzer.EstimateBinQualityFromMarkerCounts(t.sets, t.counts);
+            return (a == b).Label("EstimateBinQualityFromMarkerCounts must be deterministic");
+        });
+    }
+
+    #endregion
+
+    #region META-TETRA-001: R: correlation ∈ [-1,1]; INV: z(ACGT)=√5 on reference; D: deterministic
+
+    // CalculateTetranucleotideZScores — Teeling/Schbath TETRA z-scores (256 tetranucleotides), strand-
+    // symmetric via reverse-complement extension; TetranucleotideZScoreCorrelation is their Pearson r.
+
+    private static Arbitrary<string> TetraDnaArbitrary() =>
+        (from cs in Gen.Elements('A', 'C', 'G', 'T').ArrayOf().Where(a => a.Length >= 8) select new string(cs)).ToArbitrary();
+
+    /// <summary>
+    /// INV-Z (hand-derived anchor): for the reference sequence "ACGTACGTGGCC", z(ACGT) = √5 (E=3.2, var=0.128)
+    /// per the Teeling/Schbath equations. Source: META-TETRA-001 TestSpec M-Z1.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Tetra_AcgtZScore_OnReference_IsSqrt5()
+    {
+        var z = MetagenomicsAnalyzer.CalculateTetranucleotideZScores("ACGTACGTGGCC");
+        Assert.That(z["ACGT"], Is.EqualTo(Math.Sqrt(5.0)).Within(1e-9),
+            "z(ACGT) must equal √5 on the reference sequence (E=3.2, var=0.128).");
+    }
+
+    /// <summary>INV-1 (R): the tetranucleotide correlation is a Pearson r in [−1,1] for any two sequences.</summary>
+    [FsCheck.NUnit.Property]
+    public Property Tetra_Correlation_InUnitInterval()
+    {
+        var gen = (from a in TetraDnaArbitrary().Generator from b in TetraDnaArbitrary().Generator select (a, b)).ToArbitrary();
+        return Prop.ForAll(gen, t =>
+        {
+            double r = MetagenomicsAnalyzer.TetranucleotideZScoreCorrelation(t.a, t.b);
+            return (r >= -1.0 - 1e-9 && r <= 1.0 + 1e-9).Label($"correlation {r} outside [-1,1]");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (I): a non-degenerate sequence correlates perfectly with itself (r = 1); an all-zero signature
+    /// (no over/under-representation) yields the documented r = 0.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Tetra_SelfCorrelation_IsOne()
+    {
+        return Prop.ForAll(TetraDnaArbitrary(), seq =>
+        {
+            double self = MetagenomicsAnalyzer.TetranucleotideZScoreCorrelation(seq, seq);
+            bool allZero = MetagenomicsAnalyzer.CalculateTetranucleotideZScores(seq).Values.All(v => v == 0.0);
+            return (allZero ? Math.Abs(self) < 1e-9 : Math.Abs(self - 1.0) < 1e-9)
+                .Label($"self-correlation {self} (allZero={allZero})");
+        });
+    }
+
+    /// <summary>INV-3 (D): the TETRA correlation is deterministic.</summary>
+    [FsCheck.NUnit.Property]
+    public Property Tetra_IsDeterministic()
+    {
+        return Prop.ForAll(TetraDnaArbitrary(), seq =>
+            (MetagenomicsAnalyzer.TetranucleotideZScoreCorrelation(seq, seq)
+                == MetagenomicsAnalyzer.TetranucleotideZScoreCorrelation(seq, seq))
+                .Label("TetranucleotideZScoreCorrelation must be deterministic"));
+    }
+
+    #endregion
 }
