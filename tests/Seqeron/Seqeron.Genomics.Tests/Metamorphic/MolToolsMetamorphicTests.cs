@@ -3014,5 +3014,81 @@ public class MolToolsMetamorphicTests
 
     #endregion
 
+    // ═══════════════════════════════════════════════════════════════════
+    //  PROBE-LNATM-001 — LNA-adjusted nearest-neighbour Tm (MolTools)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (McTigue, Peterson & Kahn 2004 Biochemistry 43:5388;
+    //   docs/algorithms/MolTools/LNA_Adjusted_Nearest_Neighbor_Tm.md):
+    //   CalculateMeltingTemperatureNNLna adds the McTigue LNA-DNA nearest-neighbour increments on
+    //   top of the SantaLucia DNA NN model for each internal LNA monomer. LNA monomers rigidify the
+    //   sugar and STABILISE the duplex (raise Tm). Two metamorphic relations (checklist row 243):
+    //
+    //   • MON (adding an LNA base → Tm ≥ unmodified Tm): each internal LNA substitution applies a
+    //     stabilising McTigue increment, so an LNA-substituted oligo has Tm at least that of the
+    //     all-DNA oligo, and adding further LNA positions does not lower it.
+    //   • INV (all-DNA input reduces to the standard NN Tm): with no LNA positions the method
+    //     degenerates to CalculateMeltingTemperatureNN exactly — the LNA path is a pure extension.
+    //
+    // API under test: PrimerDesigner.CalculateMeltingTemperatureNNLna vs .CalculateMeltingTemperatureNN.
+
+    #region PROBE-LNATM-001 — LNA-adjusted NN Tm
+
+    [Test]
+    [Description("INV: with no LNA positions the LNA-adjusted Tm degenerates to the standard SantaLucia NN Tm exactly — the LNA model is a pure extension.")]
+    public void LnaTm_AllDnaInput_ReducesToStandardNnTm()
+    {
+        var sequences = new[] { "CAGGTGGCACCTTAACG", "GCTAGCATCGGATCCAA", "ATGCGGTCAATTGCAACGT", "GGGCGCGGCACCGTCCA" };
+
+        foreach (string seq in sequences)
+        {
+            foreach (double na in new[] { 0.05, 0.50 })
+            {
+                double lnaNoMods = PrimerDesigner.CalculateMeltingTemperatureNNLna(seq, System.Array.Empty<int>(), sodiumMolar: na);
+                double standard = PrimerDesigner.CalculateMeltingTemperatureNN(seq, sodiumMolar: na);
+
+                lnaNoMods.Should().BeApproximately(standard, 1e-12,
+                    because: $"an empty LNA-position set reproduces the standard NN Tm of '{seq}' exactly at [Na⁺]={na} M");
+            }
+        }
+    }
+
+    [Test]
+    [Description("MON: each internal LNA substitution applies a stabilising McTigue increment, so an LNA-modified oligo's Tm is at least the all-DNA Tm, and adding further LNA positions does not lower it.")]
+    public void LnaTm_AddingLnaBase_RaisesTmAboveUnmodified()
+    {
+        const string seq = "GCAGTCAGGTCAACGT"; // length 16; internal positions 1..14
+        double baseline = PrimerDesigner.CalculateMeltingTemperatureNN(seq);
+
+        // (a) Every single internal LNA substitution gives Tm ≥ the all-DNA Tm.
+        bool sawStrictIncrease = false;
+        for (int p = 1; p < seq.Length - 1; p++)
+        {
+            double tm = PrimerDesigner.CalculateMeltingTemperatureNNLna(seq, new[] { p });
+            tm.Should().BeGreaterThanOrEqualTo(baseline - 1e-9,
+                because: $"an internal LNA at position {p} stabilises the duplex, so Tm ≥ the unmodified Tm");
+            if (tm > baseline + 1e-6) sawStrictIncrease = true;
+        }
+
+        sawStrictIncrease.Should().BeTrue(because: "LNA genuinely raises Tm for at least one position — the relation is non-vacuous");
+
+        // (b) Adding MORE LNA positions does not lower the Tm (cumulative non-decreasing).
+        var positions = new List<int>();
+        double previous = baseline;
+        foreach (int p in new[] { 3, 6, 9, 12 })
+        {
+            positions.Add(p);
+            double tm = PrimerDesigner.CalculateMeltingTemperatureNNLna(seq, positions.ToArray());
+            tm.Should().BeGreaterThanOrEqualTo(previous - 1e-9,
+                because: $"adding an LNA at position {p} cannot lower the Tm below the fewer-LNA value");
+            previous = tm;
+        }
+
+        previous.Should().BeGreaterThan(baseline + 1e-6,
+            because: "four internal LNA substitutions raise the Tm well above the all-DNA baseline");
+    }
+
+    #endregion
+
     #endregion
 }
