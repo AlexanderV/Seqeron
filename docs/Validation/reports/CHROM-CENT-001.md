@@ -1,161 +1,168 @@
-# Validation Report: CHROM-CENT-001 — Centromere position classification (Levan 1964 centromere index / arm ratio)
+# Validation Report: CHROM-CENT-001 — Centromere classification + α-satellite suprachromosomal-family assignment
 
-- **Validated:** 2026-06-25   **Area:** Chromosome
-- **Canonical method(s) (this unit's OWN surface):**
-  - `ChromosomeAnalyzer.CalculateArmRatio(centromerePosition, chromosomeLength)` — arm-length ratio (p/q)
-  - `ChromosomeAnalyzer.ClassifyChromosomeByArmRatio(armRatio)` — public Levan category classifier
-  - `ChromosomeAnalyzer.AnalyzeCentromere(chrName, seq, windowSize, minAlphaSatelliteContent)` → private
-    `DetermineCentromereType` (the Levan classifier applied to a detected region), `EstimateRepeatContent`,
-    `CalculateGcVariability`
-  - record `CentromereResult`; constant `AlphaSatelliteConsensus`
+- **Validated:** 2026-06-26   **Area:** Chromosome
+- **Re-validation trigger:** limitation-fix commit `887a9945` ADDED suprachromosomal-family (SF) assignment
+  (`AssignSuprachromosomalFamily` + `LoadBundledAlphaSatelliteReference` + new types). Prior validation
+  SUPERSEDED; unit re-validated fresh this session with primary focus on the new surface and a confirmation
+  pass over the pre-existing canonical surface.
+- **Canonical / surface validated this session:**
+  - **NEW (primary focus):** `ChromosomeAnalyzer.AssignSuprachromosomalFamily(sequence, reference=null)`,
+    `LoadBundledAlphaSatelliteReference()`, types `SuprachromosomalFamily`, `AlphaSatelliteReferenceMonomer`,
+    `SuprachromosomalFamilyResult`, `AlphaSatelliteBoxType`; bundled CC0 Dfam reference
+    `Resources/AlphaSatelliteReference.fasta` (ALR / ALRa / ALRb).
+  - **Pre-existing (confirmation):** Levan classification (`CalculateArmRatio`,
+    `ClassifyChromosomeByArmRatio`, `DetermineCentromereType`), α-satellite / CENP-B detection
+    (`DetectAlphaSatellite`, `FindCenpBBoxes`), HOR detection (`DetectHigherOrderRepeat`).
 - **Source file:** `src/Seqeron/Algorithms/Seqeron.Genomics.Chromosome/ChromosomeAnalyzer.cs`
-- **Test files:** `ChromosomeAnalyzer_Centromere_Tests.cs`, `ChromosomeAnalyzer_MutationKillers_Tests.cs`,
-  `ChromosomeAnalyzerTests.cs` (Levan classification rows)
+- **Test files:** `ChromosomeAnalyzer_SuprachromosomalFamily_Tests.cs` (13, NEW),
+  `ChromosomeAnalyzer_Centromere_Tests.cs`, `ChromosomeAnalyzer_MutationKillers_Tests.cs`,
+  `ChromosomeAnalyzerTests.cs` (275 total under `~ChromosomeAnalyzer`, all green).
 - **Stage A verdict:** ✅ PASS
-- **Stage B verdict:** ❌→✅ FAIL-THEN-FIXED (one real defect in `ClassifyChromosomeByArmRatio`, fully fixed this session)
-- **State:** ✅ CLEAN
+- **Stage B verdict:** ✅ PASS
+- **State:** ✅ CLEAN (no defect found; no code changed this session)
 
-> **Scope note.** This re-validation targets CHROM-CENT-001's OWN canonical surface — centromere
-> position / centromere index / **Levan classification**. The alpha-satellite 171-bp / CENP-B detection
-> (`DetectAlphaSatellite`, `FindCenpBBoxes`) and HOR detection (`DetectHigherOrderRepeat`) added during
-> the limitation-elimination campaign are **separate, already-CLEAN units** (CHROM-ALPHASAT-001 /
-> CHROM-HOR-001) and are referenced but not re-litigated here. Suprachromosomal-family / specific
-> α-satellite-family assignment is a documented data-blocked boundary (needs curated reference HOR
-> libraries the library does not embed).
+---
 
 ## Stage A — Description
 
-### Sources opened this session & what they confirm
-- **Levan A, Fredga K, Sandberg AA (1964)** "Nomenclature for centromeric position on chromosomes",
-  *Hereditas* 52(2):201–220 (Wiley `10.1111/j.1601-5223.1964.tb01953.x`). Located via SCIRP / Wiley /
-  Google Scholar. The classification is defined by the **arm ratio r = L/S** (long arm / short arm) and
-  equivalently by the **centromeric index ci = 100·p/(p+q)** (short-arm fraction).
-- **Standard cytogenetics operationalisation of Levan's point table** (Tandfonline Caryologia
-  `10.1080/00087114.2015.1032614`; Vedantu CBSE; Wikipedia *Centromere*), retrieved this session, agree
-  on the numeric boundaries:
+### Sources opened THIS session & what they confirm
 
-  | Category | Arm ratio r = L/S | Centromeric index ci = 100·p/(p+q) |
-  |---|---|---|
-  | **Metacentric (m)** | 1.0 ≤ r ≤ 1.7 | 37.5 – 50.0 |
-  | **Submetacentric (sm)** | 1.7 < r ≤ 3.0 | 25.0 – 37.5 |
-  | **Subtelocentric (st)** | 3.0 < r < 7.0 | 12.5 – 25.0 |
-  | **Acrocentric (a/t)** | r ≥ 7.0 | < 12.5 |
-  | **Telocentric (T)** | r = ∞ (one arm absent, p = 0) | 0 |
+- **Dfam REST API** (retrieved this session, verbatim `consensus_sequence`):
+  - `DF000000029` **ALR** — length 171, classification `root;Tandem_Repeat;Satellite;Centromeric`.
+  - `DF000000014` **ALRa** — length 172, same classification (≈83.7% to ALR).
+  - `DF000000015` **ALRb** — length 169, same classification.
+  All three consensus strings match the bundled `Resources/AlphaSatelliteReference.fasta` **byte-for-byte**
+  (verified this session — see Stage B).
+- **Dfam licence** (Storer, Hubley, Rosen et al. 2021, *Mobile DNA* 12:2; dfam.org) — Dfam data is
+  dedicated to the **public domain under CC0**; freely redistributable. The bundled reference is genuinely CC0.
+- **McNulty SM & Sullivan BA (2018)** "Alpha satellite DNA biology", *Chromosome Res* (PMC6121732) —
+  confirmed **verbatim**:
+  - SF1 dimeric (J1·J2; HSA1,3,5,6,7,10,12,16,19); SF2 dimeric (D1·D2; eleven chromosomes);
+    SF3 pentameric (W1–W5; HSA1,11,17,X); SF4 monomeric (M1; acrocentric p-arms + Y); SF5 irregular (R1·R2).
+  - A/B-box rule **verbatim:** "A-type monomers include J1, D2, W4, W5, M1, and R2 monomers, while B-type
+    consist of J2, D1, W1–W3, and R1 monomers." and "B-type monomers contain CENP-B boxes, while A-type
+    monomers contain a binding site for pJα."
+- **Shepelev et al. (2009)** PLOS Genet 5:e1000641 — SF taxonomy origin confirmed via cross-source:
+  SF1 = J1+J2, SF2 = D1+D2, SF3 = W1–W5, SF4 = M1, SF5 = R1+R2 (twelve SF monomer types in five families).
+- **Masumoto et al. (1989)** CENP-B box 5′-`YTTCGTTGGAARCGGGA`-3′ (Y=C/T, R=A/G) — the 17-bp motif; used by
+  `FindCenpBBoxes`.
+- **Levan A, Fredga K, Sandberg AA (1964)** *Hereditas* 52(2):201–220 — arm-ratio r = L/S and centromeric
+  index ci = 100·p/(p+q); cut-points 1.7 / 3.0 / 7.0 (ci 37.5 / 25.0 / 12.5) over m / sm / st / a / T.
+  (Re-confirmed; unchanged from prior round.)
 
-### Formula / threshold check
-- **Centromere index = short-arm fraction × 100** and **arm ratio = long/short** — confirmed verbatim
-  against Levan 1964 (CI = 100·p/(p+q); r = q/p). The four defining numeric cut-points **1.7, 3.0, 7.0**
-  (and ci 37.5/25.0/12.5) are the canonical Levan boundaries.
-- **Boundary convention.** The shared endpoints (1.7, 3.0, 7.0) are conventionally assigned to the more
-  symmetric (lower) category at 1.7/3.0 and to acrocentric at 7.0 (Wikipedia "1.0–1.7", "≥7"). This is a
-  measure-zero tie-break in real karyotyping; the repo's `DetermineCentromereType` uses exactly that
-  reading (`≤1.7→m, ≤3.0→sm, <7.0→st, else a`). Documented, acceptable.
+### A/B-box typing of the bundled monomers (sequence-verifiable, hand-checked this session)
 
-### Independent cross-check (hand computation, exact numbers)
-With r normalised to long/short (≥1):
+Scanning the retrieved Dfam consensus strings for the IUPAC CENP-B box `[CT]TTCGTTGGAA[AG]CGGGA`:
+- **ALRb** → one match at **0-based position 126** (`CTTCGTTGGAAACGGGA`) → **B-type**. ✔ (matches the
+  bundled `boxtype=B` and the README claim "CENP-B box at consensus position 126").
+- **ALR** and **ALRa** → **no match** → **A-type**. ✔
+This reproduces the sourced rule (B-type carries the CENP-B box; A-type does not).
 
-| Input (p/q or q/p) | r = long/short | Levan category (hand) |
-|---|---|---|
-| p/q 1.0 | 1.00 | Metacentric |
-| p/q 0.7 → q/p 1.43 | 1.43 | Metacentric (< 1.7) |
-| q/p 1.70 (boundary) | 1.70 | Metacentric |
-| q/p 1.71 | 1.71 | Submetacentric |
-| p/q 0.5 → q/p 2.0 | 2.00 | Submetacentric |
-| q/p 3.0 (boundary) | 3.00 | Submetacentric |
-| q/p 3.01 / p/q 0.3 (q/p 3.33) | 3.01 / 3.33 | Subtelocentric |
-| p/q 0.2 → q/p 5.0 | 5.00 | Subtelocentric |
-| q/p 6.99 | 6.99 | Subtelocentric |
-| q/p 7.0 (boundary) | 7.00 | Acrocentric |
-| p/q 0.1 → q/p 10.0 | 10.0 | Acrocentric |
-| one arm absent (p = 0) | ∞ | Telocentric |
+### SF assignment rule vs. the published families
 
-End-to-end (centromere position c of length 100 → p=c, q=100−c, r=max/min):
-c=50→r=1.00 m; c=40→r=1.50 m; c=33→r=2.03 sm; c=20→r=4.00 st; c=10→r=9.00 a. (All re-derived in Python
-this session, not read from code.)
+The method has only two reproducible SF-determining signals available from the CC0 reference: the **HOR
+period** (from `DetectHigherOrderRepeat`) and the **A/B-box composition** of one HOR unit. The mapping is a
+faithful reduction of the Shepelev/McNulty taxonomy onto those two signals:
+
+| Signal | Code rule | Published basis | Verdict |
+|---|---|---|---|
+| period multiple of 5 | → SF3 | SF3 is pentameric (W1–W5) | ✔ diagnostic |
+| period 1, all A-type | → SF4 | SF4 = M1, monomeric, A-type | ✔ |
+| period 2 (A+B dimer) | → {SF1,SF2} | SF1/SF2 both dimeric A→B | ✔ (cannot separate from CC0) |
+| irregular A/B, both box types | → SF5 | SF5 = R1·R2 irregular | ✔ |
+| otherwise | → Unknown | — | ✔ |
+
+### Edge-case semantics (sourced / defined)
+- Empty / null / shorter than one 171-bp monomer → not alpha-satellite, `Unknown`, period 0, empty pattern.
+- A query below the **≥60% identity** gate to the closest reference monomer → not alpha-satellite. The gate
+  is justified by alphoid divergence (~16% from consensus, 50–70% between monomer classes; Waye & Willard
+  1987; PMC6121732) — random DNA sits well below it (measured ~52% this session), real monomers ~85–98%.
 
 ### Stage A verdict
-**PASS.** Centromere index formula, arm-ratio definition, the four boundaries (1.7/3.0/7.0; ci
-37.5/25.0/12.5), the five categories, and the telocentric single-arm semantics are all confirmed against
-Levan 1964 and standard cytogenetics references retrieved this session.
+**✅ PASS.** Every SF fact, the A/B-box rule, the CENP-B box motif/position, the three Dfam sequences, and the
+CC0 licence are confirmed against authoritative external first-sources retrieved this session. The reduction
+of the taxonomy onto {HOR period + A/B composition} is sound, and the residual (SF1-vs-SF2 and non-period-5
+SF3) is an honest open boundary, not a hidden defect — separating them needs the SF-resolved consensus
+monomer library (J1/J2/D1/D2/W1–W5/M1/R1/R2), which is not CC0/redistributable.
+
+---
 
 ## Stage B — Implementation
 
-### Code paths reviewed (`ChromosomeAnalyzer.cs`)
-- `DetermineCentromereType` (`:568`) — r = qArm/pArm with qArm=Max, pArm=Min (so r≥1); `pArm==0`→Telocentric;
-  switch `≤1.7 m / ≤3.0 sm / <7.0 st / else a`. **Correct vs Levan** (verified IEEE-754 boundaries
-  1.7→m, 3.0→sm, 7.0→a). Reached only via `AnalyzeCentromere`.
-- `CalculateArmRatio` (`:1299`) — returns p/q where p = centromerePosition, q = length−centromerePosition;
-  guards `centromerePosition≤0 || length≤0 || q≤0` → 0. Correct (a ratio, not a classifier).
-- `ClassifyChromosomeByArmRatio` (`:1313`) — **DEFECT FOUND.**
+### Reference data integrity (byte-for-byte vs Dfam)
+- `AlphaSatelliteReference.fasta`: the ALR/ALRa/ALRb consensus lines are **identical** to the Dfam REST
+  `consensus_sequence` fields retrieved this session (lengths 171/172/169; the `N`-containing positions
+  preserved). `boxtype` headers (A/A/B) match the sequence-derived CENP-B typing.
+- `LoadBundledAlphaSatelliteReference` parses the FASTA from the embedded resource (csproj
+  `EmbeddedResource`), upper-cases, and returns three records with the right `Name`/`Accession`/`Sequence`/
+  `BoxType` — confirmed by independent probe (`ref count=3`; ALR/ALRa/ALRb; acc/len/box all correct).
 
-### Defect (Stage B FAIL → FIXED)
-The public `ClassifyChromosomeByArmRatio` originally classified a **p/q** ratio with ad-hoc cuts:
-`[0.9,1.1]→m, [0.5,0.9)→sm, [0.2,0.5)→a, <0.2→T`, plus a mirrored `(1.1,2.0]→sm, (2.0,5.0]→a, >5.0→T`.
-Compared to Levan 1964 this is wrong across most of the range:
+### Code path reviewed (`ChromosomeAnalyzer.cs`)
+- `AssignSuprachromosomalFamily` (`:1090`): guards empty/null/<171; splits into `len/171` whole monomers
+  (trailing partial ignored); best-matches each monomer to every reference via
+  `SequenceAligner.GlobalAlign` → `CalculateStatistics().Identity`; accepts a monomer as alpha-satellite
+  when best identity ≥ 60%; `matchedCount==0` → not-alpha/`Unknown`; takes period from
+  `DetectHigherOrderRepeat`; builds the first-unit A/B pattern; delegates to `ClassifyFamily`.
+- `ClassifyFamily` (`:1187`): period%5==0→SF3; period 1 → SF4 (all-A) else SF5; period 2 → {SF1,SF2};
+  else both-box-types → SF5; else Unknown. Matches the Stage-A table exactly.
 
-| p/q | q/p (= r) | Levan (correct) | Original code | 
-|---|---|---|---|
-| 0.7 | 1.43 | **Metacentric** | Submetacentric ✗ |
-| 0.49 | 2.04 | **Submetacentric** | Acrocentric ✗ |
-| 0.30 | 3.33 | **Subtelocentric** | Acrocentric ✗ |
-| 0.20 | 5.00 | **Subtelocentric** | Acrocentric ✗ |
-| 0.10 | 10.0 | **Acrocentric** | Telocentric ✗ |
+### Independent cross-check — SF assignments reproduced this session (own probe, not test echoes)
 
-Three independent errors: (1) the **Subtelocentric category never appears**; (2) the thresholds do not
-correspond to Levan's 1.7/3.0/7.0; (3) a finite arm ratio is labelled "Telocentric" (telocentric is the
-single-arm p=0 case only). This also made the two public Levan classifiers in the class
-(`DetermineCentromereType` vs `ClassifyChromosomeByArmRatio`) **mutually inconsistent**.
+| Input (real Dfam-derived monomers) | IsAlpha | Family | period | best | meanId | pattern |
+|---|---|---|---|---|---|---|
+| ALRa ×8 (monomeric A) | true | **Sf4** | 1 | ALRa | 95.5% | [A] |
+| (ALRa+ALRb) ×6 (dimer A·B) | true | **Sf1OrSf2Dimeric** | 2 | ALRa | 97.5% | [A,B] |
+| pentamer 3B+2A ×6 (W1–W3 B, W4–W5 A) | true | **Sf3** | 5 | ALRb | 84.7% | [B,B,B,A,A] |
+| irregular A/B array | true | **Sf5** | 1 | ALRa | 97.0% | (irregular) |
+| random DNA (seed 1234, 400 bp) | **false** | **Unknown** | 0 | null | 51.9% | [] |
+| ALRb ×8 (monomeric B-only) | true | **Sf5** | 1 | ALRb | 92.2% | [B] |
 
-The two existing tests (`ClassifyChromosomeByArmRatio_BoundaryTable`,
-`ClassifyChromosomeByArmRatio_ClassifiesCorrectly`) **green-washed the defect** — their expected strings
-were echoes of the wrong cuts (e.g. they asserted p/q 0.3 → "Acrocentric").
+`FindCenpBBoxes`: ALRb→`[126]`, ALRa→`[]`, ALR→`[]`. All values match the sourced expectations and the
+test assertions; the negative case (random DNA, 51.9% < 60% gate → not alpha-satellite) is genuine.
 
-**Fix.** Rewrote `ClassifyChromosomeByArmRatio` to (a) treat `armRatio ≤ 0` as Telocentric (degenerate
-single-arm), (b) normalise any p/q or q/p input to `r = max(armRatio, 1/armRatio) ≥ 1`, and (c) apply the
-Levan switch `≤1.7 m / ≤3.0 sm / <7.0 st / else a` — now identical in convention to
-`DetermineCentromereType`. Added the Levan 1964 citation to the XML doc.
+### Pre-existing surface (confirmation pass)
+- **Levan** (`ClassifyChromosomeByArmRatio` / `DetermineCentromereType`): normalises to r = max(p/q, q/p),
+  switch ≤1.7 m / ≤3.0 sm / <7.0 st / else a; p=0/ratio≤0 → Telocentric. Correct per Levan 1964 (this was
+  the defect fixed in the prior round; it remains correct and the lock-tests trace to hand-computed r).
+- **α-satellite / CENP-B / HOR detectors:** unchanged by commit `887a9945` (additive only). The new method's
+  M-SF-8 test asserts `DetectAlphaSatellite`/`DetectHigherOrderRepeat` are byte-identical before/after a call
+  — the additive contract holds.
+- All **275** `~ChromosomeAnalyzer` tests green.
 
-### Tests rewritten / added (Levan-sourced, hand-computed — no code echoes)
-- `ChromosomeAnalyzer_MutationKillers_Tests.ClassifyChromosomeByArmRatio_BoundaryTable` — replaced the
-  echoing table with exact boundaries r=1.0/1.7/1.71/3.0/3.01/5.0/6.99/7.0/7.01/21.0 (q/p form) **and**
-  the reciprocal p/q forms (0.7/0.5/0.3/0.2/0.1), each expected value hand-derived from Levan.
-- New `ClassifyChromosomeByArmRatio_DegenerateSingleArm_IsTelocentric` (ratio 0.0 / −1.0 → Telocentric).
-- New `ArmRatioPipeline_ClassifiesPerLevan` — end-to-end `CalculateArmRatio→ClassifyChromosomeByArmRatio`
-  for centromere 50/40/33/20/10 of length 100 → m/m/sm/st/a (hand-derived r = 1.00/1.50/2.03/4.00/9.00).
-- `ChromosomeAnalyzerTests.ClassifyChromosomeByArmRatio_ClassifiesCorrectly` — corrected the echoing rows
-  (0.7→Metacentric, 0.3→Subtelocentric, 0.1→Acrocentric, 1.5→Metacentric, 3.0→Submetacentric,
-  10.0→Acrocentric).
-
-### Other surfaces (verified, unchanged)
-- `AnalyzeCentromere` + `DetermineCentromereType`: region detection is a declared generic
-  tandem-repeat-density heuristic (k=15 k-mer repeat × low GC variability); region coords 0-based
-  half-open (`Length = End − Start`); the Levan classification it applies is correct; non-repetitive
-  random input is not flagged (`Type=Unknown`). 24-test Centromere fixture all green. (Detection scope and
-  the `AlphaSatelliteContent` generic-score naming were validated in prior rounds; the alpha-satellite-/
-  HOR-specific detectors are the separate CHROM-ALPHASAT-001 / CHROM-HOR-001 units.)
+### Test-quality audit (HARD gate)
+- All public surface covered: `LoadBundledAlphaSatelliteReference` (M-SF-1/2), `AssignSuprachromosomalFamily`
+  default + caller-supplied reference overload (M-SF-3..8, S-SF-1), case-insensitivity (S-SF-2), identity
+  sanity (C-SF-1), edge cases (empty/null/short, empty-reference→throws).
+- Assertions are **sourced, not code echoes**: A/B typing traces to the PMC6121732 rule + the CENP-B box at
+  position 126; SF families trace to the dimeric/pentameric/monomeric/irregular taxonomy; identity to the
+  measured Dfam-derived values; the negative case to the 60% gate. Reference monomers are the REAL Dfam
+  strings (period-5 case uses deterministic mild point-variants that stay above the gate and keep parent
+  A/B type).
+- Deterministic (fixed local RNG seeds; the shared-RNG hazard does not apply — RNG is local to each test).
 
 ### Stage B verdict
-**FAIL → FIXED.** One real correctness defect (`ClassifyChromosomeByArmRatio` diverged from Levan 1964 and
-omitted Subtelocentric) found and fully fixed; the green-washing tests that locked the wrong values were
-rewritten to Levan-sourced hand-computed expectations; the two public Levan classifiers are now consistent.
+**✅ PASS.** The code faithfully realises the validated description; the bundled reference is byte-identical
+to CC0 Dfam; A/B typing is correct (ALRb carries the CENP-B box at 126); the SF rule reproduces the published
+family signals on worked examples plus a real negative case. No defect found; no code changed this session.
+
+---
 
 ## Verdict & follow-ups
-- **Stage A:** ✅ PASS — Levan 1964 centromere index / arm-ratio thresholds (1.7/3.0/7.0; ci 37.5/25.0/12.5)
-  and the five categories confirmed against external sources retrieved this session.
-- **Stage B:** ❌→✅ FAIL-THEN-FIXED — `ClassifyChromosomeByArmRatio` corrected to Levan; tests de-green-washed.
-- **State:** ✅ **CLEAN** — defect fully fixed, tests trace to Levan/hand-computation, full unfiltered
-  `dotnet test Seqeron.sln -c Debug` **Failed: 0** (Genomics 18817 passed), 0 warnings on changed files.
-- **Documented boundary (acceptable):** suprachromosomal-family / specific α-satellite-family assignment is
-  data-blocked (needs curated reference HOR libraries not embedded in the library).
+- **Stage A:** ✅ PASS — SF taxonomy, A/B-box rule, CENP-B box, the three Dfam sequences + CC0 licence, and
+  Levan thresholds confirmed against external first-sources retrieved this session.
+- **Stage B:** ✅ PASS — reference byte-verified vs Dfam; SF assignments + CENP-B positions reproduced
+  independently; additive contract holds; tests sourced.
+- **State:** ✅ **CLEAN.** Full unfiltered `dotnet test Seqeron.sln -c Debug` **Failed: 0**
+  (Seqeron.Genomics.Tests 18860 passed); no code/test changed this session.
+- **Documented open boundary (acceptable, not a defect):** SF1 vs SF2 (both dimeric A→B) and SF3 arrays whose
+  period is not a multiple of 5 (e.g. dodecameric DXZ1) are not resolved from the CC0 reference; they need the
+  SF-resolved consensus monomer library (not CC0/redistributable). Recorded in `Resources/README.md`,
+  `LIMITATIONS.md` §2, and the TestSpec residual.
 
 ---
 
 ## Historical note
-
-Earlier rounds (PASS-WITH-NOTES) examined the **detection criterion** of `AnalyzeCentromere` (generic
-tandem-repeat heuristic vs alpha-satellite specificity) and drove the additive, opt-in
-`DetectAlphaSatellite` / `FindCenpBBoxes` / `DetectHigherOrderRepeat` capabilities (171-bp monomer,
-CENP-B box `YTTCGTTGGAARCGGGA`, HOR period/copy-number) — now the separate CLEAN units
-CHROM-ALPHASAT-001 / CHROM-HOR-001. Those additions did not touch the Levan classification surface that is
-the subject of this report; this session re-validated that surface independently and fixed the
-`ClassifyChromosomeByArmRatio` defect that the prior rounds did not examine.
+The prior round (2026-06-25, Levan focus) found and fully fixed a real defect in
+`ClassifyChromosomeByArmRatio` (diverged from Levan 1964; omitted Subtelocentric) and de-green-washed its
+tests. That fix remains in place and re-confirmed here. The present session re-validates the unit after the
+SF-assignment addition (commit `887a9945`), which is additive and does not touch the Levan surface.
