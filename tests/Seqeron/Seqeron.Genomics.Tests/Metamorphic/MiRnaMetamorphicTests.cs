@@ -454,4 +454,68 @@ public class MiRnaMetamorphicTests
     }
 
     #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  MIRNA-PCT-001 — probability of conserved targeting (PCT) (MiRNA)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (Friedman et al. 2009 Genome Res 19:92; targetscan_70_BL_PCT.pl;
+    //   tests/TestSpecs/MIRNA-PCT-001.md):
+    //   PCT maps a Friedman branch-length score (Bls — total branch length of the subtree of
+    //   species in which the site is conserved) to a probability via a logistic curve
+    //   PCT(Bls) = B0 + B1/(1 + e^(−B2·Bls + B3)), truncated at 0 (B2 > 0 ⇒ increasing in Bls). When
+    //   no conservation evidence is supplied, the context++ scorer reports PCT = 0 (an omitted
+    //   feature). Two metamorphic relations (checklist row 253):
+    //
+    //   • MON (deeper conservation → higher PCT): with B2 > 0 the sigmoid is increasing, so a longer
+    //     branch length yields a higher (never lower) PCT.
+    //   • INV (no conservation → PCT 0): with no conservation input, the branch-length score and PCT
+    //     are 0 and PCT is reported as an omitted feature.
+    //
+    // API under test: MiRnaAnalyzer.PctFromBranchLength / .ScoreTargetSiteContextPlusPlus.
+
+    #region MIRNA-PCT-001 — probability of conserved targeting
+
+    [Test]
+    [Description("MON: with B2 > 0 the PCT logistic is increasing in the branch-length score, so deeper conservation (a longer Bls) yields a higher PCT.")]
+    public void Pct_DeeperConservation_RaisesPct()
+    {
+        // Published-regime parameters (B0 + B1 ≤ 1, B2 > 0): an increasing sigmoid in [0, ~0.85].
+        var p = new MiRnaAnalyzer.PctSigmoidParameters(B0: 0.05, B1: 0.80, B2: 1.50, B3: 2.00);
+
+        double previous = double.NegativeInfinity;
+        bool sawStrictIncrease = false;
+        foreach (double bls in new[] { 0.0, 0.5, 1.0, 2.0, 4.0, 8.0 })
+        {
+            double pct = MiRnaAnalyzer.PctFromBranchLength(bls, p);
+            pct.Should().BeInRange(-1e-9, 1.0 + 1e-9, because: "PCT is a probability in [0,1]");
+            pct.Should().BeGreaterThanOrEqualTo(previous - 1e-12,
+                because: $"a longer branch length ({bls}) cannot lower the PCT (the sigmoid is increasing)");
+            if (pct > previous + 1e-6) sawStrictIncrease = true;
+            previous = pct;
+        }
+
+        sawStrictIncrease.Should().BeTrue(because: "deeper conservation genuinely raises PCT — the relation is non-vacuous");
+    }
+
+    [Test]
+    [Description("INV: with no conservation evidence supplied, the context++ scorer reports a zero branch-length score and zero PCT, and lists PCT as an omitted feature.")]
+    public void Pct_NoConservation_IsZero()
+    {
+        var mirna = MiRnaAnalyzer.CreateMiRna("let-7a", Let7a);
+        string flank = string.Concat(Enumerable.Repeat("GCAU", 8))[..30];
+        string mrna = flank + Let7a8merMatch + flank;
+        var site = Find8merAt(mrna, mirna, flank.Length);
+
+        // No ContextPlusPlusInputs.Conservation supplied (default inputs).
+        var ctx = MiRnaAnalyzer.ScoreTargetSiteContextPlusPlus(mrna, mirna, site);
+
+        ctx.BranchLengthScore.Should().Be(0.0, because: "no conserved species ⇒ branch-length score 0");
+        ctx.Pct.Should().Be(0.0, because: "no conservation evidence ⇒ PCT 0");
+        ctx.PctContribution.Should().Be(0.0, because: "an omitted PCT feature contributes 0");
+        ctx.OmittedFeatures.Any(f => f.StartsWith("PCT")).Should().BeTrue(
+            because: "PCT is reported as an omitted feature when no conservation input is supplied");
+    }
+
+    #endregion
 }
