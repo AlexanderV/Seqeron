@@ -585,6 +585,80 @@ public class FileIOProperties
 
     #region PARSE-GENBANK-001: RT: round-trip; P: locus line present; P: sequence preserved; D: deterministic
 
+    // GenBankParser is parse-only (no writer), so the verifiable "round-trip" is text→record:
+    // build CANONICAL GenBank flat-file text from generated fields and assert Parse recovers them.
+    // ParseSequence keeps only letters (uppercased), so the ORIGIN block round-trips exactly.
+
+    /// <summary>Generates a LOCUS name: a letters/digits/underscore token with no spaces.</summary>
+    private static Gen<string> GenBankLocusGen() =>
+        from cs in Gen.Elements(
+                "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_".ToCharArray())
+            .ArrayOf().Where(a => a.Length is >= 1 and <= 15)
+        select new string(cs);
+
+    private static Arbitrary<(string Locus, string Sequence)> GenBankConstructParseArbitrary() =>
+        (from locus in GenBankLocusGen()
+         from len in Gen.Choose(1, 180)
+         from cs in Gen.Elements('A', 'C', 'G', 'T').ArrayOf(len)
+         select (locus, new string(cs))).ToArbitrary();
+
+    private static string BuildGenBankRecord(string locus, string sequence)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.Append("LOCUS       ").Append(locus).Append("           ")
+          .Append(sequence.Length).Append(" bp    DNA     linear   UNK\n");
+        sb.Append("DEFINITION  Generated record.\n");
+        sb.Append("ACCESSION   ").Append(locus).Append('\n');
+        sb.Append("VERSION     ").Append(locus).Append(".1\n");
+        sb.Append("FEATURES             Location/Qualifiers\n");
+        sb.Append("ORIGIN\n");
+        for (int i = 0; i < sequence.Length; i += 60)
+        {
+            string block = sequence.Substring(i, Math.Min(60, sequence.Length - i));
+            sb.Append((i + 1).ToString().PadLeft(9)).Append(' ');
+            for (int j = 0; j < block.Length; j += 10)
+                sb.Append(block.Substring(j, Math.Min(10, block.Length - j))).Append(' ');
+            sb.Append('\n');
+        }
+        sb.Append("//\n");
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// RT (construct→parse) + P (locus present, sequence preserved): canonical GenBank text built from
+    /// a generated locus name and DNA sequence parses back to exactly one record whose Locus, Sequence
+    /// and SequenceLength equal the generated values. Source: NCBI GenBank flat-file specification.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GenBank_ConstructParse_RecoversLocusAndSequence()
+    {
+        return Prop.ForAll(GenBankConstructParseArbitrary(), t =>
+        {
+            var records = GenBankParser.Parse(BuildGenBankRecord(t.Locus, t.Sequence)).ToList();
+            if (records.Count != 1)
+                return false.Label($"expected 1 record, got {records.Count}");
+            var r = records[0];
+            return (r.Locus == t.Locus && r.Sequence == t.Sequence
+                    && r.SequenceLength == t.Sequence.Length && r.Sequence.Length == r.SequenceLength)
+                .Label($"locus '{r.Locus}' vs '{t.Locus}', seq len {r.Sequence.Length}/{r.SequenceLength} vs {t.Sequence.Length}");
+        });
+    }
+
+    /// <summary>D: GenBank parsing is deterministic over generated records (locus + sequence).</summary>
+    [FsCheck.NUnit.Property]
+    public Property GenBank_Parse_IsDeterministic_Property()
+    {
+        return Prop.ForAll(GenBankConstructParseArbitrary(), t =>
+        {
+            string text = BuildGenBankRecord(t.Locus, t.Sequence);
+            var r1 = GenBankParser.Parse(text).ToList();
+            var r2 = GenBankParser.Parse(text).ToList();
+            return (r1.Count == r2.Count && r1.Count == 1
+                    && r1[0].Locus == r2[0].Locus && r1[0].Sequence == r2[0].Sequence)
+                .Label("GenBank Parse must be deterministic");
+        });
+    }
+
     /// <summary>
     /// INV-1: GenBank parsed record has non-empty sequence matching reported length.
     /// Evidence: The LOCUS line specifies the sequence length; the ORIGIN section contains the sequence.
