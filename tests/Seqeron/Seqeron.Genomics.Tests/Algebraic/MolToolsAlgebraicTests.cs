@@ -179,4 +179,180 @@ public class MolToolsAlgebraicTests
         fragments.Sum(f => f.Length).Should().Be(seq.Length);
         string.Concat(fragments.Select(f => f.Sequence)).Should().Be(seq.Sequence);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: PRIMER-NNTM-001 — Nearest-neighbour Tm (MolTools), row 240.
+    //
+    // Model: a perfect Watson–Crick duplex's thermodynamics are the SantaLucia (1998)
+    //        unified nearest-neighbour SUM — initiation + Σ per-dimer increments +
+    //        terminal-AT penalties (+ symmetry for self-complementary strands).
+    //   — docs/algorithms/MolTools; PrimerDesigner.CalculateNearestNeighborThermodynamics /
+    //     CalculateMeltingTemperatureNN. TestSpec tests/TestSpecs/PRIMER-NNTM-001.md.
+    //
+    // Laws (row 240): ID — the perfect-match path equals the published NN sum.
+    //                 IDEMP — Tm is a pure, deterministic function.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    [Test]
+    public void NearestNeighborTm_Identity_PerfectMatchEqualsPublishedSum()
+    {
+        // ATGCATGC: ΔH = 0.2 + (−7.2−8.5−9.8−8.5−7.2−8.5−9.8) + 2.2 + 2.2 = −57.1 kcal/mol;
+        //           ΔS = −5.7 + (−20.4−22.7−24.4−22.7−20.4−22.7−24.4) + 6.9 + 6.9 = −156.5 cal/(K·mol).
+        var r1 = PrimerDesigner.CalculateNearestNeighborThermodynamics("ATGCATGC");
+        r1!.Value.DeltaH.Should().BeApproximately(-57.1, 1e-9);
+        r1.Value.DeltaS.Should().BeApproximately(-156.5, 1e-9);
+
+        // GCGCGC: ΔH = 0.2 + (−9.8−10.6−9.8−10.6−9.8) = −50.4; ΔS = −5.7 + (sum) + (−1.4 symmetry) = −134.7.
+        var r2 = PrimerDesigner.CalculateNearestNeighborThermodynamics("GCGCGC");
+        r2!.Value.DeltaH.Should().BeApproximately(-50.4, 1e-9);
+        r2.Value.DeltaS.Should().BeApproximately(-134.7, 1e-9);
+    }
+
+    [Test]
+    public void NearestNeighborTm_Idempotent_Deterministic()
+    {
+        double a = PrimerDesigner.CalculateMeltingTemperatureNN("ATGCATGCATGC");
+        double b = PrimerDesigner.CalculateMeltingTemperatureNN("ATGCATGCATGC");
+        b.Should().Be(a);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: PRIMER-HAIRPIN-001 — Unimolecular hairpin folder (MolTools), row 241.
+    //
+    // Model: the most stable hairpin's ΔH/ΔS/ΔG37 are the nearest-neighbour SUM over
+    //        the stem stacks plus the loop ΔG penalty — a hand-derivable closed form.
+    //   — PrimerDesigner.FindMostStableHairpin / CalculateHairpinMeltingTemperature.
+    //     TestSpec tests/TestSpecs/PRIMER-HAIRPIN-001.md.
+    //
+    // Laws (row 241): ID — the fixed canonical hairpin reproduces the hand-derived NN ΔG.
+    //                 IDEMP — hairpin folding/Tm is a pure, deterministic function.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private const string CanonicalHairpin = "GGGCTTTTGCCC"; // 4-bp G-C stem, 4-nt loop
+
+    [Test]
+    public void Hairpin_Identity_CanonicalHairpinEqualsHandDerivedNn()
+    {
+        var hp = PrimerDesigner.FindMostStableHairpin(CanonicalHairpin);
+        hp.Should().NotBeNull();
+        hp!.Value.DeltaH.Should().BeApproximately(-25.8, 1e-9);
+        hp.Value.DeltaS.Should().BeApproximately(-75.48486216346927, 1e-9);
+        hp.Value.DeltaG37.Should().BeApproximately(-2.3883700000000054, 1e-9);
+    }
+
+    [Test]
+    public void Hairpin_Idempotent_Deterministic()
+    {
+        double a = PrimerDesigner.CalculateHairpinMeltingTemperature(CanonicalHairpin);
+        double b = PrimerDesigner.CalculateHairpinMeltingTemperature(CanonicalHairpin);
+        b.Should().Be(a);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: PRIMER-DIMER-001 — ntthal self/hetero-dimer (MolTools), row 242.
+    //
+    // Model: the most stable duplex between two strands is the contiguous Watson–Crick
+    //        alignment whose ΔH/ΔS is the nearest-neighbour SUM over its consecutive
+    //        base-pair steps (ntthal thermodynamic alignment).
+    //   — PrimerDesigner.FindMostStableDimer / CalculateSelfDimerMeltingTemperature.
+    //     TestSpec tests/TestSpecs/PRIMER-DIMER-001.md.
+    //
+    // Laws (row 242): ID — the contiguous-WC optimum equals the NN sum.
+    //                 IDEMP — dimer search/Tm is a pure, deterministic function.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private const double DimerNa = 0.05;    // 50 mM monovalent
+    private const double DimerCt = 50e-9;   // 50 nM total strand
+
+    [Test]
+    public void Dimer_Identity_ContiguousWcOptimumEqualsNnSum()
+    {
+        // The fully complementary 8-mer self-dimer: all 8 bases pair, 7 G-C/C-G stacks.
+        var d = PrimerDesigner.FindMostStableDimer("GCGCGCGC", "GCGCGCGC", DimerNa, DimerCt);
+        d.Should().NotBeNull();
+        d!.Value.BasePairs.Should().Be(8);
+        d.Value.DeltaH.Should().BeApproximately(-70.8, 1e-9);
+        d.Value.DeltaS.Should().BeApproximately(-192.61700633667505, 1e-9);
+        d.Value.DeltaG37.Should().BeApproximately(-11.059835484680235, 1e-9);
+    }
+
+    [Test]
+    public void Dimer_Idempotent_Deterministic()
+    {
+        double a = PrimerDesigner.CalculateSelfDimerMeltingTemperature("GCGCGCGC", DimerNa, DimerCt);
+        double b = PrimerDesigner.CalculateSelfDimerMeltingTemperature("GCGCGCGC", DimerNa, DimerCt);
+        b.Should().Be(a);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: PROBE-LNATM-001 — LNA-adjusted NN Tm (MolTools), row 243.
+    //
+    // Model: an LNA-modified duplex adds per-position LNA increments to the DNA NN sum;
+    //        with NO LNA positions the model must reduce EXACTLY to the plain DNA NN Tm.
+    //   — PrimerDesigner.CalculateNearestNeighborThermodynamicsLna /
+    //     CalculateMeltingTemperatureNNLna. TestSpec tests/TestSpecs/PROBE-LNATM-001.md.
+    //
+    // Laws (row 243): ID — zero LNA → equals the PRIMER-NNTM result.
+    //                 IDEMP — LNA Tm is a pure, deterministic function.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    [Test]
+    public void LnaTm_Identity_ZeroLnaEqualsPlainNn()
+    {
+        const string seq = "GTGCATCGATGCAGC";
+        var lna = PrimerDesigner.CalculateNearestNeighborThermodynamicsLna(seq, System.Array.Empty<int>());
+        var dna = PrimerDesigner.CalculateNearestNeighborThermodynamics(seq);
+        lna!.Value.DeltaH.Should().Be(dna!.Value.DeltaH);
+        lna.Value.DeltaS.Should().Be(dna.Value.DeltaS);
+
+        double tmLna = PrimerDesigner.CalculateMeltingTemperatureNNLna(seq, System.Array.Empty<int>());
+        double tmDna = PrimerDesigner.CalculateMeltingTemperatureNN(seq);
+        tmLna.Should().Be(tmDna);
+    }
+
+    [Test]
+    public void LnaTm_Idempotent_Deterministic()
+    {
+        const string seq = "GTGCATCGATGCAGC";
+        double a = PrimerDesigner.CalculateMeltingTemperatureNNLna(seq, new[] { 2, 7 });
+        double b = PrimerDesigner.CalculateMeltingTemperatureNNLna(seq, new[] { 2, 7 });
+        b.Should().Be(a);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: PROBE-EVALUE-001 — Karlin–Altschul off-target E-value (MolTools), row 244.
+    //
+    // Model: the bit score is the affine-then-rescaled raw score S' = (λS − ln K)/ln 2,
+    //        and E = K·m·n·e^{−λS} = m·n·2^{−S'} (Karlin & Altschul 1990; Altschul 1990).
+    //   — ProbeDesigner.ComputeKarlinAltschul / ComputeLambdaNucleotide.
+    //     TestSpec tests/TestSpecs/PROBE-EVALUE-001.md.
+    //
+    // Laws (row 244): ID — bit = (λS − ln K)/ln 2 (and E = m·n·2^{−bit}).
+    //                 IDEMP — the statistics are a pure, deterministic function.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    [Test]
+    public void KarlinAltschul_Identity_BitScoreEqualsClosedForm()
+    {
+        const double k = 0.711;
+        var s = ProbeDesigner.ComputeKarlinAltschul(rawScore: 45.0, queryLength: 25, databaseLength: 3_000_000_000L, k: k);
+
+        // bit = (λS − ln K)/ln 2, computed independently from the returned λ.
+        double expectedBit = (s.Lambda * s.RawScore - Math.Log(k)) / Math.Log(2.0);
+        s.BitScore.Should().BeApproximately(expectedBit, 1e-9);
+
+        // E = m·n·2^{−bit} (equivalently K·m·n·e^{−λS}).
+        double expectedE = (double)s.QueryLength * s.DatabaseLength * Math.Pow(2.0, -s.BitScore);
+        s.EValue.Should().BeApproximately(expectedE, expectedE * 1e-9);
+    }
+
+    [Test]
+    public void KarlinAltschul_Idempotent_Deterministic()
+    {
+        var a = ProbeDesigner.ComputeKarlinAltschul(45.0, 25, 3_000_000_000L);
+        var b = ProbeDesigner.ComputeKarlinAltschul(45.0, 25, 3_000_000_000L);
+        b.BitScore.Should().Be(a.BitScore);
+        b.EValue.Should().Be(a.EValue);
+        b.Lambda.Should().Be(a.Lambda);
+    }
 }

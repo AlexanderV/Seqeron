@@ -273,4 +273,92 @@ public class OncologyAlgebraicTests
         fit2.GoodnessOfFit.Should().Be(fit1.GoodnessOfFit);
         fit2.Segments.Should().Equal(fit1.Segments);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: MHC-NN-001 — MHCflurry pan-allele NN IC50 transform (Oncology), row 245.
+    // ID — IC50 = 50000^(1 − x): the documented regression-target transform, a strictly
+    //      decreasing inverse of the network output x (x=0 → 50000 nM, x=1 → 1 nM).
+    // IDEMP — the transform is a pure, deterministic function.
+    //   — MhcflurryAffinityPredictor.ToIc50; regression_target.to_ic50 (MHCflurry).
+    // ═══════════════════════════════════════════════════════════════════════
+
+    [FsCheck.NUnit.Property]
+    public Property MhcIc50_Identity_EqualsClosedFormInverse()
+    {
+        return Prop.ForAll(Gen.Choose(0, 1000).Select(x => x / 1000.0).ToArbitrary(), x =>
+        {
+            double ic50 = MhcflurryAffinityPredictor.ToIc50(x);
+            double expected = System.Math.Pow(MhcflurryAffinityPredictor.MaxIc50Nm, 1.0 - x);
+            return (System.Math.Abs(ic50 - expected) < 1e-9).Label($"ToIc50({x})={ic50} != {expected}");
+        });
+    }
+
+    [Test]
+    public void MhcIc50_Identity_BoundaryAnchorsAndInverseMonotonicity()
+    {
+        // x = 0 → weakest binder = max IC50 (50000 nM); x = 1 → strongest = 1 nM.
+        MhcflurryAffinityPredictor.ToIc50(0.0).Should().BeApproximately(50000.0, 1e-6);
+        MhcflurryAffinityPredictor.ToIc50(1.0).Should().BeApproximately(1.0, 1e-9);
+
+        // Inverse: a higher network output (stronger predicted binding) yields a strictly lower IC50.
+        double prev = MhcflurryAffinityPredictor.ToIc50(0.0);
+        for (int i = 1; i <= 10; i++)
+        {
+            double next = MhcflurryAffinityPredictor.ToIc50(i / 10.0);
+            next.Should().BeLessThan(prev, "IC50 is a strictly decreasing inverse of the output");
+            prev = next;
+        }
+    }
+
+    [Test]
+    public void MhcIc50_Idempotent_Deterministic()
+    {
+        MhcflurryAffinityPredictor.ToIc50(0.42).Should().Be(MhcflurryAffinityPredictor.ToIc50(0.42));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: MHC-MATRIX-001 — BIMAS / SMM matrix pMHC prediction (Oncology), row 246.
+    // ID — BIMAS half-life = FinalConstant · ∏_i coefficient(peptide[i]): the running score
+    //      starts at 1.0 and multiplies one position coefficient per residue.
+    // IDEMP — the matrix score is a pure, deterministic function.
+    //   — OncologyAnalyzer.PredictBindingHalfLifeBimas; BIMAS scoring (Parker et al. 1994).
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private static OncologyAnalyzer.PmhcScoringMatrix BimasToyMatrix() =>
+        new(new IReadOnlyDictionary<char, double>[]
+        {
+            new Dictionary<char, double> { ['A'] = 2.0 },
+            new Dictionary<char, double> { ['C'] = 3.0 },
+            new Dictionary<char, double> { ['D'] = 0.5 },
+        }, FinalConstant: 10.0);
+
+    [Test]
+    public void BimasHalfLife_Identity_EqualsProductOfPositionCoefficients()
+    {
+        var matrix = BimasToyMatrix();
+        double half = OncologyAnalyzer.PredictBindingHalfLifeBimas("ACD", matrix);
+
+        // ∏ coefficients × FinalConstant = 2.0 · 3.0 · 0.5 · 10.0 = 30.0.
+        half.Should().BeApproximately(2.0 * 3.0 * 0.5 * 10.0, 1e-9);
+    }
+
+    [Test]
+    public void BimasHalfLife_Identity_AbsentResidueIsNeutralFactorOne()
+    {
+        // A residue with no coefficient at its position contributes the neutral factor 1.0,
+        // so an unknown residue at position 3 leaves the product unchanged.
+        var matrix = BimasToyMatrix();
+        double known = OncologyAnalyzer.PredictBindingHalfLifeBimas("ACD", matrix);
+        double withNeutral = OncologyAnalyzer.PredictBindingHalfLifeBimas("ACW", matrix); // 'W' absent at pos 3
+        withNeutral.Should().BeApproximately(2.0 * 3.0 * 1.0 * 10.0, 1e-9);
+        known.Should().NotBe(withNeutral);
+    }
+
+    [Test]
+    public void BimasHalfLife_Idempotent_Deterministic()
+    {
+        var matrix = BimasToyMatrix();
+        OncologyAnalyzer.PredictBindingHalfLifeBimas("ACD", matrix)
+            .Should().Be(OncologyAnalyzer.PredictBindingHalfLifeBimas("ACD", matrix));
+    }
 }
