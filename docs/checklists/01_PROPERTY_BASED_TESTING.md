@@ -110,7 +110,7 @@ Property-based testing генерує сотні випадкових вході
 | 78 | ☑ | SPLICE-ACCEPTOR-001 | Splicing | R: score ∈ [0,1]; P: canonical AG at acceptor site; D: deterministic | SplicingProperties.cs |
 | 79 | ☑ | SPLICE-PREDICT-001 | Splicing | R: exon start < end; P: introns flanked by GT…AG; D: deterministic | SplicingProperties.cs |
 | 80 | ☑ | DISORDER-PRED-001 | ProteinPred | R: score ∈ [0,1]; P: len(scores) = len(sequence); D: deterministic | DisorderProperties.cs |
-| 81 | ☐ | DISORDER-REGION-001 | ProteinPred | R: region start < end ≤ seqLen; M: lower threshold → larger regions; D: deterministic | DisorderProperties.cs (new) |
+| 81 | ☑ | DISORDER-REGION-001 | ProteinPred | R: region start < end ≤ seqLen; M: lower threshold → larger regions; D: deterministic | DisorderProperties.cs (new) |
 | 82 | ☐ | PROTMOTIF-FIND-001 | ProteinMotif | R: positions valid; M: broader pattern → ≥ matches; D: deterministic | ProteinMotifProperties.cs |
 | 83 | ☑ | PROTMOTIF-PROSITE-001 | ProteinMotif | R: match positions valid; P: match conforms to PROSITE pattern regex; D: deterministic | ProteinMotifProperties.cs |
 | 84 | ☐ | PROTMOTIF-DOMAIN-001 | ProteinMotif | R: domain start < end; D: deterministic; P: domain score above threshold | ProteinMotifProperties.cs |
@@ -296,7 +296,7 @@ Property-based testing генерує сотні випадкових вході
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 215 |
-| ☐ Not started | 43 |
+| ☑ Complete | 216 |
+| ☐ Not started | 42 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
