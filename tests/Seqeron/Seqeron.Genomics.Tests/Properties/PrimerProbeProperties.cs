@@ -2242,4 +2242,138 @@ public class PrimerProbeProperties
     }
 
     #endregion
+
+    #region PROBE-LNATM-001: R: each LNA substitution does not lower Tm; D; MGB rules return boolean+reasons
+
+    // CalculateMeltingTemperatureNNLna applies the McTigue (2004) LNA nearest-neighbour increments, which
+    // are all stabilising, so locking a base as LNA never lowers the duplex Tm. EvaluateMgbProbeDesign
+    // returns the qualitative Kutyavin (2000) MGB design rules (a boolean + a reasons list).
+
+    /// <summary>
+    /// INV-1 (R): adding an LNA substitution never lowers the duplex Tm — LNA nearest-neighbour stacks are
+    /// uniformly stabilising (McTigue 2004), so Tm(S ∪ {p}) ≥ Tm(S) for any extra LNA position p.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property LnaTm_AddingLnaPosition_NeverLowersTm()
+    {
+        var gen = (from chars in Gen.Elements('A', 'C', 'G', 'T').ArrayOf().Where(a => a.Length >= 8 && a.Length <= 30)
+                   let seq = new string(chars)
+                   from p in Gen.Choose(0, seq.Length - 1)
+                   from baseFlags in Gen.Elements(true, false).ArrayOf(seq.Length)
+                   select (seq, p, baseSet: Enumerable.Range(0, seq.Length).Where(i => baseFlags[i] && i != p).ToList()))
+                   .ToArbitrary();
+
+        return Prop.ForAll(gen, t =>
+        {
+            double without = PrimerDesigner.CalculateMeltingTemperatureNNLna(t.seq, t.baseSet);
+            double with = PrimerDesigner.CalculateMeltingTemperatureNNLna(t.seq, t.baseSet.Append(t.p).ToList());
+            if (!double.IsFinite(without) || !double.IsFinite(with)) return true.ToProperty();
+            return (with >= without - 1e-9).Label($"adding LNA@{t.p} lowered Tm: {without:F2} → {with:F2}");
+        });
+    }
+
+    /// <summary>INV-2 (D): the LNA Tm is deterministic for a fixed sequence and LNA position set.</summary>
+    [FsCheck.NUnit.Property]
+    public Property LnaTm_IsDeterministic()
+    {
+        return Prop.ForAll(ValidPrimerArbitrary(8, 30), seq =>
+        {
+            var lna = new[] { 0, seq.Length / 2 };
+            // double.Equals treats NaN == NaN as true: NaN (no LNA thermodynamics) is still deterministic.
+            return PrimerDesigner.CalculateMeltingTemperatureNNLna(seq, lna)
+                    .Equals(PrimerDesigner.CalculateMeltingTemperatureNNLna(seq, lna))
+                .Label("CalculateMeltingTemperatureNNLna must be deterministic");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (MGB rules → boolean + reasons): EvaluateMgbProbeDesign always returns a non-empty guidance
+    /// list with the 3'-attachment rule, reports the input length, uppercases the sequence, and its
+    /// LengthInMgbRange boolean is consistent with whether an "outside the MGB window" warning was emitted.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Mgb_ReturnsBooleanAndConsistentReasons()
+    {
+        return Prop.ForAll(ValidPrimerArbitrary(1, 40), seq =>
+        {
+            var d = ProbeDesigner.EvaluateMgbProbeDesign(seq);
+            bool warned = d.Guidance.Any(g => g.Contains("outside", StringComparison.OrdinalIgnoreCase));
+            bool ok = d.Guidance.Count >= 1
+                      && d.Guidance.Any(g => g.Contains("3'"))
+                      && d.MgbAttachmentEnd == "3'"
+                      && d.Length == seq.Length
+                      && d.Sequence == seq.ToUpperInvariant()
+                      && d.LengthInMgbRange == !warned;
+            return ok.Label($"len={d.Length}, inRange={d.LengthInMgbRange}, warned={warned}, reasons={d.Guidance.Count}");
+        });
+    }
+
+    #endregion
+
+    #region PROBE-EVALUE-001: R: E-value ≥ 0; M: higher bit score → lower E-value; M: larger search space → higher E-value
+
+    // ComputeKarlinAltschul: E = K·m·n·e^{−λS}, bit score S' = (λS − ln K)/ln 2 (Karlin & Altschul 1990;
+    // Altschul et al. 1990). All of K, m, n, e^{−λS} are positive, so E ≥ 0.
+
+    private static Arbitrary<(double score, int m, long n)> KaProblemArbitrary() =>
+        (from scoreCenti in Gen.Choose(0, 10000)
+         from m in Gen.Choose(1, 5000)
+         from nKb in Gen.Choose(1, 1_000_000)
+         select (scoreCenti / 100.0, m, (long)nKb * 1000)).ToArbitrary();
+
+    /// <summary>INV-1 (R): the Karlin–Altschul E-value is non-negative (E = K·m·n·e^{−λS}, all factors ≥ 0).</summary>
+    [FsCheck.NUnit.Property]
+    public Property KarlinAltschul_EValue_IsNonNegative()
+    {
+        return Prop.ForAll(KaProblemArbitrary(), t =>
+        {
+            double e = ProbeDesigner.ComputeKarlinAltschul(t.score, t.m, t.n).EValue;
+            return (e >= 0.0).Label($"E-value {e} must be ≥ 0");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (M): a higher raw alignment score yields a higher bit score but a LOWER E-value — E decays as
+    /// e^{−λS} while the bit score grows linearly in S (Altschul et al. 1990).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property KarlinAltschul_HigherScore_LowerEValue_HigherBitScore()
+    {
+        var gen = (from m in Gen.Choose(1, 5000)
+                   from nKb in Gen.Choose(1, 1_000_000)
+                   from s1 in Gen.Choose(0, 9000)
+                   from delta in Gen.Choose(1, 1000)
+                   select (m, n: (long)nKb * 1000, lo: s1 / 100.0, hi: (s1 + delta) / 100.0)).ToArbitrary();
+
+        return Prop.ForAll(gen, t =>
+        {
+            var loStat = ProbeDesigner.ComputeKarlinAltschul(t.lo, t.m, t.n);
+            var hiStat = ProbeDesigner.ComputeKarlinAltschul(t.hi, t.m, t.n);
+            return (hiStat.EValue <= loStat.EValue + 1e-12 && hiStat.BitScore >= loStat.BitScore - 1e-12)
+                .Label($"score {t.lo}→{t.hi}: E {loStat.EValue}→{hiStat.EValue}, bits {loStat.BitScore}→{hiStat.BitScore}");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (M): a larger search space (longer database) yields a higher E-value — E is linear in the
+    /// search space m·n (Karlin & Altschul 1990).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property KarlinAltschul_LargerSearchSpace_HigherEValue()
+    {
+        var gen = (from scoreCenti in Gen.Choose(0, 10000)
+                   from m in Gen.Choose(1, 5000)
+                   from n1Kb in Gen.Choose(1, 500_000)
+                   from extraKb in Gen.Choose(1, 500_000)
+                   select (score: scoreCenti / 100.0, m, n1: (long)n1Kb * 1000, n2: (long)(n1Kb + extraKb) * 1000)).ToArbitrary();
+
+        return Prop.ForAll(gen, t =>
+        {
+            double eSmall = ProbeDesigner.ComputeKarlinAltschul(t.score, t.m, t.n1).EValue;
+            double eLarge = ProbeDesigner.ComputeKarlinAltschul(t.score, t.m, t.n2).EValue;
+            return (eLarge >= eSmall - 1e-12).Label($"db {t.n1}→{t.n2}: E {eSmall}→{eLarge} must not decrease");
+        });
+    }
+
+    #endregion
 }
