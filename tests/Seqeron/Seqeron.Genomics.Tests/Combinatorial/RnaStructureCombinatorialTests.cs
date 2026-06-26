@@ -826,4 +826,164 @@ public class RnaStructureCombinatorialTests
         a.Should().Be(b, "detection is order-independent (INV-5)");
         BruteForceCrossingCount(mixed).Should().Be(a, "count matches the crossing definition on the mixed set");
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: RNA-PKPREDICT-001 — Canonical H-type pseudoknot prediction
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 236.
+    // Spec: tests/TestSpecs/RNA-PKPREDICT-001.md (RnaSecondaryStructure.PredictStructurePseudoknot). ADVANCED §10.
+    //
+    // Sources: Reeder & Giegerich (2004), pknotsRG, BMC Bioinformatics 5:104 (penalties init 9.0,
+    //   unpaired-loop 0.3, in-knot pair 0.0 kcal/mol); Antczak et al. (2018) crossing i<k<j<l.
+    //
+    // Model: a canonical H-type knot has 5'→3' order stem1-5'·loop1·stem2-5'·loop2·stem1-3'·loop3·stem2-3',
+    //   the two G·C helices crossing. PredictStructurePseudoknot reports the knot only when the two helices
+    //   outweigh the 9 kcal/mol initiation penalty plus the best nested alternative (strict improvement).
+    //
+    // Dimensions: seqLen(3) × minLoop(2). Grid 3×2 = 6 (exhaustive [Combinatorial]).
+    //
+    // The combinatorial point: seqLen (via stem length 4/5/6 ⇒ 22/26/30 nt) and the minLoopSize knob
+    // interact with the knot decision. A strong two-helix H-type is recovered EXACTLY — both crossing
+    // G·C helices, a genuine crossing, a valid structure, and an energy strictly below the plain MFE —
+    // in every cell, and the minLoopSize knob (clamped ≥3) does not perturb a strong knot.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // H-type construct: G^stem · A^loop · C^stem · A^loop · C^stem · A^loop · G^stem (loop fixed at 2, as M1).
+    private static string BuildHType(int stem, int loop)
+    {
+        string g = new('G', stem), c = new('C', stem), a = new('A', loop);
+        return g + a + c + a + c + a + g;
+    }
+
+    // Exact crossing-helix pairs of the H-type construct (stem1 = a·a', stem2 = b·b').
+    private static HashSet<(int, int)> ExpectedHTypePairs(int stem, int loop)
+    {
+        var set = new HashSet<(int, int)>();
+        for (int p = 0; p < stem; p++) set.Add((p, 3 * stem + 2 * loop - 1 - p));               // stem 1 (a·a')
+        for (int o = 0; o < stem; o++) set.Add((stem + loop + o, 4 * stem + 3 * loop - 1 - o));  // stem 2 (b·b')
+        return set;
+    }
+
+    private static HashSet<(int, int)> NormalisePairs(IEnumerable<(int Position1, int Position2)> pairs)
+        => pairs.Select(p => (Math.Min(p.Position1, p.Position2), Math.Max(p.Position1, p.Position2))).ToHashSet();
+
+    private static int CrossingsOf(string seq, IReadOnlyList<(int Position1, int Position2)> pairs)
+    {
+        var bps = pairs.Select(p => new RnaSecondaryStructure.BasePair(
+            p.Position1, p.Position2, seq[p.Position1], seq[p.Position2],
+            RnaSecondaryStructure.GetBasePairType(seq[p.Position1], seq[p.Position2]) ?? RnaSecondaryStructure.BasePairType.NonCanonical)).ToList();
+        return RnaSecondaryStructure.DetectPseudoknots(bps).Count();
+    }
+
+    private static void AssertValidStructure(string seq, IReadOnlyList<(int Position1, int Position2)> pairs)
+    {
+        var seen = new HashSet<int>();
+        foreach (var (x, y) in pairs.Select(p => (p.Position1, p.Position2)))
+        {
+            x.Should().BeInRange(0, seq.Length - 1);
+            y.Should().BeInRange(0, seq.Length - 1);
+            seen.Add(x).Should().BeTrue("each position is paired at most once");
+            seen.Add(y).Should().BeTrue("each position is paired at most once");
+        }
+    }
+
+    [Test, Combinatorial]
+    public void PseudoknotPredict_RecoversPlantedHType_AcrossLengthAndMinLoop(
+        [Values(4, 5, 6)] int stem,
+        [Values(3, 5)] int minLoop)
+    {
+        const int loop = 2;
+        string seq = BuildHType(stem, loop);
+
+        var pk = RnaSecondaryStructure.PredictStructurePseudoknot(seq, minLoop);
+
+        pk.HasPseudoknot.Should().BeTrue("two strong crossing G·C helices outweigh the 9 kcal/mol knot penalty");
+        NormalisePairs(pk.BasePairs).Should().BeEquivalentTo(ExpectedHTypePairs(stem, loop),
+            "both crossing helices of the planted H-type are recovered exactly");
+        CrossingsOf(pk.Sequence, pk.BasePairs).Should().BeGreaterThanOrEqualTo(1,
+            "the recovered structure contains a genuine crossing pair (i<k<j<l)");
+        AssertValidStructure(seq, pk.BasePairs);
+        pk.FreeEnergy.Should().BeLessThan(RnaSecondaryStructure.CalculateMfeStructure(seq).FreeEnergy,
+            "an accepted pseudoknot strictly beats the plain pseudoknot-free MFE");
+    }
+
+    /// <summary>
+    /// Interaction witness: a plain nested hairpin introduces no spurious knot at any minLoopSize —
+    /// the 9 kcal/mol penalty keeps a strong hairpin pseudoknot-free.
+    /// </summary>
+    [Test]
+    public void PseudoknotPredict_PlainHairpin_NoSpuriousKnot([Values(3, 5)] int minLoop)
+    {
+        var pk = RnaSecondaryStructure.PredictStructurePseudoknot("GGGGAAAACCCC", minLoop);
+        pk.HasPseudoknot.Should().BeFalse("a nested hairpin must not be reported as a pseudoknot");
+        CrossingsOf(pk.Sequence, pk.BasePairs).Should().Be(0, "no crossing pair in a nested hairpin");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: RNA-PKRECURSIVE-001 — Recursive pseudoknot prediction (nested / multiple knots)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 237.
+    // Spec: tests/TestSpecs/RNA-PKRECURSIVE-001.md (RnaSecondaryStructure.PredictStructurePseudoknotRecursive). ADVANCED §10.
+    //
+    // Sources: Reeder & Giegerich (2004) recursive simple pseudoknots (loops may fold further knots);
+    //   Antczak et al. (2018) crossing condition.
+    //
+    // Model: the recursive folder lets the three loops fold internally (including further knots) and the
+    //   pseudoknot value competes with unknotted foldings for each interval, so the optimum may contain
+    //   several / over-arching nested knots. A reported knot still strictly beats the plain MFE.
+    //
+    // Dimensions: seqLen(3) × minLoop(2). Grid 3×2 = 6.
+    //
+    // The combinatorial point: three engineered scales — a single H-type (22 nt, ≥1 crossing), an
+    // over-arching nested knot (38 nt, ≥1 crossing) and two separated knots (80 nt, ≥2 crossings) —
+    // are each recovered as pseudoknotted with a valid crossing structure beating the MFE, stable
+    // under the minLoopSize knob (clamped ≥3).
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // Engineered constructs from the Evidence datasets.
+    private const string PkSingleHType = "GGGGAACCCCAACCCCAAGGGG";                                    // 22 nt, one H-type
+    private const string PkNestedKnot = "AAAAAAAAGGGGAACCCCAACCCCAAGGGGUUUUUUUU";                    // 38 nt, over-arching nested knot
+    private const string PkTwoKnots =                                                                // 80 nt, two separated knots
+        "AAAAAAAAGGGGAACCCCAACCCCAAGGGGUUUUUUUUAAAAAAAAAAAAGGGGAACCCCAACCCCAAGGGGUUUUUUUU";
+
+    public enum PkScale { Single, Nested, TwoKnots }
+
+    [Test, Combinatorial]
+    public void PseudoknotRecursive_RecoversPlantedKnots_AcrossLengthAndMinLoop(
+        [Values(PkScale.Single, PkScale.Nested, PkScale.TwoKnots)] PkScale scale,
+        [Values(3, 5)] int minLoop)
+    {
+        (string seq, int minCrossings) = scale switch
+        {
+            PkScale.Single => (PkSingleHType, 1),
+            PkScale.Nested => (PkNestedKnot, 1),
+            _ => (PkTwoKnots, 2),
+        };
+
+        var pk = RnaSecondaryStructure.PredictStructurePseudoknotRecursive(seq, minLoop);
+
+        pk.HasPseudoknot.Should().BeTrue($"the engineered {scale} construct is pseudoknotted");
+        CrossingsOf(pk.Sequence, pk.BasePairs).Should().BeGreaterThanOrEqualTo(minCrossings,
+            $"the {scale} construct yields at least {minCrossings} genuine crossing(s)");
+        AssertValidStructure(seq, pk.BasePairs);
+        pk.FreeEnergy.Should().BeLessThanOrEqualTo(RnaSecondaryStructure.CalculateMfeStructure(seq).FreeEnergy,
+            "the recursive fold is never worse than the plain MFE (its fallback baseline)");
+    }
+
+    /// <summary>
+    /// Interaction witness: recursion strictly helps where it should. On the over-arching nested knot the
+    /// recursive folder reaches a lower free energy than the single-knot predictor (which recovers no knot
+    /// there); on a plain hairpin neither introduces a spurious knot.
+    /// </summary>
+    [Test]
+    public void PseudoknotRecursive_BeatsSingleKnotOnNested_NoSpuriousOnHairpin()
+    {
+        var recursive = RnaSecondaryStructure.PredictStructurePseudoknotRecursive(PkNestedKnot);
+        var single = RnaSecondaryStructure.PredictStructurePseudoknot(PkNestedKnot);
+        recursive.FreeEnergy.Should().BeLessThan(single.FreeEnergy,
+            "loop recursion lowers the energy of the over-arching nested knot below the single-knot method");
+        single.HasPseudoknot.Should().BeFalse("the single-knot method cannot fold the over-arching nested knot");
+
+        var hairpin = RnaSecondaryStructure.PredictStructurePseudoknotRecursive("GGGGAAAACCCC");
+        hairpin.HasPseudoknot.Should().BeFalse("no spurious knot on a plain hairpin");
+        CrossingsOf(hairpin.Sequence, hairpin.BasePairs).Should().Be(0);
+    }
 }
