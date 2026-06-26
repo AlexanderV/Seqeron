@@ -544,4 +544,131 @@ public class ProteinMotifMetamorphicTests
     }
 
     #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  PROTMOTIF-HMM-001 — Plan7 profile-HMM domain detection (RnaStructure/ProteinMotif)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (Durbin et al. 1998 §5.4; Eddy 2008 PLoS CB 4:e1000069; HMMER3 hmmsearch;
+    //   docs/algorithms/ProteinMotif/Profile_HMM_Domain_Detection.md):
+    //   A profile HMM scores a protein against a Pfam family. The bit score of a domain is the
+    //   log-odds of the alignment against the i.i.d. background null model; the HMMER E-value is
+    //   E = P·Z with P the Gumbel/exponential survival of the bit score (monotone DECREASING in
+    //   the score). Two metamorphic relations (checklist row 239):
+    //
+    //   • MON (appending a random flank does not raise a true domain's bit score): a flanking
+    //     stretch that does not match the model is emitted by the flanking/insert states at ~0
+    //     log-odds and adds only length/null cost, so it can only keep or LOWER the domain's bit
+    //     score — never raise it.
+    //   • SUB (stricter E-value → ⊆ hit set): because the E-value is monotone decreasing in the
+    //     bit score, raising the engine's per-domain bit-score threshold (equivalently lowering the
+    //     E-value cutoff) yields a SUBSET of the looser hit set — only the lowest-E (highest-scoring)
+    //     envelopes survive.
+    //
+    // API under test: ProteinMotifFinder.ScoreDomainHmm / .FindDomainEnvelopes (DomainEnvelopeHit).
+
+    #region PROTMOTIF-HMM-001 — profile-HMM domain detection
+
+    // SRC_HUMAN SH3 core (UniProt P12931) vs PF00018 — a strong true positive.
+    private const string Sh3TruePositive = "TFVALYDYESRTETDLSFKKGERLQIVNNTEGDWWLAHSLSTGQTGYIPSNYVAP";
+    private const string Sh3Accession = "PF00018";
+
+    // GBB1_HUMAN / Gβ1 (UniProt P62873): a seven-bladed WD40 β-propeller — a real multi-domain target.
+    private const string Wd40SevenBladePropeller =
+        "MSELDQLRQEAEQLKNQIRDARKACADATLSQITNNIDPVGRIQMRTRRTLRGHLAKIYAMHWGTDSRLLVSASQDGKLIIWDSYTTNKVHAIPLRSSWVMTCAYAPSGNYVACGGLDNICSIYNLKTREGNVRVSRELAGHTGYLSCCRFLDDNQIVTSSGDTTCALWDIETGQQTTTFTGHTGDVMSLSLAPDTRLFVSGACDASAKLWDVREGMCRQTFTGHESDINAICFFPNGNAFATGSDDATCRLFDLRADQELMTYSHDNIICGITSVSFSKSGRLLLAGYDDFNCNVWDALKADRAGVLAGHDNRVSCLGVTDDGMAVATGSWDSFLKIWN";
+
+    // Deterministic non-SH3 flanks (low-complexity / hydrophilic; do not form an SH3 fold).
+    private static readonly string[] NonDomainFlanks =
+    {
+        "GSGSGS",
+        "PEPEPEPEPE",
+        "GGGGSSSSGGGGSSSSGGGG",
+    };
+
+    [Test]
+    [Description("MON: HMMER's per-domain bit score is length-corrected (p7_ReconfigLength), so a longer sequence carries a larger length/null penalty — a non-matching flank can only keep or lower a true SH3 domain's per-domain bit score, never raise it.")]
+    public void Hmm_AppendingRandomFlank_DoesNotRaiseTrueDomainBitScore()
+    {
+        // HMMER's per-domain (local, null2-corrected, length-configured) bit score is the canonical
+        // "domain bit score". The glocal whole-sequence score is a different alignment mode and is
+        // NOT the quantity this relation is about.
+        double Sh3DomainBits(string seq) =>
+            ProteinMotifFinder.FindDomainEnvelopes(seq, minBitScore: 0.0)
+                .Where(h => h.Accession == Sh3Accession)
+                .Select(h => h.BitScore)
+                .DefaultIfEmpty(double.NaN)
+                .Max();
+
+        double baseline = Sh3DomainBits(Sh3TruePositive);
+
+        // Non-vacuity: the bare sequence is a strong true positive with a single SH3 envelope.
+        baseline.Should().BeGreaterThan(50.0, because: "the SRC SH3 core is a genuine PF00018 domain");
+
+        foreach (string flank in NonDomainFlanks)
+        {
+            foreach (string flanked in new[] { flank + Sh3TruePositive, Sh3TruePositive + flank, flank + Sh3TruePositive + flank })
+            {
+                double score = Sh3DomainBits(flanked);
+                score.Should().NotBe(double.NaN, because: $"the SH3 domain is still detected despite the flank '{flank}'");
+                score.Should().BeLessThanOrEqualTo(baseline + 1e-6,
+                    because: $"the per-domain length correction grows with sequence length, so the flank '{flank}' cannot raise the SH3 domain bit score");
+            }
+        }
+    }
+
+    [Test]
+    [Description("SUB: the E-value is monotone decreasing in the bit score, so raising the per-domain bit-score threshold (a stricter E-value) yields a subset of the looser envelope hit set — the lowest-E envelopes survive.")]
+    public void Hmm_StricterThreshold_YieldsSubsetOfEnvelopeHits()
+    {
+        // The seven WD40 envelopes of GBB1, with a wide spread of bit scores / i-Evalues.
+        var loose = ProteinMotifFinder.FindDomainEnvelopes(Wd40SevenBladePropeller, minBitScore: 10.0);
+        loose.Count.Should().BeGreaterThan(2, because: "GBB1 is a multi-domain WD40 propeller — the non-vacuity guard");
+
+        // Envelope identity for set membership.
+        (string, int, int) Id(ProteinMotifFinder.DomainEnvelopeHit h) => (h.Accession, h.EnvelopeStart, h.EnvelopeEnd);
+
+        // (a) Engine threshold SUB: raising minBitScore can only drop envelopes (nested subsets).
+        var thresholds = new[] { 10.0, 20.0, 25.0, 30.0, 40.0 };
+        IReadOnlyList<ProteinMotifFinder.DomainEnvelopeHit>? previous = null;
+        bool sawStrictShrink = false;
+        foreach (double t in thresholds)
+        {
+            var hits = ProteinMotifFinder.FindDomainEnvelopes(Wd40SevenBladePropeller, minBitScore: t);
+            if (previous is not null)
+            {
+                var current = hits.Select(Id).ToHashSet();
+                current.IsSubsetOf(previous.Select(Id).ToHashSet()).Should().BeTrue(
+                    because: $"raising the bit-score threshold to {t} can only drop envelopes, never add them");
+                if (hits.Count < previous.Count) sawStrictShrink = true;
+            }
+
+            // Every surviving envelope really does meet the stricter threshold.
+            hits.All(h => h.BitScore >= t - 1e-9).Should().BeTrue(
+                because: $"only envelopes scoring ≥ {t} bits are reported at that threshold");
+            previous = hits;
+        }
+
+        sawStrictShrink.Should().BeTrue(because: "the spread of WD40 domain scores makes the SUB relation non-vacuous");
+
+        // (b) E-value SUB: filtering the loose set by a stricter (smaller) E-value cutoff is monotone.
+        var eValues = loose.Select(h => h.IndependentEValue).OrderByDescending(e => e).ToArray();
+        double looseCut = eValues[0];                 // keeps all
+        double strictCut = eValues[^1] * 10.0;        // keeps only the very lowest-E envelope(s)
+        var strictSet = loose.Where(h => h.IndependentEValue <= strictCut).Select(Id).ToHashSet();
+        var looseSet = loose.Where(h => h.IndependentEValue <= looseCut).Select(Id).ToHashSet();
+
+        strictSet.IsSubsetOf(looseSet).Should().BeTrue(
+            because: "a stricter E-value cutoff keeps a subset of the hits a looser cutoff keeps");
+        strictSet.Count.Should().BeLessThan(looseSet.Count,
+            because: "the E-value spread across the WD40 domains makes the E-value SUB non-vacuous");
+
+        // (c) Link bits ↔ E-value: across same-profile envelopes, higher bit score ⟺ smaller E-value.
+        foreach (var a in loose)
+            foreach (var b in loose)
+                if (a.BitScore > b.BitScore + 1e-9)
+                    a.IndependentEValue.Should().BeLessThan(b.IndependentEValue,
+                        because: "for one calibrated profile the E-value is strictly decreasing in the bit score");
+    }
+
+    #endregion
 }
