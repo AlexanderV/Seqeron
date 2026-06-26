@@ -700,4 +700,147 @@ public class RnaStructureMetamorphicTests
     }
 
     #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  RNA-PKPREDICT-001 — canonical H-type pseudoknot prediction (RnaStructure / Analysis)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (Reeder & Giegerich 2004, pknotsRG, BMC Bioinformatics 5:104;
+    //   docs/algorithms/RnaStructure/Pseudoknot_Prediction.md §2, §6.1):
+    //   PredictStructurePseudoknot folds an RNA into a structure that may contain a single
+    //   canonical H-type pseudoknot — two crossing helices a·a' and b·b' with three loops —
+    //   scored with the Turner 2004 nearest-neighbour model plus pknotsRG penalties (init 9.0,
+    //   0.3 per unpaired pseudoknot-loop nt). A candidate knot is accepted ONLY when its ΔG is
+    //   strictly below the plain pseudoknot-free MFE (INV-PK-01/04), and the predictor reads
+    //   the input case-insensitively with T as U (§3.3).
+    //
+    // Two metamorphic relations (checklist row 236):
+    //   • INV (known H-type knot recovered): a designed two-crossing-helix sequence is recovered
+    //     as a pseudoknot, and that recovery is INVARIANT under representation-preserving input
+    //     transforms — case folding (upper/lower/mixed) and the T↔U (DNA↔RNA) spelling — yielding
+    //     an identical base-pair set, dot-bracket and ΔG. (The recovery itself, not a magic value,
+    //     is the oracle-free property; the unit test pins the exact pairs separately.)
+    //   • INV (no spurious knot on a plain hairpin): a simple hairpin is never reported as a
+    //     pseudoknot — its structure and ΔG equal the plain MFE — and adding non-pairing 5'/3'
+    //     context cannot fabricate a crossing helix (the 9 kcal/mol initiation penalty, INV-PK-04).
+    //
+    // API under test: RnaSecondaryStructure.PredictStructurePseudoknot / .CalculateMfeStructure
+    //   / .DetectPseudoknots (PseudoknotStructure).
+
+    #region RNA-PKPREDICT-001 — H-type pseudoknot prediction
+
+    // Designed canonical H-type knot (two crossing 4-bp G·C helices, AA loops) — proven recovered
+    // in the unit test; here it is the non-vacuous fixture for the encoding-invariance relations.
+    private const string DesignedHTypeKnot = "GGGGAACCCCAACCCCAAGGGG";
+
+    // Same geometry but with U in the (unpaired) loops, so the T↔U spelling transform is non-trivial.
+    private const string DesignedHTypeKnotWithU = "GGGGUUCCCCUUCCCCUUGGGG";
+
+    private static HashSet<(int, int)> PkPairSet(IEnumerable<(int Position1, int Position2)> pairs) =>
+        pairs.Select(p => p.Position1 < p.Position2 ? (p.Position1, p.Position2) : (p.Position2, p.Position1)).ToHashSet();
+
+    private static int PkCrossingCount(string seq, IReadOnlyList<(int Position1, int Position2)> pairs)
+    {
+        var bps = pairs.Select(p => new RnaSecondaryStructure.BasePair(
+            p.Position1, p.Position2, seq[p.Position1], seq[p.Position2],
+            RnaSecondaryStructure.GetBasePairType(seq[p.Position1], seq[p.Position2])
+                ?? RnaSecondaryStructure.BasePairType.NonCanonical)).ToList();
+        return RnaSecondaryStructure.DetectPseudoknots(bps).Count();
+    }
+
+    [Test]
+    [Description("INV: the predictor folds case-insensitively, so a known H-type knot is recovered identically (same pairs/dot-bracket/ΔG) regardless of upper/lower/mixed-case spelling.")]
+    public void PkPredict_KnownHTypeKnot_RecoveredIdenticallyUnderCaseFolding()
+    {
+        var reference = RnaSecondaryStructure.PredictStructurePseudoknot(DesignedHTypeKnot);
+
+        // Non-vacuity: this fixture really is a recovered, genuinely-crossing pseudoknot.
+        reference.HasPseudoknot.Should().BeTrue(because: "the designed two-crossing-helix sequence must be folded as a pseudoknot");
+        PkCrossingCount(reference.Sequence, reference.BasePairs).Should().BeGreaterThanOrEqualTo(1,
+            because: "the recovered structure contains a genuine crossing pair (i<k<j<l)");
+
+        foreach (string spelling in new[]
+                 {
+                     DesignedHTypeKnot.ToLowerInvariant(),
+                     // mixed case: lower the even positions only
+                     new string(DesignedHTypeKnot.Select((c, i) => i % 2 == 0 ? char.ToLowerInvariant(c) : c).ToArray()),
+                 })
+        {
+            var pk = RnaSecondaryStructure.PredictStructurePseudoknot(spelling);
+
+            pk.HasPseudoknot.Should().Be(reference.HasPseudoknot,
+                because: $"case folding ('{spelling}') must not change the knot/no-knot decision");
+            PkPairSet(pk.BasePairs).Should().BeEquivalentTo(PkPairSet(reference.BasePairs),
+                because: "the predictor upper-cases its input, so the base-pair set is case-invariant");
+            pk.DotBracket.Should().Be(reference.DotBracket, because: "the dot-bracket rendering is case-invariant");
+            pk.FreeEnergy.Should().BeApproximately(reference.FreeEnergy, 1e-10, because: "ΔG is case-invariant");
+        }
+    }
+
+    [Test]
+    [Description("INV: T is read as U, so a known H-type knot spelled with T (DNA) folds identically to its U (RNA) spelling — same pairs, dot-bracket and ΔG.")]
+    public void PkPredict_KnownHTypeKnot_RecoveredIdenticallyUnderTtoUSpelling()
+    {
+        string rna = DesignedHTypeKnotWithU;
+        string dna = rna.Replace('U', 'T');
+
+        var rnaPk = RnaSecondaryStructure.PredictStructurePseudoknot(rna);
+
+        // Non-vacuity: the RNA spelling is a recovered, genuinely-crossing pseudoknot containing U.
+        rna.Should().Contain("U", because: "the T↔U transform is only non-trivial if the RNA spelling contains U");
+        rnaPk.HasPseudoknot.Should().BeTrue(because: "the U-loop H-type sequence must be folded as a pseudoknot");
+        PkCrossingCount(rnaPk.Sequence, rnaPk.BasePairs).Should().BeGreaterThanOrEqualTo(1);
+
+        var dnaPk = RnaSecondaryStructure.PredictStructurePseudoknot(dna);
+
+        dnaPk.HasPseudoknot.Should().Be(rnaPk.HasPseudoknot, because: "T read as U must not change the knot decision");
+        PkPairSet(dnaPk.BasePairs).Should().BeEquivalentTo(PkPairSet(rnaPk.BasePairs),
+            because: "T and U pair identically (A–U ≡ A–T), so the base-pair set is spelling-invariant");
+        dnaPk.DotBracket.Should().Be(rnaPk.DotBracket, because: "the dot-bracket is spelling-invariant");
+        dnaPk.FreeEnergy.Should().BeApproximately(rnaPk.FreeEnergy, 1e-10, because: "ΔG is identical under T↔U");
+    }
+
+    [Test]
+    [Description("INV: a simple hairpin is never reported as a pseudoknot; its returned structure and ΔG equal the plain pseudoknot-free MFE (the 9 kcal/mol initiation penalty forbids spurious knots).")]
+    public void PkPredict_PlainHairpins_NoSpuriousKnot_EqualPlainMfe()
+    {
+        foreach (int arm in new[] { 4, 5, 6 })
+        {
+            string hairpin = GcHairpin(arm);
+            var pk = RnaSecondaryStructure.PredictStructurePseudoknot(hairpin);
+            var mfe = RnaSecondaryStructure.CalculateMfeStructure(hairpin);
+
+            // Non-vacuity: the hairpin genuinely folds (it is a real stem-loop, just not a knot).
+            mfe.BasePairs.Should().NotBeEmpty(because: $"a {arm}-bp G·C hairpin folds into a stem — the non-vacuity guard");
+
+            pk.HasPseudoknot.Should().BeFalse(
+                because: $"a plain hairpin (arm {arm}) cannot cross, and the 9 kcal/mol penalty forbids any spurious pseudoknot");
+            pk.DotBracket.Should().Be(mfe.DotBracket,
+                because: "with no accepted knot the returned structure is exactly the plain MFE structure");
+            pk.FreeEnergy.Should().BeApproximately(mfe.FreeEnergy, 1e-10,
+                because: "with no accepted knot the free energy equals the plain MFE");
+        }
+    }
+
+    [Test]
+    [Description("INV: adding non-pairing 5'/3' context to a plain hairpin cannot fabricate a crossing helix — no spurious pseudoknot is introduced.")]
+    public void PkPredict_PlainHairpin_NonPairingContext_NeverFabricatesKnot()
+    {
+        string hairpin = GcHairpin(5); // GGGGG AAAA CCCCC — A pairs only with U/T, of which the flank has none
+
+        RnaSecondaryStructure.PredictStructurePseudoknot(hairpin).HasPseudoknot.Should().BeFalse(
+            because: "the bare hairpin is knot-free — the baseline for the context relation");
+
+        foreach (int flank in new[] { 2, 5, 12 })
+        {
+            string a = new string('A', flank);
+            foreach (string ctx in new[] { a + hairpin, hairpin + a, a + hairpin + a })
+            {
+                RnaSecondaryStructure.PredictStructurePseudoknot(ctx).HasPseudoknot.Should().BeFalse(
+                    because: $"a poly-A flank cannot pair with the G/C/A hairpin, so it cannot create a crossing helix (ctx='{ctx}')");
+            }
+        }
+    }
+
+    #endregion
 }
