@@ -274,9 +274,9 @@ Property-based testing генерує сотні випадкових вході
 | 242 | ☑ | PRIMER-DIMER-001 | MolTools | R: dimer ΔG ≤ 0 or none; M: longer complementary run → lower ΔG; D: deterministic | PrimerProperties.cs (new) |
 | 243 | ☑ | PROBE-LNATM-001 | MolTools | R: each LNA substitution does not lower Tm; D: deterministic; MGB rules return boolean+reasons | ProbeProperties.cs (new) |
 | 244 | ☑ | PROBE-EVALUE-001 | MolTools | R: E-value ≥ 0; M: higher bit score → lower E-value; M: larger search space → higher E-value | ProbeProperties.cs (new) |
-| 245 | ☐ | MHC-NN-001 | Oncology | R: IC50 > 0; R: ensemble within member range; D: deterministic given weights | OncologyProperties.cs (new) |
-| 246 | ☐ | MHC-MATRIX-001 | Oncology | R: IC50 > 0; R: BIMAS half-life ≥ 0; M: anchor match → stronger binding | OncologyProperties.cs (new) |
-| 247 | ☐ | IMMUNE-NUSVR-001 | Oncology | R: fractions ≥ 0; D: deterministic; planted truth recovered | ImmuneProperties.cs (new) |
+| 245 | ☑ | MHC-NN-001 | Oncology | R: IC50 > 0; R: ensemble within member range; D: deterministic given weights | OncologyProperties.cs (new) |
+| 246 | ☑ | MHC-MATRIX-001 | Oncology | R: IC50 > 0; R: BIMAS half-life ≥ 0; M: anchor match → stronger binding | OncologyProperties.cs (new) |
+| 247 | ☑ | IMMUNE-NUSVR-001 | Oncology | R: fractions ≥ 0; D: deterministic; planted truth recovered | ImmuneProperties.cs (new) |
 | 248 | ☐ | META-CHECKM-001 | Metagenomics | R: 0 ≤ completeness ≤ 100; R: contamination ≥ 0; D: deterministic | MetagenomicsProperties.cs (new) |
 | 249 | ☐ | META-TETRA-001 | Metagenomics | R: correlation ∈ [-1,1]; INV: z(ACGT)=√5 on reference; D: deterministic | MetagenomicsProperties.cs (new) |
 | 250 | ☐ | SPLICE-MAXENT3-001 | Splicing | R: score finite; D: deterministic; requires 23-nt acceptor window | SpliceProperties.cs (new) |
@@ -296,7 +296,7 @@ Property-based testing генерує сотні випадкових вході
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 244 |
-| ☐ Not started | 14 |
+| ☑ Complete | 247 |
+| ☐ Not started | 11 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |

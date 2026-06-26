@@ -9716,4 +9716,202 @@ public class OncologyProperties
     }
 
     #endregion
+
+    #region MHC-NN-001 — MHCflurry ensemble IC50 prediction
+
+    // MhcflurryAffinityPredictor: each network predicts an IC50 (nM); the ensemble value is the GEOMETRIC
+    // mean of the per-network IC50s (MHCflurry default centrality), which always lies within the member range.
+
+    private const string MhcPseudosequence = "YFAMYGEKVAHTHVDTLYGVRYDHYYTWAVLAYTWYA"; // HLA-A*02:01 (37 residues)
+
+    private static IReadOnlyList<MhcflurryAffinityPredictor.Network> LoadMhcPack(string resource)
+    {
+        var asm = typeof(OncologyProperties).Assembly;
+        using System.IO.Stream stream = asm.GetManifestResourceStream(resource)
+            ?? throw new InvalidOperationException($"Embedded resource '{resource}' not found.");
+        return MhcflurryAffinityPredictor.LoadWeightPack(stream);
+    }
+
+    private static readonly Lazy<IReadOnlyList<MhcflurryAffinityPredictor.Network>> MhcSingleNet =
+        new(() => LoadMhcPack("Seqeron.Genomics.Tests.TestData.Mhcflurry.mhcflurry_single_net.bin"));
+    private static readonly Lazy<IReadOnlyList<MhcflurryAffinityPredictor.Network>> MhcSkipNet =
+        new(() => LoadMhcPack("Seqeron.Genomics.Tests.TestData.Mhcflurry.mhcflurry_skip_net.bin"));
+
+    private static Arbitrary<string> PeptideArbitrary() =>
+        (from len in Gen.Choose(8, 12)
+         from cs in Gen.Elements("ACDEFGHIKLMNPQRSTVWY".ToCharArray()).ArrayOf(len)
+         select new string(cs)).ToArbitrary();
+
+    /// <summary>INV-1 (R): every predicted ensemble IC50 is strictly positive (nM affinity).</summary>
+    [FsCheck.NUnit.Property]
+    public Property Mhcflurry_Ic50_IsPositive()
+    {
+        return Prop.ForAll(PeptideArbitrary(), peptide =>
+        {
+            double ic50 = MhcflurryAffinityPredictor.PredictIc50WithPseudosequence(MhcSingleNet.Value, peptide, MhcPseudosequence);
+            return (ic50 > 0.0).Label($"IC50 {ic50} must be > 0");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (R): the ensemble IC50 lies within the range of its member networks' IC50s — the geometric
+    /// mean of positive values is bounded by their minimum and maximum.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Mhcflurry_Ensemble_WithinMemberRange()
+    {
+        var ensemble = MhcSingleNet.Value.Concat(MhcSkipNet.Value).ToList();
+        return Prop.ForAll(PeptideArbitrary(), peptide =>
+        {
+            double combined = MhcflurryAffinityPredictor.PredictIc50WithPseudosequence(ensemble, peptide, MhcPseudosequence);
+            var members = ensemble
+                .Select(n => MhcflurryAffinityPredictor.PredictIc50WithPseudosequence(new[] { n }, peptide, MhcPseudosequence))
+                .ToList();
+            double lo = members.Min(), hi = members.Max();
+            return (combined >= lo - 1e-6 && combined <= hi + 1e-6)
+                .Label($"ensemble {combined} not within member range [{lo}, {hi}]");
+        });
+    }
+
+    /// <summary>INV-3 (D): prediction is deterministic for fixed weights and inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property Mhcflurry_IsDeterministic()
+    {
+        return Prop.ForAll(PeptideArbitrary(), peptide =>
+            (MhcflurryAffinityPredictor.PredictIc50WithPseudosequence(MhcSingleNet.Value, peptide, MhcPseudosequence)
+                == MhcflurryAffinityPredictor.PredictIc50WithPseudosequence(MhcSingleNet.Value, peptide, MhcPseudosequence))
+                .Label("MHCflurry prediction must be deterministic"));
+    }
+
+    #endregion
+
+    #region MHC-MATRIX-001 — BIMAS half-life & SMM IC50 from a pMHC scoring matrix
+
+    // PredictBindingHalfLifeBimas multiplies per-position coefficients (unlisted residue → 1.0);
+    // PredictIc50Smm sums per-position log50k contributions (unlisted → 0) and maps IC50 = 50000^(1−score).
+
+    private const int MhcMatrixLen = 9;
+    private const int MhcAnchorPos = 1;
+
+    /// <summary>BIMAS matrix favouring 'L' at the anchor with a strong (≥1) multiplicative coefficient; neutral elsewhere.</summary>
+    private static OncologyAnalyzer.PmhcScoringMatrix BimasAnchorMatrix() =>
+        new(Enumerable.Range(0, MhcMatrixLen)
+            .Select(i => (IReadOnlyDictionary<char, double>)(i == MhcAnchorPos
+                ? new Dictionary<char, double> { ['L'] = 8.0 }
+                : new Dictionary<char, double>()))
+            .ToList(), 1.0);
+
+    /// <summary>SMM matrix giving 'L' a positive log50k contribution at the anchor (stronger binding ⇒ higher score ⇒ lower IC50).</summary>
+    private static OncologyAnalyzer.PmhcScoringMatrix SmmAnchorMatrix() =>
+        new(Enumerable.Range(0, MhcMatrixLen)
+            .Select(i => (IReadOnlyDictionary<char, double>)(i == MhcAnchorPos
+                ? new Dictionary<char, double> { ['L'] = 0.5 }
+                : new Dictionary<char, double>()))
+            .ToList(), 0.0);
+
+    private static Arbitrary<string> NineMerArbitrary() =>
+        (from cs in Gen.Elements("ACDEFGHIKMNPQRSTVWY".ToCharArray()).ArrayOf(MhcMatrixLen) // anchor set separately; exclude L from the pool
+         select new string(cs)).ToArbitrary();
+
+    /// <summary>INV-1 (R): the SMM IC50 is strictly positive (IC50 = 50000^(1−score) &gt; 0 for any finite score).</summary>
+    [FsCheck.NUnit.Property]
+    public Property Smm_Ic50_IsPositive()
+    {
+        var matrix = SmmAnchorMatrix();
+        return Prop.ForAll(NineMerArbitrary(), pep =>
+            (OncologyAnalyzer.PredictIc50Smm(pep, matrix) > 0.0).Label("SMM IC50 must be > 0"));
+    }
+
+    /// <summary>INV-2 (R): the BIMAS predicted half-life is non-negative (product of non-negative coefficients).</summary>
+    [FsCheck.NUnit.Property]
+    public Property Bimas_HalfLife_IsNonNegative()
+    {
+        var matrix = BimasAnchorMatrix();
+        return Prop.ForAll(NineMerArbitrary(), pep =>
+            (OncologyAnalyzer.PredictBindingHalfLifeBimas(pep, matrix) >= 0.0).Label("BIMAS half-life must be ≥ 0"));
+    }
+
+    /// <summary>
+    /// INV-3 (M): an anchor match strengthens binding — placing the favoured residue 'L' at the anchor gives a
+    /// LONGER BIMAS half-life and a LOWER SMM IC50 than a non-anchor residue, all else equal.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AnchorMatch_StrengthensBinding()
+    {
+        var bimas = BimasAnchorMatrix();
+        var smm = SmmAnchorMatrix();
+        return Prop.ForAll(NineMerArbitrary(), pep =>
+        {
+            var match = pep.ToCharArray(); match[MhcAnchorPos] = 'L';
+            var noMatch = pep.ToCharArray(); noMatch[MhcAnchorPos] = 'A'; // 'A' is neutral in both matrices
+            string m = new(match), nm = new(noMatch);
+
+            bool bimasOk = OncologyAnalyzer.PredictBindingHalfLifeBimas(m, bimas)
+                           >= OncologyAnalyzer.PredictBindingHalfLifeBimas(nm, bimas) - 1e-9;
+            bool smmOk = OncologyAnalyzer.PredictIc50Smm(m, smm)
+                         <= OncologyAnalyzer.PredictIc50Smm(nm, smm) + 1e-9;
+            return (bimasOk && smmOk).Label($"anchor match not stronger (bimas={bimasOk}, smm={smmOk})");
+        });
+    }
+
+    /// <summary>INV-4 (D): matrix scoring is deterministic.</summary>
+    [FsCheck.NUnit.Property]
+    public Property MhcMatrix_IsDeterministic()
+    {
+        var bimas = BimasAnchorMatrix();
+        return Prop.ForAll(NineMerArbitrary(), pep =>
+            (OncologyAnalyzer.PredictBindingHalfLifeBimas(pep, bimas) == OncologyAnalyzer.PredictBindingHalfLifeBimas(pep, bimas))
+                .Label("BIMAS scoring must be deterministic"));
+    }
+
+    #endregion
+
+    #region IMMUNE-NUSVR-001 — ν-SVR immune deconvolution
+
+    // DeconvoluteImmuneCellsNuSvr fits cell fractions by ν-support-vector regression against a signature
+    // matrix; fractions are non-negative and a strongly planted single-cell mixture is recovered as dominant.
+
+    /// <summary>INV-1 (R): every ν-SVR cell fraction is non-negative.</summary>
+    [FsCheck.NUnit.Property]
+    public Property NuSvr_Fractions_NonNegative()
+    {
+        return Prop.ForAll(OrthogonalMixtureArbitrary(), s =>
+        {
+            var r = ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(s.mixture, s.sig);
+            return r.CellFractions.Values.All(v => v >= -1e-9).Label("a ν-SVR cell fraction was negative");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (planted truth recovered): for a strongly A-dominant orthogonal mixture (wA ≥ 0.8) the recovered
+    /// fraction of cell type A is at least that of B — the dominant planted component is identified.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property NuSvr_DominantPlantedType_IsRecovered()
+    {
+        return Prop.ForAll(OrthogonalMixtureArbitrary(), s =>
+        {
+            if (s.wA < 0.8) return true.ToProperty(); // only assert on a decisively A-dominant mixture
+            var r = ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(s.mixture, s.sig);
+            double fa = r.CellFractions.GetValueOrDefault("CellType_A");
+            double fb = r.CellFractions.GetValueOrDefault("CellType_B");
+            return (fa >= fb - 1e-9).Label($"A-dominant mixture (wA={s.wA}) not recovered: fa={fa}, fb={fb}");
+        });
+    }
+
+    /// <summary>INV-3 (D): ν-SVR deconvolution is deterministic.</summary>
+    [FsCheck.NUnit.Property]
+    public Property NuSvr_IsDeterministic()
+    {
+        return Prop.ForAll(OrthogonalMixtureArbitrary(), s =>
+        {
+            var a = ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(s.mixture, s.sig);
+            var b = ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(s.mixture, s.sig);
+            return (a.BestNu == b.BestNu && a.CellFractions.Count == b.CellFractions.Count
+                    && a.CellFractions.All(kv => b.CellFractions.TryGetValue(kv.Key, out double v) && v == kv.Value))
+                .Label("DeconvoluteImmuneCellsNuSvr must be deterministic");
+        });
+    }
+
+    #endregion
 }
