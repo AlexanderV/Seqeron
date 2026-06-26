@@ -30,7 +30,7 @@ Property-based testing генерує сотні випадкових вході
 
 | # | Status | Test Unit | Area | Invariants to Verify | Property File |
 |---|--------|-----------|------|---------------------|---------------|
-| 1 | ☐ | SEQ-GC-001 | Composition | R: GC% ∈ [0,100]; P: complement preserves GC%; R: GcFraction ∈ [0,1]; P: GC%=Frac×100 | GcContentProperties.cs |
+| 1 | ☑ | SEQ-GC-001 | Composition | R: GC% ∈ [0,100]; P: complement preserves GC%; R: GcFraction ∈ [0,1]; P: GC%=Frac×100 | GcContentProperties.cs |
 | 2 | ☑ | SEQ-COMP-001 | Composition | I: complement(complement(x))=x; P: length preserved | SequenceProperties.cs |
 | 3 | ☑ | SEQ-REVCOMP-001 | Composition | I: revcomp(revcomp(x))=x; P: length preserved | SequenceProperties.cs |
 | 4 | ☑ | SEQ-VALID-001 | Composition | R: result ∈ {true,false}; P: case-insensitive; D: deterministic; P: valid DNA ⊂ valid IUPAC | SequenceCompositionProperties.cs |
@@ -296,7 +296,7 @@ Property-based testing генерує сотні випадкових вході
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 189 |
-| ☐ Not started | 69 |
+| ☑ Complete | 190 |
+| ☐ Not started | 68 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
