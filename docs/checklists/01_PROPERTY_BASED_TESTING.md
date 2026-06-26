@@ -42,7 +42,7 @@ Property-based testing генерує сотні випадкових вході
 | 10 | ☑ | PAT-APPROX-002 | Matching | R: edit dist ≥ 0; S: editDist(a,b)=editDist(b,a); I: editDist(x,x)=0; triangle inequality | EditDistanceProperties.cs |
 | 11 | ☑ | PAT-IUPAC-001 | Matching | M: more degenerate code → ≥ matches; P: N matches all 4 bases; D: deterministic | PatternMatchingProperties.cs |
 | 12 | ☑ | PAT-PWM-001 | Matching | R: scores ∈ ℝ; M: lower threshold → ≥ matches; D: deterministic; P: consensus from PWM valid | PatternMatchingProperties.cs |
-| 13 | ☐ | REP-STR-001 | Repeats | R: positions ≥ 0; M: lower minRepeats → ≥ results; R: repeat count ≥ minRepeats; P: unit len in range | RepeatFinderProperties.cs |
+| 13 | ☑ | REP-STR-001 | Repeats | R: positions ≥ 0; M: lower minRepeats → ≥ results; R: repeat count ≥ minRepeats; P: unit len in range | RepeatFinderProperties.cs |
 | 14 | ☑ | REP-TANDEM-001 | Repeats | R: repeat count ≥ minReps; M: wider unit range → ≥ results; R: positions valid; D: deterministic | RepeatFinderProperties.cs |
 | 15 | ☑ | REP-INV-001 | Repeats | P: right arm = revcomp(left arm); R: positions valid; R: arm len ≥ minLen; D: deterministic | RepeatFinderProperties.cs |
 | 16 | ☑ | REP-DIRECT-001 | Repeats | R: positions valid; M: lower minLen → ≥ results; P: two copies identical; D: deterministic | RepeatFinderProperties.cs |
@@ -296,7 +296,7 @@ Property-based testing генерує сотні випадкових вході
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 191 |
-| ☐ Not started | 67 |
+| ☑ Complete | 192 |
+| ☐ Not started | 66 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |

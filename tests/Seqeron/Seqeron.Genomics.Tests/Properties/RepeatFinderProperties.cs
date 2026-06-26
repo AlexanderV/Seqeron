@@ -26,6 +26,25 @@ public class RepeatFinderProperties
             .Select(a => new string(a))
             .ToArbitrary();
 
+    // Random DNA flanks wrapping a genuine, non-redundant tandem repeat (unit×k, k≥4).
+    // Guarantees the result set is usually non-empty so range/monotonicity properties are
+    // exercised against real microsatellites rather than holding vacuously on noise.
+    private static Arbitrary<string> SeededMicrosatelliteArbitrary()
+    {
+        static Gen<string> Flank() =>
+            Gen.Elements('A', 'C', 'G', 'T').ArrayOf().Select(a => new string(a));
+
+        // Mono-, di- and tri-nucleotide units that are not themselves smaller-period repeats.
+        var unitGen = Gen.Elements("A", "C", "AC", "GT", "AT", "CAG", "GTA", "TGC");
+
+        return (from prefix in Flank()
+                from unit in unitGen
+                from k in Gen.Choose(4, 8)
+                from suffix in Flank()
+                select prefix + string.Concat(Enumerable.Repeat(unit, k)) + suffix)
+            .ToArbitrary();
+    }
+
     #region REP-STR-001: R: positions ≥ 0; M: lower minRepeats → ≥ results; R: repeat count ≥ minRepeats; P: unit len in range
 
     /// <summary>
@@ -59,19 +78,20 @@ public class RepeatFinderProperties
     }
 
     /// <summary>
-    /// INV-3: Repeat count is at least the requested minimum.
-    /// Evidence: FindMicrosatellites filters by minRepeats parameter.
+    /// INV-3 (R): every reported microsatellite repeats at least <c>minRepeats</c> times.
+    /// Evidence: FindMicrosatellites only yields a run when its maximal repeat count ≥ minRepeats.
+    /// Exercised against sequences carrying a genuine planted tandem repeat.
     /// </summary>
-    [Test]
-    [Category("Property")]
-    public void Microsatellite_RepeatCount_MeetsMinimum()
+    [FsCheck.NUnit.Property]
+    public Property Microsatellite_RepeatCount_MeetsMinimum()
     {
-        int minRepeats = 3;
-        var results = RepeatFinder.FindMicrosatellites(MicrosatelliteSequence, 1, 4, minRepeats).ToList();
-
-        foreach (var r in results)
-            Assert.That(r.RepeatCount, Is.GreaterThanOrEqualTo(minRepeats),
-                $"Repeat count {r.RepeatCount} must be ≥ {minRepeats}");
+        const int minRepeats = 3;
+        return Prop.ForAll(SeededMicrosatelliteArbitrary(), seq =>
+        {
+            var results = RepeatFinder.FindMicrosatellites(seq, 1, 4, minRepeats).ToList();
+            return results.All(r => r.RepeatCount >= minRepeats)
+                .Label($"every RepeatCount must be ≥ {minRepeats}");
+        });
     }
 
     /// <summary>
@@ -91,20 +111,20 @@ public class RepeatFinderProperties
     }
 
     /// <summary>
-    /// INV-5: Lower minRepeats yields more or equal results (monotonicity).
-    /// Evidence: Relaxing the minimum threshold expands the result set.
+    /// INV-5 (M): relaxing minRepeats never loses results — a lower threshold yields ≥ as many
+    /// microsatellites as a higher one. Any run reported at the stricter threshold still has its
+    /// maximal repeat count ≥ the looser threshold, so it remains reportable.
     /// </summary>
-    [Test]
-    [Category("Property")]
-    public void Microsatellite_LowerMinRepeats_MoreOrEqualResults()
+    [FsCheck.NUnit.Property]
+    public Property Microsatellite_LowerMinRepeats_MoreOrEqualResults()
     {
-        var resultsStrict = RepeatFinder.FindMicrosatellites(
-            MicrosatelliteSequence, 1, 4, minRepeats: 5).ToList();
-        var resultsRelaxed = RepeatFinder.FindMicrosatellites(
-            MicrosatelliteSequence, 1, 4, minRepeats: 3).ToList();
-
-        Assert.That(resultsRelaxed.Count, Is.GreaterThanOrEqualTo(resultsStrict.Count),
-            $"minRepeats=3 → {resultsRelaxed.Count} must be ≥ minRepeats=5 → {resultsStrict.Count}");
+        return Prop.ForAll(SeededMicrosatelliteArbitrary(), seq =>
+        {
+            int strict = RepeatFinder.FindMicrosatellites(seq, 1, 4, minRepeats: 5).Count();
+            int relaxed = RepeatFinder.FindMicrosatellites(seq, 1, 4, minRepeats: 3).Count();
+            return (relaxed >= strict)
+                .Label($"minRepeats=3 → {relaxed} must be ≥ minRepeats=5 → {strict}");
+        });
     }
 
     /// <summary>
