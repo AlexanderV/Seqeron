@@ -173,3 +173,7 @@ new His tests; total across projects all green). Changed source project builds w
 
 **End-state: CLEAN** — the one defect (His omission) was completely fixed in-session with sourced
 test coverage; boundary logic remains correct; the no-confidence-standard is the declared heuristic boundary.
+
+## Runtime enforcement (LimitationPolicy)
+
+Under the default `LimitationPolicy.DefaultMode = Strict`, the uncalibrated per-region `Confidence` (use `PredictDisorderRegions` for the validated TOP-IDP boundaries without a confidence) throws `Seqeron.Genomics.Core.SeqeronLimitationException` (named limitation + workaround; see [LIMITATIONS.md](../LIMITATIONS.md) › Runtime enforcement and `LimitationCatalog`). `Permissive` mode returns the historical best-effort value. This is an additive policy layer; the validated contract and `✅ CLEAN` verdict are unchanged.

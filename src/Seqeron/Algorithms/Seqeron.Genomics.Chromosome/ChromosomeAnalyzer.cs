@@ -1176,6 +1176,11 @@ public static class ChromosomeAnalyzer
         // 5) Assign SF from period + A/B composition.
         var family = ClassifyFamily(period, boxTypes, matchedCount, monomerCount);
 
+        // SF1 (J1.J2) and SF2 (D1.D2) are both A->B dimers and cannot be separated from the bundled
+        // CC0 reference. Strict mode throws rather than returning the unresolved Sf1OrSf2Dimeric call.
+        if (family == SuprachromosomalFamily.Sf1OrSf2Dimeric)
+            Seqeron.Genomics.Core.LimitationPolicy.Enforce("CHROM-CENT-001");
+
         return new SuprachromosomalFamilyResult(
             true, family, period, pattern, overallBestName, meanIdentity);
     }

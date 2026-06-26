@@ -819,6 +819,13 @@ public static class MiRnaAnalyzer
             + threeP + minDist + len3Utr + off6m
             + sps + ta + lenOrf + orf8m + pctContribution;
 
+        var omittedFeatures = BuildOmittedFeatures(inputs, saIncluded);
+
+        // When any context++ feature is omitted (TA/SPS/PCT/ORF not supplied), the score is partial,
+        // not the full Agarwal (2015) context++ score. Strict mode throws rather than returning it.
+        if (omittedFeatures.Count > 0)
+            Seqeron.Genomics.Core.LimitationPolicy.Enforce("MIRNA-TARGET-001");
+
         return new ContextPlusPlusScore(
             SiteType: type,
             Intercept: intercept,
@@ -839,7 +846,7 @@ public static class MiRnaAnalyzer
             BranchLengthScore: bls,
             Pct: pct,
             ContextScorePartial: partial,
-            OmittedFeatures: BuildOmittedFeatures(inputs, saIncluded));
+            OmittedFeatures: omittedFeatures);
     }
 
     // ── TA_3UTR: target-site abundance computed from a 3'UTR set ───────────────────────────
@@ -2278,6 +2285,11 @@ public static class MiRnaAnalyzer
         string starSeq = upper.Substring(starStart, starEnd - starStart + 1);
 
         bool hasCnnc = HasCnncMotifDownstream(upper, droshaCut5Prime);
+
+        // The 5p Drosha/Dicer cut reproduces miRBase exactly, but the opposite-arm (3p / star) span
+        // (StarStart/StarEnd) is a linear 2-nt-3'-overhang approximation, not the read-defined miRBase
+        // boundary. Strict mode throws rather than returning the approximate star arm.
+        Seqeron.Genomics.Core.LimitationPolicy.Enforce("MIRNA-CLEAVAGE-001");
 
         return new DroshaDicerCleavage(
             BasalJunction: basalJunction,

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Seqeron.Genomics.Core;
 
 namespace Seqeron.Genomics.IO;
 
@@ -280,6 +281,11 @@ public static class QualityScoreAnalyzer
         if (minChar >= 64 && maxChar > 74) // High range suggests Phred+64
             return QualityEncoding.Phred64;
 
+        // minChar >= 64 here (and maxChar <= 74): every character is in the Phred+33/Phred+64 overlap
+        // range, so the encoding is genuinely ambiguous. Strict mode throws rather than defaulting.
+        if (minChar >= 64)
+            LimitationPolicy.Enforce("PARSE-FASTQ-001");
+
         return QualityEncoding.Phred33; // Default to modern format
     }
 
@@ -346,6 +352,8 @@ public static class QualityScoreAnalyzer
         else
         {
             // Every character is in the overlap range (ASCII 64-74) -> genuinely ambiguous.
+            // Strict mode throws rather than handing back a defaulted Phred+33 guess.
+            LimitationPolicy.Enforce("PARSE-FASTQ-001");
             encoding = QualityEncoding.Phred33;
             confidence = EncodingConfidence.Ambiguous;
         }

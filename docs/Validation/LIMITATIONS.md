@@ -13,6 +13,25 @@ boundaries, never defects. They fall into three kinds:
 - **Data-blocked** — needs a trained model / matrix / database that is gated, non-redistributable, or has never been measured / published.
 - **Scope** — a deliberate out-of-scope boundary; use the named reference tool, or supply the input yourself.
 
+## Runtime enforcement (`LimitationPolicy`)
+
+By **default** (`LimitationPolicy.DefaultMode = Strict`) the library returns **only the ideal, confirmed
+result**: the handful of code paths that would otherwise hand back a *non-ideal* value (a defaulted
+encoding, an uncalibrated confidence, a partial score, an approximate span, an unresolved SF1/SF2 call)
+instead throw a `Seqeron.Genomics.Core.SeqeronLimitationException` that names the limitation, what it is
+related to, and how to obtain the result another way. Set `LimitationPolicy.DefaultMode = Permissive`
+(or wrap a region in `using (LimitationPolicy.UsePermissive()) { … }`) to receive the historical
+best-effort value instead.
+
+The **five guarded branches** are: PARSE-FASTQ-001 (encoding undetermined — overlap-confined input),
+CHROM-CENT-001 (`Sf1OrSf2Dimeric` — SF1 vs SF2 unresolved), DISORDER-REGION-001 (uncalibrated per-region
+confidence — use `PredictDisorderRegions` for the validated boundaries), MIRNA-TARGET-001 (partial
+context++ — one or more optional inputs not supplied), MIRNA-CLEAVAGE-001 (approximate 3p/star span).
+The remaining rows below have **no runtime guard**: either the result is exact for a narrower contract /
+not offered (you supply the data), or the limitation is undetectable per call (the irreducible
+RNA-STRUCT-001 rows return an exact result for the stated NN-energy model / csr-PK grammar). The single
+source of truth for the guarded text is `Seqeron.Genomics.Core.LimitationCatalog`.
+
 ---
 
 ## 1. Irreducible (cannot be closed by any implementation)

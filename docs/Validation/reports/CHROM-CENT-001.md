@@ -166,3 +166,7 @@ The prior round (2026-06-25, Levan focus) found and fully fixed a real defect in
 `ClassifyChromosomeByArmRatio` (diverged from Levan 1964; omitted Subtelocentric) and de-green-washed its
 tests. That fix remains in place and re-confirmed here. The present session re-validates the unit after the
 SF-assignment addition (commit `887a9945`), which is additive and does not touch the Levan surface.
+
+## Runtime enforcement (LimitationPolicy)
+
+Under the default `LimitationPolicy.DefaultMode = Strict`, the unresolved `Sf1OrSf2Dimeric` (SF1-vs-SF2) call throws `Seqeron.Genomics.Core.SeqeronLimitationException` (named limitation + workaround; see [LIMITATIONS.md](../LIMITATIONS.md) › Runtime enforcement and `LimitationCatalog`). `Permissive` mode returns the historical best-effort value. This is an additive policy layer; the validated contract and `✅ CLEAN` verdict are unchanged.

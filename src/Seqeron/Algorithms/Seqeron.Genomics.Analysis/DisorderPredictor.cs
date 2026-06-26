@@ -247,6 +247,49 @@ public static class DisorderPredictor
                 "", new List<ResiduePrediction>(), new List<DisorderedRegion>(), 0, 0);
         }
 
+        // The per-region Confidence populated below is an uncalibrated heuristic — no disorder
+        // predictor publishes a calibrated confidence standard. Strict mode throws; the validated
+        // TOP-IDP boundaries (without a confidence) are the ideal result, available via
+        // PredictDisorderRegions.
+        Seqeron.Genomics.Core.LimitationPolicy.Enforce("DISORDER-REGION-001");
+
+        return ComputeDisorder(sequence, windowSize, disorderThreshold, minRegionLength);
+    }
+
+    /// <summary>
+    /// Predicts intrinsically disordered <b>regions</b> (and per-residue calls) using the validated
+    /// TOP-IDP threshold, <b>without</b> the uncalibrated per-region confidence — each
+    /// <see cref="DisorderedRegion.Confidence"/> is <see cref="double.NaN"/>. This is the ideal,
+    /// always-available result for DISORDER-REGION-001 and never throws under
+    /// <see cref="Seqeron.Genomics.Core.LimitationMode.Strict"/>. Use
+    /// <see cref="PredictDisorder(string,int,double,int)"/> (under Permissive) to also obtain the
+    /// heuristic confidence.
+    /// </summary>
+    public static DisorderPredictionResult PredictDisorderRegions(
+        string sequence,
+        int windowSize = 21,
+        double disorderThreshold = TopIdpCutoff,
+        int minRegionLength = 5)
+    {
+        if (string.IsNullOrEmpty(sequence))
+        {
+            return new DisorderPredictionResult(
+                "", new List<ResiduePrediction>(), new List<DisorderedRegion>(), 0, 0);
+        }
+
+        var full = ComputeDisorder(sequence, windowSize, disorderThreshold, minRegionLength);
+        var regionsWithoutConfidence = full.DisorderedRegions
+            .Select(r => r with { Confidence = double.NaN })
+            .ToList();
+        return full with { DisorderedRegions = regionsWithoutConfidence };
+    }
+
+    private static DisorderPredictionResult ComputeDisorder(
+        string sequence,
+        int windowSize,
+        double disorderThreshold,
+        int minRegionLength)
+    {
         sequence = sequence.ToUpperInvariant();
 
         // Calculate per-residue disorder scores

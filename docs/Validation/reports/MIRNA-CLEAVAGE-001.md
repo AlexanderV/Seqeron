@@ -104,3 +104,7 @@ Single public overload; no `*Fast`/instance variant. N/A.
 - **Stage B: 🟡 PASS-WITH-NOTES** — the 5p mature / Drosha–Dicer cut prediction is correct and independently verified; the 3p (miRNA\*) span is a deliberately simplified linear-geometry approximation (no folding) that does not reproduce the real 3′-arm 3p — a documented model boundary alongside the out-of-scope miRDeep2 classifier. Doc-comment overstatement and one code-echo test were fully fixed this session.
 - **State: ✅ CLEAN** — no algorithm defect; the two issues found (doc overstatement, code-echo test) were fully fixed, edge-case coverage added (DD11–DD14), and the FULL unfiltered `dotnet test Seqeron.sln -c Debug` is green (Genomics 18775 passed, Failed: 0; 0 build warnings on changed files).
 - Logged: FINDINGS_REGISTER A-MIRNA-CLEAVAGE-001-1.
+
+## Runtime enforcement (LimitationPolicy)
+
+Under the default `LimitationPolicy.DefaultMode = Strict`, the approximate linear 3p/star (miRNA\*) span (the 5p Drosha/Dicer cut is exact) throws `Seqeron.Genomics.Core.SeqeronLimitationException` (named limitation + workaround; see [LIMITATIONS.md](../LIMITATIONS.md) › Runtime enforcement and `LimitationCatalog`). `Permissive` mode returns the historical best-effort value. This is an additive policy layer; the validated contract and `✅ CLEAN` verdict are unchanged.

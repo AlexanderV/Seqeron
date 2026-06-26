@@ -84,3 +84,7 @@ TA_3UTR is now computable from a caller-supplied 3′UTR set. The remaining cont
 - **Stage B: PASS** — the code realises the formula; the one divergence from the literal "non-overlapping" requirement (over-counting on periodic cores) was found and **completely fixed** (greedy non-overlapping scan + corrected comments + lock test CTX-TA-009); all existing fixtures unchanged; full suite green.
 - **End-state: ✅ CLEAN** — defect found and fully fixed in-session; the residual (PCT params / SPS / Len_ORF / ORF8m caller-supplied; no bundled transcriptome) is an honest, declared boundary.
 - Defect logged in FINDINGS_REGISTER.md.
+
+## Runtime enforcement (LimitationPolicy)
+
+Under the default `LimitationPolicy.DefaultMode = Strict`, a **partial** context++ score (one or more of TA/SPS/PCT/ORF not supplied — `OmittedFeatures` non-empty) throws `Seqeron.Genomics.Core.SeqeronLimitationException` (named limitation + workaround; see [LIMITATIONS.md](../LIMITATIONS.md) › Runtime enforcement and `LimitationCatalog`). `Permissive` mode returns the historical best-effort value. This is an additive policy layer; the validated contract and `✅ CLEAN` verdict are unchanged.

@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using Seqeron.Genomics.Core;
 
 namespace Seqeron.Genomics.IO;
 
@@ -159,6 +160,10 @@ public static class FastqParser
             if (c > 'I')
                 return QualityEncoding.Phred64;
         }
+
+        // Every character lay in the Phred+33/Phred+64 overlap range (ASCII 64-73): the encoding is
+        // genuinely ambiguous. In Strict mode this throws rather than silently defaulting to Phred+33.
+        LimitationPolicy.Enforce("PARSE-FASTQ-001");
 
         // Default to Phred+33 (most common modern format)
         return QualityEncoding.Phred33;
