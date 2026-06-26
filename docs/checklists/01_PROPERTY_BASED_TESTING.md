@@ -60,7 +60,7 @@ Property-based testing генерує сотні випадкових вході
 | 28 | ☑ | ANNOT-ORF-001 | Annotation | R: ORF start < end ≤ seqLen; P: starts with ATG; M: longer seq → ≥ ORFs; R: len divisible by 3 | AnnotationProperties.cs |
 | 29 | ☑ | ANNOT-GENE-001 | Annotation | R: gene start < end; P: contains RBS motif upstream; D: deterministic | AnnotationProperties.cs |
 | 30 | ☑ | ANNOT-PROM-001 | Annotation | R: position ≥ 0; P: contains -10/-35 box; M: lower score threshold → ≥ promoters | AnnotationProperties.cs |
-| 31 | ☐ | ANNOT-GFF-001 | Annotation | RT: parse(serialize(features))=features; R: well-formed GFF3; P: coordinates 1-based | AnnotationProperties.cs |
+| 31 | ☑ | ANNOT-GFF-001 | Annotation | RT: parse(serialize(features))=features; R: well-formed GFF3; P: coordinates 1-based | AnnotationProperties.cs |
 | 32 | ☑ | KMER-COUNT-001 | K-mer | R: count > 0; P: sum(counts) = seqLen - k + 1; M: larger k → ≤ distinct k-mers | KmerProperties.cs |
 | 33 | ☑ | KMER-FREQ-001 | K-mer | R: freq ∈ [0,1]; P: sum(freqs) = 1.0; D: deterministic | KmerProperties.cs |
 | 34 | ☑ | KMER-FIND-001 | K-mer | R: positions valid; M: lower minFreq → ≥ k-mers returned; D: deterministic | KmerProperties.cs |
@@ -296,7 +296,7 @@ Property-based testing генерує сотні випадкових вході
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 198 |
-| ☐ Not started | 60 |
+| ☑ Complete | 199 |
+| ☐ Not started | 59 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |

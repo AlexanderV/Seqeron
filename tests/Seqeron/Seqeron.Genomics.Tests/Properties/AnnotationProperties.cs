@@ -48,6 +48,28 @@ public class AnnotationProperties
     private static readonly HashSet<string> ValidStopCodons =
         new(StringComparer.OrdinalIgnoreCase) { "TAA", "TAG", "TGA" };
 
+    /// <summary>
+    /// Generates a non-empty list of random gene annotations with valid coordinates (Start &lt; End),
+    /// canonical strands and SO feature types. Used for property-based GFF3 round-trip testing.
+    /// A constant product and empty attribute map keep the focus on coordinate/strand/type fidelity.
+    /// </summary>
+    private static Arbitrary<List<GenomeAnnotator.GeneAnnotation>> GeneAnnotationListArbitrary()
+    {
+        var one =
+            from start in Gen.Choose(0, 1_000_000)
+            from length in Gen.Choose(1, 5000)
+            from strand in Gen.Elements('+', '-')
+            from type in Gen.Elements("CDS", "gene", "mRNA", "exon", "five_prime_UTR")
+            from id in Gen.Choose(1, 100_000)
+            select new GenomeAnnotator.GeneAnnotation(
+                $"gene_{id}", start, start + length, strand, type, "product",
+                new Dictionary<string, string>());
+
+        return (from n in Gen.Choose(1, 8)
+                from arr in one.ArrayOf(n)
+                select arr.ToList()).ToArbitrary();
+    }
+
     #endregion
 
     #region ANNOT-ORF-001: R: ORF start < end ≤ seqLen; P: starts with ATG; M: longer seq → ≥ ORFs; R: len divisible by 3
@@ -428,6 +450,34 @@ public class AnnotationProperties
             Assert.That(features[i].Type, Is.EqualTo(genes[i].Type),
                 $"Gene {i}: Type mismatch");
         }
+    }
+
+    /// <summary>
+    /// INV-1b (RT + R + P, property): for any list of random gene annotations, ParseGff3(ToGff3(x))
+    /// preserves feature count, type, strand and end coordinate, and maps each 0-based Start to the
+    /// 1-based GFF3 column (parsed.Start == Start + 1). Every emitted data line is well-formed with
+    /// exactly nine tab-separated columns. Source: GFF3 Spec v1.26 (1-based inclusive coordinates,
+    /// 9 mandatory columns).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Gff3_RoundTrip_PreservesCoreFields_Property()
+    {
+        return Prop.ForAll(GeneAnnotationListArbitrary(), genes =>
+        {
+            var lines = GenomeAnnotator.ToGff3(genes, "chr1").ToList();
+            var parsed = GenomeAnnotator.ParseGff3(lines).ToList();
+
+            bool wellFormed = lines.Where(l => !l.StartsWith('#')).All(l => l.Split('\t').Length == 9);
+            bool countOk = parsed.Count == genes.Count;
+            bool fieldsOk = countOk && genes.Select((g, i) =>
+                parsed[i].Start == g.Start + 1   // P: 0-based → 1-based GFF3 column
+                && parsed[i].End == g.End
+                && parsed[i].Strand == g.Strand
+                && parsed[i].Type == g.Type).All(x => x);
+
+            return (wellFormed && fieldsOk)
+                .Label($"GFF3 round-trip failed: count {genes.Count}→{parsed.Count}, wellFormed={wellFormed}");
+        });
     }
 
     /// <summary>
