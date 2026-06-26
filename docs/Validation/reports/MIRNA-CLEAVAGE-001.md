@@ -105,6 +105,7 @@ Single public overload; no `*Fast`/instance variant. N/A.
 - **State: ✅ CLEAN** — no algorithm defect; the two issues found (doc overstatement, code-echo test) were fully fixed, edge-case coverage added (DD11–DD14), and the FULL unfiltered `dotnet test Seqeron.sln -c Debug` is green (Genomics 18775 passed, Failed: 0; 0 build warnings on changed files).
 - Logged: FINDINGS_REGISTER A-MIRNA-CLEAVAGE-001-1.
 
+
 ## Runtime enforcement (LimitationPolicy)
 
-Under the default `LimitationPolicy.DefaultMode = Strict`, the approximate linear 3p/star (miRNA\*) span (the 5p Drosha/Dicer cut is exact) throws `Seqeron.Genomics.Core.SeqeronLimitationException` (named limitation + workaround; see [LIMITATIONS.md](../LIMITATIONS.md) › Runtime enforcement and `LimitationCatalog`). `Permissive` mode returns the historical best-effort value. This is an additive policy layer; the validated contract and `✅ CLEAN` verdict are unchanged.
+This unit's guarded branch — the approximate linear 3p/star (miRNA\*) span (the 5p Drosha/Dicer cut is exact) — has **minimum access mode `Permissive`** (`Seqeron.Genomics.Core.LimitationCatalog`). Under the default `LimitationPolicy.DefaultMode = Moderate` it throws `SeqeronLimitationException` (this guarded branch is allowed only under `Permissive`); see [LIMITATIONS.md](../LIMITATIONS.md) › Runtime enforcement. Additive policy layer; the validated contract and `✅ CLEAN` verdict are unchanged.

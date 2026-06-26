@@ -8480,6 +8480,10 @@ public static class OncologyAnalyzer
         ArgumentNullException.ThrowIfNull(peptide);
         ValidateMatrixAgainstPeptide(peptide, matrix);
 
+        // Matrix score from a caller-supplied matrix — not a bundled validated matrix nor the trained
+        // NetMHCpan/MHCflurry predictor. Strict mode throws; Moderate/Permissive allow it.
+        Seqeron.Genomics.Core.LimitationPolicy.Enforce("ONCO-MHC-001");
+
         double score = 1.0; // BIMAS: "The initial (running) score is set to 1.0."
         for (int i = 0; i < peptide.Length; i++)
         {
@@ -8508,6 +8512,10 @@ public static class OncologyAnalyzer
     {
         ArgumentNullException.ThrowIfNull(peptide);
         ValidateMatrixAgainstPeptide(peptide, matrix);
+
+        // Matrix score from a caller-supplied matrix — not a bundled validated matrix nor the trained
+        // NetMHCpan/MHCflurry predictor. Strict mode throws; Moderate/Permissive allow it.
+        Seqeron.Genomics.Core.LimitationPolicy.Enforce("ONCO-MHC-001");
 
         double score = matrix.FinalConstant; // SMM intercept.
         for (int i = 0; i < peptide.Length; i++)

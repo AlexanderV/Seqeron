@@ -1991,6 +1991,11 @@ public static class MetagenomicsAnalyzer
         ArgumentNullException.ThrowIfNull(markerSets);
         ArgumentNullException.ThrowIfNull(markerCounts);
 
+        // Domain-level CheckM only — no per-lineage refinement / reference genome tree. Strict mode
+        // throws; Moderate/Permissive allow this coarser-but-correct estimate. (EstimateBinQualityFromMarkers
+        // delegates here, so this single guard covers both entry points.)
+        Seqeron.Genomics.Core.LimitationPolicy.Enforce("META-BIN-001");
+
         double comp = 0.0;
         double cont = 0.0;
         int usedSets = 0;

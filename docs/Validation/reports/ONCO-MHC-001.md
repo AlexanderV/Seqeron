@@ -234,3 +234,7 @@ The MHCflurry trained ensemble weights total ≈ 80 MB of near-incompressible fl
 
 ### End-state
 `dotnet build` 0 warnings/0 errors in changed files; the new fixture `MhcflurryAffinityPredictor_PredictIc50_Tests.cs` 19 passed / 0 failed; full unfiltered suite green (see commit). Classification and defaults unchanged; the neural predictor is opt-in. Validation Status confirmed **☐** (unchanged); Quick-Reference counts unchanged.
+
+## Runtime enforcement (LimitationPolicy)
+
+This unit's guarded branch — matrix (SMM/BIMAS) pMHC scoring from a caller-supplied matrix (no bundled validated matrix) — has **minimum access mode `Moderate`** (`Seqeron.Genomics.Core.LimitationCatalog`). Under the default `LimitationPolicy.DefaultMode = Moderate` it is **allowed** (this guarded branch throws only under `Strict`); see [LIMITATIONS.md](../LIMITATIONS.md) › Runtime enforcement. Additive policy layer; the validated contract and `✅ CLEAN` verdict are unchanged.

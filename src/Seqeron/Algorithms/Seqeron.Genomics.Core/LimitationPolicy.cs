@@ -25,10 +25,12 @@ public static class LimitationPolicy
     private static readonly AsyncLocal<LimitationMode?> ScopedMode = new();
 
     /// <summary>
-    /// The process-wide policy. Defaults to <see cref="LimitationMode.Strict"/> — the library
-    /// returns only the ideal, confirmed result and throws on any non-ideal branch.
+    /// The process-wide policy. Defaults to <see cref="LimitationMode.Moderate"/> — non-ideal-output
+    /// branches throw, while correct-but-incomplete / narrower-contract results are allowed. Set to
+    /// <see cref="LimitationMode.Strict"/> for only ideal-and-complete results, or
+    /// <see cref="LimitationMode.Permissive"/> for the historical best-effort behaviour everywhere.
     /// </summary>
-    public static LimitationMode DefaultMode { get; set; } = LimitationMode.Strict;
+    public static LimitationMode DefaultMode { get; set; } = LimitationMode.Moderate;
 
     /// <summary>The effective mode for the current async flow: the scoped override if one is active,
     /// otherwise <see cref="DefaultMode"/>.</summary>
@@ -36,6 +38,14 @@ public static class LimitationPolicy
 
     /// <summary>True when the effective mode is <see cref="LimitationMode.Strict"/>.</summary>
     public static bool IsStrict => CurrentMode == LimitationMode.Strict;
+
+    /// <summary>
+    /// Whether a call guarded by <paramref name="limitationId"/> is allowed under the effective mode —
+    /// i.e. the effective mode is at least as permissive as the limitation's
+    /// <see cref="LimitationInfo.MinimumMode"/>.
+    /// </summary>
+    public static bool IsAllowed(string limitationId)
+        => CurrentMode >= LimitationCatalog.Get(limitationId).MinimumMode;
 
     /// <summary>
     /// Pushes <paramref name="mode"/> as the effective mode for the current async flow until the
@@ -56,13 +66,14 @@ public static class LimitationPolicy
     /// the caller proceeds to return the best-effort value.
     /// </summary>
     /// <param name="limitationId">The limitation unit id, e.g. <c>"PARSE-FASTQ-001"</c>.</param>
-    /// <exception cref="SeqeronLimitationException">Thrown when the effective mode is Strict.</exception>
+    /// <exception cref="SeqeronLimitationException">Thrown when the effective mode is more restrictive
+    /// than the limitation's <see cref="LimitationInfo.MinimumMode"/>.</exception>
     /// <exception cref="KeyNotFoundException">Thrown when <paramref name="limitationId"/> is not in the catalog.</exception>
     public static void Enforce(string limitationId)
     {
-        if (!IsStrict)
-            return;
-        throw new SeqeronLimitationException(LimitationCatalog.Get(limitationId));
+        var info = LimitationCatalog.Get(limitationId);
+        if (CurrentMode < info.MinimumMode)
+            throw new SeqeronLimitationException(info);
     }
 
     private sealed class Scope : IDisposable
@@ -86,13 +97,29 @@ public static class LimitationPolicy
     }
 }
 
-/// <summary>How the library handles a documented-limitation branch.</summary>
+/// <summary>
+/// How permissive the library is about documented-limitation branches. Ordered from least to most
+/// permissive: <see cref="Strict"/> &lt; <see cref="Moderate"/> &lt; <see cref="Permissive"/>. Each
+/// limitation declares the minimum mode at which it is allowed (<see cref="LimitationInfo.MinimumMode"/>);
+/// a call throws when the effective mode is more restrictive than that minimum.
+/// </summary>
 public enum LimitationMode
 {
-    /// <summary>Throw <see cref="SeqeronLimitationException"/> — return only the ideal result. Default.</summary>
+    /// <summary>
+    /// Only the ideal <b>and complete</b> result. Throws on every documented-limitation branch —
+    /// both the non-ideal-output branches (defaulted / uncalibrated / partial / approximate /
+    /// unresolved) and the correct-but-incomplete / narrower-contract ones.
+    /// </summary>
     Strict,
 
-    /// <summary>Return the honest best-effort value (the historical behaviour).</summary>
+    /// <summary>
+    /// The default. Throws on the non-ideal-output branches (a value that is not correct as returned),
+    /// but <b>allows</b> the correct-but-incomplete / narrower-contract results (e.g. domain-level
+    /// CheckM, a matrix score from a caller-supplied matrix, qualitative MGB rules).
+    /// </summary>
+    Moderate,
+
+    /// <summary>Allows everything — the honest best-effort value (the historical behaviour).</summary>
     Permissive
 }
 
@@ -117,6 +144,7 @@ public enum LimitationCategory
 public sealed record LimitationInfo(
     string Id,
     LimitationCategory Category,
+    LimitationMode MinimumMode,
     string Branch,
     string Summary,
     string RelatedTo,
@@ -153,6 +181,7 @@ public static class LimitationCatalog
             new LimitationInfo(
                 Id: "PARSE-FASTQ-001",
                 Category: LimitationCategory.Irreducible,
+                MinimumMode: LimitationMode.Permissive,
                 Branch: "Phred+33 vs Phred+64 auto-detection on overlap-confined input",
                 Summary: "The quality encoding cannot be auto-detected: every quality character lies in the " +
                          "Phred+33/Phred+64 overlap range (ASCII 64-74), so the input is information-theoretically " +
@@ -168,6 +197,7 @@ public static class LimitationCatalog
             new LimitationInfo(
                 Id: "CHROM-CENT-001",
                 Category: LimitationCategory.DataBlocked,
+                MinimumMode: LimitationMode.Permissive,
                 Branch: "SF1-vs-SF2 separation (dimeric alpha-satellite)",
                 Summary: "The array is dimeric (A->B) but SF1 (J1.J2) and SF2 (D1.D2) cannot be separated from the " +
                          "bundled CC0 reference — the result is Sf1OrSf2Dimeric, not a single SF.",
@@ -183,6 +213,7 @@ public static class LimitationCatalog
             new LimitationInfo(
                 Id: "DISORDER-REGION-001",
                 Category: LimitationCategory.DataBlocked,
+                MinimumMode: LimitationMode.Permissive,
                 Branch: "calibrated per-residue / per-region disorder confidence",
                 Summary: "A calibrated disorder CONFIDENCE value is not available; PredictDisorder otherwise returns " +
                          "a heuristic per-region Confidence that is not a published calibrated standard.",
@@ -197,6 +228,7 @@ public static class LimitationCatalog
             new LimitationInfo(
                 Id: "MIRNA-TARGET-001",
                 Category: LimitationCategory.Scope,
+                MinimumMode: LimitationMode.Permissive,
                 Branch: "full context++ score (one or more optional inputs not supplied)",
                 Summary: "The context++ score is PARTIAL: one or more features (TA_3UTR / SPS / PCT / Len_ORF / " +
                          "ORF-8mer) were not supplied, so ContextScorePartial is not the full Agarwal (2015) " +
@@ -213,6 +245,7 @@ public static class LimitationCatalog
             new LimitationInfo(
                 Id: "MIRNA-CLEAVAGE-001",
                 Category: LimitationCategory.Scope,
+                MinimumMode: LimitationMode.Permissive,
                 Branch: "3p-arm (miRNA*/star) cleavage boundary",
                 Summary: "The opposite-arm (3p / star) boundary is a linear 2-nt-3'-overhang approximation, not the " +
                          "exact miRBase-annotated cut; only the 5p Drosha/Dicer cut reproduces miRBase exactly.",
@@ -222,6 +255,67 @@ public static class LimitationCatalog
                             "the star arm. The 5p mature / Drosha cut is exact and available. Permissive returns the " +
                             "approximate 3p span.",
                 ReportPath: "docs/Validation/reports/MIRNA-CLEAVAGE-001.md"),
+
+            // ── correct-but-incomplete / narrower-contract group (allowed in Moderate, blocked in Strict) ──
+
+            new LimitationInfo(
+                Id: "ONCO-MHC-001",
+                Category: LimitationCategory.DataBlocked,
+                MinimumMode: LimitationMode.Moderate,
+                Branch: "matrix (SMM / BIMAS) pMHC binding prediction",
+                Summary: "Matrix-based pMHC binding (BIMAS half-life / SMM IC50) is computed from a caller-supplied " +
+                         "scoring matrix; the library bundles no validated, cross-verifiable matrix, and this is not " +
+                         "the trained NetMHCpan-4.1 / MHCflurry predictor.",
+                RelatedTo: "No redistributable, cross-verifiable SMM/BIMAS matrix is obtainable (the BIMAS server is a " +
+                           "defunct CGI, the Parker 1994 table is paywalled, IEDB SMM matrices are non-commercial); " +
+                           "NetMHCpan-4.1 / the MHCflurry presentation models are the vendors' trained models.",
+                Workaround: "Supply a validated scoring matrix to PredictBindingHalfLifeBimas / PredictIc50Smm and call " +
+                            "under Moderate/Permissive; or use the bundled MHCflurry NN predictor " +
+                            "(MhcflurryAffinityPredictor); or run NetMHCpan-4.1 directly.",
+                ReportPath: "docs/Validation/reports/ONCO-MHC-001.md"),
+
+            new LimitationInfo(
+                Id: "ONCO-IMMUNE-001",
+                Category: LimitationCategory.DataBlocked,
+                MinimumMode: LimitationMode.Moderate,
+                Branch: "immune-cell deconvolution / ESTIMATE purity (no CIBERSORT-LM22 parity)",
+                Summary: "Deconvolution runs against the bundled ABIS signature (or a caller-supplied matrix), NOT the " +
+                         "CIBERSORT-LM22-identical matrix; the ESTIMATE->ABSOLUTE purity transform is calibrated on " +
+                         "Affymetrix / ABSOLUTE data.",
+                RelatedTo: "LM22 is distributed by Stanford under a no-redistribution licence; the ESTIMATE " +
+                           "absolute-purity transform (Yoshihara 2013) is platform-calibrated.",
+                Workaround: "Use the bundled ABIS matrix (LoadBundledAbisSignatureMatrix) or supply your own signature " +
+                            "matrix to DeconvoluteImmuneCells / DeconvoluteImmuneCellsNuSvr under Moderate/Permissive; " +
+                            "for exact CIBERSORT parity run CIBERSORT with LM22; apply EstimateTumorPurity only to " +
+                            "Affymetrix-scale input.",
+                ReportPath: "docs/Validation/reports/ONCO-IMMUNE-001.md"),
+
+            new LimitationInfo(
+                Id: "META-BIN-001",
+                Category: LimitationCategory.DataBlocked,
+                MinimumMode: LimitationMode.Moderate,
+                Branch: "domain-level CheckM completeness/contamination (no lineage-specific refinement)",
+                Summary: "Bin quality is estimated from the bundled DOMAIN-level marker sets only; per-lineage-specific " +
+                         "CheckM marker refinement and the reference genome tree are not bundled.",
+                RelatedTo: "The gated checkm_data DB and the TIGRFAM-defined markers (CC BY-SA 4.0, not redistributable " +
+                           "here) are caller-supplied.",
+                Workaround: "Pass lineage-specific marker sets / HMMs to EstimateBinQualityFromMarkers(Counts) under " +
+                            "Moderate/Permissive; or run CheckM with its gated lineage DB for lineage-resolved " +
+                            "completeness/contamination.",
+                ReportPath: "docs/Validation/reports/META-BIN-001.md"),
+
+            new LimitationInfo(
+                Id: "PROBE-DESIGN-001",
+                Category: LimitationCategory.Scope,
+                MinimumMode: LimitationMode.Moderate,
+                Branch: "MGB probe design (qualitative rules; no quantitative ΔTm)",
+                Summary: "EvaluateMgbProbeDesign returns the citable qualitative MGB design rules (3'-MGB placement, " +
+                         "12-20mer window) only; the quantitative MGB ΔTm is not computed.",
+                RelatedTo: "The MGB ΔTm model (Kutyavin 2000 / MGB-Eclipse) is empirical/proprietary with no published " +
+                           "closed-form expression.",
+                Workaround: "Use the qualitative MGB rules under Moderate/Permissive; for a quantitative MGB ΔTm use a " +
+                            "chemistry-specific tool (e.g. the manufacturer's MGB-Eclipse model).",
+                ReportPath: "docs/Validation/reports/PROBE-DESIGN-001.md"),
         };
 
         var dict = new Dictionary<string, LimitationInfo>(StringComparer.Ordinal);
@@ -244,6 +338,9 @@ public sealed class SeqeronLimitationException : InvalidOperationException
     /// <summary>The limitation category.</summary>
     public LimitationCategory Category { get; }
 
+    /// <summary>The minimum <see cref="LimitationMode"/> at which the guarded call is allowed.</summary>
+    public LimitationMode MinimumMode { get; }
+
     /// <summary>The specific guarded branch.</summary>
     public string Branch { get; }
 
@@ -262,6 +359,7 @@ public sealed class SeqeronLimitationException : InvalidOperationException
     {
         LimitationId = info.Id;
         Category = info.Category;
+        MinimumMode = info.MinimumMode;
         Branch = info.Branch;
         RelatedTo = info.RelatedTo;
         Workaround = info.Workaround;
@@ -278,9 +376,9 @@ public sealed class SeqeronLimitationException : InvalidOperationException
         sb.Append("Related to: ").AppendLine(info.RelatedTo);
         sb.Append("How to obtain the result: ").AppendLine(info.Workaround);
         sb.Append("See: ").AppendLine(info.ReportPath);
-        sb.Append("To receive the best-effort value instead, set ")
-          .Append("LimitationPolicy.DefaultMode = LimitationMode.Permissive, or wrap the call in ")
-          .Append("`using (LimitationPolicy.UsePermissive()) { ... }`.");
+        sb.Append("Minimum mode that allows this call: ").Append(info.MinimumMode)
+          .Append(". Set LimitationPolicy.DefaultMode to at least that, or wrap the call in ")
+          .Append("`using (LimitationPolicy.Use(LimitationMode.").Append(info.MinimumMode).Append(")) { ... }`.");
         return sb.ToString();
     }
 }

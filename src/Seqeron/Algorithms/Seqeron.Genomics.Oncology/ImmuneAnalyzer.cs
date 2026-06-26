@@ -472,6 +472,10 @@ public static class ImmuneAnalyzer
     /// </returns>
     public static double EstimateTumorPurity(double estimateScore)
     {
+        // ESTIMATE->ABSOLUTE transform calibrated on Affymetrix data (Yoshihara 2013) — platform-contingent
+        // off-array. Strict mode throws; Moderate/Permissive allow it with that caveat.
+        Seqeron.Genomics.Core.LimitationPolicy.Enforce("ONCO-IMMUNE-001");
+
         double purity = Math.Cos(EstimatePurityCoefficientA + EstimatePurityCoefficientB * estimateScore);
 
         // Reference implementation (ESTIMATE / tidyestimate): negative cosine values are out of the
@@ -515,6 +519,10 @@ public static class ImmuneAnalyzer
         int maxIterations = 1000)
     {
         ArgumentNullException.ThrowIfNull(expressionProfile);
+
+        // Deconvolution against the bundled ABIS (or caller) matrix — NOT CIBERSORT-LM22-identical.
+        // Strict mode throws; Moderate/Permissive allow it.
+        Seqeron.Genomics.Core.LimitationPolicy.Enforce("ONCO-IMMUNE-001");
 
         signatureMatrix ??= DefaultSignatureMatrix;
 
@@ -653,6 +661,10 @@ public static class ImmuneAnalyzer
         IReadOnlyList<double>? nuValues = null)
     {
         ArgumentNullException.ThrowIfNull(expressionProfile);
+
+        // Deconvolution against the bundled ABIS (or caller) matrix — NOT CIBERSORT-LM22-identical.
+        // Strict mode throws; Moderate/Permissive allow it.
+        Seqeron.Genomics.Core.LimitationPolicy.Enforce("ONCO-IMMUNE-001");
 
         signatureMatrix ??= DefaultSignatureMatrix;
         nuValues ??= CibersortNuValues;

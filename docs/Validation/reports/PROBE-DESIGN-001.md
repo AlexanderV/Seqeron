@@ -264,3 +264,7 @@ projects pass (Chromosome.Tests is a pre-existing empty assembly, not a failure)
   Two evidence-based tests added to close coverage gaps (rank-fallback path; G-run-PASS and
   empty-string edges). Quantitative MGB ΔTm remains proprietary/data-blocked and is out of scope
   for this unit (handled, qualitatively, under PROBE-LNATM-001).
+
+## Runtime enforcement (LimitationPolicy)
+
+This unit's guarded branch — the qualitative MGB design rules (quantitative ΔTm deliberately not computed) — has **minimum access mode `Moderate`** (`Seqeron.Genomics.Core.LimitationCatalog`). Under the default `LimitationPolicy.DefaultMode = Moderate` it is **allowed** (this guarded branch throws only under `Strict`); see [LIMITATIONS.md](../LIMITATIONS.md) › Runtime enforcement. Additive policy layer; the validated contract and `✅ CLEAN` verdict are unchanged.

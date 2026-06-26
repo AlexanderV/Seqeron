@@ -290,3 +290,7 @@ and its private helpers `KMeansCluster`, `CompositeDistance`, `TnfPearsonDistanc
   fully fixed. Per-lineage CheckM DB remains a documented out-of-scope data boundary (META-CHECKM-001).
 - **Tests:** GenomeBinning fixture 19/19; full unfiltered `dotnet test Seqeron.sln -c Debug` =
   Failed 0 (`Seqeron.Genomics.Tests` 18805/0), 0 warnings.
+
+## Runtime enforcement (LimitationPolicy)
+
+This unit's guarded branch — domain-level CheckM completeness/contamination (no lineage-specific refinement) — has **minimum access mode `Moderate`** (`Seqeron.Genomics.Core.LimitationCatalog`). Under the default `LimitationPolicy.DefaultMode = Moderate` it is **allowed** (this guarded branch throws only under `Strict`); see [LIMITATIONS.md](../LIMITATIONS.md) › Runtime enforcement. Additive policy layer; the validated contract and `✅ CLEAN` verdict are unchanged.

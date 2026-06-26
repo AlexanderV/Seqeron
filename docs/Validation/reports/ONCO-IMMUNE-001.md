@@ -122,3 +122,7 @@ None on the ONCO-IMMUNE-001 canonical surface.
 
 ### Historical appendix (prior reports, retained as evidence)
 The pre-2026-06-25 report (2026-06-24 and earlier) covered the same unit before the campaign split out IMMUNE-NUSVR-001 and added `EstimateTumorPurity`. Key historical facts retained: the original ESTIMATE-purity/ssGSEA/NNLS implementation was validated CLEAN under `cb113ce`/`a3b9e83b`; the opt-in `EstimateTumorPurity` and the ν-SVR + ABIS additions were limitation fixes (now IMMUNE-NUSVR-001). The 2026-06-24 prose figure for M14a ("≈0.136548") was a rounding slip; the source-exact value is **(3^¼−1)/(3^¼+1) = 0.13646973766…**, which is what the test asserts at runtime — no code defect.
+
+## Runtime enforcement (LimitationPolicy)
+
+This unit's guarded branch — ABIS/caller-matrix immune deconvolution and the ESTIMATE→ABSOLUTE purity transform (no CIBERSORT-LM22 parity) — has **minimum access mode `Moderate`** (`Seqeron.Genomics.Core.LimitationCatalog`). Under the default `LimitationPolicy.DefaultMode = Moderate` it is **allowed** (this guarded branch throws only under `Strict`); see [LIMITATIONS.md](../LIMITATIONS.md) › Runtime enforcement. Additive policy layer; the validated contract and `✅ CLEAN` verdict are unchanged.

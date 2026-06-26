@@ -85,6 +85,7 @@ TA_3UTR is now computable from a caller-supplied 3′UTR set. The remaining cont
 - **End-state: ✅ CLEAN** — defect found and fully fixed in-session; the residual (PCT params / SPS / Len_ORF / ORF8m caller-supplied; no bundled transcriptome) is an honest, declared boundary.
 - Defect logged in FINDINGS_REGISTER.md.
 
+
 ## Runtime enforcement (LimitationPolicy)
 
-Under the default `LimitationPolicy.DefaultMode = Strict`, a **partial** context++ score (one or more of TA/SPS/PCT/ORF not supplied — `OmittedFeatures` non-empty) throws `Seqeron.Genomics.Core.SeqeronLimitationException` (named limitation + workaround; see [LIMITATIONS.md](../LIMITATIONS.md) › Runtime enforcement and `LimitationCatalog`). `Permissive` mode returns the historical best-effort value. This is an additive policy layer; the validated contract and `✅ CLEAN` verdict are unchanged.
+This unit's guarded branch — a **partial** context++ score (`OmittedFeatures` non-empty) — has **minimum access mode `Permissive`** (`Seqeron.Genomics.Core.LimitationCatalog`). Under the default `LimitationPolicy.DefaultMode = Moderate` it throws `SeqeronLimitationException` (this guarded branch is allowed only under `Permissive`); see [LIMITATIONS.md](../LIMITATIONS.md) › Runtime enforcement. Additive policy layer; the validated contract and `✅ CLEAN` verdict are unchanged.

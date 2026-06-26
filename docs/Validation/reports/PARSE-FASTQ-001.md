@@ -131,6 +131,7 @@ Test-quality audit (`QualityScoreAnalyzer_DetectEncodingFile_Tests.cs`, 19 tests
 - **State: CLEAN.** Stage A PASS, Stage B PASS. No code/test changes were needed; this re-validation edited only validation docs.
 - Full unfiltered suite: `Failed: 0, Passed: 18880` (Seqeron.Genomics.Tests) plus all other projects green (`dotnet test Seqeron.sln -c Debug`, 2026-06-26).
 
+
 ## Runtime enforcement (LimitationPolicy)
 
-Under the default `LimitationPolicy.DefaultMode = Strict`, encoding auto-detection on overlap-confined input (every quality char in ASCII 64–74) throws `Seqeron.Genomics.Core.SeqeronLimitationException` (named limitation + workaround; see [LIMITATIONS.md](../LIMITATIONS.md) › Runtime enforcement and `LimitationCatalog`). `Permissive` mode returns the historical best-effort value. This is an additive policy layer; the validated contract and `✅ CLEAN` verdict are unchanged.
+This unit's guarded branch — encoding auto-detection on overlap-confined input (every quality char in ASCII 64–74) — has **minimum access mode `Permissive`** (`Seqeron.Genomics.Core.LimitationCatalog`). Under the default `LimitationPolicy.DefaultMode = Moderate` it throws `SeqeronLimitationException` (this guarded branch is allowed only under `Permissive`); see [LIMITATIONS.md](../LIMITATIONS.md) › Runtime enforcement. Additive policy layer; the validated contract and `✅ CLEAN` verdict are unchanged.

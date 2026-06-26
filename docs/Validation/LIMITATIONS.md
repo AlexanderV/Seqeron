@@ -15,22 +15,27 @@ boundaries, never defects. They fall into three kinds:
 
 ## Runtime enforcement (`LimitationPolicy`)
 
-By **default** (`LimitationPolicy.DefaultMode = Strict`) the library returns **only the ideal, confirmed
-result**: the handful of code paths that would otherwise hand back a *non-ideal* value (a defaulted
-encoding, an uncalibrated confidence, a partial score, an approximate span, an unresolved SF1/SF2 call)
-instead throw a `Seqeron.Genomics.Core.SeqeronLimitationException` that names the limitation, what it is
-related to, and how to obtain the result another way. Set `LimitationPolicy.DefaultMode = Permissive`
-(or wrap a region in `using (LimitationPolicy.UsePermissive()) { … }`) to receive the historical
-best-effort value instead.
+`Seqeron.Genomics.Core.LimitationPolicy` has **three modes**, least → most permissive — `Strict` <
+`Moderate` < `Permissive`. A guarded call throws `SeqeronLimitationException` (naming the limitation,
+what it is related to, and how to obtain the result another way) when the effective mode is *more
+restrictive* than that limitation's **minimum access mode**. The default is **`Moderate`**. Set
+`LimitationPolicy.DefaultMode`, or scope a region with `using (LimitationPolicy.Use(mode)) { … }`.
 
-The **five guarded branches** are: PARSE-FASTQ-001 (encoding undetermined — overlap-confined input),
-CHROM-CENT-001 (`Sf1OrSf2Dimeric` — SF1 vs SF2 unresolved), DISORDER-REGION-001 (uncalibrated per-region
-confidence — use `PredictDisorderRegions` for the validated boundaries), MIRNA-TARGET-001 (partial
-context++ — one or more optional inputs not supplied), MIRNA-CLEAVAGE-001 (approximate 3p/star span).
-The remaining rows below have **no runtime guard**: either the result is exact for a narrower contract /
-not offered (you supply the data), or the limitation is undetectable per call (the irreducible
-RNA-STRUCT-001 rows return an exact result for the stated NN-energy model / csr-PK grammar). The single
-source of truth for the guarded text is `Seqeron.Genomics.Core.LimitationCatalog`.
+- **`Strict`** — only the ideal **and complete** result: throws on every guarded branch below.
+- **`Moderate`** (default) — throws on the **non-ideal-output** branches; **allows** the
+  **correct-but-incomplete / narrower-contract** branches.
+- **`Permissive`** — allows everything (historical best-effort).
+
+**Minimum access mode per guarded unit** (single source of truth: `LimitationCatalog`):
+
+| Min mode | Units (guarded branch) |
+|----------|------------------------|
+| **`Permissive`** (non-ideal output — blocked in Strict & Moderate) | PARSE-FASTQ-001 (encoding undetermined), CHROM-CENT-001 (`Sf1OrSf2Dimeric`), DISORDER-REGION-001 (uncalibrated confidence — use `PredictDisorderRegions` for the validated boundaries), MIRNA-TARGET-001 (partial context++), MIRNA-CLEAVAGE-001 (approximate 3p/star span) |
+| **`Moderate`** (correct-but-incomplete — blocked only in Strict) | ONCO-MHC-001 (SMM/BIMAS matrix score), ONCO-IMMUNE-001 (ABIS/caller-matrix deconvolution & ESTIMATE purity), META-BIN-001 (domain-level CheckM), PROBE-DESIGN-001 (qualitative MGB rules) |
+
+Rows below with **no runtime guard** (documented only): the irreducible **RNA-STRUCT-001** pair (the
+result is exact for the stated NN-energy model / csr-PK grammar, and the shortfall is undetectable per
+call) and **MIRNA-PRECURSOR-001** (read-stacking is not implemented — nothing is returned to gate).
 
 ---
 

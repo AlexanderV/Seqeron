@@ -8,6 +8,9 @@ using Seqeron.Genomics.IO;
 using Seqeron.Genomics.Analysis;
 using Seqeron.Genomics.Annotation;
 using Seqeron.Genomics.Chromosome;
+using Seqeron.Genomics.MolTools;
+using Seqeron.Genomics.Metagenomics;
+using Seqeron.Genomics.Oncology;
 
 namespace Seqeron.Genomics.Tests;
 
@@ -61,11 +64,18 @@ public class LimitationPolicy_Strict_Tests
 
     // ── catalog integrity ──────────────────────────────────────────────────────────────────
 
-    private static readonly string[] GuardedIds =
+    // Non-ideal-output branches: allowed ONLY under Permissive (throw in Strict AND Moderate).
+    private static readonly string[] NonIdealIds =
         { "PARSE-FASTQ-001", "CHROM-CENT-001", "DISORDER-REGION-001", "MIRNA-TARGET-001", "MIRNA-CLEAVAGE-001" };
 
+    // Correct-but-incomplete / narrower-contract branches: allowed under Moderate+Permissive (throw in Strict).
+    private static readonly string[] IncompleteIds =
+        { "ONCO-MHC-001", "ONCO-IMMUNE-001", "META-BIN-001", "PROBE-DESIGN-001" };
+
+    private static readonly string[] GuardedIds = NonIdealIds.Concat(IncompleteIds).ToArray();
+
     [Test]
-    public void Catalog_HasExactlyTheFiveGuardedUnits()
+    public void Catalog_HasExactlyTheNineGuardedUnits()
         => Assert.That(LimitationCatalog.Entries.Keys.OrderBy(x => x),
             Is.EqualTo(GuardedIds.OrderBy(x => x)));
 
@@ -81,7 +91,39 @@ public class LimitationPolicy_Strict_Tests
             Assert.That(info.RelatedTo, Is.Not.Empty, "RelatedTo");
             Assert.That(info.Workaround, Is.Not.Empty, "Workaround");
             Assert.That(info.ReportPath, Is.EqualTo($"docs/Validation/reports/{id}.md"));
+            Assert.That(info.MinimumMode, Is.AnyOf(LimitationMode.Moderate, LimitationMode.Permissive));
         });
+    }
+
+    // ── three-tier policy semantics ──────────────────────────────────────────────────────────
+
+    [Test]
+    public void Modes_AreOrderedStrictModeratePermissive()
+        => Assert.That((int)LimitationMode.Strict < (int)LimitationMode.Moderate
+                    && (int)LimitationMode.Moderate < (int)LimitationMode.Permissive, Is.True);
+
+    [TestCaseSource(nameof(NonIdealIds))]
+    public void NonIdealBranch_MinPermissive_ThrowsUnderStrictAndModerate_AllowedPermissive(string id)
+    {
+        Assert.That(LimitationCatalog.Get(id).MinimumMode, Is.EqualTo(LimitationMode.Permissive));
+        using (LimitationPolicy.UseStrict())
+            Assert.Throws<SeqeronLimitationException>(() => LimitationPolicy.Enforce(id));
+        using (LimitationPolicy.Use(LimitationMode.Moderate))
+            Assert.Throws<SeqeronLimitationException>(() => LimitationPolicy.Enforce(id));
+        using (LimitationPolicy.UsePermissive())
+            Assert.DoesNotThrow(() => LimitationPolicy.Enforce(id));
+    }
+
+    [TestCaseSource(nameof(IncompleteIds))]
+    public void IncompleteBranch_MinModerate_ThrowsUnderStrictOnly(string id)
+    {
+        Assert.That(LimitationCatalog.Get(id).MinimumMode, Is.EqualTo(LimitationMode.Moderate));
+        using (LimitationPolicy.UseStrict())
+            Assert.Throws<SeqeronLimitationException>(() => LimitationPolicy.Enforce(id));
+        using (LimitationPolicy.Use(LimitationMode.Moderate))
+            Assert.DoesNotThrow(() => LimitationPolicy.Enforce(id));
+        using (LimitationPolicy.UsePermissive())
+            Assert.DoesNotThrow(() => LimitationPolicy.Enforce(id));
     }
 
     [TestCaseSource(nameof(GuardedIds))]
@@ -294,6 +336,50 @@ public class LimitationPolicy_Strict_Tests
             Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage("", 0), Is.Null);
             Assert.That(MiRnaAnalyzer.PredictDroshaDicerCleavage(PriMiRna, -1), Is.Null);
         }
+    }
+
+    // ── incomplete-group behavioural checks (throw only under Strict; allowed under Moderate) ──
+
+    [Test]
+    public void Mgb_QualitativeRules_ThrowsStrict_AllowedModerate()
+    {
+        using (LimitationPolicy.UseStrict())
+        {
+            var ex = Assert.Throws<SeqeronLimitationException>(
+                () => ProbeDesigner.EvaluateMgbProbeDesign("ACGTACGTACGTACGT"))!;
+            Assert.That(ex.LimitationId, Is.EqualTo("PROBE-DESIGN-001"));
+        }
+        using (LimitationPolicy.Use(LimitationMode.Moderate))
+            Assert.DoesNotThrow(() => ProbeDesigner.EvaluateMgbProbeDesign("ACGTACGTACGTACGT"));
+    }
+
+    [Test]
+    public void CheckM_DomainLevel_ThrowsStrict_AllowedModerate()
+    {
+        var markerSets = new[] { new MetagenomicsAnalyzer.MarkerSet(new[] { "m1", "m2" }) };
+        var counts = new Dictionary<string, int> { ["m1"] = 1, ["m2"] = 1 };
+
+        using (LimitationPolicy.UseStrict())
+        {
+            var ex = Assert.Throws<SeqeronLimitationException>(
+                () => MetagenomicsAnalyzer.EstimateBinQualityFromMarkerCounts(markerSets, counts))!;
+            Assert.That(ex.LimitationId, Is.EqualTo("META-BIN-001"));
+        }
+        using (LimitationPolicy.Use(LimitationMode.Moderate))
+            Assert.DoesNotThrow(() => MetagenomicsAnalyzer.EstimateBinQualityFromMarkerCounts(markerSets, counts));
+    }
+
+    [Test]
+    public void EstimateTumorPurity_ThrowsStrict_AllowedModerate()
+    {
+        using (LimitationPolicy.UseStrict())
+        {
+            var ex = Assert.Throws<SeqeronLimitationException>(
+                () => ImmuneAnalyzer.EstimateTumorPurity(0.5))!;
+            Assert.That(ex.LimitationId, Is.EqualTo("ONCO-IMMUNE-001"));
+        }
+        using (LimitationPolicy.Use(LimitationMode.Moderate))
+            Assert.DoesNotThrow(() => ImmuneAnalyzer.EstimateTumorPurity(0.5));
     }
 
     // ── helper ───────────────────────────────────────────────────────────────────────────────
