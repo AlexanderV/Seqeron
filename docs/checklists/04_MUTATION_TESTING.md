@@ -51,8 +51,8 @@ Mutation testing вимірює ефективність тестового на
 | 21 | ☑ | PRIMER-TM-001 | MolTools | PrimerDesigner.cs | PrimerDesigner_MeltingTemperature_Tests.cs | ≥ 80% |
 | 22 | ☑ | PRIMER-DESIGN-001 | MolTools | PrimerDesigner.cs | PrimerDesigner_PrimerDesign_Tests.cs | ≥ 80% |
 | 23 | ☑ | PRIMER-STRUCT-001 | MolTools | PrimerDesigner.cs | PrimerDesigner_PrimerStructure_Tests.cs | ≥ 80% |
-| 24 | ☐ | PROBE-DESIGN-001 | MolTools | ProbeDesigner.cs | ProbeDesigner_ProbeDesign_Tests.cs | ≥ 80% |
-| 25 | ☐ | PROBE-VALID-001 | MolTools | ProbeDesigner.cs | ProbeDesigner_ProbeValidation_Tests.cs | ≥ 80% |
+| 24 | ☑ | PROBE-DESIGN-001 | MolTools | ProbeDesigner.cs | ProbeDesigner_ProbeDesign_Tests.cs | ≥ 80% |
+| 25 | ☑ | PROBE-VALID-001 | MolTools | ProbeDesigner.cs | ProbeDesigner_ProbeValidation_Tests.cs | ≥ 80% |
 | 26 | ☑ | RESTR-FIND-001 | MolTools | RestrictionAnalyzer.cs | RestrictionAnalyzer_FindSites_Tests.cs | ≥ 80% |
 | 27 | ☑ | RESTR-DIGEST-001 | MolTools | RestrictionAnalyzer.cs | RestrictionAnalyzer_Digest_Tests.cs | ≥ 80% |
 | 28 | ☐ | ANNOT-ORF-001 | Annotation | GenomeAnnotator.cs | GenomeAnnotator_ORF_Tests.cs | ≥ 80% |
@@ -270,8 +270,8 @@ Mutation testing вимірює ефективність тестового на
 | 240 | ☑ | PRIMER-NNTM-001 | MolTools | PrimerDesigner.cs | PrimerDesigner_NearestNeighborTm_Tests.cs | ≥ 80% |
 | 241 | ☑ | PRIMER-HAIRPIN-001 | MolTools | PrimerDesigner.cs | PrimerDesigner_HairpinTm_Tests.cs / PrimerDesigner_HairpinSpecialLoop_Tests.cs | ≥ 80% |
 | 242 | ☑ | PRIMER-DIMER-001 | MolTools | PrimerDesigner.cs / NtthalDimer.cs | PrimerDesigner_DimerTm_Tests.cs | ≥ 80% |
-| 243 | ☐ | PROBE-LNATM-001 | MolTools | ProbeDesigner.cs | ProbeDesigner_LnaTm_Tests.cs | ≥ 80% |
-| 244 | ☐ | PROBE-EVALUE-001 | MolTools | ProbeDesigner.cs | ProbeDesigner_ProbeValidation_Tests.cs | ≥ 80% |
+| 243 | ☑ | PROBE-LNATM-001 | MolTools | ProbeDesigner.cs | ProbeDesigner_LnaTm_Tests.cs | ≥ 80% |
+| 244 | ☑ | PROBE-EVALUE-001 | MolTools | ProbeDesigner.cs | ProbeDesigner_ProbeValidation_Tests.cs | ≥ 80% |
 | 245 | ☐ | MHC-NN-001 | Oncology | MhcflurryAffinityPredictor.cs | MhcflurryAffinityPredictor_PredictIc50_Tests.cs | ≥ 80% |
 | 246 | ☐ | MHC-MATRIX-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_ClassifyMhcBinding_Tests.cs | ≥ 80% |
 | 247 | ☐ | IMMUNE-NUSVR-001 | Oncology | ImmuneAnalyzer.cs | ImmuneAnalyzer_ImmuneInfiltration_Tests.cs | ≥ 80% |
@@ -294,7 +294,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete (run + killers written) | 200 |
-| ☐ Not started | 58 |
+| ☑ Complete (run + killers written) | 204 |
+| ☐ Not started | 54 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
