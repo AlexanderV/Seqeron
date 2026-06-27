@@ -182,6 +182,17 @@ public class CodonOptimizer_RareCodonClusters_Tests
             () => CodonOptimizer.CalculateMinMaxProfile("AGAAGA", CodonOptimizer.EColiK12, windowSize: 0));
     }
 
+    // MM11 — windowSize = 1 is the SMALLEST legal window and must be accepted (pins "windowSize < 1"
+    // against the "<= 1" off-by-one; a 1-codon window yields one profile point per codon).
+    [Test]
+    public void CalculateMinMaxProfile_WindowSizeOne_IsAcceptedAndPerCodon()
+    {
+        IReadOnlyList<CodonOptimizer.MinMaxWindow> profile = null!;
+        Assert.DoesNotThrow(
+            () => profile = CodonOptimizer.CalculateMinMaxProfile("AGAAGA", CodonOptimizer.EColiK12, windowSize: 1));
+        Assert.That(profile, Has.Count.EqualTo(2), "2 codons, window 1 -> one window per codon");
+    }
+
     #endregion
 
     #region FindRareCodonClusters — Sherlocc RCC rule (Chartier et al. 2012)
@@ -396,6 +407,16 @@ public class CodonOptimizer_RareCodonClusters_Tests
             Assert.Throws<ArgumentOutOfRangeException>(() =>
                 CodonOptimizer.FindRareCodonClusters("AGAAGA", CodonOptimizer.EColiK12, minRareCodons: 0));
         });
+    }
+
+    // C13b — windowSize = 1 and minRareCodons = 1 are the SMALLEST legal values and must be accepted,
+    // pinning both "windowSize < 1" and "minRareCodons < 1" guards against their "<= 1" off-by-one mutants.
+    [Test]
+    public void FindRareCodonClusters_WindowAndMinRareOfOne_AreAccepted()
+    {
+        Assert.DoesNotThrow(() =>
+            CodonOptimizer.FindRareCodonClusters(
+                "AGAAGA", CodonOptimizer.EColiK12, windowSize: 1, minRareCodons: 1));
     }
 
     // C14 — Determinism: same input -> same clusters.

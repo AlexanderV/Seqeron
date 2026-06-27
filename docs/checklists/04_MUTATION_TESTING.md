@@ -86,9 +86,9 @@ Mutation testing вимірює ефективність тестового на
 | 56 | ☑ | META-BETA-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_BetaDiversity_Tests.cs | ≥ 80% |
 | 57 | ☑ | META-BIN-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_GenomeBinning_Tests.cs | ≥ 80% |
 | 58 | ☑ | CODON-OPT-001 | Codon | CodonOptimizer.cs | CodonOptimizer_OptimizeSequence_Tests.cs | ≥ 80% |
-| 59 | ☐ | CODON-CAI-001 | Codon | CodonOptimizer.cs | CodonOptimizer_CAI_Tests.cs | ≥ 80% |
-| 60 | ☐ | CODON-RARE-001 | Codon | CodonOptimizer.cs | CodonOptimizer_FindRareCodons_Tests.cs | ≥ 80% |
-| 61 | ☐ | CODON-USAGE-001 | Codon | CodonOptimizer.cs | CodonOptimizer_CodonUsage_Tests.cs | ≥ 80% |
+| 59 | ☑ | CODON-CAI-001 | Codon | CodonOptimizer.cs | CodonOptimizer_CAI_Tests.cs | ≥ 80% |
+| 60 | ☑ | CODON-RARE-001 | Codon | CodonOptimizer.cs | CodonOptimizer_FindRareCodons_Tests.cs | ≥ 80% |
+| 61 | ☑ | CODON-USAGE-001 | Codon | CodonOptimizer.cs | CodonOptimizer_CodonUsage_Tests.cs | ≥ 80% |
 | 62 | ☑ | TRANS-CODON-001 | Translation | GeneticCode.cs | GeneticCodeTests.cs | ≥ 80% |
 | 63 | ☑ | TRANS-PROT-001 | Translation | Translator.cs | TranslatorTests.cs | ≥ 80% |
 | 64 | ☐ | PARSE-FASTA-001 | FileIO | FastaParser.cs | FastaParserTests.cs | ≥ 80% |
@@ -294,7 +294,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete (run + killers written) | 214 |
-| ☐ Not started | 44 |
+| ☑ Complete (run + killers written) | 217 |
+| ☐ Not started | 41 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
