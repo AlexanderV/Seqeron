@@ -14,9 +14,9 @@ namespace Seqeron.Genomics.Tests.Architecture;
 ///
 /// Rules are checked at the IL level — they catch violations even across project boundaries.
 ///
-/// Coverage maps to docs/checklists/07_ARCHITECTURE_TESTING.md (19 module-dependency rules).
+/// Coverage maps to docs/checklists/07_ARCHITECTURE_TESTING.md (22 module-dependency rules).
 /// Rules apply to modules (projects), not to individual algorithms; the algorithm-to-module
-/// mapping in the checklist documents which rule guards each of the 94 algorithms.
+/// mapping in the checklist documents which rule guards each of the 258 algorithms.
 /// </summary>
 [TestFixture]
 [Category("Architecture")]
@@ -298,5 +298,93 @@ public class ArchitectureTests
         Assert.That(offenders, Is.Empty,
             "Result/DTO types must be immutable (records or get-only). Mutable public setters found on: "
             + string.Join(", ", offenders));
+    }
+
+    // ---------------------------------------------------------------------
+    // Rules 20-22 — placement & naming-convention guards (anti-drift)
+    //
+    // These close the gap exposed when the algorithm roster grew to 258 and
+    // several algorithm classes were found to have moved modules (e.g. codon
+    // tools → MolTools, miRNA/splicing/epigenetics → Annotation) without any
+    // test catching it. They enforce *where* algorithm types may live so a
+    // future relocation into the wrong module fails the build.
+    // ---------------------------------------------------------------------
+
+    /// <summary>
+    /// Algorithm-class name suffixes. A class whose name ends with one of these is an
+    /// algorithm entry point (parser, predictor, analyzer, …), never a Core primitive.
+    /// </summary>
+    private static readonly string[] AlgorithmSuffixes =
+    [
+        "Parser", "Predictor", "Finder", "Designer", "Analyzer",
+        "Optimizer", "Caller", "Aligner", "Assembler",
+    ];
+
+    /// <summary>
+    /// Rule 20: File-format parsers live only in the IO module. Parsing is an IO concern;
+    /// a <c>*Parser</c> appearing in any other module signals that file-format handling has
+    /// leaked into algorithm or domain code.
+    /// </summary>
+    [Test]
+    public void Parsers_ShouldResideIn_IO()
+    {
+        Classes().That().HaveNameEndingWith("Parser")
+            .Should().ResideInNamespace(Io)
+            .Check(Arch);
+    }
+
+    /// <summary>
+    /// Rule 21: Core is the innermost domain layer and holds primitives only (sequences,
+    /// genetic code, extensions) — no algorithm entry points. No Core type may carry an
+    /// algorithm-class suffix; such a class belongs in an algorithm module instead.
+    /// </summary>
+    [Test]
+    public void Core_ShouldContainNoAlgorithmClasses()
+    {
+        var coreAssembly = typeof(DnaSequence).Assembly;
+
+        var offenders = coreAssembly.GetExportedTypes()
+            .Where(t => t.IsClass)
+            .Where(t => AlgorithmSuffixes.Any(s => t.Name.EndsWith(s, StringComparison.Ordinal)))
+            .Select(t => t.FullName)
+            .ToList();
+
+        Assert.That(offenders, Is.Empty,
+            "Core must contain primitives only; algorithm classes belong in an algorithm module. "
+            + "Misplaced in Core: " + string.Join(", ", offenders));
+    }
+
+    /// <summary>
+    /// Rule 22: A type's namespace must match the module (assembly) that physically contains
+    /// it — project boundary equals namespace boundary. This catches a class file being moved
+    /// into the wrong project (or its namespace edited) independently of the dependency rules.
+    /// </summary>
+    [Test]
+    public void Types_ShouldResideInNamespaceMatchingTheirAssembly()
+    {
+        var offenders = new List<string>();
+
+        foreach (var assembly in SeqeronAssemblies)
+        {
+            var root = assembly.GetName().Name!; // e.g. "Seqeron.Genomics.Analysis"
+
+            foreach (var type in assembly.GetExportedTypes())
+            {
+                if (type.IsNested)
+                {
+                    continue; // nested types inherit their declaring type's namespace
+                }
+
+                var ns = type.Namespace;
+                if (ns is null || (ns != root && !ns.StartsWith(root + ".", StringComparison.Ordinal)))
+                {
+                    offenders.Add($"{type.FullName} (in {root})");
+                }
+            }
+        }
+
+        Assert.That(offenders, Is.Empty,
+            "Every type must reside in a namespace matching its assembly (project = namespace). "
+            + "Mismatches: " + string.Join(", ", offenders));
     }
 }
