@@ -34,7 +34,7 @@ Mutation testing вимірює ефективність тестового на
 | 4 | ☑ | SEQ-VALID-001 | Composition | SequenceExtensions.cs | SequenceExtensions_SequenceValidation_Tests.cs | ≥ 80% |
 | 5 | ☑ | SEQ-COMPLEX-001 | Composition | SequenceComplexity.cs | SequenceComplexityTests.cs | ≥ 80% |
 | 6 | ☑ | SEQ-ENTROPY-001 | Composition | SequenceComplexity.cs | SequenceComplexityTests.cs | ≥ 80% |
-| 7 | ☐ | SEQ-GCSKEW-001 | Composition | GcSkewCalculator.cs | GcSkewCalculatorTests.cs | ≥ 80% |
+| 7 | ☑ | SEQ-GCSKEW-001 | Composition | GcSkewCalculator.cs | GcSkewCalculatorTests.cs | ≥ 80% |
 | 8 | ☑ | PAT-EXACT-001 | Matching | MotifFinder.cs | FindAllOccurrencesTests.cs, ContainsTests.cs, CountOccurrencesTests.cs | ≥ 80% |
 | 9 | ☑ | PAT-APPROX-001 | Matching | ApproximateMatcher.cs | ApproximateMatcher_HammingDistance_Tests.cs | ≥ 80% |
 | 10 | ☑ | PAT-APPROX-002 | Matching | ApproximateMatcher.cs | ApproximateMatcher_EditDistance_Tests.cs | ≥ 80% |
@@ -260,7 +260,7 @@ Mutation testing вимірює ефективність тестового на
 | 230 | ☑ | SEQ-COMPLEX-KMER-001 | Complexity | SequenceComplexity.cs | SequenceComplexity_CalculateKmerEntropy_Tests.cs | ≥ 80% |
 | 231 | ☑ | SEQ-COMPLEX-WINDOW-001 | Complexity | SequenceComplexity.cs | SequenceComplexity_CalculateWindowedComplexity_Tests.cs | ≥ 80% |
 | 232 | ☑ | SEQ-ENTROPY-PROFILE-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateEntropyProfile_Tests.cs | ≥ 80% |
-| 233 | ☐ | SEQ-GC-ANALYSIS-001 | Composition | GcSkewCalculator.cs | GcSkewCalculator_AnalyzeGcContent_Tests.cs | ≥ 80% |
+| 233 | ☑ | SEQ-GC-ANALYSIS-001 | Composition | GcSkewCalculator.cs | GcSkewCalculator_AnalyzeGcContent_Tests.cs | ≥ 80% |
 | 234 | ☐ | SEQ-GC-PROFILE-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateGcContentProfile_Tests.cs | ≥ 80% |
 | 235 | ☐ | ONCO-ASCAT-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_AscatDerivation_Tests.cs | ≥ 80% |
 | 236 | ☐ | RNA-PKPREDICT-001 | Analysis | RnaSecondaryStructure.cs | RnaSecondaryStructure_PredictStructurePseudoknot_Tests.cs | ≥ 80% |
@@ -294,7 +294,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete (run + killers written) | 190 |
-| ☐ Not started | 68 |
+| ☑ Complete (run + killers written) | 192 |
+| ☐ Not started | 66 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
