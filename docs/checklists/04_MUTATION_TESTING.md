@@ -40,11 +40,11 @@ Mutation testing вимірює ефективність тестового на
 | 10 | ☑ | PAT-APPROX-002 | Matching | ApproximateMatcher.cs | ApproximateMatcher_EditDistance_Tests.cs | ≥ 80% |
 | 11 | ☑ | PAT-IUPAC-001 | Matching | MotifFinder.cs, IupacHelper.cs | IupacMotifMatchingTests.cs, MutationKillerTests.cs | ≥ 80% |
 | 12 | ☑ | PAT-PWM-001 | Matching | MotifFinder.cs | MotifFinder_PWM_Tests.cs, MutationKillerTests.cs | ≥ 80% |
-| 13 | ☐ | REP-STR-001 | Repeats | RepeatFinder.cs | RepeatFinder_Microsatellite_Tests.cs | ≥ 80% |
+| 13 | ☑ | REP-STR-001 | Repeats | RepeatFinder.cs | RepeatFinder_Microsatellite_Tests.cs | ≥ 80% |
 | 14 | ☑ | REP-TANDEM-001 | Repeats | RepeatFinder.cs, GenomicAnalyzer.cs | GenomicAnalyzer_TandemRepeat_Tests.cs, RepeatFinderTests.cs | ≥ 80% |
 | 15 | ☑ | REP-INV-001 | Repeats | RepeatFinder.cs | RepeatFinder_InvertedRepeat_Tests.cs | ≥ 80% |
 | 16 | ☑ | REP-DIRECT-001 | Repeats | RepeatFinder.cs | RepeatFinder_DirectRepeat_Tests.cs | ≥ 80% |
-| 17 | ☐ | REP-PALIN-001 | Repeats | RepeatFinder.cs | RepeatFinder_Palindrome_Tests.cs | ≥ 80% |
+| 17 | ☑ | REP-PALIN-001 | Repeats | RepeatFinder.cs | RepeatFinder_Palindrome_Tests.cs | ≥ 80% |
 | 18 | ☑ | CRISPR-PAM-001 | MolTools | CrisprDesigner.cs | CrisprDesigner_PAM_Tests.cs | ≥ 80% |
 | 19 | ☑ | CRISPR-GUIDE-001 | MolTools | CrisprDesigner.cs | CrisprDesigner_GuideRNA_Tests.cs | ≥ 80% |
 | 20 | ☑ | CRISPR-OFF-001 | MolTools | CrisprDesigner.cs | CrisprDesigner_OffTarget_Tests.cs | ≥ 80% |
@@ -283,7 +283,7 @@ Mutation testing вимірює ефективність тестового на
 | 253 | ☐ | MIRNA-PCT-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_TargetPrediction_Tests.cs | ≥ 80% |
 | 254 | ☐ | MIRNA-CLASSIFY-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_PreMiRna_Tests.cs | ≥ 80% |
 | 255 | ☐ | MIRNA-CLEAVAGE-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_PreMiRna_Tests.cs | ≥ 80% |
-| 256 | ☐ | REP-APPROX-001 | Repeats | RepeatFinder.cs | RepeatFinder_ApproximateTandemRepeats_Tests.cs | ≥ 80% |
+| 256 | ☑ | REP-APPROX-001 | Repeats | RepeatFinder.cs | RepeatFinder_ApproximateTandemRepeats_Tests.cs | ≥ 80% |
 | 257 | ☐ | CHROM-ALPHASAT-001 | Chromosome | ChromosomeAnalyzer.cs | ChromosomeAnalyzer_AlphaSatellite_Tests.cs | ≥ 80% |
 | 258 | ☐ | CHROM-HOR-001 | Chromosome | ChromosomeAnalyzer.cs | ChromosomeAnalyzer_HigherOrderRepeat_Tests.cs | ≥ 80% |
 
@@ -294,7 +294,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete (run + killers written) | 192 |
-| ☐ Not started | 66 |
+| ☑ Complete (run + killers written) | 195 |
+| ☐ Not started | 63 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
