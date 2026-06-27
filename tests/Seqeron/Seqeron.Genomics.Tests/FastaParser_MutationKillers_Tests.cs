@@ -78,4 +78,62 @@ public class FastaParser_MutationKillers_Tests
         }
         finally { File.Delete(path); }
     }
+
+    // ── Typed (alphabet-aware) ParseFileAsync(path, alphabet): the newer overload was uncovered ──
+
+    [Test]
+    public async Task ParseFileAsyncTyped_TwoRecordsAndEmptyHeaderSkipped()
+    {
+        string path = Path.GetTempFileName();
+        try
+        {
+            // ">b" has no sequence before ">c": the (header != null && Length > 0) guard must NOT flush it.
+            await File.WriteAllTextAsync(path, ">a desc1\nACGT\nACGT\n>b\n>c\nGGGG\n");
+
+            var records = new List<FastaRecord>();
+            await foreach (var r in FastaParser.ParseFileAsync(path, SequenceAlphabet.StrictDna))
+                records.Add(r);
+
+            records.Select(r => r.Id).Should().Equal(new[] { "a", "c" }, "the empty 'b' record is skipped");
+            records[0].Description.Should().Be("desc1");
+            records[0].Sequence.Should().Be("ACGTACGT");
+            records[0].Alphabet.Should().Be(SequenceAlphabet.StrictDna);
+            records[1].Sequence.Should().Be("GGGG");
+        }
+        finally { File.Delete(path); }
+    }
+
+    // ── Sync typed Parse(content, alphabet): empty-header record must be skipped (ParseReaderTyped flush) ──
+
+    [Test]
+    public void ParseTyped_EmptyHeaderRecord_IsSkipped()
+    {
+        var records = FastaParser.Parse(">a\nACGT\n>b\n>c\nGGGG\n", SequenceAlphabet.StrictDna).ToList();
+
+        records.Select(r => r.Id).Should().Equal(new[] { "a", "c" }, "the empty 'b' record is not emitted");
+        records[1].Sequence.Should().Be("GGGG");
+    }
+
+    // ── Sync untyped Parse(content): empty-header record must be skipped (ParseReader flush guard) ──
+
+    [Test]
+    public void ParseUntyped_EmptyHeaderRecord_IsSkipped()
+    {
+        var entries = FastaParser.Parse(">a\nACGT\n>b\n>c\nGGGG\n").ToList();
+
+        entries.Select(e => e.Id).Should().Equal(new[] { "a", "c" }, "the empty 'b' record is not emitted");
+        entries[1].Sequence.Sequence.Should().Be("GGGG");
+    }
+
+    // ── FastaRecord.Header: present vs absent description (kills the Description==null branch) ──
+
+    [Test]
+    public void FastaRecordHeader_ReflectsDescriptionPresence()
+    {
+        var withDesc = new FastaRecord("id1", "some description", "ACGT", SequenceAlphabet.StrictDna);
+        var noDesc = new FastaRecord("id2", null, "ACGT", SequenceAlphabet.StrictDna);
+
+        withDesc.Header.Should().Be("id1 some description", "header includes the description when present");
+        noDesc.Header.Should().Be("id2", "header is just the id when there is no description");
+    }
 }
