@@ -76,10 +76,10 @@ Mutation testing вимірює ефективність тестового на
 | 46 | ☑ | POP-FST-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_FStatistics_Tests.cs | ≥ 80% |
 | 47 | ☑ | POP-LD-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_LinkageDisequilibrium_Tests.cs | ≥ 80% |
 | 48 | ☑ | CHROM-TELO-001 | Chromosome | ChromosomeAnalyzer.cs | ChromosomeAnalyzer_Telomere_Tests.cs | ≥ 80% |
-| 49 | ☐ | CHROM-CENT-001 | Chromosome | ChromosomeAnalyzer.cs | ChromosomeAnalyzer_Centromere_Tests.cs | ≥ 80% |
+| 49 | ☑ | CHROM-CENT-001 | Chromosome | ChromosomeAnalyzer.cs | ChromosomeAnalyzer_Centromere_Tests.cs | ≥ 80% |
 | 50 | ☑ | CHROM-KARYO-001 | Chromosome | ChromosomeAnalyzer.cs | ChromosomeAnalyzer_Karyotype_Tests.cs | ≥ 80% |
 | 51 | ☑ | CHROM-ANEU-001 | Chromosome | ChromosomeAnalyzer.cs | ChromosomeAnalyzer_Aneuploidy_Tests.cs | ≥ 80% |
-| 52 | ☐ | CHROM-SYNT-001 | Chromosome | ChromosomeAnalyzer.cs | ChromosomeAnalyzer_Synteny_Tests.cs | ≥ 80% |
+| 52 | ☑ | CHROM-SYNT-001 | Chromosome | ChromosomeAnalyzer.cs | ChromosomeAnalyzer_Synteny_Tests.cs | ≥ 80% |
 | 53 | ☑ | META-CLASS-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_TaxonomicClassification_Tests.cs | ≥ 80% |
 | 54 | ☑ | META-PROF-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_TaxonomicProfile_Tests.cs | ≥ 80% |
 | 55 | ☑ | META-ALPHA-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_AlphaDiversity_Tests.cs | ≥ 80% |
@@ -284,8 +284,8 @@ Mutation testing вимірює ефективність тестового на
 | 254 | ☐ | MIRNA-CLASSIFY-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_PreMiRna_Tests.cs | ≥ 80% |
 | 255 | ☐ | MIRNA-CLEAVAGE-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_PreMiRna_Tests.cs | ≥ 80% |
 | 256 | ☑ | REP-APPROX-001 | Repeats | RepeatFinder.cs | RepeatFinder_ApproximateTandemRepeats_Tests.cs | ≥ 80% |
-| 257 | ☐ | CHROM-ALPHASAT-001 | Chromosome | ChromosomeAnalyzer.cs | ChromosomeAnalyzer_AlphaSatellite_Tests.cs | ≥ 80% |
-| 258 | ☐ | CHROM-HOR-001 | Chromosome | ChromosomeAnalyzer.cs | ChromosomeAnalyzer_HigherOrderRepeat_Tests.cs | ≥ 80% |
+| 257 | ☑ | CHROM-ALPHASAT-001 | Chromosome | ChromosomeAnalyzer.cs | ChromosomeAnalyzer_AlphaSatellite_Tests.cs | ≥ 80% |
+| 258 | ☑ | CHROM-HOR-001 | Chromosome | ChromosomeAnalyzer.cs | ChromosomeAnalyzer_HigherOrderRepeat_Tests.cs | ≥ 80% |
 
 ---
 
@@ -294,7 +294,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete (run + killers written) | 207 |
-| ☐ Not started | 51 |
+| ☑ Complete (run + killers written) | 211 |
+| ☐ Not started | 47 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |

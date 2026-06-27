@@ -679,4 +679,97 @@ public class ChromosomeAnalyzer_MutationKillers_Tests
         blocks.Should().ContainSingle();
         blocks[0].GeneCount.Should().Be(3, "the large Species2 gap excludes the 4th gene");
     }
+
+    // ── Alpha-satellite / HOR detection (rows 257 CHROM-ALPHASAT-001, 258 CHROM-HOR-001) ──
+    //
+    // McNulty & Sullivan 2018 (PMC6121732): a HOR is a block of N distinct ~171 bp monomers tiled with high
+    // inter-copy identity; alpha satellite is AT-rich (>50%) and tandemly periodic; the CENP-B box is the
+    // 17-bp IUPAC consensus YTTCGTTGGAARCGGGA (Masumoto et al. 1989).
+
+    // A valid realisation of the CENP-B consensus (Y->C, R->A), 17 bp.
+    private const string CenpBBox = "CTTCGTTGGAAACGGGA";
+
+    [Test]
+    public void DetectHigherOrderRepeat_MonomerLengthBoundary_OneIsValidZeroThrows()
+    {
+        Action zero = () => ChromosomeAnalyzer.DetectHigherOrderRepeat("AAAA", monomerLength: 0);
+        zero.Should().Throw<ArgumentOutOfRangeException>("monomerLength < 1 is rejected");
+
+        ChromosomeAnalyzer.HorResult r = default;
+        Action one = () => r = ChromosomeAnalyzer.DetectHigherOrderRepeat("AAAA", monomerLength: 1);
+        one.Should().NotThrow("monomerLength = 1 is the smallest legal monomer length");
+        r.MonomersPerUnit.Should().Be(1, "four identical 1-bp monomers form a period-1 (non-HOR) array");
+        r.HasHigherOrderStructure.Should().BeFalse();
+    }
+
+    [Test]
+    public void DetectHigherOrderRepeat_PerfectPeriodTwoArray_ReportsPeriodTwoStructure()
+    {
+        // Two distinct monomers (AAAA, GGGG) tiled three times: adjacent monomers are 0% identical (k=1
+        // rejected) but monomers two apart are identical (k=2 accepted) -> period 2.
+        string array = string.Concat(Enumerable.Repeat("AAAA" + "GGGG", 3)); // 6 monomers of length 4
+
+        var r = ChromosomeAnalyzer.DetectHigherOrderRepeat(array, monomerLength: 4);
+
+        r.HasHigherOrderStructure.Should().BeTrue("a period-2 HOR is a multi-monomer structure");
+        r.MonomersPerUnit.Should().Be(2, "smallest inter-HOR-identical period = 2 monomers");
+        r.MonomerCount.Should().Be(6, "24 bp / 4 bp = 6 monomers");
+        r.HorCopyNumber.Should().Be(3, "6 monomers / period 2 = 3 HOR copies");
+        r.HorUnitLengthBp.Should().Be(8, "unit length = period(2) * monomerLength(4)");
+        r.MeanInterHorIdentity.Should().BeApproximately(100.0, 1e-9,
+            "monomers one unit apart (AAAA/AAAA, GGGG/GGGG) are 100% identical");
+        r.MeanIntraHorIdentity.Should().BeApproximately(0.0, 1e-9,
+            "the two monomers WITHIN a unit (AAAA vs GGGG) share no aligned identity");
+    }
+
+    [Test]
+    public void DetectAlphaSatellite_ExactlyMinimumLength_IsAnalysedNotSkipped()
+    {
+        // Minimum analysable length = monomer(171) + tolerance(5) + 1 = 177 bp. Exactly 177 must be analysed.
+        string atRich = string.Concat(Enumerable.Repeat("AT", 89))[..177]; // 177 bp, all A/T
+
+        var r = ChromosomeAnalyzer.DetectAlphaSatellite(atRich);
+
+        atRich.Length.Should().Be(177, "exactly the minimum analysable length");
+        r.AtContent.Should().BeApproximately(1.0, 1e-9,
+            "an all-A/T array has AT content 1.0 — proving it was analysed, not skipped as too short");
+    }
+
+    [Test]
+    public void DetectAlphaSatellite_GcRichPeriodicArray_IsNotAlphaSatellite()
+    {
+        string gcRich = string.Concat(Enumerable.Repeat("GC", 100)); // 200 bp, periodic but AT-poor
+
+        var r = ChromosomeAnalyzer.DetectAlphaSatellite(gcRich);
+
+        r.AtContent.Should().BeApproximately(0.0, 1e-9, "no A/T bases");
+        r.IsAlphaSatellite.Should().BeFalse(
+            "periodicity alone is insufficient — alpha satellite must also be AT-rich (>50%)");
+    }
+
+    [Test]
+    public void DetectAlphaSatellite_CenpBBoxAtLastPosition_IsCounted()
+    {
+        // 160 bp background + 17 bp box = 177 bp; box starts at offset 160 = 177 - 17 (the LAST scan offset).
+        string seq = new string('A', 160) + CenpBBox;
+
+        seq.Length.Should().Be(177);
+        ChromosomeAnalyzer.DetectAlphaSatellite(seq).CenpBBoxCount.Should().Be(1,
+            "the box at the final scan offset must still be found (inclusive scan bound)");
+        ChromosomeAnalyzer.DetectAlphaSatellite(new string('A', 177)).CenpBBoxCount.Should().Be(0,
+            "no CENP-B box in a poly-A array");
+    }
+
+    [Test]
+    public void FindCenpBBoxes_MatchesConsensusExactlyAndRejectsFixedPositionMismatch()
+    {
+        string withBox = "AAAAA" + CenpBBox + "AAAAA"; // box starts at index 5
+        ChromosomeAnalyzer.FindCenpBBoxes(withBox).Should().Equal(new[] { 5 },
+            "the box is found at its true 0-based start");
+
+        // Corrupt a fixed (non-degenerate) consensus position: consensus[4] = 'G' must match exactly.
+        string broken = "AAAAA" + "CTTCATTGGAAACGGGA" + "AAAAA"; // index-4 G -> A
+        ChromosomeAnalyzer.FindCenpBBoxes(broken).Should().BeEmpty(
+            "a mismatch at a fixed consensus position (G at index 4) breaks the box");
+    }
 }
