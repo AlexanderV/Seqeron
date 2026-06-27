@@ -250,4 +250,50 @@ public class PrimerDesigner_Primer3Penalty_Tests
     }
 
     #endregion
+
+    #region Mutation killers — custom optima and one-sided weight gating
+
+    // K1 — A CUSTOM optima must actually be used (not silently replaced by the defaults). With OptTm shifted
+    // to 65, a 60 °C primer is now 5 below optimum, so WT_TM_LT*(65-60)=5; under the default optima (60) it
+    // would be 0. Pins the "optima ?? DefaultPrimer3Optima" null-coalescing against dropping the left operand.
+    [Test]
+    public void CalculatePrimer3Penalty_CustomOptima_UsesProvidedOptimaNotDefaults()
+    {
+        var optima = new Primer3Optima(OptTm: 65.0, OptSize: 24, OptGcPercent: 50.0);
+        var p = PrimerDesigner.CalculatePrimer3Penalty(
+            new Primer3PenaltyInputs(Tm: 60.0, Length: 20, GcPercent: 50.0),
+            weights: null, optima: optima);
+
+        // WT_TM_LT*(65-60)=5 ; WT_SIZE_LT*(24-20)=4 ; GC at optimum -> 0. Total 9.
+        Assert.That(p, Is.EqualTo(9.0).Within(Tol),
+            "Custom OPT_TM=65, OPT_SIZE=24: penalty = 1*(65-60) + 1*(24-20) = 9 (defaults would give 0).");
+    }
+
+    // K2 — A non-zero GC_GT weight must NOT penalise a BELOW-optimum GC: the gating is
+    // "weight != 0 AND value > optimum" (logical AND, not OR). GC=40 < 50 with WT_GC_GT=0.5 and WT_GC_LT=0
+    // contributes nothing; an OR-gating mutant would wrongly add 0.5*(40-50) = -5.
+    [Test]
+    public void CalculatePrimer3Penalty_GcGtWeight_DoesNotFireBelowOptimum()
+    {
+        var w = PrimerDesigner.DefaultPrimer3Weights with { GcGt = 0.5, GcLt = 0.0 };
+        var p = PrimerDesigner.CalculatePrimer3Penalty(
+            new Primer3PenaltyInputs(Tm: 60.0, Length: 20, GcPercent: 40.0), w);
+
+        Assert.That(p, Is.EqualTo(0.0).Within(Tol),
+            "GC_GT only penalises GC ABOVE optimum; GC=40 < 50 leaves the GC term at 0 (p_obj_fn gc_content_gt).");
+    }
+
+    // K3 — Symmetric check for the LT side: a non-zero GC_LT weight must NOT fire for an ABOVE-optimum GC.
+    [Test]
+    public void CalculatePrimer3Penalty_GcLtWeight_DoesNotFireAboveOptimum()
+    {
+        var w = PrimerDesigner.DefaultPrimer3Weights with { GcLt = 0.5, GcGt = 0.0 };
+        var p = PrimerDesigner.CalculatePrimer3Penalty(
+            new Primer3PenaltyInputs(Tm: 60.0, Length: 20, GcPercent: 60.0), w);
+
+        Assert.That(p, Is.EqualTo(0.0).Within(Tol),
+            "GC_LT only penalises GC BELOW optimum; GC=60 > 50 leaves the GC term at 0 (p_obj_fn gc_content_lt).");
+    }
+
+    #endregion
 }

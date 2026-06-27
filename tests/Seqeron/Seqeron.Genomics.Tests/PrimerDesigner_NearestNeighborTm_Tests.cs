@@ -87,6 +87,21 @@ public class PrimerDesigner_NearestNeighborTm_Tests
             "A single base has no nearest-neighbour stack.");
     }
 
+    // S3 — exactly 2 bases is the SHORTEST valid oligo (one nearest-neighbour stack), so the result must be
+    // non-null. This pins the "< 2" length guard against the off-by-one boundary mutants ("<= 2" would null a
+    // legal dimer; "> 2" would null every oligo of length >= 3).
+    [Test]
+    public void CalculateNearestNeighborThermodynamics_TwoBaseAndLongerOligos_AreNonNull()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(PrimerDesigner.CalculateNearestNeighborThermodynamics("AT"), Is.Not.Null,
+                "a 2-base oligo has exactly one nearest-neighbour stack and is valid");
+            Assert.That(PrimerDesigner.CalculateNearestNeighborThermodynamics("ATG"), Is.Not.Null,
+                "a 3-base oligo is valid (guards against the '> 2' mutant)");
+        });
+    }
+
     #endregion
 
     #region CalculateMeltingTemperatureNN — Tm equation + salt corrections
