@@ -28,7 +28,7 @@ Mutation testing вимірює ефективність тестового на
 
 | # | Status | Test Unit | Area | Source File | Test File(s) | Target Score |
 |---|--------|-----------|------|------------|-------------|:---:|
-| 1 | ☐ | SEQ-GC-001 | Composition | SequenceExtensions.cs | SequenceExtensions_CalculateGcContent_Tests.cs | ≥ 80% |
+| 1 | ☑ | SEQ-GC-001 | Composition | SequenceExtensions.cs | SequenceExtensions_CalculateGcContent_Tests.cs | ≥ 80% |
 | 2 | ☑ | SEQ-COMP-001 | Composition | SequenceExtensions.cs | SequenceExtensions_Complement_Tests.cs | ≥ 80% |
 | 3 | ☑ | SEQ-REVCOMP-001 | Composition | SequenceExtensions.cs | SequenceExtensions_ReverseComplement_Tests.cs | ≥ 80% |
 | 4 | ☑ | SEQ-VALID-001 | Composition | SequenceExtensions.cs | SequenceExtensions_SequenceValidation_Tests.cs | ≥ 80% |
@@ -294,7 +294,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete (run + killers written) | 189 |
-| ☐ Not started | 69 |
+| ☑ Complete (run + killers written) | 190 |
+| ☐ Not started | 68 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
