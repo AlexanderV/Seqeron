@@ -65,7 +65,7 @@ Mutation testing вимірює ефективність тестового на
 | 35 | ☑ | ALIGN-GLOBAL-001 | Alignment | SequenceAligner.cs | SequenceAligner_GlobalAlign_Tests.cs | ≥ 80% |
 | 36 | ☑ | ALIGN-LOCAL-001 | Alignment | SequenceAligner.cs | SequenceAligner_LocalAlign_Tests.cs | ≥ 80% |
 | 37 | ☑ | ALIGN-SEMI-001 | Alignment | SequenceAligner.cs | SequenceAligner_SemiGlobalAlign_Tests.cs | ≥ 80% |
-| 38 | ☐ | ALIGN-MULTI-001 | Alignment | SequenceAligner.cs | SequenceAligner_MultipleAlign_Tests.cs | ≥ 80% |
+| 38 | ☑ | ALIGN-MULTI-001 | Alignment | SequenceAligner.cs | SequenceAligner_MultipleAlign_Tests.cs | ≥ 80% |
 | 39 | ☑ | PHYLO-DIST-001 | Phylogenetic | PhylogeneticAnalyzer.cs | PhylogeneticAnalyzer_DistanceMatrix_Tests.cs | ≥ 80% |
 | 40 | ☑ | PHYLO-TREE-001 | Phylogenetic | PhylogeneticAnalyzer.cs | PhylogeneticAnalyzer_TreeConstruction_Tests.cs | ≥ 80% |
 | 41 | ☑ | PHYLO-NEWICK-001 | Phylogenetic | PhylogeneticAnalyzer.cs | PhylogeneticAnalyzer_NewickIO_Tests.cs | ≥ 80% |
@@ -294,7 +294,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete (run + killers written) | 206 |
-| ☐ Not started | 52 |
+| ☑ Complete (run + killers written) | 207 |
+| ☐ Not started | 51 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
