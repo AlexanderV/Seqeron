@@ -1682,4 +1682,82 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     }
 
     #endregion
+
+    #region ScorePreMiRnaFeatures / ClassifyPreMiRna — exact logistic-model killers (MIRNA-CLASSIFY-001)
+
+    // Published trained logistic-regression coefficients (MiRnaAnalyzer source §"Trained logistic-regression
+    // coefficients"): P(natural) = sigmoid(b0 + Σ b_j·(x_j − mean_j)/std_j) over the 5 model features
+    // [FreeEnergy, Amfe, Mfei, GcContent, PairedFraction]. Re-stated here as an INDEPENDENT oracle so the
+    // production standardisation / weighting / bias / sigmoid are pinned exactly (not characterised).
+    private const double LrBias = -4.340788257901692;
+    private static readonly double[] LrW =
+        { -0.6299061497891402, 2.4689410267337104, 2.5770103435217253, -0.3315361036977469, 2.42751798356881 };
+    private static readonly double[] LrMean =
+        { -22.988666666666667, 29.297338207740115, 0.6157639504286563, 0.477134229110014, 0.6153156920227864 };
+    private static readonly double[] LrStd =
+        { 8.373410721510746, 10.37385177977526, 0.2084972456212268, 0.061249038538481466, 0.10661272255434924 };
+
+    private static PreMiRnaFeatures FeaturesFromModelInputs(double fe, double amfe, double mfei, double gc, double paired)
+        => new(FreeEnergy: fe, Amfe: amfe, Mfei: mfei, GcContent: gc, PairedFraction: paired,
+               StemBasePairs: 20, LoopSize: 8, Length: 80);
+
+    // K1 — At the training MEAN of every model feature, all standardised z_j = 0, so the score is exactly
+    // sigmoid(bias). Pins the bias term and the sigmoid link (independent of the weights).
+    [Test]
+    public void ScorePreMiRnaFeatures_AtFeatureMean_EqualsSigmoidOfBias()
+    {
+        var f = FeaturesFromModelInputs(LrMean[0], LrMean[1], LrMean[2], LrMean[3], LrMean[4]);
+
+        double expected = 1.0 / (1.0 + Math.Exp(-LrBias));
+        Assert.That(ScorePreMiRnaFeatures(f), Is.EqualTo(expected).Within(1e-12),
+            "all features at the training mean ⇒ P = sigmoid(b0).");
+    }
+
+    // K2 — One standard deviation ABOVE the mean on every feature makes each standardised z_j = 1, so the
+    // score is sigmoid(b0 + Σ b_j). Pins the full weight vector AND the per-feature standardisation (std).
+    [Test]
+    public void ScorePreMiRnaFeatures_AtMeanPlusOneStd_EqualsSigmoidOfBiasPlusWeightSum()
+    {
+        var f = FeaturesFromModelInputs(
+            LrMean[0] + LrStd[0], LrMean[1] + LrStd[1], LrMean[2] + LrStd[2],
+            LrMean[3] + LrStd[3], LrMean[4] + LrStd[4]);
+
+        double z = LrBias;
+        for (int j = 0; j < LrW.Length; j++) z += LrW[j]; // each standardised feature contributes weight·1
+        double expected = 1.0 / (1.0 + Math.Exp(-z));
+
+        Assert.That(ScorePreMiRnaFeatures(f), Is.EqualTo(expected).Within(1e-12),
+            "+1σ on every feature ⇒ P = sigmoid(b0 + Σ b_j).");
+    }
+
+    // K3 — A single feature offset isolates ONE weight/std pair: only Mfei (index 2) moved +2σ, so
+    // z = bias + b2·2. Pins weight[2] and std[2] specifically (a swapped/duplicated weight would diverge).
+    [Test]
+    public void ScorePreMiRnaFeatures_OnlyMfeiOffset_IsolatesThatFeaturesWeight()
+    {
+        var f = FeaturesFromModelInputs(LrMean[0], LrMean[1], LrMean[2] + 2.0 * LrStd[2], LrMean[3], LrMean[4]);
+
+        double expected = 1.0 / (1.0 + Math.Exp(-(LrBias + LrW[2] * 2.0)));
+        Assert.That(ScorePreMiRnaFeatures(f), Is.EqualTo(expected).Within(1e-12),
+            "only Mfei moved +2σ ⇒ P = sigmoid(b0 + b2·2).");
+    }
+
+    // K4 — ClassifyPreMiRna's IsNatural is "P(natural) >= threshold" (inclusive). At threshold == the exact
+    // probability the call must be TRUE; this pins the boundary against a strict '>' mutant.
+    [Test]
+    public void ClassifyPreMiRna_ThresholdEqualToProbability_IsNaturalInclusive()
+    {
+        var c0 = ClassifyPreMiRna(HsaMir21, threshold: 0.0);
+        Assert.That(c0, Is.Not.Null);
+        double p = c0!.Value.NaturalProbability;
+
+        var atP = ClassifyPreMiRna(HsaMir21, threshold: p);
+        Assert.That(atP!.Value.IsNatural, Is.True,
+            "P >= threshold is inclusive: threshold == P ⇒ natural (kills the '>' boundary mutant).");
+
+        var aboveP = ClassifyPreMiRna(HsaMir21, threshold: Math.BitIncrement(p));
+        Assert.That(aboveP!.Value.IsNatural, Is.False, "threshold just above P ⇒ not natural.");
+    }
+
+    #endregion
 }
