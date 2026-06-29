@@ -108,7 +108,7 @@ Mutation testing вимірює ефективність тестового на
 | 78 | ☑ | SPLICE-ACCEPTOR-001 | Splicing | SpliceSitePredictor.cs | SpliceSitePredictor_AcceptorSite_Tests.cs | ≥ 80% |
 | 79 | ☑ | SPLICE-PREDICT-001 | Splicing | SpliceSitePredictor.cs | SpliceSitePredictor_GeneStructure_Tests.cs | ≥ 80% |
 | 80 | ☑ | DISORDER-PRED-001 | ProteinPred | DisorderPredictor.cs | DisorderPredictor_DisorderPrediction_Tests.cs | ≥ 80% |
-| 81 | ☐ | DISORDER-REGION-001 | ProteinPred | DisorderPredictor.cs | DisorderPredictor_DisorderedRegion_Tests.cs | ≥ 80% |
+| 81 | ☑ | DISORDER-REGION-001 | ProteinPred | DisorderPredictor.cs | DisorderPredictor_DisorderedRegion_Tests.cs | ≥ 80% |
 | 82 | ☑ | PROTMOTIF-FIND-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_MotifSearch_Tests.cs | ≥ 80% |
 | 83 | ☑ | PROTMOTIF-PROSITE-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_PrositePattern_Tests.cs | ≥ 80% |
 | 84 | ☑ | PROTMOTIF-DOMAIN-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_DomainPrediction_Tests.cs | ≥ 80% |
@@ -154,11 +154,11 @@ Mutation testing вимірює ефективність тестового на
 | 124 | ☑ | SEQ-MW-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateMolecularWeight_Tests.cs | ≥ 80% |
 | 125 | ☑ | SEQ-PI-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateIsoelectricPoint_Tests.cs | ≥ 80% |
 | 126 | ☑ | SEQ-SECSTRUCT-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_PredictSecondaryStructure_Tests.cs | ≥ 80% |
-| 127 | ☐ | SEQ-STATS-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateNucleotideComposition_Tests.cs | ≥ 80% |
+| 127 | ☑ | SEQ-STATS-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateNucleotideComposition_Tests.cs | ≥ 80% |
 | 128 | ☑ | SEQ-SUMMARY-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_SummarizeNucleotideSequence_Tests.cs | ≥ 80% |
 | 129 | ☑ | SEQ-THERMO-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateThermodynamics_Tests.cs | ≥ 80% |
 | 130 | ☑ | SEQ-TM-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateThermodynamics_Tests.cs | ≥ 80% |
-| 131 | ☐ | COMPGEN-ANI-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_CalculateANI_Tests.cs | ≥ 80% |
+| 131 | ☑ | COMPGEN-ANI-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_CalculateANI_Tests.cs | ≥ 80% |
 | 132 | ☑ | COMPGEN-CLUSTER-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_FindConservedClusters_Tests.cs | ≥ 80% |
 | 133 | ☑ | COMPGEN-COMPARE-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_CompareGenomes_Tests.cs | ≥ 80% |
 | 134 | ☑ | COMPGEN-DOTPLOT-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_GenerateDotPlot_Tests.cs | ≥ 80% |
@@ -261,7 +261,7 @@ Mutation testing вимірює ефективність тестового на
 | 231 | ☑ | SEQ-COMPLEX-WINDOW-001 | Complexity | SequenceComplexity.cs | SequenceComplexity_CalculateWindowedComplexity_Tests.cs | ≥ 80% |
 | 232 | ☑ | SEQ-ENTROPY-PROFILE-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateEntropyProfile_Tests.cs | ≥ 80% |
 | 233 | ☑ | SEQ-GC-ANALYSIS-001 | Composition | GcSkewCalculator.cs | GcSkewCalculator_AnalyzeGcContent_Tests.cs | ≥ 80% |
-| 234 | ☐ | SEQ-GC-PROFILE-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateGcContentProfile_Tests.cs | ≥ 80% |
+| 234 | ☑ | SEQ-GC-PROFILE-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateGcContentProfile_Tests.cs | ≥ 80% |
 | 235 | ☑ | ONCO-ASCAT-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_AscatDerivation_Tests.cs | ≥ 80% |
 | 236 | ☑ | RNA-PKPREDICT-001 | Analysis | RnaSecondaryStructure.cs | RnaSecondaryStructure_PredictStructurePseudoknot_Tests.cs | ≥ 80% |
 | 237 | ☑ | RNA-PKRECURSIVE-001 | Analysis | RnaSecondaryStructure.cs | RnaSecondaryStructure_PredictStructurePseudoknotRecursive_Tests.cs | ≥ 80% |
@@ -294,7 +294,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete (run + killers written) | 241 |
-| ☐ Not started | 17 |
+| ☑ Complete (run + killers written) | 245 |
+| ☐ Not started | 13 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
