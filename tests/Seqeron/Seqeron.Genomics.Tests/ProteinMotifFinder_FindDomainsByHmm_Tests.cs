@@ -476,6 +476,60 @@ public class ProteinMotifFinder_FindDomainsByHmm_Tests
 
     #endregion
 
+    #region H16 — FindDomains exact envelopes (posterior-decoding / region-identification killers)
+
+    // The canonical FindDomainsByHmm tests assert only the matched FAMILY, leaving the posterior-decoding
+    // and region-identification that produce the ENVELOPE coordinates and per-domain bit score unpinned.
+    // A single SH3 core decodes to exactly one envelope [3,50]; the per-domain bit score and bias are
+    // deterministic functions of the Forward/Backward posterior decoding + null2 correction, so a
+    // corrupted decoding index/threshold shifts them.
+    [Test]
+    public void FindDomains_SingleSh3_PinsEnvelopeAndDomainBitScore()
+    {
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00018_SH3_1.hmm"));
+
+        var doms = hmm.FindDomains(Sh3TruePositive);
+
+        Assert.That(doms, Has.Count.EqualTo(1), "one homologous region → one envelope");
+        Assert.That(doms[0].EnvelopeStart, Is.EqualTo(3), "envelope start (posterior occupancy ≥ rt1)");
+        Assert.That(doms[0].EnvelopeEnd, Is.EqualTo(50), "envelope end");
+        Assert.That(doms[0].BitScore, Is.EqualTo(68.540701).Within(1e-4),
+            "per-domain bit score from the unihit-rescored envelope + null2 (deterministic)");
+        Assert.That(doms[0].BiasBits, Is.EqualTo(0.025556).Within(1e-4), "null2 biased-composition bits");
+    }
+
+    // Two SH3 cores joined by a GS linker decode to TWO well-separated envelopes ([3,50] and [68,115]).
+    // This exercises the multi-region identification + per-region posterior decoding that a single domain
+    // never reaches; the second envelope's exact coordinates pin the cumulative btot/etot occupancy walk.
+    [Test]
+    public void FindDomains_TandemSh3_PinsTwoEnvelopes()
+    {
+        var hmm = Plan7ProfileHmm.Parse(ReadEmbedded("PF00018_SH3_1.hmm"));
+        string tandem = Sh3TruePositive + "GSGSGSGSGS" + Sh3TruePositive; // 55 + 10 + 55 = 120
+
+        var doms = hmm.FindDomains(tandem);
+
+        Assert.That(doms, Has.Count.EqualTo(2), "two separated homologous regions → two envelopes");
+        Assert.That((doms[0].EnvelopeStart, doms[0].EnvelopeEnd), Is.EqualTo((3, 50)), "first envelope");
+        Assert.That((doms[1].EnvelopeStart, doms[1].EnvelopeEnd), Is.EqualTo((68, 115)),
+            "second envelope = first shifted by 55+10 (linker), pinning the cumulative occupancy walk");
+        Assert.That(doms[0].BitScore, Is.EqualTo(65.450549).Within(1e-4));
+        Assert.That(doms[1].BitScore, Is.EqualTo(65.450549).Within(1e-4), "identical cores → identical bit score");
+    }
+
+    // EValue(P, Z) = P·Z. Z = 0 is a VALID (empty) database and must yield 0 without throwing — pinning the
+    // "databaseSize < 0" guard against the "<= 0" mutant; Z < 0 is rejected.
+    [Test]
+    public void EValue_ZeroDatabaseIsValidNegativeThrows()
+    {
+        Assert.That(Plan7ProfileHmm.EValue(0.5, 0.0), Is.EqualTo(0.0), "Z = 0 ⇒ E = 0 (valid empty database)");
+        Assert.That(Plan7ProfileHmm.EValue(0.01, 1000.0), Is.EqualTo(10.0).Within(1e-12), "E = P·Z = 0.01·1000");
+        Assert.Throws<System.ArgumentOutOfRangeException>(() => Plan7ProfileHmm.EValue(0.5, -1.0),
+            "a negative database size is rejected");
+    }
+
+    #endregion
+
     #region H15 — monotonicity and Z-scaling
 
     [Test]
