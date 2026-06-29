@@ -208,13 +208,13 @@ Mutation testing вимірює ефективність тестового на
 | 178 | ☑ | GENOMIC-REPEAT-001 | Analysis | GenomicAnalyzer.cs | GenomicAnalyzer_FindRepeats_Tests.cs | ≥ 80% |
 | 179 | ☑ | GENOMIC-SIMILARITY-001 | Analysis | GenomicAnalyzer.cs | GenomicAnalyzer_CalculateSimilarity_Tests.cs | ≥ 80% |
 | 180 | ☑ | GENOMIC-TANDEM-001 | Analysis | GenomicAnalyzer.cs | GenomicAnalyzer_TandemRepeat_Tests.cs | ≥ 80% |
-| 181 | ☐ | EPIGEN-AGE-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_CalculateEpigeneticAge_Tests.cs | ≥ 80% |
+| 181 | ☑ | EPIGEN-AGE-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_CalculateEpigeneticAge_Tests.cs | ≥ 80% |
 | 182 | ☑ | EPIGEN-BISULF-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_Bisulfite_Tests.cs | ≥ 80% |
 | 183 | ☑ | EPIGEN-CHROM-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_ChromatinState_Tests.cs | ≥ 80% |
 | 184 | ☑ | EPIGEN-DMR-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_DMR_Tests.cs | ≥ 80% |
 | 185 | ☑ | EPIGEN-METHYL-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_Methylation_Tests.cs | ≥ 80% |
 | 186 | ☑ | VARIANT-ANNOT-001 | Variants | VariantAnnotator.cs | VariantAnnotator_FunctionalImpact_Tests.cs | ≥ 80% |
-| 187 | ☐ | VARIANT-CALL-001 | Variants | VariantCaller.cs | VariantCaller_CallVariants_Tests.cs | ≥ 80% |
+| 187 | ☑ | VARIANT-CALL-001 | Variants | VariantCaller.cs | VariantCaller_CallVariants_Tests.cs | ≥ 80% |
 | 188 | ☑ | VARIANT-INDEL-001 | Variants | VariantCaller.cs | VariantCaller_FindIndels_Tests.cs | ≥ 80% |
 | 189 | ☑ | VARIANT-SNP-001 | Variants | VariantCaller.cs | VariantCaller_FindSnps_Tests.cs | ≥ 80% |
 | 190 | ☑ | PANGEN-CLUSTER-001 | PanGenome | PanGenomeAnalyzer.cs | PanGenomeAnalyzer_ClusterGenes_Tests.cs | ≥ 80% |
@@ -294,7 +294,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete (run + killers written) | 245 |
-| ☐ Not started | 13 |
+| ☑ Complete (run + killers written) | 247 |
+| ☐ Not started | 11 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
