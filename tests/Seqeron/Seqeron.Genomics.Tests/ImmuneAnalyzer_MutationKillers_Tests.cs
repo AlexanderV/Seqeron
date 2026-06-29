@@ -105,4 +105,70 @@ public class ImmuneAnalyzer_MutationKillers_Tests
     }
 
     #endregion
+
+    #region LoadSignatureMatrix — header/row parsing (CIBERSORT-style TSV)
+
+    // A 2-column header (gene-symbol column + exactly ONE cell-type column) is the SMALLEST valid
+    // signature matrix and must parse, pinning the "headerCols.Length < 2" guard against the "<= 2"
+    // off-by-one (which would wrongly reject a single-cell-type matrix). Values are pinned exactly.
+    [Test]
+    public void LoadSignatureMatrix_TwoColumnHeader_IsSmallestValidMatrix()
+    {
+        var lines = new[] { "Gene\tTcell", "CD8A\t5.5", "CD4\t2.0" };
+
+        var matrix = ImmuneAnalyzer.LoadSignatureMatrix(lines);
+
+        Assert.That(matrix.Keys, Is.EquivalentTo(new[] { "Tcell" }), "one cell-type column");
+        Assert.That(matrix["Tcell"]["CD8A"], Is.EqualTo(5.5).Within(Tol));
+        Assert.That(matrix["Tcell"]["CD4"], Is.EqualTo(2.0).Within(Tol));
+    }
+
+    // Exact per-cell-type value placement across MULTIPLE columns pins the column index arithmetic
+    // (headerCols[j+1] / cols[j+1]): an off-by-one would map values to the wrong cell type.
+    [Test]
+    public void LoadSignatureMatrix_MultipleColumns_PlacesEachValueInItsCellType()
+    {
+        var lines = new[] { "Gene\tBcell\tNK\tMono", "MS4A1\t9.0\t1.0\t0.5", "NCAM1\t0.2\t8.0\t0.3" };
+
+        var matrix = ImmuneAnalyzer.LoadSignatureMatrix(lines);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(matrix["Bcell"]["MS4A1"], Is.EqualTo(9.0).Within(Tol));
+            Assert.That(matrix["NK"]["MS4A1"], Is.EqualTo(1.0).Within(Tol));
+            Assert.That(matrix["Mono"]["MS4A1"], Is.EqualTo(0.5).Within(Tol));
+            Assert.That(matrix["NK"]["NCAM1"], Is.EqualTo(8.0).Within(Tol), "NCAM1 is the NK marker here");
+            Assert.That(matrix["Bcell"]["NCAM1"], Is.EqualTo(0.2).Within(Tol));
+        });
+    }
+
+    // A non-numeric signature value must raise a FormatException (NOT an index error): this drives the
+    // error path whose message references cols[j+1] / cellTypeNames[j], pinning that column index.
+    [Test]
+    public void LoadSignatureMatrix_NonNumericValueInFirstCellType_ThrowsFormatException()
+    {
+        var lines = new[] { "Gene\tTcell\tBcell", "CD8A\tNaNish\t2.0" };
+
+        Assert.Throws<FormatException>(() => ImmuneAnalyzer.LoadSignatureMatrix(lines),
+            "a non-numeric value in the first cell-type column is a format error, not an index error");
+    }
+
+    // When NONE of the signature genes are present in the expression profile, the deconvolution must
+    // early-out to all-zero fractions. The guard is "overlappingGenes == 0 OR cellTypes == 0"; the
+    // OR-vs-AND mutant would (with cell types present) skip the early-out and try to deconvolve with an
+    // empty gene set. Pins the disjunction.
+    [Test]
+    public void DeconvoluteImmuneCells_NoOverlappingGenes_EarlyOutsToZeroFractions()
+    {
+        var sig = Sig(("Tcell", new[] { ("CD8A", 5.0), ("CD3D", 4.0) }));
+        var expr = new Dictionary<string, double> { ["FOXP3"] = 7.0, ["MKI67"] = 3.0 }; // disjoint genes
+
+        var r = DeconvoluteImmuneCells(expr, sig);
+
+        Assert.That(r.OverlappingGenes, Is.EqualTo(0), "no signature gene is present in the profile");
+        Assert.That(r.CellFractions["Tcell"], Is.EqualTo(0.0).Within(Tol),
+            "zero overlapping genes ⇒ all-zero fractions via the early-out guard");
+    }
+
+    #endregion
 }
