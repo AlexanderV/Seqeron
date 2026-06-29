@@ -121,11 +121,11 @@ Mutation testing вимірює ефективність тестового на
 | 91 | ☑ | ONCO-ANNOT-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_AnnotateCancerVariants_Tests.cs | ≥ 80% |
 | 92 | ☑ | ONCO-TMB-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_CalculateTMB_Tests.cs | ≥ 80% |
 | 93 | ☑ | ONCO-MSI-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_DetectMSI_Tests.cs | ≥ 80% |
-| 94 | ☐ | ONCO-HRD-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_CalculateHRDScore_Tests.cs | ≥ 80% |
-| 95 | ☐ | ONCO-LOH-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_DetectLOH_Tests.cs | ≥ 80% |
+| 94 | ☑ | ONCO-HRD-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_CalculateHRDScore_Tests.cs | ≥ 80% |
+| 95 | ☑ | ONCO-LOH-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_DetectLOH_Tests.cs | ≥ 80% |
 | 96 | ☑ | ONCO-SIG-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_ClassifySbsContext_Tests.cs | ≥ 80% |
-| 97 | ☐ | ONCO-SIG-002 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_FitSignatures_Tests.cs | ≥ 80% |
-| 98 | ☐ | ONCO-SIG-003 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_BootstrapExposures_Tests.cs | ≥ 80% |
+| 97 | ☑ | ONCO-SIG-002 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_FitSignatures_Tests.cs | ≥ 80% |
+| 98 | ☑ | ONCO-SIG-003 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_BootstrapExposures_Tests.cs | ≥ 80% |
 | 99 | ☑ | ONCO-SIG-004 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_ClassifyMutationalProcess_Tests.cs | ≥ 80% |
 | 100 | ☑ | ONCO-FUSION-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_DetectFusions_Tests.cs | ≥ 80% |
 | 101 | ☑ | ONCO-FUSION-002 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_MatchKnownFusions_Tests.cs | ≥ 80% |
@@ -133,14 +133,14 @@ Mutation testing вимірює ефективність тестового на
 | 103 | ☑ | ONCO-CNA-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_CopyNumberClassification_Tests.cs | ≥ 80% |
 | 104 | ☑ | ONCO-CNA-002 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_DetectFocalAmplifications_Tests.cs | ≥ 80% |
 | 105 | ☑ | ONCO-CNA-003 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_DetectHomozygousDeletions_Tests.cs | ≥ 80% |
-| 106 | ☐ | ONCO-PURITY-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_EstimatePurity_Tests.cs | ≥ 80% |
-| 107 | ☐ | ONCO-PLOIDY-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_EstimatePloidy_Tests.cs | ≥ 80% |
+| 106 | ☑ | ONCO-PURITY-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_EstimatePurity_Tests.cs | ≥ 80% |
+| 107 | ☑ | ONCO-PLOIDY-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_EstimatePloidy_Tests.cs | ≥ 80% |
 | 108 | ☑ | ONCO-CLONAL-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_ClassifyClonality_Tests.cs | ≥ 80% |
 | 109 | ☑ | ONCO-NEO-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_GenerateNeoantigenPeptides_Tests.cs | ≥ 80% |
-| 110 | ☐ | ONCO-MHC-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_ClassifyMhcBinding_Tests.cs | ≥ 80% |
+| 110 | ☑ | ONCO-MHC-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_ClassifyMhcBinding_Tests.cs | ≥ 80% |
 | 111 | ☑ | ONCO-CTDNA-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_CtDnaAnalysis_Tests.cs | ≥ 80% |
-| 112 | ☐ | ONCO-MRD-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_DetectMRD_Tests.cs | ≥ 80% |
-| 113 | ☐ | ONCO-CHIP-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_FilterCHIP_Tests.cs | ≥ 80% |
+| 112 | ☑ | ONCO-MRD-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_DetectMRD_Tests.cs | ≥ 80% |
+| 113 | ☑ | ONCO-CHIP-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_FilterCHIP_Tests.cs | ≥ 80% |
 | 114 | ☑ | ONCO-PHYLO-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_ReconstructPhylogeny_Tests.cs | ≥ 80% |
 | 115 | ☑ | ONCO-CCF-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_EstimateCcf_Tests.cs | ≥ 80% |
 | 116 | ☑ | ONCO-HETERO-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_AnalyzeHeterogeneity_Tests.cs | ≥ 80% |
@@ -262,7 +262,7 @@ Mutation testing вимірює ефективність тестового на
 | 232 | ☑ | SEQ-ENTROPY-PROFILE-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateEntropyProfile_Tests.cs | ≥ 80% |
 | 233 | ☑ | SEQ-GC-ANALYSIS-001 | Composition | GcSkewCalculator.cs | GcSkewCalculator_AnalyzeGcContent_Tests.cs | ≥ 80% |
 | 234 | ☐ | SEQ-GC-PROFILE-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateGcContentProfile_Tests.cs | ≥ 80% |
-| 235 | ☐ | ONCO-ASCAT-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_AscatDerivation_Tests.cs | ≥ 80% |
+| 235 | ☑ | ONCO-ASCAT-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_AscatDerivation_Tests.cs | ≥ 80% |
 | 236 | ☑ | RNA-PKPREDICT-001 | Analysis | RnaSecondaryStructure.cs | RnaSecondaryStructure_PredictStructurePseudoknot_Tests.cs | ≥ 80% |
 | 237 | ☑ | RNA-PKRECURSIVE-001 | Analysis | RnaSecondaryStructure.cs | RnaSecondaryStructure_PredictStructurePseudoknotRecursive_Tests.cs | ≥ 80% |
 | 238 | ☑ | RNA-ACCESS-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructure_UnpairedProbabilities_Tests.cs | ≥ 80% |
@@ -273,7 +273,7 @@ Mutation testing вимірює ефективність тестового на
 | 243 | ☑ | PROBE-LNATM-001 | MolTools | ProbeDesigner.cs | ProbeDesigner_LnaTm_Tests.cs | ≥ 80% |
 | 244 | ☑ | PROBE-EVALUE-001 | MolTools | ProbeDesigner.cs | ProbeDesigner_ProbeValidation_Tests.cs | ≥ 80% |
 | 245 | ☐ | MHC-NN-001 | Oncology | MhcflurryAffinityPredictor.cs | MhcflurryAffinityPredictor_PredictIc50_Tests.cs | ≥ 80% |
-| 246 | ☐ | MHC-MATRIX-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_ClassifyMhcBinding_Tests.cs | ≥ 80% |
+| 246 | ☑ | MHC-MATRIX-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_ClassifyMhcBinding_Tests.cs | ≥ 80% |
 | 247 | ☐ | IMMUNE-NUSVR-001 | Oncology | ImmuneAnalyzer.cs | ImmuneAnalyzer_ImmuneInfiltration_Tests.cs | ≥ 80% |
 | 248 | ☑ | META-CHECKM-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_MarkerGeneQuality_Tests.cs | ≥ 80% |
 | 249 | ☑ | META-TETRA-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_TetranucleotideZScore_Tests.cs | ≥ 80% |
@@ -294,7 +294,7 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete (run + killers written) | 230 |
-| ☐ Not started | 28 |
+| ☑ Complete (run + killers written) | 241 |
+| ☐ Not started | 17 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
