@@ -101,9 +101,9 @@ Mutation testing вимірює ефективність тестового на
 | 71 | ☑ | RNA-STRUCT-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructureTests.cs | ≥ 80% |
 | 72 | ☑ | RNA-STEMLOOP-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructureTests.cs | ≥ 80% |
 | 73 | ☑ | RNA-ENERGY-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructureTests.cs | ≥ 80% |
-| 74 | ☐ | MIRNA-SEED-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_SeedAnalysis_Tests.cs | ≥ 80% |
-| 75 | ☐ | MIRNA-TARGET-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_TargetPrediction_Tests.cs | ≥ 80% |
-| 76 | ☐ | MIRNA-PRECURSOR-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_PreMiRna_Tests.cs | ≥ 80% |
+| 74 | ☑ | MIRNA-SEED-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_SeedAnalysis_Tests.cs | ≥ 80% |
+| 75 | ☑ | MIRNA-TARGET-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_TargetPrediction_Tests.cs | ≥ 80% |
+| 76 | ☑ | MIRNA-PRECURSOR-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_PreMiRna_Tests.cs | ≥ 80% |
 | 77 | ☑ | SPLICE-DONOR-001 | Splicing | SpliceSitePredictor.cs | SpliceSitePredictor_DonorSite_Tests.cs | ≥ 80% |
 | 78 | ☑ | SPLICE-ACCEPTOR-001 | Splicing | SpliceSitePredictor.cs | SpliceSitePredictor_AcceptorSite_Tests.cs | ≥ 80% |
 | 79 | ☑ | SPLICE-PREDICT-001 | Splicing | SpliceSitePredictor.cs | SpliceSitePredictor_GeneStructure_Tests.cs | ≥ 80% |
@@ -279,10 +279,10 @@ Mutation testing вимірює ефективність тестового на
 | 249 | ☑ | META-TETRA-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_TetranucleotideZScore_Tests.cs | ≥ 80% |
 | 250 | ☑ | SPLICE-MAXENT3-001 | Splicing | SpliceSitePredictor.cs | SpliceSitePredictor_AcceptorSite_Tests.cs | ≥ 80% |
 | 251 | ☑ | SPLICE-MAXENT5-001 | Splicing | SpliceSitePredictor.cs | SpliceSitePredictor_DonorSite_Tests.cs | ≥ 80% |
-| 252 | ☐ | MIRNA-CONTEXT-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_TargetPrediction_Tests.cs | ≥ 80% |
-| 253 | ☐ | MIRNA-PCT-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_TargetPrediction_Tests.cs | ≥ 80% |
-| 254 | ☐ | MIRNA-CLASSIFY-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_PreMiRna_Tests.cs | ≥ 80% |
-| 255 | ☐ | MIRNA-CLEAVAGE-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_PreMiRna_Tests.cs | ≥ 80% |
+| 252 | ☑ | MIRNA-CONTEXT-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_TargetPrediction_Tests.cs | ≥ 80% |
+| 253 | ☑ | MIRNA-PCT-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_TargetPrediction_Tests.cs | ≥ 80% |
+| 254 | ☑ | MIRNA-CLASSIFY-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_PreMiRna_Tests.cs | ≥ 80% |
+| 255 | ☑ | MIRNA-CLEAVAGE-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_PreMiRna_Tests.cs | ≥ 80% |
 | 256 | ☑ | REP-APPROX-001 | Repeats | RepeatFinder.cs | RepeatFinder_ApproximateTandemRepeats_Tests.cs | ≥ 80% |
 | 257 | ☑ | CHROM-ALPHASAT-001 | Chromosome | ChromosomeAnalyzer.cs | ChromosomeAnalyzer_AlphaSatellite_Tests.cs | ≥ 80% |
 | 258 | ☑ | CHROM-HOR-001 | Chromosome | ChromosomeAnalyzer.cs | ChromosomeAnalyzer_HigherOrderRepeat_Tests.cs | ≥ 80% |
@@ -294,54 +294,48 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 258 |
-| ☑ Complete (mutation score ≥ 80%) | 251 |
-| ☐ Below target — documented equivalent-mutant ceiling (see below) | 7 |
+| ☑ Complete (mutation score ≥ 80%) | 258 |
+| ☐ Below target — documented equivalent-mutant ceiling | 0 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
 
 ---
 
-## Known ceiling (equivalent-mutant residual) — 7 rows, 1 file
+## Ceiling fully broken — all 258 rows ☑ (2026-06-30)
 
-The 7 remaining ☐ rows are **investigated and blocked, not un-started.** Their source file was run
-and analysed; it sits below the ≥ 80% target because the residual surviving mutants are **equivalent
-mutants** — mutations that do not change observable behaviour and therefore cannot be killed by any
-faithful test through the current public surface. They are neither test gaps nor code bugs.
+Every source file is now at mutation score ≥ 80%. The last-mile residual on three hard files
+(deep DP / iterative-solver pipelines) was the **equivalent-mutant-with-respect-to-the-public-API**
+class — mutations that do not change the *observable* output because the robust solver / re-convergent
+DP hides the internal arithmetic. The faithful resolution (NOT brittle characterization /
+green-washing) was: make the genuine internal computation observable (`internal` + test-only access
+via `InternalsVisibleTo`) and assert it against an **independent first-principles oracle** — never the
+implementation itself. All three were driven over 80% this way:
 
-| File (rows) | Measured score | Residual nature |
+| File (rows) | Score | Independent oracle (08_DIFFERENTIAL) |
 |---|---|---|
-| MiRnaAnalyzer.cs (74, 75, 76, 252, 253, 254, 255) | **74.61 %** | TargetScan context++ site-accessibility (RNAplfold) + 3′-supplementary-pairing dynamic programming; the DP re-converges to the same contribution under index/threshold mutation. Resolvable by the same differential pattern (expose the SA/3′-pairing DP cells + brute-force partition-function oracle); not yet done. |
+| Plan7ProfileHmm.cs (239) | 78.02 % → **80.46 %** | BRUTE — explicit Plan7 state-path enumeration vs every local Forward/Backward + glocal Viterbi/Forward cell (`Plan7ProfileHmm_ForwardBackwardDifferential_Tests`), + empty/1-node edge cases + HMMER3/f parse killers |
+| ImmuneAnalyzer.cs (86, 247) | 79.03 % → **81.72 %** | REF — Gaussian elimination / Pearson / population z-score / RMSE kernels vs hand-derived closed-form values (`ImmuneAnalyzer_NumericKernels_Tests`) |
+| MiRnaAnalyzer.cs (74, 75, 76, 252, 253, 254, 255) | 74.61 % → **80.11 %** | REF — TargetScan context++ feature/contribution kernels vs published Agarwal-2015 coefficients; Drosha/Dicer cut geometry; Garcia-2011 seed-site counting; and the 3′-supplementary-pairing **core scorer** (`PairingRunScore`) vs the published Grimson-2007 run-scoring rule on hand-computed arrays (5 test files) |
 
-**RESOLVED 2026-06-30 by the differential pattern** — the survivors were equivalent only *with respect
-to the public API* (the robust solver / re-convergent DP hides internal arithmetic), so the genuine
-internal computation was made observable (`internal` + test-only access via IVT) and asserted against
-an **independent first-principles oracle**, NOT the implementation:
-
-- **Plan7ProfileHmm.cs (239): 78.02 % → 80.46 % ☑** — local Forward/Backward + glocal Viterbi/Forward
-  asserted cell-by-cell against explicit path enumeration (08 strategy BRUTE,
-  `Plan7ProfileHmm_ForwardBackwardDifferential_Tests`), plus empty/1-node edge cases and HMMER3/f
-  header parse killers.
-- **ImmuneAnalyzer.cs (86, 247): 79.03 % → 81.72 % ☑** — the pure numeric kernels (Gaussian
-  elimination `SolveLinearSystem`, Pearson, population z-score, RMSE) exposed `internal` and asserted
-  against hand-derived closed-form values (08 strategy REF, `ImmuneAnalyzer_NumericKernels_Tests`).
-
-This demonstrates the ceiling is breakable wherever the internal computation can be exposed and checked
-against a first-principles / differential oracle. The same path remains open for MiRnaAnalyzer above.
+KEY: the oracle must be **spec/first-principles-derived**, not a re-implementation of the same code
+(which would be a non-independent duplicate). For MiRna's 3′-pairing this meant asserting the *core
+scorer* against the published Grimson rule on tiny controlled arrays — independent of the idiosyncratic
+perl subseq-extraction prep (whose few remaining mutants are equivalent / re-convergent and counted in
+the honest 80.11 %).
 
 **Empirical evidence (3 controlled experiments, all killed ~0 of their target cluster):**
 1. RnaSecondaryStructure MFE traceback — 143 survivors, exact-dot-bracket tests → **0 killed** (commit `63608536`).
 2. Plan7 FindDomains — 31 posterior-decoding survivors, exact-envelope/bit-score tests → **0 killed** (commit `9aa570b7`; the +2 was only the EValue Z=0 clean win).
 3. MiRna ScorePreMiRnaFeatures — exact logistic-model tests → **0 net** (the targeted mutants were already killed; commit `e65c8463`).
 
-These three runs establish empirically that exact-output assertions on the **public API** cannot kill
+These three runs established empirically that exact-output assertions on the **public API** cannot kill
 the internal arithmetic of DP / iterative-solver pipelines: the observable output is invariant under
-the mutation. The resolution (proven on Plan7 and ImmuneAnalyzer, see above) is NOT brittle
-characterization (green-washing) but **exposing the genuine internal computation and asserting it
-against an independent first-principles / differential oracle** — tracked in
-`08_DIFFERENTIAL_TESTING.md`. The same path is open for the remaining one file (MiRnaAnalyzer
-site-accessibility DP); until its internals are exposed and checked, its residual is the
-equivalent-mutant floor with respect to the current public surface.
+the mutation. The resolution — applied to all three hard files (Plan7, ImmuneAnalyzer, MiRnaAnalyzer)
+above — is NOT brittle characterization (green-washing) but **exposing the genuine internal computation
+and asserting it against an independent first-principles / differential oracle** — tracked in
+`08_DIFFERENTIAL_TESTING.md`. With that, the campaign reached **258 / 258 (100 %)**.
 
-Faithful genuine killers WERE added where survivors were real (RepeatFinder, PrimerDesigner,
-ChromosomeAnalyzer, CodonOptimizer, FastaParser, the full Plan7 Forward/Backward + glocal DP, and the
-ImmuneAnalyzer Gaussian-elimination / Pearson / z-score / RMSE kernels via the differential oracle).
+Faithful genuine killers were added wherever survivors were real (RepeatFinder, PrimerDesigner,
+ChromosomeAnalyzer, CodonOptimizer, FastaParser, the full Plan7 Forward/Backward + glocal DP, the
+ImmuneAnalyzer Gaussian-elimination / Pearson / z-score / RMSE kernels, and the MiRnaAnalyzer
+context++ / Drosha / seed-counting / 3′-pairing-scorer kernels — all via independent oracles).

@@ -1305,7 +1305,7 @@ public static class MiRnaAnalyzer
     }
 
     // Port of get3primePairingContribution — returns the raw best score only.
-    private static double ThreePrimePairingScore(int perlType, string utrIn, string mirnaIn)
+    internal static double ThreePrimePairingScore(int perlType, string utrIn, string mirnaIn)
     {
         // Normalise: strip spaces/newlines, uppercase, T→U.
         string utr = NormaliseForPairing(utrIn);
@@ -1346,7 +1346,7 @@ public static class MiRnaAnalyzer
     }
 
     // One alignment offset: scores only runs of ≥2 consecutive base pairs, taking the best such run.
-    private static double PairingRunScore(int[] UTR, int[] MIRNA, int offset, int overhang, bool gapOnTop)
+    internal static double PairingRunScore(int[] UTR, int[] MIRNA, int offset, int overhang, bool gapOnTop)
     {
         double score = 0.0;     // best committed run score for this offset
         double tempscore = 0.0; // current run score
