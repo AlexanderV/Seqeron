@@ -65,15 +65,15 @@ Plan7 local+glocal DP проти незалежного перебору шля�
 | 36 | ☑ | ALIGN-LOCAL-001 | Alignment | Smith-Waterman | BRUTE: max global over all substring pairs, floor 0 | score equality |
 | 37 | ☑ | ALIGN-SEMI-001 | Alignment | Fitting (free end gaps) | BRUTE: max global of seq1 vs seq2 substrings | score equality |
 | 38 | ☐ | ALIGN-MULTI-001 | Alignment | Progressive MSA | Star alignment | Same column count |
-| 39 | ☐ | PHYLO-DIST-001 | Phylogenetic | Jukes-Cantor | Kimura 2-parameter | Both ≥ 0, d_K2P ≥ d_JC |
-| 40 | ☐ | PHYLO-TREE-001 | Phylogenetic | UPGMA | NJ | Both valid trees |
-| 41 | ☐ | PHYLO-NEWICK-001 | Phylogenetic | Serializer | Manual string construction | Same Newick |
-| 42 | ☐ | PHYLO-COMP-001 | Phylogenetic | RF distance | Brute bipartition count | Same RF value |
-| 43 | ☐ | POP-FREQ-001 | PopGen | Optimized frequency | Manual count / total | Same frequencies |
-| 44 | ☐ | POP-DIV-001 | PopGen | π (pairwise) | Watterson θ | Both ≥ 0, ratio = Tajima's D |
-| 45 | ☐ | POP-HW-001 | PopGen | Chi-squared test | Manual expected genotypes | Same chi², same p-value |
-| 46 | ☐ | POP-FST-001 | PopGen | Weir-Cockerham Fst | Wright Fst | Correlated, both ∈ [0,1] |
-| 47 | ☐ | POP-LD-001 | PopGen | Haplotype-based LD | Allele count LD | Same D', r² |
+| 39 | ☑ | PHYLO-DIST-001 | Phylogenetic | JukesCantor + Kimura2P | REF: closed-form JC69/K80 + independent site counting | exact + d_K2P ≥ d_JC ≥ 0 |
+| 40 | ☑ | PHYLO-TREE-001 | Phylogenetic | UPGMA + NJ | property: both valid trees over input taxa | leaf set == taxa |
+| 41 | ☑ | PHYLO-NEWICK-001 | Phylogenetic | ToNewick serializer | REF: hand-built Newick string | same Newick |
+| 42 | ☑ | PHYLO-COMP-001 | Phylogenetic | unrooted RF distance | BRUTE: bipartition symmetric difference | same RF value |
+| 43 | ☑ | POP-FREQ-001 | PopGen | CalculateAlleleFrequencies/MAF | REF: manual allele count / total | same frequencies |
+| 44 | ☑ | POP-DIV-001 | PopGen | π / Watterson θ / Tajima's D | REF: brute pairwise + closed-form θ/D | exact + π,θ ≥ 0 |
+| 45 | ☑ | POP-HW-001 | PopGen | TestHardyWeinberg chi-square | REF: manual expected genotypes + anchors | same chi² + p∈[0,1] |
+| 46 | ☑ | POP-FST-001 | PopGen | CalculateFst variance ratio | REF: independent formula + 0/1 anchors | exact, ∈ [0,1] |
+| 47 | ☑ | POP-LD-001 | PopGen | CalculateLD (D', r²) | REF: independent Pearson correlation + anchor | same D', r² |
 | 48 | ☐ | CHROM-TELO-001 | Chromosome | Repeat pattern search | Regex TTAGGG search | Same regions |
 | 49 | ☐ | CHROM-CENT-001 | Chromosome | AT-richness window | GC-poverty window (1-GC) | Same position |
 | 50 | ☐ | CHROM-KARYO-001 | Chromosome | Classification algorithm | Manual arm ratio calc | Same classification |
@@ -293,8 +293,8 @@ Plan7 local+glocal DP проти незалежного перебору шля�
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 41 |
-| ☐ Not started | 217 |
+| ☑ Complete | 50 |
+| ☐ Not started | 208 |
 | High-value pairs (ALT/BRUTE feasible) | ~25 |
 | Medium-value pairs (REF comparison) | ~35 |
 | Lower priority (DUAL re-impl needed) | ~26 |
