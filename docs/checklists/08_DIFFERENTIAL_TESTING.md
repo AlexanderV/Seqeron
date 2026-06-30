@@ -34,16 +34,16 @@ Plan7 local+glocal DP проти незалежного перебору шля�
 | 5 | ☑ | SEQ-COMPLEX-001 | Composition | Linguistic complexity | REF: hand-derived published values (AAAA/ACGT/ATATAT) | exact (1e-12) |
 | 6 | ☑ | SEQ-ENTROPY-001 | Composition | Optimized Shannon | ALT: LINQ histogram + closed-form anchors | exact (1e-12) |
 | 7 | ☑ | SEQ-GCSKEW-001 | Composition | Windowed/scalar skew | ALT: independent per-window (G−C)/(G+C) count | same skew array + geometry |
-| 8 | ☐ | PAT-EXACT-001 | Matching | Suffix tree / KMP | String.IndexOf loop | Same positions |
-| 9 | ☐ | PAT-APPROX-001 | Matching | Optimized Hamming | Brute-force char-by-char | Exact distance |
-| 10 | ☐ | PAT-APPROX-002 | Matching | DP edit distance | Recursive with memo | Exact distance |
-| 11 | ☐ | PAT-IUPAC-001 | Matching | Switch-based IupacHelper | Dictionary-based matching | Same match results |
-| 12 | ☐ | PAT-PWM-001 | Matching | Array-based PWM scan | Dictionary-based PWM scan | Same positions + scores |
-| 13 | ☐ | REP-STR-001 | Repeats | RepeatFinder algorithm | Regex-based detection | Same microsatellites |
-| 14 | ☐ | REP-TANDEM-001 | Repeats | GenomicAnalyzer | RepeatFinder | Same repeats |
-| 15 | ☐ | REP-INV-001 | Repeats | RepeatFinder inverted | Brute-force revcomp search | Same arms |
-| 16 | ☐ | REP-DIRECT-001 | Repeats | RepeatFinder direct | Substring search | Same positions |
-| 17 | ☐ | REP-PALIN-001 | Repeats | RepeatFinder palindrome | Revcomp equality check | Same palindromes |
+| 8 | ☑ | PAT-EXACT-001 | Matching | Suffix-tree FindExactMotif | ALT: String.IndexOf scan | same positions |
+| 9 | ☑ | PAT-APPROX-001 | Matching | Optimized Hamming | ALT: brute char-by-char (case-insensitive) | exact distance |
+| 10 | ☑ | PAT-APPROX-002 | Matching | Two-row DP edit distance | ALT: recursive-memoized Levenshtein | exact distance |
+| 11 | ☑ | PAT-IUPAC-001 | Matching | Switch-based IupacHelper | DUAL: dictionary membership table (15×4 + invalid throws) | same match results |
+| 12 | ☑ | PAT-PWM-001 | Matching | Array-indexed PWM scan | DUAL: dictionary-indexed scan, 3 thresholds | same positions + scores |
+| 13 | ☑ | REP-STR-001 | Repeats | FindMicrosatellites | ALT: regex run/homopolymer detection | same microsatellites |
+| 14 | ☑ | REP-TANDEM-001 | Repeats | GenomicAnalyzer.FindTandemRepeats | DUAL: RepeatFinder agrees on unambiguous tandem | same (unit,start,count) |
+| 15 | ☑ | REP-INV-001 | Repeats | RepeatFinder inverted | BRUTE: independent revcomp search + hairpin property | same arms |
+| 16 | ☑ | REP-DIRECT-001 | Repeats | Suffix-tree direct repeats | BRUTE: substring-equality scan | same positions |
+| 17 | ☑ | REP-PALIN-001 | Repeats | RepeatFinder palindrome | ALT: independent revcomp-equality | same palindromes |
 | 18 | ☐ | CRISPR-PAM-001 | MolTools | CrisprDesigner.FindPamSites | Regex search for PAM | Same positions |
 | 19 | ☐ | CRISPR-GUIDE-001 | MolTools | CrisprDesigner.Design | Manual PAM extraction + scoring | Same top guides |
 | 20 | ☐ | CRISPR-OFF-001 | MolTools | Off-target scoring | Brute Hamming search + score | Same off-target set |
@@ -293,8 +293,8 @@ Plan7 local+glocal DP проти незалежного перебору шля�
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 11 |
-| ☐ Not started | 247 |
+| ☑ Complete | 21 |
+| ☐ Not started | 237 |
 | High-value pairs (ALT/BRUTE feasible) | ~25 |
 | Medium-value pairs (REF comparison) | ~35 |
 | Lower priority (DUAL re-impl needed) | ~26 |
