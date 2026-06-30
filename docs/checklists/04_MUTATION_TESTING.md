@@ -113,7 +113,7 @@ Mutation testing вимірює ефективність тестового на
 | 83 | ☑ | PROTMOTIF-PROSITE-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_PrositePattern_Tests.cs | ≥ 80% |
 | 84 | ☑ | PROTMOTIF-DOMAIN-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_DomainPrediction_Tests.cs | ≥ 80% |
 | 85 | ☑ | EPIGEN-CPG-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_CpGDetection_Tests.cs | ≥ 80% |
-| 86 | ☐ | ONCO-IMMUNE-001 | Oncology | ImmuneAnalyzer.cs | ImmuneAnalyzer_ImmuneInfiltration_Tests.cs | ≥ 80% |
+| 86 | ☑ | ONCO-IMMUNE-001 | Oncology | ImmuneAnalyzer.cs | ImmuneAnalyzer_ImmuneInfiltration_Tests.cs + ImmuneAnalyzer_NumericKernels_Tests.cs | ≥ 80% |
 | 87 | ☑ | ONCO-SOMATIC-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_CallSomaticMutations_Tests.cs | ≥ 80% |
 | 88 | ☑ | ONCO-VAF-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_CalculateVAF_Tests.cs | ≥ 80% |
 | 89 | ☑ | ONCO-DRIVER-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_IdentifyDriverMutations_Tests.cs | ≥ 80% |
@@ -274,7 +274,7 @@ Mutation testing вимірює ефективність тестового на
 | 244 | ☑ | PROBE-EVALUE-001 | MolTools | ProbeDesigner.cs | ProbeDesigner_ProbeValidation_Tests.cs | ≥ 80% |
 | 245 | ☑ | MHC-NN-001 | Oncology | MhcflurryAffinityPredictor.cs | MhcflurryAffinityPredictor_PredictIc50_Tests.cs | ≥ 80% |
 | 246 | ☑ | MHC-MATRIX-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_ClassifyMhcBinding_Tests.cs | ≥ 80% |
-| 247 | ☐ | IMMUNE-NUSVR-001 | Oncology | ImmuneAnalyzer.cs | ImmuneAnalyzer_ImmuneInfiltration_Tests.cs | ≥ 80% |
+| 247 | ☑ | IMMUNE-NUSVR-001 | Oncology | ImmuneAnalyzer.cs | ImmuneAnalyzer_NumericKernels_Tests.cs | ≥ 80% |
 | 248 | ☑ | META-CHECKM-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_MarkerGeneQuality_Tests.cs | ≥ 80% |
 | 249 | ☑ | META-TETRA-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_TetranucleotideZScore_Tests.cs | ≥ 80% |
 | 250 | ☑ | SPLICE-MAXENT3-001 | Splicing | SpliceSitePredictor.cs | SpliceSitePredictor_AcceptorSite_Tests.cs | ≥ 80% |
@@ -294,35 +294,39 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 258 |
-| ☑ Complete (mutation score ≥ 80%) | 249 |
-| ☐ Below target — documented equivalent-mutant ceiling (see below) | 9 |
+| ☑ Complete (mutation score ≥ 80%) | 251 |
+| ☐ Below target — documented equivalent-mutant ceiling (see below) | 7 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
 
 ---
 
-## Known ceiling (equivalent-mutant residual) — 9 rows, 2 files
+## Known ceiling (equivalent-mutant residual) — 7 rows, 1 file
 
-The 9 remaining ☐ rows are **investigated and blocked, not un-started.** Their two source
-files were run and analysed; each sits below the ≥ 80% target because the residual surviving
-mutants are **equivalent mutants** — mutations that do not change observable behaviour and therefore
-cannot be killed by any faithful test. They are neither test gaps nor code bugs.
+The 7 remaining ☐ rows are **investigated and blocked, not un-started.** Their source file was run
+and analysed; it sits below the ≥ 80% target because the residual surviving mutants are **equivalent
+mutants** — mutations that do not change observable behaviour and therefore cannot be killed by any
+faithful test through the current public surface. They are neither test gaps nor code bugs.
 
 | File (rows) | Measured score | Residual nature |
 |---|---|---|
-| MiRnaAnalyzer.cs (74, 75, 76, 252, 253, 254, 255) | **74.61 %** | TargetScan context++ site-accessibility (RNAplfold) + 3′-supplementary-pairing dynamic programming; the DP re-converges to the same contribution under index/threshold mutation |
-| ImmuneAnalyzer.cs (86, 247) | **79.03 %** | CIBERSORT ν-SVR SMO solver + NNLS active-set + Gaussian elimination; the robust iterative solver absorbs mutations within tolerance (already pinned against a libsvm reference) |
+| MiRnaAnalyzer.cs (74, 75, 76, 252, 253, 254, 255) | **74.61 %** | TargetScan context++ site-accessibility (RNAplfold) + 3′-supplementary-pairing dynamic programming; the DP re-converges to the same contribution under index/threshold mutation. Resolvable by the same differential pattern (expose the SA/3′-pairing DP cells + brute-force partition-function oracle); not yet done. |
 
-**RESOLVED 2026-06-30 — Plan7ProfileHmm.cs (239): 78.02 % → 80.46 % ☑.** The "differential is the
-honest path" prediction below was carried out: the Backward/posterior survivors were equivalent only
-*with respect to the public API* (scores/envelopes re-converge), so the genuine DP cells were made
-observable (`ForwardBackward` → `internal` + a test-only `DebugLocalForwardBackward` snapshot) and
-asserted cell-by-cell against an **independent explicit-path-enumeration oracle** (08 strategy BRUTE,
-`Plan7ProfileHmm_ForwardBackwardDifferential_Tests`): local Forward/Backward, glocal Viterbi/Forward,
-plus empty-sequence / 1-node edge cases for the delete-init guards, and faithful HMMER3/f header
-parse killers. This demonstrates the ceiling is breakable where the internal computation can be
-exposed and checked against a first-principles oracle — the same path remains open for the two files
-above (their solver internals are likewise private).
+**RESOLVED 2026-06-30 by the differential pattern** — the survivors were equivalent only *with respect
+to the public API* (the robust solver / re-convergent DP hides internal arithmetic), so the genuine
+internal computation was made observable (`internal` + test-only access via IVT) and asserted against
+an **independent first-principles oracle**, NOT the implementation:
+
+- **Plan7ProfileHmm.cs (239): 78.02 % → 80.46 % ☑** — local Forward/Backward + glocal Viterbi/Forward
+  asserted cell-by-cell against explicit path enumeration (08 strategy BRUTE,
+  `Plan7ProfileHmm_ForwardBackwardDifferential_Tests`), plus empty/1-node edge cases and HMMER3/f
+  header parse killers.
+- **ImmuneAnalyzer.cs (86, 247): 79.03 % → 81.72 % ☑** — the pure numeric kernels (Gaussian
+  elimination `SolveLinearSystem`, Pearson, population z-score, RMSE) exposed `internal` and asserted
+  against hand-derived closed-form values (08 strategy REF, `ImmuneAnalyzer_NumericKernels_Tests`).
+
+This demonstrates the ceiling is breakable wherever the internal computation can be exposed and checked
+against a first-principles / differential oracle. The same path remains open for MiRnaAnalyzer above.
 
 **Empirical evidence (3 controlled experiments, all killed ~0 of their target cluster):**
 1. RnaSecondaryStructure MFE traceback — 143 survivors, exact-dot-bracket tests → **0 killed** (commit `63608536`).
@@ -331,13 +335,13 @@ above (their solver internals are likewise private).
 
 These three runs establish empirically that exact-output assertions on the **public API** cannot kill
 the internal arithmetic of DP / iterative-solver pipelines: the observable output is invariant under
-the mutation. The resolution (proven on Plan7, see above) is NOT brittle characterization
-(green-washing) but **exposing the genuine internal computation and asserting it against an
-independent first-principles / differential oracle** — tracked in `08_DIFFERENTIAL_TESTING.md`. The
-same path is open for the remaining two files (MiRnaAnalyzer site-accessibility DP, ImmuneAnalyzer
-ν-SVR/NNLS solver); until their internals are exposed and checked, their residual is the
+the mutation. The resolution (proven on Plan7 and ImmuneAnalyzer, see above) is NOT brittle
+characterization (green-washing) but **exposing the genuine internal computation and asserting it
+against an independent first-principles / differential oracle** — tracked in
+`08_DIFFERENTIAL_TESTING.md`. The same path is open for the remaining one file (MiRnaAnalyzer
+site-accessibility DP); until its internals are exposed and checked, its residual is the
 equivalent-mutant floor with respect to the current public surface.
 
 Faithful genuine killers WERE added where survivors were real (RepeatFinder, PrimerDesigner,
-ChromosomeAnalyzer, CodonOptimizer, FastaParser, ImmuneAnalyzer parsing, and the full Plan7
-Forward/Backward + glocal DP via the differential oracle).
+ChromosomeAnalyzer, CodonOptimizer, FastaParser, the full Plan7 Forward/Backward + glocal DP, and the
+ImmuneAnalyzer Gaussian-elimination / Pearson / z-score / RMSE kernels via the differential oracle).

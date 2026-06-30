@@ -25,6 +25,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Expose pure numeric kernels (Gaussian elimination, Pearson, z-score, RMSE) to the test
+         assembly for differential testing against closed-form oracles (08_DIFFERENTIAL / 04). -->
+    <InternalsVisibleTo Include="Seqeron.Genomics.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />
     <ProjectReference Include="..\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
     <ProjectReference Include="..\Seqeron.Genomics.Analysis\Seqeron.Genomics.Analysis.csproj" />

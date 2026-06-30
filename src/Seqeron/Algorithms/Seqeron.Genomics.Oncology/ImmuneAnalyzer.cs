@@ -1001,7 +1001,7 @@ public static class ImmuneAnalyzer
     /// If the standard deviation is ~0, returns the mean-centred vector (all zeros) to avoid div-by-0.
     /// Source: Newman et al. (2015) — mixture/signature z-score standardisation prior to ν-SVR.
     /// </summary>
-    private static double[] Standardize(double[] v)
+    internal static double[] Standardize(double[] v)
     {
         int n = v.Length;
         if (n == 0)
@@ -1033,7 +1033,7 @@ public static class ImmuneAnalyzer
     /// <summary>
     /// Standardizes each column of an n×k matrix to zero mean and unit (population) standard deviation.
     /// </summary>
-    private static double[,] StandardizeColumns(double[,] matrix, int nRows, int nCols)
+    internal static double[,] StandardizeColumns(double[,] matrix, int nRows, int nCols)
     {
         double[,] result = new double[nRows, nCols];
         for (int j = 0; j < nCols; j++)
@@ -1467,7 +1467,7 @@ public static class ImmuneAnalyzer
     /// <summary>
     /// Solves a linear system Ax = b using Gaussian elimination with partial pivoting.
     /// </summary>
-    private static double[] SolveLinearSystem(double[,] a, double[] b, int n)
+    internal static double[] SolveLinearSystem(double[,] a, double[] b, int n)
     {
         // Create augmented matrix.
         double[,] aug = new double[n, n + 1];
@@ -1540,7 +1540,7 @@ public static class ImmuneAnalyzer
     /// <summary>
     /// Computes Pearson correlation coefficient between two vectors.
     /// </summary>
-    private static double ComputePearsonCorrelation(double[] x, double[] y)
+    internal static double ComputePearsonCorrelation(double[] x, double[] y)
     {
         int n = x.Length;
         if (n < 2)
@@ -1580,7 +1580,7 @@ public static class ImmuneAnalyzer
     /// <summary>
     /// Computes root mean square error between two vectors.
     /// </summary>
-    private static double ComputeRmse(double[] observed, double[] predicted)
+    internal static double ComputeRmse(double[] observed, double[] predicted)
     {
         int n = observed.Length;
         if (n == 0)
