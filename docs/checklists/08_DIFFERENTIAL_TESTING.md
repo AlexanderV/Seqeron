@@ -122,7 +122,7 @@ Plan7 local+glocal DP проти незалежного перебору шля�
 | 93 | ☐ | ONCO-MSI-001 | Oncology | MSI detection | MSIsensor logic | Concordant MSI status |
 | 94 | ☐ | ONCO-HRD-001 | Oncology | HRD score | LOH+TAI+LST reference | Same composite |
 | 95 | ☐ | ONCO-LOH-001 | Oncology | LOH detection | BAF-deviation reference | Same regions |
-| 96 | ☐ | ONCO-SIG-001 | Oncology | SBS context | manual trinucleotide assignment | Identical 96-vector |
+| 96 | ☑ | ONCO-SIG-001 | Oncology | ClassifySbsContext/EnumerateSbs96Channels | REF: manual pyrimidine-strand fold + 6×4×4 | identical 96-vector |
 | 97 | ☐ | ONCO-SIG-002 | Oncology | Signature fit | NNLS reference solver | Correlated exposures |
 | 98 | ☐ | ONCO-SIG-003 | Oncology | Bootstrap CI | resampling by hand | Overlapping CIs |
 | 99 | ☐ | ONCO-SIG-004 | Oncology | Process classify | argmax reference | Same dominant process |
@@ -168,14 +168,14 @@ Plan7 local+glocal DP проти незалежного перебору шля�
 | 139 | ☐ | COMPGEN-SYNTENY-001 | Comparative | Syntenic blocks | MCScanX-style reference | Concordant blocks |
 | 140 | ☑ | ASSEMBLY-CONSENSUS-001 | Assembly | ComputeConsensus | REF: manual majority vote (threshold/tie/gap) | exact |
 | 141 | ☐ | ASSEMBLY-CORRECT-001 | Assembly | Error correction | k-mer spectrum reference | Concordant reads |
-| 142 | ☐ | ASSEMBLY-COVER-001 | Assembly | Coverage | total-bases/length by hand | Exact match |
+| 142 | ☑ | ASSEMBLY-COVER-001 | Assembly | CalculateCoverage | REF: manual best-match placement + depth | exact |
 | 143 | ☐ | ASSEMBLY-DBG-001 | Assembly | DBG assembly | Velvet-style reference | Concordant contigs |
 | 144 | ☐ | ASSEMBLY-MERGE-001 | Assembly | Contig merge | overlap reference | Same merges |
 | 145 | ☐ | ASSEMBLY-OLC-001 | Assembly | OLC assembly | overlap-graph reference | Concordant contigs |
 | 146 | ☐ | ASSEMBLY-SCAFFOLD-001 | Assembly | Scaffolding | mate-pair reference | Same layout |
 | 147 | ☑ | ASSEMBLY-STATS-001 | Assembly | CalculateN50/CalculateNx | REF: manual cumulative N50/L50 | exact N50/L50 |
 | 148 | ☐ | ASSEMBLY-TRIM-001 | Assembly | Quality trim | sliding-window reference | Same trimmed reads |
-| 149 | ☐ | RNA-DOTBRACKET-001 | RnaStructure | Dot-bracket parse | manual pairing | Same pairs |
+| 149 | ☑ | RNA-DOTBRACKET-001 | RnaStructure | ParseDotBracket | REF: stack parse | same pairs |
 | 150 | ☐ | RNA-HAIRPIN-001 | RnaStructure | Hairpin energy | Turner-rule reference | Match within tolerance |
 | 151 | ☐ | RNA-INVERT-001 | RnaStructure | Inverted repeats | revcomp scan reference | Same repeats |
 | 152 | ☐ | RNA-MFE-001 | RnaStructure | MFE | Nussinov/Zuker reference | Match within tolerance |
@@ -211,7 +211,7 @@ Plan7 local+glocal DP проти незалежного перебору шля�
 | 182 | ☑ | EPIGEN-BISULF-001 | Epigenetics | SimulateBisulfiteConversion | REF: manual C→T (methylated protected) | exact |
 | 183 | ☐ | EPIGEN-CHROM-001 | Epigenetics | Chromatin state | ChromHMM-style reference | Concordant states |
 | 184 | ☐ | EPIGEN-DMR-001 | Epigenetics | DMR | t-test reference | Same regions |
-| 185 | ☐ | EPIGEN-METHYL-001 | Epigenetics | Methylation level | methylated/total by hand | Exact match |
+| 185 | ☑ | EPIGEN-METHYL-001 | Epigenetics | CalculateMethylationFromBisulfite | REF: manual methylated/total per CpG | exact |
 | 186 | ☐ | VARIANT-ANNOT-001 | Variants | Variant annotation | VEP-style reference | Same impact |
 | 187 | ☐ | VARIANT-CALL-001 | Variants | Variant calling | bcftools-style logic | Concordant calls |
 | 188 | ☐ | VARIANT-INDEL-001 | Variants | Indel calling | pileup reference | Same indels |
@@ -258,9 +258,9 @@ Plan7 local+glocal DP проти незалежного перебору шля�
 | 229 | ☐ | SEQ-COMPLEX-DUST-001 | Complexity | DUST score | SDUST reference | Concordant score |
 | 230 | ☑ | SEQ-COMPLEX-KMER-001 | Complexity | CalculateKmerEntropy | REF: manual Shannon (log2) | exact entropy |
 | 231 | ☐ | SEQ-COMPLEX-WINDOW-001 | Complexity | Sliding window | naive per-window recompute | Identical profile |
-| 232 | ☐ | SEQ-ENTROPY-PROFILE-001 | Statistics | Sliding window | naive per-window recompute | Identical profile |
+| 232 | ☑ | SEQ-ENTROPY-PROFILE-001 | Statistics | CalculateEntropyProfile | REF: naive per-window Shannon | identical profile |
 | 233 | ☐ | SEQ-GC-ANALYSIS-001 | Composition | Windowed scan | LINQ Count-based | Exact GC% |
-| 234 | ☐ | SEQ-GC-PROFILE-001 | Statistics | Sliding window | naive per-window recompute | Identical profile |
+| 234 | ☑ | SEQ-GC-PROFILE-001 | Statistics | CalculateGcContentProfile | REF: naive per-window GC count | identical profile |
 | 235 | ☐ | ONCO-ASCAT-001 | Oncology | ASPCF PCF DP | naive changepoint scan | same breakpoints |
 | 236 | ☐ | RNA-PKPREDICT-001 | Analysis | pknotsRG canonical scan | brute-force H-type search | same structure |
 | 237 | ☐ | RNA-PKRECURSIVE-001 | Analysis | recursive grammar | exhaustive nested search (small n) | same ΔG |
@@ -293,8 +293,8 @@ Plan7 local+glocal DP проти незалежного перебору шля�
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 98 |
-| ☐ Not started | 160 |
+| ☑ Complete | 104 |
+| ☐ Not started | 154 |
 | High-value pairs (ALT/BRUTE feasible) | ~25 |
 | Medium-value pairs (REF comparison) | ~35 |
 | Lower priority (DUAL re-impl needed) | ~26 |
