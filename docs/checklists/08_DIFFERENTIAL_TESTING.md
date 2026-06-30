@@ -74,15 +74,15 @@ Plan7 local+glocal DP проти незалежного перебору шля�
 | 45 | ☑ | POP-HW-001 | PopGen | TestHardyWeinberg chi-square | REF: manual expected genotypes + anchors | same chi² + p∈[0,1] |
 | 46 | ☑ | POP-FST-001 | PopGen | CalculateFst variance ratio | REF: independent formula + 0/1 anchors | exact, ∈ [0,1] |
 | 47 | ☑ | POP-LD-001 | PopGen | CalculateLD (D', r²) | REF: independent Pearson correlation + anchor | same D', r² |
-| 48 | ☐ | CHROM-TELO-001 | Chromosome | Repeat pattern search | Regex TTAGGG search | Same regions |
+| 48 | ☑ | CHROM-TELO-001 | Chromosome | AnalyzeTelomeres repeat run | REF: manual exact-repeat (CCCTAA/TTAGGG) count | same telomere lengths + purity |
 | 49 | ☐ | CHROM-CENT-001 | Chromosome | AT-richness window | GC-poverty window (1-GC) | Same position |
-| 50 | ☐ | CHROM-KARYO-001 | Chromosome | Classification algorithm | Manual arm ratio calc | Same classification |
+| 50 | ☑ | CHROM-KARYO-001 | Chromosome | ClassifyChromosomeByArmRatio | REF: manual arm ratio + Levan boundaries | same classification |
 | 51 | ☐ | CHROM-ANEU-001 | Chromosome | Depth-based CN | Ratio-based CN | Correlated CN |
 | 52 | ☐ | CHROM-SYNT-001 | Chromosome | Ortholog-based synteny | BLAST-based synteny | Same major blocks |
 | 53 | ☐ | META-CLASS-001 | Metagenomics | K-mer classification | LCA classification | Correlated taxonomy |
 | 54 | ☐ | META-PROF-001 | Metagenomics | Read-based profile | K-mer-based profile | Correlated abundances |
-| 55 | ☐ | META-ALPHA-001 | Metagenomics | Shannon via log2 | Shannon via ln (normalized) | Proportional |
-| 56 | ☐ | META-BETA-001 | Metagenomics | Bray-Curtis | Jaccard | Both valid distance metrics |
+| 55 | ☑ | META-ALPHA-001 | Metagenomics | CalculateAlphaDiversity | REF: Shannon/Simpson/Pielou closed form + log2 proportionality | exact + proportional |
+| 56 | ☑ | META-BETA-001 | Metagenomics | CalculateBetaDiversity | REF: Bray-Curtis/Jaccard formulas + identity/disjoint anchors | exact, ∈ [0,1] |
 | 57 | ☐ | META-BIN-001 | Metagenomics | GC + coverage binning | Tetra-nucleotide freq binning | Consistent bins |
 | 58 | ☐ | CODON-OPT-001 | Codon | Optimized (current) | Random synonymous | Both translate to same protein |
 | 59 | ☐ | CODON-CAI-001 | Codon | Sharp-Li CAI | Manual w_i product / geometric mean | Same CAI |
@@ -293,8 +293,8 @@ Plan7 local+glocal DP проти незалежного перебору шля�
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 50 |
-| ☐ Not started | 208 |
+| ☑ Complete | 54 |
+| ☐ Not started | 204 |
 | High-value pairs (ALT/BRUTE feasible) | ~25 |
 | Medium-value pairs (REF comparison) | ~35 |
 | Lower priority (DUAL re-impl needed) | ~26 |
