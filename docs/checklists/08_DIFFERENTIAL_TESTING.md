@@ -44,16 +44,16 @@ Plan7 local+glocal DP проти незалежного перебору шля�
 | 15 | ☑ | REP-INV-001 | Repeats | RepeatFinder inverted | BRUTE: independent revcomp search + hairpin property | same arms |
 | 16 | ☑ | REP-DIRECT-001 | Repeats | Suffix-tree direct repeats | BRUTE: substring-equality scan | same positions |
 | 17 | ☑ | REP-PALIN-001 | Repeats | RepeatFinder palindrome | ALT: independent revcomp-equality | same palindromes |
-| 18 | ☐ | CRISPR-PAM-001 | MolTools | CrisprDesigner.FindPamSites | Regex search for PAM | Same positions |
+| 18 | ☑ | CRISPR-PAM-001 | MolTools | CrisprDesigner.FindPamSites | ALT: independent NGG fwd/rev scan + spec reconstruction | same positions + count |
 | 19 | ☐ | CRISPR-GUIDE-001 | MolTools | CrisprDesigner.Design | Manual PAM extraction + scoring | Same top guides |
 | 20 | ☐ | CRISPR-OFF-001 | MolTools | Off-target scoring | Brute Hamming search + score | Same off-target set |
-| 21 | ☐ | PRIMER-TM-001 | MolTools | SantaLucia nearest-neighbor | Basic rule (4°C GC + 2°C AT) | Correlated Tm |
+| 21 | ☑ | PRIMER-TM-001 | MolTools | Wallace (<14) / Marmur-Doty (≥14) — NOT SantaLucia | REF: closed-form Wallace + Marmur-Doty | exact (1e-9) |
 | 22 | ☐ | PRIMER-DESIGN-001 | MolTools | PrimerDesigner | Manual sliding window | Same candidate set |
 | 23 | ☐ | PRIMER-STRUCT-001 | MolTools | Thermodynamic hairpin | Self-complement brute scan | Correlated ΔG |
 | 24 | ☐ | PROBE-DESIGN-001 | MolTools | ProbeDesigner | Manual Tm-filtered scan | Same candidate set |
 | 25 | ☐ | PROBE-VALID-001 | MolTools | ProbeDesigner.Validate | Manual Tm + specificity check | Same pass/fail |
-| 26 | ☐ | RESTR-FIND-001 | MolTools | Pattern-based search | Regex-based search | Same positions |
-| 27 | ☐ | RESTR-DIGEST-001 | MolTools | RestrictionAnalyzer.Digest | Manual split at positions | Same fragments |
+| 26 | ☑ | RESTR-FIND-001 | MolTools | Pattern-based FindSites (fwd+rev) | ALT: IndexOf scan + cut arithmetic from enzyme metadata | same positions + cuts |
+| 27 | ☑ | RESTR-DIGEST-001 | MolTools | RestrictionAnalyzer.Digest | ALT: manual cut-collect + split | same fragments |
 | 28 | ☐ | ANNOT-ORF-001 | Annotation | GenomeAnnotator.FindOrfs | 6-frame ATG…stop scan | Same ORF set |
 | 29 | ☐ | ANNOT-GENE-001 | Annotation | GenomeAnnotator.PredictGenes | ORF + RBS brute scan | Same gene set |
 | 30 | ☐ | ANNOT-PROM-001 | Annotation | Promoter motif scoring | Regex -10/-35 box | Same positions |
@@ -293,8 +293,8 @@ Plan7 local+glocal DP проти незалежного перебору шля�
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 21 |
-| ☐ Not started | 237 |
+| ☑ Complete | 25 |
+| ☐ Not started | 233 |
 | High-value pairs (ALT/BRUTE feasible) | ~25 |
 | Medium-value pairs (REF comparison) | ~35 |
 | Lower priority (DUAL re-impl needed) | ~26 |
