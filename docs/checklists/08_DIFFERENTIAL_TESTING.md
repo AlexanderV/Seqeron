@@ -84,12 +84,12 @@ Plan7 local+glocal DP проти незалежного перебору шля�
 | 55 | ☑ | META-ALPHA-001 | Metagenomics | CalculateAlphaDiversity | REF: Shannon/Simpson/Pielou closed form + log2 proportionality | exact + proportional |
 | 56 | ☑ | META-BETA-001 | Metagenomics | CalculateBetaDiversity | REF: Bray-Curtis/Jaccard formulas + identity/disjoint anchors | exact, ∈ [0,1] |
 | 57 | ☐ | META-BIN-001 | Metagenomics | GC + coverage binning | Tetra-nucleotide freq binning | Consistent bins |
-| 58 | ☐ | CODON-OPT-001 | Codon | Optimized (current) | Random synonymous | Both translate to same protein |
-| 59 | ☐ | CODON-CAI-001 | Codon | Sharp-Li CAI | Manual w_i product / geometric mean | Same CAI |
-| 60 | ☐ | CODON-RARE-001 | Codon | Threshold filter | Manual frequency lookup | Same rare set |
-| 61 | ☐ | CODON-USAGE-001 | Codon | Optimized counting | Manual triplet scan | Same usage table |
-| 62 | ☐ | TRANS-CODON-001 | Translation | GeneticCode class | Hardcoded codon table | Same mappings |
-| 63 | ☐ | TRANS-PROT-001 | Translation | Translator.Translate | Manual triplet → AA loop | Same protein |
+| 58 | ☑ | CODON-OPT-001 | Codon | OptimizeSequence | REF: independent translation preserved (synonymous) | same protein |
+| 59 | ☑ | CODON-CAI-001 | Codon | CalculateCAI (Sharp-Li) | REF: hand-derived geometric mean of w_i | same CAI |
+| 60 | ☑ | CODON-RARE-001 | Codon | FindRareCodons threshold | REF: manual frequency-lookup filter | same rare set |
+| 61 | ☑ | CODON-USAGE-001 | Codon | CalculateCodonUsage | REF: manual triplet scan | same usage table |
+| 62 | ☑ | TRANS-CODON-001 | Translation | GeneticCode.Standard | DUAL: independent NCBI table 1 (all 64 codons) | same mappings |
+| 63 | ☑ | TRANS-PROT-001 | Translation | Translator.Translate | REF: manual triplet→AA loop | same protein |
 | 64 | ☐ | PARSE-FASTA-001 | FileIO | FastaParser | Regex line-by-line parser | Same records |
 | 65 | ☐ | PARSE-FASTQ-001 | FileIO | FastqParser | 4-line block reader | Same records |
 | 66 | ☐ | PARSE-BED-001 | FileIO | BedParser | Tab-split manual | Same regions |
@@ -293,8 +293,8 @@ Plan7 local+glocal DP проти незалежного перебору шля�
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 54 |
-| ☐ Not started | 204 |
+| ☑ Complete | 60 |
+| ☐ Not started | 198 |
 | High-value pairs (ALT/BRUTE feasible) | ~25 |
 | Medium-value pairs (REF comparison) | ~35 |
 | Lower priority (DUAL re-impl needed) | ~26 |
