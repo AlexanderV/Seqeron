@@ -128,7 +128,7 @@ Plan7 local+glocal DP проти незалежного перебору шля�
 | 99 | ☐ | ONCO-SIG-004 | Oncology | Process classify | argmax reference | Same dominant process |
 | 100 | ☐ | ONCO-FUSION-001 | Oncology | Fusion detection | STAR-Fusion-style logic | Concordant fusions |
 | 101 | ☐ | ONCO-FUSION-002 | Oncology | Known-fusion match | DB lookup | Same matches |
-| 102 | ☐ | ONCO-FUSION-003 | Oncology | Breakpoint frame | manual frame calc | Same in/out-of-frame |
+| 102 | ☑ | ONCO-FUSION-003 | Oncology | IsInFrame | REF: (5'coding−3'phase) mod 3 | same in/out-of-frame |
 | 103 | ☐ | ONCO-CNA-001 | Oncology | CN classification | log2→CN reference | Same CN class |
 | 104 | ☐ | ONCO-CNA-002 | Oncology | Focal amplification | GISTIC-style threshold | Same focal calls |
 | 105 | ☐ | ONCO-CNA-003 | Oncology | Homozygous deletion | CN≈0 reference | Same deletions |
@@ -154,7 +154,7 @@ Plan7 local+glocal DP проти незалежного перебору шля�
 | 125 | ☐ | SEQ-PI-001 | Statistics | Isoelectric point | Henderson-Hasselbalch reference | Match within tolerance |
 | 126 | ☐ | SEQ-SECSTRUCT-001 | Statistics | Secondary structure | Chou-Fasman reference | Same assignment |
 | 127 | ☐ | SEQ-STATS-001 | Statistics | Composition stats | manual calc | Exact match |
-| 128 | ☐ | SEQ-SUMMARY-001 | Statistics | Sequence summary | manual calc | Exact match |
+| 128 | ☑ | SEQ-SUMMARY-001 | Statistics | SummarizeNucleotideSequence | REF: per-metric recompute (len/GC/entropy/Tm/complexity/comp) | exact |
 | 129 | ☐ | SEQ-THERMO-001 | Statistics | Thermodynamics | nearest-neighbour reference | Match within tolerance |
 | 130 | ☑ | SEQ-TM-001 | Statistics | CalculateMeltingTemperature | REF: closed-form Wallace/Marmur-Doty | exact (1e-9) |
 | 131 | ☐ | COMPGEN-ANI-001 | Comparative | ANI | fastANI-style reference | Correlated ANI |
@@ -259,7 +259,7 @@ Plan7 local+glocal DP проти незалежного перебору шля�
 | 230 | ☑ | SEQ-COMPLEX-KMER-001 | Complexity | CalculateKmerEntropy | REF: manual Shannon (log2) | exact entropy |
 | 231 | ☐ | SEQ-COMPLEX-WINDOW-001 | Complexity | Sliding window | naive per-window recompute | Identical profile |
 | 232 | ☑ | SEQ-ENTROPY-PROFILE-001 | Statistics | CalculateEntropyProfile | REF: naive per-window Shannon | identical profile |
-| 233 | ☐ | SEQ-GC-ANALYSIS-001 | Composition | Windowed scan | LINQ Count-based | Exact GC% |
+| 233 | ☑ | SEQ-GC-ANALYSIS-001 | Composition | AnalyzeGcContent (windowed) | REF: naive per-window GC count | exact GC% + geometry |
 | 234 | ☑ | SEQ-GC-PROFILE-001 | Statistics | CalculateGcContentProfile | REF: naive per-window GC count | identical profile |
 | 235 | ☐ | ONCO-ASCAT-001 | Oncology | ASPCF PCF DP | naive changepoint scan | same breakpoints |
 | 236 | ☐ | RNA-PKPREDICT-001 | Analysis | pknotsRG canonical scan | brute-force H-type search | same structure |
@@ -293,8 +293,8 @@ Plan7 local+glocal DP проти незалежного перебору шля�
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 104 |
-| ☐ Not started | 154 |
+| ☑ Complete | 107 |
+| ☐ Not started | 151 |
 | High-value pairs (ALT/BRUTE feasible) | ~25 |
 | Medium-value pairs (REF comparison) | ~35 |
 | Lower priority (DUAL re-impl needed) | ~26 |
