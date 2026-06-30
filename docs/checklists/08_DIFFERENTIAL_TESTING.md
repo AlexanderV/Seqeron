@@ -27,13 +27,13 @@ Plan7 local+glocal DP проти незалежного перебору шля�
 
 | # | Status | Test Unit | Area | Impl A (Current) | Impl B (Reference) | Comparison |
 |---|--------|-----------|------|------------------|-------------------|------------|
-| 1 | ☐ | SEQ-GC-001 | Composition | Span-based counting | LINQ Count-based | Exact GC% |
-| 2 | ☐ | SEQ-COMP-001 | Composition | Switch-based complement | Lookup table complement | Exact sequence |
-| 3 | ☐ | SEQ-REVCOMP-001 | Composition | Optimized revcomp | Reverse + complement | Exact sequence |
-| 4 | ☐ | SEQ-VALID-001 | Composition | Span loop validation | Regex-based validation | Same bool result |
-| 5 | ☐ | SEQ-COMPLEX-001 | Composition | Linguistic complexity | Compression ratio | Correlated scores |
-| 6 | ☐ | SEQ-ENTROPY-001 | Composition | Optimized Shannon | Naive histogram entropy | |Δ| < ε |
-| 7 | ☐ | SEQ-GCSKEW-001 | Composition | Windowed calculation | Per-base cumulative | Same skew array |
+| 1 | ☑ | SEQ-GC-001 | Composition | Span switch counting | ALT: LINQ Count over G/C and valid set | exact GC% (1e-12) |
+| 2 | ☑ | SEQ-COMP-001 | Composition | Switch-based complement | DUAL: literal IUPAC lookup-table | exact sequence (full IUPAC + case + passthrough) |
+| 3 | ☑ | SEQ-REVCOMP-001 | Composition | Optimized revcomp | ALT: complement(lookup) then reverse | exact sequence |
+| 4 | ☑ | SEQ-VALID-001 | Composition | Span loop validation | ALT: regex `^[ACGTacgt]*$` | same bool result |
+| 5 | ☑ | SEQ-COMPLEX-001 | Composition | Linguistic complexity | REF: hand-derived published values (AAAA/ACGT/ATATAT) | exact (1e-12) |
+| 6 | ☑ | SEQ-ENTROPY-001 | Composition | Optimized Shannon | ALT: LINQ histogram + closed-form anchors | exact (1e-12) |
+| 7 | ☑ | SEQ-GCSKEW-001 | Composition | Windowed/scalar skew | ALT: independent per-window (G−C)/(G+C) count | same skew array + geometry |
 | 8 | ☐ | PAT-EXACT-001 | Matching | Suffix tree / KMP | String.IndexOf loop | Same positions |
 | 9 | ☐ | PAT-APPROX-001 | Matching | Optimized Hamming | Brute-force char-by-char | Exact distance |
 | 10 | ☐ | PAT-APPROX-002 | Matching | DP edit distance | Recursive with memo | Exact distance |
@@ -293,8 +293,8 @@ Plan7 local+glocal DP проти незалежного перебору шля�
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 4 |
-| ☐ Not started | 254 |
+| ☑ Complete | 11 |
+| ☐ Not started | 247 |
 | High-value pairs (ALT/BRUTE feasible) | ~25 |
 | Medium-value pairs (REF comparison) | ~35 |
 | Lower priority (DUAL re-impl needed) | ~26 |
