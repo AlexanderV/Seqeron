@@ -955,7 +955,7 @@ public static class MiRnaAnalyzer
     // footprint must not overlap an already-counted site). On non-self-overlapping cores (real miRNA
     // seeds against typical 3'UTRs) this is identical to per-anchor counting; on periodic cores it
     // enforces the non-overlapping requirement.
-    private static int CountSeedSitesInUtr(string utr, string sixmerCore, char pos8Rc)
+    internal static int CountSeedSitesInUtr(string utr, string sixmerCore, char pos8Rc)
     {
         int count = 0;
         int i = 0;
@@ -1008,7 +1008,7 @@ public static class MiRnaAnalyzer
     // are weighted from the base immediately 5' of the site (i=0) outward; downstream from the
     // base immediately 3' of the site. Weighting offsets are +1 vs +2 per site type, exactly as
     // in the perl (8mer/7mer-m8 favour the upstream by one rank; 8mer/7mer-A1 the downstream).
-    private static double LocalAuContribution(string mrna, int siteStart, int siteEnd, TargetSiteType type)
+    internal static double LocalAuContribution(string mrna, int siteStart, int siteEnd, TargetSiteType type)
     {
         // Perl uses 1-based utrStart/utrEnd; here Start/End are 0-based inclusive site coordinates.
         // utrUp = up to 30 nt ending at the position immediately before the site (siteStart-1).
@@ -1065,7 +1065,7 @@ public static class MiRnaAnalyzer
 
     // sRNA position-1 indicators: contributions are 0 when miRNA nt1 is U (perl: only computed
     // when sRNA1_nt ne "U"). Otherwise the indicator for the actual nt (A/C/G) is 1, others 0.
-    private static double SRna1Contribution(string mirna, TargetSiteType type)
+    internal static double SRna1Contribution(string mirna, TargetSiteType type)
     {
         if (mirna.Length < 1) return 0.0;
         char nt1 = mirna[0];
@@ -1083,7 +1083,7 @@ public static class MiRnaAnalyzer
     }
 
     // sRNA position-8 indicators: 0 when miRNA nt8 is U; else indicator for the actual A/C/G.
-    private static double SRna8Contribution(string mirna, TargetSiteType type)
+    internal static double SRna8Contribution(string mirna, TargetSiteType type)
     {
         if (mirna.Length < 8) return 0.0;
         char nt8 = mirna[7];
@@ -1104,7 +1104,7 @@ public static class MiRnaAnalyzer
     // site types). The relevant target base is the nucleotide opposite miRNA position 8, i.e. the
     // base immediately 5' of the 6mer core. For 7mer-A1 / 6mer the 6mer core starts at site.Start,
     // so the position-8 base is mrna[site.Start - 1]. 0 when that base is U or out of range.
-    private static double Site8Contribution(string mrna, int siteStart, TargetSiteType type)
+    internal static double Site8Contribution(string mrna, int siteStart, TargetSiteType type)
     {
         if (type is not (TargetSiteType.Seed7merA1 or TargetSiteType.Seed6mer))
             return 0.0;
@@ -1136,7 +1136,7 @@ public static class MiRnaAnalyzer
     // RNAplfold man page + Bernhart et al. (2006) Bioinformatics 22:614; Agarwal et al. (2015)
     // eLife 4:e05005 Fig 4A ("log10 value of the unpaired probability for a 14-nt region centered
     // on the match to miRNA nucleotides 7 and 8").
-    private static double SaContribution(string mrna, int siteStart, TargetSiteType type, out bool included)
+    internal static double SaContribution(string mrna, int siteStart, TargetSiteType type, out bool included)
     {
         included = false;
 
@@ -1185,7 +1185,7 @@ public static class MiRnaAnalyzer
     // ── Generic min-max scaling (getAgarwalContribution) ──────────────────────────────────
     // Perl: scaledScore = (raw - min) / (max - min); contribution = coeff × scaledScore.
     // NOT clamped to [0,1] (scaled values < 0 or > 1 are kept, exactly as in the perl).
-    private static double ScaledContribution(double raw, double coeff, double min, double max)
+    internal static double ScaledContribution(double raw, double coeff, double min, double max)
         => max == min ? coeff * raw : coeff * ((raw - min) / (max - min));
 
     // ── 3' supplementary pairing (3P_score) ───────────────────────────────────────────────
@@ -1199,7 +1199,7 @@ public static class MiRnaAnalyzer
     private static readonly int[] ThreePrimeMiRnaStart = { 0, 7, 8, 8, 8 };
     private static readonly int[] ThreePrimeOverhang   = { 0, 1, 0, 0, 0 };
 
-    private static double ThreePrimePairingContribution(string mrna, string mirna, int siteStart, int siteEnd, TargetSiteType type)
+    internal static double ThreePrimePairingContribution(string mrna, string mirna, int siteStart, int siteEnd, TargetSiteType type)
     {
         double raw = ThreePrimePairingRaw(mrna, mirna, siteStart, siteEnd, type);
         (double coeff, double min, double max) = type switch
@@ -1222,7 +1222,7 @@ public static class MiRnaAnalyzer
     };
 
     // Returns the raw 3P pairing score (the value getAgarwalContribution receives for "3P_score").
-    private static double ThreePrimePairingRaw(string mrna, string mirna, int siteStart, int siteEnd, TargetSiteType type)
+    internal static double ThreePrimePairingRaw(string mrna, string mirna, int siteStart, int siteEnd, TargetSiteType type)
     {
         if (mrna.Length == 0 || mirna.Length == 0) return 0.0;
 
@@ -1413,7 +1413,7 @@ public static class MiRnaAnalyzer
     // Port of getMinDist_weighted_contribution for the single-isoform case (AIR_end = UTR length).
     // distTo5 = siteStart-1 (perl 1-based) ; distTo3 = UTRlen - siteEnd ; take the smaller, log10,
     // then min-max scale by the site-type Min_dist coefficients.
-    private static double MinDistContribution(string mrna, int siteStart, int siteEnd, TargetSiteType type)
+    internal static double MinDistContribution(string mrna, int siteStart, int siteEnd, TargetSiteType type)
     {
         if (mrna.Length == 0) return 0.0;
         // perl 1-based site coordinates and UTR length (= AIR_end).
@@ -1440,7 +1440,7 @@ public static class MiRnaAnalyzer
 
     // ── Len_3UTR ──────────────────────────────────────────────────────────────────────────
     // Port of get_len3UTR_weighted_contribution (single-isoform: UTR length = AIR_end = mrna.Length).
-    private static double Len3UtrContribution(string mrna, TargetSiteType type)
+    internal static double Len3UtrContribution(string mrna, TargetSiteType type)
     {
         int utrLength = mrna.Length;
         double log10 = utrLength > 0 ? Math.Log10(utrLength) : 0.0;
@@ -1460,7 +1460,7 @@ public static class MiRnaAnalyzer
     // offset-6mer target pattern is the first 6 nt of reverse_complement(seed region 2-8); Off6m is
     // the count of (case-insensitive, overlapping) occurrences of that 6mer in the 3'UTR. Used RAW
     // (Off6m is not in the min-max regex of getAgarwalContribution).
-    private static double Off6mContribution(string mrna, string mirna, TargetSiteType type)
+    internal static double Off6mContribution(string mrna, string mirna, TargetSiteType type)
     {
         if (mrna.Length == 0 || mirna.Length < 8) return 0.0;
 
@@ -1498,7 +1498,7 @@ public static class MiRnaAnalyzer
     }
 
     // ── SPS / TA / Len_ORF / ORF8m (caller-supplied) ─────────────────────────────────────────
-    private static double SpsContribution(double sps, TargetSiteType type)
+    internal static double SpsContribution(double sps, TargetSiteType type)
     {
         (double coeff, double min, double max) = type switch
         {
@@ -1510,7 +1510,7 @@ public static class MiRnaAnalyzer
         return ScaledContribution(sps, coeff, min, max);
     }
 
-    private static double TaContribution(double ta, TargetSiteType type)
+    internal static double TaContribution(double ta, TargetSiteType type)
     {
         (double coeff, double min, double max) = type switch
         {
@@ -1522,7 +1522,7 @@ public static class MiRnaAnalyzer
         return ScaledContribution(ta, coeff, min, max);
     }
 
-    private static double LenOrfContribution(double orfLength, TargetSiteType type)
+    internal static double LenOrfContribution(double orfLength, TargetSiteType type)
     {
         double log10 = orfLength > 0 ? Math.Log10(orfLength) : 0.0;
         (double coeff, double min, double max) = type switch
@@ -1535,7 +1535,7 @@ public static class MiRnaAnalyzer
         return ScaledContribution(log10, coeff, min, max);
     }
 
-    private static double Orf8mContribution(int count, TargetSiteType type)
+    internal static double Orf8mContribution(int count, TargetSiteType type)
     {
         double coeff = type switch
         {
@@ -1653,7 +1653,7 @@ public static class MiRnaAnalyzer
     // PCT enters getAgarwalContribution as a min-max-scaled feature × the site-type PCT coefficient
     // (targetscan_70_context_scores.pl getPCT_contribution → getAgarwalContribution; PCT matches the
     // min-max regex branch alongside TA_3UTR/SPS/Local_AU/3P_score/SA/Len_ORF/Len_3UTR/Min_dist).
-    private static double PctContribution(double pct, TargetSiteType type)
+    internal static double PctContribution(double pct, TargetSiteType type)
     {
         (double coeff, double min, double max) = type switch
         {
@@ -1801,7 +1801,7 @@ public static class MiRnaAnalyzer
         return energy;
     }
 
-    private static bool IsTerminalPenaltyPair(char b1, char b2) =>
+    internal static bool IsTerminalPenaltyPair(char b1, char b2) =>
         (b1 == 'A' && b2 == 'U') || (b1 == 'U' && b2 == 'A') ||
         (b1 == 'G' && b2 == 'U') || (b1 == 'U' && b2 == 'G');
 
@@ -2094,7 +2094,7 @@ public static class MiRnaAnalyzer
     /// '.' (the terminal loop), then a sequence of ')' (the 3' stem). No multiloop / branching:
     /// once a ')' is seen no further '(' may appear. Counts stem base pairs and the terminal loop.
     /// </summary>
-    private static bool TryDescribeSingleHairpin(
+    internal static bool TryDescribeSingleHairpin(
         string dotBracket, out int stemBasePairs, out int terminalLoopStart, out int terminalLoopSize)
     {
         stemBasePairs = 0;
@@ -2507,7 +2507,7 @@ public static class MiRnaAnalyzer
     /// after the first '(' and before the last ')') — the apical loop of a hairpin. Returns 0 when
     /// there is no enclosed unpaired run.
     /// </summary>
-    private static int LargestEnclosedLoop(string dotBracket)
+    internal static int LargestEnclosedLoop(string dotBracket)
     {
         int firstOpen = dotBracket.IndexOf('(');
         int lastClose = dotBracket.LastIndexOf(')');
