@@ -179,28 +179,28 @@ Plan7 local+glocal DP проти незалежного перебору шля�
 | 150 | ☐ | RNA-HAIRPIN-001 | RnaStructure | Hairpin energy | Turner-rule reference | Match within tolerance |
 | 151 | ☐ | RNA-INVERT-001 | RnaStructure | Inverted repeats | revcomp scan reference | Same repeats |
 | 152 | ☐ | RNA-MFE-001 | RnaStructure | MFE | Nussinov/Zuker reference | Match within tolerance |
-| 153 | ☐ | RNA-PAIR-001 | RnaStructure | Base pairing | Watson-Crick+wobble table | Exact match |
+| 153 | ☑ | RNA-PAIR-001 | RnaStructure | CanPair/GetBasePairType | REF: Watson-Crick + wobble table (full 4×4) | exact |
 | 154 | ☐ | RNA-PARTITION-001 | RnaStructure | Partition function | McCaskill reference | Correlated probabilities |
 | 155 | ☐ | RNA-PSEUDOKNOT-001 | RnaStructure | Pseudoknots | crossing-pair reference | Same detections |
-| 156 | ☐ | KMER-ASYNC-001 | K-mer | Async count | sync count | Exact match |
-| 157 | ☐ | KMER-BOTH-001 | K-mer | Both-strand count | fwd+revcomp by hand | Exact match |
-| 158 | ☐ | KMER-DIST-001 | K-mer | K-mer distance | manual metric | Exact match |
-| 159 | ☐ | KMER-GENERATE-001 | K-mer | Generate k-mers | Cartesian product | Exact set |
-| 160 | ☐ | KMER-POSITIONS-001 | K-mer | Positions | naive scan | Exact positions |
-| 161 | ☐ | KMER-STATS-001 | K-mer | K-mer stats | manual calc | Exact match |
-| 162 | ☐ | KMER-UNIQUE-001 | K-mer | Unique k-mers | count==1 reference | Exact set |
+| 156 | ☑ | KMER-ASYNC-001 | K-mer | CountKmersAsync | REF: async==sync | exact |
+| 157 | ☑ | KMER-BOTH-001 | K-mer | CountKmersBothStrands | REF: fwd[w]+fwd[RC(w)] by hand | exact |
+| 158 | ☑ | KMER-DIST-001 | K-mer | KmerDistance | REF: manual Euclidean of freq vectors | exact (1e-12) |
+| 159 | ☑ | KMER-GENERATE-001 | K-mer | GenerateAllKmers | REF: base-4 odometer Cartesian product | exact set+order |
+| 160 | ☑ | KMER-POSITIONS-001 | K-mer | FindKmerPositions | REF: naive overlapping scan | exact positions |
+| 161 | ☑ | KMER-STATS-001 | K-mer | AnalyzeKmers | REF: manual composition stats | exact |
+| 162 | ☑ | KMER-UNIQUE-001 | K-mer | FindUniqueKmers | REF: count==1 by hand | exact set |
 | 163 | ☐ | PROTMOTIF-CC-001 | ProteinMotif | Coiled-coil | COILS-style reference | Concordant scores |
 | 164 | ☐ | PROTMOTIF-COMMON-001 | ProteinMotif | Common motifs | naive enumeration | Same motifs |
 | 165 | ☐ | PROTMOTIF-LC-001 | ProteinMotif | Low-complexity | SEG-style reference | Same regions |
 | 166 | ☐ | PROTMOTIF-PATTERN-001 | ProteinMotif | Pattern match | regex reference | Same matches |
 | 167 | ☐ | PROTMOTIF-SP-001 | ProteinMotif | Signal peptide | SignalP-style reference | Concordant calls |
 | 168 | ☐ | PROTMOTIF-TM-001 | ProteinMotif | TM helices | TMHMM-style reference | Concordant helices |
-| 169 | ☐ | MOTIF-CONS-001 | Matching | Consensus | majority by hand | Exact consensus |
+| 169 | ☑ | MOTIF-CONS-001 | Matching | CreateConsensusFromAlignment | REF: majority vote (A<C<G<T tie) | exact consensus |
 | 170 | ☐ | MOTIF-DISCOVER-001 | Matching | Motif discovery | enumeration reference | Same motifs |
-| 171 | ☐ | MOTIF-GENERATE-001 | Matching | Generate consensus | majority reference | Exact consensus |
+| 171 | ☑ | MOTIF-GENERATE-001 | Matching | GenerateConsensus | REF: threshold-IUPAC (0.25, strict >) | exact consensus |
 | 172 | ☐ | MOTIF-REGULATORY-001 | Matching | Regulatory elements | known-set reference | Same elements |
 | 173 | ☐ | MOTIF-SHARED-001 | Matching | Shared motifs | intersection reference | Same set |
-| 174 | ☐ | PAT-APPROX-003 | Matching | Best match | brute-force min distance | Exact distance |
+| 174 | ☑ | PAT-APPROX-003 | Matching | FindBestMatch | BRUTE: first minimum-Hamming window | exact distance |
 | 175 | ☐ | GENOMIC-COMMON-001 | Analysis | Common region | LCS reference | Same region |
 | 176 | ☐ | GENOMIC-MOTIFS-001 | Analysis | Known motifs | naive scan | Same hits |
 | 177 | ☐ | GENOMIC-ORF-001 | Analysis | ORFs | NCBI ORFfinder logic | Same ORFs |
@@ -293,8 +293,8 @@ Plan7 local+glocal DP проти незалежного перебору шля�
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 74 |
-| ☐ Not started | 184 |
+| ☑ Complete | 85 |
+| ☐ Not started | 173 |
 | High-value pairs (ALT/BRUTE feasible) | ~25 |
 | Medium-value pairs (REF comparison) | ~35 |
 | Lower priority (DUAL re-impl needed) | ~26 |
