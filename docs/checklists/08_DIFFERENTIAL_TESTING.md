@@ -58,12 +58,12 @@ Plan7 local+glocal DP проти незалежного перебору шля�
 | 29 | ☑ | ANNOT-GENE-001 | Annotation | GenomeAnnotator.PredictGenes | ALT: FindOrfs ordered + mapping (id/strand/protein_length) | same gene set |
 | 30 | ☑ | ANNOT-PROM-001 | Annotation | FindPromoterMotifs (-10/-35) | ALT: independent motif scan | same positions + scores |
 | 31 | ☑ | ANNOT-GFF-001 | Annotation | ToGff3 serializer | REF: hand-built GFF3 line (1-based, phase, %3B encoding) | same GFF output |
-| 32 | ☐ | KMER-COUNT-001 | K-mer | HashMap counting | Sorted array counting | Exact counts |
-| 33 | ☐ | KMER-FREQ-001 | K-mer | Optimized frequency | Count / total manual | Same frequencies |
-| 34 | ☐ | KMER-FIND-001 | K-mer | KmerAnalyzer.Find | Sorted + top-N | Same k-mers |
-| 35 | ☐ | ALIGN-GLOBAL-001 | Alignment | Needleman-Wunsch (current) | Brute-force O(2^n) short seqs | Score equality |
-| 36 | ☐ | ALIGN-LOCAL-001 | Alignment | Smith-Waterman (current) | NW with zero-floor | Score equality |
-| 37 | ☐ | ALIGN-SEMI-001 | Alignment | Semi-global variant | NW with free end gaps | Score equality |
+| 32 | ☑ | KMER-COUNT-001 | K-mer | CountKmers (hash map) | DUAL: sorted-array run counting | exact counts |
+| 33 | ☑ | KMER-FREQ-001 | K-mer | GetKmerFrequencies | ALT: sorted-array count / total | same frequencies (sum=1) |
+| 34 | ☑ | KMER-FIND-001 | K-mer | FindMostFrequentKmers | ALT: sorted-array arg-max | same k-mers |
+| 35 | ☑ | ALIGN-GLOBAL-001 | Alignment | Needleman-Wunsch | BRUTE: enumerate all alignments (short seqs) | score equality |
+| 36 | ☑ | ALIGN-LOCAL-001 | Alignment | Smith-Waterman | BRUTE: max global over all substring pairs, floor 0 | score equality |
+| 37 | ☑ | ALIGN-SEMI-001 | Alignment | Fitting (free end gaps) | BRUTE: max global of seq1 vs seq2 substrings | score equality |
 | 38 | ☐ | ALIGN-MULTI-001 | Alignment | Progressive MSA | Star alignment | Same column count |
 | 39 | ☐ | PHYLO-DIST-001 | Phylogenetic | Jukes-Cantor | Kimura 2-parameter | Both ≥ 0, d_K2P ≥ d_JC |
 | 40 | ☐ | PHYLO-TREE-001 | Phylogenetic | UPGMA | NJ | Both valid trees |
@@ -293,8 +293,8 @@ Plan7 local+glocal DP проти незалежного перебору шля�
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 35 |
-| ☐ Not started | 223 |
+| ☑ Complete | 41 |
+| ☐ Not started | 217 |
 | High-value pairs (ALT/BRUTE feasible) | ~25 |
 | Medium-value pairs (REF comparison) | ~35 |
 | Lower priority (DUAL re-impl needed) | ~26 |
