@@ -236,27 +236,27 @@ Plan7 local+glocal DP проти незалежного перебору шля�
 | 207 | ☐ | POP-ANCESTRY-001 | PopGen | Ancestry | ADMIXTURE-style reference | Correlated proportions |
 | 208 | ☐ | POP-ROH-001 | PopGen | ROH | PLINK-style reference | Same segments |
 | 209 | ☐ | POP-SELECT-001 | PopGen | Selection | iHS/Fst reference | Correlated signal |
-| 210 | ☐ | SEQ-ATSKEW-001 | Composition | AT skew | (A−T)/(A+T) by hand | Exact match |
+| 210 | ☑ | SEQ-ATSKEW-001 | Composition | CalculateAtSkew | REF: (A−T)/(A+T) by hand | exact |
 | 211 | ☐ | SEQ-REPLICATION-001 | Composition | Replication origin | skew-minimum reference | Same index |
-| 212 | ☐ | SEQ-RNACOMP-001 | Composition | RNA complement | base table | Exact match |
+| 212 | ☑ | SEQ-RNACOMP-001 | Composition | RnaSequence.Complement | REF: RNA complement base table | exact |
 | 213 | ☐ | CODON-ENC-001 | Codon | ENC | Wright reference | Match within tolerance |
-| 214 | ☐ | CODON-RSCU-001 | Codon | RSCU | manual calc | Exact match |
+| 214 | ☑ | CODON-RSCU-001 | Codon | CalculateRscu | REF: hand-derived synonymous ratios | exact |
 | 215 | ☐ | CODON-STATS-001 | Codon | Codon stats | manual calc | Exact match |
 | 216 | ☐ | ANNOT-CODING-001 | Annotation | Coding potential | CPC-style reference | Correlated score |
 | 217 | ☐ | ANNOT-CODONUSAGE-001 | Annotation | Codon usage | manual calc | Exact match |
 | 218 | ☐ | ANNOT-REPEAT-001 | Annotation | Repetitive elements | naive scan | Same elements |
-| 219 | ☐ | QUALITY-PHRED-001 | Quality | Phred parse | ASCII−offset by hand | Exact match |
-| 220 | ☐ | QUALITY-STATS-001 | Quality | Quality stats | manual calc | Exact match |
+| 219 | ☑ | QUALITY-PHRED-001 | Quality | ParseQualityString | REF: ASCII−33 by hand | exact |
+| 220 | ☑ | QUALITY-STATS-001 | Quality | CalculateStatistics | REF: manual mean/median/std/Q20/Q30 | exact |
 | 221 | ☐ | PHYLO-BOOT-001 | Phylogenetic | Bootstrap | resampling reference | Concordant support |
 | 222 | ☐ | PHYLO-STATS-001 | Phylogenetic | Tree stats | manual calc | Exact match |
 | 223 | ☐ | TRANS-SIXFRAME-001 | Translation | Six-frame | manual translation | Exact frames |
 | 224 | ☐ | RESTR-FILTER-001 | MolTools | Filter sites | criteria reference | Same survivors |
 | 225 | ☐ | MIRNA-PAIR-001 | MiRNA | miRNA align | seed-pairing reference | Concordant alignment |
 | 226 | ☐ | ALIGN-STATS-001 | Alignment | Alignment stats | manual calc | Exact match |
-| 227 | ☐ | SEQ-CODON-FREQ-001 | Statistics | Triplet scan | LINQ GroupBy | Exact frequencies |
+| 227 | ☑ | SEQ-CODON-FREQ-001 | Statistics | CalculateCodonFrequencies | REF: non-overlapping triplet GroupBy | exact |
 | 228 | ☐ | SEQ-COMPLEX-COMPRESS-001 | Complexity | Built-in compression estimate | GZip ratio | Ratio within tolerance |
 | 229 | ☐ | SEQ-COMPLEX-DUST-001 | Complexity | DUST score | SDUST reference | Concordant score |
-| 230 | ☐ | SEQ-COMPLEX-KMER-001 | Complexity | K-mer entropy | manual Shannon calc | Exact entropy |
+| 230 | ☑ | SEQ-COMPLEX-KMER-001 | Complexity | CalculateKmerEntropy | REF: manual Shannon (log2) | exact entropy |
 | 231 | ☐ | SEQ-COMPLEX-WINDOW-001 | Complexity | Sliding window | naive per-window recompute | Identical profile |
 | 232 | ☐ | SEQ-ENTROPY-PROFILE-001 | Statistics | Sliding window | naive per-window recompute | Identical profile |
 | 233 | ☐ | SEQ-GC-ANALYSIS-001 | Composition | Windowed scan | LINQ Count-based | Exact GC% |
@@ -293,8 +293,8 @@ Plan7 local+glocal DP проти незалежного перебору шля�
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 85 |
-| ☐ Not started | 173 |
+| ☑ Complete | 92 |
+| ☐ Not started | 166 |
 | High-value pairs (ALT/BRUTE feasible) | ~25 |
 | Medium-value pairs (REF comparison) | ~35 |
 | Lower priority (DUAL re-impl needed) | ~26 |
