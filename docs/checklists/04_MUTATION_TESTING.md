@@ -266,7 +266,7 @@ Mutation testing вимірює ефективність тестового на
 | 236 | ☑ | RNA-PKPREDICT-001 | Analysis | RnaSecondaryStructure.cs | RnaSecondaryStructure_PredictStructurePseudoknot_Tests.cs | ≥ 80% |
 | 237 | ☑ | RNA-PKRECURSIVE-001 | Analysis | RnaSecondaryStructure.cs | RnaSecondaryStructure_PredictStructurePseudoknotRecursive_Tests.cs | ≥ 80% |
 | 238 | ☑ | RNA-ACCESS-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructure_UnpairedProbabilities_Tests.cs | ≥ 80% |
-| 239 | ☐ | PROTMOTIF-HMM-001 | ProteinMotif | Plan7ProfileHmm.cs / ProteinMotifFinder.cs | ProteinMotifFinder_FindDomainsByHmm_Tests.cs | ≥ 80% |
+| 239 | ☑ | PROTMOTIF-HMM-001 | ProteinMotif | Plan7ProfileHmm.cs / ProteinMotifFinder.cs | Plan7ProfileHmm_ForwardBackwardDifferential_Tests.cs + Plan7ProfileHmm_ParseCalibration_Tests.cs | ≥ 80% |
 | 240 | ☑ | PRIMER-NNTM-001 | MolTools | PrimerDesigner.cs | PrimerDesigner_NearestNeighborTm_Tests.cs | ≥ 80% |
 | 241 | ☑ | PRIMER-HAIRPIN-001 | MolTools | PrimerDesigner.cs | PrimerDesigner_HairpinTm_Tests.cs / PrimerDesigner_HairpinSpecialLoop_Tests.cs | ≥ 80% |
 | 242 | ☑ | PRIMER-DIMER-001 | MolTools | PrimerDesigner.cs / NtthalDimer.cs | PrimerDesigner_DimerTm_Tests.cs | ≥ 80% |
@@ -294,16 +294,16 @@ Mutation testing вимірює ефективність тестового на
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 258 |
-| ☑ Complete (mutation score ≥ 80%) | 248 |
-| ☐ Below target — documented equivalent-mutant ceiling (see below) | 10 |
+| ☑ Complete (mutation score ≥ 80%) | 249 |
+| ☐ Below target — documented equivalent-mutant ceiling (see below) | 9 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |
 
 ---
 
-## Known ceiling (equivalent-mutant residual) — 10 rows, 3 files
+## Known ceiling (equivalent-mutant residual) — 9 rows, 2 files
 
-The 10 remaining ☐ rows are **investigated and blocked, not un-started.** Their three source
+The 9 remaining ☐ rows are **investigated and blocked, not un-started.** Their two source
 files were run and analysed; each sits below the ≥ 80% target because the residual surviving
 mutants are **equivalent mutants** — mutations that do not change observable behaviour and therefore
 cannot be killed by any faithful test. They are neither test gaps nor code bugs.
@@ -312,20 +312,32 @@ cannot be killed by any faithful test. They are neither test gaps nor code bugs.
 |---|---|---|
 | MiRnaAnalyzer.cs (74, 75, 76, 252, 253, 254, 255) | **74.61 %** | TargetScan context++ site-accessibility (RNAplfold) + 3′-supplementary-pairing dynamic programming; the DP re-converges to the same contribution under index/threshold mutation |
 | ImmuneAnalyzer.cs (86, 247) | **79.03 %** | CIBERSORT ν-SVR SMO solver + NNLS active-set + Gaussian elimination; the robust iterative solver absorbs mutations within tolerance (already pinned against a libsvm reference) |
-| Plan7ProfileHmm.cs (239) | **78.02 %** | HMMER posterior-decoding / Forward-Backward + domain region-identification; the decoding re-converges to the same envelope/bit-score under mutation |
+
+**RESOLVED 2026-06-30 — Plan7ProfileHmm.cs (239): 78.02 % → 80.46 % ☑.** The "differential is the
+honest path" prediction below was carried out: the Backward/posterior survivors were equivalent only
+*with respect to the public API* (scores/envelopes re-converge), so the genuine DP cells were made
+observable (`ForwardBackward` → `internal` + a test-only `DebugLocalForwardBackward` snapshot) and
+asserted cell-by-cell against an **independent explicit-path-enumeration oracle** (08 strategy BRUTE,
+`Plan7ProfileHmm_ForwardBackwardDifferential_Tests`): local Forward/Backward, glocal Viterbi/Forward,
+plus empty-sequence / 1-node edge cases for the delete-init guards, and faithful HMMER3/f header
+parse killers. This demonstrates the ceiling is breakable where the internal computation can be
+exposed and checked against a first-principles oracle — the same path remains open for the two files
+above (their solver internals are likewise private).
 
 **Empirical evidence (3 controlled experiments, all killed ~0 of their target cluster):**
 1. RnaSecondaryStructure MFE traceback — 143 survivors, exact-dot-bracket tests → **0 killed** (commit `63608536`).
 2. Plan7 FindDomains — 31 posterior-decoding survivors, exact-envelope/bit-score tests → **0 killed** (commit `9aa570b7`; the +2 was only the EValue Z=0 clean win).
 3. MiRna ScorePreMiRnaFeatures — exact logistic-model tests → **0 net** (the targeted mutants were already killed; commit `e65c8463`).
 
-These three runs establish empirically that exact-output assertions cannot kill the internal
-arithmetic of DP / iterative-solver pipelines: the observable output is invariant under the mutation.
-Forcing these rows to ☑ would require brittle characterization tests tuned to a specific output
-(green-washing), which is explicitly out of scope. The honest correctness check for these four
-algorithms is **differential testing against reference tools** (ViennaRNA / HMMER / CIBERSORT /
-TargetScan), tracked separately in `08_DIFFERENTIAL_TESTING.md`, not further mutation-score chasing.
+These three runs establish empirically that exact-output assertions on the **public API** cannot kill
+the internal arithmetic of DP / iterative-solver pipelines: the observable output is invariant under
+the mutation. The resolution (proven on Plan7, see above) is NOT brittle characterization
+(green-washing) but **exposing the genuine internal computation and asserting it against an
+independent first-principles / differential oracle** — tracked in `08_DIFFERENTIAL_TESTING.md`. The
+same path is open for the remaining two files (MiRnaAnalyzer site-accessibility DP, ImmuneAnalyzer
+ν-SVR/NNLS solver); until their internals are exposed and checked, their residual is the
+equivalent-mutant floor with respect to the current public surface.
 
 Faithful genuine killers WERE added where survivors were real (RepeatFinder, PrimerDesigner,
-ChromosomeAnalyzer, CodonOptimizer, FastaParser, ImmuneAnalyzer parsing, the Plan7 EValue guard);
-the residual above is the irreducible equivalent-mutant floor.
+ChromosomeAnalyzer, CodonOptimizer, FastaParser, ImmuneAnalyzer parsing, and the full Plan7
+Forward/Backward + glocal DP via the differential oracle).

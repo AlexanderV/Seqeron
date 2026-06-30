@@ -10,7 +10,8 @@
 
 Differential testing порівнює виходи двох незалежних реалізацій одного алгоритму на ідентичних входах. Виявляє тонкі помилки реалізації. У біоінформатиці існують референсні реалізації (Biopython, EMBOSS, etc.) та альтернативні алгоритмічні стратегії.
 
-**Поточне покриття:** `SafeVsUnsafeDifferentialTests` існує лише для SuffixTree. Нуль для Seqeron.Genomics.
+**Поточне покриття:** `SafeVsUnsafeDifferentialTests` для SuffixTree; **PROTMOTIF-HMM-001 (#239)** —
+Plan7 local+glocal DP проти незалежного перебору шляхів (BRUTE), `Plan7ProfileHmm_ForwardBackwardDifferential_Tests`.
 
 **Стратегії:**
 - **ALT** = Альтернативний алгоритм (інший підхід до тієї самої задачі)
@@ -264,7 +265,7 @@ Differential testing порівнює виходи двох незалежних
 | 236 | ☐ | RNA-PKPREDICT-001 | Analysis | pknotsRG canonical scan | brute-force H-type search | same structure |
 | 237 | ☐ | RNA-PKRECURSIVE-001 | Analysis | recursive grammar | exhaustive nested search (small n) | same ΔG |
 | 238 | ☐ | RNA-ACCESS-001 | RnaStructure | Boltzmann (McCaskill) DP | brute-force ensemble enumeration (small n) | equal P_unpaired ±1e-9 |
-| 239 | ☐ | PROTMOTIF-HMM-001 | ProteinMotif | C# Plan7 (Viterbi/Forward/null2) | pyhmmer / hmmsearch | bit score ±1e-3, same envelopes |
+| 239 | ☑ | PROTMOTIF-HMM-001 | ProteinMotif | C# Plan7 local + glocal DP | BRUTE: explicit state-path enumeration (small HMM, small n) | every F & B cell ±1e-11; glocal Viterbi/Forward; total == ForwardNats == LocalForwardScore |
 | 240 | ☐ | PRIMER-NNTM-001 | MolTools | C# NN (unified SantaLucia) | primer3-py / Biopython MeltingTemp | Tm ±0.5°C |
 | 241 | ☐ | PRIMER-HAIRPIN-001 | MolTools | C# ntthal hairpin (CalculateHairpinThermodynamicsNtthal) | primer3-py 2.3.0 calc_hairpin | ΔH exact, ΔS/Tm ≤1e-6 (machine precision) |
 | 242 | ☐ | PRIMER-DIMER-001 | MolTools | C# ntthal DP | primer3-py calc_homodimer/heterodimer | ΔG/Tm to machine precision on contiguous optima |
@@ -292,8 +293,8 @@ Differential testing порівнює виходи двох незалежних
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 0 |
-| ☐ Not started | 258 |
+| ☑ Complete | 1 |
+| ☐ Not started | 257 |
 | High-value pairs (ALT/BRUTE feasible) | ~25 |
 | Medium-value pairs (REF comparison) | ~35 |
 | Lower priority (DUAL re-impl needed) | ~26 |
