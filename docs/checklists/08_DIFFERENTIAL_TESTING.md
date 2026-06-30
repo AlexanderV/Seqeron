@@ -45,13 +45,13 @@ Plan7 local+glocal DP проти незалежного перебору шля�
 | 16 | ☑ | REP-DIRECT-001 | Repeats | Suffix-tree direct repeats | BRUTE: substring-equality scan | same positions |
 | 17 | ☑ | REP-PALIN-001 | Repeats | RepeatFinder palindrome | ALT: independent revcomp-equality | same palindromes |
 | 18 | ☑ | CRISPR-PAM-001 | MolTools | CrisprDesigner.FindPamSites | ALT: independent NGG fwd/rev scan + spec reconstruction | same positions + count |
-| 19 | ☐ | CRISPR-GUIDE-001 | MolTools | CrisprDesigner.Design | Manual PAM extraction + scoring | Same top guides |
-| 20 | ☐ | CRISPR-OFF-001 | MolTools | Off-target scoring | Brute Hamming search + score | Same off-target set |
+| 19 | ☑ | CRISPR-GUIDE-001 | MolTools | DesignGuideRnas | ALT: re-derived in-region PAM target set (cut=PAM−3) | same candidate set |
+| 20 | ☑ | CRISPR-OFF-001 | MolTools | FindOffTargets | BRUTE: independent Hamming over PAM targets, 1..max mm | same off-target set |
 | 21 | ☑ | PRIMER-TM-001 | MolTools | Wallace (<14) / Marmur-Doty (≥14) — NOT SantaLucia | REF: closed-form Wallace + Marmur-Doty | exact (1e-9) |
-| 22 | ☐ | PRIMER-DESIGN-001 | MolTools | PrimerDesigner | Manual sliding window | Same candidate set |
-| 23 | ☐ | PRIMER-STRUCT-001 | MolTools | Thermodynamic hairpin | Self-complement brute scan | Correlated ΔG |
-| 24 | ☐ | PROBE-DESIGN-001 | MolTools | ProbeDesigner | Manual Tm-filtered scan | Same candidate set |
-| 25 | ☐ | PROBE-VALID-001 | MolTools | ProbeDesigner.Validate | Manual Tm + specificity check | Same pass/fail |
+| 22 | ☑ | PRIMER-DESIGN-001 | MolTools | DesignPrimers selection | ALT: independent candidate enumeration + arg-max + product-size | same chosen primers |
+| 23 | ☑ | PRIMER-STRUCT-001 | MolTools | HasHairpinPotential | BRUTE: self-complementarity (Watson-Crick) scan | same bool |
+| 24 | ☑ | PROBE-DESIGN-001 | MolTools | DesignProbes | ALT: spec reconstruction (window/GC) + descending-rank invariant | consistent + ranked |
+| 25 | ☑ | PROBE-VALID-001 | MolTools | ProbeDesigner.ValidateProbe | BRUTE: Hamming off-target count + specificity formula | same hits + specificity |
 | 26 | ☑ | RESTR-FIND-001 | MolTools | Pattern-based FindSites (fwd+rev) | ALT: IndexOf scan + cut arithmetic from enzyme metadata | same positions + cuts |
 | 27 | ☑ | RESTR-DIGEST-001 | MolTools | RestrictionAnalyzer.Digest | ALT: manual cut-collect + split | same fragments |
 | 28 | ☐ | ANNOT-ORF-001 | Annotation | GenomeAnnotator.FindOrfs | 6-frame ATG…stop scan | Same ORF set |
@@ -293,8 +293,8 @@ Plan7 local+glocal DP проти незалежного перебору шля�
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 25 |
-| ☐ Not started | 233 |
+| ☑ Complete | 31 |
+| ☐ Not started | 227 |
 | High-value pairs (ALT/BRUTE feasible) | ~25 |
 | Medium-value pairs (REF comparison) | ~35 |
 | Lower priority (DUAL re-impl needed) | ~26 |
