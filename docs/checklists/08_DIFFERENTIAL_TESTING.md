@@ -208,7 +208,7 @@ Plan7 local+glocal DP проти незалежного перебору шля�
 | 179 | ☐ | GENOMIC-SIMILARITY-001 | Analysis | Similarity | identity by hand | Match within tolerance |
 | 180 | ☐ | GENOMIC-TANDEM-001 | Analysis | Tandem repeats | TRF-style reference | Concordant repeats |
 | 181 | ☐ | EPIGEN-AGE-001 | Epigenetics | Epigenetic age | Horvath-clock reference | Match within tolerance |
-| 182 | ☐ | EPIGEN-BISULF-001 | Epigenetics | Bisulfite | manual C→T conversion | Exact match |
+| 182 | ☑ | EPIGEN-BISULF-001 | Epigenetics | SimulateBisulfiteConversion | REF: manual C→T (methylated protected) | exact |
 | 183 | ☐ | EPIGEN-CHROM-001 | Epigenetics | Chromatin state | ChromHMM-style reference | Concordant states |
 | 184 | ☐ | EPIGEN-DMR-001 | Epigenetics | DMR | t-test reference | Same regions |
 | 185 | ☐ | EPIGEN-METHYL-001 | Epigenetics | Methylation level | methylated/total by hand | Exact match |
@@ -249,10 +249,10 @@ Plan7 local+glocal DP проти незалежного перебору шля�
 | 220 | ☑ | QUALITY-STATS-001 | Quality | CalculateStatistics | REF: manual mean/median/std/Q20/Q30 | exact |
 | 221 | ☐ | PHYLO-BOOT-001 | Phylogenetic | Bootstrap | resampling reference | Concordant support |
 | 222 | ☐ | PHYLO-STATS-001 | Phylogenetic | Tree stats | manual calc | Exact match |
-| 223 | ☐ | TRANS-SIXFRAME-001 | Translation | Six-frame | manual translation | Exact frames |
+| 223 | ☑ | TRANS-SIXFRAME-001 | Translation | TranslateSixFrames | REF: manual 6-frame (own table-1 + revcomp) | exact frames |
 | 224 | ☐ | RESTR-FILTER-001 | MolTools | Filter sites | criteria reference | Same survivors |
 | 225 | ☐ | MIRNA-PAIR-001 | MiRNA | miRNA align | seed-pairing reference | Concordant alignment |
-| 226 | ☐ | ALIGN-STATS-001 | Alignment | Alignment stats | manual calc | Exact match |
+| 226 | ☑ | ALIGN-STATS-001 | Alignment | CalculateStatistics | REF: manual column count + percentages | exact |
 | 227 | ☑ | SEQ-CODON-FREQ-001 | Statistics | CalculateCodonFrequencies | REF: non-overlapping triplet GroupBy | exact |
 | 228 | ☐ | SEQ-COMPLEX-COMPRESS-001 | Complexity | Built-in compression estimate | GZip ratio | Ratio within tolerance |
 | 229 | ☐ | SEQ-COMPLEX-DUST-001 | Complexity | DUST score | SDUST reference | Concordant score |
@@ -293,8 +293,8 @@ Plan7 local+glocal DP проти незалежного перебору шля�
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 255 |
-| ☑ Complete | 92 |
-| ☐ Not started | 166 |
+| ☑ Complete | 95 |
+| ☐ Not started | 163 |
 | High-value pairs (ALT/BRUTE feasible) | ~25 |
 | Medium-value pairs (REF comparison) | ~35 |
 | Lower priority (DUAL re-impl needed) | ~26 |
