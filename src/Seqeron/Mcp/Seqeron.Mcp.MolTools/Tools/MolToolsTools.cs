@@ -274,10 +274,13 @@ public class MolToolsTools
         return new CaiResult(CodonUsageAnalyzer.CalculateCai(sequence, reference_rscu));
     }
 
-    [McpServerTool, Description("Effective Number of Codons (Wright Nc), measuring departure from uniform synonymous usage. Range 20..61 (clamped). Empty/very-short sequence → 0 because under-occupied amino-acid groups fall back to their degeneracy.")]
+    [McpServerTool(Name = "effective_number_of_codons", Title = "MolTools — Effective Number of Codons (ENC)", ReadOnly = true), Description("Effective Number of Codons (Wright's Nc), measuring how far a gene departs from uniform synonymous-codon usage. Result is clamped to 20..61 (20 = extreme bias, 61 = no bias). Call to summarise a gene's overall codon bias with a single number.")]
     public static EncResult effective_number_of_codons(
         [Description("Coding DNA sequence (frame 0).")] string sequence)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+
         return new EncResult(CodonUsageAnalyzer.CalculateEnc(sequence));
     }
 
