@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "generate_seed_variants",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MiRnaAnalyzer.GenerateSeedVariants",
+  "docRef": "Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs#L2715",
+  "description": "Enumerate single-nucleotide variants of a seed sequence (the original plus all single-position substitutions over A/C/G/U).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "seedSequence": { "type": "string", "description": "Seed nucleotide sequence", "minLength": 1 },
+      "includeWobble": { "type": "boolean", "description": "Reserved for future wobble-aware expansion (currently unused)", "default": true }
+    },
+    "required": ["seedSequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "variants": { "type": "array", "items": { "type": "string" }, "description": "Original seed followed by all single-substitution variants" }
+    },
+    "required": ["variants"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Seed sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Two-nucleotide seed",
+      "input": { "seedSequence": "AC" },
+      "output": { "variants": ["AC", "CC", "GC", "UC", "AA", "AG", "AU"] }
+    },
+    {
+      "name": "Seven-nucleotide seed (count = 1 + 7*3)",
+      "input": { "seedSequence": "GAGGUAG" },
+      "output": { "variants": ["GAGGUAG", "…22 total…"] }
+    }
+  ]
+}
