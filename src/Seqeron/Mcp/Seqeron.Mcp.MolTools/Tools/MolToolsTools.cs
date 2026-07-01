@@ -127,10 +127,13 @@ public class MolToolsTools
 
     #region RestrictionAnalyzer
 
-    [McpServerTool, Description("Looks up a built-in restriction enzyme by name (case-insensitive). Returns null when not found.")]
+    [McpServerTool(Name = "get_enzyme", Title = "MolTools — Look Up Restriction Enzyme", ReadOnly = true), Description("Looks up a built-in restriction enzyme by name (case-insensitive) and returns its recognition sequence, cut positions and organism. Returns enzyme=null when the name is not in the built-in database. Call to fetch a single enzyme's properties by name.")]
     public static EnzymeLookupResult get_enzyme(
         [Description("Enzyme name (e.g. EcoRI, BamHI).")] string name)
     {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new System.ArgumentException("Enzyme name cannot be null or blank.", nameof(name));
+
         return new EnzymeLookupResult(RestrictionAnalyzer.GetEnzyme(name));
     }
 
