@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "predict_genes",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomeAnnotator.PredictGenes",
+  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L402",
+  "description": "Predict gene annotations from a DNA sequence using ORF-based heuristics.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "dnaSequence": { "type": "string", "description": "DNA sequence to annotate", "minLength": 1 },
+      "minOrfLength": { "type": "integer", "description": "Minimum ORF length in amino acids", "default": 100 },
+      "prefix": { "type": "string", "description": "Gene identifier prefix", "default": "gene" }
+    },
+    "required": ["dnaSequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "genes": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "geneId": { "type": "string", "description": "Sequential id '{prefix}_{n:D4}'" },
+            "start": { "type": "integer" },
+            "end": { "type": "integer" },
+            "strand": { "type": "string", "description": "'+' forward, '-' reverse" },
+            "type": { "type": "string", "description": "Always 'CDS'" },
+            "product": { "type": "string", "description": "Always 'hypothetical protein'" },
+            "attributes": { "type": "object", "description": "frame, protein_length, translation" }
+          },
+          "required": ["geneId", "start", "end", "strand", "type", "product", "attributes"]
+        }
+      }
+    },
+    "required": ["genes"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Single forward gene",
+      "input": { "dnaSequence": "ATG...(297 A)...TAA", "minOrfLength": 50, "prefix": "gene" },
+      "output": { "genes": [ { "geneId": "gene_0001", "start": 0, "end": 303, "strand": "+", "type": "CDS", "product": "hypothetical protein" } ] }
+    },
+    {
+      "name": "Two forward genes with sequential ids",
+      "input": { "dnaSequence": "ORF1 + 20xC + ORF2", "minOrfLength": 50, "prefix": "test" },
+      "output": { "genes": [ { "geneId": "test_0001", "type": "CDS" }, { "geneId": "test_0002", "type": "CDS" } ] }
+    }
+  ]
+}
