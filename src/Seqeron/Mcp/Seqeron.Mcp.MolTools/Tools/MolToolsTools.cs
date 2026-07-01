@@ -216,10 +216,13 @@ public class MolToolsTools
 
     #region CodonUsageAnalyzer
 
-    [McpServerTool, Description("Counts occurrences of each ACGT codon in a coding DNA sequence (frame 0, multiples of 3). Trailing partial codons and non-ACGT codons are skipped silently.")]
+    [McpServerTool(Name = "count_codons", Title = "MolTools — Count Codons", ReadOnly = true), Description("Counts occurrences of each ACGT codon in a coding DNA sequence (frame 0, non-overlapping triplets). Trailing partial codons and codons containing non-ACGT characters are skipped silently. Call to get the raw codon-frequency table of a gene.")]
     public static CodonCountsResult count_codons(
         [Description("Coding DNA sequence (frame 0).")] string sequence)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+
         return new CodonCountsResult(CodonUsageAnalyzer.CountCodons(sequence));
     }
 
