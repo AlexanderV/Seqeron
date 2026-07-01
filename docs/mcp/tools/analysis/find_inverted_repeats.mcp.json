@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_inverted_repeats",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RepeatFinder.FindInvertedRepeats",
+  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L702",
+  "description": "Inverted repeats: two arms that are reverse-complement of each other, separated by a loop (hairpin candidates). CanFormHairpin is true when the loop is >= 3 nt.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
+      "minArmLength": { "type": "integer", "description": "Minimum arm length (default 4)", "minimum": 2, "default": 4 },
+      "maxLoopLength": { "type": "integer", "description": "Maximum loop length (default 50)", "default": 50 },
+      "minLoopLength": { "type": "integer", "description": "Minimum loop length (default 3)", "minimum": 0, "default": 3 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "leftArmStart": { "type": "integer" },
+            "rightArmStart": { "type": "integer" },
+            "armLength": { "type": "integer" },
+            "loopLength": { "type": "integer" },
+            "leftArm": { "type": "string" },
+            "rightArm": { "type": "string" },
+            "loop": { "type": "string" },
+            "canFormHairpin": { "type": "boolean" },
+            "totalLength": { "type": "integer" }
+          },
+          "required": ["leftArmStart", "rightArmStart", "armLength", "loopLength", "leftArm", "rightArm", "loop", "canFormHairpin", "totalLength"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1002, "message": "minArmLength must be >= 2" }
+  ],
+  "examples": [
+    {
+      "name": "GGGG-AAA-CCCC hairpin",
+      "input": { "sequence": "GGGGAAACCCC", "minArmLength": 4, "maxLoopLength": 50, "minLoopLength": 3 },
+      "output": { "items": [ { "leftArmStart": 0, "rightArmStart": 7, "armLength": 4, "loopLength": 3, "leftArm": "GGGG", "rightArm": "CCCC", "loop": "AAA", "canFormHairpin": true, "totalLength": 11 } ] }
+    },
+    {
+      "name": "No inverted repeat",
+      "input": { "sequence": "AAAAAAAA", "minArmLength": 4, "maxLoopLength": 50, "minLoopLength": 3 },
+      "output": { "items": [] }
+    }
+  ]
+}
