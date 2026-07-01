@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "differential_abundance",
+  "serverName": "Metagenomics",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MetagenomicsAnalyzer.DifferentialAbundance",
+  "docRef": "Seqeron.Genomics.Metagenomics/MetagenomicsAnalyzer.cs#L1594",
+  "description": "Welch's t-test for differential taxon abundance between two condition groups. Reports log2 fold-change, p-value, and a significance flag (p < threshold AND |log2FC| > 1).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "condition1Samples": {
+        "type": "array",
+        "description": "Per-sample abundance vectors for condition 1.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": { "name": { "type": "string" }, "fraction": { "type": "number" } },
+                "required": ["name", "fraction"]
+              }
+            }
+          },
+          "required": ["items"]
+        }
+      },
+      "condition2Samples": {
+        "type": "array",
+        "description": "Per-sample abundance vectors for condition 2.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": { "name": { "type": "string" }, "fraction": { "type": "number" } },
+                "required": ["name", "fraction"]
+              }
+            }
+          },
+          "required": ["items"]
+        }
+      },
+      "pValueThreshold": { "type": "number", "description": "p-value significance threshold (default 0.05).", "default": 0.05 }
+    },
+    "required": ["condition1Samples", "condition2Samples"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "taxon": { "type": "string" },
+            "foldChange": { "type": "number", "description": "log2 fold-change log2(mean2/mean1)." },
+            "pValue": { "type": "number", "description": "Welch's t-test two-tailed p-value (normal approximation)." },
+            "significant": { "type": "boolean", "description": "pValue < threshold AND |log2FC| > 1." }
+          },
+          "required": ["taxon", "foldChange", "pValue", "significant"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Taxon up 4x with zero variance",
+      "input": {
+        "condition1Samples": [ { "items": [ { "name": "T", "fraction": 1 } ] }, { "items": [ { "name": "T", "fraction": 1 } ] }, { "items": [ { "name": "T", "fraction": 1 } ] } ],
+        "condition2Samples": [ { "items": [ { "name": "T", "fraction": 4 } ] }, { "items": [ { "name": "T", "fraction": 4 } ] }, { "items": [ { "name": "T", "fraction": 4 } ] } ],
+        "pValueThreshold": 0.05
+      },
+      "output": { "items": [ { "taxon": "T", "foldChange": 2.0, "pValue": 0.0, "significant": true } ] }
+    },
+    {
+      "name": "No change",
+      "input": {
+        "condition1Samples": [ { "items": [ { "name": "T", "fraction": 2 } ] }, { "items": [ { "name": "T", "fraction": 2 } ] } ],
+        "condition2Samples": [ { "items": [ { "name": "T", "fraction": 2 } ] }, { "items": [ { "name": "T", "fraction": 2 } ] } ]
+      },
+      "output": { "items": [ { "taxon": "T", "foldChange": 0.0, "pValue": 1.0, "significant": false } ] }
+    }
+  ]
+}

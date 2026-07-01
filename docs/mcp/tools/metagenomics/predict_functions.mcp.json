@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "predict_functions",
+  "serverName": "Metagenomics",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MetagenomicsAnalyzer.PredictFunctions",
+  "docRef": "Seqeron.Genomics.Metagenomics/MetagenomicsAnalyzer.cs#L1114",
+  "description": "Predict functional annotations for proteins by motif containment against a function database, returning function/pathway/KO, BLAST bit-score/E-value, and inferred COG category. Best hit = lowest E-value.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "proteins": {
+        "type": "array",
+        "description": "Predicted proteins (gene id + amino-acid sequence).",
+        "items": {
+          "type": "object",
+          "properties": { "geneId": { "type": "string" }, "proteinSequence": { "type": "string" } },
+          "required": ["geneId", "proteinSequence"]
+        }
+      },
+      "functionDatabase": {
+        "type": "array",
+        "description": "Function database entries (motif key + function/pathway/KO).",
+        "items": {
+          "type": "object",
+          "properties": {
+            "motif": { "type": "string" },
+            "function": { "type": "string" },
+            "pathway": { "type": "string" },
+            "ko": { "type": "string" }
+          },
+          "required": ["motif", "function", "pathway", "ko"]
+        }
+      }
+    },
+    "required": ["proteins", "functionDatabase"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "geneId": { "type": "string" },
+            "function": { "type": "string" },
+            "pathway": { "type": "string" },
+            "koNumber": { "type": "string" },
+            "cogCategory": { "type": "string" },
+            "eValue": { "type": "number", "description": "BLAST E-value K*m*n*e^(-lambda*S)." },
+            "bitScore": { "type": "number", "description": "BLAST bit score (lambda*S - ln K)/ln 2." }
+          },
+          "required": ["geneId", "function", "pathway", "koNumber", "cogCategory", "eValue", "bitScore"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1003, "message": "A required argument is null (ArgumentNullException)." }
+  ],
+  "examples": [
+    {
+      "name": "Exact self-match WWW",
+      "input": {
+        "proteins": [ { "geneId": "g1", "proteinSequence": "WWW" } ],
+        "functionDatabase": [ { "motif": "WWW", "function": "tryptophanase", "pathway": "Amino acid metabolism", "ko": "K01667" } ]
+      },
+      "output": { "items": [ { "geneId": "g1", "function": "tryptophanase", "pathway": "Amino acid metabolism", "koNumber": "K01667", "bitScore": 18.0202932787533, "eValue": 3.3852730346546e-05 } ] }
+    },
+    {
+      "name": "Best hit is the lowest E-value match",
+      "input": {
+        "proteins": [ { "geneId": "g1", "proteinSequence": "AAAAWW" } ],
+        "functionDatabase": [
+          { "motif": "AAAA", "function": "weakHit", "pathway": "PathA", "ko": "K00001" },
+          { "motif": "WW", "function": "strongHit", "pathway": "PathB", "ko": "K00002" }
+        ]
+      },
+      "output": { "items": [ { "geneId": "g1", "function": "strongHit", "eValue": 0.0014851955539388528 } ] }
+    }
+  ]
+}

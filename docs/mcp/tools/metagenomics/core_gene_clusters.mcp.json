@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "core_gene_clusters",
+  "serverName": "Metagenomics",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PanGenomeAnalyzer.GetCoreGeneClusters",
+  "docRef": "Seqeron.Genomics.Metagenomics/PanGenomeAnalyzer.cs#L810",
+  "description": "Filter gene clusters down to the core set: those present in at least threshold * totalGenomes genomes (Roary fractional rule, Page 2015).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "clusters": {
+        "type": "array",
+        "description": "All gene clusters.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "clusterId": { "type": "string" },
+            "geneIds": { "type": "array", "items": { "type": "string" } },
+            "genomeIds": { "type": "array", "items": { "type": "string" } },
+            "genomeCount": { "type": "integer" },
+            "averageIdentity": { "type": "number" },
+            "consensusSequence": { "type": "string" }
+          },
+          "required": ["clusterId", "geneIds", "genomeIds", "genomeCount", "averageIdentity", "consensusSequence"]
+        }
+      },
+      "totalGenomes": { "type": "integer", "description": "Total number of genomes in the analysis.", "minimum": 1 },
+      "threshold": { "type": "number", "description": "Core fraction threshold (default 0.99).", "default": 0.99, "minimum": 0, "maximum": 1 }
+    },
+    "required": ["clusters", "totalGenomes"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "clusterId": { "type": "string" },
+            "geneIds": { "type": "array", "items": { "type": "string" } },
+            "genomeIds": { "type": "array", "items": { "type": "string" } },
+            "genomeCount": { "type": "integer" },
+            "averageIdentity": { "type": "number" },
+            "consensusSequence": { "type": "string" }
+          },
+          "required": ["clusterId", "geneIds", "genomeIds", "genomeCount", "averageIdentity", "consensusSequence"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Occupancies 3/2/1 over 3 genomes at threshold 1.0",
+      "input": {
+        "clusters": [
+          { "clusterId": "c1", "geneIds": ["gene_c1"], "genomeIds": ["genome1", "genome2", "genome3"], "genomeCount": 3, "averageIdentity": 1.0, "consensusSequence": "ATGC" },
+          { "clusterId": "c2", "geneIds": ["gene_c2"], "genomeIds": ["genome1", "genome2"], "genomeCount": 2, "averageIdentity": 1.0, "consensusSequence": "ATGC" },
+          { "clusterId": "c3", "geneIds": ["gene_c3"], "genomeIds": ["genome1"], "genomeCount": 1, "averageIdentity": 1.0, "consensusSequence": "ATGC" }
+        ],
+        "totalGenomes": 3,
+        "threshold": 1.0
+      },
+      "output": { "items": [ { "clusterId": "c1", "genomeCount": 3 } ] }
+    },
+    {
+      "name": "Fractional 99% boundary over 100 genomes",
+      "input": {
+        "clusters": [
+          { "clusterId": "c99", "geneIds": ["g99"], "genomeIds": ["..."], "genomeCount": 99, "averageIdentity": 1.0, "consensusSequence": "ATGC" },
+          { "clusterId": "c98", "geneIds": ["g98"], "genomeIds": ["..."], "genomeCount": 98, "averageIdentity": 1.0, "consensusSequence": "GCTA" }
+        ],
+        "totalGenomes": 100,
+        "threshold": 0.99
+      },
+      "output": { "items": [ { "clusterId": "c99", "genomeCount": 99 } ] }
+    }
+  ]
+}

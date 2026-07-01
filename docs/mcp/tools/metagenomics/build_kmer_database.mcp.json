@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "build_kmer_database",
+  "serverName": "Metagenomics",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MetagenomicsAnalyzer.BuildKmerDatabase",
+  "docRef": "Seqeron.Genomics.Metagenomics/MetagenomicsAnalyzer.cs#L363",
+  "description": "Build a Kraken canonical-k-mer -> taxon-id database from labeled reference sequences. Skips ambiguous nucleotides; a k-mer shared by several taxa maps to their lowest common ancestor in the taxonomy tree.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "referenceGenomes": {
+        "type": "array",
+        "description": "Reference sequences (taxon id + nucleotide sequence).",
+        "items": {
+          "type": "object",
+          "properties": {
+            "taxonId": { "type": "integer" },
+            "sequence": { "type": "string" }
+          },
+          "required": ["taxonId", "sequence"]
+        }
+      },
+      "taxonomy": {
+        "type": "array",
+        "description": "Taxonomy tree nodes (id, name, rank, parent id); the root is self-parented.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "integer" },
+            "name": { "type": "string" },
+            "rank": { "type": "string" },
+            "parentId": { "type": "integer" }
+          },
+          "required": ["id", "name", "rank", "parentId"]
+        }
+      },
+      "k": { "type": "integer", "description": "k-mer length (default 31).", "default": 31, "minimum": 1 }
+    },
+    "required": ["referenceGenomes", "taxonomy"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "entries": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "kmer": { "type": "string", "description": "Canonical k-mer (lex-min of forward/reverse complement)." },
+            "taxonId": { "type": "integer", "description": "LCA taxon id of all references containing this k-mer." }
+          },
+          "required": ["kmer", "taxonId"]
+        }
+      },
+      "count": { "type": "integer", "description": "Number of distinct canonical k-mers." }
+    },
+    "required": ["entries", "count"]
+  },
+  "errors": [
+    { "code": 4001, "message": "Reference taxon id is not in the taxonomy tree (KeyNotFoundException)." }
+  ],
+  "examples": [
+    {
+      "name": "Single reference",
+      "input": {
+        "referenceGenomes": [ { "taxonId": 100, "sequence": "AAAACAA" } ],
+        "taxonomy": [
+          { "id": 1, "name": "root", "rank": "root", "parentId": 1 },
+          { "id": 100, "name": "Escherichia coli", "rank": "species", "parentId": 1 }
+        ],
+        "k": 4
+      },
+      "output": { "count": 4, "entries": [ { "kmer": "AAAA", "taxonId": 100 } ] }
+    },
+    {
+      "name": "Shared k-mer collapses to LCA",
+      "input": {
+        "referenceGenomes": [ { "taxonId": 100, "sequence": "AGCTAAAA" }, { "taxonId": 101, "sequence": "AGCTCCCC" } ],
+        "taxonomy": [
+          { "id": 1, "name": "root", "rank": "root", "parentId": 1 },
+          { "id": 20, "name": "Escherichia", "rank": "genus", "parentId": 1 },
+          { "id": 100, "name": "Escherichia coli", "rank": "species", "parentId": 20 },
+          { "id": 101, "name": "Escherichia fergusonii", "rank": "species", "parentId": 20 }
+        ],
+        "k": 4
+      },
+      "output": { "entries": [ { "kmer": "AGCT", "taxonId": 20 }, { "kmer": "GCTA", "taxonId": 100 }, { "kmer": "GAGC", "taxonId": 101 } ] }
+    }
+  ]
+}

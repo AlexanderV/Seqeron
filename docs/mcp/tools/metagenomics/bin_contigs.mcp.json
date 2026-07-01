@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "bin_contigs",
+  "serverName": "Metagenomics",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MetagenomicsAnalyzer.BinContigs",
+  "docRef": "Seqeron.Genomics.Metagenomics/MetagenomicsAnalyzer.cs#L855",
+  "description": "Cluster contigs into metagenome-assembled genomes (MAGs) using k-means over GC content, normalized coverage and tetranucleotide frequency (TETRA, Teeling 2004). Reports completeness and GC-variance contamination (Parks 2014).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "contigs": {
+        "type": "array",
+        "description": "Contigs with sequences and per-contig coverage.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "contigId": { "type": "string" },
+            "sequence": { "type": "string" },
+            "coverage": { "type": "number" }
+          },
+          "required": ["contigId", "sequence", "coverage"]
+        }
+      },
+      "numBins": { "type": "integer", "description": "Maximum number of bins / k for k-means (default 10).", "default": 10, "minimum": 1 },
+      "minBinSize": { "type": "number", "description": "Minimum total bin length to be reported, in bp (default 500000).", "default": 500000 },
+      "expectedGenomeSize": { "type": "number", "description": "Expected genome size in bp for completeness estimation (default 4000000).", "default": 4000000 }
+    },
+    "required": ["contigs"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "binId": { "type": "string" },
+            "contigIds": { "type": "array", "items": { "type": "string" } },
+            "totalLength": { "type": "number" },
+            "gcContent": { "type": "number", "description": "Mean within-bin GC fraction [0,1]." },
+            "coverage": { "type": "number", "description": "Mean within-bin coverage." },
+            "completeness": { "type": "number", "description": "min(totalLength / expectedGenomeSize * 100, 100)." },
+            "contamination": { "type": "number", "description": "min(stddev(GC)/0.5 * 100, 100)." },
+            "predictedTaxonomy": { "type": "string" }
+          },
+          "required": ["binId", "contigIds", "totalLength", "gcContent", "coverage", "completeness", "contamination", "predictedTaxonomy"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Single MAG from 10 mid-GC contigs",
+      "input": {
+        "contigs": "[10 x 200000-bp GCTA-repeat contigs, coverage 15.0]",
+        "numBins": 1,
+        "minBinSize": 100000
+      },
+      "output": {
+        "items": [
+          { "binId": "bin.1", "totalLength": 2000000, "gcContent": 0.5, "coverage": 15.0, "completeness": 50.0, "contamination": 0.0, "predictedTaxonomy": "" }
+        ]
+      }
+    },
+    {
+      "name": "Contig below minimum bin size",
+      "input": { "contigs": [ { "contigId": "c1", "sequence": "GCTA...(1000 bp)", "coverage": 10.0 } ] },
+      "output": { "items": [] }
+    }
+  ]
+}

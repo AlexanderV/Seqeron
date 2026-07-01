@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "classify_reads",
+  "serverName": "Metagenomics",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MetagenomicsAnalyzer.ClassifyReads",
+  "docRef": "Seqeron.Genomics.Metagenomics/MetagenomicsAnalyzer.cs#L191",
+  "description": "Classify metagenomic reads with the Kraken k-mer/LCA algorithm against a canonical-k-mer->taxon-id database and a taxonomy tree. Returns the assigned taxon, RTL score, lineage and C/Q confidence per read.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "reads": {
+        "type": "array",
+        "description": "Reads to classify (id + nucleotide sequence).",
+        "items": {
+          "type": "object",
+          "properties": { "id": { "type": "string" }, "sequence": { "type": "string" } },
+          "required": ["id", "sequence"]
+        }
+      },
+      "kmerDatabase": {
+        "type": "array",
+        "description": "Flattened canonical-k-mer -> taxon-id database.",
+        "items": {
+          "type": "object",
+          "properties": { "kmer": { "type": "string" }, "taxonId": { "type": "integer" } },
+          "required": ["kmer", "taxonId"]
+        }
+      },
+      "taxonomy": {
+        "type": "array",
+        "description": "Taxonomy tree nodes (id, name, rank, parent id); the root is self-parented.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "integer" },
+            "name": { "type": "string" },
+            "rank": { "type": "string" },
+            "parentId": { "type": "integer" }
+          },
+          "required": ["id", "name", "rank", "parentId"]
+        }
+      },
+      "k": { "type": "integer", "description": "k-mer length (default 31, per Kraken).", "default": 31, "minimum": 1 }
+    },
+    "required": ["reads", "kmerDatabase", "taxonomy"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "readId": { "type": "string" },
+            "taxonId": { "type": "integer" },
+            "taxonName": { "type": "string" },
+            "rank": { "type": "string" },
+            "rtlScore": { "type": "integer", "description": "Max root-to-leaf path score." },
+            "confidence": { "type": "number", "description": "Kraken2 C/Q = clade k-mers / non-ambiguous k-mers." },
+            "matchedKmers": { "type": "integer" },
+            "totalKmers": { "type": "integer" },
+            "kingdom": { "type": "string" },
+            "phylum": { "type": "string" },
+            "class": { "type": "string" },
+            "order": { "type": "string" },
+            "family": { "type": "string" },
+            "genus": { "type": "string" },
+            "species": { "type": "string" }
+          },
+          "required": ["readId", "taxonId", "taxonName", "rank", "rtlScore", "confidence", "matchedKmers", "totalKmers"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1002, "message": "k must be positive (ArgumentOutOfRangeException)." },
+    { "code": 1003, "message": "A required argument is null (ArgumentNullException)." }
+  ],
+  "examples": [
+    {
+      "name": "Read hitting a single species",
+      "input": {
+        "reads": [ { "id": "r", "sequence": "AAAACAA" } ],
+        "kmerDatabase": [ { "kmer": "AAAA", "taxonId": 100 }, { "kmer": "AAAC", "taxonId": 100 }, { "kmer": "AACA", "taxonId": 100 }, { "kmer": "ACAA", "taxonId": 100 } ],
+        "taxonomy": [
+          { "id": 1, "name": "root", "rank": "root", "parentId": 1 },
+          { "id": 20, "name": "Escherichia", "rank": "genus", "parentId": 1 },
+          { "id": 100, "name": "Escherichia coli", "rank": "species", "parentId": 20 }
+        ],
+        "k": 4
+      },
+      "output": { "items": [ { "readId": "r", "taxonId": 100, "taxonName": "Escherichia coli", "rank": "species", "rtlScore": 4, "matchedKmers": 4, "totalKmers": 4, "confidence": 1.0 } ] }
+    },
+    {
+      "name": "Read splitting equally between two species of a genus -> genus LCA",
+      "input": {
+        "reads": [ { "id": "r", "sequence": "AAAACAA" } ],
+        "kmerDatabase": [ { "kmer": "AAAA", "taxonId": 100 }, { "kmer": "AAAC", "taxonId": 100 }, { "kmer": "AACA", "taxonId": 101 }, { "kmer": "ACAA", "taxonId": 101 } ],
+        "taxonomy": [
+          { "id": 1, "name": "root", "rank": "root", "parentId": 1 },
+          { "id": 20, "name": "Escherichia", "rank": "genus", "parentId": 1 },
+          { "id": 100, "name": "Escherichia coli", "rank": "species", "parentId": 20 },
+          { "id": 101, "name": "Escherichia fergusonii", "rank": "species", "parentId": 20 }
+        ],
+        "k": 4
+      },
+      "output": { "items": [ { "readId": "r", "taxonId": 20, "rank": "genus", "rtlScore": 2, "matchedKmers": 4, "totalKmers": 4 } ] }
+    }
+  ]
+}

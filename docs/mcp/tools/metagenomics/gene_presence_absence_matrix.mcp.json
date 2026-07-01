@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "gene_presence_absence_matrix",
+  "serverName": "Metagenomics",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PanGenomeAnalyzer.CreatePresenceAbsenceMatrix",
+  "docRef": "Seqeron.Genomics.Metagenomics/PanGenomeAnalyzer.cs#L352",
+  "description": "Build a per-genome gene presence/absence matrix against a list of gene clusters. A cluster is present in a genome when the genome owns any of the cluster's gene ids.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "genomes": {
+        "type": "array",
+        "description": "Genomes (id + ordered list of genes).",
+        "items": {
+          "type": "object",
+          "properties": {
+            "genomeId": { "type": "string" },
+            "genes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": { "geneId": { "type": "string" }, "sequence": { "type": "string" } },
+                "required": ["geneId", "sequence"]
+              }
+            }
+          },
+          "required": ["genomeId", "genes"]
+        }
+      },
+      "clusters": {
+        "type": "array",
+        "description": "Gene clusters (e.g. from cluster_genes).",
+        "items": {
+          "type": "object",
+          "properties": {
+            "clusterId": { "type": "string" },
+            "geneIds": { "type": "array", "items": { "type": "string" } },
+            "genomeIds": { "type": "array", "items": { "type": "string" } },
+            "genomeCount": { "type": "integer" },
+            "averageIdentity": { "type": "number" },
+            "consensusSequence": { "type": "string" }
+          },
+          "required": ["clusterId", "geneIds", "genomeIds", "genomeCount", "averageIdentity", "consensusSequence"]
+        }
+      }
+    },
+    "required": ["genomes", "clusters"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "genomeId": { "type": "string" },
+            "genePresence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": { "clusterId": { "type": "string" }, "present": { "type": "boolean" } },
+                "required": ["clusterId", "present"]
+              }
+            },
+            "totalGenes": { "type": "integer", "description": "Number of clusters (columns)." },
+            "presentGenes": { "type": "integer", "description": "Clusters present in this genome." }
+          },
+          "required": ["genomeId", "genePresence", "totalGenes", "presentGenes"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Two genomes, two clusters",
+      "input": {
+        "genomes": [
+          { "genomeId": "g1", "genes": [ { "geneId": "a", "sequence": "ATGC" }, { "geneId": "b", "sequence": "ATGC" } ] },
+          { "genomeId": "g2", "genes": [ { "geneId": "c", "sequence": "ATGC" } ] }
+        ],
+        "clusters": [
+          { "clusterId": "c1", "geneIds": ["a", "c"], "genomeIds": ["g1", "g2"], "genomeCount": 2, "averageIdentity": 1.0, "consensusSequence": "ATGC" },
+          { "clusterId": "c2", "geneIds": ["b"], "genomeIds": ["g1"], "genomeCount": 1, "averageIdentity": 1.0, "consensusSequence": "ATGC" }
+        ]
+      },
+      "output": {
+        "items": [
+          { "genomeId": "g1", "totalGenes": 2, "presentGenes": 2 },
+          { "genomeId": "g2", "totalGenes": 2, "presentGenes": 1 }
+        ]
+      }
+    },
+    {
+      "name": "No clusters",
+      "input": { "genomes": [ { "genomeId": "g1", "genes": [] } ], "clusters": [] },
+      "output": { "items": [ { "genomeId": "g1", "totalGenes": 0, "presentGenes": 0 } ] }
+    }
+  ]
+}

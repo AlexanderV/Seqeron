@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_resistance_genes",
+  "serverName": "Metagenomics",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MetagenomicsAnalyzer.FindResistanceGenes",
+  "docRef": "Seqeron.Genomics.Metagenomics/MetagenomicsAnalyzer.cs#L1562",
+  "description": "Search nucleotide genes for antibiotic-resistance markers via motif containment against a resistance database; reports the gene id, hit name, antibiotic class, and identity = motifLength / geneLength.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "genes": {
+        "type": "array",
+        "description": "Genes to scan (gene id + nucleotide sequence).",
+        "items": {
+          "type": "object",
+          "properties": { "geneId": { "type": "string" }, "sequence": { "type": "string" } },
+          "required": ["geneId", "sequence"]
+        }
+      },
+      "resistanceDatabase": {
+        "type": "array",
+        "description": "Resistance database entries (motif + name + antibiotic class).",
+        "items": {
+          "type": "object",
+          "properties": {
+            "motif": { "type": "string" },
+            "name": { "type": "string" },
+            "antibioticClass": { "type": "string" }
+          },
+          "required": ["motif", "name", "antibioticClass"]
+        }
+      }
+    },
+    "required": ["genes", "resistanceDatabase"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "geneId": { "type": "string" },
+            "resistanceGene": { "type": "string", "description": "Matched database entry name." },
+            "antibioticClass": { "type": "string" },
+            "identity": { "type": "number", "description": "motifLength / geneLength." }
+          },
+          "required": ["geneId", "resistanceGene", "antibioticClass", "identity"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Gene contains the resistance motif",
+      "input": {
+        "genes": [ { "geneId": "g1", "sequence": "AAACGTACGT" } ],
+        "resistanceDatabase": [ { "motif": "CGTACGT", "name": "blaX-like", "antibioticClass": "beta-lactam" } ]
+      },
+      "output": { "items": [ { "geneId": "g1", "resistanceGene": "blaX-like", "antibioticClass": "beta-lactam", "identity": 0.7 } ] }
+    },
+    {
+      "name": "No motif match",
+      "input": {
+        "genes": [ { "geneId": "g2", "sequence": "AAAAAAAAAA" } ],
+        "resistanceDatabase": [ { "motif": "CGTACGT", "name": "blaX-like", "antibioticClass": "beta-lactam" } ]
+      },
+      "output": { "items": [] }
+    }
+  ]
+}
