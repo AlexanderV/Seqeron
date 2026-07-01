@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_rare_codons",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "CodonOptimizer.FindRareCodons",
+  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L663",
+  "description": "Report codons whose frequency in the target organism table is below a threshold.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "coding_sequence": { "type": "string", "description": "Coding sequence (DNA or RNA).", "minLength": 1 },
+      "target_organism": { "type": "object", "description": "Preset id or inline custom table." },
+      "threshold": { "type": "number", "description": "Frequency threshold.", "default": 0.15 }
+    },
+    "required": ["coding_sequence", "target_organism"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "rareCodons": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": { "type": "integer" },
+            "codon": { "type": "string" },
+            "aminoAcid": { "type": "string" },
+            "frequency": { "type": "number" }
+          },
+          "required": ["position", "codon", "aminoAcid", "frequency"]
+        }
+      }
+    },
+    "required": ["rareCodons"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Coding sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "One rare codon",
+      "input": { "coding_sequence": "TTTTTC", "target_organism": { "codonFrequencies": { "UUU": 0.8, "UUC": 0.1 } }, "threshold": 0.15 },
+      "output": { "rareCodons": [ { "position": 3, "codon": "UUC", "aminoAcid": "F", "frequency": 0.1 } ] }
+    },
+    {
+      "name": "High threshold flags both",
+      "input": { "coding_sequence": "TTTTTC", "target_organism": { "codonFrequencies": { "UUU": 0.8, "UUC": 0.1 } }, "threshold": 0.9 },
+      "output": { "rareCodons": "both UUU and UUC" }
+    }
+  ]
+}

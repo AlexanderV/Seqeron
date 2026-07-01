@@ -389,12 +389,15 @@ public class MolToolsTools
         return new OptimizedSequenceResult(CodonOptimizer.ReduceSecondaryStructure(coding_sequence, table, window_size));
     }
 
-    [McpServerTool, Description("Reports every codon whose frequency in the target table is below threshold.")]
+    [McpServerTool(Name = "find_rare_codons", Title = "MolTools — Find Rare Codons", ReadOnly = true), Description("Reports every codon in a coding sequence whose frequency in the target organism's codon-usage table is below the threshold (default 0.15), with its 0-based position, codon (RNA), amino acid and frequency. Call to locate translation-slowing rare codons before optimization.")]
     public static RareCodonsResult find_rare_codons(
         [Description("Coding sequence (DNA or RNA).")] string coding_sequence,
         [Description("Target organism: preset id or inline custom table.")] CodonUsageTableInput target_organism,
         [Description("Frequency threshold (default 0.15).")] double threshold = 0.15)
     {
+        if (string.IsNullOrEmpty(coding_sequence))
+            throw new System.ArgumentException("Coding sequence cannot be null or empty.", nameof(coding_sequence));
+
         var table = ResolveCodonUsageTable(target_organism);
         var rare = CodonOptimizer.FindRareCodons(coding_sequence, table, threshold)
             .Select(t => new RareCodon(t.Position, t.Codon, t.AminoAcid, t.Frequency))
