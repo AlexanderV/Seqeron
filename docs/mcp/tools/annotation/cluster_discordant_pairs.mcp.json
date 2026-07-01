@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "cluster_discordant_pairs",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "StructuralVariantAnalyzer.ClusterDiscordantPairs",
+  "docRef": "Seqeron.Genomics.Annotation/StructuralVariantAnalyzer.cs#L300",
+  "description": "Cluster discordant read pairs into structural-variant (SV) candidates.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "discordantPairs": { "type": "array", "description": "Discordant read pairs to cluster", "items": { "type": "object" } },
+      "clusterDistance": { "type": "integer", "description": "Maximum distance (nt) between pair anchors in a cluster", "default": 500 },
+      "minSupport": { "type": "integer", "description": "Minimum supporting pairs per cluster", "default": 3 }
+    },
+    "required": ["discordantPairs"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "variants": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "chromosome": { "type": "string" },
+            "start": { "type": "integer" }, "end": { "type": "integer" },
+            "type": { "type": "string", "description": "Deletion/Duplication/Inversion/Insertion/Translocation/…" },
+            "length": { "type": "integer" },
+            "quality": { "type": "number" },
+            "supportingReads": { "type": "integer" },
+            "insertedSequence": { "type": ["string", "null"] }
+          },
+          "required": ["id", "chromosome", "start", "end", "type", "length", "quality", "supportingReads"]
+        }
+      }
+    },
+    "required": ["variants"]
+  },
+  "errors": [
+    { "code": 1001, "message": "discordantPairs cannot be null" }
+  ],
+  "examples": [
+    {
+      "name": "Three interchromosomal pairs -> one translocation",
+      "input": {
+        "discordantPairs": [
+          { "readId": "r1", "chromosome1": "chr1", "position1": 100, "strand1": "+", "chromosome2": "chr2", "position2": 500, "strand2": "-", "insertSize": 400, "isDiscordant": true },
+          { "readId": "r2", "chromosome1": "chr1", "position1": 110, "strand1": "+", "chromosome2": "chr2", "position2": 505, "strand2": "-", "insertSize": 400, "isDiscordant": true },
+          { "readId": "r3", "chromosome1": "chr1", "position1": 120, "strand1": "+", "chromosome2": "chr2", "position2": 510, "strand2": "-", "insertSize": 400, "isDiscordant": true }
+        ]
+      },
+      "output": { "variants": [ { "type": "Translocation", "supportingReads": 3 } ] }
+    },
+    {
+      "name": "Below minimum support",
+      "input": {
+        "discordantPairs": [
+          { "readId": "r1", "chromosome1": "chr1", "position1": 100, "strand1": "+", "chromosome2": "chr2", "position2": 500, "strand2": "-", "insertSize": 400, "isDiscordant": true },
+          { "readId": "r2", "chromosome1": "chr1", "position1": 110, "strand1": "+", "chromosome2": "chr2", "position2": 505, "strand2": "-", "insertSize": 400, "isDiscordant": true }
+        ]
+      },
+      "output": { "variants": [] }
+    }
+  ]
+}
