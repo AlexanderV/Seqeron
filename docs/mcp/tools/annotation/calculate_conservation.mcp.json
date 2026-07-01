@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "calculate_conservation",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "VariantAnnotator.CalculateConservation",
+  "docRef": "Seqeron.Genomics.Annotation/VariantAnnotator.cs#L1180",
+  "description": "Compute PhyloP-, PhastCons- and GERP-like conservation scores at each aligned position from its multi-species alleles (fraction of species that match the first/reference allele).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "positions": {
+        "type": "array",
+        "description": "Aligned positions, each with the concatenated species alleles (one nucleotide per species)",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "properties": {
+            "chromosome": { "type": "string" },
+            "position": { "type": "integer" },
+            "speciesAlleles": { "type": "string", "description": "One character per species; index 0 is the reference allele" }
+          },
+          "required": ["chromosome", "position", "speciesAlleles"]
+        }
+      }
+    },
+    "required": ["positions"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "scores": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "chromosome": { "type": "string" },
+            "position": { "type": "integer" },
+            "phyloP": { "type": "number", "description": "(conservationFraction - 0.5) * 12" },
+            "phastCons": { "type": "number", "description": "conservationFraction (0..1)" },
+            "gerp": { "type": "number", "description": "GERP-like rejected-substitution score, clamped to [-12.36, 6.18]" },
+            "conservedSpeciesCount": { "type": "integer", "description": "Number of species matching the reference allele" }
+          },
+          "required": ["chromosome", "position", "phyloP", "phastCons", "gerp", "conservedSpeciesCount"]
+        }
+      }
+    },
+    "required": ["scores"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Positions cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Fully conserved position (10 identical alleles)",
+      "input": { "positions": [{ "chromosome": "chr1", "position": 100, "speciesAlleles": "AAAAAAAAAA" }] },
+      "output": { "scores": [{ "chromosome": "chr1", "position": 100, "phyloP": 6.0, "phastCons": 1.0, "gerp": 6.0, "conservedSpeciesCount": 10 }] }
+    },
+    {
+      "name": "Half-conserved position",
+      "input": { "positions": [{ "chromosome": "chr1", "position": 100, "speciesAlleles": "AATT" }] },
+      "output": { "scores": [{ "chromosome": "chr1", "position": 100, "phyloP": 0.0, "phastCons": 0.5, "gerp": 2.0, "conservedSpeciesCount": 2 }] }
+    }
+  ]
+}
