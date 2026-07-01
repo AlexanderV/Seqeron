@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "restriction_map",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RestrictionAnalyzer.CreateMap",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L463",
+  "description": "Build a restriction map: sites, sites-by-enzyme, unique cutters and non-cutters.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "DNA sequence to map.", "minLength": 1 },
+      "enzyme_names": { "type": "array", "items": { "type": "string" }, "description": "Enzymes to consider; empty = all built-in enzymes." }
+    },
+    "required": ["sequence", "enzyme_names"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "sequenceLength": { "type": "integer" },
+      "sites": { "type": "array", "items": { "type": "object" } },
+      "sitesByEnzyme": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "integer" } } },
+      "totalSites": { "type": "integer", "description": "Forward-strand site count." },
+      "uniqueCutters": { "type": "array", "items": { "type": "string" } },
+      "nonCutters": { "type": "array", "items": { "type": "string" } }
+    },
+    "required": ["sequenceLength", "sites", "sitesByEnzyme", "totalSites", "uniqueCutters", "nonCutters"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "EcoRI unique cutter, BamHI non-cutter",
+      "input": { "sequence": "AAAGAATTCAAA", "enzyme_names": ["EcoRI", "BamHI"] },
+      "output": { "sequenceLength": 12, "sitesByEnzyme": { "EcoRI": [3, 3] }, "totalSites": 1, "uniqueCutters": ["EcoRI"], "nonCutters": ["BamHI"] }
+    },
+    {
+      "name": "All enzymes",
+      "input": { "sequence": "AAAGAATTCAAA", "enzyme_names": [] },
+      "output": { "sequenceLength": 12, "totalSites": 1, "uniqueCutters": ["EcoRI"] }
+    }
+  ]
+}

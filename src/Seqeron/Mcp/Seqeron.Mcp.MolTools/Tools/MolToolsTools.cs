@@ -240,12 +240,15 @@ public class MolToolsTools
         return RestrictionAnalyzer.GetDigestSummary(new DnaSequence(sequence), enzyme_names);
     }
 
-    [McpServerTool, Description("Builds a restriction map: forward+reverse sites, sites grouped by enzyme, unique cutters (single forward-strand site), and non-cutters from the queried enzyme set. Empty enzyme_names considers all built-in enzymes.")]
+    [McpServerTool(Name = "restriction_map", Title = "MolTools — Restriction Map", ReadOnly = true), Description("Builds a restriction map of a DNA sequence: all forward+reverse sites, sites grouped by enzyme, the total forward-strand site count, unique cutters (enzymes with exactly one forward-strand site), and non-cutters from the queried enzyme set. An empty enzyme_names list considers every built-in enzyme. Call to plan cloning around single-cutter enzymes.")]
     public static RestrictionMap restriction_map(
         [Description("DNA sequence to map.")] string sequence,
         [Description("Names of restriction enzymes to consider; empty to use every built-in enzyme.")] string[] enzyme_names)
     {
-        return RestrictionAnalyzer.CreateMap(new DnaSequence(sequence), enzyme_names);
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+
+        return RestrictionAnalyzer.CreateMap(new DnaSequence(sequence), enzyme_names ?? System.Array.Empty<string>());
     }
 
     [McpServerTool(Name = "compatible_enzymes", Title = "MolTools — Compatible Enzyme Pairs", ReadOnly = true), Description("Enumerates all pairs of built-in restriction enzymes whose ends can be ligated to each other — either both produce blunt ends, or both produce the same overhang type and overhang sequence. Call when the user needs enzyme pairs that yield compatible (ligatable) ends for cloning.")]
