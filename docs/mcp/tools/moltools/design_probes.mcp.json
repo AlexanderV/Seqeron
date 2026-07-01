@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "design_probes",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ProbeDesigner.DesignProbes",
+  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L493",
+  "description": "Design ranked hybridization probes for a target sequence, returning up to max_probes top-scoring probes.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "target_sequence": { "type": "string", "description": "Target DNA sequence.", "minLength": 1 },
+      "parameters": { "type": ["object", "null"], "description": "Optional probe-design parameters (defaults to Microarray)." },
+      "max_probes": { "type": "integer", "description": "Maximum probes to return.", "minimum": 1, "default": 10 }
+    },
+    "required": ["target_sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "probes": {
+        "type": "array",
+        "description": "Score-descending Probe records.",
+        "items": { "type": "object" }
+      }
+    },
+    "required": ["probes"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Target sequence cannot be null or empty" },
+    { "code": 1002, "message": "Maximum probes must be positive" }
+  ],
+  "examples": [
+    {
+      "name": "81-nt ACGT repeat, top 3 probes",
+      "input": { "target_sequence": "ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT", "max_probes": 3 },
+      "output": { "probesCount": 3 }
+    },
+    {
+      "name": "Too-short target returns empty",
+      "input": { "target_sequence": "ACGTACGTACGT" },
+      "output": { "probes": [] }
+    }
+  ]
+}

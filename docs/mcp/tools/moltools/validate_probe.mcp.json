@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "validate_probe",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ProbeDesigner.ValidateProbe",
+  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L857",
+  "description": "Validate a probe against reference sequences via ungapped k-mismatch matching; report off-target hits, self-complementarity, secondary structure, and a 0..1 specificity score.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "probe_sequence": { "type": "string", "description": "Probe sequence to validate." },
+      "reference_sequences": {
+        "type": "array",
+        "description": "Reference sequences to scan for off-target hits.",
+        "items": { "type": "string" }
+      },
+      "max_mismatches": { "type": "integer", "description": "Maximum allowed mismatches.", "minimum": 0, "default": 3 },
+      "self_complementarity_threshold": { "type": "number", "description": "Self-complementarity warning threshold.", "default": 0.3 }
+    },
+    "required": ["probe_sequence", "reference_sequences"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "isValid": { "type": "boolean" },
+      "specificityScore": { "type": "number" },
+      "offTargetHits": { "type": "integer" },
+      "selfComplementarity": { "type": "number" },
+      "hasSecondaryStructure": { "type": "boolean" },
+      "issues": { "type": "array", "items": { "type": "string" } }
+    },
+    "required": ["isValid", "specificityScore", "offTargetHits", "selfComplementarity", "hasSecondaryStructure", "issues"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Probe sequence cannot be null" },
+    { "code": 1002, "message": "Reference sequences cannot be null" },
+    { "code": 1003, "message": "Maximum mismatches cannot be negative" }
+  ],
+  "examples": [
+    {
+      "name": "Unique probe -> specificity 1.0",
+      "input": { "probe_sequence": "ATCGATCGATCGATCGATCG", "reference_sequences": ["NNNNNATCGATCGATCGATCGATCGNNNN"], "max_mismatches": 0 },
+      "output": { "offTargetHits": 1, "specificityScore": 1.0 }
+    },
+    {
+      "name": "Repetitive probe -> 1/N specificity",
+      "input": { "probe_sequence": "AAAAAAAAAA", "reference_sequences": ["AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"], "max_mismatches": 0 },
+      "output": { "offTargetHits": 25, "specificityScore": 0.04 }
+    }
+  ]
+}

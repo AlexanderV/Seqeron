@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "design_tiling_probes",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ProbeDesigner.DesignTilingProbes",
+  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L707",
+  "description": "Tile a target with fixed-length overlapping probes for full coverage, reporting covered positions and Tm statistics.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "target_sequence": { "type": "string", "description": "Target DNA sequence.", "minLength": 1 },
+      "probe_length": { "type": "integer", "description": "Probe length in bp.", "minimum": 1, "default": 60 },
+      "overlap": { "type": "integer", "description": "Overlap between adjacent probes in bp (0 <= overlap < probe_length).", "minimum": 0, "default": 20 },
+      "parameters": { "type": ["object", "null"], "description": "Optional probe-design parameters." }
+    },
+    "required": ["target_sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "probes": { "type": "array", "items": { "type": "object" } },
+      "coverage": { "type": "integer", "description": "Number of target positions covered." },
+      "meanTm": { "type": "number" },
+      "tmRange": { "type": "number" }
+    },
+    "required": ["probes", "coverage", "meanTm", "tmRange"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Target sequence cannot be null or empty" },
+    { "code": 1002, "message": "Probe length must be positive" },
+    { "code": 1003, "message": "Overlap must be non-negative and less than the probe length" }
+  ],
+  "examples": [
+    {
+      "name": "208-nt target, 50 bp probes, 10 bp overlap",
+      "input": { "target_sequence": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGCGCGCGCTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT", "probe_length": 50, "overlap": 10 },
+      "output": { "coverage": 170, "starts": [0, 40, 80, 120] }
+    },
+    {
+      "name": "Invalid overlap (>= probe length)",
+      "input": { "target_sequence": "ACGTACGTACGTACGT", "probe_length": 50, "overlap": 50 },
+      "output": { "error": "ArgumentException" }
+    }
+  ]
+}

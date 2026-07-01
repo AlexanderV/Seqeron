@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "design_guide_rnas",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "CrisprDesigner.DesignGuideRnas",
+  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L169",
+  "description": "Generate and score CRISPR guide-RNA candidates whose cut site falls in a target region, filtering by minimum score.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "DNA sequence containing the target region.", "minLength": 1 },
+      "region_start": { "type": "integer", "description": "0-based start of the target region.", "minimum": 0 },
+      "region_end": { "type": "integer", "description": "0-based inclusive end of the target region." },
+      "system_type": {
+        "type": "string",
+        "description": "CRISPR system.",
+        "enum": ["SpCas9", "SpCas9_NAG", "SaCas9", "Cas12a", "AsCas12a", "LbCas12a", "CasX"],
+        "default": "SpCas9"
+      },
+      "parameters": { "type": ["object", "null"], "description": "Optional guide-RNA design parameters." }
+    },
+    "required": ["sequence", "region_start", "region_end"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "guides": {
+        "type": "array",
+        "description": "Scored guide-RNA candidates.",
+        "items": { "type": "object" }
+      }
+    },
+    "required": ["guides"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1002, "message": "Region start must be within the sequence" },
+    { "code": 1003, "message": "Region end must satisfy region_start <= region_end < sequence.Length" }
+  ],
+  "examples": [
+    {
+      "name": "Single SpCas9 guide with NGG PAM",
+      "input": { "sequence": "ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTAGG", "region_start": 20, "region_end": 45, "system_type": "SpCas9" },
+      "output": { "guides": [ { "position": 24, "score": 100.0, "isForwardStrand": true, "gcContent": 50.0, "sequence": "ACGTACGTACGTACGTACGT" } ] }
+    },
+    {
+      "name": "Invalid region (end before start)",
+      "input": { "sequence": "ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTAGG", "region_start": 30, "region_end": 10 },
+      "output": { "error": "ArgumentException" }
+    }
+  ]
+}

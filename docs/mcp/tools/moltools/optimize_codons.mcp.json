@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "optimize_codons",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "CodonOptimizer.OptimizeSequence",
+  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L277",
+  "description": "Optimize a coding sequence's synonymous codons for expression in a target organism using one of five strategies.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "coding_sequence": { "type": "string", "description": "Coding sequence (DNA or RNA).", "minLength": 1 },
+      "target_organism": {
+        "type": "object",
+        "description": "Preset id (EColiK12 | Yeast | Human) or inline custom codon-usage table.",
+        "properties": {
+          "preset": { "type": ["string", "null"], "enum": ["EColiK12", "Yeast", "Human", null] },
+          "organismName": { "type": ["string", "null"] },
+          "codonFrequencies": { "type": ["object", "null"] }
+        }
+      },
+      "strategy": {
+        "type": "string",
+        "description": "Optimization strategy.",
+        "enum": ["MaximizeCAI", "BalancedOptimization", "HarmonizeExpression", "MinimizeSecondary", "AvoidRareCodeons"],
+        "default": "BalancedOptimization"
+      },
+      "gc_target_min": { "type": "number", "description": "Lower GC fraction bound.", "minimum": 0, "maximum": 1, "default": 0.40 },
+      "gc_target_max": { "type": "number", "description": "Upper GC fraction bound.", "minimum": 0, "maximum": 1, "default": 0.60 },
+      "rare_codon_threshold": { "type": "number", "description": "Rare-codon frequency threshold.", "default": 0.15 }
+    },
+    "required": ["coding_sequence", "target_organism"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "originalSequence": { "type": "string" },
+      "optimizedSequence": { "type": "string" },
+      "proteinSequence": { "type": "string" },
+      "originalCAI": { "type": "number" },
+      "optimizedCAI": { "type": "number" },
+      "gcContentOriginal": { "type": "number" },
+      "gcContentOptimized": { "type": "number" },
+      "changedCodons": { "type": "integer" },
+      "changes": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": { "type": "integer" },
+            "original": { "type": "string" },
+            "optimized": { "type": "string" }
+          },
+          "required": ["position", "original", "optimized"]
+        }
+      }
+    },
+    "required": ["originalSequence", "optimizedSequence", "proteinSequence", "originalCAI", "optimizedCAI", "gcContentOriginal", "gcContentOptimized", "changedCodons", "changes"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Coding sequence cannot be null or empty" },
+    { "code": 1002, "message": "GC target minimum/maximum must be a fraction in [0, 1]" },
+    { "code": 1003, "message": "GC target minimum must not exceed the maximum" },
+    { "code": 1004, "message": "Unknown codon-usage preset" }
+  ],
+  "examples": [
+    {
+      "name": "MaximizeCAI on rare E. coli leucines",
+      "input": { "coding_sequence": "ATGTTACTTCTATAA", "target_organism": { "preset": "EColiK12" }, "strategy": "MaximizeCAI" },
+      "output": {
+        "originalSequence": "AUGUUACUUCUAUAA",
+        "optimizedSequence": "AUGCUGCUGCUGUAA",
+        "proteinSequence": "MLLL*",
+        "optimizedCAI": 1.0,
+        "changedCodons": 3,
+        "changes": [
+          { "position": 3, "original": "UUA", "optimized": "CUG" },
+          { "position": 6, "original": "CUU", "optimized": "CUG" },
+          { "position": 9, "original": "CUA", "optimized": "CUG" }
+        ]
+      }
+    },
+    {
+      "name": "Empty coding sequence",
+      "input": { "coding_sequence": "", "target_organism": { "preset": "EColiK12" } },
+      "output": { "error": "ArgumentException" }
+    }
+  ]
+}
