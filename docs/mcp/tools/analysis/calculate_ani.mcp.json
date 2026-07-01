@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "calculate_ani",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ComparativeGenomics.CalculateANI",
+  "docRef": "Seqeron.Genomics.Analysis/ComparativeGenomics.cs#L1076",
+  "description": "Average Nucleotide Identity (ANI) between two genome sequences (ANIb, Goris et al. 2007): fragment-and-match, mean identity of qualifying fragments.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "genome1Sequence": { "type": "string", "description": "Query genome (fragmented)", "minLength": 1 },
+      "genome2Sequence": { "type": "string", "description": "Reference genome", "minLength": 1 },
+      "fragmentSize": { "type": "integer", "description": "Fragment length in nt", "default": 1000, "minimum": 1 },
+      "minFragmentIdentity": { "type": "number", "description": "Minimum per-fragment identity (0-1) to keep a match", "default": 0.7, "minimum": 0, "maximum": 1 }
+    },
+    "required": ["genome1Sequence", "genome2Sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "ani": { "type": "number", "description": "Average Nucleotide Identity as a fraction in [0, 1]" }
+    },
+    "required": ["ani"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Genome sequence cannot be null or empty" },
+    { "code": 1003, "message": "Fragment size must be positive" }
+  ],
+  "examples": [
+    {
+      "name": "Identical genomes",
+      "input": { "genome1Sequence": "AAAACCCCGGGGTTTT", "genome2Sequence": "AAAACCCCGGGGTTTT", "fragmentSize": 4 },
+      "output": { "ani": 1.0 }
+    },
+    {
+      "name": "One substitution",
+      "input": { "genome1Sequence": "AAAACCCCGGGGTTTA", "genome2Sequence": "AAAACCCCGGGGTTTT", "fragmentSize": 4 },
+      "output": { "ani": 0.9375 }
+    }
+  ]
+}

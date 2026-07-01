@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "analyze_kmers",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "KmerAnalyzer.AnalyzeKmers",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L528",
+  "description": "Aggregate k-mer statistics: total, unique (distinct), min/max/avg multiplicity, and Shannon entropy of the k-mer frequency distribution.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "Sequence to analyze", "minLength": 1 },
+      "k": { "type": "integer", "description": "k-mer length", "minimum": 1 }
+    },
+    "required": ["sequence", "k"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "totalKmers": { "type": "integer", "description": "Number of overlapping k-mers, L - k + 1" },
+      "uniqueKmers": { "type": "integer", "description": "Number of distinct k-mers" },
+      "maxCount": { "type": "integer", "description": "Maximum k-mer multiplicity" },
+      "minCount": { "type": "integer", "description": "Minimum k-mer multiplicity" },
+      "averageCount": { "type": "number", "description": "Mean multiplicity total/distinct, rounded to 2 dp" },
+      "entropy": { "type": "number", "description": "Shannon entropy -Sum p*log2 p (bits)" }
+    },
+    "required": ["totalKmers", "uniqueKmers", "maxCount", "minCount", "averageCount", "entropy"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1003, "message": "k must be positive" }
+  ],
+  "examples": [
+    {
+      "name": "Monomer table GTAGAGCTGT k=1",
+      "input": { "sequence": "GTAGAGCTGT", "k": 1 },
+      "output": {
+        "totalKmers": 10,
+        "uniqueKmers": 4,
+        "maxCount": 4,
+        "minCount": 1,
+        "averageCount": 2.5,
+        "entropy": 1.846439344671
+      }
+    },
+    {
+      "name": "All-distinct trimers GTAGAGCTGT k=3",
+      "input": { "sequence": "GTAGAGCTGT", "k": 3 },
+      "output": {
+        "totalKmers": 8,
+        "uniqueKmers": 8,
+        "maxCount": 1,
+        "minCount": 1,
+        "averageCount": 1.0,
+        "entropy": 3.0
+      }
+    }
+  ]
+}

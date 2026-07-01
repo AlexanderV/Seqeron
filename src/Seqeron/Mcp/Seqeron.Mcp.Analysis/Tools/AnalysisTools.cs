@@ -29,7 +29,12 @@ public class AnalysisTools
         [Description("Sequence to analyze.")] string sequence,
         [Description("k-mer length (>0).")] int k)
     {
-        var counts = KmerAnalyzer.CountKmers(sequence ?? string.Empty, k);
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (k <= 0)
+            throw new ArgumentException("k must be positive", nameof(k));
+
+        var counts = KmerAnalyzer.CountKmers(sequence, k);
         return new KmerCountsResult(counts);
     }
 
@@ -144,9 +149,14 @@ public class AnalysisTools
     [Description("Aggregate k-mer statistics: total, unique, min/max/avg count, and Shannon entropy.")]
     public static AnalyzeKmersResult AnalyzeKmers(
         [Description("Sequence to analyze.")] string sequence,
-        [Description("k-mer length.")] int k)
+        [Description("k-mer length (>0).")] int k)
     {
-        var s = KmerAnalyzer.AnalyzeKmers(sequence ?? string.Empty, k);
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (k <= 0)
+            throw new ArgumentException("k must be positive", nameof(k));
+
+        var s = KmerAnalyzer.AnalyzeKmers(sequence, k);
         return new AnalyzeKmersResult(
             s.TotalKmers, s.UniqueKmers, s.MaxCount, s.MinCount, s.AverageCount, s.Entropy);
     }
@@ -191,7 +201,12 @@ public class AnalysisTools
         [Description("DNA sequence.")] string dnaSequence,
         [Description("Reading frame: 0, 1, or 2 (default 0).")] int readingFrame = 0)
     {
-        var freq = SequenceStatistics.CalculateCodonFrequencies(dnaSequence ?? string.Empty, readingFrame);
+        if (string.IsNullOrEmpty(dnaSequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(dnaSequence));
+        if (readingFrame is < 0 or > 2)
+            throw new ArgumentException("Reading frame must be 0, 1, or 2", nameof(readingFrame));
+
+        var freq = SequenceStatistics.CalculateCodonFrequencies(dnaSequence, readingFrame);
         return new CodonFrequenciesResult(new Dictionary<string, double>(freq));
     }
 
@@ -736,12 +751,15 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "compression_ratio", Title = "Complexity — Compression Ratio", ReadOnly = true)]
-    [Description("Estimate sequence repetitiveness via unique-substring (LZ-style) ratio. Lower = more repetitive (range [0,1]).")]
+    [Description("Estimate sequence repetitiveness as the normalized Lempel-Ziv complexity c/(n/log_b(n)). Lower values indicate more repetitive/less complex sequences.")]
     public static CompressionRatioResult CompressionRatio(
         [Description("Sequence.")] string sequence)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
         var ratio = global::Seqeron.Genomics.Analysis.SequenceComplexity
-            .EstimateCompressionRatio(sequence ?? string.Empty);
+            .EstimateCompressionRatio(sequence);
         return new CompressionRatioResult(ratio);
     }
 
@@ -833,6 +851,11 @@ public class AnalysisTools
         [Description("Minimum ortholog identity (default 0.3).")] double minOrthologIdentity = 0.3,
         [Description("Minimum syntenic block size (default 3).")] int minSyntenicBlockSize = 3)
     {
+        if (genome1Genes is null || genome1Genes.Length == 0)
+            throw new ArgumentException("Genome 1 must contain at least one gene", nameof(genome1Genes));
+        if (genome2Genes is null || genome2Genes.Length == 0)
+            throw new ArgumentException("Genome 2 must contain at least one gene", nameof(genome2Genes));
+
         var r = global::Seqeron.Genomics.Analysis.ComparativeGenomics
             .CompareGenomes(ToGenes(genome1Genes), ToGenes(genome2Genes), minOrthologIdentity, minSyntenicBlockSize);
         return new CompareGenomesResult(
@@ -880,11 +903,17 @@ public class AnalysisTools
         [Description("Genome 1 sequence.")] string genome1Sequence,
         [Description("Genome 2 sequence.")] string genome2Sequence,
         [Description("Fragment size (default 1000).")] int fragmentSize = 1000,
-        [Description("Minimum fragment identity (default 0.7).")] double minFragmentIdentity = 0.7)
+        [Description("Minimum per-fragment identity (0-1) to keep a match (default 0.7).")] double minFragmentIdentity = 0.7)
     {
+        if (string.IsNullOrEmpty(genome1Sequence))
+            throw new ArgumentException("Genome 1 sequence cannot be null or empty", nameof(genome1Sequence));
+        if (string.IsNullOrEmpty(genome2Sequence))
+            throw new ArgumentException("Genome 2 sequence cannot be null or empty", nameof(genome2Sequence));
+        if (fragmentSize <= 0)
+            throw new ArgumentException("Fragment size must be positive", nameof(fragmentSize));
+
         var ani = global::Seqeron.Genomics.Analysis.ComparativeGenomics
-            .CalculateANI(genome1Sequence ?? string.Empty, genome2Sequence ?? string.Empty,
-                fragmentSize, minFragmentIdentity);
+            .CalculateANI(genome1Sequence, genome2Sequence, fragmentSize, minFragmentIdentity);
         return new AniResult(ani);
     }
 
@@ -1015,7 +1044,10 @@ public class AnalysisTools
     public static AtSkewResult AtSkew(
         [Description("DNA sequence.")] string sequence)
     {
-        return new AtSkewResult(GcSkewCalculator.CalculateAtSkew(sequence ?? string.Empty));
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        return new AtSkewResult(GcSkewCalculator.CalculateAtSkew(sequence));
     }
 
     [McpServerTool(Name = "predict_replication_origin", Title = "GC Skew — Predict Origin/Terminus", ReadOnly = true)]
