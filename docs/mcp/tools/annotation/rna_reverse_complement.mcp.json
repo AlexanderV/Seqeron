@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "rna_reverse_complement",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MiRnaAnalyzer.GetReverseComplement",
+  "docRef": "Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs#L297",
+  "description": "Reverse-complement of an RNA sequence (A↔U, G↔C, unknown bases → N).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "rnaSequence": { "type": "string", "description": "RNA (or DNA) nucleotide sequence", "minLength": 1 }
+    },
+    "required": ["rnaSequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "reverseComplement": { "type": "string", "description": "Reverse complement (A↔U, G↔C; T→A; unknown→N)" }
+    },
+    "required": ["reverseComplement"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "RNA reverse complement",
+      "input": { "rnaSequence": "AUGC" },
+      "output": { "reverseComplement": "GCAU" }
+    },
+    {
+      "name": "Unknown base maps to N",
+      "input": { "rnaSequence": "AXGC" },
+      "output": { "reverseComplement": "GCNU" }
+    }
+  ]
+}
