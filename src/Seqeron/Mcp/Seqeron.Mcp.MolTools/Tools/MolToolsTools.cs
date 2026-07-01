@@ -510,12 +510,15 @@ public class MolToolsTools
         return new GuideRnasResult(guides);
     }
 
-    [McpServerTool, Description("Scores a single guide RNA: GC%, seed-region GC%, polyT terminator presence, self-complementarity, common-restriction-site presence; returns a 0..100 score plus an issues list. Position is -1 for ad-hoc evaluation.")]
+    [McpServerTool(Name = "evaluate_guide_rna", Title = "MolTools — Evaluate Guide RNA", ReadOnly = true), Description("Scores a single guide RNA against on-target quality heuristics: overall GC%, seed-region GC%, polyT (Pol III terminator) presence, self-complementarity, and common-restriction-site presence; returns a 0..100 score plus an issues list. Position is -1 for ad-hoc evaluation. Call to QC one guide sequence.")]
     public static GuideRnaCandidate evaluate_guide_rna(
         [Description("Guide RNA sequence.")] string guide_sequence,
         [Description("CRISPR system (default SpCas9).")] CrisprSystemType system_type = CrisprSystemType.SpCas9,
         [Description("Optional guide-RNA design parameters.")] GuideRnaParameters? parameters = null)
     {
+        if (string.IsNullOrEmpty(guide_sequence))
+            throw new System.ArgumentException("Guide sequence cannot be null or empty.", nameof(guide_sequence));
+
         return CrisprDesigner.EvaluateGuideRna(guide_sequence, system_type, parameters);
     }
 
