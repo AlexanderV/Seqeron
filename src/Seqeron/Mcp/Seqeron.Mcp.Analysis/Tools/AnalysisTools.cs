@@ -401,8 +401,11 @@ public class AnalysisTools
         [Description("Maximum repeat length (default 50).")] int maxLength = 50,
         [Description("Minimum spacing between the two copies (default 1).")] int minSpacing = 1)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
         var items = global::Seqeron.Genomics.Analysis.RepeatFinder
-            .FindDirectRepeats(sequence ?? string.Empty, minLength, maxLength, minSpacing)
+            .FindDirectRepeats(sequence, minLength, maxLength, minSpacing)
             .Select(r => new DirectRepeatItem(
                 r.FirstPosition, r.SecondPosition, r.RepeatSequence, r.Length, r.Spacing))
             .ToArray();
