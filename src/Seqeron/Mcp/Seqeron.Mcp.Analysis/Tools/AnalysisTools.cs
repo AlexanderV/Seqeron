@@ -182,7 +182,10 @@ public class AnalysisTools
     public static DinucleotideFrequenciesResult DinucleotideFrequencies(
         [Description("Nucleotide sequence.")] string sequence)
     {
-        var freq = SequenceStatistics.CalculateDinucleotideFrequencies(sequence ?? string.Empty);
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        var freq = SequenceStatistics.CalculateDinucleotideFrequencies(sequence);
         return new DinucleotideFrequenciesResult(new Dictionary<string, double>(freq));
     }
 
@@ -191,7 +194,10 @@ public class AnalysisTools
     public static DinucleotideRatiosResult DinucleotideRatios(
         [Description("Nucleotide sequence.")] string sequence)
     {
-        var ratios = SequenceStatistics.CalculateDinucleotideRatios(sequence ?? string.Empty);
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        var ratios = SequenceStatistics.CalculateDinucleotideRatios(sequence);
         return new DinucleotideRatiosResult(new Dictionary<string, double>(ratios));
     }
 
