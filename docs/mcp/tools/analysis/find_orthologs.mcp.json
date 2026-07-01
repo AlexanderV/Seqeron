@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_orthologs",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ComparativeGenomics.FindOrthologs",
+  "docRef": "Seqeron.Genomics.Analysis/ComparativeGenomics.cs#L335",
+  "description": "Best-hit ortholog pairs between two genomes by k-mer (5-mer Jaccard) similarity. Requires each gene's sequence to be populated. Returns pairs with identity, coverage and alignment length.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "genome1Genes": { "type": "array", "description": "Genes of genome 1 (with sequence)" },
+      "genome2Genes": { "type": "array", "description": "Genes of genome 2 (with sequence)" },
+      "minIdentity": { "type": "number", "description": "Minimum identity (default 0.3)", "default": 0.3 },
+      "minCoverage": { "type": "number", "description": "Minimum coverage (default 0.5)", "default": 0.5 }
+    },
+    "required": ["genome1Genes", "genome2Genes"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "gene1Id": { "type": "string" },
+            "gene2Id": { "type": "string" },
+            "identity": { "type": "number" },
+            "coverage": { "type": "number" },
+            "alignmentLength": { "type": "integer" }
+          },
+          "required": ["gene1Id", "gene2Id", "identity", "coverage", "alignmentLength"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Two mutual best hits",
+      "input": { "genome1Genes": [ { "id": "a1", "genomeId": "G1", "start": 0, "end": 14, "strand": "+", "sequence": "ACGTACGTACGTAC" }, { "id": "a2", "genomeId": "G1", "start": 0, "end": 16, "strand": "+", "sequence": "TTTTGGGGCCCCAAAA" } ], "genome2Genes": [ { "id": "b1", "genomeId": "G2", "start": 0, "end": 14, "strand": "+", "sequence": "ACGTACGTACGTAC" }, { "id": "b2", "genomeId": "G2", "start": 0, "end": 16, "strand": "+", "sequence": "TTTTGGGGCCCCAAAA" } ] },
+      "output": { "items": [ { "gene1Id": "a1", "gene2Id": "b1", "identity": 1.0, "coverage": 1.0 }, { "gene1Id": "a2", "gene2Id": "b2", "identity": 1.0, "coverage": 1.0 } ] }
+    }
+  ]
+}
