@@ -195,7 +195,7 @@ public class MolToolsTools
         return RestrictionAnalyzer.CreateMap(new DnaSequence(sequence), enzyme_names);
     }
 
-    [McpServerTool, Description("Enumerates pairs of built-in enzymes whose ends can be ligated to each other (matching overhang type and sequence, or both blunt).")]
+    [McpServerTool(Name = "compatible_enzymes", Title = "MolTools — Compatible Enzyme Pairs", ReadOnly = true), Description("Enumerates all pairs of built-in restriction enzymes whose ends can be ligated to each other — either both produce blunt ends, or both produce the same overhang type and overhang sequence. Call when the user needs enzyme pairs that yield compatible (ligatable) ends for cloning.")]
     public static CompatibleEnzymesResult compatible_enzymes()
     {
         var pairs = RestrictionAnalyzer.FindCompatibleEnzymes()
