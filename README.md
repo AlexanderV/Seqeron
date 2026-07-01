@@ -1,17 +1,27 @@
 # Seqeron Bioinformatics
 
-> ⚠️ **EARLY ALPHA — NOT FOR PRODUCTION USE**
+> ⚠️ **PRE-RELEASE (ALPHA) — NOT YET CERTIFIED FOR CLINICAL OR DIAGNOSTIC USE**
 >
-> This library is in **early alpha stage** and is under active development. While we strive for correctness and have extensive test coverage, the APIs, algorithms, and outputs **have not been independently validated** for use in clinical, diagnostic, or production research settings.
+> This library is pre-1.0 and under active development. Public APIs may change between releases.
 >
-> **Before using this library with real data or in real-world applications:**
-> - Independently verify all algorithm outputs against established tools
-> - Conduct thorough validation for your specific use case
-> - Do not use for clinical decision-making without proper validation
+> **What has been done (verifiable in this repo):**
+> - Extensive automated testing — ~15,000 test methods across 819 fixtures (~3.8× more test code than product code), covering 258 algorithm units.
+> - Ten complementary test methodologies — property-based, metamorphic, fuzzing, mutation, snapshot, algebraic, architecture, differential, combinatorial, and characterization testing (see [docs/checklists](docs/checklists)).
+> - An internal, per-unit **independent validation campaign** with a documented findings register, a published limitations/operating-envelope document, and a runtime `LimitationPolicy` that guards algorithms used outside their validated scope (see [docs/Validation](docs/Validation)).
+> - Algorithm parameters and coefficients reproduced from primary literature and reference implementations, tracked per unit.
 >
-> **Disclaimer:** The authors and contributors make no warranties regarding the correctness, reliability, or fitness for any particular purpose. Use at your own risk. The authors shall not be liable for any damages, losses, or harm arising from the use or misuse of this software.
+> **What has *not* been done — and why you must still validate before relying on it:**
+> - No **third-party / external** audit, peer review, or regulatory clearance.
+> - No certification for clinical, diagnostic, or decision-making use.
+> - Many algorithms are faithful but **simplified or subset** realisations of fuller published methods; their honest scope is documented in [LIMITATIONS.md](docs/Validation/LIMITATIONS.md).
 >
-> **Contributions welcome:** We actively encourage independent audits, bug reports, and corrections. If you find an error in any algorithm implementation, please open an issue in this repository or submit a pull request. Community review is essential for improving reliability.
+> **Before using with real data or in production:**
+> - Independently verify all outputs against established tools for your specific use case.
+> - Do not use for clinical or diagnostic decision-making without your own qualification and validation.
+>
+> **Disclaimer:** The authors and contributors make no warranties regarding correctness, reliability, or fitness for any particular purpose. Use at your own risk. The authors shall not be liable for any damages, losses, or harm arising from the use or misuse of this software.
+>
+> **Contributions welcome:** We actively encourage independent audits, bug reports, and corrections. If you find an error in any algorithm implementation, please open an issue or submit a pull request — external review is exactly what would move this project past its current, self-validated state.
 >
 > See [LICENSE](LICENSE) for full terms.
 
