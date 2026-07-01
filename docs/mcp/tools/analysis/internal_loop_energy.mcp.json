@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "internal_loop_energy",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RnaSecondaryStructure.CalculateInternalLoopEnergy",
+  "docRef": "Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L759",
+  "description": "Turner 2004 internal-loop free energy (kcal/mol). Uses the 1x1 (int11) lookup table when n1 = n2 = 1; otherwise size initiation + asymmetry + terminal mismatches.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "n1": { "type": "integer", "description": "Unpaired bases on the 5' side" },
+      "n2": { "type": "integer", "description": "Unpaired bases on the 3' side" },
+      "closingBase5_1": { "type": "string", "minLength": 1, "maxLength": 1 },
+      "closingBase3_1": { "type": "string", "minLength": 1, "maxLength": 1 },
+      "closingBase5_2": { "type": "string", "minLength": 1, "maxLength": 1 },
+      "closingBase3_2": { "type": "string", "minLength": 1, "maxLength": 1 },
+      "mismatch5_1": { "type": "string", "minLength": 1, "maxLength": 1 },
+      "mismatch3_1": { "type": "string", "minLength": 1, "maxLength": 1 },
+      "mismatch5_2": { "type": "string", "minLength": 1, "maxLength": 1 },
+      "mismatch3_2": { "type": "string", "minLength": 1, "maxLength": 1 }
+    },
+    "required": ["n1", "n2", "closingBase5_1", "closingBase3_1", "closingBase5_2", "closingBase3_2", "mismatch5_1", "mismatch3_1", "mismatch5_2", "mismatch3_2"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": { "energy": { "type": "number", "description": "kcal/mol" } },
+    "required": ["energy"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Expected a single character (length-1 string)" }
+  ],
+  "examples": [
+    { "name": "1x1 CG/CG with G-G mismatch", "input": { "n1": 1, "n2": 1, "closingBase5_1": "C", "closingBase3_1": "G", "closingBase5_2": "C", "closingBase3_2": "G", "mismatch5_1": "G", "mismatch3_1": "G", "mismatch5_2": "G", "mismatch3_2": "G" }, "output": { "energy": -2.2 } }
+  ]
+}
