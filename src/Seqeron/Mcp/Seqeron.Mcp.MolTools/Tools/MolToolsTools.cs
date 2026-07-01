@@ -251,10 +251,13 @@ public class MolToolsTools
         return new CodonCountsResult(CodonUsageAnalyzer.CountCodons(sequence));
     }
 
-    [McpServerTool, Description("Relative Synonymous Codon Usage (RSCU) per codon: observed / expected-if-uniform among synonymous codons. RSCU=1 → no bias; >1 over-represented; <1 under-represented.")]
+    [McpServerTool(Name = "rscu", Title = "MolTools — Relative Synonymous Codon Usage", ReadOnly = true), Description("Relative Synonymous Codon Usage (RSCU) per codon: observed count / count-expected-if-uniform among its synonymous codons. RSCU = 1 means no bias, > 1 over-represented, < 1 under-represented. Call to quantify codon bias per codon in a coding sequence.")]
     public static RscuResult rscu(
         [Description("Coding DNA sequence (frame 0).")] string sequence)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+
         return new RscuResult(CodonUsageAnalyzer.CalculateRscu(sequence));
     }
 

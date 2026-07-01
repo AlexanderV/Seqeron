@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "rscu",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "CodonUsageAnalyzer.CalculateRscu",
+  "docRef": "Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L80",
+  "description": "Relative Synonymous Codon Usage (RSCU) per codon for a coding sequence.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "Coding DNA sequence (frame 0).", "minLength": 1 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "rscu": { "type": "object", "description": "Codon -> RSCU value.", "additionalProperties": { "type": "number" } }
+    },
+    "required": ["rscu"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Biased Phe usage",
+      "input": { "sequence": "TTTTTTTTC" },
+      "output": { "rscu": { "TTT": 1.3333, "TTC": 0.6667 } }
+    },
+    {
+      "name": "Unbiased Phe usage",
+      "input": { "sequence": "TTTTTC" },
+      "output": { "rscu": { "TTT": 1.0, "TTC": 1.0 } }
+    }
+  ]
+}
