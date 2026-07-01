@@ -39,7 +39,12 @@ public class AnalysisTools
         [Description("Sequence to analyze.")] string sequence,
         [Description("k-mer length.")] int k)
     {
-        var spectrum = KmerAnalyzer.GetKmerSpectrum(sequence ?? string.Empty, k);
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (k <= 0)
+            throw new ArgumentException("k must be positive", nameof(k));
+
+        var spectrum = KmerAnalyzer.GetKmerSpectrum(sequence, k);
         return new KmerSpectrumResult(spectrum);
     }
 
