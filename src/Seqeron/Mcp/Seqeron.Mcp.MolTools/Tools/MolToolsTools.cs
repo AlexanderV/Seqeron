@@ -227,11 +227,16 @@ public class MolToolsTools
         return new DigestResult(fragments);
     }
 
-    [McpServerTool, Description("Aggregate statistics over a simulated digest: total fragment count, fragment sizes (descending), largest/smallest, average size, and enzymes used.")]
+    [McpServerTool(Name = "digest_summary", Title = "MolTools — Restriction Digest Summary", ReadOnly = true), Description("Aggregate statistics over a simulated linear restriction digest: total fragment count, fragment sizes (descending), largest/smallest fragment, average fragment size, and enzymes used. Call for a gel-like summary of a digest without the full fragment sequences.")]
     public static DigestSummary digest_summary(
         [Description("DNA sequence to digest.")] string sequence,
         [Description("Names of restriction enzymes to use.")] string[] enzyme_names)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        if (enzyme_names is null || enzyme_names.Length == 0)
+            throw new System.ArgumentException("At least one enzyme name is required.", nameof(enzyme_names));
+
         return RestrictionAnalyzer.GetDigestSummary(new DnaSequence(sequence), enzyme_names);
     }
 

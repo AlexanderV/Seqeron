@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "digest_summary",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RestrictionAnalyzer.GetDigestSummary",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L442",
+  "description": "Aggregate statistics over a simulated linear restriction digest.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "DNA sequence to digest.", "minLength": 1 },
+      "enzyme_names": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+    },
+    "required": ["sequence", "enzyme_names"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "totalFragments": { "type": "integer" },
+      "fragmentSizes": { "type": "array", "items": { "type": "integer" }, "description": "Fragment sizes, descending." },
+      "largestFragment": { "type": "integer" },
+      "smallestFragment": { "type": "integer" },
+      "averageFragmentSize": { "type": "number" },
+      "enzymesUsed": { "type": "array", "items": { "type": "string" } }
+    },
+    "required": ["totalFragments", "fragmentSizes", "largestFragment", "smallestFragment", "averageFragmentSize", "enzymesUsed"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1002, "message": "At least one enzyme name is required" }
+  ],
+  "examples": [
+    {
+      "name": "EcoRI digest",
+      "input": { "sequence": "AAAGAATTCAAA", "enzyme_names": ["EcoRI"] },
+      "output": { "totalFragments": 2, "fragmentSizes": [8, 4], "largestFragment": 8, "smallestFragment": 4, "averageFragmentSize": 6.0, "enzymesUsed": ["EcoRI"] }
+    },
+    {
+      "name": "Uncut molecule",
+      "input": { "sequence": "AAAAAAAA", "enzyme_names": ["EcoRI"] },
+      "output": { "totalFragments": 1, "fragmentSizes": [8], "largestFragment": 8, "smallestFragment": 8, "averageFragmentSize": 8.0, "enzymesUsed": ["EcoRI"] }
+    }
+  ]
+}
