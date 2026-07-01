@@ -1041,8 +1041,15 @@ public class AnalysisTools
         [Description("Permutation 1.")] int[] permutation1,
         [Description("Permutation 2 (same length as permutation1).")] int[] permutation2)
     {
+        if (permutation1 is null)
+            throw new ArgumentException("Permutation cannot be null", nameof(permutation1));
+        if (permutation2 is null)
+            throw new ArgumentException("Permutation cannot be null", nameof(permutation2));
+        if (permutation1.Length != permutation2.Length)
+            throw new ArgumentException("Permutations must have the same length", nameof(permutation2));
+
         var distance = global::Seqeron.Genomics.Analysis.ComparativeGenomics
-            .CalculateReversalDistance(permutation1 ?? Array.Empty<int>(), permutation2 ?? Array.Empty<int>());
+            .CalculateReversalDistance(permutation1, permutation2);
         return new ReversalDistanceResult(distance);
     }
 
@@ -1181,7 +1188,10 @@ public class AnalysisTools
     public static GcSkewResult GcSkew(
         [Description("DNA sequence.")] string sequence)
     {
-        return new GcSkewResult(GcSkewCalculator.CalculateGcSkew(sequence ?? string.Empty));
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        return new GcSkewResult(GcSkewCalculator.CalculateGcSkew(sequence));
     }
 
     [McpServerTool(Name = "windowed_gc_skew", Title = "GC Skew — Sliding Window", ReadOnly = true)]
@@ -1191,8 +1201,15 @@ public class AnalysisTools
         [Description("Window size in bp (default 1000).")] int windowSize = 1000,
         [Description("Step size in bp (default 100).")] int stepSize = 100)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (windowSize < 1)
+            throw new ArgumentOutOfRangeException(nameof(windowSize), "Window size must be at least 1");
+        if (stepSize < 1)
+            throw new ArgumentOutOfRangeException(nameof(stepSize), "Step size must be at least 1");
+
         var items = GcSkewCalculator
-            .CalculateWindowedGcSkew(sequence ?? string.Empty, windowSize, stepSize)
+            .CalculateWindowedGcSkew(sequence, windowSize, stepSize)
             .Select(p => new GcSkewPointItem(p.Position, p.GcSkew, p.WindowStart, p.WindowEnd))
             .ToArray();
         return new WindowedGcSkewResult(items);
@@ -1491,7 +1508,10 @@ public class AnalysisTools
         [Description("RNA sequence.")] string rnaSequence,
         [Description("Minimum hairpin loop size (default 3; values <3 are clamped).")] int minLoopSize = 3)
     {
-        return new MinimumFreeEnergyResult(RnaSecondaryStructure.CalculateMinimumFreeEnergy(rnaSequence ?? string.Empty, minLoopSize));
+        if (string.IsNullOrEmpty(rnaSequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(rnaSequence));
+
+        return new MinimumFreeEnergyResult(RnaSecondaryStructure.CalculateMinimumFreeEnergy(rnaSequence, minLoopSize));
     }
 
     [McpServerTool(Name = "predict_rna_structure", Title = "RNA — Predict Secondary Structure", ReadOnly = true)]
@@ -1527,8 +1547,11 @@ public class AnalysisTools
     public static ParseDotBracketResult ParseDotBracket(
         [Description("Dot-bracket secondary-structure string.")] string dotBracket)
     {
+        if (string.IsNullOrEmpty(dotBracket))
+            throw new ArgumentException("Dot-bracket string cannot be null or empty", nameof(dotBracket));
+
         var pairs = RnaSecondaryStructure
-            .ParseDotBracket(dotBracket ?? string.Empty)
+            .ParseDotBracket(dotBracket)
             .Select(t => new BasePairCoord(t.Position1, t.Position2))
             .ToArray();
         return new ParseDotBracketResult(pairs);
