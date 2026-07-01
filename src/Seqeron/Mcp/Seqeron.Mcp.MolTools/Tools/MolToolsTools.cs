@@ -24,13 +24,16 @@ public class MolToolsTools
         return PrimerDesigner.DesignPrimers(new DnaSequence(template), target_start, target_end, parameters);
     }
 
-    [McpServerTool, Description("Evaluates a single primer sequence against quality criteria: length, GC%, Tm, homopolymer/dinucleotide-repeat runs, hairpin potential, 3' end stability, optional 3' GC clamp.")]
+    [McpServerTool(Name = "evaluate_primer", Title = "MolTools — Evaluate Primer", ReadOnly = true), Description("Evaluates a single primer sequence against quality criteria and returns a scored candidate: length, GC%, Tm, longest homopolymer, hairpin potential, 3'-end stability, an issues list, validity flag and a numeric score. Call to QC one primer (position/strand are informational).")]
     public static PrimerCandidate evaluate_primer(
         [Description("Primer sequence to evaluate.")] string sequence,
         [Description("0-based location of the primer in the template (informational).")] int position,
         [Description("True if this is a forward primer; false for reverse.")] bool is_forward,
         [Description("Optional primer design parameters.")] PrimerParameters? parameters = null)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+
         return PrimerDesigner.EvaluatePrimer(sequence, position, is_forward, parameters);
     }
 
