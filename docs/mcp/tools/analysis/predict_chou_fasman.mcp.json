@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "predict_chou_fasman",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceStatistics.PredictSecondaryStructure",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L840",
+  "description": "Per-window mean Chou-Fasman conformational propensities (helix Pa, sheet Pb, turn Pt) along a protein. A window mean > 1.0 favours that conformation.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "proteinSequence": { "type": "string", "description": "Protein sequence (one-letter code)", "minLength": 1 },
+      "windowSize": { "type": "integer", "description": "Sliding window size (default 7)", "minimum": 1, "default": 7 }
+    },
+    "required": ["proteinSequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "description": "One (helix, sheet, turn) mean-propensity triple per window position",
+        "items": {
+          "type": "object",
+          "properties": {
+            "helix": { "type": "number" },
+            "sheet": { "type": "number" },
+            "turn": { "type": "number" }
+          },
+          "required": ["helix", "sheet", "turn"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1002, "message": "Window size must be at least 1" }
+  ],
+  "examples": [
+    {
+      "name": "Single-residue window (Alanine)",
+      "input": { "proteinSequence": "A", "windowSize": 1 },
+      "output": { "items": [ { "helix": 1.42, "sheet": 0.83, "turn": 0.66 } ] }
+    },
+    {
+      "name": "Two windows AE (window 1)",
+      "input": { "proteinSequence": "AE", "windowSize": 1 },
+      "output": { "items": [ { "helix": 1.42, "sheet": 0.83, "turn": 0.66 }, { "helix": 1.51, "sheet": 0.37, "turn": 0.74 } ] }
+    }
+  ]
+}
