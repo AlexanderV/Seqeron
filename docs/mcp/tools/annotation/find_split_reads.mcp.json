@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_split_reads",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "StructuralVariantAnalyzer.FindSplitReads",
+  "docRef": "Seqeron.Genomics.Annotation/StructuralVariantAnalyzer.cs#L399",
+  "description": "Find split reads from soft-clipped CIGAR alignments.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "alignments": {
+        "type": "array",
+        "description": "Aligned reads with CIGAR strings",
+        "items": {
+          "type": "object",
+          "properties": {
+            "readId": { "type": "string" },
+            "chromosome": { "type": "string" },
+            "position": { "type": "integer" },
+            "cigar": { "type": "string" },
+            "sequence": { "type": "string" }
+          },
+          "required": ["readId", "chromosome", "position", "cigar", "sequence"]
+        }
+      },
+      "minClipLength": { "type": "integer", "description": "Minimum soft-clip length (nt) to call a split read", "default": 20 }
+    },
+    "required": ["alignments"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "reads": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "readId": { "type": "string" },
+            "chromosome": { "type": "string" },
+            "primaryPosition": { "type": "integer" },
+            "supplementaryPosition": { "type": "integer" },
+            "clipLength": { "type": "integer" },
+            "clippedSequence": { "type": "string" }
+          },
+          "required": ["readId", "chromosome", "primaryPosition", "supplementaryPosition", "clipLength", "clippedSequence"]
+        }
+      }
+    },
+    "required": ["reads"]
+  },
+  "errors": [
+    { "code": 1001, "message": "alignments cannot be null" }
+  ],
+  "examples": [
+    {
+      "name": "Left soft-clip becomes a split read",
+      "input": {
+        "alignments": [ { "readId": "split", "chromosome": "chr1", "position": 1000, "cigar": "30S70M", "sequence": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAACCCC…" } ],
+        "minClipLength": 20
+      },
+      "output": { "reads": [ { "readId": "split", "primaryPosition": 1000, "clipLength": 30 } ] }
+    },
+    {
+      "name": "Fully matched read",
+      "input": { "alignments": [ { "readId": "aligned", "chromosome": "chr1", "position": 500, "cigar": "100M", "sequence": "GGGG…" } ] },
+      "output": { "reads": [] }
+    }
+  ]
+}
