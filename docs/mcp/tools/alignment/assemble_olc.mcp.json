@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "assemble_olc",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceAssembler.AssembleOLC",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L61",
+  "description": "Assemble reads with the overlap-layout-consensus approach: detect pairwise suffix-prefix overlaps above thresholds, build the overlap graph, greedily lay out contigs, and report N50 / longest / total length.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "reads": {
+        "type": "array",
+        "description": "Input sequence reads."
+      },
+      "minOverlap": {
+        "type": "integer",
+        "description": "Minimum overlap length to accept (bp).",
+        "default": 20
+      },
+      "minIdentity": {
+        "type": "number",
+        "description": "Minimum identity ratio for an overlap to be accepted (0.0-1.0).",
+        "default": 0.9
+      },
+      "kmerSize": {
+        "type": "integer",
+        "description": "K-mer size (unused by OLC path; shared parameter).",
+        "default": 31
+      },
+      "minContigLength": {
+        "type": "integer",
+        "description": "Minimum contig length to keep (bp).",
+        "default": 100
+      }
+    },
+    "required": [
+      "reads"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "contigs": {
+        "type": "array",
+        "description": "Assembled contig sequences."
+      },
+      "totalReads": {
+        "type": "integer",
+        "description": "Number of input reads."
+      },
+      "assembledReads": {
+        "type": "integer",
+        "description": "Number of reads incorporated."
+      },
+      "n50": {
+        "type": "number",
+        "description": "N50 contig length."
+      },
+      "longestContig": {
+        "type": "integer",
+        "description": "Longest contig length (bp)."
+      },
+      "totalLength": {
+        "type": "integer",
+        "description": "Total assembled length (bp)."
+      }
+    },
+    "required": [
+      "contigs",
+      "totalReads",
+      "assembledReads",
+      "n50",
+      "longestContig",
+      "totalLength"
+    ]
+  },
+  "errors": [
+    {
+      "code": 4001,
+      "message": "Assembly failed"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Two overlapping reads",
+      "input": {
+        "reads": [
+          "AAAAACCCCC",
+          "CCCCCGGGGG"
+        ],
+        "minOverlap": 5,
+        "minIdentity": 0.9,
+        "kmerSize": 4,
+        "minContigLength": 5
+      },
+      "output": {
+        "contigs": [
+          "AAAAACCCCCGGGGG"
+        ],
+        "totalReads": 2,
+        "assembledReads": 2,
+        "n50": 15,
+        "longestContig": 15,
+        "totalLength": 15
+      }
+    },
+    {
+      "name": "Empty read set",
+      "input": {
+        "reads": [],
+        "minOverlap": 5,
+        "minIdentity": 0.9,
+        "kmerSize": 4,
+        "minContigLength": 5
+      },
+      "output": {
+        "contigs": [],
+        "totalReads": 0,
+        "assembledReads": 0,
+        "n50": 0,
+        "longestContig": 0,
+        "totalLength": 0
+      }
+    }
+  ]
+}
