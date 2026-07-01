@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "design_antisense_probes",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ProbeDesigner.DesignAntisenseProbes",
+  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L768",
+  "description": "Reverse-complement an mRNA-sense sequence and design antisense hybridization probes on it.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "mrna_sequence": { "type": "string", "description": "mRNA-sense sequence (reverse-complemented internally).", "minLength": 1 },
+      "parameters": { "type": ["object", "null"], "description": "Optional probe-design parameters." },
+      "max_probes": { "type": "integer", "description": "Maximum probes to return.", "minimum": 1, "default": 5 }
+    },
+    "required": ["mrna_sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "probes": {
+        "type": "array",
+        "description": "Probe records with Type = Antisense.",
+        "items": { "type": "object" }
+      }
+    },
+    "required": ["probes"]
+  },
+  "errors": [
+    { "code": 1001, "message": "mRNA sequence cannot be null or empty" },
+    { "code": 1002, "message": "Maximum probes must be positive" }
+  ],
+  "examples": [
+    {
+      "name": "81-nt mRNA repeat",
+      "input": { "mrna_sequence": "ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT", "max_probes": 5 },
+      "output": { "probesCount": 5, "allType": "Antisense" }
+    },
+    {
+      "name": "Empty input",
+      "input": { "mrna_sequence": "" },
+      "output": { "error": "ArgumentException" }
+    }
+  ]
+}
