@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "tree_length",
+  "serverName": "Phylogenetics",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PhylogeneticAnalyzer.CalculateTreeLength",
+  "docRef": "Seqeron.Genomics.Phylogenetics/PhylogeneticAnalyzer.cs#L830",
+  "description": "Sum of all branch lengths in a tree.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "newick": { "type": "string", "description": "Tree in Newick format.", "minLength": 1 }
+    },
+    "required": ["newick"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "length": { "type": "number", "description": "Sum of all branch lengths (root edge included)." }
+    },
+    "required": ["length"]
+  },
+  "errors": [
+    { "code": 2001, "message": "Newick string is empty" }
+  ],
+  "examples": [
+    {
+      "name": "Balanced tree, unit branches",
+      "input": { "newick": "((A:1,B:1):1,(C:1,D:1):1);" },
+      "output": { "length": 6 }
+    },
+    {
+      "name": "Caterpillar tree",
+      "input": { "newick": "(A:1,(B:1,(C:1,D:1):0.5):0.5);" },
+      "output": { "length": 5 }
+    }
+  ]
+}
