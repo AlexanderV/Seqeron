@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "format_vcf_info",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "VariantAnnotator.FormatAsVcfInfo",
+  "docRef": "Seqeron.Genomics.Annotation/VariantAnnotator.cs#L1484",
+  "description": "Format a variant annotation as a VCF INFO field string (GENE/TRANSCRIPT/CONSEQUENCE/IMPACT/HGVSp/HGVSc/SIFT/POLYPHEN).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "annotation": {
+        "type": "object",
+        "description": "Variant annotation to serialise",
+        "properties": {
+          "variant": { "type": "object" },
+          "transcriptId": { "type": "string" },
+          "geneId": { "type": "string" },
+          "geneName": { "type": "string" },
+          "consequence": { "type": "string", "description": "ConsequenceType enum name (e.g. MissenseVariant)" },
+          "impact": { "type": "string", "description": "ImpactLevel enum name: High/Moderate/Low/Modifier" },
+          "codonChange": { "type": ["string", "null"], "description": "HGVSc; emitted only when present" },
+          "aminoAcidChange": { "type": ["string", "null"], "description": "HGVSp; emitted only when present" },
+          "siftScore": { "type": ["number", "null"], "description": "SIFT (F3); emitted only when present" },
+          "polyphenScore": { "type": ["number", "null"], "description": "PolyPhen (F3); emitted only when present" }
+        },
+        "required": ["variant", "transcriptId", "geneId", "geneName", "consequence", "impact"]
+      }
+    },
+    "required": ["annotation"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "info": { "type": "string", "description": "Semicolon-delimited VCF INFO string" }
+    },
+    "required": ["info"]
+  },
+  "errors": [
+    { "code": 1001, "message": "annotation cannot be null" },
+    { "code": 1002, "message": "Unknown consequence type '<value>'." },
+    { "code": 1002, "message": "Unknown impact level '<value>'." }
+  ],
+  "examples": [
+    {
+      "name": "Full missense annotation",
+      "input": {
+        "annotation": {
+          "variant": { "chromosome": "chr17", "position": 43045712, "reference": "G", "alternate": "A", "type": "SNV" },
+          "transcriptId": "ENST1", "geneId": "ENSG1", "geneName": "BRCA1",
+          "consequence": "MissenseVariant", "impact": "Moderate",
+          "codonChange": "c.509G>A", "aminoAcidChange": "p.Arg170His",
+          "siftScore": 0.02, "polyphenScore": 0.95
+        }
+      },
+      "output": { "info": "GENE=BRCA1;TRANSCRIPT=ENST1;CONSEQUENCE=MissenseVariant;IMPACT=Moderate;HGVSP=p.Arg170His;HGVSC=c.509G>A;SIFT=0.020;POLYPHEN=0.950" }
+    },
+    {
+      "name": "Only mandatory fields",
+      "input": {
+        "annotation": {
+          "variant": { "chromosome": "chr17", "position": 43045712, "reference": "G", "alternate": "A", "type": "SNV" },
+          "transcriptId": "ENST1", "geneId": "ENSG1", "geneName": "BRCA1",
+          "consequence": "MissenseVariant", "impact": "Moderate"
+        }
+      },
+      "output": { "info": "GENE=BRCA1;TRANSCRIPT=ENST1;CONSEQUENCE=MissenseVariant;IMPACT=Moderate" }
+    }
+  ]
+}
