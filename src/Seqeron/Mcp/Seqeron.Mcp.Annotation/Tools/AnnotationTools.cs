@@ -1499,7 +1499,7 @@ public class AnnotationTools
         var input = readPairs.Select(p =>
             (p.ReadId, p.Chr1, p.Pos1, p.Strand1, p.Chr2, p.Pos2, p.Strand2, p.InsertSize));
         var pairs = StructuralVariantAnalyzer
-            .FindDiscordantPairs(input, expectedInsertSize, insertSizeStdDev, maxInsertSize)
+            .FindDiscordantPairs(input, expectedInsertSize, insertSizeStdDev, maxInsertSize: maxInsertSize)
             .Select(ToDto)
             .ToList();
         return new FindDiscordantPairsResult(pairs);
