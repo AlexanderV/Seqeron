@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "flush_coaxial_stacking",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RnaSecondaryStructure.CalculateFlushCoaxialStacking",
+  "docRef": "Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L980",
+  "description": "Coaxial stacking energy (kcal/mol) for two RNA helices with no intervening unpaired bases (flush stack), from the Turner 2004 WC/GU stacking table.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "base5_1": { "type": "string", "minLength": 1, "maxLength": 1 },
+      "base3_1": { "type": "string", "minLength": 1, "maxLength": 1 },
+      "base5_2": { "type": "string", "minLength": 1, "maxLength": 1 },
+      "base3_2": { "type": "string", "minLength": 1, "maxLength": 1 }
+    },
+    "required": ["base5_1", "base3_1", "base5_2", "base3_2"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": { "energy": { "type": "number", "description": "kcal/mol" } },
+    "required": ["energy"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Expected a single character (length-1 string)" }
+  ],
+  "examples": [
+    { "name": "GC onto CG", "input": { "base5_1": "G", "base3_1": "C", "base5_2": "C", "base3_2": "G" }, "output": { "energy": -3.42 } }
+  ]
+}
