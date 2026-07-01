@@ -120,7 +120,16 @@ public class AnalysisTools
         [Description("Sliding window size (>= k).")] int windowSize,
         [Description("Minimum occurrences within a window (>0).")] int minOccurrences)
     {
-        var kmers = KmerAnalyzer.FindClumps(sequence ?? string.Empty, k, windowSize, minOccurrences).ToArray();
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (k <= 0)
+            throw new ArgumentException("k must be positive", nameof(k));
+        if (windowSize < k)
+            throw new ArgumentException("Window size must be at least k", nameof(windowSize));
+        if (minOccurrences <= 0)
+            throw new ArgumentException("Minimum occurrences must be positive", nameof(minOccurrences));
+
+        var kmers = KmerAnalyzer.FindClumps(sequence, k, windowSize, minOccurrences).ToArray();
         return new KmerListResult(kmers);
     }
 

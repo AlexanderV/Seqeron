@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_clumps",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "KmerAnalyzer.FindClumps",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L356",
+  "description": "Finds k-mers that occur at least minOccurrences times within some sliding window of size windowSize (Clump Finding Problem, Compeau & Pevzner Ch.1).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "Sequence to scan", "minLength": 1 },
+      "k": { "type": "integer", "description": "k-mer length", "minimum": 1 },
+      "windowSize": { "type": "integer", "description": "Sliding window size (>= k)", "minimum": 1 },
+      "minOccurrences": { "type": "integer", "description": "Minimum occurrences within a window", "minimum": 1 }
+    },
+    "required": ["sequence", "k", "windowSize", "minOccurrences"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "kmers": { "type": "array", "items": { "type": "string" }, "description": "k-mers forming a clump (unordered)" }
+    },
+    "required": ["kmers"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1003, "message": "k must be positive" },
+    { "code": 1003, "message": "Window size must be at least k" },
+    { "code": 1003, "message": "Minimum occurrences must be positive" }
+  ],
+  "examples": [
+    {
+      "name": "Homopolymer clump",
+      "input": { "sequence": "AAAA", "k": 2, "windowSize": 4, "minOccurrences": 3 },
+      "output": { "kmers": ["AA"] }
+    },
+    {
+      "name": "Two clumps",
+      "input": { "sequence": "AAAACCCC", "k": 2, "windowSize": 4, "minOccurrences": 3 },
+      "output": { "kmers": ["AA", "CC"] }
+    }
+  ]
+}
