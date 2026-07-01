@@ -188,11 +188,16 @@ public class MolToolsTools
         return new EnzymeListResult(RestrictionAnalyzer.GetStickyCutters().ToList());
     }
 
-    [McpServerTool, Description("Finds restriction sites for one or more named built-in enzymes on both strands of a DNA sequence. IUPAC degenerate codes in recognition sequences are matched against ACGT input.")]
+    [McpServerTool(Name = "find_restriction_sites", Title = "MolTools — Find Restriction Sites", ReadOnly = true), Description("Finds restriction sites for one or more named built-in enzymes on both strands of a DNA sequence. IUPAC degenerate codes in recognition sequences are matched against ACGT input. Palindromic enzymes report a forward and a reverse site at the same position. Call to locate where specific enzymes cut a sequence.")]
     public static RestrictionSiteListResult find_restriction_sites(
         [Description("DNA sequence to scan.")] string sequence,
         [Description("Names of restriction enzymes to look for.")] string[] enzyme_names)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        if (enzyme_names is null || enzyme_names.Length == 0)
+            throw new System.ArgumentException("At least one enzyme name is required.", nameof(enzyme_names));
+
         var sites = RestrictionAnalyzer.FindSites(new DnaSequence(sequence), enzyme_names).ToList();
         return new RestrictionSiteListResult(sites);
     }
