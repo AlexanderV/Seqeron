@@ -23,6 +23,11 @@ public class ChromosomeTools
         [Description("Chromosomes (name, length, isSexChromosome).")] IReadOnlyList<ChromosomeInput> chromosomes,
         [Description("Expected ploidy level (default 2).")] int expectedPloidyLevel = 2)
     {
+        if (chromosomes is null)
+            throw new ArgumentException("Chromosomes cannot be null", nameof(chromosomes));
+        if (expectedPloidyLevel <= 0)
+            throw new ArgumentException("Expected ploidy level must be positive", nameof(expectedPloidyLevel));
+
         var tuples = chromosomes.Select(c => (c.Name, c.Length, c.IsSexChromosome));
         return SourceCa.AnalyzeKaryotype(tuples, expectedPloidyLevel);
     }
@@ -63,7 +68,18 @@ public class ChromosomeTools
         [Description("Chromosome sequence.")] string sequence,
         [Description("Scan window size in bp (default 100000).")] int windowSize = 100000,
         [Description("Minimum alpha-satellite-like content (default 0.3).")] double minAlphaSatelliteContent = 0.3)
-        => SourceCa.AnalyzeCentromere(chromosomeName, sequence, windowSize, minAlphaSatelliteContent);
+    {
+        if (string.IsNullOrEmpty(chromosomeName))
+            throw new ArgumentException("Chromosome name cannot be null or empty", nameof(chromosomeName));
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (windowSize <= 0)
+            throw new ArgumentException("Window size must be positive", nameof(windowSize));
+        if (minAlphaSatelliteContent is < 0 or > 1)
+            throw new ArgumentException("Minimum alpha-satellite content must be in [0, 1]", nameof(minAlphaSatelliteContent));
+
+        return SourceCa.AnalyzeCentromere(chromosomeName, sequence, windowSize, minAlphaSatelliteContent);
+    }
 
     [McpServerTool(Name = "predict_g_bands", Title = "Cytogenetic — Predict G-bands", ReadOnly = true)]
     [Description("Predict cytogenetic G-band pattern from sequence GC content (gpos100/gpos50/gneg, simplified).")]

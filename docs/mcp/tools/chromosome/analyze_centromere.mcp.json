@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "analyze_centromere",
+  "serverName": "Chromosome",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ChromosomeAnalyzer.AnalyzeCentromere",
+  "docRef": "Seqeron.Genomics.Chromosome/ChromosomeAnalyzer.cs#L504",
+  "description": "Locate the centromere region of a chromosome sequence by alpha-satellite-like repeat content and classify its type per Levan et al. (1964).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "chromosomeName": {
+        "type": "string",
+        "description": "Chromosome name (preserved in the result).",
+        "minLength": 1
+      },
+      "sequence": {
+        "type": "string",
+        "description": "Chromosome nucleotide sequence.",
+        "minLength": 1
+      },
+      "windowSize": {
+        "type": "integer",
+        "description": "Scan window size in bp.",
+        "default": 100000,
+        "exclusiveMinimum": 0
+      },
+      "minAlphaSatelliteContent": {
+        "type": "number",
+        "description": "Minimum alpha-satellite-like repeat content to call a centromere.",
+        "default": 0.3,
+        "minimum": 0,
+        "maximum": 1
+      }
+    },
+    "required": ["chromosomeName", "sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "chromosome": { "type": "string", "description": "Chromosome name echoed from input." },
+      "start": { "type": ["integer", "null"], "description": "Centromere start (bp), null if not detected." },
+      "end": { "type": ["integer", "null"], "description": "Centromere end (bp), null if not detected." },
+      "length": { "type": "integer", "description": "Centromere length (bp) = end - start, 0 if not detected." },
+      "centromereType": { "type": "string", "description": "Metacentric | Submetacentric | Subtelocentric | Acrocentric | Telocentric | Unknown (Levan 1964)." },
+      "alphaSatelliteContent": { "type": "number", "description": "Repeat-content score of the best window (>= 0)." },
+      "isAcrocentric": { "type": "boolean", "description": "True when centromereType is Acrocentric." }
+    },
+    "required": ["chromosome", "length", "centromereType", "alphaSatelliteContent", "isAcrocentric"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1002, "message": "Chromosome name cannot be null or empty" },
+    { "code": 1003, "message": "Window size must be positive" },
+    { "code": 1004, "message": "Minimum alpha-satellite content must be in [0, 1]" }
+  ],
+  "examples": [
+    {
+      "name": "Uniform highly-repetitive sequence (metacentric)",
+      "input": { "chromosomeName": "chr1", "sequence": "AAAAA…(300000×A)", "windowSize": 10000, "minAlphaSatelliteContent": 0.3 },
+      "output": { "chromosome": "chr1", "start": 0, "end": 295000, "length": 295000, "centromereType": "Metacentric", "alphaSatelliteContent": 1.0, "isAcrocentric": false }
+    },
+    {
+      "name": "Random non-repetitive sequence (undetected)",
+      "input": { "chromosomeName": "chr1", "sequence": "…(500000 random ACGT)", "windowSize": 50000, "minAlphaSatelliteContent": 0.3 },
+      "output": { "chromosome": "chr1", "start": null, "end": null, "length": 0, "centromereType": "Unknown", "alphaSatelliteContent": 0.0, "isAcrocentric": false }
+    }
+  ]
+}
