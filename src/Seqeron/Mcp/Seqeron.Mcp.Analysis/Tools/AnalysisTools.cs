@@ -925,11 +925,16 @@ public class AnalysisTools
         [Description("Minimum cluster size (default 3).")] int minClusterSize = 3,
         [Description("Maximum gap between cluster members (default 2).")] int maxGap = 2)
     {
-        var genomeLists = (genomes ?? Array.Empty<GeneInput[]>())
+        if (genomes is null || genomes.Length == 0)
+            throw new ArgumentException("At least one genome is required", nameof(genomes));
+        if (orthologGroups is null)
+            throw new ArgumentException("Ortholog groups map cannot be null", nameof(orthologGroups));
+
+        var genomeLists = genomes
             .Select(g => (IReadOnlyList<global::Seqeron.Genomics.Analysis.ComparativeGenomics.Gene>)ToGenes(g))
             .ToList();
         var clusters = global::Seqeron.Genomics.Analysis.ComparativeGenomics
-            .FindConservedClusters(genomeLists, orthologGroups ?? new Dictionary<string, string>(), minClusterSize, maxGap)
+            .FindConservedClusters(genomeLists, orthologGroups, minClusterSize, maxGap)
             .Select(c => c.ToArray())
             .ToArray();
         return new FindConservedClustersResult(clusters);

@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_conserved_clusters",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ComparativeGenomics.FindConservedClusters",
+  "docRef": "Seqeron.Genomics.Analysis/ComparativeGenomics.cs#L915",
+  "description": "Finds conserved gene clusters as common intervals: sets of ortholog-group labels contiguous in every genome (Uno & Yagiura 2000). Requires >= 2 genomes.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "genomes": {
+        "type": "array",
+        "items": { "type": "array", "items": { "type": "object" } },
+        "description": "One gene array per genome",
+        "minItems": 1
+      },
+      "orthologGroups": { "type": "object", "additionalProperties": { "type": "string" } },
+      "minClusterSize": { "type": "integer", "description": "Minimum distinct groups per cluster", "minimum": 2, "default": 3 },
+      "maxGap": { "type": "integer", "description": "Retained for compatibility", "default": 2 }
+    },
+    "required": ["genomes", "orthologGroups"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "clusters": {
+        "type": "array",
+        "items": { "type": "array", "items": { "type": "string" } },
+        "description": "Each cluster is a sorted list of ortholog-group ids"
+      }
+    },
+    "required": ["clusters"]
+  },
+  "errors": [
+    { "code": 1001, "message": "At least one genome is required" },
+    { "code": 1001, "message": "Ortholog groups map cannot be null" }
+  ],
+  "examples": [
+    {
+      "name": "Two identical genomes",
+      "input": {
+        "genomes": [
+          [ { "id": "A", "genomeId": "g", "start": 0, "end": 10, "strand": "+" },
+            { "id": "B", "genomeId": "g", "start": 20, "end": 30, "strand": "+" },
+            { "id": "C", "genomeId": "g", "start": 40, "end": 50, "strand": "+" } ],
+          [ { "id": "A", "genomeId": "g", "start": 0, "end": 10, "strand": "+" },
+            { "id": "B", "genomeId": "g", "start": 20, "end": 30, "strand": "+" },
+            { "id": "C", "genomeId": "g", "start": 40, "end": 50, "strand": "+" } ]
+        ],
+        "orthologGroups": { "A": "g1", "B": "g2", "C": "g3" },
+        "minClusterSize": 2
+      },
+      "output": { "clusters": [ ["g1", "g2"], ["g2", "g3"], ["g1", "g2", "g3"] ] }
+    },
+    {
+      "name": "Single genome",
+      "input": {
+        "genomes": [ [ { "id": "A", "genomeId": "g", "start": 0, "end": 10, "strand": "+" } ] ],
+        "orthologGroups": { "A": "g1" },
+        "minClusterSize": 2
+      },
+      "output": { "clusters": [] }
+    }
+  ]
+}
