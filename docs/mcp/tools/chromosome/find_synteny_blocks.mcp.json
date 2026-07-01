@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_synteny_blocks",
+  "serverName": "Chromosome",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ChromosomeAnalyzer.FindSyntenyBlocks",
+  "docRef": "Seqeron.Genomics.Chromosome/ChromosomeAnalyzer.cs#L1348",
+  "description": "Identify collinear synteny blocks between two genomes from a list of ortholog gene pairs.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "orthologPairs": { "type": "array", "items": { "type": "object", "properties": { "chr1": { "type": "string" }, "start1": { "type": "integer" }, "end1": { "type": "integer" }, "gene1": { "type": "string" }, "chr2": { "type": "string" }, "start2": { "type": "integer" }, "end2": { "type": "integer" }, "gene2": { "type": "string" } }, "required": ["chr1", "start1", "end1", "gene1", "chr2", "start2", "end2", "gene2"] } },
+      "minGenes": { "type": "integer", "default": 3, "exclusiveMinimum": 0 },
+      "maxGap": { "type": "integer", "default": 10, "description": "Max gap between consecutive genes in Mb." }
+    },
+    "required": ["orthologPairs"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": { "type": "array", "items": { "type": "object", "properties": { "species1Chromosome": { "type": "string" }, "species1Start": { "type": "integer" }, "species1End": { "type": "integer" }, "species2Chromosome": { "type": "string" }, "species2Start": { "type": "integer" }, "species2End": { "type": "integer" }, "strand": { "type": "string" }, "geneCount": { "type": "integer" }, "sequenceIdentity": { "type": "number" } }, "required": ["species1Chromosome", "species2Chromosome", "strand", "geneCount"] } }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Ortholog pairs cannot be null" },
+    { "code": 1002, "message": "Minimum genes must be positive" }
+  ],
+  "examples": [
+    { "name": "Five collinear orthologs", "input": { "orthologPairs": "[5 same-order chr1<->chrA pairs]", "minGenes": 3, "maxGap": 10 }, "output": { "items": [ { "species1Chromosome": "chr1", "species2Chromosome": "chrA", "strand": "+", "geneCount": 5 } ] } }
+  ]
+}
