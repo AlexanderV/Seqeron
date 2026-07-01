@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_gaps",
+  "serverName": "Chromosome",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomeAssemblyAnalyzer.FindGaps",
+  "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L341",
+  "description": "Find gaps (N-runs) in assembled sequences; returns position, length and length-class type.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequences": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "sequence": { "type": "string" } }, "required": ["id", "sequence"] } },
+      "minGapLength": { "type": "integer", "default": 1, "exclusiveMinimum": 0, "description": "Minimum N-run length to report." }
+    },
+    "required": ["sequences"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": { "type": "object", "properties": { "sequenceId": { "type": "string" }, "start": { "type": "integer" }, "end": { "type": "integer", "description": "Inclusive." }, "length": { "type": "integer" }, "gapType": { "type": "string" } }, "required": ["sequenceId", "start", "end", "length", "gapType"] }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequences cannot be null" },
+    { "code": 1002, "message": "Minimum gap length must be positive" }
+  ],
+  "examples": [
+    { "name": "One short gap", "input": { "sequences": [ { "id": "s", "sequence": "AAANNNNNGGG" } ], "minGapLength": 1 }, "output": { "items": [ { "sequenceId": "s", "start": 3, "end": 7, "length": 5, "gapType": "Short" } ] } },
+    { "name": "Filtered out", "input": { "sequences": [ { "id": "s", "sequence": "AAANNNNNGGG" } ], "minGapLength": 10 }, "output": { "items": [] } }
+  ]
+}
