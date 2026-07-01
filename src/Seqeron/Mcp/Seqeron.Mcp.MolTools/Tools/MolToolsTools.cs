@@ -558,10 +558,13 @@ public class MolToolsTools
         return new OligoAnalysisResult(tm, gc, mw, eps);
     }
 
-    [McpServerTool, Description("Sums per-base 260 nm molar extinction contributions. Unknown bases contribute the fallback constant 10000.")]
+    [McpServerTool(Name = "oligo_extinction_coefficient", Title = "MolTools — Oligo Extinction Coefficient", ReadOnly = true), Description("Sums per-base 260 nm molar extinction contributions (A=15400, C=7400, G=11500, T=8700, U=9900 M⁻¹·cm⁻¹; any other base = 10000) for an oligonucleotide. Call to estimate an oligo's ε₂₆₀ for concentration calculations.")]
     public static ExtinctionCoefficientResult oligo_extinction_coefficient(
         [Description("Oligonucleotide sequence.")] string sequence)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+
         return new ExtinctionCoefficientResult(ProbeDesigner.CalculateExtinctionCoefficient(sequence));
     }
 
