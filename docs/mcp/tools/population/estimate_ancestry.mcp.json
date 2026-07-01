@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "estimate_ancestry",
+  "serverName": "Population",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PopulationGeneticsAnalyzer.EstimateAncestry",
+  "docRef": "Seqeron.Genomics.Population/PopulationGeneticsAnalyzer.cs#L1264",
+  "description": "Estimate per-individual ancestry proportions across reference populations via a supervised (fixed reference frequencies) ADMIXTURE/FRAPPE EM procedure.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "individuals": {
+        "type": "array",
+        "description": "Individuals with per-SNP genotypes (0/1/2 = copies of allele 1; other values are missing).",
+        "items": {
+          "type": "object",
+          "properties": {
+            "individualId": { "type": "string" },
+            "genotypes": { "type": "array", "items": { "type": "integer" } }
+          },
+          "required": ["individualId", "genotypes"]
+        }
+      },
+      "referencePops": {
+        "type": "array",
+        "description": "Reference populations with per-SNP allele-1 frequencies in [0,1].",
+        "items": {
+          "type": "object",
+          "properties": {
+            "populationId": { "type": "string" },
+            "alleleFrequencies": { "type": "array", "items": { "type": "number" } }
+          },
+          "required": ["populationId", "alleleFrequencies"]
+        }
+      },
+      "maxIterations": { "type": "integer", "description": "Maximum EM iterations per individual (default 100).", "minimum": 0, "default": 100 }
+    },
+    "required": ["individuals", "referencePops"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "individualId": { "type": "string" },
+            "proportions": {
+              "type": "object",
+              "description": "Ancestry fraction per reference-population id; sums to 1.",
+              "additionalProperties": { "type": "number" }
+            }
+          },
+          "required": ["individualId", "proportions"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "One EM iteration on a symmetric 2-population panel",
+      "input": {
+        "individuals": [{ "individualId": "IND1", "genotypes": [2, 0] }],
+        "referencePops": [
+          { "populationId": "A", "alleleFrequencies": [0.8, 0.2] },
+          { "populationId": "B", "alleleFrequencies": [0.2, 0.8] }
+        ],
+        "maxIterations": 1
+      },
+      "output": { "items": [{ "individualId": "IND1", "proportions": { "A": 0.8, "B": 0.2 } }] }
+    },
+    {
+      "name": "Converged diagnostic individual",
+      "input": {
+        "individuals": [{ "individualId": "IND1", "genotypes": [2, 0] }],
+        "referencePops": [
+          { "populationId": "A", "alleleFrequencies": [0.8, 0.2] },
+          { "populationId": "B", "alleleFrequencies": [0.2, 0.8] }
+        ],
+        "maxIterations": 1000
+      },
+      "output": { "items": [{ "individualId": "IND1", "proportions": { "A": 1.0, "B": 0.0 } }] }
+    }
+  ]
+}
