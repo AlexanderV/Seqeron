@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "scan_with_pwm",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MotifFinder.ScanWithPwm",
+  "docRef": "Seqeron.Genomics.Analysis/MotifFinder.cs#L282",
+  "description": "Scan a DNA sequence with a 4xL Position Weight Matrix (rows A,C,G,T). At each offset the score is the sum of Matrix[baseIndex, position]; matches scoring at or above the threshold are returned.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "DNA sequence to scan", "minLength": 1 },
+      "pwm": {
+        "type": "object",
+        "description": "Position Weight Matrix",
+        "properties": {
+          "matrix": { "type": "array", "description": "Jagged 4xL matrix (rows A,C,G,T)", "items": { "type": "array", "items": { "type": "number" } } },
+          "length": { "type": "integer", "description": "Motif length L" }
+        },
+        "required": ["matrix", "length"]
+      },
+      "threshold": { "type": "number", "description": "Minimum score threshold (default 0.0)", "default": 0.0 }
+    },
+    "required": ["sequence", "pwm"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": { "type": "integer" },
+            "matchedSequence": { "type": "string" },
+            "pattern": { "type": "string" },
+            "score": { "type": "number" }
+          },
+          "required": ["position", "matchedSequence", "pattern", "score"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1001, "message": "Invalid DNA sequence" },
+    { "code": 1001, "message": "Matrix must have 4 rows" }
+  ],
+  "examples": [
+    {
+      "name": "ATGC-scoring PWM finds two matches",
+      "input": { "sequence": "ATGCATGC", "pwm": { "matrix": [ [1, -1, -1, -1], [-1, -1, -1, 1], [-1, -1, 1, -1], [-1, 1, -1, -1] ], "length": 4 }, "threshold": 0.0 },
+      "output": { "items": [ { "position": 0, "matchedSequence": "ATGC", "score": 4.0 }, { "position": 4, "matchedSequence": "ATGC", "score": 4.0 } ] }
+    },
+    {
+      "name": "No match below threshold",
+      "input": { "sequence": "AAAA", "pwm": { "matrix": [ [1, -1, -1, -1], [-1, -1, -1, 1], [-1, -1, 1, -1], [-1, 1, -1, -1] ], "length": 4 }, "threshold": 0.0 },
+      "output": { "items": [] }
+    }
+  ]
+}
