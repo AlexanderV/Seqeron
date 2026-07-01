@@ -249,8 +249,15 @@ public class AnalysisTools
         [Description("Window size (default 50).")] int windowSize = 50,
         [Description("Step size (default 1).")] int stepSize = 1)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (windowSize < 1)
+            throw new ArgumentOutOfRangeException(nameof(windowSize), "Window size must be at least 1");
+        if (stepSize < 1)
+            throw new ArgumentOutOfRangeException(nameof(stepSize), "Step size must be at least 1");
+
         var values = SequenceStatistics
-            .CalculateEntropyProfile(sequence ?? string.Empty, windowSize, stepSize)
+            .CalculateEntropyProfile(sequence, windowSize, stepSize)
             .ToArray();
         return new DoubleProfileResult(values);
     }

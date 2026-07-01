@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "entropy_profile",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceStatistics.CalculateEntropyProfile",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L963",
+  "description": "Shannon-entropy profile: per sliding window H = -sum p*log2(p) in bits over letter frequencies. Max is log2(k) for k distinct symbols.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "Sequence to analyze", "minLength": 1 },
+      "windowSize": { "type": "integer", "description": "Window size", "minimum": 1, "default": 50 },
+      "stepSize": { "type": "integer", "description": "Step size", "minimum": 1, "default": 1 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "values": { "type": "array", "items": { "type": "number" }, "description": "Per-window entropy in bits" }
+    },
+    "required": ["values"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1003, "message": "Window size must be at least 1" },
+    { "code": 1003, "message": "Step size must be at least 1" }
+  ],
+  "examples": [
+    {
+      "name": "Homopolymer",
+      "input": { "sequence": "AAAA", "windowSize": 2, "stepSize": 1 },
+      "output": { "values": [0, 0, 0] }
+    },
+    {
+      "name": "Uniform window",
+      "input": { "sequence": "ATGC", "windowSize": 4 },
+      "output": { "values": [2.0] }
+    }
+  ]
+}
