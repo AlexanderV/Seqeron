@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "kmers_with_min_count",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "KmerAnalyzer.FindKmersWithMinCount",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L274",
+  "description": "Returns k-mers whose overlapping occurrence count is at least minCount (recurrent k-mers), ordered by count descending.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "Sequence to analyze", "minLength": 1 },
+      "k": { "type": "integer", "description": "k-mer length", "minimum": 1 },
+      "minCount": { "type": "integer", "description": "Inclusive minimum occurrence count" }
+    },
+    "required": ["sequence", "k", "minCount"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "description": "(k-mer, count) pairs with count >= minCount, ordered by count descending",
+        "items": {
+          "type": "object",
+          "properties": {
+            "kmer": { "type": "string" },
+            "count": { "type": "integer" }
+          },
+          "required": ["kmer", "count"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1003, "message": "k must be positive" }
+  ],
+  "examples": [
+    {
+      "name": "Recurrent trimer (minCount=2)",
+      "input": { "sequence": "ATGATG", "k": 3, "minCount": 2 },
+      "output": { "items": [ { "kmer": "ATG", "count": 2 } ] }
+    },
+    {
+      "name": "All distinct trimers (minCount=1)",
+      "input": { "sequence": "ATGATG", "k": 3, "minCount": 1 },
+      "output": { "items": [ { "kmer": "ATG", "count": 2 }, { "kmer": "TGA", "count": 1 }, { "kmer": "GAT", "count": 1 } ] }
+    }
+  ]
+}
