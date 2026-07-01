@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "mismatch_coaxial_stacking",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RnaSecondaryStructure.CalculateMismatchCoaxialStacking",
+  "docRef": "Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L992",
+  "description": "Mismatch-mediated coaxial stacking energy (kcal/mol): terminal mismatch + base (-2.1) + Watson-Crick/G-U closing-pair bonus.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "closingBase5": { "type": "string", "minLength": 1, "maxLength": 1 },
+      "closingBase3": { "type": "string", "minLength": 1, "maxLength": 1 },
+      "mismatch5": { "type": "string", "minLength": 1, "maxLength": 1 },
+      "mismatch3": { "type": "string", "minLength": 1, "maxLength": 1 }
+    },
+    "required": ["closingBase5", "closingBase3", "mismatch5", "mismatch3"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": { "energy": { "type": "number", "description": "kcal/mol" } },
+    "required": ["energy"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Expected a single character (length-1 string)" }
+  ],
+  "examples": [
+    { "name": "GC closing, AA mismatch", "input": { "closingBase5": "G", "closingBase3": "C", "mismatch5": "A", "mismatch3": "A" }, "output": { "energy": -3.6 } },
+    { "name": "GU closing, AA mismatch", "input": { "closingBase5": "G", "closingBase3": "U", "mismatch5": "A", "mismatch3": "A" }, "output": { "energy": -2.6 } }
+  ]
+}
