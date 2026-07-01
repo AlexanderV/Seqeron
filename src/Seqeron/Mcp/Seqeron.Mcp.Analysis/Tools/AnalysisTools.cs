@@ -1037,8 +1037,13 @@ public class AnalysisTools
         [Description("DNA sequence.")] string sequence,
         [Description("Window size (default 1000).")] int windowSize = 1000)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (windowSize < 1)
+            throw new ArgumentOutOfRangeException(nameof(windowSize), "Window size must be at least 1");
+
         var items = GcSkewCalculator
-            .CalculateCumulativeGcSkew(sequence ?? string.Empty, windowSize)
+            .CalculateCumulativeGcSkew(sequence, windowSize)
             .Select(p => new CumulativeGcSkewPointItem(p.Position, p.GcSkew, p.CumulativeGcSkew))
             .ToArray();
         return new CumulativeGcSkewResult(items);
