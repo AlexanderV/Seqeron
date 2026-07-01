@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "analyze_scaffolds",
+  "serverName": "Chromosome",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomeAssemblyAnalyzer.AnalyzeScaffolds",
+  "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L415",
+  "description": "Decompose scaffolds into contigs and gaps (N-runs); returns per-scaffold contig list, gap list, and length totals.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "scaffolds": {
+        "type": "array",
+        "description": "Scaffold sequences.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "sequence": { "type": "string" }
+          },
+          "required": ["id", "sequence"]
+        }
+      },
+      "minGapLength": {
+        "type": "integer",
+        "description": "Minimum N-run length to record as a gap.",
+        "default": 10,
+        "exclusiveMinimum": 0
+      }
+    },
+    "required": ["scaffolds"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "scaffoldId": { "type": "string" },
+            "contigs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "contigId": { "type": "string" },
+                  "start": { "type": "integer" },
+                  "end": { "type": "integer", "description": "Inclusive end index." }
+                },
+                "required": ["contigId", "start", "end"]
+              }
+            },
+            "gaps": { "type": "array", "items": { "type": "object" } },
+            "totalLength": { "type": "integer" },
+            "contigLength": { "type": "integer" },
+            "gapLength": { "type": "integer" }
+          },
+          "required": ["scaffoldId", "contigs", "gaps", "totalLength", "contigLength", "gapLength"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Scaffolds cannot be null" },
+    { "code": 1002, "message": "Minimum gap length must be positive" }
+  ],
+  "examples": [
+    {
+      "name": "One scaffold split by a 10-bp gap",
+      "input": { "scaffolds": [ { "id": "scaf1", "sequence": "AAAAANNNNNNNNNNTTTTT" } ], "minGapLength": 10 },
+      "output": {
+        "items": [
+          {
+            "scaffoldId": "scaf1",
+            "contigs": [
+              { "contigId": "scaf1_contig1", "start": 0, "end": 4 },
+              { "contigId": "scaf1_contig2", "start": 15, "end": 19 }
+            ],
+            "gaps": [ { "start": 5, "end": 14, "length": 10, "gapType": "Medium" } ],
+            "totalLength": 20,
+            "contigLength": 10,
+            "gapLength": 10
+          }
+        ]
+      }
+    },
+    {
+      "name": "Short N-run below threshold is not a gap",
+      "input": { "scaffolds": [ { "id": "s", "sequence": "AAAAANNNNNTTTTT" } ], "minGapLength": 10 },
+      "output": { "items": [ { "scaffoldId": "s", "gaps": [], "gapLength": 0 } ] }
+    }
+  ]
+}

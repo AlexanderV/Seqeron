@@ -51,7 +51,18 @@ public class ChromosomeTools
         [Description("End-region search length in bp (default 10000).")] int searchLength = 10000,
         [Description("Minimum length to call a telomere present (default 500).")] int minTelomereLength = 500,
         [Description("Critical telomere shortening threshold (default 3000).")] int criticalLength = 3000)
-        => SourceCa.AnalyzeTelomeres(chromosomeName, sequence, telomereRepeat, searchLength, minTelomereLength, criticalLength);
+    {
+        if (string.IsNullOrEmpty(chromosomeName))
+            throw new ArgumentException("Chromosome name cannot be null or empty", nameof(chromosomeName));
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (string.IsNullOrEmpty(telomereRepeat))
+            throw new ArgumentException("Telomere repeat cannot be null or empty", nameof(telomereRepeat));
+        if (searchLength <= 0)
+            throw new ArgumentException("Search length must be positive", nameof(searchLength));
+
+        return SourceCa.AnalyzeTelomeres(chromosomeName, sequence, telomereRepeat, searchLength, minTelomereLength, criticalLength);
+    }
 
     [McpServerTool(Name = "estimate_telomere_length_from_ts_ratio", Title = "Telomeres — Length from qPCR T/S ratio", ReadOnly = true)]
     [Description("Estimate telomere length in bp from a qPCR Telomere/Single-copy gene (T/S) ratio against a reference.")]
@@ -212,7 +223,13 @@ public class ChromosomeTools
     public static ScaffoldStructuresResult AnalyzeScaffolds(
         [Description("Scaffolds (id, sequence).")] IReadOnlyList<NamedSequence> scaffolds,
         [Description("Minimum gap length to split contigs (default 10).")] int minGapLength = 10)
-        => new(SourceGa.AnalyzeScaffolds(scaffolds.Select(s => (s.Id, s.Sequence)), minGapLength)
+    {
+        if (scaffolds is null)
+            throw new ArgumentException("Scaffolds cannot be null", nameof(scaffolds));
+        if (minGapLength <= 0)
+            throw new ArgumentException("Minimum gap length must be positive", nameof(minGapLength));
+
+        return new(SourceGa.AnalyzeScaffolds(scaffolds.Select(s => (s.Id, s.Sequence)), minGapLength)
             .Select(ss => new ScaffoldStructureItem(
                 ss.ScaffoldId,
                 ss.Contigs.Select(c => new ScaffoldContig(c.ContigId, c.Start, c.End)).ToList(),
@@ -221,6 +238,7 @@ public class ChromosomeTools
                 ss.ContigLength,
                 ss.GapLength))
             .ToList());
+    }
 
     [McpServerTool(Name = "extract_contigs", Title = "Assembly — Extract contigs", ReadOnly = true)]
     [Description("Extract contigs (gap-free runs) from scaffolds with a minimum length filter.")]
