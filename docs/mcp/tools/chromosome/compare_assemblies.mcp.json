@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "compare_assemblies",
+  "serverName": "Chromosome",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomeAssemblyAnalyzer.CompareAssemblies",
+  "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L842",
+  "description": "Compare two assemblies by shared k-mer content; reports aligned fractions and an identity proxy.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "assembly1": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "sequence": { "type": "string" } }, "required": ["id", "sequence"] } },
+      "assembly2": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "sequence": { "type": "string" } }, "required": ["id", "sequence"] } },
+      "name1": { "type": "string", "default": "Assembly1" },
+      "name2": { "type": "string", "default": "Assembly2" },
+      "kmerSize": { "type": "integer", "default": 21, "exclusiveMinimum": 0 }
+    },
+    "required": ["assembly1", "assembly2"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "assembly1Name": { "type": "string" },
+      "assembly2Name": { "type": "string" },
+      "alignedFraction1": { "type": "number" },
+      "alignedFraction2": { "type": "number" },
+      "breakpoints": { "type": "integer" },
+      "inversions": { "type": "integer" },
+      "translocations": { "type": "integer" },
+      "sequenceIdentity": { "type": "number" }
+    },
+    "required": ["assembly1Name", "assembly2Name", "alignedFraction1", "alignedFraction2", "sequenceIdentity"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Assembly 1 cannot be null" },
+    { "code": 1002, "message": "Assembly 2 cannot be null" },
+    { "code": 1003, "message": "K-mer size must be positive" }
+  ],
+  "examples": [
+    { "name": "Identical assemblies", "input": { "assembly1": [ { "id": "s", "sequence": "ACGT…" } ], "assembly2": [ { "id": "s", "sequence": "ACGT…" } ], "name1": "A", "name2": "B", "kmerSize": 21 }, "output": { "assembly1Name": "A", "assembly2Name": "B", "alignedFraction1": 1.0, "alignedFraction2": 1.0, "sequenceIdentity": 1.0 } }
+  ]
+}

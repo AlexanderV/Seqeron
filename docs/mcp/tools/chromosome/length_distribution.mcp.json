@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "length_distribution",
+  "serverName": "Chromosome",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomeAssemblyAnalyzer.CalculateLengthDistribution",
+  "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L1202",
+  "description": "Bucket sequence lengths into bins (default upper bounds 100,500,1000,...,1000000 plus an overflow bucket).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "lengths": { "type": "array", "items": { "type": "integer" }, "description": "Sequence lengths." },
+      "bins": { "type": "array", "items": { "type": "integer" }, "description": "Bin upper bounds; empty/omitted -> defaults." }
+    },
+    "required": ["lengths"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": { "distribution": { "type": "object", "additionalProperties": { "type": "integer" }, "description": "Keys like '<100' and '>=1000000' mapping to counts." } },
+    "required": ["distribution"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Lengths cannot be null" }
+  ],
+  "examples": [
+    { "name": "Three lengths, default bins", "input": { "lengths": [50, 150, 600] }, "output": { "distribution": { "<100": 1, "<500": 1, "<1000": 1, "<5000": 0, ">=1000000": 0 } } },
+    { "name": "Overflow", "input": { "lengths": [2000000] }, "output": { "distribution": { ">=1000000": 1 } } }
+  ]
+}

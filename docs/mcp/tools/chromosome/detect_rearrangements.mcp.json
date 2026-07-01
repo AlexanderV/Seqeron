@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "detect_rearrangements",
+  "serverName": "Chromosome",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ChromosomeAnalyzer.DetectRearrangements",
+  "docRef": "Seqeron.Genomics.Chromosome/ChromosomeAnalyzer.cs#L1426",
+  "description": "Detect chromosomal rearrangements (inversions, translocations, deletions, duplications) from synteny blocks.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "syntenyBlocks": { "type": "array", "items": { "type": "object", "description": "SyntenyBlock, typically from find_synteny_blocks." } }
+    },
+    "required": ["syntenyBlocks"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": { "type": "array", "items": { "type": "object", "properties": { "type": { "type": "string" }, "chromosome1": { "type": "string" }, "position1": { "type": "integer" }, "chromosome2": { "type": ["string", "null"] }, "position2": { "type": ["integer", "null"] }, "size": { "type": ["integer", "null"] }, "description": { "type": ["string", "null"] } }, "required": ["type", "chromosome1", "position1"] } }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Synteny blocks cannot be null" }
+  ],
+  "examples": [
+    { "name": "Single forward block", "input": { "syntenyBlocks": "[one collinear forward block]" }, "output": { "items": [] } }
+  ]
+}

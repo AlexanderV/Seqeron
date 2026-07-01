@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "detect_aneuploidy",
+  "serverName": "Chromosome",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ChromosomeAnalyzer.DetectAneuploidy",
+  "docRef": "Seqeron.Genomics.Chromosome/ChromosomeAnalyzer.cs#L1537",
+  "description": "Detect copy-number states from binned read-depth data; reports per-bin copy number, log2 ratio and confidence.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "depthData": { "type": "array", "items": { "type": "object", "properties": { "chromosome": { "type": "string" }, "position": { "type": "integer" }, "depth": { "type": "number" } }, "required": ["chromosome", "position", "depth"] } },
+      "medianDepth": { "type": "number", "exclusiveMinimum": 0, "description": "Genome-wide median depth." },
+      "binSize": { "type": "integer", "default": 1000000, "exclusiveMinimum": 0 }
+    },
+    "required": ["depthData", "medianDepth"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": { "type": "array", "items": { "type": "object", "properties": { "chromosome": { "type": "string" }, "start": { "type": "integer" }, "end": { "type": "integer" }, "copyNumber": { "type": "integer" }, "logRatio": { "type": "number" }, "confidence": { "type": "number" } }, "required": ["chromosome", "start", "end", "copyNumber", "logRatio", "confidence"] } }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Depth data cannot be null" },
+    { "code": 1002, "message": "Median depth must be positive" },
+    { "code": 1003, "message": "Bin size must be positive" }
+  ],
+  "examples": [
+    { "name": "Diploid bin at median depth", "input": { "depthData": "[5 positions in bin 0, depth 30]", "medianDepth": 30.0, "binSize": 1000000 }, "output": { "items": [ { "chromosome": "chr1", "start": 0, "end": 999999, "copyNumber": 2, "logRatio": 0.0, "confidence": 1.0 } ] } }
+  ]
+}

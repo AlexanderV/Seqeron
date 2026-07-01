@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "analyze_karyotype",
+  "serverName": "Chromosome",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ChromosomeAnalyzer.AnalyzeKaryotype",
+  "docRef": "Seqeron.Genomics.Chromosome/ChromosomeAnalyzer.cs#L279",
+  "description": "Analyze a karyotype from chromosome descriptors: total/autosome counts, sex chromosomes, ploidy, and aneuploidy abnormalities (ISCN nomenclature).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "chromosomes": {
+        "type": "array",
+        "description": "Chromosome descriptors.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string", "description": "Chromosome name; a trailing _N copy suffix groups copies (e.g. chr1_1, chr1_2)." },
+            "length": { "type": "integer", "description": "Chromosome length in bp." },
+            "isSexChromosome": { "type": "boolean", "description": "True for sex chromosomes (excluded from aneuploidy grouping)." }
+          },
+          "required": ["name", "length", "isSexChromosome"]
+        }
+      },
+      "expectedPloidyLevel": {
+        "type": "integer",
+        "description": "Expected copies per autosome.",
+        "default": 2,
+        "exclusiveMinimum": 0
+      }
+    },
+    "required": ["chromosomes"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "totalChromosomes": { "type": "integer" },
+      "autosomeCount": { "type": "integer" },
+      "sexChromosomes": { "type": "array", "items": { "type": "string" } },
+      "totalGenomeSize": { "type": "integer" },
+      "meanChromosomeLength": { "type": "number" },
+      "ploidyLevel": { "type": "integer" },
+      "hasAneuploidy": { "type": "boolean" },
+      "abnormalities": { "type": "array", "items": { "type": "string" }, "description": "e.g. 'Trisomy chr21', 'Monosomy chr1'." }
+    },
+    "required": ["totalChromosomes", "autosomeCount", "sexChromosomes", "totalGenomeSize", "meanChromosomeLength", "ploidyLevel", "hasAneuploidy", "abnormalities"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Chromosomes cannot be null" },
+    { "code": 1002, "message": "Expected ploidy level must be positive" }
+  ],
+  "examples": [
+    {
+      "name": "Normal diploid set (2 autosome pairs + XY)",
+      "input": {
+        "chromosomes": [
+          { "name": "chr1_1", "length": 248956422, "isSexChromosome": false },
+          { "name": "chr1_2", "length": 248956422, "isSexChromosome": false },
+          { "name": "chr2_1", "length": 242193529, "isSexChromosome": false },
+          { "name": "chr2_2", "length": 242193529, "isSexChromosome": false },
+          { "name": "chrX", "length": 156040895, "isSexChromosome": true },
+          { "name": "chrY", "length": 57227415, "isSexChromosome": true }
+        ]
+      },
+      "output": {
+        "totalChromosomes": 6,
+        "autosomeCount": 4,
+        "sexChromosomes": ["chrX", "chrY"],
+        "ploidyLevel": 2,
+        "hasAneuploidy": false,
+        "abnormalities": []
+      }
+    },
+    {
+      "name": "Trisomy 21",
+      "input": {
+        "chromosomes": [
+          { "name": "chr21_1", "length": 46709983, "isSexChromosome": false },
+          { "name": "chr21_2", "length": 46709983, "isSexChromosome": false },
+          { "name": "chr21_3", "length": 46709983, "isSexChromosome": false }
+        ]
+      },
+      "output": { "autosomeCount": 3, "hasAneuploidy": true, "abnormalities": ["Trisomy chr21"] }
+    }
+  ]
+}

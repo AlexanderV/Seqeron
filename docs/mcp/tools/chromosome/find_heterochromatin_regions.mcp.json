@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_heterochromatin_regions",
+  "serverName": "Chromosome",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ChromosomeAnalyzer.FindHeterochromatinRegions",
+  "docRef": "Seqeron.Genomics.Chromosome/ChromosomeAnalyzer.cs#L1290",
+  "description": "Identify heterochromatin regions by k-mer repeat content; classifies as Telomeric, Centromeric, or Constitutive.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "minLength": 1 },
+      "windowSize": { "type": "integer", "default": 100000, "exclusiveMinimum": 0 },
+      "minRepeatContent": { "type": "number", "default": 0.5 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": { "type": "array", "items": { "type": "object", "properties": { "start": { "type": "integer" }, "end": { "type": "integer" }, "type": { "type": "string" } }, "required": ["start", "end", "type"] } }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1002, "message": "Window size must be positive" }
+  ],
+  "examples": [
+    { "name": "Uniform repetitive sequence", "input": { "sequence": "AAAA…(300000×A)", "windowSize": 100000, "minRepeatContent": 0.5 }, "output": { "items": [ { "start": 0, "end": 299999, "type": "Constitutive" } ] } }
+  ]
+}

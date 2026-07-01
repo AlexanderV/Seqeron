@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "nx_statistics",
+  "serverName": "Chromosome",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomeAssemblyAnalyzer.CalculateNx",
+  "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L237",
+  "description": "Compute Nx and Lx for a single threshold given pre-sorted (descending) sequence lengths and total length.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sortedLengths": { "type": "array", "items": { "type": "integer" }, "description": "Lengths sorted descending." },
+      "totalLength": { "type": "integer", "minimum": 0, "description": "Sum of all lengths." },
+      "threshold": { "type": "integer", "minimum": 0, "maximum": 100, "description": "Threshold percent (e.g. 50 for N50)." }
+    },
+    "required": ["sortedLengths", "totalLength", "threshold"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "threshold": { "type": "integer" },
+      "nx": { "type": "integer", "description": "Length of the shortest sequence reaching threshold% cumulative coverage." },
+      "lx": { "type": "integer", "description": "Number of sequences needed." },
+      "cumulativeLength": { "type": "integer" }
+    },
+    "required": ["threshold", "nx", "lx", "cumulativeLength"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sorted lengths cannot be null" },
+    { "code": 1002, "message": "Total length cannot be negative" },
+    { "code": 1003, "message": "Threshold must be in [0, 100]" }
+  ],
+  "examples": [
+    {
+      "name": "N50 of 10 contigs",
+      "input": { "sortedLengths": [100, 90, 80, 70, 60, 50, 40, 30, 20, 10], "totalLength": 550, "threshold": 50 },
+      "output": { "threshold": 50, "nx": 70, "lx": 4, "cumulativeLength": 340 }
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_syntenic_blocks_assemblies",
+  "serverName": "Chromosome",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomeAssemblyAnalyzer.FindSyntenicBlocks",
+  "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L895",
+  "description": "Find syntenic blocks between two assemblies via k-mer anchor clustering; flags inverted blocks.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "assembly1": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "sequence": { "type": "string" } }, "required": ["id", "sequence"] } },
+      "assembly2": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "sequence": { "type": "string" } }, "required": ["id", "sequence"] } },
+      "minBlockSize": { "type": "integer", "default": 1000, "exclusiveMinimum": 0 },
+      "kmerSize": { "type": "integer", "default": 21, "exclusiveMinimum": 0 }
+    },
+    "required": ["assembly1", "assembly2"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": { "type": "array", "items": { "type": "object", "properties": { "seq1": { "type": "string" }, "start1": { "type": "integer" }, "end1": { "type": "integer" }, "seq2": { "type": "string" }, "start2": { "type": "integer" }, "end2": { "type": "integer" }, "isInverted": { "type": "boolean" } }, "required": ["seq1", "start1", "end1", "seq2", "start2", "end2", "isInverted"] } }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Assembly 1 cannot be null" },
+    { "code": 1002, "message": "Assembly 2 cannot be null" },
+    { "code": 1003, "message": "Minimum block size must be positive" },
+    { "code": 1004, "message": "K-mer size must be positive" }
+  ],
+  "examples": [
+    { "name": "Identical 5 kb sequence", "input": { "assembly1": [ { "id": "s1", "sequence": "…(5000 bp)" } ], "assembly2": [ { "id": "s1", "sequence": "…(same)" } ], "minBlockSize": 1000, "kmerSize": 21 }, "output": { "items": [ { "seq1": "s1", "seq2": "s1", "start1": 0, "isInverted": false } ] } }
+  ]
+}

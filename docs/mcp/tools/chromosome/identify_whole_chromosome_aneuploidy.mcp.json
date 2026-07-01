@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "identify_whole_chromosome_aneuploidy",
+  "serverName": "Chromosome",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ChromosomeAnalyzer.IdentifyWholeChromosomeAneuploidy",
+  "docRef": "Seqeron.Genomics.Chromosome/ChromosomeAnalyzer.cs#L1586",
+  "description": "Identify whole-chromosome aneuploidies (Monosomy/Trisomy/Tetrasomy/etc.) from per-bin copy-number states.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "copyNumberStates": { "type": "array", "items": { "type": "object", "description": "CopyNumberState, typically from detect_aneuploidy." } },
+      "minFraction": { "type": "number", "default": 0.8, "exclusiveMinimum": 0, "maximum": 1, "description": "Minimum dominant-bin fraction." }
+    },
+    "required": ["copyNumberStates"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": { "type": "array", "items": { "type": "object", "properties": { "chromosome": { "type": "string" }, "copyNumber": { "type": "integer" }, "type": { "type": "string" } }, "required": ["chromosome", "copyNumber", "type"] } }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Copy-number states cannot be null" },
+    { "code": 1002, "message": "Minimum fraction must be in (0, 1]" }
+  ],
+  "examples": [
+    { "name": "Trisomy", "input": { "copyNumberStates": "[3 bins all copy number 3]", "minFraction": 0.8 }, "output": { "items": [ { "chromosome": "chr1", "copyNumber": 3, "type": "Trisomy" } ] } },
+    { "name": "Diploid", "input": { "copyNumberStates": "[bins copy number 2]", "minFraction": 0.8 }, "output": { "items": [] } }
+  ]
+}

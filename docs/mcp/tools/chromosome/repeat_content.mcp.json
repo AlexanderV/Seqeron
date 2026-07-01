@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "repeat_content",
+  "serverName": "Chromosome",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomeAssemblyAnalyzer.CalculateRepeatContent",
+  "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L816",
+  "description": "Compute total repeat length, repeat percentage and per-class lengths from repeat annotations.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "repeats": { "type": "array", "items": { "type": "object", "description": "RepeatAnnotation { sequenceId, start, end, repeatClass, repeatFamily, divergencePercent, strand }." } },
+      "genomeLength": { "type": "integer", "exclusiveMinimum": 0 }
+    },
+    "required": ["repeats", "genomeLength"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "totalRepeatLength": { "type": "integer" },
+      "repeatPercentage": { "type": "number" },
+      "repeatClassLengths": { "type": "object", "additionalProperties": { "type": "integer" } }
+    },
+    "required": ["totalRepeatLength", "repeatPercentage", "repeatClassLengths"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Repeats cannot be null" },
+    { "code": 1002, "message": "Genome length must be positive" }
+  ],
+  "examples": [
+    { "name": "LINE + SINE", "input": { "repeats": "[LINE 0-99, SINE 100-149]", "genomeLength": 1000 }, "output": { "totalRepeatLength": 150, "repeatPercentage": 15.0, "repeatClassLengths": { "LINE": 100, "SINE": 50 } } }
+  ]
+}

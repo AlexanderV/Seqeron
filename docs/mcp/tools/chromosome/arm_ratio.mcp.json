@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "arm_ratio",
+  "serverName": "Chromosome",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ChromosomeAnalyzer.CalculateArmRatio",
+  "docRef": "Seqeron.Genomics.Chromosome/ChromosomeAnalyzer.cs#L1631",
+  "description": "Compute chromosome arm ratio (p/q) from centromere position and total length.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "centromerePosition": { "type": "integer", "exclusiveMinimum": 0, "description": "Centromere position in bp (0 < pos < length)." },
+      "chromosomeLength": { "type": "integer", "exclusiveMinimum": 0, "description": "Total chromosome length in bp." }
+    },
+    "required": ["centromerePosition", "chromosomeLength"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": { "armRatio": { "type": "number", "description": "p/q = centromerePosition / (chromosomeLength - centromerePosition)." } },
+    "required": ["armRatio"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Centromere position must be positive" },
+    { "code": 1002, "message": "Chromosome length must be positive" },
+    { "code": 1003, "message": "Centromere position must be less than chromosome length" }
+  ],
+  "examples": [
+    { "name": "Off-center", "input": { "centromerePosition": 40, "chromosomeLength": 100 }, "output": { "armRatio": 0.6667 } },
+    { "name": "Metacentric", "input": { "centromerePosition": 50, "chromosomeLength": 100 }, "output": { "armRatio": 1.0 } }
+  ]
+}
