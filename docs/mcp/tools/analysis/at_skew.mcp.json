@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "at_skew",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GcSkewCalculator.CalculateAtSkew",
+  "docRef": "Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L189",
+  "description": "Whole-sequence AT skew = (A - T) / (A + T). Range [-1, 1]; 0 if no A/T. Only A/T counted, other symbols ignored.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "atSkew": { "type": "number", "description": "AT skew (A - T)/(A + T) in [-1, 1]" }
+    },
+    "required": ["atSkew"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Adenine-rich",
+      "input": { "sequence": "AAAT" },
+      "output": { "atSkew": 0.5 }
+    },
+    {
+      "name": "G/C ignored",
+      "input": { "sequence": "AAATGGGCCC" },
+      "output": { "atSkew": 0.5 }
+    }
+  ]
+}
