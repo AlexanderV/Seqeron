@@ -153,7 +153,7 @@ public class MolToolsTools
         return new EnzymeListResult(RestrictionAnalyzer.GetBluntCutters().ToList());
     }
 
-    [McpServerTool, Description("Lists all built-in enzymes that produce sticky (cohesive) ends.")]
+    [McpServerTool(Name = "sticky_cutters", Title = "MolTools — Sticky-End Restriction Enzymes", ReadOnly = true), Description("Lists all built-in restriction enzymes that produce sticky (cohesive) ends — a staggered cut leaving a 5' or 3' single-stranded overhang. Call when the user wants overhang-generating enzymes for directional / sticky-end cloning.")]
     public static EnzymeListResult sticky_cutters()
     {
         return new EnzymeListResult(RestrictionAnalyzer.GetStickyCutters().ToList());
