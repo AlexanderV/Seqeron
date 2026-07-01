@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "f_statistics",
+  "serverName": "Population",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PopulationGeneticsAnalyzer.CalculateFStatistics",
+  "docRef": "Seqeron.Genomics.Population/PopulationGeneticsAnalyzer.cs#L674",
+  "description": "Compute Wright's F-statistics (Fis, Fit, Fst) between two populations from per-variant observed heterozygote counts and allele frequencies.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "pop1Name": { "type": "string", "description": "Population 1 name." },
+      "pop2Name": { "type": "string", "description": "Population 2 name." },
+      "variantData": {
+        "type": "array",
+        "description": "Per-variant rows of observed heterozygote counts, sample sizes and allele frequencies.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "hetObs1": { "type": "integer", "description": "Observed heterozygote count in population 1." },
+            "n1": { "type": "integer", "description": "Sample size (individuals) in population 1." },
+            "hetObs2": { "type": "integer", "description": "Observed heterozygote count in population 2." },
+            "n2": { "type": "integer", "description": "Sample size (individuals) in population 2." },
+            "alleleFreq1": { "type": "number", "description": "Allele frequency in population 1." },
+            "alleleFreq2": { "type": "number", "description": "Allele frequency in population 2." }
+          },
+          "required": ["hetObs1", "n1", "hetObs2", "n2", "alleleFreq1", "alleleFreq2"]
+        }
+      }
+    },
+    "required": ["pop1Name", "pop2Name", "variantData"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "fst": { "type": "number", "description": "Fst = 1 − H_S/H_T, in [0, 1]" },
+      "fis": { "type": "number", "description": "Fis = 1 − H_I/H_S (may be negative)" },
+      "fit": { "type": "number", "description": "Fit = 1 − H_I/H_T (may be negative)" },
+      "population1": { "type": "string" },
+      "population2": { "type": "string" }
+    },
+    "required": ["fst", "fis", "fit", "population1", "population2"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Two-locus hand-calculated F-statistics",
+      "input": {
+        "pop1Name": "Pop1",
+        "pop2Name": "Pop2",
+        "variantData": [
+          { "hetObs1": 20, "n1": 50, "hetObs2": 25, "n2": 50, "alleleFreq1": 0.4, "alleleFreq2": 0.5 },
+          { "hetObs1": 30, "n1": 50, "hetObs2": 15, "n2": 50, "alleleFreq1": 0.5, "alleleFreq2": 0.3 }
+        ]
+      },
+      "output": { "fis": 0.0526315789, "fit": 0.0769230769, "fst": 0.0256410256, "population1": "Pop1", "population2": "Pop2" }
+    },
+    {
+      "name": "Excess heterozygosity yields negative Fis",
+      "input": {
+        "pop1Name": "Pop1",
+        "pop2Name": "Pop2",
+        "variantData": [
+          { "hetObs1": 60, "n1": 100, "hetObs2": 80, "n2": 100, "alleleFreq1": 0.3, "alleleFreq2": 0.7 }
+        ]
+      },
+      "output": { "fis": -0.6666666667, "fit": -0.4, "fst": 0.16, "population1": "Pop1", "population2": "Pop2" }
+    }
+  ]
+}
