@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "select_phylogenetic_markers",
+  "serverName": "Metagenomics",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PanGenomeAnalyzer.SelectPhylogeneticMarkers",
+  "docRef": "Seqeron.Genomics.Metagenomics/PanGenomeAnalyzer.cs#L997",
+  "description": "Pick phylogenetic markers: single-copy core clusters (present in all genomes with exactly one gene each) with >= 1 parsimony-informative site, ranked by descending PIS count, capped at maxMarkers (panX/Roary).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "genomes": {
+        "type": "array",
+        "description": "Genomes (id + ordered list of genes), used to recover each cluster's member sequences.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "genomeId": { "type": "string" },
+            "genes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": { "geneId": { "type": "string" }, "sequence": { "type": "string" } },
+                "required": ["geneId", "sequence"]
+              }
+            }
+          },
+          "required": ["genomeId", "genes"]
+        }
+      },
+      "coreClusters": {
+        "type": "array",
+        "description": "Core gene clusters to filter (e.g. from core_gene_clusters).",
+        "items": {
+          "type": "object",
+          "properties": {
+            "clusterId": { "type": "string" },
+            "geneIds": { "type": "array", "items": { "type": "string" } },
+            "genomeIds": { "type": "array", "items": { "type": "string" } },
+            "genomeCount": { "type": "integer" },
+            "averageIdentity": { "type": "number" },
+            "consensusSequence": { "type": "string" }
+          },
+          "required": ["clusterId", "geneIds", "genomeIds", "genomeCount", "averageIdentity", "consensusSequence"]
+        }
+      },
+      "totalGenomes": { "type": "integer", "description": "Total number of genomes in the analysis.", "minimum": 1 },
+      "maxMarkers": { "type": "integer", "description": "Maximum number of markers to return (default 100).", "default": 100, "minimum": 1 }
+    },
+    "required": ["genomes", "coreClusters", "totalGenomes"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "clusterId": { "type": "string" },
+            "geneIds": { "type": "array", "items": { "type": "string" } },
+            "genomeIds": { "type": "array", "items": { "type": "string" } },
+            "genomeCount": { "type": "integer" },
+            "averageIdentity": { "type": "number" },
+            "consensusSequence": { "type": "string" }
+          },
+          "required": ["clusterId", "geneIds", "genomeIds", "genomeCount", "averageIdentity", "consensusSequence"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Two single-copy core clusters ranked by PIS",
+      "input": {
+        "genomes": [
+          { "genomeId": "g1", "genes": [ { "geneId": "hi1", "sequence": "AC" }, { "geneId": "lo1", "sequence": "AC" } ] },
+          { "genomeId": "g2", "genes": [ { "geneId": "hi2", "sequence": "AC" }, { "geneId": "lo2", "sequence": "AC" } ] },
+          { "genomeId": "g3", "genes": [ { "geneId": "hi3", "sequence": "GG" }, { "geneId": "lo3", "sequence": "GC" } ] },
+          { "genomeId": "g4", "genes": [ { "geneId": "hi4", "sequence": "GG" }, { "geneId": "lo4", "sequence": "GT" } ] }
+        ],
+        "coreClusters": [
+          { "clusterId": "aHi", "geneIds": ["hi1", "hi2", "hi3", "hi4"], "genomeIds": ["g1", "g2", "g3", "g4"], "genomeCount": 4, "averageIdentity": 1.0, "consensusSequence": "AC" },
+          { "clusterId": "zLo", "geneIds": ["lo1", "lo2", "lo3", "lo4"], "genomeIds": ["g1", "g2", "g3", "g4"], "genomeCount": 4, "averageIdentity": 1.0, "consensusSequence": "AC" }
+        ],
+        "totalGenomes": 4
+      },
+      "output": { "items": [ { "clusterId": "aHi" }, { "clusterId": "zLo" } ] }
+    },
+    {
+      "name": "Cap to the single most informative marker",
+      "input": { "genomes": "(as above)", "coreClusters": "(as above)", "totalGenomes": 4, "maxMarkers": 1 },
+      "output": { "items": [ { "clusterId": "aHi" } ] }
+    }
+  ]
+}
