@@ -250,10 +250,13 @@ public class MolToolsTools
         return new EncResult(CodonUsageAnalyzer.CalculateEnc(sequence));
     }
 
-    [McpServerTool, Description("Aggregate codon-usage report: per-codon counts, RSCU, ENC, total codons, GC% at codon positions 1/2/3, GC3s, and overall GC.")]
+    [McpServerTool(Name = "codon_usage_statistics", Title = "MolTools — Codon-Usage Statistics", ReadOnly = true), Description("Aggregate codon-usage report for a coding sequence: per-codon counts, RSCU, Effective Number of Codons (ENC), total codons, GC% at codon positions 1/2/3, GC3s (synonymous third-position GC), and overall GC. Call for a one-shot codon-usage summary of a gene.")]
     public static CodonUsageStatistics codon_usage_statistics(
         [Description("Coding DNA sequence (frame 0).")] string sequence)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+
         return CodonUsageAnalyzer.GetStatistics(sequence);
     }
 
