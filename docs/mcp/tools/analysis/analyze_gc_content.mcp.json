@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "analyze_gc_content",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GcSkewCalculator.AnalyzeGcContent",
+  "docRef": "Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L310",
+  "description": "Comprehensive GC report: overall GC content, GC/AT skew, content/skew population variances, and windowed GC-skew/GC-content profiles.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "DNA sequence (A/C/G/T)",
+        "minLength": 1
+      },
+      "windowSize": {
+        "type": "integer",
+        "description": "Sliding-window length for the profiles",
+        "default": 1000,
+        "minimum": 1
+      },
+      "stepSize": {
+        "type": "integer",
+        "description": "Step between window starts",
+        "default": 100,
+        "minimum": 1
+      }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "overallGcContent": { "type": "number", "description": "GC% over whole sequence = (G+C)/(A+T+G+C)*100" },
+      "overallGcSkew": { "type": "number", "description": "GC skew = (G-C)/(G+C) in [-1,1]" },
+      "overallAtSkew": { "type": "number", "description": "AT skew = (A-T)/(A+T) in [-1,1]" },
+      "gcContentVariance": { "type": "number", "description": "Population variance of per-window GC%" },
+      "gcSkewVariance": { "type": "number", "description": "Population variance of per-window GC skew" },
+      "windowedGcSkew": {
+        "type": "array",
+        "description": "Per-window GC-skew points",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": { "type": "integer" },
+            "gcSkew": { "type": "number" },
+            "windowStart": { "type": "integer" },
+            "windowEnd": { "type": "integer" }
+          },
+          "required": ["position", "gcSkew", "windowStart", "windowEnd"]
+        }
+      },
+      "windowedGcContent": {
+        "type": "array",
+        "description": "Per-window GC-content points",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": { "type": "integer" },
+            "gcContent": { "type": "number" },
+            "windowStart": { "type": "integer" },
+            "windowEnd": { "type": "integer" }
+          },
+          "required": ["position", "gcContent", "windowStart", "windowEnd"]
+        }
+      },
+      "sequenceLength": { "type": "integer", "description": "Length of the input sequence" }
+    },
+    "required": ["overallGcContent", "overallGcSkew", "overallAtSkew", "gcContentVariance", "gcSkewVariance", "windowedGcSkew", "windowedGcContent", "sequenceLength"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1002, "message": "Invalid DNA sequence" }
+  ],
+  "examples": [
+    {
+      "name": "Overall scalar metrics on GGGCCAT",
+      "input": { "sequence": "GGGCCAT" },
+      "output": {
+        "overallGcContent": 71.42857142857143,
+        "overallGcSkew": 0.2,
+        "overallAtSkew": 0.0,
+        "gcContentVariance": 0.0,
+        "gcSkewVariance": 0.0,
+        "windowedGcSkew": [],
+        "windowedGcContent": [],
+        "sequenceLength": 7
+      }
+    },
+    {
+      "name": "Windowed population variance on GGCC (window 2, step 2)",
+      "input": { "sequence": "GGCC", "windowSize": 2, "stepSize": 2 },
+      "output": {
+        "overallGcContent": 100.0,
+        "overallGcSkew": 0.0,
+        "gcSkewVariance": 1.0,
+        "gcContentVariance": 0.0,
+        "sequenceLength": 4
+      }
+    }
+  ]
+}
