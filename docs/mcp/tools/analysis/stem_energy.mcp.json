@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "stem_energy",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RnaSecondaryStructure.CalculateStemEnergy",
+  "docRef": "Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L570",
+  "description": "Free energy (kcal/mol) of an RNA stem: Turner 2004 nearest-neighbor stacking over consecutive base pairs plus AU/GU terminal penalties. A single pair has no stacking (0).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "RNA sequence containing the stem", "minLength": 1 },
+      "basePairs": {
+        "type": "array",
+        "description": "Base pairs forming the stem (5' -> 3' order)",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position1": { "type": "integer" },
+            "position2": { "type": "integer" },
+            "base1": { "type": "string" },
+            "base2": { "type": "string" },
+            "type": { "type": "string" }
+          },
+          "required": ["position1", "position2", "base1", "base2", "type"]
+        }
+      }
+    },
+    "required": ["sequence", "basePairs"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": { "energy": { "type": "number", "description": "kcal/mol" } },
+    "required": ["energy"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1001, "message": "Base pairs cannot be null" }
+  ],
+  "examples": [
+    { "name": "Single pair -> 0", "input": { "sequence": "GAAAC", "basePairs": [ { "position1": 0, "position2": 4, "base1": "G", "base2": "C", "type": "WatsonCrick" } ] }, "output": { "energy": 0.0 } },
+    { "name": "GG/CC stack -> -3.26", "input": { "sequence": "dummy", "basePairs": [ { "position1": 0, "position2": 5, "base1": "G", "base2": "C", "type": "WatsonCrick" }, { "position1": 1, "position2": 4, "base1": "G", "base2": "C", "type": "WatsonCrick" } ] }, "output": { "energy": -3.26 } }
+  ]
+}
