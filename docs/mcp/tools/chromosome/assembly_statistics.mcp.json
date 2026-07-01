@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "assembly_statistics",
+  "serverName": "Chromosome",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomeAssemblyAnalyzer.CalculateStatistics",
+  "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L121",
+  "description": "Compute comprehensive assembly statistics: total length, N50/L50/N90/L90, largest/smallest, mean/median, GC, and gap metrics.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequences": {
+        "type": "array",
+        "items": { "type": "object", "properties": { "id": { "type": "string" }, "sequence": { "type": "string" } }, "required": ["id", "sequence"] }
+      }
+    },
+    "required": ["sequences"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "totalSequences": { "type": "integer" },
+      "totalLength": { "type": "integer" },
+      "totalLengthNoGaps": { "type": "integer" },
+      "n50": { "type": "integer" }, "l50": { "type": "integer" },
+      "n90": { "type": "integer" }, "l90": { "type": "integer" },
+      "largestContig": { "type": "integer" }, "smallestContig": { "type": "integer" },
+      "meanLength": { "type": "number" }, "medianLength": { "type": "number" },
+      "gcContent": { "type": "number" },
+      "totalGaps": { "type": "integer" }, "totalGapLength": { "type": "integer" }, "gapPercentage": { "type": "number" }
+    },
+    "required": ["totalSequences", "totalLength", "n50", "l50", "largestContig", "smallestContig", "meanLength", "gcContent"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequences cannot be null" }
+  ],
+  "examples": [
+    {
+      "name": "Two contigs",
+      "input": { "sequences": [ { "id": "s1", "sequence": "ACGTACGTGG" }, { "id": "s2", "sequence": "ACGTAC" } ] },
+      "output": { "totalSequences": 2, "totalLength": 16, "largestContig": 10, "smallestContig": 6, "meanLength": 8.0, "gcContent": 0.5625, "n50": 10, "l50": 1 }
+    }
+  ]
+}
