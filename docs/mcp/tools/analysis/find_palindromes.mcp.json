@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_palindromes",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RepeatFinder.FindPalindromes",
+  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L981",
+  "description": "DNA palindromes: even-length subsequences identical to their reverse complement (restriction-enzyme recognition-site candidates). minLength must be even and >= 4.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
+      "minLength": { "type": "integer", "description": "Minimum palindrome length, even, >= 4 (default 4)", "minimum": 4, "default": 4 },
+      "maxLength": { "type": "integer", "description": "Maximum palindrome length (default 12)", "default": 12 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": { "type": "integer" },
+            "sequence": { "type": "string" },
+            "length": { "type": "integer" }
+          },
+          "required": ["position", "sequence", "length"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1002, "message": "minLength must be even and >= 4" }
+  ],
+  "examples": [
+    {
+      "name": "EcoRI site GAATTC",
+      "input": { "sequence": "GAATTC", "minLength": 4, "maxLength": 12 },
+      "output": { "items": [ { "position": 1, "sequence": "AATT", "length": 4 }, { "position": 0, "sequence": "GAATTC", "length": 6 } ] }
+    },
+    {
+      "name": "No palindrome",
+      "input": { "sequence": "AAAA", "minLength": 4, "maxLength": 12 },
+      "output": { "items": [] }
+    }
+  ]
+}
