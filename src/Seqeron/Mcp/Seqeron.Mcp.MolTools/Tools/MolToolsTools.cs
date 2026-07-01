@@ -480,53 +480,84 @@ public class MolToolsTools
 
     #region ProbeDesigner
 
-    [McpServerTool, Description("Designs hybridization probes by scanning the target for length-window candidates and ranking by GC%, Tm, homopolymers, self-complementarity, and structure heuristics. Use one of the ProbeParameters presets (Microarray | FISH | NorthernBlot | qPCR | SouthernBlot) or pass custom values; default = Microarray. Returns up to max_probes top-scoring probes.")]
+    [McpServerTool(Name = "design_probes", Title = "MolTools — Design Hybridization Probes", ReadOnly = true), Description("Designs hybridization probes by scanning the target for length-window candidates and ranking by GC%, Tm, homopolymers, self-complementarity, and structure heuristics (returned sorted by score, descending). Use one of the ProbeParameters presets (Microarray | FISH | NorthernBlot | qPCR | SouthernBlot) or pass custom values; default = Microarray. Returns up to max_probes top-scoring probes; a target shorter than the minimum probe length yields an empty list.")]
     public static ProbesResult design_probes(
         [Description("Target DNA sequence.")] string target_sequence,
         [Description("Optional probe-design parameters (lengths, Tm range, GC range, max homopolymer, self-complementarity threshold). Defaults to Microarray when null.")] ProbeDesigner.ProbeParameters? parameters = null,
         [Description("Maximum probes to return (default 10).")] int max_probes = 10)
     {
+        if (string.IsNullOrEmpty(target_sequence))
+            throw new System.ArgumentException("Target sequence cannot be null or empty.", nameof(target_sequence));
+        if (max_probes <= 0)
+            throw new System.ArgumentException("Maximum probes must be positive.", nameof(max_probes));
+
         var probes = ProbeDesigner.DesignProbes(target_sequence, parameters, max_probes).ToList();
         return new ProbesResult(probes);
     }
 
-    [McpServerTool, Description("Generates fixed-length probes covering the entire target with a configurable overlap. Sub-optimal candidates are still emitted (with a warning) so coverage is preserved.")]
+    [McpServerTool(Name = "design_tiling_probes", Title = "MolTools — Design Tiling Probes", ReadOnly = true), Description("Generates fixed-length probes covering the entire target with a configurable overlap (step = probe_length − overlap). Sub-optimal candidates are still emitted (each with a 'Suboptimal probe' warning) so coverage is preserved. Returns the probe set plus covered-position count, mean Tm, and Tm range.")]
     public static ProbeDesigner.TilingProbeSet design_tiling_probes(
         [Description("Target DNA sequence.")] string target_sequence,
         [Description("Tiling probe length in bp (default 60).")] int probe_length = 60,
         [Description("Overlap between adjacent probes in bp (default 20).")] int overlap = 20,
         [Description("Optional probe-design parameters (Tm/GC bounds etc.).")] ProbeDesigner.ProbeParameters? parameters = null)
     {
+        if (string.IsNullOrEmpty(target_sequence))
+            throw new System.ArgumentException("Target sequence cannot be null or empty.", nameof(target_sequence));
+        if (probe_length <= 0)
+            throw new System.ArgumentException("Probe length must be positive.", nameof(probe_length));
+        if (overlap < 0 || overlap >= probe_length)
+            throw new System.ArgumentException("Overlap must be non-negative and less than the probe length.", nameof(overlap));
+
         return ProbeDesigner.DesignTilingProbes(target_sequence, probe_length, overlap, parameters);
     }
 
-    [McpServerTool, Description("Reverse-complements the supplied mRNA-sense sequence and runs design_probes on it; tags returned probes with type=Antisense.")]
+    [McpServerTool(Name = "design_antisense_probes", Title = "MolTools — Design Antisense Probes", ReadOnly = true), Description("Reverse-complements the supplied mRNA-sense sequence and runs the probe designer on it; every returned probe is tagged type=Antisense. Returns up to max_probes top-scoring antisense probes.")]
     public static ProbesResult design_antisense_probes(
         [Description("mRNA-sense sequence (will be reverse-complemented).")] string mrna_sequence,
         [Description("Optional probe-design parameters.")] ProbeDesigner.ProbeParameters? parameters = null,
         [Description("Maximum probes to return (default 5).")] int max_probes = 5)
     {
+        if (string.IsNullOrEmpty(mrna_sequence))
+            throw new System.ArgumentException("mRNA sequence cannot be null or empty.", nameof(mrna_sequence));
+        if (max_probes <= 0)
+            throw new System.ArgumentException("Maximum probes must be positive.", nameof(max_probes));
+
         var probes = ProbeDesigner.DesignAntisenseProbes(mrna_sequence, parameters, max_probes).ToList();
         return new ProbesResult(probes);
     }
 
-    [McpServerTool, Description("Designs a hairpin molecular-beacon probe (GC-rich complementary stems flanking a target-specific loop) for real-time detection. Returns probe=null when target is shorter than probe_length or no acceptable loop is found.")]
+    [McpServerTool(Name = "design_molecular_beacon", Title = "MolTools — Design Molecular Beacon", ReadOnly = true), Description("Designs a hairpin molecular-beacon probe: GC-rich complementary stems (stem5 = ⌊stem_length/2⌋ Gs + remaining Cs, stem3 = its reverse complement) flanking the best target-specific loop of probe_length bases, for real-time detection. The reported Tm is the loop Tm and Start/End mark the loop in the target. Returns probe=null when the target is shorter than probe_length.")]
     public static MolecularBeaconResult design_molecular_beacon(
         [Description("Target DNA sequence.")] string target_sequence,
         [Description("Loop (target-specific) length in bp (default 25).")] int probe_length = 25,
         [Description("Stem length in bp (default 5).")] int stem_length = 5)
     {
+        if (string.IsNullOrEmpty(target_sequence))
+            throw new System.ArgumentException("Target sequence cannot be null or empty.", nameof(target_sequence));
+        if (probe_length <= 0)
+            throw new System.ArgumentException("Probe (loop) length must be positive.", nameof(probe_length));
+        if (stem_length <= 0)
+            throw new System.ArgumentException("Stem length must be positive.", nameof(stem_length));
+
         return new MolecularBeaconResult(
             ProbeDesigner.DesignMolecularBeacon(target_sequence, probe_length, stem_length));
     }
 
-    [McpServerTool, Description("Validates a probe against a set of reference sequences using k-mismatch approximate matching. Reports off-target hits, self-complementarity, secondary-structure flag, and a 0..1 specificity score (1.0 = unique match, 1/N for N hits, 0 if no hits).")]
+    [McpServerTool(Name = "validate_probe", Title = "MolTools — Validate Probe Specificity", ReadOnly = true), Description("Validates a probe against a set of reference sequences using ungapped k-mismatch (Hamming) approximate matching. Reports the off-target hit count, self-complementarity, a secondary-structure flag, an issues list, and a 0..1 specificity score (0 hits → 0.0, 1 hit → 1.0, N hits → 1/N). Call to check whether a designed probe is specific to its intended target.")]
     public static ProbeDesigner.ProbeValidation validate_probe(
         [Description("Probe sequence to validate.")] string probe_sequence,
         [Description("Reference sequences to scan for off-target hits.")] string[] reference_sequences,
         [Description("Maximum allowed mismatches (default 3).")] int max_mismatches = 3,
         [Description("Self-complementarity warning threshold (default 0.3).")] double self_complementarity_threshold = 0.3)
     {
+        if (probe_sequence is null)
+            throw new System.ArgumentException("Probe sequence cannot be null.", nameof(probe_sequence));
+        if (reference_sequences is null)
+            throw new System.ArgumentException("Reference sequences cannot be null.", nameof(reference_sequences));
+        if (max_mismatches < 0)
+            throw new System.ArgumentException("Maximum mismatches cannot be negative.", nameof(max_mismatches));
+
         return ProbeDesigner.ValidateProbe(probe_sequence, reference_sequences, max_mismatches, self_complementarity_threshold);
     }
 
