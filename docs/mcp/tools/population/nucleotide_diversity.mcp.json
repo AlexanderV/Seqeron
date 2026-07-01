@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "nucleotide_diversity",
+  "serverName": "Population",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PopulationGeneticsAnalyzer.CalculateNucleotideDiversity",
+  "docRef": "Seqeron.Genomics.Population/PopulationGeneticsAnalyzer.cs#L205",
+  "description": "Compute nucleotide diversity π — the average pairwise per-site difference across an aligned set of equal-length sequences.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequences": {
+        "type": "array",
+        "description": "Aligned sequences of equal length.",
+        "items": { "type": "string" },
+        "minItems": 1
+      }
+    },
+    "required": ["sequences"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "pi": { "type": "number", "description": "Nucleotide diversity π ∈ [0, 1]" }
+    },
+    "required": ["pi"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Two maximally different sequences",
+      "input": { "sequences": ["AAAA", "TTTT"] },
+      "output": { "pi": 1.0 }
+    },
+    {
+      "name": "Wikipedia Tajima's D example (5 sequences, length 20)",
+      "input": { "sequences": ["00000000000000000000", "00100000000010000010", "00000000000010000010", "00000010000000000010", "00000010000010000010"] },
+      "output": { "pi": 0.1 }
+    }
+  ]
+}
