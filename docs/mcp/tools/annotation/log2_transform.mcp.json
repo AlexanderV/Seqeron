@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "log2_transform",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "TranscriptomeAnalyzer.Log2Transform",
+  "docRef": "Seqeron.Genomics.Annotation/TranscriptomeAnalyzer.cs#L237",
+  "description": "Apply log2(x + pseudocount) to each value (used to stabilize variance of count-like expression data).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "values": { "type": "array", "items": { "type": "number" }, "description": "Values to transform" },
+      "pseudocount": { "type": "number", "description": "Pseudocount added before log2 (avoids log(0))", "default": 1.0 }
+    },
+    "required": ["values"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "transformed": { "type": "array", "items": { "type": "number" }, "description": "log2(value + pseudocount) per input" }
+    },
+    "required": ["transformed"]
+  },
+  "errors": [
+    { "code": 1001, "message": "values cannot be null" }
+  ],
+  "examples": [
+    {
+      "name": "Default pseudocount 1",
+      "input": { "values": [0.0, 1.0, 3.0, 7.0] },
+      "output": { "transformed": [0.0, 1.0, 2.0, 3.0] }
+    },
+    {
+      "name": "Custom pseudocount 3",
+      "input": { "values": [1.0, 5.0], "pseudocount": 3.0 },
+      "output": { "transformed": [2.0, 3.0] }
+    }
+  ]
+}
