@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "compute_consensus",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceAssembler.ComputeConsensus",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L861",
+  "description": "Build a consensus from pre-aligned reads (same length; '-'/'.' ignored) by column-wise majority vote (Biopython dumb_consensus, threshold 0.5). Ties and sub-threshold columns emit 'N'.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "alignedReads": {
+        "type": "array",
+        "description": "Pre-aligned reads of identical length."
+      }
+    },
+    "required": [
+      "alignedReads"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "consensus": {
+        "type": "string",
+        "description": "The consensus sequence (length equals the longest read)."
+      }
+    },
+    "required": [
+      "consensus"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1003,
+      "message": "All aligned reads must have the same length"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Majority vote",
+      "input": {
+        "alignedReads": [
+          "ACGT",
+          "ACGT",
+          "ACGA"
+        ]
+      },
+      "output": {
+        "consensus": "ACGT"
+      }
+    },
+    {
+      "name": "Tie -> ambiguous",
+      "input": {
+        "alignedReads": [
+          "A",
+          "C"
+        ]
+      },
+      "output": {
+        "consensus": "N"
+      }
+    }
+  ]
+}

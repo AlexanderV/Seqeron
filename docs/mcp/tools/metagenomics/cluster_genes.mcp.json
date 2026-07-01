@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "cluster_genes",
+  "serverName": "Metagenomics",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PanGenomeAnalyzer.ClusterGenes",
+  "docRef": "Seqeron.Genomics.Metagenomics/PanGenomeAnalyzer.cs#L210",
+  "description": "Cluster genes from multiple genomes into ortholog groups using CD-HIT greedy global-identity clustering. Returns clusters with member gene/genome ids, average identity, and a representative consensus sequence.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "genomes": {
+        "type": "array",
+        "description": "Genomes (id + ordered list of genes).",
+        "items": {
+          "type": "object",
+          "properties": {
+            "genomeId": { "type": "string" },
+            "genes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": { "geneId": { "type": "string" }, "sequence": { "type": "string" } },
+                "required": ["geneId", "sequence"]
+              }
+            }
+          },
+          "required": ["genomeId", "genes"]
+        }
+      },
+      "identityThreshold": { "type": "number", "description": "Sequence-identity threshold for cluster membership (CD-HIT -c, default 0.9).", "default": 0.9, "minimum": 0, "maximum": 1 }
+    },
+    "required": ["genomes"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "clusterId": { "type": "string" },
+            "geneIds": { "type": "array", "items": { "type": "string" } },
+            "genomeIds": { "type": "array", "items": { "type": "string" } },
+            "genomeCount": { "type": "integer" },
+            "averageIdentity": { "type": "number", "description": "Mean pairwise global identity (1.0 for singletons)." },
+            "consensusSequence": { "type": "string", "description": "Representative (longest) member sequence." }
+          },
+          "required": ["clusterId", "geneIds", "genomeIds", "genomeCount", "averageIdentity", "consensusSequence"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Two 0.875-identity genes at threshold 0.8",
+      "input": {
+        "genomes": [
+          { "genomeId": "g1", "genes": [ { "geneId": "a", "sequence": "ATGCATGC" } ] },
+          { "genomeId": "g2", "genes": [ { "geneId": "b", "sequence": "ATGCATGG" } ] }
+        ],
+        "identityThreshold": 0.8
+      },
+      "output": { "items": [ { "genomeCount": 2, "averageIdentity": 0.875 } ] }
+    },
+    {
+      "name": "Length difference, longest member is representative",
+      "input": {
+        "genomes": [
+          { "genomeId": "g1", "genes": [ { "geneId": "short", "sequence": "ATGCATGC" } ] },
+          { "genomeId": "g2", "genes": [ { "geneId": "long", "sequence": "ATGCATGCAAAA" } ] }
+        ],
+        "identityThreshold": 1.0
+      },
+      "output": { "items": [ { "consensusSequence": "ATGCATGCAAAA", "geneIds": ["long", "short"] } ] }
+    }
+  ]
+}

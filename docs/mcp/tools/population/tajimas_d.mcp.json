@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "tajimas_d",
+  "serverName": "Population",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PopulationGeneticsAnalyzer.CalculateTajimasD",
+  "docRef": "Seqeron.Genomics.Population/PopulationGeneticsAnalyzer.cs#L266",
+  "description": "Compute Tajima's D (Tajima 1989) from average pairwise differences k̂, segregating sites S, and sample size n (n ≥ 3 required).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "averagePairwiseDifferences": { "type": "number", "description": "k̂ — average number of pairwise differences between sequences (NOT per-site)." },
+      "segregatingSites": { "type": "integer", "description": "Number of segregating sites S.", "minimum": 0 },
+      "sampleSize": { "type": "integer", "description": "Sample size n." }
+    },
+    "required": ["averagePairwiseDifferences", "segregatingSites", "sampleSize"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "tajimasD": { "type": "number", "description": "Tajima's D; 0 when S = 0, n < 3, or variance ≤ 0." }
+    },
+    "required": ["tajimasD"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Wikipedia example (k̂=2.0, S=4, n=5)",
+      "input": { "averagePairwiseDifferences": 2.0, "segregatingSites": 4, "sampleSize": 5 },
+      "output": { "tajimasD": 0.273 }
+    },
+    {
+      "name": "Neutral: k̂ = S/a₁ → D = 0",
+      "input": { "averagePairwiseDifferences": 22.2, "segregatingSites": 100, "sampleSize": 50 },
+      "output": { "tajimasD": 0.0 }
+    }
+  ]
+}

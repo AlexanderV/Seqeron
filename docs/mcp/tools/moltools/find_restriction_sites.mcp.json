@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_restriction_sites",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RestrictionAnalyzer.FindSites",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L207",
+  "description": "Find restriction sites for named built-in enzymes on both strands of a DNA sequence.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "DNA sequence to scan.", "minLength": 1 },
+      "enzyme_names": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "Enzyme names to look for." }
+    },
+    "required": ["sequence", "enzyme_names"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "sites": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": { "type": "integer" },
+            "isForwardStrand": { "type": "boolean" },
+            "cutPosition": { "type": "integer" },
+            "recognizedSequence": { "type": "string" }
+          },
+          "required": ["position", "isForwardStrand", "cutPosition", "recognizedSequence"]
+        }
+      }
+    },
+    "required": ["sites"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1002, "message": "At least one enzyme name is required" },
+    { "code": 4001, "message": "Unknown enzyme name" }
+  ],
+  "examples": [
+    {
+      "name": "EcoRI site",
+      "input": { "sequence": "AAAGAATTCAAA", "enzyme_names": ["EcoRI"] },
+      "output": { "sites": [ { "position": 3, "isForwardStrand": true, "cutPosition": 4, "recognizedSequence": "GAATTC" }, { "position": 3, "isForwardStrand": false, "cutPosition": 8, "recognizedSequence": "GAATTC" } ] }
+    },
+    {
+      "name": "No site",
+      "input": { "sequence": "AAAAAAAA", "enzyme_names": ["EcoRI"] },
+      "output": { "sites": [] }
+    }
+  ]
+}

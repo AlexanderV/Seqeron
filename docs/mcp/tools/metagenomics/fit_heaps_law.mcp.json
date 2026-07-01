@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "fit_heaps_law",
+  "serverName": "Metagenomics",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PanGenomeAnalyzer.FitHeapsLaw",
+  "docRef": "Seqeron.Genomics.Metagenomics/PanGenomeAnalyzer.cs#L588",
+  "description": "Fit Heaps' law n(N) = Intercept * N^(-Alpha) to the permuted new-gene-discovery curve (Tettelin 2008; micropan heaps). Pan-genome is open when Alpha < 1.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "genomes": {
+        "type": "array",
+        "description": "Genomes (id + ordered list of genes).",
+        "items": {
+          "type": "object",
+          "properties": {
+            "genomeId": { "type": "string" },
+            "genes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": { "geneId": { "type": "string" }, "sequence": { "type": "string" } },
+                "required": ["geneId", "sequence"]
+              }
+            }
+          },
+          "required": ["genomeId", "genes"]
+        }
+      },
+      "identityThreshold": { "type": "number", "description": "Ortholog-clustering identity threshold (default 0.9).", "default": 0.9 },
+      "permutations": { "type": "integer", "description": "Number of random genome-order permutations to pool over (default 100).", "default": 100, "minimum": 1 }
+    },
+    "required": ["genomes"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "intercept": { "type": "number", "description": "Heaps' law intercept K (micropan Intercept, [0,10000])." },
+      "alpha": { "type": "number", "description": "Heaps' law decay exponent alpha (micropan alpha, [0,2])." },
+      "isOpen": { "type": "boolean", "description": "true when alpha < 1 (open pan-genome)." }
+    },
+    "required": ["intercept", "alpha", "isOpen"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Constant new-gene curve -> open",
+      "input": {
+        "genomes": [
+          { "genomeId": "g1", "genes": [ { "geneId": "c1", "sequence": "ATGCGATCGATCGATCGATCGATCGATCGA" } ] },
+          { "genomeId": "g2", "genes": [ { "geneId": "c2", "sequence": "ATGCGATCGATCGATCGATCGATCGATCGA" }, { "geneId": "a", "sequence": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" } ] },
+          { "genomeId": "g3", "genes": [ { "geneId": "c3", "sequence": "ATGCGATCGATCGATCGATCGATCGATCGA" }, { "geneId": "b", "sequence": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCC" } ] }
+        ],
+        "permutations": 1
+      },
+      "output": { "intercept": 1.0, "alpha": 0.0, "isOpen": true }
+    },
+    {
+      "name": "Empty input -> degenerate closed fit",
+      "input": { "genomes": [] },
+      "output": { "intercept": 0.0, "alpha": 0.0, "isOpen": false }
+    }
+  ]
+}

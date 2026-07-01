@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "merge_contigs",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceAssembler.MergeContigs",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L629",
+  "description": "Concatenate two contigs, collapsing the specified suffix(contig1)/prefix(contig2) overlap of overlapLength bases. A non-positive or too-large overlap falls back to plain concatenation.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "contig1": {
+        "type": "string",
+        "description": "First contig (suffix donor)."
+      },
+      "contig2": {
+        "type": "string",
+        "description": "Second contig (prefix donor)."
+      },
+      "overlapLength": {
+        "type": "integer",
+        "description": "Length of the overlap to collapse."
+      }
+    },
+    "required": [
+      "contig1",
+      "contig2",
+      "overlapLength"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "merged": {
+        "type": "string",
+        "description": "The merged superstring."
+      }
+    },
+    "required": [
+      "merged"
+    ]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Collapse 5-bp overlap",
+      "input": {
+        "contig1": "AAAAACCCCC",
+        "contig2": "CCCCCGGGGG",
+        "overlapLength": 5
+      },
+      "output": {
+        "merged": "AAAAACCCCCGGGGG"
+      }
+    },
+    {
+      "name": "No overlap -> concat",
+      "input": {
+        "contig1": "AAA",
+        "contig2": "GGG",
+        "overlapLength": 0
+      },
+      "output": {
+        "merged": "AAAGGG"
+      }
+    }
+  ]
+}

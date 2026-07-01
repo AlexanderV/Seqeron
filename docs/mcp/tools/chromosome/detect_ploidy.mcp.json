@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "detect_ploidy",
+  "serverName": "Chromosome",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ChromosomeAnalyzer.DetectPloidy",
+  "docRef": "Seqeron.Genomics.Chromosome/ChromosomeAnalyzer.cs#L360",
+  "description": "Detect ploidy level from normalized read-depth values; returns ploidy and a confidence in [0, 1].",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "normalizedDepths": { "type": "array", "items": { "type": "number" }, "description": "Normalized read depths." },
+      "expectedDiploidDepth": { "type": "number", "default": 1.0, "exclusiveMinimum": 0, "description": "Depth expected for a diploid locus." }
+    },
+    "required": ["normalizedDepths"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "ploidyLevel": { "type": "integer", "description": "round(median/expected * 2), clamped to [1, 8]." },
+      "confidence": { "type": "number", "description": "1 - 2*|fractional part|, clamped at 0." }
+    },
+    "required": ["ploidyLevel", "confidence"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Normalized depths cannot be null" },
+    { "code": 1002, "message": "Expected diploid depth must be positive" }
+  ],
+  "examples": [
+    { "name": "Diploid", "input": { "normalizedDepths": [1.0, 1.0, 1.0], "expectedDiploidDepth": 1.0 }, "output": { "ploidyLevel": 2, "confidence": 1.0 } },
+    { "name": "Tetraploid", "input": { "normalizedDepths": [2.0, 2.0, 2.0], "expectedDiploidDepth": 1.0 }, "output": { "ploidyLevel": 4, "confidence": 1.0 } }
+  ]
+}

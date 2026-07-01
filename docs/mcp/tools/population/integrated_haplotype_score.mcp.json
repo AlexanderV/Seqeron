@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "integrated_haplotype_score",
+  "serverName": "Population",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PopulationGeneticsAnalyzer.CalculateIHS(ehh0,ehh1,positions)",
+  "docRef": "Seqeron.Genomics.Population/PopulationGeneticsAnalyzer.cs#L855",
+  "description": "Compute the integrated haplotype score iHS = ln(iHH1 / iHH0) by trapezoidal integration of precomputed EHH decay curves over genomic positions.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "ehh0": { "type": "array", "description": "EHH values for the ancestral (0) allele, aligned with positions.", "items": { "type": "number" } },
+      "ehh1": { "type": "array", "description": "EHH values for the derived (1) allele, aligned with positions.", "items": { "type": "number" } },
+      "positions": { "type": "array", "description": "Genomic positions corresponding to ehh0/ehh1 entries.", "items": { "type": "integer" } }
+    },
+    "required": ["ehh0", "ehh1", "positions"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "ihs": { "type": "number", "description": "ln(iHH1 / iHH0); 0 when arrays are misaligned, shorter than 2, or an integrated area is non-positive." }
+    },
+    "required": ["ihs"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Extended derived allele → positive iHS",
+      "input": { "ehh0": [1.0, 0.5], "ehh1": [1.0, 1.0], "positions": [0, 1000] },
+      "output": { "ihs": 0.2876820724517809 }
+    },
+    {
+      "name": "Balanced EHH decay → iHS = 0",
+      "input": { "ehh0": [1.0, 0.8, 0.5, 0.2, 0.1], "ehh1": [1.0, 0.8, 0.5, 0.2, 0.1], "positions": [0, 1000, 2000, 3000, 4000] },
+      "output": { "ihs": 0.0 }
+    }
+  ]
+}

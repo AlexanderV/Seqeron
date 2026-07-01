@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "crispr_system_info",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "CrisprDesigner.GetSystem",
+  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L18",
+  "description": "Return the metadata (PAM, guide length, PAM placement) for a known CRISPR nuclease system.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "system_type": { "type": "string", "enum": ["SpCas9", "SpCas9_NAG", "SaCas9", "Cas12a", "AsCas12a", "LbCas12a", "CasX"], "description": "CRISPR system." }
+    },
+    "required": ["system_type"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "name": { "type": "string" },
+      "pamSequence": { "type": "string", "description": "PAM recognition sequence (IUPAC)." },
+      "guideLength": { "type": "integer", "description": "Guide/spacer length in nt." },
+      "pamAfterTarget": { "type": "boolean", "description": "True if PAM is 3' of the target (Cas9-like); false if 5' (Cas12a-like)." },
+      "description": { "type": "string" }
+    },
+    "required": ["name", "pamSequence", "guideLength", "pamAfterTarget", "description"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "SpCas9",
+      "input": { "system_type": "SpCas9" },
+      "output": { "name": "SpCas9", "pamSequence": "NGG", "guideLength": 20, "pamAfterTarget": true, "description": "Streptococcus pyogenes Cas9" }
+    },
+    {
+      "name": "Cas12a",
+      "input": { "system_type": "Cas12a" },
+      "output": { "name": "Cas12a/Cpf1", "pamSequence": "TTTV", "guideLength": 23, "pamAfterTarget": false, "description": "Cas12a (Cpf1) - PAM before target" }
+    }
+  ]
+}

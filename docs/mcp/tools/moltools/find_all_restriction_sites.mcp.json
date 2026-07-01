@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_all_restriction_sites",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RestrictionAnalyzer.FindAllSites",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L221",
+  "description": "Find sites for every built-in restriction enzyme on both strands of a DNA sequence.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "DNA sequence to scan.", "minLength": 1 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "sites": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": { "type": "integer" },
+            "isForwardStrand": { "type": "boolean" },
+            "cutPosition": { "type": "integer" },
+            "recognizedSequence": { "type": "string" }
+          },
+          "required": ["position", "isForwardStrand", "cutPosition", "recognizedSequence"]
+        }
+      }
+    },
+    "required": ["sites"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Comprehensive scan finds EcoRI",
+      "input": { "sequence": "AAAGAATTCAAA" },
+      "output": { "sites": "includes EcoRI forward site at position 3 (cut 4) + reverse site" }
+    },
+    {
+      "name": "No recognition sites",
+      "input": { "sequence": "AAAAAAAA" },
+      "output": { "sites": [] }
+    }
+  ]
+}

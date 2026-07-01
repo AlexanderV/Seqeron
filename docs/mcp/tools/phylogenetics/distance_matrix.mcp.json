@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "distance_matrix",
+  "serverName": "Phylogenetics",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PhylogeneticAnalyzer.CalculateDistanceMatrix",
+  "docRef": "Seqeron.Genomics.Phylogenetics/PhylogeneticAnalyzer.cs#L199",
+  "description": "Compute the symmetric pairwise distance matrix for a list of aligned sequences.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "alignedSequences": {
+        "type": "array",
+        "description": "Aligned sequences (equal length).",
+        "items": { "type": "string" },
+        "minItems": 1
+      },
+      "method": {
+        "type": "string",
+        "description": "Distance method.",
+        "enum": ["PDistance", "JukesCantor", "Kimura2Parameter", "Hamming"],
+        "default": "JukesCantor"
+      }
+    },
+    "required": ["alignedSequences"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "matrix": {
+        "type": "array",
+        "items": { "type": "array", "items": { "type": "number" } },
+        "description": "Symmetric n×n distance matrix; diagonal is zero."
+      }
+    },
+    "required": ["matrix"]
+  },
+  "errors": [
+    { "code": 1001, "message": "At least one aligned sequence is required" },
+    { "code": 1002, "message": "Sequences must have the same length" },
+    { "code": 1003, "message": "Unknown distance method" }
+  ],
+  "examples": [
+    {
+      "name": "Hamming distances of three 4-mers",
+      "input": { "alignedSequences": ["AAAA", "AAAC", "CCCC"], "method": "Hamming" },
+      "output": { "matrix": [[0, 1, 4], [1, 0, 3], [4, 3, 0]] }
+    },
+    {
+      "name": "p-distance of a single mismatch in 8 sites",
+      "input": { "alignedSequences": ["ACGTACGT", "TCGTACGT"], "method": "PDistance" },
+      "output": { "matrix": [[0, 0.125], [0.125, 0]] }
+    }
+  ]
+}

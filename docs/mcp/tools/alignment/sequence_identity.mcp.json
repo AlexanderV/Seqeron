@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "sequence_identity",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceAssembler.CalculateIdentity",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L247",
+  "description": "Compute percent identity (fraction in [0,1]) between two equal-length sequences by case-insensitive position-by-position comparison. Returns 0 for unequal-length inputs.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence1": {
+        "type": "string",
+        "description": "First sequence."
+      },
+      "sequence2": {
+        "type": "string",
+        "description": "Second sequence (must equal sequence1.Length)."
+      }
+    },
+    "required": [
+      "sequence1",
+      "sequence2"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "identity": {
+        "type": "number",
+        "description": "Fraction of matching positions in [0,1]; 0 if lengths differ."
+      }
+    },
+    "required": [
+      "identity"
+    ]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Three of four match",
+      "input": {
+        "sequence1": "ACGT",
+        "sequence2": "ACGA"
+      },
+      "output": {
+        "identity": 0.75
+      }
+    },
+    {
+      "name": "Identical",
+      "input": {
+        "sequence1": "ACGT",
+        "sequence2": "ACGT"
+      },
+      "output": {
+        "identity": 1
+      }
+    }
+  ]
+}

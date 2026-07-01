@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "compatible_enzymes",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RestrictionAnalyzer.FindCompatibleEnzymes",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L502",
+  "description": "Enumerate all pairs of built-in restriction enzymes that produce ligatable (compatible) ends.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {},
+    "required": []
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "pairs": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "enzyme1": { "type": "string" },
+            "enzyme2": { "type": "string" },
+            "compatibleEnd": { "type": "string", "description": "\"blunt\" or the shared overhang sequence." }
+          },
+          "required": ["enzyme1", "enzyme2", "compatibleEnd"]
+        }
+      }
+    },
+    "required": ["pairs"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "GATC-compatible sticky pair",
+      "input": {},
+      "output": { "pairs": [ { "enzyme1": "BamHI", "enzyme2": "BglII", "compatibleEnd": "GATC" } ] }
+    },
+    {
+      "name": "Blunt pair count",
+      "input": {},
+      "output": { "pairs": "45 pairs carry compatibleEnd == \"blunt\" (all C(10,2) blunt-cutter pairs)" }
+    }
+  ]
+}

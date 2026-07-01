@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "hairpin_potential",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PrimerDesigner.HasHairpinPotential",
+  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L307",
+  "description": "Detect whether a sequence can fold into a hairpin (self-complementary stem + loop).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "Nucleotide sequence.", "minLength": 1 },
+      "min_stem_length": { "type": "integer", "description": "Minimum stem length.", "minimum": 1, "default": 4 },
+      "min_loop_length": { "type": "integer", "description": "Minimum loop length.", "minimum": 0, "default": 3 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "hasHairpin": { "type": "boolean", "description": "True if a hairpin can form." }
+    },
+    "required": ["hasHairpin"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1002, "message": "Minimum stem length must be positive" },
+    { "code": 1003, "message": "Minimum loop length cannot be negative" }
+  ],
+  "examples": [
+    { "name": "Hairpin", "input": { "sequence": "GGGGAAACCCC" }, "output": { "hasHairpin": true } },
+    { "name": "No hairpin", "input": { "sequence": "AAAAAAAAAAA" }, "output": { "hasHairpin": false } }
+  ]
+}

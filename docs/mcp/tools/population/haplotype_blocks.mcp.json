@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "haplotype_blocks",
+  "serverName": "Population",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PopulationGeneticsAnalyzer.FindHaplotypeBlocks",
+  "docRef": "Seqeron.Genomics.Population/PopulationGeneticsAnalyzer.cs#L787",
+  "description": "Detect haplotype blocks by grouping consecutive variants whose adjacent-pair r² ≥ ldThreshold (simplified Gabriel et al. 2002).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "variants": {
+        "type": "array",
+        "description": "Variants with positions and per-individual genotypes (0/1/2).",
+        "items": {
+          "type": "object",
+          "properties": {
+            "variantId": { "type": "string" },
+            "position": { "type": "integer" },
+            "genotypes": { "type": "array", "items": { "type": "integer" } }
+          },
+          "required": ["variantId", "position", "genotypes"]
+        }
+      },
+      "ldThreshold": { "type": "number", "description": "Minimum adjacent-pair r² to extend a block (default 0.7).", "default": 0.7 }
+    },
+    "required": ["variants"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "start": { "type": "integer", "description": "Position of the first variant in the block." },
+            "end": { "type": "integer", "description": "Position of the last variant in the block." },
+            "variants": { "type": "array", "items": { "type": "string" } },
+            "haplotypes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "haplotype": { "type": "string" },
+                  "frequency": { "type": "number" }
+                },
+                "required": ["haplotype", "frequency"]
+              }
+            }
+          },
+          "required": ["start", "end", "variants", "haplotypes"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Three fully-correlated variants form one block",
+      "input": {
+        "variants": [
+          { "variantId": "V1", "position": 100, "genotypes": [0, 0, 1, 1, 2, 2] },
+          { "variantId": "V2", "position": 200, "genotypes": [0, 0, 1, 1, 2, 2] },
+          { "variantId": "V3", "position": 300, "genotypes": [0, 0, 1, 1, 2, 2] }
+        ],
+        "ldThreshold": 0.7
+      },
+      "output": { "items": [{ "start": 100, "end": 300, "variants": ["V1", "V2", "V3"], "haplotypes": [] }] }
+    },
+    {
+      "name": "Two blocks separated by an LD break",
+      "input": {
+        "variants": [
+          { "variantId": "V1", "position": 100, "genotypes": [0, 0, 0, 1, 1, 1, 2, 2, 2] },
+          { "variantId": "V2", "position": 200, "genotypes": [0, 0, 0, 1, 1, 1, 2, 2, 2] },
+          { "variantId": "V3", "position": 300, "genotypes": [0, 1, 2, 0, 1, 2, 0, 1, 2] },
+          { "variantId": "V4", "position": 400, "genotypes": [0, 0, 0, 1, 1, 1, 2, 2, 2] },
+          { "variantId": "V5", "position": 500, "genotypes": [0, 0, 0, 1, 1, 1, 2, 2, 2] }
+        ],
+        "ldThreshold": 0.7
+      },
+      "output": { "items": [
+        { "start": 100, "end": 200, "variants": ["V1", "V2"], "haplotypes": [] },
+        { "start": 400, "end": 500, "variants": ["V4", "V5"], "haplotypes": [] }
+      ] }
+    }
+  ]
+}

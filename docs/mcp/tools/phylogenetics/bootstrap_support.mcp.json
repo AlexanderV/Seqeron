@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "bootstrap_support",
+  "serverName": "Phylogenetics",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PhylogeneticAnalyzer.Bootstrap",
+  "docRef": "Seqeron.Genomics.Phylogenetics/PhylogeneticAnalyzer.cs#L1184",
+  "description": "Non-parametric bootstrap support for clades of a reference tree built from aligned sequences.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequences": {
+        "type": "object",
+        "description": "Aligned sequences keyed by taxon name (>=2, equal length).",
+        "additionalProperties": { "type": "string" },
+        "minProperties": 2
+      },
+      "replicates": {
+        "type": "integer",
+        "description": "Number of bootstrap replicates.",
+        "minimum": 1,
+        "default": 100
+      },
+      "distanceMethod": {
+        "type": "string",
+        "description": "Distance method.",
+        "enum": ["PDistance", "JukesCantor", "Kimura2Parameter", "Hamming"],
+        "default": "JukesCantor"
+      },
+      "treeMethod": {
+        "type": "string",
+        "description": "Tree construction method.",
+        "enum": ["UPGMA", "NeighborJoining"],
+        "default": "UPGMA"
+      }
+    },
+    "required": ["sequences"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "support": {
+        "type": "array",
+        "description": "Bootstrap support per non-trivial reference clade.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "clade": { "type": "string", "description": "Sorted, '|'-joined leaf names of the clade." },
+            "support": { "type": "number", "description": "Proportion of replicates recovering the clade, in [0,1]." }
+          },
+          "required": ["clade", "support"]
+        }
+      }
+    },
+    "required": ["support"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequences cannot be null" },
+    { "code": 1002, "message": "At least 2 sequences required" },
+    { "code": 1003, "message": "At least 1 replicate required" },
+    { "code": 1004, "message": "Unknown distance method" },
+    { "code": 1005, "message": "Unknown tree method" }
+  ],
+  "examples": [
+    {
+      "name": "Two invariant groups, UPGMA",
+      "input": {
+        "sequences": { "A": "AAAAAAAAAA", "B": "AAAAAAAAAA", "C": "GGGGGGGGGG", "D": "GGGGGGGGGG" },
+        "replicates": 100,
+        "distanceMethod": "JukesCantor",
+        "treeMethod": "UPGMA"
+      },
+      "output": {
+        "support": [
+          { "clade": "A|B", "support": 1.0 },
+          { "clade": "C|D", "support": 1.0 }
+        ]
+      }
+    },
+    {
+      "name": "Two invariant groups, NeighborJoining (trifurcation)",
+      "input": {
+        "sequences": { "A": "AAAAAAAAAA", "B": "AAAAAAAAAA", "C": "GGGGGGGGGG", "D": "GGGGGGGGGG" },
+        "replicates": 50,
+        "distanceMethod": "JukesCantor",
+        "treeMethod": "NeighborJoining"
+      },
+      "output": {
+        "support": [
+          { "clade": "A|B", "support": 1.0 }
+        ]
+      }
+    }
+  ]
+}

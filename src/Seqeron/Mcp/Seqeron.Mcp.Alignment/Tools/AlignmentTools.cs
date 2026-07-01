@@ -23,8 +23,13 @@ public class AlignmentTools
         [Description("Gap-open penalty.")] int gapOpen = -2,
         [Description("Gap-extend penalty.")] int gapExtend = -1)
     {
+        if (string.IsNullOrEmpty(sequence1))
+            throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence1));
+        if (string.IsNullOrEmpty(sequence2))
+            throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence2));
+
         var scoring = new global::Seqeron.Genomics.Infrastructure.ScoringMatrix(match, mismatch, gapOpen, gapExtend);
-        var r = global::Seqeron.Genomics.Alignment.SequenceAligner.GlobalAlign(sequence1 ?? string.Empty, sequence2 ?? string.Empty, scoring);
+        var r = global::Seqeron.Genomics.Alignment.SequenceAligner.GlobalAlign(sequence1, sequence2, scoring);
         return ToAlignmentDto(r);
     }
 
@@ -38,8 +43,13 @@ public class AlignmentTools
         [Description("Gap-open penalty.")] int gapOpen = -2,
         [Description("Gap-extend penalty.")] int gapExtend = -1)
     {
+        if (string.IsNullOrEmpty(sequence1))
+            throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence1));
+        if (string.IsNullOrEmpty(sequence2))
+            throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence2));
+
         var scoring = new global::Seqeron.Genomics.Infrastructure.ScoringMatrix(match, mismatch, gapOpen, gapExtend);
-        var r = global::Seqeron.Genomics.Alignment.SequenceAligner.LocalAlign(sequence1 ?? string.Empty, sequence2 ?? string.Empty, scoring);
+        var r = global::Seqeron.Genomics.Alignment.SequenceAligner.LocalAlign(sequence1, sequence2, scoring);
         return ToAlignmentDto(r);
     }
 
@@ -69,8 +79,13 @@ public class AlignmentTools
         [Description("Aligned representation of sequence1 (with '-' gaps).")] string alignedSequence1,
         [Description("Aligned representation of sequence2 (with '-' gaps).")] string alignedSequence2)
     {
-        var a1 = alignedSequence1 ?? string.Empty;
-        var a2 = alignedSequence2 ?? string.Empty;
+        if (string.IsNullOrEmpty(alignedSequence1))
+            throw new ArgumentException("Aligned sequence cannot be null or empty.", nameof(alignedSequence1));
+        if (string.IsNullOrEmpty(alignedSequence2))
+            throw new ArgumentException("Aligned sequence cannot be null or empty.", nameof(alignedSequence2));
+
+        var a1 = alignedSequence1;
+        var a2 = alignedSequence2;
 
         if (a1.Length != a2.Length)
             throw new ArgumentException("Aligned sequences must have equal length.", nameof(alignedSequence2));
@@ -93,12 +108,16 @@ public class AlignmentTools
         [Description("Aligned representation of sequence2.")] string alignedSequence2,
         [Description("Maximum characters per line in the formatted output (>= 1).")] int lineWidth = 60)
     {
+        if (string.IsNullOrEmpty(alignedSequence1))
+            throw new ArgumentException("Aligned sequence cannot be null or empty.", nameof(alignedSequence1));
+        if (string.IsNullOrEmpty(alignedSequence2))
+            throw new ArgumentException("Aligned sequence cannot be null or empty.", nameof(alignedSequence2));
         if (lineWidth < 1)
             throw new ArgumentOutOfRangeException(nameof(lineWidth), "lineWidth must be >= 1.");
 
         var ar = new global::Seqeron.Genomics.Infrastructure.AlignmentResult(
-            alignedSequence1 ?? string.Empty,
-            alignedSequence2 ?? string.Empty,
+            alignedSequence1,
+            alignedSequence2,
             0,
             global::Seqeron.Genomics.Infrastructure.AlignmentType.Global,
             0, 0, 0, 0);
@@ -146,9 +165,16 @@ public class AlignmentTools
         [Description("Pattern to find.")] string pattern,
         [Description("Maximum number of allowed mismatches (>= 0).")] int maxMismatches)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        if (string.IsNullOrEmpty(pattern))
+            throw new ArgumentException("Pattern cannot be null or empty.", nameof(pattern));
+        if (maxMismatches < 0)
+            throw new ArgumentOutOfRangeException(nameof(maxMismatches), "maxMismatches must be >= 0.");
+
         var items = new List<ApproximateMatchDto>();
         foreach (var m in global::Seqeron.Genomics.Alignment.ApproximateMatcher.FindWithMismatches(
-            sequence ?? string.Empty, pattern ?? string.Empty, maxMismatches))
+            sequence, pattern, maxMismatches))
         {
             items.Add(ToApproximateMatchDto(m));
         }
@@ -162,9 +188,16 @@ public class AlignmentTools
         [Description("Pattern to find.")] string pattern,
         [Description("Maximum allowed edit distance (>= 0).")] int maxEdits)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        if (string.IsNullOrEmpty(pattern))
+            throw new ArgumentException("Pattern cannot be null or empty.", nameof(pattern));
+        if (maxEdits < 0)
+            throw new ArgumentOutOfRangeException(nameof(maxEdits), "maxEdits must be >= 0.");
+
         var items = new List<ApproximateMatchDto>();
         foreach (var m in global::Seqeron.Genomics.Alignment.ApproximateMatcher.FindWithEdits(
-            sequence ?? string.Empty, pattern ?? string.Empty, maxEdits))
+            sequence, pattern, maxEdits))
         {
             items.Add(ToApproximateMatchDto(m));
         }
@@ -177,8 +210,13 @@ public class AlignmentTools
         [Description("Sequence to search in.")] string sequence,
         [Description("Pattern to find.")] string pattern)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        if (string.IsNullOrEmpty(pattern))
+            throw new ArgumentException("Pattern cannot be null or empty.", nameof(pattern));
+
         var m = global::Seqeron.Genomics.Alignment.ApproximateMatcher.FindBestMatch(
-            sequence ?? string.Empty, pattern ?? string.Empty);
+            sequence, pattern);
         if (m is null)
             return new FindBestMatchResult(null);
         return new FindBestMatchResult(ToApproximateMatchDto(m.Value));
@@ -191,9 +229,16 @@ public class AlignmentTools
         [Description("K-mer length (> 0).")] int k,
         [Description("Maximum mismatches in neighborhood (>= 0).")] int d)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        if (k <= 0)
+            throw new ArgumentOutOfRangeException(nameof(k), "k must be > 0.");
+        if (d < 0)
+            throw new ArgumentOutOfRangeException(nameof(d), "d must be >= 0.");
+
         var items = new List<FrequentKmerItem>();
         foreach (var t in global::Seqeron.Genomics.Alignment.ApproximateMatcher.FindFrequentKmersWithMismatches(
-            sequence ?? string.Empty, k, d))
+            sequence, k, d))
         {
             items.Add(new FrequentKmerItem(t.Kmer, t.Count));
         }

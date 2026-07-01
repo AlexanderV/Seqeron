@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "alpha_diversity",
+  "serverName": "Metagenomics",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MetagenomicsAnalyzer.CalculateAlphaDiversity",
+  "docRef": "Seqeron.Genomics.Metagenomics/MetagenomicsAnalyzer.cs#L480",
+  "description": "Compute Shannon, Simpson, inverse Simpson, Chao1 (Chao 1984), observed species, and Pielou's evenness for a sample's abundance vector.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "abundances": {
+        "type": "array",
+        "description": "Per-species abundances. For Chao1, integer count data is required; otherwise Chao1 falls back to observed species count.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string", "description": "Species / taxon name." },
+            "fraction": { "type": "number", "description": "Abundance (fractional or integer count)." }
+          },
+          "required": ["name", "fraction"]
+        }
+      }
+    },
+    "required": ["abundances"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "shannonIndex": { "type": "number", "description": "Shannon entropy H = -Σ pᵢ ln pᵢ." },
+      "simpsonIndex": { "type": "number", "description": "Simpson concentration λ = Σ pᵢ²." },
+      "inverseSimpson": { "type": "number", "description": "1 / λ (Hill number of order 2)." },
+      "chao1Estimate": { "type": "number", "description": "Chao1 richness estimate (integer counts) or observed species (proportional data)." },
+      "observedSpecies": { "type": "number", "description": "Count of species with positive abundance." },
+      "pielouEvenness": { "type": "number", "description": "Pielou's evenness J = H / ln(S); 0 when S ≤ 1." }
+    },
+    "required": ["shannonIndex", "simpsonIndex", "inverseSimpson", "chao1Estimate", "observedSpecies", "pielouEvenness"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Two equal species",
+      "input": { "abundances": [ { "name": "s1", "fraction": 0.5 }, { "name": "s2", "fraction": 0.5 } ] },
+      "output": { "shannonIndex": 0.6931471805599453, "simpsonIndex": 0.5, "inverseSimpson": 2.0, "chao1Estimate": 2.0, "observedSpecies": 2, "pielouEvenness": 1.0 }
+    },
+    {
+      "name": "Chao1 with count data (singletons + doubleton)",
+      "input": { "abundances": [ { "name": "d1", "fraction": 50 }, { "name": "d2", "fraction": 30 }, { "name": "s1", "fraction": 1 }, { "name": "s2", "fraction": 1 }, { "name": "db", "fraction": 2 } ] },
+      "output": { "chao1Estimate": 7.0, "observedSpecies": 5 }
+    }
+  ]
+}

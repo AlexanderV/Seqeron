@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "evaluate_primer",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PrimerDesigner.EvaluatePrimer",
+  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L120",
+  "description": "Evaluate a single primer against quality criteria and return a scored candidate.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "Primer sequence to evaluate.", "minLength": 1 },
+      "position": { "type": "integer", "description": "0-based location in the template (informational)." },
+      "is_forward": { "type": "boolean", "description": "True for a forward primer." },
+      "parameters": { "type": ["object", "null"], "description": "Optional primer-design parameters." }
+    },
+    "required": ["sequence", "position", "is_forward"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string" },
+      "position": { "type": "integer" },
+      "isForward": { "type": "boolean" },
+      "length": { "type": "integer" },
+      "gcContent": { "type": "number" },
+      "meltingTemperature": { "type": "number" },
+      "homopolymerLength": { "type": "integer" },
+      "hasHairpin": { "type": "boolean" },
+      "stability3Prime": { "type": "number" },
+      "isValid": { "type": "boolean" },
+      "issues": { "type": "array", "items": { "type": "string" } },
+      "score": { "type": "number" }
+    },
+    "required": ["sequence", "position", "isForward", "length", "gcContent", "meltingTemperature", "homopolymerLength", "hasHairpin", "stability3Prime", "isValid", "issues", "score"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "50% GC 20-mer",
+      "input": { "sequence": "ATCGATCGATCGATCGATCG", "position": 0, "is_forward": true },
+      "output": { "length": 20, "gcContent": 50.0, "meltingTemperature": 51.8, "homopolymerLength": 1 }
+    },
+    {
+      "name": "Reverse primer with position",
+      "input": { "sequence": "ATCGATCGATCGATCGATCG", "position": 7, "is_forward": false },
+      "output": { "position": 7, "isForward": false }
+    }
+  ]
+}

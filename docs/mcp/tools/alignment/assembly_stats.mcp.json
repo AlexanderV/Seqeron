@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "assembly_stats",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceAssembler.CalculateStats",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L574",
+  "description": "Compute assembly statistics (N50, longest contig, total length, read accounting) for a precomputed list of contigs.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "contigs": {
+        "type": "array",
+        "description": "Assembled contig sequences."
+      },
+      "totalReads": {
+        "type": "integer",
+        "description": "Total number of input reads (used to fill totalReads)."
+      }
+    },
+    "required": [
+      "contigs",
+      "totalReads"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "contigs": {
+        "type": "array",
+        "description": "The input contigs (echoed)."
+      },
+      "totalReads": {
+        "type": "integer",
+        "description": "Total number of input reads."
+      },
+      "assembledReads": {
+        "type": "integer",
+        "description": "Number of reads incorporated (simplified: all reads)."
+      },
+      "n50": {
+        "type": "number",
+        "description": "N50 contig length."
+      },
+      "longestContig": {
+        "type": "integer",
+        "description": "Longest contig length (bp)."
+      },
+      "totalLength": {
+        "type": "integer",
+        "description": "Total contig length (bp)."
+      }
+    },
+    "required": [
+      "contigs",
+      "totalReads",
+      "assembledReads",
+      "n50",
+      "longestContig",
+      "totalLength"
+    ]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Three contigs",
+      "input": {
+        "contigs": [
+          "AAAAAAAAAA",
+          "AAAAAAAAAAAAAAAAAAAA",
+          "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        ],
+        "totalReads": 5
+      },
+      "output": {
+        "contigs": [
+          "AAAAAAAAAA",
+          "AAAAAAAAAAAAAAAAAAAA",
+          "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        ],
+        "totalReads": 5,
+        "assembledReads": 5,
+        "n50": 30,
+        "longestContig": 30,
+        "totalLength": 60
+      }
+    },
+    {
+      "name": "No contigs",
+      "input": {
+        "contigs": [],
+        "totalReads": 3
+      },
+      "output": {
+        "contigs": [],
+        "totalReads": 3,
+        "assembledReads": 0,
+        "n50": 0,
+        "longestContig": 0,
+        "totalLength": 0
+      }
+    }
+  ]
+}

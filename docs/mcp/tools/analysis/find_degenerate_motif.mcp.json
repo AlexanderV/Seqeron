@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_degenerate_motif",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MotifFinder.FindDegenerateMotif",
+  "docRef": "Seqeron.Genomics.Analysis/MotifFinder.cs#L90",
+  "description": "Finds motif occurrences with IUPAC ambiguity codes (R=A/G, N=any, etc.). Reports position, matched substring, uppercased pattern, and score 1.0.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
+      "motif": { "type": "string", "description": "IUPAC motif pattern", "minLength": 1 }
+    },
+    "required": ["sequence", "motif"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": { "type": "integer" },
+            "matchedSequence": { "type": "string" },
+            "pattern": { "type": "string" },
+            "score": { "type": "number" }
+          },
+          "required": ["position", "matchedSequence", "pattern", "score"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1001, "message": "Invalid DNA sequence" },
+    { "code": 1002, "message": "Invalid IUPAC code in motif pattern" }
+  ],
+  "examples": [
+    {
+      "name": "Purine-led motif",
+      "input": { "sequence": "AGGTAG", "motif": "RGG" },
+      "output": { "items": [ { "position": 0, "matchedSequence": "AGG", "pattern": "RGG", "score": 1.0 } ] }
+    },
+    {
+      "name": "Wildcard N",
+      "input": { "sequence": "ACG", "motif": "N" },
+      "output": { "items": [
+        { "position": 0, "matchedSequence": "A", "pattern": "N", "score": 1.0 },
+        { "position": 1, "matchedSequence": "C", "pattern": "N", "score": 1.0 },
+        { "position": 2, "matchedSequence": "G", "pattern": "N", "score": 1.0 }
+      ] }
+    }
+  ]
+}

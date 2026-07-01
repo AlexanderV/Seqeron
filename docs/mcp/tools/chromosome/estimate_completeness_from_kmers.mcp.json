@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "estimate_completeness_from_kmers",
+  "serverName": "Chromosome",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomeAssemblyAnalyzer.EstimateCompletenessFromKmers",
+  "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L628",
+  "description": "Estimate genome completeness, error rate and genome size from a k-mer count spectrum.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "kmerSpectrum": { "type": "array", "items": { "type": "object", "properties": { "kmer": { "type": "string" }, "count": { "type": "integer" } }, "required": ["kmer", "count"] } },
+      "expectedCoverage": { "type": "integer", "default": 0, "minimum": 0, "description": "0 = auto-detect peak." }
+    },
+    "required": ["kmerSpectrum"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "completeness": { "type": "number" },
+      "errorRate": { "type": "number" },
+      "estimatedGenomeSize": { "type": "integer" }
+    },
+    "required": ["completeness", "errorRate", "estimatedGenomeSize"]
+  },
+  "errors": [
+    { "code": 1001, "message": "K-mer spectrum cannot be null" },
+    { "code": 1002, "message": "Expected coverage cannot be negative" }
+  ],
+  "examples": [
+    { "name": "Clean spectrum", "input": { "kmerSpectrum": "[100 distinct k-mers, count 30]", "expectedCoverage": 30 }, "output": { "completeness": 1.0, "errorRate": 0.0, "estimatedGenomeSize": 100 } }
+  ]
+}

@@ -1,3 +1,9 @@
+> ⚠️ **SUPERSEDED (2026-07-01).** This v4 plan describes a 12-server / 241-tool design
+> (`SuffixTree.Mcp.*`, with Variants/Assembly/Epigenetics/Structure servers) that was **never
+> built**. The repository actually ships **11 servers / ~427 tools** with a different decomposition.
+> The live source of truth and campaign ledger is **`docs/mcp/MCP_STATUS.md`**. Sections 6–8 below
+> (error catalog, schema rules, doc contract) remain valid as standards.
+
 # MCP Implementation Plan v4
 
 ## 1. Summary

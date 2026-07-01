@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_suspicious_regions",
+  "serverName": "Chromosome",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomeAssemblyAnalyzer.FindSuspiciousRegions",
+  "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L1086",
+  "description": "Flag potentially misassembled regions by GC deviation, low complexity, and high N content.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequences": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "sequence": { "type": "string" } }, "required": ["id", "sequence"] } },
+      "gcDeviation": { "type": "number", "default": 0.15, "description": "Allowed GC deviation from the global GC." },
+      "minComplexity": { "type": "number", "default": 0.3, "description": "Minimum linguistic complexity." }
+    },
+    "required": ["sequences"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": { "type": "array", "items": { "type": "object", "properties": { "sequenceId": { "type": "string" }, "start": { "type": "integer" }, "end": { "type": "integer" }, "reason": { "type": "string" }, "score": { "type": "number" } }, "required": ["sequenceId", "start", "end", "reason", "score"] } }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequences cannot be null" }
+  ],
+  "examples": [
+    { "name": "Poly-A run flagged", "input": { "sequences": [ { "id": "s", "sequence": "…random…AAAA…(2000)…random…" } ], "gcDeviation": 0.15, "minComplexity": 0.3 }, "output": { "items": [ { "sequenceId": "s", "reason": "GC deviation; Low complexity" } ] } }
+  ]
+}

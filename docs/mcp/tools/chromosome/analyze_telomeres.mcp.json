@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "analyze_telomeres",
+  "serverName": "Chromosome",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ChromosomeAnalyzer.AnalyzeTelomeres",
+  "docRef": "Seqeron.Genomics.Chromosome/ChromosomeAnalyzer.cs#L393",
+  "description": "Analyze 5'/3' telomere repeat tracts on a chromosome sequence; reports lengths, repeat purity, and whether critically short.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "chromosomeName": { "type": "string", "minLength": 1, "description": "Chromosome name (echoed in result)." },
+      "sequence": { "type": "string", "minLength": 1, "description": "Chromosome nucleotide sequence." },
+      "telomereRepeat": { "type": "string", "default": "TTAGGG", "description": "Telomere repeat unit (vertebrate default)." },
+      "searchLength": { "type": "integer", "default": 10000, "exclusiveMinimum": 0, "description": "End-region search length in bp." },
+      "minTelomereLength": { "type": "integer", "default": 500, "minimum": 0, "description": "Minimum length to call a telomere present." },
+      "criticalLength": { "type": "integer", "default": 3000, "minimum": 0, "description": "Critical shortening threshold." }
+    },
+    "required": ["chromosomeName", "sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "chromosome": { "type": "string" },
+      "has5PrimeTelomere": { "type": "boolean" },
+      "telomereLength5Prime": { "type": "integer" },
+      "has3PrimeTelomere": { "type": "boolean" },
+      "telomereLength3Prime": { "type": "integer" },
+      "repeatPurity5Prime": { "type": "number" },
+      "repeatPurity3Prime": { "type": "number" },
+      "isCriticallyShort": { "type": "boolean" }
+    },
+    "required": ["chromosome", "has5PrimeTelomere", "telomereLength5Prime", "has3PrimeTelomere", "telomereLength3Prime", "repeatPurity5Prime", "repeatPurity3Prime", "isCriticallyShort"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1002, "message": "Chromosome name cannot be null or empty" },
+    { "code": 1003, "message": "Telomere repeat cannot be null or empty" },
+    { "code": 1004, "message": "Search length must be positive" }
+  ],
+  "examples": [
+    {
+      "name": "Pure 3' TTAGGG tract (600 bp)",
+      "input": { "chromosomeName": "chrT", "sequence": "TTAGGG…(100×)" },
+      "output": { "chromosome": "chrT", "has5PrimeTelomere": false, "telomereLength5Prime": 0, "has3PrimeTelomere": true, "telomereLength3Prime": 600, "repeatPurity3Prime": 1.0, "isCriticallyShort": true }
+    },
+    {
+      "name": "No telomere",
+      "input": { "chromosomeName": "chr1", "sequence": "ACGTACGTACGTACGTACGT" },
+      "output": { "has3PrimeTelomere": false, "telomereLength3Prime": 0 }
+    }
+  ]
+}

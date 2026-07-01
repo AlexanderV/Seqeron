@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "quality_trim_reads",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceAssembler.QualityTrimReads",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L950",
+  "description": "Trim Phred+33 quality-encoded reads from both ends with the BWA/cutadapt running-sum method, dropping reads shorter than minLength after trimming.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "reads": {
+        "type": "array",
+        "description": "Reads, each an object with sequence and matching Phred+33 quality string of equal length."
+      },
+      "minQuality": {
+        "type": "integer",
+        "description": "Quality cutoff subtracted from each Phred score (values < 1 disable trimming).",
+        "default": 20
+      },
+      "minLength": {
+        "type": "integer",
+        "description": "Minimum length after trimming for a read to be kept.",
+        "default": 50
+      }
+    },
+    "required": [
+      "reads"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "trimmed": {
+        "type": "array",
+        "description": "Surviving trimmed sequences, in input order."
+      }
+    },
+    "required": [
+      "trimmed"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1011,
+      "message": "sequence and quality must be the same length"
+    },
+    {
+      "code": 1012,
+      "message": "read is null"
+    }
+  ],
+  "examples": [
+    {
+      "name": "High quality kept",
+      "input": {
+        "reads": [
+          {
+            "sequence": "ACGTACGTAC",
+            "quality": "IIIIIIIIII"
+          }
+        ],
+        "minQuality": 20,
+        "minLength": 5
+      },
+      "output": {
+        "trimmed": [
+          "ACGTACGTAC"
+        ]
+      }
+    },
+    {
+      "name": "Low quality dropped",
+      "input": {
+        "reads": [
+          {
+            "sequence": "ACGTACGTAC",
+            "quality": "!!!!!!!!!!"
+          }
+        ],
+        "minQuality": 20,
+        "minLength": 5
+      },
+      "output": {
+        "trimmed": []
+      }
+    }
+  ]
+}

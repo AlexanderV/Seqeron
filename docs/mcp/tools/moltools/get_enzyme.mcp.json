@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "get_enzyme",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RestrictionAnalyzer.GetEnzyme",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L76",
+  "description": "Look up a built-in restriction enzyme by name (case-insensitive).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "name": { "type": "string", "description": "Enzyme name (e.g. EcoRI, BamHI).", "minLength": 1 }
+    },
+    "required": ["name"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "enzyme": {
+        "type": ["object", "null"],
+        "properties": {
+          "name": { "type": "string" },
+          "recognitionSequence": { "type": "string" },
+          "cutPositionForward": { "type": "integer" },
+          "cutPositionReverse": { "type": "integer" },
+          "organism": { "type": "string" }
+        }
+      }
+    },
+    "required": ["enzyme"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Enzyme name cannot be null or blank" }
+  ],
+  "examples": [
+    {
+      "name": "EcoRI",
+      "input": { "name": "EcoRI" },
+      "output": { "enzyme": { "name": "EcoRI", "recognitionSequence": "GAATTC", "cutPositionForward": 1, "cutPositionReverse": 5, "organism": "Escherichia coli" } }
+    },
+    {
+      "name": "Unknown enzyme",
+      "input": { "name": "NotAnEnzyme" },
+      "output": { "enzyme": null }
+    }
+  ]
+}

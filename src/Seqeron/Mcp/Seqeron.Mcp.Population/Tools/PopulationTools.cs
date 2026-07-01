@@ -22,6 +22,13 @@ public class PopulationTools
         [Description("Count of heterozygous genotypes (Aa).")] int heterozygous,
         [Description("Count of homozygous-minor genotypes (aa).")] int homozygousMinor)
     {
+        if (homozygousMajor < 0)
+            throw new ArgumentException("Genotype count cannot be negative.", nameof(homozygousMajor));
+        if (heterozygous < 0)
+            throw new ArgumentException("Genotype count cannot be negative.", nameof(heterozygous));
+        if (homozygousMinor < 0)
+            throw new ArgumentException("Genotype count cannot be negative.", nameof(homozygousMinor));
+
         var (major, minor) = PopulationGeneticsAnalyzer.CalculateAlleleFrequencies(
             homozygousMajor, heterozygous, homozygousMinor);
         return new AlleleFrequenciesResult(major, minor);

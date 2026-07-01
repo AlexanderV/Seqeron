@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "au_n",
+  "serverName": "Chromosome",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomeAssemblyAnalyzer.CalculateAuN",
+  "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L321",
+  "description": "Compute auN (area under the Nx curve) - a length-weighted contiguity metric robust to outliers.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "lengths": { "type": "array", "items": { "type": "integer" }, "description": "Sequence lengths." }
+    },
+    "required": ["lengths"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": { "auN": { "type": "number", "description": "sum(l^2) / sum(l); 0 for empty input." } },
+    "required": ["auN"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Lengths cannot be null" }
+  ],
+  "examples": [
+    { "name": "Ten contigs", "input": { "lengths": [100, 90, 80, 70, 60, 50, 40, 30, 20, 10] }, "output": { "auN": 70.0 } },
+    { "name": "Single contig", "input": { "lengths": [123] }, "output": { "auN": 123.0 } }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "estimate_cell_divisions_from_telomere_length",
+  "serverName": "Chromosome",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ChromosomeAnalyzer.EstimateCellDivisionsFromTelomereLength",
+  "docRef": "Seqeron.Genomics.Chromosome/ChromosomeAnalyzer.cs#L1675",
+  "description": "Estimate the number of cell divisions from current telomere length given a birth length and per-division loss rate.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "currentLength": { "type": "integer", "minimum": 0, "description": "Current telomere length in bp." },
+      "birthLength": { "type": "integer", "default": 15000, "exclusiveMinimum": 0, "description": "Telomere length at birth in bp." },
+      "lossPerDivision": { "type": "integer", "default": 50, "exclusiveMinimum": 0, "description": "Telomere loss per cell division in bp." }
+    },
+    "required": ["currentLength"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": { "cellDivisions": { "type": "number", "description": "max(0, (birthLength - currentLength) / lossPerDivision)." } },
+    "required": ["cellDivisions"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Current length cannot be negative" },
+    { "code": 1002, "message": "Birth length must be positive" },
+    { "code": 1003, "message": "Loss per division must be positive" }
+  ],
+  "examples": [
+    { "name": "Default parameters", "input": { "currentLength": 10000 }, "output": { "cellDivisions": 100.0 } },
+    { "name": "No shortening", "input": { "currentLength": 15000 }, "output": { "cellDivisions": 0.0 } }
+  ]
+}

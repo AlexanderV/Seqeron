@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "detect_rearrangements",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ComparativeGenomics.DetectRearrangements",
+  "docRef": "Seqeron.Genomics.Analysis/ComparativeGenomics.cs#L582",
+  "description": "Detects rearrangements as breakpoints of the signed gene-order permutation (Bafna & Pevzner 1998). Each non-adjacency is an event classified Inversion or Transposition.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "genome1Genes": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "genomeId": { "type": "string" },
+            "start": { "type": "integer" },
+            "end": { "type": "integer" },
+            "strand": { "type": "string", "maxLength": 1 },
+            "sequence": { "type": ["string", "null"] }
+          },
+          "required": ["id", "genomeId", "start", "end", "strand"]
+        },
+        "minItems": 1
+      },
+      "genome2Genes": { "type": "array", "minItems": 1 },
+      "orthologMap": { "type": "object", "additionalProperties": { "type": "string" } }
+    },
+    "required": ["genome1Genes", "genome2Genes", "orthologMap"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string" },
+            "genomeId": { "type": "string" },
+            "position": { "type": "integer" },
+            "length": { "type": "integer" },
+            "targetPosition": { "type": ["string", "null"] }
+          },
+          "required": ["type", "genomeId", "position", "length"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Genome 1 must contain at least one gene" },
+    { "code": 1001, "message": "Genome 2 must contain at least one gene" },
+    { "code": 1001, "message": "Ortholog map cannot be null" }
+  ],
+  "examples": [
+    {
+      "name": "Identical gene order",
+      "input": {
+        "genome1Genes": [
+          { "id": "A", "genomeId": "G1", "start": 0, "end": 10, "strand": "+" },
+          { "id": "B", "genomeId": "G1", "start": 20, "end": 30, "strand": "+" }
+        ],
+        "genome2Genes": [
+          { "id": "A", "genomeId": "G2", "start": 0, "end": 10, "strand": "+" },
+          { "id": "B", "genomeId": "G2", "start": 20, "end": 30, "strand": "+" }
+        ],
+        "orthologMap": { "A": "A", "B": "B" }
+      },
+      "output": { "items": [] }
+    },
+    {
+      "name": "Local inversion",
+      "input": {
+        "genome1Genes": [
+          { "id": "A", "genomeId": "G1", "start": 0, "end": 10, "strand": "+" },
+          { "id": "B", "genomeId": "G1", "start": 20, "end": 30, "strand": "+" },
+          { "id": "C", "genomeId": "G1", "start": 40, "end": 50, "strand": "+" }
+        ],
+        "genome2Genes": [
+          { "id": "A", "genomeId": "G2", "start": 0, "end": 10, "strand": "+" },
+          { "id": "B", "genomeId": "G2", "start": 20, "end": 30, "strand": "-" },
+          { "id": "C", "genomeId": "G2", "start": 40, "end": 50, "strand": "+" }
+        ],
+        "orthologMap": { "A": "A", "B": "B", "C": "C" }
+      },
+      "output": { "items": [
+        { "type": "Inversion", "genomeId": "G1", "position": 20 },
+        { "type": "Inversion", "genomeId": "G1", "position": 40 }
+      ] }
+    }
+  ]
+}

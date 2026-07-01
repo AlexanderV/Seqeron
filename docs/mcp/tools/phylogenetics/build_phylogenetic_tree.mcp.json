@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "build_phylogenetic_tree",
+  "serverName": "Phylogenetics",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PhylogeneticAnalyzer.BuildTree",
+  "docRef": "Seqeron.Genomics.Phylogenetics/PhylogeneticAnalyzer.cs#L136",
+  "description": "Build a phylogenetic tree from a set of named, pre-aligned sequences.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequences": {
+        "type": "object",
+        "description": "Aligned sequences keyed by taxon name (>=2, equal length).",
+        "additionalProperties": { "type": "string" },
+        "minProperties": 2
+      },
+      "distanceMethod": {
+        "type": "string",
+        "description": "Substitution model for the distance matrix.",
+        "enum": ["PDistance", "JukesCantor", "Kimura2Parameter", "Hamming"],
+        "default": "JukesCantor"
+      },
+      "treeMethod": {
+        "type": "string",
+        "description": "Tree construction method.",
+        "enum": ["UPGMA", "NeighborJoining"],
+        "default": "UPGMA"
+      }
+    },
+    "required": ["sequences"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "newick": { "type": "string", "description": "Tree in Newick format." },
+      "taxa": { "type": "array", "items": { "type": "string" }, "description": "Taxon names." },
+      "distanceMatrix": {
+        "type": "array",
+        "items": { "type": "array", "items": { "type": "number" } },
+        "description": "Symmetric pairwise distance matrix; diagonal is zero."
+      },
+      "method": { "type": "string", "description": "Tree construction method used (UPGMA | NeighborJoining)." }
+    },
+    "required": ["newick", "taxa", "distanceMatrix", "method"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequences cannot be null" },
+    { "code": 1002, "message": "At least 2 sequences required" },
+    { "code": 1003, "message": "All sequences must have the same length (aligned)" },
+    { "code": 1004, "message": "Unknown distance method" },
+    { "code": 1005, "message": "Unknown tree method" }
+  ],
+  "examples": [
+    {
+      "name": "UPGMA, identical A/B",
+      "input": {
+        "sequences": { "A": "ACGTACGT", "B": "ACGTACGT", "C": "TTTTTTTT" },
+        "distanceMethod": "JukesCantor",
+        "treeMethod": "UPGMA"
+      },
+      "output": {
+        "taxa": ["A", "B", "C"],
+        "method": "UPGMA",
+        "note": "distanceMatrix[0][1] = 0 (A and B identical); Newick groups A,B as siblings."
+      }
+    },
+    {
+      "name": "NeighborJoining method name",
+      "input": {
+        "sequences": { "A": "ACGTACGT", "B": "ACGTACGA", "C": "TCGTACGT" },
+        "treeMethod": "NeighborJoining"
+      },
+      "output": { "method": "NeighborJoining" }
+    }
+  ]
+}

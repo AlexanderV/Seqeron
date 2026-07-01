@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "build_codon_table",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "CodonOptimizer.CreateCodonTableFromSequence",
+  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L986",
+  "description": "Derive a per-organism codon-usage table (per-amino-acid relative codon frequencies, RNA alphabet) from a reference coding sequence.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "reference_sequence": { "type": "string", "description": "Reference coding sequence (DNA or RNA).", "minLength": 1 },
+      "organism_name": { "type": "string", "description": "Organism name to attach to the table.", "minLength": 1 }
+    },
+    "required": ["reference_sequence", "organism_name"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "organismName": { "type": "string", "description": "Organism name." },
+      "codonFrequencies": { "type": "object", "description": "RNA codon -> relative frequency within its amino-acid group (0-1).", "additionalProperties": { "type": "number" } },
+      "codonToAminoAcid": { "type": "object", "description": "RNA codon -> single-letter amino acid.", "additionalProperties": { "type": "string" } }
+    },
+    "required": ["organismName", "codonFrequencies", "codonToAminoAcid"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Reference sequence cannot be null or empty" },
+    { "code": 1002, "message": "Organism name cannot be null or blank" }
+  ],
+  "examples": [
+    {
+      "name": "Two Phe codons",
+      "input": { "reference_sequence": "TTTTTTTTC", "organism_name": "MyOrg" },
+      "output": { "organismName": "MyOrg", "codonFrequencies": { "UUU": 0.6667, "UUC": 0.3333 }, "codonToAminoAcid": { "UUU": "F", "UUC": "F" } }
+    },
+    {
+      "name": "T replaced by U",
+      "input": { "reference_sequence": "ATGATG", "organism_name": "Demo" },
+      "output": { "organismName": "Demo", "codonFrequencies": { "AUG": 1.0 }, "codonToAminoAcid": { "AUG": "M" } }
+    }
+  ]
+}

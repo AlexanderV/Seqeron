@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "extract_contigs",
+  "serverName": "Chromosome",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomeAssemblyAnalyzer.ExtractContigs",
+  "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L473",
+  "description": "Extract contigs (gap-free runs) from scaffolds with a minimum length filter.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "scaffolds": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "sequence": { "type": "string" } }, "required": ["id", "sequence"] } },
+      "minContigLength": { "type": "integer", "default": 200, "exclusiveMinimum": 0 }
+    },
+    "required": ["scaffolds"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "sequence": { "type": "string" } }, "required": ["id", "sequence"] } }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Scaffolds cannot be null" },
+    { "code": 1002, "message": "Minimum contig length must be positive" }
+  ],
+  "examples": [
+    { "name": "Two contigs split by an N-run", "input": { "scaffolds": [ { "id": "s", "sequence": "AAA…(300)NNN…(20)CCC…(250)" } ], "minContigLength": 200 }, "output": { "items": [ { "id": "s_contig1", "sequence": "…(300)" }, { "id": "s_contig2", "sequence": "…(250)" } ] } }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "nx_curve",
+  "serverName": "Chromosome",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomeAssemblyAnalyzer.CalculateNxCurve",
+  "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L302",
+  "description": "Compute Nx/Lx for multiple thresholds (default 10..90 step 10).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "lengths": { "type": "array", "items": { "type": "integer" }, "description": "Sequence lengths (any order)." },
+      "thresholds": { "type": "array", "items": { "type": "integer" }, "description": "Thresholds; empty/omitted -> 10..90 step 10." }
+    },
+    "required": ["lengths"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": { "type": "object", "properties": { "threshold": { "type": "integer" }, "nx": { "type": "integer" }, "lx": { "type": "integer" }, "cumulativeLength": { "type": "integer" } }, "required": ["threshold", "nx", "lx", "cumulativeLength"] }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Lengths cannot be null" }
+  ],
+  "examples": [
+    { "name": "Default deciles", "input": { "lengths": [100, 90, 80, 70, 60, 50, 40, 30, 20, 10] }, "output": { "items": "[9 entries for thresholds 10..90; N50 entry has nx=70, lx=4]" } },
+    { "name": "Explicit thresholds (sorted ascending)", "input": { "lengths": [100, 50], "thresholds": [90, 10] }, "output": { "items": "[threshold 10, threshold 90]" } }
+  ]
+}

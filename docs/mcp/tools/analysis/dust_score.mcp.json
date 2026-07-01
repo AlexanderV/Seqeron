@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "dust_score",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceComplexity.CalculateDustScore",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L361",
+  "description": "DUST low-complexity score (Morgulis 2006): sum_t c_t*(c_t-1)/2 / (L - wordSize + 1). Higher score = lower complexity.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
+      "wordSize": { "type": "integer", "description": "Word size", "minimum": 1, "default": 3 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "score": { "type": "number", "description": "DUST score (>= 0); higher = lower complexity" }
+    },
+    "required": ["score"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1003, "message": "Word size must be at least 1" }
+  ],
+  "examples": [
+    { "name": "Homopolymer", "input": { "sequence": "AAAAA", "wordSize": 3 }, "output": { "score": 1.0 } },
+    { "name": "All-distinct words", "input": { "sequence": "ACGT", "wordSize": 3 }, "output": { "score": 0.0 } }
+  ]
+}

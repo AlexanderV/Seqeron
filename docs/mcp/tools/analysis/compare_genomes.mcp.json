@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "compare_genomes",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ComparativeGenomics.CompareGenomes",
+  "docRef": "Seqeron.Genomics.Analysis/ComparativeGenomics.cs#L766",
+  "description": "End-to-end comparative pipeline: RBH orthologs + synteny + rearrangements + core/dispensable summary stats.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "genome1Genes": { "type": "array", "description": "Genes of genome 1", "minItems": 1, "items": { "$ref": "#/$defs/gene" } },
+      "genome2Genes": { "type": "array", "description": "Genes of genome 2", "minItems": 1, "items": { "$ref": "#/$defs/gene" } },
+      "minOrthologIdentity": { "type": "number", "description": "Minimum ortholog identity", "default": 0.3 },
+      "minSyntenicBlockSize": { "type": "integer", "description": "Minimum syntenic block size", "default": 3 }
+    },
+    "required": ["genome1Genes", "genome2Genes"],
+    "$defs": {
+      "gene": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "genomeId": { "type": "string" },
+          "start": { "type": "integer" },
+          "end": { "type": "integer" },
+          "strand": { "type": "string", "minLength": 1, "maxLength": 1 },
+          "sequence": { "type": ["string", "null"] }
+        },
+        "required": ["id", "genomeId", "start", "end", "strand"]
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "syntenicBlocks": { "type": "array" },
+      "orthologs": { "type": "array" },
+      "rearrangements": { "type": "array" },
+      "overallSynteny": { "type": "number", "description": "Fraction of syntenic genes in [0, 1]" },
+      "conservedGenes": { "type": "integer", "description": "Number of core genes (RBH ortholog pairs)" },
+      "genomeSpecificGenes1": { "type": "integer", "description": "Dispensable genes unique to genome 1" },
+      "genomeSpecificGenes2": { "type": "integer", "description": "Dispensable genes unique to genome 2" }
+    },
+    "required": ["syntenicBlocks", "orthologs", "rearrangements", "overallSynteny", "conservedGenes", "genomeSpecificGenes1", "genomeSpecificGenes2"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Genome must contain at least one gene" }
+  ],
+  "examples": [
+    {
+      "name": "One shared + one unique each",
+      "input": {
+        "genome1Genes": [
+          { "id": "a0", "genomeId": "G1", "start": 0, "end": 60, "strand": "+", "sequence": "ATGGCAAAGCTTGATCCGTACGGGTTAACCGGATCAGGTTCAAAGCTTGATCCGTACGGG" },
+          { "id": "a1", "genomeId": "G1", "start": 100, "end": 160, "strand": "+", "sequence": "CCCCCCGGGGGGTTTTTTAAAAAACCCCCCGGGGGGTTTTTTAAAAAACCCCCCGGGGGG" }
+        ],
+        "genome2Genes": [
+          { "id": "c0", "genomeId": "G2", "start": 0, "end": 60, "strand": "+", "sequence": "ATGGCAAAGCTTGATCCGTACGGGTTAACCGGATCAGGTTCAAAGCTTGATCCGTACGGG" },
+          { "id": "c1", "genomeId": "G2", "start": 100, "end": 160, "strand": "+", "sequence": "TTGGAACCTTGGAACCTTGGAACCTTGGAACCTTGGAACCTTGGAACCTTGGAACCTTGG" }
+        ]
+      },
+      "output": { "conservedGenes": 1, "genomeSpecificGenes1": 1, "genomeSpecificGenes2": 1 }
+    },
+    {
+      "name": "Disjoint content -> no core",
+      "input": {
+        "genome1Genes": [
+          { "id": "a0", "genomeId": "G1", "start": 0, "end": 60, "strand": "+", "sequence": "CCCCCCGGGGGGTTTTTTAAAAAACCCCCCGGGGGGTTTTTTAAAAAACCCCCCGGGGGG" },
+          { "id": "a1", "genomeId": "G1", "start": 100, "end": 160, "strand": "+", "sequence": "GATTACAGATTACAGATTACAGATTACAGATTACAGATTACAGATTACAGATTACAGATT" }
+        ],
+        "genome2Genes": [
+          { "id": "c0", "genomeId": "G2", "start": 0, "end": 60, "strand": "+", "sequence": "TTGGAACCTTGGAACCTTGGAACCTTGGAACCTTGGAACCTTGGAACCTTGGAACCTTGG" },
+          { "id": "c1", "genomeId": "G2", "start": 100, "end": 160, "strand": "+", "sequence": "ACGTAAACCCGGGTTTACGTAAACCCGGGTTTACGTAAACCCGGGTTTACGTAAACCCGG" }
+        ]
+      },
+      "output": { "conservedGenes": 0, "genomeSpecificGenes1": 2, "genomeSpecificGenes2": 2 }
+    }
+  ]
+}

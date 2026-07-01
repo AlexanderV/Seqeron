@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "analyze_target_context",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MiRnaAnalyzer.AnalyzeTargetContext",
+  "docRef": "Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs#L2591",
+  "description": "Compute AU content and positional context score around a miRNA target site within an mRNA.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "mRnaSequence": { "type": "string", "description": "mRNA nucleotide sequence", "minLength": 1 },
+      "targetStart": { "type": "integer", "description": "0-based inclusive start of the target site", "minimum": 0 },
+      "targetEnd": { "type": "integer", "description": "0-based inclusive end of the target site", "minimum": 0 },
+      "contextWindow": { "type": "integer", "description": "Flanking context window (nt) on each side of the site", "default": 30, "minimum": 0 }
+    },
+    "required": ["mRnaSequence", "targetStart", "targetEnd"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "auContent": { "type": "number", "description": "Fraction of A/U bases in the context window (0-1)" },
+      "nearStart": { "type": "boolean", "description": "True if the site starts within the first 15% of the transcript" },
+      "nearEnd": { "type": "boolean", "description": "True if the site ends within the last 15% of the transcript" },
+      "contextScore": { "type": "number", "description": "Favourability score in [0,1]: 0.5*auContent + 0.3 mid-transcript bonus, capped at 1" }
+    },
+    "required": ["auContent", "nearStart", "nearEnd", "contextScore"]
+  },
+  "errors": [
+    { "code": 1001, "message": "mRNA sequence cannot be null or empty" },
+    { "code": 1002, "message": "Target indices are out of range for the sequence" }
+  ],
+  "examples": [
+    {
+      "name": "AU-rich mid-transcript site",
+      "input": { "mRnaSequence": "AAAAAAAAAAAAAAAAAAAA", "targetStart": 8, "targetEnd": 11, "contextWindow": 30 },
+      "output": { "auContent": 1.0, "nearStart": false, "nearEnd": false, "contextScore": 0.8 }
+    },
+    {
+      "name": "GC-rich mid-transcript site",
+      "input": { "mRnaSequence": "GCGCGCGCGCGCGCGCGCGC", "targetStart": 8, "targetEnd": 11, "contextWindow": 30 },
+      "output": { "auContent": 0.0, "nearStart": false, "nearEnd": false, "contextScore": 0.3 }
+    }
+  ]
+}

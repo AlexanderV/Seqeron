@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "longest_dinucleotide_repeat",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PrimerDesigner.FindLongestDinucleotideRepeat",
+  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L273",
+  "description": "Number of repeat units in the longest dinucleotide tandem repeat (e.g. ATATAT = 3).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "Nucleotide sequence.", "minLength": 1 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "repeats": { "type": "integer", "description": "Longest dinucleotide repeat unit count (0 if length < 4)." }
+    },
+    "required": ["repeats"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    { "name": "ATAT repeat", "input": { "sequence": "ATATAT" }, "output": { "repeats": 3 } },
+    { "name": "Too short", "input": { "sequence": "AT" }, "output": { "repeats": 0 } }
+  ]
+}

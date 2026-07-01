@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "call_variants",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "VariantCaller.CallVariants",
+  "docRef": "Seqeron.Genomics.Annotation/VariantCaller.cs#L27",
+  "description": "Detect SNPs and indels between a reference and a query DNA sequence using global alignment.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "reference": { "type": "string", "description": "Reference DNA sequence", "minLength": 1 },
+      "query": { "type": "string", "description": "Query DNA sequence", "minLength": 1 }
+    },
+    "required": ["reference", "query"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "variants": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": { "type": "integer", "description": "0-based position in the reference" },
+            "referenceAllele": { "type": "string" },
+            "alternateAllele": { "type": "string" },
+            "type": { "type": "string", "description": "SNP / Insertion / Deletion / MNP / Complex" },
+            "queryPosition": { "type": "integer" }
+          },
+          "required": ["position", "referenceAllele", "alternateAllele", "type", "queryPosition"]
+        }
+      }
+    },
+    "required": ["variants"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Reference cannot be null or empty" },
+    { "code": 1001, "message": "Query cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Single SNP",
+      "input": { "reference": "ATGC", "query": "ATTC" },
+      "output": { "variants": [ { "position": 2, "referenceAllele": "G", "alternateAllele": "T", "type": "SNP", "queryPosition": 2 } ] }
+    },
+    {
+      "name": "Identical sequences",
+      "input": { "reference": "ATGCATGC", "query": "ATGCATGC" },
+      "output": { "variants": [] }
+    }
+  ]
+}

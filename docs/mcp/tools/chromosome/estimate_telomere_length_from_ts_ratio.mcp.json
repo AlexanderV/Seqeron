@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "estimate_telomere_length_from_ts_ratio",
+  "serverName": "Chromosome",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ChromosomeAnalyzer.EstimateTelomereLengthFromTSRatio",
+  "docRef": "Seqeron.Genomics.Chromosome/ChromosomeAnalyzer.cs#L488",
+  "description": "Estimate telomere length in bp from a qPCR Telomere/Single-copy gene (T/S) ratio against a reference.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "tsRatio": { "type": "number", "description": "Sample T/S ratio." },
+      "referenceRatio": { "type": "number", "default": 1.0, "exclusiveMinimum": 0, "description": "Reference T/S ratio." },
+      "referenceLength": { "type": "number", "default": 7000, "exclusiveMinimum": 0, "description": "Telomere length (bp) at the reference ratio." }
+    },
+    "required": ["tsRatio"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": { "telomereLength": { "type": "number", "description": "referenceLength * tsRatio / referenceRatio." } },
+    "required": ["telomereLength"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Reference ratio must be positive" },
+    { "code": 1002, "message": "Reference length must be positive" }
+  ],
+  "examples": [
+    { "name": "Twice the reference", "input": { "tsRatio": 2.0 }, "output": { "telomereLength": 14000.0 } },
+    { "name": "Custom reference", "input": { "tsRatio": 0.5, "referenceRatio": 2.0, "referenceLength": 10000 }, "output": { "telomereLength": 2500.0 } }
+  ]
+}

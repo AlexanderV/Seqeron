@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "longest_homopolymer",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PrimerDesigner.FindLongestHomopolymer",
+  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L246",
+  "description": "Length of the longest run of identical consecutive nucleotides in a sequence.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "Nucleotide sequence.", "minLength": 1 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "length": { "type": "integer", "description": "Longest homopolymer run length." }
+    },
+    "required": ["length"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    { "name": "AAA run", "input": { "sequence": "AAATTGC" }, "output": { "length": 3 } },
+    { "name": "No repeats", "input": { "sequence": "ACGT" }, "output": { "length": 1 } }
+  ]
+}

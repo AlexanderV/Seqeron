@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "hardy_weinberg_test",
+  "serverName": "Population",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PopulationGeneticsAnalyzer.TestHardyWeinberg",
+  "docRef": "Seqeron.Genomics.Population/PopulationGeneticsAnalyzer.cs#L424",
+  "description": "Test Hardy-Weinberg equilibrium for a biallelic variant via chi-square goodness-of-fit (1 df) on observed AA/Aa/aa counts.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "variantId": { "type": "string", "description": "Variant identifier." },
+      "observedAA": { "type": "integer", "description": "Observed homozygous-AA count.", "minimum": 0 },
+      "observedAa": { "type": "integer", "description": "Observed heterozygous-Aa count.", "minimum": 0 },
+      "observedaa": { "type": "integer", "description": "Observed homozygous-aa count.", "minimum": 0 },
+      "significanceLevel": { "type": "number", "description": "Significance level alpha (default 0.05).", "default": 0.05 }
+    },
+    "required": ["variantId", "observedAA", "observedAa", "observedaa"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "variantId": { "type": "string" },
+      "observedAA": { "type": "integer" },
+      "observedAa": { "type": "integer" },
+      "observedaa": { "type": "integer" },
+      "expectedAA": { "type": "number", "description": "p²·n under HWE" },
+      "expectedAa": { "type": "number", "description": "2pq·n under HWE" },
+      "expectedaa": { "type": "number", "description": "q²·n under HWE" },
+      "chiSquare": { "type": "number", "description": "Chi-square goodness-of-fit statistic" },
+      "pValue": { "type": "number", "description": "P-value at 1 degree of freedom" },
+      "inEquilibrium": { "type": "boolean", "description": "True iff pValue >= significanceLevel" }
+    },
+    "required": ["variantId", "observedAA", "observedAa", "observedaa", "expectedAA", "expectedAa", "expectedaa", "chiSquare", "pValue", "inEquilibrium"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Ford's scarlet tiger moth data (in equilibrium)",
+      "input": { "variantId": "FORD_MOTH", "observedAA": 1469, "observedAa": 138, "observedaa": 5 },
+      "output": { "variantId": "FORD_MOTH", "observedAA": 1469, "observedAa": 138, "observedaa": 5, "expectedAA": 1467.40, "expectedAa": 141.21, "expectedaa": 3.40, "chiSquare": 0.8309, "pValue": 0.362, "inEquilibrium": true }
+    },
+    {
+      "name": "Excess heterozygotes (deviates from HWE)",
+      "input": { "variantId": "EXCESS_HET", "observedAA": 10, "observedAa": 80, "observedaa": 10 },
+      "output": { "variantId": "EXCESS_HET", "observedAA": 10, "observedAa": 80, "observedaa": 10, "expectedAA": 25.0, "expectedAa": 50.0, "expectedaa": 25.0, "chiSquare": 36.0, "pValue": 0.0, "inEquilibrium": false }
+    }
+  ]
+}

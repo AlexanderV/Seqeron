@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_with_edits",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ApproximateMatcher.FindWithEdits",
+  "docRef": "Seqeron.Genomics.Alignment/ApproximateMatcher.cs#L118",
+  "description": "Find all approximate matches of pattern in sequence allowing up to maxEdits Levenshtein edits (insertions, deletions, substitutions), scanning variable-length windows of length pattern.Length +/- maxEdits.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "Sequence to search in.",
+        "minLength": 1
+      },
+      "pattern": {
+        "type": "string",
+        "description": "Pattern to find.",
+        "minLength": 1
+      },
+      "maxEdits": {
+        "type": "integer",
+        "description": "Maximum allowed edit distance (>= 0).",
+        "minimum": 0
+      }
+    },
+    "required": [
+      "sequence",
+      "pattern",
+      "maxEdits"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "description": "Matches, each with position, matchedSequence, distance, mismatchPositions, mismatchType."
+      }
+    },
+    "required": [
+      "items"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1005,
+      "message": "Pattern cannot be null or empty"
+    },
+    {
+      "code": 1006,
+      "message": "maxEdits must be >= 0"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Edit distance 1",
+      "input": {
+        "sequence": "ACGT",
+        "pattern": "AGT",
+        "maxEdits": 1
+      },
+      "output": {
+        "items": [
+          {
+            "position": 0,
+            "matchedSequence": "ACGT",
+            "distance": 1,
+            "mismatchPositions": [],
+            "mismatchType": "Edit"
+          },
+          {
+            "position": 1,
+            "matchedSequence": "CGT",
+            "distance": 1,
+            "mismatchPositions": [],
+            "mismatchType": "Substitution"
+          },
+          {
+            "position": 2,
+            "matchedSequence": "GT",
+            "distance": 1,
+            "mismatchPositions": [],
+            "mismatchType": "Edit"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Exact only",
+      "input": {
+        "sequence": "ACGTACGT",
+        "pattern": "ACGT",
+        "maxEdits": 0
+      },
+      "output": {
+        "items": [
+          {
+            "position": 0,
+            "matchedSequence": "ACGT",
+            "distance": 0,
+            "mismatchPositions": [],
+            "mismatchType": "Substitution"
+          },
+          {
+            "position": 4,
+            "matchedSequence": "ACGT",
+            "distance": 0,
+            "mismatchPositions": [],
+            "mismatchType": "Substitution"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "count_codons",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "CodonUsageAnalyzer.CountCodons",
+  "docRef": "Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L29",
+  "description": "Count occurrences of each ACGT codon in a coding DNA sequence (frame 0).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "Coding DNA sequence (frame 0).", "minLength": 1 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "counts": { "type": "object", "description": "Codon -> occurrence count.", "additionalProperties": { "type": "integer" } }
+    },
+    "required": ["counts"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Two ATG, one TTT",
+      "input": { "sequence": "ATGATGTTT" },
+      "output": { "counts": { "ATG": 2, "TTT": 1 } }
+    },
+    {
+      "name": "Skips invalid and partial codons",
+      "input": { "sequence": "ATGANGTTTC" },
+      "output": { "counts": { "ATG": 1, "TTT": 1 } }
+    }
+  ]
+}

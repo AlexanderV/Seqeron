@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "local_align",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceAligner.LocalAlign",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.cs#L301",
+  "description": "Local pairwise alignment (Smith-Waterman): find the best-scoring substring alignment with a zero floor, ignoring poorly matching flanks.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence1": {
+        "type": "string",
+        "description": "First sequence.",
+        "minLength": 1
+      },
+      "sequence2": {
+        "type": "string",
+        "description": "Second sequence.",
+        "minLength": 1
+      },
+      "match": {
+        "type": "integer",
+        "description": "Score for matching base.",
+        "default": 1
+      },
+      "mismatch": {
+        "type": "integer",
+        "description": "Score for mismatching base.",
+        "default": -1
+      },
+      "gapOpen": {
+        "type": "integer",
+        "description": "Gap-open penalty.",
+        "default": -2
+      },
+      "gapExtend": {
+        "type": "integer",
+        "description": "Gap-extend penalty.",
+        "default": -1
+      }
+    },
+    "required": [
+      "sequence1",
+      "sequence2"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "alignedSequence1": {
+        "type": "string",
+        "description": "Aligned local substring of sequence1."
+      },
+      "alignedSequence2": {
+        "type": "string",
+        "description": "Aligned local substring of sequence2."
+      },
+      "score": {
+        "type": "integer",
+        "description": "Optimal local alignment score."
+      },
+      "alignmentType": {
+        "type": "string",
+        "description": "Alignment type (\"Local\")."
+      },
+      "startPosition1": {
+        "type": "integer",
+        "description": "0-based start of the local region in sequence1."
+      },
+      "startPosition2": {
+        "type": "integer",
+        "description": "0-based start of the local region in sequence2."
+      },
+      "endPosition1": {
+        "type": "integer",
+        "description": "0-based end of the local region in sequence1."
+      },
+      "endPosition2": {
+        "type": "integer",
+        "description": "0-based end of the local region in sequence2."
+      }
+    },
+    "required": [
+      "alignedSequence1",
+      "alignedSequence2",
+      "score",
+      "alignmentType",
+      "startPosition1",
+      "startPosition2",
+      "endPosition1",
+      "endPosition2"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Shared core",
+      "input": {
+        "sequence1": "TTTACGTTTT",
+        "sequence2": "GGGACGTGGG"
+      },
+      "output": {
+        "alignedSequence1": "ACGT",
+        "alignedSequence2": "ACGT",
+        "score": 4,
+        "alignmentType": "Local",
+        "startPosition1": 3,
+        "startPosition2": 3,
+        "endPosition1": 6,
+        "endPosition2": 6
+      }
+    },
+    {
+      "name": "Identical",
+      "input": {
+        "sequence1": "ACGT",
+        "sequence2": "ACGT"
+      },
+      "output": {
+        "alignedSequence1": "ACGT",
+        "alignedSequence2": "ACGT",
+        "score": 4,
+        "alignmentType": "Local",
+        "startPosition1": 0,
+        "startPosition2": 0,
+        "endPosition1": 3,
+        "endPosition2": 3
+      }
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_direct_repeats",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RepeatFinder.FindDirectRepeats",
+  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L796",
+  "description": "Finds identical substrings appearing twice with spacing >= minSpacing. Reports both positions, sequence, length, and spacing = secondPos - firstPos - length.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
+      "minLength": { "type": "integer", "description": "Minimum repeat length", "minimum": 2, "default": 5 },
+      "maxLength": { "type": "integer", "description": "Maximum repeat length", "default": 50 },
+      "minSpacing": { "type": "integer", "description": "Minimum spacing between copies", "default": 1 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "firstPosition": { "type": "integer" },
+            "secondPosition": { "type": "integer" },
+            "repeatSequence": { "type": "string" },
+            "length": { "type": "integer" },
+            "spacing": { "type": "integer" }
+          },
+          "required": ["firstPosition", "secondPosition", "repeatSequence", "length", "spacing"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1003, "message": "minLength must be >= 2" },
+    { "code": 1003, "message": "maxLength must be >= minLength" }
+  ],
+  "examples": [
+    {
+      "name": "One spaced repeat",
+      "input": { "sequence": "ATGCGGATGC", "minLength": 4, "maxLength": 4, "minSpacing": 1 },
+      "output": { "items": [ { "firstPosition": 0, "secondPosition": 6, "repeatSequence": "ATGC", "length": 4, "spacing": 2 } ] }
+    },
+    {
+      "name": "No repeat",
+      "input": { "sequence": "ACGTACGT", "minLength": 6 },
+      "output": { "items": [] }
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "to_newick",
+  "serverName": "Phylogenetics",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PhylogeneticAnalyzer.ToNewick",
+  "docRef": "Seqeron.Genomics.Phylogenetics/PhylogeneticAnalyzer.cs#L577",
+  "description": "Serialize a phylogenetic tree to canonical Newick format.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "newick": { "type": "string", "description": "Input tree in Newick format.", "minLength": 1 },
+      "includeBranchLengths": { "type": "boolean", "description": "Whether to include branch lengths.", "default": true }
+    },
+    "required": ["newick"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "newick": { "type": "string", "description": "Canonical Newick serialization." }
+    },
+    "required": ["newick"]
+  },
+  "errors": [
+    { "code": 2001, "message": "Newick string is empty" },
+    { "code": 2002, "message": "Malformed Newick string" }
+  ],
+  "examples": [
+    {
+      "name": "Multifurcation with branch lengths (F4 format)",
+      "input": { "newick": "(A:0.1,B:0.2,C:0.3);", "includeBranchLengths": true },
+      "output": { "newick": "(A:0.1000,B:0.2000,C:0.3000);" }
+    },
+    {
+      "name": "Drop branch lengths",
+      "input": { "newick": "(A:0.1,B:0.2,C:0.3);", "includeBranchLengths": false },
+      "output": { "newick": "(A,B,C);" }
+    }
+  ]
+}

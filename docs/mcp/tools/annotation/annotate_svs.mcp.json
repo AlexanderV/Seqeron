@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "annotate_svs",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "StructuralVariantAnalyzer.AnnotateSVs",
+  "docRef": "Seqeron.Genomics.Annotation/StructuralVariantAnalyzer.cs#L1135",
+  "description": "Annotate structural variants with overlapping genes and exons and a coarse functional impact (HIGH / MODERATE / MODIFIER / LOW).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "variants": {
+        "type": "array",
+        "description": "Structural variants to annotate",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "chromosome": { "type": "string" },
+            "start": { "type": "integer" },
+            "end": { "type": "integer" },
+            "type": { "type": "string", "description": "Deletion, Duplication, Inversion, Insertion, Translocation, ..." },
+            "length": { "type": "integer" },
+            "quality": { "type": "number" },
+            "supportingReads": { "type": "integer" },
+            "insertedSequence": { "type": ["string", "null"] }
+          },
+          "required": ["id", "chromosome", "start", "end", "type", "length", "quality", "supportingReads"]
+        }
+      },
+      "genes": {
+        "type": "array",
+        "description": "Gene models with exon intervals",
+        "items": {
+          "type": "object",
+          "properties": {
+            "geneId": { "type": "string" },
+            "chromosome": { "type": "string" },
+            "start": { "type": "integer" },
+            "end": { "type": "integer" },
+            "exons": { "type": "array", "items": { "type": "object", "properties": { "start": { "type": "integer" }, "end": { "type": "integer" } }, "required": ["start", "end"] } }
+          },
+          "required": ["geneId", "chromosome", "start", "end", "exons"]
+        }
+      }
+    },
+    "required": ["variants", "genes"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "annotations": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "svId": { "type": "string" },
+            "affectedGenes": { "type": "array", "items": { "type": "string" } },
+            "affectedExons": { "type": "array", "items": { "type": "string" } },
+            "functionalImpact": { "type": "string", "enum": ["HIGH", "MODERATE", "MODIFIER", "LOW"] },
+            "populationFrequency": { "type": "number" },
+            "isPathogenic": { "type": "boolean" }
+          },
+          "required": ["svId", "affectedGenes", "affectedExons", "functionalImpact", "populationFrequency", "isPathogenic"]
+        }
+      }
+    },
+    "required": ["annotations"]
+  },
+  "errors": [
+    { "code": 1001, "message": "variants cannot be null" },
+    { "code": 1001, "message": "genes cannot be null" }
+  ],
+  "examples": [
+    {
+      "name": "Deletion hitting an exon (HIGH)",
+      "input": {
+        "variants": [ { "id": "sv1", "chromosome": "chr1", "start": 100, "end": 500, "type": "Deletion", "length": 401, "quality": 60, "supportingReads": 10 } ],
+        "genes": [ { "geneId": "GENE1", "chromosome": "chr1", "start": 200, "end": 400, "exons": [ { "start": 250, "end": 300 } ] } ]
+      },
+      "output": { "annotations": [ { "svId": "sv1", "affectedGenes": ["GENE1"], "affectedExons": ["GENE1:exon1"], "functionalImpact": "HIGH", "isPathogenic": true } ] }
+    },
+    {
+      "name": "No gene overlap (LOW)",
+      "input": {
+        "variants": [ { "id": "sv1", "chromosome": "chr1", "start": 1000, "end": 2000, "type": "Deletion", "length": 1001, "quality": 60, "supportingReads": 10 } ],
+        "genes": [ { "geneId": "GENE1", "chromosome": "chr1", "start": 200, "end": 400, "exons": [ { "start": 250, "end": 300 } ] } ]
+      },
+      "output": { "annotations": [ { "svId": "sv1", "affectedGenes": [], "affectedExons": [], "functionalImpact": "LOW", "isPathogenic": false } ] }
+    }
+  ]
+}

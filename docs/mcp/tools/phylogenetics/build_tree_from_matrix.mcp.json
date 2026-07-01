@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "build_tree_from_matrix",
+  "serverName": "Phylogenetics",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PhylogeneticAnalyzer.BuildTreeFromMatrix",
+  "docRef": "Seqeron.Genomics.Phylogenetics/PhylogeneticAnalyzer.cs#L174",
+  "description": "Build a phylogenetic tree directly from a precomputed symmetric distance matrix.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "taxa": {
+        "type": "array",
+        "description": "Taxon names in the same order as the matrix rows/columns (>=2).",
+        "items": { "type": "string" },
+        "minItems": 2
+      },
+      "distanceMatrix": {
+        "type": "array",
+        "description": "Symmetric square distance matrix; size must equal the length of taxa.",
+        "items": { "type": "array", "items": { "type": "number" } }
+      },
+      "treeMethod": {
+        "type": "string",
+        "description": "Tree construction method.",
+        "enum": ["UPGMA", "NeighborJoining"],
+        "default": "UPGMA"
+      }
+    },
+    "required": ["taxa", "distanceMatrix"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "newick": { "type": "string", "description": "Tree in Newick format." },
+      "taxa": { "type": "array", "items": { "type": "string" }, "description": "Taxon names." },
+      "distanceMatrix": {
+        "type": "array",
+        "items": { "type": "array", "items": { "type": "number" } },
+        "description": "The input distance matrix, echoed back."
+      },
+      "method": { "type": "string", "description": "Tree construction method used." }
+    },
+    "required": ["newick", "taxa", "distanceMatrix", "method"]
+  },
+  "errors": [
+    { "code": 1001, "message": "At least 2 taxa required" },
+    { "code": 1002, "message": "Distance matrix is required" },
+    { "code": 1003, "message": "Distance matrix dimensions must match the number of taxa" },
+    { "code": 1004, "message": "Unknown tree method" }
+  ],
+  "examples": [
+    {
+      "name": "Wikipedia UPGMA 5S rRNA example",
+      "input": {
+        "taxa": ["a", "b", "c", "d", "e"],
+        "distanceMatrix": [
+          [0, 17, 21, 31, 23],
+          [17, 0, 30, 34, 21],
+          [21, 30, 0, 28, 39],
+          [31, 34, 28, 0, 43],
+          [23, 21, 39, 43, 0]
+        ],
+        "treeMethod": "UPGMA"
+      },
+      "output": {
+        "newick": "(((a:8.5000,b:8.5000):2.5000,e:11.0000):5.5000,(c:14.0000,d:14.0000):2.5000);",
+        "method": "UPGMA"
+      }
+    },
+    {
+      "name": "Wikipedia Neighbor-Joining additive example",
+      "input": {
+        "taxa": ["a", "b", "c", "d", "e"],
+        "distanceMatrix": [
+          [0, 5, 9, 9, 8],
+          [5, 0, 10, 10, 9],
+          [9, 10, 0, 8, 7],
+          [9, 10, 8, 0, 3],
+          [8, 9, 7, 3, 0]
+        ],
+        "treeMethod": "NeighborJoining"
+      },
+      "output": {
+        "newick": "(((a:2.0000,b:3.0000):3.0000,c:4.0000):2.0000,d:2.0000,e:1.0000);",
+        "method": "NeighborJoining"
+      }
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "count_kmers_both_strands",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "KmerAnalyzer.CountKmersBothStrands",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L476",
+  "description": "Counts every k-mer over both strands of double-stranded DNA: count[w] = forward[w] + forward[RC(w)]. Total over all k-mers is 2*(L - k + 1).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
+      "k": { "type": "integer", "description": "k-mer length", "minimum": 1 }
+    },
+    "required": ["sequence", "k"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "counts": {
+        "type": "object",
+        "description": "Map of k-mer -> summed forward + reverse-complement count",
+        "additionalProperties": { "type": "integer" }
+      }
+    },
+    "required": ["counts"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1001, "message": "Invalid DNA sequence" }
+  ],
+  "examples": [
+    {
+      "name": "Homopolymer",
+      "input": { "sequence": "AAAA", "k": 2 },
+      "output": { "counts": { "AA": 3, "TT": 3 } }
+    },
+    {
+      "name": "Mixed 2-mers",
+      "input": { "sequence": "ATGC", "k": 2 },
+      "output": { "counts": { "AT": 2, "TG": 1, "GC": 2, "CA": 1 } }
+    }
+  ]
+}

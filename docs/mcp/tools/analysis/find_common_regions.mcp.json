@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_common_regions",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomicAnalyzer.FindCommonRegions",
+  "docRef": "Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L306",
+  "description": "For each start in sequence2, the single longest substring (>= minLength) also occurring in sequence1, found via suffix tree; distinct matches reported once.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence1": { "type": "string", "description": "First DNA sequence", "minLength": 1 },
+      "sequence2": { "type": "string", "description": "Second DNA sequence", "minLength": 1 },
+      "minLength": { "type": "integer", "description": "Minimum common-region length" }
+    },
+    "required": ["sequence1", "sequence2", "minLength"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "sequence": { "type": "string" },
+            "positionInFirst": { "type": "integer" },
+            "positionInSecond": { "type": "integer" },
+            "length": { "type": "integer" }
+          },
+          "required": ["sequence", "positionInFirst", "positionInSecond", "length"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1001, "message": "Invalid DNA sequence" }
+  ],
+  "examples": [
+    {
+      "name": "Identical sequences",
+      "input": { "sequence1": "ACGT", "sequence2": "ACGT", "minLength": 2 },
+      "output": { "items": [
+        { "sequence": "ACGT", "positionInFirst": 0, "positionInSecond": 0, "length": 4 },
+        { "sequence": "CGT", "positionInFirst": 1, "positionInSecond": 1, "length": 3 },
+        { "sequence": "GT", "positionInFirst": 2, "positionInSecond": 2, "length": 2 }
+      ] }
+    },
+    {
+      "name": "No common region",
+      "input": { "sequence1": "AAAA", "sequence2": "CCCC", "minLength": 2 },
+      "output": { "items": [] }
+    }
+  ]
+}

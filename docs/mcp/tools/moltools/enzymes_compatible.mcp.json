@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "enzymes_compatible",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RestrictionAnalyzer.AreCompatible",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L524",
+  "description": "Return whether two named built-in restriction enzymes produce ligatable (compatible) ends.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "enzyme1_name": { "type": "string", "description": "First enzyme name.", "minLength": 1 },
+      "enzyme2_name": { "type": "string", "description": "Second enzyme name.", "minLength": 1 }
+    },
+    "required": ["enzyme1_name", "enzyme2_name"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "compatible": { "type": "boolean", "description": "True if the two enzymes produce ligatable ends." }
+    },
+    "required": ["compatible"]
+  },
+  "errors": [
+    { "code": 1001, "message": "First enzyme name cannot be null or blank" },
+    { "code": 1002, "message": "Second enzyme name cannot be null or blank" }
+  ],
+  "examples": [
+    {
+      "name": "Two blunt cutters",
+      "input": { "enzyme1_name": "EcoRV", "enzyme2_name": "SmaI" },
+      "output": { "compatible": true }
+    },
+    {
+      "name": "Different overhangs",
+      "input": { "enzyme1_name": "EcoRI", "enzyme2_name": "BamHI" },
+      "output": { "compatible": false }
+    }
+  ]
+}

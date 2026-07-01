@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "beta_diversity",
+  "serverName": "Metagenomics",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MetagenomicsAnalyzer.CalculateBetaDiversity",
+  "docRef": "Seqeron.Genomics.Metagenomics/MetagenomicsAnalyzer.cs#L572",
+  "description": "Compute Bray-Curtis and Jaccard distances plus shared/unique species counts between two samples. UniFrac is reported as 0 (no phylogenetic tree input).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sample1Name": { "type": "string", "description": "Name/identifier of sample 1." },
+      "sample1": {
+        "type": "array",
+        "description": "Sample 1 abundance vector.",
+        "items": {
+          "type": "object",
+          "properties": { "name": { "type": "string" }, "fraction": { "type": "number" } },
+          "required": ["name", "fraction"]
+        }
+      },
+      "sample2Name": { "type": "string", "description": "Name/identifier of sample 2." },
+      "sample2": {
+        "type": "array",
+        "description": "Sample 2 abundance vector.",
+        "items": {
+          "type": "object",
+          "properties": { "name": { "type": "string" }, "fraction": { "type": "number" } },
+          "required": ["name", "fraction"]
+        }
+      }
+    },
+    "required": ["sample1Name", "sample1", "sample2Name", "sample2"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "sample1": { "type": "string", "description": "Sample 1 name." },
+      "sample2": { "type": "string", "description": "Sample 2 name." },
+      "brayCurtis": { "type": "number", "description": "Bray-Curtis dissimilarity 1 - 2·Σmin / Σtotal." },
+      "jaccardDistance": { "type": "number", "description": "1 - |shared| / |union| on presence/absence." },
+      "uniFracDistance": { "type": "number", "description": "Always 0 (requires a phylogenetic tree)." },
+      "sharedSpecies": { "type": "integer", "description": "Species present (>0) in both samples." },
+      "uniqueToSample1": { "type": "integer", "description": "Species present only in sample 1." },
+      "uniqueToSample2": { "type": "integer", "description": "Species present only in sample 2." }
+    },
+    "required": ["sample1", "sample2", "brayCurtis", "jaccardDistance", "uniFracDistance", "sharedSpecies", "uniqueToSample1", "uniqueToSample2"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Wikipedia Bray-Curtis aquarium example",
+      "input": {
+        "sample1Name": "Tank 1",
+        "sample1": [ { "name": "Goldfish", "fraction": 6 }, { "name": "Guppy", "fraction": 7 }, { "name": "Rainbow", "fraction": 4 } ],
+        "sample2Name": "Tank 2",
+        "sample2": [ { "name": "Goldfish", "fraction": 10 }, { "name": "Guppy", "fraction": 0 }, { "name": "Rainbow", "fraction": 6 } ]
+      },
+      "output": {
+        "sample1": "Tank 1", "sample2": "Tank 2",
+        "brayCurtis": 0.3939393939393939, "jaccardDistance": 0.3333333333333333,
+        "uniFracDistance": 0, "sharedSpecies": 2, "uniqueToSample1": 1, "uniqueToSample2": 0
+      }
+    },
+    {
+      "name": "Completely disjoint samples",
+      "input": {
+        "sample1Name": "S1", "sample1": [ { "name": "A", "fraction": 1.0 } ],
+        "sample2Name": "S2", "sample2": [ { "name": "B", "fraction": 1.0 } ]
+      },
+      "output": {
+        "sample1": "S1", "sample2": "S2",
+        "brayCurtis": 1.0, "jaccardDistance": 1.0,
+        "uniFracDistance": 0, "sharedSpecies": 0, "uniqueToSample1": 1, "uniqueToSample2": 1
+      }
+    }
+  ]
+}

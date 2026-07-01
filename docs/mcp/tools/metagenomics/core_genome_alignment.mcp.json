@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "core_genome_alignment",
+  "serverName": "Metagenomics",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PanGenomeAnalyzer.CreateCoreGenomeAlignment",
+  "docRef": "Seqeron.Genomics.Metagenomics/PanGenomeAnalyzer.cs#L824",
+  "description": "Concatenate a single genome's representative sequences for the supplied core clusters into a per-genome alignment block.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "genomes": {
+        "type": "array",
+        "description": "Genomes (id + ordered list of genes).",
+        "items": {
+          "type": "object",
+          "properties": {
+            "genomeId": { "type": "string" },
+            "genes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": { "geneId": { "type": "string" }, "sequence": { "type": "string" } },
+                "required": ["geneId", "sequence"]
+              }
+            }
+          },
+          "required": ["genomeId", "genes"]
+        }
+      },
+      "coreClusters": {
+        "type": "array",
+        "description": "Core gene clusters (e.g. from core_gene_clusters).",
+        "items": {
+          "type": "object",
+          "properties": {
+            "clusterId": { "type": "string" },
+            "geneIds": { "type": "array", "items": { "type": "string" } },
+            "genomeIds": { "type": "array", "items": { "type": "string" } },
+            "genomeCount": { "type": "integer" },
+            "averageIdentity": { "type": "number" },
+            "consensusSequence": { "type": "string" }
+          },
+          "required": ["clusterId", "geneIds", "genomeIds", "genomeCount", "averageIdentity", "consensusSequence"]
+        }
+      },
+      "genomeId": { "type": "string", "description": "Genome id to extract the alignment block for." }
+    },
+    "required": ["genomes", "coreClusters", "genomeId"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "result": { "type": "string", "description": "Concatenated core-cluster sequences for the genome ('' if the genome is absent)." }
+    },
+    "required": ["result"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Concatenate two core clusters of g1",
+      "input": {
+        "genomes": [ { "genomeId": "g1", "genes": [ { "geneId": "gene1", "sequence": "ATGC" }, { "geneId": "gene2", "sequence": "GCTA" } ] } ],
+        "coreClusters": [
+          { "clusterId": "c1", "geneIds": ["gene1"], "genomeIds": ["g1"], "genomeCount": 1, "averageIdentity": 1.0, "consensusSequence": "ATGC" },
+          { "clusterId": "c2", "geneIds": ["gene2"], "genomeIds": ["g1"], "genomeCount": 1, "averageIdentity": 1.0, "consensusSequence": "GCTA" }
+        ],
+        "genomeId": "g1"
+      },
+      "output": { "result": "ATGCGCTA" }
+    },
+    {
+      "name": "Nonexistent genome",
+      "input": {
+        "genomes": [ { "genomeId": "g1", "genes": [ { "geneId": "gene1", "sequence": "ATGC" } ] } ],
+        "coreClusters": [ { "clusterId": "c1", "geneIds": ["gene1"], "genomeIds": ["g1"], "genomeCount": 1, "averageIdentity": 1.0, "consensusSequence": "ATGC" } ],
+        "genomeId": "nonexistent"
+      },
+      "output": { "result": "" }
+    }
+  ]
+}

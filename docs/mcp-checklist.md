@@ -1,3 +1,7 @@
+> ⚠️ **SUPERSEDED (2026-07-01).** This v4 checklist tracks a 12-server / 241-tool design that was
+> never built. Live per-tool B/T/D status for the real 11 servers is in **`docs/mcp/MCP_STATUS.md`**.
+> Do not tick items here; use the ledger.
+
 # MCP Implementation Checklist v4
 
 ## 0. Definition of Done

@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "runs_of_homozygosity",
+  "serverName": "Population",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PopulationGeneticsAnalyzer.FindROH",
+  "docRef": "Seqeron.Genomics.Population/PopulationGeneticsAnalyzer.cs#L1485",
+  "description": "Identify runs of homozygosity (ROH) from per-SNP genotype calls (0/1/2) using minimum SNP count, minimum length, and maximum heterozygote tolerance (consecutive-runs method; PLINK 1.9 thresholds).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "genotypes": {
+        "type": "array",
+        "description": "Per-SNP {position, genotype} entries (0=hom-ref, 1=het, 2=hom-alt); positions need not be pre-sorted.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": { "type": "integer" },
+            "genotype": { "type": "integer" }
+          },
+          "required": ["position", "genotype"]
+        }
+      },
+      "minSnps": { "type": "integer", "description": "Minimum SNPs in a run (default 50).", "minimum": 1, "default": 50 },
+      "minLength": { "type": "integer", "description": "Minimum run length in bp (default 1,000,000).", "minimum": 0, "default": 1000000 },
+      "maxHeterozygotes": { "type": "integer", "description": "Maximum tolerated heterozygous calls per run (default 1).", "minimum": 0, "default": 1 }
+    },
+    "required": ["genotypes"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "start": { "type": "integer", "description": "Position of the first SNP in the run." },
+            "end": { "type": "integer", "description": "Position of the last SNP in the run." },
+            "snpCount": { "type": "integer", "description": "Number of SNPs in the run." }
+          },
+          "required": ["start", "end", "snpCount"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Minimum SNP count must be at least 1 / thresholds cannot be negative." }
+  ],
+  "examples": [
+    {
+      "name": "One uninterrupted run of 100 homozygous SNPs at 20 kb spacing",
+      "input": {
+        "genotypes": "[100 entries {position: i*20000, genotype: 0}]",
+        "minSnps": 50,
+        "minLength": 1000000
+      },
+      "output": { "items": [{ "start": 0, "end": 1980000, "snpCount": 100 }] }
+    },
+    {
+      "name": "Run shorter than minSnps → no runs",
+      "input": {
+        "genotypes": "[20 entries {position: i*20000, genotype: 0}]",
+        "minSnps": 100
+      },
+      "output": { "items": [] }
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "cai_from_organism_table",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "CodonOptimizer.CalculateCAI",
+  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L473",
+  "description": "Compute the Codon Adaptation Index (Sharp & Li 1987) of a coding sequence against an organism codon-usage frequency table.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "coding_sequence": { "type": "string", "description": "Coding sequence (DNA or RNA).", "minLength": 1 },
+      "target_organism": {
+        "type": "object",
+        "description": "Preset id (EColiK12 | Yeast | Human) or inline custom table.",
+        "properties": {
+          "preset": { "type": "string" },
+          "organismName": { "type": "string" },
+          "codonFrequencies": { "type": "object", "additionalProperties": { "type": "number" } }
+        }
+      }
+    },
+    "required": ["coding_sequence", "target_organism"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "cai": { "type": "number", "description": "Codon Adaptation Index in 0..1 (geometric mean of per-codon relative adaptiveness)." }
+    },
+    "required": ["cai"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Coding sequence cannot be null or empty" },
+    { "code": 1002, "message": "Unknown codon-usage preset (expected EColiK12 | Yeast | Human)" }
+  ],
+  "examples": [
+    {
+      "name": "Single non-optimal codon",
+      "input": { "coding_sequence": "TTC", "target_organism": { "codonFrequencies": { "UUU": 0.8, "UUC": 0.2 } } },
+      "output": { "cai": 0.25 }
+    },
+    {
+      "name": "Optimal + non-optimal codon",
+      "input": { "coding_sequence": "TTTTTC", "target_organism": { "codonFrequencies": { "UUU": 0.8, "UUC": 0.2 } } },
+      "output": { "cai": 0.5 }
+    }
+  ]
+}

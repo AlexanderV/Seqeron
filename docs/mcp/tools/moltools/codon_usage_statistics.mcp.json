@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "codon_usage_statistics",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "CodonUsageAnalyzer.GetStatistics",
+  "docRef": "Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L378",
+  "description": "Aggregate codon-usage statistics for a coding sequence (counts, RSCU, ENC, GC1/GC2/GC3, GC3s, overall GC).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "Coding DNA sequence (frame 0).", "minLength": 1 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "codonCounts": { "type": "object", "additionalProperties": { "type": "integer" } },
+      "rscu": { "type": "object", "additionalProperties": { "type": "number" } },
+      "enc": { "type": "number", "description": "Effective Number of Codons (20..61)." },
+      "totalCodons": { "type": "integer" },
+      "gc1": { "type": "number", "description": "GC% at codon position 1." },
+      "gc2": { "type": "number", "description": "GC% at codon position 2." },
+      "gc3": { "type": "number", "description": "GC% at codon position 3." },
+      "gc3s": { "type": "number", "description": "GC% at third position of synonymous codons." },
+      "overallGc": { "type": "number", "description": "(GC1+GC2+GC3)/3." }
+    },
+    "required": ["codonCounts", "rscu", "enc", "totalCodons", "gc1", "gc2", "gc3", "gc3s", "overallGc"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Three-codon gene",
+      "input": { "sequence": "ATGTTTAAA" },
+      "output": { "totalCodons": 3, "gc1": 0, "gc2": 0, "gc3": 33.333, "gc3s": 0, "overallGc": 11.111, "rscu": { "TTT": 2.0 } }
+    },
+    {
+      "name": "GC-rich alanine codons",
+      "input": { "sequence": "GCGGCC" },
+      "output": { "totalCodons": 2, "gc1": 100, "gc2": 100, "gc3": 100, "gc3s": 100, "overallGc": 100 }
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "dinucleotide_frequencies",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceStatistics.CalculateDinucleotideFrequencies",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L602",
+  "description": "Normalized adjacent-dinucleotide frequencies f_XY = count(XY)/(N-1) over the alphabet A,T,G,C,U. Frequencies sum to 1.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "Nucleotide sequence", "minLength": 1 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "frequencies": {
+        "type": "object",
+        "description": "Map of dinucleotide -> frequency",
+        "additionalProperties": { "type": "number" }
+      }
+    },
+    "required": ["frequencies"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Homopolymer",
+      "input": { "sequence": "AAAA" },
+      "output": { "frequencies": { "AA": 1.0 } }
+    },
+    {
+      "name": "Alternating",
+      "input": { "sequence": "ATAT" },
+      "output": { "frequencies": { "AT": 0.6667, "TA": 0.3333 } }
+    }
+  ]
+}

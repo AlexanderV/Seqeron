@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "filter_variants_by_maf",
+  "serverName": "Population",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PopulationGeneticsAnalyzer.FilterByMAF",
+  "docRef": "Seqeron.Genomics.Population/PopulationGeneticsAnalyzer.cs#L182",
+  "description": "Filter variants whose minor allele frequency MAF = min(alleleFrequency, 1 − alleleFrequency) lies within the inclusive interval [minMAF, maxMAF].",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "variants": {
+        "type": "array",
+        "description": "Variants to filter.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "chromosome": { "type": "string" },
+            "position": { "type": "integer" },
+            "referenceAllele": { "type": "string" },
+            "alternateAllele": { "type": "string" },
+            "alleleFrequency": { "type": "number" },
+            "sampleCount": { "type": "integer" }
+          },
+          "required": ["id", "chromosome", "position", "referenceAllele", "alternateAllele", "alleleFrequency", "sampleCount"]
+        }
+      },
+      "minMAF": { "type": "number", "description": "Inclusive lower bound on MAF (default 0.01).", "default": 0.01 },
+      "maxMAF": { "type": "number", "description": "Inclusive upper bound on MAF (default 0.5).", "default": 0.5 }
+    },
+    "required": ["variants"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "description": "Variants passing the MAF filter, in input order.",
+        "items": { "$ref": "#/inputSchema/properties/variants/items" }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Drop a rare variant below minMAF",
+      "input": {
+        "variants": [
+          { "id": "V1", "chromosome": "chr1", "position": 100, "referenceAllele": "A", "alternateAllele": "G", "alleleFrequency": 0.005, "sampleCount": 100 },
+          { "id": "V2", "chromosome": "chr1", "position": 200, "referenceAllele": "A", "alternateAllele": "G", "alleleFrequency": 0.05, "sampleCount": 100 }
+        ],
+        "minMAF": 0.01
+      },
+      "output": { "items": [{ "id": "V2", "chromosome": "chr1", "position": 200, "referenceAllele": "A", "alternateAllele": "G", "alleleFrequency": 0.05, "sampleCount": 100 }] }
+    },
+    {
+      "name": "High allele frequency folds to MAF = 0.05",
+      "input": {
+        "variants": [
+          { "id": "V1", "chromosome": "chr1", "position": 100, "referenceAllele": "A", "alternateAllele": "G", "alleleFrequency": 0.95, "sampleCount": 100 }
+        ],
+        "minMAF": 0.01,
+        "maxMAF": 0.1
+      },
+      "output": { "items": [{ "id": "V1", "chromosome": "chr1", "position": 100, "referenceAllele": "A", "alternateAllele": "G", "alleleFrequency": 0.95, "sampleCount": 100 }] }
+    }
+  ]
+}
