@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "is_within_coding_region",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SpliceSitePredictor.IsWithinCodingRegion",
+  "docRef": "Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L980",
+  "description": "Heuristic check whether a sequence position lies in a coding region downstream of an in-frame start codon.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "DNA/RNA sequence", "minLength": 1 },
+      "position": { "type": "integer", "description": "0-based position to test" },
+      "frame": { "type": "integer", "description": "Reading frame (0, 1, or 2)", "default": 0 }
+    },
+    "required": ["sequence", "position"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "isCoding": { "type": "boolean", "description": "true when an upstream AUG places the position in the requested frame" }
+    },
+    "required": ["isCoding"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1001, "message": "Position is out of range (ArgumentOutOfRangeException)" }
+  ],
+  "examples": [
+    {
+      "name": "In-frame coding position",
+      "input": { "sequence": "AUGAAAAAAAAA", "position": 6, "frame": 0 },
+      "output": { "isCoding": true }
+    },
+    {
+      "name": "No upstream start codon",
+      "input": { "sequence": "CCCCCCCCC", "position": 6, "frame": 0 },
+      "output": { "isCoding": false }
+    }
+  ]
+}
