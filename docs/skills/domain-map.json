@@ -1,0 +1,11 @@
+{
+  "_comment": "Hand-editable config (NOT generated). Maps each domain skill dir name to the lowercase MCP tool-doc server dirs it covers (under docs/mcp/tools/<server>/). Consumed by scripts/skills/gen-catalog.py to emit per-domain _generated/tools.md slices. Edit this file by hand; then regenerate the catalog and confirm scripts/skills/check-catalog-fresh.sh is green.",
+  "bio-qc": ["sequence", "parsers"],
+  "bio-alignment": ["alignment", "core"],
+  "bio-assembly": ["analysis", "core"],
+  "bio-annotation": ["annotation", "analysis"],
+  "bio-phylo-popgen": ["phylogenetics", "population"],
+  "bio-metagenomics": ["metagenomics"],
+  "bio-moldesign": ["moltools"],
+  "bio-chromosome": ["chromosome"]
+}
