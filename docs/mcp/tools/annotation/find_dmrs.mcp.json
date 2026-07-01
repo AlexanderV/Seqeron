@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_dmrs",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EpigeneticsAnalyzer.FindDMRs",
+  "docRef": "Seqeron.Genomics.Annotation/EpigeneticsAnalyzer.cs#L607",
+  "description": "Identify differentially methylated regions (DMRs) between two methylation samples using a sliding window.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sample1": { "type": "array", "description": "Control sample methylation sites", "items": { "type": "object" } },
+      "sample2": { "type": "array", "description": "Treatment sample methylation sites", "items": { "type": "object" } },
+      "windowSize": { "type": "integer", "description": "Tiling window width (bp)", "default": 1000 },
+      "minDifference": { "type": "number", "description": "Minimum absolute mean methylation difference (0..1), strict", "default": 0.25 },
+      "minCpGCount": { "type": "integer", "description": "Minimum CpG count per window", "default": 3 }
+    },
+    "required": ["sample1", "sample2"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "regions": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "start": { "type": "integer" },
+            "end": { "type": "integer" },
+            "meanDifference": { "type": "number", "description": "mean(sample2 - sample1) over the window" },
+            "pValue": { "type": "number", "description": "two-sided Fisher's exact test on pooled counts" },
+            "cpGCount": { "type": "integer" },
+            "annotation": { "type": "string", "description": "Hypermethylated (positive diff) or Hypomethylated (negative)" }
+          },
+          "required": ["start", "end", "meanDifference", "pValue", "cpGCount", "annotation"]
+        }
+      }
+    },
+    "required": ["regions"]
+  },
+  "errors": [
+    { "code": 1001, "message": "sample1 cannot be null" },
+    { "code": 1001, "message": "sample2 cannot be null" },
+    { "code": 1001, "message": "Both samples cannot be empty" }
+  ],
+  "examples": [
+    {
+      "name": "Hypermethylated region",
+      "input": {
+        "sample1": [
+          { "position": 10, "type": "CpG", "context": "CGT", "methylationLevel": 0.0, "coverage": 10 },
+          { "position": 20, "type": "CpG", "context": "CGT", "methylationLevel": 0.0, "coverage": 10 },
+          { "position": 30, "type": "CpG", "context": "CGT", "methylationLevel": 0.0, "coverage": 10 }
+        ],
+        "sample2": [
+          { "position": 10, "type": "CpG", "context": "CGT", "methylationLevel": 1.0, "coverage": 10 },
+          { "position": 20, "type": "CpG", "context": "CGT", "methylationLevel": 1.0, "coverage": 10 },
+          { "position": 30, "type": "CpG", "context": "CGT", "methylationLevel": 1.0, "coverage": 10 }
+        ]
+      },
+      "output": {
+        "regions": [ { "start": 10, "end": 30, "meanDifference": 1.0, "pValue": 0.0, "cpGCount": 3, "annotation": "Hypermethylated" } ]
+      }
+    },
+    {
+      "name": "No difference",
+      "input": {
+        "sample1": [
+          { "position": 10, "type": "CpG", "context": "CGT", "methylationLevel": 0.0, "coverage": 10 },
+          { "position": 20, "type": "CpG", "context": "CGT", "methylationLevel": 0.0, "coverage": 10 },
+          { "position": 30, "type": "CpG", "context": "CGT", "methylationLevel": 0.0, "coverage": 10 }
+        ],
+        "sample2": [
+          { "position": 10, "type": "CpG", "context": "CGT", "methylationLevel": 0.0, "coverage": 10 },
+          { "position": 20, "type": "CpG", "context": "CGT", "methylationLevel": 0.0, "coverage": 10 },
+          { "position": 30, "type": "CpG", "context": "CGT", "methylationLevel": 0.0, "coverage": 10 }
+        ]
+      },
+      "output": { "regions": [] }
+    }
+  ]
+}
