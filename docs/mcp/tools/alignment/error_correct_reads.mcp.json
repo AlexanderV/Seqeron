@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "error_correct_reads",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceAssembler.ErrorCorrectReads",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L1104",
+  "description": "Correct single-base substitution errors using the k-mer spectrum (Musket/Quake two-sided): k-mers with multiplicity below minKmerFrequency are untrusted; a position is corrected only when a unique alternative base makes its covering k-mers trusted.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "reads": {
+        "type": "array",
+        "description": "Input reads."
+      },
+      "kmerSize": {
+        "type": "integer",
+        "description": "K-mer size used to build the frequency table (>= 1).",
+        "default": 21
+      },
+      "minKmerFrequency": {
+        "type": "integer",
+        "description": "Minimum k-mer frequency considered trusted.",
+        "default": 3
+      }
+    },
+    "required": [
+      "reads"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "corrected": {
+        "type": "array",
+        "description": "Corrected reads, upper-cased, in input order (length and count preserved)."
+      }
+    },
+    "required": [
+      "corrected"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1004,
+      "message": "k-mer size must be at least 1"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Fix one error",
+      "input": {
+        "reads": [
+          "ACGTACGT",
+          "ACGTACGT",
+          "ACGTACGT",
+          "ACGTTCGT"
+        ],
+        "kmerSize": 4,
+        "minKmerFrequency": 2
+      },
+      "output": {
+        "corrected": [
+          "ACGTACGT",
+          "ACGTACGT",
+          "ACGTACGT",
+          "ACGTACGT"
+        ]
+      }
+    },
+    {
+      "name": "Empty input",
+      "input": {
+        "reads": [],
+        "kmerSize": 4,
+        "minKmerFrequency": 2
+      },
+      "output": {
+        "corrected": []
+      }
+    }
+  ]
+}
