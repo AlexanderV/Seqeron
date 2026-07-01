@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "gap_distribution",
+  "serverName": "Chromosome",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomeAssemblyAnalyzer.AnalyzeGapDistribution",
+  "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L388",
+  "description": "Summarize a list of gaps: count, mean/median/max length, and counts by gap-length type.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "gaps": { "type": "array", "items": { "type": "object", "description": "GapInfo, typically from find_gaps." } }
+    },
+    "required": ["gaps"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "count": { "type": "integer" },
+      "meanLength": { "type": "number" },
+      "medianLength": { "type": "number" },
+      "maxLength": { "type": "integer" },
+      "typeCounts": { "type": "object", "additionalProperties": { "type": "integer" } }
+    },
+    "required": ["count", "meanLength", "medianLength", "maxLength", "typeCounts"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Gaps cannot be null" }
+  ],
+  "examples": [
+    { "name": "Two gaps", "input": { "gaps": "[{len 5, Short}, {len 100, Long}]" }, "output": { "count": 2, "meanLength": 52.5, "medianLength": 100, "maxLength": 100, "typeCounts": { "Short": 1, "Long": 1 } } }
+  ]
+}
