@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "cluster_genes_by_expression",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "TranscriptomeAnalyzer.ClusterGenesByExpression",
+  "docRef": "Seqeron.Genomics.Annotation/TranscriptomeAnalyzer.cs#L1140",
+  "description": "Cluster genes by similarity of their expression profiles using a k-means-like procedure on Pearson correlation.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "geneProfiles": {
+        "type": "array",
+        "description": "Per-gene expression profiles across samples",
+        "items": {
+          "type": "object",
+          "properties": {
+            "geneId": { "type": "string" },
+            "expression": { "type": "array", "items": { "type": "number" } }
+          },
+          "required": ["geneId", "expression"]
+        }
+      },
+      "numClusters": { "type": "integer", "description": "Number of clusters to form", "default": 5 },
+      "correlationThreshold": { "type": "number", "description": "Minimum mean within-cluster correlation (informational)", "default": 0.5 }
+    },
+    "required": ["geneProfiles"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "clusters": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "clusterId": { "type": "integer" },
+            "genes": { "type": "array", "items": { "type": "string" } },
+            "meanCorrelation": { "type": "number" },
+            "representativeGene": { "type": "string" },
+            "enrichedFunctions": { "type": "array", "items": { "type": "string" } }
+          },
+          "required": ["clusterId", "genes", "meanCorrelation", "representativeGene", "enrichedFunctions"]
+        }
+      }
+    },
+    "required": ["clusters"]
+  },
+  "errors": [
+    { "code": 1001, "message": "geneProfiles cannot be null" }
+  ],
+  "examples": [
+    {
+      "name": "Two correlation clusters",
+      "input": {
+        "geneProfiles": [
+          { "geneId": "G1", "expression": [1, 2, 3] },
+          { "geneId": "G2", "expression": [3, 2, 1] },
+          { "geneId": "G3", "expression": [2, 4, 6] },
+          { "geneId": "G4", "expression": [6, 4, 2] }
+        ],
+        "numClusters": 2
+      },
+      "output": { "clusters": [ { "genes": ["G1", "G3"] }, { "genes": ["G2", "G4"] } ] }
+    }
+  ]
+}
