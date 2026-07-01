@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "taxonomic_profile",
+  "serverName": "Metagenomics",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MetagenomicsAnalyzer.GenerateTaxonomicProfile",
+  "docRef": "Seqeron.Genomics.Metagenomics/MetagenomicsAnalyzer.cs#L420",
+  "description": "Aggregate per-read classifications into rank-wise abundances plus Shannon/Simpson diversity (computed at species level). Unclassified reads are excluded from the classified count and the abundance denominator.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "classifications": {
+        "type": "array",
+        "description": "Per-read classifications produced by classify_reads.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "readId": { "type": "string" },
+            "taxonId": { "type": "integer" },
+            "taxonName": { "type": "string" },
+            "rank": { "type": "string" },
+            "kingdom": { "type": "string" },
+            "phylum": { "type": "string" },
+            "genus": { "type": "string" },
+            "species": { "type": "string" }
+          },
+          "required": ["readId", "kingdom", "phylum", "genus", "species"]
+        }
+      }
+    },
+    "required": ["classifications"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "kingdomAbundance": { "type": "array", "items": { "type": "object", "properties": { "name": { "type": "string" }, "fraction": { "type": "number" } }, "required": ["name", "fraction"] } },
+      "phylumAbundance": { "type": "array", "items": { "type": "object", "properties": { "name": { "type": "string" }, "fraction": { "type": "number" } }, "required": ["name", "fraction"] } },
+      "genusAbundance": { "type": "array", "items": { "type": "object", "properties": { "name": { "type": "string" }, "fraction": { "type": "number" } }, "required": ["name", "fraction"] } },
+      "speciesAbundance": { "type": "array", "items": { "type": "object", "properties": { "name": { "type": "string" }, "fraction": { "type": "number" } }, "required": ["name", "fraction"] } },
+      "shannonDiversity": { "type": "number", "description": "Shannon index at species level." },
+      "simpsonDiversity": { "type": "number", "description": "Simpson index at species level." },
+      "totalReads": { "type": "integer" },
+      "classifiedReads": { "type": "integer" }
+    },
+    "required": ["kingdomAbundance", "phylumAbundance", "genusAbundance", "speciesAbundance", "shannonDiversity", "simpsonDiversity", "totalReads", "classifiedReads"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Four classified reads (2 species) + 1 unclassified",
+      "input": {
+        "classifications": [
+          { "readId": "r1", "kingdom": "Bacteria", "phylum": "Proteobacteria", "genus": "g", "species": "coli" },
+          { "readId": "r2", "kingdom": "Bacteria", "phylum": "Proteobacteria", "genus": "g", "species": "coli" },
+          { "readId": "r3", "kingdom": "Bacteria", "phylum": "Proteobacteria", "genus": "g", "species": "aureus" },
+          { "readId": "r4", "kingdom": "Bacteria", "phylum": "Proteobacteria", "genus": "g", "species": "aureus" },
+          { "readId": "r5", "kingdom": "Unclassified", "phylum": "", "genus": "", "species": "" }
+        ]
+      },
+      "output": {
+        "totalReads": 5, "classifiedReads": 4,
+        "speciesAbundance": [ { "name": "coli", "fraction": 0.5 }, { "name": "aureus", "fraction": 0.5 } ],
+        "shannonDiversity": 0.6931471805599453, "simpsonDiversity": 0.5
+      }
+    },
+    {
+      "name": "Empty input",
+      "input": { "classifications": [] },
+      "output": { "totalReads": 0, "classifiedReads": 0, "shannonDiversity": 0, "simpsonDiversity": 0, "speciesAbundance": [] }
+    }
+  ]
+}
