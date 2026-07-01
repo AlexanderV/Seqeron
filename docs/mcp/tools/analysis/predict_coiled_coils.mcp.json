@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "predict_coiled_coils",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ProteinMotifFinder.PredictCoiledCoils",
+  "docRef": "Seqeron.Genomics.Analysis/ProteinMotifFinder.cs#L976",
+  "description": "Heptad-repeat-based coiled-coil prediction: windows whose heptad-periodicity score >= threshold are reported as coiled-coil regions with start, end and peak score.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "proteinSequence": { "type": "string", "description": "Protein sequence", "minLength": 1 },
+      "windowSize": { "type": "integer", "description": "Sliding window size (default 28)", "minimum": 1, "default": 28 },
+      "threshold": { "type": "number", "description": "Score threshold (default 0.5)", "default": 0.5 }
+    },
+    "required": ["proteinSequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "start": { "type": "integer" },
+            "end": { "type": "integer" },
+            "score": { "type": "number" }
+          },
+          "required": ["start", "end", "score"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1002, "message": "Window size must be at least 1" }
+  ],
+  "examples": [
+    {
+      "name": "Perfect heptad (LAALAAA)x5",
+      "input": { "proteinSequence": "LAALAAALAALAAALAALAAALAALAAALAALAAA", "windowSize": 28, "threshold": 0.5 },
+      "output": { "items": [ { "start": 0, "end": 34, "score": 1.0 } ] }
+    },
+    {
+      "name": "No coiled coil (poly-G)",
+      "input": { "proteinSequence": "GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG", "windowSize": 28, "threshold": 0.5 },
+      "output": { "items": [] }
+    }
+  ]
+}
