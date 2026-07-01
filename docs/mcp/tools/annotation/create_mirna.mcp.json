@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "create_mirna",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MiRnaAnalyzer.CreateMiRna",
+  "docRef": "Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs#L107",
+  "description": "Build a MiRna record (T→U normalized) with seed metadata.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "name": { "type": "string", "description": "miRNA name / identifier", "minLength": 1 },
+      "sequence": { "type": "string", "description": "miRNA nucleotide sequence", "minLength": 1 }
+    },
+    "required": ["name", "sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "miRna": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "sequence": { "type": "string", "description": "Upper-cased, T→U normalised" },
+          "seedSequence": { "type": "string", "description": "Positions 2-8" },
+          "seedStart": { "type": "integer", "description": "Always 1" },
+          "seedEnd": { "type": "integer", "description": "Always 7" }
+        },
+        "required": ["name", "sequence", "seedSequence", "seedStart", "seedEnd"]
+      }
+    },
+    "required": ["miRna"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Name cannot be null or empty" },
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "DNA input normalised to RNA",
+      "input": { "name": "let-7a", "sequence": "TGAGGTAGTAGGTTGTATAGTT" },
+      "output": { "miRna": { "name": "let-7a", "sequence": "UGAGGUAGUAGGUUGUAUAGUU", "seedSequence": "GAGGUAG", "seedStart": 1, "seedEnd": 7 } }
+    },
+    {
+      "name": "RNA input preserved",
+      "input": { "name": "miR-21", "sequence": "UAGCUUAUCAGACUGAUGUUGA" },
+      "output": { "miRna": { "name": "miR-21", "sequence": "UAGCUUAUCAGACUGAUGUUGA", "seedSequence": "AGCUUAU", "seedStart": 1, "seedEnd": 7 } }
+    }
+  ]
+}
