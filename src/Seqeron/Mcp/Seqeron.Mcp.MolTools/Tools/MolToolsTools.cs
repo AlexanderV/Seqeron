@@ -332,11 +332,16 @@ public class MolToolsTools
         return new RareCodonsResult(rare);
     }
 
-    [McpServerTool, Description("Codon-frequency similarity between two sequences: 1 − ½·Σ|f1−f2| ∈ [0,1] (1 = identical distribution, 0 = disjoint). Either input empty or with no codon hits → 0.")]
+    [McpServerTool(Name = "compare_codon_usage", Title = "MolTools — Compare Codon Usage", ReadOnly = true), Description("Codon-frequency similarity between two coding sequences: 1 − ½·Σ|f1−f2| ∈ [0,1] (1 = identical codon distribution, 0 = disjoint). An input that is empty or contains no complete codons contributes 0 similarity. Call to compare the codon usage of two genes/organisms.")]
     public static SimilarityResult compare_codon_usage(
         [Description("First coding sequence.")] string sequence1,
         [Description("Second coding sequence.")] string sequence2)
     {
+        if (sequence1 is null)
+            throw new System.ArgumentException("First sequence cannot be null.", nameof(sequence1));
+        if (sequence2 is null)
+            throw new System.ArgumentException("Second sequence cannot be null.", nameof(sequence2));
+
         return new SimilarityResult(CodonOptimizer.CompareCodonUsage(sequence1, sequence2));
     }
 
