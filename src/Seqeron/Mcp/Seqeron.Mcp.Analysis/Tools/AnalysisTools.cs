@@ -695,8 +695,11 @@ public class AnalysisTools
     public static FindProteinMotifsResult FindProteinMotifs(
         [Description("Protein sequence.")] string proteinSequence)
     {
+        if (string.IsNullOrEmpty(proteinSequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(proteinSequence));
+
         var items = global::Seqeron.Genomics.Analysis.ProteinMotifFinder
-            .FindCommonMotifs(proteinSequence ?? string.Empty)
+            .FindCommonMotifs(proteinSequence)
             .Select(m => new ProteinMotifMatchItem(m.Start, m.End, m.Sequence, m.MotifName, m.Pattern, m.Score, m.EValue))
             .ToArray();
         return new FindProteinMotifsResult(items);
@@ -710,8 +713,13 @@ public class AnalysisTools
         [Description("Motif display name (default \"Custom\").")] string motifName = "Custom",
         [Description("Pattern identifier (default empty).")] string patternId = "")
     {
+        if (string.IsNullOrEmpty(proteinSequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(proteinSequence));
+        if (string.IsNullOrEmpty(regexPattern))
+            throw new ArgumentException("Regex pattern cannot be null or empty", nameof(regexPattern));
+
         var items = global::Seqeron.Genomics.Analysis.ProteinMotifFinder
-            .FindMotifByPattern(proteinSequence ?? string.Empty, regexPattern ?? string.Empty, motifName, patternId)
+            .FindMotifByPattern(proteinSequence, regexPattern, motifName, patternId)
             .Select(m => new ProteinMotifMatchItem(m.Start, m.End, m.Sequence, m.MotifName, m.Pattern, m.Score, m.EValue))
             .ToArray();
         return new FindProteinMotifsResult(items);
@@ -724,8 +732,13 @@ public class AnalysisTools
         [Description("PROSITE-format pattern.")] string prositePattern,
         [Description("Motif display name (default \"Custom\").")] string motifName = "Custom")
     {
+        if (string.IsNullOrEmpty(proteinSequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(proteinSequence));
+        if (string.IsNullOrEmpty(prositePattern))
+            throw new ArgumentException("PROSITE pattern cannot be null or empty", nameof(prositePattern));
+
         var items = global::Seqeron.Genomics.Analysis.ProteinMotifFinder
-            .FindMotifByProsite(proteinSequence ?? string.Empty, prositePattern ?? string.Empty, motifName)
+            .FindMotifByProsite(proteinSequence, prositePattern, motifName)
             .Select(m => new ProteinMotifMatchItem(m.Start, m.End, m.Sequence, m.MotifName, m.Pattern, m.Score, m.EValue))
             .ToArray();
         return new FindProteinMotifsResult(items);
@@ -736,8 +749,11 @@ public class AnalysisTools
     public static PrositeRegexResult PrositeToRegex(
         [Description("PROSITE-format pattern.")] string prositePattern)
     {
+        if (string.IsNullOrEmpty(prositePattern))
+            throw new ArgumentException("PROSITE pattern cannot be null or empty", nameof(prositePattern));
+
         var regex = global::Seqeron.Genomics.Analysis.ProteinMotifFinder
-            .ConvertPrositeToRegex(prositePattern ?? string.Empty);
+            .ConvertPrositeToRegex(prositePattern);
         return new PrositeRegexResult(regex);
     }
 
@@ -747,8 +763,11 @@ public class AnalysisTools
         [Description("Protein sequence.")] string proteinSequence,
         [Description("Score against the prokaryotic matrix instead of the default eukaryotic one.")] bool prokaryote = false)
     {
+        if (string.IsNullOrEmpty(proteinSequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(proteinSequence));
+
         var sp = global::Seqeron.Genomics.Analysis.ProteinMotifFinder
-            .PredictSignalPeptide(proteinSequence ?? string.Empty, prokaryote);
+            .PredictSignalPeptide(proteinSequence, prokaryote);
         if (sp is null)
             return new SignalPeptideResult(false, 0, 0.0, "", "", false);
         var v = sp.Value;
@@ -762,8 +781,13 @@ public class AnalysisTools
         [Description("Sliding window size (default 19).")] int windowSize = 19,
         [Description("Hydropathy threshold (default 1.6).")] double threshold = 1.6)
     {
+        if (string.IsNullOrEmpty(proteinSequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(proteinSequence));
+        if (windowSize < 1)
+            throw new ArgumentOutOfRangeException(nameof(windowSize), "Window size must be at least 1");
+
         var items = global::Seqeron.Genomics.Analysis.ProteinMotifFinder
-            .PredictTransmembraneHelices(proteinSequence ?? string.Empty, windowSize, threshold)
+            .PredictTransmembraneHelices(proteinSequence, windowSize, threshold)
             .Select(t => new RegionScoreItem(t.Start, t.End, t.Score))
             .ToArray();
         return new PredictTransmembraneHelicesResult(items);
@@ -776,8 +800,13 @@ public class AnalysisTools
         [Description("Sliding window size (default 28).")] int windowSize = 28,
         [Description("Score threshold (default 0.5).")] double threshold = 0.5)
     {
+        if (string.IsNullOrEmpty(proteinSequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(proteinSequence));
+        if (windowSize < 1)
+            throw new ArgumentOutOfRangeException(nameof(windowSize), "Window size must be at least 1");
+
         var items = global::Seqeron.Genomics.Analysis.ProteinMotifFinder
-            .PredictCoiledCoils(proteinSequence ?? string.Empty, windowSize, threshold)
+            .PredictCoiledCoils(proteinSequence, windowSize, threshold)
             .Select(t => new RegionScoreItem(t.Start, t.End, t.Score))
             .ToArray();
         return new PredictCoiledCoilsResult(items);
@@ -791,8 +820,13 @@ public class AnalysisTools
         [Description("Trigger complexity K1 in bits/residue (default 2.2).")] double triggerComplexity = 2.2,
         [Description("Extension complexity K2 in bits/residue (default 2.5).")] double extensionComplexity = 2.5)
     {
+        if (string.IsNullOrEmpty(proteinSequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(proteinSequence));
+        if (windowSize < 1)
+            throw new ArgumentOutOfRangeException(nameof(windowSize), "Window size must be at least 1");
+
         var items = global::Seqeron.Genomics.Analysis.ProteinMotifFinder
-            .FindLowComplexityRegions(proteinSequence ?? string.Empty, windowSize, triggerComplexity, extensionComplexity)
+            .FindLowComplexityRegions(proteinSequence, windowSize, triggerComplexity, extensionComplexity)
             .Select(t => new ProteinLowComplexityItem(t.Start, t.End, t.Complexity))
             .ToArray();
         return new FindProteinLowComplexityRegionsResult(items);
@@ -803,8 +837,11 @@ public class AnalysisTools
     public static FindProteinDomainsResult FindProteinDomains(
         [Description("Protein sequence.")] string proteinSequence)
     {
+        if (string.IsNullOrEmpty(proteinSequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(proteinSequence));
+
         var items = global::Seqeron.Genomics.Analysis.ProteinMotifFinder
-            .FindDomains(proteinSequence ?? string.Empty)
+            .FindDomains(proteinSequence)
             .Select(d => new ProteinDomainItem(d.Name, d.Accession, d.Start, d.End, d.Score, d.Description))
             .ToArray();
         return new FindProteinDomainsResult(items);
