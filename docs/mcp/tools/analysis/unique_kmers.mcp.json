@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "unique_kmers",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "KmerAnalyzer.FindUniqueKmers",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L253",
+  "description": "Returns the k-mers that occur exactly once (overlapping occurrence count = 1) in the sequence — the singleton k-mers.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "Sequence to analyze", "minLength": 1 },
+      "k": { "type": "integer", "description": "k-mer length", "minimum": 1 }
+    },
+    "required": ["sequence", "k"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "kmers": {
+        "type": "array",
+        "description": "k-mers occurring exactly once (order unspecified)",
+        "items": { "type": "string" }
+      }
+    },
+    "required": ["kmers"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1003, "message": "k must be positive" }
+  ],
+  "examples": [
+    {
+      "name": "Singletons of ATGATG k=3",
+      "input": { "sequence": "ATGATG", "k": 3 },
+      "output": { "kmers": ["TGA", "GAT"] }
+    },
+    {
+      "name": "No singletons (homopolymer) AAAA k=2",
+      "input": { "sequence": "AAAA", "k": 2 },
+      "output": { "kmers": [] }
+    }
+  ]
+}
