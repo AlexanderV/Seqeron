@@ -1351,8 +1351,11 @@ public class AnalysisTools
         [Description("Maximum loop size (default 10).")] int maxLoopSize = 10,
         [Description("Allow G-U wobble pairs in the stem (default true).")] bool allowWobble = true)
     {
+        if (string.IsNullOrEmpty(rnaSequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(rnaSequence));
+
         var items = RnaSecondaryStructure
-            .FindStemLoops(rnaSequence ?? string.Empty, minStemLength, minLoopSize, maxLoopSize, allowWobble)
+            .FindStemLoops(rnaSequence, minStemLength, minLoopSize, maxLoopSize, allowWobble)
             .Select(ToItem)
             .ToArray();
         return new FindStemLoopsResult(items);
@@ -1364,8 +1367,13 @@ public class AnalysisTools
         [Description("RNA sequence containing the stem.")] string sequence,
         [Description("Base pairs forming the stem (5' → 3' order).")] BasePairItem[] basePairs)
     {
-        var bps = (basePairs ?? Array.Empty<BasePairItem>()).Select(FromItem).ToArray();
-        return new StemEnergyResult(RnaSecondaryStructure.CalculateStemEnergy(sequence ?? string.Empty, bps));
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (basePairs is null)
+            throw new ArgumentException("Base pairs cannot be null", nameof(basePairs));
+
+        var bps = basePairs.Select(FromItem).ToArray();
+        return new StemEnergyResult(RnaSecondaryStructure.CalculateStemEnergy(sequence, bps));
     }
 
     [McpServerTool(Name = "terminal_mismatch_energy", Title = "RNA — Terminal Mismatch Energy", ReadOnly = true)]
@@ -1522,7 +1530,10 @@ public class AnalysisTools
         [Description("Minimum loop size (default 3).")] int minLoopSize = 3,
         [Description("Maximum loop size (default 10).")] int maxLoopSize = 10)
     {
-        var s = RnaSecondaryStructure.PredictStructure(rnaSequence ?? string.Empty, minStemLength, minLoopSize, maxLoopSize);
+        if (string.IsNullOrEmpty(rnaSequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(rnaSequence));
+
+        var s = RnaSecondaryStructure.PredictStructure(rnaSequence, minStemLength, minLoopSize, maxLoopSize);
         return new PredictRnaStructureResult(
             s.Sequence,
             s.DotBracket,
@@ -1562,7 +1573,10 @@ public class AnalysisTools
     public static ValidateDotBracketResult ValidateDotBracket(
         [Description("Dot-bracket secondary-structure string.")] string dotBracket)
     {
-        return new ValidateDotBracketResult(RnaSecondaryStructure.ValidateDotBracket(dotBracket ?? string.Empty));
+        if (string.IsNullOrEmpty(dotBracket))
+            throw new ArgumentException("Dot-bracket string cannot be null or empty", nameof(dotBracket));
+
+        return new ValidateDotBracketResult(RnaSecondaryStructure.ValidateDotBracket(dotBracket));
     }
 
     [McpServerTool(Name = "find_rna_inverted_repeats", Title = "RNA — Find Inverted Repeats", ReadOnly = true)]
@@ -1573,8 +1587,11 @@ public class AnalysisTools
         [Description("Minimum spacing between arms (default 3).")] int minSpacing = 3,
         [Description("Maximum spacing between arms (default 100).")] int maxSpacing = 100)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
         var items = RnaSecondaryStructure
-            .FindInvertedRepeats(sequence ?? string.Empty, minLength, minSpacing, maxSpacing)
+            .FindInvertedRepeats(sequence, minLength, minSpacing, maxSpacing)
             .Select(t => new FindRnaInvertedRepeatsItem(t.Start1, t.End1, t.Start2, t.End2, t.Length))
             .ToArray();
         return new FindRnaInvertedRepeatsResult(items);

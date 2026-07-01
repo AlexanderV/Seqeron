@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "minimum_free_energy",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RnaSecondaryStructure.CalculateMinimumFreeEnergy",
+  "docRef": "Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L1020",
+  "description": "Zuker-style minimum free energy of an RNA sequence with Turner 2004 parameters (O(n^3)). Returns kcal/mol; 0 when no structure forms.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "rnaSequence": { "type": "string", "description": "RNA sequence", "minLength": 1 },
+      "minLoopSize": { "type": "integer", "description": "Minimum hairpin loop size (default 3; values <3 are clamped)", "default": 3 }
+    },
+    "required": ["rnaSequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "mfe": { "type": "number", "description": "Minimum free energy in kcal/mol" }
+    },
+    "required": ["mfe"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Simple GC hairpin",
+      "input": { "rnaSequence": "GGGAAACCC" },
+      "output": { "mfe": -1.12 }
+    },
+    {
+      "name": "No structure (poly-A)",
+      "input": { "rnaSequence": "AAAAAAAA" },
+      "output": { "mfe": 0.0 }
+    }
+  ]
+}
