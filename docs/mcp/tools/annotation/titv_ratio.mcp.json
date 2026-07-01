@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "titv_ratio",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "VariantCaller.CalculateTiTvRatio",
+  "docRef": "Seqeron.Genomics.Annotation/VariantCaller.cs#L203",
+  "description": "Compute transition/transversion (Ti/Tv) ratio from a list of variants.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "variants": {
+        "type": "array",
+        "description": "Variants (only SNP-typed entries are counted)",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": { "type": "integer" },
+            "referenceAllele": { "type": "string" },
+            "alternateAllele": { "type": "string" },
+            "type": { "type": "string" },
+            "queryPosition": { "type": "integer" }
+          },
+          "required": ["referenceAllele", "alternateAllele", "type"]
+        }
+      }
+    },
+    "required": ["variants"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "ratio": { "type": "number", "description": "transitions / transversions; 0 when there are no transversions" }
+    },
+    "required": ["ratio"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Variants cannot be null" }
+  ],
+  "examples": [
+    {
+      "name": "One transition, one transversion",
+      "input": { "variants": [ { "position": 0, "referenceAllele": "A", "alternateAllele": "G", "type": "SNP", "queryPosition": 0 }, { "position": 1, "referenceAllele": "A", "alternateAllele": "C", "type": "SNP", "queryPosition": 1 } ] },
+      "output": { "ratio": 1.0 }
+    },
+    {
+      "name": "No transversions",
+      "input": { "variants": [ { "position": 0, "referenceAllele": "A", "alternateAllele": "G", "type": "SNP", "queryPosition": 0 } ] },
+      "output": { "ratio": 0.0 }
+    }
+  ]
+}
