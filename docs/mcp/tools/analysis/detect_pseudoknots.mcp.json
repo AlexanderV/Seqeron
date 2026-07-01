@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "detect_pseudoknots",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RnaSecondaryStructure.DetectPseudoknots",
+  "docRef": "Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L1934",
+  "description": "Detects pseudoknots as crossing base pairs: normalized/ordered pairs (i,j),(k,l) cross iff i < k < j < l. Nested and disjoint pairs are not pseudoknots.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "basePairs": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position1": { "type": "integer" },
+            "position2": { "type": "integer" },
+            "base1": { "type": "string", "maxLength": 1 },
+            "base2": { "type": "string", "maxLength": 1 },
+            "type": { "type": "string", "enum": ["WatsonCrick", "Wobble", "NonCanonical"] }
+          },
+          "required": ["position1", "position2", "base1", "base2", "type"]
+        }
+      }
+    },
+    "required": ["basePairs"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "start1": { "type": "integer" },
+            "end1": { "type": "integer" },
+            "start2": { "type": "integer" },
+            "end2": { "type": "integer" },
+            "crossingPairs": { "type": "array" }
+          },
+          "required": ["start1", "end1", "start2", "end2", "crossingPairs"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1002, "message": "Unknown base pair type" }
+  ],
+  "examples": [
+    {
+      "name": "Crossing pairs",
+      "input": { "basePairs": [
+        { "position1": 0, "position2": 5, "base1": "G", "base2": "C", "type": "WatsonCrick" },
+        { "position1": 3, "position2": 8, "base1": "G", "base2": "C", "type": "WatsonCrick" }
+      ] },
+      "output": { "items": [ { "start1": 0, "end1": 5, "start2": 3, "end2": 8 } ] }
+    },
+    {
+      "name": "Nested pairs (no pseudoknot)",
+      "input": { "basePairs": [
+        { "position1": 0, "position2": 8, "base1": "G", "base2": "C", "type": "WatsonCrick" },
+        { "position1": 3, "position2": 5, "base1": "G", "base2": "C", "type": "WatsonCrick" }
+      ] },
+      "output": { "items": [] }
+    }
+  ]
+}
