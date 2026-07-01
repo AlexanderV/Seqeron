@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "build_coexpression_network",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "TranscriptomeAnalyzer.BuildCoExpressionNetwork",
+  "docRef": "Seqeron.Genomics.Annotation/TranscriptomeAnalyzer.cs#L1117",
+  "description": "Build a gene co-expression network: for every unordered gene pair, compute the Pearson correlation of their expression profiles and emit an edge when the magnitude meets or exceeds the threshold.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "geneProfiles": {
+        "type": "array",
+        "description": "Per-gene expression profiles across samples",
+        "items": {
+          "type": "object",
+          "properties": {
+            "geneId": { "type": "string" },
+            "expression": { "type": "array", "items": { "type": "number" }, "description": "Expression values across samples" }
+          },
+          "required": ["geneId", "expression"]
+        }
+      },
+      "correlationThreshold": {
+        "type": "number",
+        "description": "Minimum |Pearson correlation| required for an edge",
+        "default": 0.7
+      }
+    },
+    "required": ["geneProfiles"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "edges": {
+        "type": "array",
+        "description": "Co-expression edges over the upper triangle of gene pairs",
+        "items": {
+          "type": "object",
+          "properties": {
+            "gene1": { "type": "string" },
+            "gene2": { "type": "string" },
+            "correlation": { "type": "number", "description": "Signed Pearson correlation (-1..1)" }
+          },
+          "required": ["gene1", "gene2", "correlation"]
+        }
+      }
+    },
+    "required": ["edges"]
+  },
+  "errors": [
+    { "code": 1001, "message": "geneProfiles cannot be null" }
+  ],
+  "examples": [
+    {
+      "name": "Three perfectly (anti)correlated genes",
+      "input": {
+        "geneProfiles": [
+          { "geneId": "GENE1", "expression": [1, 2, 3, 4, 5] },
+          { "geneId": "GENE2", "expression": [2, 4, 6, 8, 10] },
+          { "geneId": "GENE3", "expression": [5, 4, 3, 2, 1] }
+        ],
+        "correlationThreshold": 0.7
+      },
+      "output": {
+        "edges": [
+          { "gene1": "GENE1", "gene2": "GENE2", "correlation": 1.0 },
+          { "gene1": "GENE1", "gene2": "GENE3", "correlation": -1.0 },
+          { "gene1": "GENE2", "gene2": "GENE3", "correlation": -1.0 }
+        ]
+      }
+    },
+    {
+      "name": "Single gene has no pairs",
+      "input": { "geneProfiles": [{ "geneId": "GENE1", "expression": [1, 2, 3] }] },
+      "output": { "edges": [] }
+    }
+  ]
+}
