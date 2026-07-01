@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "annotate_histone_modifications",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EpigeneticsAnalyzer.AnnotateHistoneModifications",
+  "docRef": "Seqeron.Genomics.Annotation/EpigeneticsAnalyzer.cs#L950",
+  "description": "Annotate intervals with predicted chromatin state from a histone mark and signal level.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "modifications": {
+        "type": "array",
+        "description": "Histone modification intervals",
+        "items": {
+          "type": "object",
+          "properties": {
+            "start": { "type": "integer", "description": "0-based interval start" },
+            "end": { "type": "integer", "description": "0-based interval end" },
+            "mark": { "type": "string", "description": "Histone mark, e.g. H3K4me3, H3K27ac, H3K9me3" },
+            "signal": { "type": "number", "description": "Mark signal (present when >= 0.5)" }
+          },
+          "required": ["start", "end", "mark", "signal"]
+        }
+      }
+    },
+    "required": ["modifications"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "annotations": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "start": { "type": "integer" },
+            "end": { "type": "integer" },
+            "mark": { "type": "string" },
+            "signal": { "type": "number" },
+            "predictedState": { "type": "string", "description": "Roadmap chromatin state for the mark" }
+          },
+          "required": ["start", "end", "mark", "signal", "predictedState"]
+        }
+      }
+    },
+    "required": ["annotations"]
+  },
+  "errors": [
+    { "code": 1001, "message": "modifications cannot be null" }
+  ],
+  "examples": [
+    {
+      "name": "Active promoter mark",
+      "input": { "modifications": [ { "start": 0, "end": 100, "mark": "H3K4me3", "signal": 0.9 } ] },
+      "output": { "annotations": [ { "start": 0, "end": 100, "mark": "H3K4me3", "signal": 0.9, "predictedState": "ActivePromoter" } ] }
+    },
+    {
+      "name": "Below-threshold mark is LowSignal",
+      "input": { "modifications": [ { "start": 0, "end": 100, "mark": "H3K4me3", "signal": 0.3 } ] },
+      "output": { "annotations": [ { "start": 0, "end": 100, "mark": "H3K4me3", "signal": 0.3, "predictedState": "LowSignal" } ] }
+    }
+  ]
+}
