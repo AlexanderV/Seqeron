@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_repeats",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomicAnalyzer.FindRepeats",
+  "docRef": "Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L49",
+  "description": "Every distinct substring of length >= minLength that occurs at least twice in a DNA sequence, with all its 0-based positions.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
+      "minLength": { "type": "integer", "description": "Minimum repeat length", "minimum": 1 }
+    },
+    "required": ["sequence", "minLength"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "sequence": { "type": "string" },
+            "positions": { "type": "array", "items": { "type": "integer" } },
+            "length": { "type": "integer" },
+            "count": { "type": "integer" }
+          },
+          "required": ["sequence", "positions", "length", "count"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1001, "message": "Invalid DNA sequence" },
+    { "code": 1002, "message": "Minimum repeat length must be at least 1" }
+  ],
+  "examples": [
+    {
+      "name": "Homopolymer repeats AAAA (minLength 2)",
+      "input": { "sequence": "AAAA", "minLength": 2 },
+      "output": { "items": [ { "sequence": "AA", "positions": [0, 1, 2], "length": 2, "count": 3 }, { "sequence": "AAA", "positions": [0, 1], "length": 3, "count": 2 } ] }
+    },
+    {
+      "name": "Tandem ATGATG (minLength 3)",
+      "input": { "sequence": "ATGATG", "minLength": 3 },
+      "output": { "items": [ { "sequence": "ATG", "positions": [0, 3], "length": 3, "count": 2 } ] }
+    }
+  ]
+}
