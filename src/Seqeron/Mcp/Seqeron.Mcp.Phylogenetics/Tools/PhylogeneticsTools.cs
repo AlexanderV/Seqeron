@@ -187,6 +187,13 @@ public class PhylogeneticsTools
         [Description("Distance method: PDistance | JukesCantor | Kimura2Parameter | Hamming. Default: JukesCantor.")] string? distanceMethod = null,
         [Description("Tree construction method: UPGMA | NeighborJoining. Default: UPGMA.")] string? treeMethod = null)
     {
+        if (sequences is null)
+            throw new ArgumentException("Sequences cannot be null.", nameof(sequences));
+        if (sequences.Count < 2)
+            throw new ArgumentException("At least 2 sequences required.", nameof(sequences));
+        if (replicates < 1)
+            throw new ArgumentException("At least 1 replicate required.", nameof(replicates));
+
         var dm = ParseDistanceMethod(distanceMethod);
         var tm = ParseTreeMethod(treeMethod);
         var support = global::Seqeron.Genomics.Phylogenetics.PhylogeneticAnalyzer.Bootstrap(sequences, replicates, dm, tm);
