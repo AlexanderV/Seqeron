@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_snps_direct",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "VariantCaller.FindSnpsDirect",
+  "docRef": "Seqeron.Genomics.Annotation/VariantCaller.cs#L125",
+  "description": "Detect SNPs by direct positional comparison without alignment.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "reference": { "type": "string", "description": "Reference DNA sequence", "minLength": 1 },
+      "query": { "type": "string", "description": "Query DNA sequence", "minLength": 1 }
+    },
+    "required": ["reference", "query"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "variants": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": { "type": "integer", "description": "0-based mismatch position" },
+            "referenceAllele": { "type": "string" },
+            "alternateAllele": { "type": "string" },
+            "type": { "type": "string", "description": "Always 'SNP'" },
+            "queryPosition": { "type": "integer", "description": "Equal to position (positional comparison)" }
+          },
+          "required": ["position", "referenceAllele", "alternateAllele", "type", "queryPosition"]
+        }
+      }
+    },
+    "required": ["variants"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Reference cannot be null or empty" },
+    { "code": 1001, "message": "Query cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Single substitution",
+      "input": { "reference": "ATGC", "query": "ATTC" },
+      "output": { "variants": [ { "position": 2, "referenceAllele": "G", "alternateAllele": "T", "type": "SNP", "queryPosition": 2 } ] }
+    },
+    {
+      "name": "Unequal lengths compare the common prefix",
+      "input": { "reference": "ATGCAA", "query": "ATTC" },
+      "output": { "variants": [ { "position": 2, "referenceAllele": "G", "alternateAllele": "T", "type": "SNP", "queryPosition": 2 } ] }
+    }
+  ]
+}
