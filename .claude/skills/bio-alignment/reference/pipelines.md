@@ -41,7 +41,7 @@ value — always state which you used.
 
 `alignment_statistics.similarity` = (matches + similar substitutions)/length; for DNA it typically
 equals identity unless a similarity/substitution grouping is in play — see
-[`docs/algorithms/Alignment/Alignment_Statistics.md`](../../../docs/algorithms/Alignment/Alignment_Statistics.md).
+[`docs/algorithms/Alignment/Alignment_Statistics.md`](../../../../docs/algorithms/Alignment/Alignment_Statistics.md).
 
 ## Choosing an alignment mode
 
@@ -59,7 +59,7 @@ equals identity unless a similarity/substitution grouping is in play — see
 `multiple_align(sequences=[…])` → `alignedSequences` (equal-length rows), `consensus`
 (majority vote), `totalScore` (sum-of-pairs). It is **anchor-based progressive** (center picked by
 4-mer cosine similarity, suffix-tree anchoring) — good for a family of related DNA seqs; it is not a
-guaranteed-optimal MSA. Details: [`docs/algorithms/Alignment/Multiple_Sequence_Alignment.md`](../../../docs/algorithms/Alignment/Multiple_Sequence_Alignment.md).
+guaranteed-optimal MSA. Details: [`docs/algorithms/Alignment/Multiple_Sequence_Alignment.md`](../../../../docs/algorithms/Alignment/Multiple_Sequence_Alignment.md).
 
 Downstream:
 - **Independent consensus check:** run `compute_consensus(alignedReads=alignedSequences)` — a
@@ -114,5 +114,5 @@ Downstream:
 The Alignment/Core tools used here are not among the 9 `LimitationPolicy`-guarded units, so no
 `MinimumMode` gate applies to a normal pairwise/MSA/distance call. If a task chains into a guarded
 unit (e.g. downstream popgen/phylo/ONCO), `bio-rigor`'s envelope rule takes over — check
-[`docs/Validation/LIMITATIONS.md`](../../../docs/Validation/LIMITATIONS.md) and stop on a
+[`docs/Validation/LIMITATIONS.md`](../../../../docs/Validation/LIMITATIONS.md) and stop on a
 `SeqeronLimitationException` rather than forcing output.
