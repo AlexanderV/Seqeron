@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "generate_dot_plot",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ComparativeGenomics.GenerateDotPlot",
+  "docRef": "Seqeron.Genomics.Analysis/ComparativeGenomics.cs#L1262",
+  "description": "Coordinates of matching k-mers (words) between two sequences for dot-plot visualization: each shared wordSize-mer at offsets i (seq1) and j (seq2) is a point (i, j).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence1": { "type": "string", "description": "Sequence 1", "minLength": 1 },
+      "sequence2": { "type": "string", "description": "Sequence 2", "minLength": 1 },
+      "wordSize": { "type": "integer", "description": "Word size (default 10)", "minimum": 1, "default": 10 },
+      "stepSize": { "type": "integer", "description": "Step size (default 1)", "minimum": 1, "default": 1 }
+    },
+    "required": ["sequence1", "sequence2"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "points": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": { "x": { "type": "integer" }, "y": { "type": "integer" } },
+          "required": ["x", "y"]
+        }
+      }
+    },
+    "required": ["points"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    { "name": "Repeated word matches", "input": { "sequence1": "ATGCATGC", "sequence2": "ATGCATGC", "wordSize": 4, "stepSize": 4 }, "output": { "points": [ { "x": 0, "y": 0 }, { "x": 0, "y": 4 }, { "x": 4, "y": 0 }, { "x": 4, "y": 4 } ] } },
+    { "name": "No shared word", "input": { "sequence1": "ATGC", "sequence2": "TTTT", "wordSize": 4, "stepSize": 1 }, "output": { "points": [] } }
+  ]
+}

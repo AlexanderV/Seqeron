@@ -1104,8 +1104,13 @@ public class AnalysisTools
         [Description("Word size (default 10).")] int wordSize = 10,
         [Description("Step size (default 1).")] int stepSize = 1)
     {
+        if (string.IsNullOrEmpty(sequence1))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence1));
+        if (string.IsNullOrEmpty(sequence2))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence2));
+
         var points = global::Seqeron.Genomics.Analysis.ComparativeGenomics
-            .GenerateDotPlot(sequence1 ?? string.Empty, sequence2 ?? string.Empty, wordSize, stepSize)
+            .GenerateDotPlot(sequence1, sequence2, wordSize, stepSize)
             .Select(p => new DotPlotPoint(p.x, p.y))
             .ToArray();
         return new GenerateDotPlotResult(points);
@@ -1123,7 +1128,10 @@ public class AnalysisTools
         [Description("Disorder threshold on TOP-IDP normalized score (default 0.542).")] double disorderThreshold = 0.542,
         [Description("Minimum length for a reported disordered region (default 5).")] int minRegionLength = 5)
     {
-        var r = DisorderPredictor.PredictDisorder(sequence ?? string.Empty, windowSize, disorderThreshold, minRegionLength);
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        var r = DisorderPredictor.PredictDisorder(sequence, windowSize, disorderThreshold, minRegionLength);
         var residues = r.ResiduePredictions
             .Select(p => new DisorderResiduePredictionItem(p.Position, p.Residue, p.DisorderScore, p.IsDisordered))
             .ToArray();
@@ -1142,8 +1150,11 @@ public class AnalysisTools
         [Description("K2 extension entropy threshold in bits (default 2.5).")] double extensionThreshold = 2.5,
         [Description("Minimum reported region length (default 1).")] int minLength = 1)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
         var items = DisorderPredictor
-            .PredictLowComplexityRegions(sequence ?? string.Empty, triggerWindow, triggerThreshold, extensionThreshold, minLength)
+            .PredictLowComplexityRegions(sequence, triggerWindow, triggerThreshold, extensionThreshold, minLength)
             .Select(t => new SegRegionItem(t.Start, t.End, t.Type))
             .ToArray();
         return new PredictLowComplexitySegResult(items);
@@ -1156,8 +1167,11 @@ public class AnalysisTools
         [Description("Minimum MoRF length (default 10).")] int minLength = 10,
         [Description("Maximum MoRF length (default 25).")] int maxLength = 25)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
         var items = DisorderPredictor
-            .PredictMoRFs(sequence ?? string.Empty, minLength, maxLength)
+            .PredictMoRFs(sequence, minLength, maxLength)
             .Select(t => new MorfItem(t.Start, t.End, t.Score))
             .ToArray();
         return new PredictMorfsResult(items);
