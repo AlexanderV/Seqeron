@@ -19,9 +19,6 @@ import sys
 
 LINK_RE = re.compile(r'\]\((\.{1,2}/[^)]+)\)')
 TREES = (".claude/skills", ".github/skills", "docs/skills")
-# Third-party / vendored skills we don't maintain: their pre-existing broken
-# links are out of scope for the Seqeron anti-drift guardrail.
-IGNORE_SKILLS = ("clean-code", "clean-architecture")
 
 
 def main() -> int:
@@ -30,12 +27,6 @@ def main() -> int:
     files = []
     for tree in TREES:
         files.extend(glob.glob(os.path.join(tree, "**", "*.md"), recursive=True))
-    ignore = tuple(
-        os.path.join(tree, s) + os.sep
-        for tree in (".claude/skills", ".github/skills")
-        for s in IGNORE_SKILLS
-    )
-    files = [f for f in files if not f.startswith(ignore)]
     for f in sorted(files):
         base = os.path.dirname(f)
         with open(f, encoding="utf-8") as fh:

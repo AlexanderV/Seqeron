@@ -16,6 +16,10 @@ Filter VCF variants by type, quality, chromosome, or PASS status.
 
 Filters VCF variants using multiple optional criteria. All filters can be combined. Useful for selecting specific variant types, high-quality calls, or variants from specific chromosomes.
 
+## Core Documentation Reference
+
+- Source: [VcfParser.cs#L431](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/VcfParser.cs#L431)
+
 ## Input Schema
 
 | Parameter | Type | Required | Default | Description |

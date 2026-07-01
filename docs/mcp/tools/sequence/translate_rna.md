@@ -16,6 +16,10 @@ Translate RNA sequence to protein.
 
 Translates an RNA sequence to a protein sequence using the standard genetic code. RNA uses U (uracil) instead of T (thymine). The translation reads codons and converts them to amino acids.
 
+## Core Documentation Reference
+
+- Source: [Translator.cs#L43](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/Translator.cs#L43)
+
 ## Input Schema
 
 | Parameter | Type | Required | Description |

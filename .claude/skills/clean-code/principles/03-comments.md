@@ -356,7 +356,7 @@ Usually, the answer is yes.
 ## See Examples
 
 For detailed code examples demonstrating these principles:
-- [C# Comments Examples](../examples/csharp/03-comments.md) - Before/after refactoring examples
+- [C# Complete Example](../examples/csharp/08-complete-example.md) - Self-documenting code in context
 
 ## See Also
 

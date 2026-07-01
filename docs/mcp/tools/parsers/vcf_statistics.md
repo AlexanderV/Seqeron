@@ -16,6 +16,10 @@ Calculate statistics for VCF variants.
 
 Calculates comprehensive statistics for VCF variant data including counts by variant type (SNP, indel, complex), chromosome distribution, passing variants, and quality metrics.
 
+## Core Documentation Reference
+
+- Source: [VcfParser.cs#L633](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/VcfParser.cs#L633)
+
 ## Input Schema
 
 | Parameter | Type | Required | Description |

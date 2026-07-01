@@ -298,7 +298,7 @@ Your style and discipline survives even after your code has changed. The formatt
 ## See Examples
 
 For detailed code examples demonstrating these principles:
-- [C# Formatting Examples](../examples/csharp/04-formatting.md) - Before/after formatting examples
+- [C# Modern C# & Formatting](../examples/csharp/07-modern-csharp.md) - Modern style and formatting examples
 
 ## See Also
 

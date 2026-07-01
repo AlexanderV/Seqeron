@@ -16,6 +16,10 @@ Check if a nucleotide matches an IUPAC code.
 
 Determines if a specific nucleotide (A, C, G, T) matches an IUPAC ambiguity code. This is useful for validating sequences against degenerate patterns.
 
+## Core Documentation Reference
+
+- Source: [IupacHelper.cs#L16](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/IupacHelper.cs#L16)
+
 ## Input Schema
 
 | Parameter | Type | Required | Description |

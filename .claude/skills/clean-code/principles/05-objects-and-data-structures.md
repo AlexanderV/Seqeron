@@ -287,7 +287,7 @@ There is a fundamental dichotomy between objects and data structures. Understand
 ## See Examples
 
 For detailed code examples demonstrating these principles:
-- [C# Objects and Data Structures Examples](../examples/csharp/05-objects-data-structures.md) - Comprehensive examples
+- [C# Objects vs Data Structures Examples](../examples/csharp/04-objects-vs-data.md) - Comprehensive examples
 
 ## See Also
 

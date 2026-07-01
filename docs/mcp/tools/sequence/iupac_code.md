@@ -16,6 +16,10 @@ Get IUPAC ambiguity code for a set of nucleotide bases.
 
 Returns the IUPAC ambiguity code that represents a given set of nucleotide bases. IUPAC codes are standardized single-character representations for nucleotide ambiguity, commonly used in primer design, sequence alignment, and degenerate probe design.
 
+## Core Documentation Reference
+
+- Source: [ISequence.cs#L228](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/ISequence.cs#L228)
+
 ## Input Schema
 
 | Parameter | Type | Required | Description |

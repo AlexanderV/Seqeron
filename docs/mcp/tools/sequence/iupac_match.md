@@ -16,6 +16,10 @@ Check if two IUPAC codes can represent the same base.
 
 Checks if two IUPAC ambiguity codes can represent the same nucleotide base. This is useful for pattern matching with degenerate sequences.
 
+## Core Documentation Reference
+
+- Source: [ISequence.cs#L273](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/ISequence.cs#L273)
+
 ## Input Schema
 
 | Parameter | Type | Required | Description |

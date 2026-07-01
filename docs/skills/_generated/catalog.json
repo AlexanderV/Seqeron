@@ -2454,7 +2454,7 @@
     "server": "Parsers",
     "methodId": "VcfParser.Filter*",
     "docPath": "docs/mcp/tools/parsers/vcf_filter.md",
-    "sourceLink": ""
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/VcfParser.cs#L431"
   },
   {
     "tool": "vcf_has_flag",
@@ -2510,7 +2510,7 @@
     "server": "Parsers",
     "methodId": "VcfParser.CalculateStatistics",
     "docPath": "docs/mcp/tools/parsers/vcf_statistics.md",
-    "sourceLink": ""
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/VcfParser.cs#L633"
   },
   {
     "tool": "vcf_variant_length",
@@ -2853,21 +2853,21 @@
     "server": "Sequence",
     "methodId": "IupacDnaSequence.GetIupacCode",
     "docPath": "docs/mcp/tools/sequence/iupac_code.md",
-    "sourceLink": ""
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/ISequence.cs#L228"
   },
   {
     "tool": "iupac_match",
     "server": "Sequence",
     "methodId": "IupacDnaSequence.CodesMatch",
     "docPath": "docs/mcp/tools/sequence/iupac_match.md",
-    "sourceLink": ""
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/ISequence.cs#L273"
   },
   {
     "tool": "iupac_matches",
     "server": "Sequence",
     "methodId": "IupacHelper.MatchesIupac",
     "docPath": "docs/mcp/tools/sequence/iupac_matches.md",
-    "sourceLink": ""
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/IupacHelper.cs#L16"
   },
   {
     "tool": "kmer_analyze",
@@ -2979,13 +2979,13 @@
     "server": "Sequence",
     "methodId": "Translator.Translate(DnaSequence)",
     "docPath": "docs/mcp/tools/sequence/translate_dna.md",
-    "sourceLink": ""
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/Translator.cs#L26"
   },
   {
     "tool": "translate_rna",
     "server": "Sequence",
     "methodId": "Translator.Translate(RnaSequence)",
     "docPath": "docs/mcp/tools/sequence/translate_rna.md",
-    "sourceLink": ""
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/Translator.cs#L43"
   }
 ]

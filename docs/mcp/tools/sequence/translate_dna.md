@@ -16,6 +16,10 @@ Translate DNA sequence to protein.
 
 Translates a DNA sequence to a protein sequence using the standard genetic code. The translation reads codons (triplets of nucleotides) and converts them to amino acids. Stop codons (*) are included unless `toFirstStop` is true.
 
+## Core Documentation Reference
+
+- Source: [Translator.cs#L26](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/Translator.cs#L26)
+
 ## Input Schema
 
 | Parameter | Type | Required | Description |
