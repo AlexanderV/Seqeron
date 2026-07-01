@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "minor_allele_frequency",
+  "serverName": "Population",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PopulationGeneticsAnalyzer.CalculateMAF",
+  "docRef": "Seqeron.Genomics.Population/PopulationGeneticsAnalyzer.cs#L164",
+  "description": "Compute minor allele frequency (MAF) from a vector of diploid genotypes encoded as 0 (hom-ref), 1 (het), or 2 (hom-alt).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "genotypes": {
+        "type": "array",
+        "description": "Genotype vector with values in {0,1,2} (0=hom-ref, 1=het, 2=hom-alt).",
+        "items": { "type": "integer", "minimum": 0, "maximum": 2 }
+      }
+    },
+    "required": ["genotypes"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "maf": { "type": "number", "description": "Minor allele frequency = min(altFreq, 1 − altFreq), in [0, 0.5]" }
+    },
+    "required": ["maf"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Alt frequency below 0.5",
+      "input": { "genotypes": [0, 0, 0, 0, 0, 1, 1, 1, 1, 2] },
+      "output": { "maf": 0.3 }
+    },
+    {
+      "name": "Balanced polymorphism (MAF = 0.5)",
+      "input": { "genotypes": [0, 1, 1, 2] },
+      "output": { "maf": 0.5 }
+    }
+  ]
+}
