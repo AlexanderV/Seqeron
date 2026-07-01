@@ -456,12 +456,17 @@ public class MolToolsTools
         return new OffTargetsResult(hits);
     }
 
-    [McpServerTool, Description("Aggregates find_off_targets (≤4 mismatches) into a single specificity score in 0..100 (100 = no off-targets).")]
+    [McpServerTool(Name = "crispr_specificity_score", Title = "MolTools — CRISPR Guide Specificity Score", ReadOnly = true), Description("Aggregates off-target hits (≤4 mismatches) for a guide RNA against a genome into a single specificity score in 0..100 (100 = no off-targets; the score drops as more/seed-region off-targets are found). Call to judge how genome-specific a candidate guide is. Guide length must match the system's guide length.")]
     public static SpecificityResult crispr_specificity_score(
         [Description("Guide RNA sequence (length must match the system's guide length).")] string guide_sequence,
         [Description("Genome / reference sequence to scan.")] string genome,
         [Description("CRISPR system (default SpCas9).")] CrisprSystemType system_type = CrisprSystemType.SpCas9)
     {
+        if (string.IsNullOrEmpty(guide_sequence))
+            throw new System.ArgumentException("Guide sequence cannot be null or empty.", nameof(guide_sequence));
+        if (string.IsNullOrEmpty(genome))
+            throw new System.ArgumentException("Genome cannot be null or empty.", nameof(genome));
+
         return new SpecificityResult(
             CrisprDesigner.CalculateSpecificityScore(guide_sequence, new DnaSequence(genome), system_type));
     }

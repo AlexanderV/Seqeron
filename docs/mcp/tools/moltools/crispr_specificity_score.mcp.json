@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "crispr_specificity_score",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "CrisprDesigner.CalculateSpecificityScore",
+  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L378",
+  "description": "Aggregate off-target hits (<=4 mismatches) of a guide RNA against a genome into a 0..100 specificity score.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "guide_sequence": { "type": "string", "description": "Guide RNA sequence (length must match the system).", "minLength": 1 },
+      "genome": { "type": "string", "description": "Genome / reference sequence to scan.", "minLength": 1 },
+      "system_type": { "type": "string", "enum": ["SpCas9", "SpCas9_NAG", "SaCas9", "Cas12a", "AsCas12a", "LbCas12a", "CasX"], "default": "SpCas9" }
+    },
+    "required": ["guide_sequence", "genome"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "specificity": { "type": "number", "description": "Specificity score 0..100 (100 = no off-targets)." }
+    },
+    "required": ["specificity"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Guide sequence cannot be null or empty" },
+    { "code": 1002, "message": "Genome cannot be null or empty" },
+    { "code": 4001, "message": "Guide length does not match the system's guide length" }
+  ],
+  "examples": [
+    {
+      "name": "Unique guide -> 100",
+      "input": { "guide_sequence": "ATATATATATATATATATAT", "genome": "ATATATATATATATATATATAGG" },
+      "output": { "specificity": 100.0 }
+    },
+    {
+      "name": "Wrong guide length errors",
+      "input": { "guide_sequence": "ACGT", "genome": "ATATATATATATATATATATAGG" },
+      "output": { "error": "Guide length (4) does not match expected length (20) for SpCas9." }
+    }
+  ]
+}
