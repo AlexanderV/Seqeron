@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "predict_morfs",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "DisorderPredictor.PredictMoRFs",
+  "docRef": "Seqeron.Genomics.Analysis/DisorderPredictor.cs#L800",
+  "description": "Predict Molecular Recognition Features (MoRFs) within intrinsically disordered regions by hydropathy enrichment (heuristic, Mohan 2006-inspired). Returns candidate MoRF spans with a score.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "Protein sequence", "minLength": 1 },
+      "minLength": { "type": "integer", "description": "Minimum MoRF length (default 10)", "default": 10 },
+      "maxLength": { "type": "integer", "description": "Maximum MoRF length (default 25)", "default": 25 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "start": { "type": "integer" },
+            "end": { "type": "integer" },
+            "score": { "type": "number" }
+          },
+          "required": ["start", "end", "score"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Hydrophobic dip in disorder",
+      "input": { "sequence": "PPPPPPPPPPPPPPPPPPPPPPPPPLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLPPPPPPPPPPPPPPPPPPPPPPPPP", "minLength": 10, "maxLength": 25 },
+      "output": { "items": [ { "start": 29, "end": 50, "score": 0.275934 } ] }
+    },
+    {
+      "name": "Ordered poly-L => none",
+      "input": { "sequence": "LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL" },
+      "output": { "items": [] }
+    }
+  ]
+}

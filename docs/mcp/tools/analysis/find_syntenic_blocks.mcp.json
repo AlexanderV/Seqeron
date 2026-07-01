@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_syntenic_blocks",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ComparativeGenomics.FindSyntenicBlocks",
+  "docRef": "Seqeron.Genomics.Analysis/ComparativeGenomics.cs#L129",
+  "description": "Collinear runs of orthologous genes (syntenic blocks) between two genomes, given an ortholog map (genome1 gene id -> genome2 gene id). Reports each block's coordinates, gene count, inversion flag and identity.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "genome1Genes": { "type": "array", "description": "Genes of genome 1" },
+      "genome2Genes": { "type": "array", "description": "Genes of genome 2" },
+      "orthologMap": { "type": "object", "description": "Mapping from genome1 gene id to genome2 gene id", "additionalProperties": { "type": "string" } },
+      "minBlockSize": { "type": "integer", "description": "Minimum block size (default 3)", "default": 3 },
+      "maxGap": { "type": "integer", "description": "Maximum gap (default 5)", "default": 5 }
+    },
+    "required": ["genome1Genes", "genome2Genes", "orthologMap"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "genome1Id": { "type": "string" },
+            "start1": { "type": "integer" },
+            "end1": { "type": "integer" },
+            "genome2Id": { "type": "string" },
+            "start2": { "type": "integer" },
+            "end2": { "type": "integer" },
+            "isInverted": { "type": "boolean" },
+            "geneCount": { "type": "integer" },
+            "identity": { "type": "number" }
+          },
+          "required": ["genome1Id", "start1", "end1", "genome2Id", "start2", "end2", "isInverted", "geneCount", "identity"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Five collinear anchors -> one forward block",
+      "input": { "genome1Genes": "g0..g4 (genome1)", "genome2Genes": "h0..h4 (genome2)", "orthologMap": { "g0": "h0", "g1": "h1", "g2": "h2", "g3": "h3", "g4": "h4" } },
+      "output": { "items": [ { "geneCount": 5, "isInverted": false } ] }
+    }
+  ]
+}

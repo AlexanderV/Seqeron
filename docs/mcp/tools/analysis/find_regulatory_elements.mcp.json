@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_regulatory_elements",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MotifFinder.FindRegulatoryElements",
+  "docRef": "Seqeron.Genomics.Analysis/MotifFinder.cs#L685",
+  "description": "Scan a DNA sequence for a built-in catalog of regulatory motifs (TATA, CAAT, GC box, -10/-35, Kozak, Shine-Dalgarno, poly(A), E-box, AP-1, NF-kB, CREB) using IUPAC-degenerate matching.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "position": { "type": "integer" },
+            "sequence": { "type": "string" },
+            "pattern": { "type": "string" },
+            "description": { "type": "string" }
+          },
+          "required": ["name", "position", "sequence", "pattern", "description"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1001, "message": "Invalid DNA sequence" }
+  ],
+  "examples": [
+    {
+      "name": "TATA box",
+      "input": { "sequence": "GGTATAAAGG" },
+      "output": { "items": [ { "name": "TATA Box", "position": 2, "sequence": "TATAAA", "pattern": "TATAAA", "description": "Eukaryotic core promoter element" } ] }
+    },
+    {
+      "name": "No regulatory element",
+      "input": { "sequence": "AAAAAAAA" },
+      "output": { "items": [] }
+    }
+  ]
+}

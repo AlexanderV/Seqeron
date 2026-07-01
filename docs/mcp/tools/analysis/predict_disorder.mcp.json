@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "predict_disorder",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "DisorderPredictor.PredictDisorder",
+  "docRef": "Seqeron.Genomics.Analysis/DisorderPredictor.cs#L238",
+  "description": "TOP-IDP intrinsic-disorder prediction (Campen 2008): per-residue disorder scores plus contiguous disordered regions with confidence and subtype classification.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "Protein sequence (single-letter amino acids)", "minLength": 1 },
+      "windowSize": { "type": "integer", "description": "Sliding window size (default 21)", "default": 21 },
+      "disorderThreshold": { "type": "number", "description": "Threshold on TOP-IDP normalized score (default 0.542)", "default": 0.542 },
+      "minRegionLength": { "type": "integer", "description": "Minimum reported region length (default 5)", "default": 5 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string" },
+      "residuePredictions": { "type": "array" },
+      "disorderedRegions": { "type": "array" },
+      "overallDisorderContent": { "type": "number" },
+      "meanDisorderScore": { "type": "number" }
+    },
+    "required": ["sequence", "residuePredictions", "disorderedRegions", "overallDisorderContent", "meanDisorderScore"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Fully disordered (poly-P)",
+      "input": { "sequence": "PPPPPPPPPPPPPPPPPPPPPPPPPPPPPP", "minRegionLength": 5 },
+      "output": { "disorderedRegions": [ { "start": 0, "end": 29 } ], "overallDisorderContent": 1.0 }
+    },
+    {
+      "name": "Fully ordered (poly-W)",
+      "input": { "sequence": "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWW", "minRegionLength": 5 },
+      "output": { "disorderedRegions": [], "overallDisorderContent": 0.0 }
+    }
+  ]
+}

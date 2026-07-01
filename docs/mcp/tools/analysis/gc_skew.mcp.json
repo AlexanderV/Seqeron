@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "gc_skew",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GcSkewCalculator.CalculateGcSkew",
+  "docRef": "Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L30",
+  "description": "Whole-sequence GC skew = (G - C) / (G + C). Range [-1, 1]; 0 when the sequence has no G or C.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "gcSkew": { "type": "number", "description": "GC skew in [-1, 1]" }
+    },
+    "required": ["gcSkew"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "All G",
+      "input": { "sequence": "GGGG" },
+      "output": { "gcSkew": 1.0 }
+    },
+    {
+      "name": "Balanced",
+      "input": { "sequence": "GGGGCCCC" },
+      "output": { "gcSkew": 0.0 }
+    }
+  ]
+}

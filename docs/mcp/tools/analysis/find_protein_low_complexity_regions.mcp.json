@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_protein_low_complexity_regions",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ProteinMotifFinder.FindLowComplexityRegions",
+  "docRef": "Seqeron.Genomics.Analysis/ProteinMotifFinder.cs#L1132",
+  "description": "Low-complexity regions in a protein via the SEG algorithm (Wootton & Federhen 1993): sliding-window Shannon entropy (bits/residue), two-pass K1 trigger / K2 extension.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "proteinSequence": { "type": "string", "description": "Protein sequence", "minLength": 1 },
+      "windowSize": { "type": "integer", "description": "Sliding window size W (default 12)", "minimum": 1, "default": 12 },
+      "triggerComplexity": { "type": "number", "description": "Trigger complexity K1 in bits/residue (default 2.2)", "default": 2.2 },
+      "extensionComplexity": { "type": "number", "description": "Extension complexity K2 in bits/residue (default 2.5)", "default": 2.5 }
+    },
+    "required": ["proteinSequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "start": { "type": "integer" },
+            "end": { "type": "integer" },
+            "complexity": { "type": "number" }
+          },
+          "required": ["start", "end", "complexity"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1002, "message": "Window size must be at least 1" }
+  ],
+  "examples": [
+    {
+      "name": "Poly-Q low-complexity region",
+      "input": { "proteinSequence": "ACDEFGHIKLMNQQQQQQQQQQQQQQQQQQQQNMLKIHGFEDCA" },
+      "output": { "items": [ { "start": 6, "end": 37, "complexity": 0.0 } ] }
+    },
+    {
+      "name": "All distinct residues (high complexity)",
+      "input": { "proteinSequence": "ACDEFGHIKLMNPQRSTVWY" },
+      "output": { "items": [] }
+    }
+  ]
+}

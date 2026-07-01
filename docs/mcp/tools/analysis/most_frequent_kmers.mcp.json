@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "most_frequent_kmers",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "KmerAnalyzer.FindMostFrequentKmers",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L156",
+  "description": "Returns every k-mer whose overlapping occurrence count equals the maximum (all k-mers tied for most frequent). Frequent Words Problem, Rosalind BA1B.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "Sequence to analyze", "minLength": 1 },
+      "k": { "type": "integer", "description": "k-mer length", "minimum": 1 }
+    },
+    "required": ["sequence", "k"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "kmers": {
+        "type": "array",
+        "description": "All k-mers tied for the maximum occurrence count (order unspecified)",
+        "items": { "type": "string" }
+      }
+    },
+    "required": ["kmers"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1003, "message": "k must be positive" }
+  ],
+  "examples": [
+    {
+      "name": "Single winner ATGATG k=3",
+      "input": { "sequence": "ATGATG", "k": 3 },
+      "output": { "kmers": ["ATG"] }
+    },
+    {
+      "name": "Tie ACGTTGCATGTCGCATGATGCATGAGAGCT k=4 (Rosalind BA1B)",
+      "input": { "sequence": "ACGTTGCATGTCGCATGATGCATGAGAGCT", "k": 4 },
+      "output": { "kmers": ["CATG", "GCAT"] }
+    }
+  ]
+}

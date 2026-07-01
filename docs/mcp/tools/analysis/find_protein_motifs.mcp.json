@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_protein_motifs",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ProteinMotifFinder.FindCommonMotifs",
+  "docRef": "Seqeron.Genomics.Analysis/ProteinMotifFinder.cs#L170",
+  "description": "Scan a protein sequence against the built-in PROSITE-style motif catalog (N-glycosylation, kinase phosphorylation sites, ATP/GTP P-loop, EF-hand, zinc finger, leucine zipper, NLS, NES, SIM, WW, SH3, etc.).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "proteinSequence": { "type": "string", "description": "Protein sequence", "minLength": 1 }
+    },
+    "required": ["proteinSequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "start": { "type": "integer" },
+            "end": { "type": "integer" },
+            "sequence": { "type": "string" },
+            "motifName": { "type": "string" },
+            "pattern": { "type": "string" },
+            "score": { "type": "number" },
+            "eValue": { "type": "number" }
+          },
+          "required": ["start", "end", "sequence", "motifName", "pattern", "score", "eValue"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "N-glycosylation site (PS00001)",
+      "input": { "proteinSequence": "AAAANFTAAAA" },
+      "output": { "items": [ { "start": 4, "end": 7, "sequence": "NFTA", "motifName": "ASN_GLYCOSYLATION" } ] }
+    },
+    {
+      "name": "Homopolymer with no catalog motif",
+      "input": { "proteinSequence": "AAAAAA" },
+      "output": { "items": [] }
+    }
+  ]
+}

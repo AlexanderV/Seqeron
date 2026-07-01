@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "multibranch_loop_energy",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RnaSecondaryStructure.CalculateMultibranchLoopEnergy",
+  "docRef": "Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L961",
+  "description": "Turner 2004 affine multibranch-loop free energy (kcal/mol): offset a + b*(unpaired/helices) + c*helices, plus optional stacking and strain (+3.14) terms.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "numHelices": { "type": "integer", "description": "Number of helical branches" },
+      "numUnpaired": { "type": "integer", "description": "Total unpaired nucleotides in the loop" },
+      "hasStrain": { "type": "boolean", "default": false },
+      "stackingEnergy": { "type": "number", "default": 0.0 }
+    },
+    "required": ["numHelices", "numUnpaired"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": { "energy": { "type": "number", "description": "kcal/mol" } },
+    "required": ["energy"]
+  },
+  "errors": [],
+  "examples": [
+    { "name": "3-way junction, 6 unpaired", "input": { "numHelices": 3, "numUnpaired": 6 }, "output": { "energy": 9.18 } },
+    { "name": "Strained 3-way + stacking", "input": { "numHelices": 3, "numUnpaired": 1, "hasStrain": true, "stackingEnergy": -2.0 }, "output": { "energy": 8.8 } }
+  ]
+}

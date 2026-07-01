@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "predict_replication_origin",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GcSkewCalculator.PredictReplicationOrigin",
+  "docRef": "Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L247",
+  "description": "Predict replication origin and terminus from cumulative GC-skew extrema: origin ~ prefix index of the minimum, terminus ~ prefix index of the maximum. Best on complete circular bacterial genomes.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "DNA sequence (ideally complete circular genome)", "minLength": 1 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "predictedOrigin": { "type": "integer" },
+      "predictedTerminus": { "type": "integer" },
+      "originSkew": { "type": "number" },
+      "terminusSkew": { "type": "number" },
+      "isSignificant": { "type": "boolean" }
+    },
+    "required": ["predictedOrigin", "predictedTerminus", "originSkew", "terminusSkew", "isSignificant"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1001, "message": "Invalid DNA sequence" }
+  ],
+  "examples": [
+    {
+      "name": "CCGGGG",
+      "input": { "sequence": "CCGGGG" },
+      "output": { "predictedOrigin": 2, "predictedTerminus": 6, "originSkew": -2.0, "terminusSkew": 2.0 }
+    },
+    {
+      "name": "GGGCCC",
+      "input": { "sequence": "GGGCCC" },
+      "output": { "predictedOrigin": 0, "predictedTerminus": 3, "originSkew": 0.0, "terminusSkew": 3.0 }
+    }
+  ]
+}

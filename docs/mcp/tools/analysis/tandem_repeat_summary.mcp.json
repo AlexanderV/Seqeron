@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "tandem_repeat_summary",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RepeatFinder.GetTandemRepeatSummary",
+  "docRef": "Seqeron.Genomics.Analysis/RepeatFinder.cs#L871",
+  "description": "Aggregate statistics across all microsatellites (STRs) in a DNA sequence: total repeats, repeat bases, percent of sequence covered, per-type counts, longest repeat and most frequent unit.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
+      "minRepeats": { "type": "integer", "description": "Minimum repeats (default 3)", "minimum": 2, "default": 3 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "totalRepeats": { "type": "integer" },
+      "totalRepeatBases": { "type": "integer" },
+      "percentageOfSequence": { "type": "number" },
+      "mononucleotideRepeats": { "type": "integer" },
+      "dinucleotideRepeats": { "type": "integer" },
+      "trinucleotideRepeats": { "type": "integer" },
+      "tetranucleotideRepeats": { "type": "integer" },
+      "longestRepeat": { "type": ["object", "null"] },
+      "mostFrequentUnit": { "type": ["string", "null"] }
+    },
+    "required": ["totalRepeats", "totalRepeatBases", "percentageOfSequence", "mononucleotideRepeats", "dinucleotideRepeats", "trinucleotideRepeats", "tetranucleotideRepeats"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1001, "message": "Invalid DNA sequence" }
+  ],
+  "examples": [
+    {
+      "name": "Single trinucleotide STR",
+      "input": { "sequence": "CAGCAGCAG", "minRepeats": 3 },
+      "output": { "totalRepeats": 1, "totalRepeatBases": 9, "percentageOfSequence": 100.0, "mononucleotideRepeats": 0, "dinucleotideRepeats": 0, "trinucleotideRepeats": 1, "tetranucleotideRepeats": 0, "mostFrequentUnit": "CAG" }
+    },
+    {
+      "name": "No STRs",
+      "input": { "sequence": "ACGT", "minRepeats": 3 },
+      "output": { "totalRepeats": 0, "totalRepeatBases": 0, "percentageOfSequence": 0.0, "mononucleotideRepeats": 0, "dinucleotideRepeats": 0, "trinucleotideRepeats": 0, "tetranucleotideRepeats": 0 }
+    }
+  ]
+}

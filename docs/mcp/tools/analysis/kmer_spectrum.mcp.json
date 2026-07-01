@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "kmer_spectrum",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "KmerAnalyzer.GetKmerSpectrum",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L136",
+  "description": "Frequency-of-frequencies (k-mer spectrum): for each occurrence count c, how many distinct k-mers occur exactly c times.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "Sequence to analyze", "minLength": 1 },
+      "k": { "type": "integer", "description": "k-mer length", "minimum": 1 }
+    },
+    "required": ["sequence", "k"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "spectrum": {
+        "type": "object",
+        "description": "Map from occurrence count to number of distinct k-mers reaching that count",
+        "additionalProperties": { "type": "integer" }
+      }
+    },
+    "required": ["spectrum"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1003, "message": "k must be positive" }
+  ],
+  "examples": [
+    {
+      "name": "Monomer spectrum GTAGAGCTGT k=1",
+      "input": { "sequence": "GTAGAGCTGT", "k": 1 },
+      "output": { "spectrum": { "4": 1, "3": 1, "2": 1, "1": 1 } }
+    },
+    {
+      "name": "Repeated trimer ATGATG k=3",
+      "input": { "sequence": "ATGATG", "k": 3 },
+      "output": { "spectrum": { "2": 1, "1": 2 } }
+    }
+  ]
+}

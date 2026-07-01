@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_known_motifs",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomicAnalyzer.FindKnownMotifs",
+  "docRef": "Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L218",
+  "description": "Search a DNA sequence for a set of motifs simultaneously; returns, per motif that occurs, all its 0-based positions sorted ascending. Motifs with no hit are omitted.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
+      "motifs": { "type": "array", "description": "Set of motifs to search", "items": { "type": "string" } }
+    },
+    "required": ["sequence", "motifs"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "matches": {
+        "type": "object",
+        "description": "Map from (upper-cased) motif to its ascending 0-based positions",
+        "additionalProperties": { "type": "array", "items": { "type": "integer" } }
+      }
+    },
+    "required": ["matches"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1001, "message": "Invalid DNA sequence" },
+    { "code": 1001, "message": "Motifs cannot be null" }
+  ],
+  "examples": [
+    {
+      "name": "Two hits, one miss",
+      "input": { "sequence": "ATGATGCC", "motifs": ["ATG", "CC", "GG"] },
+      "output": { "matches": { "ATG": [0, 3], "CC": [6] } }
+    },
+    {
+      "name": "Overlapping motif",
+      "input": { "sequence": "AAAA", "motifs": ["AA"] },
+      "output": { "matches": { "AA": [0, 1, 2] } }
+    }
+  ]
+}

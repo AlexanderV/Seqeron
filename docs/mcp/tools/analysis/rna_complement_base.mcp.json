@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "rna_complement_base",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RnaSecondaryStructure.GetComplement",
+  "docRef": "Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L449",
+  "description": "Return the RNA complement (A<->U, G<->C) for a single base.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "base": { "type": "string", "description": "RNA base (length-1 string)", "minLength": 1, "maxLength": 1 }
+    },
+    "required": ["base"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "complement": { "type": "string", "description": "Complement base" }
+    },
+    "required": ["complement"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Expected a single character (length-1 string)" }
+  ],
+  "examples": [
+    {
+      "name": "A -> U",
+      "input": { "base": "A" },
+      "output": { "complement": "U" }
+    },
+    {
+      "name": "G -> C",
+      "input": { "base": "G" },
+      "output": { "complement": "C" }
+    }
+  ]
+}

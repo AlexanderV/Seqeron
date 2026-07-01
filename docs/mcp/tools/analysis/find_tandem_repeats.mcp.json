@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_tandem_repeats",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomicAnalyzer.FindTandemRepeats",
+  "docRef": "Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L115",
+  "description": "Consecutive repeating units (e.g. ATGATGATG) of unit-length >= minUnitLength repeated >= minRepetitions times, with unit, position, repetition count and total span.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
+      "minUnitLength": { "type": "integer", "description": "Minimum repeat-unit length (default 2)", "minimum": 1, "default": 2 },
+      "minRepetitions": { "type": "integer", "description": "Minimum consecutive copies (default 2)", "minimum": 2, "default": 2 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "unit": { "type": "string" },
+            "position": { "type": "integer" },
+            "repetitions": { "type": "integer" },
+            "totalLength": { "type": "integer" }
+          },
+          "required": ["unit", "position", "repetitions", "totalLength"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1001, "message": "Invalid DNA sequence" },
+    { "code": 1002, "message": "Minimum repeat-unit length must be at least 1" },
+    { "code": 1002, "message": "minRepetitions must be >= 2" }
+  ],
+  "examples": [
+    {
+      "name": "Trinucleotide tandem ATGx3",
+      "input": { "sequence": "ATGATGATG", "minUnitLength": 3, "minRepetitions": 2 },
+      "output": { "items": [ { "unit": "ATG", "position": 0, "repetitions": 3, "totalLength": 9 } ] }
+    },
+    {
+      "name": "Mononucleotide run AAAAA (unit 1) — A x5 plus the AA x2 tiling",
+      "input": { "sequence": "AAAAA", "minUnitLength": 1, "minRepetitions": 2 },
+      "output": { "items": [ { "unit": "A", "position": 0, "repetitions": 5, "totalLength": 5 }, { "unit": "AA", "position": 0, "repetitions": 2, "totalLength": 4 } ] }
+    }
+  ]
+}

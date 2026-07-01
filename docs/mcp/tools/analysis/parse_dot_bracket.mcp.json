@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "parse_dot_bracket",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RnaSecondaryStructure.ParseDotBracket",
+  "docRef": "Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L2068",
+  "description": "Parse dot-bracket notation into a list of base-pair coordinates. Supports ()/[]/{}/<> bracket families and letter pairs; unpaired symbols are skipped.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "dotBracket": { "type": "string", "description": "Dot-bracket secondary-structure string", "minLength": 1 }
+    },
+    "required": ["dotBracket"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "pairs": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position1": { "type": "integer" },
+            "position2": { "type": "integer" }
+          },
+          "required": ["position1", "position2"]
+        }
+      }
+    },
+    "required": ["pairs"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Dot-bracket string cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Nested pair",
+      "input": { "dotBracket": "(())" },
+      "output": { "pairs": [ { "position1": 1, "position2": 2 }, { "position1": 0, "position2": 3 } ] }
+    },
+    {
+      "name": "Fully unpaired",
+      "input": { "dotBracket": "...." },
+      "output": { "pairs": [] }
+    }
+  ]
+}

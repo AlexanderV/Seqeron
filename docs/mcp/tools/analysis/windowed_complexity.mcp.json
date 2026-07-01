@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "windowed_complexity",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceComplexity.CalculateWindowedComplexity",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L211",
+  "description": "Sliding-window Shannon entropy and linguistic complexity for a DNA sequence. Each point reports center position, window bounds, entropy (bits) and linguistic complexity.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
+      "windowSize": { "type": "integer", "description": "Window size (default 64)", "default": 64 },
+      "stepSize": { "type": "integer", "description": "Step size (default 10)", "default": 10 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": { "type": "integer" },
+            "shannonEntropy": { "type": "number" },
+            "linguisticComplexity": { "type": "number" },
+            "windowStart": { "type": "integer" },
+            "windowEnd": { "type": "integer" }
+          },
+          "required": ["position", "shannonEntropy", "linguisticComplexity", "windowStart", "windowEnd"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1001, "message": "Invalid DNA sequence" }
+  ],
+  "examples": [
+    {
+      "name": "Three non-overlapping windows",
+      "input": { "sequence": "ACGTACGTAAAAAAAAACGTACGT", "windowSize": 8, "stepSize": 8 },
+      "output": { "items": [ { "position": 4, "shannonEntropy": 2.0, "windowStart": 0, "windowEnd": 7 }, { "position": 12, "shannonEntropy": 0.0, "windowStart": 8, "windowEnd": 15 }, { "position": 20, "shannonEntropy": 2.0, "windowStart": 16, "windowEnd": 23 } ] }
+    }
+  ]
+}

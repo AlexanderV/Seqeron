@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_rna_inverted_repeats",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RnaSecondaryStructure.FindInvertedRepeats",
+  "docRef": "Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L2193",
+  "description": "Find antiparallel complementary regions (potential RNA hairpin stems): a left arm whose reverse complement matches a right arm across a loop. Distinct from the DNA find_inverted_repeats.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "RNA sequence", "minLength": 1 },
+      "minLength": { "type": "integer", "description": "Minimum arm length (default 4)", "default": 4 },
+      "minSpacing": { "type": "integer", "description": "Minimum spacing between arms (default 3)", "default": 3 },
+      "maxSpacing": { "type": "integer", "description": "Maximum spacing between arms (default 100)", "default": 100 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "start1": { "type": "integer" },
+            "end1": { "type": "integer" },
+            "start2": { "type": "integer" },
+            "end2": { "type": "integer" },
+            "length": { "type": "integer" }
+          },
+          "required": ["start1", "end1", "start2", "end2", "length"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    { "name": "GCGC hairpin stem", "input": { "sequence": "GCGCAAAAAAGCGC", "minLength": 4, "minSpacing": 3, "maxSpacing": 100 }, "output": { "items": [ { "start1": 0, "end1": 3, "start2": 10, "end2": 13, "length": 4 } ] } },
+    { "name": "No complementary arms", "input": { "sequence": "AAAAAAAAAA", "minLength": 4, "minSpacing": 3, "maxSpacing": 100 }, "output": { "items": [] } }
+  ]
+}

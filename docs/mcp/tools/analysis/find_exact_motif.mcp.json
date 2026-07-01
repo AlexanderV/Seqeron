@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_exact_motif",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MotifFinder.FindExactMotif",
+  "docRef": "Seqeron.Genomics.Analysis/MotifFinder.cs#L24",
+  "description": "Exact-match motif positions in a DNA sequence via suffix tree (overlapping occurrences, case-insensitive).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "DNA sequence to search", "minLength": 1 },
+      "motif": { "type": "string", "description": "Motif pattern", "minLength": 1 }
+    },
+    "required": ["sequence", "motif"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "positions": { "type": "array", "description": "0-based start positions of every occurrence", "items": { "type": "integer" } }
+    },
+    "required": ["positions"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1001, "message": "Invalid DNA sequence" },
+    { "code": 1001, "message": "Motif cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Repeated motif ATG",
+      "input": { "sequence": "ATGATG", "motif": "ATG" },
+      "output": { "positions": [0, 3] }
+    },
+    {
+      "name": "Overlapping AA",
+      "input": { "sequence": "AAAA", "motif": "AA" },
+      "output": { "positions": [0, 1, 2] }
+    }
+  ]
+}

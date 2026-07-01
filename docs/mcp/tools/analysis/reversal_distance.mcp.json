@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "reversal_distance",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ComparativeGenomics.CalculateReversalDistance",
+  "docRef": "Seqeron.Genomics.Analysis/ComparativeGenomics.cs#L841",
+  "description": "Lower-bound reversal (inversion) distance between two equal-length permutations via the breakpoint count d = ceil(breakpoints / 2) (Bafna & Pevzner 1998).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "permutation1": { "type": "array", "description": "Permutation 1", "items": { "type": "integer" } },
+      "permutation2": { "type": "array", "description": "Permutation 2 (same length)", "items": { "type": "integer" } }
+    },
+    "required": ["permutation1", "permutation2"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "distance": { "type": "integer", "description": "Lower-bound number of reversals" }
+    },
+    "required": ["distance"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Permutation cannot be null" },
+    { "code": 1001, "message": "Permutations must have the same length" }
+  ],
+  "examples": [
+    {
+      "name": "Identical permutations",
+      "input": { "permutation1": [1, 2, 3, 4], "permutation2": [1, 2, 3, 4] },
+      "output": { "distance": 0 }
+    },
+    {
+      "name": "Full reversal",
+      "input": { "permutation1": [1, 2, 3, 4], "permutation2": [4, 3, 2, 1] },
+      "output": { "distance": 1 }
+    }
+  ]
+}

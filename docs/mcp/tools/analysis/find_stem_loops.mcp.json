@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_stem_loops",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RnaSecondaryStructure.FindStemLoops",
+  "docRef": "Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L458",
+  "description": "Enumerate hairpin stem-loop candidates in an RNA sequence with stem, loop, dot-bracket notation and Turner 2004 free energy.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "rnaSequence": { "type": "string", "description": "RNA sequence", "minLength": 1 },
+      "minStemLength": { "type": "integer", "description": "Minimum stem length (default 3)", "default": 3 },
+      "minLoopSize": { "type": "integer", "description": "Minimum loop size (default 3)", "default": 3 },
+      "maxLoopSize": { "type": "integer", "description": "Maximum loop size (default 10)", "default": 10 },
+      "allowWobble": { "type": "boolean", "description": "Allow G-U wobble pairs in the stem (default true)", "default": true }
+    },
+    "required": ["rnaSequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "start": { "type": "integer" },
+            "end": { "type": "integer" },
+            "dotBracketNotation": { "type": "string" }
+          }
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Simple 3bp hairpin",
+      "input": { "rnaSequence": "GGGAAAACCC", "minStemLength": 3, "minLoopSize": 4, "maxLoopSize": 4 },
+      "output": { "items": [ { "start": 0, "end": 9, "dotBracketNotation": "(((....)))" } ] }
+    },
+    {
+      "name": "No hairpin",
+      "input": { "rnaSequence": "AAAAAAAA", "minStemLength": 3, "minLoopSize": 3, "maxLoopSize": 10 },
+      "output": { "items": [] }
+    }
+  ]
+}

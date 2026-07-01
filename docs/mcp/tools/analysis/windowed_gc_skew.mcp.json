@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "windowed_gc_skew",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GcSkewCalculator.CalculateWindowedGcSkew",
+  "docRef": "Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L73",
+  "description": "Sliding-window GC skew along a DNA sequence. Each point reports the (G-C)/(G+C) skew, the window center position, and the window bounds.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
+      "windowSize": { "type": "integer", "description": "Window size in bp (default 1000)", "minimum": 1, "default": 1000 },
+      "stepSize": { "type": "integer", "description": "Step size in bp (default 100)", "minimum": 1, "default": 100 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": { "type": "integer" },
+            "gcSkew": { "type": "number" },
+            "windowStart": { "type": "integer" },
+            "windowEnd": { "type": "integer" }
+          },
+          "required": ["position", "gcSkew", "windowStart", "windowEnd"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1002, "message": "Window size must be at least 1" },
+    { "code": 1002, "message": "Step size must be at least 1" }
+  ],
+  "examples": [
+    {
+      "name": "Two non-overlapping windows",
+      "input": { "sequence": "GGGGCCCC", "windowSize": 4, "stepSize": 4 },
+      "output": { "items": [ { "position": 2, "gcSkew": 1.0, "windowStart": 0, "windowEnd": 3 }, { "position": 6, "gcSkew": -1.0, "windowStart": 4, "windowEnd": 7 } ] }
+    },
+    {
+      "name": "Window larger than sequence => empty",
+      "input": { "sequence": "GC", "windowSize": 4, "stepSize": 4 },
+      "output": { "items": [] }
+    }
+  ]
+}

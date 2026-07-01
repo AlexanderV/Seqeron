@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_low_complexity_regions",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceComplexity.FindLowComplexityRegions",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L255",
+  "description": "Entropy-thresholded contiguous low-complexity DNA regions: merges windows whose Shannon entropy falls below the threshold and reports each region's bounds, length, minimum entropy and sequence.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
+      "windowSize": { "type": "integer", "description": "Window size (default 64)", "default": 64 },
+      "entropyThreshold": { "type": "number", "description": "Entropy threshold (default 1.0)", "default": 1.0 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "start": { "type": "integer" },
+            "end": { "type": "integer" },
+            "length": { "type": "integer" },
+            "minEntropy": { "type": "number" },
+            "sequence": { "type": "string" }
+          },
+          "required": ["start", "end", "length", "minEntropy", "sequence"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1001, "message": "Invalid DNA sequence" }
+  ],
+  "examples": [
+    {
+      "name": "Internal poly-A region",
+      "input": { "sequence": "ATGC...(x20) + A(x64) + ATGC...(x20)", "windowSize": 20, "entropyThreshold": 0.5 },
+      "output": { "items": [ { "start": 79, "end": 146, "minEntropy": 0.0 } ] }
+    },
+    {
+      "name": "High complexity => none",
+      "input": { "sequence": "ATGC(x20)", "windowSize": 20, "entropyThreshold": 0.5 },
+      "output": { "items": [] }
+    }
+  ]
+}

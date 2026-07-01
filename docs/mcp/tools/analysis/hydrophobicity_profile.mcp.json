@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "hydrophobicity_profile",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceStatistics.CalculateHydrophobicityProfile",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L404",
+  "description": "Sliding-window Kyte-Doolittle hydropathy profile of a protein: the unweighted mean hydropathy over each window. Positive = hydrophobic, negative = hydrophilic.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "proteinSequence": { "type": "string", "description": "Protein sequence", "minLength": 1 },
+      "windowSize": { "type": "integer", "description": "Sliding window size (default 9)", "minimum": 1, "default": 9 }
+    },
+    "required": ["proteinSequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "values": {
+        "type": "array",
+        "description": "Mean Kyte-Doolittle hydropathy per window; length = N - windowSize + 1",
+        "items": { "type": "number" }
+      }
+    },
+    "required": ["values"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1002, "message": "Window size must be at least 1" }
+  ],
+  "examples": [
+    {
+      "name": "Hydrophobic poly-isoleucine (window 3)",
+      "input": { "proteinSequence": "IIIII", "windowSize": 3 },
+      "output": { "values": [4.5, 4.5, 4.5] }
+    },
+    {
+      "name": "Mixed residues AV (window 2)",
+      "input": { "proteinSequence": "AV", "windowSize": 2 },
+      "output": { "values": [3.0] }
+    }
+  ]
+}

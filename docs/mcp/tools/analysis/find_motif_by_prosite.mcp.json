@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_motif_by_prosite",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ProteinMotifFinder.FindMotifByProsite",
+  "docRef": "Seqeron.Genomics.Analysis/ProteinMotifFinder.cs#L265",
+  "description": "Convert a PROSITE pattern to regex internally, then scan a protein sequence for its (overlapping) matches. The reported pattern id is the original PROSITE string.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "proteinSequence": { "type": "string", "description": "Protein sequence", "minLength": 1 },
+      "prositePattern": { "type": "string", "description": "PROSITE-format pattern", "minLength": 1 },
+      "motifName": { "type": "string", "description": "Motif display name (default Custom)", "default": "Custom" }
+    },
+    "required": ["proteinSequence", "prositePattern"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "start": { "type": "integer" },
+            "end": { "type": "integer" },
+            "sequence": { "type": "string" },
+            "motifName": { "type": "string" },
+            "pattern": { "type": "string" },
+            "score": { "type": "number" },
+            "eValue": { "type": "number" }
+          },
+          "required": ["start", "end", "sequence", "motifName", "pattern", "score", "eValue"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1001, "message": "PROSITE pattern cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "N-glycosylation-like pattern",
+      "input": { "proteinSequence": "MNSTV", "prositePattern": "N-{P}-[ST]", "motifName": "NGlyc" },
+      "output": { "items": [ { "start": 1, "end": 3, "sequence": "NST", "motifName": "NGlyc", "pattern": "N-{P}-[ST]" } ] }
+    },
+    {
+      "name": "No match",
+      "input": { "proteinSequence": "MKV", "prositePattern": "N-{P}-[ST]" },
+      "output": { "items": [] }
+    }
+  ]
+}

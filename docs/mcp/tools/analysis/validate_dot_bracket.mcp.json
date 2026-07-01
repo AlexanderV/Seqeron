@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "validate_dot_bracket",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RnaSecondaryStructure.ValidateDotBracket",
+  "docRef": "Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L2114",
+  "description": "Validate that all bracket symbols in a dot-bracket string are balanced and family-matched (()/[]/{}/<> and letter pairs).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "dotBracket": { "type": "string", "description": "Dot-bracket secondary-structure string", "minLength": 1 }
+    },
+    "required": ["dotBracket"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "result": { "type": "boolean", "description": "True when the structure is balanced" }
+    },
+    "required": ["result"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Dot-bracket string cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Balanced",
+      "input": { "dotBracket": "(())" },
+      "output": { "result": true }
+    },
+    {
+      "name": "Unbalanced",
+      "input": { "dotBracket": "(()" },
+      "output": { "result": false }
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "prosite_to_regex",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ProteinMotifFinder.ConvertPrositeToRegex",
+  "docRef": "Seqeron.Genomics.Analysis/ProteinMotifFinder.cs#L277",
+  "description": "Translate a PROSITE pattern to a .NET regex: '-' separators dropped, 'x'->'.', 'x(n,m)'->'.{n,m}', '[AC]'->'[AC]', '{P}'->'[^P]', '<'->'^', '>'->'$', 'A(2)'->'A{2}'.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "prositePattern": { "type": "string", "description": "PROSITE-format pattern", "minLength": 1 }
+    },
+    "required": ["prositePattern"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "regex": { "type": "string", "description": ".NET regex string" }
+    },
+    "required": ["regex"]
+  },
+  "errors": [
+    { "code": 1001, "message": "PROSITE pattern cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "N-glycosylation PS00001",
+      "input": { "prositePattern": "N-{P}-[ST]-{P}" },
+      "output": { "regex": "N[^P][ST][^P]" }
+    },
+    {
+      "name": "Variable-gap pattern",
+      "input": { "prositePattern": "[AC]-x(2)-V" },
+      "output": { "regex": "[AC].{2}V" }
+    }
+  ]
+}

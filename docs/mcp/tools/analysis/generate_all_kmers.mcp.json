@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "generate_all_kmers",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "KmerAnalyzer.GenerateAllKmers",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L299",
+  "description": "Enumerates the entire k-mer universe over an alphabet (default \"ACGT\"): the k-fold Cartesian product. Result size = alphabet.Length^k. A sorted alphabet yields lexicographic (odometer) order.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "k": { "type": "integer", "description": "k-mer length", "minimum": 1 },
+      "alphabet": { "type": "string", "description": "Alphabet (default \"ACGT\")", "minLength": 1, "default": "ACGT" }
+    },
+    "required": ["k"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "kmers": {
+        "type": "array",
+        "description": "All alphabet.Length^k distinct k-mers, in odometer order for a sorted alphabet",
+        "items": { "type": "string" }
+      }
+    },
+    "required": ["kmers"]
+  },
+  "errors": [
+    { "code": 1003, "message": "k must be positive" },
+    { "code": 1001, "message": "Alphabet cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "DNA monomers (k=1)",
+      "input": { "k": 1 },
+      "output": { "kmers": ["A", "C", "G", "T"] }
+    },
+    {
+      "name": "Binary alphabet 2-mers (k=2, alphabet AT)",
+      "input": { "k": 2, "alphabet": "AT" },
+      "output": { "kmers": ["AA", "AT", "TA", "TT"] }
+    }
+  ]
+}

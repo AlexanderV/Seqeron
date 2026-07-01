@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_shared_motifs",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MotifFinder.FindSharedMotifs",
+  "docRef": "Seqeron.Genomics.Analysis/MotifFinder.cs#L585",
+  "description": "k-mers present in at least minSequences of the input DNA sequences, with the indices of the sequences containing them and their prevalence (fraction of sequences).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequences": { "type": "array", "description": "DNA sequences", "items": { "type": "string" }, "minItems": 1 },
+      "k": { "type": "integer", "description": "k-mer length (default 6)", "minimum": 1, "default": 6 },
+      "minSequences": { "type": "integer", "description": "Minimum sequences containing the motif (default 2)", "minimum": 1, "default": 2 }
+    },
+    "required": ["sequences"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "sequence": { "type": "string" },
+            "sequenceIndices": { "type": "array", "items": { "type": "integer" } },
+            "prevalence": { "type": "number" }
+          },
+          "required": ["sequence", "sequenceIndices", "prevalence"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "At least one sequence is required" },
+    { "code": 1001, "message": "Invalid DNA sequence" }
+  ],
+  "examples": [
+    {
+      "name": "Shared 4-mer ATGC",
+      "input": { "sequences": ["ATGCATGC", "ATGCTTTT"], "k": 4, "minSequences": 2 },
+      "output": { "items": [ { "sequence": "ATGC", "sequenceIndices": [0, 1], "prevalence": 1.0 } ] }
+    },
+    {
+      "name": "No shared motif",
+      "input": { "sequences": ["AAAA", "TTTT"], "k": 4, "minSequences": 2 },
+      "output": { "items": [] }
+    }
+  ]
+}

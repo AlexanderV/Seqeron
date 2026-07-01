@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "mask_low_complexity",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceComplexity.MaskLowComplexity",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceComplexity.cs#L411",
+  "description": "Mask low-complexity windows of a DNA sequence with a chosen character. A window is masked when its DUST score exceeds the threshold. Returns a same-length masked string.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
+      "windowSize": { "type": "integer", "description": "Window size (default 64)", "default": 64 },
+      "threshold": { "type": "number", "description": "DUST threshold above which to mask (default 2.0)", "default": 2.0 },
+      "maskChar": { "type": "string", "description": "Mask character (default 'N')", "minLength": 1, "maxLength": 1, "default": "N" }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "masked": { "type": "string", "description": "Masked sequence (same length as input)" }
+    },
+    "required": ["masked"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1001, "message": "Invalid DNA sequence" }
+  ],
+  "examples": [
+    {
+      "name": "Fully masked poly-A",
+      "input": { "sequence": "AAAA…(100×)", "windowSize": 64, "threshold": 1.0, "maskChar": "X" },
+      "output": { "masked": "XXXX…(100×)" }
+    },
+    {
+      "name": "High complexity preserved",
+      "input": { "sequence": "ATGCTAGCATGCA…(78 bp)", "windowSize": 64, "threshold": 10.0, "maskChar": "N" },
+      "output": { "masked": "ATGCTAGCATGCA…(78 bp, unchanged)" }
+    }
+  ]
+}
