@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "annotate_variant_on_transcripts",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "VariantAnnotator.AnnotateVariant",
+  "docRef": "Seqeron.Genomics.Annotation/VariantAnnotator.cs#L266",
+  "description": "VEP-like annotation of a single variant against one or more transcript models: predicts the most severe consequence, its impact level, codon/amino-acid change, and (for missense) SIFT/PolyPhen scores.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "variant": {
+        "type": "object",
+        "description": "The variant to annotate",
+        "properties": {
+          "chromosome": { "type": "string" },
+          "position": { "type": "integer", "description": "1-based genomic position of the reference allele" },
+          "reference": { "type": "string", "minLength": 1 },
+          "alternate": { "type": "string", "minLength": 1 },
+          "type": { "type": "string", "description": "SNV / Insertion / Deletion / MNV / Complex / Indel" },
+          "quality": { "type": ["number", "null"] },
+          "id": { "type": ["string", "null"] }
+        },
+        "required": ["chromosome", "position", "reference", "alternate", "type"]
+      },
+      "transcripts": {
+        "type": "array",
+        "description": "Transcript models to annotate against",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "properties": {
+            "transcriptId": { "type": "string" },
+            "geneId": { "type": "string" },
+            "geneName": { "type": "string" },
+            "chromosome": { "type": "string" },
+            "start": { "type": "integer" },
+            "end": { "type": "integer" },
+            "strand": { "type": "string", "description": "'+' or '-'" },
+            "exons": { "type": "array", "items": { "type": "object", "properties": { "start": { "type": "integer" }, "end": { "type": "integer" } } } },
+            "codingExons": { "type": "array", "items": { "type": "object", "properties": { "start": { "type": "integer" }, "end": { "type": "integer" } } } },
+            "cdsStart": { "type": ["integer", "null"] },
+            "cdsEnd": { "type": ["integer", "null"] }
+          },
+          "required": ["transcriptId", "geneId", "geneName", "chromosome", "start", "end", "strand", "exons", "codingExons"]
+        }
+      },
+      "referenceSequence": { "type": ["string", "null"], "description": "Optional reference sequence used for codon/AA change prediction" },
+      "populationFrequencies": { "type": ["object", "null"], "description": "Optional map of population frequency labels to values (e.g. AF, gnomAD_AF)" }
+    },
+    "required": ["variant", "transcripts"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "annotations": {
+        "type": "array",
+        "description": "One annotation per relevant transcript (or a single Intergenic annotation when none are relevant)",
+        "items": {
+          "type": "object",
+          "properties": {
+            "transcriptId": { "type": "string" },
+            "geneId": { "type": "string" },
+            "geneName": { "type": "string" },
+            "consequence": { "type": "string" },
+            "impact": { "type": "string", "description": "High / Moderate / Low / Modifier" },
+            "codonChange": { "type": ["string", "null"] },
+            "aminoAcidChange": { "type": ["string", "null"] },
+            "proteinPosition": { "type": ["integer", "null"] },
+            "cdsPosition": { "type": ["integer", "null"] },
+            "siftScore": { "type": ["number", "null"] },
+            "polyphenScore": { "type": ["number", "null"] }
+          },
+          "required": ["consequence", "impact"]
+        }
+      }
+    },
+    "required": ["annotations"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Variant cannot be null" },
+    { "code": 1001, "message": "Variant chromosome / reference / alternate cannot be empty" },
+    { "code": 1001, "message": "Transcripts cannot be null or empty" },
+    { "code": 1002, "message": "Unknown variant type" }
+  ],
+  "examples": [
+    {
+      "name": "Missense variant in a coding exon (Moderate impact)",
+      "input": {
+        "variant": { "chromosome": "chr1", "position": 1450, "reference": "A", "alternate": "G", "type": "SNV" },
+        "transcripts": [
+          {
+            "transcriptId": "T1", "geneId": "G1", "geneName": "Gene1", "chromosome": "chr1",
+            "start": 1000, "end": 2000, "strand": "+",
+            "exons": [{ "start": 1000, "end": 1100 }, { "start": 1400, "end": 1500 }, { "start": 1800, "end": 2000 }],
+            "codingExons": [{ "start": 1050, "end": 1100 }, { "start": 1400, "end": 1500 }, { "start": 1800, "end": 1900 }],
+            "cdsStart": 1050, "cdsEnd": 1900
+          }
+        ]
+      },
+      "output": {
+        "annotations": [
+          { "transcriptId": "T1", "geneId": "G1", "geneName": "Gene1", "consequence": "MissenseVariant", "impact": "Moderate" }
+        ]
+      }
+    },
+    {
+      "name": "Intronic variant (Modifier impact)",
+      "input": {
+        "variant": { "chromosome": "chr1", "position": 1250, "reference": "A", "alternate": "G", "type": "SNV" },
+        "transcripts": [
+          {
+            "transcriptId": "T1", "geneId": "G1", "geneName": "Gene1", "chromosome": "chr1",
+            "start": 1000, "end": 2000, "strand": "+",
+            "exons": [{ "start": 1000, "end": 1100 }, { "start": 1400, "end": 1500 }, { "start": 1800, "end": 2000 }],
+            "codingExons": [{ "start": 1050, "end": 1100 }, { "start": 1400, "end": 1500 }, { "start": 1800, "end": 1900 }],
+            "cdsStart": 1050, "cdsEnd": 1900
+          }
+        ]
+      },
+      "output": {
+        "annotations": [
+          { "transcriptId": "T1", "geneId": "G1", "geneName": "Gene1", "consequence": "IntronVariant", "impact": "Modifier" }
+        ]
+      }
+    }
+  ]
+}
