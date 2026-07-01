@@ -196,7 +196,12 @@ public class AnalysisTools
         [Description("DNA sequence.")] string dnaSequence,
         [Description("Reading frame: 0, 1, or 2 (default 0).")] int readingFrame = 0)
     {
-        var freq = SequenceStatistics.CalculateCodonFrequencies(dnaSequence ?? string.Empty, readingFrame);
+        if (string.IsNullOrEmpty(dnaSequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(dnaSequence));
+        if (readingFrame is < 0 or > 2)
+            throw new ArgumentException("Reading frame must be 0, 1, or 2", nameof(readingFrame));
+
+        var freq = SequenceStatistics.CalculateCodonFrequencies(dnaSequence, readingFrame);
         return new CodonFrequenciesResult(new Dictionary<string, double>(freq));
     }
 
@@ -885,11 +890,17 @@ public class AnalysisTools
         [Description("Genome 1 sequence.")] string genome1Sequence,
         [Description("Genome 2 sequence.")] string genome2Sequence,
         [Description("Fragment size (default 1000).")] int fragmentSize = 1000,
-        [Description("Minimum fragment identity (default 0.7).")] double minFragmentIdentity = 0.7)
+        [Description("Minimum per-fragment identity (0-1) to keep a match (default 0.7).")] double minFragmentIdentity = 0.7)
     {
+        if (string.IsNullOrEmpty(genome1Sequence))
+            throw new ArgumentException("Genome 1 sequence cannot be null or empty", nameof(genome1Sequence));
+        if (string.IsNullOrEmpty(genome2Sequence))
+            throw new ArgumentException("Genome 2 sequence cannot be null or empty", nameof(genome2Sequence));
+        if (fragmentSize <= 0)
+            throw new ArgumentException("Fragment size must be positive", nameof(fragmentSize));
+
         var ani = global::Seqeron.Genomics.Analysis.ComparativeGenomics
-            .CalculateANI(genome1Sequence ?? string.Empty, genome2Sequence ?? string.Empty,
-                fragmentSize, minFragmentIdentity);
+            .CalculateANI(genome1Sequence, genome2Sequence, fragmentSize, minFragmentIdentity);
         return new AniResult(ani);
     }
 
