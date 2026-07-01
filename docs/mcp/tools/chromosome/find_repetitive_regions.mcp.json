@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_repetitive_regions",
+  "serverName": "Chromosome",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomeAssemblyAnalyzer.FindRepetitiveRegions",
+  "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L674",
+  "description": "Identify repetitive regions across assembled sequences using k-mer copy-number frequency.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequences": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "sequence": { "type": "string" } }, "required": ["id", "sequence"] } },
+      "kmerSize": { "type": "integer", "default": 15, "exclusiveMinimum": 0 },
+      "minCopies": { "type": "integer", "default": 3, "exclusiveMinimum": 0 },
+      "windowSize": { "type": "integer", "default": 100, "exclusiveMinimum": 0 }
+    },
+    "required": ["sequences"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": { "type": "array", "items": { "type": "object", "properties": { "sequenceId": { "type": "string" }, "start": { "type": "integer" }, "end": { "type": "integer" }, "copies": { "type": "integer" } }, "required": ["sequenceId", "start", "end", "copies"] } }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequences cannot be null" },
+    { "code": 1002, "message": "K-mer size must be positive" },
+    { "code": 1003, "message": "Minimum copies must be positive" },
+    { "code": 1004, "message": "Window size must be positive" }
+  ],
+  "examples": [
+    { "name": "Periodic 8-mer sequence", "input": { "sequences": [ { "id": "s", "sequence": "ACGTACGT…(×100)" } ], "kmerSize": 8, "minCopies": 3, "windowSize": 50 }, "output": { "items": [ { "sequenceId": "s", "start": 0, "end": 789, "copies": 199 } ] } }
+  ]
+}
