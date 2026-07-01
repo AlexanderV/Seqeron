@@ -67,10 +67,13 @@ public class MolToolsTools
         return new HomopolymerLengthResult(PrimerDesigner.FindLongestHomopolymer(sequence));
     }
 
-    [McpServerTool, Description("Number of repeat units in the longest dinucleotide tandem repeat (e.g. ATAT…).")]
+    [McpServerTool(Name = "longest_dinucleotide_repeat", Title = "MolTools — Longest Dinucleotide Repeat", ReadOnly = true), Description("Returns the number of repeat units in the longest dinucleotide tandem repeat (e.g. ATATAT = 3 units of AT), case-insensitive. Sequences shorter than 4 nt return 0. Call to flag microsatellite-like dinucleotide repeats in a primer/probe.")]
     public static DinucleotideRepeatResult longest_dinucleotide_repeat(
         [Description("Nucleotide sequence.")] string sequence)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+
         return new DinucleotideRepeatResult(PrimerDesigner.FindLongestDinucleotideRepeat(sequence));
     }
 
