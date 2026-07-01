@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "construct_pangenome",
+  "serverName": "Metagenomics",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PanGenomeAnalyzer.ConstructPanGenome",
+  "docRef": "Seqeron.Genomics.Metagenomics/PanGenomeAnalyzer.cs#L103",
+  "description": "Construct a pan-genome (core/accessory/unique partition, genome fluidity, open-vs-closed classification per Tettelin 2005/2008) from a set of genomes.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "genomes": {
+        "type": "array",
+        "description": "Genomes (id + ordered list of genes).",
+        "items": {
+          "type": "object",
+          "properties": {
+            "genomeId": { "type": "string" },
+            "genes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": { "geneId": { "type": "string" }, "sequence": { "type": "string" } },
+                "required": ["geneId", "sequence"]
+              }
+            }
+          },
+          "required": ["genomeId", "genes"]
+        }
+      },
+      "identityThreshold": { "type": "number", "description": "Ortholog-clustering identity threshold (default 0.9).", "default": 0.9 },
+      "coreFraction": { "type": "number", "description": "Fraction of genomes a cluster must occupy to be core (default 0.99).", "default": 0.99 }
+    },
+    "required": ["genomes"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "coreGenes": { "type": "array", "items": { "type": "string" } },
+      "accessoryGenes": { "type": "array", "items": { "type": "string" } },
+      "uniqueGenes": { "type": "array", "items": { "type": "string" } },
+      "genomeToGenes": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": { "genomeId": { "type": "string" }, "geneIds": { "type": "array", "items": { "type": "string" } } },
+          "required": ["genomeId", "geneIds"]
+        }
+      },
+      "statistics": {
+        "type": "object",
+        "properties": {
+          "totalGenomes": { "type": "integer" },
+          "totalGenes": { "type": "integer" },
+          "coreGeneCount": { "type": "integer" },
+          "accessoryGeneCount": { "type": "integer" },
+          "uniqueGeneCount": { "type": "integer" },
+          "coreFraction": { "type": "number" },
+          "genomeFluidity": { "type": "number" },
+          "type": { "type": "string", "enum": ["Open", "Closed"] }
+        },
+        "required": ["totalGenomes", "totalGenes", "coreGeneCount", "accessoryGeneCount", "uniqueGeneCount", "coreFraction", "genomeFluidity", "type"]
+      }
+    },
+    "required": ["coreGenes", "accessoryGenes", "uniqueGenes", "genomeToGenes", "statistics"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Three genomes, core/accessory/unique partition",
+      "input": {
+        "genomes": [
+          { "genomeId": "g1", "genes": [ { "geneId": "a", "sequence": "ATGCGATCGATCGATCGATCGATCGATCGA" }, { "geneId": "b", "sequence": "TTACGGCATTACGGCATTACGGCATTACGG" }, { "geneId": "c", "sequence": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" } ] },
+          { "genomeId": "g2", "genes": [ { "geneId": "a2", "sequence": "ATGCGATCGATCGATCGATCGATCGATCGA" }, { "geneId": "b2", "sequence": "TTACGGCATTACGGCATTACGGCATTACGG" }, { "geneId": "d", "sequence": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCC" } ] },
+          { "genomeId": "g3", "genes": [ { "geneId": "a3", "sequence": "ATGCGATCGATCGATCGATCGATCGATCGA" }, { "geneId": "e", "sequence": "GGGGGGGGGGGGGGGGGGGGGGGGGGGGGG" } ] }
+        ],
+        "coreFraction": 1.0
+      },
+      "output": {
+        "statistics": { "totalGenomes": 3, "totalGenes": 5, "coreGeneCount": 1, "accessoryGeneCount": 1, "uniqueGeneCount": 3, "coreFraction": 0.2 }
+      }
+    },
+    {
+      "name": "Empty input",
+      "input": { "genomes": [] },
+      "output": { "coreGenes": [], "accessoryGenes": [], "uniqueGenes": [], "statistics": { "totalGenomes": 0, "totalGenes": 0, "type": "Closed" } }
+    }
+  ]
+}
