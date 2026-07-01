@@ -44,11 +44,16 @@ public class MolToolsTools
         return new TmResult(PrimerDesigner.CalculateMeltingTemperature(primer));
     }
 
-    [McpServerTool, Description("Primer Tm with Schildkraut–Lifson salt correction (16.6·log10([Na+]/1000)) added to Wallace/Marmur–Doty Tm.")]
+    [McpServerTool(Name = "primer_melting_temperature_salt", Title = "MolTools — Salt-Corrected Primer Tm", ReadOnly = true), Description("Primer Tm with a Schildkraut–Lifson salt correction: adds 16.6·log10([Na+]/1000) to the Wallace/Marmur–Doty Tm, rounded to one decimal. Call when a monovalent-cation ([Na+]) adjusted primer Tm is needed. Na+ concentration is in mM (default 50).")]
     public static TmResult primer_melting_temperature_salt(
         [Description("Primer sequence.")] string primer,
         [Description("Na+ concentration in mM (default 50).")] double na_concentration = 50)
     {
+        if (string.IsNullOrEmpty(primer))
+            throw new System.ArgumentException("Primer cannot be null or empty.", nameof(primer));
+        if (na_concentration <= 0)
+            throw new System.ArgumentException("Na+ concentration must be positive.", nameof(na_concentration));
+
         return new TmResult(PrimerDesigner.CalculateMeltingTemperatureWithSalt(primer, na_concentration));
     }
 
