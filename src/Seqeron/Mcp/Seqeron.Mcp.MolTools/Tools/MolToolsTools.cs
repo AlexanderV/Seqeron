@@ -423,7 +423,7 @@ public class MolToolsTools
         return new PamSitesResult(sites);
     }
 
-    [McpServerTool, Description("Generates and scores guide-RNA candidates whose Cas9/Cas12a cut site falls inside the requested region. Candidates below parameters.minScore are filtered out. Region indices are 0-based; regionEnd is inclusive.")]
+    [McpServerTool(Name = "design_guide_rnas", Title = "MolTools — Design CRISPR Guide RNAs", ReadOnly = true), Description("Generates and scores guide-RNA candidates whose Cas9/Cas12a cut site falls inside the requested region. Candidates scoring below parameters.MinScore are filtered out. Region indices are 0-based; region_end is inclusive and must satisfy 0 <= region_start <= region_end < sequence.Length. Call to enumerate high-quality guides targeting a locus.")]
     public static GuideRnasResult design_guide_rnas(
         [Description("DNA sequence containing the target region.")] string sequence,
         [Description("0-based start of the target region.")] int region_start,
@@ -431,6 +431,13 @@ public class MolToolsTools
         [Description("CRISPR system (default SpCas9).")] CrisprSystemType system_type = CrisprSystemType.SpCas9,
         [Description("Optional guide-RNA design parameters (minGcContent, maxGcContent, minScore, avoidPolyT, checkSelfComplementarity). Defaults are used when null.")] GuideRnaParameters? parameters = null)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        if (region_start < 0 || region_start >= sequence.Length)
+            throw new System.ArgumentException("Region start must be within the sequence.", nameof(region_start));
+        if (region_end < region_start || region_end >= sequence.Length)
+            throw new System.ArgumentException("Region end must satisfy region_start <= region_end < sequence.Length.", nameof(region_end));
+
         var guides = CrisprDesigner
             .DesignGuideRnas(new DnaSequence(sequence), region_start, region_end, system_type, parameters)
             .ToList();
