@@ -404,7 +404,7 @@ public class MolToolsTools
 
     #region CrisprDesigner
 
-    [McpServerTool, Description("Returns the metadata record (PAM, guide length, PAM placement, description) for a known CRISPR system.")]
+    [McpServerTool(Name = "crispr_system_info", Title = "MolTools — CRISPR System Metadata", ReadOnly = true), Description("Returns the metadata record (name, PAM sequence, guide length, PAM placement relative to target, description) for a known CRISPR nuclease system. Call when the user needs the PAM/guide parameters of SpCas9, SaCas9, Cas12a, CasX, etc.")]
     public static CrisprSystem crispr_system_info(
         [Description("CRISPR system: SpCas9 | SpCas9_NAG | SaCas9 | Cas12a | AsCas12a | LbCas12a | CasX.")] CrisprSystemType system_type)
     {
