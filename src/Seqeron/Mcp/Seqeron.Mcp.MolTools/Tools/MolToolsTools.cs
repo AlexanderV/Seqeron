@@ -478,11 +478,14 @@ public class MolToolsTools
         return CrisprDesigner.GetSystem(system_type);
     }
 
-    [McpServerTool, Description("Finds all PAM matches (forward + reverse strand) for the chosen CRISPR system. PAM matching honours IUPAC codes (e.g. NGG, NNGRRT, TTTV). Sites whose target window falls outside the sequence are skipped.")]
+    [McpServerTool(Name = "find_pam_sites", Title = "MolTools — Find CRISPR PAM Sites", ReadOnly = true), Description("Finds all PAM matches (forward + reverse strand) for the chosen CRISPR system. PAM matching honours IUPAC codes (e.g. NGG, NNGRRT, TTTV). Each site reports the PAM, the adjacent guide/target window, its position and strand; sites whose target window falls outside the sequence are skipped. Call to enumerate targetable protospacers in a sequence.")]
     public static PamSitesResult find_pam_sites(
         [Description("DNA sequence to scan.")] string sequence,
         [Description("CRISPR system (default SpCas9).")] CrisprSystemType system_type = CrisprSystemType.SpCas9)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+
         var sites = CrisprDesigner.FindPamSites(sequence, system_type).ToList();
         return new PamSitesResult(sites);
     }

@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_pam_sites",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "CrisprDesigner.FindPamSites",
+  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L51",
+  "description": "Find all PAM matches (both strands) for a CRISPR system in a DNA sequence.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "DNA sequence to scan.", "minLength": 1 },
+      "system_type": { "type": "string", "enum": ["SpCas9", "SpCas9_NAG", "SaCas9", "Cas12a", "AsCas12a", "LbCas12a", "CasX"], "default": "SpCas9" }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "sites": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": { "type": "integer" },
+            "pamSequence": { "type": "string" },
+            "targetSequence": { "type": "string" },
+            "targetStart": { "type": "integer" },
+            "isForwardStrand": { "type": "boolean" }
+          },
+          "required": ["position", "pamSequence", "targetSequence", "targetStart", "isForwardStrand"]
+        }
+      }
+    },
+    "required": ["sites"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "SpCas9 NGG site",
+      "input": { "sequence": "ATATATATATATATATATATTGG", "system_type": "SpCas9" },
+      "output": { "sites": [ { "position": 20, "pamSequence": "TGG", "targetSequence": "ATATATATATATATATATAT", "targetStart": 0, "isForwardStrand": true } ] }
+    },
+    {
+      "name": "Too short",
+      "input": { "sequence": "TGG", "system_type": "SpCas9" },
+      "output": { "sites": [] }
+    }
+  ]
+}
