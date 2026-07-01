@@ -540,8 +540,11 @@ public class AnalysisTools
         [Description("Motif pattern.")] string motif)
     {
         var dna = RequireDna(sequence, nameof(sequence));
+        if (string.IsNullOrEmpty(motif))
+            throw new ArgumentException("Motif cannot be null or empty", nameof(motif));
+
         var positions = global::Seqeron.Genomics.Analysis.MotifFinder
-            .FindExactMotif(dna, motif ?? string.Empty)
+            .FindExactMotif(dna, motif)
             .ToArray();
         return new MotifPositionsResult(positions);
     }
@@ -600,8 +603,11 @@ public class AnalysisTools
     public static ConsensusResult GenerateConsensus(
         [Description("Aligned DNA sequences of equal length.")] string[] sequences)
     {
+        if (sequences is null || sequences.Length == 0)
+            throw new ArgumentException("At least one sequence is required", nameof(sequences));
+
         var consensus = global::Seqeron.Genomics.Analysis.MotifFinder
-            .GenerateConsensus(sequences ?? Array.Empty<string>());
+            .GenerateConsensus(sequences);
         return new ConsensusResult(consensus);
     }
 
@@ -627,7 +633,10 @@ public class AnalysisTools
         [Description("k-mer length (default 6).")] int k = 6,
         [Description("Minimum sequences containing the motif (default 2).")] int minSequences = 2)
     {
-        var dnaList = (sequences ?? Array.Empty<string>())
+        if (sequences is null || sequences.Length == 0)
+            throw new ArgumentException("At least one sequence is required", nameof(sequences));
+
+        var dnaList = sequences
             .Select(s => RequireDna(s, nameof(sequences)))
             .ToList();
         var items = global::Seqeron.Genomics.Analysis.MotifFinder
