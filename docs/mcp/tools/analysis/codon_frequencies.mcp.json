@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "codon_frequencies",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceStatistics.CalculateCodonFrequencies",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L688",
+  "description": "Codon usage frequencies over non-overlapping in-frame triplets (Kazusa CUTG count/total) in the specified reading frame.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "dnaSequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
+      "readingFrame": { "type": "integer", "description": "Reading frame 0, 1, or 2", "default": 0, "minimum": 0, "maximum": 2 }
+    },
+    "required": ["dnaSequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "frequencies": {
+        "type": "object",
+        "description": "Map of codon -> frequency (count/total)",
+        "additionalProperties": { "type": "number" }
+      }
+    },
+    "required": ["frequencies"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1003, "message": "Reading frame must be 0, 1, or 2" }
+  ],
+  "examples": [
+    {
+      "name": "Frame 0",
+      "input": { "dnaSequence": "ATGATGAAA", "readingFrame": 0 },
+      "output": { "frequencies": { "ATG": 0.6666666666666666, "AAA": 0.3333333333333333 } }
+    },
+    {
+      "name": "Frame 1",
+      "input": { "dnaSequence": "ATGATGAAA", "readingFrame": 1 },
+      "output": { "frequencies": { "TGA": 1.0 } }
+    }
+  ]
+}
