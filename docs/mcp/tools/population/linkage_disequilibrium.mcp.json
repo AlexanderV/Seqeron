@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "linkage_disequilibrium",
+  "serverName": "Population",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PopulationGeneticsAnalyzer.CalculateLD",
+  "docRef": "Seqeron.Genomics.Population/PopulationGeneticsAnalyzer.cs#L729",
+  "description": "Compute pairwise linkage disequilibrium (D' and r²) between two variants from diploid genotype pairs (0/1/2). Uses the diploid genotype correlation (Hill & Robertson 1968) and Lewontin (1964) D' normalization.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "variant1Id": { "type": "string", "description": "Variant 1 identifier." },
+      "variant2Id": { "type": "string", "description": "Variant 2 identifier." },
+      "genotypes": {
+        "type": "array",
+        "description": "Per-individual genotype pairs at the two variants (0/1/2).",
+        "items": {
+          "type": "object",
+          "properties": {
+            "geno1": { "type": "integer" },
+            "geno2": { "type": "integer" }
+          },
+          "required": ["geno1", "geno2"]
+        }
+      },
+      "distance": { "type": "integer", "description": "Genomic distance between variants (e.g. bp)." }
+    },
+    "required": ["variant1Id", "variant2Id", "genotypes", "distance"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "variant1": { "type": "string" },
+      "variant2": { "type": "string" },
+      "dPrime": { "type": "number", "description": "Normalized |D'| ∈ [0, 1] (Lewontin 1964)" },
+      "rSquared": { "type": "number", "description": "Squared genotype correlation r² ∈ [0, 1]" },
+      "distance": { "type": "number", "description": "Echoed genomic distance" }
+    },
+    "required": ["variant1", "variant2", "dPrime", "rSquared", "distance"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Perfect LD (identical genotype vectors)",
+      "input": {
+        "variant1Id": "V1",
+        "variant2Id": "V2",
+        "genotypes": [
+          { "geno1": 0, "geno2": 0 }, { "geno1": 0, "geno2": 0 },
+          { "geno1": 1, "geno2": 1 }, { "geno1": 1, "geno2": 1 },
+          { "geno1": 2, "geno2": 2 }, { "geno1": 2, "geno2": 2 }
+        ],
+        "distance": 1000
+      },
+      "output": { "variant1": "V1", "variant2": "V2", "dPrime": 1.0, "rSquared": 1.0, "distance": 1000 }
+    },
+    {
+      "name": "No LD (balanced 3×3 design)",
+      "input": {
+        "variant1Id": "V1",
+        "variant2Id": "V2",
+        "genotypes": [
+          { "geno1": 0, "geno2": 0 }, { "geno1": 0, "geno2": 1 }, { "geno1": 0, "geno2": 2 },
+          { "geno1": 1, "geno2": 0 }, { "geno1": 1, "geno2": 1 }, { "geno1": 1, "geno2": 2 },
+          { "geno1": 2, "geno2": 0 }, { "geno1": 2, "geno2": 1 }, { "geno1": 2, "geno2": 2 }
+        ],
+        "distance": 1000
+      },
+      "output": { "variant1": "V1", "variant2": "V2", "dPrime": 0.0, "rSquared": 0.0, "distance": 1000 }
+    }
+  ]
+}
