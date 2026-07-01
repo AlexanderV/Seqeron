@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "codon_adaptation_index",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "CodonUsageAnalyzer.CalculateCai",
+  "docRef": "Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L134",
+  "description": "Codon Adaptation Index (Sharp & Li 1987) of a coding sequence given a reference RSCU table (DNA-alphabet codons).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "Coding DNA sequence (frame 0).", "minLength": 1 },
+      "reference_rscu": { "type": "object", "description": "Reference RSCU table: DNA codon -> RSCU value.", "additionalProperties": { "type": "number" } }
+    },
+    "required": ["sequence", "reference_rscu"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "cai": { "type": "number", "description": "Codon Adaptation Index in 0..1." }
+    },
+    "required": ["cai"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1002, "message": "Reference RSCU table cannot be null" }
+  ],
+  "examples": [
+    {
+      "name": "Non-optimal Phe codon",
+      "input": { "sequence": "TTC", "reference_rscu": { "TTT": 1.0, "TTC": 0.5 } },
+      "output": { "cai": 0.5 }
+    },
+    {
+      "name": "Geometric mean of two codons",
+      "input": { "sequence": "TTTTTC", "reference_rscu": { "TTT": 1.0, "TTC": 0.5 } },
+      "output": { "cai": 0.7071067811865476 }
+    }
+  ]
+}

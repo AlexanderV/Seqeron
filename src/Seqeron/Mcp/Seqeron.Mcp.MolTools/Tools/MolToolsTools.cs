@@ -230,11 +230,16 @@ public class MolToolsTools
         return new RscuResult(CodonUsageAnalyzer.CalculateRscu(sequence));
     }
 
-    [McpServerTool, Description("Codon Adaptation Index (Sharp & Li 1987) using a caller-supplied reference RSCU table (typically derived from highly expressed genes). Output range 0..1; codons absent from the reference contribute w=0 and are excluded from the geometric mean.")]
+    [McpServerTool(Name = "codon_adaptation_index", Title = "MolTools — Codon Adaptation Index (RSCU)", ReadOnly = true), Description("Codon Adaptation Index (Sharp & Li 1987) using a caller-supplied reference RSCU table (typically derived from highly expressed genes), codons in the DNA alphabet. Output range 0..1; per-codon relative adaptiveness w = RSCU/max-synonymous-RSCU, and CAI is their geometric mean. Single-codon amino acids (Met/Trp), stop codons, and codons with w=0 are excluded. Call to score how well a gene matches an organism's preferred codons given an RSCU reference (distinct from cai_from_organism_table, which takes a frequency table).")]
     public static CaiResult codon_adaptation_index(
         [Description("Coding DNA sequence (frame 0).")] string sequence,
         [Description("Reference RSCU table: codon (DNA alphabet) → RSCU value.")] Dictionary<string, double> reference_rscu)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        if (reference_rscu is null)
+            throw new System.ArgumentException("Reference RSCU table cannot be null.", nameof(reference_rscu));
+
         return new CaiResult(CodonUsageAnalyzer.CalculateCai(sequence, reference_rscu));
     }
 
