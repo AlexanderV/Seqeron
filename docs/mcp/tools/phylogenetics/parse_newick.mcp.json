@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "parse_newick",
+  "serverName": "Phylogenetics",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PhylogeneticAnalyzer.ParseNewick",
+  "docRef": "Seqeron.Genomics.Phylogenetics/PhylogeneticAnalyzer.cs#L657",
+  "description": "Parse a Newick-format tree and report a structural summary.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "newick": { "type": "string", "description": "Tree in Newick format.", "minLength": 1 }
+    },
+    "required": ["newick"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "newick": { "type": "string", "description": "Canonical re-serialization of the parsed tree." },
+      "taxa": { "type": "array", "items": { "type": "string" }, "description": "Leaf names in pre-order." },
+      "leafCount": { "type": "integer", "description": "Number of leaves (taxa)." },
+      "depth": { "type": "integer", "description": "Tree height in edges (single leaf = 0)." },
+      "totalLength": { "type": "number", "description": "Sum of all branch lengths." }
+    },
+    "required": ["newick", "taxa", "leafCount", "depth", "totalLength"]
+  },
+  "errors": [
+    { "code": 2001, "message": "Newick string is empty" },
+    { "code": 2002, "message": "Malformed Newick string (unbalanced parentheses or trailing garbage)" }
+  ],
+  "examples": [
+    {
+      "name": "Balanced 4-taxon tree with branch lengths",
+      "input": { "newick": "((A:1,B:1):1,(C:1,D:1):1);" },
+      "output": { "taxa": ["A", "B", "C", "D"], "leafCount": 4, "depth": 2, "totalLength": 6 }
+    },
+    {
+      "name": "Single leaf",
+      "input": { "newick": "A;" },
+      "output": { "taxa": ["A"], "leafCount": 1, "depth": 0, "totalLength": 0 }
+    }
+  ]
+}
