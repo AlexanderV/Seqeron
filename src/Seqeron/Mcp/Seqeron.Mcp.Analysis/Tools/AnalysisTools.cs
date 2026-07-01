@@ -461,8 +461,13 @@ public class AnalysisTools
         [Description("Aligned DNA sequences of equal length.")] string[] sequences,
         [Description("Pseudocount for smoothing (default 0.25).")] double pseudocount = 0.25)
     {
+        if (sequences is null || sequences.Length == 0)
+            throw new ArgumentException("At least one sequence is required.", nameof(sequences));
+        if (pseudocount < 0)
+            throw new ArgumentOutOfRangeException(nameof(pseudocount), "Pseudocount must be non-negative.");
+
         var pwm = global::Seqeron.Genomics.Analysis.MotifFinder
-            .CreatePwm(sequences ?? Array.Empty<string>(), pseudocount);
+            .CreatePwm(sequences, pseudocount);
         var jagged = MatrixToJagged(pwm.Matrix, 4, pwm.Length);
         return new PwmResult(jagged, pwm.Length, pwm.Consensus, pwm.MaxScore, pwm.MinScore);
     }
