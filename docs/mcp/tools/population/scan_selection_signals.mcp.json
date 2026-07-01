@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "scan_selection_signals",
+  "serverName": "Population",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PopulationGeneticsAnalyzer.ScanForSelection(regions,thresholds)",
+  "docRef": "Seqeron.Genomics.Population/PopulationGeneticsAnalyzer.cs#L882",
+  "description": "Scan genomic regions for selection signals using Tajima's D, Fst, and iHS thresholds. Emits one signal per crossing test per region.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "regions": {
+        "type": "array",
+        "description": "Regions with precomputed Tajima's D, Fst, and iHS scores.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "region": { "type": "string" },
+            "start": { "type": "integer" },
+            "end": { "type": "integer" },
+            "tajimaD": { "type": "number" },
+            "fst": { "type": "number" },
+            "iHS": { "type": "number" }
+          },
+          "required": ["region", "start", "end", "tajimaD", "fst", "iHS"]
+        }
+      },
+      "tajimaDThreshold": { "type": "number", "description": "Tajima's D threshold for a negative-D signal (default -2.0).", "default": -2.0 },
+      "fstThreshold": { "type": "number", "description": "Fst threshold for a differentiation signal (default 0.25).", "default": 0.25 },
+      "ihsThreshold": { "type": "number", "description": "|iHS| threshold for a haplotype-based signal (default 2.0).", "default": 2.0 }
+    },
+    "required": ["regions"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "region": { "type": "string" },
+            "start": { "type": "integer" },
+            "end": { "type": "integer" },
+            "score": { "type": "number" },
+            "testType": { "type": "string", "description": "TajimasD, Fst, or iHS" },
+            "pValue": { "type": "number" },
+            "interpretation": { "type": "string" }
+          },
+          "required": ["region", "start", "end", "score", "testType", "pValue", "interpretation"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Region with strongly negative Tajima's D emits a TajimasD signal",
+      "input": {
+        "regions": [{ "region": "Region1", "start": 0, "end": 10000, "tajimaD": -2.5, "fst": 0.1, "iHS": 0.5 }],
+        "tajimaDThreshold": -2.0
+      },
+      "output": { "items": [{ "region": "Region1", "start": 0, "end": 10000, "score": -2.5, "testType": "TajimasD", "pValue": 0.0124, "interpretation": "Possible positive/purifying selection (excess rare variants)" }] }
+    },
+    {
+      "name": "Neutral region emits no signals",
+      "input": {
+        "regions": [{ "region": "Region1", "start": 0, "end": 10000, "tajimaD": 0.0, "fst": 0.1, "iHS": 0.5 }]
+      },
+      "output": { "items": [] }
+    }
+  ]
+}

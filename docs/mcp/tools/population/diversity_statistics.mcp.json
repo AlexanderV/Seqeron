@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "diversity_statistics",
+  "serverName": "Population",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PopulationGeneticsAnalyzer.CalculateDiversityStatistics",
+  "docRef": "Seqeron.Genomics.Population/PopulationGeneticsAnalyzer.cs#L309",
+  "description": "Compute combined diversity statistics (π, Watterson's θ, Tajima's D, segregating sites, observed/expected heterozygosity) from aligned sequences.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequences": {
+        "type": "array",
+        "description": "Aligned sequences of equal length.",
+        "items": { "type": "string" },
+        "minItems": 1
+      }
+    },
+    "required": ["sequences"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "nucleotideDiversity": { "type": "number", "description": "π — average pairwise per-site differences" },
+      "wattersonTheta": { "type": "number", "description": "Watterson's θ per site = S / (a₁·L)" },
+      "tajimasD": { "type": "number", "description": "Tajima's D statistic" },
+      "segregatingSites": { "type": "integer", "description": "Number of polymorphic positions S" },
+      "sampleSize": { "type": "integer", "description": "Number of input sequences n" },
+      "heterozygosityObserved": { "type": "number", "description": "Nei (1978) unbiased gene diversity per site" },
+      "heterozygosityExpected": { "type": "number", "description": "Basic gene diversity per site (1 − Σp²)" }
+    },
+    "required": ["nucleotideDiversity", "wattersonTheta", "tajimasD", "segregatingSites", "sampleSize", "heterozygosityObserved", "heterozygosityExpected"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Wikipedia Tajima's D example (5 sequences, length 20)",
+      "input": { "sequences": ["00000000000000000000", "00100000000010000010", "00000000000010000010", "00000010000000000010", "00000010000010000010"] },
+      "output": { "nucleotideDiversity": 0.1, "wattersonTheta": 0.096, "tajimasD": 0.273, "segregatingSites": 4, "sampleSize": 5, "heterozygosityObserved": 0.08, "heterozygosityExpected": 0.064 }
+    },
+    {
+      "name": "Three sequences length 8 (S=2)",
+      "input": { "sequences": ["ACGTACGT", "ACGTATGT", "ACGTACGA"] },
+      "output": { "nucleotideDiversity": 0.16667, "wattersonTheta": 0.16667, "tajimasD": 0.0, "segregatingSites": 2, "sampleSize": 3, "heterozygosityObserved": 0.16667, "heterozygosityExpected": 0.11111 }
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "fst",
+  "serverName": "Population",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PopulationGeneticsAnalyzer.CalculateFst",
+  "docRef": "Seqeron.Genomics.Population/PopulationGeneticsAnalyzer.cs#L609",
+  "description": "Compute Wright's variance-based Fst between two populations from per-variant allele frequencies and sample sizes.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "population1": {
+        "type": "array",
+        "description": "Per-variant {alleleFreq, sampleSize} for population 1.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "alleleFreq": { "type": "number" },
+            "sampleSize": { "type": "integer" }
+          },
+          "required": ["alleleFreq", "sampleSize"]
+        }
+      },
+      "population2": {
+        "type": "array",
+        "description": "Per-variant {alleleFreq, sampleSize} for population 2 (same locus count as population 1).",
+        "items": { "$ref": "#/inputSchema/properties/population1/items" }
+      }
+    },
+    "required": ["population1", "population2"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "fst": { "type": "number", "description": "Wright's Fst = σ²_S / p̄(1−p̄), in [0, 1]" }
+    },
+    "required": ["fst"]
+  },
+  "errors": [
+    { "code": 1001, "message": "The two populations' per-locus allele frequency counts must match." }
+  ],
+  "examples": [
+    {
+      "name": "Single locus p1=0.8, p2=0.2 (equal sizes)",
+      "input": {
+        "population1": [{ "alleleFreq": 0.8, "sampleSize": 100 }],
+        "population2": [{ "alleleFreq": 0.2, "sampleSize": 100 }]
+      },
+      "output": { "fst": 0.36 }
+    },
+    {
+      "name": "Fixed differences → complete differentiation",
+      "input": {
+        "population1": [{ "alleleFreq": 1.0, "sampleSize": 100 }],
+        "population2": [{ "alleleFreq": 0.0, "sampleSize": 100 }]
+      },
+      "output": { "fst": 1.0 }
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "inbreeding_from_roh",
+  "serverName": "Population",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PopulationGeneticsAnalyzer.CalculateInbreedingFromROH",
+  "docRef": "Seqeron.Genomics.Population/PopulationGeneticsAnalyzer.cs#L1441",
+  "description": "Estimate the genomic inbreeding coefficient F_ROH = Σ(ROH lengths) / genomeLength (McQuillan et al. 2008).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "rohSegments": {
+        "type": "array",
+        "description": "Runs of homozygosity as half-open {start, end} segments; each contributes length end − start.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "start": { "type": "integer" },
+            "end": { "type": "integer" }
+          },
+          "required": ["start", "end"]
+        }
+      },
+      "genomeLength": { "type": "integer", "description": "Total assayed (autosomal) genome length L_AUTO, in the same units as the segments. Must be positive.", "minimum": 1 }
+    },
+    "required": ["rohSegments", "genomeLength"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "inbreedingCoefficient": { "type": "number", "description": "F_ROH = ΣL_ROH / L_AUTO, in [0, 1]" }
+    },
+    "required": ["inbreedingCoefficient"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Two 10 Mb segments over a 100 Mb genome",
+      "input": {
+        "rohSegments": [{ "start": 0, "end": 10000000 }, { "start": 50000000, "end": 60000000 }],
+        "genomeLength": 100000000
+      },
+      "output": { "inbreedingCoefficient": 0.2 }
+    },
+    {
+      "name": "Whole-genome ROH → F_ROH = 1",
+      "input": {
+        "rohSegments": [{ "start": 0, "end": 2673768 }],
+        "genomeLength": 2673768
+      },
+      "output": { "inbreedingCoefficient": 1.0 }
+    }
+  ]
+}

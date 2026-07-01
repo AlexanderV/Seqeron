@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "allele_frequencies",
+  "serverName": "Population",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PopulationGeneticsAnalyzer.CalculateAlleleFrequencies",
+  "docRef": "Seqeron.Genomics.Population/PopulationGeneticsAnalyzer.cs#L138",
+  "description": "Calculate major and minor allele frequencies from diploid genotype counts (homozygous-major, heterozygous, homozygous-minor).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "homozygousMajor": {
+        "type": "integer",
+        "description": "Count of homozygous-major genotypes (AA).",
+        "minimum": 0
+      },
+      "heterozygous": {
+        "type": "integer",
+        "description": "Count of heterozygous genotypes (Aa).",
+        "minimum": 0
+      },
+      "homozygousMinor": {
+        "type": "integer",
+        "description": "Count of homozygous-minor genotypes (aa).",
+        "minimum": 0
+      }
+    },
+    "required": ["homozygousMajor", "heterozygous", "homozygousMinor"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "majorFreq": { "type": "number", "description": "Major allele frequency p = (2·AA + Aa) / (2·N), in [0, 1]" },
+      "minorFreq": { "type": "number", "description": "Minor allele frequency q = (2·aa + Aa) / (2·N), in [0, 1]" }
+    },
+    "required": ["majorFreq", "minorFreq"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Genotype count cannot be negative." }
+  ],
+  "examples": [
+    {
+      "name": "Wikipedia four-o'clock flower example (49 AA, 42 Aa, 9 aa)",
+      "input": { "homozygousMajor": 49, "heterozygous": 42, "homozygousMinor": 9 },
+      "output": { "majorFreq": 0.70, "minorFreq": 0.30 }
+    },
+    {
+      "name": "Wikipedia diploid example (6 AA, 3 AB, 1 BB)",
+      "input": { "homozygousMajor": 6, "heterozygous": 3, "homozygousMinor": 1 },
+      "output": { "majorFreq": 0.75, "minorFreq": 0.25 }
+    }
+  ]
+}

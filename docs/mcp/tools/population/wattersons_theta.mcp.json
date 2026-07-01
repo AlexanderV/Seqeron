@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "wattersons_theta",
+  "serverName": "Population",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PopulationGeneticsAnalyzer.CalculateWattersonTheta",
+  "docRef": "Seqeron.Genomics.Population/PopulationGeneticsAnalyzer.cs#L239",
+  "description": "Compute Watterson's θ estimator per site = S / (a₁·L) from segregating site count S, sample size n, and sequence length L.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "segregatingSites": { "type": "integer", "description": "Number of segregating (polymorphic) sites S.", "minimum": 0 },
+      "sampleSize": { "type": "integer", "description": "Sample size n (number of sequences)." },
+      "sequenceLength": { "type": "integer", "description": "Length of analysed sequence in nucleotides." }
+    },
+    "required": ["segregatingSites", "sampleSize", "sequenceLength"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "theta": { "type": "number", "description": "Watterson's θ per site; 0 when n < 2 or L ≤ 0." }
+    },
+    "required": ["theta"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "S=10, n=10, L=1000",
+      "input": { "segregatingSites": 10, "sampleSize": 10, "sequenceLength": 1000 },
+      "output": { "theta": 0.00353 }
+    },
+    {
+      "name": "Minimum sample size n=2 → θ = S/L",
+      "input": { "segregatingSites": 5, "sampleSize": 2, "sequenceLength": 100 },
+      "output": { "theta": 0.05 }
+    }
+  ]
+}

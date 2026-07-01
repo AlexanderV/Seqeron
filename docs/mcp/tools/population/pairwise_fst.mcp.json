@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "pairwise_fst",
+  "serverName": "Population",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PopulationGeneticsAnalyzer.CalculatePairwiseFst",
+  "docRef": "Seqeron.Genomics.Population/PopulationGeneticsAnalyzer.cs#L651",
+  "description": "Compute the symmetric pairwise Wright's Fst matrix for a set of populations from their per-variant allele frequencies and sample sizes.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "populations": {
+        "type": "array",
+        "description": "Populations with per-variant allele frequencies.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "populationId": { "type": "string" },
+            "variants": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "alleleFreq": { "type": "number" },
+                  "sampleSize": { "type": "integer" }
+                },
+                "required": ["alleleFreq", "sampleSize"]
+              }
+            }
+          },
+          "required": ["populationId", "variants"]
+        }
+      }
+    },
+    "required": ["populations"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "populationIds": { "type": "array", "items": { "type": "string" } },
+      "matrix": {
+        "type": "array",
+        "description": "Symmetric N×N Fst matrix (zero diagonal) aligned with populationIds.",
+        "items": { "type": "array", "items": { "type": "number" } }
+      }
+    },
+    "required": ["populationIds", "matrix"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Three single-locus populations (0.5, 0.6, 0.9)",
+      "input": {
+        "populations": [
+          { "populationId": "Pop1", "variants": [{ "alleleFreq": 0.5, "sampleSize": 100 }] },
+          { "populationId": "Pop2", "variants": [{ "alleleFreq": 0.6, "sampleSize": 100 }] },
+          { "populationId": "Pop3", "variants": [{ "alleleFreq": 0.9, "sampleSize": 100 }] }
+        ]
+      },
+      "output": {
+        "populationIds": ["Pop1", "Pop2", "Pop3"],
+        "matrix": [
+          [0.0, 0.0101010101, 0.1904761905],
+          [0.0101010101, 0.0, 0.12],
+          [0.1904761905, 0.12, 0.0]
+        ]
+      }
+    },
+    {
+      "name": "Two identical populations → zero matrix",
+      "input": {
+        "populations": [
+          { "populationId": "A", "variants": [{ "alleleFreq": 0.4, "sampleSize": 100 }] },
+          { "populationId": "B", "variants": [{ "alleleFreq": 0.4, "sampleSize": 100 }] }
+        ]
+      },
+      "output": {
+        "populationIds": ["A", "B"],
+        "matrix": [[0.0, 0.0], [0.0, 0.0]]
+      }
+    }
+  ]
+}
