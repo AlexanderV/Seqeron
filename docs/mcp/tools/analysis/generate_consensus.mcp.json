@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "generate_consensus",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MotifFinder.GenerateConsensus",
+  "docRef": "Seqeron.Genomics.Analysis/MotifFinder.cs#L339",
+  "description": "IUPAC consensus sequence from aligned equal-length DNA sequences: at each column, every base whose count strictly exceeds 25% of the sequences is included, mapped to its IUPAC ambiguity code.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequences": { "type": "array", "description": "Aligned DNA sequences of equal length", "items": { "type": "string" }, "minItems": 1 }
+    },
+    "required": ["sequences"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "consensus": { "type": "string", "description": "IUPAC consensus sequence" }
+    },
+    "required": ["consensus"]
+  },
+  "errors": [
+    { "code": 1001, "message": "At least one sequence is required" }
+  ],
+  "examples": [
+    {
+      "name": "Unanimous columns",
+      "input": { "sequences": ["ATGC", "ATGC", "ATGC"] },
+      "output": { "consensus": "ATGC" }
+    },
+    {
+      "name": "A/T ambiguity => W",
+      "input": { "sequences": ["AAAA", "TTTT"] },
+      "output": { "consensus": "WWWW" }
+    }
+  ]
+}
