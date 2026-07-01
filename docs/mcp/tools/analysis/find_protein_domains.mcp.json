@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_protein_domains",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ProteinMotifFinder.FindDomains",
+  "docRef": "Seqeron.Genomics.Analysis/ProteinMotifFinder.cs#L1379",
+  "description": "Detect common protein domains with EXACT PROSITE patterns: zinc finger C2H2 (PS00028), WD-repeats (PS00678), kinase ATP-binding / Walker A P-loop (PS00017). Profile-only domains are not detected.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "proteinSequence": { "type": "string", "description": "Protein sequence", "minLength": 1 }
+    },
+    "required": ["proteinSequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "accession": { "type": "string" },
+            "start": { "type": "integer" },
+            "end": { "type": "integer" },
+            "score": { "type": "number" },
+            "description": { "type": "string" }
+          },
+          "required": ["name", "accession", "start", "end", "score", "description"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Zinc finger C2H2 (PF00096)",
+      "input": { "proteinSequence": "AAAACAACAAALEEEEEEEEHAAAHAAAA" },
+      "output": { "items": [ { "name": "Zinc Finger C2H2", "accession": "PF00096", "start": 4, "end": 24 } ] }
+    },
+    {
+      "name": "No domain",
+      "input": { "proteinSequence": "AAAAAAAA" },
+      "output": { "items": [] }
+    }
+  ]
+}
