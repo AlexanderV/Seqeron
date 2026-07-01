@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "robinson_foulds_distance",
+  "serverName": "Phylogenetics",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PhylogeneticAnalyzer.RobinsonFouldsDistance",
+  "docRef": "Seqeron.Genomics.Phylogenetics/PhylogeneticAnalyzer.cs#L879",
+  "description": "Robinson-Foulds (symmetric clade-difference) distance between two rooted trees.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "tree1": { "type": "string", "description": "First tree in Newick format.", "minLength": 1 },
+      "tree2": { "type": "string", "description": "Second tree in Newick format.", "minLength": 1 }
+    },
+    "required": ["tree1", "tree2"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "distance": { "type": "integer", "description": "Symmetric clade difference (non-negative even integer)." }
+    },
+    "required": ["distance"]
+  },
+  "errors": [
+    { "code": 2001, "message": "Newick string is empty" }
+  ],
+  "examples": [
+    {
+      "name": "Identical trees",
+      "input": { "tree1": "((A,B),(C,D));", "tree2": "((A,B),(C,D));" },
+      "output": { "distance": 0 }
+    },
+    {
+      "name": "Maximally different 4-taxon trees",
+      "input": { "tree1": "((A,B),(C,D));", "tree2": "((A,C),(B,D));" },
+      "output": { "distance": 4 }
+    }
+  ]
+}

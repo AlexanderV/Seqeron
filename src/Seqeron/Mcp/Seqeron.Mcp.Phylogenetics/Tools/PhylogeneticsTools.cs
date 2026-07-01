@@ -19,6 +19,11 @@ public class PhylogeneticsTools
         [Description("Distance method: PDistance | JukesCantor | Kimura2Parameter | Hamming. Default: JukesCantor.")] string? distanceMethod = null,
         [Description("Tree construction method: UPGMA | NeighborJoining. Default: UPGMA.")] string? treeMethod = null)
     {
+        if (sequences is null)
+            throw new ArgumentException("Sequences cannot be null.", nameof(sequences));
+        if (sequences.Count < 2)
+            throw new ArgumentException("At least 2 sequences required.", nameof(sequences));
+
         var dm = ParseDistanceMethod(distanceMethod);
         var tm = ParseTreeMethod(treeMethod);
         var tree = global::Seqeron.Genomics.Phylogenetics.PhylogeneticAnalyzer.BuildTree(sequences, dm, tm);
@@ -38,8 +43,11 @@ public class PhylogeneticsTools
         [Description("Symmetric square distance matrix; size must equal the length of taxa.")] double[][] distanceMatrix,
         [Description("Tree construction method: UPGMA | NeighborJoining. Default: UPGMA.")] string? treeMethod = null)
     {
+        if (taxa is null || taxa.Length < 2)
+            throw new ArgumentException("At least 2 taxa required.", nameof(taxa));
+
         var tm = ParseTreeMethod(treeMethod);
-        var matrix = ToMultiDim(distanceMatrix, taxa?.Length ?? 0);
+        var matrix = ToMultiDim(distanceMatrix, taxa.Length);
         var tree = global::Seqeron.Genomics.Phylogenetics.PhylogeneticAnalyzer.BuildTreeFromMatrix(taxa!, matrix, tm);
         var newick = global::Seqeron.Genomics.Phylogenetics.PhylogeneticAnalyzer.ToNewick(tree.Root);
         return new PhyloTreeBuildResult(
@@ -56,6 +64,9 @@ public class PhylogeneticsTools
         [Description("Aligned sequences (equal length).")] string[] alignedSequences,
         [Description("Distance method: PDistance | JukesCantor | Kimura2Parameter | Hamming. Default: JukesCantor.")] string? method = null)
     {
+        if (alignedSequences is null || alignedSequences.Length == 0)
+            throw new ArgumentException("At least one aligned sequence is required.", nameof(alignedSequences));
+
         var dm = ParseDistanceMethod(method);
         var matrix = global::Seqeron.Genomics.Phylogenetics.PhylogeneticAnalyzer.CalculateDistanceMatrix(alignedSequences, dm);
         return new DistanceMatrixResult(ToJagged(matrix));
@@ -69,6 +80,13 @@ public class PhylogeneticsTools
         [Description("Second aligned sequence (same length as seq1).")] string seq2,
         [Description("Distance method: PDistance | JukesCantor | Kimura2Parameter | Hamming. Default: JukesCantor.")] string? method = null)
     {
+        if (seq1 is null)
+            throw new ArgumentException("First sequence cannot be null.", nameof(seq1));
+        if (seq2 is null)
+            throw new ArgumentException("Second sequence cannot be null.", nameof(seq2));
+        if (seq1.Length != seq2.Length)
+            throw new ArgumentException("Sequences must have the same length.", nameof(seq2));
+
         var dm = ParseDistanceMethod(method);
         var d = global::Seqeron.Genomics.Phylogenetics.PhylogeneticAnalyzer.CalculatePairwiseDistance(seq1, seq2, dm);
         return new PairwiseDistanceResult(d);
@@ -187,6 +205,13 @@ public class PhylogeneticsTools
         [Description("Distance method: PDistance | JukesCantor | Kimura2Parameter | Hamming. Default: JukesCantor.")] string? distanceMethod = null,
         [Description("Tree construction method: UPGMA | NeighborJoining. Default: UPGMA.")] string? treeMethod = null)
     {
+        if (sequences is null)
+            throw new ArgumentException("Sequences cannot be null.", nameof(sequences));
+        if (sequences.Count < 2)
+            throw new ArgumentException("At least 2 sequences required.", nameof(sequences));
+        if (replicates < 1)
+            throw new ArgumentException("At least 1 replicate required.", nameof(replicates));
+
         var dm = ParseDistanceMethod(distanceMethod);
         var tm = ParseTreeMethod(treeMethod);
         var support = global::Seqeron.Genomics.Phylogenetics.PhylogeneticAnalyzer.Bootstrap(sequences, replicates, dm, tm);

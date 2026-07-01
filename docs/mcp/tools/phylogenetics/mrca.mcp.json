@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "mrca",
+  "serverName": "Phylogenetics",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PhylogeneticAnalyzer.FindMRCA",
+  "docRef": "Seqeron.Genomics.Phylogenetics/PhylogeneticAnalyzer.cs#L1076",
+  "description": "Most Recent Common Ancestor (MRCA) of two taxa in a rooted tree.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "newick": { "type": "string", "description": "Tree in Newick format.", "minLength": 1 },
+      "taxon1": { "type": "string", "description": "First taxon name." },
+      "taxon2": { "type": "string", "description": "Second taxon name." }
+    },
+    "required": ["newick", "taxon1", "taxon2"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "found": { "type": "boolean", "description": "True when an MRCA exists (both taxa present)." },
+      "name": { "type": "string", "description": "Name of the MRCA node (may be empty for unnamed internal nodes)." },
+      "taxa": { "type": "array", "items": { "type": "string" }, "description": "Taxa in the MRCA subtree." }
+    },
+    "required": ["found", "name", "taxa"]
+  },
+  "errors": [
+    { "code": 2001, "message": "Newick string is empty" }
+  ],
+  "examples": [
+    {
+      "name": "Siblings A and B",
+      "input": { "newick": "((A,B),(C,D));", "taxon1": "A", "taxon2": "B" },
+      "output": { "found": true, "name": "", "taxa": ["A", "B"] }
+    },
+    {
+      "name": "Cross-clade A and C → root",
+      "input": { "newick": "((A,B),(C,D));", "taxon1": "A", "taxon2": "C" },
+      "output": { "found": true, "name": "", "taxa": ["A", "B", "C", "D"] }
+    }
+  ]
+}

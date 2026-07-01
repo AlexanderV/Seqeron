@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "pairwise_distance",
+  "serverName": "Phylogenetics",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PhylogeneticAnalyzer.CalculatePairwiseDistance",
+  "docRef": "Seqeron.Genomics.Phylogenetics/PhylogeneticAnalyzer.cs#L223",
+  "description": "Evolutionary distance between two aligned sequences under a chosen substitution model.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "seq1": { "type": "string", "description": "First aligned sequence." },
+      "seq2": { "type": "string", "description": "Second aligned sequence (same length as seq1)." },
+      "method": {
+        "type": "string",
+        "description": "Distance method.",
+        "enum": ["PDistance", "JukesCantor", "Kimura2Parameter", "Hamming"],
+        "default": "JukesCantor"
+      }
+    },
+    "required": ["seq1", "seq2"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "distance": { "type": "number", "description": "The evolutionary distance (may be +Infinity at JC69/K2P saturation)." }
+    },
+    "required": ["distance"]
+  },
+  "errors": [
+    { "code": 1001, "message": "First sequence cannot be null" },
+    { "code": 1002, "message": "Second sequence cannot be null" },
+    { "code": 1003, "message": "Sequences must have the same length" },
+    { "code": 1004, "message": "Unknown distance method" }
+  ],
+  "examples": [
+    {
+      "name": "Hamming: two mismatches",
+      "input": { "seq1": "ACGTACGT", "seq2": "TCGTACGA", "method": "Hamming" },
+      "output": { "distance": 2 }
+    },
+    {
+      "name": "Jukes-Cantor: p = 1/8",
+      "input": { "seq1": "ACGTACGT", "seq2": "TCGTACGT", "method": "JukesCantor" },
+      "output": { "distance": 0.13674 }
+    }
+  ]
+}
