@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "multiple_align",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceAligner.MultipleAlign",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.cs#L702",
+  "description": "Anchor-based progressive multiple sequence alignment: pick a center sequence by 4-mer cosine similarity, build a suffix tree on it, reconcile per-sequence anchored alignments into an MSA with consensus and sum-of-pairs score.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequences": {
+        "type": "array",
+        "description": "DNA sequences to align (at least one)."
+      },
+      "match": {
+        "type": "integer",
+        "description": "Score for matching base.",
+        "default": 1
+      },
+      "mismatch": {
+        "type": "integer",
+        "description": "Score for mismatching base.",
+        "default": -1
+      },
+      "gapOpen": {
+        "type": "integer",
+        "description": "Gap-open penalty.",
+        "default": -2
+      },
+      "gapExtend": {
+        "type": "integer",
+        "description": "Gap-extend penalty.",
+        "default": -1
+      }
+    },
+    "required": [
+      "sequences"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "alignedSequences": {
+        "type": "array",
+        "description": "The aligned rows of the MSA."
+      },
+      "consensus": {
+        "type": "string",
+        "description": "Majority-vote consensus of the aligned rows."
+      },
+      "totalScore": {
+        "type": "integer",
+        "description": "Sum-of-pairs score of the MSA."
+      }
+    },
+    "required": [
+      "alignedSequences",
+      "consensus",
+      "totalScore"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1010,
+      "message": "Invalid DNA in sequences"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Three identical",
+      "input": {
+        "sequences": [
+          "ACGTACGT",
+          "ACGTACGT",
+          "ACGTACGT"
+        ]
+      },
+      "output": {
+        "alignedSequences": [
+          "ACGTACGT",
+          "ACGTACGT",
+          "ACGTACGT"
+        ],
+        "consensus": "ACGTACGT",
+        "totalScore": 24
+      }
+    },
+    {
+      "name": "Empty set",
+      "input": {
+        "sequences": []
+      },
+      "output": {
+        "alignedSequences": [],
+        "consensus": "",
+        "totalScore": 0
+      }
+    }
+  ]
+}

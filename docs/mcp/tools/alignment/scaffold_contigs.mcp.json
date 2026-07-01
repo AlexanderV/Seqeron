@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "scaffold_contigs",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceAssembler.Scaffold",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L679",
+  "description": "Join contigs into scaffolds using paired-end link records, inserting a run of gapCharacter (length = gapSize; unknown/non-positive -> 100) between linked contigs.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "contigs": {
+        "type": "array",
+        "description": "Contig sequences."
+      },
+      "links": {
+        "type": "array",
+        "description": "Paired-end links between contigs, each an object {contig1, contig2, gapSize}."
+      },
+      "gapCharacter": {
+        "type": "string",
+        "description": "Single-character gap filler (e.g. \"N\").",
+        "default": "N",
+        "minLength": 1,
+        "maxLength": 1
+      }
+    },
+    "required": [
+      "contigs",
+      "links"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "scaffolds": {
+        "type": "array",
+        "description": "The assembled scaffolds, one string per scaffold."
+      }
+    },
+    "required": [
+      "scaffolds"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1013,
+      "message": "gapCharacter must be exactly one character"
+    }
+  ],
+  "examples": [
+    {
+      "name": "One link",
+      "input": {
+        "contigs": [
+          "AAA",
+          "GGG"
+        ],
+        "links": [
+          {
+            "contig1": 0,
+            "contig2": 1,
+            "gapSize": 3
+          }
+        ],
+        "gapCharacter": "N"
+      },
+      "output": {
+        "scaffolds": [
+          "AAANNNGGG"
+        ]
+      }
+    },
+    {
+      "name": "No links",
+      "input": {
+        "contigs": [
+          "AAA",
+          "GGG"
+        ],
+        "links": [],
+        "gapCharacter": "N"
+      },
+      "output": {
+        "scaffolds": [
+          "AAA",
+          "GGG"
+        ]
+      }
+    }
+  ]
+}

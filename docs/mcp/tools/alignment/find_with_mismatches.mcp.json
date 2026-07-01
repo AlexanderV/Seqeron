@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_with_mismatches",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ApproximateMatcher.FindWithMismatches",
+  "docRef": "Seqeron.Genomics.Alignment/ApproximateMatcher.cs#L26",
+  "description": "Find all occurrences of pattern inside sequence allowing up to maxMismatches substitutions (Hamming-style, fixed-length window). Reports position, matched substring, mismatch count, and 0-based mismatch positions.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "Sequence to search in.",
+        "minLength": 1
+      },
+      "pattern": {
+        "type": "string",
+        "description": "Pattern to find.",
+        "minLength": 1
+      },
+      "maxMismatches": {
+        "type": "integer",
+        "description": "Maximum number of allowed mismatches (>= 0).",
+        "minimum": 0
+      }
+    },
+    "required": [
+      "sequence",
+      "pattern",
+      "maxMismatches"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "description": "Matches, each with position, matchedSequence, distance, mismatchPositions, mismatchType."
+      }
+    },
+    "required": [
+      "items"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1005,
+      "message": "Pattern cannot be null or empty"
+    },
+    {
+      "code": 1006,
+      "message": "maxMismatches must be >= 0"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Exact occurrences",
+      "input": {
+        "sequence": "ACGTACGT",
+        "pattern": "ACG",
+        "maxMismatches": 0
+      },
+      "output": {
+        "items": [
+          {
+            "position": 0,
+            "matchedSequence": "ACG",
+            "distance": 0,
+            "mismatchPositions": [],
+            "mismatchType": "Substitution"
+          },
+          {
+            "position": 4,
+            "matchedSequence": "ACG",
+            "distance": 0,
+            "mismatchPositions": [],
+            "mismatchType": "Substitution"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Allow 1 mismatch",
+      "input": {
+        "sequence": "AAAA",
+        "pattern": "AA",
+        "maxMismatches": 1
+      },
+      "output": {
+        "items": [
+          {
+            "position": 0,
+            "matchedSequence": "AA",
+            "distance": 0,
+            "mismatchPositions": [],
+            "mismatchType": "Substitution"
+          },
+          {
+            "position": 1,
+            "matchedSequence": "AA",
+            "distance": 0,
+            "mismatchPositions": [],
+            "mismatchType": "Substitution"
+          },
+          {
+            "position": 2,
+            "matchedSequence": "AA",
+            "distance": 0,
+            "mismatchPositions": [],
+            "mismatchType": "Substitution"
+          }
+        ]
+      }
+    }
+  ]
+}

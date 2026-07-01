@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_all_overlaps",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceAssembler.FindAllOverlaps",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L142",
+  "description": "Compute all suffix-of-i / prefix-of-j overlaps between ordered read pairs above minOverlap length and minIdentity ratio; each result is an overlap-graph edge i -> j.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "reads": {
+        "type": "array",
+        "description": "Input sequence reads."
+      },
+      "minOverlap": {
+        "type": "integer",
+        "description": "Minimum overlap length (bp).",
+        "default": 20
+      },
+      "minIdentity": {
+        "type": "number",
+        "description": "Minimum identity ratio (0.0-1.0).",
+        "default": 0.9
+      }
+    },
+    "required": [
+      "reads"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "description": "List of overlaps, each with readIndex1, readIndex2, overlapLength, position1, position2."
+      }
+    },
+    "required": [
+      "items"
+    ]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "One directed overlap",
+      "input": {
+        "reads": [
+          "AAAAACCCCC",
+          "CCCCCGGGGG"
+        ],
+        "minOverlap": 5,
+        "minIdentity": 0.9
+      },
+      "output": {
+        "items": [
+          {
+            "readIndex1": 0,
+            "readIndex2": 1,
+            "overlapLength": 5,
+            "position1": 5,
+            "position2": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "No overlaps",
+      "input": {
+        "reads": [
+          "AAAAA",
+          "TTTTT"
+        ],
+        "minOverlap": 5,
+        "minIdentity": 0.9
+      },
+      "output": {
+        "items": []
+      }
+    }
+  ]
+}

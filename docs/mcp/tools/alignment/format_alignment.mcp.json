@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "format_alignment",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceAligner.FormatAlignment",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.cs#L634",
+  "description": "Render a human-readable three-line alignment block (EMBOSS srspair legend: '|' identity, ':' similarity, ' ' gap/mismatch), wrapped to a configurable line width.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "alignedSequence1": {
+        "type": "string",
+        "description": "Aligned representation of sequence1.",
+        "minLength": 1
+      },
+      "alignedSequence2": {
+        "type": "string",
+        "description": "Aligned representation of sequence2.",
+        "minLength": 1
+      },
+      "lineWidth": {
+        "type": "integer",
+        "description": "Maximum characters per line (>= 1).",
+        "default": 60,
+        "minimum": 1
+      }
+    },
+    "required": [
+      "alignedSequence1",
+      "alignedSequence2"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "formatted": {
+        "type": "string",
+        "description": "The formatted multi-line alignment text."
+      }
+    },
+    "required": [
+      "formatted"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Aligned sequence cannot be null or empty"
+    },
+    {
+      "code": 1007,
+      "message": "lineWidth must be >= 1"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Single block",
+      "input": {
+        "alignedSequence1": "ACGT",
+        "alignedSequence2": "ACGA",
+        "lineWidth": 80
+      },
+      "output": {
+        "formatted": "ACGT\n||| \nACGA\n\n"
+      }
+    },
+    {
+      "name": "With a gap",
+      "input": {
+        "alignedSequence1": "ACGT",
+        "alignedSequence2": "AC-T",
+        "lineWidth": 80
+      },
+      "output": {
+        "formatted": "ACGT\n||  \nAC-T\n\n"
+      }
+    }
+  ]
+}

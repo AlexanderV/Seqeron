@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "frequent_kmers_with_mismatches",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ApproximateMatcher.FindFrequentKmersWithMismatches",
+  "docRef": "Seqeron.Genomics.Alignment/ApproximateMatcher.cs#L312",
+  "description": "Find the most-frequent k-mers within sequence allowing up to d mismatches (each window's full Hamming-d neighborhood is tallied). Returns all k-mers tied for the maximum Count_d.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "Sequence to analyze.",
+        "minLength": 1
+      },
+      "k": {
+        "type": "integer",
+        "description": "K-mer length (> 0).",
+        "minimum": 1
+      },
+      "d": {
+        "type": "integer",
+        "description": "Maximum mismatches in neighborhood (>= 0).",
+        "minimum": 0
+      }
+    },
+    "required": [
+      "sequence",
+      "k",
+      "d"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "description": "Most-frequent k-mers (ties included), each with kmer and count."
+      }
+    },
+    "required": [
+      "items"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1008,
+      "message": "k must be > 0"
+    },
+    {
+      "code": 1009,
+      "message": "d must be >= 0"
+    }
+  ],
+  "examples": [
+    {
+      "name": "d=0 frequent words",
+      "input": {
+        "sequence": "AAAAA",
+        "k": 2,
+        "d": 0
+      },
+      "output": {
+        "items": [
+          {
+            "kmer": "AA",
+            "count": 4
+          }
+        ]
+      }
+    },
+    {
+      "name": "Frequent with mismatch",
+      "input": {
+        "sequence": "AACAAGCTGATAAACATTTAAAGAG",
+        "k": 3,
+        "d": 0
+      },
+      "output": {
+        "items": [
+          {
+            "kmer": "AAA",
+            "count": 2
+          }
+        ]
+      }
+    }
+  ]
+}

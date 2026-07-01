@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "semi_global_align",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceAligner.SemiGlobalAlign",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.cs#L412",
+  "description": "Semi-global (fitting/glocal) pairwise alignment with free end gaps in sequence2; useful for fitting a shorter query into a longer reference.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence1": {
+        "type": "string",
+        "description": "Query sequence (typically shorter).",
+        "minLength": 1
+      },
+      "sequence2": {
+        "type": "string",
+        "description": "Reference sequence (typically longer).",
+        "minLength": 1
+      },
+      "match": {
+        "type": "integer",
+        "description": "Score for matching base.",
+        "default": 1
+      },
+      "mismatch": {
+        "type": "integer",
+        "description": "Score for mismatching base.",
+        "default": -1
+      },
+      "gapOpen": {
+        "type": "integer",
+        "description": "Gap-open penalty.",
+        "default": -2
+      },
+      "gapExtend": {
+        "type": "integer",
+        "description": "Gap-extend penalty.",
+        "default": -1
+      }
+    },
+    "required": [
+      "sequence1",
+      "sequence2"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "alignedSequence1": {
+        "type": "string",
+        "description": "Aligned query (leading/trailing '-' for free end gaps)."
+      },
+      "alignedSequence2": {
+        "type": "string",
+        "description": "Aligned reference (reproduces the full reference)."
+      },
+      "score": {
+        "type": "integer",
+        "description": "Optimal fitting score."
+      },
+      "alignmentType": {
+        "type": "string",
+        "description": "Alignment type (\"SemiGlobal\")."
+      },
+      "startPosition1": {
+        "type": "integer",
+        "description": "0-based start in sequence1."
+      },
+      "startPosition2": {
+        "type": "integer",
+        "description": "0-based start in sequence2."
+      },
+      "endPosition1": {
+        "type": "integer",
+        "description": "0-based end in sequence1."
+      },
+      "endPosition2": {
+        "type": "integer",
+        "description": "0-based end in sequence2."
+      }
+    },
+    "required": [
+      "alignedSequence1",
+      "alignedSequence2",
+      "score",
+      "alignmentType",
+      "startPosition1",
+      "startPosition2",
+      "endPosition1",
+      "endPosition2"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1010,
+      "message": "Invalid DNA in sequence"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Fit query in reference",
+      "input": {
+        "sequence1": "ACGT",
+        "sequence2": "TTACGTTT"
+      },
+      "output": {
+        "alignedSequence1": "--ACGT--",
+        "alignedSequence2": "TTACGTTT",
+        "score": 4,
+        "alignmentType": "SemiGlobal",
+        "startPosition1": 0,
+        "startPosition2": 0,
+        "endPosition1": 3,
+        "endPosition2": 7
+      }
+    }
+  ]
+}

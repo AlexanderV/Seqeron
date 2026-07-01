@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "alignment_statistics",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceAligner.CalculateStatistics",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAligner.cs#L570",
+  "description": "Compute match/mismatch/gap counts and percent identity, similarity, and gap percent for a pairwise alignment (EMBOSS needle convention: denominator is the full alignment length including gap columns).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "alignedSequence1": {
+        "type": "string",
+        "description": "Aligned representation of sequence1 (with '-' gaps).",
+        "minLength": 1
+      },
+      "alignedSequence2": {
+        "type": "string",
+        "description": "Aligned representation of sequence2 (must equal alignedSequence1.Length).",
+        "minLength": 1
+      }
+    },
+    "required": [
+      "alignedSequence1",
+      "alignedSequence2"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "matches": {
+        "type": "integer",
+        "description": "Number of identical columns."
+      },
+      "mismatches": {
+        "type": "integer",
+        "description": "Number of mismatched (non-gap, non-identical) columns."
+      },
+      "gaps": {
+        "type": "integer",
+        "description": "Number of columns containing a gap in either sequence."
+      },
+      "alignmentLength": {
+        "type": "integer",
+        "description": "Total alignment length including gap columns."
+      },
+      "identity": {
+        "type": "number",
+        "description": "Percent identity = matches / length * 100."
+      },
+      "similarity": {
+        "type": "number",
+        "description": "Percent similarity = (matches + similar substitutions) / length * 100."
+      },
+      "gapPercent": {
+        "type": "number",
+        "description": "Percent gap columns = gaps / length * 100."
+      }
+    },
+    "required": [
+      "matches",
+      "mismatches",
+      "gaps",
+      "alignmentLength",
+      "identity",
+      "similarity",
+      "gapPercent"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Aligned sequence cannot be null or empty"
+    },
+    {
+      "code": 1002,
+      "message": "Aligned sequences must have equal length"
+    }
+  ],
+  "examples": [
+    {
+      "name": "One gap column",
+      "input": {
+        "alignedSequence1": "ACGT-A",
+        "alignedSequence2": "ACGTGA"
+      },
+      "output": {
+        "matches": 5,
+        "mismatches": 0,
+        "gaps": 1,
+        "alignmentLength": 6,
+        "identity": 83.33333333333334,
+        "similarity": 83.33333333333334,
+        "gapPercent": 16.666666666666664
+      }
+    },
+    {
+      "name": "Perfect identity",
+      "input": {
+        "alignedSequence1": "ACGT",
+        "alignedSequence2": "ACGT"
+      },
+      "output": {
+        "matches": 4,
+        "mismatches": 0,
+        "gaps": 0,
+        "alignmentLength": 4,
+        "identity": 100,
+        "similarity": 100,
+        "gapPercent": 0
+      }
+    }
+  ]
+}

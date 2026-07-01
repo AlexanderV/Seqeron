@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "calculate_coverage",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceAssembler.CalculateCoverage",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L772",
+  "description": "Map each read to its best ungapped position on the reference (>= minOverlap matching bases) and return per-base coverage depth as an integer array of length reference.Length.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "reference": {
+        "type": "string",
+        "description": "Reference sequence.",
+        "minLength": 1
+      },
+      "reads": {
+        "type": "array",
+        "description": "Reads to map onto reference."
+      },
+      "minOverlap": {
+        "type": "integer",
+        "description": "Minimum matching bases required to map a read.",
+        "default": 20
+      }
+    },
+    "required": [
+      "reference",
+      "reads"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "coverage": {
+        "type": "array",
+        "description": "Per-base coverage depth; coverage[i] is the number of placed reads spanning reference position i."
+      }
+    },
+    "required": [
+      "coverage"
+    ]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Two reads",
+      "input": {
+        "reference": "ACGTACGTAC",
+        "reads": [
+          "ACGTA",
+          "GTACG"
+        ],
+        "minOverlap": 5
+      },
+      "output": {
+        "coverage": [
+          1,
+          1,
+          2,
+          2,
+          2,
+          1,
+          1,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "name": "No reads",
+      "input": {
+        "reference": "ACGTACGTAC",
+        "reads": [],
+        "minOverlap": 5
+      },
+      "output": {
+        "coverage": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    }
+  ]
+}
