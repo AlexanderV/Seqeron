@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "primer_melting_temperature_salt",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PrimerDesigner.CalculateMeltingTemperatureWithSalt",
+  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L227",
+  "description": "Salt-corrected primer Tm: Wallace/Marmur-Doty Tm + 16.6*log10([Na+]/1000), rounded to 1 decimal.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "primer": { "type": "string", "description": "Primer sequence.", "minLength": 1 },
+      "na_concentration": { "type": "number", "description": "Na+ concentration in mM.", "exclusiveMinimum": 0, "default": 50 }
+    },
+    "required": ["primer"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "tm": { "type": "number", "description": "Salt-corrected melting temperature in degrees Celsius (1 decimal)." }
+    },
+    "required": ["tm"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Primer cannot be null or empty" },
+    { "code": 1002, "message": "Na+ concentration must be positive" }
+  ],
+  "examples": [
+    {
+      "name": "50 mM Na+",
+      "input": { "primer": "ACGT", "na_concentration": 50 },
+      "output": { "tm": -9.6 }
+    },
+    {
+      "name": "1 M Na+ (zero correction)",
+      "input": { "primer": "ACGT", "na_concentration": 1000 },
+      "output": { "tm": 12.0 }
+    }
+  ]
+}

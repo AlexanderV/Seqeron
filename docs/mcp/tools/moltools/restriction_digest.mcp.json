@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "restriction_digest",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RestrictionAnalyzer.Digest",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L259",
+  "description": "Simulate a linear restriction digest and return the ordered fragments.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "DNA sequence to digest.", "minLength": 1 },
+      "enzyme_names": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+    },
+    "required": ["sequence", "enzyme_names"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "fragments": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "sequence": { "type": "string" },
+            "startPosition": { "type": "integer" },
+            "length": { "type": "integer" },
+            "leftEnzyme": { "type": ["string", "null"] },
+            "rightEnzyme": { "type": ["string", "null"] },
+            "fragmentNumber": { "type": "integer" }
+          },
+          "required": ["sequence", "startPosition", "length", "fragmentNumber"]
+        }
+      }
+    },
+    "required": ["fragments"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1002, "message": "At least one enzyme name is required" }
+  ],
+  "examples": [
+    {
+      "name": "EcoRI single cut",
+      "input": { "sequence": "AAAGAATTCAAA", "enzyme_names": ["EcoRI"] },
+      "output": { "fragments": [ { "sequence": "AAAG", "startPosition": 0, "length": 4, "rightEnzyme": "EcoRI" }, { "sequence": "AATTCAAA", "startPosition": 4, "length": 8, "leftEnzyme": "EcoRI" } ] }
+    },
+    {
+      "name": "No cut site",
+      "input": { "sequence": "AAAAAAAA", "enzyme_names": ["EcoRI"] },
+      "output": { "fragments": [ { "sequence": "AAAAAAAA", "startPosition": 0, "length": 8 } ] }
+    }
+  ]
+}

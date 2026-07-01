@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "primer_dimer",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PrimerDesigner.HasPrimerDimer",
+  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L398",
+  "description": "Heuristic 3'-end primer-dimer check between two primers (up to 8 bp of 3'-end complementarity).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "primer1": { "type": "string", "description": "First primer sequence.", "minLength": 1 },
+      "primer2": { "type": "string", "description": "Second primer sequence.", "minLength": 1 },
+      "min_complementarity": { "type": "integer", "description": "Minimum complementary 3'-end bases to flag a dimer.", "default": 4 }
+    },
+    "required": ["primer1", "primer2"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "hasDimer": { "type": "boolean", "description": "True if a 3'-dimer is flagged." },
+      "complementaryBases": { "type": "integer", "description": "Complementary positions found in the 3'-end window." }
+    },
+    "required": ["hasDimer", "complementaryBases"]
+  },
+  "errors": [
+    { "code": 1001, "message": "First primer cannot be null or empty" },
+    { "code": 1002, "message": "Second primer cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Strong dimer",
+      "input": { "primer1": "AAAAAAAA", "primer2": "AAAAAAAA" },
+      "output": { "hasDimer": true, "complementaryBases": 8 }
+    },
+    {
+      "name": "Below threshold",
+      "input": { "primer1": "AAAAAAAA", "primer2": "AAAACCCC", "min_complementarity": 5 },
+      "output": { "hasDimer": false, "complementaryBases": 4 }
+    }
+  ]
+}

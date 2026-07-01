@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_off_targets",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "CrisprDesigner.FindOffTargets",
+  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L331",
+  "description": "Naive genome scan for a guide's off-target sites (1..max_mismatches).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "guide_sequence": { "type": "string", "description": "Guide RNA (length must match the system).", "minLength": 1 },
+      "genome": { "type": "string", "description": "Genome / reference to scan.", "minLength": 1 },
+      "max_mismatches": { "type": "integer", "minimum": 0, "maximum": 5, "default": 3 },
+      "system_type": { "type": "string", "enum": ["SpCas9", "SpCas9_NAG", "SaCas9", "Cas12a", "AsCas12a", "LbCas12a", "CasX"], "default": "SpCas9" }
+    },
+    "required": ["guide_sequence", "genome"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "offTargets": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": { "type": "integer" },
+            "sequence": { "type": "string" },
+            "mismatches": { "type": "integer" },
+            "mismatchPositions": { "type": "array", "items": { "type": "integer" } },
+            "isForwardStrand": { "type": "boolean" },
+            "offTargetScore": { "type": "number" }
+          },
+          "required": ["position", "sequence", "mismatches", "mismatchPositions", "isForwardStrand", "offTargetScore"]
+        }
+      }
+    },
+    "required": ["offTargets"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Guide sequence cannot be null or empty" },
+    { "code": 1002, "message": "Genome cannot be null or empty" },
+    { "code": 1003, "message": "Maximum mismatches must be in the range 0..5" },
+    { "code": 4001, "message": "Guide length does not match the system's guide length" }
+  ],
+  "examples": [
+    {
+      "name": "One 1-mismatch off-target",
+      "input": { "guide_sequence": "ATATATATATATATATATAT", "genome": "GTATATATATATATATATATTGG", "max_mismatches": 3 },
+      "output": { "offTargets": [ { "sequence": "GTATATATATATATATATAT", "mismatches": 1, "mismatchPositions": [0] } ] }
+    },
+    {
+      "name": "Only on-target present",
+      "input": { "guide_sequence": "ATATATATATATATATATAT", "genome": "ATATATATATATATATATATTGG", "max_mismatches": 3 },
+      "output": { "offTargets": [] }
+    }
+  ]
+}

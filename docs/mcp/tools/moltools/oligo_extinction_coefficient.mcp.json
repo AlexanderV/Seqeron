@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "oligo_extinction_coefficient",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ProbeDesigner.CalculateExtinctionCoefficient",
+  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1341",
+  "description": "Sum per-base 260 nm molar extinction contributions for an oligonucleotide.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "Oligonucleotide sequence.", "minLength": 1 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "extinctionCoefficient": { "type": "number", "description": "Molar extinction coefficient at 260 nm (M^-1 cm^-1)." }
+    },
+    "required": ["extinctionCoefficient"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    { "name": "ACGT", "input": { "sequence": "ACGT" }, "output": { "extinctionCoefficient": 43000 } },
+    { "name": "Unknown base fallback", "input": { "sequence": "N" }, "output": { "extinctionCoefficient": 10000 } }
+  ]
+}

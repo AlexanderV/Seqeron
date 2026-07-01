@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "sticky_cutters",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RestrictionAnalyzer.GetStickyCutters",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L114",
+  "description": "List all built-in restriction enzymes that produce sticky (cohesive) ends.",
+  "inputSchema": { "type": "object", "properties": {}, "required": [] },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "enzymes": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "recognitionSequence": { "type": "string" },
+            "cutPositionForward": { "type": "integer" },
+            "cutPositionReverse": { "type": "integer" },
+            "organism": { "type": "string" }
+          },
+          "required": ["name", "recognitionSequence", "cutPositionForward", "cutPositionReverse", "organism"]
+        }
+      }
+    },
+    "required": ["enzymes"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "List sticky cutters",
+      "input": {},
+      "output": { "enzymes": "29 enzymes (e.g. EcoRI, BamHI, HindIII, NotI)" }
+    },
+    {
+      "name": "EcoRI is sticky",
+      "input": {},
+      "output": { "enzymes": [ { "name": "EcoRI", "recognitionSequence": "GAATTC", "cutPositionForward": 1, "cutPositionReverse": 5, "organism": "Escherichia coli" } ] }
+    }
+  ]
+}

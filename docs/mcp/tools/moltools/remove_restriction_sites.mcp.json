@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "remove_restriction_sites",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "CodonOptimizer.RemoveRestrictionSites",
+  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L531",
+  "description": "Synonymously rewrite codons to eliminate restriction recognition sequences while preserving the protein.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "coding_sequence": { "type": "string", "description": "Coding sequence (DNA or RNA).", "minLength": 1 },
+      "restriction_sites": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+      "target_organism": { "type": "object", "description": "Preset id or inline custom table." }
+    },
+    "required": ["coding_sequence", "restriction_sites", "target_organism"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "optimizedSequence": { "type": "string", "description": "RNA-alphabet sequence with sites removed where possible." }
+    },
+    "required": ["optimizedSequence"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Coding sequence cannot be null or empty" },
+    { "code": 1002, "message": "At least one restriction site is required" }
+  ],
+  "examples": [
+    {
+      "name": "Remove EcoRI site",
+      "input": { "coding_sequence": "GAATTC", "restriction_sites": ["GAATTC"], "target_organism": { "preset": "EColiK12" } },
+      "output": { "optimizedSequence": "GAGUUC" }
+    },
+    {
+      "name": "No site present",
+      "input": { "coding_sequence": "AUGAUG", "restriction_sites": ["GAATTC"], "target_organism": { "preset": "EColiK12" } },
+      "output": { "optimizedSequence": "AUGAUG" }
+    }
+  ]
+}

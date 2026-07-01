@@ -24,60 +24,89 @@ public class MolToolsTools
         return PrimerDesigner.DesignPrimers(new DnaSequence(template), target_start, target_end, parameters);
     }
 
-    [McpServerTool, Description("Evaluates a single primer sequence against quality criteria: length, GC%, Tm, homopolymer/dinucleotide-repeat runs, hairpin potential, 3' end stability, optional 3' GC clamp.")]
+    [McpServerTool(Name = "evaluate_primer", Title = "MolTools — Evaluate Primer", ReadOnly = true), Description("Evaluates a single primer sequence against quality criteria and returns a scored candidate: length, GC%, Tm, longest homopolymer, hairpin potential, 3'-end stability, an issues list, validity flag and a numeric score. Call to QC one primer (position/strand are informational).")]
     public static PrimerCandidate evaluate_primer(
         [Description("Primer sequence to evaluate.")] string sequence,
         [Description("0-based location of the primer in the template (informational).")] int position,
         [Description("True if this is a forward primer; false for reverse.")] bool is_forward,
         [Description("Optional primer design parameters.")] PrimerParameters? parameters = null)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+
         return PrimerDesigner.EvaluatePrimer(sequence, position, is_forward, parameters);
     }
 
-    [McpServerTool, Description("Computes primer melting temperature using Wallace rule (<14 valid bases) or Marmur–Doty (≥14 bases). Non-ACGT characters are ignored.")]
+    [McpServerTool(Name = "primer_melting_temperature", Title = "MolTools — Primer Melting Temperature", ReadOnly = true), Description("Computes a primer's melting temperature (Tm, °C): Wallace rule Tm = 2·(A+T) + 4·(G+C) for < 14 valid bases, or Marmur–Doty Tm = 64.9 + 41·(GC−16.4)/N for ≥ 14 valid bases. Non-ACGT characters are ignored. Call for a quick Tm estimate of a short oligo/primer.")]
     public static TmResult primer_melting_temperature(
         [Description("Primer sequence.")] string primer)
     {
+        if (string.IsNullOrEmpty(primer))
+            throw new System.ArgumentException("Primer cannot be null or empty.", nameof(primer));
+
         return new TmResult(PrimerDesigner.CalculateMeltingTemperature(primer));
     }
 
-    [McpServerTool, Description("Primer Tm with Schildkraut–Lifson salt correction (16.6·log10([Na+]/1000)) added to Wallace/Marmur–Doty Tm.")]
+    [McpServerTool(Name = "primer_melting_temperature_salt", Title = "MolTools — Salt-Corrected Primer Tm", ReadOnly = true), Description("Primer Tm with a Schildkraut–Lifson salt correction: adds 16.6·log10([Na+]/1000) to the Wallace/Marmur–Doty Tm, rounded to one decimal. Call when a monovalent-cation ([Na+]) adjusted primer Tm is needed. Na+ concentration is in mM (default 50).")]
     public static TmResult primer_melting_temperature_salt(
         [Description("Primer sequence.")] string primer,
         [Description("Na+ concentration in mM (default 50).")] double na_concentration = 50)
     {
+        if (string.IsNullOrEmpty(primer))
+            throw new System.ArgumentException("Primer cannot be null or empty.", nameof(primer));
+        if (na_concentration <= 0)
+            throw new System.ArgumentException("Na+ concentration must be positive.", nameof(na_concentration));
+
         return new TmResult(PrimerDesigner.CalculateMeltingTemperatureWithSalt(primer, na_concentration));
     }
 
-    [McpServerTool, Description("Length of the longest run of identical nucleotides in a sequence (case-insensitive).")]
+    [McpServerTool(Name = "longest_homopolymer", Title = "MolTools — Longest Homopolymer Run", ReadOnly = true), Description("Returns the length of the longest run of identical consecutive nucleotides (e.g. AAAA = 4) in a sequence, case-insensitive. Call to flag homopolymer stretches that hurt primer/probe quality.")]
     public static HomopolymerLengthResult longest_homopolymer(
         [Description("Nucleotide sequence.")] string sequence)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+
         return new HomopolymerLengthResult(PrimerDesigner.FindLongestHomopolymer(sequence));
     }
 
-    [McpServerTool, Description("Number of repeat units in the longest dinucleotide tandem repeat (e.g. ATAT…).")]
+    [McpServerTool(Name = "longest_dinucleotide_repeat", Title = "MolTools — Longest Dinucleotide Repeat", ReadOnly = true), Description("Returns the number of repeat units in the longest dinucleotide tandem repeat (e.g. ATATAT = 3 units of AT), case-insensitive. Sequences shorter than 4 nt return 0. Call to flag microsatellite-like dinucleotide repeats in a primer/probe.")]
     public static DinucleotideRepeatResult longest_dinucleotide_repeat(
         [Description("Nucleotide sequence.")] string sequence)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+
         return new DinucleotideRepeatResult(PrimerDesigner.FindLongestDinucleotideRepeat(sequence));
     }
 
-    [McpServerTool, Description("Detects whether a sequence can form a hairpin with a stem of min_stem_length and a loop of at least min_loop_length. Uses O(n²) scan for short sequences and a suffix-tree based scan for sequences ≥100 bp.")]
+    [McpServerTool(Name = "hairpin_potential", Title = "MolTools — Hairpin Potential", ReadOnly = true), Description("Detects whether a sequence can fold into a hairpin: a self-complementary stem of at least min_stem_length separated by a loop of at least min_loop_length. Uses an O(n²) scan for short sequences and a suffix-tree scan for sequences ≥ 100 bp. Call to screen a primer/probe for secondary structure.")]
     public static HairpinPotentialResult hairpin_potential(
         [Description("Nucleotide sequence.")] string sequence,
         [Description("Minimum stem length (default 4).")] int min_stem_length = 4,
         [Description("Minimum loop length (default 3).")] int min_loop_length = 3)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        if (min_stem_length <= 0)
+            throw new System.ArgumentException("Minimum stem length must be positive.", nameof(min_stem_length));
+        if (min_loop_length < 0)
+            throw new System.ArgumentException("Minimum loop length cannot be negative.", nameof(min_loop_length));
+
         return new HairpinPotentialResult(PrimerDesigner.HasHairpinPotential(sequence, min_stem_length, min_loop_length));
     }
 
-    [McpServerTool, Description("Heuristic 3' primer-dimer check between two primers using up-to-8-bp 3'-end complementarity. Returns the boolean dimer flag plus the count of complementary positions in the 3' window.")]
+    [McpServerTool(Name = "primer_dimer", Title = "MolTools — Primer-Dimer Check", ReadOnly = true), Description("Heuristic 3'-end primer-dimer check between two primers: reverse-complements primer2 and counts complementary positions in an up-to-8-bp 3'-end window. Flags a dimer when at least min_complementarity positions are complementary. Returns the boolean flag plus the complementary-base count. Call to screen a primer pair for 3'-dimer formation.")]
     public static PrimerDimerResult primer_dimer(
         [Description("First primer sequence.")] string primer1,
         [Description("Second primer sequence.")] string primer2,
         [Description("Minimum number of complementary 3'-end bases to flag a dimer (default 4).")] int min_complementarity = 4)
     {
+        if (string.IsNullOrEmpty(primer1))
+            throw new System.ArgumentException("First primer cannot be null or empty.", nameof(primer1));
+        if (string.IsNullOrEmpty(primer2))
+            throw new System.ArgumentException("Second primer cannot be null or empty.", nameof(primer2));
+
         bool hasDimer = PrimerDesigner.HasPrimerDimer(primer1, primer2, min_complementarity);
 
         // Count complementary 3'-end positions (mirrors the inner loop in HasPrimerDimer).
@@ -102,10 +131,13 @@ public class MolToolsTools
             (c1 == 'G' && c2 == 'C') || (c1 == 'C' && c2 == 'G');
     }
 
-    [McpServerTool, Description("SantaLucia (1998) ΔG°37 of the last 5 bases (NN parameters + initiation, 1 M NaCl), matching Primer3 PRIMER_MAX_END_STABILITY. More negative ΔG = more stable 3' end.")]
+    [McpServerTool(Name = "three_prime_stability", Title = "MolTools — Primer 3' End Stability (ΔG°37)", ReadOnly = true), Description("SantaLucia (1998) nearest-neighbor ΔG°37 (kcal/mol) of a primer's last 5 bases, including initiation terms (1 M NaCl), matching Primer3 PRIMER_MAX_END_STABILITY. More negative ΔG = a more stable (more problematic) 3' end. Sequences shorter than 5 bases return 0. Call to assess primer 3'-end stability for mispriming risk.")]
     public static ThreePrimeStabilityResult three_prime_stability(
         [Description("Primer sequence.")] string sequence)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+
         return new ThreePrimeStabilityResult(PrimerDesigner.Calculate3PrimeStability(sequence));
     }
 
@@ -127,75 +159,102 @@ public class MolToolsTools
 
     #region RestrictionAnalyzer
 
-    [McpServerTool, Description("Looks up a built-in restriction enzyme by name (case-insensitive). Returns null when not found.")]
+    [McpServerTool(Name = "get_enzyme", Title = "MolTools — Look Up Restriction Enzyme", ReadOnly = true), Description("Looks up a built-in restriction enzyme by name (case-insensitive) and returns its recognition sequence, cut positions and organism. Returns enzyme=null when the name is not in the built-in database. Call to fetch a single enzyme's properties by name.")]
     public static EnzymeLookupResult get_enzyme(
         [Description("Enzyme name (e.g. EcoRI, BamHI).")] string name)
     {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new System.ArgumentException("Enzyme name cannot be null or blank.", nameof(name));
+
         return new EnzymeLookupResult(RestrictionAnalyzer.GetEnzyme(name));
     }
 
-    [McpServerTool, Description("Lists all built-in enzymes whose recognition sequence has the specified length (e.g. 4-cutters, 6-cutters, 8-cutters).")]
+    [McpServerTool(Name = "enzymes_by_cut_length", Title = "MolTools — Enzymes by Recognition Length", ReadOnly = true), Description("Lists all built-in restriction enzymes whose recognition sequence has exactly the specified length in base pairs (e.g. 4 for frequent cutters, 6 for typical cloning enzymes, 8 for rare cutters). Call to pick enzymes by how often they cut.")]
     public static EnzymeListResult enzymes_by_cut_length(
-        [Description("Recognition-sequence length.")] int length)
+        [Description("Recognition-sequence length in bp (must be positive).")] int length)
     {
+        if (length <= 0)
+            throw new System.ArgumentException("Recognition-sequence length must be positive.", nameof(length));
+
         return new EnzymeListResult(RestrictionAnalyzer.GetEnzymesByCutLength(length).ToList());
     }
 
-    [McpServerTool, Description("Lists all built-in enzymes that produce blunt ends.")]
+    [McpServerTool(Name = "blunt_cutters", Title = "MolTools — Blunt-End Restriction Enzymes", ReadOnly = true), Description("Lists all built-in restriction enzymes that produce blunt ends (both strands cut at the same position). Call when the user wants blunt-cutting enzymes for blunt-end cloning.")]
     public static EnzymeListResult blunt_cutters()
     {
         return new EnzymeListResult(RestrictionAnalyzer.GetBluntCutters().ToList());
     }
 
-    [McpServerTool, Description("Lists all built-in enzymes that produce sticky (cohesive) ends.")]
+    [McpServerTool(Name = "sticky_cutters", Title = "MolTools — Sticky-End Restriction Enzymes", ReadOnly = true), Description("Lists all built-in restriction enzymes that produce sticky (cohesive) ends — a staggered cut leaving a 5' or 3' single-stranded overhang. Call when the user wants overhang-generating enzymes for directional / sticky-end cloning.")]
     public static EnzymeListResult sticky_cutters()
     {
         return new EnzymeListResult(RestrictionAnalyzer.GetStickyCutters().ToList());
     }
 
-    [McpServerTool, Description("Finds restriction sites for one or more named built-in enzymes on both strands of a DNA sequence. IUPAC degenerate codes in recognition sequences are matched against ACGT input.")]
+    [McpServerTool(Name = "find_restriction_sites", Title = "MolTools — Find Restriction Sites", ReadOnly = true), Description("Finds restriction sites for one or more named built-in enzymes on both strands of a DNA sequence. IUPAC degenerate codes in recognition sequences are matched against ACGT input. Palindromic enzymes report a forward and a reverse site at the same position. Call to locate where specific enzymes cut a sequence.")]
     public static RestrictionSiteListResult find_restriction_sites(
         [Description("DNA sequence to scan.")] string sequence,
         [Description("Names of restriction enzymes to look for.")] string[] enzyme_names)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        if (enzyme_names is null || enzyme_names.Length == 0)
+            throw new System.ArgumentException("At least one enzyme name is required.", nameof(enzyme_names));
+
         var sites = RestrictionAnalyzer.FindSites(new DnaSequence(sequence), enzyme_names).ToList();
         return new RestrictionSiteListResult(sites);
     }
 
-    [McpServerTool, Description("Finds sites for every built-in restriction enzyme on both strands.")]
+    [McpServerTool(Name = "find_all_restriction_sites", Title = "MolTools — Find All Restriction Sites", ReadOnly = true), Description("Finds sites for EVERY built-in restriction enzyme on both strands of a DNA sequence. Call for a comprehensive restriction-site scan when the enzyme set is not known in advance.")]
     public static RestrictionSiteListResult find_all_restriction_sites(
         [Description("DNA sequence to scan.")] string sequence)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+
         var sites = RestrictionAnalyzer.FindAllSites(new DnaSequence(sequence)).ToList();
         return new RestrictionSiteListResult(sites);
     }
 
-    [McpServerTool, Description("Simulates a restriction digest with one or more named enzymes and yields the resulting linear fragments in order.")]
+    [McpServerTool(Name = "restriction_digest", Title = "MolTools — Restriction Digest", ReadOnly = true), Description("Simulates a restriction digest of a linear DNA molecule with one or more named enzymes and yields the resulting fragments in 5'→3' order (each with its sequence, start, length and flanking enzymes). With k distinct forward-strand cut positions a linear molecule yields k+1 fragments. Call to predict the fragment pattern of a digest.")]
     public static DigestResult restriction_digest(
         [Description("DNA sequence to digest.")] string sequence,
         [Description("Names of restriction enzymes to use (must be non-empty).")] string[] enzyme_names)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        if (enzyme_names is null || enzyme_names.Length == 0)
+            throw new System.ArgumentException("At least one enzyme name is required.", nameof(enzyme_names));
+
         var fragments = RestrictionAnalyzer.Digest(new DnaSequence(sequence), enzyme_names).ToList();
         return new DigestResult(fragments);
     }
 
-    [McpServerTool, Description("Aggregate statistics over a simulated digest: total fragment count, fragment sizes (descending), largest/smallest, average size, and enzymes used.")]
+    [McpServerTool(Name = "digest_summary", Title = "MolTools — Restriction Digest Summary", ReadOnly = true), Description("Aggregate statistics over a simulated linear restriction digest: total fragment count, fragment sizes (descending), largest/smallest fragment, average fragment size, and enzymes used. Call for a gel-like summary of a digest without the full fragment sequences.")]
     public static DigestSummary digest_summary(
         [Description("DNA sequence to digest.")] string sequence,
         [Description("Names of restriction enzymes to use.")] string[] enzyme_names)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        if (enzyme_names is null || enzyme_names.Length == 0)
+            throw new System.ArgumentException("At least one enzyme name is required.", nameof(enzyme_names));
+
         return RestrictionAnalyzer.GetDigestSummary(new DnaSequence(sequence), enzyme_names);
     }
 
-    [McpServerTool, Description("Builds a restriction map: forward+reverse sites, sites grouped by enzyme, unique cutters (single forward-strand site), and non-cutters from the queried enzyme set. Empty enzyme_names considers all built-in enzymes.")]
+    [McpServerTool(Name = "restriction_map", Title = "MolTools — Restriction Map", ReadOnly = true), Description("Builds a restriction map of a DNA sequence: all forward+reverse sites, sites grouped by enzyme, the total forward-strand site count, unique cutters (enzymes with exactly one forward-strand site), and non-cutters from the queried enzyme set. An empty enzyme_names list considers every built-in enzyme. Call to plan cloning around single-cutter enzymes.")]
     public static RestrictionMap restriction_map(
         [Description("DNA sequence to map.")] string sequence,
         [Description("Names of restriction enzymes to consider; empty to use every built-in enzyme.")] string[] enzyme_names)
     {
-        return RestrictionAnalyzer.CreateMap(new DnaSequence(sequence), enzyme_names);
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+
+        return RestrictionAnalyzer.CreateMap(new DnaSequence(sequence), enzyme_names ?? System.Array.Empty<string>());
     }
 
-    [McpServerTool, Description("Enumerates pairs of built-in enzymes whose ends can be ligated to each other (matching overhang type and sequence, or both blunt).")]
+    [McpServerTool(Name = "compatible_enzymes", Title = "MolTools — Compatible Enzyme Pairs", ReadOnly = true), Description("Enumerates all pairs of built-in restriction enzymes whose ends can be ligated to each other — either both produce blunt ends, or both produce the same overhang type and overhang sequence. Call when the user needs enzyme pairs that yield compatible (ligatable) ends for cloning.")]
     public static CompatibleEnzymesResult compatible_enzymes()
     {
         var pairs = RestrictionAnalyzer.FindCompatibleEnzymes()
@@ -204,11 +263,16 @@ public class MolToolsTools
         return new CompatibleEnzymesResult(pairs);
     }
 
-    [McpServerTool, Description("Returns whether two named built-in enzymes have compatible ends. Unknown enzyme names yield false (no exception).")]
+    [McpServerTool(Name = "enzymes_compatible", Title = "MolTools — Enzyme End Compatibility", ReadOnly = true), Description("Returns whether two named built-in restriction enzymes produce ligatable (compatible) ends — both blunt, or the same overhang type and sequence. An unknown enzyme name yields false (no error). Call to check a specific pair for cloning compatibility.")]
     public static EnzymeCompatibilityResult enzymes_compatible(
         [Description("First enzyme name.")] string enzyme1_name,
         [Description("Second enzyme name.")] string enzyme2_name)
     {
+        if (string.IsNullOrWhiteSpace(enzyme1_name))
+            throw new System.ArgumentException("First enzyme name cannot be null or blank.", nameof(enzyme1_name));
+        if (string.IsNullOrWhiteSpace(enzyme2_name))
+            throw new System.ArgumentException("Second enzyme name cannot be null or blank.", nameof(enzyme2_name));
+
         return new EnzymeCompatibilityResult(RestrictionAnalyzer.AreCompatible(enzyme1_name, enzyme2_name));
     }
 
@@ -216,39 +280,56 @@ public class MolToolsTools
 
     #region CodonUsageAnalyzer
 
-    [McpServerTool, Description("Counts occurrences of each ACGT codon in a coding DNA sequence (frame 0, multiples of 3). Trailing partial codons and non-ACGT codons are skipped silently.")]
+    [McpServerTool(Name = "count_codons", Title = "MolTools — Count Codons", ReadOnly = true), Description("Counts occurrences of each ACGT codon in a coding DNA sequence (frame 0, non-overlapping triplets). Trailing partial codons and codons containing non-ACGT characters are skipped silently. Call to get the raw codon-frequency table of a gene.")]
     public static CodonCountsResult count_codons(
         [Description("Coding DNA sequence (frame 0).")] string sequence)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+
         return new CodonCountsResult(CodonUsageAnalyzer.CountCodons(sequence));
     }
 
-    [McpServerTool, Description("Relative Synonymous Codon Usage (RSCU) per codon: observed / expected-if-uniform among synonymous codons. RSCU=1 → no bias; >1 over-represented; <1 under-represented.")]
+    [McpServerTool(Name = "rscu", Title = "MolTools — Relative Synonymous Codon Usage", ReadOnly = true), Description("Relative Synonymous Codon Usage (RSCU) per codon: observed count / count-expected-if-uniform among its synonymous codons. RSCU = 1 means no bias, > 1 over-represented, < 1 under-represented. Call to quantify codon bias per codon in a coding sequence.")]
     public static RscuResult rscu(
         [Description("Coding DNA sequence (frame 0).")] string sequence)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+
         return new RscuResult(CodonUsageAnalyzer.CalculateRscu(sequence));
     }
 
-    [McpServerTool, Description("Codon Adaptation Index (Sharp & Li 1987) using a caller-supplied reference RSCU table (typically derived from highly expressed genes). Output range 0..1; codons absent from the reference contribute w=0 and are excluded from the geometric mean.")]
+    [McpServerTool(Name = "codon_adaptation_index", Title = "MolTools — Codon Adaptation Index (RSCU)", ReadOnly = true), Description("Codon Adaptation Index (Sharp & Li 1987) using a caller-supplied reference RSCU table (typically derived from highly expressed genes), codons in the DNA alphabet. Output range 0..1; per-codon relative adaptiveness w = RSCU/max-synonymous-RSCU, and CAI is their geometric mean. Single-codon amino acids (Met/Trp), stop codons, and codons with w=0 are excluded. Call to score how well a gene matches an organism's preferred codons given an RSCU reference (distinct from cai_from_organism_table, which takes a frequency table).")]
     public static CaiResult codon_adaptation_index(
         [Description("Coding DNA sequence (frame 0).")] string sequence,
         [Description("Reference RSCU table: codon (DNA alphabet) → RSCU value.")] Dictionary<string, double> reference_rscu)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        if (reference_rscu is null)
+            throw new System.ArgumentException("Reference RSCU table cannot be null.", nameof(reference_rscu));
+
         return new CaiResult(CodonUsageAnalyzer.CalculateCai(sequence, reference_rscu));
     }
 
-    [McpServerTool, Description("Effective Number of Codons (Wright Nc), measuring departure from uniform synonymous usage. Range 20..61 (clamped). Empty/very-short sequence → 0 because under-occupied amino-acid groups fall back to their degeneracy.")]
+    [McpServerTool(Name = "effective_number_of_codons", Title = "MolTools — Effective Number of Codons (ENC)", ReadOnly = true), Description("Effective Number of Codons (Wright's Nc), measuring how far a gene departs from uniform synonymous-codon usage. Result is clamped to 20..61 (20 = extreme bias, 61 = no bias). Call to summarise a gene's overall codon bias with a single number.")]
     public static EncResult effective_number_of_codons(
         [Description("Coding DNA sequence (frame 0).")] string sequence)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+
         return new EncResult(CodonUsageAnalyzer.CalculateEnc(sequence));
     }
 
-    [McpServerTool, Description("Aggregate codon-usage report: per-codon counts, RSCU, ENC, total codons, GC% at codon positions 1/2/3, GC3s, and overall GC.")]
+    [McpServerTool(Name = "codon_usage_statistics", Title = "MolTools — Codon-Usage Statistics", ReadOnly = true), Description("Aggregate codon-usage report for a coding sequence: per-codon counts, RSCU, Effective Number of Codons (ENC), total codons, GC% at codon positions 1/2/3, GC3s (synonymous third-position GC), and overall GC. Call for a one-shot codon-usage summary of a gene.")]
     public static CodonUsageStatistics codon_usage_statistics(
         [Description("Coding DNA sequence (frame 0).")] string sequence)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+
         return CodonUsageAnalyzer.GetStatistics(sequence);
     }
 
@@ -279,41 +360,57 @@ public class MolToolsTools
             result.Changes.Select(c => new CodonChange(c.Position, c.Original, c.Optimized)).ToList());
     }
 
-    [McpServerTool, Description("Computes CAI for a sequence against an organism CodonUsageTable (frequency table — distinct from codon_adaptation_index, which takes a reference RSCU dictionary). Codons without synonymous-group data are skipped; per-codon adaptiveness is clamped at 1e-6 to avoid ln(0) on incomplete custom tables.")]
+    [McpServerTool(Name = "cai_from_organism_table", Title = "MolTools — CAI from Codon-Usage Table", ReadOnly = true), Description("Computes the Codon Adaptation Index (Sharp & Li 1987) for a coding sequence against an organism codon-usage FREQUENCY table (distinct from codon_adaptation_index, which takes a reference RSCU dictionary). CAI is the geometric mean of per-codon relative adaptiveness w = f(codon)/max f(synonymous). Codons without synonymous-group data are skipped; w is clamped at 1e-6 to avoid ln(0) on incomplete custom tables. Call when scoring how well a gene matches an organism's preferred codons.")]
     public static CaiResult cai_from_organism_table(
         [Description("Coding sequence (DNA or RNA).")] string coding_sequence,
         [Description("Target organism: preset id (EColiK12 | Yeast | Human) or inline custom table.")] CodonUsageTableInput target_organism)
     {
+        if (string.IsNullOrEmpty(coding_sequence))
+            throw new System.ArgumentException("Coding sequence cannot be null or empty.", nameof(coding_sequence));
+
         var table = ResolveCodonUsageTable(target_organism);
         return new CaiResult(CodonOptimizer.CalculateCAI(coding_sequence, table));
     }
 
-    [McpServerTool, Description("Synonymously rewrites codons to eliminate the listed restriction recognition sequences while preserving the protein. Site strings may be DNA or RNA; converted internally to RNA. Sites with no synonymous alternative are left in place.")]
+    [McpServerTool(Name = "remove_restriction_sites", Title = "MolTools — Remove Restriction Sites", ReadOnly = true), Description("Synonymously rewrites codons to eliminate the listed restriction recognition sequences from a coding sequence while preserving the encoded protein (RNA-alphabet output). Site strings may be DNA or RNA; sites with no synonymous alternative are left in place. Call to make a gene compatible with a cloning strategy.")]
     public static OptimizedSequenceResult remove_restriction_sites(
         [Description("Coding sequence (DNA or RNA).")] string coding_sequence,
         [Description("Restriction recognition sequences to eliminate.")] string[] restriction_sites,
         [Description("Target organism: preset id or inline custom table (used for synonymous-codon lookup).")] CodonUsageTableInput target_organism)
     {
+        if (string.IsNullOrEmpty(coding_sequence))
+            throw new System.ArgumentException("Coding sequence cannot be null or empty.", nameof(coding_sequence));
+        if (restriction_sites is null || restriction_sites.Length == 0)
+            throw new System.ArgumentException("At least one restriction site is required.", nameof(restriction_sites));
+
         var table = ResolveCodonUsageTable(target_organism);
         return new OptimizedSequenceResult(CodonOptimizer.RemoveRestrictionSites(coding_sequence, restriction_sites, table));
     }
 
-    [McpServerTool, Description("Greedy synonymous-codon swap that lowers a heuristic local self-complementarity score within a sliding window. Sequences shorter than the window are returned unchanged.")]
+    [McpServerTool(Name = "reduce_secondary_structure", Title = "MolTools — Reduce mRNA Secondary Structure", ReadOnly = true), Description("Greedy synonymous-codon swap that lowers a heuristic local self-complementarity score within a sliding window, reducing mRNA secondary structure while preserving the protein. Sequences shorter than window_size are returned unchanged. Call to relax strong secondary structure in a coding sequence.")]
     public static OptimizedSequenceResult reduce_secondary_structure(
         [Description("Coding sequence (DNA or RNA).")] string coding_sequence,
         [Description("Target organism: preset id or inline custom table.")] CodonUsageTableInput target_organism,
         [Description("Sliding-window size in nucleotides (default 40).")] int window_size = 40)
     {
+        if (string.IsNullOrEmpty(coding_sequence))
+            throw new System.ArgumentException("Coding sequence cannot be null or empty.", nameof(coding_sequence));
+        if (window_size <= 0)
+            throw new System.ArgumentException("Window size must be positive.", nameof(window_size));
+
         var table = ResolveCodonUsageTable(target_organism);
         return new OptimizedSequenceResult(CodonOptimizer.ReduceSecondaryStructure(coding_sequence, table, window_size));
     }
 
-    [McpServerTool, Description("Reports every codon whose frequency in the target table is below threshold.")]
+    [McpServerTool(Name = "find_rare_codons", Title = "MolTools — Find Rare Codons", ReadOnly = true), Description("Reports every codon in a coding sequence whose frequency in the target organism's codon-usage table is below the threshold (default 0.15), with its 0-based position, codon (RNA), amino acid and frequency. Call to locate translation-slowing rare codons before optimization.")]
     public static RareCodonsResult find_rare_codons(
         [Description("Coding sequence (DNA or RNA).")] string coding_sequence,
         [Description("Target organism: preset id or inline custom table.")] CodonUsageTableInput target_organism,
         [Description("Frequency threshold (default 0.15).")] double threshold = 0.15)
     {
+        if (string.IsNullOrEmpty(coding_sequence))
+            throw new System.ArgumentException("Coding sequence cannot be null or empty.", nameof(coding_sequence));
+
         var table = ResolveCodonUsageTable(target_organism);
         var rare = CodonOptimizer.FindRareCodons(coding_sequence, table, threshold)
             .Select(t => new RareCodon(t.Position, t.Codon, t.AminoAcid, t.Frequency))
@@ -321,19 +418,29 @@ public class MolToolsTools
         return new RareCodonsResult(rare);
     }
 
-    [McpServerTool, Description("Codon-frequency similarity between two sequences: 1 − ½·Σ|f1−f2| ∈ [0,1] (1 = identical distribution, 0 = disjoint). Either input empty or with no codon hits → 0.")]
+    [McpServerTool(Name = "compare_codon_usage", Title = "MolTools — Compare Codon Usage", ReadOnly = true), Description("Codon-frequency similarity between two coding sequences: 1 − ½·Σ|f1−f2| ∈ [0,1] (1 = identical codon distribution, 0 = disjoint). An input that is empty or contains no complete codons contributes 0 similarity. Call to compare the codon usage of two genes/organisms.")]
     public static SimilarityResult compare_codon_usage(
         [Description("First coding sequence.")] string sequence1,
         [Description("Second coding sequence.")] string sequence2)
     {
+        if (sequence1 is null)
+            throw new System.ArgumentException("First sequence cannot be null.", nameof(sequence1));
+        if (sequence2 is null)
+            throw new System.ArgumentException("Second sequence cannot be null.", nameof(sequence2));
+
         return new SimilarityResult(CodonOptimizer.CompareCodonUsage(sequence1, sequence2));
     }
 
-    [McpServerTool, Description("Derives a per-organism CodonUsageTable from a reference coding sequence by computing per-amino-acid relative codon frequencies (RNA alphabet).")]
+    [McpServerTool(Name = "build_codon_table", Title = "MolTools — Build Codon-Usage Table", ReadOnly = true), Description("Derives a per-organism CodonUsageTable from a reference coding sequence by computing per-amino-acid relative codon frequencies (RNA alphabet, U not T). Call when the user wants a custom codon-usage table built from their own reference gene(s).")]
     public static CodonUsageTableDto build_codon_table(
         [Description("Reference coding sequence (DNA or RNA).")] string reference_sequence,
         [Description("Organism name to attach to the resulting table.")] string organism_name)
     {
+        if (string.IsNullOrEmpty(reference_sequence))
+            throw new System.ArgumentException("Reference sequence cannot be null or empty.", nameof(reference_sequence));
+        if (string.IsNullOrWhiteSpace(organism_name))
+            throw new System.ArgumentException("Organism name cannot be null or blank.", nameof(organism_name));
+
         var table = CodonOptimizer.CreateCodonTableFromSequence(reference_sequence, organism_name);
         return new CodonUsageTableDto(
             table.OrganismName,
@@ -380,18 +487,21 @@ public class MolToolsTools
 
     #region CrisprDesigner
 
-    [McpServerTool, Description("Returns the metadata record (PAM, guide length, PAM placement, description) for a known CRISPR system.")]
+    [McpServerTool(Name = "crispr_system_info", Title = "MolTools — CRISPR System Metadata", ReadOnly = true), Description("Returns the metadata record (name, PAM sequence, guide length, PAM placement relative to target, description) for a known CRISPR nuclease system. Call when the user needs the PAM/guide parameters of SpCas9, SaCas9, Cas12a, CasX, etc.")]
     public static CrisprSystem crispr_system_info(
         [Description("CRISPR system: SpCas9 | SpCas9_NAG | SaCas9 | Cas12a | AsCas12a | LbCas12a | CasX.")] CrisprSystemType system_type)
     {
         return CrisprDesigner.GetSystem(system_type);
     }
 
-    [McpServerTool, Description("Finds all PAM matches (forward + reverse strand) for the chosen CRISPR system. PAM matching honours IUPAC codes (e.g. NGG, NNGRRT, TTTV). Sites whose target window falls outside the sequence are skipped.")]
+    [McpServerTool(Name = "find_pam_sites", Title = "MolTools — Find CRISPR PAM Sites", ReadOnly = true), Description("Finds all PAM matches (forward + reverse strand) for the chosen CRISPR system. PAM matching honours IUPAC codes (e.g. NGG, NNGRRT, TTTV). Each site reports the PAM, the adjacent guide/target window, its position and strand; sites whose target window falls outside the sequence are skipped. Call to enumerate targetable protospacers in a sequence.")]
     public static PamSitesResult find_pam_sites(
         [Description("DNA sequence to scan.")] string sequence,
         [Description("CRISPR system (default SpCas9).")] CrisprSystemType system_type = CrisprSystemType.SpCas9)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+
         var sites = CrisprDesigner.FindPamSites(sequence, system_type).ToList();
         return new PamSitesResult(sites);
     }
@@ -410,34 +520,49 @@ public class MolToolsTools
         return new GuideRnasResult(guides);
     }
 
-    [McpServerTool, Description("Scores a single guide RNA: GC%, seed-region GC%, polyT terminator presence, self-complementarity, common-restriction-site presence; returns a 0..100 score plus an issues list. Position is -1 for ad-hoc evaluation.")]
+    [McpServerTool(Name = "evaluate_guide_rna", Title = "MolTools — Evaluate Guide RNA", ReadOnly = true), Description("Scores a single guide RNA against on-target quality heuristics: overall GC%, seed-region GC%, polyT (Pol III terminator) presence, self-complementarity, and common-restriction-site presence; returns a 0..100 score plus an issues list. Position is -1 for ad-hoc evaluation. Call to QC one guide sequence.")]
     public static GuideRnaCandidate evaluate_guide_rna(
         [Description("Guide RNA sequence.")] string guide_sequence,
         [Description("CRISPR system (default SpCas9).")] CrisprSystemType system_type = CrisprSystemType.SpCas9,
         [Description("Optional guide-RNA design parameters.")] GuideRnaParameters? parameters = null)
     {
+        if (string.IsNullOrEmpty(guide_sequence))
+            throw new System.ArgumentException("Guide sequence cannot be null or empty.", nameof(guide_sequence));
+
         return CrisprDesigner.EvaluateGuideRna(guide_sequence, system_type, parameters);
     }
 
-    [McpServerTool, Description("Naïve genome scan: enumerates all PAM sites in the genome and reports those whose target differs from the guide by ≤max_mismatches. Off-target score weights mismatches inside the seed region more heavily. O(genome × guide) — recommend genome ≤ ~1 Mb.")]
+    [McpServerTool(Name = "find_off_targets", Title = "MolTools — CRISPR Off-Target Scan", ReadOnly = true), Description("Naïve genome scan: enumerates all PAM sites in the genome and reports those whose target differs from the guide by 1..max_mismatches (the 0-mismatch on-target is excluded). Off-target score weights mismatches inside the seed region more heavily. O(genome × guide) — recommend genome ≤ ~1 Mb. Guide length must match the system's guide length. Call to list a guide's candidate off-target sites.")]
     public static OffTargetsResult find_off_targets(
         [Description("Guide RNA sequence (length must match the system's guide length).")] string guide_sequence,
         [Description("Genome / reference sequence to scan.")] string genome,
         [Description("Maximum allowed mismatches (range 0..5; default 3).")] int max_mismatches = 3,
         [Description("CRISPR system (default SpCas9).")] CrisprSystemType system_type = CrisprSystemType.SpCas9)
     {
+        if (string.IsNullOrEmpty(guide_sequence))
+            throw new System.ArgumentException("Guide sequence cannot be null or empty.", nameof(guide_sequence));
+        if (string.IsNullOrEmpty(genome))
+            throw new System.ArgumentException("Genome cannot be null or empty.", nameof(genome));
+        if (max_mismatches < 0 || max_mismatches > 5)
+            throw new System.ArgumentException("Maximum mismatches must be in the range 0..5.", nameof(max_mismatches));
+
         var hits = CrisprDesigner
             .FindOffTargets(guide_sequence, new DnaSequence(genome), max_mismatches, system_type)
             .ToList();
         return new OffTargetsResult(hits);
     }
 
-    [McpServerTool, Description("Aggregates find_off_targets (≤4 mismatches) into a single specificity score in 0..100 (100 = no off-targets).")]
+    [McpServerTool(Name = "crispr_specificity_score", Title = "MolTools — CRISPR Guide Specificity Score", ReadOnly = true), Description("Aggregates off-target hits (≤4 mismatches) for a guide RNA against a genome into a single specificity score in 0..100 (100 = no off-targets; the score drops as more/seed-region off-targets are found). Call to judge how genome-specific a candidate guide is. Guide length must match the system's guide length.")]
     public static SpecificityResult crispr_specificity_score(
         [Description("Guide RNA sequence (length must match the system's guide length).")] string guide_sequence,
         [Description("Genome / reference sequence to scan.")] string genome,
         [Description("CRISPR system (default SpCas9).")] CrisprSystemType system_type = CrisprSystemType.SpCas9)
     {
+        if (string.IsNullOrEmpty(guide_sequence))
+            throw new System.ArgumentException("Guide sequence cannot be null or empty.", nameof(guide_sequence));
+        if (string.IsNullOrEmpty(genome))
+            throw new System.ArgumentException("Genome cannot be null or empty.", nameof(genome));
+
         return new SpecificityResult(
             CrisprDesigner.CalculateSpecificityScore(guide_sequence, new DnaSequence(genome), system_type));
     }
@@ -507,19 +632,27 @@ public class MolToolsTools
         return new OligoAnalysisResult(tm, gc, mw, eps);
     }
 
-    [McpServerTool, Description("Sums per-base 260 nm molar extinction contributions. Unknown bases contribute the fallback constant 10000.")]
+    [McpServerTool(Name = "oligo_extinction_coefficient", Title = "MolTools — Oligo Extinction Coefficient", ReadOnly = true), Description("Sums per-base 260 nm molar extinction contributions (A=15400, C=7400, G=11500, T=8700, U=9900 M⁻¹·cm⁻¹; any other base = 10000) for an oligonucleotide. Call to estimate an oligo's ε₂₆₀ for concentration calculations.")]
     public static ExtinctionCoefficientResult oligo_extinction_coefficient(
         [Description("Oligonucleotide sequence.")] string sequence)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+
         return new ExtinctionCoefficientResult(ProbeDesigner.CalculateExtinctionCoefficient(sequence));
     }
 
-    [McpServerTool, Description("Beer–Lambert concentration (µM) from absorbance at 260 nm, extinction coefficient, and path length. No input validation — extinction_coefficient = 0 yields infinity.")]
+    [McpServerTool(Name = "oligo_concentration_from_absorbance", Title = "MolTools — Oligo Concentration (Beer–Lambert)", ReadOnly = true), Description("Computes oligonucleotide concentration in µM from the Beer–Lambert law: c = A₂₆₀ / (ε · path) · 1e6. Call to convert a spectrophotometer A260 reading into a molar concentration given the oligo's extinction coefficient.")]
     public static ConcentrationResult oligo_concentration_from_absorbance(
         [Description("Absorbance at 260 nm (A260).")] double absorbance260,
         [Description("Extinction coefficient ε in M⁻¹·cm⁻¹.")] double extinction_coefficient,
         [Description("Path length in cm (default 1.0).")] double path_length = 1.0)
     {
+        if (extinction_coefficient <= 0)
+            throw new System.ArgumentException("Extinction coefficient must be positive.", nameof(extinction_coefficient));
+        if (path_length <= 0)
+            throw new System.ArgumentException("Path length must be positive.", nameof(path_length));
+
         return new ConcentrationResult(
             ProbeDesigner.CalculateConcentration(absorbance260, extinction_coefficient, path_length));
     }

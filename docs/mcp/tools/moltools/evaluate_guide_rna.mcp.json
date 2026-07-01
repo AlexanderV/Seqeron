@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "evaluate_guide_rna",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "CrisprDesigner.EvaluateGuideRna",
+  "docRef": "Seqeron.Genomics.MolTools/CrisprDesigner.cs#L200",
+  "description": "Score a single guide RNA against on-target quality heuristics.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "guide_sequence": { "type": "string", "description": "Guide RNA sequence.", "minLength": 1 },
+      "system_type": { "type": "string", "enum": ["SpCas9", "SpCas9_NAG", "SaCas9", "Cas12a", "AsCas12a", "LbCas12a", "CasX"], "default": "SpCas9" },
+      "parameters": { "type": ["object", "null"] }
+    },
+    "required": ["guide_sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string" },
+      "position": { "type": "integer" },
+      "isForwardStrand": { "type": "boolean" },
+      "gcContent": { "type": "number" },
+      "seedGcContent": { "type": "number" },
+      "hasPolyT": { "type": "boolean" },
+      "selfComplementarityScore": { "type": "number" },
+      "score": { "type": "number" },
+      "issues": { "type": "array", "items": { "type": "string" } }
+    },
+    "required": ["sequence", "position", "isForwardStrand", "gcContent", "seedGcContent", "hasPolyT", "selfComplementarityScore", "score", "issues"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Guide sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "50% GC guide",
+      "input": { "guide_sequence": "ATGCATGCATGCATGCATGC", "system_type": "SpCas9" },
+      "output": { "position": -1, "gcContent": 50.0, "seedGcContent": 60.0, "hasPolyT": false }
+    },
+    {
+      "name": "PolyT terminator",
+      "input": { "guide_sequence": "ATGCATGCATGCATTTTGCA", "system_type": "SpCas9" },
+      "output": { "hasPolyT": true }
+    }
+  ]
+}

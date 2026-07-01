@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "effective_number_of_codons",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "CodonUsageAnalyzer.CalculateEnc",
+  "docRef": "Seqeron.Genomics.MolTools/CodonUsageAnalyzer.cs#L283",
+  "description": "Effective Number of Codons (Wright's Nc) for a coding sequence, clamped to 20..61.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "Coding DNA sequence (frame 0).", "minLength": 1 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "enc": { "type": "number", "description": "Effective Number of Codons, 20..61 (20 = extreme bias, 61 = no bias)." }
+    },
+    "required": ["enc"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Fully populated biased gene",
+      "input": { "sequence": "TTTx4 TTC CTGx3 CTCx2 TTA ATTx3 ATCx2 ATA GTGx4 GTC AGCx3 TCTx2 TCA CGCx4 CGTx2 GGCx3 GGTx2 GGA (concatenated codons)" },
+      "output": { "enc": 41.288461538461526 }
+    },
+    {
+      "name": "Mixed short gene stays in range",
+      "input": { "sequence": "ATGAAAGAGCTGTTCGCCAAA" },
+      "output": { "enc": "value within [20, 61]" }
+    }
+  ]
+}

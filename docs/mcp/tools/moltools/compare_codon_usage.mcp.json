@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "compare_codon_usage",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "CodonOptimizer.CompareCodonUsage",
+  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L929",
+  "description": "Codon-frequency similarity between two coding sequences (1 - 0.5*sum|f1-f2| in [0,1]).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence1": { "type": "string", "description": "First coding sequence." },
+      "sequence2": { "type": "string", "description": "Second coding sequence." }
+    },
+    "required": ["sequence1", "sequence2"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "similarity": { "type": "number", "description": "Codon-usage similarity in 0..1 (1 = identical, 0 = disjoint)." }
+    },
+    "required": ["similarity"]
+  },
+  "errors": [
+    { "code": 1001, "message": "First sequence cannot be null" },
+    { "code": 1002, "message": "Second sequence cannot be null" }
+  ],
+  "examples": [
+    {
+      "name": "Identical",
+      "input": { "sequence1": "ATGATG", "sequence2": "ATGATG" },
+      "output": { "similarity": 1.0 }
+    },
+    {
+      "name": "Half overlap",
+      "input": { "sequence1": "ATGTTT", "sequence2": "ATGATG" },
+      "output": { "similarity": 0.5 }
+    }
+  ]
+}
