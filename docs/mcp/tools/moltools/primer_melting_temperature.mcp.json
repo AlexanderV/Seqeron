@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "primer_melting_temperature",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PrimerDesigner.CalculateMeltingTemperature",
+  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L197",
+  "description": "Compute a primer's melting temperature (Wallace rule < 14 bases, Marmur-Doty >= 14 bases).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "primer": { "type": "string", "description": "Primer sequence.", "minLength": 1 }
+    },
+    "required": ["primer"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "tm": { "type": "number", "description": "Melting temperature in degrees Celsius." }
+    },
+    "required": ["tm"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Primer cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Wallace rule (short)",
+      "input": { "primer": "ACGT" },
+      "output": { "tm": 12.0 }
+    },
+    {
+      "name": "Marmur-Doty (>=14)",
+      "input": { "primer": "GCGCGCGCGCGCGCGCGCGC" },
+      "output": { "tm": 72.28 }
+    }
+  ]
+}
