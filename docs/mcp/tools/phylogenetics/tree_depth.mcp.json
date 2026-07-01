@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "tree_depth",
+  "serverName": "Phylogenetics",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PhylogeneticAnalyzer.GetTreeDepth",
+  "docRef": "Seqeron.Genomics.Phylogenetics/PhylogeneticAnalyzer.cs#L861",
+  "description": "Tree height: the maximum number of edges from root to any leaf.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "newick": { "type": "string", "description": "Tree in Newick format.", "minLength": 1 }
+    },
+    "required": ["newick"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "depth": { "type": "integer", "description": "Tree height in edges; a single-leaf tree has depth 0." }
+    },
+    "required": ["depth"]
+  },
+  "errors": [
+    { "code": 2001, "message": "Newick string is empty" }
+  ],
+  "examples": [
+    {
+      "name": "Balanced 4-taxon tree",
+      "input": { "newick": "((A,B),(C,D));" },
+      "output": { "depth": 2 }
+    },
+    {
+      "name": "Caterpillar tree",
+      "input": { "newick": "(A:1,(B:1,(C:1,D:1):0.5):0.5);" },
+      "output": { "depth": 3 }
+    }
+  ]
+}
