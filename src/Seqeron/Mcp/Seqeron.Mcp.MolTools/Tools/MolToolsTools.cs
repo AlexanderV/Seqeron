@@ -210,11 +210,16 @@ public class MolToolsTools
         return new CompatibleEnzymesResult(pairs);
     }
 
-    [McpServerTool, Description("Returns whether two named built-in enzymes have compatible ends. Unknown enzyme names yield false (no exception).")]
+    [McpServerTool(Name = "enzymes_compatible", Title = "MolTools — Enzyme End Compatibility", ReadOnly = true), Description("Returns whether two named built-in restriction enzymes produce ligatable (compatible) ends — both blunt, or the same overhang type and sequence. An unknown enzyme name yields false (no error). Call to check a specific pair for cloning compatibility.")]
     public static EnzymeCompatibilityResult enzymes_compatible(
         [Description("First enzyme name.")] string enzyme1_name,
         [Description("Second enzyme name.")] string enzyme2_name)
     {
+        if (string.IsNullOrWhiteSpace(enzyme1_name))
+            throw new System.ArgumentException("First enzyme name cannot be null or blank.", nameof(enzyme1_name));
+        if (string.IsNullOrWhiteSpace(enzyme2_name))
+            throw new System.ArgumentException("Second enzyme name cannot be null or blank.", nameof(enzyme2_name));
+
         return new EnzymeCompatibilityResult(RestrictionAnalyzer.AreCompatible(enzyme1_name, enzyme2_name));
     }
 
