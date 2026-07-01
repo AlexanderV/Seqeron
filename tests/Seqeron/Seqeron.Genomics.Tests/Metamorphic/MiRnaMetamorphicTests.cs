@@ -3,7 +3,7 @@ using NUnit.Framework;
 using FluentAssertions;
 using Seqeron.Genomics.Annotation;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Metamorphic;
 
 /// <summary>
 /// Metamorphic tests for the MiRNA area.
@@ -359,6 +359,387 @@ public class MiRnaMetamorphicTests
 
             shifted.Should().BeEquivalentTo(expected,
                 because: $"a seed-free {offset}-nt 5' flank adds no sites and translates every pairing by {offset}");
+        }
+    }
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  MIRNA-CONTEXT-001 — TargetScan context++ local-AU scoring (MiRNA)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (Agarwal et al. 2015 eLife 4:e05005; targetscan_70_context_scores.pl;
+    //   tests/TestSpecs/MIRNA-CONTEXT-001.md):
+    //   ScoreTargetSiteContextPlusPlus sums per-feature contributions of the TargetScan context++
+    //   model; one feature is the LOCAL AU content of the 30-nt flanks around the seed match. Its
+    //   coefficient is negative, so AU-rich context makes the contribution (and the overall
+    //   score) MORE NEGATIVE — a stronger predicted repression. Two metamorphic relations
+    //   (checklist row 252):
+    //
+    //   • MON (stronger local AU context → more negative score): raising the AU content of the
+    //     flanks around a fixed seed match makes the local-AU contribution (and the partial context
+    //     score) monotonically more negative.
+    //   • INV (same site → same score): scoring is deterministic — the same (mRNA, miRNA, site)
+    //     yields the identical contribution breakdown every time.
+    //
+    // API under test: MiRnaAnalyzer.ScoreTargetSiteContextPlusPlus (ContextPlusPlusScore).
+
+    #region MIRNA-CONTEXT-001 — context++ local-AU scoring
+
+    // The canonical 8mer match for let-7a: the reverse complement of miRNA positions 1–8.
+    private static string Let7a8merMatch => MiRnaAnalyzer.GetReverseComplement(Let7a.Substring(0, 8));
+
+    private static MiRnaAnalyzer.TargetSite Find8merAt(string mrna, MiRnaAnalyzer.MiRna mirna, int start) =>
+        MiRnaAnalyzer.FindTargetSites(mrna, mirna, minScore: 0.0)
+            .First(s => s.Start == start && s.Type == MiRnaAnalyzer.TargetSiteType.Seed8mer);
+
+    [Test]
+    [Description("MON: the local-AU coefficient is negative, so raising the AU content of the flanks around a fixed seed match makes the local-AU contribution (and the partial context score) monotonically more negative.")]
+    public void Context_StrongerLocalAu_GivesMoreNegativeScore()
+    {
+        var mirna = MiRnaAnalyzer.CreateMiRna("let-7a", Let7a);
+        string site8 = Let7a8merMatch;
+
+        // Flanks of increasing AU content: 0% (GC) → 50% → 100% (AU). 30 nt each side.
+        string[] flanks =
+        {
+            string.Concat(Enumerable.Repeat("GC", 15)), // 0% AU
+            string.Concat(Enumerable.Repeat("GCAU", 8))[..30], // ~50% AU
+            string.Concat(Enumerable.Repeat("AU", 15)), // 100% AU
+        };
+
+        double previousAu = double.PositiveInfinity;
+        double previousTotal = double.PositiveInfinity;
+        foreach (string flank in flanks)
+        {
+            string mrna = flank + site8 + flank;
+            var site = Find8merAt(mrna, mirna, flank.Length);
+            var ctx = MiRnaAnalyzer.ScoreTargetSiteContextPlusPlus(mrna, mirna, site);
+
+            ctx.LocalAuContribution.Should().BeLessThan(previousAu + 1e-9,
+                because: "raising the flank AU content lowers (makes more negative) the local-AU contribution");
+            ctx.ContextScorePartial.Should().BeLessThan(previousTotal + 1e-9,
+                because: "a more AU-rich (more accessible) context cannot raise the repression score");
+            previousAu = ctx.LocalAuContribution;
+            previousTotal = ctx.ContextScorePartial;
+        }
+
+        // Non-vacuity: the AU-rich endpoint is strictly more negative than the GC endpoint.
+        string gcMrna = flanks[0] + site8 + flanks[0];
+        string auMrna = flanks[2] + site8 + flanks[2];
+        var gc = MiRnaAnalyzer.ScoreTargetSiteContextPlusPlus(gcMrna, mirna, Find8merAt(gcMrna, mirna, flanks[0].Length));
+        var au = MiRnaAnalyzer.ScoreTargetSiteContextPlusPlus(auMrna, mirna, Find8merAt(auMrna, mirna, flanks[2].Length));
+        au.LocalAuContribution.Should().BeLessThan(gc.LocalAuContribution - 1e-6,
+            because: "an AU-rich context yields a strictly more negative local-AU contribution than a GC-rich one");
+    }
+
+    [Test]
+    [Description("INV: context++ scoring is deterministic — the same (mRNA, miRNA, site) yields the identical contribution breakdown on every call.")]
+    public void Context_SameSite_GivesSameScore()
+    {
+        var mirna = MiRnaAnalyzer.CreateMiRna("let-7a", Let7a);
+        string flank = string.Concat(Enumerable.Repeat("GCAU", 8))[..30];
+        string mrna = flank + Let7a8merMatch + flank;
+        var site = Find8merAt(mrna, mirna, flank.Length);
+
+        var a = MiRnaAnalyzer.ScoreTargetSiteContextPlusPlus(mrna, mirna, site);
+        var b = MiRnaAnalyzer.ScoreTargetSiteContextPlusPlus(mrna, mirna, site);
+
+        a.ContextScorePartial.Should().Be(b.ContextScorePartial, because: "context++ scoring is deterministic");
+        a.LocalAuContribution.Should().Be(b.LocalAuContribution);
+        a.SaContribution.Should().Be(b.SaContribution);
+        a.SiteType.Should().Be(b.SiteType);
+        a.OmittedFeatures.Should().Equal(b.OmittedFeatures,
+            because: "the entire contribution breakdown is reproduced exactly for the same site");
+    }
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  MIRNA-PCT-001 — probability of conserved targeting (PCT) (MiRNA)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (Friedman et al. 2009 Genome Res 19:92; targetscan_70_BL_PCT.pl;
+    //   tests/TestSpecs/MIRNA-PCT-001.md):
+    //   PCT maps a Friedman branch-length score (Bls — total branch length of the subtree of
+    //   species in which the site is conserved) to a probability via a logistic curve
+    //   PCT(Bls) = B0 + B1/(1 + e^(−B2·Bls + B3)), truncated at 0 (B2 > 0 ⇒ increasing in Bls). When
+    //   no conservation evidence is supplied, the context++ scorer reports PCT = 0 (an omitted
+    //   feature). Two metamorphic relations (checklist row 253):
+    //
+    //   • MON (deeper conservation → higher PCT): with B2 > 0 the sigmoid is increasing, so a longer
+    //     branch length yields a higher (never lower) PCT.
+    //   • INV (no conservation → PCT 0): with no conservation input, the branch-length score and PCT
+    //     are 0 and PCT is reported as an omitted feature.
+    //
+    // API under test: MiRnaAnalyzer.PctFromBranchLength / .ScoreTargetSiteContextPlusPlus.
+
+    #region MIRNA-PCT-001 — probability of conserved targeting
+
+    [Test]
+    [Description("MON: with B2 > 0 the PCT logistic is increasing in the branch-length score, so deeper conservation (a longer Bls) yields a higher PCT.")]
+    public void Pct_DeeperConservation_RaisesPct()
+    {
+        // Published-regime parameters (B0 + B1 ≤ 1, B2 > 0): an increasing sigmoid in [0, ~0.85].
+        var p = new MiRnaAnalyzer.PctSigmoidParameters(B0: 0.05, B1: 0.80, B2: 1.50, B3: 2.00);
+
+        double previous = double.NegativeInfinity;
+        bool sawStrictIncrease = false;
+        foreach (double bls in new[] { 0.0, 0.5, 1.0, 2.0, 4.0, 8.0 })
+        {
+            double pct = MiRnaAnalyzer.PctFromBranchLength(bls, p);
+            pct.Should().BeInRange(-1e-9, 1.0 + 1e-9, because: "PCT is a probability in [0,1]");
+            pct.Should().BeGreaterThanOrEqualTo(previous - 1e-12,
+                because: $"a longer branch length ({bls}) cannot lower the PCT (the sigmoid is increasing)");
+            if (pct > previous + 1e-6) sawStrictIncrease = true;
+            previous = pct;
+        }
+
+        sawStrictIncrease.Should().BeTrue(because: "deeper conservation genuinely raises PCT — the relation is non-vacuous");
+    }
+
+    [Test]
+    [Description("INV: with no conservation evidence supplied, the context++ scorer reports a zero branch-length score and zero PCT, and lists PCT as an omitted feature.")]
+    public void Pct_NoConservation_IsZero()
+    {
+        var mirna = MiRnaAnalyzer.CreateMiRna("let-7a", Let7a);
+        string flank = string.Concat(Enumerable.Repeat("GCAU", 8))[..30];
+        string mrna = flank + Let7a8merMatch + flank;
+        var site = Find8merAt(mrna, mirna, flank.Length);
+
+        // No ContextPlusPlusInputs.Conservation supplied (default inputs).
+        var ctx = MiRnaAnalyzer.ScoreTargetSiteContextPlusPlus(mrna, mirna, site);
+
+        ctx.BranchLengthScore.Should().Be(0.0, because: "no conserved species ⇒ branch-length score 0");
+        ctx.Pct.Should().Be(0.0, because: "no conservation evidence ⇒ PCT 0");
+        ctx.PctContribution.Should().Be(0.0, because: "an omitted PCT feature contributes 0");
+        ctx.OmittedFeatures.Any(f => f.StartsWith("PCT")).Should().BeTrue(
+            because: "PCT is reported as an omitted feature when no conservation input is supplied");
+    }
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  MIRNA-CLASSIFY-001 — pre-miRNA real/pseudo classification (MiRNA)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (Zhang et al. 2006 CMLS 63:246, MFEI; Bonnet et al. 2004 / randfold dinucleotide-shuffle
+    //   negative control; tests/TestSpecs/MIRNA-CLASSIFY-001.md):
+    //   ClassifyPreMiRna scores a hairpin's P(natural) with a logistic-regression model over folding
+    //   features, of which the minimal folding free-energy index (MFEI = AMFE/GC%) is the key
+    //   discriminator — real pre-miRNAs have a remarkably high MFEI (> 0.85). Two metamorphic
+    //   relations (checklist row 254):
+    //
+    //   • MON (more native-like MFEI → higher positive probability): with the other features fixed,
+    //     raising the MFEI toward the native regime raises P(natural).
+    //   • INV (di-shuffled sequence → lower probability): a dinucleotide-preserving shuffle
+    //     (Altschul–Erikson) keeps the composition but destroys the hairpin, so the native precursor
+    //     scores higher than its di-shuffled background.
+    //
+    // API under test: MiRnaAnalyzer.ScorePreMiRnaFeatures / .ClassifyPreMiRna.
+
+    #region MIRNA-CLASSIFY-001 — pre-miRNA classification
+
+    [Test]
+    [Description("MON: with the other folding features fixed, raising the MFEI toward the native regime (> 0.85) raises the logistic P(natural).")]
+    public void Classify_MoreNativeLikeMfei_RaisesPositiveProbability()
+    {
+        // A realistic feature vector; only the MFEI varies. (Last three fields are unused by the model.)
+        MiRnaAnalyzer.PreMiRnaFeatures WithMfei(double mfei) =>
+            new(FreeEnergy: -30.0, Amfe: 45.0, Mfei: mfei, GcContent: 50.0, PairedFraction: 0.70,
+                StemBasePairs: 22, LoopSize: 10, Length: 72);
+
+        double previous = double.NegativeInfinity;
+        bool sawStrictIncrease = false;
+        foreach (double mfei in new[] { 0.20, 0.50, 0.85, 1.00, 1.30 })
+        {
+            double p = MiRnaAnalyzer.ScorePreMiRnaFeatures(WithMfei(mfei));
+            p.Should().BeInRange(0.0, 1.0, because: "P(natural) is a probability");
+            p.Should().BeGreaterThanOrEqualTo(previous - 1e-12,
+                because: $"a more native-like MFEI ({mfei}) cannot lower P(natural)");
+            if (p > previous + 1e-6) sawStrictIncrease = true;
+            previous = p;
+        }
+
+        sawStrictIncrease.Should().BeTrue(because: "a higher MFEI genuinely raises P(natural) — the relation is non-vacuous");
+    }
+
+    [Test]
+    [Description("INV: a dinucleotide-preserving (Altschul–Erikson) shuffle keeps the composition but destroys the hairpin, so the native pre-miR-21 precursor scores a higher P(natural) than its di-shuffled background.")]
+    public void Classify_DiShuffledSequence_LowersProbability()
+    {
+        // hsa-mir-21 stem-loop (miRBase MI0000077) — a real pre-miRNA hairpin.
+        const string preMir21 =
+            "UGUCGGGUAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGUCUGACA";
+
+        var native = MiRnaAnalyzer.ClassifyPreMiRna(preMir21);
+        native.Should().NotBeNull(because: "the real pre-miR-21 precursor folds into a hairpin");
+        double pNative = native!.Value.NaturalProbability;
+
+        var rng = new System.Random(20260626);
+        var shuffledProbs = new System.Collections.Generic.List<double>();
+        for (int t = 0; t < 40; t++)
+        {
+            string shuffled = DinucleotideShuffle(preMir21, rng);
+
+            // Self-check: the shuffle preserves length and dinucleotide composition exactly.
+            shuffled.Length.Should().Be(preMir21.Length);
+            DinucleotideCounts(shuffled).Should().Equal(DinucleotideCounts(preMir21),
+                because: "an Altschul–Erikson shuffle preserves the dinucleotide composition exactly");
+
+            shuffledProbs.Add(MiRnaAnalyzer.ClassifyPreMiRna(shuffled)?.NaturalProbability ?? 0.0);
+        }
+
+        pNative.Should().BeGreaterThan(shuffledProbs.Average(),
+            because: "the native precursor's real hairpin scores above the di-shuffled background mean");
+        shuffledProbs.Count(p => pNative > p).Should().BeGreaterThanOrEqualTo(32,
+            because: "the native precursor scores above the large majority (≥ 80%) of its di-shuffled background");
+    }
+
+    /// <summary>Ordered dinucleotide-count vector of a sequence (for the shuffle self-check).</summary>
+    private static System.Collections.Generic.List<int> DinucleotideCounts(string s)
+    {
+        var counts = new System.Collections.Generic.SortedDictionary<string, int>();
+        for (int i = 0; i < s.Length - 1; i++)
+        {
+            string d = s.Substring(i, 2);
+            counts[d] = counts.GetValueOrDefault(d) + 1;
+        }
+
+        return counts.Select(kv => kv.Value).ToList();
+    }
+
+    /// <summary>
+    /// Altschul–Erikson (1985) dinucleotide-preserving shuffle: shuffles the per-vertex out-edges of
+    /// the dinucleotide multigraph, keeping the chosen last-edges an arborescence into the final
+    /// vertex, then walks an Eulerian path. Preserves the first/last base and every dinucleotide count.
+    /// </summary>
+    private static string DinucleotideShuffle(string s, System.Random rng)
+    {
+        if (s.Length < 3) return s;
+        char last = s[^1];
+        var alphabet = s.Distinct().ToArray();
+        var edges = alphabet.ToDictionary(c => c, _ => new System.Collections.Generic.List<char>());
+        for (int i = 0; i < s.Length - 1; i++) edges[s[i]].Add(s[i + 1]);
+
+        bool ReachesLast()
+        {
+            foreach (char v in alphabet)
+            {
+                if (v == last || edges[v].Count == 0) continue;
+                char cur = v;
+                for (int hops = 0; hops <= alphabet.Length; hops++)
+                {
+                    char parent = edges[cur][^1]; // tree edge = the last out-edge after shuffling
+                    if (parent == last) break;
+                    cur = parent;
+                    if (hops == alphabet.Length) return false; // cycle ⇒ not an arborescence
+                }
+            }
+
+            return true;
+        }
+
+        do
+        {
+            foreach (char v in alphabet)
+            {
+                var e = edges[v];
+                for (int i = e.Count - 1; i > 0; i--)
+                {
+                    int j = rng.Next(i + 1);
+                    (e[i], e[j]) = (e[j], e[i]);
+                }
+            }
+        }
+        while (!ReachesLast());
+
+        var idx = alphabet.ToDictionary(c => c, _ => 0);
+        var result = new char[s.Length];
+        char curBase = s[0];
+        result[0] = curBase;
+        for (int i = 1; i < s.Length; i++)
+        {
+            char next = edges[curBase][idx[curBase]++];
+            result[i] = next;
+            curBase = next;
+        }
+
+        return new string(result);
+    }
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  MIRNA-CLEAVAGE-001 — Drosha/Dicer cleavage-site prediction (MiRNA)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (Han et al. 2006 Cell 125:887; Park et al. 2011 Nature 475:201;
+    //   tests/TestSpecs/MIRNA-CLEAVAGE-001.md):
+    //   PredictDroshaDicerCleavage applies the published "ruler" rules: Drosha cuts ~11 bp from the
+    //   basal ssRNA–dsRNA junction (so the 5p mature starts at basalJunction + 11), and Dicer's
+    //   5'-counting rule fixes the 22-nt mature length. Two metamorphic relations (checklist row 255):
+    //
+    //   • INV (hsa-miR-21-5p mature reproduced exactly): on the pri-miR-21 hairpin with the correct
+    //     basal junction the predicted 5p mature equals the annotated hsa-miR-21-5p sequence.
+    //   • MON (shifting the basal stem shifts the Drosha site consistently): the Drosha cut is a
+    //     constant 11 bp from the basal junction, so moving the junction by Δ (and prepending a Δ-nt
+    //     basal flank) shifts the cut and the whole mature span by exactly Δ while reproducing the
+    //     same mature sequence.
+    //
+    // API under test: MiRnaAnalyzer.PredictDroshaDicerCleavage (DroshaDicerCleavage).
+
+    #region MIRNA-CLEAVAGE-001 — Drosha/Dicer cleavage prediction
+
+    // pri-miR-21: an 11-nt basal ssRNA flank + the miR-21 stem; basal junction at index 0.
+    private const string PriMir21 =
+        "CCCCCCCCCCC" + "UAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGU";
+
+    // Annotated hsa-miR-21-5p mature (miRBase MIMAT0000076), 22 nt.
+    private const string HsaMiR21_5p = "UAGCUUAUCAGACUGAUGUUGA";
+
+    [Test]
+    [Description("INV: on pri-miR-21 with the correct basal junction, the +11 Drosha ruler and 22-nt Dicer rule reproduce the annotated hsa-miR-21-5p mature exactly.")]
+    public void Cleavage_PriMir21_ReproducesMiR21MatureExactly()
+    {
+        var cut = MiRnaAnalyzer.PredictDroshaDicerCleavage(PriMir21, basalJunction: 0);
+
+        cut.Should().NotBeNull(because: "the pri-miR-21 hairpin admits the predicted cuts");
+        cut!.Value.MatureSequence.Should().Be(HsaMiR21_5p,
+            because: "the +11 Drosha ruler + 22-nt Dicer rule reproduce hsa-miR-21-5p exactly");
+        cut.Value.DroshaCut5Prime.Should().Be(11, because: "Drosha cuts 11 bp from the basal junction at index 0");
+        cut.Value.MatureStart.Should().Be(11);
+        cut.Value.MatureEnd.Should().Be(11 + 22 - 1, because: "the Dicer 5'-counting rule fixes a 22-nt mature");
+    }
+
+    [Test]
+    [Description("MON: the Drosha cut is a constant 11 bp from the basal junction, so moving the junction by Δ (with a Δ-nt basal flank prepended) shifts the cut and mature span by exactly Δ and reproduces the same mature sequence.")]
+    public void Cleavage_ShiftingBasalStem_ShiftsDroshaSiteConsistently()
+    {
+        var baseCut = MiRnaAnalyzer.PredictDroshaDicerCleavage(PriMir21, 0)!.Value;
+
+        // (a) Ruler consistency: the cut is always 11 bp from the basal junction.
+        foreach (int j in new[] { 0, 5, 11, 20 })
+        {
+            var c = MiRnaAnalyzer.PredictDroshaDicerCleavage(PriMir21, j);
+            if (c is null) continue;
+            (c.Value.DroshaCut5Prime - j).Should().Be(11,
+                because: $"Drosha cuts a constant 11 bp from the basal junction (j={j})");
+            c.Value.MatureStart.Should().Be(j + 11, because: "the 5p mature starts at the Drosha cut");
+        }
+
+        // (b) Consistent shift: prepend a Δ-nt basal flank and move the junction by Δ → same mature, coords +Δ.
+        foreach (int delta in new[] { 3, 7, 15 })
+        {
+            string shifted = new string('A', delta) + PriMir21;
+            var c = MiRnaAnalyzer.PredictDroshaDicerCleavage(shifted, delta)!.Value;
+
+            c.MatureSequence.Should().Be(baseCut.MatureSequence,
+                because: $"shifting the basal stem by {delta} and the junction by {delta} reproduces the same mature");
+            c.DroshaCut5Prime.Should().Be(baseCut.DroshaCut5Prime + delta,
+                because: $"the Drosha cut shifts by exactly {delta}");
+            c.MatureStart.Should().Be(baseCut.MatureStart + delta);
+            c.MatureEnd.Should().Be(baseCut.MatureEnd + delta);
         }
     }
 

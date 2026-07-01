@@ -3,13 +3,15 @@
 > ⚠️ **FULL RE-VALIDATION RESET — 2026-06-24.** Every unit below was reset to **⬜ pending** for a fresh end-to-end re-verification (extensive code changes during the limitations-elimination campaign). Prior Stage/State results are **SUPERSEDED**, retained only as historical evidence; the per-unit reports are kept. Registry expanded to **237** (added ONCO-ASCAT-001, RNA-PKPREDICT-001, RNA-PKRECURSIVE-001 — pending first validation).
 >
 > ✅ **PHASE 1 RE-VALIDATION COMPLETE — 2026-06-24.** All **86 / 86** units independently re-validated, one fresh-context session per unit (Stage A description → Stage B implementation, authoritative external sources, hand/reference cross-checks). **Result: 86 / 86 ✅ CLEAN.** Stage-A: 63 PASS / 23 PASS-WITH-NOTES / 0 FAIL. Stage-B: 79 PASS / 7 PASS-WITH-NOTES / 0 FAIL. (Spec-alignment pass 2026-06-24 cleared 6 doc-only PASS-WITH-NOTES → PASS: SEQ-COMPLEX-001, REP-PALIN-001, PRIMER-DESIGN-001, CHROM-SYNT-001, MIRNA-SEED-001, PROTMOTIF-FIND-001 — stale/imprecise TestSpec wording corrected; code unchanged.) One real implementation defect found & fully fixed in-session (PARSE-GENBANK-001 multi-line qualifier reconstruction → spurious-space corruption of wrapped `/translation`); minor test/spec corrections elsewhere (SEQ-COMPLEX-001, TRANS-PROT-001 +3 lock tests, PROTMOTIF-FIND/DOMAIN spec fixes). Full unfiltered suite green at the end (18213 passed / 0 failed). The PASS-WITH-NOTES are documented by-design scope boundaries (declared heuristics, single-codon-AA CAI inclusion, stale-spec wording), not defects. RNA-STRUCT-001's non-csr-PK / tertiary-stabilised-knot residual and ONCO-MHC-001's trained-model gap remain the only LIMITATIONS.md entries (by-design, validated).
+>
+> 🔁 **POST-COMPLETION RE-RESET — 2026-06-25.** The limitation-elimination campaign continued after the 2026-06-24 sweep (Tiers G–N: McCaskill, HMMER E-value/null2/envelope, ntthal dimer/hairpin, MaxEntScan score3/score5, context++/PCT, ABIS, MHCflurry, CheckM markers, miRBase classifier, …). The following **19** previously-CLEAN units were touched again and are reset to **⬜ pending** re-validation: ANNOT-GFF-001, CHROM-CENT-001, CODON-CAI-001, CODON-RARE-001, DISORDER-REGION-001, META-BIN-001, MIRNA-PRECURSOR-001, MIRNA-TARGET-001, ONCO-IMMUNE-001, ONCO-MRD-001, PARSE-EMBL-001, PARSE-FASTA-001, PRIMER-TM-001, PROBE-DESIGN-001, PROBE-VALID-001, PROTMOTIF-DOMAIN-001, REP-STR-001, SPLICE-ACCEPTOR-001, SPLICE-DONOR-001 (ONCO-MHC-001 was already pending). Their per-unit reports are kept as historical evidence.
 
 Independent re-validation of the 86 implemented (☑) test units, one fresh session per unit.
 Protocol: [VALIDATION_PROTOCOL.md](VALIDATION_PROTOCOL.md).
 Per-stage: ✅ PASS · 🟡 PASS-WITH-NOTES · ❌ FAIL · ⬜ pending.
 State (end of session): ✅ CLEAN (fully functional) · 🔧 LIMITED (see report) · ⬜ pending.
 
-**Progress:** 86 / 86 ✅ CLEAN — Phase 1 re-validation COMPLETE 2026-06-24 (0 FAIL, 0 LIMITED; 1 defect found & fixed: PARSE-GENBANK-001).
+**Progress:** 86 / 86 ✅ CLEAN — Phase 1 re-validation COMPLETE 2026-06-24 (0 FAIL, 0 LIMITED; 1 defect found & fixed: PARSE-GENBANK-001). — **NOTE 2026-06-25:** 19 of these units were changed again by later campaign tiers (G–N) and are re-reset to ⬜ pending below; first-time validation is also pending for the 21 new units in *New units (campaign)*. Re-validation count is therefore **no longer 86/86**.
 
 > The 86 per-unit validation reports were committed once for provenance and then
 > consolidated into this ledger + [FINDINGS_REGISTER.md](FINDINGS_REGISTER.md).
@@ -51,14 +53,14 @@ State (end of session): ✅ CLEAN (fully functional) · 🔧 LIMITED (see report
 | 21 | PRIMER-TM-001 | MolTools | 🟡 | ✅ | ✅ CLEAN | reports/PRIMER-TM-001.md |
 | 22 | PRIMER-DESIGN-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/PRIMER-DESIGN-001.md |
 | 23 | PRIMER-STRUCT-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/PRIMER-STRUCT-001.md |
-| 24 | PROBE-DESIGN-001 | MolTools | 🟡 | ✅ | ✅ CLEAN | reports/PROBE-DESIGN-001.md |
+| 24 | PROBE-DESIGN-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/PROBE-DESIGN-001.md |
 | 25 | PROBE-VALID-001 | MolTools | 🟡 | ✅ | ✅ CLEAN | reports/PROBE-VALID-001.md |
 | 26 | RESTR-FIND-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/RESTR-FIND-001.md |
 | 27 | RESTR-DIGEST-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/RESTR-DIGEST-001.md |
 | 28 | ANNOT-ORF-001 | Annotation | ✅ | 🟡 | ✅ CLEAN | reports/ANNOT-ORF-001.md |
 | 29 | ANNOT-GENE-001 | Annotation | ✅ | ✅ | ✅ CLEAN | reports/ANNOT-GENE-001.md |
 | 30 | ANNOT-PROM-001 | Annotation | ✅ | ✅ | ✅ CLEAN | reports/ANNOT-PROM-001.md |
-| 31 | ANNOT-GFF-001 | Annotation | 🟡 | ✅ | ✅ CLEAN | reports/ANNOT-GFF-001.md |
+| 31 | ANNOT-GFF-001 | Annotation | ✅ | ✅ | ✅ CLEAN | reports/ANNOT-GFF-001.md |
 | 32 | KMER-COUNT-001 | K-mer | ✅ | ✅ | ✅ CLEAN | reports/KMER-COUNT-001.md |
 | 33 | KMER-FREQ-001 | K-mer | ✅ | ✅ | ✅ CLEAN | reports/KMER-FREQ-001.md |
 | 34 | KMER-FIND-001 | K-mer | ✅ | ✅ | ✅ CLEAN | reports/KMER-FIND-001.md |
@@ -76,7 +78,7 @@ State (end of session): ✅ CLEAN (fully functional) · 🔧 LIMITED (see report
 | 46 | POP-FST-001 | PopGen | ✅ | ✅ | ✅ CLEAN | reports/POP-FST-001.md |
 | 47 | POP-LD-001 | PopGen | ✅ | ✅ | ✅ CLEAN | reports/POP-LD-001.md |
 | 48 | CHROM-TELO-001 | Chromosome | ✅ | ✅ | ✅ CLEAN | reports/CHROM-TELO-001.md |
-| 49 | CHROM-CENT-001 | Chromosome | 🟡 | 🟡 | ✅ CLEAN | reports/CHROM-CENT-001.md |
+| 49 | CHROM-CENT-001 | Chromosome | ✅ | ✅ | ✅ CLEAN | reports/CHROM-CENT-001.md |
 | 50 | CHROM-KARYO-001 | Chromosome | ✅ | ✅ | ✅ CLEAN | reports/CHROM-KARYO-001.md |
 | 51 | CHROM-ANEU-001 | Chromosome | ✅ | ✅ | ✅ CLEAN | reports/CHROM-ANEU-001.md |
 | 52 | CHROM-SYNT-001 | Chromosome | ✅ | ✅ | ✅ CLEAN | reports/CHROM-SYNT-001.md |
@@ -86,44 +88,65 @@ State (end of session): ✅ CLEAN (fully functional) · 🔧 LIMITED (see report
 | 56 | META-BETA-001 | Metagenomics | ✅ | ✅ | ✅ CLEAN | reports/META-BETA-001.md |
 | 57 | META-BIN-001 | Metagenomics | 🟡 | 🟡 | ✅ CLEAN | reports/META-BIN-001.md |
 | 58 | CODON-OPT-001 | Codon | ✅ | ✅ | ✅ CLEAN | reports/CODON-OPT-001.md |
-| 59 | CODON-CAI-001 | Codon | 🟡 | ✅ | ✅ CLEAN | reports/CODON-CAI-001.md |
+| 59 | CODON-CAI-001 | Codon | ✅ | ✅ | ✅ CLEAN | reports/CODON-CAI-001.md |
 | 60 | CODON-RARE-001 | Codon | 🟡 | ✅ | ✅ CLEAN | reports/CODON-RARE-001.md |
 | 61 | CODON-USAGE-001 | Codon | 🟡 | ✅ | ✅ CLEAN | reports/CODON-USAGE-001.md |
 | 62 | TRANS-CODON-001 | Translation | ✅ | ✅ | ✅ CLEAN | reports/TRANS-CODON-001.md |
 | 63 | TRANS-PROT-001 | Translation | ✅ | 🟡 | ✅ CLEAN | reports/TRANS-PROT-001.md |
-| 64 | PARSE-FASTA-001 | FileIO | ✅ | 🟡 | ✅ CLEAN | reports/PARSE-FASTA-001.md |
-| 65 | PARSE-FASTQ-001 | FileIO | ✅ | 🟡 | ✅ CLEAN | reports/PARSE-FASTQ-001.md |
+| 64 | PARSE-FASTA-001 | FileIO | ✅ | ✅ | ✅ CLEAN | reports/PARSE-FASTA-001.md |
+| 65 | PARSE-FASTQ-001 | FileIO | ✅ | ✅ | ✅ CLEAN | reports/PARSE-FASTQ-001.md |
 | 66 | PARSE-BED-001 | FileIO | ✅ | ✅ | ✅ CLEAN | reports/PARSE-BED-001.md |
 | 67 | PARSE-VCF-001 | FileIO | 🟡 | ✅ | ✅ CLEAN | reports/PARSE-VCF-001.md |
 | 68 | PARSE-GFF-001 | FileIO | ✅ | ✅ | ✅ CLEAN | reports/PARSE-GFF-001.md |
 | 69 | PARSE-GENBANK-001 | FileIO | ✅ | 🟡 | ✅ CLEAN (fixed multi-line qualifier wrap) | reports/PARSE-GENBANK-001.md |
-| 70 | PARSE-EMBL-001 | FileIO | ✅ | 🟡 | ✅ CLEAN | reports/PARSE-EMBL-001.md |
+| 70 | PARSE-EMBL-001 | FileIO | ✅ | ✅ | ✅ CLEAN | reports/PARSE-EMBL-001.md |
 | 71 | RNA-STRUCT-001 | RnaStructure | ✅ | ✅ | ✅ CLEAN | reports/RNA-STRUCT-001.md |
 | 72 | RNA-STEMLOOP-001 | RnaStructure | ✅ | ✅ | ✅ CLEAN | reports/RNA-STEMLOOP-001.md |
 | 73 | RNA-ENERGY-001 | RnaStructure | ✅ | ✅ | ✅ CLEAN | reports/RNA-ENERGY-001.md |
 | 74 | MIRNA-SEED-001 | MiRNA | ✅ | ✅ | ✅ CLEAN | reports/MIRNA-SEED-001.md |
-| 75 | MIRNA-TARGET-001 | MiRNA | ✅ | 🟡 | ✅ CLEAN | reports/MIRNA-TARGET-001.md |
-| 76 | MIRNA-PRECURSOR-001 | MiRNA | 🟡 | 🟡 | ✅ CLEAN | reports/MIRNA-PRECURSOR-001.md |
+| 75 | MIRNA-TARGET-001 | MiRNA | ✅ | ✅ | ✅ CLEAN (re-validated 2026-06-26: `TA_3UTR = log10(N)`, N = **non-overlapping** 8mer+7mer-m8+7mer-A1 sites — confirmed verbatim vs Garcia 2011 Online Methods PMC3190056 + Agarwal 2015 Table 1 + TargetScan 7.0 perl. Found & fully fixed a non-overlapping over-count on periodic cores; +CTX-TA-009 lock; pre-existing site/scoring surface still holds; residual PCT/SPS/Len_ORF/ORF8m caller-supplied) | reports/MIRNA-TARGET-001.md |
+| 76 | MIRNA-PRECURSOR-001 | MiRNA | ✅ | ✅ | ✅ CLEAN | reports/MIRNA-PRECURSOR-001.md |
 | 77 | SPLICE-DONOR-001 | Splicing | ✅ | ✅ | ✅ CLEAN | reports/SPLICE-DONOR-001.md |
-| 78 | SPLICE-ACCEPTOR-001 | Splicing | 🟡 | ✅ | ✅ CLEAN | reports/SPLICE-ACCEPTOR-001.md |
+| 78 | SPLICE-ACCEPTOR-001 | Splicing | ✅ | ✅ | ✅ CLEAN | reports/SPLICE-ACCEPTOR-001.md |
 | 79 | SPLICE-PREDICT-001 | Splicing | ✅ | ✅ | ✅ CLEAN | reports/SPLICE-PREDICT-001.md |
 | 80 | DISORDER-PRED-001 | ProteinPred | ✅ | ✅ | ✅ CLEAN | reports/DISORDER-PRED-001.md |
 | 81 | DISORDER-REGION-001 | ProteinPred | 🟡 | ✅ | ✅ CLEAN | reports/DISORDER-REGION-001.md |
 | 82 | PROTMOTIF-FIND-001 | ProteinMotif | ✅ | ✅ | ✅ CLEAN | reports/PROTMOTIF-FIND-001.md |
 | 83 | PROTMOTIF-PROSITE-001 | ProteinMotif | ✅ | ✅ | ✅ CLEAN | reports/PROTMOTIF-PROSITE-001.md |
-| 84 | PROTMOTIF-DOMAIN-001 | ProteinMotif | 🟡 | ✅ | ✅ CLEAN | reports/PROTMOTIF-DOMAIN-001.md |
+| 84 | PROTMOTIF-DOMAIN-001 | ProteinMotif | ✅ | ✅ | ✅ CLEAN | reports/PROTMOTIF-DOMAIN-001.md |
 | 85 | EPIGEN-CPG-001 | Epigenetics | ✅ | ✅ | ✅ CLEAN | reports/EPIGEN-CPG-001.md |
 | 86 | ONCO-IMMUNE-001 | Oncology | 🟡 | ✅ | ✅ CLEAN | reports/ONCO-IMMUNE-001.md |
 
 ## New units (created during the limitations-elimination campaign)
 
-First-time validation of the 3 units added while eliminating LIMITATIONS.md items. Same protocol.
+First-time validation of the **24** units added while eliminating LIMITATIONS.md items (the original 3 below + **21** net-new algorithms from the later campaign tiers — McCaskill accessibility, Plan7 HMMER, ntthal dimer/hairpin Tm, MHCflurry NN, SMM/BIMAS, ν-SVR, CheckM, TETRA, MaxEntScan score3/score5, context++/PCT, pre-miRNA classifier, Drosha/Dicer, approximate TRF, α-satellite, HOR). Same protocol; all ⬜ pending first validation.
 
 | Unit ID | Area | Stage A | Stage B | State | Report |
 |---------|------|:---:|:---:|:---:|--------|
 | ONCO-ASCAT-001 | Oncology | ✅ | ✅ | ✅ CLEAN | reports/ONCO-ASCAT-001.md |
 | RNA-PKPREDICT-001 | RnaStructure | ✅ | ✅ | ✅ CLEAN | covered in reports/RNA-STRUCT-001.md (H-type csr-PK predictor) |
 | RNA-PKRECURSIVE-001 | RnaStructure | ✅ | ✅ | ✅ CLEAN | covered in reports/RNA-STRUCT-001.md (recursive pknotsRG grammar) |
+| RNA-ACCESS-001 | RnaStructure | ✅ | ✅ | ✅ CLEAN | reports/RNA-ACCESS-001.md |
+| PROTMOTIF-HMM-001 | ProteinMotif | ✅ | ✅ | ✅ CLEAN | reports/PROTMOTIF-HMM-001.md |
+| PRIMER-NNTM-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/PRIMER-NNTM-001.md |
+| PRIMER-HAIRPIN-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/PRIMER-HAIRPIN-001.md |
+| PRIMER-DIMER-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/PRIMER-DIMER-001.md |
+| PROBE-LNATM-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/PROBE-LNATM-001.md |
+| PROBE-EVALUE-001 | MolTools | ✅ | ✅ | ✅ CLEAN | reports/PROBE-EVALUE-001.md |
+| MHC-NN-001 | Oncology | ✅ | ✅ | ✅ CLEAN | reports/MHC-NN-001.md |
+| MHC-MATRIX-001 | Oncology | ✅ | ✅ | ✅ CLEAN | reports/MHC-MATRIX-001.md |
+| IMMUNE-NUSVR-001 | Oncology | ✅ | ✅ | ✅ CLEAN | reports/IMMUNE-NUSVR-001.md |
+| META-CHECKM-001 | Metagenomics | ✅ | ✅ | ✅ CLEAN | reports/META-CHECKM-001.md |
+| META-TETRA-001 | Metagenomics | ✅ | ✅ | ✅ CLEAN | reports/META-TETRA-001.md |
+| SPLICE-MAXENT3-001 | Splicing | ✅ | ✅ | ✅ CLEAN | reports/SPLICE-MAXENT3-001.md |
+| SPLICE-MAXENT5-001 | Splicing | ✅ | ✅ | ✅ CLEAN | reports/SPLICE-MAXENT5-001.md |
+| MIRNA-CONTEXT-001 | MiRNA | ✅ | ✅ | ✅ CLEAN | reports/MIRNA-CONTEXT-001.md |
+| MIRNA-PCT-001 | MiRNA | ✅ | ✅ | ✅ CLEAN | reports/MIRNA-PCT-001.md |
+| MIRNA-CLASSIFY-001 | MiRNA | ✅ | ✅ | ✅ CLEAN | reports/MIRNA-CLASSIFY-001.md |
+| MIRNA-CLEAVAGE-001 | MiRNA | ✅ | 🟡 | ✅ CLEAN | reports/MIRNA-CLEAVAGE-001.md |
+| REP-APPROX-001 | Repeats | ✅ | ✅ | ✅ CLEAN | reports/REP-APPROX-001.md |
+| CHROM-ALPHASAT-001 | Chromosome | ✅ | ✅ | ✅ CLEAN | reports/CHROM-ALPHASAT-001.md |
+| CHROM-HOR-001 | Chromosome | ✅ | ✅ | ✅ CLEAN | reports/CHROM-HOR-001.md |
 
 ---
 
@@ -286,7 +309,7 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 135 | ONCO-PLOIDY-001 | Oncology | ✅ | ✅ | ✅ CLEAN | reports/ONCO-PLOIDY-001.md |
 | 136 | ONCO-CLONAL-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
 | 137 | ONCO-NEO-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
-| 138 | ONCO-MHC-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
+| 138 | ONCO-MHC-001 | Oncology | ✅ | ✅ | ✅ CLEAN | reports/ONCO-MHC-001.md (re-validated 2026-06-26 after the 8–11 → 8–14 widening, commit 66c24491. Stage A PASS: 8–14 = full NetMHCpan-4.1 class I window — Reynisson 2020 PMC7319546 "length range goes from 8 to 14 amino acids" — retrieved this session; MHCflurry `left_pad_centered_right_pad` 5–15 read from `mhcflurry` 2.1.5 source; prior 8–11 PASS-WITH-NOTES divergence resolved. Stage B PASS: lengths 12/13/14 IC50 reproduced vs the exact embedded net `PAN-CLASS1-1-3ed9fb2d2dcc9803` oracle to ≤ 9e-7 rel (25274.91 / 32389.13 / 32972.18 nM); 8/9/10-mer goldens byte-identical — `MhcflurryAffinityPredictor.cs` untouched by the fix; classification thresholds/chain unchanged. Full suite 18861/0. No defect; no change this session) |
 | 139 | ONCO-CTDNA-001 | Oncology | ⬜ | ⬜ | ⬜ pending | - |
 | 140 | ONCO-MRD-001 | Oncology | 🟡 | ✅ | ✅ CLEAN | reports/ONCO-MRD-001.md |
 | 141 | ONCO-CHIP-001 | Oncology | ✅ | ✅ | ✅ CLEAN | reports/ONCO-CHIP-001.md |
@@ -322,7 +345,7 @@ Per-stage: ✅ PASS · 🟡 PASS-WITH-NOTES · ❌ FAIL. State: ✅ CLEAN · �
 |---|---------|--------------------------|:---:|:---:|:---:|--------|
 | 1 | ANNOT-GENE-001 | Reverse-strand Shine-Dalgarno / RBS reporting (`FindRibosomeBindingSitesBothStrands`; `forwardPos = len − revPos − motifLen` mapping) | ⬜ | ⬜ | ⬜ pending | - |
 | 2 | RESTR-DIGEST-001 | Circular-molecule digest (`Digest(DnaSequence, MoleculeTopology, params string[])`; `MoleculeTopology{Linear,Circular}`; circular k sites → k fragments, origin-spanning join len `(len−lastCut)+firstCut`; 0→1 uncut, 1→1 linearized) | ⬜ | ⬜ | ⬜ pending | - |
-| 3 | PARSE-EMBL-001 | INSDC location forms on `EmblParser.ParseLocation`: remote ref `accession[.version]:descriptor` (`RemoteAccession`/`RemoteVersion`/`IsRemote`), site-between `n^m` (`IsBetween`), deprecated single-period `n.m` (`IsSingleBaseFromRange`). Sourced verbatim to INSDC FT Definition 3.4.2.1/3.4.3 (EBI `FT_current.txt`). Bare forms correct + no version-digit leak (multi-digit `.12` & RefSeq `NC_000001.11` independently confirmed); ordinary spans, `complement`/`join`, `<..>` partials, `""`→`"` unescaping, shared GenBank path all unchanged. NOTE: remote ref *inside* `complement(...)`/`join(...)` not captured (anchored `^` regex) — pre-existing, matches GenBank, out of enhancement scope. | ⬜ | ⬜ | ⬜ pending | - |
+| 3 | PARSE-EMBL-001 | INSDC location forms on `EmblParser.ParseLocation`: top-level remote ref `accession[.version]:descriptor` (`RemoteAccession`/`RemoteVersion`/`IsRemote`), remote ref NESTED in `complement(...)`/`join(...)` captured per-segment in `Location.RemoteParts` (`ExtractNestedRemoteReferences`), site-between `n^m` (`IsBetween`), deprecated single-period `n.m` (`IsSingleBaseFromRange`), `<..>` partials, `complement`/`join`/`order`, ordinary spans. Re-validated fresh 2026-06-25 verbatim to The DDBJ/ENA/GenBank FT Definition §3.4.2.1/§3.4.2.2/§3.4.3 (EBI `FT_current.txt`). All representative INSDC strings parse to hand-derived expected values with no version-digit leak (multi-digit `.12` & RefSeq `NC_000001.11` confirmed). `""`→`"` unescaping + shared GenBank path confirmed unaffected. N2: shared-helper splits `Parts` of `>`-partial spans into two single-base parts (Start/End/flag still correct) — pre-existing, out of scope. Boundary: remote entry sequence not fetched (needs network/DB) — documented, acceptable. **Enhancement 2026-06-26:** opt-in remote-aware FULL assembly `FeatureLocationHelper.ResolveLocationSequence` / `EmblParser.ResolveLocationSequence` with a **caller-supplied `RemoteSequenceResolver`** (library does no network I/O; caller supplies the fetch, library does the assembly) — segment order under `join`/`order`, reverse-complement under `complement(...)` (`complement(join(a,b))`=`join(complement(b),complement(a))`), 1-based inclusive slicing, `<`/`>` partials; INSDC §3.4/§3.5 re-retrieved this session (insdc.org + ddbj.nig.ac.jp); 17 hand-derived RESV tests. Re-validated fresh 2026-06-26: INSDC §3.4/§3.5 confirmed verbatim (insdc.org + DDBJ mirror, this session); an independent console probe with DISTINCT fixtures reproduced 17 hand-derived assembled strings exactly — listed order, 1-based inclusive slicing, whole-location & per-segment reverse-complement, the `complement(join(a,b))==join(complement(b),complement(a))` order-reversal equivalence (small + large), remote slicing with version pass-through (present/absent), `<`/`>` partials verbatim, null/missing resolver → empty remote with local spans intact. No `System.Net`/`HttpClient` in `Seqeron.Genomics.IO`. Pre-existing `ParseLocation` surface provably untouched (additive diff) and still green. Full suite 18861 passed / 0 failed. | ✅ | ✅ | ✅ CLEAN | reports/PARSE-EMBL-001.md |
 | 4 | ALIGN-MULTI-001 | Guide-tree **progressive** MSA (`MultipleAlignProgressive`) added beside the unchanged star `MultipleAlign`: all-pairs NW identity distances (d = 1 − identical-cols/aln-len) → UPGMA guide tree (proportional size-weighted averaging, lowest-index tie-break) → profile-profile NW over columns with sum-of-pairs profile scoring + "once a gap, always a gap". Sources this session: Feng & Doolittle 1987 (PubMed 3118049); Wikipedia "Multiple sequence alignment" §Progressive alignment (WebFetched — UPGMA/NJ guide tree, most-similar-first, "once aligned its alignment is not considered further"); Wikipedia UPGMA (WebFetched — proportional formula `d=(|A|·dAX+|B|·dBX)/(|A|+|B|)`, smallest-distance merge). Hand-derived end-to-end & re-confirmed by independent probe: ["ACGT","ACGT","AGT"] → dist d(0,1)=0/d(·,2)=0.25, merge (0,1) then add seq2 → rows ACGT/ACGT/**A-GT**, SP 8. Discriminating ["AAGAA","AACAA","GGTGG","GGTGG"]: progressive = gap-free len-5 SP −12 vs star gapped len-6 SP −13 (genuinely differ; progressive is the optimal). Profile-level once-a-gap independently derived ["ACGT","ACGT","AGT","AGT"] → ACGT/ACGT/A-GT/A-GT SP 15. Added strict M12 (profile-level once-a-gap, exact columns); mutation check (fill inserted gap column) kills 4 tests incl. M12. Star method byte-for-byte unchanged (S01). | ⬜ | ⬜ | ⬜ pending | - |
 | 5 | CRISPR-GUIDE-001 | **Doench 2014 "Rule Set 1" on-target model** (`CalculateOnTargetDoench2014`, commit 129c2ca). Re-grounded **independently this session** by **re-downloading the reference `doenchScore.py`** (CRISPOR, github.com/maximilianh/crisporWebsite) to `/tmp` and reading it directly — NOT trusting the repo's copied constants. **30-mer layout** confirmed (4 up + 20 protospacer + 3 PAM + 3 down; GC over `seq[4:24]`, features by raw 0-based offset). **Intercept 0.59763615, gcLow −0.2026259 (≤10), gcHigh −0.1665878 (>10), GC term `abs(10−gc)·gcWeight`** all match. **Full tuple-by-tuple diff of the 70-entry table: EXACT MATCH (ordered), ∅ in ref-not-repo, ∅ in repo-not-ref — NO transcription error** (incl. the reference's own `(24,AG/CG/TG)`=`(24,A/C/T)` and `(26,GT)`=`(27,T)` quirks). Spot-checked weights vs reference file: (22,T)−0.8770074, (23,C)−0.8762358, (11,GG)−1.5169074, (20,GG)−0.7822076, (21,TC)−1.029693, (28,GG)−0.69774, (29,G)0.38634258, (6,C)−0.7411813, (17,G)−0.6780964. **Worked examples reproduced from scratch in Python from the coefficients** (not from the repo test literals): `TATAGCTGCGATCTGAGGTAGGGAGGGACC`→0.713089346955 vs published 0.713089368437 (Δ2.2e-08); `TCCGCACCTGTCACGGTCGGGGCTTGGCGC`→0.018983843193 vs 0.0189838463593 (Δ3.2e-09). M-003 all-A independently reproduced 4.4338168085440035. **Test gate real:** intercept +0.001 → score shift ~0.020 ≫ tol 1e-4, so a wrong intercept/weight fails M-001/M-002 (mutation-confirmed). Edge handling (wrong-length guard, lowercase, non-ACGT throw, 0–100 scaling) correct; added NGG-PAM guard is a documented SpCas9 stricter-contract divergence, not a defect. No code/test change required. | ⬜ | ⬜ | ⬜ pending | - |
 | 6 | CRISPR-OFF-001 | **MIT/Hsu 2013 off-target model** (`CalculateMitHitScore` single-hit + `CalculateMitSpecificityScore` aggregate, commit 129c2ca) + the uncommitted W-orientation guard test. Primary source re-retrieved **independently this session**: **re-downloaded the reference `crispor.py`** (CRISPOR, github.com/maximilianh/crisporWebsite) — read `calcHitScore`/`calcMitGuideScore` and `hitScoreM` directly; docstring attributes the scheme to **"Scores of single hits" on crispr.mit.edu/about, "# The Patrick Hsu weighting scheme"** (Hsu et al. Nat Biotechnol 31:827, 2013, PMID 23873081). **W vector diffed element-by-element vs `hitScoreM` — EXACT MATCH, all 20:** `[0,0,0.014,0,0,0.395,0.317,0,0.389,0.079,0.445,0.508,0.613,0.851,0.732,0.828,0.615,0.804,0.685,0.583]`. **Orientation pinned from the source** (not the code): `calcHitScore` indexes `hitScoreM[pos]`, `pos` 0..19 over the protospacer 5'→3'; index 0 = PAM-distal (5'), index 19 = PAM-proximal (3'/seed) — the high-weight tail (max W[13]=0.851) is the PAM-proximal seed, consistent with Wikipedia "Off-target genome editing" (PAM-proximal seed less mismatch-tolerant). **Formula re-derived from scratch in Python from the source** (NOT read off the C# array): `score1=Π(1−W[i])`, `score2=1/(((19−meanInterMmDist)/19)·4+1)` (≥2mm else 1), `score3=1/nmm²` (≥1mm else 1), `×100`; aggregate `100/(100+Σ)·100`. Reproduced every expected test value: perfect→100; W[0]→100; pos5(0.395)→60.5; pos19(0.583)→41.7; mm{5,15}→score1 0.10406·score2 0.345454·score3 0.25·100=0.8987; agg[60.5]→62.30529595; agg[60.5,41.7]→49.45598417. **Orientation guard test verified source-correct & is a genuine reversal-detector:** pos13(W=0.851)→14.9 (reversed vector would give W[6]=0.317→68.3), pos0(W=0)→100 (reversed→W[19]=0.583→41.7) — both re-derived independently incl. the reversed-vector counterfactual; KEPT as-is and committed. No transcription/orientation defect; no green-washing; no code/test change beyond committing the in-tree test. Off-target fixture 39 tests all green; full unfiltered suite 6773 passed / 0 failed. | ⬜ | ⬜ | ⬜ pending | - |

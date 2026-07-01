@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Seqeron.Genomics.Core;
 
 namespace Seqeron.Genomics.IO;
 
@@ -22,6 +23,32 @@ public static class QualityScoreAnalyzer
         Phred64,
         /// <summary>Auto-detect encoding from data.</summary>
         Auto
+    }
+
+    /// <summary>
+    /// Confidence of a file-level <see cref="DetectEncoding(IEnumerable{string})"/> result.
+    /// </summary>
+    public enum EncodingConfidence
+    {
+        /// <summary>
+        /// Proven from the data: at least one quality character is below ASCII 64, which is outside the
+        /// Phred+64 range (ASCII 64-126), so the encoding can only be Phred+33 (Cock et al., 2010).
+        /// </summary>
+        Definitive,
+
+        /// <summary>
+        /// Inferred heuristically: no character below ASCII 64, and at least one character above ASCII 74
+        /// (Phred 41, the Illumina 1.8+ Phred+33 ceiling), which is implausible under Phred+33, so the
+        /// encoding is taken to be Phred+64. Phred+64 can never be <i>proven</i>, only inferred, because
+        /// every Phred+64 quality string is also a syntactically valid Phred+33 string.
+        /// </summary>
+        Inferred,
+
+        /// <summary>
+        /// Undeterminable: every quality character lies in the Phred+33/Phred+64 overlap range
+        /// (ASCII 64-74). The encoding is genuinely ambiguous and the result defaults to Phred+33.
+        /// </summary>
+        Ambiguous
     }
 
     /// <summary>
@@ -60,6 +87,17 @@ public static class QualityScoreAnalyzer
         int OriginalLength,
         int FinalLength);
 
+    /// <summary>
+    /// Result of file-level quality-encoding detection: the chosen <see cref="QualityEncoding"/>, how
+    /// firmly it is established, and the ASCII span and character count the decision was based on.
+    /// </summary>
+    public readonly record struct EncodingDetectionResult(
+        QualityEncoding Encoding,
+        EncodingConfidence Confidence,
+        int MinAscii,
+        int MaxAscii,
+        long CharactersExamined);
+
     // FASTQ encoding offsets and valid Phred score ranges per Cock et al. (2010),
     // Nucleic Acids Research 38(6):1767-1771, https://doi.org/10.1093/nar/gkp1137
     // Sanger/Phred+33: ASCII 33-126 -> Phred 0-93 (offset 33).
@@ -69,6 +107,11 @@ public static class QualityScoreAnalyzer
     private const int Phred33MaxScore = 93;
     private const int Phred64MaxScore = 62;
     private const int PhredMinScore = 0;
+
+    // Highest quality character plausible under Phred+33: ASCII 74 ('J') = Phred 41, the Illumina 1.8+
+    // ceiling (Cock et al., 2010). With no character below ASCII 64, a character ABOVE this indicates
+    // Phred+64. Mirrors the single-string DetectEncoding threshold so per-read results are unchanged.
+    private const int Phred33PlausibleMaxChar = 74;
 
     // Q20/Q30 quality thresholds (inclusive). Q30 = 99.9% base-call accuracy (1-in-1000 error)
     // and is the NGS run-quality benchmark; Q20 = 99% (1-in-100). Per Illumina, "Sequencing
@@ -238,7 +281,84 @@ public static class QualityScoreAnalyzer
         if (minChar >= 64 && maxChar > 74) // High range suggests Phred+64
             return QualityEncoding.Phred64;
 
+        // minChar >= 64 here (and maxChar <= 74): every character is in the Phred+33/Phred+64 overlap
+        // range, so the encoding is genuinely ambiguous. Strict mode throws rather than defaulting.
+        if (minChar >= 64)
+            LimitationPolicy.Enforce("PARSE-FASTQ-001");
+
         return QualityEncoding.Phred33; // Default to modern format
+    }
+
+    /// <summary>
+    /// Detects the quality encoding across a whole set of reads (the FASTQ file as a unit), which
+    /// disambiguates the case the single-string <see cref="DetectEncoding(string)"/> cannot: a read
+    /// confined to the Phred+33/Phred+64 overlap range (ASCII 64-74) is resolved by the rest of the
+    /// file. The global minimum and maximum ASCII over every character of every quality string are
+    /// scanned in one pass and the Cock et al. (2010) ranges applied:
+    /// <list type="bullet">
+    /// <item>any character &lt; ASCII 64 ⇒ Phred+33 (<see cref="EncodingConfidence.Definitive"/>; that
+    /// character is outside the Phred+64 range);</item>
+    /// <item>otherwise a character &gt; ASCII 74 ⇒ Phred+64 (<see cref="EncodingConfidence.Inferred"/>;
+    /// above the Phred+33 ceiling with no low character);</item>
+    /// <item>otherwise every character lies in the overlap range ⇒ Phred+33 default
+    /// (<see cref="EncodingConfidence.Ambiguous"/>).</item>
+    /// </list>
+    /// Null and empty quality strings are skipped; an input with no characters yields Phred+33 /
+    /// <see cref="EncodingConfidence.Ambiguous"/> with <c>CharactersExamined = 0</c>. For a single read
+    /// the chosen encoding is identical to <see cref="DetectEncoding(string)"/> — only the file-level
+    /// aggregation and the confidence signal are new.
+    /// </summary>
+    /// <param name="qualityStrings">The quality lines of the reads to consider together.</param>
+    /// <returns>The detected encoding with its confidence and the ASCII span examined.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="qualityStrings"/> is null.</exception>
+    public static EncodingDetectionResult DetectEncoding(IEnumerable<string> qualityStrings)
+    {
+        if (qualityStrings is null)
+            throw new ArgumentNullException(nameof(qualityStrings));
+
+        int min = int.MaxValue;
+        int max = int.MinValue;
+        long count = 0;
+
+        foreach (var qualityString in qualityStrings)
+        {
+            if (string.IsNullOrEmpty(qualityString))
+                continue;
+            foreach (char c in qualityString)
+            {
+                if (c < min) min = c;
+                if (c > max) max = c;
+                count++;
+            }
+        }
+
+        if (count == 0)
+            return new EncodingDetectionResult(QualityEncoding.Phred33, EncodingConfidence.Ambiguous, 0, 0, 0);
+
+        QualityEncoding encoding;
+        EncodingConfidence confidence;
+        if (min < Phred64Offset)
+        {
+            // A character below ASCII 64 cannot occur in Phred+64 (range 64-126) -> proven Phred+33.
+            encoding = QualityEncoding.Phred33;
+            confidence = EncodingConfidence.Definitive;
+        }
+        else if (max > Phred33PlausibleMaxChar)
+        {
+            // No sub-64 character and a character above the Phred+33 ceiling -> inferred Phred+64.
+            encoding = QualityEncoding.Phred64;
+            confidence = EncodingConfidence.Inferred;
+        }
+        else
+        {
+            // Every character is in the overlap range (ASCII 64-74) -> genuinely ambiguous.
+            // Strict mode throws rather than handing back a defaulted Phred+33 guess.
+            LimitationPolicy.Enforce("PARSE-FASTQ-001");
+            encoding = QualityEncoding.Phred33;
+            confidence = EncodingConfidence.Ambiguous;
+        }
+
+        return new EncodingDetectionResult(encoding, confidence, min, max, count);
     }
 
     /// <summary>

@@ -7,7 +7,7 @@ using FluentAssertions;
 using Seqeron.Genomics.Analysis;
 using static Seqeron.Genomics.Analysis.ProteinMotifFinder;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the ProteinMotif area — TRANSMEMBRANE HELIX prediction

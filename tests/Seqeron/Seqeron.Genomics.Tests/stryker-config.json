@@ -27,7 +27,7 @@
     "ignore-mutations": [
       "string"
     ],
-    "concurrency": 1,
+    "concurrency": 4,
     "language-version": "latest",
     "additional-timeout": 5000
   }

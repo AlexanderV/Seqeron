@@ -163,6 +163,76 @@ public static class ChromosomeAnalyzer
         double MeanIntraHorIdentity);
 
     /// <summary>
+    /// Monomer A/B "box" type of an alpha-satellite monomer (McNulty &amp; Sullivan 2018, PMC6121732).
+    /// B-type monomers carry the 17-bp CENP-B box (J2, D1, W1–W3, R1); A-type monomers carry the
+    /// pJα box instead (J1, D2, W4, W5, M1, R2).
+    /// </summary>
+    public enum AlphaSatelliteBoxType
+    {
+        /// <summary>Neither an A- nor a B-type monomer could be assigned (not alpha-satellite, or below threshold).</summary>
+        None,
+        /// <summary>A-type monomer (pJα box; J1, D2, W4, W5, M1, R2). No CENP-B box.</summary>
+        A,
+        /// <summary>B-type monomer (CENP-B box; J2, D1, W1–W3, R1).</summary>
+        B
+    }
+
+    /// <summary>
+    /// Suprachromosomal family (SF) of human alpha satellite, per the Shepelev/Alexandrov
+    /// classification (Shepelev et al. 2009, PLOS Genet 5:e1000641; review McNulty &amp; Sullivan
+    /// 2018, PMC6121732). SF1/SF2 are dimeric, SF3 pentameric, SF4 monomeric, SF5 irregular.
+    /// </summary>
+    public enum SuprachromosomalFamily
+    {
+        /// <summary>Not assignable to a single SF (not alpha-satellite, or an SF-ambiguous pattern).</summary>
+        Unknown,
+        /// <summary>The dimeric live family pair (SF1 = J1·J2 or SF2 = D1·D2). The two cannot be
+        /// separated from the bundled CC0 reference (both are A→B dimers); SF-resolved consensus
+        /// monomers are needed to pick SF1 vs SF2.</summary>
+        Sf1OrSf2Dimeric,
+        /// <summary>SF3 — pentameric (W1–W5) live family (e.g. HSA1, 11, 17, X).</summary>
+        Sf3,
+        /// <summary>SF4 — monomeric, single A-type (M1) class (e.g. acrocentric p-arms, HSA Y).</summary>
+        Sf4,
+        /// <summary>SF5 — irregular A/B (R1·R2) alternation (older "dead" pericentromeric layer).</summary>
+        Sf5
+    }
+
+    /// <summary>
+    /// One reference alpha-satellite consensus monomer (bundled CC0 Dfam record).
+    /// </summary>
+    /// <param name="Name">Dfam family name (e.g. "ALRb").</param>
+    /// <param name="Accession">Dfam accession (e.g. "DF000000015").</param>
+    /// <param name="Sequence">Consensus nucleotide sequence (upper-case, may contain N).</param>
+    /// <param name="BoxType">A/B box type of the consensus (A or B).</param>
+    public readonly record struct AlphaSatelliteReferenceMonomer(
+        string Name,
+        string Accession,
+        string Sequence,
+        AlphaSatelliteBoxType BoxType);
+
+    /// <summary>
+    /// Result of <see cref="ChromosomeAnalyzer.AssignSuprachromosomalFamily(string,IReadOnlyList{AlphaSatelliteReferenceMonomer}?)"/>.
+    /// </summary>
+    /// <param name="IsAlphaSatellite">True when at least one monomer matched the bundled
+    /// alpha-satellite reference above the identity threshold.</param>
+    /// <param name="Family">The assigned suprachromosomal family (or
+    /// <see cref="SuprachromosomalFamily.Unknown"/>).</param>
+    /// <param name="MonomersPerUnit">The detected HOR period in monomers (1 = monomeric).</param>
+    /// <param name="BoxTypePattern">Per-monomer A/B box type of the first HOR unit, in order.</param>
+    /// <param name="BestReferenceName">Dfam name of the single best-matching reference monomer
+    /// across the array, or null when no monomer matched.</param>
+    /// <param name="MeanReferenceIdentity">Mean best-match identity (%) to the reference set over
+    /// the array's monomers; NaN when no monomers were assessed.</param>
+    public readonly record struct SuprachromosomalFamilyResult(
+        bool IsAlphaSatellite,
+        SuprachromosomalFamily Family,
+        int MonomersPerUnit,
+        IReadOnlyList<AlphaSatelliteBoxType> BoxTypePattern,
+        string? BestReferenceName,
+        double MeanReferenceIdentity);
+
+    /// <summary>
     /// Synteny block between species.
     /// </summary>
     public readonly record struct SyntenyBlock(
@@ -890,6 +960,268 @@ public static class ChromosomeAnalyzer
 
     #endregion
 
+    #region Suprachromosomal-Family Assignment (opt-in; bundled CC0 reference)
+
+    // Suprachromosomal-family (SF) assignment for a detected alpha-satellite monomer/HOR.
+    //
+    // Reference data (bundled, CC0): three Dfam human alpha-satellite consensus monomers —
+    //   ALR (DF000000029, A-type), ALRa (DF000000014, A-type), ALRb (DF000000015, B-type).
+    //   Provenance + CC0 licence: Resources/README.md. The A/B-box type of each consensus is
+    //   sequence-verifiable: ALRb carries the 17-bp CENP-B box (B-type); ALR/ALRa do not (A-type).
+    //
+    // SF taxonomy (sourced facts):
+    //   - SF1 = J1·J2 DIMERIC; SF2 = D1·D2 DIMERIC; SF3 = W1–W5 PENTAMERIC; SF4 = M1 MONOMERIC;
+    //     SF5 = R1·R2 irregular. (Shepelev et al. 2009, PLOS Genet 5:e1000641;
+    //     review McNulty & Sullivan 2018, PMC6121732.)
+    //   - A-type monomers: J1, D2, W4, W5, M1, R2. B-type monomers: J2, D1, W1–W3, R1.
+    //     "B-type monomers contain CENP-B boxes; A-type contain pJα binding sites." (PMC6121732.)
+    //
+    // Assignment rule (from the two reproducible SF-determining signals — HOR periodicity and the
+    // A/B-box composition of one HOR unit):
+    //   period 5, pattern has B-type then A-type tail (3 B + 2 A in W1–W5 order) → SF3;
+    //   period 1 (monomeric), A-type                                            → SF4;
+    //   period 2, an A-then-B (or B-then-A) dimer                               → {SF1, SF2} (not separable);
+    //   any other A/B mix with no regular period (and ≥1 of each box type)       → SF5;
+    //   otherwise                                                                → Unknown.
+    // SF1 vs SF2 cannot be separated by the bundled CC0 reference (both are dimeric A→B); doing so
+    // needs the SF-resolved consensus monomer library, which is not CC0 — see Resources/README.md.
+
+    /// <summary>Minimum best-match identity (%) of a query monomer to the bundled alpha-satellite
+    /// reference for the monomer to be accepted as alpha-satellite. Alphoid monomers diverge ~16%
+    /// from a consensus and 50–70% from each other (Waye &amp; Willard 1987, NAR 15:6751;
+    /// McNulty &amp; Sullivan 2018, PMC6121732), so a conservative ≥ 60% identity to the closest
+    /// reference monomer is required.</summary>
+    private const double MinReferenceIdentityPercent = 60.0;
+
+    private static readonly Lazy<IReadOnlyList<AlphaSatelliteReferenceMonomer>> BundledReference =
+        new(LoadBundledReferenceCore);
+
+    /// <summary>
+    /// Loads the bundled CC0 alpha-satellite consensus monomer reference (Dfam ALR, ALRa, ALRb).
+    /// These resolve alpha-satellite identity and A-type vs B-type monomer typing.
+    /// Provenance + CC0 (public-domain) licence: see <c>Resources/README.md</c>.
+    /// </summary>
+    /// <returns>The three bundled reference consensus monomers.</returns>
+    public static IReadOnlyList<AlphaSatelliteReferenceMonomer> LoadBundledAlphaSatelliteReference()
+        => BundledReference.Value;
+
+    private static IReadOnlyList<AlphaSatelliteReferenceMonomer> LoadBundledReferenceCore()
+    {
+        const string resourceName = "Seqeron.Genomics.Chromosome.Resources.AlphaSatelliteReference.fasta";
+        var asm = typeof(ChromosomeAnalyzer).Assembly;
+        using var stream = asm.GetManifestResourceStream(resourceName)
+            ?? throw new InvalidOperationException($"Embedded alpha-satellite reference not found: {resourceName}");
+        using var reader = new System.IO.StreamReader(stream);
+
+        var result = new List<AlphaSatelliteReferenceMonomer>(3);
+        string? name = null, accession = null;
+        AlphaSatelliteBoxType boxType = AlphaSatelliteBoxType.None;
+        var seq = new System.Text.StringBuilder();
+
+        void Flush()
+        {
+            if (name is not null)
+                result.Add(new AlphaSatelliteReferenceMonomer(
+                    name, accession ?? "", seq.ToString().ToUpperInvariant(), boxType));
+        }
+
+        string? line;
+        while ((line = reader.ReadLine()) is not null)
+        {
+            if (line.Length == 0)
+                continue;
+
+            if (line[0] == '>')
+            {
+                Flush();
+                seq.Clear();
+                // Header: ">NAME key=value key=value ..."
+                var fields = line[1..].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                name = fields.Length > 0 ? fields[0] : null;
+                accession = null;
+                boxType = AlphaSatelliteBoxType.None;
+                foreach (var f in fields)
+                {
+                    int eq = f.IndexOf('=');
+                    if (eq <= 0) continue;
+                    string key = f[..eq];
+                    string value = f[(eq + 1)..];
+                    if (key == "acc") accession = value;
+                    else if (key == "boxtype")
+                        boxType = value == "B" ? AlphaSatelliteBoxType.B : AlphaSatelliteBoxType.A;
+                }
+            }
+            else
+            {
+                seq.Append(line.Trim());
+            }
+        }
+        Flush();
+
+        if (result.Count == 0)
+            throw new InvalidOperationException("Bundled alpha-satellite reference is empty.");
+
+        return result;
+    }
+
+    /// <summary>
+    /// Assigns the suprachromosomal family (SF) of an alpha-satellite monomer / HOR array.
+    /// <para>
+    /// This is <b>opt-in and additive</b>: it does not change <see cref="DetectAlphaSatellite"/>,
+    /// <see cref="DetectHigherOrderRepeat"/>, <see cref="AnalyzeCentromere"/>, or the Levan
+    /// classification. The array is split into ~171 bp monomers; each monomer is matched against
+    /// the bundled CC0 reference (Dfam ALR/ALRa/ALRb) to confirm alpha-satellite identity and to
+    /// type it A vs B; the HOR period comes from <see cref="DetectHigherOrderRepeat"/>; and the SF
+    /// is assigned from the period + the A/B-box composition of one HOR unit per the
+    /// Shepelev/Alexandrov classification (Shepelev 2009; McNulty &amp; Sullivan 2018, PMC6121732).
+    /// </para>
+    /// <para>
+    /// The bundled reference resolves <see cref="SuprachromosomalFamily.Sf3"/> (pentameric),
+    /// <see cref="SuprachromosomalFamily.Sf4"/> (monomeric A-type), and
+    /// <see cref="SuprachromosomalFamily.Sf5"/> (irregular A/B), and narrows dimeric arrays to
+    /// <see cref="SuprachromosomalFamily.Sf1OrSf2Dimeric"/>. SF1 vs SF2 cannot be separated from
+    /// the CC0 data — see <c>Resources/README.md</c>.
+    /// </para>
+    /// </summary>
+    /// <param name="sequence">Alpha-satellite array (case-insensitive).</param>
+    /// <param name="reference">Reference consensus monomers; defaults to the bundled CC0 set
+    /// (<see cref="LoadBundledAlphaSatelliteReference"/>) when null.</param>
+    /// <returns>A <see cref="SuprachromosomalFamilyResult"/>. For an empty/too-short sequence or a
+    /// sequence that does not match the reference, returns a not-alpha-satellite result with
+    /// <see cref="SuprachromosomalFamily.Unknown"/>.</returns>
+    public static SuprachromosomalFamilyResult AssignSuprachromosomalFamily(
+        string sequence,
+        IReadOnlyList<AlphaSatelliteReferenceMonomer>? reference = null)
+    {
+        var refMonomers = reference ?? LoadBundledAlphaSatelliteReference();
+        if (refMonomers.Count == 0)
+            throw new ArgumentException("Reference monomer set must not be empty.", nameof(reference));
+
+        var empty = (IReadOnlyList<AlphaSatelliteBoxType>)Array.Empty<AlphaSatelliteBoxType>();
+
+        int minLength = AlphaSatelliteMonomerLength;
+        if (string.IsNullOrEmpty(sequence) || sequence.Length < minLength)
+            return new SuprachromosomalFamilyResult(false, SuprachromosomalFamily.Unknown, 0, empty, null, double.NaN);
+
+        string upper = sequence.ToUpperInvariant();
+
+        // 1) Split into consecutive ~171 bp monomers (trailing partial monomer ignored).
+        int monomerCount = upper.Length / AlphaSatelliteMonomerLength;
+        if (monomerCount < 1)
+            return new SuprachromosomalFamilyResult(false, SuprachromosomalFamily.Unknown, 0, empty, null, double.NaN);
+
+        var monomers = new string[monomerCount];
+        for (int i = 0; i < monomerCount; i++)
+            monomers[i] = upper.Substring(i * AlphaSatelliteMonomerLength, AlphaSatelliteMonomerLength);
+
+        // 2) Best-match each monomer to the reference: identity + box type of the best reference.
+        var boxTypes = new AlphaSatelliteBoxType[monomerCount];
+        double identitySum = 0;
+        int matchedCount = 0;
+        string? overallBestName = null;
+        double overallBestIdentity = double.NegativeInfinity;
+
+        for (int i = 0; i < monomerCount; i++)
+        {
+            double bestId = double.NegativeInfinity;
+            AlphaSatelliteBoxType bestBox = AlphaSatelliteBoxType.None;
+            string? bestName = null;
+
+            foreach (var rm in refMonomers)
+            {
+                var alignment = SequenceAligner.GlobalAlign(monomers[i], rm.Sequence);
+                double id = SequenceAligner.CalculateStatistics(alignment).Identity;
+                if (id > bestId)
+                {
+                    bestId = id;
+                    bestBox = rm.BoxType;
+                    bestName = rm.Name;
+                }
+            }
+
+            identitySum += bestId;
+            if (bestId >= MinReferenceIdentityPercent)
+            {
+                boxTypes[i] = bestBox;
+                matchedCount++;
+            }
+            else
+            {
+                boxTypes[i] = AlphaSatelliteBoxType.None;
+            }
+
+            if (bestId > overallBestIdentity)
+            {
+                overallBestIdentity = bestId;
+                overallBestName = bestName;
+            }
+        }
+
+        double meanIdentity = identitySum / monomerCount;
+
+        // Not alpha-satellite when no monomer cleared the identity bar.
+        if (matchedCount == 0)
+            return new SuprachromosomalFamilyResult(false, SuprachromosomalFamily.Unknown, 0, empty, null, meanIdentity);
+
+        // 3) HOR period (reuse the validated detector). 1 = monomeric.
+        int period = DetectHigherOrderRepeat(upper).MonomersPerUnit;
+        if (period < 1)
+            period = 1;
+
+        // 4) Box-type pattern of the first HOR unit (in order).
+        int unitLen = Math.Min(period, monomerCount);
+        var pattern = new AlphaSatelliteBoxType[unitLen];
+        Array.Copy(boxTypes, 0, pattern, 0, unitLen);
+
+        // 5) Assign SF from period + A/B composition.
+        var family = ClassifyFamily(period, boxTypes, matchedCount, monomerCount);
+
+        // SF1 (J1.J2) and SF2 (D1.D2) are both A->B dimers and cannot be separated from the bundled
+        // CC0 reference. Strict mode throws rather than returning the unresolved Sf1OrSf2Dimeric call.
+        if (family == SuprachromosomalFamily.Sf1OrSf2Dimeric)
+            Seqeron.Genomics.Core.LimitationPolicy.Enforce("CHROM-CENT-001");
+
+        return new SuprachromosomalFamilyResult(
+            true, family, period, pattern, overallBestName, meanIdentity);
+    }
+
+    /// <summary>
+    /// Assigns the SF from the HOR period and the A/B-box composition per the
+    /// Shepelev/Alexandrov classification (see region comment for the sourced rules).
+    /// </summary>
+    private static SuprachromosomalFamily ClassifyFamily(
+        int period, AlphaSatelliteBoxType[] boxTypes, int matchedCount, int monomerCount)
+    {
+        int aCount = boxTypes.Count(b => b == AlphaSatelliteBoxType.A);
+        int bCount = boxTypes.Count(b => b == AlphaSatelliteBoxType.B);
+
+        // SF3 — pentameric ancestry (W1–W5). The diagnostic is a HOR period that is a positive
+        // multiple of five (5, 10, …) — SF3 arrays are built on a pentameric unit (Waye & Willard
+        // 1986; Shepelev 2009; PMC6121732). Diverged-pentamer multimers (e.g. the dodecameric DXZ1
+        // whose period is reported as 12) are NOT period-5 multiples and are NOT tagged SF3 from
+        // the CC0 reference — see the residual.
+        if (period >= 5 && period % 5 == 0)
+            return SuprachromosomalFamily.Sf3;
+
+        // SF4 — monomeric, A-type only (M1 is A-type). Require the array to be all A-type.
+        if (period == 1)
+            return bCount == 0 && aCount > 0
+                ? SuprachromosomalFamily.Sf4
+                : SuprachromosomalFamily.Sf5; // monomeric but with B-type monomers → irregular/SF5-like
+
+        // SF1/SF2 — dimeric (J1·J2 or D1·D2). Both are an A-type + a B-type per unit.
+        if (period == 2)
+            return SuprachromosomalFamily.Sf1OrSf2Dimeric;
+
+        // SF5 — irregular A/B alternation with no regular HOR period but both box types present.
+        if (aCount > 0 && bCount > 0)
+            return SuprachromosomalFamily.Sf5;
+
+        return SuprachromosomalFamily.Unknown;
+    }
+
+    #endregion
+
     #region Cytogenetic Bands
 
     /// <summary>
@@ -1308,20 +1640,32 @@ public static class ChromosomeAnalyzer
     }
 
     /// <summary>
-    /// Classifies chromosome by arm ratio.
+    /// Classifies a chromosome by its arm ratio per Levan, Fredga &amp; Sandberg (1964),
+    /// "Nomenclature for centromeric position on chromosomes", Hereditas 52(2):201-220.
     /// </summary>
+    /// <param name="armRatio">Arm-length ratio of the two arms (either p/q or q/p — the value is
+    /// normalised internally to r = long/short ≥ 1). A value ≤ 0 denotes a degenerate single-arm
+    /// chromosome (one arm absent).</param>
+    /// <returns>The Levan category. With r = long-arm / short-arm:
+    /// metacentric (1.0 ≤ r ≤ 1.7), submetacentric (1.7 &lt; r ≤ 3.0),
+    /// subtelocentric (3.0 &lt; r &lt; 7.0), acrocentric (r ≥ 7.0); telocentric when one arm is absent.
+    /// Boundaries 1.7 / 3.0 / 7.0 and the long/short normalisation match
+    /// <see cref="DetermineCentromereType"/>.</returns>
     public static string ClassifyChromosomeByArmRatio(double armRatio)
     {
-        return armRatio switch
+        // Degenerate / single-arm chromosome → telocentric (centromere at one end).
+        if (armRatio <= 0)
+            return "Telocentric";
+
+        // Normalise to r = long arm / short arm (≥ 1); the input may be p/q or q/p.
+        double r = armRatio >= 1.0 ? armRatio : 1.0 / armRatio;
+
+        return r switch
         {
-            >= 0.9 and <= 1.1 => "Metacentric",
-            >= 0.5 and < 0.9 => "Submetacentric",
-            >= 0.2 and < 0.5 => "Acrocentric",
-            < 0.2 => "Telocentric",
-            > 1.1 and <= 2.0 => "Submetacentric",
-            > 2.0 and <= 5.0 => "Acrocentric",
-            > 5.0 => "Telocentric",
-            _ => "Unknown"
+            <= 1.7 => "Metacentric",
+            <= 3.0 => "Submetacentric",
+            < 7.0 => "Subtelocentric",
+            _ => "Acrocentric"
         };
     }
 

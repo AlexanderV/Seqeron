@@ -1,9 +1,14 @@
 # Validation Report: DISORDER-REGION-001 — Disordered Region Detection (IDR grouping)
 
-- **Validated:** 2026-06-24   **Area:** ProteinPred
-- **Canonical method(s):** `DisorderPredictor.IdentifyDisorderedRegions(predictions, threshold, minLength)` (private), `ClassifyDisorderedRegion(region)` (private), `CalculateConfidence(meanScore)` (private) — all exercised via public `PredictDisorder(sequence, windowSize, threshold, minRegionLength)`
+- **Validated:** 2026-06-25 (fresh re-validation after F4 MobiDB-lite flavour typing was added; supersedes the 2026-06-24 pass)   **Area:** ProteinPred
+- **Canonical method(s):** public `PredictDisorder(sequence, windowSize, threshold, minRegionLength)` → `IdentifyDisorderedRegions` (private), `ClassifyDisorderedRegion` / `CalculateConfidence` (private); plus the opt-in public `ClassifyRegionFlavorMobiDbLite(regionSequence)` (MobiDB-lite 3.0 flavour typing)
 - **Stage A verdict:** PASS-WITH-NOTES
-- **Stage B verdict:** PASS
+- **Stage B verdict:** PASS (one fidelity defect found in `ClassifyRegionFlavorMobiDbLite` — histidine omitted from f₊ — fully fixed this session)
+
+> **Re-validation 2026-06-25.** Reset to ⬜ pending because the campaign added the opt-in
+> `ClassifyRegionFlavorMobiDbLite` (F4). Re-validated fresh against external first sources retrieved
+> this session (Campen 2008 TOP-IDP, Das & Pappu 2013 PNAS, MobiDB-lite v3 `states.py`/`consensus.py`
+> via `gh api`). Found and fixed a charge-class defect (His). End-state CLEAN.
 
 This unit covers the **grouping of per-residue disorder calls into contiguous REGIONS**
 (start/end/length, minimum-length filter, classification label, confidence). The upstream
@@ -102,16 +107,74 @@ None. The grouping, threshold, minimum-length filter, 0-based inclusive coordina
 - **State: CLEAN** — no defect found in the boundary logic; the labelling heuristic was revisited (below).
 - **Tests:** boundary fixture → 24 passed / 0 failed; new flavor fixture → 16 passed / 0 failed.
 
-## Follow-up (2026-06-24) — sourced labelling search & opt-in implementation
+## Fresh re-validation (2026-06-25) — TOP-IDP scale, Das & Pappu, MobiDB-lite v3
 
-The classification-label note was re-investigated to determine whether a **citable, deterministic** scheme could replace the ad-hoc `RegionType` heuristic. Sources retrieved this session (web search/fetch + GitHub `gh api`):
+### External first sources retrieved THIS session
+- **Campen et al. (2008) TOP-IDP** (PMC2676888 / eurekaselect.com / PubMed 18991772, Wikipedia
+  citing it): order→disorder ranking **W,F,Y,I,M,L,V,N,C,T,A,G,R,D,H,Q,(K/S),E,P**; P most
+  disorder-promoting (0.987), W most order-promoting (−0.884). Smoothing **window 21**, cutoff
+  **0.542** as used by the code.
+- **Das & Pappu (2013) PNAS 110(33):13392-13397, PMID 23901099** — diagram of states: FCR = f₊+f₋,
+  NCPR = |f₊−f₋|; **FCR > 0.35** is the strong/weak boundary; strong polyampholytes have NCPR ≤ 0.35,
+  strong polyelectrolytes have NCPR > 0.35 (R4 with |NCPR| > 0.3).
+- **MobiDB-lite v3 reference source** (`BioComputingUP/MobiDB-lite@v3`, fetched verbatim via `gh api`):
+  - `states.py:get_disorder_class` — translation table **intab='RKDEACFGHILMNPQSTVWY'**,
+    **outab='PPNN____P___________'** ⇒ positive = **{R,K,H}**, negative = **{D,E}**; gate `fcr > 0.35`;
+    PA when `ncpr <= 0.35 or (f_minus > 0.35 and f_plus > 0.35)`; else PPE if `f_plus > 0.35`, NPE if
+    `f_minus > 0.35`; else WC.
+  - `states.py:is_enriched(subset, threshold=0.32)` — enriched iff `s >= threshold` (inclusive 0.32).
+  - `consensus.py:get_region_features` priority: **charge (PA/PPE/NPE) → C → P → G → Low-complexity → Polar{S,T,N,Q}**.
 
-- **MobiDB-lite 3.0 — Necci et al. (2020/2021), Bioinformatics 36(22-23):5533-5534, DOI 10.1093/bioinformatics/btaa1045, PMID 33325498** (https://academic.oup.com/bioinformatics/article/36/22-23/5533/6039111, https://pubmed.ncbi.nlm.nih.gov/33325498/). Defines a deterministic **disorder-flavor** classification: a 9-residue sliding window assigns each residue to one of *polyampholyte, positive/negative polyelectrolyte, cysteine-/proline-/glycine-rich, low-complexity, polar*, in that priority order, with the composition classes assigned when the relevant residue fraction is **> 0.32**.
-- **Reference implementation** (rank 3, version-pinned): `BioComputingUP/MobiDB-lite` branch **v3**, `mdblib/states.py` (`get_disorder_class`, `is_enriched(threshold=0.32)`) and `mdblib/consensus.py` (`get_region_features` priority order, polar set `['S','T','N','Q']`), fetched verbatim via `gh api`.
-- **Das & Pappu (2013), PNAS 110(33):13392-13397, PMID 23901099** (https://www.pnas.org/doi/10.1073/pnas.1304749110) — the "diagram of states" that defines the charge classes (FCR/NCPR thresholds `> 0.35`) used by `get_disorder_class`.
+### Stage A — confirmed
+TOP-IDP values, window 21, threshold 0.542; Das & Pappu charge thresholds 0.35; MobiDB-lite
+enrichment 0.32 (inclusive `>=`), priority order, polar set {S,T,N,Q}. All verbatim-matched to source.
+Minor note: the code's comment ranking writes "…Q,S,K,E,P" whereas Wikipedia's Campen ranking lists
+"…Q,K,S,E,P" (S/K swapped). This is a comment-only annotation; the code's **numeric** values
+(Q 0.318 < S 0.341 < K 0.586 < E 0.736 < P 0.987) are self-consistent and do not affect any
+boundary or flavour call. PASS-WITH-NOTES.
 
-**Outcome — a citable scheme EXISTS for the region TYPE**, and it maps cleanly onto the per-residue composition output. It was implemented as the **opt-in** `ClassifyRegionFlavorMobiDbLite` (all constants verbatim from the v3 source), leaving the validated TOP-IDP **boundaries** and the **default** `RegionType`/`Confidence` exactly unchanged (non-breaking). New evidence-based fixture `DisorderPredictor_RegionFlavor_Tests.cs` (16 tests, expected values hand-traced from the cited source, including F16 which confirms boundaries are unaffected).
+### Independent cross-check (hand-computed THIS session)
+**Windowed TOP-IDP boundaries** (window 21, halfWindow 10, threshold 0.542), reproduced exactly:
+- W10+P20 → region **[11,29]** (pos 11 = 12P/21 = 0.5714 ≥ 0.542; pos 10 = 11P/21 = 0.5238 < 0.542).
+- W15+P20+W15 → region **[16,33]** (pos 16/33 = 12P/21 = 0.5714; pos 15/34 = 0.5238 < 0.542).
+- Homopolymer mean norms: P 1.000, E 0.866, K 0.786, S 0.655 — match the test assertions.
 
-**No citable standard for CONFIDENCE.** MobiDB-lite (and IUPred/PONDR-style predictors) report a per-residue disorder score/probability, not a per-*region* calibrated confidence; there is no published deterministic region-confidence formula. The existing rescaled `Confidence = (mean−0.542)/(1−0.542)` therefore remains a **declared first-principles heuristic** (boundaries unaffected). This is recorded honestly rather than fabricating a source.
+**FCR/NCPR + flavour** (hand-computed, then confirmed against code):
+| Seq | f₊ | f₋ | FCR | NCPR | Expected flavour | Branch |
+|-----|----|----|-----|------|------------------|--------|
+| RKDERKDE | 0.50 | 0.50 | 1.00 | 0.00 | Polyampholyte | FCR>0.35, NCPR≤0.35 |
+| RKRKRKRKRR | 1.00 | 0 | 1.00 | 1.00 | PositivePolyelectrolyte | f₊>0.35 |
+| DEDEDEDEDD | 0 | 1.00 | 1.00 | 1.00 | NegativePolyelectrolyte | f₋>0.35 |
+| SSTTNNQQAA | 0 | 0 | 0 | 0 | Polar | {S,T,N,Q}=0.8≥0.32 |
+| PPPPAAAAAA | 0 | 0 | 0 | 0 | ProlineRich | P=0.4≥0.32 |
+| **HHHHHHHHAA** | **0.80** | 0 | 0.80 | 0.80 | **PositivePolyelectrolyte** | **H is positive** |
+| **HHHHDDDDAA** | **0.40** | 0.40 | 0.80 | 0.00 | **Polyampholyte** | **H balances D** |
 
-The validation **Status is unchanged** (the boundary algorithm was already CLEAN); the registry `☑` is intentionally **not reset** because no validated-boundary code was altered — the change is a sourced, additive opt-in label plus its tests.
+### Stage B — DEFECT found and fixed (histidine in f₊)
+`ClassifyRegionFlavorMobiDbLite` originally computed `f_plus` over **{R,K} only** and the docstring
+claimed `f₊ = (R+K)/L` "verbatim" from the v3 source. The v3 `states.py` translation table maps
+**H → positive** as well (`f₊ = (R+K+H)/L`). For histidine-containing regions the two diverge:
+`HHHHHHHHAA` (f₊ = 0.8) is **PositivePolyelectrolyte** per MobiDB-lite v3 but the old code returned
+**WeaklyCharged**. The 16 prior flavour tests all used His-free sequences, so the gap was invisible.
+
+**Fix (this session):** added `H` to the positive count, corrected the docstring (`f₊ = (R+K+H)/L`
+with the translation table cited), and added two tests — F5b (`HHHHHHHHAA` → PPE) and
+F5c (`HHHHDDDDAA` → Polyampholyte, H balancing D). The validated TOP-IDP **boundaries** and the
+default `RegionType`/`Confidence` are untouched.
+
+**No citable standard for CONFIDENCE.** MobiDB-lite / IUPred / PONDR report a per-residue disorder
+score, not a per-*region* calibrated confidence; no published deterministic region-confidence formula
+exists. `Confidence = (mean−0.542)/(1−0.542)` remains a **declared first-principles heuristic**
+(boundaries unaffected) — recorded honestly, not fabricated. This is the documented acceptable boundary.
+
+### Test run
+Full unfiltered `dotnet test Seqeron.sln -c Debug` → **Failed: 0** (Genomics 18819 passed incl. the 2
+new His tests; total across projects all green). Changed source project builds with 0 warnings / 0 errors.
+
+**End-state: CLEAN** — the one defect (His omission) was completely fixed in-session with sourced
+test coverage; boundary logic remains correct; the no-confidence-standard is the declared heuristic boundary.
+
+
+## Runtime enforcement (LimitationPolicy)
+
+This unit's guarded branch — the uncalibrated per-region `Confidence` (use `PredictDisorderRegions` for the validated TOP-IDP boundaries without a confidence) — has **minimum access mode `Permissive`** (`Seqeron.Genomics.Core.LimitationCatalog`). Under the default `LimitationPolicy.DefaultMode = Moderate` it throws `SeqeronLimitationException` (this guarded branch is allowed only under `Permissive`); see [LIMITATIONS.md](../LIMITATIONS.md) › Runtime enforcement. Additive policy layer; the validated contract and `✅ CLEAN` verdict are unchanged.

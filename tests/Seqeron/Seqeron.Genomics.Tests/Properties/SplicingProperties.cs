@@ -74,19 +74,20 @@ public class SplicingProperties
     }
 
     /// <summary>
-    /// INV-2: Donor sites contain canonical GT (or GC) motif.
-    /// Evidence: &gt;99% of eukaryotic donor sites have GT dinucleotide; GC is a rare variant.
-    /// Source: Breathnach &amp; Chambon (1981); Mount (1982) — the GT-AG rule.
+    /// INV-2 (P): EVERY canonical donor site reported sits exactly on a GT dinucleotide — the bases
+    /// at [Position, Position+1] of the input are G then T. The default predictor only emits sites
+    /// whose intron starts with GT (GU after T→U), so this must hold for any sequence, not just a
+    /// hand-picked one. Source: Breathnach &amp; Chambon (1981); Mount (1982) — the GT-AG rule.
     /// </summary>
-    [Test]
-    [Category("Property")]
-    public void DonorSites_HaveCanonicalMotif()
+    [FsCheck.NUnit.Property]
+    public Property DonorSites_SitOnCanonicalGtDinucleotide()
     {
-        var donors = SpliceSitePredictor.FindDonorSites(CanonicalTestSequence, minScore: 0.1).ToList();
-
-        foreach (var d in donors)
-            Assert.That(d.Motif.ToUpperInvariant(), Does.Contain("GT").Or.Contain("GU").Or.Contain("GC"),
-                $"Donor at {d.Position} has motif '{d.Motif}'");
+        return Prop.ForAll(DnaArbitrary(50), seq =>
+        {
+            var donors = SpliceSitePredictor.FindDonorSites(seq, minScore: 0.0).ToList();
+            return donors.All(d => seq.Substring(d.Position, 2).ToUpperInvariant() == "GT")
+                .Label("every canonical donor site must sit on a GT dinucleotide");
+        });
     }
 
     /// <summary>
@@ -143,19 +144,21 @@ public class SplicingProperties
     }
 
     /// <summary>
-    /// INV-6: Acceptor sites contain canonical AG motif.
-    /// Evidence: &gt;99% of eukaryotic acceptor sites have AG dinucleotide at 3' end.
-    /// Source: Breathnach &amp; Chambon (1981) — the GT-AG rule.
+    /// INV-6 (P): EVERY canonical acceptor site reported ends the intron on an AG dinucleotide.
+    /// The predictor reports Position as the G of the 3' AG (last intron nucleotide), so the input
+    /// bases at [Position-1, Position] are A then G. Holds for any sequence. Source: Breathnach &amp;
+    /// Chambon (1981) — the GT-AG rule.
     /// </summary>
-    [Test]
-    [Category("Property")]
-    public void AcceptorSites_HaveCanonicalMotif()
+    [FsCheck.NUnit.Property]
+    public Property AcceptorSites_EndOnCanonicalAgDinucleotide()
     {
-        var acceptors = SpliceSitePredictor.FindAcceptorSites(CanonicalTestSequence, minScore: 0.1).ToList();
-
-        foreach (var a in acceptors)
-            Assert.That(a.Motif, Does.EndWith("G").Or.Contain("AG"),
-                $"Acceptor at {a.Position} has motif '{a.Motif}'");
+        return Prop.ForAll(DnaArbitrary(50), seq =>
+        {
+            var acceptors = SpliceSitePredictor.FindAcceptorSites(seq, minScore: 0.0).ToList();
+            return acceptors.All(a => a.Position >= 1 &&
+                                      seq.Substring(a.Position - 1, 2).ToUpperInvariant() == "AG")
+                .Label("every canonical acceptor site must end on an AG dinucleotide");
+        });
     }
 
     /// <summary>
@@ -286,6 +289,85 @@ public class SplicingProperties
             Assert.That(s1.Introns.Count, Is.EqualTo(s2.Introns.Count));
             Assert.That(s1.SplicedSequence, Is.EqualTo(s2.SplicedSequence));
             Assert.That(Math.Abs(s1.OverallScore - s2.OverallScore), Is.LessThan(1e-10));
+        });
+    }
+
+    #endregion
+
+    #region SPLICE-MAXENT3-001: R: score finite; D: deterministic; requires 23-nt acceptor window
+
+    // ScoreAcceptorMaxEnt — MaxEntScan score3ss (Yeo & Burge 2004): a maximum-entropy log-odds score over a
+    // fixed 23-nt 3' acceptor window (20 intron + 3 exon nt). The window length is a hard contract.
+
+    private static Arbitrary<string> FixedDnaArbitrary(int length) =>
+        (from cs in Gen.Elements('A', 'C', 'G', 'T').ArrayOf(length) select new string(cs)).ToArbitrary();
+
+    /// <summary>INV-1 (R): the MaxEnt 3' acceptor score is finite for any valid 23-nt window.</summary>
+    [FsCheck.NUnit.Property]
+    public Property AcceptorMaxEnt_Score_IsFinite()
+    {
+        return Prop.ForAll(FixedDnaArbitrary(23), window =>
+            double.IsFinite(SpliceSitePredictor.ScoreAcceptorMaxEnt(window)).Label("acceptor MaxEnt score must be finite"));
+    }
+
+    /// <summary>INV-2 (D): the MaxEnt 3' acceptor score is deterministic.</summary>
+    [FsCheck.NUnit.Property]
+    public Property AcceptorMaxEnt_IsDeterministic()
+    {
+        return Prop.ForAll(FixedDnaArbitrary(23), window =>
+            (SpliceSitePredictor.ScoreAcceptorMaxEnt(window) == SpliceSitePredictor.ScoreAcceptorMaxEnt(window))
+                .Label("ScoreAcceptorMaxEnt must be deterministic"));
+    }
+
+    /// <summary>INV-3 (contract): a window whose length is not 23 nt is rejected.</summary>
+    [FsCheck.NUnit.Property]
+    public Property AcceptorMaxEnt_WrongLength_Throws()
+    {
+        var gen = (from len in Gen.Choose(0, 40).Where(l => l != 23)
+                   from cs in Gen.Elements('A', 'C', 'G', 'T').ArrayOf(len)
+                   select new string(cs)).ToArbitrary();
+        return Prop.ForAll(gen, window =>
+        {
+            try { SpliceSitePredictor.ScoreAcceptorMaxEnt(window); return false.Label($"len {window.Length} accepted"); }
+            catch (ArgumentException) { return true.ToProperty(); }
+        });
+    }
+
+    #endregion
+
+    #region SPLICE-MAXENT5-001: R: score finite; D: deterministic; requires 9-nt donor window
+
+    // ScoreDonorMaxEnt — MaxEntScan score5ss (Yeo & Burge 2004): a maximum-entropy log-odds score over a
+    // fixed 9-nt 5' donor window (3 exon + 6 intron nt).
+
+    /// <summary>INV-1 (R): the MaxEnt 5' donor score is finite for any valid 9-nt window.</summary>
+    [FsCheck.NUnit.Property]
+    public Property DonorMaxEnt_Score_IsFinite()
+    {
+        return Prop.ForAll(FixedDnaArbitrary(9), window =>
+            double.IsFinite(SpliceSitePredictor.ScoreDonorMaxEnt(window)).Label("donor MaxEnt score must be finite"));
+    }
+
+    /// <summary>INV-2 (D): the MaxEnt 5' donor score is deterministic.</summary>
+    [FsCheck.NUnit.Property]
+    public Property DonorMaxEnt_IsDeterministic()
+    {
+        return Prop.ForAll(FixedDnaArbitrary(9), window =>
+            (SpliceSitePredictor.ScoreDonorMaxEnt(window) == SpliceSitePredictor.ScoreDonorMaxEnt(window))
+                .Label("ScoreDonorMaxEnt must be deterministic"));
+    }
+
+    /// <summary>INV-3 (contract): a window whose length is not 9 nt is rejected.</summary>
+    [FsCheck.NUnit.Property]
+    public Property DonorMaxEnt_WrongLength_Throws()
+    {
+        var gen = (from len in Gen.Choose(0, 20).Where(l => l != 9)
+                   from cs in Gen.Elements('A', 'C', 'G', 'T').ArrayOf(len)
+                   select new string(cs)).ToArbitrary();
+        return Prop.ForAll(gen, window =>
+        {
+            try { SpliceSitePredictor.ScoreDonorMaxEnt(window); return false.Label($"len {window.Length} accepted"); }
+            catch (ArgumentException) { return true.ToProperty(); }
         });
     }
 

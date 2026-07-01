@@ -3,7 +3,7 @@
 ## Test Unit
 - **ID**: MIRNA-TARGET-001
 - **Area**: MiRNA
-- **Canonical methods**: `FindTargetSites(mRna, miRna, minScore)`, scoring via `CalculateTargetScore` (internal); `ScoreTargetSiteContextPlusPlus(mRna, miRna, site, ContextPlusPlusInputs)` (opt-in TargetScan context++, Agarwal 2015 — miRNA+3'UTR-derivable features incl. 3P_score/Min_dist/Len_3UTR/Off6m/SA, plus caller-supplied SPS/TA/Len_ORF/ORF8m and PCT via a caller-supplied alignment+tree); `ComputeBranchLengthScore(tree, speciesWithSite)` and `PctFromBranchLength(bls, sigmoidParams)` (Friedman 2009 PCT, opt-in)
+- **Canonical methods**: `FindTargetSites(mRna, miRna, minScore)`, scoring via `CalculateTargetScore` (internal); `ScoreTargetSiteContextPlusPlus(mRna, miRna, site, ContextPlusPlusInputs)` (opt-in TargetScan context++, Agarwal 2015 — miRNA+3'UTR-derivable features incl. 3P_score/Min_dist/Len_3UTR/Off6m/SA, plus caller-supplied SPS/TA/Len_ORF/ORF8m and PCT via a caller-supplied alignment+tree); `ComputeBranchLengthScore(tree, speciesWithSite)` and `PctFromBranchLength(bls, sigmoidParams)` (Friedman 2009 PCT, opt-in); `ComputeTa3Utr(miRna, threePrimeUtrs)` / `CountSeedSites3Utr(miRna, threePrimeUtrs)` (TA_3UTR = log10 of non-overlapping 8mer+7mer-m8+7mer-A1 site count across a 3'UTR set — Garcia 2011, opt-in)
 - **Supporting**: `AlignMiRnaToTarget`, `CreateTargetSite` (internal)
 
 ## Canonical Test File
@@ -145,6 +145,19 @@
 - **CTX-PCT-005 (MUST):** 8mer + `Conservation` (worked tree, {A,B}, sigmoid {0,1,1,0}) → `BranchLengthScore==3.0`; `Pct==0.952574126822433`; `PctContribution == -0.103×(Pct/0.816) == -0.120239136106263` (`Within(1e-9)`); `PCT` drops from `OmittedFeatures`; `ContextScorePartial` includes the PCT term.
 - **CTX-PCT-006 (MUST):** 7mer-m8 + `Conservation` ({A,C}, Bls=7.0) → `Pct==0.999088948805599`; `PctContribution == -0.048×(Pct/0.364) == -0.131747993249090` — verifies the per-site-type PCT parameters.
 
+### CTX-TA-001..008: TA_3UTR computed from a 3'UTR set (new capability) — `ComputeTa3Utr` / `CountSeedSites3Utr`
+
+**Source (retrieved verbatim this session):** Garcia et al. (2011) Nat Struct Mol Biol 18:1139 (doi:10.1038/nsmb.2115; PMC3190056) Online Methods — *"TA in the human transcriptome was calculated as the number of non-overlapping 3′UTR 8mer, 7mer-m8, and 7mer-A1 sites in the reference mRNAs."* + Results (*"each additional CG dinucleotide imparted an additional log10 reduction in TA"*); Agarwal 2015 eLife Table 1 (TA_3UTR = "Number of sites in all annotated 3′ UTRs"); TargetScan `TA_SPS_by_seed_region.txt` (TA column ≈ 1.64–4.37 = log10 of count) fed as-is to `getAgarwalContribution` (`targetscan_70_context_scores.pl`). ⇒ **TA = log10(N)**, N = total non-overlapping 8mer+7mer-m8+7mer-A1 sites of the seed across the supplied 3'UTRs.
+
+- **CTX-TA-001 (MUST):** hand-controlled synthetic seed `ACGUACG` (core `GUACGU`, pos8 `C`) over `{CGUACGUA, GGUACGUG, CGUACGUGAAAGUACGUC}` → `CountSeedSites3Utr == 2` (8mer + 7mer-m8; bare 6mers excluded), `ComputeTa3Utr == log10(2) == 0.301029995663981` (`Within(1e-12)`); independently derived.
+- **CTX-TA-002 (MUST):** real let-7a (core `UACCUC`, pos8 `C`) over five UTRs (8mer / 7mer-m8 / 7mer-A1 / bare-6mer-excluded / 8mer+7mer-m8) → `N == 5`, `ComputeTa3Utr == log10(5) == 0.698970004336019` (`Within(1e-12)`).
+- **CTX-TA-003 (MUST):** computed TA feeds context++: `Ta = ComputeTa3Utr(...)=log10(5)` on an 8mer → `TaContribution == 0.222×((log10(5)-3.113)/(3.865-3.113))` (`Within(1e-12)`); `TA_3UTR` drops from `OmittedFeatures`.
+- **CTX-TA-004 (MUST):** per-site-type TA scaling: same computed TA on a 7mer-m8 site → `TaContribution == 0.139×((log10(2)-3.067)/(3.887-3.067))` (`Within(1e-12)`).
+- **CTX-TA-005 (MUST):** empty UTR set → `N == 0`, `ComputeTa3Utr == 0.0` (log10(1) floor); a set of only empty/null UTRs with no site → `0.0`.
+- **CTX-TA-006 (MUST):** DNA UTR `GGCTACCTCAGG` (T→U) → `N == 1` (DNA handled as RNA).
+- **CTX-TA-007 (MUST):** seed shorter than 7 nt → `N == 0`, `ComputeTa3Utr == 0.0` (defensive).
+- **CTX-TA-008 (MUST):** null UTR enumerable → `ArgumentNullException` (both methods).
+
 ---
 
 ## Could Tests
@@ -206,6 +219,14 @@
 | CTX-PCT-004 | PctFromBranchLength_NegativeRaw_TruncatedToZero | ✅ Covered | negative logistic output→0 |
 | CTX-PCT-005 | ScoreTargetSiteContextPlusPlus_ConservationSupplied_8mer_PctEntersScoreAndDropsResidual | ✅ Covered | Bls→PCT→ -0.120239136106263; PCT drops from residual; in partial sum |
 | CTX-PCT-006 | ScoreTargetSiteContextPlusPlus_Conservation_7merM8_UsesSiteTypePctParameters | ✅ Covered | 7mer-m8 PCT params: -0.131747993249090 |
+| CTX-TA-001 | ComputeTa3Utr_HandControlledSet_EqualsLog10OfSiteCount | ✅ Covered | N==2, TA==log10(2)==0.301029995663981 |
+| CTX-TA-002 | ComputeTa3Utr_RealMiRna_CountsAllThreeSiteTypesNotBare6mers | ✅ Covered | N==5 (8mer+7mer-m8+7mer-A1; bare 6mer excluded), TA==log10(5) |
+| CTX-TA-003 | ComputeTa3Utr_FeedsContextPlusPlus_WithBundledAgarwalTaCoefficient | ✅ Covered | 8mer TaContribution from computed TA; TA_3UTR drops from residual |
+| CTX-TA-004 | ComputeTa3Utr_FeedsContextPlusPlus_UsesSiteTypeTaParameters_7merM8 | ✅ Covered | 7mer-m8 TA row coeff 0.139, min 3.067, max 3.887 |
+| CTX-TA-005 | ComputeTa3Utr_NoSites_ReturnsZero | ✅ Covered | empty / only-empty UTRs → 0 |
+| CTX-TA-006 | ComputeTa3Utr_DnaUtrs_TreatedAsRna | ✅ Covered | DNA T→U; N==1 |
+| CTX-TA-007 | ComputeTa3Utr_ShortSeed_ReturnsZero | ✅ Covered | seed < 7 nt → 0 |
+| CTX-TA-008 | ComputeTa3Utr_NullEnumerable_Throws | ✅ Covered | ArgumentNullException both methods |
 
 ### Resolved Issues (this cycle)
 

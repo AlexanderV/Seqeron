@@ -669,6 +669,25 @@ public static class PrimerDesigner
         double dntpMolar = 0.0,
         SaltCorrectionMode saltMode = SaltCorrectionMode.Owczarzy2004Monovalent)
     {
+        // Parameter-domain guards (§3.1 constraints). The Tm equation takes
+        // R·ln(C_T/x) and the salt corrections take ln([Na⁺]) / ln([Mg²⁺]); a
+        // zero or negative concentration would make ln undefined (−∞ or NaN),
+        // leaking a non-physical Tm (≈−273.15 °C) or a silent NaN. Reject these
+        // out-of-domain inputs explicitly so the result is always either a finite,
+        // theory-correct Tm or a documented validation exception.
+        if (!(strandConcentrationMolar > 0))
+            throw new ArgumentOutOfRangeException(nameof(strandConcentrationMolar),
+                strandConcentrationMolar, "Strand concentration C_T must be > 0 mol/L.");
+        if (!(sodiumMolar > 0))
+            throw new ArgumentOutOfRangeException(nameof(sodiumMolar),
+                sodiumMolar, "Monovalent cation concentration [Na⁺] must be > 0 mol/L.");
+        if (!(magnesiumMolar >= 0))
+            throw new ArgumentOutOfRangeException(nameof(magnesiumMolar),
+                magnesiumMolar, "[Mg²⁺] must be ≥ 0 mol/L.");
+        if (!(dntpMolar >= 0))
+            throw new ArgumentOutOfRangeException(nameof(dntpMolar),
+                dntpMolar, "Total dNTP concentration must be ≥ 0 mol/L.");
+
         var thermo = CalculateNearestNeighborThermodynamics(primer);
         if (thermo is null)
             return double.NaN;

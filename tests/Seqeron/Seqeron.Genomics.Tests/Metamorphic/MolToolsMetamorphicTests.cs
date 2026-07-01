@@ -6,7 +6,7 @@ using FluentAssertions;
 using Seqeron.Genomics;
 using Seqeron.Genomics.MolTools;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Metamorphic;
 
 /// <summary>
 /// Metamorphic tests for the MolTools area.
@@ -2756,6 +2756,417 @@ public class MolToolsMetamorphicTests
 
         // Non-vacuous: the canonical 6-cutter EcoRI (GAATTC) lands in every window that includes 6.
         narrow.Should().Contain("EcoRI", because: "EcoRI has a 6-bp recognition site");
+    }
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  PRIMER-NNTM-001 — SantaLucia nearest-neighbour, salt-corrected Tm (MolTools)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (SantaLucia 1998 PNAS 95:1460; SantaLucia & Hicks 2004; Owczarzy 2004 Biochemistry
+    //   43:3537; docs/algorithms/MolTools/NearestNeighbor_Salt_Corrected_Tm.md):
+    //   CalculateMeltingTemperatureNN sums per-dinucleotide ΔH°/ΔS° nearest-neighbour parameters
+    //   plus terminal-A·T and (self-complementary) symmetry corrections, computes the bimolecular
+    //   Tm = ΔH°·1000 / (ΔS° + R·ln(C_T/x)) and applies the Owczarzy (2004) monovalent-salt
+    //   correction. Two metamorphic relations (checklist row 240):
+    //
+    //   • MON (raising monovalent salt raises Tm): higher [Na⁺] stabilises the duplex; the
+    //     Owczarzy 2004 correction is monotone increasing in Tm over the physiological salt range,
+    //     so Tm is strictly increasing in [Na⁺] for a fixed primer.
+    //   • INV (reverse-complement has equal duplex Tm): the SantaLucia parameters are
+    //     strand-symmetric — the multiset of nearest-neighbour stacks of revcomp(S) equals that of
+    //     S, and revcomp preserves each terminus's A·T status — so ΔH°, ΔS° and hence Tm are
+    //     identical for a sequence and its reverse complement (the same duplex read from the other
+    //     strand).
+    //
+    // API under test: PrimerDesigner.CalculateMeltingTemperatureNN.
+
+    #region PRIMER-NNTM-001 — nearest-neighbour salt-corrected Tm
+
+    // Deterministic, non-self-complementary primers spanning a range of GC content and length.
+    // (Literal fixtures — NOT drawn from the shared Rng, which would perturb every other fixture.)
+    private static readonly string[] NnTmPrimers =
+    {
+        "CAGGTGGCACCTTAACG",
+        "GCTAGCATCGGATCCAA",
+        "TTGACCAGTCCATGGCA",
+        "ATGCGGTCAATTGCAACGT",
+        "GGGCGCGGCACCGTCCA",
+    };
+
+    [Test]
+    [Description("MON: higher monovalent [Na⁺] stabilises the duplex; the Owczarzy 2004 salt correction is monotone, so the nearest-neighbour Tm strictly increases with [Na⁺] for a fixed primer.")]
+    public void NnTm_RaisingMonovalentSalt_RaisesTm()
+    {
+        double[] sodium = { 0.02, 0.05, 0.10, 0.25, 0.50 }; // 20 mM → 500 mM, ascending
+
+        foreach (string primer in NnTmPrimers)
+        {
+            double previous = double.NegativeInfinity;
+            foreach (double na in sodium)
+            {
+                double tm = PrimerDesigner.CalculateMeltingTemperatureNN(primer, sodiumMolar: na);
+                tm.Should().NotBe(double.NaN, because: $"'{primer}' is a valid ACGT primer");
+                tm.Should().BeGreaterThan(previous,
+                    because: $"raising [Na⁺] to {na} M stabilises the duplex, so the NN Tm of '{primer}' strictly increases");
+                previous = tm;
+            }
+        }
+    }
+
+    [Test]
+    [Description("INV: the SantaLucia NN parameters are strand-symmetric and revcomp preserves each terminus's A·T status, so a primer and its reverse complement have identical ΔH°/ΔS° and hence identical NN Tm.")]
+    public void NnTm_ReverseComplement_HasEqualDuplexTm()
+    {
+        double[] sodium = { 0.05, 0.50 };
+
+        foreach (string primer in NnTmPrimers)
+        {
+            string rc = DnaSequence.GetReverseComplementString(primer);
+
+            // Non-vacuity: the primer is not its own reverse complement, so this is a real transform.
+            rc.Should().NotBe(primer, because: $"'{primer}' must be non-self-complementary for the INV to be non-trivial");
+
+            foreach (double na in sodium)
+            {
+                double tm = PrimerDesigner.CalculateMeltingTemperatureNN(primer, sodiumMolar: na);
+                double tmRc = PrimerDesigner.CalculateMeltingTemperatureNN(rc, sodiumMolar: na);
+
+                tm.Should().BeGreaterThan(0.0, because: $"'{primer}' has a well-defined positive Tm");
+                tmRc.Should().BeApproximately(tm, 1e-9,
+                    because: $"the reverse complement is the same duplex read from the other strand, so its NN Tm equals that of '{primer}' at [Na⁺]={na} M");
+            }
+        }
+    }
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  PRIMER-HAIRPIN-001 — most-stable DNA hairpin ΔG (MolTools)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (SantaLucia 1998; SantaLucia & Hicks 2004 Table 1 + Table 4;
+    //   docs/algorithms/MolTools/DNA_Hairpin_Folding_Tm.md):
+    //   FindMostStableHairpin finds the minimum-ΔG°37 intramolecular hairpin (one Watson-Crick
+    //   stem closing one loop): ΔG°37 = Σ stem NN stacks (each ≤ 0) + loop initiation (≥ 0). It
+    //   returns null when no stem of ≥ 2 bp can close a loop of ≥ 3 nt. Two metamorphic relations
+    //   (checklist row 241):
+    //
+    //   • MON (lengthening a complementary stem lowers ΔG): each extra base pair adds one more
+    //     stabilising (negative) nearest-neighbour stack while the loop term is unchanged, so the
+    //     most-stable hairpin's ΔG°37 is strictly DECREASING (more negative) as the stem grows.
+    //   • INV (no stem possible → no hairpin): a sequence that admits no ≥2-bp Watson-Crick stem
+    //     closing a ≥3-nt loop (a homopolymer, or a lone WC pair) has no hairpin — the method
+    //     returns null — and that holds however long the non-pairing sequence is.
+    //
+    // API under test: PrimerDesigner.FindMostStableHairpin (HairpinResult?).
+
+    #region PRIMER-HAIRPIN-001 — most-stable hairpin ΔG
+
+    [Test]
+    [Description("MON: each added stem base pair contributes one more stabilising NN stack while the loop term is fixed, so lengthening a complementary stem strictly lowers (makes more negative) the hairpin ΔG°37.")]
+    public void Hairpin_LengtheningStem_LowersDeltaG()
+    {
+        // A fixed GC-rich arm; prefixes give perfect stems of increasing length around a fixed loop.
+        const string fullArm = "GCAGTCAGGTC";
+        const string loop = "TTTT";
+
+        double previous = double.PositiveInfinity;
+        for (int stem = 3; stem <= 8; stem++)
+        {
+            string leftArm = fullArm.Substring(0, stem);
+            string sequence = leftArm + loop + DnaSequence.GetReverseComplementString(leftArm);
+
+            var hairpin = PrimerDesigner.FindMostStableHairpin(sequence);
+            hairpin.Should().NotBeNull(because: $"a perfect {stem}-bp stem closing a 4-nt loop must form a hairpin ('{sequence}')");
+            hairpin!.Value.StemLength.Should().BeGreaterThanOrEqualTo(stem,
+                because: $"the most stable hairpin uses the full perfect {stem}-bp stem");
+
+            hairpin.Value.DeltaG37.Should().BeLessThan(previous - 1e-9,
+                because: $"extending the stem to {stem} bp adds another stabilising NN stack, so ΔG°37 strictly decreases");
+            previous = hairpin.Value.DeltaG37;
+        }
+    }
+
+    [Test]
+    [Description("INV: a sequence that admits no ≥2-bp Watson-Crick stem closing a ≥3-nt loop has no hairpin — FindMostStableHairpin returns null — regardless of how long the non-pairing sequence is.")]
+    public void Hairpin_NoStemPossible_YieldsNoHairpin()
+    {
+        // Homopolymers can form no Watson-Crick pair at all → no hairpin, at any length.
+        foreach (char b in "ACGT")
+        {
+            foreach (int len in new[] { 6, 12, 30 })
+            {
+                string homo = new string(b, len);
+                PrimerDesigner.FindMostStableHairpin(homo).Should().BeNull(
+                    because: $"a poly-{b} homopolymer has no complementary bases, so no stem and no hairpin ('{homo}')");
+            }
+        }
+
+        // A single Watson-Crick pair (A…T) cannot make a ≥2-bp stem → still no hairpin.
+        PrimerDesigner.FindMostStableHairpin("AAAATAAAA").Should().BeNull(
+            because: "one A·T pair closing an all-A loop is only a 1-bp stem (< 2 bp), so no hairpin forms");
+
+        // Non-vacuity contrast: a genuine stem-loop DOES yield a hairpin.
+        PrimerDesigner.FindMostStableHairpin("GCGCTTTTGCGC").Should().NotBeNull(
+            because: "a 4-bp GC stem closing a 4-nt loop is a real hairpin — the relation is non-vacuous");
+    }
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  PRIMER-DIMER-001 — most-stable primer dimer ΔG (MolTools)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (SantaLucia & Hicks 2004 unified NN; Primer3/ntthal;
+    //   docs/algorithms/MolTools/DNA_Dimer_Tm.md):
+    //   FindMostStableDimer aligns two oligos antiparallel over every gapless offset and scores the
+    //   most stable contiguous Watson-Crick run; a SELF-dimer is the same method with both strands
+    //   equal. Two metamorphic relations (checklist row 242):
+    //
+    //   • INV (self-dimer of S equals hetero-dimer(S,S)): the self-dimer is, by definition, the
+    //     hetero-dimer of S with a second copy of S — and the dimer of two strands is symmetric in
+    //     strand order (the same physical duplex), so dimer(A,B) and dimer(B,A) agree.
+    //   • MON (extending the WC alignment lowers ΔG): each additional Watson-Crick base pair in the
+    //     aligned run adds one more stabilising nearest-neighbour stack, so a longer complementary
+    //     alignment gives a strictly more negative dimer ΔG°37.
+    //
+    // API under test: PrimerDesigner.FindMostStableDimer / .CalculateSelfDimerMeltingTemperature /
+    //   .CalculateDimerMeltingTemperature (DimerResult).
+
+    #region PRIMER-DIMER-001 — most-stable dimer ΔG
+
+    // Deterministic, partially self-complementary oligos that form a real self-dimer.
+    private static readonly string[] SelfDimerOligos =
+    {
+        "CGATCGATCG",
+        "GCGCGCGC",
+        "ACGTACGTACGT",
+        "GGGGCCCC",
+    };
+
+    [Test]
+    [Description("INV: a self-dimer is the hetero-dimer of S with a copy of itself, and the dimer is symmetric in strand order — dimer(A,B) equals dimer(B,A).")]
+    public void Dimer_SelfDimer_EqualsHeteroDimerOfSWithItself()
+    {
+        foreach (string s in SelfDimerOligos)
+        {
+            string copy = new string(s.ToCharArray()); // distinct reference, same content
+
+            double selfTm = PrimerDesigner.CalculateSelfDimerMeltingTemperature(s);
+            double heteroTm = PrimerDesigner.CalculateDimerMeltingTemperature(s, copy);
+
+            // Non-vacuity: S genuinely forms a self-dimer (a real duplex, not NaN).
+            selfTm.Should().NotBe(double.NaN, because: $"'{s}' is partially self-complementary and forms a self-dimer");
+            heteroTm.Should().BeApproximately(selfTm, 1e-9,
+                because: $"the self-dimer of '{s}' is exactly the hetero-dimer of '{s}' with a copy of itself");
+
+            var self = PrimerDesigner.FindMostStableDimer(s, s);
+            var hetero = PrimerDesigner.FindMostStableDimer(s, copy);
+            self.Should().NotBeNull();
+            hetero.Should().Be(self, because: $"FindMostStableDimer('{s}','{s}') equals the hetero-dimer with a copy");
+        }
+    }
+
+    [Test]
+    [Description("INV/SYM: the dimer of two strands is the same physical duplex regardless of which strand is named first, so its base-pair count and ΔG°37 are symmetric in strand order.")]
+    public void Dimer_StrandOrder_IsSymmetric()
+    {
+        const string fullCore = "GCAGTCAGGTC";
+        foreach (int k in new[] { 4, 6, 8 })
+        {
+            string a = fullCore.Substring(0, k);
+            string b = DnaSequence.GetReverseComplementString(a);
+
+            var ab = PrimerDesigner.FindMostStableDimer(a, b);
+            var ba = PrimerDesigner.FindMostStableDimer(b, a);
+
+            ab.Should().NotBeNull(because: $"'{a}' and its reverse complement form a {k}-bp dimer");
+            ba!.Value.BasePairs.Should().Be(ab!.Value.BasePairs,
+                because: "the dimer base-pair count does not depend on which strand is named first");
+            ba.Value.DeltaG37.Should().BeApproximately(ab.Value.DeltaG37, 1e-9,
+                because: "the dimer ΔG°37 is symmetric in strand order (the same duplex)");
+        }
+    }
+
+    [Test]
+    [Description("MON: each extra Watson-Crick base pair in the aligned run adds a stabilising NN stack, so extending the complementary alignment strictly lowers (makes more negative) the dimer ΔG°37.")]
+    public void Dimer_ExtendingWatsonCrickAlignment_LowersDeltaG()
+    {
+        const string fullCore = "GCAGTCAGGTC";
+
+        double previous = double.PositiveInfinity;
+        for (int k = 4; k <= 10; k++)
+        {
+            string strand1 = fullCore.Substring(0, k);
+            string strand2 = DnaSequence.GetReverseComplementString(strand1); // perfect k-bp complement
+
+            var dimer = PrimerDesigner.FindMostStableDimer(strand1, strand2);
+            dimer.Should().NotBeNull(because: $"a perfect {k}-bp complementary pair forms a dimer");
+            dimer!.Value.BasePairs.Should().Be(k, because: $"the whole {k}-nt complementary alignment pairs contiguously");
+
+            dimer.Value.DeltaG37.Should().BeLessThan(previous - 1e-9,
+                because: $"extending the complementary alignment to {k} bp adds another NN stack, so ΔG°37 strictly decreases");
+            previous = dimer.Value.DeltaG37;
+        }
+    }
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  PROBE-LNATM-001 — LNA-adjusted nearest-neighbour Tm (MolTools)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (McTigue, Peterson & Kahn 2004 Biochemistry 43:5388;
+    //   docs/algorithms/MolTools/LNA_Adjusted_Nearest_Neighbor_Tm.md):
+    //   CalculateMeltingTemperatureNNLna adds the McTigue LNA-DNA nearest-neighbour increments on
+    //   top of the SantaLucia DNA NN model for each internal LNA monomer. LNA monomers rigidify the
+    //   sugar and STABILISE the duplex (raise Tm). Two metamorphic relations (checklist row 243):
+    //
+    //   • MON (adding an LNA base → Tm ≥ unmodified Tm): each internal LNA substitution applies a
+    //     stabilising McTigue increment, so an LNA-substituted oligo has Tm at least that of the
+    //     all-DNA oligo, and adding further LNA positions does not lower it.
+    //   • INV (all-DNA input reduces to the standard NN Tm): with no LNA positions the method
+    //     degenerates to CalculateMeltingTemperatureNN exactly — the LNA path is a pure extension.
+    //
+    // API under test: PrimerDesigner.CalculateMeltingTemperatureNNLna vs .CalculateMeltingTemperatureNN.
+
+    #region PROBE-LNATM-001 — LNA-adjusted NN Tm
+
+    [Test]
+    [Description("INV: with no LNA positions the LNA-adjusted Tm degenerates to the standard SantaLucia NN Tm exactly — the LNA model is a pure extension.")]
+    public void LnaTm_AllDnaInput_ReducesToStandardNnTm()
+    {
+        var sequences = new[] { "CAGGTGGCACCTTAACG", "GCTAGCATCGGATCCAA", "ATGCGGTCAATTGCAACGT", "GGGCGCGGCACCGTCCA" };
+
+        foreach (string seq in sequences)
+        {
+            foreach (double na in new[] { 0.05, 0.50 })
+            {
+                double lnaNoMods = PrimerDesigner.CalculateMeltingTemperatureNNLna(seq, System.Array.Empty<int>(), sodiumMolar: na);
+                double standard = PrimerDesigner.CalculateMeltingTemperatureNN(seq, sodiumMolar: na);
+
+                lnaNoMods.Should().BeApproximately(standard, 1e-12,
+                    because: $"an empty LNA-position set reproduces the standard NN Tm of '{seq}' exactly at [Na⁺]={na} M");
+            }
+        }
+    }
+
+    [Test]
+    [Description("MON: each internal LNA substitution applies a stabilising McTigue increment, so an LNA-modified oligo's Tm is at least the all-DNA Tm, and adding further LNA positions does not lower it.")]
+    public void LnaTm_AddingLnaBase_RaisesTmAboveUnmodified()
+    {
+        const string seq = "GCAGTCAGGTCAACGT"; // length 16; internal positions 1..14
+        double baseline = PrimerDesigner.CalculateMeltingTemperatureNN(seq);
+
+        // (a) Every single internal LNA substitution gives Tm ≥ the all-DNA Tm.
+        bool sawStrictIncrease = false;
+        for (int p = 1; p < seq.Length - 1; p++)
+        {
+            double tm = PrimerDesigner.CalculateMeltingTemperatureNNLna(seq, new[] { p });
+            tm.Should().BeGreaterThanOrEqualTo(baseline - 1e-9,
+                because: $"an internal LNA at position {p} stabilises the duplex, so Tm ≥ the unmodified Tm");
+            if (tm > baseline + 1e-6) sawStrictIncrease = true;
+        }
+
+        sawStrictIncrease.Should().BeTrue(because: "LNA genuinely raises Tm for at least one position — the relation is non-vacuous");
+
+        // (b) Adding MORE LNA positions does not lower the Tm (cumulative non-decreasing).
+        var positions = new List<int>();
+        double previous = baseline;
+        foreach (int p in new[] { 3, 6, 9, 12 })
+        {
+            positions.Add(p);
+            double tm = PrimerDesigner.CalculateMeltingTemperatureNNLna(seq, positions.ToArray());
+            tm.Should().BeGreaterThanOrEqualTo(previous - 1e-9,
+                because: $"adding an LNA at position {p} cannot lower the Tm below the fewer-LNA value");
+            previous = tm;
+        }
+
+        previous.Should().BeGreaterThan(baseline + 1e-6,
+            because: "four internal LNA substitutions raise the Tm well above the all-DNA baseline");
+    }
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  PROBE-EVALUE-001 — Karlin–Altschul off-target E-value statistics (MolTools)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (Karlin & Altschul 1990 PNAS 87:2264; Altschul et al. 1990;
+    //   docs/algorithms/MolTools / tests/TestSpecs/PROBE-EVALUE-001.md):
+    //   For a probe off-target alignment of raw score S in a search space m·n, the expected number
+    //   of chance hits is E = K·m·n·e^{−λS}, where λ is the unique positive root of the
+    //   Karlin–Altschul equation Σ_{i,j} p_i p_j e^{λ s_ij} = 1. Two metamorphic relations
+    //   (checklist row 244):
+    //
+    //   • MON (increasing database size raises E for a fixed raw score): E is exactly linear in the
+    //     database length n (E = K·m·n·e^{−λS}), so a larger reference raises the chance-hit
+    //     expectation proportionally.
+    //   • INV (λ solves the defining equation): the λ returned by ComputeLambdaNucleotide makes
+    //     Σ_{i,j} p_i p_j e^{λ s_ij} = 0.25·e^{λ·match} + 0.75·e^{λ·mismatch} equal exactly 1.
+    //
+    // API under test: ProbeDesigner.ComputeLambdaNucleotide / .ComputeKarlinAltschul.
+
+    #region PROBE-EVALUE-001 — Karlin–Altschul E-value statistics
+
+    [Test]
+    [Description("MON: E = K·m·n·e^{−λS} is exactly linear in the database length n, so for a fixed raw score a larger reference strictly (and proportionally) raises the E-value.")]
+    public void EValue_IncreasingDatabaseSize_RaisesEValueLinearly()
+    {
+        const double rawScore = 20.0;
+        const int queryLength = 25;
+        long[] databaseLengths = { 1_000L, 10_000L, 100_000L, 1_000_000L };
+
+        var reference = ProbeDesigner.ComputeKarlinAltschul(rawScore, queryLength, databaseLengths[0]);
+        double ePerBase = reference.EValue / databaseLengths[0];
+
+        double previousE = double.NegativeInfinity;
+        foreach (long n in databaseLengths)
+        {
+            var stats = ProbeDesigner.ComputeKarlinAltschul(rawScore, queryLength, n);
+
+            stats.EValue.Should().BeGreaterThan(previousE,
+                because: $"a larger database (n={n}) raises the chance-hit expectation for the fixed raw score");
+            // Exact linearity in n: E(n) = (E/n)·n with a constant E/n.
+            stats.EValue.Should().BeApproximately(ePerBase * n, ePerBase * n * 1e-9,
+                because: $"E = K·m·n·e^(−λS) is exactly linear in n, so E(n={n}) scales from the reference");
+            // Internal consistency: E reproduced from the returned λ and K.
+            double expected = stats.K * queryLength * n * System.Math.Exp(-stats.Lambda * rawScore);
+            stats.EValue.Should().BeApproximately(expected, System.Math.Abs(expected) * 1e-9,
+                because: "the reported E-value equals K·m·n·e^(−λS) from the reported λ and K");
+            previousE = stats.EValue;
+        }
+    }
+
+    [Test]
+    [Description("INV: the λ returned by ComputeLambdaNucleotide is the root of the Karlin–Altschul equation — 0.25·e^{λ·match} + 0.75·e^{λ·mismatch} = 1 — for every valid match/mismatch scheme.")]
+    public void Lambda_SolvesKarlinAltschulEquation()
+    {
+        var schemes = new[] { (1, -3), (2, -3), (5, -4), (1, -1), (3, -4) };
+        double previousLambda = double.NaN;
+
+        foreach (var (match, mismatch) in schemes)
+        {
+            double lambda = ProbeDesigner.ComputeLambdaNucleotide(match, mismatch);
+
+            lambda.Should().BeGreaterThan(0.0, because: "the Karlin–Altschul λ is the unique POSITIVE root");
+
+            // Defining equation with uniform base frequencies: p(match)=4·0.25²=0.25, p(mismatch)=0.75.
+            double lhs = 0.25 * System.Math.Exp(lambda * match) + 0.75 * System.Math.Exp(lambda * mismatch);
+            lhs.Should().BeApproximately(1.0, 1e-6,
+                because: $"λ={lambda} must solve Σ p_i p_j e^(λ s_ij) = 1 for the ({match},{mismatch}) scheme");
+
+            // Non-vacuity: different schemes give different λ.
+            if (!double.IsNaN(previousLambda))
+                lambda.Should().NotBe(previousLambda, because: "distinct scoring schemes yield distinct λ");
+            previousLambda = lambda;
+        }
+
+        // Published pin: the BLAST +1/−3 nucleotide scheme yields λ ≈ 1.374 (NCBI blastn).
+        ProbeDesigner.ComputeLambdaNucleotide(1, -3).Should().BeApproximately(1.374, 0.01,
+            because: "the BLAST +1/−3 scheme has the published λ ≈ 1.374");
     }
 
     #endregion

@@ -9,7 +9,7 @@ using Assoc = Seqeron.Genomics.Oncology.OncologyAnalyzer.TherapyAssociation;
 using Input = Seqeron.Genomics.Oncology.OncologyAnalyzer.VariantActionabilityInput;
 using Assessment = Seqeron.Genomics.Oncology.OncologyAnalyzer.ActionabilityAssessment;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the Oncology clinical-actionability area — ONCO-ACTION-001.

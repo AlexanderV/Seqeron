@@ -16,7 +16,7 @@ This unit (a) classifies a peptide–MHC pair into binding-strength categories (
 
 ### 2.1 Domain Context
 
-Neoantigen prediction (ONCO-NEO-001) enumerates candidate mutant 8–11-mer peptides. Whether such a peptide is presented depends on its binding affinity to a patient HLA allele. Affinity is predicted as an IC50 (half-maximal inhibitory concentration, lower = stronger) or as a %Rank (percentile of the score against random natural peptides, lower = stronger) [1]. Downstream selection then thresholds these predicted values into binder categories using community-standard cutoffs [1][2][4].
+Neoantigen prediction (ONCO-NEO-001) enumerates candidate mutant 8–14-mer peptides. Whether such a peptide is presented depends on its binding affinity to a patient HLA allele. Affinity is predicted as an IC50 (half-maximal inhibitory concentration, lower = stronger) or as a %Rank (percentile of the score against random natural peptides, lower = stronger) [1]. Downstream selection then thresholds these predicted values into binder categories using community-standard cutoffs [1][2][4].
 
 ### 2.2 Core Model
 
@@ -34,7 +34,7 @@ Cutoffs (all strict `<`):
 
 Peptide-length validity (inclusive bounds):
 
-- Class I: 8–11 — Reynisson et al. 2020 ("8 to 14 amino acids, default is 8–11"), adopting the 8–11 default to match the ONCO-NEO-001 windowing constants [1].
+- Class I: 8–14 — Reynisson et al. 2020 ("8 to 14 amino acids"); the NetMHCpan-4.1 class I service offers 8/9/10/11/12/13/14-mer peptide options [1]. (Earlier this unit adopted the narrower 8–11 default; the accepted range is now the full NetMHCpan-4.1 class I window 8–14, shared with the ONCO-NEO-001 windowing constants.)
 - Class II: 13–25 — IEDB MHC class II tool description ("typically range between 13 and 25 amino acids long") [5].
 
 **Matrix-based prediction (opt-in).** A position-specific scoring matrix has one residue→value row per peptide position plus a scalar final constant. Two published scoring conventions are supported:
@@ -97,7 +97,7 @@ Peptide-length validity (inclusive bounds):
 | I/II | IC50 (nM) | 50 | 500 | [2][4][3] |
 | I | %Rank | 0.5 | 2 | [1] |
 | II | %Rank | 2 | 10 | [1] |
-| I | length | — | — | 8–11 inclusive [1] |
+| I | length | — | — | 8–14 inclusive [1] |
 | II | length | — | — | 13–25 inclusive [5] |
 
 Matrix-based prediction (opt-in):
@@ -149,14 +149,13 @@ The threshold half is a pure O(1) comparison; no search/matching, so the reposit
 
 - IC50 cutoffs 50 nM (strong) / 500 nM (weak), strict `<` [2][4][3].
 - %Rank cutoffs class I 0.5/2, class II 2/10, strict `<` [1].
-- Length ranges class I 8–11, class II 13–25 [1][5].
+- Length ranges class I 8–14, class II 13–25 [1][5].
 - BIMAS product rule `T½ = FinalConstant · ∏ coeff`, neutral coefficient 1.0 [6][7].
 - SMM transform `IC50 = 50000^(1 − score)`, score = intercept + Σ contributions [8][9].
 - MHCflurry Class I pan-allele binding-affinity network [10][11]: BLOSUM62 `left_pad_centered_right_pad` peptide encoding (945), the 37-residue allele pseudosequence (777, bundled), the feed-forward forward pass (`tanh` hidden / `sigmoid` output; both `feedforward` and `with-skip-connections` topologies), `to_ic50 = 50000^(1−x)`, and the geometric-mean ensemble combiner. Verified against `mhcflurry` 2.1.5 (`models_class1_pan` 20200610) to <0.03%.
 
 **Intentionally simplified:**
 
-- Class I length range uses the 8–11 default rather than the full 8–14 [1]; **consequence:** lengths 12–14 are reported invalid for class I, matching the ONCO-NEO-001 canonical neoantigen search.
 - The coefficient **matrix is caller-supplied**, not embedded; **consequence:** the user must obtain a matrix (the public-domain BIMAS/Parker 1994 HLA-A2 table, or an IEDB SMM matrix under its non-commercial licence) under their own licence — no redistributable, cross-verifiable trained matrix was obtainable this session.
 - The MHCflurry **ensemble weights** (~80 MB float32 across 10 networks) are **not embedded** for repo health; **consequence:** the pseudosequence table + forward-pass engine ship bundled (one network is embedded only as a test fixture), and the full ensemble is loaded from a caller-supplied MHCflurry weight pack via `LoadWeightPack`. The algorithm itself is exact (oracle-verified); only the weight payload is caller-supplied.
 
@@ -168,7 +167,7 @@ The threshold half is a pure O(1) comparison; no search/matching, so the reposit
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | Class I length range 8–11 (vs 8–14) | Assumption | Lengths 12–14 reported invalid for class I | accepted | Reynisson default; matches ONCO-NEO-001 |
+| 1 | Class I length range = full NetMHCpan-4.1 window 8–14 | Resolved | Lengths 12–14 are valid for class I (was 8–11) | resolved | Reynisson 2020 class I 8–14; shared with ONCO-NEO-001 |
 | 2 | Coefficient matrix caller-supplied (no embedded trained matrix) | Assumption | User must obtain a licensed matrix; only scoring rules are bundled | accepted | BIMAS CGI dead/unarchived; Parker 1994 paywalled; IEDB SMM non-commercial |
 
 ## 6. Edge Cases and Limitations
@@ -187,7 +186,7 @@ The threshold half is a pure O(1) comparison; no search/matching, so the reposit
 
 ### 6.2 Limitations
 
-The matrix-based predictor needs a caller-supplied coefficient matrix (no trained matrix is embedded; the pan-allele NetMHCpan neural model is out of scope). The BIMAS half-life and SMM IC50 are only as good as the supplied matrix and the independent-side-chain approximation (Parker 1994 reports accuracy "to within a factor of 5" [6]). Class I length default 8–11 excludes 12–14. %Rank cutoffs are the NetMHCpan-4.1 defaults; allele-specific cutoffs are not modeled.
+The matrix-based predictor needs a caller-supplied coefficient matrix (no trained matrix is embedded; the pan-allele NetMHCpan neural model is out of scope). The BIMAS half-life and SMM IC50 are only as good as the supplied matrix and the independent-side-chain approximation (Parker 1994 reports accuracy "to within a factor of 5" [6]). Class I length range is the full NetMHCpan-4.1 window 8–14. %Rank cutoffs are the NetMHCpan-4.1 defaults; allele-specific cutoffs are not modeled.
 
 ## 7. Examples and Related Material
 

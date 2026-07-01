@@ -1,3 +1,7 @@
+using FsCheck;
+using FsCheck.Fluent;
+using FsCheck.NUnit;
+
 namespace Seqeron.Genomics.Tests.Properties;
 
 /// <summary>
@@ -11,6 +15,91 @@ namespace Seqeron.Genomics.Tests.Properties;
 [Category("IO")]
 public class FastaRoundTripProperties
 {
+    #region Generators
+
+    // FASTA identifiers are the first whitespace-delimited token of the header, so a valid Id
+    // contains no space/tab/newline and no '>'.
+    private static Gen<string> IdGen() =>
+        from chars in Gen.Elements(
+                "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.|-".ToCharArray())
+            .ArrayOf().Where(a => a.Length is >= 1 and <= 12)
+        select new string(chars);
+
+    // The description is everything after the first space; it must not contain a newline (which would
+    // break the header line) and is recovered verbatim. We trim edge whitespace to keep a canonical form.
+    private static Gen<string?> DescriptionGen() =>
+        Gen.OneOf(
+            Gen.Constant<string?>(null),
+            (from chars in Gen.Elements(
+                    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 _.-".ToCharArray())
+                .ArrayOf().Where(a => a.Length >= 1)
+             let s = new string(chars).Trim()
+             where s.Length >= 1
+             select (string?)s));
+
+    // A non-empty DNA sequence — the parser drops records whose sequence body is empty.
+    private static Gen<DnaSequence> DnaSeqGen() =>
+        from chars in Gen.Elements('A', 'C', 'G', 'T').ArrayOf().Where(a => a.Length is >= 1 and <= 200)
+        select new DnaSequence(new string(chars));
+
+    private static Arbitrary<List<FastaEntry>> FastaEntriesArbitrary() =>
+        (from n in Gen.Choose(1, 6)
+         from entries in (from id in IdGen()
+                          from desc in DescriptionGen()
+                          from seq in DnaSeqGen()
+                          select new FastaEntry(id, desc, seq)).ArrayOf(n)
+         select entries.ToList()).ToArbitrary();
+
+    #endregion
+
+    #region PARSE-FASTA-001 — Property-based round-trip
+
+    /// <summary>
+    /// RT + P (header + sequence preserved): for any list of FASTA entries with valid identifiers,
+    /// Parse(ToFasta(entries)) reproduces the entries exactly — count, Id, Description and Sequence.
+    /// This is the defining inverse-pair law of a serializer/parser. Source: NCBI/Wikipedia FASTA.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property RoundTrip_PreservesAllEntries()
+    {
+        return Prop.ForAll(FastaEntriesArbitrary(), entries =>
+        {
+            string fasta = FastaParser.ToFasta(entries);
+            var parsed = FastaParser.Parse(fasta).ToList();
+
+            if (parsed.Count != entries.Count)
+                return false.Label($"entry count {entries.Count} → {parsed.Count}");
+
+            for (int i = 0; i < entries.Count; i++)
+            {
+                if (parsed[i].Id != entries[i].Id)
+                    return false.Label($"Id[{i}] '{entries[i].Id}' → '{parsed[i].Id}'");
+                if (parsed[i].Description != entries[i].Description)
+                    return false.Label($"Description[{i}] '{entries[i].Description}' → '{parsed[i].Description}'");
+                if (parsed[i].Sequence.ToString() != entries[i].Sequence.ToString())
+                    return false.Label($"Sequence[{i}] mismatch for Id '{entries[i].Id}'");
+            }
+            return true.ToProperty();
+        });
+    }
+
+    /// <summary>
+    /// D (determinism): ToFasta is a pure function — serializing the same entries twice yields
+    /// byte-identical output, and re-parsing is stable.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ToFasta_IsDeterministic()
+    {
+        return Prop.ForAll(FastaEntriesArbitrary(), entries =>
+        {
+            string a = FastaParser.ToFasta(entries);
+            string b = FastaParser.ToFasta(entries);
+            return (a == b).Label("ToFasta must be deterministic for identical input");
+        });
+    }
+
+    #endregion
+
     /// <summary>
     /// Round-trip: Parse(ToFasta(entries)) preserves IDs.
     /// </summary>

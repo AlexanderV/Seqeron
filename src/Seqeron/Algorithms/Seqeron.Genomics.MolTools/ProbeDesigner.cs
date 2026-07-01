@@ -460,6 +460,10 @@ public static class ProbeDesigner
     {
         ArgumentNullException.ThrowIfNull(probeSequence);
 
+        // Qualitative MGB rules only — the quantitative MGB ΔTm is not computed (Kutyavin 2000 is
+        // empirical, no closed form). Strict mode throws; Moderate/Permissive allow this narrower result.
+        Seqeron.Genomics.Core.LimitationPolicy.Enforce("PROBE-DESIGN-001");
+
         string seq = probeSequence.ToUpperInvariant();
         var guidance = new List<string>();
 

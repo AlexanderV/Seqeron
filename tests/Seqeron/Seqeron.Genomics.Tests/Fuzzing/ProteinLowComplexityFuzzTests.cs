@@ -6,7 +6,7 @@ using NUnit.Framework;
 using FluentAssertions;
 using static Seqeron.Genomics.Analysis.ProteinMotifFinder;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the ProteinMotif area — LOW-COMPLEXITY REGION detection

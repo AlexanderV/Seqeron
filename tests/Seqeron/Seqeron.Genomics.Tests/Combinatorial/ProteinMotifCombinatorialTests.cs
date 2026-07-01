@@ -454,4 +454,88 @@ public class ProteinMotifCombinatorialTests
         pureI.Should().ContainSingle();
         pureI[0].Score.Should().BeApproximately(4.5, 1e-9, "a uniform poly-I profile equals KD(I)=4.5 (INV-3)");
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: PROTMOTIF-HMM-001 — Plan7 profile-HMM domain search (HMMER3-style)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 239.
+    // Spec: tests/TestSpecs/PROTMOTIF-HMM-001.md
+    //       (ProteinMotifFinder.ScoreDomainHmm / FindDomainEnvelopes; Plan7ProfileHmm). ADVANCED §10.
+    //
+    // Sources: Durbin, Eddy, Krogh & Mitchison (1998) §5.4 (Plan7 log-odds recurrences);
+    //   Eddy (2011) PLoS Comput Biol 7:e1002195 (HMMER3 local architecture, env decomposition);
+    //   Pfam PF00018 (SH3), PF00595 (PDZ), PF00400 (WD40) bundled CC0 profiles.
+    //
+    // Model: a profile HMM scores a sequence in log-odds bits against a background null. The GLOCAL
+    //   full-profile score (ScoreDomainHmm) aligns the whole profile to the whole input; the LOCAL
+    //   search (FindDomainEnvelopes) decomposes the input into per-domain envelopes, so an embedded
+    //   domain is detected regardless of flanking residues. A true positive scores above threshold on
+    //   its OWN family and lower on the others (family specificity).
+    //
+    // Dimensions: profile(3) × mode(local/glocal) × seqLen(3). Grid 3×2×3 = 18 (exhaustive).
+    //
+    // Axis mapping (documented, cf. PRIMER-TM-001 inert salt axis): seqLen is realised as the length
+    // of neutral Gly-Ser flanks around the planted domain. Under LOCAL search this is the
+    // flank-robustness axis (the envelope is found at every flank length); under GLOCAL full-profile
+    // scoring the score is taken on the bare domain (flank-independent by construction), so the
+    // seqLen axis is inert for glocal cells.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // Evidence-sourced true-positive domains (UniProt cores) and their Pfam accessions.
+    private const string Sh3Pos = "TFVALYDYESRTETDLSFKKGERLQIVNNTEGDWWLAHSLSTGQTGYIPSNYVAP";              // SRC_HUMAN SH3
+    private const string PdzPos = "MEYEEITLERGNSGLGFSIAGGTDNPHIGDDPSIFITKIIPGGAAAQDGRLRVNDSILFVNEVDVREVTHSAAVEALKEAGSIVRLYVMRR"; // PSD-95 PDZ1
+    private const string Wd40Pos =                                                                          // GBB1_HUMAN WD40 β-propeller
+        "MSELDQLRQEAEQLKNQIRDARKACADATLSQITNNIDPVGRIQMRTRRTLRGHLAKIYAMHWGTDSRLLVSASQDGKLIIWDSYTTNKVHAIPLRSSWVMTCAYAPSGNYVACGGLDNICSIYNLKTREGNVRVSRELAGHTGYLSCCRFLDDNQIVTSSGDTTCALWDIETGQQTTTFTGHTGDVMSLSLAPDTRLFVSGACDASAKLWDVREGMCRQTFTGHESDINAICFFPNGNAFATGSDDATCRLFDLRADQELMTYSHDNIICGITSVSFSKSGRLLLAGYDDFNCNVWDALKADRAGVLAGHDNRVSCLGVTDDGMAVATGSWDSFLKIWN";
+
+    private const double HmmThresholdBits = 10.0;
+
+    private static readonly (string Name, string Seq, string Acc)[] HmmProfiles =
+    {
+        ("SH3", Sh3Pos, "PF00018"),
+        ("PDZ", PdzPos, "PF00595"),
+        ("WD40", Wd40Pos, "PF00400"),
+    };
+
+    private static string GsFlank(int len) => string.Concat(Enumerable.Range(0, len).Select(i => "GS"[i % 2]));
+
+    public enum HmmMode { Glocal, Local }
+
+    [Test, Combinatorial]
+    public void Hmm_DetectsCognateFamily_AcrossProfileModeAndFlankLength(
+        [Values(0, 1, 2)] int profileIdx,
+        [Values(HmmMode.Glocal, HmmMode.Local)] HmmMode mode,
+        [Values(0, 20, 40)] int flankLen)
+    {
+        var (name, seq, acc) = HmmProfiles[profileIdx];
+
+        if (mode == HmmMode.Glocal)
+        {
+            // Glocal full-profile bit score on the bare domain (flank length inert — documented).
+            double own = ProteinMotifFinder.ScoreDomainHmm(seq, acc);
+            own.Should().BeGreaterThanOrEqualTo(HmmThresholdBits, $"the {name} domain scores above threshold on its own profile");
+            foreach (var o in HmmProfiles.Where(p => p.Acc != acc))
+                own.Should().BeGreaterThan(ProteinMotifFinder.ScoreDomainHmm(seq, o.Acc),
+                    $"the {name} domain scores higher on {name} than on {o.Name} (family specificity)");
+        }
+        else
+        {
+            // Local envelope decomposition: the embedded cognate domain is found at every flank length.
+            string padded = GsFlank(flankLen) + seq + GsFlank(flankLen);
+            ProteinMotifFinder.FindDomainEnvelopes(padded)
+                .Should().Contain(e => e.Accession == acc && e.BitScore >= HmmThresholdBits,
+                    $"the embedded {name} domain is detected as a local envelope regardless of {flankLen}-residue flanks");
+        }
+    }
+
+    /// <summary>
+    /// Interaction witness: a low-complexity true-negative sequence triggers NO local envelope and
+    /// scores below zero on every profile — the family calls are genuine, not green-lit by construction.
+    /// </summary>
+    [Test]
+    public void Hmm_TrueNegative_NoEnvelopeAndNegativeGlocalScore()
+    {
+        const string trueNeg = "AAAAAAAAAAAAAAEEEEEEEEEEEEEEKKKKKKKKKKKK";
+        ProteinMotifFinder.FindDomainEnvelopes(trueNeg).Should().BeEmpty("a low-complexity sequence yields no domain envelope");
+        foreach (var p in HmmProfiles)
+            ProteinMotifFinder.ScoreDomainHmm(trueNeg, p.Acc).Should().BeLessThan(0.0, $"the true negative scores below zero on {p.Name}");
+    }
 }

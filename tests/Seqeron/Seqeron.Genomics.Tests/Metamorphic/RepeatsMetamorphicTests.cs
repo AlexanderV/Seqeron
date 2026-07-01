@@ -6,7 +6,7 @@ using FluentAssertions;
 using Seqeron.Genomics.Core;
 using Seqeron.Genomics.Analysis;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Metamorphic;
 
 /// <summary>
 /// Metamorphic tests for the Repeats area.
@@ -240,6 +240,81 @@ public class RepeatsMetamorphicTests
             shiftedSet.Should().BeEquivalentTo(expected,
                 because: "the only change from a neutral flank is a uniform +|F| positional shift");
         }
+    }
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  REP-APPROX-001 — approximate tandem-repeat finder (TRF) (Repeats)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (Benson 1999 Nucleic Acids Res 27:573, Tandem Repeats Finder):
+    //   FindApproximateTandemRepeats aligns adjacent copies of a tandem tract and reports the
+    //   percentage of matching positions (PercentMatches) and of insertions/deletions
+    //   (PercentIndels) between adjacent copies. Two metamorphic relations (checklist row 256):
+    //
+    //   • MON (introducing a substitution lowers percent-matches): each base substitution introduced
+    //     into a copy creates an adjacent-copy mismatch, so PercentMatches is non-increasing in the
+    //     number of substitutions (and strictly lower than the perfect tract).
+    //   • INV (perfect repeat → 100% matches, 0% indels): a perfectly periodic tract aligns its
+    //     adjacent copies with no mismatch and no gap, so PercentMatches = 100 and PercentIndels = 0.
+    //
+    // API under test: RepeatFinder.FindApproximateTandemRepeats (ApproximateTandemRepeatResult).
+
+    #region REP-APPROX-001 — approximate tandem-repeat finder
+
+    private static ApproximateTandemRepeatResult MainRepeat(string sequence) =>
+        RepeatFinder.FindApproximateTandemRepeats(sequence, minPeriod: 1, maxPeriod: 6, minScore: 10)
+            .OrderByDescending(r => r.AlignmentScore)
+            .ThenByDescending(r => r.SpanLength)
+            .First();
+
+    [Test]
+    [Description("INV: a perfectly periodic tandem tract aligns its adjacent copies with no mismatch and no gap, so PercentMatches = 100 and PercentIndels = 0.")]
+    public void Approx_PerfectRepeat_Has100PercentMatchesAndZeroIndels()
+    {
+        foreach (string unit in new[] { "AC", "ACG", "ACGT", "ACGTAG" })
+        {
+            string perfect = string.Concat(Enumerable.Repeat(unit, 12));
+            var repeat = MainRepeat(perfect);
+
+            repeat.PercentMatches.Should().BeApproximately(100.0, 1e-9,
+                because: $"a perfect '{unit}'×12 tract has no adjacent-copy mismatch");
+            repeat.PercentIndels.Should().BeApproximately(0.0, 1e-9,
+                because: $"a perfect '{unit}'×12 tract has no adjacent-copy indel");
+        }
+    }
+
+    [Test]
+    [Description("MON: each base substitution introduced into a copy creates an adjacent-copy mismatch, so the percent-matches is non-increasing in the number of substitutions and strictly below the perfect tract.")]
+    public void Approx_IntroducingSubstitution_LowersPercentMatches()
+    {
+        const string unit = "ACGTAG"; // period 6
+        string perfect = string.Concat(Enumerable.Repeat(unit, 12)); // 72 nt
+
+        // Substitution sites: the middle of distinct interior copies (so each makes an adjacent mismatch).
+        int[] sites = { 6 * 3 + 2, 6 * 6 + 2, 6 * 9 + 2 };
+
+        double previous = double.PositiveInfinity;
+        bool sawStrictDecrease = false;
+        for (int subs = 0; subs <= sites.Length; subs++)
+        {
+            var chars = perfect.ToCharArray();
+            for (int s = 0; s < subs; s++)
+            {
+                int p = sites[s];
+                chars[p] = chars[p] == 'A' ? 'T' : 'A'; // flip to a different base
+            }
+
+            var repeat = MainRepeat(new string(chars));
+            repeat.PercentMatches.Should().BeLessThanOrEqualTo(previous + 1e-9,
+                because: $"introducing substitution #{subs} cannot raise the adjacent-copy percent-matches");
+            if (repeat.PercentMatches < previous - 1e-6) sawStrictDecrease = true;
+            previous = repeat.PercentMatches;
+        }
+
+        sawStrictDecrease.Should().BeTrue(
+            because: "substitutions genuinely lower the percent-matches below the perfect tract — the relation is non-vacuous");
     }
 
     #endregion

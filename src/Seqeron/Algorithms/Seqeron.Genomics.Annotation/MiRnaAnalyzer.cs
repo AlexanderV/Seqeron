@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Seqeron.Genomics.Analysis;
+using Seqeron.Genomics.Core;
 using Seqeron.Genomics.Phylogenetics;
 
 namespace Seqeron.Genomics.Annotation;
@@ -819,6 +820,13 @@ public static class MiRnaAnalyzer
             + threeP + minDist + len3Utr + off6m
             + sps + ta + lenOrf + orf8m + pctContribution;
 
+        var omittedFeatures = BuildOmittedFeatures(inputs, saIncluded);
+
+        // When any context++ feature is omitted (TA/SPS/PCT/ORF not supplied), the score is partial,
+        // not the full Agarwal (2015) context++ score. Strict mode throws rather than returning it.
+        if (omittedFeatures.Count > 0)
+            Seqeron.Genomics.Core.LimitationPolicy.Enforce("MIRNA-TARGET-001");
+
         return new ContextPlusPlusScore(
             SiteType: type,
             Intercept: intercept,
@@ -839,7 +847,139 @@ public static class MiRnaAnalyzer
             BranchLengthScore: bls,
             Pct: pct,
             ContextScorePartial: partial,
-            OmittedFeatures: BuildOmittedFeatures(inputs, saIncluded));
+            OmittedFeatures: omittedFeatures);
+    }
+
+    // ── TA_3UTR: target-site abundance computed from a 3'UTR set ───────────────────────────
+    // Garcia et al. (2011) Nat Struct Mol Biol 18:1139 (Online Methods, retrieved verbatim this
+    // session): "TA in the human transcriptome was calculated as the number of non-overlapping
+    // 3′UTR 8mer, 7mer-m8, and 7mer-A1 sites in the reference mRNAs."  Agarwal et al. (2015) eLife
+    // 4:e05005 (Table 1) names the context++ feature TA_3UTR = "Number of sites in all annotated
+    // 3′ UTRs (Arvey et al., 2010; Garcia et al., 2011)".  TargetScan stores ONE TA value per 7-nt
+    // seed region in TA_SPS_by_seed_region.txt (column 4; values ≈ 1.6–4.4, retrieved verbatim this
+    // session) and feeds it AS-IS to getAgarwalContribution (targetscan_70_context_scores.pl) — the
+    // value is therefore log10(count) (the regression min/max are ≈ 3.1–3.9; Garcia 2011 notes "each
+    // additional CG dinucleotide imparted an additional log10 reduction in TA").  So:
+    //     TA = log10( N ),  N = total non-overlapping 8mer+7mer-m8+7mer-A1 sites of the seed
+    //                           summed over every 3'UTR in the supplied set.
+    // The site definitions are the canonical TargetScan ones (Bartel 2009; Lewis 2005), identical to
+    // FindTargetSites: an 8mer/7mer-m8/7mer-A1 is anchored on a 6mer-core match (reverse complement
+    // of miRNA positions 2-7) that additionally has a position-8 match (m8) and/or an A opposite
+    // position 1 (A1).  The three types are mutually exclusive per anchor (each qualifying anchor is
+    // one site), and counting is left-to-right greedy so that physically overlapping core anchors
+    // (possible only for self-similar / periodic cores) are counted once — honouring Garcia's
+    // explicit "non-overlapping" requirement (see CountSeedSitesInUtr).
+
+    /// <summary>
+    /// Computes the TargetScan context++ feature <c>TA_3UTR</c> (transcriptome-wide target-site
+    /// abundance) for a miRNA seed from a supplied set of 3'UTR sequences, per Garcia et al. (2011)
+    /// / Agarwal et al. (2015): <c>TA = log10(N)</c>, where <c>N</c> is the total number of
+    /// non-overlapping canonical <b>8mer</b>, <b>7mer-m8</b>, and <b>7mer-A1</b> sites of the seed
+    /// across all the 3'UTRs. This converts TA from an opaque caller-supplied number into a value
+    /// computed from a 3'UTR set per the published definition; the result can be fed straight into
+    /// <see cref="ScoreTargetSiteContextPlusPlus"/> via <see cref="ContextPlusPlusInputs.Ta"/>
+    /// (which applies the bundled Agarwal TA coefficient and min-max scaling).
+    /// </summary>
+    /// <remarks>
+    /// Site definitions match <see cref="FindTargetSites"/> and the TargetScan precompute: each
+    /// occurrence of the 6mer core (reverse complement of miRNA positions 2-7) that also has a
+    /// position-8 match (7mer-m8 / 8mer) and/or an A opposite miRNA position 1 (7mer-A1 / 8mer)
+    /// counts as one site. A bare 6mer (neither m8 nor A1) and offset-6mer matches are NOT counted
+    /// (Garcia 2011 counts only the three high-confidence site types). Sites are counted
+    /// <b>non-overlapping</b> (Garcia 2011): the scan is left-to-right greedy, so two qualifying
+    /// core anchors whose 6mer-core footprints overlap (possible only for self-similar / periodic
+    /// cores) are counted once.
+    /// </remarks>
+    /// <param name="miRna">The miRNA whose seed (positions 2-8) defines the site set. Its
+    /// <c>SeedSequence</c> (or, if absent, positions 2-8 of its <c>Sequence</c>) is used.</param>
+    /// <param name="threePrimeUtrs">The set of 3'UTR sequences (RNA or DNA; T→U; case-insensitive)
+    /// that constitute the transcriptome over which abundance is counted.</param>
+    /// <returns>The log10 of the total site count (TA_3UTR), or <c>0</c> when the total count is 0
+    /// (log10(1) = 0 in TargetScan's convention; an empty/short seed also yields 0).</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="threePrimeUtrs"/> is null.</exception>
+    public static double ComputeTa3Utr(MiRna miRna, IEnumerable<string> threePrimeUtrs)
+    {
+        ArgumentNullException.ThrowIfNull(threePrimeUtrs);
+        long total = CountSeedSites3Utr(miRna, threePrimeUtrs);
+        // TargetScan stores log10(count). A zero count maps to 0 (= log10(1)); log10(0) is undefined,
+        // and TargetScan never emits a seed with no sites, so the floor of 0 is the safe convention.
+        return total > 0 ? Math.Log10(total) : 0.0;
+    }
+
+    /// <summary>
+    /// Counts the total number of non-overlapping canonical <b>8mer</b>, <b>7mer-m8</b>, and
+    /// <b>7mer-A1</b> sites of a miRNA seed across a set of 3'UTRs — the raw <c>N</c> underlying
+    /// <see cref="ComputeTa3Utr"/> (before the log10), per Garcia et al. (2011).
+    /// </summary>
+    /// <param name="miRna">The miRNA whose seed defines the site set.</param>
+    /// <param name="threePrimeUtrs">The 3'UTR sequences to count over.</param>
+    /// <returns>The total site count (≥ 0).</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="threePrimeUtrs"/> is null.</exception>
+    public static long CountSeedSites3Utr(MiRna miRna, IEnumerable<string> threePrimeUtrs)
+    {
+        ArgumentNullException.ThrowIfNull(threePrimeUtrs);
+
+        string seed = string.IsNullOrEmpty(miRna.SeedSequence)
+            ? GetSeedSequence(miRna.Sequence ?? "")
+            : miRna.SeedSequence;
+        if (seed.Length < 7)
+            return 0;
+
+        // seedRC layout (7 chars): [RC of pos8][RC of pos7]…[RC of pos2]; 6mer core = seedRC[1..7].
+        string seedRC = GetReverseComplement(seed);
+        if (seedRC.Length < 7)
+            return 0;
+        char pos8Rc = seedRC[0];                  // base required opposite miRNA position 8 (upstream)
+        string sixmerCore = seedRC.Substring(1, 6); // reverse complement of miRNA positions 2-7
+
+        long total = 0;
+        foreach (string? utr in threePrimeUtrs)
+        {
+            if (string.IsNullOrEmpty(utr))
+                continue;
+            total += CountSeedSitesInUtr(
+                utr.ToUpperInvariant().Replace('T', 'U'), sixmerCore, pos8Rc);
+        }
+        return total;
+    }
+
+    // Counts 8mer + 7mer-m8 + 7mer-A1 sites in ONE 3'UTR. Scan for 6mer-core occurrences; a site
+    // counts iff it additionally has the position-8 match (m8) or the A opposite position 1 (A1) —
+    // i.e. it is an 8mer (both), a 7mer-m8 (m8 only) or a 7mer-A1 (A1 only). A bare 6mer (neither) is
+    // NOT a counted site type (Garcia 2011 counts only the three).
+    //
+    // Garcia (2011) Online Methods: TA = number of *non-overlapping* sites. Distinct qualifying
+    // core anchors can still physically overlap when the 6mer core is self-similar (e.g. a
+    // low-complexity / periodic core against a homopolymeric UTR), so counting every anchor would
+    // over-count relative to the published definition. We therefore scan left-to-right greedily:
+    // when a site is counted at i, the next candidate core must start at i+6 or later (its 6mer-core
+    // footprint must not overlap an already-counted site). On non-self-overlapping cores (real miRNA
+    // seeds against typical 3'UTRs) this is identical to per-anchor counting; on periodic cores it
+    // enforces the non-overlapping requirement.
+    internal static int CountSeedSitesInUtr(string utr, string sixmerCore, char pos8Rc)
+    {
+        int count = 0;
+        int i = 0;
+        while (i + 6 <= utr.Length)
+        {
+            if (string.CompareOrdinal(utr, i, sixmerCore, 0, 6) != 0)
+            {
+                i++;
+                continue;
+            }
+            bool hasPos8 = i > 0 && utr[i - 1] == pos8Rc;     // 7mer-m8 / 8mer
+            bool hasA1 = i + 6 < utr.Length && utr[i + 6] == 'A'; // 7mer-A1 / 8mer
+            if (hasPos8 || hasA1)
+            {
+                count++;
+                i += 6; // skip past this site's 6mer-core footprint — sites are non-overlapping
+            }
+            else
+            {
+                i++;
+            }
+        }
+        return count;
     }
 
     /// <summary>
@@ -869,7 +1009,7 @@ public static class MiRnaAnalyzer
     // are weighted from the base immediately 5' of the site (i=0) outward; downstream from the
     // base immediately 3' of the site. Weighting offsets are +1 vs +2 per site type, exactly as
     // in the perl (8mer/7mer-m8 favour the upstream by one rank; 8mer/7mer-A1 the downstream).
-    private static double LocalAuContribution(string mrna, int siteStart, int siteEnd, TargetSiteType type)
+    internal static double LocalAuContribution(string mrna, int siteStart, int siteEnd, TargetSiteType type)
     {
         // Perl uses 1-based utrStart/utrEnd; here Start/End are 0-based inclusive site coordinates.
         // utrUp = up to 30 nt ending at the position immediately before the site (siteStart-1).
@@ -926,7 +1066,7 @@ public static class MiRnaAnalyzer
 
     // sRNA position-1 indicators: contributions are 0 when miRNA nt1 is U (perl: only computed
     // when sRNA1_nt ne "U"). Otherwise the indicator for the actual nt (A/C/G) is 1, others 0.
-    private static double SRna1Contribution(string mirna, TargetSiteType type)
+    internal static double SRna1Contribution(string mirna, TargetSiteType type)
     {
         if (mirna.Length < 1) return 0.0;
         char nt1 = mirna[0];
@@ -944,7 +1084,7 @@ public static class MiRnaAnalyzer
     }
 
     // sRNA position-8 indicators: 0 when miRNA nt8 is U; else indicator for the actual A/C/G.
-    private static double SRna8Contribution(string mirna, TargetSiteType type)
+    internal static double SRna8Contribution(string mirna, TargetSiteType type)
     {
         if (mirna.Length < 8) return 0.0;
         char nt8 = mirna[7];
@@ -965,7 +1105,7 @@ public static class MiRnaAnalyzer
     // site types). The relevant target base is the nucleotide opposite miRNA position 8, i.e. the
     // base immediately 5' of the 6mer core. For 7mer-A1 / 6mer the 6mer core starts at site.Start,
     // so the position-8 base is mrna[site.Start - 1]. 0 when that base is U or out of range.
-    private static double Site8Contribution(string mrna, int siteStart, TargetSiteType type)
+    internal static double Site8Contribution(string mrna, int siteStart, TargetSiteType type)
     {
         if (type is not (TargetSiteType.Seed7merA1 or TargetSiteType.Seed6mer))
             return 0.0;
@@ -997,7 +1137,7 @@ public static class MiRnaAnalyzer
     // RNAplfold man page + Bernhart et al. (2006) Bioinformatics 22:614; Agarwal et al. (2015)
     // eLife 4:e05005 Fig 4A ("log10 value of the unpaired probability for a 14-nt region centered
     // on the match to miRNA nucleotides 7 and 8").
-    private static double SaContribution(string mrna, int siteStart, TargetSiteType type, out bool included)
+    internal static double SaContribution(string mrna, int siteStart, TargetSiteType type, out bool included)
     {
         included = false;
 
@@ -1046,7 +1186,7 @@ public static class MiRnaAnalyzer
     // ── Generic min-max scaling (getAgarwalContribution) ──────────────────────────────────
     // Perl: scaledScore = (raw - min) / (max - min); contribution = coeff × scaledScore.
     // NOT clamped to [0,1] (scaled values < 0 or > 1 are kept, exactly as in the perl).
-    private static double ScaledContribution(double raw, double coeff, double min, double max)
+    internal static double ScaledContribution(double raw, double coeff, double min, double max)
         => max == min ? coeff * raw : coeff * ((raw - min) / (max - min));
 
     // ── 3' supplementary pairing (3P_score) ───────────────────────────────────────────────
@@ -1060,7 +1200,7 @@ public static class MiRnaAnalyzer
     private static readonly int[] ThreePrimeMiRnaStart = { 0, 7, 8, 8, 8 };
     private static readonly int[] ThreePrimeOverhang   = { 0, 1, 0, 0, 0 };
 
-    private static double ThreePrimePairingContribution(string mrna, string mirna, int siteStart, int siteEnd, TargetSiteType type)
+    internal static double ThreePrimePairingContribution(string mrna, string mirna, int siteStart, int siteEnd, TargetSiteType type)
     {
         double raw = ThreePrimePairingRaw(mrna, mirna, siteStart, siteEnd, type);
         (double coeff, double min, double max) = type switch
@@ -1083,7 +1223,7 @@ public static class MiRnaAnalyzer
     };
 
     // Returns the raw 3P pairing score (the value getAgarwalContribution receives for "3P_score").
-    private static double ThreePrimePairingRaw(string mrna, string mirna, int siteStart, int siteEnd, TargetSiteType type)
+    internal static double ThreePrimePairingRaw(string mrna, string mirna, int siteStart, int siteEnd, TargetSiteType type)
     {
         if (mrna.Length == 0 || mirna.Length == 0) return 0.0;
 
@@ -1166,7 +1306,7 @@ public static class MiRnaAnalyzer
     }
 
     // Port of get3primePairingContribution — returns the raw best score only.
-    private static double ThreePrimePairingScore(int perlType, string utrIn, string mirnaIn)
+    internal static double ThreePrimePairingScore(int perlType, string utrIn, string mirnaIn)
     {
         // Normalise: strip spaces/newlines, uppercase, T→U.
         string utr = NormaliseForPairing(utrIn);
@@ -1207,7 +1347,7 @@ public static class MiRnaAnalyzer
     }
 
     // One alignment offset: scores only runs of ≥2 consecutive base pairs, taking the best such run.
-    private static double PairingRunScore(int[] UTR, int[] MIRNA, int offset, int overhang, bool gapOnTop)
+    internal static double PairingRunScore(int[] UTR, int[] MIRNA, int offset, int overhang, bool gapOnTop)
     {
         double score = 0.0;     // best committed run score for this offset
         double tempscore = 0.0; // current run score
@@ -1274,7 +1414,7 @@ public static class MiRnaAnalyzer
     // Port of getMinDist_weighted_contribution for the single-isoform case (AIR_end = UTR length).
     // distTo5 = siteStart-1 (perl 1-based) ; distTo3 = UTRlen - siteEnd ; take the smaller, log10,
     // then min-max scale by the site-type Min_dist coefficients.
-    private static double MinDistContribution(string mrna, int siteStart, int siteEnd, TargetSiteType type)
+    internal static double MinDistContribution(string mrna, int siteStart, int siteEnd, TargetSiteType type)
     {
         if (mrna.Length == 0) return 0.0;
         // perl 1-based site coordinates and UTR length (= AIR_end).
@@ -1301,7 +1441,7 @@ public static class MiRnaAnalyzer
 
     // ── Len_3UTR ──────────────────────────────────────────────────────────────────────────
     // Port of get_len3UTR_weighted_contribution (single-isoform: UTR length = AIR_end = mrna.Length).
-    private static double Len3UtrContribution(string mrna, TargetSiteType type)
+    internal static double Len3UtrContribution(string mrna, TargetSiteType type)
     {
         int utrLength = mrna.Length;
         double log10 = utrLength > 0 ? Math.Log10(utrLength) : 0.0;
@@ -1321,7 +1461,7 @@ public static class MiRnaAnalyzer
     // offset-6mer target pattern is the first 6 nt of reverse_complement(seed region 2-8); Off6m is
     // the count of (case-insensitive, overlapping) occurrences of that 6mer in the 3'UTR. Used RAW
     // (Off6m is not in the min-max regex of getAgarwalContribution).
-    private static double Off6mContribution(string mrna, string mirna, TargetSiteType type)
+    internal static double Off6mContribution(string mrna, string mirna, TargetSiteType type)
     {
         if (mrna.Length == 0 || mirna.Length < 8) return 0.0;
 
@@ -1359,7 +1499,7 @@ public static class MiRnaAnalyzer
     }
 
     // ── SPS / TA / Len_ORF / ORF8m (caller-supplied) ─────────────────────────────────────────
-    private static double SpsContribution(double sps, TargetSiteType type)
+    internal static double SpsContribution(double sps, TargetSiteType type)
     {
         (double coeff, double min, double max) = type switch
         {
@@ -1371,7 +1511,7 @@ public static class MiRnaAnalyzer
         return ScaledContribution(sps, coeff, min, max);
     }
 
-    private static double TaContribution(double ta, TargetSiteType type)
+    internal static double TaContribution(double ta, TargetSiteType type)
     {
         (double coeff, double min, double max) = type switch
         {
@@ -1383,7 +1523,7 @@ public static class MiRnaAnalyzer
         return ScaledContribution(ta, coeff, min, max);
     }
 
-    private static double LenOrfContribution(double orfLength, TargetSiteType type)
+    internal static double LenOrfContribution(double orfLength, TargetSiteType type)
     {
         double log10 = orfLength > 0 ? Math.Log10(orfLength) : 0.0;
         (double coeff, double min, double max) = type switch
@@ -1396,7 +1536,7 @@ public static class MiRnaAnalyzer
         return ScaledContribution(log10, coeff, min, max);
     }
 
-    private static double Orf8mContribution(int count, TargetSiteType type)
+    internal static double Orf8mContribution(int count, TargetSiteType type)
     {
         double coeff = type switch
         {
@@ -1514,7 +1654,7 @@ public static class MiRnaAnalyzer
     // PCT enters getAgarwalContribution as a min-max-scaled feature × the site-type PCT coefficient
     // (targetscan_70_context_scores.pl getPCT_contribution → getAgarwalContribution; PCT matches the
     // min-max regex branch alongside TA_3UTR/SPS/Local_AU/3P_score/SA/Len_ORF/Len_3UTR/Min_dist).
-    private static double PctContribution(double pct, TargetSiteType type)
+    internal static double PctContribution(double pct, TargetSiteType type)
     {
         (double coeff, double min, double max) = type switch
         {
@@ -1530,90 +1670,19 @@ public static class MiRnaAnalyzer
 
     #region Pre-miRNA Energy Parameters
 
-    // Turner 2004 nearest-neighbor stacking energies (kcal/mol at 37°C)
-    // Source: NNDB — https://rna.urmc.rochester.edu/NNDB/turner04/
-    // Format: 5'-XY-3' / 3'-X'Y'-5' where X pairs with X', Y pairs with Y'
-    private static readonly Dictionary<string, double> StackingEnergies = new()
-    {
-        // Watson-Crick stacking (16 entries)
-        { "AA/UU", -0.93 }, { "UU/AA", -0.93 },
-        { "AU/UA", -1.10 },
-        { "UA/AU", -1.33 },
-        { "CU/GA", -2.08 }, { "AG/UC", -2.08 },
-        { "CA/GU", -2.11 }, { "UG/AC", -2.11 },
-        { "GU/CA", -2.24 }, { "AC/UG", -2.24 },
-        { "GA/CU", -2.35 }, { "UC/AG", -2.35 },
-        { "CG/GC", -2.36 },
-        { "GG/CC", -3.26 }, { "CC/GG", -3.26 },
-        { "GC/CG", -3.42 },
-        // GU wobble stacking (20 entries)
-        { "AG/UU", -0.55 }, { "UU/GA", -0.55 },
-        { "UG/AU", -1.00 }, { "UA/GU", -1.00 },
-        { "GA/UU", -1.27 }, { "UU/AG", -1.27 },
-        { "AU/UG", -1.36 }, { "GU/UA", -1.36 },
-        { "CG/GU", -1.41 }, { "UG/GC", -1.41 },
-        { "GG/CU", -1.53 }, { "UC/GG", -1.53 },
-        { "CU/GG", -2.11 }, { "GG/UC", -2.11 },
-        { "GU/CG", -2.51 }, { "GC/UG", -2.51 },
-        { "GG/UU", -0.50 }, { "UU/GG", -0.50 },
-        { "UG/GU", +0.30 },
-        { "GU/UG", +1.29 },
-    };
+    // Turner 2004 nearest-neighbor parameters (kcal/mol at 37°C).
+    // Shared with RnaSecondaryStructure through the authoritative single source
+    // Seqeron.Genomics.Core.Turner2004Parameters; the local names are thin aliases.
+    private static readonly IReadOnlyDictionary<string, double> StackingEnergies =
+        Turner2004Parameters.StackingEnergies;
 
-    // Hairpin loop initiation energies (kcal/mol at 37°C)
-    // Source: NNDB — rna.urmc.rochester.edu/NNDB/turner04/loop.txt
-    // Sizes 3-9 experimentally determined; 10-30 extrapolated via
-    // ΔG°(n) = ΔG°(9) + 1.75·R·T·ln(n/9)
-    private static readonly Dictionary<int, double> HairpinLoopInitEnergies = new()
-    {
-        {  3, 5.4 }, {  4, 5.6 }, {  5, 5.7 }, {  6, 5.4 }, {  7, 6.0 },
-        {  8, 5.5 }, {  9, 6.4 }, { 10, 6.5 }, { 11, 6.6 }, { 12, 6.7 },
-        { 13, 6.8 }, { 14, 6.9 }, { 15, 6.9 }, { 16, 7.0 }, { 17, 7.1 },
-        { 18, 7.1 }, { 19, 7.2 }, { 20, 7.2 }, { 21, 7.3 }, { 22, 7.3 },
-        { 23, 7.4 }, { 24, 7.4 }, { 25, 7.5 }, { 26, 7.5 }, { 27, 7.5 },
-        { 28, 7.6 }, { 29, 7.6 }, { 30, 7.7 }
-    };
+    private static readonly IReadOnlyDictionary<int, double> HairpinLoopInitEnergies =
+        Turner2004Parameters.HairpinLoopInitiation;
 
-    // Terminal mismatch stacking energies (kcal/mol at 37°C)
-    // Source: NNDB — rna.urmc.rochester.edu/NNDB/turner04/tm-parameters.html
-    // Key = closing5' + firstMismatch(5'side) + lastMismatch(3'side) + closing3'
-    private static readonly Dictionary<string, double> TerminalMismatchEnergies = new()
-    {
-        // Closing pair A-U
-        { "AAAU", -0.8 }, { "AACU", -1.0 }, { "AAGU", -0.8 }, { "AAUU", -1.0 },
-        { "ACAU", -0.6 }, { "ACCU", -0.7 }, { "ACGU", -0.6 }, { "ACUU", -0.7 },
-        { "AGAU", -0.8 }, { "AGCU", -1.0 }, { "AGGU", -0.8 }, { "AGUU", -1.0 },
-        { "AUAU", -0.6 }, { "AUCU", -0.8 }, { "AUGU", -0.6 }, { "AUUU", -0.8 },
-        // Closing pair C-G
-        { "CAAG", -1.5 }, { "CACG", -1.5 }, { "CAGG", -1.4 }, { "CAUG", -1.5 },
-        { "CCAG", -1.0 }, { "CCCG", -1.1 }, { "CCGG", -1.0 }, { "CCUG", -0.8 },
-        { "CGAG", -1.4 }, { "CGCG", -1.5 }, { "CGGG", -1.6 }, { "CGUG", -1.5 },
-        { "CUAG", -1.0 }, { "CUCG", -1.4 }, { "CUGG", -1.0 }, { "CUUG", -1.2 },
-        // Closing pair G-C
-        { "GAAC", -1.1 }, { "GACC", -1.5 }, { "GAGC", -1.3 }, { "GAUC", -1.5 },
-        { "GCAC", -1.1 }, { "GCCC", -0.7 }, { "GCGC", -1.1 }, { "GCUC", -0.5 },
-        { "GGAC", -1.6 }, { "GGCC", -1.5 }, { "GGGC", -1.4 }, { "GGUC", -1.5 },
-        { "GUAC", -1.1 }, { "GUCC", -1.0 }, { "GUGC", -1.1 }, { "GUUC", -0.7 },
-        // Closing pair G-U
-        { "GAAU", -0.3 }, { "GACU", -1.0 }, { "GAGU", -0.8 }, { "GAUU", -1.0 },
-        { "GCAU", -0.6 }, { "GCCU", -0.7 }, { "GCGU", -0.6 }, { "GCUU", -0.7 },
-        { "GGAU", -0.6 }, { "GGCU", -1.0 }, { "GGGU", -0.8 }, { "GGUU", -1.0 },
-        { "GUAU", -0.6 }, { "GUCU", -0.8 }, { "GUGU", -0.6 }, { "GUUU", -0.6 },
-        // Closing pair U-A
-        { "UAAA", -1.0 }, { "UACA", -0.8 }, { "UAGA", -1.1 }, { "UAUA", -0.8 },
-        { "UCAA", -0.7 }, { "UCCA", -0.6 }, { "UCGA", -0.7 }, { "UCUA", -0.5 },
-        { "UGAA", -1.1 }, { "UGCA", -0.8 }, { "UGGA", -1.2 }, { "UGUA", -0.8 },
-        { "UUAA", -0.7 }, { "UUCA", -0.6 }, { "UUGA", -0.7 }, { "UUUA", -0.5 },
-        // Closing pair U-G
-        { "UAAG", -1.0 }, { "UACG", -0.8 }, { "UAGG", -1.1 }, { "UAUG", -0.8 },
-        { "UCAG", -0.7 }, { "UCCG", -0.6 }, { "UCGG", -0.7 }, { "UCUG", -0.5 },
-        { "UGAG", -0.5 }, { "UGCG", -0.8 }, { "UGGG", -0.8 }, { "UGUG", -0.8 },
-        { "UUAG", -0.7 }, { "UUCG", -0.6 }, { "UUGG", -0.7 }, { "UUUG", -0.5 },
-    };
+    private static readonly IReadOnlyDictionary<string, double> TerminalMismatchEnergies =
+        Turner2004Parameters.TerminalMismatchEnergies;
 
-    // Terminal AU/GU penalty (kcal/mol at 37°C)
-    // Source: NNDB — "Per AU end" on wc-parameters.html, "Per GU end" on gu-parameters.html
-    private const double TerminalAU_GU_Penalty = 0.45;
+    private const double TerminalAU_GU_Penalty = Turner2004Parameters.TerminalAuGuPenalty;
 
     /// <summary>
     /// Calculates hairpin free energy using Turner 2004 nearest-neighbor parameters.
@@ -1662,9 +1731,8 @@ public static class MiRnaAnalyzer
         return energy;
     }
 
-    private static bool IsTerminalPenaltyPair(char b1, char b2) =>
-        (b1 == 'A' && b2 == 'U') || (b1 == 'U' && b2 == 'A') ||
-        (b1 == 'G' && b2 == 'U') || (b1 == 'U' && b2 == 'G');
+    internal static bool IsTerminalPenaltyPair(char b1, char b2) =>
+        Turner2004Parameters.IsTerminalPenaltyPair(b1, b2);
 
     #endregion
 
@@ -1955,7 +2023,7 @@ public static class MiRnaAnalyzer
     /// '.' (the terminal loop), then a sequence of ')' (the 3' stem). No multiloop / branching:
     /// once a ')' is seen no further '(' may appear. Counts stem base pairs and the terminal loop.
     /// </summary>
-    private static bool TryDescribeSingleHairpin(
+    internal static bool TryDescribeSingleHairpin(
         string dotBracket, out int stemBasePairs, out int terminalLoopStart, out int terminalLoopSize)
     {
         stemBasePairs = 0;
@@ -2032,13 +2100,22 @@ public static class MiRnaAnalyzer
     /// <item>Dicer cleaves ~22 nt from the Drosha-generated 5' end — the 5' counting rule (Park et al. 2011).</item>
     /// <item>Each RNase III (Drosha, Dicer) cut leaves a 2-nt 3' overhang (Lee et al. 2003; Han et al. 2006).</item>
     /// </list>
+    /// <para>
+    /// <b>Scope / limitation.</b> The mature (5p) coordinates and length are the validated product of the
+    /// Han (2006) +11-bp Drosha ruler and the Park (2011) 22-nt 5'-counting Dicer rule. The 3p (miRNA*)
+    /// span is a <i>linear-geometry approximation</i>: it is placed 2 nt 3' of the 5p mature end in linear
+    /// sequence coordinates, NOT on the folded opposite (3') arm. Because this method does not fold the
+    /// hairpin, the star coordinates do not in general reproduce the biological 3p miRNA (e.g. miRBase
+    /// hsa-miR-21-3p), which lies across the terminal loop on the 3' arm. Recovering the true 3p arm
+    /// requires hairpin folding / arm pairing (out of scope here, as is the trained miRDeep2 classifier).
+    /// </para>
     /// </remarks>
     /// <param name="BasalJunction">0-based index of the first paired base of the 5' arm (the basal ssRNA-dsRNA junction).</param>
     /// <param name="DroshaCut5Prime">0-based index of the 5' end of the 5p mature = Drosha cut on the 5' arm (basal junction + 11 bp).</param>
-    /// <param name="DroshaCut3Prime">0-based index of the base on the 3' arm cut by Drosha (3' end of the 3p mature); 2 nt 3' of the 5p-paired position (the 2-nt 3' overhang).</param>
+    /// <param name="DroshaCut3Prime">0-based index of the Drosha-generated 3' end of the 3p (miRNA*) span, placed 2 nt 3' of the 5p mature 3' end in LINEAR sequence coordinates (the RNase III 2-nt 3' overhang). NOTE: this is a linear-geometry approximation — the method does NOT fold the hairpin, so this is not the true opposite-(3')-arm coordinate of the biological 3p miRNA (see remarks).</param>
     /// <param name="MatureStart">0-based start of the 5p mature (= <see cref="DroshaCut5Prime"/>).</param>
     /// <param name="MatureEnd">0-based inclusive end of the 5p mature (= MatureStart + 22 − 1; Dicer 5' counting rule).</param>
-    /// <param name="StarStart">0-based start of the 3p (miRNA*) span on the 3' arm.</param>
+    /// <param name="StarStart">0-based start of the 3p (miRNA*) span (= <see cref="StarEnd"/> − 22 + 1) in linear coordinates; see <see cref="DroshaCut3Prime"/> for the linear-geometry caveat.</param>
     /// <param name="StarEnd">0-based inclusive end of the 3p (miRNA*) span (= <see cref="DroshaCut3Prime"/>).</param>
     /// <param name="MatureSequence">The predicted 5p mature subsequence of <see cref="Sequence"/>.</param>
     /// <param name="StarSequence">The predicted 3p (miRNA*) subsequence of <see cref="Sequence"/>.</param>
@@ -2121,12 +2198,12 @@ public static class MiRnaAnalyzer
         if (matureEnd >= upper.Length)
             return null;
 
-        // The 3' arm is cut staggered by 2 nt (RNase III 2-nt 3' overhang). The 3p mature is the
-        // ~22-nt span on the 3' arm whose 3' end (the Drosha-generated end on the 3' arm) sits 2 nt
-        // 3' of the position paired with the 5p mature's 5' base. Modelled by the conventional duplex
-        // geometry: the 3p mature 5' end pairs ~2 nt inside the 5p mature 3' end (the 2-nt 3' overhang
-        // at the apical Dicer cut), and the 3p span has the same ~22-nt length.
-        int starEnd = matureEnd + RNaseIII3PrimeOverhang; // 3p 3' end (Drosha-generated end on 3' arm)
+        // 3p (miRNA*) span — LINEAR-GEOMETRY APPROXIMATION (the method does not fold the hairpin).
+        // The RNase III staggered cut leaves a 2-nt 3' overhang, so the Drosha-generated 3' end of the
+        // 3p span is modelled 2 nt 3' of the 5p mature 3' end in LINEAR sequence coordinates, and the
+        // 3p span has the same ~22-nt length. This is NOT the true opposite-(3')-arm coordinate of the
+        // biological 3p miRNA (which would require folding the hairpin); see the record's <remarks>.
+        int starEnd = matureEnd + RNaseIII3PrimeOverhang; // 3p 3' end (linear-coordinate approximation)
         int starStart = starEnd - DicerCutNtFrom5PrimeEnd + 1;
         if (starEnd >= upper.Length || starStart < 0)
             return null;
@@ -2137,6 +2214,11 @@ public static class MiRnaAnalyzer
         string starSeq = upper.Substring(starStart, starEnd - starStart + 1);
 
         bool hasCnnc = HasCnncMotifDownstream(upper, droshaCut5Prime);
+
+        // The 5p Drosha/Dicer cut reproduces miRBase exactly, but the opposite-arm (3p / star) span
+        // (StarStart/StarEnd) is a linear 2-nt-3'-overhang approximation, not the read-defined miRBase
+        // boundary. Strict mode throws rather than returning the approximate star arm.
+        Seqeron.Genomics.Core.LimitationPolicy.Enforce("MIRNA-CLEAVAGE-001");
 
         return new DroshaDicerCleavage(
             BasalJunction: basalJunction,
@@ -2354,7 +2436,7 @@ public static class MiRnaAnalyzer
     /// after the first '(' and before the last ')') — the apical loop of a hairpin. Returns 0 when
     /// there is no enclosed unpaired run.
     /// </summary>
-    private static int LargestEnclosedLoop(string dotBracket)
+    internal static int LargestEnclosedLoop(string dotBracket)
     {
         int firstOpen = dotBracket.IndexOf('(');
         int lastClose = dotBracket.LastIndexOf(')');

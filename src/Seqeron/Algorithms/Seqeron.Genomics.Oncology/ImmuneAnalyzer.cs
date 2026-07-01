@@ -472,6 +472,10 @@ public static class ImmuneAnalyzer
     /// </returns>
     public static double EstimateTumorPurity(double estimateScore)
     {
+        // ESTIMATE->ABSOLUTE transform calibrated on Affymetrix data (Yoshihara 2013) — platform-contingent
+        // off-array. Strict mode throws; Moderate/Permissive allow it with that caveat.
+        Seqeron.Genomics.Core.LimitationPolicy.Enforce("ONCO-IMMUNE-001");
+
         double purity = Math.Cos(EstimatePurityCoefficientA + EstimatePurityCoefficientB * estimateScore);
 
         // Reference implementation (ESTIMATE / tidyestimate): negative cosine values are out of the
@@ -515,6 +519,10 @@ public static class ImmuneAnalyzer
         int maxIterations = 1000)
     {
         ArgumentNullException.ThrowIfNull(expressionProfile);
+
+        // Deconvolution against the bundled ABIS (or caller) matrix — NOT CIBERSORT-LM22-identical.
+        // Strict mode throws; Moderate/Permissive allow it.
+        Seqeron.Genomics.Core.LimitationPolicy.Enforce("ONCO-IMMUNE-001");
 
         signatureMatrix ??= DefaultSignatureMatrix;
 
@@ -653,6 +661,23 @@ public static class ImmuneAnalyzer
         IReadOnlyList<double>? nuValues = null)
     {
         ArgumentNullException.ThrowIfNull(expressionProfile);
+
+        // A non-finite (NaN / ±Infinity) expression value would propagate through z-score
+        // standardisation, the SMO solver, and the fit diagnostics, leaking a NaN/Infinity into the
+        // contracted-finite output fields (CellFractions / Correlation / Rmse). The linear-mixture model
+        // (§2.C) is defined only for finite expression, so reject non-finite input up front with a
+        // documented validation exception rather than emitting a corrupted result.
+        foreach (var value in expressionProfile.Values)
+        {
+            if (!double.IsFinite(value))
+                throw new ArgumentException(
+                    "Expression profile contains a non-finite value (NaN or Infinity); ν-SVR deconvolution requires finite expression.",
+                    nameof(expressionProfile));
+        }
+
+        // Deconvolution against the bundled ABIS (or caller) matrix — NOT CIBERSORT-LM22-identical.
+        // Strict mode throws; Moderate/Permissive allow it.
+        Seqeron.Genomics.Core.LimitationPolicy.Enforce("ONCO-IMMUNE-001");
 
         signatureMatrix ??= DefaultSignatureMatrix;
         nuValues ??= CibersortNuValues;
@@ -976,7 +1001,7 @@ public static class ImmuneAnalyzer
     /// If the standard deviation is ~0, returns the mean-centred vector (all zeros) to avoid div-by-0.
     /// Source: Newman et al. (2015) — mixture/signature z-score standardisation prior to ν-SVR.
     /// </summary>
-    private static double[] Standardize(double[] v)
+    internal static double[] Standardize(double[] v)
     {
         int n = v.Length;
         if (n == 0)
@@ -1008,7 +1033,7 @@ public static class ImmuneAnalyzer
     /// <summary>
     /// Standardizes each column of an n×k matrix to zero mean and unit (population) standard deviation.
     /// </summary>
-    private static double[,] StandardizeColumns(double[,] matrix, int nRows, int nCols)
+    internal static double[,] StandardizeColumns(double[,] matrix, int nRows, int nCols)
     {
         double[,] result = new double[nRows, nCols];
         for (int j = 0; j < nCols; j++)
@@ -1442,7 +1467,7 @@ public static class ImmuneAnalyzer
     /// <summary>
     /// Solves a linear system Ax = b using Gaussian elimination with partial pivoting.
     /// </summary>
-    private static double[] SolveLinearSystem(double[,] a, double[] b, int n)
+    internal static double[] SolveLinearSystem(double[,] a, double[] b, int n)
     {
         // Create augmented matrix.
         double[,] aug = new double[n, n + 1];
@@ -1515,7 +1540,7 @@ public static class ImmuneAnalyzer
     /// <summary>
     /// Computes Pearson correlation coefficient between two vectors.
     /// </summary>
-    private static double ComputePearsonCorrelation(double[] x, double[] y)
+    internal static double ComputePearsonCorrelation(double[] x, double[] y)
     {
         int n = x.Length;
         if (n < 2)
@@ -1532,18 +1557,30 @@ public static class ImmuneAnalyzer
         }
 
         double numerator = n * sumXY - sumX * sumY;
-        double denominator = Math.Sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
 
-        if (denominator < 1e-15)
+        // Each bracket is an (unscaled) variance: non-negative in exact arithmetic, but catastrophic
+        // cancellation on a near-constant, large-magnitude vector can drive it slightly NEGATIVE in
+        // floating point. A negative product would make Math.Sqrt return NaN, leaking a NaN into the
+        // contracted-finite Pearson correlation (∈ [-1, 1]). Clamp each variance to its valid floor of 0
+        // and treat a ~zero variance (no spread) as an undefined correlation → 0, matching the
+        // zero-variance intent of the original guard.
+        double varX = n * sumX2 - sumX * sumX;
+        double varY = n * sumY2 - sumY * sumY;
+        if (!(varX > 1e-15) || !(varY > 1e-15))
+            return 0.0;  // zero/negative spread, or a non-finite (NaN/Inf) variance → correlation undefined.
+
+        double denominator = Math.Sqrt(varX * varY);
+        if (!(denominator > 1e-15))
             return 0.0;
 
-        return numerator / denominator;
+        double r = numerator / denominator;
+        return double.IsFinite(r) ? r : 0.0;
     }
 
     /// <summary>
     /// Computes root mean square error between two vectors.
     /// </summary>
-    private static double ComputeRmse(double[] observed, double[] predicted)
+    internal static double ComputeRmse(double[] observed, double[] predicted)
     {
         int n = observed.Length;
         if (n == 0)

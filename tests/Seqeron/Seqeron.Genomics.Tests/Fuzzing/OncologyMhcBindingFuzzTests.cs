@@ -4,7 +4,7 @@ using FluentAssertions;
 using Seqeron.Genomics.Oncology;
 using static Seqeron.Genomics.Oncology.OncologyAnalyzer;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the Oncology MHC peptide–binding classification unit — ONCO-MHC-001.
@@ -43,7 +43,7 @@ namespace Seqeron.Genomics.Tests;
 ///       extreme tiny IC50 still classifies Strong (no log(0)=−∞ leak — the unit does NO log transform).
 ///   • "IC50=∞"   = +∞ / −∞ / NaN affinity → documented ArgumentOutOfRangeException (INV-01); Inf must never
 ///       leak into the threshold comparison and silently become a NonBinder.
-///   • "peptide too short / long" = length outside the MHC-class range (class I 8–11, class II 13–25),
+///   • "peptide too short / long" = length outside the MHC-class range (class I 8–14, class II 13–25),
 ///       including 0, −1, int.MinValue, int.MaxValue → IsValidPeptideLength is total and returns false;
 ///       ClassifyMhcBinding returns NonBinder (the length gate), never an IndexOutOfRange on a scoring matrix.
 ///   • "unknown allele" = the model has NO learned per-allele set (§5.2: prediction is the caller's job); the
@@ -58,7 +58,7 @@ namespace Seqeron.Genomics.Tests;
 ///   • Core model (§2.2): Strong iff v &lt; s; Weak iff s ≤ v &lt; w; NonBinder iff v ≥ w; cutoffs strict `&lt;`.
 ///   • IC50 cutoffs (§2.2, §4.2): s = 50 nM (Strong), w = 500 nM (Weak). 50 → Weak, 500 → NonBinder.
 ///   • %Rank cutoffs (§2.2, §4.2): class I s = 0.5, w = 2; class II s = 2, w = 10. Strict `&lt;`.
-///   • Length ranges (§2.2, §4.2): class I 8–11 inclusive; class II 13–25 inclusive.
+///   • Length ranges (§2.2, §4.2): class I 8–14 inclusive (NetMHCpan-4.1 window); class II 13–25 inclusive.
 ///   • INV-01 (§2.4): IC50 must be finite &gt; 0, else ArgumentOutOfRangeException.
 ///   • INV-02 (§2.4): %Rank must be in [0, 100], else ArgumentOutOfRangeException.
 ///   • INV-03 (§2.4): categories are monotone in the score (smaller v ⇒ equal-or-stronger category).
@@ -153,8 +153,9 @@ public sealed class OncologyMhcBindingFuzzTests
     {
         IsValidPeptideLength(8, MhcClass.ClassI).Should().BeTrue();
         IsValidPeptideLength(11, MhcClass.ClassI).Should().BeTrue();
+        IsValidPeptideLength(14, MhcClass.ClassI).Should().BeTrue();
         IsValidPeptideLength(7, MhcClass.ClassI).Should().BeFalse();
-        IsValidPeptideLength(12, MhcClass.ClassI).Should().BeFalse();
+        IsValidPeptideLength(15, MhcClass.ClassI).Should().BeFalse();
 
         IsValidPeptideLength(13, MhcClass.ClassII).Should().BeTrue();
         IsValidPeptideLength(25, MhcClass.ClassII).Should().BeTrue();
@@ -268,9 +269,9 @@ public sealed class OncologyMhcBindingFuzzTests
     [Test]
     public void IsValidPeptideLength_ExtremeLengths_ReturnFalseNoThrow()
     {
-        foreach (int len in new[] { int.MinValue, -1, 0, 1, 7, 12, 100, int.MaxValue })
+        foreach (int len in new[] { int.MinValue, -1, 0, 1, 7, 15, 100, int.MaxValue })
         {
-            // outside class I 8–11 for all these except none (7,12 just outside; 1,0,neg,huge far outside)
+            // outside class I 8–14 for all these (7,15 just outside; 1,0,neg,huge far outside)
             Action actI = () => IsValidPeptideLength(len, MhcClass.ClassI);
             actI.Should().NotThrow();
             IsValidPeptideLength(len, MhcClass.ClassI).Should().BeFalse();
@@ -282,7 +283,7 @@ public sealed class OncologyMhcBindingFuzzTests
     [Test]
     public void ClassifyMhcBinding_OutOfRangeLengthWithStrongIc50_IsNonBinder()
     {
-        foreach (int len in new[] { int.MinValue, -1, 0, 7, 12, 25, int.MaxValue })
+        foreach (int len in new[] { int.MinValue, -1, 0, 7, 15, 25, int.MaxValue })
         {
             // 25 is valid for class II but NOT class I; all the rest are invalid for class I.
             ClassifyMhcBinding(len, ic50Nm: 1.0, MhcClass.ClassI)

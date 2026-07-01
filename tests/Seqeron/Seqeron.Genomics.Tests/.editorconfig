@@ -1,0 +1,6 @@
+# Test-project conventions for Seqeron.Genomics.Tests.
+# Keeps the suite's structure consistent: one file-scoped namespace per file,
+# matching the file's folder (Unit/<Area>, Fuzzing, Metamorphic, Differential,
+# Mutation, Algebraic, Combinatorial, Properties, Snapshots, Architecture).
+[*.cs]
+csharp_style_namespace_declarations = file_scoped:warning

@@ -92,6 +92,31 @@ public class OncologyProperties
          select BuildOrthogonalMixture(wPermille / 1000.0, aVals, bVals))
         .ToArbitrary();
 
+    /// <summary>
+    /// Same orthogonal two-cell-type construction as <see cref="OrthogonalMixtureArbitrary"/>, but with a
+    /// REALISTIC marker count (10–25 genes per cell type) — the regime ν-SVR / CIBERSORT is defined for.
+    /// <para>
+    /// ν-SVR (unlike NNLS) z-score-standardizes every signature column to zero-mean/unit-variance before
+    /// regression (Newman et al. 2015; <c>ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr</c>). On a degenerate
+    /// 2–4 gene toy that standardization fills the disjoint-support zeros with large negative values,
+    /// DESTROYING the column orthogonality the recovery relies on — so dominant-component recovery is NOT
+    /// guaranteed there (it can fully invert). CIBERSORT is run on LM22's 547 genes precisely to avoid this.
+    /// The shrunk, well-conditioned regime below is where standardized ν-SVR's dominant-recovery theorem
+    /// actually holds; the broad 2–4 gene <see cref="OrthogonalMixtureArbitrary"/> remains for the
+    /// standardization-free NNLS exact-recovery anchor.
+    /// </para>
+    /// </summary>
+    private static Arbitrary<(IReadOnlyDictionary<string, IReadOnlyDictionary<string, double>> sig,
+                              IReadOnlyDictionary<string, double> mixture,
+                              double wA)> WellConditionedOrthogonalMixtureArbitrary() =>
+        (from wPermille in Gen.Choose(50, 950) // wA ∈ [0.05, 0.95], away from degenerate ends
+         from aGenes in Gen.Choose(10, 25)
+         from bGenes in Gen.Choose(10, 25)
+         from aVals in Gen.Choose(10, 200).Select(v => v / 10.0).ArrayOf(aGenes)
+         from bVals in Gen.Choose(10, 200).Select(v => v / 10.0).ArrayOf(bGenes)
+         select BuildOrthogonalMixture(wPermille / 1000.0, aVals, bVals))
+        .ToArbitrary();
+
     private static (IReadOnlyDictionary<string, IReadOnlyDictionary<string, double>> sig,
                     IReadOnlyDictionary<string, double> mixture,
                     double wA)
@@ -7574,7 +7599,7 @@ public class OncologyProperties
 
     // -------------------------------------------------------------------------
     // Theory (Hundal 2020 pVACtools; Li 2020 ProGeo-neo; Wells 2020 TESLA):
-    //   • Class I candidate peptides are 8–11-mers (default range).                       (INV-1)
+    //   • Class I candidate peptides are 8–14-mers (default range; NetMHCpan-4.1 window).  (INV-1)
     //   • Every window spans the substituted residue: it is a length-k window [s, s+k−1]   (INV-2/5)
     //     with s ∈ [max(0, mutIdx−k+1), min(mutIdx, L−k)] — exactly k windows when the
     //     mutation is ≥ k−1 residues from both ends.
@@ -7653,22 +7678,22 @@ public class OncologyProperties
     }
 
     /// <summary>
-    /// R (checklist "length ∈ [8,11]") + INV-2 (P "mutated residue inside every window"): with default
-    /// lengths every peptide is an 8–11-mer that spans the mutation — offset ∈ [0, Length) and
-    /// StartPosition + offset == mutationPosition, within the protein bounds. (Hundal 2020; Li 2020)
+    /// R (checklist "length ∈ [8,14]") + INV-2 (P "mutated residue inside every window"): with default
+    /// lengths every peptide is an 8–14-mer that spans the mutation — offset ∈ [0, Length) and
+    /// StartPosition + offset == mutationPosition, within the protein bounds. (Reynisson 2020; Li 2020)
     /// </summary>
     [FsCheck.NUnit.Property]
-    public Property GenerateNeoantigenPeptides_DefaultLengths_SpanMutation_In8To11()
+    public Property GenerateNeoantigenPeptides_DefaultLengths_SpanMutation_In8To14()
     {
         return Prop.ForAll(MissenseGen().ToArbitrary(), g =>
         {
             var peptides = OncologyAnalyzer.GenerateNeoantigenPeptides(g.protein, g.mutant, g.pos);
             return peptides.All(p =>
-                p.Length is >= 8 and <= 11
+                p.Length is >= 8 and <= 14
                 && p.MutationOffset >= 0 && p.MutationOffset < p.Length
                 && p.StartPosition + p.MutationOffset == g.pos
                 && p.StartPosition >= 1 && p.StartPosition + p.Length - 1 <= g.protein.Length)
-                .Label("a peptide is outside 8–11 or does not span the mutation");
+                .Label("a peptide is outside 8–14 or does not span the mutation");
         });
     }
 
@@ -7719,8 +7744,8 @@ public class OncologyProperties
     }
 
     /// <summary>
-    /// Anchors: the canonical Y5C example (protein MKTAYIAKQRSTVWLNDEFGH) yields default 8–11-mer windows all
-    /// spanning position 5; a non-substitution and an out-of-range position are rejected. (Hundal 2020; Li 2020)
+    /// Anchors: the canonical Y5C example (protein MKTAYIAKQRSTVWLNDEFGH) yields default 8–14-mer windows all
+    /// spanning position 5; a non-substitution and an out-of-range position are rejected. (Reynisson 2020; Li 2020)
     /// </summary>
     [Test]
     [Category("Property")]
@@ -7731,8 +7756,8 @@ public class OncologyProperties
 
         Assert.Multiple(() =>
         {
-            Assert.That(peptides, Is.Not.Empty, "Position 5 of a 21-mer admits 8–11-mer windows.");
-            Assert.That(peptides.All(p => p.Length is >= 8 and <= 11), Is.True, "Default class I lengths 8–11.");
+            Assert.That(peptides, Is.Not.Empty, "Position 5 of a 21-mer admits 8–14-mer windows.");
+            Assert.That(peptides.All(p => p.Length is >= 8 and <= 14), Is.True, "Default class I lengths 8–14.");
             Assert.That(peptides.All(p => p.StartPosition + p.MutationOffset == 5), Is.True, "Every window spans position 5.");
             Assert.That(peptides.All(p => p.MutantPeptide[p.MutationOffset] == 'C' && p.WildTypePeptide[p.MutationOffset] == 'Y'),
                 Is.True, "Mutant carries C, wild type carries Y at the offset.");
@@ -7751,7 +7776,7 @@ public class OncologyProperties
     // Theory (Sette 1994 / IEDB IC50; Reynisson 2020 NetMHCpan-4.1 %Rank; IEDB lengths):
     //   • IC50: Strong < 50 nM, Weak < 500 nM, else NonBinder (strict <).
     //   • %Rank: class I Strong < 0.5%, Weak < 2%; class II Strong < 2%, Weak < 10% (strict).
-    //   • Valid length: class I 8–11, class II 13–25 (inclusive).
+    //   • Valid length: class I 8–14 (NetMHCpan-4.1 window), class II 13–25 (inclusive).
     //   • Lower IC50 / lower %Rank ⇒ stronger (or equal) binding.   (M)
     //   • ClassifyMhcBinding: invalid length ⇒ NonBinder, else affinity classification.
     //
@@ -7830,8 +7855,8 @@ public class OncologyProperties
     }
 
     /// <summary>
-    /// <c>IsValidPeptideLength</c> matches the class length ranges exactly: class I ⟺ 8 ≤ len ≤ 11, class II
-    /// ⟺ 13 ≤ len ≤ 25 (both inclusive). (IEDB / Reynisson 2020 default class I 8–11)
+    /// <c>IsValidPeptideLength</c> matches the class length ranges exactly: class I ⟺ 8 ≤ len ≤ 14, class II
+    /// ⟺ 13 ≤ len ≤ 25 (both inclusive). (IEDB / Reynisson 2020 NetMHCpan-4.1 class I 8–14)
     /// </summary>
     [FsCheck.NUnit.Property]
     public Property IsValidPeptideLength_MatchesClassRanges()
@@ -7844,7 +7869,7 @@ public class OncologyProperties
         {
             bool actual = OncologyAnalyzer.IsValidPeptideLength(t.len, t.mhc);
             bool expected = t.mhc == OncologyAnalyzer.MhcClass.ClassI
-                ? t.len is >= 8 and <= 11
+                ? t.len is >= 8 and <= 14
                 : t.len is >= 13 and <= 25;
             return (actual == expected).Label($"{t.mhc} len {t.len}: {actual} ≠ {expected}");
         });
@@ -7907,8 +7932,8 @@ public class OncologyProperties
             Assert.That(OncologyAnalyzer.ClassifyBindingAffinity(500.0), Is.EqualTo(OncologyAnalyzer.BindingStrength.NonBinder), "500 ⇒ NonBinder.");
             Assert.That(OncologyAnalyzer.ClassifyBindingRank(0.5, OncologyAnalyzer.MhcClass.ClassI), Is.EqualTo(OncologyAnalyzer.BindingStrength.Weak),
                 "Class I rank 0.5 is not < 0.5 ⇒ Weak.");
-            Assert.That(OncologyAnalyzer.ClassifyMhcBinding(12, 1.0, OncologyAnalyzer.MhcClass.ClassI), Is.EqualTo(OncologyAnalyzer.BindingStrength.NonBinder),
-                "Length 12 is invalid for class I ⇒ NonBinder regardless of IC50.");
+            Assert.That(OncologyAnalyzer.ClassifyMhcBinding(15, 1.0, OncologyAnalyzer.MhcClass.ClassI), Is.EqualTo(OncologyAnalyzer.BindingStrength.NonBinder),
+                "Length 15 is invalid for class I (> 14) ⇒ NonBinder regardless of IC50.");
             Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.ClassifyBindingAffinity(0.0), "IC50 must be > 0.");
             Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.ClassifyBindingRank(101.0, OncologyAnalyzer.MhcClass.ClassI), "%Rank must be ≤ 100.");
         });
@@ -9641,6 +9666,282 @@ public class OncologyProperties
                 "A zero-SD cohort has no defined z-score.");
             Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.IdentifyOutlierGenes(sample, refs, 0.0),
                 "Threshold must be positive.");
+        });
+    }
+
+    #endregion
+
+    #region ONCO-ASCAT-001 — Joint Purity/Ploidy Fit (ASCAT grid search)
+
+    // -------------------------------------------------------------------------
+    // Theory (Van Loo et al. 2010, PNAS 107:16910 — ASCAT; ascat.runAscat.R):
+    //   • FitPurityPloidy grid-searches (ρ, ψ) minimising the allele-specific "sunrise" GoF, then maps
+    //     each segment to ROUNDED, CLAMPED integer allele-specific copy numbers (nA, nB) ≥ 0.
+    //   • The recovered purity ρ lies on the purity grid ⊆ (0, 1]; the ploidy ψ lies on the ploidy grid > 0.
+    // The grid search is a deterministic pure function of its inputs.
+    // -------------------------------------------------------------------------
+
+    /// <summary>A non-empty set of allele-specific segment summaries with folded BAF ∈ [0.5,1] and finite logR.</summary>
+    private static Arbitrary<IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary>> AscatSegmentsArbitrary() =>
+        (from n in Gen.Choose(1, 5)
+         from segs in (from logRcenti in Gen.Choose(-200, 200)
+                       from bafCenti in Gen.Choose(0, 50)
+                       from len in Gen.Choose(1, 100)
+                       select new OncologyAnalyzer.AlleleSpecificSegmentSummary(
+                           "1", 0, len, logRcenti / 100.0, 0.5 + bafCenti / 100.0, len)).ArrayOf(n)
+         select (IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary>)segs).ToArbitrary();
+
+    /// <summary>
+    /// R + P: the ASCAT fit always returns a purity ρ ∈ (0,1], a ploidy ψ &gt; 0, and integer allele-specific
+    /// copy-number segments with nA ≥ 0 and nB ≥ 0 (rounded and clamped, ascat.runAscat.R). The recovered
+    /// (ρ, ψ) lie on the searched grid.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FitPurityPloidy_PurityPloidyAndCopyNumbers_AreInValidRanges()
+    {
+        return Prop.ForAll(AscatSegmentsArbitrary(), segs =>
+        {
+            var fit = OncologyAnalyzer.FitPurityPloidy(segs);
+            bool purityOk = fit.Purity > 0.0 && fit.Purity <= 1.0;
+            bool ploidyOk = fit.Ploidy > 0.0;
+            bool cnOk = fit.Segments.All(s => s.MajorCopyNumber >= 0 && s.MinorCopyNumber >= 0);
+            return (purityOk && ploidyOk && cnOk)
+                .Label($"ρ={fit.Purity}, ψ={fit.Ploidy}, segments={fit.Segments.Count}");
+        });
+    }
+
+    /// <summary>
+    /// D (determinism): the grid search is a pure function — identical segments yield an identical fit
+    /// (purity, ploidy, goodness of fit, and every implied copy-number segment).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FitPurityPloidy_IsDeterministic()
+    {
+        return Prop.ForAll(AscatSegmentsArbitrary(), segs =>
+        {
+            var a = OncologyAnalyzer.FitPurityPloidy(segs);
+            var b = OncologyAnalyzer.FitPurityPloidy(segs);
+            bool same = a.Purity == b.Purity && a.Ploidy == b.Ploidy
+                        && a.GoodnessOfFit == b.GoodnessOfFit
+                        && a.Segments.SequenceEqual(b.Segments);
+            return same.Label("FitPurityPloidy must be deterministic for identical input");
+        });
+    }
+
+    /// <summary>
+    /// Guards: a null or empty segment list is rejected (purity/ploidy is undefined with no data).
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void FitPurityPloidy_NullOrEmpty_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.FitPurityPloidy(null!));
+        Assert.Throws<ArgumentException>(() =>
+            OncologyAnalyzer.FitPurityPloidy(Array.Empty<OncologyAnalyzer.AlleleSpecificSegmentSummary>()));
+    }
+
+    #endregion
+
+    #region MHC-NN-001 — MHCflurry ensemble IC50 prediction
+
+    // MhcflurryAffinityPredictor: each network predicts an IC50 (nM); the ensemble value is the GEOMETRIC
+    // mean of the per-network IC50s (MHCflurry default centrality), which always lies within the member range.
+
+    private const string MhcPseudosequence = "YFAMYGEKVAHTHVDTLYGVRYDHYYTWAVLAYTWYA"; // HLA-A*02:01 (37 residues)
+
+    private static IReadOnlyList<MhcflurryAffinityPredictor.Network> LoadMhcPack(string resource)
+    {
+        var asm = typeof(OncologyProperties).Assembly;
+        using System.IO.Stream stream = asm.GetManifestResourceStream(resource)
+            ?? throw new InvalidOperationException($"Embedded resource '{resource}' not found.");
+        return MhcflurryAffinityPredictor.LoadWeightPack(stream);
+    }
+
+    private static readonly Lazy<IReadOnlyList<MhcflurryAffinityPredictor.Network>> MhcSingleNet =
+        new(() => LoadMhcPack("Seqeron.Genomics.Tests.TestData.Mhcflurry.mhcflurry_single_net.bin"));
+    private static readonly Lazy<IReadOnlyList<MhcflurryAffinityPredictor.Network>> MhcSkipNet =
+        new(() => LoadMhcPack("Seqeron.Genomics.Tests.TestData.Mhcflurry.mhcflurry_skip_net.bin"));
+
+    private static Arbitrary<string> PeptideArbitrary() =>
+        (from len in Gen.Choose(8, 12)
+         from cs in Gen.Elements("ACDEFGHIKLMNPQRSTVWY".ToCharArray()).ArrayOf(len)
+         select new string(cs)).ToArbitrary();
+
+    /// <summary>INV-1 (R): every predicted ensemble IC50 is strictly positive (nM affinity).</summary>
+    [FsCheck.NUnit.Property]
+    public Property Mhcflurry_Ic50_IsPositive()
+    {
+        return Prop.ForAll(PeptideArbitrary(), peptide =>
+        {
+            double ic50 = MhcflurryAffinityPredictor.PredictIc50WithPseudosequence(MhcSingleNet.Value, peptide, MhcPseudosequence);
+            return (ic50 > 0.0).Label($"IC50 {ic50} must be > 0");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (R): the ensemble IC50 lies within the range of its member networks' IC50s — the geometric
+    /// mean of positive values is bounded by their minimum and maximum.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Mhcflurry_Ensemble_WithinMemberRange()
+    {
+        var ensemble = MhcSingleNet.Value.Concat(MhcSkipNet.Value).ToList();
+        return Prop.ForAll(PeptideArbitrary(), peptide =>
+        {
+            double combined = MhcflurryAffinityPredictor.PredictIc50WithPseudosequence(ensemble, peptide, MhcPseudosequence);
+            var members = ensemble
+                .Select(n => MhcflurryAffinityPredictor.PredictIc50WithPseudosequence(new[] { n }, peptide, MhcPseudosequence))
+                .ToList();
+            double lo = members.Min(), hi = members.Max();
+            return (combined >= lo - 1e-6 && combined <= hi + 1e-6)
+                .Label($"ensemble {combined} not within member range [{lo}, {hi}]");
+        });
+    }
+
+    /// <summary>INV-3 (D): prediction is deterministic for fixed weights and inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property Mhcflurry_IsDeterministic()
+    {
+        return Prop.ForAll(PeptideArbitrary(), peptide =>
+            (MhcflurryAffinityPredictor.PredictIc50WithPseudosequence(MhcSingleNet.Value, peptide, MhcPseudosequence)
+                == MhcflurryAffinityPredictor.PredictIc50WithPseudosequence(MhcSingleNet.Value, peptide, MhcPseudosequence))
+                .Label("MHCflurry prediction must be deterministic"));
+    }
+
+    #endregion
+
+    #region MHC-MATRIX-001 — BIMAS half-life & SMM IC50 from a pMHC scoring matrix
+
+    // PredictBindingHalfLifeBimas multiplies per-position coefficients (unlisted residue → 1.0);
+    // PredictIc50Smm sums per-position log50k contributions (unlisted → 0) and maps IC50 = 50000^(1−score).
+
+    private const int MhcMatrixLen = 9;
+    private const int MhcAnchorPos = 1;
+
+    /// <summary>BIMAS matrix favouring 'L' at the anchor with a strong (≥1) multiplicative coefficient; neutral elsewhere.</summary>
+    private static OncologyAnalyzer.PmhcScoringMatrix BimasAnchorMatrix() =>
+        new(Enumerable.Range(0, MhcMatrixLen)
+            .Select(i => (IReadOnlyDictionary<char, double>)(i == MhcAnchorPos
+                ? new Dictionary<char, double> { ['L'] = 8.0 }
+                : new Dictionary<char, double>()))
+            .ToList(), 1.0);
+
+    /// <summary>SMM matrix giving 'L' a positive log50k contribution at the anchor (stronger binding ⇒ higher score ⇒ lower IC50).</summary>
+    private static OncologyAnalyzer.PmhcScoringMatrix SmmAnchorMatrix() =>
+        new(Enumerable.Range(0, MhcMatrixLen)
+            .Select(i => (IReadOnlyDictionary<char, double>)(i == MhcAnchorPos
+                ? new Dictionary<char, double> { ['L'] = 0.5 }
+                : new Dictionary<char, double>()))
+            .ToList(), 0.0);
+
+    private static Arbitrary<string> NineMerArbitrary() =>
+        (from cs in Gen.Elements("ACDEFGHIKMNPQRSTVWY".ToCharArray()).ArrayOf(MhcMatrixLen) // anchor set separately; exclude L from the pool
+         select new string(cs)).ToArbitrary();
+
+    /// <summary>INV-1 (R): the SMM IC50 is strictly positive (IC50 = 50000^(1−score) &gt; 0 for any finite score).</summary>
+    [FsCheck.NUnit.Property]
+    public Property Smm_Ic50_IsPositive()
+    {
+        var matrix = SmmAnchorMatrix();
+        return Prop.ForAll(NineMerArbitrary(), pep =>
+            (OncologyAnalyzer.PredictIc50Smm(pep, matrix) > 0.0).Label("SMM IC50 must be > 0"));
+    }
+
+    /// <summary>INV-2 (R): the BIMAS predicted half-life is non-negative (product of non-negative coefficients).</summary>
+    [FsCheck.NUnit.Property]
+    public Property Bimas_HalfLife_IsNonNegative()
+    {
+        var matrix = BimasAnchorMatrix();
+        return Prop.ForAll(NineMerArbitrary(), pep =>
+            (OncologyAnalyzer.PredictBindingHalfLifeBimas(pep, matrix) >= 0.0).Label("BIMAS half-life must be ≥ 0"));
+    }
+
+    /// <summary>
+    /// INV-3 (M): an anchor match strengthens binding — placing the favoured residue 'L' at the anchor gives a
+    /// LONGER BIMAS half-life and a LOWER SMM IC50 than a non-anchor residue, all else equal.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AnchorMatch_StrengthensBinding()
+    {
+        var bimas = BimasAnchorMatrix();
+        var smm = SmmAnchorMatrix();
+        return Prop.ForAll(NineMerArbitrary(), pep =>
+        {
+            var match = pep.ToCharArray(); match[MhcAnchorPos] = 'L';
+            var noMatch = pep.ToCharArray(); noMatch[MhcAnchorPos] = 'A'; // 'A' is neutral in both matrices
+            string m = new(match), nm = new(noMatch);
+
+            bool bimasOk = OncologyAnalyzer.PredictBindingHalfLifeBimas(m, bimas)
+                           >= OncologyAnalyzer.PredictBindingHalfLifeBimas(nm, bimas) - 1e-9;
+            bool smmOk = OncologyAnalyzer.PredictIc50Smm(m, smm)
+                         <= OncologyAnalyzer.PredictIc50Smm(nm, smm) + 1e-9;
+            return (bimasOk && smmOk).Label($"anchor match not stronger (bimas={bimasOk}, smm={smmOk})");
+        });
+    }
+
+    /// <summary>INV-4 (D): matrix scoring is deterministic.</summary>
+    [FsCheck.NUnit.Property]
+    public Property MhcMatrix_IsDeterministic()
+    {
+        var bimas = BimasAnchorMatrix();
+        return Prop.ForAll(NineMerArbitrary(), pep =>
+            (OncologyAnalyzer.PredictBindingHalfLifeBimas(pep, bimas) == OncologyAnalyzer.PredictBindingHalfLifeBimas(pep, bimas))
+                .Label("BIMAS scoring must be deterministic"));
+    }
+
+    #endregion
+
+    #region IMMUNE-NUSVR-001 — ν-SVR immune deconvolution
+
+    // DeconvoluteImmuneCellsNuSvr fits cell fractions by ν-support-vector regression against a signature
+    // matrix; fractions are non-negative and a strongly planted single-cell mixture is recovered as dominant.
+
+    /// <summary>INV-1 (R): every ν-SVR cell fraction is non-negative.</summary>
+    [FsCheck.NUnit.Property]
+    public Property NuSvr_Fractions_NonNegative()
+    {
+        return Prop.ForAll(OrthogonalMixtureArbitrary(), s =>
+        {
+            var r = ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(s.mixture, s.sig);
+            return r.CellFractions.Values.All(v => v >= -1e-9).Label("a ν-SVR cell fraction was negative");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (planted truth recovered): for a strongly A-dominant orthogonal mixture (wA ≥ 0.8) the recovered
+    /// fraction of cell type A is at least that of B — the dominant planted component is identified.
+    /// <para>
+    /// Uses <see cref="WellConditionedOrthogonalMixtureArbitrary"/> (10–25 markers per cell type): ν-SVR
+    /// z-score-standardizes each signature column, which is only well-posed with an adequate marker count
+    /// (CIBERSORT/LM22 = 547 genes). On a 2–4 gene toy the standardization destroys column orthogonality and
+    /// dominant recovery is not guaranteed — that degenerate regime is outside the algorithm's documented
+    /// operating domain, not a defect, so the planted-truth theorem is asserted on the well-conditioned regime.
+    /// </para>
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property NuSvr_DominantPlantedType_IsRecovered()
+    {
+        return Prop.ForAll(WellConditionedOrthogonalMixtureArbitrary(), s =>
+        {
+            if (s.wA < 0.8) return true.ToProperty(); // only assert on a decisively A-dominant mixture
+            var r = ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(s.mixture, s.sig);
+            double fa = r.CellFractions.GetValueOrDefault("CellType_A");
+            double fb = r.CellFractions.GetValueOrDefault("CellType_B");
+            return (fa >= fb - 1e-9).Label($"A-dominant mixture (wA={s.wA}) not recovered: fa={fa}, fb={fb}");
+        });
+    }
+
+    /// <summary>INV-3 (D): ν-SVR deconvolution is deterministic.</summary>
+    [FsCheck.NUnit.Property]
+    public Property NuSvr_IsDeterministic()
+    {
+        return Prop.ForAll(OrthogonalMixtureArbitrary(), s =>
+        {
+            var a = ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(s.mixture, s.sig);
+            var b = ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(s.mixture, s.sig);
+            return (a.BestNu == b.BestNu && a.CellFractions.Count == b.CellFractions.Count
+                    && a.CellFractions.All(kv => b.CellFractions.TryGetValue(kv.Key, out double v) && v == kv.Value))
+                .Label("DeconvoluteImmuneCellsNuSvr must be deterministic");
         });
     }
 

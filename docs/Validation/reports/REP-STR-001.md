@@ -1,17 +1,27 @@
 # Validation Report: REP-STR-001 — Microsatellite / Short Tandem Repeat (STR) Detection
 
-- **Validated:** 2026-06-24   **Area:** Repeats
+- **Validated:** 2026-06-25 (fresh re-validation; supersedes 2026-06-24)   **Area:** Repeats
 - **Canonical method(s):** `RepeatFinder.FindMicrosatellites(DnaSequence|string, int minUnitLength=1, int maxUnitLength=6, int minRepeats=3)` (+ `CancellationToken`/`IProgress<double>` overloads); `GetTandemRepeatSummary` integration; **`RepeatFinder.FindApproximateTandemRepeats(DnaSequence|string, int minPeriod=1, int maxPeriod=6, int minScore=50)`** (opt-in approximate / imperfect / interrupted detector, TRF model — added 2026-06-24); **`RepeatFinder.ComputeBernoulliStatistics(string, int period, double expectedMatchProbability=0.80)`** (opt-in TRF Bernoulli statistical-significance measures, Benson 1999 — added 2026-06-24).
 - **Source file:** `src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs`
 - **Test file(s):** `tests/Seqeron/Seqeron.Genomics.Tests/RepeatFinder_Microsatellite_Tests.cs` (34 tests), `RepeatFinder_ApproximateTandemRepeats_Tests.cs` (13 tests), `RepeatFinderTests.cs` (summary), `Properties/RepeatFinderProperties.cs`.
 - **Stage A verdict:** PASS
-- **Stage B verdict:** PASS-WITH-NOTES (TRF k-tuple **seeding** / genome-scale-performance residual; per-repeat Bernoulli significance now implemented; documented)
+- **Stage B verdict:** PASS-WITH-NOTES (code correct; sole note = TRF k-tuple **seeding** / genome-scale-performance residual, out of scope)
+- **State:** ✅ CLEAN
 
+> **2026-06-25 — fresh independent re-validation (REP-STR-001).** This unit was reset to ⬜ pending
+> after the limitation-elimination campaign added the TRF Bernoulli significance scoring
+> (`ComputeBernoulliStatistics`) and the opt-in approximate detector (`FindApproximateTandemRepeats`).
+> Re-validated this session against authoritative EXTERNAL sources retrieved 2026-06-25 (Wikipedia
+> Microsatellite; TRF definitions page tandem.bu.edu/trf/trf.definitions.html for the Bernoulli PM/PI
+> model and adjacent-copy statistics scope; Richard, Kerrest & Dujon 2008 / Benson 1999 for STR and TRF
+> definitions). All cross-check numbers were re-derived by hand AND reproduced by running the actual
+> code in an independent harness (not by trusting the repo tests). Full suite green
+> (Seqeron.Genomics.Tests = 18780 passed, 0 failed). No defect found → **CLEAN**.
+>
 > **2026-06-24 — limitation fix (REP-STR-001).** The "perfect-repeat-only" scope note has been
 > superseded: an **opt-in approximate (imperfect / interrupted) tandem-repeat detector** was added per
 > the Tandem Repeats Finder model (Benson 1999) — see §"Approximate detection" below. The default
-> perfect-repeat path is unchanged. Per the validation campaign protocol, the unit Status in the root
-> registry is **reset to `☐`** pending independent re-validation of the new method.
+> perfect-repeat path is unchanged.
 
 ## Stage A — Description
 
@@ -34,6 +44,22 @@
 - `GTCGTCGTCGTCGTC` → `GTC×5`, pos 0, len 15 (Wikipedia tri example). ✔
 - Designed `(GATA)n`: `AAGATAGATAGATAGATAAA` → `AGAT×4` pos 1 (span [1,17)) + `GATA×4` pos 2 (span [2,18)); neither contains the other → both reported. ✔ Matches the half-open containment policy.
 - Single occurrence is NOT a repeat: `minRepeats≥2` enforced; `ATAT` (AT×2) with minRepeats=3 → empty. ✔
+
+### Independent cross-check reproduced THIS session (2026-06-25, live code in a standalone harness)
+Microsatellite detector (`FindMicrosatellites`, exact values from running the code):
+- `CACACACA` (1–6,3) → `CA×4 @0 len8 Dinucleotide` (smallest unit, not CACA×2). ✔
+- `AAAA` (1–6,3) → `A×4 @0 len4 Mononucleotide` (AA rejected by `IsRedundantUnit`). ✔
+- `TATATATATA` (2,2,3) → `TA×5 @0 len10` (Wikipedia di example). ✔
+- `GTCGTCGTCGTCGTC` (3,3,3) → `GTC×5 @0 len15` (Wikipedia tri example). ✔
+- `AAGATAGATAGATAGATAAA` (4,4,3) → `AGAT×4 @1` + `GATA×4 @2` (both reported; neither span contains the other). ✔
+- `ATAT` (2,2,3) → empty (AT×2 < minRepeats 3, sub-threshold). ✔
+- `CAGCAGCAGTAGCAGCAG` (1–6,3) → `CAG×3 @0` only (perfect detector fragments at the interruption). ✔
+
+Bernoulli statistics (`ComputeBernoulliStatistics`, adjacent-copy, hand-derived AND reproduced):
+- `CACACACACA` p2 → trials=8, matches=8, PM=1.000000, PI=0, E[matches]=8, meets=True. ✔
+- `CAGCAGCAGTAGCAGCAG` p3 → trials=15, matches=13, mismatches=2, PM=0.866667 (=13/15), PI=0, E[matches]=13, meets=True. ✔
+- `CACACATACACA` p2 → trials=10, matches=8, mismatches=2, PM=0.800000 (=8/10, exactly the default threshold, inclusive ⇒ meets=True), E[matches]=8. ✔
+- `ACACTGTG` p4 → trials=4, matches=0, PM=0, meets=False (below default PM 0.80). ✔
 
 **Stage A finding:** Description faithful to authoritative sources. No defect.
 
@@ -87,7 +113,7 @@ String and DnaSequence overloads produce identical results (`StringOverload_Prod
 - **Residual (honest, narrowed):** the per-repeat **Bernoulli statistical measures are now computed**; what remains unbundled is only TRF's **k-tuple seeding** (the R(d,k,pM) 95% sum-of-heads percentile cut-off and the W(d,pI) random-walk band), whose percentile values come from TRF's non-redistributable simulation tables — i.e. a **whole-genome-scale performance** index, not a per-repeat-correctness gap. The deterministic exhaustive scan already finds every candidate a seed would; seeding is a performance heuristic, not a capability.
 
 ## Verdict & follow-ups
-- **Stage A: PASS** — description matches Wikipedia (Microsatellite), MISA convention, and TRF/literature; all worked examples hand-verified.
-- **Stage B: PASS-WITH-NOTES** — code faithfully realises the validated perfect-STR definition, the opt-in TRF approximate detector, and the opt-in TRF Bernoulli statistical measures; coordinates, thresholds, copy counts, canonicalisation/overlap, TRF statistics, and PM/PI/expected-matches all correct. Sole note: TRF k-tuple **seeding** (genome-scale-performance) residual; the per-repeat Bernoulli significance is now implemented.
-- **State (2026-06-24):** limitation fixes landed — opt-in `FindApproximateTandemRepeats` (TRF model) and opt-in `ComputeBernoulliStatistics` (TRF Bernoulli significance) added; default detection unchanged. Status **stays `☐`** in the root registry pending independent re-validation of the new methods. Build green (0 warnings); 10 new Bernoulli tests + 13 approximate-detector + 44 perfect-STR/summary tests pass; full suite green.
+- **Stage A: PASS** — description matches Wikipedia (Microsatellite: motif "generally ten nucleotides or less", repeated 5–50×; verbatim TATATATATA di / GTCGTCGTCGTCGTC tri examples; GGAT myoglobin / Weller & Jeffreys 1984), MISA convention, Richard et al. 2008, and the TRF Bernoulli model (TRF definitions page: PM=.80, PI=.10, statistics "between adjacent copies … not between the sequence and the consensus pattern", match +2 / mismatch & indel −7 stringent, Minscore 50). All worked examples hand-verified.
+- **Stage B: PASS-WITH-NOTES** — code faithfully realises the validated perfect-STR definition, the opt-in TRF approximate detector, and the opt-in TRF Bernoulli statistical measures; coordinates (0-based, half-open), thresholds (`minRepeats≥2`), copy counts, canonicalisation/overlap, TRF statistics, and PM/PI/expected-matches all correct and independently reproduced this session. All public methods/overloads exercised (string + DnaSequence, plain + cancellable `FindMicrosatellites`; string + DnaSequence `FindApproximateTandemRepeats`; `ComputeBernoulliStatistics`). Tests assert exact sourced/hand-computed values (no code-echo, no no-throw tautologies) and cover every Stage-A edge case (empty, single-char, all-N, sub-threshold, interrupted/imperfect, motif-longer-than-seq, each motif length 1–6). Sole note: TRF k-tuple **seeding** (genome-scale-performance) residual — out of scope per the campaign boundary; the per-repeat Bernoulli significance is fully implemented and validated.
+- **State (2026-06-25): ✅ CLEAN.** Fresh independent re-validation of the campaign-added methods (`ComputeBernoulliStatistics`, `FindApproximateTandemRepeats`) plus the canonical `FindMicrosatellites`. All cross-check numbers re-derived from primary sources and reproduced by running the live code. Full suite green: Seqeron.Genomics.Tests = 18780 passed, 0 failed; 0 warnings (no code changed this session). Root registry flipped `☐ → ☑`.
 - **No defects logged.**

@@ -5,7 +5,7 @@ using NUnit.Framework;
 using FluentAssertions;
 using Seqeron.Genomics.Analysis;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the Statistics-area DNA nearest-neighbor thermodynamics unit.

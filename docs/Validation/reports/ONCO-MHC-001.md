@@ -1,9 +1,92 @@
 # Validation Report: ONCO-MHC-001 — MHC-Peptide Binding Classification
 
-- **Validated:** 2026-06-16   **Area:** Oncology
-- **Canonical method(s):** `OncologyAnalyzer.ClassifyBindingAffinity(double)`, `ClassifyBindingRank(double, MhcClass)`, `IsValidPeptideLength(int, MhcClass)`, `ClassifyMhcBinding(int, double, MhcClass)` (`src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs:5306-5396`)
-- **Stage A verdict:** PASS-WITH-NOTES
+- **Validated:** 2026-06-26 (fresh re-validation after the 8–11 → 8–14 length-window fix, commit 66c24491; supersedes 2026-06-25)   **Area:** Oncology
+- **Canonical method(s):** `OncologyAnalyzer.MhcClassIMaxPeptideLength` (now 14), `IsValidPeptideLength(int, MhcClass)`, `GenerateNeoantigenPeptides(...)` default window, `ClassifyBindingAffinity(double)`, `ClassifyBindingRank(double, MhcClass)`, `ClassifyMhcBinding(int, double, MhcClass)`; and the MHCflurry pan-allele predictor `MhcflurryAffinityPredictor.EncodePeptide` / `PredictIc50` / `PredictAndClassify` (`src/Seqeron/Algorithms/Seqeron.Genomics.Oncology/OncologyAnalyzer.cs:7954,8268,8025`; `MhcflurryAffinityPredictor.cs:250,408,640`).
+- **Stage A verdict:** PASS (length window 8–14 = full NetMHCpan-4.1 class I window, now matching source exactly — the prior 8–11 PASS-WITH-NOTES divergence is resolved)
 - **Stage B verdict:** PASS
+
+---
+
+## 2026-06-26 — Fresh re-validation after the class I length-window widening (8–11 → 8–14)
+
+Commit **66c24491** widened the class I peptide-length window from 8–11 to **8–14** (`MhcClassIMaxPeptideLength` 11 → 14), propagating to `IsValidPeptideLength` (class I gate) and the `GenerateNeoantigenPeptides` default window. ONCO-MHC-001 was reset to ⬜ pending; this is its fresh re-validation, focusing on the length change and confirming the rest still holds. No prior repo TestSpec/Evidence/test was trusted; sources and the oracle were retrieved THIS session.
+
+### Stage A — sources retrieved this session
+- **NetMHCpan-4.1 (Reynisson et al. 2020, *Nucleic Acids Res.* 48(W1):W449–W454, PMC7319546)** — WebFetched the primary article. Verbatim: *"for class I, the length range goes from 8 to 14 amino acids, default is 8–11"*; *"a %Rank < 0.5% and %Rank < 2% thresholds are considered for detecting SBs and WBs for class I and %Rank < 2% and %Rank < 10%, for SBs and WBs for class II"*. The widened **8–14** window is therefore the FULL class I range NetMHCpan-4.1 accepts (the previous 8–11 was the *default* sub-range). The %Rank thresholds (0.5/2 class I, 2/10 class II) and the IC50 cutoffs (50/500 nM, IEDB/Sette, confirmed in prior sessions) are unchanged by this fix.
+- **MHCflurry encoder (`encodable_sequences.py`)** — read the installed `mhcflurry` 2.1.5 source (`Library/Python/3.9/.../mhcflurry/encodable_sequences.py`). The `left_pad_centered_right_pad` branch: `min_length = 5` ("We arbitrarily set a minimum length of 5"), `max_length = 15` (default), encoded width `3 * max_length`; left edge `result[:length]`, right edge `result[-length:]`, center `center_left_padding = floor((max_length - length)/2)`, `center_left_offset = max_length + center_left_padding`. This is reproduced verbatim by the C# `EncodePeptide` (`MhcflurryAffinityPredictor.cs:277–294`), with `PeptideMinLength=5`, `PeptideMaxLength=15`. The 8–14 class I window sits entirely inside the encoder's supported 5–15, so lengths 12/13/14 encode and score with no special-casing.
+
+**Stage A: PASS.** The length window now equals the source's stated class I range exactly — the only prior divergence (the documented 8–11 default vs full 8–14) is *resolved* by this fix, so the note is retired and Stage A is a clean PASS.
+
+### Stage B — independent oracle cross-check (lengths 12/13/14)
+
+Re-ran `mhcflurry` 2.1.5 in-session, loading the **exact embedded fixture network** `PAN-CLASS1-1-3ed9fb2d2dcc9803` (the smallest `models_class1_pan` member, release 20200610, present locally as the full 10-network pack) via `Class1NeuralNetwork.from_config` + its `weights_*.npz`, and predicting through the official `predict()` path with the `Class1AffinityPredictor` allele-pseudosequence table — an oracle wholly independent of the C# code. Comparison to the test goldens:
+
+| Peptide / allele | len | Test golden (nM) | This-session oracle (nM) | Rel. diff |
+|---|---|---|---|---|
+| SIINFEKL / HLA-A\*02:01 | 8 | 11483.195201 | 11483.199313 | 3.6e-7 |
+| GILGFVFTL / HLA-A\*02:01 | 9 | 19.123150 | 19.123144 | 3.1e-7 |
+| NLVPMVATV / HLA-A\*02:01 | 9 | 17.542640 | 17.542638 | 1.1e-7 |
+| ELAGIGILTV / HLA-A\*02:01 | 10 | 119.054961 | 119.054974 | 1.1e-7 |
+| AAAWYLWEV / HLA-A\*02:01 | 9 | 16.559303 | 16.559300 | 1.8e-7 |
+| SIINFEKL / HLA-B\*07:02 | 8 | 28830.796646 | 28830.799575 | 1.0e-7 |
+| SLYNTVATL / HLA-A\*02:01 | 9 | 28.972028 | 28.972053 | 8.6e-7 |
+| CINGVCWTV / HLA-A\*02:01 | 9 | 92.105940 | 92.105926 | 1.5e-7 |
+| **GILGFVFTLAAA** / HLA-A\*02:01 | **12** | **25274.910033** | **25274.911516** | **5.9e-8** |
+| **GILGFVFTLAAAA** / HLA-A\*02:01 | **13** | **32389.125801** | **32389.127574** | **5.5e-8** |
+| **GILGFVFTLAAAAA** / HLA-A\*02:01 | **14** | **32972.178346** | **32972.173041** | **1.6e-7** |
+
+All within the unit's claimed RelTol = 1e-3 (<0.1%); observed gap ≤ 9e-7 (≪ the asserted <0.03% in the report). The **len-12/13/14 goldens are independently confirmed**, and the **8/9/10-mer goldens are byte-identical to before** (no regression). `MhcflurryAffinityPredictor.cs` was *not* touched by commit 66c24491 (only 3 `[TestCase]` rows were added to the test file), so the forward-pass/encoding code is bit-for-bit unchanged for the 8–11 lengths — confirmed both by the unchanged source and by the oracle reproducing the old 8/9/10-mer values.
+
+### Stage B — code path & test-quality gate
+- **Length gate:** `IsValidPeptideLength` (`OncologyAnalyzer.cs:8268`) is inclusive `[8,14]` for class I; the gate test `IsValidPeptideLength_ClassI_RespectsEightToFourteen` asserts 8/9/11/14 valid, 7 too short, **15** above the max — exactly the validated 8–14 window with 15 rejected.
+- **Generator:** `GenerateNeoantigenPeptides` default `maxLength = MhcClassIMaxPeptideLength = 14`; the generator test asserts 7 lengths × 5 windows = **35** candidates (was 20 for 8–11), with a per-length count loop covering 12/13/14, and last peptide = a 14-mer.
+- **Encoder boundaries:** `EncodePeptide_OutOfRangeLength_Throws` covers length 5 (min) and 15 (max) encode, length 4 and 16 throw — the MHCflurry encoder's 5–15 range.
+- **Classification chain (unchanged):** the strict-`<` nested-threshold model (Strong<50 / Weak<500 nM; %Rank class I 0.5/2, class II 2/10) and the predict→classify chain all re-confirmed against the IEDB/Sette/NetMHCpan cutoffs; goldens are exact oracle values with citation comments, not code echoes. A broken encoder/forward-pass would fail the new 12/13/14 cases (they assert exact oracle IC50s within 1e-3); a `<`→`<=` threshold flip still fails the classification boundary cases. No green-washing, no skips.
+
+**Stage B: PASS.** Full unfiltered suite `dotnet test Seqeron.sln -c Debug` = **18861 passed / 0 failed** (Genomics project); no files changed this session.
+
+### End-state
+**✅ CLEAN.** The length-window widening 8–11 → 8–14 is correct and fully sourced (NetMHCpan-4.1 class I window, Reynisson 2020, retrieved this session); lengths 12/13/14 are oracle-verified against `mhcflurry` 2.1.5's exact embedded network to ≤ 9e-7 relative error; the 8/9/10-mer predictions are byte-identical (no regression). The classification thresholds and chain are unchanged and still correct. The prior 8–11 PASS-WITH-NOTES divergence is resolved → Stage A is now a clean PASS. No code or test defect found; no change made this session. **Residual (honest, by-design):** the full 10-network MHCflurry ensemble weights (~80 MB) are caller-loaded by `LoadWeightPack` (one ~4.6 MB member embedded only as the CI parity fixture); the proprietary NetMHCpan-4.1 ANN and the SMM/BIMAS matrices remain caller-supplied / out of scope — an accepted open boundary, not a defect.
+
+---
+
+## 2026-06-25 — Fresh re-validation (post-reset; predictors split out to MHC-MATRIX-001 / MHC-NN-001)
+
+ONCO-MHC-001 was reset to ⬜ pending after the SMM/BIMAS matrix predictor and the MHCflurry NN were carved out into their own already-CLEAN units (MHC-MATRIX-001, MHC-NN-001). This unit's OWN canonical surface — the IC50/%Rank binding-affinity **classification** thresholds and the predict→classify **chain** — was re-validated fresh against externally retrieved sources THIS session. No prior repo TestSpec/Evidence/test was trusted.
+
+### Stage A — sources re-retrieved this session
+- **NetMHCpan-4.1 / NetMHCIIpan-4.0 (Reynisson et al. 2020, *Nucleic Acids Res* 48(W1):W449–W454)** — WebSearch confirmed verbatim: class I "strong binder if the %Rank is below … (by default, 0.5%), and a weak binder if … below … (by default, 2%)"; class II SB < 2% / WB < 10%; %Rank defined as the position of the score in a distribution from random natural peptides. Confirms the four %Rank cutoffs (0.5 / 2 / 2 / 10) and the strict-`<` "below" semantics.
+- **IEDB threshold guidance** (help.iedb.org) — WebSearch confirmed verbatim: "peptides with IC50 values <50 nM are considered high affinity, <500 nM intermediate affinity and <5000 nM low affinity"; "the threshold of IC50 = 500 nM or 50 nM selects peptide binders or strong binders, respectively." Confirms the IC50 cutoffs 50 / 500 nM and that 500 nM is the binder/non-binder demarcation, all strict `<`.
+- **Sette et al. (1994)** and class II length 13–25 (IEDB tool description) were confirmed in the prior session and are unchanged; the two primary conventions above were independently re-grounded this session.
+
+The classification model — `Strong iff v < 50`, `Weak iff 50 ≤ v < 500`, `NonBinder iff v ≥ 500` (IC50); analogous per-class strict-`<` nesting for %Rank — matches the verbatim "<"/"below" inequalities in every source. **Stage A: PASS-WITH-NOTES** (the only divergence is the *documented* class I 8–11 default vs the full 8–14 NetMHCpan admits; see original §Note 1).
+
+### Independent boundary hand-evaluation (recorded labels — derived from sources, NOT code output)
+
+`ClassifyBindingAffinity(ic50)` — validate finite & > 0, then `< 50 → Strong`, else `< 500 → Weak : NonBinder`:
+
+| IC50 (nM) | Hand-derived label (IEDB/Sette strict `<`) | Code trace |
+|---|---|---|
+| 10 | Strong | Strong ✅ |
+| 49.9 | Strong (49.9 < 50) | Strong ✅ |
+| 50 (boundary) | Weak (not `< 50`; 50 < 500) | Weak ✅ |
+| 500 (boundary) | NonBinder (not `< 500`) | NonBinder ✅ |
+| 5000 | NonBinder | NonBinder ✅ |
+
+`ClassifyBindingRank` boundaries (class I 0.5/2, class II 2/10), all strict `<`: 0.4/I→Strong, 0.5/I→Weak, 2.0/I→NonBinder; 1.5/II→Strong, 2.0/II→Weak, 10.0/II→NonBinder. All match the code.
+
+**Predict→classify chain end-to-end** (`PredictAndClassifySmm` → `ClassifyBindingAffinity`, SMM transform `IC50 = 50000^(1−score)` from MHC-MATRIX-001):
+- GILGFVFTL (influenza M1 58–66, paradigm HLA-A*02:01 binder), contributions summing to score 1.0 → IC50 = 50000⁰ = **1 nM → Strong**.
+- score 0.6 → IC50 = 50000⁰·⁴ = 75.786 nM ∈ [50,500) → **Weak**.
+- poly-W 9-mer, score 0 → IC50 = 50000¹ = **50000 nM → NonBinder**.
+Chain composes correctly: predictor yields IC50, classifier applies the sourced thresholds. Binder IC50 (1 nM) ≪ non-binder IC50 (50000 nM), correct ranking.
+
+### Stage B — implementation & test-quality gate
+- Code path re-read (`OncologyAnalyzer.cs:8197–8287`, chain `:8526–8531`): all four classifiers realise the strict-`<` nested-threshold model exactly; the chain delegates the predicted IC50 into `ClassifyBindingAffinity`. **Stage B: PASS.**
+- Test fixture `OncologyAnalyzer_ClassifyMhcBinding_Tests.cs` (47 tests) re-audited against the HARD gate: every classification assertion is an exact `Is.EqualTo`/`Throws<>` carrying the published cutoff value in its citation comment — sourced, not code-echoed. A `<`→`<=` flip fails M2/M4/M7/M9/M11b/M12; swapping class I/II cutoffs fails M11/M11b/M13. Coverage is complete on the unit's own surface: every IC50 boundary (50/500) and %Rank boundary (0.5/2 class I, 2/10 class II), all three bands (Strong/Weak/NonBinder), the length gate (class I 8/11/12, class II 13/25/26, non-positive), all invalid-input paths (IC50 ≤0/NaN/±∞, %Rank out-of-range/NaN, null peptide, empty matrix), and the predict→classify chain in all three bands (P9 Strong, P10b Weak, P10 NonBinder). No green-washing, no skips; the only inequality assertions are ranking sanity in the predictor (MHC-MATRIX-001) tests, paired with exact value checks.
+
+### End-state
+**✅ CLEAN.** No code or description defect on ONCO-MHC-001's own surface; thresholds, categories and strict-`<` boundary handling all trace to IEDB/NetMHCpan/Sette retrieved this session; the predict→classify chain is correct and tested end-to-end. **No code/test change made this session** (the surface was already complete and correctly sourced). Unit fixture **47 passed / 0 failed**; the prior full-suite baseline (18213 green) is unchanged since no files were touched. The trained predictor matrices being caller-supplied (MHC-MATRIX-001) and the MHCflurry weight pack being the separate MHC-NN-001 are the documented, accepted scope boundaries.
 
 ## Scope
 
@@ -151,3 +234,7 @@ The MHCflurry trained ensemble weights total ≈ 80 MB of near-incompressible fl
 
 ### End-state
 `dotnet build` 0 warnings/0 errors in changed files; the new fixture `MhcflurryAffinityPredictor_PredictIc50_Tests.cs` 19 passed / 0 failed; full unfiltered suite green (see commit). Classification and defaults unchanged; the neural predictor is opt-in. Validation Status confirmed **☐** (unchanged); Quick-Reference counts unchanged.
+
+## Runtime enforcement (LimitationPolicy)
+
+This unit's guarded branch — matrix (SMM/BIMAS) pMHC scoring from a caller-supplied matrix (no bundled validated matrix) — has **minimum access mode `Moderate`** (`Seqeron.Genomics.Core.LimitationCatalog`). Under the default `LimitationPolicy.DefaultMode = Moderate` it is **allowed** (this guarded branch throws only under `Strict`); see [LIMITATIONS.md](../LIMITATIONS.md) › Runtime enforcement. Additive policy layer; the validated contract and `✅ CLEAN` verdict are unchanged.

@@ -17,7 +17,7 @@
 | 3 | **Mutation Testing** | ★★★★☆ | 2/79 units | Low | **P1** |
 | 4 | **Algebraic Testing** | ★★★★☆ | 0/79 units | Med | **P1** |
 | 5 | **Snapshot / Approval Testing** | ★★★★☆ | ~40/79 units | Low | **P1** |
-| 6 | **Architecture Testing** | ★★★☆☆ | 1 file, 19 rules ☑ | Low | **P2** |
+| 6 | **Architecture Testing** | ★★★☆☆ | 1 file, 22 rules ☑ | Low | **P2** |
 | 7 | **Differential Testing** | ★★★☆☆ | 0/79 (exists for SuffixTree only) | High | **P2** |
 | 8 | **Fuzzing** | ★★★☆☆ | 0/79 (exists for SuffixTree only) | Med | **P2** |
 | 9 | **Characterization Testing** | ★★☆☆☆ | 0/79 explicit | Low | **P3** |
@@ -89,7 +89,7 @@
 
 **Why effective:** Prevents architectural drift as the library grows. Enforces layer boundaries (Core → Analysis → IO), naming conventions, and structural rules at IL level.
 
-**Current state:** ☑ `Architecture/ArchitectureTests.cs` with 19 rules across all 13 modules — Core/IO layer boundaries to every higher-level module, no circular dependencies between modules (slice cycle detection), no System.IO in Core, and immutable Result/DTO types. See [07_ARCHITECTURE_TESTING.md](checklists/07_ARCHITECTURE_TESTING.md).
+**Current state:** ☑ `Architecture/ArchitectureTests.cs` with 22 rules across all 13 modules — Core/IO layer boundaries to every higher-level module, no circular dependencies between modules (slice cycle detection), no System.IO in Core, immutable Result/DTO types, and placement/naming invariants (parsers only in IO, Core free of algorithm classes, namespace = assembly). See [07_ARCHITECTURE_TESTING.md](checklists/07_ARCHITECTURE_TESTING.md).
 
 **Gap:** None for module-dependency rules. Future option: naming-convention rules for test classes.
 
@@ -171,7 +171,7 @@ Ordered by usefulness for this project (see analysis); the Priority column keeps
 3. **P1 — Mutation:** Run Stryker per-module, write killers for survivors
 4. **P1 — Algebraic:** Add algebraic law tests (can combine with property files)
 5. **P1 — Snapshot:** Add missing 31 snapshot tests to existing + new snapshot files
-6. **P2 — Architecture:** ☑ ArchitectureTests.cs expanded with 14 new module rules (19 total)
+6. **P2 — Architecture:** ☑ ArchitectureTests.cs expanded with 14 new module rules + 3 placement/naming invariants (22 total)
 7. **P2 — Fuzzing:** Create fuzz test files for 7 parsers + boundary tests for all areas
 8. **P2 — Differential:** Create differential test pairs for all 86 algorithms
 9. **P3 — Characterization:** Create on-demand before refactoring

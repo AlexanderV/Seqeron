@@ -806,4 +806,160 @@ public class MetagenomicsCombinatorialTests
         double pNoCc = MetagenomicsAnalyzer.MannWhitneyU(g1, g2, false).PValue;
         pCc.Should().BeGreaterThanOrEqualTo(pNoCc, "the continuity correction enlarges the p-value");
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: META-CHECKM-001 — CheckM marker-gene bin quality (Metagenomics)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 248.
+    // Spec: tests/TestSpecs/META-CHECKM-001.md (MetagenomicsAnalyzer.EstimateBinQualityFromMarkerCounts). ADVANCED §10.
+    //
+    // Sources: Parks et al. (2015) CheckM, Genome Res. 25:1043 (Eqs. 1–2).
+    //
+    // Model: completeness = 100·(1/|M|)·Σ_s present_s/|s|;  contamination = 100·(1/|M|)·Σ_s Σ_{g∈s}(N_g−1)/|s|
+    //   over a domain's collocated marker sets M.
+    //
+    // Dimensions: domain(bac/ar) × markerCount(3) × copies(2). Grid 2×3×2 = 12 (exhaustive).
+    //
+    // The combinatorial point: domain selects the bundled marker-set family; markerCount (the number of
+    // distinct markers present) drives completeness; copies (single vs duplicated) drives contamination.
+    // Every cell reproduces BOTH CheckM equations from an independent recomputation over the bundled sets.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public enum CheckMDomain { Bacterial, Archaeal }
+
+    private static (double Completeness, double Contamination) CheckMGroundTruth(
+        IReadOnlyList<MetagenomicsAnalyzer.MarkerSet> sets, IReadOnlyDictionary<string, int> counts)
+    {
+        double compSum = 0.0, contSum = 0.0;
+        foreach (var set in sets)
+        {
+            var ids = set.MarkerIds;
+            int present = ids.Count(id => counts.TryGetValue(id, out int n) && n >= 1);
+            double multi = ids.Sum(id => counts.TryGetValue(id, out int n) && n > 1 ? n - 1 : 0);
+            compSum += (double)present / ids.Count;
+            contSum += multi / ids.Count;
+        }
+        return (100.0 * compSum / sets.Count, 100.0 * contSum / sets.Count);
+    }
+
+    [Test, Combinatorial]
+    public void CheckM_ReproducesCompletenessAndContamination_AcrossDomainMarkerCountAndCopies(
+        [Values(CheckMDomain.Bacterial, CheckMDomain.Archaeal)] CheckMDomain domain,
+        [Values(6, 12, 18)] int markerCount,
+        [Values(1, 2)] int copies)
+    {
+        var sets = domain == CheckMDomain.Bacterial
+            ? MetagenomicsAnalyzer.BundledBacterialMarkerSets()
+            : MetagenomicsAnalyzer.BundledArchaealMarkerSets();
+
+        var allMarkers = sets.SelectMany(s => s.MarkerIds).Distinct().ToList();
+        int present = Math.Min(markerCount, allMarkers.Count);
+        var counts = allMarkers.Take(present).ToDictionary(m => m, _ => copies);
+
+        var q = MetagenomicsAnalyzer.EstimateBinQualityFromMarkerCounts(sets, counts);
+        var (expComp, expCont) = CheckMGroundTruth(sets, counts);
+
+        q.Completeness.Should().BeApproximately(expComp, 1e-9, "completeness reproduces CheckM Eq. 1 over the bundled sets");
+        q.Contamination.Should().BeApproximately(expCont, 1e-9, "contamination reproduces CheckM Eq. 2 over the bundled sets");
+        if (copies == 1)
+            q.Contamination.Should().BeApproximately(0.0, 1e-9, "single-copy markers carry no contamination");
+        else
+            q.Contamination.Should().BeGreaterThan(0.0, "duplicated markers raise contamination");
+    }
+
+    /// <summary>
+    /// Interaction witness: a complete single-copy set scores 100/0, and duplicating every marker raises
+    /// contamination while leaving completeness at 100.
+    /// </summary>
+    [Test]
+    public void CheckM_CompleteSingleCopyIs100And0_DuplicationRaisesContamination()
+    {
+        var sets = MetagenomicsAnalyzer.BundledBacterialMarkerSets();
+        var allMarkers = sets.SelectMany(s => s.MarkerIds).Distinct().ToList();
+
+        var single = allMarkers.ToDictionary(m => m, _ => 1);
+        var dup = allMarkers.ToDictionary(m => m, _ => 2);
+
+        var qSingle = MetagenomicsAnalyzer.EstimateBinQualityFromMarkerCounts(sets, single);
+        var qDup = MetagenomicsAnalyzer.EstimateBinQualityFromMarkerCounts(sets, dup);
+
+        qSingle.Completeness.Should().BeApproximately(100.0, 1e-9);
+        qSingle.Contamination.Should().BeApproximately(0.0, 1e-9);
+        qDup.Completeness.Should().BeApproximately(100.0, 1e-9, "every marker is still present");
+        qDup.Contamination.Should().BeGreaterThan(qSingle.Contamination, "duplication raises contamination");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: META-TETRA-001 — Tetranucleotide z-score composition vector (Metagenomics)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 249.
+    // Spec: tests/TestSpecs/META-TETRA-001.md
+    //       (MetagenomicsAnalyzer.CalculateTetranucleotideZScores / TetranucleotideZScoreCorrelation). ADVANCED §10.
+    //
+    // Sources: Teeling et al. (2004) TETRA, BMC Bioinformatics 5:163 (strand-symmetric tetramer z-scores).
+    //
+    // Model: each tetramer's z-score is observed − expected over the Markov standard deviation; the
+    //   estimator folds the sequence with its reverse complement, so the TETRA vector is STRAND-SYMMETRIC.
+    //   The z-score correlation is the binning similarity metric (1 for identical composition).
+    //
+    // Dimensions: seqLen(3) × GCcontent(3) × strand(2). Grid 3×3×2 = 18 (exhaustive).
+    //
+    // The combinatorial point: across length and GC content the z-score vector is well-defined and
+    // self-consistent (self-correlation 1). The strand axis reflects TETRA's strand symmetry — a
+    // sequence correlates far more strongly with its OWN reverse complement than with a compositionally
+    // different sequence (the basis of strand-independent binning).
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private static char MetaComp(char b) => b switch { 'A' => 'T', 'T' => 'A', 'G' => 'C', 'C' => 'G', _ => b };
+    private static string MetaRevComp(string s) => new(s.Reverse().Select(MetaComp).ToArray());
+
+    // Non-periodic sequence of the requested length whose composition realises the GC level (LCG-driven,
+    // all 4 bases present) — avoids the degenerate all-zero z-vector of a strictly periodic sequence.
+    private static string TetraSeq(int len, double gc)
+    {
+        var chars = new char[len];
+        uint state = (uint)(len * 2654435761u) ^ (uint)(gc * 1000.0);
+        for (int i = 0; i < len; i++)
+        {
+            state = state * 1664525u + 1013904223u;
+            double u = ((state >> 8) & 0xFFFF) / 65536.0;
+            uint pick = (state >> 24) & 1u;
+            chars[i] = u < gc ? (pick == 0 ? 'G' : 'C') : (pick == 0 ? 'A' : 'T');
+        }
+        return new string(chars);
+    }
+
+    public enum TetraStrand { Forward, Reverse }
+
+    [Test, Combinatorial]
+    public void Tetra_SelfConsistentAndStrandSymmetric_AcrossLengthGcAndStrand(
+        [Values(120, 240, 480)] int seqLen,
+        [Values(0.3, 0.5, 0.7)] double gc,
+        [Values(TetraStrand.Forward, TetraStrand.Reverse)] TetraStrand strand)
+    {
+        string fwd = TetraSeq(seqLen, gc);
+        string seq = strand == TetraStrand.Forward ? fwd : MetaRevComp(fwd);
+
+        var z = MetagenomicsAnalyzer.CalculateTetranucleotideZScores(seq);
+        z.Should().NotBeEmpty("a tetranucleotide z-score vector is defined");
+
+        MetagenomicsAnalyzer.TetranucleotideZScoreCorrelation(seq, seq)
+            .Should().BeApproximately(1.0, 1e-9, "the z-score vector correlates perfectly with itself");
+
+        // Strand symmetry: a sequence resembles its own reverse complement far more than a
+        // compositionally different sequence of the same length.
+        double selfRc = MetagenomicsAnalyzer.TetranucleotideZScoreCorrelation(seq, MetaRevComp(seq));
+        double crossGc = MetagenomicsAnalyzer.TetranucleotideZScoreCorrelation(seq, TetraSeq(seqLen, gc < 0.5 ? 0.8 : 0.2));
+        selfRc.Should().BeGreaterThan(crossGc, "TETRA is strand-symmetric: revcomp is closer than a different-GC sequence");
+    }
+
+    /// <summary>
+    /// Interaction witness (GC axis): two sequences of very different GC content have a TETRA z-score
+    /// correlation below 1 — the metric discriminates composition (the basis of TETRA binning).
+    /// </summary>
+    [Test]
+    public void Tetra_DifferentComposition_CorrelationBelowOne()
+    {
+        double corr = MetagenomicsAnalyzer.TetranucleotideZScoreCorrelation(
+            TetraSeq(480, 0.3), TetraSeq(480, 0.75));
+        corr.Should().BeLessThan(1.0, "compositionally distinct sequences are not perfectly correlated");
+    }
 }

@@ -4,9 +4,13 @@
 - **Canonical method(s):** `MetagenomicsAnalyzer.BinContigs(IEnumerable<(string,string,double)>, int numBins, double minBinSize, double expectedGenomeSize)`
   (helpers: `KMeansCluster`, `CompositeDistance`, `TnfPearsonDistance`, `CalculateTetraNucleotideFrequency`, `CalculateGcContent`, `CalculateContamination`)
   in `src/Seqeron/Algorithms/Seqeron.Genomics.Metagenomics/MetagenomicsAnalyzer.cs:647-861`
-- **Stage A verdict:** PASS-WITH-NOTES
-- **Stage B verdict:** PASS-WITH-NOTES
-- **End state:** CLEAN (no defect; the simplifications are honestly declared in spec, evidence, and code)
+- **Stage A verdict:** PASS-WITH-NOTES (re-confirmed 2026-06-25 — see fresh re-validation addendum below)
+- **Stage B verdict:** PASS-WITH-NOTES (re-confirmed 2026-06-25 — see fresh re-validation addendum below)
+- **End state:** CLEAN (no defect; the simplifications are honestly declared in spec, evidence, and code).
+  Re-validated fresh on 2026-06-25 after the TETRA z-score signature (→ META-TETRA-001) and CheckM
+  marker QC (→ META-CHECKM-001) were split out as separate units. This unit's OWN canonical surface
+  is the TNF+coverage composite-distance k-means binner (`BinContigs` + its helpers). One test-coverage
+  gap fixed (differential-coverage separation), no code change. CLEAN.
 
 ## Stage A — Description
 
@@ -220,3 +224,73 @@ unchanged):
   Domain-level completeness/contamination now works out of the box.
 - **Status:** META-BIN-001 remains `☐` (re-validation pass ongoing); Quick-Reference counts unchanged.
 - **Tests:** marker-QC fixture 20/20 pass.
+
+## Update 2026-06-25 — FRESH RE-VALIDATION of META-BIN-001's own binning surface (post-split)
+
+This is the campaign re-validation requested after the unit was reset to ⬜ pending. The z-score
+TETRA signature and the CheckM marker-gene QC are now their OWN units (META-TETRA-001,
+META-CHECKM-001) and are **referenced but not re-litigated** here. META-BIN-001's canonical surface
+is the **TNF + coverage composite-distance k-means binner**:
+`BinContigs(IEnumerable<(ContigId, Sequence, Coverage)>, numBins, minBinSize, expectedGenomeSize)`
+and its private helpers `KMeansCluster`, `CompositeDistance`, `TnfPearsonDistance`,
+`CalculateTetraNucleotideFrequency`, `CalculateGcContent`, `CalculateContamination`
+(`src/.../Seqeron.Genomics.Metagenomics/MetagenomicsAnalyzer.cs:855-1069`).
+
+### Stage A — description (re-confirmed against external sources retrieved THIS session)
+- **MetaBAT (Kang et al., PeerJ 2015; peerj.com/articles/1165):** "Metagenome Binning based on
+  Abundance and Tetranucleotide frequency" — per contig-pair distances from TNF and mean-base
+  **coverage** are integrated into **one composite distance**, then clustered (modified k-medoid).
+  This is exactly the composite-distance + clustering paradigm `BinContigs` implements.
+- **CONCOCT (Alneberg et al., Nat Methods 2014; nature.com/articles/nmeth.3103):** clusters contigs
+  on a feature vector of **tetra-mer composition + coverage across samples** (GMM). Confirms
+  composition+coverage as the standard de-novo feature space and the **differential-coverage**
+  signal (genomes with similar composition separated by distinct abundance).
+- **Wikipedia — Binning (metagenomics):** "based on either compositional sequence features (such as
+  **GC-content or tetranucleotide frequencies**) or sequence read mapping **coverage** … or both";
+  TETRA compares tetramer-derived vectors **pair-wise**. Confirms `BinContigs`'s [GC, TNF, coverage]
+  feature set and the pairwise correlation similarity.
+- **Two declared simplifications (NOT defects, and not this unit's surface to fix):** the default
+  TNF path uses raw 4-mer relative frequencies, not Teeling z-scores (full z-score signature =
+  META-TETRA-001); completeness/contamination are length-ratio / GC-stddev proxies (marker-gene QC
+  = META-CHECKM-001). Surfaced in code comments + TestSpec + Evidence → honest scope.
+- **Stage A verdict: PASS-WITH-NOTES** — feature set, composite distance, pairwise-correlation TNF
+  similarity, and the GC + differential-coverage separation behaviour are all correct against the
+  primary binning literature.
+
+### Stage B — implementation (re-read + independent cross-check THIS session)
+- Code path re-read (`MetagenomicsAnalyzer.cs:855-1069`): `CompositeDistance = |ΔGC| + |Δcov_norm| +
+  TnfPearsonDistance`; `TnfPearsonDistance = (1 − r)/2`; coverage normalised to [0,1] by max (guarded
+  ≥1); deterministic GC-sorted-spread centroid init; max 50 iters, early stop; empty-cluster skip;
+  min-bin-size filter; completeness `min(len/expected·100,100)`; contamination `min(σ/0.5·100,100)`,
+  population σ, 0 for <2 contigs. Faithfully realises the validated description.
+- **Independent cross-check (reflection probe against the built assembly + public API, exact numbers):**
+  | Quantity | Input | Hand value | C# value | Match |
+  |---|---|---|---|---|
+  | `TnfPearsonDistance` idealised disjoint | va={GCGC:.5,CGCG:.5}, vb={ATAT:.5,TATA:.5} → r=−1 → (1−(−1))/2 | **1.0** | 1.0 (exact) | ✓ |
+  | `TnfPearsonDistance` real GCGC×16 vs ATAT×16 | 29 tetramers, 15/29 & 14/29 split → r≈−1 | ≈1.0 | 0.99881376 | ✓ (finite-length boundary) |
+  | `TnfPearsonDistance` self | identical vector → r=1 | **0.0** | 1.11e−16 | ✓ |
+  | `CalculateGcContent` GCGC… / ATAT… | (G+C)/total | 1.0 / 0.0 | 1.0 / 0.0 | ✓ |
+  | **Composition separation** | 10×high-GC(cov 50) + 10×low-GC(cov 5) | 2 unmixed bins | bin.1 GC=1 cov=50; bin.2 GC=0 cov=5; mixed=false | ✓ |
+  | **Differential-coverage separation** | 20× identical GCTA repeat, cov 5 vs 500 | 2 unmixed bins (only coverage differs) | bin.1 cov=5; bin.2 cov=500; mixed=false | ✓ |
+- The differential-coverage case is the decisive cross-check: with identical composition (|ΔGC|=0,
+  TNF dist=0) the composite distance reduces to the coverage term, and the binner still separates the
+  two abundance groups — confirming the coverage feature does real work (MetaBAT/CONCOCT signal).
+- **Test-quality gate / defect found & fixed:** the existing 18-test fixture covered composition
+  (GC) separation but had **no test isolating the differential-coverage signal** — a gap against the
+  defining feature of the binning literature. Added **M13
+  `BinContigs_DifferentialCoverage_SeparatesSameCompositionGenomes`**: identical GCTA composition,
+  coverage 5× vs 500× → asserts ≥2 bins, no mixed bin, and exact per-bin mean coverage 5.0 / 500.0
+  (values traced to the hand cross-check, not a code echo). Fixture now **19/19**.
+- **Stage B verdict: PASS-WITH-NOTES** — code realises the validated (simplified) description; every
+  hand-computed cross-check reproduced exactly; edge cases (empty, single/below-min, short <4 bp,
+  zero coverage, identical contigs, extreme GC) handled; differential-coverage path now tested.
+
+### Re-validation result
+- **State: CLEAN.** No code change. One test-coverage defect (missing differential-coverage test)
+  fully fixed. Per-lineage CheckM DB remains a documented out-of-scope data boundary (META-CHECKM-001).
+- **Tests:** GenomeBinning fixture 19/19; full unfiltered `dotnet test Seqeron.sln -c Debug` =
+  Failed 0 (`Seqeron.Genomics.Tests` 18805/0), 0 warnings.
+
+## Runtime enforcement (LimitationPolicy)
+
+This unit's guarded branch — domain-level CheckM completeness/contamination (no lineage-specific refinement) — has **minimum access mode `Moderate`** (`Seqeron.Genomics.Core.LimitationCatalog`). Under the default `LimitationPolicy.DefaultMode = Moderate` it is **allowed** (this guarded branch throws only under `Strict`); see [LIMITATIONS.md](../LIMITATIONS.md) › Runtime enforcement. Additive policy layer; the validated contract and `✅ CLEAN` verdict are unchanged.

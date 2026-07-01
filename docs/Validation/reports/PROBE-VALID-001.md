@@ -6,6 +6,7 @@
 - **Test file:** `tests/Seqeron/Seqeron.Genomics.Tests/ProbeDesigner_ProbeValidation_Tests.cs`
 - **Stage A verdict:** PASS-WITH-NOTES
 - **Stage B verdict:** PASS
+- **Latest re-validation:** 2026-06-25 (see bottom section) — ✅ CLEAN, +1 locking test (SG3), no code change.
 
 This is an independent re-validation (fresh context). The code and tests are unchanged
 since the prior validation (last source commit `6f2ea3ef`, a coverage-classification audit;
@@ -206,3 +207,95 @@ and all defaults are unchanged.
   database. The exhaustive sliding Smith–Waterman scan already finds every hit a seed would (correctness
   is complete); the seed index is purely a speed optimization. No capability-level gap remains.
 - **Status stays ☐** in the root registry for independent re-validation of the changed unit.
+
+---
+
+## 2026-06-25 — FRESH RE-VALIDATION (independent, this session)
+
+Independent re-validation of the changed unit in a fresh context. Scope confirmed against the
+registry row + report: **PROBE-VALID-001 = `ValidateProbe` + `CheckSpecificity` + the campaign-added
+`ScanOffTargetsGapped` (gapped Smith–Waterman off-target scan) + on/off-target separation**
+(records `GappedProbeHit`, `GappedSpecificityResult`; helper `ScanReferenceGapped`). The
+Karlin–Altschul methods (`ComputeLambdaNucleotide`, `ComputeKarlinAltschul`, tests KA1–KA12) are
+the **separate** unit PROBE-EVALUE-001 (already validated CLEAN) and are out of scope here; they
+were not touched. All numbers below were re-derived this session with an independent Python
+Smith–Waterman, not copied from the prior report or the repo's tests.
+
+- **Stage A verdict:** PASS-WITH-NOTES
+- **Stage B verdict:** PASS
+- **End-state:** ✅ CLEAN (no code change; one locking test added)
+
+### Stage A — Description (external first sources, retrieved this session)
+- **Kane MD et al. (2000) Nucleic Acids Res 28(22):4552–4557** — confirmed from the primary
+  abstract/results (academic.oup.com/nar/article/28/22/4552): two specificity criteria —
+  (1) *"any 'non-target' transcripts (cDNAs) >75% similar over the 50 base target may show
+  cross-hybridization"* (a specific probe needs **<75 % overall identity** to non-targets); and
+  (2) a 100 %-identical stretch with a non-target *"should be limited to ∼15 bases"* (>15 contiguous
+  identical bases cross-hybridizes; ~15 bp ≈ 1 % signal, 20 bp ≈ 4 %). The code's
+  `DefaultOffTargetMinIdentity = 0.75` is exactly the Kane criterion-1 boundary, sourced and
+  caller-overridable.
+- **Smith TF & Waterman MS (1981) J Mol Biol 147:195–197** and **Altschul SF et al. (1990) J Mol
+  Biol 215:403–410** — standard, uncontroversial grounding for the local-alignment / gapped
+  off-target scan that detects indel-reachable off-targets the ungapped Hamming scan misses.
+- **Findings / divergences (why PASS-WITH-NOTES):**
+  1. `ScanOffTargetsGapped` realizes **Kane criterion 1** (the 75 %-identity threshold) faithfully.
+     **Kane criterion 2** (the explicit *>15 contiguous identical bases* rule) is **not** a separate
+     code path — it is subsumed by the identity-over-probe-length heuristic and is honestly
+     documented as such (it is not over-claimed as a distinct contiguous-stretch detector). A
+     declared scope boundary, not a biological error.
+  2. The default `ValidateProbe.OffTargetHits` remains the ungapped Hamming-≤-k heuristic that
+     **pools** on- and off-target matches (documented, unchanged); `ScanOffTargetsGapped` is the
+     corrected, on/off-separating, indel-aware path. Both are internally consistent and documented.
+
+### Stage B — Implementation (code path + recomputed cross-checks)
+- Code reviewed: `ScanOffTargetsGapped` (`ProbeDesigner.cs:1000-1052`), `ScanReferenceGapped`
+  (`:1059-1134`), `ValidateProbe` (`:853-926`), `CheckSpecificity` (`:931-949`),
+  `FindApproximateMatches` (`:1488-1503`). The scan slides `SequenceAligner.LocalAlign` (BlastDna
+  +2/−3, gap −2) across each reference, computes `identity = identical/probeLen`,
+  `coverage = ungapped/probeLen`, flags gaps, gates on `minIdentity`, collapses overlapping windows
+  to one best-per-site hit, and separates the first perfect ungapped full-coverage exact match as the
+  intended on-target.
+- **Independent cross-check — hand-constructed probe + target set** (probe `ACGTGGCATTACGGCATTCA`,
+  20 nt; references = on-target / 0.85-mismatched / low-identity / indel-only). Hand SW vs the actual
+  compiled library agree **exactly**:
+
+  | Target | Hand SW | Code (`ScanOffTargetsGapped`, minId 0.75) | Match |
+  |--------|---------|-------------------------------------------|-------|
+  | (a) exact on-target (ref0 [5,24]) | id 20/20=1.0, cov 1.0, no gap | OnTarget [5,24] id 1.0 cov 1.0 gap=F | ✅ |
+  | (b) high-identity off-target (ref1) | `…CATTAC…`/`…CATAAC…` 17/20=**0.85**, no gap | OffTarget id 0.85 gap=F | ✅ |
+  | (c) low-identity (ref2) | best local block 4/20=0.20 (<0.75) | **not called** | ✅ |
+  | (d) indel-only off-target (ref3 [5,25]) | `ACGTGGCATT-ACGGCATTCA`/`…TTAACGG…` 20/20=**1.0**, 1 gap | OffTarget id 1.0 gap=T | ✅ |
+
+  Result: OnTargets=1, OffTargetCount=2, IsSpecific=false; the on-target is excluded from off-targets;
+  low-identity is correctly rejected; the indel site is flagged only via the gap.
+- **Indel cross-checks re-derived** (matching MG3/MG4): probe `ACGTACGTACGT` (12 nt) —
+  `ACGTAC-GTACGT` vs `ACGTACTGTACGT` → 12/12 = **identity 1.0** (MG3); SW zero-floor trims the
+  mismatched tail of `ACGTACTGTACTT` → `ACGTAC-GTAC` vs `ACGTACTGTAC` → 10/12 = **0.8333** (MG4).
+  Positions verified: on-target [5,16], indel site at 27; the Hamming scan (maxMismatches=3) sees
+  **only** the on-target (every indel window has ≥6 mismatches) — confirming the gapped scan finds
+  what the ungapped misses.
+- **Variant consistency:** `CheckSpecificity` (suffix-tree exact) and `ValidateProbe` (Hamming)
+  share the `0/1/N → 0.0/1.0/(1/N)` rule; `ScanOffTargetsGapped` is the separate, additive,
+  on/off-separating path. `DesignProbes(genomeIndex,…)` filters via `CheckSpecificity` (integration
+  test passes).
+- **Test-quality audit:** assertions trace to Kane 2000 (0.75 threshold; SG1 boundary 0.75 vs 0.90),
+  to hand-derived SW values (MG1–MG4 identities 1.0 and 10/12; on-target [5,16]; off-target at 27),
+  and to the on/off separation contract (MG2, SG2). Guards: null probe, null refs, empty probe.
+  **Coverage gap closed this session:** added **SG3**
+  (`ScanOffTargetsGapped_OnTargetPlusHighIdentityAndIndelOffTargets_SeparatedAndLowIdentityExcluded`)
+  locking the full Kane separation — exact on-target + a 0.85 ungapped off-target + a low-identity
+  exclusion + an indel off-target in one scan, all values hand-derived. No green-washing; every
+  expected value is externally sourced or hand-computed.
+
+### Verdict & follow-ups
+- **Stage A: PASS-WITH-NOTES** — the 75 %-identity Kane criterion and the SW/BLAST gapped-scan +
+  on/off-separation logic are correct and sourced; the explicit >15-contiguous-base Kane criterion-2
+  is a documented heuristic subsumption, and the default `ValidateProbe` pooling is by-design.
+- **Stage B: PASS** — code realizes the validated description exactly; all hand-recomputed
+  cross-checks (independent SW) agree to the digit; all edge cases handled; tests are real, exact,
+  and now cover the on-target / high-identity-off-target / low-identity-exclusion / indel-off-target
+  separation. Added 1 locking test (SG3).
+- **End-state: ✅ CLEAN.** No code change; the genome-scale seeded BLAST index is a documented
+  performance boundary (out of scope, not a correctness gap). Full unfiltered suite green:
+  **Seqeron.Genomics.Tests 18783 passed / 0 failed** (was 18782; +1 SG3); all assemblies Failed: 0;
+  0 warnings on the changed test file. ProbeValidation fixture 43/43.

@@ -158,7 +158,7 @@ with primal recovery $\mathbf{w}=\sum_i(\alpha_i-\alpha_i^{*})x_i$. CIBERSORT sw
 | `[DeconvoluteImmuneCells] expressionProfile` | `IReadOnlyDictionary<string, double>` | required | Bulk expression profile for deconvolution | `null` throws `ArgumentNullException` |
 | `[DeconvoluteImmuneCells] signatureMatrix` | `IReadOnlyDictionary<string, IReadOnlyDictionary<string, double>>?` | `null` | Optional cell-type signature matrix | Defaults to the built-in 22-cell-type matrix with representative marker genes |
 | `[DeconvoluteImmuneCells] maxIterations` | `int` | `1000` | Maximum Lawson-Hanson NNLS iterations | Used by the active-set solver |
-| `[DeconvoluteImmuneCellsNuSvr] expressionProfile` | `IReadOnlyDictionary<string, double>` | required | Bulk mixture vector for ν-SVR deconvolution | `null` throws `ArgumentNullException` |
+| `[DeconvoluteImmuneCellsNuSvr] expressionProfile` | `IReadOnlyDictionary<string, double>` | required | Bulk mixture vector for ν-SVR deconvolution | `null` throws `ArgumentNullException`; a non-finite (NaN/±Infinity) value throws `ArgumentException` |
 | `[DeconvoluteImmuneCellsNuSvr] signatureMatrix` | `IReadOnlyDictionary<string, IReadOnlyDictionary<string, double>>?` | `null` | Optional signature matrix | Defaults to the built-in representative matrix (NOT LM22); supply LM22 via `LoadSignatureMatrix` |
 | `[DeconvoluteImmuneCellsNuSvr] nuValues` | `IReadOnlyList<double>?` | `null` | ν values to sweep | Defaults to `CibersortNuValues` = {0.25, 0.5, 0.75} |
 | `[LoadSignatureMatrix] tsvLines` | `IEnumerable<string>` | required | Lines of an LM22-format TSV (header + one row per gene) | `null` throws `ArgumentNullException`; malformed → `FormatException` |
@@ -340,6 +340,8 @@ The repository currently ships the full 141-gene ESTIMATE immune and stromal sig
 | No overlapping ESTIMATE signature genes | Corresponding enrichment score is `0` | The ssGSEA helper returns zero when the hit set is empty |
 | No overlapping genes for deconvolution | All returned cell fractions are `0`, `Correlation = 0`, `Rmse = 0` | The method exits through a no-overlap branch |
 | No overlapping genes for ν-SVR | All fractions `0`, `BestNu = 0`, `Correlation = 0`, `Rmse = 0` | Same no-overlap branch as NNLS |
+| Non-finite (NaN/±Infinity) expression value for ν-SVR | `ArgumentException` | The linear-mixture model is defined only for finite expression; non-finite input is rejected up front so no NaN/Infinity leaks into the contracted-finite `CellFractions`/`Correlation`/`Rmse` |
+| Near-constant / zero-variance mixture or reconstruction for ν-SVR | `Correlation = 0` (undefined), other fields finite | The Pearson helper clamps each variance term to its `≥ 0` floor (catastrophic cancellation can drive it slightly negative) and returns `0` for a non-positive or non-finite variance, so the correlation never becomes `NaN` |
 | LM22-format TSV malformed (empty / ragged / non-numeric) | `FormatException` | The loader validates the header and every row |
 
 ### 6.2 Limitations

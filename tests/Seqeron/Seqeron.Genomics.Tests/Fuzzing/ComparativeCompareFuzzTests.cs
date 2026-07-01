@@ -6,7 +6,7 @@ using FluentAssertions;
 using Seqeron.Genomics.Analysis;
 using G = Seqeron.Genomics.Analysis.ComparativeGenomics.Gene;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the Comparative-Genomics area — comprehensive two-genome

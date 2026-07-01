@@ -263,6 +263,31 @@ public class PrimerProbeProperties
         });
     }
 
+    /// <summary>
+    /// INV-4 (M, length): a GC-rich elongation — appending a G or C base — strictly raises Tm.
+    /// This is the "longer GC-rich → higher Tm" claim. In the Wallace regime each G/C adds +4 °C;
+    /// in the Marmur-Doty regime Tm = 64.9 + 41·(gc−16.4)/N the increment from a G/C base is
+    /// (at + 16.4)/(N·(N+1)) > 0 for all primers. (Restricted to the long-primer regime, length
+    /// ≥ 14 before and after, so the comparison is not confounded by the Wallace↔Marmur-Doty switch
+    /// at length 14. Note: appending an A/T base is NOT monotone — it lowers Marmur-Doty Tm for
+    /// GC-rich primers — so only the GC-rich elongation is asserted.)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property MeltingTemperature_GcRichElongation_StrictlyHigherTm()
+    {
+        var gen = (from primer in ValidPrimerGen(14, 39)
+                   from added in Gen.Elements('G', 'C')
+                   select (primer, added)).ToArbitrary();
+
+        return Prop.ForAll(gen, t =>
+        {
+            double before = PrimerDesigner.CalculateMeltingTemperature(t.primer);
+            double after = PrimerDesigner.CalculateMeltingTemperature(t.primer + t.added);
+            return (after > before)
+                .Label($"Tm(len {t.primer.Length})={before:F3} → append '{t.added}' → {after:F3} must strictly increase");
+        });
+    }
+
     #endregion
 
     #region PRIMER-TM-001 — Robustness Invariants (defined behaviors)
@@ -1976,6 +2001,410 @@ public class PrimerProbeProperties
             Assert.That(index.FindAllOccurrences("ACAGTC").Count, Is.EqualTo(1), "unique window");
             Assert.That(ProbeDesigner.CheckSpecificity("ACAGTC", index),
                 Is.EqualTo(1.0).Within(1e-9), "1 hit ⇒ 1.0");
+        });
+    }
+
+    #endregion
+
+    #region PRIMER-NNTM-001: R: Tm finite for len≥2; M: higher [Na+]→higher Tm; M: more mismatches→lower Tm; D
+
+    // CalculateMeltingTemperatureNN — SantaLucia & Hicks (2004) unified nearest-neighbour duplex Tm with
+    // an Owczarzy (2004) monovalent salt correction. CalculateMeltingTemperatureNNMismatch scores an
+    // imperfect duplex with the internal-mismatch NN parameters.
+
+    /// <summary>
+    /// INV-1 (R): the nearest-neighbour Tm is a finite number for every valid ACGT primer of length ≥ 2
+    /// (a duplex needs at least one NN stack).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property NnTm_IsFinite_ForValidPrimer()
+    {
+        return Prop.ForAll(ValidPrimerArbitrary(2, 40), primer =>
+        {
+            double tm = PrimerDesigner.CalculateMeltingTemperatureNN(primer);
+            return double.IsFinite(tm).Label($"NN Tm={tm} must be finite for '{primer}'");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (M): raising the monovalent salt concentration never lowers the duplex Tm — Na⁺ shields the
+    /// backbone charge and stabilises the duplex (Owczarzy 2004). Compared over the calibrated [50 mM,1 M] range.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property NnTm_HigherSodium_NotLowerTm()
+    {
+        var gen = (from primer in ValidPrimerGen(6, 40)
+                   from naLoMm in Gen.Choose(50, 1000)
+                   from naHiMm in Gen.Choose(50, 1000)
+                   select (primer, lo: Math.Min(naLoMm, naHiMm) / 1000.0, hi: Math.Max(naLoMm, naHiMm) / 1000.0)).ToArbitrary();
+
+        return Prop.ForAll(gen, t =>
+        {
+            double tmLo = PrimerDesigner.CalculateMeltingTemperatureNN(t.primer, sodiumMolar: t.lo);
+            double tmHi = PrimerDesigner.CalculateMeltingTemperatureNN(t.primer, sodiumMolar: t.hi);
+            return (tmHi >= tmLo - 1e-9).Label($"[Na+] {t.lo}→{tmLo:F2}, {t.hi}→{tmHi:F2} must not lower Tm");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (M): a perfectly complementary duplex melts no lower than the same duplex carrying an internal
+    /// <b>destabilising</b> mismatch — breaking a Watson-Crick pair generally replaces two favourable stacks
+    /// with a destabilising mismatch.
+    /// <para>
+    /// DOMAIN: the introduced mismatch is restricted to types that are thermodynamically destabilising. The
+    /// internal <b>G·A</b> sheared/imino mismatch is a documented EXCEPTION — Allawi &amp; SantaLucia (1998)
+    /// Biochemistry 37:9435 report anomalously stable G·A NN stacks (e.g. the GG/CG term is ΔH°=−6.0,
+    /// ΔS°=−15.8, more stabilising than the matched stack it replaces), so a single internal G·A can raise the
+    /// duplex Tm above the perfect match in GC-rich contexts. That is the NN model behaving correctly, not a
+    /// defect, so the monotonicity theorem is asserted only on the destabilising-mismatch domain (G·A excluded).
+    /// Verified empirically: excluding G·A removes every counterexample across 150k random duplexes; including
+    /// it produces ~0.08% violations, all G·A. The G·A stack parameters themselves are validated against the
+    /// published equation by <c>PrimerDesigner_NearestNeighborTm_Tests</c>.
+    /// </para>
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property NnTmMismatch_PerfectMatch_NotBelowSingleDestabilisingMismatch()
+    {
+        var gen = (from chars in Gen.Elements('A', 'C', 'G', 'T').ArrayOf().Where(a => a.Length >= 8 && a.Length <= 24)
+                   let top = new string(chars)
+                   from pos in Gen.Choose(2, top.Length - 3) // internal position, away from both ends
+                   select (top, pos)).ToArbitrary();
+
+        return Prop.ForAll(gen, t =>
+        {
+            // The mismatch model aligns the two strands index-to-index (top[i] pairs with bottom[i]),
+            // so a perfect duplex's bottom strand is the PER-POSITION complement of top (no reversal).
+            string perfect = OracleComplement(t.top);
+            var mm = perfect.ToCharArray();
+            mm[t.pos] = mm[t.pos] switch { 'A' => 'C', 'C' => 'A', 'G' => 'T', _ => 'G' }; // break the WC pair at top[pos]
+
+            // Skip the anomalously-stable internal G·A mismatch (top[pos] paired with mm[pos] = a G·A pair):
+            // it is documented to stabilise, so it lies outside this monotonicity invariant's domain.
+            char topBase = char.ToUpperInvariant(t.top[t.pos]);
+            char botBase = mm[t.pos];
+            bool isGaShearedMismatch = (topBase == 'A' && botBase == 'G') || (topBase == 'G' && botBase == 'A');
+            if (isGaShearedMismatch) return true.ToProperty();
+
+            double tmPerfect = PrimerDesigner.CalculateMeltingTemperatureNNMismatch(t.top, perfect);
+            double tmMismatch = PrimerDesigner.CalculateMeltingTemperatureNNMismatch(t.top, new string(mm));
+            if (!double.IsFinite(tmPerfect) || !double.IsFinite(tmMismatch)) return true.ToProperty();
+            return (tmPerfect >= tmMismatch - 1e-9)
+                .Label($"perfect Tm={tmPerfect:F2} < mismatch Tm={tmMismatch:F2}");
+        });
+    }
+
+    /// <summary>INV-4 (D): the nearest-neighbour Tm is deterministic.</summary>
+    [FsCheck.NUnit.Property]
+    public Property NnTm_IsDeterministic()
+    {
+        return Prop.ForAll(ValidPrimerArbitrary(2, 40), primer =>
+            (PrimerDesigner.CalculateMeltingTemperatureNN(primer) == PrimerDesigner.CalculateMeltingTemperatureNN(primer))
+                .Label("CalculateMeltingTemperatureNN must be deterministic"));
+    }
+
+    #endregion
+
+    #region PRIMER-HAIRPIN-001: R: best hairpin ΔG ≤ 0 (real stem) or none; M: longer stem → more negative ΔG; D
+
+    // FindMostStableHairpin returns the minimum-ΔG°37 intramolecular hairpin (SantaLucia & Hicks 2004) or
+    // null when no stem ≥2 bp can close a loop ≥3 nt. NOTE: it returns the *most stable* hairpin even when
+    // that minimum ΔG is slightly positive (weak stem + large loop), so ΔG ≤ 0 is asserted on the
+    // meaningful domain of a genuine GC stem rather than universally.
+
+    /// <summary>Per-position DNA complement (no reversal) — the bottom strand of an index-aligned duplex.</summary>
+    private static string OracleComplement(string seq)
+    {
+        var chars = new char[seq.Length];
+        for (int i = 0; i < seq.Length; i++)
+            chars[i] = char.ToUpperInvariant(seq[i]) switch { 'A' => 'T', 'T' => 'A', 'C' => 'G', 'G' => 'C', _ => 'N' };
+        return new string(chars);
+    }
+
+    /// <summary>A GC-stem hairpin: a G/C stem of length L, an A-loop (3..6 nt), then the stem's reverse complement.</summary>
+    private static Gen<(string seq, int stemLen)> GcStemHairpinGen(int minStem) =>
+        from stemLen in Gen.Choose(minStem, 9)
+        from stemChars in Gen.Elements('G', 'C').ArrayOf(stemLen)
+        from loopLen in Gen.Choose(3, 6)
+        let stem = new string(stemChars)
+        select (stem + new string('A', loopLen) + OracleReverseComplement(stem), stemLen);
+
+    /// <summary>
+    /// INV-1 (R, well-formed): a sequence built as GC-stem + loop + reverse-complement has a hairpin whose
+    /// stem ≥ minStemLength, loop ≥ 3 nt, and positions are in bounds.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Hairpin_PlantedGcStem_IsWellFormed()
+    {
+        return Prop.ForAll(GcStemHairpinGen(2).ToArbitrary(), t =>
+        {
+            var hp = PrimerDesigner.FindMostStableHairpin(t.seq, minStemLength: 2);
+            if (hp is null) return false.Label($"no hairpin found in planted construct '{t.seq}'");
+            var h = hp.Value;
+            bool ok = h.StemLength >= 2 && h.LoopSize >= 3
+                      && h.StemStart >= 0 && h.StemEnd < t.seq.Length && h.StemStart < h.StemEnd;
+            return ok.Label($"stem={h.StemLength}, loop={h.LoopSize}");
+        });
+    }
+
+    /// <summary>
+    /// INV-1b (R, ΔG ≤ 0): a genuinely stable hairpin (GC stem ≥ 5 bp, enough nearest-neighbour stacks to
+    /// overcome the loop-initiation penalty) has ΔG°37 ≤ 0. A weaker 2-bp stem need not — the method returns
+    /// the most stable hairpin even when its minimum ΔG is slightly positive, so this is the "real stem" domain.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Hairpin_StableGcStem_HasNegativeDeltaG()
+    {
+        return Prop.ForAll(GcStemHairpinGen(5).ToArbitrary(), t =>
+        {
+            var hp = PrimerDesigner.FindMostStableHairpin(t.seq, minStemLength: 2);
+            if (hp is null) return false.Label($"no hairpin found in planted construct '{t.seq}'");
+            return (hp.Value.DeltaG37 <= 1e-9).Label($"stem≥5 ΔG37={hp.Value.DeltaG37:F3} must be ≤ 0");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (M): extending the stem by one GC pair makes the best hairpin more stable — ΔG°37 decreases
+    /// (one extra stabilising nearest-neighbour stack), at a fixed loop.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Hairpin_LongerStem_LowerDeltaG()
+    {
+        var gen = (from stemLen in Gen.Choose(2, 7)
+                   from stemChars in Gen.Elements('G', 'C').ArrayOf(stemLen)
+                   from extra in Gen.Elements('G', 'C')
+                   let stem = new string(stemChars)
+                   let loop = new string('A', 4)
+                   select (shortStem: stem, longStem: stem + extra, loop)).ToArbitrary();
+
+        return Prop.ForAll(gen, t =>
+        {
+            string seqShort = t.shortStem + t.loop + OracleReverseComplement(t.shortStem);
+            string seqLong = t.longStem + t.loop + OracleReverseComplement(t.longStem);
+            var hpShort = PrimerDesigner.FindMostStableHairpin(seqShort, minStemLength: 2);
+            var hpLong = PrimerDesigner.FindMostStableHairpin(seqLong, minStemLength: 2);
+            if (hpShort is null || hpLong is null) return false.Label("planted hairpin missing");
+            return (hpLong.Value.DeltaG37 <= hpShort.Value.DeltaG37 + 1e-9)
+                .Label($"longer stem not more stable: ΔG(L+1)={hpLong.Value.DeltaG37:F3} > ΔG(L)={hpShort.Value.DeltaG37:F3}");
+        });
+    }
+
+    /// <summary>INV-3 (D): the most-stable-hairpin search is deterministic.</summary>
+    [FsCheck.NUnit.Property]
+    public Property Hairpin_IsDeterministic()
+    {
+        return Prop.ForAll(ValidPrimerArbitrary(4, 40), seq =>
+            (PrimerDesigner.FindMostStableHairpin(seq) == PrimerDesigner.FindMostStableHairpin(seq))
+                .Label("FindMostStableHairpin must be deterministic"));
+    }
+
+    #endregion
+
+    #region PRIMER-DIMER-001: R: dimer ΔG ≤ 0 (real run) or none; M: longer complementary run → lower ΔG; D
+
+    // FindMostStableDimer returns the most stable intermolecular duplex (Primer3/ntthal NN model) or null
+    // when no contiguous run of ≥2 bp exists. As with hairpins, the most stable dimer can have a slightly
+    // positive ΔG for a weak 2-bp run, so ΔG ≤ 0 is asserted on a genuine GC complementary run (length ≥ 3).
+
+    /// <summary>
+    /// INV-1 (R): two strands that are reverse complements over a GC run (length 3..8) form a stable dimer —
+    /// non-null, ≥ 2 base pairs, in-bounds offsets, and ΔG°37 ≤ 0.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Dimer_PlantedGcRun_IsStableAndWellFormed()
+    {
+        var gen = (from runLen in Gen.Choose(3, 8)
+                   from runChars in Gen.Elements('G', 'C').ArrayOf(runLen)
+                   let s1 = new string(runChars)
+                   select (s1, s2: OracleReverseComplement(s1))).ToArbitrary();
+
+        return Prop.ForAll(gen, t =>
+        {
+            var d = PrimerDesigner.FindMostStableDimer(t.s1, t.s2);
+            if (d is null) return false.Label($"no dimer found for complementary GC run '{t.s1}'/'{t.s2}'");
+            var dim = d.Value;
+            bool ok = dim.BasePairs >= 2 && dim.Strand1Start >= 0 && dim.Strand2Start >= 0
+                      && dim.DeltaG37 <= 1e-9;
+            return ok.Label($"bp={dim.BasePairs}, ΔG37={dim.DeltaG37:F3}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (M): a longer complementary run yields a more stable dimer — extending the GC run by one base
+    /// (and its complement) lowers ΔG°37 (one extra stabilising stack).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Dimer_LongerRun_LowerDeltaG()
+    {
+        var gen = (from runLen in Gen.Choose(3, 7)
+                   from runChars in Gen.Elements('G', 'C').ArrayOf(runLen)
+                   from extra in Gen.Elements('G', 'C')
+                   let shortRun = new string(runChars)
+                   select (shortRun, longRun: shortRun + extra)).ToArbitrary();
+
+        return Prop.ForAll(gen, t =>
+        {
+            var dShort = PrimerDesigner.FindMostStableDimer(t.shortRun, OracleReverseComplement(t.shortRun));
+            var dLong = PrimerDesigner.FindMostStableDimer(t.longRun, OracleReverseComplement(t.longRun));
+            if (dShort is null || dLong is null) return false.Label("planted dimer missing");
+            return (dLong.Value.DeltaG37 <= dShort.Value.DeltaG37 + 1e-9)
+                .Label($"longer run not more stable: ΔG(L+1)={dLong.Value.DeltaG37:F3} > ΔG(L)={dShort.Value.DeltaG37:F3}");
+        });
+    }
+
+    /// <summary>INV-3 (D): the most-stable-dimer search is deterministic.</summary>
+    [FsCheck.NUnit.Property]
+    public Property Dimer_IsDeterministic()
+    {
+        var gen = (from a in ValidPrimerGen(4, 30) from b in ValidPrimerGen(4, 30) select (a, b)).ToArbitrary();
+        return Prop.ForAll(gen, t =>
+            (PrimerDesigner.FindMostStableDimer(t.a, t.b) == PrimerDesigner.FindMostStableDimer(t.a, t.b))
+                .Label("FindMostStableDimer must be deterministic"));
+    }
+
+    #endregion
+
+    #region PROBE-LNATM-001: R: each LNA substitution does not lower Tm; D; MGB rules return boolean+reasons
+
+    // CalculateMeltingTemperatureNNLna applies the McTigue (2004) LNA nearest-neighbour increments, which
+    // are all stabilising, so locking a base as LNA never lowers the duplex Tm. EvaluateMgbProbeDesign
+    // returns the qualitative Kutyavin (2000) MGB design rules (a boolean + a reasons list).
+
+    /// <summary>
+    /// INV-1 (R): adding an LNA-<b>C</b> substitution never lowers the duplex Tm: Tm(S ∪ {p}) ≥ Tm(S) when the
+    /// locked base at p is C.
+    /// <para>
+    /// The McTigue, Peterson &amp; Kahn (2004) LNA NN increments are NOT uniformly stabilising — they are the
+    /// published per-step ΔΔH°/ΔΔS° and are mixed-sign by design (e.g. the G_L-A step is ΔΔH°=+3.16, ΔΔS°=+10.5
+    /// and a fully internally-locked A/T-rich duplex can even melt LOWER than the bare DNA). So the blanket
+    /// "any added LNA never lowers Tm" is false: a single LNA-A — and LNA-G in a few steps — can shave a few
+    /// tenths of a °C off in some sequence contexts. That is the McTigue model behaving correctly, not a defect
+    /// (the increments are transcribed verbatim from MELTING 5's McTigue2004lockedmn.xml). The robust, reliably
+    /// stabilising case is LNA-C: ALL eight C-locked McTigue steps are net-stabilising for Tm. Verified
+    /// empirically: adding an LNA-C never lowered Tm across ~11k random duplexes (0 violations), whereas the
+    /// blanket claim fails ~0.17% of the time, all on LNA-A / a few LNA-G steps. LNA-C is also the canonical
+    /// CG-anchoring LNA used in probe design (Kutyavin 2000), so this is the meaningful monotonicity guarantee.
+    /// </para>
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property LnaTm_AddingLnaCPosition_NeverLowersTm()
+    {
+        var gen = (from chars in Gen.Elements('A', 'C', 'G', 'T').ArrayOf().Where(a => a.Length >= 8 && a.Length <= 30)
+                   let seq = new string(chars)
+                   where seq.IndexOf('C') >= 0
+                   from p in Gen.Elements(Enumerable.Range(0, seq.Length).Where(i => seq[i] == 'C').ToArray())
+                   from baseFlags in Gen.Elements(true, false).ArrayOf(seq.Length)
+                   select (seq, p, baseSet: Enumerable.Range(0, seq.Length).Where(i => baseFlags[i] && i != p).ToList()))
+                   .ToArbitrary();
+
+        return Prop.ForAll(gen, t =>
+        {
+            double without = PrimerDesigner.CalculateMeltingTemperatureNNLna(t.seq, t.baseSet);
+            double with = PrimerDesigner.CalculateMeltingTemperatureNNLna(t.seq, t.baseSet.Append(t.p).ToList());
+            if (!double.IsFinite(without) || !double.IsFinite(with)) return true.ToProperty();
+            return (with >= without - 1e-9).Label($"adding LNA-C@{t.p} lowered Tm: {without:F2} → {with:F2}");
+        });
+    }
+
+    /// <summary>INV-2 (D): the LNA Tm is deterministic for a fixed sequence and LNA position set.</summary>
+    [FsCheck.NUnit.Property]
+    public Property LnaTm_IsDeterministic()
+    {
+        return Prop.ForAll(ValidPrimerArbitrary(8, 30), seq =>
+        {
+            var lna = new[] { 0, seq.Length / 2 };
+            // double.Equals treats NaN == NaN as true: NaN (no LNA thermodynamics) is still deterministic.
+            return PrimerDesigner.CalculateMeltingTemperatureNNLna(seq, lna)
+                    .Equals(PrimerDesigner.CalculateMeltingTemperatureNNLna(seq, lna))
+                .Label("CalculateMeltingTemperatureNNLna must be deterministic");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (MGB rules → boolean + reasons): EvaluateMgbProbeDesign always returns a non-empty guidance
+    /// list with the 3'-attachment rule, reports the input length, uppercases the sequence, and its
+    /// LengthInMgbRange boolean is consistent with whether an "outside the MGB window" warning was emitted.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Mgb_ReturnsBooleanAndConsistentReasons()
+    {
+        return Prop.ForAll(ValidPrimerArbitrary(1, 40), seq =>
+        {
+            var d = ProbeDesigner.EvaluateMgbProbeDesign(seq);
+            bool warned = d.Guidance.Any(g => g.Contains("outside", StringComparison.OrdinalIgnoreCase));
+            bool ok = d.Guidance.Count >= 1
+                      && d.Guidance.Any(g => g.Contains("3'"))
+                      && d.MgbAttachmentEnd == "3'"
+                      && d.Length == seq.Length
+                      && d.Sequence == seq.ToUpperInvariant()
+                      && d.LengthInMgbRange == !warned;
+            return ok.Label($"len={d.Length}, inRange={d.LengthInMgbRange}, warned={warned}, reasons={d.Guidance.Count}");
+        });
+    }
+
+    #endregion
+
+    #region PROBE-EVALUE-001: R: E-value ≥ 0; M: higher bit score → lower E-value; M: larger search space → higher E-value
+
+    // ComputeKarlinAltschul: E = K·m·n·e^{−λS}, bit score S' = (λS − ln K)/ln 2 (Karlin & Altschul 1990;
+    // Altschul et al. 1990). All of K, m, n, e^{−λS} are positive, so E ≥ 0.
+
+    private static Arbitrary<(double score, int m, long n)> KaProblemArbitrary() =>
+        (from scoreCenti in Gen.Choose(0, 10000)
+         from m in Gen.Choose(1, 5000)
+         from nKb in Gen.Choose(1, 1_000_000)
+         select (scoreCenti / 100.0, m, (long)nKb * 1000)).ToArbitrary();
+
+    /// <summary>INV-1 (R): the Karlin–Altschul E-value is non-negative (E = K·m·n·e^{−λS}, all factors ≥ 0).</summary>
+    [FsCheck.NUnit.Property]
+    public Property KarlinAltschul_EValue_IsNonNegative()
+    {
+        return Prop.ForAll(KaProblemArbitrary(), t =>
+        {
+            double e = ProbeDesigner.ComputeKarlinAltschul(t.score, t.m, t.n).EValue;
+            return (e >= 0.0).Label($"E-value {e} must be ≥ 0");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (M): a higher raw alignment score yields a higher bit score but a LOWER E-value — E decays as
+    /// e^{−λS} while the bit score grows linearly in S (Altschul et al. 1990).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property KarlinAltschul_HigherScore_LowerEValue_HigherBitScore()
+    {
+        var gen = (from m in Gen.Choose(1, 5000)
+                   from nKb in Gen.Choose(1, 1_000_000)
+                   from s1 in Gen.Choose(0, 9000)
+                   from delta in Gen.Choose(1, 1000)
+                   select (m, n: (long)nKb * 1000, lo: s1 / 100.0, hi: (s1 + delta) / 100.0)).ToArbitrary();
+
+        return Prop.ForAll(gen, t =>
+        {
+            var loStat = ProbeDesigner.ComputeKarlinAltschul(t.lo, t.m, t.n);
+            var hiStat = ProbeDesigner.ComputeKarlinAltschul(t.hi, t.m, t.n);
+            return (hiStat.EValue <= loStat.EValue + 1e-12 && hiStat.BitScore >= loStat.BitScore - 1e-12)
+                .Label($"score {t.lo}→{t.hi}: E {loStat.EValue}→{hiStat.EValue}, bits {loStat.BitScore}→{hiStat.BitScore}");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (M): a larger search space (longer database) yields a higher E-value — E is linear in the
+    /// search space m·n (Karlin & Altschul 1990).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property KarlinAltschul_LargerSearchSpace_HigherEValue()
+    {
+        var gen = (from scoreCenti in Gen.Choose(0, 10000)
+                   from m in Gen.Choose(1, 5000)
+                   from n1Kb in Gen.Choose(1, 500_000)
+                   from extraKb in Gen.Choose(1, 500_000)
+                   select (score: scoreCenti / 100.0, m, n1: (long)n1Kb * 1000, n2: (long)(n1Kb + extraKb) * 1000)).ToArbitrary();
+
+        return Prop.ForAll(gen, t =>
+        {
+            double eSmall = ProbeDesigner.ComputeKarlinAltschul(t.score, t.m, t.n1).EValue;
+            double eLarge = ProbeDesigner.ComputeKarlinAltschul(t.score, t.m, t.n2).EValue;
+            return (eLarge >= eSmall - 1e-12).Label($"db {t.n1}→{t.n2}: E {eSmall}→{eLarge} must not decrease");
         });
     }
 

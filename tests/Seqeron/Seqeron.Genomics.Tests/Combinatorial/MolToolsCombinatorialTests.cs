@@ -1012,4 +1012,277 @@ public class MolToolsCombinatorialTests
         int wide = RestrictionAnalyzer.GetEnzymesByCutLength(4, 8).Count();
         wide.Should().BeGreaterThanOrEqualTo(narrow, "a wider length range admits no fewer enzymes");
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: PRIMER-NNTM-001 — Nearest-neighbour salt / mismatch / dangling-end Tm (MolTools)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 240.
+    // Spec: tests/TestSpecs/PRIMER-NNTM-001.md (PrimerDesigner.CalculateMeltingTemperatureNNMismatch). ADVANCED §10.
+    //
+    // Sources: SantaLucia (1998) unified NN; Owczarzy et al. (2004) monovalent / (2008) divalent salt
+    //   corrections; Allawi & SantaLucia (1997) internal mismatches.
+    //
+    // Model: Tm = ΔH/(ΔS + R·ln(C_T/x)) − 273.15, then a salt correction. A duplex is scored through
+    //   the mismatch-capable NN path against either the perfect WC complement or a single central
+    //   mismatch. The four axes carry signed, documented effects.
+    //
+    // Dimensions: len(3) × [Na⁺](2) × [Mg²⁺](2) × mismatch(2). Grid 3×2×2×2 = 24 (exhaustive).
+    //
+    // The combinatorial point: length, monovalent salt, divalent salt and a mismatch each move Tm in a
+    // known direction, and the effects are independent. Every cell isolates its own axis against the
+    // one-step-lower setting: longer duplex ⇒ higher Tm; higher [Na⁺] ⇒ higher Tm; added [Mg²⁺] ⇒
+    // higher Tm; a central mismatch ⇒ lower Tm.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private const string NnTemplate = "ATGCGTACATGCGTACATGCGTAC"; // 24 nt, ~50% GC
+    private static char NnComp(char b) => b switch { 'A' => 'T', 'T' => 'A', 'G' => 'C', 'C' => 'G', _ => b };
+    private static string PerfectBottom(string top) => new(top.Select(NnComp).ToArray());
+
+    private static string MismatchBottom(string top)
+    {
+        var arr = top.Select(NnComp).ToArray();
+        int mid = arr.Length / 2;
+        arr[mid] = arr[mid] == 'A' ? 'C' : 'A'; // break complementarity at the centre → internal mismatch
+        return new string(arr);
+    }
+
+    private static double NnTm(int len, double na, double mg, bool mismatch)
+    {
+        string top = NnTemplate[..len];
+        string bottom = mismatch ? MismatchBottom(top) : PerfectBottom(top);
+        return PrimerDesigner.CalculateMeltingTemperatureNNMismatch(
+            top, bottom, sodiumMolar: na, magnesiumMolar: mg,
+            saltMode: PrimerDesigner.SaltCorrectionMode.Owczarzy2008Divalent);
+    }
+
+    [Test, Combinatorial]
+    public void NnTm_AxisEffects_AcrossLengthSaltMagnesiumAndMismatch(
+        [Values(12, 18, 24)] int len,
+        [Values(0.05, 0.2)] double sodium,
+        [Values(0.0, 0.003)] double magnesium,
+        [Values(false, true)] bool mismatch)
+    {
+        double tm = NnTm(len, sodium, magnesium, mismatch);
+        double.IsNaN(tm).Should().BeFalse("a computable NN duplex yields a finite Tm");
+        tm.Should().BeInRange(-40.0, 160.0, "Tm is in a physical range");
+
+        if (sodium > 0.05)
+            tm.Should().BeGreaterThan(NnTm(len, 0.05, magnesium, mismatch), "higher [Na⁺] raises Tm (Owczarzy 2004)");
+        if (magnesium > 0.0)
+            tm.Should().BeGreaterThan(NnTm(len, sodium, 0.0, mismatch), "added [Mg²⁺] raises Tm (Owczarzy 2008)");
+        if (mismatch)
+            tm.Should().BeLessThan(NnTm(len, sodium, magnesium, false), "a central mismatch destabilises the duplex (Allawi & SantaLucia)");
+        if (len > 12)
+            tm.Should().BeGreaterThan(NnTm(12, sodium, magnesium, mismatch), "a longer duplex stacks more ⇒ higher Tm");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: PRIMER-HAIRPIN-001 — Unimolecular hairpin folder / secondary-structure Tm (MolTools)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 241.
+    // Spec: tests/TestSpecs/PRIMER-HAIRPIN-001.md
+    //       (PrimerDesigner.FindMostStableHairpin / CalculateHairpinThermodynamicsNtthal). ADVANCED §10.
+    //
+    // Sources: SantaLucia & Hicks (2004) NN hairpin model (stem stacks + loop ΔG); primer3 ntthal.
+    //
+    // Model: the most stable hairpin's ΔG37 is the NN sum over the stem stacks plus a loop ΔG penalty.
+    //   A planted G^stem · T^loop · C^stem hairpin folds a stem of exactly `stem` base pairs around a
+    //   `loop`-nt loop. More stem stacks lower ΔG37; a longer loop raises (destabilises) ΔG37.
+    //
+    // Dimensions: stemLen(3) × loopLen(3) × specialLoop(2). Grid 3×3×2 = 18 (exhaustive).
+    //
+    // Axis mapping (documented): specialLoop is realised as the FOLDER axis — the plain NN folder
+    // (FindMostStableHairpin, no special-loop bonus) vs the primer3 ntthal model
+    // (CalculateHairpinThermodynamicsNtthal, which bundles the special tri/tetraloop ΔG bonuses).
+    // Both fold the same planted stem; the bonus itself is pinned by a dedicated witness.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public enum HairpinEngine { NnFolder, Ntthal }
+
+    private static string Hairpin(int stem, int loop) => new string('G', stem) + new string('T', loop) + new string('C', stem);
+
+    [Test, Combinatorial]
+    public void Hairpin_FoldsPlantedStem_AcrossStemLoopAndEngine(
+        [Values(3, 4, 5)] int stem,
+        [Values(4, 5, 6)] int loop,
+        [Values(HairpinEngine.NnFolder, HairpinEngine.Ntthal)] HairpinEngine engine)
+    {
+        string seq = Hairpin(stem, loop);
+
+        if (engine == HairpinEngine.NnFolder)
+        {
+            var hp = PrimerDesigner.FindMostStableHairpin(seq);
+            hp.Should().NotBeNull("the planted G·C stem must fold a hairpin");
+            hp!.Value.StemLength.Should().Be(stem, "the recovered stem is the planted G·C stem length");
+            hp.Value.LoopSize.Should().Be(loop, "the recovered loop is the planted poly-T loop length");
+            // Stem monotonicity (the robust NN law: more stem stacks ⇒ lower ΔG37). The ΔG37 SIGN is
+            // not asserted — a short stem under a large loop can be net-unstable (ΔG37 > 0).
+            if (stem > 3)
+                PrimerDesigner.FindMostStableHairpin(Hairpin(3, loop))!.Value.DeltaG37
+                    .Should().BeGreaterThan(hp.Value.DeltaG37, "a longer stem lowers ΔG37 (more stacks)");
+        }
+        else
+        {
+            var th = PrimerDesigner.CalculateHairpinThermodynamicsNtthal(seq);
+            th.Should().NotBeNull("the ntthal model folds the planted hairpin");
+            th!.Value.BasePairs.Should().Be(stem - 1, "ntthal counts the stem's NN stacks (= base pairs − 1)");
+            double.IsNaN(th.Value.DeltaG37).Should().BeFalse("ntthal yields a finite ΔG37");
+            if (stem > 3)
+                PrimerDesigner.CalculateHairpinThermodynamicsNtthal(Hairpin(3, loop))!.Value.DeltaG37
+                    .Should().BeGreaterThan(th.Value.DeltaG37, "a longer stem lowers ΔG37 under ntthal too");
+        }
+    }
+
+    /// <summary>
+    /// Interaction witness (specialLoop axis): the ntthal model's bundled special-loop bonus makes a
+    /// stabilised GNRA tetraloop hairpin at least as stable as the same stem with a generic loop.
+    /// </summary>
+    [Test]
+    public void Hairpin_NtthalSpecialLoop_NoLessStableThanGenericLoop()
+    {
+        var special = PrimerDesigner.CalculateHairpinThermodynamicsNtthal("GGGCGAAAGCCC"); // GNRA (GAAA) tetraloop
+        var generic = PrimerDesigner.CalculateHairpinThermodynamicsNtthal("GGGCTTTTGCCC"); // generic poly-T loop
+        special.Should().NotBeNull();
+        generic.Should().NotBeNull();
+        special!.Value.DeltaG37.Should().BeLessThanOrEqualTo(generic!.Value.DeltaG37 + 1e-9,
+            "a recognised special tetraloop is no less stable than a generic loop of the same length");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: PRIMER-DIMER-001 — ntthal self / hetero-dimer Tm (MolTools)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 242.
+    // Spec: tests/TestSpecs/PRIMER-DIMER-001.md (PrimerDesigner.FindMostStableDimer). ADVANCED §10.
+    //
+    // Sources: SantaLucia (1998) NN; primer3 ntthal thermodynamic alignment.
+    //
+    // Model: the most stable duplex between two strands is the contiguous WC alignment whose ΔH/ΔS is
+    //   the NN sum over its consecutive base-pair steps. Fully complementary strands form a dimer whose
+    //   base-pair count equals the length of the shorter complementary span.
+    //
+    // Dimensions: lenA(3) × lenB(3) × self/hetero(2). Grid 3×3×2 = 18 (exhaustive).
+    //
+    // Axis mapping (documented): in SELF mode the single strand is a G·C palindrome of length lenA
+    // (lenB inert); in HETERO mode strand A is poly-G(lenA) and strand B is poly-C(lenB), so the
+    // optimal contiguous G·C dimer is exactly min(lenA, lenB). Every cell forms a stable dimer (ΔG37 < 0).
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public enum DimerKind { Self, Hetero }
+
+    private static string DimerPalindrome(int len) => string.Concat(Enumerable.Range(0, len).Select(i => "GC"[i % 2])); // self-complementary
+
+    [Test, Combinatorial]
+    public void Dimer_FormsStableDuplex_AcrossLengthsAndSelfHetero(
+        [Values(6, 8, 10)] int lenA,
+        [Values(6, 8, 10)] int lenB,
+        [Values(DimerKind.Self, DimerKind.Hetero)] DimerKind kind)
+    {
+        if (kind == DimerKind.Self)
+        {
+            string s = DimerPalindrome(lenA); // lenB inert (documented)
+            var d = PrimerDesigner.FindMostStableDimer(s, s);
+            d.Should().NotBeNull("a self-complementary strand forms a self-dimer");
+            d!.Value.BasePairs.Should().Be(lenA, "a G·C palindrome self-pairs over its full length");
+            d.Value.DeltaG37.Should().BeLessThan(0.0, "a fully paired G·C self-dimer is stable");
+        }
+        else
+        {
+            string a = new('G', lenA);
+            string b = new('C', lenB);                        // poly-G · poly-C → contiguous G·C duplex
+            var d = PrimerDesigner.FindMostStableDimer(a, b);
+            d.Should().NotBeNull("complementary strands form a hetero-dimer");
+            d!.Value.BasePairs.Should().Be(Math.Min(lenA, lenB), "the dimer spans the shorter complementary region");
+            d.Value.DeltaG37.Should().BeLessThan(0.0, "a contiguous WC hetero-dimer is stable");
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: PROBE-LNATM-001 — LNA-adjusted NN Tm + MGB probe design (MolTools)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 243.
+    // Spec: tests/TestSpecs/PROBE-LNATM-001.md
+    //       (PrimerDesigner.CalculateMeltingTemperatureNNLna / ProbeDesigner.EvaluateMgbProbeDesign). ADVANCED §10.
+    //
+    // Sources: McTigue et al. (2004) LNA NN increments; Kutyavin et al. (2000) MGB probe design rules.
+    //
+    // Model: an LNA-modified duplex adds per-position stabilising increments to the DNA NN sum; with no
+    //   LNA positions the Tm reduces EXACTLY to the plain DNA NN Tm. MGB probes are designed shorter
+    //   (12–20mer, 3'-attached).
+    //
+    // Dimensions: len(3) × lnaCount(3) × mgbFlag(2). Grid 3×3×2 = 18 (exhaustive).
+    //
+    // The combinatorial point: probe length and LNA count both raise Tm; the zero-LNA case is the plain
+    // DNA Tm identity; and (when mgbFlag is set) the MGB length-window rule reflects the probe length.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private const string LnaSeq = "GCATGCATGCATGCATGCATGC";          // 22 nt
+    private static readonly int[] LnaPositions = { 4, 5, 8, 9 };       // interior G/C positions (stabilising LNA)
+
+    [Test, Combinatorial]
+    public void LnaTm_LengthAndLnaRaiseTm_MgbWindowReflectsLength(
+        [Values(14, 18, 22)] int len,
+        [Values(0, 2, 4)] int lnaCount,
+        [Values(false, true)] bool mgbFlag)
+    {
+        string probe = LnaSeq[..len];
+        int[] positions = LnaPositions.Take(lnaCount).ToArray();
+
+        double tm = PrimerDesigner.CalculateMeltingTemperatureNNLna(probe, positions);
+        double tm0 = PrimerDesigner.CalculateMeltingTemperatureNNLna(probe, System.Array.Empty<int>());
+
+        if (lnaCount == 0)
+            tm.Should().Be(PrimerDesigner.CalculateMeltingTemperatureNN(probe), "zero LNA reduces to the plain DNA NN Tm");
+        else
+            tm.Should().BeGreaterThan(tm0, "stabilising LNA increments raise Tm above the unmodified probe");
+
+        if (len > 14)
+            PrimerDesigner.CalculateMeltingTemperatureNNLna(LnaSeq[..14], positions)
+                .Should().BeLessThan(tm, "a longer probe (same LNA set) has a higher Tm");
+
+        if (mgbFlag)
+        {
+            var mgb = ProbeDesigner.EvaluateMgbProbeDesign(probe);
+            mgb.MgbAttachmentEnd.Should().Be("3'", "MGB is attached at the 3' end (Kutyavin 2000)");
+            mgb.LengthInMgbRange.Should().Be(len is >= 12 and <= 20, "the MGB 12–20mer window reflects the probe length");
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: PROBE-EVALUE-001 — Karlin–Altschul off-target E-value / bit score (MolTools)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 244.
+    // Spec: tests/TestSpecs/PROBE-EVALUE-001.md (ProbeDesigner.ComputeKarlinAltschul). ADVANCED §10.
+    //
+    // Sources: Karlin & Altschul (1990) PNAS 87:2264; Altschul et al. (1990) BLAST.
+    //
+    // Model: bit score S' = (λS − ln K)/ln 2 and expectation E = m·n·2^(−S') = K·m·n·e^(−λS).
+    //
+    // Dimensions: rawScore(3) × dbSize(3) × K(2). Grid 3×3×2 = 18 (exhaustive).
+    //
+    // The combinatorial point: every cell reproduces the closed-form bit/E identity from the returned λ,
+    // and the three axes move E in known directions — a higher raw score lowers E, a larger database
+    // raises E, and a larger K lowers the bit score (hence raises E).
+    // ═══════════════════════════════════════════════════════════════════════
+
+    [Test, Combinatorial]
+    public void KarlinAltschul_BitAndEValue_AcrossRawScoreDbSizeAndK(
+        [Values(30.0, 45.0, 60.0)] double rawScore,
+        [Values(1_000_000L, 100_000_000L, 3_000_000_000L)] long dbSize,
+        [Values(0.711, 0.3)] double k)
+    {
+        const int queryLength = 25;
+        var s = ProbeDesigner.ComputeKarlinAltschul(rawScore, queryLength, dbSize, k: k);
+
+        double expectedBit = (s.Lambda * s.RawScore - Math.Log(k)) / Math.Log(2.0);
+        s.BitScore.Should().BeApproximately(expectedBit, 1e-9, "bit = (λS − ln K)/ln 2");
+        double expectedE = (double)queryLength * dbSize * Math.Pow(2.0, -s.BitScore);
+        s.EValue.Should().BeApproximately(expectedE, Math.Abs(expectedE) * 1e-9 + 1e-300, "E = m·n·2^(−bit)");
+        s.EValue.Should().BeGreaterThanOrEqualTo(0.0, "an E-value is non-negative");
+
+        // Axis effects (same query length / K, isolating one axis).
+        if (rawScore > 30.0)
+            s.EValue.Should().BeLessThan(ProbeDesigner.ComputeKarlinAltschul(30.0, queryLength, dbSize, k: k).EValue,
+                "a higher raw score is more significant ⇒ lower E");
+        if (dbSize > 1_000_000L)
+            s.EValue.Should().BeGreaterThan(ProbeDesigner.ComputeKarlinAltschul(rawScore, queryLength, 1_000_000L, k: k).EValue,
+                "a larger search space ⇒ higher E");
+        if (k < 0.711)
+            s.BitScore.Should().BeGreaterThan(ProbeDesigner.ComputeKarlinAltschul(rawScore, queryLength, dbSize, k: 0.711).BitScore,
+                "a smaller K (larger −ln K) raises the bit score");
+    }
 }

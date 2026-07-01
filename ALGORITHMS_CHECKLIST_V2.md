@@ -10,11 +10,11 @@
 
 | Metric | Value |
 |--------|-------|
-| **Total Test Units** | 234 |
-| **Completed** | 214 |
+| **Total Test Units** | 255 |
+| **Completed** | 255 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 20 |
+| **Not Started** | 0 |
 
 ---
 
@@ -34,7 +34,7 @@
 | ☑ | PAT-APPROX-002 | Matching | 2 | Wikipedia (Levenshtein, Edit Distance), Rosetta Code, Navarro (2001) | [PAT-APPROX-002.md](TestSpecs/PAT-APPROX-002.md) | ApproximateMatcher_EditDistance_Tests.cs |
 | ☑ | PAT-IUPAC-001 | Matching | 2 | Wikipedia (Nucleic acid notation), IUPAC-IUB 1970, Bioinformatics.org | [PAT-IUPAC-001.md](TestSpecs/PAT-IUPAC-001.md) | IupacMotifMatchingTests.cs |
 | ☑ | PAT-PWM-001 | Matching | 2 | Wikipedia (PWM), Kel et al. (2003), Rosalind (CONS), Nishida (2008) | [PAT-PWM-001.md](TestSpecs/PAT-PWM-001.md) | MotifFinder_PWM_Tests.cs |
-| ☐ | REP-STR-001 | Repeats | 4 | Wikipedia (Microsatellite, Trinucleotide repeat disorder), Richard et al. (2008), Benson (1999) TRF | [REP-STR-001.md](TestSpecs/REP-STR-001.md) | RepeatFinder_Microsatellite_Tests.cs |
+| ☑ | REP-STR-001 | Repeats | 4 | Wikipedia (Microsatellite, Trinucleotide repeat disorder), Richard et al. (2008), Benson (1999) TRF | [REP-STR-001.md](TestSpecs/REP-STR-001.md) | RepeatFinder_Microsatellite_Tests.cs |
 | ☑ | REP-TANDEM-001 | Repeats | 2 | Wikipedia (Tandem repeat, Microsatellite), Richard et al. (2008) | [REP-TANDEM-001.md](TestSpecs/REP-TANDEM-001.md) | GenomicAnalyzer_TandemRepeat_Tests.cs, RepeatFinderTests.cs |
 | ☑ | REP-INV-001 | Repeats | 1 | Wikipedia (Inverted repeat, Stem-loop, Palindromic sequence), EMBOSS einverted, Pearson (1996), Bissler (1998) | [REP-INV-001.md](TestSpecs/REP-INV-001.md) | RepeatFinder_InvertedRepeat_Tests.cs |
 | ☑ | REP-DIRECT-001 | Repeats | 1 | Wikipedia (Direct repeat, Repeated sequence), Ussery (2009), Richard (2021) | [REP-DIRECT-001.md](TestSpecs/REP-DIRECT-001.md) | RepeatFinder_DirectRepeat_Tests.cs |
@@ -42,17 +42,17 @@
 | ☑ | CRISPR-PAM-001 | MolTools | 2 | Wikipedia (Protospacer adjacent motif, CRISPR), Jinek et al. (2012), Zetsche et al. (2015) | [CRISPR-PAM-001.md](TestSpecs/CRISPR-PAM-001.md) | CrisprDesigner_PAM_Tests.cs |
 | ☑ | CRISPR-GUIDE-001 | MolTools | 2 | Wikipedia (Guide RNA, CRISPR gene editing, PAM), Addgene CRISPR Guide | [CRISPR-GUIDE-001.md](TestSpecs/CRISPR-GUIDE-001.md) | CrisprDesigner_GuideRNA_Tests.cs |
 | ☑ | CRISPR-OFF-001 | MolTools | 2 | Wikipedia (Off-target genome editing), Hsu et al. (2013), Fu et al. (2013) | [CRISPR-OFF-001.md](TestSpecs/CRISPR-OFF-001.md) | CrisprDesigner_OffTarget_Tests.cs |
-| ☐ | PRIMER-TM-001 | MolTools | 2 | Wikipedia (Nucleic acid thermodynamics), Marmur & Doty (1962), SantaLucia (1998), Owczarzy (2004) | [PRIMER-TM-001.md](TestSpecs/PRIMER-TM-001.md) | PrimerDesigner_MeltingTemperature_Tests.cs |
+| ☑ | PRIMER-TM-001 | MolTools | 2 | Wikipedia (Nucleic acid thermodynamics), Marmur & Doty (1962), SantaLucia (1998), Owczarzy (2004) | [PRIMER-TM-001.md](TestSpecs/PRIMER-TM-001.md) | PrimerDesigner_MeltingTemperature_Tests.cs |
 | ☑ | PRIMER-DESIGN-001 | MolTools | 3 | Wikipedia, Addgene, Primer3 | [PRIMER-DESIGN-001.md](TestSpecs/PRIMER-DESIGN-001.md) | PrimerDesigner_PrimerDesign_Tests.cs |
 | ☑ | PRIMER-STRUCT-001 | MolTools | 3 | Wikipedia (Primer, Primer dimer, Stem-loop, Nucleic acid thermodynamics), Primer3 Manual, SantaLucia (1998) | [PRIMER-STRUCT-001.md](TestSpecs/PRIMER-STRUCT-001.md) | PrimerDesigner_PrimerStructure_Tests.cs |
-| ☐ | PROBE-DESIGN-001 | MolTools | 3 | Wikipedia (Nucleic acid thermodynamics, Hybridization probe, FISH, DNA microarray), SantaLucia (1998), Applied Biosystems/Thermo Fisher/PREMIER Biosoft (TaqMan rules) | [PROBE-DESIGN-001.md](TestSpecs/PROBE-DESIGN-001.md) | ProbeDesigner_ProbeDesign_Tests.cs, ProbeDesigner_TaqMan_Tests.cs |
-| ☐ | PROBE-VALID-001 | MolTools | 4 | Wikipedia (Hybridization probe, DNA microarray, Off-target genome editing, BLAST), Smith & Waterman (1981), Altschul et al. (1990), Kane et al. (2000), Amann & Ludwig (2000) | [PROBE-VALID-001.md](TestSpecs/PROBE-VALID-001.md) | ProbeDesigner_ProbeValidation_Tests.cs |
+| ☑ | PROBE-DESIGN-001 | MolTools | 3 | Wikipedia (Nucleic acid thermodynamics, Hybridization probe, FISH, DNA microarray), SantaLucia (1998), Applied Biosystems/Thermo Fisher/PREMIER Biosoft (TaqMan rules) | [PROBE-DESIGN-001.md](TestSpecs/PROBE-DESIGN-001.md) | ProbeDesigner_ProbeDesign_Tests.cs, ProbeDesigner_TaqMan_Tests.cs |
+| ☑ | PROBE-VALID-001 | MolTools | 4 | Wikipedia (Hybridization probe, DNA microarray, Off-target genome editing, BLAST), Smith & Waterman (1981), Altschul et al. (1990), Kane et al. (2000), Amann & Ludwig (2000) | [PROBE-VALID-001.md](TestSpecs/PROBE-VALID-001.md) | ProbeDesigner_ProbeValidation_Tests.cs |
 | ☑ | RESTR-FIND-001 | MolTools | 2 | Wikipedia (Restriction enzyme, Restriction site, EcoRI), Roberts (1976), REBASE | [RESTR-FIND-001.md](TestSpecs/RESTR-FIND-001.md) | RestrictionAnalyzer_FindSites_Tests.cs |
 | ☑ | RESTR-DIGEST-001 | MolTools | 2 | Wikipedia (Restriction digest, Restriction enzyme, Restriction map), Addgene Protocol, Roberts (1976), REBASE | [RESTR-DIGEST-001.md](TestSpecs/RESTR-DIGEST-001.md) | RestrictionAnalyzer_Digest_Tests.cs |
 | ☑ | ANNOT-ORF-001 | Annotation | 3 | Wikipedia (ORF), Rosalind ORF, NCBI ORF Finder, Deonier (2005), Claverie (1997) | [ANNOT-ORF-001.md](TestSpecs/ANNOT-ORF-001.md) | GenomeAnnotator_ORF_Tests.cs |
 | ☑ | ANNOT-GENE-001 | Annotation | 2 | Wikipedia (Gene prediction, Shine-Dalgarno, RBS), Shine & Dalgarno (1975), Chen (1994), Laursen (2005) | [ANNOT-GENE-001.md](TestSpecs/ANNOT-GENE-001.md) | GenomeAnnotator_Gene_Tests.cs |
 | ☑ | ANNOT-PROM-001 | Annotation | 1 | Wikipedia (Promoter, Pribnow box), Pribnow (1975), Harley & Reynolds (1987) | [ANNOT-PROM-001.md](TestSpecs/ANNOT-PROM-001.md) | GenomeAnnotator_PromoterMotif_Tests.cs |
-| ☐ | ANNOT-GFF-001 | Annotation | 2 | Sequence Ontology GFF3 Spec v1.26, Wikipedia (GFF), RFC 3986 | [ANNOT-GFF-001.md](TestSpecs/ANNOT-GFF-001.md) | GenomeAnnotator_GFF3_Tests.cs |
+| ☑ | ANNOT-GFF-001 | Annotation | 2 | Sequence Ontology GFF3 Spec v1.26, Wikipedia (GFF), RFC 3986 | [ANNOT-GFF-001.md](TestSpecs/ANNOT-GFF-001.md) | GenomeAnnotator_GFF3_Tests.cs |
 | ☑ | KMER-COUNT-001 | K-mer | 3 | Wikipedia (K-mer), Rosalind (KMER, BA1E) | [KMER-COUNT-001.md](TestSpecs/KMER-COUNT-001.md) | KmerAnalyzer_CountKmers_Tests.cs |
 | ☑ | KMER-FREQ-001 | K-mer | 3 | Wikipedia (K-mer, Entropy), Shannon (1948), Rosalind KMER | [KMER-FREQ-001.md](TestSpecs/KMER-FREQ-001.md) | KmerAnalyzer_Frequency_Tests.cs |
 | ☑ | KMER-FIND-001 | K-mer | 3 | Wikipedia (K-mer), Rosalind BA1B (frequent words), Rosalind BA1E (clump finding) | [KMER-FIND-001.md](TestSpecs/KMER-FIND-001.md) | KmerAnalyzer_Find_Tests.cs |
@@ -70,7 +70,7 @@
 | ☑ | POP-FST-001 | PopGen | 2 | Wikipedia (Fixation index, F-statistics), Wright (1965), Weir & Cockerham (1984) | [POP-FST-001.md](TestSpecs/POP-FST-001.md) | PopulationGeneticsAnalyzer_FStatistics_Tests.cs |
 | ☑ | POP-LD-001 | PopGen | 2 | Wikipedia (Linkage disequilibrium, Haplotype block), Lewontin (1964), Hill & Robertson (1968), Gabriel (2002) | [POP-LD-001.md](TestSpecs/POP-LD-001.md) | PopulationGeneticsAnalyzer_LinkageDisequilibrium_Tests.cs |
 | ☑ | CHROM-TELO-001 | Chromosome | 2 | Wikipedia (Telomere), Meyne (1989), Cawthon (2002) | [CHROM-TELO-001.md](TestSpecs/CHROM-TELO-001.md) | ChromosomeAnalyzer_Telomere_Tests.cs |
-| ☐ | CHROM-CENT-001 | Chromosome | 3 | Willard (1985), Waye & Willard (1987), Masumoto et al. (1989), Levan (1964), McNulty & Sullivan (2018) | [CHROM-CENT-001.md](TestSpecs/CHROM-CENT-001.md) | ChromosomeAnalyzer_Centromere_Tests.cs, ChromosomeAnalyzer_AlphaSatellite_Tests.cs, ChromosomeAnalyzer_HigherOrderRepeat_Tests.cs |
+| ☑ | CHROM-CENT-001 | Chromosome | 3 | Willard (1985), Waye & Willard (1987), Masumoto et al. (1989), Levan (1964), McNulty & Sullivan (2018), Shepelev et al. (2009) | [CHROM-CENT-001.md](TestSpecs/CHROM-CENT-001.md) | ChromosomeAnalyzer_Centromere_Tests.cs, ChromosomeAnalyzer_AlphaSatellite_Tests.cs, ChromosomeAnalyzer_HigherOrderRepeat_Tests.cs, ChromosomeAnalyzer_SuprachromosomalFamily_Tests.cs |
 | ☑ | CHROM-KARYO-001 | Chromosome | 2 | Wikipedia (Karyotype, Ploidy, Aneuploidy) | [CHROM-KARYO-001.md](TestSpecs/CHROM-KARYO-001.md) | ChromosomeAnalyzer_Karyotype_Tests.cs |
 | ☑ | CHROM-ANEU-001 | Chromosome | 2 | Wikipedia (Aneuploidy, Copy Number Variation), Griffiths et al. (2000) | [CHROM-ANEU-001.md](TestSpecs/CHROM-ANEU-001.md) | ChromosomeAnalyzer_Aneuploidy_Tests.cs |
 | ☑ | CHROM-SYNT-001 | Chromosome | 2 | Wikipedia (Synteny, Comparative genomics, Chromosomal rearrangement), Wang et al. (2012), Goel et al. (2019) | [CHROM-SYNT-001.md](TestSpecs/CHROM-SYNT-001.md) | ChromosomeAnalyzer_Synteny_Tests.cs |
@@ -78,34 +78,34 @@
 | ☑ | META-PROF-001 | Metagenomics | 1 | Wikipedia (Metagenomics, Relative Abundance), Shannon (1948), Simpson (1949), Segata et al. (2012) | [META-PROF-001.md](TestSpecs/META-PROF-001.md) | MetagenomicsAnalyzer_TaxonomicProfile_Tests.cs |
 | ☑ | META-ALPHA-001 | Metagenomics | 1 | Wikipedia (Diversity Index, Alpha Diversity), Shannon (1948), Simpson (1949), Hill (1973), Chao (1984) | [META-ALPHA-001.md](TestSpecs/META-ALPHA-001.md) | MetagenomicsAnalyzer_AlphaDiversity_Tests.cs |
 | ☑ | META-BETA-001 | Metagenomics | 1 | Wikipedia (Beta diversity, Bray-Curtis dissimilarity, Jaccard index), Whittaker (1960), Bray & Curtis (1957), Jaccard (1901) | [META-BETA-001.md](TestSpecs/META-BETA-001.md) | MetagenomicsAnalyzer_BetaDiversity_Tests.cs |
-| ☐ | META-BIN-001 | Metagenomics | 1 | Wikipedia (Binning metagenomics), Teeling (2004), Parks et al. (2014), Maguire et al. (2020) | [META-BIN-001.md](TestSpecs/META-BIN-001.md) | MetagenomicsAnalyzer_GenomeBinning_Tests.cs |
+| ☑ | META-BIN-001 | Metagenomics | 1 | Wikipedia (Binning metagenomics), Teeling (2004), Parks et al. (2014), Maguire et al. (2020) | [META-BIN-001.md](TestSpecs/META-BIN-001.md) | MetagenomicsAnalyzer_GenomeBinning_Tests.cs |
 | ☑ | CODON-OPT-001 | Codon | 1 | Wikipedia (Codon usage bias, CAI), Sharp & Li (1987), Plotkin & Kudla (2011) | [CODON-OPT-001.md](TestSpecs/CODON-OPT-001.md) | CodonOptimizer_OptimizeSequence_Tests.cs |
-| ☐ | CODON-CAI-001 | Codon | 1 | Wikipedia (Codon Adaptation Index), Sharp & Li (1987), Jansen et al. (2003) | [CODON-CAI-001.md](TestSpecs/CODON-CAI-001.md) | CodonOptimizer_CAI_Tests.cs |
-| ☐ | CODON-RARE-001 | Codon | 1 | Kazusa, Shu et al. (2006), Sharp & Li (1987), Clarke & Clark (2008), Chartier et al. (2012) | [CODON-RARE-001.md](TestSpecs/CODON-RARE-001.md) | CodonOptimizer_FindRareCodons_Tests.cs, CodonOptimizer_RareCodonClusters_Tests.cs |
+| ☑ | CODON-CAI-001 | Codon | 1 | Wikipedia (Codon Adaptation Index), Sharp & Li (1987), Jansen et al. (2003) | [CODON-CAI-001.md](TestSpecs/CODON-CAI-001.md) | CodonOptimizer_CAI_Tests.cs |
+| ☑ | CODON-RARE-001 | Codon | 1 | Kazusa, Shu et al. (2006), Sharp & Li (1987), Clarke & Clark (2008), Chartier et al. (2012) | [CODON-RARE-001.md](TestSpecs/CODON-RARE-001.md) | CodonOptimizer_FindRareCodons_Tests.cs, CodonOptimizer_RareCodonClusters_Tests.cs |
 | ☑ | CODON-USAGE-001 | Codon | 2 | Wikipedia (Codon usage bias), Kazusa, Sharp & Li (1987) | [CODON-USAGE-001.md](TestSpecs/CODON-USAGE-001.md) | CodonOptimizer_CodonUsage_Tests.cs |
 | ☑ | TRANS-CODON-001 | Translation | 3 | TRANS-CODON-001-Evidence.md | [TRANS-CODON-001.md](TestSpecs/TRANS-CODON-001.md) | GeneticCodeTests.cs |
 | ☑ | TRANS-PROT-001 | Translation | 1 | Wikipedia (Translation, Reading frame, ORF), NCBI Genetic Codes | [TRANS-PROT-001.md](TestSpecs/TRANS-PROT-001.md) | TranslatorTests.cs |
-| ☐ | PARSE-FASTA-001 | FileIO | 4 | Wikipedia (FASTA format), NCBI BLAST Help, Lipman & Pearson (1985) | [PARSE-FASTA-001.md](TestSpecs/PARSE-FASTA-001.md) | FastaParserTests.cs |
+| ☑ | PARSE-FASTA-001 | FileIO | 4 | Wikipedia (FASTA format), NCBI BLAST Help, Lipman & Pearson (1985) | [PARSE-FASTA-001.md](TestSpecs/PARSE-FASTA-001.md) | FastaParserTests.cs |
 | ☑ | PARSE-FASTQ-001 | FileIO | 4 | Wikipedia (FASTQ format), Cock et al. (2009), NCBI SRA File Format Guide | [PARSE-FASTQ-001.md](TestSpecs/PARSE-FASTQ-001.md) | FastqParserTests.cs |
 | ☑ | PARSE-BED-001 | FileIO | 6 | Wikipedia (BED format), UCSC Genome Browser FAQ, Quinlan & Hall (2010) | [PARSE-BED-001.md](TestSpecs/PARSE-BED-001.md) | BedParserTests.cs |
 | ☑ | PARSE-VCF-001 | FileIO | 4 | Wikipedia (Variant Call Format), Danecek et al. (2011), SAMtools HTS-specs VCFv4.3 | [PARSE-VCF-001.md](TestSpecs/PARSE-VCF-001.md) | VcfParserTests.cs |
 | ☑ | PARSE-GFF-001 | FileIO | 3 | Wikipedia (GFF), UCSC Genome Browser FAQ, Sequence Ontology GFF3 Spec v1.26 | [PARSE-GFF-001.md](TestSpecs/PARSE-GFF-001.md) | GffParserTests.cs |
 | ☑ | PARSE-GENBANK-001 | FileIO | 3 | NCBI Sample Record, Wikipedia (GenBank), INSDC Feature Table Definition | [PARSE-GENBANK-001.md](TestSpecs/PARSE-GENBANK-001.md) | GenBankParserTests.cs |
-| ☐ | PARSE-EMBL-001 | FileIO | 2 | EBI EMBL User Manual, INSDC Feature Table Definition v11.3 | [PARSE-EMBL-001.md](TestSpecs/PARSE-EMBL-001.md) | EmblParserTests.cs |
+| ☑ | PARSE-EMBL-001 | FileIO | 2 | EBI EMBL User Manual, INSDC Feature Table Definition v11.3 | [PARSE-EMBL-001.md](TestSpecs/PARSE-EMBL-001.md) | EmblParserTests.cs |
 | ☑ | RNA-STRUCT-001 | RnaStructure | 4 | Wikipedia (Nucleic acid structure prediction, Nussinov algorithm), Nussinov (1980), Zuker (1981), Turner (2004) | [RNA-STRUCT-001.md](TestSpecs/RNA-STRUCT-001.md) | RnaSecondaryStructureTests.cs |
 | ☑ | RNA-STEMLOOP-001 | RnaStructure | 3 | Wikipedia (Stem-loop, Tetraloop, Pseudoknot), Woese (1990), Heus & Pardi (1991) | [RNA-STEMLOOP-001.md](TestSpecs/RNA-STEMLOOP-001.md) | RnaSecondaryStructureTests.cs |
 | ☑ | RNA-ENERGY-001 | RnaStructure | 2 | Wikipedia (RNA folding, Nearest neighbor parameters), Turner (2004), NNDB | [RNA-ENERGY-001.md](TestSpecs/RNA-ENERGY-001.md) | RnaSecondaryStructureTests.cs |
 | ☑ | MIRNA-SEED-001 | MiRNA | 3 | miRBase, TargetScan (Bartel Lab), Bartel (2009), Lewis (2005) | [MIRNA-SEED-001.md](TestSpecs/MIRNA-SEED-001.md) | MiRnaAnalyzer_SeedAnalysis_Tests.cs |
-| ☐ | MIRNA-TARGET-001 | MiRNA | 2 | Bartel (2009) Cell 136:215-233, Lewis et al. (2005), Grimson et al. (2007), Agarwal et al. (2015) eLife 4:e05005, TargetScan 8.0 | [MIRNA-TARGET-001.md](TestSpecs/MIRNA-TARGET-001.md) | MiRnaAnalyzer_TargetPrediction_Tests.cs |
-| ☐ | MIRNA-PRECURSOR-001 | MiRNA | 2 | [Evidence](docs/Evidence/MIRNA-PRECURSOR-001-Evidence.md) | [TestSpec](tests/TestSpecs/MIRNA-PRECURSOR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_PreMiRna_Tests.cs) |
-| ☐ | SPLICE-DONOR-001 | Splicing | 2 | [Evidence](docs/Evidence/SPLICE-DONOR-001-Evidence.md) | [TestSpec](tests/TestSpecs/SPLICE-DONOR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_DonorSite_Tests.cs) |
-| ☐ | SPLICE-ACCEPTOR-001 | Splicing | 3 | [Evidence](docs/Evidence/SPLICE-ACCEPTOR-001-Evidence.md) | [TestSpec](tests/TestSpecs/SPLICE-ACCEPTOR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_AcceptorSite_Tests.cs) |
+| ☑ | MIRNA-TARGET-001 | MiRNA | 2 | Bartel (2009) Cell 136:215-233, Lewis et al. (2005), Grimson et al. (2007), Agarwal et al. (2015) eLife 4:e05005, Garcia et al. (2011) NSMB 18:1139, TargetScan 8.0 | [MIRNA-TARGET-001.md](TestSpecs/MIRNA-TARGET-001.md) | MiRnaAnalyzer_TargetPrediction_Tests.cs |
+| ☑ | MIRNA-PRECURSOR-001 | MiRNA | 2 | [Evidence](docs/Evidence/MIRNA-PRECURSOR-001-Evidence.md) | [TestSpec](tests/TestSpecs/MIRNA-PRECURSOR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_PreMiRna_Tests.cs) |
+| ☑ | SPLICE-DONOR-001 | Splicing | 2 | [Evidence](docs/Evidence/SPLICE-DONOR-001-Evidence.md) | [TestSpec](tests/TestSpecs/SPLICE-DONOR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_DonorSite_Tests.cs) |
+| ☑ | SPLICE-ACCEPTOR-001 | Splicing | 3 | [Evidence](docs/Evidence/SPLICE-ACCEPTOR-001-Evidence.md) | [TestSpec](tests/TestSpecs/SPLICE-ACCEPTOR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_AcceptorSite_Tests.cs) |
 | ☑ | SPLICE-PREDICT-001 | Splicing | 3 | [Evidence](docs/Evidence/SPLICE-PREDICT-001-Evidence.md) | [TestSpec](tests/TestSpecs/SPLICE-PREDICT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_GeneStructure_Tests.cs) |
 | ☑ | DISORDER-PRED-001 | ProteinPred | 3 | [Evidence](docs/Evidence/DISORDER-PRED-001-Evidence.md) | [TestSpec](tests/TestSpecs/DISORDER-PRED-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_DisorderPrediction_Tests.cs) |
-| ☐ | DISORDER-REGION-001 | ProteinPred | 2 | [Evidence](docs/Evidence/DISORDER-REGION-001-Evidence.md) | [TestSpec](tests/TestSpecs/DISORDER-REGION-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_DisorderedRegion_Tests.cs) |
+| ☑ | DISORDER-REGION-001 | ProteinPred | 2 | [Evidence](docs/Evidence/DISORDER-REGION-001-Evidence.md) | [TestSpec](tests/TestSpecs/DISORDER-REGION-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_DisorderedRegion_Tests.cs) |
 | ☑ | PROTMOTIF-FIND-001 | ProteinMotif | 3 | [Evidence](docs/Evidence/PROTMOTIF-FIND-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-FIND-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_MotifSearch_Tests.cs) |
 | ☑ | PROTMOTIF-PROSITE-001 | ProteinMotif | 2 | [Evidence](docs/Evidence/PROTMOTIF-PROSITE-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-PROSITE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_PrositePattern_Tests.cs) |
-| ☐ | PROTMOTIF-DOMAIN-001 | ProteinMotif | 2 | [Evidence](docs/Evidence/PROTMOTIF-DOMAIN-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-DOMAIN-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_DomainPrediction_Tests.cs) |
+| ☑ | PROTMOTIF-DOMAIN-001 | ProteinMotif | 2 | [Evidence](docs/Evidence/PROTMOTIF-DOMAIN-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-DOMAIN-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_DomainPrediction_Tests.cs) |
 | ☑ | EPIGEN-CPG-001 | Epigenetics | 3 | [Evidence](docs/Evidence/EPIGEN-CPG-001-Evidence.md) | [TestSpec](tests/TestSpecs/EPIGEN-CPG-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_CpGDetection_Tests.cs) |
 | ☑ | EPIGEN-METHYL-001 | Epigenetics | 3 | [Evidence](docs/Evidence/EPIGEN-METHYL-001-Evidence.md) | [TestSpec](tests/TestSpecs/EPIGEN-METHYL-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_Methylation_Tests.cs) |
 | ☑ | EPIGEN-DMR-001 | Epigenetics | 2 | [Evidence](docs/Evidence/EPIGEN-DMR-001-Evidence.md) | [TestSpec](tests/TestSpecs/EPIGEN-DMR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_DMR_Tests.cs) |
@@ -244,10 +244,10 @@
 | ☑ | ONCO-PLOIDY-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-PLOIDY-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-PLOIDY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_EstimatePloidy_Tests.cs) |
 | ☑ | ONCO-CLONAL-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-CLONAL-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CLONAL-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyClonality_Tests.cs) |
 | ☑ | ONCO-NEO-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-NEO-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-NEO-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_GenerateNeoantigenPeptides_Tests.cs) |
-| ☐ | ONCO-MHC-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-MHC-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-MHC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyMhcBinding_Tests.cs) |
-| ☐ | ONCO-IMMUNE-001 | Oncology | 3 | 40 | [Evidence](docs/Evidence/ONCO-IMMUNE-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-IMMUNE-001.md) |
+| ☑ | ONCO-MHC-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-MHC-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-MHC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyMhcBinding_Tests.cs) |
+| ☑ | ONCO-IMMUNE-001 | Oncology | 3 | 40 | [Evidence](docs/Evidence/ONCO-IMMUNE-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-IMMUNE-001.md) |
 | ☑ | ONCO-CTDNA-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-CTDNA-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CTDNA-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CtDnaAnalysis_Tests.cs) |
-| ☐ | ONCO-MRD-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-MRD-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-MRD-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectMRD_Tests.cs) |
+| ☑ | ONCO-MRD-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-MRD-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-MRD-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectMRD_Tests.cs) |
 | ☑ | ONCO-CHIP-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-CHIP-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CHIP-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_FilterCHIP_Tests.cs) |
 | ☑ | ONCO-PHYLO-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-PHYLO-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-PHYLO-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ReconstructPhylogeny_Tests.cs) |
 | ☑ | ONCO-CCF-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-CCF-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CCF-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_EstimateCcf_Tests.cs) |
@@ -256,6 +256,27 @@
 | ☑ | ONCO-ACTION-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-ACTION-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-ACTION-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_AssessActionability_Tests.cs) |
 | ☑ | ONCO-SV-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-SV-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-SV-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyComplexRearrangement_Tests.cs) |
 | ☑ | ONCO-EXPR-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-EXPR-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-EXPR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_IdentifyOutlierGenes_Tests.cs) |
+| ☑ | RNA-ACCESS-001 | RnaStructure | 2 | McCaskill (1990), RNAplfold/Bernhart (2006) | [TestSpec](tests/TestSpecs/RNA-ACCESS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_UnpairedProbabilities_Tests.cs) |
+| ☑ | PROTMOTIF-HMM-001 | ProteinMotif | 4 | Eddy (1998, 2011) HMMER/Plan7, Pfam | [TestSpec](tests/TestSpecs/PROTMOTIF-HMM-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindDomainsByHmm_Tests.cs) |
+| ☑ | PRIMER-NNTM-001 | MolTools | 2 | SantaLucia (1998), Allawi & SantaLucia (1997), Owczarzy (2004/2008), Bommarito (2000) | [TestSpec](tests/TestSpecs/PRIMER-NNTM-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PrimerDesigner_NearestNeighborTm_Tests.cs) |
+| ☑ | PRIMER-HAIRPIN-001 | MolTools | 2 | SantaLucia (1998), SantaLucia & Hicks (2004), UNAFold DNA params | [TestSpec](tests/TestSpecs/PRIMER-HAIRPIN-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PrimerDesigner_HairpinTm_Tests.cs) |
+| ☑ | PRIMER-DIMER-001 | MolTools | 3 | SantaLucia & Hicks (2004), primer3 ntthal | [TestSpec](tests/TestSpecs/PRIMER-DIMER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PrimerDesigner_DimerTm_Tests.cs) |
+| ☑ | PROBE-LNATM-001 | MolTools | 2 | McTigue (2004) LNA NN, Kutyavin (2000) MGB | [TestSpec](tests/TestSpecs/PROBE-LNATM-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProbeDesigner_LnaTm_Tests.cs) |
+| ☑ | PROBE-EVALUE-001 | MolTools | 2 | Karlin & Altschul (1990), Altschul et al. (1990) BLAST | [TestSpec](tests/TestSpecs/PROBE-EVALUE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProbeDesigner_ProbeValidation_Tests.cs) |
+| ☑ | MHC-NN-001 | Oncology | 3 | O'Donnell et al. (2018, 2020) MHCflurry, Apache-2.0 | [TestSpec](tests/TestSpecs/MHC-NN-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MhcflurryAffinityPredictor_PredictIc50_Tests.cs) |
+| ☑ | MHC-MATRIX-001 | Oncology | 3 | Peters et al. (2005) SMM, Parker et al. (1994) BIMAS | [TestSpec](tests/TestSpecs/MHC-MATRIX-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyMhcBinding_Tests.cs) |
+| ☑ | IMMUNE-NUSVR-001 | Oncology | 3 | Newman et al. (2015) CIBERSORT, Schölkopf et al. (2000) ν-SVR, Monaco et al. (2019) ABIS CC-BY | [TestSpec](tests/TestSpecs/IMMUNE-NUSVR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ImmuneAnalyzer_ImmuneInfiltration_Tests.cs) |
+| ☑ | META-CHECKM-001 | Metagenomics | 4 | Parks et al. (2015) CheckM, Parks et al. (2018) GTDB, Pfam CC0 | [TestSpec](tests/TestSpecs/META-CHECKM-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_MarkerGeneQuality_Tests.cs) |
+| ☑ | META-TETRA-001 | Metagenomics | 2 | Teeling et al. (2004) TETRA, Schbath (1995) | [TestSpec](tests/TestSpecs/META-TETRA-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_TetranucleotideZScore_Tests.cs) |
+| ☑ | SPLICE-MAXENT3-001 | Splicing | 1 | Yeo & Burge (2004), maxentpy (MIT) | [TestSpec](tests/TestSpecs/SPLICE-MAXENT3-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_AcceptorSite_Tests.cs) |
+| ☑ | SPLICE-MAXENT5-001 | Splicing | 1 | Yeo & Burge (2004), maxentpy (MIT) | [TestSpec](tests/TestSpecs/SPLICE-MAXENT5-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_DonorSite_Tests.cs) |
+| ☑ | MIRNA-CONTEXT-001 | MiRNA | 2 | Agarwal et al. (2015) TargetScan context++ | [TestSpec](tests/TestSpecs/MIRNA-CONTEXT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_TargetPrediction_Tests.cs) |
+| ☑ | MIRNA-PCT-001 | MiRNA | 1 | Friedman et al. (2009) PCT, TargetScan | [TestSpec](tests/TestSpecs/MIRNA-PCT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_TargetPrediction_Tests.cs) |
+| ☑ | MIRNA-CLASSIFY-001 | MiRNA | 1 | Bonnet et al. (2004), miRBase (public domain), Zhang (2006) MFEI | [TestSpec](tests/TestSpecs/MIRNA-CLASSIFY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_PreMiRna_Tests.cs) |
+| ☑ | MIRNA-CLEAVAGE-001 | MiRNA | 1 | Han et al. (2006), Park et al. (2011), Auyeung et al. (2013) | [TestSpec](tests/TestSpecs/MIRNA-CLEAVAGE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_PreMiRna_Tests.cs) |
+| ☑ | REP-APPROX-001 | Repeats | 2 | Benson (1999) TRF | [TestSpec](tests/TestSpecs/REP-APPROX-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RepeatFinder_ApproximateTandemRepeats_Tests.cs) |
+| ☑ | CHROM-ALPHASAT-001 | Chromosome | 2 | Waye & Willard (1987), Henikoff et al. (2001), CENP-B box motif | [TestSpec](tests/TestSpecs/CHROM-ALPHASAT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ChromosomeAnalyzer_AlphaSatellite_Tests.cs) |
+| ☑ | CHROM-HOR-001 | Chromosome | 1 | McNulty & Sullivan (2018), Alkan et al. (2007) | [TestSpec](tests/TestSpecs/CHROM-HOR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ChromosomeAnalyzer_HigherOrderRepeat_Tests.cs) |
 
 **Statuses:** ☐ Not Started | ⏳ In Progress | ☑ Complete | ⛔ Blocked
 
@@ -1122,6 +1143,8 @@
 | `DetectAlphaSatellite(seq)` | ChromosomeAnalyzer | Canonical (alpha-satellite-specific: 171-bp tandem + AT + CENP-B) |
 | `FindCenpBBoxes(seq)` | ChromosomeAnalyzer | Canonical (CENP-B box `YTTCGTTGGAARCGGGA` scan) |
 | `DetectHigherOrderRepeat(seq, monomerLength=171)` | ChromosomeAnalyzer | Canonical (alpha-satellite HOR structure: period, copy number, inter-/intra-HOR identity) |
+| `AssignSuprachromosomalFamily(seq, reference=null)` | ChromosomeAnalyzer | Canonical (SF assignment vs bundled CC0 Dfam reference: SF3/SF4/SF5 + {SF1,SF2} via periodicity + A/B-box) |
+| `LoadBundledAlphaSatelliteReference()` | ChromosomeAnalyzer | Bundled CC0 reference loader (Dfam ALR/ALRa/ALRb) |
 
 ---
 
@@ -1728,10 +1751,11 @@
 
 ---
 
-#### DISORDER-REGION-001: Disordered Region Detection
+#### DISORDER-REGION-001: Disordered Region Detection ☑
 
 | Field | Value |
 |------|----------|
+| **Status** | ☑ Complete |
 | **Canonical** | `DisorderPredictor.IdentifyDisorderedRegions(...)` |
 | **Complexity** | O(n) |
 
@@ -4483,7 +4507,7 @@ ONCO-FUSION-001 codon-phase rule `(b − p) mod 3 == 0`. Partner CDS sequences a
 > Scope (implemented): the **classification** of a caller-supplied predicted affinity into binder
 > categories using the standard IEDB / NetMHCpan-4.1 thresholds (Reynisson 2020; Sette 1994): IC50
 > strong < 50 nM / weak < 500 nM; class I %Rank strong < 0.5% / weak < 2%; class II %Rank strong < 2% /
-> weak < 10%; plus peptide-length validity (class I 8–11, class II 13–25). The peptide–MHC affinity / %Rank
+> weak < 10%; plus peptide-length validity (class I 8–14 — full NetMHCpan-4.1 window, class II 13–25). The peptide–MHC affinity / %Rank
 > **prediction** is now also available as an **opt-in matrix-based predictor**: the BIMAS / Parker 1994
 > product rule (`PredictBindingHalfLifeBimas`) and the SMM / Peters & Sette 2005 transform
 > `IC50 = 50000^(1−score)` (`PredictIc50Smm` / `PredictAndClassifySmm`), which chain into the existing
@@ -4554,7 +4578,7 @@ ONCO-FUSION-001 codon-phase rule `(b − p) mod 3 == 0`. Partner CDS sequences a
 
 ---
 
-#### ONCO-MRD-001: Minimal Residual Disease Detection ☐
+#### ONCO-MRD-001: Minimal Residual Disease Detection ☑
 
 | Field | Value |
 |------|----------|
@@ -5308,7 +5332,7 @@ DnaSequence.Complement   DnaSequence.ReverseComplement
 | CopyNumberAnalyzer (→ OncologyAnalyzer) | ONCO-CNA-001 ☑, ONCO-CNA-002 ☑, ONCO-CNA-003 ☑ | ☑ |
 | TumorAnalyzer | ONCO-PURITY-001 to ONCO-CLONAL-001 | ☐ |
 | NeoantigenPredictor | ONCO-NEO-001 to ONCO-MHC-001 | ☐ |
-| ImmuneAnalyzer | ONCO-IMMUNE-001 | ☐ |
+| ImmuneAnalyzer | ONCO-IMMUNE-001 | ☑ |
 | LiquidBiopsyAnalyzer (implemented in OncologyAnalyzer) | ONCO-CTDNA-001 to ONCO-CHIP-001 | ☑ |
 | TumorEvolutionAnalyzer (ONCO-PHYLO-001 implemented in OncologyAnalyzer) | ONCO-PHYLO-001 to ONCO-HETERO-001 | ☐ (ONCO-PHYLO-001 ☑) |
 | HLA analysis (implemented in OncologyAnalyzer) | ONCO-HLA-001 | ☑ |
@@ -5322,3 +5346,348 @@ DnaSequence.Complement   DnaSequence.ReverseComplement
 
 *Generated: 2026-02-12*
 *Checklist version: 2.5 (Oncology Genomics: consistency fixes, 4 new algorithms)*
+
+
+---
+
+## Test Units by Area — Campaign-Added Algorithms (21 units)
+
+> Net-new algorithms implemented during the limitation-elimination campaign (see `docs/Validation/LIMITATIONS.md`).
+> Each is `☐ Not Started` here pending **independent Stage A/B re-validation** to restore `☑` — the code ships and is
+> covered by the listed test fixture, but the unit has not yet been re-validated under the project's two-stage protocol.
+
+#### RNA-ACCESS-001: McCaskill Unpaired (Accessibility) Probabilities ☑
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `CalculateUnpairedProbabilities` |
+| **Area** | RnaStructure |
+| **Status** | ☑ Complete (validated 2026-06-25 — Stage A/B PASS, CLEAN) |
+| **Evidence** | McCaskill (1990), RNAplfold/Bernhart (2006) |
+| **Source** | `RnaSecondaryStructure.cs` |
+
+**Methods:** `CalculateUnpairedProbabilities`, `CalculateRegionUnpairedProbability`
+
+**Tests:** `RnaSecondaryStructure_UnpairedProbabilities_Tests.cs`
+
+---
+
+#### PROTMOTIF-HMM-001: Plan7 Profile-HMM Domain Search ☑
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `Plan7ProfileHmm.Viterbi/Forward` |
+| **Area** | ProteinMotif |
+| **Status** | ☑ Complete (validated 2026-06-25, CLEAN — see reports/PROTMOTIF-HMM-001.md) |
+| **Evidence** | Eddy (1998, 2011) HMMER/Plan7, Pfam |
+| **Source** | `Plan7ProfileHmm.cs / ProteinMotifFinder.cs` |
+
+**Methods:** `Plan7ProfileHmm.Viterbi/Forward`, `FindDomainsByHmm`, `FindDomainEnvelopes`
+
+**Tests:** `ProteinMotifFinder_FindDomainsByHmm_Tests.cs`
+
+---
+
+#### PRIMER-NNTM-001: Nearest-Neighbour Salt/Mismatch/Dangling-End Tm ☑
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `CalculateMeltingTemperatureNN` |
+| **Area** | MolTools |
+| **Status** | ☑ Validated (Stage A ✅ / Stage B ✅ / CLEAN — 2026-06-25) |
+| **Evidence** | SantaLucia (1998), Allawi & SantaLucia (1997), Owczarzy (2004/2008), Bommarito (2000) |
+| **Source** | `PrimerDesigner.cs` |
+
+**Methods:** `CalculateMeltingTemperatureNN`, `CalculateMeltingTemperatureNNMismatch`
+
+**Tests:** `PrimerDesigner_NearestNeighborTm_Tests.cs`
+
+---
+
+#### PRIMER-HAIRPIN-001: DNA Hairpin Folder + Secondary-Structure Tm ☑
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `FindMostStableHairpin` |
+| **Area** | MolTools |
+| **Status** | ☑ Complete — validated 2026-06-25 (Stage A ✅ / Stage B ✅ / CLEAN) |
+| **Evidence** | SantaLucia (1998), SantaLucia & Hicks (2004), UNAFold DNA params |
+| **Source** | `PrimerDesigner.cs` |
+
+**Methods:** `FindMostStableHairpin`, `CalculateHairpinMeltingTemperature`
+
+**Tests:** `PrimerDesigner_HairpinTm_Tests.cs`
+
+---
+
+#### PRIMER-DIMER-001: ntthal Self/Hetero-Dimer Tm ☑
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `FindMostStableDimer` |
+| **Area** | MolTools |
+| **Status** | ☑ Complete (validated 2026-06-25; primer3-py 2.3.0 parity to machine precision) |
+| **Evidence** | SantaLucia & Hicks (2004), primer3 ntthal |
+| **Source** | `PrimerDesigner.cs / NtthalDimer.cs` |
+
+**Methods:** `FindMostStableDimer`, `CalculateDimerMeltingTemperature`, `CalculateSelfDimerMeltingTemperature`
+
+**Tests:** `PrimerDesigner_DimerTm_Tests.cs`
+
+---
+
+#### PROBE-LNATM-001: LNA-Adjusted NN Tm + MGB Probe Design ☑
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `CalculateMeltingTemperatureNNLna` |
+| **Area** | MolTools |
+| **Status** | ☑ Complete (validated Stage A ✅ / Stage B ✅ / CLEAN — 2026-06-25) |
+| **Evidence** | McTigue (2004) LNA NN, Kutyavin (2000) MGB |
+| **Source** | `ProbeDesigner.cs` |
+
+**Methods:** `CalculateMeltingTemperatureNNLna`, `EvaluateMgbProbeDesign`
+
+**Tests:** `ProbeDesigner_LnaTm_Tests.cs`
+
+---
+
+#### PROBE-EVALUE-001: Karlin–Altschul Off-Target E-value ☑
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `ComputeKarlinAltschul` |
+| **Area** | MolTools |
+| **Status** | ☑ Complete (Stage A/B validated 2026-06-25 — CLEAN) |
+| **Evidence** | Karlin & Altschul (1990), Altschul et al. (1990) BLAST |
+| **Source** | `ProbeDesigner.cs` |
+
+**Methods:** `ComputeKarlinAltschul`, `ComputeLambdaNucleotide`
+
+**Tests:** `ProbeDesigner_ProbeValidation_Tests.cs`
+
+---
+
+#### MHC-NN-001: MHCflurry Pan-Allele NN Binding Affinity ☑
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `MhcflurryAffinityPredictor.PredictIc50` |
+| **Area** | Oncology |
+| **Status** | ☑ Complete (Stage A ✅ / Stage B ✅ / CLEAN — 2026-06-25) |
+| **Evidence** | O'Donnell et al. (2018, 2020) MHCflurry, Apache-2.0 |
+| **Source** | `MhcflurryAffinityPredictor.cs` |
+
+**Methods:** `MhcflurryAffinityPredictor.PredictIc50`, ensemble geometric-mean combiner
+
+**Tests:** `MhcflurryAffinityPredictor_PredictIc50_Tests.cs`
+
+---
+
+#### MHC-MATRIX-001: SMM / BIMAS Matrix pMHC Prediction ☑
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `PredictIc50Smm` |
+| **Area** | Oncology |
+| **Status** | ☑ Complete (validated 2026-06-25; Stage A ✅ / Stage B ✅ / CLEAN) |
+| **Evidence** | Peters et al. (2005) SMM, Parker et al. (1994) BIMAS |
+| **Source** | `OncologyAnalyzer.cs` |
+
+**Methods:** `PredictIc50Smm`, `PredictBindingHalfLifeBimas`, `PredictAndClassifySmm`
+
+**Tests:** `OncologyAnalyzer_ClassifyMhcBinding_Tests.cs`
+
+---
+
+#### IMMUNE-NUSVR-001: CIBERSORT ν-SVR Immune Deconvolution (ABIS) ☑
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `DeconvoluteImmuneCellsNuSvr` |
+| **Area** | Oncology |
+| **Status** | ☑ Complete (validated 2026-06-25; Stage A/B PASS, CLEAN; sklearn-verified < 1e-6) |
+| **Evidence** | Newman et al. (2015) CIBERSORT, Schölkopf et al. (2000) ν-SVR, Monaco et al. (2019) ABIS CC-BY |
+| **Source** | `ImmuneAnalyzer.cs` |
+
+**Methods:** `DeconvoluteImmuneCellsNuSvr`, `LoadBundledAbisSignatureMatrix`, `LoadSignatureMatrix`
+
+**Tests:** `ImmuneAnalyzer_ImmuneInfiltration_Tests.cs`
+
+---
+
+#### META-CHECKM-001: CheckM Marker-Gene Completeness/Contamination ☑
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `EstimateBinQualityFromMarkers` |
+| **Area** | Metagenomics |
+| **Status** | ☑ Complete (Stage A/B re-validated 2026-06-25; CLEAN) |
+| **Evidence** | Parks et al. (2015) CheckM, Parks et al. (2018) GTDB, Pfam CC0 |
+| **Source** | `MetagenomicsAnalyzer.cs` |
+
+**Methods:** `EstimateBinQualityFromMarkers`, `DetectMarkers`, `LoadBundledBacterial/ArchaealMarkerHmms`
+
+**Tests:** `MetagenomicsAnalyzer_MarkerGeneQuality_Tests.cs`
+
+---
+
+#### META-TETRA-001: TETRA Tetranucleotide Z-score Signature ☑
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `CalculateTetranucleotideZScores` |
+| **Area** | Metagenomics |
+| **Status** | ☐ Not Started (pending independent Stage A/B re-validation) |
+| **Evidence** | Teeling et al. (2004) TETRA, Schbath (1995) |
+| **Source** | `MetagenomicsAnalyzer.cs` |
+
+**Methods:** `CalculateTetranucleotideZScores`, `TetranucleotideZScoreCorrelation`
+
+**Tests:** `MetagenomicsAnalyzer_TetranucleotideZScore_Tests.cs`
+
+---
+
+#### SPLICE-MAXENT3-001: MaxEntScan score3 (3' Acceptor) ☑
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `ScoreAcceptorMaxEnt` |
+| **Area** | Splicing |
+| **Status** | ☑ Complete (independently validated 2026-06-25 — reports/SPLICE-MAXENT3-001.md) |
+| **Evidence** | Yeo & Burge (2004), maxentpy (MIT) |
+| **Source** | `SpliceSitePredictor.cs` |
+
+**Methods:** `ScoreAcceptorMaxEnt` (MaxEntScan score3)
+
+**Tests:** `SpliceSitePredictor_AcceptorSite_Tests.cs`
+
+---
+
+#### SPLICE-MAXENT5-001: MaxEntScan score5 (5' Donor) ☑
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `ScoreDonorMaxEnt` |
+| **Area** | Splicing |
+| **Status** | ☑ Complete (validated 2026-06-25, CLEAN) |
+| **Evidence** | Yeo & Burge (2004), maxentpy (MIT) |
+| **Source** | `SpliceSitePredictor.cs` |
+
+**Methods:** `ScoreDonorMaxEnt` (MaxEntScan score5)
+
+**Tests:** `SpliceSitePredictor_DonorSite_Tests.cs`
+
+---
+
+#### MIRNA-CONTEXT-001: TargetScan context++ Scoring ☑
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `ScoreTargetSiteContextPlusPlus` |
+| **Area** | MiRNA |
+| **Status** | ☑ Validated (Stage A ✅ / Stage B ✅ / ✅ CLEAN, 2026-06-25) |
+| **Evidence** | Agarwal et al. (2015) TargetScan context++ |
+| **Source** | `MiRnaAnalyzer.cs` |
+
+**Methods:** `ScoreTargetSiteContextPlusPlus` (+ SA accessibility wiring)
+
+**Tests:** `MiRnaAnalyzer_TargetPrediction_Tests.cs`
+
+---
+
+#### MIRNA-PCT-001: TargetScan PCT (Branch-Length Conservation) ☑
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `PCT (branch-length-score → logistic) from caller alignment+tree` |
+| **Area** | MiRNA |
+| **Status** | ☑ Complete (independently validated — see `docs/Validation/reports/MIRNA-PCT-001.md`) |
+| **Evidence** | Friedman et al. (2009) PCT, TargetScan |
+| **Source** | `MiRnaAnalyzer.cs` |
+
+**Methods:** PCT (branch-length-score → logistic) from caller alignment+tree
+
+**Tests:** `MiRnaAnalyzer_TargetPrediction_Tests.cs`
+
+---
+
+#### MIRNA-CLASSIFY-001: Pre-miRNA Structure-Feature Classifier ☑
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `ClassifyPreMiRna` |
+| **Area** | MiRNA |
+| **Status** | ☑ Complete (independently validated 2026-06-25 — Stage A/B PASS, CLEAN) |
+| **Evidence** | Bonnet et al. (2004), miRBase (public domain), Zhang (2006) MFEI |
+| **Source** | `MiRnaAnalyzer.cs` |
+
+**Methods:** `ClassifyPreMiRna` (logistic over MFE/AMFE/MFEI/GC/%paired)
+
+**Tests:** `MiRnaAnalyzer_PreMiRna_Tests.cs`
+
+---
+
+#### MIRNA-CLEAVAGE-001: Drosha/Dicer Cleavage-Site Prediction ☑
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `PredictDroshaDicerCleavage` |
+| **Area** | MiRNA |
+| **Status** | ☑ Complete (Stage A ✅ PASS / Stage B 🟡 PASS-WITH-NOTES — CLEAN; 3p linear-geometry approximation documented) |
+| **Evidence** | Han et al. (2006), Park et al. (2011), Auyeung et al. (2013) |
+| **Source** | `MiRnaAnalyzer.cs` |
+
+**Methods:** `PredictDroshaDicerCleavage` (Han 11-bp + Park 22-nt + 2-nt overhang)
+
+**Tests:** `MiRnaAnalyzer_PreMiRna_Tests.cs`
+
+---
+
+#### REP-APPROX-001: Approximate (TRF) Tandem-Repeat Detection ☑
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `FindApproximateTandemRepeats` |
+| **Area** | Repeats |
+| **Status** | ☑ Complete (validated 2026-06-25; see docs/Validation/reports/REP-APPROX-001.md) |
+| **Evidence** | Benson (1999) TRF |
+| **Source** | `RepeatFinder.cs` |
+
+**Methods:** `FindApproximateTandemRepeats`, `ComputeBernoulliStatistics`
+
+**Tests:** `RepeatFinder_ApproximateTandemRepeats_Tests.cs`
+
+---
+
+#### CHROM-ALPHASAT-001: Alpha-Satellite Monomer Detection ☑
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `DetectAlphaSatellite` |
+| **Area** | Chromosome |
+| **Status** | ☑ Complete (independently validated 2026-06-25; see docs/Validation/reports/CHROM-ALPHASAT-001.md) |
+| **Evidence** | Waye & Willard (1987), Henikoff et al. (2001), CENP-B box motif |
+| **Source** | `ChromosomeAnalyzer.cs` |
+
+**Methods:** `DetectAlphaSatellite`, `FindCenpBBoxes`
+
+**Tests:** `ChromosomeAnalyzer_AlphaSatellite_Tests.cs`
+
+---
+
+#### CHROM-HOR-001: Higher-Order Repeat (HOR) Detection ☑
+
+| Field | Value |
+|-------|-------|
+| **Canonical** | `DetectHigherOrderRepeat` |
+| **Area** | Chromosome |
+| **Status** | ☑ Complete (independently validated 2026-06-25; report `docs/Validation/reports/CHROM-HOR-001.md`) |
+| **Evidence** | McNulty & Sullivan (2018), Alkan et al. (2007) |
+| **Source** | `ChromosomeAnalyzer.cs` |
+
+**Methods:** `DetectHigherOrderRepeat`
+
+**Tests:** `ChromosomeAnalyzer_HigherOrderRepeat_Tests.cs`
+
+---

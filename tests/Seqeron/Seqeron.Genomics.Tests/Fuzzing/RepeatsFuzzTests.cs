@@ -6,7 +6,7 @@ using FluentAssertions;
 using Seqeron.Genomics.Core;
 using Seqeron.Genomics.Analysis;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the Repeats area — short tandem repeat (microsatellite / STR)

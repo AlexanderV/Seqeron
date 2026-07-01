@@ -1,10 +1,13 @@
 # Validation Report: CODON-RARE-001 — Rare Codon Detection
 
-- **Validated:** 2026-06-24   **Area:** Codon Optimization
-- **Canonical method(s):** `CodonOptimizer.FindRareCodons(string codingSequence, CodonUsageTable table, double threshold = 0.15)`
-  (src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs:609)
+- **Validated:** 2026-06-25 (fresh re-validation; see bottom section)   **Area:** Codon Optimization
+- **Canonical method(s):** `CodonOptimizer.FindRareCodons` (per-codon, :663),
+  `CodonOptimizer.CalculateMinMaxProfile` (%MinMax, :720),
+  `CodonOptimizer.FindRareCodonClusters` (Sherlocc RCC, :825)
+  (src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs)
 - **Stage A verdict:** PASS-WITH-NOTES
 - **Stage B verdict:** PASS
+- **State:** ✅ CLEAN
 
 ## Stage A — Description
 
@@ -114,28 +117,90 @@ counts, strict-`<` boundary, organism-specific classification, and invariants
   positions and frequencies match; 21/21 per-codon unit tests green.
 - **State: CLEAN** (for the per-codon contract).
 
-## 2026-06-24 — Limitation closed: rare-codon cluster / run detection added
+## 2026-06-25 — FRESH RE-VALIDATION (campaign E2: +%MinMax +Sherlocc clusters)
 
-The PASS-WITH-NOTES item "cluster/run detection mentioned in the spec narrative is NOT
-implemented" has been **resolved** by adding two opt-in, source-backed sliding-window methods
-to `CodonOptimizer` (per-codon `FindRareCodons` default behaviour unchanged):
+Re-validated from authoritative EXTERNAL first sources retrieved this session, ignoring the
+repo's own TestSpec/Evidence. The unit now spans **three** public methods:
+`FindRareCodons` (per-codon), `CalculateMinMaxProfile` (%MinMax), `FindRareCodonClusters`
+(Sherlocc RCC). Source `CodonOptimizer.cs:663` / `:720` / `:825`. Tests:
+`CodonOptimizer_FindRareCodons_Tests.cs` (21) + `CodonOptimizer_RareCodonClusters_Tests.cs` (24).
 
-- `CalculateMinMaxProfile(string, CodonUsageTable, int windowSize = 18)` — the **%MinMax**
-  profile of **Clarke & Clark (2008), "Rare Codons Cluster", PLoS ONE 3(10):e3412**
-  (doi:10.1371/journal.pone.0003412). Per amino acid: `Xij`, `Xmax,i`, `Xmin,i`,
-  `Xavg,i = (1/n)ΣXij`; per window `%Max = Σ(Xij−Xavg)/Σ(Xmax−Xavg)×100` (positive) or
-  `%Min = Σ(Xavg−Xij)/Σ(Xavg−Xmin)×100` (returned negative). Default window 18 codons.
-- `FindRareCodonClusters(string, CodonUsageTable, double rareThreshold = 0.15, int windowSize = 7,
-  int minRareCodons = 4)` — the **Sherlocc** rare-codon-cluster rule of **Chartier, Gaudreault &
-  Najmanovich (2012), Bioinformatics 28(11):1438–1445** (doi:10.1093/bioinformatics/bts149):
-  "a seven position-wide window … containing at least four pause positions out of seven";
-  a "pause"/"slow" position is a codon below the rare threshold. Overlapping qualifying windows
-  merge into maximal clusters.
+- **Stage A: PASS-WITH-NOTES**
+- **Stage B: PASS**
+- **State: ✅ CLEAN**
 
-Both windows/thresholds are copied verbatim from the retrieved sources (18 codons; 7-codon
-window, ≥4 rare) — no invented parameters. New tests:
-`tests/Seqeron/Seqeron.Genomics.Tests/CodonOptimizer_RareCodonClusters_Tests.cs` (24 cases,
-exact %MinMax values and exact cluster boundaries). Evidence/algorithm-doc/TestSpec extended.
+### Sources opened this session (verbatim confirmation)
+- **Clarke TF, Clark PL (2008) "Rare Codons Cluster", PLoS ONE 3(10):e3412** (PLOS full text).
+  Confirmed verbatim: 18-codon sliding window; `Xij` = actual codon usage frequency, `Xmax,i`
+  / `Xmin,i` = most/least common synonymous codon frequency, `Xavg,i` = sum of synonymous
+  frequencies ÷ number of synonymous codons; the metric is "the difference between Xij and
+  Xavg,i divided by the difference between Xmax,i (or Xmin,i) and Xavg,i". Sign convention
+  verbatim: "If the codon usage frequencies for a given window are greater than the average, a
+  value will be returned for %Max; if less than the average, … %Min. … %Min values are plotted
+  and reported as negative numbers." Range −100 … +100; 0 = average usage.
+- **Chartier M, Gaudreault F, Najmanovich R (2012) Bioinformatics 28(11):1438–1445,
+  doi:10.1093/bioinformatics/bts149** (PMC3465090 full text). Confirmed verbatim cluster rule:
+  "a … seven position-wide window … searching for windows with at least four pause positions
+  out of seven." A position is "slow"/"pause" when its codon-usage average falls below a
+  threshold (paper fits an extreme-value distribution; thresholds 13–18 tested).
 
-**State: re-validation pending.** The ROOT `ALGORITHMS_CHECKLIST_V2.md` Status for
-CODON-RARE-001 is reset ☑ → ☐ pending an independent re-validation of the new capability.
+### Formula check — matches source exactly (CodonOptimizer.cs:771-799)
+`sumXij`, `sumXavg`, `sumMaxDelta = Σ(Xmax−Xavg)`, `sumMinDelta = Σ(Xavg−Xmin)`;
+`%Max = (ΣXij−ΣXavg)/sumMaxDelta×100` when ΣXij>ΣXavg, `%Min = −(ΣXavg−ΣXij)/sumMinDelta×100`
+when ΣXij<ΣXavg, else 0. `Xavg` is the per-family arithmetic mean (sum÷count). Single-codon
+AAs / unknown / stop contribute 0 to both numerator and denominator (no NaN). Window slides
+one codon; produces `codonCount − windowSize + 1` windows. ✓ faithful to Clarke & Clark.
+Cluster code (`:825-901`): 7-codon window, `windowRare ≥ minRareCodons` (default 4); a codon
+is rare when `freq < rareThreshold` (default 0.15, strict `<`, same criterion as
+`FindRareCodons`); overlapping/adjacent qualifying windows merge into maximal clusters. ✓ the
+verbatim Sherlocc window/count rule.
+
+### Independent cross-check (hand-computed THIS session, then confirmed vs LIVE library)
+E. coli K12 Arg family (Kazusa 316407): CGU 0.38, CGC 0.40, CGA 0.06, CGG 0.10, AGA 0.04,
+AGG 0.02 → Σ=1.00, Xavg=0.166667, Xmax=0.40, Xmin=0.02. Leu family: Xavg=0.166667, Xmax=0.50.
+
+| Window | Hand-computed (Clarke&Clark formula) | Live `CalculateMinMaxProfile` |
+|--------|--------------------------------------|-------------------------------|
+| 3× CGC (most common Arg), w=3 — **%Max>0** | (0.40−0.16667)/(0.40−0.16667)×100 = **+100** | +100.0000 ✓ |
+| 3× AGA (rarest Arg), w=3 — **%Min<0** | −(0.16667−0.04)/(0.16667−0.02)×100 = **−86.36364** | −86.36364 ✓ |
+| CUG(0.50)+AGA(0.04), w=2 — **%Max>0** | (0.54−0.33333)/((0.50−0.16667)+(0.40−0.16667))×100 = **+36.47059** | +36.47059 ✓ |
+
+Cluster hand-check: sequence = 10× common (CGC) + 7× rare (AGA). The 7 rare codons sit at
+codon indices 10–16. `FindRareCodons` flagged all 7 at nt positions 30,33,36,39,42,45,48 ✓.
+`FindRareCodonClusters` returned ONE cluster `codons 7..16, RareCount=7`: a 7-wide window at
+start 7 (covers 7–13) already holds codons 10–13 = 4 rare ≥ 4, so the qualifying-window union
+legitimately begins at codon 7; only the 7 true rare codons are counted. ✓ Sherlocc-correct,
+and isolated rare codons (C4) correctly yield NO cluster while per-codon detection still flags
+them — the exact capability the campaign added.
+
+### Edge-case semantics (all defined & sourced)
+empty/null → empty; non-multiple-of-3 → trailing partial codon dropped (`SplitIntoCodons`,
+`i+2 < length`); sequence shorter than window → empty; window<1 / minRare<1 → throws; %Max and
+%Min sign branches both exercised; threshold boundary (3 rare = no cluster, 4 rare = cluster,
+strict `<` for %MinMax rare); single-codon AA → 0 not NaN; DNA T→U normalised; organism-specific
+(AGA rare in E. coli, common 0.48 in yeast).
+
+### Test quality audit (HARD gate — PASS)
+45 tests total across the two fixtures. Expected values trace to Clarke&Clark/Chartier and the
+hand-math above (e.g. −86.36363636363637, +100, +36.470588235294116, cluster boundaries 0..6 /
+0..9 / 7..16), NOT code echoes. Real assertions (exact positions, codons, AAs, frequencies to
+1e-10/1e-12, counts, bounds invariant [−100,100], determinism) — no no-throw tautologies, no
+green-washing. Every public method/overload and every Stage-A path covered.
+
+### Findings / divergences (PASS-WITH-NOTES, not defects)
+1. **Sherlocc "slow/pause" criterion is simplified.** The paper derives the per-position rare
+   cutoff statistically (extreme-value fit over a 7-codon usage average); the implementation
+   uses a simpler per-codon fraction threshold (default 0.15) — the SAME criterion as
+   `FindRareCodons`. The published **window=7, ≥4-of-7** rule is reproduced verbatim and the
+   per-position criterion is documented and fully parameterizable (`rareThreshold`). Documented
+   simplification of an intentionally lighter-weight, table-driven variant; not a code defect.
+2. The %MinMax metric uses the per-family relative **fraction** (Kazusa "fraction" column),
+   consistent with Clarke & Clark's `Xij` and with `FindRareCodons`; `w = f/f_max` is used
+   separately for CAI. Agree.
+
+### Verdict
+Stage A **PASS-WITH-NOTES** (formulas, windows, thresholds, sign convention all confirmed
+verbatim against the two primary papers; one documented simplification of the Sherlocc
+per-position criterion). Stage B **PASS** (code realises both formulas exactly; live library
+reproduces every hand-computed number; 45/45 tests green; full `dotnet test Seqeron.sln`
+= 0 failed, Genomics 18787 passed). **State: ✅ CLEAN.**

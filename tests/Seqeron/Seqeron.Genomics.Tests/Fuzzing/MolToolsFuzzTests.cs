@@ -6,7 +6,7 @@ using FluentAssertions;
 using Seqeron.Genomics.Core;
 using Seqeron.Genomics.MolTools;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the MolTools area — CRISPR PAM (protospacer adjacent motif)

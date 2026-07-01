@@ -4,7 +4,7 @@ using FluentAssertions;
 using Seqeron.Genomics.Oncology;
 using static Seqeron.Genomics.Oncology.OncologyAnalyzer;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the Oncology homologous-recombination-deficiency area — ONCO-HRD-001.

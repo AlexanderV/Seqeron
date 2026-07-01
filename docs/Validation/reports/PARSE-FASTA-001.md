@@ -1,9 +1,9 @@
 # Validation Report: PARSE-FASTA-001 — FASTA format parser
 
-- **Validated:** 2026-06-24   **Area:** FileIO
-- **Canonical method(s):** `FastaParser.Parse`, `FastaParser.ParseFile`, `FastaParser.ParseFileAsync`, `FastaParser.ToFasta`, `FastaParser.WriteFile` (in `src/Seqeron/Algorithms/Seqeron.Genomics.IO/FastaParser.cs`); record type `FastaEntry`.
+- **Validated:** 2026-06-25 (re-validated; original 2026-06-24)   **Area:** FileIO
+- **Canonical method(s):** `FastaParser.Parse`, `FastaParser.ParseFile`, `FastaParser.ParseFileAsync`, `FastaParser.ToFasta`, `FastaParser.WriteFile`, plus the `SequenceAlphabet` overloads (in `src/Seqeron/Algorithms/Seqeron.Genomics.IO/FastaParser.cs`); record types `FastaEntry`, `FastaRecord`.
 - **Stage A verdict:** PASS
-- **Stage B verdict:** PASS-WITH-NOTES
+- **Stage B verdict:** PASS  _(see "Re-validation 2026-06-25" below; supersedes the earlier PASS-WITH-NOTES once the DNA-only scope note was addressed by the opt-in alphabets)_
 
 ## Stage A — Description
 
@@ -82,6 +82,62 @@ None at the description level. TestSpec/Evidence accurately capture the sourced 
 - **Stage A: PASS.** Format model (id=first word, description=remainder, multi-line concat, multi-record, whitespace stripped, lowercase→upper, 80-col output) is correct and matches Wikipedia + the Biopython reference convention.
 - **Stage B: PASS-WITH-NOTES.** Code faithfully realises the validated FASTA model; all 34 tests pass with exact-value assertions. Notes: (1) DNA-only scope — non-ACGT FASTA throws via `DnaSequence` validation (scope boundary, not a parse bug); (2) cosmetic leading-whitespace retention in description on multi-space headers.
 - **End state: CLEAN.** No code change required; no half-fix. The two notes are scope/cosmetic, not defects in the parsing unit.
+
+## Re-validation 2026-06-25 — fresh Stage A/B (post opt-in multi-alphabet mode)
+
+Independent re-validation of the extended unit (canonical parse surface + `SequenceAlphabet`
+overloads). External sources retrieved THIS session; repo TestSpec/Evidence/tests not trusted.
+
+- **Stage A verdict:** PASS
+- **Stage B verdict:** PASS
+
+### Sources retrieved this session
+- **Wikipedia "FASTA format"** (fetched 2026-06-25): record begins with `>` + single-line header;
+  multi-FASTA = concatenated records each starting `>`; "lower-case letters are accepted and are
+  mapped into upper-case"; "anything other than a valid character would be ignored (including
+  spaces, tabulators, asterisks…)"; lines "typically no more than 80 characters". First-word-as-id
+  is the Biopython default title convention.
+- **Wikipedia "Nucleic acid notation"** (NC-IUB 1985; fetched 2026-06-25): IUPAC nucleotide set =
+  A C G T U + W S M K R Y B D H V N, plus gap `-`. Confirmed letter-for-letter.
+- **bioinformatics.org SMS2 IUPAC** (fetched 2026-06-25): amino-acid one-letter codes = 20 standard
+  (A R N D C Q E G H I L K M F P S T W Y V) + B (Asx) Z (Glx) J (Xle) X (Xaa) + U (Sec) O (Pyl) +
+  `*` (termination); `-`/`.` listed as gap.
+
+### Stage A — alphabet membership confirmed vs source
+| Alphabet | Code set in source | `FastaParser` set | Match |
+|----------|--------------------|--------------------|-------|
+| StrictDna | A C G T | A C G T | ✓ |
+| Rna | A C G U | A C G U | ✓ |
+| IupacNucleotide | A C G T U R Y S W K M B D H V N + `-` | identical | ✓ |
+| Protein | 20 + B Z J X + U O + `*` | identical | ✓ |
+Note: Protein set excludes the gap `-`/`.`; defensible for a strict-residue alphabet (no defect).
+
+### Stage B — independent cross-check (run against built library, 2026-06-25)
+Parsed small inputs directly through the compiled overloads:
+| Mode | Input | Parsed result | Verdict |
+|------|-------|---------------|---------|
+| default | `>seq1 First desc\r\nAA aa\r\n\r\nCCCC\r\n>seq2\tTab Desc\nGGGGtttt` | rec1 id=`seq1` desc=`First desc` seq=`AAAACCCC`; rec2 id=`seq2` desc=`Tab Desc` seq=`GGGGTTTT`; count=2 | CRLF stripped, blank line skipped, intra-line ws ignored, lc→UC, space+tab header split — byte-identical to pre-change ✓ |
+| default strict | `AUGC` / `ACGTNRY` / `MWYK` | all throw `ArgumentException` (U/N/M rejected) | ✓ |
+| Rna | `>rna1 messenger\naugcAUGC\nGGUU` | id=`rna1` desc=`messenger` seq=`AUGCAUGCGGUU` (U kept) | ✓; T rejected ✓ |
+| Protein | `>prot1 sample\nARNDCQEGHILKMFPSTWYV\nBZXUOJ*` | seq=`ARNDCQEGHILKMFPSTWYVBZXUOJ*` (27 chars, all preserved) | ✓; `@` rejected ✓ |
+| IupacNucleotide | `>amb degenerate\nACGTNRYSWKMBDHV-U` | seq=`ACGTNRYSWKMBDHV-U` (ambiguity+gap+U) | ✓; `E` rejected ✓ |
+
+### Stage B — test-quality audit
+Full unfiltered `dotnet test Seqeron.sln -c Debug` = **0 failed** (Seqeron.Genomics.Tests: 18819
+passed). FASTA coverage: `FastaParserTests.cs` (default path: multi-record, multi-line concat,
+empty/whitespace-only, header±desc, NCBI pipes, tab delimiter, blank lines, CRLF, header-without-
+sequence, lowercase, line-width boundaries, round-trip, file/async I/O); `FastaParser_Alphabet_Tests.cs`
+(14 tests: RNA-U preserved, protein W/Y/`*`/B/Z/J/X/U/O, IUPAC ambiguity+gap, per-mode reject, and
+the StrictDna/default regressions); `FastaParser_MutationKillers_Tests.cs` (async flush guards +
+exact wrap output). Assertions are exact `Is.EqualTo`/`Should().Be` on source-traced values, not
+code echoes; every public method/overload and every Stage-A edge case is covered.
+
+### Re-validation verdict
+**Stage A PASS / Stage B PASS / End-state CLEAN.** Alphabets trace letter-for-letter to NC-IUB 1985
+and the IUPAC amino-acid codes; record structure traces to the FASTA spec; the default DNA-only path
+is confirmed byte-identical to the pre-change behaviour. No defect; no code change required.
+
+---
 
 ## Update 2026-06-24 — opt-in multi-alphabet mode (limitation fix)
 

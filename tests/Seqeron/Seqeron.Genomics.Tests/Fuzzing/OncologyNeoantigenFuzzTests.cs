@@ -6,7 +6,7 @@ using FluentAssertions;
 using Seqeron.Genomics.Oncology;
 using static Seqeron.Genomics.Oncology.OncologyAnalyzer;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the Oncology neoantigen candidate-peptide windowing unit — ONCO-NEO-001.
@@ -71,8 +71,8 @@ namespace Seqeron.Genomics.Tests;
 ///       (mutantResidue == WT) / minLength &lt; 1 / maxLength &lt; minLength ⇒ ArgumentException;
 ///       mutationPosition ∉ [1, L] ⇒ ArgumentOutOfRangeException; k &gt; L skipped; empty if none fit.
 ///   • §6.1: mutation at terminus ⇒ truncated count of fitting windows; requested length &gt; L skipped.
-///   • §7.1 worked example: GenerateNeoantigenPeptides("MKTAYIAKQRSTVWLNDEFGH", 'C', 5) ⇒ 20 peptides
-///       (5 per length 8..11); first 8-mer Mutant "MKTACIAK", WildType "MKTAYIAK", Start 1, Offset 4.
+///   • §7.1 worked example: GenerateNeoantigenPeptides("MKTAYIAKQRSTVWLNDEFGH", 'C', 5) ⇒ 35 peptides
+///       (5 per length 8..14); first 8-mer Mutant "MKTACIAK", WildType "MKTAYIAK", Start 1, Offset 4.
 ///
 /// All randomness is LOCALLY seeded (new Random(seed)); no shared static Rng.
 /// </summary>
@@ -180,15 +180,15 @@ public sealed class OncologyNeoantigenFuzzTests
     [Test]
     public void GenerateNeoantigenPeptides_WorkedExample_MatchesDocumentedWindows()
     {
-        // Docs §7.1: MKTAYIAKQRSTVWLNDEFGH (L=21), Y5C, default 8..11 ⇒ 20 peptides (5 per length).
+        // Docs §7.1: MKTAYIAKQRSTVWLNDEFGH (L=21), Y5C, default 8..14 ⇒ 35 peptides (5 per length).
         const string wt = "MKTAYIAKQRSTVWLNDEFGH";
         var peptides = GenerateNeoantigenPeptides(wt, 'C', 5);
 
-        peptides.Should().HaveCount(20, "5 windows × 4 lengths (8..11) for an interior residue");
-        AssertWellFormedPeptides(peptides, wt, 'C', 5, 8, 11);
+        peptides.Should().HaveCount(35, "5 windows × 7 lengths (8..14) for an interior residue near the N-terminus");
+        AssertWellFormedPeptides(peptides, wt, 'C', 5, 8, 14);
 
-        // Exactly 5 per length.
-        for (int k = 8; k <= 11; k++)
+        // Exactly 5 per length (p=5 keeps the right clamp at 5 for every k≤14 since 21-k+1 ≥ 8 ≥ 5).
+        for (int k = 8; k <= 14; k++)
         {
             peptides.Count(p => p.Length == k).Should().Be(5, $"length {k} yields 5 spanning windows for Y5C in L=21");
         }
@@ -208,7 +208,7 @@ public sealed class OncologyNeoantigenFuzzTests
         var rng = new Random(109_001);
         for (int trial = 0; trial < 200; trial++)
         {
-            int proteinLength = rng.Next(25, 60);
+            int proteinLength = rng.Next(31, 60);
             var chars = new char[proteinLength];
             for (int i = 0; i < proteinLength; i++)
             {
@@ -216,14 +216,14 @@ public sealed class OncologyNeoantigenFuzzTests
             }
             string wt = new(chars);
 
-            // Pick a deeply interior position (≥ 11 from both ends, so all k∈8..11 are interior).
-            int pos = rng.Next(12, proteinLength - 10); // 1-based; comfortably interior.
+            // Pick a deeply interior position (≥ 14 from both ends, so all k∈8..14 are interior).
+            int pos = rng.Next(15, proteinLength - 13); // 1-based; comfortably interior.
             char mut = DifferentResidue(rng, wt[pos - 1]);
 
             var peptides = GenerateNeoantigenPeptides(wt, mut, pos);
-            AssertWellFormedPeptides(peptides, wt, mut, pos, 8, 11);
+            AssertWellFormedPeptides(peptides, wt, mut, pos, 8, 14);
 
-            for (int k = 8; k <= 11; k++)
+            for (int k = 8; k <= 14; k++)
             {
                 peptides.Count(p => p.Length == k).Should().Be(k,
                     $"interior mutation ⇒ exactly k={k} windows of length {k} (INV-05)");
@@ -273,10 +273,10 @@ public sealed class OncologyNeoantigenFuzzTests
             act.Should().NotThrow("terminus mutation must clip, never crash (§6.1)");
             var peptides = act();
 
-            AssertWellFormedPeptides(peptides, wt, mut, pos, 8, 11);
+            AssertWellFormedPeptides(peptides, wt, mut, pos, 8, 14);
 
             // The count matches the documented clipped range for each length.
-            for (int k = 8; k <= 11; k++)
+            for (int k = 8; k <= 14; k++)
             {
                 peptides.Count(p => p.Length == k).Should().Be(ExpectedWindowCount(proteinLength, pos, k),
                     $"clipped window count for k={k} at terminus pos={pos}, L={proteinLength}");
@@ -343,7 +343,7 @@ public sealed class OncologyNeoantigenFuzzTests
             act.Should().NotThrow("stop-gain '*' is an opaque substitution, no crash (§3.3)");
             var peptides = act();
 
-            AssertWellFormedPeptides(peptides, wt, '*', pos, 8, 11);
+            AssertWellFormedPeptides(peptides, wt, '*', pos, 8, 14);
             foreach (var p in peptides)
             {
                 p.MutantPeptide[p.MutationOffset].Should().Be('*', "stop-gain residue carried at the offset");
@@ -372,16 +372,16 @@ public sealed class OncologyNeoantigenFuzzTests
             int pos = rng.Next(1, len + 1);
             char mut = DifferentResidue(rng, wt[pos - 1]);
 
-            var act = () => GenerateNeoantigenPeptides(wt, mut, pos); // default 8..11, all > L.
+            var act = () => GenerateNeoantigenPeptides(wt, mut, pos); // default 8..14, all > L.
             act.Should().NotThrow($"protein length {len} < min length 8 ⇒ empty, not a crash");
-            act().Should().BeEmpty($"no 8..11-mer fits in a length-{len} protein (§3.3)");
+            act().Should().BeEmpty($"no 8..14-mer fits in a length-{len} protein (§3.3)");
         }
     }
 
     [Test]
     public void GenerateNeoantigenPeptides_SingleResidueProtein_DefaultLengths_Empty()
     {
-        // The extreme non-coding edge: a 1-residue protein. The only valid position is 1; no k∈8..11 fits.
+        // The extreme non-coding edge: a 1-residue protein. The only valid position is 1; no k∈8..14 fits.
         var peptides = GenerateNeoantigenPeptides("M", 'K', 1);
         peptides.Should().BeEmpty();
     }
@@ -393,16 +393,16 @@ public sealed class OncologyNeoantigenFuzzTests
     [Test]
     public void GenerateNeoantigenPeptides_RangeStraddlingProteinLength_SkipsOversizedLengths()
     {
-        // length<8 target: a protein of length 9 with the default 8..11 range. k=8,9 fit; k=10,11 (> L) must
+        // length<8 target: a protein of length 9 with the default 8..14 range. k=8,9 fit; k=10..14 (> L) must
         // be skipped (the L−k < 0 substring length must never reach Substring). Shorter lengths still return.
         const string wt = "MKTAYIAKQ"; // L = 9.
-        var peptides = GenerateNeoantigenPeptides(wt, 'C', 5); // default 8..11.
+        var peptides = GenerateNeoantigenPeptides(wt, 'C', 5); // default 8..14.
 
         peptides.Should().OnlyContain(p => p.Length == 8 || p.Length == 9,
-            "k=10,11 (> L=9) are skipped (§3.3, §6.1)");
+            "k=10..14 (> L=9) are skipped (§3.3, §6.1)");
         peptides.Should().Contain(p => p.Length == 8);
         peptides.Should().Contain(p => p.Length == 9);
-        AssertWellFormedPeptides(peptides, wt, 'C', 5, 8, 11);
+        AssertWellFormedPeptides(peptides, wt, 'C', 5, 8, 14);
     }
 
     [Test]

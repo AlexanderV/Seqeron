@@ -301,6 +301,55 @@ automatically** by a full Primer3 `ntthal` hairpin DP. The legacy SantaLucia & H
 - **Checklist:** root-registry Status remains `☐` (re-validation); Quick-Reference counts unchanged.
 - **LIMITATIONS.md:** the PRIMER-TM-001 row is **removed** — no residual remains for PRIMER-TM-001.
 
+## 2026-06-25 re-validation (fresh context) — canonical surface only (Tm + Primer3 penalty)
+
+Re-validated fresh after the limitation-elimination campaign touched the surrounding `PrimerDesigner`
+code (NN / hairpin / dimer methods were split into the SEPARATE units PRIMER-NNTM-001 /
+PRIMER-HAIRPIN-001 / PRIMER-DIMER-001 — NOT re-litigated here). This session re-validated ONLY
+PRIMER-TM-001's own canonical surface per its registry row: the basic Tm formulas
+(`CalculateMeltingTemperature`, `CalculateMeltingTemperatureWithSalt`, `ThermoConstants` helpers) and
+the `CalculatePrimer3Penalty` objective.
+
+### Sources retrieved THIS session (not the repo's own artefacts)
+- **Primer3 `libprimer3.cc` (branch main)** downloaded verbatim (10037 lines). Read `p_obj_fn` (def. at
+  line 3895): the `OT_LEFT||OT_RIGHT` branch with `thermodynamic_oligo_alignment==0` accumulates exactly
+  `temp_gt`/`temp_lt` (strict `>`/`<` gates), `gc_content_gt`/`_lt`, `length_lt`/`length_gt`, `compl_any`,
+  `compl_end`, `num_ns` — each gated on `if(weight && sign)`. `h->gc_content = 100.0*num_gc/num_gcat`
+  (line 3856) → **GC is a percentage 0–100**. `pr_set_default_global_args_1`: `opt_size=20`, `opt_tm=60.0`,
+  weights `temp_gt=temp_lt=length_gt=length_lt=1`, `gc_content_gt=gc_content_lt=compl_any=compl_end=num_ns=0`.
+  `DEFAULT_OPT_GC_PERCENT = PR_UNDEFINED_INT_OPT` (line 539) — the *source* default is undefined but the GC
+  weight is 0 so it is inert; the user-facing **manual** default is `PRIMER_OPT_GC_PERCENT = 50.0` (used here).
+- **Wallace rule** `Tm = 2(A+T)+4(G+C)` (short oligos ≤14 b) and **Marmur-Doty / basic-GC**
+  `Tm = 64.9 + 41·(GC−16.4)/N` re-confirmed via web sources (gene-quantification / Sigma-Aldrich Tm protocol).
+- **primer3-py 2.3.0** present; `calc_tm` (SantaLucia NN model) returned 59.60 / 83.41 / 53.53 for the three
+  20/16-mers — a DIFFERENT model from this unit's Wallace/Marmur-Doty (NN belongs to PRIMER-NNTM-001), so it
+  is a reference contrast, not an oracle for the basic Tm.
+
+### Independent cross-check (exact numbers, re-derived this session)
+- **Wallace:** ATATATAT=16, GCGCGCGC=32, ACGTACGT=24, A=2, G=4, 13-mer(7AT/6GC)=38, ACGT=12.
+- **Marmur-Doty:** 20bp/10GC=51.78, 20bp/0GC=31.28, 20bp/20GC=72.28, 14bp/7GC=37.3714…, 16bp/0GC=22.875,
+  25bp/12GC=57.684.
+- **Salt:** 16.6·log10(Na/1000): 50mM=−21.597098, 10mM=−33.2, 200mM=−11.602902.
+- **Primer3 penalty** (default weights unless noted): M1(60/20/50)=0, M2(Tm63)=3, M3(Tm57,len18)=5,
+  M4(Tm62.5,len22)=4.5, M5(GcGt0.5,GC60)=5, M6(GcLt0.5,GC40)=5, M7(SelfAny0.1·4)=0.4, M8(SelfEnd0.2·3)=0.6,
+  M9(NumNs1·2)=2, M10(combined)=8, S1(Tm60,huge wts)=0, S2(asym TmGt2,Tm62)=4, C1 near=0.5/far=11, C2(GcGt1,
+  GcLt1,GC50)=0. Every value matches the C# tests' asserted constants (to 1e-10 for the penalty).
+
+### Verdict (re-validation)
+- **Stage A: PASS-WITH-NOTES** — formulas correct & sourced; the only notes are the documented Wallace −7
+  omission and the GC-default-undefined-in-source-but-50.0-in-manual nuance (inert at weight 0). Unchanged.
+- **Stage B: PASS** — `CalculatePrimer3Penalty` reproduces `p_obj_fn`'s non-thermodynamic branch term-for-term
+  with the same `weight!=0 && sign` gating; `GcPercent` is 0–100 (matches `gc_content`); defaults exact.
+  `CalculateMeltingTemperature` does Wallace `<14` valid ACGT bases else Marmur-Doty (clamped ≥0);
+  `…WithSalt` adds `16.6·log10(Na/1000)`. ThermoConstants helpers exact.
+- **Test-quality gate: PASS** — every public method/overload covered; expected values trace to the
+  sources/hand-computation (M11 locks defaults, C2 guards GC-percent-vs-fraction, S2 guards one-sided weights),
+  not code echoes; Stage-A edge cases (empty/null, short/long, all-AT/all-GC, single base, boundary 13/14,
+  non-ACGT, RNA-U, salt variations, penalty optimum/asymmetric/non-negativity) all exercised.
+- **State: CLEAN.** No code or test change required. Full unfiltered `dotnet test Seqeron.sln -c Debug`:
+  Failed 0 (Seqeron.Genomics.Tests 18780 passed; SuffixTree 357; MCP 70/66/163; SuffixTree.Persistent included).
+- No defects logged.
+
 ## Verdict & follow-ups
 - **Stage A: PASS-WITH-NOTES** (Tm portion: documented Wallace −7 omission + Marmur-Doty simplification; prompt's
   "Tm uses SantaLucia NN" is a framing inaccuracy — NN is in 3'-stability only). **Stage B: PASS.**

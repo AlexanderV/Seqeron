@@ -121,6 +121,8 @@ Repeat content is estimated from repeated 15-mers, and GC variability is the sta
 - `ChromosomeAnalyzer.EstimateRepeatContent(...)`: estimates repetitiveness from repeated 15-mers.
 - `ChromosomeAnalyzer.CalculateGcVariability(...)`: measures GC variability over fixed sub-windows.
 - `ChromosomeAnalyzer.DetermineCentromereType(...)`: assigns the Levan-based centromere class from the final midpoint.
+- `ChromosomeAnalyzer.DetectAlphaSatellite(...)` / `FindCenpBBoxes(...)` / `DetectHigherOrderRepeat(...)`: opt-in alpha-satellite-specific detection (171-bp tandem + AT + CENP-B box; HOR structure).
+- `ChromosomeAnalyzer.AssignSuprachromosomalFamily(...)` / `LoadBundledAlphaSatelliteReference()`: **opt-in** suprachromosomal-family (SF) assignment against a bundled **CC0** Dfam alpha-satellite reference (additive; does not change the detectors above).
 
 ### 5.2 Current Behavior
 
@@ -140,7 +142,7 @@ The initial scan uses overlapping windows and a 15-mer repeat heuristic, while G
 
 **Not implemented:**
 
-- Reference alpha-satellite database matching; **users should rely on:** no current alternative.
+- **SF1-vs-SF2 separation and chromosome-specific HOR identity.** `AssignSuprachromosomalFamily` assigns SF3 (pentameric), SF4 (monomeric A-type) and SF5 (irregular A/B) and narrows dimeric arrays to {SF1, SF2} from the bundled CC0 reference (Dfam ALR/ALRa/ALRb) + HOR period + A/B-box composition (Shepelev 2009; McNulty & Sullivan 2018[5][6]). Separating SF1 from SF2 (both dimeric, identical A→B pattern), and tagging SF3 arrays whose period is not a multiple of 5 (e.g. the dodecameric DXZ1), need the **SF-resolved consensus monomer library** (J1/J2/D1/D2/W1–W5/M1/R1/R2); those sequences are only in unlicensed third-party HMM repos and are not CC0/redistributable. **users should rely on:** a caller-supplied `reference` of SF-resolved consensus monomers.
 - Multi-candidate or uncertainty-ranked centromere reporting; **users should rely on:** no current alternative.
 
 ### 5.4 Deviations and Assumptions
@@ -171,7 +173,10 @@ This implementation is heuristic. It does not use reference alpha-satellite libr
 ### 7.3 Related Tests, Evidence, or Documents
 
 - Tests: [ChromosomeAnalyzer_Centromere_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/ChromosomeAnalyzer_Centromere_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
+- Tests (SF assignment): [ChromosomeAnalyzer_SuprachromosomalFamily_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/ChromosomeAnalyzer_SuprachromosomalFamily_Tests.cs)
+- Bundled CC0 reference + provenance: [Resources/README.md](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Chromosome/Resources/README.md)
 - Test specification: [CHROM-CENT-001.md](../../../tests/TestSpecs/CHROM-CENT-001.md)
+- Evidence: [CHROM-CENT-001-Evidence.md](../../../docs/Evidence/CHROM-CENT-001-Evidence.md)
 - Related algorithms: [Karyotype_Analysis.md](Karyotype_Analysis.md)
 
 ## 8. References
@@ -180,3 +185,6 @@ This implementation is heuristic. It does not use reference alpha-satellite libr
 2. Levan A, Fredga K, Sandberg AA. 1964. Nomenclature for centromeric position on chromosomes. Hereditas. N/A
 3. Mehta GD, Agarwal MP, Ghosh SK. 2010. Centromere identity: a challenge to be faced. Molecular Genetics and Genomics. N/A
 4. Wikipedia contributors. 2026. Karyotype. Wikipedia. https://en.wikipedia.org/wiki/Karyotype
+5. McNulty SM, Sullivan BA. 2018. Alpha satellite DNA biology: finding function in the recesses of the genome. Chromosome Research 26:115–138. https://pmc.ncbi.nlm.nih.gov/articles/PMC6121732/
+6. Shepelev VA, Uralsky LI, Alexandrov AA, Yurov YB, Rogaev EI, Alexandrov IA. 2009. The evolutionary origin of man can be traced in the layers of defunct ancestral alpha satellites … PLOS Genetics 5(9):e1000641. https://doi.org/10.1371/journal.pgen.1000641
+7. Storer J, Hubley R, Rosen J, Wheeler TJ, Smit AF. 2021. The Dfam community resource of transposable element families, sequence models, and genome annotations. Mobile DNA 12:2 (Dfam = CC0). https://doi.org/10.1186/s13100-020-00230-y

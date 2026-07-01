@@ -7,7 +7,7 @@ using Seqeron.Genomics.Alignment;
 using Seqeron.Genomics.Core;
 using Seqeron.Genomics.Infrastructure;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Metamorphic;
 
 /// <summary>
 /// Metamorphic tests for the Alignment area.

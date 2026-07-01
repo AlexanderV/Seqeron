@@ -12,7 +12,7 @@ using FluentAssertions;
 using Seqeron.Genomics.Analysis;
 using static Seqeron.Genomics.Analysis.RnaSecondaryStructure;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for RNA-PAIR-001 — <see cref="RnaSecondaryStructure.CanPair(char,char)"/> and

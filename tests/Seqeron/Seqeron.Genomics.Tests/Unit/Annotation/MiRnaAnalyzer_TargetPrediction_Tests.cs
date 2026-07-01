@@ -1,0 +1,1475 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using NUnit.Framework;
+using Seqeron.Genomics.Annotation;
+using Seqeron.Genomics.Phylogenetics;
+using static Seqeron.Genomics.Annotation.MiRnaAnalyzer;
+
+namespace Seqeron.Genomics.Tests.Unit.Annotation;
+
+/// <summary>
+/// MIRNA-TARGET-001: Target Site Prediction
+/// Canonical test file for FindTargetSites and target scoring.
+/// Evidence: Bartel (2009), Lewis et al. (2005), Grimson et al. (2007), TargetScan.
+/// </summary>
+[TestFixture]
+public class MiRnaAnalyzer_TargetPrediction_Tests
+{
+    #region Reference Data
+
+    // hsa-let-7a-5p: UGAGGUAGUAGGUUGUAUAGUU
+    // Seed (pos 2-8): GAGGUAG
+    // Seed RC: CUACCUC
+    private static readonly MiRna Let7a = CreateMiRna("let-7a", "UGAGGUAGUAGGUUGUAUAGUU");
+    private const string Let7aSeedRC = "CUACCUC";
+
+    // hsa-miR-21-5p: UAGCUUAUCAGACUGAUGUUGA
+    // Seed (pos 2-8): AGCUUAU
+    // Seed RC: AUAAGCU
+    private static readonly MiRna MiR21 = CreateMiRna("miR-21", "UAGCUUAUCAGACUGAUGUUGA");
+    private const string MiR21SeedRC = "AUAAGCU";
+
+    #endregion
+
+    #region M-001: 8mer site detected — Bartel (2009)
+
+    [Test]
+    public void FindTargetSites_8merSite_DetectedAndScoredHighest()
+    {
+        // 8mer: full seedRC (CUACCUC) + trailing A → CUACCUCA
+        // Evidence: Bartel (2009) — 8mer = positions 2-8 match + A opposite position 1
+        // Layout on mRNA (5'→3'): [seedRC] [A] where seedRC = RC of miRNA pos 2-8
+        string mrna = "GGGGG" + Let7aSeedRC + "A" + "GGGGG";
+
+        var sites = FindTargetSites(mrna, Let7a, minScore: 0.1).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites, Has.Count.EqualTo(1));
+            Assert.That(sites[0].Type, Is.EqualTo(TargetSiteType.Seed8mer));
+            Assert.That(sites[0].SeedMatchLength, Is.EqualTo(8));
+            Assert.That(sites[0].Score, Is.GreaterThanOrEqualTo(0.9));
+        });
+    }
+
+    #endregion
+
+    #region M-002: 7mer-m8 site detected — Bartel (2009)
+
+    [Test]
+    public void FindTargetSites_7merM8Site_Detected()
+    {
+        // 7mer-m8: full seed RC (CUACCUC) but no trailing A → trailing G
+        // Evidence: Bartel (2009) — 7mer-m8 = positions 2-8 match, no A at pos 1
+        string mrna = "GGGGG" + Let7aSeedRC + "G" + "GGGGG";
+
+        var sites = FindTargetSites(mrna, Let7a, minScore: 0.1).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites, Has.Count.EqualTo(1));
+            Assert.That(sites[0].Type, Is.EqualTo(TargetSiteType.Seed7merM8));
+            Assert.That(sites[0].SeedMatchLength, Is.EqualTo(7));
+        });
+    }
+
+    #endregion
+
+    #region M-003: 7mer-A1 site detected — Bartel (2009)
+
+    [Test]
+    public void FindTargetSites_7merA1Site_Detected()
+    {
+        // 7mer-A1: 6mer core (seedRC[1:7] = UACCUC, RC of pos 2-7) + trailing A
+        // No upstream seedRC[0]='C' → prevents upgrade to 8mer
+        // Evidence: Bartel (2009) — 7mer-A1 = positions 2-7 + A opposite position 1
+        string sixmerCore = Let7aSeedRC[1..]; // UACCUC (RC of miRNA positions 2-7)
+        string mrna = "GGGGG" + sixmerCore + "A" + "GGGGG";
+
+        var sites = FindTargetSites(mrna, Let7a, minScore: 0.1).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites, Has.Count.EqualTo(1));
+            Assert.That(sites[0].Type, Is.EqualTo(TargetSiteType.Seed7merA1));
+            Assert.That(sites[0].SeedMatchLength, Is.EqualTo(7));
+        });
+    }
+
+    #endregion
+
+    #region M-004: 6mer site detected — Bartel (2009)
+
+    [Test]
+    public void FindTargetSites_6merSite_Detected()
+    {
+        // 6mer: 6mer core = seedRC[1:7] = UACCUC (RC of pos 2-7), no trailing A, no upstream seedRC[0]
+        // Evidence: Bartel (2009) — 6mer = positions 2-7 match only
+        string sixmerCore = Let7aSeedRC[1..]; // UACCUC (RC of miRNA positions 2-7)
+        string mrna = "GGGGG" + sixmerCore + "G" + "GGGGG";
+
+        var sites = FindTargetSites(mrna, Let7a, minScore: 0.01).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites, Has.Count.EqualTo(1));
+            Assert.That(sites[0].Type, Is.EqualTo(TargetSiteType.Seed6mer));
+            Assert.That(sites[0].SeedMatchLength, Is.EqualTo(6));
+        });
+    }
+
+    #endregion
+
+    #region M-005: Score monotonicity — Grimson (2007)
+
+    [Test]
+    public void FindTargetSites_ScoreMonotonicity_8mer_GT_7merM8_GT_7merA1_GT_6mer()
+    {
+        // Evidence: Grimson (2007) — efficacy hierarchy: 8mer > 7mer-m8 > 7mer-A1 > 6mer
+        // Grimson weights: 8mer=0.310, 7mer-m8=0.161, 7mer-A1=0.099
+        string sixmerCore = Let7aSeedRC[1..]; // UACCUC (RC of positions 2-7)
+
+        string mrna8mer = "GGGGG" + Let7aSeedRC + "A" + "GGGGG";
+        string mrna7merM8 = "GGGGG" + Let7aSeedRC + "G" + "GGGGG";
+        string mrna7merA1 = "GGGGG" + sixmerCore + "A" + "GGGGG";
+        string mrna6mer = "GGGGG" + sixmerCore + "G" + "GGGGG";
+
+        double score8mer = FindTargetSites(mrna8mer, Let7a, 0.01).First().Score;
+        double score7merM8 = FindTargetSites(mrna7merM8, Let7a, 0.01).First().Score;
+        double score7merA1 = FindTargetSites(mrna7merA1, Let7a, 0.01).First().Score;
+        double score6mer = FindTargetSites(mrna6mer, Let7a, 0.01).First().Score;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(score8mer, Is.GreaterThan(score7merM8), "8mer > 7mer-m8");
+            Assert.That(score7merM8, Is.GreaterThan(score7merA1), "7mer-m8 > 7mer-A1");
+            Assert.That(score7merA1, Is.GreaterThan(score6mer), "7mer-A1 > 6mer");
+        });
+    }
+
+    #endregion
+
+    #region M-006: Empty/null inputs — Defensive contract
+
+    [Test]
+    public void FindTargetSites_EmptyMrna_ReturnsEmpty()
+    {
+        Assert.That(FindTargetSites("", Let7a).ToList(), Is.Empty);
+    }
+
+    [Test]
+    public void FindTargetSites_EmptyMiRnaSequence_ReturnsEmpty()
+    {
+        var emptyMiRna = new MiRna();
+        Assert.That(FindTargetSites("AUGCAUGCAUGC", emptyMiRna).ToList(), Is.Empty);
+    }
+
+    #endregion
+
+    #region M-007: No match returns empty — Trivial correctness
+
+    [Test]
+    public void FindTargetSites_NoSeedMatch_ReturnsEmpty()
+    {
+        // All G's — no seed RC present
+        string mrna = new string('G', 30);
+        Assert.That(FindTargetSites(mrna, Let7a, 0.1).ToList(), Is.Empty);
+    }
+
+    #endregion
+
+    #region M-008: Multiple sites found — Bartel (2009)
+
+    [Test]
+    public void FindTargetSites_MultipleSites_AllFound()
+    {
+        // Evidence: each seed match site functions independently — Bartel (2009)
+        // Three 7mer-m8 sites (full seedRC + non-A) separated by GGG spacers
+        string site = Let7aSeedRC + "G"; // 7mer-m8 site (full seedRC + non-A)
+        string mrna = "GGG" + site + "GGG" + site + "GGG" + site + "GGG";
+
+        var sites = FindTargetSites(mrna, Let7a, minScore: 0.01).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites, Has.Count.EqualTo(3));
+            Assert.That(sites.All(s => s.Type == TargetSiteType.Seed7merM8), Is.True,
+                "All three sites should be classified as 7mer-m8");
+        });
+    }
+
+    #endregion
+
+    #region M-009: Score range [0, 1] — Implementation contract
+
+    [TestCase("GGGGG" + "CUACCUC" + "A" + "GGGGG")] // 8mer for let-7a
+    [TestCase("GGGGG" + "CUACCUC" + "G" + "GGGGG")] // 7mer-m8 for let-7a
+    [TestCase("GGGGG" + "UACCUC" + "A" + "GGGGG")]  // 7mer-A1 for let-7a
+    [TestCase("GGGGG" + "UACCUC" + "G" + "GGGGG")]  // 6mer for let-7a
+    [TestCase("GGGGG" + "CUACCU" + "G" + "GGGGG")]  // offset 6mer for let-7a
+    public void FindTargetSites_AllSites_ScoreInRange(string mrna)
+    {
+        var sites = FindTargetSites(mrna, Let7a, minScore: 0.0).ToList();
+
+        foreach (var site in sites)
+        {
+            Assert.That(site.Score, Is.InRange(0.0, 1.0),
+                $"Site type {site.Type} score out of range");
+        }
+    }
+
+    #endregion
+
+    #region M-010: minScore filtering — API contract
+
+    [Test]
+    public void FindTargetSites_HighMinScore_FiltersLowScoringSites()
+    {
+        // 6mer (Grimson base score ~0.15) should be filtered with high threshold
+        string sixmerCore = Let7aSeedRC[1..]; // UACCUC (RC of positions 2-7)
+        string mrna = "GGGGG" + sixmerCore + "G" + "GGGGG";
+
+        var withLowThreshold = FindTargetSites(mrna, Let7a, minScore: 0.01).ToList();
+        var withHighThreshold = FindTargetSites(mrna, Let7a, minScore: 0.99).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(withLowThreshold, Is.Not.Empty, "Low threshold should find 6mer");
+            Assert.That(withHighThreshold, Is.Empty, "High threshold should filter 6mer");
+        });
+    }
+
+    #endregion
+
+    #region M-011: AlignMiRnaToTarget — perfect complement — Watson-Crick
+
+    [Test]
+    public void AlignMiRnaToTarget_PerfectComplement_AllMatches()
+    {
+        // A pairs with U in antiparallel orientation
+        var duplex = AlignMiRnaToTarget("AAAA", "UUUU");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(duplex.Matches, Is.EqualTo(4));
+            Assert.That(duplex.Mismatches, Is.EqualTo(0));
+            Assert.That(duplex.GUWobbles, Is.EqualTo(0));
+        });
+    }
+
+    #endregion
+
+    #region M-012: AlignMiRnaToTarget — G:U wobble — Crick (1966)
+
+    [Test]
+    public void AlignMiRnaToTarget_GUWobblePairs_Detected()
+    {
+        // G pairs with U as wobble
+        var duplex = AlignMiRnaToTarget("GGGG", "UUUU");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(duplex.GUWobbles, Is.EqualTo(4));
+            Assert.That(duplex.Matches, Is.EqualTo(0));
+        });
+    }
+
+    #endregion
+
+    #region M-013: AlignMiRnaToTarget — mismatches — Trivial
+
+    [Test]
+    public void AlignMiRnaToTarget_SameBases_AllMismatches()
+    {
+        // A does not pair with A
+        var duplex = AlignMiRnaToTarget("AAAA", "AAAA");
+
+        Assert.That(duplex.Mismatches, Is.EqualTo(4));
+    }
+
+    #endregion
+
+    #region M-014: AlignMiRnaToTarget — empty input — Defensive
+
+    [Test]
+    public void AlignMiRnaToTarget_EmptyMiRna_ReturnsEmptyDuplex()
+    {
+        var duplex = AlignMiRnaToTarget("", "AAAA");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(duplex.Matches, Is.EqualTo(0));
+            Assert.That(duplex.MiRnaSequence, Is.Empty);
+        });
+    }
+
+    [Test]
+    public void AlignMiRnaToTarget_EmptyTarget_ReturnsEmptyDuplex()
+    {
+        var duplex = AlignMiRnaToTarget("AAAA", "");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(duplex.Matches, Is.EqualTo(0));
+            Assert.That(duplex.TargetSequence, Is.Empty);
+        });
+    }
+
+    #endregion
+
+    #region M-015: Free energy negative for paired duplex — Thermodynamics
+
+    [Test]
+    public void AlignMiRnaToTarget_WellPairedDuplex_NegativeFreeEnergy()
+    {
+        // Evidence: thermodynamic principle — stable duplexes have negative ΔG
+        string mirna = "UGAGGUAGUAGGUUGUAUAGUU";
+        string target = GetReverseComplement(mirna);
+
+        var duplex = AlignMiRnaToTarget(mirna, target);
+
+        Assert.That(duplex.FreeEnergy, Is.LessThan(0),
+            "Stable duplex should have negative free energy");
+    }
+
+    #endregion
+
+    #region M-016: Target site includes alignment string — API contract
+
+    [Test]
+    public void FindTargetSites_FoundSite_HasNonEmptyAlignment()
+    {
+        string mrna = "GGGGG" + Let7aSeedRC + "A" + "GGGGG";
+
+        var sites = FindTargetSites(mrna, Let7a, minScore: 0.1).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites, Has.Count.EqualTo(1));
+            Assert.That(sites[0].Alignment, Is.Not.Empty);
+        });
+    }
+
+    #endregion
+
+    #region M-017: DNA input (T) handled as RNA (U) — Implementation design
+
+    [Test]
+    public void FindTargetSites_DnaInput_ConvertedToRnaAndMatched()
+    {
+        // Same site but with T instead of U
+        string mrnaRna = "GGGGG" + Let7aSeedRC + "A" + "GGGGG";
+        string mrnaDna = mrnaRna.Replace('U', 'T');
+
+        var sitesRna = FindTargetSites(mrnaRna, Let7a, minScore: 0.1).ToList();
+        var sitesDna = FindTargetSites(mrnaDna, Let7a, minScore: 0.1).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sitesDna, Has.Count.EqualTo(sitesRna.Count));
+            Assert.That(sitesDna[0].Type, Is.EqualTo(sitesRna[0].Type));
+            Assert.That(sitesDna[0].Score, Is.EqualTo(sitesRna[0].Score).Within(0.001));
+        });
+    }
+
+    #endregion
+
+    #region S-001: Offset 6mer detected
+
+    [Test]
+    public void FindTargetSites_Offset6merSite_Detected()
+    {
+        // Offset 6mer: match to positions 3-8 of miRNA = seedRC[0..6] = CUACCU
+        // Must NOT have seedRC[6] match at position +6 (would make it part of full seedRC)
+        string offset6 = Let7aSeedRC[..6]; // CUACCU (RC of miRNA positions 3-8)
+        string mrna = "GGGGG" + offset6 + "G" + "GGGGG";
+
+        var sites = FindTargetSites(mrna, Let7a, minScore: 0.01).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites, Has.Count.EqualTo(1));
+            Assert.That(sites[0].Type, Is.EqualTo(TargetSiteType.Offset6mer));
+            Assert.That(sites[0].SeedMatchLength, Is.EqualTo(6));
+        });
+    }
+
+    #endregion
+
+    #region S-002: TargetSite record fields populated
+
+    [Test]
+    public void FindTargetSites_FoundSite_AllFieldsPopulated()
+    {
+        string mrna = "GGGGG" + Let7aSeedRC + "A" + "GGGGG";
+
+        var sites = FindTargetSites(mrna, Let7a, minScore: 0.1).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites, Has.Count.EqualTo(1));
+            var site = sites[0];
+            Assert.That(site.Start, Is.GreaterThanOrEqualTo(0));
+            Assert.That(site.End, Is.GreaterThan(site.Start));
+            Assert.That(site.TargetSequence, Is.Not.Empty);
+            Assert.That(site.MiRnaName, Is.EqualTo("let-7a"));
+            Assert.That(site.Score, Is.InRange(0.0, 1.0));
+            // FreeEnergy is the Turner 2004 nearest-neighbor stacking sum (MIRNA-PAIR-001);
+            // it is 0.0 when a sparse duplex has no consecutive paired stacks, so assert it is
+            // a finite value rather than non-zero (the old != 0.0 check assumed the removed
+            // invented per-position mismatch penalty).
+            Assert.That(double.IsFinite(site.FreeEnergy), Is.True);
+            Assert.That(site.Alignment, Is.Not.Empty);
+        });
+    }
+
+    #endregion
+
+    #region S-003: Real miRNA integration test
+
+    [Test]
+    public void FindTargetSites_Let7a_RealTargetSequence_FindsSite()
+    {
+        // Integration: Real let-7a against a constructed 3'UTR-like sequence
+        // mRNA contains CUACCUCA at positions 14-21 = 8mer site for let-7a
+        string mrna = "AUGGCUAAAGCUUUCUACCUCAGCUUAACCC";
+
+        var sites = FindTargetSites(mrna, Let7a, minScore: 0.1).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites, Has.Count.EqualTo(1));
+            Assert.That(sites[0].Type, Is.EqualTo(TargetSiteType.Seed8mer));
+        });
+    }
+
+    [Test]
+    public void FindTargetSites_MiR21_8merTarget_FindsSite()
+    {
+        // hsa-miR-21 seed RC = AUAAGCU; 8mer = AUAAGCUA
+        string mrna = "GGGGG" + MiR21SeedRC + "A" + "GGGGG";
+
+        var sites = FindTargetSites(mrna, MiR21, minScore: 0.1).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites, Has.Count.EqualTo(1));
+            Assert.That(sites[0].Type, Is.EqualTo(TargetSiteType.Seed8mer));
+        });
+    }
+
+    #endregion
+
+    #region E-001: Exact 0-based inclusive coordinates per site type — hand-construction
+
+    [Test]
+    public void FindTargetSites_SiteCoordinates_Are0BasedInclusivePerSiteType()
+    {
+        // Hand-derived from the construct layout (5-nt G flank, then the site).
+        // 8mer  = [seedRC][A] at index 5: spans the upstream nt8 (index 5) through A1 (index 12).
+        // 7m8   = [seedRC]    at index 5..11.
+        // 7A1   = [6merCore=UACCUC][A]: 6mer core starts at index 5, A1 at index 11 → 5..11.
+        // 6mer  = [6merCore]  at index 5..10.
+        // off6  = [CUACCU]    at index 5..10.
+        // Verified independently against the FindTargetSites geometry (Lewis 2005 antiparallel RC).
+        string core = Let7aSeedRC[1..]; // UACCUC
+
+        var s8mer = FindTargetSites("GGGGG" + Let7aSeedRC + "A" + "GGGGG", Let7a, 0.01).Single();
+        var s7m8 = FindTargetSites("GGGGG" + Let7aSeedRC + "G" + "GGGGG", Let7a, 0.01).Single();
+        var s7a1 = FindTargetSites("GGGGG" + core + "A" + "GGGGG", Let7a, 0.01).Single();
+        var s6mer = FindTargetSites("GGGGG" + core + "G" + "GGGGG", Let7a, 0.01).Single();
+        var sOff6 = FindTargetSites("GGGGG" + Let7aSeedRC[..6] + "G" + "GGGGG", Let7a, 0.01).Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((s8mer.Start, s8mer.End), Is.EqualTo((5, 12)), "8mer spans nt8..A1 = 5..12");
+            Assert.That((s7m8.Start, s7m8.End), Is.EqualTo((5, 11)), "7mer-m8 = 5..11");
+            Assert.That((s7a1.Start, s7a1.End), Is.EqualTo((5, 11)), "7mer-A1 = core start 5 .. A1 11");
+            Assert.That((s6mer.Start, s6mer.End), Is.EqualTo((5, 10)), "6mer = 5..10");
+            Assert.That((sOff6.Start, sOff6.End), Is.EqualTo((5, 10)), "offset-6mer = 5..10");
+            // End - Start + 1 must equal the seed-match length for every site.
+            Assert.That(s8mer.End - s8mer.Start + 1, Is.EqualTo(s8mer.SeedMatchLength));
+            Assert.That(s6mer.End - s6mer.Start + 1, Is.EqualTo(s6mer.SeedMatchLength));
+        });
+    }
+
+    #endregion
+
+    #region E-002: Targeting is by reverse complement, NOT verbatim seed identity — Lewis (2005)
+
+    [Test]
+    public void FindTargetSites_VerbatimSeedIdentity_NotMatched()
+    {
+        // Lewis (2005): a target site is the REVERSE COMPLEMENT of the seed, sought antiparallel.
+        // The verbatim seed (GAGGUAG) is NOT its own reverse complement (CUACCUC), so embedding the
+        // seed itself must yield ZERO sites. This is the catastrophic-error checkpoint: a code that
+        // matched seed identity instead of RC would (wrongly) return a site here.
+        string mrna = "GGGGG" + Let7a.SeedSequence + "GGGGG"; // GAGGUAG, not its RC
+
+        Assert.That(FindTargetSites(mrna, Let7a, 0.0).ToList(), Is.Empty,
+            "Verbatim seed identity must NOT be detected — targets are the seed reverse complement");
+    }
+
+    #endregion
+
+    #region E-003: Seed scan requires an EXACT Watson-Crick match — one seed mismatch → no site
+
+    [Test]
+    public void FindTargetSites_SingleSeedMismatch_NotMatched()
+    {
+        // FindTargetSites scans for an exact 6mer-core substring (RC of miRNA pos 2-7). A single
+        // substitution inside the core breaks the seed match: per Bartel (2009) the canonical site
+        // types require perfect seed complementarity (G:U wobble in the seed is NOT a canonical site).
+        // 6mer core (RC of pos 2-7) = UACCUC; mutate the central C→A → UAACUC (no longer the core).
+        string brokenCore = "UAACUC";
+        string mrna = "GGGGG" + brokenCore + "A" + "GGGGG";
+
+        Assert.That(FindTargetSites(mrna, Let7a, 0.0).ToList(), Is.Empty,
+            "A single mismatch in the seed core must abolish the canonical seed match");
+    }
+
+    [Test]
+    public void FindTargetSites_SeedWobbleNotCountedAsMatch()
+    {
+        // A G:U wobble inside the seed (replace a target C with U, where the miRNA would WC-pair G)
+        // is NOT a canonical exact seed match. UACCUC → UAUCUC (pos-3 C→U) must not be detected.
+        string wobbleCore = "UAUCUC";
+        string mrna = "GGGGG" + wobbleCore + "G" + "GGGGG";
+
+        Assert.That(FindTargetSites(mrna, Let7a, 0.0).ToList(), Is.Empty,
+            "Seed-region G:U wobble is not a canonical exact seed match (Bartel 2009)");
+    }
+
+    #endregion
+
+    #region E-004: 8mer dominance — A1 + m8 both present classifies as 8mer (not 7mer-m8/7mer-A1)
+
+    [Test]
+    public void FindTargetSites_A1AndM8BothPresent_ClassifiesAs8mer()
+    {
+        // When BOTH the position-8 Watson-Crick match (upstream seedRC[0]) AND the A1 anchor
+        // (downstream A) are present, the site is an 8mer — the most efficacious type
+        // (Bartel 2009: 8mer = seed match flanked by both the m8 pair and the A1). It must NOT
+        // be reported as 7mer-m8 or 7mer-A1, and exactly one site is returned.
+        string mrna = "GGGGG" + Let7aSeedRC + "A" + "GGGGG"; // CUACCUC + A
+
+        var sites = FindTargetSites(mrna, Let7a, 0.0).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites, Has.Count.EqualTo(1), "8mer is reported once, not split into m8 + A1");
+            Assert.That(sites[0].Type, Is.EqualTo(TargetSiteType.Seed8mer));
+            Assert.That(sites.Any(s => s.Type == TargetSiteType.Seed7merM8), Is.False);
+            Assert.That(sites.Any(s => s.Type == TargetSiteType.Seed7merA1), Is.False);
+        });
+    }
+
+    #endregion
+
+    #region E-005: Short / non-ACGU mRNA — defensive, no spurious matches
+
+    [Test]
+    public void FindTargetSites_MrnaShorterThanSeedCore_ReturnsEmpty()
+    {
+        // mRNA shorter than the 6-nt seed core cannot contain a site.
+        Assert.Multiple(() =>
+        {
+            Assert.That(FindTargetSites("CUAC", Let7a, 0.0).ToList(), Is.Empty, "4 nt < 6mer core");
+            Assert.That(FindTargetSites("CUACC", Let7a, 0.0).ToList(), Is.Empty, "5 nt < 6mer core");
+        });
+    }
+
+    [Test]
+    public void FindTargetSites_NonAcguCharacters_DoNotMatchOrThrow()
+    {
+        // Ambiguity / non-ACGU symbols (N) are not complementary to any seed base, so a run of N
+        // must neither throw nor produce a spurious site; a valid site embedded among N is still found.
+        string allN = new string('N', 30);
+        string nFlanked = "NNNNN" + Let7aSeedRC + "A" + "NNNNN"; // valid 8mer flanked by N
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(FindTargetSites(allN, Let7a, 0.0).ToList(), Is.Empty, "all-N has no seed RC");
+            var flanked = FindTargetSites(nFlanked, Let7a, 0.0).ToList();
+            Assert.That(flanked, Has.Count.EqualTo(1), "the embedded 8mer is still found among N flanks");
+            Assert.That(flanked[0].Type, Is.EqualTo(TargetSiteType.Seed8mer));
+        });
+    }
+
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────────────────────
+    // TargetScan context++ scoring (Agarwal et al. 2015) — opt-in ScoreTargetSiteContextPlusPlus
+    //
+    // Source (coefficients, retrieved verbatim this session):
+    //   Agarwal_2015_parameters.txt — TargetScan distribution
+    //   https://raw.githubusercontent.com/nsoranzo/targetscan/main/Agarwal_2015_parameters.txt
+    // Source (feature computation/scaling, retrieved verbatim this session):
+    //   targetscan_70_context_scores.pl getAgarwalContribution / getLocalAU_contribution /
+    //   get_sRNA1_8_contributions / getSite8_contribution / get3primePairingContribution /
+    //   getMinDist_weighted_contribution / get_len3UTR_weighted_contribution /
+    //   getOffset6mer_weighted_contribution + getOffset6merSites
+    //   https://raw.githubusercontent.com/nsoranzo/targetscan/main/targetscan_70_context_scores.pl
+    // Peer-reviewed model: Agarwal V et al. (2015) eLife 4:e05005, doi:10.7554/eLife.05005.
+    // 3P_score raw values below were cross-checked by running the perl on the same UTR/miRNA.
+    //
+    // Each expected value below is hand-derived from those retrieved coefficients × feature
+    // values (see per-test derivation comments), NOT copied from the implementation output.
+    // ─────────────────────────────────────────────────────────────────────────────────────
+
+    #region CTX-001: 8mer context++ — intercept + scaled local-AU + sRNA8 indicator
+
+    [Test]
+    public void ScoreTargetSiteContextPlusPlus_8merLet7a_GcFlanks_MatchesHandDerivedScore()
+    {
+        // let-7a-5p UGAGGUAGUAGGUUGUAUAGUU: nt1=U (⇒ sRNA1=0), nt8=G (⇒ sRNA8G).
+        // 8mer layout: GGGGG + CUACCUCA + GGGGG → site Start=5,End=12 (len 18); flanks all G ⇒ local-AU fraction=0.
+        // Now-computed local UTR features (all derived independently below; 3P raw=0 verified vs perl):
+        //   3P_score : raw=0 (no 3' complementarity) ⇒ scaled=(0-1)/(3.5-1)=-0.4 ; coeff(8mer)=-0.040 ⇒ +0.016
+        //   Min_dist : perlStart=6,distTo5=5 ; perlEnd=13,distTo3=18-13=5 ; min=5 ; log10(5)=0.698970004336
+        //              scaled=(0.698970004336-1.415)/(3.113-1.415) ; coeff=0.118 ⇒ -0.049759446106213065
+        //   Len_3UTR : log10(18)=1.255272505103 ; scaled=(…-2.392)/(3.637-2.392) ; coeff=0.310 ⇒ -0.2830405810586145
+        //   Off6m    : pattern "CUACCU" (first 6 of revcomp of seed GAGGUAG) occurs 1× ; coeff(8mer)=-0.020 ⇒ -0.020
+        //   Intercept(8mer)=-0.589 ; Local_AU=-0.254×((0-0.308)/(0.814-0.308))=+0.154608695652174 ; sRNA8G(8mer)=+0.015
+        //   ⇒ CS_partial = -0.7561913315126536
+        string mrna = "GGGGG" + Let7aSeedRC + "A" + "GGGGG";
+        var site = FindTargetSites(mrna, Let7a, minScore: 0.0).Single();
+
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, Let7a, site);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(site.Type, Is.EqualTo(TargetSiteType.Seed8mer), "fixture must be an 8mer");
+            Assert.That(ctx.Intercept, Is.EqualTo(-0.589).Within(1e-9), "8mer intercept (Agarwal params)");
+            Assert.That(ctx.LocalAuContribution, Is.EqualTo(0.154608695652174).Within(1e-9),
+                "Local_AU = -0.254×((0-0.308)/(0.814-0.308)) with all-G flanks");
+            Assert.That(ctx.SRna1Contribution, Is.EqualTo(0.0).Within(1e-9), "nt1=U ⇒ sRNA1 not scored");
+            Assert.That(ctx.SRna8Contribution, Is.EqualTo(0.015).Within(1e-9), "nt8=G ⇒ sRNA8G(8mer)=0.015");
+            Assert.That(ctx.Site8Contribution, Is.EqualTo(0.0).Within(1e-9), "Site8 undefined for 8mer");
+            Assert.That(ctx.ThreePrimePairingContribution, Is.EqualTo(0.016).Within(1e-9),
+                "3P raw=0 ⇒ -0.040×((0-1)/(3.5-1)) = +0.016");
+            Assert.That(ctx.MinDistContribution, Is.EqualTo(-0.049759446106213065).Within(1e-9),
+                "Min_dist = 0.118×((log10(5)-1.415)/(3.113-1.415))");
+            Assert.That(ctx.Len3UtrContribution, Is.EqualTo(-0.2830405810586145).Within(1e-9),
+                "Len_3UTR = 0.310×((log10(18)-2.392)/(3.637-2.392))");
+            Assert.That(ctx.Off6mContribution, Is.EqualTo(-0.020).Within(1e-9),
+                "Off6m = -0.020×1 (one offset-6mer 'CUACCU' in the UTR)");
+            Assert.That(ctx.ContextScorePartial, Is.EqualTo(-0.7561913315126536).Within(1e-9),
+                "8mer partial context++ = sum of realised contributions");
+        });
+    }
+
+    #endregion
+
+    #region CTX-002: 7mer-m8 context++ — scaled local-AU + sRNA8G(7mer-m8)
+
+    [Test]
+    public void ScoreTargetSiteContextPlusPlus_7merM8Let7a_MatchesHandDerivedScore()
+    {
+        // 7mer-m8 layout: GGGGG + CUACCUC + GGGG → site Start=5,End=11; all-G flanks ⇒ fraction=0.
+        // CS_partial = Intercept(7mer-m8) + Local_AU + sRNA8G(7mer-m8)
+        //   Intercept(7mer-m8)       = -0.224
+        //   Local_AU = -0.177 × ((0 - 0.277)/(0.782 - 0.277)) = +0.097087128712871
+        //   sRNA8G(7mer-m8)          = -0.008  ;  sRNA1=0, Site8=0 (7mer-m8)
+        //   ⇒ CS_partial            = -0.134912871287129
+        string mrna = "GGGGG" + Let7aSeedRC + "GGGG";
+        var site = FindTargetSites(mrna, Let7a, minScore: 0.0).Single();
+
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, Let7a, site);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(site.Type, Is.EqualTo(TargetSiteType.Seed7merM8), "fixture must be a 7mer-m8");
+            Assert.That(ctx.Intercept, Is.EqualTo(-0.224).Within(1e-9), "7mer-m8 intercept");
+            Assert.That(ctx.LocalAuContribution, Is.EqualTo(0.097087128712871).Within(1e-9),
+                "Local_AU = -0.177×((0-0.277)/(0.782-0.277))");
+            Assert.That(ctx.SRna8Contribution, Is.EqualTo(-0.008).Within(1e-9), "nt8=G ⇒ sRNA8G(7mer-m8)=-0.008");
+            Assert.That(ctx.Site8Contribution, Is.EqualTo(0.0).Within(1e-9), "Site8 undefined for 7mer-m8");
+            // 3P raw=0 ⇒ -0.055×((0-1)/2.5)=+0.022 ; Off6m 'CUACCU' once ⇒ -0.011 ; len=16, site Start=5/End=11.
+            Assert.That(ctx.ThreePrimePairingContribution, Is.EqualTo(0.022).Within(1e-9),
+                "3P raw=0 ⇒ -0.055×((0-1)/(3.5-1)) = +0.022");
+            Assert.That(ctx.MinDistContribution, Is.EqualTo(-0.031015975380457392).Within(1e-9),
+                "Min_dist(7mer-m8) = 0.056×((log10(4)-1.491)/(3.096-1.491)) [distTo3=16-12=4]");
+            Assert.That(ctx.Len3UtrContribution, Is.EqualTo(-0.15385698397262643).Within(1e-9),
+                "Len_3UTR(7mer-m8) = 0.154×((log10(16)-2.409)/(3.615-2.409))");
+            Assert.That(ctx.Off6mContribution, Is.EqualTo(-0.011).Within(1e-9), "Off6m = -0.011×1");
+            Assert.That(ctx.ContextScorePartial, Is.EqualTo(-0.3087858306402126).Within(1e-9),
+                "7mer-m8 partial context++");
+        });
+    }
+
+    #endregion
+
+    #region CTX-003: 7mer-A1 context++ — Site8 indicator path
+
+    [Test]
+    public void ScoreTargetSiteContextPlusPlus_7merA1Let7a_Site8G_MatchesHandDerivedScore()
+    {
+        // 7mer-A1 layout: GGGGG + UACCUC + A + GGGG → site Start=5,End=11; Site8 base = mrna[4]='G'.
+        // CS_partial = Intercept(7mer-A1) + Local_AU + sRNA8G(7mer-A1) + Site8G(7mer-A1)
+        //   Intercept(7mer-A1)       = -0.195
+        //   Local_AU = -0.075 × ((0 - 0.342)/(0.801 - 0.342)) = +0.055882352941176
+        //   sRNA8G(7mer-A1)          = -0.017
+        //   Site8G(7mer-A1)          = +0.015  ;  sRNA1=0 (nt1=U)
+        //   ⇒ CS_partial            = -0.141117647058824
+        string mrna = "GGGGG" + "UACCUC" + "A" + "GGGG";
+        var site = FindTargetSites(mrna, Let7a, minScore: 0.0).Single();
+
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, Let7a, site);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(site.Type, Is.EqualTo(TargetSiteType.Seed7merA1), "fixture must be a 7mer-A1");
+            Assert.That(ctx.Intercept, Is.EqualTo(-0.195).Within(1e-9), "7mer-A1 intercept");
+            Assert.That(ctx.LocalAuContribution, Is.EqualTo(0.055882352941176).Within(1e-9),
+                "Local_AU = -0.075×((0-0.342)/(0.801-0.342))");
+            Assert.That(ctx.SRna8Contribution, Is.EqualTo(-0.017).Within(1e-9), "nt8=G ⇒ sRNA8G(7mer-A1)=-0.017");
+            Assert.That(ctx.Site8Contribution, Is.EqualTo(0.015).Within(1e-9),
+                "Site8 base 'G' ⇒ Site8G(7mer-A1)=0.015 (only defined for 7mer-A1/6mer)");
+            // 3P raw=0 ⇒ -0.060×((0-1)/2.5)=+0.024 ; Off6m: 'CUACCU' absent (UACCUC core only) ⇒ 0 ; len=16, Start=5/End=11.
+            Assert.That(ctx.ThreePrimePairingContribution, Is.EqualTo(0.024).Within(1e-9),
+                "3P raw=0 ⇒ -0.060×((0-1)/(3.5-1)) = +0.024");
+            Assert.That(ctx.MinDistContribution, Is.EqualTo(-0.022124733327545488).Within(1e-9),
+                "Min_dist(7mer-A1) = 0.045×((log10(4)-1.431)/(3.117-1.431))");
+            Assert.That(ctx.Len3UtrContribution, Is.EqualTo(-0.12813929518273268).Within(1e-9),
+                "Len_3UTR(7mer-A1) = 0.129×((log10(16)-2.413)/(3.630-2.413))");
+            Assert.That(ctx.Off6mContribution, Is.EqualTo(0.0).Within(1e-9),
+                "no 'CUACCU' offset-6mer in this UTR ⇒ Off6m=0");
+            Assert.That(ctx.ContextScorePartial, Is.EqualTo(-0.2673816755691017).Within(1e-9),
+                "7mer-A1 partial context++");
+        });
+    }
+
+    #endregion
+
+    #region CTX-004: 6mer context++ — non-zero local-AU fraction + Site8C
+
+    [Test]
+    public void ScoreTargetSiteContextPlusPlus_6merMiR21_MixedFlanks_MatchesHandDerivedScore()
+    {
+        // miR-21 seedRC AUAAGCU, 6mer core = UAAGCU. nt1=U (sRNA1=0), nt8=U (sRNA8=0).
+        // Layout: GGGGC + UAAGCU + UGAGG → site Start=5,End=10; Site8 base = mrna[4]='C'.
+        // Local-AU (6mer weights: up 1/(i+2), down 1/(i+1)): only downstream U(i0),A(i2) are A/U
+        //   fraction = (1 + 1/3) / (Σ up + Σ down) = 0.357142857142857
+        // CS_partial = Intercept(6mer) + Local_AU + Site8C(6mer)
+        //   Intercept(6mer)          = -0.079
+        //   Local_AU = -0.040 × ((0.357142857142857 - 0.295)/(0.772 - 0.295)) = -0.005211141060198
+        //   Site8C(6mer)             = +0.015  ;  sRNA1=0, sRNA8=0
+        //   ⇒ CS_partial            = -0.069211141060198
+        string mrna = "GGGGC" + "UAAGCU" + "UGAGG";
+        var site = FindTargetSites(mrna, MiR21, minScore: 0.0).Single();
+
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, MiR21, site);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(site.Type, Is.EqualTo(TargetSiteType.Seed6mer), "fixture must be a 6mer");
+            Assert.That(ctx.Intercept, Is.EqualTo(-0.079).Within(1e-9), "6mer intercept");
+            Assert.That(ctx.LocalAuContribution, Is.EqualTo(-0.005211141060198).Within(1e-9),
+                "Local_AU with downstream A/U fraction 0.357142857142857, scaled ×(-0.040)");
+            Assert.That(ctx.SRna1Contribution, Is.EqualTo(0.0).Within(1e-9), "nt1=U");
+            Assert.That(ctx.SRna8Contribution, Is.EqualTo(0.0).Within(1e-9), "nt8=U ⇒ sRNA8 not scored");
+            Assert.That(ctx.Site8Contribution, Is.EqualTo(0.015).Within(1e-9),
+                "Site8 base 'C' ⇒ Site8C(6mer)=0.015");
+            // 3P raw=0 ⇒ -0.024×((0-1)/2.5)=+0.0096 ; miR-21 seed AGCUUAU ⇒ Off6m pattern absent ⇒ 0 ; len=16, Start=5/End=10.
+            Assert.That(ctx.ThreePrimePairingContribution, Is.EqualTo(0.0096).Within(1e-9),
+                "3P raw=0 ⇒ -0.024×((0-1)/(3.5-1)) = +0.0096");
+            Assert.That(ctx.MinDistContribution, Is.EqualTo(-0.017194033053347654).Within(1e-9),
+                "Min_dist(6mer) = 0.036×((log10(5)-1.477)/(3.106-1.477)) [distTo3=16-11=5]");
+            Assert.That(ctx.Len3UtrContribution, Is.EqualTo(-0.04447703767941017).Within(1e-9),
+                "Len_3UTR(6mer) = 0.045×((log10(16)-2.405)/(3.620-2.405))");
+            Assert.That(ctx.Off6mContribution, Is.EqualTo(0.0).Within(1e-9), "no miR-21 offset-6mer in this UTR");
+            Assert.That(ctx.ContextScorePartial, Is.EqualTo(-0.12128221179295548).Within(1e-9),
+                "6mer partial context++");
+        });
+    }
+
+    #endregion
+
+    #region CTX-005: sRNA1 non-U indicator branch — coefficient lookup
+
+    [Test]
+    public void ScoreTargetSiteContextPlusPlus_SRna1G_8mer_AddsSRna1GCoefficient()
+    {
+        // The sRNA1 indicator is only scored when miRNA nt1 ≠ U (perl: sRNA1_nt ne "U").
+        // Construct a miRNA with nt1=G, nt8=G so both indicator branches fire on an 8mer site.
+        // sRNA1G(8mer)=+0.060, sRNA8G(8mer)=+0.015.  miRNA: G GAGGUAG ... (seed pos2-8 = GAGGUAG = let-7a seed)
+        var miR = CreateMiRna("synthetic-G1", "GGAGGUAGUAGGUUGUAUAGUU");
+        string mrna = "GGGGG" + GetReverseComplement(miR.SeedSequence) + "A" + "GGGGG";
+        var site = FindTargetSites(mrna, miR, minScore: 0.0).Single();
+
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, miR, site);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(site.Type, Is.EqualTo(TargetSiteType.Seed8mer), "fixture must be an 8mer");
+            Assert.That(ctx.SRna1Contribution, Is.EqualTo(0.060).Within(1e-9),
+                "nt1=G ⇒ sRNA1G(8mer)=0.060 (Agarwal params)");
+            Assert.That(ctx.SRna8Contribution, Is.EqualTo(0.015).Within(1e-9),
+                "nt8=G ⇒ sRNA8G(8mer)=0.015");
+        });
+    }
+
+    #endregion
+
+    #region CTX-006: invalid site type rejected — contract
+
+    [Test]
+    public void ScoreTargetSiteContextPlusPlus_NonSeedSiteType_Throws()
+    {
+        // context++ models are defined only for the four canonical seed-match types (Agarwal 2015).
+        var offsetSite = new TargetSite(
+            Start: 0, End: 5, TargetSequence: "AAAAAA", MiRnaName: "x",
+            Type: TargetSiteType.Offset6mer, SeedMatchLength: 6, Score: 0, FreeEnergy: 0, Alignment: "");
+
+        Assert.Throws<ArgumentException>(
+            () => ScoreTargetSiteContextPlusPlus("AAAAAAAAAA", Let7a, offsetSite),
+            "Offset6mer / Supplementary / Centered have no fitted context++ model");
+    }
+
+    #endregion
+
+    #region CTX-007: residual features reported when no optional inputs supplied — honest residual
+
+    [Test]
+    public void ScoreTargetSiteContextPlusPlus_NoOptionalInputs_ReportsResidualFeatures()
+    {
+        // With no caller-supplied inputs on this SHORT layout, the residual is: SA (the 14-nt
+        // accessibility window does not fit — windowStart0 = Start+7-13 = -1 < 0), PCT (always
+        // blocked), and SPS, TA_3UTR, Len_ORF, ORF8m (data-blocked unless supplied). 3P_score,
+        // Min_dist, Len_3UTR and Off6m are now COMPUTED, so they must NOT appear as omitted.
+        string mrna = "GGGGG" + Let7aSeedRC + "A" + "GGGGG";
+        var site = FindTargetSites(mrna, Let7a, minScore: 0.0).Single();
+
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, Let7a, site);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ctx.OmittedFeatures, Has.Some.Contains("SA"),
+                "SA residual here because the 14-nt window does not fit this short UTR");
+            Assert.That(ctx.SaContribution, Is.EqualTo(0.0), "out-of-fit SA contributes 0");
+            Assert.That(ctx.OmittedFeatures, Has.Some.Contains("PCT"), "PCT stays residual (needs alignment)");
+            Assert.That(ctx.OmittedFeatures, Has.Some.Contains("SPS"), "SPS omitted unless supplied");
+            Assert.That(ctx.OmittedFeatures, Has.Some.Contains("TA_3UTR"), "TA omitted unless supplied");
+            Assert.That(ctx.OmittedFeatures, Has.Some.Contains("Len_ORF"), "Len_ORF omitted unless supplied");
+            Assert.That(ctx.OmittedFeatures, Has.Some.Contains("ORF8m"), "ORF8m omitted unless supplied");
+            Assert.That(ctx.OmittedFeatures, Has.None.Contains("3P_score"),
+                "3' supplementary pairing is now computed, not omitted");
+            Assert.That(ctx.OmittedFeatures, Has.None.Contains("Min_dist"), "Min_dist is now computed");
+            Assert.That(ctx.OmittedFeatures, Has.None.Contains("Len_3UTR"), "Len_3UTR is now computed");
+            Assert.That(ctx.OmittedFeatures, Has.None.Contains("Off6m"), "Off6m is now computed");
+        });
+    }
+
+    #endregion
+
+    #region CTX-008: 3P_score with real 3' supplementary pairing — DP raw score (vs targetscan perl)
+
+    [Test]
+    public void ScoreTargetSiteContextPlusPlus_3PrimeSupplementaryPairing_8mer_MatchesScaledRawScore()
+    {
+        // UTR carries a 3'-supplementary complement (ACAACCUA…) upstream of the let-7a seed match.
+        // get3primePairingContribution (faithful port) yields raw 3P score = 6 for this site, which
+        // was reproduced exactly by running targetscan_70_context_scores.pl on the same UTR/miRNA.
+        // scaled = (6 - 1)/(3.5 - 1) = 2.0 ; coeff(8mer)=-0.040 ⇒ 3P contribution = -0.080.
+        string mrna = "AAAAAACAACCUAACUACCUCAGGG";
+        var site = FindTargetSites(mrna, Let7a, minScore: 0.0).First(s => s.Type == TargetSiteType.Seed8mer);
+
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, Let7a, site);
+
+        Assert.That(ctx.ThreePrimePairingContribution, Is.EqualTo(-0.080).Within(1e-9),
+            "raw 3P=6 (perl-verified) ⇒ -0.040×((6-1)/(3.5-1)) = -0.080");
+    }
+
+    #endregion
+
+    #region CTX-009: 3P_score across site types — raw scores reproduce the perl reference
+
+    [TestCase("GGGACAACCUAGGGGGCUACCUCAGGG", TargetSiteType.Seed8mer, -0.040, 4.5)]   // raw 4.5
+    [TestCase("AAAACAACCUAAUACCUCAGGGG", TargetSiteType.Seed7merA1, -0.060, 6.0)]     // raw 6
+    public void ScoreTargetSiteContextPlusPlus_3PrimeRawScore_PerlReference(
+        string mrna, TargetSiteType expectedType, double coeff3P, double rawScore)
+    {
+        // Raw 3P score for each fixture was computed by running the TargetScan reference perl
+        // (get3primePairingContribution) on the identical UTR/miRNA/site coordinates.
+        // Expected contribution = coeff(siteType,3P_score) × ((raw - 1)/(3.5 - 1)).
+        double expected = coeff3P * ((rawScore - 1.0) / (3.5 - 1.0));
+        var site = FindTargetSites(mrna, Let7a, minScore: 0.0).First(s => s.Type == expectedType);
+
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, Let7a, site);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(site.Type, Is.EqualTo(expectedType), "fixture must be the expected site type");
+            Assert.That(ctx.ThreePrimePairingContribution, Is.EqualTo(expected).Within(1e-9),
+                $"3P = {coeff3P}×((raw {rawScore} - 1)/2.5)");
+        });
+    }
+
+    #endregion
+
+    #region CTX-010: Off6m counts every offset-6mer occurrence (used raw, no scaling)
+
+    [Test]
+    public void ScoreTargetSiteContextPlusPlus_TwoOffset6mers_CountedRaw()
+    {
+        // Offset-6mer pattern = first 6 nt of revcomp(let-7a seed GAGGUAG) = "CUACCU".
+        // This UTR contains it twice (a bare CUACCU and the CUACCU inside the 8mer CUACCUCA).
+        // Off6m is used RAW (not min-max scaled): contribution = coeff(8mer) × count = -0.020 × 2.
+        string mrna = "GGGCUACCUGGGGGCUACCUCAGGG";
+        var site = FindTargetSites(mrna, Let7a, minScore: 0.0).First(s => s.Type == TargetSiteType.Seed8mer);
+
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, Let7a, site);
+
+        Assert.That(ctx.Off6mContribution, Is.EqualTo(-0.040).Within(1e-9),
+            "two 'CUACCU' offset-6mers ⇒ -0.020 × 2 = -0.040");
+    }
+
+    #endregion
+
+    #region CTX-011: caller-supplied SPS / TA / Len_ORF / ORF8m computed and removed from residual
+
+    [Test]
+    public void ScoreTargetSiteContextPlusPlus_SuppliedInputs_8mer_MatchHandDerivedAndDropFromResidual()
+    {
+        // Faithful Agarwal contributions for caller-supplied values on an 8mer site:
+        //   SPS=-8.0   : scaled=(-8.0-(-11.13))/(-5.52-(-11.13)) ; coeff=0.210 ⇒ +0.11716577540106952
+        //   TA=3.5     : scaled=(3.5-3.113)/(3.865-3.113)         ; coeff=0.222 ⇒ +0.11424734042553189
+        //   Len_ORF=1000: log10=3 ; scaled=(3-2.788)/(3.753-2.788); coeff=0.205 ⇒ +0.04503626943005184
+        //   ORF8m=2    : used raw ; coeff=-0.118 × 2              ⇒ -0.236
+        string mrna = "AAAAAACAACCUAACUACCUCAGGG";
+        var site = FindTargetSites(mrna, Let7a, minScore: 0.0).First(s => s.Type == TargetSiteType.Seed8mer);
+        var inputs = new ContextPlusPlusInputs(Sps: -8.0, Ta: 3.5, OrfLength: 1000, Orf8mCount: 2);
+
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, Let7a, site, inputs);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ctx.SpsContribution, Is.EqualTo(0.11716577540106952).Within(1e-9),
+                "SPS = 0.210×((-8.0+11.13)/(-5.52+11.13))");
+            Assert.That(ctx.TaContribution, Is.EqualTo(0.11424734042553189).Within(1e-9),
+                "TA = 0.222×((3.5-3.113)/(3.865-3.113))");
+            Assert.That(ctx.LenOrfContribution, Is.EqualTo(0.04503626943005184).Within(1e-9),
+                "Len_ORF = 0.205×((log10(1000)-2.788)/(3.753-2.788))");
+            Assert.That(ctx.Orf8mContribution, Is.EqualTo(-0.236).Within(1e-9),
+                "ORF8m raw = -0.118×2");
+            Assert.That(ctx.OmittedFeatures, Has.None.Contains("SPS"), "supplied SPS leaves residual");
+            Assert.That(ctx.OmittedFeatures, Has.None.Contains("TA_3UTR"), "supplied TA leaves residual");
+            Assert.That(ctx.OmittedFeatures, Has.None.Contains("Len_ORF"), "supplied Len_ORF leaves residual");
+            Assert.That(ctx.OmittedFeatures, Has.None.Contains("ORF8m"), "supplied ORF8m leaves residual");
+            // SA is now computed from the Turner-2004 McCaskill partition function (the 14-nt
+            // window fits this UTR: windowStart0 = Start+7-13 = 8 ≥ 0), so it is NO LONGER residual.
+            // Only PCT (multi-species conservation) remains residual once all data inputs are supplied.
+            Assert.That(ctx.SaContribution, Is.Not.EqualTo(0.0),
+                "SA is computed (window fits) — no longer an honest residual");
+            Assert.That(ctx.OmittedFeatures, Has.None.Contains("SA"), "SA computed ⇒ not in residual");
+            Assert.That(ctx.OmittedFeatures, Has.Some.Contains("PCT"), "PCT still residual");
+        });
+    }
+
+    #endregion
+
+    #region CTX-SA: structural accessibility wired from the Turner-2004 McCaskill partition function
+
+    // CTX-SA-001 — SA contribution equals the verbatim getSA_contribution / getAgarwalContribution
+    // arithmetic: coeff(SA,8mer) × (log10(plfold) - min)/(max - min), where plfold is the 14-nt
+    // window unpaired probability from the Turner-2004 McCaskill partition function. The expected
+    // value is recomputed INDEPENDENTLY from CalculateRegionUnpairedProbability + the verbatim
+    // Agarwal_2015_parameters.txt SA row (8mer: coeff -0.115, min -4.356, max -0.661), so it would
+    // fail a wrong coefficient, a wrong window, or an MFE-as-accessibility implementation.
+    [Test]
+    public void ScoreTargetSiteContextPlusPlus_SA_8mer_MatchesHandDerivedAccessibility()
+    {
+        // 48-nt UTR: 20-nt structured 5' flank + 8mer let-7a site (CUACCUCA) + 20-nt 3' flank.
+        string mrna = "GGGGCCCCGGGGCCCCGGGG" + "CUACCUCA" + "GGGGCCCCGGGGCCCCGGGG";
+        var site = FindTargetSites(mrna, Let7a, minScore: 0.0).First(s => s.Type == TargetSiteType.Seed8mer);
+
+        // Independently reproduce the SA local-context computation (getSA_contribution semantics):
+        // 8mer ⇒ no utrStart decrement; row read = utrStart+7 ⇒ windowEnd0 = Start+7; window L=14.
+        string seq = mrna.ToUpperInvariant().Replace('T', 'U');
+        const int W = 80, U = 14, RowOff = 7;
+        int windowEnd0 = (site.Start + 1) + RowOff - 1;     // 1-based utrStart+7, back to 0-based
+        int windowStart0 = windowEnd0 - U + 1;
+        int contextStart = Math.Max(0, windowEnd0 - (W - U) / 2 - U + 1);
+        contextStart = Math.Min(contextStart, windowStart0);
+        int contextEnd = Math.Min(seq.Length - 1, contextStart + W - 1);
+        contextStart = Math.Max(0, contextEnd - W + 1);
+        string context = seq.Substring(contextStart, contextEnd - contextStart + 1);
+        int localWindowEnd = windowEnd0 - contextStart;
+        double plfold = Seqeron.Genomics.Analysis.RnaSecondaryStructure
+            .CalculateRegionUnpairedProbability(context, localWindowEnd, U);
+        double log10 = Math.Log10(plfold);
+        // Verbatim SA row for 8mer (Agarwal_2015_parameters.txt): coeff -0.115, min -4.356, max -0.661.
+        double expectedSa = -0.115 * ((log10 - (-4.356)) / ((-0.661) - (-4.356)));
+
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, Let7a, site);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(plfold, Is.GreaterThan(0.0).And.LessThanOrEqualTo(1.0),
+                "the 14-nt window accessibility is a probability in (0,1]");
+            Assert.That(ctx.SaContribution, Is.EqualTo(expectedSa).Within(1e-12),
+                "SA = coeff × (log10(plfold) - min)/(max - min) with the verbatim 8mer SA parameters");
+            Assert.That(ctx.SaContribution, Is.Not.EqualTo(0.0),
+                "SA is computed (the window fits), not an honest residual");
+            Assert.That(ctx.OmittedFeatures, Has.None.Contains("SA"),
+                "computed SA is not reported as omitted");
+            // SA must be part of the partial sum.
+            Assert.That(ctx.ContextScorePartial, Is.EqualTo(
+                ctx.Intercept + ctx.LocalAuContribution + ctx.SRna1Contribution + ctx.SRna8Contribution
+                + ctx.Site8Contribution + ctx.SaContribution + ctx.ThreePrimePairingContribution
+                + ctx.MinDistContribution + ctx.Len3UtrContribution + ctx.Off6mContribution
+                + ctx.SpsContribution + ctx.TaContribution + ctx.LenOrfContribution
+                + ctx.Orf8mContribution + ctx.PctContribution).Within(1e-12),
+                "ContextScorePartial includes the SA contribution");
+        });
+    }
+
+    #endregion
+
+    #region CTX-PCT: Friedman 2009 branch-length score (Bls) + PCT wired into context++
+
+    // Worked phylogenetic tree used across the Bls cases (Newick, explicit branch lengths):
+    //   ((A:1.0,B:2.0):0.5,(C:1.5,D:3.0):4.0);
+    // Internal node (A,B) connects to the root by an edge of length 0.5; (C,D) by 4.0.
+    private const string WorkedTreeNewick = "((A:1.0,B:2.0):0.5,(C:1.5,D:3.0):4.0);";
+
+    // CTX-PCT-001 — Bls = total branch length of the minimal subtree connecting the species in
+    // which the site is conserved (Friedman et al. 2009 Genome Res 19:92, Methods). Hand-derived
+    // for several conserved-species subsets on the worked tree:
+    //   {A,B}      : A(1.0)+B(2.0) — the (A,B)→root edge is NOT counted (both A and B are below it,
+    //                so no conserved species lies outside) ⇒ 3.0
+    //   {A,C}      : A(1.0)+ (A,B)→root(0.5) + (C,D)→root(4.0) + C(1.5)               ⇒ 7.0
+    //   {A,B,C,D}  : every leaf edge (1+2+1.5+3) + both internal edges (0.5+4.0)       ⇒ 12.0
+    //   {A}        : a single species — no connecting subtree                          ⇒ 0.0
+    [Test]
+    [TestCase(new[] { "A", "B" }, 3.0)]
+    [TestCase(new[] { "A", "C" }, 7.0)]
+    [TestCase(new[] { "A", "B", "C", "D" }, 12.0)]
+    [TestCase(new[] { "A" }, 0.0)]
+    public void ComputeBranchLengthScore_WorkedTree_MatchesHandDerivedBls(string[] species, double expectedBls)
+    {
+        PhylogeneticAnalyzer.PhyloNode tree = PhylogeneticAnalyzer.ParseNewick(WorkedTreeNewick);
+
+        double bls = ComputeBranchLengthScore(tree, species);
+
+        Assert.That(bls, Is.EqualTo(expectedBls).Within(1e-9),
+            $"Bls({string.Join(",", species)}) = total branch length of the minimal connecting subtree");
+    }
+
+    // CTX-PCT-002 — empty / null conserved-species set ⇒ Bls = 0 (single or no species ⇒ no subtree).
+    [Test]
+    public void ComputeBranchLengthScore_NoSpecies_IsZero()
+    {
+        PhylogeneticAnalyzer.PhyloNode tree = PhylogeneticAnalyzer.ParseNewick(WorkedTreeNewick);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ComputeBranchLengthScore(tree, Array.Empty<string>()), Is.EqualTo(0.0),
+                "no conserved species ⇒ Bls 0");
+            Assert.Throws<ArgumentNullException>(() => ComputeBranchLengthScore(tree, null!),
+                "null species set rejected");
+            Assert.Throws<ArgumentNullException>(() => ComputeBranchLengthScore(null!, new[] { "A" }),
+                "null tree rejected");
+        });
+    }
+
+    // CTX-PCT-003 — PCT(Bls) = B0 + B1/(1 + e^(−B2·Bls + B3)), truncated at 0
+    // (targetscan_70_BL_PCT.pl, calculatePCTthisBL). Hand-derived with the simple parameters
+    // (B0=0, B1=1, B2=1, B3=0):  PCT(3.0) = 1/(1+e^-3) = 0.952574126822433.
+    [Test]
+    public void PctFromBranchLength_SimpleSigmoid_MatchesHandDerivedValue()
+    {
+        var p = new PctSigmoidParameters(B0: 0.0, B1: 1.0, B2: 1.0, B3: 0.0);
+
+        double pct = PctFromBranchLength(3.0, p);
+
+        Assert.That(pct, Is.EqualTo(0.952574126822433).Within(1e-12),
+            "PCT(3.0) = 0 + 1/(1+e^(−1·3+0)) per the published logistic relationship");
+    }
+
+    // CTX-PCT-004 — negative PCT values are truncated to 0 (perl: if ($pct < 0) { $pct = "0.0"; }).
+    [Test]
+    public void PctFromBranchLength_NegativeRaw_TruncatedToZero()
+    {
+        // B0=-0.5, B1=0.3, B3=5 with Bls=0 ⇒ raw = -0.5 + 0.3/(1+e^5) ≈ -0.498 < 0 ⇒ 0.
+        var p = new PctSigmoidParameters(B0: -0.5, B1: 0.3, B2: 1.0, B3: 5.0);
+
+        double pct = PctFromBranchLength(0.0, p);
+
+        Assert.That(pct, Is.EqualTo(0.0),
+            "a negative logistic output is truncated to 0 as in the TargetScan reference");
+    }
+
+    // CTX-PCT-005 — the PCT contribution = coeff(PCT) × (PCT − min)/(max − min) enters context++
+    // and PCT leaves OmittedFeatures when a Conservation input is supplied. For an 8mer with the
+    // worked tree and {A,B} (Bls=3.0), sigmoid (0,1,1,0): PCT=0.952574126822433.
+    //   8mer PCT row (Agarwal_2015_parameters.txt): coeff -0.103, min 0, max 0.816.
+    //   contribution = -0.103 × (0.952574126822433 / 0.816) = -0.120239136106263.
+    [Test]
+    public void ScoreTargetSiteContextPlusPlus_ConservationSupplied_8mer_PctEntersScoreAndDropsResidual()
+    {
+        string mrna = "AAAAAACAACCUAACUACCUCAGGG";
+        var site = FindTargetSites(mrna, Let7a, minScore: 0.0).First(s => s.Type == TargetSiteType.Seed8mer);
+
+        PhylogeneticAnalyzer.PhyloNode tree = PhylogeneticAnalyzer.ParseNewick(WorkedTreeNewick);
+        var conservation = new PctConservation(
+            tree,
+            new[] { "A", "B" },
+            new PctSigmoidParameters(B0: 0.0, B1: 1.0, B2: 1.0, B3: 0.0));
+        var inputs = new ContextPlusPlusInputs(Conservation: conservation);
+
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, Let7a, site, inputs);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ctx.BranchLengthScore, Is.EqualTo(3.0).Within(1e-9),
+                "Bls({A,B}) on the worked tree = 3.0");
+            Assert.That(ctx.Pct, Is.EqualTo(0.952574126822433).Within(1e-12),
+                "PCT = 1/(1+e^-3) from the supplied sigmoid");
+            Assert.That(ctx.PctContribution, Is.EqualTo(-0.120239136106263).Within(1e-9),
+                "PCT contribution = -0.103 × (PCT/0.816) with the verbatim 8mer PCT parameters");
+            Assert.That(ctx.OmittedFeatures, Has.None.Contains("PCT"),
+                "supplied conservation ⇒ PCT no longer an honest residual");
+            Assert.That(ctx.ContextScorePartial, Is.EqualTo(
+                ctx.Intercept + ctx.LocalAuContribution + ctx.SRna1Contribution + ctx.SRna8Contribution
+                + ctx.Site8Contribution + ctx.SaContribution + ctx.ThreePrimePairingContribution
+                + ctx.MinDistContribution + ctx.Len3UtrContribution + ctx.Off6mContribution
+                + ctx.SpsContribution + ctx.TaContribution + ctx.LenOrfContribution
+                + ctx.Orf8mContribution + ctx.PctContribution).Within(1e-12),
+                "ContextScorePartial includes the PCT contribution");
+        });
+    }
+
+    // CTX-PCT-006 — per-site-type PCT parameters: a 7mer-m8 site with {A,C} (Bls=7.0) and the same
+    // sigmoid uses the 7mer-m8 PCT row (coeff -0.048, min 0, max 0.364):
+    //   PCT(7.0) = 1/(1+e^-7) = 0.999088948805599
+    //   contribution = -0.048 × (0.999088948805599 / 0.364) = -0.131747993249090.
+    [Test]
+    public void ScoreTargetSiteContextPlusPlus_Conservation_7merM8_UsesSiteTypePctParameters()
+    {
+        // 7mer-m8 = seed match to miRNA pos 2-8 WITHOUT a trailing A (no 'A' opposite pos 1).
+        // let-7a seedRC = CUACCUC ; place it with a non-A base 3' of the site to force 7mer-m8.
+        string mrna = "GGGGG" + Let7aSeedRC + "G" + "GGGGG";
+        var site = FindTargetSites(mrna, Let7a, minScore: 0.0).First(s => s.Type == TargetSiteType.Seed7merM8);
+
+        PhylogeneticAnalyzer.PhyloNode tree = PhylogeneticAnalyzer.ParseNewick(WorkedTreeNewick);
+        var conservation = new PctConservation(
+            tree,
+            new[] { "A", "C" },
+            new PctSigmoidParameters(B0: 0.0, B1: 1.0, B2: 1.0, B3: 0.0));
+
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, Let7a, site,
+            new ContextPlusPlusInputs(Conservation: conservation));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ctx.BranchLengthScore, Is.EqualTo(7.0).Within(1e-9), "Bls({A,C}) = 7.0");
+            Assert.That(ctx.Pct, Is.EqualTo(0.999088948805599).Within(1e-12), "PCT = 1/(1+e^-7)");
+            Assert.That(ctx.PctContribution, Is.EqualTo(-0.131747993249090).Within(1e-9),
+                "7mer-m8 PCT contribution uses coeff -0.048, max 0.364");
+        });
+    }
+
+    // CTX-PCT-007 — per-site-type PCT parameters for the remaining two site types (7mer-A1, 6mer).
+    // Same worked tree + {A,B} (Bls=3.0) + sigmoid (0,1,1,0) ⇒ PCT = 1/(1+e^-3) = 0.952574126822433.
+    //   7mer-A1 PCT row (Agarwal_2015_parameters.txt): coeff -0.048, min 0, max 0.449
+    //     contribution = -0.048 × (0.952574126822433 / 0.449) = -0.10183420509460311
+    //   6mer PCT row:                                  coeff  0.005, min 0, max 0.193
+    //     contribution =  0.005 × (0.952574126822433 / 0.193) =  0.024678086187109673
+    // These lock the 7mer-A1 and 6mer branches of PctContribution's site-type switch, which the
+    // 8mer/7mer-m8 cases above do not exercise.
+    [Test]
+    public void ScoreTargetSiteContextPlusPlus_Conservation_7merA1_UsesSiteTypePctParameters()
+    {
+        // 7mer-A1 = 6mer core (RC of pos 2-7 = UACCUC) + trailing A, no upstream seedRC[0]='C'.
+        string mrna = "GGGGG" + "UACCUC" + "A" + "GGGG";
+        var site = FindTargetSites(mrna, Let7a, minScore: 0.0).First(s => s.Type == TargetSiteType.Seed7merA1);
+
+        PhylogeneticAnalyzer.PhyloNode tree = PhylogeneticAnalyzer.ParseNewick(WorkedTreeNewick);
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, Let7a, site,
+            new ContextPlusPlusInputs(Conservation: new PctConservation(
+                tree, new[] { "A", "B" }, new PctSigmoidParameters(B0: 0.0, B1: 1.0, B2: 1.0, B3: 0.0))));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ctx.BranchLengthScore, Is.EqualTo(3.0).Within(1e-9), "Bls({A,B}) = 3.0");
+            Assert.That(ctx.Pct, Is.EqualTo(0.952574126822433).Within(1e-12), "PCT = 1/(1+e^-3)");
+            Assert.That(ctx.PctContribution, Is.EqualTo(-0.10183420509460311).Within(1e-9),
+                "7mer-A1 PCT contribution uses coeff -0.048, max 0.449");
+        });
+    }
+
+    [Test]
+    public void ScoreTargetSiteContextPlusPlus_Conservation_6mer_UsesSiteTypePctParameters()
+    {
+        // miR-21 6mer core = UAAGCU (seedRC AUAAGCU[1..]); non-A flank, no upstream seedRC[0].
+        string mrna = "GGGGC" + "UAAGCU" + "UGAGG";
+        var site = FindTargetSites(mrna, MiR21, minScore: 0.0).First(s => s.Type == TargetSiteType.Seed6mer);
+
+        PhylogeneticAnalyzer.PhyloNode tree = PhylogeneticAnalyzer.ParseNewick(WorkedTreeNewick);
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, MiR21, site,
+            new ContextPlusPlusInputs(Conservation: new PctConservation(
+                tree, new[] { "A", "B" }, new PctSigmoidParameters(B0: 0.0, B1: 1.0, B2: 1.0, B3: 0.0))));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ctx.BranchLengthScore, Is.EqualTo(3.0).Within(1e-9), "Bls({A,B}) = 3.0");
+            Assert.That(ctx.Pct, Is.EqualTo(0.952574126822433).Within(1e-12), "PCT = 1/(1+e^-3)");
+            Assert.That(ctx.PctContribution, Is.EqualTo(0.024678086187109673).Within(1e-9),
+                "6mer PCT contribution uses coeff 0.005, max 0.193");
+        });
+    }
+
+    // CTX-PCT-008 — Monotonicity invariant (the unit's contract M): for a sigmoid with B1>0, B2>0,
+    // higher branch-length score ⇒ strictly higher (or equal once saturated) PCT. Friedman et al.
+    // (2009): more conservation (greater Bls) ⇒ higher probability of conserved targeting.
+    [Test]
+    public void PctFromBranchLength_IncreasingBls_GivesNonDecreasingPct()
+    {
+        var p = new PctSigmoidParameters(B0: 0.0, B1: 1.0, B2: 1.0, B3: 0.0);
+
+        double[] bls = { 0.0, 0.5, 1.0, 2.0, 3.0, 5.0, 8.0 };
+        double[] pcts = bls.Select(b => PctFromBranchLength(b, p)).ToArray();
+
+        Assert.Multiple(() =>
+        {
+            for (int i = 1; i < pcts.Length; i++)
+                Assert.That(pcts[i], Is.GreaterThan(pcts[i - 1]),
+                    $"PCT(Bls={bls[i]}) must exceed PCT(Bls={bls[i - 1]}) for a B2>0 logistic");
+            // PCT(0) for (0,1,1,0) = 1/(1+e^0) = 0.5 exactly (the logistic floor at Bls=0, not truncated).
+            Assert.That(pcts[0], Is.EqualTo(0.5).Within(1e-12), "logistic floor PCT(Bls=0) = 0.5");
+        });
+    }
+
+    // CTX-PCT-009 — Bls=0 logistic floor with a non-trivial (untruncated) sigmoid: at Bls=0 the
+    // logistic reduces to B0 + B1/(1 + e^B3). With (B0=0.1, B1=0.8, B3=4.0) this is a small POSITIVE
+    // value (≈0.1144), i.e. it is the floor of the curve and is NOT truncated to 0.
+    [Test]
+    public void PctFromBranchLength_ZeroBls_ReturnsUntruncatedLogisticFloor()
+    {
+        var p = new PctSigmoidParameters(B0: 0.1, B1: 0.8, B2: 2.0, B3: 4.0);
+
+        double pct = PctFromBranchLength(0.0, p);
+
+        // 0.1 + 0.8/(1+e^4) = 0.11438896796967325 (> 0, so the truncation branch does not fire).
+        Assert.That(pct, Is.EqualTo(0.11438896796967325).Within(1e-12),
+            "PCT(Bls=0) = B0 + B1/(1+e^B3), the untruncated logistic floor");
+    }
+
+    // CTX-PCT-010 — Cross-check against a REAL published parameter row (not a synthetic sigmoid):
+    // the 8mer PCT_parameters.txt row for miRNA family "UCCCUUU" (miR-30 family), retrieved verbatim
+    // from targetscan_70 PCT_parameters/8mer_PCT_parameters.txt this session:
+    //   b0=-1.15890235160174  b1=1.61944269599563  b2=11.8180287443514  b3=36.260388031391
+    // Hand-computed PCT(Bls) = b0 + b1/(1+e^(−b2·Bls+b3)), truncated at 0:
+    //   Bls=3.0 ⇒ raw < 0 ⇒ 0.0 (steep curve: this family needs high conservation before PCT rises)
+    //   Bls=4.0 ⇒ 0.460513612719198
+    //   Bls=5.0 ⇒ 0.46054034419686185
+    // (independent Python reference: -1.15890235160174 + 1.61944269599563/(1+e^(-11.8180287443514·Bls+36.260388031391))).
+    [Test]
+    [TestCase(3.0, 0.0)]
+    [TestCase(4.0, 0.460513612719198)]
+    [TestCase(5.0, 0.46054034419686185)]
+    public void PctFromBranchLength_PublishedMir30Family8mer_MatchesReferenceImplementation(
+        double bls, double expectedPct)
+    {
+        var published = new PctSigmoidParameters(
+            B0: -1.15890235160174, B1: 1.61944269599563, B2: 11.8180287443514, B3: 36.260388031391);
+
+        double pct = PctFromBranchLength(bls, published);
+
+        Assert.That(pct, Is.EqualTo(expectedPct).Within(1e-9),
+            "PCT from the verbatim TargetScan 8mer PCT_parameters row for family UCCCUUU");
+    }
+
+    #endregion
+
+    #region CTX-TA: TA_3UTR computed from a 3'UTR set — Garcia (2011) / Agarwal (2015)
+
+    // Garcia et al. (2011) NSMB 18:1139 (Online Methods, retrieved verbatim this session): "TA in the
+    // human transcriptome was calculated as the number of non-overlapping 3′UTR 8mer, 7mer-m8, and
+    // 7mer-A1 sites in the reference mRNAs." Agarwal et al. (2015) eLife Table 1: TA_3UTR = "Number of
+    // sites in all annotated 3′ UTRs". TargetScan stores log10(count) (TA_SPS_by_seed_region.txt
+    // column 4, values ≈ 1.6–4.4, retrieved verbatim) and feeds it as-is to getAgarwalContribution.
+    // ⇒ TA = log10(N), N = total non-overlapping 8mer+7mer-m8+7mer-A1 sites of the seed across UTRs.
+
+    // CTX-TA-001 — hand-controlled synthetic example, fully derived independently of the code.
+    // Synthetic miRNA, seed (pos 2-8) = ACGUACG; seedRC = CGUACGU ⇒ pos8Rc = 'C', 6mer core = GUACGU.
+    //   UTR1 "CGUACGUA"  : core at idx1; upstream 'C'=pos8Rc (m8) + downstream 'A' (A1) ⇒ 8mer       → 1
+    //   UTR2 "GGUACGUG"  : core at idx1; upstream 'G' (no m8) + downstream 'G' (no A1) ⇒ bare 6mer    → 0
+    //   UTR3 "CGUACGUGAAAGUACGUC": core idx1 = 7mer-m8 (m8, no A1) → 1; core idx11 bare 6mer → 0       → 1
+    // N = 1 + 0 + 1 = 2 ; TA = log10(2) = 0.301029995663981.
+    [Test]
+    public void ComputeTa3Utr_HandControlledSet_EqualsLog10OfSiteCount()
+    {
+        var mirna = CreateMiRna("synthetic", "UACGUACGUACGUACGUACGUA"); // pos 2-8 = ACGUACG
+        var utrs = new[] { "CGUACGUA", "GGUACGUG", "CGUACGUGAAAGUACGUC" };
+
+        long n = CountSeedSites3Utr(mirna, utrs);
+        double ta = ComputeTa3Utr(mirna, utrs);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(mirna.SeedSequence, Is.EqualTo("ACGUACG"),
+                "seed (positions 2-8) drives the counted site set");
+            Assert.That(n, Is.EqualTo(2L),
+                "two counted sites: UTR1 8mer + UTR3 7mer-m8 (bare 6mers excluded per Garcia 2011)");
+            Assert.That(ta, Is.EqualTo(0.301029995663981).Within(1e-12),
+                "TA = log10(2) per Garcia (2011) / TargetScan TA_SPS_by_seed_region (log10 of site count)");
+        });
+    }
+
+    // CTX-TA-002 — real miRNA (hsa-let-7a-5p), seed GAGGUAG, seedRC CUACCUC ⇒ pos8Rc 'C', core UACCUC.
+    //   "GGCUACCUCAGG" 8mer (m8+A1)                                  → 1
+    //   "GGCUACCUCGGG" 7mer-m8 (m8, no A1)                           → 1
+    //   "GGGUACCUCAGG" 7mer-A1 (no m8, A1)                           → 1
+    //   "GGGUACCUCGGG" bare 6mer (no m8, no A1) — NOT counted        → 0
+    //   "CUACCUCACUACCUCG" 8mer (idx1) + 7mer-m8 (idx9)              → 2
+    // N = 1 + 1 + 1 + 0 + 2 = 5 ; TA = log10(5) = 0.698970004336019.
+    [Test]
+    public void ComputeTa3Utr_RealMiRna_CountsAllThreeSiteTypesNotBare6mers()
+    {
+        var utrs = new[]
+        {
+            "GGCUACCUCAGG",      // 8mer
+            "GGCUACCUCGGG",      // 7mer-m8
+            "GGGUACCUCAGG",      // 7mer-A1
+            "GGGUACCUCGGG",      // bare 6mer → excluded
+            "CUACCUCACUACCUCG",  // 8mer + 7mer-m8
+        };
+
+        long n = CountSeedSites3Utr(Let7a, utrs);
+        double ta = ComputeTa3Utr(Let7a, utrs);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(n, Is.EqualTo(5L),
+                "8mer + 7mer-m8 + 7mer-A1 + (bare 6mer excluded) + (8mer+7mer-m8) = 5");
+            Assert.That(ta, Is.EqualTo(0.698970004336019).Within(1e-12),
+                "TA = log10(5)");
+        });
+    }
+
+    // CTX-TA-003 — the computed TA feeds ScoreTargetSiteContextPlusPlus with the bundled Agarwal TA
+    // coefficient: supplying Ta = ComputeTa3Utr(...) reproduces the 8mer TA contribution
+    //   coeff(TA)×(TA-min)/(max-min) = 0.222×((log10(5)-3.113)/(3.865-3.113)) for the 8mer row,
+    // and removes TA_3UTR from the honest residual.
+    [Test]
+    public void ComputeTa3Utr_FeedsContextPlusPlus_WithBundledAgarwalTaCoefficient()
+    {
+        string mrna = "AAAAAACAACCUAACUACCUCAGGG";
+        var site = FindTargetSites(mrna, Let7a, minScore: 0.0)
+            .First(s => s.Type == TargetSiteType.Seed8mer);
+        var abundanceUtrs = new[]
+        {
+            "GGCUACCUCAGG", "GGCUACCUCGGG", "GGGUACCUCAGG", "GGGUACCUCGGG", "CUACCUCACUACCUCG",
+        };
+        double ta = ComputeTa3Utr(Let7a, abundanceUtrs); // = log10(5)
+
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, Let7a, site,
+            new ContextPlusPlusInputs(Ta: ta));
+
+        // 8mer TA row (Agarwal_2015_parameters.txt): coeff 0.222, min 3.113, max 3.865.
+        double expectedTaContribution = 0.222 * ((Math.Log10(5) - 3.113) / (3.865 - 3.113));
+        Assert.Multiple(() =>
+        {
+            Assert.That(ta, Is.EqualTo(0.698970004336019).Within(1e-12), "TA = log10(5)");
+            Assert.That(ctx.TaContribution, Is.EqualTo(expectedTaContribution).Within(1e-12),
+                "computed TA enters context++ with the bundled 8mer Agarwal TA coefficient + scaling");
+            Assert.That(ctx.OmittedFeatures, Has.None.Contains("TA_3UTR"),
+                "computed TA leaves the honest residual");
+        });
+    }
+
+    // CTX-TA-004 — per-site-type TA scaling: the same TA value scales by the 7mer-m8 TA row
+    //   (coeff 0.139, min 3.067, max 3.887) when scored against a 7mer-m8 site.
+    [Test]
+    public void ComputeTa3Utr_FeedsContextPlusPlus_UsesSiteTypeTaParameters_7merM8()
+    {
+        string mrna = "GGGGGGGGGGGGGCUACCUCGGGGGGGG"; // 7mer-m8 site (m8, no A1)
+        var site = FindTargetSites(mrna, Let7a, minScore: 0.0)
+            .First(s => s.Type == TargetSiteType.Seed7merM8);
+        double ta = ComputeTa3Utr(Let7a, new[] { "CUACCUCACUACCUCG" }); // N=2 ⇒ log10(2)
+
+        var ctx = ScoreTargetSiteContextPlusPlus(mrna, Let7a, site,
+            new ContextPlusPlusInputs(Ta: ta));
+
+        double expected = 0.139 * ((Math.Log10(2) - 3.067) / (3.887 - 3.067));
+        Assert.That(ctx.TaContribution, Is.EqualTo(expected).Within(1e-12),
+            "7mer-m8 TA row coeff 0.139, min 3.067, max 3.887");
+    }
+
+    // CTX-TA-005 — empty UTR set (and a set of only empty/whitespace UTRs) ⇒ N = 0 ⇒ TA = 0
+    // (log10(1) floor; TargetScan never emits a seed with no sites, log10(0) undefined).
+    [Test]
+    public void ComputeTa3Utr_NoSites_ReturnsZero()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(CountSeedSites3Utr(Let7a, Array.Empty<string>()), Is.EqualTo(0L),
+                "empty transcriptome ⇒ zero sites");
+            Assert.That(ComputeTa3Utr(Let7a, Array.Empty<string>()), Is.EqualTo(0.0),
+                "TA floor = 0 when no sites (log10(0) undefined)");
+            Assert.That(ComputeTa3Utr(Let7a, new[] { "", (string?)null!, "GGGGGGGGGG" }),
+                Is.EqualTo(0.0), "no seed site anywhere ⇒ TA = 0; null/empty UTRs are skipped");
+        });
+    }
+
+    // CTX-TA-006 — DNA UTRs (T) are handled as RNA (U); counting is unchanged.
+    [Test]
+    public void ComputeTa3Utr_DnaUtrs_TreatedAsRna()
+    {
+        // DNA spelling of the let-7a 8mer site "GGCTACCTCAGG" (T→U) ⇒ one 8mer.
+        long n = CountSeedSites3Utr(Let7a, new[] { "GGCTACCTCAGG" });
+        Assert.That(n, Is.EqualTo(1L), "DNA T is normalised to U before counting");
+    }
+
+    // CTX-TA-007 — short / degenerate seed ⇒ no counting basis ⇒ 0 (defensive).
+    [Test]
+    public void ComputeTa3Utr_ShortSeed_ReturnsZero()
+    {
+        var shortMiRna = new MiRna("short", "ACGUA", "ACGU", 1, 4); // seed < 7 nt
+        Assert.Multiple(() =>
+        {
+            Assert.That(CountSeedSites3Utr(shortMiRna, new[] { "ACGUACGUACGU" }), Is.EqualTo(0L),
+                "a seed shorter than 7 nt has no defined site set");
+            Assert.That(ComputeTa3Utr(shortMiRna, new[] { "ACGUACGUACGU" }), Is.EqualTo(0.0));
+        });
+    }
+
+    // CTX-TA-008 — null UTR enumerable ⇒ ArgumentNullException (contract).
+    [Test]
+    public void ComputeTa3Utr_NullEnumerable_Throws()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() => ComputeTa3Utr(Let7a, null!));
+            Assert.Throws<ArgumentNullException>(() => CountSeedSites3Utr(Let7a, null!));
+        });
+    }
+
+    // CTX-TA-009 — Garcia (2011) counts NON-OVERLAPPING sites. With a self-similar (period-2) seed
+    // core, the same physical region matches the core at several offsets; counting every anchor would
+    // over-count. A miRNA with seed (pos 2-8) = GUGUGUU has seedRC = AACACAC ⇒ pos8Rc 'A',
+    // 6mer core = ACACAC. Hand-derived:
+    //   "ACACACACACA" : core ACACAC matches at idx 0,2,4, all qualifying (A1='A' / m8='A'), but the
+    //                   footprints overlap ⇒ exactly ONE non-overlapping site (Garcia 2011).
+    //   "ACACACAGGACACACA" : two cores ≥6 apart (idx0, idx9), each with a downstream A1 ⇒ TWO sites.
+    [Test]
+    public void ComputeTa3Utr_OverlappingCoreAnchors_CountedNonOverlapping_Garcia2011()
+    {
+        var periodicSeed = CreateMiRna("periodic", "AGUGUGUUACACACACACAC"); // seed GUGUGUU, core ACACAC
+        Assert.Multiple(() =>
+        {
+            Assert.That(periodicSeed.SeedSequence, Is.EqualTo("GUGUGUU"),
+                "seed positions 2-8 give the period-2 core ACACAC");
+            Assert.That(CountSeedSites3Utr(periodicSeed, new[] { "ACACACACACA" }), Is.EqualTo(1L),
+                "overlapping core anchors collapse to one non-overlapping site (Garcia 2011)");
+            Assert.That(CountSeedSites3Utr(periodicSeed, new[] { "ACACACAGGACACACA" }), Is.EqualTo(2L),
+                "two cores ≥6 nt apart are genuinely non-overlapping ⇒ two sites");
+        });
+    }
+
+    #endregion
+}

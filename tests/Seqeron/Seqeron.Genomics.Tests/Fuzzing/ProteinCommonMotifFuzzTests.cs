@@ -10,7 +10,7 @@ using static Seqeron.Genomics.Analysis.ProteinMotifFinder;
 // asserts against the ProteinMotifFinder.MotifMatch record returned by FindCommonMotifs.
 using MotifMatch = Seqeron.Genomics.Analysis.ProteinMotifFinder.MotifMatch;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the ProteinMotif area — COMMON MOTIF FINDING

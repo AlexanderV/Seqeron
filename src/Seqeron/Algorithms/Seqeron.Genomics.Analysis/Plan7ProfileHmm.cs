@@ -1165,7 +1165,10 @@ public sealed class Plan7ProfileHmm
     }
 
     // Forward + Backward DP matrices (full, for decoding) for a single sub-sequence pass.
-    private sealed class ForwardBackward
+    // internal (not private) so the differential path-enumeration oracle (PROTMOTIF-HMM-001,
+    // 08_DIFFERENTIAL) can read the Backward/posterior cells directly — they are not observable
+    // through the public scores/envelopes, which re-converge under index mutations.
+    internal sealed class ForwardBackward
     {
         public ForwardBackward(
             double forwardNats, double xLoop, double xMove,
@@ -1772,6 +1775,10 @@ public sealed class Plan7ProfileHmm
     private static double[] ParseNumbers(string line, int skipFirst, int count)
     {
         var toks = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        if (toks.Length < skipFirst + count)
+            throw new FormatException(
+                $"Malformed profile row: expected {count} numeric field(s) after {skipFirst} leading " +
+                $"token(s) but found only {Math.Max(0, toks.Length - skipFirst)} ('{line.Trim()}').");
         var values = new double[count];
         for (int i = 0; i < count; i++)
         {
@@ -1819,4 +1826,35 @@ public sealed class Plan7ProfileHmm
         double[][] matchEmissionLn, double[][] insertEmissionLn, double[][] transitionLn, double[] backgroundLn)
         => new(name, string.Empty, string.Empty, length, null, null,
             matchEmissionLn, insertEmissionLn, transitionLn, backgroundLn);
+
+    // ---- Differential-testing hooks (PROTMOTIF-HMM-001 / 08_DIFFERENTIAL) ----
+    // Test-only (Seqeron.Genomics.Tests via InternalsVisibleTo). Exposes the exact local-mode
+    // Forward/Backward matrices and the model parameters/config they were computed from, so an
+    // INDEPENDENT explicit-path-enumeration oracle can reconstruct every cell from first principles
+    // and assert it cell-by-cell. The Backward/posterior cells are otherwise unobservable.
+    internal sealed record DebugForwardBackwardSnapshot(
+        ForwardBackward Fb,
+        double[] LocalEntryLn,
+        double[][] TransitionLn,
+        double[][] MatchEmissionLn,
+        double[] BackgroundLn,
+        double XLoop, double XMove, double EMove, double ELoop,
+        int[] Dsq);
+
+    internal DebugForwardBackwardSnapshot DebugLocalForwardBackward(string sequence, bool multihit)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        int n = sequence.Length;
+        var dsq = new int[n + 1];
+        for (int i = 1; i <= n; i++) dsq[i] = ResidueOf(sequence[i - 1]);
+        var fb = RunForwardBackward(dsq, n, configLength: n, multihit: multihit);
+        double nj = multihit ? MultihitNj : 0.0;
+        double pmove = (2.0 + nj) / (n + 2.0 + nj);
+        double ploop = 1.0 - pmove;
+        double eMove = multihit ? -Ln2 : 0.0;
+        double eLoop = multihit ? -Ln2 : double.NegativeInfinity;
+        return new DebugForwardBackwardSnapshot(
+            fb, LocalEntryLn(), _transitionLn, _matchEmissionLn, HmmerAminoBackgroundLn,
+            Math.Log(ploop), Math.Log(pmove), eMove, eLoop, dsq);
+    }
 }

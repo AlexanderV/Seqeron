@@ -4,7 +4,7 @@ using NUnit.Framework;
 using FluentAssertions;
 using Seqeron.Genomics.Oncology;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Metamorphic;
 
 /// <summary>
 /// Metamorphic tests for the Oncology area.
@@ -1525,10 +1525,11 @@ public class OncologyMetamorphicTests
     [Description("INV: prepending an N-terminal flank shifts the peptide start positions but preserves the set of mutant/wild-type peptide strings tiling the mutation.")]
     public void GenerateNeoantigenPeptides_FlankShift_PreservesPeptideSet()
     {
-        // 25-mer with the mutation at position 13 → ≥ 10 residues of context on each side (max k = 11).
-        const string wildType = "ACDEFGHIKLMNPQRSTVWYACDEF";
-        const char mutant = 'G';      // substitute the wild-type 'P' at position 13
-        const int position = 13;
+        // 31-mer with the mutation at position 16 → ≥ 15 residues of context on each side (max k = 14),
+        // so every default-range window tiling the mutation is fully interior and flank-invariant.
+        const string wildType = "ACDEFGHIKLMNPQRSTVWYACDEFGHIKLM";
+        const char mutant = 'G';      // substitute the wild-type 'S' at position 16
+        const int position = 16;
 
         var basePeptides = OncologyAnalyzer.GenerateNeoantigenPeptides(wildType, mutant, position);
         basePeptides.Should().NotBeEmpty();
@@ -2214,6 +2215,554 @@ public class OncologyMetamorphicTests
                     because: $"lowering the threshold to {threshold} can only add outliers");
             previous = flagged;
         }
+    }
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  ONCO-ASCAT-001 — allele-specific copy-number derivation (ASCAT)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (Van Loo et al. 2010 PNAS 107:16910; VanLoo-lab/ascat ascat.runAscat.R;
+    //   docs/algorithms/Oncology/Allele_Specific_Copy_Number_Derivation.md):
+    //   ASCAT maps a segment's total-coverage log-ratio (logR r) and B-allele frequency
+    //   (BAF b) to allele-specific copy numbers (nA, nB). With platform parameter γ = 1:
+    //       S      = 2^r · ((1−ρ)·2 + ρ·ψ)              (total-signal scale)
+    //       nA     = (ρ−1 − (b−1)·S) / ρ
+    //       nB     = (ρ−1 +  b   ·S) / ρ
+    //       nA+nB  = (2(ρ−1) + S) / ρ                    ← does NOT depend on the BAF b
+    //   Two metamorphic relations (checklist row 235) follow from these equations and from
+    //   the way the upstream segmenter places breakpoints:
+    //
+    //   • INV (constant logR shift preserves breakpoints): both segmenters place a boundary
+    //     on a logR *change*. The greedy SegmentAlleleSpecific splits when
+    //     |rᵢ − runningMean| exceeds the threshold; the ASPCF DP minimises the within-segment
+    //     logR SSE plus a fixed per-segment penalty. Adding a constant c to every locus's logR
+    //     shifts each running mean by c too, so every consecutive difference (greedy) and every
+    //     within-segment SSE (ASPCF) is unchanged: the breakpoint set is invariant and each
+    //     segment's mean logR simply shifts by c. The BAF channel is untouched.
+    //
+    //   • INV (A/B allele swap preserves total CN): "allele A" vs "allele B" is an arbitrary
+    //     label. Swapping it maps the raw BAF b → 1−b, which the equations above send to
+    //     nA ↔ nB exactly (so the total nA+nB is invariant), and which the segmenter's
+    //     BAF-mirroring (foldedBAF = 0.5 + |b−0.5|) folds to the *same* value. The whole integer
+    //     copy-number fit — and in particular every segment's total copy number — is therefore
+    //     invariant to the allele labelling.
+    //
+    // API under test: OncologyAnalyzer.SegmentAlleleSpecific, .SegmentAlleleSpecificAspcf,
+    //   .FitPurityPloidy (AlleleSpecificLocus / AlleleSpecificSegmentSummary / PurityPloidyFit).
+
+    #region ONCO-ASCAT-001 — ASCAT allele-specific derivation
+
+    /// <summary>ASCAT forward model (γ = 1): integer (nA, nB) at (ρ, ψ) → the (logR, BAF) a locus would show.</summary>
+    private static (double LogR, double Baf) AscatForward(int nA, int nB, double rho, double psi)
+    {
+        int n = nA + nB;
+        double denom = rho * n + 2.0 * (1.0 - rho);
+        double d = rho * psi + 2.0 * (1.0 - rho);
+        return (System.Math.Log2(denom / d), (rho * nB + (1.0 - rho)) / denom);
+    }
+
+    /// <summary>Replicates each (chrom, nA, nB) segment into <paramref name="lociPerSegment"/> adjacent loci 1 kb apart.</summary>
+    private static List<OncologyAnalyzer.AlleleSpecificLocus> AscatSynthesiseLoci(
+        IReadOnlyList<(string Chrom, int NA, int NB)> segments, double rho, double psi, int lociPerSegment = 5)
+    {
+        var loci = new List<OncologyAnalyzer.AlleleSpecificLocus>();
+        long pos = 1000;
+        foreach (var (chrom, nA, nB) in segments)
+        {
+            (double r, double b) = AscatForward(nA, nB, rho, psi);
+            for (int i = 0; i < lociPerSegment; i++)
+            {
+                loci.Add(new OncologyAnalyzer.AlleleSpecificLocus(chrom, pos, r, b));
+                pos += 1000;
+            }
+        }
+
+        return loci;
+    }
+
+    [Test]
+    [Description("INV: the greedy segmenter splits on |logRᵢ − runningMean| > threshold, so adding a constant c to every locus's logR leaves the breakpoint set unchanged and shifts each segment mean by exactly c.")]
+    public void Ascat_ConstantLogRShift_PreservesGreedyBreakpoints()
+    {
+        var loci = new List<OncologyAnalyzer.AlleleSpecificLocus>();
+        void AddLevel(string chrom, long start, double logR, int n)
+        {
+            for (int i = 0; i < n; i++)
+                loci.Add(new OncologyAnalyzer.AlleleSpecificLocus(chrom, start + i * 1000, logR, 0.5));
+        }
+
+        AddLevel("1", 1000, 0.0, 6);
+        AddLevel("1", 7000, 0.8, 6);
+        AddLevel("1", 13000, -0.5, 6);
+        AddLevel("2", 1000, 0.0, 6);
+
+        IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary> baseline =
+            OncologyAnalyzer.SegmentAlleleSpecific(loci, logRChangeThreshold: 0.3);
+        baseline.Count.Should().Be(4,
+            because: "three logR levels on chr1 plus a chromosome change yield four segments — the non-vacuity guard");
+
+        foreach (double c in new[] { 0.3, -0.7, 1.5 })
+        {
+            var shifted = loci
+                .Select(l => new OncologyAnalyzer.AlleleSpecificLocus(l.Chromosome, l.Position, l.LogR + c, l.BAF))
+                .ToList();
+
+            IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary> segs =
+                OncologyAnalyzer.SegmentAlleleSpecific(shifted, logRChangeThreshold: 0.3);
+
+            segs.Count.Should().Be(baseline.Count,
+                because: $"a constant logR shift of {c} leaves every consecutive |Δ logR| unchanged, so the breakpoint count is invariant");
+            for (int i = 0; i < baseline.Count; i++)
+            {
+                segs[i].LocusCount.Should().Be(baseline[i].LocusCount,
+                    because: $"breakpoint {i} sits at the same locus after a constant logR shift of {c}");
+                segs[i].Start.Should().Be(baseline[i].Start);
+                segs[i].End.Should().Be(baseline[i].End);
+                segs[i].MeanLogR.Should().BeApproximately(baseline[i].MeanLogR + c, 1e-9,
+                    because: $"each segment's mean logR shifts by exactly the applied constant {c}");
+                segs[i].MeanBAF.Should().BeApproximately(baseline[i].MeanBAF, 1e-12,
+                    because: "a logR shift does not touch the BAF channel");
+            }
+        }
+    }
+
+    [Test]
+    [Description("INV: the ASPCF DP minimises within-segment logR SSE + penalty, both translation-invariant, so a constant logR shift preserves the optimal breakpoints and shifts each segment mean by c.")]
+    public void Ascat_ConstantLogRShift_PreservesAspcfBreakpoints()
+    {
+        var loci = new List<OncologyAnalyzer.AlleleSpecificLocus>();
+        for (int i = 0; i < 10; i++) loci.Add(new OncologyAnalyzer.AlleleSpecificLocus("1", 1000 + i * 1000, 0.0, 0.5));
+        for (int i = 0; i < 10; i++) loci.Add(new OncologyAnalyzer.AlleleSpecificLocus("1", 11000 + i * 1000, 1.0, 0.5));
+
+        IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary> baseline =
+            OncologyAnalyzer.SegmentAlleleSpecificAspcf(loci, penalty: 0.5);
+        baseline.Count.Should().Be(2,
+            because: "the two clean logR levels give exactly one breakpoint — the non-vacuity guard");
+
+        foreach (double c in new[] { 0.4, -0.9, 2.0 })
+        {
+            var shifted = loci
+                .Select(l => new OncologyAnalyzer.AlleleSpecificLocus(l.Chromosome, l.Position, l.LogR + c, l.BAF))
+                .ToList();
+
+            IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary> segs =
+                OncologyAnalyzer.SegmentAlleleSpecificAspcf(shifted, penalty: 0.5);
+
+            segs.Count.Should().Be(baseline.Count,
+                because: $"within-segment logR SSE is translation-invariant, so the DP optimum is unchanged by a logR shift of {c}");
+            for (int i = 0; i < baseline.Count; i++)
+            {
+                segs[i].LocusCount.Should().Be(baseline[i].LocusCount,
+                    because: $"the optimal breakpoint stays put under a constant logR shift of {c}");
+                segs[i].MeanLogR.Should().BeApproximately(baseline[i].MeanLogR + c, 1e-9,
+                    because: $"each segment's mean logR shifts by exactly the applied constant {c}");
+                segs[i].MeanBAF.Should().BeApproximately(baseline[i].MeanBAF, 1e-12,
+                    because: "the BAF channel is untouched by a logR shift");
+            }
+        }
+    }
+
+    /// <summary>A planted diploid genome with balanced, copy-neutral-LOH and gain segments (some allele-imbalanced).</summary>
+    private static readonly (string Chrom, int NA, int NB)[] AscatPlantedGenome =
+    {
+        ("1", 1, 1), // balanced, b = 0.5
+        ("1", 2, 0), // copy-neutral LOH, b ≠ 0.5
+        ("1", 1, 1),
+        ("1", 2, 1), // gain, b ≠ 0.5
+        ("1", 1, 1),
+    };
+
+    [Test]
+    [Description("INV: swapping the arbitrary A/B allele label maps BAF b→1−b, which sends nA↔nB (total CN invariant) and the segmenter's BAF-mirroring folds identically, so every segment's integer copy-number fit is unchanged.")]
+    public void Ascat_AlleleSwap_PreservesTotalCopyNumber()
+    {
+        const double rho = 0.80, psi = 2.2;
+        List<OncologyAnalyzer.AlleleSpecificLocus> loci = AscatSynthesiseLoci(AscatPlantedGenome, rho, psi);
+        var swapped = loci
+            .Select(l => new OncologyAnalyzer.AlleleSpecificLocus(l.Chromosome, l.Position, l.LogR, 1.0 - l.BAF))
+            .ToList();
+
+        IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary> baseSegs =
+            OncologyAnalyzer.SegmentAlleleSpecific(loci, logRChangeThreshold: 0.2);
+        IReadOnlyList<OncologyAnalyzer.AlleleSpecificSegmentSummary> swapSegs =
+            OncologyAnalyzer.SegmentAlleleSpecific(swapped, logRChangeThreshold: 0.2);
+
+        // Non-vacuity: the planted LOH/gain segments are allele-imbalanced (mirrored BAF > 0.5),
+        // so the swap b → 1−b is a genuine change of the raw input, not the identity.
+        baseSegs.Any(s => s.MeanBAF > 0.5 + 1e-6).Should().BeTrue(
+            because: "the planted LOH/gain segments are allele-imbalanced, so swapping A/B is non-trivial");
+
+        OncologyAnalyzer.PurityPloidyFit baseFit = OncologyAnalyzer.FitPurityPloidy(baseSegs, gamma: 1.0);
+        OncologyAnalyzer.PurityPloidyFit swapFit = OncologyAnalyzer.FitPurityPloidy(swapSegs, gamma: 1.0);
+
+        swapFit.Segments.Count.Should().Be(baseFit.Segments.Count,
+            because: "the allele swap does not change segmentation, so the fit emits the same number of segments");
+        for (int i = 0; i < baseFit.Segments.Count; i++)
+        {
+            int baseTotal = baseFit.Segments[i].MajorCopyNumber + baseFit.Segments[i].MinorCopyNumber;
+            int swapTotal = swapFit.Segments[i].MajorCopyNumber + swapFit.Segments[i].MinorCopyNumber;
+
+            swapTotal.Should().Be(baseTotal,
+                because: $"total copy number nA+nB is independent of the BAF, so swapping A/B preserves segment {i}'s total CN");
+            // Stronger: BAF-mirroring folds b and 1−b identically, so even the major/minor split is preserved.
+            swapFit.Segments[i].MajorCopyNumber.Should().Be(baseFit.Segments[i].MajorCopyNumber,
+                because: $"the mirrored BAF is invariant under b→1−b, so segment {i}'s major CN is unchanged");
+            swapFit.Segments[i].MinorCopyNumber.Should().Be(baseFit.Segments[i].MinorCopyNumber,
+                because: $"the mirrored BAF is invariant under b→1−b, so segment {i}'s minor CN is unchanged");
+        }
+    }
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  MHC-NN-001 — MHCflurry pan-allele NN binding affinity (Oncology)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (O'Donnell et al. 2018/2020 MHCflurry; openvax/mhcflurry amino_acid.py /
+    //   encodable_sequences.py; tests/TestSpecs/MHC-NN-001.md):
+    //   The predictor BLOSUM62-encodes a peptide with the left_pad_centered_right_pad scheme (three
+    //   15-residue blocks, X-padded), encodes the allele's 37-residue pseudosequence, and runs a
+    //   feedforward network whose output maps to IC50 = 50000^(1−x). Two metamorphic relations
+    //   (checklist row 245):
+    //
+    //   • INV (BLOSUM-encoded peptide reproduces the oracle within 0.03%): the bundled single
+    //     network reproduces the MHCflurry NumPy reference IC50 within 0.03% relative; the
+    //     prediction is invariant to peptide case (lowercase is folded to canonical AA) and is
+    //     deterministic.
+    //   • SUB (shorter peptide padded centred): a peptide shorter than 15 is embedded CENTRED in the
+    //     middle block with X padding split floor/ceil — the centred block reproduces the same
+    //     per-residue BLOSUM vectors as the left-aligned block, shifted by the centred pad.
+    //
+    // API under test: MhcflurryAffinityPredictor.EncodePeptide / .PredictIc50 / .LoadWeightPack.
+
+    #region MHC-NN-001 — MHCflurry NN binding affinity
+
+    private const string MhcSingleNetResource = "Seqeron.Genomics.Tests.TestData.Mhcflurry.mhcflurry_single_net.bin";
+
+    private static IReadOnlyList<MhcflurryAffinityPredictor.Network> LoadMhcSingleNet()
+    {
+        var asm = typeof(OncologyMetamorphicTests).Assembly;
+        using System.IO.Stream stream = asm.GetManifestResourceStream(MhcSingleNetResource)
+            ?? throw new System.InvalidOperationException($"Embedded resource '{MhcSingleNetResource}' not found.");
+        return MhcflurryAffinityPredictor.LoadWeightPack(stream);
+    }
+
+    [Test]
+    [Description("INV: the BLOSUM-encoded single network reproduces the MHCflurry NumPy oracle IC50 within 0.03% relative, is invariant to peptide case (lowercase folded to canonical AA), and is deterministic.")]
+    public void MhcNn_BlosumEncodedPeptide_ReproducesOracleWithin003Percent()
+    {
+        var net = LoadMhcSingleNet();
+
+        // mhcflurry 2.1.5 single-net (PAN-CLASS1-1) NumPy oracle IC50 (nM), TestSpec §4.
+        var oracle = new (string Peptide, string Allele, double Ic50)[]
+        {
+            ("SIINFEKL", "HLA-A*02:01", 11483.195201),
+            ("GILGFVFTL", "HLA-A*02:01", 19.123150),
+            ("NLVPMVATV", "HLA-A*02:01", 17.542640),
+            ("SIINFEKL", "HLA-B*07:02", 28830.796646),
+        };
+
+        foreach (var (peptide, allele, expected) in oracle)
+        {
+            double ic50 = MhcflurryAffinityPredictor.PredictIc50(net, peptide, allele);
+
+            double rel = System.Math.Abs(ic50 - expected) / System.Math.Abs(expected);
+            rel.Should().BeLessThanOrEqualTo(3e-4,
+                because: $"the BLOSUM-encoded single network must reproduce the MHCflurry oracle IC50 for {peptide}/{allele} within 0.03%");
+
+            // INV: case folding does not change the prediction (lowercase folded to canonical AA).
+            double lower = MhcflurryAffinityPredictor.PredictIc50(net, peptide.ToLowerInvariant(), allele);
+            lower.Should().BeApproximately(ic50, ic50 * 1e-12,
+                because: $"the encoder folds case, so '{peptide.ToLowerInvariant()}' predicts the same IC50 as '{peptide}'");
+
+            // INV: deterministic.
+            MhcflurryAffinityPredictor.PredictIc50(net, peptide, allele).Should().Be(ic50,
+                because: "the forward pass is deterministic given fixed weights");
+        }
+    }
+
+    [Test]
+    [Description("SUB: a peptide shorter than 15 is embedded centred in the middle block with X padding split floor/ceil — the centred block reproduces the left-aligned block's per-residue BLOSUM vectors, shifted by the centred pad.")]
+    public void MhcNn_ShorterPeptide_IsPaddedCentred()
+    {
+        const int width = MhcflurryAffinityPredictor.EncodingWidth;     // 21
+        const int maxLen = MhcflurryAffinityPredictor.PeptideMaxLength; // 15
+
+        bool TwentyOneVectorsEqual(double[] flat, int posA, int posB)
+        {
+            for (int c = 0; c < width; c++)
+                if (flat[posA * width + c] != flat[posB * width + c])
+                    return false;
+            return true;
+        }
+
+        foreach (string peptide in new[] { "SIINFEKL", "GILGFVFTL", "NLVPMVATV" })
+        {
+            int k = peptide.Length;
+            k.Should().BeLessThan(maxLen, because: "the centred-padding SUB is only non-trivial for peptides shorter than 15");
+
+            double[] flat = MhcflurryAffinityPredictor.EncodePeptide(peptide);
+            flat.Length.Should().Be(MhcflurryAffinityPredictor.PeptideFlatLength, because: "3×15×21 layout");
+
+            int pad = (maxLen - k) / 2;          // floor((15−k)/2): centred-left pad
+            const int leftBlock = 0;             // block 0 starts at position 0 (left-aligned)
+            const int centredBlock = maxLen;     // block 1 starts at position 15 (centred)
+
+            // Each peptide residue sits at centred position pad+i, matching left position i.
+            for (int i = 0; i < k; i++)
+                TwentyOneVectorsEqual(flat, centredBlock + pad + i, leftBlock + i).Should().BeTrue(
+                    because: $"residue {i} of '{peptide}' is centred at offset {pad}+{i}, the same BLOSUM vector as the left-aligned block");
+
+            // The padding positions of the centred block are X — identical to a left-block pad position.
+            int leftPadPos = leftBlock + k; // first X in the left-aligned block
+            for (int j = 0; j < pad; j++)
+                TwentyOneVectorsEqual(flat, centredBlock + j, leftPadPos).Should().BeTrue(
+                    because: $"centred position {j} (before the peptide) is X padding");
+            for (int j = pad + k; j < maxLen; j++)
+                TwentyOneVectorsEqual(flat, centredBlock + j, leftPadPos).Should().BeTrue(
+                    because: $"centred position {j} (after the peptide) is X padding");
+
+            // Non-vacuity: there really is centred padding (pad > 0).
+            pad.Should().BeGreaterThan(0, because: $"a length-{k} peptide leaves {maxLen - k} pad residues, split centred");
+        }
+    }
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  MHC-MATRIX-001 — SMM / BIMAS matrix pMHC prediction (Oncology)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (Peters & Sette 2005 BMC Bioinformatics 6:132; Parker 1994; IEDB SMM linearisation;
+    //   tests/TestSpecs/MHC-MATRIX-001.md):
+    //   SMM score = intercept + Σ position-specific contributions; IC50 = 50000^(1 − score). BIMAS
+    //   half-life = FinalConstant · ∏ per-position coefficients. Two metamorphic relations
+    //   (checklist row 246):
+    //
+    //   • INV (IC50 = 50000^(1 − score)): PredictIc50Smm equals 50000^(1 − score) for the score
+    //     summed independently from the matrix, invariant to peptide case; a zero score gives the
+    //     maximum IC50 = 50000.
+    //   • MON (improving an anchor residue lowers IC50): swapping an anchor position to a more
+    //     favourable residue (a larger SMM contribution) raises the score and so STRICTLY LOWERS the
+    //     SMM IC50 — and, on the multiplicative BIMAS model, raises the predicted half-life.
+    //
+    // API under test: OncologyAnalyzer.PredictIc50Smm / .PredictBindingHalfLifeBimas
+    //   (PmhcScoringMatrix); SmmIc50Base.
+
+    #region MHC-MATRIX-001 — SMM / BIMAS matrix prediction
+
+    // A deterministic 9-position SMM matrix (values = additive log50k contributions); position 1
+    // (P2) is an anchor with graded favourability A < L < M. FinalConstant is the SMM intercept.
+    private static OncologyAnalyzer.PmhcScoringMatrix BuildSmmMatrix(double intercept = 0.10)
+    {
+        var rows = new List<IReadOnlyDictionary<char, double>>
+        {
+            new Dictionary<char, double> { ['M'] = 0.20, ['A'] = 0.05, ['G'] = 0.02 },
+            new Dictionary<char, double> { ['A'] = 0.10, ['L'] = 0.30, ['M'] = 0.60 }, // P2 anchor
+            new Dictionary<char, double> { ['I'] = 0.12, ['V'] = 0.08 },
+            new Dictionary<char, double> { ['F'] = 0.15, ['Y'] = 0.10 },
+            new Dictionary<char, double> { ['K'] = 0.05, ['R'] = 0.07 },
+            new Dictionary<char, double> { ['W'] = 0.20, ['G'] = 0.01 },
+            new Dictionary<char, double> { ['G'] = 0.03, ['S'] = 0.04 },
+            new Dictionary<char, double> { ['T'] = 0.06, ['N'] = 0.05 },
+            new Dictionary<char, double> { ['V'] = 0.25, ['L'] = 0.18, ['A'] = 0.05 }, // P9 anchor
+        };
+        return new OncologyAnalyzer.PmhcScoringMatrix(rows, intercept);
+    }
+
+    private static double SmmScore(string peptide, OncologyAnalyzer.PmhcScoringMatrix matrix)
+    {
+        double s = matrix.FinalConstant;
+        for (int i = 0; i < peptide.Length; i++)
+            s += matrix.Rows[i].TryGetValue(char.ToUpperInvariant(peptide[i]), out double v) ? v : 0.0;
+        return s;
+    }
+
+    [Test]
+    [Description("INV: PredictIc50Smm equals 50000^(1 − score), where score is the intercept plus the position-specific contributions summed independently from the matrix; case-invariant; a zero score gives the maximum IC50 = 50000.")]
+    public void MhcMatrix_Ic50_EqualsFiftyThousandToOneMinusScore()
+    {
+        var matrix = BuildSmmMatrix();
+
+        foreach (string peptide in new[] { "MLIFKWGTV", "ALIFKWGTL", "AAIFRGGNA", "GGGGGGGGG" })
+        {
+            double expected = System.Math.Pow(OncologyAnalyzer.SmmIc50Base, 1.0 - SmmScore(peptide, matrix));
+            double ic50 = OncologyAnalyzer.PredictIc50Smm(peptide, matrix);
+
+            ic50.Should().BeApproximately(expected, System.Math.Abs(expected) * 1e-12,
+                because: $"IC50 = 50000^(1 − score) for '{peptide}'");
+            ic50.Should().BeGreaterThan(0.0, because: "an IC50 is a positive concentration");
+
+            // INV: case folding does not change the prediction.
+            OncologyAnalyzer.PredictIc50Smm(peptide.ToLowerInvariant(), matrix)
+                .Should().BeApproximately(ic50, System.Math.Abs(ic50) * 1e-12,
+                    because: $"the matrix lookup upper-cases the residue, so '{peptide.ToLowerInvariant()}' predicts the same IC50");
+        }
+
+        // Boundary: a zero-score peptide (zero intercept, all residues unlisted) gives the maximum IC50 = 50000.
+        var zeroIntercept = BuildSmmMatrix(intercept: 0.0);
+        OncologyAnalyzer.PredictIc50Smm("CCCCCCCCC", zeroIntercept) // C is unlisted at every position → score 0
+            .Should().BeApproximately(OncologyAnalyzer.SmmIc50Base, 1e-6,
+                because: "score 0 ⇒ IC50 = 50000^(1−0) = 50000, the maximum (affinity ≥ 50000 nM)");
+    }
+
+    [Test]
+    [Description("MON: swapping an anchor position to a more favourable residue raises the SMM score, so it STRICTLY lowers the SMM IC50 (and raises the multiplicative BIMAS half-life) — better anchor ⇒ stronger binding.")]
+    public void MhcMatrix_ImprovingAnchorResidue_LowersIc50()
+    {
+        var matrix = BuildSmmMatrix();
+
+        // P2 anchor (index 1) graded worst → best: unlisted 'W' (0.0) < A (0.10) < L (0.30) < M (0.60).
+        char[] anchorByQuality = { 'W', 'A', 'L', 'M' };
+        const string template = "A?IFKWGTV"; // '?' is the anchor position
+
+        double previousIc50 = double.PositiveInfinity;
+        double previousHalfLife = double.NegativeInfinity;
+        var bimas = BuildBimasMatrix();
+        foreach (char anchor in anchorByQuality)
+        {
+            string peptide = template.Replace('?', anchor);
+
+            double ic50 = OncologyAnalyzer.PredictIc50Smm(peptide, matrix);
+            ic50.Should().BeLessThan(previousIc50 - 1e-9,
+                because: $"a more favourable P2 anchor '{anchor}' raises the score, strictly lowering the SMM IC50");
+            previousIc50 = ic50;
+
+            double halfLife = OncologyAnalyzer.PredictBindingHalfLifeBimas(peptide, bimas);
+            halfLife.Should().BeGreaterThan(previousHalfLife + 1e-9,
+                because: $"a more favourable P2 anchor '{anchor}' raises the multiplicative BIMAS half-life (stronger binding)");
+            previousHalfLife = halfLife;
+        }
+    }
+
+    // A BIMAS-style matrix (coefficients ≥ 0, multiplicative); P2 anchor graded A < L < M; the
+    // unlisted residue gets the neutral coefficient 1.0. FinalConstant is the BIMAS final constant.
+    private static OncologyAnalyzer.PmhcScoringMatrix BuildBimasMatrix()
+    {
+        var rows = new List<IReadOnlyDictionary<char, double>>
+        {
+            new Dictionary<char, double> { ['A'] = 1.5 },
+            new Dictionary<char, double> { ['A'] = 2.0, ['L'] = 6.0, ['M'] = 20.0 }, // P2 anchor (W unlisted → 1.0)
+            new Dictionary<char, double> { ['I'] = 1.4 },
+            new Dictionary<char, double> { ['F'] = 1.6 },
+            new Dictionary<char, double> { ['K'] = 1.2 },
+            new Dictionary<char, double> { ['W'] = 1.8 },
+            new Dictionary<char, double> { ['G'] = 1.1 },
+            new Dictionary<char, double> { ['T'] = 1.3 },
+            new Dictionary<char, double> { ['V'] = 2.5 },
+        };
+        return new OncologyAnalyzer.PmhcScoringMatrix(rows, FinalConstant: 10.0);
+    }
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  IMMUNE-NUSVR-001 — CIBERSORT ν-SVR immune deconvolution (Oncology)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (Newman et al. 2015 Nat Methods 12:453, CIBERSORT; Schölkopf et al. 2000 ν-SVR;
+    //   tests/TestSpecs/IMMUNE-NUSVR-001.md):
+    //   DeconvoluteImmuneCellsNuSvr solves a mixture m = B·f for the cell-type fractions f from a
+    //   signature matrix B by linear ν-support-vector regression, sweeping ν ∈ {0.25,0.5,0.75} and
+    //   keeping the lowest-RMSE fit; fractions are zero-clipped and renormalised to sum 1. Two
+    //   metamorphic relations (checklist row 247):
+    //
+    //   • INV (mixing known fractions of pure profiles recovers those fractions): a synthetic mixture
+    //     m = Σ_c f_c·B[:,c] of disjoint pure profiles deconvolutes back to the planted fractions f
+    //     (within tolerance), with fractions ≥ 0 summing to 1.
+    //   • SUB (ν controls the model selection): the selected ν is always drawn from the supplied
+    //     candidate set, and the full sweep picks the ν with the LOWEST RMSE over that set — so
+    //     restricting the candidate set is a subset constraint on the achievable ν. (ν is the
+    //     Schölkopf lower bound on the support-vector fraction; the public API exposes the selected
+    //     ν and RMSE, not the raw SV count, so the ν-selection is the observable facet.)
+    //
+    // API under test: ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr (NuSvrDeconvolutionResult).
+
+    #region IMMUNE-NUSVR-001 — ν-SVR immune deconvolution
+
+    // A disjoint 3-cell-type signature matrix with three unique marker genes each (the proven
+    // well-conditioned matrix cross-validated against scikit-learn NuSVR in the unit fixture).
+    private static Dictionary<string, IReadOnlyDictionary<string, double>> BuildDisjointSignature() =>
+        new()
+        {
+            ["CellA"] = new Dictionary<string, double> { ["a1"] = 10, ["a2"] = 8, ["a3"] = 6 },
+            ["CellB"] = new Dictionary<string, double> { ["b1"] = 9, ["b2"] = 7, ["b3"] = 5 },
+            ["CellC"] = new Dictionary<string, double> { ["c1"] = 11, ["c2"] = 4, ["c3"] = 8 },
+        };
+
+    private static Dictionary<string, double> MixProfile(
+        IReadOnlyDictionary<string, IReadOnlyDictionary<string, double>> signature,
+        IReadOnlyDictionary<string, double> fractions)
+    {
+        var mixture = new Dictionary<string, double>();
+        foreach (var (cellType, row) in signature)
+        {
+            double f = fractions[cellType];
+            foreach (var (gene, value) in row)
+                mixture[gene] = mixture.GetValueOrDefault(gene) + f * value;
+        }
+
+        return mixture;
+    }
+
+    [Test]
+    [Description("INV: a synthetic mixture m = Σ f_c·B[:,c] of disjoint pure profiles deconvolutes back to the planted fractions (within tolerance), with non-negative fractions summing to 1.")]
+    public void NuSvr_MixingKnownFractions_RecoversThoseFractions()
+    {
+        var signature = BuildDisjointSignature();
+        var planted = new Dictionary<string, double> { ["CellA"] = 0.5, ["CellB"] = 0.2, ["CellC"] = 0.3 };
+
+        var mixture = MixProfile(signature, planted);
+        var result = ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(mixture, signature);
+
+        // Range: non-negative, sum to 1.
+        result.CellFractions.Values.Should().OnlyContain(v => v >= -1e-9, because: "fractions are zero-clipped to be non-negative");
+        result.CellFractions.Values.Sum().Should().BeApproximately(1.0, 1e-6, because: "fractions are renormalised to sum to 1");
+
+        // Recovery: each planted fraction is recovered within tolerance.
+        foreach (var (cellType, f) in planted)
+            result.CellFractions[cellType].Should().BeApproximately(f, 0.06,
+                because: $"the ν-SVR deconvolution recovers the planted fraction of {cellType} ({f}) within the documented tolerance");
+
+        // Determinism.
+        var again = ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(mixture, signature);
+        again.CellFractions["CellA"].Should().Be(result.CellFractions["CellA"], because: "deconvolution is deterministic");
+    }
+
+    [Test]
+    [Description("SUB: the selected ν is always one of the supplied candidates, and the full sweep picks the ν with the lowest RMSE over the candidate set — restricting the candidates is a subset constraint on the achievable ν.")]
+    public void NuSvr_NuSelection_PicksLowestRmseFromCandidateSet()
+    {
+        var signature = BuildDisjointSignature();
+        var planted = new Dictionary<string, double> { ["CellA"] = 0.5, ["CellB"] = 0.2, ["CellC"] = 0.3 };
+        var mixture = MixProfile(signature, planted);
+
+        double[] candidates = { 0.25, 0.5, 0.75 };
+
+        var full = ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(mixture, signature, candidates);
+
+        // SUB: the selected ν lies in the supplied candidate set.
+        candidates.Should().Contain(full.BestNu, because: "the selected ν must be one of the swept candidates");
+
+        // The full sweep's RMSE equals the minimum single-ν RMSE, and BestNu is its argmin.
+        double bestSingleRmse = double.PositiveInfinity;
+        double argminNu = double.NaN;
+        foreach (double nu in candidates)
+        {
+            var single = ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(mixture, signature, new[] { nu });
+            single.BestNu.Should().Be(nu, because: $"a singleton candidate set {{{nu}}} must select ν={nu}");
+            if (single.Rmse < bestSingleRmse)
+            {
+                bestSingleRmse = single.Rmse;
+                argminNu = nu;
+            }
+        }
+
+        full.Rmse.Should().BeApproximately(bestSingleRmse, 1e-9,
+            because: "the sweep keeps the lowest-RMSE fit over the candidate set");
+        full.BestNu.Should().Be(argminNu, because: "the selected ν is the RMSE argmin over the candidate set");
     }
 
     #endregion

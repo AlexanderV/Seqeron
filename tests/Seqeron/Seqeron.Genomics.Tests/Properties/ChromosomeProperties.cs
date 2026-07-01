@@ -2155,4 +2155,140 @@ public class ChromosomeProperties
     }
 
     #endregion
+
+    #region CHROM-ALPHASAT-001: R: monomer period ≈ 171 bp; R: CENP-B boxes within monomers; D: deterministic
+
+    // DetectAlphaSatellite / FindCenpBBoxes — alpha-satellite monomer detection (171-bp period, Willard 1985;
+    // Waye & Willard 1987) and the CENP-B box consensus YTTCGTTGGAARCGGGA (Masumoto et al. 1989).
+
+    private const int AlphaMonomer = ChromosomeAnalyzer.AlphaSatelliteMonomerLength; // 171
+    private const string CenpBInstance = "CTTCGTTGGAAACGGGA"; // a valid CENP-B box (Y=C, R=A), 17 bp
+
+    /// <summary>Builds an AT-rich 171-bp monomer carrying a CENP-B box at its 5' end, repeated m times.</summary>
+    private static string BuildAlphaSatellite(int seed, int m)
+    {
+        var rng = new Random(seed);
+        // 70%-AT filler so the overall AT content clears the >0.50 alpha-satellite gate.
+        char[] atRich = { 'A', 'A', 'T', 'T', 'A', 'T', 'G', 'C', 'A', 'T' };
+        var filler = new char[AlphaMonomer - CenpBInstance.Length];
+        for (int i = 0; i < filler.Length; i++) filler[i] = atRich[rng.Next(atRich.Length)];
+        string monomer = CenpBInstance + new string(filler);
+        return string.Concat(Enumerable.Repeat(monomer, m));
+    }
+
+    private static Arbitrary<string> AlphaSatelliteArbitrary() =>
+        (from seed in Gen.Choose(1, 1_000_000) from m in Gen.Choose(3, 5) select BuildAlphaSatellite(seed, m)).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (R): when a sequence is called alpha-satellite, its detected monomer period is ≈ 171 bp
+    /// (within the ±5 bp tolerance window). Exercised on AT-rich 171-bp monomer tandems.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AlphaSatellite_Period_NearMonomerLength()
+    {
+        return Prop.ForAll(AlphaSatelliteArbitrary(), seq =>
+        {
+            var r = ChromosomeAnalyzer.DetectAlphaSatellite(seq);
+            if (!r.IsAlphaSatellite) return true.ToProperty();
+            return (r.BestPeriod >= AlphaMonomer - 5 && r.BestPeriod <= AlphaMonomer + 5)
+                .Label($"alpha-satellite period {r.BestPeriod} not ≈ {AlphaMonomer}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (R): every CENP-B box found lies within the monomeric sequence — a valid 17-bp window
+    /// (0 ≤ pos ≤ len − 17) — and the reported count matches the number of box positions.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AlphaSatellite_CenpBBoxes_WithinMonomers()
+    {
+        return Prop.ForAll(AlphaSatelliteArbitrary(), seq =>
+        {
+            var boxes = ChromosomeAnalyzer.FindCenpBBoxes(seq);
+            var r = ChromosomeAnalyzer.DetectAlphaSatellite(seq);
+            bool ok = boxes.All(p => p >= 0 && p + CenpBInstance.Length <= seq.Length)
+                      && r.CenpBBoxCount == boxes.Count;
+            return ok.Label($"CENP-B boxes invalid (count={boxes.Count}, reported={r.CenpBBoxCount})");
+        });
+    }
+
+    /// <summary>INV-3 (D): alpha-satellite detection is deterministic.</summary>
+    [FsCheck.NUnit.Property]
+    public Property AlphaSatellite_IsDeterministic()
+    {
+        return Prop.ForAll(AlphaSatelliteArbitrary(), seq =>
+            (ChromosomeAnalyzer.DetectAlphaSatellite(seq) == ChromosomeAnalyzer.DetectAlphaSatellite(seq))
+                .Label("DetectAlphaSatellite must be deterministic"));
+    }
+
+    #endregion
+
+    #region CHROM-HOR-001: R: inter-HOR identity ≥ intra-monomer identity; R: HOR period = k×monomer; D: deterministic
+
+    // DetectHigherOrderRepeat — alpha-satellite higher-order repeat (HOR) structure: a unit of k distinct
+    // monomers tandemly repeated, so copies of the same unit are more identical (inter-HOR) than the distinct
+    // monomers within a unit (intra-HOR). Source: Willard & Waye (1987); Miga et al. (2014, T2T).
+
+    /// <summary>Builds a HOR: k distinct random 171-bp monomers forming a unit, repeated c times exactly.</summary>
+    private static string BuildHor(int seed, int k, int c)
+    {
+        var rng = new Random(seed);
+        char[] bases = { 'A', 'C', 'G', 'T' };
+        var monomers = new string[k];
+        for (int j = 0; j < k; j++)
+        {
+            var m = new char[AlphaMonomer];
+            for (int i = 0; i < AlphaMonomer; i++) m[i] = bases[rng.Next(4)];
+            monomers[j] = new string(m);
+        }
+        string unit = string.Concat(monomers);
+        return string.Concat(Enumerable.Repeat(unit, c));
+    }
+
+    private static Arbitrary<string> HorArbitrary() =>
+        (from seed in Gen.Choose(1, 1_000_000) from k in Gen.Choose(2, 3) from c in Gen.Choose(2, 3)
+         select BuildHor(seed, k, c)).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (R): when a higher-order structure is detected, the HOR unit length equals MonomersPerUnit ×
+    /// monomer length (the period is an integer number of monomers).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Hor_UnitLength_IsMultipleOfMonomer()
+    {
+        return Prop.ForAll(HorArbitrary(), seq =>
+        {
+            var r = ChromosomeAnalyzer.DetectHigherOrderRepeat(seq, AlphaMonomer);
+            if (!r.HasHigherOrderStructure) return true.ToProperty();
+            return (r.HorUnitLengthBp == r.MonomersPerUnit * AlphaMonomer)
+                .Label($"HOR unit {r.HorUnitLengthBp} ≠ {r.MonomersPerUnit}×{AlphaMonomer}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (R): in a detected HOR, copies of the same unit are at least as identical as the distinct
+    /// monomers within a unit — mean inter-HOR identity ≥ mean intra-HOR identity (the defining HOR property).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Hor_InterIdentity_AtLeastIntra()
+    {
+        return Prop.ForAll(HorArbitrary(), seq =>
+        {
+            var r = ChromosomeAnalyzer.DetectHigherOrderRepeat(seq, AlphaMonomer);
+            if (!r.HasHigherOrderStructure) return true.ToProperty();
+            return (r.MeanInterHorIdentity >= r.MeanIntraHorIdentity - 1e-9)
+                .Label($"inter-HOR {r.MeanInterHorIdentity} < intra-HOR {r.MeanIntraHorIdentity}");
+        });
+    }
+
+    /// <summary>INV-3 (D): HOR detection is deterministic.</summary>
+    [FsCheck.NUnit.Property]
+    public Property Hor_IsDeterministic()
+    {
+        return Prop.ForAll(HorArbitrary(), seq =>
+            (ChromosomeAnalyzer.DetectHigherOrderRepeat(seq, AlphaMonomer) == ChromosomeAnalyzer.DetectHigherOrderRepeat(seq, AlphaMonomer))
+                .Label("DetectHigherOrderRepeat must be deterministic"));
+    }
+
+    #endregion
 }

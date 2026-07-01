@@ -75,6 +75,23 @@ public class GcSkewProperties
         });
     }
 
+    /// <summary>
+    /// SEQ-GCSKEW-001 (P): the cumulative GC-skew diagram has exactly one point per nucleotide
+    /// when accumulated position-by-position (windowSize = 1) — its length equals the sequence length.
+    /// Evidence: the cumulative skew S_i = Σ_{j≤i} sign(G/C) is defined per position
+    /// (Grigoriev 1998; Rosalind BA1F minimum-skew diagram).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CumulativeGcSkew_LengthEqualsSequenceLength()
+    {
+        return Prop.ForAll(DnaArbitrary(10), seq =>
+        {
+            int count = GcSkewCalculator.CalculateCumulativeGcSkew(seq, windowSize: 1).Count();
+            return (count == seq.Length)
+                .Label($"cumulative points={count}, expected sequence length={seq.Length}");
+        });
+    }
+
     #region SEQ-ATSKEW-001: R: AT skew ∈ [-1,1]; S: complement reverses sign; D: deterministic
 
     // AT skew = (A−T)/(A+T) ∈ [-1,1]. The DNA complement swaps A↔T, so it negates the AT skew

@@ -11,7 +11,7 @@
 ## 1. Overview
 
 Given a somatic missense mutation (a single amino-acid substitution) in a protein, this algorithm enumerates
-the candidate MHC class I neoantigen peptides: every fixed-length window (8–11-mer by default) of the mutant
+the candidate MHC class I neoantigen peptides: every fixed-length window (8–14-mer by default) of the mutant
 protein that *spans* the substituted residue, each paired with the wild-type peptide occupying the same
 coordinates (the agretope). It is the deterministic, specification-driven *windowing* step of neoantigen
 prediction [1][2]; it does not score MHC binding (IC50 / presentation rank), which requires a trained model
@@ -40,9 +40,10 @@ the mutation iff `s ≤ p ≤ s+k-1`, i.e.
 > s ∈ [ max(1, p − k + 1), min(p, L − k + 1) ]
 
 The candidate mutant peptides of length `k` are `P'[s … s+k-1]` for each such `s`; the paired wild-type peptide
-(agretope) is `P[s … s+k-1]` at the same coordinates [2]. The default length range is k ∈ {8, 9, 10, 11} for
-MHC class I [1]. This is exactly the set of 8–11-mers contained in the 21-mer ±10-flank window that ProGeo-neo
-constructs around the substitution [2].
+(agretope) is `P[s … s+k-1]` at the same coordinates [2]. The default length range is k ∈ {8, 9, 10, 11, 12,
+13, 14} for MHC class I — the NetMHCpan-4.1 class I peptide window (Reynisson et al. 2020) [1]. The shorter
+8–11-mers are exactly the set contained in the 21-mer ±10-flank window that ProGeo-neo constructs around the
+substitution [2]; longer 12–14-mers extend symmetrically as the protein bounds permit.
 
 When `p` is at least `k − 1` residues from both termini and `L ≥ p + k − 1`, the bounds give exactly `k`
 windows of length `k`. Near a terminus the count is truncated to the windows that fit [2].
@@ -56,7 +57,7 @@ these two peptides [5].
 
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
-| INV-01 | Every peptide length is in [minLength, maxLength] (8–11 by default) | enumeration loop ranges over the requested lengths only [1] |
+| INV-01 | Every peptide length is in [minLength, maxLength] (8–14 by default) | enumeration loop ranges over the requested lengths only [1] |
 | INV-02 | Every peptide spans the mutation: `StartPosition + MutationOffset == p` and `0 ≤ MutationOffset < Length` | start bounds `s ∈ [max(1,p−k+1), min(p,L−k+1)]` [2] |
 | INV-03 | Mutant and wild-type peptides have equal length and differ at exactly the mutation offset | `P'` differs from `P` only at position `p`, which lies in the window |
 | INV-04 | `MutantPeptide[offset] == a` (mutant residue); `WildTypePeptide[offset] == P[p]` (original) | substitution applied only at `p` [5] |
@@ -126,7 +127,7 @@ one-letter-code strings (no alphabet validation; case preserved).
 
 | Operation | Time | Space | Notes |
 |-----------|------|-------|-------|
-| GenerateNeoantigenPeptides | O(Σ_k k²) ≈ O((max−min+1)·k_max²) | O(total peptide chars) | per length, ≤ k windows each of k chars; constant for fixed 8–11 range |
+| GenerateNeoantigenPeptides | O(Σ_k k²) ≈ O((max−min+1)·k_max²) | O(total peptide chars) | per length, ≤ k windows each of k chars; constant for fixed 8–14 range |
 
 ## 5. Implementation Notes
 
@@ -148,7 +149,7 @@ alphabet-validated — any one-letter codes are accepted and case is preserved.
 
 **Implemented (verbatim from the cited theory/spec):**
 
-- Enumeration of every length-k window spanning the substituted residue, for k = 8–11 by default [1][2].
+- Enumeration of every length-k window spanning the substituted residue, for k = 8–14 by default [1][2].
 - Wild-type/mutant agretope pairing at identical coordinates [2][5].
 
 **Intentionally simplified:**
@@ -193,9 +194,9 @@ filtered neoantigens.
 **API usage example:**
 
 ```csharp
-// Wild-type MKTAYIAKQRSTVWLNDEFGH, missense Y5C; default 8–11-mers.
+// Wild-type MKTAYIAKQRSTVWLNDEFGH, missense Y5C; default 8–14-mers.
 var peptides = OncologyAnalyzer.GenerateNeoantigenPeptides("MKTAYIAKQRSTVWLNDEFGH", 'C', 5);
-// 20 peptides (5 per length 8..11). First 8-mer: MutantPeptide "MKTACIAK", WildTypePeptide "MKTAYIAK",
+// 35 peptides (5 per length 8..14). First 8-mer: MutantPeptide "MKTACIAK", WildTypePeptide "MKTAYIAK",
 // StartPosition 1, MutationOffset 4.
 ```
 

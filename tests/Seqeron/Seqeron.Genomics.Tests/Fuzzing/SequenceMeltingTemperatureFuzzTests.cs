@@ -4,7 +4,7 @@ using FluentAssertions;
 using Seqeron.Genomics.Analysis;
 using Seqeron.Genomics.Infrastructure;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the Statistics-area simple melting-temperature (Tm) estimate.

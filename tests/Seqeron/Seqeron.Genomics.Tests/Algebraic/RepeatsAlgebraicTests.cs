@@ -148,4 +148,38 @@ public class RepeatsAlgebraicTests
         palindromes.Should().OnlyContain(p =>
             p.Length % 2 == 0 && p.Sequence == DnaSequence.GetReverseComplementString(p.Sequence));
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: REP-APPROX-001 — Approximate tandem-repeat detection (Repeats), row 256.
+    //
+    // Model: the TRF (Benson 1999) model aligns adjacent copies of a period-p tract; a PERFECT
+    //        tandem repeat aligns with no mismatch and no indel, so it scores as exact —
+    //        100% matches, 0% indels, copy number = span/period.
+    //   — RepeatFinder.FindApproximateTandemRepeats; TestSpec REP-APPROX-001.
+    //
+    // Laws (row 256): ID — a perfect tandem repeat scores as exact (100% / 0%).
+    //                 IDEMP — detection is a pure, deterministic function.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    [Test]
+    public void ApproximateTandem_Identity_PerfectRepeatScoresAsExact()
+    {
+        // Perfect dinucleotide CA × 5: aligned against its tiled consensus there are 0 mismatches and
+        // 0 indels, so the perfect tract scores as exact.
+        var top = RepeatFinder.FindApproximateTandemRepeats("CACACACACA", minPeriod: 1, maxPeriod: 6, minScore: 10)
+            .OrderByDescending(r => r.AlignmentScore).First();
+
+        top.Consensus.Should().Be("CA", "majority-rule consensus of a perfect CA tract");
+        top.PercentMatches.Should().BeApproximately(100.0, 1e-9, "a perfect tract is 100% matches");
+        top.PercentIndels.Should().BeApproximately(0.0, 1e-9, "a perfect tract has 0% indels");
+        top.CopyNumber.Should().BeApproximately(5.0, 1e-9, "10 bp / period 2 = 5 copies");
+    }
+
+    [Test]
+    public void ApproximateTandem_Idempotent_Deterministic()
+    {
+        var a = RepeatFinder.FindApproximateTandemRepeats("CAGCAGCAGCAGCAG", 1, 6, 10).ToList();
+        var b = RepeatFinder.FindApproximateTandemRepeats("CAGCAGCAGCAGCAG", 1, 6, 10).ToList();
+        a.Should().Equal(b);
+    }
 }

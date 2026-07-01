@@ -6,7 +6,7 @@ using NUnit.Framework;
 using FluentAssertions;
 using Seqeron.Genomics.Metagenomics;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the Metagenomics significant-taxa unit — the two-group

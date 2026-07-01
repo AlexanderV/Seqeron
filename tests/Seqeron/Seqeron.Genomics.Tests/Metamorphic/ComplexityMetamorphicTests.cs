@@ -4,7 +4,7 @@ using FluentAssertions;
 using Seqeron.Genomics.Analysis;
 using Seqeron.Genomics.Core;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Metamorphic;
 
 /// <summary>
 /// Metamorphic tests for the Complexity area.

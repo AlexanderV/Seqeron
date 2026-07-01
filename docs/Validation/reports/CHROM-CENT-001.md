@@ -1,149 +1,173 @@
-# Validation Report: CHROM-CENT-001 — Centromere detection (alpha-satellite / repeat region) + Levan classification
+# Validation Report: CHROM-CENT-001 — Centromere classification + α-satellite suprachromosomal-family assignment
 
-- **Validated:** 2026-06-24   **Area:** Chromosome
-- **Canonical method(s):** `ChromosomeAnalyzer.AnalyzeCentromere(chromosomeName, sequence, windowSize, minAlphaSatelliteContent)` → private `EstimateRepeatContent`, `CalculateGcVariability`, `DetermineCentromereType`
+- **Validated:** 2026-06-26   **Area:** Chromosome
+- **Re-validation trigger:** limitation-fix commit `887a9945` ADDED suprachromosomal-family (SF) assignment
+  (`AssignSuprachromosomalFamily` + `LoadBundledAlphaSatelliteReference` + new types). Prior validation
+  SUPERSEDED; unit re-validated fresh this session with primary focus on the new surface and a confirmation
+  pass over the pre-existing canonical surface.
+- **Canonical / surface validated this session:**
+  - **NEW (primary focus):** `ChromosomeAnalyzer.AssignSuprachromosomalFamily(sequence, reference=null)`,
+    `LoadBundledAlphaSatelliteReference()`, types `SuprachromosomalFamily`, `AlphaSatelliteReferenceMonomer`,
+    `SuprachromosomalFamilyResult`, `AlphaSatelliteBoxType`; bundled CC0 Dfam reference
+    `Resources/AlphaSatelliteReference.fasta` (ALR / ALRa / ALRb).
+  - **Pre-existing (confirmation):** Levan classification (`CalculateArmRatio`,
+    `ClassifyChromosomeByArmRatio`, `DetermineCentromereType`), α-satellite / CENP-B detection
+    (`DetectAlphaSatellite`, `FindCenpBBoxes`), HOR detection (`DetectHigherOrderRepeat`).
 - **Source file:** `src/Seqeron/Algorithms/Seqeron.Genomics.Chromosome/ChromosomeAnalyzer.cs`
-- **Test file:** `tests/Seqeron/Seqeron.Genomics.Tests/ChromosomeAnalyzer_Centromere_Tests.cs`
-- **Stage A verdict:** PASS-WITH-NOTES
-- **Stage B verdict:** PASS-WITH-NOTES
+- **Test files:** `ChromosomeAnalyzer_SuprachromosomalFamily_Tests.cs` (13, NEW),
+  `ChromosomeAnalyzer_Centromere_Tests.cs`, `ChromosomeAnalyzer_MutationKillers_Tests.cs`,
+  `ChromosomeAnalyzerTests.cs` (275 total under `~ChromosomeAnalyzer`, all green).
+- **Stage A verdict:** ✅ PASS
+- **Stage B verdict:** ✅ PASS
+- **State:** ✅ CLEAN (no defect found; no code changed this session)
 
-## Scope of this session
-
-The prior report (`git show cb113ce:...`) validated the **Levan (1964) arm-ratio classification** thoroughly. This session re-validates that result and, per the task, focuses on the part the prior report glossed over: the **detection criterion** — how a centromere region is *identified* (alpha-satellite / AT-rich / tandem-repeat), the scoring/threshold, and the reported region coordinates.
+---
 
 ## Stage A — Description
 
-### Sources opened & what they confirm
-- **Wikipedia "Alpha satellite" / "Centromere"** + literature search (Nature JHG, PLoS Comp Biol, PMC reviews on α-satellite biology): human centromeres are built from **α-satellite (alphoid) DNA**, a tandem repeat of a **~171 bp AT-rich monomer**. Monomers are 50–70% identical and are arranged into **higher-order repeat (HOR) units** (2–34 monomers) that are themselves tandemly amplified into large, near-identical (95–100%) arrays. The two defining molecular features are therefore: **(1) a ~171 bp tandem period, and (2) high AT content.**
-- **Levan A, Fredga K, Sandberg AA (1964)** "Nomenclature for centromeric position on chromosomes", *Hereditas* 52(2):201–220 (via Wikipedia table + independent summaries): arm ratio r = q/p (long/short); m ≤ 1.7, sm (1.7,3.0], st (3.0,7.0), t (acrocentric) ≥ 7.0, Telocentric at p = 0. Confirmed verbatim against the prior report's source check.
+### Sources opened THIS session & what they confirm
 
-### What the spec / Evidence actually describe as the detection criterion
-The TestSpec and `CHROM-CENT-001-Evidence.md` describe detection as a **heuristic**, not as alpha-satellite-specific identification:
-- Evidence "Implementation Notes": *"Sliding window approach with k-mer frequency analysis … GC content variability as discriminating feature … Repeat content estimation using k-mer counting (k=15)."*
-- TestSpec M4 rationale: *"Centromeres are characterized by repetitive DNA."*
+- **Dfam REST API** (retrieved this session, verbatim `consensus_sequence`):
+  - `DF000000029` **ALR** — length 171, classification `root;Tandem_Repeat;Satellite;Centromeric`.
+  - `DF000000014` **ALRa** — length 172, same classification (≈83.7% to ALR).
+  - `DF000000015` **ALRb** — length 169, same classification.
+  All three consensus strings match the bundled `Resources/AlphaSatelliteReference.fasta` **byte-for-byte**
+  (verified this session — see Stage B).
+- **Dfam licence** (Storer, Hubley, Rosen et al. 2021, *Mobile DNA* 12:2; dfam.org) — Dfam data is
+  dedicated to the **public domain under CC0**; freely redistributable. The bundled reference is genuinely CC0.
+- **McNulty SM & Sullivan BA (2018)** "Alpha satellite DNA biology", *Chromosome Res* (PMC6121732) —
+  confirmed **verbatim**:
+  - SF1 dimeric (J1·J2; HSA1,3,5,6,7,10,12,16,19); SF2 dimeric (D1·D2; eleven chromosomes);
+    SF3 pentameric (W1–W5; HSA1,11,17,X); SF4 monomeric (M1; acrocentric p-arms + Y); SF5 irregular (R1·R2).
+  - A/B-box rule **verbatim:** "A-type monomers include J1, D2, W4, W5, M1, and R2 monomers, while B-type
+    consist of J2, D1, W1–W3, and R1 monomers." and "B-type monomers contain CENP-B boxes, while A-type
+    monomers contain a binding site for pJα."
+- **Shepelev et al. (2009)** PLOS Genet 5:e1000641 — SF taxonomy origin confirmed via cross-source:
+  SF1 = J1+J2, SF2 = D1+D2, SF3 = W1–W5, SF4 = M1, SF5 = R1+R2 (twelve SF monomer types in five families).
+- **Masumoto et al. (1989)** CENP-B box 5′-`YTTCGTTGGAARCGGGA`-3′ (Y=C/T, R=A/G) — the 17-bp motif; used by
+  `FindCenpBBoxes`.
+- **Levan A, Fredga K, Sandberg AA (1964)** *Hereditas* 52(2):201–220 — arm-ratio r = L/S and centromeric
+  index ci = 100·p/(p+q); cut-points 1.7 / 3.0 / 7.0 (ci 37.5 / 25.0 / 12.5) over m / sm / st / a / T.
+  (Re-confirmed; unchanged from prior round.)
 
-So the description honestly declares a **generic tandem-repeat-density heuristic**. It does **not** claim to measure AT-content, nor to match the 171-bp monomer period. This is biologically motivated (centromeres are indeed the most repetitive regions of the chromosome) and is a defensible declared heuristic.
+### A/B-box typing of the bundled monomers (sequence-verifiable, hand-checked this session)
 
-### Independent cross-check (hand / numeric, k=15 repeat-content as in code)
-| Region type | repeat content | Detected at default 0.3? | Comment |
+Scanning the retrieved Dfam consensus strings for the IUPAC CENP-B box `[CT]TTCGTTGGAA[AG]CGGGA`:
+- **ALRb** → one match at **0-based position 126** (`CTTCGTTGGAAACGGGA`) → **B-type**. ✔ (matches the
+  bundled `boxtype=B` and the README claim "CENP-B box at consensus position 126").
+- **ALR** and **ALRa** → **no match** → **A-type**. ✔
+This reproduces the sourced rule (B-type carries the CENP-B box; A-type does not).
+
+### SF assignment rule vs. the published families
+
+The method has only two reproducible SF-determining signals available from the CC0 reference: the **HOR
+period** (from `DetectHigherOrderRepeat`) and the **A/B-box composition** of one HOR unit. The mapping is a
+faithful reduction of the Shepelev/McNulty taxonomy onto those two signals:
+
+| Signal | Code rule | Published basis | Verdict |
 |---|---|---|---|
-| AT-rich 171-bp tandem (alpha-sat-like) | 1.00 | yes | true positive |
-| GC-rich generic 16-bp tandem (NOT alpha-sat, NOT AT-rich) | 1.00 | yes | **false positive** — flags any tandem repeat |
-| AT-rich but non-repetitive (random AT) | 0.26 | no (borderline) | AT-content alone is not sufficient — confirms detector keys on *repetitiveness*, not AT% |
-| Random 4-base sequence | ≈0 | no | true negative (matches test M4b) |
+| period multiple of 5 | → SF3 | SF3 is pentameric (W1–W5) | ✔ diagnostic |
+| period 1, all A-type | → SF4 | SF4 = M1, monomeric, A-type | ✔ |
+| period 2 (A+B dimer) | → {SF1,SF2} | SF1/SF2 both dimeric A→B | ✔ (cannot separate from CC0) |
+| irregular A/B, both box types | → SF5 | SF5 = R1·R2 irregular | ✔ |
+| otherwise | → Unknown | — | ✔ |
 
-This confirms the criterion is **repeat density**, independent of period length and of AT-content. It correctly *includes* alpha-satellite (which is repetitive) but is not *specific* to it.
+### Edge-case semantics (sourced / defined)
+- Empty / null / shorter than one 171-bp monomer → not alpha-satellite, `Unknown`, period 0, empty pattern.
+- A query below the **≥60% identity** gate to the closest reference monomer → not alpha-satellite. The gate
+  is justified by alphoid divergence (~16% from consensus, 50–70% between monomer classes; Waye & Willard
+  1987; PMC6121732) — random DNA sits well below it (measured ~52% this session), real monomers ~85–98%.
 
-### Findings / divergences (Stage A)
-- **Note 1 (overclaiming name):** the unit is titled "alpha-satellite / AT-rich repeat identification", and the result field is `AlphaSatelliteContent`, but the algorithm computes a generic repeat×(1−GC-variability) score with **no** AT-content term and **no** 171-bp period test. The score is *consistent with* but not *specific to* alpha-satellite. The Evidence's own Implementation Notes describe the true mechanism, so the heuristic *is* declared — but the "AlphaSatellite" labeling oversells it. Documented, not a correctness defect.
-- **Note 2 (Levan, unchanged):** r ≥ 7 class is Levan sign "t" = Acrocentric; Telocentric reserved for p = 0. Interval operationalization of Levan's point table is standard. (Same as prior report.)
+### Stage A verdict
+**✅ PASS.** Every SF fact, the A/B-box rule, the CENP-B box motif/position, the three Dfam sequences, and the
+CC0 licence are confirmed against authoritative external first-sources retrieved this session. The reduction
+of the taxonomy onto {HOR period + A/B composition} is sound, and the residual (SF1-vs-SF2 and non-period-5
+SF3) is an honest open boundary, not a hidden defect — separating them needs the SF-resolved consensus
+monomer library (J1/J2/D1/D2/W1–W5/M1/R1/R2), which is not CC0/redistributable.
+
+---
 
 ## Stage B — Implementation
 
+### Reference data integrity (byte-for-byte vs Dfam)
+- `AlphaSatelliteReference.fasta`: the ALR/ALRa/ALRb consensus lines are **identical** to the Dfam REST
+  `consensus_sequence` fields retrieved this session (lengths 171/172/169; the `N`-containing positions
+  preserved). `boxtype` headers (A/A/B) match the sequence-derived CENP-B typing.
+- `LoadBundledAlphaSatelliteReference` parses the FASTA from the embedded resource (csproj
+  `EmbeddedResource`), upper-cases, and returns three records with the right `Name`/`Accession`/`Sequence`/
+  `BoxType` — confirmed by independent probe (`ref count=3`; ALR/ALRa/ALRb; acc/len/box all correct).
+
 ### Code path reviewed (`ChromosomeAnalyzer.cs`)
-- `AnalyzeCentromere` (line 361): scans windows of `windowSize` stepping `windowSize/4`; score = `EstimateRepeatContent(window) * (1 - CalculateGcVariability(window,1000))`; keeps the max-scoring window whose `repeatContent > minAlphaSatelliteContent`; then greedily extends left/right while neighbouring half-windows have repeat content ≥ `0.7 × threshold`.
-- `EstimateRepeatContent` (line 442): k=15 k-mer count; returns Σ(instances of k-mers occurring >1×) / (#k-mers). Pure repetitiveness measure.
-- `CalculateGcVariability` (line 471): std-dev of GC fraction over 1 kb sub-windows.
-- `DetermineCentromereType` (line 495): r = q/p, swap-safe via Min/Max, `pArm==0`→Telocentric, switch `<=1.7 / <=3.0 / <7.0 / else` → M/sm/st/Acrocentric.
+- `AssignSuprachromosomalFamily` (`:1090`): guards empty/null/<171; splits into `len/171` whole monomers
+  (trailing partial ignored); best-matches each monomer to every reference via
+  `SequenceAligner.GlobalAlign` → `CalculateStatistics().Identity`; accepts a monomer as alpha-satellite
+  when best identity ≥ 60%; `matchedCount==0` → not-alpha/`Unknown`; takes period from
+  `DetectHigherOrderRepeat`; builds the first-unit A/B pattern; delegates to `ClassifyFamily`.
+- `ClassifyFamily` (`:1187`): period%5==0→SF3; period 1 → SF4 (all-A) else SF5; period 2 → {SF1,SF2};
+  else both-box-types → SF5; else Unknown. Matches the Stage-A table exactly.
 
-### Faithfulness to the declared description
-- The code realises exactly the declared k-mer-repeat + low-GC-variability heuristic. ✔
-- Region coordinates are **0-based, half-open**: `Length = End − Start`, `End` clamped to `sequence.Length`. Confirmed by snapshot (`Start:0, End:15500, Length:15500`). ✔
-- Levan classification realised correctly (full cross-check table reproduced in prior report; re-confirmed: 1.7→M, 3.0→sm, 7.0→Acrocentric, p=0→Telocentric, IEEE-754 boundaries exact). ✔
-- Non-centromeric (random) region is **not** flagged: M4b passes (`Type=Unknown`, `Start/End=null`, score < 0.3). ✔
+### Independent cross-check — SF assignments reproduced this session (own probe, not test echoes)
 
-### Findings / defects (Stage B, all PASS-WITH-NOTES — none are correctness defects vs the declared heuristic)
-1. **`AlphaSatelliteContent` is a misnomer.** The field stores `maxScore` = repeatContent×(1−GCvariability), a unitless generic-repeat score (snapshot shows 1.0), **not** a fraction of alpha-satellite sequence. The TestSpec invariant only requires it be ≥ 0, which masks the mislabel.
-2. **`AlphaSatelliteConsensus` constant is dead and mislabeled.** It is 62 bp (`...len 62, 76% AT`), **never referenced** by `AnalyzeCentromere`, and its only test (`AlphaSatelliteConsensus_IsValidDnaSequence`) asserts merely `length > 50` with a comment claiming the monomer is "~171 bp". The canonical α-satellite monomer is **171 bp** (Willard 1985 / current literature); the 62-bp string is neither 171 bp nor used. Cosmetic/documentation, no runtime effect.
-3. **Detection is not alpha-satellite-specific** (Stage A Note 1): any sufficiently tandem-repetitive window scores 1.0 and is flagged regardless of period or AT-content. Acceptable *as a declared heuristic*; would be a defect only if the spec claimed period/AT-specificity, which it does not.
+| Input (real Dfam-derived monomers) | IsAlpha | Family | period | best | meanId | pattern |
+|---|---|---|---|---|---|---|
+| ALRa ×8 (monomeric A) | true | **Sf4** | 1 | ALRa | 95.5% | [A] |
+| (ALRa+ALRb) ×6 (dimer A·B) | true | **Sf1OrSf2Dimeric** | 2 | ALRa | 97.5% | [A,B] |
+| pentamer 3B+2A ×6 (W1–W3 B, W4–W5 A) | true | **Sf3** | 5 | ALRb | 84.7% | [B,B,B,A,A] |
+| irregular A/B array | true | **Sf5** | 1 | ALRa | 97.0% | (irregular) |
+| random DNA (seed 1234, 400 bp) | **false** | **Unknown** | 0 | null | 51.9% | [] |
+| ALRb ×8 (monomeric B-only) | true | **Sf5** | 1 | ALRb | 92.2% | [B] |
 
-### Test quality audit
-- 24 tests, all passing. They assert exact Levan class strings, `IsAcrocentric` invariant, valid type-set, structural invariants (Start≤End, Length=End−Start), and the right detection edge cases (empty/null/short/uniform/non-repetitive/case-insensitive/threshold-monotonicity). Boundary ratios reached stochastically (~1.0/2.0/5.0/21), with exact boundaries (1.7/3.0/7.0) covered by hand in the prior report.
-- Gaps tied to the notes above: no test pins `AlphaSatelliteContent` to a meaningful biological quantity, and no test asserts the constant equals a real 171-bp monomer. These lock in the mislabels rather than catch them.
+`FindCenpBBoxes`: ALRb→`[126]`, ALRa→`[]`, ALR→`[]`. All values match the sourced expectations and the
+test assertions; the negative case (random DNA, 51.9% < 60% gate → not alpha-satellite) is genuine.
+
+### Pre-existing surface (confirmation pass)
+- **Levan** (`ClassifyChromosomeByArmRatio` / `DetermineCentromereType`): normalises to r = max(p/q, q/p),
+  switch ≤1.7 m / ≤3.0 sm / <7.0 st / else a; p=0/ratio≤0 → Telocentric. Correct per Levan 1964 (this was
+  the defect fixed in the prior round; it remains correct and the lock-tests trace to hand-computed r).
+- **α-satellite / CENP-B / HOR detectors:** unchanged by commit `887a9945` (additive only). The new method's
+  M-SF-8 test asserts `DetectAlphaSatellite`/`DetectHigherOrderRepeat` are byte-identical before/after a call
+  — the additive contract holds.
+- All **275** `~ChromosomeAnalyzer` tests green.
+
+### Test-quality audit (HARD gate)
+- All public surface covered: `LoadBundledAlphaSatelliteReference` (M-SF-1/2), `AssignSuprachromosomalFamily`
+  default + caller-supplied reference overload (M-SF-3..8, S-SF-1), case-insensitivity (S-SF-2), identity
+  sanity (C-SF-1), edge cases (empty/null/short, empty-reference→throws).
+- Assertions are **sourced, not code echoes**: A/B typing traces to the PMC6121732 rule + the CENP-B box at
+  position 126; SF families trace to the dimeric/pentameric/monomeric/irregular taxonomy; identity to the
+  measured Dfam-derived values; the negative case to the 60% gate. Reference monomers are the REAL Dfam
+  strings (period-5 case uses deterministic mild point-variants that stay above the gate and keep parent
+  A/B type).
+- Deterministic (fixed local RNG seeds; the shared-RNG hazard does not apply — RNG is local to each test).
+
+### Stage B verdict
+**✅ PASS.** The code faithfully realises the validated description; the bundled reference is byte-identical
+to CC0 Dfam; A/B typing is correct (ALRb carries the CENP-B box at 126); the SF rule reproduces the published
+family signals on worked examples plus a real negative case. No defect found; no code changed this session.
+
+---
 
 ## Verdict & follow-ups
-- **Stage A:** PASS-WITH-NOTES — Levan classification confirmed against sources; detection is a **declared generic tandem-repeat-density heuristic** (k=15 k-mer repeat + low GC variability), biologically motivated and correctly excluding random sequence, but **not** alpha-satellite-specific (no AT% term, no 171-bp period). The "AlphaSatellite" naming overclaims relative to what is computed.
-- **Stage B:** PASS-WITH-NOTES — code faithfully realises the declared heuristic and the Levan classification; region coords 0-based half-open; non-centromeric region not flagged. Notes: `AlphaSatelliteContent` field is a generic score (misnamed); `AlphaSatelliteConsensus` (62 bp) is unused dead code mislabeled as the ~171 bp monomer.
-- **State:** CLEAN — no algorithmic correctness defect against the declared description; the heuristic is honestly declared in the Evidence. The three notes are naming/documentation caveats, not behavioural bugs, so no code change is made (changing the misnomer/constant would be cosmetic and risk churning passing tests/snapshots without improving correctness). FullSuite not re-run end-to-end since no code changed; Centromere filter 24/24 passing.
-- **Suggested (non-blocking) follow-ups for a future session:** rename `AlphaSatelliteContent`→`RepeatScore` (or document it as a repeat score), and either replace the 62-bp `AlphaSatelliteConsensus` with a sourced 171-bp α-satellite monomer or drop the "~171 bp" claim from the test comment.
+- **Stage A:** ✅ PASS — SF taxonomy, A/B-box rule, CENP-B box, the three Dfam sequences + CC0 licence, and
+  Levan thresholds confirmed against external first-sources retrieved this session.
+- **Stage B:** ✅ PASS — reference byte-verified vs Dfam; SF assignments + CENP-B positions reproduced
+  independently; additive contract holds; tests sourced.
+- **State:** ✅ **CLEAN.** Full unfiltered `dotnet test Seqeron.sln -c Debug` **Failed: 0**
+  (Seqeron.Genomics.Tests 18860 passed); no code/test changed this session.
+- **Documented open boundary (acceptable, not a defect):** SF1 vs SF2 (both dimeric A→B) and SF3 arrays whose
+  period is not a multiple of 5 (e.g. dodecameric DXZ1) are not resolved from the CC0 reference; they need the
+  SF-resolved consensus monomer library (not CC0/redistributable). Recorded in `Resources/README.md`,
+  `LIMITATIONS.md` §2, and the TestSpec residual.
 
 ---
 
-## Limitation fix (2026-06-24): alpha-satellite-specific detection added
+## Historical note
+The prior round (2026-06-25, Levan focus) found and fully fixed a real defect in
+`ClassifyChromosomeByArmRatio` (diverged from Levan 1964; omitted Subtelocentric) and de-green-washed its
+tests. That fix remains in place and re-confirmed here. The present session re-validates the unit after the
+SF-assignment addition (commit `887a9945`), which is additive and does not touch the Levan surface.
 
-The PASS-WITH-NOTES "not alpha-satellite-specific" item (Stage A Note 1 / Stage B finding 3) is now
-addressed by an **opt-in, additive** capability. Defaults preserved: `AnalyzeCentromere` and the
-semantics of its `AlphaSatelliteContent` generic-repeat score are unchanged.
 
-### New methods (`ChromosomeAnalyzer.cs`)
-- `AlphaSatelliteResult DetectAlphaSatellite(string sequence)` — returns
-  `(IsAlphaSatellite, PeriodicityScore, BestPeriod, AtContent, CenpBBoxCount)`. It combines the two
-  defining molecular signatures of human alphoid DNA: **(1)** a ~171-bp tandem periodicity (best
-  base-level self-similarity over periods 171±5 bp) and **(2)** AT-richness (AT > 0.50), and counts
-  **(3)** CENP-B box occurrences. `IsAlphaSatellite` requires periodicity ≥ 0.50 (lower bound of the
-  50–70% intra-array monomer identity) AND AT > 0.50.
-- `IReadOnlyList<int> FindCenpBBoxes(string sequence)` — 0-based positions of the 17-bp CENP-B box
-  consensus `YTTCGTTGGAARCGGGA` (Y=C/T, R=A/G; all other positions exact).
-- New sourced constants: `AlphaSatelliteMonomerLength = 171`, `CenpBBoxConsensus = "YTTCGTTGGAARCGGGA"`.
+## Runtime enforcement (LimitationPolicy)
 
-### Sources retrieved this session
-- 171-bp monomer: Willard HF (1985); Waye JS, Willard HF (1987); review PMC6121732 (*"fundamental
-  171bp monomeric repeat units"*).
-- CENP-B box 17-bp consensus `YTTCGTTGGAARCGGGA`: Masumoto H et al. (1989) J Cell Biol 109(4):1963-1973,
-  confirmed via PMC4843215 and PMC6121732.
-- No alphoid consensus monomer sequence is embedded — detection is period/AT/motif-based, so nothing
-  was fabricated.
-
-### Tests
-`ChromosomeAnalyzer_AlphaSatellite_Tests.cs` — 20 tests, all green. Positive control (perfect tandem
-171-bp AT-rich array → detected, periodicity 1.0, BestPeriod 171, AT 100/171; CENP-B count 10 over
-10 monomers), negatives (random; AT-rich-but-non-repetitive; GC-rich 16-bp tandem → all not detected),
-CENP-B box IUPAC matching incl. all four Y/R resolutions and exact-base rejection, and edge cases.
-
-### State
-CLEAN. The alpha-satellite-specific signal is now genuinely measured (the prior note is resolved as an
-opt-in addition). **Residual (honest, out of scope):** higher-order repeat (HOR) structure and
-suprachromosomal-family classification are not modelled — detection is monomer-level. Registry Status
-reset `☑`→`☐` for independent re-validation per the campaign protocol.
-
----
-
-## Limitation fix (2026-06-24): higher-order repeat (HOR) structure detection added
-
-The "HOR structure not modelled" residual above is now addressed by an **opt-in, additive** method.
-Defaults preserved: `AnalyzeCentromere`, `DetectAlphaSatellite`, `FindCenpBBoxes`, and the Levan
-classification are unchanged.
-
-### New method (`ChromosomeAnalyzer.cs`)
-- `HorResult DetectHigherOrderRepeat(string sequence, int monomerLength = 171)` — splits the array into
-  ~171 bp monomers; computes monomer-vs-monomer percent identity via the library aligner
-  (`SequenceAligner.GlobalAlign` + `CalculateStatistics`); reports the HOR period = smallest block size
-  k whose k-periodic monomers are ≥95% identical across ≥90% of the array, plus HOR unit length (k×171),
-  copy number (⌊M/k⌋), and mean inter-HOR vs intra-HOR identity. Period 1 = homogeneous 1-mer array
-  (not a multi-monomer HOR). New record `HorResult`; new sourced constants
-  `InterHorMinIdentityPercent = 95.0`, `HorPeriodConsistencyFraction = 0.90`. The Chromosome project now
-  references the Alignment project (no dependency cycle).
-
-### Sources retrieved this session (verbatim figures)
-- HOR = block of n monomers tandemly repeated; monomers within a unit **50–70% identical**; HOR copies
-  **97–100% identical** ("HOR unit length is determined by where the next monomer shows nearly total
-  sequence identity to the first monomer in the HOR"): McNulty SM, Sullivan BA (2018), Chromosome Res
-  26:115-138 (PMC6121732).
-- Inter-HOR divergence **<5%**; intra-HOR monomer divergence **20–40%**: Rosandić et al. (2024,
-  PMC11050224). Inter-HOR **<5%**, intermonomeric **20–40%**, chr1 11-mer HOR copies 1.8% diverged:
-  Paar/Alkan (Bioinformatics 21(7):846).
-
-### Tests
-`ChromosomeAnalyzer_HigherOrderRepeat_Tests.cs` — 11 tests, all green. 3-monomer HOR ×5 ⇒ period 3,
-copy 5, unit length 513 bp, 15 monomers, inter-HOR 100% > intra-HOR ≈57.9% (in 50–70% band); dimeric
-HOR ⇒ period 2, copy 6, 342 bp; monomeric divergent array and homogeneous 1-mer array ⇒ period 1 / no
-HOR; edge cases (empty, null, <2 monomers, trailing partial, invalid length, mixed case). Expected
-values hand-derived from a fixed high-complexity background (gapless alignment ⇒ identity =
-(171−Hamming)/171), not read back from the implementation.
-
-### State
-CLEAN. HOR structure (period, copy number, inter-/intra-HOR identity) is now detected as an opt-in
-addition. **Residual (honest, data-blocked):** suprachromosomal-family / specific α-satellite family
-(J1/J2/W/…) assignment requires curated reference HOR libraries the library does not embed; cascading/
-nested HOR decomposition is likewise out of scope. Registry Status stays `☐` (CHROM-CENT-001 was already
-`☐` from the prior round and remains pending independent re-validation per the campaign protocol).
+This unit's guarded branch — the unresolved `Sf1OrSf2Dimeric` (SF1-vs-SF2) call — has **minimum access mode `Permissive`** (`Seqeron.Genomics.Core.LimitationCatalog`). Under the default `LimitationPolicy.DefaultMode = Moderate` it throws `SeqeronLimitationException` (this guarded branch is allowed only under `Permissive`); see [LIMITATIONS.md](../LIMITATIONS.md) › Runtime enforcement. Additive policy layer; the validated contract and `✅ CLEAN` verdict are unchanged.

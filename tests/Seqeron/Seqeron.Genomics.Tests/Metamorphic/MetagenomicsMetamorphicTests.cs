@@ -5,7 +5,7 @@ using NUnit.Framework;
 using FluentAssertions;
 using Seqeron.Genomics.Metagenomics;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Metamorphic;
 
 /// <summary>
 /// Metamorphic tests for the Metagenomics area.
@@ -736,6 +736,189 @@ public class MetagenomicsMetamorphicTests
         foreach (var taxon in original.Keys)
             permuted[taxon].Should().BeApproximately(original[taxon], 1e-12,
                 because: $"the rank-sum p-value of {taxon} depends on group membership, not sample order");
+    }
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  META-CHECKM-001 — CheckM marker-gene bin quality (Metagenomics)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (Parks et al. 2015 Genome Res 25:1043, CheckM; docs algorithm doc):
+    //   Over collocated single-copy marker sets M,
+    //     Completeness   = 100·(1/|M|)·Σ_{s∈M} present_s/|s|
+    //     Contamination  = 100·(1/|M|)·Σ_{s∈M} multiCopy_s/|s|,  multiCopy_s = Σ_{count>1}(count−1).
+    //   Two metamorphic relations (checklist row 248):
+    //
+    //   • MON (removing a marker lowers completeness): a marker that drops from present to absent
+    //     removes its 1/|s| contribution, so completeness strictly decreases; removing more markers
+    //     is monotone.
+    //   • MON (duplicating a marker raises contamination): a marker copy beyond the first adds
+    //     (count−1)/|s| to its set's contamination term, so duplicating raises contamination, and
+    //     each further copy raises it more. (Duplication does not change completeness — present is
+    //     counted once.)
+    //
+    // API under test: MetagenomicsAnalyzer.EstimateBinQualityFromMarkerCounts (BinMarkerQuality).
+
+    #region META-CHECKM-001 — CheckM bin quality
+
+    // Three collocated marker sets of three markers each (|M| = 3, 9 markers total).
+    private static readonly MetagenomicsAnalyzer.MarkerSet[] CheckMMarkerSets =
+    {
+        new(new[] { "m1", "m2", "m3" }),
+        new(new[] { "m4", "m5", "m6" }),
+        new(new[] { "m7", "m8", "m9" }),
+    };
+
+    private static Dictionary<string, int> AllPresentOnce() =>
+        Enumerable.Range(1, 9).ToDictionary(i => $"m{i}", _ => 1);
+
+    [Test]
+    [Description("MON: removing a present marker drops its 1/|s| contribution, so completeness strictly decreases; removing more markers is monotone (contamination is unaffected).")]
+    public void CheckM_RemovingMarker_LowersCompleteness()
+    {
+        var counts = AllPresentOnce();
+        double baseline = MetagenomicsAnalyzer.EstimateBinQualityFromMarkerCounts(CheckMMarkerSets, counts).Completeness;
+        baseline.Should().BeApproximately(100.0, 1e-9, because: "all nine markers present once ⇒ 100% complete");
+
+        // Removing any single present marker strictly lowers completeness.
+        for (int i = 1; i <= 9; i++)
+        {
+            var reduced = AllPresentOnce();
+            reduced.Remove($"m{i}");
+            double comp = MetagenomicsAnalyzer.EstimateBinQualityFromMarkerCounts(CheckMMarkerSets, reduced).Completeness;
+            comp.Should().BeLessThan(baseline - 1e-9,
+                because: $"removing present marker m{i} drops its 1/|s| completeness contribution");
+        }
+
+        // Monotone: removing progressively more markers never raises completeness.
+        var running = AllPresentOnce();
+        double previous = baseline;
+        for (int i = 1; i <= 6; i++)
+        {
+            running.Remove($"m{i}");
+            var q = MetagenomicsAnalyzer.EstimateBinQualityFromMarkerCounts(CheckMMarkerSets, running);
+            q.Completeness.Should().BeLessThanOrEqualTo(previous + 1e-9,
+                because: $"removing marker m{i} cannot raise completeness");
+            q.Contamination.Should().BeApproximately(0.0, 1e-9,
+                because: "removing (vs duplicating) markers leaves contamination at 0");
+            previous = q.Completeness;
+        }
+    }
+
+    [Test]
+    [Description("MON: a marker copy beyond the first adds (count−1)/|s| to its set's contamination, so duplicating a marker raises contamination and each further copy raises it more; completeness is unchanged.")]
+    public void CheckM_DuplicatingMarker_RaisesContamination()
+    {
+        var baseCounts = AllPresentOnce();
+        var baseQuality = MetagenomicsAnalyzer.EstimateBinQualityFromMarkerCounts(CheckMMarkerSets, baseCounts);
+        baseQuality.Contamination.Should().BeApproximately(0.0, 1e-9, because: "single-copy markers ⇒ 0% contamination");
+
+        // Duplicating one marker raises contamination above zero; completeness unchanged.
+        var dup = AllPresentOnce();
+        dup["m1"] = 2;
+        var dupQuality = MetagenomicsAnalyzer.EstimateBinQualityFromMarkerCounts(CheckMMarkerSets, dup);
+        dupQuality.Contamination.Should().BeGreaterThan(baseQuality.Contamination + 1e-9,
+            because: "a second copy of m1 adds (2−1)/|s| to its set's contamination term");
+        dupQuality.Completeness.Should().BeApproximately(baseQuality.Completeness, 1e-9,
+            because: "duplication does not change completeness — a present marker is counted once");
+
+        // Monotone: each further copy of the same marker raises contamination more.
+        double previous = baseQuality.Contamination;
+        foreach (int copies in new[] { 2, 3, 4, 5 })
+        {
+            var counts = AllPresentOnce();
+            counts["m1"] = copies;
+            double cont = MetagenomicsAnalyzer.EstimateBinQualityFromMarkerCounts(CheckMMarkerSets, counts).Contamination;
+            cont.Should().BeGreaterThan(previous + 1e-9,
+                because: $"{copies} copies of m1 contribute (count−1)/|s| more contamination than {copies - 1}");
+            previous = cont;
+        }
+    }
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  META-TETRA-001 — TETRA tetranucleotide z-score signature (Metagenomics)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Theory (Teeling et al. 2004 BMC Bioinformatics 5:163; Schbath variance model):
+    //   The TETRA signature first extends a sequence by its reverse complement (making the signature
+    //   strand-symmetric), then assigns each of the 256 tetranucleotides a Markov-corrected z-score;
+    //   two sequences are compared by the Pearson correlation of their z-vectors. Two metamorphic
+    //   relations (checklist row 249):
+    //
+    //   • INV (reverse-complement-merged counts give an identical z-vector): the signature is computed
+    //     on the sequence concatenated with its reverse complement, which is itself a
+    //     reverse-complement palindrome — so within the 256-entry z-vector the score of every
+    //     tetranucleotide w equals the score of its reverse complement: z[w] == z[revcomp(w)].
+    //   • MON (identical sequences → correlation 1): the Pearson correlation of a z-vector with
+    //     itself is exactly 1, while compositionally different sequences correlate below 1.
+    //
+    // API under test: MetagenomicsAnalyzer.CalculateTetranucleotideZScores / .TetranucleotideZScoreCorrelation.
+
+    #region META-TETRA-001 — tetranucleotide z-score signature
+
+    private static string TetraRevComp(string s)
+    {
+        var arr = new char[s.Length];
+        for (int i = 0; i < s.Length; i++)
+        {
+            char c = char.ToUpperInvariant(s[s.Length - 1 - i]);
+            arr[i] = c switch { 'A' => 'T', 'T' => 'A', 'C' => 'G', 'G' => 'C', _ => c };
+        }
+
+        return new string(arr);
+    }
+
+    private static string TetraDeterministicDna(int length, int seed, double gc = 0.5)
+    {
+        var rng = new Random(seed);
+        var chars = new char[length];
+        for (int i = 0; i < length; i++)
+        {
+            bool isGc = rng.NextDouble() < gc;
+            chars[i] = isGc ? (rng.Next(2) == 0 ? 'G' : 'C') : (rng.Next(2) == 0 ? 'A' : 'T');
+        }
+
+        return new string(chars);
+    }
+
+    [Test]
+    [Description("INV: TETRA counts on the sequence concatenated with its reverse complement (an RC palindrome), so within the z-vector every tetranucleotide w scores identically to its reverse complement: z[w] == z[revcomp(w)].")]
+    public void Tetra_ReverseComplementMergedCounts_GiveStrandSymmetricZVector()
+    {
+        foreach (int seed in new[] { 11, 22, 33 })
+        {
+            string seq = TetraDeterministicDna(600, seed, gc: 0.45 + 0.05 * (seed % 3));
+            var z = MetagenomicsAnalyzer.CalculateTetranucleotideZScores(seq);
+
+            // Non-vacuity: the z-vector is not the degenerate all-zero vector.
+            z.Values.Any(v => System.Math.Abs(v) > 1e-6).Should().BeTrue(
+                because: "a 600-nt sequence has a non-degenerate TETRA signature");
+
+            foreach (var (tetra, value) in z)
+            {
+                string rc = TetraRevComp(tetra);
+                z[rc].Should().BeApproximately(value, 1e-9,
+                    because: $"the reverse-complement-merged extended strand makes z[{tetra}] equal z[{rc}] (strand symmetry)");
+            }
+        }
+    }
+
+    [Test]
+    [Description("MON: the Pearson correlation of a TETRA z-vector with itself is exactly 1, while a compositionally different sequence correlates below 1.")]
+    public void Tetra_IdenticalSequences_CorrelateToOne()
+    {
+        string seq = TetraDeterministicDna(800, 101, gc: 0.5);
+
+        MetagenomicsAnalyzer.TetranucleotideZScoreCorrelation(seq, seq).Should().BeApproximately(1.0, 1e-9,
+            because: "a z-vector's Pearson correlation with itself is exactly 1");
+
+        // Non-vacuity: a compositionally very different sequence correlates below 1.
+        string different = TetraDeterministicDna(800, 202, gc: 0.8);
+        MetagenomicsAnalyzer.TetranucleotideZScoreCorrelation(seq, different).Should().BeLessThan(1.0 - 1e-6,
+            because: "a sequence with a markedly different tetranucleotide composition does not correlate perfectly");
     }
 
     #endregion

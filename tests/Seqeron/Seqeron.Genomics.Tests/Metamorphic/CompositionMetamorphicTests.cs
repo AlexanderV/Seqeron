@@ -5,7 +5,7 @@ using FluentAssertions;
 using Seqeron.Genomics.Core;
 using Seqeron.Genomics.Analysis;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Metamorphic;
 
 /// <summary>
 /// Metamorphic tests for the Composition area.

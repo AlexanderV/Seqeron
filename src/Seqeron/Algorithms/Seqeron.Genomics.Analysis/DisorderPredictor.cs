@@ -247,6 +247,49 @@ public static class DisorderPredictor
                 "", new List<ResiduePrediction>(), new List<DisorderedRegion>(), 0, 0);
         }
 
+        // The per-region Confidence populated below is an uncalibrated heuristic — no disorder
+        // predictor publishes a calibrated confidence standard. Strict mode throws; the validated
+        // TOP-IDP boundaries (without a confidence) are the ideal result, available via
+        // PredictDisorderRegions.
+        Seqeron.Genomics.Core.LimitationPolicy.Enforce("DISORDER-REGION-001");
+
+        return ComputeDisorder(sequence, windowSize, disorderThreshold, minRegionLength);
+    }
+
+    /// <summary>
+    /// Predicts intrinsically disordered <b>regions</b> (and per-residue calls) using the validated
+    /// TOP-IDP threshold, <b>without</b> the uncalibrated per-region confidence — each
+    /// <see cref="DisorderedRegion.Confidence"/> is <see cref="double.NaN"/>. This is the ideal,
+    /// always-available result for DISORDER-REGION-001 and never throws under
+    /// <see cref="Seqeron.Genomics.Core.LimitationMode.Strict"/>. Use
+    /// <see cref="PredictDisorder(string,int,double,int)"/> (under Permissive) to also obtain the
+    /// heuristic confidence.
+    /// </summary>
+    public static DisorderPredictionResult PredictDisorderRegions(
+        string sequence,
+        int windowSize = 21,
+        double disorderThreshold = TopIdpCutoff,
+        int minRegionLength = 5)
+    {
+        if (string.IsNullOrEmpty(sequence))
+        {
+            return new DisorderPredictionResult(
+                "", new List<ResiduePrediction>(), new List<DisorderedRegion>(), 0, 0);
+        }
+
+        var full = ComputeDisorder(sequence, windowSize, disorderThreshold, minRegionLength);
+        var regionsWithoutConfidence = full.DisorderedRegions
+            .Select(r => r with { Confidence = double.NaN })
+            .ToList();
+        return full with { DisorderedRegions = regionsWithoutConfidence };
+    }
+
+    private static DisorderPredictionResult ComputeDisorder(
+        string sequence,
+        int windowSize,
+        double disorderThreshold,
+        int minRegionLength)
+    {
         sequence = sequence.ToUpperInvariant();
 
         // Calculate per-residue disorder scores
@@ -533,7 +576,7 @@ public static class DisorderPredictor
     /// <c>consensus.py:get_region_features</c>):</para>
     /// <list type="number">
     /// <item>Charge class via the Das &amp; Pappu (2013) diagram of states
-    ///   (<c>states.py:get_disorder_class</c>): with f₊ = (R+K)/L, f₋ = (D+E)/L,
+    ///   (<c>states.py:get_disorder_class</c>): with f₊ = (R+K+H)/L, f₋ = (D+E)/L,
     ///   FCR = f₊+f₋, NCPR = |f₊−f₋| — if FCR &gt; 0.35 then PA when NCPR ≤ 0.35 (or both
     ///   f₊ &gt; 0.35 and f₋ &gt; 0.35), else PPE when f₊ &gt; 0.35, NPE when f₋ &gt; 0.35.</item>
     /// <item>Otherwise (weakly charged) the first enriched composition class, tested in
@@ -561,11 +604,15 @@ public static class DisorderPredictor
         string seq = regionSequence.ToUpperInvariant();
         double length = seq.Length;
 
-        // get_disorder_class: f_plus = (R+K)/L, f_minus = (D+E)/L.
+        // get_disorder_class: positive = {R,K,H}, negative = {D,E}.
+        // MobiDB-lite v3 states.py translates the sequence with
+        //   intab='RKDEACFGHILMNPQSTVWY', outab='PPNN____P___________'
+        // i.e. R,K,H → "P" (positive) and D,E → "N" (negative); f_plus = (R+K+H)/L,
+        // f_minus = (D+E)/L. Histidine is counted as positive (verbatim from the source).
         int plusCount = 0, minusCount = 0;
         foreach (char c in seq)
         {
-            if (c == 'R' || c == 'K') plusCount++;
+            if (c == 'R' || c == 'K' || c == 'H') plusCount++;
             else if (c == 'D' || c == 'E') minusCount++;
         }
 

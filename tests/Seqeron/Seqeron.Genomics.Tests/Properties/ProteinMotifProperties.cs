@@ -111,9 +111,34 @@ public class ProteinMotifProperties
     }
 
     /// <summary>
-    /// INV-5: FindMotifByPattern with a shorter (broader) pattern finds ≥ as many matches
-    /// as a longer (more specific) pattern.
-    /// Evidence: A longer regex is more restrictive, matching a subset of the shorter pattern's matches.
+    /// INV-5 (M, property): broadening one position of a pattern to a wildcard never loses a match.
+    /// FindMotifByPattern reports overlapping matches at every start position, so the match set of a
+    /// broad pattern is a SUPERSET of any pattern that fixes the wildcarded position. We take a random
+    /// 3-residue window of the protein as the narrow literal pattern (guaranteeing ≥ 1 match), replace
+    /// its middle residue with '.', and assert every narrow match start is also a broad match start
+    /// (⇒ count(broad) ≥ count(narrow) ≥ 1).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FindMotifByPattern_WildcardBroadening_NeverLosesMatches()
+    {
+        var gen = (from seq in ProteinArbitrary(5).Generator
+                   from i in Gen.Choose(0, seq.Length - 3)
+                   select (seq, i)).ToArbitrary();
+
+        return Prop.ForAll(gen, t =>
+        {
+            string narrow = t.seq.Substring(t.i, 3);
+            string broad = $"{narrow[0]}.{narrow[2]}";
+            var narrowStarts = ProteinMotifFinder.FindMotifByPattern(t.seq, narrow).Select(m => m.Start).ToHashSet();
+            var broadStarts = ProteinMotifFinder.FindMotifByPattern(t.seq, broad).Select(m => m.Start).ToHashSet();
+            return (narrowStarts.Count >= 1 && narrowStarts.IsSubsetOf(broadStarts))
+                .Label($"narrow '{narrow}' ({narrowStarts.Count}) must be a subset of broad '{broad}' ({broadStarts.Count})");
+        });
+    }
+
+    /// <summary>
+    /// INV-5b (anchor): a CxxC zinc-finger pattern broadened from a residue-restricted variant keeps
+    /// ≥ as many matches on a real zinc-finger protein.
     /// </summary>
     [Test]
     [Category("Property")]
@@ -289,6 +314,41 @@ public class ProteinMotifProperties
             var domains = ProteinMotifFinder.FindDomains(seq).ToList();
             return domains.All(d => double.IsFinite(d.Score))
                 .Label("Domain scores must be finite");
+        });
+    }
+
+    /// <summary>
+    /// INV-15 (P: domain score above threshold): the HMM domain finder is a score gate — every domain
+    /// it reports has bit score ≥ the requested minBitScore. Source: Eddy (2011) HMMER — a hit is only
+    /// emitted when its log-odds bit score clears the reporting threshold.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FindDomainsByHmm_AllDomains_ScoreAboveThreshold()
+    {
+        return Prop.ForAll(ProteinArbitrary(50), seq =>
+        {
+            const double minBits = 5.0;
+            var domains = ProteinMotifFinder.FindDomainsByHmm(seq, minBitScore: minBits).ToList();
+            return domains.All(d => d.Score >= minBits)
+                .Label($"every reported HMM domain must have bit score ≥ {minBits}");
+        });
+    }
+
+    /// <summary>
+    /// INV-16 (M): raising the HMM bit-score threshold only removes hits — the higher-threshold domain
+    /// set is a subset of the lower-threshold one (a monotone score gate).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FindDomainsByHmm_HigherThreshold_IsSubset()
+    {
+        return Prop.ForAll(ProteinArbitrary(50), seq =>
+        {
+            var loose = ProteinMotifFinder.FindDomainsByHmm(seq, minBitScore: 0.0)
+                .Select(d => (d.Accession, d.Start, d.End)).ToHashSet();
+            var strict = ProteinMotifFinder.FindDomainsByHmm(seq, minBitScore: 10.0)
+                .Select(d => (d.Accession, d.Start, d.End)).ToHashSet();
+            return strict.IsSubsetOf(loose)
+                .Label("higher bit-score threshold must yield a subset of the looser threshold's domains");
         });
     }
 
@@ -756,6 +816,80 @@ public class ProteinMotifProperties
         return Prop.ForAll(ProteinArbitrary(25), seq =>
             ProteinMotifFinder.PredictTransmembraneHelices(seq).SequenceEqual(ProteinMotifFinder.PredictTransmembraneHelices(seq))
                 .Label("PredictTransmembraneHelices must be deterministic"));
+    }
+
+    #endregion
+
+    #region PROTMOTIF-HMM-001: R: Forward ≥ Viterbi (log-odds); R: E-value ≥ 0; D: deterministic given profile
+
+    // Plan7 profile-HMM (HMMER3 Plan7; Eddy 2011). Forward sums the likelihood over ALL full-profile
+    // paths, so it can never be below the single best-path Viterbi score (Durbin et al. 1998, §3.2).
+    // The bundled SH3 profile (PF00018) is parsed once and scored against random protein sequences.
+
+    private static readonly Lazy<Plan7ProfileHmm> Sh3Profile = new(() =>
+        Plan7ProfileHmm.Parse(ReadEmbeddedHmm("PF00018_SH3_1.hmm")));
+
+    private static string ReadEmbeddedHmm(string fileName)
+    {
+        var asm = typeof(Plan7ProfileHmm).Assembly;
+        string resourceName = $"Seqeron.Genomics.Analysis.Resources.{fileName}";
+        using var stream = asm.GetManifestResourceStream(resourceName)
+            ?? throw new InvalidOperationException($"Missing embedded resource: {resourceName}");
+        using var reader = new System.IO.StreamReader(stream);
+        return reader.ReadToEnd();
+    }
+
+    /// <summary>
+    /// INV-1 (R): for every sequence, the Forward log-odds score (sum over all paths) is ≥ the Viterbi
+    /// log-odds score (single best path) — the Forward ensemble includes the optimal path as one term.
+    /// Source: Durbin et al. (1998) §3.2; HMMER3 (Eddy 2011).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Hmm_ForwardScore_AtLeastViterbiScore()
+    {
+        return Prop.ForAll(ProteinArbitrary(5), seq =>
+        {
+            var hmm = Sh3Profile.Value;
+            double viterbi = hmm.ViterbiScore(seq);
+            double forward = hmm.ForwardScore(seq);
+            return (forward >= viterbi - 1e-9).Label($"Forward {forward} < Viterbi {viterbi}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (R): both the Viterbi and Forward E-values are non-negative for any finite bit score and
+    /// positive database size — E = P·Z with the survival probability P ∈ [0,1] and Z &gt; 0.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Hmm_EValues_AreNonNegative()
+    {
+        var gen = (from bitsCenti in Gen.Choose(-5000, 5000)
+                   from z in Gen.Choose(1, 1_000_000)
+                   select (bits: bitsCenti / 100.0, z: (double)z)).ToArbitrary();
+
+        return Prop.ForAll(gen, t =>
+        {
+            var hmm = Sh3Profile.Value;
+            double vE = hmm.ViterbiEValue(t.bits, t.z);
+            double fE = hmm.ForwardEValue(t.bits, t.z);
+            return (vE >= 0.0 && fE >= 0.0).Label($"E-values negative: Viterbi {vE}, Forward {fE}");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): given a fixed profile, Viterbi and Forward scoring are deterministic functions of the
+    /// sequence — identical inputs yield bit-identical scores.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Hmm_Scoring_IsDeterministic()
+    {
+        return Prop.ForAll(ProteinArbitrary(5), seq =>
+        {
+            var hmm = Sh3Profile.Value;
+            return (hmm.ViterbiScore(seq) == hmm.ViterbiScore(seq)
+                    && hmm.ForwardScore(seq) == hmm.ForwardScore(seq))
+                .Label("profile-HMM scoring must be deterministic for identical input");
+        });
     }
 
     #endregion

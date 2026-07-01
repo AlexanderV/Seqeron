@@ -1,0 +1,1463 @@
+using NUnit.Framework;
+using Seqeron.Genomics;
+using System.IO;
+using System.Linq;
+
+namespace Seqeron.Genomics.Tests.Unit.IO;
+
+[TestFixture]
+public class EmblParserTests
+{
+    #region Sample EMBL Data
+
+    private const string SimpleEmblRecord = @"ID   TEST001; SV 1; linear; genomic DNA; STD; HUM; 100 BP.
+XX
+AC   TEST001;
+XX
+DT   01-JAN-2024 (Created)
+XX
+DE   Test sequence for unit testing.
+XX
+KW   test; genomics; parser.
+XX
+OS   Homo sapiens
+OC   Eukaryota; Metazoa; Chordata; Vertebrata; Mammalia.
+XX
+RN   [1]
+RA   Smith J., Jones A.;
+RT   ""Test title for reference"";
+RL   Test Journal 1:1-10(2024).
+XX
+FH   Key             Location/Qualifiers
+FH
+FT   gene            1..50
+FT                   /gene=""testGene""
+FT   CDS             10..40
+FT                   /gene=""testGene""
+FT                   /product=""test protein""
+XX
+SQ   Sequence 100 BP; 25 A; 25 C; 25 G; 25 T; 0 other;
+     acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt acgtacgtac        50
+     gcgcgcgcgc gcgcgcgcgc gcgcgcgcgc gcgcgcgcgc gcgcgcgcgc       100
+//";
+
+    private const string MinimalRecord = @"ID   MINIMAL; SV 1; linear; genomic DNA; STD; UNC; 20 BP.
+XX
+SQ   Sequence 20 BP;
+     acgtacgtac gtacgtacgt                                          20
+//";
+
+    private const string CircularRecord = @"ID   PLASMID; SV 1; circular; genomic DNA; STD; PRO; 50 BP.
+XX
+AC   PLASMID001;
+XX
+DE   Circular plasmid sequence.
+XX
+OS   Escherichia coli
+XX
+SQ   Sequence 50 BP;
+     aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa        50
+//";
+
+    #endregion
+
+    #region Basic Parsing Tests
+
+    [Test]
+    public void Parse_ValidRecord_ReturnsOneRecord()
+    {
+        var records = EmblParser.Parse(SimpleEmblRecord).ToList();
+
+        Assert.That(records.Count, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void Parse_EmptyContent_ReturnsEmpty()
+    {
+        var records = EmblParser.Parse("").ToList();
+
+        Assert.That(records, Is.Empty);
+    }
+
+    [Test]
+    public void Parse_NullContent_ReturnsEmpty()
+    {
+        var records = EmblParser.Parse(null!).ToList();
+
+        Assert.That(records, Is.Empty);
+    }
+
+    [Test]
+    public void Parse_MinimalRecord_ParsesSuccessfully()
+    {
+        var records = EmblParser.Parse(MinimalRecord).ToList();
+
+        Assert.That(records.Count, Is.EqualTo(1));
+        Assert.That(records[0].Accession, Is.EqualTo("MINIMAL"));
+    }
+
+    #endregion
+
+    #region ID Line Tests
+
+    [Test]
+    public void Parse_IdLine_ExtractsAccession()
+    {
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+
+        Assert.That(record.Accession, Is.EqualTo("TEST001"));
+    }
+
+    [Test]
+    public void Parse_IdLine_ExtractsTopology()
+    {
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+
+        Assert.That(record.Topology, Is.EqualTo("linear"));
+    }
+
+    [Test]
+    public void Parse_IdLine_ExtractsMoleculeType()
+    {
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+
+        Assert.That(record.MoleculeType, Is.EqualTo("genomic DNA"));
+    }
+
+    [Test]
+    public void Parse_IdLine_ExtractsLength()
+    {
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+
+        Assert.That(record.SequenceLength, Is.EqualTo(100));
+    }
+
+    [Test]
+    public void Parse_CircularTopology_ParsesCorrectly()
+    {
+        var record = EmblParser.Parse(CircularRecord).First();
+
+        Assert.That(record.Topology, Is.EqualTo("circular"));
+    }
+
+    [Test]
+    public void Parse_IdLine_ExtractsSequenceVersion()
+    {
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+
+        Assert.That(record.SequenceVersion, Is.EqualTo("1"));
+    }
+
+    [Test]
+    public void Parse_IdLine_ExtractsDataClass()
+    {
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+
+        Assert.That(record.DataClass, Is.EqualTo("STD"));
+    }
+
+    [Test]
+    public void Parse_IdLine_ExtractsTaxonomicDivision()
+    {
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+
+        Assert.That(record.TaxonomicDivision, Is.EqualTo("HUM"));
+    }
+
+    #endregion
+
+    #region Metadata Tests
+
+    [Test]
+    public void Parse_Description_ExtractsCorrectly()
+    {
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+
+        Assert.That(record.Description, Is.EqualTo("Test sequence for unit testing."));
+    }
+
+    [Test]
+    public void Parse_Keywords_ParsesMultiple()
+    {
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+
+        Assert.That(record.Keywords.Count, Is.EqualTo(3));
+        Assert.That(record.Keywords, Is.EqualTo(new[] { "test", "genomics", "parser" }));
+    }
+
+    [Test]
+    public void Parse_Organism_ExtractsCorrectly()
+    {
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+
+        Assert.That(record.Organism, Is.EqualTo("Homo sapiens"));
+    }
+
+    [Test]
+    public void Parse_OrganismClassification_ParsesHierarchy()
+    {
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+
+        Assert.That(record.OrganismClassification.Count, Is.EqualTo(5));
+        Assert.That(record.OrganismClassification, Is.EqualTo(new[] { "Eukaryota", "Metazoa", "Chordata", "Vertebrata", "Mammalia" }));
+    }
+
+    #endregion
+
+    #region Reference Tests
+
+    [Test]
+    public void Parse_References_ExtractsAll()
+    {
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+
+        Assert.That(record.References.Count, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void Parse_Reference_HasAuthors()
+    {
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+        var firstRef = record.References[0];
+
+        Assert.That(firstRef.Authors, Is.EqualTo("Smith J., Jones A."));
+    }
+
+    [Test]
+    public void Parse_Reference_HasTitle()
+    {
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+        var firstRef = record.References[0];
+
+        Assert.That(firstRef.Title, Is.EqualTo("Test title for reference"));
+    }
+
+    [Test]
+    public void Parse_Reference_HasJournalLocation()
+    {
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+        var firstRef = record.References[0];
+
+        Assert.That(firstRef.Journal, Is.EqualTo("Test Journal 1:1-10(2024)."));
+    }
+
+    #endregion
+
+    #region Feature Tests
+
+    [Test]
+    public void Parse_Features_ExtractsAll()
+    {
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+
+        Assert.That(record.Features.Count, Is.EqualTo(2));
+        Assert.That(record.Features[0].Key, Is.EqualTo("gene"));
+        Assert.That(record.Features[1].Key, Is.EqualTo("CDS"));
+    }
+
+    [Test]
+    public void Parse_GeneFeature_HasCorrectKey()
+    {
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+        var genes = record.Features.Where(f => f.Key == "gene").ToList();
+
+        Assert.That(genes.Count, Is.EqualTo(1));
+        Assert.That(genes[0].Location.Start, Is.EqualTo(1));
+        Assert.That(genes[0].Location.End, Is.EqualTo(50));
+    }
+
+    [Test]
+    public void Parse_Feature_HasQualifiers()
+    {
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+        var cds = record.Features.FirstOrDefault(f => f.Key == "CDS");
+
+        Assert.That(cds.Qualifiers, Is.Not.Null);
+        Assert.That(cds.Qualifiers.ContainsKey("product"), Is.True);
+        Assert.That(cds.Qualifiers["product"], Does.Contain("test protein"));
+    }
+
+    [Test]
+    public void Parse_Feature_GeneQualifier()
+    {
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+        var gene = record.Features.FirstOrDefault(f => f.Key == "gene");
+
+        Assert.That(gene.Qualifiers.ContainsKey("gene"), Is.True);
+        Assert.That(gene.Qualifiers["gene"], Is.EqualTo("testGene"));
+    }
+
+    #endregion
+
+    #region Sequence Tests
+
+    [Test]
+    public void Parse_Sequence_ExtractsAndNormalizes()
+    {
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+
+        Assert.That(record.Sequence.Length, Is.EqualTo(100));
+        Assert.That(record.Sequence, Does.StartWith("ACGTACGT"));
+    }
+
+    [Test]
+    public void Parse_Sequence_RemovesNumbersAndSpaces()
+    {
+        var record = EmblParser.Parse(MinimalRecord).First();
+
+        Assert.That(record.Sequence, Is.EqualTo("ACGTACGTACGTACGTACGT"));
+        Assert.That(record.Sequence, Does.Not.Contain(" "));
+    }
+
+    [Test]
+    public void Parse_Sequence_UpperCase()
+    {
+        var record = EmblParser.Parse(MinimalRecord).First();
+
+        Assert.That(record.Sequence.All(c => char.IsUpper(c)), Is.True);
+    }
+
+    #endregion
+
+    #region Location Parsing Tests
+
+    [Test]
+    public void ParseLocation_SimpleRange_ParsesCorrectly()
+    {
+        var location = EmblParser.ParseLocation("100..200");
+
+        Assert.That(location.Start, Is.EqualTo(100));
+        Assert.That(location.End, Is.EqualTo(200));
+        Assert.That(location.IsComplement, Is.False);
+    }
+
+    [Test]
+    public void ParseLocation_Complement_DetectsStrand()
+    {
+        var location = EmblParser.ParseLocation("complement(100..200)");
+
+        Assert.That(location.IsComplement, Is.True);
+        Assert.That(location.Start, Is.EqualTo(100));
+        Assert.That(location.End, Is.EqualTo(200));
+        Assert.That(location.IsJoin, Is.False);
+    }
+
+    [Test]
+    public void ParseLocation_Join_ExtractsParts()
+    {
+        var location = EmblParser.ParseLocation("join(1..50,60..100)");
+
+        Assert.That(location.IsJoin, Is.True);
+        Assert.That(location.IsComplement, Is.False);
+        Assert.That(location.Parts.Count, Is.EqualTo(2));
+        Assert.That(location.Parts[0], Is.EqualTo((1, 50)));
+        Assert.That(location.Parts[1], Is.EqualTo((60, 100)));
+        Assert.That(location.Start, Is.EqualTo(1));
+        Assert.That(location.End, Is.EqualTo(100));
+    }
+
+    [Test]
+    public void ParseLocation_SingleBase_ParsesCorrectly()
+    {
+        var location = EmblParser.ParseLocation("467");
+
+        Assert.That(location.Start, Is.EqualTo(467));
+        Assert.That(location.End, Is.EqualTo(467));
+    }
+
+    [Test]
+    public void ParseLocation_PartialStart_DetectsPartial()
+    {
+        var location = EmblParser.ParseLocation("<1..200");
+
+        Assert.That(location.Start, Is.EqualTo(1));
+        Assert.That(location.End, Is.EqualTo(200));
+        Assert.That(location.Is5PrimePartial, Is.True);
+        Assert.That(location.Is3PrimePartial, Is.False);
+        Assert.That(location.RawLocation, Is.EqualTo("<1..200"));
+    }
+
+    [Test]
+    public void ParseLocation_PartialEnd_DetectsPartial()
+    {
+        var location = EmblParser.ParseLocation("100..>500");
+
+        Assert.That(location.Start, Is.EqualTo(100));
+        Assert.That(location.End, Is.EqualTo(500));
+        Assert.That(location.Is3PrimePartial, Is.True);
+        Assert.That(location.Is5PrimePartial, Is.False);
+        Assert.That(location.RawLocation, Is.EqualTo("100..>500"));
+    }
+
+    [Test]
+    public void ParseLocation_ComplementJoin_ParsesCorrectly()
+    {
+        var location = EmblParser.ParseLocation("complement(join(1..50,60..100))");
+
+        Assert.That(location.IsComplement, Is.True);
+        Assert.That(location.IsJoin, Is.True);
+        Assert.That(location.Parts.Count, Is.EqualTo(2));
+        Assert.That(location.Parts[0], Is.EqualTo((1, 50)));
+        Assert.That(location.Parts[1], Is.EqualTo((60, 100)));
+        Assert.That(location.Start, Is.EqualTo(1));
+        Assert.That(location.End, Is.EqualTo(100));
+    }
+
+    #endregion
+
+    #region Conversion Tests
+
+    [Test]
+    public void ToGenBank_ConvertsSuccessfully()
+    {
+        var embl = EmblParser.Parse(SimpleEmblRecord).First();
+        var genBank = EmblParser.ToGenBank(embl);
+
+        Assert.That(genBank.Accession, Is.EqualTo(embl.Accession));
+        Assert.That(genBank.Sequence, Is.EqualTo(embl.Sequence));
+        Assert.That(genBank.Organism, Is.EqualTo(embl.Organism));
+    }
+
+    [Test]
+    public void ToGenBank_PreservesFeatures()
+    {
+        var embl = EmblParser.Parse(SimpleEmblRecord).First();
+        var genBank = EmblParser.ToGenBank(embl);
+
+        Assert.That(genBank.Features.Count, Is.EqualTo(embl.Features.Count));
+    }
+
+    #endregion
+
+    #region Utility Method Tests
+
+    [Test]
+    public void GetCDS_ReturnsOnlyCDSFeatures()
+    {
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+        var cdsFeatures = EmblParser.GetCDS(record).ToList();
+
+        Assert.That(cdsFeatures.Count, Is.EqualTo(1));
+        Assert.That(cdsFeatures[0].Key, Is.EqualTo("CDS"));
+        Assert.That(cdsFeatures[0].Location.Start, Is.EqualTo(10));
+        Assert.That(cdsFeatures[0].Location.End, Is.EqualTo(40));
+    }
+
+    [Test]
+    public void GetGenes_ReturnsOnlyGeneFeatures()
+    {
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+        var genes = EmblParser.GetGenes(record).ToList();
+
+        Assert.That(genes.Count, Is.EqualTo(1));
+        Assert.That(genes[0].Key, Is.EqualTo("gene"));
+        Assert.That(genes[0].Qualifiers["gene"], Is.EqualTo("testGene"));
+    }
+
+    [Test]
+    public void GetFeatures_FiltersByKey()
+    {
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+        var cdsFeatures = EmblParser.GetFeatures(record, "CDS").ToList();
+
+        Assert.That(cdsFeatures.All(f => f.Key == "CDS"), Is.True);
+        Assert.That(cdsFeatures.Count, Is.GreaterThanOrEqualTo(1));
+    }
+
+    [Test]
+    public void ExtractSequence_SimpleLocation_ReturnsSubsequence()
+    {
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+        var location = EmblParser.ParseLocation("1..10");
+        var subseq = EmblParser.ExtractSequence(record, location);
+
+        Assert.That(subseq.Length, Is.EqualTo(10));
+        Assert.That(subseq, Is.EqualTo("ACGTACGTAC"));
+    }
+
+    #endregion
+
+    #region Multiple Records Tests
+
+    private const string MultipleRecords = @"ID   REC1; SV 1; linear; genomic DNA; STD; UNC; 10 BP.
+SQ   Sequence 10 BP;
+     aaaaaaaaaa                                                     10
+//
+ID   REC2; SV 1; linear; genomic DNA; STD; UNC; 10 BP.
+SQ   Sequence 10 BP;
+     cccccccccc                                                     10
+//
+ID   REC3; SV 1; linear; genomic DNA; STD; UNC; 10 BP.
+SQ   Sequence 10 BP;
+     gggggggggg                                                     10
+//";
+
+    [Test]
+    public void Parse_MultipleRecords_ParsesAll()
+    {
+        var records = EmblParser.Parse(MultipleRecords).ToList();
+
+        Assert.That(records.Count, Is.EqualTo(3));
+    }
+
+    [Test]
+    public void Parse_MultipleRecords_EachHasCorrectSequence()
+    {
+        var records = EmblParser.Parse(MultipleRecords).ToList();
+
+        Assert.That(records[0].Sequence, Is.EqualTo("AAAAAAAAAA"));
+        Assert.That(records[1].Sequence, Is.EqualTo("CCCCCCCCCC"));
+        Assert.That(records[2].Sequence, Is.EqualTo("GGGGGGGGGG"));
+    }
+
+    #endregion
+
+    #region ParseFile Tests
+
+    [Test]
+    public void ParseFile_ValidFile_ParsesSuccessfully()
+    {
+        // Create temp file
+        var tempFile = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllText(tempFile, SimpleEmblRecord);
+            var records = EmblParser.ParseFile(tempFile).ToList();
+
+            Assert.That(records.Count, Is.EqualTo(1));
+            Assert.That(records[0].Accession, Is.EqualTo("TEST001"));
+        }
+        finally
+        {
+            File.Delete(tempFile);
+        }
+    }
+
+    [Test]
+    public void ParseFile_InvalidPath_ReturnsEmpty()
+    {
+        // ParseFile returns empty collection for non-existent files (doesn't throw)
+        var records = EmblParser.ParseFile(@"C:\nonexistent\path\file.embl").ToList();
+
+        Assert.That(records, Is.Empty);
+    }
+
+    #endregion
+
+    #region Edge Case Tests
+
+    [Test]
+    public void Parse_WhitespaceOnly_ReturnsEmpty()
+    {
+        var records = EmblParser.Parse("   \n\t\n   ").ToList();
+
+        Assert.That(records, Is.Empty);
+    }
+
+    [Test]
+    public void Parse_RecordWithoutTerminator_HandlesGracefully()
+    {
+        // Record without // terminator - parser splits by \n// so unterminated content
+        // remains as a single chunk and is parsed if it starts with ID.
+        var incomplete = @"ID   TEST; SV 1; linear; genomic DNA; STD; UNC; 10 BP.
+SQ   Sequence 10 BP;
+     aaaaaaaaaa                                                     10";
+
+        var records = EmblParser.Parse(incomplete).ToList();
+
+        Assert.That(records.Count, Is.EqualTo(1));
+        Assert.That(records[0].Accession, Is.EqualTo("TEST"));
+        Assert.That(records[0].Sequence, Is.EqualTo("AAAAAAAAAA"));
+    }
+
+    #endregion
+
+    #region Location Parsing — Order
+
+    [Test]
+    public void ParseLocation_Order_ParsesCorrectly()
+    {
+        var location = EmblParser.ParseLocation("order(100..200,300..400)");
+
+        Assert.That(location.IsOrder, Is.True);
+        Assert.That(location.IsJoin, Is.False);
+        Assert.That(location.IsComplement, Is.False);
+        Assert.That(location.Parts.Count, Is.EqualTo(2));
+        Assert.That(location.Parts[0], Is.EqualTo((100, 200)));
+        Assert.That(location.Parts[1], Is.EqualTo((300, 400)));
+        Assert.That(location.Start, Is.EqualTo(100));
+        Assert.That(location.End, Is.EqualTo(400));
+    }
+
+    #endregion
+
+    #region Reference — DOI and PubMed
+
+    [Test]
+    public void Parse_Reference_HasDOI()
+    {
+        var embl = @"ID   DOI001; SV 1; linear; mRNA; STD; PLN; 10 BP.
+XX
+RN   [1]
+RX   DOI; 10.1007/BF00039495.
+RA   Smith J.;
+RT   ""Title"";
+RL   Journal 1:1-10(2024).
+XX
+SQ   Sequence 10 BP;
+     aaaaaaaaaa                                                     10
+//";
+        var record = EmblParser.Parse(embl).First();
+
+        Assert.That(record.References[0].CrossReference, Does.Contain("10.1007/BF00039495"));
+    }
+
+    [Test]
+    public void Parse_Reference_HasPubMed()
+    {
+        var embl = @"ID   PM001; SV 1; linear; mRNA; STD; PLN; 10 BP.
+XX
+RN   [1]
+RX   PUBMED; 1907511.
+RA   Smith J.;
+RT   ""Title"";
+RL   Journal 1:1-10(2024).
+XX
+SQ   Sequence 10 BP;
+     aaaaaaaaaa                                                     10
+//";
+        var record = EmblParser.Parse(embl).First();
+
+        Assert.That(record.References[0].CrossReference, Does.Contain("1907511"));
+    }
+
+    #endregion
+
+    #region AdditionalFields — OG, DR, CC, DT
+
+    [Test]
+    public void Parse_Organelle_ExtractsCorrectly()
+    {
+        // OG line: organelle information — stored in AdditionalFields["OG"].
+        var embl = @"ID   ORG001; SV 1; linear; genomic DNA; STD; PLN; 10 BP.
+XX
+OG   Mitochondrion
+XX
+SQ   Sequence 10 BP;
+     aaaaaaaaaa                                                     10
+//";
+        var record = EmblParser.Parse(embl).First();
+
+        Assert.That(record.AdditionalFields.ContainsKey("OG"), Is.True);
+        Assert.That(record.AdditionalFields["OG"], Is.EqualTo("Mitochondrion"));
+    }
+
+    [Test]
+    public void Parse_DatabaseCrossReference_DR()
+    {
+        // DR line: database cross-reference — stored in AdditionalFields["DR"].
+        var embl = @"ID   DR001; SV 1; linear; genomic DNA; STD; HUM; 10 BP.
+XX
+DR   UniProtKB/Swiss-Prot; P26204; AMYG_TRIRP.
+XX
+SQ   Sequence 10 BP;
+     aaaaaaaaaa                                                     10
+//";
+        var record = EmblParser.Parse(embl).First();
+
+        Assert.That(record.AdditionalFields.ContainsKey("DR"), Is.True);
+        Assert.That(record.AdditionalFields["DR"], Does.Contain("UniProtKB/Swiss-Prot"));
+        Assert.That(record.AdditionalFields["DR"], Does.Contain("P26204"));
+    }
+
+    [Test]
+    public void Parse_Comments_CC()
+    {
+        // CC line: free-text comments — stored in AdditionalFields["CC"].
+        var embl = @"ID   CC001; SV 1; linear; genomic DNA; STD; HUM; 10 BP.
+XX
+CC   This is a comment about the sequence.
+XX
+SQ   Sequence 10 BP;
+     aaaaaaaaaa                                                     10
+//";
+        var record = EmblParser.Parse(embl).First();
+
+        Assert.That(record.AdditionalFields.ContainsKey("CC"), Is.True);
+        Assert.That(record.AdditionalFields["CC"], Is.EqualTo("This is a comment about the sequence."));
+    }
+
+    [Test]
+    public void Parse_DateLines_DT()
+    {
+        // DT line: date information — stored in AdditionalFields["DT"].
+        var embl = @"ID   DT001; SV 1; linear; genomic DNA; STD; HUM; 10 BP.
+XX
+DT   01-JAN-2024 (Created)
+XX
+SQ   Sequence 10 BP;
+     aaaaaaaaaa                                                     10
+//";
+        var record = EmblParser.Parse(embl).First();
+
+        Assert.That(record.AdditionalFields.ContainsKey("DT"), Is.True);
+        Assert.That(record.AdditionalFields["DT"], Does.Contain("01-JAN-2024"));
+    }
+
+    #endregion
+
+    #region Multi-line Continuation and Edge Cases
+
+    [Test]
+    public void Parse_MultiLineContinuation_DE()
+    {
+        // DE lines can span multiple lines; content should be joined.
+        var embl = @"ID   ML001; SV 1; linear; genomic DNA; STD; HUM; 10 BP.
+XX
+DE   This is a long description that spans
+DE   multiple lines in the EMBL file.
+XX
+SQ   Sequence 10 BP;
+     aaaaaaaaaa                                                     10
+//";
+        var record = EmblParser.Parse(embl).First();
+
+        Assert.That(record.Description, Is.EqualTo("This is a long description that spans multiple lines in the EMBL file."));
+    }
+
+    [Test]
+    public void Parse_EmptyKeywords_ReturnsEmpty()
+    {
+        // "KW   ." indicates no keywords.
+        var embl = @"ID   EK001; SV 1; linear; genomic DNA; STD; HUM; 10 BP.
+XX
+KW   .
+XX
+SQ   Sequence 10 BP;
+     aaaaaaaaaa                                                     10
+//";
+        var record = EmblParser.Parse(embl).First();
+
+        Assert.That(record.Keywords, Is.Empty);
+    }
+
+    [Test]
+    public void Parse_SecondaryAccessions_PrimaryExtracted()
+    {
+        // AC line may contain primary and secondary accessions separated by semicolons.
+        // Parser extracts primary accession; secondaries are not stored individually.
+        var embl = @"ID   PRIM01; SV 1; linear; genomic DNA; STD; HUM; 10 BP.
+XX
+AC   PRIM01; SEC001; SEC002;
+XX
+SQ   Sequence 10 BP;
+     aaaaaaaaaa                                                     10
+//";
+        var record = EmblParser.Parse(embl).First();
+
+        Assert.That(record.Accession, Is.EqualTo("PRIM01"));
+    }
+
+    #endregion
+
+    #region ExtractSequence — Complement and Join
+
+    [Test]
+    public void ExtractSequence_ComplementLocation_ReturnsReverseComplement()
+    {
+        // SimpleEmblRecord sequence starts with "ACGTACGTAC..." (100 chars).
+        // complement(1..10) → extract "ACGTACGTAC", then reverse complement → "GTACGTACGT".
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+        var location = EmblParser.ParseLocation("complement(1..10)");
+        var subseq = EmblParser.ExtractSequence(record, location);
+
+        Assert.That(subseq, Is.EqualTo("GTACGTACGT"));
+    }
+
+    [Test]
+    public void ExtractSequence_JoinLocation_ReturnsConcatenatedRegions()
+    {
+        // SimpleEmblRecord: positions 1..5 = "ACGTA", positions 51..55 = "GCGCG".
+        // join(1..5,51..55) → "ACGTAGCGCG".
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+        var location = EmblParser.ParseLocation("join(1..5,51..55)");
+        var subseq = EmblParser.ExtractSequence(record, location);
+
+        Assert.That(subseq, Is.EqualTo("ACGTAGCGCG"));
+    }
+
+    #endregion
+
+    #region Spec Compliance Tests — INSDC Feature Table v11.3 & EBI EMBL User Manual Release 143
+
+    [TestCase("genomic DNA")]
+    [TestCase("genomic RNA")]
+    [TestCase("mRNA")]
+    [TestCase("tRNA")]
+    [TestCase("rRNA")]
+    [TestCase("other RNA")]
+    [TestCase("other DNA")]
+    [TestCase("transcribed RNA")]
+    [TestCase("viral cRNA")]
+    [TestCase("unassigned DNA")]
+    [TestCase("unassigned RNA")]
+    public void Parse_IdLine_AllInsdcMolTypes(string molType)
+    {
+        var embl = $@"ID   MOL001; SV 1; linear; {molType}; STD; HUM; 10 BP.
+XX
+SQ   Sequence 10 BP;
+     aaaaaaaaaa                                                     10
+//";
+        var record = EmblParser.Parse(embl).First();
+
+        Assert.That(record.MoleculeType, Is.EqualTo(molType));
+    }
+
+    [Test]
+    public void Parse_IdLine_BareDnaNotRecognisedAsMolType()
+    {
+        // Bare "DNA" is not in the INSDC mol_type vocabulary; field should be empty.
+        var embl = @"ID   BARE; SV 1; linear; DNA; STD; HUM; 10 BP.
+XX
+SQ   Sequence 10 BP;
+     aaaaaaaaaa                                                     10
+//";
+        var record = EmblParser.Parse(embl).First();
+
+        Assert.That(record.MoleculeType, Is.Empty);
+    }
+
+    [TestCase("CON")]
+    [TestCase("PAT")]
+    [TestCase("EST")]
+    [TestCase("GSS")]
+    [TestCase("HTC")]
+    [TestCase("HTG")]
+    [TestCase("WGS")]
+    [TestCase("TSA")]
+    [TestCase("STS")]
+    [TestCase("STD")]
+    public void Parse_IdLine_AllDataClasses(string dataClass)
+    {
+        var embl = $@"ID   DC001; SV 1; linear; genomic DNA; {dataClass}; HUM; 10 BP.
+XX
+SQ   Sequence 10 BP;
+     aaaaaaaaaa                                                     10
+//";
+        var record = EmblParser.Parse(embl).First();
+
+        Assert.That(record.DataClass, Is.EqualTo(dataClass));
+    }
+
+    [TestCase("PHG")]
+    [TestCase("ENV")]
+    [TestCase("FUN")]
+    [TestCase("HUM")]
+    [TestCase("INV")]
+    [TestCase("MAM")]
+    [TestCase("VRT")]
+    [TestCase("MUS")]
+    [TestCase("PLN")]
+    [TestCase("PRO")]
+    [TestCase("ROD")]
+    [TestCase("SYN")]
+    [TestCase("TGN")]
+    [TestCase("UNC")]
+    [TestCase("VRL")]
+    public void Parse_IdLine_AllTaxonomicDivisions(string division)
+    {
+        var embl = $@"ID   DIV001; SV 1; linear; genomic DNA; STD; {division}; 10 BP.
+XX
+SQ   Sequence 10 BP;
+     aaaaaaaaaa                                                     10
+//";
+        var record = EmblParser.Parse(embl).First();
+
+        Assert.That(record.TaxonomicDivision, Is.EqualTo(division));
+    }
+
+    [Test]
+    public void Parse_IdLine_InvalidDivisionNotRecognised()
+    {
+        // "UNK" is not a valid EMBL division code.
+        var embl = @"ID   INV001; SV 1; linear; genomic DNA; STD; UNK; 10 BP.
+XX
+SQ   Sequence 10 BP;
+     aaaaaaaaaa                                                     10
+//";
+        var record = EmblParser.Parse(embl).First();
+
+        Assert.That(record.TaxonomicDivision, Is.Empty);
+    }
+
+    [Test]
+    public void Parse_Qualifier_SlashInValue_NotTruncated()
+    {
+        // Regression test: /db_xref values with "/" must not be truncated.
+        // INSDC Feature Table v11.3: qualifier values are delimited by quotes, not by "/".
+        var embl = @"ID   QUAL001; SV 1; linear; mRNA; STD; PLN; 20 BP.
+XX
+FH   Key             Location/Qualifiers
+FH
+FT   source          1..20
+FT                   /organism=""Trifolium repens""
+FT                   /db_xref=""UniProtKB/Swiss-Prot:P26204""
+XX
+SQ   Sequence 20 BP;
+     acgtacgtac gtacgtacgt                                          20
+//";
+        var record = EmblParser.Parse(embl).First();
+        var source = record.Features.First(f => f.Key == "source");
+
+        Assert.That(source.Qualifiers["db_xref"], Is.EqualTo("UniProtKB/Swiss-Prot:P26204"));
+    }
+
+    [Test]
+    public void Parse_Qualifier_MultipleSlashesInValue()
+    {
+        // Ensure multiple slashes in a quoted value are preserved.
+        var embl = @"ID   QUAL002; SV 1; linear; mRNA; STD; PLN; 20 BP.
+XX
+FH   Key             Location/Qualifiers
+FH
+FT   source          1..20
+FT                   /note=""path/to/some/resource""
+XX
+SQ   Sequence 20 BP;
+     acgtacgtac gtacgtacgt                                          20
+//";
+        var record = EmblParser.Parse(embl).First();
+        var source = record.Features.First(f => f.Key == "source");
+
+        Assert.That(source.Qualifiers["note"], Is.EqualTo("path/to/some/resource"));
+    }
+
+    [Test]
+    public void Parse_Reference_CapturesPositions()
+    {
+        // RP line: "Reference Positions" — per EBI User Manual Section 3.4.10.
+        var embl = @"ID   REF001; SV 1; linear; mRNA; STD; PLN; 20 BP.
+XX
+RN   [1]
+RP   1-1859
+RA   Oxtoby E., Dunn M.A.;
+RT   ""Nucleotide sequence"";
+RL   Plant Mol. Biol. 17(2):209-219(1991).
+XX
+SQ   Sequence 20 BP;
+     acgtacgtac gtacgtacgt                                          20
+//";
+        var record = EmblParser.Parse(embl).First();
+
+        Assert.That(record.References[0].Positions, Is.EqualTo("1-1859"));
+    }
+
+    [Test]
+    public void Parse_Reference_CapturesGroup()
+    {
+        // RG line: "Reference Group" — per EBI User Manual Section 3.4.10.
+        var embl = @"ID   REF002; SV 1; linear; mRNA; STD; PLN; 20 BP.
+XX
+RN   [1]
+RP   1-20
+RG   The Genome Consortium
+RA   Smith J.;
+RT   ""Title"";
+RL   Journal 1:1-10(2024).
+XX
+SQ   Sequence 20 BP;
+     acgtacgtac gtacgtacgt                                          20
+//";
+        var record = EmblParser.Parse(embl).First();
+
+        Assert.That(record.References[0].Group, Is.EqualTo("The Genome Consortium"));
+    }
+
+    [Test]
+    public void Parse_EbiReferenceRecord_FullBlock()
+    {
+        // Complete reference block from EBI User Manual example (X56734).
+        var embl = @"ID   X56734; SV 1; linear; mRNA; STD; PLN; 30 BP.
+XX
+AC   X56734; S46826;
+XX
+RN   [5]
+RP   1-30
+RX   DOI; 10.1007/BF00039495.
+RX   PUBMED; 1907511.
+RA   Oxtoby E., Dunn M.A., Pancoro A., Hughes M.A.;
+RT   ""Nucleotide and derived amino acid sequence"";
+RL   Plant Mol. Biol. 17(2):209-219(1991).
+XX
+SQ   Sequence 30 BP;
+     acgtacgtac gtacgtacgt acgtacgtac                               30
+//";
+        var record = EmblParser.Parse(embl).First();
+        var r = record.References[0];
+
+        Assert.That(r.Number, Is.EqualTo(5));
+        Assert.That(r.Positions, Is.EqualTo("1-30"));
+        Assert.That(r.Authors, Does.Contain("Oxtoby"));
+        Assert.That(r.Title, Does.Contain("Nucleotide"));
+        Assert.That(r.Journal, Does.Contain("Plant Mol. Biol."));
+        Assert.That(r.CrossReference, Does.Contain("1907511"));
+    }
+
+    [Test]
+    public void ParseLocation_SiteBetween_ParsesRange()
+    {
+        // INSDC Feature Table: 123^124 means a site between bases 123 and 124.
+        // The parser captures Start=123, End=124 (the flanking positions).
+        var location = EmblParser.ParseLocation("123^124");
+
+        Assert.That(location.Start, Is.EqualTo(123));
+        Assert.That(location.End, Is.EqualTo(124));
+        Assert.That(location.RawLocation, Is.EqualTo("123^124"));
+    }
+
+    [Test]
+    public void Parse_Qualifier_EscapedDoubleQuote_Unescaped()
+    {
+        // INSDC Feature Table Definition: a literal double quote inside a
+        // free-text quoted qualifier value is encoded as two consecutive quotes ("").
+        // The parser must collapse "" -> " when unquoting the value.
+        var embl = @"ID   QUAL003; SV 1; linear; mRNA; STD; PLN; 20 BP.
+XX
+FH   Key             Location/Qualifiers
+FH
+FT   source          1..20
+FT                   /note=""he said """"hi""""""
+XX
+SQ   Sequence 20 BP;
+     acgtacgtac gtacgtacgt                                          20
+//";
+        var record = EmblParser.Parse(embl).First();
+        var source = record.Features.First(f => f.Key == "source");
+
+        Assert.That(source.Qualifiers["note"], Is.EqualTo("he said \"hi\""));
+    }
+
+    [Test]
+    public void Parse_Qualifier_NoEscapedQuotes_ValueUnchanged()
+    {
+        // A quoted value with no embedded "" pairs is returned verbatim (outer quotes stripped).
+        var embl = @"ID   QUAL004; SV 1; linear; mRNA; STD; PLN; 20 BP.
+XX
+FH   Key             Location/Qualifiers
+FH
+FT   source          1..20
+FT                   /note=""plain value""
+XX
+SQ   Sequence 20 BP;
+     acgtacgtac gtacgtacgt                                          20
+//";
+        var record = EmblParser.Parse(embl).First();
+        var source = record.Features.First(f => f.Key == "source");
+
+        Assert.That(source.Qualifiers["note"], Is.EqualTo("plain value"));
+    }
+
+    [Test]
+    public void Parse_Qualifier_MultipleEscapedQuotePairs_AllUnescaped()
+    {
+        // Several independent "" pairs each collapse to a single ".
+        var embl = @"ID   QUAL005; SV 1; linear; mRNA; STD; PLN; 20 BP.
+XX
+FH   Key             Location/Qualifiers
+FH
+FT   source          1..20
+FT                   /note=""a """"b"""" c """"d""""""
+XX
+SQ   Sequence 20 BP;
+     acgtacgtac gtacgtacgt                                          20
+//";
+        var record = EmblParser.Parse(embl).First();
+        var source = record.Features.First(f => f.Key == "source");
+
+        Assert.That(source.Qualifiers["note"], Is.EqualTo("a \"b\" c \"d\""));
+    }
+
+    #endregion
+
+    #region Location Parsing — INSDC Remote Reference, Site-Between (^), Single-Dot (C8)
+
+    // Source: INSDC Feature Table Definition, section 3.4.2.1 / 3.4.3
+    // (https://www.insdc.org/submitting-standards/feature-table/ and
+    //  https://ftp.ebi.ac.uk/pub/databases/embl/doc/FT_current.txt).
+    //
+    // 3.4.3 examples (verbatim):
+    //   "J00194.1:100..202  Points to bases 100 to 202, inclusive, in the entry
+    //                       with primary accession number 'J00194'"
+    //   "123^124            Points to a site between bases 123 and 124"
+    //   "102.110            Indicates that the exact location is unknown but that
+    //                       it is one of the bases between bases 102 and 110, inclusive"
+
+    [Test]
+    public void ParseLocation_RemoteReference_CapturesAccessionVersionAndSpan()
+    {
+        // 3.4.3: "J00194.1:100..202 Points to bases 100 to 202, inclusive,
+        // in the entry with primary accession number 'J00194'".
+        var location = EmblParser.ParseLocation("J00194.1:100..202");
+
+        Assert.That(location.RemoteAccession, Is.EqualTo("J00194"));
+        Assert.That(location.RemoteVersion, Is.EqualTo("1"));
+        Assert.That(location.IsRemote, Is.True);
+        Assert.That(location.Start, Is.EqualTo(100));
+        Assert.That(location.End, Is.EqualTo(202));
+        // The accession-version digit ('.1') must NOT leak into the parsed span:
+        // the old regex parser captured '1', '100..202' as spurious parts giving Start=1.
+        Assert.That(location.Parts.Count, Is.EqualTo(1));
+        Assert.That(location.Parts[0], Is.EqualTo((100, 202)));
+        Assert.That(location.RawLocation, Is.EqualTo("J00194.1:100..202"));
+    }
+
+    [Test]
+    public void ParseLocation_RemoteReference_WithoutVersion_CapturesAccession()
+    {
+        // 3.4.2.1: "a remote entry identifier followed by a colon ':'".
+        var location = EmblParser.ParseLocation("J00194:100..202");
+
+        Assert.That(location.RemoteAccession, Is.EqualTo("J00194"));
+        Assert.That(location.RemoteVersion, Is.Null);
+        Assert.That(location.IsRemote, Is.True);
+        Assert.That(location.Start, Is.EqualTo(100));
+        Assert.That(location.End, Is.EqualTo(202));
+    }
+
+    [Test]
+    public void ParseLocation_RemoteReference_SingleBase_CapturesAccession()
+    {
+        var location = EmblParser.ParseLocation("J00194.1:467");
+
+        Assert.That(location.RemoteAccession, Is.EqualTo("J00194"));
+        Assert.That(location.RemoteVersion, Is.EqualTo("1"));
+        Assert.That(location.Start, Is.EqualTo(467));
+        Assert.That(location.End, Is.EqualTo(467));
+    }
+
+    [Test]
+    public void ParseLocation_LocalSpan_IsNotRemote()
+    {
+        // A plain local span must report no remote reference (default unchanged).
+        var location = EmblParser.ParseLocation("100..200");
+
+        Assert.That(location.IsRemote, Is.False);
+        Assert.That(location.RemoteAccession, Is.Null);
+        Assert.That(location.RemoteVersion, Is.Null);
+    }
+
+    [Test]
+    public void ParseLocation_SiteBetween_SetsBetweenFlag()
+    {
+        // 3.4.3: "123^124 Points to a site between bases 123 and 124".
+        // The old regex parser treated '123' and '124' as two single-base parts
+        // and exposed no flag distinguishing this from an ordinary span.
+        var location = EmblParser.ParseLocation("123^124");
+
+        Assert.That(location.IsBetween, Is.True);
+        Assert.That(location.Start, Is.EqualTo(123));
+        Assert.That(location.End, Is.EqualTo(124));
+        Assert.That(location.IsSingleBaseFromRange, Is.False);
+        Assert.That(location.RawLocation, Is.EqualTo("123^124"));
+    }
+
+    [Test]
+    public void ParseLocation_OrdinarySpan_BetweenFlagFalse()
+    {
+        // Discriminator: a normal span must have IsBetween=false.
+        var location = EmblParser.ParseLocation("100..200");
+
+        Assert.That(location.IsBetween, Is.False);
+    }
+
+    [Test]
+    public void ParseLocation_SingleDotRange_SetsSingleBaseFromRangeFlag()
+    {
+        // 3.4.3: "102.110 ... one of the bases between bases 102 and 110, inclusive".
+        // The old regex (\d+)(?:\.\.(\d+))? required two dots, so '102.110'
+        // mis-parsed as two single-base parts (102 and 110) with no flag.
+        var location = EmblParser.ParseLocation("102.110");
+
+        Assert.That(location.IsSingleBaseFromRange, Is.True);
+        Assert.That(location.Start, Is.EqualTo(102));
+        Assert.That(location.End, Is.EqualTo(110));
+        Assert.That(location.IsBetween, Is.False);
+        Assert.That(location.Parts.Count, Is.EqualTo(1));
+        Assert.That(location.Parts[0], Is.EqualTo((102, 110)));
+        Assert.That(location.RawLocation, Is.EqualTo("102.110"));
+    }
+
+    [Test]
+    public void ParseLocation_TwoDotSpan_SingleBaseFromRangeFlagFalse()
+    {
+        // Discriminator: a two-period sequence span (n..m) must NOT be flagged
+        // as a single-base-from-range.
+        var location = EmblParser.ParseLocation("102..110");
+
+        Assert.That(location.IsSingleBaseFromRange, Is.False);
+        Assert.That(location.IsBetween, Is.False);
+        Assert.That(location.Start, Is.EqualTo(102));
+        Assert.That(location.End, Is.EqualTo(110));
+    }
+
+    [Test]
+    public void ParseLocation_RemoteReference_SiteBetween_CombinesFlags()
+    {
+        // Remote reference whose local descriptor is a site-between.
+        var location = EmblParser.ParseLocation("J00194.1:123^124");
+
+        Assert.That(location.RemoteAccession, Is.EqualTo("J00194"));
+        Assert.That(location.RemoteVersion, Is.EqualTo("1"));
+        Assert.That(location.IsBetween, Is.True);
+        Assert.That(location.Start, Is.EqualTo(123));
+        Assert.That(location.End, Is.EqualTo(124));
+    }
+
+    [Test]
+    public void ParseLocation_MalformedRemoteReference_NoTrailingLocation_DoesNotThrow()
+    {
+        // Malformed: accession with empty local descriptor. Must not throw;
+        // remote prefix captured, span empty.
+        var location = EmblParser.ParseLocation("J00194.1:");
+
+        Assert.That(location.RemoteAccession, Is.EqualTo("J00194"));
+        Assert.That(location.RemoteVersion, Is.EqualTo("1"));
+        Assert.That(location.Start, Is.EqualTo(0));
+        Assert.That(location.End, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void ParseLocation_MalformedSingleDot_NoUpperBound_DoesNotThrow()
+    {
+        // Malformed single-dot ('102.') must not throw and must not be flagged
+        // as a single-base-from-range (no valid upper bound).
+        var location = EmblParser.ParseLocation("102.");
+
+        Assert.That(location.IsSingleBaseFromRange, Is.False);
+        Assert.That(location.IsBetween, Is.False);
+    }
+
+    [Test]
+    public void ParseLocation_RemoteReference_MultiDigitVersion_DoesNotLeakIntoSpan()
+    {
+        // Independent validator hardening: the INSDC accession.version (3.4.2.1(e))
+        // version is a sequence of digits, not a single digit. A two-digit version
+        // (".12") must be captured whole and must NOT leak into the parsed span — the
+        // shared range regex would otherwise read "12" as a spurious single-base part
+        // and pull Start down to 12. Sourced span = bases 100..202 inclusive.
+        var location = EmblParser.ParseLocation("J00194.12:100..202");
+
+        Assert.That(location.RemoteAccession, Is.EqualTo("J00194"));
+        Assert.That(location.RemoteVersion, Is.EqualTo("12"));
+        Assert.That(location.IsRemote, Is.True);
+        Assert.That(location.Start, Is.EqualTo(100));
+        Assert.That(location.End, Is.EqualTo(202));
+        Assert.That(location.Parts.Count, Is.EqualTo(1));
+        Assert.That(location.Parts[0], Is.EqualTo((100, 202)));
+    }
+
+    [Test]
+    public void ParseLocation_RemoteReference_RefSeqUnderscoreAccession_CapturesAccessionVersion()
+    {
+        // Independent validator hardening: INSDC remote entry identifiers include
+        // RefSeq-style accessions containing an underscore (e.g. NC_000001.11). The
+        // accession (including '_') and the version must be captured cleanly with no
+        // digit of the accession or version leaking into the local descriptor span.
+        var location = EmblParser.ParseLocation("NC_000001.11:5..9");
+
+        Assert.That(location.RemoteAccession, Is.EqualTo("NC_000001"));
+        Assert.That(location.RemoteVersion, Is.EqualTo("11"));
+        Assert.That(location.IsRemote, Is.True);
+        Assert.That(location.Start, Is.EqualTo(5));
+        Assert.That(location.End, Is.EqualTo(9));
+        Assert.That(location.Parts.Count, Is.EqualTo(1));
+        Assert.That(location.Parts[0], Is.EqualTo((5, 9)));
+    }
+
+    // --- Nested remote references inside operators (INSDC FT 3.4.2.1(e) / 3.4.3) ---
+    //
+    // INSDC Feature Table Definition, retrieved this session from the EBI mirror
+    // https://ftp.ebi.ac.uk/pub/databases/embl/doc/FT_current.txt (§3.4.2.1 descriptors,
+    // §3.4.3 examples). Verbatim example and interpretation:
+    //   "join(1..100,J00194.1:100..202)  Joins region 1..100 of the existing entry with the
+    //                                     region 100..202 of remote entry J00194"
+    // A remote entry reference (3.4.2.1(e), "accession[.version]:descriptor") may appear
+    // NESTED inside the join/order/complement operators (3.4.2.1 operator section). Before
+    // this fix the top-level prefix strip was anchored (^), so a nested remote prefix such
+    // as "J00194.1:" was left in the descriptor and its version digit ('.1') leaked into the
+    // numeric span via the shared range regex. Expected values below are hand-derived from
+    // the §3.4.3 interpretation, NOT from the implementation output.
+
+    [Test]
+    public void ParseLocation_JoinWithNestedRemoteReference_CapturesRemotePartAndCleanSpan()
+    {
+        // §3.4.3 verbatim: "join(1..100,J00194.1:100..202) Joins region 1..100 of the
+        // existing entry with the region 100..202 of remote entry J00194". The local part
+        // is 1..100; the remote part is J00194 (version 1) bases 100..202. The accession
+        // version '.1' must NOT appear as a spurious single-base part in the numeric Parts.
+        var location = EmblParser.ParseLocation("join(1..100,J00194.1:100..202)");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(location.IsJoin, Is.True, "join operator must be detected");
+            Assert.That(location.IsComplement, Is.False, "no complement present");
+            Assert.That(location.IsRemote, Is.True,
+                "a nested remote reference makes the location remote");
+            // Two numeric segments only: local 1..100 and remote 100..202. The version '1'
+            // of 'J00194.1' must not be captured as a third (single-base) part.
+            Assert.That(location.Parts.Count, Is.EqualTo(2),
+                "exactly two spans: local 1..100 and remote 100..202 (no leaked version digit)");
+            Assert.That(location.Parts[0], Is.EqualTo((1, 100)), "local span 1..100");
+            Assert.That(location.Parts[1], Is.EqualTo((100, 202)), "remote span 100..202");
+            Assert.That(location.Start, Is.EqualTo(1), "overall start = min part start");
+            Assert.That(location.End, Is.EqualTo(202), "overall end = max part end");
+
+            Assert.That(location.RemoteParts, Is.Not.Null);
+            Assert.That(location.RemoteParts!.Count, Is.EqualTo(1),
+                "one nested remote segment captured");
+            var remote = location.RemoteParts[0];
+            Assert.That(remote.Accession, Is.EqualTo("J00194"), "remote accession per §3.4.3");
+            Assert.That(remote.Version, Is.EqualTo("1"), "remote sequence version per §3.4.3");
+            Assert.That(remote.Start, Is.EqualTo(100), "remote span lower bound 100");
+            Assert.That(remote.End, Is.EqualTo(202), "remote span upper bound 202");
+
+            // The top-level remote fields stay null: the remote reference is nested, not the
+            // whole location.
+            Assert.That(location.RemoteAccession, Is.Null,
+                "top-level remote accession is null for a nested remote reference");
+            Assert.That(location.RemoteVersion, Is.Null);
+            Assert.That(location.RawLocation, Is.EqualTo("join(1..100,J00194.1:100..202)"));
+        });
+    }
+
+    [Test]
+    public void ParseLocation_JoinWithTwoNestedRemoteReferences_OneComplemented_CapturesBoth()
+    {
+        // Two remote references nested in a join, the second wrapped in complement
+        // (3.4.2.1: "complement can be used in combination with either join or order").
+        // Both remote segments must be captured with their own accession/version/span; the
+        // complement flag must be set; and neither accession version may leak into Parts.
+        var location = EmblParser.ParseLocation(
+            "join(X00001.1:10..20,complement(X00002.1:30..40))");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(location.IsJoin, Is.True, "join operator detected");
+            Assert.That(location.IsComplement, Is.True,
+                "the second segment is complemented; complement( is preserved in the descriptor");
+            Assert.That(location.IsRemote, Is.True);
+
+            Assert.That(location.Parts.Count, Is.EqualTo(2),
+                "exactly two remote spans; no leaked version digits ('.1')");
+            Assert.That(location.Parts[0], Is.EqualTo((10, 20)), "first remote span 10..20");
+            Assert.That(location.Parts[1], Is.EqualTo((30, 40)), "second remote span 30..40");
+
+            Assert.That(location.RemoteParts, Is.Not.Null);
+            Assert.That(location.RemoteParts!.Count, Is.EqualTo(2),
+                "two nested remote segments captured");
+
+            var first = location.RemoteParts[0];
+            Assert.That(first.Accession, Is.EqualTo("X00001"));
+            Assert.That(first.Version, Is.EqualTo("1"));
+            Assert.That(first.Start, Is.EqualTo(10));
+            Assert.That(first.End, Is.EqualTo(20));
+
+            var second = location.RemoteParts[1];
+            Assert.That(second.Accession, Is.EqualTo("X00002"));
+            Assert.That(second.Version, Is.EqualTo("1"));
+            Assert.That(second.Start, Is.EqualTo(30));
+            Assert.That(second.End, Is.EqualTo(40));
+        });
+    }
+
+    [Test]
+    public void ParseLocation_ComplementWithNestedRemoteReference_CapturesRemoteAndComplement()
+    {
+        // A remote reference nested inside complement (the operator wraps the remote span).
+        // Span 100..202 of remote J00194 read as the complement strand. Both the complement
+        // flag and the captured remote segment must be correct, span clean of the version.
+        var location = EmblParser.ParseLocation("complement(J00194.1:100..202)");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(location.IsComplement, Is.True, "complement operator detected");
+            Assert.That(location.IsJoin, Is.False);
+            Assert.That(location.IsRemote, Is.True);
+            Assert.That(location.Parts.Count, Is.EqualTo(1), "single remote span, version not leaked");
+            Assert.That(location.Parts[0], Is.EqualTo((100, 202)));
+            Assert.That(location.Start, Is.EqualTo(100));
+            Assert.That(location.End, Is.EqualTo(202));
+
+            Assert.That(location.RemoteParts, Is.Not.Null);
+            Assert.That(location.RemoteParts!.Count, Is.EqualTo(1));
+            var remote = location.RemoteParts[0];
+            Assert.That(remote.Accession, Is.EqualTo("J00194"));
+            Assert.That(remote.Version, Is.EqualTo("1"));
+            Assert.That(remote.Start, Is.EqualTo(100));
+            Assert.That(remote.End, Is.EqualTo(202));
+        });
+    }
+
+    [Test]
+    public void ParseLocation_LocalOperator_NoNestedRemote_RemotePartsEmpty_Regression()
+    {
+        // Regression: an ordinary local join must be parsed exactly as before — no remote
+        // parts, RemoteParts null, IsRemote false, numeric parts byte-for-byte identical.
+        var location = EmblParser.ParseLocation("join(1..50,60..100)");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(location.IsJoin, Is.True);
+            Assert.That(location.IsRemote, Is.False, "no remote reference present");
+            Assert.That(location.RemoteParts, Is.Null, "no nested remote segments");
+            Assert.That(location.RemoteAccession, Is.Null);
+            Assert.That(location.RemoteVersion, Is.Null);
+            Assert.That(location.Parts.Count, Is.EqualTo(2));
+            Assert.That(location.Parts[0], Is.EqualTo((1, 50)));
+            Assert.That(location.Parts[1], Is.EqualTo((60, 100)));
+            Assert.That(location.Start, Is.EqualTo(1));
+            Assert.That(location.End, Is.EqualTo(100));
+        });
+    }
+
+    [Test]
+    public void ParseLocation_NestedComplementJoin_Local_RemotePartsEmpty_Regression()
+    {
+        // Regression: the previously validated complement(join(...)) local form is unchanged
+        // — same parts, same flags, no remote capture.
+        var location = EmblParser.ParseLocation("complement(join(1..50,80..100))");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(location.IsComplement, Is.True);
+            Assert.That(location.IsJoin, Is.True);
+            Assert.That(location.IsRemote, Is.False);
+            Assert.That(location.RemoteParts, Is.Null);
+            Assert.That(location.Parts.Count, Is.EqualTo(2));
+            Assert.That(location.Parts[0], Is.EqualTo((1, 50)));
+            Assert.That(location.Parts[1], Is.EqualTo((80, 100)));
+        });
+    }
+
+    [Test]
+    public void ParseLocation_TopLevelRemoteReference_RemotePartsEmpty_Regression()
+    {
+        // Regression: a top-level (non-nested) remote reference still populates the
+        // top-level RemoteAccession/RemoteVersion and must NOT additionally populate
+        // RemoteParts (the nested-capture path must not trigger for a bare prefix).
+        var location = EmblParser.ParseLocation("J00194.1:100..202");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(location.RemoteAccession, Is.EqualTo("J00194"));
+            Assert.That(location.RemoteVersion, Is.EqualTo("1"));
+            Assert.That(location.IsRemote, Is.True);
+            Assert.That(location.RemoteParts, Is.Null,
+                "a top-level remote prefix is captured in the top-level fields, not RemoteParts");
+            Assert.That(location.Parts.Count, Is.EqualTo(1));
+            Assert.That(location.Parts[0], Is.EqualTo((100, 202)));
+        });
+    }
+
+    #endregion
+}

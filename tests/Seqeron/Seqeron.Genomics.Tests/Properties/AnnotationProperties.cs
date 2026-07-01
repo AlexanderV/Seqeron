@@ -48,6 +48,28 @@ public class AnnotationProperties
     private static readonly HashSet<string> ValidStopCodons =
         new(StringComparer.OrdinalIgnoreCase) { "TAA", "TAG", "TGA" };
 
+    /// <summary>
+    /// Generates a non-empty list of random gene annotations with valid coordinates (Start &lt; End),
+    /// canonical strands and SO feature types. Used for property-based GFF3 round-trip testing.
+    /// A constant product and empty attribute map keep the focus on coordinate/strand/type fidelity.
+    /// </summary>
+    private static Arbitrary<List<GenomeAnnotator.GeneAnnotation>> GeneAnnotationListArbitrary()
+    {
+        var one =
+            from start in Gen.Choose(0, 1_000_000)
+            from length in Gen.Choose(1, 5000)
+            from strand in Gen.Elements('+', '-')
+            from type in Gen.Elements("CDS", "gene", "mRNA", "exon", "five_prime_UTR")
+            from id in Gen.Choose(1, 100_000)
+            select new GenomeAnnotator.GeneAnnotation(
+                $"gene_{id}", start, start + length, strand, type, "product",
+                new Dictionary<string, string>());
+
+        return (from n in Gen.Choose(1, 8)
+                from arr in one.ArrayOf(n)
+                select arr.ToList()).ToArbitrary();
+    }
+
     #endregion
 
     #region ANNOT-ORF-001: R: ORF start < end ≤ seqLen; P: starts with ATG; M: longer seq → ≥ ORFs; R: len divisible by 3
@@ -153,6 +175,32 @@ public class AnnotationProperties
 
         Assert.That(orfs, Is.Not.Empty,
             "Sequence with synthetic ORF must produce at least one result");
+    }
+
+    /// <summary>
+    /// INV-7 (M): extending the sequence never destroys an ORF — a longer sequence yields ≥ ORFs.
+    /// With requireStartCodon=true every reported ORF is a complete ATG…STOP region. Appending a
+    /// block whose length is a multiple of three to the 3′ end preserves all of them: forward-strand
+    /// frames are anchored to the 5′ end (unaffected by trailing bases), and on the reverse-complement
+    /// strand the appended block becomes a 3k-length prefix that keeps every codon boundary and frame
+    /// phase intact. Extra ORFs can only be added (junction-spanning or newly stop-completed), so the
+    /// count is monotonically non-decreasing. Source: ORF_Detection.md; Wikipedia "Open reading frame".
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FindOrfs_ExtendingSequence_NeverDecreasesCount()
+    {
+        var gen = (from chars in Gen.Elements('A', 'C', 'G', 'T').ArrayOf().Where(a => a.Length >= 100)
+                   from k in Gen.Choose(1, 30)
+                   from tail in Gen.Elements('A', 'C', 'G', 'T').ArrayOf(3 * k)
+                   select (seq: new string(chars), tail: new string(tail))).ToArbitrary();
+
+        return Prop.ForAll(gen, t =>
+        {
+            int baseCount = GenomeAnnotator.FindOrfs(t.seq, minLength: 10).Count();
+            int longerCount = GenomeAnnotator.FindOrfs(t.seq + t.tail, minLength: 10).Count();
+            return (longerCount >= baseCount)
+                .Label($"ORFs(len {t.seq.Length})={baseCount} → ORFs(len {t.seq.Length + t.tail.Length})={longerCount} must not decrease");
+        });
     }
 
     #endregion
@@ -402,6 +450,34 @@ public class AnnotationProperties
             Assert.That(features[i].Type, Is.EqualTo(genes[i].Type),
                 $"Gene {i}: Type mismatch");
         }
+    }
+
+    /// <summary>
+    /// INV-1b (RT + R + P, property): for any list of random gene annotations, ParseGff3(ToGff3(x))
+    /// preserves feature count, type, strand and end coordinate, and maps each 0-based Start to the
+    /// 1-based GFF3 column (parsed.Start == Start + 1). Every emitted data line is well-formed with
+    /// exactly nine tab-separated columns. Source: GFF3 Spec v1.26 (1-based inclusive coordinates,
+    /// 9 mandatory columns).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Gff3_RoundTrip_PreservesCoreFields_Property()
+    {
+        return Prop.ForAll(GeneAnnotationListArbitrary(), genes =>
+        {
+            var lines = GenomeAnnotator.ToGff3(genes, "chr1").ToList();
+            var parsed = GenomeAnnotator.ParseGff3(lines).ToList();
+
+            bool wellFormed = lines.Where(l => !l.StartsWith('#')).All(l => l.Split('\t').Length == 9);
+            bool countOk = parsed.Count == genes.Count;
+            bool fieldsOk = countOk && genes.Select((g, i) =>
+                parsed[i].Start == g.Start + 1   // P: 0-based → 1-based GFF3 column
+                && parsed[i].End == g.End
+                && parsed[i].Strand == g.Strand
+                && parsed[i].Type == g.Type).All(x => x);
+
+            return (wellFormed && fieldsOk)
+                .Label($"GFF3 round-trip failed: count {genes.Count}→{parsed.Count}, wellFormed={wellFormed}");
+        });
     }
 
     /// <summary>

@@ -8,7 +8,7 @@ using Seqeron.Genomics.Analysis;
 using static Seqeron.Genomics.Analysis.ProteinMotifFinder;
 using ProteinDomain = Seqeron.Genomics.Analysis.ProteinMotifFinder.ProteinDomain;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the ProteinMotif area — protein domain FINDING

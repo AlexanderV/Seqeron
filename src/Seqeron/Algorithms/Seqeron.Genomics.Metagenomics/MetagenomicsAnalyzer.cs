@@ -668,8 +668,9 @@ public static class MetagenomicsAnalyzer
     /// <returns>
     /// A 256-entry map keyed by the ACGT tetranucleotide, with the Teeling z-score for each.
     /// Because of the reverse-complement extension, an input of ≥2 usable ACGT bases already yields
-    /// a ≥4-nt extended strand and a non-trivial signature; null, empty, or single-base input
-    /// produces an all-zero 256-entry map.
+    /// a ≥4-nt extended strand on which tetranucleotides can be counted; null, empty, or single-base
+    /// input produces an all-zero 256-entry map. (Very short inputs may still be all-zero where every
+    /// count is 1, since the Schbath variance then vanishes — see the z=0 fallback below.)
     /// </returns>
     public static IReadOnlyDictionary<string, double> CalculateTetranucleotideZScores(string sequence)
     {
@@ -1989,6 +1990,11 @@ public static class MetagenomicsAnalyzer
     {
         ArgumentNullException.ThrowIfNull(markerSets);
         ArgumentNullException.ThrowIfNull(markerCounts);
+
+        // Domain-level CheckM only — no per-lineage refinement / reference genome tree. Strict mode
+        // throws; Moderate/Permissive allow this coarser-but-correct estimate. (EstimateBinQualityFromMarkers
+        // delegates here, so this single guard covers both entry points.)
+        Seqeron.Genomics.Core.LimitationPolicy.Enforce("META-BIN-001");
 
         double comp = 0.0;
         double cont = 0.0;

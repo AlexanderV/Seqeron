@@ -7,7 +7,7 @@ using static Seqeron.Genomics.Annotation.VariantAnnotator;
 using Variant = Seqeron.Genomics.Annotation.VariantAnnotator.Variant;
 using VariantType = Seqeron.Genomics.Annotation.VariantAnnotator.VariantType;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the Oncology variant-annotation area — ONCO-ANNOT-001.

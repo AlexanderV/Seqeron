@@ -6,8 +6,33 @@
 - **Canonical method(s):** `MiRnaAnalyzer.FindPreMiRnaHairpins(sequence, minHairpinLength=55, maxHairpinLength=120, matureLength=22)` (default heuristic); internal helper `AnalyzeHairpin`; energy via `CalculateHairpinEnergy`. **New opt-in:** `FindPreMiRnaHairpinsByMfe`, `AssessHairpinByMfe`, `CalculateMfeIndex` — fold the candidate with `RnaSecondaryStructure.CalculateMfeStructure` (RNA-STRUCT-001) and derive hairpin features (single terminal loop, paired-stem count, ΔG°, AMFE, MFEI) from the real MFE structure.
 - **Source file:** `src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs`
 - **Test file:** `tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_PreMiRna_Tests.cs` (+ mutation-killer tests) — 38 heuristic tests + 10 MFE-fold tests (MF1–MF10) under the `~PreMiRna` filter
-- **Stage A verdict:** PASS-WITH-NOTES (heuristic); MFE-fold opt-in pending re-validation
-- **Stage B verdict:** PASS-WITH-NOTES (heuristic); MFE-fold opt-in pending re-validation
+- **Stage A verdict:** ✅ PASS (re-validated 2026-06-25 — hairpin criteria + AMFE/MFEI + 0.85 threshold confirmed against miRBase + Zhang 2006)
+- **Stage B verdict:** ✅ PASS (MFE-fold surface + heuristic confirmed; +5 tests added to cover the MFE structural-gate rejection branches)
+
+> **2026-06-25 re-validation (fresh context, this session).** Re-validated MIRNA-PRECURSOR-001's
+> OWN canonical surface — `FindPreMiRnaHairpins` (heuristic default), `FindPreMiRnaHairpinsByMfe`,
+> `AssessHairpinByMfe`, `CalculateMfeIndex` — after the E8 MFE caller addition reset it to ⬜.
+> The trained classifier (`ClassifyPreMiRna`/`ExtractPreMiRnaFeatures`/`ScorePreMiRnaFeatures`) is now
+> the separate already-CLEAN unit **MIRNA-CLASSIFY-001**, and Drosha/Dicer (`PredictDroshaDicerCleavage`)
+> is **MIRNA-CLEAVAGE-001** — both **out of scope here**; the miRDeep2 read-stacking signal remains a
+> documented out-of-scope boundary. **Sources retrieved this session:** miRBase precursor pages
+> `mirbase.org/hairpin/MI0000077` (hsa-mir-21, 72 nt) and `…/MI0000060` (hsa-let-7a-1, 80 nt) — both
+> test constants match miRBase **verbatim** (char-for-char, confirmed); Zhang et al. (2006) AMFE/MFEI
+> definitions and the MFEI ≥ 0.85 discriminator (AMFE = (MFE/length)·100; MFEI = AMFE/(G+C)%).
+> **Independent cross-check (hand-computed from the engine's ΔG° + Zhang formula, NOT code echoes):**
+> hsa-mir-21 ΔG°=−35.13, GC%=48.6111, AMFE=48.791667, **MFEI=1.003714**; hsa-let-7a-1 ΔG°=−34.31,
+> GC%=42.5, AMFE=42.887500, **MFEI=1.009118**; ValidHairpin57 ΔG°=−48.48, GC%=43.8596, AMFE=85.052632,
+> **MFEI=1.939200** — all match the tests, which in turn assert `a.FreeEnergy == engine.CalculateMinimumFreeEnergy`
+> (so the ΔG° is the real RNA-STRUCT-001 fold). Both real precursors are detected; non-complementary
+> (ΔG°=0) and multibranch (5S-like) folds are rejected. **Defect found & fixed:** the MFE-fold test
+> set (MF1–MF10) covered acceptance + ΔG°=0/multibranch rejection but did NOT exercise the three
+> structural acceptance gates in isolation (stem<16, loop>25, the MFEI ≥ cutoff boundary), nor the
+> length window of `FindPreMiRnaHairpinsByMfe`, nor non-ACGU normalisation. Added **MF11–MF15**:
+> stem-14-bp clean hairpin (MFEI 1.59 ≫ 0.85) rejected on the stem gate while stem-16 accepted;
+> 26-nt-loop hairpin (MFEI 1.732) rejected on the loop gate; tight MFEI boundary at the candidate's
+> own MFEI (1.0091176…); DNA/non-ACGU normalisation; and min/max length-window enforcement — each
+> proving rejection is structural, not energy-only. Full `dotnet test Seqeron.sln` = **0 failed**
+> (Genomics 18804 passed), 0 warnings on the changed test file.
 
 > **2026-06-24 limitation fix.** The previously documented limitation — "pre-miRNA hairpin detected by
 > a consecutive-complementary-pairing heuristic, not a full MFE-structure-folding caller" — is removed
@@ -183,17 +208,27 @@ affect behaviour or any test.
 
 ---
 
-## Verdict & follow-ups
+## Verdict & follow-ups (2026-06-25 re-validation)
 
-- **Stage A:** PASS-WITH-NOTES — biology/thresholds/MFE model correct and sourced; INV-9 "all else
-  equal" framing is loose; checklist method names stale.
-- **Stage B:** PASS-WITH-NOTES — code matches the validated description; worked example and all reject
-  cases reproduced independently to the cent; no code change required.
-- **State: CLEAN** — no code defect. Honest, well-documented scope (simplified consecutive-pairing
-  hairpin heuristic; real pre-miRNAs intentionally not detected, locked by M18/M19). The Evidence
-  doc's prior "8 consecutive pairs" nit for hsa-mir-21 is already corrected to **16** in
-  `docs/Evidence/MIRNA-PRECURSOR-001-Evidence.md`.
-- **Tests:** `~PreMiRna` filter = 38 passed / 0 failed.
-- **Code changed:** none.
-- **Optional follow-ups (non-blocking):** (a) soften INV-9 wording or make M11 vary only the stem;
-  (b) fix the stale checklist method names (`FindPreMiRnas`/`ValidateHairpin` → `FindPreMiRnaHairpins`).
+- **Stage A: ✅ PASS** — miRBase precursors hsa-mir-21 (72 nt) / hsa-let-7a-1 (80 nt) match the test
+  constants verbatim; the Zhang (2006) definitions AMFE = (MFE/length)·100 and MFEI = AMFE/(G+C)%
+  with the MFEI ≥ 0.85 discriminator are confirmed against external sources; the hairpin criteria
+  (long base-paired stem ≥16 bp Ambros 2003, terminal loop 3–25 nt Bartel 2004, length ~55–120 nt)
+  are sourced. The earlier INV-9 "all else equal" wording (heuristic) is a cosmetic note only.
+- **Stage B: ✅ PASS** — `CalculateMfeIndex` realises the Zhang formula exactly (incl. length≤0 and
+  GC%≤0 guards); `AssessHairpinByMfe`/`FindPreMiRnaHairpinsByMfe` read ΔG°/structure from the
+  validated RNA-STRUCT-001 folder (`a.FreeEnergy == CalculateMinimumFreeEnergy`, asserted) and gate
+  on single-hairpin topology + stem ≥16 + loop 3–25 + MFEI ≥ cutoff. All cross-check numbers
+  reproduced by hand from the engine ΔG° + Zhang formula.
+- **Defect found & fixed (Stage-B test quality):** the MFE-fold gates stem<16 / loop>25 / MFEI-cutoff
+  boundary, the length window, and non-ACGU normalisation were not directly tested. **Fixed in this
+  session** by adding MF11–MF15 (each rejection proven structural, MFEI ≫ 0.85 where applicable);
+  no production-code change was required (logic was already correct, only under-tested).
+- **State: ✅ CLEAN** — no production defect; the one test-coverage gap is fully closed.
+- **Tests:** `~PreMiRna` filter = **81 passed / 0 failed** (was 76 → +5 MFE-gate tests). Full
+  `dotnet test Seqeron.sln` = 0 failed (Genomics 18804 passed), 0 warnings on the changed file.
+- **Out of scope (separate CLEAN units / documented boundary):** trained classifier →
+  MIRNA-CLASSIFY-001; Drosha/Dicer cleavage → MIRNA-CLEAVAGE-001; miRDeep2 read-stacking signal.
+- **Code changed:** none (production); tests only.
+- **Optional follow-ups (non-blocking):** fix the stale checklist method names
+  (`FindPreMiRnas`/`ValidateHairpin` → `FindPreMiRnaHairpins`).

@@ -15,8 +15,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 [Category("Analysis")]
 public class RepeatFinderProperties
 {
-    // Sequences containing known repeats for reliable testing
-    private const string PalindromeSequence = "ACGTGAATTCACGTACGTGATATCACGT";
+    // Sequence containing known tandem repeats for reliable testing
     private const string MicrosatelliteSequence = "ACACACACACACGTGTGTGTGTAAAAAAAAAA";
 
     private static Arbitrary<string> DnaArbitrary(int minLen = 20) =>
@@ -25,6 +24,25 @@ public class RepeatFinderProperties
             .Where(a => a.Length >= minLen)
             .Select(a => new string(a))
             .ToArbitrary();
+
+    // Random DNA flanks wrapping a genuine, non-redundant tandem repeat (unit×k, k≥4).
+    // Guarantees the result set is usually non-empty so range/monotonicity properties are
+    // exercised against real microsatellites rather than holding vacuously on noise.
+    private static Arbitrary<string> SeededMicrosatelliteArbitrary()
+    {
+        static Gen<string> Flank() =>
+            Gen.Elements('A', 'C', 'G', 'T').ArrayOf().Select(a => new string(a));
+
+        // Mono-, di- and tri-nucleotide units that are not themselves smaller-period repeats.
+        var unitGen = Gen.Elements("A", "C", "AC", "GT", "AT", "CAG", "GTA", "TGC");
+
+        return (from prefix in Flank()
+                from unit in unitGen
+                from k in Gen.Choose(4, 8)
+                from suffix in Flank()
+                select prefix + string.Concat(Enumerable.Repeat(unit, k)) + suffix)
+            .ToArbitrary();
+    }
 
     #region REP-STR-001: R: positions ≥ 0; M: lower minRepeats → ≥ results; R: repeat count ≥ minRepeats; P: unit len in range
 
@@ -59,19 +77,20 @@ public class RepeatFinderProperties
     }
 
     /// <summary>
-    /// INV-3: Repeat count is at least the requested minimum.
-    /// Evidence: FindMicrosatellites filters by minRepeats parameter.
+    /// INV-3 (R): every reported microsatellite repeats at least <c>minRepeats</c> times.
+    /// Evidence: FindMicrosatellites only yields a run when its maximal repeat count ≥ minRepeats.
+    /// Exercised against sequences carrying a genuine planted tandem repeat.
     /// </summary>
-    [Test]
-    [Category("Property")]
-    public void Microsatellite_RepeatCount_MeetsMinimum()
+    [FsCheck.NUnit.Property]
+    public Property Microsatellite_RepeatCount_MeetsMinimum()
     {
-        int minRepeats = 3;
-        var results = RepeatFinder.FindMicrosatellites(MicrosatelliteSequence, 1, 4, minRepeats).ToList();
-
-        foreach (var r in results)
-            Assert.That(r.RepeatCount, Is.GreaterThanOrEqualTo(minRepeats),
-                $"Repeat count {r.RepeatCount} must be ≥ {minRepeats}");
+        const int minRepeats = 3;
+        return Prop.ForAll(SeededMicrosatelliteArbitrary(), seq =>
+        {
+            var results = RepeatFinder.FindMicrosatellites(seq, 1, 4, minRepeats).ToList();
+            return results.All(r => r.RepeatCount >= minRepeats)
+                .Label($"every RepeatCount must be ≥ {minRepeats}");
+        });
     }
 
     /// <summary>
@@ -91,20 +110,20 @@ public class RepeatFinderProperties
     }
 
     /// <summary>
-    /// INV-5: Lower minRepeats yields more or equal results (monotonicity).
-    /// Evidence: Relaxing the minimum threshold expands the result set.
+    /// INV-5 (M): relaxing minRepeats never loses results — a lower threshold yields ≥ as many
+    /// microsatellites as a higher one. Any run reported at the stricter threshold still has its
+    /// maximal repeat count ≥ the looser threshold, so it remains reportable.
     /// </summary>
-    [Test]
-    [Category("Property")]
-    public void Microsatellite_LowerMinRepeats_MoreOrEqualResults()
+    [FsCheck.NUnit.Property]
+    public Property Microsatellite_LowerMinRepeats_MoreOrEqualResults()
     {
-        var resultsStrict = RepeatFinder.FindMicrosatellites(
-            MicrosatelliteSequence, 1, 4, minRepeats: 5).ToList();
-        var resultsRelaxed = RepeatFinder.FindMicrosatellites(
-            MicrosatelliteSequence, 1, 4, minRepeats: 3).ToList();
-
-        Assert.That(resultsRelaxed.Count, Is.GreaterThanOrEqualTo(resultsStrict.Count),
-            $"minRepeats=3 → {resultsRelaxed.Count} must be ≥ minRepeats=5 → {resultsStrict.Count}");
+        return Prop.ForAll(SeededMicrosatelliteArbitrary(), seq =>
+        {
+            int strict = RepeatFinder.FindMicrosatellites(seq, 1, 4, minRepeats: 5).Count();
+            int relaxed = RepeatFinder.FindMicrosatellites(seq, 1, 4, minRepeats: 3).Count();
+            return (relaxed >= strict)
+                .Label($"minRepeats=3 → {relaxed} must be ≥ minRepeats=5 → {strict}");
+        });
     }
 
     /// <summary>
@@ -178,17 +197,18 @@ public class RepeatFinderProperties
 
     /// <summary>
     /// INV-4: Palindrome lengths are even (DNA palindromes pair symmetrically).
-    /// Evidence: Each base on one half pairs with a complement on the other half.
+    /// Evidence: each base in the left half pairs with its complement in the mirrored right half,
+    /// so a reverse-complement palindrome has no unpaired centre — its length is always even.
     /// </summary>
-    [Test]
-    [Category("Property")]
-    public void Palindrome_LengthsAreEven()
+    [FsCheck.NUnit.Property]
+    public Property Palindrome_LengthsAreEven()
     {
-        var palindromes = RepeatFinder.FindPalindromes(PalindromeSequence, minLength: 4, maxLength: 12).ToList();
-
-        foreach (var p in palindromes)
-            Assert.That(p.Length % 2, Is.EqualTo(0),
-                $"Palindrome length {p.Length} must be even");
+        return Prop.ForAll(DnaArbitrary(20), seq =>
+        {
+            var palindromes = RepeatFinder.FindPalindromes(seq, minLength: 4, maxLength: 12).ToList();
+            return palindromes.All(p => p.Length % 2 == 0)
+                .Label("Every DNA reverse-complement palindrome must have even length");
+        });
     }
 
     /// <summary>
@@ -466,6 +486,52 @@ public class RepeatFinderProperties
             var r2 = RepeatFinder.FindDirectRepeats(seq, minLength: 5).ToList();
             return r1.SequenceEqual(r2)
                 .Label("FindDirectRepeats must be deterministic");
+        });
+    }
+
+    #endregion
+
+    #region REP-APPROX-001: R: percent-matches ∈ [0,100]; R: score ≥ MinScore (50); D: deterministic
+
+    // FindApproximateTandemRepeats — TRF-style imperfect tandem-repeat detection (Benson 1999). Every
+    // reported repeat passes the minimum alignment-score gate (default 50) and has a match percentage in [0,100].
+
+    // Length-bounded planted tandem repeat (the TRF scan is super-linear, so cap the generated size).
+    private static Arbitrary<string> BoundedSeededRepeatArbitrary() =>
+        (from prefixLen in Gen.Choose(0, 10)
+         from suffixLen in Gen.Choose(0, 10)
+         from unit in Gen.Elements("A", "C", "AC", "GT", "AT", "CAG", "GTA", "TGC")
+         from k in Gen.Choose(5, 12)
+         from prefix in Gen.Elements('A', 'C', 'G', 'T').ArrayOf(prefixLen)
+         from suffix in Gen.Elements('A', 'C', 'G', 'T').ArrayOf(suffixLen)
+         select new string(prefix) + string.Concat(Enumerable.Repeat(unit, k)) + new string(suffix))
+        .ToArbitrary();
+
+    /// <summary>
+    /// INV (R + R): for any sequence carrying a genuine tandem repeat, every reported approximate repeat has
+    /// PercentMatches ∈ [0,100] and an AlignmentScore at least the requested minimum (Benson 1999 MinScore=50).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ApproximateRepeats_PercentMatchesInRange_AndScoreAboveMin()
+    {
+        const int minScore = 50;
+        return Prop.ForAll(BoundedSeededRepeatArbitrary(), seq =>
+        {
+            var results = RepeatFinder.FindApproximateTandemRepeats(seq, 1, 6, minScore).ToList();
+            return results.All(r => r.PercentMatches is >= 0.0 and <= 100.0 + 1e-9 && r.AlignmentScore >= minScore)
+                .Label($"a repeat had PercentMatches/score out of contract (results={results.Count})");
+        });
+    }
+
+    /// <summary>INV (D): approximate tandem-repeat detection is deterministic.</summary>
+    [FsCheck.NUnit.Property]
+    public Property ApproximateRepeats_IsDeterministic()
+    {
+        return Prop.ForAll(BoundedSeededRepeatArbitrary(), seq =>
+        {
+            var a = RepeatFinder.FindApproximateTandemRepeats(seq, 1, 6).ToList();
+            var b = RepeatFinder.FindApproximateTandemRepeats(seq, 1, 6).ToList();
+            return a.SequenceEqual(b).Label("FindApproximateTandemRepeats must be deterministic");
         });
     }
 

@@ -1792,14 +1792,14 @@ public class OncologyCombinatorialTests
     // Spec: tests/TestSpecs/ONCO-NEO-001.md (OncologyAnalyzer.GenerateNeoantigenPeptides).
     // ADVANCED_TESTING_CHECKLIST.md §10.
     //
-    // Sources: Hundal et al. (2020) pVACtools (class I 8-11-mers); Li et al. (2020) ProGeo-neo (21-mer
-    // ±10-flank windowing); Wells et al. (2020) TESLA (mutant/WT agretope pairing).
+    // Sources: Reynisson et al. (2020) NetMHCpan-4.1 (class I 8-14-mer window); Hundal et al. (2020) pVACtools;
+    // Li et al. (2020) ProGeo-neo (21-mer ±10-flank windowing); Wells et al. (2020) TESLA (agretope pairing).
     //
     // For length k, every k-window of the mutant protein that SPANS the mutation is emitted, paired with
     // the WT window at the same coordinates: count = (min(mutIdx, L−k) − max(0, mutIdx−k+1) + 1).
     //
     // Checklist axes peptideLen(3) × mutationPos(3) × mutationType(2) map onto the real knobs:
-    //   • peptideLen   → the single peptide length k ∈ {8, 9, 11} (minLength = maxLength = k).
+    //   • peptideLen   → the single peptide length k ∈ {8, 11, 14} (minLength = maxLength = k).
     //   • mutationPos  → 1-based mutation position ∈ {1 (N-term), 10 (interior), 21 (C-term)}.
     //   • mutationType → the substituted mutant residue ∈ {'C', 'D'}: the windowing is INVARIANT to which
     //     residue is substituted (any missense), while the mutant peptide carries it at the offset.
@@ -1820,7 +1820,7 @@ public class OncologyCombinatorialTests
     /// </summary>
     [Test, Combinatorial]
     public void GenerateNeoantigenPeptides_LengthPositionResidueGrid_MatchesWindowingRule(
-        [Values(8, 9, 11)] int peptideLength,
+        [Values(8, 11, 14)] int peptideLength,
         [Values(1, 10, 21)] int mutationPosition,
         [Values('C', 'D')] char mutantResidue)
     {
@@ -1910,7 +1910,7 @@ public class OncologyCombinatorialTests
     // Spec: tests/TestSpecs/ONCO-MHC-001.md (OncologyAnalyzer.ClassifyMhcBinding / ClassifyBindingRank / IsValidPeptideLength).
     // ADVANCED_TESTING_CHECKLIST.md §10.
     //
-    // Sources: Reynisson et al. (2020) NetMHCpan-4.1 (class I 8-11, %Rank strong<0.5/weak<2; class II
+    // Sources: Reynisson et al. (2020) NetMHCpan-4.1 (class I 8-14, %Rank strong<0.5/weak<2; class II
     // 13-25, %Rank strong<2/weak<10); Sette (1994) / IEDB (IC50 strong<50, weak<500 nM, strict <).
     //
     // ClassifyMhcBinding gates on the class-specific length range, then tiers the IC50 (strong<50,
@@ -1944,7 +1944,7 @@ public class OncologyCombinatorialTests
     {
         // Independent ground truth.
         bool validLength = mhcClass == OncologyAnalyzer.MhcClass.ClassI
-            ? peptideLength is >= 8 and <= 11
+            ? peptideLength is >= 8 and <= 14
             : peptideLength is >= 13 and <= 25;
         var affinityTier = ic50Nm < 50.0 ? OncologyAnalyzer.BindingStrength.Strong
             : ic50Nm < 500.0 ? OncologyAnalyzer.BindingStrength.Weak
@@ -1952,7 +1952,7 @@ public class OncologyCombinatorialTests
         var expected = validLength ? affinityTier : OncologyAnalyzer.BindingStrength.NonBinder;
 
         OncologyAnalyzer.IsValidPeptideLength(peptideLength, mhcClass).Should().Be(validLength,
-            "class I accepts 8-11, class II accepts 13-25");
+            "class I accepts 8-14, class II accepts 13-25");
         OncologyAnalyzer.ClassifyMhcBinding(peptideLength, ic50Nm, mhcClass).Should().Be(expected,
             "valid length → IC50 tier; invalid length → NonBinder");
     }
@@ -3356,5 +3356,329 @@ public class OncologyCombinatorialTests
             profile[gene] = a * weightA + b * weightB;
         }
         return profile;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: ONCO-ASCAT-001 — Allele-specific purity/ploidy fit (Oncology)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 235.
+    // Spec: tests/TestSpecs/ONCO-ASCAT-001.md (OncologyAnalyzer.FitPurityPloidy). ADVANCED §10.
+    //
+    // Sources: Van Loo et al. (2010), ASCAT, PNAS 107:16910; VanLoo-lab/ascat runAscat.R (γ=1).
+    //
+    // Model: per-locus logR/BAF are generated from integer allele copy numbers (nA,nB) at an
+    // aberrant cell fraction ρ (purity) and average sample ploidy ψ by the ASCAT forward model
+    //   r = log2[(ρ·n + 2(1−ρ)) / (ρ·ψ + 2(1−ρ))],   b = (ρ·nB + (1−ρ)) / (ρ·n + 2(1−ρ)),  n = nA+nB
+    // (the exact algebraic inverse of the cited nA/nB equations). FitPurityPloidy inverts this
+    // with a (ρ × ψ) grid search, selecting the (ρ,ψ) whose inferred copy numbers are closest to
+    // nonnegative integers (goodness-of-fit → 100%).
+    //
+    // Dimensions: purity(3) × ploidy(3). Full grid 3×3 = 9 cells (exhaustive [Combinatorial]).
+    //
+    // The combinatorial point: ρ and ψ INTERACT in both forward terms — the BAF scales with ρ,
+    // the logR baseline with ρ·ψ — so a naive read of one axis is confounded by the other. Each
+    // cell is synthesised from a segment set whose length-weighted mean total CN equals the
+    // planted ψ, and the joint fit must recover BOTH planted parameters (within one grid step)
+    // AND the exact integer (major,minor) CN per segment with GoF ≈ 100%, i.e. it disentangles
+    // the two coupled axes in every cell.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private const double AscatGamma = 1.0;
+
+    /// <summary>ASCAT forward model (γ=1): integer (nA,nB) at (ρ,ψ) ⇒ the locus (logR, BAF).</summary>
+    private static (double LogR, double Baf) AscatForward(int nA, int nB, double rho, double psi)
+    {
+        int n = nA + nB;
+        double denom = rho * n + 2.0 * (1.0 - rho);
+        double d = rho * psi + 2.0 * (1.0 - rho);
+        return (Math.Log2(denom / d), (rho * nB + (1.0 - rho)) / denom);
+    }
+
+    /// <summary>Replicates each integer segment into adjacent loci carrying its planted (logR, BAF).</summary>
+    private static List<OncologyAnalyzer.AlleleSpecificLocus> AscatLoci(
+        IReadOnlyList<(int NA, int NB)> segments, double rho, double psi, int lociPerSegment = 5)
+    {
+        var loci = new List<OncologyAnalyzer.AlleleSpecificLocus>();
+        long pos = 1000;
+        foreach (var (nA, nB) in segments)
+        {
+            (double r, double b) = AscatForward(nA, nB, rho, psi);
+            for (int i = 0; i < lociPerSegment; i++)
+            {
+                loci.Add(new OncologyAnalyzer.AlleleSpecificLocus("1", pos, r, b));
+                pos += 1000;
+            }
+        }
+        return loci;
+    }
+
+    // Integer-CN segment sets whose mean total CN equals each planted ploidy. No two ADJACENT
+    // segments are equal (so segmentation emits one run per entry) and each set carries an LOH
+    // segment (minor = 0, BAF far from 0.5) which breaks the 2n-vs-4n sunrise symmetry.
+    private static (int NA, int NB)[] AscatSegmentsForPloidy(double ploidy) => ploidy switch
+    {
+        2.0 => new[] { (1, 1), (2, 0), (1, 1) },         // mean (2+2+2)/3 = 2.0
+        2.5 => new[] { (1, 1), (2, 1), (2, 0), (2, 1) }, // mean (2+3+2+3)/4 = 2.5
+        _ => new[] { (2, 1), (3, 0), (2, 1) },           // ploidy 3.0: mean (3+3+3)/3 = 3.0
+    };
+
+    /// <summary>
+    /// Pairwise grid over (purity × ploidy): from data synthesised at the planted (ρ,ψ) the joint
+    /// ASCAT grid fit recovers both parameters within one grid step and the exact integer (major,
+    /// minor) copy numbers per segment, with goodness-of-fit ≈ 100%.
+    /// </summary>
+    [Test, Combinatorial]
+    public void AscatFit_RecoversPlantedPurityPloidyAndIntegerCopyNumbers(
+        [Values(0.50, 0.70, 0.90)] double purity,
+        [Values(2.0, 2.5, 3.0)] double ploidy)
+    {
+        var segments = AscatSegmentsForPloidy(ploidy);
+        var loci = AscatLoci(segments, purity, ploidy);
+
+        var summaries = OncologyAnalyzer.SegmentAlleleSpecific(
+            loci, logRChangeThreshold: 0.2, minLociPerSegment: 1);
+
+        OncologyAnalyzer.PurityPloidyFit fit = OncologyAnalyzer.FitPurityPloidy(
+            summaries, purityMin: 0.05, purityMax: 1.0, purityStep: 0.01,
+            ploidyMin: 1.5, ploidyMax: 5.0, ploidyStep: 0.05, gamma: AscatGamma);
+
+        fit.Purity.Should().BeApproximately(purity, 0.01 + 1e-9, "the ρ axis is recovered within one grid step");
+        fit.Ploidy.Should().BeApproximately(ploidy, 0.05 + 1e-9, "the ψ axis is recovered within one grid step");
+        fit.GoodnessOfFit.Should().BeApproximately(100.0, 1e-6, "integer CN are recovered exactly at the truth ⇒ GoF 100%");
+
+        fit.Segments.Should().HaveCount(segments.Length, "one emitted run per planted (adjacent-distinct) segment");
+        for (int i = 0; i < segments.Length; i++)
+        {
+            int major = Math.Max(segments[i].NA, segments[i].NB);
+            int minor = Math.Min(segments[i].NA, segments[i].NB);
+            fit.Segments[i].MajorCopyNumber.Should().Be(major, $"segment {i} recovers the planted major CN {major}");
+            fit.Segments[i].MinorCopyNumber.Should().Be(minor, $"segment {i} recovers the planted minor CN {minor}");
+        }
+    }
+
+    /// <summary>
+    /// Interaction witness: the two axes genuinely move the answer. Holding ploidy fixed, data
+    /// synthesised at purity 0.9 recovers a higher ρ than data synthesised at 0.5; holding purity
+    /// fixed, data synthesised at ψ=3.0 recovers a higher ψ than data at ψ=2.0. A purity/ploidy
+    /// inversion that ignored either axis could not satisfy both.
+    /// </summary>
+    [Test]
+    public void AscatFit_PurityAndPloidyAxes_EachDriveTheFit()
+    {
+        OncologyAnalyzer.PurityPloidyFit FitAt(double rho, double psi)
+        {
+            var loci = AscatLoci(AscatSegmentsForPloidy(psi), rho, psi);
+            var summaries = OncologyAnalyzer.SegmentAlleleSpecific(loci, logRChangeThreshold: 0.2, minLociPerSegment: 1);
+            return OncologyAnalyzer.FitPurityPloidy(summaries, gamma: AscatGamma);
+        }
+
+        FitAt(0.90, 2.0).Purity.Should().BeGreaterThan(FitAt(0.50, 2.0).Purity, "the purity axis drives the recovered ρ");
+        FitAt(0.70, 3.0).Ploidy.Should().BeGreaterThan(FitAt(0.70, 2.0).Ploidy, "the ploidy axis drives the recovered ψ");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: MHC-NN-001 — MHCflurry pan-allele neural-network IC50 prediction (Oncology)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 245.
+    // Spec: tests/TestSpecs/MHC-NN-001.md (MhcflurryAffinityPredictor.PredictIc50WithPseudosequence). ADVANCED §10.
+    //
+    // Sources: O'Donnell et al. (2018/2020) MHCflurry 2.0 (Cell Systems); models_class1_pan architecture;
+    //   regression_target.to_ic50 transform IC50 = 50000^(1−x).
+    //
+    // Model: each network maps the (peptide, allele-pseudosequence) BLOSUM62 encoding to an output x and
+    //   IC50 = 50000^(1−x); an ENSEMBLE prediction is the GEOMETRIC MEAN of the per-network IC50s.
+    //
+    // Dimensions: peptideLen(4) × allele(3) × ensemble(2). Grid 4×3×2 = 24 (exhaustive).
+    //
+    // Axis mapping (documented): the allele axis is realised via three distinct 37-residue MHCflurry
+    // pseudosequences passed to PredictIc50WithPseudosequence (two are the bundled HLA-A*02:01 / B*07:02
+    // pseudosequences; the third a distinct valid 37-mer), bypassing the bundled allele table for test
+    // determinism. The ensemble axis is a single test network vs a two-network ensemble.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private static IReadOnlyList<MhcflurryAffinityPredictor.Network> LoadMhcPack(string resource)
+    {
+        var asm = typeof(OncologyCombinatorialTests).Assembly;
+        using System.IO.Stream stream = asm.GetManifestResourceStream(resource)
+            ?? throw new InvalidOperationException($"Embedded resource '{resource}' not found.");
+        return MhcflurryAffinityPredictor.LoadWeightPack(stream);
+    }
+
+    private static readonly MhcflurryAffinityPredictor.Network MhcNet1 =
+        LoadMhcPack("Seqeron.Genomics.Tests.TestData.Mhcflurry.mhcflurry_single_net.bin")[0];
+    private static readonly MhcflurryAffinityPredictor.Network MhcNet2 =
+        LoadMhcPack("Seqeron.Genomics.Tests.TestData.Mhcflurry.mhcflurry_skip_net.bin")[0];
+
+    private static readonly string[] MhcPseudosequences =
+    {
+        "YFAMYGEKVAHTHVDTLYGVRYDHYYTWAVLAYTWYA",                              // HLA-A*02:01 (bundled)
+        "YYSEYRNIYAQTDESNLYGLSYDDYYTWAERAYEWYA",                              // HLA-B*07:02 (bundled)
+        "YFAMYGEKVAHTHVDTLYGLSYDDYYTWAERAYEWYA",                              // distinct hybrid 37-mer (third allele)
+    };
+
+    private static string MhcPeptide(int len) => "SIINFEKLAGV"[..len]; // 8..11-mers
+
+    public enum MhcEnsemble { Single, Ensemble }
+
+    [Test, Combinatorial]
+    public void MhcNn_PredictsIc50_AcrossLengthAlleleAndEnsemble(
+        [Values(8, 9, 10, 11)] int peptideLen,
+        [Values(0, 1, 2)] int alleleIdx,
+        [Values(MhcEnsemble.Single, MhcEnsemble.Ensemble)] MhcEnsemble mode)
+    {
+        string pep = MhcPeptide(peptideLen);
+        string ps = MhcPseudosequences[alleleIdx];
+        var nets = mode == MhcEnsemble.Single
+            ? new[] { MhcNet1 }
+            : new[] { MhcNet1, MhcNet2 };
+
+        double ic50 = MhcflurryAffinityPredictor.PredictIc50WithPseudosequence(nets, pep, ps);
+        double.IsFinite(ic50).Should().BeTrue("IC50 = 50000^(1−x) is finite");
+        ic50.Should().BeGreaterThan(0.0, "an IC50 concentration is positive");
+        MhcflurryAffinityPredictor.PredictIc50WithPseudosequence(nets, pep, ps).Should().Be(ic50, "prediction is deterministic");
+
+        if (mode == MhcEnsemble.Ensemble)
+        {
+            double a = MhcflurryAffinityPredictor.PredictIc50WithPseudosequence(new[] { MhcNet1 }, pep, ps);
+            double b = MhcflurryAffinityPredictor.PredictIc50WithPseudosequence(new[] { MhcNet2 }, pep, ps);
+            ic50.Should().BeApproximately(Math.Sqrt(a * b), Math.Sqrt(a * b) * 1e-9,
+                "the ensemble IC50 is the geometric mean of the per-network IC50s");
+        }
+    }
+
+    /// <summary>
+    /// Interaction witness: the allele axis genuinely drives the prediction — two distinct allele
+    /// pseudosequences give different IC50s for the same peptide and network.
+    /// </summary>
+    [Test]
+    public void MhcNn_AlleleChangesPrediction()
+    {
+        var nets = new[] { MhcNet1 };
+        double a = MhcflurryAffinityPredictor.PredictIc50WithPseudosequence(nets, "SIINFEKL", MhcPseudosequences[0]);
+        double b = MhcflurryAffinityPredictor.PredictIc50WithPseudosequence(nets, "SIINFEKL", MhcPseudosequences[1]);
+        a.Should().NotBe(b, "different allele pseudosequences yield different affinities");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: MHC-MATRIX-001 — SMM / BIMAS matrix pMHC prediction (Oncology)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 246.
+    // Spec: tests/TestSpecs/MHC-MATRIX-001.md
+    //       (OncologyAnalyzer.PredictIc50Smm / PredictBindingHalfLifeBimas). ADVANCED §10.
+    //
+    // Sources: Peters & Sette (2005) SMM (IC50 = 50000^(1−score)); Parker et al. (1994) BIMAS
+    //   (half-life = FinalConstant·∏ position coefficients).
+    //
+    // Dimensions: matrixLen(3) × method(SMM/BIMAS) × threshold(2). Grid 3×2×2 = 12 (exhaustive).
+    //
+    // The combinatorial point: each cell reproduces its method's closed form from the matrix definition,
+    // and the threshold axis (a Strong vs Weak engineered regime) lands the prediction in the correct
+    // BindingStrength class (SMM, via the 50/500 nM cutoffs) or the correct relative half-life (BIMAS).
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private static OncologyAnalyzer.PmhcScoringMatrix UniformPmhcMatrix(int len, double perPosition, double finalConstant) =>
+        new(Enumerable.Range(0, len)
+                .Select(_ => (IReadOnlyDictionary<char, double>)new Dictionary<char, double> { ['A'] = perPosition })
+                .ToArray(),
+            finalConstant);
+
+    public enum PmhcMethod { Smm, Bimas }
+
+    [Test, Combinatorial]
+    public void PmhcMatrix_ClosedFormAndThreshold_AcrossLengthMethodAndStrength(
+        [Values(8, 9, 10)] int matrixLen,
+        [Values(PmhcMethod.Smm, PmhcMethod.Bimas)] PmhcMethod method,
+        [Values(true, false)] bool strong)
+    {
+        string peptide = new('A', matrixLen);
+
+        if (method == PmhcMethod.Smm)
+        {
+            // Strong: score 0.8 ⇒ IC50 = 50000^0.2 ≈ 8.7 nM (< 50). Weak: score 0.1 ⇒ ≈ 21 000 nM (NonBinder).
+            double score = strong ? 0.8 : 0.1;
+            var matrix = UniformPmhcMatrix(matrixLen, score / matrixLen, finalConstant: 0.0);
+
+            double ic50 = OncologyAnalyzer.PredictIc50Smm(peptide, matrix);
+            ic50.Should().BeApproximately(Math.Pow(OncologyAnalyzer.SmmIc50Base, 1.0 - score), 1e-6,
+                "SMM IC50 = 50000^(1 − score)");
+            OncologyAnalyzer.ClassifyBindingAffinity(ic50).Should().Be(
+                strong ? OncologyAnalyzer.BindingStrength.Strong : OncologyAnalyzer.BindingStrength.NonBinder,
+                "the SMM IC50 lands in the expected NetMHC binding class");
+        }
+        else
+        {
+            double coeff = strong ? 2.0 : 0.5;
+            var matrix = UniformPmhcMatrix(matrixLen, coeff, finalConstant: 1.0);
+
+            double half = OncologyAnalyzer.PredictBindingHalfLifeBimas(peptide, matrix);
+            half.Should().BeApproximately(1.0 * Math.Pow(coeff, matrixLen), Math.Pow(coeff, matrixLen) * 1e-9,
+                "BIMAS half-life = FinalConstant · ∏ position coefficients");
+
+            double weakHalf = OncologyAnalyzer.PredictBindingHalfLifeBimas(peptide, UniformPmhcMatrix(matrixLen, 0.5, 1.0));
+            double strongHalf = OncologyAnalyzer.PredictBindingHalfLifeBimas(peptide, UniformPmhcMatrix(matrixLen, 2.0, 1.0));
+            strongHalf.Should().BeGreaterThan(weakHalf, "stronger per-position coefficients ⇒ longer predicted half-life");
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unit: IMMUNE-NUSVR-001 — CIBERSORT ν-SVR immune deconvolution (Oncology)
+    // Checklist: docs/checklists/09_COMBINATORIAL_TESTING.md, row 247.
+    // Spec: tests/TestSpecs/IMMUNE-NUSVR-001.md (ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr). ADVANCED §10.
+    //
+    // Sources: Newman et al. (2015) CIBERSORT (Nat. Methods 12:453); Schölkopf et al. (2000) ν-SVR.
+    //
+    // Model: a bulk profile m = B·f (signature matrix B, cell fractions f) is deconvolved by ν-SVR; the
+    //   recovered fractions are zero-clipped and renormalised to sum to 1, and the ν giving the lowest
+    //   RMSE is reported as BestNu.
+    //
+    // Dimensions: genes(3) × cellTypes(3) × ν(2). Grid 3×3×2 = 18 (exhaustive).
+    //
+    // Axis mapping (documented): the bundled signature gene set is fixed, so the "genes" axis is realised
+    // as the number of co-planted signature components {1,2,3} (each contributing its marker genes); the
+    // "cellTypes" axis is the dominant planted cell type; and ν is forced to a single swept value via the
+    // nuValues parameter. Every noise-free planted mixture recovers a simplex of fractions whose largest
+    // entry is the dominant planted cell type, and BestNu equals the forced ν.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private static readonly string[] NuSvrDominantTypes = { "T_cells_CD8", "B_cells_naive", "NK_cells_activated" };
+    private static readonly string[] NuSvrCoPool = { "T_cells_CD8", "B_cells_naive", "NK_cells_activated", "Monocytes" };
+
+    private static Dictionary<string, double> NuSvrPlantedMixture(string dominant, int nComponents)
+    {
+        var fractions = new Dictionary<string, double> { [dominant] = nComponents == 1 ? 1.0 : nComponents == 2 ? 0.7 : 0.6 };
+        double[] extras = nComponents == 2 ? new[] { 0.3 } : nComponents == 3 ? new[] { 0.3, 0.1 } : System.Array.Empty<double>();
+        int e = 0;
+        foreach (var ct in NuSvrCoPool.Where(c => c != dominant))
+        {
+            if (e >= extras.Length) break;
+            fractions[ct] = extras[e++];
+        }
+
+        var sig = ImmuneAnalyzer.DefaultSignatureMatrix;
+        var genes = sig.Values.SelectMany(d => d.Keys).Distinct();
+        var mixture = new Dictionary<string, double>();
+        foreach (var gene in genes)
+        {
+            double v = 0.0;
+            foreach (var (ct, f) in fractions)
+                if (sig[ct].TryGetValue(gene, out double s)) v += f * s;
+            mixture[gene] = v;
+        }
+        return mixture;
+    }
+
+    [Test, Combinatorial]
+    public void NuSvr_RecoversDominantType_AcrossComponentsDominantAndNu(
+        [Values(1, 2, 3)] int nComponents,
+        [Values(0, 1, 2)] int dominantIdx,
+        [Values(0.25, 0.75)] double nu)
+    {
+        string dominant = NuSvrDominantTypes[dominantIdx];
+        var mixture = NuSvrPlantedMixture(dominant, nComponents);
+
+        var result = ImmuneAnalyzer.DeconvoluteImmuneCellsNuSvr(mixture, signatureMatrix: null, nuValues: new[] { nu });
+
+        result.BestNu.Should().Be(nu, "the forced single-ν sweep selects that ν");
+        result.CellFractions.Values.Sum().Should().BeApproximately(1.0, 1e-6, "fractions form a simplex (sum to 1)");
+        result.CellFractions.Values.Should().OnlyContain(f => f >= -1e-9, "fractions are non-negative");
+        result.CellFractions[dominant].Should().Be(result.CellFractions.Values.Max(),
+            "the dominant planted cell type is the largest recovered fraction");
     }
 }
