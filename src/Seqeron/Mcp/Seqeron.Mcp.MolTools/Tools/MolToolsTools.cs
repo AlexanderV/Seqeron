@@ -118,7 +118,7 @@ public class MolToolsTools
         return new ThreePrimeStabilityResult(PrimerDesigner.Calculate3PrimeStability(sequence));
     }
 
-    [McpServerTool, Description("Enumerates all primer candidates of admissible lengths within a region of the template, evaluating each one. Useful when the caller wants to pick by custom criteria.")]
+    [McpServerTool(Name = "generate_primer_candidates", Title = "MolTools — Generate Primer Candidates", ReadOnly = true), Description("Enumerates all primer candidates of admissible lengths (parameters.MinLength..MaxLength) at every start position within a region of the template and evaluates each one (candidates are emitted in generation order, NOT sorted by score). region_start is 0-based inclusive, region_end is exclusive; for a reverse request each candidate sequence is the reverse complement of the template substring. Useful when the caller wants the full candidate set to pick by custom criteria.")]
     public static PrimerCandidateListResult generate_primer_candidates(
         [Description("DNA template sequence.")] string template,
         [Description("0-based start of the search region (inclusive).")] int region_start,
@@ -126,6 +126,15 @@ public class MolToolsTools
         [Description("True for forward-strand candidates, false for reverse-complement candidates.")] bool forward = true,
         [Description("Optional primer design parameters.")] PrimerParameters? parameters = null)
     {
+        if (string.IsNullOrEmpty(template))
+            throw new System.ArgumentException("Template cannot be null or empty.", nameof(template));
+        if (region_start < 0)
+            throw new System.ArgumentException("Region start must be non-negative.", nameof(region_start));
+        if (region_end > template.Length)
+            throw new System.ArgumentException("Region end must not exceed the template length.", nameof(region_end));
+        if (region_start >= region_end)
+            throw new System.ArgumentException("Region start must be strictly less than region end.", nameof(region_start));
+
         var list = PrimerDesigner
             .GeneratePrimerCandidates(new DnaSequence(template), region_start, region_end, forward, parameters)
             .ToList();

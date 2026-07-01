@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "generate_primer_candidates",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PrimerDesigner.GeneratePrimerCandidates",
+  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L1848",
+  "description": "Enumerate every primer candidate of admissible length at each start position in a region and evaluate each (returned in generation order, not sorted).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "template": { "type": "string", "description": "DNA template sequence.", "minLength": 1 },
+      "region_start": { "type": "integer", "description": "0-based inclusive start of the search region.", "minimum": 0 },
+      "region_end": { "type": "integer", "description": "Exclusive end of the search region (region_start < region_end <= template.Length)." },
+      "forward": { "type": "boolean", "description": "True for forward-strand candidates, false for reverse complement.", "default": true },
+      "parameters": { "type": ["object", "null"], "description": "Optional primer-design parameters." }
+    },
+    "required": ["template", "region_start", "region_end"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "candidates": {
+        "type": "array",
+        "description": "Evaluated PrimerCandidate records in generation order.",
+        "items": { "type": "object" }
+      }
+    },
+    "required": ["candidates"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Template cannot be null or empty" },
+    { "code": 1002, "message": "Region start must be non-negative" },
+    { "code": 1003, "message": "Region end must not exceed the template length" },
+    { "code": 1004, "message": "Region start must be strictly less than region end" }
+  ],
+  "examples": [
+    {
+      "name": "Forward candidates over [0,60) of the standard 258 bp template",
+      "input": { "region_start": 0, "region_end": 60, "forward": true },
+      "output": { "candidatesCount": 316, "first": { "position": 0, "length": 18 } }
+    },
+    {
+      "name": "Reverse candidate is reverse complement of the template substring",
+      "input": { "template": "AACCGGTTAACCGGTTAACCGGTTAACCGGTTAACCGGTT", "region_start": 0, "region_end": 40, "forward": false },
+      "output": { "first": { "position": 0, "length": 18, "sequence": "TTAACCGGTTAACCGGTT" } }
+    }
+  ]
+}
