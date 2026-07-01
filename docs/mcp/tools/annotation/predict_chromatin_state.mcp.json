@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "predict_chromatin_state",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EpigeneticsAnalyzer.PredictChromatinState",
+  "docRef": "Seqeron.Genomics.Annotation/EpigeneticsAnalyzer.cs#L886",
+  "description": "Predict chromatin state from H3K4me3 / H3K4me1 / H3K27ac / H3K36me3 / H3K27me3 / H3K9me3 signal levels (0..1).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "h3k4me3": { "type": "number", "description": "H3K4me3 signal (active promoter)", "minimum": 0, "maximum": 1 },
+      "h3k4me1": { "type": "number", "description": "H3K4me1 signal (enhancer)", "minimum": 0, "maximum": 1 },
+      "h3k27ac": { "type": "number", "description": "H3K27ac signal (active enhancer/promoter)", "minimum": 0, "maximum": 1 },
+      "h3k36me3": { "type": "number", "description": "H3K36me3 signal (transcription)", "minimum": 0, "maximum": 1 },
+      "h3k27me3": { "type": "number", "description": "H3K27me3 signal (Polycomb repression)", "minimum": 0, "maximum": 1 },
+      "h3k9me3": { "type": "number", "description": "H3K9me3 signal (heterochromatin)", "minimum": 0, "maximum": 1 }
+    },
+    "required": ["h3k4me3", "h3k4me1", "h3k27ac", "h3k36me3", "h3k27me3", "h3k9me3"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "state": {
+        "type": "string",
+        "description": "ActivePromoter, ActiveEnhancer, WeakEnhancer, Transcribed, Repressed, Heterochromatin, BivalentPromoter, BivalentEnhancer, or LowSignal"
+      }
+    },
+    "required": ["state"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Histone signal must be in [0, 1]. (ArgumentOutOfRangeException)" }
+  ],
+  "examples": [
+    {
+      "name": "Active promoter (H3K4me3)",
+      "input": { "h3k4me3": 1.0, "h3k4me1": 0.0, "h3k27ac": 0.0, "h3k36me3": 0.0, "h3k27me3": 0.0, "h3k9me3": 0.0 },
+      "output": { "state": "ActivePromoter" }
+    },
+    {
+      "name": "Bivalent promoter (H3K4me3 + H3K27me3)",
+      "input": { "h3k4me3": 1.0, "h3k4me1": 0.0, "h3k27ac": 0.0, "h3k36me3": 0.0, "h3k27me3": 1.0, "h3k9me3": 0.0 },
+      "output": { "state": "BivalentPromoter" }
+    }
+  ]
+}
