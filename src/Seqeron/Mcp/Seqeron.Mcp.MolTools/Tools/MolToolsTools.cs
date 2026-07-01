@@ -568,12 +568,17 @@ public class MolToolsTools
         return new ExtinctionCoefficientResult(ProbeDesigner.CalculateExtinctionCoefficient(sequence));
     }
 
-    [McpServerTool, Description("Beer–Lambert concentration (µM) from absorbance at 260 nm, extinction coefficient, and path length. No input validation — extinction_coefficient = 0 yields infinity.")]
+    [McpServerTool(Name = "oligo_concentration_from_absorbance", Title = "MolTools — Oligo Concentration (Beer–Lambert)", ReadOnly = true), Description("Computes oligonucleotide concentration in µM from the Beer–Lambert law: c = A₂₆₀ / (ε · path) · 1e6. Call to convert a spectrophotometer A260 reading into a molar concentration given the oligo's extinction coefficient.")]
     public static ConcentrationResult oligo_concentration_from_absorbance(
         [Description("Absorbance at 260 nm (A260).")] double absorbance260,
         [Description("Extinction coefficient ε in M⁻¹·cm⁻¹.")] double extinction_coefficient,
         [Description("Path length in cm (default 1.0).")] double path_length = 1.0)
     {
+        if (extinction_coefficient <= 0)
+            throw new System.ArgumentException("Extinction coefficient must be positive.", nameof(extinction_coefficient));
+        if (path_length <= 0)
+            throw new System.ArgumentException("Path length must be positive.", nameof(path_length));
+
         return new ConcentrationResult(
             ProbeDesigner.CalculateConcentration(absorbance260, extinction_coefficient, path_length));
     }

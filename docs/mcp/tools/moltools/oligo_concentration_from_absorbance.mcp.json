@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "oligo_concentration_from_absorbance",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ProbeDesigner.CalculateConcentration",
+  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1367",
+  "description": "Beer-Lambert oligonucleotide concentration (uM) from A260, extinction coefficient and path length.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "absorbance260": { "type": "number", "description": "Absorbance at 260 nm (A260)." },
+      "extinction_coefficient": { "type": "number", "description": "Extinction coefficient in M^-1 cm^-1 (positive).", "exclusiveMinimum": 0 },
+      "path_length": { "type": "number", "description": "Path length in cm.", "exclusiveMinimum": 0, "default": 1.0 }
+    },
+    "required": ["absorbance260", "extinction_coefficient"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "concentrationMicromolar": { "type": "number", "description": "Concentration in micromolar (uM)." }
+    },
+    "required": ["concentrationMicromolar"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Extinction coefficient must be positive" },
+    { "code": 1002, "message": "Path length must be positive" }
+  ],
+  "examples": [
+    {
+      "name": "A260=1, eps=10000",
+      "input": { "absorbance260": 1.0, "extinction_coefficient": 10000, "path_length": 1.0 },
+      "output": { "concentrationMicromolar": 100.0 }
+    },
+    {
+      "name": "Path length 2 cm halves concentration",
+      "input": { "absorbance260": 1.0, "extinction_coefficient": 10000, "path_length": 2.0 },
+      "output": { "concentrationMicromolar": 50.0 }
+    }
+  ]
+}
