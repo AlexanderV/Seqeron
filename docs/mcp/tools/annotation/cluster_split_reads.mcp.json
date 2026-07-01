@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "cluster_split_reads",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "StructuralVariantAnalyzer.ClusterSplitReads",
+  "docRef": "Seqeron.Genomics.Annotation/StructuralVariantAnalyzer.cs#L495",
+  "description": "Cluster split reads into breakpoint candidates.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "splitReads": { "type": "array", "description": "Split reads to cluster", "items": { "type": "object" } },
+      "clusterDistance": { "type": "integer", "description": "Maximum distance (nt) between primary positions in a cluster", "default": 10 },
+      "minSupport": { "type": "integer", "description": "Minimum supporting reads per cluster", "default": 2 }
+    },
+    "required": ["splitReads"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "breakpoints": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "chromosome1": { "type": "string" }, "position1": { "type": "integer" }, "strand1": { "type": "string" },
+            "chromosome2": { "type": "string" }, "position2": { "type": "integer" }, "strand2": { "type": "string" },
+            "supportingReads": { "type": "integer" },
+            "quality": { "type": "number", "description": "min(support*15, 100)" }
+          },
+          "required": ["chromosome1", "position1", "strand1", "chromosome2", "position2", "strand2", "supportingReads", "quality"]
+        }
+      }
+    },
+    "required": ["breakpoints"]
+  },
+  "errors": [
+    { "code": 1001, "message": "splitReads cannot be null" }
+  ],
+  "examples": [
+    {
+      "name": "Two nearby split reads -> one breakpoint",
+      "input": {
+        "splitReads": [
+          { "readId": "r1", "chromosome": "chr1", "primaryPosition": 1000, "supplementaryPosition": 2000, "clipLength": 30, "clippedSequence": "A…" },
+          { "readId": "r2", "chromosome": "chr1", "primaryPosition": 1004, "supplementaryPosition": 2000, "clipLength": 30, "clippedSequence": "A…" }
+        ]
+      },
+      "output": { "breakpoints": [ { "position1": 1002, "position2": 2000, "supportingReads": 2, "quality": 30 } ] }
+    },
+    {
+      "name": "Below minimum support",
+      "input": { "splitReads": [ { "readId": "r1", "chromosome": "chr1", "primaryPosition": 1000, "supplementaryPosition": 2000, "clipLength": 30, "clippedSequence": "A…" } ] },
+      "output": { "breakpoints": [] }
+    }
+  ]
+}
