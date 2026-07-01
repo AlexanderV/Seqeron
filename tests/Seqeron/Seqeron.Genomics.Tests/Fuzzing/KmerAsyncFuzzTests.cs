@@ -107,6 +107,19 @@ public class KmerAsyncFuzzTests
 {
     #region Helpers
 
+    /// <summary>
+    /// Synchronous <see cref="IProgress{T}"/> — invokes the handler inline on the reporting
+    /// thread instead of marshaling it asynchronously the way <see cref="Progress{T}"/> does.
+    /// Used where a progress callback must run deterministically during the operation (e.g. to
+    /// signal cancellation mid-run) and complete before the caller disposes its resources.
+    /// </summary>
+    private sealed class SynchronousProgress<T> : IProgress<T>
+    {
+        private readonly Action<T> _handler;
+        public SynchronousProgress(Action<T> handler) => _handler = handler;
+        public void Report(T value) => _handler(value);
+    }
+
     /// <summary>Deterministic RNG — seed fixed locally so generated fuzz inputs are reproducible.</summary>
     private static string RandomDna(int length, int seed)
     {
@@ -255,7 +268,13 @@ public class KmerAsyncFuzzTests
 
         // Cancel from the FIRST progress report — that fires at the i = 0 checkpoint, so the
         // very next checkpoint (i = CheckInterval) observes the signal mid-scan.
-        var cancelOnFirstProgress = new Progress<double>(_ => cts.Cancel());
+        // NB: use a SYNCHRONOUS reporter, not Progress<double>. Progress<T> marshals the
+        // callback asynchronously (SynchronizationContext.Post / thread pool), so under load
+        // cts.Cancel() could run AFTER this test returns and `using` disposes cts — throwing
+        // ObjectDisposedException on a background thread and crashing the test host. A
+        // synchronous reporter cancels inline on the scanning thread, during the run (exactly
+        // the invariant under test), and always completes before cts is disposed.
+        var cancelOnFirstProgress = new SynchronousProgress<double>(_ => cts.Cancel());
 
         // Large enough that thousands of checkpoints remain after the i = 0 report.
         string seq = RandomDna(2_000_000, seed: 156_002);
