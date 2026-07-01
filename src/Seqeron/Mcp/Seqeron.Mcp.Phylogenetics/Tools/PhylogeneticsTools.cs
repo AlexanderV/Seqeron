@@ -64,6 +64,9 @@ public class PhylogeneticsTools
         [Description("Aligned sequences (equal length).")] string[] alignedSequences,
         [Description("Distance method: PDistance | JukesCantor | Kimura2Parameter | Hamming. Default: JukesCantor.")] string? method = null)
     {
+        if (alignedSequences is null || alignedSequences.Length == 0)
+            throw new ArgumentException("At least one aligned sequence is required.", nameof(alignedSequences));
+
         var dm = ParseDistanceMethod(method);
         var matrix = global::Seqeron.Genomics.Phylogenetics.PhylogeneticAnalyzer.CalculateDistanceMatrix(alignedSequences, dm);
         return new DistanceMatrixResult(ToJagged(matrix));
