@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "base_pair_type",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RnaSecondaryStructure.GetBasePairType",
+  "docRef": "Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L433",
+  "description": "Classification of an RNA base-pair candidate: WatsonCrick (A-U, G-C), Wobble (G-U), or null if the bases cannot pair.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "base1": { "type": "string", "description": "First RNA base (single character)", "minLength": 1, "maxLength": 1 },
+      "base2": { "type": "string", "description": "Second RNA base (single character)", "minLength": 1, "maxLength": 1 }
+    },
+    "required": ["base1", "base2"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "type": {
+        "type": ["string", "null"],
+        "description": "WatsonCrick, Wobble, or null if the bases cannot pair",
+        "enum": ["WatsonCrick", "Wobble", null]
+      }
+    },
+    "required": ["type"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Expected a single character (length-1 string)" }
+  ],
+  "examples": [
+    {
+      "name": "Watson-Crick pair",
+      "input": { "base1": "A", "base2": "U" },
+      "output": { "type": "WatsonCrick" }
+    },
+    {
+      "name": "Wobble pair",
+      "input": { "base1": "G", "base2": "U" },
+      "output": { "type": "Wobble" }
+    },
+    {
+      "name": "Non-pairing bases",
+      "input": { "base1": "A", "base2": "G" },
+      "output": { "type": null }
+    }
+  ]
+}
