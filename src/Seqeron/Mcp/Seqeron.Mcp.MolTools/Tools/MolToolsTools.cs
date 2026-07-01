@@ -372,12 +372,17 @@ public class MolToolsTools
         return new CaiResult(CodonOptimizer.CalculateCAI(coding_sequence, table));
     }
 
-    [McpServerTool, Description("Synonymously rewrites codons to eliminate the listed restriction recognition sequences while preserving the protein. Site strings may be DNA or RNA; converted internally to RNA. Sites with no synonymous alternative are left in place.")]
+    [McpServerTool(Name = "remove_restriction_sites", Title = "MolTools — Remove Restriction Sites", ReadOnly = true), Description("Synonymously rewrites codons to eliminate the listed restriction recognition sequences from a coding sequence while preserving the encoded protein (RNA-alphabet output). Site strings may be DNA or RNA; sites with no synonymous alternative are left in place. Call to make a gene compatible with a cloning strategy.")]
     public static OptimizedSequenceResult remove_restriction_sites(
         [Description("Coding sequence (DNA or RNA).")] string coding_sequence,
         [Description("Restriction recognition sequences to eliminate.")] string[] restriction_sites,
         [Description("Target organism: preset id or inline custom table (used for synonymous-codon lookup).")] CodonUsageTableInput target_organism)
     {
+        if (string.IsNullOrEmpty(coding_sequence))
+            throw new System.ArgumentException("Coding sequence cannot be null or empty.", nameof(coding_sequence));
+        if (restriction_sites is null || restriction_sites.Length == 0)
+            throw new System.ArgumentException("At least one restriction site is required.", nameof(restriction_sites));
+
         var table = ResolveCodonUsageTable(target_organism);
         return new OptimizedSequenceResult(CodonOptimizer.RemoveRestrictionSites(coding_sequence, restriction_sites, table));
     }
