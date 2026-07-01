@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "call_variants_from_alignment",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "VariantCaller.CallVariantsFromAlignment",
+  "docRef": "Seqeron.Genomics.Annotation/VariantCaller.cs#L41",
+  "description": "Detect variants directly from two already-aligned sequences (gaps encoded as '-'), without re-aligning.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "alignedReference": { "type": "string", "description": "Aligned reference sequence (gaps as '-')", "minLength": 1 },
+      "alignedQuery": { "type": "string", "description": "Aligned query sequence (gaps as '-'), same length as alignedReference", "minLength": 1 }
+    },
+    "required": ["alignedReference", "alignedQuery"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "variants": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": { "type": "integer", "description": "0-based reference position" },
+            "referenceAllele": { "type": "string", "description": "'-' for insertions" },
+            "alternateAllele": { "type": "string", "description": "'-' for deletions" },
+            "type": { "type": "string", "description": "SNP / Insertion / Deletion" },
+            "queryPosition": { "type": "integer" }
+          },
+          "required": ["position", "referenceAllele", "alternateAllele", "type", "queryPosition"]
+        }
+      }
+    },
+    "required": ["variants"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Aligned reference cannot be null or empty" },
+    { "code": 1001, "message": "Aligned query cannot be null or empty" },
+    { "code": 2001, "message": "Aligned sequences must have the same length." }
+  ],
+  "examples": [
+    {
+      "name": "Insertion (reference gap)",
+      "input": { "alignedReference": "AT-GC", "alignedQuery": "ATXGC" },
+      "output": { "variants": [ { "position": 2, "referenceAllele": "-", "alternateAllele": "X", "type": "Insertion", "queryPosition": 2 } ] }
+    },
+    {
+      "name": "Deletion (query gap)",
+      "input": { "alignedReference": "ATGC", "alignedQuery": "AT-C" },
+      "output": { "variants": [ { "position": 2, "referenceAllele": "G", "alternateAllele": "-", "type": "Deletion", "queryPosition": 2 } ] }
+    }
+  ]
+}

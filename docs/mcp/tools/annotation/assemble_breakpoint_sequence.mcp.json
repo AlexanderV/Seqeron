@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "assemble_breakpoint_sequence",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "StructuralVariantAnalyzer.AssembleBreakpointSequence",
+  "docRef": "Seqeron.Genomics.Annotation/StructuralVariantAnalyzer.cs#L1252",
+  "description": "Heuristically assemble a breakpoint-junction sequence from split-read clipped fragments; returns the clipped sequence of the read with the longest soft-clip, or null when no reads are given.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "splitReads": {
+        "type": "array",
+        "description": "Split reads supporting a breakpoint",
+        "items": {
+          "type": "object",
+          "properties": {
+            "readId": { "type": "string" },
+            "chromosome": { "type": "string" },
+            "primaryPosition": { "type": "integer" },
+            "supplementaryPosition": { "type": "integer" },
+            "clipLength": { "type": "integer", "description": "Length of the soft-clipped fragment (nt)" },
+            "clippedSequence": { "type": "string" }
+          },
+          "required": ["readId", "chromosome", "primaryPosition", "supplementaryPosition", "clipLength", "clippedSequence"]
+        }
+      },
+      "minOverlap": {
+        "type": "integer",
+        "description": "Minimum overlap (nt) between assembled fragments",
+        "default": 10
+      }
+    },
+    "required": ["splitReads"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": ["string", "null"], "description": "Assembled breakpoint sequence, or null when no reads were supplied" }
+    },
+    "required": []
+  },
+  "errors": [
+    { "code": 1001, "message": "splitReads cannot be null" }
+  ],
+  "examples": [
+    {
+      "name": "Longest split read wins",
+      "input": {
+        "splitReads": [
+          { "readId": "r1", "chromosome": "chr1", "primaryPosition": 1000, "supplementaryPosition": 5000, "clipLength": 20, "clippedSequence": "ACGTACGTACGTACGTACGT" },
+          { "readId": "r2", "chromosome": "chr1", "primaryPosition": 1005, "supplementaryPosition": 5005, "clipLength": 50, "clippedSequence": "ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTAC" },
+          { "readId": "r3", "chromosome": "chr1", "primaryPosition": 1010, "supplementaryPosition": 5010, "clipLength": 30, "clippedSequence": "ACGTACGTACGTACGTACGTACGTACGTAC" }
+        ]
+      },
+      "output": { "sequence": "ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTAC" }
+    },
+    {
+      "name": "No reads",
+      "input": { "splitReads": [] },
+      "output": { "sequence": null }
+    }
+  ]
+}
