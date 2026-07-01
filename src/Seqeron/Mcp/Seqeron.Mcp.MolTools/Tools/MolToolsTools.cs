@@ -329,11 +329,16 @@ public class MolToolsTools
         return new SimilarityResult(CodonOptimizer.CompareCodonUsage(sequence1, sequence2));
     }
 
-    [McpServerTool, Description("Derives a per-organism CodonUsageTable from a reference coding sequence by computing per-amino-acid relative codon frequencies (RNA alphabet).")]
+    [McpServerTool(Name = "build_codon_table", Title = "MolTools — Build Codon-Usage Table", ReadOnly = true), Description("Derives a per-organism CodonUsageTable from a reference coding sequence by computing per-amino-acid relative codon frequencies (RNA alphabet, U not T). Call when the user wants a custom codon-usage table built from their own reference gene(s).")]
     public static CodonUsageTableDto build_codon_table(
         [Description("Reference coding sequence (DNA or RNA).")] string reference_sequence,
         [Description("Organism name to attach to the resulting table.")] string organism_name)
     {
+        if (string.IsNullOrEmpty(reference_sequence))
+            throw new System.ArgumentException("Reference sequence cannot be null or empty.", nameof(reference_sequence));
+        if (string.IsNullOrWhiteSpace(organism_name))
+            throw new System.ArgumentException("Organism name cannot be null or blank.", nameof(organism_name));
+
         var table = CodonOptimizer.CreateCodonTableFromSequence(reference_sequence, organism_name);
         return new CodonUsageTableDto(
             table.OrganismName,
