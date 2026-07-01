@@ -840,9 +840,15 @@ public class AnalysisTools
         [Description("Genes of genome 2.")] GeneInput[] genome2Genes,
         [Description("Mapping from genome1 gene id to genome2 gene id.")] Dictionary<string, string> orthologMap)
     {
+        if (genome1Genes is null || genome1Genes.Length == 0)
+            throw new ArgumentException("Genome 1 must contain at least one gene", nameof(genome1Genes));
+        if (genome2Genes is null || genome2Genes.Length == 0)
+            throw new ArgumentException("Genome 2 must contain at least one gene", nameof(genome2Genes));
+        if (orthologMap is null)
+            throw new ArgumentException("Ortholog map cannot be null", nameof(orthologMap));
+
         var items = global::Seqeron.Genomics.Analysis.ComparativeGenomics
-            .DetectRearrangements(ToGenes(genome1Genes), ToGenes(genome2Genes),
-                orthologMap ?? new Dictionary<string, string>())
+            .DetectRearrangements(ToGenes(genome1Genes), ToGenes(genome2Genes), orthologMap)
             .Select(MapRearrangement)
             .ToArray();
         return new DetectRearrangementsResult(items);
