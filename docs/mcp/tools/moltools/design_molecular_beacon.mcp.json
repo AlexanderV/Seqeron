@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "design_molecular_beacon",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ProbeDesigner.DesignMolecularBeacon",
+  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L785",
+  "description": "Design a hairpin molecular-beacon probe (GC-rich complementary stems flanking a target-specific loop) for real-time detection.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "target_sequence": { "type": "string", "description": "Target DNA sequence.", "minLength": 1 },
+      "probe_length": { "type": "integer", "description": "Loop (target-specific) length in bp.", "minimum": 1, "default": 25 },
+      "stem_length": { "type": "integer", "description": "Stem length in bp.", "minimum": 1, "default": 5 }
+    },
+    "required": ["target_sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "probe": { "type": ["object", "null"], "description": "Beacon Probe (Type = MolecularBeacon) or null when the target is too short." }
+    },
+    "required": ["probe"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Target sequence cannot be null or empty" },
+    { "code": 1002, "message": "Probe (loop) length must be positive" },
+    { "code": 1003, "message": "Stem length must be positive" }
+  ],
+  "examples": [
+    {
+      "name": "48-nt target, 20 bp loop, 5 bp stem",
+      "input": { "target_sequence": "ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT", "probe_length": 20, "stem_length": 5 },
+      "output": { "probe": { "sequence": "GGCCCACGTACGTACGTACGTACGTGGGCC", "start": 0, "end": 19, "type": "MolecularBeacon" } }
+    },
+    {
+      "name": "Too-short target returns null probe",
+      "input": { "target_sequence": "ACGT", "probe_length": 20 },
+      "output": { "probe": null }
+    }
+  ]
+}
