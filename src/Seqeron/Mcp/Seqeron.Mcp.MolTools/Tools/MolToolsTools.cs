@@ -86,12 +86,17 @@ public class MolToolsTools
         return new HairpinPotentialResult(PrimerDesigner.HasHairpinPotential(sequence, min_stem_length, min_loop_length));
     }
 
-    [McpServerTool, Description("Heuristic 3' primer-dimer check between two primers using up-to-8-bp 3'-end complementarity. Returns the boolean dimer flag plus the count of complementary positions in the 3' window.")]
+    [McpServerTool(Name = "primer_dimer", Title = "MolTools — Primer-Dimer Check", ReadOnly = true), Description("Heuristic 3'-end primer-dimer check between two primers: reverse-complements primer2 and counts complementary positions in an up-to-8-bp 3'-end window. Flags a dimer when at least min_complementarity positions are complementary. Returns the boolean flag plus the complementary-base count. Call to screen a primer pair for 3'-dimer formation.")]
     public static PrimerDimerResult primer_dimer(
         [Description("First primer sequence.")] string primer1,
         [Description("Second primer sequence.")] string primer2,
         [Description("Minimum number of complementary 3'-end bases to flag a dimer (default 4).")] int min_complementarity = 4)
     {
+        if (string.IsNullOrEmpty(primer1))
+            throw new System.ArgumentException("First primer cannot be null or empty.", nameof(primer1));
+        if (string.IsNullOrEmpty(primer2))
+            throw new System.ArgumentException("Second primer cannot be null or empty.", nameof(primer2));
+
         bool hasDimer = PrimerDesigner.HasPrimerDimer(primer1, primer2, min_complementarity);
 
         // Count complementary 3'-end positions (mirrors the inner loop in HasPrimerDimer).
