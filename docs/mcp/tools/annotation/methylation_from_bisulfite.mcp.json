@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "methylation_from_bisulfite",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EpigeneticsAnalyzer.CalculateMethylationFromBisulfite",
+  "docRef": "Seqeron.Genomics.Annotation/EpigeneticsAnalyzer.cs#L434",
+  "description": "Compute per-CpG methylation levels from bisulfite sequencing reads aligned to a reference.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "referenceSequence": { "type": "string", "description": "Reference DNA sequence", "minLength": 1 },
+      "bisulfiteReads": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "properties": {
+            "readSequence": { "type": "string" },
+            "startPosition": { "type": "integer", "description": "0-based start on the reference" }
+          },
+          "required": ["readSequence", "startPosition"]
+        }
+      }
+    },
+    "required": ["referenceSequence", "bisulfiteReads"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "sites": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": { "type": "integer" },
+            "type": { "type": "string", "description": "Always CpG" },
+            "context": { "type": "string" },
+            "methylationLevel": { "type": "number", "description": "methylated / (methylated + unmethylated)" },
+            "coverage": { "type": "integer", "description": "number of valid C/T calls" }
+          },
+          "required": ["position", "type", "context", "methylationLevel", "coverage"]
+        }
+      }
+    },
+    "required": ["sites"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Reference sequence cannot be null or empty" },
+    { "code": 1001, "message": "Bisulfite reads cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Two CpG sites with mixed methylation",
+      "input": {
+        "referenceSequence": "ACGTACGT",
+        "bisulfiteReads": [
+          { "readSequence": "ACGTACGT", "startPosition": 0 },
+          { "readSequence": "ACGTATGT", "startPosition": 0 }
+        ]
+      },
+      "output": {
+        "sites": [
+          { "position": 1, "type": "CpG", "context": "CGT", "methylationLevel": 1.0, "coverage": 2 },
+          { "position": 5, "type": "CpG", "context": "CGT", "methylationLevel": 0.5, "coverage": 2 }
+        ]
+      }
+    },
+    {
+      "name": "Uncovered CpG excluded",
+      "input": {
+        "referenceSequence": "ACGTACGT",
+        "bisulfiteReads": [ { "readSequence": "ACG", "startPosition": 0 } ]
+      },
+      "output": {
+        "sites": [ { "position": 1, "type": "CpG", "context": "CGT", "methylationLevel": 1.0, "coverage": 1 } ]
+      }
+    }
+  ]
+}
