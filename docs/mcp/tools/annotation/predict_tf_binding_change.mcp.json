@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "predict_tf_binding_change",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "VariantAnnotator.PredictTfBindingChange",
+  "docRef": "Seqeron.Genomics.Annotation/VariantAnnotator.cs#L1316",
+  "description": "Predict transcription-factor binding score changes induced by a SNV against IUPAC motifs.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "variant": {
+        "type": "object",
+        "description": "Variant to evaluate (must be type SNV)",
+        "properties": {
+          "chromosome": { "type": "string" },
+          "position": { "type": "integer", "description": "1-based variant position" },
+          "reference": { "type": "string" },
+          "alternate": { "type": "string" },
+          "type": { "type": "string", "description": "Must be SNV" }
+        },
+        "required": ["chromosome", "position", "reference", "alternate", "type"]
+      },
+      "motifs": {
+        "type": "array",
+        "description": "Transcription-factor motifs (IUPAC codes) with score thresholds",
+        "items": {
+          "type": "object",
+          "properties": {
+            "tfName": { "type": "string" },
+            "motif": { "type": "string", "description": "IUPAC motif (A/C/G/T/N/R/Y/W/S)" },
+            "threshold": { "type": "number", "description": "Binding score threshold" }
+          },
+          "required": ["tfName", "motif", "threshold"]
+        },
+        "minItems": 1
+      },
+      "referenceContext": {
+        "type": "string",
+        "description": "Reference sequence context centred near the variant",
+        "minLength": 1
+      },
+      "contextOffset": {
+        "type": "integer",
+        "description": "0-based offset of the variant within the reference context",
+        "default": 20
+      }
+    },
+    "required": ["variant", "motifs", "referenceContext"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "changes": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "tfName": { "type": "string" },
+            "refScore": { "type": "number", "description": "Best motif-match fraction on the reference context (0-1)" },
+            "altScore": { "type": "number", "description": "Best motif-match fraction on the mutated context (0-1)" },
+            "scoreDifference": { "type": "number", "description": "refScore - altScore (positive = binding weakened)" }
+          },
+          "required": ["tfName", "refScore", "altScore", "scoreDifference"]
+        }
+      }
+    },
+    "required": ["changes"]
+  },
+  "errors": [
+    { "code": 1001, "message": "variant cannot be null" },
+    { "code": 1001, "message": "Reference context cannot be null or empty" },
+    { "code": 1001, "message": "Motifs cannot be null or empty" },
+    { "code": 1002, "message": "Variant must be of type SNV" }
+  ],
+  "examples": [
+    {
+      "name": "SNV disrupts an AP-1 (TGACTCA) motif",
+      "input": {
+        "variant": { "chromosome": "chr1", "position": 100, "reference": "T", "alternate": "A", "type": "SNV" },
+        "motifs": [ { "tfName": "AP-1", "motif": "TGACTCA", "threshold": 0.9 } ],
+        "referenceContext": "NNNNNNNNNNNNNNNNNNNNTGACTCANNNNNNNNNNNNNN",
+        "contextOffset": 20
+      },
+      "output": {
+        "changes": [ { "tfName": "AP-1", "refScore": 1.0, "altScore": 0.8571428571428571, "scoreDifference": 0.14285714285714285 } ]
+      }
+    },
+    {
+      "name": "Silent change is filtered (|diff| <= 0.1)",
+      "input": {
+        "variant": { "chromosome": "chr1", "position": 100, "reference": "T", "alternate": "T", "type": "SNV" },
+        "motifs": [ { "tfName": "AP-1", "motif": "TGACTCA", "threshold": 0.9 } ],
+        "referenceContext": "NNNNNNNNNNNNNNNNNNNNTGACTCANNNNNNNNNNNNNN",
+        "contextOffset": 20
+      },
+      "output": { "changes": [] }
+    }
+  ]
+}
