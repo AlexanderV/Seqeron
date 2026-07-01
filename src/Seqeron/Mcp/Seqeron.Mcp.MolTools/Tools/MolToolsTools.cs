@@ -14,13 +14,22 @@ public class MolToolsTools
 {
     #region PrimerDesigner
 
-    [McpServerTool, Description("Designs forward and reverse PCR primers flanking a target region in a DNA template; picks the highest-scoring valid candidates from a 200 bp flanking window on each side and reports product size and pair compatibility.")]
+    [McpServerTool(Name = "design_primers", Title = "MolTools — Design PCR Primer Pair", ReadOnly = true), Description("Designs forward and reverse PCR primers flanking a target region in a DNA template; picks the highest-scoring valid candidates from a 200 bp flanking window on each side and reports product size and pair compatibility. target_start/target_end are 0-based; the region must satisfy 0 <= target_start < target_end < template.Length.")]
     public static PrimerPairResult design_primers(
         [Description("DNA template (A/C/G/T).")] string template,
         [Description("0-based inclusive start of target region.")] int target_start,
         [Description("0-based inclusive end of target region.")] int target_end,
         [Description("Optional primer design parameters (lengths, GC%, Tm, repeats, GC-clamp/3' stability checks). Defaults are used if null.")] PrimerParameters? parameters = null)
     {
+        if (string.IsNullOrEmpty(template))
+            throw new System.ArgumentException("Template cannot be null or empty.", nameof(template));
+        if (target_start < 0)
+            throw new System.ArgumentException("Target start must be non-negative.", nameof(target_start));
+        if (target_end >= template.Length)
+            throw new System.ArgumentException("Target end must be within the template.", nameof(target_end));
+        if (target_start >= target_end)
+            throw new System.ArgumentException("Target start must be strictly less than target end.", nameof(target_start));
+
         return PrimerDesigner.DesignPrimers(new DnaSequence(template), target_start, target_end, parameters);
     }
 

@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "design_primers",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PrimerDesigner.DesignPrimers",
+  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L40",
+  "description": "Design forward and reverse PCR primers flanking a target region in a DNA template; returns the highest-scoring valid candidates, product size, and pair compatibility.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "template": { "type": "string", "description": "DNA template (A/C/G/T).", "minLength": 1 },
+      "target_start": { "type": "integer", "description": "0-based inclusive start of the target region.", "minimum": 0 },
+      "target_end": { "type": "integer", "description": "0-based inclusive end of the target region (target_start < target_end < template.Length)." },
+      "parameters": { "type": ["object", "null"], "description": "Optional primer-design parameters (lengths, GC%, Tm, repeats, GC-clamp/3' stability checks)." }
+    },
+    "required": ["template", "target_start", "target_end"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "forward": { "type": ["object", "null"], "description": "Best forward primer candidate." },
+      "reverse": { "type": ["object", "null"], "description": "Best reverse primer candidate." },
+      "isValid": { "type": "boolean", "description": "True when a compatible pair was found." },
+      "message": { "type": "string", "description": "Human-readable status." },
+      "productSize": { "type": "integer", "description": "Amplicon size in bp." }
+    },
+    "required": ["forward", "reverse", "isValid", "message", "productSize"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Template cannot be null or empty" },
+    { "code": 1002, "message": "Target start must be non-negative" },
+    { "code": 1003, "message": "Target end must be within the template" },
+    { "code": 1004, "message": "Target start must be strictly less than target end" }
+  ],
+  "examples": [
+    {
+      "name": "Standard 258 bp template, target [100,150)",
+      "input": { "target_start": 100, "target_end": 150 },
+      "output": {
+        "isValid": true,
+        "productSize": 180,
+        "forward": { "position": 0, "length": 25, "gcContent": 52.0, "meltingTemperature": 59.3 },
+        "reverse": { "position": 155, "length": 25, "gcContent": 52.0, "meltingTemperature": 59.3 }
+      }
+    },
+    {
+      "name": "Invalid target region (start >= end)",
+      "input": { "template": "ACGTACGTACGTACGT", "target_start": 150, "target_end": 100 },
+      "output": { "error": "ArgumentException" }
+    }
+  ]
+}
