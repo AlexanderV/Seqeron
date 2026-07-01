@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "analyze_oligo",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ProbeDesigner.AnalyzeOligo",
+  "docRef": "Seqeron.Genomics.MolTools/ProbeDesigner.cs#L1299",
+  "description": "Return Tm, GC fraction, molecular weight (Da), and 260 nm extinction coefficient (M⁻¹·cm⁻¹) for a short oligonucleotide.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "Oligonucleotide sequence (A/C/G/T/U, case-insensitive)",
+        "minLength": 1
+      }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "tm": { "type": "number", "description": "Melting temperature in °C (Wallace rule for length < 14, salt-adjusted otherwise)" },
+      "gcContent": { "type": "number", "description": "GC content as a fraction in [0,1]" },
+      "molecularWeight": { "type": "number", "description": "Molecular weight in Da" },
+      "extinctionCoefficient": { "type": "number", "description": "Molar extinction coefficient at 260 nm (M⁻¹·cm⁻¹)" }
+    },
+    "required": ["tm", "gcContent", "molecularWeight", "extinctionCoefficient"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "4-mer (Wallace rule Tm)",
+      "input": { "sequence": "ATGC" },
+      "output": { "tm": 12, "gcContent": 0.5, "molecularWeight": 1253.8, "extinctionCoefficient": 43000 }
+    },
+    {
+      "name": "20-mer (salt-adjusted Tm)",
+      "input": { "sequence": "ACGTACGTACGTACGTACGT" },
+      "output": { "tm": 50.402902071977906, "gcContent": 0.5, "molecularWeight": 6197, "extinctionCoefficient": 215000 }
+    }
+  ]
+}

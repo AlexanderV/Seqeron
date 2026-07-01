@@ -496,10 +496,13 @@ public class MolToolsTools
         return ProbeDesigner.ValidateProbe(probe_sequence, reference_sequences, max_mismatches, self_complementarity_threshold);
     }
 
-    [McpServerTool, Description("Returns Tm, GC fraction, molecular weight (Da), and 260 nm extinction coefficient (M⁻¹·cm⁻¹) for a short oligonucleotide.")]
+    [McpServerTool(Name = "analyze_oligo", Title = "MolTools — Oligonucleotide Property Analysis", ReadOnly = true), Description("Returns Tm, GC fraction, molecular weight (Da), and 260 nm extinction coefficient (M⁻¹·cm⁻¹) for a short oligonucleotide. Call when the user needs the basic physical properties of an oligo/primer/probe. Tm uses the Wallace rule for sequences shorter than 14 bases and a salt-adjusted formula otherwise; GC is returned as a fraction (0-1).")]
     public static OligoAnalysisResult analyze_oligo(
-        [Description("Oligonucleotide sequence.")] string sequence)
+        [Description("Oligonucleotide sequence (non-empty; A/C/G/T/U, case-insensitive).")] string sequence)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+
         var (tm, gc, mw, eps) = ProbeDesigner.AnalyzeOligo(sequence);
         return new OligoAnalysisResult(tm, gc, mw, eps);
     }
