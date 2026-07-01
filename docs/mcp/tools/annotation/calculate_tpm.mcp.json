@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "calculate_tpm",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "TranscriptomeAnalyzer.CalculateTPM",
+  "docRef": "Seqeron.Genomics.Annotation/TranscriptomeAnalyzer.cs#L112",
+  "description": "Compute Transcripts-Per-Million (TPM) and FPKM normalized expression values from per-gene raw counts and gene lengths.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "geneCounts": {
+        "type": "array",
+        "description": "Per-gene raw counts and lengths",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "properties": {
+            "geneId": { "type": "string" },
+            "rawCount": { "type": "number", "description": "Reads/fragments mapped to the gene" },
+            "length": { "type": "integer", "description": "Gene/transcript length in bases" }
+          },
+          "required": ["geneId", "rawCount", "length"]
+        }
+      }
+    },
+    "required": ["geneCounts"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "expressions": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "geneId": { "type": "string" },
+            "rawCount": { "type": "number" },
+            "tpm": { "type": "number", "description": "Transcripts per million" },
+            "fpkm": { "type": "number", "description": "Fragments per kilobase per million" },
+            "length": { "type": "integer" }
+          },
+          "required": ["geneId", "rawCount", "tpm", "fpkm", "length"]
+        }
+      }
+    },
+    "required": ["expressions"]
+  },
+  "errors": [
+    { "code": 1001, "message": "geneCounts cannot be null" },
+    { "code": 1001, "message": "geneCounts cannot be empty" }
+  ],
+  "examples": [
+    {
+      "name": "Two equal-length genes",
+      "input": {
+        "geneCounts": [
+          { "geneId": "G1", "rawCount": 10, "length": 1000 },
+          { "geneId": "G2", "rawCount": 30, "length": 1000 }
+        ]
+      },
+      "output": {
+        "expressions": [
+          { "geneId": "G1", "rawCount": 10, "tpm": 250000, "fpkm": 250000, "length": 1000 },
+          { "geneId": "G2", "rawCount": 30, "tpm": 750000, "fpkm": 750000, "length": 1000 }
+        ]
+      }
+    },
+    {
+      "name": "All-zero counts",
+      "input": {
+        "geneCounts": [
+          { "geneId": "G1", "rawCount": 0, "length": 1000 },
+          { "geneId": "G2", "rawCount": 0, "length": 1000 }
+        ]
+      },
+      "output": {
+        "expressions": [
+          { "geneId": "G1", "rawCount": 0, "tpm": 0, "fpkm": 0, "length": 1000 },
+          { "geneId": "G2", "rawCount": 0, "tpm": 0, "fpkm": 0, "length": 1000 }
+        ]
+      }
+    }
+  ]
+}
