@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "kmer_distance",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "KmerAnalyzer.KmerDistance",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L212",
+  "description": "Alignment-free Euclidean distance between the normalized k-mer frequency vectors of two sequences. 0 means identical k-mer composition.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "seq1": { "type": "string", "description": "First sequence", "minLength": 1 },
+      "seq2": { "type": "string", "description": "Second sequence", "minLength": 1 },
+      "k": { "type": "integer", "description": "k-mer length", "minimum": 1 }
+    },
+    "required": ["seq1", "seq2", "k"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "distance": { "type": "number", "description": "Non-negative Euclidean distance between the two frequency vectors" }
+    },
+    "required": ["distance"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1003, "message": "k must be positive" }
+  ],
+  "examples": [
+    {
+      "name": "Identical sequences => 0",
+      "input": { "seq1": "ACGTACGT", "seq2": "ACGTACGT", "k": 2 },
+      "output": { "distance": 0.0 }
+    },
+    {
+      "name": "Disjoint monomers => sqrt(2)",
+      "input": { "seq1": "AAAA", "seq2": "TTTT", "k": 1 },
+      "output": { "distance": 1.4142135623730951 }
+    }
+  ]
+}
