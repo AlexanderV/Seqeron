@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "assess_completeness",
+  "serverName": "Chromosome",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomeAssemblyAnalyzer.AssessCompleteness",
+  "docRef": "Seqeron.Genomics.Chromosome/GenomeAssemblyAnalyzer.cs#L520",
+  "description": "Assess assembly completeness by aligning marker genes (BUSCO-like, k-mer based); reports complete/single/duplicated/fragmented/missing.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "assembly": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "sequence": { "type": "string" } }, "required": ["id", "sequence"] } },
+      "markerGenes": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "sequence": { "type": "string" } }, "required": ["id", "sequence"] } },
+      "identityThreshold": { "type": "number", "default": 0.9, "minimum": 0, "maximum": 1 },
+      "coverageThreshold": { "type": "number", "default": 0.9, "minimum": 0, "maximum": 1 }
+    },
+    "required": ["assembly", "markerGenes"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "totalGenes": { "type": "integer" },
+      "complete": { "type": "integer" },
+      "completeSingleCopy": { "type": "integer" },
+      "completeDuplicated": { "type": "integer" },
+      "fragmented": { "type": "integer" },
+      "missing": { "type": "integer" },
+      "completenessPercent": { "type": "number" },
+      "duplicationPercent": { "type": "number" }
+    },
+    "required": ["totalGenes", "complete", "completeSingleCopy", "completeDuplicated", "fragmented", "missing", "completenessPercent", "duplicationPercent"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Assembly cannot be null" },
+    { "code": 1002, "message": "Marker genes cannot be null" },
+    { "code": 1003, "message": "Identity threshold must be in [0, 1]" },
+    { "code": 1004, "message": "Coverage threshold must be in [0, 1]" }
+  ],
+  "examples": [
+    { "name": "Single marker present", "input": { "assembly": [ { "id": "scaf", "sequence": "…marker…" } ], "markerGenes": [ { "id": "m1", "sequence": "…" } ] }, "output": { "totalGenes": 1, "complete": 1, "completeSingleCopy": 1, "missing": 0, "completenessPercent": 100.0 } }
+  ]
+}
