@@ -144,9 +144,14 @@ public class AnalysisTools
     [Description("Aggregate k-mer statistics: total, unique, min/max/avg count, and Shannon entropy.")]
     public static AnalyzeKmersResult AnalyzeKmers(
         [Description("Sequence to analyze.")] string sequence,
-        [Description("k-mer length.")] int k)
+        [Description("k-mer length (>0).")] int k)
     {
-        var s = KmerAnalyzer.AnalyzeKmers(sequence ?? string.Empty, k);
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (k <= 0)
+            throw new ArgumentException("k must be positive", nameof(k));
+
+        var s = KmerAnalyzer.AnalyzeKmers(sequence, k);
         return new AnalyzeKmersResult(
             s.TotalKmers, s.UniqueKmers, s.MaxCount, s.MinCount, s.AverageCount, s.Entropy);
     }
@@ -1015,7 +1020,10 @@ public class AnalysisTools
     public static AtSkewResult AtSkew(
         [Description("DNA sequence.")] string sequence)
     {
-        return new AtSkewResult(GcSkewCalculator.CalculateAtSkew(sequence ?? string.Empty));
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        return new AtSkewResult(GcSkewCalculator.CalculateAtSkew(sequence));
     }
 
     [McpServerTool(Name = "predict_replication_origin", Title = "GC Skew — Predict Origin/Terminus", ReadOnly = true)]
