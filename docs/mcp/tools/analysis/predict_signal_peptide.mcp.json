@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "predict_signal_peptide",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ProteinMotifFinder.PredictSignalPeptide",
+  "docRef": "Seqeron.Genomics.Analysis/ProteinMotifFinder.cs#L606",
+  "description": "von Heijne (1986) weight-matrix signal-peptide cleavage-site prediction (EMBOSS sigcleave). Returns the best cleavage site, its score and the scoring window.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "proteinSequence": { "type": "string", "description": "Protein sequence", "minLength": 1 },
+      "prokaryote": { "type": "boolean", "description": "Score against the prokaryotic matrix instead of the default eukaryotic one", "default": false }
+    },
+    "required": ["proteinSequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "found": { "type": "boolean" },
+      "cleavagePosition": { "type": "integer", "description": "1-based mature-peptide start" },
+      "score": { "type": "number" },
+      "signalSequence": { "type": "string" },
+      "windowSequence": { "type": "string" },
+      "isLikelySignalPeptide": { "type": "boolean" }
+    },
+    "required": ["found", "cleavagePosition", "score", "signalSequence", "windowSequence", "isLikelySignalPeptide"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "ACH2_DROME signal peptide (EMBOSS sigcleave)",
+      "input": { "proteinSequence": "MAPGCCTTRPRPIALLAHIWRHCKPLCLLLVLLLLCETVQANP..." },
+      "output": { "found": true, "cleavagePosition": 42, "score": 13.7390400704164, "windowSequence": "LLVLLLLCETVQANP", "isLikelySignalPeptide": true }
+    },
+    {
+      "name": "Cleavage window fields",
+      "input": { "proteinSequence": "AAAAAAAAAAAAGAN" },
+      "output": { "found": true }
+    }
+  ]
+}
