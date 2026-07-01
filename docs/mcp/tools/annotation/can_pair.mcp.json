@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "can_pair",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MiRnaAnalyzer.CanPair",
+  "docRef": "Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs#L326",
+  "description": "Test whether two RNA bases can pair (Watson-Crick A-U, G-C, or G-U wobble).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "base1": { "type": "string", "description": "First base (single character A/C/G/U/T)", "minLength": 1, "maxLength": 1 },
+      "base2": { "type": "string", "description": "Second base (single character A/C/G/U/T)", "minLength": 1, "maxLength": 1 }
+    },
+    "required": ["base1", "base2"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "canPair": { "type": "boolean", "description": "true for A-U, G-C, or G-U (wobble)" }
+    },
+    "required": ["canPair"]
+  },
+  "errors": [
+    { "code": 1001, "message": "base1 must be a single character" },
+    { "code": 1001, "message": "base2 must be a single character" }
+  ],
+  "examples": [
+    { "name": "Watson-Crick A-U", "input": { "base1": "A", "base2": "U" }, "output": { "canPair": true } },
+    { "name": "Non-pairing A-G", "input": { "base1": "A", "base2": "G" }, "output": { "canPair": false } }
+  ]
+}
