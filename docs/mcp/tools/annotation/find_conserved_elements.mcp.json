@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_conserved_elements",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "VariantAnnotator.FindConservedElements",
+  "docRef": "Seqeron.Genomics.Annotation/VariantAnnotator.cs#L1222",
+  "description": "Identify conserved genomic elements from per-position conservation scores (runs above threshold).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "scores": {
+        "type": "array",
+        "minItems": 1,
+        "description": "Per-position conservation scores (PhastCons used for thresholding)",
+        "items": {
+          "type": "object",
+          "properties": {
+            "chromosome": { "type": "string" },
+            "position": { "type": "integer" },
+            "phyloP": { "type": "number" },
+            "phastCons": { "type": "number" },
+            "gerp": { "type": "number" },
+            "conservedSpeciesCount": { "type": "integer" }
+          },
+          "required": ["chromosome", "position", "phastCons"]
+        }
+      },
+      "threshold": { "type": "number", "description": "PhastCons threshold for a conserved position", "default": 0.8 },
+      "minLength": { "type": "integer", "description": "Minimum element length (positions)", "default": 20 }
+    },
+    "required": ["scores"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "elements": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "chromosome": { "type": "string" },
+            "start": { "type": "integer" },
+            "end": { "type": "integer" },
+            "score": { "type": "number", "description": "Mean PhastCons across the element" }
+          },
+          "required": ["chromosome", "start", "end", "score"]
+        }
+      }
+    },
+    "required": ["elements"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Scores cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Contiguous high-conservation run",
+      "input": { "scores": "30 contiguous positions chr1:100..129 with phastCons 0.9", "threshold": 0.8, "minLength": 20 },
+      "output": { "elements": [ { "chromosome": "chr1", "start": 100, "end": 129, "score": 0.9 } ] }
+    },
+    {
+      "name": "Below threshold yields no elements",
+      "input": { "scores": "positions with phastCons 0.5", "threshold": 0.8, "minLength": 20 },
+      "output": { "elements": [] }
+    }
+  ]
+}
