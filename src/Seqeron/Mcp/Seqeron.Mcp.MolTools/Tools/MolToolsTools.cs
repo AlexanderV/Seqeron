@@ -513,13 +513,20 @@ public class MolToolsTools
         return CrisprDesigner.EvaluateGuideRna(guide_sequence, system_type, parameters);
     }
 
-    [McpServerTool, Description("Naïve genome scan: enumerates all PAM sites in the genome and reports those whose target differs from the guide by ≤max_mismatches. Off-target score weights mismatches inside the seed region more heavily. O(genome × guide) — recommend genome ≤ ~1 Mb.")]
+    [McpServerTool(Name = "find_off_targets", Title = "MolTools — CRISPR Off-Target Scan", ReadOnly = true), Description("Naïve genome scan: enumerates all PAM sites in the genome and reports those whose target differs from the guide by 1..max_mismatches (the 0-mismatch on-target is excluded). Off-target score weights mismatches inside the seed region more heavily. O(genome × guide) — recommend genome ≤ ~1 Mb. Guide length must match the system's guide length. Call to list a guide's candidate off-target sites.")]
     public static OffTargetsResult find_off_targets(
         [Description("Guide RNA sequence (length must match the system's guide length).")] string guide_sequence,
         [Description("Genome / reference sequence to scan.")] string genome,
         [Description("Maximum allowed mismatches (range 0..5; default 3).")] int max_mismatches = 3,
         [Description("CRISPR system (default SpCas9).")] CrisprSystemType system_type = CrisprSystemType.SpCas9)
     {
+        if (string.IsNullOrEmpty(guide_sequence))
+            throw new System.ArgumentException("Guide sequence cannot be null or empty.", nameof(guide_sequence));
+        if (string.IsNullOrEmpty(genome))
+            throw new System.ArgumentException("Genome cannot be null or empty.", nameof(genome));
+        if (max_mismatches < 0 || max_mismatches > 5)
+            throw new System.ArgumentException("Maximum mismatches must be in the range 0..5.", nameof(max_mismatches));
+
         var hits = CrisprDesigner
             .FindOffTargets(guide_sequence, new DnaSequence(genome), max_mismatches, system_type)
             .ToList();
