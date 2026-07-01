@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "align_mirna_to_target",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MiRnaAnalyzer.AlignMiRnaToTarget",
+  "docRef": "Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs#L364",
+  "description": "Align a miRNA against a target sequence and compute duplex statistics (matches, mismatches, G-U wobbles, gaps, free energy).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "miRnaSequence": {
+        "type": "string",
+        "description": "miRNA nucleotide sequence (DNA T is treated as RNA U)",
+        "minLength": 1
+      },
+      "targetSequence": {
+        "type": "string",
+        "description": "Target nucleotide sequence (DNA T is treated as RNA U)",
+        "minLength": 1
+      }
+    },
+    "required": ["miRnaSequence", "targetSequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "miRnaSequence": { "type": "string", "description": "Normalised (uppercase RNA) miRNA sequence" },
+      "targetSequence": { "type": "string", "description": "Normalised (uppercase RNA) target sequence" },
+      "alignmentString": { "type": "string", "description": "Per-position symbols: '|' Watson-Crick, ':' G-U wobble, ' ' mismatch" },
+      "matches": { "type": "integer", "description": "Number of Watson-Crick paired positions" },
+      "mismatches": { "type": "integer", "description": "Number of unpaired positions" },
+      "guWobbles": { "type": "integer", "description": "Number of G-U wobble paired positions" },
+      "gaps": { "type": "integer", "description": "Number of gaps (always 0; ungapped alignment)" },
+      "freeEnergy": { "type": "number", "description": "Turner 2004 nearest-neighbor duplex free energy (kcal/mol, 37 °C)" }
+    },
+    "required": ["miRnaSequence", "targetSequence", "alignmentString", "matches", "mismatches", "guWobbles", "gaps", "freeEnergy"]
+  },
+  "errors": [
+    { "code": 1001, "message": "miRNA sequence cannot be null or empty" },
+    { "code": 1001, "message": "Target sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Perfect antiparallel complement (Watson-Crick)",
+      "input": { "miRnaSequence": "AAAA", "targetSequence": "UUUU" },
+      "output": { "matches": 4, "mismatches": 0, "guWobbles": 0, "gaps": 0, "alignmentString": "||||" }
+    },
+    {
+      "name": "G-U wobble pairing",
+      "input": { "miRnaSequence": "GGGG", "targetSequence": "UUUU" },
+      "output": { "matches": 0, "mismatches": 0, "guWobbles": 4, "gaps": 0, "alignmentString": "::::" }
+    }
+  ]
+}
