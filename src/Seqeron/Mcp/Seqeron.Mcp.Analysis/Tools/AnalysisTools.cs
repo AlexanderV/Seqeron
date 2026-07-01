@@ -439,8 +439,11 @@ public class AnalysisTools
         [Description("Maximum unit length (default 6).")] int maxUnitLength = 6,
         [Description("Minimum number of repeats (default 3).")] int minRepeats = 3)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
         var items = global::Seqeron.Genomics.Analysis.RepeatFinder
-            .FindMicrosatellites(sequence ?? string.Empty, minUnitLength, maxUnitLength, minRepeats)
+            .FindMicrosatellites(sequence, minUnitLength, maxUnitLength, minRepeats)
             .Select(m => new MicrosatelliteItem(
                 m.Position, m.RepeatUnit, m.RepeatCount, m.TotalLength, m.RepeatType.ToString()))
             .ToArray();
@@ -455,8 +458,11 @@ public class AnalysisTools
         [Description("Maximum loop length (default 50).")] int maxLoopLength = 50,
         [Description("Minimum loop length (default 3).")] int minLoopLength = 3)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
         var items = global::Seqeron.Genomics.Analysis.RepeatFinder
-            .FindInvertedRepeats(sequence ?? string.Empty, minArmLength, maxLoopLength, minLoopLength)
+            .FindInvertedRepeats(sequence, minArmLength, maxLoopLength, minLoopLength)
             .Select(r => new InvertedRepeatItem(
                 r.LeftArmStart, r.RightArmStart, r.ArmLength, r.LoopLength,
                 r.LeftArm, r.RightArm, r.Loop, r.CanFormHairpin, r.TotalLength))
