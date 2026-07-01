@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "functional_diversity",
+  "serverName": "Metagenomics",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MetagenomicsAnalyzer.CalculateFunctionalDiversity",
+  "docRef": "Seqeron.Genomics.Metagenomics/MetagenomicsAnalyzer.cs#L1352",
+  "description": "Compute functional richness, Shannon functional diversity, and per-pathway hit counts from a set of functional annotations.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "annotations": {
+        "type": "array",
+        "description": "Functional annotations (e.g. from predict_functions).",
+        "items": {
+          "type": "object",
+          "properties": {
+            "geneId": { "type": "string" },
+            "function": { "type": "string" },
+            "pathway": { "type": "string" },
+            "koNumber": { "type": "string" },
+            "cogCategory": { "type": "string" },
+            "eValue": { "type": "number" },
+            "bitScore": { "type": "number" }
+          },
+          "required": ["geneId", "function", "pathway", "koNumber", "cogCategory", "eValue", "bitScore"]
+        }
+      }
+    },
+    "required": ["annotations"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "functionalRichness": { "type": "number", "description": "Number of distinct functions." },
+      "functionalDiversity": { "type": "number", "description": "Shannon entropy of function counts." },
+      "pathwayCounts": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": { "pathway": { "type": "string" }, "count": { "type": "integer" } },
+          "required": ["pathway", "count"]
+        }
+      }
+    },
+    "required": ["functionalRichness", "functionalDiversity", "pathwayCounts"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Two functions (F1 x2, F2 x1)",
+      "input": {
+        "annotations": [
+          { "geneId": "g1", "function": "F1", "pathway": "P1", "koNumber": "K0", "cogCategory": "C", "eValue": 1e-5, "bitScore": 50 },
+          { "geneId": "g2", "function": "F1", "pathway": "P1", "koNumber": "K0", "cogCategory": "C", "eValue": 1e-5, "bitScore": 50 },
+          { "geneId": "g3", "function": "F2", "pathway": "P2", "koNumber": "K0", "cogCategory": "C", "eValue": 1e-5, "bitScore": 50 }
+        ]
+      },
+      "output": {
+        "functionalRichness": 2,
+        "functionalDiversity": 0.6365141682948128,
+        "pathwayCounts": [ { "pathway": "P1", "count": 2 }, { "pathway": "P2", "count": 1 } ]
+      }
+    },
+    {
+      "name": "Empty annotation set",
+      "input": { "annotations": [] },
+      "output": { "functionalRichness": 0, "functionalDiversity": 0, "pathwayCounts": [] }
+    }
+  ]
+}
