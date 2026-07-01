@@ -7,7 +7,7 @@ using Seqeron.Genomics.Alignment;
 using Seqeron.Genomics.Core;
 using Seqeron.Genomics.Infrastructure;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the Alignment area — pairwise GLOBAL alignment (Needleman-Wunsch)

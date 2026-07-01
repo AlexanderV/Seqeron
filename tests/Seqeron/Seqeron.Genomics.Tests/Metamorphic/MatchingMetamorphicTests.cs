@@ -7,7 +7,7 @@ using Seqeron.Genomics.Core;
 using Seqeron.Genomics.Analysis;
 using Seqeron.Genomics.Alignment;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Metamorphic;
 
 /// <summary>
 /// Metamorphic tests for the Matching area (exact pattern / motif matching).

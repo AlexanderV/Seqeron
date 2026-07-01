@@ -5,7 +5,7 @@ using NUnit.Framework;
 using FluentAssertions;
 using Seqeron.Genomics.Annotation;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the Transcriptome alternative-splicing unit — Percent Spliced In

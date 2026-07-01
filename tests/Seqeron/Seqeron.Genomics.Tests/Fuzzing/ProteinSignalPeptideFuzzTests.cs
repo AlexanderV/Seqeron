@@ -7,7 +7,7 @@ using Seqeron.Genomics.Analysis;
 using static Seqeron.Genomics.Analysis.ProteinMotifFinder;
 using SignalPeptide = Seqeron.Genomics.Analysis.ProteinMotifFinder.SignalPeptide;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the ProteinMotif area — SIGNAL-PEPTIDE cleavage-site prediction

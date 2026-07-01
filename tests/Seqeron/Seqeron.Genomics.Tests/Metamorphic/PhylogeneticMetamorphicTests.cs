@@ -6,7 +6,7 @@ using FluentAssertions;
 using Seqeron.Genomics.Phylogenetics;
 using static Seqeron.Genomics.Phylogenetics.PhylogeneticAnalyzer;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Metamorphic;
 
 /// <summary>
 /// Metamorphic tests for the Phylogenetic area.

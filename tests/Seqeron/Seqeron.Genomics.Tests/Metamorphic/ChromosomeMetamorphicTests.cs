@@ -6,7 +6,7 @@ using FluentAssertions;
 using Seqeron.Genomics.Chromosome;
 using Seqeron.Genomics.Core;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Metamorphic;
 
 /// <summary>
 /// Metamorphic tests for the Chromosome area.

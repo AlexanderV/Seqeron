@@ -5,7 +5,7 @@ using NUnit.Framework;
 using FluentAssertions;
 using Seqeron.Genomics.Population;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the PopGen area — allele frequency (POP-FREQ-001),

@@ -7,7 +7,7 @@ using NUnit.Framework;
 using FluentAssertions;
 using Seqeron.Genomics.Core;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the Translation area, unit TRANS-SIXFRAME-001 — six-frame

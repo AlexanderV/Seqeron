@@ -4,7 +4,7 @@ using NUnit.Framework;
 using FluentAssertions;
 using Seqeron.Genomics.Oncology;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Metamorphic;
 
 /// <summary>
 /// Metamorphic tests for the Oncology area.

@@ -4,7 +4,7 @@ using FluentAssertions;
 using Seqeron.Genomics.Infrastructure;
 using Seqeron.Genomics.MolTools;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the MolTools <b>Karlin–Altschul E-value / bit-score statistics</b>

@@ -6,7 +6,7 @@ using NUnit.Framework;
 using FluentAssertions;
 using Seqeron.Genomics.Oncology;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the Oncology MHCflurry pan-allele binding-<b>affinity</b> neural-network predictor —

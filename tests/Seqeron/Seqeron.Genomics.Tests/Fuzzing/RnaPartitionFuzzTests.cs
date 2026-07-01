@@ -7,7 +7,7 @@ using FluentAssertions;
 using Seqeron.Genomics.Analysis;
 using PartitionFunctionResult = Seqeron.Genomics.Analysis.RnaSecondaryStructure.PartitionFunctionResult;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for RNA-PARTITION-001 — the McCASKILL EQUILIBRIUM PARTITION FUNCTION.

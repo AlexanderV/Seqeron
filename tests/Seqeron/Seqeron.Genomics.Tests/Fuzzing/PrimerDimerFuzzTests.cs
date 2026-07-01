@@ -3,7 +3,7 @@ using NUnit.Framework;
 using FluentAssertions;
 using Seqeron.Genomics.MolTools;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the MolTools <b>primer-dimer detector</b> (PRIMER-DIMER-001) — the opt-in

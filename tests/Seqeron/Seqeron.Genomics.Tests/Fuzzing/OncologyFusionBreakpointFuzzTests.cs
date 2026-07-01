@@ -6,7 +6,7 @@ using static Seqeron.Genomics.Oncology.OncologyAnalyzer;
 using Site = Seqeron.Genomics.Oncology.OncologyAnalyzer.BreakpointSite;
 using Frame = Seqeron.Genomics.Oncology.OncologyAnalyzer.BreakpointFrameStatus;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the Oncology fusion-BREAKPOINT-ANALYSIS area — ONCO-FUSION-003.

@@ -6,7 +6,7 @@ using NUnit.Framework;
 using FluentAssertions;
 using Seqeron.Genomics.Analysis;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the RnaStructure DOT-BRACKET notation unit — RNA-DOTBRACKET-001.

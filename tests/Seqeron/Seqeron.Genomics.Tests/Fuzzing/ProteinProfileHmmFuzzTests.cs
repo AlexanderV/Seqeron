@@ -8,7 +8,7 @@ using NUnit.Framework;
 using FluentAssertions;
 using Seqeron.Genomics.Analysis;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the ProteinMotif area — Plan7 profile-HMM domain DETECTION

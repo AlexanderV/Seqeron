@@ -6,7 +6,7 @@ using NUnit.Framework;
 using FluentAssertions;
 using Seqeron.Genomics.Metagenomics;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the Metagenomics TETRA tetranucleotide z-score signature

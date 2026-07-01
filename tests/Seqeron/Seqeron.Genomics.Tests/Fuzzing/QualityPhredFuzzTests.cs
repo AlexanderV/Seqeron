@@ -5,7 +5,7 @@ using FluentAssertions;
 using Seqeron.Genomics.IO;
 using Enc = Seqeron.Genomics.IO.QualityScoreAnalyzer.QualityEncoding;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the Quality area — QUALITY-PHRED-001 (Phred score handling).

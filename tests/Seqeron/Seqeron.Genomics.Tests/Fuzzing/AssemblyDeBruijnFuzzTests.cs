@@ -6,7 +6,7 @@ using NUnit.Framework;
 using FluentAssertions;
 using Seqeron.Genomics.Alignment;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the Assembly area — De Bruijn Graph (DBG) assembly

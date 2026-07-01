@@ -5,7 +5,7 @@ using FluentAssertions;
 using Seqeron.Genomics.Annotation;
 using static Seqeron.Genomics.Annotation.SpliceSitePredictor;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the Splicing area — MaxEntScan <c>score5ss</c> maximum-entropy

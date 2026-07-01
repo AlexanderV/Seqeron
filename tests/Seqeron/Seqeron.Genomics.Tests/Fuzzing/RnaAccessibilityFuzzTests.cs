@@ -4,7 +4,7 @@ using NUnit.Framework;
 using FluentAssertions;
 using Seqeron.Genomics.Analysis;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for RNA-ACCESS-001 — RNA REGION ACCESSIBILITY (joint region-unpaired probability).

@@ -7,7 +7,7 @@ using FluentAssertions;
 using Seqeron.Genomics.Analysis;
 using Seqeron.Genomics.Core;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the Matching area — Regulatory Element Scan (MOTIF-REGULATORY-001),

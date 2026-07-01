@@ -6,7 +6,7 @@ using FluentAssertions;
 using Seqeron.Genomics.Annotation;
 using static Seqeron.Genomics.Annotation.StructuralVariantAnalyzer;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for split-read breakpoint detection — SV-BREAKPOINT-001. The unit

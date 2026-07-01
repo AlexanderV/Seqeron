@@ -7,7 +7,7 @@ using Seqeron.Genomics.Annotation;
 using Seqeron.Genomics.Phylogenetics;
 using static Seqeron.Genomics.Annotation.MiRnaAnalyzer;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for MIRNA-PCT-001 — the Friedman et al. (2009) / TargetScan PCT

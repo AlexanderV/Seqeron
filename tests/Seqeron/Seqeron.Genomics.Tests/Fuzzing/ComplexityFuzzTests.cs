@@ -6,7 +6,7 @@ using FluentAssertions;
 using Seqeron.Genomics.Analysis;
 using Seqeron.Genomics.Core;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the Complexity area — Lempel–Ziv (compression-based) complexity.

@@ -6,7 +6,7 @@ using FluentAssertions;
 using FluentAssertions.Execution;
 using Seqeron.Genomics.MolTools;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for RESTR-FILTER-001 — Restriction Enzyme Filtering

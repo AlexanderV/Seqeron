@@ -6,7 +6,7 @@ using FluentAssertions;
 using Seqeron.Genomics.Annotation;
 using static Seqeron.Genomics.Annotation.StructuralVariantAnalyzer;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for read-depth copy-number variation detection — SV-CNV-001. The unit

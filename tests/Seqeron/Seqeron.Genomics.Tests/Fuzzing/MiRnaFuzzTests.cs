@@ -7,7 +7,7 @@ using FluentAssertions;
 using Seqeron.Genomics.Annotation;
 using static Seqeron.Genomics.Annotation.MiRnaAnalyzer;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the MiRNA area — the canonical 5' seed of a mature miRNA (MIRNA-SEED-001)

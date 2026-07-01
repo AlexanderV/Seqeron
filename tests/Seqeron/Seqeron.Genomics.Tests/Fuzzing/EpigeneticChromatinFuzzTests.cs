@@ -6,7 +6,7 @@ using FluentAssertions;
 using Seqeron.Genomics.Annotation;
 using static Seqeron.Genomics.Annotation.EpigeneticsAnalyzer;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the Epigenetics area — chromatin state annotation

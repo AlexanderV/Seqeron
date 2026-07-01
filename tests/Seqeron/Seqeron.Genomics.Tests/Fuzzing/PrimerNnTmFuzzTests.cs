@@ -3,7 +3,7 @@ using NUnit.Framework;
 using FluentAssertions;
 using Seqeron.Genomics.MolTools;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the MolTools <b>salt-corrected nearest-neighbour melting temperature</b>

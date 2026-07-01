@@ -4,7 +4,7 @@ using FluentAssertions;
 using Seqeron.Genomics.Annotation;
 using static Seqeron.Genomics.Annotation.MiRnaAnalyzer;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for MIRNA-CLEAVAGE-001 — Drosha/Dicer cleavage-site prediction on a pri-/pre-miRNA

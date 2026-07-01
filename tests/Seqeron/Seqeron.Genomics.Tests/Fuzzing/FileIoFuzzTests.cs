@@ -8,7 +8,7 @@ using NUnit.Framework;
 using FluentAssertions;
 using Seqeron.Genomics.IO;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the FileIO area — FASTA parsing (PARSE-FASTA-001) and FASTQ

@@ -6,7 +6,7 @@ using FluentAssertions;
 using Seqeron.Genomics;
 using Seqeron.Genomics.Annotation;
 
-namespace Seqeron.Genomics.Tests;
+namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
 /// Fuzz tests for the Variants area — VARIANT-SNP-001 (SNP Detection).
