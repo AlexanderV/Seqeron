@@ -213,11 +213,16 @@ public class MolToolsTools
         return new RestrictionSiteListResult(sites);
     }
 
-    [McpServerTool, Description("Simulates a restriction digest with one or more named enzymes and yields the resulting linear fragments in order.")]
+    [McpServerTool(Name = "restriction_digest", Title = "MolTools — Restriction Digest", ReadOnly = true), Description("Simulates a restriction digest of a linear DNA molecule with one or more named enzymes and yields the resulting fragments in 5'→3' order (each with its sequence, start, length and flanking enzymes). With k distinct forward-strand cut positions a linear molecule yields k+1 fragments. Call to predict the fragment pattern of a digest.")]
     public static DigestResult restriction_digest(
         [Description("DNA sequence to digest.")] string sequence,
         [Description("Names of restriction enzymes to use (must be non-empty).")] string[] enzyme_names)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        if (enzyme_names is null || enzyme_names.Length == 0)
+            throw new System.ArgumentException("At least one enzyme name is required.", nameof(enzyme_names));
+
         var fragments = RestrictionAnalyzer.Digest(new DnaSequence(sequence), enzyme_names).ToList();
         return new DigestResult(fragments);
     }
