@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "kmer_positions",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "KmerAnalyzer.FindKmerPositions",
+  "docRef": "Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L432",
+  "description": "Zero-based starting positions of every (possibly overlapping) occurrence of a k-mer in a sequence. Pattern Matching Problem, Rosalind BA1D.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "Sequence to scan", "minLength": 1 },
+      "kmer": { "type": "string", "description": "k-mer / pattern to locate", "minLength": 1 }
+    },
+    "required": ["sequence", "kmer"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "positions": {
+        "type": "array",
+        "description": "Ascending 0-based start positions of every overlapping occurrence",
+        "items": { "type": "integer" }
+      }
+    },
+    "required": ["positions"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1001, "message": "k-mer cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Overlapping occurrences AA in AAAA",
+      "input": { "sequence": "AAAA", "kmer": "AA" },
+      "output": { "positions": [0, 1, 2] }
+    },
+    {
+      "name": "Repeated trimer ATG in ATGATG",
+      "input": { "sequence": "ATGATG", "kmer": "ATG" },
+      "output": { "positions": [0, 3] }
+    }
+  ]
+}
