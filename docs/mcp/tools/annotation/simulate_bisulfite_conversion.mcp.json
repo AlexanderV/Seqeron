@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "simulate_bisulfite_conversion",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EpigeneticsAnalyzer.SimulateBisulfiteConversion",
+  "docRef": "Seqeron.Genomics.Annotation/EpigeneticsAnalyzer.cs#L382",
+  "description": "Simulate bisulfite conversion (unmethylated C → T) given a set of methylated positions to protect.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "Nucleotide sequence", "minLength": 1 },
+      "methylatedPositions": {
+        "type": ["array", "null"],
+        "items": { "type": "integer" },
+        "description": "0-based positions of methylated (protected) cytosines; null = fully unmethylated"
+      }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "converted": { "type": "string", "description": "Bisulfite-converted strand (same length as input)" }
+    },
+    "required": ["converted"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Fully unmethylated conversion",
+      "input": { "sequence": "ACGCGT" },
+      "output": { "converted": "ATGTGT" }
+    },
+    {
+      "name": "Protect cytosine at index 1",
+      "input": { "sequence": "ACGCGT", "methylatedPositions": [1] },
+      "output": { "converted": "ACGTGT" }
+    }
+  ]
+}
