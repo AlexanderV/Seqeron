@@ -112,7 +112,16 @@ public class ChromosomeTools
         [Description("Band size in bp (default 5,000,000).")] int bandSize = 5000000,
         [Description("GC threshold for dark band (default 0.37).")] double darkBandGcThreshold = 0.37,
         [Description("GC threshold for light band (default 0.45).")] double lightBandGcThreshold = 0.45)
-        => new(SourceCa.PredictGBands(chromosomeName, sequence, bandSize, darkBandGcThreshold, lightBandGcThreshold).ToList());
+    {
+        if (string.IsNullOrEmpty(chromosomeName))
+            throw new ArgumentException("Chromosome name cannot be null or empty", nameof(chromosomeName));
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (bandSize <= 0)
+            throw new ArgumentException("Band size must be positive", nameof(bandSize));
+
+        return new(SourceCa.PredictGBands(chromosomeName, sequence, bandSize, darkBandGcThreshold, lightBandGcThreshold).ToList());
+    }
 
     [McpServerTool(Name = "find_heterochromatin_regions", Title = "Heterochromatin — Find regions", ReadOnly = true)]
     [Description("Identify heterochromatin regions by k-mer repeat content; classifies as Telomeric, Centromeric, or Constitutive.")]
@@ -120,9 +129,16 @@ public class ChromosomeTools
         [Description("Chromosome sequence.")] string sequence,
         [Description("Window size in bp (default 100000).")] int windowSize = 100000,
         [Description("Minimum repeat content fraction (default 0.5).")] double minRepeatContent = 0.5)
-        => new(SourceCa.FindHeterochromatinRegions(sequence, windowSize, minRepeatContent)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (windowSize <= 0)
+            throw new ArgumentException("Window size must be positive", nameof(windowSize));
+
+        return new(SourceCa.FindHeterochromatinRegions(sequence, windowSize, minRepeatContent)
             .Select(r => new HeterochromatinRegion(r.Start, r.End, r.Type))
             .ToList());
+    }
 
     [McpServerTool(Name = "find_synteny_blocks", Title = "Synteny — From orthologs", ReadOnly = true)]
     [Description("Identify collinear synteny blocks between two genomes from a list of ortholog gene pairs.")]
@@ -131,6 +147,11 @@ public class ChromosomeTools
         [Description("Minimum genes per block (default 3).")] int minGenes = 3,
         [Description("Maximum gap between consecutive genes in Mb (default 10).")] int maxGap = 10)
     {
+        if (orthologPairs is null)
+            throw new ArgumentException("Ortholog pairs cannot be null", nameof(orthologPairs));
+        if (minGenes <= 0)
+            throw new ArgumentException("Minimum genes must be positive", nameof(minGenes));
+
         var tuples = orthologPairs.Select(p =>
             (p.Chr1, p.Start1, p.End1, p.Gene1, p.Chr2, p.Start2, p.End2, p.Gene2));
         return new(SourceCa.FindSyntenyBlocks(tuples, minGenes, maxGap).ToList());
@@ -140,7 +161,12 @@ public class ChromosomeTools
     [Description("Detect chromosomal rearrangements (inversions, translocations, deletions, duplications) from synteny blocks.")]
     public static RearrangementsResult DetectRearrangements(
         [Description("Synteny blocks (typically from find_synteny_blocks).")] IReadOnlyList<SourceCa.SyntenyBlock> syntenyBlocks)
-        => new(SourceCa.DetectRearrangements(syntenyBlocks).ToList());
+    {
+        if (syntenyBlocks is null)
+            throw new ArgumentException("Synteny blocks cannot be null", nameof(syntenyBlocks));
+
+        return new(SourceCa.DetectRearrangements(syntenyBlocks).ToList());
+    }
 
     [McpServerTool(Name = "detect_aneuploidy", Title = "Aneuploidy — Detect from depth", ReadOnly = true)]
     [Description("Detect copy-number states from binned read-depth data; reports per-bin copy number, log2 ratio and confidence.")]
@@ -149,6 +175,13 @@ public class ChromosomeTools
         [Description("Genome-wide median depth.")] double medianDepth,
         [Description("Bin size in bp (default 1,000,000).")] int binSize = 1000000)
     {
+        if (depthData is null)
+            throw new ArgumentException("Depth data cannot be null", nameof(depthData));
+        if (medianDepth <= 0)
+            throw new ArgumentException("Median depth must be positive", nameof(medianDepth));
+        if (binSize <= 0)
+            throw new ArgumentException("Bin size must be positive", nameof(binSize));
+
         var tuples = depthData.Select(d => (d.Chromosome, d.Position, d.Depth));
         return new(SourceCa.DetectAneuploidy(tuples, medianDepth, binSize).ToList());
     }
@@ -158,9 +191,16 @@ public class ChromosomeTools
     public static WholeChromosomeAneuploidiesResult IdentifyWholeChromosomeAneuploidy(
         [Description("Per-bin copy-number states.")] IReadOnlyList<SourceCa.CopyNumberState> copyNumberStates,
         [Description("Minimum dominant fraction (default 0.8).")] double minFraction = 0.8)
-        => new(SourceCa.IdentifyWholeChromosomeAneuploidy(copyNumberStates, minFraction)
+    {
+        if (copyNumberStates is null)
+            throw new ArgumentException("Copy-number states cannot be null", nameof(copyNumberStates));
+        if (minFraction is <= 0 or > 1)
+            throw new ArgumentException("Minimum fraction must be in (0, 1]", nameof(minFraction));
+
+        return new(SourceCa.IdentifyWholeChromosomeAneuploidy(copyNumberStates, minFraction)
             .Select(a => new WholeChromosomeAneuploidy(a.Chromosome, a.CopyNumber, a.Type))
             .ToList());
+    }
 
     [McpServerTool(Name = "arm_ratio", Title = "Chromosome — p/q arm ratio", ReadOnly = true)]
     [Description("Compute chromosome arm ratio (p/q) from centromere position and total length.")]
@@ -280,6 +320,9 @@ public class ChromosomeTools
     public static GapDistributionResult GapDistribution(
         [Description("Gaps (typically from find_gaps).")] IReadOnlyList<SourceGa.GapInfo> gaps)
     {
+        if (gaps is null)
+            throw new ArgumentException("Gaps cannot be null", nameof(gaps));
+
         var (count, mean, median, max, types) = SourceGa.AnalyzeGapDistribution(gaps);
         return new GapDistributionResult(count, mean, median, max, types.ToDictionary(kv => kv.Key, kv => kv.Value));
     }
@@ -311,9 +354,16 @@ public class ChromosomeTools
     public static NamedSequencesResult ExtractContigs(
         [Description("Scaffolds (id, sequence).")] IReadOnlyList<NamedSequence> scaffolds,
         [Description("Minimum contig length (default 200).")] int minContigLength = 200)
-        => new(SourceGa.ExtractContigs(scaffolds.Select(s => (s.Id, s.Sequence)), minContigLength)
+    {
+        if (scaffolds is null)
+            throw new ArgumentException("Scaffolds cannot be null", nameof(scaffolds));
+        if (minContigLength <= 0)
+            throw new ArgumentException("Minimum contig length must be positive", nameof(minContigLength));
+
+        return new(SourceGa.ExtractContigs(scaffolds.Select(s => (s.Id, s.Sequence)), minContigLength)
             .Select(c => new NamedSequence(c.Id, c.Sequence))
             .ToList());
+    }
 
     [McpServerTool(Name = "assess_completeness", Title = "Assembly — BUSCO-like completeness", ReadOnly = true)]
     [Description("Assess assembly completeness by aligning marker genes (BUSCO-like, k-mer based); reports complete/single/duplicated/fragmented/missing.")]
@@ -322,11 +372,22 @@ public class ChromosomeTools
         [Description("Marker genes (geneId, sequence).")] IReadOnlyList<NamedSequence> markerGenes,
         [Description("Identity threshold (default 0.9).")] double identityThreshold = 0.9,
         [Description("Coverage threshold (default 0.9).")] double coverageThreshold = 0.9)
-        => SourceGa.AssessCompleteness(
+    {
+        if (assembly is null)
+            throw new ArgumentException("Assembly cannot be null", nameof(assembly));
+        if (markerGenes is null)
+            throw new ArgumentException("Marker genes cannot be null", nameof(markerGenes));
+        if (identityThreshold is < 0 or > 1)
+            throw new ArgumentException("Identity threshold must be in [0, 1]", nameof(identityThreshold));
+        if (coverageThreshold is < 0 or > 1)
+            throw new ArgumentException("Coverage threshold must be in [0, 1]", nameof(coverageThreshold));
+
+        return SourceGa.AssessCompleteness(
             assembly.Select(s => (s.Id, s.Sequence)),
             markerGenes.Select(s => (s.Id, s.Sequence)),
             identityThreshold,
             coverageThreshold);
+    }
 
     [McpServerTool(Name = "estimate_completeness_from_kmers", Title = "Assembly — Completeness from k-mer spectrum", ReadOnly = true)]
     [Description("Estimate genome completeness, error rate and genome size from a k-mer count spectrum.")]
@@ -334,6 +395,11 @@ public class ChromosomeTools
         [Description("K-mer spectrum (kmer, count).")] IReadOnlyList<KmerCount> kmerSpectrum,
         [Description("Expected coverage (0 = auto-detect peak).")] int expectedCoverage = 0)
     {
+        if (kmerSpectrum is null)
+            throw new ArgumentException("K-mer spectrum cannot be null", nameof(kmerSpectrum));
+        if (expectedCoverage < 0)
+            throw new ArgumentException("Expected coverage cannot be negative", nameof(expectedCoverage));
+
         var (completeness, errorRate, size) =
             SourceGa.EstimateCompletenessFromKmers(kmerSpectrum.Select(k => (k.Kmer, k.Count)), expectedCoverage);
         return new KmerCompletenessResult(completeness, errorRate, size);
@@ -346,10 +412,21 @@ public class ChromosomeTools
         [Description("K-mer size (default 15).")] int kmerSize = 15,
         [Description("Minimum k-mer copies (default 3).")] int minCopies = 3,
         [Description("Window size (default 100).")] int windowSize = 100)
-        => new(SourceGa.FindRepetitiveRegions(
+    {
+        if (sequences is null)
+            throw new ArgumentException("Sequences cannot be null", nameof(sequences));
+        if (kmerSize <= 0)
+            throw new ArgumentException("K-mer size must be positive", nameof(kmerSize));
+        if (minCopies <= 0)
+            throw new ArgumentException("Minimum copies must be positive", nameof(minCopies));
+        if (windowSize <= 0)
+            throw new ArgumentException("Window size must be positive", nameof(windowSize));
+
+        return new(SourceGa.FindRepetitiveRegions(
                 sequences.Select(s => (s.Id, s.Sequence)), kmerSize, minCopies, windowSize)
             .Select(r => new RepetitiveRegion(r.SequenceId, r.Start, r.End, r.Copies))
             .ToList());
+    }
 
     [McpServerTool(Name = "find_tandem_repeats", Title = "Assembly — Find tandem repeats", ReadOnly = true)]
     [Description("Identify tandem repeats; returns repeat unit, copy number and purity per occurrence.")]
@@ -358,10 +435,21 @@ public class ChromosomeTools
         [Description("Minimum unit length (default 2).")] int minUnitLength = 2,
         [Description("Maximum unit length (default 50).")] int maxUnitLength = 50,
         [Description("Minimum copies (default 3).")] int minCopies = 3)
-        => new(SourceGa.FindTandemRepeats(
+    {
+        if (sequences is null)
+            throw new ArgumentException("Sequences cannot be null", nameof(sequences));
+        if (minUnitLength <= 0)
+            throw new ArgumentException("Minimum unit length must be positive", nameof(minUnitLength));
+        if (maxUnitLength < minUnitLength)
+            throw new ArgumentException("Maximum unit length must be >= minimum unit length", nameof(maxUnitLength));
+        if (minCopies <= 0)
+            throw new ArgumentException("Minimum copies must be positive", nameof(minCopies));
+
+        return new(SourceGa.FindTandemRepeats(
                 sequences.Select(s => (s.Id, s.Sequence)), minUnitLength, maxUnitLength, minCopies)
             .Select(r => new TandemRepeat(r.SequenceId, r.Start, r.End, r.Unit, r.Copies, r.Purity))
             .ToList());
+    }
 
     [McpServerTool(Name = "repeat_content", Title = "Assembly — Repeat content from annotations", ReadOnly = true)]
     [Description("Compute total repeat length, repeat percentage and per-class lengths from repeat annotations.")]
@@ -369,6 +457,11 @@ public class ChromosomeTools
         [Description("Repeat annotations.")] IReadOnlyList<SourceGa.RepeatAnnotation> repeats,
         [Description("Genome length in bp.")] long genomeLength)
     {
+        if (repeats is null)
+            throw new ArgumentException("Repeats cannot be null", nameof(repeats));
+        if (genomeLength <= 0)
+            throw new ArgumentException("Genome length must be positive", nameof(genomeLength));
+
         var (total, percent, classLens) = SourceGa.CalculateRepeatContent(repeats, genomeLength);
         return new RepeatContentResult(total, percent, classLens.ToDictionary(kv => kv.Key, kv => kv.Value));
     }
@@ -381,10 +474,19 @@ public class ChromosomeTools
         [Description("Name for assembly 1 (default Assembly1).")] string name1 = "Assembly1",
         [Description("Name for assembly 2 (default Assembly2).")] string name2 = "Assembly2",
         [Description("K-mer size (default 21).")] int kmerSize = 21)
-        => SourceGa.CompareAssemblies(
+    {
+        if (assembly1 is null)
+            throw new ArgumentException("Assembly 1 cannot be null", nameof(assembly1));
+        if (assembly2 is null)
+            throw new ArgumentException("Assembly 2 cannot be null", nameof(assembly2));
+        if (kmerSize <= 0)
+            throw new ArgumentException("K-mer size must be positive", nameof(kmerSize));
+
+        return SourceGa.CompareAssemblies(
             assembly1.Select(s => (s.Id, s.Sequence)),
             assembly2.Select(s => (s.Id, s.Sequence)),
             name1, name2, kmerSize);
+    }
 
     [McpServerTool(Name = "find_syntenic_blocks_assemblies", Title = "Assembly — Syntenic blocks (k-mer based)", ReadOnly = true)]
     [Description("Find syntenic blocks between two assemblies via k-mer anchor clustering; flags inverted blocks.")]
@@ -393,21 +495,39 @@ public class ChromosomeTools
         [Description("Assembly 2 sequences.")] IReadOnlyList<NamedSequence> assembly2,
         [Description("Minimum block size (default 1000).")] int minBlockSize = 1000,
         [Description("K-mer size (default 21).")] int kmerSize = 21)
-        => new(SourceGa.FindSyntenicBlocks(
+    {
+        if (assembly1 is null)
+            throw new ArgumentException("Assembly 1 cannot be null", nameof(assembly1));
+        if (assembly2 is null)
+            throw new ArgumentException("Assembly 2 cannot be null", nameof(assembly2));
+        if (minBlockSize <= 0)
+            throw new ArgumentException("Minimum block size must be positive", nameof(minBlockSize));
+        if (kmerSize <= 0)
+            throw new ArgumentException("K-mer size must be positive", nameof(kmerSize));
+
+        return new(SourceGa.FindSyntenicBlocks(
                 assembly1.Select(s => (s.Id, s.Sequence)),
                 assembly2.Select(s => (s.Id, s.Sequence)),
                 minBlockSize, kmerSize)
             .Select(b => new SyntenicBlockItem(b.Seq1, b.Start1, b.End1, b.Seq2, b.Start2, b.End2, b.IsInverted))
             .ToList());
+    }
 
     [McpServerTool(Name = "local_quality", Title = "Assembly — Local quality windows", ReadOnly = true)]
     [Description("Compute per-window local quality metrics (GC content, N count, linguistic complexity).")]
     public static LocalQualityResult LocalQuality(
         [Description("Sequences (id, sequence).")] IReadOnlyList<NamedSequence> sequences,
         [Description("Window size (default 1000).")] int windowSize = 1000)
-        => new(SourceGa.CalculateLocalQuality(sequences.Select(s => (s.Id, s.Sequence)), windowSize)
+    {
+        if (sequences is null)
+            throw new ArgumentException("Sequences cannot be null", nameof(sequences));
+        if (windowSize <= 0)
+            throw new ArgumentException("Window size must be positive", nameof(windowSize));
+
+        return new(SourceGa.CalculateLocalQuality(sequences.Select(s => (s.Id, s.Sequence)), windowSize)
             .Select(q => new LocalQualityWindow(q.SequenceId, q.Position, q.WindowSize, q.GcContent, q.NCount, q.Complexity))
             .ToList());
+    }
 
     [McpServerTool(Name = "find_suspicious_regions", Title = "Assembly — Suspicious regions", ReadOnly = true)]
     [Description("Flag potentially misassembled regions by GC deviation, low complexity, and high N content.")]
@@ -415,9 +535,14 @@ public class ChromosomeTools
         [Description("Sequences (id, sequence).")] IReadOnlyList<NamedSequence> sequences,
         [Description("Allowed GC deviation from global GC (default 0.15).")] double gcDeviation = 0.15,
         [Description("Minimum linguistic complexity (default 0.3).")] double minComplexity = 0.3)
-        => new(SourceGa.FindSuspiciousRegions(sequences.Select(s => (s.Id, s.Sequence)), gcDeviation, minComplexity)
+    {
+        if (sequences is null)
+            throw new ArgumentException("Sequences cannot be null", nameof(sequences));
+
+        return new(SourceGa.FindSuspiciousRegions(sequences.Select(s => (s.Id, s.Sequence)), gcDeviation, minComplexity)
             .Select(r => new SuspiciousRegion(r.SequenceId, r.Start, r.End, r.Reason, r.Score))
             .ToList());
+    }
 
     [McpServerTool(Name = "length_distribution", Title = "Assembly — Length distribution", ReadOnly = true)]
     [Description("Bucket sequence lengths into bins (default: 100..1,000,000 powers).")]

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "predict_g_bands",
+  "serverName": "Chromosome",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ChromosomeAnalyzer.PredictGBands",
+  "docRef": "Seqeron.Genomics.Chromosome/ChromosomeAnalyzer.cs#L1230",
+  "description": "Predict a cytogenetic G-band pattern from sequence GC content (gpos100/gpos50/gneg, simplified).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "chromosomeName": { "type": "string", "minLength": 1 },
+      "sequence": { "type": "string", "minLength": 1 },
+      "bandSize": { "type": "integer", "default": 5000000, "exclusiveMinimum": 0 },
+      "darkBandGcThreshold": { "type": "number", "default": 0.37 },
+      "lightBandGcThreshold": { "type": "number", "default": 0.45 }
+    },
+    "required": ["chromosomeName", "sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": { "type": "array", "items": { "type": "object", "properties": { "chromosome": { "type": "string" }, "start": { "type": "integer" }, "end": { "type": "integer" }, "name": { "type": "string" }, "stain": { "type": "string" }, "gcContent": { "type": "number" }, "geneDensity": { "type": "number" } }, "required": ["chromosome", "start", "end", "name", "stain", "gcContent", "geneDensity"] } }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1002, "message": "Chromosome name cannot be null or empty" },
+    { "code": 1003, "message": "Band size must be positive" }
+  ],
+  "examples": [
+    {
+      "name": "AT then GC (bandSize 10)",
+      "input": { "chromosomeName": "chr1", "sequence": "ATATATATATGCGCGCGCGC", "bandSize": 10 },
+      "output": { "items": [ { "name": "chr1p1", "stain": "gpos100", "gcContent": 0.0, "start": 0, "end": 9 }, { "name": "chr1q1", "stain": "gneg", "gcContent": 1.0, "start": 10, "end": 19 } ] }
+    }
+  ]
+}
