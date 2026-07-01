@@ -202,10 +202,13 @@ public class MolToolsTools
         return new RestrictionSiteListResult(sites);
     }
 
-    [McpServerTool, Description("Finds sites for every built-in restriction enzyme on both strands.")]
+    [McpServerTool(Name = "find_all_restriction_sites", Title = "MolTools — Find All Restriction Sites", ReadOnly = true), Description("Finds sites for EVERY built-in restriction enzyme on both strands of a DNA sequence. Call for a comprehensive restriction-site scan when the enzyme set is not known in advance.")]
     public static RestrictionSiteListResult find_all_restriction_sites(
         [Description("DNA sequence to scan.")] string sequence)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+
         var sites = RestrictionAnalyzer.FindAllSites(new DnaSequence(sequence)).ToList();
         return new RestrictionSiteListResult(sites);
     }
