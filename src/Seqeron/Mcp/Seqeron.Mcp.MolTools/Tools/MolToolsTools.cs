@@ -77,12 +77,19 @@ public class MolToolsTools
         return new DinucleotideRepeatResult(PrimerDesigner.FindLongestDinucleotideRepeat(sequence));
     }
 
-    [McpServerTool, Description("Detects whether a sequence can form a hairpin with a stem of min_stem_length and a loop of at least min_loop_length. Uses O(n²) scan for short sequences and a suffix-tree based scan for sequences ≥100 bp.")]
+    [McpServerTool(Name = "hairpin_potential", Title = "MolTools — Hairpin Potential", ReadOnly = true), Description("Detects whether a sequence can fold into a hairpin: a self-complementary stem of at least min_stem_length separated by a loop of at least min_loop_length. Uses an O(n²) scan for short sequences and a suffix-tree scan for sequences ≥ 100 bp. Call to screen a primer/probe for secondary structure.")]
     public static HairpinPotentialResult hairpin_potential(
         [Description("Nucleotide sequence.")] string sequence,
         [Description("Minimum stem length (default 4).")] int min_stem_length = 4,
         [Description("Minimum loop length (default 3).")] int min_loop_length = 3)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+        if (min_stem_length <= 0)
+            throw new System.ArgumentException("Minimum stem length must be positive.", nameof(min_stem_length));
+        if (min_loop_length < 0)
+            throw new System.ArgumentException("Minimum loop length cannot be negative.", nameof(min_loop_length));
+
         return new HairpinPotentialResult(PrimerDesigner.HasHairpinPotential(sequence, min_stem_length, min_loop_length));
     }
 
