@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_cpg_islands",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EpigeneticsAnalyzer.FindCpGIslands",
+  "docRef": "Seqeron.Genomics.Annotation/EpigeneticsAnalyzer.cs#L297",
+  "description": "Identify CpG islands using Gardiner-Garden & Frommer criteria (length, GC content, CpG O/E).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "Nucleotide sequence", "minLength": 1 },
+      "minLength": { "type": "integer", "description": "Minimum island length (nt)", "default": 200 },
+      "minGc": { "type": "number", "description": "Minimum GC fraction (0..1)", "default": 0.5 },
+      "minCpGRatio": { "type": "number", "description": "Minimum CpG observed/expected ratio", "default": 0.6 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "islands": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "start": { "type": "integer", "description": "0-based inclusive start" },
+            "end": { "type": "integer", "description": "Exclusive end" },
+            "gcContent": { "type": "number", "description": "GC fraction over the island (0..1)" },
+            "cpGRatio": { "type": "number", "description": "CpG observed/expected ratio over the island" }
+          },
+          "required": ["start", "end", "gcContent", "cpGRatio"]
+        }
+      }
+    },
+    "required": ["islands"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Perfect 200 bp CpG island",
+      "input": { "sequence": "CGCGCG… (200 bp of CG repeats)" },
+      "output": { "islands": [ { "start": 0, "end": 200, "gcContent": 1.0, "cpGRatio": 2.0 } ] }
+    },
+    {
+      "name": "Below minimum length",
+      "input": { "sequence": "CGCG… (100 bp)" },
+      "output": { "islands": [] }
+    }
+  ]
+}
