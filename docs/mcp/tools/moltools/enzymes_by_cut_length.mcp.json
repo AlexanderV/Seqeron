@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "enzymes_by_cut_length",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RestrictionAnalyzer.GetEnzymesByCutLength",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L84",
+  "description": "List built-in restriction enzymes whose recognition sequence has exactly the given length (bp).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "length": { "type": "integer", "description": "Recognition-sequence length in bp.", "minimum": 1 }
+    },
+    "required": ["length"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "enzymes": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "recognitionSequence": { "type": "string" },
+            "cutPositionForward": { "type": "integer" },
+            "cutPositionReverse": { "type": "integer" },
+            "organism": { "type": "string" }
+          },
+          "required": ["name", "recognitionSequence", "cutPositionForward", "cutPositionReverse", "organism"]
+        }
+      }
+    },
+    "required": ["enzymes"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Recognition-sequence length must be positive" }
+  ],
+  "examples": [
+    {
+      "name": "6-cutters",
+      "input": { "length": 6 },
+      "output": { "enzymes": "24 enzymes (e.g. EcoRI, BamHI, HindIII)" }
+    },
+    {
+      "name": "8-cutters",
+      "input": { "length": 8 },
+      "output": { "enzymes": "5 enzymes (NotI, PacI, AscI, FseI, SwaI)" }
+    }
+  ]
+}

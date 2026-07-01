@@ -137,10 +137,13 @@ public class MolToolsTools
         return new EnzymeLookupResult(RestrictionAnalyzer.GetEnzyme(name));
     }
 
-    [McpServerTool, Description("Lists all built-in enzymes whose recognition sequence has the specified length (e.g. 4-cutters, 6-cutters, 8-cutters).")]
+    [McpServerTool(Name = "enzymes_by_cut_length", Title = "MolTools — Enzymes by Recognition Length", ReadOnly = true), Description("Lists all built-in restriction enzymes whose recognition sequence has exactly the specified length in base pairs (e.g. 4 for frequent cutters, 6 for typical cloning enzymes, 8 for rare cutters). Call to pick enzymes by how often they cut.")]
     public static EnzymeListResult enzymes_by_cut_length(
-        [Description("Recognition-sequence length.")] int length)
+        [Description("Recognition-sequence length in bp (must be positive).")] int length)
     {
+        if (length <= 0)
+            throw new System.ArgumentException("Recognition-sequence length must be positive.", nameof(length));
+
         return new EnzymeListResult(RestrictionAnalyzer.GetEnzymesByCutLength(length).ToList());
     }
 
