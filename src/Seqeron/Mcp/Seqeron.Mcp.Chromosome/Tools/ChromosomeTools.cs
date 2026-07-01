@@ -38,6 +38,11 @@ public class ChromosomeTools
         [Description("Normalized read depths.")] IReadOnlyList<double> normalizedDepths,
         [Description("Expected diploid depth (default 1.0).")] double expectedDiploidDepth = 1.0)
     {
+        if (normalizedDepths is null)
+            throw new ArgumentException("Normalized depths cannot be null", nameof(normalizedDepths));
+        if (expectedDiploidDepth <= 0)
+            throw new ArgumentException("Expected diploid depth must be positive", nameof(expectedDiploidDepth));
+
         var (ploidy, confidence) = SourceCa.DetectPloidy(normalizedDepths, expectedDiploidDepth);
         return new PloidyResult(ploidy, confidence);
     }
@@ -70,7 +75,14 @@ public class ChromosomeTools
         [Description("Sample T/S ratio.")] double tsRatio,
         [Description("Reference T/S ratio (default 1.0).")] double referenceRatio = 1.0,
         [Description("Telomere length corresponding to reference ratio in bp (default 7000).")] double referenceLength = 7000)
-        => new(SourceCa.EstimateTelomereLengthFromTSRatio(tsRatio, referenceRatio, referenceLength));
+    {
+        if (referenceRatio <= 0)
+            throw new ArgumentException("Reference ratio must be positive", nameof(referenceRatio));
+        if (referenceLength <= 0)
+            throw new ArgumentException("Reference length must be positive", nameof(referenceLength));
+
+        return new(SourceCa.EstimateTelomereLengthFromTSRatio(tsRatio, referenceRatio, referenceLength));
+    }
 
     [McpServerTool(Name = "analyze_centromere", Title = "Centromere — Analyze", ReadOnly = true)]
     [Description("Locate the centromere region by alpha-satellite-like repeat content and classify its type per Levan et al. (1964).")]
@@ -155,13 +167,27 @@ public class ChromosomeTools
     public static ArmRatioResult ArmRatio(
         [Description("Centromere position in bp.")] int centromerePosition,
         [Description("Total chromosome length in bp.")] int chromosomeLength)
-        => new(SourceCa.CalculateArmRatio(centromerePosition, chromosomeLength));
+    {
+        if (centromerePosition <= 0)
+            throw new ArgumentException("Centromere position must be positive", nameof(centromerePosition));
+        if (chromosomeLength <= 0)
+            throw new ArgumentException("Chromosome length must be positive", nameof(chromosomeLength));
+        if (centromerePosition >= chromosomeLength)
+            throw new ArgumentException("Centromere position must be less than chromosome length", nameof(centromerePosition));
+
+        return new(SourceCa.CalculateArmRatio(centromerePosition, chromosomeLength));
+    }
 
     [McpServerTool(Name = "classify_chromosome_by_arm_ratio", Title = "Chromosome — Classify by arm ratio", ReadOnly = true)]
     [Description("Classify a chromosome (Metacentric/Submetacentric/Acrocentric/Telocentric) from its p/q arm ratio per Levan et al. (1964).")]
     public static ChromosomeClassification ClassifyChromosomeByArmRatio(
-        [Description("Arm ratio (p/q).")] double armRatio)
-        => new(SourceCa.ClassifyChromosomeByArmRatio(armRatio));
+        [Description("Arm ratio (p/q or q/p; normalized internally).")] double armRatio)
+    {
+        if (double.IsNaN(armRatio) || double.IsInfinity(armRatio))
+            throw new ArgumentException("Arm ratio must be a finite number", nameof(armRatio));
+
+        return new(SourceCa.ClassifyChromosomeByArmRatio(armRatio));
+    }
 
     [McpServerTool(Name = "estimate_cell_divisions_from_telomere_length", Title = "Telomeres — Estimate cell divisions", ReadOnly = true)]
     [Description("Estimate the number of cell divisions from current telomere length given birth length and per-division loss rate.")]
@@ -169,7 +195,16 @@ public class ChromosomeTools
         [Description("Current telomere length in bp.")] int currentLength,
         [Description("Birth telomere length in bp (default 15000).")] int birthLength = 15000,
         [Description("Telomere loss per division in bp (default 50).")] int lossPerDivision = 50)
-        => new(SourceCa.EstimateCellDivisionsFromTelomereLength(currentLength, birthLength, lossPerDivision));
+    {
+        if (currentLength < 0)
+            throw new ArgumentException("Current length cannot be negative", nameof(currentLength));
+        if (birthLength <= 0)
+            throw new ArgumentException("Birth length must be positive", nameof(birthLength));
+        if (lossPerDivision <= 0)
+            throw new ArgumentException("Loss per division must be positive", nameof(lossPerDivision));
+
+        return new(SourceCa.EstimateCellDivisionsFromTelomereLength(currentLength, birthLength, lossPerDivision));
+    }
 
     #endregion
 
@@ -179,7 +214,12 @@ public class ChromosomeTools
     [Description("Compute comprehensive assembly statistics: total length, N50/L50/N90/L90, largest/smallest, mean/median, GC, and gap metrics.")]
     public static SourceGa.AssemblyStatistics AssemblyStatistics(
         [Description("Assembled sequences (id, sequence).")] IReadOnlyList<NamedSequence> sequences)
-        => SourceGa.CalculateStatistics(sequences.Select(s => (s.Id, s.Sequence)));
+    {
+        if (sequences is null)
+            throw new ArgumentException("Sequences cannot be null", nameof(sequences));
+
+        return SourceGa.CalculateStatistics(sequences.Select(s => (s.Id, s.Sequence)));
+    }
 
     [McpServerTool(Name = "nx_statistics", Title = "Assembly — Nx/Lx (single threshold)", ReadOnly = true)]
     [Description("Compute Nx and Lx for a single threshold given pre-sorted (descending) sequence lengths and total length.")]
@@ -187,27 +227,53 @@ public class ChromosomeTools
         [Description("Lengths sorted descending.")] IReadOnlyList<int> sortedLengths,
         [Description("Sum of all lengths.")] long totalLength,
         [Description("Threshold percent (e.g. 50 for N50).")] int threshold)
-        => SourceGa.CalculateNx(sortedLengths, totalLength, threshold);
+    {
+        if (sortedLengths is null)
+            throw new ArgumentException("Sorted lengths cannot be null", nameof(sortedLengths));
+        if (totalLength < 0)
+            throw new ArgumentException("Total length cannot be negative", nameof(totalLength));
+        if (threshold is < 0 or > 100)
+            throw new ArgumentException("Threshold must be in [0, 100]", nameof(threshold));
+
+        return SourceGa.CalculateNx(sortedLengths, totalLength, threshold);
+    }
 
     [McpServerTool(Name = "nx_curve", Title = "Assembly — Nx curve", ReadOnly = true)]
     [Description("Compute Nx/Lx for multiple thresholds (default 10..90 step 10).")]
     public static NxStatisticsListResult NxCurve(
         [Description("Sequence lengths.")] IReadOnlyList<int> lengths,
         [Description("Thresholds (empty → 10..90 step 10).")] int[]? thresholds = null)
-        => new(SourceGa.CalculateNxCurve(lengths, thresholds ?? System.Array.Empty<int>()).ToList());
+    {
+        if (lengths is null)
+            throw new ArgumentException("Lengths cannot be null", nameof(lengths));
+
+        return new(SourceGa.CalculateNxCurve(lengths, thresholds ?? System.Array.Empty<int>()).ToList());
+    }
 
     [McpServerTool(Name = "au_n", Title = "Assembly — auN (area under Nx curve)", ReadOnly = true)]
     [Description("Compute auN (area under Nx curve) — a length-weighted contiguity metric robust to outliers.")]
     public static AuNResult AuN(
         [Description("Sequence lengths.")] IReadOnlyList<int> lengths)
-        => new(SourceGa.CalculateAuN(lengths));
+    {
+        if (lengths is null)
+            throw new ArgumentException("Lengths cannot be null", nameof(lengths));
+
+        return new(SourceGa.CalculateAuN(lengths));
+    }
 
     [McpServerTool(Name = "find_gaps", Title = "Assembly — Find gaps (N runs)", ReadOnly = true)]
     [Description("Find gaps (N-runs) in assembled sequences; returns position, length and length-class type.")]
     public static GapsResult FindGaps(
         [Description("Assembled sequences (id, sequence).")] IReadOnlyList<NamedSequence> sequences,
         [Description("Minimum gap length (default 1).")] int minGapLength = 1)
-        => new(SourceGa.FindGaps(sequences.Select(s => (s.Id, s.Sequence)), minGapLength).ToList());
+    {
+        if (sequences is null)
+            throw new ArgumentException("Sequences cannot be null", nameof(sequences));
+        if (minGapLength <= 0)
+            throw new ArgumentException("Minimum gap length must be positive", nameof(minGapLength));
+
+        return new(SourceGa.FindGaps(sequences.Select(s => (s.Id, s.Sequence)), minGapLength).ToList());
+    }
 
     [McpServerTool(Name = "gap_distribution", Title = "Assembly — Gap distribution", ReadOnly = true)]
     [Description("Summarize a list of gaps: count, mean/median/max length, and counts by gap-length type.")]
@@ -359,6 +425,9 @@ public class ChromosomeTools
         [Description("Sequence lengths.")] IReadOnlyList<int> lengths,
         [Description("Bin upper bounds (empty → defaults).")] int[]? bins = null)
     {
+        if (lengths is null)
+            throw new ArgumentException("Lengths cannot be null", nameof(lengths));
+
         var dist = SourceGa.CalculateLengthDistribution(lengths, bins ?? System.Array.Empty<int>());
         return new LengthDistributionResult(dist.ToDictionary(kv => kv.Key, kv => kv.Value));
     }
