@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "predict_transmembrane_helices",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ProteinMotifFinder.PredictTransmembraneHelices",
+  "docRef": "Seqeron.Genomics.Analysis/ProteinMotifFinder.cs#L739",
+  "description": "Hydropathy-based transmembrane-helix prediction (Kyte-Doolittle): sliding-window mean hydropathy >= threshold marks a TM segment. Each segment reports start, end and peak score.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "proteinSequence": { "type": "string", "description": "Protein sequence", "minLength": 1 },
+      "windowSize": { "type": "integer", "description": "Sliding window size (default 19)", "minimum": 1, "default": 19 },
+      "threshold": { "type": "number", "description": "Hydropathy threshold (default 1.6)", "default": 1.6 }
+    },
+    "required": ["proteinSequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "start": { "type": "integer" },
+            "end": { "type": "integer" },
+            "score": { "type": "number" }
+          },
+          "required": ["start", "end", "score"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1002, "message": "Window size must be at least 1" }
+  ],
+  "examples": [
+    {
+      "name": "Single poly-Leu TM stretch (D10-L20-D10)",
+      "input": { "proteinSequence": "DDDDDDDDDDLLLLLLLLLLLLLLLLLLLLDDDDDDDDDD", "windowSize": 19, "threshold": 1.6 },
+      "output": { "items": [ { "start": 5, "end": 34, "score": 3.8 } ] }
+    },
+    {
+      "name": "No hydrophobic segment",
+      "input": { "proteinSequence": "DDDDDDDDDDDDDDDDDDDD", "windowSize": 19, "threshold": 1.6 },
+      "output": { "items": [] }
+    }
+  ]
+}
