@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "enrichment_score",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "TranscriptomeAnalyzer.CalculateEnrichmentScore",
+  "docRef": "Seqeron.Genomics.Annotation/TranscriptomeAnalyzer.cs#L697",
+  "description": "Compute a GSEA-like running-sum enrichment score for a gene set against a ranked gene list.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "rankedGenes": { "type": "array", "items": { "type": "string" }, "description": "Gene IDs ordered by ranking metric" },
+      "geneSet": { "type": "array", "items": { "type": "string" }, "description": "Gene IDs in the tested gene set" }
+    },
+    "required": ["rankedGenes", "geneSet"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "score": { "type": "number", "description": "Max running-sum deviation (positive = enriched at top, negative = at bottom)" }
+    },
+    "required": ["score"]
+  },
+  "errors": [
+    { "code": 1001, "message": "rankedGenes cannot be null" },
+    { "code": 1001, "message": "geneSet cannot be null" },
+    { "code": 1001, "message": "rankedGenes cannot be empty." },
+    { "code": 1001, "message": "geneSet cannot be empty." }
+  ],
+  "examples": [
+    {
+      "name": "Set enriched at the top",
+      "input": { "rankedGenes": ["A", "B", "C", "D"], "geneSet": ["A", "B"] },
+      "output": { "score": 1.0 }
+    },
+    {
+      "name": "Set enriched at the bottom",
+      "input": { "rankedGenes": ["A", "B", "C", "D"], "geneSet": ["C", "D"] },
+      "output": { "score": -1.0 }
+    }
+  ]
+}
