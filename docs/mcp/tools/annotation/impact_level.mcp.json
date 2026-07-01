@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "impact_level",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "VariantAnnotator.GetImpactLevel",
+  "docRef": "Seqeron.Genomics.Annotation/VariantAnnotator.cs#L783",
+  "description": "Map a ConsequenceType to an ImpactLevel (High/Moderate/Low/Modifier).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "consequence": { "type": "string", "description": "Consequence type name (e.g. MissenseVariant, StopGained, IntronVariant)", "minLength": 1 }
+    },
+    "required": ["consequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "impact": { "type": "string", "description": "High / Moderate / Low / Modifier" }
+    },
+    "required": ["impact"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Consequence cannot be null or empty" },
+    { "code": 1001, "message": "Unknown consequence type" }
+  ],
+  "examples": [
+    {
+      "name": "StopGained is High impact",
+      "input": { "consequence": "StopGained" },
+      "output": { "impact": "High" }
+    },
+    {
+      "name": "MissenseVariant is Moderate impact",
+      "input": { "consequence": "MissenseVariant" },
+      "output": { "impact": "Moderate" }
+    }
+  ]
+}
