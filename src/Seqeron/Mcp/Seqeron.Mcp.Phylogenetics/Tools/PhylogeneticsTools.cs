@@ -43,8 +43,11 @@ public class PhylogeneticsTools
         [Description("Symmetric square distance matrix; size must equal the length of taxa.")] double[][] distanceMatrix,
         [Description("Tree construction method: UPGMA | NeighborJoining. Default: UPGMA.")] string? treeMethod = null)
     {
+        if (taxa is null || taxa.Length < 2)
+            throw new ArgumentException("At least 2 taxa required.", nameof(taxa));
+
         var tm = ParseTreeMethod(treeMethod);
-        var matrix = ToMultiDim(distanceMatrix, taxa?.Length ?? 0);
+        var matrix = ToMultiDim(distanceMatrix, taxa.Length);
         var tree = global::Seqeron.Genomics.Phylogenetics.PhylogeneticAnalyzer.BuildTreeFromMatrix(taxa!, matrix, tm);
         var newick = global::Seqeron.Genomics.Phylogenetics.PhylogeneticAnalyzer.ToNewick(tree.Root);
         return new PhyloTreeBuildResult(
