@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "detect_alternative_splicing",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SpliceSitePredictor.DetectAlternativeSplicing",
+  "docRef": "Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L864",
+  "description": "Detect candidate alternative splicing patterns (exon skipping, alternative 5'/3' splice sites).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "RNA/DNA sequence to analyze", "minLength": 1 },
+      "minScore": { "type": "number", "description": "Minimum splice-site score", "default": 0.4 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "events": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "description": "ExonSkipping, Alt5SS, or Alt3SS" },
+            "position": { "type": "integer" },
+            "description": { "type": "string" }
+          },
+          "required": ["type", "position", "description"]
+        }
+      }
+    },
+    "required": ["events"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Alternative 5' splice sites",
+      "input": { "sequence": "CAGGUAAGUCAGGUAAGU", "minScore": 0.2 },
+      "output": { "events": [ { "type": "Alt5SS", "position": 3 } ] }
+    },
+    {
+      "name": "Single donor, no alternative",
+      "input": { "sequence": "CAGGUAAGU", "minScore": 0.2 },
+      "output": { "events": [] }
+    }
+  ]
+}
