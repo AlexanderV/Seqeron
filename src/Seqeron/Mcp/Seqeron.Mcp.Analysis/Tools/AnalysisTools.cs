@@ -59,7 +59,12 @@ public class AnalysisTools
         [Description("Sequence to analyze.")] string sequence,
         [Description("k-mer length.")] int k)
     {
-        var kmers = KmerAnalyzer.FindMostFrequentKmers(sequence ?? string.Empty, k).ToArray();
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (k <= 0)
+            throw new ArgumentException("k must be positive", nameof(k));
+
+        var kmers = KmerAnalyzer.FindMostFrequentKmers(sequence, k).ToArray();
         return new KmerListResult(kmers);
     }
 
@@ -69,7 +74,12 @@ public class AnalysisTools
         [Description("Sequence to analyze.")] string sequence,
         [Description("k-mer length.")] int k)
     {
-        var freq = KmerAnalyzer.GetKmerFrequencies(sequence ?? string.Empty, k);
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (k <= 0)
+            throw new ArgumentException("k must be positive", nameof(k));
+
+        var freq = KmerAnalyzer.GetKmerFrequencies(sequence, k);
         return new KmerFrequenciesResult(freq);
     }
 
@@ -80,7 +90,14 @@ public class AnalysisTools
         [Description("Second sequence.")] string seq2,
         [Description("k-mer length.")] int k)
     {
-        var d = KmerAnalyzer.KmerDistance(seq1 ?? string.Empty, seq2 ?? string.Empty, k);
+        if (string.IsNullOrEmpty(seq1))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(seq1));
+        if (string.IsNullOrEmpty(seq2))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(seq2));
+        if (k <= 0)
+            throw new ArgumentException("k must be positive", nameof(k));
+
+        var d = KmerAnalyzer.KmerDistance(seq1, seq2, k);
         return new KmerDistanceResult(d);
     }
 
@@ -90,7 +107,12 @@ public class AnalysisTools
         [Description("Sequence to analyze.")] string sequence,
         [Description("k-mer length.")] int k)
     {
-        var kmers = KmerAnalyzer.FindUniqueKmers(sequence ?? string.Empty, k).ToArray();
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (k <= 0)
+            throw new ArgumentException("k must be positive", nameof(k));
+
+        var kmers = KmerAnalyzer.FindUniqueKmers(sequence, k).ToArray();
         return new KmerListResult(kmers);
     }
 
@@ -101,7 +123,12 @@ public class AnalysisTools
         [Description("k-mer length.")] int k,
         [Description("Minimum occurrence count.")] int minCount)
     {
-        var items = KmerAnalyzer.FindKmersWithMinCount(sequence ?? string.Empty, k, minCount)
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (k <= 0)
+            throw new ArgumentException("k must be positive", nameof(k));
+
+        var items = KmerAnalyzer.FindKmersWithMinCount(sequence, k, minCount)
             .Select(t => new KmerCountItem(t.Kmer, t.Count))
             .ToArray();
         return new KmersWithMinCountResult(items);
@@ -113,6 +140,11 @@ public class AnalysisTools
         [Description("k-mer length (>0).")] int k,
         [Description("Alphabet (default \"ACGT\").")] string alphabet = "ACGT")
     {
+        if (k <= 0)
+            throw new ArgumentException("k must be positive", nameof(k));
+        if (string.IsNullOrEmpty(alphabet))
+            throw new ArgumentException("Alphabet cannot be null or empty", nameof(alphabet));
+
         var kmers = KmerAnalyzer.GenerateAllKmers(k, alphabet).ToArray();
         return new KmerListResult(kmers);
     }
@@ -144,7 +176,12 @@ public class AnalysisTools
         [Description("Sequence to scan.")] string sequence,
         [Description("k-mer to locate.")] string kmer)
     {
-        var positions = KmerAnalyzer.FindKmerPositions(sequence ?? string.Empty, kmer ?? string.Empty).ToArray();
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (string.IsNullOrEmpty(kmer))
+            throw new ArgumentException("k-mer cannot be null or empty", nameof(kmer));
+
+        var positions = KmerAnalyzer.FindKmerPositions(sequence, kmer).ToArray();
         return new KmerPositionsResult(positions);
     }
 
@@ -185,8 +222,13 @@ public class AnalysisTools
         [Description("Protein sequence.")] string proteinSequence,
         [Description("Sliding window size (default 9).")] int windowSize = 9)
     {
+        if (string.IsNullOrEmpty(proteinSequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(proteinSequence));
+        if (windowSize < 1)
+            throw new ArgumentOutOfRangeException(nameof(windowSize), "Window size must be at least 1");
+
         var values = SequenceStatistics
-            .CalculateHydrophobicityProfile(proteinSequence ?? string.Empty, windowSize)
+            .CalculateHydrophobicityProfile(proteinSequence, windowSize)
             .ToArray();
         return new DoubleProfileResult(values);
     }
@@ -236,8 +278,13 @@ public class AnalysisTools
         [Description("Protein sequence.")] string proteinSequence,
         [Description("Sliding window size (default 7).")] int windowSize = 7)
     {
+        if (string.IsNullOrEmpty(proteinSequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(proteinSequence));
+        if (windowSize < 1)
+            throw new ArgumentOutOfRangeException(nameof(windowSize), "Window size must be at least 1");
+
         var items = SequenceStatistics
-            .PredictSecondaryStructure(proteinSequence ?? string.Empty, windowSize)
+            .PredictSecondaryStructure(proteinSequence, windowSize)
             .Select(t => new ChouFasmanItem(t.Helix, t.Sheet, t.Turn))
             .ToArray();
         return new PredictChouFasmanResult(items);
@@ -250,8 +297,15 @@ public class AnalysisTools
         [Description("Window size (default 100).")] int windowSize = 100,
         [Description("Step size (default 1).")] int stepSize = 1)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (windowSize < 1)
+            throw new ArgumentOutOfRangeException(nameof(windowSize), "Window size must be at least 1");
+        if (stepSize < 1)
+            throw new ArgumentOutOfRangeException(nameof(stepSize), "Step size must be at least 1");
+
         var values = SequenceStatistics
-            .CalculateGcContentProfile(sequence ?? string.Empty, windowSize, stepSize)
+            .CalculateGcContentProfile(sequence, windowSize, stepSize)
             .ToArray();
         return new DoubleProfileResult(values);
     }
@@ -287,6 +341,9 @@ public class AnalysisTools
         [Description("Minimum repeat length.")] int minLength)
     {
         var dna = RequireDna(sequence, nameof(sequence));
+        if (minLength < 1)
+            throw new ArgumentOutOfRangeException(nameof(minLength), "Minimum repeat length must be at least 1");
+
         var items = GenomicAnalyzer.FindRepeats(dna, minLength)
             .Select(r => new RepeatItem(r.Sequence, r.Positions.ToArray(), r.Length, r.Count))
             .ToArray();
@@ -314,7 +371,10 @@ public class AnalysisTools
         [Description("Motif to locate.")] string motif)
     {
         var dna = RequireDna(sequence, nameof(sequence));
-        var positions = GenomicAnalyzer.FindMotif(dna, motif ?? string.Empty);
+        if (string.IsNullOrEmpty(motif))
+            throw new ArgumentException("Motif cannot be null or empty", nameof(motif));
+
+        var positions = GenomicAnalyzer.FindMotif(dna, motif);
         return new MotifPositionsResult(positions.ToArray());
     }
 
@@ -325,7 +385,10 @@ public class AnalysisTools
         [Description("Set of motifs to search.")] string[] motifs)
     {
         var dna = RequireDna(sequence, nameof(sequence));
-        var raw = GenomicAnalyzer.FindKnownMotifs(dna, motifs ?? Array.Empty<string>());
+        if (motifs is null)
+            throw new ArgumentException("Motifs cannot be null", nameof(motifs));
+
+        var raw = GenomicAnalyzer.FindKnownMotifs(dna, motifs);
         var matches = new Dictionary<string, int[]>(raw.Count);
         foreach (var kvp in raw)
             matches[kvp.Key] = kvp.Value.ToArray();
@@ -354,6 +417,9 @@ public class AnalysisTools
         [Description("Minimum ORF length in nucleotides (default 100).")] int minLength = 100)
     {
         var dna = RequireDna(sequence, nameof(sequence));
+        if (minLength < 1)
+            throw new ArgumentOutOfRangeException(nameof(minLength), "Minimum ORF length must be at least 1");
+
         var items = GenomicAnalyzer.FindOpenReadingFrames(dna, minLength)
             .Select(o => new OrfItem(
                 o.Sequence, o.Position, o.Frame, o.IsReverseComplement, o.Length, o.CodonCount))
