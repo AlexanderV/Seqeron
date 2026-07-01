@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "cumulative_gc_skew",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GcSkewCalculator.CalculateCumulativeGcSkew",
+  "docRef": "Seqeron.Genomics.Analysis/GcSkewCalculator.cs#L115",
+  "description": "Cumulative GC skew over non-overlapping windows (step == windowSize); running sum of (G-C)/(G+C). Minimum approximates replication origin, maximum the terminus.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
+      "windowSize": { "type": "integer", "description": "Window size", "minimum": 1, "default": 1000 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": { "type": "integer" },
+            "gcSkew": { "type": "number" },
+            "cumulativeGcSkew": { "type": "number" }
+          },
+          "required": ["position", "gcSkew", "cumulativeGcSkew"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1003, "message": "Window size must be at least 1" }
+  ],
+  "examples": [
+    {
+      "name": "G-block then C-block",
+      "input": { "sequence": "GGGGCCCC", "windowSize": 4 },
+      "output": { "items": [
+        { "position": 2, "gcSkew": 1.0, "cumulativeGcSkew": 1.0 },
+        { "position": 6, "gcSkew": -1.0, "cumulativeGcSkew": 0.0 }
+      ] }
+    },
+    {
+      "name": "Short sequence, no full window",
+      "input": { "sequence": "GC", "windowSize": 4 },
+      "output": { "items": [] }
+    }
+  ]
+}

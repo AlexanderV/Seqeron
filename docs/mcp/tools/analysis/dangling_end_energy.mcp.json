@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "dangling_end_energy",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RnaSecondaryStructure.GetDanglingEndEnergy",
+  "docRef": "Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L649",
+  "description": "NNDB Turner 2004 dangling-end stacking energy (kcal/mol at 37C) for a single unpaired base on an RNA helix end. Key = closing5' + dangling + closing3'; unknown key -> 0.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "closingBase5": { "type": "string", "description": "Closing pair 5' base", "minLength": 1, "maxLength": 1 },
+      "closingBase3": { "type": "string", "description": "Closing pair 3' base", "minLength": 1, "maxLength": 1 },
+      "danglingBase": { "type": "string", "description": "Dangling base", "minLength": 1, "maxLength": 1 },
+      "is3Prime": { "type": "boolean", "description": "True for 3' dangle, false for 5'" }
+    },
+    "required": ["closingBase5", "closingBase3", "danglingBase", "is3Prime"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "energy": { "type": "number", "description": "Dangling-end stacking energy (kcal/mol)" }
+    },
+    "required": ["energy"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Expected a single character (length-1 string)" }
+  ],
+  "examples": [
+    {
+      "name": "3' dangle on G-C end",
+      "input": { "closingBase5": "G", "closingBase3": "C", "danglingBase": "A", "is3Prime": true },
+      "output": { "energy": -1.1 }
+    },
+    {
+      "name": "5' dangle, same context",
+      "input": { "closingBase5": "G", "closingBase3": "C", "danglingBase": "A", "is3Prime": false },
+      "output": { "energy": -0.5 }
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "is_disorder_promoting",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "DisorderPredictor.IsDisorderPromoting",
+  "docRef": "Seqeron.Genomics.Analysis/DisorderPredictor.cs#L876",
+  "description": "Whether an amino acid is in Dunker's disorder-promoting set {A,R,G,Q,S,P,E,K} (Dunker 2001). Order-promoting and ambiguous residues return false.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "aminoAcid": { "type": "string", "description": "Single amino-acid letter", "minLength": 1, "maxLength": 1 }
+    },
+    "required": ["aminoAcid"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "result": { "type": "boolean", "description": "True if the residue is disorder-promoting" }
+    },
+    "required": ["result"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Expected a single character (length-1 string)" }
+  ],
+  "examples": [
+    { "name": "Proline", "input": { "aminoAcid": "P" }, "output": { "result": true } },
+    { "name": "Tryptophan", "input": { "aminoAcid": "W" }, "output": { "result": false } }
+  ]
+}

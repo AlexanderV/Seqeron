@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "discover_motifs",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MotifFinder.DiscoverMotifs",
+  "docRef": "Seqeron.Genomics.Analysis/MotifFinder.cs#L515",
+  "description": "De novo discovery of overrepresented k-mers. Reports k-mers with count >= minCount, positions, and O/E enrichment = observed / ((N-k+1)/4^k).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "DNA sequence", "minLength": 1 },
+      "k": { "type": "integer", "description": "k-mer length", "minimum": 1, "default": 6 },
+      "minCount": { "type": "integer", "description": "Minimum occurrence count", "default": 2 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "sequence": { "type": "string" },
+            "count": { "type": "integer" },
+            "positions": { "type": "array", "items": { "type": "integer" } },
+            "enrichment": { "type": "number" }
+          },
+          "required": ["sequence", "count", "positions", "enrichment"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1001, "message": "Invalid DNA sequence" }
+  ],
+  "examples": [
+    {
+      "name": "Alternating repeat",
+      "input": { "sequence": "ATATATAT", "k": 2, "minCount": 2 },
+      "output": { "items": [
+        { "sequence": "AT", "count": 4, "positions": [0, 2, 4, 6], "enrichment": 9.1429 },
+        { "sequence": "TA", "count": 3, "positions": [1, 3, 5], "enrichment": 6.8571 }
+      ] }
+    },
+    {
+      "name": "High threshold filters everything",
+      "input": { "sequence": "ACGTACGT", "k": 3, "minCount": 3 },
+      "output": { "items": [] }
+    }
+  ]
+}

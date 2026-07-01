@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "dinucleotide_ratios",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceStatistics.CalculateDinucleotideRatios",
+  "docRef": "Seqeron.Genomics.Analysis/SequenceStatistics.cs#L641",
+  "description": "Dinucleotide relative abundance (odds ratio) rho_XY = f_XY / (f_X * f_Y). rho > 1 over-represented, < 1 under-represented; 0 if a base is absent.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "Nucleotide sequence", "minLength": 1 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "ratios": {
+        "type": "object",
+        "description": "Map of dinucleotide -> observed/expected ratio",
+        "additionalProperties": { "type": "number" }
+      }
+    },
+    "required": ["ratios"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Alternating AT",
+      "input": { "sequence": "ATAT" },
+      "output": { "ratios": { "AT": 2.6667, "TA": 1.3333 } }
+    },
+    {
+      "name": "Homopolymer",
+      "input": { "sequence": "AAAA" },
+      "output": { "ratios": { "AA": 1.0 } }
+    }
+  ]
+}

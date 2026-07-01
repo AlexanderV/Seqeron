@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "create_pwm",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MotifFinder.CreatePwm",
+  "docRef": "Seqeron.Genomics.Analysis/MotifFinder.cs#L213",
+  "description": "Builds a log-odds Position Weight Matrix (4xL, rows A,C,G,T) from aligned equal-length DNA sequences. Cell = log2((count + pc)/(N + 4*pc)/0.25).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequences": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "Aligned DNA sequences of equal length",
+        "minItems": 1
+      },
+      "pseudocount": { "type": "number", "description": "Smoothing pseudocount", "minimum": 0, "default": 0.25 }
+    },
+    "required": ["sequences"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "matrix": {
+        "type": "array",
+        "items": { "type": "array", "items": { "type": "number" } },
+        "description": "Jagged 4xL log-odds matrix (rows A,C,G,T)"
+      },
+      "length": { "type": "integer", "description": "Motif length L" },
+      "consensus": { "type": "string", "description": "Per-column argmax consensus" },
+      "maxScore": { "type": "number", "description": "Maximum achievable total score" },
+      "minScore": { "type": "number", "description": "Minimum achievable total score" }
+    },
+    "required": ["matrix", "length", "consensus", "maxScore", "minScore"]
+  },
+  "errors": [
+    { "code": 1001, "message": "At least one sequence is required" },
+    { "code": 1003, "message": "Pseudocount must be non-negative" },
+    { "code": 1002, "message": "All sequences must have the same length" },
+    { "code": 1002, "message": "Invalid character. Only A, C, G, T are valid" }
+  ],
+  "examples": [
+    {
+      "name": "Two identical motifs",
+      "input": { "sequences": ["ACGT", "ACGT"], "pseudocount": 0.25 },
+      "output": { "length": 4, "consensus": "ACGT", "maxScore": 6.3399, "minScore": -6.3399 }
+    },
+    {
+      "name": "Consensus of a variable column",
+      "input": { "sequences": ["AAAA", "AAAT", "AAAA"] },
+      "output": { "length": 4, "consensus": "AAAA" }
+    }
+  ]
+}

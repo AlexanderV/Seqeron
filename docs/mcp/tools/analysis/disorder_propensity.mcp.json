@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "disorder_propensity",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "DisorderPredictor.GetDisorderPropensity",
+  "docRef": "Seqeron.Genomics.Analysis/DisorderPredictor.cs#L865",
+  "description": "TOP-IDP disorder-propensity value for a single amino acid (Campen 2008). Range W=-0.884 (order) to P=0.987 (disorder); unknown residue -> 0.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "aminoAcid": { "type": "string", "description": "Single amino-acid letter", "minLength": 1, "maxLength": 1 }
+    },
+    "required": ["aminoAcid"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "propensity": { "type": "number", "description": "TOP-IDP propensity value" }
+    },
+    "required": ["propensity"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Expected a single character (length-1 string)" }
+  ],
+  "examples": [
+    { "name": "Proline", "input": { "aminoAcid": "P" }, "output": { "propensity": 0.987 } },
+    { "name": "Tryptophan", "input": { "aminoAcid": "W" }, "output": { "propensity": -0.884 } }
+  ]
+}

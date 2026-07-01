@@ -120,7 +120,16 @@ public class AnalysisTools
         [Description("Sliding window size (>= k).")] int windowSize,
         [Description("Minimum occurrences within a window (>0).")] int minOccurrences)
     {
-        var kmers = KmerAnalyzer.FindClumps(sequence ?? string.Empty, k, windowSize, minOccurrences).ToArray();
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (k <= 0)
+            throw new ArgumentException("k must be positive", nameof(k));
+        if (windowSize < k)
+            throw new ArgumentException("Window size must be at least k", nameof(windowSize));
+        if (minOccurrences <= 0)
+            throw new ArgumentException("Minimum occurrences must be positive", nameof(minOccurrences));
+
+        var kmers = KmerAnalyzer.FindClumps(sequence, k, windowSize, minOccurrences).ToArray();
         return new KmerListResult(kmers);
     }
 
@@ -182,7 +191,10 @@ public class AnalysisTools
     public static DinucleotideFrequenciesResult DinucleotideFrequencies(
         [Description("Nucleotide sequence.")] string sequence)
     {
-        var freq = SequenceStatistics.CalculateDinucleotideFrequencies(sequence ?? string.Empty);
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        var freq = SequenceStatistics.CalculateDinucleotideFrequencies(sequence);
         return new DinucleotideFrequenciesResult(new Dictionary<string, double>(freq));
     }
 
@@ -191,7 +203,10 @@ public class AnalysisTools
     public static DinucleotideRatiosResult DinucleotideRatios(
         [Description("Nucleotide sequence.")] string sequence)
     {
-        var ratios = SequenceStatistics.CalculateDinucleotideRatios(sequence ?? string.Empty);
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        var ratios = SequenceStatistics.CalculateDinucleotideRatios(sequence);
         return new DinucleotideRatiosResult(new Dictionary<string, double>(ratios));
     }
 
@@ -243,8 +258,15 @@ public class AnalysisTools
         [Description("Window size (default 50).")] int windowSize = 50,
         [Description("Step size (default 1).")] int stepSize = 1)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (windowSize < 1)
+            throw new ArgumentOutOfRangeException(nameof(windowSize), "Window size must be at least 1");
+        if (stepSize < 1)
+            throw new ArgumentOutOfRangeException(nameof(stepSize), "Step size must be at least 1");
+
         var values = SequenceStatistics
-            .CalculateEntropyProfile(sequence ?? string.Empty, windowSize, stepSize)
+            .CalculateEntropyProfile(sequence, windowSize, stepSize)
             .ToArray();
         return new DoubleProfileResult(values);
     }
@@ -379,8 +401,11 @@ public class AnalysisTools
         [Description("Maximum repeat length (default 50).")] int maxLength = 50,
         [Description("Minimum spacing between the two copies (default 1).")] int minSpacing = 1)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
         var items = global::Seqeron.Genomics.Analysis.RepeatFinder
-            .FindDirectRepeats(sequence ?? string.Empty, minLength, maxLength, minSpacing)
+            .FindDirectRepeats(sequence, minLength, maxLength, minSpacing)
             .Select(r => new DirectRepeatItem(
                 r.FirstPosition, r.SecondPosition, r.RepeatSequence, r.Length, r.Spacing))
             .ToArray();
@@ -461,8 +486,13 @@ public class AnalysisTools
         [Description("Aligned DNA sequences of equal length.")] string[] sequences,
         [Description("Pseudocount for smoothing (default 0.25).")] double pseudocount = 0.25)
     {
+        if (sequences is null || sequences.Length == 0)
+            throw new ArgumentException("At least one sequence is required.", nameof(sequences));
+        if (pseudocount < 0)
+            throw new ArgumentOutOfRangeException(nameof(pseudocount), "Pseudocount must be non-negative.");
+
         var pwm = global::Seqeron.Genomics.Analysis.MotifFinder
-            .CreatePwm(sequences ?? Array.Empty<string>(), pseudocount);
+            .CreatePwm(sequences, pseudocount);
         var jagged = MatrixToJagged(pwm.Matrix, 4, pwm.Length);
         return new PwmResult(jagged, pwm.Length, pwm.Consensus, pwm.MaxScore, pwm.MinScore);
     }
@@ -731,8 +761,13 @@ public class AnalysisTools
         [Description("DNA sequence.")] string sequence,
         [Description("Word size (default 3).")] int wordSize = 3)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (wordSize < 1)
+            throw new ArgumentOutOfRangeException(nameof(wordSize), "Word size must be at least 1");
+
         var score = global::Seqeron.Genomics.Analysis.SequenceComplexity
-            .CalculateDustScore(sequence ?? string.Empty, wordSize);
+            .CalculateDustScore(sequence, wordSize);
         return new DustScoreResult(score);
     }
 
@@ -835,9 +870,15 @@ public class AnalysisTools
         [Description("Genes of genome 2.")] GeneInput[] genome2Genes,
         [Description("Mapping from genome1 gene id to genome2 gene id.")] Dictionary<string, string> orthologMap)
     {
+        if (genome1Genes is null || genome1Genes.Length == 0)
+            throw new ArgumentException("Genome 1 must contain at least one gene", nameof(genome1Genes));
+        if (genome2Genes is null || genome2Genes.Length == 0)
+            throw new ArgumentException("Genome 2 must contain at least one gene", nameof(genome2Genes));
+        if (orthologMap is null)
+            throw new ArgumentException("Ortholog map cannot be null", nameof(orthologMap));
+
         var items = global::Seqeron.Genomics.Analysis.ComparativeGenomics
-            .DetectRearrangements(ToGenes(genome1Genes), ToGenes(genome2Genes),
-                orthologMap ?? new Dictionary<string, string>())
+            .DetectRearrangements(ToGenes(genome1Genes), ToGenes(genome2Genes), orthologMap)
             .Select(MapRearrangement)
             .ToArray();
         return new DetectRearrangementsResult(items);
@@ -887,11 +928,16 @@ public class AnalysisTools
         [Description("Minimum cluster size (default 3).")] int minClusterSize = 3,
         [Description("Maximum gap between cluster members (default 2).")] int maxGap = 2)
     {
-        var genomeLists = (genomes ?? Array.Empty<GeneInput[]>())
+        if (genomes is null || genomes.Length == 0)
+            throw new ArgumentException("At least one genome is required", nameof(genomes));
+        if (orthologGroups is null)
+            throw new ArgumentException("Ortholog groups map cannot be null", nameof(orthologGroups));
+
+        var genomeLists = genomes
             .Select(g => (IReadOnlyList<global::Seqeron.Genomics.Analysis.ComparativeGenomics.Gene>)ToGenes(g))
             .ToList();
         var clusters = global::Seqeron.Genomics.Analysis.ComparativeGenomics
-            .FindConservedClusters(genomeLists, orthologGroups ?? new Dictionary<string, string>(), minClusterSize, maxGap)
+            .FindConservedClusters(genomeLists, orthologGroups, minClusterSize, maxGap)
             .Select(c => c.ToArray())
             .ToArray();
         return new FindConservedClustersResult(clusters);
@@ -1032,8 +1078,13 @@ public class AnalysisTools
         [Description("DNA sequence.")] string sequence,
         [Description("Window size (default 1000).")] int windowSize = 1000)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (windowSize < 1)
+            throw new ArgumentOutOfRangeException(nameof(windowSize), "Window size must be at least 1");
+
         var items = GcSkewCalculator
-            .CalculateCumulativeGcSkew(sequence ?? string.Empty, windowSize)
+            .CalculateCumulativeGcSkew(sequence, windowSize)
             .Select(p => new CumulativeGcSkewPointItem(p.Position, p.GcSkew, p.CumulativeGcSkew))
             .ToArray();
         return new CumulativeGcSkewResult(items);
