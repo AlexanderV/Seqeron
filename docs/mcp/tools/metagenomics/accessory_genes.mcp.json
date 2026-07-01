@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "accessory_genes",
+  "serverName": "Metagenomics",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PanGenomeAnalyzer.AnalyzeAccessoryGenes",
+  "docRef": "Seqeron.Genomics.Metagenomics/PanGenomeAnalyzer.cs#L855",
+  "description": "Summarise accessory gene clusters (present in more than one but not all genomes) with their genome membership and frequency = genomeCount / totalGenomes.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "clusters": {
+        "type": "array",
+        "description": "All gene clusters (e.g. from cluster_genes).",
+        "items": {
+          "type": "object",
+          "properties": {
+            "clusterId": { "type": "string" },
+            "geneIds": { "type": "array", "items": { "type": "string" } },
+            "genomeIds": { "type": "array", "items": { "type": "string" } },
+            "genomeCount": { "type": "integer" },
+            "averageIdentity": { "type": "number" },
+            "consensusSequence": { "type": "string" }
+          },
+          "required": ["clusterId", "geneIds", "genomeIds", "genomeCount", "averageIdentity", "consensusSequence"]
+        }
+      },
+      "totalGenomes": {
+        "type": "integer",
+        "description": "Total number of genomes in the analysis.",
+        "minimum": 1
+      }
+    },
+    "required": ["clusters", "totalGenomes"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "clusterId": { "type": "string", "description": "Accessory cluster id." },
+            "genomesWithGene": { "type": "array", "items": { "type": "string" }, "description": "Ids of genomes carrying this cluster." },
+            "frequency": { "type": "number", "description": "genomeCount / totalGenomes." }
+          },
+          "required": ["clusterId", "genomesWithGene", "frequency"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "One accessory cluster among core/accessory/unique",
+      "input": {
+        "clusters": [
+          { "clusterId": "c1", "geneIds": ["gene_c1"], "genomeIds": ["genome1", "genome2", "genome3"], "genomeCount": 3, "averageIdentity": 1.0, "consensusSequence": "ATGC" },
+          { "clusterId": "c2", "geneIds": ["gene_c2"], "genomeIds": ["genome1", "genome2"], "genomeCount": 2, "averageIdentity": 1.0, "consensusSequence": "ATGC" },
+          { "clusterId": "c3", "geneIds": ["gene_c3"], "genomeIds": ["genome1"], "genomeCount": 1, "averageIdentity": 1.0, "consensusSequence": "ATGC" }
+        ],
+        "totalGenomes": 3
+      },
+      "output": {
+        "items": [
+          { "clusterId": "c2", "genomesWithGene": ["genome1", "genome2"], "frequency": 0.6666666666666666 }
+        ]
+      }
+    },
+    {
+      "name": "No accessory clusters (all core or unique)",
+      "input": {
+        "clusters": [
+          { "clusterId": "c1", "geneIds": ["gene_c1"], "genomeIds": ["genome1", "genome2", "genome3"], "genomeCount": 3, "averageIdentity": 1.0, "consensusSequence": "ATGC" },
+          { "clusterId": "c3", "geneIds": ["gene_c3"], "genomeIds": ["genome1"], "genomeCount": 1, "averageIdentity": 1.0, "consensusSequence": "ATGC" }
+        ],
+        "totalGenomes": 3
+      },
+      "output": { "items": [] }
+    }
+  ]
+}
