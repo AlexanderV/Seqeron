@@ -513,8 +513,11 @@ public class AnalysisTools
         [Description("Minimum palindrome length, even, >= 4 (default 4).")] int minLength = 4,
         [Description("Maximum palindrome length (default 12).")] int maxLength = 12)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
         var items = global::Seqeron.Genomics.Analysis.RepeatFinder
-            .FindPalindromes(sequence ?? string.Empty, minLength, maxLength)
+            .FindPalindromes(sequence, minLength, maxLength)
             .Select(p => new PalindromeItem(p.Position, p.Sequence, p.Length))
             .ToArray();
         return new FindPalindromesResult(items);
