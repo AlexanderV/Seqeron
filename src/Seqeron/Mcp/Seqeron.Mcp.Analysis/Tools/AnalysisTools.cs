@@ -742,8 +742,13 @@ public class AnalysisTools
         [Description("DNA sequence.")] string sequence,
         [Description("Word size (default 3).")] int wordSize = 3)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (wordSize < 1)
+            throw new ArgumentOutOfRangeException(nameof(wordSize), "Word size must be at least 1");
+
         var score = global::Seqeron.Genomics.Analysis.SequenceComplexity
-            .CalculateDustScore(sequence ?? string.Empty, wordSize);
+            .CalculateDustScore(sequence, wordSize);
         return new DustScoreResult(score);
     }
 
