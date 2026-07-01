@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "epigenetic_age",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EpigeneticsAnalyzer.CalculateEpigeneticAge",
+  "docRef": "Seqeron.Genomics.Annotation/EpigeneticsAnalyzer.cs#L1171",
+  "description": "Estimate epigenetic age (Horvath-clock-style) from methylation values at clock CpGs.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "methylationAtClockCpGs": {
+        "type": "object",
+        "description": "Methylation β-values keyed by CpG identifier (0..1)",
+        "additionalProperties": { "type": "number" }
+      },
+      "coefficients": {
+        "type": "object",
+        "description": "Clock coefficients keyed by CpG identifier (caller supplies the published clock table)",
+        "additionalProperties": { "type": "number" }
+      },
+      "intercept": { "type": "number", "description": "Model intercept added before the Horvath inverse transform", "default": 0.0 }
+    },
+    "required": ["methylationAtClockCpGs", "coefficients"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "age": { "type": "number", "description": "Estimated DNAm age in years" }
+    },
+    "required": ["age"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Methylation map cannot be null or empty" },
+    { "code": 1001, "message": "Clock coefficient table cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Positive linear predictor",
+      "input": {
+        "methylationAtClockCpGs": { "cg1": 0.5, "cg2": 0.25 },
+        "coefficients": { "cg1": 1.0, "cg2": 2.0 },
+        "intercept": 0.5
+      },
+      "output": { "age": 51.5 }
+    },
+    {
+      "name": "Negative predictor uses exponential branch",
+      "input": {
+        "methylationAtClockCpGs": { "cg1": 0.0 },
+        "coefficients": { "cg1": 1.0 },
+        "intercept": -1.0
+      },
+      "output": { "age": 6.7254682646002895 }
+    }
+  ]
+}
