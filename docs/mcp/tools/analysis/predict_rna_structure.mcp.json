@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "predict_rna_structure",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RnaSecondaryStructure.PredictStructure",
+  "docRef": "Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L1839",
+  "description": "Greedy non-overlapping stem-loop selection producing dot-bracket notation, base pairs, stems, pseudoknots and total MFE for an RNA sequence.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "rnaSequence": { "type": "string", "description": "RNA sequence", "minLength": 1 },
+      "minStemLength": { "type": "integer", "description": "Minimum stem length (default 3)", "default": 3 },
+      "minLoopSize": { "type": "integer", "description": "Minimum loop size (default 3)", "default": 3 },
+      "maxLoopSize": { "type": "integer", "description": "Maximum loop size (default 10)", "default": 10 }
+    },
+    "required": ["rnaSequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string" },
+      "dotBracket": { "type": "string" },
+      "basePairs": { "type": "array" },
+      "stemLoops": { "type": "array" },
+      "pseudoknots": { "type": "array" },
+      "minimumFreeEnergy": { "type": "number" }
+    },
+    "required": ["sequence", "dotBracket", "basePairs", "stemLoops", "pseudoknots", "minimumFreeEnergy"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Simple hairpin",
+      "input": { "rnaSequence": "GGGAAAACCC", "minStemLength": 3, "minLoopSize": 4, "maxLoopSize": 4 },
+      "output": { "sequence": "GGGAAAACCC", "dotBracket": "(((....)))" }
+    },
+    {
+      "name": "Unstructured (poly-A)",
+      "input": { "rnaSequence": "AAAAAAAAAA" },
+      "output": { "dotBracket": ".........." }
+    }
+  ]
+}
