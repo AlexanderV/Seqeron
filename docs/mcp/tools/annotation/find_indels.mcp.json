@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_indels",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "VariantCaller.FindIndels",
+  "docRef": "Seqeron.Genomics.Annotation/VariantCaller.cs#L169",
+  "description": "Detect insertions and deletions (indels) between two DNA sequences.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "reference": { "type": "string", "description": "Reference DNA sequence", "minLength": 1 },
+      "query": { "type": "string", "description": "Query DNA sequence", "minLength": 1 }
+    },
+    "required": ["reference", "query"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "variants": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": { "type": "integer", "description": "0-based reference position" },
+            "referenceAllele": { "type": "string" },
+            "alternateAllele": { "type": "string" },
+            "type": { "type": "string", "description": "'Insertion' or 'Deletion'" },
+            "queryPosition": { "type": "integer" }
+          },
+          "required": ["position", "referenceAllele", "alternateAllele", "type", "queryPosition"]
+        }
+      }
+    },
+    "required": ["variants"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Reference cannot be null or empty" },
+    { "code": 1001, "message": "Query cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Insertion",
+      "input": { "reference": "ATGCAT", "query": "ATGTCAT" },
+      "output": { "variants": [ { "position": 3, "referenceAllele": "-", "alternateAllele": "T", "type": "Insertion", "queryPosition": 3 } ] }
+    },
+    {
+      "name": "Deletion",
+      "input": { "reference": "ATGTCAT", "query": "ATGCAT" },
+      "output": { "variants": [ { "position": 3, "referenceAllele": "T", "alternateAllele": "-", "type": "Deletion", "queryPosition": 3 } ] }
+    }
+  ]
+}
