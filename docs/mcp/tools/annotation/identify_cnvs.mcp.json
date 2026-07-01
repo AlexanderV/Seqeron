@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "identify_cnvs",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "StructuralVariantAnalyzer.IdentifyCNVs",
+  "docRef": "Seqeron.Genomics.Annotation/StructuralVariantAnalyzer.cs#L794",
+  "description": "Convert non-baseline copy-number segments into deletion / duplication structural variants.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "segments": { "type": "array", "description": "Copy-number segments", "items": { "type": "object" } },
+      "normalCopyNumber": { "type": "integer", "description": "Diploid baseline copy number", "default": 2 },
+      "minLength": { "type": "integer", "description": "Minimum segment length (nt) to emit as a CNV", "default": 10000 }
+    },
+    "required": ["segments"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "variants": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "chromosome": { "type": "string" },
+            "start": { "type": "integer" }, "end": { "type": "integer" },
+            "type": { "type": "string", "description": "Deletion (CN < normal) or Duplication (CN > normal)" },
+            "length": { "type": "integer" },
+            "quality": { "type": "number", "description": "|logRatio| * 50" },
+            "supportingReads": { "type": "integer", "description": "segment probe count" }
+          },
+          "required": ["id", "chromosome", "start", "end", "type", "length", "quality", "supportingReads"]
+        }
+      }
+    },
+    "required": ["variants"]
+  },
+  "errors": [
+    { "code": 1001, "message": "segments cannot be null" }
+  ],
+  "examples": [
+    {
+      "name": "Deletion and duplication",
+      "input": {
+        "segments": [
+          { "chromosome": "chr1", "start": 1000, "end": 20000, "logRatio": -1.0, "copyNumber": 1, "bAlleleFrequency": 0.5, "probeCount": 10 },
+          { "chromosome": "chr1", "start": 30000, "end": 60000, "logRatio": 1.0, "copyNumber": 4, "bAlleleFrequency": 0.5, "probeCount": 10 }
+        ]
+      },
+      "output": { "variants": [ { "type": "Deletion", "length": 19000, "quality": 50 }, { "type": "Duplication", "length": 30000 } ] }
+    },
+    {
+      "name": "Baseline segment only",
+      "input": { "segments": [ { "chromosome": "chr1", "start": 0, "end": 50000, "logRatio": 0.0, "copyNumber": 2, "bAlleleFrequency": 0.5, "probeCount": 10 } ] },
+      "output": { "variants": [] }
+    }
+  ]
+}
