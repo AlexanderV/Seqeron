@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "annotate_regulatory_elements",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "VariantAnnotator.AnnotateRegulatoryElements",
+  "docRef": "Seqeron.Genomics.Annotation/VariantAnnotator.cs#L1287",
+  "description": "Find regulatory regions overlapping a variant.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "variant": {
+        "type": "object",
+        "description": "Variant to annotate",
+        "properties": {
+          "chromosome": { "type": "string" },
+          "position": { "type": "integer", "description": "1-based variant position" },
+          "reference": { "type": "string" },
+          "alternate": { "type": "string" },
+          "type": { "type": "string", "description": "SNV, Insertion, Deletion, MNV, Complex, or Indel" }
+        },
+        "required": ["chromosome", "position", "reference", "alternate", "type"]
+      },
+      "regulatoryRegions": {
+        "type": "array",
+        "description": "Candidate regulatory regions",
+        "items": {
+          "type": "object",
+          "properties": {
+            "chromosome": { "type": "string" },
+            "start": { "type": "integer" },
+            "end": { "type": "integer" },
+            "type": { "type": "string", "description": "promoter/enhancer/silencer/etc." },
+            "cellType": { "type": ["string", "null"] },
+            "score": { "type": ["number", "null"] },
+            "transcriptionFactors": { "type": "array", "items": { "type": "string" } }
+          },
+          "required": ["chromosome", "start", "end", "type"]
+        }
+      }
+    },
+    "required": ["variant", "regulatoryRegions"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "annotations": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "chromosome": { "type": "string" },
+            "start": { "type": "integer" },
+            "end": { "type": "integer" },
+            "featureType": { "type": "string" },
+            "cellType": { "type": ["string", "null"] },
+            "score": { "type": ["number", "null"] },
+            "transcriptionFactors": { "type": "array", "items": { "type": "string" } }
+          },
+          "required": ["chromosome", "start", "end", "featureType", "transcriptionFactors"]
+        }
+      }
+    },
+    "required": ["annotations"]
+  },
+  "errors": [
+    { "code": 1001, "message": "variant cannot be null" },
+    { "code": 1001, "message": "regulatoryRegions cannot be null" }
+  ],
+  "examples": [
+    {
+      "name": "Variant overlapping a promoter",
+      "input": {
+        "variant": { "chromosome": "chr1", "position": 100, "reference": "A", "alternate": "G", "type": "SNV" },
+        "regulatoryRegions": [
+          { "chromosome": "chr1", "start": 50, "end": 150, "type": "promoter", "transcriptionFactors": [] },
+          { "chromosome": "chr1", "start": 200, "end": 300, "type": "enhancer", "transcriptionFactors": [] }
+        ]
+      },
+      "output": { "annotations": [ { "chromosome": "chr1", "start": 50, "end": 150, "featureType": "promoter" } ] }
+    },
+    {
+      "name": "No overlap",
+      "input": {
+        "variant": { "chromosome": "chr1", "position": 100, "reference": "A", "alternate": "G", "type": "SNV" },
+        "regulatoryRegions": [ { "chromosome": "chr1", "start": 200, "end": 300, "type": "enhancer", "transcriptionFactors": [] } ]
+      },
+      "output": { "annotations": [] }
+    }
+  ]
+}
