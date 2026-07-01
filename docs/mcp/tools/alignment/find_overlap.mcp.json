@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_overlap",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceAssembler.FindOverlap",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L221",
+  "description": "Detect the longest suffix-of-sequence1 / prefix-of-sequence2 overlap satisfying minOverlap and minIdentity thresholds. Returns null if no qualifying overlap exists.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence1": {
+        "type": "string",
+        "description": "First sequence (suffix candidate)."
+      },
+      "sequence2": {
+        "type": "string",
+        "description": "Second sequence (prefix candidate)."
+      },
+      "minOverlap": {
+        "type": "integer",
+        "description": "Minimum overlap length (bp).",
+        "default": 20
+      },
+      "minIdentity": {
+        "type": "number",
+        "description": "Minimum identity ratio (0.0-1.0).",
+        "default": 0.9
+      }
+    },
+    "required": [
+      "sequence1",
+      "sequence2"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "overlap": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "description": "Overlap descriptor (length, position1, position2) or null if none qualifies."
+      }
+    },
+    "required": [
+      "overlap"
+    ]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "Overlap found",
+      "input": {
+        "sequence1": "AAAAACCCCC",
+        "sequence2": "CCCCCGGGGG",
+        "minOverlap": 5,
+        "minIdentity": 0.9
+      },
+      "output": {
+        "overlap": {
+          "length": 5,
+          "position1": 5,
+          "position2": 0
+        }
+      }
+    },
+    {
+      "name": "No overlap",
+      "input": {
+        "sequence1": "AAAAA",
+        "sequence2": "TTTTT",
+        "minOverlap": 5,
+        "minIdentity": 0.9
+      },
+      "output": {
+        "overlap": null
+      }
+    }
+  ]
+}
