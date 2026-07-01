@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_promoter_motifs",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomeAnnotator.FindPromoterMotifs",
+  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L685",
+  "description": "Find -10 (Pribnow/TATA) and -35 box bacterial promoter motifs.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "dnaSequence": { "type": "string", "description": "DNA sequence to scan", "minLength": 1 }
+    },
+    "required": ["dnaSequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "motifs": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": { "type": "integer", "description": "0-based start of the motif" },
+            "type": { "type": "string", "description": "'-35 box' or '-10 box'" },
+            "sequence": { "type": "string", "description": "Matched motif" },
+            "score": { "type": "number", "description": "Probability-weighted match score (1.0 for full consensus)" }
+          },
+          "required": ["position", "type", "sequence", "score"]
+        }
+      }
+    },
+    "required": ["motifs"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Full -35 box consensus TTGACA",
+      "input": { "dnaSequence": "GGGGGTTGACAGGGGG" },
+      "output": { "motifs": [ { "position": 5, "type": "-35 box", "sequence": "TTGACA", "score": 1.0 } ] }
+    },
+    {
+      "name": "Full -10 box consensus TATAAT",
+      "input": { "dnaSequence": "CCCCCTATAATCCCCC" },
+      "output": { "motifs": [ { "position": 5, "type": "-10 box", "sequence": "TATAAT", "score": 1.0 } ] }
+    }
+  ]
+}

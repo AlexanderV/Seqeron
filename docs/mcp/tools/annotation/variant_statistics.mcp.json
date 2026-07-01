@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "variant_statistics",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "VariantCaller.CalculateStatistics",
+  "docRef": "Seqeron.Genomics.Annotation/VariantCaller.cs#L229",
+  "description": "Compute summary variant statistics between reference and query (totals, Ti/Tv, density).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "reference": { "type": "string", "description": "Reference DNA sequence", "minLength": 1 },
+      "query": { "type": "string", "description": "Query DNA sequence", "minLength": 1 }
+    },
+    "required": ["reference", "query"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "totalVariants": { "type": "integer" },
+      "snps": { "type": "integer" },
+      "insertions": { "type": "integer" },
+      "deletions": { "type": "integer" },
+      "tiTvRatio": { "type": "number" },
+      "variantDensity": { "type": "number", "description": "Variants per 1000 reference bases" },
+      "referenceLength": { "type": "integer" },
+      "queryLength": { "type": "integer" }
+    },
+    "required": ["totalVariants", "snps", "insertions", "deletions", "tiTvRatio", "variantDensity", "referenceLength", "queryLength"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Reference cannot be null or empty" },
+    { "code": 1001, "message": "Query cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Single SNP",
+      "input": { "reference": "ATGC", "query": "ATTC" },
+      "output": { "totalVariants": 1, "snps": 1, "insertions": 0, "deletions": 0, "tiTvRatio": 0.0, "variantDensity": 250.0, "referenceLength": 4, "queryLength": 4 }
+    },
+    {
+      "name": "Identical sequences",
+      "input": { "reference": "ATGCATGC", "query": "ATGCATGC" },
+      "output": { "totalVariants": 0, "snps": 0, "insertions": 0, "deletions": 0, "tiTvRatio": 0.0, "variantDensity": 0.0, "referenceLength": 8, "queryLength": 8 }
+    }
+  ]
+}

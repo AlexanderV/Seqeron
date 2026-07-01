@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "classify_mutation",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "VariantCaller.ClassifyMutation",
+  "docRef": "Seqeron.Genomics.Annotation/VariantCaller.cs#L184",
+  "description": "Classify a SNP as transition, transversion, or other.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "variant": {
+        "type": "object",
+        "description": "Variant to classify (must include type and ref/alt alleles)",
+        "properties": {
+          "position": { "type": "integer" },
+          "referenceAllele": { "type": "string" },
+          "alternateAllele": { "type": "string" },
+          "type": { "type": "string", "description": "SNP / Insertion / Deletion / MNP / Complex" },
+          "queryPosition": { "type": "integer" }
+        },
+        "required": ["referenceAllele", "alternateAllele", "type"]
+      }
+    },
+    "required": ["variant"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "mutationType": { "type": "string", "description": "'Transition', 'Transversion', or 'Other'" }
+    },
+    "required": ["mutationType"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Variant cannot be null" },
+    { "code": 1001, "message": "Variant alleles cannot be empty" }
+  ],
+  "examples": [
+    {
+      "name": "A>G transition",
+      "input": { "variant": { "position": 0, "referenceAllele": "A", "alternateAllele": "G", "type": "SNP", "queryPosition": 0 } },
+      "output": { "mutationType": "Transition" }
+    },
+    {
+      "name": "A>C transversion",
+      "input": { "variant": { "position": 0, "referenceAllele": "A", "alternateAllele": "C", "type": "SNP", "queryPosition": 0 } },
+      "output": { "mutationType": "Transversion" }
+    }
+  ]
+}

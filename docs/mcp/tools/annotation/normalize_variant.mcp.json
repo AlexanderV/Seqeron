@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "normalize_variant",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "VariantAnnotator.NormalizeVariant",
+  "docRef": "Seqeron.Genomics.Annotation/VariantAnnotator.cs#L228",
+  "description": "Normalize a variant by left-trimming common prefixes and right-trimming common suffixes; classifies type.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "chromosome": { "type": "string", "description": "Chromosome / contig identifier", "minLength": 1 },
+      "position": { "type": "integer", "description": "1-based genomic position of the reference allele" },
+      "reference": { "type": "string", "description": "Reference allele", "minLength": 1 },
+      "alternate": { "type": "string", "description": "Alternate allele", "minLength": 1 },
+      "referenceSequence": { "type": ["string", "null"], "description": "Optional reference sequence (reserved for left-alignment)" }
+    },
+    "required": ["chromosome", "position", "reference", "alternate"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "variant": {
+        "type": "object",
+        "properties": {
+          "chromosome": { "type": "string" },
+          "position": { "type": "integer" },
+          "reference": { "type": "string" },
+          "alternate": { "type": "string" },
+          "type": { "type": "string" },
+          "quality": { "type": ["number", "null"] },
+          "id": { "type": ["string", "null"] }
+        },
+        "required": ["chromosome", "position", "reference", "alternate", "type"]
+      }
+    },
+    "required": ["variant"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Chromosome cannot be null or empty" },
+    { "code": 1001, "message": "Reference allele cannot be null or empty" },
+    { "code": 1001, "message": "Alternate allele cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Common suffix trimmed",
+      "input": { "chromosome": "chr1", "position": 100, "reference": "ACG", "alternate": "ATG" },
+      "output": { "variant": { "chromosome": "chr1", "position": 101, "reference": "C", "alternate": "T", "type": "SNV" } }
+    },
+    {
+      "name": "Already-minimal SNV",
+      "input": { "chromosome": "chrX", "position": 100, "reference": "A", "alternate": "T" },
+      "output": { "variant": { "chromosome": "chrX", "position": 100, "reference": "A", "alternate": "T", "type": "SNV" } }
+    }
+  ]
+}

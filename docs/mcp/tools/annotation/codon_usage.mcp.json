@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "codon_usage",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomeAnnotator.GetCodonUsage",
+  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L1101",
+  "description": "Count codon occurrences (in-frame, 5'->3') for a coding sequence.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "dnaSequence": { "type": "string", "description": "Coding DNA sequence (length should be a multiple of 3)", "minLength": 1 }
+    },
+    "required": ["dnaSequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "usage": { "type": "object", "description": "Codon -> occurrence count", "additionalProperties": { "type": "integer" } }
+    },
+    "required": ["usage"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Repeated start codon",
+      "input": { "dnaSequence": "ATGATGAAATAA" },
+      "output": { "usage": { "ATG": 2, "AAA": 1, "TAA": 1 } }
+    },
+    {
+      "name": "Partial trailing codon ignored",
+      "input": { "dnaSequence": "ATGAT" },
+      "output": { "usage": { "ATG": 1 } }
+    }
+  ]
+}

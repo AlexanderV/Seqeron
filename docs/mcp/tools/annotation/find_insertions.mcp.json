@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_insertions",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "VariantCaller.FindInsertions",
+  "docRef": "Seqeron.Genomics.Annotation/VariantCaller.cs#L153",
+  "description": "Detect only insertions between two DNA sequences.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "reference": { "type": "string", "description": "Reference DNA sequence", "minLength": 1 },
+      "query": { "type": "string", "description": "Query DNA sequence", "minLength": 1 }
+    },
+    "required": ["reference", "query"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "variants": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": { "type": "integer", "description": "0-based reference position of the insertion" },
+            "referenceAllele": { "type": "string", "description": "Gap sentinel '-'" },
+            "alternateAllele": { "type": "string", "description": "The inserted base(s)" },
+            "type": { "type": "string", "description": "Always 'Insertion'" },
+            "queryPosition": { "type": "integer" }
+          },
+          "required": ["position", "referenceAllele", "alternateAllele", "type", "queryPosition"]
+        }
+      }
+    },
+    "required": ["variants"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Reference cannot be null or empty" },
+    { "code": 1001, "message": "Query cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Single inserted base",
+      "input": { "reference": "ATGCAT", "query": "ATGTCAT" },
+      "output": { "variants": [ { "position": 3, "referenceAllele": "-", "alternateAllele": "T", "type": "Insertion", "queryPosition": 3 } ] }
+    },
+    {
+      "name": "Substitution-only input has no insertions",
+      "input": { "reference": "ATGCATGC", "query": "ATGAATGC" },
+      "output": { "variants": [] }
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_ribosome_binding_sites",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomeAnnotator.FindRibosomeBindingSites",
+  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L280",
+  "description": "Locate Shine-Dalgarno (ribosome binding site) motifs upstream of forward-strand ORFs.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "dnaSequence": { "type": "string", "description": "DNA sequence to scan", "minLength": 1 },
+      "upstreamWindow": { "type": "integer", "description": "Upstream window size (nt) to search before each ORF start", "default": 20 },
+      "minDistance": { "type": "integer", "description": "Minimum aligned distance from motif to start codon (nt)", "default": 4 },
+      "maxDistance": { "type": "integer", "description": "Maximum aligned distance from motif to start codon (nt)", "default": 15 }
+    },
+    "required": ["dnaSequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "sites": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": { "type": "integer", "description": "0-based forward-strand index of the motif's 5' base" },
+            "sequence": { "type": "string", "description": "The matched Shine-Dalgarno motif (AGGAGG family)" },
+            "score": { "type": "number", "description": "Motif quality score (higher = stronger/longer consensus)" }
+          },
+          "required": ["position", "sequence", "score"]
+        }
+      }
+    },
+    "required": ["sites"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Canonical AGGAGG at 8 nt spacing",
+      "input": { "dnaSequence": "CCCCCCCCCCAGGAGGCCCCCCCCATG...TAA", "upstreamWindow": 20, "minDistance": 4, "maxDistance": 15 },
+      "output": { "sites": [ { "position": 10, "sequence": "AGGAGG", "score": 1.0 } ] }
+    },
+    {
+      "name": "Too close (aligned spacing 2) filters the full consensus",
+      "input": { "dnaSequence": "CCCCCCCCCCAGGAGGCCATG...TAA", "upstreamWindow": 20, "minDistance": 4, "maxDistance": 15 },
+      "output": { "sites": [] }
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_repetitive_elements",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomeAnnotator.FindRepetitiveElements",
+  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L875",
+  "description": "Find tandem and inverted repeats in a DNA sequence.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "dnaSequence": { "type": "string", "description": "DNA sequence to scan", "minLength": 1 },
+      "minRepeatLength": { "type": "integer", "description": "Minimum repeat length (nt)", "default": 10, "minimum": 1 },
+      "minCopies": { "type": "integer", "description": "Minimum number of tandem copies (>= 2)", "default": 2, "minimum": 2 }
+    },
+    "required": ["dnaSequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "repeats": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "start": { "type": "integer", "description": "0-based inclusive start" },
+            "end": { "type": "integer", "description": "Exclusive end" },
+            "type": { "type": "string", "description": "'tandem_repeat' or 'inverted_repeat'" },
+            "sequence": { "type": "string", "description": "The repeat element sequence" }
+          },
+          "required": ["start", "end", "type", "sequence"]
+        }
+      }
+    },
+    "required": ["repeats"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Tandem repeat of ATTCG x3",
+      "input": { "dnaSequence": "ATTCGATTCGATTCG", "minRepeatLength": 5, "minCopies": 2 },
+      "output": { "repeats": [ { "start": 0, "end": 15, "type": "tandem_repeat", "sequence": "ATTCGATTCGATTCG" } ] }
+    },
+    {
+      "name": "Inverted repeat (EcoRI palindrome)",
+      "input": { "dnaSequence": "GAATTC", "minRepeatLength": 3, "minCopies": 2 },
+      "output": { "repeats": [ { "start": 0, "end": 6, "type": "inverted_repeat", "sequence": "GAATTC" } ] }
+    }
+  ]
+}

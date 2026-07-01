@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "predict_variant_effect",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "VariantCaller.PredictEffect",
+  "docRef": "Seqeron.Genomics.Annotation/VariantCaller.cs#L269",
+  "description": "Predict the protein-level effect of a variant in a coding sequence.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "variant": {
+        "type": "object",
+        "description": "Variant to evaluate",
+        "properties": {
+          "position": { "type": "integer" },
+          "referenceAllele": { "type": "string" },
+          "alternateAllele": { "type": "string" },
+          "type": { "type": "string" },
+          "queryPosition": { "type": "integer" }
+        },
+        "required": ["referenceAllele", "alternateAllele", "type"]
+      },
+      "codingSequence": { "type": "string", "description": "Coding DNA sequence (CDS)", "minLength": 1 },
+      "variantPosition": { "type": "integer", "description": "0-based position of the variant within the coding sequence" }
+    },
+    "required": ["variant", "codingSequence", "variantPosition"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "effect": { "type": "string", "description": "Synonymous / Missense / Nonsense / StopLoss / Frameshift / Unknown" }
+    },
+    "required": ["effect"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Variant cannot be null" },
+    { "code": 1001, "message": "Coding sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Synonymous (TTA->TTG, both Leu)",
+      "input": { "variant": { "position": 2, "referenceAllele": "A", "alternateAllele": "G", "type": "SNP", "queryPosition": 2 }, "codingSequence": "TTA", "variantPosition": 2 },
+      "output": { "effect": "Synonymous" }
+    },
+    {
+      "name": "Nonsense (TAT->TAA, Tyr->Stop)",
+      "input": { "variant": { "position": 2, "referenceAllele": "T", "alternateAllele": "A", "type": "SNP", "queryPosition": 2 }, "codingSequence": "TAT", "variantPosition": 2 },
+      "output": { "effect": "Nonsense" }
+    }
+  ]
+}

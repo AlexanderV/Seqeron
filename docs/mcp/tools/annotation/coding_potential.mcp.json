@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "coding_potential",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomeAnnotator.CalculateCodingPotential",
+  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L794",
+  "description": "Score the coding potential of a DNA sequence using the CPAT hexamer usage-bias log-likelihood (Wang et al. 2013). Positive = coding, negative = non-coding.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "DNA sequence to score", "minLength": 1 },
+      "codingHexamerFrequencies": { "type": "object", "description": "In-frame 6-mer -> count/proportion from a coding (CDS) training set", "additionalProperties": { "type": "number" } },
+      "noncodingHexamerFrequencies": { "type": "object", "description": "In-frame 6-mer -> count/proportion from a non-coding (background) training set", "additionalProperties": { "type": "number" } }
+    },
+    "required": ["sequence", "codingHexamerFrequencies", "noncodingHexamerFrequencies"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "score": { "type": "number", "description": "Mean per-hexamer log-likelihood ratio; positive = coding, negative = non-coding, 0 when nothing scorable" }
+    },
+    "required": ["score"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Two in-frame hexamers",
+      "input": { "sequence": "ATGAAACCC", "codingHexamerFrequencies": { "ATGAAA": 8, "AAACCC": 2 }, "noncodingHexamerFrequencies": { "ATGAAA": 2, "AAACCC": 4 } },
+      "output": { "score": 0.34657359027997264 }
+    },
+    {
+      "name": "Single in-both hexamer",
+      "input": { "sequence": "ATGAAA", "codingHexamerFrequencies": { "ATGAAA": 4 }, "noncodingHexamerFrequencies": { "ATGAAA": 1 } },
+      "output": { "score": 1.3862943611198906 }
+    }
+  ]
+}

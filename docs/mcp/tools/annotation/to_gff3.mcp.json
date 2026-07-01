@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "to_gff3",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomeAnnotator.ToGff3",
+  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L538",
+  "description": "Serialize gene annotations to GFF3 lines (with header).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "annotations": {
+        "type": "array",
+        "minItems": 1,
+        "description": "Gene annotations to serialize",
+        "items": {
+          "type": "object",
+          "properties": {
+            "geneId": { "type": "string" },
+            "start": { "type": "integer", "description": "0-based start (serialized as 1-based)" },
+            "end": { "type": "integer" },
+            "strand": { "type": "string", "description": "'+' or '-'" },
+            "type": { "type": "string" },
+            "product": { "type": "string" },
+            "attributes": { "type": "object" }
+          },
+          "required": ["geneId", "start", "end", "strand", "type", "product"]
+        }
+      },
+      "seqId": { "type": "string", "description": "Sequence identifier for column 1", "default": "seq1" }
+    },
+    "required": ["annotations"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "lines": { "type": "array", "items": { "type": "string" }, "description": "GFF3 lines; first is '##gff-version 3'" }
+    },
+    "required": ["lines"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Annotations cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Single CDS to GFF3",
+      "input": { "annotations": [ { "geneId": "gene1", "start": 99, "end": 500, "strand": "+", "type": "CDS", "product": "hypothetical protein", "attributes": { "frame": "1" } } ], "seqId": "chr1" },
+      "output": { "lines": [ "##gff-version 3", "chr1\t.\tCDS\t100\t500\t.\t+\t0\tID=gene1;product=hypothetical protein;frame=1" ] }
+    }
+  ]
+}
