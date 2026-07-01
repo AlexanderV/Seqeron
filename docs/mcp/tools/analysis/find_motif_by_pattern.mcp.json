@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_motif_by_pattern",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ProteinMotifFinder.FindMotifByPattern",
+  "docRef": "Seqeron.Genomics.Analysis/ProteinMotifFinder.cs#L198",
+  "description": "Find all (overlapping, case-insensitive) matches of a .NET regex in a protein sequence. Zero-width captures are skipped; pathological patterns yield no matches rather than hanging.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "proteinSequence": { "type": "string", "description": "Protein sequence", "minLength": 1 },
+      "regexPattern": { "type": "string", "description": ".NET regex pattern", "minLength": 1 },
+      "motifName": { "type": "string", "description": "Motif display name (default Custom)", "default": "Custom" },
+      "patternId": { "type": "string", "description": "Pattern identifier (default empty)", "default": "" }
+    },
+    "required": ["proteinSequence", "regexPattern"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "start": { "type": "integer" },
+            "end": { "type": "integer" },
+            "sequence": { "type": "string" },
+            "motifName": { "type": "string" },
+            "pattern": { "type": "string" },
+            "score": { "type": "number" },
+            "eValue": { "type": "number" }
+          },
+          "required": ["start", "end", "sequence", "motifName", "pattern", "score", "eValue"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1001, "message": "Regex pattern cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Single-residue match K",
+      "input": { "proteinSequence": "MKV", "regexPattern": "K", "motifName": "Lys" },
+      "output": { "items": [ { "start": 1, "end": 1, "sequence": "K", "motifName": "Lys" } ] }
+    },
+    {
+      "name": "No match",
+      "input": { "proteinSequence": "MKV", "regexPattern": "W" },
+      "output": { "items": [] }
+    }
+  ]
+}
