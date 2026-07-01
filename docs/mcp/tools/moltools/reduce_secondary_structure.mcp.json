@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "reduce_secondary_structure",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "CodonOptimizer.ReduceSecondaryStructure",
+  "docRef": "Seqeron.Genomics.MolTools/CodonOptimizer.cs#L584",
+  "description": "Greedy synonymous-codon swap that lowers local self-complementarity to reduce mRNA secondary structure.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "coding_sequence": { "type": "string", "description": "Coding sequence (DNA or RNA).", "minLength": 1 },
+      "target_organism": { "type": "object", "description": "Preset id or inline custom table." },
+      "window_size": { "type": "integer", "description": "Sliding-window size (nt).", "minimum": 1, "default": 40 }
+    },
+    "required": ["coding_sequence", "target_organism"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "optimizedSequence": { "type": "string", "description": "Sequence with reduced local self-complementarity." }
+    },
+    "required": ["optimizedSequence"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Coding sequence cannot be null or empty" },
+    { "code": 1002, "message": "Window size must be positive" }
+  ],
+  "examples": [
+    {
+      "name": "Below window -> unchanged",
+      "input": { "coding_sequence": "ATGATG", "target_organism": { "preset": "EColiK12" }, "window_size": 40 },
+      "output": { "optimizedSequence": "ATGATG" }
+    },
+    {
+      "name": "Processed sequence keeps length",
+      "input": { "coding_sequence": "GCGGCGGCGGCGGCGGCGGCGGCGGCGGCGGCGGCGGCGGCGGCG", "target_organism": { "preset": "EColiK12" }, "window_size": 40 },
+      "output": { "optimizedSequence": "same length (45 nt), protein preserved" }
+    }
+  ]
+}

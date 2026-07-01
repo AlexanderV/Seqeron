@@ -387,12 +387,17 @@ public class MolToolsTools
         return new OptimizedSequenceResult(CodonOptimizer.RemoveRestrictionSites(coding_sequence, restriction_sites, table));
     }
 
-    [McpServerTool, Description("Greedy synonymous-codon swap that lowers a heuristic local self-complementarity score within a sliding window. Sequences shorter than the window are returned unchanged.")]
+    [McpServerTool(Name = "reduce_secondary_structure", Title = "MolTools — Reduce mRNA Secondary Structure", ReadOnly = true), Description("Greedy synonymous-codon swap that lowers a heuristic local self-complementarity score within a sliding window, reducing mRNA secondary structure while preserving the protein. Sequences shorter than window_size are returned unchanged. Call to relax strong secondary structure in a coding sequence.")]
     public static OptimizedSequenceResult reduce_secondary_structure(
         [Description("Coding sequence (DNA or RNA).")] string coding_sequence,
         [Description("Target organism: preset id or inline custom table.")] CodonUsageTableInput target_organism,
         [Description("Sliding-window size in nucleotides (default 40).")] int window_size = 40)
     {
+        if (string.IsNullOrEmpty(coding_sequence))
+            throw new System.ArgumentException("Coding sequence cannot be null or empty.", nameof(coding_sequence));
+        if (window_size <= 0)
+            throw new System.ArgumentException("Window size must be positive.", nameof(window_size));
+
         var table = ResolveCodonUsageTable(target_organism);
         return new OptimizedSequenceResult(CodonOptimizer.ReduceSecondaryStructure(coding_sequence, table, window_size));
     }
