@@ -279,11 +279,14 @@ public class MolToolsTools
             result.Changes.Select(c => new CodonChange(c.Position, c.Original, c.Optimized)).ToList());
     }
 
-    [McpServerTool, Description("Computes CAI for a sequence against an organism CodonUsageTable (frequency table — distinct from codon_adaptation_index, which takes a reference RSCU dictionary). Codons without synonymous-group data are skipped; per-codon adaptiveness is clamped at 1e-6 to avoid ln(0) on incomplete custom tables.")]
+    [McpServerTool(Name = "cai_from_organism_table", Title = "MolTools — CAI from Codon-Usage Table", ReadOnly = true), Description("Computes the Codon Adaptation Index (Sharp & Li 1987) for a coding sequence against an organism codon-usage FREQUENCY table (distinct from codon_adaptation_index, which takes a reference RSCU dictionary). CAI is the geometric mean of per-codon relative adaptiveness w = f(codon)/max f(synonymous). Codons without synonymous-group data are skipped; w is clamped at 1e-6 to avoid ln(0) on incomplete custom tables. Call when scoring how well a gene matches an organism's preferred codons.")]
     public static CaiResult cai_from_organism_table(
         [Description("Coding sequence (DNA or RNA).")] string coding_sequence,
         [Description("Target organism: preset id (EColiK12 | Yeast | Human) or inline custom table.")] CodonUsageTableInput target_organism)
     {
+        if (string.IsNullOrEmpty(coding_sequence))
+            throw new System.ArgumentException("Coding sequence cannot be null or empty.", nameof(coding_sequence));
+
         var table = ResolveCodonUsageTable(target_organism);
         return new CaiResult(CodonOptimizer.CalculateCAI(coding_sequence, table));
     }
