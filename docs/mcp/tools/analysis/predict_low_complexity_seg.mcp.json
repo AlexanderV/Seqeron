@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "predict_low_complexity_seg",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "DisorderPredictor.PredictLowComplexityRegions",
+  "docRef": "Seqeron.Genomics.Analysis/DisorderPredictor.cs#L682",
+  "description": "SEG algorithm (Wootton & Federhen 1993/1996) for low-complexity protein regions: sliding-window Shannon entropy with a K1 trigger window and K2 extension, classifying each region by its dominant residue type.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "Protein sequence", "minLength": 1 },
+      "triggerWindow": { "type": "integer", "description": "Trigger window length (default 12)", "default": 12 },
+      "triggerThreshold": { "type": "number", "description": "K1 trigger entropy threshold in bits (default 2.2)", "default": 2.2 },
+      "extensionThreshold": { "type": "number", "description": "K2 extension entropy threshold in bits (default 2.5)", "default": 2.5 },
+      "minLength": { "type": "integer", "description": "Minimum reported region length (default 1)", "default": 1 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "start": { "type": "integer" },
+            "end": { "type": "integer" },
+            "type": { "type": "string" }
+          },
+          "required": ["start", "end", "type"]
+        }
+      }
+    },
+    "required": ["items"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Poly-Q region",
+      "input": { "sequence": "QQQQQQQQQQQQQQQQQQQQQQQQQQ" },
+      "output": { "items": [ { "start": 0, "end": 25, "type": "Q-rich" } ] }
+    },
+    {
+      "name": "High complexity => none",
+      "input": { "sequence": "ACDEFGHIKLMNPQRSTVWYACDEFGHIKLMNPQRSTVWY" },
+      "output": { "items": [] }
+    }
+  ]
+}
