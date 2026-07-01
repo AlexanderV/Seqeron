@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "predict_pathogenicity",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "VariantAnnotator.PredictPathogenicity",
+  "docRef": "Seqeron.Genomics.Annotation/VariantAnnotator.cs#L1004",
+  "description": "ACMG-like pathogenicity prediction combining annotation, frequency, conservation, ClinVar, and functional evidence.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "annotation": { "type": "object", "description": "Variant annotation (one transcript), including consequence and impact" },
+      "populationFrequency": { "type": ["number", "null"], "description": "Population allele frequency (0..1)" },
+      "conservationScore": { "type": ["number", "null"], "description": "Conservation score (e.g. PhyloP)" },
+      "inClinvar": { "type": "boolean", "description": "Whether variant is present in ClinVar", "default": false },
+      "clinvarSignificance": { "type": ["string", "null"], "description": "ClinVar clinical significance string" },
+      "functionalEvidence": { "type": ["array", "null"], "items": { "type": "string" }, "description": "Functional evidence labels (e.g. 'LOF confirmed')" }
+    },
+    "required": ["annotation"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "prediction": {
+        "type": "object",
+        "properties": {
+          "classification": { "type": "string", "description": "Pathogenic / LikelyPathogenic / UncertainSignificance / LikelyBenign / Benign" },
+          "confidenceScore": { "type": "number" },
+          "evidenceCriteria": { "type": "array", "items": { "type": "string" } },
+          "clinicalSignificance": { "type": ["number", "null"] },
+          "isActionable": { "type": "boolean" }
+        },
+        "required": ["classification", "confidenceScore", "evidenceCriteria", "isActionable"]
+      }
+    },
+    "required": ["prediction"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Annotation cannot be null" }
+  ],
+  "examples": [
+    {
+      "name": "High-impact rare variant is (likely) pathogenic",
+      "input": { "annotation": { "consequence": "StopGained", "impact": "High" }, "populationFrequency": 0.00001 },
+      "output": { "prediction": { "classification": "LikelyPathogenic", "isActionable": true } }
+    },
+    {
+      "name": "Common synonymous variant is (likely) benign",
+      "input": { "annotation": { "consequence": "SynonymousVariant", "impact": "Low" }, "populationFrequency": 0.10 },
+      "output": { "prediction": { "classification": "LikelyBenign", "isActionable": false } }
+    }
+  ]
+}
