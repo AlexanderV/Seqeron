@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "bulge_loop_energy",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RnaSecondaryStructure.CalculateBulgeLoopEnergy",
+  "docRef": "Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L894",
+  "description": "Free energy (kcal/mol) of an RNA bulge loop using Turner 2004 parameters: n=1 uses stacking + special-C bonus + degeneracy; n>1 uses initiation + terminal AU/GU penalties.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "bulgeSize": { "type": "integer", "description": "Number of unpaired bases in the bulge" },
+      "bulgedBase": { "type": "string", "description": "Bulged nucleotide (single char)", "minLength": 1, "maxLength": 1 },
+      "pair5_base1": { "type": "string", "description": "5' base of the pair on the 5' side", "minLength": 1, "maxLength": 1 },
+      "pair5_base2": { "type": "string", "description": "3' base of the pair on the 5' side", "minLength": 1, "maxLength": 1 },
+      "pair3_base1": { "type": "string", "description": "5' base of the pair on the 3' side", "minLength": 1, "maxLength": 1 },
+      "pair3_base2": { "type": "string", "description": "3' base of the pair on the 3' side", "minLength": 1, "maxLength": 1 },
+      "numStates": { "type": "integer", "description": "Equivalent states for degeneracy entropy (n=1 only)", "default": 1, "minimum": 1 }
+    },
+    "required": ["bulgeSize", "bulgedBase", "pair5_base1", "pair5_base2", "pair3_base1", "pair3_base2"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "energy": { "type": "number", "description": "Bulge-loop free energy in kcal/mol (rounded to 2 dp)" }
+    },
+    "required": ["energy"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Expected a single character (length-1 string)" }
+  ],
+  "examples": [
+    {
+      "name": "Single-nt bulge with stacking",
+      "input": { "bulgeSize": 1, "bulgedBase": "A", "pair5_base1": "G", "pair5_base2": "C", "pair3_base1": "G", "pair3_base2": "C" },
+      "output": { "energy": 0.54 }
+    },
+    {
+      "name": "Multi-nt bulge terminal penalty",
+      "input": { "bulgeSize": 3, "bulgedBase": "A", "pair5_base1": "G", "pair5_base2": "C", "pair3_base1": "A", "pair3_base2": "U" },
+      "output": { "energy": 3.65 }
+    }
+  ]
+}
