@@ -57,10 +57,13 @@ public class MolToolsTools
         return new TmResult(PrimerDesigner.CalculateMeltingTemperatureWithSalt(primer, na_concentration));
     }
 
-    [McpServerTool, Description("Length of the longest run of identical nucleotides in a sequence (case-insensitive).")]
+    [McpServerTool(Name = "longest_homopolymer", Title = "MolTools — Longest Homopolymer Run", ReadOnly = true), Description("Returns the length of the longest run of identical consecutive nucleotides (e.g. AAAA = 4) in a sequence, case-insensitive. Call to flag homopolymer stretches that hurt primer/probe quality.")]
     public static HomopolymerLengthResult longest_homopolymer(
         [Description("Nucleotide sequence.")] string sequence)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+
         return new HomopolymerLengthResult(PrimerDesigner.FindLongestHomopolymer(sequence));
     }
 
