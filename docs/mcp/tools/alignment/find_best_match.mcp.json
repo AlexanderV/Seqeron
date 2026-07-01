@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_best_match",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ApproximateMatcher.FindBestMatch",
+  "docRef": "Seqeron.Genomics.Alignment/ApproximateMatcher.cs#L248",
+  "description": "Return the single best (minimum Hamming distance) fixed-length window of pattern inside sequence; ties resolve to the leftmost window and an exact (distance 0) match short-circuits the scan.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "Sequence to search in.",
+        "minLength": 1
+      },
+      "pattern": {
+        "type": "string",
+        "description": "Pattern to find.",
+        "minLength": 1
+      }
+    },
+    "required": [
+      "sequence",
+      "pattern"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "match": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "description": "Best match (position, matchedSequence, distance, mismatchPositions, mismatchType), or null if pattern is longer than sequence."
+      }
+    },
+    "required": [
+      "match"
+    ]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Sequence cannot be null or empty"
+    },
+    {
+      "code": 1005,
+      "message": "Pattern cannot be null or empty"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Exact match",
+      "input": {
+        "sequence": "ACGTACGT",
+        "pattern": "ACG"
+      },
+      "output": {
+        "match": {
+          "position": 0,
+          "matchedSequence": "ACG",
+          "distance": 0,
+          "mismatchPositions": [],
+          "mismatchType": "Substitution"
+        }
+      }
+    },
+    {
+      "name": "Best imperfect",
+      "input": {
+        "sequence": "AAAA",
+        "pattern": "TT"
+      },
+      "output": {
+        "match": {
+          "position": 0,
+          "matchedSequence": "AA",
+          "distance": 2,
+          "mismatchPositions": [
+            0,
+            1
+          ],
+          "mismatchType": "Substitution"
+        }
+      }
+    }
+  ]
+}
