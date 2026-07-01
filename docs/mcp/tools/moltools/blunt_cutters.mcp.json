@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "blunt_cutters",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RestrictionAnalyzer.GetBluntCutters",
+  "docRef": "Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs#L107",
+  "description": "List all built-in restriction enzymes that produce blunt ends (both strands cut at the same position).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {},
+    "required": []
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "enzymes": {
+        "type": "array",
+        "description": "Blunt-cutting restriction enzymes.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string", "description": "Enzyme name." },
+            "recognitionSequence": { "type": "string", "description": "Recognition sequence (IUPAC)." },
+            "cutPositionForward": { "type": "integer", "description": "Cut offset on the forward strand." },
+            "cutPositionReverse": { "type": "integer", "description": "Cut offset on the reverse strand." },
+            "organism": { "type": "string", "description": "Source organism." }
+          },
+          "required": ["name", "recognitionSequence", "cutPositionForward", "cutPositionReverse", "organism"]
+        }
+      }
+    },
+    "required": ["enzymes"]
+  },
+  "errors": [],
+  "examples": [
+    {
+      "name": "List blunt cutters",
+      "input": {},
+      "output": {
+        "enzymes": [
+          { "name": "AluI", "recognitionSequence": "AGCT", "cutPositionForward": 2, "cutPositionReverse": 2, "organism": "Arthrobacter luteus" },
+          { "name": "EcoRV", "recognitionSequence": "GATATC", "cutPositionForward": 3, "cutPositionReverse": 3, "organism": "Escherichia coli" },
+          { "name": "SmaI", "recognitionSequence": "CCCGGG", "cutPositionForward": 3, "cutPositionReverse": 3, "organism": "Serratia marcescens" }
+        ]
+      }
+    },
+    {
+      "name": "Blunt cutter count",
+      "input": {},
+      "output": { "enzymes": "10 enzymes: AluI, RsaI, HaeIII, DpnI, EcoRV, SmaI, HincII, ScaI, StuI, SwaI" }
+    }
+  ]
+}

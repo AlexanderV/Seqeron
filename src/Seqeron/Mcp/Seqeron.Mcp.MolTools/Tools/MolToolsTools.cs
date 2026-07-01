@@ -141,7 +141,7 @@ public class MolToolsTools
         return new EnzymeListResult(RestrictionAnalyzer.GetEnzymesByCutLength(length).ToList());
     }
 
-    [McpServerTool, Description("Lists all built-in enzymes that produce blunt ends.")]
+    [McpServerTool(Name = "blunt_cutters", Title = "MolTools — Blunt-End Restriction Enzymes", ReadOnly = true), Description("Lists all built-in restriction enzymes that produce blunt ends (both strands cut at the same position). Call when the user wants blunt-cutting enzymes for blunt-end cloning.")]
     public static EnzymeListResult blunt_cutters()
     {
         return new EnzymeListResult(RestrictionAnalyzer.GetBluntCutters().ToList());
