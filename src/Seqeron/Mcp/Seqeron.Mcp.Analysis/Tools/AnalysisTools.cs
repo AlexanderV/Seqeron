@@ -29,7 +29,12 @@ public class AnalysisTools
         [Description("Sequence to analyze.")] string sequence,
         [Description("k-mer length (>0).")] int k)
     {
-        var counts = KmerAnalyzer.CountKmers(sequence ?? string.Empty, k);
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (k <= 0)
+            throw new ArgumentException("k must be positive", nameof(k));
+
+        var counts = KmerAnalyzer.CountKmers(sequence, k);
         return new KmerCountsResult(counts);
     }
 
@@ -746,12 +751,15 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "compression_ratio", Title = "Complexity — Compression Ratio", ReadOnly = true)]
-    [Description("Estimate sequence repetitiveness via unique-substring (LZ-style) ratio. Lower = more repetitive (range [0,1]).")]
+    [Description("Estimate sequence repetitiveness as the normalized Lempel-Ziv complexity c/(n/log_b(n)). Lower values indicate more repetitive/less complex sequences.")]
     public static CompressionRatioResult CompressionRatio(
         [Description("Sequence.")] string sequence)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
         var ratio = global::Seqeron.Genomics.Analysis.SequenceComplexity
-            .EstimateCompressionRatio(sequence ?? string.Empty);
+            .EstimateCompressionRatio(sequence);
         return new CompressionRatioResult(ratio);
     }
 
@@ -843,6 +851,11 @@ public class AnalysisTools
         [Description("Minimum ortholog identity (default 0.3).")] double minOrthologIdentity = 0.3,
         [Description("Minimum syntenic block size (default 3).")] int minSyntenicBlockSize = 3)
     {
+        if (genome1Genes is null || genome1Genes.Length == 0)
+            throw new ArgumentException("Genome 1 must contain at least one gene", nameof(genome1Genes));
+        if (genome2Genes is null || genome2Genes.Length == 0)
+            throw new ArgumentException("Genome 2 must contain at least one gene", nameof(genome2Genes));
+
         var r = global::Seqeron.Genomics.Analysis.ComparativeGenomics
             .CompareGenomes(ToGenes(genome1Genes), ToGenes(genome2Genes), minOrthologIdentity, minSyntenicBlockSize);
         return new CompareGenomesResult(
