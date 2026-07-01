@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "hairpin_loop_energy",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RnaSecondaryStructure.CalculateHairpinLoopEnergy",
+  "docRef": "Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L664",
+  "description": "Turner 2004 hairpin-loop free energy (kcal/mol): initiation by loop size plus terminal mismatch, with special tri/tetra/hexaloop, all-C and special-GU adjustments.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "loopSequence": { "type": "string", "description": "Loop residues between the closing pair", "minLength": 1 },
+      "closingBase5": { "type": "string", "minLength": 1, "maxLength": 1 },
+      "closingBase3": { "type": "string", "minLength": 1, "maxLength": 1 },
+      "specialGUClosure": { "type": "boolean", "default": false }
+    },
+    "required": ["loopSequence", "closingBase5", "closingBase3"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": { "energy": { "type": "number", "description": "kcal/mol" } },
+    "required": ["energy"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Expected a single character (length-1 string)" }
+  ],
+  "examples": [
+    { "name": "6-nt loop, A-U closure", "input": { "loopSequence": "AAAAAA", "closingBase5": "A", "closingBase3": "U" }, "output": { "energy": 4.6 } },
+    { "name": "Special triloop AAC, C-G closure", "input": { "loopSequence": "AAC", "closingBase5": "C", "closingBase3": "G" }, "output": { "energy": 6.8 } }
+  ]
+}
