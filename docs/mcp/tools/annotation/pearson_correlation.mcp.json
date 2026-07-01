@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "pearson_correlation",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "TranscriptomeAnalyzer.CalculatePearsonCorrelation",
+  "docRef": "Seqeron.Genomics.Annotation/TranscriptomeAnalyzer.cs#L1084",
+  "description": "Compute the Pearson product-moment correlation coefficient between two expression vectors of equal length.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "expression1": { "type": "array", "items": { "type": "number" }, "description": "First expression vector" },
+      "expression2": { "type": "array", "items": { "type": "number" }, "description": "Second expression vector (same length)" }
+    },
+    "required": ["expression1", "expression2"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "correlation": { "type": "number", "description": "Pearson r in [-1, 1]" }
+    },
+    "required": ["correlation"]
+  },
+  "errors": [
+    { "code": 1001, "message": "expression1 cannot be null" },
+    { "code": 1001, "message": "expression2 cannot be null" },
+    { "code": 1001, "message": "Expression vectors cannot be empty." },
+    { "code": 1001, "message": "Expression vectors must have equal length" }
+  ],
+  "examples": [
+    {
+      "name": "Perfect positive correlation",
+      "input": { "expression1": [1, 2, 3, 4, 5], "expression2": [2, 4, 6, 8, 10] },
+      "output": { "correlation": 1.0 }
+    },
+    {
+      "name": "Perfect negative correlation",
+      "input": { "expression1": [1, 2, 3, 4, 5], "expression2": [5, 4, 3, 2, 1] },
+      "output": { "correlation": -1.0 }
+    }
+  ]
+}
