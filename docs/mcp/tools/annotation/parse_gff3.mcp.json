@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "parse_gff3",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomeAnnotator.ParseGff3",
+  "docRef": "Seqeron.Genomics.Annotation/GenomeAnnotator.cs#L439",
+  "description": "Parse a GFF3 annotation document into structured features.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "gff3Text": { "type": "string", "description": "GFF3 document text (lines separated by newlines)", "minLength": 1 }
+    },
+    "required": ["gff3Text"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "features": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "featureId": { "type": "string", "description": "ID attribute, or 'feature_{n}' when absent" },
+            "type": { "type": "string", "description": "Column 3 feature type" },
+            "start": { "type": "integer", "description": "Column 4 start" },
+            "end": { "type": "integer", "description": "Column 5 end" },
+            "strand": { "type": "string", "description": "Column 7 strand (+/-/./?)" },
+            "score": { "type": ["number", "null"], "description": "Column 6 score; null for '.'" },
+            "phase": { "type": ["integer", "null"], "description": "Column 8 phase; null for '.'" },
+            "attributes": { "type": "object", "description": "Column 9 key=value attributes (URL-decoded)" }
+          },
+          "required": ["featureId", "type", "start", "end", "strand", "attributes"]
+        }
+      }
+    },
+    "required": ["features"]
+  },
+  "errors": [
+    { "code": 1001, "message": "GFF3 text cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Fully specified CDS line",
+      "input": { "gff3Text": "chr1\tENSEMBL\tCDS\t1000\t2000\t95.5\t-\t2\tID=cds1;Name=TestCDS" },
+      "output": { "features": [ { "featureId": "cds1", "type": "CDS", "start": 1000, "end": 2000, "score": 95.5, "strand": "-", "phase": 2, "attributes": { "ID": "cds1", "Name": "TestCDS" } } ] }
+    },
+    {
+      "name": "Undefined score and phase",
+      "input": { "gff3Text": "chr1\tsrc\tgene\t1\t100\t.\t+\t.\tID=gene1" },
+      "output": { "features": [ { "featureId": "gene1", "type": "gene", "start": 1, "end": 100, "score": null, "strand": "+", "phase": null } ] }
+    }
+  ]
+}
