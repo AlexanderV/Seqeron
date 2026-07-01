@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "classify_chromosome_by_arm_ratio",
+  "serverName": "Chromosome",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ChromosomeAnalyzer.ClassifyChromosomeByArmRatio",
+  "docRef": "Seqeron.Genomics.Chromosome/ChromosomeAnalyzer.cs#L1654",
+  "description": "Classify a chromosome (Metacentric/Submetacentric/Subtelocentric/Acrocentric/Telocentric) from its arm ratio per Levan et al. (1964).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "armRatio": { "type": "number", "description": "Arm ratio (p/q or q/p); normalized internally to long/short >= 1. <= 0 -> Telocentric." }
+    },
+    "required": ["armRatio"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": { "classification": { "type": "string", "description": "Levan (1964) category." } },
+    "required": ["classification"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Arm ratio must be a finite number" }
+  ],
+  "examples": [
+    { "name": "Metacentric", "input": { "armRatio": 1.0 }, "output": { "classification": "Metacentric" } },
+    { "name": "Acrocentric", "input": { "armRatio": 10.0 }, "output": { "classification": "Acrocentric" } }
+  ]
+}
