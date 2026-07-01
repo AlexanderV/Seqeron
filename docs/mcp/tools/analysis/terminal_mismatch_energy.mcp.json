@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "terminal_mismatch_energy",
+  "serverName": "Analysis",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RnaSecondaryStructure.GetTerminalMismatchEnergy",
+  "docRef": "Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs#L639",
+  "description": "Turner 2004 terminal-mismatch stacking energy (kcal/mol) for a closing base pair and the first mismatch pair at a helix end.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "closingBase5": { "type": "string", "minLength": 1, "maxLength": 1, "description": "Closing pair 5' base" },
+      "closingBase3": { "type": "string", "minLength": 1, "maxLength": 1, "description": "Closing pair 3' base" },
+      "mismatch5": { "type": "string", "minLength": 1, "maxLength": 1, "description": "5' mismatch base" },
+      "mismatch3": { "type": "string", "minLength": 1, "maxLength": 1, "description": "3' mismatch base" }
+    },
+    "required": ["closingBase5", "closingBase3", "mismatch5", "mismatch3"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": { "energy": { "type": "number", "description": "kcal/mol" } },
+    "required": ["energy"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Expected a single character (length-1 string)" }
+  ],
+  "examples": [
+    { "name": "GC closing, AA mismatch", "input": { "closingBase5": "G", "closingBase3": "C", "mismatch5": "A", "mismatch3": "A" }, "output": { "energy": -1.1 } },
+    { "name": "CG closing, AA mismatch", "input": { "closingBase5": "C", "closingBase3": "G", "mismatch5": "A", "mismatch3": "A" }, "output": { "energy": -1.5 } }
+  ]
+}
