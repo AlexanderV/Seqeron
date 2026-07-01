@@ -46,19 +46,25 @@ catching an exception. **Always read `LIMITATIONS.md` for the authoritative, cur
 
 ## Setting / scoping the mode (C# API)
 
+The mode enum is the sibling type **`LimitationMode`** (values `Strict`/`Moderate`/`Permissive`), not a
+nested `LimitationPolicy.Mode`.
+
 ```csharp
-LimitationPolicy.DefaultMode = LimitationPolicy.Mode.Moderate;   // process-wide default
-using (LimitationPolicy.Use(LimitationPolicy.Mode.Permissive))   // scoped region
+LimitationPolicy.DefaultMode = LimitationMode.Moderate;    // process-wide default
+using (LimitationPolicy.Use(LimitationMode.Permissive))    // scoped region
 {
     // guarded call that the caller has explicitly accepted the caveat for
 }
 ```
 
+For the full, source-verified C# mechanics (setters, `SeqeronLimitationException` fields, the
+`[ModuleInitializer]` test bootstrap) see the [`seqeron-dev`](../../seqeron-dev/SKILL.md) skill.
+
 ### Test bootstrap (Permissive)
 
 Tests that intentionally exercise a guarded branch must **bootstrap `Permissive`**, otherwise the
 default `Moderate` throws and the test fails for the wrong reason. Wrap the guarded call in
-`using (LimitationPolicy.Use(LimitationPolicy.Mode.Permissive)) { … }` (or set the default in the
+`using (LimitationPolicy.Use(LimitationMode.Permissive)) { … }` (or set the default in the
 fixture) so the branch is reachable. This is test-only; production code stays at `Moderate` and
 respects the STOP rule above.
 
