@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_similar_mirnas",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MiRnaAnalyzer.FindSimilarMiRnas",
+  "docRef": "Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs#L2679",
+  "description": "Find miRNAs in a database whose seed region is within `maxMismatches` Hamming distance of a query miRNA.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "query": { "type": "object", "description": "Query miRNA record" },
+      "database": { "type": "array", "description": "miRNA database to search", "items": { "type": "object" } },
+      "maxMismatches": { "type": "integer", "description": "Maximum allowed seed mismatches", "default": 1 }
+    },
+    "required": ["query", "database"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "matches": { "type": "array", "items": { "type": "object" }, "description": "Database miRNAs within the mismatch budget (query itself excluded by name)" }
+    },
+    "required": ["matches"]
+  },
+  "errors": [
+    { "code": 1001, "message": "query cannot be null" },
+    { "code": 1001, "message": "database cannot be null" }
+  ],
+  "examples": [
+    {
+      "name": "Default 1-mismatch budget",
+      "input": {
+        "query": { "name": "query", "sequence": "UGAGGUAGAAAAAAAAAAAAAA", "seedSequence": "GAGGUAG", "seedStart": 1, "seedEnd": 7 },
+        "database": [
+          { "name": "same-seed", "sequence": "UGAGGUAGCCCCCCCCCCCCCC", "seedSequence": "GAGGUAG", "seedStart": 1, "seedEnd": 7 },
+          { "name": "one-off",   "sequence": "UGAGGUCGAAAAAAAAAAAAAA", "seedSequence": "GAGGUCG", "seedStart": 1, "seedEnd": 7 },
+          { "name": "two-off",   "sequence": "UGAGGCCGAAAAAAAAAAAAAA", "seedSequence": "GAGGCCG", "seedStart": 1, "seedEnd": 7 }
+        ]
+      },
+      "output": { "matches": [ { "name": "same-seed" }, { "name": "one-off" } ] }
+    },
+    {
+      "name": "Exact seed only",
+      "input": {
+        "query": { "name": "query", "sequence": "UGAGGUAGAAAAAAAAAAAAAA", "seedSequence": "GAGGUAG", "seedStart": 1, "seedEnd": 7 },
+        "database": [
+          { "name": "same-seed", "sequence": "UGAGGUAGCCCCCCCCCCCCCC", "seedSequence": "GAGGUAG", "seedStart": 1, "seedEnd": 7 },
+          { "name": "one-off",   "sequence": "UGAGGUCGAAAAAAAAAAAAAA", "seedSequence": "GAGGUCG", "seedStart": 1, "seedEnd": 7 }
+        ],
+        "maxMismatches": 0
+      },
+      "output": { "matches": [ { "name": "same-seed" } ] }
+    }
+  ]
+}
