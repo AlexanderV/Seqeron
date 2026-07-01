@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_microhomology",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "StructuralVariantAnalyzer.FindMicrohomology",
+  "docRef": "Seqeron.Genomics.Annotation/StructuralVariantAnalyzer.cs#L1269",
+  "description": "Find the longest shared microhomology between the 3' end of a left flank and the 5' end of a right flank (up to maxLength nt).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "leftFlank": { "type": "string", "description": "Left flanking sequence (5' side of the junction)", "minLength": 1 },
+      "rightFlank": { "type": "string", "description": "Right flanking sequence (3' side of the junction)", "minLength": 1 },
+      "maxLength": { "type": "integer", "description": "Maximum microhomology length to search (nt)", "default": 20 }
+    },
+    "required": ["leftFlank", "rightFlank"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "microhomologyLength": { "type": "integer", "description": "Length of the shared microhomology (0 if none)" },
+      "sequence": { "type": "string", "description": "The microhomology sequence (upper-cased)" }
+    },
+    "required": ["microhomologyLength", "sequence"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Left flank cannot be null or empty" },
+    { "code": 1001, "message": "Right flank cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Shared CGT microhomology",
+      "input": { "leftFlank": "AAACGT", "rightFlank": "CGTTTT" },
+      "output": { "microhomologyLength": 3, "sequence": "CGT" }
+    },
+    {
+      "name": "No microhomology",
+      "input": { "leftFlank": "AAAA", "rightFlank": "TTTT" },
+      "output": { "microhomologyLength": 0, "sequence": "" }
+    }
+  ]
+}
