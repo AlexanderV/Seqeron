@@ -274,7 +274,7 @@ public class MolToolsTools
 
     #region CodonOptimizer
 
-    [McpServerTool, Description("Optimizes a coding sequence for expression in a target organism using one of five strategies (MaximizeCAI, BalancedOptimization (default), HarmonizeExpression, MinimizeSecondary, AvoidRareCodeons). Internally trims to whole codons and converts T→U. Note: HarmonizeExpression is non-deterministic.")]
+    [McpServerTool(Name = "optimize_codons", Title = "MolTools — Optimize Codons for Expression", ReadOnly = true), Description("Optimizes a coding sequence for expression in a target organism using one of five strategies (MaximizeCAI, BalancedOptimization (default), HarmonizeExpression, MinimizeSecondary, AvoidRareCodeons). Internally trims to whole codons and converts T→U; stop codons and single-codon amino acids (Met/Trp) are left unchanged. Returns the original/optimized RNA, translated protein, original/optimized CAI, GC fractions, the number of changed codons, and each codon change. Note: HarmonizeExpression is non-deterministic (weighted-random).")]
     public static OptimizationResultDto optimize_codons(
         [Description("Coding sequence (DNA or RNA).")] string coding_sequence,
         [Description("Target organism: a preset id (EColiK12 | Yeast | Human) or an inline custom table (organismName + codonFrequencies in RNA alphabet).")] CodonUsageTableInput target_organism,
@@ -283,6 +283,15 @@ public class MolToolsTools
         [Description("Upper bound for target GC fraction (default 0.60).")] double gc_target_max = 0.60,
         [Description("Frequency threshold below which a codon is considered rare (default 0.15).")] double rare_codon_threshold = 0.15)
     {
+        if (string.IsNullOrEmpty(coding_sequence))
+            throw new System.ArgumentException("Coding sequence cannot be null or empty.", nameof(coding_sequence));
+        if (gc_target_min < 0 || gc_target_min > 1)
+            throw new System.ArgumentException("GC target minimum must be a fraction in [0, 1].", nameof(gc_target_min));
+        if (gc_target_max < 0 || gc_target_max > 1)
+            throw new System.ArgumentException("GC target maximum must be a fraction in [0, 1].", nameof(gc_target_max));
+        if (gc_target_min > gc_target_max)
+            throw new System.ArgumentException("GC target minimum must not exceed the maximum.", nameof(gc_target_min));
+
         var table = ResolveCodonUsageTable(target_organism);
         var result = CodonOptimizer.OptimizeSequence(coding_sequence, table, strategy, gc_target_min, gc_target_max, rare_codon_threshold);
         return new OptimizationResultDto(
