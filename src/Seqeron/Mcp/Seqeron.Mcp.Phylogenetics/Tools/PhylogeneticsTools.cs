@@ -80,6 +80,13 @@ public class PhylogeneticsTools
         [Description("Second aligned sequence (same length as seq1).")] string seq2,
         [Description("Distance method: PDistance | JukesCantor | Kimura2Parameter | Hamming. Default: JukesCantor.")] string? method = null)
     {
+        if (seq1 is null)
+            throw new ArgumentException("First sequence cannot be null.", nameof(seq1));
+        if (seq2 is null)
+            throw new ArgumentException("Second sequence cannot be null.", nameof(seq2));
+        if (seq1.Length != seq2.Length)
+            throw new ArgumentException("Sequences must have the same length.", nameof(seq2));
+
         var dm = ParseDistanceMethod(method);
         var d = global::Seqeron.Genomics.Phylogenetics.PhylogeneticAnalyzer.CalculatePairwiseDistance(seq1, seq2, dm);
         return new PairwiseDistanceResult(d);
