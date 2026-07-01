@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "assemble_de_bruijn",
+  "serverName": "Alignment",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceAssembler.AssembleDeBruijn",
+  "docRef": "Seqeron.Genomics.Alignment/SequenceAssembler.cs#L104",
+  "description": "Assemble reads using a de Bruijn graph: shred reads into k-mers, build the (k-1)-mer node graph, trace Eulerian walks per component into contigs, then report N50 / longest / total length.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "reads": {
+        "type": "array",
+        "description": "Input sequence reads."
+      },
+      "minOverlap": {
+        "type": "integer",
+        "description": "Minimum overlap length (shared parameter; not the operative knob here).",
+        "default": 20
+      },
+      "minIdentity": {
+        "type": "number",
+        "description": "Minimum identity (shared parameter).",
+        "default": 0.9
+      },
+      "kmerSize": {
+        "type": "integer",
+        "description": "K-mer size used to build the de Bruijn graph.",
+        "default": 31
+      },
+      "minContigLength": {
+        "type": "integer",
+        "description": "Minimum contig length to keep (bp).",
+        "default": 100
+      }
+    },
+    "required": [
+      "reads"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "contigs": {
+        "type": "array",
+        "description": "Assembled contig sequences."
+      },
+      "totalReads": {
+        "type": "integer",
+        "description": "Number of input reads."
+      },
+      "assembledReads": {
+        "type": "integer",
+        "description": "Number of reads incorporated (simplified: all reads)."
+      },
+      "n50": {
+        "type": "number",
+        "description": "N50 contig length."
+      },
+      "longestContig": {
+        "type": "integer",
+        "description": "Longest contig length (bp)."
+      },
+      "totalLength": {
+        "type": "integer",
+        "description": "Total assembled length (bp)."
+      }
+    },
+    "required": [
+      "contigs",
+      "totalReads",
+      "assembledReads",
+      "n50",
+      "longestContig",
+      "totalLength"
+    ]
+  },
+  "errors": [
+    {
+      "code": 4001,
+      "message": "Assembly failed"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Two-read Eulerian walk",
+      "input": {
+        "reads": [
+          "AAABBB",
+          "AABBBC"
+        ],
+        "kmerSize": 3,
+        "minContigLength": 3
+      },
+      "output": {
+        "contigs": [
+          "AAABBBBBBC"
+        ],
+        "totalReads": 2,
+        "assembledReads": 2,
+        "n50": 10,
+        "longestContig": 10,
+        "totalLength": 10
+      }
+    },
+    {
+      "name": "Empty read set",
+      "input": {
+        "reads": [],
+        "kmerSize": 3,
+        "minContigLength": 3
+      },
+      "output": {
+        "contigs": [],
+        "totalReads": 0,
+        "assembledReads": 0,
+        "n50": 0,
+        "longestContig": 0,
+        "totalLength": 0
+      }
+    }
+  ]
+}
