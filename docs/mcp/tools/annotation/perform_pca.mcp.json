@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "perform_pca",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "TranscriptomeAnalyzer.PerformPCA",
+  "docRef": "Seqeron.Genomics.Annotation/TranscriptomeAnalyzer.cs#L1243",
+  "description": "Project samples onto the first two principal components computed from the most variable genes (approximate PCA).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "samples": {
+        "type": "array",
+        "description": "Per-sample expression vectors (all of equal length)",
+        "items": {
+          "type": "object",
+          "properties": {
+            "sampleId": { "type": "string" },
+            "expression": { "type": "array", "items": { "type": "number" } }
+          },
+          "required": ["sampleId", "expression"]
+        }
+      },
+      "topGenes": { "type": "integer", "description": "Number of top-variable genes to use", "default": 500 }
+    },
+    "required": ["samples"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "points": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "sampleId": { "type": "string" },
+            "pc1": { "type": "number" },
+            "pc2": { "type": "number" }
+          },
+          "required": ["sampleId", "pc1", "pc2"]
+        }
+      }
+    },
+    "required": ["points"]
+  },
+  "errors": [
+    { "code": 1001, "message": "samples cannot be null" },
+    { "code": 1001, "message": "samples cannot be empty." },
+    { "code": 1001, "message": "All sample expression vectors must have the same length" }
+  ],
+  "examples": [
+    {
+      "name": "Two contrasting samples",
+      "input": {
+        "samples": [
+          { "sampleId": "A", "expression": [4, 4, 4, 4] },
+          { "sampleId": "B", "expression": [0, 0, 0, 0] }
+        ]
+      },
+      "output": { "points": [ { "sampleId": "A", "pc1": 8, "pc2": 8 }, { "sampleId": "B", "pc1": 0, "pc2": 0 } ] }
+    },
+    {
+      "name": "Single sample projects to origin",
+      "input": { "samples": [ { "sampleId": "A", "expression": [1, 2, 3] } ] },
+      "output": { "points": [ { "sampleId": "A", "pc1": 0, "pc2": 0 } ] }
+    }
+  ]
+}

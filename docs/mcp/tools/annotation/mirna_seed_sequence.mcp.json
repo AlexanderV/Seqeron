@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "mirna_seed_sequence",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MiRnaAnalyzer.GetSeedSequence",
+  "docRef": "Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs#L96",
+  "description": "Extract the canonical seed region (positions 2-8) from a miRNA sequence.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "miRnaSequence": { "type": "string", "description": "miRNA nucleotide sequence (>= 8 nt)", "minLength": 8 }
+    },
+    "required": ["miRnaSequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "seed": { "type": "string", "description": "Seed region (miRNA positions 2-8), upper-cased" }
+    },
+    "required": ["seed"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1001, "message": "miRNA sequence must be at least 8 nt long to extract seed" }
+  ],
+  "examples": [
+    {
+      "name": "let-7a seed",
+      "input": { "miRnaSequence": "UGAGGUAGUAGGUUGUAUAGUU" },
+      "output": { "seed": "GAGGUAG" }
+    },
+    {
+      "name": "Lower-case input upper-cased",
+      "input": { "miRnaSequence": "ugagguaguag" },
+      "output": { "seed": "GAGGUAG" }
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "parse_vcf_variant",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "VariantAnnotator.ParseVcfVariant",
+  "docRef": "Seqeron.Genomics.Annotation/VariantAnnotator.cs#L1469",
+  "description": "Build a Variant record from VCF fields and classify its type.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "chromosome": { "type": "string", "description": "Chromosome / contig (CHROM)", "minLength": 1 },
+      "position": { "type": "integer", "description": "1-based position (POS)" },
+      "id": { "type": "string", "description": "Variant ID (ID column; '.' if none)" },
+      "reference": { "type": "string", "description": "Reference allele (REF)", "minLength": 1 },
+      "alternate": { "type": "string", "description": "Alternate allele (ALT)", "minLength": 1 },
+      "quality": { "type": ["number", "null"], "description": "Quality score (QUAL); null if unknown" }
+    },
+    "required": ["chromosome", "position", "id", "reference", "alternate"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "variant": {
+        "type": "object",
+        "properties": {
+          "chromosome": { "type": "string" },
+          "position": { "type": "integer" },
+          "reference": { "type": "string" },
+          "alternate": { "type": "string" },
+          "type": { "type": "string", "description": "SNV, Insertion, Deletion, MNV, Indel, or Complex" },
+          "quality": { "type": ["number", "null"] },
+          "id": { "type": ["string", "null"] }
+        },
+        "required": ["chromosome", "position", "reference", "alternate", "type"]
+      }
+    },
+    "required": ["variant"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Chromosome cannot be null or empty" },
+    { "code": 1001, "message": "Reference allele cannot be null or empty" },
+    { "code": 1001, "message": "Alternate allele cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Substitution classified as SNV",
+      "input": { "chromosome": "chr1", "position": 100, "id": "rs123", "reference": "A", "alternate": "G", "quality": 42.0 },
+      "output": { "variant": { "chromosome": "chr1", "position": 100, "reference": "A", "alternate": "G", "type": "SNV", "quality": 42.0, "id": "rs123" } }
+    },
+    {
+      "name": "Insertion classified from REF/ALT length",
+      "input": { "chromosome": "chr1", "position": 100, "id": ".", "reference": "A", "alternate": "AT" },
+      "output": { "variant": { "chromosome": "chr1", "position": 100, "reference": "A", "alternate": "AT", "type": "Insertion", "quality": null, "id": "." } }
+    }
+  ]
+}

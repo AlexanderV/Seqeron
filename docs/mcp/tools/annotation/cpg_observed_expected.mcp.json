@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "cpg_observed_expected",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EpigeneticsAnalyzer.CalculateCpGObservedExpected",
+  "docRef": "Seqeron.Genomics.Annotation/EpigeneticsAnalyzer.cs#L270",
+  "description": "Compute CpG observed/expected ratio for a sequence.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "Nucleotide sequence", "minLength": 1 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "ratio": {
+        "type": "number",
+        "description": "Observed CpG / expected CpG = CpG_count / ((C_count * G_count) / length); 0 when expected is 0"
+      }
+    },
+    "required": ["ratio"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "CpG-rich sequence",
+      "input": { "sequence": "CGCGCG" },
+      "output": { "ratio": 2.0 }
+    },
+    {
+      "name": "No CpG dinucleotide",
+      "input": { "sequence": "ATGCATGC" },
+      "output": { "ratio": 0.0 }
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_discordant_pairs",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "StructuralVariantAnalyzer.FindDiscordantPairs",
+  "docRef": "Seqeron.Genomics.Annotation/StructuralVariantAnalyzer.cs#L154",
+  "description": "Identify discordant read pairs (interchromosomal, abnormal insert size, or abnormal orientation).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "readPairs": {
+        "type": "array",
+        "description": "Read pairs to evaluate",
+        "items": {
+          "type": "object",
+          "properties": {
+            "readId": { "type": "string" },
+            "chr1": { "type": "string" }, "pos1": { "type": "integer" }, "strand1": { "type": "string" },
+            "chr2": { "type": "string" }, "pos2": { "type": "integer" }, "strand2": { "type": "string" },
+            "insertSize": { "type": "integer" }
+          },
+          "required": ["readId", "chr1", "pos1", "strand1", "chr2", "pos2", "strand2", "insertSize"]
+        }
+      },
+      "expectedInsertSize": { "type": "integer", "description": "Expected insert size (nt)", "default": 400 },
+      "insertSizeStdDev": { "type": "integer", "description": "Insert-size standard deviation (nt)", "default": 50 },
+      "maxInsertSize": { "type": "integer", "description": "Hard maximum insert size (nt) above which the pair is always discordant", "default": 10000 }
+    },
+    "required": ["readPairs"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "pairs": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "readId": { "type": "string" },
+            "chromosome1": { "type": "string" }, "position1": { "type": "integer" }, "strand1": { "type": "string" },
+            "chromosome2": { "type": "string" }, "position2": { "type": "integer" }, "strand2": { "type": "string" },
+            "insertSize": { "type": "integer" },
+            "isDiscordant": { "type": "boolean" }
+          },
+          "required": ["readId", "chromosome1", "position1", "strand1", "chromosome2", "position2", "strand2", "insertSize", "isDiscordant"]
+        }
+      }
+    },
+    "required": ["pairs"]
+  },
+  "errors": [
+    { "code": 1001, "message": "readPairs cannot be null" }
+  ],
+  "examples": [
+    {
+      "name": "Interchromosomal, large-span and inversion pairs flagged",
+      "input": {
+        "readPairs": [
+          { "readId": "concordant", "chr1": "chr1", "pos1": 100, "strand1": "+", "chr2": "chr1", "pos2": 500, "strand2": "-", "insertSize": 400 },
+          { "readId": "interchrom", "chr1": "chr1", "pos1": 100, "strand1": "+", "chr2": "chr2", "pos2": 500, "strand2": "-", "insertSize": 400 },
+          { "readId": "largespan",  "chr1": "chr1", "pos1": 100, "strand1": "+", "chr2": "chr1", "pos2": 900, "strand2": "-", "insertSize": 800 },
+          { "readId": "inversion",  "chr1": "chr1", "pos1": 100, "strand1": "+", "chr2": "chr1", "pos2": 500, "strand2": "+", "insertSize": 400 }
+        ]
+      },
+      "output": { "pairs": [ { "readId": "interchrom" }, { "readId": "largespan" }, { "readId": "inversion" } ] }
+    },
+    {
+      "name": "All concordant",
+      "input": {
+        "readPairs": [ { "readId": "c1", "chr1": "chr1", "pos1": 100, "strand1": "+", "chr2": "chr1", "pos2": 500, "strand2": "-", "insertSize": 400 } ]
+      },
+      "output": { "pairs": [] }
+    }
+  ]
+}

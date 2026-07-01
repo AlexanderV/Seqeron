@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "detect_isoform_switching",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "TranscriptomeAnalyzer.DetectIsoformSwitching",
+  "docRef": "Seqeron.Genomics.Annotation/TranscriptomeAnalyzer.cs#L1028",
+  "description": "Detect genes where the dominant transcript isoform switches between two conditions based on changes in usage proportions.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "isoformData": {
+        "type": "array",
+        "description": "Per-isoform expression in two conditions",
+        "items": {
+          "type": "object",
+          "properties": {
+            "isoform": { "type": "object" },
+            "expression1": { "type": "number" },
+            "expression2": { "type": "number" }
+          },
+          "required": ["isoform", "expression1", "expression2"]
+        }
+      },
+      "switchThreshold": { "type": "number", "description": "Minimum |delta-usage| (0..1) for switching", "default": 0.3 }
+    },
+    "required": ["isoformData"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "switches": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "geneId": { "type": "string" },
+            "transcriptId1": { "type": "string", "description": "Isoform whose usage decreased" },
+            "transcriptId2": { "type": "string", "description": "Isoform whose usage increased" },
+            "switchScore": { "type": "number", "description": "|deltaUp| + |deltaDown|" }
+          },
+          "required": ["geneId", "transcriptId1", "transcriptId2", "switchScore"]
+        }
+      }
+    },
+    "required": ["switches"]
+  },
+  "errors": [
+    { "code": 1001, "message": "isoformData cannot be null" }
+  ],
+  "examples": [
+    {
+      "name": "Dominant isoform switch",
+      "input": {
+        "isoformData": [
+          { "isoform": { "transcriptId": "TX1", "geneId": "GENE1" }, "expression1": 90, "expression2": 10 },
+          { "isoform": { "transcriptId": "TX2", "geneId": "GENE1" }, "expression1": 10, "expression2": 90 }
+        ]
+      },
+      "output": { "switches": [ { "geneId": "GENE1", "transcriptId1": "TX1", "transcriptId2": "TX2", "switchScore": 1.6 } ] }
+    },
+    {
+      "name": "Stable usage",
+      "input": {
+        "isoformData": [
+          { "isoform": { "transcriptId": "TX1", "geneId": "GENE1" }, "expression1": 60, "expression2": 58 },
+          { "isoform": { "transcriptId": "TX2", "geneId": "GENE1" }, "expression1": 40, "expression2": 42 }
+        ]
+      },
+      "output": { "switches": [] }
+    }
+  ]
+}

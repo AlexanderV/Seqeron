@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "group_by_seed_family",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MiRnaAnalyzer.GroupBySeedFamily",
+  "docRef": "Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs#L2669",
+  "description": "Group miRNAs by identical seed sequence (seed family).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "miRnas": { "type": "array", "description": "miRNAs to group", "items": { "type": "object" } }
+    },
+    "required": ["miRnas"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "families": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "seedFamily": { "type": "string", "description": "Shared seed sequence" },
+            "members": { "type": "array", "items": { "type": "object" } }
+          },
+          "required": ["seedFamily", "members"]
+        }
+      }
+    },
+    "required": ["families"]
+  },
+  "errors": [
+    { "code": 1001, "message": "miRnas cannot be null" }
+  ],
+  "examples": [
+    {
+      "name": "Two seed families",
+      "input": {
+        "miRnas": [
+          { "name": "let-7a", "sequence": "UGAGGUAGUAGGUUGUAUAGUU", "seedSequence": "GAGGUAG", "seedStart": 1, "seedEnd": 7 },
+          { "name": "let-7c", "sequence": "UGAGGUAGUAGGUUGUGUGGUU", "seedSequence": "GAGGUAG", "seedStart": 1, "seedEnd": 7 },
+          { "name": "other",  "sequence": "UGAGGUCGUAGGUUGUAUAGUU", "seedSequence": "GAGGUCG", "seedStart": 1, "seedEnd": 7 }
+        ]
+      },
+      "output": {
+        "families": [
+          { "seedFamily": "GAGGUAG", "members": [ { "name": "let-7a" }, { "name": "let-7c" } ] },
+          { "seedFamily": "GAGGUCG", "members": [ { "name": "other" } ] }
+        ]
+      }
+    },
+    {
+      "name": "Empty input",
+      "input": { "miRnas": [] },
+      "output": { "families": [] }
+    }
+  ]
+}

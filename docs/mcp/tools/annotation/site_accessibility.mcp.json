@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "site_accessibility",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MiRnaAnalyzer.CalculateSiteAccessibility",
+  "docRef": "Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs#L2630",
+  "description": "Estimate miRNA target site accessibility from local secondary-structure density (lower structure ⇒ higher accessibility).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "mRnaSequence": { "type": "string", "description": "mRNA nucleotide sequence", "minLength": 1 },
+      "siteStart": { "type": "integer", "description": "0-based inclusive site start" },
+      "siteEnd": { "type": "integer", "description": "0-based inclusive site end" }
+    },
+    "required": ["mRnaSequence", "siteStart", "siteEnd"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "accessibility": { "type": "number", "description": "max(0, 1 - structure_density*10); higher = more accessible" }
+    },
+    "required": ["accessibility"]
+  },
+  "errors": [
+    { "code": 1001, "message": "mRNA sequence cannot be null or empty" },
+    { "code": 1001, "message": "Site indices are out of range (ArgumentOutOfRangeException)" }
+  ],
+  "examples": [
+    {
+      "name": "Windowed structure density",
+      "input": { "mRnaSequence": "GAAAAUAAAC", "siteStart": 2, "siteEnd": 7 },
+      "output": { "accessibility": 0.33333333333333337 }
+    },
+    {
+      "name": "Site starting at position 0",
+      "input": { "mRnaSequence": "GAAAAUAAAC", "siteStart": 0, "siteEnd": 7 },
+      "output": { "accessibility": 0.33333333333333337 }
+    }
+  ]
+}

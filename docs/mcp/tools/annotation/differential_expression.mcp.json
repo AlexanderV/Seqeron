@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "differential_expression",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "TranscriptomeAnalyzer.AnalyzeDifferentialExpression",
+  "docRef": "Seqeron.Genomics.Annotation/TranscriptomeAnalyzer.cs#L254",
+  "description": "Run a simple two-group differential-expression analysis using log2 fold change, t-test p-values, and Benjamini–Hochberg FDR correction.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "expressionData": {
+        "type": "array",
+        "description": "Per-gene replicates for the two groups",
+        "items": {
+          "type": "object",
+          "properties": {
+            "geneId": { "type": "string" },
+            "group1": { "type": "array", "items": { "type": "number" } },
+            "group2": { "type": "array", "items": { "type": "number" } }
+          },
+          "required": ["geneId", "group1", "group2"]
+        }
+      },
+      "foldChangeThreshold": { "type": "number", "description": "Minimum |log2 fold change| for significance", "default": 1.0 },
+      "pValueThreshold": { "type": "number", "description": "Adjusted-p-value threshold", "default": 0.05 }
+    },
+    "required": ["expressionData"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "results": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "geneId": { "type": "string" },
+            "log2FoldChange": { "type": "number" },
+            "pValue": { "type": "number" },
+            "adjustedPValue": { "type": "number" },
+            "isSignificant": { "type": "boolean" },
+            "regulation": { "type": "string", "description": "Upregulated / Downregulated / Unchanged" }
+          },
+          "required": ["geneId", "log2FoldChange", "pValue", "adjustedPValue", "isSignificant", "regulation"]
+        }
+      }
+    },
+    "required": ["results"]
+  },
+  "errors": [
+    { "code": 1001, "message": "expressionData cannot be null" },
+    { "code": 1001, "message": "expressionData cannot be empty." }
+  ],
+  "examples": [
+    {
+      "name": "Upregulated gene",
+      "input": {
+        "expressionData": [ { "geneId": "GENE1", "group1": [10, 12, 11, 13], "group2": [100, 110, 105, 115] } ]
+      },
+      "output": { "results": [ { "geneId": "GENE1", "regulation": "Upregulated", "isSignificant": true } ] }
+    },
+    {
+      "name": "Downregulated gene",
+      "input": {
+        "expressionData": [ { "geneId": "GENE1", "group1": [100, 110, 105], "group2": [10, 12, 11] } ]
+      },
+      "output": { "results": [ { "geneId": "GENE1", "regulation": "Downregulated" } ] }
+    }
+  ]
+}

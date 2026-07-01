@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "predict_imprinted_genes",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EpigeneticsAnalyzer.PredictImprintedGenes",
+  "docRef": "Seqeron.Genomics.Annotation/EpigeneticsAnalyzer.cs#L1094",
+  "description": "Predict imprinted genes from allele-specific (maternal vs paternal) methylation differences.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "genes": {
+        "type": "array",
+        "description": "Per-gene allele-specific methylation values",
+        "items": {
+          "type": "object",
+          "properties": {
+            "geneId": { "type": "string" },
+            "start": { "type": "integer" },
+            "end": { "type": "integer" },
+            "maternalMethylation": { "type": "number" },
+            "paternalMethylation": { "type": "number" }
+          },
+          "required": ["geneId", "start", "end", "maternalMethylation", "paternalMethylation"]
+        }
+      },
+      "minDifference": { "type": "number", "description": "Minimum methylation difference between alleles", "default": 0.4 }
+    },
+    "required": ["genes"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "imprinted": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "geneId": { "type": "string" },
+            "start": { "type": "integer" },
+            "end": { "type": "integer" },
+            "imprintingScore": { "type": "number", "description": "diff / (maternal + paternal + 0.01), capped at 1" },
+            "parentalOrigin": { "type": "string", "description": "Maternal (higher maternal) or Paternal" },
+            "hasDMR": { "type": "boolean", "description": "true when |diff| > 0.5" }
+          },
+          "required": ["geneId", "start", "end", "imprintingScore", "parentalOrigin", "hasDMR"]
+        }
+      }
+    },
+    "required": ["imprinted"]
+  },
+  "errors": [
+    { "code": 1001, "message": "genes cannot be null" }
+  ],
+  "examples": [
+    {
+      "name": "Maternally methylated locus",
+      "input": {
+        "genes": [
+          { "geneId": "IGF2", "start": 1000, "end": 2000, "maternalMethylation": 0.9, "paternalMethylation": 0.1 },
+          { "geneId": "BALANCED", "start": 3000, "end": 4000, "maternalMethylation": 0.5, "paternalMethylation": 0.5 }
+        ]
+      },
+      "output": {
+        "imprinted": [ { "geneId": "IGF2", "start": 1000, "end": 2000, "imprintingScore": 0.7920792079207921, "parentalOrigin": "Maternal", "hasDMR": true } ]
+      }
+    },
+    {
+      "name": "Below difference threshold",
+      "input": {
+        "genes": [ { "geneId": "X", "start": 1, "end": 2, "maternalMethylation": 0.5, "paternalMethylation": 0.5 } ]
+      },
+      "output": { "imprinted": [] }
+    }
+  ]
+}

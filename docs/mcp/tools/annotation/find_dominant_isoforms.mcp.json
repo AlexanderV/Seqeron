@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_dominant_isoforms",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "TranscriptomeAnalyzer.FindDominantIsoforms",
+  "docRef": "Seqeron.Genomics.Annotation/TranscriptomeAnalyzer.cs#L1005",
+  "description": "For each gene, identify the most-expressed transcript isoform and report its share of the total per-gene expression.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "isoforms": {
+        "type": "array",
+        "description": "Transcript isoforms with expression values",
+        "items": {
+          "type": "object",
+          "properties": {
+            "transcriptId": { "type": "string" },
+            "geneId": { "type": "string" },
+            "length": { "type": "integer" },
+            "exonCount": { "type": "integer" },
+            "expression": { "type": "number" },
+            "isProteinCoding": { "type": "boolean" },
+            "exons": { "type": "array", "items": { "type": "object" } }
+          },
+          "required": ["transcriptId", "geneId", "length", "exonCount", "expression", "isProteinCoding", "exons"]
+        }
+      }
+    },
+    "required": ["isoforms"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "dominants": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "geneId": { "type": "string" },
+            "dominantIsoform": { "type": "object" },
+            "dominanceRatio": { "type": "number", "description": "dominant expression / total gene expression" }
+          },
+          "required": ["geneId", "dominantIsoform", "dominanceRatio"]
+        }
+      }
+    },
+    "required": ["dominants"]
+  },
+  "errors": [
+    { "code": 1001, "message": "isoforms cannot be null" }
+  ],
+  "examples": [
+    {
+      "name": "Dominant isoform of a gene",
+      "input": {
+        "isoforms": [
+          { "transcriptId": "TX1", "geneId": "GENE1", "length": 1000, "exonCount": 5, "expression": 100, "isProteinCoding": true, "exons": [] },
+          { "transcriptId": "TX2", "geneId": "GENE1", "length": 1000, "exonCount": 5, "expression": 50, "isProteinCoding": true, "exons": [] },
+          { "transcriptId": "TX3", "geneId": "GENE1", "length": 1000, "exonCount": 5, "expression": 25, "isProteinCoding": true, "exons": [] }
+        ]
+      },
+      "output": { "dominants": [ { "geneId": "GENE1", "dominantIsoform": { "transcriptId": "TX1" }, "dominanceRatio": 0.5714285714285714 } ] }
+    }
+  ]
+}

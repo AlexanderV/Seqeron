@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "detect_differential_splicing",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "TranscriptomeAnalyzer.DetectDifferentialSplicing",
+  "docRef": "Seqeron.Genomics.Annotation/TranscriptomeAnalyzer.cs#L974",
+  "description": "Detect splicing events whose PSI differs between two conditions by more than the given delta-PSI threshold.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "splicingData": {
+        "type": "array",
+        "description": "Per-event PSI values in the two conditions",
+        "items": {
+          "type": "object",
+          "properties": {
+            "geneId": { "type": "string" },
+            "start": { "type": "integer" }, "end": { "type": "integer" },
+            "psiCondition1": { "type": "number" },
+            "psiCondition2": { "type": "number" }
+          },
+          "required": ["geneId", "start", "end", "psiCondition1", "psiCondition2"]
+        }
+      },
+      "deltaPsiThreshold": { "type": "number", "description": "Minimum |PSI2 - PSI1| to report an event", "default": 0.1 }
+    },
+    "required": ["splicingData"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "events": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "geneId": { "type": "string" },
+            "eventType": { "type": "string", "description": "IncreasedInclusion or IncreasedSkipping" },
+            "start": { "type": "integer" }, "end": { "type": "integer" },
+            "inclusionLevel": { "type": "number", "description": "PSI in condition 2" },
+            "deltaPsi": { "type": "number", "description": "PSI2 - PSI1" }
+          },
+          "required": ["geneId", "eventType", "start", "end", "inclusionLevel", "deltaPsi"]
+        }
+      }
+    },
+    "required": ["events"]
+  },
+  "errors": [
+    { "code": 1001, "message": "splicingData cannot be null" }
+  ],
+  "examples": [
+    {
+      "name": "Increased inclusion and skipping",
+      "input": {
+        "splicingData": [
+          { "geneId": "G1", "start": 100, "end": 200, "psiCondition1": 0.2, "psiCondition2": 0.8 },
+          { "geneId": "G3", "start": 500, "end": 600, "psiCondition1": 0.8, "psiCondition2": 0.3 }
+        ]
+      },
+      "output": { "events": [ { "geneId": "G1", "eventType": "IncreasedInclusion", "deltaPsi": 0.6 }, { "geneId": "G3", "eventType": "IncreasedSkipping", "deltaPsi": -0.5 } ] }
+    },
+    {
+      "name": "Below threshold",
+      "input": { "splicingData": [ { "geneId": "G2", "start": 300, "end": 400, "psiCondition1": 0.5, "psiCondition2": 0.52 } ] },
+      "output": { "events": [] }
+    }
+  ]
+}

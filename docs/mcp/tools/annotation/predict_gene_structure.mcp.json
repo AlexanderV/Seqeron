@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "predict_gene_structure",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SpliceSitePredictor.PredictGeneStructure",
+  "docRef": "Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L625",
+  "description": "Predict exon/intron gene structure with greedy non-overlapping intron selection.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "RNA/DNA sequence to analyze", "minLength": 1 },
+      "minExonLength": { "type": "integer", "description": "Minimum exon length (nt)", "default": 30 },
+      "minIntronLength": { "type": "integer", "description": "Minimum intron length (nt)", "default": 60 },
+      "minScore": { "type": "number", "description": "Minimum combined intron score", "default": 0.5 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "exons": { "type": "array", "items": { "type": "object" } },
+      "introns": { "type": "array", "items": { "type": "object" } },
+      "splicedSequence": { "type": "string", "description": "Exon-joined (intron-removed) sequence" },
+      "overallScore": { "type": "number" }
+    },
+    "required": ["exons", "introns", "splicedSequence", "overallScore"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Two-exon gene with one GT-AG intron",
+      "input": { "sequence": "<exon1(35)>GUAAGU<60xA><14xU>CAG<exon2(35)>", "minExonLength": 5, "minScore": 0.2 },
+      "output": { "exons": [ { "type": "Initial" }, { "type": "Terminal" } ], "introns": [ { "type": "U2" } ] }
+    },
+    {
+      "name": "Single-exon gene (no GU)",
+      "input": { "sequence": "AACCAACCAACCAACCAACCAACCAACCAACCAACCAACCAACCAACCAA", "minExonLength": 5, "minScore": 0.2 },
+      "output": { "exons": [ { "type": "Single" } ], "introns": [] }
+    }
+  ]
+}

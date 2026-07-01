@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_branch_points",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SpliceSitePredictor.FindBranchPoints",
+  "docRef": "Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L383",
+  "description": "Find branch-point candidates using a YNYURAC-like position weight matrix.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "RNA/DNA sequence to scan", "minLength": 1 },
+      "searchStart": { "type": "integer", "description": "Inclusive start index of the search window", "default": 0 },
+      "searchEnd": { "type": "integer", "description": "End index of the search window; -1 scans to end", "default": -1 },
+      "minScore": { "type": "number", "description": "Minimum PWM score [0,1]", "default": 0.5 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "sites": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": { "type": "integer", "description": "0-based index of the branch adenosine (window start + 5)" },
+            "type": { "type": "string", "description": "Branch" },
+            "motif": { "type": "string", "description": "7-mer at the window start" },
+            "score": { "type": "number" },
+            "confidence": { "type": "number" }
+          },
+          "required": ["position", "type", "motif", "score", "confidence"]
+        }
+      }
+    },
+    "required": ["sites"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Branch consensus present",
+      "input": { "sequence": "GGGGGUACUAACGGGGGUUUUUCAGG", "minScore": 0.0 },
+      "output": { "sites": [ { "type": "Branch" } ] }
+    },
+    {
+      "name": "Too short for a 7-mer window",
+      "input": { "sequence": "AUCGA", "minScore": 0.0 },
+      "output": { "sites": [] }
+    }
+  ]
+}

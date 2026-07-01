@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "filter_svs",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "StructuralVariantAnalyzer.FilterSVs",
+  "docRef": "Seqeron.Genomics.Annotation/StructuralVariantAnalyzer.cs#L1114",
+  "description": "Filter structural variants by quality, supporting-read count, and length bounds.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "variants": { "type": "array", "description": "Structural variants to filter", "items": { "type": "object" } },
+      "minQuality": { "type": "number", "description": "Minimum quality score", "default": 20 },
+      "minSupport": { "type": "integer", "description": "Minimum supporting reads", "default": 2 },
+      "minLength": { "type": "integer", "description": "Minimum SV length (nt)", "default": 50 },
+      "maxLength": { "type": "integer", "description": "Maximum SV length (nt)", "default": 100000000 }
+    },
+    "required": ["variants"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "variants": { "type": "array", "items": { "type": "object" }, "description": "Structural variants passing all filters" }
+    },
+    "required": ["variants"]
+  },
+  "errors": [
+    { "code": 1001, "message": "variants cannot be null" }
+  ],
+  "examples": [
+    {
+      "name": "Default thresholds keep one SV",
+      "input": {
+        "variants": [
+          { "id": "pass", "chromosome": "chr1", "start": 1000, "end": 1500, "type": "Deletion", "length": 500, "quality": 30, "supportingReads": 5 },
+          { "id": "lowqual", "chromosome": "chr1", "start": 1000, "end": 1500, "type": "Deletion", "length": 500, "quality": 10, "supportingReads": 5 }
+        ]
+      },
+      "output": { "variants": [ { "id": "pass" } ] }
+    },
+    {
+      "name": "Relaxed thresholds keep all",
+      "input": {
+        "variants": [
+          { "id": "a", "chromosome": "chr1", "start": 1000, "end": 1010, "type": "Deletion", "length": 10, "quality": 5, "supportingReads": 1 }
+        ],
+        "minQuality": 0, "minSupport": 1, "minLength": 1
+      },
+      "output": { "variants": [ { "id": "a" } ] }
+    }
+  ]
+}

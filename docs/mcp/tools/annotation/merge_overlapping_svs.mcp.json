@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "merge_overlapping_svs",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "StructuralVariantAnalyzer.MergeOverlappingSVs",
+  "docRef": "Seqeron.Genomics.Annotation/StructuralVariantAnalyzer.cs#L1055",
+  "description": "Merge structural variants of the same type whose reciprocal overlap fraction exceeds a threshold.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "variants": { "type": "array", "description": "Structural variants to merge", "items": { "type": "object" } },
+      "overlapFraction": { "type": "number", "description": "Minimum overlap fraction (0..1) to merge two SVs", "default": 0.5 }
+    },
+    "required": ["variants"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "merged": { "type": "array", "items": { "type": "object" }, "description": "Merged structural variants" }
+    },
+    "required": ["merged"]
+  },
+  "errors": [
+    { "code": 1001, "message": "variants cannot be null" }
+  ],
+  "examples": [
+    {
+      "name": "Two overlapping deletions merge",
+      "input": {
+        "variants": [
+          { "id": "del1", "chromosome": "chr1", "start": 1000, "end": 2000, "type": "Deletion", "length": 1000, "quality": 30, "supportingReads": 5 },
+          { "id": "del2", "chromosome": "chr1", "start": 1500, "end": 2500, "type": "Deletion", "length": 1000, "quality": 40, "supportingReads": 3 }
+        ]
+      },
+      "output": { "merged": [ { "start": 1000, "end": 2500, "length": 1500, "supportingReads": 8, "quality": 40 } ] }
+    },
+    {
+      "name": "Different types not merged",
+      "input": {
+        "variants": [
+          { "id": "del", "chromosome": "chr1", "start": 1000, "end": 2000, "type": "Deletion", "length": 1000, "quality": 30, "supportingReads": 5 },
+          { "id": "dup", "chromosome": "chr1", "start": 1000, "end": 2000, "type": "Duplication", "length": 1000, "quality": 25, "supportingReads": 4 }
+        ]
+      },
+      "output": { "merged": [ { "type": "Deletion" }, { "type": "Duplication" } ] }
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "is_wobble_pair",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MiRnaAnalyzer.IsWobblePair",
+  "docRef": "Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs#L340",
+  "description": "Test whether two bases form a G-U wobble pair.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "base1": { "type": "string", "description": "First base (single character)", "minLength": 1, "maxLength": 1 },
+      "base2": { "type": "string", "description": "Second base (single character)", "minLength": 1, "maxLength": 1 }
+    },
+    "required": ["base1", "base2"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "isWobble": { "type": "boolean", "description": "true only for G-U or U-G" }
+    },
+    "required": ["isWobble"]
+  },
+  "errors": [
+    { "code": 1001, "message": "base1 must be a single character" },
+    { "code": 1001, "message": "base2 must be a single character" }
+  ],
+  "examples": [
+    { "name": "G-U wobble", "input": { "base1": "G", "base2": "U" }, "output": { "isWobble": true } },
+    { "name": "Watson-Crick is not wobble", "input": { "base1": "G", "base2": "C" }, "output": { "isWobble": false } }
+  ]
+}

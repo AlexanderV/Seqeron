@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_retained_intron_candidates",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SpliceSitePredictor.FindRetainedIntronCandidates",
+  "docRef": "Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L905",
+  "description": "Find short, moderately-scored intron candidates likely to be retained in some transcripts.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "RNA/DNA sequence to analyze", "minLength": 1 },
+      "minScore": { "type": "number", "description": "Minimum combined intron score", "default": 0.5 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "introns": {
+        "type": "array",
+        "items": { "type": "object", "description": "Intron with Length < 500 and Score < 0.8" }
+      }
+    },
+    "required": ["introns"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Short moderate-score intron",
+      "input": { "sequence": "<exon1>GUAAGU<60xA><14xU>CAG<exon2>", "minScore": 0.2 },
+      "output": { "introns": [ { "type": "U2" } ] }
+    },
+    {
+      "name": "No introns present",
+      "input": { "sequence": "AACCAACCAACCAACCAACCAACCAACCAACCAACCAACCAACCAACCAA", "minScore": 0.2 },
+      "output": { "introns": [] }
+    }
+  ]
+}

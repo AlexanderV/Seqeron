@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_accessible_regions",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EpigeneticsAnalyzer.FindAccessibleRegions",
+  "docRef": "Seqeron.Genomics.Annotation/EpigeneticsAnalyzer.cs#L994",
+  "description": "Identify accessible chromatin regions (ATAC-seq-like peaks) from per-position accessibility signal.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "accessibilitySignal": {
+        "type": "array",
+        "description": "Per-position accessibility signal",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": { "type": "integer" },
+            "signal": { "type": "number" }
+          },
+          "required": ["position", "signal"]
+        }
+      },
+      "threshold": { "type": "number", "description": "Signal threshold for an accessible position", "default": 0.5 },
+      "minWidth": { "type": "integer", "description": "Minimum region width (bp)", "default": 100 },
+      "maxGap": { "type": "integer", "description": "Maximum gap between accessible positions before splitting", "default": 50 }
+    },
+    "required": ["accessibilitySignal"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "regions": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "start": { "type": "integer" },
+            "end": { "type": "integer" },
+            "accessibilityScore": { "type": "number", "description": "Maximum signal in the region" },
+            "peakType": { "type": "string", "description": "Strong (>0.8), Moderate (>0.5), or Weak" },
+            "nearbyGenes": { "type": "array", "items": { "type": "string" } }
+          },
+          "required": ["start", "end", "accessibilityScore", "peakType", "nearbyGenes"]
+        }
+      }
+    },
+    "required": ["regions"]
+  },
+  "errors": [
+    { "code": 1001, "message": "accessibilitySignal cannot be null" }
+  ],
+  "examples": [
+    {
+      "name": "Single strong peak",
+      "input": {
+        "accessibilitySignal": [
+          { "position": 0, "signal": 0.9 },
+          { "position": 100, "signal": 0.9 },
+          { "position": 200, "signal": 0.9 }
+        ],
+        "threshold": 0.5, "minWidth": 100, "maxGap": 150
+      },
+      "output": { "regions": [ { "start": 0, "end": 200, "accessibilityScore": 0.9, "peakType": "Strong", "nearbyGenes": [] } ] }
+    },
+    {
+      "name": "All below threshold",
+      "input": { "accessibilitySignal": [ { "position": 0, "signal": 0.1 }, { "position": 100, "signal": 0.2 } ] },
+      "output": { "regions": [] }
+    }
+  ]
+}

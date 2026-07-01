@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_methylation_sites",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EpigeneticsAnalyzer.FindMethylationSites",
+  "docRef": "Seqeron.Genomics.Annotation/EpigeneticsAnalyzer.cs#L229",
+  "description": "Find candidate cytosine methylation sites and classify context (CpG/CHG/CHH).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "Nucleotide sequence to scan", "minLength": 1 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "sites": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": { "type": "integer", "description": "0-based cytosine position" },
+            "type": { "type": "string", "description": "CpG, CHG, or CHH" },
+            "context": { "type": "string", "description": "Up-to-3-base sequence context starting at the cytosine" },
+            "methylationLevel": { "type": "number", "description": "0 for sequence-only input (no bisulfite reads)" },
+            "coverage": { "type": "integer", "description": "0 for sequence-only input" }
+          },
+          "required": ["position", "type", "context", "methylationLevel", "coverage"]
+        }
+      }
+    },
+    "required": ["sites"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Mixed CHG/CHH/CpG contexts",
+      "input": { "sequence": "CAGCTTCG" },
+      "output": {
+        "sites": [
+          { "position": 0, "type": "CHG", "context": "CAG", "methylationLevel": 0, "coverage": 0 },
+          { "position": 3, "type": "CHH", "context": "CTT", "methylationLevel": 0, "coverage": 0 },
+          { "position": 6, "type": "CpG", "context": "CG", "methylationLevel": 0, "coverage": 0 }
+        ]
+      }
+    },
+    {
+      "name": "No classifiable cytosine",
+      "input": { "sequence": "ATATAT" },
+      "output": { "sites": [] }
+    }
+  ]
+}

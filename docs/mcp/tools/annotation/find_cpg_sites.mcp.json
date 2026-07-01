@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_cpg_sites",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EpigeneticsAnalyzer.FindCpGSites",
+  "docRef": "Seqeron.Genomics.Annotation/EpigeneticsAnalyzer.cs#L148",
+  "description": "Return all CpG dinucleotide start positions in a sequence.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "Nucleotide sequence to scan", "minLength": 1 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "positions": {
+        "type": "array",
+        "items": { "type": "integer" },
+        "description": "0-based start index of each CG dinucleotide"
+      }
+    },
+    "required": ["positions"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Two CpG sites",
+      "input": { "sequence": "ACGTACGT" },
+      "output": { "positions": [1, 5] }
+    },
+    {
+      "name": "No CpG sites",
+      "input": { "sequence": "AAATTT" },
+      "output": { "positions": [] }
+    }
+  ]
+}

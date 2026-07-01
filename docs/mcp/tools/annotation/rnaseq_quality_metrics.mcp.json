@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "rnaseq_quality_metrics",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "TranscriptomeAnalyzer.CalculateQualityMetrics",
+  "docRef": "Seqeron.Genomics.Annotation/TranscriptomeAnalyzer.cs#L1225",
+  "description": "Compute basic RNA-seq QC metrics: mapping rate, exonic rate, rRNA rate, and number of detected genes.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "totalReads": { "type": "number", "description": "Total sequenced reads", "minimum": 0 },
+      "mappedReads": { "type": "number", "description": "Reads mapped to the reference", "minimum": 0 },
+      "exonicReads": { "type": "number", "description": "Reads mapped to exonic regions", "minimum": 0 },
+      "rRnaReads": { "type": "number", "description": "Reads mapped to rRNA loci", "minimum": 0 },
+      "geneCounts": { "type": "array", "items": { "type": "number" }, "description": "Per-gene read counts" }
+    },
+    "required": ["totalReads", "mappedReads", "exonicReads", "rRnaReads", "geneCounts"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "mappingRate": { "type": "number", "description": "mappedReads / totalReads" },
+      "exonicRate": { "type": "number", "description": "exonicReads / mappedReads" },
+      "rRnaRate": { "type": "number", "description": "rRnaReads / mappedReads" },
+      "detectedGenes": { "type": "integer", "description": "genes with count > 0" }
+    },
+    "required": ["mappingRate", "exonicRate", "rRnaRate", "detectedGenes"]
+  },
+  "errors": [
+    { "code": 1001, "message": "geneCounts cannot be null" },
+    { "code": 1001, "message": "totalReads/mappedReads/exonicReads/rRnaReads cannot be negative." }
+  ],
+  "examples": [
+    {
+      "name": "Typical library",
+      "input": { "totalReads": 1000, "mappedReads": 900, "exonicReads": 720, "rRnaReads": 45, "geneCounts": [10, 0, 5, 0, 3] },
+      "output": { "mappingRate": 0.9, "exonicRate": 0.8, "rRnaRate": 0.05, "detectedGenes": 3 }
+    },
+    {
+      "name": "Empty library",
+      "input": { "totalReads": 0, "mappedReads": 0, "exonicReads": 0, "rRnaReads": 0, "geneCounts": [] },
+      "output": { "mappingRate": 0, "exonicRate": 0, "rRnaRate": 0, "detectedGenes": 0 }
+    }
+  ]
+}

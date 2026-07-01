@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "methylation_profile",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EpigeneticsAnalyzer.GenerateMethylationProfile",
+  "docRef": "Seqeron.Genomics.Annotation/EpigeneticsAnalyzer.cs#L507",
+  "description": "Aggregate methylation sites into a global/CpG/CHG/CHH profile with per-position methylation.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sites": {
+        "type": "array",
+        "description": "Methylation sites to aggregate",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": { "type": "integer" },
+            "type": { "type": "string", "description": "CpG, CHG, CHH, N6A, or N4C" },
+            "context": { "type": "string" },
+            "methylationLevel": { "type": "number" },
+            "coverage": { "type": "integer" }
+          },
+          "required": ["position", "type", "context", "methylationLevel", "coverage"]
+        }
+      }
+    },
+    "required": ["sites"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "globalMethylation": { "type": "number", "description": "Weighted mean over all sites (Schultz 2012)" },
+      "cpGMethylation": { "type": "number" },
+      "cHGMethylation": { "type": "number" },
+      "cHHMethylation": { "type": "number" },
+      "totalCpGSites": { "type": "integer" },
+      "methylatedCpGSites": { "type": "integer", "description": "CpG sites with level >= 0.5" },
+      "methylationByPosition": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": { "type": "integer" },
+            "level": { "type": "number" }
+          },
+          "required": ["position", "level"]
+        }
+      }
+    },
+    "required": ["globalMethylation", "cpGMethylation", "cHGMethylation", "cHHMethylation", "totalCpGSites", "methylatedCpGSites", "methylationByPosition"]
+  },
+  "errors": [
+    { "code": 1001, "message": "sites cannot be null" },
+    { "code": 1002, "message": "Unknown methylation type '<value>'." }
+  ],
+  "examples": [
+    {
+      "name": "Mixed CpG/CHG profile",
+      "input": {
+        "sites": [
+          { "position": 10, "type": "CpG", "context": "CGT", "methylationLevel": 1.0, "coverage": 10 },
+          { "position": 20, "type": "CpG", "context": "CGA", "methylationLevel": 0.0, "coverage": 10 },
+          { "position": 30, "type": "CHG", "context": "CAG", "methylationLevel": 0.5, "coverage": 4 }
+        ]
+      },
+      "output": {
+        "globalMethylation": 0.5,
+        "cpGMethylation": 0.5,
+        "cHGMethylation": 0.5,
+        "cHHMethylation": 0.0,
+        "totalCpGSites": 2,
+        "methylatedCpGSites": 1,
+        "methylationByPosition": [
+          { "position": 10, "level": 1.0 },
+          { "position": 20, "level": 0.0 },
+          { "position": 30, "level": 0.5 }
+        ]
+      }
+    },
+    {
+      "name": "Empty input",
+      "input": { "sites": [] },
+      "output": {
+        "globalMethylation": 0, "cpGMethylation": 0, "cHGMethylation": 0, "cHHMethylation": 0,
+        "totalCpGSites": 0, "methylatedCpGSites": 0, "methylationByPosition": []
+      }
+    }
+  ]
+}

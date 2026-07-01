@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "over_representation_analysis",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "TranscriptomeAnalyzer.PerformOverRepresentationAnalysis",
+  "docRef": "Seqeron.Genomics.Annotation/TranscriptomeAnalyzer.cs#L638",
+  "description": "Pathway / gene-set over-representation analysis (ORA) using a hypergeometric / Fisher's exact-test approximation.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "differentiallyExpressedGenes": { "type": "array", "items": { "type": "string" }, "description": "Differentially expressed gene IDs" },
+      "pathways": {
+        "type": "array",
+        "description": "Pathway / gene-set definitions",
+        "items": {
+          "type": "object",
+          "properties": {
+            "pathwayId": { "type": "string" },
+            "pathwayName": { "type": "string" },
+            "genes": { "type": "array", "items": { "type": "string" } }
+          },
+          "required": ["pathwayId", "pathwayName", "genes"]
+        }
+      },
+      "backgroundGeneCount": { "type": "integer", "description": "Total background gene count (universe size)", "minimum": 1 }
+    },
+    "required": ["differentiallyExpressedGenes", "pathways", "backgroundGeneCount"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "results": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "pathwayId": { "type": "string" },
+            "pathwayName": { "type": "string" },
+            "genesInPathway": { "type": "integer" },
+            "overlappingGenes": { "type": "integer" },
+            "enrichmentScore": { "type": "number" },
+            "pValue": { "type": "number" },
+            "genes": { "type": "array", "items": { "type": "string" } }
+          },
+          "required": ["pathwayId", "pathwayName", "genesInPathway", "overlappingGenes", "enrichmentScore", "pValue", "genes"]
+        }
+      }
+    },
+    "required": ["results"]
+  },
+  "errors": [
+    { "code": 1001, "message": "differentiallyExpressedGenes cannot be null" },
+    { "code": 1001, "message": "pathways cannot be null" },
+    { "code": 1001, "message": "backgroundGeneCount must be positive." }
+  ],
+  "examples": [
+    {
+      "name": "Enriched pathway",
+      "input": {
+        "differentiallyExpressedGenes": ["A", "B", "C", "D", "E"],
+        "pathways": [ { "pathwayId": "P1", "pathwayName": "Pathway1", "genes": ["A", "B", "C", "X", "Y"] } ],
+        "backgroundGeneCount": 1000
+      },
+      "output": { "results": [ { "pathwayId": "P1", "genesInPathway": 5, "overlappingGenes": 3, "genes": ["A", "B", "C"] } ] }
+    },
+    {
+      "name": "No overlap",
+      "input": {
+        "differentiallyExpressedGenes": ["A", "B", "C"],
+        "pathways": [ { "pathwayId": "P1", "pathwayName": "Pathway1", "genes": ["X", "Y", "Z"] } ],
+        "backgroundGeneCount": 1000
+      },
+      "output": { "results": [] }
+    }
+  ]
+}

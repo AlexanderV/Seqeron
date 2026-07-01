@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "maxent_score",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SpliceSitePredictor.CalculateMaxEntScore",
+  "docRef": "Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L937",
+  "description": "Compute a MaxEntScan-like log-likelihood score for a donor or acceptor motif.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "motif": { "type": "string", "description": "Splice-site motif sequence (RNA or DNA)", "minLength": 1 },
+      "type": { "type": "string", "description": "Donor or Acceptor", "enum": ["Donor", "Acceptor"] }
+    },
+    "required": ["motif", "type"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "score": { "type": "number", "description": "Sum of log2(PWM weight + 0.01) over motif positions" }
+    },
+    "required": ["score"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Motif cannot be null or empty" },
+    { "code": 1001, "message": "Type cannot be null or empty" },
+    { "code": 1002, "message": "Unknown splice-site type '<value>'. Expected 'Donor' or 'Acceptor'." }
+  ],
+  "examples": [
+    {
+      "name": "Perfect donor consensus",
+      "input": { "motif": "CAGGUAAGU", "type": "Donor" },
+      "output": { "score": 0.12919763679363047 }
+    },
+    {
+      "name": "Non-consensus donor scores lower",
+      "input": { "motif": "GGGGUAAGU", "type": "Donor" },
+      "output": { "score": -13.187225328709957 }
+    }
+  ]
+}

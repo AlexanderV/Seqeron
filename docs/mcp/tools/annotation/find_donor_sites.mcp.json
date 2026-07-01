@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_donor_sites",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SpliceSitePredictor.FindDonorSites",
+  "docRef": "Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L204",
+  "description": "Find candidate 5' (donor) splice sites (canonical GT/GU, optional GC and U12 AT/AU).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "RNA/DNA sequence to scan", "minLength": 1 },
+      "minScore": { "type": "number", "description": "Minimum PWM score [0,1]", "default": 0.5 },
+      "includeNonCanonical": { "type": "boolean", "description": "Include GC / U12 AT/AU donor motifs", "default": false }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "sites": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": { "type": "integer", "description": "0-based index of the GU/GT dinucleotide" },
+            "type": { "type": "string", "description": "Donor" },
+            "motif": { "type": "string" },
+            "score": { "type": "number", "description": "PWM match score [0,1]" },
+            "confidence": { "type": "number" }
+          },
+          "required": ["position", "type", "motif", "score", "confidence"]
+        }
+      }
+    },
+    "required": ["sites"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Perfect GU consensus",
+      "input": { "sequence": "CAGGUAAGU", "minScore": 0.3 },
+      "output": { "sites": [ { "position": 3, "type": "Donor", "score": 1.0, "confidence": 1.0 } ] }
+    },
+    {
+      "name": "No GU dinucleotide",
+      "input": { "sequence": "AAAAAAAAA", "minScore": 0.3 },
+      "output": { "sites": [] }
+    }
+  ]
+}

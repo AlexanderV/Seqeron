@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "quantile_normalize",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "TranscriptomeAnalyzer.QuantileNormalize",
+  "docRef": "Seqeron.Genomics.Annotation/TranscriptomeAnalyzer.cs#L175",
+  "description": "Quantile-normalize multiple expression vectors of equal length so that each sample shares the same value distribution.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "samples": {
+        "type": "array",
+        "description": "Expression vectors per sample (all of equal length)",
+        "items": { "type": "array", "items": { "type": "number" } }
+      }
+    },
+    "required": ["samples"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "normalized": {
+        "type": "array",
+        "items": { "type": "array", "items": { "type": "number" } },
+        "description": "Quantile-normalized vectors (same shape as input)"
+      }
+    },
+    "required": ["normalized"]
+  },
+  "errors": [
+    { "code": 1001, "message": "samples cannot be null" },
+    { "code": 1001, "message": "samples cannot be empty." },
+    { "code": 1001, "message": "All samples must have the same length" }
+  ],
+  "examples": [
+    {
+      "name": "Two-sample normalization",
+      "input": { "samples": [ [2.0, 3.0, 4.0], [8.0, 6.0, 5.0] ] },
+      "output": { "normalized": [ [3.5, 4.5, 6.0], [6.0, 4.5, 3.5] ] }
+    }
+  ]
+}

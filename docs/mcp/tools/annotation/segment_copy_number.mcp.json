@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "segment_copy_number",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "StructuralVariantAnalyzer.SegmentCopyNumber",
+  "docRef": "Seqeron.Genomics.Annotation/StructuralVariantAnalyzer.cs#L716",
+  "description": "Segment copy-number probe data into log-ratio plateaus (CBS-like).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "probes": {
+        "type": "array",
+        "description": "Copy-number probe observations",
+        "items": {
+          "type": "object",
+          "properties": {
+            "chromosome": { "type": "string" },
+            "position": { "type": "integer" },
+            "logRatio": { "type": "number" },
+            "baf": { "type": "number", "description": "B-allele frequency" }
+          },
+          "required": ["chromosome", "position", "logRatio", "baf"]
+        }
+      },
+      "changeThreshold": { "type": "number", "description": "Log-ratio change to start a new segment", "default": 0.3 },
+      "minProbes": { "type": "integer", "description": "Minimum probes per segment", "default": 5 }
+    },
+    "required": ["probes"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "segments": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "chromosome": { "type": "string" },
+            "start": { "type": "integer" }, "end": { "type": "integer" },
+            "logRatio": { "type": "number" },
+            "copyNumber": { "type": "integer", "description": "round(2 * 2^meanLogR), clamped [0,10]" },
+            "bAlleleFrequency": { "type": "number" },
+            "probeCount": { "type": "integer" }
+          },
+          "required": ["chromosome", "start", "end", "logRatio", "copyNumber", "bAlleleFrequency", "probeCount"]
+        }
+      }
+    },
+    "required": ["segments"]
+  },
+  "errors": [
+    { "code": 1001, "message": "probes cannot be null" }
+  ],
+  "examples": [
+    {
+      "name": "Diploid plateau",
+      "input": {
+        "probes": [
+          { "chromosome": "chr1", "position": 100, "logRatio": 0.0, "baf": 0.5 },
+          { "chromosome": "chr1", "position": 200, "logRatio": 0.0, "baf": 0.5 },
+          { "chromosome": "chr1", "position": 300, "logRatio": 0.0, "baf": 0.5 },
+          { "chromosome": "chr1", "position": 400, "logRatio": 0.0, "baf": 0.5 },
+          { "chromosome": "chr1", "position": 500, "logRatio": 0.0, "baf": 0.5 }
+        ]
+      },
+      "output": { "segments": [ { "start": 100, "end": 500, "logRatio": 0.0, "copyNumber": 2, "probeCount": 5 } ] }
+    },
+    {
+      "name": "Too few probes",
+      "input": { "probes": [ { "chromosome": "chr1", "position": 100, "logRatio": 0.0, "baf": 0.5 } ] },
+      "output": { "segments": [] }
+    }
+  ]
+}

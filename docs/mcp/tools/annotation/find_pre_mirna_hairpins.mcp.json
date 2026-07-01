@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_pre_mirna_hairpins",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MiRnaAnalyzer.FindPreMiRnaHairpins",
+  "docRef": "Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs#L1744",
+  "description": "Identify pre-miRNA hairpin candidates with stem/loop layout and Turner 2004 nearest-neighbor free energy.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "Nucleotide sequence to scan", "minLength": 1 },
+      "minHairpinLength": { "type": "integer", "description": "Minimum hairpin length (nt)", "default": 55 },
+      "maxHairpinLength": { "type": "integer", "description": "Maximum hairpin length (nt)", "default": 120 },
+      "matureLength": { "type": "integer", "description": "Mature miRNA length (nt)", "default": 22 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "hairpins": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "start": { "type": "integer" },
+            "end": { "type": "integer" },
+            "sequence": { "type": "string" },
+            "matureSequence": { "type": "string" },
+            "starSequence": { "type": "string" },
+            "structure": { "type": "string", "description": "Dot-bracket secondary structure" },
+            "freeEnergy": { "type": "number", "description": "Turner 2004 nearest-neighbor free energy" }
+          },
+          "required": ["start", "end", "sequence", "matureSequence", "starSequence", "structure", "freeEnergy"]
+        }
+      }
+    },
+    "required": ["hairpins"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "57 nt hairpin (min 55) yields two candidate windows",
+      "input": { "sequence": "GCAUAGCUAGCUAGCUAGCUAGCUAGAAAUUUUAGCUAGCUAGCUAGCUAGCUAUGC", "minHairpinLength": 55 },
+      "output": { "hairpins": [ { "start": 0, "end": 56 }, { "start": 1, "end": 56 } ] }
+    },
+    {
+      "name": "Below minimum length",
+      "input": { "sequence": "GCAUAGCUAGCUAGCUAGCUGAAAUUUAGCUAGCUAGCUAGCUAUGC", "minHairpinLength": 55 },
+      "output": { "hairpins": [] }
+    }
+  ]
+}

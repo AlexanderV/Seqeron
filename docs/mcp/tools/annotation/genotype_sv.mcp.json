@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "genotype_sv",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "StructuralVariantAnalyzer.GenotypeSV",
+  "docRef": "Seqeron.Genomics.Annotation/StructuralVariantAnalyzer.cs#L1206",
+  "description": "Genotype a structural variant (0/0, 0/1, 1/1, ./.) from reference and alternate supporting-read counts.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sv": { "type": "object", "description": "Structural variant to genotype" },
+      "refReads": { "type": "integer", "description": "Reference-supporting reads", "minimum": 0 },
+      "altReads": { "type": "integer", "description": "Alternate-supporting reads", "minimum": 0 },
+      "totalReads": { "type": "integer", "description": "Total reads spanning the variant locus", "minimum": 0 }
+    },
+    "required": ["sv", "refReads", "altReads", "totalReads"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "genotype": { "type": "string", "description": "0/0, 0/1, 1/1, or ./." },
+      "quality": { "type": "number", "description": "Genotype quality (capped at 99)" }
+    },
+    "required": ["genotype", "quality"]
+  },
+  "errors": [
+    { "code": 1001, "message": "sv cannot be null" },
+    { "code": 1001, "message": "refReads/altReads/totalReads must be non-negative (ArgumentOutOfRangeException)" }
+  ],
+  "examples": [
+    {
+      "name": "Heterozygous",
+      "input": { "sv": { "id": "sv1", "chromosome": "chr1", "start": 1000, "end": 2000, "type": "Deletion", "length": 1000, "quality": 40, "supportingReads": 5 }, "refReads": 10, "altReads": 10, "totalReads": 20 },
+      "output": { "genotype": "0/1", "quality": 40 }
+    },
+    {
+      "name": "Homozygous reference",
+      "input": { "sv": { "id": "sv1", "chromosome": "chr1", "start": 1000, "end": 2000, "type": "Deletion", "length": 1000, "quality": 40, "supportingReads": 5 }, "refReads": 20, "altReads": 0, "totalReads": 20 },
+      "output": { "genotype": "0/0", "quality": 60 }
+    }
+  ]
+}

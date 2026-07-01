@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_mirna_target_sites",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MiRnaAnalyzer.FindTargetSites",
+  "docRef": "Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs#L157",
+  "description": "Find miRNA target sites in an mRNA (8mer / 7mer-m8 / 7mer-A1 / 6mer / offset-6mer per Bartel 2009 and TargetScan).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "mRnaSequence": { "type": "string", "description": "mRNA nucleotide sequence (DNA T→U applied internally)", "minLength": 1 },
+      "miRna": { "type": "object", "description": "Query miRNA record" },
+      "minScore": { "type": "number", "description": "Minimum site score to report", "default": 0.5 }
+    },
+    "required": ["mRnaSequence", "miRna"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "sites": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "start": { "type": "integer" },
+            "end": { "type": "integer" },
+            "targetSequence": { "type": "string" },
+            "miRnaName": { "type": "string" },
+            "type": { "type": "string", "description": "Seed8mer, Seed7merM8, Seed7merA1, Seed6mer, Offset6mer, Supplementary, or Centered" },
+            "seedMatchLength": { "type": "integer" },
+            "score": { "type": "number" },
+            "freeEnergy": { "type": "number" },
+            "alignment": { "type": "string" }
+          },
+          "required": ["start", "end", "targetSequence", "miRnaName", "type", "seedMatchLength", "score", "freeEnergy", "alignment"]
+        }
+      }
+    },
+    "required": ["sites"]
+  },
+  "errors": [
+    { "code": 1001, "message": "mRNA sequence cannot be null or empty" },
+    { "code": 1001, "message": "miRNA cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "8mer site (let-7a seed RC + A)",
+      "input": {
+        "mRnaSequence": "GGGGGCUACCUCAGGGGG",
+        "miRna": { "name": "let-7a", "sequence": "UGAGGUAGUAGGUUGUAUAGUU", "seedSequence": "GAGGUAG", "seedStart": 1, "seedEnd": 7 },
+        "minScore": 0.1
+      },
+      "output": { "sites": [ { "type": "Seed8mer", "seedMatchLength": 8 } ] }
+    },
+    {
+      "name": "No seed match",
+      "input": {
+        "mRnaSequence": "AAAAAAAAAAAAAAAAAAAA",
+        "miRna": { "name": "let-7a", "sequence": "UGAGGUAGUAGGUUGUAUAGUU", "seedSequence": "GAGGUAG", "seedStart": 1, "seedEnd": 7 }
+      },
+      "output": { "sites": [] }
+    }
+  ]
+}

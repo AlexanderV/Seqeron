@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_skipped_exon_events",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "TranscriptomeAnalyzer.FindSkippedExonEvents",
+  "docRef": "Seqeron.Genomics.Annotation/TranscriptomeAnalyzer.cs#L950",
+  "description": "Compute Percent Spliced In (PSI = inclusion / (inclusion + skipping)) for candidate skipped-exon events.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "exonData": {
+        "type": "array",
+        "description": "Per-exon inclusion and skipping read counts",
+        "items": {
+          "type": "object",
+          "properties": {
+            "geneId": { "type": "string" },
+            "exonStart": { "type": "integer" },
+            "exonEnd": { "type": "integer" },
+            "inclusionReads": { "type": "number" },
+            "skippingReads": { "type": "number" }
+          },
+          "required": ["geneId", "exonStart", "exonEnd", "inclusionReads", "skippingReads"]
+        }
+      }
+    },
+    "required": ["exonData"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "events": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "geneId": { "type": "string" },
+            "eventType": { "type": "string", "description": "SkippedExon" },
+            "start": { "type": "integer" }, "end": { "type": "integer" },
+            "inclusionLevel": { "type": "number", "description": "PSI = inclusion / (inclusion + skipping)" },
+            "deltaPsi": { "type": "number", "description": "0 (single-sample)" }
+          },
+          "required": ["geneId", "eventType", "start", "end", "inclusionLevel", "deltaPsi"]
+        }
+      }
+    },
+    "required": ["events"]
+  },
+  "errors": [
+    { "code": 1001, "message": "exonData cannot be null" }
+  ],
+  "examples": [
+    {
+      "name": "PSI 0.8 exon",
+      "input": { "exonData": [ { "geneId": "G1", "exonStart": 100, "exonEnd": 200, "inclusionReads": 80, "skippingReads": 20 } ] },
+      "output": { "events": [ { "geneId": "G1", "eventType": "SkippedExon", "inclusionLevel": 0.8, "deltaPsi": 0 } ] }
+    },
+    {
+      "name": "No reads -> skipped",
+      "input": { "exonData": [ { "geneId": "G2", "exonStart": 300, "exonEnd": 400, "inclusionReads": 0, "skippingReads": 0 } ] },
+      "output": { "events": [] }
+    }
+  ]
+}

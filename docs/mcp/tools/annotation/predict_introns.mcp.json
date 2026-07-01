@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "predict_introns",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SpliceSitePredictor.PredictIntrons",
+  "docRef": "Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L625",
+  "description": "Predict introns by pairing donor and acceptor splice sites and locating branch points.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "RNA/DNA sequence to analyze", "minLength": 1 },
+      "minIntronLength": { "type": "integer", "description": "Minimum intron length (nt)", "default": 60 },
+      "maxIntronLength": { "type": "integer", "description": "Maximum intron length (nt)", "default": 100000 },
+      "minScore": { "type": "number", "description": "Minimum combined score", "default": 0.5 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "introns": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "start": { "type": "integer" },
+            "end": { "type": "integer" },
+            "length": { "type": "integer" },
+            "donorSite": { "type": "object" },
+            "acceptorSite": { "type": "object" },
+            "branchPoint": { "type": ["object", "null"] },
+            "sequence": { "type": "string" },
+            "type": { "type": "string", "description": "U2 (GT-AG) or U12" },
+            "score": { "type": "number" }
+          },
+          "required": ["start", "end", "length", "donorSite", "acceptorSite", "sequence", "type", "score"]
+        }
+      }
+    },
+    "required": ["introns"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "GT-AG intron classified U2",
+      "input": { "sequence": "<exon1>GUAAGU<60xA><14xU>CAG<exon2>", "minIntronLength": 60, "minScore": 0.2 },
+      "output": { "introns": [ { "type": "U2", "sequence": "GUAAGU…CAG" } ] }
+    },
+    {
+      "name": "All candidates below min length",
+      "input": { "sequence": "<exon1>GUAAGU<60xA><14xU>CAG<exon2>", "minIntronLength": 200, "minScore": 0.2 },
+      "output": { "introns": [] }
+    }
+  ]
+}

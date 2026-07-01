@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "compare_seed_regions",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "MiRnaAnalyzer.CompareSeedRegions",
+  "docRef": "Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs#L124",
+  "description": "Compare seed regions of two miRNAs and report Hamming-style match counts and seed-family identity.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "miRna1": { "type": "object", "description": "First miRNA record" },
+      "miRna2": { "type": "object", "description": "Second miRNA record" }
+    },
+    "required": ["miRna1", "miRna2"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "matches": { "type": "integer", "description": "Positions where the seeds agree" },
+      "mismatches": { "type": "integer", "description": "Hamming distance (plus length difference)" },
+      "isSameFamily": { "type": "boolean", "description": "true when the seed strings are identical" }
+    },
+    "required": ["matches", "mismatches", "isSameFamily"]
+  },
+  "errors": [
+    { "code": 1001, "message": "miRna1 cannot be null" },
+    { "code": 1001, "message": "miRna2 cannot be null" },
+    { "code": 1001, "message": "Both miRNAs must have non-empty sequences" }
+  ],
+  "examples": [
+    {
+      "name": "Same seed family",
+      "input": {
+        "miRna1": { "name": "a", "sequence": "UGAGGUAGUAGGUUGUAUAGUU", "seedSequence": "GAGGUAG", "seedStart": 1, "seedEnd": 7 },
+        "miRna2": { "name": "b", "sequence": "UGAGGUAGUAGGUUGUAUAGUU", "seedSequence": "GAGGUAG", "seedStart": 1, "seedEnd": 7 }
+      },
+      "output": { "matches": 7, "mismatches": 0, "isSameFamily": true }
+    },
+    {
+      "name": "One-nucleotide seed difference",
+      "input": {
+        "miRna1": { "name": "a", "sequence": "UGAGGUAGUAGGUUGUAUAGUU", "seedSequence": "GAGGUAG", "seedStart": 1, "seedEnd": 7 },
+        "miRna2": { "name": "c", "sequence": "UGAGGUCGUAGGUUGUAUAGUU", "seedSequence": "GAGGUCG", "seedStart": 1, "seedEnd": 7 }
+      },
+      "output": { "matches": 6, "mismatches": 1, "isSameFamily": false }
+    }
+  ]
+}

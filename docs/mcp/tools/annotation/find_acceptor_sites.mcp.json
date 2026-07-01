@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_acceptor_sites",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SpliceSitePredictor.FindAcceptorSites",
+  "docRef": "Seqeron.Genomics.Annotation/SpliceSitePredictor.cs#L264",
+  "description": "Find candidate 3' (acceptor) splice sites (canonical AG, optional U12 AC).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "RNA/DNA sequence to scan", "minLength": 1 },
+      "minScore": { "type": "number", "description": "Minimum PWM score [0,1]", "default": 0.5 },
+      "includeNonCanonical": { "type": "boolean", "description": "Include U12 AC acceptor motifs", "default": false }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "sites": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": { "type": "integer", "description": "0-based index of the G of the AG dinucleotide" },
+            "type": { "type": "string", "description": "Acceptor" },
+            "motif": { "type": "string" },
+            "score": { "type": "number", "description": "PWM match score [0,1]" },
+            "confidence": { "type": "number" }
+          },
+          "required": ["position", "type", "motif", "score", "confidence"]
+        }
+      }
+    },
+    "required": ["sites"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Strong PPT + CAG consensus",
+      "input": { "sequence": "UUUUUUUUUUUUUUUUCAGGG", "minScore": 0.1 },
+      "output": { "sites": [ { "position": 18, "type": "Acceptor", "score": 0.8393 } ] }
+    },
+    {
+      "name": "No AG dinucleotide",
+      "input": { "sequence": "CCCCCCCCCCCCCCCCCCCC", "minScore": 0.1 },
+      "output": { "sites": [] }
+    }
+  ]
+}
