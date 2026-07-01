@@ -116,10 +116,13 @@ public class MolToolsTools
             (c1 == 'G' && c2 == 'C') || (c1 == 'C' && c2 == 'G');
     }
 
-    [McpServerTool, Description("SantaLucia (1998) ΔG°37 of the last 5 bases (NN parameters + initiation, 1 M NaCl), matching Primer3 PRIMER_MAX_END_STABILITY. More negative ΔG = more stable 3' end.")]
+    [McpServerTool(Name = "three_prime_stability", Title = "MolTools — Primer 3' End Stability (ΔG°37)", ReadOnly = true), Description("SantaLucia (1998) nearest-neighbor ΔG°37 (kcal/mol) of a primer's last 5 bases, including initiation terms (1 M NaCl), matching Primer3 PRIMER_MAX_END_STABILITY. More negative ΔG = a more stable (more problematic) 3' end. Sequences shorter than 5 bases return 0. Call to assess primer 3'-end stability for mispriming risk.")]
     public static ThreePrimeStabilityResult three_prime_stability(
         [Description("Primer sequence.")] string sequence)
     {
+        if (string.IsNullOrEmpty(sequence))
+            throw new System.ArgumentException("Sequence cannot be null or empty.", nameof(sequence));
+
         return new ThreePrimeStabilityResult(PrimerDesigner.Calculate3PrimeStability(sequence));
     }
 

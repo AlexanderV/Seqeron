@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "three_prime_stability",
+  "serverName": "MolTools",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "PrimerDesigner.Calculate3PrimeStability",
+  "docRef": "Seqeron.Genomics.MolTools/PrimerDesigner.cs#L427",
+  "description": "SantaLucia (1998) nearest-neighbor delta-G 37C of a primer's last 5 bases (Primer3 PRIMER_MAX_END_STABILITY).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "Primer sequence.", "minLength": 1 }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "deltaG": { "type": "number", "description": "3' end delta-G 37C in kcal/mol (0 if sequence < 5 bases; more negative = more stable)." }
+    },
+    "required": ["deltaG"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    { "name": "GC-rich 3' end", "input": { "sequence": "GCGCG" }, "output": { "deltaG": -6.86 } },
+    { "name": "AT-rich 3' end", "input": { "sequence": "TATAT" }, "output": { "deltaG": -0.86 } }
+  ]
+}
