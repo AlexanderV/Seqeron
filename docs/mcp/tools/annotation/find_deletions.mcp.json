@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_deletions",
+  "serverName": "Annotation",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "VariantCaller.FindDeletions",
+  "docRef": "Seqeron.Genomics.Annotation/VariantCaller.cs#L161",
+  "description": "Detect only deletions between two DNA sequences.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "reference": { "type": "string", "description": "Reference DNA sequence", "minLength": 1 },
+      "query": { "type": "string", "description": "Query DNA sequence", "minLength": 1 }
+    },
+    "required": ["reference", "query"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "variants": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "position": { "type": "integer", "description": "0-based reference position of the deletion" },
+            "referenceAllele": { "type": "string", "description": "The deleted base(s)" },
+            "alternateAllele": { "type": "string", "description": "Gap sentinel '-'" },
+            "type": { "type": "string", "description": "Always 'Deletion'" },
+            "queryPosition": { "type": "integer" }
+          },
+          "required": ["position", "referenceAllele", "alternateAllele", "type", "queryPosition"]
+        }
+      }
+    },
+    "required": ["variants"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Reference cannot be null or empty" },
+    { "code": 1001, "message": "Query cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Single deleted base",
+      "input": { "reference": "ATGTCAT", "query": "ATGCAT" },
+      "output": { "variants": [ { "position": 3, "referenceAllele": "T", "alternateAllele": "-", "type": "Deletion", "queryPosition": 3 } ] }
+    },
+    {
+      "name": "Substitution-only input has no deletions",
+      "input": { "reference": "ATGCATGC", "query": "ATGAATGC" },
+      "output": { "variants": [] }
+    }
+  ]
+}
