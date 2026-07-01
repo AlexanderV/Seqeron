@@ -52,7 +52,7 @@ public class ParsersTools
         return new FastaFormatResult(fasta.TrimEnd());
     }
 
-    [McpServerTool(Name = "fasta_write", Title = "FASTA — Write to File")]
+    [McpServerTool(Name = "fasta_write", Title = "FASTA — Write to File", ReadOnly = false)]
     [Description("Write sequence(s) to a FASTA file. Creates or overwrites the file at specified path.")]
     public static FastaWriteResult FastaWrite(
         [Description("File path to write FASTA output")] string filePath,
@@ -358,7 +358,7 @@ public class ParsersTools
         return new FastqFormatResult(fastq.TrimEnd());
     }
 
-    [McpServerTool(Name = "fastq_write", Title = "FASTQ — Write to File")]
+    [McpServerTool(Name = "fastq_write", Title = "FASTQ — Write to File", ReadOnly = false)]
     [Description("Write FASTQ records to a file. Creates or overwrites the file at specified path.")]
     public static FastqWriteResult FastqWrite(
         [Description("File path to write FASTQ output")] string filePath,
@@ -682,7 +682,7 @@ public class ParsersTools
             records.Count > 0 ? (double)results.Count / records.Count * 100 : 0);
     }
 
-    [McpServerTool(Name = "vcf_classify")]
+    [McpServerTool(Name = "vcf_classify", Title = "VCF — Classify Variant Type", ReadOnly = true)]
     [Description("Classify variant type for a VCF record. Returns SNP, MNP, Insertion, Deletion, Complex, Symbolic, or Unknown.")]
     public static VcfClassifyResult VcfClassify(
         [Description("Reference allele")] string refAllele,
@@ -765,7 +765,7 @@ public class ParsersTools
         return new VcfVariantLengthResult(length, refAllele.Length, altAllele.Length);
     }
 
-    [McpServerTool(Name = "vcf_is_hom_ref")]
+    [McpServerTool(Name = "vcf_is_hom_ref", Title = "VCF — Is Homozygous Reference", ReadOnly = true)]
     [Description("Check if a genotype is homozygous reference (0/0 or 0|0).")]
     public static VcfGenotypeCheckResult VcfIsHomRef(
         [Description("Genotype string (e.g., '0/0', '0/1', '1/1')")] string genotype)
@@ -777,7 +777,7 @@ public class ParsersTools
         return new VcfGenotypeCheckResult(isHomRef, genotype, "HomozygousReference");
     }
 
-    [McpServerTool(Name = "vcf_is_hom_alt")]
+    [McpServerTool(Name = "vcf_is_hom_alt", Title = "VCF — Is Homozygous Alternate", ReadOnly = true)]
     [Description("Check if a genotype is homozygous alternate (e.g., 1/1, 2/2).")]
     public static VcfGenotypeCheckResult VcfIsHomAlt(
         [Description("Genotype string (e.g., '0/0', '0/1', '1/1')")] string genotype)
@@ -794,7 +794,7 @@ public class ParsersTools
         return new VcfGenotypeCheckResult(isHomAlt, genotype, "HomozygousAlternate");
     }
 
-    [McpServerTool(Name = "vcf_is_het")]
+    [McpServerTool(Name = "vcf_is_het", Title = "VCF — Is Heterozygous", ReadOnly = true)]
     [Description("Check if a genotype is heterozygous (different alleles).")]
     public static VcfGenotypeCheckResult VcfIsHet(
         [Description("Genotype string (e.g., '0/0', '0/1', '1/1')")] string genotype)
@@ -829,7 +829,7 @@ public class ParsersTools
             records.Count > 0 ? (double)recordsWithFlag.Count / records.Count * 100 : 0);
     }
 
-    [McpServerTool(Name = "vcf_write", Title = "VCF — Write to File")]
+    [McpServerTool(Name = "vcf_write", Title = "VCF — Write to File", ReadOnly = false)]
     [Description("Write VCF records to a file. Creates or overwrites the file at specified path.")]
     public static VcfWriteResult VcfWrite(
         [Description("File path to write VCF output")] string filePath,

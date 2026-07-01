@@ -136,15 +136,17 @@ This keeps each tool surface focused, faster to load, and easier to reason about
 
 ## Tool catalog and schemas
 
-Worked tool schemas and examples are documented for:
+**All 427 tools across all 11 servers** now ship per-tool docs (`{tool}.md` + `{tool}.mcp.json`)
+under [`docs/mcp/tools/<server>/`](tools), and each server has its own `README.md` with the full
+tool table. Per-server status is tracked in [`docs/mcp/MCP_STATUS.md`](MCP_STATUS.md).
 
-- [`docs/mcp/tools/core`](tools/core)
-- [`docs/mcp/tools/sequence`](tools/sequence)
-- [`docs/mcp/tools/parsers`](tools/parsers)
+- [core](tools/core) · [sequence](tools/sequence) · [parsers](tools/parsers) · [alignment](tools/alignment) ·
+  [analysis](tools/analysis) · [annotation](tools/annotation) · [chromosome](tools/chromosome) ·
+  [metagenomics](tools/metagenomics) · [moltools](tools/moltools) · [phylogenetics](tools/phylogenetics) ·
+  [population](tools/population)
 
 Every server also advertises its full tool list — names, descriptions, and JSON input/output
-schemas — at runtime via MCP discovery, so any MCP‑aware client can introspect the remaining
-domains directly.
+schemas — at runtime via MCP discovery, so any MCP‑aware client can introspect it directly.
 
 ## Connect to Codex (CLI or IDE)
 
