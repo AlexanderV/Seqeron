@@ -6,8 +6,10 @@ description: >-
   classify variants (SNPs, indels, structural variants, CNVs, VEP-like effect,
   ACMG-like pathogenicity), discover and scan motifs (exact/degenerate/PROSITE/
   PWM), analyze repeats & low-complexity / masking, profile k-mers & composition,
-  plus splicing, methylation/epigenetics, miRNA targeting, transcriptome/RNA-seq,
-  RNA secondary structure, and protein features. Triggers: "annotate this
+  plus splicing, methylation/epigenetics, miRNA targeting (seed/target pairing,
+  pre-miRNA hairpins), and transcriptome/RNA-seq. (RNA secondary-structure folding →
+  seqeron-rna-structure; protein-feature prediction → seqeron-protein-features.)
+  Triggers: "annotate this
   sequence", "find ORFs / genes / promoters", "call variants", "what motifs are
   in…", "classify this variant", "predict the effect", "mask low-complexity",
   "find repeats", "k-mer profile". Servers: annotation + analysis (~188 tools).
@@ -46,14 +48,14 @@ With ~188 tools, route by **family** first, then open the family table in
 | Splice sites, introns, gene structure, alt-splicing | **Splicing** | `find_donor_sites`/`SpliceSitePredictor.FindDonorSites` · `predict_gene_structure`/`SpliceSitePredictor.PredictGeneStructure` |
 | Methylation, CpG islands, DMRs, chromatin, epigenetic age | **Epigenetics** | `find_cpg_islands`/`EpigeneticsAnalyzer.FindCpGIslands` · `find_dmrs`/`EpigeneticsAnalyzer.FindDMRs` |
 | miRNA seeds, targets, hairpins | **miRNA** ⚠ guarded | `find_mirna_target_sites`/`MiRnaAnalyzer.FindTargetSites` (see envelope) |
-| RNA secondary structure / MFE / stem-loops | **RNA structure** ⚠ documented limit | `predict_rna_structure`/`RnaSecondaryStructure.PredictStructure` |
+| RNA secondary structure / MFE / stem-loops | → **seqeron-rna-structure** | see [../seqeron-rna-structure/SKILL.md](../seqeron-rna-structure/SKILL.md) |
 | TPM/FPKM, differential expression, PCA, clustering | **Transcriptome / RNA-seq** | `calculate_tpm`/`TranscriptomeAnalyzer.CalculateTPM` · `differential_expression`/`TranscriptomeAnalyzer.AnalyzeDifferentialExpression` |
-| Protein motifs/domains, disorder, TM, signal peptide | **Protein features** ⚠ disorder guarded | `find_protein_motifs`/`ProteinMotifFinder.FindCommonMotifs` · `predict_disorder`/`DisorderPredictor.PredictDisorder` |
+| Protein motifs/domains, disorder, TM, signal peptide, hydrophobicity profile | → **seqeron-protein-features** | see [../seqeron-protein-features/SKILL.md](../seqeron-protein-features/SKILL.md) |
 | ANI, orthologs, synteny, rearrangements, dot-plot | **Comparative genomics** | `calculate_ani`/`ComparativeGenomics.CalculateANI` · `find_orthologs`/`ComparativeGenomics.FindOrthologs` |
 
-**⚠ Envelope note.** `predict_disorder`-family confidence (**DISORDER-REGION-001**), miRNA targeting
-(**MIRNA-TARGET-001**, **MIRNA-CLEAVAGE-001**) and RNA structure (**RNA-STRUCT-001**) are guarded /
-documented-limited. If a call throws `SeqeronLimitationException` below its MinimumMode, **STOP and
+**⚠ Envelope note.** miRNA targeting (**MIRNA-TARGET-001**, **MIRNA-CLEAVAGE-001**) is guarded.
+(Disorder **DISORDER-REGION-001** and RNA-structure **RNA-STRUCT-001** envelopes now live in
+seqeron-protein-features / seqeron-rna-structure.) If a call throws `SeqeronLimitationException` below its MinimumMode, **STOP and
 report the limitation** — do not raise the mode to force output (bio-rigor rule 2). Details:
 [`reference/pipelines.md`](reference/pipelines.md) → Envelope.
 

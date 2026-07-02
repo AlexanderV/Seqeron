@@ -91,7 +91,7 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 | `generate_consensus` | X | IUPAC consensus from aligned seqs | `MotifFinder.GenerateConsensus` |
 | `create_pwm` | X | Log-odds PWM from aligned DNA | `MotifFinder.CreatePwm` |
 | `scan_with_pwm` | X | Scan a sequence with a PWM | `MotifFinder.ScanWithPwm` |
-| `find_protein_motifs` | X | PROSITE-style protein motif catalog | `ProteinMotifFinder.FindCommonMotifs` |
+| `find_protein_motifs` | X | PROSITE-style protein motif catalog — owned by **seqeron-protein-features** | `ProteinMotifFinder.FindCommonMotifs` |
 | `find_motif_by_pattern` | X | Regex match in a protein | `ProteinMotifFinder.FindMotifByPattern` |
 | `find_motif_by_prosite` | X | PROSITE-pattern match in a protein | `ProteinMotifFinder.FindMotifByProsite` |
 | `find_protein_domains` | X | Domains via exact PROSITE patterns | `ProteinMotifFinder.FindDomains` |
@@ -223,9 +223,9 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 
 | Tool | Srv | Purpose | Method ID |
 |---|---|---|---|
-| `predict_rna_structure` | X | Greedy stem-loop structure | `RnaSecondaryStructure.PredictStructure` |
+| `predict_rna_structure` | X | Greedy stem-loop structure — owned by **seqeron-rna-structure** | `RnaSecondaryStructure.PredictStructure` |
 | `minimum_free_energy` | X | Zuker MFE | `RnaSecondaryStructure.CalculateMinimumFreeEnergy` |
-| `find_stem_loops` | X | Hairpin stem-loop candidates | `RnaSecondaryStructure.FindStemLoops` |
+| `find_stem_loops` | X | Hairpin stem-loop candidates — owned by **seqeron-rna-structure** | `RnaSecondaryStructure.FindStemLoops` |
 | `detect_pseudoknots` | X | Crossing base pairs | `RnaSecondaryStructure.DetectPseudoknots` |
 | `parse_dot_bracket` / `validate_dot_bracket` | X | Dot-bracket ↔ base pairs | `RnaSecondaryStructure.ParseDotBracket` / `ValidateDotBracket` |
 | `can_pair` (X) / `base_pair_type` / `rna_complement_base` | X | RNA pairing primitives | `RnaSecondaryStructure.CanPair` / `GetBasePairType` / `GetComplement` |
@@ -235,7 +235,7 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 
 | Tool | Srv | Purpose | Method ID |
 |---|---|---|---|
-| `predict_disorder` | X | TOP-IDP disorder prediction ⚠ | `DisorderPredictor.PredictDisorder` |
+| `predict_disorder` | X | TOP-IDP disorder prediction ⚠ — owned by **seqeron-protein-features** | `DisorderPredictor.PredictDisorder` |
 | `disorder_propensity` | X | Per-residue TOP-IDP propensity | `DisorderPredictor.GetDisorderPropensity` |
 | `is_disorder_promoting` | X | Dunker disorder-promoting set | `DisorderPredictor.IsDisorderPromoting` |
 | `predict_morfs` | X | MoRFs within IDRs | `DisorderPredictor.PredictMoRFs` |
@@ -243,7 +243,7 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 | `predict_transmembrane_helices` | X | Hydropathy TM-helix prediction | `ProteinMotifFinder.PredictTransmembraneHelices` |
 | `predict_coiled_coils` | X | Heptad-repeat coiled coils | `ProteinMotifFinder.PredictCoiledCoils` |
 | `predict_chou_fasman` | X | Chou-Fasman helix/sheet/turn | `SequenceStatistics.PredictSecondaryStructure` |
-| `hydrophobicity_profile` | X | Kyte-Doolittle hydropathy | `SequenceStatistics.CalculateHydrophobicityProfile` |
+| `hydrophobicity_profile` | X | Kyte-Doolittle hydropathy — owned by **seqeron-protein-features** | `SequenceStatistics.CalculateHydrophobicityProfile` |
 
 ## 14. Comparative genomics
 
