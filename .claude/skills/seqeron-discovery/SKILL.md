@@ -107,3 +107,6 @@ Point, don't duplicate: this skill routes; the docs are the source of truth.
 - Once you know the tool, hand off to the relevant domain skill (e.g.
   `bio-moldesign`, `bio-alignment`, `bio-annotation`) and to `bio-rigor` for the
   actual computation.
+- **To run it, MCP need not be registered anywhere.** Call the tool over the shipped
+  MCP server on demand from Python — [`seqeron-python-client`](../seqeron-python-client/SKILL.md) —
+  or via the C# API using the tool's `Method ID` — [`seqeron-dev`](../seqeron-dev/SKILL.md).
