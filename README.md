@@ -30,6 +30,45 @@ C#/.NET toolkit for bioinformatics (.NET 10): sequence models, core algorithms, 
 [![.NET](https://img.shields.io/badge/.NET-10-512BD4)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
+## Get started in one command
+
+Clone the repo, open it in **Claude Code** (or GitHub Copilot / VS Code), and just ask:
+
+> **install and configure**
+
+That triggers the [`seqeron-setup`](.claude/skills/seqeron-setup) skill, which checks your
+toolchain (.NET 10 SDK + Python 3), builds all 11 MCP servers, and runs a live smoke test.
+Or run the same thing directly:
+
+```bash
+scripts/setup.sh          # build everything + verify the on-demand tool path
+```
+
+### Your first task
+
+After setup, **describe a biology task in plain language.** No tool picking, no code — the
+matching skills load themselves and chain the real, validated algorithms. For example:
+
+> *"Here are two versions of a short gene fragment — a drug-susceptible wild type and a clinical
+> isolate we suspect carries a resistance mutation. Confirm both are clean DNA, tell me exactly
+> what changed and whether it alters the protein, and if it does, design me a PCR primer pair to
+> amplify the region for a diagnostic."* (with the two FASTA sequences)
+
+The assistant routes it through a chain of skills — **every number below is computed by the
+library, none guessed:**
+
+1. **[`bio-qc`](.claude/skills/bio-qc)** — both are valid DNA, 57 bp; GC 49.12 % vs 50.88 %.
+2. **[`bio-alignment`](.claude/skills/bio-alignment)** — **98.25 % identical**, a single substitution (no indels): **T→G at position 15** (0-based).
+3. **[`bio-annotation`](.claude/skills/bio-annotation)** — translating the reading frame, `…MTEAR·`**`W`**`·DLK…` → `…MTEAR·`**`G`**`·DLK…`: a **missense mutation, `p.Trp6Gly`** — it really does change the protein.
+4. **[`bio-moldesign`](.claude/skills/bio-moldesign)** — a validated PCR pair around the site (61 bp amplicon): both primers **Tm ≈ 58.7 °C** (ΔTm 0.2 °C), no hairpin — ready for the bench.
+
+[`bio-rigor`](.claude/skills/bio-rigor) runs throughout (tool-only, 0-based coordinates, provenance).
+
+No MCP registration and no schema wrangling: the [skills](#skills-claude-code--github-copilot)
+call the shipped servers **on demand**, pulling in only the tools a task needs, so the 427 tool
+schemas never flood the model's context. Setup is a one-time step per clone; re-run it any time a
+build looks stale (it's idempotent). More worked end-to-end tasks: [`docs/skills/golden/`](docs/skills/golden).
+
 ## Quickstart (Library)
 
 ```csharp
@@ -157,25 +196,14 @@ tm_diff_c = 4.1
 
 **Why it matters.** With **427 tools** an LLM drowns if you attach every schema. The skills keep tool descriptions **out of the model’s context** and instead teach it to: **discover** the right tool, **orchestrate** a correct multi‑step pipeline, and stay **scientifically honest** (compute with tools — never guess; respect each algorithm’s validated envelope; carry provenance). Every recipe is **dual‑mode** — it works whether you call the **MCP tool** or the equivalent **C# `Method ID`** — so you don’t need MCP at all; the algorithms are the same either way.
 
-**The 20 skills.**
+**The 21 skills.**
 
-- **Cross‑cutting:** `seqeron-discovery` (find the right tool among 427 without loading schemas) · `bio-rigor` (tool‑only computation, provenance, envelope STOP rules) · `seqeron-dev` (the C# API path: namespaces, `LimitationPolicy`, `TryCreate`) · `seqeron-python-client` (wrap any tool in a small Python script).
+- **Cross‑cutting:** `seqeron-setup` (one-command install & configuration for a fresh clone) · `seqeron-discovery` (find the right tool among 427 without loading schemas) · `bio-rigor` (tool‑only computation, provenance, envelope STOP rules) · `seqeron-dev` (the C# API path: namespaces, `LimitationPolicy`, `TryCreate`) · `seqeron-python-client` (wrap any tool in a small Python script).
 - **Domains:** `bio-qc` · `bio-alignment` · `bio-assembly` · `bio-annotation` · `bio-moldesign` · `bio-phylo-popgen` · `bio-metagenomics` · `bio-chromosome` · `seqeron-rna-structure` · `seqeron-protein-features` · `seqeron-transcriptome` · `seqeron-epigenetics` · `seqeron-comparative-genomics` · `seqeron-oncology` · `seqeron-mirna` · `seqeron-structural-variants`.
 
 An [auto‑generated catalog](docs/skills/_generated) + a CI guardrail keep the skills in sync with the tools (no drift). Plan of record: [`docs/skills/STRATEGY.md`](docs/skills/STRATEGY.md); worked regression tasks: [`docs/skills/golden/`](docs/skills/golden).
 
-### Example (real workflow): is this a resistance mutation — and can I test for it?
-
-**Task (plain language):** *“I have two versions of a short gene fragment — the drug‑susceptible wild type and a clinical isolate we suspect carries a resistance mutation. Confirm both are clean DNA, tell me exactly what changed, whether it alters the protein, and — if it does — design me a PCR primer pair to amplify that region for a diagnostic. Then give me a short lab‑notebook report.”* (Two FASTA fragments provided.)
-
-The assistant routes the request through a **chain of skills** — no manual tool picking, no fabricated numbers (every value below is computed by `Seqeron.Genomics`):
-
-1. **`bio-qc`** — both sequences are valid DNA, 210 bp; GC 50.48 % vs 50.95 % (comparable).
-2. **`bio-alignment`** — 99.52 % identical; a **single substitution** (no indels): **T→G at position 106**.
-3. **`bio-annotation`** — the change falls in the reading frame’s codon 26 (`TGG→GGG`): a **missense mutation, `p.Trp26Gly`** — it really does change the protein.
-4. **`bio-moldesign`** — a validated PCR pair around the site (151 bp amplicon): `FWD TCATCGGCTCGGCTAGCACATG` and `REV AGCCGGCACGTTCCACATATGG`, both **Tm 58.6 °C** (ΔTm 0.0 °C), no primer‑dimer.
-
-`bio-rigor` runs throughout (tool‑only, 0‑based coordinates, provenance). The final report is a ready‑to‑paste lab‑notebook entry. See [`docs/skills/golden/`](docs/skills/golden) for more end‑to‑end tasks.
+For a worked end-to-end example (the resistance-mutation chain — QC → alignment → variant effect → primer design, every number computed by the library), see [**Your first task**](#your-first-task) above, and [`docs/skills/golden/`](docs/skills/golden) for more.
 
 > **How the compute happens:** the skills only tell the assistant *which* `Method ID`s to call; the numbers come from the real library (run directly via the C# API, or over MCP). The tool schemas never enter the model’s context.
 

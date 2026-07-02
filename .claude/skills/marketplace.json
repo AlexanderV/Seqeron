@@ -1,32 +1,130 @@
 {
-  "name": "clean-code-skills",
-  "version": "2.0.0",
-  "description": "Comprehensive Clean Code and Clean Architecture skills for AI coding assistants. Master software craftsmanship with Uncle Bob's principles, SOLID, DDD, and architectural patterns.",
+  "name": "seqeron-bio-skills",
+  "version": "1.0.0",
+  "description": "Agent skills that turn the Seqeron.Genomics bioinformatics library (247 algorithms) and its 11 MCP servers (427 tools) into an assistant that solves whole biological tasks — with tool-only rigor and no schema bloat.",
   "author": "AlexanderV",
-  "repository": "https://github.com/AlexanderV/skills",
+  "repository": "https://github.com/AlexanderV/Seqeron",
   "license": "MIT",
   "keywords": [
-    "clean-code",
-    "clean-architecture",
-    "solid",
-    "ddd",
-    "domain-driven-design",
-    "hexagonal-architecture",
-    "refactoring",
-    "code-quality",
-    "best-practices",
-    "software-craftsmanship"
+    "bioinformatics",
+    "genomics",
+    "dna",
+    "rna",
+    "protein",
+    "sequence-alignment",
+    "variant-calling",
+    "phylogenetics",
+    "population-genetics",
+    "primer-design",
+    "crispr",
+    "mcp",
+    "claude-code"
   ],
   "skills": [
     {
-      "name": "clean-code",
-      "path": "clean-code",
-      "description": "Write clean, maintainable, and readable code following Robert C. Martin's Clean Code principles"
+      "name": "bio-alignment",
+      "path": "bio-alignment",
+      "description": "Align biological sequences and quantify how similar they are with Seqeron (MCP tools OR the C# API)."
     },
     {
-      "name": "clean-architecture",
-      "path": "clean-architecture",
-      "description": "Design software with Clean Architecture, DDD, SOLID, and hexagonal/onion patterns"
+      "name": "bio-annotation",
+      "path": "bio-annotation",
+      "description": "Annotate and characterize genomic sequences with Seqeron (MCP tools OR the C# API)."
+    },
+    {
+      "name": "bio-assembly",
+      "path": "bio-assembly",
+      "description": "Assemble sequencing reads into contigs and QC the result with Seqeron (MCP tools OR the C# API)."
+    },
+    {
+      "name": "bio-chromosome",
+      "path": "bio-chromosome",
+      "description": "Chromosome- and assembly-scale genome analysis with Seqeron (MCP tools OR the C# API)."
+    },
+    {
+      "name": "bio-metagenomics",
+      "path": "bio-metagenomics",
+      "description": "Profile and compare microbial communities with Seqeron (MCP tools OR the C# API)."
+    },
+    {
+      "name": "bio-moldesign",
+      "path": "bio-moldesign",
+      "description": "Design and QC molecular-biology reagents with Seqeron's MolTools server (47 tools) — PCR primer pairs and hybridization probes, CRISPR guide RNAs with off-target and specificity scoring, codon optimization of a CDS for a target organism (CAI/GC before-after), restriction-site finding and digest simulation, and melting-temperature (Tm) with salt correction."
+    },
+    {
+      "name": "bio-phylo-popgen",
+      "path": "bio-phylo-popgen",
+      "description": "Build phylogenetic trees and compute population-genetics statistics with Seqeron (MCP tools OR the C# API)."
+    },
+    {
+      "name": "bio-qc",
+      "path": "bio-qc",
+      "description": "Parse and QC biological sequences and files with Seqeron (MCP tools OR the C# API)."
+    },
+    {
+      "name": "bio-rigor",
+      "path": "bio-rigor",
+      "description": "Enforce scientific rigor whenever you compute or derive a biological result from real data with the Seqeron library — via MCP tools OR the C# API."
+    },
+    {
+      "name": "seqeron-comparative-genomics",
+      "path": "seqeron-comparative-genomics",
+      "description": "Compare whole genomes / gene sets with Seqeron (MCP tools OR the C# API)."
+    },
+    {
+      "name": "seqeron-dev",
+      "path": "seqeron-dev",
+      "description": "Use the Seqeron.Genomics C# API directly (not via MCP) with the library's real conventions and guardrails."
+    },
+    {
+      "name": "seqeron-discovery",
+      "path": "seqeron-discovery",
+      "description": "Find the right Seqeron bioinformatics tool or algorithm for a task WITHOUT loading all 427 MCP tool schemas."
+    },
+    {
+      "name": "seqeron-epigenetics",
+      "path": "seqeron-epigenetics",
+      "description": "Analyze DNA methylation and chromatin state with Seqeron (MCP tools OR the C# API)."
+    },
+    {
+      "name": "seqeron-mirna",
+      "path": "seqeron-mirna",
+      "description": "microRNA (miRNA) analysis with Seqeron (MCP tools OR the C# API)."
+    },
+    {
+      "name": "seqeron-oncology",
+      "path": "seqeron-oncology",
+      "description": "Cancer-genomics analysis with the Seqeron.Genomics C# API — tumor purity / ploidy (ASCAT-like), allele-specific copy number, mutational signatures (SBS96 + NMF/NNLS fitting), gene fusions, tumor mutational burden (TMB), microsatellite instability (MSI), neoantigen candidate peptides + MHC-binding classification, clonal / subclonal structure and tumor phylogeny, HRD / LOH, ctDNA / MRD."
+    },
+    {
+      "name": "seqeron-protein-features",
+      "path": "seqeron-protein-features",
+      "description": "Predict features of a PROTEIN sequence with Seqeron (MCP tools OR the C# API)."
+    },
+    {
+      "name": "seqeron-python-client",
+      "path": "seqeron-python-client",
+      "description": "Write a small Python tool/script that CALLS Seqeron algorithms over MCP."
+    },
+    {
+      "name": "seqeron-rna-structure",
+      "path": "seqeron-rna-structure",
+      "description": "Predict and analyze RNA secondary structure with Seqeron (MCP tools OR the C# API)."
+    },
+    {
+      "name": "seqeron-setup",
+      "path": "seqeron-setup",
+      "description": "One-time install & configuration for a freshly cloned Seqeron repo, so the bioinformatics skills are ready to solve real tasks."
+    },
+    {
+      "name": "seqeron-structural-variants",
+      "path": "seqeron-structural-variants",
+      "description": "Detect germline structural variants (SVs) and copy-number variants (CNVs) from sequencing read evidence with Seqeron (MCP tools OR the C# API)."
+    },
+    {
+      "name": "seqeron-transcriptome",
+      "path": "seqeron-transcriptome",
+      "description": "Analyze RNA-seq / transcriptome expression matrices with Seqeron (MCP tools OR the C# API)."
     }
   ]
 }
