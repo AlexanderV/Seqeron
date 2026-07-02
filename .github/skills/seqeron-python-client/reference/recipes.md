@@ -8,10 +8,11 @@ relative from here as `../../../../`.
 ## Prerequisites (recap)
 
 - **No pip packages** — pure Python stdlib (stdio JSON-RPC). MCP stays optional; nothing is registered.
-- `dotnet` (.NET SDK) on PATH. The shipped servers are `PublishAot=true` (reflection-JSON off), so the
-  helper builds each server once in a reflection-enabled JIT config (temp cache) and runs that DLL; the
-  first call to a server pays that build+startup cost, which is why the pooled client exists. Override
-  the launch per server with `SEQERON_MCP_CMD_<SERVER>` (e.g. an AOT-published binary).
+- `dotnet` (.NET SDK) on PATH. The servers enable reflection-JSON in their csproj, so they start under
+  `dotnet run` (JIT) out of the box; the helper builds each once into a temp cache and runs the DLL
+  (keeping build logs off the MCP stdout stream). The first call to a server pays that build+startup
+  cost, which is why the pooled client exists. Override per server with `SEQERON_MCP_CMD_<SERVER>`
+  (e.g. an AOT-published binary).
 
 ## The helper contract
 

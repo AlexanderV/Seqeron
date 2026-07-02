@@ -9,6 +9,9 @@
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <PublishAot>true</PublishAot>
+    <!-- MCP tool-schema export uses reflection-based JSON; keep it on so the server
+         starts under `dotnet run` (JIT). Native-AOT publish would need source-gen. -->
+    <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
     <OptimizationPreference>Speed</OptimizationPreference>
     <IlcInstructionSet>native</IlcInstructionSet>
     <IlcFoldIdenticalMethodBodies>true</IlcFoldIdenticalMethodBodies>

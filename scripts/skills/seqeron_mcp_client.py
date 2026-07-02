@@ -15,15 +15,15 @@ The official ``mcp`` SDK needs Python >= 3.10 and a network install. To keep
 this usable everywhere (and to keep MCP genuinely optional), we speak the stdio
 JSON-RPC protocol directly with the standard library.
 
-Launching a server (important)
-------------------------------
-The shipped servers set ``<PublishAot>true</PublishAot>``, which disables
-reflection-based JSON by default — so ``dotnet run`` / a plain Debug DLL
-*crash at startup* (the MCP SDK builds tool schemas via reflection). This helper
-therefore builds each server once in a reflection-enabled (JIT) configuration
-into a cache dir and runs that DLL. Requires the .NET SDK (``dotnet``) on PATH.
-Override the whole launch with the env var ``SEQERON_MCP_CMD_<SERVER>`` (e.g.
-point it at an AOT-published native binary): its value is run via the shell.
+Launching a server
+------------------
+The shipped servers enable reflection-based JSON
+(``<JsonSerializerIsReflectionEnabledByDefault>true</...>``) so they start under
+``dotnet run`` (JIT) out of the box. To keep build/restore chatter off the MCP
+stdout stream, this helper builds each server once into a clean cache dir and
+runs that DLL. Requires the .NET SDK (``dotnet``) on PATH. Override the whole
+launch with the env var ``SEQERON_MCP_CMD_<SERVER>`` (e.g. point it at an
+AOT-published native binary): its value is run via the shell.
 
 Usage
 -----
@@ -113,9 +113,7 @@ def _server_dll(server: str, project_root: str) -> str:
         return dll
     csproj = os.path.join(proj_dir, f"{name}.csproj")
     proc = subprocess.run(
-        ["dotnet", "build", csproj, "-c", "Release",
-         "-p:PublishAot=false", "-p:JsonSerializerIsReflectionEnabledByDefault=true",
-         "-o", out],
+        ["dotnet", "build", csproj, "-c", "Release", "-o", out],
         cwd=project_root, capture_output=True, text=True,
     )
     if proc.returncode != 0 or not os.path.exists(dll):
