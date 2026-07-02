@@ -6,9 +6,11 @@ description: >-
   classify variants (SNPs, indels, structural variants, CNVs, VEP-like effect,
   ACMG-like pathogenicity), discover and scan motifs (exact/degenerate/PROSITE/
   PWM), analyze repeats & low-complexity / masking, profile k-mers & composition,
-  plus splicing, methylation/epigenetics, miRNA targeting (seed/target pairing,
-  pre-miRNA hairpins), and transcriptome/RNA-seq. (RNA secondary-structure folding →
-  seqeron-rna-structure; protein-feature prediction → seqeron-protein-features.)
+  plus splicing and miRNA targeting (seed/target pairing,
+  pre-miRNA hairpins). (RNA secondary-structure folding → seqeron-rna-structure;
+  protein-feature prediction → seqeron-protein-features; methylation/epigenetics →
+  seqeron-epigenetics; transcriptome/RNA-seq → seqeron-transcriptome;
+  ANI/orthologs/synteny/comparative genomics → seqeron-comparative-genomics.)
   Triggers: "annotate this
   sequence", "find ORFs / genes / promoters", "call variants", "what motifs are
   in…", "classify this variant", "predict the effect", "mask low-complexity",
@@ -46,12 +48,12 @@ With ~188 tools, route by **family** first, then open the family table in
 | Low-complexity regions, DUST/SEG, masking, entropy | **Complexity / masking** | `find_low_complexity_regions`/`SequenceComplexity.FindLowComplexityRegions` · `mask_low_complexity`/`SequenceComplexity.MaskLowComplexity` · `dust_score`/`SequenceComplexity.CalculateDustScore` |
 | k-mer counts/frequencies/spectrum/positions/distance | **k-mer & composition** | `count_kmers`/`KmerAnalyzer.CountKmers` · `most_frequent_kmers`/`KmerAnalyzer.FindMostFrequentKmers` · `kmer_distance`/`KmerAnalyzer.KmerDistance` · `analyze_gc_content`/`GcSkewCalculator.AnalyzeGcContent` |
 | Splice sites, introns, gene structure, alt-splicing | **Splicing** | `find_donor_sites`/`SpliceSitePredictor.FindDonorSites` · `predict_gene_structure`/`SpliceSitePredictor.PredictGeneStructure` |
-| Methylation, CpG islands, DMRs, chromatin, epigenetic age | **Epigenetics** | `find_cpg_islands`/`EpigeneticsAnalyzer.FindCpGIslands` · `find_dmrs`/`EpigeneticsAnalyzer.FindDMRs` |
+| Methylation, CpG islands, DMRs, chromatin, epigenetic age | → **seqeron-epigenetics** | see [../seqeron-epigenetics/SKILL.md](../seqeron-epigenetics/SKILL.md) |
 | miRNA seeds, targets, hairpins | **miRNA** ⚠ guarded | `find_mirna_target_sites`/`MiRnaAnalyzer.FindTargetSites` (see envelope) |
 | RNA secondary structure / MFE / stem-loops | → **seqeron-rna-structure** | see [../seqeron-rna-structure/SKILL.md](../seqeron-rna-structure/SKILL.md) |
-| TPM/FPKM, differential expression, PCA, clustering | **Transcriptome / RNA-seq** | `calculate_tpm`/`TranscriptomeAnalyzer.CalculateTPM` · `differential_expression`/`TranscriptomeAnalyzer.AnalyzeDifferentialExpression` |
+| TPM/FPKM, differential expression, PCA, clustering | → **seqeron-transcriptome** | see [../seqeron-transcriptome/SKILL.md](../seqeron-transcriptome/SKILL.md) |
 | Protein motifs/domains, disorder, TM, signal peptide, hydrophobicity profile | → **seqeron-protein-features** | see [../seqeron-protein-features/SKILL.md](../seqeron-protein-features/SKILL.md) |
-| ANI, orthologs, synteny, rearrangements, dot-plot | **Comparative genomics** | `calculate_ani`/`ComparativeGenomics.CalculateANI` · `find_orthologs`/`ComparativeGenomics.FindOrthologs` |
+| ANI, orthologs, synteny, rearrangements, dot-plot | → **seqeron-comparative-genomics** | see [../seqeron-comparative-genomics/SKILL.md](../seqeron-comparative-genomics/SKILL.md) |
 
 **⚠ Envelope note.** miRNA targeting (**MIRNA-TARGET-001**, **MIRNA-CLEAVAGE-001**) is guarded.
 (Disorder **DISORDER-REGION-001** and RNA-structure **RNA-STRUCT-001** envelopes now live in

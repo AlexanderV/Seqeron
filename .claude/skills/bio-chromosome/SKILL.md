@@ -41,6 +41,8 @@ chromosome- or assembly-scale question and gives a **dual-mode** recipe (MCP too
 - **Variant-level SV / CNV** (single breakpoints, per-locus CNV calls, VEP/ACMG effects) →
   **[`bio-annotation`](../bio-annotation/SKILL.md)**. *This* skill = CHROMOSOME-SCALE structure:
   synteny-based rearrangements and depth-based whole-chromosome aneuploidy/ploidy.
+  Gene-order-permutation rearrangements, reversal distance, ANI/orthologs/RBH and
+  dot-plots → [`seqeron-comparative-genomics`](../seqeron-comparative-genomics/SKILL.md).
 
 ## Decision guide — which tool for which question
 

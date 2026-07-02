@@ -49,7 +49,7 @@ alpha caveat) is delegated to `bio-rigor` — not restated here.
   assembly should trend consistently; auN ≥ N50 typically for skewed length distributions.
 - **Aneuploidy**: descriptor path `analyze_karyotype` vs depth path
   `identify_whole_chromosome_aneuploidy` — a trisomy should surface in both when both inputs exist.
-- **Rearrangements**: `detect_rearrangements` (gene-synteny) vs `find_syntenic_blocks_assemblies`
+- **Rearrangements**: `detect_rearrangements` (gene-synteny; gene-order level → seqeron-comparative-genomics) vs `find_syntenic_blocks_assemblies`
   (k-mer synteny orientation flags) — inversions should be flagged by both on the same event.
 - **Completeness**: `assess_completeness` (marker genes) vs `estimate_completeness_from_kmers`
   (spectrum) — two orthogonal completeness estimates.

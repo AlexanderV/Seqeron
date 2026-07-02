@@ -162,7 +162,7 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 | `is_within_coding_region` | A | Heuristic coding-region check | `SpliceSitePredictor.IsWithinCodingRegion` |
 | `maxent_score` | A | MaxEntScan-like splice-site score | `SpliceSitePredictor.CalculateMaxEntScore` |
 
-## 9. Epigenetics / methylation
+## 9. Epigenetics / methylation — owned by **seqeron-epigenetics** (see [../../seqeron-epigenetics/SKILL.md](../../seqeron-epigenetics/SKILL.md))
 
 | Tool | Srv | Purpose | Method ID |
 |---|---|---|---|
@@ -199,7 +199,7 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 | `is_wobble_pair` | A | G-U wobble test | `MiRnaAnalyzer.IsWobblePair` |
 | `rna_reverse_complement` | A | RNA reverse complement | `MiRnaAnalyzer.GetReverseComplement` |
 
-## 11. Transcriptome / RNA-seq
+## 11. Transcriptome / RNA-seq — owned by **seqeron-transcriptome** (see [../../seqeron-transcriptome/SKILL.md](../../seqeron-transcriptome/SKILL.md))
 
 | Tool | Srv | Purpose | Method ID |
 |---|---|---|---|
@@ -245,7 +245,7 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 | `predict_chou_fasman` | X | Chou-Fasman helix/sheet/turn | `SequenceStatistics.PredictSecondaryStructure` |
 | `hydrophobicity_profile` | X | Kyte-Doolittle hydropathy — owned by **seqeron-protein-features** | `SequenceStatistics.CalculateHydrophobicityProfile` |
 
-## 14. Comparative genomics
+## 14. Comparative genomics — owned by **seqeron-comparative-genomics** (see [../../seqeron-comparative-genomics/SKILL.md](../../seqeron-comparative-genomics/SKILL.md))
 
 | Tool | Srv | Purpose | Method ID |
 |---|---|---|---|
