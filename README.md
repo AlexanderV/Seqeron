@@ -151,6 +151,34 @@ tm_diff_c = 4.1
 6) `melting_temperature` (FWD) → 51.8°C
 7) `melting_temperature` (REV) → 55.9°C
 
+## Skills (Claude Code / GitHub Copilot)
+
+**A thin routing + discipline layer that turns the library into an agent that solves whole biological tasks** — not just single tool calls. The [Agent Skills](https://docs.anthropic.com/en/docs/claude-code/skills) live under [`.claude/skills/`](.claude/skills) (Claude Code) and a byte‑identical mirror under [`.github/skills/`](.github/skills) (Copilot / VS Code).
+
+**Why it matters.** With **427 tools** an LLM drowns if you attach every schema. The skills keep tool descriptions **out of the model’s context** and instead teach it to: **discover** the right tool, **orchestrate** a correct multi‑step pipeline, and stay **scientifically honest** (compute with tools — never guess; respect each algorithm’s validated envelope; carry provenance). Every recipe is **dual‑mode** — it works whether you call the **MCP tool** or the equivalent **C# `Method ID`** — so you don’t need MCP at all; the algorithms are the same either way.
+
+**The 20 skills.**
+
+- **Cross‑cutting:** `seqeron-discovery` (find the right tool among 427 without loading schemas) · `bio-rigor` (tool‑only computation, provenance, envelope STOP rules) · `seqeron-dev` (the C# API path: namespaces, `LimitationPolicy`, `TryCreate`) · `seqeron-python-client` (wrap any tool in a small Python script).
+- **Domains:** `bio-qc` · `bio-alignment` · `bio-assembly` · `bio-annotation` · `bio-moldesign` · `bio-phylo-popgen` · `bio-metagenomics` · `bio-chromosome` · `seqeron-rna-structure` · `seqeron-protein-features` · `seqeron-transcriptome` · `seqeron-epigenetics` · `seqeron-comparative-genomics` · `seqeron-oncology` · `seqeron-mirna` · `seqeron-structural-variants`.
+
+An [auto‑generated catalog](docs/skills/_generated) + a CI guardrail keep the skills in sync with the tools (no drift). Plan of record: [`docs/skills/STRATEGY.md`](docs/skills/STRATEGY.md); worked regression tasks: [`docs/skills/golden/`](docs/skills/golden).
+
+### Example (real workflow): is this a resistance mutation — and can I test for it?
+
+**Task (plain language):** *“I have two versions of a short gene fragment — the drug‑susceptible wild type and a clinical isolate we suspect carries a resistance mutation. Confirm both are clean DNA, tell me exactly what changed, whether it alters the protein, and — if it does — design me a PCR primer pair to amplify that region for a diagnostic. Then give me a short lab‑notebook report.”* (Two FASTA fragments provided.)
+
+The assistant routes the request through a **chain of skills** — no manual tool picking, no fabricated numbers (every value below is computed by `Seqeron.Genomics`):
+
+1. **`bio-qc`** — both sequences are valid DNA, 210 bp; GC 50.48 % vs 50.95 % (comparable).
+2. **`bio-alignment`** — 99.52 % identical; a **single substitution** (no indels): **T→G at position 106**.
+3. **`bio-annotation`** — the change falls in the reading frame’s codon 26 (`TGG→GGG`): a **missense mutation, `p.Trp26Gly`** — it really does change the protein.
+4. **`bio-moldesign`** — a validated PCR pair around the site (151 bp amplicon): `FWD TCATCGGCTCGGCTAGCACATG` and `REV AGCCGGCACGTTCCACATATGG`, both **Tm 58.6 °C** (ΔTm 0.0 °C), no primer‑dimer.
+
+`bio-rigor` runs throughout (tool‑only, 0‑based coordinates, provenance). The final report is a ready‑to‑paste lab‑notebook entry. See [`docs/skills/golden/`](docs/skills/golden) for more end‑to‑end tasks.
+
+> **How the compute happens:** the skills only tell the assistant *which* `Method ID`s to call; the numbers come from the real library (run directly via the C# API, or over MCP). The tool schemas never enter the model’s context.
+
 ## What’s Inside
 
 - DNA/RNA/Protein sequence models with validation and common operations.
@@ -288,6 +316,7 @@ graph TD
 - MCP guide: [docs/mcp/README.md](docs/mcp/README.md).
 - MCP tool docs: [Core](docs/mcp/tools/core), [Sequence](docs/mcp/tools/sequence), [Parsers](docs/mcp/tools/parsers).
 - MCP traceability: [docs/mcp/traceability.md](docs/mcp/traceability.md).
+- Skills strategy & catalog: [docs/skills/STRATEGY.md](docs/skills/STRATEGY.md), [docs/skills/golden](docs/skills/golden).
 - Algorithm test specifications: [tests/TestSpecs](tests/TestSpecs).
 
 ## Build and Test
