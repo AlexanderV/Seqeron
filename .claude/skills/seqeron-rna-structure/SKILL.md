@@ -37,8 +37,10 @@ folding / MFE / stem-loop / pseudoknot / dot-bracket question and gives a **dual
 - **This skill OWNS** RNA *secondary structure*: folding/MFE, stem-loops, pseudoknot detection,
   RNA inverted repeats, base-pairing rules, dot-bracket parse/validate, per-motif energy terms.
   **[`bio-annotation`](../bio-annotation/SKILL.md)** name-drops this family shallowly — route here.
-- **Pre-miRNA hairpins, miRNA seed / target pairing, RNA-seq, splicing** stay in
-  **[`bio-annotation`](../bio-annotation/SKILL.md)** (`find_pre_mirna_hairpins`, `find_mirna_target_sites`, …).
+- **Pre-miRNA hairpins, miRNA seed / target pairing** → **[`seqeron-mirna`](../seqeron-mirna/SKILL.md)**
+  (`find_pre_mirna_hairpins`, `find_mirna_target_sites`, …). Disambiguation: a **structural**
+  stem-loop ("fold this RNA", "find stem-loops") is here; a **miRNA-biogenesis precursor** hairpin
+  is seqeron-mirna. **RNA-seq / splicing** stay in **[`bio-annotation`](../bio-annotation/SKILL.md)**.
 - **DNA inverted repeats / palindromes** → `find_inverted_repeats` (core/analysis) via
   `bio-assembly` / `bio-annotation`; `find_rna_inverted_repeats` here uses **RNA** complement rules.
 - **No base-pair-probability / partition-function MCP tool exists.** The McCaskill partition
@@ -153,4 +155,5 @@ Caveat: alpha software; not for clinical use — independently validate before r
 - **Operating envelope / guarded unit:** [`LIMITATIONS.md`](../../../docs/Validation/LIMITATIONS.md) (RNA-STRUCT-001)
 - **Cross-cutting:** [`bio-rigor`](../bio-rigor/SKILL.md) (rigor guardrail) ·
   [`seqeron-discovery`](../seqeron-discovery/SKILL.md) (tool lookup) ·
-  [`bio-annotation`](../bio-annotation/SKILL.md) (overlap: it name-drops RNA structure; pre-miRNA / miRNA / RNA-seq / splicing live there).
+  [`bio-annotation`](../bio-annotation/SKILL.md) (overlap: it name-drops RNA structure; RNA-seq / splicing live there) ·
+  [`seqeron-mirna`](../seqeron-mirna/SKILL.md) (pre-miRNA / miRNA hairpins & seed-target pairing — disambiguate: structural hairpin here vs biogenesis precursor there).

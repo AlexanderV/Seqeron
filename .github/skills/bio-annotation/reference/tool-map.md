@@ -59,7 +59,7 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 | `format_vcf_info` | A | Annotation → VCF INFO string | `VariantAnnotator.FormatAsVcfInfo` |
 | `variants_to_vcf` | A | Variants → VCF v4.2 lines | `VariantCaller.ToVcfLines` |
 
-## 3. Structural variants / CNV / breakpoints
+## 3. Structural variants / CNV / breakpoints — owned by **seqeron-structural-variants** (see [../../seqeron-structural-variants/SKILL.md](../../seqeron-structural-variants/SKILL.md))
 
 | Tool | Srv | Purpose | Method ID |
 |---|---|---|---|
@@ -180,7 +180,7 @@ Servers: `A` = Annotation, `X` = Analysis. `⚠` = guarded / documented-limited 
 | `predict_chromatin_state` | A | State from histone-mod signals | `EpigeneticsAnalyzer.PredictChromatinState` |
 | `find_accessible_regions` | A | ATAC-like accessible peaks | `EpigeneticsAnalyzer.FindAccessibleRegions` |
 
-## 10. miRNA ⚠ (MIRNA-TARGET-001 / MIRNA-CLEAVAGE-001 guarded)
+## 10. miRNA ⚠ — owned by **seqeron-mirna** (see [../../seqeron-mirna/SKILL.md](../../seqeron-mirna/SKILL.md)) (MIRNA-TARGET-001 / MIRNA-CLEAVAGE-001 / MIRNA-PRECURSOR-001 guarded)
 
 | Tool | Srv | Purpose | Method ID |
 |---|---|---|---|

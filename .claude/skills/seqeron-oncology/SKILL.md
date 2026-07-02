@@ -14,9 +14,9 @@ description: >-
   neoantigens", "MHC-peptide binding", "classify clonal vs subclonal", "cancer
   cell fraction / CCF", "reconstruct tumor phylogeny", "HRD score", "LOH",
   "ctDNA fraction / tumor fraction", "MRD / minimal residual disease".
-  (Germline variant / CNV calling → bio-annotation; chromosome-arm-scale
-  amplification / deletion / aneuploidy → bio-chromosome; oncology owns the
-  tumor allele-specific / clonal layer.) All
+  (Germline SNP / indel calling → bio-annotation; germline read-evidence SV / CNV →
+  seqeron-structural-variants; chromosome-arm-scale amplification / deletion / aneuploidy →
+  bio-chromosome; oncology owns the tumor allele-specific / clonal layer.) All
   results are RESEARCH-GRADE, ALPHA — NOT for clinical or diagnostic use.
 allowed-tools: Read, Bash, Grep, Glob
 ---

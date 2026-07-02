@@ -38,8 +38,9 @@ chromosome- or assembly-scale question and gives a **dual-mode** recipe (MCP too
   server**, not chromosome: `gc_skew` / `cumulative_gc_skew` / `windowed_gc_skew` /
   `predict_replication_origin` (`GcSkewCalculator.*`) — route via **[`bio-annotation`](../bio-annotation/SKILL.md)**.
   Composition *here* = G-bands (`predict_g_bands`), local GC/complexity (`local_quality`), suspicious windows (`find_suspicious_regions`).
-- **Variant-level SV / CNV** (single breakpoints, per-locus CNV calls, VEP/ACMG effects) →
-  **[`bio-annotation`](../bio-annotation/SKILL.md)**. *This* skill = CHROMOSOME-SCALE structure:
+- **Variant-level read-evidence SV / CNV** (single breakpoints, per-locus CNV calls) →
+  **[`seqeron-structural-variants`](../seqeron-structural-variants/SKILL.md)**; VEP/ACMG variant
+  effects → **[`bio-annotation`](../bio-annotation/SKILL.md)**. *This* skill = CHROMOSOME-SCALE structure:
   synteny-based rearrangements and depth-based whole-chromosome aneuploidy/ploidy.
   Gene-order-permutation rearrangements, reversal distance, ANI/orthologs/RBH and
   dot-plots → [`seqeron-comparative-genomics`](../seqeron-comparative-genomics/SKILL.md).
@@ -102,7 +103,7 @@ Envelope: none of these guarded. Caveat: alpha — validate before decision use.
 2. **[MCP]** `detect_rearrangements`(syntenyBlocks) → inversion / translocation / deletion / duplication events + breakpoints.
 - **[C# API]** `ChromosomeAnalyzer.FindSyntenyBlocks(...)` → `.DetectRearrangements(blocks)`.
 - Assembly-vs-assembly (no genes): `find_syntenic_blocks_assemblies`(assembly1, assembly2, minBlockSize?) → k-mer-anchored blocks with orientation flags.
-- **Variant-level breakpoints/CNV** → cross-link **[`bio-annotation`](../bio-annotation/SKILL.md)**.
+- **Variant-level breakpoints/CNV (read evidence)** → cross-link **[`seqeron-structural-variants`](../seqeron-structural-variants/SKILL.md)**.
 
 ### (d) Assembly QC — contiguity, gaps, completeness
 1. **[MCP]** `assembly_statistics`(sequences=[{id,sequence}]) → N50/L50, N90/L90, GC, gap counts, largest/mean/median.
@@ -175,4 +176,5 @@ Caveat: alpha software; not for clinical use — independently validate before r
   [`Comprehensive_GC_Analysis.md`](../../../docs/algorithms/Extended_GC_Skew_Analysis/Comprehensive_GC_Analysis.md)
 - **Cross-cutting:** [`bio-rigor`](../bio-rigor/SKILL.md) (rigor guardrail) ·
   [`seqeron-discovery`](../seqeron-discovery/SKILL.md) (tool lookup) ·
-  [`bio-annotation`](../bio-annotation/SKILL.md) (GC-skew/replication-origin **and** variant-level SV/CNV).
+  [`bio-annotation`](../bio-annotation/SKILL.md) (GC-skew/replication-origin) ·
+  [`seqeron-structural-variants`](../seqeron-structural-variants/SKILL.md) (variant-level read-evidence SV/CNV).

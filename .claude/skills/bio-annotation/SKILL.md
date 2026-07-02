@@ -3,11 +3,12 @@ name: bio-annotation
 description: >-
   Annotate and characterize genomic sequences with Seqeron (MCP tools OR the C#
   API). Use to find ORFs / predict genes / promoters / RBS, call + annotate +
-  classify variants (SNPs, indels, structural variants, CNVs, VEP-like effect,
+  classify variants (SNPs, indels, VEP-like effect,
   ACMG-like pathogenicity), discover and scan motifs (exact/degenerate/PROSITE/
   PWM), analyze repeats & low-complexity / masking, profile k-mers & composition,
-  plus splicing and miRNA targeting (seed/target pairing,
-  pre-miRNA hairpins). (RNA secondary-structure folding → seqeron-rna-structure;
+  plus splicing. (Read-evidence structural variants / CNVs → seqeron-structural-variants;
+  miRNA targets / seeds / pre-miRNA hairpins → seqeron-mirna;
+  RNA secondary-structure folding → seqeron-rna-structure;
   protein-feature prediction → seqeron-protein-features; methylation/epigenetics →
   seqeron-epigenetics; transcriptome/RNA-seq → seqeron-transcriptome;
   ANI/orthologs/synteny/comparative genomics → seqeron-comparative-genomics.)
@@ -42,23 +43,24 @@ With ~188 tools, route by **family** first, then open the family table in
 |---|---|---|
 | ORFs, genes, promoters, RBS, coding potential, GFF3 | **Structural annotation** | `find_orfs`/`GenomeAnnotator.FindOrfs` · `predict_genes`/`GenomeAnnotator.PredictGenes` · `find_promoter_motifs`/`GenomeAnnotator.FindPromoterMotifs` |
 | SNP/indel calling, effect, classification, pathogenicity, Ti/Tv, VCF | **Variant calling + annotation** | `call_variants`/`VariantCaller.CallVariants` · `annotate_variants`/`VariantCaller.AnnotateVariants` · `classify_variant`/`VariantAnnotator.ClassifyVariant` · `predict_pathogenicity`/`VariantAnnotator.PredictPathogenicity` |
-| SVs, CNVs, breakpoints, discordant/split reads | **Structural variants** | `find_discordant_pairs`/`StructuralVariantAnalyzer.FindDiscordantPairs` · `identify_cnvs`/`StructuralVariantAnalyzer.IdentifyCNVs` · `annotate_svs`/`StructuralVariantAnalyzer.AnnotateSVs` |
+| SVs, CNVs, breakpoints, discordant/split reads | → **seqeron-structural-variants** | see [../seqeron-structural-variants/SKILL.md](../seqeron-structural-variants/SKILL.md) |
 | Motif discovery / exact / degenerate / PROSITE / PWM scan | **Motif discovery & scan** | `discover_motifs`/`MotifFinder.DiscoverMotifs` · `find_exact_motif`/`MotifFinder.FindExactMotif` · `create_pwm`+`scan_with_pwm`/`MotifFinder.CreatePwm`+`ScanWithPwm` |
 | Tandem/inverted/direct repeats, microsatellites, palindromes | **Repeat analysis** | `find_tandem_repeats`/`GenomicAnalyzer.FindTandemRepeats` · `find_microsatellites`/`RepeatFinder.FindMicrosatellites` · `find_inverted_repeats`/`RepeatFinder.FindInvertedRepeats` |
 | Low-complexity regions, DUST/SEG, masking, entropy | **Complexity / masking** | `find_low_complexity_regions`/`SequenceComplexity.FindLowComplexityRegions` · `mask_low_complexity`/`SequenceComplexity.MaskLowComplexity` · `dust_score`/`SequenceComplexity.CalculateDustScore` |
 | k-mer counts/frequencies/spectrum/positions/distance | **k-mer & composition** | `count_kmers`/`KmerAnalyzer.CountKmers` · `most_frequent_kmers`/`KmerAnalyzer.FindMostFrequentKmers` · `kmer_distance`/`KmerAnalyzer.KmerDistance` · `analyze_gc_content`/`GcSkewCalculator.AnalyzeGcContent` |
 | Splice sites, introns, gene structure, alt-splicing | **Splicing** | `find_donor_sites`/`SpliceSitePredictor.FindDonorSites` · `predict_gene_structure`/`SpliceSitePredictor.PredictGeneStructure` |
 | Methylation, CpG islands, DMRs, chromatin, epigenetic age | → **seqeron-epigenetics** | see [../seqeron-epigenetics/SKILL.md](../seqeron-epigenetics/SKILL.md) |
-| miRNA seeds, targets, hairpins | **miRNA** ⚠ guarded | `find_mirna_target_sites`/`MiRnaAnalyzer.FindTargetSites` (see envelope) |
+| miRNA seeds, targets, hairpins | → **seqeron-mirna** ⚠ guarded | see [../seqeron-mirna/SKILL.md](../seqeron-mirna/SKILL.md) |
 | RNA secondary structure / MFE / stem-loops | → **seqeron-rna-structure** | see [../seqeron-rna-structure/SKILL.md](../seqeron-rna-structure/SKILL.md) |
 | TPM/FPKM, differential expression, PCA, clustering | → **seqeron-transcriptome** | see [../seqeron-transcriptome/SKILL.md](../seqeron-transcriptome/SKILL.md) |
 | Protein motifs/domains, disorder, TM, signal peptide, hydrophobicity profile | → **seqeron-protein-features** | see [../seqeron-protein-features/SKILL.md](../seqeron-protein-features/SKILL.md) |
 | ANI, orthologs, synteny, rearrangements, dot-plot | → **seqeron-comparative-genomics** | see [../seqeron-comparative-genomics/SKILL.md](../seqeron-comparative-genomics/SKILL.md) |
 
-**⚠ Envelope note.** miRNA targeting (**MIRNA-TARGET-001**, **MIRNA-CLEAVAGE-001**) is guarded.
-(Disorder **DISORDER-REGION-001** and RNA-structure **RNA-STRUCT-001** envelopes now live in
-seqeron-protein-features / seqeron-rna-structure.) If a call throws `SeqeronLimitationException` below its MinimumMode, **STOP and
-report the limitation** — do not raise the mode to force output (bio-rigor rule 2). Details:
+**⚠ Envelope note.** bio-annotation's own units are unguarded. (miRNA envelopes MIRNA-TARGET-001 /
+MIRNA-CLEAVAGE-001 / MIRNA-PRECURSOR-001 now live in seqeron-mirna; disorder DISORDER-REGION-001
+in seqeron-protein-features; RNA-structure RNA-STRUCT-001 in seqeron-rna-structure.) If any
+downstream call throws `SeqeronLimitationException` below its MinimumMode, **STOP and report the
+limitation** — do not raise the mode to force output (bio-rigor rule 2). Details:
 [`reference/pipelines.md`](reference/pipelines.md) → Envelope.
 
 ## Canonical dual-mode pipelines
@@ -159,8 +161,6 @@ Caveat: alpha software; not for clinical use — independently validate before a
   [`K-mer_Analysis/`](../../../docs/algorithms/K-mer_Analysis/) ·
   [`Splicing/`](../../../docs/algorithms/Splicing/) ·
   [`Epigenetics/`](../../../docs/algorithms/Epigenetics/) ·
-  [`StructuralVar/`](../../../docs/algorithms/StructuralVar/) ·
-  [`MiRNA/`](../../../docs/algorithms/MiRNA/) ·
   [`Transcriptome/`](../../../docs/algorithms/Transcriptome/) ·
   [`Comparative_Genomics/`](../../../docs/algorithms/Comparative_Genomics/)
 - **Cross-cutting:** [`bio-rigor`](../bio-rigor/SKILL.md) (rigor guardrail) · [`seqeron-discovery`](../seqeron-discovery/SKILL.md) (tool lookup).
