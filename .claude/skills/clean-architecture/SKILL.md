@@ -1,23 +1,7 @@
 ---
 name: clean-architecture
-version: 1.0.0
-description: Guide for building software with Clean Architecture, DDD, SOLID principles, and hexagonal/onion patterns. Use when designing new features, refactoring code, reviewing architecture, or when user mentions clean code, architecture patterns, layers, separation of concerns, maintainability, testability, or asks for architectural guidance.
+description: Macro-level system design — layers, dependencies, modules, and boundaries following Clean Architecture, DDD, SOLID, and hexagonal/onion patterns. Use when designing new features/modules, structuring or reviewing an architecture, planning microservices or a modular monolith, or applying the Dependency Rule, dependency inversion, ports & adapters, bounded contexts, aggregates/value objects/domain events, repositories, CQRS, screaming architecture, or vertical slices. For micro-level naming, functions, comments, and code smells, use the clean-code skill instead.
 allowed-tools: Read, Grep, Glob, Edit, Write
-triggers: [
-  "clean architecture", "Uncle Bob", "Robert Martin",
-  "dependency rule", "dependency inversion", "inversion of control", "composition root", "separation of concerns",
-  "SOLID", "single responsibility", "open closed", "liskov", "interface segregation",
-  "DDD", "domain-driven design", "domain driven",
-  "aggregate root", "value object", "domain event", "bounded context",
-  "domain service", "anemic domain", "anemic model", "rich domain model",
-  "anti-corruption layer",
-  "hexagonal", "ports and adapters", "onion architecture",
-  "screaming architecture", "vertical slice",
-  "presentation layer", "application layer", "domain layer", "infrastructure layer",
-  "repository pattern", "unit of work", "specification pattern",
-  "CQRS", "command query",
-  "architecture review"
-]
 ---
 
 # Clean Architecture Development Guide
@@ -104,25 +88,7 @@ You have two main approaches for organizing the Application layer:
 
 #### Option A: Traditional Horizontal Layers
 
-```
-Domain/
-├── Entities/           # Business objects with identity
-├── ValueObjects/       # Immutable objects
-├── Aggregates/         # Aggregate roots
-├── DomainServices/     # Domain logic that doesn't belong to entities
-├── DomainEvents/       # Events that happened in the domain
-├── Repositories/       # Interfaces (implementations in Infrastructure)
-└── Specifications/     # Business rules encapsulation
-
-Application/
-├── UseCases/           # Application-specific business rules
-├── DTOs/               # Data Transfer Objects
-├── Interfaces/         # Ports (for adapters to implement)
-├── Services/           # Application services
-├── Commands/           # CQRS commands
-├── Queries/            # CQRS queries
-└── Validators/         # Input validation
-```
+Organize each layer by technical concern (Entities, UseCases, Repositories, …). The four layers and their folder contents are detailed below under **Layer 1–4**. This is the simplest structure and fits small services or CRUD-heavy apps.
 
 #### Option B: Vertical Slices (Feature-Based) — Recommended for 3+ Developers
 

@@ -27,12 +27,18 @@ clean-code/
 ├── README.md                  # This file
 └── examples/
     └── csharp/
-        ├── 01-naming.md       # Naming conventions
-        ├── 02-functions.md    # Function best practices
+        ├── 01-naming.md              # Naming conventions
+        ├── 02-functions.md           # Function best practices
         ├── 03-error-handling.md
         ├── 04-objects-vs-data.md
         ├── 05-refactoring.md
-        └── 06-testing.md
+        ├── 06-testing.md
+        ├── 07-modern-csharp.md       # Modern C# features
+        ├── 08-complete-example.md    # Complete feature
+        ├── 09-refactoring-journey.md # Step-by-step transformation
+        ├── 10-architecture-integration.md
+        ├── 11-metrics-and-tools.md   # Measuring quality
+        └── 12-decision-trees.md      # Visual decision guides
 ```
 
 ## Core Principles

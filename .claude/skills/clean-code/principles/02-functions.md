@@ -81,20 +81,28 @@ Functions are the first line of organization in any program. Making them clean i
 
 ### 2.5 Switch Statements
 
-**Principle:** Avoid switch statements. Use polymorphism instead.
+**Principle:** Avoid *repeated type-switching* on a polymorphic hierarchy. Use polymorphism instead.
 
-**Why switch statements are problematic:**
-- They violate Single Responsibility (does N things)
-- They violate Open/Closed (must modify to add cases)
-- They duplicate (same structure repeated elsewhere)
+**Scope — this is about one specific smell, not all switches.** The anti-pattern is a `switch`/`if-else` chain over a *type* or *type discriminator* that reappears in several places, so adding a subtype means editing every one of them.
+
+**Why that kind of switch is problematic:**
+- Violates Single Responsibility (one function handles N types)
+- Violates Open/Closed (must modify existing code to add a case)
+- Duplicates the same structure across the codebase
 - Hard to test all branches
 
 **Rules:**
-- Bury switches in low-level classes, never repeated
-- Use polymorphism to hide switches
+- Bury such switches in a single low-level factory, never repeated
+- Use polymorphism (or Strategy/State) to hide the type dispatch
 - Factory pattern for creating polymorphic objects
-- Consider Strategy or State pattern
-- If switch is unavoidable, make it create polymorphic objects
+- If the switch is unavoidable, make it create polymorphic objects once
+
+**Not the target of this rule — these are clean and idiomatic:**
+- Modern C# **`switch` expressions** for mapping a value to a result (see [Modern C#](../examples/csharp/07-modern-csharp.md)) — exhaustive, side-effect-free, and readable
+- Pattern matching over a **closed/`sealed` hierarchy** the compiler can check for exhaustiveness
+- A single mapping over an `enum` with no behavior attached
+
+Prefer polymorphism when each case carries *behavior* that belongs with the type; prefer a `switch` expression when you are purely *mapping data to data* in one place.
 
 ### 2.6 Use Descriptive Names
 

@@ -1,26 +1,7 @@
 ---
 name: clean-code
-version: 2.0.0
-description: Guide for writing clean, maintainable, and readable code following Clean Code principles. Use when reviewing code quality, refactoring, naming variables/functions, improving readability, reducing complexity, or when user mentions code smells, technical debt, maintainability, or asks for code quality improvements.
+description: Micro-level code quality — naming, functions, classes, comments, error handling, and code smells following Robert C. Martin's Clean Code. Use when reviewing or refactoring code quality; naming variables/functions/classes; shrinking long or complex functions (cyclomatic/cognitive complexity, deep nesting); removing duplication (DRY), magic numbers/strings, or code smells; applying KISS/YAGNI; or writing self-documenting code, clean unit tests, and thread-safe async code. For macro-level layers, dependencies, modules, and boundaries, use the clean-architecture skill instead.
 allowed-tools: Read, Grep, Glob, Edit, Write
-triggers: [
-  "clean code", "code quality", "readable code", "maintainable code",
-  "refactor", "refactoring", "code smell", "code smells",
-  "naming", "variable names", "function names", "meaningful names",
-  "comments", "commenting", "documentation",
-  "function size", "method length", "too long", "complex function",
-  "cyclomatic complexity", "cognitive complexity",
-  "DRY", "don't repeat yourself", "duplication", "duplicate code",
-  "KISS", "keep it simple",
-  "YAGNI", "you aren't gonna need it",
-  "magic numbers", "magic strings", "constants",
-  "nested if", "nested loops", "deeply nested",
-  "single responsibility", "does too much",
-  "code review", "review code quality",
-  "technical debt", "legacy code", "unreadable code",
-  "boy scout rule", "leave it cleaner",
-  "async await", "concurrency", "thread safety"
-]
 ---
 
 # Clean Code Development Guide
@@ -279,6 +260,9 @@ When touching code, always:
 - [Modern C# Practices](examples/csharp/07-modern-csharp.md)
 - [Complete Feature Example](examples/csharp/08-complete-example.md) ⭐
 - [Refactoring Journey](examples/csharp/09-refactoring-journey.md) — Step-by-step transformation
+- [Architecture Integration](examples/csharp/10-architecture-integration.md) — Where clean code meets clean architecture
+- [Metrics & Tools](examples/csharp/11-metrics-and-tools.md) — Measuring code quality
+- [Decision Trees](examples/csharp/12-decision-trees.md) — Visual decision guides
 
 ---
 

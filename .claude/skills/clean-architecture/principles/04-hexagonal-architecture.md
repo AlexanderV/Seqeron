@@ -14,8 +14,8 @@ Isolate the application core from external concerns using ports (interfaces) and
 - No knowledge of external world
 
 **Ports:**
-- Primary/Driving Ports: Used BY the application (controllers call these)
-- Secondary/Driven Ports: Used BY the application (application calls these)
+- Primary/Driving Ports: The application's own API — defined by the app and CALLED BY driving adapters (controllers, CLI) to drive the application inward.
+- Secondary/Driven Ports: Interfaces the app defines and CALLS OUT through — implemented by driven adapters (database, email, external APIs).
 
 **Adapters:**
 - Primary/Driving Adapters: Call the application (REST API, GraphQL, CLI)
