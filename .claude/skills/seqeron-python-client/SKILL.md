@@ -27,9 +27,13 @@ Two Python paths exist. This skill covers **MCP over stdio** (any language clien
 
 ## Prerequisites
 
-- `pip install mcp` — the Python MCP SDK (imported lazily by the helper).
-- `dotnet` on PATH — each server runs as `dotnet run --project <Project>`; the helper's
-  `SERVER_PROJECT` maps the 11 server names → their dotnet projects.
+- **No pip dependencies** — the helper speaks MCP (stdio JSON-RPC) with the Python stdlib only.
+- `dotnet` (the .NET SDK) on PATH. The shipped servers set `<PublishAot>true</PublishAot>`, which
+  disables reflection-based JSON — so a plain `dotnet run` / Debug DLL **crashes at startup** (the MCP
+  SDK builds tool schemas via reflection). The helper therefore builds each server once in a
+  reflection-enabled (JIT) config into a temp cache and runs that DLL. `SERVER_PROJECT` maps the 11
+  server names → their dotnet projects; override the launch per server with `SEQERON_MCP_CMD_<SERVER>`
+  (e.g. point it at an AOT-published native binary).
 
 ## The recipe
 

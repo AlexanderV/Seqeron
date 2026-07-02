@@ -7,9 +7,11 @@ relative from here as `../../../../`.
 
 ## Prerequisites (recap)
 
-- `pip install mcp` (the SDK is imported lazily inside the helper — installing it late is fine).
-- `dotnet` on PATH. Each server is launched as `dotnet run --project <Project>`; the first call to a
-  server pays a JIT/restore startup cost, which is exactly why the pooled client exists.
+- **No pip packages** — pure Python stdlib (stdio JSON-RPC). MCP stays optional; nothing is registered.
+- `dotnet` (.NET SDK) on PATH. The shipped servers are `PublishAot=true` (reflection-JSON off), so the
+  helper builds each server once in a reflection-enabled JIT config (temp cache) and runs that DLL; the
+  first call to a server pays that build+startup cost, which is why the pooled client exists. Override
+  the launch per server with `SEQERON_MCP_CMD_<SERVER>` (e.g. an AOT-published binary).
 
 ## The helper contract
 
@@ -27,8 +29,8 @@ relative from here as `../../../../`.
 
 ## Server → project map
 
-You address a server by **name**; the helper's `SERVER_PROJECT` resolves it to
-`dotnet run --project <Project>`. The 11 server names match the tool-doc directories under
+You address a server by **name**; the helper's `SERVER_PROJECT` resolves it to the server's dotnet
+project (built reflection-enabled + launched on demand). The 11 server names match the tool-doc directories under
 [`docs/mcp/tools/`](../../../../docs/mcp/tools/): `core, sequence, parsers, alignment, analysis,
 annotation, chromosome, metagenomics, moltools, phylogenetics, population` (the helper keys are the
 capitalized server names, e.g. `Sequence`, `MolTools`, as recorded in each tool's `serverName`). Get
