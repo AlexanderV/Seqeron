@@ -178,7 +178,7 @@ The result stores the normalized RNA input rather than the caller's original str
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [CodonOptimizer_OptimizeSequence_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/CodonOptimizer_OptimizeSequence_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
+- Tests: [CodonOptimizer_OptimizeSequence_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/CodonOptimizer_OptimizeSequence_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
 - Test specification: [CODON-OPT-001.md](../../../tests/TestSpecs/CODON-OPT-001.md)
 - Related algorithms: [CAI_Calculation.md](CAI_Calculation.md), [Rare_Codon_Detection.md](Rare_Codon_Detection.md), [Codon_Usage_Analysis.md](Codon_Usage_Analysis.md)
 

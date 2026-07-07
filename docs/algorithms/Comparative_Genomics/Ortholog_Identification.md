@@ -161,7 +161,7 @@ var orthologs = ComparativeGenomics.FindOrthologs(g1, g2).ToList();
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [ComparativeGenomics_FindOrthologs_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_FindOrthologs_Tests.cs) — covers INV-01..INV-05
+- Tests: [ComparativeGenomics_FindOrthologs_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/ComparativeGenomics_FindOrthologs_Tests.cs) — covers INV-01..INV-05
 - Evidence: [COMPGEN-ORTHO-001-Evidence.md](../../../docs/Evidence/COMPGEN-ORTHO-001-Evidence.md)
 - Related algorithms: [Synteny_Block_Detection](../Comparative_Genomics/Synteny_Block_Detection.md)
 

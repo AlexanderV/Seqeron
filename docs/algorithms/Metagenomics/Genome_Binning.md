@@ -186,9 +186,9 @@ This implementation does not include marker-gene databases, lineage-specific mod
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests (default binning): [MetagenomicsAnalyzer_GenomeBinning_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_GenomeBinning_Tests.cs)
-- Tests (TETRA z-score signature): [MetagenomicsAnalyzer_TetranucleotideZScore_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_TetranucleotideZScore_Tests.cs) — covers `INV-04`
-- Tests (CheckM marker-gene QC): [MetagenomicsAnalyzer_MarkerGeneQuality_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_MarkerGeneQuality_Tests.cs)
+- Tests (default binning): [MetagenomicsAnalyzer_GenomeBinning_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Metagenomics/MetagenomicsAnalyzer_GenomeBinning_Tests.cs)
+- Tests (TETRA z-score signature): [MetagenomicsAnalyzer_TetranucleotideZScore_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Metagenomics/MetagenomicsAnalyzer_TetranucleotideZScore_Tests.cs) — covers `INV-04`
+- Tests (CheckM marker-gene QC): [MetagenomicsAnalyzer_MarkerGeneQuality_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Metagenomics/MetagenomicsAnalyzer_MarkerGeneQuality_Tests.cs)
 - TestSpec: [META-BIN-001](../../../tests/TestSpecs/META-BIN-001.md)
 - Evidence: [META-BIN-001-Evidence.md](../../../docs/Evidence/META-BIN-001-Evidence.md), [META-BIN-001-MarkerQC-Evidence.md](../../../docs/Evidence/META-BIN-001-MarkerQC-Evidence.md)
 

@@ -181,7 +181,7 @@ The default `FindAcceptorSites` scorer in this repository is a local motif-and-P
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [SpliceSitePredictor_AcceptorSite_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_AcceptorSite_Tests.cs) — covers `INV-01`–`INV-07` (acceptor scoring + branch-point detection)
+- Tests: [SpliceSitePredictor_AcceptorSite_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Annotation/SpliceSitePredictor_AcceptorSite_Tests.cs) — covers `INV-01`–`INV-07` (acceptor scoring + branch-point detection)
 - Test specification: [SPLICE-ACCEPTOR-001.md](../../../tests/TestSpecs/SPLICE-ACCEPTOR-001.md)
 - Related algorithms: [Donor_Site_Detection.md](Donor_Site_Detection.md), [Gene_Structure_Prediction.md](Gene_Structure_Prediction.md)
 

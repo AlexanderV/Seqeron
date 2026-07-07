@@ -174,7 +174,7 @@ double score = GenomeAnnotator.CalculateCodingPotential("ATGAAACCC", coding, non
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [GenomeAnnotator_CalculateCodingPotential_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/GenomeAnnotator_CalculateCodingPotential_Tests.cs) — covers `INV-01`..`INV-06`
+- Tests: [GenomeAnnotator_CalculateCodingPotential_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Annotation/GenomeAnnotator_CalculateCodingPotential_Tests.cs) — covers `INV-01`..`INV-06`
 - Evidence: [ANNOT-CODING-001-Evidence.md](../../../docs/Evidence/ANNOT-CODING-001-Evidence.md)
 
 ## 8. References

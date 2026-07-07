@@ -177,7 +177,7 @@ var s = OncologyAnalyzer.ClassifyBethesdaPanel(2, 5); // MsiStatus.MSI_High
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_DetectMSI_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectMSI_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [OncologyAnalyzer_DetectMSI_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_DetectMSI_Tests.cs) — covers `INV-01`–`INV-04`
 - Evidence: [ONCO-MSI-001-Evidence.md](../../../docs/Evidence/ONCO-MSI-001-Evidence.md)
 
 ## 8. References

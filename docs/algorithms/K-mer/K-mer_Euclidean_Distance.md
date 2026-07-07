@@ -198,7 +198,7 @@ d = √0.11 ≈ 0.33166247903553997.
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [KmerAnalyzer_KmerDistance_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/KmerAnalyzer_KmerDistance_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [KmerAnalyzer_KmerDistance_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_KmerDistance_Tests.cs) — covers `INV-01`–`INV-04`
 - Evidence: [KMER-DIST-001-Evidence.md](../../../docs/Evidence/KMER-DIST-001-Evidence.md)
 
 ## 8. References

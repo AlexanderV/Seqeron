@@ -184,7 +184,7 @@ OncologyAnalyzer.KnownFusionMatch m = OncologyAnalyzer.MatchKnownFusions(call, k
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_MatchKnownFusions_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_MatchKnownFusions_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [OncologyAnalyzer_MatchKnownFusions_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_MatchKnownFusions_Tests.cs) — covers `INV-01`–`INV-04`
 - Evidence: [ONCO-FUSION-002-Evidence.md](../../../docs/Evidence/ONCO-FUSION-002-Evidence.md)
 - Related algorithms: [Fusion_Gene_Detection](Fusion_Gene_Detection.md)
 

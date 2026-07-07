@@ -211,5 +211,5 @@ The repository tests preserve Ford's scarlet tiger moth example from the HWE ref
 5. Wikipedia contributors. Hardy-Weinberg principle. https://en.wikipedia.org/wiki/Hardy-Weinberg_principle
 6. Wigginton, J. E., D. J. Cutler, and G. R. Abecasis. 2005. A Note on Exact Tests of Hardy-Weinberg Equilibrium. American Journal of Human Genetics 76(5):887-893.
 7. [POP-HW-001.md](../../../tests/TestSpecs/POP-HW-001.md)
-8. [PopulationGeneticsAnalyzer_HardyWeinberg_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/PopulationGeneticsAnalyzer_HardyWeinberg_Tests.cs)
+8. [PopulationGeneticsAnalyzer_HardyWeinberg_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Population/PopulationGeneticsAnalyzer_HardyWeinberg_Tests.cs)
 9. [PopulationGeneticsAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Population/PopulationGeneticsAnalyzer.cs)

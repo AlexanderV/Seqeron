@@ -148,7 +148,7 @@ var undivided = RestrictionAnalyzer.GetEnzymesByCutLength(4, 8).ToList();
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [RestrictionAnalyzer_Filter_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/RestrictionAnalyzer_Filter_Tests.cs) — covers `INV-01`–`INV-05`
+- Tests: [RestrictionAnalyzer_Filter_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/RestrictionAnalyzer_Filter_Tests.cs) — covers `INV-01`–`INV-05`
 - Evidence: [RESTR-FILTER-001-Evidence.md](../../../docs/Evidence/RESTR-FILTER-001-Evidence.md)
 - Related algorithms: [Restriction_Digest_Simulation](../MolTools/Restriction_Digest_Simulation.md)
 

@@ -194,7 +194,7 @@ The repository provides practical FASTQ parsing and quality utilities, but it do
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [FastqParserTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/FastqParserTests.cs)
+- Tests: [FastqParserTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/IO/FastqParserTests.cs)
 - Related tests: [FastqParseTests.cs](../../../tests/Seqeron/Seqeron.Mcp.Parsers.Tests/FastqParseTests.cs), [FastqFilterTests.cs](../../../tests/Seqeron/Seqeron.Mcp.Parsers.Tests/FastqFilterTests.cs), [FastqStatisticsTests.cs](../../../tests/Seqeron/Seqeron.Mcp.Parsers.Tests/FastqStatisticsTests.cs), [FastqUtilityTests.cs](../../../tests/Seqeron/Seqeron.Mcp.Parsers.Tests/FastqUtilityTests.cs)
 - Test specification: [PARSE-FASTQ-001.md](../../../tests/TestSpecs/PARSE-FASTQ-001.md)
 

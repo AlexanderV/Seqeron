@@ -145,7 +145,7 @@ var stats = KmerAnalyzer.AnalyzeKmers("GTAGAGCTGT", 1);
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [KmerAnalyzer_AnalyzeKmers_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/KmerAnalyzer_AnalyzeKmers_Tests.cs) — covers `INV-01`–`INV-06`
+- Tests: [KmerAnalyzer_AnalyzeKmers_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_AnalyzeKmers_Tests.cs) — covers `INV-01`–`INV-06`
 - Evidence: [KMER-STATS-001-Evidence.md](../../../docs/Evidence/KMER-STATS-001-Evidence.md)
 - Related algorithms: [Unique_And_MinCount_Kmers](../K-mer/Unique_And_MinCount_Kmers.md), [Both_Strand_Kmer_Counting](../K-mer/Both_Strand_Kmer_Counting.md)
 

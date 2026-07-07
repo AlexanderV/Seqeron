@@ -202,7 +202,7 @@ var origins = OncologyAnalyzer.CallVariantOrigin(variants, wbcObs);
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_FilterCHIP_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_FilterCHIP_Tests.cs) — covers `INV-01`..`INV-08`
+- Tests: [OncologyAnalyzer_FilterCHIP_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_FilterCHIP_Tests.cs) — covers `INV-01`..`INV-08`
 - Evidence: [ONCO-CHIP-001-Evidence.md](../../../docs/Evidence/ONCO-CHIP-001-Evidence.md)
 
 ## 8. References

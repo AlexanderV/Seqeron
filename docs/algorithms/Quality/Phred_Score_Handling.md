@@ -166,7 +166,7 @@ string p33 = QualityScoreAnalyzer.ConvertEncoding("@h~",
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [QualityScoreAnalyzer_ParseQualityString_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/QualityScoreAnalyzer_ParseQualityString_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [QualityScoreAnalyzer_ParseQualityString_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/IO/QualityScoreAnalyzer_ParseQualityString_Tests.cs) — covers `INV-01`–`INV-04`
 - Evidence: [QUALITY-PHRED-001-Evidence.md](../../../docs/Evidence/QUALITY-PHRED-001-Evidence.md)
 
 ## 8. References

@@ -279,7 +279,7 @@ The repository's standalone `CalculateFst(...)` method implements Wright's varia
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [PopulationGeneticsAnalyzer_FStatistics_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/PopulationGeneticsAnalyzer_FStatistics_Tests.cs) - covers the exact-value checks, range checks, pairwise matrix symmetry, monomorphic cases, and negative `Fis` scenarios documented here.
+- Tests: [PopulationGeneticsAnalyzer_FStatistics_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Population/PopulationGeneticsAnalyzer_FStatistics_Tests.cs) - covers the exact-value checks, range checks, pairwise matrix symmetry, monomorphic cases, and negative `Fis` scenarios documented here.
 - Test spec: [POP-FST-001.md](../../../tests/TestSpecs/POP-FST-001.md) - defines the POP-FST-001 contract and expected invariants for the suite.
 - Evidence: [POP-FST-001-Evidence.md](../../../docs/Evidence/POP-FST-001-Evidence.md) - collects the literature and derivations used by the tests.
 - Related algorithms: [Allele_Frequency.md](Allele_Frequency.md), [Hardy_Weinberg_Test.md](Hardy_Weinberg_Test.md), [Diversity_Statistics.md](Diversity_Statistics.md)

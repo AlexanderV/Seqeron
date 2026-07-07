@@ -161,7 +161,7 @@ Gene with only Phe (TTT×3, TTC×1): n=4, p=(0.75,0.25), Σp²=0.625, F̂=(4·0.
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [CodonUsageAnalyzer_CalculateEnc_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/CodonUsageAnalyzer_CalculateEnc_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [CodonUsageAnalyzer_CalculateEnc_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/CodonUsageAnalyzer_CalculateEnc_Tests.cs) — covers `INV-01`–`INV-04`
 - Evidence: [CODON-ENC-001-Evidence.md](../../../docs/Evidence/CODON-ENC-001-Evidence.md)
 
 ## 8. References

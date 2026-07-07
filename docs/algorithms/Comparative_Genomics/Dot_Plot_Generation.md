@@ -152,7 +152,7 @@ var dots = ComparativeGenomics.GenerateDotPlot("AGCGT", "AT", wordSize: 1).ToLis
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [ComparativeGenomics_GenerateDotPlot_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_GenerateDotPlot_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [ComparativeGenomics_GenerateDotPlot_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/ComparativeGenomics_GenerateDotPlot_Tests.cs) — covers `INV-01`–`INV-04`
 - Evidence: [COMPGEN-DOTPLOT-001-Evidence.md](../../../docs/Evidence/COMPGEN-DOTPLOT-001-Evidence.md)
 - Related algorithms: [Synteny_Block_Detection](./Synteny_Block_Detection.md)
 

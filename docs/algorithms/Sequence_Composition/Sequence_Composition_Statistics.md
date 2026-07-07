@@ -132,7 +132,7 @@ var c = SequenceStatistics.CalculateNucleotideComposition("GGGC");
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [SequenceStatistics_CalculateNucleotideComposition_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateNucleotideComposition_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [SequenceStatistics_CalculateNucleotideComposition_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/SequenceStatistics_CalculateNucleotideComposition_Tests.cs) — covers `INV-01`–`INV-04`
 - Evidence: [SEQ-STATS-001-Evidence.md](../../../docs/Evidence/SEQ-STATS-001-Evidence.md)
 - Related algorithms: [GC_Skew](GC_Skew.md)
 

@@ -233,7 +233,7 @@ out 0 — sink), AB and BB balanced ⇒ exactly two semi-balanced nodes ⇒ Eule
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [SequenceAssembler_AssembleDeBruijn_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SequenceAssembler_AssembleDeBruijn_Tests.cs) — covers `INV-01`…`INV-06`
+- Tests: [SequenceAssembler_AssembleDeBruijn_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Alignment/SequenceAssembler_AssembleDeBruijn_Tests.cs) — covers `INV-01`…`INV-06`
 - Evidence: [ASSEMBLY-DBG-001-Evidence.md](../../../docs/Evidence/ASSEMBLY-DBG-001-Evidence.md)
 - Related algorithms: [Overlap_Layout_Consensus](../Assembly/Overlap_Layout_Consensus.md)
 

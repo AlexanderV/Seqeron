@@ -156,7 +156,7 @@ var hits = MotifFinder.FindRegulatoryElements(seq).ToList();
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [MotifFinder_FindRegulatoryElements_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/MotifFinder_FindRegulatoryElements_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [MotifFinder_FindRegulatoryElements_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/MotifFinder_FindRegulatoryElements_Tests.cs) — covers `INV-01`–`INV-04`
 - Evidence: [MOTIF-REGULATORY-001-Evidence.md](../../../docs/Evidence/MOTIF-REGULATORY-001-Evidence.md)
 - Related algorithms: [Shared_Motifs](Shared_Motifs.md), [Known_Motif_Search](../Motif_Analysis/Known_Motif_Search.md)
 

@@ -203,7 +203,7 @@ Lecture 16 example [3].
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [ComparativeGenomics_DetectRearrangements_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_DetectRearrangements_Tests.cs) — covers `INV-01`..`INV-05`
+- Tests: [ComparativeGenomics_DetectRearrangements_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/ComparativeGenomics_DetectRearrangements_Tests.cs) — covers `INV-01`..`INV-05`
 - Evidence: [COMPGEN-REARR-001-Evidence.md](../../../docs/Evidence/COMPGEN-REARR-001-Evidence.md)
 - Related algorithms: [Synteny_Block_Detection](./Synteny_Block_Detection.md), [Ortholog_Identification](./Ortholog_Identification.md)
 

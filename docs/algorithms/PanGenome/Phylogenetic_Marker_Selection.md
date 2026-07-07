@@ -148,7 +148,7 @@ Markers are read off ungapped equal-length members; indels are not modeled. Sele
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [PanGenomeAnalyzer_SelectPhylogeneticMarkers_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/PanGenomeAnalyzer_SelectPhylogeneticMarkers_Tests.cs) — covers `INV-01`–`INV-07`
+- Tests: [PanGenomeAnalyzer_SelectPhylogeneticMarkers_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Metagenomics/PanGenomeAnalyzer_SelectPhylogeneticMarkers_Tests.cs) — covers `INV-01`–`INV-07`
 - Evidence: [PANGEN-MARKER-001-Evidence.md](../../../docs/Evidence/PANGEN-MARKER-001-Evidence.md)
 - Related algorithms: [Pan_Genome_Growth_Model](../PanGenome/Pan_Genome_Growth_Model.md)
 

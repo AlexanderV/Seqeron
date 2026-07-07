@@ -156,7 +156,7 @@ For `GGGC`: GcContent = 4/4 = 1.0, GcSkew = (3−1)/4 = 0.5 [2].
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [SequenceStatistics_CalculateNucleotideComposition_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateNucleotideComposition_Tests.cs) — covers `INV-01`–`INV-04` (shared canonical fixture with SEQ-STATS-001)
+- Tests: [SequenceStatistics_CalculateNucleotideComposition_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/SequenceStatistics_CalculateNucleotideComposition_Tests.cs) — covers `INV-01`–`INV-04` (shared canonical fixture with SEQ-STATS-001)
 - Evidence: [SEQ-COMPOSITION-001-Evidence.md](../../../docs/Evidence/SEQ-COMPOSITION-001-Evidence.md)
 - Related algorithms: [Sequence_Composition_Statistics.md](./Sequence_Composition_Statistics.md) (SEQ-STATS-001 — same methods)
 

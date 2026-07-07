@@ -178,7 +178,7 @@ var profile = EpigeneticsAnalyzer.GenerateMethylationProfile(new[]
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [EpigeneticsAnalyzer_Methylation_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_Methylation_Tests.cs) — covers `INV-01`–`INV-06`
+- Tests: [EpigeneticsAnalyzer_Methylation_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Annotation/EpigeneticsAnalyzer_Methylation_Tests.cs) — covers `INV-01`–`INV-06`
 - Evidence: [EPIGEN-METHYL-001-Evidence.md](../../../docs/Evidence/EPIGEN-METHYL-001-Evidence.md)
 - Related algorithms: [CpG_Site_Detection](./CpG_Site_Detection.md)
 

@@ -217,7 +217,7 @@ var segments = StructuralVariantAnalyzer.DetectCNV(depth, windowSize: 4, referen
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [StructuralVariantAnalyzer_DetectCNV_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/StructuralVariantAnalyzer_DetectCNV_Tests.cs) — covers `INV-01`..`INV-06`
+- Tests: [StructuralVariantAnalyzer_DetectCNV_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Annotation/StructuralVariantAnalyzer_DetectCNV_Tests.cs) — covers `INV-01`..`INV-06`
 - Evidence: [SV-CNV-001-Evidence.md](../../../docs/Evidence/SV-CNV-001-Evidence.md)
 - Related algorithms: [SV_Detection](../StructuralVar/SV_Detection.md)
 

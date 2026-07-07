@@ -160,7 +160,7 @@ var comparison = MiRnaAnalyzer.CompareSeedRegions(
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [MiRnaAnalyzer_SeedAnalysis_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_SeedAnalysis_Tests.cs)
+- Tests: [MiRnaAnalyzer_SeedAnalysis_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Annotation/MiRnaAnalyzer_SeedAnalysis_Tests.cs)
 - Test spec: [MIRNA-SEED-001.md](../../../tests/TestSpecs/MIRNA-SEED-001.md)
 - Evidence: [MIRNA-SEED-001-Evidence.md](../../../docs/Evidence/MIRNA-SEED-001-Evidence.md)
 - Related property tests: [MiRnaProperties.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Properties/MiRnaProperties.cs)

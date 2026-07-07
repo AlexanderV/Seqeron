@@ -167,7 +167,7 @@ For `([)]` the two pairs are (i,j)=(0,2) and (k,l)=(1,3). Check 0 < 1 < 2 < 3 �
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [RnaSecondaryStructure_DetectPseudoknots_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_DetectPseudoknots_Tests.cs) — covers `INV-01`..`INV-05`
+- Tests: [RnaSecondaryStructure_DetectPseudoknots_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RnaSecondaryStructure_DetectPseudoknots_Tests.cs) — covers `INV-01`..`INV-05`
 - Evidence: [RNA-PSEUDOKNOT-001-Evidence.md](../../../docs/Evidence/RNA-PSEUDOKNOT-001-Evidence.md)
 - Related algorithms: [RNA Base Pairing](../RnaStructure/RNA_Base_Pairing.md)
 

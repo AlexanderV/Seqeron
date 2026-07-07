@@ -169,7 +169,7 @@ var calls = OncologyAnalyzer.CallSomaticMutations(variants);
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_CallSomaticMutations_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CallSomaticMutations_Tests.cs) — covers `INV-01`..`INV-05`
+- Tests: [OncologyAnalyzer_CallSomaticMutations_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_CallSomaticMutations_Tests.cs) — covers `INV-01`..`INV-05`
 - Evidence: [ONCO-SOMATIC-001-Evidence.md](../../../docs/Evidence/ONCO-SOMATIC-001-Evidence.md)
 
 ## 8. References

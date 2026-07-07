@@ -180,5 +180,5 @@ The repository does not infer phased haplotypes, does not report haplotype frequ
 5. Wikipedia contributors. Haplotype block. https://en.wikipedia.org/wiki/Haplotype_block
 6. [POP-LD-001.md](../../../docs/Evidence/POP-LD-001.md)
 7. [POP-LD-001.md](../../../tests/TestSpecs/POP-LD-001.md)
-8. [PopulationGeneticsAnalyzer_LinkageDisequilibrium_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/PopulationGeneticsAnalyzer_LinkageDisequilibrium_Tests.cs)
+8. [PopulationGeneticsAnalyzer_LinkageDisequilibrium_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Population/PopulationGeneticsAnalyzer_LinkageDisequilibrium_Tests.cs)
 9. [PopulationGeneticsAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Population/PopulationGeneticsAnalyzer.cs)

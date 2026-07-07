@@ -193,7 +193,7 @@ foreach (var cluster in PanGenomeAnalyzer.ClusterGenes(genomes, identityThreshol
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [PanGenomeAnalyzer_ClusterGenes_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/PanGenomeAnalyzer_ClusterGenes_Tests.cs) — covers INV-01..INV-06
+- Tests: [PanGenomeAnalyzer_ClusterGenes_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Metagenomics/PanGenomeAnalyzer_ClusterGenes_Tests.cs) — covers INV-01..INV-06
 - Evidence: [PANGEN-CLUSTER-001-Evidence.md](../../../docs/Evidence/PANGEN-CLUSTER-001-Evidence.md)
 - Related algorithms: [PanGenome_Core_Accessory](../Metagenomics/PanGenome_Core_Accessory.md)
 

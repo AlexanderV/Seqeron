@@ -182,7 +182,7 @@ var dmrs = EpigeneticsAnalyzer.FindDMRs(control, treatment).ToList();
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [EpigeneticsAnalyzer_DMR_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_DMR_Tests.cs) — covers `INV-01`–`INV-06`
+- Tests: [EpigeneticsAnalyzer_DMR_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Annotation/EpigeneticsAnalyzer_DMR_Tests.cs) — covers `INV-01`–`INV-06`
 - Evidence: [EPIGEN-DMR-001-Evidence.md](../../../docs/Evidence/EPIGEN-DMR-001-Evidence.md)
 - Related algorithms: [Methylation_Analysis](../Epigenetics/Methylation_Analysis.md)
 

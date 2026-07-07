@@ -173,7 +173,7 @@ GcContent = 4/8 = 0.5; four equally frequent symbols → H = log₂ 4 = 2.0 bits
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [SequenceStatistics_SummarizeNucleotideSequence_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_SummarizeNucleotideSequence_Tests.cs) — covers `INV-01`..`INV-07`
+- Tests: [SequenceStatistics_SummarizeNucleotideSequence_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/SequenceStatistics_SummarizeNucleotideSequence_Tests.cs) — covers `INV-01`..`INV-07`
 - Evidence: [SEQ-SUMMARY-001-Evidence.md](../../../docs/Evidence/SEQ-SUMMARY-001-Evidence.md)
 - Related algorithms: [Entropy_Profile](../Statistics/Entropy_Profile.md), [Melting_Temperature](../Statistics/Melting_Temperature.md)
 

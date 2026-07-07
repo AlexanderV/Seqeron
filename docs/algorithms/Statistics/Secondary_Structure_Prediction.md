@@ -208,7 +208,7 @@ window [E,V] → ((1.51+1.06)/2, (0.37+1.70)/2, (0.74+0.50)/2) = (1.285, 1.035, 
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [SequenceStatistics_PredictSecondaryStructure_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_PredictSecondaryStructure_Tests.cs) — covers `INV-01`..`INV-06`
+- Tests: [SequenceStatistics_PredictSecondaryStructure_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/SequenceStatistics_PredictSecondaryStructure_Tests.cs) — covers `INV-01`..`INV-06`
 - Evidence: [SEQ-SECSTRUCT-001-Evidence.md](../../../docs/Evidence/SEQ-SECSTRUCT-001-Evidence.md)
 - Related algorithms: [Hydrophobicity_Analysis](./Hydrophobicity_Analysis.md)
 

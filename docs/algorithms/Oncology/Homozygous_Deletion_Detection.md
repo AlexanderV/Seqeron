@@ -150,7 +150,7 @@ var genes = OncologyAnalyzer.IdentifyDeletedTumorSuppressors(hom);   // -> ["CDK
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_DetectHomozygousDeletions_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectHomozygousDeletions_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [OncologyAnalyzer_DetectHomozygousDeletions_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_DetectHomozygousDeletions_Tests.cs) — covers `INV-01`–`INV-04`
 - Evidence: [ONCO-CNA-003-Evidence.md](../../../docs/Evidence/ONCO-CNA-003-Evidence.md)
 - Related algorithms: [Cancer Copy Number Alteration Classification](./Copy_Number_Alteration_Classification.md), [Focal Amplification Detection](./Focal_Amplification_Detection.md)
 

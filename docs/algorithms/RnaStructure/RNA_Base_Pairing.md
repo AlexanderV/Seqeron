@@ -143,7 +143,7 @@ RnaSecondaryStructure.GetComplement('A');         // 'U'
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [RnaSecondaryStructure_CanPair_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_CanPair_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [RnaSecondaryStructure_CanPair_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RnaSecondaryStructure_CanPair_Tests.cs) — covers `INV-01`–`INV-04`
 - Evidence: [RNA-PAIR-001-Evidence.md](../../../docs/Evidence/RNA-PAIR-001-Evidence.md)
 
 ## 8. References

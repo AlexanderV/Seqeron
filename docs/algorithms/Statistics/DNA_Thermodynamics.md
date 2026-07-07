@@ -214,7 +214,7 @@ var t = SequenceStatistics.CalculateThermodynamics("GCGC");
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [SequenceStatistics_CalculateThermodynamics_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateThermodynamics_Tests.cs) — covers `INV-01`..`INV-06`
+- Tests: [SequenceStatistics_CalculateThermodynamics_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/SequenceStatistics_CalculateThermodynamics_Tests.cs) — covers `INV-01`..`INV-06`
 - Evidence: [SEQ-THERMO-001-Evidence.md](../../../docs/Evidence/SEQ-THERMO-001-Evidence.md)
 - Related algorithms: [Molecular_Weight_Calculation](./Molecular_Weight_Calculation.md)
 

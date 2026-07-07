@@ -154,7 +154,7 @@ var irs = RnaSecondaryStructure.FindInvertedRepeats("UUACGAAAAAACGUAA").ToList()
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [RnaSecondaryStructure_FindInvertedRepeats_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_FindInvertedRepeats_Tests.cs) — covers INV-01..INV-05
+- Tests: [RnaSecondaryStructure_FindInvertedRepeats_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RnaSecondaryStructure_FindInvertedRepeats_Tests.cs) — covers INV-01..INV-05
 - Evidence: [RNA-INVERT-001-Evidence.md](../../../docs/Evidence/RNA-INVERT-001-Evidence.md)
 
 ## 8. References

@@ -187,8 +187,8 @@ var profile = CodonOptimizer.CalculateMinMaxProfile("AGAAGAAGA", CodonOptimizer.
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests (per-codon): [CodonOptimizer_FindRareCodons_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/CodonOptimizer_FindRareCodons_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
-- Tests (clusters / runs): [CodonOptimizer_RareCodonClusters_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/CodonOptimizer_RareCodonClusters_Tests.cs) — covers `INV-05`, `INV-06`, `INV-07`, `INV-08`
+- Tests (per-codon): [CodonOptimizer_FindRareCodons_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/CodonOptimizer_FindRareCodons_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
+- Tests (clusters / runs): [CodonOptimizer_RareCodonClusters_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/CodonOptimizer_RareCodonClusters_Tests.cs) — covers `INV-05`, `INV-06`, `INV-07`, `INV-08`
 - Test specification: [CODON-RARE-001.md](../../../tests/TestSpecs/CODON-RARE-001.md)
 - Related algorithms: [Sequence_Optimization.md](Sequence_Optimization.md), [CAI_Calculation.md](CAI_Calculation.md)
 

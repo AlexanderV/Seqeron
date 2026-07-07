@@ -229,7 +229,7 @@ the property/performance test.
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [RnaSecondaryStructure_PartitionFunction_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_PartitionFunction_Tests.cs) — covers `INV-01`..`INV-05`
+- Tests: [RnaSecondaryStructure_PartitionFunction_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RnaSecondaryStructure_PartitionFunction_Tests.cs) — covers `INV-01`..`INV-05`
 - Evidence: [RNA-PARTITION-001-Evidence.md](../../../docs/Evidence/RNA-PARTITION-001-Evidence.md)
 - Related algorithms: [RNA_Free_Energy](./RNA_Free_Energy.md)
 

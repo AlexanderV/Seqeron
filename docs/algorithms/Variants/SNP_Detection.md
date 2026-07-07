@@ -166,7 +166,7 @@ var aligned = VariantCaller.FindSnps(new DnaSequence("ATGCATGC"), new DnaSequenc
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [VariantCaller_FindSnps_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/VariantCaller_FindSnps_Tests.cs) — covers `INV-01`..`INV-06`
+- Tests: [VariantCaller_FindSnps_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Annotation/VariantCaller_FindSnps_Tests.cs) — covers `INV-01`..`INV-06`
 - Evidence: [VARIANT-SNP-001-Evidence.md](../../../docs/Evidence/VARIANT-SNP-001-Evidence.md)
 - Related algorithms: [Variant_Detection](./Variant_Detection.md)
 

@@ -187,8 +187,8 @@ Parsed result:
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [FastaParserTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/FastaParserTests.cs) — covers `INV-01`, `INV-02`, and `INV-03`
-- Tests: [FastaParser_Alphabet_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/FastaParser_Alphabet_Tests.cs) — covers the opt-in `SequenceAlphabet` (RNA / protein / IUPAC-nucleotide) overloads and the default strict-DNA regression
+- Tests: [FastaParserTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/IO/FastaParserTests.cs) — covers `INV-01`, `INV-02`, and `INV-03`
+- Tests: [FastaParser_Alphabet_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/IO/FastaParser_Alphabet_Tests.cs) — covers the opt-in `SequenceAlphabet` (RNA / protein / IUPAC-nucleotide) overloads and the default strict-DNA regression
 - Tests: [FastaParseTests.cs](../../../tests/Seqeron/Seqeron.Mcp.Parsers.Tests/FastaParseTests.cs) — covers parser binding behavior
 - Tests: [FastaWriteTests.cs](../../../tests/Seqeron/Seqeron.Mcp.Parsers.Tests/FastaWriteTests.cs) — covers output file generation
 - Tests: [FastaFormatTests.cs](../../../tests/Seqeron/Seqeron.Mcp.Parsers.Tests/FastaFormatTests.cs) — covers line wrapping and formatter binding behavior

@@ -186,7 +186,7 @@ var call = OncologyAnalyzer.ClassifyArtifact(v); // Type = OxoG, IsArtifact = tr
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_FilterArtifacts_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_FilterArtifacts_Tests.cs) — covers INV-01..INV-05
+- Tests: [OncologyAnalyzer_FilterArtifacts_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_FilterArtifacts_Tests.cs) — covers INV-01..INV-05
 - Evidence: [ONCO-ARTIFACT-001-Evidence.md](../../../docs/Evidence/ONCO-ARTIFACT-001-Evidence.md)
 
 ## 8. References

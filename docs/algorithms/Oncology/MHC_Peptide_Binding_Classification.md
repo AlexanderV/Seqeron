@@ -212,8 +212,8 @@ var (ic50, strength) = OncologyAnalyzer.PredictAndClassifySmm("GILGFVFTL", matri
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_ClassifyMhcBinding_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyMhcBinding_Tests.cs) — covers `INV-01`–`INV-07`
-- Tests (MHCflurry predictor): [MhcflurryAffinityPredictor_PredictIc50_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/MhcflurryAffinityPredictor_PredictIc50_Tests.cs) — encoders, pseudosequence table, `to_ic50`, single-network oracle parity, geometric-mean ensemble, predict→classify chain
+- Tests: [OncologyAnalyzer_ClassifyMhcBinding_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_ClassifyMhcBinding_Tests.cs) — covers `INV-01`–`INV-07`
+- Tests (MHCflurry predictor): [MhcflurryAffinityPredictor_PredictIc50_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/MhcflurryAffinityPredictor_PredictIc50_Tests.cs) — encoders, pseudosequence table, `to_ic50`, single-network oracle parity, geometric-mean ensemble, predict→classify chain
 - Evidence: [ONCO-MHC-001-Evidence.md](../../../docs/Evidence/ONCO-MHC-001-Evidence.md)
 - Related algorithms: [Neoantigen peptide windowing (ONCO-NEO-001)](../../Evidence/ONCO-NEO-001-Evidence.md)
 

@@ -149,7 +149,7 @@ For the Biopython example string `"ACGTUacgtuXYZxyz"`, the per-base forward RNA 
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [SequenceExtensions_GetRnaComplementBase_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SequenceExtensions_GetRnaComplementBase_Tests.cs) — covers `INV-01`–`INV-06`
+- Tests: [SequenceExtensions_GetRnaComplementBase_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Core/SequenceExtensions_GetRnaComplementBase_Tests.cs) — covers `INV-01`–`INV-06`
 - Evidence: [SEQ-RNACOMP-001-Evidence.md](../../../docs/Evidence/SEQ-RNACOMP-001-Evidence.md)
 - Related algorithms: [Sequence_Validation](./Sequence_Validation.md)
 

@@ -18,7 +18,7 @@ Performs comprehensive k-mer analysis on a sequence, returning statistics about 
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L363](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/KmerAnalyzer.cs#L363)
+- Source: [KmerAnalyzer.cs#L363](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L363)
 
 ## Input Schema
 

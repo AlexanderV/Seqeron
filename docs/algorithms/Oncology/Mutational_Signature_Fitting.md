@@ -201,7 +201,7 @@ var fit = OncologyAnalyzer.FitSignatures(catalog, signatures);
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_FitSignatures_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_FitSignatures_Tests.cs) — covers INV-01..INV-07
+- Tests: [OncologyAnalyzer_FitSignatures_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_FitSignatures_Tests.cs) — covers INV-01..INV-07
 - Evidence: [ONCO-SIG-002-Evidence.md](../../../docs/Evidence/ONCO-SIG-002-Evidence.md)
 - Related algorithms: [SBS96 Trinucleotide Context Catalog](./SBS96_Trinucleotide_Context_Catalog.md)
 

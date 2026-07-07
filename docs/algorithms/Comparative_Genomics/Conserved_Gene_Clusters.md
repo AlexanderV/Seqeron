@@ -155,7 +155,7 @@ The algorithm is O(n²·K·m). Measured baseline (informal, debug build, .NET on
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [ComparativeGenomics_FindConservedClusters_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_FindConservedClusters_Tests.cs) — covers `INV-01`–`INV-05`
+- Tests: [ComparativeGenomics_FindConservedClusters_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/ComparativeGenomics_FindConservedClusters_Tests.cs) — covers `INV-01`–`INV-05`
 - Evidence: [COMPGEN-CLUSTER-001-Evidence.md](../../../docs/Evidence/COMPGEN-CLUSTER-001-Evidence.md)
 - Related algorithms: [Reciprocal_Best_Hits](../Comparative_Genomics/Reciprocal_Best_Hits.md)
 

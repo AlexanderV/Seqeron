@@ -165,7 +165,7 @@ Qualities `42,40,26,27,8,7,11,4,2,3`, cutoff 10. After subtraction: `32,30,16,17
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [SequenceAssembler_QualityTrimReads_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SequenceAssembler_QualityTrimReads_Tests.cs) — covers `INV-01`–`INV-05`
+- Tests: [SequenceAssembler_QualityTrimReads_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Alignment/SequenceAssembler_QualityTrimReads_Tests.cs) — covers `INV-01`–`INV-05`
 - Evidence: [ASSEMBLY-TRIM-001-Evidence.md](../../../docs/Evidence/ASSEMBLY-TRIM-001-Evidence.md)
 
 ## 8. References

@@ -258,7 +258,7 @@ double tmDe = PrimerDesigner.CalculateMeltingTemperatureNNMismatch(
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [PrimerDesigner_NearestNeighborTm_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/PrimerDesigner_NearestNeighborTm_Tests.cs) — covers `INV-1`–`INV-9` (incl. mismatch/dangling-end MM1/DE1, perfect-match equivalence EQ1/EQ2)
+- Tests: [PrimerDesigner_NearestNeighborTm_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/PrimerDesigner_NearestNeighborTm_Tests.cs) — covers `INV-1`–`INV-9` (incl. mismatch/dangling-end MM1/DE1, perfect-match equivalence EQ1/EQ2)
 - Evidence: [PRIMER-TM-001-NN-Evidence.md](../../../docs/Evidence/PRIMER-TM-001-NN-Evidence.md)
 - Related algorithms: [Melting_Temperature.md](../Statistics/Melting_Temperature.md) (SEQ-TM-001), [DNA_Thermodynamics.md](../Statistics/DNA_Thermodynamics.md) (SEQ-THERMO-001)
 

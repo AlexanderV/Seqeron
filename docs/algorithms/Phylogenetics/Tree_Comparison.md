@@ -274,7 +274,7 @@ $$
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [PhylogeneticAnalyzer_TreeComparison_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/PhylogeneticAnalyzer_TreeComparison_Tests.cs) - covers `INV-RF-01` through `INV-RF-05`, `INV-MRCA-01` through `INV-MRCA-04`, and `INV-PD-01` through `INV-PD-05`.
+- Tests: [PhylogeneticAnalyzer_TreeComparison_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Phylogenetics/PhylogeneticAnalyzer_TreeComparison_Tests.cs) - covers `INV-RF-01` through `INV-RF-05`, `INV-MRCA-01` through `INV-MRCA-04`, and `INV-PD-01` through `INV-PD-05`.
 - Test specification: [PHYLO-COMP-001.md](../../../tests/TestSpecs/PHYLO-COMP-001.md) - records the canonical scope, expected complexities, and the RF/MRCA implementation fixes adopted by the current code.
 - Evidence: [PHYLO-COMP-001-Evidence.md](../../Evidence/PHYLO-COMP-001-Evidence.md) - captures the external references and resolved scope decisions for rooted binary trees.
 - Related algorithms: [Tree_Construction.md](Tree_Construction.md)

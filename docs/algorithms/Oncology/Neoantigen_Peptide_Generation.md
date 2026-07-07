@@ -202,7 +202,7 @@ var peptides = OncologyAnalyzer.GenerateNeoantigenPeptides("MKTAYIAKQRSTVWLNDEFG
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_GenerateNeoantigenPeptides_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_GenerateNeoantigenPeptides_Tests.cs) — covers `INV-01`–`INV-06`
+- Tests: [OncologyAnalyzer_GenerateNeoantigenPeptides_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_GenerateNeoantigenPeptides_Tests.cs) — covers `INV-01`–`INV-06`
 - Evidence: [ONCO-NEO-001-Evidence.md](../../../docs/Evidence/ONCO-NEO-001-Evidence.md)
 
 ## 8. References

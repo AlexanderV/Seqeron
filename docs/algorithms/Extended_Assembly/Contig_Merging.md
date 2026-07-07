@@ -180,7 +180,7 @@ From the Langmead greedy-SCS trace [1], chaining {AAA, AAB, ABB, BBB, BBA} at ov
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [SequenceAssembler_MergeContigs_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SequenceAssembler_MergeContigs_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [SequenceAssembler_MergeContigs_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Alignment/SequenceAssembler_MergeContigs_Tests.cs) — covers `INV-01`–`INV-04`
 - Evidence: [ASSEMBLY-MERGE-001-Evidence.md](../../../docs/Evidence/ASSEMBLY-MERGE-001-Evidence.md)
 - Related algorithms: [Overlap_Layout_Consensus](../Assembly/Overlap_Layout_Consensus.md)
 

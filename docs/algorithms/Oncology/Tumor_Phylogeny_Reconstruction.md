@@ -175,7 +175,7 @@ OncologyAnalyzer.ClonalPhylogeny tree = OncologyAnalyzer.ReconstructPhylogeny(cl
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_ReconstructPhylogeny_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ReconstructPhylogeny_Tests.cs) — covers `INV-01`, `INV-02`, `INV-05`
+- Tests: [OncologyAnalyzer_ReconstructPhylogeny_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_ReconstructPhylogeny_Tests.cs) — covers `INV-01`, `INV-02`, `INV-05`
 - Evidence: [ONCO-PHYLO-001-Evidence.md](../../../docs/Evidence/ONCO-PHYLO-001-Evidence.md)
 - Related algorithms: [Clonal_Subclonal_Classification](./Clonal_Subclonal_Classification.md)
 

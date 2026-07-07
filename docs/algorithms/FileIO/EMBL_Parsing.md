@@ -197,8 +197,8 @@ The parser focuses on the main EMBL flat-file fields and does not preserve the f
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [EmblParserTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/EmblParserTests.cs)
-- Tests (remote assembly): [FeatureLocationHelper_ResolveLocationSequence_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/FeatureLocationHelper_ResolveLocationSequence_Tests.cs) — covers `INV-05`
+- Tests: [EmblParserTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/IO/EmblParserTests.cs)
+- Tests (remote assembly): [FeatureLocationHelper_ResolveLocationSequence_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/IO/FeatureLocationHelper_ResolveLocationSequence_Tests.cs) — covers `INV-05`
 - Related tests: [EmblParseTests.cs](../../../tests/Seqeron/Seqeron.Mcp.Parsers.Tests/EmblParseTests.cs)
 - Test specification: [PARSE-EMBL-001.md](../../../tests/TestSpecs/PARSE-EMBL-001.md)
 - Related algorithms: [GenBank_Parsing.md](GenBank_Parsing.md)

@@ -159,7 +159,7 @@ var pred = GcSkewCalculator.PredictReplicationOrigin(genome);
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [GcSkewCalculator_PredictReplicationOrigin_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/GcSkewCalculator_PredictReplicationOrigin_Tests.cs) — covers `INV-01`…`INV-06`
+- Tests: [GcSkewCalculator_PredictReplicationOrigin_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GcSkewCalculator_PredictReplicationOrigin_Tests.cs) — covers `INV-01`…`INV-06`
 - Evidence: [SEQ-REPLICATION-001-Evidence.md](../../../docs/Evidence/SEQ-REPLICATION-001-Evidence.md)
 - Related algorithms: [GC_Skew](./GC_Skew.md), [AT_Skew](../Extended_GC_Skew_Analysis/AT_Skew.md)
 

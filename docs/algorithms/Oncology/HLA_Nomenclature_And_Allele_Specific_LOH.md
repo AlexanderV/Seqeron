@@ -150,7 +150,7 @@ var loh = OncologyAnalyzer.DetectHlaLoh(
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_HlaAnalysis_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_HlaAnalysis_Tests.cs) — covers `INV-01`…`INV-05`
+- Tests: [OncologyAnalyzer_HlaAnalysis_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_HlaAnalysis_Tests.cs) — covers `INV-01`…`INV-05`
 - Evidence: [ONCO-HLA-001-Evidence.md](../../../docs/Evidence/ONCO-HLA-001-Evidence.md)
 - Search reuse: the repository suffix tree was evaluated and is **not used** — this unit performs no substring/pattern search (nomenclature parsing is a single linear validation; LOH is a constant-time threshold rule).
 

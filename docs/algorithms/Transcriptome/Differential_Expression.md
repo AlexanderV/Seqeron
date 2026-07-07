@@ -193,7 +193,7 @@ var results = TranscriptomeAnalyzer
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [TranscriptomeAnalyzer_DifferentialExpression_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/TranscriptomeAnalyzer_DifferentialExpression_Tests.cs) — covers `INV-01`–`INV-05`
+- Tests: [TranscriptomeAnalyzer_DifferentialExpression_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Annotation/TranscriptomeAnalyzer_DifferentialExpression_Tests.cs) — covers `INV-01`–`INV-05`
 - Evidence: [TRANS-DIFF-001-Evidence.md](../../../docs/Evidence/TRANS-DIFF-001-Evidence.md)
 - Related algorithms: [Expression_Quantification](./Expression_Quantification.md)
 

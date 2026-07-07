@@ -169,7 +169,7 @@ var sp = ProteinMotifFinder.PredictSignalPeptide(achDromeSequence);
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [ProteinMotifFinder_PredictSignalPeptide_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_PredictSignalPeptide_Tests.cs) — covers `INV-01`..`INV-05`
+- Tests: [ProteinMotifFinder_PredictSignalPeptide_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/ProteinMotifFinder_PredictSignalPeptide_Tests.cs) — covers `INV-01`..`INV-05`
 - Evidence: [PROTMOTIF-SP-001-Evidence.md](../../../docs/Evidence/PROTMOTIF-SP-001-Evidence.md)
 - Related algorithms: [Domain_Prediction](../ProteinMotif/Domain_Prediction.md)
 

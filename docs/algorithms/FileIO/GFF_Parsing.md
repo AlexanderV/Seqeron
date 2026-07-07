@@ -184,8 +184,8 @@ The parser focuses on core row parsing and practical annotation utilities. Auto-
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [GffParserTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/GffParserTests.cs)
-- Related tests: [GffParseTests.cs](../../../tests/Seqeron/Seqeron.Mcp.Parsers.Tests/GffParseTests.cs), [GenomeAnnotator_GFF3_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/GenomeAnnotator_GFF3_Tests.cs)
+- Tests: [GffParserTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/IO/GffParserTests.cs)
+- Related tests: [GffParseTests.cs](../../../tests/Seqeron/Seqeron.Mcp.Parsers.Tests/GffParseTests.cs), [GenomeAnnotator_GFF3_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Annotation/GenomeAnnotator_GFF3_Tests.cs)
 - Test specification: [PARSE-GFF-001.md](../../../tests/TestSpecs/PARSE-GFF-001.md)
 
 ## 8. References

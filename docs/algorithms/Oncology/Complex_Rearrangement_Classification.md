@@ -224,7 +224,7 @@ oscillating segments ≥ 7 → High; 10 ≥ 10 and 12 ≥ 6 and states ∈ [2,3]
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_ClassifyComplexRearrangement_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyComplexRearrangement_Tests.cs) — covers INV-01..INV-05
+- Tests: [OncologyAnalyzer_ClassifyComplexRearrangement_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_ClassifyComplexRearrangement_Tests.cs) — covers INV-01..INV-05
 - Evidence: [ONCO-SV-001-Evidence.md](../../../docs/Evidence/ONCO-SV-001-Evidence.md)
 
 ## 8. References

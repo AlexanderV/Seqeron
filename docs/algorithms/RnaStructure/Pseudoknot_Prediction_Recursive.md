@@ -233,7 +233,7 @@ var pk = RnaSecondaryStructure.PredictStructurePseudoknotRecursive("AAAAAAAAGGGG
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [RnaSecondaryStructure_PredictStructurePseudoknotRecursive_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_PredictStructurePseudoknotRecursive_Tests.cs) — covers INV-PKR-01..04
+- Tests: [RnaSecondaryStructure_PredictStructurePseudoknotRecursive_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RnaSecondaryStructure_PredictStructurePseudoknotRecursive_Tests.cs) — covers INV-PKR-01..04
 - Evidence: [RNA-PKRECURSIVE-001-Evidence.md](../../../docs/Evidence/RNA-PKRECURSIVE-001-Evidence.md)
 - Related algorithms: [Pseudoknot_Prediction](Pseudoknot_Prediction.md) (single H-type), [Minimum_Free_Energy](Minimum_Free_Energy.md), [Pseudoknot_Detection](Pseudoknot_Detection.md)
 

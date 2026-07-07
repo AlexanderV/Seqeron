@@ -183,7 +183,7 @@ double tf = OncologyAnalyzer.CalculateTumorFraction(variants); // 2 * 0.15 = 0.3
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_CtDnaAnalysis_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CtDnaAnalysis_Tests.cs) — covers `INV-01`..`INV-05`
+- Tests: [OncologyAnalyzer_CtDnaAnalysis_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_CtDnaAnalysis_Tests.cs) — covers `INV-01`..`INV-05`
 - Evidence: [ONCO-CTDNA-001-Evidence.md](../../../docs/Evidence/ONCO-CTDNA-001-Evidence.md)
 - TestSpec: [ONCO-CTDNA-001.md](../../../tests/TestSpecs/ONCO-CTDNA-001.md)
 - Related algorithms: [Clonal_Subclonal_Classification](Clonal_Subclonal_Classification.md)

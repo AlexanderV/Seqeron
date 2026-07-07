@@ -177,7 +177,7 @@ double ccf = OncologyAnalyzer.AdjustVAFForPurity(0.40, 0.80, 2);     // 1.0 (clo
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_CalculateVAF_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CalculateVAF_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [OncologyAnalyzer_CalculateVAF_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_CalculateVAF_Tests.cs) — covers `INV-01`–`INV-04`
 - Evidence: [ONCO-VAF-001-Evidence.md](../../../docs/Evidence/ONCO-VAF-001-Evidence.md)
 - Related algorithms: [Somatic_Mutation_Calling](../Oncology/Somatic_Mutation_Calling.md)
 

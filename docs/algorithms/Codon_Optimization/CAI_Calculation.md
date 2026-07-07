@@ -189,7 +189,7 @@ CAI ≈ 0.31
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [CodonOptimizer_CAI_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/CodonOptimizer_CAI_Tests.cs) — covers `INV-01`, `INV-02` (both default and exclusion modes), `INV-03`, `INV-04`
+- Tests: [CodonOptimizer_CAI_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/CodonOptimizer_CAI_Tests.cs) — covers `INV-01`, `INV-02` (both default and exclusion modes), `INV-03`, `INV-04`
 - Test specification: [CODON-CAI-001.md](../../../tests/TestSpecs/CODON-CAI-001.md)
 - Related algorithms: [Codon_Usage_Analysis.md](Codon_Usage_Analysis.md), [Sequence_Optimization.md](Sequence_Optimization.md)
 

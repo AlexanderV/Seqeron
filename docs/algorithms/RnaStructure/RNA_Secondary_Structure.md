@@ -117,7 +117,7 @@ The predictor uses wobble pairing because `FindStemLoops` defaults `allowWobble`
 | `PredictStructure` (greedy) | `O(C + h log h)` plus candidate search | `O(h + b)` | `C` = cost of `FindStemLoops`, `h` = number of candidate stem-loops, `b` = selected base pairs |
 | `CalculateMfeStructure` / `PredictStructureMfe` (DP + traceback) | `O(n³)` fill + `O(n²)`-style traceback | `O(n²)` | Same recurrences as `CalculateMinimumFreeEnergy`; traceback re-evaluates options per visited cell |
 
-A measured baseline is recorded in the MFE benchmark fixture ([RnaSecondaryStructure_MFE_Benchmark.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_MFE_Benchmark.cs)); the traceback adds an `O(n²)`-order pass over the already-filled `O(n³)` matrices and does not change the asymptotic class.
+A measured baseline is recorded in the MFE benchmark fixture ([RnaSecondaryStructure_MFE_Benchmark.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RnaSecondaryStructure_MFE_Benchmark.cs)); the traceback adds an `O(n²)`-order pass over the already-filled `O(n³)` matrices and does not change the asymptotic class.
 
 ## 5. Implementation Notes
 
@@ -171,7 +171,7 @@ The MFE-optimal path returns the global optimum **for the Turner 2004 energy mod
 ## 7. Examples and Related Material
 
 - [RNA-STRUCT-001](../../../tests/TestSpecs/RNA-STRUCT-001.md) documents the repository's RNA secondary-structure test specification.
-- [RnaSecondaryStructure_MfeStructure_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_MfeStructure_Tests.cs) is the canonical test fixture for the MFE-optimal traceback.
+- [RnaSecondaryStructure_MfeStructure_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RnaSecondaryStructure_MfeStructure_Tests.cs) is the canonical test fixture for the MFE-optimal traceback.
 - [RNA_Stemloop.md](./RNA_Stemloop.md) documents the stem-loop finder used as the greedy candidate generator.
 - [RNA_Free_Energy.md](./RNA_Free_Energy.md) documents the underlying energy calculations and the scalar MFE.
 

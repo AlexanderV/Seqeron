@@ -239,5 +239,5 @@ which matches both the reference walk-through and the repository tests.[3][5][6]
 4. Nei, M. 1978. Estimation of average heterozygosity and genetic distance from a small number of individuals. Genetics 89(3):583-590.
 5. Wikipedia contributors. Tajima's D. https://en.wikipedia.org/wiki/Tajima%27s_D
 6. [POP-DIV-001.md](../../../tests/TestSpecs/POP-DIV-001.md)
-7. [PopulationGeneticsAnalyzer_Diversity_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/PopulationGeneticsAnalyzer_Diversity_Tests.cs)
+7. [PopulationGeneticsAnalyzer_Diversity_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Population/PopulationGeneticsAnalyzer_Diversity_Tests.cs)
 8. [PopulationGeneticsAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Population/PopulationGeneticsAnalyzer.cs)

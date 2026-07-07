@@ -195,7 +195,7 @@ var fromSegments = OncologyAnalyzer.DetectHRD(segments, tai: 25, lst: 16);
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_CalculateHRDScore_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CalculateHRDScore_Tests.cs) — covers `INV-01`–`INV-07`
+- Tests: [OncologyAnalyzer_CalculateHRDScore_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_CalculateHRDScore_Tests.cs) — covers `INV-01`–`INV-07`
 - Evidence: [ONCO-HRD-001-Evidence.md](../../../docs/Evidence/ONCO-HRD-001-Evidence.md)
 - Related algorithm: [Loss of Heterozygosity (HRD-LOH)](Loss_Of_Heterozygosity.md) (ONCO-LOH-001) — the derived LOH component
 

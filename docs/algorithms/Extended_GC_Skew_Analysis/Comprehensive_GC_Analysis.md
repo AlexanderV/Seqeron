@@ -146,7 +146,7 @@ For `GGCC` with window 2, step 2: windows `GG` (skew +1, GC% 100) and `CC` (skew
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [GcSkewCalculator_AnalyzeGcContent_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/GcSkewCalculator_AnalyzeGcContent_Tests.cs) — covers INV-01..INV-05
+- Tests: [GcSkewCalculator_AnalyzeGcContent_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GcSkewCalculator_AnalyzeGcContent_Tests.cs) — covers INV-01..INV-05
 - Evidence: [SEQ-GC-ANALYSIS-001-Evidence.md](../../../docs/Evidence/SEQ-GC-ANALYSIS-001-Evidence.md)
 - Related algorithms: [AT_Skew](./AT_Skew.md)
 

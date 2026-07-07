@@ -173,7 +173,7 @@ var result = OncologyAnalyzer.AnalyzeHeterogeneity(new[] { 0.1, 0.12, 0.45, 0.50
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_AnalyzeHeterogeneity_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_AnalyzeHeterogeneity_Tests.cs) — covers INV-01..INV-05
+- Tests: [OncologyAnalyzer_AnalyzeHeterogeneity_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_AnalyzeHeterogeneity_Tests.cs) — covers INV-01..INV-05
 - Evidence: [ONCO-HETERO-001-Evidence.md](../../../docs/Evidence/ONCO-HETERO-001-Evidence.md)
 - Related algorithms: [Cancer_Cell_Fraction](../Oncology/Cancer_Cell_Fraction_Estimation.md)
 

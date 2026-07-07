@@ -167,7 +167,7 @@ bool wgdLegacy = OncologyAnalyzer.DetectWholeGenomeDoublingFromSuppliedLength(se
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_EstimatePloidy_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_EstimatePloidy_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [OncologyAnalyzer_EstimatePloidy_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_EstimatePloidy_Tests.cs) — covers `INV-01`–`INV-04`
 - Evidence: [ONCO-PLOIDY-001-Evidence.md](../../../docs/Evidence/ONCO-PLOIDY-001-Evidence.md)
 - Related algorithms: [Copy_Number_Alteration_Classification](Copy_Number_Alteration_Classification.md), [HRD_Score](HRD_Score.md)
 

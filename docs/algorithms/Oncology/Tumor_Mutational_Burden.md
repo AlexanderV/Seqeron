@@ -185,7 +185,7 @@ OncologyAnalyzer.TmbStatus status = OncologyAnalyzer.ClassifyTMB(tmb);          
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_CalculateTMB_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CalculateTMB_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [OncologyAnalyzer_CalculateTMB_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_CalculateTMB_Tests.cs) — covers `INV-01`–`INV-04`
 - Evidence: [ONCO-TMB-001-Evidence.md](../../../docs/Evidence/ONCO-TMB-001-Evidence.md)
 
 ## 8. References

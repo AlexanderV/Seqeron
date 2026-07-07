@@ -148,7 +148,7 @@ double skew = GcSkewCalculator.CalculateAtSkew("AAAT"); // 0.5
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [GcSkewCalculator_CalculateAtSkew_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/GcSkewCalculator_CalculateAtSkew_Tests.cs) — covers `INV-01`..`INV-05`
+- Tests: [GcSkewCalculator_CalculateAtSkew_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GcSkewCalculator_CalculateAtSkew_Tests.cs) — covers `INV-01`..`INV-05`
 - Evidence: [SEQ-ATSKEW-001-Evidence.md](../../../docs/Evidence/SEQ-ATSKEW-001-Evidence.md)
 
 ## 8. References

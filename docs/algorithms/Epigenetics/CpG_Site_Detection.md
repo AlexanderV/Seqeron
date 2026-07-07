@@ -136,7 +136,7 @@ The island detector is a sequence-only classifier: it does not infer methylation
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [EpigeneticsAnalyzer_CpGDetection_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_CpGDetection_Tests.cs)
+- Tests: [EpigeneticsAnalyzer_CpGDetection_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Annotation/EpigeneticsAnalyzer_CpGDetection_Tests.cs)
 - Test spec: [EPIGEN-CPG-001.md](../../../tests/TestSpecs/EPIGEN-CPG-001.md)
 - Evidence: [EPIGEN-CPG-001-Evidence.md](../../../docs/Evidence/EPIGEN-CPG-001-Evidence.md)
 

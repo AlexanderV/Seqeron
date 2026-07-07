@@ -174,10 +174,10 @@ The star result depends on the chosen center sequence, so center-selection error
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests (consistency / T-Coffee): [SequenceAligner_MultipleAlignConsistency_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SequenceAligner_MultipleAlignConsistency_Tests.cs) — covers `INV-08`, `INV-09`, `INV-10` and the primary→extended weight relation (200 → 400).
-- Tests (iterative refinement): [SequenceAligner_MultipleAlignIterative_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SequenceAligner_MultipleAlignIterative_Tests.cs) — covers `INV-06`, `INV-07` and the headline gap-relocation correction.
-- Tests (progressive): [SequenceAligner_MultipleAlignProgressive_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SequenceAligner_MultipleAlignProgressive_Tests.cs)
-- Tests (star): [SequenceAligner_MultipleAlign_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SequenceAligner_MultipleAlign_Tests.cs)
+- Tests (consistency / T-Coffee): [SequenceAligner_MultipleAlignConsistency_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Alignment/SequenceAligner_MultipleAlignConsistency_Tests.cs) — covers `INV-08`, `INV-09`, `INV-10` and the primary→extended weight relation (200 → 400).
+- Tests (iterative refinement): [SequenceAligner_MultipleAlignIterative_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Alignment/SequenceAligner_MultipleAlignIterative_Tests.cs) — covers `INV-06`, `INV-07` and the headline gap-relocation correction.
+- Tests (progressive): [SequenceAligner_MultipleAlignProgressive_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Alignment/SequenceAligner_MultipleAlignProgressive_Tests.cs)
+- Tests (star): [SequenceAligner_MultipleAlign_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Alignment/SequenceAligner_MultipleAlign_Tests.cs)
 - Evidence: [ALIGN-MULTI-001-Evidence.md](../../../docs/Evidence/ALIGN-MULTI-001-Evidence.md)
 - TestSpec: [ALIGN-MULTI-001.md](../../../tests/TestSpecs/ALIGN-MULTI-001.md)
 

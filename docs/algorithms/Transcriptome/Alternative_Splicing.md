@@ -144,7 +144,7 @@ var events = TranscriptomeAnalyzer.DetectAlternativeSplicing(isoforms).ToList();
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [TranscriptomeAnalyzer_AlternativeSplicing_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/TranscriptomeAnalyzer_AlternativeSplicing_Tests.cs) — covers INV-01..INV-05
+- Tests: [TranscriptomeAnalyzer_AlternativeSplicing_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Annotation/TranscriptomeAnalyzer_AlternativeSplicing_Tests.cs) — covers INV-01..INV-05
 - Evidence: [TRANS-SPLICE-001-Evidence.md](../../../docs/Evidence/TRANS-SPLICE-001-Evidence.md)
 - Related algorithms: [Expression_Quantification](Expression_Quantification.md)
 

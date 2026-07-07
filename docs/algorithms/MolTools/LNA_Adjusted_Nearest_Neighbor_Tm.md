@@ -194,7 +194,7 @@ double tm = PrimerDesigner.CalculateMeltingTemperatureNNLna(
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [ProbeDesigner_LnaTm_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/ProbeDesigner_LnaTm_Tests.cs) — covers INV-01..INV-04
+- Tests: [ProbeDesigner_LnaTm_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/ProbeDesigner_LnaTm_Tests.cs) — covers INV-01..INV-04
 - Evidence: [PROBE-DESIGN-001-LNA-Evidence.md](../../../docs/Evidence/PROBE-DESIGN-001-LNA-Evidence.md)
 - Related algorithms: [NearestNeighbor_Salt_Corrected_Tm](NearestNeighbor_Salt_Corrected_Tm.md), [Hybridization_Probe_Design](Hybridization_Probe_Design.md)
 

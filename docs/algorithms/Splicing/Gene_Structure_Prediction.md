@@ -178,7 +178,7 @@ This implementation is a splice-site-driven heuristic structure predictor. It do
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [SpliceSitePredictor_GeneStructure_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_GeneStructure_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
+- Tests: [SpliceSitePredictor_GeneStructure_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Annotation/SpliceSitePredictor_GeneStructure_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
 - Test specification: [SPLICE-PREDICT-001.md](../../../tests/TestSpecs/SPLICE-PREDICT-001.md)
 - Related algorithms: [Donor_Site_Detection.md](Donor_Site_Detection.md), [Acceptor_Site_Detection.md](Acceptor_Site_Detection.md)
 

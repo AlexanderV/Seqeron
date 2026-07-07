@@ -168,7 +168,7 @@ var duplex = MiRnaAnalyzer.AlignMiRnaToTarget("AAAA", "UUUU");
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [MiRnaAnalyzer_AlignMiRnaToTarget_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_AlignMiRnaToTarget_Tests.cs) — covers `INV-01`..`INV-06`
+- Tests: [MiRnaAnalyzer_AlignMiRnaToTarget_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Annotation/MiRnaAnalyzer_AlignMiRnaToTarget_Tests.cs) — covers `INV-01`..`INV-06`
 - Evidence: [MIRNA-PAIR-001-Evidence.md](../../../docs/Evidence/MIRNA-PAIR-001-Evidence.md)
 - Related algorithms: [Target_Site_Prediction](Target_Site_Prediction.md), [Seed_Sequence_Analysis](Seed_Sequence_Analysis.md)
 

@@ -174,7 +174,7 @@ searched in all six frames, yields the four distinct protein candidates
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [GenomicAnalyzer_FindOpenReadingFrames_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/GenomicAnalyzer_FindOpenReadingFrames_Tests.cs) — covers `INV-01`–`INV-05`
+- Tests: [GenomicAnalyzer_FindOpenReadingFrames_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzer_FindOpenReadingFrames_Tests.cs) — covers `INV-01`–`INV-05`
 - Evidence: [GENOMIC-ORF-001-Evidence.md](../../../docs/Evidence/GENOMIC-ORF-001-Evidence.md)
 - Related algorithm (genetic-code-parameterized ORF finding): ANNOT-ORF-001 (`GenomeAnnotator.FindOrfs`)
 

@@ -165,7 +165,7 @@ var breakpoints = StructuralVariantAnalyzer.FindBreakpoints(reads, clusterTolera
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [StructuralVariantAnalyzer_FindBreakpoints_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/StructuralVariantAnalyzer_FindBreakpoints_Tests.cs) — covers `INV-01`–`INV-05`
+- Tests: [StructuralVariantAnalyzer_FindBreakpoints_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Annotation/StructuralVariantAnalyzer_FindBreakpoints_Tests.cs) — covers `INV-01`–`INV-05`
 - Evidence: [SV-BREAKPOINT-001-Evidence.md](../../../docs/Evidence/SV-BREAKPOINT-001-Evidence.md)
 - Related algorithms: [SV_Detection](../StructuralVar/SV_Detection.md)
 

@@ -169,7 +169,7 @@ var m = ProteinMotifFinder.FindMotifByPattern("AAARGDAAA", "RGD", "RGD", "PS0001
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [ProteinMotifFinder_FindMotifByPattern_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindMotifByPattern_Tests.cs) — covers `INV-01`..`INV-07`
+- Tests: [ProteinMotifFinder_FindMotifByPattern_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/ProteinMotifFinder_FindMotifByPattern_Tests.cs) — covers `INV-01`..`INV-07`
 - Evidence: [PROTMOTIF-PATTERN-001-Evidence.md](../../../docs/Evidence/PROTMOTIF-PATTERN-001-Evidence.md)
 - Related algorithms: [PROSITE_Pattern_Matching](./PROSITE_Pattern_Matching.md), [Domain_Prediction](./Domain_Prediction.md), [Motif_Search](./Motif_Search.md)
 

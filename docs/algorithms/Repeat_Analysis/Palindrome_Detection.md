@@ -173,9 +173,9 @@ The algorithm detects only exact DNA palindromes and does not interpret ambiguou
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [RepeatFinder_Palindrome_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/RepeatFinder_Palindrome_Tests.cs)
+- Tests: [RepeatFinder_Palindrome_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RepeatFinder_Palindrome_Tests.cs)
 - Test spec: [REP-PALIN-001.md](../../../tests/TestSpecs/REP-PALIN-001.md)
-- Related smoke tests: [GenomicAnalyzerTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/GenomicAnalyzerTests.cs)
+- Related smoke tests: [GenomicAnalyzerTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzerTests.cs)
 
 ## 8. References
 

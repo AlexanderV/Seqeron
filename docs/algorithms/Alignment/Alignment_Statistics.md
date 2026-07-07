@@ -170,7 +170,7 @@ EMBOSS HBA vs HBB [2]: L = 149, M = 65 ⇒ Identity 65/149 = 43.624…% ≈ 43.6
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [SequenceAligner_CalculateStatistics_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SequenceAligner_CalculateStatistics_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [SequenceAligner_CalculateStatistics_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Alignment/SequenceAligner_CalculateStatistics_Tests.cs) — covers `INV-01`–`INV-04`
 - Evidence: [ALIGN-STATS-001-Evidence.md](../../../docs/Evidence/ALIGN-STATS-001-Evidence.md)
 - Related algorithms: [Global_Alignment_Needleman_Wunsch](../Alignment/Global_Alignment_Needleman_Wunsch.md)
 

@@ -157,7 +157,7 @@ int c = ApproximateMatcher.CountApproximateOccurrences(
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [ApproximateMatcher_FindBestMatch_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/ApproximateMatcher_FindBestMatch_Tests.cs) — covers `INV-01`–`INV-05`
+- Tests: [ApproximateMatcher_FindBestMatch_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Alignment/ApproximateMatcher_FindBestMatch_Tests.cs) — covers `INV-01`–`INV-05`
 - Evidence: [PAT-APPROX-003-Evidence.md](../../../docs/Evidence/PAT-APPROX-003-Evidence.md)
 - Related algorithms: [Approximate_Matching_Hamming](Approximate_Matching_Hamming.md), [Edit_Distance](Edit_Distance.md)
 

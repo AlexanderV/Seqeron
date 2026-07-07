@@ -314,7 +314,7 @@ var bg = MiRnaAnalyzer.ClassifyPreMiRna(
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [MiRnaAnalyzer_PreMiRna_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_PreMiRna_Tests.cs)
+- Tests: [MiRnaAnalyzer_PreMiRna_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Annotation/MiRnaAnalyzer_PreMiRna_Tests.cs)
 - Test spec: [MIRNA-PRECURSOR-001.md](../../../tests/TestSpecs/MIRNA-PRECURSOR-001.md)
 - Evidence: [MIRNA-PRECURSOR-001-Evidence.md](../../../docs/Evidence/MIRNA-PRECURSOR-001-Evidence.md)
 - Related property tests: [MiRnaProperties.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Properties/MiRnaProperties.cs)

@@ -216,7 +216,7 @@ block reported.
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [ComparativeGenomics_FindSyntenicBlocks_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_FindSyntenicBlocks_Tests.cs) — covers `INV-01`..`INV-06`
+- Tests: [ComparativeGenomics_FindSyntenicBlocks_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/ComparativeGenomics_FindSyntenicBlocks_Tests.cs) — covers `INV-01`..`INV-06`
 - Evidence: [COMPGEN-SYNTENY-001-Evidence.md](../../../docs/Evidence/COMPGEN-SYNTENY-001-Evidence.md)
 
 ## 8. References

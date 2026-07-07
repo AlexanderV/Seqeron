@@ -168,7 +168,7 @@ This is the Wikipedia worked example: unit `ATTCG` (period 5), copy number 3 [2]
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [GenomicAnalyzer_TandemRepeat_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/GenomicAnalyzer_TandemRepeat_Tests.cs) — covers `INV-01`–`INV-03` (shared canonical fixture with REP-TANDEM-001)
+- Tests: [GenomicAnalyzer_TandemRepeat_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzer_TandemRepeat_Tests.cs) — covers `INV-01`–`INV-03` (shared canonical fixture with REP-TANDEM-001)
 - Evidence: [GENOMIC-TANDEM-001-Evidence.md](../../../docs/Evidence/GENOMIC-TANDEM-001-Evidence.md)
 - Related algorithms: [Tandem_Repeat_Detection.md](../Repeat_Analysis/Tandem_Repeat_Detection.md) (REP-TANDEM-001 — same method)
 

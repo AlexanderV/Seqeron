@@ -208,7 +208,7 @@ var svs = StructuralVariantAnalyzer.DetectSVs(
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [StructuralVariantAnalyzer_DetectSVs_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/StructuralVariantAnalyzer_DetectSVs_Tests.cs) — covers `INV-01`..`INV-06`
+- Tests: [StructuralVariantAnalyzer_DetectSVs_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Annotation/StructuralVariantAnalyzer_DetectSVs_Tests.cs) — covers `INV-01`..`INV-06`
 - Evidence: [SV-DETECT-001-Evidence.md](../../../docs/Evidence/SV-DETECT-001-Evidence.md)
 
 ## 8. References

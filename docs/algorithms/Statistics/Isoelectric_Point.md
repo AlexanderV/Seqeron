@@ -175,7 +175,7 @@ double pi = SequenceStatistics.CalculateIsoelectricPoint("FLPVLAGLTPSIVPKLVCLLTK
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [SequenceStatistics_CalculateIsoelectricPoint_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateIsoelectricPoint_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
+- Tests: [SequenceStatistics_CalculateIsoelectricPoint_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/SequenceStatistics_CalculateIsoelectricPoint_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
 - Evidence: [SEQ-PI-001-Evidence.md](../../../docs/Evidence/SEQ-PI-001-Evidence.md)
 
 ### 7.4 Change History

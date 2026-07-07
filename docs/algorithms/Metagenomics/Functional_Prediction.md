@@ -183,7 +183,7 @@ Exact-substring matching does not detect divergent homologs; there is no gapped 
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [MetagenomicsAnalyzer_PredictFunctions_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_PredictFunctions_Tests.cs) — covers INV-01..INV-06.
+- Tests: [MetagenomicsAnalyzer_PredictFunctions_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Metagenomics/MetagenomicsAnalyzer_PredictFunctions_Tests.cs) — covers INV-01..INV-06.
 - Evidence: [META-FUNC-001-Evidence.md](../../../docs/Evidence/META-FUNC-001-Evidence.md)
 
 ## 8. References

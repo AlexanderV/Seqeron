@@ -185,7 +185,7 @@ q_A = (1.6+1.6)/(2·2) = 0.8, q_B = (0.4+0.4)/4 = 0.2.
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [PopulationGeneticsAnalyzer_EstimateAncestry_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/PopulationGeneticsAnalyzer_EstimateAncestry_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [PopulationGeneticsAnalyzer_EstimateAncestry_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Population/PopulationGeneticsAnalyzer_EstimateAncestry_Tests.cs) — covers `INV-01`–`INV-04`
 - Evidence: [POP-ANCESTRY-001-Evidence.md](../../../docs/Evidence/POP-ANCESTRY-001-Evidence.md)
 - Related algorithms: [F_Statistics](../Population_Genetics/F_Statistics.md)
 

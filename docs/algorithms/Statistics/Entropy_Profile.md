@@ -134,7 +134,7 @@ var profile = SequenceStatistics.CalculateEntropyProfile("AAATGC", windowSize: 4
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [SequenceStatistics_CalculateEntropyProfile_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateEntropyProfile_Tests.cs) — covers `INV-01`–`INV-05`
+- Tests: [SequenceStatistics_CalculateEntropyProfile_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/SequenceStatistics_CalculateEntropyProfile_Tests.cs) — covers `INV-01`–`INV-05`
 - Evidence: [SEQ-ENTROPY-PROFILE-001-Evidence.md](../../../docs/Evidence/SEQ-ENTROPY-PROFILE-001-Evidence.md)
 - Related algorithms: [Dinucleotide_Analysis](./Dinucleotide_Analysis.md)
 

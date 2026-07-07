@@ -251,7 +251,7 @@ double aniRecip = ComparativeGenomics.CalculateReciprocalAni(
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [ComparativeGenomics_CalculateANI_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_CalculateANI_Tests.cs) — covers INV-01..INV-05
+- Tests: [ComparativeGenomics_CalculateANI_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/ComparativeGenomics_CalculateANI_Tests.cs) — covers INV-01..INV-05
 - Evidence: [COMPGEN-ANI-001-Evidence.md](../../../docs/Evidence/COMPGEN-ANI-001-Evidence.md)
 - TestSpec: [COMPGEN-ANI-001.md](../../../tests/TestSpecs/COMPGEN-ANI-001.md)
 

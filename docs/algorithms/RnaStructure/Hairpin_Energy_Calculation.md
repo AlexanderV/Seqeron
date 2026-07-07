@@ -214,7 +214,7 @@ one AU-end penalty +0.45 = **−6.01**; total stem-loop = **−1.4 kcal/mol** [1
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [RnaSecondaryStructure_HairpinEnergy_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_HairpinEnergy_Tests.cs) — covers INV-01..INV-05.
+- Tests: [RnaSecondaryStructure_HairpinEnergy_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RnaSecondaryStructure_HairpinEnergy_Tests.cs) — covers INV-01..INV-05.
 - Evidence: [RNA-HAIRPIN-001-Evidence.md](../../../docs/Evidence/RNA-HAIRPIN-001-Evidence.md)
 - Related algorithms: [RNA_Base_Pairing](../RnaStructure/RNA_Base_Pairing.md)
 

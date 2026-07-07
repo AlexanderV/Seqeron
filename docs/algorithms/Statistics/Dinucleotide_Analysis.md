@@ -135,7 +135,7 @@ Single-strand only (no ρ* symmetrization); no classification output; codon anal
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [SequenceStatistics_CalculateDinucleotide_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateDinucleotide_Tests.cs) — covers INV-01..INV-04
+- Tests: [SequenceStatistics_CalculateDinucleotide_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/SequenceStatistics_CalculateDinucleotide_Tests.cs) — covers INV-01..INV-04
 - Evidence: [SEQ-DINUC-001-Evidence.md](../../../docs/Evidence/SEQ-DINUC-001-Evidence.md)
 
 ## 8. References

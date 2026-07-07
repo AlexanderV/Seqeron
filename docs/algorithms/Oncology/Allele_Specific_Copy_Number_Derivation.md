@@ -281,7 +281,7 @@ var ccf = OncologyAnalyzer.EstimateCcf(0.40, fit.Purity,
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_AscatDerivation_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_AscatDerivation_Tests.cs) — covers `INV-01`–`INV-07`
+- Tests: [OncologyAnalyzer_AscatDerivation_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_AscatDerivation_Tests.cs) — covers `INV-01`–`INV-07`
 - Evidence: [ONCO-ASCAT-001-Evidence.md](../../../docs/Evidence/ONCO-ASCAT-001-Evidence.md)
 - Related algorithms: [Tumor_Ploidy_Estimation](./Tumor_Ploidy_Estimation.md), [Cancer_Cell_Fraction_Estimation](./Cancer_Cell_Fraction_Estimation.md), [Tumor_Purity_Estimation](./Tumor_Purity_Estimation.md)
 

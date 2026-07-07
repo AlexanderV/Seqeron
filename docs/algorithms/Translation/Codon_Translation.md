@@ -163,7 +163,7 @@ The repository exposes a fixed set of built-in genetic-code tables and returns o
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [GeneticCodeTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/GeneticCodeTests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
+- Tests: [GeneticCodeTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Core/GeneticCodeTests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
 - Test specification: [TRANS-CODON-001.md](../../../tests/TestSpecs/TRANS-CODON-001.md)
 - Related algorithms: [Protein_Translation.md](Protein_Translation.md)
 

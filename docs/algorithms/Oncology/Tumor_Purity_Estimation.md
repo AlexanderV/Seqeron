@@ -174,7 +174,7 @@ double rho = OncologyAnalyzer.EstimatePurity(new[]
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_EstimatePurity_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_EstimatePurity_Tests.cs) — covers INV-01..INV-04
+- Tests: [OncologyAnalyzer_EstimatePurity_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_EstimatePurity_Tests.cs) — covers INV-01..INV-04
 - Evidence: [ONCO-PURITY-001-Evidence.md](../../../docs/Evidence/ONCO-PURITY-001-Evidence.md)
 - Related algorithms: [Variant_Allele_Frequency](../Oncology/Variant_Allele_Frequency.md)
 

@@ -137,7 +137,7 @@ string consensus = MotifFinder.CreateConsensusFromAlignment(aligned); // "ATGCAA
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [MotifFinder_CreateConsensusFromAlignment_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/MotifFinder_CreateConsensusFromAlignment_Tests.cs) — covers `INV-01`–`INV-05`
+- Tests: [MotifFinder_CreateConsensusFromAlignment_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/MotifFinder_CreateConsensusFromAlignment_Tests.cs) — covers `INV-01`–`INV-05`
 - Evidence: [MOTIF-CONS-001-Evidence.md](../../../docs/Evidence/MOTIF-CONS-001-Evidence.md)
 
 ## 8. References

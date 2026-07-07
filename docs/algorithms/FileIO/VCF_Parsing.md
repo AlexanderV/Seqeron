@@ -195,7 +195,7 @@ The parser favors broad interoperability over strict validation. INFO and sample
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [VcfParserTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/VcfParserTests.cs)
+- Tests: [VcfParserTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/IO/VcfParserTests.cs)
 - Related tests: [VcfParseTests.cs](../../../tests/Seqeron/Seqeron.Mcp.Parsers.Tests/VcfParseTests.cs), [VcfUtilityTests.cs](../../../tests/Seqeron/Seqeron.Mcp.Parsers.Tests/VcfUtilityTests.cs)
 - Test specification: [PARSE-VCF-001.md](../../../tests/TestSpecs/PARSE-VCF-001.md)
 

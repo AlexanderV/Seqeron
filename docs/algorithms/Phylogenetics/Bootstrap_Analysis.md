@@ -188,7 +188,7 @@ This is an O(B·n³) algorithm (B replicates, each an O(n³) tree build). Measur
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [PhylogeneticAnalyzer_Bootstrap_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/PhylogeneticAnalyzer_Bootstrap_Tests.cs) — covers `INV-01`..`INV-05`
+- Tests: [PhylogeneticAnalyzer_Bootstrap_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Phylogenetics/PhylogeneticAnalyzer_Bootstrap_Tests.cs) — covers `INV-01`..`INV-05`
 - Evidence: [PHYLO-BOOT-001-Evidence.md](../../../docs/Evidence/PHYLO-BOOT-001-Evidence.md)
 - Related algorithms: [Tree_Construction](Tree_Construction.md), [Tree_Comparison](Tree_Comparison.md)
 

@@ -190,7 +190,7 @@ This repository implementation is limited to a fixed-bin, read-depth heuristic. 
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [ChromosomeAnalyzer_Aneuploidy_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/ChromosomeAnalyzer_Aneuploidy_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`
+- Tests: [ChromosomeAnalyzer_Aneuploidy_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Chromosome/ChromosomeAnalyzer_Aneuploidy_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`
 - Test specification: [CHROM-ANEU-001.md](../../../tests/TestSpecs/CHROM-ANEU-001.md)
 - Related algorithms: [Karyotype_Analysis.md](Karyotype_Analysis.md)
 

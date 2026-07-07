@@ -241,7 +241,7 @@ and the practical limit noted in §6.2 (not suited to datasets of hundreds of mi
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [SequenceAssembler_AssembleOLC_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SequenceAssembler_AssembleOLC_Tests.cs) — covers `INV-01`–`INV-05`, `ASM-02`.
+- Tests: [SequenceAssembler_AssembleOLC_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Alignment/SequenceAssembler_AssembleOLC_Tests.cs) — covers `INV-01`–`INV-05`, `ASM-02`.
 - Evidence: [ASSEMBLY-OLC-001-Evidence.md](../../../docs/Evidence/ASSEMBLY-OLC-001-Evidence.md)
 
 ## 8. References

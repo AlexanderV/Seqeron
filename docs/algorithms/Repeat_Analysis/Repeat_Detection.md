@@ -168,7 +168,7 @@ foreach (var r in GenomicAnalyzer.FindRepeats(new DnaSequence("ACGTACGTTTTTACGT"
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [GenomicAnalyzer_FindRepeats_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/GenomicAnalyzer_FindRepeats_Tests.cs) — covers `INV-01`..`INV-06`
+- Tests: [GenomicAnalyzer_FindRepeats_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzer_FindRepeats_Tests.cs) — covers `INV-01`..`INV-06`
 - Evidence: [GENOMIC-REPEAT-001-Evidence.md](../../../docs/Evidence/GENOMIC-REPEAT-001-Evidence.md)
 
 ## 8. References

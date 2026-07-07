@@ -206,7 +206,7 @@ double tm = PrimerDesigner.CalculateHairpinMeltingTemperature("GGGCTTTTGCCC"); /
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [PrimerDesigner_HairpinTm_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/PrimerDesigner_HairpinTm_Tests.cs) — covers `INV-01`–`INV-06`
+- Tests: [PrimerDesigner_HairpinTm_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/PrimerDesigner_HairpinTm_Tests.cs) — covers `INV-01`–`INV-06`
 - Evidence: [PRIMER-TM-001-HAIRPIN-Evidence.md](../../../docs/Evidence/PRIMER-TM-001-HAIRPIN-Evidence.md)
 - Related algorithms: [NearestNeighbor_Salt_Corrected_Tm](./NearestNeighbor_Salt_Corrected_Tm.md)
 

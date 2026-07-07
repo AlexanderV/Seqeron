@@ -192,7 +192,7 @@ var nn = SequenceStatistics.CalculateThermodynamics(
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [SequenceStatistics_CalculateThermodynamics_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateThermodynamics_Tests.cs) — covers `INV-01`–`INV-05` (shared canonical fixture)
+- Tests: [SequenceStatistics_CalculateThermodynamics_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/SequenceStatistics_CalculateThermodynamics_Tests.cs) — covers `INV-01`–`INV-05` (shared canonical fixture)
 - Evidence: [SEQ-TM-001-Evidence.md](../../../docs/Evidence/SEQ-TM-001-Evidence.md)
 - Related algorithms: [DNA_Thermodynamics.md](DNA_Thermodynamics.md) (SEQ-THERMO-001, full ΔH°/ΔS°/ΔG° derivation)
 

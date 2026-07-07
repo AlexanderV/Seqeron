@@ -157,7 +157,7 @@ var cls = GenomeAnnotator.ClassifyRepeat("...GGCCGGGCGCGGTGGCTCAC...", db); // "
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [GenomeAnnotator_FindRepetitiveElements_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/GenomeAnnotator_FindRepetitiveElements_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [GenomeAnnotator_FindRepetitiveElements_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Annotation/GenomeAnnotator_FindRepetitiveElements_Tests.cs) — covers `INV-01`–`INV-04`
 - Evidence: [ANNOT-REPEAT-001-Evidence.md](../../../docs/Evidence/ANNOT-REPEAT-001-Evidence.md)
 - Related algorithms: [Microsatellite detection](../Repeat_Analysis/Microsatellite_Detection.md)
 

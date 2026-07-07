@@ -171,7 +171,7 @@ string? id = OncologyAnalyzer.GetCOSMICAnnotation(input, cosmic); // "COSV560566
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_AnnotateCancerVariants_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_AnnotateCancerVariants_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`
+- Tests: [OncologyAnalyzer_AnnotateCancerVariants_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_AnnotateCancerVariants_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`
 - Evidence: [ONCO-ANNOT-001-Evidence.md](../../../docs/Evidence/ONCO-ANNOT-001-Evidence.md)
 - Related algorithms: [Somatic_Mutation_Calling](../Oncology/Somatic_Mutation_Calling.md), [Driver_Mutation_Detection](../Oncology/Driver_Mutation_Detection.md)
 

@@ -172,8 +172,8 @@ This implementation is heuristic. It does not use reference alpha-satellite libr
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [ChromosomeAnalyzer_Centromere_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/ChromosomeAnalyzer_Centromere_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
-- Tests (SF assignment): [ChromosomeAnalyzer_SuprachromosomalFamily_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/ChromosomeAnalyzer_SuprachromosomalFamily_Tests.cs)
+- Tests: [ChromosomeAnalyzer_Centromere_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Chromosome/ChromosomeAnalyzer_Centromere_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
+- Tests (SF assignment): [ChromosomeAnalyzer_SuprachromosomalFamily_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Chromosome/ChromosomeAnalyzer_SuprachromosomalFamily_Tests.cs)
 - Bundled CC0 reference + provenance: [Resources/README.md](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Chromosome/Resources/README.md)
 - Test specification: [CHROM-CENT-001.md](../../../tests/TestSpecs/CHROM-CENT-001.md)
 - Evidence: [CHROM-CENT-001-Evidence.md](../../../docs/Evidence/CHROM-CENT-001-Evidence.md)

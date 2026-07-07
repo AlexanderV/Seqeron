@@ -138,7 +138,7 @@ CommonRegion r = GenomicAnalyzer.FindLongestCommonRegion(a, b);
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [GenomicAnalyzer_FindCommonRegion_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/GenomicAnalyzer_FindCommonRegion_Tests.cs) — covers INV-01..INV-05
+- Tests: [GenomicAnalyzer_FindCommonRegion_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzer_FindCommonRegion_Tests.cs) — covers INV-01..INV-05
 - Evidence: [GENOMIC-COMMON-001-Evidence.md](../../../docs/Evidence/GENOMIC-COMMON-001-Evidence.md)
 - Related algorithms: [Repeat_Detection](../Repeat_Analysis/Repeat_Detection.md)
 

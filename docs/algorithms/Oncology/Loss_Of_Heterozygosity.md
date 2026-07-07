@@ -154,7 +154,7 @@ double frac = OncologyAnalyzer.CalculateLOHFraction(segments, "1"); // 20M / 60M
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_DetectLOH_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectLOH_Tests.cs) — covers `INV-01`..`INV-06`
+- Tests: [OncologyAnalyzer_DetectLOH_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_DetectLOH_Tests.cs) — covers `INV-01`..`INV-06`
 - Evidence: [ONCO-LOH-001-Evidence.md](../../../docs/Evidence/ONCO-LOH-001-Evidence.md)
 - Related algorithms: [HRD composite score](../Oncology/HRD_Score.md)
 

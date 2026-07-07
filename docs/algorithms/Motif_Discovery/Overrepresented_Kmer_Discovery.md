@@ -153,7 +153,7 @@ var atgc = motifs.First(m => m.Sequence == "ATGC");
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [MotifFinder_DiscoverMotifs_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/MotifFinder_DiscoverMotifs_Tests.cs) — covers `INV-01`..`INV-04`
+- Tests: [MotifFinder_DiscoverMotifs_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/MotifFinder_DiscoverMotifs_Tests.cs) — covers `INV-01`..`INV-04`
 - Evidence: [MOTIF-DISCOVER-001-Evidence.md](../../../docs/Evidence/MOTIF-DISCOVER-001-Evidence.md)
 
 ## 8. References

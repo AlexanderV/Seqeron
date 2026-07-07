@@ -165,7 +165,7 @@ string consensus = MotifFinder.GenerateConsensus(new[] { "ATGC", "GTGC" });
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [MotifFinder_GenerateConsensus_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/MotifFinder_GenerateConsensus_Tests.cs) — covers `INV-01`..`INV-05`
+- Tests: [MotifFinder_GenerateConsensus_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/MotifFinder_GenerateConsensus_Tests.cs) — covers `INV-01`..`INV-05`
 - Evidence: [MOTIF-GENERATE-001-Evidence.md](../../../docs/Evidence/MOTIF-GENERATE-001-Evidence.md)
 - Related algorithms: [Consensus_From_Alignment](./Consensus_From_Alignment.md)
 

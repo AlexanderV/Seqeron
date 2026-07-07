@@ -342,7 +342,7 @@ foreach (var d in ProteinMotifFinder.FindDomainEnvelopes(gbb1Sequence))
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [ProteinMotifFinder_FindDomainsByHmm_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindDomainsByHmm_Tests.cs) — covers `INV-HMM-01`..`INV-HMM-04`, the H18 local-mode + null2 hmmsearch-parity cases, the H19 multi-domain decomposition (GBB1 7-domain / SH3 1-domain pyhmmer parity), and the H20 stochastic-traceback clustering of closely-overlapping domains (tandem-SH3 pyhmmer parity)
+- Tests: [ProteinMotifFinder_FindDomainsByHmm_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/ProteinMotifFinder_FindDomainsByHmm_Tests.cs) — covers `INV-HMM-01`..`INV-HMM-04`, the H18 local-mode + null2 hmmsearch-parity cases, the H19 multi-domain decomposition (GBB1 7-domain / SH3 1-domain pyhmmer parity), and the H20 stochastic-traceback clustering of closely-overlapping domains (tandem-SH3 pyhmmer parity)
 - Evidence: [PROTMOTIF-DOMAIN-001-Evidence.md](../../../docs/Evidence/PROTMOTIF-DOMAIN-001-Evidence.md)
 - Related algorithms: [Domain_Prediction](./Domain_Prediction.md) (exact PROSITE patterns)
 

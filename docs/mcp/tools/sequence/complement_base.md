@@ -18,7 +18,7 @@ Returns the Watson-Crick complementary base for a given nucleotide. For DNA: Aâ†
 
 ## Core Documentation Reference
 
-- Source: [SequenceExtensions.cs#L83](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/SequenceExtensions.cs#L83)
+- Source: [SequenceExtensions.cs#L83](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/SequenceExtensions.cs#L83)
 
 ## Input Schema
 

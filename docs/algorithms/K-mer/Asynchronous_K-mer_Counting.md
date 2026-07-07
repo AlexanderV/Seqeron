@@ -174,7 +174,7 @@ var counts = await KmerAnalyzer.CountKmersAsync("ATGG", 3);
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [KmerAnalyzer_CountKmersAsync_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/KmerAnalyzer_CountKmersAsync_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [KmerAnalyzer_CountKmersAsync_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_CountKmersAsync_Tests.cs) — covers `INV-01`–`INV-04`
 - Evidence: [KMER-ASYNC-001-Evidence.md](../../../docs/Evidence/KMER-ASYNC-001-Evidence.md)
 - Related algorithms: [K-mer_Counting](./K-mer_Counting.md)
 

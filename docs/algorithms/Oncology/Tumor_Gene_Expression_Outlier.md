@@ -184,7 +184,7 @@ double activity = OncologyAnalyzer.CalculateSignatureScore(new[] { 3.0, 1.0, -1.
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_IdentifyOutlierGenes_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_IdentifyOutlierGenes_Tests.cs) — covers INV-01..INV-06
+- Tests: [OncologyAnalyzer_IdentifyOutlierGenes_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_IdentifyOutlierGenes_Tests.cs) — covers INV-01..INV-06
 - Evidence: [ONCO-EXPR-001-Evidence.md](../../../docs/Evidence/ONCO-EXPR-001-Evidence.md)
 - Related algorithms: [Tumor_Heterogeneity_Analysis](./Tumor_Heterogeneity_Analysis.md)
 

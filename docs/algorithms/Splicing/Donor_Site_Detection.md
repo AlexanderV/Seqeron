@@ -154,7 +154,7 @@ The default donor-site detection in this repository is a lightweight motif score
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [SpliceSitePredictor_DonorSite_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_DonorSite_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
+- Tests: [SpliceSitePredictor_DonorSite_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Annotation/SpliceSitePredictor_DonorSite_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
 - Test specification: [SPLICE-DONOR-001.md](../../../tests/TestSpecs/SPLICE-DONOR-001.md)
 - Related algorithms: [Acceptor_Site_Detection.md](Acceptor_Site_Detection.md), [Gene_Structure_Prediction.md](Gene_Structure_Prediction.md)
 

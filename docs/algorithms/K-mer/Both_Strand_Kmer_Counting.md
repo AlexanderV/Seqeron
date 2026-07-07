@@ -140,7 +140,7 @@ var counts = KmerAnalyzer.CountKmersBothStrands("ATGGC", 2);
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [KmerAnalyzer_CountKmersBothStrands_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/KmerAnalyzer_CountKmersBothStrands_Tests.cs) — covers INV-01..INV-05
+- Tests: [KmerAnalyzer_CountKmersBothStrands_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_CountKmersBothStrands_Tests.cs) — covers INV-01..INV-05
 - Evidence: [KMER-BOTH-001-Evidence.md](../../../docs/Evidence/KMER-BOTH-001-Evidence.md)
 - Related algorithms: [K-mer_Generation](./K-mer_Generation.md), [K-mer_Counting](../K-mer/K-mer_Counting.md)
 

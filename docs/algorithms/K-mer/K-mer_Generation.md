@@ -124,7 +124,7 @@ IEnumerable<string> twoMers = KmerAnalyzer.GenerateAllKmers(2);
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [KmerAnalyzer_GenerateAllKmers_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/KmerAnalyzer_GenerateAllKmers_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [KmerAnalyzer_GenerateAllKmers_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_GenerateAllKmers_Tests.cs) — covers `INV-01`–`INV-04`
 - Evidence: [KMER-GENERATE-001-Evidence.md](../../../docs/Evidence/KMER-GENERATE-001-Evidence.md)
 
 ## 8. References

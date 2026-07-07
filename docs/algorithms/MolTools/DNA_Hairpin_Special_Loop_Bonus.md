@@ -157,7 +157,7 @@ var h = PrimerDesigner.CalculateHairpinThermodynamicsNtthal("GGGGCGAAAGCCCC", 0.
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [PrimerDesigner_HairpinSpecialLoop_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/PrimerDesigner_HairpinSpecialLoop_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`
+- Tests: [PrimerDesigner_HairpinSpecialLoop_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/PrimerDesigner_HairpinSpecialLoop_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`
 - Evidence: [PRIMER-TM-001-SPECIAL-LOOP-Evidence.md](../../../docs/Evidence/PRIMER-TM-001-SPECIAL-LOOP-Evidence.md)
 - Related algorithms: [DNA_Hairpin_Folding_Tm](DNA_Hairpin_Folding_Tm.md), [DNA_Dimer_Tm](DNA_Dimer_Tm.md)
 

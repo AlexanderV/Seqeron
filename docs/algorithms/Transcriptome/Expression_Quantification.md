@@ -173,7 +173,7 @@ double fpkm = TranscriptomeAnalyzer.CalculateFPKM(1000, 2000, 1_000_000); // 500
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [TranscriptomeAnalyzer_ExpressionQuantification_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/TranscriptomeAnalyzer_ExpressionQuantification_Tests.cs) — covers INV-01..INV-05
+- Tests: [TranscriptomeAnalyzer_ExpressionQuantification_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Annotation/TranscriptomeAnalyzer_ExpressionQuantification_Tests.cs) — covers INV-01..INV-05
 - Evidence: [TRANS-EXPR-001-Evidence.md](../../../docs/Evidence/TRANS-EXPR-001-Evidence.md)
 
 ## 8. References

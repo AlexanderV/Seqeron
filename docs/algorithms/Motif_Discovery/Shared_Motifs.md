@@ -187,7 +187,7 @@ var shared = MotifFinder.FindSharedMotifs(seqs, k: 3, minSequences: 2).ToList();
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [MotifFinder_FindSharedMotifs_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/MotifFinder_FindSharedMotifs_Tests.cs) — covers `INV-01`–`INV-05`
+- Tests: [MotifFinder_FindSharedMotifs_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/MotifFinder_FindSharedMotifs_Tests.cs) — covers `INV-01`–`INV-05`
 - Evidence: [MOTIF-SHARED-001-Evidence.md](../../../docs/Evidence/MOTIF-SHARED-001-Evidence.md)
 - Related algorithms: [Overrepresented_Kmer_Discovery](./Overrepresented_Kmer_Discovery.md)
 

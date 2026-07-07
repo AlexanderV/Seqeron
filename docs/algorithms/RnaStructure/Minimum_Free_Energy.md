@@ -190,8 +190,8 @@ The ~cubic growth (≈ ×8 per length-doubling for the dominant term, partially 
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [RnaSecondaryStructure_MinimumFreeEnergy_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_MinimumFreeEnergy_Tests.cs) — covers `INV-01`, `INV-02`
-- Performance baseline: [RnaSecondaryStructure_MFE_Benchmark.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_MFE_Benchmark.cs) — `INV-03` + timing
+- Tests: [RnaSecondaryStructure_MinimumFreeEnergy_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RnaSecondaryStructure_MinimumFreeEnergy_Tests.cs) — covers `INV-01`, `INV-02`
+- Performance baseline: [RnaSecondaryStructure_MFE_Benchmark.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RnaSecondaryStructure_MFE_Benchmark.cs) — `INV-03` + timing
 - Evidence: [RNA-MFE-001-Evidence.md](../../../docs/Evidence/RNA-MFE-001-Evidence.md)
 - Related algorithms: [Hairpin_Energy_Calculation](Hairpin_Energy_Calculation.md), [RNA_Base_Pairing](RNA_Base_Pairing.md)
 

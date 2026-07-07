@@ -213,7 +213,7 @@ For catalog `[10]` and signature `[[1.0]]`: N = 10, p = [1]. Every multinomial d
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_BootstrapExposures_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_BootstrapExposures_Tests.cs) — covers INV-01…INV-05
+- Tests: [OncologyAnalyzer_BootstrapExposures_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_BootstrapExposures_Tests.cs) — covers INV-01…INV-05
 - Evidence: [ONCO-SIG-003-Evidence.md](../../../docs/Evidence/ONCO-SIG-003-Evidence.md)
 - Related algorithms: [Mutational_Signature_Fitting](./Mutational_Signature_Fitting.md) (ONCO-SIG-002); [SBS96_Trinucleotide_Context_Catalog](./SBS96_Trinucleotide_Context_Catalog.md) (ONCO-SIG-001)
 

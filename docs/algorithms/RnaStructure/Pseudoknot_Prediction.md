@@ -220,7 +220,7 @@ var pk = RnaSecondaryStructure.PredictStructurePseudoknot("GGGGAACCCCAACCCCAAGGG
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [RnaSecondaryStructure_PredictStructurePseudoknot_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_PredictStructurePseudoknot_Tests.cs) — covers INV-PK-01..04
+- Tests: [RnaSecondaryStructure_PredictStructurePseudoknot_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RnaSecondaryStructure_PredictStructurePseudoknot_Tests.cs) — covers INV-PK-01..04
 - Evidence: [RNA-PKPREDICT-001-Evidence.md](../../../docs/Evidence/RNA-PKPREDICT-001-Evidence.md)
 - Related algorithms: [Minimum_Free_Energy](Minimum_Free_Energy.md), [Pseudoknot_Detection](Pseudoknot_Detection.md)
 

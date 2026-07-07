@@ -164,7 +164,7 @@ string d = SequenceAssembler.ComputeConsensus(reads, threshold: 0.7); // "NCGT" 
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [SequenceAssembler_ComputeConsensus_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SequenceAssembler_ComputeConsensus_Tests.cs) — covers `INV-01`..`INV-05`
+- Tests: [SequenceAssembler_ComputeConsensus_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Alignment/SequenceAssembler_ComputeConsensus_Tests.cs) — covers `INV-01`..`INV-05`
 - Evidence: [ASSEMBLY-CONSENSUS-001-Evidence.md](../../../docs/Evidence/ASSEMBLY-CONSENSUS-001-Evidence.md)
 - Related algorithms: [Coverage_Calculation](../Assembly/Coverage_Calculation.md)
 

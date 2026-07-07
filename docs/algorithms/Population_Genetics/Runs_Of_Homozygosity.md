@@ -161,7 +161,7 @@ double fRoh = PopulationGeneticsAnalyzer.CalculateInbreedingFromROH(
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [PopulationGeneticsAnalyzer_FindROH_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/PopulationGeneticsAnalyzer_FindROH_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [PopulationGeneticsAnalyzer_FindROH_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Population/PopulationGeneticsAnalyzer_FindROH_Tests.cs) — covers `INV-01`–`INV-04`
 - Evidence: [POP-ROH-001-Evidence.md](../../../docs/Evidence/POP-ROH-001-Evidence.md)
 
 ## 8. References

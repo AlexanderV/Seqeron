@@ -157,7 +157,7 @@ bool bad = RnaSecondaryStructure.ValidateDotBracket("(]");  // false (mismatched
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [RnaSecondaryStructure_ParseDotBracket_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_ParseDotBracket_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [RnaSecondaryStructure_ParseDotBracket_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RnaSecondaryStructure_ParseDotBracket_Tests.cs) — covers `INV-01`–`INV-04`
 - Evidence: [RNA-DOTBRACKET-001-Evidence.md](../../../docs/Evidence/RNA-DOTBRACKET-001-Evidence.md)
 - Related algorithms: [Pseudoknot_Detection.md](Pseudoknot_Detection.md), [RNA_Base_Pairing.md](RNA_Base_Pairing.md)
 

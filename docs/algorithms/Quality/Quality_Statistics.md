@@ -169,7 +169,7 @@ bases (30,40) are ≥ Q30 → 66.667%.
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [QualityScoreAnalyzer_CalculateStatistics_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/QualityScoreAnalyzer_CalculateStatistics_Tests.cs) — covers INV-01..INV-05
+- Tests: [QualityScoreAnalyzer_CalculateStatistics_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/IO/QualityScoreAnalyzer_CalculateStatistics_Tests.cs) — covers INV-01..INV-05
 - Evidence: [QUALITY-STATS-001-Evidence.md](../../../docs/Evidence/QUALITY-STATS-001-Evidence.md)
 - Related algorithms: [Phred Score Handling](../Quality/Phred_Score_Handling.md)
 

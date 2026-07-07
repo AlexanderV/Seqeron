@@ -196,7 +196,7 @@ Biopython docstring value 949.61 [4].
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [SequenceStatistics_CalculateMolecularWeight_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateMolecularWeight_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [SequenceStatistics_CalculateMolecularWeight_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/SequenceStatistics_CalculateMolecularWeight_Tests.cs) — covers `INV-01`–`INV-04`
 - Evidence: [SEQ-MW-001-Evidence.md](../../../docs/Evidence/SEQ-MW-001-Evidence.md)
 
 ## 8. References

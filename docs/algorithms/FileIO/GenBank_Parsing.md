@@ -227,7 +227,7 @@ The parser is suitable for ingesting and querying GenBank-like records, but it d
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [GenBankParserTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/GenBankParserTests.cs)
+- Tests: [GenBankParserTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/IO/GenBankParserTests.cs)
 - Related tests: [GenBankParseTests.cs](../../../tests/Seqeron/Seqeron.Mcp.Parsers.Tests/GenBankParseTests.cs)
 - Test specification: [PARSE-GENBANK-001.md](../../../tests/TestSpecs/PARSE-GENBANK-001.md)
 - Related algorithms: [EMBL_Parsing.md](EMBL_Parsing.md)

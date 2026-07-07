@@ -173,7 +173,7 @@ var fi = VariantAnnotator.PredictFunctionalImpact(variant, codingTranscript, ref
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [VariantAnnotator_FunctionalImpact_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/VariantAnnotator_FunctionalImpact_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [VariantAnnotator_FunctionalImpact_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Annotation/VariantAnnotator_FunctionalImpact_Tests.cs) — covers `INV-01`–`INV-04`
 - Evidence: [VARIANT-ANNOT-001-Evidence.md](../../../docs/Evidence/VARIANT-ANNOT-001-Evidence.md)
 
 ## 8. References

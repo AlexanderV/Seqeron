@@ -163,7 +163,7 @@ var r = ComparativeGenomics.CompareGenomes(g1, g2);
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [ComparativeGenomics_CompareGenomes_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_CompareGenomes_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [ComparativeGenomics_CompareGenomes_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/ComparativeGenomics_CompareGenomes_Tests.cs) — covers `INV-01`–`INV-04`
 - Evidence: [COMPGEN-COMPARE-001-Evidence.md](../../../docs/Evidence/COMPGEN-COMPARE-001-Evidence.md)
 - Related algorithms: [Reciprocal_Best_Hits](./Reciprocal_Best_Hits.md), [Synteny_Block_Detection](./Synteny_Block_Detection.md), [Genome_Rearrangement_Detection](./Genome_Rearrangement_Detection.md)
 

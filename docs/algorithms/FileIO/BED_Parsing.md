@@ -187,7 +187,7 @@ The parser targets standard BED text records and selected interval utilities rat
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [BedParserTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/BedParserTests.cs)
+- Tests: [BedParserTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/IO/BedParserTests.cs)
 - Related tests: [BedFilterTests.cs](../../../tests/Seqeron/Seqeron.Mcp.Parsers.Tests/BedFilterTests.cs), [BedIntersectTests.cs](../../../tests/Seqeron/Seqeron.Mcp.Parsers.Tests/BedIntersectTests.cs), [BedMergeTests.cs](../../../tests/Seqeron/Seqeron.Mcp.Parsers.Tests/BedMergeTests.cs)
 - Test specification: [PARSE-BED-001.md](../../../tests/TestSpecs/PARSE-BED-001.md)
 

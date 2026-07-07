@@ -196,7 +196,7 @@ var level = OncologyAnalyzer.ClassifyActionabilityLevel(variant); // Level1 (1 >
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_AssessActionability_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_AssessActionability_Tests.cs) — covers `INV-01`..`INV-05`
+- Tests: [OncologyAnalyzer_AssessActionability_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_AssessActionability_Tests.cs) — covers `INV-01`..`INV-05`
 - Evidence: [ONCO-ACTION-001-Evidence.md](../../../docs/Evidence/ONCO-ACTION-001-Evidence.md)
 - Related algorithms: [Cancer_Variant_Annotation](Cancer_Variant_Annotation.md)
 

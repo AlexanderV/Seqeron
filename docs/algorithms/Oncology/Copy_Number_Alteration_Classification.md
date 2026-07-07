@@ -173,7 +173,7 @@ var call = OncologyAnalyzer.ClassifyCopyNumber(1.0);
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_CopyNumberClassification_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CopyNumberClassification_Tests.cs) — covers `INV-01`–`INV-05`
+- Tests: [OncologyAnalyzer_CopyNumberClassification_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_CopyNumberClassification_Tests.cs) — covers `INV-01`–`INV-05`
 - Evidence: [ONCO-CNA-001-Evidence.md](../../../docs/Evidence/ONCO-CNA-001-Evidence.md)
 
 ## 8. References

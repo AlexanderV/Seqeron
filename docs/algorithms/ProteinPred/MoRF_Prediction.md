@@ -198,7 +198,7 @@ score ≈ 0.399608), confirming score monotonicity in dip depth (INV-05).
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [DisorderPredictor_MoRF_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_MoRF_Tests.cs) — covers `INV-01`–`INV-05`
+- Tests: [DisorderPredictor_MoRF_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/DisorderPredictor_MoRF_Tests.cs) — covers `INV-01`–`INV-05`
 - Evidence: [DISORDER-MORF-001-Evidence.md](../../../docs/Evidence/DISORDER-MORF-001-Evidence.md)
 - Related algorithms: [Disorder_Prediction](./Disorder_Prediction.md)
 

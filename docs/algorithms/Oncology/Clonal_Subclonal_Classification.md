@@ -171,7 +171,7 @@ OncologyAnalyzer.ClonalityResult result = OncologyAnalyzer.ClassifyClonality(var
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_ClassifyClonality_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyClonality_Tests.cs) — covers `INV-01`..`INV-06`
+- Tests: [OncologyAnalyzer_ClassifyClonality_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_ClassifyClonality_Tests.cs) — covers `INV-01`..`INV-06`
 - Evidence: [ONCO-CLONAL-001-Evidence.md](../../../docs/Evidence/ONCO-CLONAL-001-Evidence.md)
 
 ## 8. References

@@ -162,7 +162,7 @@ var segments = ProteinMotifFinder.PredictTransmembraneHelices(
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [ProteinMotifFinder_PredictTransmembraneHelices_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_PredictTransmembraneHelices_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [ProteinMotifFinder_PredictTransmembraneHelices_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/ProteinMotifFinder_PredictTransmembraneHelices_Tests.cs) — covers `INV-01`–`INV-04`
 - Evidence: [PROTMOTIF-TM-001-Evidence.md](../../../docs/Evidence/PROTMOTIF-TM-001-Evidence.md)
 
 ## 8. References

@@ -155,7 +155,7 @@ var profile = SequenceComplexity.CalculateWindowedComplexity(seq, windowSize: 8,
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [SequenceComplexity_CalculateWindowedComplexity_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SequenceComplexity_CalculateWindowedComplexity_Tests.cs) — covers `INV-01`..`INV-04`
+- Tests: [SequenceComplexity_CalculateWindowedComplexity_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/SequenceComplexity_CalculateWindowedComplexity_Tests.cs) — covers `INV-01`..`INV-04`
 - Evidence: [SEQ-COMPLEX-WINDOW-001-Evidence.md](../../../docs/Evidence/SEQ-COMPLEX-WINDOW-001-Evidence.md)
 - Related algorithms: [Linguistic_Complexity](../Sequence_Composition/Linguistic_Complexity.md), [K-mer_Entropy](./K-mer_Entropy.md)
 

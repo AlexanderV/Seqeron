@@ -303,7 +303,7 @@ OncologyAnalyzer.InvarSignalResult inv = OncologyAnalyzer.EstimateInvarSignal(lo
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_DetectMRD_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectMRD_Tests.cs) — covers `INV-01`..`INV-14`
+- Tests: [OncologyAnalyzer_DetectMRD_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_DetectMRD_Tests.cs) — covers `INV-01`..`INV-14`
 - Evidence: [ONCO-MRD-001-Evidence.md](../../../docs/Evidence/ONCO-MRD-001-Evidence.md)
 - Related algorithms: [CtDNA_Analysis](../Oncology/CtDNA_Analysis.md)
 

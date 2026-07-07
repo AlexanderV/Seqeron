@@ -140,7 +140,7 @@ Heuristic, not a probabilistic significance test. Only triplet scoring (k = 3) i
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [SequenceComplexity_CalculateDustScore_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SequenceComplexity_CalculateDustScore_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [SequenceComplexity_CalculateDustScore_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/SequenceComplexity_CalculateDustScore_Tests.cs) — covers `INV-01`–`INV-04`
 - Evidence: [SEQ-COMPLEX-DUST-001-Evidence.md](../../../docs/Evidence/SEQ-COMPLEX-DUST-001-Evidence.md)
 - Related algorithms: [K-mer_Entropy](./K-mer_Entropy.md)
 

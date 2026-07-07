@@ -26,7 +26,7 @@ $$
 S_i = \frac{1}{|W_i|} \sum_{c \in W_i} \frac{p(c) - p_{\min}}{p_{\max} - p_{\min}}
 $$
 
-where $p_{\min} = -0.884$ for tryptophan and $p_{\max} = 0.987$ for proline (Campen et al. 2008). The repository default cutoff is $0.542$, matching the TOP-IDP decision threshold cited in the code comments and used throughout the tests (Campen et al. 2008; [DisorderPredictor.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/DisorderPredictor.cs); [DisorderPredictor_DisorderPrediction_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_DisorderPrediction_Tests.cs)). A residue is classified as disordered when $S_i \ge 0.542$.
+where $p_{\min} = -0.884$ for tryptophan and $p_{\max} = 0.987$ for proline (Campen et al. 2008). The repository default cutoff is $0.542$, matching the TOP-IDP decision threshold cited in the code comments and used throughout the tests (Campen et al. 2008; [DisorderPredictor.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/DisorderPredictor.cs); [DisorderPredictor_DisorderPrediction_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/DisorderPredictor_DisorderPrediction_Tests.cs)). A residue is classified as disordered when $S_i \ge 0.542$.
 
 ### 2.3 Modeling Assumptions
 
@@ -38,7 +38,7 @@ where $p_{\min} = -0.884$ for tryptophan and $p_{\max} = 0.987$ for proline (Cam
 
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
-| INV-01 | Every per-residue disorder score is in `[0, 1]`. | Each recognized TOP-IDP value is normalized between the documented minimum and maximum before window averaging (Campen et al. 2008); the test suite checks this range across diverse inputs ([DisorderPredictor_DisorderPrediction_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_DisorderPrediction_Tests.cs)). |
+| INV-01 | Every per-residue disorder score is in `[0, 1]`. | Each recognized TOP-IDP value is normalized between the documented minimum and maximum before window averaging (Campen et al. 2008); the test suite checks this range across diverse inputs ([DisorderPredictor_DisorderPrediction_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/DisorderPredictor_DisorderPrediction_Tests.cs)). |
 | INV-02 | The algorithm is deterministic for a fixed input sequence and parameter set. | The scoring path uses fixed lookup tables, arithmetic, and thresholding with no random state ([DisorderPredictor.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/DisorderPredictor.cs)). |
 | INV-03 | Residues are marked disordered exactly when their averaged score is greater than or equal to the active threshold. | `CalculatePerResidueScores(...)` computes `isDisordered = score >= threshold` in the implementation ([DisorderPredictor.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/DisorderPredictor.cs)). |
 
@@ -50,7 +50,7 @@ where $p_{\min} = -0.884$ for tryptophan and $p_{\max} = 0.987$ for proline (Cam
 |------|------|---------|-------------|-------------|
 | `sequence` | `string` | required | Protein sequence to score residue by residue. | `null` or empty input returns an empty result instead of throwing ([DisorderPredictor.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/DisorderPredictor.cs)). |
 | `windowSize` | `int` | `21` | Width of the local scoring window used for TOP-IDP averaging. | No explicit argument validation is performed in the public method. |
-| `disorderThreshold` | `double` | `0.542` | Score cutoff used to set `ResiduePrediction.IsDisordered`. | Default matches the TOP-IDP cutoff cited in the code comments and tests (Campen et al. 2008; [DisorderPredictor_DisorderPrediction_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_DisorderPrediction_Tests.cs)). |
+| `disorderThreshold` | `double` | `0.542` | Score cutoff used to set `ResiduePrediction.IsDisordered`. | Default matches the TOP-IDP cutoff cited in the code comments and tests (Campen et al. 2008; [DisorderPredictor_DisorderPrediction_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/DisorderPredictor_DisorderPrediction_Tests.cs)). |
 | `minRegionLength` | `int` | `5` | Minimum contiguous run length used when constructing `DisorderedRegions`. | Applied after residue-level scoring; shorter runs are omitted from the region list ([Disordered_Region_Detection.md](Disordered_Region_Detection.md)). |
 
 ### 3.2 Output / Return Value
@@ -65,7 +65,7 @@ where $p_{\min} = -0.884$ for tryptophan and $p_{\max} = 0.987$ for proline (Cam
 
 ### 3.3 Preconditions and Validation
 
-`PredictDisorder(...)` uppercases the sequence with `ToUpperInvariant()` and returns an empty `DisorderPredictionResult` when the input is `null` or empty ([DisorderPredictor.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/DisorderPredictor.cs)). Characters that are absent from the TOP-IDP lookup table are preserved in `ResiduePrediction.Residue`, but `CalculateDisorderScore(...)` excludes them from the propensity average; if a window contains no recognized residues, the returned score is `0.0` ([DisorderPredictor.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/DisorderPredictor.cs)). `ResiduePrediction.Position` is 0-based, and the tests verify that mixed-case and lowercase inputs produce the same scores as uppercase input ([DisorderPredictor_DisorderPrediction_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_DisorderPrediction_Tests.cs)).
+`PredictDisorder(...)` uppercases the sequence with `ToUpperInvariant()` and returns an empty `DisorderPredictionResult` when the input is `null` or empty ([DisorderPredictor.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/DisorderPredictor.cs)). Characters that are absent from the TOP-IDP lookup table are preserved in `ResiduePrediction.Residue`, but `CalculateDisorderScore(...)` excludes them from the propensity average; if a window contains no recognized residues, the returned score is `0.0` ([DisorderPredictor.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/DisorderPredictor.cs)). `ResiduePrediction.Position` is 0-based, and the tests verify that mixed-case and lowercase inputs produce the same scores as uppercase input ([DisorderPredictor_DisorderPrediction_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/DisorderPredictor_DisorderPrediction_Tests.cs)).
 
 ## 4. Algorithm
 
@@ -97,7 +97,7 @@ where $p_{\min} = -0.884$ for tryptophan and $p_{\max} = 0.987$ for proline (Cam
 - `DisorderPredictor.IsDisorderPromoting(char)`: public check for the Dunker disorder-promoting residue set.
 - `DisorderPredictor.CalculateHydropathy(string)`: public Kyte-Doolittle utility for mean hydropathy.
 
-**Supporting tests:** [DisorderPredictor_DisorderPrediction_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_DisorderPrediction_Tests.cs), [DisorderPredictor_DisorderedRegion_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_DisorderedRegion_Tests.cs)
+**Supporting tests:** [DisorderPredictor_DisorderPrediction_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/DisorderPredictor_DisorderPrediction_Tests.cs), [DisorderPredictor_DisorderedRegion_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/DisorderPredictor_DisorderedRegion_Tests.cs)
 
 ### 5.2 Current Behavior
 
@@ -123,7 +123,7 @@ The implementation clips edge windows to the available sequence bounds rather th
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | Non-canonical residues are skipped during TOP-IDP averaging | Assumption | Windows containing unknown symbols are averaged over fewer effective residues; a window with no recognized residues scores `0.0`. | accepted | Implemented in `CalculateDisorderScore(...)`; the tests include an all-unknown input in the score-range checks ([DisorderPredictor.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/DisorderPredictor.cs); [DisorderPredictor_DisorderPrediction_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_DisorderPrediction_Tests.cs)). |
+| 1 | Non-canonical residues are skipped during TOP-IDP averaging | Assumption | Windows containing unknown symbols are averaged over fewer effective residues; a window with no recognized residues scores `0.0`. | accepted | Implemented in `CalculateDisorderScore(...)`; the tests include an all-unknown input in the score-range checks ([DisorderPredictor.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/DisorderPredictor.cs); [DisorderPredictor_DisorderPrediction_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/DisorderPredictor_DisorderPrediction_Tests.cs)). |
 
 ## 6. Edge Cases and Limitations
 
@@ -132,9 +132,9 @@ The implementation clips edge windows to the available sequence bounds rather th
 | Case | Expected Behavior | Rationale |
 |------|-------------------|-----------|
 | `null` or empty sequence | Returns an empty result with zero summary statistics. | Explicit short-circuit in `PredictDisorder(...)` ([DisorderPredictor.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/DisorderPredictor.cs)). |
-| Lowercase or mixed-case input | Produces the same scores as uppercase input. | The method uppercases the sequence first; this is asserted in the tests ([DisorderPredictor_DisorderPrediction_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_DisorderPrediction_Tests.cs)). |
+| Lowercase or mixed-case input | Produces the same scores as uppercase input. | The method uppercases the sequence first; this is asserted in the tests ([DisorderPredictor_DisorderPrediction_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/DisorderPredictor_DisorderPrediction_Tests.cs)). |
 | Window containing only unknown residues | Produces a disorder score of `0.0` for that window. | `CalculateDisorderScore(...)` returns `0` when no recognized residues are counted ([DisorderPredictor.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/DisorderPredictor.cs)). |
-| `minRegionLength` greater than every disordered run | `DisorderedRegions` is empty even when some residues score above the threshold. | Region emission is filtered after residue scoring; this behavior is exercised in the region tests ([DisorderPredictor_DisorderedRegion_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_DisorderedRegion_Tests.cs)). |
+| `minRegionLength` greater than every disordered run | `DisorderedRegions` is empty even when some residues score above the threshold. | Region emission is filtered after residue scoring; this behavior is exercised in the region tests ([DisorderPredictor_DisorderedRegion_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/DisorderPredictor_DisorderedRegion_Tests.cs)). |
 
 ### 6.2 Limitations
 
@@ -144,7 +144,7 @@ The source remarks state that this code is a single-feature heuristic toolkit an
 
 ### 7.1 Worked Example
 
-The prediction tests use homopolymeric anchor sequences to verify the normalization endpoints and cutoff handling ([DisorderPredictor_DisorderPrediction_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_DisorderPrediction_Tests.cs)):
+The prediction tests use homopolymeric anchor sequences to verify the normalization endpoints and cutoff handling ([DisorderPredictor_DisorderPrediction_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/DisorderPredictor_DisorderPrediction_Tests.cs)):
 
 - `new string('W', 30)` produces an interior disorder score of `0.0`, the normalized minimum.
 - `new string('P', 30)` produces an interior disorder score of `1.0` and `OverallDisorderContent = 1.0`.
@@ -157,5 +157,5 @@ The prediction tests use homopolymeric anchor sequences to verify the normalizat
 3. Kyte J., Doolittle R. F. (1982). "A simple method for displaying the hydropathic character of a protein." Journal of Molecular Biology 157(1):105-132.
 4. Uversky V. N., Gillespie J. R., Fink A. L. (2000). "Why are 'natively unfolded' proteins unstructured under physiologic conditions?" Proteins 41(3):415-427.
 5. [DisorderPredictor.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/DisorderPredictor.cs)
-6. [DisorderPredictor_DisorderPrediction_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_DisorderPrediction_Tests.cs)
-7. [DisorderPredictor_DisorderedRegion_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_DisorderedRegion_Tests.cs)
+6. [DisorderPredictor_DisorderPrediction_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/DisorderPredictor_DisorderPrediction_Tests.cs)
+7. [DisorderPredictor_DisorderedRegion_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/DisorderPredictor_DisorderedRegion_Tests.cs)

@@ -181,7 +181,7 @@ offsets and values from the formula [1].
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [SequenceStatistics_CalculateGcContentProfile_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateGcContentProfile_Tests.cs) — covers `INV-01`..`INV-05`
+- Tests: [SequenceStatistics_CalculateGcContentProfile_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/SequenceStatistics_CalculateGcContentProfile_Tests.cs) — covers `INV-01`..`INV-05`
 - Evidence: [SEQ-GC-PROFILE-001-Evidence.md](../../../docs/Evidence/SEQ-GC-PROFILE-001-Evidence.md)
 - Related algorithms: [Entropy_Profile](../Statistics/Entropy_Profile.md); [Comprehensive_GC_Analysis](../Extended_GC_Skew_Analysis/Comprehensive_GC_Analysis.md)
 

@@ -203,7 +203,7 @@ var results = MetagenomicsAnalyzer.FindPathwayEnrichment(query, pathways, backgr
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [MetagenomicsAnalyzer_FindPathwayEnrichment_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_FindPathwayEnrichment_Tests.cs) — covers `INV-01`..`INV-05`
+- Tests: [MetagenomicsAnalyzer_FindPathwayEnrichment_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Metagenomics/MetagenomicsAnalyzer_FindPathwayEnrichment_Tests.cs) — covers `INV-01`..`INV-05`
 - Evidence: [META-PATHWAY-001-Evidence.md](../../../docs/Evidence/META-PATHWAY-001-Evidence.md)
 - Related algorithms: [Functional_Prediction](./Functional_Prediction.md)
 

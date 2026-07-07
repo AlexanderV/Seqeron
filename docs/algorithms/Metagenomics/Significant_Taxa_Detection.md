@@ -174,7 +174,7 @@ var mw = MetagenomicsAnalyzer.MannWhitneyU(
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [MetagenomicsAnalyzer_FindSignificantTaxa_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_FindSignificantTaxa_Tests.cs) — covers `INV-01`..`INV-06`
+- Tests: [MetagenomicsAnalyzer_FindSignificantTaxa_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Metagenomics/MetagenomicsAnalyzer_FindSignificantTaxa_Tests.cs) — covers `INV-01`..`INV-06`
 - Evidence: [META-TAXA-001-Evidence.md](../../../docs/Evidence/META-TAXA-001-Evidence.md)
 
 ## 8. References

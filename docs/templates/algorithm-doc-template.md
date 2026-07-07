@@ -187,7 +187,7 @@ Cite the origin of every numeric parameter table.>
 <!--
 Use a path relative to *this* document, not the repo root.
 For docs at `docs/algorithms/<group>/<file>.md` the prefix is `../../../`.
-Example: `[SequenceAligner.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics/SequenceAligner.cs)`.
+Example: `[SequenceAligner.cs](../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/SequenceAligner.cs)`.
 -->
 
 **Implementation location:** [<FileName.cs>](../../../src/<path-from-repo-root>/<FileName.cs>)

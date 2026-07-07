@@ -161,7 +161,7 @@ var insertions = VariantCaller.FindInsertions(reference, query).ToList();
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [VariantCaller_FindIndels_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/VariantCaller_FindIndels_Tests.cs) — covers INV-01..INV-06
+- Tests: [VariantCaller_FindIndels_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Annotation/VariantCaller_FindIndels_Tests.cs) — covers INV-01..INV-06
 - Evidence: [VARIANT-INDEL-001-Evidence.md](../../../docs/Evidence/VARIANT-INDEL-001-Evidence.md)
 - Related algorithms: [Variant_Detection](../Variants/Variant_Detection.md), [SNP_Detection](../Variants/SNP_Detection.md)
 

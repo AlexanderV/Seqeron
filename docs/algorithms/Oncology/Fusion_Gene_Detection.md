@@ -204,7 +204,7 @@ IReadOnlyList<OncologyAnalyzer.FusionCall> calls = OncologyAnalyzer.DetectFusion
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_DetectFusions_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectFusions_Tests.cs) — covers `INV-01`–`INV-05`
+- Tests: [OncologyAnalyzer_DetectFusions_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_DetectFusions_Tests.cs) — covers `INV-01`–`INV-05`
 - Evidence: [ONCO-FUSION-001-Evidence.md](../../../docs/Evidence/ONCO-FUSION-001-Evidence.md)
 
 ## 8. References

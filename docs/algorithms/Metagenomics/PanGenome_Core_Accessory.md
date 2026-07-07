@@ -178,7 +178,7 @@ var result = PanGenomeAnalyzer.ConstructPanGenome(genomes, coreFraction: 0.99);
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [PanGenomeAnalyzer_ConstructPanGenome_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/PanGenomeAnalyzer_ConstructPanGenome_Tests.cs) — covers INV-01..INV-07
+- Tests: [PanGenomeAnalyzer_ConstructPanGenome_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Metagenomics/PanGenomeAnalyzer_ConstructPanGenome_Tests.cs) — covers INV-01..INV-07
 - Evidence: [PANGEN-CORE-001-Evidence.md](../../../docs/Evidence/PANGEN-CORE-001-Evidence.md)
 
 ## 8. References

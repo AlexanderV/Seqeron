@@ -196,7 +196,7 @@ var state = EpigeneticsAnalyzer.PredictChromatinState(
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [EpigeneticsAnalyzer_ChromatinState_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_ChromatinState_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [EpigeneticsAnalyzer_ChromatinState_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Annotation/EpigeneticsAnalyzer_ChromatinState_Tests.cs) — covers `INV-01`–`INV-04`
 - Evidence: [EPIGEN-CHROM-001-Evidence.md](../../../docs/Evidence/EPIGEN-CHROM-001-Evidence.md)
 - Related algorithms: [CpG_Site_Detection](./CpG_Site_Detection.md)
 

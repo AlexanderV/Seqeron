@@ -170,7 +170,7 @@ double cai = CodonUsageAnalyzer.CalculateCai("GCTGCC", CodonUsageAnalyzer.EColiO
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [CodonUsageAnalyzer_GetStatistics_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/CodonUsageAnalyzer_GetStatistics_Tests.cs) — covers `INV-01`..`INV-06`
+- Tests: [CodonUsageAnalyzer_GetStatistics_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/CodonUsageAnalyzer_GetStatistics_Tests.cs) — covers `INV-01`..`INV-06`
 - Evidence: [CODON-STATS-001-Evidence.md](../../../docs/Evidence/CODON-STATS-001-Evidence.md)
 - Related algorithms: [Relative_Synonymous_Codon_Usage](Relative_Synonymous_Codon_Usage.md), [Effective_Number_of_Codons](Effective_Number_of_Codons.md)
 

@@ -173,7 +173,7 @@ IReadOnlyList<string> corrected =
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [SequenceAssembler_ErrorCorrectReads_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SequenceAssembler_ErrorCorrectReads_Tests.cs) — covers `INV-01`–`INV-05`
+- Tests: [SequenceAssembler_ErrorCorrectReads_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Alignment/SequenceAssembler_ErrorCorrectReads_Tests.cs) — covers `INV-01`–`INV-05`
 - Evidence: [ASSEMBLY-CORRECT-001-Evidence.md](../../../docs/Evidence/ASSEMBLY-CORRECT-001-Evidence.md)
 - Related algorithms: [Quality_Trimming](Quality_Trimming.md), [De_Bruijn_Graph_Assembly](De_Bruijn_Graph_Assembly.md)
 

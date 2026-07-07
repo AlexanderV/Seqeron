@@ -142,7 +142,7 @@ int height = PhylogeneticAnalyzer.GetTreeDepth(t);           // 2
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [PhylogeneticAnalyzer_TreeStatistics_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/PhylogeneticAnalyzer_TreeStatistics_Tests.cs) — covers `INV-01`..`INV-06`
+- Tests: [PhylogeneticAnalyzer_TreeStatistics_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Phylogenetics/PhylogeneticAnalyzer_TreeStatistics_Tests.cs) — covers `INV-01`..`INV-06`
 - Evidence: [PHYLO-STATS-001-Evidence.md](../../../docs/Evidence/PHYLO-STATS-001-Evidence.md)
 - Related algorithms: [Tree_Construction](Tree_Construction.md), [Newick_Format](Newick_Format.md)
 

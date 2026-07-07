@@ -304,8 +304,8 @@ foreach (var signature in result.Signatures)
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_ExtractSignatures_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ExtractSignatures_Tests.cs) — Frobenius path, covers `INV-NMF-01`…`INV-NMF-05`
-- Tests: [OncologyAnalyzer_SelectRank_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_SelectRank_Tests.cs) — KL objective, rank selection, cosine matching; covers `INV-NMF-03`, `INV-NMF-06`, `INV-NMF-07`
+- Tests: [OncologyAnalyzer_ExtractSignatures_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_ExtractSignatures_Tests.cs) — Frobenius path, covers `INV-NMF-01`…`INV-NMF-05`
+- Tests: [OncologyAnalyzer_SelectRank_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_SelectRank_Tests.cs) — KL objective, rank selection, cosine matching; covers `INV-NMF-03`, `INV-NMF-06`, `INV-NMF-07`
 - Evidence: [ONCO-SIG-002-Evidence.md](../../../docs/Evidence/ONCO-SIG-002-Evidence.md)
 - Related algorithms: [Mutational_Signature_Fitting](Mutational_Signature_Fitting.md), [Mutational_Signature_Exposure_Bootstrap](Mutational_Signature_Exposure_Bootstrap.md), [SBS96_Trinucleotide_Context_Catalog](SBS96_Trinucleotide_Context_Catalog.md)
 

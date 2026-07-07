@@ -154,7 +154,7 @@ These methods operate only on direct codon counts and normalized frequency diffe
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [CodonOptimizer_CodonUsage_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/CodonOptimizer_CodonUsage_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
+- Tests: [CodonOptimizer_CodonUsage_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/CodonOptimizer_CodonUsage_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
 - Test specification: [CODON-USAGE-001.md](../../../tests/TestSpecs/CODON-USAGE-001.md)
 - Related algorithms: [CAI_Calculation.md](CAI_Calculation.md), [Rare_Codon_Detection.md](Rare_Codon_Detection.md), [Sequence_Optimization.md](Sequence_Optimization.md)
 

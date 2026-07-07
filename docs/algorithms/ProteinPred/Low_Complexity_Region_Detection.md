@@ -166,7 +166,7 @@ For `AAABBBCCCDDD` (L=12, four types ×3): pᵢ = 3/12 = 0.25 each; H = −4·(0
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [DisorderPredictor_LowComplexity_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_LowComplexity_Tests.cs) — covers `INV-01`–`INV-05`
+- Tests: [DisorderPredictor_LowComplexity_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/DisorderPredictor_LowComplexity_Tests.cs) — covers `INV-01`–`INV-05`
 - Evidence: [DISORDER-LC-001-Evidence.md](../../../docs/Evidence/DISORDER-LC-001-Evidence.md)
 - Related algorithms: [Disorder_Prediction](Disorder_Prediction.md)
 

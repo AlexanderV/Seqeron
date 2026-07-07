@@ -167,7 +167,7 @@ var protein  = OncologyAnalyzer.PredictFusionProtein(bp, ("ATGAAA", "GATGGT"));
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_AnalyzeBreakpoint_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_AnalyzeBreakpoint_Tests.cs) — covers INV-01..INV-05
+- Tests: [OncologyAnalyzer_AnalyzeBreakpoint_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_AnalyzeBreakpoint_Tests.cs) — covers INV-01..INV-05
 - Evidence: [ONCO-FUSION-003-Evidence.md](../../../docs/Evidence/ONCO-FUSION-003-Evidence.md)
 - Related algorithms: [Fusion_Gene_Detection](Fusion_Gene_Detection.md), [Known_Fusion_Database_Lookup](Known_Fusion_Database_Lookup.md)
 

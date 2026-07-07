@@ -182,7 +182,7 @@ var result = OncologyAnalyzer.ClassifyMutationalProcess(exposures);
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_ClassifyMutationalProcess_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyMutationalProcess_Tests.cs) — covers INV-01..INV-05
+- Tests: [OncologyAnalyzer_ClassifyMutationalProcess_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_ClassifyMutationalProcess_Tests.cs) — covers INV-01..INV-05
 - Evidence: [ONCO-SIG-004-Evidence.md](../../../docs/Evidence/ONCO-SIG-004-Evidence.md)
 - Related algorithms: [Mutational_Signature_Fitting](Mutational_Signature_Fitting.md), [Mutational_Signature_Exposure_Bootstrap](Mutational_Signature_Exposure_Bootstrap.md)
 

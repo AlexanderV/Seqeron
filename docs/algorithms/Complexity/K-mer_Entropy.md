@@ -139,7 +139,7 @@ double h = SequenceComplexity.CalculateKmerEntropy(new DnaSequence("ATATAT"), k:
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [SequenceComplexity_CalculateKmerEntropy_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SequenceComplexity_CalculateKmerEntropy_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [SequenceComplexity_CalculateKmerEntropy_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/SequenceComplexity_CalculateKmerEntropy_Tests.cs) — covers `INV-01`–`INV-04`
 - Evidence: [SEQ-COMPLEX-KMER-001-Evidence.md](../../../docs/Evidence/SEQ-COMPLEX-KMER-001-Evidence.md)
 
 ## 8. References

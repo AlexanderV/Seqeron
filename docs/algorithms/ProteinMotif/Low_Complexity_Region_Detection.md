@@ -162,7 +162,7 @@ K = −[(11/12)·log₂(11/12) + (1/12)·log₂(1/12)] = 0.413817 bits/residue �
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [ProteinMotifFinder_FindLowComplexityRegions_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindLowComplexityRegions_Tests.cs) — covers `INV-01`…`INV-05`
+- Tests: [ProteinMotifFinder_FindLowComplexityRegions_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/ProteinMotifFinder_FindLowComplexityRegions_Tests.cs) — covers `INV-01`…`INV-05`
 - Evidence: [PROTMOTIF-LC-001-Evidence.md](../../../docs/Evidence/PROTMOTIF-LC-001-Evidence.md)
 - Related algorithms: [Coiled_Coil_Prediction](Coiled_Coil_Prediction.md)
 

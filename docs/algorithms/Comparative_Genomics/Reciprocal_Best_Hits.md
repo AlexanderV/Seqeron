@@ -159,7 +159,7 @@ var rbh = ComparativeGenomics.FindReciprocalBestHits(g1, g2).ToList();
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [ComparativeGenomics_FindReciprocalBestHits_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_FindReciprocalBestHits_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [ComparativeGenomics_FindReciprocalBestHits_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/ComparativeGenomics_FindReciprocalBestHits_Tests.cs) — covers `INV-01`–`INV-04`
 - Evidence: [COMPGEN-RBH-001-Evidence.md](../../../docs/Evidence/COMPGEN-RBH-001-Evidence.md)
 - Related algorithms: [Ortholog_Identification](./Ortholog_Identification.md)
 

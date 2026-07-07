@@ -220,7 +220,7 @@ double age = EpigeneticsAnalyzer.CalculateEpigeneticAge(betas);
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [EpigeneticsAnalyzer_CalculateEpigeneticAge_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_CalculateEpigeneticAge_Tests.cs) — covers `INV-01`..`INV-05`
+- Tests: [EpigeneticsAnalyzer_CalculateEpigeneticAge_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Annotation/EpigeneticsAnalyzer_CalculateEpigeneticAge_Tests.cs) — covers `INV-01`..`INV-05`
 - Evidence: [EPIGEN-AGE-001-Evidence.md](../../../docs/Evidence/EPIGEN-AGE-001-Evidence.md)
 - Related algorithms: [Methylation_Analysis](./Methylation_Analysis.md)
 

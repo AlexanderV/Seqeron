@@ -149,7 +149,7 @@ double norm = SequenceComplexity.CalculateNormalizedLempelZivComplexity("1001111
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [SequenceComplexity_EstimateCompressionRatio_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SequenceComplexity_EstimateCompressionRatio_Tests.cs) — covers `INV-01`–`INV-05`
+- Tests: [SequenceComplexity_EstimateCompressionRatio_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/SequenceComplexity_EstimateCompressionRatio_Tests.cs) — covers `INV-01`–`INV-05`
 - Evidence: [SEQ-COMPLEX-COMPRESS-001-Evidence.md](../../../docs/Evidence/SEQ-COMPLEX-COMPRESS-001-Evidence.md)
 
 ## 8. References

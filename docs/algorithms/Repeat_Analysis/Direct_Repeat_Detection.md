@@ -154,7 +154,7 @@ The algorithm reports only exact direct repeats and does not score partial simil
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [RepeatFinder_DirectRepeat_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/RepeatFinder_DirectRepeat_Tests.cs)
+- Tests: [RepeatFinder_DirectRepeat_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RepeatFinder_DirectRepeat_Tests.cs)
 - Test spec: [REP-DIRECT-001.md](../../../tests/TestSpecs/REP-DIRECT-001.md)
 - Related snapshot tests: [RepeatSnapshotTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Snapshots/RepeatSnapshotTests.cs)
 

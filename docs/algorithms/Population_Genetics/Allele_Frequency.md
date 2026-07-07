@@ -172,5 +172,5 @@ Minor allele frequency is commonly used to distinguish more common from rarer va
 3. Wikipedia contributors. Minor allele frequency. https://en.wikipedia.org/wiki/Minor_allele_frequency
 4. Wikipedia contributors. Genotype frequency. https://en.wikipedia.org/wiki/Genotype_frequency
 5. [POP-FREQ-001.md](../../../tests/TestSpecs/POP-FREQ-001.md)
-6. [PopulationGeneticsAnalyzer_AlleleFrequency_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/PopulationGeneticsAnalyzer_AlleleFrequency_Tests.cs)
+6. [PopulationGeneticsAnalyzer_AlleleFrequency_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Population/PopulationGeneticsAnalyzer_AlleleFrequency_Tests.cs)
 7. [PopulationGeneticsAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Population/PopulationGeneticsAnalyzer.cs)

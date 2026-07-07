@@ -246,11 +246,11 @@ Additional common uses include forensic DNA profiling, where tetra- and pentanuc
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [RepeatFinder_Microsatellite_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/RepeatFinder_Microsatellite_Tests.cs)
-- Approximate-detector tests: [RepeatFinder_ApproximateTandemRepeats_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/RepeatFinder_ApproximateTandemRepeats_Tests.cs) — covers `INV-06`, `INV-07`, `INV-08`
+- Tests: [RepeatFinder_Microsatellite_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RepeatFinder_Microsatellite_Tests.cs)
+- Approximate-detector tests: [RepeatFinder_ApproximateTandemRepeats_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RepeatFinder_ApproximateTandemRepeats_Tests.cs) — covers `INV-06`, `INV-07`, `INV-08`
 - Test spec: [REP-STR-001.md](../../../tests/TestSpecs/REP-STR-001.md)
 - Related property tests: [RepeatFinderProperties.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Properties/RepeatFinderProperties.cs)
-- Related metamorphic tests: [MetamorphicTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/MetamorphicTests.cs)
+- Related metamorphic tests: [MetamorphicTests.cs](../../../tests/SuffixTree/SuffixTree.Tests/Algorithms/MetamorphicTests.cs)
 
 ## 8. References
 

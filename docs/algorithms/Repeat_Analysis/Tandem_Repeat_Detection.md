@@ -149,10 +149,10 @@ The canonical detector is exact and does not score approximate tandem repeats, i
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [GenomicAnalyzer_TandemRepeat_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/GenomicAnalyzer_TandemRepeat_Tests.cs)
+- Tests: [GenomicAnalyzer_TandemRepeat_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzer_TandemRepeat_Tests.cs)
 - Test spec: [REP-TANDEM-001.md](../../../tests/TestSpecs/REP-TANDEM-001.md)
 - Related property tests: [RepeatFinderProperties.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Properties/RepeatFinderProperties.cs)
-- Related metamorphic tests: [MetamorphicTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/MetamorphicTests.cs)
+- Related metamorphic tests: [MetamorphicTests.cs](../../../tests/SuffixTree/SuffixTree.Tests/Algorithms/MetamorphicTests.cs)
 
 ### 7.4 Change History
 

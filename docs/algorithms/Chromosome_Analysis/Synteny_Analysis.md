@@ -187,7 +187,7 @@ var rearrangements = ChromosomeAnalyzer.DetectRearrangements(blocks);
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [ChromosomeAnalyzer_Synteny_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/ChromosomeAnalyzer_Synteny_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
+- Tests: [ChromosomeAnalyzer_Synteny_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Chromosome/ChromosomeAnalyzer_Synteny_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
 - Test specification: [CHROM-SYNT-001.md](../../../tests/TestSpecs/CHROM-SYNT-001.md)
 
 ## 8. References

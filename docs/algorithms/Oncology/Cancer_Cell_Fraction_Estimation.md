@@ -235,7 +235,7 @@ var clustering = OncologyAnalyzer.ClusterCcfValues(
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_EstimateCcf_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_EstimateCcf_Tests.cs) — covers `INV-CCF-01..03`, `INV-CL-01..04`
+- Tests: [OncologyAnalyzer_EstimateCcf_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_EstimateCcf_Tests.cs) — covers `INV-CCF-01..03`, `INV-CL-01..04`
 - Evidence: [ONCO-CCF-001-Evidence.md](../../../docs/Evidence/ONCO-CCF-001-Evidence.md)
 - Related algorithms: [Clonal_Subclonal_Classification](Clonal_Subclonal_Classification.md), [Tumor_Phylogeny_Reconstruction](Tumor_Phylogeny_Reconstruction.md)
 

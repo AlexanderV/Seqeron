@@ -166,7 +166,7 @@ The repository implementation provides count-based karyotype summaries and a dep
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [ChromosomeAnalyzer_Karyotype_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/ChromosomeAnalyzer_Karyotype_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
+- Tests: [ChromosomeAnalyzer_Karyotype_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Chromosome/ChromosomeAnalyzer_Karyotype_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
 - Test specification: [CHROM-KARYO-001.md](../../../tests/TestSpecs/CHROM-KARYO-001.md)
 - Related algorithms: [Aneuploidy_Detection.md](Aneuploidy_Detection.md)
 - Related algorithms: [Centromere_Analysis.md](Centromere_Analysis.md)

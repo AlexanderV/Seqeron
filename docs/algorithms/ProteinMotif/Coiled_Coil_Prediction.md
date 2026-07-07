@@ -161,7 +161,7 @@ var regions = ProteinMotifFinder.PredictCoiledCoils(string.Concat(Enumerable.Rep
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [ProteinMotifFinder_PredictCoiledCoils_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_PredictCoiledCoils_Tests.cs) — covers `INV-01`..`INV-05`
+- Tests: [ProteinMotifFinder_PredictCoiledCoils_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/ProteinMotifFinder_PredictCoiledCoils_Tests.cs) — covers `INV-01`..`INV-05`
 - Evidence: [PROTMOTIF-CC-001-Evidence.md](../../../docs/Evidence/PROTMOTIF-CC-001-Evidence.md)
 - Related algorithms: [Transmembrane Helix Prediction](../ProteinMotif/Transmembrane_Helix_Prediction.md)
 

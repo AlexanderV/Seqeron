@@ -159,7 +159,7 @@ var promoting = DisorderPredictor.DisorderPromotingAminoAcids; // [A,E,G,K,P,Q,R
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [DisorderPredictor_GetDisorderPropensity_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_GetDisorderPropensity_Tests.cs) — covers `INV-01`..`INV-05`
+- Tests: [DisorderPredictor_GetDisorderPropensity_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/DisorderPredictor_GetDisorderPropensity_Tests.cs) — covers `INV-01`..`INV-05`
 - Evidence: [DISORDER-PROPENSITY-001-Evidence.md](../../../docs/Evidence/DISORDER-PROPENSITY-001-Evidence.md)
 - Related algorithms: [Disorder_Prediction.md](Disorder_Prediction.md)
 

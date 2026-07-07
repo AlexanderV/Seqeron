@@ -185,7 +185,7 @@ IReadOnlyList<string> scaffolds = SequenceAssembler.Scaffold(contigs, links);
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [SequenceAssembler_Scaffold_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SequenceAssembler_Scaffold_Tests.cs) — covers `INV-01`–`INV-05`
+- Tests: [SequenceAssembler_Scaffold_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Alignment/SequenceAssembler_Scaffold_Tests.cs) — covers `INV-01`–`INV-05`
 - Evidence: [ASSEMBLY-SCAFFOLD-001-Evidence.md](../../../docs/Evidence/ASSEMBLY-SCAFFOLD-001-Evidence.md)
 - Related algorithms: [Contig_Merging](Contig_Merging.md)
 

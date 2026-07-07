@@ -192,7 +192,7 @@ var orfs = Translator.FindOrfs(new DnaSequence("GGGATGAAACCCTAAGGG"),
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [Translator_SixFrames_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Translator_SixFrames_Tests.cs) — covers `INV-01`..`INV-06`
+- Tests: [Translator_SixFrames_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Core/Translator_SixFrames_Tests.cs) — covers `INV-01`..`INV-06`
 - Evidence: [TRANS-SIXFRAME-001-Evidence.md](../../../docs/Evidence/TRANS-SIXFRAME-001-Evidence.md)
 
 ## 8. References

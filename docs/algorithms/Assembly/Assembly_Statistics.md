@@ -166,7 +166,7 @@ double aun = GenomeAssemblyAnalyzer.CalculateAuN(lengths);           // 16700/29
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [GenomeAssemblyAnalyzer_AssemblyStatistics_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/GenomeAssemblyAnalyzer_AssemblyStatistics_Tests.cs) — covers `INV-01`…`INV-06`
+- Tests: [GenomeAssemblyAnalyzer_AssemblyStatistics_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Chromosome/GenomeAssemblyAnalyzer_AssemblyStatistics_Tests.cs) — covers `INV-01`…`INV-06`
 - Evidence: [ASSEMBLY-STATS-001-Evidence.md](../../../docs/Evidence/ASSEMBLY-STATS-001-Evidence.md)
 - TestSpec: [ASSEMBLY-STATS-001.md](../../../tests/TestSpecs/ASSEMBLY-STATS-001.md)
 

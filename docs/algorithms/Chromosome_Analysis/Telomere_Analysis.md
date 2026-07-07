@@ -183,7 +183,7 @@ The repository implementation is an end-focused repeat scanner. It does not mode
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [ChromosomeAnalyzer_Telomere_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/ChromosomeAnalyzer_Telomere_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
+- Tests: [ChromosomeAnalyzer_Telomere_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Chromosome/ChromosomeAnalyzer_Telomere_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
 - Test specification: [CHROM-TELO-001.md](../../../tests/TestSpecs/CHROM-TELO-001.md)
 - Related algorithms: [Centromere_Analysis.md](Centromere_Analysis.md)
 

@@ -199,7 +199,7 @@ palindrome ⇒ x = 1; Tm = −70800/(−192.617 + 1.9872·ln(50e-9/1)) − 273.1
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [PrimerDesigner_DimerTm_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/PrimerDesigner_DimerTm_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [PrimerDesigner_DimerTm_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/MolTools/PrimerDesigner_DimerTm_Tests.cs) — covers `INV-01`–`INV-04`
 - Evidence: [PRIMER-TM-001-DIMER-Evidence.md](../../../docs/Evidence/PRIMER-TM-001-DIMER-Evidence.md)
 - TestSpec: [PRIMER-TM-001-DIMER.md](../../../tests/TestSpecs/PRIMER-TM-001-DIMER.md)
 - Related algorithms: [DNA_Hairpin_Folding_Tm](./DNA_Hairpin_Folding_Tm.md)

@@ -165,7 +165,7 @@ The repository translation utilities are sequence scanners. They do not include 
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [TranslatorTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/TranslatorTests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
+- Tests: [TranslatorTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Core/TranslatorTests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
 - Test specification: [TRANS-PROT-001.md](../../../tests/TestSpecs/TRANS-PROT-001.md)
 - Related algorithms: [Codon_Translation.md](Codon_Translation.md)
 

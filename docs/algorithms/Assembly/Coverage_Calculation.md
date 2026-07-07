@@ -155,7 +155,7 @@ double breadth = depth.Count(d => d >= 1) / (double)depth.Length; // 1.0
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [SequenceAssembler_CalculateCoverage_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SequenceAssembler_CalculateCoverage_Tests.cs) — covers `INV-01`–`INV-05`.
+- Tests: [SequenceAssembler_CalculateCoverage_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Alignment/SequenceAssembler_CalculateCoverage_Tests.cs) — covers `INV-01`–`INV-05`.
 - Evidence: [ASSEMBLY-COVER-001-Evidence.md](../../../docs/Evidence/ASSEMBLY-COVER-001-Evidence.md)
 - Related algorithms: [Overlap-Layout-Consensus](../Assembly/Overlap_Layout_Consensus.md)
 

@@ -187,7 +187,7 @@ var genes = OncologyAnalyzer.IdentifyAmplifiedOncogenes(focal);   // ["ERBB2"]
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_DetectFocalAmplifications_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectFocalAmplifications_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [OncologyAnalyzer_DetectFocalAmplifications_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_DetectFocalAmplifications_Tests.cs) — covers `INV-01`–`INV-04`
 - Evidence: [ONCO-CNA-002-Evidence.md](../../../docs/Evidence/ONCO-CNA-002-Evidence.md)
 - Related algorithms: [Copy_Number_Alteration_Classification](./Copy_Number_Alteration_Classification.md)
 

@@ -167,9 +167,9 @@ The algorithm is DNA-specific and uses DNA complement rules. It does not score a
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [RepeatFinder_InvertedRepeat_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/RepeatFinder_InvertedRepeat_Tests.cs)
+- Tests: [RepeatFinder_InvertedRepeat_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RepeatFinder_InvertedRepeat_Tests.cs)
 - Test spec: [REP-INV-001.md](../../../tests/TestSpecs/REP-INV-001.md)
-- Related RNA smoke tests: [RnaSecondaryStructureTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructureTests.cs)
+- Related RNA smoke tests: [RnaSecondaryStructureTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/RnaSecondaryStructureTests.cs)
 
 ## 8. References
 

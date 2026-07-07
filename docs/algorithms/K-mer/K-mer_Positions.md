@@ -129,7 +129,7 @@ var positions = KmerAnalyzer.FindKmerPositions("GATATATGCATATACTT", "ATAT").ToLi
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [KmerAnalyzer_FindKmerPositions_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/KmerAnalyzer_FindKmerPositions_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [KmerAnalyzer_FindKmerPositions_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/KmerAnalyzer_FindKmerPositions_Tests.cs) — covers `INV-01`–`INV-04`
 - Evidence: [KMER-POSITIONS-001-Evidence.md](../../../docs/Evidence/KMER-POSITIONS-001-Evidence.md)
 
 ## 8. References

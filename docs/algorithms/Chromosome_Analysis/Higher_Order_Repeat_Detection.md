@@ -243,7 +243,7 @@ var hor = ChromosomeAnalyzer.DetectHigherOrderRepeat(array);
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [ChromosomeAnalyzer_HigherOrderRepeat_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/ChromosomeAnalyzer_HigherOrderRepeat_Tests.cs) — covers `INV-HOR-01`..`INV-HOR-05`
+- Tests: [ChromosomeAnalyzer_HigherOrderRepeat_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Chromosome/ChromosomeAnalyzer_HigherOrderRepeat_Tests.cs) — covers `INV-HOR-01`..`INV-HOR-05`
 - Evidence: [CHROM-CENT-001-Evidence.md](../../../docs/Evidence/CHROM-CENT-001-Evidence.md)
 - Related algorithms: [Centromere_Analysis.md](Centromere_Analysis.md)
 

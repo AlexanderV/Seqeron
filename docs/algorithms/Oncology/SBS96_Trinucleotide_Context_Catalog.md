@@ -210,7 +210,7 @@ Fold G>T at 5'-T G A-3': complement each base of TGA → ACT, reverse → TCA; c
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [OncologyAnalyzer_ClassifySbsContext_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifySbsContext_Tests.cs) — covers `INV-01`–`INV-04`
+- Tests: [OncologyAnalyzer_ClassifySbsContext_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Oncology/OncologyAnalyzer_ClassifySbsContext_Tests.cs) — covers `INV-01`–`INV-04`
 - Evidence: [ONCO-SIG-001-Evidence.md](../../../docs/Evidence/ONCO-SIG-001-Evidence.md)
 
 ## 8. References

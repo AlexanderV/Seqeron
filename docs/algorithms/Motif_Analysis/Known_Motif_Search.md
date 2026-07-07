@@ -178,7 +178,7 @@ Result: positions {0, 1, 2}, three overlapping occurrences [1].
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [GenomicAnalyzer_FindKnownMotifs_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/GenomicAnalyzer_FindKnownMotifs_Tests.cs) — covers INV-01..INV-05
+- Tests: [GenomicAnalyzer_FindKnownMotifs_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzer_FindKnownMotifs_Tests.cs) — covers INV-01..INV-05
 - Evidence: [GENOMIC-MOTIFS-001-Evidence.md](../../../docs/Evidence/GENOMIC-MOTIFS-001-Evidence.md)
 - Related algorithms: [Repeat_Detection](../Repeat_Analysis/Repeat_Detection.md)
 

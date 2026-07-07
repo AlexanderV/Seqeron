@@ -260,7 +260,7 @@ long derived haplotype (candidate positive selection on the derived allele) [1].
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [PopulationGeneticsAnalyzer_SelectionSignature_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/PopulationGeneticsAnalyzer_SelectionSignature_Tests.cs) — covers `INV-01`…`INV-06`
+- Tests: [PopulationGeneticsAnalyzer_SelectionSignature_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Population/PopulationGeneticsAnalyzer_SelectionSignature_Tests.cs) — covers `INV-01`…`INV-06`
 - Evidence: [POP-SELECT-001-Evidence.md](../../../docs/Evidence/POP-SELECT-001-Evidence.md)
 
 ### 7.4 Change History

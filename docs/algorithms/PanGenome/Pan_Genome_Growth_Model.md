@@ -175,7 +175,7 @@ var fit = PanGenomeAnalyzer.FitHeapsLaw(matrix, permutations: 100);
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [PanGenomeAnalyzer_FitHeapsLaw_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/PanGenomeAnalyzer_FitHeapsLaw_Tests.cs) — covers `INV-01`–`INV-06`
+- Tests: [PanGenomeAnalyzer_FitHeapsLaw_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Metagenomics/PanGenomeAnalyzer_FitHeapsLaw_Tests.cs) — covers `INV-01`–`INV-06`
 - Evidence: [PANGEN-HEAP-001-Evidence.md](../../../docs/Evidence/PANGEN-HEAP-001-Evidence.md)
 
 ## 8. References

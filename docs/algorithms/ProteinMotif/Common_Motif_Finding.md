@@ -193,7 +193,7 @@ satisfies all four elements is positions 4–7 = `N`,`F`(≠P),`T`(∈{S,T}),`A`
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [ProteinMotifFinder_FindCommonMotifs_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindCommonMotifs_Tests.cs) — covers INV-01..INV-04
+- Tests: [ProteinMotifFinder_FindCommonMotifs_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/ProteinMotifFinder_FindCommonMotifs_Tests.cs) — covers INV-01..INV-04
 - Evidence: [PROTMOTIF-COMMON-001-Evidence.md](../../../docs/Evidence/PROTMOTIF-COMMON-001-Evidence.md)
 - Related algorithms: [PROSITE_Pattern_Matching](../ProteinMotif/PROSITE_Pattern_Matching.md)
 

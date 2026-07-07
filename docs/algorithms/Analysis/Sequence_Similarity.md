@@ -177,7 +177,7 @@ double pct = GenomicAnalyzer.CalculateSimilarity(a, b, kmerSize: 3); // 80.0
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [GenomicAnalyzer_CalculateSimilarity_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/GenomicAnalyzer_CalculateSimilarity_Tests.cs) — covers INV-01..INV-05
+- Tests: [GenomicAnalyzer_CalculateSimilarity_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Analysis/GenomicAnalyzer_CalculateSimilarity_Tests.cs) — covers INV-01..INV-05
 - Evidence: [GENOMIC-SIMILARITY-001-Evidence.md](../../../docs/Evidence/GENOMIC-SIMILARITY-001-Evidence.md)
 
 ## 8. References

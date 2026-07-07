@@ -205,7 +205,7 @@ aligns all 7 positions, 6 identical (position 4 T vs A) → identity = 6/7 ≈ 0
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [MetagenomicsAnalyzer_FindAntibioticResistanceGenes_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_FindAntibioticResistanceGenes_Tests.cs) — covers `INV-01`..`INV-05`
+- Tests: [MetagenomicsAnalyzer_FindAntibioticResistanceGenes_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Metagenomics/MetagenomicsAnalyzer_FindAntibioticResistanceGenes_Tests.cs) — covers `INV-01`..`INV-05`
 - Evidence: [META-RESIST-001-Evidence.md](../../../docs/Evidence/META-RESIST-001-Evidence.md)
 
 ## 8. References

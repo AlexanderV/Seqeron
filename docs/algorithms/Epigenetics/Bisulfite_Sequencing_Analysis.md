@@ -211,7 +211,7 @@ levels 1.0 (coverage 10) and 0.0 (coverage 30) give weighted CpG methylation
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [EpigeneticsAnalyzer_Bisulfite_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_Bisulfite_Tests.cs) — covers INV-01..INV-06
+- Tests: [EpigeneticsAnalyzer_Bisulfite_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Annotation/EpigeneticsAnalyzer_Bisulfite_Tests.cs) — covers INV-01..INV-06
 - Evidence: [EPIGEN-BISULF-001-Evidence.md](../../../docs/Evidence/EPIGEN-BISULF-001-Evidence.md)
 - Related algorithms: [Methylation_Analysis](./Methylation_Analysis.md), [CpG_Site_Detection](./CpG_Site_Detection.md)
 

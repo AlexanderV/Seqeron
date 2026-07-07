@@ -191,7 +191,7 @@ VCFv4.3 §1.1 microsatellite `GTC → G` is "a deletion of 2 bases (TC)" [2]. Al
 
 ### 7.3 Related Tests, Evidence, or Documents
 
-- Tests: [VariantCaller_CallVariants_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/VariantCaller_CallVariants_Tests.cs) — covers INV-01…INV-06.
+- Tests: [VariantCaller_CallVariants_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Unit/Annotation/VariantCaller_CallVariants_Tests.cs) — covers INV-01…INV-06.
 - Evidence: [VARIANT-CALL-001-Evidence.md](../../../docs/Evidence/VARIANT-CALL-001-Evidence.md)
 
 ## 8. References
