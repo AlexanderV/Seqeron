@@ -122,7 +122,7 @@ Caveat: alpha; energies are Turner 2004 NN at 37 °C — not experimentally re-m
 ## Scope reminders
 
 - **No base-pair-probability / partition-function MCP tool.** McCaskill partition function is a
-  documented C#-only algorithm (`docs/algorithms/RNA_Structure/RNA_Partition_Function.md`,
+  documented C#-only algorithm (`docs/algorithms/RnaStructure/RNA_Partition_Function.md`,
   `Turner_McCaskill_Partition_Function.md`); there is no exposed tool — do not fabricate one.
 - **Pre-miRNA hairpins, miRNA seed/target pairing, RNA-seq, splicing** → [`bio-annotation`](../../bio-annotation/SKILL.md).
 - **DNA inverted repeats / palindromes** are a different tool (`find_inverted_repeats`, DNA rules) →

@@ -173,7 +173,7 @@ probabilities are computed by exact constrained re-folds (`Σ_j P(i,j) + p_unpai
 consumed by `MiRnaAnalyzer.ScoreTargetSiteContextPlusPlus` to compute the TargetScan **SA**
 feature (see `MIRNA-TARGET-001.md`). Tests:
 `tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_UnpairedProbabilities_Tests.cs`.
-Algorithm doc: `docs/algorithms/RNA_Structure/Turner_McCaskill_Partition_Function.md`.
+Algorithm doc: `docs/algorithms/RnaStructure/Turner_McCaskill_Partition_Function.md`.
 
 > Note: this folder is a new RNA-STRUCT-area capability. No new registry row was invented (per the
 > orchestrator protocol); the orchestrator may elect to add a dedicated unit for it.

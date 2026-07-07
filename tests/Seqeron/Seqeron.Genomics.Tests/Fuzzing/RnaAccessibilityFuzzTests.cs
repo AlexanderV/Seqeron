@@ -36,7 +36,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///
 /// ───────────────────────────────────────────────────────────────────────────
 /// The DOCUMENTED contract under test
-/// (docs/algorithms/RNA_Structure/Turner_McCaskill_Partition_Function.md §3.1–§3.3, INV-06;
+/// (docs/algorithms/RnaStructure/Turner_McCaskill_Partition_Function.md §3.1–§3.3, INV-06;
 ///  docs/Validation/reports/RNA-ACCESS-001.md "Edge-case semantics")
 /// ───────────────────────────────────────────────────────────────────────────
 ///   • Return is P(window entirely unpaired) = Z_open/Z, ALWAYS in [0,1] (INV-06: Z_open ≤ Z

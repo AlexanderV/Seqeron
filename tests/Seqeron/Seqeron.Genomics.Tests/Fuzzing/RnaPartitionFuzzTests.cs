@@ -48,7 +48,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 ///   "empty, single base, all-unpaired".
 /// ───────────────────────────────────────────────────────────────────────────
 ///
-/// The DOCUMENTED contract under test (docs/algorithms/RNA_Structure/RNA_Partition_Function.md):
+/// The DOCUMENTED contract under test (docs/algorithms/RnaStructure/RNA_Partition_Function.md):
 ///   • §3.3 / §6.1: null → ArgumentNullException; T ≤ 0 → ArgumentOutOfRangeException;
 ///     empty sequence → Z = 1 with an EMPTY probability map (only the empty structure);
 ///     a sequence with no admissible pair ("AAAA") → Z = 1; pair span ≤ 3 only ("GC") → Z = 1.

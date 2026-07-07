@@ -44,7 +44,7 @@ folding / MFE / stem-loop / pseudoknot / dot-bracket question and gives a **dual
 - **DNA inverted repeats / palindromes** → `find_inverted_repeats` (core/analysis) via
   `bio-assembly` / `bio-annotation`; `find_rna_inverted_repeats` here uses **RNA** complement rules.
 - **No base-pair-probability / partition-function MCP tool exists.** The McCaskill partition
-  function is a documented C#-only algorithm (`docs/algorithms/RNA_Structure/`), not an exposed
+  function is a documented C#-only algorithm (`docs/algorithms/RnaStructure/`), not an exposed
   tool. For pairing feasibility use `can_pair` / `base_pair_type`; for structure use `predict_rna_structure`.
 
 ## Decision guide — which tool for which question
@@ -148,10 +148,10 @@ Caveat: alpha software; not for clinical use — independently validate before r
   [`Pseudoknot_Detection.md`](../../../docs/algorithms/RnaStructure/Pseudoknot_Detection.md) ·
   [`Dot_Bracket_Notation.md`](../../../docs/algorithms/RnaStructure/Dot_Bracket_Notation.md) ·
   [`RNA_Base_Pairing.md`](../../../docs/algorithms/RnaStructure/RNA_Base_Pairing.md) ·
-  [`RNA_Secondary_Structure.md`](../../../docs/algorithms/RNA_Structure/RNA_Secondary_Structure.md) ·
-  [`RNA_Stemloop.md`](../../../docs/algorithms/RNA_Structure/RNA_Stemloop.md) ·
-  [`RNA_Free_Energy.md`](../../../docs/algorithms/RNA_Structure/RNA_Free_Energy.md) ·
-  [`Inverted_Repeats.md`](../../../docs/algorithms/RNA_Secondary_Structure/Inverted_Repeats.md)
+  [`RNA_Secondary_Structure.md`](../../../docs/algorithms/RnaStructure/RNA_Secondary_Structure.md) ·
+  [`RNA_Stemloop.md`](../../../docs/algorithms/RnaStructure/RNA_Stemloop.md) ·
+  [`RNA_Free_Energy.md`](../../../docs/algorithms/RnaStructure/RNA_Free_Energy.md) ·
+  [`Inverted_Repeats.md`](../../../docs/algorithms/RnaStructure/Inverted_Repeats.md)
 - **Operating envelope / guarded unit:** [`LIMITATIONS.md`](../../../docs/Validation/LIMITATIONS.md) (RNA-STRUCT-001)
 - **Cross-cutting:** [`bio-rigor`](../bio-rigor/SKILL.md) (rigor guardrail) ·
   [`seqeron-discovery`](../seqeron-discovery/SKILL.md) (tool lookup) ·

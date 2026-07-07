@@ -67,7 +67,7 @@ This skill is **not** in `domain-map.json`, so it has **no** generated `_generat
 ## Not a tool here (route elsewhere)
 
 - **Base-pair probabilities / partition function (McCaskill):** documented C#-only algorithm
-  (`docs/algorithms/RNA_Structure/RNA_Partition_Function.md`,
+  (`docs/algorithms/RnaStructure/RNA_Partition_Function.md`,
   `Turner_McCaskill_Partition_Function.md`) — **no MCP tool**. Use `predict_rna_structure` /
   `can_pair` / `base_pair_type` for pairing questions.
 - **Pre-miRNA hairpins, miRNA seed/target pairing, RNA-seq, splicing:** → [`bio-annotation`](../../bio-annotation/SKILL.md).

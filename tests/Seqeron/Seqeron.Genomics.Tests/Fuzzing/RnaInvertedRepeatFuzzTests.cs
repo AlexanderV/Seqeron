@@ -1,6 +1,6 @@
 // RNA-INVERT-001 — RNA Inverted-Repeat (potential stem) detection.
 // Fuzz tests (strategy BE = Boundary Exploitation).
-// Algorithm doc: docs/algorithms/RNA_Secondary_Structure/Inverted_Repeats.md
+// Algorithm doc: docs/algorithms/RnaStructure/Inverted_Repeats.md
 // Canonical tests: tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_FindInvertedRepeats_Tests.cs (RNA-INVERT-001)
 // Evidence: docs/Evidence/RNA-INVERT-001-Evidence.md
 // Source: RnaSecondaryStructure.FindInvertedRepeats — RnaSecondaryStructure.cs.
