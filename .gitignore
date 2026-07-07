@@ -32,6 +32,9 @@ BenchmarkDotNet.Artifacts/
 [Tt]est[Rr]esult*/
 [Bb]uild[Ll]og.*
 
+# Verify (snapshot testing) — received files are transient diffs, never committed
+*.received.*
+
 # NUNIT
 *.VisualState.xml
 TestResult.xml

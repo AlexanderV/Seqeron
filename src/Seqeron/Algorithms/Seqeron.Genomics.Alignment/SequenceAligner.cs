@@ -650,7 +650,9 @@ public static class SequenceAligner
         {
             int end = Math.Min(start + lineWidth, length);
 
-            sb.AppendLine(alignment.AlignedSequence1[start..end]);
+            // Emit '\n' explicitly (not AppendLine/Environment.NewLine) so the formatted alignment
+            // is byte-identical across platforms — the EMBOSS-style block must not depend on OS CRLF.
+            sb.Append(alignment.AlignedSequence1[start..end]).Append('\n');
 
             // Markup line (EMBOSS srspair legend).
             for (int i = start; i < end; i++)
@@ -667,10 +669,10 @@ public static class SequenceAligner
                 else
                     sb.Append(GapOrMismatchMark);
             }
-            sb.AppendLine();
+            sb.Append('\n');
 
-            sb.AppendLine(alignment.AlignedSequence2[start..end]);
-            sb.AppendLine();
+            sb.Append(alignment.AlignedSequence2[start..end]).Append('\n');
+            sb.Append('\n');
         }
 
         return sb.ToString();

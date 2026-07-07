@@ -44,7 +44,9 @@ public class ProteinMotifSnapshotTests
         {
             HasSignalPeptide = sp.HasValue,
             sp?.CleavagePosition,
-            sp?.Score,
+            // Round to 6 dp: the score's last (~15th) double digit is not meaningful precision and
+            // varies with FMA/vectorization across platforms, which would make the snapshot flaky.
+            Score = sp.HasValue ? Math.Round(sp.Value.Score, 6) : (double?)null,
             sp?.IsLikelySignalPeptide
         });
     }

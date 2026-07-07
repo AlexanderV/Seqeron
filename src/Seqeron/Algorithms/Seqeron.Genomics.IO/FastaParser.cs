@@ -221,13 +221,15 @@ namespace Seqeron.Genomics.IO
             var sb = new StringBuilder();
             foreach (var entry in entries)
             {
-                sb.Append('>').AppendLine(entry.Header);
+                // Emit '\n' explicitly (not AppendLine/Environment.NewLine) so FASTA output is
+                // byte-identical across platforms — sequence files must not carry OS-dependent CRLF.
+                sb.Append('>').Append(entry.Header).Append('\n');
 
                 string seq = entry.Sequence.Sequence;
                 for (int i = 0; i < seq.Length; i += lineWidth)
                 {
                     int len = Math.Min(lineWidth, seq.Length - i);
-                    sb.AppendLine(seq.Substring(i, len));
+                    sb.Append(seq.AsSpan(i, len)).Append('\n');
                 }
             }
             return sb.ToString();

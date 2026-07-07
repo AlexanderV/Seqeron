@@ -610,7 +610,10 @@ public static class BedParser
     {
         foreach (var record in records)
         {
-            writer.WriteLine(FormatRecord(record, format));
+            // Emit '\n' explicitly (not WriteLine/Environment.NewLine) so BED output is
+            // byte-identical across platforms — annotation files must not carry OS-dependent CRLF.
+            writer.Write(FormatRecord(record, format));
+            writer.Write('\n');
         }
     }
 
