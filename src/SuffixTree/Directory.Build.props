@@ -1,4 +1,7 @@
 <Project>
+  <!-- Chain to the repository-root Directory.Build.props: MSBuild auto-imports only the
+       nearest one walking up, so a nested file must import its parent explicitly. -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
   <PropertyGroup>
     <TargetFramework Condition="'$(TargetFramework)' == ''">net10.0</TargetFramework>
     <Nullable Condition="'$(Nullable)' == ''">enable</Nullable>

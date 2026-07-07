@@ -1,0 +1,33 @@
+<Project>
+
+  <!--
+    Solution-wide build defaults. Any project may still override these locally.
+    Conditional defaults (`== ''`) let a project opt out; the quality/reproducibility
+    settings below are applied everywhere on purpose.
+  -->
+  <PropertyGroup>
+    <TargetFramework Condition="'$(TargetFramework)' == ''">net10.0</TargetFramework>
+    <ImplicitUsings Condition="'$(ImplicitUsings)' == ''">enable</ImplicitUsings>
+    <Nullable Condition="'$(Nullable)' == ''">enable</Nullable>
+    <LangVersion Condition="'$(LangVersion)' == ''">latest</LangVersion>
+  </PropertyGroup>
+
+  <!-- Quality gate: warnings are errors on every project (previously set on only 23 of 28
+       source projects, leaving the base layers Core/Infrastructure/IO/Alignment ungated). -->
+  <PropertyGroup>
+    <TreatWarningsAsErrors Condition="'$(TreatWarningsAsErrors)' == ''">true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <!-- Reproducible builds: deterministic output; path-map normalised on CI. -->
+  <PropertyGroup>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(ContinuousIntegrationBuild)' == '' and '$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <!-- Package metadata defaults; packable projects still declare PackageId/Description/tags. -->
+  <PropertyGroup>
+    <Version Condition="'$(Version)' == ''">1.0.0</Version>
+    <Authors Condition="'$(Authors)' == ''">Seqeron</Authors>
+  </PropertyGroup>
+
+</Project>
