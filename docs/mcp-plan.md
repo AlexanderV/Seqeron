@@ -117,7 +117,7 @@ Legend:
 | 10 | `isoelectric_point` | Calculate theoretical pI | ✓ | SequenceStatistics.cs:L228#xml | SequenceStatistics.CalculateIsoelectricPoint | 1.0.0 | stable |
 | 11 | `hydrophobicity` | Calculate GRAVY score | ✓ | SequenceStatistics.cs:L306#xml | SequenceStatistics.CalculateHydrophobicity | 1.0.0 | stable |
 | 12 | `thermodynamics` | Calculate thermodynamic properties | ✓ | SequenceStatistics.cs:L381#xml | SequenceStatistics.CalculateThermodynamics | 1.0.0 | stable |
-| 13 | `melting_temperature` | Calculate Tm | ✓ | docs/algorithms/Molecular_Tools/Melting_Temperature.md | SequenceStatistics.CalculateMeltingTemperature | 1.0.0 | stable |
+| 13 | `melting_temperature` | Calculate Tm | ✓ | docs/algorithms/MolTools/Melting_Temperature.md | SequenceStatistics.CalculateMeltingTemperature | 1.0.0 | stable |
 | 14 | `shannon_entropy` | Calculate Shannon entropy | ✓ | docs/algorithms/Sequence_Composition/Shannon_Entropy.md | SequenceStatistics.CalculateShannonEntropy | 1.0.0 | stable |
 | 15 | `linguistic_complexity` | Calculate linguistic complexity | ✓ | docs/algorithms/Sequence_Composition/Linguistic_Complexity.md | SequenceStatistics.CalculateLinguisticComplexity | 1.0.0 | stable |
 | 16 | `summarize_sequence` | Comprehensive sequence summary | ✓ | SequenceStatistics.cs:L775#xml | SequenceStatistics.SummarizeNucleotideSequence | 1.0.0 | stable |
@@ -251,13 +251,13 @@ Legend:
 |---|----------|---------|---------|--------|----------|---------|-----------|
 | 1 | `primer_design` | Design PCR primers | ✓ | docs/algorithms/MolTools/Primer_Design.md | PrimerDesigner.DesignPrimers | 1.0.0 | stable |
 | 2 | `primer_evaluate` | Evaluate primer quality | ✓ | PrimerDesigner.cs:L119#xml | PrimerDesigner.EvaluatePrimer | 1.0.0 | stable |
-| 3 | `primer_tm` | Calculate melting temperature | ✓ | docs/algorithms/Molecular_Tools/Melting_Temperature.md | PrimerDesigner.CalculateMeltingTemperature | 1.0.0 | stable |
+| 3 | `primer_tm` | Calculate melting temperature | ✓ | docs/algorithms/MolTools/Melting_Temperature.md | PrimerDesigner.CalculateMeltingTemperature | 1.0.0 | stable |
 | 4 | `primer_tm_salt` | Tm with salt correction | ✓ | PrimerDesigner.cs:L219#xml | PrimerDesigner.CalculateMeltingTemperatureWithSalt | 1.0.0 | stable |
 | 5 | `primer_gc` | Calculate GC content | ✓ | PrimerDesigner.cs:L229#xml | PrimerDesigner.CalculateGcContent | 1.0.0 | stable |
-| 6 | `primer_homopolymer` | Find longest homopolymer | ✓ | docs/algorithms/Molecular_Tools/Primer_Structure_Analysis.md | PrimerDesigner.FindLongestHomopolymer | 1.0.0 | stable |
-| 7 | `primer_dinucleotide_repeat` | Find dinucleotide repeats | ✓ | docs/algorithms/Molecular_Tools/Primer_Structure_Analysis.md | PrimerDesigner.FindLongestDinucleotideRepeat | 1.0.0 | stable |
-| 8 | `primer_hairpin` | Check hairpin potential | ✓ | docs/algorithms/Molecular_Tools/Primer_Structure_Analysis.md | PrimerDesigner.HasHairpinPotential | 1.0.0 | stable |
-| 9 | `primer_dimer` | Check primer dimer | ✓ | docs/algorithms/Molecular_Tools/Primer_Structure_Analysis.md | PrimerDesigner.HasPrimerDimer | 1.0.0 | stable |
+| 6 | `primer_homopolymer` | Find longest homopolymer | ✓ | docs/algorithms/MolTools/Primer_Structure_Analysis.md | PrimerDesigner.FindLongestHomopolymer | 1.0.0 | stable |
+| 7 | `primer_dinucleotide_repeat` | Find dinucleotide repeats | ✓ | docs/algorithms/MolTools/Primer_Structure_Analysis.md | PrimerDesigner.FindLongestDinucleotideRepeat | 1.0.0 | stable |
+| 8 | `primer_hairpin` | Check hairpin potential | ✓ | docs/algorithms/MolTools/Primer_Structure_Analysis.md | PrimerDesigner.HasHairpinPotential | 1.0.0 | stable |
+| 9 | `primer_dimer` | Check primer dimer | ✓ | docs/algorithms/MolTools/Primer_Structure_Analysis.md | PrimerDesigner.HasPrimerDimer | 1.0.0 | stable |
 | 10 | `primer_3prime_stability` | Calculate 3' stability | ✓ | PrimerDesigner.cs:L414#xml | PrimerDesigner.Calculate3PrimeStability | 1.0.0 | stable |
 | 11 | `probe_design_tiling` | Design tiling probes | ✓ | docs/algorithms/MolTools/Hybridization_Probe_Design.md | ProbeDesigner.DesignTilingProbes | 1.0.0 | stable |
 | 12 | `probe_validate` | Validate probe | ✓ | docs/algorithms/MolTools/Probe_Validation.md | ProbeDesigner.ValidateProbe | 1.0.0 | stable |

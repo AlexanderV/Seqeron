@@ -108,7 +108,7 @@ These folders are retained for back-links and are being consolidated into the ca
 
 | Legacy folder | Canonical bucket |
 |---|---|
-| [`Molecular_Tools`](Molecular_Tools) | [MolTools](MolTools) |
+| `Molecular_Tools` | [MolTools](MolTools) |
 | `K-mer_Analysis` | [K-mer](K-mer) |
 | [`PopGen`](PopGen) | [Population Genetics](Population_Genetics) |
 | [`RNA_Structure`](RNA_Structure), [`RNA_Secondary_Structure`](RNA_Secondary_Structure) | [RnaStructure](RnaStructure) |

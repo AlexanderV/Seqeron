@@ -221,7 +221,7 @@ var p = PrimerDesigner.CalculatePrimer3Penalty(
 - Tests: [PrimerDesigner_Primer3Penalty_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/PrimerDesigner_Primer3Penalty_Tests.cs) — covers `INV-01`–`INV-05`
 - Evidence: [PRIMER-TM-001-Evidence.md](../../../docs/Evidence/PRIMER-TM-001-Evidence.md)
 - TestSpec: [PRIMER-TM-001-Penalty.md](../../../tests/TestSpecs/PRIMER-TM-001-Penalty.md)
-- Related algorithms: [Melting_Temperature](../Molecular_Tools/Melting_Temperature.md), [Primer_Design](./Primer_Design.md)
+- Related algorithms: [Melting_Temperature](../MolTools/Melting_Temperature.md), [Primer_Design](./Primer_Design.md)
 
 ## 8. References
 

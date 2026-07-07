@@ -139,5 +139,5 @@ alpha / not-for-clinical-use caveat from `bio-rigor` if the assay is decision-re
 - Algorithm background (link, don't copy): [`docs/algorithms/Codon_Optimization/`](../../../docs/algorithms/Codon_Optimization),
   [`docs/algorithms/MolTools/`](../../../docs/algorithms/MolTools) (Primer_Design, Guide_RNA_Design,
   Off_Target_Analysis, Restriction_*, Hybridization_Probe_Design),
-  [`docs/algorithms/Molecular_Tools/`](../../../docs/algorithms/Molecular_Tools) (Melting_Temperature, PAM_Site_Detection).
+  [`docs/algorithms/MolTools/`](../../../docs/algorithms/MolTools) (Melting_Temperature, PAM_Site_Detection).
 - Rigor + discovery: [`bio-rigor`](../bio-rigor/SKILL.md), [`seqeron-discovery`](../seqeron-discovery/SKILL.md).

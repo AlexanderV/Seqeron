@@ -585,7 +585,7 @@
 
 #### 4.2.13 `melting_temperature`
 - **HasDocs**: ✓
-- **DocRef**: docs/algorithms/Molecular_Tools/Melting_Temperature.md
+- **DocRef**: docs/algorithms/MolTools/Melting_Temperature.md
 - [x] a) Link MethodId: `SequenceStatistics.CalculateMeltingTemperature`
 - [x] b) Freeze toolName: `melting_temperature`, serverName: `Sequence`
 - [x] c) Define inputSchema: `{ sequence: string, useWallaceRule?: boolean }`

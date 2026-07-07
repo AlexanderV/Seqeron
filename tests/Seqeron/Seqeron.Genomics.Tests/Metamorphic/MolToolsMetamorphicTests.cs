@@ -35,7 +35,7 @@ namespace Seqeron.Genomics.Tests.Metamorphic;
 ///             forward-strand Position by |F| and preserves the site set.
 ///
 /// Source (semantics, pinned from spec + source, NOT from observed output):
-///   docs/algorithms/Molecular_Tools/PAM_Site_Detection.md §2.2, §4 (both strands
+///   docs/algorithms/MolTools/PAM_Site_Detection.md §2.2, §4 (both strands
 ///   scanned; forward NGG, reverse strand = revComp NGG = forward-strand CCN);
 ///   src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs
 ///   (FindPamSites / FindPamSitesCore). PamSite.Position is ALWAYS a forward-strand
@@ -886,7 +886,7 @@ public class MolToolsMetamorphicTests
     //   The branch threshold is ThermoConstants.WallaceMaxLength = 14 (counted bases).
     //
     // Source (formulas pinned from the spec, NOT from observed output):
-    //   docs/algorithms/Molecular_Tools/Melting_Temperature.md §2.2, §4.2, §2.4.
+    //   docs/algorithms/MolTools/Melting_Temperature.md §2.2, §4.2, §2.4.
     //     Wallace: A/T contributes +2 °C, G/C contributes +4 °C (INV-01, exact constants).
     //     Marmur-Doty: depends only on GC count and counted length N (INV-02).
     //     Longer-primer branch is clamped to ≥ 0 (INV-04).
@@ -1494,7 +1494,7 @@ public class MolToolsMetamorphicTests
     //     with stem ≥ minStem and loop ≥ minLoop). false below 2·minStem + minLoop.
     //
     // Source (semantics pinned from spec, NOT from observed output):
-    //   docs/algorithms/Molecular_Tools/Primer_Structure_Analysis.md §2.1–§2.2, §4.2;
+    //   docs/algorithms/MolTools/Primer_Structure_Analysis.md §2.1–§2.2, §4.2;
     //   docs/algorithms/MolTools/Primer_Design.md.
     //   "Primer-dimers arise when primers have complementary 3' ends"; the dimer signal
     //   is the COUNT of complementary base pairs in the compared 3' window (more
