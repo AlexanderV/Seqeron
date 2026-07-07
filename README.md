@@ -5,7 +5,7 @@
 > This library is pre-1.0 and under active development. Public APIs may change between releases.
 >
 > **What has been done (verifiable in this repo):**
-> - Extensive automated testing — ~15,000 test methods across 819 fixtures (~3.8× more test code than product code), covering 258 algorithm units.
+> - Extensive automated testing — **22,317 executed test cases** (13,551 `[Test]` methods plus parametrized `[TestCase]`/combinatorial expansions) across 1,173 fixtures (~3.8× more test code than product code), covering 258 algorithm units. Full suite green on .NET 10.
 > - Ten complementary test methodologies — property-based, metamorphic, fuzzing, mutation, snapshot, algebraic, architecture, differential, combinatorial, and characterization testing (see [docs/checklists](docs/checklists)).
 > - An internal, per-unit **independent validation campaign** with a documented findings register, a published limitations/operating-envelope document, and a runtime `LimitationPolicy` that guards algorithms used outside their validated scope (see [docs/Validation](docs/Validation)).
 > - Algorithm parameters and coefficients reproduced from primary literature and reference implementations, tracked per unit.
