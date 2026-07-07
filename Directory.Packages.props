@@ -1,0 +1,44 @@
+<Project>
+
+  <!--
+    Central Package Management (CPM). Every NuGet version lives here; project files reference
+    packages by name only (<PackageReference Include="..." /> with no Version). This removes the
+    version drift that had crept in across the 46 projects (e.g. Microsoft.NET.Test.Sdk 17.8.0 /
+    17.11.1 / 17.12.0, NUnit 4.2.2 / 4.3.2, coverlet.collector 6.0.0 / 6.0.2).
+    Duplicated versions were reconciled to the highest previously used.
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Runtime / hosting -->
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
+    <PackageVersion Include="ModelContextProtocol" Version="1.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Test frameworks & runners -->
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageVersion Include="NUnit" Version="4.3.2" />
+    <PackageVersion Include="NUnit.Analyzers" Version="4.4.0" />
+    <PackageVersion Include="NUnit3TestAdapter" Version="4.6.0" />
+    <PackageVersion Include="coverlet.collector" Version="6.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Assertions, property-based, snapshot & architecture testing -->
+    <PackageVersion Include="FluentAssertions" Version="8.0.1" />
+    <PackageVersion Include="FsCheck" Version="3.1.0" />
+    <PackageVersion Include="FsCheck.NUnit" Version="3.1.0" />
+    <PackageVersion Include="CsCheck" Version="4.1.0" />
+    <PackageVersion Include="Verify.NUnit" Version="28.7.1" />
+    <PackageVersion Include="TngTech.ArchUnitNET.NUnit" Version="0.13.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Benchmarking -->
+    <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
+  </ItemGroup>
+
+</Project>
