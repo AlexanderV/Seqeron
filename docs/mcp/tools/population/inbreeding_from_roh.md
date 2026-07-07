@@ -19,7 +19,7 @@ Computes `F_ROH = (Σ L_ROH) / L_AUTO` — the total length of an individual's r
 ## Core Documentation Reference
 
 - Source: [PopulationGeneticsAnalyzer.cs#L1441](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Population/PopulationGeneticsAnalyzer.cs#L1441)
-- Algorithm doc: [Runs_Of_Homozygosity.md](../../../algorithms/PopGen/Runs_Of_Homozygosity.md)
+- Algorithm doc: [Runs_Of_Homozygosity.md](../../../algorithms/Population_Genetics/Runs_Of_Homozygosity.md)
 
 ## Input Schema
 

@@ -110,7 +110,7 @@ These folders are retained for back-links and are being consolidated into the ca
 |---|---|
 | `Molecular_Tools` | [MolTools](MolTools) |
 | `K-mer_Analysis` | [K-mer](K-mer) |
-| [`PopGen`](PopGen) | [Population Genetics](Population_Genetics) |
+| `PopGen` | [Population Genetics](Population_Genetics) |
 | [`RNA_Structure`](RNA_Structure), [`RNA_Secondary_Structure`](RNA_Secondary_Structure) | [RnaStructure](RnaStructure) |
 | [`Motif_Analysis`](Motif_Analysis) | [Motif Discovery](Motif_Discovery) |
 | [`Sequence_Comparison`](Sequence_Comparison) | [Comparative Genomics](Comparative_Genomics) |

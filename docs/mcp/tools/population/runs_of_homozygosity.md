@@ -19,7 +19,7 @@ Scans SNPs in ascending position order (input need not be pre-sorted) with the w
 ## Core Documentation Reference
 
 - Source: [PopulationGeneticsAnalyzer.cs#L1485](../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Population/PopulationGeneticsAnalyzer.cs#L1485)
-- Algorithm doc: [Runs_Of_Homozygosity.md](../../../algorithms/PopGen/Runs_Of_Homozygosity.md)
+- Algorithm doc: [Runs_Of_Homozygosity.md](../../../algorithms/Population_Genetics/Runs_Of_Homozygosity.md)
 
 ## Input Schema
 

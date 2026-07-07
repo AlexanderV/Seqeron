@@ -3,7 +3,7 @@
 Progressive-disclosure detail for `SKILL.md`. Rigor rules (parse-with-a-tool, envelope, provenance,
 cross-check, 0-based coords, alpha caveat) come from **`bio-rigor`** — not repeated here. Full I/O
 schemas live in `docs/mcp/tools/{phylogenetics,population}/*.md`; formulas in
-`docs/algorithms/{Phylogenetics,Population_Genetics,PopGen}/*.md`.
+`docs/algorithms/{Phylogenetics,Population_Genetics}/*.md`.
 
 ## Distance models (phylogenetics) — pick deliberately
 

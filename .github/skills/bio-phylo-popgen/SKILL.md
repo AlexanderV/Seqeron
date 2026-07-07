@@ -30,7 +30,7 @@ It picks the right tool for a tree-building or popgen question and gives a **dua
 - **Don't know the tool name?** Use **`seqeron-discovery`**
   (`python3 scripts/skills/find-tool.py <kw> --server phylogenetics|population`) — never guess.
 - **Point, don't duplicate.** Full I/O schemas live in `docs/mcp/tools/{phylogenetics,population}/*.md`;
-  algorithm invariants in `docs/algorithms/{Phylogenetics,Population_Genetics,PopGen}/*.md`. This skill
+  algorithm invariants in `docs/algorithms/{Phylogenetics,Population_Genetics}/*.md`. This skill
   links, it does not copy.
 
 ## Decision guide — which tool for which question

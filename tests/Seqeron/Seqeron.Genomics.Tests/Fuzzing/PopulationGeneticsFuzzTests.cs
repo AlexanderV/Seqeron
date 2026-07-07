@@ -471,7 +471,7 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 /// [first homozygous SNP .. last homozygous SNP] interval ONLY IF it holds
 /// SnpCount ≥ minSnps AND End − Start ≥ minLength (PLINK 1.9 `--homozyg-snp` /
 /// `--homozyg-kb` thresholds [2]).
-///   — docs/algorithms/PopGen/Runs_Of_Homozygosity.md §2.2 (Core Model), §2.4
+///   — docs/algorithms/Population_Genetics/Runs_Of_Homozygosity.md §2.2 (Core Model), §2.4
 ///     (INV-01: every reported run has SnpCount ≥ minSnps and End − Start ≥
 ///      minLength — BOTH thresholds checked before emission; INV-02: a reported run
 ///      has ≤ maxHeterozygotes opposite genotypes and no gap > maxGap; INV-03: runs

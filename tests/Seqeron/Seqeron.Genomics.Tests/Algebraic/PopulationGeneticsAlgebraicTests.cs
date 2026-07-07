@@ -27,7 +27,7 @@ public class PopulationGeneticsAlgebraicTests
     // Model: from diploid genotype counts (AA, Aa, aa) the major/minor allele
     //        frequencies are (2·AA+Aa)/2N and (2·aa+Aa)/2N. The two frequencies
     //        partition the allele pool.
-    //   — docs/algorithms/PopGen; PopulationGeneticsAnalyzer.CalculateAlleleFrequencies.
+    //   — docs/algorithms/Population_Genetics; PopulationGeneticsAnalyzer.CalculateAlleleFrequencies.
     //
     // Laws (row 43): ID — a monomorphic sample (all AA) → major frequency 1.0.
     //                DIST — majorFreq + minorFreq = 1 for any non-empty sample.
@@ -66,7 +66,7 @@ public class PopulationGeneticsAlgebraicTests
     //
     // Model: under HWE the expected genotype proportions are p², 2pq, q² with
     //        p+q = 1, so p² + 2pq + q² = (p+q)² = 1 and the expected counts sum to N.
-    //   — docs/algorithms/PopGen; PopulationGeneticsAnalyzer.TestHardyWeinberg.
+    //   — docs/algorithms/Population_Genetics; PopulationGeneticsAnalyzer.TestHardyWeinberg.
     //
     // Laws (row 45): DIST — p² + 2pq + q² = 1 and Σ expected = N.
     //                ID — a monomorphic sample (all AA) puts every individual in one
@@ -113,7 +113,7 @@ public class PopulationGeneticsAlgebraicTests
     // Model: Fst = weighted variance of allele frequencies between populations /
     //        mean heterozygosity. Identical populations have zero between-population
     //        variance, and the statistic is symmetric in the two populations.
-    //   — docs/algorithms/PopGen; PopulationGeneticsAnalyzer.CalculateFst.
+    //   — docs/algorithms/Population_Genetics; PopulationGeneticsAnalyzer.CalculateFst.
     //
     // Laws (row 46): ID — Fst(identical pops) = 0.  COMM — Fst(a,b) = Fst(b,a).
     // ═══════════════════════════════════════════════════════════════════════
@@ -157,7 +157,7 @@ public class PopulationGeneticsAlgebraicTests
     //        squared genotype correlation and D' the normalized covariance. Both
     //        are symmetric functions of the two loci, and independent (orthogonal)
     //        loci have zero covariance hence D' = r² = 0.
-    //   — docs/algorithms/PopGen; PopulationGeneticsAnalyzer.CalculateLD.
+    //   — docs/algorithms/Population_Genetics; PopulationGeneticsAnalyzer.CalculateLD.
     //
     // Laws (row 47): ID — independent loci → D' ≈ 0.  COMM — LD(a,b) = LD(b,a).
     // ═══════════════════════════════════════════════════════════════════════
