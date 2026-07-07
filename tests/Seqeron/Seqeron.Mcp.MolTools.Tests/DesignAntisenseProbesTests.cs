@@ -1,5 +1,3 @@
-using System;
-using System.Linq;
 using NUnit.Framework;
 using Seqeron.Genomics.Core;
 using Seqeron.Genomics.MolTools;

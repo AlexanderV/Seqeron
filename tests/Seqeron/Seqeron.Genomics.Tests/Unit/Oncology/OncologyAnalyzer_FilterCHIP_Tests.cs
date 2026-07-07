@@ -8,12 +8,6 @@
 //                                  and >= 10 supporting reads and WBC VAF >= 2x tumour VAF (1.5x for lymph-node biopsy).
 //         Wan JCM et al. (2020). Sci Transl Med 12(548):eaaz8084 — per-locus alt-read evidence.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Oncology;
-
 namespace Seqeron.Genomics.Tests.Unit.Oncology;
 
 [TestFixture]

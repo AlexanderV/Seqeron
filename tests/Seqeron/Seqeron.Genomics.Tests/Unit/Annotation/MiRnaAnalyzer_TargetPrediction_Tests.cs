@@ -1,9 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Annotation;
-using Seqeron.Genomics.Phylogenetics;
 using static Seqeron.Genomics.Annotation.MiRnaAnalyzer;
 
 namespace Seqeron.Genomics.Tests.Unit.Annotation;

@@ -7,10 +7,6 @@
 //   Rules: no G at the 5' end (a 5' G adjacent to the reporter dye quenches reporter
 //   fluorescence even after cleavage); more Cs than Gs; no run of >=4 consecutive Gs;
 //   G+C content 30-80%; probe Tm ~10 degC above the primer Tm; length 18-22 nt.
-using NUnit.Framework;
-using Seqeron.Genomics.MolTools;
-using System;
-
 namespace Seqeron.Genomics.Tests.Unit.MolTools;
 
 /// <summary>

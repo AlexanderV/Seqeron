@@ -1,8 +1,5 @@
-using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
 using ModelContextProtocol.Server;
-using Seqeron.Genomics.Core;
 using Seqeron.Genomics.Metagenomics;
 
 namespace Seqeron.Mcp.Metagenomics.Tools;

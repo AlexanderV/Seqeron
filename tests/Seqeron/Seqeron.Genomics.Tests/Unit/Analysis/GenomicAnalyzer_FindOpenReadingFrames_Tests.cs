@@ -4,13 +4,6 @@
 // Source: Rosalind "Open Reading Frames" (https://rosalind.info/problems/orf/, 2026-06-14);
 //         NCBI Genetic Codes transl_table=1 (Standard).
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-using Seqeron.Genomics.Core;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

@@ -5,12 +5,6 @@
 //         NCBI blast_stat.c (ungapped BLOSUM62 lambda/K); NCBI BLOSUM62 matrix;
 //         PNNL Proteomics Data Analysis tutorial §8.2 (hypergeometric ORA).
 
-using NUnit.Framework;
-using Seqeron.Genomics;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.Metagenomics;
 
 [TestFixture]

@@ -1,9 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Oncology;
 using static Seqeron.Genomics.Oncology.OncologyAnalyzer;
 
 namespace Seqeron.Genomics.Tests.Fuzzing;
@@ -101,7 +95,7 @@ public sealed class OncologyCnaClassificationFuzzTests
     {
         call.IntegerCopyNumber.Should().BeGreaterThanOrEqualTo(
             0, "integer CN is ≥ 0 (DeepDeletion is the floor; INV-03)");
-        Enum.IsDefined(typeof(CopyNumberState), call.State).Should().BeTrue(
+        Enum.IsDefined(call.State).Should().BeTrue(
             "state must be one of the five defined CNA states (INV-04)");
         // The integer call must equal the state's class (the CN↔state map, INV-04).
         StateForCn(call.IntegerCopyNumber).Should().Be(

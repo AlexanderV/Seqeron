@@ -5,12 +5,6 @@
 //         Moreno-Hagelsieb G, Latimer K (2008). Bioinformatics 24(3):319-324 (RBH definition).
 //         Fitch WM (1970). Syst Zool 19:99-106 (orthology/paralogy). Remm et al. (2001). JMB 314:1041-1052.
 
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

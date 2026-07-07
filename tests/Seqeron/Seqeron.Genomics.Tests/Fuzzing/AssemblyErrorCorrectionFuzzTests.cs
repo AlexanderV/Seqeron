@@ -1,10 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Alignment;
 
 namespace Seqeron.Genomics.Tests.Fuzzing;
 
@@ -82,10 +76,6 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 [Category("Fuzzing")]
 public class AssemblyErrorCorrectionFuzzTests
 {
-    // Documented defaults (Error_Correction.md §3.1).
-    private const int DefaultKmerSize = 15;
-    private const int DefaultMinKmerFrequency = 2;
-
     private static readonly char[] DnaUpper = { 'A', 'C', 'G', 'T' };
 
     #region Helpers

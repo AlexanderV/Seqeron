@@ -1,8 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using Seqeron.Genomics.Infrastructure;
 
 namespace Seqeron.Genomics.Metagenomics;
 
@@ -1115,8 +1111,8 @@ public static class MetagenomicsAnalyzer
         IEnumerable<(string GeneId, string ProteinSequence)> proteins,
         IReadOnlyDictionary<string, (string Function, string Pathway, string Ko)> functionDatabase)
     {
-        if (proteins is null) throw new ArgumentNullException(nameof(proteins));
-        if (functionDatabase is null) throw new ArgumentNullException(nameof(functionDatabase));
+        ArgumentNullException.ThrowIfNull(proteins);
+        ArgumentNullException.ThrowIfNull(functionDatabase);
 
         return Iterate();
 
@@ -1235,8 +1231,8 @@ public static class MetagenomicsAnalyzer
         IReadOnlyDictionary<string, IReadOnlyCollection<string>> pathwayDatabase,
         IEnumerable<string>? backgroundGenes = null)
     {
-        if (queryGenes is null) throw new ArgumentNullException(nameof(queryGenes));
-        if (pathwayDatabase is null) throw new ArgumentNullException(nameof(pathwayDatabase));
+        ArgumentNullException.ThrowIfNull(queryGenes);
+        ArgumentNullException.ThrowIfNull(pathwayDatabase);
 
         var query = new HashSet<string>(queryGenes, StringComparer.Ordinal);
 
@@ -1447,8 +1443,8 @@ public static class MetagenomicsAnalyzer
         double identityThreshold = DefaultResistanceIdentityThreshold,
         double coverageThreshold = DefaultResistanceCoverageThreshold)
     {
-        if (contigs is null) throw new ArgumentNullException(nameof(contigs));
-        if (referenceGenes is null) throw new ArgumentNullException(nameof(referenceGenes));
+        ArgumentNullException.ThrowIfNull(contigs);
+        ArgumentNullException.ThrowIfNull(referenceGenes);
         if (identityThreshold < 0.0 || identityThreshold > 1.0)
             throw new ArgumentOutOfRangeException(nameof(identityThreshold), identityThreshold, "Identity threshold must be in [0, 1].");
         if (coverageThreshold < 0.0 || coverageThreshold > 1.0)

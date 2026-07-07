@@ -4,11 +4,6 @@
 // Source: Abkevich V et al. (2012). Br J Cancer 107(10):1776–1782 (PMID 23047548).
 //         scarHRD calc.hrd: LOH = minor==0 & major!=0; length > 15e6; whole-chromosome LOH excluded.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Oncology;
 using Segment = Seqeron.Genomics.Oncology.OncologyAnalyzer.AlleleSpecificSegment;
 
 namespace Seqeron.Genomics.Tests.Unit.Oncology;

@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Text.Json.Serialization;
 using Seqeron.Genomics.Chromosome;
 using Seqeron.Mcp.Chromosome.Models;

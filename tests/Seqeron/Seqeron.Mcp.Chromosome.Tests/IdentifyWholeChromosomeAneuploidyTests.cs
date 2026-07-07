@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using NUnit.Framework;
 using Seqeron.Mcp.Chromosome.Tools;
 using SourceCa = Seqeron.Genomics.Chromosome.ChromosomeAnalyzer;

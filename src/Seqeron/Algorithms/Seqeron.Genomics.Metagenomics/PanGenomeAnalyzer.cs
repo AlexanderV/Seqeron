@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 
 namespace Seqeron.Genomics.Metagenomics;
@@ -410,9 +407,9 @@ public static class PanGenomeAnalyzer
         {
             foreach (var genomeId in cluster.GenomeIds)
             {
-                if (genomeToClusterIds.ContainsKey(genomeId))
+                if (genomeToClusterIds.TryGetValue(genomeId, out HashSet<string>? value))
                 {
-                    genomeToClusterIds[genomeId].Add(cluster.ClusterId);
+                    value.Add(cluster.ClusterId);
                 }
             }
         }
@@ -882,10 +879,10 @@ public static class PanGenomeAnalyzer
 
         foreach (var cluster in uniqueClusters)
         {
-            var genomeId = cluster.GenomeIds.First();
-            if (genomeToUnique.ContainsKey(genomeId))
+            var genomeId = cluster.GenomeIds[0];
+            if (genomeToUnique.TryGetValue(genomeId, out List<string>? value))
             {
-                genomeToUnique[genomeId].Add(cluster.ClusterId);
+                value.Add(cluster.ClusterId);
             }
         }
 

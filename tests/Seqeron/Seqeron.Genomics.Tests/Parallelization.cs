@@ -1,5 +1,3 @@
-using NUnit.Framework;
-
 // Tier 1: Enable parallel test execution for stateless test fixtures.
 // All static algorithm methods (MotifFinder, DisorderPredictor, SequenceAligner, etc.)
 // have no shared mutable state, so tests can safely run in parallel.

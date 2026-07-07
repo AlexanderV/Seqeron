@@ -5,12 +5,6 @@
 //         https://pmc.ncbi.nlm.nih.gov/articles/PMC3326336
 //         MatchScore=50, GapPenalty=-1, NumberofGaps<25, min 5 collinear pairs / score 250.
 
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]
@@ -20,9 +14,6 @@ public class ComparativeGenomics_FindSyntenicBlocks_Tests
 
     private static ComparativeGenomics.Gene G1(int idx, char strand = '+')
         => new($"g{idx}", "genome1", idx * 100, idx * 100 + 50, strand);
-
-    private static ComparativeGenomics.Gene G2(int idx, char strand = '+')
-        => new($"h{idx}", "genome2", idx * 100, idx * 100 + 50, strand);
 
     // Build n genome-1 genes g0..g(n-1) in order.
     private static List<ComparativeGenomics.Gene> Genome1(int n)

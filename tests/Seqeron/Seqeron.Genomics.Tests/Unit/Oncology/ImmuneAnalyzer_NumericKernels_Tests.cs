@@ -6,10 +6,6 @@
 // exposed internal (Seqeron.Genomics.Tests via IVT) and asserted against CLOSED-FORM expected values
 // derived by hand (independent of the implementation), so a mutated index/operator diverges -> killed.
 
-using System;
-using NUnit.Framework;
-using Seqeron.Genomics.Oncology;
-
 namespace Seqeron.Genomics.Tests.Unit.Oncology;
 
 [TestFixture]

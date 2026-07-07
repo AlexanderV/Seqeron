@@ -4,9 +4,6 @@
 // Source: Jaccard P. (1901). Bull. Soc. Vaudoise Sci. Nat. 37(142):547–579 (J=|A∩B|/|A∪B|);
 //         Ondov et al. (2016). Genome Biology 17:132 (k-mer-set Jaccard). DOI: 10.1186/s13059-016-0997-x.
 
-using System;
-using NUnit.Framework;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

@@ -8,9 +8,6 @@
 // Expected values are derived independently from the formula by hand (see Evidence §Test Datasets),
 // NOT from the implementation output. A wrong divisor (e.g. L−3) would FAIL these tests.
 
-using NUnit.Framework;
-using System;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

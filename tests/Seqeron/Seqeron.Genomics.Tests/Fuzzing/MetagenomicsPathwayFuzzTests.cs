@@ -1,10 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Metagenomics;
-
 namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
@@ -190,7 +183,7 @@ public class MetagenomicsPathwayFuzzTests
         var results = MetagenomicsAnalyzer.FindPathwayEnrichment(query, pathways, background);
 
         results.Select(r => r.PValue).Should().BeInAscendingOrder("INV-05: ranked by significance");
-        results.First().Pathway.Should().Be("enriched", "the fully-overlapping pathway is most significant");
+        results[0].Pathway.Should().Be("enriched", "the fully-overlapping pathway is most significant");
         results.Should().OnlyContain(r => r.PValue >= 0.0 && r.PValue <= 1.0, "INV-01");
     }
 

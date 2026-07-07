@@ -2,10 +2,6 @@
 // classification, and a manual exact-repeat telomere run count. (Rows 49/51/52 — centromere/aneuploidy/
 // synteny — are deferred: large-window scans / loose "correlated" comparisons.)
 
-using System;
-using NUnit.Framework;
-using Seqeron.Genomics.Chromosome;
-
 namespace Seqeron.Genomics.Tests.Differential;
 
 [TestFixture]

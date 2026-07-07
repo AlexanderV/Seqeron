@@ -5,12 +5,6 @@
 //         Tannier E, Zheng C, Sankoff D (2009) breakpoint distance (PMC3887456).
 //         Hunter College CompBio Lecture 16 (worked example b(alpha)=6; criterion y != x+1).
 
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

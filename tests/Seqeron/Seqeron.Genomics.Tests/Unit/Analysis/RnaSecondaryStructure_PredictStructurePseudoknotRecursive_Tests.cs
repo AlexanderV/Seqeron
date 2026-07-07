@@ -6,11 +6,6 @@
 //         Giegerich R (2007). NAR 35:W320 (pseudoknot value competes with unknotted foldings per
 //         interval); Antczak M et al. (2018). Bioinformatics 34(8):1304-1312 (crossing i<k<j<l).
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
 using static Seqeron.Genomics.Analysis.RnaSecondaryStructure;
 
 namespace Seqeron.Genomics.Tests.Unit.Analysis;

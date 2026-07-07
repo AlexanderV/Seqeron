@@ -8,12 +8,6 @@
 //         Reeder & Giegerich (2004) BMC Bioinformatics 5:104; Reeder, Steffen & Giegerich (2007)
 //         NAR 35:W320; Turner 2004 NN; Antczak et al. (2018) Bioinformatics 34(8):1304.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Analysis;
 using static Seqeron.Genomics.Analysis.RnaSecondaryStructure;
 
 namespace Seqeron.Genomics.Tests.Fuzzing;

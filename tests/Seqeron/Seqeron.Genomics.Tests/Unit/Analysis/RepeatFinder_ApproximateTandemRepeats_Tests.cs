@@ -7,10 +7,6 @@
 // All expected statistics are hand-derived from the TRF alignment model with the recommended scoring
 // (match +2, mismatch -7, indel -7) and read off the alignment columns. See TestSpec §9.3.
 
-using System;
-using System.Linq;
-using NUnit.Framework;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

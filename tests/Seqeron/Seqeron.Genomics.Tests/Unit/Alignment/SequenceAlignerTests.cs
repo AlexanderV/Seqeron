@@ -1,9 +1,3 @@
-using System;
-using NUnit.Framework;
-using Seqeron.Genomics;
-using Seqeron.Genomics.Infrastructure;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.Alignment;
 
 [TestFixture]

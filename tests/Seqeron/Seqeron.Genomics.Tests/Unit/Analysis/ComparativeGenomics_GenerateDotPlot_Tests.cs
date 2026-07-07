@@ -8,12 +8,6 @@
 // sequence2[y] (dottup). Expected coordinate sets below are derived by hand from that match rule
 // and the published worked example (AGCGT vs AT, k=1 => {(0,0),(4,1)}), NOT read back from the code.
 
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

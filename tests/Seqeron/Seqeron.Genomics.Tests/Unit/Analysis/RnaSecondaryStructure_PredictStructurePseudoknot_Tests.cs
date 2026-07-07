@@ -7,11 +7,6 @@
 //         Bioinformatics 34(8):1304-1312 (crossing condition i<k<j<l); PDB 437D / Su et al. (1999)
 //         (BWYV H-type pseudoknot, tertiary-stabilised — not the NN-thermodynamic MFE).
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
 using static Seqeron.Genomics.Analysis.RnaSecondaryStructure;
 
 namespace Seqeron.Genomics.Tests.Unit.Analysis;

@@ -3,12 +3,6 @@
 // Jaccard beta-diversity formulas, each cross-checked against identity/disjoint anchors. (Rows 53/54/57 —
 // classification / profiling / binning — are deferred: loose "correlated" comparisons.)
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Metagenomics;
-
 namespace Seqeron.Genomics.Tests.Differential;
 
 [TestFixture]

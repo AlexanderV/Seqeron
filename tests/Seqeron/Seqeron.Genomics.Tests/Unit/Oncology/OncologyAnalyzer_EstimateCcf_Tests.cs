@@ -10,10 +10,6 @@
 // copied from the implementation. Cluster centroids/assignments are derived from Lloyd's k-means on
 // the sorted values; the clonal cluster is the highest centroid (Tarabichi 2021).
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.Oncology;
 
 [TestFixture]

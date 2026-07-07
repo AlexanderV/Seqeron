@@ -1,9 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Annotation;
 using static Seqeron.Genomics.Annotation.StructuralVariantAnalyzer;
 
 namespace Seqeron.Genomics.Tests.Fuzzing;
@@ -127,7 +121,7 @@ public sealed class StructuralVariantDetectionFuzzTests
             sv.SupportingReads.Should().BeGreaterThan(0, "a cluster has at least one member");
 
             sv.Length.Should().BeGreaterThanOrEqualTo(0, "Length = |End − Start| is non-negative (§3.2)");
-            Enum.IsDefined(typeof(SVType), sv.Type).Should().BeTrue("type is a defined SVType (§3.2)");
+            Enum.IsDefined(sv.Type).Should().BeTrue("type is a defined SVType (§3.2)");
 
             double.IsNaN(sv.Quality).Should().BeFalse("quality is a finite score");
             double.IsInfinity(sv.Quality).Should().BeFalse("quality is a finite score");

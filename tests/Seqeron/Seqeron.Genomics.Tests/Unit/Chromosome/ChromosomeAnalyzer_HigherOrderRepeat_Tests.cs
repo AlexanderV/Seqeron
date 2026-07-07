@@ -10,11 +10,6 @@
 //   Inter-HOR <5% divergence: Rosandić et al. (2024, PMC11050224); Alkan et al. (2007).
 //   Monomer 171 bp: Willard HF (1985); review PMC6121732.
 
-using NUnit.Framework;
-using Seqeron.Genomics.Chromosome;
-using System;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.Chromosome;
 
 /// <summary>

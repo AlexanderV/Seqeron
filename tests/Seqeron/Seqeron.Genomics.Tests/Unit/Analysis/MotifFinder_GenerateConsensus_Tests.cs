@@ -6,10 +6,6 @@
 //         UCSC IUPAC ambiguity codes; Wikipedia "Nucleic acid notation" (NC-IUB 1984 table);
 //         DECIPHER ConsensusSequence (threshold-consensus mechanism).
 
-using System;
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 /// <summary>

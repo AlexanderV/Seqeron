@@ -5,10 +5,6 @@
 //         TETRA. BMC Bioinformatics 5:163. doi:10.1186/1471-2105-5-163
 //         Teeling H et al. (2004). Environ Microbiol 6(9):938–947. doi:10.1111/j.1462-2920.2004.00624.x
 //         Schbath S (1997). J Comput Biol 4(2):189–192 (variance approximation).
-using NUnit.Framework;
-using Seqeron.Genomics.Metagenomics;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.Metagenomics;
 
 /// <summary>

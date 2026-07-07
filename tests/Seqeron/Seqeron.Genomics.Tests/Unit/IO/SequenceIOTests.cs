@@ -1,10 +1,3 @@
-using NUnit.Framework;
-using Seqeron.Genomics;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.IO;
 
 [TestFixture]
@@ -535,7 +528,7 @@ Seq3      TTTTTTTTTT
         using var reader = new StringReader(SampleClustal);
         var sequences = SequenceIO.ParseClustal(reader).ToList();
 
-        Assert.That(sequences.All(s => !s.Sequence.Contains("*")));
+        Assert.That(sequences.All(s => !s.Sequence.Contains('*')));
     }
 
     #endregion

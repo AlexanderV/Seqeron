@@ -6,9 +6,6 @@
 // Spec: H = -Σ p_i·log₂(p_i) over the N = L-k+1 overlapping k-mers, p_i = count_i / N (bits).
 // Expected values are derived independently from the formula, NOT from the implementation.
 
-using NUnit.Framework;
-using System;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

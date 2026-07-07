@@ -2,13 +2,6 @@
 // complement base table, a non-overlapping triplet codon-frequency scan, and a manual Shannon k-mer
 // entropy.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-using Seqeron.Genomics.Core;
-
 namespace Seqeron.Genomics.Tests.Differential;
 
 [TestFixture]

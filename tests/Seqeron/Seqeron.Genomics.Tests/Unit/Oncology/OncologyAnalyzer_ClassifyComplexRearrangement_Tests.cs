@@ -5,10 +5,6 @@
 //         Cortés-Ciriano I et al. (2020). Nat Genet 52:331-341. doi:10.1038/s41588-019-0576-7
 //         Magrangeas F et al. (2011). Blood 118(3):675-678 (>=10 oscillating-CN-change screen).
 
-using System;
-using System.Collections.Generic;
-using NUnit.Framework;
-using Seqeron.Genomics.Oncology;
 using Type = Seqeron.Genomics.Oncology.OncologyAnalyzer.ComplexRearrangementType;
 using Confidence = Seqeron.Genomics.Oncology.OncologyAnalyzer.ChromothripsisConfidence;
 using Input = Seqeron.Genomics.Oncology.OncologyAnalyzer.ComplexRearrangementInput;

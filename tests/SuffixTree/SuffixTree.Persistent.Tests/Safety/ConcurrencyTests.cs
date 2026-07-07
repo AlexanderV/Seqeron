@@ -1,12 +1,4 @@
-using System;
 using System.Collections.Concurrent;
-using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using NUnit.Framework;
-using SuffixTree;
-using SuffixTree.Persistent;
 
 namespace SuffixTree.Persistent.Tests.Safety
 {

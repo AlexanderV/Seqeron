@@ -7,11 +7,6 @@
 //         Bolstad BM et al. (2003). Bioinformatics 19(2):185-193 (quantile normalization,
 //         worked example via Wikipedia "Quantile normalization").
 
-using NUnit.Framework;
-using System.Collections.Generic;
-using System.Linq;
-using Seqeron.Genomics.Annotation;
-
 namespace Seqeron.Genomics.Tests.Unit.Annotation;
 
 [TestFixture]

@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
 using static Seqeron.Genomics.IO.QualityScoreAnalyzer;
 using QualityEncoding = Seqeron.Genomics.IO.QualityScoreAnalyzer.QualityEncoding;
 

@@ -1,12 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Analysis;
-using Seqeron.Genomics.Metagenomics;
-
 namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>

@@ -10,8 +10,6 @@
 // The intercept (CoefficientTraining[1]) is HorvathMultiTissueIntercept; the 353 CpG weights
 // (CoefficientTraining[-1]) follow, in the original supplement row order.
 
-using System.Collections.Generic;
-
 namespace Seqeron.Genomics.Annotation;
 
 public static partial class EpigeneticsAnalyzer

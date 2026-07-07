@@ -11,12 +11,6 @@
 //     retrieved 2026-06-25 from the Dfam REST API. ALRb carries the 17-bp CENP-B box at consensus
 //     position 126; ALR/ALRa do not. (Masumoto et al. 1989 for the CENP-B box.)
 
-using NUnit.Framework;
-using Seqeron.Genomics.Chromosome;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.Chromosome;
 
 /// <summary>

@@ -1,8 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using Seqeron.Genomics.Infrastructure;
 
 namespace Seqeron.Genomics.MolTools;
 
@@ -848,7 +844,7 @@ public static class PrimerDesigner
         // Left (5'-side) dangling end.
         if (ts[0] == '.' || tc[0] == '.')
         {
-            string leftDe = ts.Substring(0, 2) + "/" + tc.Substring(0, 2);
+            string leftDe = string.Concat(ts.AsSpan(0, 2), "/", tc.AsSpan(0, 2));
             if (!NnDanglingEnd.TryGetValue(leftDe, out var ld))
                 return null;
             dH += ld.DeltaH; dS += ld.DeltaS;
@@ -868,7 +864,7 @@ public static class PrimerDesigner
         // Nearest-neighbour stack over the paired region (Watson-Crick or internal mismatch).
         for (int i = 0; i < ts.Length - 1; i++)
         {
-            string key = ts.Substring(i, 2) + "/" + tc.Substring(i, 2);
+            string key = string.Concat(ts.AsSpan(i, 2), "/", tc.AsSpan(i, 2));
             if (!TryNnOrMismatch(key, out var p))
                 return null;
             dH += p.DeltaH; dS += p.DeltaS;

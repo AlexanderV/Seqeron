@@ -1,5 +1,3 @@
-using System.Linq;
-using NUnit.Framework;
 using static Seqeron.Genomics.IO.QualityScoreAnalyzer;
 using QualityEncoding = Seqeron.Genomics.IO.QualityScoreAnalyzer.QualityEncoding;
 using FastqRecord = Seqeron.Genomics.IO.QualityScoreAnalyzer.FastqRecord;

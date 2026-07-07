@@ -7,11 +7,6 @@
 //         Antonello et al. (2024). Genome Biology 25:38 (clonal het diploid: tumour fraction = 2 * VAF).
 //         Pessoa et al. (2023) PMC10314661 (n=15000, d=0.001 => 15 mutant molecules).
 
-using System;
-using System.Collections.Generic;
-using NUnit.Framework;
-using Seqeron.Genomics.Oncology;
-
 namespace Seqeron.Genomics.Tests.Unit.Oncology;
 
 [TestFixture]

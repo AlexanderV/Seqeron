@@ -6,10 +6,6 @@
 //         Tattini L et al. (2015) Front Bioeng Biotechnol 3:92, doi:10.3389/fbioe.2015.00092 (split-read signature; single-base resolution);
 //         SAM/BAM Format Specification (samtools/hts-specs) — POS is contig-local; S consumes query not reference.
 
-using System;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Annotation;
 using static Seqeron.Genomics.Annotation.StructuralVariantAnalyzer;
 
 namespace Seqeron.Genomics.Tests.Unit.Annotation;

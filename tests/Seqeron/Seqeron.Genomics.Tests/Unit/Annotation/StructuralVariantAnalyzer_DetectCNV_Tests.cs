@@ -7,10 +7,6 @@
 //         (diploid: CN = 2 * 2^log2; log2(1/2)=-1.0, log2(3/2)=0.585), Talevich et al. (2016)
 //         PLoS Comput Biol 12(4):e1004873, doi:10.1371/journal.pcbi.1004873.
 
-using System;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Annotation;
 using static Seqeron.Genomics.Annotation.StructuralVariantAnalyzer;
 
 namespace Seqeron.Genomics.Tests.Unit.Annotation;

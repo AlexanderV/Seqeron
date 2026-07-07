@@ -1,10 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Metagenomics;
-
 namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
@@ -100,8 +93,6 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 [Category("Fuzzing")]
 public class MetagenomicsResistanceFuzzTests
 {
-    private const double DefaultIdThr = 0.90;   // INV-05 — ResFinder %ID default.
-    private const double DefaultCovThr = 0.60;  // INV-05 — ResFinder coverage default.
 
     // A single reference DB entry used by the worked examples (§7.1).
     private static (string GeneId, string Sequence, string Name, string AntibioticClass)[] BlaXDb() =>

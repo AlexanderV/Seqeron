@@ -1,7 +1,3 @@
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Chromosome;
-
 namespace Seqeron.Genomics.Tests.Mutation;
 
 /// <summary>

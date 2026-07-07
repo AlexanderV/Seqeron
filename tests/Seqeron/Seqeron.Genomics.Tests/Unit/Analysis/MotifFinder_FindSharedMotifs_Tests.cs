@@ -6,12 +6,6 @@
 //         (word-enumeration family, exact matching, quorum across sequences);
 //         van Helden, Andre, Collado-Vides (1998) J Mol Biol 281(5):827-842.
 
-using System;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-using Seqeron.Genomics.Core;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 /// <summary>

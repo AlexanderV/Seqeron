@@ -8,9 +8,6 @@
 //   Owczarzy R et al. (2008). Biochemistry 47:5336-53 — divalent Mg²⁺ correction.
 //   Biopython Bio.SeqUtils.MeltingTemp (DNA_NN4, salt_correction methods 6/7) — reference impl.
 
-using NUnit.Framework;
-using Seqeron.Genomics.MolTools;
-
 namespace Seqeron.Genomics.Tests.Unit.MolTools;
 
 /// <summary>

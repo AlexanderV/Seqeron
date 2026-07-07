@@ -1,10 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Analysis;
 
 namespace Seqeron.Genomics.Tests.Fuzzing;
 
@@ -285,7 +279,7 @@ public class SequenceIsoelectricPointFuzzTests
         {
             double pi = SequenceStatistics.CalculateIsoelectricPoint(seq);
             pi.Should().BeApproximately(6.10, 0.02,
-                $"'{(seq.Length > 20 ? seq.Substring(0, 20) + "…" : seq)}' has only termini ⇒ pI = (8.6+3.6)/2 = 6.10 (INV-04)");
+                $"'{(seq.Length > 20 ? string.Concat(seq.AsSpan(0, 20), "…") : seq)}' has only termini ⇒ pI = (8.6+3.6)/2 = 6.10 (INV-04)");
             Math.Abs(NetChargeOracle(seq, pi)).Should().BeLessThan(0.05,
                 "net charge at the termini-only pI must be ≈ 0");
             AssertWellFormed(pi);
@@ -335,7 +329,7 @@ public class SequenceIsoelectricPointFuzzTests
 
             AssertWellFormed(pi);                 // INV-01: pI ≥ 0, finite, no hang
             pi.Should().BeLessThan(7.0,
-                $"all-acidic '{(seq.Length > 12 ? seq.Substring(0, 12) + "…" : seq)}' ⇒ pI well below neutral");
+                $"all-acidic '{(seq.Length > 12 ? string.Concat(seq.AsSpan(0, 12), "…") : seq)}' ⇒ pI well below neutral");
             pi.Should().BeGreaterThanOrEqualTo(MinPh,
                 "INV-01: pI is clamped to the lower bound 0, never escaping below");
         }
@@ -383,7 +377,7 @@ public class SequenceIsoelectricPointFuzzTests
 
             AssertWellFormed(pi);                 // INV-01: pI ≤ 14, finite, no hang
             pi.Should().BeGreaterThan(7.0,
-                $"all-basic '{(seq.Length > 12 ? seq.Substring(0, 12) + "…" : seq)}' ⇒ pI well above neutral");
+                $"all-basic '{(seq.Length > 12 ? string.Concat(seq.AsSpan(0, 12), "…") : seq)}' ⇒ pI well above neutral");
             pi.Should().BeLessThanOrEqualTo(MaxPh,
                 "INV-01: pI is clamped to the upper bound 14, never escaping above");
         }

@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 
 namespace Seqeron.Genomics.Annotation;
@@ -454,9 +451,9 @@ public static partial class EpigeneticsAnalyzer
             {
                 int refPos = startPos + i;
 
-                if (siteData.ContainsKey(refPos))
+                if (siteData.TryGetValue(refPos, out (int Methylated, int Total) value))
                 {
-                    var (meth, total) = siteData[refPos];
+                    var (meth, total) = value;
 
                     // C in read at CpG site means methylated (protected from conversion)
                     // T in read means unmethylated (C converted to T)
@@ -1173,10 +1170,8 @@ public static partial class EpigeneticsAnalyzer
         IReadOnlyDictionary<string, double> coefficients,
         double intercept = 0.0)
     {
-        if (methylationAtClockCpGs == null)
-            throw new ArgumentNullException(nameof(methylationAtClockCpGs));
-        if (coefficients == null)
-            throw new ArgumentNullException(nameof(coefficients));
+        ArgumentNullException.ThrowIfNull(methylationAtClockCpGs);
+        ArgumentNullException.ThrowIfNull(coefficients);
         if (coefficients.Count == 0)
             throw new ArgumentException("Clock coefficient table cannot be empty.", nameof(coefficients));
 
@@ -1280,10 +1275,8 @@ public static partial class EpigeneticsAnalyzer
         IReadOnlyDictionary<string, double> coefficients,
         double intercept = 0.0)
     {
-        if (methylationAtClockCpGs == null)
-            throw new ArgumentNullException(nameof(methylationAtClockCpGs));
-        if (coefficients == null)
-            throw new ArgumentNullException(nameof(coefficients));
+        ArgumentNullException.ThrowIfNull(methylationAtClockCpGs);
+        ArgumentNullException.ThrowIfNull(coefficients);
         if (coefficients.Count == 0)
             throw new ArgumentException("Clock coefficient table cannot be empty.", nameof(coefficients));
 

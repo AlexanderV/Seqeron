@@ -6,10 +6,6 @@
 //         DendroPy Tree.length() ("sum of edge lengths of self");
 //         Rzhetsky A, Nei M (1992) via Wikipedia "Minimum evolution" (total branch length).
 
-using NUnit.Framework;
-using Seqeron.Genomics.Phylogenetics;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.Phylogenetics;
 
 /// <summary>

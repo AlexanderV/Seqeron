@@ -1,6 +1,3 @@
-using NUnit.Framework;
-using Seqeron.Genomics.MolTools;
-
 namespace Seqeron.Genomics.Tests.Unit.MolTools;
 
 /// <summary>

@@ -1,8 +1,3 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
-using NUnit.Framework;
-
 namespace Seqeron.Genomics.Tests.Unit.Core;
 
 /// <summary>

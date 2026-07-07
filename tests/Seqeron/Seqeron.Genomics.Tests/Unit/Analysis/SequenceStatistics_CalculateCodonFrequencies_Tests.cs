@@ -5,9 +5,6 @@
 //         Kazusa Codon Usage Database (CUTG) README, https://www.kazusa.or.jp/codon/readme_codon.html.
 //         EMBOSS cusp documentation, https://emboss.sourceforge.net/apps/cvs/emboss/apps/cusp.html.
 
-using System.Linq;
-using Seqeron.Genomics.Analysis;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

@@ -5,10 +5,6 @@
 //         Wikipedia, Consensus sequence (most-frequent residue per column).
 //         Los Alamos HIV Database, Advanced Consensus (alphabetical tie-break).
 
-using System;
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 /// <summary>

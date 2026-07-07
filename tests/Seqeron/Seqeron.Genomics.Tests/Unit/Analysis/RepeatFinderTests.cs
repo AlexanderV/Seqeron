@@ -1,6 +1,3 @@
-using NUnit.Framework;
-using Seqeron.Genomics;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 /// <summary>

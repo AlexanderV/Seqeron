@@ -4,13 +4,7 @@
 // palindrome test. The reverse complement used by the oracles is computed from a literal IUPAC table,
 // not from DnaSequence.GetReverseComplementString.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text.RegularExpressions;
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-using Seqeron.Genomics.Core;
 
 namespace Seqeron.Genomics.Tests.Differential;
 

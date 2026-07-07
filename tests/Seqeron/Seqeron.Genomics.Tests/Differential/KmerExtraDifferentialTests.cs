@@ -3,12 +3,6 @@
 // naive position scan, manual composition stats, and the count==1 unique set. Counts use a sorted-array
 // run count (different data structure than the production hash map).
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-
 namespace Seqeron.Genomics.Tests.Differential;
 
 [TestFixture]

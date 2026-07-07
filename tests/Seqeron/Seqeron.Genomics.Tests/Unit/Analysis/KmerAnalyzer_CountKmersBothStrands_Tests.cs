@@ -6,12 +6,6 @@
 //         symmetry (count[w] = forward[w] + forward[RC(w)]); Marçais G & Kingsford C (2011),
 //         Bioinformatics 27(6):764–770 (k-mer window count, total = 2·(L−k+1)).
 
-using NUnit.Framework;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using Seqeron.Genomics.Core;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 /// <summary>

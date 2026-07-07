@@ -1,5 +1,3 @@
-using NUnit.Framework;
-using Seqeron.Genomics.Annotation;
 using static Seqeron.Genomics.Annotation.SpliceSitePredictor;
 
 namespace Seqeron.Genomics.Tests.Unit.Annotation;
@@ -26,7 +24,7 @@ public class SpliceSitePredictor_GeneStructure_Tests
     private const string Acceptor = "CAG";
     private const string Exon2 = "GCCUUUAAAGGGCCCUUUAAAGGGCCCUUUAAAGC"; // 35 nt
 
-    private static readonly string TwoExonSequence =
+    private const string TwoExonSequence =
         Exon1 + Donor + IntronBody + Ppt + Acceptor + Exon2;
 
     // IntronPart used for reference calculations
@@ -481,7 +479,7 @@ public class SpliceSitePredictor_GeneStructure_Tests
     private const string MidRegion40 =
         "GCCUUUAAAGGGCCCUUUAAAGGGCCCUUUAAAGCAUGCC"; // 40 nt
 
-    private static readonly string TwoIntronSequence =
+    private const string TwoIntronSequence =
         FlankExon50 + Intron83 + MidRegion40 + Intron83 + FlankExon50;
 
     private static void AssertSplicedConsistency(GeneStructure structure)

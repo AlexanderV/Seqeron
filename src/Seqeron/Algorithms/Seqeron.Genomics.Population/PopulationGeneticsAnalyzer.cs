@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using Seqeron.Genomics.Infrastructure;
-
 namespace Seqeron.Genomics.Population;
 
 /// <summary>
@@ -972,8 +967,7 @@ public static class PopulationGeneticsAnalyzer
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="extendedHaplotypes"/> is null.</exception>
     public static double CalculateEhh(IReadOnlyList<string> extendedHaplotypes)
     {
-        if (extendedHaplotypes is null)
-            throw new ArgumentNullException(nameof(extendedHaplotypes));
+        ArgumentNullException.ThrowIfNull(extendedHaplotypes);
 
         int nc = extendedHaplotypes.Count;
         if (nc == 0)
@@ -1018,10 +1012,8 @@ public static class PopulationGeneticsAnalyzer
         IReadOnlyList<int> positions,
         int coreIndex)
     {
-        if (haplotypes is null)
-            throw new ArgumentNullException(nameof(haplotypes));
-        if (positions is null)
-            throw new ArgumentNullException(nameof(positions));
+        ArgumentNullException.ThrowIfNull(haplotypes);
+        ArgumentNullException.ThrowIfNull(positions);
         if (haplotypes.Count == 0)
             throw new ArgumentException("At least one haplotype is required.", nameof(haplotypes));
         if (coreIndex < 0 || coreIndex >= positions.Count)
@@ -1079,8 +1071,7 @@ public static class PopulationGeneticsAnalyzer
         IReadOnlyList<(double Unstandardized, double DerivedAlleleFrequency)> scores,
         int binCount = 20)
     {
-        if (scores is null)
-            throw new ArgumentNullException(nameof(scores));
+        ArgumentNullException.ThrowIfNull(scores);
         if (binCount < 1)
             throw new ArgumentOutOfRangeException(nameof(binCount), binCount, "Bin count must be at least 1.");
 
@@ -1137,8 +1128,7 @@ public static class PopulationGeneticsAnalyzer
         IReadOnlyList<double> standardizedScores,
         int windowSize = 50)
     {
-        if (standardizedScores is null)
-            throw new ArgumentNullException(nameof(standardizedScores));
+        ArgumentNullException.ThrowIfNull(standardizedScores);
         if (windowSize < 1)
             throw new ArgumentOutOfRangeException(nameof(windowSize), windowSize, "Window size must be at least 1.");
 
@@ -1442,8 +1432,7 @@ public static class PopulationGeneticsAnalyzer
         IEnumerable<(int Start, int End)> rohSegments,
         int genomeLength)
     {
-        if (rohSegments is null)
-            throw new ArgumentNullException(nameof(rohSegments));
+        ArgumentNullException.ThrowIfNull(rohSegments);
 
         if (genomeLength <= 0)
             return 0;
@@ -1489,8 +1478,7 @@ public static class PopulationGeneticsAnalyzer
         int maxHeterozygotes = DefaultRohMaxHeterozygotes,
         int maxGap = DefaultRohMaxGapBp)
     {
-        if (genotypes is null)
-            throw new ArgumentNullException(nameof(genotypes));
+        ArgumentNullException.ThrowIfNull(genotypes);
         if (minSnps < 1)
             throw new ArgumentOutOfRangeException(nameof(minSnps), minSnps, "Minimum SNP count must be at least 1.");
         if (minLength < 0)

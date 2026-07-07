@@ -2,14 +2,6 @@
 // a different algorithm: String.IndexOf scan, brute char-by-char Hamming, recursive-memoized Levenshtein,
 // a dictionary IUPAC membership table, and a dictionary-indexed PWM scan.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Alignment;
-using Seqeron.Genomics.Analysis;
-using Seqeron.Genomics.Core;
-
 namespace Seqeron.Genomics.Tests.Differential;
 
 [TestFixture]

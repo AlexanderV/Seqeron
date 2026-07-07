@@ -2,13 +2,6 @@
 // table, a majority-vote consensus, a threshold-IUPAC consensus, and a brute-force minimum-Hamming best
 // match.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Alignment;
-using Seqeron.Genomics.Analysis;
-
 namespace Seqeron.Genomics.Tests.Differential;
 
 [TestFixture]
@@ -81,7 +74,7 @@ public class MatchingRnaDifferentialTests
         for (int col = 0; col < len; col++)
         {
             var counts = new Dictionary<char, int> { ['A'] = 0, ['C'] = 0, ['G'] = 0, ['T'] = 0 };
-            foreach (var s in seqs) if (counts.ContainsKey(s[col])) counts[s[col]]++;
+            foreach (var s in seqs) if (counts.TryGetValue(s[col], out int value)) counts[s[col]] = ++value;
             var present = counts.Where(kv => kv.Value > threshold).Select(kv => kv.Key).OrderBy(c => c).ToList();
             if (present.Count == 0) sb.Append(counts.MaxBy(kv => kv.Value).Key);
             else sb.Append(Iupac.GetValueOrDefault(string.Concat(present), 'N'));

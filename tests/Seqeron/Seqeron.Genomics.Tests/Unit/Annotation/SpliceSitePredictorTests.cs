@@ -1,6 +1,3 @@
-using NUnit.Framework;
-using Seqeron.Genomics;
-using Seqeron.Genomics.Annotation;
 using static Seqeron.Genomics.Annotation.SpliceSitePredictor;
 
 namespace Seqeron.Genomics.Tests.Unit.Annotation;
@@ -59,7 +56,7 @@ public class SpliceSitePredictorTests
         string sequence = "AUGGUAAGUAAAGUAAGUCCCCUUUUUUUUUUUUUCAGG";
         var events = DetectAlternativeSplicing(sequence, minScore: 0.2).ToList();
 
-        Assert.That(events.Any(), Is.True.Or.False);
+        Assert.That(events.Count != 0, Is.True.Or.False);
     }
 
     [Test]

@@ -1,6 +1,3 @@
-using System.Linq;
-using NUnit.Framework;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

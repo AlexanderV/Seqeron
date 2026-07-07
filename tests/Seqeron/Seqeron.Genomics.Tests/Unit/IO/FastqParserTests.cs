@@ -1,10 +1,3 @@
-using NUnit.Framework;
-using Seqeron.Genomics.IO;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.IO;
 
 /// <summary>
@@ -38,12 +31,6 @@ IIIIIIIIIIII
 ACGTACGTACGT
 +
 ~~~~~~~~~~~~";
-
-    private const string Phred64Fastq = @"@read1
-ACGT
-+
-hhhh";
-
     private const string HighQualityFastq = @"@high_quality
 ACGTACGT
 +

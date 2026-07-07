@@ -1,7 +1,5 @@
-using System.Linq;
 using FsCheck;
 using FsCheck.Fluent;
-using FsCheck.NUnit;
 
 namespace Seqeron.Genomics.Tests.Algebraic;
 

@@ -10,8 +10,6 @@
 //   directly (a linear predictor already in years). Source: Levine et al. (2018), Methods —
 //   "DNAm PhenoAge = intercept + CpG1×β1 + CpG2×β2 + … CpG513×β513".
 
-using System.Collections.Generic;
-
 namespace Seqeron.Genomics.Annotation;
 
 public static partial class EpigeneticsAnalyzer

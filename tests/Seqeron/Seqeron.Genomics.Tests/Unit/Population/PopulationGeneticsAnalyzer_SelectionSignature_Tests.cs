@@ -5,11 +5,6 @@
 //         Sabeti PC et al. (2002). Nature 419:832-837.
 //         Szpiech ZA, Hernandez RD (2014). selscan. Mol Biol Evol 31(10):2824.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-
 namespace Seqeron.Genomics.Tests.Unit.Population;
 
 [TestFixture]

@@ -1,6 +1,5 @@
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Jobs;
-using Seqeron.Genomics;
 
 namespace SuffixTree.Benchmarks;
 
@@ -194,7 +193,7 @@ public class SuffixTreeBenchmarks
 
     [Benchmark]
     [BenchmarkCategory("LCS")]
-    public string LCS_DNA() => _dnaTree.LongestCommonSubstring(_dnaText.Substring(10000, 100));
+    public string LCS_DNA() => _dnaTree.LongestCommonSubstring(_dnaText.AsSpan(10000, 100));
 
     #endregion
 

@@ -1,5 +1,3 @@
-using NUnit.Framework;
-
 namespace Seqeron.Genomics.Tests.Unit.Alignment;
 
 /// <summary>

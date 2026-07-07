@@ -6,8 +6,6 @@
 //         Carter et al. (2012). ABSOLUTE. Nat Biotechnol 30(5):413-421. https://doi.org/10.1038/nbt.2203
 //         Shen & Seshan (2016). FACETS. NAR 44(16):e131. https://doi.org/10.1093/nar/gkw520
 
-using System;
-
 namespace Seqeron.Genomics.Tests.Unit.Oncology;
 
 [TestFixture]

@@ -5,10 +5,6 @@
 // re-converge under an internal index mutation, so the parsers/geometry mutants survive. They are
 // asserted against hand-derived expected values (independent of the implementation).
 
-using System;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Annotation;
 using static Seqeron.Genomics.Annotation.MiRnaAnalyzer;
 
 namespace Seqeron.Genomics.Tests.Unit.Annotation;

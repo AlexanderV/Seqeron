@@ -5,12 +5,6 @@
 //         Peden JF (1999). CodonW thesis §1.8.2.1.3 (GC3s);
 //         Biopython v1.79 SharpEcoliIndex (E. coli w); Kazusa H. sapiens (human RSCU).
 
-using System;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics;
-using Seqeron.Genomics.MolTools;
-
 namespace Seqeron.Genomics.Tests.Unit.MolTools;
 
 [TestFixture]

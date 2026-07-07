@@ -12,7 +12,7 @@ public class FindRetainedIntronCandidatesTests
     private const string Ppt = "UUUUUUUUUUUUUU";
     private const string Acceptor = "CAG";
     private const string Exon2 = "GCCUUUAAAGGGCCCUUUAAAGGGCCCUUUAAAGC";
-    private static readonly string TwoExon = Exon1 + Donor + IntronBody + Ppt + Acceptor + Exon2;
+    private const string TwoExon = Exon1 + Donor + IntronBody + Ppt + Acceptor + Exon2;
 
     [Test]
     public void FindRetainedIntronCandidates_Schema_ValidatesCorrectly()

@@ -5,8 +5,6 @@
 //         Karlin S, Burge C (1995). Trends Genet 11(7):283-290.
 //         Nakamura Y et al. Kazusa Codon Usage Database (CUTG) readme.
 
-using Seqeron.Genomics.Analysis;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

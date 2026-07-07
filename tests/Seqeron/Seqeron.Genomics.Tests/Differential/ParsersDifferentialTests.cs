@@ -2,13 +2,6 @@
 // INDEPENDENT manual line/tab-split parse of the same content (a different parsing strategy), asserting
 // the same records.
 
-using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.IO;
-
 namespace Seqeron.Genomics.Tests.Differential;
 
 [TestFixture]
@@ -97,7 +90,7 @@ public class ParsersDifferentialTests
         var expected = new List<(string, int, string, string)>();
         foreach (var line in content.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
-            if (line.StartsWith("#")) continue;
+            if (line.StartsWith('#')) continue;
             var f = line.Split('\t');
             expected.Add((f[0], int.Parse(f[1]), f[3], f[4]));
         }
@@ -120,7 +113,7 @@ public class ParsersDifferentialTests
         var expected = new List<(string, string, string, int, int, char)>();
         foreach (var line in content.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
-            if (line.StartsWith("#")) continue;
+            if (line.StartsWith('#')) continue;
             var f = line.Split('\t');
             expected.Add((f[0], f[1], f[2], int.Parse(f[3]), int.Parse(f[4]), f[6][0]));
         }

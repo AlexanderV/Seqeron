@@ -4,10 +4,6 @@
 // Source: Cock PJA et al. (2009) Biopython, Bioinformatics 25(11):1422-1423 (Bio/SeqUtils six_frame_translations);
 //         Rice P et al. (2000) EMBOSS transeq/getorf; NCBI The Genetic Codes (table 1).
 
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-
 namespace Seqeron.Genomics.Tests.Unit.Core;
 
 [TestFixture]

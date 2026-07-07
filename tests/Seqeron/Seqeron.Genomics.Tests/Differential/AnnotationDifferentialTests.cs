@@ -2,12 +2,6 @@
 // hand-derived count, PredictGenes-vs-FindOrfs mapping, an independent motif scan for promoter boxes,
 // and a hand-built GFF3 line for the serializer.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Annotation;
-
 namespace Seqeron.Genomics.Tests.Differential;
 
 [TestFixture]

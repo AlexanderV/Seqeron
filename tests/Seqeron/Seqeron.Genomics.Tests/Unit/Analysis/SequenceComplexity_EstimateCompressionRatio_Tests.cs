@@ -11,9 +11,6 @@
 // independently of this code. A wrong parsing convention (e.g. the entropy variant
 // giving 6 for the first string) would FAIL these tests.
 
-using NUnit.Framework;
-using System;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

@@ -6,12 +6,6 @@
 //         tie → ambiguous; consensus length = alignment length);
 //         EMBOSS cons (plurality cut-off); Wikipedia "Consensus sequence" (IUPAC N = any base).
 
-using System;
-using System.Collections.Generic;
-using NUnit.Framework;
-
-using Seqeron.Genomics.Alignment;
-
 namespace Seqeron.Genomics.Tests.Unit.Alignment;
 
 [TestFixture]

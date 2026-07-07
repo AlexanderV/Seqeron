@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace Seqeron.Genomics.Analysis;
 
 /// <summary>
@@ -219,10 +215,7 @@ public static class GenomicAnalyzer
         DnaSequence sequence,
         IEnumerable<string> motifs)
     {
-        if (motifs is null)
-        {
-            throw new ArgumentNullException(nameof(motifs));
-        }
+        ArgumentNullException.ThrowIfNull(motifs);
 
         var result = new Dictionary<string, IReadOnlyList<int>>();
         var tree = sequence.SuffixTree;
@@ -385,15 +378,9 @@ public static class GenomicAnalyzer
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="kmerSize"/> is less than 1.</exception>
     public static double CalculateSimilarity(DnaSequence sequence1, DnaSequence sequence2, int kmerSize = DefaultKmerSize)
     {
-        if (sequence1 is null)
-        {
-            throw new ArgumentNullException(nameof(sequence1));
-        }
+        ArgumentNullException.ThrowIfNull(sequence1);
 
-        if (sequence2 is null)
-        {
-            throw new ArgumentNullException(nameof(sequence2));
-        }
+        ArgumentNullException.ThrowIfNull(sequence2);
 
         if (kmerSize < 1)
         {
@@ -448,10 +435,7 @@ public static class GenomicAnalyzer
     /// </param>
     public static IEnumerable<OrfInfo> FindOpenReadingFrames(DnaSequence sequence, int minLength = 100)
     {
-        if (sequence is null)
-        {
-            throw new ArgumentNullException(nameof(sequence));
-        }
+        ArgumentNullException.ThrowIfNull(sequence);
 
         string seq = sequence.Sequence;
         for (int frame = 0; frame < FramesPerStrand; frame++)

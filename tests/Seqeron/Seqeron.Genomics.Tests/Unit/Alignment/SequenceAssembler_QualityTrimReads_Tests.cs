@@ -4,11 +4,6 @@
 // Source: Cutadapt algorithm docs (quality trimming); Li H. BWA bwa_trim_read;
 //         Cock et al. (2010) NAR 38(6):1767-1771 (Phred+33).
 
-using System;
-using System.Collections.Generic;
-using NUnit.Framework;
-using Seqeron.Genomics.Alignment;
-
 namespace Seqeron.Genomics.Tests.Unit.Alignment;
 
 [TestFixture]

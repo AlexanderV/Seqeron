@@ -3,8 +3,6 @@
 // TestSpec: tests/TestSpecs/SEQ-STATS-001.md
 // Source: Lobry J.R. (1996). Mol Biol Evol 13(5):660-665; Biopython Bio.SeqUtils (gc_fraction, GC_skew); Wikipedia "GC skew".
 
-using Seqeron.Genomics.Analysis;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

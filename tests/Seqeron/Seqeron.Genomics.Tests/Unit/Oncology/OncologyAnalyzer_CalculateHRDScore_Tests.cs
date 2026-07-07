@@ -7,10 +7,6 @@
 //         Cancer Res 72(21):5454. TAI/LST derivation + centromere coords: scarHRD calc.ai_new / calc.lst
 //         (https://github.com/sztup/scarHRD) and UCSC cytoBand acen (hg38/hg19), retrieved 2026-06-23.
 
-using System;
-using System.Collections.Generic;
-using NUnit.Framework;
-using Seqeron.Genomics.Oncology;
 using Segment = Seqeron.Genomics.Oncology.OncologyAnalyzer.AlleleSpecificSegment;
 
 namespace Seqeron.Genomics.Tests.Unit.Oncology;

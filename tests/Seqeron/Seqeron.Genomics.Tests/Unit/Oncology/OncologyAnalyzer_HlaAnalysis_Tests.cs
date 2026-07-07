@@ -4,9 +4,6 @@
 // Source: Marsh SGE et al. (2010). Tissue Antigens 75(4):291–455 (WHO HLA Nomenclature; hla.alleles.org "Naming Alleles").
 //         McGranahan N et al. (2017). Cell 171(6):1259–1271 (LOHHLA): allele CN < 0.5 => loss; allelic imbalance paired-t p < 0.01.
 
-using System;
-using NUnit.Framework;
-using Seqeron.Genomics.Oncology;
 using static Seqeron.Genomics.Oncology.OncologyAnalyzer;
 
 namespace Seqeron.Genomics.Tests.Unit.Oncology;

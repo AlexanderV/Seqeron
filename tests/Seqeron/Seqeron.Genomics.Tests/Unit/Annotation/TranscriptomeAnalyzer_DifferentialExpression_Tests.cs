@@ -7,12 +7,6 @@
 //         Student's t-distribution CDF via regularized incomplete beta (two-sided p-value);
 //         Science Park RNA-seq lesson (two-criterion DE rule).
 
-using NUnit.Framework;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using Seqeron.Genomics.Annotation;
-
 namespace Seqeron.Genomics.Tests.Unit.Annotation;
 
 [TestFixture]

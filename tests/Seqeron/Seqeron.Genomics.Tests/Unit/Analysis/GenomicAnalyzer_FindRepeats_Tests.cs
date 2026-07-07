@@ -4,10 +4,6 @@
 // Source: CMU 15-451 Lecture #10 §2.1 (2017); Wikipedia "Longest repeated substring problem" (2026);
 //         GeeksforGeeks "Suffix Tree Application 3" — all accessed 2026-06-13.
 
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

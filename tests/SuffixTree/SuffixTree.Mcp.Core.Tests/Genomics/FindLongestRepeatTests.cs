@@ -1,4 +1,3 @@
-using System.Linq;
 using NUnit.Framework;
 using Seqeron.Genomics.Analysis;
 using Seqeron.Genomics.Core;

@@ -1,9 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Annotation;
 using static Seqeron.Genomics.Annotation.EpigeneticsAnalyzer;
 
 namespace Seqeron.Genomics.Tests.Fuzzing;
@@ -84,7 +78,6 @@ public sealed class EpigeneticDmrFuzzTests
 {
     private const double DefaultMinDifference = 0.25;
     private const int DefaultMinCpGCount = 3;
-    private const int DefaultWindowSize = 1000;
 
     // ── Well-formed-result assertion helper ──────────────────────────────────
     // Pins INV-01..INV-06 against an independent re-derivation of the documented

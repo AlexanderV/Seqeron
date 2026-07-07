@@ -7,9 +7,6 @@
 //         RNAplfold man page + Bernhart et al. (2006) Bioinformatics 22:614.
 //         Turner-2004 nearest-neighbour parameters (NNDB, rna.urmc.rochester.edu/NNDB/turner04).
 
-using System;
-using System.Linq;
-using NUnit.Framework;
 using static Seqeron.Genomics.Analysis.RnaSecondaryStructure;
 
 namespace Seqeron.Genomics.Tests.Unit.Analysis;

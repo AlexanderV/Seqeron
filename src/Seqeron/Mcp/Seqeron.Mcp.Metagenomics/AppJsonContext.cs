@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Text.Json.Serialization;
 using Seqeron.Genomics.Metagenomics;
 using Seqeron.Mcp.Metagenomics.Tools;

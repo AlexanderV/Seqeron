@@ -11,11 +11,6 @@
 //           p7_domaindef.c (region identification rt1/rt2/rt3, is_multidomain_region, rescore_isolated_domain),
 //           generic_decoding.c p7_GDomainDecoding (btot/etot/mocc), p7_pipeline.c (per-domain bit score) —
 //           multi-domain envelope decomposition; pyhmmer 0.12.1 GBB1/PF00400 7-domain ground truth (addendum 2026-06-25).
-using System;
-using System.Collections.Generic;
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 /// <summary>
@@ -1050,7 +1045,7 @@ public class ProteinMotifFinder_FindDomainsByHmm_Tests
 
     // Build the closely-overlapping construct: SH3 core truncated by <trim> residues, then a full core.
     private static string OverlappingTandem(int trim) =>
-        Sh3Core.Substring(0, Sh3Core.Length - trim) + Sh3Core;
+        string.Concat(Sh3Core.AsSpan(0, Sh3Core.Length - trim), Sh3Core);
 
     private const double EnsembleScoreToleranceBits = 0.1;
 
@@ -1198,7 +1193,6 @@ public class ProteinMotifFinder_FindDomainsByHmm_Tests
     // bundled PF00018 STATS LOCAL MSV params (μ=−8.1284, λ=0.71923):
     //   y = λ(S−μ) = 0.71923·48.1284 ; ey = −exp(−y) ; |ey|≥5e-9 → P = 1 − exp(ey).
     private const double Sh3MsvPValueAt40 = 9.262484858441732e-16;
-    private const double Sh3MsvEValueAt40Z1000 = 9.262484858441732e-13;
 
     [Test]
     public void MsvPValue_Sh3At40Bits_MatchesHandDerivedGumbel()

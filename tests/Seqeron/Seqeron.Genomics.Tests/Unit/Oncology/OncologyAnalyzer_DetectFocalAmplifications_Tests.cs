@@ -5,11 +5,6 @@
 //         https://pmc.ncbi.nlm.nih.gov/articles/PMC3218867/
 //         GISTIC2 docs broad_len_cutoff=0.98, t_amp=0.1; NCBI Gene oncogene arms.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Oncology;
 using Segment = Seqeron.Genomics.Oncology.OncologyAnalyzer.CopyNumberArmSegment;
 using Thresholds = Seqeron.Genomics.Oncology.OncologyAnalyzer.FocalAmplificationThresholds;
 

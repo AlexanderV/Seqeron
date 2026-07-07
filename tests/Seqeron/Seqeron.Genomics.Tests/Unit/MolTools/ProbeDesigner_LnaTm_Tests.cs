@@ -8,10 +8,6 @@
 //   SantaLucia J (1998). PNAS 95(4):1460-65 — base DNA NN model.
 //   Kutyavin IV et al. (2000). Nucleic Acids Res 28(2):655-661 — 3'-MGB design rules.
 
-using System;
-using NUnit.Framework;
-using Seqeron.Genomics.MolTools;
-
 namespace Seqeron.Genomics.Tests.Unit.MolTools;
 
 /// <summary>

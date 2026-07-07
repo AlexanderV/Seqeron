@@ -4,11 +4,6 @@
 // the maximum score — an O(exponential) method structurally independent of the production DP.
 // SimpleDna scoring: match +1, mismatch -1, linear gap -1.
 
-using System.Collections.Generic;
-using NUnit.Framework;
-using Seqeron.Genomics.Alignment;
-using Seqeron.Genomics.Core;
-
 namespace Seqeron.Genomics.Tests.Differential;
 
 [TestFixture]

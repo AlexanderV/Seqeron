@@ -6,9 +6,6 @@
 // (IVT) and asserted against values re-derived BY HAND from the published Agarwal_2015_parameters.txt
 // coefficients (independent of the implementation) → mutated arithmetic/index/guard diverges → killed.
 
-using System;
-using NUnit.Framework;
-using Seqeron.Genomics.Annotation;
 using static Seqeron.Genomics.Annotation.MiRnaAnalyzer;
 
 namespace Seqeron.Genomics.Tests.Unit.Annotation;

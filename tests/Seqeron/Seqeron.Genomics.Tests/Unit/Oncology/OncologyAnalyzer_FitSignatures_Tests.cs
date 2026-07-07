@@ -6,11 +6,6 @@
 //         Lawson C.L. & Hanson R.J. (1974). Solving Least Squares Problems, Ch.23 (NNLS). https://en.wikipedia.org/wiki/Non-negative_least_squares
 //         Pan W., Wang X. (2020). iMutSig. https://pmc.ncbi.nlm.nih.gov/articles/PMC7702159/
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using Seqeron.Genomics.Oncology;
-
 namespace Seqeron.Genomics.Tests.Unit.Oncology;
 
 [TestFixture]

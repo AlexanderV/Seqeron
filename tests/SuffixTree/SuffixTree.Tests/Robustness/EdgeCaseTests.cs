@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 
@@ -62,7 +61,7 @@ namespace SuffixTree.Tests.Robustness
                 Assert.That(st.Contains(" "), Is.True);
                 Assert.That(st.Contains("  "), Is.True);
                 Assert.That(st.Contains("     "), Is.True);
-                Assert.That(st.FindAllOccurrences(" ").Count(), Is.EqualTo(5));
+                Assert.That(st.FindAllOccurrences(" ").Count, Is.EqualTo(5));
             });
         }
 
@@ -92,10 +91,10 @@ namespace SuffixTree.Tests.Robustness
 
             Assert.Multiple(() =>
             {
-                Assert.That(st.FindAllOccurrences("ab").Count(), Is.EqualTo(5));
-                Assert.That(st.FindAllOccurrences("ba").Count(), Is.EqualTo(4));
-                Assert.That(st.FindAllOccurrences("aba").Count(), Is.EqualTo(4));
-                Assert.That(st.FindAllOccurrences("bab").Count(), Is.EqualTo(4));
+                Assert.That(st.FindAllOccurrences("ab").Count, Is.EqualTo(5));
+                Assert.That(st.FindAllOccurrences("ba").Count, Is.EqualTo(4));
+                Assert.That(st.FindAllOccurrences("aba").Count, Is.EqualTo(4));
+                Assert.That(st.FindAllOccurrences("bab").Count, Is.EqualTo(4));
             });
         }
 
@@ -147,8 +146,8 @@ namespace SuffixTree.Tests.Robustness
 
             Assert.Multiple(() =>
             {
-                Assert.That(st.FindAllOccurrences("aa").Count(), Is.EqualTo(1));
-                Assert.That(st.FindAllOccurrences("bb").Count(), Is.EqualTo(1));
+                Assert.That(st.FindAllOccurrences("aa").Count, Is.EqualTo(1));
+                Assert.That(st.FindAllOccurrences("bb").Count, Is.EqualTo(1));
                 Assert.That(st.Contains("aabb"), Is.True);
                 Assert.That(st.Contains("bbcc"), Is.True);
             });

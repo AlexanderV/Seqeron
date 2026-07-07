@@ -1,8 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using Seqeron.Genomics.Infrastructure;
 
 namespace Seqeron.Genomics.Alignment;
 
@@ -32,12 +28,6 @@ internal static class AnchorBasedAligner
     /// For DNA, k=8 gives specificity of 4^8 = 65,536.
     /// </summary>
     private const int DefaultMinAnchorLength = 8;
-
-    /// <summary>
-    /// Minimum gap length to trigger NW alignment. Gaps shorter than this
-    /// are trivially aligned character-by-character.
-    /// </summary>
-    private const int TrivialGapThreshold = 3;
 
     /// <summary>
     /// Maximum gap size for which we run full NW. Larger gaps fall back

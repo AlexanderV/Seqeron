@@ -1,12 +1,6 @@
 // 08_DIFFERENTIAL_TESTING rows 102, 128, 233. Independent oracles: the in-frame modulo formula, a manual
 // sequence summary (each metric recomputed), and a naive per-window GC analysis.
 
-using System;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-using Seqeron.Genomics.Oncology;
-
 namespace Seqeron.Genomics.Tests.Differential;
 
 [TestFixture]

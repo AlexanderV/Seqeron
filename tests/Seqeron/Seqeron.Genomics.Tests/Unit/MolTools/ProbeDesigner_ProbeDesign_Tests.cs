@@ -1,8 +1,3 @@
-using NUnit.Framework;
-using Seqeron.Genomics;
-using System;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.MolTools;
 
 /// <summary>
@@ -15,7 +10,7 @@ public class ProbeDesigner_ProbeDesign_Tests
     #region Test Data
 
     // Good sequence for microarray probes (moderate GC, no extreme features)
-    private static readonly string MicroarrayTargetSequence =
+    private const string MicroarrayTargetSequence =
         "ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT";
 
     // Longer sequence for various tests

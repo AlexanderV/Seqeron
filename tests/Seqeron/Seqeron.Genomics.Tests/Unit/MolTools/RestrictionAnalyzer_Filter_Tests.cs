@@ -4,10 +4,6 @@
 // Source: Wikipedia "Sticky and blunt ends" (2026); Wikipedia "Restriction enzyme" (2026);
 //         Wikipedia "List of restriction enzyme cutting sites" (2026); NEB/REBASE KpnI R0142, EcoRI-HF R3101.
 
-using NUnit.Framework;
-using Seqeron.Genomics.MolTools;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.MolTools;
 
 /// <summary>

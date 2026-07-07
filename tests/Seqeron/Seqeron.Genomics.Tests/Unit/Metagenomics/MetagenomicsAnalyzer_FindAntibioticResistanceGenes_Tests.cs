@@ -5,12 +5,6 @@
 //         Li H (2018) BLAST identity = matches/alignment-columns;
 //         ResFinder GitHub README + Sci Rep (2023) thresholds 0.90 ID / 0.60 coverage.
 
-using NUnit.Framework;
-using Seqeron.Genomics.Metagenomics;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.Metagenomics;
 
 [TestFixture]

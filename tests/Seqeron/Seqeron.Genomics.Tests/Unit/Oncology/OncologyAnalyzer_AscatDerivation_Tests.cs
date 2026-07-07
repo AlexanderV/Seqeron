@@ -12,10 +12,6 @@
 // These are the exact algebraic inverse of the two cited nA/nB equations (gamma=1). Expected
 // purity/ploidy/CN/multiplicity/CCF values are computed independently of the implementation.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.Oncology;
 
 [TestFixture]

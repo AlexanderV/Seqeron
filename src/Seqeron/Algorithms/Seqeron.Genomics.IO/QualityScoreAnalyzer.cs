@@ -1,8 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using Seqeron.Genomics.Core;
 
 namespace Seqeron.Genomics.IO;
 
@@ -142,8 +138,7 @@ public static class QualityScoreAnalyzer
     /// <exception cref="ArgumentOutOfRangeException">Thrown when a character decodes to a Phred score outside the encoding's valid range.</exception>
     public static int[] ParseQualityString(string qualityString, QualityEncoding encoding = QualityEncoding.Phred33)
     {
-        if (qualityString is null)
-            throw new ArgumentNullException(nameof(qualityString));
+        ArgumentNullException.ThrowIfNull(qualityString);
         if (qualityString.Length == 0)
             return Array.Empty<int>();
 
@@ -179,8 +174,7 @@ public static class QualityScoreAnalyzer
     /// <exception cref="ArgumentOutOfRangeException">Thrown when a score is outside the encoding's valid range.</exception>
     public static string ToQualityString(IReadOnlyList<int> scores, QualityEncoding encoding = QualityEncoding.Phred33)
     {
-        if (scores is null)
-            throw new ArgumentNullException(nameof(scores));
+        ArgumentNullException.ThrowIfNull(scores);
         if (scores.Count == 0)
             return string.Empty;
 
@@ -215,8 +209,7 @@ public static class QualityScoreAnalyzer
     /// <exception cref="ArgumentOutOfRangeException">Thrown when a decoded score is invalid for the source encoding, or not representable in the target encoding (e.g. a Phred+33 score &gt; 62 has no Phred+64 representation).</exception>
     public static string ConvertEncoding(string qualityString, QualityEncoding fromEncoding, QualityEncoding toEncoding)
     {
-        if (qualityString is null)
-            throw new ArgumentNullException(nameof(qualityString));
+        ArgumentNullException.ThrowIfNull(qualityString);
 
         var scores = ParseQualityString(qualityString, fromEncoding);
         return ToQualityString(scores, toEncoding);
@@ -313,8 +306,7 @@ public static class QualityScoreAnalyzer
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="qualityStrings"/> is null.</exception>
     public static EncodingDetectionResult DetectEncoding(IEnumerable<string> qualityStrings)
     {
-        if (qualityStrings is null)
-            throw new ArgumentNullException(nameof(qualityStrings));
+        ArgumentNullException.ThrowIfNull(qualityStrings);
 
         int min = int.MaxValue;
         int max = int.MinValue;
@@ -704,7 +696,7 @@ public static class QualityScoreAnalyzer
         while (enumerator.MoveNext())
         {
             string headerLine = enumerator.Current;
-            if (string.IsNullOrWhiteSpace(headerLine) || !headerLine.StartsWith("@"))
+            if (string.IsNullOrWhiteSpace(headerLine) || !headerLine.StartsWith('@'))
                 continue;
 
             // Parse header

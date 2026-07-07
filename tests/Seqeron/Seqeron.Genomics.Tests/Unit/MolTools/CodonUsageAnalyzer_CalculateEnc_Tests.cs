@@ -4,12 +4,7 @@
 // Source: Wright F (1990). Gene 87(1):23-29; reproduced verbatim in
 //         Fuglsang A (2004). Biochem Biophys Res Commun 317:957-964 (Eqs. 1-5a).
 
-using System;
-using System.Linq;
 using System.Text;
-using NUnit.Framework;
-using Seqeron.Genomics;
-using Seqeron.Genomics.MolTools;
 
 namespace Seqeron.Genomics.Tests.Unit.MolTools;
 

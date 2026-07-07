@@ -10,9 +10,6 @@
 // a = (sum z)/sqrt(k) — NOT from the implementation. Reference cohort {2,2,4,6,6}: mean=4, SS=16,
 // var=16/4=4, sd=2; chosen so the sample-SD result (sd=2) differs from the population-SD result (sd=1.789).
 
-using System;
-using System.Collections.Generic;
-
 namespace Seqeron.Genomics.Tests.Unit.Oncology;
 
 [TestFixture]

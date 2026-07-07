@@ -9,10 +9,6 @@
 // Expected values are copied from the published sources (TOP-IDP Table 2 and the Dunker
 // classification sets), independently of the implementation's current output.
 
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

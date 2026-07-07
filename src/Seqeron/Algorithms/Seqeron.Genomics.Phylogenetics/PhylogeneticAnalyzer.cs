@@ -1,7 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Text;
 
 namespace Seqeron.Genomics.Phylogenetics;
@@ -223,8 +220,8 @@ public static class PhylogeneticAnalyzer
     public static double CalculatePairwiseDistance(
         string seq1, string seq2, DistanceMethod method = DistanceMethod.JukesCantor)
     {
-        if (seq1 == null) throw new ArgumentNullException(nameof(seq1));
-        if (seq2 == null) throw new ArgumentNullException(nameof(seq2));
+        ArgumentNullException.ThrowIfNull(seq1);
+        ArgumentNullException.ThrowIfNull(seq2);
         if (seq1.Length != seq2.Length)
             throw new ArgumentException("Sequences must have the same length.");
 
@@ -660,7 +657,7 @@ public static class PhylogeneticAnalyzer
             throw new ArgumentException("Newick string is empty.");
 
         newick = newick.Trim();
-        if (newick.EndsWith(";"))
+        if (newick.EndsWith(';'))
             newick = newick[..^1];
 
         int pos = 0;
@@ -932,8 +929,8 @@ public static class PhylogeneticAnalyzer
     /// </exception>
     public static int CalculateUnrootedRobinsonFoulds(PhyloNode tree1, PhyloNode tree2)
     {
-        if (tree1 == null) throw new ArgumentNullException(nameof(tree1));
-        if (tree2 == null) throw new ArgumentNullException(nameof(tree2));
+        ArgumentNullException.ThrowIfNull(tree1);
+        ArgumentNullException.ThrowIfNull(tree2);
 
         var leaves1 = GetLeaves(tree1).Select(l => l.Name).ToList();
         var leaves2 = GetLeaves(tree2).Select(l => l.Name).ToList();
@@ -1188,8 +1185,7 @@ public static class PhylogeneticAnalyzer
         TreeMethod treeMethod = TreeMethod.UPGMA,
         int seed = DefaultBootstrapSeed)
     {
-        if (sequences == null)
-            throw new ArgumentNullException(nameof(sequences));
+        ArgumentNullException.ThrowIfNull(sequences);
         if (sequences.Count < 2)
             throw new ArgumentException("At least 2 sequences required.", nameof(sequences));
         if (replicates < 1)

@@ -1,5 +1,3 @@
-using NUnit.Framework;
-using Seqeron.Genomics.Annotation;
 using static Seqeron.Genomics.Annotation.MiRnaAnalyzer;
 
 namespace Seqeron.Genomics.Tests.Unit.Annotation;
@@ -28,15 +26,6 @@ public class MiRnaAnalyzer_SeedAnalysis_Tests
 
     // hsa-miR-21-5p: UAGCUUAUCAGACUGAUGUUGA → seed AGCUUAU
     private const string MiR21_Sequence = "UAGCUUAUCAGACUGAUGUUGA";
-    private const string MiR21_Seed = "AGCUUAU";
-
-    // hsa-miR-155-5p: UUAAUGCUAAUUGUGAUAGGGGU → seed UAAUGCU
-    private const string MiR155_Sequence = "UUAAUGCUAAUUGUGAUAGGGGU";
-    private const string MiR155_Seed = "UAAUGCU";
-
-    // hsa-miR-1-3p: UGGAAUGUAAAGAAGUAUGUAU → seed GGAAUGU
-    private const string MiR1_Sequence = "UGGAAUGUAAAGAAGUAUGUAU";
-    private const string MiR1_Seed = "GGAAUGU";
 
     #endregion
 

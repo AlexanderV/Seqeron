@@ -9,9 +9,6 @@
 //   primer3-py 2.3.0 (calc_hairpin; mv_conc=50, dv_conc=0, dntp_conc=0, dna_conc=50)
 //     — reference ΔH/ΔS/ΔG/Tm captured this session.
 
-using NUnit.Framework;
-using Seqeron.Genomics.MolTools;
-
 namespace Seqeron.Genomics.Tests.Unit.MolTools;
 
 /// <summary>

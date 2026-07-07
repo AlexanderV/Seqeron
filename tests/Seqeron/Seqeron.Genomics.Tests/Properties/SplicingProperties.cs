@@ -1,6 +1,5 @@
 using FsCheck;
 using FsCheck.Fluent;
-using FsCheck.NUnit;
 
 namespace Seqeron.Genomics.Tests.Properties;
 
@@ -25,22 +24,6 @@ public class SplicingProperties
             .ArrayOf()
             .Where(a => a.Length >= minLen)
             .Select(a => new string(a))
-            .ToArbitrary();
-
-    /// <summary>
-    /// Generates a synthetic gene-like DNA sequence with canonical GT...AG intron.
-    /// Structure: exon1(≥30bp) + GT + intron_body(≥56bp) + AG + exon2(≥30bp).
-    /// Evidence: GT-AG rule (Breathnach &amp; Chambon, 1981) — ~99% of eukaryotic
-    /// introns begin with GT and end with AG.
-    /// </summary>
-    private static Arbitrary<string> GeneStructureArbitrary() =>
-        Gen.Elements('A', 'C', 'G', 'T').ArrayOf().Where(a => a.Length >= 30 && a.Length <= 50)
-            .SelectMany(exon1 =>
-                Gen.Elements('A', 'C', 'G', 'T').ArrayOf().Where(a => a.Length >= 56 && a.Length <= 80)
-                    .SelectMany(intronBody =>
-                        Gen.Elements('A', 'C', 'G', 'T').ArrayOf().Where(a => a.Length >= 30 && a.Length <= 50)
-                            .Select(exon2 =>
-                                new string(exon1) + "GT" + new string(intronBody) + "AG" + new string(exon2))))
             .ToArbitrary();
 
     /// <summary>

@@ -4,9 +4,6 @@
 // Source: Alexander DH, Novembre J, Lange K (2009). Genome Research 19(9):1655-1664.
 //         Equations 2 (log-likelihood), 4 (FRAPPE EM ancestry update), 5 (convergence).
 
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
 using static Seqeron.Genomics.Population.PopulationGeneticsAnalyzer;
 
 namespace Seqeron.Genomics.Tests.Unit.Population;

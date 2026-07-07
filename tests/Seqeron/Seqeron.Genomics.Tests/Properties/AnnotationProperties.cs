@@ -1,6 +1,5 @@
 using FsCheck;
 using FsCheck.Fluent;
-using FsCheck.NUnit;
 
 namespace Seqeron.Genomics.Tests.Properties;
 
@@ -44,9 +43,6 @@ public class AnnotationProperties
 
     private static readonly HashSet<string> ValidStartCodons =
         new(StringComparer.OrdinalIgnoreCase) { "ATG", "GTG", "TTG" };
-
-    private static readonly HashSet<string> ValidStopCodons =
-        new(StringComparer.OrdinalIgnoreCase) { "TAA", "TAG", "TGA" };
 
     /// <summary>
     /// Generates a non-empty list of random gene annotations with valid coordinates (Start &lt; End),
@@ -560,7 +556,7 @@ public class AnnotationProperties
                 new Dictionary<string, string> { ["frame"] = "1" })
         };
 
-        var lines = GenomeAnnotator.ToGff3(genes).Where(l => !l.StartsWith("#")).ToList();
+        var lines = GenomeAnnotator.ToGff3(genes).Where(l => !l.StartsWith('#')).ToList();
 
         foreach (var line in lines)
         {

@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using NUnit.Framework;
-using Seqeron.Genomics.Oncology;
 using static Seqeron.Genomics.Oncology.ImmuneAnalyzer;
 
 namespace Seqeron.Genomics.Tests.Mutation;

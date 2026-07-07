@@ -6,12 +6,6 @@
 //         bam File" (average depth = Sum of Depths / genome size; breadth = covered bases / size);
 //         Illumina, "Sequencing Coverage for NGS Experiments" (C = LN/G).
 
-using System;
-using System.Linq;
-using NUnit.Framework;
-
-using Seqeron.Genomics.Alignment;
-
 namespace Seqeron.Genomics.Tests.Unit.Alignment;
 
 [TestFixture]

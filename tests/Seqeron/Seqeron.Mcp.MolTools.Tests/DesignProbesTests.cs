@@ -1,7 +1,4 @@
-using System;
-using System.Linq;
 using NUnit.Framework;
-using Seqeron.Genomics.MolTools;
 using Seqeron.Mcp.MolTools.Tools;
 
 namespace Seqeron.Mcp.MolTools.Tests;

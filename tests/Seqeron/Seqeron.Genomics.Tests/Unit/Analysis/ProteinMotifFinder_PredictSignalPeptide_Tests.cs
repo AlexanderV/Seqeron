@@ -3,9 +3,6 @@
 // TestSpec: tests/TestSpecs/PROTMOTIF-SP-001.md
 // Source:   von Heijne G (1986) Nucleic Acids Res 14(11):4683-4690; EMBOSS 6.6.0 sigcleave (data/Esig.euk, sigcleave.c).
 
-using System;
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
 using static Seqeron.Genomics.Analysis.ProteinMotifFinder;
 
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
@@ -251,7 +248,7 @@ public class ProteinMotifFinder_PredictSignalPeptide_Tests
     #region Helpers (independent re-derivation of the EMBOSS eukaryotic score)
 
     // Eukaryotic count matrix and Expect column, verbatim from EMBOSS 6.6.0 data/Esig.euk.
-    private static readonly string Residues = "ACDEFGHIKLMNPQRSTVWY";
+    private const string Residues = "ACDEFGHIKLMNPQRSTVWY";
 
     private static readonly int[][] Counts =
     {

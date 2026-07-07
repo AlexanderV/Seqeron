@@ -6,11 +6,6 @@
 //         Mermel CH et al. (2011). GISTIC2.0. Genome Biology 12(4):R41.
 //         https://doi.org/10.1186/gb-2011-12-4-r41
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Oncology;
 using CopyNumberState = Seqeron.Genomics.Oncology.OncologyAnalyzer.CopyNumberState;
 
 namespace Seqeron.Genomics.Tests.Unit.Oncology;

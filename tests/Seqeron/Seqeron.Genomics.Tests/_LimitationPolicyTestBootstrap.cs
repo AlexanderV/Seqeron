@@ -1,5 +1,4 @@
 using System.Runtime.CompilerServices;
-using Seqeron.Genomics.Core;
 
 namespace Seqeron.Genomics.Tests;
 

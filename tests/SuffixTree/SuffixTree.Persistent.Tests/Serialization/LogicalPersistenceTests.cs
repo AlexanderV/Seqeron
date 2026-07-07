@@ -1,10 +1,3 @@
-using System;
-using System.IO;
-using System.Linq;
-using NUnit.Framework;
-using SuffixTree;
-using SuffixTree.Persistent;
-
 namespace SuffixTree.Persistent.Tests.Serialization
 {
     [TestFixture]

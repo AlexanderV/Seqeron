@@ -1,14 +1,6 @@
 // 08_DIFFERENTIAL_TESTING rows 182, 223, 226. Independent oracles: manual bisulfite C->T conversion,
 // a manual six-frame translation (own NCBI table-1 map + revcomp), and manual alignment statistics.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Alignment;
-using Seqeron.Genomics.Annotation;
-using Seqeron.Genomics.Core;
-
 namespace Seqeron.Genomics.Tests.Differential;
 
 [TestFixture]

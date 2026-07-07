@@ -3,9 +3,6 @@
 // TestSpec: tests/TestSpecs/PRIMER-TM-001-Penalty.md
 // Source: Primer3 source libprimer3.cc p_obj_fn / pr_set_default_global_args_2 (branch main);
 //         Primer3 manual §19; Untergasser et al. (2012) NAR 40(15):e115; Koressaar & Remm (2007).
-using NUnit.Framework;
-using Seqeron.Genomics.MolTools;
-
 namespace Seqeron.Genomics.Tests.Unit.MolTools;
 
 /// <summary>

@@ -7,10 +7,6 @@
 //         Manca V et al. (2021), Spectral concepts in genome informational analysis,
 //         arXiv:2106.15351 (k-entropy E_k = -Σ p log2 p, p = mult/(L-k+1)).
 
-using NUnit.Framework;
-using System;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 /// <summary>

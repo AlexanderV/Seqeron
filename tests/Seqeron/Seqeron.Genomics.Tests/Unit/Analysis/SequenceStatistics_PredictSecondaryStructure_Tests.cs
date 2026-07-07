@@ -5,9 +5,6 @@
 //         Pa/Pb/Pt verbatim from Przytycka NCBI lecture + ravihansa3000/ChouFasman ref impl.
 //         Window mean = arithmetic mean of member residue propensities (per component).
 
-using System.Linq;
-using Seqeron.Genomics.Analysis;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

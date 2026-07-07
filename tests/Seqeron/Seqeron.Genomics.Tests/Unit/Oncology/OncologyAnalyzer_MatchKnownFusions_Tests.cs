@@ -5,11 +5,6 @@
 //         Leukemia 35(11):3040-3043. https://pmc.ncbi.nlm.nih.gov/articles/PMC8550944/
 //         ("a double colon (::)"; "the 5′ partner gene should always be listed first"; "BCR::ABL1").
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Oncology;
 using Call = Seqeron.Genomics.Oncology.OncologyAnalyzer.FusionCall;
 using Frame = Seqeron.Genomics.Oncology.OncologyAnalyzer.FusionReadingFrame;
 

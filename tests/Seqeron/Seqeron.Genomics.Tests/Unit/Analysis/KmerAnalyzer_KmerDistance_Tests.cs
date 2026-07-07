@@ -5,10 +5,6 @@
 //         Lau AK et al. (2022). NAR Genom Bioinform (k-mer frequency = count / (L - k + 1)).
 //         Boden M et al. (2014). Bioinformatics 30(14) (Euclidean over relative-frequency vectors).
 
-using System;
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 /// <summary>

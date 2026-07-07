@@ -1,5 +1,4 @@
 using System.Reflection;
-using ArchUnitNET.Domain;
 using ArchUnitNET.Fluent.Slices;
 using ArchUnitNET.Loader;
 using ArchUnitNET.NUnit;

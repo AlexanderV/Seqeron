@@ -4,8 +4,6 @@
 // Source: Agarwal V et al. (2015) eLife 4:e05005 (A-U/C-G); Crick FHC (1966) J Mol Biol 19(2):548-555 (G-U wobble);
 //         Lewis BP et al. (2005) Cell 120(1):15-20 (reverse-complement seed); NNDB Turner 2004 (stacking sign).
 
-using NUnit.Framework;
-using Seqeron.Genomics.Annotation;
 using static Seqeron.Genomics.Annotation.MiRnaAnalyzer;
 
 namespace Seqeron.Genomics.Tests.Unit.Annotation;

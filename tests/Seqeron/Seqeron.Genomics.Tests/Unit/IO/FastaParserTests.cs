@@ -1,7 +1,3 @@
-using System.IO;
-using System.Linq;
-using NUnit.Framework;
-
 namespace Seqeron.Genomics.Tests.Unit.IO;
 
 /// <summary>
@@ -312,7 +308,7 @@ public class FastaParserTests
 
         string fasta = FastaParser.ToFasta(new[] { entry }, lineWidth: 80);
         var lines = fasta.Split('\n')
-            .Where(l => !l.StartsWith(">") && !string.IsNullOrWhiteSpace(l))
+            .Where(l => !l.StartsWith('>') && !string.IsNullOrWhiteSpace(l))
             .ToList();
 
         Assert.Multiple(() =>
@@ -353,7 +349,7 @@ public class FastaParserTests
         string fasta = FastaParser.ToFasta(new[] { entry }, lineWidth: 20);
         var seqLines = fasta.Split('\n')
             .Select(l => l.TrimEnd('\r'))
-            .Where(l => !l.StartsWith(">") && !string.IsNullOrWhiteSpace(l))
+            .Where(l => !l.StartsWith('>') && !string.IsNullOrWhiteSpace(l))
             .ToList();
 
         Assert.Multiple(() =>
@@ -607,7 +603,7 @@ public class FastaParserTests
         string fasta = FastaParser.ToFasta(new[] { entry }, lineWidth: 80);
         var seqLines = fasta.Split('\n')
             .Select(l => l.TrimEnd('\r'))
-            .Where(l => !l.StartsWith(">") && !string.IsNullOrWhiteSpace(l))
+            .Where(l => !l.StartsWith('>') && !string.IsNullOrWhiteSpace(l))
             .ToList();
 
         Assert.That(seqLines, Has.Count.EqualTo(1));
@@ -625,7 +621,7 @@ public class FastaParserTests
         string fasta = FastaParser.ToFasta(new[] { entry }, lineWidth: 1);
         var seqLines = fasta.Split('\n')
             .Select(l => l.TrimEnd('\r'))
-            .Where(l => !l.StartsWith(">") && !string.IsNullOrWhiteSpace(l))
+            .Where(l => !l.StartsWith('>') && !string.IsNullOrWhiteSpace(l))
             .ToList();
 
         Assert.Multiple(() =>

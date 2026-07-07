@@ -1,5 +1,3 @@
-using System;
-
 namespace Seqeron.Genomics.Infrastructure;
 
 /// <summary>

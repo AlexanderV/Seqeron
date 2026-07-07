@@ -16,12 +16,6 @@
 //     modelled as independent Bernoulli trials; PM (matching probability) is the fraction of matching
 //     columns between adjacent copies and PI the fraction of indel columns; a perfect tract has PM = 1.
 
-using System;
-using System.Linq;
-using System.Threading;
-using NUnit.Framework;
-using Seqeron.Genomics;
-
 namespace Seqeron.Genomics.Tests.Mutation;
 
 [TestFixture]

@@ -1,8 +1,3 @@
-using NUnit.Framework;
-using Seqeron.Genomics;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.Chromosome;
 
 [TestFixture]
@@ -161,25 +156,8 @@ public class ChromosomeAnalyzerTests
         Assert.That(ChromosomeAnalyzer.HumanTelomereRepeat, Is.EqualTo("TTAGGG"));
     }
 
-    // AlphaSatelliteConsensus tests consolidated into ChromosomeAnalyzer_Centromere_Tests.cs
-    // as part of CHROM-CENT-001 test unit
-
     #endregion
-
     #region Helper Methods
-
-    private static string CreateRandomSequence(System.Random random, int length)
-    {
-        var bases = new char[] { 'A', 'C', 'G', 'T' };
-        var sequence = new char[length];
-
-        for (int i = 0; i < length; i++)
-        {
-            sequence[i] = bases[random.Next(4)];
-        }
-
-        return new string(sequence);
-    }
 
     #endregion
 }

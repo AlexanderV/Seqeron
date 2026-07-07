@@ -1,4 +1,3 @@
-using System;
 using NUnit.Framework;
 using Seqeron.Genomics.MolTools;
 using Seqeron.Mcp.MolTools.Tools;
@@ -43,7 +42,7 @@ public class DesignMolecularBeaconTests
             Assert.That(b.Sequence.Length, Is.EqualTo(30));
             Assert.That(b.Sequence.Substring(0, 5), Is.EqualTo("GGCCC"));
             Assert.That(b.Sequence.Substring(b.Sequence.Length - 5, 5), Is.EqualTo("GGGCC"));
-            Assert.That(b.Sequence, Is.EqualTo("GGCCC" + Target.Substring(0, 20) + "GGGCC"));
+            Assert.That(b.Sequence, Is.EqualTo(string.Concat("GGCCC", Target.AsSpan(0, 20), "GGGCC")));
             Assert.That(b.Start, Is.EqualTo(0));
             Assert.That(b.End, Is.EqualTo(19));
         });

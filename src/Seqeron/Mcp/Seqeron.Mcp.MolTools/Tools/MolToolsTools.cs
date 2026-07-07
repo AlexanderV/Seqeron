@@ -1,9 +1,6 @@
-using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
 using ModelContextProtocol.Server;
 using Seqeron.Genomics.Core;
-using Seqeron.Genomics.Infrastructure;
 using Seqeron.Genomics.MolTools;
 using Seqeron.Mcp.MolTools.Models;
 
@@ -483,8 +480,7 @@ public class MolToolsTools
     /// </summary>
     private static CodonOptimizer.CodonUsageTable ResolveCodonUsageTable(CodonUsageTableInput input)
     {
-        if (input is null)
-            throw new System.ArgumentNullException(nameof(input));
+        ArgumentNullException.ThrowIfNull(input);
 
         if (!string.IsNullOrEmpty(input.Preset))
         {

@@ -5,13 +5,6 @@
 // validation. Shared, already-differentially-validated building blocks (FindPamSites row 18, EvaluatePrimer)
 // are reused only as setup; the logic under test (region filter / selection / scan) is re-derived here.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Core;
-using Seqeron.Genomics.MolTools;
-
 namespace Seqeron.Genomics.Tests.Differential;
 
 [TestFixture]

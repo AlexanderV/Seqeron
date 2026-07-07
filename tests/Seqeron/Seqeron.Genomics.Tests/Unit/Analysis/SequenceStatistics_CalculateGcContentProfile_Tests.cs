@@ -6,9 +6,6 @@
 //         Biopython Bio.SeqUtils.gc_fraction, Cock P.J.A. et al. (2009)
 //         Bioinformatics 25(11):1422-1423, doi:10.1093/bioinformatics/btp163.
 
-using System.Linq;
-using Seqeron.Genomics.Analysis;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

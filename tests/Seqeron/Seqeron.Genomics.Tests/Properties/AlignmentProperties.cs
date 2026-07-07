@@ -1,4 +1,3 @@
-using System.Threading;
 using FsCheck;
 using FsCheck.Fluent;
 

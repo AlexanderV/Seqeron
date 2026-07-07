@@ -6,10 +6,6 @@
 //         Bergstrom E.N. et al. (2019). SigProfilerMatrixGenerator. BMC Genomics 20:685. https://pmc.ncbi.nlm.nih.gov/articles/PMC6717374/
 //         Complementarity (molecular biology), Watson-Crick A<->T, C<->G. https://en.wikipedia.org/wiki/Complementarity_(molecular_biology)
 
-using System.Collections.Generic;
-using System.Linq;
-using Seqeron.Genomics.Oncology;
-
 namespace Seqeron.Genomics.Tests.Unit.Oncology;
 
 [TestFixture]

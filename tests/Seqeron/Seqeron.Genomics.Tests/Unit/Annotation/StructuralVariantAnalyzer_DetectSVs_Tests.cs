@@ -5,10 +5,6 @@
 //         Chen K et al. (2009) BreakDancer, Nat Methods 6:677-681, doi:10.1038/nmeth.1363 (README -c/-r defaults);
 //         FR proper-pair orientation (SAM FLAG 0x02 / BWA), cureffi.org.
 
-using System;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Annotation;
 using static Seqeron.Genomics.Annotation.StructuralVariantAnalyzer;
 
 namespace Seqeron.Genomics.Tests.Unit.Annotation;

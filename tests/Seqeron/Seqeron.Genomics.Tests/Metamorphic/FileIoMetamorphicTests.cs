@@ -1,12 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Text;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Core;
-using Seqeron.Genomics.IO;
 
 namespace Seqeron.Genomics.Tests.Metamorphic;
 
@@ -612,7 +604,7 @@ public class FileIoMetamorphicTests
         {
             sb.Append((i + 1).ToString().PadLeft(9));
             for (int j = i; j < Math.Min(i + perLine, bases.Length); j += groupSize)
-                sb.Append(' ').Append(bases.Substring(j, Math.Min(groupSize, bases.Length - j)));
+                sb.Append(' ').Append(bases.AsSpan(j, Math.Min(groupSize, bases.Length - j)));
             sb.Append('\n');
         }
         return sb.ToString();
@@ -718,7 +710,7 @@ public class FileIoMetamorphicTests
             sb.Append("    ");
             int end = Math.Min(i + perLine, bases.Length);
             for (int j = i; j < end; j += groupSize)
-                sb.Append(' ').Append(bases.Substring(j, Math.Min(groupSize, bases.Length - j)));
+                sb.Append(' ').Append(bases.AsSpan(j, Math.Min(groupSize, bases.Length - j)));
             sb.Append("      ").Append(end).Append('\n'); // right-margin base position (digits, dropped on parse)
         }
         return sb.ToString();

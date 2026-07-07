@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using Seqeron.Genomics.Core;
-
 namespace Seqeron.Genomics.Oncology;
 
 public static partial class OncologyAnalyzer
@@ -380,23 +375,6 @@ public static partial class OncologyAnalyzer
         /// </summary>
         R1
     }
-
-    /// <summary>
-    /// Combined actionability ranking of the OncoKB levels, highest first. The integer order of this array
-    /// encodes the OncoKB HIGHEST_LEVEL precedence: R1 &gt; 1 &gt; 2 &gt; 3A &gt; 3B &gt; 4 &gt; R2. Source:
-    /// oncokb-annotator README, column HIGHEST_LEVEL — "Order: LEVEL_R1 &gt; LEVEL_1 &gt; LEVEL_2 &gt;
-    /// LEVEL_3A &gt; LEVEL_3B &gt; LEVEL_4 &gt; LEVEL_R2".
-    /// </summary>
-    private static readonly OncoKbLevel[] CombinedRankingHighestFirst =
-    {
-        OncoKbLevel.R1,
-        OncoKbLevel.Level1,
-        OncoKbLevel.Level2,
-        OncoKbLevel.Level3A,
-        OncoKbLevel.Level3B,
-        OncoKbLevel.Level4,
-        OncoKbLevel.R2
-    };
 
     /// <summary>Levels that denote sensitivity (response) to a therapy. Source: OncoKB Levels V2 (1/2/3A/3B/4).</summary>
     private static readonly HashSet<OncoKbLevel> SensitivityLevels = new()

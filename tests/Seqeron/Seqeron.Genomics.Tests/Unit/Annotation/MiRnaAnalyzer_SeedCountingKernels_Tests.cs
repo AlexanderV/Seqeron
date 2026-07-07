@@ -3,10 +3,6 @@
 // LocalAU flank-length boundary, the offset-6mer pass of FindTargetSites, and dot-bracket edge
 // guards. Asserted against hand-derived expected values, independent of the implementation.
 
-using System;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Annotation;
 using static Seqeron.Genomics.Annotation.MiRnaAnalyzer;
 
 namespace Seqeron.Genomics.Tests.Unit.Annotation;

@@ -1,7 +1,5 @@
 using FsCheck;
 using FsCheck.Fluent;
-using FsCheck.NUnit;
-using Seqeron.Genomics.Annotation;
 
 namespace Seqeron.Genomics.Tests.Properties;
 

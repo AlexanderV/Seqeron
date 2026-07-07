@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace Seqeron.Genomics.Analysis;
 
 /// <summary>
@@ -22,7 +18,7 @@ public static class SequenceComplexity
     public static double CalculateLinguisticComplexity(DnaSequence sequence, int maxWordLength = 10)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        if (maxWordLength < 1) throw new ArgumentOutOfRangeException(nameof(maxWordLength));
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxWordLength, 1);
 
         return CalculateLinguisticComplexityCore(sequence.Sequence, maxWordLength);
     }
@@ -98,8 +94,8 @@ public static class SequenceComplexity
 
         foreach (char c in seq)
         {
-            if (frequencies.ContainsKey(c))
-                frequencies[c]++;
+            if (frequencies.TryGetValue(c, out int value))
+                frequencies[c] = ++value;
         }
 
         double entropy = 0;
@@ -140,7 +136,7 @@ public static class SequenceComplexity
     public static double CalculateKmerEntropy(DnaSequence sequence, int k = 2)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        if (k < 1) throw new ArgumentOutOfRangeException(nameof(k));
+        ArgumentOutOfRangeException.ThrowIfLessThan(k, 1);
 
         return CalculateKmerEntropyCore(sequence.Sequence, k);
     }
@@ -156,7 +152,7 @@ public static class SequenceComplexity
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> &lt; 1.</exception>
     public static double CalculateKmerEntropy(string sequence, int k = 2)
     {
-        if (k < 1) throw new ArgumentOutOfRangeException(nameof(k));
+        ArgumentOutOfRangeException.ThrowIfLessThan(k, 1);
         if (string.IsNullOrEmpty(sequence)) return 0;
         return CalculateKmerEntropyCore(sequence.ToUpperInvariant(), k);
     }
@@ -171,8 +167,8 @@ public static class SequenceComplexity
         for (int i = 0; i <= seq.Length - k; i++)
         {
             string kmer = seq.Substring(i, k);
-            if (kmerCounts.ContainsKey(kmer))
-                kmerCounts[kmer]++;
+            if (kmerCounts.TryGetValue(kmer, out int value))
+                kmerCounts[kmer] = ++value;
             else
                 kmerCounts[kmer] = 1;
             total++;
@@ -214,8 +210,8 @@ public static class SequenceComplexity
         int stepSize = 10)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        if (windowSize < 1) throw new ArgumentOutOfRangeException(nameof(windowSize));
-        if (stepSize < 1) throw new ArgumentOutOfRangeException(nameof(stepSize));
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(stepSize, 1);
 
         return CalculateWindowedComplexityCore(sequence.Sequence, windowSize, stepSize);
     }
@@ -258,7 +254,7 @@ public static class SequenceComplexity
         double entropyThreshold = 1.0)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        if (windowSize < 1) throw new ArgumentOutOfRangeException(nameof(windowSize));
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
 
         return FindLowComplexityRegionsCore(sequence.Sequence, windowSize, entropyThreshold);
     }
@@ -346,7 +342,7 @@ public static class SequenceComplexity
     public static double CalculateDustScore(DnaSequence sequence, int wordSize = DustWordSize)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        if (wordSize < 1) throw new ArgumentOutOfRangeException(nameof(wordSize));
+        ArgumentOutOfRangeException.ThrowIfLessThan(wordSize, 1);
         return CalculateDustScoreCore(sequence.Sequence, wordSize);
     }
 
@@ -360,7 +356,7 @@ public static class SequenceComplexity
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="wordSize"/> &lt; 1.</exception>
     public static double CalculateDustScore(string sequence, int wordSize = DustWordSize)
     {
-        if (wordSize < 1) throw new ArgumentOutOfRangeException(nameof(wordSize));
+        ArgumentOutOfRangeException.ThrowIfLessThan(wordSize, 1);
         if (string.IsNullOrEmpty(sequence)) return 0;
         return CalculateDustScoreCore(sequence.ToUpperInvariant(), wordSize);
     }
@@ -377,8 +373,8 @@ public static class SequenceComplexity
         for (int i = 0; i < wordCount; i++)
         {
             string word = seq.Substring(i, wordSize);
-            if (wordCounts.ContainsKey(word))
-                wordCounts[word]++;
+            if (wordCounts.TryGetValue(word, out int value))
+                wordCounts[word] = ++value;
             else
                 wordCounts[word] = 1;
         }
@@ -536,13 +532,14 @@ public static class SequenceComplexity
         while (ind + inc <= seq.Length)
         {
             string sub = seq.Substring(ind, inc);
-            if (components.Contains(sub))
+            if (!components.Add(sub))
             {
+                // sub already present (Add returned false) → grow the window
                 inc++;
             }
             else
             {
-                components.Add(sub);
+                // sub was new and just added by the Add above
                 ind += inc;
                 inc = 1;
             }

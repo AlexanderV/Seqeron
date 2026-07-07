@@ -5,10 +5,6 @@
 //         Moreno-Hagelsieb & Latimer (2008). Bioinformatics 24(3):319–324. (RBH = shared genes)
 //         Synteny overview — "fraction of syntenic genes" metric (OverallSynteny).
 
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
 using G = Seqeron.Genomics.Analysis.ComparativeGenomics.Gene;
 
 namespace Seqeron.Genomics.Tests.Unit.Analysis;

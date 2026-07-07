@@ -6,8 +6,6 @@
 //         Do H., Dobrovic A. (2015). FFPE deamination C:G>T:A. https://www.sciencedirect.com/science/article/pii/S152515781630188X
 //         Broad GATK FisherStrand / StrandBiasTest. https://github.com/broadinstitute/gatk/blob/master/src/main/java/org/broadinstitute/hellbender/tools/walkers/annotator/StrandBiasTest.java
 
-using System.Linq;
-using Seqeron.Genomics.Oncology;
 using Obs = Seqeron.Genomics.Oncology.OncologyAnalyzer.ArtifactObservation;
 
 namespace Seqeron.Genomics.Tests.Unit.Oncology;

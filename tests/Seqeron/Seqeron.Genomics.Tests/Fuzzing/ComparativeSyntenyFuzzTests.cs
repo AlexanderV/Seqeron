@@ -1,10 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Analysis;
-
 namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
@@ -80,7 +73,6 @@ public class ComparativeSyntenyFuzzTests
     // Documented MCScanX defaults (Synteny_Block_Detection.md §4.2).
     private const int MatchScore = 50;
     private const int DefaultMinAnchors = 5;
-    private const int DefaultMaxGap = 25;
     private const int MinChainScore = 250;
 
     #region Helpers
@@ -489,7 +481,7 @@ public class ComparativeSyntenyFuzzTests
                 // else: no entry for this gene.
             }
 
-            int usableAnchors = n == 0 ? 0 : map.Count(kv => kv.Value.StartsWith("h"));
+            int usableAnchors = n == 0 ? 0 : map.Count(kv => kv.Value.StartsWith('h'));
 
             List<ComparativeGenomics.SyntenicBlock> blocks = null!;
             Action act = () => blocks = ComparativeGenomics.FindSyntenicBlocks(genome1, genome2, map).ToList();

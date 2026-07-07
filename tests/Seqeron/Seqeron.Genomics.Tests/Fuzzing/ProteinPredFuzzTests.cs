@@ -1,10 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Analysis;
 using static Seqeron.Genomics.Analysis.DisorderPredictor;
 
 namespace Seqeron.Genomics.Tests.Fuzzing;
@@ -182,7 +175,6 @@ public class ProteinPredFuzzTests
     /// kSegHicut) for DISORDER-LC-001 — Low_Complexity_Region_Detection.md §4.2.</summary>
     private const int SegWindow = 12;   // W (kSegWindow)
     private const double SegK1 = 2.2;   // trigger complexity K1 (kSegLocut), bits/residue
-    private const double SegK2 = 2.5;   // extension complexity K2 (kSegHicut), bits/residue
 
     /// <summary>Deterministic RNG — seed fixed locally so generated fuzz inputs are reproducible.</summary>
     private static string RandomProtein(int length, int seed)

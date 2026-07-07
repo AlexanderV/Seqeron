@@ -5,10 +5,6 @@
 //         Sequence Variants in Cancer. J Mol Diagn 19(1):4-23. https://doi.org/10.1016/j.jmoldx.2016.10.002
 //         Tate JG et al. (2019). COSMIC. Nucleic Acids Res 47(D1):D941-D947. https://doi.org/10.1093/nar/gky1015
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using Seqeron.Genomics.Oncology;
 using Level = Seqeron.Genomics.Oncology.OncologyAnalyzer.ClinicalEvidenceLevel;
 using Tier = Seqeron.Genomics.Oncology.OncologyAnalyzer.VariantTier;
 using Input = Seqeron.Genomics.Oncology.OncologyAnalyzer.CancerVariantAnnotationInput;
@@ -284,7 +280,7 @@ public class OncologyAnalyzer_AnnotateCancerVariants_Tests
             foreach (var assoc in associations)
             {
                 var tier = OncologyAnalyzer.ClassifyVariantTier(Variant(level, maf, assoc));
-                Assert.That(Enum.IsDefined(typeof(Tier), tier), Is.True,
+                Assert.That(Enum.IsDefined(tier), Is.True,
                     $"Every input maps to one of the four defined tiers (level={level}, maf={maf}, assoc={assoc}) — INV-1.");
             }
         });

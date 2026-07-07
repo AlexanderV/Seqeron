@@ -1,10 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Analysis;
 using static Seqeron.Genomics.Analysis.ProteinMotifFinder;
 using ProteinDomain = Seqeron.Genomics.Analysis.ProteinMotifFinder.ProteinDomain;
 

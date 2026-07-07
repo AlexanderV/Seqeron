@@ -1,7 +1,5 @@
 using System.ComponentModel;
 using ModelContextProtocol.Server;
-using Seqeron.Genomics.Annotation;
-using Seqeron.Genomics.Core;
 
 namespace Seqeron.Mcp.Annotation.Tools;
 
@@ -341,8 +339,7 @@ public class AnnotationTools
     public static ClassifyMutationResult ClassifyMutation(
         [Description("Variant to classify (must include type and ref/alt alleles)")] VariantDto variant)
     {
-        if (variant is null)
-            throw new ArgumentNullException(nameof(variant));
+        ArgumentNullException.ThrowIfNull(variant);
         if (string.IsNullOrEmpty(variant.ReferenceAllele) || string.IsNullOrEmpty(variant.AlternateAllele))
             throw new ArgumentException("Variant alleles cannot be empty", nameof(variant));
 
@@ -356,8 +353,7 @@ public class AnnotationTools
     public static TiTvRatioResult TiTvRatio(
         [Description("Variants (only SNP-typed entries are counted)")] IReadOnlyList<VariantDto> variants)
     {
-        if (variants is null)
-            throw new ArgumentNullException(nameof(variants));
+        ArgumentNullException.ThrowIfNull(variants);
 
         var ratio = VariantCaller.CalculateTiTvRatio(variants.Select(FromDto));
         return new TiTvRatioResult(ratio);
@@ -389,8 +385,7 @@ public class AnnotationTools
         [Description("Coding DNA sequence (CDS)")] string codingSequence,
         [Description("Position of the variant within the coding sequence (0-based)")] int variantPosition)
     {
-        if (variant is null)
-            throw new ArgumentNullException(nameof(variant));
+        ArgumentNullException.ThrowIfNull(variant);
         if (string.IsNullOrEmpty(codingSequence))
             throw new ArgumentException("Coding sequence cannot be null or empty", nameof(codingSequence));
 
@@ -429,8 +424,7 @@ public class AnnotationTools
         [Description("Chromosome identifier for column 1 (CHROM)")] string chromosome = "chr1",
         [Description("Sample column name in the VCF header")] string sampleName = "SAMPLE")
     {
-        if (variants is null)
-            throw new ArgumentNullException(nameof(variants));
+        ArgumentNullException.ThrowIfNull(variants);
 
         var lines = VariantCaller
             .ToVcfLines(variants.Select(FromDto), chromosome, sampleName)
@@ -511,8 +505,7 @@ public class AnnotationTools
         [Description("Optional reference sequence (used for codon/AA change prediction)")] string? referenceSequence = null,
         [Description("Optional population frequencies map (e.g., AF, gnomAD_AF)")] Dictionary<string, double>? populationFrequencies = null)
     {
-        if (variant is null)
-            throw new ArgumentNullException(nameof(variant));
+        ArgumentNullException.ThrowIfNull(variant);
         if (string.IsNullOrEmpty(variant.Chromosome) || string.IsNullOrEmpty(variant.Reference) || string.IsNullOrEmpty(variant.Alternate))
             throw new ArgumentException("Variant chromosome / reference / alternate cannot be empty", nameof(variant));
         if (transcripts is null || transcripts.Count == 0)
@@ -551,8 +544,7 @@ public class AnnotationTools
         [Description("ClinVar clinical significance string")] string? clinvarSignificance = null,
         [Description("Optional functional evidence labels (e.g., 'LOF confirmed')")] IReadOnlyList<string>? functionalEvidence = null)
     {
-        if (annotation is null)
-            throw new ArgumentNullException(nameof(annotation));
+        ArgumentNullException.ThrowIfNull(annotation);
 
         var pred = VariantAnnotator.PredictPathogenicity(
             FromDto(annotation),
@@ -617,10 +609,8 @@ public class AnnotationTools
         [Description("Variant to annotate")] AnnotatorVariantDto variant,
         [Description("Regulatory regions (promoter/enhancer/silencer/etc.)")] IReadOnlyList<RegulatoryRegionInputDto> regulatoryRegions)
     {
-        if (variant is null)
-            throw new ArgumentNullException(nameof(variant));
-        if (regulatoryRegions is null)
-            throw new ArgumentNullException(nameof(regulatoryRegions));
+        ArgumentNullException.ThrowIfNull(variant);
+        ArgumentNullException.ThrowIfNull(regulatoryRegions);
 
         var input = regulatoryRegions.Select(r =>
             (r.Chromosome, r.Start, r.End, r.Type, r.CellType, r.Score, (IReadOnlyList<string>)(r.TranscriptionFactors ?? new List<string>())));
@@ -641,8 +631,7 @@ public class AnnotationTools
         [Description("Reference sequence context centred near the variant")] string referenceContext,
         [Description("0-based offset of the variant within the reference context")] int contextOffset = 20)
     {
-        if (variant is null)
-            throw new ArgumentNullException(nameof(variant));
+        ArgumentNullException.ThrowIfNull(variant);
         if (string.IsNullOrEmpty(referenceContext))
             throw new ArgumentException("Reference context cannot be null or empty", nameof(referenceContext));
         if (motifs is null || motifs.Count == 0)
@@ -685,8 +674,7 @@ public class AnnotationTools
     public static FormatVcfInfoResult FormatVcfInfo(
         [Description("Variant annotation to serialise")] VariantAnnotationDto annotation)
     {
-        if (annotation is null)
-            throw new ArgumentNullException(nameof(annotation));
+        ArgumentNullException.ThrowIfNull(annotation);
 
         var info = VariantAnnotator.FormatAsVcfInfo(FromDto(annotation));
         return new FormatVcfInfoResult(info);
@@ -859,8 +847,7 @@ public class AnnotationTools
     public static MethylationProfileDto MethylationProfile(
         [Description("Methylation sites to aggregate")] IReadOnlyList<MethylationSiteDto> sites)
     {
-        if (sites is null)
-            throw new ArgumentNullException(nameof(sites));
+        ArgumentNullException.ThrowIfNull(sites);
 
         var profile = EpigeneticsAnalyzer.GenerateMethylationProfile(sites.Select(FromDto));
         return ToDto(profile);
@@ -876,10 +863,8 @@ public class AnnotationTools
         [Description("Minimum mean methylation difference for a DMR (0..1)")] double minDifference = 0.25,
         [Description("Minimum CpG count per window")] int minCpGCount = 3)
     {
-        if (sample1 is null)
-            throw new ArgumentNullException(nameof(sample1));
-        if (sample2 is null)
-            throw new ArgumentNullException(nameof(sample2));
+        ArgumentNullException.ThrowIfNull(sample1);
+        ArgumentNullException.ThrowIfNull(sample2);
         if (sample1.Count == 0 && sample2.Count == 0)
             throw new ArgumentException("Both samples cannot be empty", nameof(sample1));
 
@@ -922,8 +907,7 @@ public class AnnotationTools
     public static AnnotateHistoneModificationsResult AnnotateHistoneModifications(
         [Description("Histone modification intervals (start, end, mark, signal)")] IReadOnlyList<HistoneModificationInputDto> modifications)
     {
-        if (modifications is null)
-            throw new ArgumentNullException(nameof(modifications));
+        ArgumentNullException.ThrowIfNull(modifications);
 
         var input = modifications.Select(m => (m.Start, m.End, m.Mark, m.Signal));
         var annotations = EpigeneticsAnalyzer
@@ -943,8 +927,7 @@ public class AnnotationTools
         [Description("Minimum region width (bp)")] int minWidth = 100,
         [Description("Maximum gap between accessible positions before splitting a region (bp)")] int maxGap = 50)
     {
-        if (accessibilitySignal is null)
-            throw new ArgumentNullException(nameof(accessibilitySignal));
+        ArgumentNullException.ThrowIfNull(accessibilitySignal);
 
         var input = accessibilitySignal.Select(s => (s.Position, s.Signal));
         var regions = EpigeneticsAnalyzer
@@ -962,8 +945,7 @@ public class AnnotationTools
         [Description("Per-gene allele-specific methylation values")] IReadOnlyList<ImprintedGeneInputDto> genes,
         [Description("Minimum methylation difference between alleles")] double minDifference = 0.4)
     {
-        if (genes is null)
-            throw new ArgumentNullException(nameof(genes));
+        ArgumentNullException.ThrowIfNull(genes);
 
         var input = genes.Select(g =>
             (g.GeneId, g.Start, g.End, g.MaternalMethylation, g.PaternalMethylation));
@@ -1071,8 +1053,8 @@ public class AnnotationTools
         [Description("First miRNA")] MiRnaDto miRna1,
         [Description("Second miRNA")] MiRnaDto miRna2)
     {
-        if (miRna1 is null) throw new ArgumentNullException(nameof(miRna1));
-        if (miRna2 is null) throw new ArgumentNullException(nameof(miRna2));
+        ArgumentNullException.ThrowIfNull(miRna1);
+        ArgumentNullException.ThrowIfNull(miRna2);
         if (string.IsNullOrEmpty(miRna1.Sequence) || string.IsNullOrEmpty(miRna2.Sequence))
             throw new ArgumentException("Both miRNAs must have non-empty sequences");
 
@@ -1229,7 +1211,7 @@ public class AnnotationTools
     public static GroupBySeedFamilyResult GroupBySeedFamily(
         [Description("miRNAs to group")] IReadOnlyList<MiRnaDto> miRnas)
     {
-        if (miRnas is null) throw new ArgumentNullException(nameof(miRnas));
+        ArgumentNullException.ThrowIfNull(miRnas);
 
         var families = MiRnaAnalyzer
             .GroupBySeedFamily(miRnas.Select(FromDto))
@@ -1246,8 +1228,8 @@ public class AnnotationTools
         [Description("miRNA database to search")] IReadOnlyList<MiRnaDto> database,
         [Description("Maximum allowed seed mismatches")] int maxMismatches = 1)
     {
-        if (query is null) throw new ArgumentNullException(nameof(query));
-        if (database is null) throw new ArgumentNullException(nameof(database));
+        ArgumentNullException.ThrowIfNull(query);
+        ArgumentNullException.ThrowIfNull(database);
 
         var matches = MiRnaAnalyzer
             .FindSimilarMiRnas(FromDto(query), database.Select(FromDto), maxMismatches)
@@ -1494,7 +1476,7 @@ public class AnnotationTools
         [Description("Insert-size standard deviation (nt)")] int insertSizeStdDev = 50,
         [Description("Hard maximum insert size (nt) above which the pair is always discordant")] int maxInsertSize = 10000)
     {
-        if (readPairs is null) throw new ArgumentNullException(nameof(readPairs));
+        ArgumentNullException.ThrowIfNull(readPairs);
 
         var input = readPairs.Select(p =>
             (p.ReadId, p.Chr1, p.Pos1, p.Strand1, p.Chr2, p.Pos2, p.Strand2, p.InsertSize));
@@ -1513,7 +1495,7 @@ public class AnnotationTools
         [Description("Maximum distance (nt) between pair anchors in a cluster")] int clusterDistance = 500,
         [Description("Minimum supporting pairs per cluster")] int minSupport = 3)
     {
-        if (discordantPairs is null) throw new ArgumentNullException(nameof(discordantPairs));
+        ArgumentNullException.ThrowIfNull(discordantPairs);
 
         var variants = StructuralVariantAnalyzer
             .ClusterDiscordantPairs(discordantPairs.Select(FromDto), clusterDistance, minSupport)
@@ -1529,7 +1511,7 @@ public class AnnotationTools
         [Description("Aligned reads with CIGAR strings")] IReadOnlyList<AlignmentInputDto> alignments,
         [Description("Minimum soft-clip length (nt) to call a split read")] int minClipLength = 20)
     {
-        if (alignments is null) throw new ArgumentNullException(nameof(alignments));
+        ArgumentNullException.ThrowIfNull(alignments);
 
         var input = alignments.Select(a => (a.ReadId, a.Chromosome, a.Position, a.Cigar, a.Sequence));
         var reads = StructuralVariantAnalyzer
@@ -1547,7 +1529,7 @@ public class AnnotationTools
         [Description("Maximum distance (nt) between primary positions in a cluster")] int clusterDistance = 10,
         [Description("Minimum supporting reads per cluster")] int minSupport = 2)
     {
-        if (splitReads is null) throw new ArgumentNullException(nameof(splitReads));
+        ArgumentNullException.ThrowIfNull(splitReads);
 
         var breakpoints = StructuralVariantAnalyzer
             .ClusterSplitReads(splitReads.Select(FromDto), clusterDistance, minSupport)
@@ -1564,7 +1546,7 @@ public class AnnotationTools
         [Description("Log-ratio change threshold for starting a new segment")] double changeThreshold = 0.3,
         [Description("Minimum probes per segment")] int minProbes = 5)
     {
-        if (probes is null) throw new ArgumentNullException(nameof(probes));
+        ArgumentNullException.ThrowIfNull(probes);
 
         var input = probes.Select(p => (p.Chromosome, p.Position, p.LogRatio, p.Baf));
         var segments = StructuralVariantAnalyzer
@@ -1582,7 +1564,7 @@ public class AnnotationTools
         [Description("Diploid baseline copy number")] int normalCopyNumber = 2,
         [Description("Minimum segment length (nt) to emit as a CNV")] int minLength = 10000)
     {
-        if (segments is null) throw new ArgumentNullException(nameof(segments));
+        ArgumentNullException.ThrowIfNull(segments);
 
         var variants = StructuralVariantAnalyzer
             .IdentifyCNVs(segments.Select(FromDto), normalCopyNumber, minLength)
@@ -1598,7 +1580,7 @@ public class AnnotationTools
         [Description("Structural variants to merge")] IReadOnlyList<StructuralVariantDto> variants,
         [Description("Minimum overlap fraction (0..1) to merge two SVs")] double overlapFraction = 0.5)
     {
-        if (variants is null) throw new ArgumentNullException(nameof(variants));
+        ArgumentNullException.ThrowIfNull(variants);
 
         var merged = StructuralVariantAnalyzer
             .MergeOverlappingSVs(variants.Select(FromDto), overlapFraction)
@@ -1617,7 +1599,7 @@ public class AnnotationTools
         [Description("Minimum SV length (nt)")] int minLength = 50,
         [Description("Maximum SV length (nt)")] int maxLength = 100_000_000)
     {
-        if (variants is null) throw new ArgumentNullException(nameof(variants));
+        ArgumentNullException.ThrowIfNull(variants);
 
         var filtered = StructuralVariantAnalyzer
             .FilterSVs(variants.Select(FromDto), minQuality, minSupport, minLength, maxLength)
@@ -1633,8 +1615,8 @@ public class AnnotationTools
         [Description("Structural variants to annotate")] IReadOnlyList<StructuralVariantDto> variants,
         [Description("Gene models with exon intervals")] IReadOnlyList<SvGeneInputDto> genes)
     {
-        if (variants is null) throw new ArgumentNullException(nameof(variants));
-        if (genes is null) throw new ArgumentNullException(nameof(genes));
+        ArgumentNullException.ThrowIfNull(variants);
+        ArgumentNullException.ThrowIfNull(genes);
 
         var geneInput = genes.Select(g =>
             (g.GeneId, g.Chromosome, g.Start, g.End,
@@ -1657,7 +1639,7 @@ public class AnnotationTools
         [Description("Alternate-supporting reads")] int altReads,
         [Description("Total reads spanning the variant locus")] int totalReads)
     {
-        if (sv is null) throw new ArgumentNullException(nameof(sv));
+        ArgumentNullException.ThrowIfNull(sv);
         if (refReads < 0) throw new ArgumentOutOfRangeException(nameof(refReads), refReads, "refReads must be non-negative");
         if (altReads < 0) throw new ArgumentOutOfRangeException(nameof(altReads), altReads, "altReads must be non-negative");
         if (totalReads < 0) throw new ArgumentOutOfRangeException(nameof(totalReads), totalReads, "totalReads must be non-negative");
@@ -1673,7 +1655,7 @@ public class AnnotationTools
         [Description("Split reads supporting a breakpoint")] IReadOnlyList<SplitReadDto> splitReads,
         [Description("Minimum overlap (nt) between assembled fragments")] int minOverlap = 10)
     {
-        if (splitReads is null) throw new ArgumentNullException(nameof(splitReads));
+        ArgumentNullException.ThrowIfNull(splitReads);
 
         var seq = StructuralVariantAnalyzer.AssembleBreakpointSequence(splitReads.Select(FromDto), minOverlap);
         return new AssembleBreakpointSequenceResult(seq);
@@ -1756,7 +1738,7 @@ public class AnnotationTools
     public static CalculateTpmResult CalculateTpm(
         [Description("Per-gene raw counts and lengths")] IReadOnlyList<GeneCountInputDto> geneCounts)
     {
-        if (geneCounts is null) throw new ArgumentNullException(nameof(geneCounts));
+        ArgumentNullException.ThrowIfNull(geneCounts);
         if (geneCounts.Count == 0)
             throw new ArgumentException("geneCounts cannot be empty.", nameof(geneCounts));
 
@@ -1774,7 +1756,7 @@ public class AnnotationTools
     public static QuantileNormalizeResult QuantileNormalize(
         [Description("Expression vectors per sample (all of equal length)")] IReadOnlyList<IReadOnlyList<double>> samples)
     {
-        if (samples is null) throw new ArgumentNullException(nameof(samples));
+        ArgumentNullException.ThrowIfNull(samples);
         if (samples.Count == 0)
             throw new ArgumentException("samples cannot be empty.", nameof(samples));
 
@@ -1803,7 +1785,7 @@ public class AnnotationTools
         [Description("Values to transform")] IReadOnlyList<double> values,
         [Description("Pseudocount added before taking log2 (avoids log(0))")] double pseudocount = 1.0)
     {
-        if (values is null) throw new ArgumentNullException(nameof(values));
+        ArgumentNullException.ThrowIfNull(values);
 
         var transformed = TranscriptomeAnalyzer
             .Log2Transform(values, pseudocount)
@@ -1819,7 +1801,7 @@ public class AnnotationTools
         [Description("Minimum |log2 fold change| required for significance")] double foldChangeThreshold = 1.0,
         [Description("Adjusted-p-value threshold for significance")] double pValueThreshold = 0.05)
     {
-        if (expressionData is null) throw new ArgumentNullException(nameof(expressionData));
+        ArgumentNullException.ThrowIfNull(expressionData);
         if (expressionData.Count == 0)
             throw new ArgumentException("expressionData cannot be empty.", nameof(expressionData));
 
@@ -1840,8 +1822,8 @@ public class AnnotationTools
         [Description("Pathway / gene-set definitions")] IReadOnlyList<PathwayInputDto> pathways,
         [Description("Total background gene count (universe size)")] int backgroundGeneCount)
     {
-        if (differentiallyExpressedGenes is null) throw new ArgumentNullException(nameof(differentiallyExpressedGenes));
-        if (pathways is null) throw new ArgumentNullException(nameof(pathways));
+        ArgumentNullException.ThrowIfNull(differentiallyExpressedGenes);
+        ArgumentNullException.ThrowIfNull(pathways);
         if (differentiallyExpressedGenes.Count == 0)
             throw new ArgumentException("differentiallyExpressedGenes cannot be empty.", nameof(differentiallyExpressedGenes));
         if (backgroundGeneCount <= 0)
@@ -1866,8 +1848,8 @@ public class AnnotationTools
         [Description("Gene IDs ordered by ranking metric (e.g., descending log2 fold change)")] IReadOnlyList<string> rankedGenes,
         [Description("Gene IDs in the gene set being tested")] IReadOnlyList<string> geneSet)
     {
-        if (rankedGenes is null) throw new ArgumentNullException(nameof(rankedGenes));
-        if (geneSet is null) throw new ArgumentNullException(nameof(geneSet));
+        ArgumentNullException.ThrowIfNull(rankedGenes);
+        ArgumentNullException.ThrowIfNull(geneSet);
         if (rankedGenes.Count == 0)
             throw new ArgumentException("rankedGenes cannot be empty.", nameof(rankedGenes));
         if (geneSet.Count == 0)
@@ -1883,7 +1865,7 @@ public class AnnotationTools
     public static FindSkippedExonEventsResult FindSkippedExonEvents(
         [Description("Per-exon inclusion and skipping read counts")] IReadOnlyList<SkippedExonInputDto> exonData)
     {
-        if (exonData is null) throw new ArgumentNullException(nameof(exonData));
+        ArgumentNullException.ThrowIfNull(exonData);
 
         var input = exonData.Select(e => (e.GeneId, e.ExonStart, e.ExonEnd, e.InclusionReads, e.SkippingReads));
         var events = TranscriptomeAnalyzer
@@ -1900,7 +1882,7 @@ public class AnnotationTools
         [Description("Per-event PSI values in the two conditions")] IReadOnlyList<SplicingComparisonInputDto> splicingData,
         [Description("Minimum |PSI(cond2) - PSI(cond1)| to report an event")] double deltaPsiThreshold = 0.1)
     {
-        if (splicingData is null) throw new ArgumentNullException(nameof(splicingData));
+        ArgumentNullException.ThrowIfNull(splicingData);
 
         var input = splicingData.Select(s => (s.GeneId, s.Start, s.End, s.PsiCondition1, s.PsiCondition2));
         var events = TranscriptomeAnalyzer
@@ -1916,7 +1898,7 @@ public class AnnotationTools
     public static FindDominantIsoformsResult FindDominantIsoforms(
         [Description("Transcript isoforms with expression values")] IReadOnlyList<TranscriptIsoformDto> isoforms)
     {
-        if (isoforms is null) throw new ArgumentNullException(nameof(isoforms));
+        ArgumentNullException.ThrowIfNull(isoforms);
 
         var input = isoforms.Select(FromDto);
         var dominants = TranscriptomeAnalyzer
@@ -1933,7 +1915,7 @@ public class AnnotationTools
         [Description("Per-isoform expression in two conditions")] IReadOnlyList<IsoformExpressionInputDto> isoformData,
         [Description("Minimum |delta-usage| (0..1) for an isoform to be considered switching")] double switchThreshold = 0.3)
     {
-        if (isoformData is null) throw new ArgumentNullException(nameof(isoformData));
+        ArgumentNullException.ThrowIfNull(isoformData);
 
         var input = isoformData.Select(d => (FromDto(d.Isoform), d.Expression1, d.Expression2));
         var switches = TranscriptomeAnalyzer
@@ -1950,8 +1932,8 @@ public class AnnotationTools
         [Description("First expression vector")] IReadOnlyList<double> expression1,
         [Description("Second expression vector (same length as expression1)")] IReadOnlyList<double> expression2)
     {
-        if (expression1 is null) throw new ArgumentNullException(nameof(expression1));
-        if (expression2 is null) throw new ArgumentNullException(nameof(expression2));
+        ArgumentNullException.ThrowIfNull(expression1);
+        ArgumentNullException.ThrowIfNull(expression2);
         if (expression1.Count == 0 || expression2.Count == 0)
             throw new ArgumentException("Expression vectors cannot be empty.");
         if (expression1.Count != expression2.Count)
@@ -1969,7 +1951,7 @@ public class AnnotationTools
         [Description("Per-gene expression profiles across samples")] IReadOnlyList<GeneProfileInputDto> geneProfiles,
         [Description("Minimum |Pearson correlation| required for an edge")] double correlationThreshold = 0.7)
     {
-        if (geneProfiles is null) throw new ArgumentNullException(nameof(geneProfiles));
+        ArgumentNullException.ThrowIfNull(geneProfiles);
 
         var input = geneProfiles.Select(g => (g.GeneId, g.Expression));
         var edges = TranscriptomeAnalyzer
@@ -1987,7 +1969,7 @@ public class AnnotationTools
         [Description("Number of clusters to form")] int numClusters = 5,
         [Description("Minimum mean within-cluster correlation (currently informational)")] double correlationThreshold = 0.5)
     {
-        if (geneProfiles is null) throw new ArgumentNullException(nameof(geneProfiles));
+        ArgumentNullException.ThrowIfNull(geneProfiles);
 
         var input = geneProfiles.Select(g => (g.GeneId, g.Expression));
         var clusters = TranscriptomeAnalyzer
@@ -2012,7 +1994,7 @@ public class AnnotationTools
         [Description("Reads mapped to rRNA loci")] double rRnaReads,
         [Description("Per-gene read counts (used to count detected genes with count > 0)")] IReadOnlyList<double> geneCounts)
     {
-        if (geneCounts is null) throw new ArgumentNullException(nameof(geneCounts));
+        ArgumentNullException.ThrowIfNull(geneCounts);
         if (totalReads < 0) throw new ArgumentException("totalReads cannot be negative.", nameof(totalReads));
         if (mappedReads < 0) throw new ArgumentException("mappedReads cannot be negative.", nameof(mappedReads));
         if (exonicReads < 0) throw new ArgumentException("exonicReads cannot be negative.", nameof(exonicReads));
@@ -2030,7 +2012,7 @@ public class AnnotationTools
         [Description("Per-sample expression vectors (all of equal length)")] IReadOnlyList<SampleExpressionInputDto> samples,
         [Description("Number of top-variable genes to use")] int topGenes = 500)
     {
-        if (samples is null) throw new ArgumentNullException(nameof(samples));
+        ArgumentNullException.ThrowIfNull(samples);
         if (samples.Count == 0)
             throw new ArgumentException("samples cannot be empty.", nameof(samples));
 

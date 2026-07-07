@@ -6,11 +6,6 @@
 //         MIT Press, Theorems 8.1/8.2; Compeau, Pevzner & Tesler (2011),
 //         Nat Biotechnol 29:987-991, DOI 10.1038/nbt.2023.
 
-using NUnit.Framework;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.Alignment;
 
 [TestFixture]

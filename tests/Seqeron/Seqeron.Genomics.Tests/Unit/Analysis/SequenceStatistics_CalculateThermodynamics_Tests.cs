@@ -6,8 +6,6 @@
 //         Biopython Bio.SeqUtils.MeltingTemp (DNA_NN3 table, Tm_NN).
 //         MELTING 5 User Guide (Dumousseau et al. 2012) §4.2/§4.3.
 
-using Seqeron.Genomics.Analysis;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -359,7 +356,7 @@ public static class ProteinMotifFinder
                     }
                     else
                     {
-                        sb.Append(prositePattern.Substring(i, end - i + 1));
+                        sb.Append(prositePattern.AsSpan(i, end - i + 1));
                     }
                     i = end + 1;
                 }

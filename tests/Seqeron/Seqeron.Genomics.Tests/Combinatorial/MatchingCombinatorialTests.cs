@@ -766,7 +766,7 @@ public class MatchingCombinatorialTests
         c2.Should().BeGreaterThanOrEqualTo(c1, "a larger mismatch budget admits ≥ as many windows");
 
         // A pattern one substitution off every occurrence: 0 exact, but > 0 at d ≥ 1.
-        string near = "T" + BaseUnit.Substring(1, 5); // differs from BaseUnit[0..6] only at position 0
+        string near = string.Concat("T", BaseUnit.AsSpan(1, 5)); // differs from BaseUnit[0..6] only at position 0
         ApproximateMatcher.CountApproximateOccurrences(text, near, 0)
             .Should().BeLessThan(ApproximateMatcher.CountApproximateOccurrences(text, near, 1));
     }

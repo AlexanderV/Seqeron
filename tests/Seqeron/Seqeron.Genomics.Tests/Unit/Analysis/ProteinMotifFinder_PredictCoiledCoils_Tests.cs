@@ -4,10 +4,6 @@
 // Source:   Mason JM, Arndt KM (2004) ChemBioChem 5(2):170-176; Lupas A, Van Dyke M, Stock J (1991)
 //           Science 252:1162-1164; Wikipedia "Coiled coil" (a/d occupied by Ile, Leu, or Val).
 
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 /// <summary>

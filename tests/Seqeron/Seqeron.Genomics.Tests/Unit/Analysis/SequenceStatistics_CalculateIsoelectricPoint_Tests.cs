@@ -4,8 +4,6 @@
 // Source: EMBOSS iep (Epk.dat pKa scale), https://emboss.sourceforge.net/emboss/apps/iep.html;
 //         Peptides charge_pI.cpp (Osorio et al. 2015) Henderson-Hasselbalch net-charge model.
 
-using Seqeron.Genomics.Analysis;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

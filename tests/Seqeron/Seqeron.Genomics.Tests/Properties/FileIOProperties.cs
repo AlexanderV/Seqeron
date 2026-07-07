@@ -617,7 +617,7 @@ public class FileIOProperties
             string block = sequence.Substring(i, Math.Min(60, sequence.Length - i));
             sb.Append((i + 1).ToString().PadLeft(9)).Append(' ');
             for (int j = 0; j < block.Length; j += 10)
-                sb.Append(block.Substring(j, Math.Min(10, block.Length - j))).Append(' ');
+                sb.Append(block.AsSpan(j, Math.Min(10, block.Length - j))).Append(' ');
             sb.Append('\n');
         }
         sb.Append("//\n");
@@ -907,7 +907,7 @@ public class FileIOProperties
         // Sequence chunk lines: 5-space continuation prefix, 60 bases per line.
         for (int i = 0; i < f.Sequence.Length; i += 60)
         {
-            sb.Append("     ").Append(f.Sequence.Substring(i, Math.Min(60, f.Sequence.Length - i))).Append('\n');
+            sb.Append("     ").Append(f.Sequence.AsSpan(i, Math.Min(60, f.Sequence.Length - i))).Append('\n');
         }
         sb.Append("//\n");
         return sb.ToString();

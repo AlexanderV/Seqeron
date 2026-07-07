@@ -272,7 +272,7 @@ public class KmerCombinatorialTests
     {
         const int k = 4;
         string a = DiverseDna(200, 0xD1u);
-        string near = a.Substring(0, 180) + DiverseDna(20, 0xD2u); // 90% shared prefix
+        string near = string.Concat(a.AsSpan(0, 180), DiverseDna(20, 0xD2u)); // 90% shared prefix
         string far = DiverseDna(200, 0xFFFFu);                      // unrelated
 
         double dNear = KmerAnalyzer.KmerDistance(a, near, k);

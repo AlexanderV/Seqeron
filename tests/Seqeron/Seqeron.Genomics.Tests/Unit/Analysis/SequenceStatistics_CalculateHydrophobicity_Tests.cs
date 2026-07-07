@@ -5,8 +5,6 @@
 //         Biopython Bio.SeqUtils.ProtParamData.kd (scale); ProtParam.gravy / protein_scale.
 //         Expasy ProtParam doc: GRAVY = sum(hydropathy)/residue count.
 
-using Seqeron.Genomics.Analysis;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

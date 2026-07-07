@@ -8,13 +8,6 @@
 //   Biopython Bio/SeqUtils/__init__.py (master), retrieved 2026-06-23 from
 //   https://raw.githubusercontent.com/biopython/biopython/master/Bio/SeqUtils/__init__.py
 // Source (VCF 1-based POS): VCF v4.3 spec §1.4.1, https://samtools.github.io/hts-specs/VCFv4.3.pdf
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-using Seqeron.Genomics.Annotation;
-using Seqeron.Genomics.Core;
-
 namespace Seqeron.Genomics.Tests.Unit.Core;
 
 [TestFixture]

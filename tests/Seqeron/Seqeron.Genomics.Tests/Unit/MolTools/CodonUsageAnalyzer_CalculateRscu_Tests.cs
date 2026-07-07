@@ -4,11 +4,6 @@
 // Source: Sharp PM, Tuohy TMF, Mosurski KR (1986). Nucleic Acids Res. 14(13):5125-5143.
 //         Formula RSCU = (n_i * x_ij) / sum_k x_ik per GenomicSig (CRAN) / LIRMM.
 
-using NUnit.Framework;
-using Seqeron.Genomics;
-using Seqeron.Genomics.MolTools;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.MolTools;
 
 [TestFixture]

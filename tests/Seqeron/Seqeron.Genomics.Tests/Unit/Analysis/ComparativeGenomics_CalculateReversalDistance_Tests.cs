@@ -5,10 +5,6 @@
 //         Hunter College CompBio Lecture 16 — sorting by reversals (extended permutation, d >= b/2).
 //         Hübotter J (2020). On Sorting by Reversals (unsigned breakpoint |Δ| != 1).
 
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-using System;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

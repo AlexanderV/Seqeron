@@ -1,6 +1,3 @@
-using NUnit.Framework;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.MolTools;
 
 /// <summary>

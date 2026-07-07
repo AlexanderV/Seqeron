@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using NUnit.Framework;
 using Seqeron.Mcp.Chromosome.Models;
 using Seqeron.Mcp.Chromosome.Tools;

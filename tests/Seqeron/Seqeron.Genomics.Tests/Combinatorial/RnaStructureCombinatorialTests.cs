@@ -404,7 +404,7 @@ public class RnaStructureCombinatorialTests
 
     private const string IrLeftArm = "GGGCC";  // revcomp = GGCCC
     private const string IrLoop = "AAAAA";      // 5-nt loop
-    private static readonly string IrCore = IrLeftArm + IrLoop + "GGCCC"; // planted IR at (0,4,10,14,5)
+    private const string IrCore = IrLeftArm + IrLoop + "GGCCC"; // planted IR at (0,4,10,14,5)
 
     [Test, Combinatorial]
     public void RnaInvertedRepeats_DefinitionAndPlantedDetection_AcrossArmGapLength(

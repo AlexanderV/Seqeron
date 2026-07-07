@@ -4,10 +4,6 @@
 // Source: Gusfield D. (1997). Algorithms on Strings, Trees and Sequences. Cambridge Univ. Press, ISBN 0-521-58519-8;
 //         Wikipedia "Longest common substring"; GeeksforGeeks "Suffix Tree Application 5" — all accessed 2026-06-13.
 
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

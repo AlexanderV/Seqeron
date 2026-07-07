@@ -9,11 +9,6 @@
 //         estimate_p_EM, calc_likelihood_ratio) and R/4_detection/generalisedLikelihoodRatioTest.R
 //         (calculateIMAFv2) — exact GLRT / background-subtraction / AF-weighting formulas for EstimateInvarSignal.
 
-using System;
-using System.Collections.Generic;
-using NUnit.Framework;
-using Seqeron.Genomics.Oncology;
-
 namespace Seqeron.Genomics.Tests.Unit.Oncology;
 
 [TestFixture]

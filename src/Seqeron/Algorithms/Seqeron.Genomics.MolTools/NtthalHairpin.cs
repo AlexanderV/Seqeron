@@ -1,5 +1,3 @@
-using System;
-
 namespace Seqeron.Genomics.MolTools;
 
 /// <summary>
@@ -27,7 +25,6 @@ namespace Seqeron.Genomics.MolTools;
 internal static class NtthalHairpin
 {
     private const double Inf = NtthalDimer.Inf;
-    private const double R = NtthalDimer.R;
     private const double IlAs = NtthalDimer.IlAs;
     private const double IlAh = NtthalDimer.IlAh;
     private const double AtH = NtthalDimer.AtH;

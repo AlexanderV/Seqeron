@@ -1,5 +1,3 @@
-using VerifyNUnit;
-
 namespace Seqeron.Genomics.Tests.Snapshots;
 
 /// <summary>

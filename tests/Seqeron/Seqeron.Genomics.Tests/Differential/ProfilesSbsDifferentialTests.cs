@@ -2,13 +2,6 @@
 // naive per-window GC profile, a naive per-window Shannon entropy profile, and a manual SBS-96
 // trinucleotide context classification + channel enumeration.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-using Seqeron.Genomics.Oncology;
-
 namespace Seqeron.Genomics.Tests.Differential;
 
 [TestFixture]

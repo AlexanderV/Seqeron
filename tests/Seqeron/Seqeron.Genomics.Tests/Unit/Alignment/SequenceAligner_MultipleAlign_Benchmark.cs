@@ -1,12 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics;
-using Seqeron.Genomics.Alignment;
-using Seqeron.Genomics.Core;
-using Seqeron.Genomics.Infrastructure;
 
 namespace Seqeron.Genomics.Tests.Unit.Alignment;
 

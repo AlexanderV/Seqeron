@@ -10,10 +10,6 @@
 //
 // Algorithm Documentation: docs/algorithms/MolTools/Restriction_Site_Detection.md
 
-using NUnit.Framework;
-using Seqeron.Genomics;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.MolTools;
 
 /// <summary>

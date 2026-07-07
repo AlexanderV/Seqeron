@@ -1,11 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Reflection;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Oncology;
-
 namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>

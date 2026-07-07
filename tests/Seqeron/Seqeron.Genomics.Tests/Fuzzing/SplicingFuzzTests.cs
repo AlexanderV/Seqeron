@@ -1,10 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Annotation;
 using static Seqeron.Genomics.Annotation.SpliceSitePredictor;
 
 namespace Seqeron.Genomics.Tests.Fuzzing;

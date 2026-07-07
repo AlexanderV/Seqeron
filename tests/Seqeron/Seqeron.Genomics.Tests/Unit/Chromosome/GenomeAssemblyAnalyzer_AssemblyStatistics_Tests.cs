@@ -6,10 +6,6 @@
 //         QUAST quast_libs/N50.py (cumulative >= threshold% convention);
 //         Li H (2020), auN: a new metric to measure assembly contiguity (auN = Sum(l^2)/Sum(l)).
 
-using NUnit.Framework;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.Chromosome;
 
 [TestFixture]

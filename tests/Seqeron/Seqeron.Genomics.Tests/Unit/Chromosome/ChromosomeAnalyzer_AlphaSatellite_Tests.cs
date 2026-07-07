@@ -7,11 +7,6 @@
 //   CENP-B box 17 bp consensus 5'-YTTCGTTGGAARCGGGA-3': Masumoto H et al. (1989), J Cell Biol 109(4):1963-1973;
 //     consensus reported in PMC6121732 and PMC4843215.
 
-using NUnit.Framework;
-using Seqeron.Genomics;
-using System;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.Chromosome;
 
 /// <summary>

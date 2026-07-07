@@ -1,7 +1,4 @@
 using System.Text;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.IO;
 
 namespace Seqeron.Genomics.Tests.Mutation;
 

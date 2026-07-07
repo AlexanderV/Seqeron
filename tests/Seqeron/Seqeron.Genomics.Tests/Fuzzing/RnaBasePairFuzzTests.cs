@@ -6,10 +6,6 @@
 // Source: RnaSecondaryStructure.CanPair / GetBasePairType — RnaSecondaryStructure.cs.
 //         Crick (1966) JMB 19(2):548 (wobble); IUPAC-IUB (1970); Biopython complement_rna.
 
-using System;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Analysis;
 using static Seqeron.Genomics.Analysis.RnaSecondaryStructure;
 
 namespace Seqeron.Genomics.Tests.Fuzzing;

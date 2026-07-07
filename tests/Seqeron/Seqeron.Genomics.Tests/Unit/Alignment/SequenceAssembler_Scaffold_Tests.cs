@@ -4,12 +4,6 @@
 // Source: Jackman SD et al. (2017). ABySS 2.0. Genome Research 27:768-777
 //         (scaffold construction); NCBI AGP Specification v2.1 (unknown-gap = 100 N).
 
-using System;
-using System.Linq;
-using NUnit.Framework;
-
-using Seqeron.Genomics.Alignment;
-
 namespace Seqeron.Genomics.Tests.Unit.Alignment;
 
 [TestFixture]

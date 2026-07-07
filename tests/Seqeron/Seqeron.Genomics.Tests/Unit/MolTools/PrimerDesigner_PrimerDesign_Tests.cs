@@ -1,4 +1,3 @@
-using NUnit.Framework;
 using System.Text;
 
 namespace Seqeron.Genomics.Tests.Unit.MolTools;

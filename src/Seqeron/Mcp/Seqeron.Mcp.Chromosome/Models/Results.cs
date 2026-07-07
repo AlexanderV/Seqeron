@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using SourceCa = Seqeron.Genomics.Chromosome.ChromosomeAnalyzer;
 using SourceGa = Seqeron.Genomics.Chromosome.GenomeAssemblyAnalyzer;
 

@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace Seqeron.Genomics.Analysis;
 
 /// <summary>
@@ -61,8 +57,8 @@ public static class GcSkewCalculator
         int stepSize = 100)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        if (windowSize < 1) throw new ArgumentOutOfRangeException(nameof(windowSize));
-        if (stepSize < 1) throw new ArgumentOutOfRangeException(nameof(stepSize));
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(stepSize, 1);
 
         return CalculateWindowedGcSkewCore(sequence.Sequence, windowSize, stepSize);
     }
@@ -117,7 +113,7 @@ public static class GcSkewCalculator
         int windowSize = 1000)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        if (windowSize < 1) throw new ArgumentOutOfRangeException(nameof(windowSize));
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
 
         return CalculateCumulativeGcSkewCore(sequence.Sequence, windowSize);
     }

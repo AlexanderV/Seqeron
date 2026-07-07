@@ -1,10 +1,5 @@
-using System;
 using System.Buffers;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Threading;
-using Seqeron.Genomics.Infrastructure;
 
 namespace Seqeron.Genomics.Alignment;
 
@@ -1055,8 +1050,8 @@ public static class SequenceAligner
 
             foreach (var seq in aligned)
             {
-                if (pos < seq.Length && counts.ContainsKey(seq[pos]))
-                    counts[seq[pos]]++;
+                if (pos < seq.Length && counts.TryGetValue(seq[pos], out int value))
+                    counts[seq[pos]] = ++value;
             }
 
             // Include all characters (including gaps) in majority vote.

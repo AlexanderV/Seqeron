@@ -1,17 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Core;
-using Seqeron.Genomics.IO;
-using Seqeron.Genomics.Analysis;
-using Seqeron.Genomics.Annotation;
-using Seqeron.Genomics.Chromosome;
-using Seqeron.Genomics.MolTools;
-using Seqeron.Genomics.Metagenomics;
-using Seqeron.Genomics.Oncology;
-
 namespace Seqeron.Genomics.Tests.Unit.Core;
 
 /// <summary>

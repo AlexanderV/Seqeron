@@ -3,12 +3,6 @@
 // closed-form Watterson/Tajima; manual HWE expected genotypes + chi-square; the Fst variance ratio; and
 // an independent Pearson-correlation LD) and cross-checked against hand-known anchor values.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Population;
-
 namespace Seqeron.Genomics.Tests.Differential;
 
 [TestFixture]

@@ -3,14 +3,7 @@
 // table / a regex / a hand-derived published value), never a copy of the implementation's code path.
 // A divergence between the two implementations on identical input fails the test.
 
-using System;
-using System.Globalization;
-using System.Linq;
-using System.Collections.Generic;
 using System.Text.RegularExpressions;
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-using Seqeron.Genomics.Core;
 
 namespace Seqeron.Genomics.Tests.Differential;
 

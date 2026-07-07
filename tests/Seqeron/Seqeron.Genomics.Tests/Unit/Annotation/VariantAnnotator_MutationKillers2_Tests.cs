@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
 using static Seqeron.Genomics.Annotation.VariantAnnotator;
 using VariantType = Seqeron.Genomics.Annotation.VariantAnnotator.VariantType;
 using Variant = Seqeron.Genomics.Annotation.VariantAnnotator.Variant;
@@ -21,7 +17,6 @@ public class VariantAnnotator_MutationKillers2_Tests
 
     // Single-exon '+' transcript: exon 90..130, CDS 100..120; referenceSequence[0] == genomic 100.
     private const string RefWindow = "ATGCAAGAATTATAANAAGGG";
-    private const int RefStart = 100;
 
     private static Transcript CodingTranscript() => new(
         "ENST_TEST", "ENSG_TEST", "GENE_TEST", "chr1",

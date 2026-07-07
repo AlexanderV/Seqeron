@@ -1,12 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Core;
-using Seqeron.Genomics.Analysis;
-using Seqeron.Genomics.Alignment;
-
 namespace Seqeron.Genomics.Tests.Metamorphic;
 
 /// <summary>
@@ -42,12 +33,6 @@ public class MetamorphicTests
         for (int i = 0; i < length; i++)
             chars[i] = bases[Rng.Next(4)];
         return new string(chars);
-    }
-
-    /// <summary>Generates a DNA string that contains a guaranteed microsatellite.</summary>
-    private static string DnaWithMicrosatellite(string unit, int repeats, int flankLen = 10)
-    {
-        return RandomDna(flankLen) + string.Concat(Enumerable.Repeat(unit, repeats)) + RandomDna(flankLen);
     }
 
     #endregion

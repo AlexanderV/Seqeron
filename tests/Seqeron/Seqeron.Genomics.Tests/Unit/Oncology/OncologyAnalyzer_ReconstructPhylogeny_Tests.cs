@@ -11,10 +11,6 @@
 //   Sum rule (Eq.5): sum over children of v.CCF[i] <= u.CCF[i]+e per node, per sample.
 // They are NOT copied from the implementation output.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.Oncology;
 
 [TestFixture]

@@ -4,10 +4,6 @@
 // Source: Biopython Bio/Data/IUPACData.py (ambiguous_rna_complement); Bio/Seq.py (complement_rna, "T treated as U");
 //         Bio.Seq 1.79 docs; bioinformatics.org IUPAC table; NC-IUB 1984 (Cornish-Bowden, NAR 13(9):3021).
 
-using System;
-using NUnit.Framework;
-using Seqeron.Genomics.Core;
-
 namespace Seqeron.Genomics.Tests.Unit.Core;
 
 /// <summary>

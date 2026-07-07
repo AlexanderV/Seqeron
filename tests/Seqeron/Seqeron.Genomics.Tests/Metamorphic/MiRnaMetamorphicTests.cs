@@ -1,8 +1,3 @@
-using System.Linq;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Annotation;
-
 namespace Seqeron.Genomics.Tests.Metamorphic;
 
 /// <summary>
@@ -50,7 +45,7 @@ public class MiRnaMetamorphicTests
         // Keep the first 8 nucleotides (which contain the seed) and rewrite the 3' tail.
         foreach (var tail in new[] { "CCCCCCCCCCCCCC", "AAAAAAAAAAAAAA", "GUGUGUGUGUGUGU" })
         {
-            string mutated = Let7a.Substring(0, 8) + tail;
+            string mutated = string.Concat(Let7a.AsSpan(0, 8), tail);
             MiRnaAnalyzer.GetSeedSequence(mutated).Should().Be(baseSeed,
                 because: "the seed window (positions 2–8) is untouched by 3'-end edits");
             MiRnaAnalyzer.CreateMiRna("m", mutated).SeedSequence.Should().Be(baseSeed,
@@ -235,7 +230,7 @@ public class MiRnaMetamorphicTests
 
     /// <summary>A hairpin = (L-base G:C arm) + loop + reverse-complement of the arm.</summary>
     private static string Hairpin(int armLength, string loop) =>
-        GcArm.Substring(0, armLength) + loop + MiRnaAnalyzer.GetReverseComplement(GcArm.Substring(0, armLength));
+        string.Concat(GcArm.AsSpan(0, armLength), loop, MiRnaAnalyzer.GetReverseComplement(GcArm.Substring(0, armLength)));
 
     /// <summary>The full-length precursor (the designed hairpin spanning the whole sequence).</summary>
     private static MiRnaAnalyzer.PreMiRna FullHairpin(string sequence) =>

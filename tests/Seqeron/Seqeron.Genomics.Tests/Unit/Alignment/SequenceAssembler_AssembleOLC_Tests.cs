@@ -5,11 +5,6 @@
 //         Langmead B., "Overlap Layout Consensus assembly" / "Assembly & Shortest Common
 //         Superstring" (JHU lecture notes).
 
-using NUnit.Framework;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-
 namespace Seqeron.Genomics.Tests.Unit.Alignment;
 
 [TestFixture]

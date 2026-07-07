@@ -1,13 +1,6 @@
 // 08_DIFFERENTIAL_TESTING rows 142, 185. Independent oracles: a manual best-match read placement +
 // per-position depth, and a manual per-CpG bisulfite methylation level (methylated / total).
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Alignment;
-using Seqeron.Genomics.Annotation;
-
 namespace Seqeron.Genomics.Tests.Differential;
 
 [TestFixture]

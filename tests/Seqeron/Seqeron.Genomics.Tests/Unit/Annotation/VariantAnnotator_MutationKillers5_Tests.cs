@@ -1,6 +1,3 @@
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
 using static Seqeron.Genomics.Annotation.VariantAnnotator;
 using VariantType = Seqeron.Genomics.Annotation.VariantAnnotator.VariantType;
 using Variant = Seqeron.Genomics.Annotation.VariantAnnotator.Variant;

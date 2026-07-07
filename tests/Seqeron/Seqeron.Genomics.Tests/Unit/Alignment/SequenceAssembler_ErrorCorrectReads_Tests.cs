@@ -4,11 +4,6 @@
 // Source: Liu, Schmidt & Maskell (2013). Musket. Bioinformatics 29(3):308-315.
 //         Kelley, Schatz & Salzberg (2010). Quake. Genome Biol 11:R116.
 
-using System;
-using System.Collections.Generic;
-using NUnit.Framework;
-using Seqeron.Genomics.Alignment;
-
 namespace Seqeron.Genomics.Tests.Unit.Alignment;
 
 [TestFixture]

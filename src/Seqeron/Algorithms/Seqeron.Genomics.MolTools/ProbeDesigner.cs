@@ -1,8 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using Seqeron.Genomics.Alignment;
-using Seqeron.Genomics.Infrastructure;
 
 namespace Seqeron.Genomics.MolTools;
 
@@ -672,9 +668,9 @@ public static class ProbeDesigner
 
         // Penalize extreme positions
         double positionPenalty = 0;
-        if (sequence.StartsWith("G") || sequence.StartsWith("C"))
+        if (sequence.StartsWith('G') || sequence.StartsWith('C'))
             positionPenalty += 0.02;
-        if (sequence.EndsWith("G") || sequence.EndsWith("C"))
+        if (sequence.EndsWith('G') || sequence.EndsWith('C'))
             positionPenalty += 0.02;
         score -= positionPenalty;
 

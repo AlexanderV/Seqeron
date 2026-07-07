@@ -6,10 +6,6 @@
 //         COSMIC SBS proposed aetiologies. https://cancer.sanger.ac.uk/signatures/sbs/
 //         Alexandrov L.B. et al. (2020). Nature 578:94-101. https://doi.org/10.1038/s41586-020-1943-3
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using Seqeron.Genomics.Oncology;
 using static Seqeron.Genomics.Oncology.OncologyAnalyzer;
 
 namespace Seqeron.Genomics.Tests.Unit.Oncology;

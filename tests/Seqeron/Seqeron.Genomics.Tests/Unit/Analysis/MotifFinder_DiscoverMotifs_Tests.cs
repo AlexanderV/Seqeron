@@ -4,12 +4,6 @@
 // Source: Compeau P, Pevzner P (2015). Bioinformatics Algorithms: An Active Learning Approach, 2nd ed., Ch. 2.
 //         Expected occurrences of a specific k-mer: E = (N - k + 1) / 4^k under the i.i.d. uniform background.
 
-using System;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-using Seqeron.Genomics.Core;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 /// <summary>

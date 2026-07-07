@@ -510,7 +510,7 @@ public class PopGenCombinatorialTests
             maxHeterozygotes: 1, maxGap: 1_000_000).ToList();
 
         bool expectReported = span >= minLen;
-        roh.Any().Should().Be(expectReported, "a run is reported iff its span ≥ minLength");
+        (roh.Count != 0).Should().Be(expectReported, "a run is reported iff its span ≥ minLength");
         if (expectReported)
         {
             var run = roh.Should().ContainSingle().Subject;

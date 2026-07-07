@@ -3,19 +3,11 @@
 // triplet translation, synonymous-optimisation protein preservation, hand-derived CAI geometric mean,
 // manual rare-codon filtering, and manual codon-usage counting.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Core;
-using Seqeron.Genomics.MolTools;
-
 namespace Seqeron.Genomics.Tests.Differential;
 
 [TestFixture]
 public class CodonTranslationDifferentialTests
 {
-    private const double Tol = 1e-12;
 
     // Independent standard genetic code (NCBI translation table 1), RNA codons -> 1-letter AA / '*'.
     private static readonly Dictionary<string, char> StdCode = BuildStandardCode();

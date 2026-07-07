@@ -3,10 +3,6 @@
 // TestSpec: tests/TestSpecs/PROTMOTIF-PATTERN-001.md
 // Source: ExPASy/PROSITE pattern syntax (scanprosite_doc.html); de Castro et al. (2006) NAR 34:W362–W365;
 //         Schneider TD, Stephens RM (1990). Nucleic Acids Res 18(20):6097–6100.
-using System;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
 using static Seqeron.Genomics.Analysis.ProteinMotifFinder;
 
 namespace Seqeron.Genomics.Tests.Unit.Analysis;

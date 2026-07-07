@@ -9,12 +9,6 @@
 //         ensemble member (feedforward [512,512], PAN-CLASS1-1-3ed9fb2d2dcc9803) for the embedded
 //         single-network parity test. Values were captured in-session by re-running the model.
 
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Reflection;
-using Seqeron.Genomics.Oncology;
-
 namespace Seqeron.Genomics.Tests.Unit.Oncology;
 
 [TestFixture]

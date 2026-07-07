@@ -1,6 +1,5 @@
 using FsCheck;
 using FsCheck.Fluent;
-using FsCheck.NUnit;
 
 namespace Seqeron.Genomics.Tests.Properties;
 
@@ -32,7 +31,7 @@ public class ProteinMotifProperties
     /// A protein with known N-glycosylation motif N-X-[ST]-X (where X≠P).
     /// The NIS and NQT triplets in this protein match N-{P}-[ST]-{P}.
     /// </summary>
-    private static readonly string TestProtein =
+    private const string TestProtein =
         "MKTLLLTLVVVTLVLSSQPVLSRELRECPRGSGKSCQACPAG" +
         "NISTYQCQSYVMSHLCSYQCNQRCFQSLENQCQTFHCRGFQF" +
         "NSTRTMPLHCRGFQFNSTRTMPLHCRG";
@@ -40,7 +39,7 @@ public class ProteinMotifProperties
     /// <summary>
     /// A protein with a zinc-finger-like CxxC motif for pattern matching.
     /// </summary>
-    private static readonly string ZincFingerProtein =
+    private const string ZincFingerProtein =
         "MKCPICGKSFSQSSSLERHIRTHTGEKPYVC" +
         "ELCGKRFRDQANLIRHLRSHTGERPFQCEWC" +
         "GKTFSDKSNLTRHQRTHTGEKKFAC";

@@ -48,7 +48,7 @@ public class AssemblyCombinatorialTests
         int errReads = (int)Math.Round(errorRate * nReads);
         var reads = new List<string>();
         for (int r = 0; r < nReads; r++)
-            reads.Add(r < errReads ? "T" + TrueSeq.Substring(1) : TrueSeq); // minority variant at column 0
+            reads.Add(r < errReads ? string.Concat("T", TrueSeq.AsSpan(1)) : TrueSeq); // minority variant at column 0
 
         string expected = GroundTruthConsensus(reads, threshold, 'N');
 
@@ -66,7 +66,7 @@ public class AssemblyCombinatorialTests
     [Test]
     public void ComputeConsensus_ThresholdAxis_GatesMinorityVariantColumn()
     {
-        var reads = new[] { TrueSeq, TrueSeq, "T" + TrueSeq.Substring(1) }; // 2×A, 1×T at col 0
+        var reads = new[] { TrueSeq, TrueSeq, string.Concat("T", TrueSeq.AsSpan(1)) }; // 2×A, 1×T at col 0
 
         SequenceAssembler.ComputeConsensus(reads, 0.5)[0].Should().Be('A', "2/3 ≥ 0.5 → commit A");
         SequenceAssembler.ComputeConsensus(reads, 0.7)[0].Should().Be('N', "2/3 < 0.7 → ambiguous");
@@ -273,7 +273,7 @@ public class AssemblyCombinatorialTests
         {
             string c = contigs[i];
             expected = overlap > 0 && overlap <= Math.Min(expected.Length, c.Length)
-                ? expected + c.Substring(overlap)
+                ? string.Concat(expected, c.AsSpan(overlap))
                 : expected + c;
         }
 

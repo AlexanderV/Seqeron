@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.Text;
 
 namespace Seqeron.Genomics.Core
@@ -26,8 +24,7 @@ namespace Seqeron.Genomics.Core
         public static ProteinSequence Translate(DnaSequence dna, GeneticCode? geneticCode = null,
             int frame = 0, bool toFirstStop = false)
         {
-            if (dna == null)
-                throw new ArgumentNullException(nameof(dna));
+            ArgumentNullException.ThrowIfNull(dna);
 
             return TranslateSequence(dna.Sequence, geneticCode ?? GeneticCode.Standard, frame, toFirstStop);
         }
@@ -43,8 +40,7 @@ namespace Seqeron.Genomics.Core
         public static ProteinSequence Translate(RnaSequence rna, GeneticCode? geneticCode = null,
             int frame = 0, bool toFirstStop = false)
         {
-            if (rna == null)
-                throw new ArgumentNullException(nameof(rna));
+            ArgumentNullException.ThrowIfNull(rna);
 
             return TranslateSequence(rna.Sequence, geneticCode ?? GeneticCode.Standard, frame, toFirstStop);
         }
@@ -78,8 +74,7 @@ namespace Seqeron.Genomics.Core
         public static IEnumerable<OrfResult> FindOrfs(DnaSequence dna, GeneticCode? geneticCode = null,
             int minLength = 100, bool searchBothStrands = true)
         {
-            if (dna == null)
-                throw new ArgumentNullException(nameof(dna));
+            ArgumentNullException.ThrowIfNull(dna);
 
             var code = geneticCode ?? GeneticCode.Standard;
 
@@ -115,8 +110,7 @@ namespace Seqeron.Genomics.Core
         public static IReadOnlyDictionary<int, ProteinSequence> TranslateSixFrames(DnaSequence dna,
             GeneticCode? geneticCode = null)
         {
-            if (dna == null)
-                throw new ArgumentNullException(nameof(dna));
+            ArgumentNullException.ThrowIfNull(dna);
 
             var code = geneticCode ?? GeneticCode.Standard;
             var result = new Dictionary<int, ProteinSequence>();

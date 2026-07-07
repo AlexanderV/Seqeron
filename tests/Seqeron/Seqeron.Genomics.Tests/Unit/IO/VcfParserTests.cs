@@ -1,9 +1,3 @@
-using NUnit.Framework;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.IO;
 
 /// <summary>
@@ -97,7 +91,7 @@ chr1	300	.	G	A	10	LowQual;LowCov	.";
 
         // SimpleVcf has 4 ## metadata lines + 1 #CHROM header → none become records
         Assert.That(records, Has.Count.EqualTo(3));
-        Assert.That(records.All(r => !r.Chrom.Contains("#")), Is.True, "No metadata content in records");
+        Assert.That(records.All(r => !r.Chrom.Contains('#')), Is.True, "No metadata content in records");
     }
 
     [Test]

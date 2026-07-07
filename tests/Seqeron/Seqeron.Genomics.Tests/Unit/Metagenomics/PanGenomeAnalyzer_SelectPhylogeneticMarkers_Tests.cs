@@ -5,11 +5,6 @@
 //         Page AJ et al. (2015) Bioinformatics 31(22):3691 (Roary);
 //         Zvelebil M, Baum JO (2008) Understanding Bioinformatics (parsimony-informative site).
 
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Metagenomics;
-
 namespace Seqeron.Genomics.Tests.Unit.Metagenomics;
 
 [TestFixture]
@@ -158,7 +153,7 @@ public class PanGenomeAnalyzer_SelectPhylogeneticMarkers_Tests
         {
             Assert.That(PanGenomeAnalyzer.CountParsimonyInformativeSites(null!), Is.EqualTo(0),
                 "Null alignment -> 0, no exception.");
-            Assert.That(PanGenomeAnalyzer.CountParsimonyInformativeSites(new string[0]), Is.EqualTo(0),
+            Assert.That(PanGenomeAnalyzer.CountParsimonyInformativeSites(Array.Empty<string>()), Is.EqualTo(0),
                 "Empty alignment -> 0.");
             Assert.That(PanGenomeAnalyzer.CountParsimonyInformativeSites(new[] { "", "" }), Is.EqualTo(0),
                 "Zero-length rows -> 0 columns -> 0 PIS.");

@@ -15,10 +15,6 @@
 // and I (0.213) are ordered. Window smoothing makes the sub-0.5 "dip" narrower than
 // the raw ordered run; the dip coordinates ARE the MoRF, per Cheng/Oldfield.
 
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

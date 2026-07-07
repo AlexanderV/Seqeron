@@ -5,9 +5,6 @@
 //         Marras G, et al. (2015). Anim Genet 46(2):110-121 (consecutive-runs method).
 //         Chang CC, et al. (2015). GigaScience 4:7 — PLINK 1.9 --homozyg defaults.
 
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
 using static Seqeron.Genomics.Population.PopulationGeneticsAnalyzer;
 
 namespace Seqeron.Genomics.Tests.Unit.Population;

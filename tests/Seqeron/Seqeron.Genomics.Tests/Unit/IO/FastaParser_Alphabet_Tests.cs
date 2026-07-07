@@ -7,11 +7,6 @@
 //   - IUPAC amino-acid one-letter codes (bioinformatics.org IUPAC table): 20 standard + B Z J X U O + '*'.
 //   - NCBI BLAST topics (https://blast.ncbi.nlm.nih.gov/doc/blast-topics/): FASTA accepts IUPAC
 //     degenerate nucleotide codes and amino-acid codes (U=Sec, X=any, *=stop).
-using System;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.IO;
-
 namespace Seqeron.Genomics.Tests.Unit.IO;
 
 /// <summary>

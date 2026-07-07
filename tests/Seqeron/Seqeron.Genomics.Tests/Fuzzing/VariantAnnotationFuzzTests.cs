@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using FluentAssertions;
 using static Seqeron.Genomics.Annotation.VariantAnnotator;
 using Variant = Seqeron.Genomics.Annotation.VariantAnnotator.Variant;
 using VariantType = Seqeron.Genomics.Annotation.VariantAnnotator.VariantType;
@@ -120,18 +115,18 @@ public class VariantAnnotationFuzzTests
     // have rank int.MaxValue (GetConsequenceRank fallback).
     private static void AssertWellFormed(FunctionalImpact fi)
     {
-        Enum.IsDefined(typeof(ConsequenceType), fi.Consequence).Should().BeTrue(
+        Enum.IsDefined(fi.Consequence).Should().BeTrue(
             "every annotation must resolve to a DEFINED SO consequence term, never a fabricated one");
         GetConsequenceRank(fi.Consequence).Should().NotBe(int.MaxValue,
             "a reported term must carry a known Constants.pm severity rank (no fabricated/unranked term)");
-        Enum.IsDefined(typeof(ImpactLevel), fi.Impact).Should().BeTrue();
+        Enum.IsDefined(fi.Impact).Should().BeTrue();
         fi.Impact.Should().Be(GetImpactLevel(fi.Consequence),
             "IMPACT must equal the Constants.pm class for the reported term (INV-01)");
     }
 
     private static void AssertWellFormed(VariantAnnotation a)
     {
-        Enum.IsDefined(typeof(ConsequenceType), a.Consequence).Should().BeTrue(
+        Enum.IsDefined(a.Consequence).Should().BeTrue(
             "every annotation must resolve to a DEFINED SO consequence term, never a fabricated one");
         GetConsequenceRank(a.Consequence).Should().NotBe(int.MaxValue,
             "a reported term must carry a known Constants.pm severity rank (no fabricated/unranked term)");

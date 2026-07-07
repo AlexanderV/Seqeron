@@ -2,12 +2,6 @@
 // INDEPENDENT sorted-array counting oracle (sort all windows, count consecutive runs) and a manual
 // count/total frequency computation — a different data structure than the production Dictionary.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-
 namespace Seqeron.Genomics.Tests.Differential;
 
 [TestFixture]

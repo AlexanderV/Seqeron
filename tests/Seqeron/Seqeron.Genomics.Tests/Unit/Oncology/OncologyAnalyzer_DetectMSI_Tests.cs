@@ -5,8 +5,6 @@
 //         niu-lab/msisensor2 README (msi score = msi sites / valid sites; MSI-H: score >= 20%).
 //         Boland CR et al. (1998). NCI Workshop on MSI. Cancer Res 58(22):5248-5257.
 
-using Seqeron.Genomics.Oncology;
-
 namespace Seqeron.Genomics.Tests.Unit.Oncology;
 
 [TestFixture]

@@ -1,9 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Oncology;
 using static Seqeron.Genomics.Oncology.OncologyAnalyzer;
 
 namespace Seqeron.Genomics.Tests.Fuzzing;
@@ -116,8 +110,8 @@ public sealed class OncologyStructuralVariantFuzzTests
         r.OscillatingSegmentCount.Should().Be(
             expectedSegments, "oscillating segments = transitions+1 when >0 else 0 (§4.1)");
 
-        Enum.IsDefined(typeof(ComplexRearrangementType), r.Type).Should().BeTrue();
-        Enum.IsDefined(typeof(ChromothripsisConfidence), r.Confidence).Should().BeTrue();
+        Enum.IsDefined(r.Type).Should().BeTrue();
+        Enum.IsDefined(r.Confidence).Should().BeTrue();
 
         // INV-03: confidence tier is a pure function of the oscillating-segment count.
         ChromothripsisConfidence expectedConf =

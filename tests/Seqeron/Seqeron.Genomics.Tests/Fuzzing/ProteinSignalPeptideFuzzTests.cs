@@ -1,9 +1,3 @@
-using System;
-using System.Globalization;
-using System.Threading;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Analysis;
 using static Seqeron.Genomics.Analysis.ProteinMotifFinder;
 using SignalPeptide = Seqeron.Genomics.Analysis.ProteinMotifFinder.SignalPeptide;
 

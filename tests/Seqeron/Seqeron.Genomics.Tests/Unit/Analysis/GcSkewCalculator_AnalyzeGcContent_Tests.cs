@@ -4,11 +4,6 @@
 // Source: Lobry JR (1996) Mol Biol Evol 13(5):660-665; Madigan & Martinko (2003) Brock Biology of Microorganisms;
 //         Biopython Bio.SeqUtils v1.84 GC_skew; Cuemath Population Variance.
 
-using System;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Core;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

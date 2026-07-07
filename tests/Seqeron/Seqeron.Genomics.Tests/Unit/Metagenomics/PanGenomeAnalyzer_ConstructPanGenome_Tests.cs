@@ -4,11 +4,6 @@
 // Source: Tettelin H et al. (2005) PNAS 102:13950; Tettelin H et al. (2008) Curr Opin Microbiol 11:472;
 //         Kislyuk AO et al. (2011) BMC Genomics 12:32; Page AJ et al. (2015) Bioinformatics 31:3691.
 
-using NUnit.Framework;
-using Seqeron.Genomics.Metagenomics;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.Metagenomics;
 
 [TestFixture]

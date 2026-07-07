@@ -12,7 +12,7 @@ public class PredictGeneStructureTests
     private const string Ppt = "UUUUUUUUUUUUUU"; // 14
     private const string Acceptor = "CAG";
     private const string Exon2 = "GCCUUUAAAGGGCCCUUUAAAGGGCCCUUUAAAGC"; // 35
-    private static readonly string TwoExon = Exon1 + Donor + IntronBody + Ppt + Acceptor + Exon2;
+    private const string TwoExon = Exon1 + Donor + IntronBody + Ppt + Acceptor + Exon2;
     private static readonly int IntronPartLength = (Donor + IntronBody + Ppt + Acceptor).Length; // 83
 
     [Test]

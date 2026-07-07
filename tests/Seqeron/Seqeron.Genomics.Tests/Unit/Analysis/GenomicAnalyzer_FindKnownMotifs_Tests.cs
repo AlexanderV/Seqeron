@@ -5,11 +5,6 @@
 //         (exact-matching definition, Tufts COMP 150GEN exact.html); Biopython Bio.Seq (search/count_overlap);
 //         Wikipedia "Restriction site" (EcoRI=GAATTC) — all accessed 2026-06-13.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

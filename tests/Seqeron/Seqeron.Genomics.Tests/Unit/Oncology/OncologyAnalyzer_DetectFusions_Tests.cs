@@ -5,11 +5,6 @@
 //         Uhrig et al. (2021) Arriba, Genome Research 31(3):448 (total support = split1+split2+discordant);
 //         Genomics England + Wikipedia "Reading frame" (in-frame iff codon phase preserved, modulo 3).
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Oncology;
 using Candidate = Seqeron.Genomics.Oncology.OncologyAnalyzer.FusionCandidate;
 using Frame = Seqeron.Genomics.Oncology.OncologyAnalyzer.FusionReadingFrame;
 

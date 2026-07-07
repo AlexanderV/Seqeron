@@ -1,6 +1,5 @@
 using FsCheck;
 using FsCheck.Fluent;
-using Seqeron.Genomics.Chromosome;
 
 namespace Seqeron.Genomics.Tests.Properties;
 
@@ -403,19 +402,7 @@ public class ChromosomeProperties
     }
 
     #endregion
-
     #region CHROM-CENT-001
-
-    // ---- Domain constants (Centromere_Analysis.md §2.1 Levan 1964 arm-ratio thresholds) ----
-    //
-    // The checklist row's "P: AT-rich region" is BOGUS: AnalyzeCentromere does NOT use AT
-    // content. Its centromere proxy is 15-mer REPEAT content × (1 − GC variability). The
-    // genuine "P" tested here is detection on a strongly repetitive window vs. Unknown on a
-    // non-repetitive / too-short input. The central rigorous test is the Levan classification
-    // oracle recomputed from the RETURNED (Start, End, |sequence|).
-
-    /// <summary>15-mer size used by <c>EstimateRepeatContent</c>; periodic units must be shorter.</summary>
-    private const int CentKmerSize = 15;
 
     /// <summary>The six valid <c>CentromereType</c> values per INV-02 / §2.1 + Unknown.</summary>
     private static readonly string[] ValidCentromereTypes =

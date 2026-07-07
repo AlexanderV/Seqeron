@@ -5,8 +5,6 @@
 //         canonical Watson-Crick); IUPAC-IUB (1970) Biochemistry 9(20):4022-4027 + Biopython
 //         complement_rna (RNA complement A->U, U->A, G->C, C->G, T->A).
 
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
 using static Seqeron.Genomics.Analysis.RnaSecondaryStructure;
 
 namespace Seqeron.Genomics.Tests.Unit.Analysis;

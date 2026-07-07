@@ -28,7 +28,7 @@ namespace SuffixTree.Tests.Robustness
                 Assert.That(st.LeafCount, Is.EqualTo(100_000));
                 Assert.That(st.NodeCount, Is.LessThanOrEqualTo(2 * 100_000 + 1));
                 // Random substring must be found
-                Assert.That(st.Contains(text.Substring(50_000, 100)), Is.True);
+                Assert.That(st.Contains(text.AsSpan(50_000, 100)), Is.True);
             });
         }
 
@@ -116,7 +116,7 @@ namespace SuffixTree.Tests.Robustness
             var text = GenerateRandomString(10_000);
             var st = SuffixTree.Build(text);
 
-            var count = st.GetAllSuffixes().Count();
+            var count = st.GetAllSuffixes().Count;
 
             Assert.That(count, Is.EqualTo(10_000));
         }

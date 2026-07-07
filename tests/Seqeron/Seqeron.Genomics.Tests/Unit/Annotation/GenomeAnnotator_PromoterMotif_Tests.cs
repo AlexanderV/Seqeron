@@ -1,7 +1,3 @@
-using NUnit.Framework;
-using Seqeron.Genomics;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.Annotation;
 
 /// <summary>

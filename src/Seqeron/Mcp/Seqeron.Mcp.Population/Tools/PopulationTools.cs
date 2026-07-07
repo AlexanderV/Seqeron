@@ -1,6 +1,5 @@
 using System.ComponentModel;
 using ModelContextProtocol.Server;
-using Seqeron.Genomics.Core;
 using Seqeron.Genomics.Population;
 
 namespace Seqeron.Mcp.Population.Tools;

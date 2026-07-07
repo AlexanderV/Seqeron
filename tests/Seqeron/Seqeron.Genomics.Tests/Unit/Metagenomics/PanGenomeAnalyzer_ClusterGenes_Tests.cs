@@ -4,11 +4,6 @@
 // Source: Li W, Godzik A (2006) Bioinformatics 22(13):1658 (CD-HIT); CD-HIT User's Guide / Algorithm wiki;
 //         Page AJ et al. (2015) Bioinformatics 31(22):3691 (Roary).
 
-using NUnit.Framework;
-using Seqeron.Genomics.Metagenomics;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.Metagenomics;
 
 [TestFixture]

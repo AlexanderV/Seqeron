@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using FluentAssertions;
 using static Seqeron.Genomics.Annotation.VariantAnnotator;
 using Variant = Seqeron.Genomics.Annotation.VariantAnnotator.Variant;
 using VariantType = Seqeron.Genomics.Annotation.VariantAnnotator.VariantType;
@@ -107,9 +102,9 @@ public class OncologyAnnotationFuzzTests
     // contradiction between term and impact.
     private static void AssertWellFormed(FunctionalImpact fi)
     {
-        Enum.IsDefined(typeof(ConsequenceType), fi.Consequence).Should().BeTrue(
+        Enum.IsDefined(fi.Consequence).Should().BeTrue(
             "every annotation must resolve to a defined SO consequence term");
-        Enum.IsDefined(typeof(ImpactLevel), fi.Impact).Should().BeTrue();
+        Enum.IsDefined(fi.Impact).Should().BeTrue();
         fi.Impact.Should().Be(GetImpactLevel(fi.Consequence),
             "IMPACT must equal the Constants.pm class for the reported term (INV-01)");
     }
@@ -404,7 +399,7 @@ public class OncologyAnnotationFuzzTests
                 $"malformed record (chrom='{chrom}', pos={pos}, ref='{refA}', alt='{altA}') must resolve cleanly");
             result.Should().HaveCount(1);
             VariantAnnotation a = result[0];
-            Enum.IsDefined(typeof(ConsequenceType), a.Consequence).Should().BeTrue();
+            Enum.IsDefined(a.Consequence).Should().BeTrue();
             a.Impact.Should().Be(GetImpactLevel(a.Consequence),
                 "term/impact consistency must hold even on malformed input (INV-01)");
         }

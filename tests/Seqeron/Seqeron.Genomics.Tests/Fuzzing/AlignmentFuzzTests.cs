@@ -1,12 +1,3 @@
-using System;
-using System.Linq;
-using System.Threading;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Alignment;
-using Seqeron.Genomics.Core;
-using Seqeron.Genomics.Infrastructure;
-
 namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>

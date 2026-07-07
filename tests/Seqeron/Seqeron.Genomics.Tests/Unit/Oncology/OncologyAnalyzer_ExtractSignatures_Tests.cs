@@ -7,11 +7,6 @@
 //         Cancer. Cell Reports 3(1):246-259. https://doi.org/10.1016/j.celrep.2012.12.008
 //         COSMIC SBS96: https://cancer.sanger.ac.uk/signatures/sbs/sbs96/
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using Seqeron.Genomics.Oncology;
-
 namespace Seqeron.Genomics.Tests.Unit.Oncology;
 
 [TestFixture]

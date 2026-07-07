@@ -5,8 +5,6 @@
 //         Marcus L et al. (2021). FDA Approval Summary: Pembrolizumab for TMB-High Solid Tumors.
 //                 Clin Cancer Res 27(17):4685-4689. https://doi.org/10.1158/1078-0432.CCR-21-0327
 
-using Seqeron.Genomics.Oncology;
-
 namespace Seqeron.Genomics.Tests.Unit.Oncology;
 
 [TestFixture]

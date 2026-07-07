@@ -1,8 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
-using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -285,7 +281,7 @@ public static class SequenceIO
         {
             var line = lines[i].TrimEnd('\r').Trim();
 
-            if (line.StartsWith("/"))
+            if (line.StartsWith('/'))
             {
                 // Save previous qualifier
                 if (currentKey != null)
@@ -299,7 +295,7 @@ public static class SequenceIO
                 {
                     currentKey = line.Substring(1, eqPos - 1);
                     currentQualifier.Clear();
-                    currentQualifier.Append(line.Substring(eqPos + 1));
+                    currentQualifier.Append(line.AsSpan(eqPos + 1));
                 }
                 else
                 {
@@ -500,7 +496,7 @@ public static class SequenceIO
         while ((line = reader.ReadLine()) != null)
         {
             line = line.Trim();
-            if (string.IsNullOrEmpty(line) || line.StartsWith("#") || line.StartsWith("track") || line.StartsWith("browser"))
+            if (string.IsNullOrEmpty(line) || line.StartsWith('#') || line.StartsWith("track") || line.StartsWith("browser"))
                 continue;
 
             var entry = ParseBedLine(line);
@@ -583,7 +579,7 @@ public static class SequenceIO
         while ((line = reader.ReadLine()) != null)
         {
             line = line.Trim();
-            if (string.IsNullOrEmpty(line) || line.StartsWith("#"))
+            if (string.IsNullOrEmpty(line) || line.StartsWith('#'))
                 continue;
 
             var entry = ParseGffLine(line);
@@ -629,7 +625,7 @@ public static class SequenceIO
                 if (eqPos > 0)
                 {
                     var key = trimmed.Substring(0, eqPos);
-                    var value = Uri.UnescapeDataString(trimmed.Substring(eqPos + 1));
+                    var value = Uri.UnescapeDataString(trimmed.AsSpan(eqPos + 1));
                     attributes[key] = value;
                 }
                 else
@@ -705,7 +701,7 @@ public static class SequenceIO
         string? line;
         while ((line = reader.ReadLine()) != null)
         {
-            if (line.StartsWith("@")) continue; // Skip header
+            if (line.StartsWith('@')) continue; // Skip header
 
             var record = ParseSamLine(line);
             if (record != null)
@@ -785,7 +781,7 @@ public static class SequenceIO
         string? line;
         while ((line = reader.ReadLine()) != null)
         {
-            if (line.StartsWith("#")) continue;
+            if (line.StartsWith('#')) continue;
 
             var record = ParseVcfLine(line);
             if (record != null)
@@ -973,7 +969,7 @@ public static class SequenceIO
         while ((line = reader.ReadLine()) != null)
         {
             if (string.IsNullOrWhiteSpace(line) || line.StartsWith("CLUSTAL") ||
-                line.Contains("*") || line.Contains(":") || line.Contains("."))
+                line.Contains('*') || line.Contains(':') || line.Contains('.'))
             {
                 // Skip header and conservation lines
                 continue;
@@ -985,13 +981,14 @@ public static class SequenceIO
                 string name = parts[0];
                 string seq = parts[1];
 
-                if (!sequences.ContainsKey(name))
+                if (!sequences.TryGetValue(name, out StringBuilder? value))
                 {
-                    sequences[name] = new StringBuilder();
+                    value = new StringBuilder();
+                    sequences[name] = value;
                     order.Add(name);
                 }
 
-                sequences[name].Append(seq);
+                value.Append(seq);
             }
         }
 

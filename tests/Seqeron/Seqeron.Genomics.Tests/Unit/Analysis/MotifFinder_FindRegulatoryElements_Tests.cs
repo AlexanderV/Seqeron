@@ -7,12 +7,6 @@
 //         Lee/Mitchell/Tjian (1987) Cell 49:741; Sen & Baltimore (1986) Cell 46:705;
 //         Montminy et al. (1986) PNAS 83:6682.
 
-using System;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-using Seqeron.Genomics.Core;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 /// <summary>

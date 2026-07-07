@@ -1,8 +1,3 @@
-using NUnit.Framework;
-using Seqeron.Genomics;
-using System;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.MolTools;
 
 /// <summary>
@@ -506,7 +501,7 @@ public class CrisprDesigner_OffTarget_Tests
     [Test]
     public void CalculateMitHitScore_SingleMismatchPos0_ZeroWeight_Returns100()
     {
-        string ot = "T" + MitGuide.Substring(1); // pos 0: G→T
+        string ot = string.Concat("T", MitGuide.AsSpan(1)); // pos 0: G→T
         double score = CrisprDesigner.CalculateMitHitScore(MitGuide, ot);
         Assert.That(score, Is.EqualTo(100.0).Within(1e-9));
     }

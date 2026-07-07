@@ -1,6 +1,5 @@
 using FsCheck;
 using FsCheck.Fluent;
-using FsCheck.NUnit;
 
 namespace Seqeron.Genomics.Tests.Properties;
 
@@ -396,7 +395,7 @@ public class MetagenomicsProperties
         for (int i = 0; i + k <= s.Length; i++)
         {
             string kmer = s.Substring(i, k);
-            if (kmer.All(c => "ACGT".IndexOf(c) >= 0))
+            if (kmer.All(c => "ACGT".Contains(c)))
                 result.Add(Canonical(kmer));
         }
         return result;

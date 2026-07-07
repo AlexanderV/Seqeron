@@ -1,10 +1,6 @@
-using System;
 using System.Buffers;
-using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
-using Seqeron.Genomics.Core;
 
 namespace Seqeron.Genomics.Analysis;
 
@@ -402,7 +398,6 @@ public static class RnaSecondaryStructure
     // Fast pair-type lookup: 0 = no pair, 1 = Watson-Crick, 2 = Wobble.
     // Indexed by [base1 * 128 + base2]. 16 KB — fits L1 cache.
     private static readonly byte[] PairLookup = BuildPairLookup();
-    private static readonly double[] PairEnergyByCode = new[] { 0.0, -2.0, -1.0 };
 
     private static byte[] BuildPairLookup()
     {
@@ -2314,8 +2309,7 @@ public static class RnaSecondaryStructure
         double basePairEnergy = SimplifiedBasePairEnergy,
         double temperature = DefaultTemperatureKelvin)
     {
-        if (sequence is null)
-            throw new ArgumentNullException(nameof(sequence));
+        ArgumentNullException.ThrowIfNull(sequence);
         if (temperature <= 0)
             throw new ArgumentOutOfRangeException(nameof(temperature), "Temperature must be positive (Kelvin).");
 
@@ -2904,8 +2898,7 @@ public static class RnaSecondaryStructure
     /// <exception cref="ArgumentNullException"><paramref name="random"/> is null.</exception>
     public static string GenerateRandomRna(int length, Random random, double gcContent = 0.5)
     {
-        if (random is null)
-            throw new ArgumentNullException(nameof(random));
+        ArgumentNullException.ThrowIfNull(random);
         var sb = new StringBuilder(length);
 
         for (int i = 0; i < length; i++)

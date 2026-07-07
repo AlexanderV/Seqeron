@@ -5,12 +5,6 @@
 //         Lemoine et al. (2018). Nature 556:452-456. PMC6030568.
 //         Biopython Bio.Phylo.Consensus (bootstrap, get_support).
 
-using NUnit.Framework;
-using Seqeron.Genomics.Phylogenetics;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.Phylogenetics;
 
 /// <summary>

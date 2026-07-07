@@ -1,6 +1,5 @@
 using FsCheck;
 using FsCheck.Fluent;
-using Seqeron.Genomics.Oncology;
 
 namespace Seqeron.Genomics.Tests.Properties;
 
@@ -439,21 +438,7 @@ public class OncologyProperties
         Assert.Throws<ArgumentNullException>(() => ImmuneAnalyzer.DeconvoluteImmuneCells(null!));
 
     #endregion
-
     #region ONCO-SOMATIC-001 — Somatic Mutation Calling
-
-    // -------------------------------------------------------------------------
-    // Independent oracles (transcribed from Somatic_Mutation_Calling.md §2.2/§2.4,
-    // NOT routed through production constants). The decision rule, VAF, and score
-    // are recomputed here from literals so a self-consistent-but-wrong production
-    // constant is still caught.
-    // -------------------------------------------------------------------------
-
-    /// <summary>Documented tumor detection threshold τ_t = 0.05 (literal, Yan et al. 2021).</summary>
-    private const double TauT = 0.05;
-
-    /// <summary>Documented normal absence ceiling τ_n = 0.01 (literal, Saunders et al. 2012).</summary>
-    private const double TauN = 0.01;
 
     /// <summary>
     /// INV-05 VAF oracle: f = totalReads == 0 ? 0 : altReads / totalReads. Recomputed independently.
@@ -479,19 +464,6 @@ public class OncologyProperties
 
     /// <summary>INV-03 score oracle: the allele-frequency separation max(0, f_t − f_n).</summary>
     private static double ExpectedSeparationScore(double fT, double fN) => Math.Max(0.0, fT - fN);
-
-    // -------------------------------------------------------------------------
-    // Generators
-    // -------------------------------------------------------------------------
-
-    /// <summary>
-    /// Generates a read-count pair (alt, total) honouring the contract 0 ≤ alt ≤ total. Includes the
-    /// uncovered site (total = 0) so the VAF-0 branch (INV-05) is exercised.
-    /// </summary>
-    private static Gen<(int alt, int total)> ReadCountGen() =>
-        from total in Gen.Choose(0, 500)
-        from alt in Gen.Choose(0, total)
-        select (alt, total);
 
     /// <summary>
     /// Generates a contract-valid <see cref="OncologyAnalyzer.VariantObservation"/> (0 ≤ alt ≤ total in
@@ -956,10 +928,6 @@ public class OncologyProperties
     /// <summary>Tumor purity π ∈ (0, 1] (in 1/1000 steps, excluding 0).</summary>
     private static Arbitrary<double> PurityArbitrary() =>
         Gen.Choose(1, 1000).Select(x => x / 1000.0).ToArbitrary();
-
-    /// <summary>Tumor total copy number n_tot &gt; 0 (in 1/10 steps).</summary>
-    private static Arbitrary<double> PloidyArbitrary() =>
-        Gen.Choose(1, 80).Select(x => x / 10.0).ToArbitrary();
 
     /// <summary>(vaf, purity, ploidy) with vaf ∈ [0, 1], purity ∈ (0, 1], ploidy &gt; 0.</summary>
     private static Arbitrary<(double vaf, double purity, double ploidy)> PurityCorrectionArbitrary() =>
@@ -5476,9 +5444,6 @@ public class OncologyProperties
 
     private const double SigProcessTolerance = 1e-9;
 
-    /// <summary>The deconstructSigs default presence cutoff (0.06), restated for the oracle.</summary>
-    private const double SigProcessDefaultCutoff = 0.06;
-
     /// <summary>
     /// Independent COSMIC SBS-label → mutational-process map, transcribed from the COSMIC proposed
     /// aetiologies (Alexandrov 2020; ONCO-SIG-004 Evidence §Online Sources), NOT from production.
@@ -6415,7 +6380,7 @@ public class OncologyProperties
         return Prop.ForAll(FusionProteinProblemArbitrary(), t =>
         {
             var prediction = OncologyAnalyzer.PredictFusionProtein(CdsBreakpoint(t.j5, t.j3), (t.cds5, t.cds3));
-            string oracle = t.cds5.ToUpperInvariant().Substring(0, t.j5) + t.cds3.ToUpperInvariant().Substring(t.j3);
+            string oracle = string.Concat(t.cds5.ToUpperInvariant().AsSpan(0, t.j5), t.cds3.ToUpperInvariant().AsSpan(t.j3));
             return (prediction.ChimericCds == oracle)
                 .Label($"chimeric '{prediction.ChimericCds}' ≠ prefix++suffix '{oracle}' (j5={t.j5}, j3={t.j3})");
         });
@@ -9468,22 +9433,7 @@ public class OncologyProperties
     }
 
     #endregion
-
     #region ONCO-EXPR-001 — Gene Expression Outlier / Signature Score
-
-    // -------------------------------------------------------------------------
-    // Theory (cBioPortal z-score normalization; Lee 2008 combined z-score):
-    //   • z = (value − μ) / σ, σ the sample SD (divisor n−1).                       (R z finite)
-    //   • Outlier ⟺ z > +t (Over) or z < −t (Under); strict, default t = 2.         (P |z| > t)
-    //   • Lower threshold ⇒ ≥ outliers (subset monotone).                            (M)
-    //   • Signature score a = Σ zᵢ / √k.
-    //
-    // The z-score, the strict-threshold rule and the combined score are reconstructed
-    // independently — NOT routed through production — so a wrong divisor, boundary sense
-    // or √k is caught.
-    // -------------------------------------------------------------------------
-
-    private const double ExprTolerance = 1e-9;
 
     private static Gen<double[]> CohortGen() =>
         from n in Gen.Choose(2, 8)

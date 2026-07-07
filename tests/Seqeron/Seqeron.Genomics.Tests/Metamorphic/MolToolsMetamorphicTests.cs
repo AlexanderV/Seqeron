@@ -1,11 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics;
-using Seqeron.Genomics.MolTools;
-
 namespace Seqeron.Genomics.Tests.Metamorphic;
 
 /// <summary>
@@ -71,6 +63,7 @@ namespace Seqeron.Genomics.Tests.Metamorphic;
 [Category("Metamorphic")]
 public class MolToolsMetamorphicTests
 {
+    private static readonly System.Buffers.SearchValues<char> s_myChars = System.Buffers.SearchValues.Create("AT");
     #region Helpers
 
     /// <summary>Deterministic RNG — seed fixed so random inputs are reproducible.</summary>
@@ -1112,7 +1105,7 @@ public class MolToolsMetamorphicTests
         {
             body.Length.Should().BeLessThan(WallaceMaxLen, because: "this sub-test asserts exact Wallace increments");
 
-            int idx = body.IndexOfAny(new[] { 'A', 'T' });
+            int idx = body.AsSpan().IndexOfAny(s_myChars);
             idx.Should().BeGreaterThanOrEqualTo(0, because: "the body must contain a weak base to upgrade");
 
             double baseTm = Tm(body);
@@ -1145,7 +1138,7 @@ public class MolToolsMetamorphicTests
             double baseTm = Tm(body);
 
             // Upgrade one A/T position to G/C (length fixed) ⇒ Tm strictly UP.
-            int weakIdx = body.IndexOfAny(new[] { 'A', 'T' });
+            int weakIdx = body.AsSpan().IndexOfAny(s_myChars);
             if (weakIdx >= 0)
             {
                 string upgraded = body[..weakIdx] + 'G' + body[(weakIdx + 1)..];

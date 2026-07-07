@@ -6,10 +6,6 @@
 //         doi:10.1093/bioinformatics/bts149 (Sherlocc rare-codon cluster rule: 7-codon window,
 //         >=4 rare/pause positions).
 
-using NUnit.Framework;
-using System;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.MolTools;
 
 /// <summary>

@@ -4,11 +4,6 @@
 // Source: Wootton J.C., Federhen S. (1993). Comput. Chem. 17(2):149-163;
 //         NCBI BLAST blast_seg.c (kSegWindow=12, kSegLocut=2.2, kSegHicut=2.5);
 //         GCG/NCBI seg help (complexity = Shannon entropy, bits/residue, max log2(20)=4.322).
-using System;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 /// <summary>

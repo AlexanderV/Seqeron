@@ -1,8 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
-using System.Linq;
 using System.Text;
 
 namespace Seqeron.Genomics.IO;
@@ -137,30 +133,6 @@ public static class VcfParser
                     sampleNames = fields.Skip(9).ToArray();
                 continue;
             }
-
-            if (line.StartsWith('#'))
-                continue;
-
-            var record = ParseLine(line, sampleNames);
-            if (record.HasValue)
-                yield return record.Value;
-        }
-    }
-
-    private static IEnumerable<VcfRecord> ParseFromReader(TextReader reader, string[]? sampleNames)
-    {
-        string? line;
-
-        while ((line = reader.ReadLine()) != null)
-        {
-            if (string.IsNullOrWhiteSpace(line))
-                continue;
-
-            if (line.StartsWith("##"))
-                continue;
-
-            if (line.StartsWith("#CHROM"))
-                continue;
 
             if (line.StartsWith('#'))
                 continue;

@@ -14,10 +14,6 @@
 // the same coordinates) — NOT copied from the implementation output.
 // Reference protein (1-based): M1 K2 T3 A4 Y5 I6 A7 K8 Q9 R10 S11 T12 V13 W14 L15 N16 D17 E18 F19 G20 H21.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.Oncology;
 
 [TestFixture]
@@ -63,8 +59,8 @@ public class OncologyAnalyzer_GenerateNeoantigenPeptides_Tests
                 Assert.That(peptides.Count(p => p.Length == len), Is.EqualTo(5), $"5 {len}-mers");
             }
             // Ordered by length ascending then start ascending (INV-06).
-            Assert.That(peptides.First().Length, Is.EqualTo(8), "ordered length-ascending: first is an 8-mer");
-            Assert.That(peptides.Last().Length, Is.EqualTo(14), "ordered length-ascending: last is a 14-mer");
+            Assert.That(peptides[0].Length, Is.EqualTo(8), "ordered length-ascending: first is an 8-mer");
+            Assert.That(peptides[peptides.Count - 1].Length, Is.EqualTo(14), "ordered length-ascending: last is a 14-mer");
         });
     }
 
@@ -153,9 +149,9 @@ public class OncologyAnalyzer_GenerateNeoantigenPeptides_Tests
         {
             Assert.That(peptides.Count, Is.EqualTo(9),
                 "interior mutation (>= k-1 from both ends) yields exactly k=9 windows (INV-05)");
-            Assert.That(peptides.First().StartPosition, Is.EqualTo(5),
+            Assert.That(peptides[0].StartPosition, Is.EqualTo(5),
                 "first start = p-k+1 = 13-9+1 = 5");
-            Assert.That(peptides.Last().StartPosition, Is.EqualTo(13),
+            Assert.That(peptides[peptides.Count - 1].StartPosition, Is.EqualTo(13),
                 "last start = p = 13");
             Assert.That(peptides.All(p => p.StartPosition + p.MutationOffset == 13), Is.True,
                 "all windows span position 13");

@@ -1,5 +1,3 @@
-using NUnit.Framework;
-using Seqeron.Genomics.Annotation;
 using static Seqeron.Genomics.Annotation.MiRnaAnalyzer;
 
 namespace Seqeron.Genomics.Tests.Unit.Annotation;
@@ -64,7 +62,7 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     private static readonly string LargeHairpin110 = BuildPerfectHairpin(50, 10);
 
     // Two hairpins separated by non-complementary spacer
-    private static readonly string TwoHairpinSequence =
+    private const string TwoHairpinSequence =
         ValidHairpin57 + "AGAGAGAGAGAGAGAGAGAG" + ValidHairpin57;
 
     // ── Real miRBase pre-miRNA sequences (known-limitation reference) ──────

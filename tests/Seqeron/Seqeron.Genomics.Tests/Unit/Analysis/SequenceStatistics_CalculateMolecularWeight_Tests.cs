@@ -4,8 +4,6 @@
 // Source: Expasy Compute pI/Mw (Gasteiger et al. 2005); Biopython Bio.SeqUtils.molecular_weight
 //         and Bio.Data.IUPACData (average mass tables, water = 18.0153 Da).
 
-using Seqeron.Genomics.Analysis;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

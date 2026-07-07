@@ -4,10 +4,6 @@
 // Source:   Kyte J, Doolittle RF (1982) J Mol Biol 157:105-132; Davidson KD background page;
 //           QIAGEN CLC Hydrophobicity scales; Biopython Bio.SeqUtils.ProtParam.protein_scale.
 
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 /// <summary>

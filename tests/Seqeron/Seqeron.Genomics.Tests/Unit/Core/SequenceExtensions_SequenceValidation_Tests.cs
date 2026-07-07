@@ -1,6 +1,3 @@
-using System;
-using NUnit.Framework;
-
 namespace Seqeron.Genomics.Tests.Unit.Core;
 
 /// <summary>

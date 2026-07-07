@@ -1,8 +1,3 @@
-using NUnit.Framework;
-using Seqeron.Genomics;
-using System;
-using System.Collections.Generic;
-
 namespace Seqeron.Genomics.Tests.Unit.Metagenomics;
 
 /// <summary>

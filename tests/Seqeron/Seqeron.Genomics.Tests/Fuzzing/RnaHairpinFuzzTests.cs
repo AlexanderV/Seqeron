@@ -8,12 +8,6 @@
 //         Proc. Natl. Acad. Sci. USA 101:7287-7292. doi:10.1073/pnas.0401799101
 //         Parameters from NNDB Turner 2004 (rna.urmc.rochester.edu/NNDB/turner04).
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Analysis;
 using static Seqeron.Genomics.Analysis.RnaSecondaryStructure;
 
 namespace Seqeron.Genomics.Tests.Fuzzing;

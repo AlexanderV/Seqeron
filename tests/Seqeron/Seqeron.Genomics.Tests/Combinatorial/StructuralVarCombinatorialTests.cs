@@ -44,7 +44,7 @@ public class StructuralVarCombinatorialTests
         var breakpoints = StructuralVariantAnalyzer.FindBreakpoints(reads, clusterTolerance: 5, minSupport: minSupport).ToList();
 
         bool expectReported = splitReads >= minSupport;
-        breakpoints.Any().Should().Be(expectReported, "a breakpoint is reported iff its support clears minSupport");
+        (breakpoints.Count != 0).Should().Be(expectReported, "a breakpoint is reported iff its support clears minSupport");
 
         if (expectReported)
         {
@@ -192,7 +192,7 @@ public class StructuralVarCombinatorialTests
         var svs = StructuralVariantAnalyzer.DetectSVs(pairs, minSupport: minSupport).ToList();
 
         bool expectReported = nPairs >= minSupport;
-        svs.Any().Should().Be(expectReported, "a cluster is reported iff its support clears minSupport");
+        (svs.Count != 0).Should().Be(expectReported, "a cluster is reported iff its support clears minSupport");
         if (expectReported)
         {
             var sv = svs.Should().ContainSingle().Subject;

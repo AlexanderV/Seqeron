@@ -8,11 +8,7 @@
 //         Hyndman R.J., Fan Y. (1996). The American Statistician 50(4):361-365 (type-7). https://doi.org/10.1080/00031305.1996.10473566
 //         Knuth D.E. (1997). TAOCP Vol. 2, §3.4.1 (Poisson deviate generation). [Poisson variant]
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
-using Seqeron.Genomics.Oncology;
 
 namespace Seqeron.Genomics.Tests.Unit.Oncology;
 

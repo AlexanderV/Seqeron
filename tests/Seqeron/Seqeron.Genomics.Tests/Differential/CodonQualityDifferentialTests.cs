@@ -1,12 +1,6 @@
 // 08_DIFFERENTIAL_TESTING rows 214, 219, 220. Independent oracles: hand-derived RSCU on controlled
 // two-codon families, ASCII-offset Phred decoding, and manual quality statistics.
 
-using System;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.IO;
-using Seqeron.Genomics.MolTools;
-
 namespace Seqeron.Genomics.Tests.Differential;
 
 [TestFixture]

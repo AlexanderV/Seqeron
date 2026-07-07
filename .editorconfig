@@ -31,7 +31,7 @@ trim_trailing_whitespace = false  # trailing double-space is a hard line break i
 indent_size = 4
 
 # Namespaces & usings
-csharp_style_namespace_declarations = file_scoped:warning
+csharp_style_namespace_declarations = file_scoped:suggestion
 dotnet_sort_system_directives_first = true
 dotnet_separate_import_directive_groups = false
 
@@ -74,3 +74,83 @@ dotnet_naming_symbols.interface_symbols.applicable_kinds = interface
 dotnet_naming_symbols.interface_symbols.applicable_accessibilities = *
 dotnet_naming_style.begins_with_i.required_prefix = I
 dotnet_naming_style.begins_with_i.capitalization = pascal_case
+
+# ── Analyzer policy ──────────────────────────────────────────────────────────
+# Curated "clean out the crap" ruleset. These are elevated to warning (=> error
+# under the solution-wide TreatWarningsAsErrors) because they flag genuine dead/
+# redundant/legacy code and are almost all auto-fixable by `dotnet format`.
+# The opinionated or codebase-inappropriate rules are silenced below so the gate
+# stays signal, not noise.
+
+# Dead / unused code
+# IDE0005 (unused usings) is kept at suggestion: enforcing it at build requires
+# GenerateDocumentationFile=true (a Roslyn limitation) which would in turn surface the
+# CS1591 missing-doc-comment flood. `dotnet format` already stripped the unused usings.
+dotnet_diagnostic.IDE0005.severity = suggestion   # unnecessary using directives
+dotnet_diagnostic.CA1823.severity = warning    # unused private fields
+dotnet_diagnostic.IDE0051.severity = warning   # unused private members
+dotnet_diagnostic.IDE0052.severity = warning   # unread private members
+
+# Redundant / legacy constructs (auto-fixable modernizations)
+dotnet_diagnostic.CA1802.severity = warning    # use const where possible
+dotnet_diagnostic.CA1805.severity = warning    # do not initialize to default unnecessarily
+dotnet_diagnostic.CA1825.severity = warning    # use Array.Empty<T>()
+dotnet_diagnostic.CA1852.severity = suggestion # seal internal types — mostly test-helper visitors; low value/high churn
+dotnet_diagnostic.CA1510.severity = warning    # use ArgumentNullException.ThrowIfNull
+dotnet_diagnostic.CA1511.severity = warning    # use ArgumentException.ThrowIfNullOrEmpty
+dotnet_diagnostic.CA1512.severity = warning    # use ArgumentOutOfRangeException.ThrowIf*
+dotnet_diagnostic.CA1513.severity = warning    # use ObjectDisposedException.ThrowIf
+dotnet_diagnostic.CA2263.severity = warning    # prefer the generic overload
+
+# Redundant allocations / slow idioms (auto-fixable, also cleanup)
+dotnet_diagnostic.CA1826.severity = warning    # use property instead of Enumerable method
+dotnet_diagnostic.CA1827.severity = warning    # Count()/LongCount() -> Any()
+dotnet_diagnostic.CA1829.severity = warning    # use Length/Count property
+dotnet_diagnostic.CA1845.severity = warning    # span-based string.Concat
+dotnet_diagnostic.CA1846.severity = warning    # AsSpan over Substring
+dotnet_diagnostic.CA1847.severity = warning    # use char literal for single-char search
+dotnet_diagnostic.CA1860.severity = warning    # prefer Length/Count over Any()
+dotnet_diagnostic.CA1866.severity = warning    # use char overloads
+dotnet_diagnostic.CA1868.severity = warning    # unnecessary Contains before Add/Remove
+dotnet_diagnostic.CA1870.severity = warning    # use cached SearchValues
+dotnet_diagnostic.CA2249.severity = warning    # use string.Contains over IndexOf
+dotnet_diagnostic.CA1854.severity = warning    # prefer TryGetValue over ContainsKey+indexer
+
+# Correctness smells worth surfacing (kept for a second, manual pass)
+dotnet_diagnostic.CA2241.severity = suggestion # format-string argument count
+dotnet_diagnostic.CA1806.severity = suggestion # do not ignore method results
+dotnet_diagnostic.CA1508.severity = suggestion # avoid dead conditional code
+dotnet_diagnostic.CA1851.severity = suggestion # possible multiple enumeration
+
+# ── Silenced: opinionated or inappropriate for this library ─────────────────
+dotnet_diagnostic.CA1707.severity = none       # underscores — standard in test/unit-id names
+dotnet_diagnostic.CA1515.severity = none       # "make public internal" — this is a library
+dotnet_diagnostic.CA5394.severity = none       # Random — used for test data / sampling, not crypto
+dotnet_diagnostic.CA1861.severity = none       # constant arrays as args — micro-perf, huge noise
+dotnet_diagnostic.CA1062.severity = none       # null-validate public args — pervasive opinion
+dotnet_diagnostic.CA1034.severity = none       # nested types — used deliberately as result DTOs
+dotnet_diagnostic.CA1819.severity = none       # arrays as properties — fine for numeric buffers
+dotnet_diagnostic.CA1814.severity = none       # jagged vs multidimensional
+dotnet_diagnostic.CA1002.severity = none       # List<T> in APIs
+dotnet_diagnostic.CA2007.severity = none       # ConfigureAwait — not a UI/library-sync concern here
+dotnet_diagnostic.CA1305.severity = none       # IFormatProvider — ASCII bioinformatics, culture-free
+dotnet_diagnostic.CA1307.severity = none       # StringComparison — ditto
+dotnet_diagnostic.CA1310.severity = none       # StringComparison for correctness — ditto
+dotnet_diagnostic.CA1311.severity = none       # ToUpper culture — ditto
+dotnet_diagnostic.CA1304.severity = none       # CultureInfo — ditto
+dotnet_diagnostic.CA1308.severity = none       # ToLowerInvariant preference
+dotnet_diagnostic.CA1859.severity = none       # concrete types for perf — not "crap", risky on APIs
+dotnet_diagnostic.CA2000.severity = none       # dispose-before-scope — many false positives with pooling
+dotnet_diagnostic.CA1815.severity = none       # equals/hashcode on value types
+
+# ── Test code: relax the aggressive cleanup rules ────────────────────────────
+# Production code is fully cleaned and gated above. In test code these rules are
+# advisory only: removing an "unused" private field/helper can silently delete
+# intended-but-unwired fixtures/coverage (e.g. GC-rich / AT-rich templates), and
+# the perf micro-optimizations add no value to test scaffolding.
+[tests/**/*.cs]
+dotnet_diagnostic.IDE0051.severity = suggestion   # unused private members
+dotnet_diagnostic.IDE0052.severity = suggestion   # unread private members
+dotnet_diagnostic.CA1823.severity = suggestion    # unused private fields
+dotnet_diagnostic.CA1868.severity = suggestion    # Contains-before-Add
+dotnet_diagnostic.CA1870.severity = suggestion    # cached SearchValues

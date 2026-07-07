@@ -1,7 +1,3 @@
-using System;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Oncology;
 using static Seqeron.Genomics.Oncology.OncologyAnalyzer;
 using Site = Seqeron.Genomics.Oncology.OncologyAnalyzer.BreakpointSite;
 using Frame = Seqeron.Genomics.Oncology.OncologyAnalyzer.BreakpointFrameStatus;
@@ -293,7 +289,7 @@ public sealed class OncologyFusionBreakpointFuzzTests
     public void AnalyzeBreakpoint_FuzzSitePairs_FrameCalledIffBothCds([Random(1, 100000, 50)] int seed)
     {
         var rng = new Random(seed);
-        Site[] allSites = (Site[])Enum.GetValues(typeof(Site));
+        Site[] allSites = Enum.GetValues<Site>();
         Site site5 = allSites[rng.Next(allSites.Length)];
         Site site3 = allSites[rng.Next(allSites.Length)];
         // Keep frame quantities VALID so a CDS::CDS draw exercises the real frame call.
@@ -500,7 +496,7 @@ public sealed class OncologyFusionBreakpointFuzzTests
             if (j5InRange && j3InRange)
             {
                 var p = PredictFusionProtein(bp, (cds5, cds3));
-                string expected = cds5.Substring(0, j5) + cds3.Substring(j3);
+                string expected = string.Concat(cds5.AsSpan(0, j5), cds3.AsSpan(j3));
                 p.ChimericCds.Should().Be(expected,
                     "ChimericCds = 5' prefix [0:j5] ++ 3' suffix [j3:] (INV-04, seed {0})", seed);
                 p.Effect.Should().BeOneOf(new[] { Frame.InFrame, Frame.OutOfFrame },

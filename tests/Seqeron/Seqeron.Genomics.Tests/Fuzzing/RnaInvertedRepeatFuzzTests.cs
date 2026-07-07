@@ -7,12 +7,6 @@
 //         Alamro et al. (2021) IUPACpal, BMC Bioinformatics 22:51. doi:10.1186/s12859-021-03983-2
 //         (perfect, k=0 antiparallel reverse-complement W G W̄ᴿ pattern; no G-U wobble — ASM-01).
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Analysis;
 using static Seqeron.Genomics.Analysis.RnaSecondaryStructure;
 
 namespace Seqeron.Genomics.Tests.Fuzzing;

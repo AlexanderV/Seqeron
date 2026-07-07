@@ -9,10 +9,6 @@
 //         mdblib/states.py (get_disorder_class, is_enriched threshold=0.32) and
 //         mdblib/consensus.py (get_region_features priority order).
 
-using System;
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

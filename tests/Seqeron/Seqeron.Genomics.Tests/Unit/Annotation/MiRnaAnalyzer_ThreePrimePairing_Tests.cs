@@ -7,9 +7,6 @@
 // mutated index / threshold / product / run-commit in PairingRunScore diverges -> killed. This is the
 // model-vs-implementation differential, independent of the (idiosyncratic) subseq-extraction prep.
 
-using NUnit.Framework;
-using Seqeron.Genomics.Annotation;
-
 namespace Seqeron.Genomics.Tests.Unit.Annotation;
 
 [TestFixture]

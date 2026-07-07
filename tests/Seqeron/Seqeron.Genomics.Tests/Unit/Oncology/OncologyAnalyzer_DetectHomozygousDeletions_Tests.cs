@@ -7,11 +7,6 @@
 //         https://docs.cbioportal.org/file-formats/  https://docs.cbioportal.org/user-guide/faq/
 //         CNVkit absolute_threshold integer-CN (defaults -1.1,-0.25,0.2,0.7); NCBI Gene arms.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Oncology;
 using Segment = Seqeron.Genomics.Oncology.OncologyAnalyzer.CopyNumberArmSegment;
 
 namespace Seqeron.Genomics.Tests.Unit.Oncology;

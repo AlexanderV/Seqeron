@@ -1,8 +1,3 @@
-using System;
-using System.Linq;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.IO;
 using Enc = Seqeron.Genomics.IO.QualityScoreAnalyzer.QualityEncoding;
 
 namespace Seqeron.Genomics.Tests.Fuzzing;

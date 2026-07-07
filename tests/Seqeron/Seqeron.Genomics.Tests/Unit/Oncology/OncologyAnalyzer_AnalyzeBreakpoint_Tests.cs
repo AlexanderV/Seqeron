@@ -7,9 +7,6 @@
 //         protein[0:find("*")]; out-of-frame trims to whole codons).
 //         Badger & Olsen (1999). Mol Biol Evol 16(4):512-524 (reading frame in triplets).
 
-using System;
-using NUnit.Framework;
-using Seqeron.Genomics.Oncology;
 using Site = Seqeron.Genomics.Oncology.OncologyAnalyzer.BreakpointSite;
 using Frame = Seqeron.Genomics.Oncology.OncologyAnalyzer.BreakpointFrameStatus;
 

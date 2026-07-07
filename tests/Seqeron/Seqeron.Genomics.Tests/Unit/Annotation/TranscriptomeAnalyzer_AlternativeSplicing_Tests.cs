@@ -6,12 +6,6 @@
 //         Shen S et al. (2014). PNAS 111(51):E5593 — rMATS (length-normalized PSI);
 //         Trincado JL et al. (2018). SUPPA2 (PSI read-count definition).
 
-using NUnit.Framework;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using Seqeron.Genomics.Annotation;
-
 namespace Seqeron.Genomics.Tests.Unit.Annotation;
 
 [TestFixture]

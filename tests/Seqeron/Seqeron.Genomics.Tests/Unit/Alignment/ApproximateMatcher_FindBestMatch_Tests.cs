@@ -2,10 +2,6 @@
 // Evidence: docs/Evidence/PAT-APPROX-003-Evidence.md
 // TestSpec: tests/TestSpecs/PAT-APPROX-003.md
 // Source: Compeau P, Pevzner P (2015). Bioinformatics Algorithms, ch.1. ROSALIND BA1H/BA1I/BA1N.
-using System;
-using System.Linq;
-using NUnit.Framework;
-
 namespace Seqeron.Genomics.Tests.Unit.Alignment;
 
 /// <summary>

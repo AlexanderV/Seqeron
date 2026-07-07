@@ -1,8 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
-using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -104,12 +100,10 @@ public static partial class EmblParser
     private const string ID = "ID";   // Identification
     private const string AC = "AC";   // Accession number
     private const string SV = "SV";   // Sequence version
-    private const string DT = "DT";   // Date
     private const string DE = "DE";   // Description
     private const string KW = "KW";   // Keywords
     private const string OS = "OS";   // Organism species
     private const string OC = "OC";   // Organism classification
-    private const string OG = "OG";   // Organelle
     private const string RN = "RN";   // Reference number
     private const string RC = "RC";   // Reference comment
     private const string RP = "RP";   // Reference positions
@@ -118,13 +112,10 @@ public static partial class EmblParser
     private const string RA = "RA";   // Reference authors
     private const string RT = "RT";   // Reference title
     private const string RL = "RL";   // Reference location
-    private const string DR = "DR";   // Database cross-reference
-    private const string CC = "CC";   // Comments
     private const string FH = "FH";   // Feature header
     private const string FT = "FT";   // Feature table
     private const string SQ = "SQ";   // Sequence header
     private const string XX = "XX";   // Spacer line
-    private const string END = "//";  // Entry terminator
 
     #endregion
 

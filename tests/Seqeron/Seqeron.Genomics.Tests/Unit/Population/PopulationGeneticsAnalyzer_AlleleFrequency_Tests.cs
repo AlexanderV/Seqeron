@@ -1,9 +1,3 @@
-using System;
-using NUnit.Framework;
-using Seqeron.Genomics;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.Population;
 
 /// <summary>

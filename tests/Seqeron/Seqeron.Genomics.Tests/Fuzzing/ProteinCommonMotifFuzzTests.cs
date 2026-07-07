@@ -1,10 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Analysis;
 using static Seqeron.Genomics.Analysis.ProteinMotifFinder;
 // Disambiguate: a top-level Seqeron.Genomics.Analysis.MotifMatch also exists; this unit
 // asserts against the ProteinMotifFinder.MotifMatch record returned by FindCommonMotifs.

@@ -6,10 +6,6 @@
 //         Bielski CM et al. (2018) Nat Genet 50:1189–1195 / facets-suite is_genome_doubled (PMID 30013179);
 //         UCSC hg38.chrom.sizes / hg19.chrom.sizes (reference autosomal genome lengths, retrieved 2026-06-22).
 
-using System;
-using System.Collections.Generic;
-using NUnit.Framework;
-using Seqeron.Genomics.Oncology;
 using Segment = Seqeron.Genomics.Oncology.OncologyAnalyzer.AlleleSpecificSegment;
 
 namespace Seqeron.Genomics.Tests.Unit.Oncology;

@@ -4,12 +4,6 @@
 // Source: Tettelin H et al. (2005) PNAS 102(39):13950-13955; Tettelin H et al. (2008)
 //         Curr Opin Microbiol 11(5):472-477; micropan heaps() (R/powerlaw.R).
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Metagenomics;
-
 namespace Seqeron.Genomics.Tests.Unit.Metagenomics;
 
 [TestFixture]

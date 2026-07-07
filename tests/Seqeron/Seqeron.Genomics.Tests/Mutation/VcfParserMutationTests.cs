@@ -1,6 +1,3 @@
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.IO;
 using static Seqeron.Genomics.IO.VcfParser;
 
 namespace Seqeron.Genomics.Tests.Mutation;

@@ -87,56 +87,11 @@ public class AlignmentCombinatorialTests
         return s;
     }
 
-    /// <summary>
-    /// A set of related-but-distinct DNA sequences: a shared base, each variant carrying one
-    /// substitution and (for index &gt; 0) one deletion — so anchors exist, indels appear in the
-    /// MSA, and no two inputs are identical.
-    /// </summary>
-    private static string[] MutatedDnaSet(int n, int baseLen, uint seed)
-    {
-        string baseSeq = DiverseDna(baseLen, seed);
-        var set = new string[n];
-        set[0] = baseSeq;
-        for (int s = 1; s < n; s++)
-        {
-            var chars = baseSeq.ToCharArray().ToList();
-            int subPos = (s * 3) % baseLen;
-            chars[subPos] = NextBase(chars[subPos], s); // always a different base
-            int delPos = (s * 5 + 1) % chars.Count;
-            chars.RemoveAt(delPos);                      // one deletion -> forces an indel
-            set[s] = new string(chars.ToArray());
-        }
-        return set;
-    }
-
     private static char NextBase(char c, int salt)
     {
         const string b = "ACGT";
         int idx = b.IndexOf(c);
         return b[(idx + 1 + (salt & 1)) % 4]; // rotates by 1 or 2 -> never the same base
-    }
-
-    /// <summary>
-    /// Independent sum-of-pairs score over an MSA per the Wikipedia definition: for every column
-    /// and every C(k,2) row pair, gap-gap is neutral, gap-nucleotide costs <paramref name="gap"/>,
-    /// equal residues score <paramref name="match"/>, otherwise <paramref name="mismatch"/>.
-    /// </summary>
-    private static int SumOfPairsScore(IReadOnlyList<string> rows, int match, int mismatch, int gap)
-    {
-        if (rows.Count < 2) return 0;
-        int len = rows[0].Length;
-        int total = 0;
-        for (int c = 0; c < len; c++)
-            for (int i = 0; i < rows.Count; i++)
-                for (int j = i + 1; j < rows.Count; j++)
-                {
-                    char a = rows[i][c], b = rows[j][c];
-                    if (a == '-' && b == '-') continue;
-                    if (a == '-' || b == '-') total += gap;
-                    else if (a == b) total += match;
-                    else total += mismatch;
-                }
-        return total;
     }
 
     // ═══════════════════════════════════════════════════════════════════════

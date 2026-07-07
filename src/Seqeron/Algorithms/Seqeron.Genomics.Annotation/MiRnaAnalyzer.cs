@@ -1,9 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using Seqeron.Genomics.Analysis;
-using Seqeron.Genomics.Core;
 using Seqeron.Genomics.Phylogenetics;
 
 namespace Seqeron.Genomics.Annotation;
@@ -719,7 +715,6 @@ public static class MiRnaAnalyzer
     private const int SaRowOffsetDownstream = 7;      // grep -A7 → the row 7 nt 3' of utrStart
     // RNAplfold local-fold parameters used by runRNAplfold_all_UTRs: "RNAplfold -L 40 -W 80 -u 20".
     private const int SaPlfoldWindowSize = 80;        // -W (sliding-window averaging size)
-    private const int SaPlfoldMaxSpan = 40;           // -L (maximum base-pair span)
 
     // Number of flanking nucleotides used for the local-AU feature (getLocalAU_contribution
     // extracts 30 nt up- and downstream of the site).
@@ -1273,7 +1268,7 @@ public static class MiRnaAnalyzer
             {
                 sub += "N";
                 if (sub.StartsWith("NN", StringComparison.Ordinal))
-                    sub = "  " + sub.Substring(2);
+                    sub = string.Concat("  ", sub.AsSpan(2));
             }
         }
         return sub;
@@ -2466,7 +2461,7 @@ public static class MiRnaAnalyzer
     /// <returns>A shuffled sequence with identical dinucleotide counts; the input unchanged for length &lt; 2.</returns>
     public static string DinucleotideShuffle(string sequence, Random random)
     {
-        if (random is null) throw new ArgumentNullException(nameof(random));
+        ArgumentNullException.ThrowIfNull(random);
         if (string.IsNullOrEmpty(sequence)) return sequence ?? "";
 
         string s = sequence.ToUpperInvariant().Replace('T', 'U');

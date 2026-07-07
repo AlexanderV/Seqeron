@@ -2,13 +2,6 @@
 // manual nucleotide composition, manual sliding dinucleotide frequencies, an independent Kyte-Doolittle
 // hydropathy mean, and the closed-form Wallace/Marmur-Doty Tm.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-using Seqeron.Genomics.Annotation;
-
 namespace Seqeron.Genomics.Tests.Differential;
 
 [TestFixture]

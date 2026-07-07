@@ -4,9 +4,6 @@
 // Source: Ewing & Green (1998) Genome Research 8(3):186-194; Illumina "Sequencing Quality Scores";
 //         Newcastle Univ. ASK (population stddev); Math is Fun (median); Cock et al. (2010) NAR 38(6).
 
-using NUnit.Framework;
-using Seqeron.Genomics.IO;
-
 namespace Seqeron.Genomics.Tests.Unit.IO;
 
 [TestFixture]

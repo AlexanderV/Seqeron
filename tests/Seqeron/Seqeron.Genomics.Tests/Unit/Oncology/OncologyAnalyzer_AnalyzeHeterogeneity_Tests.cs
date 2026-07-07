@@ -10,9 +10,6 @@
 // Expected MATH values are derived independently from MATH = 100*1.4826*median(|f-median(f)|)/median(f),
 // and Shannon values from H = -sum p_i ln(p_i) (natural log) over clone fractions — NOT from the implementation.
 
-using System;
-using System.Collections.Generic;
-
 namespace Seqeron.Genomics.Tests.Unit.Oncology;
 
 [TestFixture]

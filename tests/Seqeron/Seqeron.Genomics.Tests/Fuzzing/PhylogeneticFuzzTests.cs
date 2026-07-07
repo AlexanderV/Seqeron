@@ -1,10 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Phylogenetics;
-
 namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
@@ -521,15 +514,6 @@ public class PhylogeneticFuzzTests
             if (requireNonNegative)
                 bl.Should().BeGreaterThanOrEqualTo(0.0, "UPGMA clamps branch lengths non-negative (INV-UPGMA-03)");
         }
-    }
-
-    /// <summary>Builds an ordered, named sequence dictionary "T0..Tn" over the given sequences.</summary>
-    private static Dictionary<string, string> NamedSequences(IReadOnlyList<string> sequences)
-    {
-        var dict = new Dictionary<string, string>();
-        for (int i = 0; i < sequences.Count; i++)
-            dict[$"T{i}"] = sequences[i];
-        return dict;
     }
 
     #endregion
@@ -1762,7 +1746,7 @@ public class PhylogeneticFuzzTests
     /// </summary>
     private static PhylogeneticAnalyzer.PhyloNode BuildCaterpillar(int leafCount, double edgeBranch)
     {
-        if (leafCount < 2) throw new ArgumentOutOfRangeException(nameof(leafCount));
+        ArgumentOutOfRangeException.ThrowIfLessThan(leafCount, 2);
 
         // Deepest internal node joins the last two leaves.
         var node = Internal(edgeBranch, Leaf($"L{leafCount - 2}", edgeBranch), Leaf($"L{leafCount - 1}", edgeBranch));

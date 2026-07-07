@@ -3,10 +3,6 @@
 // short-input guards. Runs under the Permissive LimitationPolicy (test bootstrap) so the full
 // context++ score returns its partial value instead of throwing on omitted features.
 
-using System;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Annotation;
 using static Seqeron.Genomics.Annotation.MiRnaAnalyzer;
 
 namespace Seqeron.Genomics.Tests.Unit.Annotation;

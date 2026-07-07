@@ -11,11 +11,6 @@
 // A non-identical column is "similar" iff its substitution score is POSITIVE.
 // srspair markup legend: '|' identity, ':' similarity, ' ' gap/mismatch.
 
-using System;
-using NUnit.Framework;
-using Seqeron.Genomics;
-using Seqeron.Genomics.Infrastructure;
-
 namespace Seqeron.Genomics.Tests.Unit.Alignment;
 
 [TestFixture]

@@ -3,9 +3,6 @@
 // TestSpec: tests/TestSpecs/SEQ-ATSKEW-001.md
 // Source: Charneski CA et al. (2011) PLoS Genet 7(9):e1002283; Lobry JR (1996) Mol Biol Evol 13(5):660-665.
 
-using System;
-using NUnit.Framework;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

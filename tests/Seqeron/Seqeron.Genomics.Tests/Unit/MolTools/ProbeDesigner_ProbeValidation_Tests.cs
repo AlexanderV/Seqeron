@@ -1,8 +1,3 @@
-using NUnit.Framework;
-using Seqeron.Genomics;
-using System;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.MolTools;
 
 /// <summary>
@@ -21,13 +16,13 @@ public class ProbeDesigner_ProbeValidation_Tests
     #region Test Data
 
     // Standard probe for validation tests
-    private static readonly string StandardProbe = "ACGTACGTACGTACGTACGT";
+    private const string StandardProbe = "ACGTACGTACGTACGTACGT";
 
     // Self-complementary (palindromic) probe
-    private static readonly string PalindromicProbe = "GCGCGCGCGCGCGCGCGCGC";
+    private const string PalindromicProbe = "GCGCGCGCGCGCGCGCGCGC";
 
     // Unique probe that appears once in reference
-    private static readonly string UniqueProbe = "ATCGATCGATCGATCGATCG";
+    private const string UniqueProbe = "ATCGATCGATCGATCGATCG";
 
     // Reference containing the unique probe once
     private static readonly string[] SingleMatchReference = new[]

@@ -1,7 +1,3 @@
-using System;
-using NUnit.Framework;
-using SuffixTree;
-
 namespace SuffixTree.Persistent.Tests.Core
 {
     [TestFixture]

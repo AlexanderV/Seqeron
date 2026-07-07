@@ -1,8 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Threading;
 
 namespace Seqeron.Genomics.Alignment;
 
@@ -319,7 +315,7 @@ public static class SequenceAssembler
                     string nextRead = reads[next.next];
                     if (!used.Contains(next.next))
                     {
-                        sb.Append(nextRead.Substring(overlap));
+                        sb.Append(nextRead.AsSpan(overlap));
                     }
                     current = next.next;
                 }
@@ -637,7 +633,7 @@ public static class SequenceAssembler
         if (overlapLength <= NoOverlap || overlapLength > Math.Min(contig1.Length, contig2.Length))
             return contig1 + contig2;
 
-        return contig1 + contig2.Substring(overlapLength);
+        return string.Concat(contig1, contig2.AsSpan(overlapLength));
     }
 
     /// <summary>

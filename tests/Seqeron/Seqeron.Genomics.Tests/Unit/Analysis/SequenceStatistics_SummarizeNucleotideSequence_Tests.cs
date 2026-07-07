@@ -5,8 +5,6 @@
 //         Shannon C.E. (1948) A Mathematical Theory of Communication;
 //         Trifonov E.N. (1990) linguistic sequence complexity.
 
-using Seqeron.Genomics.Analysis;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

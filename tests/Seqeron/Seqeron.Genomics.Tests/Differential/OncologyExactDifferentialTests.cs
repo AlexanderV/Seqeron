@@ -1,11 +1,6 @@
 // 08_DIFFERENTIAL_TESTING rows 88, 92, 115, 116 (Oncology exact metrics). Independent closed-form oracles
 // for VAF = alt/total, TMB = mutations/Mb, the CCF formula, and the MATH score (100·1.4826·MAD/median).
 
-using System;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Oncology;
-
 namespace Seqeron.Genomics.Tests.Differential;
 
 [TestFixture]

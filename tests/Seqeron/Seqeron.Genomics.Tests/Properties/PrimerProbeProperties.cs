@@ -829,18 +829,7 @@ public class PrimerProbeProperties
     }
 
     #endregion
-
     #region Generators &amp; Theory Oracle (PRIMER-DESIGN-001)
-
-    /// <summary>
-    /// Generates a random ACGT template at least <paramref name="minLen"/> bases long.
-    /// Only valid DNA bases are produced so <see cref="DnaSequence"/> construction never throws,
-    /// and the sequence is realistic enough to yield candidates across the filter windows.
-    /// </summary>
-    private static Gen<string> TemplateGen(int minLen, int maxLen) =>
-        from len in Gen.Choose(minLen, maxLen)
-        from chars in Gen.Elements('A', 'C', 'G', 'T').ArrayOf(len)
-        select new string(chars);
 
     /// <summary>
     /// Generates a randomized parameter window (the design "config knobs") together with a
@@ -2290,7 +2279,7 @@ public class PrimerProbeProperties
     {
         var gen = (from chars in Gen.Elements('A', 'C', 'G', 'T').ArrayOf().Where(a => a.Length >= 8 && a.Length <= 30)
                    let seq = new string(chars)
-                   where seq.IndexOf('C') >= 0
+                   where seq.Contains('C')
                    from p in Gen.Elements(Enumerable.Range(0, seq.Length).Where(i => seq[i] == 'C').ToArray())
                    from baseFlags in Gen.Elements(true, false).ArrayOf(seq.Length)
                    select (seq, p, baseSet: Enumerable.Range(0, seq.Length).Where(i => baseFlags[i] && i != p).ToList()))

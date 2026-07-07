@@ -1,10 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Alignment;
 
 namespace Seqeron.Genomics.Tests.Fuzzing;
 
@@ -79,8 +73,6 @@ namespace Seqeron.Genomics.Tests.Fuzzing;
 [Category("Fuzzing")]
 public class AssemblyCoverageFuzzTests
 {
-    // Documented default placement floor (Coverage_Calculation.md §3.1).
-    private const int DefaultMinOverlap = 20;
 
     #region Helpers
 

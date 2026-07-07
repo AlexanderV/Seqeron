@@ -11,7 +11,7 @@ public class SiteAccessibilityTests
     // Watson-Crick non-wobble pairs with j>=i+4: (G0,C9), (A1,U5) -> structureScore=2.
     // maxPairs=(10*6)/2=30; accessibility = 1 - (2/30)*10 = 1 - 20/30.
     private const string AccSeq = "GAAAAUAAAC";
-    private static readonly double AccExpected = 1.0 - 20.0 / 30.0;
+    private const double AccExpected = 1.0 - 20.0 / 30.0;
 
     [Test]
     public void SiteAccessibility_Schema_ValidatesCorrectly()

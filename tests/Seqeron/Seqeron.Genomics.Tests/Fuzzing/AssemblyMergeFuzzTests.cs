@@ -1,9 +1,4 @@
-using System;
-using System.Linq;
 using System.Text;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Alignment;
 
 namespace Seqeron.Genomics.Tests.Fuzzing;
 
@@ -100,7 +95,7 @@ public class AssemblyMergeFuzzTests
     {
         if (l <= NoOverlap || l > Math.Min(c1.Length, c2.Length))
             return c1 + c2;
-        return c1 + c2.Substring(l);
+        return string.Concat(c1, c2.AsSpan(l));
     }
 
     /// <summary>

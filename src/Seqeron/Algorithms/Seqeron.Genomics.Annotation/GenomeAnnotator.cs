@@ -1,8 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using Seqeron.Genomics.Core;
 
 namespace Seqeron.Genomics.Annotation;
 
@@ -74,23 +70,6 @@ public static class GenomeAnnotator
     private static readonly HashSet<string> StopCodons = new(StringComparer.OrdinalIgnoreCase)
     {
         "TAA", "TAG", "TGA"
-    };
-
-    /// <summary>
-    /// Complement mapping for nucleotides.
-    /// </summary>
-    private static readonly Dictionary<char, char> ComplementMap = new()
-    {
-        ['A'] = 'T',
-        ['T'] = 'A',
-        ['C'] = 'G',
-        ['G'] = 'C',
-        ['a'] = 't',
-        ['t'] = 'a',
-        ['c'] = 'g',
-        ['g'] = 'c',
-        ['N'] = 'N',
-        ['n'] = 'n'
     };
 
     /// <summary>
@@ -442,7 +421,7 @@ public static class GenomeAnnotator
 
         foreach (string line in lines)
         {
-            if (string.IsNullOrWhiteSpace(line) || line.StartsWith("#"))
+            if (string.IsNullOrWhiteSpace(line) || line.StartsWith('#'))
                 continue;
 
             string[] parts = line.Split('\t');
@@ -801,8 +780,8 @@ public static class GenomeAnnotator
         ArgumentNullException.ThrowIfNull(sequence);
         ArgumentNullException.ThrowIfNull(codingHexamerFrequencies);
         ArgumentNullException.ThrowIfNull(noncodingHexamerFrequencies);
-        if (wordSize <= 0) throw new ArgumentOutOfRangeException(nameof(wordSize));
-        if (stepSize <= 0) throw new ArgumentOutOfRangeException(nameof(stepSize));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(wordSize);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(stepSize);
 
         // kmer_ratio: sequences shorter than one word yield no hexamer → score 0.
         if (sequence.Length < wordSize) return 0;
@@ -879,8 +858,8 @@ public static class GenomeAnnotator
     {
         ArgumentNullException.ThrowIfNull(dnaSequence);
         // A tandem repeat requires "two or more" adjacent copies (Wikipedia: Tandem repeat).
-        if (minCopies < 2) throw new ArgumentOutOfRangeException(nameof(minCopies));
-        if (minRepeatLength < 1) throw new ArgumentOutOfRangeException(nameof(minRepeatLength));
+        ArgumentOutOfRangeException.ThrowIfLessThan(minCopies, 2);
+        ArgumentOutOfRangeException.ThrowIfLessThan(minRepeatLength, 1);
 
         return FindRepetitiveElementsCore(dnaSequence, minRepeatLength, minCopies);
     }

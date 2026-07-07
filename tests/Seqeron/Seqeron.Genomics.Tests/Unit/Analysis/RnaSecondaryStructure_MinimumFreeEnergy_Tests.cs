@@ -4,7 +4,6 @@
 // Source: Zuker M, Stiegler P (1981). Nucleic Acids Res. 9(1):133-148.
 //         Mathews DH et al. (2004). PNAS 101:7287-7292 (Turner 2004 / NNDB).
 
-using NUnit.Framework;
 using static Seqeron.Genomics.Analysis.RnaSecondaryStructure;
 
 namespace Seqeron.Genomics.Tests.Unit.Analysis;

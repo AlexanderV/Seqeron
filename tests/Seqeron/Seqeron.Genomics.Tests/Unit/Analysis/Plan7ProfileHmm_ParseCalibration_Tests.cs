@@ -5,11 +5,6 @@
 // "incomplete STATS -> not calibrated" rule. Source: HMMER User's Guide v3.4 (Eddy 2023) file format
 // — "GA <ga1> [<ga2>];" and "All three STATS lines or none of them must be present".
 
-using System;
-using System.Collections.Generic;
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

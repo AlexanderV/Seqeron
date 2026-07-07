@@ -1,8 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Threading;
 
 namespace Seqeron.Genomics.Analysis;
 
@@ -352,8 +348,8 @@ public static class MotifFinder
 
             foreach (var seq in seqList)
             {
-                if (i < seq.Length && counts.ContainsKey(seq[i]))
-                    counts[seq[i]]++;
+                if (i < seq.Length && counts.TryGetValue(seq[i], out int value))
+                    counts[seq[i]] = ++value;
             }
 
             consensus.Append(GetIupacCode(counts, seqList.Count));
@@ -518,7 +514,7 @@ public static class MotifFinder
         int minCount = 2)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        if (k < 1) throw new ArgumentOutOfRangeException(nameof(k));
+        ArgumentOutOfRangeException.ThrowIfLessThan(k, 1);
 
         string seq = sequence.Sequence;
         var kmerPositions = new Dictionary<string, List<int>>();
@@ -588,8 +584,8 @@ public static class MotifFinder
         int minSequences = DefaultMinMatchingSequences)
     {
         ArgumentNullException.ThrowIfNull(sequences);
-        if (k < 1) throw new ArgumentOutOfRangeException(nameof(k));
-        if (minSequences < 1) throw new ArgumentOutOfRangeException(nameof(minSequences));
+        ArgumentOutOfRangeException.ThrowIfLessThan(k, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(minSequences, 1);
 
         var seqList = sequences.ToList();
         var kmerOccurrences = new Dictionary<string, List<int>>();
@@ -604,9 +600,8 @@ public static class MotifFinder
             {
                 string kmer = seq.Substring(i, k);
 
-                if (!seenInSeq.Contains(kmer))
+                if (seenInSeq.Add(kmer))
                 {
-                    seenInSeq.Add(kmer);
 
                     if (!kmerOccurrences.ContainsKey(kmer))
                         kmerOccurrences[kmer] = new List<int>();

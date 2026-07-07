@@ -8,10 +8,6 @@
 //   primer3-py 2.3.0 (calc_homodimer / calc_heterodimer; mv=50, dv=0, dntp=0, dna_conc=50 nM)
 //     — reference ΔH/ΔS/Tm captured this session (ntthal engine).
 
-using System;
-using NUnit.Framework;
-using Seqeron.Genomics.MolTools;
-
 namespace Seqeron.Genomics.Tests.Unit.MolTools;
 
 /// <summary>

@@ -7,7 +7,6 @@
 
 namespace Seqeron.Genomics.Tests.Unit.Annotation;
 
-using System;
 using System.Collections.Generic;
 using Seqeron.Genomics.Annotation;
 

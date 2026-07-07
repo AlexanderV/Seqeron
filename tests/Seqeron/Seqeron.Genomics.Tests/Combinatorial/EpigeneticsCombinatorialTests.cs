@@ -248,7 +248,7 @@ public class EpigeneticsCombinatorialTests
         var dmrs = EpigeneticsAnalyzer.FindDMRs(sample1, sample2, windowSize: 1000, minDifference: threshold, minCpGCount: minSites).ToList();
 
         bool expectCalled = threshold < 0.3 - 1e-9 && minSites <= 3;
-        dmrs.Any().Should().Be(expectCalled, "a window is a DMR iff |diff| > minDifference AND CpGs ≥ minCpGCount");
+        (dmrs.Count != 0).Should().Be(expectCalled, "a window is a DMR iff |diff| > minDifference AND CpGs ≥ minCpGCount");
 
         if (expectCalled)
         {

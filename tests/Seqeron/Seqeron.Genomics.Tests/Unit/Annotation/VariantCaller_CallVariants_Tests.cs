@@ -4,12 +4,6 @@
 // Source: VCFv4.3 spec (samtools/hts-specs); Danecek et al. (2011) Bioinformatics 27(15):2156-2158;
 //         Collins & Jukes (1994) Genomics 20(3):386-396; Wikipedia Transition/Transversion (Futuyma 2013).
 
-using System;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics;
-using Seqeron.Genomics.Annotation;
-
 namespace Seqeron.Genomics.Tests.Unit.Annotation;
 
 [TestFixture]

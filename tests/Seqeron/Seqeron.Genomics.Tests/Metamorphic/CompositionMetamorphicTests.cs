@@ -1,10 +1,3 @@
-using System;
-using System.Linq;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Core;
-using Seqeron.Genomics.Analysis;
-
 namespace Seqeron.Genomics.Tests.Metamorphic;
 
 /// <summary>
@@ -1425,7 +1418,7 @@ public class CompositionMetamorphicTests
     // Unique interior minimum at prefix index 9 (origin), unique interior maximum at index 3 (terminus).
     private const string BalancedSkewGenome = "GGGCCCCCCGGG";
 
-    private static string RotateLeft(string s, int r) => s.Substring(r) + s.Substring(0, r);
+    private static string RotateLeft(string s, int r) => string.Concat(s.AsSpan(r), s.AsSpan(0, r));
 
     #region INV — rotation translates the predicted origin
 

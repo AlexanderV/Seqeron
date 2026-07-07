@@ -4,12 +4,6 @@
 // Source: Mann HB, Whitney DR (1947). Ann. Math. Statist. 18(1):50–60;
 //         SciPy scipy.stats.mannwhitneyu documentation; Xia & Sun (2017) Genes & Diseases 4(3).
 
-using NUnit.Framework;
-using Seqeron.Genomics.Metagenomics;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.Metagenomics;
 
 [TestFixture]

@@ -5,11 +5,6 @@
 //           NCBI ncbi-seg man page (W=12, K1=2.2, K2=2.5, bits/residue, max log2(20)=4.322);
 //           NCBI blast_seg.c (s_Entropy); SeqComplex `ce` (-Σ p·log2 p).
 
-using System;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 /// <summary>

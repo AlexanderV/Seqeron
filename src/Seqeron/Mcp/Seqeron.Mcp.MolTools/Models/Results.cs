@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Seqeron.Genomics.MolTools;
 
 namespace Seqeron.Mcp.MolTools.Models;

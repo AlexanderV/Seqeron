@@ -1,6 +1,3 @@
-using NUnit.Framework;
-using Seqeron.Genomics;
-using Seqeron.Genomics.Annotation;
 using static Seqeron.Genomics.Annotation.MiRnaAnalyzer;
 
 namespace Seqeron.Genomics.Tests.Unit.Annotation;

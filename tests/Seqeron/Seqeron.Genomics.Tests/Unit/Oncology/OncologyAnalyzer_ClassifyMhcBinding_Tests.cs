@@ -18,8 +18,6 @@
 //   SMM: IC50 = 50000^(1 - score)  =>  score 0 -> 50000, 0.5 -> sqrt(50000) = 223.6067977499790, 1 -> 1.
 //   BIMAS: T1/2 = finalConstant * product of per-position coefficients (missing residue = 1.0).
 
-using System;
-using System.Collections.Generic;
 using MhcClass = Seqeron.Genomics.Oncology.OncologyAnalyzer.MhcClass;
 using BindingStrength = Seqeron.Genomics.Oncology.OncologyAnalyzer.BindingStrength;
 using PmhcScoringMatrix = Seqeron.Genomics.Oncology.OncologyAnalyzer.PmhcScoringMatrix;

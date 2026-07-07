@@ -1,8 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
-using System.Linq;
 
 namespace Seqeron.Genomics.Analysis;
 
@@ -28,6 +24,8 @@ namespace Seqeron.Genomics.Analysis;
 /// </remarks>
 public sealed class Plan7ProfileHmm
 {
+    private static readonly System.Buffers.SearchValues<char> s_myChars = System.Buffers.SearchValues.Create(" \t");
+
     // HMMER amino-acid alphabet order (HMMER User's Guide §"header section", ALPH amino):
     // "the symbol alphabet to 'ACDEFGHIKLMNPQRSTVWY' (alphabetic order)".
     internal const string AminoAlphabet = "ACDEFGHIKLMNPQRSTVWY";
@@ -1766,7 +1764,7 @@ public sealed class Plan7ProfileHmm
     private static string Rest(string line)
     {
         var trimmed = line.TrimStart();
-        int sp = trimmed.IndexOfAny(new[] { ' ', '\t' });
+        int sp = trimmed.AsSpan().IndexOfAny(s_myChars);
         return sp < 0 ? string.Empty : trimmed[(sp + 1)..].Trim();
     }
 

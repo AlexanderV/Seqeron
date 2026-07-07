@@ -9,11 +9,6 @@
 //         Islam S.M.A. et al. (2022). SigProfilerExtractor. Cell Genomics 2(11):100179
 //         https://doi.org/10.1016/j.xgen.2022.100179 (silhouette stability >= 0.80; cosine matching)
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using Seqeron.Genomics.Oncology;
-
 namespace Seqeron.Genomics.Tests.Unit.Oncology;
 
 [TestFixture]

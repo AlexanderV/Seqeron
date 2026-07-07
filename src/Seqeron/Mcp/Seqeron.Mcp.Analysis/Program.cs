@@ -1,6 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using ModelContextProtocol.Server;
 using Seqeron.Mcp.Analysis.Tools;
 
 var builder = Host.CreateApplicationBuilder(args);

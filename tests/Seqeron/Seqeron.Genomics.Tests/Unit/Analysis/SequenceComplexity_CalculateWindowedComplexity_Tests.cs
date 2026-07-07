@@ -8,10 +8,6 @@
 // LC = (Σ Vᵢ)/(Σ min(4^i, w-i+1)) with maxWordLength = min(6, w); windows with start i where i+w ≤ L,
 // stepped by s. Expected values are derived independently from these formulas, NOT from the implementation.
 
-using NUnit.Framework;
-using System;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

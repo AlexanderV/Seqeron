@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using FluentAssertions;
 using Seqeron.Genomics.Tests.Builders;
 
 namespace Seqeron.Genomics.Tests.Performance;

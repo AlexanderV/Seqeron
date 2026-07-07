@@ -6,9 +6,6 @@
 //         Wikipedia, Entropy (information theory) (citing Shannon 1948).
 //         Entropy-Based Biological Sequence Study, IntechOpen (Eq. 3).
 
-using System.Linq;
-using Seqeron.Genomics.Analysis;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

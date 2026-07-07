@@ -1,7 +1,3 @@
-using System;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Oncology;
 using static Seqeron.Genomics.Oncology.OncologyAnalyzer;
 
 namespace Seqeron.Genomics.Tests.Fuzzing;

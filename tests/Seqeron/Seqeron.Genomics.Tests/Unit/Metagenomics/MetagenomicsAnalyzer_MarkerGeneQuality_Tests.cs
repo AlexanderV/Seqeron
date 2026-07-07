@@ -3,11 +3,6 @@
 // TestSpec: tests/TestSpecs/META-BIN-001.md
 // Source: Parks DH et al. (2015). CheckM. Genome Res 25:1043–1055.
 //         Reference impl: Ecogenomics/CheckM checkm/markerSets.py (MarkerSet.genomeCheck).
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Metagenomics;
-
 namespace Seqeron.Genomics.Tests.Unit.Metagenomics;
 
 /// <summary>

@@ -1,6 +1,5 @@
-using System;
-using System.Linq;
 using NUnit.Framework;
+using System;
 
 namespace SuffixTree.Tests.Algorithms
 {
@@ -83,7 +82,7 @@ namespace SuffixTree.Tests.Algorithms
                 // All suffixes present
                 for (int i = 0; i < fib.Length; i++)
                 {
-                    Assert.That(tree.Contains(fib.Substring(i)), Is.True);
+                    Assert.That(tree.Contains(fib.AsSpan(i)), Is.True);
                 }
 
                 // Fibonacci strings have complex repetitive structure
@@ -113,7 +112,7 @@ namespace SuffixTree.Tests.Algorithms
                 Assert.That(tree.NodeCount, Is.LessThanOrEqualTo(2 * fib.Length + 1));
                 // All suffixes must exist
                 for (int i = 0; i < fib.Length; i++)
-                    Assert.That(tree.Contains(fib.Substring(i)), Is.True);
+                    Assert.That(tree.Contains(fib.AsSpan(i)), Is.True);
                 // Must have repeated substrings (Fibonacci strings are highly repetitive)
                 Assert.That(tree.LongestRepeatedSubstring().Length, Is.GreaterThan(0));
             });

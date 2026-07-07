@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Metagenomics;
 using static Seqeron.Genomics.Metagenomics.PanGenomeAnalyzer;
 
 namespace Seqeron.Genomics.Tests.Unit.Metagenomics;

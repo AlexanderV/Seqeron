@@ -1,9 +1,4 @@
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using SuffixTree;
 
 namespace SuffixTree.Persistent.Tests.Format;
 
@@ -350,7 +345,7 @@ public class HybridTransitionZoneTests
         // LCS with a rotated version (exercises suffix link traversal)
         if (text.Length >= 4)
         {
-            string rotated = text.Substring(text.Length / 2) + text.Substring(0, text.Length / 2);
+            string rotated = string.Concat(text.AsSpan(text.Length / 2), text.AsSpan(0, text.Length / 2));
             Assert.That(hybrid.tree.LongestCommonSubstring(rotated),
                 Is.EqualTo(reference.LongestCommonSubstring(rotated)), "LCS with rotated");
         }
@@ -375,7 +370,7 @@ public class HybridTransitionZoneTests
         Assert.That(hybrid.pst.IsHybrid, Is.True, $"Expected hybrid build for '{text}'");
 
         // Use a query that overlaps with the text
-        string query = text.Substring(1) + text.Substring(0, 3);
+        string query = string.Concat(text.AsSpan(1), text.AsSpan(0, 3));
 
         var compactAnchors = compact.tree.FindExactMatchAnchors(query, 2)
             .OrderBy(a => a.PositionInText).ThenBy(a => a.PositionInQuery).ToList();

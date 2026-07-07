@@ -3,10 +3,6 @@
 // TestSpec: tests/TestSpecs/QUALITY-PHRED-001.md
 // Source: Cock PJA, Fields CJ, Goto N, Heuer ML, Rice PM (2010). Nucleic Acids Research 38(6):1767-1771.
 
-using NUnit.Framework;
-using Seqeron.Genomics.IO;
-using System;
-
 namespace Seqeron.Genomics.Tests.Unit.IO;
 
 [TestFixture]

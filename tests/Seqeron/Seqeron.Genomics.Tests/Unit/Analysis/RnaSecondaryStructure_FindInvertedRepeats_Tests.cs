@@ -4,9 +4,6 @@
 // Source: Alamro et al. (2021) IUPACpal, BMC Bioinformatics 22:51, https://doi.org/10.1186/s12859-021-03983-2;
 //         Ussery, Wassenaar & Borini (2008) via Wikipedia "Inverted repeat"; EMBOSS einverted (Rice et al. 2000).
 
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
 using static Seqeron.Genomics.Analysis.RnaSecondaryStructure;
 
 namespace Seqeron.Genomics.Tests.Unit.Analysis;

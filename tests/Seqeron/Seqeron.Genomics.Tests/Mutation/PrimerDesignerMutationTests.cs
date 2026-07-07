@@ -1,6 +1,3 @@
-using NUnit.Framework;
-using FluentAssertions;
-
 namespace Seqeron.Genomics.Tests.Mutation;
 
 /// <summary>

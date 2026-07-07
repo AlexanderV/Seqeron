@@ -24,11 +24,6 @@
 // PLoS Comput Biol 7:e1002195; HMMER generic_fwdback.c (p7_GForward/p7_GBackward, local esc=0);
 // Durbin et al. (1998) §3.2 (Forward/Backward).
 
-using System;
-using System.Collections.Generic;
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

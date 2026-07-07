@@ -1,9 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using NUnit.Framework;
-using FluentAssertions;
 using static Seqeron.Genomics.Analysis.ProteinMotifFinder;
 
 namespace Seqeron.Genomics.Tests.Fuzzing;

@@ -1,5 +1,3 @@
-using System;
-using System.Linq;
 using NUnit.Framework;
 using Seqeron.Genomics.Metagenomics;
 using Seqeron.Mcp.Metagenomics.Tools;

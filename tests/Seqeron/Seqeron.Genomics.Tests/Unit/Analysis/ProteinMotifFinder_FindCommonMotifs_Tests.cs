@@ -3,9 +3,6 @@
 // TestSpec: tests/TestSpecs/PROTMOTIF-COMMON-001.md
 // Source: ExPASy PROSITE (PS00001/PS00005/PS00006/PS00016/PS00017) + ScanProsite syntax docs;
 //         Sigrist CJA et al. (2013) Nucleic Acids Res 41(D1):D344-D347.
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
 using static Seqeron.Genomics.Analysis.ProteinMotifFinder;
 
 namespace Seqeron.Genomics.Tests.Unit.Analysis;

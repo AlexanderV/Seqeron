@@ -14,7 +14,7 @@ public class PredictIntronsTests
     private const string Ppt = "UUUUUUUUUUUUUU";
     private const string Acceptor = "CAG";
     private const string Exon2 = "GCCUUUAAAGGGCCCUUUAAAGGGCCCUUUAAAGC";
-    private static readonly string TwoExon = Exon1 + Donor + IntronBody + Ppt + Acceptor + Exon2;
+    private const string TwoExon = Exon1 + Donor + IntronBody + Ppt + Acceptor + Exon2;
 
     [Test]
     public void PredictIntrons_Schema_ValidatesCorrectly()

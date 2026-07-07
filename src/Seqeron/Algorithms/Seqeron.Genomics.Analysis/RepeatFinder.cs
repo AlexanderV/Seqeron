@@ -1,9 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
 using Seqeron.Genomics.Alignment;
-using Seqeron.Genomics.Infrastructure;
 
 namespace Seqeron.Genomics.Analysis;
 
@@ -31,9 +26,9 @@ public static class RepeatFinder
         int minRepeats = 3)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        if (minUnitLength < 1) throw new ArgumentOutOfRangeException(nameof(minUnitLength));
-        if (maxUnitLength < minUnitLength) throw new ArgumentOutOfRangeException(nameof(maxUnitLength));
-        if (minRepeats < 2) throw new ArgumentOutOfRangeException(nameof(minRepeats));
+        ArgumentOutOfRangeException.ThrowIfLessThan(minUnitLength, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxUnitLength, minUnitLength);
+        ArgumentOutOfRangeException.ThrowIfLessThan(minRepeats, 2);
 
         return FindMicrosatellitesCore(sequence.Sequence, minUnitLength, maxUnitLength, minRepeats);
     }
@@ -70,9 +65,9 @@ public static class RepeatFinder
         int maxUnitLength = 6,
         int minRepeats = 3)
     {
-        if (minUnitLength < 1) throw new ArgumentOutOfRangeException(nameof(minUnitLength));
-        if (maxUnitLength < minUnitLength) throw new ArgumentOutOfRangeException(nameof(maxUnitLength));
-        if (minRepeats < 2) throw new ArgumentOutOfRangeException(nameof(minRepeats));
+        ArgumentOutOfRangeException.ThrowIfLessThan(minUnitLength, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxUnitLength, minUnitLength);
+        ArgumentOutOfRangeException.ThrowIfLessThan(minRepeats, 2);
 
         if (string.IsNullOrEmpty(sequence))
             yield break;
@@ -92,9 +87,9 @@ public static class RepeatFinder
         CancellationToken cancellationToken,
         IProgress<double>? progress = null)
     {
-        if (minUnitLength < 1) throw new ArgumentOutOfRangeException(nameof(minUnitLength));
-        if (maxUnitLength < minUnitLength) throw new ArgumentOutOfRangeException(nameof(maxUnitLength));
-        if (minRepeats < 2) throw new ArgumentOutOfRangeException(nameof(minRepeats));
+        ArgumentOutOfRangeException.ThrowIfLessThan(minUnitLength, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxUnitLength, minUnitLength);
+        ArgumentOutOfRangeException.ThrowIfLessThan(minRepeats, 2);
 
         return FindMicrosatellitesCancellable(
             sequence, minUnitLength, maxUnitLength, minRepeats, cancellationToken, progress);
@@ -350,8 +345,8 @@ public static class RepeatFinder
         int maxPeriod,
         int minScore)
     {
-        if (minPeriod < 1) throw new ArgumentOutOfRangeException(nameof(minPeriod));
-        if (maxPeriod < minPeriod) throw new ArgumentOutOfRangeException(nameof(maxPeriod));
+        ArgumentOutOfRangeException.ThrowIfLessThan(minPeriod, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxPeriod, minPeriod);
 
         var candidates = new List<ApproximateTandemRepeatResult>();
         if (string.IsNullOrEmpty(seq))
@@ -601,7 +596,7 @@ public static class RepeatFinder
         double expectedMatchProbability = TrfDefaultMatchProbability)
     {
         ArgumentNullException.ThrowIfNull(repeatTract);
-        if (period < 1) throw new ArgumentOutOfRangeException(nameof(period));
+        ArgumentOutOfRangeException.ThrowIfLessThan(period, 1);
         if (expectedMatchProbability < 0.0 || expectedMatchProbability > 1.0)
             throw new ArgumentOutOfRangeException(nameof(expectedMatchProbability));
 
@@ -690,8 +685,8 @@ public static class RepeatFinder
         int minLoopLength = 3)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        if (minArmLength < 2) throw new ArgumentOutOfRangeException(nameof(minArmLength));
-        if (minLoopLength < 0) throw new ArgumentOutOfRangeException(nameof(minLoopLength));
+        ArgumentOutOfRangeException.ThrowIfLessThan(minArmLength, 2);
+        ArgumentOutOfRangeException.ThrowIfNegative(minLoopLength);
 
         return FindInvertedRepeatsCore(sequence.Sequence, minArmLength, maxLoopLength, minLoopLength);
     }
@@ -705,8 +700,8 @@ public static class RepeatFinder
         int maxLoopLength = 50,
         int minLoopLength = 3)
     {
-        if (minArmLength < 2) throw new ArgumentOutOfRangeException(nameof(minArmLength));
-        if (minLoopLength < 0) throw new ArgumentOutOfRangeException(nameof(minLoopLength));
+        ArgumentOutOfRangeException.ThrowIfLessThan(minArmLength, 2);
+        ArgumentOutOfRangeException.ThrowIfNegative(minLoopLength);
 
         if (string.IsNullOrEmpty(sequence))
             yield break;
@@ -746,9 +741,8 @@ public static class RepeatFinder
                         string loop = loopLength > 0 ? seq.Substring(i + armLen, loopLength) : "";
 
                         var key = (i, j, armLen);
-                        if (!reported.Contains(key))
+                        if (reported.Add(key))
                         {
-                            reported.Add(key);
                             yield return new InvertedRepeatResult(
                                 LeftArmStart: i,
                                 RightArmStart: j,
@@ -784,8 +778,8 @@ public static class RepeatFinder
         int minSpacing = 1)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        if (minLength < 2) throw new ArgumentOutOfRangeException(nameof(minLength));
-        if (maxLength < minLength) throw new ArgumentOutOfRangeException(nameof(maxLength));
+        ArgumentOutOfRangeException.ThrowIfLessThan(minLength, 2);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxLength, minLength);
 
         return FindDirectRepeatsCore(sequence.Sequence, minLength, maxLength, minSpacing);
     }
@@ -805,8 +799,8 @@ public static class RepeatFinder
         // empty-/single-base "repeats"; that is undisciplined fuzzing failure, so it is rejected
         // here exactly as the typed overload rejects it. Validation is hoisted into an eager
         // wrapper so the exception surfaces at the call, not only on enumeration.
-        if (minLength < 2) throw new ArgumentOutOfRangeException(nameof(minLength));
-        if (maxLength < minLength) throw new ArgumentOutOfRangeException(nameof(maxLength));
+        ArgumentOutOfRangeException.ThrowIfLessThan(minLength, 2);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxLength, minLength);
 
         return FindDirectRepeatsRaw(sequence, minLength, maxLength, minSpacing);
     }
@@ -846,9 +840,8 @@ public static class RepeatFinder
                 foreach (int j in occurrences.Where(p => p > i + len - 1 + minSpacing).OrderBy(p => p))
                 {
                     var key = (i, j, len);
-                    if (!reported.Contains(key))
+                    if (reported.Add(key))
                     {
-                        reported.Add(key);
                         yield return new DirectRepeatResult(
                             FirstPosition: i,
                             SecondPosition: j,
@@ -969,8 +962,7 @@ public static class RepeatFinder
         ArgumentNullException.ThrowIfNull(sequence);
         if (minLength < 4 || minLength % 2 != 0)
             throw new ArgumentOutOfRangeException(nameof(minLength), "Must be even and >= 4");
-        if (maxLength < minLength)
-            throw new ArgumentOutOfRangeException(nameof(maxLength));
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxLength, minLength);
 
         return FindPalindromesCore(sequence.Sequence, minLength, maxLength);
     }
@@ -985,8 +977,7 @@ public static class RepeatFinder
     {
         if (minLength < 4 || minLength % 2 != 0)
             throw new ArgumentOutOfRangeException(nameof(minLength), "Must be even and >= 4");
-        if (maxLength < minLength)
-            throw new ArgumentOutOfRangeException(nameof(maxLength));
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxLength, minLength);
 
         if (string.IsNullOrEmpty(sequence))
             yield break;

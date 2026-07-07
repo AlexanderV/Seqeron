@@ -1,9 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using NUnit.Framework;
-using FluentAssertions;
 using static Seqeron.Genomics.Analysis.ProteinMotifFinder;
 
 namespace Seqeron.Genomics.Tests.Fuzzing;
@@ -111,9 +105,6 @@ public class ProteinCoiledCoilFuzzTests
 
     /// <summary>The 20 standard amino-acid one-letter codes.</summary>
     private const string StandardAminoAcids = "ACDEFGHIKLMNPQRSTVWY";
-
-    /// <summary>The hydrophobic-core residue set {I, L, V} (Coiled_Coil_Prediction.md §4.2).</summary>
-    private const string CoreResidues = "ILV";
 
     /// <summary>The default scanning-window length (4 heptads) used by <c>PredictCoiledCoils</c>.</summary>
     private const int DefaultWindow = 28;

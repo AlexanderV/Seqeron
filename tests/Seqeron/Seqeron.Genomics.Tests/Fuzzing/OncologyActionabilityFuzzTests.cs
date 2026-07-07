@@ -1,9 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Oncology;
 using Level = Seqeron.Genomics.Oncology.OncologyAnalyzer.OncoKbLevel;
 using Assoc = Seqeron.Genomics.Oncology.OncologyAnalyzer.TherapyAssociation;
 using Input = Seqeron.Genomics.Oncology.OncologyAnalyzer.VariantActionabilityInput;
@@ -139,9 +133,9 @@ public class OncologyActionabilityFuzzTests
     // IsActionable is exactly (combined != None) (INV-01..INV-04).
     private static void AssertWellFormed(Assessment a)
     {
-        Enum.IsDefined(typeof(Level), a.HighestSensitiveLevel).Should().BeTrue();
-        Enum.IsDefined(typeof(Level), a.HighestResistanceLevel).Should().BeTrue();
-        Enum.IsDefined(typeof(Level), a.HighestCombinedLevel).Should().BeTrue();
+        Enum.IsDefined(a.HighestSensitiveLevel).Should().BeTrue();
+        Enum.IsDefined(a.HighestResistanceLevel).Should().BeTrue();
+        Enum.IsDefined(a.HighestCombinedLevel).Should().BeTrue();
 
         (a.HighestSensitiveLevel == Level.None || SensitivitySet.Contains(a.HighestSensitiveLevel))
             .Should().BeTrue("the sensitive axis only reports sensitivity levels or None (INV-02)");

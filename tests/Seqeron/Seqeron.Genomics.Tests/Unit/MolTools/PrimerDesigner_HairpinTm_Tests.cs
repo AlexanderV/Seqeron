@@ -7,10 +7,6 @@
 //   SantaLucia J (1998). PNAS 95(4):1460-65 — unified NN ΔH°/ΔS° (stem stacks reused).
 //   Vallone PM, Benight AS (1999). Biochemistry — hairpin Tm concentration-independence.
 
-using System;
-using NUnit.Framework;
-using Seqeron.Genomics.MolTools;
-
 namespace Seqeron.Genomics.Tests.Unit.MolTools;
 
 /// <summary>

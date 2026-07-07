@@ -1,11 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Chromosome;
-using Seqeron.Genomics.Core;
-
 namespace Seqeron.Genomics.Tests.Metamorphic;
 
 /// <summary>

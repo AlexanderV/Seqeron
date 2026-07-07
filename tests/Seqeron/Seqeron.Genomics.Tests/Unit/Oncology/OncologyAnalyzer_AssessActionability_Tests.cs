@@ -6,10 +6,6 @@
 //         OncoKB Therapeutic Levels of Evidence (V2); oncokb-annotator README (HIGHEST_LEVEL order:
 //         LEVEL_R1 > LEVEL_1 > LEVEL_2 > LEVEL_3A > LEVEL_3B > LEVEL_4 > LEVEL_R2).
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using Seqeron.Genomics.Oncology;
 using Level = Seqeron.Genomics.Oncology.OncologyAnalyzer.OncoKbLevel;
 using Assoc = Seqeron.Genomics.Oncology.OncologyAnalyzer.TherapyAssociation;
 using Input = Seqeron.Genomics.Oncology.OncologyAnalyzer.VariantActionabilityInput;

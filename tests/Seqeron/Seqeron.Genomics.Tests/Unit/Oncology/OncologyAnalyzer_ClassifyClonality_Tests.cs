@@ -10,10 +10,6 @@
 // model — f(c)=alpha*M*c/(2(1-alpha)+alpha*q); P(c) prop Binom(a|N,f(c)); uniform prior;
 // 100-point grid c in [0.01,1]; clonal iff P(CCF>0.95) > 0.5 — NOT copied from the implementation.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.Oncology;
 
 [TestFixture]

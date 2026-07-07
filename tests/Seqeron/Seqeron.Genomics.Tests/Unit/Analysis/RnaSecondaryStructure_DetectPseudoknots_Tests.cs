@@ -5,10 +5,6 @@
 //         "([)]" example); Smit S et al. (2008). RNA 14(3):410-416 (pseudoknot = crossing pairs);
 //         biotite.structure.pseudoknots; Wikipedia "Pseudoknot" (Rivas & Eddy 1999).
 
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
 using static Seqeron.Genomics.Analysis.RnaSecondaryStructure;
 
 namespace Seqeron.Genomics.Tests.Unit.Analysis;

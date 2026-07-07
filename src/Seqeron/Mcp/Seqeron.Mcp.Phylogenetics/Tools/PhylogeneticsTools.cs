@@ -1,7 +1,5 @@
 using System.ComponentModel;
 using ModelContextProtocol.Server;
-using Seqeron.Genomics.Core;
-using Seqeron.Genomics.Phylogenetics;
 using Seqeron.Mcp.Phylogenetics.Models;
 
 namespace Seqeron.Mcp.Phylogenetics.Tools;

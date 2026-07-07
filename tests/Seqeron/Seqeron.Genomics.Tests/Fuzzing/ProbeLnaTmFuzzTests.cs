@@ -1,10 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.MolTools;
-
 namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
@@ -359,7 +352,7 @@ public class ProbeLnaTmFuzzTests
         const string clean = "ACGTACGTAC";
         for (int i = 1; i < clean.Length - 1; i++)
         {
-            string mutated = clean.Substring(0, i) + "?" + clean.Substring(i + 1);
+            string mutated = string.Concat(clean.AsSpan(0, i), "?", clean.AsSpan(i + 1));
             double tm = LnaTm(mutated, new[] { Math.Min(i, clean.Length - 2) });
             double.IsNaN(tm).Should().BeTrue($"junk at index {i} of '{clean}' → NaN, no crash");
         }

@@ -1,11 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Analysis;
-using Seqeron.Genomics.Core;
-
 namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
@@ -167,7 +159,7 @@ public class ComplexityFuzzTests
     /// </summary>
     private static double ReferenceDustScore(string seq, int wordSize = 3)
     {
-        if (wordSize < 1) throw new ArgumentOutOfRangeException(nameof(wordSize));
+        ArgumentOutOfRangeException.ThrowIfLessThan(wordSize, 1);
         if (string.IsNullOrEmpty(seq) || seq.Length < wordSize) return 0.0;
 
         int wordCount = seq.Length - wordSize + 1;
@@ -196,7 +188,7 @@ public class ComplexityFuzzTests
     /// </summary>
     private static double ReferenceKmerEntropy(string seq, int k)
     {
-        if (k < 1) throw new ArgumentOutOfRangeException(nameof(k));
+        ArgumentOutOfRangeException.ThrowIfLessThan(k, 1);
         if (string.IsNullOrEmpty(seq) || seq.Length < k) return 0.0;
 
         int n = seq.Length - k + 1;
@@ -1663,8 +1655,8 @@ public class ComplexityFuzzTests
     private static List<(int Position, double H, double Lc, int Start, int End)>
         ReferenceWindowedProfile(string seq, int windowSize, int stepSize)
     {
-        if (windowSize < 1) throw new ArgumentOutOfRangeException(nameof(windowSize));
-        if (stepSize < 1) throw new ArgumentOutOfRangeException(nameof(stepSize));
+        ArgumentOutOfRangeException.ThrowIfLessThan(windowSize, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(stepSize, 1);
 
         var profile = new List<(int, double, double, int, int)>();
         for (int i = 0; i + windowSize <= seq.Length; i += stepSize)

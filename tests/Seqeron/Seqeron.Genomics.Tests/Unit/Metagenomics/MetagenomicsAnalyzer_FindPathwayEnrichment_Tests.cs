@@ -4,12 +4,6 @@
 // Source: Boyle EI et al. (2004). Bioinformatics 20(18):3710-3715 (GO::TermFinder);
 //         PNNL Proteomics Data Analysis in R/Bioconductor §8.2 Over-Representation Analysis.
 
-using NUnit.Framework;
-using Seqeron.Genomics.Metagenomics;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.Metagenomics;
 
 [TestFixture]

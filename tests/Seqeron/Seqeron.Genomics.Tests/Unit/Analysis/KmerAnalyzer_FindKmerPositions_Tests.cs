@@ -4,9 +4,6 @@
 // Source: Rosalind BA1D (Find All Occurrences of a Pattern in a String),
 //         https://rosalind.info/problems/ba1d/ ; Wikipedia "k-mer".
 
-using System.Linq;
-using NUnit.Framework;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

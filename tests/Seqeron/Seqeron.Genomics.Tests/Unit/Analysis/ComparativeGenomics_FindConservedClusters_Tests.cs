@@ -6,12 +6,6 @@
 //         Didier G, Schmidt T, Stoye J, Tsur D (2013). arXiv:1310.4290 (sequences with duplicates).
 //         Heber S, Stoye J (2001). CPM, LNCS 2089:207-218 (k-permutation common intervals).
 
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

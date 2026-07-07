@@ -13,9 +13,12 @@
   </PropertyGroup>
 
   <!-- Quality gate: warnings are errors on every project (previously set on only 23 of 28
-       source projects, leaving the base layers Core/Infrastructure/IO/Alignment ungated). -->
+       source projects, leaving the base layers Core/Infrastructure/IO/Alignment ungated).
+       EnforceCodeStyleInBuild runs the IDE* code-style analyzers at build time so the curated
+       clean-up ruleset in .editorconfig (unused usings/members, redundant constructs) is gated. -->
   <PropertyGroup>
     <TreatWarningsAsErrors Condition="'$(TreatWarningsAsErrors)' == ''">true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild Condition="'$(EnforceCodeStyleInBuild)' == ''">true</EnforceCodeStyleInBuild>
   </PropertyGroup>
 
   <!-- Reproducible builds: deterministic output; path-map normalised on CI. -->

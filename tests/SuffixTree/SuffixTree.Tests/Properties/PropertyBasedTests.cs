@@ -104,7 +104,7 @@ namespace SuffixTree.Tests.Properties
                 var tree = SuffixTree.Build(text);
                 for (int i = 0; i < text.Length; i++)
                 {
-                    Assert.That(tree.Contains(text.Substring(i)), Is.True,
+                    Assert.That(tree.Contains(text.AsSpan(i)), Is.True,
                         $"Seed={seed}: suffix at {i} not found");
                 }
             }

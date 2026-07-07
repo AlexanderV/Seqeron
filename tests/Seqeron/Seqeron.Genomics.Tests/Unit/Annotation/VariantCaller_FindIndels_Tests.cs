@@ -5,12 +5,6 @@
 //         Tan A, Abecasis GR, Kang HM (2015). Bioinformatics 31(13):2202-2204, doi:10.1093/bioinformatics/btv112;
 //         ericminikel/minimal_representation normalize.py (Tan et al. 2015 Algorithm 1).
 
-using System;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics;
-using Seqeron.Genomics.Annotation;
-
 namespace Seqeron.Genomics.Tests.Unit.Annotation;
 
 [TestFixture]

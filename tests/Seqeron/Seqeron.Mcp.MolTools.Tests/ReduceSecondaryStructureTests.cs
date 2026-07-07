@@ -1,4 +1,3 @@
-using System;
 using NUnit.Framework;
 using Seqeron.Mcp.MolTools.Models;
 using Seqeron.Mcp.MolTools.Tools;

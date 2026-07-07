@@ -69,8 +69,7 @@ namespace SuffixTree.Tests.Performance
 
         private static double MeasureBatchedMs(Action action, int repetitions, int warmup = 2, int measured = 5)
         {
-            if (repetitions <= 0)
-                throw new ArgumentOutOfRangeException(nameof(repetitions));
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(repetitions);
 
             void BatchedAction()
             {

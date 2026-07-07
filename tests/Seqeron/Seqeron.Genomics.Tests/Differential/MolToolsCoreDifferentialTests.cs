@@ -3,13 +3,6 @@
 // Tm formulas, an IndexOf restriction-site scan, and a manual cut-and-split digest. Reverse complement in
 // the oracles is from a literal table, not DnaSequence.GetReverseComplementString.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Core;
-using Seqeron.Genomics.MolTools;
-
 namespace Seqeron.Genomics.Tests.Differential;
 
 [TestFixture]

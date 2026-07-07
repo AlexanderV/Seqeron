@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using Seqeron.Genomics.Core;
-
 namespace Seqeron.Genomics.Oncology;
 
 public static partial class OncologyAnalyzer

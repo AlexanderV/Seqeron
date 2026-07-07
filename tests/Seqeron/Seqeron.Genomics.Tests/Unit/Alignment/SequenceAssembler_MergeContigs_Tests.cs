@@ -4,11 +4,6 @@
 // Source: Langmead B., "Assembly & shortest common superstring" / "Overlap Layout Consensus
 //         assembly" (JHU lecture notes); MIT 7.91J Lecture 6 (MIT OCW, 2014).
 
-using System;
-using NUnit.Framework;
-
-using Seqeron.Genomics.Alignment;
-
 namespace Seqeron.Genomics.Tests.Unit.Alignment;
 
 [TestFixture]

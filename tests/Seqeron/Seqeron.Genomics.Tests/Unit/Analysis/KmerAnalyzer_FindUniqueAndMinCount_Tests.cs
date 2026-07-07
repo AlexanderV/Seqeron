@@ -6,11 +6,6 @@
 //         Wikipedia — K-mer (https://en.wikipedia.org/wiki/K-mer);
 //         Compeau P, Pevzner P (2015). Bioinformatics Algorithms (2nd ed.).
 
-using NUnit.Framework;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 /// <summary>

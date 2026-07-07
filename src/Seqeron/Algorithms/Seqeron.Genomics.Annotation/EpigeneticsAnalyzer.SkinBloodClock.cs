@@ -12,8 +12,6 @@
 // The intercept (Coef of the "(Intercept)" row) is HorvathSkinBloodIntercept; the 391 CpG weights
 // (Coef[-1]) follow, in the original supplement row order.
 
-using System.Collections.Generic;
-
 namespace Seqeron.Genomics.Annotation;
 
 public static partial class EpigeneticsAnalyzer

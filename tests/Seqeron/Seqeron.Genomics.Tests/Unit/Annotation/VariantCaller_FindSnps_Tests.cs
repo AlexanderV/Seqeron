@@ -4,12 +4,6 @@
 // Source: VCFv4.3 spec (samtools/hts-specs); Hamming Distance (PMC5410656);
 //         Wikipedia Transversion (Futuyma 2013); Collins & Jukes (1994) Genomics 20(3):386-396.
 
-using System;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics;
-using Seqeron.Genomics.Annotation;
-
 namespace Seqeron.Genomics.Tests.Unit.Annotation;
 
 [TestFixture]

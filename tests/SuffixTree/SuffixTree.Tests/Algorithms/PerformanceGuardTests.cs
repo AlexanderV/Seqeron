@@ -61,7 +61,7 @@ namespace SuffixTree.Tests.Algorithms
             var pattern2N = text.Substring(500, patternLen * 2);
 
             // Warmup
-            _ = tree.Contains(text.Substring(0, 10));
+            _ = tree.Contains(text.AsSpan(0, 10));
 
             var sw = Stopwatch.StartNew();
             for (int i = 0; i < 10000; i++) tree.Contains(patternN);

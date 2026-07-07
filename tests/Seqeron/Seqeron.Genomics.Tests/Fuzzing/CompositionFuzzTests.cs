@@ -1,10 +1,3 @@
-using System;
-using System.Linq;
-using NUnit.Framework;
-using FluentAssertions;
-using Seqeron.Genomics.Core;
-using Seqeron.Genomics.Analysis;
-
 namespace Seqeron.Genomics.Tests.Fuzzing;
 
 /// <summary>
@@ -3417,7 +3410,7 @@ public class CompositionFuzzTests
 
         for (int k = 0; k < genome.Length; k++)
         {
-            string rotated = genome.Substring(k) + genome.Substring(0, k);
+            string rotated = string.Concat(genome.AsSpan(k), genome.AsSpan(0, k));
             var reference = ReferenceOrigin(rotated);
 
             var pred = GcSkewCalculator.PredictReplicationOrigin(new DnaSequence(rotated));

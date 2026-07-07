@@ -17,10 +17,6 @@
 //   below encode hand-derived alignment identities; reciprocal tests encode the mean of the two
 //   directional ANIs.
 
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-using System;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

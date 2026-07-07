@@ -5,13 +5,7 @@
 //         https://doi.org/10.1186/s13059-016-0974-4; Ensembl ensembl-variation release/110
 //         Utils/Constants.pm (impact/rank) and Utils/VariationEffect.pm (predicates);
 //         NCBI gc.prt Standard code (transl_table 1).
-using NUnit.Framework;
-using Seqeron.Genomics;
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
-using System.Threading;
 
 namespace Seqeron.Genomics.Tests.Unit.Annotation;
 

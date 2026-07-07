@@ -1,14 +1,6 @@
 // 08_DIFFERENTIAL_TESTING rows 140, 147, 217. Independent oracles: manual codon-usage triplet scan,
 // a manual N50/L50 cumulative computation, and a manual majority-vote consensus.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Alignment;
-using Seqeron.Genomics.Annotation;
-using Seqeron.Genomics.Chromosome;
-
 namespace Seqeron.Genomics.Tests.Differential;
 
 [TestFixture]

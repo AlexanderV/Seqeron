@@ -4,12 +4,6 @@
 // Source: Moreno-Hagelsieb G, Latimer K (2008). Bioinformatics 24(3):319-324 (RBH definition, coverage gate).
 //         Tatusov RL, Koonin EV, Lipman DJ (1997). Science 278:631-637 (symmetrical/mutual best hits).
 
-using NUnit.Framework;
-using Seqeron.Genomics.Analysis;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace Seqeron.Genomics.Tests.Unit.Analysis;
 
 [TestFixture]

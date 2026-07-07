@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Annotation;
 using static Seqeron.Genomics.Annotation.MiRnaAnalyzer;
 
 namespace Seqeron.Genomics.Tests.Mutation;
@@ -127,7 +122,7 @@ public class MiRnaAnalyzerMutationTests
     //   (0=G,9=C) G-C ; (1=A,5=U) A-U  ⇒ structureScore = 2  (G0:U5 is wobble, excluded).
     //   maxPairs = (10*6)/2 = 30 ;  accessibility = 1 - (2/30)*10 = 1 - 20/30.
     private const string AccSeq = "GAAAAUAAAC";
-    private static readonly double AccExpected = 1.0 - 20.0 / 30.0; // ≈ 0.333333…
+    private const double AccExpected = 1.0 - 20.0 / 30.0; // ≈ 0.333333…
 
     [Test]
     public void CalculateSiteAccessibility_KnownWindow_ExactValue()

@@ -1,8 +1,5 @@
 using System.ComponentModel;
-using System.Linq;
 using ModelContextProtocol.Server;
-using Seqeron.Genomics.Analysis;
-using Seqeron.Genomics.Core;
 
 namespace Seqeron.Mcp.Analysis.Tools;
 
@@ -588,7 +585,7 @@ public class AnalysisTools
         [Description("Minimum score threshold (default 0.0).")] double threshold = 0.0)
     {
         var dna = RequireDna(sequence, nameof(sequence));
-        if (pwm is null) throw new ArgumentNullException(nameof(pwm));
+        ArgumentNullException.ThrowIfNull(pwm);
         var matrix2d = JaggedToMatrix(pwm.Matrix, 4, pwm.Length);
         var pwmObj = new global::Seqeron.Genomics.Analysis.PositionWeightMatrix(matrix2d, pwm.Length);
         var items = global::Seqeron.Genomics.Analysis.MotifFinder

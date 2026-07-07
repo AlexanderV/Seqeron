@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics.Annotation;
 using static Seqeron.Genomics.Annotation.SpliceSitePredictor;
 
 namespace Seqeron.Genomics.Tests.Mutation;
@@ -47,7 +42,7 @@ public class SpliceSitePredictorMutationTests
             if (p >= 0 && p < seq.Length)
             {
                 char b = seq[p];
-                if (BaseIdx(b) >= 0) { score += ones.IndexOf(b) >= 0 ? 1.0 : 0.0; count++; }
+                if (BaseIdx(b) >= 0) { score += ones.Contains(b) ? 1.0 : 0.0; count++; }
             }
         }
         return count > 0 ? score / count : 0;

@@ -7,13 +7,6 @@
 //         Barton GJ, Sternberg MJ (1987). J Mol Biol 198(2):327-337 (iterative refinement).
 //         Wikipedia "Multiple sequence alignment" (sum-of-pairs score definition).
 
-using System;
-using System.Linq;
-using NUnit.Framework;
-using Seqeron.Genomics;
-using Seqeron.Genomics.Infrastructure;
-using Seqeron.Genomics.Alignment;
-
 namespace Seqeron.Genomics.Tests.Unit.Alignment;
 
 /// <summary>
