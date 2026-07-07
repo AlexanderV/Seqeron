@@ -1,5 +1,7 @@
 # Hardy-Weinberg Equilibrium Test
 
+> **Baseline / reference method.** The chi-square Hardy-Weinberg test is a fast, deterministic QC screen; exact tests can be preferable for sparse counts. See [Legacy / Baseline Methods](../CANONICAL_MAP.md).
+
 | Field | Value |
 |-------|-------|
 | Algorithm Group | Population Genetics |

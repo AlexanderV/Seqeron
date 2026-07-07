@@ -1,5 +1,7 @@
 # Tree Construction Algorithms
 
+> **Baseline / reference method.** UPGMA (documented here alongside Neighbor-Joining) is retained as a standard baseline — it assumes a molecular clock and can bias topology/branch lengths, so Neighbor-Joining is the default choice. See [Legacy / Baseline Methods](../CANONICAL_MAP.md).
+
 | Field | Value |
 |-------|-------|
 | Algorithm Group | Phylogenetics |

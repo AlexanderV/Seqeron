@@ -104,7 +104,9 @@ searchable but point to the canonical owner. See the full [Canonical Algorithm M
 
 ### Legacy / alias folders
 
-These folders are retained for back-links and are being consolidated into the canonical buckets above:
+Consolidation status by folder. Names shown **without a link** have already been merged into their
+canonical bucket (the folder is gone and all references were repointed); names shown **as links**
+still exist and are pending consolidation.
 
 | Legacy folder | Canonical bucket |
 |---|---|

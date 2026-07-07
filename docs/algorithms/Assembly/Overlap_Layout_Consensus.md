@@ -1,5 +1,7 @@
 # Overlap-Layout-Consensus (OLC) Assembly
 
+> **Baseline / reference method.** OLC is an important classical assembler paradigm; de Bruijn approaches are often more practical for many read regimes. See [Legacy / Baseline Methods](../CANONICAL_MAP.md).
+
 | Field | Value |
 |-------|-------|
 | Algorithm Group | Assembly |

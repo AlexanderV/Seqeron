@@ -1,5 +1,7 @@
 # RNA Minimum Free Energy (MFE) Prediction
 
+> **Baseline / reference method.** The classic Nussinov baseline documented here is a useful comparator; it uses a simplified energy model, not full thermodynamic fidelity (the Turner nearest-neighbor model is the higher-fidelity path). See [Legacy / Baseline Methods](../CANONICAL_MAP.md).
+
 | Field | Value |
 |-------|-------|
 | Algorithm Group | RnaStructure |

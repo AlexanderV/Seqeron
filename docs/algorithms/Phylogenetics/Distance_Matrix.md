@@ -1,5 +1,7 @@
 # Phylogenetic Distance Matrix Calculation
 
+> **Baseline / reference method.** The Jukes-Cantor and Kimura-2P corrections here are canonical baseline substitution models with simplifying assumptions; they are not always best for real datasets. See [Legacy / Baseline Methods](../CANONICAL_MAP.md).
+
 | Field | Value |
 |-------|-------|
 | Algorithm Group | Phylogenetics |
