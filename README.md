@@ -207,6 +207,20 @@ For a worked end-to-end example (the resistance-mutation chain — QC → alignm
 
 > **How the compute happens:** the skills only tell the assistant *which* `Method ID`s to call; the numbers come from the real library (run directly via the C# API, or over MCP). The tool schemas never enter the model’s context.
 
+**How a task flows** — the same validated algorithm answers whether you go through MCP or the C# API:
+
+```mermaid
+flowchart LR
+    U["Plain-language<br/>biology task"] --> SK["Skill routing<br/>(discover + orchestrate)"]
+    SK -.->|"guards every step"| RIG["bio-rigor<br/>tool-only · 0-based<br/>envelope STOP rules"]
+    SK -->|"picks Method IDs"| P{"Two equivalent<br/>entry points"}
+    P -->|"strict schema"| MCP["MCP tool call"]
+    P -->|"in-process"| API["C# Method ID"]
+    MCP --> ALG["Validated algorithm<br/>LimitationPolicy-guarded"]
+    API --> ALG
+    ALG --> OUT["Result + provenance<br/>reproducible · cited · not guessed"]
+```
+
 ## What’s Inside
 
 - DNA/RNA/Protein sequence models with validation and common operations.
@@ -215,12 +229,16 @@ For a worked end-to-end example (the resistance-mutation chain — QC → alignm
 - High-performance suffix tree (Ukkonen) for fast substring queries, plus a persistent on-disk variant.
 - MCP servers exposing the toolsets to LLM/agent workflows — one per domain (sequence, parsers, alignment, analysis, annotation, phylogenetics, population, metagenomics, chromosome, molecular tools) plus the core suffix-tree server.
 - Evidence-based validation: algorithm parameters and coefficients reproduced from primary literature and reference implementations, tracked under [docs/Validation](docs/Validation) (235 test-spec units).
-- Benchmarks, stress harness, and extensive unit tests. Targets .NET 10.
+- Benchmarks, stress harness, and extensive unit tests (22,290 cases, warnings-as-errors, CI-gated). Targets .NET 10.
 
 ## Repository Layout
 
 ```
 Seqeron.sln
+Directory.Build.props                   # Solution-wide build defaults (net10.0, nullable, warnings-as-errors, deterministic)
+Directory.Packages.props                # Central Package Management — every NuGet version pinned in one place
+.editorconfig                           # Shared formatting / code-style baseline
+.github/workflows/dotnet.yml            # CI: restore → build (warnings-as-errors) → full test suite
 src/
 ├── SuffixTree/
 │   ├── Algorithms/                     # Suffix tree implementation
@@ -239,7 +257,7 @@ src/
 │   │   ├── Seqeron.Genomics.Metagenomics/  # Metagenomic analysis
 │   │   ├── Seqeron.Genomics.MolTools/      # Molecular tools (primers, probes, CRISPR, codon opt.)
 │   │   ├── Seqeron.Genomics.Chromosome/    # Chromosome-level analysis
-│   │   ├── Seqeron.Genomics.Oncology/      # Cancer genomics (CNV, drivers, clonality)
+│   │   ├── Seqeron.Genomics.Oncology/      # Cancer genomics (CNV, drivers, clonality) — partial classes by sub-domain
 │   │   └── Seqeron.Genomics.Reports/       # Report generation
 │   └── Mcp/                            # MCP servers, one per domain:
 │       ├── Seqeron.Mcp.Sequence/           #   sequence analysis tools
@@ -269,22 +287,28 @@ docs/                                   # Documentation
 
 ## Package Dependencies
 
+The library is a strictly layered set of packages — dependencies only ever point *up* the
+levels, never sideways within a level or downward (enforced by the architecture tests). An arrow
+`A --> B` means **B depends on A**. Every module also references `Core` + `Infrastructure`
+(Levels 0–1); those universal edges are drawn only where they define the layer, to keep the graph
+readable. `Reports` and `Population` depend on nothing beyond `Core` + `Infrastructure`.
+
 ```mermaid
 graph TD
+    subgraph "Substrate"
+        ST[SuffixTree<br/>Ukkonen + persistent]
+    end
     subgraph "Level 0"
         INF[Infrastructure]
     end
-    
     subgraph "Level 1"
         CORE[Core]
     end
-    
     subgraph "Level 2"
         IO[IO]
         ALN[Alignment]
         ANA[Analysis]
     end
-    
     subgraph "Level 3"
         ANN[Annotation]
         PHY[Phylogenetics]
@@ -294,41 +318,39 @@ graph TD
         CHR[Chromosome]
         ONC[Oncology]
     end
-    
     subgraph "Level 4"
         REP[Reports]
     end
-    
-    subgraph "Meta"
-        GEN[Seqeron.Genomics]
+    subgraph "Meta-package"
+        GEN[Seqeron.Genomics<br/>aggregates all modules]
     end
 
+    ST --> CORE
     INF --> CORE
     CORE --> IO
     CORE --> ALN
-    INF --> ALN
     CORE --> ANA
-    
+    ALN --> ANA
+
+    ALN --> PHY
+    ANA --> META
+    ANA --> MOL
+    ANA --> ONC
+    ALN --> CHR
+    ANA --> CHR
     IO --> ANN
     ALN --> ANN
     ANA --> ANN
-    CORE --> PHY
-    CORE --> POP
-    ANA --> META
-    CORE --> MOL
-    INF --> MOL
-    ANA --> CHR
-    ANA --> ONC
-    
-    ANN --> REP
-    ANA --> REP
-    
-    REP --> GEN
-    CHR --> GEN
-    MOL --> GEN
-    META --> GEN
-    POP --> GEN
+    PHY --> ANN
+
+    ANN --> GEN
     PHY --> GEN
+    POP --> GEN
+    META --> GEN
+    MOL --> GEN
+    CHR --> GEN
+    ONC --> GEN
+    REP --> GEN
 ```
 
 ## Documentation
@@ -350,8 +372,22 @@ graph TD
 ## Build and Test
 
 ```bash
-dotnet build
-dotnet test
+dotnet build          # Release build; warnings are errors on every project
+dotnet test           # full suite — 22,290 cases across 14 assemblies
+```
+
+**Build & quality gates.** Versions and shared build settings are centralized so all 46 projects
+stay consistent:
+
+- **[Central Package Management](Directory.Packages.props)** — every NuGet version is declared once; project files carry no `Version` attributes.
+- **[`Directory.Build.props`](Directory.Build.props)** — one place for `net10.0`, nullable, implicit usings, deterministic builds, and `TreatWarningsAsErrors` (applied to *every* project).
+- **CI** — [`.github/workflows/dotnet.yml`](.github/workflows/dotnet.yml) restores, builds (warnings-as-errors), and runs the full suite on every push/PR.
+
+Wall-clock **performance / benchmark** tests are marked `[Explicit]` so they never flake the
+parallel gate; run them on demand:
+
+```bash
+dotnet test --filter "TestCategory=Performance"     # opt-in timing / complexity guards
 ```
 
 ## Performance & NativeAOT
