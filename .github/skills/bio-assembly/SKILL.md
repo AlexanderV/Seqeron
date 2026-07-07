@@ -31,7 +31,7 @@ C# `Method ID`s).
 - **Don't know the tool name?** Use **[`seqeron-discovery`](../seqeron-discovery/SKILL.md)**
   (`python3 scripts/skills/find-tool.py <kw> --server analysis|core`) — never guess.
 - **Point, don't duplicate.** Full I/O schemas live in `docs/mcp/tools/{analysis,core,alignment}/*.md`;
-  algorithm invariants in `docs/algorithms/{Assembly,Extended_Assembly,K-mer,K-mer_Analysis,Repeat_Analysis}/*.md`.
+  algorithm invariants in `docs/algorithms/{Assembly,Extended_Assembly,K-mer,Repeat_Analysis}/*.md`.
   This skill links, it does not copy.
 
 ## Scope split — read this first
@@ -155,6 +155,6 @@ Caveat: alpha software; not for clinical use — independently validate before r
   [`Overlap_Layout_Consensus.md`](../../../docs/algorithms/Assembly/Overlap_Layout_Consensus.md) ·
   [`Assembly_Statistics.md`](../../../docs/algorithms/Assembly/Assembly_Statistics.md) ·
   [`Coverage_Calculation.md`](../../../docs/algorithms/Assembly/Coverage_Calculation.md) ·
-  [`docs/algorithms/K-mer_Analysis/K-mer_Frequency_Analysis.md`](../../../docs/algorithms/K-mer_Analysis/K-mer_Frequency_Analysis.md) ·
+  [`docs/algorithms/K-mer/K-mer_Frequency_Analysis.md`](../../../docs/algorithms/K-mer/K-mer_Frequency_Analysis.md) ·
   [`docs/algorithms/Repeat_Analysis/Repeat_Detection.md`](../../../docs/algorithms/Repeat_Analysis/Repeat_Detection.md)
 - **Cross-cutting:** [`bio-rigor`](../bio-rigor/SKILL.md) (rigor guardrail) · [`seqeron-discovery`](../seqeron-discovery/SKILL.md) (tool lookup) · [`bio-annotation`](../bio-annotation/SKILL.md) (motif/variant/ORF Analysis-server subset) · [`bio-alignment`](../bio-alignment/SKILL.md) (owns the Alignment `SequenceAssembler.*` engine).

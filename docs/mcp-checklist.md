@@ -781,7 +781,7 @@
 
 #### 4.2.27 `kmer_count`
 - **HasDocs**: ✓
-- **DocRef**: docs/algorithms/K-mer_Analysis/K-mer_Counting.md
+- **DocRef**: docs/algorithms/K-mer/K-mer_Counting.md
 - [x] a) Link MethodId: `KmerAnalyzer.CountKmers`
 - [x] b) Freeze toolName: `kmer_count`, serverName: `Sequence`
 - [x] c) Define inputSchema: `{ sequence: string, k: integer }`
@@ -809,7 +809,7 @@
 
 #### 4.2.29 `kmer_entropy`
 - **HasDocs**: ✓
-- **DocRef**: docs/algorithms/K-mer_Analysis/K-mer_Frequency_Analysis.md
+- **DocRef**: docs/algorithms/K-mer/K-mer_Frequency_Analysis.md
 - [x] a) Link MethodId: `KmerAnalyzer.CalculateKmerEntropy`
 - [x] b) Freeze toolName: `kmer_entropy`, serverName: `Sequence`
 - [x] c) Define inputSchema: `{ sequence: string, k: integer }`
@@ -823,7 +823,7 @@
 
 #### 4.2.30 `kmer_analyze`
 - **HasDocs**: ✓
-- **DocRef**: docs/algorithms/K-mer_Analysis/K-mer_Search.md
+- **DocRef**: docs/algorithms/K-mer/K-mer_Search.md
 - [x] a) Link MethodId: `KmerAnalyzer.AnalyzeKmers`
 - [x] b) Freeze toolName: `kmer_analyze`, serverName: `Sequence`
 - [x] c) Define inputSchema: `{ sequence: string, k: integer }`

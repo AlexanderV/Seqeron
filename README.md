@@ -336,7 +336,7 @@ graph TD
 ### For Study
 
 - Start here: [Algorithms index](docs/algorithms/README.md).
-- Algorithm areas: [Annotation](docs/algorithms/Annotation), [K-mer Analysis](docs/algorithms/K-mer_Analysis), [Pattern Matching](docs/algorithms/Pattern_Matching), [Repeat Analysis](docs/algorithms/Repeat_Analysis), [Sequence Composition](docs/algorithms/Sequence_Composition), [Molecular Tools](docs/algorithms/Molecular_Tools), [MolTools](docs/algorithms/MolTools).
+- Algorithm areas: [Annotation](docs/algorithms/Annotation), [K-mer Analysis](docs/algorithms/K-mer), [Pattern Matching](docs/algorithms/Pattern_Matching), [Repeat Analysis](docs/algorithms/Repeat_Analysis), [Sequence Composition](docs/algorithms/Sequence_Composition), [Molecular Tools](docs/algorithms/Molecular_Tools), [MolTools](docs/algorithms/MolTools).
 - Suffix tree algorithm: [Suffix Tree (Ukkonen)](docs/algorithms/Pattern_Matching/Suffix_Tree.md).
 
 ### For Development

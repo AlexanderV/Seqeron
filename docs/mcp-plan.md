@@ -131,10 +131,10 @@ Legend:
 | 24 | `complexity_dust_score` | DUST low-complexity score | ✓ | SequenceComplexity.cs:L296#xml | SequenceComplexity.CalculateDustScore | 1.0.0 | stable |
 | 25 | `complexity_mask_low` | Mask low-complexity regions | ✓ | SequenceComplexity.cs:L346#xml | SequenceComplexity.MaskLowComplexity | 1.0.0 | stable |
 | 26 | `complexity_compression_ratio` | Estimate compression ratio | ✓ | SequenceComplexity.cs:L391#xml | SequenceComplexity.EstimateCompressionRatio | 1.0.0 | stable |
-| 27 | `kmer_count` | Count k-mer frequencies | ✓ | docs/algorithms/K-mer_Analysis/K-mer_Counting.md | KmerAnalyzer.CountKmers | 1.0.0 | stable |
+| 27 | `kmer_count` | Count k-mer frequencies | ✓ | docs/algorithms/K-mer/K-mer_Counting.md | KmerAnalyzer.CountKmers | 1.0.0 | stable |
 | 28 | `kmer_distance` | K-mer based distance | ✓ | KmerAnalyzer.cs:L165#xml | KmerAnalyzer.KmerDistance | 1.0.0 | stable |
-| 29 | `kmer_entropy` | K-mer entropy calculation | ✓ | docs/algorithms/K-mer_Analysis/K-mer_Frequency_Analysis.md | KmerAnalyzer.CalculateKmerEntropy | 1.0.0 | stable |
-| 30 | `kmer_analyze` | Comprehensive k-mer analysis | ✓ | docs/algorithms/K-mer_Analysis/K-mer_Search.md | KmerAnalyzer.AnalyzeKmers | 1.0.0 | stable |
+| 29 | `kmer_entropy` | K-mer entropy calculation | ✓ | docs/algorithms/K-mer/K-mer_Frequency_Analysis.md | KmerAnalyzer.CalculateKmerEntropy | 1.0.0 | stable |
+| 30 | `kmer_analyze` | Comprehensive k-mer analysis | ✓ | docs/algorithms/K-mer/K-mer_Search.md | KmerAnalyzer.AnalyzeKmers | 1.0.0 | stable |
 | 31 | `iupac_code` | Get IUPAC ambiguity code | ✓ | docs/algorithms/Pattern_Matching/IUPAC_Degenerate_Matching.md | ISequence.GetIupacCode | 1.0.0 | stable |
 | 32 | `iupac_match` | Check if codes match | ✓ | docs/algorithms/Pattern_Matching/IUPAC_Degenerate_Matching.md | ISequence.CodesMatch | 1.0.0 | stable |
 | 33 | `iupac_matches` | Match nucleotide to IUPAC | ✓ | IupacHelper.cs:L14#xml | IupacHelper.MatchesIupac | 1.0.0 | stable |

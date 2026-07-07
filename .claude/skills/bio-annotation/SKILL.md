@@ -158,7 +158,7 @@ Caveat: alpha software; not for clinical use — independently validate before a
   [`Motif_Analysis/`](../../../docs/algorithms/Motif_Analysis/) ·
   [`Repeat_Analysis/`](../../../docs/algorithms/Repeat_Analysis/) ·
   [`Complexity/`](../../../docs/algorithms/Complexity/) ·
-  [`K-mer_Analysis/`](../../../docs/algorithms/K-mer_Analysis/) ·
+  [`K-mer/`](../../../docs/algorithms/K-mer/) ·
   [`Splicing/`](../../../docs/algorithms/Splicing/) ·
   [`Epigenetics/`](../../../docs/algorithms/Epigenetics/) ·
   [`Transcriptome/`](../../../docs/algorithms/Transcriptome/) ·

@@ -75,7 +75,7 @@ increases spurious placements — report the value used. Details:
 - **`kmer_frequencies`, `kmer_positions`, `generate_all_kmers`, `analyze_kmers`, `kmer_distance`** —
   supporting k-mer profiling (positions, full frequency table, alphabet enumeration, composite summary,
   k-mer-profile distance between two sequences). Background:
-  [`docs/algorithms/K-mer_Analysis/K-mer_Frequency_Analysis.md`](../../../../docs/algorithms/K-mer_Analysis/K-mer_Frequency_Analysis.md),
+  [`docs/algorithms/K-mer/K-mer_Frequency_Analysis.md`](../../../../docs/algorithms/K-mer/K-mer_Frequency_Analysis.md),
   [`docs/algorithms/K-mer/K-mer_Statistics.md`](../../../../docs/algorithms/K-mer/K-mer_Statistics.md).
 
 ## Repeat & low-complexity screen (assembly-relevant)
