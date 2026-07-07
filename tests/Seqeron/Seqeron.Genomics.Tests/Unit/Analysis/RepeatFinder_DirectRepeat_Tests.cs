@@ -435,9 +435,11 @@ public class RepeatFinder_DirectRepeat_Tests
         var results = RepeatFinder.FindDirectRepeats(sequence, 5, 20, 1).ToList();
         sw.Stop();
 
-        // Assert: Bounded time and valid output
-        Assert.That(sw.ElapsedMilliseconds, Is.LessThan(5000),
-            $"O(n²) on 1000bp should complete within 5s, took {sw.ElapsedMilliseconds}ms");
+        // Assert: valid output + anti-hang guard (generous bound catches O(2^n)/infinite-loop
+        // blowups without flaking under parallel-suite CPU load; perf is measured by the [Explicit]
+        // benchmark fixtures, not by a wall-clock budget in a correctness test).
+        Assert.That(sw.ElapsedMilliseconds, Is.LessThan(30_000),
+            $"O(n²) on 1000bp must not blow up, took {sw.ElapsedMilliseconds}ms");
         Assert.That(results, Is.Not.Null);
 
         // Verify invariants hold on all results

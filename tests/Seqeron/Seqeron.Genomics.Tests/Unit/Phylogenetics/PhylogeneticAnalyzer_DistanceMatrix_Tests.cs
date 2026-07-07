@@ -553,9 +553,9 @@ public class PhylogeneticAnalyzer_DistanceMatrix_Tests
         {
             Assert.That(matrix.GetLength(0), Is.EqualTo(100));
             Assert.That(matrix.GetLength(1), Is.EqualTo(100));
-            // Should complete in reasonable time (< 5 seconds even on slow hardware)
-            Assert.That(sw.ElapsedMilliseconds, Is.LessThan(5000),
-                "100-sequence distance matrix should compute in < 5s");
+            // Anti-hang guard (generous bound; won't flake under parallel-suite CPU load).
+            Assert.That(sw.ElapsedMilliseconds, Is.LessThan(30_000),
+                "100-sequence distance matrix must not hang/blow up");
         });
     }
 

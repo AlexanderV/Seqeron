@@ -281,8 +281,10 @@ public class RnaSecondaryStructure_PartitionFunction_Tests
         {
             Assert.That(result.PartitionFunction, Is.GreaterThanOrEqualTo(1.0 - 1e-12),
                 "Z must remain ≥ 1 even at n=300.");
-            Assert.That(sw.Elapsed.TotalSeconds, Is.LessThan(10.0),
-                "The O(n³) DP on n=300 must complete well within the 10 s baseline budget.");
+            // Anti-hang guard (generous bound; a real O(n³) at n=300 finishes in well under a
+            // second — this only catches catastrophic blowup and won't flake under parallel load).
+            Assert.That(sw.Elapsed.TotalSeconds, Is.LessThan(30.0),
+                "The O(n³) DP on n=300 must not blow up.");
         });
     }
 

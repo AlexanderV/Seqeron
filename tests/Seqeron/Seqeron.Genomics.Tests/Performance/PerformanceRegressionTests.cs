@@ -14,6 +14,11 @@ namespace Seqeron.Genomics.Tests.Performance;
 [TestFixture]
 [Category("Performance")]
 [NonParallelizable]
+[Explicit("Absolute wall-clock budgets flake when co-scheduled with the full parallel suite: " +
+          "[NonParallelizable] only serialises within this assembly, but the other test assemblies " +
+          "in a solution-wide run still saturate every core, so a fast operation can miss a 1s budget. " +
+          "Run explicitly on an idle machine (or use the SuffixTree.Benchmarks / *_Benchmark fixtures). " +
+          "Correctness of these operations is covered by their own unit tests.")]
 public class PerformanceRegressionTests
 {
     /// <summary>

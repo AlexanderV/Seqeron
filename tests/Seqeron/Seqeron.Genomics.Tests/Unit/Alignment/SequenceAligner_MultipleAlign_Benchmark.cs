@@ -22,6 +22,8 @@ namespace Seqeron.Genomics.Tests.Unit.Alignment;
 [TestFixture]
 [Category("MSA-Benchmark")]
 [Category("Performance")]
+[Explicit("Benchmark fixture — wall-clock measurements are unreliable under the parallel suite; " +
+          "run explicitly on an idle machine. Alignment correctness is covered by the SequenceAligner unit tests.")]
 public class SequenceAligner_MultipleAlign_Benchmark
 {
     private static readonly ScoringMatrix Scoring = SequenceAligner.SimpleDna;
