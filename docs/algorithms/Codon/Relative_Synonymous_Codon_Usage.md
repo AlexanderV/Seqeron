@@ -164,3 +164,5 @@ var rscu = CodonUsageAnalyzer.CalculateRscu("CTGCTGCTGCTA");
 3. GenomicSig (CRAN). RSCU: Relative Synonymous Codon Usage. https://rdrr.io/cran/GenomicSig/man/RSCU.html
 4. Charif D., Lobry J.R. seqinr — `uco`: Codon usage indices. https://search.r-project.org/CRAN/refmans/seqinr/html/uco.html
 5. cubar (CRAN). `est_rscu`: Estimate Relative Synonymous Codon Usage. https://rdrr.io/cran/cubar/man/est_rscu.html
+
+- Related algorithm: [Relative_Synonymous_Codon_Usage.md](../Annotation/Relative_Synonymous_Codon_Usage.md) (ANNOT-CODONUSAGE-001 — the Annotation-side implementation of the same concept).

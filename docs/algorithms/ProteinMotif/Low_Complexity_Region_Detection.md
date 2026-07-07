@@ -174,3 +174,5 @@ K = −[(11/12)·log₂(11/12) + (1/12)·log₂(1/12)] = 0.413817 bits/residue �
 4. Caballero J. SeqComplex (`SeqComplex.pm`, subs `cwf`, `ce`, `log_k`). https://github.com/caballero/SeqComplex
 5. Mier P, et al. 2006. Novel/Shannon-entropy complexity (−Σ pᵢ log pᵢ). Bioinformatics 22(24):2980. https://academic.oup.com/bioinformatics/article/22/24/2980/208627
 6. Pei J, Grishin NV. 2005. A new algorithm for detecting low-complexity regions in protein sequences. Bioinformatics 21(2):160–166. https://academic.oup.com/bioinformatics/article/21/2/160/187330
+
+- Related algorithm: [Low_Complexity_Region_Detection.md](../ProteinPred/Low_Complexity_Region_Detection.md) (the protein-prediction domain page for the same SEG method).

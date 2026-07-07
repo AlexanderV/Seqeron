@@ -203,3 +203,5 @@ var nn = SequenceStatistics.CalculateThermodynamics(
 3. Allawi, H. T., & SantaLucia, J. 1997. Thermodynamics and NMR of internal G·T mismatches in DNA. *Biochemistry* 36(34):10581–10594. https://doi.org/10.1021/bi962590c
 4. SantaLucia, J. 1998. A unified view of polymer, dumbbell, and oligonucleotide DNA nearest-neighbor thermodynamics. *PNAS* 95(4):1460–1465. https://doi.org/10.1073/pnas.95.4.1460
 5. Cock, P. J. A. et al. Biopython, `Bio.SeqUtils.MeltingTemp` (`Tm_Wallace`, `Tm_GC`, `Tm_NN`). https://raw.githubusercontent.com/biopython/biopython/master/Bio/SeqUtils/MeltingTemp.py and https://biopython.org/docs/1.76/api/Bio.SeqUtils.MeltingTemp.html (accessed 2026-06-14)
+
+- Related algorithm: [Melting_Temperature.md](../MolTools/Melting_Temperature.md) (PRIMER-TM-001 — the primer/nearest-neighbor Tm used by `PrimerDesigner`, distinct from this sequence-statistics implementation).

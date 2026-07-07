@@ -212,3 +212,5 @@ Typical Tm ranges documented for PCR-related use cases:
 3. Owczarzy, R. et al. (2004). Effects of sodium ions on DNA duplex oligomers: improved predictions of melting temperatures. Biochemistry 43:3537-3554.
 4. Wikipedia: Nucleic acid thermodynamics. https://en.wikipedia.org/wiki/Nucleic_acid_thermodynamics
 5. Wikipedia: DNA melting. https://en.wikipedia.org/wiki/DNA_melting
+
+- Related algorithm: [Melting_Temperature.md](../Statistics/Melting_Temperature.md) (SEQ-TM-001 — the sequence-statistics Tm in `SequenceStatistics`, distinct from this simplified primer implementation).

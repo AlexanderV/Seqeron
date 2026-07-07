@@ -155,3 +155,5 @@ var rscu = GenomeAnnotator.GetCodonUsage(new[] { "CTTCTTCTGTTA" });
 3. Rivals E. et al. RSCU RS: Measuring the bias in codon usage. LIRMM, Université de Montpellier. https://www.lirmm.fr/~rivals/rscu/
 4. SouradiptoC. CodonU, `CodonU/analyzer/internal_comp.py`, function `rscu`. https://github.com/SouradiptoC/CodonU/blob/master/CodonU/analyzer/internal_comp.py
 5. NCBI. The Genetic Codes — Standard Code (transl_table=1). https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi
+
+- Related algorithm: [Relative_Synonymous_Codon_Usage.md](../Codon/Relative_Synonymous_Codon_Usage.md) (CODON-RSCU-001 — canonical RSCU doc; this page covers the Annotation-side `GenomeAnnotator` computation of the same concept).

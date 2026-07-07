@@ -176,3 +176,5 @@ For `AAABBBCCCDDD` (L=12, four types ×3): pᵢ = 3/12 = 0.25 each; H = −4·(0
 2. Wootton J.C., Federhen S. 1996. Analysis of compositionally biased regions in sequence databases. Methods in Enzymology 266:554–571. https://doi.org/10.1016/S0076-6879(96)66035-2
 3. NCBI C++ Toolkit. `blast_seg.c` (SEG reference implementation; `kSegWindow=12`, `kSegLocut=2.2`, `kSegHicut=2.5`; `s_Entropy`). https://www.ncbi.nlm.nih.gov/IEB/ToolBox/CPP_DOC/doxyhtml/blast__seg_8c.html
 4. SEG program help (GCG/Weizmann mirror) and `ncbi-seg` manpage. https://bip.weizmann.ac.il/education/materials/gcg/seg.html ; https://manpages.ubuntu.com/manpages/focal/man1/ncbi-seg.1.html
+
+- Related algorithm: [Low_Complexity_Region_Detection.md](../ProteinMotif/Low_Complexity_Region_Detection.md) (the protein-motif domain page for the same SEG method).
