@@ -1,0 +1,64 @@
+name: build-and-test
+
+# Builds every project and runs the full test suite. This is the primary quality gate
+# for the .NET code — the older skills.yml only checks skill/doc integrity (no .NET build),
+# and .travis.yml was dead (it referenced the long-gone SuffixTree.sln).
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '**/*.cs'
+      - '**/*.csproj'
+      - '**/*.sln'
+      - 'Directory.Build.props'
+      - 'Directory.Packages.props'
+      - '.editorconfig'
+      - '.github/workflows/dotnet.yml'
+  pull_request:
+    paths:
+      - '**/*.cs'
+      - '**/*.csproj'
+      - '**/*.sln'
+      - 'Directory.Build.props'
+      - 'Directory.Packages.props'
+      - '.editorconfig'
+      - '.github/workflows/dotnet.yml'
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: dotnet-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: true
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore Seqeron.sln
+
+      - name: Build (Release, warnings are errors)
+        run: dotnet build Seqeron.sln -c Release --no-restore
+
+      - name: Test (Release)
+        run: dotnet test Seqeron.sln -c Release --no-build --logger "trx;LogFileName=test-results.trx"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: '**/TestResults/*.trx'
+          if-no-files-found: ignore
