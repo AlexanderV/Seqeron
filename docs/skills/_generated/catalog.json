@@ -1698,84 +1698,84 @@
     "server": "Core",
     "methodId": "GenomicAnalyzer.CalculateSimilarity",
     "docPath": "docs/mcp/tools/core/calculate_similarity.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/GenomicAnalyzer.cs#L238"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L238"
   },
   {
     "tool": "count_approximate_occurrences",
     "server": "Core",
     "methodId": "ApproximateMatcher.CountApproximateOccurrences",
     "docPath": "docs/mcp/tools/core/count_approximate_occurrences.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/ApproximateMatcher.cs#L283"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/ApproximateMatcher.cs#L283"
   },
   {
     "tool": "edit_distance",
     "server": "Core",
     "methodId": "ApproximateMatcher.EditDistance",
     "docPath": "docs/mcp/tools/core/edit_distance.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/ApproximateMatcher.cs#L186"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/ApproximateMatcher.cs#L186"
   },
   {
     "tool": "find_longest_common_region",
     "server": "Core",
     "methodId": "GenomicAnalyzer.FindLongestCommonRegion",
     "docPath": "docs/mcp/tools/core/find_longest_common_region.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/GenomicAnalyzer.cs#L178"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L178"
   },
   {
     "tool": "find_longest_repeat",
     "server": "Core",
     "methodId": "GenomicAnalyzer.FindLongestRepeat",
     "docPath": "docs/mcp/tools/core/find_longest_repeat.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/GenomicAnalyzer.cs#L20"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs#L20"
   },
   {
     "tool": "hamming_distance",
     "server": "Core",
     "methodId": "ApproximateMatcher.HammingDistance",
     "docPath": "docs/mcp/tools/core/hamming_distance.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/ApproximateMatcher.cs#L163"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/ApproximateMatcher.cs#L163"
   },
   {
     "tool": "suffix_tree_contains",
     "server": "Core",
     "methodId": "SuffixTree.Contains",
     "docPath": "docs/mcp/tools/core/suffix_tree_contains.md",
-    "sourceLink": "../../../../src/SuffixTree/SuffixTree.Search.cs#L22"
+    "sourceLink": "../../../../src/SuffixTree/Algorithms/SuffixTree/SuffixTree.Search.cs#L22"
   },
   {
     "tool": "suffix_tree_count",
     "server": "Core",
     "methodId": "SuffixTree.CountOccurrences",
     "docPath": "docs/mcp/tools/core/suffix_tree_count.md",
-    "sourceLink": "../../../../src/SuffixTree/SuffixTree.Search.cs#L132"
+    "sourceLink": "../../../../src/SuffixTree/Algorithms/SuffixTree/SuffixTree.Search.cs#L132"
   },
   {
     "tool": "suffix_tree_find_all",
     "server": "Core",
     "methodId": "SuffixTree.FindAllOccurrences",
     "docPath": "docs/mcp/tools/core/suffix_tree_find_all.md",
-    "sourceLink": "../../../../src/SuffixTree/SuffixTree.Search.cs#L115"
+    "sourceLink": "../../../../src/SuffixTree/Algorithms/SuffixTree/SuffixTree.Search.cs#L115"
   },
   {
     "tool": "suffix_tree_lcs",
     "server": "Core",
     "methodId": "SuffixTree.LongestCommonSubstring",
     "docPath": "docs/mcp/tools/core/suffix_tree_lcs.md",
-    "sourceLink": "../../../../src/SuffixTree/SuffixTree.Algorithms.cs#L28"
+    "sourceLink": "../../../../src/SuffixTree/Algorithms/SuffixTree/SuffixTree.Algorithms.cs#L28"
   },
   {
     "tool": "suffix_tree_lrs",
     "server": "Core",
     "methodId": "SuffixTree.LongestRepeatedSubstring",
     "docPath": "docs/mcp/tools/core/suffix_tree_lrs.md",
-    "sourceLink": "../../../../src/SuffixTree/SuffixTree.Algorithms.cs#L14"
+    "sourceLink": "../../../../src/SuffixTree/Algorithms/SuffixTree/SuffixTree.Algorithms.cs#L14"
   },
   {
     "tool": "suffix_tree_stats",
     "server": "Core",
     "methodId": "SuffixTree.Properties",
     "docPath": "docs/mcp/tools/core/suffix_tree_stats.md",
-    "sourceLink": "../../../../src/SuffixTree/SuffixTree.cs#L206"
+    "sourceLink": "../../../../src/SuffixTree/Algorithms/SuffixTree/SuffixTree.cs#L206"
   },
   {
     "tool": "accessory_genes",
@@ -2244,210 +2244,210 @@
     "server": "Parsers",
     "methodId": "BedParser.FilterBy*",
     "docPath": "docs/mcp/tools/parsers/bed_filter.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/BedParser.cs#L217"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/BedParser.cs#L217"
   },
   {
     "tool": "bed_intersect",
     "server": "Parsers",
     "methodId": "BedParser.Intersect",
     "docPath": "docs/mcp/tools/parsers/bed_intersect.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/BedParser.cs#L319"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/BedParser.cs#L319"
   },
   {
     "tool": "bed_merge",
     "server": "Parsers",
     "methodId": "BedParser.MergeOverlapping",
     "docPath": "docs/mcp/tools/parsers/bed_merge.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/BedParser.cs#L284"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/BedParser.cs#L284"
   },
   {
     "tool": "bed_parse",
     "server": "Parsers",
     "methodId": "BedParser.Parse",
     "docPath": "docs/mcp/tools/parsers/bed_parse.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/BedParser.cs#L102"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/BedParser.cs#L102"
   },
   {
     "tool": "embl_features",
     "server": "Parsers",
     "methodId": "EmblParser.GetFeatures",
     "docPath": "docs/mcp/tools/parsers/embl_features.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/EmblParser.cs#L575"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/EmblParser.cs#L575"
   },
   {
     "tool": "embl_parse",
     "server": "Parsers",
     "methodId": "EmblParser.Parse",
     "docPath": "docs/mcp/tools/parsers/embl_parse.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/EmblParser.cs#L114"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/EmblParser.cs#L114"
   },
   {
     "tool": "embl_statistics",
     "server": "Parsers",
     "methodId": "EmblParser.Statistics",
     "docPath": "docs/mcp/tools/parsers/embl_statistics.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/EmblParser.cs"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/EmblParser.cs"
   },
   {
     "tool": "fasta_format",
     "server": "Parsers",
     "methodId": "FastaParser.ToFasta",
     "docPath": "docs/mcp/tools/parsers/fasta_format.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/FastaParser.cs#L78"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/FastaParser.cs#L78"
   },
   {
     "tool": "fasta_parse",
     "server": "Parsers",
     "methodId": "FastaParser.Parse",
     "docPath": "docs/mcp/tools/parsers/fasta_parse.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/FastaParser.cs#L17"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/FastaParser.cs#L17"
   },
   {
     "tool": "fasta_write",
     "server": "Parsers",
     "methodId": "FastaParser.WriteFile",
     "docPath": "docs/mcp/tools/parsers/fasta_write.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/FastaParser.cs#L98"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/FastaParser.cs#L98"
   },
   {
     "tool": "fastq_detect_encoding",
     "server": "Parsers",
     "methodId": "FastqParser.DetectEncoding",
     "docPath": "docs/mcp/tools/parsers/fastq_detect_encoding.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/FastqParser.cs#L148"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/FastqParser.cs#L148"
   },
   {
     "tool": "fastq_encode_quality",
     "server": "Parsers",
     "methodId": "FastqParser.EncodeQualityScores",
     "docPath": "docs/mcp/tools/parsers/fastq_encode_quality.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/FastqParser.cs#L189"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/FastqParser.cs#L189"
   },
   {
     "tool": "fastq_error_to_phred",
     "server": "Parsers",
     "methodId": "FastqParser.ErrorProbabilityToPhred",
     "docPath": "docs/mcp/tools/parsers/fastq_error_to_phred.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/FastqParser.cs#L214"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/FastqParser.cs#L214"
   },
   {
     "tool": "fastq_filter",
     "server": "Parsers",
     "methodId": "FastqParser.FilterByQuality",
     "docPath": "docs/mcp/tools/parsers/fastq_filter.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/FastqParser.cs#L228"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/FastqParser.cs#L228"
   },
   {
     "tool": "fastq_format",
     "server": "Parsers",
     "methodId": "FastqParser.ToFastqString",
     "docPath": "docs/mcp/tools/parsers/fastq_format.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/FastqParser.cs#L474"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/FastqParser.cs#L474"
   },
   {
     "tool": "fastq_parse",
     "server": "Parsers",
     "methodId": "FastqParser.Parse",
     "docPath": "docs/mcp/tools/parsers/fastq_parse.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/FastqParser.cs#L21"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/FastqParser.cs#L21"
   },
   {
     "tool": "fastq_phred_to_error",
     "server": "Parsers",
     "methodId": "FastqParser.PhredToErrorProbability",
     "docPath": "docs/mcp/tools/parsers/fastq_phred_to_error.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/FastqParser.cs#L206"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/FastqParser.cs#L206"
   },
   {
     "tool": "fastq_statistics",
     "server": "Parsers",
     "methodId": "FastqParser.CalculateStatistics",
     "docPath": "docs/mcp/tools/parsers/fastq_statistics.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/FastqParser.cs#L344"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/FastqParser.cs#L344"
   },
   {
     "tool": "fastq_trim_adapter",
     "server": "Parsers",
     "methodId": "FastqParser.TrimAdapter",
     "docPath": "docs/mcp/tools/parsers/fastq_trim_adapter.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/FastqParser.cs#L297"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/FastqParser.cs#L297"
   },
   {
     "tool": "fastq_trim_quality",
     "server": "Parsers",
     "methodId": "FastqParser.TrimByQuality",
     "docPath": "docs/mcp/tools/parsers/fastq_trim_quality.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/FastqParser.cs#L264"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/FastqParser.cs#L264"
   },
   {
     "tool": "fastq_write",
     "server": "Parsers",
     "methodId": "FastqParser.WriteToFile",
     "docPath": "docs/mcp/tools/parsers/fastq_write.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/FastqParser.cs#L437"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/FastqParser.cs#L437"
   },
   {
     "tool": "genbank_extract_sequence",
     "server": "Parsers",
     "methodId": "GenBankParser.ExtractSequence",
     "docPath": "docs/mcp/tools/parsers/genbank_extract_sequence.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/GenBankParser.cs"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/GenBankParser.cs"
   },
   {
     "tool": "genbank_features",
     "server": "Parsers",
     "methodId": "GenBankParser.GetFeatures",
     "docPath": "docs/mcp/tools/parsers/genbank_features.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/GenBankParser.cs#L531"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/GenBankParser.cs#L531"
   },
   {
     "tool": "genbank_parse",
     "server": "Parsers",
     "methodId": "GenBankParser.Parse",
     "docPath": "docs/mcp/tools/parsers/genbank_parse.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/GenBankParser.cs#L88"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/GenBankParser.cs#L88"
   },
   {
     "tool": "genbank_parse_location",
     "server": "Parsers",
     "methodId": "GenBankParser.ParseLocation",
     "docPath": "docs/mcp/tools/parsers/genbank_parse_location.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/GenBankParser.cs#L471"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/GenBankParser.cs#L471"
   },
   {
     "tool": "genbank_statistics",
     "server": "Parsers",
     "methodId": "GenBankParser.Statistics",
     "docPath": "docs/mcp/tools/parsers/genbank_statistics.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/GenBankParser.cs"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/GenBankParser.cs"
   },
   {
     "tool": "gff_filter",
     "server": "Parsers",
     "methodId": "GffParser.Filter*",
     "docPath": "docs/mcp/tools/parsers/gff_filter.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/GffParser.cs#L215"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/GffParser.cs#L215"
   },
   {
     "tool": "gff_parse",
     "server": "Parsers",
     "methodId": "GffParser.Parse",
     "docPath": "docs/mcp/tools/parsers/gff_parse.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/GffParser.cs#L69"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/GffParser.cs#L69"
   },
   {
     "tool": "gff_statistics",
     "server": "Parsers",
     "methodId": "GffParser.CalculateStatistics",
     "docPath": "docs/mcp/tools/parsers/gff_statistics.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/GffParser.cs#L377"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/GffParser.cs#L377"
   },
   {
     "tool": "vcf_classify",
     "server": "Parsers",
     "methodId": "VcfParser.ClassifyVariant",
     "docPath": "docs/mcp/tools/parsers/vcf_classify.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/VcfParser.cs#L376"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/VcfParser.cs#L376"
   },
   {
     "tool": "vcf_filter",
@@ -2461,49 +2461,49 @@
     "server": "Parsers",
     "methodId": "VcfParser.HasInfoFlag",
     "docPath": "docs/mcp/tools/parsers/vcf_has_flag.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/VcfParser.cs#L835"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/VcfParser.cs#L835"
   },
   {
     "tool": "vcf_is_het",
     "server": "Parsers",
     "methodId": "VcfParser.IsHet",
     "docPath": "docs/mcp/tools/parsers/vcf_is_het.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/VcfParser.cs#L554"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/VcfParser.cs#L554"
   },
   {
     "tool": "vcf_is_hom_alt",
     "server": "Parsers",
     "methodId": "VcfParser.IsHomAlt",
     "docPath": "docs/mcp/tools/parsers/vcf_is_hom_alt.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/VcfParser.cs#L539"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/VcfParser.cs#L539"
   },
   {
     "tool": "vcf_is_hom_ref",
     "server": "Parsers",
     "methodId": "VcfParser.IsHomRef",
     "docPath": "docs/mcp/tools/parsers/vcf_is_hom_ref.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/VcfParser.cs#L529"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/VcfParser.cs#L529"
   },
   {
     "tool": "vcf_is_indel",
     "server": "Parsers",
     "methodId": "VcfParser.IsIndel",
     "docPath": "docs/mcp/tools/parsers/vcf_is_indel.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/VcfParser.cs#L412"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/VcfParser.cs#L412"
   },
   {
     "tool": "vcf_is_snp",
     "server": "Parsers",
     "methodId": "VcfParser.IsSNP",
     "docPath": "docs/mcp/tools/parsers/vcf_is_snp.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/VcfParser.cs#L407"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/VcfParser.cs#L407"
   },
   {
     "tool": "vcf_parse",
     "server": "Parsers",
     "methodId": "VcfParser.Parse",
     "docPath": "docs/mcp/tools/parsers/vcf_parse.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/VcfParser.cs#L116"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/VcfParser.cs#L116"
   },
   {
     "tool": "vcf_statistics",
@@ -2517,14 +2517,14 @@
     "server": "Parsers",
     "methodId": "VcfParser.GetVariantLength",
     "docPath": "docs/mcp/tools/parsers/vcf_variant_length.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/VcfParser.cs#L421"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/VcfParser.cs#L421"
   },
   {
     "tool": "vcf_write",
     "server": "Parsers",
     "methodId": "VcfParser.WriteToFile",
     "docPath": "docs/mcp/tools/parsers/vcf_write.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/VcfParser.cs#L702"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/VcfParser.cs#L702"
   },
   {
     "tool": "bootstrap_support",
@@ -2748,105 +2748,105 @@
     "server": "Sequence",
     "methodId": "SequenceStatistics.CalculateAminoAcidComposition",
     "docPath": "docs/mcp/tools/sequence/amino_acid_composition.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/SequenceStatistics.cs#L98"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L98"
   },
   {
     "tool": "complement_base",
     "server": "Sequence",
     "methodId": "SequenceExtensions.GetComplementBase",
     "docPath": "docs/mcp/tools/sequence/complement_base.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/SequenceExtensions.cs#L83"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/SequenceExtensions.cs#L83"
   },
   {
     "tool": "complexity_compression_ratio",
     "server": "Sequence",
     "methodId": "SequenceComplexity.EstimateCompressionRatio",
     "docPath": "docs/mcp/tools/sequence/complexity_compression_ratio.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/SequenceComplexity.cs#L391"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L391"
   },
   {
     "tool": "complexity_dust_score",
     "server": "Sequence",
     "methodId": "SequenceComplexity.CalculateDustScore",
     "docPath": "docs/mcp/tools/sequence/complexity_dust_score.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/SequenceComplexity.cs#L296"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L296"
   },
   {
     "tool": "complexity_kmer_entropy",
     "server": "Sequence",
     "methodId": "SequenceComplexity.CalculateKmerEntropy",
     "docPath": "docs/mcp/tools/sequence/complexity_kmer_entropy.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/SequenceComplexity.cs#L128"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L128"
   },
   {
     "tool": "complexity_linguistic",
     "server": "Sequence",
     "methodId": "SequenceComplexity.CalculateLinguisticComplexity",
     "docPath": "docs/mcp/tools/sequence/complexity_linguistic.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/SequenceComplexity.cs#L22"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L22"
   },
   {
     "tool": "complexity_mask_low",
     "server": "Sequence",
     "methodId": "SequenceComplexity.MaskLowComplexity",
     "docPath": "docs/mcp/tools/sequence/complexity_mask_low.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/SequenceComplexity.cs#L346"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L346"
   },
   {
     "tool": "complexity_shannon",
     "server": "Sequence",
     "methodId": "SequenceComplexity.CalculateShannonEntropy",
     "docPath": "docs/mcp/tools/sequence/complexity_shannon.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/SequenceComplexity.cs#L78"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceComplexity.cs#L78"
   },
   {
     "tool": "dna_reverse_complement",
     "server": "Sequence",
     "methodId": "DnaSequence.GetReverseComplementString",
     "docPath": "docs/mcp/tools/sequence/dna_reverse_complement.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/DnaSequence.cs#L149"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/DnaSequence.cs#L149"
   },
   {
     "tool": "dna_validate",
     "server": "Sequence",
     "methodId": "DnaSequence.TryCreate",
     "docPath": "docs/mcp/tools/sequence/dna_validate.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/DnaSequence.cs#L129"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/DnaSequence.cs#L129"
   },
   {
     "tool": "gc_content",
     "server": "Sequence",
     "methodId": "SequenceExtensions.CalculateGcContentFast",
     "docPath": "docs/mcp/tools/sequence/gc_content.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/SequenceExtensions.cs#L41"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/SequenceExtensions.cs#L41"
   },
   {
     "tool": "hydrophobicity",
     "server": "Sequence",
     "methodId": "SequenceStatistics.CalculateHydrophobicity",
     "docPath": "docs/mcp/tools/sequence/hydrophobicity.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/SequenceStatistics.cs#L306"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L306"
   },
   {
     "tool": "is_valid_dna",
     "server": "Sequence",
     "methodId": "SequenceExtensions.IsValidDna",
     "docPath": "docs/mcp/tools/sequence/is_valid_dna.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/SequenceExtensions.cs#L210"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/SequenceExtensions.cs#L210"
   },
   {
     "tool": "is_valid_rna",
     "server": "Sequence",
     "methodId": "SequenceExtensions.IsValidRna",
     "docPath": "docs/mcp/tools/sequence/is_valid_rna.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/SequenceExtensions.cs#L225"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/SequenceExtensions.cs#L225"
   },
   {
     "tool": "isoelectric_point",
     "server": "Sequence",
     "methodId": "SequenceStatistics.CalculateIsoelectricPoint",
     "docPath": "docs/mcp/tools/sequence/isoelectric_point.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/SequenceStatistics.cs#L228"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L228"
   },
   {
     "tool": "iupac_code",
@@ -2874,105 +2874,105 @@
     "server": "Sequence",
     "methodId": "KmerAnalyzer.AnalyzeKmers",
     "docPath": "docs/mcp/tools/sequence/kmer_analyze.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/KmerAnalyzer.cs#L363"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L363"
   },
   {
     "tool": "kmer_count",
     "server": "Sequence",
     "methodId": "KmerAnalyzer.CountKmers",
     "docPath": "docs/mcp/tools/sequence/kmer_count.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/KmerAnalyzer.cs#L20"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L20"
   },
   {
     "tool": "kmer_distance",
     "server": "Sequence",
     "methodId": "KmerAnalyzer.KmerDistance",
     "docPath": "docs/mcp/tools/sequence/kmer_distance.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/KmerAnalyzer.cs#L165"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L165"
   },
   {
     "tool": "kmer_entropy",
     "server": "Sequence",
     "methodId": "KmerAnalyzer.CalculateKmerEntropy",
     "docPath": "docs/mcp/tools/sequence/kmer_entropy.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/KmerAnalyzer.cs#L243"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs#L243"
   },
   {
     "tool": "linguistic_complexity",
     "server": "Sequence",
     "methodId": "SequenceStatistics.CalculateLinguisticComplexity",
     "docPath": "docs/mcp/tools/sequence/linguistic_complexity.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/SequenceStatistics.cs#L615"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L615"
   },
   {
     "tool": "melting_temperature",
     "server": "Sequence",
     "methodId": "SequenceStatistics.CalculateMeltingTemperature",
     "docPath": "docs/mcp/tools/sequence/melting_temperature.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/SequenceStatistics.cs#L441"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L441"
   },
   {
     "tool": "molecular_weight_nucleotide",
     "server": "Sequence",
     "methodId": "SequenceStatistics.CalculateNucleotideMolecularWeight",
     "docPath": "docs/mcp/tools/sequence/molecular_weight_nucleotide.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/SequenceStatistics.cs#L180"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L180"
   },
   {
     "tool": "molecular_weight_protein",
     "server": "Sequence",
     "methodId": "SequenceStatistics.CalculateMolecularWeight",
     "docPath": "docs/mcp/tools/sequence/molecular_weight_protein.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/SequenceStatistics.cs#L159"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L159"
   },
   {
     "tool": "nucleotide_composition",
     "server": "Sequence",
     "methodId": "SequenceStatistics.CalculateNucleotideComposition",
     "docPath": "docs/mcp/tools/sequence/nucleotide_composition.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/SequenceStatistics.cs#L48"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L48"
   },
   {
     "tool": "protein_validate",
     "server": "Sequence",
     "methodId": "ProteinSequence.TryCreate",
     "docPath": "docs/mcp/tools/sequence/protein_validate.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/ProteinSequence.cs#L357"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/ProteinSequence.cs#L357"
   },
   {
     "tool": "rna_from_dna",
     "server": "Sequence",
     "methodId": "RnaSequence.FromDna",
     "docPath": "docs/mcp/tools/sequence/rna_from_dna.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/RnaSequence.cs#L147"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/RnaSequence.cs#L147"
   },
   {
     "tool": "rna_validate",
     "server": "Sequence",
     "methodId": "RnaSequence.TryCreate",
     "docPath": "docs/mcp/tools/sequence/rna_validate.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/RnaSequence.cs#L176"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/RnaSequence.cs#L176"
   },
   {
     "tool": "shannon_entropy",
     "server": "Sequence",
     "methodId": "SequenceStatistics.CalculateShannonEntropy",
     "docPath": "docs/mcp/tools/sequence/shannon_entropy.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/SequenceStatistics.cs#L580"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L580"
   },
   {
     "tool": "summarize_sequence",
     "server": "Sequence",
     "methodId": "SequenceStatistics.SummarizeNucleotideSequence",
     "docPath": "docs/mcp/tools/sequence/summarize_sequence.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/SequenceStatistics.cs#L775"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L775"
   },
   {
     "tool": "thermodynamics",
     "server": "Sequence",
     "methodId": "SequenceStatistics.CalculateThermodynamics",
     "docPath": "docs/mcp/tools/sequence/thermodynamics.md",
-    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics/SequenceStatistics.cs#L381"
+    "sourceLink": "../../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/SequenceStatistics.cs#L381"
   },
   {
     "tool": "translate_dna",
